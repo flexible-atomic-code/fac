@@ -3379,7 +3379,7 @@ C
     6   CONTINUE
       RETURN
       END
-      SUBROUTINE QSORT (N,X, IND)
+      SUBROUTINE QKSORT (N,X, IND)
       INTEGER N, IND(N)
       DOUBLE PRECISION  X(N)
 C
@@ -3430,9 +3430,9 @@ C             for I = 1 to N.  Alternatively, X may be over-
 C             written with the sorted array by a call to
 C             subroutine PERMUT.
 C
-C Modules required by QSORT:  None
+C Modules required by QKSORT:  None
 C
-C Intrinsic functions called by QSORT:  REAL, INT
+C Intrinsic functions called by QKSORT:  REAL, INT
 C
 C***********************************************************
 C
@@ -3659,7 +3659,7 @@ C             by setting W(I) = V(IND(I)) for I = 1 to N,
 C             or V may be reordered in place by a call to
 C             subroutine PERMUT.
 C
-C Modules required by REORDR:  PERMUT, QSORT
+C Modules required by REORDR:  PERMUT, QKSORT
 C
 C***********************************************************
 C
@@ -3672,7 +3672,7 @@ C NV = Local copy of IFLAG
 C
       NN = N
       NV = IFLAG
-      CALL QSORT (NN,A, IND)
+      CALL QKSORT (NN,A, IND)
       IF (NV .LE. 0) RETURN
       CALL PERMUT (NN,IND, A )
       IF (NV .EQ. 1) RETURN
@@ -4791,7 +4791,7 @@ C             distance.
 C
 C  PERMUT - Permutes a vector.
 C
-C  QSORT  - Defines a permutation by applying a Quick Sort
+C  QKSORT  - Defines a permutation by applying a Quick Sort
 C             to a vector.
 C
 C  REORDR - Reorders the nodes, using an order N*log(N)

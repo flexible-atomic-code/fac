@@ -18,23 +18,13 @@ for nele in neles:
     nt = len(temp)
     nd = len(den)
     print 'NION = 3'
-    spectrum([nele], den, population,
-             'Fe', dir0=dir0, dir1=dir1, nion=3, dist=[0,temp,-1,-1])
-    rates3 = read_rates(nt, nd, nele, dir=dir1, nion=3)
-    save_rates(rates3, dir1+'rates3.sav', dir1+'rates3.dat',
-               temp=temp, logt=logt, abund=population)
-    
+    spectrum([nele], temp, den, population,
+             'Fe', temp, dir0=dir0, dir1=dir1, nion=3)
     print 'NION = 2'
-    spectrum([nele], den, population,
-             'Fe', dir0=dir0, dir1=dir1, nion=2, dist=[0,temp,-1,-1])
-    rates2 = read_rates(nt, nd, nele, dir=dir1, nion=2)
-    save_rates(rates2, dir1+'rates2.sav', dir1+'rates2.dat',
-               temp=temp, logt=logt, abund=population)
-    
+    spectrum([nele], temp, den, population,
+             'Fe', dir0=dir0, dir1=dir1, nion=2)
     print 'NION = 1'
-    spectrum([nele], den, population,
-             'Fe', dir0=dir0, dir1=dir1, nion=1, dist=[0,temp,-1,-1])
-    rates1 = read_rates(nt, nd, nele, dir=dir1, nion=1)
-    save_rates(rates1, dir1+'rates1.sav', dir1+'rates1.dat',
-               temp=temp, logt=logt, abund=population)
+    spectrum([nele], temp, den, population,
+             'Fe', dir0=dir0, dir1=dir1, nion=1)
+
     

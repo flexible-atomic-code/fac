@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.42 2003/08/15 16:17:31 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.43 2003/11/25 21:00:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2838,7 +2838,7 @@ static METHOD methods[] = {
   {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
   {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS}, 
-  {"", NULL, METH_VARARGS}
+  {NULL, NULL, METH_VARARGS}
 };
  
 int main(int argc, char *argv[]) {

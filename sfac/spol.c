@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.7 2003/08/07 18:59:56 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.8 2003/11/25 21:00:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -252,7 +252,7 @@ static METHOD methods[] = {
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
-  {"", NULL, METH_VARARGS}
+  {NULL, NULL, METH_VARARGS}
 };
 
 

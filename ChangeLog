@@ -4,6 +4,7 @@ Version 1.0.3, 11/07/2003
 	3. fix a bug in RateTable, where the optional list must be given.
 	4. fix FLIBS problem for Mac OS 10.2.
 	5. need to add -lcc_dynamic on Mac OS 10.3.
+	6. fix the method table bug in ppol.c
 	
 Version 1.0.2, 08/15/2003
 	1. add iterative method in pfac.pol.

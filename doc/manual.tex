@@ -2442,7 +2442,7 @@ are used.
 \begin{fundesc}{SetBreit}{n}
 Set the maximum principal quantum number of the orbitals for which the
 Breit interaction should be included in the Hamiltonian. If \var{n} $<$ 0,
-then the Breit interaction involving all bound continuum states is
+then the Breit interaction involving all bound and continuum states is
 included. Default is 5.
 \end{fundesc}
 
@@ -2454,7 +2454,7 @@ the binding energy of the electron being excited and $x$ is the positive.
 If $x$ is negative, the switch between DW and PW occurs when the estimated
 high partial-wave contributions becomes larger than $-x$ times the low
 partial-waves calculated explicitly. If $x=0$, then DW is always used.
-default for $x$ is -0.25, i.e., use DW when the estimated high partial-wave
+default for $x$ is -0.35, i.e., use DW when the estimated high partial-wave
 contributions represents no more than 25\% of the explicitly calculated low
 partial-wave sum.
 \end{fundesc}

@@ -1,7 +1,6 @@
 from pfac.crm import *
 from pfac.table import *
 from pfac import const
-from pfac import fac
 from math import *
 import sys
 import time
@@ -10,76 +9,6 @@ import string
 import cPickle
 import pprint        
 
-def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
-    tbl = TABLE(fname=dfile,
-                title='Energy Levels for Z=%d'%z,
-                authors=['M. F. Gu'],
-                date=time.localtime())
-    d = 'Num. of Electrons'
-    tbl.add_column(label='NELE',
-                   unit='None',
-                   description=d,
-                   format='I2')
-    d = 'Level Index'
-    tbl.add_column(label='Index',
-                   unit='None',
-                   description=d,
-                   format='I6')
-    d = 'Level Energy'
-    notetext = 'For each ion, the true ground state energy is given, \n'
-    notetext = notetext+'while the energies of excited states are given '
-    notetext = notetext+'relative to the ground state.'
-    tbl.add_column(label='Energy',
-                   unit='eV',
-                   description=d,
-                   format='E11.4',
-                   note=notetext)
-    d = 'Parity'
-    tbl.add_column(label='P',
-                   unit='None',
-                   description=d,
-                   format='I1')
-    d = 'Twice of Total Angular Momentum'
-    tbl.add_column(label='2J',
-                   unit='None',
-                   description=d,
-                   format='I2')
-    d = 'N Complex'
-    tbl.add_column(label='NComplex',
-                   unit='None',
-                   description=d,
-                   format='A12')
-    d = 'Non-relativistic Configuration'
-    tbl.add_column(label='ConfigNR',
-                   unit='None',
-                   description=d,
-                   format='A12')
-    d = 'Relativistic Configuration'
-    tbl.add_column(label='ConfigR',
-                   description=d,
-                   format='A48')
-    tbl.open('w')
-    tbl.write_header()
-    for k in neles:
-        efile = dir+'%s%02d%s.en'%(pref, k, suffix)
-        c = get_complexes(k)
-        print '%d %s %s'%(k, efile, str(c))
-        i = 0
-        while (1):
-            a = fac.LevelInfor(efile, i)
-            if (not a[3].strip() in c):
-                break
-            e = a[0]*const.Ryd_eV*2.0
-            if (i == 0):
-                e0 = e
-            else:
-                e = e-e0
-            col = (k, i, e, a[1], a[2],
-                   a[3].strip(), a[4].strip(), a[5].strip())
-            tbl.write_row(*col)
-            i = i + 1
-    tbl.close()
-            
 def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
                 title='Total Ionization and Recombination Rate Coefficients',

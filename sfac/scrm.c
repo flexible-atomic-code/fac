@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.16 2003/08/08 13:12:29 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.17 2003/11/25 21:00:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -473,7 +473,7 @@ static METHOD methods[] = {
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
-  {"", NULL, METH_VARARGS}
+  {NULL, NULL, METH_VARARGS}
 };
 
 

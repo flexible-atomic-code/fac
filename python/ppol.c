@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.9 2003/08/15 16:17:31 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.10 2003/11/25 21:00:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -374,20 +374,18 @@ static struct PyMethodDef pol_methods[] = {
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
-  {"", NULL, METH_VARARGS}
+  {NULL, NULL, METH_VARARGS}
 };
 
 void initpol(void) {
   PyObject *m, *d;
-    
+ 
   m = Py_InitModule("pol", pol_methods);
-  
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "pol.error");
   PyDict_SetItemString(d, "error", ErrorObject);
-
   InitPolarization();
-
+  
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module pol");
 }

@@ -267,10 +267,10 @@
 /* excitation */
 #define NGOSK              64
 #define EXCLQR             0
-#define EXCLMAX            20
+#define EXCLMAX            36
 #define EXCLCB             20
 #define EXCTOL             5E-2
-#define XBORN              (-0.25)
+#define XBORN              (-0.35)
 
 /* ionization */
 #define IONMAXK            8
