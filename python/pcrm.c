@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.27 2003/06/02 16:27:58 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.28 2003/06/09 14:49:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -605,21 +605,55 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static int ShellIndexFromString(PyObject *s) {
+  int ks;
+  char *c;
+
+  c = PyString_AsString(s);
+  if (strcmp(c, "1s") == 0) ks = 1;
+  else if (strcmp(c, "2s") == 0) ks = 2;
+  else if (strcmp(c, "2p") == 0) ks = 3;
+  else if (strcmp(c, "3s") == 0) ks = 4;
+  else if (strcmp(c, "3p") == 0) ks = 5;
+  else if (strcmp(c, "3d") == 0) ks = 6;
+  else if (strcmp(c, "4s") == 0) ks = 7;
+  else ks = 0;
+  return ks;
+}
+
 static PyObject *PEPhFit(PyObject *self, PyObject *args) {
-  int z, nele, is;
+  PyObject *s;
+  int z, nele, ks;
   double e;
   
-  if (!PyArg_ParseTuple(args, "iii", &z, &nele, &is)) return NULL;
-  e = EPhFit2(z, nele, is);
+  if (!PyArg_ParseTuple(args, "iiO", &z, &nele, &s)) return NULL;
+  ks = -1;
+  if (PyString_Check(s)) {
+    ks = ShellIndexFromString(s);
+  } else if (PyInt_Check(s)) {
+    ks = PyInt_AsLong(s);
+  }
+  if (ks < 1) return NULL;
+
+  e = EPhFit2(z, nele, ks);
   return Py_BuildValue("d", e);
 }
 
 static PyObject *PPhFit(PyObject *self, PyObject *args) {
-  int z, nele, is;
+  PyObject *s;
+  int z, nele, ks;
   double e, r;
   
-  if (!PyArg_ParseTuple(args, "iidi", &z, &nele, &e, &is)) return NULL;
-  r = PhFit2(z, nele, is, e);
+  if (!PyArg_ParseTuple(args, "iidO", &z, &nele, &e, &s)) return NULL;
+  ks = -1;
+  if (PyString_Check(s)) {
+    ks = ShellIndexFromString(s);
+  } else if (PyInt_Check(s)) {
+    ks = PyInt_AsLong(s);
+  }
+  if (ks < 1) return NULL;
+
+  r = PhFit2(z, nele, ks, e);
   return Py_BuildValue("d", r);
 }
 
@@ -687,22 +721,44 @@ static PyObject *PCFit(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PColFit(PyObject *self, PyObject *args) {
-  int z, nele, is;
+  PyObject *s;
+  int z, nele, ks;
   double t, r, a, d;
   
-  is = 0;
-  if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &is)) return NULL;
-  r = ColFit(z, nele, is, t, &a, &d);
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
+  if (s == NULL) {
+    ks = 0;
+  } else if (PyString_Check(s)) {
+    ks = ShellIndexFromString(s);
+  } else if (PyInt_Check(s)) {
+    ks = PyInt_AsLong(s);
+  } else {
+    return NULL;
+  }
+  if (ks < 0) return NULL;
+  r = ColFit(z, nele, ks, t, &a, &d);
   return Py_BuildValue("(ddd)", r, a, d);
 }
 
 static PyObject *PEColFit(PyObject *self, PyObject *args) {
-  int z, nele, is;
+  PyObject *s;
+  int z, nele, ks;
   double e;
   
-  is = 0;
-  if (!PyArg_ParseTuple(args, "ii|i", &z, &nele, &is)) return NULL;
-  e = EColFit(z, nele, is);
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "ii|O", &z, &nele, &s)) return NULL;
+  if (s == NULL) {
+    ks = 0;
+  } else if (PyString_Check(s)) {
+    ks = ShellIndexFromString(s);
+  } else if (PyInt_Check(s)) {
+    ks = PyInt_AsLong(s);
+  } else {
+    return NULL;
+  }
+  if (ks < 0) return NULL;
+  e = EColFit(z, nele, ks);
   return Py_BuildValue("d", e);
 }
 
