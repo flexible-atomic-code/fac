@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.44 2003/01/21 03:00:19 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.45 2003/01/21 14:45:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -302,8 +302,12 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   argc = PyTuple_Size(args);
   i = 0;
 
-  if (keywds && (q = PyDict_GetItemString(keywds, "group"))) {
-    if (!PyString_Check(q)) return NULL;
+  if (keywds) {
+    q = PyDict_GetItemString(keywds, "group");
+    if (!q || !PyString_Check(q)) {
+      printf("The keyword must be group=gname\n");
+      return NULL;
+    }
     p = PyString_AsString(q);
     strncpy(gname, p, GROUP_NAME_LEN);
   } else {
@@ -3239,7 +3243,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ReinitRadial", PReinitRadial, METH_VARARGS},
   {"ReinitDBase", PReinitDBase, METH_VARARGS},
   {"ReinitStructure", PReinitStructure, METH_VARARGS},
-  {"ReiniExcitationt", PReinitExcitation, METH_VARARGS},
+  {"ReinitExcitation", PReinitExcitation, METH_VARARGS},
   {"ReinitRecombination", PReinitRecombination, METH_VARARGS},
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
