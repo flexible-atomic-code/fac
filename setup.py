@@ -14,18 +14,22 @@ if (platform == 'linux' or
       fortranlib = ["g2c"]
       fflags = '-O -c -fPIC'
       cflags = '-O -c -fPIC'
+      cc = 'gcc'
+      fc = 'g77'
 elif (platform == 'sunos'):
       fortranlib = ["F77", "M77", "sunmath"]
       fflags = '-O -c -KPIC'
       cflags = '-O -c -KPIC'
+      cc = 'cc'
+      fc = 'f77'
 
 flib = ' '.join(map(lambda a:'-l%s'%a, fortranlib))
-macros = '"FORTRANLIB=%s" '%flib
-macros = macros + '"FFLAGS=%s" '%fflags
+macros = '"CC=%s FC=%s" '%(cc, fc)
+macros = macros + '"FORTRANLIB=%s" '%flib
 macros = macros + '"CFLAGS=%s" '%cflags
-print macros
+macros = macros + '"FFLAGS=%s" '%fflags 
+
 os.system("make lib %s"%macros)
-os.system("make doc")
 
 libs = ["fac", "quadpack", "lapack", "blas", "coul",
         "toms", "mpfun", "minpack", "ionis", "m"] + fortranlib
