@@ -6,8 +6,8 @@ none:
 
 sfac: 	none
 	$(CC) ${CFLAGS} $(SRC)
-	$(CC) -o sfac sfac.o stoken.o ${LIBS}
-	$(CC) -o scrm scrm.o stoken.o ${LIBS}
+	$(CC) -o sfac sfac.o stoken.o ${LDFLAGS} ${LIBS}
+	$(CC) -o scrm scrm.o stoken.o ${LDFLAGS} ${LIBS}
 
 clean:
 	rm -rf *.o *~

@@ -75,7 +75,7 @@
 ** PURPOSE:     holds the ln(factorial) of integers.
 ** NOTE:        
 */
-double ln_factorial[MAX_FACTORIAL];
+extern double ln_factorial[MAX_FACTORIAL];
 
 /*
 ** VARIABLE:    ln_integer[MAX_FACTORIAL]
@@ -83,7 +83,7 @@ double ln_factorial[MAX_FACTORIAL];
 ** PURPOSE:     holds the ln of integers.
 ** NOTE:        
 */
-double ln_integer[MAX_FACTORIAL];
+extern double ln_integer[MAX_FACTORIAL];
 
 /* 
 ** MACRO:       LnFactorial
