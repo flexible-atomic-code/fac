@@ -354,7 +354,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 			  double *data, double *ratio);
 int CECross(char *ifn, char *ofn, int i0, int i1, 
-	    int negy, double *egy);
+	    int negy, double *egy, int mp);
 int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	      int nt, double *temp);
 int TotalCICross(char *ifn, char *ofn, int ilev, 

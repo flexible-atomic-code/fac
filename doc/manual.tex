@@ -2245,12 +2245,14 @@ Print out a table of basis wavefunctions and mixing coefficients in the file
 \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{CECross}{ifn, ofn, low, up, e}
+\begin{fundesc}{CECross}{ifn, ofn, low, up, e\opt{, m}}
 Calculate the collision strength and cross sections at energies given in list
 \var{e} between levels \var{low} and \var{up} by interpolating the data from
 CE binary data file \var{ifn}. The results are written in \var{ofn} in simple
 ASCII format. Before this routine is called, \key{MemENTable} must be called
-to establish the energy table that is consistent with \var{ifn}
+to establish the energy table that is consistent with \var{ifn}. The energy
+given in \var{e} is that of the scattering energy if $m=1$, which is the
+default, or that of the incident energy if $m = 0$. 
 \end{fundesc}
 
 \begin{fundesc}{CERate}{ifn, ofn, low, up, t}
