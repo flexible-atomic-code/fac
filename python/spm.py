@@ -926,7 +926,7 @@ def get_complexes(nelectrons):
 
 def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
-             dist = 0, cascade = 0):
+             dist = 0, cascade = 0, rrc = 0):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -942,7 +942,10 @@ def spectrum(neles, temp, den, population, pref,
         if (nion == 3):
             AddIon(k+1, 0.0, dir0+f3)
         if (nion > 1):
-            SetBlocks(0.0, dir0+f1)
+            if (k > 1):
+                SetBlocks(0.0, dir0+f1)
+            else:
+                SetBlocks(0.0)
         else:
             SetBlocks(-1.0)
 
@@ -990,7 +993,7 @@ def spectrum(neles, temp, den, population, pref,
 
                 rt = (rt_file,)+rate
                 RateTable(*rt)
-                SpecTable(sp_file)
+                SpecTable(sp_file, rrc)
                 PrintTable(rt_file, rt_afile, 1)
                 PrintTable(sp_file, sp_afile, 1)
                 sys.stdout.flush()

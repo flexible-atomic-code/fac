@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.22 2002/03/05 14:35:26 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.23 2002/03/10 15:09:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -328,15 +328,15 @@ void ExtrapolateEN(int iion, ION *ion) {
   
 void ExtrapolateTR(ION *ion, int inv) {
   RECOMBINED *rec;
-  RATE *r, r0;
-  ARRAY *rates;
+  RATE *r, *rp, r0;
+  ARRAY *rates, *rates0;
   LBLOCK *blk, *blk0;
-  BLK_RATE *brts;
+  BLK_RATE *brts, *brts0;
   int nr;
-  int n0, n1;
+  int n0, n1, n;
   int i, j, t, k, p, q, s;
   int imin, imax;
-  double a, b;
+  double a, b, c, h;
 
   for (i = 0; i < ion->recombined->dim; i++) {
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
@@ -348,9 +348,21 @@ void ExtrapolateTR(ION *ion, int inv) {
     n1 = rec->nrec[j];
     a = (double) n1;
     a = a*a*a;
+    k = j-1;
+    n = rec->nrec[k];
+    c = (double ) n;
+    c = a/(c*c*c);
     for (p = 0; p < ion->tr_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, p);
       if (brts->iblock != blk0) continue;
+      for (k = 0; k < ion->tr_rates->dim; k++) {
+	brts0 = (BLK_RATE *) ArrayGet(ion->tr_rates, k);
+	if (brts0->fblock == brts->fblock &&
+	    brts0->iblock->ib == blk0->ib - 1) {
+	  rates0 = brts0->rates;
+	  break;
+	}
+      }
       blk = brts->fblock;
       rates = brts->rates;
       nr = rates->dim;
@@ -361,6 +373,14 @@ void ExtrapolateTR(ION *ion, int inv) {
 	  if (blk->rec->nrec[blk->irec] == n1) {
 	    q = r->f - blk->rec->imin[blk->irec];
 	  }
+	} 
+	if (q < 0) {
+	  if (t < rates0->dim) {
+	    rp = (RATE *) ArrayGet(rates0, t);
+	    h = rp->dir/(r->dir*c);
+	  } else {
+	    h = 1.0;
+	  }
 	}
 	for (k = rec->n; k < rec->n_ext; k++) {
 	  n0 = rec->nrec[k];
@@ -369,6 +389,7 @@ void ExtrapolateTR(ION *ion, int inv) {
 	    r0.f = r->f;
 	    b = 1.0/((double) n0);
 	    b = b*b*b*a;
+	    b *= h + (n0-n)*(1.0-h)/(n1-n);
 	    r0.dir = b*r->dir;
 	    r0.inv = b*r->inv;
 	    AddRate(ion, ion->tr_rates, &r0, 0);
@@ -392,16 +413,16 @@ void ExtrapolateTR(ION *ion, int inv) {
 
 void ExtrapolateRR(ION *ion, int inv) {
   RECOMBINED *rec;
-  RATE *r, r0;
-  ARRAY *rates;
+  RATE *r, *rp, r0;
+  ARRAY *rates, *rates0;
   LBLOCK *blk0;
-  BLK_RATE *brts;
+  BLK_RATE *brts, *brts0;
   DISTRIBUTION *dist;
   int nr;
   int n0, n1;
   int i, j, t, k, p;
   int imin, imax;
-  double a, b, c, z, temp;
+  double a, b, c, z, temp, h;
   double rr_extra[MAXNREC];
 
   dist = GetEleDist(&i);
@@ -437,19 +458,39 @@ void ExtrapolateRR(ION *ion, int inv) {
       b = RRRateHydrogenic(temp, z, n0, NULL);
       rr_extra[k] = b/a;
     }
+    k = j-1;
+    n0 = rec->nrec[k];
+    b = RRRateHydrogenic(temp, z, n0, NULL);
+    rr_extra[k] = b/a;
+
     a = rr_extra[j];
     for (p = 0; p < ion->rr_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, p);
       if (brts->fblock != blk0) continue;
       rates = brts->rates;
+      for (k = 0; k < ion->rr_rates->dim; k++) {
+	brts0 = (BLK_RATE *) ArrayGet(ion->rr_rates, k);
+	if (brts0->iblock == brts->iblock &&
+	    brts0->fblock->ib == blk0->ib - 1) {
+	  rates0 = brts0->rates;
+	  break;
+	}
+      }
       nr = rates->dim;
       for (t = 0; t < nr; t++) {
 	r = (RATE *) ArrayGet(rates, t);
+	if (t < rates0->dim) {
+	  rp = (RATE *) ArrayGet(rates0, t);
+	  h = rp->dir/(r->dir*rr_extra[j-1]);
+	} else {
+	  h = 1.0;
+	}
 	r->dir *= c;
 	for (k = rec->n; k < rec->n_ext; k++) {
 	  r0.i = r->i;
 	  r0.f = r->f - imin + rec->imin[k];
 	  b = rr_extra[k];
+	  b *= h + (rec->nrec[k]-n0)*(1.0-h)/(n1-n0);
 	  r0.dir = b*r->dir;
 	  r0.inv = 0.0;
 	  AddRate(ion, ion->rr_rates, &r0, 0);
@@ -1059,12 +1100,14 @@ int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc) {
     i++;
   }
   m1 = ic[i-1].n;
+
   i = 0;
   while (fc[i].n) {
     n2[fc[i].n] = fc[i].nq;
     i++;
   }
   m2 = fc[i-1].n;
+
 
   k1 = 0;
   k2 = 0;
@@ -1086,7 +1129,10 @@ int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc) {
     }
   }
 
-  if (k1 == 0 && k2 == 0) return m1*100+m2;
+  if (k1 == 0) {
+    if (k2 == 0) return m1*100+m2;
+    else return k2;
+  }
   if (m1 == m2) {
     if (k1 < m1 || k2 < m1) {
       return m1*10000+k1*100+k2;
@@ -1223,16 +1269,18 @@ int InitBlocks(void) {
     }
   }
 
+  m = -2;
   for (i = 0; i < blocks->dim; i++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, i);
     for (k = 0; k < blk1->nlevels; k++) {
       if (blk1->n[k] > 0.0) {
 	blk1->n[k] = 0.0;
       } else {
-	if (blk1->iion < 0) {
+	if (blk1->iion != m) {
 	  if (blk1->nlevels > 1 && i > 0) {
 	    blk1->total_rate[k] = 0.0;
 	  }
+	  m = blk1->iion;
 	} else {
 	  if (blk1->nlevels > 1) {
 	    blk1->total_rate[k] = 0.0;
@@ -2264,14 +2312,20 @@ double BlockRelaxation(int iter) {
     if (rec_cascade && iter >= 0) {
       if (blk1->rec) continue;
     }
-    a = 0.0;
-    for (m = 0; m < blk1->nlevels; m++) {
-      if (1.0+blk1->total_rate[m] != 1.0) {
-	blk1->n[m] /= blk1->total_rate[m];
-	a += blk1->n[m];
-      } else {
-	blk1->n[m] = 0.0;
+    
+    if (iter < 0 || blk1->nlevels > 1) {
+      a = 0.0;
+      for (m = 0; m < blk1->nlevels; m++) {
+	if (1.0+blk1->total_rate[m] != 1.0) {
+	  blk1->n[m] /= blk1->total_rate[m];
+	  a += blk1->n[m];
+	} else {
+	  blk1->n[m] = 0.0;
+	}
       }
+    } else {
+      blk1->n[0] = blk1->nb;
+      a = blk1->nb;
     }
     if (iter < 0) blk1->nb = a;
 
@@ -2414,7 +2468,7 @@ int Cascade(void) {
   return 0;
 }
 
-int SpecTable(char *fn, double strength_threshold) {
+int SpecTable(char *fn, int rrc, double strength_threshold) {
   SP_RECORD r;
   SP_HEADER sp_hdr;
   F_HEADER fhdr;
@@ -2520,6 +2574,40 @@ int SpecTable(char *fn, double strength_threshold) {
 	    r.strength += iblk->n[j] * a;
 	  }
 	  s = r.strength*e;
+	  if (s < strength_threshold*smax) continue;
+	  if (s > smax) smax = s;
+	  WriteSPRecord(f, &r);
+	}
+      }
+      DeinitFile(f, &fhdr);
+    }
+
+    if (!rrc) continue;
+    for (i = 0; i < ion->rr_rates->dim; i++) {
+      brts = (BLK_RATE *) ArrayGet(ion->rr_rates, i);
+      if (brts->rates->dim == 0) continue;
+      iblk = brts->iblock;
+      fblk = brts->fblock;
+      sp_hdr.nele = ion->nele;
+      sp_hdr.iblock = iblk->ib;
+      sp_hdr.fblock = fblk->ib;
+      sp_hdr.type = TransitionType(iblk->ncomplex, fblk->ncomplex);
+      StrNComplex(sp_hdr.icomplex, iblk->ncomplex);
+      StrNComplex(sp_hdr.fcomplex, fblk->ncomplex);
+      InitFile(f, &fhdr, &sp_hdr);
+      smax = 0.0;
+      for (m = 0; m < brts->rates->dim; m++) {
+	rt = (RATE *) ArrayGet(brts->rates, m);
+	p = rt->i;
+	q = rt->f;
+	e = ion->energy[p] - ion->energy[q];
+	j = ion->ilev[rt->i];
+	if (iblk->n[j] > 0.0) {
+	  r.lower = q;
+	  r.upper = p;
+	  r.energy = e;
+	  r.strength = electron_density * iblk->n[j] * rt->dir;
+	  s = r.strength * e;
 	  if (s < strength_threshold*smax) continue;
 	  if (s > smax) smax = s;
 	  WriteSPRecord(f, &r);
@@ -2685,6 +2773,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   double *lines;
   double smax;
   int swp;
+  int idist;
 
   if (type == 0) {
     printf("Type must not be 0\n");
@@ -2701,9 +2790,13 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     printf("ERROR: Cannot open file %s\n", ofn);
     return -1;
   }
-
-  dist = GetEleDist(&i);
   
+  t2 = type / 1000000;
+  t = type % 1000000;
+  t1 = t / 10000;
+  t0 = t % 10000;
+  t0 = t0 / 100;
+
   de01 = 0.1*de;
   de10 = 10.0*de;
   sig = de/2.35;
@@ -2728,12 +2821,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     sp[i] = 0.0;
     xsp[i] = xsp[i-1] + de01;
   }
-  
-  t2 = type / 1000000;
-  t = type % 1000000;
-  t1 = t / 10000;
-  t0 = t % 10000;
-  t0 = t0 / 100;
 
   n = fread(&fh, sizeof(F_HEADER), 1, f1);
   if (CheckEndian(&fh) != CheckEndian(NULL)) {
@@ -2768,59 +2855,107 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	if (r0 < t0) goto LOOPEND;
       }
     }
-    if (h.type > 99) {
-      m = 2*h.ntransitions;
-      lines = (double *) malloc(sizeof(double)*m);  
-      k = 0;
-      smax = 0.0;
-      for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(SP_RECORD), 1, f1);
-	if (swp) SwapEndianSPRecord(&r);
-	e = r.energy;
-	a = r.strength * e;
-	if (a < smax*smin) continue;
-	if (a > smax) smax = a;
-	e *= HARTREE_EV;
-	lines[k++] = e;
-	lines[k++] = r.strength;
-      }
-      m = k;
-	
-      qsort(lines, m/2, sizeof(double)*2, CompareLine);
-      k = 0;
-      i = 0;
-      while (k < m && i < nsp-1) {
-	if (lines[k] < xsp[i]) {
-	  k += 2;
-	} else if (lines[k] < xsp[i+1]) {
-	  sp[i] += lines[k+1];
-	  k += 2;
-	} else {
-	  i++;
-	}
-      } 
-      free(lines);
-      for (i = 0; i < nsp; i++) {
-	if (sp[i] > 0.0) {
-	  for (m = i-64, k = 0; k < 128; k++, m++) {
-	    if (m > 0 && m < nsp) tsp[m] += sp[i]*kernel[k];
-	  }
-	}
-	sp[i] = 0.0;
-      }
-      continue;
-    } else {
-      printf("plotting RR continuum not implemented yet\n");
-      fseek(f1, h.length, SEEK_CUR);
-      continue;
+    m = 2*h.ntransitions;
+    lines = (double *) malloc(sizeof(double)*m);  
+    k = 0;
+    smax = 0.0;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = fread(&r, sizeof(SP_RECORD), 1, f1);
+      if (swp) SwapEndianSPRecord(&r);
+      e = r.energy;
+      a = r.strength * e;
+      if (a < smax*smin) continue;
+      if (a > smax) smax = a;
+      e *= HARTREE_EV;
+      lines[k++] = e;
+      lines[k++] = r.strength;
     }
+    m = k;
+	
+    qsort(lines, m/2, sizeof(double)*2, CompareLine);
+    k = 0;
+    i = 0;
+    while (k < m && i < nsp-1) {
+      if (lines[k] < xsp[i]) {
+	k += 2;
+      } else if (lines[k] < xsp[i+1]) {
+	sp[i] += lines[k+1];
+	k += 2;
+      } else {
+	i++;
+      }
+    } 
+    free(lines);
+    for (i = 0; i < nsp; i++) {
+      if (sp[i] > 0.0) {
+	for (m = i-64, k = 0; k < 128; k++, m++) {
+	  if (m > 0 && m < nsp) tsp[m] += sp[i]*kernel[k];
+	}
+      }
+      sp[i] = 0.0;
+    }
+    continue;
   LOOPEND:
     fseek(f1, h.length, SEEK_CUR);
   }
 
-  for (i = 0; i < nsp; i++) {
-    fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], tsp[i]);
+  if (t < 100) {
+    dist = GetEleDist(&idist);
+    sig = dist->params[0];
+    m = 10*sig/de01;
+    if (idist < 2 && m > 9) {
+      for (i = 0; i < nsp; i++) {
+	sp[i] = 0.0;
+      }
+      free(kernel);
+      kernel = (double *) malloc(sizeof(double)*m);
+      if (idist == 0) {
+	kernel[0] = 0.0;
+	e = de01;
+	for (i = 1; i < m; i++) {
+	  kernel[i] = dist->dist(e, dist->params);
+	  e += de01;
+	}
+	for (i = 0; i < nsp; i++) {
+	  if (tsp[i] > 0.0) {
+	    for (k = 0; k < m; k++) {
+	      r0 = i + k;
+	      if (r0 >= nsp) break;
+	      sp[r0] += tsp[i]*kernel[k];
+	    }
+	  }
+	}
+      } else if (idist == 1) {
+	r1 = m/2;
+	e = -de01*r1;
+	for (i = 0; i < m; i++) {
+	  kernel[i] = dist->dist(e, dist->params);
+	  e += de01;
+	}
+	for (i = 0; i < nsp; i++) {
+	  if (tsp[i] > 0.0) {
+	    for (k = 0; k < m; k++) {
+	      r0 = i + k - r1;
+	      if (r0 < 0 || r0 >= nsp) continue;
+	      sp[r0] += tsp[i]*kernel[k];
+	    }
+	  }
+	}
+      }
+      for (i = 0; i < nsp; i++) {
+	fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], sp[i]*de01);
+      }
+    } else {
+      for (i = 0; i < nsp; i++) {
+	fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], tsp[i]);
+      }
+    }
+  } else {
+    for (i = 0; i < nsp; i++) {
+      fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], tsp[i]);
+    }
   }
+
   fprintf(f2, "\n\n");
 
   free(xsp);

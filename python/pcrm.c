@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.11 2002/02/25 02:54:43 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.12 2002/03/10 15:09:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -368,6 +368,7 @@ static PyObject *PCascade(PyObject *self, PyObject *args) {
 static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   char *fn;
   double smin;
+  int rrc;
 
   if (scrm_file) {
     SCRMStatement("SpecTable", args, NULL);
@@ -376,9 +377,10 @@ static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   }
 
   smin = EPS10;
-  if (!PyArg_ParseTuple(args, "s|d", &fn, &smin)) return NULL;
+  rrc = 0;
+  if (!PyArg_ParseTuple(args, "s|id", &fn, &rrc, &smin)) return NULL;
   
-  SpecTable(fn, smin);
+  SpecTable(fn, rrc, smin);
   Py_INCREF(Py_None);
   return Py_None;
 } 
