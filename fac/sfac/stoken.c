@@ -1,4 +1,4 @@
-static char *rcsid="$Id: stoken.c,v 1.1 2002/01/14 23:19:52 mfgu Exp $";
+static char *rcsid="$Id: stoken.c,v 1.2 2003/01/13 02:57:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -87,6 +87,9 @@ int DecodeArgs(char *s, char *argv[], int argt[], ARRAY *variables) {
 }
 
 int GetLine(FILE *f, char *line, int *nlines) {
+  if (f == stdin) {
+    fprintf(stdout, ">>> ");
+  }
   if (fgets(line, MAXLINELENGTH, f) == NULL) return -1;
   (*nlines)++;
   return 0;

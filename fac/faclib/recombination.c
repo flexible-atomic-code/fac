@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.58 2002/12/15 21:58:22 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.59 2003/01/13 02:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -49,9 +49,11 @@ static struct {
   int pw_limits[2];
   int kl[MAXNKL+1];
   int kappa0[(MAXNKL+1)*2];
-} pw_scratch = {8, 8, 500, MAXNKL, 10, 0, 0, {0, MAXKL}};
+} pw_scratch = {RECNSPEC, RECNFROZEN, 
+		RECNMAX, RECLMAX, RECLMAX,
+		0, 0, {0, RECLMAX}};
 
-double ai_cut = EPS8;
+double ai_cut = AICUT;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
@@ -1513,7 +1515,7 @@ int DROpen(int n, int *nlev, int **ops) {
   return j;
 }
 
-static void _FreeRecPk(void *p) {
+static void FreeRecPkData(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
@@ -1522,13 +1524,13 @@ static void _FreeRecPk(void *p) {
 
 int FreeRecPk(void) {
   if (pk_array->array == NULL) return 0;
-  MultiFreeData(pk_array->array, pk_array->ndim, _FreeRecPk);
+  MultiFreeData(pk_array->array, pk_array->ndim, FreeRecPkData);
   return 0;
 }
 
 int FreeRecQk(void) {
   if (qk_array->array == NULL) return 0;
-  MultiFreeData(qk_array->array, qk_array->ndim, _FreeRecPk);
+  MultiFreeData(qk_array->array, qk_array->ndim, FreeRecPkData);
   return 0;
 }
 
@@ -1577,7 +1579,7 @@ int InitRecombination(void) {
   tegrid[0] = -1.0;
 
   SetRecQkMode(QK_DEFAULT, 0.1);
-  SetRecPWOptions(12, 12);
+  SetRecPWOptions(RECLMAX, RECLMAX);
   return 0;
 }
 
@@ -1599,7 +1601,7 @@ int ReinitRecombination(int m) {
   tegrid[0] = -1.0;
 
   SetRecQkMode(QK_DEFAULT, 0.1);
-  SetRecPWOptions(12, 12);
+  SetRecPWOptions(RECLMAX, RECLMAX);
 
   if (m > 0) return 0;
 

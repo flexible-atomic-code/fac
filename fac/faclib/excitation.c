@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.42 2002/10/10 13:47:46 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.43 2003/01/13 02:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -150,7 +150,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 256, 64, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -440,9 +440,11 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
   double *pk, *pkp, *ptr, r, s, b;
-  double *qk, *y2, rq[MAXNTE][MAXNE], e1, te;
+  double *qk, rq[MAXNTE][MAXNE], e1, te;
   double *rqc, **p;
   int index[6];
+  int np = 3, one = 1;
+  double logj;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -463,7 +465,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   }   
   
   qk = pw_scratch.qk;
-  y2 = pw_scratch.y2;
 
   nqk = n_tegrid*n_egrid;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
@@ -537,15 +538,15 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
       if (nkl == 0) {
 	r = 1E-31;
       } else if (nkl > 1) {
-	spline(pw_scratch.log_kl, qk, nkl, 1E30, 1E30, y2); 
 	r = qk[0];
 	for (i = 1; i < nkl; i++) {
 	  r += qk[i];
 	  kl0 = pw_scratch.kl[i-1];
 	  kl1 = pw_scratch.kl[i];
 	  for (j = kl0+1; j < kl1; j++) {
-	    splint(pw_scratch.log_kl, qk, y2, nkl, 
-		 LnInteger(j), &s);
+	    logj = LnInteger(j);
+	    uvip3p_(&np, &nkl, pw_scratch.log_kl, qk, 
+		    &one, &logj, &s);
 	    r += s;
 	  }
 	}
@@ -568,7 +569,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  }
 	  s = qk[nklp]*b;
 	  r = r + s;
-	} else if (type > 0) {
+	} else if (type >= 0) {
 	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
 	  if (b > 0) {
 	    s = qk[nklp]*b;
@@ -604,7 +605,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int nkappa, nkappap, nkl, nklp;
   short  *kappa0, *kappa1, *kappa0p, *kappa1p;
-  double *pk, *pkp, *ptr, *qy2;
+  double *pk, *pkp, *ptr;
   int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
   double r, e0, e1, te, s, b;
@@ -616,6 +617,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   double rqt[MAXMSUB];
   double *rqc, **p;
   int index[6];
+  int np = 3, one = 1;
+  double logj;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -634,7 +637,6 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
     return *p;
   } 
   
-  qy2 = pw_scratch.y2;
   pkp = NULL;
   nqk = nq*n_tegrid*n_egrid;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
@@ -749,15 +751,15 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
       }
     
       for (iq = 0; iq < nq; iq++) { 
-	spline(pw_scratch.log_kl, qk[iq], nkl, 1.0E30, 1.0E30, qy2);     
 	r = qk[iq][0];
 	for (i = 1; i < nkl; i++) { 
 	  r += qk[iq][i]; 
 	  kl0 = pw_scratch.kl[i-1]; 
 	  kl1 = pw_scratch.kl[i];        
 	  for (j = kl0+1; j < kl1; j++) {       
-	    splint(pw_scratch.log_kl, qk[iq], qy2, 
-		   nkl, LnInteger(j), &s); 
+	    logj = LnInteger(j);
+	    uvip3p_(&np, &nkl, pw_scratch.log_kl, qk,
+		    &one, &logj, &s);
 	    r += s; 
 	  }      
 	}    
@@ -782,7 +784,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	    s = qk[iq][i]*b;
 	    rq[iq][ite][ie] += s;
 	  }
-	} else if (type1 > 0) {
+	} else if (type1 >= 0) {
 	  for (iq = 0; iq < nq; iq++) {
 	    b = (GetCoulombBethe(0, ite, ie, type1, iq+1))[i];
 	    if (b > 0) {
@@ -791,7 +793,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	    }
 	  }
 	}
-      } else if (type1 > 0) {
+      } else if (type1 >= 0) {
 	for (iq = 0; iq < nq; iq++) {
 	  if (nkl > 10) {
 	    b = qk[iq][i]/qk[iq][i-1];
@@ -858,16 +860,9 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
       j = i;
       for (m = 0; m < n_tegrid; m++) {
 	rq[m] = rqe[j];
-	if (type == 0) {
-	  rq[m] = log(fabs(rq[m]));
-	}
 	j += n_egrid;
       }
       uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
-      if (type == 0) {
-	rqc[i] = exp(rqc[i]);
-	if (rqe[i] < 0.0) rqc[i] = -rqc[i];
-      }
     }
   }
 
@@ -896,7 +891,7 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
     nd = 1;
     n = n_tegrid*n_egrid;
     type = rqe[nq*n];
-    if (type == 1) {
+    if (type == 0 || type == 1) {
       xte = log_te;
       x0 = log(te);
     } else {
@@ -1682,14 +1677,14 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   return 0;
 }
 
-void _FreeExcitationPk(void *p) {
+void FreeExcitationPkData(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
   *((double **) p) = NULL;
 }
 
-void _FreeExcitationKappa(void *p) {
+void FreeExcitationKappaData(void *p) {
   short *kp;
   kp = *((short **) p);
   free(kp);
@@ -1702,25 +1697,25 @@ int FreeExcitationPk(int ie) {
   b = pk_array->array;
   if (b == NULL) return 0;
   if (ie < 0) {
-    MultiFreeData(b, pk_array->ndim, _FreeExcitationPk);
+    MultiFreeData(b, pk_array->ndim, FreeExcitationPkData);
     b = kappa0_array->array;
-    MultiFreeData(b, kappa0_array->ndim, _FreeExcitationKappa);
+    MultiFreeData(b, kappa0_array->ndim, FreeExcitationKappaData);
     b = kappa1_array->array;
-    MultiFreeData(b, kappa1_array->ndim, _FreeExcitationKappa);
+    MultiFreeData(b, kappa1_array->ndim, FreeExcitationKappaData);
   } else {
     b = (ARRAY *) ArrayGet(b, ie);
     if (b) {
-      MultiFreeData(b, pk_array->ndim - 1, _FreeExcitationPk);
+      MultiFreeData(b, pk_array->ndim - 1, FreeExcitationPkData);
     }
     b = kappa0_array->array;
     b = (ARRAY *) ArrayGet(b, ie);
     if (b) {
-      MultiFreeData(b, kappa0_array->ndim - 1, _FreeExcitationKappa);
+      MultiFreeData(b, kappa0_array->ndim - 1, FreeExcitationKappaData);
     }
     b = kappa1_array->array;
     b = (ARRAY *) ArrayGet(b, ie);
     if (b) {
-      MultiFreeData(b, kappa1_array->ndim - 1, _FreeExcitationKappa);
+      MultiFreeData(b, kappa1_array->ndim - 1, FreeExcitationKappaData);
     }
   }
 
@@ -1731,7 +1726,7 @@ int FreeExcitationQk(void) {
   ARRAY *b;
   b = qk_array->array;
   if (b == NULL) return 0;
-  MultiFreeData(b, qk_array->ndim, _FreeExcitationPk);
+  MultiFreeData(b, qk_array->ndim, FreeExcitationPkData);
   FreeExcitationPk(-1);
   
   return 0;

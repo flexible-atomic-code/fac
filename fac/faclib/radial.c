@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.68 2002/12/12 03:06:03 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.69 2003/01/13 02:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -41,7 +41,8 @@ static struct {
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
   int iset;
-} optimize_control = {0.5, EPS6, 128, 1.0, 1, 0, NULL, 0, 0};
+} optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
+		      1.0, 1, 0, NULL, OPTPRINT, 0};
 
 #define NPB 5
 static struct {
@@ -56,7 +57,7 @@ static struct {
   int nms;
   int sms;
   int br;
-} qed = {5, 2, 1, 1, 5};
+} qed = {QEDSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
@@ -80,7 +81,7 @@ double argam_(double *x, double *y);
 double besljn_(int *jy, int *n, double *x);
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
-double _PhaseRDependent(double x, double eta, double b);
+double PhaseRDependent(double x, double eta, double b);
 void lmqn_(int *, int *, double *, double *, double *, double *, int *,
 	   void (*sfun)(int *, double *, double *, double *),
 	   int *, int *, int *, double *, double *, double *, double *);
@@ -149,7 +150,7 @@ int SetRadialGrid(double rmin, double rmax) {
   return 0;
 }
 
-void _AdjustScreeningParams(double *u) {
+void AdjustScreeningParams(double *u) {
   int i;
   double c;
   
@@ -292,7 +293,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       }
       r /= k;
     }
-    _AdjustScreeningParams(u);
+    AdjustScreeningParams(u);
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       a = u[j] - potential->Z[j];
@@ -325,7 +326,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
 	a += acfg->nq[i];
       }
     }
-    _AdjustScreeningParams(u);
+    AdjustScreeningParams(u);
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       a = u[j] - potential->Z[j];
@@ -747,7 +748,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   return 0;
 }
 
-double _PhaseRDependent(double x, double eta, double b) {
+double PhaseRDependent(double x, double eta, double b) {
   double tau, tau2, y, y2, t, a1, a2, sb;
   
   y = 1.0/x;
@@ -799,7 +800,7 @@ double GetPhaseShift(int k) {
   b1 = b1*(b1+1.0) - FINE_STRUCTURE_CONST2*z*z;
  
   a = ke * r;
-  b1 = _PhaseRDependent(a, y, b1);
+  b1 = PhaseRDependent(a, y, b1);
   phase1 = phase1 - b1;
   
   orb->phase = malloc(sizeof(double));
@@ -942,7 +943,7 @@ ORBITAL *GetNewOrbital(void) {
   return orb;
 }
 
-void _FreeOrbitalData(void *p) {
+void FreeOrbitalData(void *p) {
   ORBITAL *orb;
   orb = (ORBITAL *) p;
   if (orb->wfun) free(orb->wfun);
@@ -959,14 +960,14 @@ int ClearOrbitalTable(int m) {
   if (m == 0) {
     n_orbitals = 0;
     n_continua = 0;
-    ArrayFree(orbitals, _FreeOrbitalData);
+    ArrayFree(orbitals, FreeOrbitalData);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
       if (orb->n > 0) {
 	n_continua -= n_orbitals - (i+1);
 	n_orbitals = i+1;
-	ArrayTrim(orbitals, i+1, _FreeOrbitalData);
+	ArrayTrim(orbitals, i+1, FreeOrbitalData);
 	break;
       }
     }
@@ -990,7 +991,7 @@ int RestoreOrbital(int i) {
 int FreeOrbital(int i) {
   ORBITAL *orb;
   orb = GetOrbital(i);
-  _FreeOrbitalData((void *)orb);
+  FreeOrbitalData((void *)orb);
   return 0;
 }
 
@@ -2446,7 +2447,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
 	      int t, double *x) {
   int i1, i2;
   int i, type;
-  double *r;
+  double *r, ext;
 
   if (t == 0) t = 1;
   if (t < 0) {
@@ -2456,57 +2457,60 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     r = _dwork;
     type = t;
   }
-
+  for (i = 0; i < MAX_POINTS; i++) {
+    r[i] = 0.0;
+  }
   r[0] = 0.0;
 
+  ext = 0.0;
   if (orb1->n > 0 && orb2->n > 0) {
     i2 = Min(orb1->ilast, orb2->ilast);
-    IntegrateSubRegion(0, i2, f, orb1, orb2, t, r, 0);
+    IntegrateSubRegion(0, i2, f, orb1, orb2, t, r, 0, NULL);
   } else if (orb1->n > 0 && orb2->n <= 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
-    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
+    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0, NULL);
     i1 += 1;
     i2 = orb1->ilast;
-    IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1);
+    IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1, NULL);
   } else if (orb1->n <= 0 && orb2->n > 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
-    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
+    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0, NULL);
     i1 += 1;
     i2 = orb2->ilast;
     if (type == 6) {
       i = 7;
       if (t < 0) i = -i;
-      IntegrateSubRegion(i1, i2, f, orb2, orb1, i, r, 1);
+      IntegrateSubRegion(i1, i2, f, orb2, orb1, i, r, 1, NULL);
     } else {
-      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2);
+      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2, NULL);
     }
   } else {
     i1 = Min(orb1->ilast, orb2->ilast);
-    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
+    IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0, NULL);
     i1 += 1;
     if (i1 > orb1->ilast) {
       i2 = orb2->ilast;
       if (type == 6) {
 	i = 7;
 	if (t < 0) i = -i;
-	IntegrateSubRegion(i1, i2, f, orb2, orb1, i, r, 1);
+	IntegrateSubRegion(i1, i2, f, orb2, orb1, i, r, 1, NULL);
       } else {
-	IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2);
+	IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2, NULL);
       }
       i1 = i2+1;
       i2 = MAX_POINTS-1;
-      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3);
+      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     } else {
       i2 = orb1->ilast;
-      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1);
+      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1, NULL);
       i1 = i2+1;
       i2 = MAX_POINTS-1;
-      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3);
+      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     }
   }
 
   if (t >= 0) {
-    *x = r[i2-1];
+    *x = r[i2-1] + ext;
   } else {
     i2++;
     for (i = i2+1; i < MAX_POINTS; i++) {
@@ -2519,7 +2523,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
 
 int IntegrateSubRegion(int i0, int i1, 
 		       double *f, ORBITAL *orb1, ORBITAL *orb2,
-		       int t, double *r, int m) {
+		       int t, double *r, int m, double *ext) {
   int i, j, ip, type;
   ORBITAL *tmp;
   double *large1, *large2, *small1, *small2;
@@ -2621,7 +2625,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
@@ -2657,7 +2661,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t, ext);
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
@@ -2715,7 +2719,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
@@ -2750,7 +2754,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t, ext);
 
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
@@ -2789,7 +2793,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
@@ -2831,7 +2835,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
@@ -2873,7 +2877,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       if (m == 2) {
 	if (t < 0) {
 	  for (i = i0; i <= i1; i += 2) {
@@ -2932,7 +2936,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -2943,7 +2947,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -2975,7 +2979,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       } 
-      IntegrateSinCos(j, NULL, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, NULL, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -2983,7 +2987,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, NULL, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, NULL, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3020,7 +3024,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -3031,7 +3035,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3068,7 +3072,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -3078,7 +3082,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3115,7 +3119,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -3125,7 +3129,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3160,7 +3164,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_dphasep[j] = a - b;
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
+      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t, ext);
       j = 0;
       for (i = i0; i <= i1; i += 2) {
 	ip = i+1;
@@ -3169,7 +3173,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3197,7 +3201,7 @@ int IntegrateSubRegion(int i0, int i1,
 
 int IntegrateSinCos(int j, double *x, double *y, 
 		    double *phase, double *dphase, 
-		    int i0, double *r, int t) {
+		    int i0, double *r, int t, double *ext) {
   int i, k, m, n, q;
   double si0, si1, cs0, cs1;
   double is0, is1, is2, is3;
@@ -3212,7 +3216,7 @@ int IntegrateSinCos(int j, double *x, double *y,
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
     h = dphase[i-1]+dphase[i];
     dr = potential->rad[k] - potential->rad[k-2];
-    if (h*dr > 0.1) break;
+    if (h*dr > 0.5) break;
     z[i] = 0.0;
     if (x != NULL) z[i] += x[i]*sin(phase[i]);
     if (y != NULL) z[i] += y[i]*cos(phase[i]);
@@ -3314,6 +3318,15 @@ int IntegrateSinCos(int j, double *x, double *y,
     si0 = si1;
     cs0 = cs1;
   }
+
+  if (ext) {
+    if (x) {
+      *ext += cs0*x[j-1];
+    }
+    if (y) {
+      *ext += -si0*y[j-1];
+    }
+  }
   return 0;
 }
 
@@ -3403,8 +3416,7 @@ int InitRadial(void) {
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
-  SetRadialGrid(1E-5, 5E2);
-
+  SetRadialGrid(-1.0, -1.0);
   return 0;
 }
 
@@ -3430,7 +3442,7 @@ int ReinitRadial(int m) {
       potential->flag = 0;
       n_awgrid = 1;
       awgrid[0] = EPS3;
-      SetRadialGrid(1E-5, 5E2);
+      SetRadialGrid(-1.0, -1.0);
       potential->uehling[0] = 0.0;
     }
   }

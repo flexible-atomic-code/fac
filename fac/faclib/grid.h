@@ -3,14 +3,6 @@
 
 #include "global.h"
 
-#define MAXNKL         50
-#define MAXKL          512
-#define MAXNUSR        30
-#define MAXNE          20
-#define MAXNTE         6
-
-#define TE_MIN_MAX     0.2
-
 int AddPW(int *nkl0, double *kl, double *logkl, 
 	  int maxkl, int n, int step);
 int SetPWGrid(int *nkl0, double *kl, double *logkl, 

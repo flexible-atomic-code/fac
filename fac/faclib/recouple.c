@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.10 2002/08/28 21:41:44 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.11 2003/01/13 02:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -23,9 +23,9 @@ USE (rcsid);
 ** PURPOSE:     the maximum rank of the operators allowed.
 ** NOTE:        the ranks are represented by an integer that is
 **              twice of its actuall value. The default value of 
-**              12 means a maximum rank of 6.
+**              16 means a maximum rank of 8.
 */
-static int max_rank = 12;
+static int max_rank = MAXRANK;
 
 /*
 ** VARIABLE:    interact_shells
@@ -1939,14 +1939,14 @@ int InitRecouple(void) {
 }
 
 /* 
-** FUNCTION:    _FreeInteractDatum
+** FUNCTION:    FreeInteractDatum
 ** PURPOSE:     free memory of an INTERACT_DATUM struct.
 ** INPUT:       
 ** RETURN:      
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-void _FreeInteractDatum(void *p) {
+void FreeInteractDatum(void *p) {
   INTERACT_DATUM *d;
   
   if (!p) return;
@@ -1978,7 +1978,7 @@ int ReinitRecouple(int m) {
   ndim = interact_shells->ndim;
 
   if (a == NULL) return 0;
-  MultiFreeData(a, ndim, _FreeInteractDatum);
+  MultiFreeData(a, ndim, FreeInteractDatum);
   
   return 0;
 }

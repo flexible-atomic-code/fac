@@ -1,20 +1,11 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.41 2002/12/14 16:30:58 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.42 2003/01/13 02:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
-#define debug_integral(s, ne, r) \
-        {int ks; \
-         for (ks = 0; ks < (2*(ne)); ks++) { \
-         fprintf(stdout, "%d %d %d %d %d\n", \
-	         (s)[ks].index, (s)[ks].n, (s)[ks].kappa,\
-                 (s)[ks].nq_bra, (s)[ks].nq_ket); \
-        } \
-         fprintf(stdout, "%d electron: %lf\n\n", (ne), (r)); \
-        }
 
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 #define debug_integral(s, ne, r) \
@@ -41,8 +32,8 @@ static int ncorrections = 0;
 static ARRAY *ecorrections;
 
 static int rydberg_ignored = 0;
-static double angz_cut = EPS6;
-static double mix_cut = EPS5;
+static double angz_cut = ANGZCUT;
+static double mix_cut = MIXCUT;
 
 double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
 void dspevd_(char *jpbz, char *uplo, int *n, double *ap, double *w, 
@@ -1402,6 +1393,7 @@ int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2) {
 	orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
 	orb1 = orb0;
 	for (p = 0; p < nkk; p++) {
+	  if (fabs(r[p]) < EPS10) continue;
 	  if (IsOdd(phase)) r[p] = -r[p];
 	  im = AddToAngularZMix(&n, &nz, ang, k[p], orb0, orb1, r[p]);
 	}	    
@@ -1554,7 +1546,7 @@ int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {
     k = &k0;
     r = &r0;
     nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
-    if (*r + 1.0 == 1.0) goto END;
+    if (fabs(*r) < EPS10) goto END;
     if (IsOdd(phase+(jp+j2-k0)/2)) *r = -(*r);
     *r /= sqrt(jp+1.0)*W6j(j1, jf, jp, k0, j2, s[1].j);
     kb = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
@@ -1840,6 +1832,7 @@ int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang,
     kk0 = OrbitalIndex(s[2].n, s[2].kappa, 0.0);
     kk1 = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
     for (p = 0; p < nkk; p++) {
+      if (fabs(r[p]) < EPS10) continue;
       if (IsOdd(phase)) r[p] = -r[p];
       im = AddToAngularZxZMix(n, nz, ang, k[p], 
 			      orb0, orb1, kk0, kk1, r[p]);
@@ -2399,7 +2392,7 @@ int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
   return 0;
 }
 
-void _FreeAngZDatum(void *p) {
+void FreeAngZDatum(void *p) {
   ANGZ_DATUM *ap;
   ap = (ANGZ_DATUM *) p;
   if (ap->nz > 0) {
@@ -2408,7 +2401,7 @@ void _FreeAngZDatum(void *p) {
   }
 }
 
-int _FreeAngZ(int g, MULTI *ma) {  
+int FreeAngZArray(int g, MULTI *ma) {  
   ARRAY *a, *b;  
   int ndim;
   
@@ -2416,11 +2409,11 @@ int _FreeAngZ(int g, MULTI *ma) {
   if (a == NULL) return 0;
   ndim = ma->ndim;
   if (g < 0) {
-    MultiFreeData(a, ndim, _FreeAngZDatum);
+    MultiFreeData(a, ndim, FreeAngZDatum);
   } else {
     b = (ARRAY *) ArrayGet(a, g);
     if (b) {
-      MultiFreeData(b, ndim - 1, _FreeAngZDatum);
+      MultiFreeData(b, ndim - 1, FreeAngZDatum);
     }
   }
   return 0;
@@ -2429,17 +2422,17 @@ int _FreeAngZ(int g, MULTI *ma) {
 int FreeAngZ(int g, int which_array) {
 
   if (which_array == 0) {
-    _FreeAngZ(g, angz_array);
+    FreeAngZArray(g, angz_array);
   } else if (which_array > 0) {
-    _FreeAngZ(g, angzxz_array);
+    FreeAngZArray(g, angzxz_array);
   } else {
-    _FreeAngZ(g, angz_array);
-    _FreeAngZ(g, angzxz_array);
+    FreeAngZArray(g, angz_array);
+    FreeAngZArray(g, angzxz_array);
   }
   return 0;
 }
 
-void _FreeLevelData(void *p) {
+void FreeLevelData(void *p) {
   LEVEL *lev;
   lev = (LEVEL *) p;
   if (lev->n_basis > 0) {
@@ -2455,7 +2448,7 @@ int ClearLevelTable(void) {
   int ng, i, k;
 
   n_levels = 0;
-  ArrayFree(levels, _FreeLevelData);
+  ArrayFree(levels, FreeLevelData);
 
   ng = GetNumGroups();
   for (k = 0; k < ng; k++) {

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.42 2002/12/14 16:30:59 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.43 2003/01/13 02:57:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1587,10 +1587,16 @@ static  PyObject *PSetCEPWOptions(PyObject *self, PyObject *args) {
   int qr, max, kl_cb;
   double tol;
 
-  qr = 0;
-  max = 256;
-  kl_cb = 64;
-  tol = 5E-2;
+  if (sfac_file) {
+    SFACStatement("SetCEPWOptions", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  qr = EXCLQR;
+  max = EXCLMAX;
+  kl_cb = EXCLCB;
+  tol = EXCTOL;
 
   if (!PyArg_ParseTuple(args, "d|iii", 
 			&tol, &max, &qr, &kl_cb)) return NULL;
@@ -1604,6 +1610,12 @@ static  PyObject *PSetCEPWGrid(PyObject *self, PyObject *args) {
   int n;
   PyObject *p, *q;
   int *m, *step;
+
+  if (sfac_file) {
+    SFACStatement("SetCEPWGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   n = PyTuple_Size(args);
   if (n == 1) {    
@@ -2527,11 +2539,17 @@ static  PyObject *PSetCIPWOptions(PyObject *self, PyObject *args) {
   int qr, max, max_1, kl_cb;
   double tol;
 
-  qr = 0;
-  max = 256;
-  max_1 = 8;
-  kl_cb = 64;
-  tol = 5E-2;
+  if (sfac_file) {
+    SFACStatement("SetCIPWOptions", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  qr = IONLQR;
+  max = IONLMAX;
+  max_1 = IONLEJEC;
+  kl_cb = IONLCB;
+  tol = IONTOL;
   if (!PyArg_ParseTuple(args, "d|iiii", &tol, &max, &max_1, &qr, &kl_cb)) 
     return NULL;
   SetCIPWOptions(qr, max, max_1, kl_cb, tol);

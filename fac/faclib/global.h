@@ -74,7 +74,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     8
-#define SUBSUBVERSION  6
+#define SUBSUBVERSION  7
 
 
 /* 
@@ -181,14 +181,9 @@
 */
 #define FINE_STRUCTURE_CONST  7.29735308E-3
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
-
 #define AMU  1836.153
 
-#define G_COULOMB   1
-#define G_BABUSHKIN 2
-#define M_FR        0
-#define M_NR        1
-
+/* radial QK modes */
 #define QK_DEFAULT    -1
 #define QK_EXACT       0
 #define QK_INTERPOLATE 1
@@ -197,9 +192,12 @@
 #define QK_DW          4
 #define QK_BED         5
 
-/* dimensions */
-#define MAX_POINTS 720
+/* orbital */
+#define MAX_POINTS 720 /* radial mesh */
+#define GRIDASYMP  16  /* no. points in half wavelength near infinity */
+#define GRIDRATIO  1.1 /* ratio of successive mesh near origin */
 
+/* config */
 #define MAX_SPEC_SYMBOLS   14
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     32
@@ -208,10 +206,72 @@
 #define CONFIGS_BLOCK      256
 #define STATES_BLOCK       512
 
+/* radial */
 #define ORBITALS_BLOCK     1024
+#define OPTSTABLE          0.5
+#define OPTTOL             1E-6
+#define OPTNITER           128
+#define OPTPRINT           0
+#define QEDSE              5
+#define QEDVP              2
+#define QEDNMS             1
+#define QEDSMS             1
+#define QEDBREIT           5
 
+/* structure */
 #define LEVELS_BLOCK       1024
 #define ANGZ_BLOCK         128
+#define ANGZCUT            1E-6
+#define MIXCUT             1E-5
+
+/* transition */
+#define G_COULOMB          1
+#define G_BABUSHKIN        2
+#define M_FR               0
+#define M_NR               1
+#define DGAUGE             G_BABUSHKIN
+#define DMODE              M_NR
+#define ERANK              4
+#define MRANK              4
+#define TRCUT              1E-4
+
+/* recouple */
+#define MAXRANK            16
+
+/* coulomb */
+#define NHYDROGEN          10
+#define LHYDROGEN          7
+#define NHYDROGENMAX       128
+#define LHYDROGENMAX       20
+
+/* grid */
+#define MAXNKL             50
+#define MAXKL              512
+#define MAXNUSR            30
+#define MAXNE              20
+#define MAXNTE             6
+#define TE_MIN_MAX         0.1
+
+/* excitation */
+#define EXCLQR             0
+#define EXCLMAX            128
+#define EXCLCB             48
+#define EXCTOL             5E-2
+
+/* ionization */
+#define IONMAXK            8
+#define IONLQR             0
+#define IONLMAX            128
+#define IONLEJEC           8
+#define IONLCB             48
+#define IONTOL             5E-2
+
+/* recombination */
+#define RECNMAX            512
+#define RECNSPEC           8
+#define RECNFROZEN         8
+#define RECLMAX            12
+#define AICUT              1E-8
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG

@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.14 2002/05/21 20:13:03 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.15 2003/01/13 02:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -23,7 +23,7 @@ static struct {
   int max_e;
   int max_m;
   double eps;
-} transition_option = {2, 1, 4, 4, EPS4};
+} transition_option = {DGAUGE, DMODE, ERANK, MRANK, TRCUT};
 
 int SetTransitionCut(double c) {
   transition_option.eps = c;

@@ -80,7 +80,7 @@ void pfree(void *p, char *f, int nline) {
   free(p);
 }
 
-int _CompareMemory(const void *p1, const void *p2) {
+int CompareMemory(const void *p1, const void *p2) {
   long int b1, b2;
 
   b1 = ((MEM_INFO *) p1)->base;
@@ -103,8 +103,8 @@ void pmalloc_check(void) {
     return;
   }
 
-  qsort(mem_alloc, n_alloc, sizeof(MEM_INFO), _CompareMemory);
-  qsort(mem_free, n_free, sizeof(MEM_INFO), _CompareMemory);
+  qsort(mem_alloc, n_alloc, sizeof(MEM_INFO), CompareMemory);
+  qsort(mem_free, n_free, sizeof(MEM_INFO), CompareMemory);
 
   i = 0; 
   j = 0;
