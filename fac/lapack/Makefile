@@ -6,9 +6,9 @@ OBJS = ${SRC:.f=.o}
 .f.o: 
 	$(FC) -O -c $<
 
-lapack.a: $(OBJS)
-	ar cr lapack.a $(OBJS)
-	ranlib lapack.a
+lapack: $(OBJS)
+	ar cr liblapack.a $(OBJS)
+	ranlib liblapack.a
 
 clean:
 	rm -f *.o *.a

@@ -1,13 +1,13 @@
-SRC = coulcc.f y5n.f dlogam.f besljn.f 
+SRC = clogam.f f11.f coulcc.f y5n.f dlogam.f besljn.f 
 
 OBJS = ${SRC:.f=.o}
 
 .f.o:
 	${FC} -O -c $<
 
-coul.a: ${OBJS}
-	ar cr coul.a ${OBJS}
-	ranlib coul.a
+coul: ${OBJS}
+	ar cr libcoul.a ${OBJS}
+	ranlib libcoul.a
 
 clean:
 	rm -f *.o *.a
