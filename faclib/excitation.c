@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.24 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.25 2001/10/22 18:42:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,19 +15,16 @@ static int usr_egrid_type = -1;
 static int pw_type = -1;
 
 static int interpolate_egrid = 0;
-static int n_qk = 0;
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
-static double xusr[MAXNUSR];
-static double log_xusr[MAXNUSR];
 
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
-static double sigma[MAXNE];
-static double xegrid[MAXNTE][MAXNE];
-static double log_xegrid[MAXNTE][MAXNE];
+static double egrid_min = 0.05;
+static double egrid_max = 8.0;
+static int egrid_limits_type = 0;
 
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
@@ -55,6 +52,16 @@ CEPW_SCRATCH *GetCEPWScratch() {
 int SetCEFormat(int m) {
   output_format = m;
   return m;
+}
+
+int SetCEEGridLimits(double min, double max, int type) {
+  if (min <= 0) egrid_min = 0.05;
+  else egrid_min = min;
+  if (max <= 0) egrid_max = 8.0;
+  else egrid_max = max;
+  egrid_limits_type = type;
+
+  return 0;
 }
 
 int SetCEEGridType(int type) {
@@ -413,7 +420,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 }
 
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
-  int type, t, ie, ite, ipk, ipkp, np;
+  int type, t, ie, ite, ipk, ipkp, np, nqk;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
   double *pk, *pkp, *ptr, r, s, b;
@@ -442,7 +449,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   qk = pw_scratch.qk;
   y2 = pw_scratch.y2;
 
-  *p = (double *) malloc(sizeof(double)*n_tegrid*n_qk);
+  nqk = n_tegrid*n_egrid;
+  *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
 
   for (ie = 0; ie < n_egrid; ie++) {
@@ -534,30 +542,13 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   }
 
   ptr = rqc;
-  if (interpolate_egrid) {
-    if (type == 1) {
-      np = 6;
-      t = 0;
-    } else {
-      np = 5;
-      t = 1;
+  for (ite = 0; ite < n_tegrid; ite++) {
+    for (ie = 0; ie < n_egrid; ie++) {
+      ptr[ie] = rq[ite][ie];
     }
-    for (ite = 0; ite < n_tegrid; ite++) {      
-      SVDFit(np, ptr+t, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
-	     rq[ite], sigma, CERadialQkBasis);
-      for (i = 0; i < t; i++) ptr[i] = 0.0;
-      for (i = np+t; i < NPARAMS; i++) ptr[i] = 0.0;
-      ptr += n_qk;
-    }
-  } else {
-    for (ite = 0; ite < n_tegrid; ite++) {
-      for (ie = 0; ie < n_egrid; ie++) {
-	ptr[ie] = rq[ite][ie];
-      }
-      ptr += n_qk;
-    }
+    ptr += n_egrid;
   }
-
+  rqc[nqk] = type;
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -568,7 +559,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, 
 			    int k, int kp, int nq, int *q) {
-  int type1, type2, kl, np;
+  int type1, type2, kl, np, nqk;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int nkappa, nkappap, nkl, nklp;
   short  *kappa0, *kappa1, *kappa0p, *kappa1p;
@@ -604,8 +595,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   
   qy2 = pw_scratch.y2;
   pkp = NULL;
-
-  *p = (double *) malloc(sizeof(double)*nq*n_tegrid*n_qk);
+  nqk = nq*n_tegrid*n_egrid;
+  *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
 
   for (ie = 0; ie < n_egrid; ie++) {
@@ -758,34 +749,16 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   }
 
   ptr = rqc;
-  if (interpolate_egrid) {
-    if (type1 == 1 && type2 == 1) {
-      np = 6;
-      t = 0;
-    } else {
-      np = 5;
-      t = 1;
-    }
-    for (iq = 0; iq < nq; iq++) {
-      for (ite = 0; ite < n_tegrid; ite++) {      
-	SVDFit(np, ptr+t, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
-	       rq[iq][ite], sigma, CERadialQkBasis);
-	for (i = 0; i < t; i++) ptr[i] = 0.0;
-	for (i = np+t; i < NPARAMS; i++) ptr[i] = 0.0;
-	ptr += n_qk;
+  for (iq = 0; iq < nq; iq++) {
+    for (ite = 0; ite < n_tegrid; ite++) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	ptr[ie] = rq[iq][ite][ie];
       }
-    }
-  } else {
-    for (iq = 0; iq < nq; iq++) {
-      for (ite = 0; ite < n_tegrid; ite++) {
-	for (ie = 0; ie < n_egrid; ie++) {
-	  ptr[ie] = rq[iq][ite][ie];
-	}
-	ptr += n_qk;
-      }
+      ptr += n_egrid;
     }
   }    
-
+  rqc[nqk] = type1;
+  if (type2 != 1) rqc[nqk] = type2;
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -795,102 +768,95 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 } 	  
 
 int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
-  int i, np, nd;
+  int i, np, nd, type;
   int j, m;
   double *rqe, rq[MAXNTE];
+  double *xte, x0;
   
-  np = 3;
-  nd = 1;
-
   rqe = CERadialQkTable(k0, k1, k2, k3, k);
   if (n_tegrid == 1) {
-    for (i = 0; i < n_qk; i++) {
+    for (i = 0; i < n_egrid; i++) {
       rqc[i] = rqe[i];
     }
+    type = rqe[i];
   } else {
-    for (i = 0; i < n_qk; i++) {
+    np = 3;
+    nd = 1;
+    type = rqe[n_tegrid*n_egrid];
+    if (type == 1) {
+      xte = log_te;
+      x0 = log(te);
+    } else {
+      xte = tegrid;
+      x0 = te;
+    }
+    for (i = 0; i < n_egrid; i++) {
       j = i;
       for (m = 0; m < n_tegrid; m++) {
 	rq[m] = rqe[j];
-	j += n_qk;
+	j += n_egrid;
       }
-      uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &te, &rqc[i]);
+      uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
     }
   }
 
-  return 0;
+  return type;
 }
 
 int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3, 
 		   int k, int kp, int nq, int *q) {
-  int i, np, nd, iq;
-  int j, m;
+  int i, np, nd, iq, n;
+  int j, m, type;
   double *rqe, rq[MAXNTE];
+  double *xte, x0;
   
   rqe = CERadialQkMSubTable(k0, k1, k2, k3, k, kp, nq, q);
   if (n_tegrid == 1) {
     for (iq = 0; iq < nq; iq++) {
-      for (i = 0; i < n_qk; i++) {
+      for (i = 0; i < n_egrid; i++) {
 	rqc[i] = rqe[i];
       }
-      rqc += n_qk;
-      rqe += n_qk;
+      rqc += n_egrid;
+      rqe += n_egrid;
     }
+    type = rqe[0];
   } else {
     np = 3;
     nd = 1;
+    n = n_tegrid*n_egrid;
+    type = rqe[nq*n];
+    if (type == 1) {
+      xte = log_te;
+      x0 = log(te);
+    } else {
+      xte = tegrid;
+      x0 = te;
+    }
     for (iq = 0; iq < nq; iq++) {
-      for (i = 0; i < n_qk; i++) {
+      for (i = 0; i < n_egrid; i++) {
 	j = i;
 	for (m = 0; m < n_tegrid; m++) {
 	  rq[m] = rqe[j];
-	  j += n_qk;
+	  j += n_egrid;
 	}
-	uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &te, &rqc[i]);
+	uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
       }
-      rqe += n_qk*n_tegrid;
-      rqc += n_qk;
+      rqe += n;
+      rqc += n_egrid;
     }
   }  
 
-  return 0;
+  return type;
 }
 
-void CERadialQkBasis(int npar, double *yb, double x, double logx) {
-  int i;
-  double t;
-
-  t = 1.0/x;
-
-  if (npar == 6) {
-    yb[0] = logx;
-    yb[1] = 1.0;
-    yb[2] = logx*t;
-    yb[3] = t;
-    t *= t;
-    yb[4] = t*logx;
-    yb[5] = t;
-  } else if (npar == 5) {
-    yb[0] = 1.0;
-    yb[1] = logx*t;
-    yb[2] = t;
-    t *= t;
-    yb[3] = t*logx;
-    yb[4] = t;
-  } else {
-    printf("npar illegal in fitting of collision strength\n");
-    exit(1);
-  }
-}
-
-int CollisionStrength(double *qkc, double *e, int lower, int upper, int msub) {
-  int i, j, t, h, p, m;  
+int CollisionStrength(double *qkt, double *e, int lower, int upper, int msub) {
+  int i, j, t, h, p, m, type, ty;  
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2, ie;
+  int nz, j1, j2, ie, np;
   int nq, q[MAXMSUB];
-  double rq[MAXMSUB*NPARAMS], *rqk;
+  double rq[MAXMSUB*MAXNE], qkc[MAXMSUB*MAXNE], *rqk;
 
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -913,15 +879,15 @@ int CollisionStrength(double *qkc, double *e, int lower, int upper, int msub) {
     rqk = qkc;
     for (t = -j1; t <= 0; t += 2) {
       for (h = -j2; h <= j2; h += 2) {
-	for (ie = 0; ie < n_qk; ie++) {
+	for (ie = 0; ie < n_egrid; ie++) {
 	  rqk[ie] = 0.0;
 	}
-	rqk += n_qk;
+	rqk += n_egrid;
       }
     }
   } else {
     rqk = qkc;
-    for (ie = 0; ie < n_qk; ie++) {
+    for (ie = 0; ie < n_egrid; ie++) {
       rqk[ie] = 0.0;
     }
   }
@@ -935,32 +901,34 @@ int CollisionStrength(double *qkc, double *e, int lower, int upper, int msub) {
       if (!msub) {
 	if (ang[i].k != ang[j].k) continue;
 	c /= ang[i].k + 1.0;
-	CERadialQk(rq, te, ang[i].k0, ang[i].k1,
-		   ang[j].k0, ang[j].k1, ang[i].k);
-	for (ie = 0; ie < n_qk; ie++) {
+	ty = CERadialQk(rq, te, ang[i].k0, ang[i].k1,
+			ang[j].k0, ang[j].k1, ang[i].k);
+	for (ie = 0; ie < n_egrid; ie++) {
 	  qkc[ie] += c*rq[ie];
 	}
+	if (type == 1 && ty != 1) type = ty;
       } else {
-	CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
-		       ang[j].k0, ang[j].k1,
-		       ang[i].k, ang[j].k, nq, q);
+	ty = CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
+			    ang[j].k0, ang[j].k1,
+			    ang[i].k, ang[j].k, nq, q);
 	rqk = qkc;
 	for (t = -j1; t <= 0; t += 2) {
 	  for (h = -j2; h <= j2; h += 2) {
 	    m = (-abs(t-h)-q[0])/2;
-	    m *= n_qk;
+	    m *= n_egrid;
 	    s3j = W3j(j1, ang[i].k, j2, -t, t-h, h);
 	    if (ang[j].k != ang[i].k) {
 	      s3j *= W3j(j1, ang[j].k, j2, -t, t-h, h);
 	    } else {
 	      s3j *= s3j;
 	    }
-	    for (ie = 0; ie < n_qk; ie++) {
+	    for (ie = 0; ie < n_egrid; ie++) {
 	      rqk[ie] += c*rq[m+ie]*s3j;
 	    }
-	    rqk += n_qk;
+	    rqk += n_egrid;
 	  }
 	}
+	if (type == 1 && ty != 1) type = ty;
       }
     }
   }
@@ -970,23 +938,75 @@ int CollisionStrength(double *qkc, double *e, int lower, int upper, int msub) {
 
   /* there is a factor of 4 coming from normalization and the 2 
      from the formula */
+  np = 3;
   if (!msub) {
-    for (ie = 0; ie < n_qk; ie++) {
-      qkc[ie] *= 8.0;
+    if (interpolate_egrid) {
+      if (type != 1) {
+	for (ie = 0; ie < n_egrid; ie++) {
+	  qkc[ie] *= 8.0;
+	  qkc[ie] = log(qkc[ie]);
+	}
+	uvip3p_(&np, &n_egrid, log_egrid, qkc, &n_usr, log_usr, qkt);
+	for (ie = 0; ie < n_usr; ie++) {
+	  qkt[ie] = exp(qkt[ie]);
+	}
+      } else {
+	for (ie = 0; ie < n_egrid; ie++) {
+	  qkc[ie] *= 8.0;
+	}
+	uvip3p_(&np, &n_egrid, log_egrid, qkc, &n_usr, log_usr, qkt);
+      }
+    } else {
+      for (ie = 0; ie < n_usr; ie++) {
+	qkt[ie] = 8.0*qkc[ie];
+      }
     }
     return 1;
   } else {
     rqk = qkc;
     p = 0;
-    for (t = -j1; t <= 0; t += 2) {
-      for (h = -j2; h <= j2; h += 2) {	
-	for (ie = 0; ie < n_qk; ie++) {
-	  rqk[ie] *= 8.0;
+    if (interpolate_egrid) {
+      if (type != 1) {	
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {	
+	    for (ie = 0; ie < n_egrid; ie++) {
+	      rqk[ie] *= 8.0;
+	      rqk[ie] = log(rqk[ie]);
+	    }
+	    uvip3p_(&np, &n_egrid, log_egrid, rqk, &n_usr, log_usr, qkt);
+	    for (ie = 0; ie < n_usr; ie++) {
+	      qkt[ie] = exp(qkt[ie]);
+	    }
+	    p++;
+	    rqk += n_egrid;
+	    qkt += n_usr;
+	  }
+	} 
+      } else {
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {	
+	    for (ie = 0; ie < n_egrid; ie++) {
+	      rqk[ie] *= 8.0;
+	    }
+	    uvip3p_(&np, &n_egrid, log_egrid, rqk, &n_usr, log_usr, qkt);
+	    p++;
+	    rqk += n_egrid;
+	    qkt += n_usr;
+	  }
 	}
-	p++;
-	rqk += n_qk;
       }
-    } 
+    } else {
+      for (t = -j1; t <= 0; t += 2) {
+	for (h = -j2; h <= j2; h += 2) {	
+	  for (ie = 0; ie < n_egrid; ie++) {
+	    qkt[ie] = 8.0*rqk[ie];
+	  }
+	  p++;
+	  rqk += n_egrid;
+	  qkt += n_usr;
+	}
+      }
+    }  
     return p;
   }
 }
@@ -1002,10 +1022,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   int i, j, k, n, m, ie, ip, jp;
   int j1, j2;
   FILE *f;
-  double qkc[MAXMSUB*NPARAMS], qkb[NPARAMS];
+  double qkc[MAXMSUB*MAXNUSR];
   int *alev;
   LEVEL *lev1, *lev2;
   double emin, emax, e, c, b, e0;
+  double rmin, rmax;
 
   f = fopen(fn, "w");
   if (!f) return -1;
@@ -1030,9 +1051,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
   
-  if (n_tegrid == 0) {
-    n_tegrid = 3;
-  } 
   emin = 1E10;
   emax = 1E-10;
   m = 0;
@@ -1050,9 +1068,13 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     printf("No transitions can occur\n");
     return 0;
   }
+
+  if (n_tegrid == 0) {
+    n_tegrid = 3;
+  } 
   if (tegrid[0] < 0.0) {
     e = 2.0*(emax-emin)/(emax+emin);    
-    if (e < 0.2) {
+    if (e < 0.1) {
       SetCETEGrid(1, 0.5*(emin+emax), emax);
     } else if (e < 0.5) {
       SetCETEGrid(2, emin, emax);
@@ -1072,8 +1094,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (egrid_type == 0) e = emax;
   else e = 0.5*(emin+emax);
-  emin = 0.05*e;
-  emax = 8.0*e;
+  if (egrid_limits_type == 0) {
+    rmin = egrid_min;
+    rmax = egrid_max;
+  } else {
+    rmin = egrid_min/e;
+    rmax = egrid_max/e;
+  }
+  emin = rmin*e;
+  emax = rmax*e;
 
   interpolate_egrid = 1;
     
@@ -1090,13 +1119,14 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
 
   if (egrid[0] < 0.0) {
-    if (n_usr > 0 && n_usr < NPARAMS && egrid_type == usr_egrid_type) {
+    if (n_usr > 0 && n_usr <= n_egrid && egrid_type == usr_egrid_type) {
       SetCEEGridDetail(n_usr, usr_egrid);
       interpolate_egrid = 0;
     } else {
       if (n_usr > 0) {
 	emin = usr_egrid[0];
-	emax = usr_egrid[n_usr-1];
+	emax = Min(usr_egrid[n_usr-1], rmax*e);
+	if (emin > 0.5*emax) emin = rmin*e;
 	if (usr_egrid_type == 0) {
 	  emin -= e;
 	  emax -= e;
@@ -1110,18 +1140,21 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
 
-  if (interpolate_egrid) {
-    for (j = 0; j < n_egrid; j++) {
-      for (i = 0; i < n_tegrid; i++) {
-	xegrid[i][j] = egrid[j]/tegrid[i];
-	if (egrid_type == 1) xegrid[i][j] += 1.0;
-	log_xegrid[i][j] = log(xegrid[i][j]);
-      }
-      sigma[j] = 1.0/sqrt(xegrid[0][j]);
-    }
-    n_qk = NPARAMS;
-  } else {
-    n_qk = n_egrid;
+  if (n_usr <= 0) {
+    SetUsrCEEGridDetail(n_egrid, egrid);
+    usr_egrid_type = egrid_type;
+    interpolate_egrid = 0;
+  }
+
+  for (i = 0; i < n_egrid; i++) {
+    log_egrid[i] = egrid[i];
+    if (egrid_type == 1) log_egrid[i] += e;
+    log_egrid[i] = log(log_egrid[i]);
+  }
+  for (i = 0; i < n_egrid; i++) {
+    log_usr[i] = usr_egrid[i];
+    if (usr_egrid_type == 1) log_usr[i] += e;
+    log_usr[i] = log(log_usr[i]);
   }
 
   if (pw_scratch.nkl == 0) {
@@ -1138,7 +1171,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   for (i = 0; i < n_tegrid; i++) {
     fprintf(f, "%10.4E ", tegrid[i]*HARTREE_EV);
   }
-  fprintf(f, "\n");
+  fprintf(f, "\n\n");
 
   if (egrid_type == 0) fprintf(f, " Incident Electron ");
   else fprintf(f, " Scattered Electron ");
@@ -1148,18 +1181,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   fprintf(f, "\n\n");  
 
-  if (interpolate_egrid) {
-    fprintf(f, 
-	    " Strength = Aln(u) + B + Cln(u)/u + D/u + Eln(u)/u^2 + F/u^2\n");
-  }
-
-  if (output_format >= 0 && n_usr > 0) {
-    if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid ");
-    else fprintf(f, " Scattered Electron UsrEGrid ");
-    fprintf(f, "\n");
-  }
-
-  fprintf(f, "\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid ");
+  else fprintf(f, " Scattered Electron UsrEGrid ");
+  fprintf(f, "\n\n");
 
   fprintf(f, "low   2J   up    2J   Delta_E\n");
   for (i = 0; i < nlow; i++) {
@@ -1170,64 +1194,37 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       if (k < 0) continue;
       fprintf(f, "%-5d %-2d   %-5d %-2d   %10.4E\n", 
 	      low[i], j1, up[j], j2, e*HARTREE_EV);
-      if (interpolate_egrid) {
-	if (output_format >= 0) {
-	  for (ie = 0; ie < n_usr; ie++) {
-	    xusr[ie] = usr_egrid[ie]/e;
-	    if (usr_egrid_type == 1) xusr[ie] += 1.0;
-	    log_xusr[ie] = log(xusr[ie]);
-	  }
+      for (ie = 0; ie < n_usr; ie++) {
+	fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
+	if (usr_egrid_type == 0) {
+	  e0 = usr_egrid[ie];
+	} else {
+	  e0 = usr_egrid[ie] + e;
 	}
-	ip = 0;
+	b = 1.0+0.5*FINE_STRUCTURE_CONST2*e0;
+	n = j2 + 1;
+	ip = ie;
 	for (m = 0; m < k; m++) {
-	  for (ie = 0; ie < NPARAMS; ie++) {    
-	    fprintf(f, "%11.4E  ", qkc[ip+ie]);	    
+	  c = qkc[ip];
+	  if (output_format != 2) {
+	    fprintf(f, "%-10.3E ", c);
 	  }
-	  fprintf(f, "\n");
-	  ip += n_qk;
+	  if (output_format != 1) {
+	    c *= PI * AREA_AU20/(2*e0*b*(j1+1));
+	    fprintf(f, "%-10.3E ", c);
+	  }
+	  fprintf(f, " ");
+	  if (m == n) {
+	    n += j2 + 1;
+	    fprintf(f, "\n           ");
+	  }
+	  ip += n_usr;
 	}
 	fprintf(f, "\n");
       }
-      if (output_format >= 0 && n_usr > 0) {
-	for (ie = 0; ie < n_usr; ie++) {
-	  fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
-	  if (usr_egrid_type == 0) {
-	    e0 = usr_egrid[ie];
-	  } else {
-	    e0 = usr_egrid[ie] + e;
-	  }
-	  b = 1.0+0.5*FINE_STRUCTURE_CONST2*e0;
-	  n = j2 + 1;
-	  ip = 0;
-	  for (m = 0; m < k; m++) {
-	    if (interpolate_egrid) {	
-	      CERadialQkBasis(NPARAMS, qkb, xusr[ie], log_xusr[ie]);
-	      c = 0.0;
-	      for (jp = 0; jp < NPARAMS; jp++) c += qkb[jp]*qkc[ip+jp];
-	    } else {
-	      c = qkc[ip+ie];
-	    }
-	    if (output_format != 2) {
-	      fprintf(f, "%-10.3E ", c);
-	    }
-	    if (output_format != 1) {
-	      c *= PI * AREA_AU20/(2*e0*b*(j1+1));
-	      fprintf(f, "%-10.3E ", c);
-	    }
-	    fprintf(f, " ");
-	    if (m == n) {
-	      n += j2 + 1;
-	      fprintf(f, "\n           ");
-	    }
-	    ip += n_qk;
-	  }
-	  fprintf(f, "\n");
-	}
-	fprintf(f, "\n");
-      }
+      fprintf(f, "\n");
     }
   }
-  fprintf(f, "\n");
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
@@ -1348,6 +1345,7 @@ int InitExcitation() {
   n_tegrid = 0;
   n_usr = 0;
   egrid[0] = -1.0;
+  SetCEEGridLimits(-1.0, -1.0, 0);
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
   output_format = 0;

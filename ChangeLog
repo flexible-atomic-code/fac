@@ -1,3 +1,11 @@
+Version 0.6.3, 10/22/2001
+	1. allow the use of CBO approximation in the collisional
+	   ionization calculation. 
+	2. allow the specification of energy grid limits for automatic
+	   construction via SetPEGridLimits(min, max) etc.
+	3. fitting of EIE collision strength is abandoned, in favor of
+	   interpolation, which is more reliable. 
+	
 Version 0.6.2, 10/19/2001
 	1. the fitting of RR cross sections doesn't work quite well, 
 	   changed back to interpolation.

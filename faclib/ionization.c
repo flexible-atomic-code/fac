@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.21 2001/10/19 22:45:39 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.22 2001/10/22 18:42:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -10,6 +10,42 @@ USE (rcsid);
 #define MAXNQK (MAXNE*(MAXNE+1)/2)
 #define NPARAMS 4
 #define BUFSIZE 128
+#define NCBOMAX 6
+
+static double cbo_params[(NCBOMAX+1)*NCBOMAX/2][NPARAMS] = {
+  /* 1s */
+  {1.130,	4.41,   -2.00,	3.80},
+  
+  /* 2s 2p */
+  {0.823,	3.69,	0.62,	1.79},
+  {0.530,	5.07,	1.20,	2.50},
+
+  /* 3s 3p 3d */
+  {0.652,	3.83,	0.64,	2.10},
+  {0.551,	4.38,	1.83,	1.90},
+  {0.280,	5.70,	2.21,	2.65},
+
+  /* 4s 4p 4d 4f */
+  {0.549,	3.93,	0.75,	2.51},
+  {0.512,	4.29,	1.86,	1.68},
+  {0.373,	4.87,	2.85,	1.90},
+  {0.151,	5.94,	3.12,	2.38},
+
+  /* 5s 5p 5d 5f 5g */
+  {0.495,	4.02,	1.20,	2.31},
+  {0.475,	4.48,	0.96,	2.80},
+  {0.390,	4.80,	2.69,	1.75},
+  {0.240,	5.46,	2.87,	2.62},
+  {0.084,	6.11,	3.57,	2.37},
+
+  /* 6s 6p 6d 6f 6g 6h */
+  {0.475,	4.28,	1.05,	2.49},
+  {0.450,	4.59,	0.75,	3.27},
+  {0.390,	5.02,	1.66,	2.67},
+  {0.285,	5.28,	3.02,	2.22},
+  {0.145,	5.91,	2.84,	3.12},
+  {0.047,	6.21,	3.90,	2.34},
+};
 
 static int output_format = 0;
 static int egrid_type = -1;
@@ -30,6 +66,9 @@ static double qk_usr[MAXNUSR];
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
+static double egrid_min = 0.05;
+static double egrid_max = 8.0;
+static int egrid_limits_type = 0;
 static double sigma[MAXNE];
 static double xegrid[MAXNTE][MAXNE];
 static double log_xegrid[MAXNTE][MAXNE];
@@ -93,6 +132,16 @@ int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
   pw_scratch.nkl = 0;
   return 0;
 }  
+
+int SetCIEGridLimits(double min, double max, int type) {
+  if (min <= 0) egrid_min = 0.05;
+  else egrid_min = min;
+  if (max <= 0) egrid_max = 8.0;
+  else egrid_max = max;
+  egrid_limits_type = type;
+
+  return 0;
+}
 
 int SetCIEGridDetail(int n, double *xg) {
   n_egrid = SetEGridDetail(egrid, log_egrid, n, xg);
@@ -432,8 +481,8 @@ void CIRadialQkIntegratedBasis(int npar, double *yb, double x, double log_x) {
   y2 = 1.0 - y1;
   yb[0] = log_x;
   yb[1] = y2*y2;
-  yb[2] = log_x*y1 ;
-  yb[3] = y2;
+  yb[2] = y2*y1 ;
+  yb[3] = yb[2]*y1;
 }
 
 int LoadCIRadialQkIntegrated(int n, char *s) {
@@ -456,10 +505,16 @@ int LoadCIRadialQkIntegrated(int n, char *s) {
     qk_mode = QKDETAIL;
     return 0;
   }
-  if (s == NULL) return -1;
 
   emin = 1E10;
   emax = 0.0;
+  if (s == NULL) {
+    if (n > 6) {
+      qk_mode = QKDETAIL;
+      return 0;
+    }
+    iz = (n-1)*n/2;    
+  }
   for (kl = 0; kl < n; kl++) {
     kl2 = 2*kl;
     for (j = kl2-1; j <= kl2+1; j += 2) {
@@ -469,17 +524,36 @@ int LoadCIRadialQkIntegrated(int n, char *s) {
       if (i < 0) continue;
       orb = GetOrbital(i);
       e0 = -(orb->energy);
+      if (s == NULL) {
+	index[0] = 0;
+	index[1] = i;
+	index[2] = i;
+	p = MultiSet(qk_array, index, NULL);
+	if (*p) free(*p);
+	*p = (double *) malloc(sizeof(double)*NPARAMS);
+	for (np = 0; np < NPARAMS; np++) {
+	  (*p)[np] = (cbo_params[iz+kl][np]/e0) * (PI/32.0);
+	}
+      }
       if (e0 > emax) emax = e0;
       if (e0 < emin) emin = e0;
     }
   }
-  if (n_tegrid == 1) emin = 0.5*(emin+emax);
+
+  if (s == NULL) {
+    n_tegrid = 1;
+    emin = 0.5*(emin+emax);
+    SetIEGrid(n_tegrid, emin, emax);
+    qk_mode = QKFIT;
+    return 0;
+  }
 
   f = fopen(s, "r");
-
+  
   sb = fgets(buf, BUFSIZE, f);
   if (sb == NULL) return -1;
   sscanf(sb, "%d", &n_tegrid);
+  if (n_tegrid == 1) emin = 0.5*(emin+emax);
   SetIEGrid(n_tegrid, emin, emax);
 
   sb = fgets(buf, BUFSIZE, f);
@@ -894,6 +968,9 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
 	else np = 3;
 	sdbi3p_(&np, &nqk, xr, yr, qk, &nd, &x, &y, &integrand[i],
 		&ierr, _dwork, _iwork);
+	if (kb == kbp) {
+	  integrand[i] = exp(integrand[i]);
+	}
       }   
       x = Simpson(integrand, 0, NINT-1);
       x *= yegrid0[1]*egrid[ie1];
@@ -957,6 +1034,18 @@ double *CIRadialQkTable(int kb, int kbp) {
 	if (k > 2 && fabs(qi[0]/qk[j]) < pw_scratch.tolerence) break;
       }
       j++;
+    }
+  }
+
+  if (kb == kbp) {
+    t = 0;
+    for (ite = 0; ite < n_tegrid; ite++) {
+      for (ie1 = 0; ie1 < n_egrid; ie1++) {
+	for (ie2 = 0; ie2 <= ie1; ie2++) {
+	  qk[t] = log(qk[t]);
+	  t++;
+	}
+      }
     }
   }
 
@@ -1046,7 +1135,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
   if (tegrid[0] < 0.0) {
     e = 2.0*(emax-emin)/(emax+emin);
-    if (e < 0.2) {
+    if (e < 0.1) {
       SetIEGrid(1, 0.5*(emin+emax), emax);
     } else if (e < 0.5) {
       SetIEGrid(2, emin, emax);
@@ -1057,8 +1146,13 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
 
   e = 0.5*(emin + emax);
-  emin = 0.05*e;
-  emax = 8.0*e;
+  if (egrid_limits_type == 0) {
+    emin = egrid_min*e;
+    emax = egrid_max*e;
+  } else {
+    emin = egrid_min;
+    emax = egrid_max;
+  }
   egrid_type = 1;
   pw_type = 0;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
@@ -1110,7 +1204,8 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
   }
   fprintf(file, "\n\n");
-  fprintf(file, " Strength = A*ln(u) + B*(1-1/u)^2 + C*ln(u)/u + D*(1-1/u)\n");
+  fprintf(file, 
+	  " Strength = A*ln(u)+B*(1-1/u)^2+C*(1-1/u)/u+D*(1-1/u)/u^2\n");
   if (output_format >= 0 && n_usr >= 0) {	
     if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid ");
     else fprintf(file, " Scattered Electron UsrEGrid ");
@@ -1148,6 +1243,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	  if (output_format != 1) {
 	    e0 = usr_egrid[ie];
 	    if (usr_egrid_type == 1) e0 += e;
+	    e0 *= 1.0+FINE_STRUCTURE_CONST2*e0;
 	    s *= AREA_AU20/(2*e0*(j1+1.0));
 	    fprintf(file, "%-10.3E ", s);
 	  }
@@ -1187,6 +1283,7 @@ int InitIonization() {
   n_tegrid = 0;
   n_usr = 0;
   egrid[0] = -1.0;
+  SetCIEGridLimits(-1.0, -1.0, 0);
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
   output_format = 0;

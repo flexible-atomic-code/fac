@@ -36,6 +36,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol);
 int AddCEPW(int n, int step);
 int SetCEFormat(int m);
 int SetCEPWGrid(int ns, int *n, int *step);
+int SetCEEGridLimits(double min, double max, int type);
 int SetCEEGridType(int type);
 int SetUsrCEEGridType(int type);
 int SetCEPWGridType(int type);
@@ -54,7 +55,6 @@ int CERadialQk(double *r, double te,
 	       int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, int nq, int *q);
-void CERadialQkBasis(int npar, double *yb, double x, double logx);
 int CollisionStrength(double *s, double *e, int lower, int upper, int msub);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 

@@ -26,6 +26,7 @@ int SetRRTEGrid(int n, double emin, double emax);
 int SetRRTEGridDetail(int n, double *x);
 int SetPEGrid(int n, double emin, double emax, double eth);
 int SetPEGridDetail(int n, double *x);
+int SetPEGridLimits(double min, double max, int type);
 int SetUsrPEGridType(int type);
 int SetUsrPEGrid(int n, double emin, double emax, double eth);
 int SetUsrPEGridDetail(int n, double *x);
