@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.72 2005/01/30 00:47:05 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.73 2005/02/03 22:14:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3577,4 +3577,94 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
   }
 
   return nb;
+}
+
+int AppendTable(char *fn) {
+  F_HEADER fh;
+  FILE *f;
+  int n, swp;
+    
+  f = fopen(fn, "r");
+  if (f == NULL) return -1;
+  n = ReadFHeader(f, &fh, &swp);
+  if (swp) {
+    printf("File %s is in different byte-order\n");
+    fclose(f);
+    return -1;
+  }
+  memcpy(&(fheader[fh.type-1]), &fh, sizeof(F_HEADER));
+  fclose(f);
+  
+  return 0;
+}
+  
+int JoinTable(char *fn1, char *fn2, char *fn) {
+  F_HEADER fh1, fh2;
+  FILE *f1, *f2, *f;
+  int n, swp1, swp2;
+#define NBUF 8192
+  char buf[NBUF];
+
+  f1 = fopen(fn1, "r");
+  if (f1 == NULL) return -1;
+  f2 = fopen(fn2, "r");
+  if (f2 == NULL) return -1;
+
+  n = ReadFHeader(f1, &fh1, &swp1);
+  if (n == 0) {
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+  n = ReadFHeader(f2, &fh2, &swp2);
+  if (n == 0) {
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+  if (swp1 != swp2) {
+    printf("Files %s and %s have different byte-order\n", fn1, fn2);
+    return -1;
+  }
+  if (fh1.type != fh2.type) {
+    printf("Files %s and %s are of different type\n", fn1, fn2);
+    return -1;
+  }
+  if (fh1.atom != fh2.atom) {
+    printf("Files %s and %s are for different element\n", fn1, fn2);
+    return -1;
+  }
+
+  f = fopen(fn, "w");
+  if (f == NULL) return -1;
+  fh1.nblocks += fh2.nblocks;
+  
+  WriteFHeader(f, &fh1);
+  while (1) {
+    n = fread(buf, 1, NBUF, f1);
+    if (n > 0) {
+      if (n > fwrite(buf, 1, n, f)) {
+	printf("write error\n");
+	return -1;
+      }
+    }
+    if (n < NBUF) break;
+  }
+  while (1) {
+    n = fread(buf, 1, NBUF, f2);
+    if (n > 0) {
+      if (n > fwrite(buf, 1, n, f)) {
+	printf("write error\n");
+	return -1;
+      }
+    }
+    if (n < NBUF) break;
+  }
+
+  fclose(f1);
+  fclose(f2);
+  fclose(f);
+  
+  return 0;
+#undef NBUF
 }
