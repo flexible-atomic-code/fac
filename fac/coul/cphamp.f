@@ -31,12 +31,8 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       complex*16 sig(MAXN)
 
       mode = ierr
-      if (eta0 .gt. 0.0) then 
-         eta = dcmplx(-eta0, 0.0)
-         kfn = 0
-      else
-         kfn = 1
-      endif
+      eta = dcmplx(-eta0, 0.0)
+      kfn = 0
 
       x = dcmplx(x0, 0.0)
       if (lambda .lt. MAXL+1) then 

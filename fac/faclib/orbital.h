@@ -10,6 +10,7 @@ typedef struct _POTENTIAL_ {
   int flag;
   int r_core;
   int maxrp;
+  double ratio, asymp;
   double Z[MAXRP]; /*effective atomic number*/
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
@@ -55,7 +56,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);
 void Differential(double *p, double *dp, int i1, int i2);
-int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax);
+int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double r0);
 int SetPotentialZ(POTENTIAL *pot, double c);
 int SetPotentialUehling(POTENTIAL *pot, int vp);

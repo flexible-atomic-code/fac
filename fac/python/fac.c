@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.85 2004/07/06 07:09:25 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.86 2004/07/08 18:41:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3633,15 +3633,16 @@ static PyObject *PY5N(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
-  double z, e, r, ph;
+  double z, e, r;
   double p, q, u, v;
-  int k;
+  int k, ierr;
 
   if (!PyArg_ParseTuple(args, "ddid", &z, &e, &k, &r)) return NULL;
   e /= HARTREE_EV;
-  DCOUL(-z, e, k, r, &p, &q, &u, &v, &ph);
+  ierr = 1;
+  DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
   
-  return Py_BuildValue("(ddddd)", p, q, u, v, ph);
+  return Py_BuildValue("(ddddi)", p, q, u, v, ierr);
 }
   
 static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {
@@ -4123,6 +4124,25 @@ static PyObject *PRMatrixSurface(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PTestRMatrix(PyObject *self, PyObject *args) {
+  char *fn1, *fn2, *fn3;
+  double e;
+  int m;
+  
+  if (sfac_file) {
+    SFACStatement("TestRMatrix", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "disss", &e, &m, &fn1, &fn2, &fn3)) return NULL;
+  
+  TestRMatrix(e, m, fn1, fn2, fn3);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PSetSlaterCut(PyObject *self, PyObject *args) {
   int k0, k1;
   
@@ -4141,6 +4161,7 @@ static PyObject *PSetSlaterCut(PyObject *self, PyObject *args) {
 }  
   
 static struct PyMethodDef fac_methods[] = {
+  {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
   {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
   {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 
   {"RMatrixTargets", PRMatrixTargets, METH_VARARGS}, 

@@ -1,52 +1,3 @@
-      subroutine dcouln(z, e, k, r, p, q, p1, q1)
-      implicit none     
-      integer k, ierr, kfn
-      double precision z, e, r, p, q, p1, q1, c, ki, zp, gam
-      double precision lambda, qi, y, x0, mu, nu
-      complex*16 x, eta, zlmin, omega, a, pp, qq
-      complex*16 fc(1), gc(1), fcp(1), gcp(1), sig(1)
-      double precision SL, SL2, TSL2, ALPHA
-      PARAMETER (SL=137.036D0,SL2=SL*SL,TSL2=SL2+SL2,ALPHA=1.0D0/SL)
-      real*8 HALFPI
-      parameter (HALFPI = 1.5707963268D0)
-      
-      c = 1.0+0.5*e/SL2
-      ki = sqrt(-2.0*e*c)
-      zp = z*ALPHA
-      gam = sqrt(k*k - zp*zp)
-      lambda = gam - 0.5
-      qi = sqrt(c/ki)
-      y = (1.0+e/SL2)*z/ki
-      
-      x0 = ki*r      
-      x = dcmplx(0.0, x0)
-      eta = dcmplx(0.0, 0.5+y)
-      mu = k - z/ki
-      nu = 0.5+y-x0
-      
-      zlmin = dcmplx(lambda, 0.0)
-      ierr = 1
-      if (z .gt. 0) then
-         kfn = 0
-      else
-         kfn = 1
-      endif
-
-      call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
-     +     11, kfn, ierr)
-      omega = HALFPI*(lambda - y - 0.5) - sig(1)
-      a = exp(dcmplx(0.0,1.0)*omega)
-      a = a/mu
-      a = a*sqrt(qi/(2.0*x0))
-      pp = a*((mu + nu)*gc(1) - x*gcp(1))
-      qq = (ALPHA*e/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
-      p = dble(pp)
-      q = dble(qq)
-      p1 = dimag(pp)
-      q1 = dimag(qq)
-
-      end
-      
 C calculates the negtive energy coulomb wavefunction, 
 C and the derivative.
 C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
@@ -79,12 +30,8 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       complex*16 sig(MAXN)
       integer kfn, ierr, k
 
-      if (eta0 .gt. 0.0) then
-         eta = dcmplx(0.0, eta0)
-         kfn = 0
-      else
-         kfn = 1
-      endif 
+      eta = dcmplx(0.0, eta0)
+      kfn = 0
 
       x = dcmplx(0.0, x0)
       if (lambda .lt. MAXL+1) then
