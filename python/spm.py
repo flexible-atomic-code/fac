@@ -723,6 +723,8 @@ def spectrum(neles, temp, den, population, pref,
         else:
             SetBlocks(-1.0)
 
+        print 'TR rates...'
+        SetTRRates(0)
         for i in range(len(temp)):
             p1 = population[i][k-1]
             p2 = population[i][k]
@@ -748,8 +750,6 @@ def spectrum(neles, temp, den, population, pref,
             if (ce > 0):
                 print 'CE rates...'
                 SetCERates(1)
-            print 'TR rates...'
-            SetTRRates(0)
             if (nion > 1):
                 if (rr > 0):
                     print 'RR rates...'
@@ -794,9 +794,9 @@ def spectrum(neles, temp, den, population, pref,
                 PrintTable(rt_file, rt_afile, 1)
                 PrintTable(sp_file, sp_afile, 1)
                 sys.stdout.flush()
-                ReinitCRM(2)
-            ReinitCRM(1)
-        ReinitCRM()
+                ReinitCRM(3)
+            ReinitCRM(2)
+        ReinitCRM(0)
 
 
 def maxwell(e, t):

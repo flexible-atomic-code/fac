@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.52 2003/05/23 21:28:02 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.53 2003/06/08 15:35:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -205,7 +205,7 @@ int ReinitCRM(int m) {
   if (m < 0) return 0;
 
   ReinitDBase(0);
-  if (m == 2) return 0;
+  if (m == 3) return 0;
   
   if (m == 1) {
     for (k = 0; k < ions->dim; k++) {
@@ -218,7 +218,17 @@ int ReinitCRM(int m) {
       ArrayFree(ion->ai_rates, FreeBlkRateData);
     }
     return 0;
+  } else if (m == 2) {
+    for (k = 0; k < ions->dim; k++) {
+      ion = (ION *) ArrayGet(ions, k);
+      ArrayFree(ion->ce_rates, FreeBlkRateData);
+      ArrayFree(ion->ci_rates, FreeBlkRateData);
+      ArrayFree(ion->rr_rates, FreeBlkRateData);
+      ArrayFree(ion->ai_rates, FreeBlkRateData);
+    }
+    return 0;
   }
+
   for (i = 0; i < NDB; i++) {
     if (ion0.dbfiles[i]) free(ion0.dbfiles[i]);
     ion0.dbfiles[i] = NULL;
