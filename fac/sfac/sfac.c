@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.47 2004/02/23 22:05:34 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.48 2004/02/23 22:08:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2733,11 +2733,25 @@ static int PSetTransitionMaxM(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PAsymmetry(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int mx;
+  
+  if (argc < 2) return -1;
+  if (argc == 3) mx = atoi(argv[2]);
+  else mx = 1;
+  
+  SaveAsymmetry(argv[0], argv[1], mx);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
   {"AITableMSub", PAITableMSub, METH_VARARGS},
+  {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
