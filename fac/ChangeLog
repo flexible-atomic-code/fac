@@ -1,3 +1,6 @@
+Version 1.0.6, 06/05/2004
+	1. parallelize StructureMBPT
+	
 Version 1.0.5, 05/30/2004
 	1. implement magnetic sublevel ionization
 	2. fix bugs in radial integration.
