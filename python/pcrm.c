@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.4 2002/01/24 03:14:31 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.5 2002/01/24 04:49:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -675,7 +675,7 @@ static struct PyMethodDef crm_methods[] = {
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"Spline", PSpline, METH_VARARGS},
   {"Splint", PSplint, METH_VARARGS},
-  {"", NULL, METH_VARARGS}
+  {NULL, NULL}
 };
 
 void initcrm(void) {
