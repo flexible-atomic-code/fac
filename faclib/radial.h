@@ -7,6 +7,7 @@
 #include "global.h"
 #include "nucleus.h"
 #include "interpolation.h"
+#include "grid.h"
 #include "coulomb.h"
 #include "orbital.h"
 #include "config.h"
@@ -26,6 +27,7 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
+int SetAWGrid(int n, double min, double max);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
 int GetPotential(char *s);
@@ -77,7 +79,7 @@ int FreeMomentsArray();
 double RadialMoments(int m, int k1, int k2);
 double MultipoleRadialNR(int m, int k1, int k2, int guage);
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int guage);
-double MultipoleIJ(double aw, int m, int k1, int k2, int t);
+double InterpolateMultipole(double aw2, int n, double *x, double *y);
 
 int SaveOrbital(int i);
 int RestoreOrbital(int i); 

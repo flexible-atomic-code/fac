@@ -1,3 +1,10 @@
+Version 0.5.9, 10/05/2001
+	1. reimplemented the transition radial integrals to better 
+	   distinguish relativistic and non-relativistic approx.
+	2. the relativistic multipole integrals are now interpolated
+	   from a range of transition energies, in stead of using the
+	   average, which seem to be not enough for M1 transitions
+
 Version 0.5.8, 10/04/2001
 	1. really fixed the occasionall failur of radial solver.
 	2. the output level names are simplified by 
