@@ -12,17 +12,14 @@ typedef struct _POTENTIAL_ {
   double max_points;
   double Z[MAX_POINTS]; /*effective atomic number*/
   double N; /*number of electrons*/
-  double lambda, lambdap;
-  double a, ap;
+  double lambda;
+  double a;
   double rad[MAX_POINTS], ar, br;
   double dr_drho[MAX_POINTS];
   double drho_dr2[MAX_POINTS];
   double Vc[MAX_POINTS];
   double dVc[MAX_POINTS];
   double dVc2[MAX_POINTS];
-  double Vtail[MAX_POINTS];
-  double dVtail[MAX_POINTS];
-  double dVtail2[MAX_POINTS];
   double U[MAX_POINTS];
   double dU[MAX_POINTS];
   double dU2[MAX_POINTS];
@@ -55,7 +52,6 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax);
 double GetRFromRho(double rho, double a, double b, double r0);
 int SetPotentialZ(POTENTIAL *pot, double c);
 int SetPotentialVc(POTENTIAL *pot);
-int SetPotentialVTail(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW (POTENTIAL *pot, double e, int kappa);
 

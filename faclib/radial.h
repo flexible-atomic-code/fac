@@ -41,7 +41,7 @@ double GetPhaseShift(int k, int mode);
 
 /* radial optimization */
 void SetOptimizeControll(double tolerence, int maxiter, int iprint);
-void SetScreening(int n);
+void SetScreening(int n_screen, int *screened_n, double screened_harge);
 int OptimizeRadial(int ng, int *kg, double *weight);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);

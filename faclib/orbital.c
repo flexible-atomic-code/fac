@@ -67,7 +67,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double *p, p2, qi, qo, delta, ep, norm2, fact, eps;
   
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
-  if (pot->flag == 2 || pot->flag == -2) z -= 1.0;
   if (orb->energy >= 0.0) {
     e = z/orb->n; 
     e = -e*e/2.0;
@@ -329,7 +328,6 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
 
   for (i = 0; i < i1; i++) {
     xi = e - pot->Vc[i] - pot->U[i];
-    if (pot->flag == -2) xi -= pot->Vtail[i];
     xi = xi*FINE_STRUCTURE_CONST2*0.5;
     _dwork[i] = 1.0 + xi;
     _dwork1[i] = sqrt(_dwork[i])*p[i];
@@ -380,7 +378,6 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
   if (orb->n > 0) {
     for (i = i1; i < MAX_POINTS; i++) {
       xi = e - pot->Vc[i] - pot->U[i];
-      if (pot->flag == -2) xi -= pot->Vtail[i];
       xi = xi*FINE_STRUCTURE_CONST2*0.5;
       _dwork[i] = 1.0 + xi;
       p[i] = sqrt(_dwork[i])*p[i];
@@ -402,7 +399,6 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
   
   for (i = i1; i < MAX_POINTS; i += 2) {
     xi = e - pot->Vc[i] - pot->U[i];
-    if (pot->flag == -2) xi -= pot->Vtail[i];
     xi = xi*FINE_STRUCTURE_CONST2*0.5;
     _dwork[i] = 1.0 + xi;
     _dwork1[i] = sqrt(_dwork[i])*p[i];
@@ -449,10 +445,6 @@ int _Amplitude(double *p, double e, int kl,
     if (pot->flag < 0) {
       a += pot->dW[i];
       b += pot->dW2[i];
-    }
-    if (pot->flag == 2 || pot->flag == -2) {
-      a += pot->dVtail[i];
-      b += pot->dVtail2[i];
     }
     _dwork1[i] = 0.5*x*y*(2.5*x*a*a + b);
     _dwork2[i] = 0.0;
@@ -508,9 +500,6 @@ int _SetVEffective(int kl, POTENTIAL *pot) {
     r = pot->rad[i];
     r *= r;
     _veff[i] = pot->Vc[i] + pot->U[i] + kl1/r;
-    if (pot->flag == 2 || pot->flag == -2) {
-      _veff[i] += pot->Vtail[i]; 
-    }
     if (pot->flag < 0) {
       _veff[i] += pot->W[i];
     }
@@ -872,37 +861,6 @@ int SetPotentialVc(POTENTIAL *pot) {
   return 0;
 }
 
-int SetPotentialVTail(POTENTIAL *pot) {
-  int i;
-  double r, r2, v, x, y, a, b, v0;
-  
-  if (pot->N > 0 && (pot->ap > 0.0 || pot->lambdap > 0.0)) {
-    for (i = 0; i < MAX_POINTS; i++) {
-      r = pot->rad[i];
-      r2 = r*r;
-      v0 = 1.0/r;
-      x = 1.0 + r*pot->ap;
-      a = exp(-pot->lambdap * r);
-      v = v0 * (1.0 - a/x);
-      pot->Vtail[i] = v;      
-      b = (pot->lambdap + pot->ap/x);
-      y = -v/r + (v0 - v)*b;
-      pot->dVtail[i] = y;
-      pot->dVtail2[i] = y/r;
-      pot->dVtail2[i] += v/r2;
-      pot->dVtail2[i] -= (v0/r + y) * b;
-      pot->dVtail2[i] -= (v0 - v)*(pot->ap*pot->ap)/(x*x);
-    }
-  } else {
-    for (i = 0; i < MAX_POINTS; i++) {
-      pot->Vtail[i] = 0.0;
-      pot->dVtail[i] = 0.0;
-      pot->dVtail2[i] = 0.0;
-    }
-  }
-  return 0;
-}
-
 int SetPotentialU(POTENTIAL *pot, int n, double *u) {
   int i;
   
@@ -944,15 +902,12 @@ int SetPotentialW (POTENTIAL *pot, double e, int kappa) {
 
   for (i = 0; i < MAX_POINTS; i++) {
     xi = e - pot->Vc[i] - pot->U[i];
-    if (pot->flag == -2) xi -= pot->Vtail[i];
     r = xi*FINE_STRUCTURE_CONST2*0.5 + 1.0;
   
     x = pot->dU[i] + pot->dVc[i];
-    if (pot->flag == -2) x += pot->dVtail[i];
     y = - 2.0*kappa*x/pot->rad[i];
     x = x*x*0.75*FINE_STRUCTURE_CONST2/r;
     z = (pot->dU2[i] + pot->dVc2[i]);
-    if (pot->flag == -2) z += pot->dVtail2[i];
     pot->W[i] = x + y + z;
     pot->W[i] /= 4.0*r;
     x = xi*xi;

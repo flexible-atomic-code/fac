@@ -27,9 +27,11 @@ static double _xk[MAX_POINTS];
 static struct {
   double tolerence; /* tolerence for self-consistency */
   int maxiter; /* max iter. for self-consistency */
-  int screening; /* after which n, additional screening of one more e-*/
+  double screened_charge; 
+  int n_screen;
+  int *screened_n;
   int iprint; /* printing infomation in each iteration. */
-} optimize_controll = {EPS6, 100, 8, 0};
+} optimize_controll = {EPS6, 100, 1.0, 0, NULL, 0};
 
 static AVERAGE_CONFIG average_config;
 
@@ -53,8 +55,11 @@ void SetOptimizeControll(double tolerence, int maxiter, int iprint) {
   optimize_controll.iprint = iprint;  
 }
 
-void SetScreening(int n) {
-  optimize_controll.screening = n;
+void SetScreening(int n_screen, int *screened_n, 
+		  double screened_charge) {
+  optimize_controll.screened_n = screened_n;
+  optimize_controll.screened_charge = screened_charge;
+  optimize_controll.n_screen = n_screen;
 }
 
 int SetRadialGrid(double rmin, double rmax) {
@@ -93,7 +98,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
 
   u = potential->U;
   w = potential->W;
-  v = potential->Vtail;
+  v = _phase;
 
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
@@ -218,8 +223,8 @@ int GetPotential(char *s) {
   f = fopen(s, "w");
   if (!f) return -1;
   
-  fprintf(f, "Lambda = %10.3E, A = %10.3E;\tLambdaP = %10.3E, AP = %10.3E\n",
-	  potential->lambda, potential->a, potential->lambdap, potential->ap);
+  fprintf(f, "Lambda = %10.3E, A = %10.3E\n",
+	  potential->lambda, potential->a);
 
   
   for (j = 0; j < MAX_POINTS; j++) {
@@ -253,19 +258,17 @@ int GetPotential(char *s) {
   }
 
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%-5d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+    fprintf(f, "%-5d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
-	    potential->U[i], v[i], potential->Vtail[i]);
+	    potential->U[i], v[i]);
   }
 
-  fclose(f);
-  
+  fclose(f);  
 }
 
 double GetResidualZ(int m) {
   double z;
   z = potential->Z[MAX_POINTS-1] - potential->N + 1;
-  if (m) z -= 1; 
   return z;
 }
 
@@ -288,9 +291,15 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
-  GetAverageConfig(ng, kg, weight, acfg); 
+  GetAverageConfig(ng, kg, weight, 
+		   optimize_controll.n_screen,
+		   optimize_controll.screened_n,
+		   optimize_controll.screened_charge,
+		   acfg); 
   a = 0;
   for (i = 0; i < acfg->n_shells; i++) {
+    if (optimize_controll.iprint) 
+      printf("%d %d %f\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
     a += acfg->nq[i];
   }
   potential->N = a;  
@@ -380,18 +389,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     return 1;
   }
 
-  a = optimize_controll.screening;
-  a = a*a;
-  if (a > 0) {
-    if (a < 10) a = 10.0;
-    potential->lambdap = potential->lambda / a;
-    potential->ap = potential->a / a;
-  } else {
-    potential->lambdap = 0.0;
-    potential->ap = 0.0;
-  }
-  SetPotentialVTail(potential);
-
   return 0;
 }      
     
@@ -409,9 +406,6 @@ int SolveDirac(ORBITAL *orb) {
   err = 0;
   eps = optimize_controll.tolerence*1E-1;
   potential->flag = -1;
-  if (optimize_controll.screening > 0 &&
-      (orb->n <= 0 || orb->n >= optimize_controll.screening)) 
-    potential->flag = -2;
 
   err = RadialSolver(orb, potential, eps);
   if (err) { 
@@ -812,20 +806,10 @@ int ResidualPotential(double *s, int k0, int k1) {
   orb1 = GetOrbital(k0);
   orb2 = GetOrbital(k1);
   if (!orb1 || !orb2) return -1;
-  if (optimize_controll.screening > 0 &&
-      (orb1->n >= optimize_controll.screening || 
-       orb2->n >= optimize_controll.screening ||
-       orb1->n <= 0 ||
-       orb2->n <= 0)) {
-    tail = 1;
-  } else {
-    tail = 0;
-  }
  
   for (i = 0; i < MAX_POINTS; i++) {
     z = potential->U[i];
     z += potential->Vc[i];
-    if (tail) z += potential->Vtail[i];
     _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
   }
   Integrate(_yk, orb1, orb2, 1, s);
@@ -2075,10 +2059,10 @@ int TestIntegrate(char *s) {
 	  orb1->ilast, orb2->ilast, 
 	  orb1->energy, orb2->energy);
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	    i, potential->rad[i],  
 	    _xk[i], potential->Vc[i],
-	    potential->U[i], potential->Vtail[i], 
+	    potential->U[i], 
 	    Large(orb1)[i], Large(orb2)[i]);
   }
 
@@ -2101,10 +2085,10 @@ int TestIntegrate(char *s) {
 	  orb1->energy, orb2->energy,
 	  orb3->energy, orb4->energy);
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	    i, potential->rad[i],  
 	    _yk[i], _zk[i], _xk[i], potential->Vc[i],
-	    potential->U[i], potential->Vtail[i],
+	    potential->U[i],
 	    Large(orb1)[i], Large(orb2)[i], 
 	    Large(orb3)[i], Large(orb4)[i]);
   }

@@ -10,7 +10,7 @@
 %DVIPSWebPage: (www.radicaleye.com)
 %DVIPSCommandLine: dvips -o guide.ps guide
 %DVIPSParameters: dpi=600, compressed
-%DVIPSSource:  TeX output 2001.06.26:1110
+%DVIPSSource:  TeX output 2001.07.10:1038
 %%BeginProcSet: texc.pro
 %!
 /TeXDict 300 dict def TeXDict begin/N{def}def/B{bind def}N/S{exch}N/X{S
@@ -1859,8 +1859,8 @@ rf /Fd 142[43 2[58 1[29 1[40 44[49 76 27 59[{}7 99.6264
 1[51 45 51 76 25 48 1[25 51 45 28 40 51 40 51 45 12[66
 51 2[62 9[59 1[69 66 1[68 18[25 30 25 29[76 14[{}34 90.9091
 /CMR10 rf /Fi 139[41 41 43 14[46 58 51 31[79 65[{}7 90.9091
-/CMBX10 rf /Fj 138[65 6[65 8[52 23[107 2[60 2[92 76 15[59
-3[59 59 59 1[33 1[33 44[{}13 119.552 /CMR12 rf /Fk 138[88
+/CMBX10 rf /Fj 134[62 3[65 8[33 30[107 2[60 2[92 76 19[59
+59 59 1[33 1[33 44[{}12 119.552 /CMR12 rf /Fk 138[88
 1[62 61 8[43 3[70 88 14[119 13[125 104 2[115 1[119 65[{}11
 172.188 /CMR17 rf end
 %%EndProlog
@@ -1871,47 +1871,47 @@ TeXDict begin
 %%EndSetup
 %%Page: 1 1
 1 0 bop 1377 381 a Fk(F)-18 b(A)l(C)52 b(User)g(Guide)1708
-677 y Fj(M.)39 b(F.)g(Gu)1598 909 y(June)g(26,)f(2001)1750
-1274 y Fi(Abstract)380 1440 y Fh(F)-10 b(A)m(C)33 b(is)g(a)g
+677 y Fj(M.)39 b(F.)g(Gu)1609 911 y(July)g(10,)e(2001)1750
+1275 y Fi(Abstract)380 1440 y Fh(F)-10 b(A)m(C)33 b(is)g(a)g
 (collection)i(of)e(library)f(routines)h(and)f(a)h(Python)f(in)m
-(terface)i(to)f(it)g(for)g(calculating)244 1552 y(v)-5
+(terface)i(to)f(it)g(for)g(calculating)244 1553 y(v)-5
 b(arious)45 b(atomic)h(pro)s(cesses,)j(including)44 b(atomic)i
 (structure,)i(electron)f(collisional)g(excitation)244
-1665 y(and)34 b(ionization,)j(photoionization,)h(autoionization,)g(and)
+1666 y(and)34 b(ionization,)j(photoionization,)h(autoionization,)g(and)
 33 b(their)i(in)m(v)m(erse)g(pro)s(cesses,)g(radiativ)m(e)244
-1778 y(and)k(dielectronic)i(recom)m(bination.)69 b(The)39
+1779 y(and)k(dielectronic)i(recom)m(bination.)69 b(The)39
 b(theoretical)j(metho)s(d)d(for)g(the)h(atomic)h(structure)e(is)244
-1891 y(based)44 b(on)h(a)g(self-consisten)m(t)i(Dirac-F)-8
+1892 y(based)44 b(on)h(a)g(self-consisten)m(t)i(Dirac-F)-8
 b(ork-Slater)48 b(pro)s(cedure.)83 b(The)45 b(excitation,)51
-b(ionization,)244 2004 y(and)38 b(recom)m(bination)i(implemen)m(ts)f
+b(ionization,)244 2005 y(and)38 b(recom)m(bination)i(implemen)m(ts)f
 (the)g(e\016cien)m(t)h(factorization-in)m(terp)s(olation)j(metho)s(d.)
-66 b(The)244 2117 y(Python)20 b(in)m(terface)j(pro)m(vides)d(functions)
+66 b(The)244 2118 y(Python)20 b(in)m(terface)j(pro)m(vides)d(functions)
 h(for)f(accessing)i(the)f(library)g(from)f(the)h(scripting)g(language)
 244 2230 y(Python.)40 b(This)30 b(guide)g(do)s(cumen)m(ts)g(these)h
 (routines)f(in)g(the)h(order)f(of)g(their)h(category)-8
-b(.)0 2562 y Fg(1)161 b(General)0 2781 y Ff(Some)28 b(functions)h(are)e
-(general)h(to)f(all)h(atomic)g(pro)s(cesses)h(suc)m(h)g(as)f(sp)s
-(ecifying)h(an)e(electronic)i(con\014gura-)0 2902 y(tion.)42
-b(They)29 b(are)e(collected)i(in)e(this)h(section.)43
-b(In)28 b(this)g(and)g(the)f(follo)m(wing)h(sections,)i(if)d(a)h
-(function)f(name)0 3022 y(is)34 b(not)g(fully)g(quali\014ed)h(with)g
-(its)f(mo)s(dule)g(name,)h(it)f(is)g(assumed)h(that)f(it)g(comes)h
-(from)e(mo)s(dule)h(\\fac",)0 3142 y(whic)m(h)k(is)f(the)g(main)f(mo)s
-(dule)h(in)m(terfacing)g(within)h(the)f(in)m(ternal)g(\\C")f(library)-8
-b(.)55 b(As)37 b(a)f(con)m(v)m(en)m(tion,)k(all)0 3263
-y(functions)34 b(from)e(\\fac")g(has)h(names)g(with)h(eac)m(h)f(w)m
-(ord)g(capitalized)h(in)f(\014rst)g(letter.)0 3488 y
-Fe(SetA)m(tom\(s,)k(z,)g(mass\))50 b Ff(Set)30 b(the)h(Elemen)m(t.)45
-b(\\s")30 b(is)g(the)h(elemen)m(t)h(sym)m(b)s(ol,)g(\\z")e(is)h(the)f
-(atomic)h(n)m(um-)244 3609 y(b)s(er,)41 b(\\mass")f(is)f(the)h(mass)g
-(of)f(the)g(n)m(ucleus.)66 b(\\z")39 b(and)g(\\mass")h(ma)m(y)g(b)s(e)f
-(ommited,)j(in)d(whic)m(h)244 3729 y(case,)33 b(their)g(v)-5
-b(alues)33 b(are)f(determined)i(b)m(y)f(lo)s(oking)f(up)h(an)f(in)m
-(ternal)h(table.)43 b(e.g.,)33 b(SetA)m(tom\('F)-8 b(e'\),)244
-3849 y(SetA)m(tom\('F)g(e',)33 b(26\),)g(SetA)m(tom\('F)-8
-b(e',)33 b(26,)f(56\).)0 4052 y Fe(con\014g.closed\(s\))49
-b Ff(Sp)s(ecify)35 b(an)m(y)f(fully)g(o)s(ccupied)h(shell)g(for)e(all)g
-(the)h(con\014gurations)h(to)e(come.)47 b(\\s")33 b(is)244
+b(.)0 2563 y Fg(1)161 b(General)0 2782 y Ff(Some)35 b(functions)g(are)f
+(general)h(to)f(all)g(atomic)g(pro)s(cesses)i(suc)m(h)g(as)f(sp)s
+(ecifying)g(an)f(electronic)i(con\014gu-)0 2902 y(ration.)58
+b(They)40 b(are)d(collected)i(in)f(this)h(section.)60
+b(In)38 b(this)g(and)g(the)g(follo)m(wing)g(sections,)j(if)c(a)g
+(function)0 3023 y(name)e(is)h(not)f(fully)g(quali\014ed)h(with)g(its)f
+(mo)s(dule)h(name,)g(it)f(is)g(assumed)i(that)e(it)g(comes)h(from)e(mo)
+s(dule)0 3143 y(\\fac",)e(whic)m(h)i(is)f(the)g(main)g(mo)s(dule)g(in)m
+(terfacing)g(with)h(the)f(in)m(ternal)g(\\C")f(library)-8
+b(.)44 b(As)33 b(a)g(con)m(v)m(en)m(tion,)0 3263 y(all)f(functions)i
+(from)e(\\fac")g(has)h(names)h(with)f(eac)m(h)h(w)m(ord)f(capitalized)h
+(in)e(\014rst)h(letter.)0 3489 y Fe(SetA)m(tom\(s,)k(z,)g(mass\))50
+b Ff(Set)30 b(the)h(Elemen)m(t.)45 b(\\s")30 b(is)g(the)h(elemen)m(t)h
+(sym)m(b)s(ol,)g(\\z")e(is)h(the)f(atomic)h(n)m(um-)244
+3609 y(b)s(er,)44 b(\\mass")e(is)g(the)g(mass)h(of)e(the)h(n)m(ucleus.)
+73 b(\\z")42 b(and)f(\\mass")i(ma)m(y)f(b)s(e)g(omitted,)j(in)c(whic)m
+(h)244 3729 y(case,)33 b(their)g(v)-5 b(alues)33 b(are)f(determined)i
+(b)m(y)f(lo)s(oking)f(up)h(an)f(in)m(ternal)h(table.)43
+b(e.g.,)33 b(SetA)m(tom\('F)-8 b(e'\),)244 3850 y(SetA)m(tom\('F)g(e',)
+33 b(26\),)g(SetA)m(tom\('F)-8 b(e',)33 b(26,)f(56\).)0
+4052 y Fe(con\014g.closed\(s\))49 b Ff(Sp)s(ecify)35
+b(an)m(y)f(fully)g(o)s(ccupied)h(shell)g(for)e(all)g(the)h
+(con\014gurations)h(to)e(come.)47 b(\\s")33 b(is)244
 4173 y(a)f(string)g(denotes)i(an)e(electronic)h(shell)h(in)e(sp)s
 (ectroscopic)i(notation.)43 b(It)32 b(ma)m(y)h(b)s(e)g(relativistic)g
 (or)244 4293 y(non-relativistic.)58 b(e.g.,)38 b(\\1s",)g(\\2p-",)f
@@ -1925,37 +1925,39 @@ b(alue.)244 4534 y(This)34 b(routine)f(ma)m(y)h(b)s(e)e(called)i(sev)m
 (string,)f(it)f(resets)i(to)f(no)f(closed)i(shells.)0
 4857 y Fe(con\014g.con\014g\(s,)k(group)g(=)g(g\))48
 b Ff(Sp)s(ecify)h(electronic)g(con\014guration)e(whic)m(h)i(b)s(elongs)
-g(to)e(a)g(group)244 4977 y(with)37 b(name)g(\\g".)54
-b(\\s")36 b(is)h(a)f(string)h(denoting)g(a)f(con\014guration.)55
-b(Eac)m(h)38 b(con\014guration)e(consists)244 5098 y(a)44
-b(sequence)j(of)d(shells)j(with)e(o)s(ccupation)f(n)m(um)m(b)s(er)i
-(indicated)g(immediately)g(after)f(the)g(shell.)244 5218
-y(The)31 b(pricipile)g(quan)m(tum)h(n)m(um)m(b)s(er)f(comes)g(\014rst,)
-g(follo)m(w)m(ed)g(b)m(y)g(the)g(orbital)f(angular)f(momen)m(tum)244
-5338 y Fd(l)r Ff(.)87 b(A)48 b(\\*")e(ma)m(y)i(b)s(e)f(used)i(to)e(sp)s
-(ecify)h Fd(l)i Ff(instead)e(of)e(the)i(detailed)g(sp)s(ectroscopic)h
-(notation,)244 5459 y(whic)m(h)35 b(means)g Fd(l)h Ff(ma)m(y)e(assume)h
-(an)m(y)g(allo)m(w)m(ed)f(v)-5 b(alue.)48 b(After)33
-b Fd(l)r Ff(,)i(A)e Fc(\006)h Ff(sign)g(indicates)i(the)e(shell)g(is)
-244 5579 y(relativistic)h(with)e Fd(j)40 b Ff(=)33 b
-Fd(l)24 b Fc(\006)f Ff(1)p Fd(=)p Ff(2.)45 b(It)33 b(ma)m(y)h(b)s(e)g
-(absen)m(t,)g(whic)m(h)h(means)f Fd(j)39 b Ff(ma)m(y)34
-b(tak)m(e)g(either)g(v)-5 b(alue.)1926 5828 y(1)p eop
+g(to)e(a)g(group)244 4977 y(with)31 b(name)h(\\g".)42
+b(\\s")31 b(is)g(a)g(string)g(denoting)g(a)g(con\014guration.)43
+b(Eac)m(h)32 b(con\014guration)f(consists)h(a)244 5098
+y(sequence)37 b(of)d(shells)j(with)e(o)s(ccupation)g(n)m(um)m(b)s(er)h
+(indicated)g(immediately)g(after)f(the)g(shell.)51 b(F)-8
+b(or)244 5218 y(eac)m(h)37 b(shell,)i(the)e(pricipile)g(quan)m(tum)h(n)
+m(um)m(b)s(er)g(comes)g(\014rst,)f(follo)m(w)m(ed)h(b)m(y)f(the)g
+(orbital)f(angular)244 5338 y(momen)m(tum)43 b Fd(l)r
+Ff(.)69 b(A)42 b(\\*")e(ma)m(y)i(b)s(e)g(used)g(to)f(sp)s(ecify)i
+Fd(l)g Ff(instead)f(of)f(the)h(detailed)g(sp)s(ectroscopic)244
+5459 y(notation,)d(whic)m(h)h(means)f Fd(l)h Ff(ma)m(y)f(assume)h(an)m
+(y)e(allo)m(w)m(ed)i(v)-5 b(alue.)60 b(After)38 b Fd(l)r
+Ff(,)i(A)e Fc(\006)h Ff(sign)g(indicates)244 5579 y(the)e(shell)h(is)f
+(relativistic)h(with)f Fd(j)42 b Ff(=)37 b Fd(l)27 b
+Fc(\006)e Ff(1)p Fd(=)p Ff(2.)55 b(It)37 b(ma)m(y)g(b)s(e)g(absen)m(t,)
+i(whic)m(h)f(means)f Fd(j)43 b Ff(ma)m(y)37 b(tak)m(e)1926
+5828 y(1)p eop
 %%Page: 2 2
-2 1 bop 244 -21 a Ff(The)29 b(o)s(ccupation)f(n)m(um)m(b)s(er)i(after)e
-Fd(j)34 b Ff(ma)m(y)28 b(also)g(b)s(e)h(absen)m(t)g(assuming)g(a)f
-(single)h(electron.)43 b(F)-8 b(or)27 b(an)m(y)244 99
-y(giv)m(en)k(con\014guration,)g(the)g(closed)g(shells)h(sp)s(eci\014ed)
-g(b)s(efore)e(are)g(added)h(in)f(fron)m(t)g(of)g(it.)42
-b(e.g,)31 b(\\1s2)244 219 y(2*3",)j(\\2s1)h(2p3)f(3*1",)h(et)g(al.)50
-b(Multiple)36 b(con\014gurations)f(b)s(elonging)g(to)g(the)g(same)h
-(group)e(ma)m(y)244 340 y(b)s(e)39 b(sp)s(eci\014ed)i(in)e(a)f(single)i
-(call.)62 b(The)40 b(Keyw)m(ord)g(argumen)m(t)f(\\group)g(=)f(g")h(sp)s
-(ecify)h(the)f(group)244 460 y(these)i(con\014gurations)f(b)s(elong)f
-(to.)64 b(If)39 b(it)g(is)h(absen)m(t,)j(then)d(the)f(last)h(sp)s
-(eci\014ed)h(group)e(name)h(is)244 581 y(used.)45 b(If)32
-b(none)h(has)g(b)s(een)g(sp)s(eci\014ed,)i(they)e(b)s(elong)g(to)f(a)h
-(single)g(unnamed)h(group.)0 774 y Fe(AddCon\014g\(gname,)39
+2 1 bop 244 -21 a Ff(either)43 b(v)-5 b(alue.)71 b(The)43
+b(o)s(ccupation)f(n)m(um)m(b)s(er)h(after)f Fd(j)48 b
+Ff(ma)m(y)42 b(also)g(b)s(e)g(absen)m(t)h(assuming)g(a)f(single)244
+99 y(electron.)62 b(F)-8 b(or)38 b(an)m(y)h(giv)m(en)g
+(con\014guration,)i(the)d(closed)i(shells)g(sp)s(eci\014ed)h(b)s(efore)
+d(are)h(added)g(in)244 219 y(fron)m(t)c(of)g(it.)52 b(e.g,)37
+b(\\1s2)e(2*3",)g(\\2s1)g(2p3)g(3*1",)g(et)h(al.)52 b(Multiple)37
+b(con\014gurations)f(b)s(elonging)f(to)244 340 y(the)c(same)g(group)f
+(ma)m(y)h(b)s(e)f(sp)s(eci\014ed)i(in)f(a)f(single)h(call.)43
+b(The)31 b(Keyw)m(ord)h(argumen)m(t)f(\\group)e(=)h(g")244
+460 y(sp)s(ecify)i(the)g(group)e(these)i(con\014gurations)g(b)s(elong)f
+(to.)42 b(If)31 b(it)g(is)h(absen)m(t,)g(then)g(the)f(last)g(sp)s
+(eci\014ed)244 581 y(group)26 b(name)g(is)h(used.)43
+b(If)26 b(none)g(has)h(b)s(een)g(sp)s(eci\014ed,)i(they)e(b)s(elong)f
+(to)g(a)g(single)h(unnamed)g(group.)0 774 y Fe(AddCon\014g\(gname,)39
 b(cfg\))49 b Ff(This)23 b(is)f(the)g(lo)m(w)g(lev)m(el)i(routine)e
 (adding)g(a)g(con\014guration)f(to)h(the)g(in)m(ternal)244
 894 y(arra)m(y)-8 b(,)27 b(and)g(p)s(erform)f(angular)g(momen)m(tum)h
@@ -2054,149 +2056,149 @@ b(is)g(the)f(maxim)m(um)j(iteration)d(the)h(optimization)g(ma)m(y)g(p)s
 (erform.)58 b(\\iprin)m(t")244 1485 y(indicates)47 b(whether)g
 (iteration)f(summary)h(should)g(b)s(e)f(prin)m(ted)h(out.)83
 b(The)47 b(defaults:)71 b(\\tol)45 b(=)244 1605 y(1E-6",)32
-b(\\maxiter)h(=)f(100",)g(\\nscreen)i(=)f(8",)f(\\iprin)m(t)h(=)f(0".)0
-1808 y Fe(SetScreening\(n\))49 b Ff(Set)39 b(the)g(principle)h(quan)m
-(tum)f(n)m(um)m(b)s(er,)j(b)s(ey)m(ond)d(whic)m(h)h(the)f(cen)m(tral)h
-(p)s(oten)m(tial)244 1929 y(should)32 b(b)s(e)g(mo)s(di\014ed)g(in)f
-(the)h(a)m(ymptotic)h(region)e(to)g(add)h(the)g(screening)h(of)e(one)g
-(more)h(electron.)244 2049 y(This)37 b(is)g(used)g(for)f(solution)h(of)
-e(con)m(tin)m(uum)j(orbitals)f(and)f(the)h(high)f(Rydb)s(erg)h(lev)m
-(els)h(resulting)244 2169 y(from)j(recom)m(binaiton,)k(b)s(ecause)e
-(these)g(orbitals)f(see)g(the)g(screening)h(of)e(all)h(b)s(ound)f
-(electrons.)244 2290 y(If)e(only)g(the)h(radiativ)m(e)g(transition)f
-(rates)h(of)f(a)f(giv)m(en)j(ion)e(is)g(needed,)k(this)c(parameter)h
-(should)244 2410 y(b)s(e)34 b(set)g(to)f(0,)g(Otherwise,)j(some)e
-(inaccuracy)h(is)f(in)m(tro)s(duced)g(for)f(lev)m(els)j(higher)e(than)f
-(\\n".)46 b(The)244 2531 y(default)33 b(is)g(8.)0 2734
-y Fe(SetRadialGrid\(rmin,)39 b(rmax\))49 b Ff(Set)22
-b(the)h(radial)e(grid)h(limits.)41 b(The)22 b(actual)g(grid)g(limits)g
-(are)g(\\rmin/z",)244 2854 y(and)29 b(\\rmax/z",)h(where)g(\\z")e(is)i
-(the)f(residual)h(c)m(harge)g(of)e(the)h(atomic)g(ion.)42
-b(The)30 b(defaults:)43 b(\\rmin)244 2975 y(=)35 b(1E-5",)g(\\rmax)h(=)
-f(5E3".)52 b(The)36 b(large)g(v)-5 b(alue)35 b(for)g(\\rmax")h(is)g
-(needed)h(for)e(the)g(calculation)h(of)244 3095 y(v)m(ery)e(high)f
-(Rydb)s(erg)g(lev)m(els.)45 b(If)33 b(they)g(are)g(not)f(needed,)j(a)d
-(smaller)h(v)-5 b(alue)33 b(ma)m(y)h(b)s(e)f(c)m(hosen.)0
-3299 y Fe(SetT)-9 b(ransitionOptions\(gauge,)39 b(mo)s(de,)g(maxe,)f
-(maxm\))50 b Ff(Sets)24 b(options)g(con)m(trolling)g(the)g(calcu-)244
-3419 y(lation)32 b(of)g(transition)h(rates.)44 b(\\gauge")32
-b(sp)s(eci\014es)j(the)e(gauge:)334 3622 y(1.)48 b(Coulom)m(b)34
-b(\(v)m(elo)s(cit)m(y)g(form\).)334 3784 y(2.)48 b(Babushkin)35
-b(\(length)e(form\).)244 3988 y(If)f(mo)s(de)h(=)g(0,)f(use)i
+b(\\maxiter)h(=)f(100",)g(\\iprin)m(t)h(=)f(0".)0 1808
+y Fe(SetScreening\(screen,)38 b(c)m(harge\))49 b Ff(Set)38
+b(the)g(principle)h(quan)m(tum)g(n)m(um)m(b)s(ers,)i(whic)m(h)e(should)
+f(b)s(e)g(in-)244 1929 y(cluded)f(in)g(optimizing)g(the)f(radial)g(p)s
+(oten)m(tial.)55 b(This)37 b(is)g(used)g(to)f(pro)m(vide)i(additional)e
+(electron)244 2049 y(sreening)30 b(for)d(recom)m(bined)k(b)s(ound)d
+(orbitals)h(and)f(free)h(orbitals.)43 b(The)29 b(total)f(c)m(harge)h
+(sp)s(eci\014ed)h(b)m(y)244 2169 y(\\c)m(harge")f(is)g(distributed)h
+(among)f(all)f(shells)j(sp)s(eci\014ed)f(b)m(y)g(\\screen",)g(whic)m(h)
+h(is)e(and)g(in)m(teger)g(list.)244 2290 y(F)-8 b(or)36
+b(eac)m(h)h(principal)h(quan)m(tum)g(n)m(um)m(b)s(er)g(in)f(\\screen",)
+i(only)f(the)f(s-orbital)f(is)i(used.)57 b(\\c)m(harge")244
+2410 y(ma)m(y)33 b(b)s(e)g(absen)m(t,)h(whic)m(h)g(defaults)f(to)g
+(1.0.)0 2614 y Fe(SetRadialGrid\(rmin,)39 b(rmax\))49
+b Ff(Set)22 b(the)h(radial)e(grid)h(limits.)41 b(The)22
+b(actual)g(grid)g(limits)g(are)g(\\rmin/z",)244 2734
+y(and)29 b(\\rmax/z",)h(where)g(\\z")e(is)i(the)f(residual)h(c)m(harge)
+g(of)e(the)h(atomic)g(ion.)42 b(The)30 b(defaults:)43
+b(\\rmin)244 2854 y(=)35 b(1E-5",)g(\\rmax)h(=)f(5E3".)52
+b(The)36 b(large)g(v)-5 b(alue)35 b(for)g(\\rmax")h(is)g(needed)h(for)e
+(the)g(calculation)h(of)244 2975 y(v)m(ery)e(high)f(Rydb)s(erg)g(lev)m
+(els.)45 b(If)33 b(they)g(are)g(not)f(needed,)j(a)d(smaller)h(v)-5
+b(alue)33 b(ma)m(y)h(b)s(e)f(c)m(hosen.)0 3178 y Fe(SetT)-9
+b(ransitionOptions\(gauge,)39 b(mo)s(de,)g(maxe,)f(maxm\))50
+b Ff(Sets)24 b(options)g(con)m(trolling)g(the)g(calcu-)244
+3299 y(lation)32 b(of)g(transition)h(rates.)44 b(\\gauge")32
+b(sp)s(eci\014es)j(the)e(gauge:)334 3502 y(1.)48 b(Coulom)m(b)34
+b(\(v)m(elo)s(cit)m(y)g(form\).)334 3664 y(2.)48 b(Babushkin)35
+b(\(length)e(form\).)244 3867 y(If)f(mo)s(de)h(=)g(0,)f(use)i
 (relativistic)g(expressions)h(for)d(the)h(radial)g(in)m(tegral.)44
-b(If)32 b(mo)s(de)h(=)f(1,)h(use)g(non-)244 4108 y(relativistic)d
+b(If)32 b(mo)s(de)h(=)f(1,)h(use)g(non-)244 3988 y(relativistic)d
 (appro)m(ximation.)43 b(\\maxe",)29 b(and)g(\\maxm")g(are)f(the)h
-(maxim)m(um)h(rank)f(of)e(m)m(ultip)s(oles)244 4228 y(allo)m(w)m(ed)40
+(maxim)m(um)h(rank)f(of)e(m)m(ultip)s(oles)244 4108 y(allo)m(w)m(ed)40
 b(in)f(the)g(calculation.)62 b(The)40 b(default)e(is)i(to)e(use)h
-(non-relativistic)h(radial)f(expression)i(in)244 4349
+(non-relativistic)h(radial)f(expression)i(in)244 4228
 y(length)33 b(form.)43 b(\\maxe)33 b(=)g(maxm)g(=)g(4".)0
-4552 y Fe(SetT)-9 b(ransitionCut\(eps\))49 b Ff(When)38
+4432 y Fe(SetT)-9 b(ransitionCut\(eps\))49 b Ff(When)38
 b(the)g(transition)g(rate)f(is)h(less)h(than)e(\\eps")h(fraction)g(of)f
-(the)g(total)244 4673 y(deca)m(y)d(rate)e(for)g(a)h(giv)m(en)g(lev)m
+(the)g(total)244 4552 y(deca)m(y)d(rate)e(for)g(a)h(giv)m(en)g(lev)m
 (el,)i(it)d(is)h(omitted)g(in)g(the)g(output.)44 b(Default:)f(\\eps)33
-b(=)g(1E-4".)0 4876 y(The)h(follo)m(wing)e(routines)i(are)e(called)i
-(to)e(p)s(erform)h(the)g(calculation.)0 5079 y Fe
+b(=)g(1E-4".)0 4756 y(The)h(follo)m(wing)e(routines)i(are)e(called)i
+(to)e(p)s(erform)h(the)g(calculation.)0 4959 y Fe
 (OptimizeRadial\(groups\))50 b Ff(Carry)30 b(out)f(the)h(radial)f
 (optimization.)42 b(\\groups")30 b(are)f(a)g(set)g(of)g(con\014g-)244
-5200 y(uration)36 b(groups)h(on)f(whic)m(h)i(the)e(optimzation)h(is)g
+5079 y(uration)36 b(groups)h(on)f(whic)m(h)i(the)e(optimzation)h(is)g
 (based.)56 b(It)36 b(ma)m(y)h(b)s(e)g(a)f(Python)h(list)g(or)f(just)g
-(a)244 5320 y(sequence)i(of)d(group)h(names)g(as)g(v)-5
+(a)244 5200 y(sequence)i(of)d(group)h(names)g(as)g(v)-5
 b(ariable)36 b(length)g(argumen)m(ts.)53 b(In)m(ternally)-8
-b(,)38 b(a)d(mean)h(con\014gura-)244 5441 y(tion)i(with)g(fractional)f
+b(,)38 b(a)d(mean)h(con\014gura-)244 5320 y(tion)i(with)g(fractional)f
 (o)s(ccupation)i(n)m(um)m(b)s(ers)g(is)f(constructed.)61
-b(A)38 b(self-consisten)m(t)i(Dirac-F)-8 b(ork)244 5561
+b(A)38 b(self-consisten)m(t)i(Dirac-F)-8 b(ork)244 5441
 y(iteration)37 b(is)h(then)g(p)s(erformed)f(for)g(this)h(mean)f
 (con\014guration.)58 b(A)37 b(cen)m(tral)h(radial)f(p)s(oten)m(tial)g
-(is)1926 5828 y(3)p eop
+(is)244 5561 y(then)c(determine)i(including)f(the)g(electron-electron)g
+(in)m(teraction)g(\(b)s(oth)e(direct)i(and)f(exc)m(hange\))1926
+5828 y(3)p eop
 %%Page: 4 4
-4 3 bop 244 -21 a Ff(then)33 b(determine)i(including)f(the)g
-(electron-electron)g(in)m(teraction)g(\(b)s(oth)e(direct)i(and)f(exc)m
-(hange\))244 99 y(with)43 b(this)g(mean)g(con\014guration.)74
+4 3 bop 244 -21 a Ff(with)43 b(this)g(mean)g(con\014guration.)74
 b(The)43 b(cen)m(tral)h(p)s(oten)m(tial)f(is)g(used)g(to)g(construct)g
-(the)g(radial)244 219 y(basis)33 b(for)f(con\014guration)h(in)m
-(teraction.)0 413 y Fe(Structure\(groups\))48 b Ff(Setup)41
+(the)g(radial)244 99 y(basis)33 b(for)f(con\014guration)h(in)m
+(teraction.)0 302 y Fe(Structure\(groups\))48 b Ff(Setup)41
 b(the)h(Hamilton)e(matrix,)k(and)c(diagonalize)h(it.)68
-b(Only)41 b(the)g(con\014gura-)244 533 y(tions)k(in)h(the)f(sp)s
+b(Only)41 b(the)g(con\014gura-)244 423 y(tions)k(in)h(the)f(sp)s
 (eci\014ed)i(groups)f(are)f(assumed)i(to)d(in)m(teract.)82
 b(If)45 b(no)g(argumen)m(t)h(is)g(giv)m(en,)j(all)244
-653 y(con\014gurations)33 b(are)g(mixed.)0 847 y Fe(Lev)m(elT)-9
+543 y(con\014gurations)33 b(are)g(mixed.)0 747 y Fe(Lev)m(elT)-9
 b(able\(fname,)40 b(n,)e(m\))49 b Ff(Output)38 b(the)h(Energy)g(Lev)m
 (el)h(to)e(an)g(ascii)h(\014le)f(\\fname".)61 b(\\n")38
-b(is)h(the)244 967 y(principle)32 b(quan)m(tum)g(n)m(um)m(b)s(er,)g
+b(is)h(the)244 867 y(principle)32 b(quan)m(tum)g(n)m(um)m(b)s(er,)g
 (only)f(lev)m(els)i(with)e(the)g(last)g(orbital)f(ha)m(ving)h(suc)m(h)h
-(\\n")f(is)g(prin)m(ted)244 1088 y(out.)45 b(If)33 b(\\n)g(==)g(0",)g
+(\\n")f(is)g(prin)m(ted)244 987 y(out.)45 b(If)33 b(\\n)g(==)g(0",)g
 (all)g(lev)m(els)i(are)e(output.)45 b(\\m")33 b(indicates)i(whether)f
-(the)g(mixing)g(co)s(e\016cien)m(ts)244 1208 y(should)f(b)s(e)f(prin)m
+(the)g(mixing)g(co)s(e\016cien)m(ts)244 1108 y(should)f(b)s(e)f(prin)m
 (ted)h(out.)43 b(The)33 b(last)g(t)m(w)m(o)f(argumen)m(ts)i(ma)m(y)f(b)
 s(e)f(absen)m(t)h(whic)m(h)h(defaults)e(to)g(\\n)g(=)244
-1328 y(0",)g(\\m)h(=)f(0".)0 1522 y Fe(T)-9 b(ransitionT)g(able\(lo)m
+1228 y(0",)g(\\m)h(=)f(0".)0 1432 y Fe(T)-9 b(ransitionT)g(able\(lo)m
 (w,)38 b(up,)g(fname,)h(m)m(ultip)s(ole\))50 b Ff(Calculate)22
 b(the)h(transition)f(rates)g(b)s(et)m(w)m(een)i(lo)m(w)m(er)244
-1642 y(and)31 b(upp)s(er)h(lev)m(els)h(sp)s(eci\014ed)g(b)m(y)f(\\lo)m
+1552 y(and)31 b(upp)s(er)h(lev)m(els)h(sp)s(eci\014ed)g(b)m(y)f(\\lo)m
 (w")f(and)g(\\up".)43 b(Eac)m(h)32 b(one)g(ma)m(y)f(b)s(e)h(a)f(list)g
-(of)g(con\014guration)244 1762 y(group)38 b(names)h(or)f(a)f(list)i(of)
+(of)g(con\014guration)244 1672 y(group)38 b(names)h(or)f(a)f(list)i(of)
 f(lev)m(el)h(indices.)62 b(\\fname")38 b(is)g(the)h(output)f(\014le)h
-(name.)60 b(\\m)m(ultip)s(ole")244 1883 y(sp)s(eci\014es)34
+(name.)60 b(\\m)m(ultip)s(ole")244 1793 y(sp)s(eci\014es)34
 b(the)e(m)m(utip)s(ole)g(of)f(the)h(transition)g(desired,)i(negativ)m
 (e)f(n)m(um)m(b)s(er)g(means)g(electric)g(m)m(ulti-)244
-2003 y(p)s(ole)e(transition,)h(and)f(p)s(ositiv)m(e)h(n)m(um)m(b)s(er)h
+1913 y(p)s(ole)e(transition,)h(and)f(p)s(ositiv)m(e)h(n)m(um)m(b)s(er)h
 (means)f(magnetic)g(m)m(ultip)s(oles,)h(the)e(absolute)h(v)-5
-b(alue)31 b(is)244 2123 y(the)f(rank)h(of)e(the)i(m)m(ultip)s(ole,)g
+b(alue)31 b(is)244 2033 y(the)f(rank)h(of)e(the)i(m)m(ultip)s(ole,)g
 (whic)m(h)h(m)m(ust)f(b)s(e)f(less)i(than)e(or)g(equal)g(to)g(the)h
-(maxim)m(um)g(ranks)g(set)244 2244 y(b)s(efore.)0 2571
-y Fg(3)161 b(Collisional)52 b(Excitation)0 2790 y Ff(This)37
+(maxim)m(um)g(ranks)g(set)244 2154 y(b)s(efore.)0 2487
+y Fg(3)161 b(Collisional)52 b(Excitation)0 2706 y Ff(This)37
 b(part)f(calculates)h(the)f(electron)h(direct)g(collisional)f
 (excitation)h(cross)g(sections)h(in)e(the)g(distorted)0
-2911 y(w)m(a)m(v)m(e)f(appro)m(ximation.)44 b(In)33 b(the)h(follo)m
+2826 y(w)m(a)m(v)m(e)f(appro)m(ximation.)44 b(In)33 b(the)h(follo)m
 (wing)f(routines,)g(all)g(app)s(earence)h(of)e(energy)i(has)f(the)g
-(unit)g(of)f(eV,)0 3031 y(although)g(in)m(ternally)-8
+(unit)g(of)f(eV,)0 2946 y(although)g(in)m(ternally)-8
 b(,)34 b(the)f(co)s(de)g(uses)h(the)f(atomic)g(unit.)0
-3219 y Fe(SetCEPW)m(Options\(max)p 1142 3219 34 4 v 40
-w(allo)m(w,)38 b(max)p 1707 3219 V 42 w(f,)g(max)p 2058
-3219 V 41 w(forbidden,)h(qr,)e(tol\))48 b Ff(Set)40 b(partial)f(w)m(a)m
-(v)m(e)i(op-)244 3339 y(tions)d(for)e(excitation)j(calculation.)58
+3175 y Fe(SetCEPW)m(Options\(max)p 1142 3175 34 4 v 40
+w(allo)m(w,)38 b(max)p 1707 3175 V 42 w(f,)g(max)p 2058
+3175 V 41 w(forbidden,)h(qr,)e(tol\))48 b Ff(Set)40 b(partial)f(w)m(a)m
+(v)m(e)i(op-)244 3295 y(tions)d(for)e(excitation)j(calculation.)58
 b(\\qr")37 b(is)h(the)g(orbital)f(angular)g(momen)m(tum)i(v)-5
-b(alue)38 b(b)s(ey)m(ond)244 3460 y(whic)m(h)k(a)f
+b(alue)38 b(b)s(ey)m(ond)244 3416 y(whic)m(h)k(a)f
 (\\quasi-relativistic")h(appro)m(ximaiton)g(is)f(used)h(for)e(the)i
-(radial)e(in)m(tegrals,)k(whic)m(h)f(ig-)244 3580 y(nores)e(the)f
+(radial)e(in)m(tegrals,)k(whic)m(h)f(ig-)244 3536 y(nores)e(the)f
 (small)h(comp)s(onen)m(t)f(of)g(the)g(w)m(a)m(v)m(efunction)j(and)d
-(treat)g(the)g(orbitals)g(with)h(di\013eren)m(t)244 3700
+(treat)g(the)g(orbitals)g(with)h(di\013eren)m(t)244 3656
 y Fd(j)h Ff(but)37 b(same)h Fd(l)h Ff(as)e(the)g(same.)57
-b(\\max)p 1653 3700 30 4 v 35 w(allo)m(w")37 b(is)g(the)h(maxim)m(um)g
+b(\\max)p 1653 3656 30 4 v 35 w(allo)m(w")37 b(is)g(the)h(maxim)m(um)g
 (partial)e(w)m(a)m(v)m(e)j(to)d(b)s(e)h(included)244
-3821 y(for)30 b(dip)s(ole)h(allo)m(w)m(ed)h(transitions,)h(\\max)p
-1770 3821 V 35 w(f)7 b(")30 b(is)i(a)e(factor)h(to)f(b)s(e)h(m)m
-(ultiplied)i(to)d(e/delta)p 3505 3821 V 36 w(e)h(to)g(pro-)244
-3941 y(duce)44 b(a)g(limit)f(on)h(the)g(maxim)m(um)h(partial)e(w)m(a)m
-(v)m(e.)78 b(\\max)p 2480 3941 V 35 w(forbidden")44 b(is)g(that)f(for)g
-(forbidden)244 4062 y(transitions,)37 b(In)m(ternally)-8
+3777 y(for)30 b(dip)s(ole)h(allo)m(w)m(ed)h(transitions,)h(\\max)p
+1770 3777 V 35 w(f)7 b(")30 b(is)i(a)e(factor)h(to)f(b)s(e)h(m)m
+(ultiplied)i(to)d(e/delta)p 3505 3777 V 36 w(e)h(to)g(pro-)244
+3897 y(duce)44 b(a)g(limit)f(on)h(the)g(maxim)m(um)h(partial)e(w)m(a)m
+(v)m(e.)78 b(\\max)p 2480 3897 V 35 w(forbidden")44 b(is)g(that)f(for)g
+(forbidden)244 4017 y(transitions,)37 b(In)m(ternally)-8
 b(,)39 b(a)c(partial)h(w)m(a)m(v)m(e)i(grid)d(is)i(setup)g(from)e
-Fd(l)h Ff(=)d(0)i(to)h(\\max)p 3292 4062 V 35 w(allo)m(w",)h(whic)m(h)
-244 4182 y(includes)i(ev)m(ery)h Fd(l)g Ff(b)s(elo)m(w)e(5)g(but)g(use)
+Fd(l)h Ff(=)d(0)i(to)h(\\max)p 3292 4017 V 35 w(allo)m(w",)h(whic)m(h)
+244 4138 y(includes)i(ev)m(ery)h Fd(l)g Ff(b)s(elo)m(w)e(5)g(but)g(use)
 g(a)g(logrithmic)g(grid)g(b)s(ey)m(ond)g(that.)59 b(The)39
-b(radial)e(in)m(tegrals)244 4302 y(are)42 b(then)i(in)m(terp)s(olated)f
+b(radial)e(in)m(tegrals)244 4258 y(are)42 b(then)i(in)m(terp)s(olated)f
 (on)f(this)h(grid.)74 b(If)42 b(a)g(detailed)i(sp)s(eci\014cation)g(of)
-e(the)h(grid)f(is)h(needed,)244 4423 y(SetCEPW)m(Grid\(\))31
+e(the)h(grid)f(is)h(needed,)244 4379 y(SetCEPW)m(Grid\(\))31
 b(ma)m(y)f(b)s(e)f(used.)44 b(\\tol")29 b(is)g(a)g(small)h(n)m(um)m(b)s
 (er,)i(When)e(the)g(exc)m(hange)h(in)m(tegral)e(is)244
-4543 y(smaller)35 b(than)f(the)g(tol)g(fraction)g(of)f(the)i(direct)f
+4499 y(smaller)35 b(than)f(the)g(tol)g(fraction)g(of)f(the)i(direct)f
 (in)m(tegral,)h(the)g(exc)m(hange)g(in)m(tegral)g(is)f(neglected,)244
-4664 y(and)f(a)f(separated)h(form)g(of)f(the)h(Coulom)m(b)g(in)m
-(teraction)h(is)f(used.)0 4857 y Fe(SetCEPW)m(Grid\(m\))47
+4619 y(and)f(a)f(separated)h(form)g(of)f(the)h(Coulom)m(b)g(in)m
+(teraction)h(is)f(used.)0 4823 y Fe(SetCEPW)m(Grid\(m\))47
 b Ff(\\m")29 b(is)g(the)g(partial)f(w)m(a)m(v)m(e)i(v)-5
 b(alue,)30 b(b)s(ey)m(ond)g(whic)m(h)g(a)e(logrithmic)h(grid)g(is)g
-(used.)244 4977 y(This)34 b(function)g(has)g(a)f(more)h(detailed)g
+(used.)244 4943 y(This)34 b(function)g(has)g(a)f(more)h(detailed)g
 (form,)g(taking)f(t)m(w)m(o)h(equal)h(length)e(p)m(ython)i(lists)f(as)g
-(argu-)244 5098 y(men)m(ts.)50 b(e.g.,)35 b(if)f(the)h(t)m(w)m(o)g
+(argu-)244 5064 y(men)m(ts.)50 b(e.g.,)35 b(if)f(the)h(t)m(w)m(o)g
 (lists)g(are)f([5,)h(2],)g(and)f([1,)h(2],)f(then)h(the)g(partial)f(w)m
-(a)m(v)m(e)i(grid)e(generated)244 5218 y(will)e(b)s(e)g([0,)g(1,)f(2,)h
+(a)m(v)m(e)i(grid)e(generated)244 5184 y(will)e(b)s(e)g([0,)g(1,)f(2,)h
 (3,)g(4,)f(5,)h(7,)f(9,)h(13,)f(17,...].)44 b(ie.,)32
 b(the)g(n)m(um)m(b)s(ers)h(in)f(the)g(1st)g(list)g(is)g(the)g(rep)s
-(etition)244 5338 y(n)m(um)m(b)s(er)42 b(for)f(the)g(incremen)m(t)j
+(etition)244 5304 y(n)m(um)m(b)s(er)42 b(for)f(the)g(incremen)m(t)j
 (step)e(in)f(the)g(2nd)h(list.)69 b(when)42 b(the)g(list)g(is)f
-(exhausted,)k(the)d(grid)244 5459 y(con)m(tin)m(ues,)e(b)m(y)d
+(exhausted,)k(the)d(grid)244 5425 y(con)m(tin)m(ues,)e(b)m(y)d
 (doubling)h(the)f(incremen)m(t)h(ev)m(ery)h(t)m(w)m(o)e(p)s(oin)m(ts)h
-(un)m(til)f(it)g(reac)m(hes)h(the)f(maxim)m(um)244 5579
+(un)m(til)f(it)g(reac)m(hes)h(the)f(maxim)m(um)244 5545
 y(partial)32 b(w)m(a)m(v)m(e)j(sp)s(eci\014ed)f(b)m(y)g(SetCEPW)m
 (Options\(\).)1926 5828 y(4)p eop
 %%Page: 5 5

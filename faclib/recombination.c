@@ -461,21 +461,16 @@ int BoundFreeOS(double *strength, int ie, double *eph,
   }
   for (i = 0; i < nz; i++) {
     kappab1 = GetOrbital(ang[i].kb)->kappa;
-    GetJLFromKappa(kappab1, &jb1, &klb1);    
+    jb1 = GetJFromKappa(kappab1);    
     inv_jb = 1.0 / (jb1+1);
     for (j = 0; j <= i; j++) {
-      a = ang[i].coeff*ang[j].coeff;      
-      if (fabs(a) < EPS10) continue;
+      a = ang[i].coeff*ang[j].coeff;    
       if (j != i) {
 	kappab2 = GetOrbital(ang[j].kb)->kappa;
-	GetJLFromKappa(kappab2, &jb2, &klb2);
+	jb2 = GetJFromKappa(kappab2);
 	if (jb2 != jb1) continue;
 	a *= 2;
-      } else {
-	kappab2 = kappab1;
-	jb2 = jb1;
-	klb2 = klb1;
-      }
+      } 
       r = 0.0;
       for (c = 0; c < njf; c++) {
 	r += radial_int[i*njf+c]*radial_int[j*njf+c];
