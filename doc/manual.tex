@@ -2500,6 +2500,18 @@ parameter \var{m} is not 0, then the differential oscillator strength is
 returned instead of the cross sections.
 \end{fundesc}
 
+\begin{fundesc}{PrepAngular}{p\opt{, q}}
+Precalculate the angular coefficients between states in \var{p} and
+\var{q}. \var{p} and \var{q} are lists of configuration groups. If \var{q} is
+not present, the angular coefficients are calculated between states in the
+\var{p} list. Only $Z^L(\alpha,\beta)$ and $\tilde{a_\alpha}$ coefficients are
+calculated. If the Bra and Ket states have the same number of electrons, $Z^L$
+is calculated, otherwise $\tilde{a_\alpha}$ is calculated. This routine should
+primarily be used when atomic states are construced with \key{RecStates},
+where the angular coefficients between the base states are used many times. It
+is therefore more efficient to precalculate these coefficients.
+\end{fundesc}
+
 \begin{fundesc}{Print}{args}
 Print out the string representation of \var{args}. This function exists to
 asist the conversion to SFAC interface, since Python's \key{print} statement

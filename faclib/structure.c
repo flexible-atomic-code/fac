@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.83 2004/12/17 08:37:10 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.84 2004/12/19 01:04:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,6 +34,7 @@ static int n_levels = 0;
 static int angz_dim, angz_dim2;
 static ANGZ_DATUM *angz_array;
 static ANGZ_DATUM *angzxz_array;
+static ANGZ_DATUM *angmz_array;
 static ANGULAR_FROZEN ang_frozen;
 
 static int ncorrections = 0;
@@ -1948,6 +1949,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
     exit(1);
   }
   hs->pj = h->pj;
+  hs->nlevs = h->dim;
   hs->nbasis = h->n_basis;
   hs->basis = malloc(sizeof(STATE *)*hs->nbasis);
   for (t = 0; t < h->n_basis; t++) {
@@ -2851,6 +2853,7 @@ int AddToLevels(int ng, int *kg) {
     lev.energy = h->mixing[i];
     lev.pj = h->pj;
     lev.iham = nhams-1;
+    lev.ilev = i;
     lev.pb = h->basis[k];
     lev.ibasis = (short *) malloc(sizeof(short)*h->n_basis);
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
@@ -2874,6 +2877,7 @@ int AddToLevels(int ng, int *kg) {
 
     if (s->kgroup < 0) {
       lev.ibase = -(s->kgroup + 1);
+      lev.iham = -1;
     }
 
     if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
@@ -4100,6 +4104,101 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   return (*ad)->ns;
 }
 
+int PrepAngular(int n1, int *is1, int n2, int *is2) {
+  int i1, i2, ih1, ih2, ns1, ns2, ne1, ne2;
+  int iz, is, i, nz, ns;
+  SYMMETRY *sym1, *sym2;
+  STATE *s1, *s2;
+  LEVEL *lev1, *lev2;
+  ANGZ_DATUM *ad;
+
+  if (angmz_array == NULL) {
+    angmz_array = malloc(sizeof(ANGZ_DATUM)*angz_dim2);
+    if (!angmz_array) {
+      printf("cannot allocate memory for angmz_array %d\n", angz_dim2);
+    }
+    for (i = 0; i < angz_dim2; i++) {
+      angmz_array[i].ns = 0;
+    }
+  }
+
+  if (n2 == 0) {
+    n2 = n1;
+    is2 = is1;
+  }
+  
+  for (i1 = 0; i1 < n1; i1++) {
+    lev1 = GetLevel(is1[i1]);
+    ih1 = lev1->iham;
+    sym1 = GetSymmetry(lev1->pj);
+    s1 = ArrayGet(&(sym1->states), lev1->pb);
+    if (s1->kgroup < 0) continue;
+    ne1 = GetGroup(s1->kgroup)->n_electrons;
+    ns1 = hams[ih1].nlevs;
+    for (i2 = 0; i2 < n2; i2++) {
+      lev2 = GetLevel(is2[i2]);
+      ih2 = lev2->iham;
+      sym2 = GetSymmetry(lev2->pj);
+      s2 = ArrayGet(&(sym2->states), lev2->pb);
+      if (s2->kgroup < 0) continue;
+      ne2 = GetGroup(s2->kgroup)->n_electrons;
+      if (abs(ne2-ne1) > 1) continue;
+      ns2 = hams[ih2].nlevs;
+      ns = ns1*ns2;
+      if (ne1 == ne2) {
+	if (ih1 > ih2) {
+	  iz = ih2 * MAX_HAMS + ih1;
+	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	} else {
+	  iz = ih1 * MAX_HAMS + ih2;
+	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+	}
+      } else {
+	if (ne1 > ne2) {
+	  iz = ih2 * MAX_HAMS + ih1;
+	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	} else {
+	  iz = ih1 * MAX_HAMS + ih2;
+	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+	}
+      }
+      ad = &(angmz_array[iz]);
+      if (ad->ns == 0) {
+	if (ne1 == ne2) {
+	  ad->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
+	} else {
+	  ad->angz = malloc(sizeof(ANGULAR_ZFB *)*ns);
+	}
+	ad->nz = malloc(sizeof(int)*ns);
+	for (i = 0; i < ns; i++) (ad->nz)[i] = 0;
+	ad->ns = ns;
+      }
+      nz = (ad->nz)[is];
+      if (nz != 0) continue;
+      if (ne1 == ne2) {
+	if (ih1 > ih2) {
+	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
+			   is2[i2], is1[i1], -1, -1);
+	} else {
+	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
+			   is1[i1], is2[i2], -1, -1);
+	}
+      } else {
+	if (ne1 > ne2) {
+	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is])), 
+				 is2[i2], is1[i1]);
+	} else {
+	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is])), 
+				 is1[i1], is2[i2]);
+	}	
+      }
+      if (nz == 0) nz = -1;
+      (ad->nz)[is] = nz;
+    }
+  }
+
+  return ns;
+}
 
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   int i, j, m; 
@@ -4119,9 +4218,27 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   clock_t start, stop;
   start = clock();
 #endif
-
+  
   lev1 = GetLevel(lower);
   lev2 = GetLevel(upper);
+
+  if (angmz_array) {
+    ih1 = lev1->iham;
+    ih2 = lev2->iham;
+    isz = ih1 * MAX_HAMS + ih2;
+    ad = &(angmz_array[isz]);
+    nz = 0;
+    if (ad->ns > 0) {
+      isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
+      nz = (ad->nz)[isz0];
+      if (nz > 0) {
+	*ang = malloc(sizeof(ANGULAR_ZFB)*nz);
+	memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZFB)*nz);
+      }
+    }
+    if (nz != 0) return nz;
+  }
+
   sym1 = GetSymmetry(lev1->pj);
   sym2 = GetSymmetry(lev2->pj);
   j1 = lev1->pj;
@@ -4227,6 +4344,43 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 
   lev1 = GetLevel(lower);
   lev2 = GetLevel(upper);
+  
+  if (angmz_array) {
+    ih1 = lev1->iham;
+    ih2 = lev2->iham;
+    if (ih1 > ih2) {
+      isz = ih2 * MAX_HAMS + ih1;
+    } else {
+      isz = ih1 * MAX_HAMS + ih2;
+    }
+    ad = &(angmz_array[isz]);
+    nz = 0;
+    if (ad->ns > 0) {
+      if (ih1 > ih2) {
+	isz0 = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+      } else {
+	isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
+      }
+      nz = (ad->nz)[isz0];
+      if (nz > 0) {
+	*ang = malloc(sizeof(ANGULAR_ZMIX)*nz);
+	memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZMIX)*nz);
+      }
+    }  
+    if (nz != 0) {
+      if (nz > 0 && ih1 > ih2) {
+	sym1 = GetSymmetry(lev1->pj);
+	sym2 = GetSymmetry(lev2->pj);
+	j1 = lev1->pj;
+	j2 = lev2->pj;
+	DecodePJ(j1, NULL, &j1);
+	DecodePJ(j2, NULL, &j2);
+	AngZSwapBraKet(nz, *ang, j1-j2);
+      }
+      return nz;
+    }
+  }
+
   sym1 = GetSymmetry(lev1->pj);
   sym2 = GetSymmetry(lev2->pj);
   j1 = lev1->pj;
@@ -4845,6 +4999,8 @@ int InitAngZArray(void) {
   if (!angzxz_array) {
     printf("cannot allocate memory for angzxz_array %d\n", angz_dim2);
   }
+
+  angmz_array = NULL;
   for (i = 0; i < angz_dim2; i++) {
     angz_array[i].ns = 0;
     angzxz_array[i].ns = 0;
@@ -4863,6 +5019,12 @@ int FreeAngZArray(void) {
     }
     free(angz_array);
     free(angzxz_array);
+    if (angmz_array) {
+      for (i = 0; i < angz_dim2; i++) {
+	FreeAngZDatum(&(angmz_array[i]));
+	free(angmz_array);
+      }
+    }
     angz_dim = 0;
     angz_dim2 = 0;
   }
@@ -4875,6 +5037,7 @@ void FreeLevelData(void *p) {
   lev = (LEVEL *) p;
   if (lev->n_basis > 0) {
     free(lev->basis);
+    free(lev->ibasis);
     free(lev->mixing);
     lev->n_basis = 0;
   }

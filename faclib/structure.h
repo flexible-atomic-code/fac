@@ -30,13 +30,13 @@ typedef struct _HAMILTON_ {
 
 typedef struct _SHAMILTON_ {
   int pj;
-  int nbasis;
+  int nbasis, nlevs;
   STATE **basis;
 } SHAMILTON;
 
 typedef struct _LEVEL_ {
   int pj;
-  int iham;
+  int iham, ilev;
   int n_basis;
   int pb;
   int kpb[NPRINCIPLE];
@@ -163,6 +163,7 @@ int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);
 void AngularFrozen(int nts, int *ts, int ncs, int *cs);
 void ClearAngularFrozeb(void);
+int PrepAngular(int n1, int *is1, int n2, int *is2);
 int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk);
 int CompareAngularZMix(const void *c1, const void *c2);
 int CompareAngularZxZMix(const void *c1, const void *c2);
