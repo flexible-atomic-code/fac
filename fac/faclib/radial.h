@@ -8,6 +8,7 @@
 #include "dbase.h"
 #include "nucleus.h"
 #include "interpolation.h"
+#include "coulomb.h"
 #include "orbital.h"
 #include "config.h"
 #include "angular.h"
@@ -43,7 +44,6 @@ int GetNumOrbitals();
 int GetNumContinua();
 
 double GetPhaseShift(int k);
-double CoulombPhaseShift(double z, double e, int kappa);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);

@@ -1,7 +1,8 @@
 #include "angular.h"
 
+#define MAXTERM 512
 static ANGULAR_TIMING timing = {0, 0, 0};
-static double _sumk[500];
+static double _sumk[MAXTERM];
 
 int GetAngularTiming(ANGULAR_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
@@ -79,7 +80,7 @@ double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   
   qsum = 0.0;
   a = 1E30;
-  for (k = kmin, i = 0; k <= kmax; k++, i++) {
+  for (k = kmin, i = 0; k <= kmax && i < MAXTERM; k++, i++) {
     _sumk[i] = LnFactorial(k) +
       LnFactorial(ik[0]-k) +
       LnFactorial(ik[4]-k) +
@@ -88,7 +89,10 @@ double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
       LnFactorial(k-ik[11]);
     if (_sumk[i] < a) a = _sumk[i];
   }
-
+  if (i == MAXTERM) {
+    printf("Maximum terms in the 3j symbol sum reached\n");
+    printf("Results may be inaccurate\n");
+  }
   for (k = kmin, i = 0; k <= kmax; k++, i++) {
     b = exp(-(_sumk[i]-a));    
     if (IsOdd(k)) b = -b;    
