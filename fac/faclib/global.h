@@ -66,6 +66,8 @@
 #include "pmalloc.h"
 #endif
 
+#include "sysdef.h"
+
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.

@@ -1,11 +1,9 @@
-# rcsid = $Id: README,v 1.28 2003/01/13 02:57:36 mfgu Exp $
+# rcsid = $Id: README,v 1.29 2003/01/20 03:34:40 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
 README,      this file.
-Makefile,    top level makefile.
-setup.py,    setup script for the Python interface.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.
@@ -31,42 +29,29 @@ of the Python scripting language, implemented as a package "pfac".
 The other interface uses a simple command parser, compiled into executables. 
 The two interfaces are independent. Either one or both can be installed.
 
-Before installing, check the top level Makefile, and the setup script 
-"setup.py" (for Python interface). Normally, only a few macro defined at 
-the top of Makefile are OS dependent. Make appropriate changes according
-to the comments. In "setup.py", the Fortran runtime library needs to be 
-specified through the variable "fortranlib" (see "setup.py" for details).
+STEPS:
+1) ./configure
+Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler is not 
+        g77 or sun's f77. see faclib/cfortran.doc for supported F77 compilers.
+Note 2: specify --prefix=my/dir, if the default /usr/local is not what you want.
+        This only affects the installation of SFAC executables.
+2) make; make install
+This installs the SFAC interface.
 
-Once these changes are made. 
-To install "sfac" interface:
-	make
-	make install
-
-To install "pfac" interface:
-1. Obtain (From www.python.org) and install Python if it is not installed yet
-   Version 2.0 or later is required. Make sure that python interpreter is 
-   in your path.
-2. run:
-	python setup.py install
-
-This will install the "pfac" package into the standard Python site-package 
-path. If Python was installed as root, this requires the root permission as 
-well. Alternatively, one may install the "pfac" package into a given directory
-by running:
-	python setup.py install --prefix=/my/own/dir
-
+3) If you have Python 2.0 or later installed, then:
+   make pfac
+   make install-pfac
+This installs the PFAC interface into Python's default site-package dir. If
+this is not what you want, or you don't have the permision. then, instead of
+running "make install-pfac", try:
+   python setup.py install --prefix=/my/own/dir
 In order for python to find the installed "pfac" modules, one would have to 
 define an environment variable PYTHONPATH to point to the directory 
 "/my/own/dir/lib/python#.#/site-packages", where "#.#" is the Python version.
-In cshell, this requires 
+In csh, this requires 
     setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages 
 or in bash, 
     PYTHONPATH=/my/own/dir/lib/python#.#/site-packages;export PYTHONPATH
-
-With python installed, the "sfac" interface can also be installed using
-the setup.py script, to do so, run
-	python setup.py sfac
-
 
 Usage:
 The modules can be called just like any python modules, either from the

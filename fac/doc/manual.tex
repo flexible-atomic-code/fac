@@ -145,47 +145,8 @@ available at \textbf{www.cygwin.com}). To fully utilize the strength of
 FAC, it is strongly recommended that Python be installed, which can be obtained
 from \textbf{www.python.org}.
 
-In all Unix-like systems with Python installed, the installation of FAC 
-uses the \verb|distutil| module comes with Python. To install in the standard 
-location, download FAC from the above mentioned ftp site, gunzip and extract 
-from the tar-ball, change to the top directory and type 
-\begin{verbatim}
-    python setup.py install
-    python setup.py sfac
-\end{verbatim}
-where the first command installs the Python package \verb|pfac| which 
-contains several Python and extension modules, and the second command
-installs the SFAC interface in your \verb|${HOME}/bin|, and places two
-excutables, \verb|sfac| and \verb|scrm|, in your \verb|${HOME}/bin|. 
-This will install the PFAC modules in the standard Python site-package
-directory. If Python was installed as root, this requires the root permission
-as well. Alternatively, one may install the PFAC package into a given
-directory by running, 
-\begin{verbatim}
-    python setup.py install --prefix=/my/own/dir
-\end{verbatim} 
-In order for python to find the installed PFAC modules, one would have to 
-define an environment variable PYTHONPATH to point to the directory
-\verb|/my/own/dir/lib/python#.#/site-packages|, where \verb|#.#| represents
-the Python version. In csh, this requires
-\begin{verbatim}
-    setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages
-\end{verbatim}
-or in bash,
-\begin{verbatim}
-    PYTHONPATH=/my/own/dir/lib/python#.#/site-packages; export PYTHONPATH
-\end{verbatim}
-
-Without Python, one may install the SFAC interface by
-\begin{verbatim}
-    make sfac
-    make install
-\end{verbatim}
-
-The system must have a \verb|make| compartible with GNU \verb|make|, even if
-\verb|setup.py| is used, since this script calls \verb|make| to compile the
-libraries. One should check out the README file in the top directory of FAC 
-distribution for more instructions.
+Step-by-step instructions can be found in the README file in the top directory
+of FAC distribution.
 
 \section{Quick Start}
 \label{sec:start}

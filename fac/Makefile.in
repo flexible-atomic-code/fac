@@ -1,0 +1,71 @@
+#############################################################
+## This is the top-level Makefile.in.                        
+## Run configure to create the Makefile.
+#############################################################
+
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+PYTHON = @PYTHON@
+
+RANLIB = @RANLIB@
+
+TOPDIR = @TOPDIR@
+
+FLIBS = @FLIBS@
+
+all: lib sfac
+
+lib:
+	cd blas;     make
+	cd lapack;   make
+	cd coul;     make
+	cd ode;      make
+	cd toms;     make
+	cd mpfun;    make
+	cd minpack;  make
+	cd quadpack; make
+	cd ionis;    make
+	cd faclib;   make
+	${RANLIB} libfac.a
+
+sfac:	lib
+	cd sfac; make
+
+pfac:   lib
+	${PYTHON} setup.py build --force ${FLIBS}
+
+slac:   lib
+	cd slac; make
+
+doc:
+	cd doc; make
+
+demo:
+	cd demo; make
+
+install:
+	cd sfac; make install
+
+install-pfac:
+	${PYTHON} setup.py install ${pyprefix}
+
+install-slac:
+	cd slac; make install 
+
+clean:
+	rm -f *.so *.a *.o *~
+	rm -rf build
+	cd lapack;   make clean
+	cd blas;     make clean
+	cd coul;     make clean
+	cd ode;      make clean
+	cd toms;     make clean
+	cd mpfun;    make clean
+	cd minpack;  make clean
+	cd quadpack; make clean
+	cd ionis;    make clean
+	cd faclib;   make clean
+	cd sfac;     make clean
+
