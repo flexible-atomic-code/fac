@@ -1,9 +1,10 @@
-Version 1.0.2, 08/10/2003
+Version 1.0.2, 08/13/2003
 	1. add iterative method in pfac.pol.
 	2. add an optional input file in PolarizationTable to specify 
 	   the transitions whose polarization to be calculated.
 	3. add Orientation function, which may include depolarization.
 	4. fix seg. fault bug related to AvgConfig.
+	5. add TRBranch and AIBranch in pfac.fac.
 	
 Version 1.0.1, 07/31/2003
 	1. autoionization and capture rates between magnetic sublevels
