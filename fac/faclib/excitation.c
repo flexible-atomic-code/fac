@@ -653,7 +653,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
   short  *kappa0, *kappa1, *kappa0p, *kappa1p;
   double *pk1, *pk2;
   double *pk, *pkp, qy2[MAX_NKL];
-  int km0, km1, j0, jp0, j1, nk4, kmp0, kmp1, km0_m, kmp0_m;
+  int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
   double r, e0, e1, s;
   double pha0, phap0;
@@ -782,7 +782,15 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
       } 
     } 
   } 
-   
+  /*
+  for (i = 0; i < nkl; i++) {
+    printf("%d ", (int)pw_scratch.kl[i]);
+    for (iq = 0; iq < nq; iq++) {
+      printf("%10.3E ", qk[iq][i]);
+    }
+    printf("\n");
+  }
+  */
   for (iq = 0; iq < nq; iq++) { 
     spline(pw_scratch.log_kl, qk[iq], nkl, 1.0E30, 1.0E30, qy2);     
     r = qk[iq][0];
@@ -817,7 +825,81 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
   return type1;
 }
  
-     
+double CEAngMSubNR(int lf, int li1, int li2, int k, int q) {
+  int mi, mf, ji1, ji2, jf;
+  double a, b, c, d, as, bs, cs, ds;
+
+  a = sqrt((li1+1.0)*(li2+1.0));
+  as = 0.0;
+  for (jf = lf - 1; jf <= lf + 1; jf += 2) {
+    bs = 0.0;
+    for (ji1 = li1 - 1; ji1 <= li1 + 1; ji1 += 2) {
+      b = sqrt(ji1+1.0);
+      b *= ReducedCL(ji1, k, jf);
+      cs = 0.0;
+      for (ji2 = li2 - 1; ji2 <= li2 + 1; ji2 += 2) {
+	c = sqrt(ji2+1.0);
+	c *= ReducedCL(ji2, k, jf);
+	ds = 0.0;
+	for (mi = -1; mi <= 1; mi += 2) {
+	  d = W3j(ji1, 1, li1, -mi, mi, 0);
+	  d *= W3j(ji2, 1, li2, -mi, mi, 0);
+	  mf = q + mi;
+	  d *= W3j(ji1, k, jf, -mi, -q, mf);
+	  d *= W3j(ji2, k, jf, -mi, -q, mf);
+	  ds += d;
+	}
+	cs += c*ds;
+	printf("%d %d %d %d %d %d %10.3E %10.3E\n", jf, lf, ji1, li1, ji2, li2, c*b, ds);
+      }
+      bs += b*cs;
+    }
+    as += bs;
+  }
+
+  a *= as;
+  return a;
+}
+
+int CERadialQkMSubRatio(int k, double *rq, int lf, 
+			double z, double e1, double te) {
+  int i, q;
+  int lmin, lmax, li1, li2;
+  double a, a1, b1, b2, e0, c, c0, c1, c2;
+
+  e0 = e1 + te;
+  c = e0/te;
+  c1 = c*c;
+  c0 = sqrt((lf-1.0)/lf)/(2.0*lf-1.0);
+  c2 = c0*c0;
+  lmin = abs(lf-k);
+  lmax = lf + k;
+  for (q = -k, i = 0; q <= 0; q += 2, i++) {
+    rq[i] = 0.0;
+  }
+  
+  for (li1 = lmax; li1 >= lmin; li1 -= 4) {
+    b1 = CoulombPhaseShift(z, e0, li1/2);
+    for (li2 = lmax; li2 >= lmin; li2 -= 4) {
+      if (li1 != li2) {
+	b2 = CoulombPhaseShift(z, e0, li2/2);
+	a = cos(b1 - b2);
+      } else a = 1.0;
+      if (li1 < lf && li2 < lf) {
+	a *= c1*c2;
+      } else if ((li1 < lf && li2 > lf) || (li1 > lf && li2 < lf)) {
+	a *= c*c0;
+      }
+      for (q = -k, i = 0; q <= 0; q += 2, i++) {
+	a1 = CEAngMSubNR(lf, li1, li2, k, q);
+	rq[i] += a1*a;
+	printf("%d %d %d %d %10.3E %10.3E %10.3E\n", lf, li1, li2, q, a1, rq[i], a);
+      }
+    }    
+  }
+  return 0;
+}
+	  
 double InterpolatePk(double te, int type, double *pk) {
   double *x, y2[MAX_TEGRID];
   double r;
@@ -1020,91 +1102,6 @@ int CEQkTable(char *fn, int k, double te) {
   }
   
   fclose(f);
-}
-
-void spline(double *x, double *y, int n, 
-	    double yp1, double ypn, double *y2) {
-  int i, k;
-  double p, qn, sig, un, *u;
-  
-  u = malloc(sizeof(double)*n);
-  
-  if (yp1 > 0.99E30) {
-    y2[0] = u[0] = 0.0;
-  } else {
-    y2[0] = -0.5;
-    u[0] = (3.0/(x[1]-x[0]))*((y[1]-y[0])/(x[1]-x[0])-yp1);
-  }
-
-  for (i = 1; i < n-1; i++) {
-    sig = (x[i] - x[i-1])/(x[i+1]-x[i-1]);
-    p = sig*y2[i-1]+2.0;
-    y2[i] = (sig-1.0)/p;
-    u[i] = (y[i+1]-y[i])/(x[i+1]-x[i]) - (y[i]-y[i-1])/(x[i]-x[i-1]);
-    u[i] = (6.0*u[i]/(x[i+1]-x[i-1])-sig*u[i-1])/p;
-  }
-  if (ypn > 0.99E30) {
-    qn = un = 0.0;
-  } else {
-    qn = 0.5;
-    un = (3.0/(x[n-1]-x[n-2]))*(ypn-(y[n-1]-y[n-2])/(x[n-1]-x[n-2]));
-  }
-
-  y2[n-1] = (un-qn*u[n-2])/(qn*y2[n-2]+1.0);
-  for (k = n-2; k >= 0; k--) {
-    y2[k] = y2[k]*y2[k+1]+u[k];
-  }
-
-  free(u);
-
-}
-  
-int splint(double *xa, double *ya, double *y2a, 
-	   int n, double x, double *y) {
-  int klo, khi, k;
-  double h, b, a;
-  
-  *y = 0.0;
-  klo = 0;
-  khi = n-1;
-  while (khi-klo > 1) {
-    k = (khi+klo) >> 1;
-    if (xa[k] > x) khi = k;
-    else klo = k;
-  }
-  h = xa[khi] - xa[klo];
-  if (h == 0.0) return -1;
-  a = (xa[khi] - x) / h;
-  b = (x - xa[klo]) / h;
-  *y = a*ya[klo] + b*ya[khi] + ((a*a*a-a)*y2a[klo] +
-				(b*b*b-b)*y2a[khi]) * (h*h)/6.0;
-  return 0;
-}
-
-void splie2(double *x1a, double *x2a, double **ya, 
-	    int m, int n, double **y2a) {
-  int j;
-
-  for (j = 0; j < m; j++) {
-    spline(x2a, ya[j], n, 1.0E30, 1.0E30, y2a[j]);
-  }
-}
-
-void splin2(double *x1a, double *x2a, double **ya, double **y2a,
-	    int m, int n, double x1, double x2, double *y) {
-  int j;
-  double *ytmp, *yytmp;
-
-  ytmp = malloc(sizeof(double)*m);
-  yytmp = malloc(sizeof(double)*m);
-  for (j = 0; j < m; j++) {
-    splint(x2a, ya[j], y2a[j], n, x2, &yytmp[j]);
-  }
-  spline(x1a, yytmp, m, 1.0E30, 1.0E30, ytmp);
-  splint(x1a, yytmp, ytmp, m, x1, y);
-  free(ytmp);
-  free(yytmp);
-
 }
  
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {

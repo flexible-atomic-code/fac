@@ -46,6 +46,7 @@ static MULTI *residual_array;
 static MULTI *multipole_array;  
 
 double argam_(double *x, double *y);
+double besjn_(int *jy, int *n, double *x);
 double _PhaseRDependent(double x, double eta, double b);
 
 int GetRadTiming(RAD_TIMING *t) {
@@ -494,8 +495,8 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
     e = orb->energy;
     a = FINE_STRUCTURE_CONST2 * e;
     ke = sqrt(2.0*e*(1.0+0.5*a));
-    y = (1.0+a)*z/ke;
-    printf("%12.5E\n", (CoulombPhaseShift(k)-GetPhaseShift(k))/(2*PI));
+    y = (1.0+a)*z/ke; 
+    printf("%12.5E\n", (CoulombPhaseShift(z, e, orb->kappa)-GetPhaseShift(k))/(2*PI));
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	      i, potential->rad[i],
@@ -516,24 +517,20 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fclose(f);
 }
 
-double CoulombPhaseShift(int k) {
-  ORBITAL *orb;
-  double phase, r, y, z, ke, e, a, b1, b2;
+double CoulombPhaseShift(double z, double e, int kappa) {
+  double phase, r, y, ke, a, b1, b2;
 
-  orb = GetOrbital(k);
-  z = GetResidualZ();
-  e = orb->energy;
   a = FINE_STRUCTURE_CONST2 * e;
   ke = sqrt(2.0*e*(1.0 + 0.5*a));
   a += 1.0;
   y = a*z/ke;
 
-  r = orb->kappa;
+  r = kappa;
   b1 = y/(fabs(r)*a);
   r = sqrt(r*r - FINE_STRUCTURE_CONST2*z*z);
   b2 = y/r;
 
-  if (orb->kappa < 0) {
+  if (kappa < 0) {
     phase = 0.5*(atan(b1) - atan(b2));
   } else {
     phase = -0.5*(atan(b1) + atan(b2) + PI);
@@ -934,24 +931,21 @@ int ResidualPotential(double *s, int k0, int k1) {
    -256 or >= 256, however, it calculates the expectation value of
    r^(m+/-256), this is used in the evaluation of slater integral 
    in separable coulomb interaction. */
-double MultipoleRadialNR(int m, int k1, int k2) {
+double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   int i, p, t;
   int npts;
   ORBITAL *orb1, *orb2;
   double r;
   int index[4];
   double *q;
-  int gauge;
   int kappa1, kappa2;
-  clock_t start, stop;
 
-#ifdef PERFORM_STATISTICS 
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
 #endif
 
   if (m == 0) return 0.0;
-
-  gauge = TransitionGauge();
 
   if (m >= 256) {
     gauge = G_BABUSHKIN;
@@ -1039,24 +1033,21 @@ double MultipoleRadialNR(int m, int k1, int k2) {
 
 /* fully relativistic multipole operator, 
    see Grant, J. Phys. B. 1974. Vol. 7, 1458. */ 
-double MultipoleRadial(double aw, int m, int k1, int k2) {
+double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
   double r, q, ip, ipm, im, imm;
   int kappa1, kappa2;
   int am, t;
   int index[4];
   double *p;
   ORBITAL *orb1, *orb2;
-  int gauge;
-  clock_t start, stop;
 
 #ifdef PERFORM_STATISTICS 
+  clock_t start, stop;
   start = clock();
 #endif
 
   if (m == 0) return 0.0;
 
-  gauge = TransitionGauge();
-    
   if (m > 0) {
     index[1] = m;
     index[0] = (gauge == G_BABUSHKIN)?6:7; 
@@ -1334,11 +1325,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k0, k2);
+	*s = MultipoleRadialNR(m+256, k0, k2, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k1, k3);
+	*s *= MultipoleRadialNR(m-256, k1, k3, 0);
       }
       break;
 
@@ -1347,11 +1338,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k1, k3);
+	*s = MultipoleRadialNR(m+256, k1, k3, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k0, k2);      
+	*s *= MultipoleRadialNR(m-256, k0, k2, 0);      
       }
       break;
       
@@ -2172,37 +2163,53 @@ int TestIntegrate(char *s) {
   int k1, k2, k3, k4, i;
   double r;
   FILE *f;
- 
-  k1 = 3;
-  k2 = 6;
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-
-  GetYk(1, _yk, orb1, orb2, -1);  
-
+  
+  orb1 = GetOrbital(0);
+  orb2 = GetOrbital(3);
+  printf("%d %d %d %d \n", orb1->n, orb1->kappa, orb2->n, orb2->kappa);
+  GetYk(1, _yk, orb1, orb2, -2); 
+  
   for (i = 0; i < MAX_POINTS; i++) {  
     _yk[i] /= potential->rad[i];  
   }  
-  k3 = OrbitalIndex(0, 49, (2E4+800.0)/HARTREE_EV);    
-  k4 = OrbitalIndex(0, 49, 2E4/HARTREE_EV);     
+  i = 15;
+  r = 1e4/27.2;
+  k1 = OrbitalIndex(0, i-1, 6.8E2/27.2 +r);    
+  k2 = OrbitalIndex(0, i, r);    
+  k3 = OrbitalIndex(0, i+1, 6.8E2/27.2 +r);     
+  
+  orb1 = GetOrbital(k1); 
+  orb2 = GetOrbital(k2);   
   orb3 = GetOrbital(k3);   
-  orb4 = GetOrbital(k4);   
  
-  Integrate(_yk, orb3, orb4, -1, _xk);  
+  Integrate(_yk, orb1, orb2, 2, &r);
+  printf("%10.3E\n", r);
+  Integrate(_yk, orb1, orb2, -2, _xk);  
   
   f = fopen(s, "w"); 
-  fprintf(f, "# %d %d %d %d %10.3E %10.3E %10.3E %10.3E\n",  
-	  orb1->ilast, orb2->ilast, orb3->ilast, orb4->ilast,  
-	  orb1->energy, orb2->energy, 
-	  orb3->energy, orb4->energy); 
   for (i = 0; i < MAX_POINTS; i++) { 
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
 	    i, potential->rad[i],   
 	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
 	    potential->U[i], 
 	    Large(orb1)[i], Large(orb2)[i],  
-	    Large(orb3)[i], Large(orb4)[i]); 
+	    Large(orb3)[i]); 
   }
+
+  Integrate(_yk, orb3, orb2, 2, &r);
+  printf("%10.3E\n", r);
+  Integrate(_yk, orb3, orb2, -2, _xk);  
+  fprintf(f, "\n\n\n"); 
+  for (i = 0; i < MAX_POINTS; i++) { 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
+	    i, potential->rad[i],   
+	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
+	    potential->U[i], 
+	    Large(orb1)[i], Large(orb2)[i],  
+	    Large(orb3)[i]); 
+  }
+
+
   fclose(f); 
 }
 

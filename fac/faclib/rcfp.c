@@ -1221,7 +1221,7 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
   RCFP_STATE run;
   double coeff, coeff1;
   int run_nu, Jrun, jrun, Qrun, min_run, max_run;
-  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2, kq2;
+  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2;
   double w6j1;
 
   coeff = 0.0;
@@ -1486,7 +1486,7 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
 
 double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
   double coeff;
-  int j, bra_nu, ket_nu;  
+  int bra_nu, ket_nu;  
   int Jbra, jbra, Jket, jket, Qbra, Qket;
 
   coeff = 0.0;
@@ -1620,7 +1620,7 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
 		       RCFP_OPERATOR *op) {
   double coeff;
   RCFP_STATE run;
-  int run_nu, Jrun, jrun;
+  int run_nu, Jrun;
   int Jbra, jbra, Jket, jket;
   double w6j1;
   int min_bra, max_bra;

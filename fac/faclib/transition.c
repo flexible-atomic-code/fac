@@ -36,7 +36,7 @@ void SetTransitionOptions(int gauge, int mode,
   transition_option.max_m = max_m;
 }
 
-int TransitionGauge() {
+int GetTransitionGauge() {
   return transition_option.gauge;
 }
 
@@ -84,9 +84,11 @@ int OscillatorStrength(double *strength, double *energy,
   for (i = 0; i < nz; i++) {
     if (fabs(ang[i].coeff) > EPS10) {
       if (transition_option.mode) {
-	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1);
+	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
+			      transition_option.gauge);
       } else {
-	r = MultipoleRadial(aw, m, ang[i].k0, ang[i].k1);
+	r = MultipoleRadial(aw, m, ang[i].k0, ang[i].k1,
+			    transition_option.gauge);
       }
       s += r * ang[i].coeff;
     }
