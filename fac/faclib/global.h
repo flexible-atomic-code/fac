@@ -105,6 +105,8 @@
 #define Max(a, b) (((a)>(b))?(a):(b))
 #define Min(a, b) (((a)<(b))?(a):(b))
 
+#define IsNan(a)  (!((a)>0) && !((a)<=0)) 
+
 /*
 ** VARIABLE:    EPS1, ..., EPS16.
 ** TYPE:        macro constants.
@@ -260,7 +262,7 @@
 #define MAXNUSR            30
 #define MAXNE              20
 #define MAXNTE             6
-#define TE_MIN_MAX         (1.0/3.0)
+#define TE_MIN_MAX         (1.0/5.0)
 
 /* excitation */
 #define NGOSK              64
