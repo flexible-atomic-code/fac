@@ -1,5 +1,6 @@
 Version 0.8.5, 10/10/2002
 	1. reinitializing GOS Array in the end of CETable call.
+	2. fix the bug in GeneralizedMoments.
 
 Version 0.8.4, 09/26/2002
 	1. the type of EN_RECORD.energy is changed to double, 
