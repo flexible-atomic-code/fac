@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.52 2004/01/19 04:45:37 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.53 2004/02/02 19:35:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1183,7 +1183,14 @@ int SaveLevels(char *fn, int m, int n) {
 		  ik = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
 		  orb = GetOrbital(ik);
 		  a = lev->energy - orb->energy;
-		  md1 = fabs(a - lev1->energy);
+		  for (p = 0; p < ecorrections->dim; p++) {
+		    ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+		    if (-(q+1) == ec->ilev) {
+		      a += ec->e;
+		      break;
+		    }
+		  }
+		  md1 = fabs(lev1->energy - a);
 		  if (md1 < md) {
 		    md = md1;
 		    lev->ibase = q;
