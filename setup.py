@@ -71,6 +71,6 @@ setup(name = "FAC",
 
 if (sys.argv[1] == 'build'):
       pyinc = get_config_var('INCLUDEPY')
-      pylib = get_config_var('LIBPL')+'/'+get_config_var('LIBRARY')
+      pylib = get_config_var('LIBPL')+'/'+get_config_var('LDLIBRARY')
       os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
       
