@@ -2407,9 +2407,11 @@ radial integrals. \var{mode} may be a string or an integer specifying the
 mode. These values are listed in the variable \key{QKMODE}.
 \end{fundesc}
 
-\begin{fundesc}{SetRecSpectator}{nmin}
-Set the minimum principal quantum number \var{nmin} for the spectator
-electron. The default is 8.
+\begin{fundesc}{SetRecSpectator}{nmin\opt{, nfrozen}}
+Set the minimum principal quantum numbers \var{nmin} and \var{nfrozen} for the
+spectator electron. States with $n > nmin$ are constructed with
+\key{RecStates} function, and those with $n > nfrozen$ are treated with frozen
+core approximation. Default for both \var{nmin} and \var{nfrozen} are 8.
 \end{fundesc}
 
 \begin{fundesc}{SetScreening}{ns\opt{,c\opt{,k}}}
