@@ -1,7 +1,7 @@
 #include "rmatrix.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rmatrix.c,v 1.7 2004/12/22 23:54:12 mfgu Exp $";
+static char *rcsid="$Id: rmatrix.c,v 1.8 2004/12/23 21:31:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2127,6 +2127,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     }
     fprintf(f1, "### %6d %6d %4d %12.5E %12.5E\n", 
 	    n, npe, nke, e[0]*HARTREE_EV, e[nke-1]*HARTREE_EV);
+    fflush(f1);
     for (i = 0; i < rmx[0].nsym;  i++) {
       for (j = 0; j < np; j++) {
 	ReadRMatrixSurface(f[j], &(rmx[j]), 1, fmode);
@@ -2199,7 +2200,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 		rmx[0].ts[its0], rmx[0].jts[its0],
 		rmx[0].ts[its1], rmx[0].jts[its1], 
 		(rmx[0].et[its1]-rmx[0].et[its0])*HARTREE_EV, 
-		n, npw);
+		nke, npw);
 	for (k = 0; k < nke; k++) {
 	  et = (e[k]-rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
 	  if (et < 0.0) continue;

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.73 2004/12/22 23:54:12 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.74 2004/12/23 21:31:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3070,11 +3070,11 @@ static int PRMatrixExpansion(int argc, char *argv[], int argt[],
   a = 1E-4;
   r = 0.0;
   if (argc > 1) {
-    d = atof(argv[1]);
+    r = atof(argv[1]);
     if (argc > 2) {
-      a = atof(argv[2]);
+      d = atof(argv[2]);
       if (argc > 3) {
-	r = atof(argv[3]);
+	a = atof(argv[3]);
       }
     }
   }

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.96 2004/12/22 23:54:12 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.97 2004/12/23 21:31:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4049,7 +4049,7 @@ static PyObject *PRMatrixExpansion(PyObject *self, PyObject *args) {
   d = 1E-3;
   a = 1E-4;
   r = 0.0;
-  if (!PyArg_ParseTuple(args, "i|ddd", &m, &d, &a, &r)) return NULL;
+  if (!PyArg_ParseTuple(args, "i|ddd", &m, &r, &d, &a)) return NULL;
   RMatrixExpansion(m, d, a, r);
 
   Py_INCREF(Py_None);
