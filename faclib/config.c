@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.29 2004/02/04 04:41:00 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.30 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -67,6 +67,16 @@ static void InitConfigData(void *p, int n) {
   }
 }
 
+void *ReallocNew(void *p, int s) {
+  void *q;
+
+  q = malloc(s);
+  memcpy(q, p, s);
+  free(p);
+  
+  return q;
+}
+  
 int SetNStatesPartition(int n) {
   if (n > 0) {
     nstates_partition = n;
@@ -1483,8 +1493,9 @@ int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;
   ARRAY *part;
   PARTITION p, *t;
-  int ip, ns;
+  int ip, ns, nsp0;
 
+  nsp0 = nstates_partition;
   if (cfg->n_csfs > nstates_partition) {
     SetNStatesPartition(cfg->n_csfs);
   }
@@ -1533,6 +1544,11 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   cfg_groups[k].n_cfgs++;
+  
+  if (nsp0 < nstates_partition) {
+    SetNStatesPartition(nsp0);
+  }
+
   return 0;
 }
 
@@ -1908,7 +1924,7 @@ int InitConfig(void) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-void FreeConfigData(void *p) {
+static void FreeConfigData(void *p) {
   CONFIG *c;
 
   c = (CONFIG *) p;
@@ -1922,6 +1938,36 @@ void FreeConfigData(void *p) {
   }
 }
 
+int RemoveGroup(int k) {
+  SYMMETRY *sym;
+  STATE *s;
+  int i, m;
+
+  if (k != n_groups-1) {
+    printf("only the last group can be removed\n");
+    return -1;
+  }
+  ArrayFree(&(cfg_groups[k].partition), NULL);
+  ArrayFree(&(cfg_groups[k].cfg_list), FreeConfigData);
+  cfg_groups[k].n_cfgs = 0;
+  strcpy(cfg_groups[k].name, "_all_");
+  n_groups--;
+
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    sym = GetSymmetry(i);
+    for (m = 0; m < sym->n_states; m++) {
+      s = ArrayGet(&(sym->states), m);
+      if (s->kgroup == k) {
+	ArrayTrim(&(sym->states), m, NULL);
+	sym->n_states = m;
+	break;
+      }
+    }
+  }
+  
+  return 0;
+}
+  
 /* 
 ** FUNCTION:    ReinitConfig
 ** PURPOSE:     reinitialize the module "config".

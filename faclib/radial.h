@@ -26,12 +26,14 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
+void SetBoundary(int nmax, double bqp, double p);
+int RadialOverlaps(char *fn);
 void SetSE(int n);
 void SetVP(int n);
 void SetBreit(int n);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
-int SetRadialGrid(double rmin, double rmax);
+int SetRadialGrid(double ratio, double asymp);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 int GetPotential(char *s);
 double GetResidualZ(void);

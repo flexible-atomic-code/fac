@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.85 2004/02/23 22:05:34 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.86 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -62,8 +62,8 @@ static struct {
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
-static double rgrid_min = 0;
-static double rgrid_max = 0;    
+static double rgrid_ratio = GRIDRATIO;
+static double rgrid_asymp = GRIDASYMP;    
  
 static MULTI *slater_array;
 static MULTI *breit_array;
@@ -100,6 +100,87 @@ static void InitOrbitalData(void *p, int n) {
   }
 }
 
+void SetBoundary(int nmax, double bqp, double p) {
+  ORBITAL *orb;
+  int i, j, n, kl, kl2, kappa, k;
+  double d1, d2, d;
+
+  potential->nb = abs(nmax);
+  potential->bqp = bqp;
+  if (nmax == 0) {
+    potential->ib = 0;
+  } else if (nmax < 0) {
+    d = GetResidualZ();
+    d1 = potential->nb;
+    if (p < 0.0) p = 2.0*d1*d1/d;
+    for (i = 0; i < MAX_POINTS; i++) {
+      if (potential->rad[i] >= p) break;
+    }
+    if (IsEven(i)) i++;
+    potential->ib = i;
+    for (n = 1; n <= potential->nb; n++) {
+      for (kl = 0; kl < n; kl++) {
+	kl2 = 2*kl;
+	for (j = kl2 - 1; j <= kl2 + 1; j += 2) {
+	  if (j < 0) continue;
+	  kappa = GetKappaFromJL(j, kl2);
+	  k = OrbitalIndex(n, kappa, 0);
+	  orb = GetOrbitalSolved(k);
+	}
+      }
+    }
+  } else {
+    if (p < 0.0) p = 1E-3;
+    for (n = 1; n <= potential->nb; n++) {
+      for (kl = 0; kl < n; kl++) {
+	kl2 = 2*kl;
+	for (j = kl2 - 1; j <= kl2 + 1; j += 2) {
+	  if (j < 0) continue;
+	  kappa = GetKappaFromJL(j, kl2);
+	  k = OrbitalIndex(n, kappa, 0);
+	  orb = GetOrbitalSolved(k);	  
+	  for (i = orb->ilast; i >= 0; i--) {
+	    d1 = Large(orb)[i];
+	    d2 = Small(orb)[i];
+	    d = d1*d1 + d2*d2;
+	    if (d >= p) {
+	      i++;
+	      break;
+	    }
+	  }
+	  if (potential->ib < i) potential->ib = i;
+	}
+      }
+    }
+    if (IsEven(i)) i++;
+  }
+}
+
+int RadialOverlaps(char *fn) {
+  ORBITAL *orb1, *orb2;
+  int i, j, k;
+  double r;
+  FILE *f;
+
+  f = fopen(fn, "w");
+  for (k = 0; k < MAX_POINTS; k++) {
+    _yk[k] = 1.0;
+  }
+  for (i = 0; i < n_orbitals; i++) {
+    orb1 = GetOrbital(i);
+    for (j = 0; j <= i; j++) {
+      orb2 = GetOrbital(j);
+      Integrate(_yk, orb1, orb2, 1, &r);
+      fprintf(f, "%2d %2d %10.3E  %2d %2d %10.3E  %10.3E\n", 
+	      orb1->n, orb1->kappa, orb1->energy, 
+	      orb2->n, orb2->kappa, orb2->energy, r);
+    }
+  }
+  fclose(f);
+
+  return 0;
+}
+  
 void SetSE(int n) {
   qed.se = n;
 }
@@ -170,9 +251,11 @@ void SetScreening(int n_screen, int *screened_n,
   optimize_control.screened_kl = kl;
 }
 
-int SetRadialGrid(double rmin, double rmax) {
-  rgrid_min = rmin;
-  rgrid_max = rmax;
+int SetRadialGrid(double ratio, double asymp) {
+  if (ratio < 0) rgrid_ratio = GRIDRATIO;
+  else rgrid_ratio = ratio;
+  if (asymp < 0) rgrid_asymp = GRIDASYMP;
+  else rgrid_asymp = asymp;
   potential->flag = 0;
   return 0;
 }
@@ -335,22 +418,14 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       SetPotentialU(potential, -1, NULL);
       return 0.0;
     }
-    k = 0;
-    a = 0.0;
     r = potential->Z[MAX_POINTS-1];
-    b = 1.0 - 1.0/potential->N;
+    b = (1.0 - 1.0/potential->N);
     for (i = 0; i < acfg->n_shells; i++) {
-      if (acfg->n[i] != k) {
-	if (k > 0) {
-	  r -= a*b;
-	  c = r/k;
-	  for (j = 0; j < MAX_POINTS; j++) {
-	    u[j] += a*b*(exp(-c*potential->rad[j])-1.0);
-	  }
-	  a = 0.0;
-	}
-      } else {
-	a += acfg->nq[i];
+      a = acfg->nq[i];
+      c = acfg->n[i];
+      c = r/(c*c);
+      for (j = 0; j < MAX_POINTS; j++) {
+	u[j] += a*b*(1.0 - exp(-c*potential->rad[j]));
       }
     }
     AdjustScreeningParams(u);
@@ -388,9 +463,12 @@ int GetPotential(char *s) {
   f = fopen(s, "w");
   if (!f) return -1;
   
-  fprintf(f, "Lambda = %10.3E, A = %10.3E\n",
-	  potential->lambda, potential->a);
-
+  fprintf(f, "Lambda = %10.3E\n", potential->lambda);
+  fprintf(f, "    ar = %10.3E\n", potential->ar);
+  fprintf(f, "    br = %10.3E\n", potential->br);
+  fprintf(f, "    rb = %10.3E\n", potential->rad[potential->ib]);
+  fprintf(f, "   bqp = %10.3E\n", potential->bqp);
+  fprintf(f, "    nb = %d\n", potential->nb);
   
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
@@ -526,7 +604,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
-    SetOrbitalRGrid(potential, rgrid_min, rgrid_max);
+    SetOrbitalRGrid(potential, rgrid_ratio, rgrid_asymp);
   }
 
   SetPotentialZ(potential, 0.0);
@@ -732,10 +810,12 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   f = fopen(s, "w");
   if (!f) return -1;
   
-  orb = GetOrbital(k);
+  orb = GetOrbitalSolved(k);
   
-  fprintf(f, "#Wave Function for n = %d, kappa = %d, energy = %12.6E\n\n",
-	  n, kappa, orb->energy*HARTREE_EV);
+  fprintf(f, "     n = %2d\n", n);
+  fprintf(f, " kappa = %2d\n", kappa);
+  fprintf(f, "energy = %10.3E\n", orb->energy*HARTREE_EV);
+  fprintf(f, "\n\n");
   if (n > 0) {
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
@@ -983,6 +1063,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
+    SetBoundary(0, 1.0, -1.0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -1165,7 +1246,10 @@ double AverageEnergyConfig(CONFIG *cfg) {
       fprintf(debug_log, "\nAverage Radial: %lf\n", y);
 #endif
 
-    } else b = 0.0;
+    } else {
+      b = 0.0;
+    }
+
     t = 0.0;
     for (j = 0; j < i; j++) {
       np = (cfg->shells[j]).n;
@@ -1183,7 +1267,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	Slater(&y, k, kp, kp, k, kk/2, 0);
 	q = W3j(j2, kk, j2p, -1, 0, 1);
 	a += y * q * q;
-
 #if FAC_DEBUG
 	fprintf(debug_log, "exchange rank: %d, q*q: %lf, Radial: %lf\n", 
 		kk/2, q*q, y);
@@ -1252,7 +1335,6 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
 	Slater(&y, k, kp, kp, k, kk/2, 0);
 	q = W3j(j2, kk, j2p, -1, 0, 1);
 	a += y * q * q;
-
 #if FAC_DEBUG
 	fprintf(debug_log, "exchange rank: %d, q*q: %lf, Radial: %lf\n", 
 		kk/2, q*q, y);
@@ -1885,15 +1967,15 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       e = 0.0;
       if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
+	if (t == 2 && qed.sms && maxn > 0) {
+	  e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
+	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
       }
-      if (t == 2 && qed.sms && maxn > 0) {
-	e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
-      }
       if (e) {
-	e *= ReducedCL(js[0], t, js[3]);
+	e *= ReducedCL(js[0], t, js[3]); 
 	e *= ReducedCL(js[1], t, js[2]);
 	e *= a * (k + 1.0);
 	if (IsOdd(t/2 + kk)) e = -e;
@@ -2004,7 +2086,6 @@ double QED1E(int k0, int k1) {
       r += a;
     }
   }
-
   *p = r;
   return r;
 }
@@ -2471,6 +2552,9 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
   if (orb1->n > 0 && orb2->n > 0) {
     i2 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i2, f, orb1, orb2, t, r, 0, NULL);
+    if (t >= 0) {
+      i2++;
+    }
   } else if (orb1->n > 0 && orb2->n <= 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0, NULL);
@@ -3399,6 +3483,8 @@ int InitRadial(void) {
   potential = malloc(sizeof(POTENTIAL));
   potential->flag = 0;
   potential->uehling[0] = 0.0;
+  SetBoundary(0, 1.0, -1.0);
+
   n_orbitals = 0;
   n_continua = 0;
   
@@ -3478,55 +3564,19 @@ int TestIntegrate(void) {
   int k1, k2, k3, i;
   double r, s[6];
   
-  orb1 = GetOrbital(1);
-  orb2 = GetOrbital(3);
+  orb1 = GetOrbital(0);
+  orb2 = GetOrbital(1);
+  orb3 = GetOrbital(2);
   
   for (i = 0; i < MAX_POINTS; i++) {  
-    r = potential->rad[i];   
-    _yk[i] = BESLJN(1, 1, r);
+    _yk[i] = 1.0;
   }
+  Integrate(_yk, orb1, orb2, 1, &s[0]);
+  Integrate(_yk, orb2, orb2, 1, &s[1]);
+  Integrate(_yk, orb2, orb3, 1, &s[2]);
 
-  r = 1e3/27.2;
-  k1 = OrbitalIndex(0, -2, r);
-  orb3 = GetOrbitalSolved(k1);
-
-  r = 4e3/27.2;
-  k2 = OrbitalIndex(0, -1, r);
-  orb4 = GetOrbitalSolved(k2);
-  /*
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb1, orb2, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb2, orb1, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb1, orb3, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
-
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb3, orb1, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
-  */
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb3, orb4, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
-
-  for (i = 0; i < 6; i++) {
-    Integrate(_yk, orb4, orb3, i+1, &s[i]);
-  }
-  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	 s[0], s[1], s[2], s[3], s[4], s[5]);
+  printf("%12.5E %12.5E %12.5E %12.5E\n",
+	 s[0], s[2], orb3->energy, orb2->energy);
 
   return 0;
 }

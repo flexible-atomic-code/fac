@@ -11,7 +11,7 @@ typedef struct _NUCLEUS_ {
 } NUCLEUS;
 
 
-int SetAtom(char *s, double z, double mass);
+int SetAtom(char *s, double z, double mass, double rn);
 char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);
 double GetAtomicNumber(void);

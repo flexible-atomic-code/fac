@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.70 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.71 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -126,6 +126,24 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
+  int nmax;
+  double bqp, p;
+  
+  if (sfac_file) {
+    SFACStatement("SetBoundary", args, NULL);
+    Py_INCREF(Py_None); 
+    return Py_None;
+  }
+  p = -1.0;
+  if (!PyArg_ParseTuple(args, "id|d", &nmax, &bqp, &p))
+    return NULL;
+  SetBoundary(nmax, bqp, p);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static PyObject *PSetOptimizeControl(PyObject *self, PyObject *args) {
   int maxiter;
@@ -743,7 +761,7 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
-  double z, mass;
+  double z, mass, rn;
 
   if (sfac_file) {
     SFACStatement("SetAtom", args, NULL);
@@ -753,8 +771,10 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
 
   mass = 0.0;
   z = 0.0;
-  if (!PyArg_ParseTuple(args, "s|dd", &s, &z, &mass)) return NULL;
-  if (SetAtom(s, z, mass) < 0) return NULL;
+  rn = -1.0;
+  if (!PyArg_ParseTuple(args, "s|ddd", &s, &z, &mass, &rn)) return NULL;
+  if (SetAtom(s, z, mass, rn) < 0) return NULL;
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1049,6 +1069,14 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTestHamilton(PyObject *self, PyObject *args) {
+  
+  TestHamilton();
+ 
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PClearOrbitalTable(PyObject *self, PyObject *args) {
   int m;
 
@@ -1241,6 +1269,56 @@ static int SelectLevels(PyObject *p, int **t) {
   return 0;
 }
 
+static PyObject *PMBPT(PyObject *self, PyObject *args) {
+  PyObject *p, *q, *r;
+  int *n0, i, n1, n, ng, *s, *kg, m, kmax, kmin;
+  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("MBPT", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = 1;
+  kmin = 0;
+  if (!(PyArg_ParseTuple(args, "sOOOii|ii", 
+			 &fn, &p, &q, &r, &n1, &kmax, &kmin, &m))) 
+    return NULL;
+  n = SelectLevels(p, &s);
+  if (n <= 0) return NULL;
+  
+  ng = DecodeGroupArgs(q, &kg);
+  if (ng > 0) {
+    n0 = malloc(sizeof(int)*ng);
+    if (PyList_Check(r)) {
+      if (PyList_Size(r) != ng) {
+	printf("n0 array must have the same size as gp array\n");
+	free(s);
+	free(kg);
+	free(n0);
+	return NULL;
+      }
+      for (i = 0; i < ng; i++) {
+	p = PyList_GetItem(r, i);
+	n0[i] = PyInt_AsLong(p);
+      }
+    } else {
+      n0[0] = PyInt_AsLong(r);
+      for (i = 1; i < ng; i++) {
+	n0[i] = n0[0];
+      }
+    }
+    MBPT(fn, n, s, ng, kg, n0, n1, kmax, kmin, m);
+    free (kg);
+    free(n0);
+  }
+  free(s);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
 static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   char *s;
   int n, m;
@@ -2833,7 +2911,7 @@ static PyObject *PPrintTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  v = 0;
+  v = 1;
   if (!PyArg_ParseTuple(args, "ss|i", &fn1, &fn2, &v)) return NULL;
   PrintTable(fn1, fn2, v);
 
@@ -3749,6 +3827,23 @@ static PyObject *PAIBranch(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddd)", te, pa, ta);
 }
 
+static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
+  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("RadialOverlaps", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+
+  RadialOverlaps(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Asymmetry", PAsymmetry, METH_VARARGS},
@@ -3794,9 +3889,11 @@ static struct PyMethodDef fac_methods[] = {
   {"GetCG", PGetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
+  {"MBPT", PMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
@@ -3817,6 +3914,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
+  {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},
@@ -3862,6 +3960,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Structure", PStructure, METH_VARARGS},
   {"TestAngular", PTestAngular, METH_VARARGS},
   {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
+  {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
   {"TransitionTable", PTransitionTable, METH_VARARGS}, 

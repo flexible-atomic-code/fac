@@ -11,9 +11,11 @@ typedef struct _POTENTIAL_ {
   int r_core;
   double Z[MAX_POINTS]; /*effective atomic number*/
   double N; /*number of electrons*/
-  double lambda;
-  double a;
-  double rad[MAX_POINTS], ar, br;
+  double lambda, a; /* parameter for the Vc */
+  double ar, br; /* parameter for the transformation */
+  int ib, nb; 
+  double bqp; /* boundary condition */
+  double rad[MAX_POINTS];
   double dr_drho[MAX_POINTS];
   double dr_drho2[MAX_POINTS];
   double Vc[MAX_POINTS];
@@ -46,6 +48,7 @@ double *GetVEffective(void);
 double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot);
+int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);

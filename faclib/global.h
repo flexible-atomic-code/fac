@@ -204,21 +204,21 @@
 #define MULTI_BLOCK6   10
 
 /* orbital */
-#define MAX_POINTS 720  /* radial mesh */
-#define GRIDASYMP  14   /* no. points in one wavelength near infinity */
+#define MAX_POINTS 1200 /* radial mesh */
+#define GRIDASYMP  24   /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1  /* ratio of successive mesh near origin */
-#define ENERELERR  1E-3 /* relative energy error */
-#define ENEABSERR  1E-4 /* absolute energy error */
+#define ENERELERR  1E-4 /* relative energy error */
+#define ENEABSERR  1E-5 /* absolute energy error */
 
 /* config */
-#define NSPARTITION        512
+#define NSPARTITION        100
 #define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     64
 #define MAX_GROUPS         4096
 #define MAX_SYMMETRIES     512
 #define CONFIGS_BLOCK      256
-#define STATES_BLOCK       512
+#define STATES_BLOCK       2048
 
 /* radial */
 #define ORBITALS_BLOCK     1024
@@ -234,7 +234,7 @@
 
 /* structure */
 #define LEVELS_BLOCK       1024
-#define ANGZ_BLOCK         128
+#define ANGZ_BLOCK         32
 #define ANGZCUT            1E-6
 #define MIXCUT             1E-5
 #define NPRINCIPLE         2
@@ -257,7 +257,7 @@
 /* coulomb */
 #define NHYDROGEN          10
 #define LHYDROGEN          7
-#define NHYDROGENMAX       128
+#define NHYDROGENMAX       512
 #define LHYDROGENMAX       20
 #define DIPOLE_BLOCK       64
 
