@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.28 2005/01/10 22:06:49 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.29 2005/01/11 03:05:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -233,8 +233,8 @@ static int CompareNRLevel(const void *p1, const void *p2) {
   LEVEL *lev1, *lev2;
   CONFIG *c1, *c2;
   
-  i1 = p1;
-  i2 = p2;
+  i1 = (int *) p1;
+  i2 = (int *) p2;
   lev1 = GetLevel(*i1);
   lev2 = GetLevel(*i2);
   c1 = GetConfigFromGroup(lev1->iham, lev1->pb);
@@ -245,8 +245,8 @@ static int CompareNRLevel(const void *p1, const void *p2) {
 static int CompareTRDatum(const void *p1, const void *p2) {
   TR_DATUM *r1, *r2;
 
-  r1 = p1;
-  r2 = p2;
+  r1 = (TR_DATUM *) p1;
+  r2 = (TR_DATUM *) p2;
   if ((r1->r).upper < (r2->r).upper) return -1;
   else if ((r1->r).upper > (r2->r).upper) return 1;
   else {
