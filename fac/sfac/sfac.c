@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.7 2002/01/14 23:19:51 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.8 2002/01/18 15:27:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -467,8 +467,8 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (nup <= 0) return -1;
   if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
 
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
     
   return 0;
 }
