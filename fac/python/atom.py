@@ -856,15 +856,15 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
     for m in n:
         atom = ATOM(m)
 	if (kw.has_key('no_ce')):
-	    atom.kw['ce'] = not kw['no_ce']
+	    atom.process['ce'] = not kw['no_ce']
 	if (kw.has_key('no_tr')):
-	    atom.kw['tr'] = not kw['no_tr']
+	    atom.process['tr'] = not kw['no_tr']
 	if (kw.has_key('no_rr')):
-	    atom.kw['rr'] = not kw['no_rr']
+	    atom.process['rr'] = not kw['no_rr']
 	if (kw.has_key('no_ci')):
-	    atom.kw['ci'] = not kw['no_ci']
+	    atom.process['ci'] = not kw['no_ci']
 	if (kw.has_key('no_ai')):
-	    atom.kw['ai'] = not kw['no_ai']
+	    atom.process['ai'] = not kw['no_ai']
         if (kw.has_key('nexc_max')):
             atom.nexc_max = kw['nexc_max']
         if (kw.has_key('nrec_max')):
