@@ -1,11 +1,11 @@
-# rcsid = $Id: README,v 1.13 2001/11/06 23:55:20 mfgu Exp $
+# rcsid = $Id: README,v 1.14 2001/12/14 00:09:50 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
-Makefile.Solaris, top level makefile for Sun.
-Makefile.Linux,   top level makefile for Linux.
+Makefile,    top level makefile.
 README,      this file.
+setup.py,    setup script for Python interface.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.

@@ -61,7 +61,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     6
-#define SUBSUBVERSION  7
+#define SUBSUBVERSION  8
 
 
 /* 
