@@ -3948,7 +3948,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 # some F77 LDFLAGS have a -lcrt1.o which causes trouble.
-# actuall any crtn.o may cause trouble, we don't need that.
+# actually any crtn.o may cause trouble, we don't need that.
 echo "$as_me:$LINENO: checking for -lcrtn.o in FLIBS" >&5
 echo $ECHO_N "checking for -lcrtn.o in FLIBS... $ECHO_C" >&6
 NFLIBS=`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`
@@ -4049,7 +4049,7 @@ then
       *)
         echo "NOTE: F77 known by cfortran.h is not detected."
         echo "      using default f2cFortran."
-        echo "      if not, chage it using --with-cfortran=xxFortran"
+        echo "      if not, change it using --with-cfortran=xxFortran"
         echo "      see faclib/cfortran.doc for available options."
         xxFortran=f2cFortran
       ;;
