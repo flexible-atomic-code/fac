@@ -1,5 +1,11 @@
 #include "grid.h"
 
+static char *rcsid="$Id: grid.c,v 1.2 2001/10/08 21:02:12 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 int AddPW(int *nkl0, double *kl, double *logkl, 
 	  int maxkl, int n, int step) {
   int i;

@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.18 2001/10/03 16:31:15 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.19 2001/10/08 21:02:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1026,7 +1026,7 @@ double GetRFromRho(double rho, double a, double b, double r0) {
 
   e = 1.0;
   i = 0;
-  while (fabs(e) > 1E-6) {
+  while (fabs(e) > 1E-10) {
     if (i > 100) {
       printf("Newton iteration failed to converge in GetRFromRho\n");
       abort();
@@ -1052,8 +1052,8 @@ int SetPotentialZ(POTENTIAL *pot, double c) {
 }
 
 int SetPotentialVc(POTENTIAL *pot) {
-  int i, n;
-  double r, r2, v, x, y, a, b, v0;
+  int i;
+  double n, r, r2, v, x, y, a, b, v0;
 
   for (i = 0; i < MAX_POINTS; i++) {
     r = pot->rad[i];

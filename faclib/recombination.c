@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.23 2001/10/05 19:23:44 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.24 2001/10/08 21:02:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -394,7 +394,7 @@ int BoundFreeOS(double *strength, double *eb,
 	  for (ie = 0; ie < n_egrid; ie++) {
 	    e = egrid[ie];
 	    kf = OrbitalIndex(0, kappaf, e);
-	    if (mode && m != 1) {
+	    if (mode == M_NR && m != 1) {
 	      radial_int[j++] = 
 		MultipoleRadialNR(m, kf, ang[i].kb, gauge);
 	    } else {
@@ -448,7 +448,7 @@ int BoundFreeOS(double *strength, double *eb,
 
   /* the factor 2 comes from the conitinuum norm */
   c = k - 2;
-  if (gauge == G_COULOMB && mode == 0 && m < 0) {
+  if (gauge == G_COULOMB && mode == M_FR && m < 0) {
     c -= 2;
   }
   for (ie = 0; ie < n_usr; ie++) {
@@ -664,7 +664,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     return 0;
   }
 
-  if (m == 1 || GetTransitionMode() == 0) {
+  if (m == 1 || GetTransitionMode() == M_FR) {
     FreeMultipoleArray();
     e = 2.0*(emax - emin)/(emin+emax);
     awmin = emin * FINE_STRUCTURE_CONST;
@@ -823,7 +823,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     }
   }
 
-  if (GetTransitionMode() == 0) {
+  if (GetTransitionMode() == M_FR) {
     emin = 1E10;
     emax = 1E-16;
     k = 0;

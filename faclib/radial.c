@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.24 2001/10/05 19:23:44 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.25 2001/10/08 21:02:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -103,11 +103,11 @@ int SetRadialGrid(double rmin, double rmax) {
   rgrid_max = rmax;
 }
 
-int _AdjustScreeningParams(double *v, double *u) {
+int _AdjustScreeningParams(double *v, double *u, int initp) {
   int i;
   double c;
 
-  if (v[0] > -0.9E30) {
+  if (initp == 0) {
     for (i = 0; i < MAX_POINTS; i++) {
       u[i] = 0.5*(u[i]+v[i]);
       v[i] = u[i];
@@ -129,7 +129,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
   int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
   ORBITAL *orb1, *orb2;
   double large1, small1, large2, small2;
-  int norbs, kmin, kmax, jmax;
+  int norbs, kmin, kmax, jmax, initp;
   double *u, *w, *v, w3j, a, b;
 
   u = potential->U;
@@ -166,7 +166,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
       GetJLFromKappa(acfg->kappa[i], &j1, &kl1);
       kmin = 0;
       kmax = 2*j1;
-      kmax = Min(kmax, 8);
+      kmax = Min(kmax, 6);
       for (k = kmin; k <= kmax; k += 2) {
 	t = k/2;
 	if (IsOdd(t)) continue;
@@ -199,7 +199,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
 	GetJLFromKappa(acfg->kappa[j], &j2, &kl2);
 	kmin = abs(j1 - j2);
 	kmax = j1 + j2;
-	kmax = Min(kmax, 8);
+	kmax = Min(kmax, 6);
 	if (IsOdd(kmin)) kmin++;
 	for (k = kmin; k <= kmax; k += 2) {
 	  if (IsOdd((k+kl1+kl2)/2)) continue;
@@ -222,23 +222,27 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     }
 
     u[0] = u[1];
+   
+    jmax = jmax - 8;
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
-    for (j = jmax-5; j > 0; j--) {
+    for (j = jmax; j > 0; j--) {
       if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
     }
     potential->r_core = j+1;
-    _AdjustScreeningParams(v, u); 
+    _AdjustScreeningParams(v, u, initp); 
+    initp = 0;
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
-      u[j] = u[j] - potential->Z[j];
-      u[j] -= potential->Vc[j]*potential->rad[j];
+      a = u[j] - potential->Z[j];
+      b = potential->Vc[j]*potential->rad[j];
+      u[j] = a - b;
       u[j] /= potential->rad[j];
     }
     SetPotentialU(potential, 0, NULL);
   } else {
-    v[0] = -1E30;
+    initp = 1;
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
   }
@@ -297,8 +301,13 @@ int GetPotential(char *s) {
     v[k] += w[k]*0.4235655;
   }
 
+  fprintf(f, "Mean configuration:\n");
+  for (i = 0; i < acfg->n_shells; i++) {
+    fprintf(f, "%-2d %2d\t%-10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+  }
+  fprintf(f, "\n");
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%-5d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+    fprintf(f, "%-5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
 	    potential->U[i], v[i]);
   }
