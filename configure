@@ -3837,7 +3837,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 # actually any crtn.o may cause trouble, we don't need that.
 echo "$as_me:$LINENO: checking for -lcrtn.o in FLIBS" >&5
 echo $ECHO_N "checking for -lcrtn.o in FLIBS... $ECHO_C" >&6
-FLIBS=`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`
+FLIBS=`echo $FLIBS | sed 's/-lcrt.*\.o//g'`
 FLIBS=`echo $FLIBS | sed 's/  */ /g'`
 echo "$as_me:$LINENO: result: $FLIBS" >&5
 echo "${ECHO_T}$FLIBS" >&6
