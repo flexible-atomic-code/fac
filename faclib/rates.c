@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.6 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.7 2002/01/21 21:59:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -299,7 +299,7 @@ double CIRate1E(double e, double eth, int np, int ns, void *p) {
   for (i = 0; i < ns; i++) {
     a = (3.5 + dp[4])*logc;
     b = dp[1]*log((1.0 + dp[2])/(c2 + dp[2]));
-    f += dp[0]*(1.0 - exp(a+b));
+    f += dp[0]*(1.0 - exp(a+b))*logx;
     f += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
     dp += np;
   }

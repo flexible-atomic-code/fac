@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.26 2002/01/17 14:54:54 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.27 2002/01/21 21:59:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -512,7 +512,7 @@ void CIRadialQkFromFit(int np, double *p, int n,
       e = p[2]+1.0;
       f = pow(c,a);
       g = pow(e/d, p[1]);
-      y[i] = p[0]*(1.0 - f*g);
+      y[i] = p[0]*(1.0 - f*g)*logx[i];
       a = 1.0 - 1.0/x[i] - logx[i]/(1.0 + x[i]);
       y[i] += p[3]*a;
     }
