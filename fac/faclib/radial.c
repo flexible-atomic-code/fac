@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.96 2004/06/13 08:43:40 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.97 2004/06/13 23:45:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -475,13 +475,13 @@ int GetPotential(char *s) {
   f = fopen(s, "w");
   if (!f) return -1;
   
-  fprintf(f, "Lambda = %10.3E\n", potential->lambda);
-  fprintf(f, "     A = %10.3E\n", potential->a);
-  fprintf(f, "    ar = %10.3E\n", potential->ar);
-  fprintf(f, "    br = %10.3E\n", potential->br);
-  fprintf(f, "    rb = %10.3E\n", potential->rad[potential->ib]);
-  fprintf(f, "   bqp = %10.3E\n", potential->bqp);
-  fprintf(f, "    nb = %d\n", potential->nb);
+  fprintf(f, "# Lambda = %10.3E\n", potential->lambda);
+  fprintf(f, "#      A = %10.3E\n", potential->a);
+  fprintf(f, "#     ar = %10.3E\n", potential->ar);
+  fprintf(f, "#     br = %10.3E\n", potential->br);
+  fprintf(f, "#     rb = %10.3E\n", potential->rad[potential->ib]);
+  fprintf(f, "#    bqp = %10.3E\n", potential->bqp);
+  fprintf(f, "#     nb = %d\n", potential->nb);
   
   for (j = 0; j < potential->maxrp; j++) {
     w[j] = 0.0;
@@ -518,9 +518,9 @@ int GetPotential(char *s) {
   }
   ve1[0] = ve1[1];
 
-  fprintf(f, "Mean configuration:\n");
+  fprintf(f, "# Mean configuration:\n");
   for (i = 0; i < acfg->n_shells; i++) {
-    fprintf(f, "%2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+    fprintf(f, "# %2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
@@ -717,6 +717,7 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
   double a, delta;
 
   potential->lambda = x[0];
+  potential->a = x[1];
   SetPotentialVc(potential);
   ReinitRadial(1);
   ClearOrbitalTable(0);
@@ -730,6 +731,15 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
   a = AverageEnergyAvgConfig(&average_config);
   g[0] = (a - *f)/delta;
   potential->lambda -= delta;
+
+  delta = 0.01;
+  potential->a += delta;
+  SetPotentialVc(potential);
+  ReinitRadial(1);
+  ClearOrbitalTable(0);
+  a = AverageEnergyAvgConfig(&average_config);
+  g[1] = (a - *f)/delta;
+  potential->a -= delta;
   
   return;
 }
@@ -746,23 +756,27 @@ int RefineRadial(int maxfun, int msglvl) {
   stepmx = 0.5;
   accrcy = EPS10;
   xtol = EPS4;
-  n = 1;
+  n = 2;
   lw = potential->maxrp;
   x[0] = potential->lambda;
   x0[0] = x[0] - x[0]*0.5;
   x1[0] = x[0] + x[0]*1.5;
+  x[1] = potential->a;
+  x0[1] = 0.0;
+  x1[1] = 5.0;
   
   if (msglvl > 0) {
-    printf("%10.3E\n", x[0]);
+    printf("%10.3E %10.3E\n", x[0], x[1]);
   }
   TNFunc(&n, x, &f0, g);
   LMQNBC(&ierr, n, x, &f, g, _dwork11, lw, TNFunc, 
 	 x0, x1, ip, msglvl, maxit, maxfun, eta, 
 	 stepmx, accrcy, xtol);
   if (msglvl > 0) {
-    printf("%10.3E\n", x[0]);
+    printf("%10.3E %10.3E\n", x[0], x[1]);
   }
   potential->lambda = x[0];
+  potential->a = x[1];
   SetPotentialVc(potential);
   if (ierr) {
     if (f > f0) {
