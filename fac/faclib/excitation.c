@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.72 2004/07/26 17:26:48 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.73 2004/11/02 05:54:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -387,6 +387,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   int j0, j1, j2, j3;
   int ko2, t, nk;
   double r, c0, c1, dk;
+  double x, b, d, c, a;
   double *g1, *g2, *x1, *x2;
 
   *qk = 0.0;
@@ -413,9 +414,12 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   g2 = GeneralizedMoments(k2, k3, ko2);
   x2 = g2 + NGOSK;
 
-  c0 = te + e1;  
-  c0 = sqrt(2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0));
-  c1 = sqrt(2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1));
+  c0 = te + e1; 
+  c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
+  c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
+  b = 1.0+FINE_STRUCTURE_CONST2*c0;
+  c0 = sqrt(c0);
+  c1 = sqrt(c1);
   nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
@@ -430,9 +434,14 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   nk = NKINT;
   InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
-
+  
   for (t = 0; t < nk; t++) {
-    gosint[t] = r*gos1[t]*gos2[t];
+    gosint[t] = r*gos1[t]*gos2[t];    
+    x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);    
+    a = 1.0 - x*(1.0+1.0/b);
+    c = 1.0 - x;
+    d = a*b/(c*c);
+    gosint[t] *= d;
   }
 
   *qk = dk*Simpson(gosint, 0, nk-1);
@@ -441,7 +450,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
 }
   
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
-		       double te, double e1, 
+		       double te, double e1,
 		       int nq, int *q, double *qk) {
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
@@ -451,6 +460,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   int kkp, iq;
   double xc, theta, dnu1, pqa[MAXMSUB];
   double r, c0, c1, c01, dk;
+  double x, b, d, c, a;
   double *g1, *g2, *x1, *x2;
   double gosm1[MAXMSUB][NKINT];
   double gosm2[MAXMSUB][NKINT];
@@ -487,10 +497,11 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   g2 = GeneralizedMoments(k2, k3, ko2p);
   x2 = g2 + NGOSK;
 
-  c0 = te + e1;
+  c0 = te + e1; 
   c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
   c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
   c01 = c0 - c1;
+  b = 1.0+FINE_STRUCTURE_CONST2*c0;
   c0 = sqrt(c0);
   c1 = sqrt(c1);
   nk = NKINT-1;
@@ -510,6 +521,11 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 
   for (t = 0; t < nk; t++) {
     gost[t] = r*gos1[t]*gos2[t];
+    x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
+    a = 1.0 - x*(1.0+1.0/b);
+    c = 1.0 - x;
+    d = a*b/(c*c);
+    gosint[t] *= d;
   }
   
   nudiff = 0;
@@ -594,10 +610,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]));
-	b = e1 + te;
-	b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
-	b = 1.0 + FINE_STRUCTURE_CONST2*b;
-	rq[ite][ie] *= b;
       }
     }
   } else {
@@ -727,10 +739,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	if (ieb) {
 	  type = CERadialQkBorn(k0, k1, k2, k3, k,
 				te, e1, &(rq[ite][ie]));
-	  b = e1 + te;
-	  b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
-	  b = 1.0 + FINE_STRUCTURE_CONST2*b;
-	  rq[ite][ie] *= b;
 	  rq[ite][ie] += r-rd;
 	}
       }
@@ -801,11 +809,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	te = tegrid[ite];
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
 				   nq, q, rqt);	
-	b = e1 + te;
-	b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
-	b = 1.0 + FINE_STRUCTURE_CONST2*b;
 	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][ite][ie] = b*rqt[iq];
+	  rq[iq][ite][ie] = rqt[iq];
 	}
       }
     }
@@ -998,11 +1003,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	if (ieb) {
 	  type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
 				     nq, q, rqt);
-	  b = e1 + te;
-	  b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
-	  b = 1.0 + FINE_STRUCTURE_CONST2*b;
 	  for (iq = 0; iq < nq; iq++) {
-	    rq[iq][ite][ie] += b*rqt[iq] - drq[iq][ite][ie];
+	    rq[iq][ite][ie] += rqt[iq] - drq[iq][ite][ie];
 	  }
 	}
       }
@@ -1216,7 +1218,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
   double fvec[MAXNE], fjac[MAXNE*NPARAMS];
-  double born_egrid, born_cross;
+  double born_egrid, born_cross, bt;
 
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -1447,10 +1449,19 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    }
 	  }
 	}
+	bt = 0.0;
 	p = 0;
 	for (t = -j1; t <= 0; t += 2) {
 	  for (h = -j2; h <= j2; h += 2) {
-	    params[p] = 8.0*g2[p]/born_cross;
+	    bt += g2[p];
+	    if (t != 0) bt += g2[p];
+	    p++;
+	  }
+	}
+	p = 0;
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {
+	    params[p] = g2[p]/bt;
 	    p++;
 	  }
 	}
@@ -1617,7 +1628,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   F_HEADER fhdr;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set;
+  int te_set, e_set, usr_set, iempty;
   double emin, emax, e, c;
   double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
@@ -1881,13 +1892,17 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	}
       
 	ip = 0;
+	iempty = 1;
 	for (m = 0; m < r.nsub; m++) {
 	  for (ie = 0; ie < ce_hdr.n_usr; ie++) {
 	    r.strength[ip] = (float) qkc[ip];
+	    if (r.strength[ip]) iempty = 0;
 	    ip++;
 	  }
 	}
-	WriteCERecord(f, &r);
+	if (iempty == 0) {
+	  WriteCERecord(f, &r);
+	}
       }
     }
     if (msub || qk_mode == QK_FIT) free(r.params);

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.74 2004/08/13 23:43:24 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.75 2004/11/02 05:54:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -692,6 +692,7 @@ int SetBlocks(double ni, char *ifn) {
   int swp;
 
   ion0.n = ni;
+  ion0.n0 = ni;
   if (ifn) {
     k = strlen(ifn);
     k += 4;
@@ -727,6 +728,7 @@ int SetBlocks(double ni, char *ifn) {
   
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
+    ion->n0 = ion->n;
     if (k > 0) {
       if (ion->nele != ion1->nele+1) {
 	printf("ERROR: NELE for the added ions are not ");
@@ -1379,12 +1381,15 @@ int SetAbund(int nele, double abund) {
   ION *ion;
   int i;
 
-  if (ion0.nele == nele) ion0.n = abund;
-  else {
+  if (ion0.nele == nele) {
+    ion0.n = abund;
+    ion0.n0 = abund;
+  } else {
     for (i = 0; i < ions->dim; i++) {
       ion = (ION *) ArrayGet(ions, i);
       if (ion->nele == nele) {
 	ion->n = abund;
+	ion->n0 = abund;
 	break;
       }
     }
@@ -2496,8 +2501,8 @@ int BlockMatrix(void) {
 	k = iion;
 	if (k == -1) k = 0;
 	ion = (ION *) ArrayGet(ions, k);
-	if (iion == -1) den = ion0.n;
-	else den = ion->n;
+	if (iion == -1) den = ion0.n0;
+	else den = ion->n0;
 	if (den > 0.0) {
 	  x[k0] = den;
 	  p = k0;
@@ -2520,7 +2525,7 @@ int BlockMatrix(void) {
 
   k = iion;
   ion = (ION *) ArrayGet(ions, k);
-  den = ion->n;
+  den = ion->n0;
   if (den > 0.0) {
     x[k0] = den;
     p = k0;
@@ -2879,6 +2884,13 @@ double BlockRelaxation(int iter) {
       */
       if (p == -1) ion0.nt = a;
       else ion->nt = a;
+      /*
+      if (h > 0.0) {
+	blk2 = (LBLOCK *) ArrayGet(blocks, q);
+	if (p == -1) ion0.n0 = blk2->nb*h/a;
+	else ion->n0 = blk2->nb*h/a;
+      }
+      */
       p = blk1->iion;
       a = 0.0;
       q = k;
@@ -2904,7 +2916,12 @@ double BlockRelaxation(int iter) {
   }
   */
   ion->nt = a;
-  
+  /*
+  if (ion->n > 0.0) {
+    blk2 = ArrayGet(blocks, q);
+    ion->n0 = blk2->nb*ion->n/a;
+  }
+  */
   if (iter < 0) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
@@ -3008,11 +3025,11 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       }
       p = ion->ilev[m];
       /*      if (blk->n[p]) {*/
-	r.upper = m;
-	r.lower = p;
-	r.energy = ion->energy[m];
-	r.strength = blk->n[p];
-	WriteSPRecord(f, &r);
+      r.upper = m;
+      r.lower = p;
+      r.energy = ion->energy[m];
+      r.strength = blk->n[p];
+      WriteSPRecord(f, &r);
 	/*}*/
     }
     if (ib >= 0) DeinitFile(f, &fhdr);

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.17 2003/08/13 01:38:16 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.18 2004/11/02 05:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -826,7 +826,7 @@ static double Population(int iter) {
 	  p = q2*nmlevels+q1;
 	  rmatrix[p] = 0.0;
 	}
-	rmatrix[t] = 1E30;
+	rmatrix[t] = 1E50;
       }
     }
     b[i] = 1.0;
@@ -847,7 +847,7 @@ static double Population(int iter) {
 	  p = q2*nmlevels+q1;
 	  rmatrix[p] = 0.0;
 	}
-	rmatrix[t] = 1E30;
+	rmatrix[t] = 1E50;
       }
     }
 
@@ -881,7 +881,6 @@ static double Population(int iter) {
   }
 
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
-
   c = 0.0;
   if (nlevels > nmax) {
     nm = 0;

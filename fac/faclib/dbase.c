@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.61 2004/07/27 02:38:15 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.62 2004/11/02 05:54:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1565,7 +1565,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 	}
       }
     } else {
-      for (j = 0; j < m; j++) {
+      for (j = 0; j < m; j++) {	
 	y[j] = cs[j];
       }
     }
@@ -1574,7 +1574,11 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 
   if (h->msub) {
     for (j = 0; j < m; j++) {
-      w[j] = cs[k*m+j]/y[j];
+      if (y[j]) {
+	w[j] = cs[k*m+j]/y[j];
+      } else {
+	w[j] = 1.0;
+      }
     }
     if (r->bethe < 0) {
       w[j] = w[j-1];
@@ -1664,6 +1668,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   CE_RECORD r;
   int i, t, m, k;
   double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
+  double eth, a1, cs1, k2, rp;
   
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1708,8 +1713,8 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
       n = ReadCERecord(f1, &r, swp, &h);
       if (r.lower == i0 && r.upper == i1) {
 	PrepCECrossHeader(&h, data);
-	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	e *= HARTREE_EV;
+	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	e = eth*HARTREE_EV;
 	fprintf(f2, "#%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
@@ -1723,8 +1728,32 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	    a = PI*AREA_AU20/(2.0*a);
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= cs;
-	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\n", 
-		    egy[t], cs, a, ratio);
+	    if (data[1] > 0.0) {	      
+	      cs1 = data[1]*log(1.0+egy[t]/e) + r.born[0];
+	      k2 = (egy[t]+e)/HARTREE_EV;
+	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+	      a1 = FINE_STRUCTURE_CONST2*k2;
+	      a1 = a1/(1.0+a1);
+	      a1 = data[1]*(log(0.5*k2/eth) - a1);
+	      a1 += r.born[0];
+	      a1 *= 1.0 + FINE_STRUCTURE_CONST2*k2;
+	      k2 = cs1/a1;
+	      rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*(egy[t]+e)/HARTREE_EV);
+	      if (rp > 1.0) {
+		k2 /= rp;
+		rp = 1.0;
+	      }
+	      cs1 = cs*k2;
+	      a1 = a*rp;
+	    } else {
+	      k2 = (egy[t]+e)/HARTREE_EV;
+	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+	      k2 = 1.0 + FINE_STRUCTURE_CONST2*k2;
+	      cs1 = cs/k2;
+	      a1 = a*(1.0+0.5*FINE_STRUCTURE_CONST2*(egy[t]+e)/HARTREE_EV)/k2;
+	    }
+	    fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n",
+		    egy[t], cs, a, cs1, a1, ratio);
 	  }
 	  fprintf(f2, "\n\n");
 	}
@@ -1971,7 +2000,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   int i, t, nb, m;
   float e, eph, ee, phi;
   double *xusr, *dstrength, *c, tc, emax;
-  double x, y;
+  double x, y, a;
   int np=3, one=1, nele;
   
   if (mem_en_table == NULL) {
@@ -2043,6 +2072,8 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	eph = egy[t];
 	ee = eph - e;
 	if (ee <= 0.0) continue;
+	a = FINE_STRUCTURE_CONST2*ee;
+	a = (1.0+a)/(1+0.5*a);
 	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
 	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
@@ -2058,7 +2089,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	    tc = 0.0;
 	  }
 	}
-	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
+	phi = a*2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;	
 	c[t] += phi/(mem_en_table[r.b].j + 1.0);
       }
       if (h.qk_mode == QK_FIT) free(r.params);
@@ -2074,9 +2105,9 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     nb++;
   }
 
-  fprintf(f2, "#Energy (eV)   PI Cross (10^-20 cm2)\n");
+  fprintf(f2, "# Energy (eV)   PI Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
-    fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+    fprintf(f2, " %12.5E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
   free(c);  
@@ -2097,7 +2128,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   int i, t, nb, m;
   float e, eph, ee, phi, rr;
   double *xusr, *dstrength, *c, tc, emax;
-  double x, y;
+  double x, y, a;
   int np=3, one=1, nele;
 
   if (mem_en_table == NULL) {
@@ -2167,6 +2198,8 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       
       for (t = 0; t < negy; t++) {
 	ee = egy[t];
+	a = FINE_STRUCTURE_CONST2*ee;
+	a = (1.0+a)/(1+0.5*a);
 	eph = ee + e;
 	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
@@ -2184,7 +2217,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	  }
 	}
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
-	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
+	rr = a * phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	rr /= (mem_en_table[r.f].j + 1.0);
 	c[t] += rr;
       }

@@ -67,7 +67,7 @@ typedef struct _ION_ {
   ARRAY *recombined;
   int nele;
   char *dbfiles[NDB];
-  double n, nt;
+  double n, nt, n0;
   NCOMPLEX ce_max;
   int KLN_min, KLN_max;
   int KLN_bmin, KLN_bmax;
@@ -85,7 +85,7 @@ typedef struct _IONIZED_ {
   int *ionized_map[2];
   int imin[2], imax[2];
   double *energy;
-  double n, nt;
+  double n, nt, n0;
 } IONIZED;
 
 typedef struct _RATE_ {
