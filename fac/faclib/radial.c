@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.98 2004/06/14 04:33:42 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.99 2004/06/14 05:49:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -715,6 +715,9 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
 static double EnergyFunc(int *n, double *x) {
   double a;
+
+  if (x[1] < -EPS10) return 0.0;
+  if (x[0] <= 0.0) return 0.0;
 
   potential->lambda = x[0];
   potential->a = x[1];
