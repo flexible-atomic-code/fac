@@ -3071,13 +3071,13 @@ verbose mode is carried out, one must call \key{MemENTable} first. This
 function also exists in the module \mod{fac}.
 \end{fundesc}
 
-\begin{fundesc}{RateTable}{fn, ...}
+\begin{fundesc}{RateTable}{fn\opt{, cfg}}
 Output rates for all processes included in the spectral model to the
-\key{DB\_RT} database file \var{fn}. It may contain additional arguments, each
-being a complex name. All states in the specified complexes must have a single
-data block in the output file, even if these states are within some superlevel
-block. Otherwise, each superlevel block has a single data block in the
-\key{DB\_RT} file.
+\key{DB\_RT} database file \var{fn}. It may contain an additional argument,
+which is a list of complex names. All states in the specified complexes must
+have a single data block in the output file, even if these states are within
+some superlevel block. Otherwise, each superlevel block has a single data
+block in the \key{DB\_RT} file.
 \end{fundesc}
 
 \begin{fundesc}{RBeli}{Z, n, T}
