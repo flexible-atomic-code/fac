@@ -1069,6 +1069,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       if (k < 0) continue;
       tai += s[j];
     }
+    if (tai < 1E-30) continue;
     for (j = 0; j < nup; j++) {
       if (s[j] < ai_cut*tai) continue;
       j2  = LevelTotalJ(up[j]);

@@ -642,10 +642,10 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 	kappa = -1;
       } else if (screened_kl == 0) {
 	t = screened_n[i];
-	kappa = GetKappaFromJL(t, t+1);
+	kappa = GetKappaFromJL(t+1, t);
       } else {
 	t = screened_n[i]*2-2;
-	kappa = GetKappaFromJL(t, t+1);
+	kappa = GetKappaFromJL(t+1, t);
       }    
       for (j = 0; j < acfg->n_shells; j++) {
 	k = GetLFromKappa(acfg->kappa[j]);
