@@ -3,7 +3,7 @@ SRC = mpfun.f
 OBJS = ${SRC:.f=.o}
 
 .f.o:
-	${FC} -O -c $<
+	${FC} ${FFLAGS} $<
 
 mpfun: ${OBJS}
 	ar cr libmpfun.a ${OBJS}

@@ -3,7 +3,7 @@ SRC = lsame.f dasum.f daxpy.f dcopy.f dscal.f ddot.f dgemm.f dgemv.f dger.f dnrm
 OBJS = ${SRC:.f=.o}
 
 .f.o: 
-	$(FC) -O -c $<
+	$(FC) ${FFLAGS} $<
 
 blas: $(OBJS)
 	ar cr libblas.a $(OBJS)
