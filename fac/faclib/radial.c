@@ -34,7 +34,7 @@ static struct {
   int iprint; /* printing infomation in each iteration. */
 } optimize_control = {EPS6, 100, 1.0, 1, 0, NULL, 0};
 
-static AVERAGE_CONFIG average_config;
+static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
 static double rgrid_min = 1E-5;
 static double rgrid_max = 1E3;    
@@ -44,6 +44,8 @@ static RAD_TIMING rad_timing = {0, 0, 0, 0};
 static MULTI *slater_array;
 static MULTI *residual_array;
 static MULTI *multipole_array;  
+
+double argam_(double *x, double *y);
 
 int GetRadTiming(RAD_TIMING *t) {
   memcpy(t, &rad_timing, sizeof(RAD_TIMING));
@@ -281,7 +283,24 @@ double GetResidualZ() {
 double GetRMax() {
   return potential->rad[MAX_POINTS-10];
 }
-  
+
+int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
+
+  if (nshells <= 0) return -1;
+  if (average_config.n_shells > 0) {
+    free(average_config.n);
+    free(average_config.kappa);
+    free(average_config.nq);
+  }
+  average_config.n = n;
+  average_config.nq = nq;
+  average_config.kappa = kappa;
+
+  average_config.n_shells = nshells;
+  average_config.n_cfgs = 1;
+  return 0;
+}
+    
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
   double tol;
@@ -297,12 +316,31 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
-  GetAverageConfig(ng, kg, weight, 
-		   optimize_control.n_screen,
-		   optimize_control.screened_n,
-		   optimize_control.screened_charge,
-		   optimize_control.screened_kl,
-		   acfg); 
+  if (ng > 0) {
+    if (acfg->n_shells > 0) {      
+      acfg->n_cfgs = 0;
+      acfg->n_shells = 0;
+      free(acfg->n);
+      free(acfg->kappa);
+      free(acfg->nq);
+      acfg->n = NULL;
+      acfg->nq = NULL;
+      acfg->kappa = NULL;
+    }
+    GetAverageConfig(ng, kg, weight, 
+		     optimize_control.n_screen,
+		     optimize_control.screened_n,
+		     optimize_control.screened_charge,
+		     optimize_control.screened_kl, acfg); 
+  } else {
+    if (acfg->n_shells <= 0) {
+      printf("No average configuation exist. \n");
+      printf("Specify with config.avgconfig, ");
+      printf("or give config groups to OptimizeRadial.\n");
+      return -1;
+    }
+  }
+
   a = 0;
   for (i = 0; i < acfg->n_shells; i++) {
     if (optimize_control.iprint) 
@@ -430,6 +468,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   int i, k;
   FILE *f;
   ORBITAL *orb;
+  double z, a, ke, y;
 
   e /= HARTREE_EV;
   k = OrbitalIndex(n, kappa, e);
@@ -450,6 +489,12 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      Large(orb)[i], Small(orb)[i]); 
     }
   } else {
+    z = GetResidualZ();
+    e = orb->energy;
+    a = FINE_STRUCTURE_CONST2 * e;
+    ke = sqrt(2.0*e*(1.0+0.5*a));
+    y = (1.0+a)*z/ke;
+    printf("%12.5E\n", (CoulombPhaseShift(k)-GetPhaseShift(k))/(2*PI));
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	      i, potential->rad[i],
@@ -458,19 +503,50 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      Large(orb)[i], Small(orb)[i]); 
     }
     for (; i < MAX_POINTS; i += 2) {
-      fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+      a = ke * potential->rad[i];
+      a = a + y*log(2.0*a);
+      fprintf(f, "%-4d %10.3E %13.6E %13.6E %13.6E %13.6E\n",
 	      i, potential->rad[i],
 	      Large(orb)[i], Large(orb)[i+1], 
-	      Small(orb)[i], Small(orb)[i+1]);
+	      Small(orb)[i], a);
     }
   }
 
   fclose(f);
 }
 
-double GetPhaseShift(int k, int mode) {
+double CoulombPhaseShift(int k) {
   ORBITAL *orb;
-  double phase1, phase2, r, y, z, ke, e, a, b1, b2;
+  double phase, r, y, z, ke, e, a, b1, b2;
+
+  orb = GetOrbital(k);
+  z = GetResidualZ();
+  e = orb->energy;
+  a = FINE_STRUCTURE_CONST2 * e;
+  ke = sqrt(2.0*e*(1.0 + 0.5*a));
+  a += 1.0;
+  y = a*z/ke;
+
+  r = orb->kappa;
+  b1 = y/(fabs(r)*a);
+  r = sqrt(r*r - FINE_STRUCTURE_CONST2*z*z);
+  b2 = y/r;
+
+  if (orb->kappa < 0) {
+    phase = 0.5*(atan(b1) - atan(b2));
+  } else {
+    phase = -0.5*(atan(b1) + atan(b2) + PI);
+  }
+
+  phase -= argam_(&r, &y);
+  phase += (1.0 - r)*0.5*PI;
+
+  return phase;
+}
+
+double GetPhaseShift(int k) {
+  ORBITAL *orb;
+  double phase1, r, y, z, ke, e, a, b1;
   int i;
 
   orb = GetOrbital(k);
@@ -481,33 +557,16 @@ double GetPhaseShift(int k, int mode) {
   z = GetResidualZ();
   e = orb->energy;
   a = FINE_STRUCTURE_CONST2 * e;
-  ke = sqrt(2.0*e*(1.0 + 0.5*e));
+  ke = sqrt(2.0*e*(1.0 + 0.5*a));
   y = (1.0 + a)*z/ke;
 
-  i = MAX_POINTS - 1;
-  
+  i = MAX_POINTS - 1;  
   phase1 = orb->wfun[i];
-  r = potential->rad[i];  
+  r = potential->rad[i-1];  
   a = ke * r;
   b1 = a + y*log(2.0*a);
-  b1 = 1.0/b1;
-
-  i = i - 4;
-  phase2 = orb->wfun[i];
-  r = potential->rad[i];
-  a = ke * r;
-  b2 = a + y*log(2.0*a);
-  b2 = 1.0/b2;
-
-  phase1 = (phase1*b1 - phase2*b2)/(b1 - b2);
-
-  a = orb->kappa;
-  a = a * (a + 1.0) - FINE_STRUCTURE_CONST2*z*z;
-  a = 0.5 * (sqrt(1.0 + 4.0*a) - 1.0);
-  a = a - 0.5*GetLFromKappa(orb->kappa);
-  a *= 0.5*PI;
+  phase1 = phase1 - b1;
   
-  phase1 += a;
   orb->phase = malloc(sizeof(double));
   *(orb->phase) = phase1;
 
@@ -644,7 +703,9 @@ int FreeOrbital(int i) {
   ORBITAL *orb;
   orb = GetOrbital(i);
   if (orb->wfun) free(orb->wfun);
+  if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
+  orb->phase = NULL;
 }
 
 int SaveAllContinua(int mode) {
@@ -1060,9 +1121,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int js[4];
   ORBITAL *orb0, *orb1, *orb2, *orb3;
 
+#ifdef PERFORM_STATISTICS 
   clock_t start, stop;
 
-#ifdef PERFORM_STATISTICS 
   start = clock();
 #endif
 
@@ -1071,6 +1132,20 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   k2 = ks[2];
   k3 = ks[3];
   kk = k/2;
+
+  orb0 = GetOrbital(k0);
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+  orb3 = GetOrbital(k3);
+  kl0 = GetLFromKappa(orb0->kappa);
+  kl1 = GetLFromKappa(orb1->kappa);
+  kl2 = GetLFromKappa(orb2->kappa);
+  kl3 = GetLFromKappa(orb3->kappa);
+  if (IsOdd((kl0+kl1+kl2+kl3)/2)) {
+    if (sd) *sd = 0.0;
+    if (se) *se = 0.0;
+    return 0;
+  }
 
   if (j) {
     memcpy(js, j, sizeof(int)*4);
@@ -1081,20 +1156,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     js[3] = 0;
   }
 
-  orb0 = GetOrbital(k0);
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-  orb3 = GetOrbital(k3);
   if (js[0] <= 0) js[0] = GetJFromKappa(orb0->kappa);
   if (js[1] <= 0) js[1] = GetJFromKappa(orb1->kappa);
   if (js[2] <= 0) js[2] = GetJFromKappa(orb2->kappa);
-  if (js[3] <= 0) js[3] = GetJFromKappa(orb3->kappa);
-
-  kl0 = GetLFromKappa(orb0->kappa);
-  kl1 = GetLFromKappa(orb1->kappa);
-  kl2 = GetLFromKappa(orb2->kappa);
-  kl3 = GetLFromKappa(orb3->kappa);
-  
+  if (js[3] <= 0) js[3] = GetJFromKappa(orb3->kappa);  
   
   if (sd) {
     d = 0.0;

@@ -38,9 +38,11 @@ int GetNumBounds();
 int GetNumOrbitals();
 int GetNumContinua();
 
-double GetPhaseShift(int k, int mode);
+double GetPhaseShift(int k);
+double CoulombPhaseShift(int k);
 
 /* radial optimization */
+int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
 void SetOptimizeControll(double tolerence, int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
