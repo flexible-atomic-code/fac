@@ -4030,6 +4030,21 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+# special flags for some OS
+case "$host_os" in
+  *darwin*)
+    CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+    if test -n "$G77"
+    then
+      FFLAGS="$FFLAGS -fno-common"
+# somehow, darwin give wrong F77 LD_FLAGS under g77. overwrite
+      FLIBS="-lg2c -lm"
+    fi
+  ;;
+  *)
+  ;;
+esac
+
 # add include and lib. pathes.
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
