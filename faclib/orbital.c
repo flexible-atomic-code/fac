@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.36 2002/09/21 04:03:19 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.37 2002/09/24 18:49:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -80,6 +80,113 @@ double EnergyH(double z, double n, int ka) {
   return a;
 }
 
+double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
+			  double z, int n, int kappa) {
+  int i, iordr1, iordr2, k, nr, nrfac;
+  double a, alfa, an1, an2, argr, b, bn, bign, bignmk;
+  double eps, fac, facn, fden, ff, fg, fk, f1, f2, gamma;
+  double ovlfac, rgamm1, rgamm2, rho, rhon, twogp1, zalfa;
+  double *ta, *tb;
+  double energy, t;
+  
+  ta = _dwork1;
+  tb = _dwork2;
+  
+  alfa = FINE_STRUCTURE_CONST;
+  nr = n - abs(kappa);
+  fk = fabs(kappa);
+  zalfa = z*alfa;
+  gamma = sqrt(fk*fk - zalfa*zalfa);
+  twogp1 = gamma*2.0 + 1.0;
+  bign = sqrt(n*n - 2.0*(n - fk)*(fk - gamma));
+  t = zalfa/(gamma + n - fk);
+  eps = 1.0/sqrt(1.0 + t*t);
+
+  energy = -(1.0 - eps)/FINE_STRUCTURE_CONST2;
+  
+  nrfac = 1;
+  for (i = 1; i <= nr; i++) nrfac = nrfac*i;
+  
+  argr = twogp1 + nr;
+  rgamm1 = dlogam_(&argr);
+  rgamm1 = exp(rgamm1);
+  argr = twogp1;
+  rgamm2 = dlogam_(&argr);
+  rgamm2 = exp(rgamm2);
+
+  fac = - sqrt(rgamm1) / (rgamm2*sqrt((double)nrfac)) *
+    sqrt(z/(2.0*bign*bign*(bign-kappa)));
+  
+  if (kappa > 0) fac = -fac;
+
+  fg = fac*sqrt(1.0 + eps);
+  ff = fac*sqrt(1.0 - eps);
+  
+  if (nr == 0) {
+    iordr1 = 0;
+    iordr2 = 0;
+  } else {
+    iordr1 = nr - 1;
+    iordr2 = nr;
+  }
+
+  fac = 1.0;
+  facn = 1.0;
+  a = -nr;
+  an1 = a + 1.0;
+  an2 = a;
+  b = twogp1;
+  bn = b;
+  
+  k = 0;
+  
+  while (1) {
+    k = k + 1;
+    fden = 1.0/(facn*bn);
+    if (k <= iordr1) {
+      ta[k] = an1 * fden;
+    }
+
+    if (k > iordr2) break;
+    tb[k] = an2*fden;
+    a += 1.0;
+    an1 *= a + 1.0;
+    an2 *= a;
+    b += 1.0;
+    bn *= b;
+    fac += 1.0;
+    facn *= fac;
+  }
+
+  p[0] = 0.0;
+  q[0] = 0.0;
+  fac = 2.0*z/bign;
+  bignmk = bign - kappa;
+  for (i = 1; i < npts; i++) {
+    rho = fac * r[i];
+    rhon = rho;
+    k = 0;
+    f1 = 1.0;
+    f2 = 1.0;
+    while (1) {
+      k = k+1;
+      if (k <= iordr1) {
+	f1 += ta[k]*rhon;
+      }
+      if (k > iordr2) break;
+      f2 += tb[k]*rhon;
+      rhon *= rho;
+    }
+    f1 *= nr;
+    f2 *= bignmk;
+    ovlfac = exp(-0.5*rho)*pow(rho, gamma);
+    p[i] = fg*ovlfac * (f1-f2);
+    q[i] = ff*ovlfac * (f1+f2);
+  }
+
+  return energy;
+}
+  
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
   int ierr;
   int nm, km, k;
@@ -1176,3 +1283,212 @@ int SetPotentialW (POTENTIAL *pot, double e, int kappa) {
   }
   return 0;
 }
+
+static double Poly(double x, double n, double c[]) {
+  int i;
+  double t, r;
+
+  t = 1.0;
+  r = 0.0;
+  for (i = 0; i < n; i++) {
+    r += c[i]*t;
+    t *= x;
+  }
+  
+  return r;
+}
+  
+static double UehlingK0(double x) {
+  double a[8] = {+0.88357293375,
+		 -0.28259817381,
+		 -0.58904879578,
+		 +0.12500133434,
+		 -0.032729913852,
+		 +0.0082888574511,
+		 -0.0000103277658,
+		 +0.0000636436689};
+  double b[3] = {-319.999594328,
+		 +2.53900995981,
+		 1.0};
+  double c[3] = {-319.999594333,
+		 +2.53901020662,
+		 0.0};
+  double d[5] = {5.018065179,
+		 71.51891262,
+		 211.6209929,
+		 31.40327478,
+		 -1.0};
+  double e[5] = {2.669207401,
+		 51.72549669,
+		 296.9809720,
+		 536.4324164,
+		 153.5335924};
+
+  double r, x2;
+
+  if (x <= 1.0) {
+    r = Poly(x, 8, a);
+    if (x) {
+      x2 = x*x;
+      r += x*log(x)*Poly(x2, 3, b)/Poly(x2, 3, c);
+    }
+  } else {
+    r = exp(-x)/pow(x, 1.5);
+    x2 = 1.0/x;
+    r *= Poly(x2, 5, d)/Poly(x2, 5, e);
+  }
+
+  return r;
+}
+
+static double UehlingK1(double x) {
+  double a[8] = {-0.71740181754,
+		 1.1780972274,
+		 -0.37499963087,
+		 0.13089675530,
+		 -0.038258286439,
+		 -0.0000242972873,
+		 -0.0003592014867,
+		 -0.0000171700907};
+  double b[3] = {-64.0514843293,
+		 0.711722714285,
+		 1.0};
+  double c[3] = {64.0514843287,
+		 -0.711722686403,
+		 0.0008042207748};
+  double d[5] = {217.2386409,
+		 1643.364528,
+		 2122.244512,
+		 1.0};
+  double e[5] = {115.5589983,
+		 1292.191441,
+		 3831.198012,
+		 2904.410075,
+		 0.0};
+
+  double r, x2;
+
+  if (x <= 1.0) {
+    r = Poly(x, 8, a);
+    x2 = x*x;
+    r += log(x)*Poly(x2, 3, b)/Poly(x2, 3, c);
+  } else {
+    r = exp(-x)/pow(x, 1.5);
+    x2 = 1.0/x;
+    r *= Poly(x2, 5, d)/Poly(x2, 5, e);
+  }
+
+  return r;
+}
+
+double UehlingL0(double x) {
+  double f[6] = {1.990159,
+		 -2.397605,
+		 1.046471,
+		 -0.367066,
+		 0.063740,
+		 -0.037058};
+  double g[3] = {0.751198,
+		 0.128889,
+		 0.020886};
+  double h[2] = {-0.444444,
+		 -0.003472};
+  
+  double logx, x2, r;
+  
+  if (x <= 2) {
+    logx = log(x);
+    r = Poly(x, 6, f);
+    if (x) {
+      x2 = x*x;
+      r += x*Poly(x2, 3, g)*logx;
+      x2 = x2*x2;
+      r += x*Poly(x2, 2, h)*logx*logx;
+    }
+  } else {
+    r = 0.0;
+  }
+  
+  return r;
+}
+
+double UehlingL1(double x) {
+  double f[6] = {1.646407,
+		 -2.092942,
+		 0.962310,
+		 -0.254960,
+		 0.164404,
+		 0.0};
+  double g[3] = {0.137691,
+		 -0.416667,
+		 -0.097486};
+  double h[2] = {0.444444,
+		 0.017361};
+  
+  double logx, x2, r;
+  
+  if (x <= 2) {
+    logx = log(x);
+    r = Poly(x, 6, f);
+    x2 = x*x;
+    r += Poly(x2, 3, g)*logx;
+    x2 = x2*x2;
+    r += Poly(x2, 2, h)*logx*logx;
+  } else {
+    r = 0.0;
+  }
+  
+  return r;
+}
+
+int SetPotentialUehling(POTENTIAL *pot, int vp) {
+  int i, j, i1;
+  double a, b, r0, r, rm, rp, rn;
+  double v, d;
+
+  if (vp <= 0) return 0;
+
+  r0 = 3.86159E-5/RBOHR;
+  a = -2.0*pot->Z[MAX_POINTS-1]*FINE_STRUCTURE_CONST/(3.0*PI);
+  b = -pot->Z[MAX_POINTS-1]*FINE_STRUCTURE_CONST2/(PI*PI);
+  
+  for (i = 0; i < MAX_POINTS-1; i++) {
+    r = pot->rad[i]*2.0/r0;
+    pot->uehling[i] = a*UehlingK1(r);
+    if (vp > 1) {
+      pot->uehling[i] += b*UehlingL1(r);
+    }
+    pot->uehling[i] /= pot->rad[i];
+  }
+  
+  rn = GetAtomicR();
+  if (rn) {
+    a = -2.0*r0*FINE_STRUCTURE_CONST/3.0;
+    b = -r0*FINE_STRUCTURE_CONST2/PI;
+    v = 4.0*PI*rn*rn*rn/3.0;
+    d = pot->Z[MAX_POINTS-1]/v;
+    for (i = 0; i < MAX_POINTS-1; i++) {
+      if (pot->rad[i] > rn) break;
+    }
+    i1 = i;
+    for (i = 0; i < MAX_POINTS-1; i++) {
+      r = pot->rad[i];
+      for (j = 0; j < i1; j++) {
+	rp = r + pot->rad[j];
+	rp = 2.0*rp/r0;
+	rm = fabs(r - pot->rad[j]);
+	rm = 2.0*rm/r0;
+	_dwork[j] = a*(UehlingK0(rm) - UehlingK0(rp));
+	if (vp > 1) {
+	  _dwork[j] += b*(UehlingL0(rm) - UehlingL0(rp));
+	}
+	_dwork[j] *= pot->rad[j]*pot->dr_drho[j]*d;
+      }
+      v = Simpson(_dwork, 0, i1-1) / pot->rad[i];
+      if (fabs(1.0 - v/pot->uehling[i]) < EPS2) break;
+      pot->uehling[i] = v;
+    }
+  }
+  return 0;
+}
+      

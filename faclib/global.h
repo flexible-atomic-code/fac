@@ -74,7 +74,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     8
-#define SUBSUBVERSION  2
+#define SUBSUBVERSION  3
 
 
 /* 
@@ -182,6 +182,7 @@
 #define FINE_STRUCTURE_CONST  7.29735308E-3
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
 
+#define AMU  1836.153
 
 #define G_COULOMB   1
 #define G_BABUSHKIN 2
