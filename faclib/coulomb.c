@@ -7,7 +7,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.19 2002/12/12 03:06:03 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.20 2002/12/15 21:58:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -39,7 +39,7 @@ void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
   else n_hydrogenic = 10;
   if (kl >= 0) kl_hydrogenic = kl;
-  else kl_hydrogenic = 6;
+  else kl_hydrogenic = 7;
   if (nm > 0) n_hydrogenic_max = nm;
   else n_hydrogenic_max = 128;
   if (klm >= 0) kl_hydrogenic_max = klm;
