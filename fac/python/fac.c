@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.55 2003/05/23 21:28:03 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.56 2003/06/02 16:27:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3552,6 +3552,27 @@ static PyObject *PSetTransitionMaxM(PyObject *self, PyObject *args) {
   return Py_None;
 }
       
+static PyObject *PLevelInfor(PyObject *self, PyObject *args) { 
+  char *fn;
+  int i, k;
+  EN_RECORD r;
+  
+  if (!PyArg_ParseTuple(args, "si", &fn, &i)) return NULL;
+
+  k = LevelInfor(fn, i, &r);
+  
+  if (k < 0) {
+    return Py_BuildValue("()");
+  }
+  if (k > 0) {
+    r.ncomplex[0] = '\0';
+    r.sname[0] = '\0';
+    r.name[0] = '\0';
+  }
+  return Py_BuildValue("(diisss)", r.energy, r.p, r.j,
+		       r.ncomplex, r.sname, r.name);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3592,6 +3613,7 @@ static struct PyMethodDef fac_methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
+  {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},

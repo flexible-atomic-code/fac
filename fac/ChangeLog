@@ -1,3 +1,7 @@
+version 0.9.7, 06/2/2003
+	1. move LevelInfor from crm to fac. remove MemENTable from crm.
+	2. do not write the data block header if the block is empty.
+	
 version 0.9.6, 05/23/2003
 	1. bug fix on partial-wave summation.
 	2. refactor dbase.c functions.
