@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.60 2004/06/14 04:33:42 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.61 2004/06/22 22:18:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2346,19 +2346,19 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PStructureMBPT(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int *n0, *ni, i, n1, *s, *kg, n, ng, kmax, nt;
+  int *n0, *ni, i, n1, *s, *kg, n, ng, kmax, nt, n2, nt2;
   char *v[MAXNARGS];
   int t[MAXNARGS], nv;
   double eps, eps1;
   
-  if (argc < 10 || argc > 12) return -1;
+  if (argc < 12 || argc > 14) return -1;
 
   eps = -1.0;
   eps1 = 1.0;
-  if (argc > 10) {
-    eps = atof(argv[10]);
-    if (argc > 11) {
-      eps1 = atof(argv[11]);
+  if (argc > 12) {
+    eps = atof(argv[12]);
+    if (argc > 13) {
+      eps1 = atof(argv[13]);
     }
   }
 
@@ -2426,9 +2426,11 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   n1 = atoi(argv[6]);
   kmax = atoi(argv[7]);
   nt = atoi(argv[8]);
+  n2 = atoi(argv[9]);
+  nt2 = atoi(argv[10]);
   
-  StructureMBPT(argv[0], argv[1], n, s, ng, kg, n0, ni, n1, kmax, nt, argv[9], 
-		eps, eps1);
+  StructureMBPT(argv[0], argv[1], n, s, ng, kg, n0, ni, n1, 
+		kmax, nt, n2, nt2, argv[9], eps, eps1);
 
   free(s);
   free(kg);
@@ -3013,9 +3015,14 @@ static int PAsymmetry(int argc, char *argv[], int argt[],
 
 static int PRadialOverlaps(int argc, char *argv[], int argt[], 
 			   ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != STRING) return -1;
-  RadialOverlaps(argv[0]);
+  int kappa;
+
+  if (argc != 2 || argt[0] != STRING) return -1;
+
+  if (argc == 2) kappa = atoi(argv[1]);
+  else kappa = -1;
+
+  RadialOverlaps(argv[0], kappa);
   
   return 0;
 }
@@ -3025,7 +3032,7 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
   int nmax;
   double bqp, p;
 
-  bqp = 1.0;
+  bqp = 1E30;
   p = -1.0;
   if (argc > 1) {
     p = atof(argv[1]);    

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.80 2004/06/14 04:33:42 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.81 2004/06/22 22:18:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -194,7 +194,7 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
     return Py_None;
   }
   p = -1.0;
-  bqp = 1.0;
+  bqp = 1E30;
   if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
     return NULL;
   SetBoundary(nmax, p, bqp);
@@ -1307,7 +1307,7 @@ static int SelectLevels(PyObject *p, int **t) {
 
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   PyObject *p, *q, *t, *r;
-  int *n0, *ni, i, n1, n, ng, *s, *kg, kmax, nt;
+  int *n0, *ni, i, n1, n, ng, *s, *kg, kmax, nt, n2, nt2;
   char *fn, *fn1, *gn0;
   double eps, eps1;
 
@@ -1319,9 +1319,9 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   eps = -1.0;
   eps1 = 1.0;
 
-  if (!(PyArg_ParseTuple(args, "ssOOOOiiis|dd", 
+  if (!(PyArg_ParseTuple(args, "ssOOOOiiiiis|dd", 
 			 &fn, &fn1, &p, &q, &r, &t, &n1, 
-			 &kmax, &nt, &gn0, &eps, &eps1))) 
+			 &kmax, &nt, &n2, &nt2, &gn0, &eps, &eps1))) 
     return NULL;
   
   n = DecodeGroupArgs(p, &s);
@@ -1369,7 +1369,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 	ni[i] = ni[0];
       }
     }
-    StructureMBPT(fn, fn1, n, s, ng, kg, n0, ni, n1, kmax, nt, gn0, eps, eps1);
+    StructureMBPT(fn, fn1, n, s, ng, kg, n0, ni, n1, kmax, nt, 
+		  n2, nt2, gn0, eps, eps1);
     free (kg);
     free(n0);
     free(ni);
@@ -3991,6 +3992,7 @@ static PyObject *PAIBranch(PyObject *self, PyObject *args) {
 
 static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
   char *fn;
+  int kappa;
 
   if (sfac_file) {
     SFACStatement("RadialOverlaps", args, NULL);
@@ -3998,9 +4000,10 @@ static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  kappa = -1;
+  if (!PyArg_ParseTuple(args, "s|i", &fn, &kappa)) return NULL;
 
-  RadialOverlaps(fn);
+  RadialOverlaps(fn, kappa);
 
   Py_INCREF(Py_None);
   return Py_None;

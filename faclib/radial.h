@@ -27,7 +27,7 @@ int GetRadTiming(RAD_TIMING *t);
 #endif
 
 void SetBoundary(int nmax, double p, double bqp);
-int RadialOverlaps(char *fn);
+int RadialOverlaps(char *fn, int kappa);
 void SetSE(int n);
 void SetVP(int n);
 void SetBreit(int n);

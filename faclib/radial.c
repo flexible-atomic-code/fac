@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.101 2004/06/19 00:19:57 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.102 2004/06/22 22:18:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -159,7 +159,7 @@ void SetBoundary(int nmax, double p, double bqp) {
   }
 }
 
-int RadialOverlaps(char *fn) {
+int RadialOverlaps(char *fn, int kappa) {
   ORBITAL *orb1, *orb2;
   int i, j, k;
   double r;
@@ -171,10 +171,10 @@ int RadialOverlaps(char *fn) {
   }
   for (i = 0; i < n_orbitals; i++) {
     orb1 = GetOrbital(i);
-    if (orb1->kappa != -1) continue;
+    if (orb1->kappa != kappa) continue;
     for (j = 0; j <= i; j++) {
       orb2 = GetOrbital(j);
-      if (orb2->kappa != -1) continue;
+      if (orb2->kappa != kappa) continue;
       Integrate(_yk, orb1, orb2, 1, &r);
       fprintf(f, "%2d %2d %10.3E  %2d %2d %10.3E  %12.5E\n", 
 	      orb1->n, orb1->kappa, orb1->energy, 
@@ -1055,7 +1055,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
-    SetBoundary(0, 1.0, -1.0);
+    SetBoundary(0, 1.0, 1E30);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
