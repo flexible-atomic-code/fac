@@ -1,4 +1,4 @@
-This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  13 SEP 2001 10:49
+This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  24 SEP 2001 12:44
 **guide
 (guide.tex
 LaTeX2e <1999/12/01> patch level 1
@@ -34,73 +34,73 @@ Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
 (/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/config/geometry.cfg)) (guide.aux)
 \openout1 = `guide.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 6.
-LaTeX Font Info:    ... okay on input line 6.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 8.
+LaTeX Font Info:    ... okay on input line 8.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <14.4> on input line 9.
+(Font)              <14.4> on input line 11.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 9.
+(Font)              <7> on input line 11.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <12> on input line 43.
+(Font)              <12> on input line 45.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <8> on input line 43.
+(Font)              <8> on input line 45.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <6> on input line 43.
+(Font)              <6> on input line 45.
 
 [1
 
 ] [2]
-Overfull \hbox (6.92325pt too wide) in paragraph at lines 173--178
+Overfull \hbox (6.92325pt too wide) in paragraph at lines 175--180
 []\OT1/cmr/m/n/12 Set the ra-dial grid lim-its. The ac-tual grid lim-its are ``
 rmin/z'',
  []
 
 [3]
-Overfull \hbox (10.34401pt too wide) in paragraph at lines 228--236
+Overfull \hbox (10.34401pt too wide) in paragraph at lines 230--238
 []\OT1/cmr/m/n/12 Calculate the tran-si-tion rates be-tween lower
  []
 
 [4]
-Overfull \hbox (7.71005pt too wide) in paragraph at lines 311--315
+Overfull \hbox (7.71005pt too wide) in paragraph at lines 313--317
 []\OT1/cmr/m/n/12 Set the par-tial wave op-tions. ``lmax[]eject''
  []
 
 [5]
-Overfull \hbox (14.57915pt too wide) in paragraph at lines 337--340
+Overfull \hbox (14.57915pt too wide) in paragraph at lines 339--342
 []\OT1/cmr/m/n/12 Set the col-li-sion en-ergy grid type spec-i-fied by ``Se-tUs
 -r-CIEGrid'',
  []
 
 
-Overfull \hbox (12.93854pt too wide) in paragraph at lines 368--371
+Overfull \hbox (12.93854pt too wide) in paragraph at lines 370--373
 []\OT1/cmr/m/n/12 Construct re-com-bined states based on the tar-get states fro
 m ``groups'',
  []
 
 [6]
-Overfull \hbox (6.32117pt too wide) in paragraph at lines 399--407
+Overfull \hbox (6.32117pt too wide) in paragraph at lines 401--409
 []\OT1/cmr/m/n/12 Corrects the en-ergy value of ``lev-els'' to ``en-er-gies'', 
 where
  []
 
 
-Overfull \hbox (3.96681pt too wide) in paragraph at lines 414--416
+Overfull \hbox (3.96681pt too wide) in paragraph at lines 416--418
 []\OT1/cmr/m/n/12 Calculates the au-toion-iza-tion width from ``bound'' to ``fr
 ee''
  []
 
 [7]
-Overfull \hbox (5.06255pt too wide) in paragraph at lines 452--464
+Overfull \hbox (5.06255pt too wide) in paragraph at lines 454--466
 []\OT1/cmr/m/n/12 This rou-tine
  []
 
