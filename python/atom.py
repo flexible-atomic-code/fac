@@ -219,10 +219,10 @@ class ATOM:
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
             self.nterms = [-1,-1,-1]
-            self.nexc_max = [8, 8, 6]
+            self.nexc_max = [10, 10, 6]
             self.nfrozen = [9, 9, 7]
             self.nexc_rec = [10, 8, 6]
-            self.nrec_max = [25, 10, 8]
+            self.nrec_max = [25, 16, 10]
             self.rec_pw_max = [10, 9, 6]
             self.nrec_ext = 45
             self.n_decay = [10, 3, -1]
@@ -237,10 +237,10 @@ class ATOM:
             self.nterms = [-1,-1,-1,-1]
             if (self.nele > 5):
                 self.nterms = [3, 2, 2, 2]
-            self.nexc_max = [5, 5, 5, 4]
-            self.nfrozen = [6, 6, 6, 5]
+            self.nexc_max = [5, 10, 5, 4]
+            self.nfrozen = [6, 11, 6, 5]
             self.nexc_rec = [10, 4, 4, 4]
-            self.nrec_max = [25, 10, 12, 8]
+            self.nrec_max = [25, 16, 12, 8]
             self.rec_pw_max = [10, 9, 9, 5]
             self.nrec_ext = 45
             self.n_decay = [10, 4, 4, -1]
@@ -461,7 +461,7 @@ class ATOM:
     def energy_corrections(self):
         e = []
         ec = []
-        nmin = self.exc_nmax[0] + 1
+        nmin = self.nexc_max[0] + 1
         if (self.nele == 2):
             iec = range(0, -7, -1)
             if (self.asym == 'C'):
@@ -514,8 +514,8 @@ class ATOM:
             nmin = 1
         elif (self.nele >= 4 and self.nele <= 10):
             ie0 = [46, 125, 236, 272, 226, 113, 37]
-            etable = []*7
-            if (self.aysm == 'C'):
+            etable = [[]]*7
+            if (self.asym == 'C'):
                 etable = [[0.0, 7.995, 8.00835],
                           [0.0, 6.49269, 6.495627, 6.502615, 12.69004,
                            17.03862, 17.04218, 17.04808, 18.08634, 22.62958],
@@ -676,7 +676,7 @@ class ATOM:
                            173.134,176.91,194.609,201.811],
                           [0.0,9.156,14.5499,30.321,46.10,60.374,96.308,
                            96.379,99.674,113.61,114.67,116.83,135.83,
-                           139.70,156.3,204.11,215.19,215.79,225.31,253.94]
+                           139.70,156.3,204.11,215.19,215.79,225.31,253.94],
                           [0.0,17.1867,21.8373,32.2694,40.089,93.3266,
                            101.769,104.486,129.262,131.220,148.193,154.042,
                            166.144,242.330,255.680],
