@@ -13,21 +13,28 @@ class TABLE:
     def __init__(self,
                  fname = '',
                  title='',
-                 author='',
+                 authors=[],
                  date='',
+                 separator0 = '',
                  separator = ''):
         self.fname = fname
         self.title = title
-        self.author = author
+        self.authors = authors
         if (time):
             self.date = date
         else:
             self.date = time.localtime()
+        if (separator0):
+            self.separator = separator
+        else:
+            self.separator0 = '='*72+'\n'
         if (separator):
             self.separator = separator
         else:
             self.separator = '-'*72+'\n'
+            
         self.columns = []
+        self.notes = []
 
     def add_column(self, **c):
         if (not c.has_key('label')):
@@ -47,12 +54,31 @@ class TABLE:
         else:
             raise('Format unsupported')
         c['format0'] = fmt
-        if (not c.has_key('unit')):
-            c['unit'] = 'None'
+        if (not c.has_key('units')):
+            c['units'] = 'None'
         if (not c.has_key('description')):
             c['description'] = 'Column %d'%len(self.columns)
         if (not c.has_key('padding')):
             c['padding'] = ' '
+        if (c.has_key('notes')):
+            notes = c['notes']
+            for a in notes:
+                if (type(a) == type(1)):
+                    k = a-1
+                    if (k >= len(self.notes)):
+                        raise 'Notes %d has not been defined'%(k+1)
+                elif (type(a) != type(())):
+                    raise 'New Notes must be in a tuple'
+                k = a[0]-1
+                t = a[1]
+                if (k < len(self.notes)):
+                    raise 'Notes %d already exists'%(k+1)
+                elif (k > len(self.notes)):
+                    raise 'Next notes must be %d'%(len(self.notes)+1)
+                else:
+                    self.notes.append(t)
+                    c['notes'] = a[0]
+                    
         self.columns.append(c)
             
     def open(self, mode, fname=''):
@@ -65,25 +91,47 @@ class TABLE:
 
     def write_header(self):
         f = self.file
-        a = self.author.split()
-        f.write(self.separator)
-        s = '%s (%s, %d)\n'%(self.title, a[-1], self.date[0])
+        s = 'Title:   %s\n'%(self.title)
         f.write(s)
+        a = ', '.join(self.authors)
+        s = 'Authors: %s\n'%(a)
+        f.write(s)
+        f.write(self.separator0)
+        s = 'byte-by-byte description of file: %s\n'%(self.fname)
+        f.write(s)
+        f.write(self.separator)
+        s = '  %8s %6s %20s %10s %-s\n'%('Bytes', 'Format', 'Units',
+                                         'Label', 'Explanation')
+        f.write(s)
+        f.write(self.separator)
+        
         b0 = 1
         for i in range(len(self.columns)):
             c = self.columns[i]
             label = c['label']
             d = c['description']
-            unit = c['unit']
+            units = c['units']
             fmt = c['format']
             w = c['width']
             p = c['padding']
             b1 = b0 + w-1                
-            s = '  %d-%d %s %s %s %s\n'%(b0, b1, fmt, label, unit, d)
+            s = '  %3d-%4d %6s %20s %10s %-s'%(b0, b1, fmt,
+                                               units, label, d)
+            if (c.has_key('notes')):
+                s = s+'; (%d)'%(c['notes'])
+            s = s + '\n'
             f.write(s)
             b0 = 1 + b1 + len(p)
         f.write(self.separator)
-        
+        if (len(self.notes) > 0):
+            for i in range(len(self.notes)):
+                s = 'Note (%d): '%(i+1)
+                p = ' '*len(s)
+                t = pad_text(self.notes[i], p)
+                s = s+t+'\n'
+                f.write(s)
+            f.write(self.separator)
+            
     def write_raw(self, *data):
         if (len(data) != len(self.columns)):
             raise 'num. of data items does not match columns'
@@ -93,45 +141,58 @@ class TABLE:
             s = s + fmt%(data[i]) + self.columns[i]['padding']
         s = s + '\n'
         self.file.write(s)
-        
+
+def pad_text(t, p):
+    s = t.split('\n')
+    a = ''
+    for i in range(len(s)):
+        a = a+s[i]
+        if (i < len(s)-1):
+            a = a + '\n' + p
+    return a
+    
 def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
     tbl = TABLE(fname=dfile,
                 title='Energy Levels for Z=%d'%z,
-                author='M. F. Gu',
+                authors=['M. F. Gu'],
                 date=time.localtime())
     d = 'Num. of Electrons'
     tbl.add_column(label='NELE',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I2')
     d = 'Level Index'
     tbl.add_column(label='Index',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I6')
     d = 'Level Energy'
+    notetext = 'For each ion, the true ground state energy is given, \n'
+    notetext = notetext+'while the energies of excited states are given '
+    notetext = notetext+'relative to the ground state.'
     tbl.add_column(label='Energy',
-                   unit='eV',
+                   units='eV',
                    description=d,
-                   format='E11.4')
+                   format='E11.4',
+                   notes=[(1, notetext)])
     d = 'Parity'
     tbl.add_column(label='P',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I1')
     d = 'Twice of Total Angular Momentum'
     tbl.add_column(label='2J',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I2')
     d = 'N Complex'
     tbl.add_column(label='NComplex',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='A12')
     d = 'Non-relativistic Configuration'
     tbl.add_column(label='ConfigNR',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='A12')
     d = 'Relativistic Configuration'
@@ -149,11 +210,11 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
             a = LevelInfor(efile, i)
             if (not a[3].strip() in c):
                 break
+            e = a[0]*const.Ryd_eV*2.0
             if (i == 0):
-                e0 = a[0]
-                e = 0.0
+                e0 = e
             else:
-                e = (a[0]-e0)*const.Ryd_eV*2.0
+                e = e-e0
             col = (k, i, e, a[1], a[2],
                    a[3].strip(), a[4].strip(), a[5].strip())
             tbl.write_raw(*col)
@@ -163,37 +224,37 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
 def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
                 title='Total Ionization and Recombination Rate Coefficients',
-                author='M. F. Gu',
+                authors=['M. F. Gu'],
                 date=time.localtime())
     d = 'Num. of Electrons'
-    tbl.add_column(label='NELE', unit='None',
+    tbl.add_column(label='NELE', units='None',
                    description=d, format='I2')
     d = 'Temperature'
-    tbl.add_column(label='Temp', unit='[K]',
+    tbl.add_column(label='Temp', units='[K]',
                    description=d, format='F4.2')
     d = 'Total DR rate coefficients'
-    tbl.add_column(label='DR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='DR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DR Arnaud & Raymond'
-    tbl.add_column(label='DR_AR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='DR_AR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total RR rate coefficients'
-    tbl.add_column(label='RR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='RR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total RR Arnaud & Raymond'
-    tbl.add_column(label='RR_AR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='RR_AR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DCI rate coefficients'
-    tbl.add_column(label='CI', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='CI', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DCI Arnaud & Raymond'
-    tbl.add_column(label='DCI_AR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='DCI_AR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total EA rate coefficients'
-    tbl.add_column(label='EA', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='EA', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total EA Arnaud & Raymond'
-    tbl.add_column(label='EA_AR', unit='10^-10^cm^3^/s',
+    tbl.add_column(label='EA_AR', units='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     tbl.open('w')
     tbl.write_header()
@@ -246,73 +307,73 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
 def tabulate_rates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
                 title='Line Formation Rate Coefficients',
-                author='M. F. Gu',
+                authors=['M. F. Gu'],
                 date=time.localtime())
     d = 'Num. of electrons'
     tbl.add_column(label='NELE',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I2')
     d = 'Level Index'
     tbl.add_column(label='Index',
-                   unit='None',
+                   units='None',
                    description=d,
                    format='I3')
     d = 'Temperature'
     tbl.add_column(label='Temp',
-                   unit='[K]',
+                   units='[K]',
                    description=d,
                    format='F4.2')
-    unit = 's^-1^'
+    units = 's^-1^'
     d = 'Total Depletion Rate'
     tbl.add_column(label = 'RT',
-                   unit=unit,
-                   descriptio = d,
+                   units=units,
+                   description = d,
                    format = 'E8.2')
-    unit = '10^-10^cm^3^/s'
+    units = '10^-10^cm^3^/s'
     d = 'Collisional Excitation' 
     tbl.add_column(label='CE',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'Resonance Excitation'
     tbl.add_column(label='RE',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'Radiative Recombination'
     tbl.add_column(label='RR',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'CE + n=3 Cascades'
     tbl.add_column(label='CE+CS3',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'CE + All Cascades'
     tbl.add_column(label='CE+CS',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'RE + All Cascades'
     tbl.add_column(label='RE+CS',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'DR + RR + n=3 Cascades'
     tbl.add_column(label='DR+RR+CS3',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'DR + RR + All Cascades'
     tbl.add_column(label='DR+RR+CS',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
     d = 'Collisional Ionization'
     tbl.add_column(label='CI',
-                   unit=unit,
+                   units=units,
                    description=d,
                    format='E8.2')
 

@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.43 2002/02/25 02:54:43 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.44 2002/02/25 15:24:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -151,7 +151,8 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     if (jmax < orb1->ilast) jmax = orb1->ilast;
     norbs++;
   }
-  if (norbs && potential->N > 1) {
+  if (norbs && 
+      potential->N > 1+EPS3) {
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = 0.0;
     }
@@ -264,8 +265,10 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   } else {
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
-    if (potential->N == 1) r = 0.0;
-    else r = 1.0;
+    if (potential->N < 1+EPS3) 
+      r = 0.0;
+    else 
+      r = 1.0;
   }
   
   return r;
