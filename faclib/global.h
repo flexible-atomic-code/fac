@@ -6,11 +6,8 @@
 #include <string.h>
 #include <math.h>
 
-/* the following macros for Odd Even integer determination is Paltform
-   dependent. this is good for big endian systems */
 #define IsOdd(x)  ((abs((x))&0x01)?1:0)
 #define IsEven(x) ((abs((x))&0x01)?0:1)
-
 #define Max(a, b) (((a)>(b))?(a):(b))
 #define Min(a, b) (((a)<(b))?(a):(b))
 
@@ -27,7 +24,7 @@
 
 #define PI         3.14159265359
 #define TWO_PI     6.28318530718
-#define SQRT2      1.414214
+#define SQRT2      1.41421356237
 
 #define HARTREE_EV 27.2113962 
 #define RATE_AU    4.13413733E16

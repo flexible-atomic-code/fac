@@ -1,19 +1,11 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.4 2001/09/14 13:17:01 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.5 2001/09/14 16:32:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
-
-static struct {
-  int gauge;
-  int mode;
-  int max_e;
-  int max_m;
-  double eps;
-} transition_option = {2, 1, 4, 4, EPS4};
 
 /* the following options controll the computation methods of OS.
    gauge = 1 coulomb gauge (velocity form)
@@ -25,6 +17,13 @@ static struct {
    max_e, the maximum rank of electric multipoles.
    max_m, the maximum rank of magnetic multipoles.
 */
+static struct {
+  int gauge;
+  int mode;
+  int max_e;
+  int max_m;
+  double eps;
+} transition_option = {2, 1, 4, 4, EPS4};
 
 int SetTransitionCut(double c) {
   transition_option.eps = c;
