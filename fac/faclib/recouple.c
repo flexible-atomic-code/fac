@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.6 2001/11/12 22:23:53 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.7 2001/12/14 00:07:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1563,10 +1563,10 @@ void TestAngular() {
     s2 = s1;
     for (t = 0; t < sym->n_states; t++) {
       c1 = GetConfig((STATE *) ArrayGet(s1, t));
-      ConstructLevelName(name1, NULL, &(s1->s));
+      ConstructLevelName(name1, NULL, NULL, &(s1->s));
       for (q = 0; q < sym->nstates; q++) {
 	c2 = GetConfig((STATE *) ArrayGet(s2, q));
-	ConstructLevelName(name2, NULL, &(s2->s));
+	ConstructLevelName(name2, NULL, NULL, &(s2->s));
 	fprintf(debug_log, "Bra: %s \nKet: %s\n\n", name1, name2);
 	n_shells = GetInteract(&phase, s, &bra, &sbra, &sket, 
 			       c1, s1->s.kstate, c2, s2->s.kstate, s1, s2);

@@ -6,6 +6,7 @@
 #include "nucleus.h"
 #include "radial.h"
 #include "angular.h"
+#include "dbase.h"
 #include "rcfp.h"
 #include "recouple.h"
 #include <time.h>
@@ -123,8 +124,8 @@ int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);
-int ConstructLevelName(char *name, char *sname, STATE *basis);
-int SaveLevelsToAscii(char *fn, int m, int n);
+int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis);
+int SaveLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetMixCut(double c);

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.14 2001/10/14 15:23:24 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.15 2001/12/14 00:07:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -848,76 +848,66 @@ int SortLevels(int start, int n) {
   }
 }
 
-int SaveLevelsToAscii(char *fn, int m, int n) {
-  FILE *f;
-  char name[LEVEL_NAME_LEN];
-  char sname[LEVEL_NAME_LEN];
-  int i, j, p, j0, nele;
-  int si;
-  double mix;
+int SaveLevels(char *fn, int m, int n) {
   STATE *s, *sp;
   ORBITAL *orb;
   CONFIG *c;
   SYMMETRY *sym;
   LEVEL *lev;
+  EN_RECORD r;
+  char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
+  char nc[LEVEL_NAME_LEN];
   char *asym;
-  double e0;
+  FILE *f;
+  int i, j, k, p, j0;
+  int nele, nele0;
+  int si;
+  double mix;
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
   RECOUPLE_TIMING recouplet;
   RAD_TIMING radt;
 #endif
-
-  f = fopen(fn, "w");
-  if (f == NULL) return -1;
-  
-  e0 = GetLevel(0)->energy;
-  asym = GetAtomicSymbol();
-  i = GetAtomicNumber();
-  fprintf(f, "%s, Z = %d\n", asym, i);
-  fprintf(f, "E0 = %16.8E\n\n",  e0*HARTREE_EV);
-  fprintf(f, "      Energy(eV)  Ne  P 2J\n\n");
-  for (i = 0; i < n_levels; i++) {
+ 
+  f = NULL;
+  nele0 = -1;
+  if (n < 0) n = n_levels - m;
+  for (k = 0; k < n; k++) {
+    i = m + k;
     lev = GetLevel(i);
     si = lev->major_component;
     sym = GetSymmetry(lev->pj);
     DecodePJ(lev->pj, &p, &j0);
+    r.ilev = i;
+    r.p = p;
+    r.j = j0;
+    r.energy = lev->energy;
     s = (STATE *) ArrayGet(&(sym->states), si);
-    if (n > 0) {
-      if (s->kgroup >= 0) {
-	c = GetConfig(s);
-	if (n != c->shells[0].n) continue;
-      } else {
-	orb = GetOrbital(s->kcfg);
-	if (n != orb->n) continue;
-      }
+    nele = ConstructLevelName(name, sname, nc, s);
+    strncpy(r.name, name, LNAME);
+    strncpy(r.sname, sname, LSNAME);
+    strncpy(r.ncomplex, nc, LNCOMPLEX);
+    if (nele != nele0) {
+      CloseFile(f, DB_EN);
+      nele0 = nele;
+      f = InitFile(fn, DB_EN, nele);
     }
-    nele = ConstructLevelName(name, sname, s);
-    fprintf(f, "%-5d %-11.4E %-3d %1d %-2d %-20s  %-30s\n", i, 
-	    (lev->energy-e0)*HARTREE_EV, nele, 
-	    p, j0, sname, name);
-    if (m == 0) continue;
-
-    for (j = 0; j < lev->n_basis; j++) {
-      mix = lev->mixing[j];
-      sp = (STATE *) ArrayGet(&(sym->states), lev->basis[j]);
-      fprintf(f, "  (%2d %2d %2d) %10.4E \n", 
-	      sp->kgroup,
-	      sp->kcfg,
-	      sp->kstate, mix);
-    }
+    WriteENRecord(f, &r);
   }
+
+  CloseFile(f, DB_EN);
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
-  fprintf(f, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
+  fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
 	  ((double) (structt.angz_mix))/CLOCKS_PER_SEC,
 	  ((double) (structt.angz_fb))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzxz_fb))/CLOCKS_PER_SEC,
 	  ((double) (structt.set_ham))/CLOCKS_PER_SEC,
 	  ((double) (structt.diag_ham))/CLOCKS_PER_SEC);
-  fprintf(f, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+  fprintf(perform_log, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
 	  ((double) (structt.angz_states))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzfb_states))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzxzfb_states))/CLOCKS_PER_SEC,
@@ -925,31 +915,29 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 	  ((double) (structt.add_angzxz))/CLOCKS_PER_SEC);
 
   GetAngularTiming(&angt);
-  fprintf(f, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
+  fprintf(perform_log, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
 	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w9j)/CLOCKS_PER_SEC);
   GetRecoupleTiming(&recouplet);
-  fprintf(f, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
+  fprintf(perfom_log, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
 	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
   GetRadTiming(&radt);
-  fprintf(f, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
+  fprintf(perform_log, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
 	  GetNumContinua(),
 	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
 	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
-  fprintf(f, "\n");
+  fprintf(perform_log, "\n");
 #endif /* PERFORM_STATISTICS */
-
-  fclose(f);
   
   return 0;
 }
 
-int ConstructLevelName(char *name, char *sname, STATE *basis) {
+int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
   int n, nq, kl, j;
   int nele, i, len;
   char symbol[20];
@@ -975,30 +963,31 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
       
       kl /= 2;
       SpecSymbol(symbol, kl);
-      sprintf(name, "%-5d + %d%s%c1(%d)%d ", 
+      sprintf(name, "%5d + %d%s%c1(%d)%d ", 
 	      i, orb->n, symbol, jsym, j, basis->kstate);
     }
     lev = GetLevel(i);
     si = lev->major_component;
     sym = GetSymmetry(lev->pj);
     basis = (STATE *) ArrayGet(&(sym->states), si);
-    if (sname) {
-      nele = ConstructLevelName(NULL, sname, basis);
+    if (sname || nc) {
+      nele = ConstructLevelName(NULL, sname, nc, basis);
     } else {
-      nele = ConstructLevelName(NULL, NULL, basis);
+      nele = ConstructLevelName(NULL, NULL, NULL, basis);
     }
     return nele+1;
   }
 
   c = GetConfig(basis);
   nele = c->n_electrons;
-  if (!name && !sname) return nele;
+  if (!name && !sname && !nc) return nele;
 
   s = c->csfs + basis->kstate;
 
   len = 0;
   if (name) name[0] = '\0';
   if (sname) sname[0] = '\0';
+  if (nc) nc[0] = '\0';
   n0 = 0;
   kl0= -1;
   nq0 = 0;
@@ -1040,6 +1029,29 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
       strcat(sname, ashell);
     }
   }
+
+  if (nc) {
+    n0 = 0;
+    nq0 = 0;
+    for (i = c->n_shells-1; i >= 0; i--) {
+      UnpackShell(c->shells+i, &n, &kl, &j, &nq);
+      if (n == n0) {
+	nq0 += nq;
+      } else {
+	if (nq0 > 0) {
+	  sprintf(ashell, "%1d*%1d ", n0, nq0);
+	  strcat(nc, ashell);
+	}
+	n0 = n;
+	nq0 = nq;
+      }
+    }
+    if (n0 > 0) {
+      sprintf(ashell, "%1d*%1d ", n0, nq0);
+      strcat(nc, ashell);
+    }
+  }
+
   return nele;
 }
     
@@ -1064,7 +1076,7 @@ int GetBasisTable(char *fn) {
     fprintf(f, "%d: J = %d, Parity = %d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
-      ConstructLevelName(name, sname, s);
+      ConstructLevelName(name, sname, NULL, s);
       fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
 	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }

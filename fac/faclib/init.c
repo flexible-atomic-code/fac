@@ -1,4 +1,4 @@
-static char *rcsid="$Id: init.c,v 1.2 2001/11/24 21:12:28 mfgu Exp $";
+static char *rcsid="$Id: init.c,v 1.3 2001/12/14 00:07:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -23,6 +23,10 @@ int InitFac() {
   debug_log = fopen("debug.log", "w");
 #endif
 
+#ifdef PERFORM_STATISTICS
+  perform_log = fopen("perform.log", "w");
+#endif
+
   ierr = InitConfig();
   if ( ierr < 0) {
     printf("initialize failed in InitConfig\n");
@@ -38,7 +42,8 @@ int InitFac() {
     printf("initialize failed in InitRadial\n");
     return ierr;
   }
-
+  
+  InitDBase();
   InitStructure();
   InitExcitation();
   InitRecombination();
