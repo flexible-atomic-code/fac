@@ -1,6 +1,7 @@
 version 1.0.0, 07/15/2003
 	1. add pol module for constructing magnetic sublevel population
 	   models with collisional excitation.
+	2. make -m and m magnetic sublevels the same in pol module.
 	
 version 0.9.9, 07/10/2003
 	1. add interpolating routine for CECross.

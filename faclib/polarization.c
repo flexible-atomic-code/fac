@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.7 2003/07/16 02:31:50 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.8 2003/07/17 14:28:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -120,9 +120,9 @@ int SetMLevels(char *fn, char *tfn) {
 
   levels[0].ic = 0;
   for (t = 1; t < nlevels; t++) {
-    levels[t].ic = levels[t-1].ic + levels[t-1].j+1;
+    levels[t].ic = levels[t-1].ic + levels[t-1].j/2 + 1;
   }
-  nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j+1;
+  nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
   rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
 
   f = fopen(tfn, "r");
@@ -169,14 +169,11 @@ int SetMLevels(char *fn, char *tfn) {
       tr_rates[0].lower = k;
       tr_rates[0].upper = t;
       tr_rates[0].multipole = 0;
-      tr_rates[0].n = (levels[k].j+1)*(levels[t].j+1);
-      tr_rates[0].rates = (double *) malloc(sizeof(tr_rates[0].n));
+      tr_rates[0].n = 1;
+      tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
       a = TwoPhotonRate(z, 0);
       tr_rates[0].rtotal = a;
-      a /= levels[k].j+1.0;
-      for (m = 0; m < tr_rates[0].n; m++) {
-	tr_rates[0].rates[m] = a;
-      }
+      tr_rates[0].rates[0] = a;
       t0 = 1;
     } else {
       tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
@@ -190,14 +187,11 @@ int SetMLevels(char *fn, char *tfn) {
       tr_rates[0].lower = k;
       tr_rates[0].upper = t;
       tr_rates[0].multipole = 0;
-      tr_rates[0].n = (levels[k].j+1)*(levels[t].j+1);
-      tr_rates[0].rates = (double *) malloc(sizeof(tr_rates[0].n));
+      tr_rates[0].n = 1;
+      tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
       a = TwoPhotonRate(z, 1);
       tr_rates[0].rtotal = a;
-      a /= (levels[k].j+1.0);
-      for (m = 0; m < tr_rates[0].n; m++) {
-	tr_rates[0].rates[m] = a;
-      }
+      tr_rates[0].rates[0] = a;
       t0 = 1;
     } else {
       tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
@@ -223,13 +217,19 @@ int SetMLevels(char *fn, char *tfn) {
       a *= r1.strength;
       a *= RATE_AU;
       tr_rates[t0].rtotal = a/(j2+1.0);
-      tr_rates[t0].n = (j1+1)*(j2+1);
+      tr_rates[t0].n = (j1/2+1)*(j2/2+1);
       tr_rates[t0].rates = (double *) malloc(sizeof(double)*tr_rates[t0].n);
       p = 0;
-      for (m1 = -j1; m1 <= j1; m1 += 2) {
-	for (m2 = -j2; m2 <= j2; m2 += 2) {
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  b = W3j(j1, k, j2, -m1, m1-m2, m2);
-	  tr_rates[t0].rates[p] = a*b*b;
+	  b = b*b;
+	  tr_rates[t0].rates[p] = a*b;
+	  if (m1 != 0) {
+	    b = W3j(j1, k, j2, -m1, m1+m2, -m2);
+	    b = b*b;
+	    tr_rates[t0].rates[p] += a*b;
+	  }
 	  p++;
 	}
       }
@@ -324,26 +324,23 @@ int SetMCERates(char *fn, double energy) {
       ce_rates[t].upper = r.upper;
       j1 = levels[r.lower].j;
       j2 = levels[r.upper].j;
-      ce_rates[t].n = 2*(j1+1)*(j2+1);
+      ce_rates[t].n = 2*(j1/2+1)*(j2/2+1);
       ce_rates[t].rates = (double *) malloc(sizeof(double)*ce_rates[t].n);
       k = 0;
       p = 0;
-      for (m1 = -j1; m1 <= j1; m1 += 2) {
-	for (m2 = -j2; m2 <= j2; m2 += 2) {
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  ce_rates[t].rates[p] = cs1[k];
+	  if (m2 != 0) {
+	    ce_rates[t].rates[p] += cs1[k-m2];
+	  }
 	  p++;
 	  ce_rates[t].rates[p] = cs2[k];
-	  p++;
-	  if (m1 <= 0) {
-	    k++;
-	  } else {
-	    k--;
+	  if (m2 != 0) {
+	    ce_rates[t].rates[p] += cs2[k-m2];
 	  }
-	}
-	if (m1 == 0) {
-	  k -= j2+2;
-	} else if (m1 == -1) {
-	  k--;
+	  p++;
+	  k++;
 	}
       }
       t++;
@@ -386,9 +383,9 @@ int PopulationTable(char *fn, double eden) {
     j2 = levels[i2].j;
     t = 0;
     q1 = levels[i1].ic;
-    for (m1 = -j1; m1 <= j1; m1 += 2) {
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
       q2 = levels[i2].ic;
-      for (m2 = -j2; m2 <= j2; m2 += 2) {
+      for (m2 = -j2; m2 <= 0; m2 += 2) {
 	p = q2*nmlevels+q1;
 	rmatrix[p] += tr_rates[i].rates[t++];
 	q2++;
@@ -404,9 +401,9 @@ int PopulationTable(char *fn, double eden) {
     j2 = levels[i2].j;
     t = 0;
     q1 = levels[i1].ic;
-    for (m1 = -j1; m1 <= j1; m1 += 2) {
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
       q2 = levels[i2].ic;
-      for (m2 = -j2; m2 <= j2; m2 += 2) {
+      for (m2 = -j2; m2 <= 0; m2 += 2) {
 	p = q1*nmlevels+q2;
 	a = eden*ce_rates[i].rates[t++];
 	rmatrix[p] += a;
@@ -446,20 +443,21 @@ int PopulationTable(char *fn, double eden) {
     j1 = levels[i].j;
     a = 0.0;
     p = levels[i].ic;
-    for (m1 = -j1; m1 <= j1; m1 += 2) {
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
       a += b[p];
       p++;
     }
     levels[i].dtotal = a;
     p = levels[i].ic;
     fprintf(f, "%5d\t%12.5E\n", i, a);
-    for (m1 = -j1; m1 <= j1; m1 += 2) {
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
       if (a) {
 	c = b[p]/a;
+	if (m1 != 0) c = 0.5*c;
       } else {
 	c = 0.0;
       }
-      fprintf(f, "%5d\t%12.5E\n", m1, c);
+      fprintf(f, "%5d\t%12.5E\n", -m1, c);
       p++;
     }
     fprintf(f, "\n");
@@ -501,7 +499,7 @@ int PolarizationTable(char *fn) {
       k2 = k*4;
       t = levels[i].ic;    
       BL[k][i] = 0.0;
-      for (m1 = -j1; m1 <= j1; m1 += 2) {
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
 	if (levels[i].dtotal) {
 	  b = x[t]/levels[i].dtotal;
 	} else {
