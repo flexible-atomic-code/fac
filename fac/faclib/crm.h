@@ -10,7 +10,7 @@
 #include "rates.h"
 
 #define RATES_BLOCK   1024
-#define ION_BLOCK     16
+#define ION_BLOCK     4
 #define LBLOCK_BLOCK  1024
 
 #define MAXNREC 128

@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.45 2002/12/14 16:30:58 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.46 2002/12/22 02:15:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -99,14 +99,16 @@ static void FreeIonData(void *p) {
     free(ion->vnl);
     free(ion->ibase);
     free(ion->energy);
-    free(ion->KLN_ai);
-    free(ion->KLN_nai);
+    if (ion->KLN_bmax >= ion->KLN_bmin) {
+      free(ion->KLN_ai);
+      free(ion->KLN_nai);
+    }
     ion->KLN_min = 0;
-    ion->KLN_max = 0;
+    ion->KLN_max = -1;
     ion->KLN_bmin = 0;
-    ion->KLN_bmax = 0;
+    ion->KLN_bmax = -1;
     ion->KLN_amin = 0;
-    ion->KLN_amax = 0;
+    ion->KLN_amax = -1;
     ion->nlevels = 0;
   }
   for (i = 0; i < NDB; i++) {
@@ -208,11 +210,11 @@ int AddIon(int nele, double n, char *pref) {
   ArrayInit(ion.ai_rates, sizeof(BLK_RATE), RATES_BLOCK);
 
   ion.KLN_min = 0;
-  ion.KLN_max = 0;
+  ion.KLN_max = -1;
   ion.KLN_bmin = 0;
-  ion.KLN_bmax = 0;
+  ion.KLN_bmax = -1;
   ion.KLN_amin = 0;
-  ion.KLN_amax = 0;
+  ion.KLN_amax = -1;
   ion.KLN_ai = NULL;
   ion.KLN_nai = NULL;
 
@@ -597,7 +599,7 @@ void ExtrapolateAI(ION *ion, int inv) {
 }
 
 int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
-  int i, k, n1, n2, n3;
+  int i, k, n1, n2, n3, ibase;
   char ncomp[LNCOMPLEX];
   char name[LNAME];
   char sname[LSNAME];
@@ -616,19 +618,18 @@ int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
     k = atoi(&(ncomp[i+1]));
     k--;
     if (k == 0) {
-      while (ncomp[i] != ' ') i--;
+      while (ncomp[i] != ' ' && i > 0) i--;
       ncomp[i] = '\0';
     } else {
       sprintf(&(ncomp[i+1]), "%1d", k);
     }    
     n1 = strlen(ncomp);
-    
     i = 0; 
     while (sname[i]) i++;
     i--;
-    while (sname[i] == ' ') i--;
+    while (sname[i] == ' ' && i > 0) i--;
     if (sname[i] == '1') {
-      while (sname[i] != ' ') i--;
+      while (sname[i] != ' ' && i > 0) i--;
       sname[i] = '\0';
       n3 = strlen(sname);
     } else {
@@ -648,20 +649,27 @@ int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
       }
       return -1;
     } else {
-      while (name[i] != ' ') i--;
+      while (name[i] != ' ' && i > 0) i--;
       name[i] = '\0';
       n2 = strlen(name);
+      ibase = -1;
       for (i = 0; i <n; i++) {
-	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0 &&
-	    strncmp(name, r0[i].name, n2) == 0 &&
-	    strncmp(sname, r0[i].sname, n3) == 0) {	  
-	  return r0[i].ilev;
+	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0) {
+	  if (i == 0) ibase = r0[i].ilev;
+	  if (n2 == 0 || n3 == 0) {
+	    return r0[i].ilev;
+	  } else {
+	    if (strncmp(name, r0[i].name, n2) == 0 &&
+		strncmp(sname, r0[i].sname, n3) == 0) {	  
+	      return r0[i].ilev;
+	    }
+	  }
 	}
       }
-      return -1;
+      return ibase;
     }
   }
-} 
+}
     
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
@@ -3983,7 +3991,9 @@ int SetAIRates(int inv) {
 	    rt.f <= ion->KLN_amax &&
 	    rt.f >= ion->KLN_amin) {
 	  ibase = ion->ibase[rt.i] - ion->KLN_bmin;
-	  ion->KLN_ai[ibase] += rt.dir;
+	  if (ibase >= 0) {
+	    ion->KLN_ai[ibase] += rt.dir;
+	  }
 	}
       }
     }
