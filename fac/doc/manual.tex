@@ -2326,7 +2326,7 @@ variable \key{QKMODE}.
 Set the principal quantum number \var{n} and the orbital angular momentum
 \var{l}, beyond which, the hydrogenic approximation for the E1 multipole
 integrals should be used. If this routine is not called or the argument is not
-given, the default is \var{n}=6, and \var{l}=5. 
+given, the default is \var{n}=8, and \var{l}=7. 
 \end{fundesc}
 
 \begin{fundesc}{SetIEGrid}{g $|$ n\opt{, e0, e1}}
@@ -2492,7 +2492,8 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy\opt{, n0, n1, nmax}}
+\begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy\opt{, n0, n1, nmax, imin,
+imax}}
 Calculate the total radiative recombination cross sections onto level
 \var{ilev} by reading the data from the \texttt{DB\_RR} database file
 \var{ifn}. The results are written to the ASCII file \var{ofn} in a two column
@@ -2500,8 +2501,12 @@ format. \var{energy} is a list or tuple giving the electron energies in eV
 where the RR cross sections are needed. The data for recombination onto $n0 <
 n < n1$ and $n > n1$ are not present in the data file \var{ifn}, and the
 hydrogenic approximation for $n0 < n < n1$ and $n1 < n \le nmax$ are added to
-the calculated cross sections. Before calling this function,
-\key{MemENTable()} must be called.
+the calculated cross sections. The optional \var{imin} and \var{imax}
+specifies the index range of the recombined states. Only recombination to
+states with $imin \le i \le imax$ are included. If \var{imin}$<$0, it is
+assumed to be 0, and if \var{imax}$<$0, it is assumed to be the larges index
+in the level file. Both default to -1, i.e., include all recombined
+states. Before calling this function, \key{MemENTable()} must be called.
 \end{fundesc}
 
 \begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}

@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.37 2002/12/05 21:00:11 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.38 2002/12/06 02:52:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -18,6 +18,7 @@ static RT_HEADER rt_header;
 static DR_HEADER dr_header;
 
 static EN_SRECORD *mem_en_table = NULL;
+static int mem_en_table_size = 0;
 static int iground;
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
@@ -279,6 +280,7 @@ int InitDBase(void) {
   }
 
   mem_en_table = NULL;
+  mem_en_table_size = 0;
   iground = 0;
 
   return 0;
@@ -291,6 +293,7 @@ int ReinitDBase(int m) {
   if (mem_en_table) {
     free(mem_en_table);
     mem_en_table = NULL;
+    mem_en_table_size = 0;
   }
   if (m == 0) {
     return InitDBase();
@@ -522,7 +525,8 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
 }
 
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
-		 int negy, double *egy, int n0, int n1, int nmax) {
+		 int negy, double *egy, int n0, int n1, int nmax,
+		 int imin, int imax) {
   F_HEADER fh;
   FILE *f1, *f2;
   int n, swp;
@@ -576,6 +580,9 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 
   nb = 0;
   
+  if (imin < 0) imin = 0;
+  if (imax < 0) imax = mem_en_table_size - 1;
+
   while(1) {
     n = fread(&h, sizeof(RR_HEADER), 1, f1);
     if (n != 1) break;
@@ -617,6 +624,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       m = h.n_usr;
       n = fread(strength, sizeof(float), m, f1);	
       if (r.f != ilev) continue;
+      if (r.b < imin || r.b > imax) continue;
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
       
       if (swp) {
@@ -792,6 +800,7 @@ int WriteENRecord(FILE *f, EN_RECORD *r) {
 int FreeMemENTable(void) {
   if (mem_en_table) free(mem_en_table);
   mem_en_table = NULL;
+  mem_en_table_size = 0;
   return 0;
 }
 
@@ -977,6 +986,7 @@ int MemENTable(char *fn) {
     fseek(f, h.length, SEEK_CUR);
   }
   mem_en_table = (EN_SRECORD *) malloc(sizeof(EN_SRECORD)*nlevels);
+  mem_en_table_size = nlevels;
     
   e0 = 0.0;
   fseek(f, sizeof(F_HEADER), SEEK_SET);

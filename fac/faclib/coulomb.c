@@ -7,14 +7,14 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.17 2002/11/14 15:21:36 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.18 2002/12/06 02:52:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-static int n_hydrogenic = 10;
-static int kl_hydrogenic = 8;
+static int n_hydrogenic = 8;
+static int kl_hydrogenic = 7;
 static int n_hydrogenic_max = 128;
 static int kl_hydrogenic_max = 20;
 static ARRAY *dipole_array;

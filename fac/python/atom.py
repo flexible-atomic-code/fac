@@ -675,7 +675,9 @@ class ATOM:
         g = self.grd_complex.name
         for i in range(self.n_shells):
             b = self.ion_complex.cgroup[i].name
-            self.run_ci_rr(g, b, g, b, ci=1, rr=1)
+            for c in g:
+                for d in b:
+                    self.run_ci_rr([c], [d], [c], [d], ci=1, rr=1)
 
         b = self.ion_complex.cgroup[0].name
         for i in range(len(self.exc_complex[0].cgroup)):
@@ -687,10 +689,13 @@ class ATOM:
                 na = self.nterms[0]
                 a = a[:na]
             n = self.exc_complex[0].cgroup[i].nrec
-            if (n > 0):
-                a = (a, n)
-            b = b[:na]
-            self.run_ci_rr(a, b, a, b, ci=1, rr=1)
+            for c in a:
+                if (n > 0):
+                    cp = ([c], n)
+                else:
+                    cp = [c]
+                for d in b[0:na]:
+                    self.run_ci_rr(cp, [d], cp, [d], ci=1, rr=1)
              
         return
 
