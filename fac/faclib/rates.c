@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.1 2002/01/14 23:24:22 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.2 2002/01/17 02:57:11 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -139,7 +139,7 @@ double IntegrateRate(int idist, double eth, double bound,
   }
 
   if (ier != 0) {
-    printf("INTEGRATOR ERROR: %d %d %10.3E %10.3E %10.3E\n", 
+    printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E\n", 
 	   ier, neval, bound, result, abserr);
     printf("%6d %6d %2d Eth = %10.3E\n", 
 	   rate_args.i, rate_args.f, type, eth);

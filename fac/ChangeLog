@@ -1,3 +1,9 @@
+Version 0.6.9, 01/16/2002
+	1. fix a bug in the reinitialization of radial.c
+	2. improve the atom module.
+	3. updated demo scripts for the new version. added the FeL 
+	   demo scripts to calculate the FeL spectrum.
+
 Version 0.6.8, 01/14/2002
 	1. use setup.py script to install the python interface. 
 	   successfully built under Windows with Cygwin installed.

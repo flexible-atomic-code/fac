@@ -18,17 +18,50 @@ def get_index(n, complex):
         
     return -i-2
 
-
+def get_terms(n, nq):
+    if (n == 1):
+        return ['1s%d'%nq]
+    elif (n == 2):
+        if (nq == 1):
+            return ['2s1', '2p1']
+        elif (nq == 2):
+            return ['2s2', '2s1 2p1', '2p2']
+        else:
+            a = '2s2 2p%d'%(nq-2)
+            b = '2s1 2p%d'%(nq-1)
+            return [a, b]
+    elif (n == 3):
+        if (nq == 1):
+            return ['3s1', '3p1', '3d1']
+        elif (nq == 2):
+            return ['3s2', '3s1 3p1', '3s1 3d1', '3p2', '3p1 3d1', '3d2']
+        elif (nq < 8):
+            a = ['3s2 3p%d'%(nq-2)]
+            a.append('3s1 3p%d 3d1'%(nq-2))
+            if (nq > 3):
+                a.append('3s2 3p%d 3d1'%(nq-3))
+            return a
+        else:
+            a = ['3s2 3p6 3d%d'%(nq-8)]
+            a.append('3s2 3p5 3d%d'%(nq-7))
+            a.append('3s1 3p6 3d%d'%(nq-7))
+            return a
+    else:
+        if (nq > 2):
+            raise 'only n <= 3 supports nq > 2'
+        else:
+            return ['%d*%d'%(n, nq)]
+    
 # a configuration complex
 class COMPLEX:
     def __init__(self, nele = 0):
         self.complex = []
+        self.terms = []
         self.nrec = 0
         self.name = ' '
 
         if (nele > 0):
             self.set_ground(nele)
-            self.set_name()
             
         return
 
@@ -50,6 +83,24 @@ class COMPLEX:
         
         return
 
+    def set_terms(self):
+        t = []
+        for c in self.complex:
+            t.append(get_terms(c[0], c[1]))
+        if (len(t) == 0):
+            self.terms = ['']
+            return
+        a = t[0]
+        for b in t[1:]:
+            c = []
+            for i in a:
+                for j in b:
+                    c.append(i+' '+j)
+            a = c
+        self.terms = a
+
+        return
+
     def set_ground(self, nelectrons):
         n = 1
         nele = nelectrons
@@ -64,6 +115,8 @@ class COMPLEX:
             n = n+1
 
         self.complex = g
+        self.set_name()
+        self.set_terms()
         
         return 
 
@@ -94,6 +147,7 @@ class COMPLEX:
     
         self.complex = ex
         self.set_name()
+        self.set_terms()
 
         return 0
 
@@ -111,6 +165,7 @@ class COMPLEX:
 
         self.complex = ion
         self.set_name()
+        self.set_terms()
         
         return 0
 
@@ -169,31 +224,49 @@ class ATOM:
         self.rec_complex = []
 
         self.angz_cut0 = 1E-3
-        
+        self.tr_cut0 = 1E-3
+        self.ai_cut0 = 1E-3
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
             self.nexc_max = [7, 7]
             self.nexc_rec = [0, 0]
-            self.nrec_max = [30, 10]
+            self.nrec_max = [20, 10]
             self.rec_pw_max = [10, 8]
             self.n_decay = [11, 0]
             self.angz_cut1 = 1E-3
+            self.tr_cut1 = 1E-3
+            self.ai_cut1 = 1E-3
+            self.angz_cut2 = 1E-3
+            self.tr_cut2 = 1E-3
+            self.ai_cut2 = 1E-3
         elif (self.nele <= self.nele_max[2]):
             self.n_shells = 2
-            self.nexc_max = [5, 4, 5]
-            self.nexc_rec = [7, 0, 0]
-            self.nrec_max = [30, 8, 10]
-            self.rec_pw_max = [10, 8, 8]
+            self.nexc_max = [6, 4, 5]
+            self.nexc_rec = [0, 0, 0]
+            self.nrec_max = [12, 8, 8]
+            self.rec_pw_max = [10, 6, 6]
             self.n_decay = [11, 0, 0]
             self.angz_cut1 = 1E-2
+            self.tr_cut1 = 1E-2
+            self.ai_cut1 = 1E-2
+            self.angz_cut2 = 1E-1
+            self.tr_cut2 = 5E-2
+            self.ai_cut2 = 5E-2
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
-            self.nexc_max = [3, 7, 5, 0]
+            self.nexc_max = [5, 5, 5, 0]
             self.nexc_rec = [0, 0, 0, 0]
-            self.nrec_max = [0, 10, 8, 0]
-            self.rec_pw_max = [10, 8, 8, 8]
-            self.n_decay = [0, 0, 0, 0]
+            self.nrec_max = [10, 10, 8, 0]
+            self.rec_pw_max = [8, 6, 6, 6]
+            self.n_decay = [11, 0, 0, 0]
             self.angz_cut1 = 1E-2
+            self.tr_cut1 = 1E-2
+            self.ai_cut1 = 1E-2
+            self.angz_cut2 = 1E-1
+            self.tr_cut2 = 5E-2
+            self.ai_cut2 = 5E-2
+        else:
+            raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
 
         if (type(asym) == StringType):
             self.set_atom(asym)
@@ -408,6 +481,8 @@ class ATOM:
     def run_tr_ce_all(self):
         # ground - ground, CE, E1 and M1, E2, M2.
         # K shell ions only have one level in the ground complex
+        SetAngZCut(self.angz_cut0)
+        SetTransitionCut(self.tr_cut0)
         if (self.n_shells > 1):
             a = self.grd_complex.name
             self.run_tr_ce(a, a, a, a, tr = [-1, 1, -2, 2], ce = 1)
@@ -418,6 +493,7 @@ class ATOM:
         for k in range(self.n_shells):
             exc = self.exc_complex[k].complex_names()
             SetAngZCut(self.angz_cut0)
+            SetTransitionCut(self.tr_cut0)
             for i in range(len(exc)):
                 if (k == 0 and i == 0):
                     tr = [-1, 1, -2, 2]
@@ -425,6 +501,7 @@ class ATOM:
                     tr = [-1, 1]
                 if (i > 1):
                     SetAngZCut(self.angz_cut1)
+                    SetTransitionCut(self.tr_cut1)
                 b = exc[i]
                 if (b == ' '):
                     continue
@@ -438,8 +515,9 @@ class ATOM:
                 self.run_tr_ce(a, b, c, b, tr = tr, ce = 1)
 
         # ground - recombined, CE, E1.
-        SetAngZCut(self.angz_cut1)
         a = self.grd_complex.name
+        SetAngZCut(self.angz_cut1)
+        SetTransitionCut(self.tr_cut1)
         for k in range(self.n_shells):
             rec = self.rec_complex[k].cgroup
             for i in range(len(rec)):
@@ -469,7 +547,8 @@ class ATOM:
                         if (m != 0):
                             if (m == k):
                                 if (j != 0):
-                                    continue
+                                    if (self.nele < 10 and self.nele > 4):
+                                        continue
                             else:
                                 if (m == self.n_shells):
                                     if (k != 0):
@@ -483,19 +562,38 @@ class ATOM:
                         tr = [-1]
                         if (k == 0 and i == 0):
                             tr = [-1, 1]
+                            if (m == 0 and j == 0):
+                                if (self.nele == 10):
+                                    ce = 1
                         if (self.n_shells == 1):
                             if (k == 0 and i == 0 and j <= 2):
                                 ce = 1
+                                
+                        if (k == 0 and m == 0):
+                            if (i == 0):
+                                SetAngZCut(self.angz_cut0)
+                                SetTransitionCut(self.tr_cut0)
+                            else:
+                                SetAngZCut(self.angz_cut1)
+                                SetTransitionCut(self.tr_cut1)
+                        else:
+                            if (i == 0 and j == 0):
+                                SetAngZCut(self.angz_cut1)
+                                SetTransitionCut(self.tr_cut1)
+                            else:
+                                SetAngZCut(self.angz_cut2)
+                                SetTransitionCut(self.tr_cut2)
+                                
                         self.run_tr_ce(a, b, a, b, tr = tr, ce = ce)
                         
         return
 
     
     def run_ci_rr_all(self):
-        SetAngZCut(self.angz_cut0)
         # CI and PI from ground
         ion = self.ion_complex.complex_names()    
         a = self.grd_complex.name
+        SetAngZCut(self.angz_cut0)
         for b in ion[0:self.n_shells]:
             self.run_ci_rr(a, b, a, b, ci = 1, rr = 1)
 
@@ -510,6 +608,7 @@ class ATOM:
 
         # RR onto ground to form recombined states
         c = self.rec_complex[0].complex_names()
+        SetAngZCut(self.angz_cut1)
         for i in range(len(c)):
             b = ion[0]
             n = self.rec_complex[0].cgroup[i].nrec
@@ -520,7 +619,6 @@ class ATOM:
 
     
     def run_dr_all(self):
-        SetAngZCut(self.angz_cut0)
         ion = self.ion_complex.complex_names()   
         for k in range(len(self.rec_complex)):
             s = 'Channel %d'%(k)
@@ -532,30 +630,47 @@ class ATOM:
                         continue
                     if (k == 0):
                         b = ion[0]
+                        SetAngZCut(self.angz_cut0)
+                        SetAICut(self.ai_cut0)
                         self.run_ai(a, b, k)
                     else:
-                        for b in ion[0:k]:
+                        for j in range(k):
+                            b = ion[j]
+                            if (j > 0):
+                                SetAngZCut(self.angz_cut1)
+                                SetAICut(self.ai_cut1)
+                            else:
+                                SetAngZCut(self.angz_cut0)
+                                SetAICut(self.ai_cut0)
                             self.run_ai(a, b, k)
                 
             c = self.rec_complex[k].complex_names()
             for i in range(len(c)):
                 n = self.rec_complex[k].cgroup[i].nrec
                 a = ([c[i]], n)
-                SetAngZCut(self.angz_cut0)
                 if (k > 0 or (k == 0 and self.n_shells > 1)):
                     if (k == 0):
                         b = ion[0]
+                        SetAngZCut(self.angz_cut0)
+                        SetAICut(self.ai_cut0)
                         self.run_ai(a, b, k)
                     else:
-                        for b in ion[0:k]:
+                        for j in range(k):
+                            b = ion[j]
+                            if (j > 0):
+                                SetAngZCut(self.angz_cut1)
+                                SetAICut(self.ai_cut1)
+                            else:
+                                SetAngZCut(self.angz_cut0)
+                                SetAICut(self.ai_cut0)
                             self.run_ai(a, b, k)
                     
                 if (k == 0):
                     self.run_tr_ce(a, a, 0, 0, tr = [-1], ce = 0)
                     b = self.grd_complex.name
+                    SetTransitionCut(self.tr_cut1)
                     if (n > self.nexc_rec[k]):
                         self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
-                    SetAngZCut(self.angz_cut1)
                     for b in self.exc_complex[0].complex_names():
                         self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
                     for b in self.rec_complex[0].cgroup:
@@ -564,6 +679,14 @@ class ATOM:
                                            tr = [-1], ce = 0)
                 else:
                     for t in range(0, k):
+                        if (t == 0):
+                            SetAngZCut(self.angz_cut1)
+                            SetTransitionCut(self.tr_cut1)
+                        else:
+                            SetAngZCut(self.angz_cut2)
+                            SetTransitionCut(self.tr_cut2) 
+                        if (k == self.n_shells and t != 0):
+                            break
                         d = self.exc_complex[t].cgroup
                         b = 0
                         for j in range(len(d)):
@@ -584,8 +707,8 @@ class ATOM:
                             self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
                     
                     if (n <= self.n_decay[k]):
-                        SetAngZCut(self.angz_cut0)
-                        
+                        SetAngZCut(self.angz_cut2)
+                        SetAngZCut(self.tr_cut2)
                         if (k == self.n_shells):
                             b = self.exc_complex[0].cgroup[0].name
                             self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
@@ -639,24 +762,29 @@ class ATOM:
         c = self.grd_complex.name
         s = 'adding complex: %s'%(str(c))
         Print(s)
-        Config(c, group = c)
+        for t in self.grd_complex.terms:
+            Config(t, group = c)
             
         for cg in self.exc_complex:
-            for c in cg.complex_names():
+            for i in range(len(cg.cgroup)):
+                c = cg.cgroup[i].name
                 if (c == ' '):
                     continue
                 s = 'adding complex: %s'%(str(c))
                 Print(s)
-                Config(c, group = c)
+                for t in cg.cgroup[i].terms:
+                    Config(t, group = c)
                 
         cg = self.ion_complex.complex_names()
-        for c in cg:
+        for i in range(len(cg)):
+            c = cg[i]
             s = 'adding complex: %s'%(str(c))
             Print(s)
             if (c == 'bare'):
                 Config('', group = c)
             else:
-                Config(c, group = c)
+                for t in self.ion_complex.cgroup[i].terms:
+                    Config(t, group = c)
  
         return
 

@@ -14,8 +14,9 @@ fac.Config('2*7 3*1', group = 'n3')
 fac.SetScreening([10])
 fac.OptimizeRadial('n2', 'n3')
 fac.Structure('ne.lev.b')
-fac.PrintTable('ne.lev.b', 'ne.lev')
+fac.MemENTable('ne.lev.b')
+fac.PrintTable('ne.lev.b', 'ne.lev', 1)
 
 fac.CETable('ne.ce.b', ['n2'], ['n3'])
-fac.PrintTable('ne.ce.b', 'ne.ce')
+fac.PrintTable('ne.ce.b', 'ne.ce', 1)
 

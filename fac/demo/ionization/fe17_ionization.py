@@ -16,14 +16,12 @@ fac.Config('2*7', group='fe18')
 fac.OptimizeRadial(['fe17', 'fe18'])
 fac.Structure('ne_f.lev.b', ['fe17'])
 fac.Structure('ne_f.lev.b', ['fe18'])
-fac.PrintTable('ne_f.lev.b', 'ne_f.lev')
+fac.MemENTable('ne_f.lev.b')
+fac.PrintTable('ne_f.lev.b', 'ne_f.lev', 1)
 
-# set the collision energies
-# 21 points with 400 eV step starting from 500 eV.
-e = [500.0]
-for i in range(20):
-    e.append(e[i]+400.0)
+# set the output collision energies
+e = [500.0, 900.0, 1.3e3, 1.7e3, 2.1e3, 4.2e3, 6.0e3, 8.0e3]
 fac.SetUsrCIEGrid(e)
 
 fac.CITable('ne.ci.b', ['fe17'], ['fe18'])
-fac.PrintTable('ne.ci.b', 'ne.ci')
+fac.PrintTable('ne.ci.b', 'ne.ci', 1)

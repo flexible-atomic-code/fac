@@ -75,9 +75,9 @@ int BlockMatrix(void);
 int BlockPopulation(void);
 double BlockRelaxation(int iter);
 int LevelPopulation(void);
-int SpecTable(char *fn);
+int SpecTable(char *fn, double smin);
 int PlotSpec(char *ifn, char *ofn, int type,
-	     double emin, double emax, double de);
+	     double emin, double emax, double de, double smin);
 
 #endif
 

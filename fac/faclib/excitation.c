@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.28 2002/01/15 07:36:36 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.29 2002/01/17 02:57:11 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -796,7 +796,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
     np = 3;
     nd = 1;
     type = rqe[n_tegrid*n_egrid];
-    if (type == 1 && (te <= tegrid[n_tegrid-1] && te >= tegrid[0])) {
+    if (type == 1 && te > 0.1*tegrid[0]) {
       xte = log_te;
       x0 = log(te);
     } else {

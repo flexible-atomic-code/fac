@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.1 2002/01/14 23:19:48 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.2 2002/01/17 02:57:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -304,6 +304,7 @@ static PyObject *PLevelPopulation(PyObject *self, PyObject *args) {
 
 static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   char *fn;
+  double smin;
 
   if (scrm_file) {
     SCRMStatement("SpecTable", args, NULL);
@@ -311,16 +312,17 @@ static PyObject *PSpecTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  smin = EPS10;
+  if (!PyArg_ParseTuple(args, "s|d", &fn, &smin)) return NULL;
   
-  SpecTable(fn);
+  SpecTable(fn, smin);
   Py_INCREF(Py_None);
   return Py_None;
 } 
 
 static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   char *fn1, *fn2;
-  double emin, emax, de;
+  double emin, emax, de, smin;
   int type;
 
   if (scrm_file) {
@@ -329,11 +331,12 @@ static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ssiddd", 
-			&fn1, &fn2, &type, &emin, &emax, &de))
+  smin = EPS10;
+  if (!PyArg_ParseTuple(args, "ssiddd|d", 
+			&fn1, &fn2, &type, &emin, &emax, &de, &smin))
     return NULL;
       
-  PlotSpec(fn1, fn2, type, emin, emax, de);
+  PlotSpec(fn1, fn2, type, emin, emax, de, smin);
   Py_INCREF(Py_None);
   return Py_None;
 }

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.1 2002/01/14 23:19:50 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.2 2002/01/17 02:57:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -174,28 +174,39 @@ static int PLevelPopulation(int argc, char *argv[], int argt[],
 static int PSpecTable(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   char *fn;
+  double smin;
 
+  smin = EPS10;
   if (argc == 1) {
    fn = argv[0];
+  } else if (argc == 2) {
+    fn = argv[0];
+    smin = atof(argv[1]);
   } else {
     return -1;
   }
-  SpecTable(fn);
+  SpecTable(fn, smin);
   return 0;
 }
 
 static int PPlotSpec(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
-  double emin, emax, de;
+  double emin, emax, de, smin;
   int type;
 
-  if (argc != 6) return -1;
+  if (argc != 6 && argc != 7) return -1;
   
   type = atoi(argv[2]);
   emin = atof(argv[3]);
   emax = atof(argv[4]);
   de = atof(argv[5]);
-  PlotSpec(argv[0], argv[1], type, emin, emax, de);
+  if (argc == 7) {
+    smin = atof(argv[6]);
+  } else {
+    smin = EPS10;
+  }
+
+  PlotSpec(argv[0], argv[1], type, emin, emax, de, smin);
   
   return 0;
 }
