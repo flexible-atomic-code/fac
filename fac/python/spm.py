@@ -693,13 +693,13 @@ def get_complexes(nelectrons):
                 c1 = c1 + '%d*%d'%(a[0]+1,1)
             else:
                 c1 = c1 + '%d*%d %d*%d'%(a[0], a[1]-1, a[0]+1, 1)
-    return (c0, c1)
+    return [c0, c1]
 
 def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
              dist = 0, cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
-             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = ()):
+             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = []):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -789,8 +789,7 @@ def spectrum(neles, temp, den, population, pref,
                 LevelPopulation()
                 Cascade()
 
-                rt = (rt_file,)+rate
-                RateTable(*rt)
+                RateTable(rt_file, rate)
                 SpecTable(sp_file, rrc)
                 PrintTable(rt_file, rt_afile, 1)
                 PrintTable(sp_file, sp_afile, 1)

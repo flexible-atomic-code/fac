@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.15 2003/06/02 16:27:58 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.16 2003/08/08 13:12:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -373,10 +373,26 @@ static int PReinitCRM(int argc, char *argv[], int argt[],
 }
 
 static int PRateTable(int argc, char *argv[], int argt[], 
-		       ARRAY *variables) {
-  if (argc == 0) return -1;
+		      ARRAY *variables) {
+  int i, nc;
+  char *vg[MAXNARGS];
+  int ig[MAXNARGS];
   
-  RateTable(argv[0], argc-1, &(argv[1]));
+  if (argc != 1 && argc != 2) return -1;
+  if (argt[0] != STRING) return -1;
+  
+  nc = 0;
+  if (argc == 2) {
+    if (argt[1] != LIST) return -1;
+    nc = DecodeArgs(argv[1], vg, ig, variables);
+  }
+  
+  RateTable(argv[0], nc, vg);
+  
+  for (i = 0; i < nc; i++) {
+    free(vg[i]);
+  }
+  
   return 0;
 }
 

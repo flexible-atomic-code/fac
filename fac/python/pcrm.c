@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.28 2003/06/09 14:49:48 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.29 2003/08/08 13:12:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -544,8 +544,10 @@ static PyObject *PReinitCRM(PyObject *self, PyObject *args) {
 }
  
 static PyObject *PRateTable(PyObject *self, PyObject *args) { 
+  PyObject *p;
   int i, nc;
   char **sc;
+  char *fn;
     
   if (scrm_file) {
     SCRMStatement("RateTable", args, NULL);
@@ -553,15 +555,25 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  nc = PyTuple_Size(args);
-  if (nc == 0) return NULL;
-  sc = (char **) malloc(sizeof(char *)*nc);
-  for (i = 0; i < nc; i++) {
-    sc[i] = PyString_AsString(PyTuple_GetItem(args, i));
+  if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
+  
+  nc = 0;
+  if (p) {
+    if (!PyList_Check(p)) return NULL;
+    nc = PyList_Size(p);
+    if (nc == 0) return NULL;
+    sc = (char **) malloc(sizeof(char *)*nc);
+    for (i = 0; i < nc; i++) {
+      sc[i] = PyString_AsString(PyList_GetItem(p, i));
+    }
   }
-  RateTable(sc[0], nc-1, &(sc[1]));
+  
+  RateTable(fn, nc, sc);
 
-  free(sc);
+  if (nc > 0) {
+    free(sc);
+  }
+
   Py_INCREF(Py_None);
   return Py_None;
 }
