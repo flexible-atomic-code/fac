@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.33 2001/11/04 15:42:58 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.34 2001/12/05 01:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1065,7 +1065,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int i, j, k, n, ie, jp;
   char t;
   FILE *f;
-  double rqu[MAXNUSR], *rqc;
+  double rqu[MAXNUSR], *qc, *rqc;
   double phi, rr, ee, eph, eb;
   double s, trr[MAXNUSR], tpi[MAXNUSR];
   int j1, j2, nlow0;
@@ -1161,7 +1161,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (qk_mode == QK_FIT) {
     nqkc = 10;
     nqk = NPARAMS+1;
-    rqc = (double *) malloc(sizeof(double)*nqkc*nqk);
+    qc = (double *) malloc(sizeof(double)*nqkc*nqk);
   }
 
   for (i = 0; i < nup; i++) {
@@ -1173,7 +1173,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     nlow0 = 0;
     for (j = 0; j < nlow; j++) {
       j2 = LevelTotalJ(low[j]);
-      nq = BoundFreeOS(rqu, &nqkc, rqc, &eb, low[j], up[i], m);
+      nq = BoundFreeOS(rqu, &nqkc, qc, &eb, low[j], up[i], m);
+      rqc = qc;
       if (nq < 0) continue;
       nlow0++;
       fprintf(f, "%-5d %-2d   %-5d %-2d   %10.4E\n",
@@ -1215,7 +1216,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
   
   fclose(f);
-  free(rqc);
+  free(qc);
 
   return 0;
 }
