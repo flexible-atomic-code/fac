@@ -440,11 +440,7 @@ class ATOM:
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
         c = self.exc_complex[0].cgroup[0].name
-        if (self.nele in self.nele_sim):
-            Structure(self.bfiles['en'], g)
-            Structure(self.bfiles['en'], c)
-        else:
-            Structure(self.bfiles['en'], g+c)
+        Structure(self.bfiles['en'], g+c)
         
         Print('Structure: ionized complexes')
         c = self.ion_complex.cgroup
