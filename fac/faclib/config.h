@@ -99,7 +99,8 @@ void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
 
 /* determine the average configuration for a given set of groups */
 int GetAverageConfig(int ng, int *kg, double *weight,
-		     AVERAGE_CONFIG *acfg);
+		     int n_screen, int *screened_n, double screened_charge,
+		     int screened_kl, AVERAGE_CONFIG *acfg);
 
 /* routines handle configuration groups */
 int GroupIndex(char *name);
