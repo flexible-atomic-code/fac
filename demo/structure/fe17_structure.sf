@@ -9,8 +9,8 @@ Config('2*7 3*1', group = 'n3')
 
 # Self-consistent iteration for optimized central potential
 OptimizeRadial('n2', 'n3')
-Structure()
+Structure('ne.d')
 
-LevelTable('ne.lev')
+PrintTable('ne.d', 'ne.lev')
 TransitionTable(['n2'], ['n3'], 'ne.tr', -1)
 

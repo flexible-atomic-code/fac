@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.12 2001/11/24 21:12:28 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.13 2001/12/14 00:07:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -424,8 +424,12 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
   char *s;
   int i, k, ng;  
 
-  if (!PyList_Check(args) && !PyTuple_Check(args)) return -1;
-  ng = PySequence_Length(args);
+  if (args) {
+    if (!PyList_Check(args) && !PyTuple_Check(args)) return -1;
+    ng = PySequence_Length(args);
+  } else {
+    ng = 0;
+  }
   if (ng > 0) {
     p = PySequence_GetItem(args, 0);
     if (PyList_Check(p) || PyTuple_Check(p)) {
@@ -581,15 +585,17 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   int ngp;
   int *kg, *kgp;
   int n;
+  char *fn;
   PyObject *p, *q;
 
   p = NULL;
   q = NULL;
-  n = PyTuple_Size(args);
   ngp = 0;
   kgp = NULL;
-  if (n == 1 || n == 2) {
-    PyArg_ParseTuple(args, "O|O", &p, &q);
+  
+  if (!(PyArg_ParseTuple(args, "s|OO", &fn, &p, &q))) return NULL;
+  
+  if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {
       ng = DecodeGroupArgs(p, &kg);
       if (q) {
@@ -598,11 +604,9 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 	  ngp = DecodeGroupArgs(q, &kgp);
 	}
       }
-    } else {
-      ng = DecodeGroupArgs(args, &kg);      
     }
   } else {
-    ng = DecodeGroupArgs(args, &kg);
+    ng = DecodeGroupArgs(NULL, &kg);  
   }
 
   if (ng < 0 || ngp < 0) return NULL;
@@ -616,20 +620,9 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     AddToLevels();
   }
   SortLevels(nlevels, -1);
+  SaveLevels(fn, nlevels, -1);
   if (ng > 0) free(kg);
   if (ngp > 0) free(kgp);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PLevelTable(PyObject *self, PyObject *args) {
-  char *fn;
-  int n, m;
-
-  n = 0;
-  m = 0;
-  if (!PyArg_ParseTuple(args, "s|ii", &fn, &n, &m)) return NULL;
-  if (SaveLevelsToAscii(fn, m, n) < 0) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -676,18 +669,6 @@ static PyObject *PSetTransitionOptions(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 } 
-  
-static PyObject *PTransitionAll(PyObject *self, PyObject *args) {
-  char *s;
-  int m;
-  m = 0;
-  if (!PyArg_ParseTuple(args, "s|i", &s, &m)) return NULL;
-  SaveTransition(0, NULL, 0, NULL, s, m);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 
 static int SelectLevels(PyObject *p, int **t) {
   int n, ng, *kg, i, j, k, im, kb, m, m0;
@@ -818,7 +799,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "si", &s, &m)) return NULL;
     SaveTransition(nlow, low, nup, up, s, m);
   } else if (n == 3) {
-    if (!PyArg_ParseTuple(args, "OOs", &p, &q, &s)) return NULL;
+    if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
@@ -827,7 +808,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
     free(low);
     free(up);
   } else if (n == 4) {
-    if (!PyArg_ParseTuple(args, "OOsi", &p, &q, &s, &m)) {
+    if (!PyArg_ParseTuple(args, "sOOi", &s, &p, &q, &m)) {
       return NULL;
     }
     nlow = SelectLevels(p, &low);
@@ -870,13 +851,13 @@ static PyObject *PCETable(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
     SaveExcitation(nlow, low, nup, up, 0, s);
   } else if (n == 2) {
-    if (!PyArg_ParseTuple(args, "Os", &p, &s)) return NULL;
+    if (!PyArg_ParseTuple(args, "sO", &s, &p)) return NULL;
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     SaveExcitation(nlow, low, nlow, low, 0, s);
     free(low);
   } else if (n == 3) {
-    if (!PyArg_ParseTuple(args, "OOs", &p, &q, &s)) return NULL;
+    if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
@@ -908,13 +889,13 @@ static PyObject *PCETableMSub(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
     SaveExcitation(nlow, low, nup, up, 1, s);
   } else if (n == 2) {
-    if (!PyArg_ParseTuple(args, "Os", &p, &s)) return NULL;
+    if (!PyArg_ParseTuple(args, "sO", &s, &p)) return NULL;
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     SaveExcitation(nlow, low, nlow, low, 1, s);
     free(low);
   } else if (n == 3) {
-    if (!PyArg_ParseTuple(args, "OOs", &p, &q, &s)) return NULL;
+    if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
@@ -1353,11 +1334,12 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   int ng;
   int *kg;
   int n;
+  char *fn;
   PyObject *gargs;
 
-  if (!PyArg_ParseTuple(args, "iO", &n, &gargs)) return NULL;
+  if (!PyArg_ParseTuple(args, "sOi", &fn, &gargs, &n)) return NULL;
   ng = DecodeGroupArgs(gargs, &kg);
-  RecStates(n, ng, kg);
+  RecStates(n, ng, kg, fn);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -1370,7 +1352,7 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   
   m = -1;
-  if (!PyArg_ParseTuple(args, "OOs|i", &p, &q, &s, &m)) {
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) {
     printf("Unrecognized parameters in RRTable\n");
     return NULL;
   }
@@ -1537,7 +1519,7 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
   char *s;
   PyObject *p, *q;
   c = 0;
-  if (!PyArg_ParseTuple(args, "OOs|i", &p, &q, &s, &c)) return NULL;
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
   SaveAI(nlow, low, nup, up, s, c);
@@ -1553,7 +1535,7 @@ static PyObject *PDRTable(PyObject *self, PyObject *args) {
   char *s1, *s2;
   PyObject *p, *q, *r, *t;
 
-  if (!PyArg_ParseTuple(args, "OOOOss|i", &p, &q, &r, &t, &s1, &s2, &c)) 
+  if (!PyArg_ParseTuple(args, "ssOOOO|i", &s1, &s2, &p, &q, &r, &t, &c)) 
     return NULL;
   nf = SelectLevels(p, &f);
   na = SelectLevels(q, &a);
@@ -2126,7 +2108,7 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
   char *s;
   PyObject *p, *q;
  
-  if (!PyArg_ParseTuple(args, "OOs", &p, &q, &s)) return NULL;
+  if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
   nlow = SelectLevels(p, &low);
   if (nlow <= 0) return NULL;
   nup = SelectLevels(q, &up);
@@ -2226,6 +2208,16 @@ static PyObject *PInfo(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PPrintTable(PyObject *self, PyObject *args) { 
+  char *fn1, *fn2;
+  
+  if (!PyArg_ParseTuple(args, "ss", &fn1, &fn2)) return NULL;
+  PrintTable(fn1, fn2);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"Closed", PClosed, METH_VARARGS},
@@ -2259,10 +2251,10 @@ static struct PyMethodDef fac_methods[] = {
   {"GetCG", GetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
-  {"LevelTable", PLevelTable, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
+  {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
@@ -2319,8 +2311,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},  
-  {"TestSpline", PTestSpline, METH_VARARGS},   
-  {"TransitionAll", PTransitionAll, METH_VARARGS},  
+  {"TestSpline", PTestSpline, METH_VARARGS},     
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}

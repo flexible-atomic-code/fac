@@ -12,6 +12,7 @@
 #include "recouple.h"
 #include "radial.h"
 #include "nucleus.h"
+#include "dbase.h"
 #include "structure.h"
 #include "transition.h"
 #include "excitation.h"

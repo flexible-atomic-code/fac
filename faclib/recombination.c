@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.34 2001/12/05 01:19:41 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.35 2001/12/14 00:07:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -187,7 +187,7 @@ int IsRecombinedGroup(int i) {
   return n;
 }
 
-int RecStates(int n, int k, int *kg) {
+int RecStates(int n, int k, int *kg, char *fn) {
   int i, j, m, nsym, nlevels, ncfgs, kg0, t;
   ARRAY *clist;
   CONFIG *rcfg, *c;
@@ -212,7 +212,7 @@ int RecStates(int n, int k, int *kg) {
   if (pw_scratch.n_spec > nm) nm = pw_scratch.n_spec;
 
   if (n >= nm) {
-    i = RecStatesFrozen(n, k, kg);
+    i = RecStatesFrozen(n, k, kg, fn);
     return 0;
   }
 
@@ -277,11 +277,12 @@ int RecStates(int n, int k, int *kg) {
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
   SortLevels(nlevels, -1);
-  
+  SaveLevels(fn, nlevels, -1);
+
   return 0;
 }
 
-int RecStatesFrozen(int n, int k, int *kg) {
+int RecStatesFrozen(int n, int k, int *kg, char *fn) {
   int i, j, m, nlevels, nsym, nstates, ko;
   int kl2, j1, j2, p1, p, jmin, jmax, tj;
   HAMILTON *h;
@@ -363,6 +364,8 @@ int RecStatesFrozen(int n, int k, int *kg) {
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
   SortLevels(nlevels, -1);
+  SaveLevels(fn, nlevels, -1);
+
   return 0;
 }
 
@@ -1183,8 +1186,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	for (k = 0; k < nq; k++) {
 	  fprintf(f, "%-5d %11.4E %11.4E %11.4E\n", 
 		  (int)(rqc[3]), rqc[0], rqc[1], rqc[2]);
+	  rqc += nqk;	
 	}
-	rqc += nqk;	
       }
       for (ie = 0; ie < n_usr; ie++) {
 	if (usr_egrid_type == 0) {

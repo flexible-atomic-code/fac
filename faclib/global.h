@@ -194,6 +194,9 @@ extern FILE *debug_log;
 /*
 #define PERFORM_STATISTICS 1 
 */
+#ifdef PERFORM_STATISTICS
+extern FILE *perform_log;
+#endif
 
 #endif
 
