@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.24 2004/12/14 18:26:10 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.25 2004/12/18 16:33:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -104,6 +104,7 @@ int TRMultipole(double *strength, double *energy,
   if (nz <= 0) return -1;
 
   for (i = 0; i < nz; i++) {
+    if (ang[i].k != m2) continue;
     if (transition_option.mode == M_NR && m != 1) {
       r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
 			    transition_option.gauge);

@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.75 2004/12/16 16:36:48 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.76 2004/12/18 16:33:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1349,7 +1349,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     r = 0.0;
     if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
       for (i = 0; i < nz; i++) {
-	c = MultipoleRadialNR(-1, ang[i].k0, ang[i].k1, 2);
+	if (ang[i].k != 2) continue;
+	c = MultipoleRadialNR(-1, ang[i].k0, ang[i].k1, G_BABUSHKIN);
 	r += ang[i].coeff*c;
       }
     }    
