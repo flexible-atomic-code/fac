@@ -115,7 +115,7 @@ int ClearOrbitalTable(int m);
 
 int InitRadial(void);
 int ReinitRadial(int m);
-int TestIntegrate(char *s);
+int TestIntegrate(void);
 
 #endif
 

@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.76 2004/02/23 08:42:55 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.77 2004/02/23 22:05:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -615,18 +615,18 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
 	  e = egrid[ie];
 	  kf = OrbitalIndex(0, kappaf, e);
 	  if (mode == M_NR && m != 1) {
-	    r0 = MultipoleRadialNR(m, kf, k0, gauge);
+	    r0 = MultipoleRadialNR(m, k0, kf, gauge);
 	    if (k1 == k0) {
 	      r1 = r0;
 	    } else {
-	      r1 = MultipoleRadialNR(m, kf, k1, gauge);
+	      r1 = MultipoleRadialNR(m, k1, kf, gauge);
 	    }
 	  } else {
-	    r0 = MultipoleRadialFR(aw, m, kf, k0, gauge);
+	    r0 = MultipoleRadialFR(aw, m, k0, kf, gauge);
 	    if (k1 == k0) {
 	      r1 = r0;
 	    } else {
-	      r1 = MultipoleRadialFR(aw, m, kf, k1, gauge);
+	      r1 = MultipoleRadialFR(aw, m, k1, kf, gauge);
 	    }
 	  }	  
 	  tq[ie] += r0*r1;
@@ -1532,9 +1532,9 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
       kak[i][p] = kappa;
       k = OrbitalIndex(0, kappa, e);
       if (IsEven(i)) {
-	ak[i][p] = MultipoleRadialFR(aw, -L, k, k0, gauge);
+	ak[i][p] = MultipoleRadialFR(aw, -L, k0, k, gauge);
       } else {
-	ak[i][p] = MultipoleRadialFR(aw, L, k, k0, gauge);
+	ak[i][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
       }
       ak[i][p] *= c;
       b[0] += ak[i][p]*ak[i][p];
@@ -1559,7 +1559,7 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
 	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
 	  c *= ak[i][p]*ak[ip][pp];
 	  if (ph1 != ph2) c *= cos(ph1-ph2);
-	  if (IsOdd((L2+j1-Lp2-j2+j0+1)/2)) c = -c;
+	  if (IsOdd((j0+1)/2)) c = -c;
 	  for (q = 0; q < m; q++) {
 	    q2 = 2*q;
 	    d = c*(q2 + 1.0);
@@ -1671,6 +1671,8 @@ int SaveAsymmetry(char *fn, char *s, int mx) {
 	}
       }
       e0 *= HARTREE_EV;
+      fprintf(f, "#  %2s  %2d %2d\n", 
+	      GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
       fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
 	      n, sp, js, n, kl, jj, e0, n_usr, mx);
       for (i = 0; i < n_usr; i++) {

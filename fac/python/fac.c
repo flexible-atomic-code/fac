@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.68 2004/02/23 08:42:55 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.69 2004/02/23 22:05:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2686,7 +2686,6 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PTestIntegrate(PyObject *self, PyObject *args) { 
-  char *s;
 
   if (sfac_file) {
     SFACStatement("TestIntegrate", args, NULL);
@@ -2694,8 +2693,7 @@ static PyObject *PTestIntegrate(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
-  TestIntegrate(s);
+  TestIntegrate();
   Py_INCREF(Py_None);
   return Py_None;
   
