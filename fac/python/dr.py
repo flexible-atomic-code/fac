@@ -459,7 +459,7 @@ def drall(prefix, nrec, dn, f = 0, **p):
         str_file = constructfn(prefix, 'str', -1, dn)
         f = open(str_file, 'w')
         for i in range(len(nrec)):
-            f.write('%-2d %10.3E\n'%(nrec[i], str[i]))
+            f.write('%-2d %15.8E\n'%(nrec[i], str[i]))
         f.close()
 
 
@@ -545,7 +545,7 @@ def dr(prefix, gr, rec_level, ground, ai_group, decay_group,
                 nj = range(nmin[i], n+1)
 
             fac.SetRecPWLimits(0, max_kl[i])
-            fac.SetDRTEGrid(0)
+            fac.SetPEGrid(0)
             ai_file = constructfn(prefix, 'ai', n, channels[i])
             tr_file = constructfn(prefix, 'tr', n, channels[i])
             fac.DRTable(ground[i], (ai_group[i], n), (decay_group[i], nj),
