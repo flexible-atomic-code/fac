@@ -843,9 +843,13 @@ expansion. The result is in atomic unit Hartree$^{-1}$.
 atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
 \begin{eqnarray}
-\sigma_{PI} &=& 2\pi\alpha\frac{ d f}{ d E} \nonumber\\
-            &=& \frac{2\pi\alpha}{g_i}\frac{d(gf)}{d E} \nonumber\\
-\sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}\frac{\omega^2}{\varepsilon}
+\sigma_{PI} &=& 2\pi\alpha\frac{1+\alpha^2\varepsilon}{1+0.5\alpha^2\varepsilon}
+                 \frac{d f}{d E} \nonumber\\
+            &=& \frac{2\pi\alpha}{g_i}
+		 \frac{1+\alpha^2\varepsilon}{1+0.5\alpha^2 \varepsilon} 
+		 \frac{d(gf)}{d E} \nonumber\\
+\sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}
+                \frac{\omega^2}{\varepsilon (1+0.5\alpha^2 \varepsilon)}
 \sigma_{PI},
 \end{eqnarray}
 where $\alpha$ is the fine structure constant, $g_i$ and $g_f$ are the
