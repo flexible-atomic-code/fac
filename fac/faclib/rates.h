@@ -52,10 +52,15 @@ int RRRate(double *dir, double *inv, int iinv,
 	   int m, double *params, int i0, int f0);
 int AIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e, float rate);
-double Ionis(int z, int nele, double t, double *a, double *dir);
-double Recomb(int z, int nele, double t, double *rr, double *dr);
-int FracAbund(int z, double t, double *a);
-double MaxAbund(int z, int nele, double *a, double eps);
+double RRFit(int z, int nele, double t);
+double DRFit(int z, int nele, double t);
+double PhFit2(int z, int nele, int is, double e);
+double CFit(int z, int nele, double t, double *a, double *dir);
+double ColFit(int z, int nele, int is, double t, double *a, double *dir);
+double Ionis(int z, int nele, double t, double *a, double *dir, int m);
+double Recomb(int z, int nele, double t, double *rr, double *dr, int m);
+int FracAbund(int z, double t, double *a, int im, int rm);
+double MaxAbund(int z, int nele, double *a, double eps, int im, int rm);
 double TwoPhotonRate(double z, int t);
 int InitRates(void);	   
 
