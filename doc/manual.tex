@@ -2364,6 +2364,14 @@ Set flags for normal mass shift and specific mass shift contributions to the
 Hamiltonian. 0---disable, 1---enable. Defaults: 1.
 \end{fundesc}
 
+\begin{fundesc}{SetNStatesPartition}{\opt{n}}
+Set the number of states in one partition. A partition is used to organize 
+angular integrals. Angular coefficients between partitions are calculated 
+and tabulated in batches. The more states in partitions, the more efficient
+the lookup of these coeffients, and the more memory it takes. The default 
+value of 512 is normally appropriate. 
+\end{fundesc}
+
 \begin{fundesc}{SetOptimizeControl}{t, s, m\opt{, p}}
 Set the options for radial potential optimization. \var{t} is the tolerance
 for the self-consistent field iteration. \var{s} is the stablizer for the

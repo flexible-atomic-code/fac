@@ -230,6 +230,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
+int          SetNStatesPartition(int n);
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
 int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
 int          GetConfigOrAverageFromString(CONFIG **cfg, 

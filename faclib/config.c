@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.23 2003/04/20 23:22:27 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.24 2003/04/21 02:21:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -52,6 +52,14 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
+
+int SetNStatesPartition(int n) {
+  if (n > 0) {
+    nstates_partition = n;
+  } else {
+    nstates_partition = NSPARTITION;
+  }
+}
 
 /* 
 ** FUNCTION:    DistributeElectronsShell

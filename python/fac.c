@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.50 2003/04/18 17:33:43 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.51 2003/04/21 02:21:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1154,7 +1154,7 @@ static int SelectLevels(PyObject *p, int **t) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->basis[0];
+	im = lev->pb;
 	sym = GetSymmetry(lev->pj);
 	s = (STATE *) ArrayGet(&(sym->states), im);
 	ig = s->kgroup;
@@ -1203,7 +1203,7 @@ static int SelectLevels(PyObject *p, int **t) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->basis[0];
+	  im = lev->pb;
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), im);
 	  ig = s->kgroup;
@@ -3263,6 +3263,16 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetNStatesPartition(PyObject *self, PyObject *args) {
+  int n;
+  
+  n = 0;
+  if (!PyArg_ParseTuple(args, "|d", &n)) return NULL;
+  SetNStatesPartition(n);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PY5N(PyObject *self, PyObject *args) {
   double lambda, xi, eta0, x0;
   double y5, y5i, y5p, y5pi;
@@ -3350,6 +3360,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
   {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
+  {"SetNStatesPartition", PSetNStatesPartition, METH_VARARGS},
   {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
