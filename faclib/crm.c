@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.4 2002/01/20 06:02:55 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.5 2002/01/21 18:33:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -110,8 +110,13 @@ static void FreeBlockData(void *p) {
   blk->nlevels = 0;
 }
 
-int ReinitCRM(void) {
+int ReinitCRM(int m) {
   int i;
+
+  if (m < 0) return 0;
+
+  ReinitDBase(0);
+  if (m > 0) return 0;
 
   for (i = 0; i < NDB; i++) {
     if (ion0.dbfiles[i]) free(ion0.dbfiles[i]);
@@ -129,8 +134,6 @@ int ReinitCRM(void) {
   ArrayFree(blocks, FreeBlockData);
   if (bmatrix) free(bmatrix);
   bmatrix = NULL;
-  
-  ReinitDBase(0);
   
   return 0;
 }
@@ -486,7 +489,25 @@ int IonizedIndex(int i, int m) {
   
   return -1;
 }
-      
+
+int SetAbund(int nele, double abund) {
+  ION *ion;
+  int i;
+
+  if (ion0.nele == nele) ion0.n = abund;
+  else {
+    for (i = 0; i < ions->dim; i++) {
+      ion = (ION *) ArrayGet(ions, i);
+      if (ion->nele = nele) {
+	ion->n = abund;
+	break;
+      }
+    }
+  }
+  
+  return 0;
+}
+
 int InitBlocks(void) {
   ION  *ion;
   RATE *r;

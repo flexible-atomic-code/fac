@@ -58,12 +58,13 @@ int SetEleDensity(double ele);
 int SetPhoDensity(double pho);
 int SetIteration(double acc, double s, int max);
 int InitCRM(void);
-int ReinitCRM(void);
+int ReinitCRM(int m);
 int AddIon(int nele, double n, char *pref);
 int IonizedIndex(int i, int m);
 int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1, 
 		   int nele, char *ifn);
 int SetBlocks(double ni, char *ifn);
+int SetAbund(int nele, double abund);
 int InitBlocks(void);
 int SetCERates(int inv);
 int SetTRRates(int inv);

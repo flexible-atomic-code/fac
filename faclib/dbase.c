@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.7 2002/01/20 06:02:55 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.8 2002/01/21 18:33:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -39,11 +39,26 @@ int InitDBase(void) {
 }
 
 int ReinitDBase(int m) {
+  int i;
 
   if (m < 0) return 0;
   if (mem_en_table) free(mem_en_table);
-  if (m > 0) return 0;
-  return InitDBase();
+  if (m == 0) {
+    return InitDBase();
+  } else {
+    mem_en_table = 0;
+    iground = 0;
+    if (m > NDB) return -1;
+    i = m-1;
+    fheader[i].tsession = time(0);
+    fheader[i].version = VERSION;
+    fheader[i].sversion = SUBVERSION;
+    fheader[i].ssversion = SUBSUBVERSION;
+    fheader[i].type = 0;
+    fheader[i].atom = 0;
+    fheader[i].nblocks = 0;
+    return 0;
+  }
 }
 
 FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {

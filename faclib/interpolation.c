@@ -1,6 +1,6 @@
 #include "interpolation.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.9 2002/01/20 06:02:56 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.10 2002/01/21 18:33:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

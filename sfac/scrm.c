@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.2 2002/01/17 02:57:12 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.3 2002/01/21 18:33:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -311,7 +311,12 @@ static int PPrintTable(int argc, char *argv[], int argt[],
 
 static int PReinitCRM(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  ReinitCRM();
+  int m;
+
+  if (argc == 0) m = 0;
+  else m = atoi(argv[0]);
+
+  ReinitCRM(m);
   return 0;
 }
 
@@ -320,6 +325,21 @@ static int PRateTable(int argc, char *argv[], int argt[],
 
   if (argc != 1) return -1;
   RateTable(argv[0]);
+  return 0;
+}
+
+static int PSetAbund(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int nele;
+  double a;
+  
+  if (argc != 2) return -1;
+  
+  nele = atoi(argv[0]);
+  a = atof(argv[1]);
+  
+  SetAbund(nele, a);
+  
   return 0;
 }
 
@@ -341,6 +361,7 @@ static METHOD methods[] = {
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
   {"SetAIRates", PSetAIRates, METH_VARARGS},
+  {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
