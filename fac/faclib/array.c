@@ -1,5 +1,15 @@
 #include "array.h"
 
+static char *rcsid="$Id: array.c,v 1.4 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
+/******************************************************************/
+/* implements a variable length one- and multi- dimensional array */
+/******************************************************************/
+
 int ArrayInit(ARRAY *a, int esize, int block) {
   a->esize = esize;
   a->block = block;
@@ -155,7 +165,7 @@ int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   int i;
   ARRAY *b;
-  if (a == NULL) return;
+  if (a == NULL) return 0;
   if (d > 1) {
     for (i = 0; i < a->dim; i++) {
       b = (ARRAY *) ArrayGet(a, i);
@@ -167,5 +177,6 @@ int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   } else {
     ArrayFree(a, FreeElem);
   }
+  return 0;
 }
 
