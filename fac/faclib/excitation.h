@@ -39,6 +39,8 @@ int FreeExcitationPk(int ie);
 int FreeExcitationQk(void);
 int InitExcitation(void);
 int ReinitExcitation(int m);
+int SetGOSLimits(double max, double min);
+double GetGOSTail(void);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
 int SetCEBorn(double x);
