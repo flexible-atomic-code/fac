@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.61 2003/01/22 21:58:04 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.62 2003/03/09 01:59:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -679,7 +679,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
   int nz, ie, k;
-  double a, b, d, amax, eb0;
+  double a, b, d, amax, eb0, z;
   double rq[MAXNE], tq[MAXNE];
   int j1, j2;
   int i, j, c;
@@ -739,26 +739,36 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
       }
     }
   }
+  if (fabs(*eb-eb0)/(*eb) > 1.5) eb0 = *eb;
   if (qk_mode == QK_FIT) {
-    a = GetResidualZ();
-    RRRadialQkHydrogenicParams(NPARAMS, rqc, a, nq, nkl);
+    z = GetResidualZ();
+    RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
     for (ie = 0; ie < n_egrid; ie++) {
       xegrid[ie] = 1.0 + egrid[ie]/eb0;
       log_xegrid[ie] = log(xegrid[ie]);
     }
 
-    ie = n_egrid - 2;
-    a = log(tq[ie+1]/tq[ie]);
-    b = xegrid[ie+1]/xegrid[ie];
-    d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
-    b = log(b);
-    d = log(d);
-    rqc[1] = (a + (4.5+nkl)*b)/(0.5*b+d);
+    for (ie = n_egrid-2; ie > 2; ie--) {
+      a = log(tq[ie+1]/tq[ie]);
+      b = xegrid[ie+1]/xegrid[ie];
+      d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
+      b = log(b);
+      d = log(d);
+      z = (a + (4.5+nkl)*b)/(0.5*b+d);
+      if (a < 0 && z > 0) {
+	rqc[1] = z;
+	break;
+      }
+    }
     RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
 		      rq, NULL, 0, &nkl);
-    ie = n_egrid-1;
-    rqc[0] *= eb0*tq[ie]/rq[ie];
+    ie++;
+    a = eb0*tq[ie]/rq[ie];
+    rqc[0] *= a;
     rqc[3] = eb0;
+    for (ie++; ie < n_egrid; ie++) {
+      tq[ie] = a*(rq[ie]/eb0);
+    }
     for (ie = 0; ie < n_egrid; ie++) {
       a = (*eb) + egrid[ie];
       rqu[ie] = tq[ie]*a;

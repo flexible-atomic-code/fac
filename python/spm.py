@@ -725,7 +725,10 @@ def spectrum(neles, temp, den, population, pref,
         for i in range(len(temp)):
             p1 = population[i][k-1]
             p2 = population[i][k]
-            p3 = population[i][k+1]
+	    try:
+                p3 = population[i][k+1]
+	    except:
+	        p3 = p2
             if (abundm <= 0):
                 p1 = abund0*(p1/p2)
             else:
