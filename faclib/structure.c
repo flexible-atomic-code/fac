@@ -29,15 +29,22 @@ static double mix_cut = EPS3;
 static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
+void dspevd_(char *jpbz, char *uplo, int *n, double *ap, double *w, 
+	     double *z, int *ldz, double *work, int *lwork,
+	     int *iwork, int *liwork, int *info);
+void dgemv_(char *trans, int *m, int *n, double *alpha, double *b, 
+	    int *lda, double *x, int *incx, double *beta, 
+	    double *y, int *incy);
+void dscal_(int *n, double *a, double *x, int *incx);
 
 int GetStructTiming(STRUCT_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
 
-int SetAngZOptions(int n, double mix_cut, double cut) {
+int SetAngZOptions(int n, double mix, double cut) {
   rydberg_ignored = n;
-  mix_cut = mix_cut;
+  mix_cut = mix;
   angz_cut = cut;
 }
 
@@ -2109,8 +2116,7 @@ int _FreeAngZ(int g, MULTI *ma) {
 }
 
 int FreeAngZ(int g, int which_array) {
-  ARRAY *a, *b;  
-  int ndim;
+  ARRAY *a, *b; 
 
   if (which_array == 0) {
     _FreeAngZ(g, angz_array);

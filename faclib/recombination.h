@@ -39,7 +39,7 @@ int RecStatesFrozen(int n, int k, int *kg);
 int BoundFreeOS(double *strength, double *eb, int rec, int f, int m);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel);
-int AIRaidial1E(double *pk, int kb, int kappaf);
+int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf, int k);
 int AIRate(double *rate, double *e, int rec, int f);
 int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g, 

@@ -483,13 +483,14 @@ int BoundFreeOS(double *strength, double *eb,
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
   ORBITAL *orb1;
-  int k, kb, kf, nz, ie;
+  int k, kb, kf, nz, ie, gauge;
   double r, s, aw, a, e, *radial_int, inv_jb, eph;
   int klb1, klb2, klf, jb1, jb2, jf;
   int jfmin, jfmax, kappaf, kappab1, kappab2;
   int j1, j2, i, j, njf, c, c1, icf, jcf;
   double rq[MAX_PEGRID], y2[MAX_PEGRID], x[MAX_PEGRID];
 
+  gauge = GetTransitionGauge();
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
   j1 = lev1->pj;
@@ -531,7 +532,7 @@ int BoundFreeOS(double *strength, double *eb,
 	  for (ie = 0; ie < n_egrid; ie++) {
 	    e = egrid[ie];
 	    kf = OrbitalIndex(0, kappaf, e);
-	    rq[ie] = MultipoleRadialNR(m, kf, ang[i].kb);
+	    rq[ie] = MultipoleRadialNR(m, kf, ang[i].kb, gauge);
 	    if (n_usr == n_egrid) radial_int[j++] = rq[ie];
 	  }
 	  if (n_usr > n_egrid) {

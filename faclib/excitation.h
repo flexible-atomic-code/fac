@@ -50,18 +50,13 @@ double CERadialQk(int ie, double te,
 		  int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, int nq, int *q);
+double CEMSubAngNR(int lf, int li1, int li2, int k, int q);
+int CERadialQkMSubRatio(int k, double *rq, int lf, 
+			double z, double e1, double te);
 double InterpolatePk(double te, int type, double *pk);
 
 int CollisionStrength(double *s, double *e, int lower, int upper, int msub);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 int CEQkTable(char *fn, int k, double te);
-void spline(double *x, double *y, int n, 
-	    double yp1, double ypn, double *y2);
-int splint(double *xa, double *ya, double *y2a, 
-	   int n, double x, double *y);
-void splie2(double *x1a, double *x2a, double **ya, 
-	    int m, int n, double **y2a);
-void splin2(double *x1a, double *x2a, double **ya, double **y2a,
-	   int m, int n, double x1, double x2, double *y);
 
 #endif

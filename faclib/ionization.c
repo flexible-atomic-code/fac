@@ -519,7 +519,6 @@ int IonizeStrength(double *s, double *te, int b, int f) {
   double y2[MAX_IEGRID];
   ANGULAR_ZFB *ang;
   int ie1, ie2, nie1;
-  FILE *file;
 
   lev1 = GetLevel(b);
   lev2 = GetLevel(f);

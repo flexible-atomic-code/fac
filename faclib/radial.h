@@ -7,6 +7,7 @@
 #include "orbital.h"
 #include "config.h"
 #include "angular.h"
+#include "interpolation.h"
 #include <time.h>
 
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
@@ -39,7 +40,7 @@ int GetNumOrbitals();
 int GetNumContinua();
 
 double GetPhaseShift(int k);
-double CoulombPhaseShift(int k);
+double CoulombPhaseShift(double z, double e, int kappa);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
@@ -67,8 +68,8 @@ int FreeResidualArray();
 int FreeMultipoleArray();
 int FreeSlaterArray();
 
-double MultipoleRadialNR(int m, int k1, int k2);
-double MultipoleRadial(double aw, int m, int k1, int k2);
+double MultipoleRadialNR(int m, int k1, int k2, int guage);
+double MultipoleRadial(double aw, int m, int k1, int k2, int guage);
 double MultipoleIJ(double aw, int m, 
 		   ORBITAL *orb1, ORBITAL *orb2, int type);
 double Interpolate(double x, int npts, double *xg, double *yg);

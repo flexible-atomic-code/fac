@@ -455,7 +455,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   dfact = 1.0/sqrt(dfact);
   phase0 = atan2(si, cs);
   if (phase0 < 0) phase0 += TWO_PI;
-  
+    
   if (IsOdd(nodes)) {
     phase0 = (phase0 < PI)?(phase0 + PI):(phase0-PI);
     dfact = -dfact;
