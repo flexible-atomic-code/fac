@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.40 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.41 2002/09/26 00:23:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -214,11 +214,11 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   type = -1;
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
-  kl0 = GetLFromKappa(orb0->kappa);
-  kl1 = GetLFromKappa(orb1->kappa);
+  GetJLFromKappa(orb0->kappa, &j0, &kl0);
+  GetJLFromKappa(orb1->kappa, &j1, &kl1);
   kl0 = kl0/2;
   kl1 = kl1/2;
-  if (IsEven(kl0 + kl1 + ko2)) {
+  if (IsEven(kl0 + kl1 + ko2) && Triangle(j0, j1, k)) {
     type = ko2;
   }
 
@@ -1144,7 +1144,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     for (t = 0; t < NGOSK; t++) {
       if (gos[t] > c) {
 	c = gos[t];
-      } else if (gos[t] < c1 && gos[t] > 0.0) {
+      }
+      if (gos[t] < c1 && gos[t] > 0.0) {
 	c1 = gos[t];
       }
     }
@@ -1163,7 +1164,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       for (t = 0; t < NGOSK; t++) {
 	if (gos[t] > c1) gos[t] = log(gos[t]);
 	else gos[t] = c2;
-      }			    
+      }			
       c = 0.5*kgrid[i];
       n_born = 2;
       c1 = 0.5*c*c/te;
