@@ -2,8 +2,7 @@
 """
 
 # import the modules
-import fac
-import config
+from pfac import config, fac
 
 fac.SetAtom('Se')
 

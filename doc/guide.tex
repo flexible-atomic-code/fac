@@ -1,4 +1,4 @@
-%% rcsid = $Id: guide.tex,v 1.15 2001/09/14 13:18:11 mfgu Exp $
+%% rcsid = $Id: guide.tex,v 1.16 2001/09/24 19:36:43 mfgu Exp $
 
 \documentclass[12pt]{article}
 
@@ -29,7 +29,14 @@ electronic configuration. They are collected in this section. In this and the
 following sections, if a function name is not fully qualified with its module
 name, it is assumed that it comes from module ``fac'', which is the main module
 interfacing with the internal ``C'' library. As a convention, all functions
-from ``fac'' has names with each word capitalized in first letter.
+from ``fac'' has names with each word capitalized in first letter. The modules
+are grouped under the package ``pfac'', which stands for ``package fac''. The
+import statement  
+``from pfac import *'' makes all functions available to the script with module
+name qualifiers, e.g., ``fac.SetAtom('Fe')''. Alternatively, one may use the
+fully qualified names including the package name to avoid any possible name
+space crash with other installed modules and packages. For example, the import
+statement ``import pfac.fac'', and ``pfac.fac.SetAtom('Fe')''. 
 
 \begin{description}
 \item[SetAtom(s, z, mass)] 
