@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.79 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.80 2005/01/14 18:25:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -21,8 +21,12 @@ static int max_iter = 256;
 static double iter_accuracy = EPS4;
 static double iter_stabilizer = 0.75;
 
-static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
-static double photon_density = 0.0; /* photon energy density in erg cm-3 */
+/* electron density in 10^10 cm-3 */
+static double electron_density = EPS3;
+/* photon energy density in erg cm-3 */
+/* if the distribution is blackbody, then the normalization constant
+ * is the dilution factor, (r0/r)^2 */
+static double photon_density = 0.0;
 static int ai_extra_nmax = 400;
 static int do_extrapolate = 100;
 static int inner_auger = 0;
