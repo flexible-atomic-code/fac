@@ -93,6 +93,7 @@ int FreeMultipoleArray(void);
 int FreeSlaterArray(void);
 int FreeSimpleArray(MULTI *ma);
 int FreeMomentsArray(void);
+int FreeGOSArray(void);
 
 double RadialMoments(int m, int k1, int k2);
 double MultipoleRadialNR(int m, int k1, int k2, int guage);
