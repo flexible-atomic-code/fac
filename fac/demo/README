@@ -1,10 +1,9 @@
-In this directory. Li-like Fe is used as an example to demonstrate how to 
-calculate the energy levels, collisional excitation, ionization, and 
-recombination processes. 
+This directory contains example scripts and the resulting outputs 
+discussed in the papers submitted to CPC.
 
-fe24_level.py, the energy level and transitionrates.
-fe24_exc.py, collisional excitation.
-fe24_rr.py, photoionization and radiative recombination.
-fe24_ion.py, collisional ionization.
-fe24_dr.py, dielectronic recombination.
+structure/,  atomic structure example for Ne-like Fe.
+excitation/, electron impact excitation example for Ne-like Fe.
+pirr/,       photoionzation and radiative recombination for Li-like Fe.
+aidr/,       autoionization example for Ne-like Se.
+ionization/, electron impact ionization example for Ne-like Fe.
 
