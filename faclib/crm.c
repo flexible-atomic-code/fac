@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.16 2002/02/20 18:30:16 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.17 2002/02/22 02:12:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -17,7 +17,7 @@ static int n_single_blocks = 64;
 static int rec_cascade = 1;
 static double cas_accuracy = EPS4;
 static int max_iter = 256;
-static double iter_accuracy = EPS3;
+static double iter_accuracy = EPS4;
 static double iter_stablizer = 0.75;
 
 static double electron_density = EPS3; /* 10^10 cm-3 */
@@ -535,7 +535,7 @@ int SetBlocks(double ni, char *ifn) {
   NCOMPLEX ncomplex[MAXNCOMPLEX];
   int bmin, bmax, imin, imax, t, nrec;
   FILE *f;
-  int n, i, k, nb, nlevels;
+  int n, i, k, nb, nb0, nlevels;
   char *fn;
   int p, q = -1;
   int nionized, n0;
@@ -630,6 +630,7 @@ int SetBlocks(double ni, char *ifn) {
     
     fseek(f, sizeof(F_HEADER), SEEK_SET);
     n0 = 0;
+    nb0 = 0;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = fread(&h, sizeof(EN_HEADER), 1, f);
       if (swp) SwapEndianENHeader(&h);
@@ -666,7 +667,25 @@ int SetBlocks(double ni, char *ifn) {
 	  blkp = NULL;
 	  for (i = 0; i < h.nlevels; i++) {
 	    GetNComplex(ncomplex, r0[i].ncomplex);
-	    if (CompareNComplex(ncomplex, blk.ncomplex)) {
+	    if (nb0 == 0 && i <= n_single_blocks) {
+	      nlevels = 0;
+	      blk.ib = blocks->dim;
+	      blk.iion = -1;
+	      blk.irec = -1;
+	      blk.rec = NULL;
+	      if (i < n_single_blocks) {
+		blk.nlevels = 1;
+	      } else {
+		blk.nlevels = h.nlevels - n_single_blocks;
+	      }      
+	      blk.n = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.n0 = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
+	      CopyNComplex(blk.ncomplex, ncomplex);
+	      blkp = ArrayAppend(blocks, &blk);
+	      q = -1;
+	    } else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	      if (blkp) {
 		if (blkp->nlevels > nlevels) {
 		  blkp->n = (double *) realloc(blkp->n, 
@@ -713,6 +732,7 @@ int SetBlocks(double ni, char *ifn) {
 	if (ifn) {
 	  free(r1);
 	}
+	nb0++;
       } else {
 	printf("ERROR: Ion charge state does not match %d %d %d %d\n",
 	       k, nb, h.nele, ion->nele);
@@ -872,6 +892,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
 		   int nele, char *ifn) {
   F_HEADER fh;
   EN_HEADER h;
+  EN_RECORD g;
   FILE *f;
   int i, k, nr, nb;
   int swp;
@@ -911,11 +932,23 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
 
   if (k < n) return -1;
 
+  memcpy(&g, r0, sizeof(EN_RECORD));
   qsort(r0, n, sizeof(EN_RECORD), CompareENRecord);
   qsort(r1, n, sizeof(EN_RECORD), CompareENRecord);
+  for (i = 0; i < n; i++) {
+    if (g.ilev == r0[i].ilev) {
+      if (i != 0) {
+	memcpy(&(r0[i]), r0, sizeof(EN_RECORD));
+	memcpy(r0, &g, sizeof(EN_RECORD));
+	memcpy(&g, &(r1[i]), sizeof(EN_RECORD));
+	memcpy(&(r1[i]), r1, sizeof(EN_RECORD));
+	memcpy(r1, &g, sizeof(EN_RECORD));
+      }
+      break;
+    }
+  }
 
   fclose(f);
-
   return n;
 }
 
@@ -1207,22 +1240,22 @@ int InitBlocks(void) {
 }
 
 int RateTable(char *fn, int nc, char *sc[]) { 
-  RT_RECORD rt;
+  RT_RECORD rt, rt1, rt2, rt3;
   RT_HEADER rt_hdr;
   F_HEADER fhdr;
-  ION *ion;
+  ION *ion, *ion1;
   RATE *r;
-  LBLOCK *blk, *blk1;
+  LBLOCK *blk, *blk1, *blk2;
   BLK_RATE *brts;
   DISTRIBUTION *edist, *pdist;
-  int n, k, m, i, j, q;
+  int n, k, m, i, j, p, q, s, p1;
   double den;
   MULTI ce, tr, ci, rr, ai;
   int ablks[3] = {10, 5, 5};
-  int index[3];
+  int index[3], index1[3];
   int *ic;
   NCOMPLEX *c, *cp;
-  double *d;
+  double *d, ce0, ce1, ai0;
   FILE *f;
 
   edist = GetEleDist(&i);
@@ -1459,14 +1492,34 @@ int RateTable(char *fn, int nc, char *sc[]) {
     if (k < 0) {
       m = ion0.nele;
       ion = (ION *) ArrayGet(ions, 0);
+      rt1.nb = 0.0;
+      rt2.nb = ion0.nt;
+      rt3.nb = ion->nt;
     } else {
       ion = (ION *) ArrayGet(ions, k);
       m = ion->nele;
+      if (k == 0) {
+	rt1.nb = ion0.nt;
+      } else {
+	rt1.nb = ((ION *) ArrayGet(ions, k-1))->nt;
+      }
+      rt2.nb = ion->nt;
+      if (k+1 < ions->dim) {
+	rt3.nb = ((ION *) ArrayGet(ions, k+1))->nt;
+      } else {
+	rt3.nb = 0.0;
+      }
     }
     rt_hdr.nele = m;
     rt_hdr.iblock = i;
     StrNComplex(rt_hdr.icomplex, blk->ncomplex);
     index[1] = i;
+    rt1.iblock = -1;
+    rt2.iblock = -2;
+    rt3.iblock = -3;
+    sprintf(rt1.icomplex, "%3d", m-1);
+    sprintf(rt2.icomplex, "%3d", m);
+    sprintf(rt3.icomplex, "%3d", m+1);
     if (ic[i]) {
       for (k = 0; k < blk->nlevels; k++) {
 	rt_hdr.nb = blk->n[k];
@@ -1476,11 +1529,28 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  rt_hdr.ilev = IonizedIndex(rt_hdr.ilev, 1);
 	  rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
 	}
+	rt1.tr = 0.0;
+	rt1.ce = 0.0;
+	rt1.rr = 0.0;
+	rt1.ai = 0.0;
+	rt1.ci = 0.0;
+	rt2.tr = 0.0;
+	rt2.ce = 0.0;
+	rt2.rr = 0.0;
+	rt2.ai = 0.0;
+	rt2.ci = 0.0;
+	rt3.tr = 0.0;
+	rt3.ce = 0.0;
+	rt3.rr = 0.0;
+	rt3.ai = 0.0;
+	rt3.ci = 0.0;
 	f = InitFile(fn, &fhdr, &rt_hdr);
 	index[0] = k;
 	for (j = 0; j < n; j++) {
 	  rt.iblock = j;
 	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	  if (blk1->iion < 0) ion1 = (ION *) ArrayGet(ions, 0);
+	  else ion1 = (ION *) ArrayGet(ions, blk1->iion);
 	  rt.nb = blk1->nb;
 	  index[2] = j;
 	  rt.ce = 0.0;
@@ -1511,8 +1581,75 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
 	    StrNComplex(rt.icomplex, blk1->ncomplex);
 	    WriteRTRecord(f, &rt);
+	    if (blk1->iion == blk->iion) {
+	      rt2.tr += rt.tr;
+	      rt2.ce += rt.ce;
+	    } else if (blk1->iion == blk->iion-1) {
+	      rt1.rr += rt.rr;
+	      rt1.ai += rt.ai;
+	    } else if (blk1->iion == blk->iion+1) {
+	      rt3.ci += rt.ci;
+	      rt3.rr += rt.rr;
+	      if (rt.ai) {
+		ce0 = 0.0;
+		index1[1] = j;
+		for (s = 0; s < ce.array->dim; s++) {
+		  index1[0] = s;
+		  for (p = 0; p < n; p++) {
+		    index1[2] = p;
+		    d = (double *) MultiGet(&ce, index1);
+		    if (d && *d+1.0 != 1.0) {
+		      ce0 = *d;
+		      break;
+		    }
+		  }
+		  if (ce0) break;
+		}
+		if (ce0) {
+		  ce0 = 0.0;
+		  for (s = 0; s < blk1->nlevels; s++) {
+		    if (1+blk1->total_rate[s] == 1) continue;
+		    ce1 = 0.0;
+		    for (p = 0; p < ion1->ce_rates->dim; p++) {
+		      brts = (BLK_RATE *) ArrayGet(ion1->ce_rates, p);
+		      if (brts->fblock != blk1) continue;
+		      for (q = 0; q < brts->rates->dim; q++) {
+			r = (RATE *) ArrayGet(brts->rates, q);
+			if (ion1->ilev[r->f] != s) continue;
+			blk2 = ion1->iblock[r->i];
+			p1 = ion1->ilev[r->i];
+			den = blk2->n[p1];
+			den *= electron_density;
+			ce1 += den * r->dir;
+		      }
+		    }
+		    if (ce1) {
+		      for (p = 0; p < ion1->ai_rates->dim; p++) {
+			brts = (BLK_RATE *) ArrayGet(ion1->ai_rates, p);
+			if (brts->iblock != blk1 || brts->fblock != blk)
+			  continue;
+			ai0 = 0.0;
+			for (q = 0; q < brts->rates->dim; q++) {
+			  r = (RATE *) ArrayGet(brts->rates, q);
+			  if (ion1->ilev[r->i] != s || ion1->ilev[r->f] != k)
+			    continue;
+			  ai0 += r->dir;
+			}
+		      }
+		      ai0 /= blk1->total_rate[s];
+		      ce0 += ce1 * ai0;
+		    }
+		  }
+		}
+		rt3.ai += ce0;
+		rt2.ai += rt.ai - ce0;
+	      }
+	    }
 	  }
 	}
+	WriteRTRecord(f, &rt1);
+	WriteRTRecord(f, &rt2);
+	WriteRTRecord(f, &rt3);
 	CloseFile(f, &fhdr);
       }
     } else {
@@ -1525,10 +1662,27 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
       }
       rt_hdr.ilev = -(rt_hdr.ilev+1);
+      rt1.tr = 0.0;
+      rt1.ce = 0.0;
+      rt1.rr = 0.0;
+      rt1.ai = 0.0;
+      rt1.ci = 0.0;
+      rt2.tr = 0.0;
+      rt2.ce = 0.0;
+      rt2.rr = 0.0;
+      rt2.ai = 0.0;
+      rt2.ci = 0.0;
+      rt3.tr = 0.0;
+      rt3.ce = 0.0;
+      rt3.rr = 0.0;
+      rt3.ai = 0.0;
+      rt3.ci = 0.0;
       f = InitFile(fn, &fhdr, &rt_hdr);
       for (j = 0; j < n; j++) {
 	rt.iblock = j;
 	blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	if (blk1->iion < 0) ion1 = (ION *) ArrayGet(ions, 0);
+	else ion1 = (ION *) ArrayGet(ions, blk1->iion);
 	rt.nb = blk1->nb;
 	index[2] = j;
 	rt.ce = 0.0;
@@ -1558,9 +1712,76 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
 	  StrNComplex(rt.icomplex, blk1->ncomplex);
-	  WriteRTRecord(f, &rt);
+	  WriteRTRecord(f, &rt);	
+	  if (blk1->iion == blk->iion) {
+	    rt2.tr += rt.tr;
+	    rt2.ce += rt.ce;
+	  } else if (blk1->iion == blk->iion-1) {
+	    rt1.rr += rt.rr;
+	    rt1.ai += rt.ai;
+	  } else if (blk1->iion == blk->iion+1) {
+	    rt3.ci += rt.ci;
+	    rt3.rr += rt.rr;
+	    if (rt.ai) {
+	      ce0 = 0.0;
+	      index1[1] = j;
+	      for (s = 0; s < ce.array->dim; s++) {
+		index1[0] = s;
+		for (p = 0; p < n; p++) {
+		  index1[2] = p;
+		  d = (double *) MultiGet(&ce, index1);
+		  if (d && *d+1.0 != 1.0) {
+		    ce0 = *d;
+		    break;
+		  }
+		}
+		if (ce0) break;
+	      }
+	      if (ce0) {
+		ce0 = 0.0;
+		for (s = 0; s < blk1->nlevels; s++) {
+		  if (1+blk1->total_rate[s] == 1) continue;
+		  ce1 = 0.0;
+		  for (p = 0; p < ion1->ce_rates->dim; p++) {
+		    brts = (BLK_RATE *) ArrayGet(ion1->ce_rates, p);
+		    if (brts->fblock != blk1) continue;
+		    for (q = 0; q < brts->rates->dim; q++) {
+		      r = (RATE *) ArrayGet(brts->rates, q);
+		      if (ion1->ilev[r->f] != s) continue;
+		      blk2 = ion1->iblock[r->i];
+		      p1 = ion1->ilev[r->i];
+		      den = blk2->n[p1];
+		      den *= electron_density;
+		      ce1 += den * r->dir;
+		    }
+		  }
+		  if (ce1) {
+		    for (p = 0; p < ion1->ai_rates->dim; p++) {
+		      brts = (BLK_RATE *) ArrayGet(ion1->ai_rates, p);
+		      if (brts->iblock != blk1 || brts->fblock != blk)
+			continue;
+		      ai0 = 0.0;
+		      for (q = 0; q < brts->rates->dim; q++) {
+			r = (RATE *) ArrayGet(brts->rates, q);
+			if (ion1->ilev[r->i] != s)
+			  continue;
+			ai0 += r->dir;
+		      }
+		    }
+		    ai0 /= blk1->total_rate[s];
+		    ce0 += ce1 * ai0;
+		  }
+		}
+	      }
+	      rt3.ai += ce0;
+	      rt2.ai += rt.ai - ce0;
+	    }
+	  }
 	}
       }
+      WriteRTRecord(f, &rt1);
+      WriteRTRecord(f, &rt2);
+      WriteRTRecord(f, &rt3);
       CloseFile(f, &fhdr);
     }
   }
@@ -2064,21 +2285,23 @@ double BlockRelaxation(int iter) {
       }
     }
   }    
-  
-  if (iter < 0) {
-    q = 0;
-    p = -1;
-    a = 0.0;
-    for (k = 0; k < blocks->dim; k++) {
-      blk1 = (LBLOCK *) ArrayGet(blocks, k);
-      if (blk1->iion != p) {
-	if (p == -1) {
-	  h = ion0.n;
-	} else {
-	  ion = (ION *) ArrayGet(ions, p);
-	  h = ion->n;
-	}
-	if (h > 0.0) {
+
+  q = 0;
+  p = -1;
+  a = 0.0;
+  for (k = 0; k < blocks->dim; k++) {
+    blk1 = (LBLOCK *) ArrayGet(blocks, k);
+    if (blk1->iion != p) {
+      if (p == -1) {
+	h = ion0.n;
+      } else {
+	ion = (ION *) ArrayGet(ions, p);
+	h = ion->n;
+      }
+      if (h > 0.0) {
+	if (p == -1) ion0.nt = h;
+	else ion->nt = h;
+	if (iter < 0) {
 	  a = h/a;
 	  for (i = q; i < k; i++) {
 	    blk2 = (LBLOCK *) ArrayGet(blocks, i);
@@ -2087,15 +2310,21 @@ double BlockRelaxation(int iter) {
 	      blk2->n[m] *= a;
 	    }
 	  }
-	} 
-	p = blk1->iion;
-	a = 0.0;
-	q = k;
+	}
+      } else {
+	if (p == -1) ion0.nt = a;
+	else ion->nt = a;
       }
-      a += blk1->nb;
+      p = blk1->iion;
+      a = 0.0;
+      q = k;
     }
-    ion = (ION *) ArrayGet(ions, p);
-    if (ion->n > 0.0) {
+    a += blk1->nb;
+  }
+  ion = (ION *) ArrayGet(ions, p);
+  if (ion->n > 0.0) {
+    ion->nt = ion->n;
+    if (iter < 0) {
       a = ion->n/a;
       for (i = q; i < k; i++) {
 	blk2 = (LBLOCK *) ArrayGet(blocks, i);
@@ -2105,6 +2334,11 @@ double BlockRelaxation(int iter) {
 	}
       }
     }
+  } else {
+    ion->nt = a;
+  }
+
+  if (iter < 0) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
       for (m = 0; m < blk1->nlevels; m++) {

@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.15 2002/02/19 21:26:21 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.16 2002/02/22 02:12:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1360,15 +1360,29 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_HEADER h;
   RT_RECORD r;
   int n, i;
-  int nb;
-  float d, tr, ce, ci, ai, rr;
-
+  int nb, nele;
+  double dc, re, ea, ci, rr, pi;
   nb = 0;
+  nele = -1;
   while (1) {
     n = fread(&h, sizeof(RT_HEADER), 1, f1);
     if (n != 1) break;
     if (swp) SwapEndianRTHeader(&h);
-    
+    if (h.nele != nele) {
+      if (nele != -1) {
+	fprintf(f2, "\n");
+	fprintf(f2, " Sum  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n",
+		rr, dc, re, pi, ea, ci, nele);
+	fprintf(f2, "\n");
+      }
+      nele = h.nele;
+      dc = 0.0;
+      re = 0.0;
+      ea = 0.0;
+      rr = 0.0;
+      pi = 0.0;
+      ci = 0.0;
+    }
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
@@ -1395,31 +1409,27 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     free(h.p_pdist);
 
     fprintf(f2, "Dens\t= %15.8E\n", h.nb);
-    fprintf(f2,"    \t     NB         TR         CE");
+    fprintf(f2,"         NB         TR         CE");
     fprintf(f2, "         RR         AI         CI\n");
-    d = 0.0;
-    tr = 0.0;
-    ce = 0.0;
-    rr = 0.0;
-    ai = 0.0;
-    ci = 0.0;
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RT_RECORD), 1, f1);
       if (swp) SwapEndianRTRecord(&r);
-      fprintf(f2, "%4d\t%10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %s\n",
+      fprintf(f2, "%4d  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %s\n",
 	      r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
-      d += r.nb;
-      tr += r.tr;
-      ce += r.ce;
-      rr += r.rr;
-      ai += r.ai;
-      ci += r.ci;
+      if (r.iblock == -1) {
+	dc += r.ai;
+	rr += r.rr;
+      } else if (r.iblock == -2) {
+	re += r.ai;
+      } else if (r.iblock == -3) {
+	pi += r.rr;
+	ci += r.ci;
+	ea += r.ai;
+      }
     }
-    fprintf(f2, " Sum\t%10.4E %10.4E %10.4E %10.4E %10.4E %10.4E\n",
-	    d, tr, ce, rr, ai, ci);
-    fprintf(f2, "\n");
     nb += 1;
   }
-  
+  fprintf(f2, "\n Sum  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n\n",
+	  rr, dc, re, pi, ea, ci, nele);
   return nb;
 }

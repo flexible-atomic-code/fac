@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 #include "array.h"
 #include "dbase.h"
 #include "rates.h"
@@ -60,7 +61,7 @@ typedef struct _ION_ {
   ARRAY *recombined;
   int nele;
   char *dbfiles[NDB];
-  double n;
+  double n, nt;
   NCOMPLEX ce_max;
 } ION;
 
@@ -72,7 +73,7 @@ typedef struct _IONIZED_ {
   int nionized;
   int *ionized_map[2];
   double *energy;
-  double n;
+  double n, nt;
 } IONIZED;
 
 typedef struct _RATE_ {
