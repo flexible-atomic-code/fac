@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.72 2004/12/22 03:09:38 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.73 2004/12/22 23:54:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3095,6 +3095,29 @@ static int PRMatrixNBatch(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRMatrixFMode(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 1) return -1;
+  m = atoi(argv[0]);
+  RMatrixFMode(m);
+  
+  return 0;
+}
+
+static int PRMatrixConvert(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 3) return -1;
+  m = atoi(argv[2]);
+  
+  RMatrixConvert(argv[0], argv[1], m);
+  
+  return 0;
+}
+
 static int PRMatrixNMultipoles(int argc, char *argv[], int argt[], 
 			       ARRAY *variables) {
   int m;
@@ -3255,6 +3278,8 @@ static METHOD methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
+  {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
+  {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
