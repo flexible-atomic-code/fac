@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.30 2005/03/09 18:39:48 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.31 2005/03/14 18:33:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -137,8 +137,12 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   }
 
   rx->energy = (lev2->energy - lev1->energy);
-  rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
-  rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
+  if (m < 0) {
+    rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
+    rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
+  } else {
+    rx->sdev = 0.0;
+  }
   aw = FINE_STRUCTURE_CONST * rx->energy;
   if (aw < 0.0) {
     free(idatum->bra);

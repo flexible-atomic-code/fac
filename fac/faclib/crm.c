@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.81 2005/03/09 18:39:47 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.82 2005/03/14 18:33:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3032,6 +3032,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
     for (m = 0; m < ion->nlevels; m++) {
       blk = ion->iblock[m];
       if (blk == NULL) continue;
+      if (blk->iion != k && k > 0) continue;
       i = blk->ib;
       if (i != ib) {
 	if (ib >= 0) DeinitFile(f, &fhdr);
@@ -3927,6 +3928,11 @@ int SetRRRates(int inv) {
     n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadRRHeader(f, &h, swp);
+      if (h.nparams <= 0) {
+	printf("RR QkMode in %s must be in QK_FIT, nb=%d\n", 
+	       ion->dbfiles[DB_RR-1], nb);
+	exit(1);
+      }
       eusr = h.usr_egrid;
       m = h.n_usr;
       x = y + m;
@@ -3934,10 +3940,6 @@ int SetRRRates(int inv) {
       p = logx + m;
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadRRRecord(f, &r, swp, &h);
-	if (h.nparams <= 0) {
-	  printf("RR QkMode must be in QK_FIT\n");
-	  exit(1);
-	}
 	rt.i = r.f;
 	rt.f = r.b;
 	j1 = ion->j[r.f];
