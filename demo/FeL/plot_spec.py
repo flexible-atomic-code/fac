@@ -1,3 +1,4 @@
+from pfac.table import *
 from pfac.crm import *
 from pfac.spm import *
 from biggles import *

@@ -3,6 +3,7 @@ Version 0.7.2, 04/09/2002
 	2. update papers for submission to PRA.
 	3. the r_core for H-like ions changed to 0.75*MAX_POINTS.
 	4. update Makefile and setup.py for Mac OS X.
+	5. separate TABLE class into pfac.table module.
 	
 Version 0.7.1, 03/11/2002
 	1. add pfac.spm module for processing spectral data

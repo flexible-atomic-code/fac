@@ -1,3 +1,4 @@
+from pfac.table import *
 from pfac.spm import *
 import pprint
 import biggles
