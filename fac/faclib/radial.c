@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.48 2002/05/15 18:45:51 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.49 2002/08/02 14:07:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -552,7 +552,8 @@ int SolveDirac(ORBITAL *orb) {
 #endif
   
   err = 0;
-  eps = optimize_control.tolerance*1E-1;
+  eps = 1E-8;
+  
   potential->flag = -1;
   err = RadialSolver(orb, potential, eps);
   if (err) { 

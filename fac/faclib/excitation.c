@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.35 2002/05/15 18:45:51 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.36 2002/08/02 14:07:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1291,6 +1291,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
  
   if (msub) {
     pw_type = 1;
+    qk_mode = QK_EXACT;
   } else {
     if (pw_type < 0) pw_type = 0;
   }

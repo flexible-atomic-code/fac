@@ -731,8 +731,10 @@ def spectrum(neles, temp, den, population, pref,
             p2 = abund0
             print 'Temp = %10.3E'%(temp[i])
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
-
-            SetEleDist(dist, temp[i], -1.0, -1.0)
+            if (dist > 0):
+                SetEleDist(1, temp[i], dist, -1.0, -1.0)
+            else:
+                SetEleDist(0, temp[i], -1.0, -1.0)
             if (ce > 0):
                 print 'CE rates...'
                 SetCERates(1)

@@ -47,14 +47,14 @@ if (sys.argv[1] == 'sfac'):
       os.system("make sfac %s"%macros)
       os.system("make install")
 else:
-      libs = ["fac", "quadpack", "lapack", "blas", "coul",
+      libs = ["fac", "quadpack", "ode", "lapack", "blas", "coul",
               "toms", "mpfun", "minpack", "ionis", "m"] + fortranlib
-      libdir = ["faclib", "coul", "toms", "mpfun", "minpack",
+      libdir = ["faclib", "coul", "ode", "toms", "mpfun", "minpack",
                 "quadpack", "lapack", "blas", "ionis"]
       incdir = ["faclib"]
     
       setup(name = "FAC",
-            version = "0.7.4",
+            version = "0.7.5",
             package_dir = {'pfac': 'python'},
             py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
                           'pfac.atom', 'pfac.spm'],

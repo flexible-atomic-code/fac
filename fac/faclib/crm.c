@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.33 2002/07/11 00:27:03 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.34 2002/08/02 14:07:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2733,9 +2733,10 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
   dist = GetEleDist(&i);
-  
-  t2 = type / 1000000;
-  t = type % 1000000;
+
+  t2 = abs(type) / 1000000;
+  if (type < 0) t2 = -1;
+  t = abs(type) % 1000000;
   t1 = t / 10000;
   t0 = t % 10000;
   t0 = t0/100; 
@@ -2868,8 +2869,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
   
-  t2 = type / 1000000;
-  t = type % 1000000;
+  t2 = abs(type) / 1000000;
+  if (type < 0) t2 = -1;
+  t = abs(type) % 1000000;
   t1 = t / 10000;
   t0 = t % 10000;
   t0 = t0 / 100;

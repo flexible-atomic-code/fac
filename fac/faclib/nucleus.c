@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.9 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.10 2002/08/02 14:07:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -47,16 +47,20 @@ int SetAtom(char *s, double z, double mass) {
     for (i = 0; i < N_ELEMENTS; i++) {
       if (strncasecmp(_ename[i], s, 2) == 0) {
 	if (z <= 0) z = i+1;
-	if (mass <= 0) mass = _emass[i];
+	if (mass <= 0 && mass > -0.5) mass = _emass[i];
 	break;
       }
     }
   }
   if (z <= 0) return -1;
   atom.atomic_number = z;
-  if (mass <= 0.0) mass = 2.0*z;
+  if (mass == 0.0) mass = 2.0*z;
   atom.mass = mass;
-  atom.rn = 2.2677E-5 * pow(mass, 1.0/3);
+  if (mass < 0.0) {
+    atom.rn = 0.0;
+  } else {
+    atom.rn = 2.2677E-5 * pow(mass, 1.0/3);
+  }
   return 0;
 }
 

@@ -1,0 +1,19 @@
+#calculate the electron impact excitation cross sections
+
+SetAtom('Fe')
+# 1s shell is closed
+Closed('1s')
+Config('2*8', group = 'n2')
+Config('2*7 3*1', group = 'n3')
+
+# Self-consistent iteration for optimized central potential
+SetScreening([10])
+ConfigEnergy(0)
+OptimizeRadial('n2', 'n3')
+ConfigEnergy(1)
+Structure('ne.lev.b')
+MemENTable('ne.lev.b')
+PrintTable('ne.lev.b', 'ne.lev', 1)
+
+CETableMSub('ne.ceM.b', [0], [2,4,16,22,26,30,32]) 
+PrintTable('ne.ceM.b', 'ne.ceM', 1) 
