@@ -726,12 +726,13 @@ def spectrum(neles, temp, den, population, pref,
         print 'TR rates...'
         SetTRRates(0)
         for i in range(len(temp)):
-            p1 = population[i][k-1]
-            p2 = population[i][k]
-	    try:
-                p3 = population[i][k+1]
-	    except:
-	        p3 = p2
+            if (abundm > 0 and abundp > 0):
+                p1 = population[i][k-1]
+                p2 = population[i][k]
+                try:
+                    p3 = population[i][k+1]
+                except:
+                    p3 = p2
             if (abundm <= 0):
                 p1 = abund0*(p1/p2)
             else:
