@@ -293,29 +293,14 @@ typedef struct _DR_RECORD_ {
   float total_rate;
 } DR_RECORD;  
 
-int CheckEndian(F_HEADER *fh);
-void SwapEndian(char *p, int size);
-int SwapEndianFHeader(F_HEADER *h);
-int InitDBase(void);
-int ReinitDBase(int m);
-FILE *OpenFile(char *fn, F_HEADER *fhdr);
-int CloseFile(FILE *f, F_HEADER *fhdr);
-int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr);
-int DeinitFile(FILE *f, F_HEADER *fhdr);
-int PrintTable(char *ifn, char *ofn, int v);
-int WriteFHeader(FILE *f, F_HEADER *fh);
+/* these read functions interface with the binary data files.
+ * they can be used in custom c/c++ codes to read the binary 
+ * files directly. To do so, copy dbase.h, global.h, and dbase.c
+ * files to the local directory, and compile and link with the user code, 
+ * which uses these functions. One may study the Print**Table functions 
+ * to understand how these functions can be used.
+ */
 int ReadFHeader(FILE *f, F_HEADER *fh, int *swp);
-int WriteENHeader(FILE *f, EN_HEADER *h);
-int WriteTRHeader(FILE *f, TR_HEADER *h);
-int WriteCEHeader(FILE *f, CE_HEADER *h);
-int WriteRRHeader(FILE *f, RR_HEADER *h);
-int WriteAIHeader(FILE *f, AI_HEADER *h);
-int WriteAIMHeader(FILE *f, AIM_HEADER *h);
-int WriteCIHeader(FILE *f, CI_HEADER *h);
-int WriteCIMHeader(FILE *f, CIM_HEADER *h);
-int WriteSPHeader(FILE *f, SP_HEADER *h);
-int WriteRTHeader(FILE *f, RT_HEADER *h);
-int WriteDRHeader(FILE *f, DR_HEADER *h);
 int ReadENHeader(FILE *f, EN_HEADER *h, int swp);
 int ReadENRecord(FILE *f, EN_RECORD *r, int swp);
 int ReadTRHeader(FILE *f, TR_HEADER *h, int swp);
@@ -338,7 +323,34 @@ int ReadRTHeader(FILE *f, RT_HEADER *h, int swp);
 int ReadRTRecord(FILE *f, RT_RECORD *r, int swp);
 int ReadDRHeader(FILE *f, DR_HEADER *h, int swp);
 int ReadDRRecord(FILE *f, DR_RECORD *r, int swp);
+
+/* these are the write functions, which shouldn't be off much interest.
+ * unless one needs to format the external data into FAC binary format.
+ */
+int WriteFHeader(FILE *f, F_HEADER *fh);
+int WriteENHeader(FILE *f, EN_HEADER *h);
+int WriteTRHeader(FILE *f, TR_HEADER *h);
+int WriteCEHeader(FILE *f, CE_HEADER *h);
+int WriteRRHeader(FILE *f, RR_HEADER *h);
+int WriteAIHeader(FILE *f, AI_HEADER *h);
+int WriteAIMHeader(FILE *f, AIM_HEADER *h);
+int WriteCIHeader(FILE *f, CI_HEADER *h);
+int WriteCIMHeader(FILE *f, CIM_HEADER *h);
+int WriteSPHeader(FILE *f, SP_HEADER *h);
+int WriteRTHeader(FILE *f, RT_HEADER *h);
+int WriteDRHeader(FILE *f, DR_HEADER *h);
 int WriteENRecord(FILE *f, EN_RECORD *r);
+
+int CheckEndian(F_HEADER *fh);
+void SwapEndian(char *p, int size);
+int SwapEndianFHeader(F_HEADER *h);
+int InitDBase(void);
+int ReinitDBase(int m);
+FILE *OpenFile(char *fn, F_HEADER *fhdr);
+int CloseFile(FILE *f, F_HEADER *fhdr);
+int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr);
+int DeinitFile(FILE *f, F_HEADER *fhdr);
+int PrintTable(char *ifn, char *ofn, int v);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
 int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
