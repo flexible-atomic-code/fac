@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.36 2002/09/19 15:59:49 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.37 2002/09/24 18:49:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -460,6 +460,70 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "d", &c))
     return NULL;
   SetTransitionCut(c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetSE(PyObject *self, PyObject *args) {
+  int c;
+
+  if (sfac_file) {
+    SFACStatement("SetSE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &c))
+    return NULL;
+  SetSE(c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetVP(PyObject *self, PyObject *args) {
+  int c;
+
+  if (sfac_file) {
+    SFACStatement("SetVP", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &c))
+    return NULL;
+  SetVP(c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetBreit(PyObject *self, PyObject *args) {
+  int c;
+
+  if (sfac_file) {
+    SFACStatement("SetBreit", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &c))
+    return NULL;
+  SetBreit(c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetMS(PyObject *self, PyObject *args) {
+  int c1, c2;
+
+  if (sfac_file) {
+    SFACStatement("SetMS", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ii", &c1, &c2))
+    return NULL;
+  SetMS(c1, c2);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -2997,6 +3061,10 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
+  {"SetSE", PSetSE, METH_VARARGS},
+  {"SetVP", PSetVP, METH_VARARGS},
+  {"SetBreit", PSetBreit, METH_VARARGS},
+  {"SetMS", PSetMS, METH_VARARGS},
   {"SetTransitionCut", PSetTransitionCut, METH_VARARGS},
   {"SetTransitionOptions", PSetTransitionOptions, METH_VARARGS},
   {"SetUsrCEGrid", PSetUsrCEGrid, METH_VARARGS},

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.37 2002/09/21 04:03:19 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.38 2002/09/24 18:49:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -331,6 +331,7 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     if (ji2 == jj2 && ki2 == kj2) {
       ResidualPotential(&r0, si->kcfg, sj->kcfg);
       r += r0;
+      r += QED1E(si->kcfg, sj->kcfg);
     } 
   
     if (si->kcfg == sj->kcfg) {
@@ -515,6 +516,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   if (fabs(z0) < EPS10) return 0.0;
   ResidualPotential(&r0, k1, k2);
   if (k1 == k2) r0 += (GetOrbital(k1))->energy;
+  r0 += QED1E(k1, k2);
 
   return r0 * z0 * sqrt(s[0].j + 1.0);
 }

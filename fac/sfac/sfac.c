@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.25 2002/09/19 15:59:49 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.26 2002/09/24 18:49:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1846,6 +1846,55 @@ static int PSetRRTEGrid(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetSE(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int c;
+
+  if (argc != 1) return -1;
+  c = atoi(argv[0]);
+
+  SetSE(c);
+  
+  return 0;
+}
+
+static int PSetVP(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int c;
+
+  if (argc != 1) return -1;
+  c = atoi(argv[0]);
+
+  SetVP(c);
+  
+  return 0;
+}
+
+static int PSetBreit(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int c;
+
+  if (argc != 1) return -1;
+  c = atoi(argv[0]);
+
+  SetBreit(c);
+  
+  return 0;
+}
+
+static int PSetMS(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int c1, c2;
+
+  if (argc != 2) return -1;
+  c1 = atoi(argv[0]);
+  c2 = atoi(argv[1]);
+
+  SetMS(c1, c2);
+  
+  return 0;
+}
+
 static int PSetScreening(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int n_screen;
@@ -2362,6 +2411,10 @@ static METHOD methods[] = {
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
+  {"SetSE", PSetSE, METH_VARARGS},
+  {"SetMS", PSetMS, METH_VARARGS},
+  {"SetVP", PSetVP, METH_VARARGS},
+  {"SetBreit", PSetBreit, METH_VARARGS},
   {"SetTransitionCut", PSetTransitionCut, METH_VARARGS},
   {"SetTransitionOptions", PSetTransitionOptions, METH_VARARGS},
   {"SetUsrCEGrid", PSetUsrCEGrid, METH_VARARGS},

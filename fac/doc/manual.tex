@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.2}\xspace}
+\newcommand{\facversion}{{0.8.3}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2163,6 +2163,13 @@ of the element can be set optionally. If they are not set, the standard values
 are used.
 \end{fundesc}
 
+\begin{fundesc}{SetBreit}{n}
+Set the maximum principal quantum number of the orbitals for which the
+Breit interaction should be included in the Hamiltonian. If \var{n} $<$ 0,
+then the Breit interaction involving all bound continuum states is
+included. Default is 5.
+\end{fundesc}
+
 \begin{fundesc}{SetCEGrid}{g $|$ n\opt{, e0, e1}}
 Set the collsion energy grid for collsional excitation. In the first form, the
 grid is given by a Python list \var{g}. In the second form, the grid is
@@ -2235,6 +2242,11 @@ if this routine is not called.
 \begin{fundesc}{SetMixCut}{c}
 Set cutoff threshold of the mixing basis in the wavefunction. Only the basis
 with mixing coefficients greater than \var{c} are included in the wavefunction expansion.
+\end{fundesc}
+
+\begin{fundesc}{SetMS}{nms, sms}
+Set flags for normal mass shift and specific mass shift contributions to the
+Hamiltonian. 0---disable, 1---enable. Defaults: 1.
 \end{fundesc}
 
 \begin{fundesc}{SetOptimizeControl}{t, s, m\opt{, p}}
@@ -2311,6 +2323,11 @@ the optimal central potential. It is quite experimental, and therefore not
 recommended for general use.
 \end{fundesc}
 
+\begin{fundesc}{SetSE}{n}
+Set the maximum principal quantum number of the orbitals for which the
+self-energy correction should be included in the Hamiltonian. Default is 5.
+\end{fundesc}
+
 \begin{fundesc}{SetTEGrid}{g $|$ n\opt{, e0, e1}}
 Set the transition energy grid for collisional excitation. In the first form,
 the grid is given by a Python list \var{g}. In the second form, the grid is
@@ -2350,6 +2367,12 @@ Set the user electron energy grid for photoionization and radiative
 recombination. The bound-free differential oscillator
 strengths on this grid are output. It is forced to be same as that set by
 \key{SetPEGrid} if the \key{QKMODE} is \key{'exact'}.
+\end{fundesc}
+
+\begin{fundesc}{SetVP}{vp}
+Set the flag for vacuum polarization correction to the
+Hamiltonian. 0---disable, 1---only include 2nd order term, 2---include the 4th
+order term as well. Default is 2.
 \end{fundesc}
 
 \begin{fundesc}{Structure}{fn, g\opt{, p\opt{, ip}}}

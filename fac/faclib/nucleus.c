@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.10 2002/08/02 14:07:13 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.11 2002/09/24 18:49:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -86,4 +86,8 @@ double GetAtomicEffectiveZ(double r) {
     y = x*y*0.5*(atom.atomic_number);
     return y;
   }
+}
+
+double GetAtomicR(void) {
+  return atom.rn;
 }

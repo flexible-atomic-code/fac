@@ -26,6 +26,10 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
+void SetSE(int n);
+void SetVP(int n);
+void SetBreit(int n);
+void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int SetRadialGrid(double rmin, double rmax);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
@@ -73,12 +77,21 @@ int IntegrateSinCos(int j, double *x, double *y,
 		    double *phase, double *dphase, 
 		    int i0, double *r, int t);
 int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
+double Vinti(int k0, int k1);
+double QED1E(int k0, int k1);
+double SelfEnergyRatio(ORBITAL *orb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
+double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
+double BreitS(int k0, int k1, int k2, int k3, int k);
+double BreitI(int n, int k0, int k1, int k2, int k3, int m);
+double Breit(int k0, int k1, int k2, int k3, int k,
+	     int kl0, int kl1, int kl2, int kl3);
 void SortSlaterKey(int *kd);
 int ResidualPotential(double *s, int k0, int k1);
 int FreeResidualArray(void);
 int FreeMultipoleArray(void);
 int FreeSlaterArray(void);
+int FreeSimpleArray(MULTI *ma);
 int FreeMomentsArray(void);
 
 double RadialMoments(int m, int k1, int k2);

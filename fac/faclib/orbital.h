@@ -24,6 +24,7 @@ typedef struct _POTENTIAL_ {
   double W[MAX_POINTS];
   double dW[MAX_POINTS];
   double dW2[MAX_POINTS];
+  double uehling[MAX_POINTS];
 } POTENTIAL;
 
 typedef struct _ORBITAL_ {
@@ -41,6 +42,8 @@ typedef struct _ORBITAL_ {
 
 int GetNMax(void);
 double *GetVEffective(void);
+double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
+			  double z, int n, int kappa);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
@@ -52,6 +55,7 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m);
 int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax);
 double GetRFromRho(double rho, double a, double b, double r0);
 int SetPotentialZ(POTENTIAL *pot, double c);
+int SetPotentialUehling(POTENTIAL *pot, int vp);
 int SetPotentialVc(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW (POTENTIAL *pot, double e, int kappa);

@@ -18,6 +18,7 @@ char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);
 double GetAtomicNumber(void);
 double GetAtomicMass(void);
+double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
 
