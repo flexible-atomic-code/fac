@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.92 2004/12/14 18:51:41 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.93 2004/12/16 08:25:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1693,12 +1693,13 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 }
   
 static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
-  double x, x1;
+  double eb, x, x1;
   
-  x1 = -10.0;
-  if (!PyArg_ParseTuple(args, "d|d", &x, &x1)) return NULL;
+  x1 = XBORN1;
+  x = XBORN;
+  if (!PyArg_ParseTuple(args, "d|dd", &eb, &x, &x1)) return NULL;
 
-  SetCEBorn(x, x1);
+  SetCEBorn(eb, x, x1);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -2592,22 +2593,6 @@ static PyObject *PFreeRecQk(PyObject *self, PyObject *args) {
   }
 
   FreeRecQk();
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PFreeExcitationPk(PyObject *self, PyObject *args) {
-  int ie;
-
-  if (sfac_file) {
-    SFACStatement("FreeExcitationPk", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  ie = -1;
-  if (!PyArg_ParseTuple(args, "|i", &ie)) return NULL;
-  FreeExcitationPk(ie);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4282,7 +4267,6 @@ static struct PyMethodDef fac_methods[] = {
   {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
-  {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},

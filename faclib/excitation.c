@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.73 2004/11/02 05:54:31 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.74 2004/12/16 08:25:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,6 +24,7 @@ static double xusr[MAXNUSR];
 static double log_xusr[MAXNUSR];
 
 static int n_egrid = 0;
+static int n_egrid1 = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
 static double egrid_min;
@@ -45,6 +46,7 @@ static double gost[NKINT];
 static double gosint[NKINT];
 static double xborn = XBORN;
 static double xborn1 = XBORN1;
+static double eborn = EBORN;
 
 static FILE *fpw=NULL;
 
@@ -56,6 +58,7 @@ static CEPW_SCRATCH pw_scratch = {1, MAXKL, 100, 5E-2, 0, 0, 10};
 
 static MULTI *pk_array;
 static MULTI *qk_array;
+static MULTI *qkm_array;
 
 static void InitCEPK(void *p, int n) {
   CEPK *d;
@@ -83,9 +86,11 @@ int SetCEQkMode(int m, double tol) {
   return 0;
 }
 
-int SetCEBorn(double x, double x1) {
+int SetCEBorn(double eb, double x, double x1) {
   xborn = x;
   xborn1 = x1;
+  eborn = eb;
+
   return 0;
 }
 
@@ -201,7 +206,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   int kl0, kl1, kl0p, kl1p;
   int j0, j1, kl_max, j1min, j1max;
   ORBITAL *orb0, *orb1;
-  int index[4];
+  int index[3];
   double te, e0, e1, sd, se;
   int js1, js3, js[4], ks[4];
   int nkappa;
@@ -214,10 +219,9 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
 #endif
 
   ko2 = k/2;  
-  index[0] = ie;
+  index[0] = ko2*MAXNE + ie;
   index[1] = k0;
-  index[2] = k1;
-  index[3] = ko2;
+  index[2] = k1;    
   
   type = -1;
   orb0 = GetOrbital(k0);
@@ -381,7 +385,7 @@ static void InterpolateGOS(int n, double *x, double *g,
 }
 
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
-		   double te, double e1, double *qk) {
+		   double te, double e1, double *qk, int m) {
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
@@ -414,10 +418,15 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   g2 = GeneralizedMoments(k2, k3, ko2);
   x2 = g2 + NGOSK;
 
-  c0 = te + e1; 
-  c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
-  c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
-  b = 1.0+FINE_STRUCTURE_CONST2*c0;
+  c0 = te + e1;
+  if (m == 0) {
+    c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
+    c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
+    b = 1.0+FINE_STRUCTURE_CONST2*c0;
+  } else {
+    c0 = 2.0*c0;
+    c1 = 2.0*e1;
+  }
   c0 = sqrt(c0);
   c1 = sqrt(c1);
   nk = NKINT-1;
@@ -436,12 +445,14 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
   
   for (t = 0; t < nk; t++) {
-    gosint[t] = r*gos1[t]*gos2[t];    
-    x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);    
-    a = 1.0 - x*(1.0+1.0/b);
-    c = 1.0 - x;
-    d = a*b/(c*c);
-    gosint[t] *= d;
+    gosint[t] = r*gos1[t]*gos2[t];
+    if (m == 0) {
+      x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
+      a = 1.0 - x*(1.0+1.0/b);
+      c = 1.0 - x;
+      d = a*b/(c*c);
+      gosint[t] *= d;
+    }
   }
 
   *qk = dk*Simpson(gosint, 0, nk-1);
@@ -451,7 +462,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 		       double te, double e1,
-		       int nq, int *q, double *qk) {
+		       int nq, int *q, double *qk, int m) {
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
@@ -498,10 +509,15 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   x2 = g2 + NGOSK;
 
   c0 = te + e1; 
-  c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
-  c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
+  if (m == 0) {
+    c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
+    c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
+    b = 1.0+FINE_STRUCTURE_CONST2*c0;
+  } else {
+    c0 = 2.0*c0;
+    c1 = 2.0*e1;
+  }
   c01 = c0 - c1;
-  b = 1.0+FINE_STRUCTURE_CONST2*c0;
   c0 = sqrt(c0);
   c1 = sqrt(c1);
   nk = NKINT-1;
@@ -521,11 +537,13 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 
   for (t = 0; t < nk; t++) {
     gost[t] = r*gos1[t]*gos2[t];
-    x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
-    a = 1.0 - x*(1.0+1.0/b);
-    c = 1.0 - x;
-    d = a*b/(c*c);
-    gosint[t] *= d;
+    if (m == 0) {
+      x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
+      a = 1.0 - x*(1.0+1.0/b);
+      c = 1.0 - x;
+      d = a*b/(c*c);
+      gosint[t] *= d;
+    }
   }
   
   nudiff = 0;
@@ -568,6 +586,8 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   return Max(ko2, ko2p);
 }
 
+int qkcalc = 0;
+int qkload = 0;
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   int type, t, ie, ite, ipk, ipkp, nqk, ieb, nopb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
@@ -578,7 +598,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   double qk[MAXNKL], dqk[MAXNKL];
   double rq[MAXNTE][MAXNE], e1, te, te0;
   double *rqc, **p, *ptr;
-  int index[6];
+  int index[5], mb;
   int np = 3, one = 1;
   double logj, xb;
 
@@ -587,29 +607,31 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   start = clock();
 #endif
 
-  index[0] = 0;
-  index[1] = k/2;
-  index[2] = k0;
-  index[3] = k1;
-  index[4] = k2;
-  index[5] = k3;
-  
+  index[0] = k/2;
+  index[1] = k0;
+  index[2] = k1;
+  index[3] = k2;
+  index[4] = k3;
   p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
+    qkload++;
     return *p;
   }   
   
-  nqk = n_tegrid*n_egrid;
+  qkcalc++;
+  nqk = n_tegrid*n_egrid1;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
 
   if (xborn == 0) {
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = 0; ie < n_egrid1; ie++) {
+      if (ie == n_egrid) mb = 1;
+      else mb = 0;
       e1 = egrid[ie];
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
-			      te, e1, &(rq[ite][ie]));
+			      te, e1, &(rq[ite][ie]), mb);
       }
     }
   } else {
@@ -621,7 +643,13 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
     te = -GetOrbital(k3)->energy;
     te0 = Max(te0, te);
     ieb = 0;
-  
+    ie = n_egrid;
+    e1 = egrid[ie];
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      type = CERadialQkBorn(k0, k1, k2, k3, k,
+			    te, e1, &(rq[ite][ie]), 1);
+    }    
     for (ie = 0; ie < n_egrid; ie++) {
       e1 = egrid[ie];
       type = CERadialPk(&cepk, ie, k0, k1, k);
@@ -738,7 +766,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	}
 	if (ieb) {
 	  type = CERadialQkBorn(k0, k1, k2, k3, k,
-				te, e1, &(rq[ite][ie]));
+				te, e1, &(rq[ite][ie]), 0);
 	  rq[ite][ie] += r-rd;
 	}
       }
@@ -746,10 +774,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   }
   ptr = rqc;
   for (ite = 0; ite < n_tegrid; ite++) {
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = 0; ie < n_egrid1; ie++) {
       ptr[ie] = rq[ite][ie];
     }
-    ptr += n_egrid;
+    ptr += n_egrid1;
   }
   rqc[nqk] = type;
 
@@ -777,7 +805,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   double rq[MAXMSUB][MAXNTE][MAXNE], drq[MAXMSUB][MAXNTE][MAXNE];
   double rqt[MAXMSUB];
   double *rqc, **p;
-  int index[6];
+  int index[5], mb;
   int np = 3, one = 1;
   double logj;
 #ifdef PERFORM_STATISTICS
@@ -785,17 +813,18 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   start = clock();
 #endif
 
-  index[0] = kp/2;
-  index[1] = k/2;
-  index[2] = k0;
-  index[3] = k1;
-  index[4] = k2;
-  index[5] = k3;
+  index[0] = (k/2)*(1+(GetMaxRank()/2)) + kp/2;
+  index[1] = k0;
+  index[2] = k1;
+  index[3] = k2;
+  index[4] = k3;
 
   p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
   }
+
+  n_egrid1 = n_egrid + 1;
 
   nq = Min(k, kp)/2 + 1;
   q[0] = 0;
@@ -803,12 +832,14 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
     q[iq] = q[iq-1] + 2;
   }
   if (xborn == 0) {
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = 0; ie < n_egrid1; ie++) {
       e1 = egrid[ie];
+      if (ie == n_egrid) mb = 1;
+      else mb = 0;
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				   nq, q, rqt);	
+				   nq, q, rqt, mb);	
 	for (iq = 0; iq < nq; iq++) {
 	  rq[iq][ite][ie] = rqt[iq];
 	}
@@ -818,10 +849,19 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   } else {
     pkdp = NULL;
     pkep = NULL;
-    nqk = nq*n_tegrid*n_egrid;
+    nqk = nq*n_tegrid*n_egrid1;
     *p = (double *) malloc(sizeof(double)*(nqk+1));
     rqc = *p;
-
+    ie = n_egrid;
+    e1 = egrid[ie];
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				 nq, q, rqt, 1);	
+      for (iq = 0; iq < nq; iq++) {
+	rq[iq][ite][ie] = rqt[iq];
+      }
+    }
     te0 = -GetOrbital(k0)->energy;
     te = -GetOrbital(k1)->energy;
     te0 = Max(te0, te);
@@ -1002,7 +1042,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
       
 	if (ieb) {
 	  type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				     nq, q, rqt);
+				     nq, q, rqt, 0);
 	  for (iq = 0; iq < nq; iq++) {
 	    rq[iq][ite][ie] += rqt[iq] - drq[iq][ite][ie];
 	  }
@@ -1014,10 +1054,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   ptr = rqc;
   for (iq = 0; iq < nq; iq++) {
     for (ite = 0; ite < n_tegrid; ite++) {
-      for (ie = 0; ie < n_egrid; ie++) {
+      for (ie = 0; ie < n_egrid1; ie++) {
 	ptr[ie] = rq[iq][ite][ie];
       }
-      ptr += n_egrid;
+      ptr += n_egrid1;
     }
   }    
   rqc[nqk] = type1;
@@ -1039,14 +1079,14 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
 
   rqe = CERadialQkTable(k0, k1, k2, k3, k);
   if (n_tegrid == 1) {
-    for (i = 0; i < n_egrid; i++) {
+    for (i = 0; i < n_egrid1; i++) {
       rqc[i] = rqe[i];
     }
     type = rqe[i];
   } else {
     np = 3;
     nd = 1;
-    type = rqe[n_tegrid*n_egrid];
+    type = rqe[n_tegrid*n_egrid1];
     if (type == 0 || type == 1) {
       xte = log_te;
       x0 = log(te);
@@ -1054,11 +1094,11 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
       xte = tegrid;
       x0 = te;
     }
-    for (i = 0; i < n_egrid; i++) {
+    for (i = 0; i < n_egrid1; i++) {
       j = i;
       for (m = 0; m < n_tegrid; m++) {
 	rq[m] = rqe[j];
-	j += n_egrid;
+	j += n_egrid1;
       }
       UVIP3P(np, n_tegrid, xte, rq, nd, &x0, &rqc[i]);
     }
@@ -1079,17 +1119,17 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
 
   if (n_tegrid == 1) {
     for (iq = 0; iq < nq; iq++) {
-      for (i = 0; i < n_egrid; i++) {
+      for (i = 0; i < n_egrid1; i++) {
 	rqc[i] = rqe[i];
       }
-      rqc += n_egrid;
-      rqe += n_egrid;
+      rqc += n_egrid1;
+      rqe += n_egrid1;
     }
     type = rqe[0];
   } else {
     np = 3;
     nd = 1;
-    n = n_tegrid*n_egrid;
+    n = n_tegrid*n_egrid1;
     type = rqe[nq*n];
     if (type == 0 || type == 1) {
       xte = log_te;
@@ -1099,16 +1139,16 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
       x0 = te;
     }
     for (iq = 0; iq < nq; iq++) {
-      for (i = 0; i < n_egrid; i++) {
+      for (i = 0; i < n_egrid1; i++) {
 	j = i;
 	for (m = 0; m < n_tegrid; m++) {
 	  rq[m] = rqe[j];
-	  j += n_egrid;
+	  j += n_egrid1;
 	}
 	UVIP3P(np, n_tegrid, xte, rq, nd, &x0, &rqc[i]);
       }
       rqe += n;
-      rqc += n_egrid;
+      rqc += n_egrid1;
     }
   }  
   return type;
@@ -1205,15 +1245,13 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 
 int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 		      int lower, int upper, int msub) {
-  int i, j, t, h, p, m, type, ty;  
+  int i, j, t, h, p, m, type, ty, p1, p2;  
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
   int nz, j1, j2, ie, nk, np, nq, kkp, q[MAXMSUB];
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
-  double c1, c2, **g, *ck, dk, kmin, kmax;
-  double *g1, *g2, *x1, *x2;
   int ierr, ipvt[NPARAMS];
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
@@ -1228,24 +1266,25 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   if (te <= 0) return -1;
   *e = te;
 
+  j1 = lev1->pj;
+  j2 = lev2->pj;
+  DecodePJ(j1, &p1, &j1);
+  DecodePJ(j2, &p2, &j2);
+
   if (msub) {  
-    j1 = lev1->pj;
-    j2 = lev2->pj;
-    DecodePJ(j1, NULL, &j1);
-    DecodePJ(j2, NULL, &j2);
     j = 0;
     rqk = qkc;
     for (t = -j1; t <= 0; t += 2) {
       for (h = -j2; h <= j2; h += 2) {
-	for (ie = 0; ie < n_egrid; ie++) {
+	for (ie = 0; ie < n_egrid1; ie++) {
 	  rqk[ie] = 0.0;
 	}
-	rqk += n_egrid;
+	rqk += n_egrid1;
       }
     }
   } else {
     rqk = qkc;
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = 0; ie < n_egrid1; ie++) {
       rqk[ie] = 0.0;
     }
   }
@@ -1271,7 +1310,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	  fprintf(fpw, "\n\n");
 	}
 	if (ty > type) type = ty;	  
-	for (ie = 0; ie < n_egrid; ie++) {
+	for (ie = 0; ie < n_egrid1; ie++) {
 	  qkc[ie] += c*rq[ie];
 	}
       } else {
@@ -1292,181 +1331,74 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 		s3j *= s3j;
 	      }
 	      if (m < 0 && IsOdd(kkp)) s3j = -s3j;
-	      m = abs(m)*n_egrid/2;
-	      for (ie = 0; ie < n_egrid; ie++) {
+	      m = abs(m)*n_egrid1/2;
+	      for (ie = 0; ie < n_egrid1; ie++) {
 		rqk[ie] += c*rq[m+ie]*s3j;
 	      }
 	    }
-	    rqk += n_egrid;
+	    rqk += n_egrid1;
 	  }
 	}
       }
     }
   }
 
-  for (t = 0; t < NKINT; t++) {
-    gost[t] = 0.0;
-  }
-  r = 0;
   if (msub) {
     for (t = 0; t < MAXMSUB; t++) {
       params[t] = 0.0;
     }
   }
-  if (type >= 0) {
-    nk = NGOSK-1;
-    kmin = 1E30;
-    kmax = -1E30;
-    g = (double **) malloc(sizeof(double *)*nz);
-    ck = (double *) malloc(sizeof(double)*nz);
-    for (i = 0; i < nz; i++) {
-      p = GetOrbital(ang[i].k0)->kappa;
-      GetJLFromKappa(p, &t, &h);
-      m = GetOrbital(ang[i].k1)->kappa;
-      GetJLFromKappa(m, &np, &ie);
-      if (IsOdd((h+ang[i].k+ie)/2)) {
-	ck[i] = 0.0;
-	g[i] = NULL;
-      } else {
-	ck[i] = ReducedCL(t, ang[i].k, np);
-	g[i] = GeneralizedMoments(ang[i].k0, ang[i].k1, ang[i].k/2);
-	x1 = g[i] + NGOSK;
-	if (x1[0] < kmin) kmin = x1[0];
-	if (x1[nk] > kmax) kmax = x1[nk];
-      }
-    }
-	
-    nk = NKINT-1.0;
-    dk = (kmax - kmin)/nk;
-    log_kgrid[0] = kmin;
-    kgrid[0] = exp(log_kgrid[0]);
-    log_kgrid[nk] = kmax;
-    kgrid[nk] = exp(log_kgrid[nk]);
-    for (t = 1; t < nk; t++) {
-      log_kgrid[t] = log_kgrid[t-1] + dk;
-      kgrid[t] = exp(log_kgrid[t]);
-    }
-    nk = NKINT;
-    for (i = 0; i < nz; i++) {
-      g1 = g[i];
-      if (g1 == NULL) continue;
-      x1 = g1 + NGOSK;
-      InterpolateGOS(NGOSK, x1, g1, nk, log_kgrid, gos1);
-      for (j = i; j < nz; j++) {
-	if (ang[j].k != ang[i].k) continue;
-	g2 = g[j];
-	if (g2 == NULL) continue;
-	x2 = g2 + NGOSK;
-	InterpolateGOS(NGOSK, x2, g2, nk, log_kgrid, gos2);
-	c = ang[i].coeff*ang[j].coeff;
-	if (i != j) c *= 2.0;
-	c *= 2.0*ck[i]*ck[j];
-	if (ang[i].k == 2) {
-	  r += c * (RadialMoments(1, ang[i].k0, ang[i].k1)*
-		    RadialMoments(1, ang[j].k0, ang[j].k1));
-	}
-	c *= ang[i].k + 1.0;
-	for (t = 0; t < nk; t++) {
-	  gost[t] += c*gos1[t]*gos2[t];
-	}
-      }
-    }
-    free(g);
-    free(ck);
 
-    c = 0.0;
-    for (t = 0; t < nk; t++) {
-      if (gost[t] > c) {
-	c = gost[t];
+  if (type >= 0) {
+    r = 0.0;
+    if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
+      for (i = 0; i < nz; i++) {
+	c = MultipoleRadialNR(-1, ang[i].k0, ang[i].k1, 2);
+	r += ang[i].coeff*c;
       }
+    }    
+    if (fabs(r) > 0.0) {
+      r = OscillatorStrength(-1, te, r, NULL);
+      bethe[0] = 2.0*r/te;
+    } else {
+      bethe[0] = 0.0;
     }
-    if (c <= 0.0) {
+    ie = n_egrid;
+    if (!msub) {
+      born_cross = qkc[ie]*8.0;
+    } else {
+      rqk = qkc;
+      bt = 0.0;
+      for (t = -j1; t <= 0; t += 2) {
+	for (h = -j2; h <= j2; h += 2) {
+	  bt += rqk[ie];
+	  if (t != 0) bt += rqk[ie];
+	  rqk += n_egrid1;
+	}
+      }
+      if (bt > 0) {
+	p = 0;
+	rqk = qkc;
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {
+	    params[p] = rqk[ie]/bt;
+	    p++;
+	    rqk += n_egrid1;
+	  }
+	}
+      }
+      born_cross = bt*8.0;      
+    }
+    if (born_cross > 0) {
+      born_egrid = 1.0+(egrid[ie]/te);
+      if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
+      else bethe[1] = born_cross;
+      bethe[2] = egrid[ie]; 
+    } else {
       bethe[0] = -1.0;
       bethe[1] = 0.0;
       bethe[2] = 0.0;
-    } else {
-      r /= 3.0;
-      bethe[0] = r*2.0;
-      c *= EPS8;
-      nk = NKINT-1;
-      for (i = nk; i >= 0; i--) {
-	if (gost[i] > c) break;
-      }
-      c = kgrid[i];
-      born_egrid = 2.0*c*c/te;
-      c1 = sqrt(2.0*te*born_egrid);
-      c2 = sqrt(2.0*te*(born_egrid-1.0));
-      kint[0] = c1 - c2;
-      kint[nk] = c1 + c2;
-      log_kint[0] = log(kint[0]);
-      log_kint[nk] = log(kint[nk]);
-      dk = (log_kint[nk] - log_kint[0])/nk;
-      for (t = 1; t < nk; t++) {
-	log_kint[t] = log_kint[t-1] + dk;
-	kint[t] = exp(log_kint[t]);
-      }
-      nk = NKINT;
-      InterpolateGOS(nk, log_kgrid, gost, nk, log_kint, gosint);
-      born_cross = 4.0*dk*Simpson(gosint, 0, nk-1);
-      if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
-      else bethe[1] = born_cross;
-      bethe[2] = (born_egrid-1.0)*te;
-      if (msub) {
-	g2 = rq+MAXMSUB;
-	for (t = 0; t < MAXMSUB; t++) g2[t] = 0.0;
-	for (i = 0; i < nz; i++) {
-	  for (j = i; j < nz; j++) {
-	    c = ang[i].coeff * ang[j].coeff;
-	    if (i != j) c *= 2.0;	  
-	    nq = Min(ang[i].k, ang[j].k)/2 + 1;
-	    q[0] = 0;
-	    for (t = 1; t < nq; t++) {
-	      q[t] = q[t-1] + 2;
-	    }
-	    ty = CERadialQkBornMSub(ang[i].k0, ang[i].k1, 
-				    ang[j].k0, ang[j].k1, 
-				    ang[i].k, ang[j].k,
-				    te, bethe[2], nq, q, rq);
-	    nq = Min(ang[i].k, ang[j].k);
-	    kkp = (ang[i].k + ang[j].k)/2;
-	    p = 0;
-	    for (t = -j1; t <= 0; t += 2) {
-	      for (h = -j2; h <= j2; h += 2) {
-		m = t-h;
-		if (abs(m) <= nq) {
-		  s3j = W3j(j1, ang[i].k, j2, -t, m, h);
-		  if (ang[j].k != ang[i].k) {
-		    s3j *= W3j(j1, ang[j].k, j2, -t, m, h);
-		  } else {
-		    s3j *= s3j;
-		  }
-		  if (m < 0 && IsOdd(kkp)) s3j = -s3j;
-		  m = abs(m)/2;
-		  g2[p] += c*rq[m]*s3j;
-		  p++;
-		}
-	      }
-	    }
-	  }
-	}
-	bt = 0.0;
-	p = 0;
-	for (t = -j1; t <= 0; t += 2) {
-	  for (h = -j2; h <= j2; h += 2) {
-	    bt += g2[p];
-	    if (t != 0) bt += g2[p];
-	    p++;
-	  }
-	}
-	p = 0;
-	for (t = -j1; t <= 0; t += 2) {
-	  for (h = -j2; h <= j2; h += 2) {
-	    params[p] = g2[p]/bt;
-	    p++;
-	  }
-	}
-      }
-    }      
+    }
   } else {
     bethe[0] = -1.0;
     bethe[1] = 0.0;
@@ -1555,7 +1487,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    continue;
 	  }
 	  p++;
-	  rqk += n_egrid;
+	  rqk += n_egrid1;
 	  qkt += n_usr;
 	}
       }
@@ -1573,7 +1505,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	      qkt[ie] = exp(qkt[ie]);
 	    }
 	    p++;
-	    rqk += n_egrid;
+	    rqk += n_egrid1;
 	    qkt += n_usr;
 	  }
 	} 
@@ -1585,7 +1517,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    }
 	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, qkt);
 	    p++;
-	    rqk += n_egrid;
+	    rqk += n_egrid1;
 	    qkt += n_usr;
 	  }
 	}
@@ -1597,7 +1529,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    qkt[ie] = 8.0*rqk[ie];
 	  }
 	  p++;
-	  rqk += n_egrid;
+	  rqk += n_egrid1;
 	  qkt += n_usr;
 	}
       }
@@ -1804,7 +1736,17 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       SetUsrCEEGrid(n_usr, emin, emax, ce_hdr.te0);
       usr_egrid_type = 1;
     }
-
+    if (n_egrid > MAXNE-1) {
+      printf("n_egrid exceeded MAXNE-1=%d\n", MAXNE-1);
+      return -1;
+    }
+    n_egrid1 = n_egrid + 1;
+    ie = n_egrid;
+    if (eborn > 0.0) {
+      egrid[ie] = Max(te0,ei)*eborn;
+    } else {
+      egrid[ie] = -eborn;
+    }
     if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
       printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
       return -1;
@@ -1923,6 +1865,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     fclose(fpw);
     fpw = NULL;
   }
+  printf("%d %d\n", qkcalc, qkload);
+
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
@@ -1979,11 +1923,6 @@ void FreeExcitationPkData(void *p) {
   dp->nkl = -1;
 }
 
-int FreeExcitationPk(int ie) {
-  MultiFreeData(pk_array, FreeExcitationPkData);
-  return 0;
-}
-
 void FreeExcitationQkData(void *p) {
   double *dp;
 
@@ -1994,24 +1933,24 @@ void FreeExcitationQkData(void *p) {
 
 int FreeExcitationQk(void) {
   MultiFreeData(qk_array, FreeExcitationQkData);
-  FreeExcitationPk(-1);
+  MultiFreeData(pk_array, FreeExcitationPkData);
   return 0;
 }
   
 int InitExcitation(void) {
-  int blocks1[] = {MULTI_BLOCK4,MULTI_BLOCK4,MULTI_BLOCK4,MULTI_BLOCK4};
-  int blocks2[] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
-		   MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6};
+  int blocks1[] = {MULTI_BLOCK3,MULTI_BLOCK3,MULTI_BLOCK3};
+  int blocks2[] = {MULTI_BLOCK5,MULTI_BLOCK5,MULTI_BLOCK5,
+		   MULTI_BLOCK5,MULTI_BLOCK5};
   int ndim;
 
-  ndim = 4;
+  ndim = 3;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(pk_array, sizeof(CEPK), ndim, blocks1);
 
-  ndim = 6;
+  ndim = 5;
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qk_array, sizeof(double *), ndim, blocks2);
-  
+
   if (fpw) {
     fclose(fpw);
     fpw = NULL;
