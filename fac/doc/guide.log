@@ -1,4 +1,4 @@
-This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  26 JUN 2001 11:10
+This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  10 JUL 2001 10:38
 **guide
 (guide.tex
 LaTeX2e <1999/12/01> patch level 1
@@ -60,35 +60,35 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 [1
 
 ] [2]
-Overfull \hbox (6.92325pt too wide) in paragraph at lines 163--168
+Overfull \hbox (6.92325pt too wide) in paragraph at lines 162--167
 []\OT1/cmr/m/n/12 Set the ra-dial grid lim-its. The ac-tual grid lim-its are ``
 rmin/z'',
  []
 
 [3]
-Overfull \hbox (10.34401pt too wide) in paragraph at lines 213--220
+Overfull \hbox (10.34401pt too wide) in paragraph at lines 212--219
 []\OT1/cmr/m/n/12 Calculate the tran-si-tion rates be-tween lower
  []
 
 [4]
-Overfull \hbox (12.50427pt too wide) in paragraph at lines 290--292
+Overfull \hbox (12.50427pt too wide) in paragraph at lines 289--291
 []\OT1/cmr/m/n/12 See Set-CEP-WOp-tions()
  []
 
 [5]
-Overfull \hbox (12.93854pt too wide) in paragraph at lines 335--338
+Overfull \hbox (12.93854pt too wide) in paragraph at lines 334--337
 []\OT1/cmr/m/n/12 Construct re-com-bined states based on the tar-get states fro
 m ``groups'',
  []
 
 
-Overfull \hbox (3.96681pt too wide) in paragraph at lines 367--369
+Overfull \hbox (3.96681pt too wide) in paragraph at lines 366--368
 []\OT1/cmr/m/n/12 Calculates the au-toion-iza-tion width from ``bound'' to ``fr
 ee''
  []
 
 [6]
-Overfull \hbox (5.06255pt too wide) in paragraph at lines 405--417
+Overfull \hbox (5.06255pt too wide) in paragraph at lines 404--416
 []\OT1/cmr/m/n/12 This rou-tine
  []
 
@@ -102,4 +102,4 @@ Here is how much of TeX's memory you used:
  14 hyphenation exceptions out of 1000
  23i,6n,29p,141b,251s stack positions out of 300i,100n,500p,50000b,4000s
 
-Output written on guide.dvi (7 pages, 26588 bytes).
+Output written on guide.dvi (7 pages, 26540 bytes).

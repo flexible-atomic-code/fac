@@ -150,14 +150,13 @@ the maximum iteration the optimization may perform. ``iprint'' indicates
 whether iteration summary should be printed out. The defaults: ``tol = 1E-6'',
 ``maxiter = 100'', ``iprint = 0''. 
 
-\item[SetScreening(n)] 
-Set the principle quantum number, beyond which the central potential should be
-modified in the aymptotic region to add the screening of one more
-electron. This is used for solution of continuum orbitals and the high Rydberg
-levels resulting from recombinaiton, because these orbitals see the screening
-of all bound electrons. If only the radiative transition rates of a given ion
-is needed, this parameter should be set to 0, Otherwise, some inaccuracy is
-introduced for levels higher than ``n''. The default is 8.
+\item[SetScreening(screen, charge)] 
+Set the principle quantum numbers, which should be included in optimizing the
+radial potential. This is used to provide additional electron sreening for
+recombined bound orbitals and free orbitals. The total charge specified by
+``charge'' is distributed among all shells specified by ``screen'', which is
+and integer list. For each principal quantum number in ``screen'', only the
+s-orbital is used. ``charge'' may be absent, which defaults to 1.0.
 
 \item[SetRadialGrid(rmin, rmax)]
 Set the radial grid limits. The actual grid limits are ``rmin/z'', and 
