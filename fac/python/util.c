@@ -1,4 +1,4 @@
-static char *rcsid="$Id: util.c,v 1.2 2003/01/13 18:48:22 mfgu Exp $";
+static char *rcsid="$Id: util.c,v 1.3 2003/07/10 14:04:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -80,11 +80,12 @@ static PyObject *PUVIP3P(PyObject *self, PyObject *args) {
   double *x, *y, *x0, *y0;
   int n, m, np, i, f;  
 
-  if (!PyArg_ParseTuple(args, "OOO", &px, &py, &px0)) return NULL;
+  np = 3;
+  if (!PyArg_ParseTuple(args, "OOO|i", &px, &py, &px0, &np)) 
+    return NULL;
   if (!PyList_Check(px)) return NULL;
   if (!PyList_Check(py)) return NULL;
   n = PyList_Size(px);
-  np = 3;
   if (PyList_Size(py) != n) return NULL;
   if (!PyList_Check(px0)) {
     if (!PyFloat_Check(px0)) return NULL;
@@ -125,10 +126,27 @@ static PyObject *PUVIP3P(PyObject *self, PyObject *args) {
   return py0;
 }
 
+static PyObject *PDXLEGF(PyObject *self, PyObject *args) {
+  double dnu;
+  int mu, id;
+  double theta;
+  double pqa[1];
+  int ipqa[1], ierr;
+
+  id = 3;
+  if (!PyArg_ParseTuple(args, "did|i", &dnu, &mu, &theta, &id)) 
+    return NULL;
+  theta = acos(theta);
+  DXLEGF(dnu, 0, mu, mu, theta, id, pqa, ipqa, &ierr);
+  
+  return Py_BuildValue("d", pqa[0]);
+}
+
 static struct PyMethodDef util_methods[] = {
   {"Spline", PSpline, METH_VARARGS},
   {"Splint", PSplint, METH_VARARGS},
   {"UVIP3P", PUVIP3P, METH_VARARGS},
+  {"DXLEGF", PDXLEGF, METH_VARARGS},
   {NULL, NULL}
 };
 

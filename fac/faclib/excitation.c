@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.53 2003/07/02 21:05:13 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.54 2003/07/10 14:04:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,15 +34,14 @@ static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
-#define NGOSK 72
+#define NGOSK 128
 static double kgrid[NGOSK];
 static double log_kgrid[NGOSK];
 static double gos[NGOSK];
 static double kint[NGOSK];
 static double log_kint[NGOSK];
 static double gosint[NGOSK];
-static int n_born;
-static double born_egrid[MAXNE];
+static double xborn = XBORN;
 
 #ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
@@ -65,6 +64,10 @@ int SetCEQkMode(int m, double tol) {
   else qk_mode = m;
   if (tol > 0.0) qk_fit_tolerance = tol;
   return 0;
+}
+
+int SetCEBorn(double x) {
+  xborn = x;
 }
 
 int SetCEEGridLimits(double min, double max, int type) {
@@ -452,12 +455,200 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   return type;
 }
 
+int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
+		   double te, double e1, double *qk) {
+  int p0, p1, p2, p3;
+  int m0, m1, m2, m3;
+  int j0, j1, j2, j3;
+  int ko2, t, nk, np;
+  double r, c0, c1, dk, *g1, *g2;
+
+  *qk = 0.0;
+  p0 = GetOrbital(k0)->kappa;
+  GetJLFromKappa(p0, &j0, &m0);
+  p1 = GetOrbital(k1)->kappa;
+  GetJLFromKappa(p1, &j1, &m1);
+  if (IsOdd((m0+m1+k)/2) || !Triangle(j0, k, j1)) {
+    return -1;
+  }
+  p2 = GetOrbital(k2)->kappa;
+  GetJLFromKappa(p2, &j2, &m2);
+  p3 = GetOrbital(k3)->kappa;
+  GetJLFromKappa(p3, &j3, &m3);
+  if (IsOdd((m2+m3+k)/2) || !Triangle(j2, k, j3)) {
+    return -1;
+  }
+
+  ko2 = k/2;
+  r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
+  r *= (k+1.0)*(k+1.0);
+  g1 = GeneralizedMoments(NGOSK, kgrid, k0, k1, ko2);
+  g2 = GeneralizedMoments(NGOSK, kgrid, k2, k3, ko2);
+  for (t = 0; t < NGOSK; t++) {
+    gos[t] = r*g1[t]*g2[t]/(kgrid[t]*kgrid[t]);
+  }
+
+  c0 = sqrt(2.0*(te + e1));
+  c1 = sqrt(2.0*e1);
+  nk = NGOSK-1;
+  kint[0] = c0 - c1;
+  kint[nk] = c0 + c1;
+  log_kint[0] = log(kint[0]);
+  log_kint[nk] = log(kint[nk]);
+  dk = (log_kint[nk] - log_kint[0])/nk;
+  for (t = 1; t < nk; t++) {
+    log_kint[t] = log_kint[t-1] + dk;
+    kint[t] = exp(log_kint[t]);
+  }
+  np = 3;
+  nk = NGOSK;
+  UVIP3P(np, nk, log_kgrid, gos, nk, log_kint, gosint);
+  for (t = 0; t < NGOSK; t++) {
+    if (kint[t] < kgrid[0]) {
+      gosint[t] = gos[0];
+    } else {
+      break;
+    }
+  }
+  for (t = nk-1; t >= 0; t--) {
+    if (kint[t] > kgrid[nk-1]) {
+      gosint[t] = gos[nk-1];
+    } else {
+      break;
+    }
+  }    
+  *qk = dk*Simpson(gosint, 0, nk-1);
+  
+  return ko2;
+}
+  
+int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
+		       double te, double e1, 
+		       int nq, int *q, double *qk) {
+  int p0, p1, p2, p3;
+  int m0, m1, m2, m3;
+  int j0, j1, j2, j3;
+  int ko2, ko2p, t, nk, np;
+  int nudiff, mu1, mu2, ierr, ipqa[MAXMSUB];
+  int kkp, iq;
+  double xc, theta, dnu1, pqa[MAXMSUB];
+  double r, c0, c1, c01, dk, *g1, *g2;
+  double gost[NGOSK];
+  double gosm1[MAXMSUB][NGOSK];
+  double gosm2[MAXMSUB][NGOSK];
+    
+  for (iq = 0; iq < nq; iq++) {
+    qk[iq] = 0.0;
+  }
+  p0 = GetOrbital(k0)->kappa;
+  GetJLFromKappa(p0, &j0, &m0);
+  p1 = GetOrbital(k1)->kappa;
+  GetJLFromKappa(p1, &j1, &m1);
+  if (IsOdd((m0+m1+k)/2) || !Triangle(j0, k, j1)) {
+    return -1;
+  }
+  p2 = GetOrbital(k2)->kappa;
+  GetJLFromKappa(p2, &j2, &m2);
+  p3 = GetOrbital(k3)->kappa;
+  GetJLFromKappa(p3, &j3, &m3);
+  if (IsOdd((m2+m3+kp)/2) || !Triangle(j2, kp, j3)) {
+    return -1;
+  }
+  
+  ko2 = k/2;
+  ko2p = kp/2;  
+  kkp = (ko2 + ko2p)%4;
+  if (kkp == 1 || kkp == 3) {
+    return Max(ko2, ko2p);
+  }
+
+  r = ReducedCL(j0, k, j1) * ReducedCL(j2, kp, j3);
+  r *= (k+1.0)*(kp+1.0);
+  g1 = GeneralizedMoments(NGOSK, kgrid, k0, k1, ko2);
+  g2 = GeneralizedMoments(NGOSK, kgrid, k2, k3, ko2p);
+  for (t = 0; t < NGOSK; t++) {
+    gos[t] = r*g1[t]*g2[t]/(kgrid[t]*kgrid[t]);
+  }
+
+  c0 = 2.0*(te+e1);
+  c1 = 2.0*e1;
+  c01 = c0 - c1;
+  c0 = sqrt(c0);
+  c1 = sqrt(c1);
+  nk = NGOSK-1;
+  kint[0] = c0 - c1;
+  kint[nk] = c0 + c1;
+  log_kint[0] = log(kint[0]);
+  log_kint[nk] = log(kint[nk]);
+  dk = (log_kint[nk] - log_kint[0])/nk;
+  for (t = 1; t < nk; t++) {
+    log_kint[t] = log_kint[t-1] + dk;
+    kint[t] = exp(log_kint[t]);
+  }
+  np = 3;  
+  nk = NGOSK;
+  UVIP3P(np, nk, log_kgrid, gos, nk, log_kint, gost);
+  for (t = 0; t < NGOSK; t++) {
+    if (kint[t] < kgrid[0]) {
+      gost[t] = gos[0];
+    } else {
+      break;
+    }
+  }
+  for (t = nk-1; t >= 0; t--) {
+    if (kint[t] > kgrid[nk-1]) {
+      gost[t] = gos[nk-1];
+    } else {
+      break;
+    }
+  }    
+  
+  nudiff = 0;
+  mu1 = 0;
+  mu2 = q[nq-1]/2;
+  for (t = 0; t < NGOSK; t++) {
+    xc = (c01+kint[t]*kint[t])/(2.0*c0*kint[t]);
+    if (xc < 0.0) xc = 0.0;
+    if (xc > 1.0) xc = 1.0;
+    theta = acos(xc);
+    if (theta < EPS10) theta = EPS10;
+    dnu1 = ko2;
+    DXLEGF(dnu1, nudiff, mu1, mu2, theta, 3, pqa, ipqa, &ierr);
+    for (iq = 0; iq < nq; iq++) {
+      gosm1[iq][t] = pqa[iq]*	
+	  exp(0.5*(LnFactorial(ko2-q[iq]/2)-LnFactorial(ko2+q[iq]/2)));
+    }
+    if (kp != k) {
+      dnu1 = ko2p;
+      DXLEGF(dnu1, nudiff, mu1, mu2, theta, 3, pqa, ipqa, &ierr);
+      for (iq = 0; iq < nq; iq++) {
+	gosm2[iq][t] = pqa[iq]*	
+	  exp(0.5*(LnFactorial(ko2p-q[iq]/2)-LnFactorial(ko2p+q[iq]/2)));
+      }
+    } else {
+      for (iq = 0; iq < nq; iq++) {
+	gosm2[iq][t] = gosm1[iq][t];
+      }
+    }
+  }
+
+  for (iq = 0; iq < nq; iq++) {
+    for (t = 0; t < NGOSK; t++) {
+      gosint[t] = gost[t]*gosm1[iq][t]*gosm2[iq][t];
+      if (IsOdd(ko2p+kkp/2)) gosint[t] = -gosint[t];
+    }
+    qk[iq] = dk*Simpson(gosint, 0, nk-1);
+  }  
+  
+  return Max(ko2, ko2p);
+}
+
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   int type, t, ie, ite, ipk, ipkp, nqk;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
   double *pk, *pkp, *ptr, r, s, b;
-  double *qk, rq[MAXNTE][MAXNE], e1, te;
+  double *qk, rq[MAXNTE][MAXNE], e1, te, te0;
   double *rqc, **p;
   int index[6];
   int np = 3, one = 1;
@@ -487,114 +678,135 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
 
+  te0 = -GetOrbital(k0)->energy;
+  te = -GetOrbital(k1)->energy;
+  te0 = Max(te0, te);
+  te = -GetOrbital(k2)->energy;
+  te0 = Max(te0, te);
+  te = -GetOrbital(k3)->energy;
+  te0 = Max(te0, te);
   for (ie = 0; ie < n_egrid; ie++) {
     e1 = egrid[ie];
-    type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, 
-		      ie, k0, k1, k);
-    nklp = nkl;
-    if (k2 != k0 || k3 != k1) {
-      type = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
-			ie, k2, k3, k);
+    if (xborn > 0 && e1/te0 > xborn) {
+      type = CERadialQkBorn(k0, k1, k2, k3, k, 
+			    tegrid[0], e1, &(rq[0][ie]));
+      if (type >= 0) {
+	for (ite = 1; ite < n_tegrid; ite++) {
+	  type = CERadialQkBorn(k0, k1, k2, k3, k, 
+				tegrid[ite], e1, &(rq[ite][ie]));
+	}
+      }
+    } else {
+      type = -1;
     }
-    if (nkl > nklp) {
-      ptr = pk;
-      pk = pkp;
-      pkp = ptr;
-      i = nkappa;
-      nkappa = nkappap;
-      nkappap = i;
-      tmp = kappa0;
-      kappa0 = kappa0p;
-      kappa0p = tmp;
-      tmp = kappa1;
-      kappa1 = kappa1p;
-      kappa1p = tmp;
-      nkl = nklp;
-    } 
-    nklp = nkl-1;
-    for (ite = 0; ite < n_tegrid; ite++) {
-      te = tegrid[ite];
-      if (egrid_type == 0) e1 = egrid[ie] - te;      
-      for (i = 0; i < nkl; i++) {
-	qk[i] = 0.0;
+    if (type == -1) {
+      type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, 
+			ie, k0, k1, k);
+      nklp = nkl;
+      if (k2 != k0 || k3 != k1) {
+	type = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
+			  ie, k2, k3, k);
       }
-      t = -1;
-      kl0 = -1;
-      
-      ipk = ite;
-      for (i = 0; i < nkappa; i++) {
-	if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
-	else kl = GetLFromKappa(kappa1[i]);
-	if (kl != kl0) {
-	  t++;
-	  kl0 = kl;
-	}
-	if (k2 == k0 && k3 == k1) {
-	  s = pk[ipk]*pk[ipk];
-	  qk[t] += s;
-	} else {
-	  s = 0.0;
-	  ipkp = ite;
-	  for (j = 0; j < nkappap; j++) {
-	    if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
-	      s = pk[ipk]*pkp[ipkp];
-	      break;
-	    }
-	    ipkp += n_tegrid;
-	  }
-	  qk[t] += s;
-	}
-	ipk += n_tegrid;
-      }
-      
-      for (i = 0; i < nkl; i++) {
-	if (!(qk[i] <= 0) && !(qk[i] > 0)) break;
-      }
-      nkl = i;
+      if (nkl > nklp) {
+	ptr = pk;
+	pk = pkp;
+	pkp = ptr;
+	i = nkappa;
+	nkappa = nkappap;
+	nkappap = i;
+	tmp = kappa0;
+	kappa0 = kappa0p;
+	kappa0p = tmp;
+	tmp = kappa1;
+	kappa1 = kappa1p;
+	kappa1p = tmp;
+	nkl = nklp;
+      } 
       nklp = nkl-1;
-      if (nkl == 0) {
-	r = 1E-31;
-      } else if (nkl > 1) {
-	r = qk[0];
-	for (i = 1; i < nkl; i++) {
-	  r += qk[i];
-	  kl0 = pw_scratch.kl[i-1];
-	  kl1 = pw_scratch.kl[i];
-	  for (j = kl0+1; j < kl1; j++) {
-	    logj = LnInteger(j);
-	    UVIP3P(np, nkl, pw_scratch.log_kl, qk, 
-		   one, &logj, &s);
-	    r += s;
-	  }
+      for (ite = 0; ite < n_tegrid; ite++) {
+	te = tegrid[ite];
+	if (egrid_type == 0) e1 = egrid[ie] - te;      
+	for (i = 0; i < nkl; i++) {
+	  qk[i] = 0.0;
 	}
-      } else {
-	r = qk[0];
-      }
+	t = -1;
+	kl0 = -1;
+      
+	ipk = ite;
+	for (i = 0; i < nkappa; i++) {
+	  if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
+	  else kl = GetLFromKappa(kappa1[i]);
+	  if (kl != kl0) {
+	    t++;
+	    kl0 = kl;
+	  }
+	  if (k2 == k0 && k3 == k1) {
+	    s = pk[ipk]*pk[ipk];
+	    qk[t] += s;
+	  } else {
+	    s = 0.0;
+	    ipkp = ite;
+	    for (j = 0; j < nkappap; j++) {
+	      if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
+		s = pk[ipk]*pkp[ipkp];
+		break;
+	      }
+	      ipkp += n_tegrid;
+	    }
+	    qk[t] += s;
+	  }
+	  ipk += n_tegrid;
+	}
+      
+	for (i = 0; i < nkl; i++) {
+	  if (!(qk[i] <= 0) && !(qk[i] > 0)) break;
+	}
+	nkl = i;
+	nklp = nkl-1;
+	if (nkl == 0) {
+	  r = 1E-31;
+	} else if (nkl > 1) {
+	  r = qk[0];
+	  for (i = 1; i < nkl; i++) {
+	    r += qk[i];
+	    kl0 = pw_scratch.kl[i-1];
+	    kl1 = pw_scratch.kl[i];
+	    for (j = kl0+1; j < kl1; j++) {
+	      logj = LnInteger(j);
+	      UVIP3P(np, nkl, pw_scratch.log_kl, qk, 
+		     one, &logj, &s);
+	      r += s;
+	    }
+	  }
+	} else {
+	  r = qk[0];
+	}
             
-      if (nkl > 0) {
-	if (type >= CBMULTIPOLES) {
-	  if (nkl > 10) {
-	    b = qk[nklp]/qk[nklp-1];
-	    if (b < 0.9 && b > 0.0) {
-	      b = pow(b, 1.0/(pw_scratch.kl[nklp] - pw_scratch.kl[nklp-1]));
-	      b = b/(1.0 - b);
+	if (nkl > 0) {
+	  if (type >= CBMULTIPOLES) {
+	    if (nkl > 10) {
+	      b = qk[nklp]/qk[nklp-1];
+	      if (b < 0.9 && b > 0.0) {
+		b = pow(b, 1.0/(pw_scratch.kl[nklp] - pw_scratch.kl[nklp-1]));
+		b = b/(1.0 - b);
+	      } else {
+		b = 0.0;
+	      }
 	    } else {
 	      b = 0.0;
 	    }
-	  } else {
-	    b = 0.0;
-	  }
-	  s = qk[nklp]*b;
-	  r = r + s;
-	} else if (type >= 0) {
-	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
-	  if (b > 0) {
 	    s = qk[nklp]*b;
 	    r = r + s;
- 	  }
+	  } else if (type >= 0) {
+	    b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
+	    if (b > 0) {
+	      s = qk[nklp]*b;
+	      r = r + s;
+	    }
+	  }      
 	}      
-      }      
-      rq[ite][ie] = r;
+	rq[ite][ie] = r;
+      }
     }
   }
 
@@ -614,7 +826,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   return rqc;
 }
 
-
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int type1, type2, kl, nqk;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
@@ -623,7 +834,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   double *pk, *pkp, *ptr;
   int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
-  double r, e0, e1, te, s, b;
+  double r, e0, e1, te, s, b, te0;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
   int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp;
@@ -662,160 +873,205 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
 
+  te0 = -GetOrbital(k0)->energy;
+  te = -GetOrbital(k1)->energy;
+  te0 = Max(te0, te);
+  te = -GetOrbital(k2)->energy;
+  te0 = Max(te0, te);
+  te = -GetOrbital(k3)->energy;
+  te0 = Max(te0, te);
   for (ie = 0; ie < n_egrid; ie++) {
-    type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1,
-		       ie, k0, k1, k);
-    if (kp == k && k2 == k0 && k3 == k1) {
-      pkp = pk;
-      nkappap = nkappa;
-      nklp = nkl;
-      kappa0p = kappa0;
-      kappa1p = kappa1;
+    te = tegrid[0];
+    if (egrid_type == 0) {
+      e0 = egrid[ie];
+      e1 = e0 - te;
+    } else {
+      e1 = egrid[ie];
+      e0 = e1 + te;
+    }
+    if (xborn > 0 && e1/te0 > xborn) {
+      type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				 nq, q, rqt);
+      if (type1 >= 0) {
+	for (iq = 0; iq < nq; iq++) {
+	  rq[iq][0][ie] = rqt[iq];
+	}
+	for (ite = 1; ite < n_tegrid; ite++) {
+	  te = tegrid[ite];
+	  if (egrid_type == 0) {
+	    e0 = egrid[ie];
+	    e1 = e0 - te;
+	  } else {
+	    e1 = egrid[ie];
+	    e0 = e1 + te;
+	  }
+	  type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				     nq, q, rqt);
+	  for (iq = 0; iq < nq; iq++) {
+	    rq[iq][ite][ie] = rqt[iq];
+	  }
+	}
+      }
       type2 = type1;
     } else {
-      type2 = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
-			 ie, k2, k3, kp);
-      if (nklp < nkl) nkl = nklp;
+      type1 = -1;
     }
 
-    for (ite = 0; ite < n_tegrid; ite++) {
-      te = tegrid[ite];
-      if (egrid_type == 0) {
-	e0 = egrid[ie];
-	e1 = e0 - te;
+    if (type1 == -1) {
+      type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1,
+			 ie, k0, k1, k);
+      if (kp == k && k2 == k0 && k3 == k1) {
+	pkp = pk;
+	nkappap = nkappa;
+	nklp = nkl;
+	kappa0p = kappa0;
+	kappa1p = kappa1;
+	type2 = type1;
       } else {
-	e1 = egrid[ie];
-	e0 = e1 + te;
+	type2 = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
+			   ie, k2, k3, kp);
+	if (nklp < nkl) nkl = nklp;
       }
-      
-      for (i = 0; i < nq; i++) { 
-	for (j = 0; j < nkl; j++) { 
-	  qk[i][j] = 0.0; 
-	}   
-      } 
-      
-      kl = -1;
-      i = -1;
-      ipk = ite;
-      for (j = 0; j < nkappa; j++) {
-	km0 = kappa0[j];
-	km1 = kappa1[j];
-	GetJLFromKappa(km0, &j0, &kl0);
-	GetJLFromKappa(km1, &j1, &kl1);
-	if (kl1 != kl) {
-	  i++;
-	  kl = kl1;
-	  if (i >= nkl) break;
+
+      for (ite = 0; ite < n_tegrid; ite++) {
+	te = tegrid[ite];
+	if (egrid_type == 0) {
+	  e0 = egrid[ie];
+	  e1 = e0 - te;
+	} else {
+	  e1 = egrid[ie];
+	  e0 = e1 + te;
 	}
-	kl0_2 = kl0/2;
-	ipkp = ite;
-	for (t = 0; t < nkappap; t++) {
-	  kmp0 = kappa0p[t];
-	  kmp1 = kappa1p[t];
-	  if (kmp1 != km1) {
-	    ipkp += n_tegrid;
-	    continue;
+      
+	for (i = 0; i < nq; i++) { 
+	  for (j = 0; j < nkl; j++) { 
+	    qk[i][j] = 0.0; 
+	  }   
+	} 
+      
+	kl = -1;
+	i = -1;
+	ipk = ite;
+	for (j = 0; j < nkappa; j++) {
+	  km0 = kappa0[j];
+	  km1 = kappa1[j];
+	  GetJLFromKappa(km0, &j0, &kl0);
+	  GetJLFromKappa(km1, &j1, &kl1);
+	  if (kl1 != kl) {
+	    i++;
+	    kl = kl1;
+	    if (i >= nkl) break;
 	  }
-	  GetJLFromKappa(kmp0, &jp0, &klp0);
-	  klp0_2 = klp0/2;
+	  kl0_2 = kl0/2;
+	  ipkp = ite;
+	  for (t = 0; t < nkappap; t++) {
+	    kmp0 = kappa0p[t];
+	    kmp1 = kappa1p[t];
+	    if (kmp1 != km1) {
+	      ipkp += n_tegrid;
+	      continue;
+	    }
+	    GetJLFromKappa(kmp0, &jp0, &klp0);
+	    klp0_2 = klp0/2;
 	  
-	  s = pk[ipk]*pkp[ipkp];
-	  s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
-	  if (km0 != kmp0) { 
-	    km0_m = km0; 
-	    kmp0_m = kmp0; 
-	    if (kl0_2 >= pw_scratch.qr) { 
-	      if (IsOdd(kl0_2)) { 
-		if (km0 < 0) km0_m = -km0 - 1; 
-	      } else { 
-		if (km0 > 0) km0_m = -km0 - 1; 
+	    s = pk[ipk]*pkp[ipkp];
+	    s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
+	    if (km0 != kmp0) { 
+	      km0_m = km0; 
+	      kmp0_m = kmp0; 
+	      if (kl0_2 >= pw_scratch.qr) { 
+		if (IsOdd(kl0_2)) { 
+		  if (km0 < 0) km0_m = -km0 - 1; 
+		} else { 
+		  if (km0 > 0) km0_m = -km0 - 1; 
+		} 
 	      } 
-	    } 
 
-	    if (klp0_2 >= pw_scratch.qr) { 
-	      if (IsOdd(klp0_2)) { 
-		if (kmp0 < 0) kmp0_m = -kmp0 - 1;
-	      } else { 
-		if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
+	      if (klp0_2 >= pw_scratch.qr) { 
+		if (IsOdd(klp0_2)) { 
+		  if (kmp0 < 0) kmp0_m = -kmp0 - 1;
+		} else { 
+		  if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
+		} 
 	      } 
-	    } 
-	    c0 = OrbitalIndex(0, km0_m, e0); 
-	    cp0 = OrbitalIndex(0, kmp0_m, e0);
-	    pha0 = GetPhaseShift(c0); 
-	    phap0 = GetPhaseShift(cp0);  
-	    r = pha0 - phap0;
-	    s *= cos(r);
-	  }
+	      c0 = OrbitalIndex(0, km0_m, e0); 
+	      cp0 = OrbitalIndex(0, kmp0_m, e0);
+	      pha0 = GetPhaseShift(c0); 
+	      phap0 = GetPhaseShift(cp0);  
+	      r = pha0 - phap0;
+	      s *= cos(r);
+	    }
 	
-	  for (iq = 0; iq < nq; iq++) { 
-	    rqt[iq] = 0.0; 
-	  }
-	  for (mi = -1; mi <= 1; mi += 2) { 
-	    s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
-	    s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
 	    for (iq = 0; iq < nq; iq++) { 
-	      if (-q[iq] <= k && -q[iq] <= kp) {
-		mf = mi + q[iq]; 
-		s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
-		s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
-		rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+	      rqt[iq] = 0.0; 
+	    }
+	    for (mi = -1; mi <= 1; mi += 2) { 
+	      s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
+	      s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
+	      for (iq = 0; iq < nq; iq++) { 
+		if (-q[iq] <= k && -q[iq] <= kp) {
+		  mf = mi + q[iq]; 
+		  s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
+		  s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
+		  rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+		} 
 	      } 
+	    }
+	    for (iq = 0; iq < nq; iq++) { 
+	      qk[iq][i] += s*rqt[iq]; 
 	    } 
-	  }
-	  for (iq = 0; iq < nq; iq++) { 
-	    qk[iq][i] += s*rqt[iq]; 
-	  } 
 
-	  ipkp += n_tegrid;
+	    ipkp += n_tegrid;
+	  }
+	  ipk += n_tegrid;
 	}
-	ipk += n_tegrid;
-      }
       
-      for (iq = 0; iq < nq; iq++) { 
-	r = qk[iq][0];
-	for (i = 1; i < nkl; i++) { 
-	  r += qk[iq][i]; 
-	  kl0 = pw_scratch.kl[i-1]; 
-	  kl1 = pw_scratch.kl[i];        
-	  for (j = kl0+1; j < kl1; j++) {       
-	    logj = LnInteger(j);
-	    UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
-		   one, &logj, &s);
-	    r += s; 
-	  }      
-	}    
-	rq[iq][ite][ie] = r;
-      } 
-      i = nkl - 1;
-      if (type1 == type2) {
-	if (type1 >= CBMULTIPOLES) {
-	  for (iq = 0; iq < nq; iq++) {
-	    if (nkl > 10) {
-	      b = qk[iq][i]/qk[iq][i-1];
-	      if (b < 0.9 && b > 0.0) {
-		b = pow(b, 1.0/(pw_scratch.kl[i] - pw_scratch.kl[i-1]));
-		b = b/(1.0 - b);
+	for (iq = 0; iq < nq; iq++) { 
+	  r = qk[iq][0];
+	  for (i = 1; i < nkl; i++) { 
+	    r += qk[iq][i]; 
+	    kl0 = pw_scratch.kl[i-1]; 
+	    kl1 = pw_scratch.kl[i];        
+	    for (j = kl0+1; j < kl1; j++) {       
+	      logj = LnInteger(j);
+	      UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
+		     one, &logj, &s);
+	      r += s; 
+	    }      
+	  }    
+	  rq[iq][ite][ie] = r;
+	} 
+	i = nkl - 1;
+	if (type1 == type2) {
+	  if (type1 >= CBMULTIPOLES) {
+	    for (iq = 0; iq < nq; iq++) {
+	      if (nkl > 10) {
+		b = qk[iq][i]/qk[iq][i-1];
+		if (b < 0.9 && b > 0.0) {
+		  b = pow(b, 1.0/(pw_scratch.kl[i] - pw_scratch.kl[i-1]));
+		  b = b/(1.0 - b);
+		} else {
+		  b = 0.0;
+		}
 	      } else {
 		b = 0.0;
 	      }
-	    } else {
-	      b = 0.0;
-	    }
-	    s = qk[iq][i]*b;
-	    rq[iq][ite][ie] += s;
-	  }
-	} else if (type1 >= 0) {
-	  for (iq = 0; iq < nq; iq++) {
-	    if (abs(q[iq]) == 2) {
-	      b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
-	    } else if (q[iq] == 0) {
-	      b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
-	    } else {
-	      b = 0.0;
-	    }
-	    if (b > 0) {
 	      s = qk[iq][i]*b;
 	      rq[iq][ite][ie] += s;
+	    }
+	  } else if (type1 >= 0) {
+	    for (iq = 0; iq < nq; iq++) {
+	      if (abs(q[iq]) == 2) {
+		b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
+	      } else if (q[iq] == 0) {
+		b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
+	      } else {
+		b = 0.0;
+	      }
+	      if (b > 0) {
+		s = qk[iq][i]*b;
+		rq[iq][ite][ie] += s;
+	      }
 	    }
 	  }
 	}
@@ -1021,7 +1277,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2, ie, np, nq, kkp;
+  int nz, j1, j2, ie, np, nq, kkp, q[MAXMSUB];
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
   double c1, c2, *g1, *g2;
@@ -1029,6 +1285,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
   double fvec[MAXNE], fjac[MAXNE*NPARAMS];
+  double born_egrid, born_cross;
 
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -1110,6 +1367,11 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     gos[t] = 0.0;
   }
   r = 0;
+  if (msub) {
+    for (t = 0; t < MAXMSUB; t++) {
+      params[t] = 0.0;
+    }
+  }
   if (type >= 0) {
     for (i = 0; i < nz; i++) {
       p = GetOrbital(ang[i].k0)->kappa;
@@ -1128,7 +1390,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	m = GetOrbital(ang[j].k1)->kappa;
 	GetJLFromKappa(m, &np, &ie);
 	if (IsOdd((h+ang[j].k+ie)/2)) continue;
-	c2 = ReducedCL(t, ang[i].k, np);
+	c2 = ReducedCL(t, ang[j].k, np);
 	if (c2 == 0) continue;
 	g2 = GeneralizedMoments(NGOSK, kgrid, 
 				ang[j].k0, ang[j].k1, ang[j].k/2);
@@ -1146,13 +1408,9 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       }
     }
     c = 0.0;
-    c1 = 1E30;
     for (t = 0; t < NGOSK; t++) {
       if (gos[t] > c) {
 	c = gos[t];
-      }
-      if (gos[t] < c1 && gos[t] > 0.0) {
-	c1 = gos[t];
       }
     }
     if (c <= 0.0) {
@@ -1162,50 +1420,92 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     } else {
       r /= 3.0;
       bethe[0] = r*2.0;
-      c *= EPS5;
+      c *= EPS8;
       for (i = NGOSK-1; i >= 0; i--) {
 	if (gos[i] > c) break;
       }
-      c2 = log(c1);
-      for (t = 0; t < NGOSK; t++) {
-	if (gos[t] > c1) gos[t] = log(gos[t]);
-	else gos[t] = c2;
-      }			
-      c = 0.5*kgrid[i];
-      n_born = 2;
+      c = kgrid[i];
       c1 = 0.5*c*c/te;
-      c1 = Max(c1, 50.0);
-      c2 = 0.5*c1;
-      born_egrid[0] = c2;
-      born_egrid[1] = c1;
-      g1 = rq;
-      for (i = 0; i < n_born; i++) {
-	c1 = sqrt(2.0*te*born_egrid[i]);
-	c2 = sqrt(2.0*te*(born_egrid[i]-1.0));
-	kint[0] = c1 - c2;
-	kint[NGOSK-1] = c1 + c2;
-	log_kint[0] = log(kint[0]);
-	log_kint[NGOSK-1] = log(kint[NGOSK-1]);
-	c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
-	for (t = 1; t < NGOSK-1; t++) {
-	  log_kint[t] = log_kint[t-1] + c1;
-	  kint[t] = exp(log_kint[t]);
-	}
-	np = 3;
-	j = NGOSK;
-	UVIP3P(np, j, log_kgrid, gos, j, log_kint, gosint);
-	for (t = 0; t < NGOSK; t++) {
-	  gosint[t] = exp(gosint[t]);
-	}
-	g1[i] = Simpson(gosint, 0, NGOSK-1);
-	g1[i] *= 4.0*c1;
-	if (bethe[0] > 0) g1[i] -= bethe[0]*log(born_egrid[i]);
+      born_egrid = Max(c1, 1000.0);
+      c1 = sqrt(2.0*te*born_egrid);
+      c2 = sqrt(2.0*te*(born_egrid-1.0));
+      kint[0] = c1 - c2;
+      kint[NGOSK-1] = c1 + c2;
+      log_kint[0] = log(kint[0]);
+      log_kint[NGOSK-1] = log(kint[NGOSK-1]);
+      c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
+      for (t = 1; t < NGOSK-1; t++) {
+	log_kint[t] = log_kint[t-1] + c1;
+	kint[t] = exp(log_kint[t]);
       }
-      c1 = 1.0/born_egrid[0];
-      c2 = 1.0/born_egrid[1];
-      bethe[2] = (g1[1] - g1[0])/(c2 - c1);
-      bethe[1] = g1[1] - bethe[2]*c2;
-    }
+      np = 3;
+      j = NGOSK;
+      UVIP3P(np, j, log_kgrid, gos, j, log_kint, gosint);
+      for (t = 0; t < NGOSK; t++) {
+	if (kint[t] < kgrid[0]) {
+	  gosint[t] = gos[0];
+	} else {
+	  break;
+	}
+      }
+      for (t = j-1; t >= 0; t--) {
+	if (kint[t] > kgrid[j-1]) {
+	  gosint[t] = gos[j-1];
+	} else {
+	  break;
+	}
+      }    
+      born_cross = 4.0*c1*Simpson(gosint, 0, NGOSK-1);
+      if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
+      else bethe[1] = born_cross;
+      bethe[2] = (born_egrid-1.0)*te;
+      if (msub) {
+	g2 = rq+MAXMSUB;
+	for (t = 0; t < MAXMSUB; t++) g2[t] = 0.0;
+	for (i = 0; i < nz; i++) {
+	  for (j = i; j < nz; j++) {
+	    c = ang[i].coeff * ang[j].coeff;
+	    if (i != j) c *= 2.0;	  
+	    nq = Min(ang[i].k, ang[j].k)/2 + 1;
+	    q[0] = 0;
+	    for (t = 1; t < nq; t++) {
+	      q[t] = q[t-1] + 2;
+	    }
+	    ty = CERadialQkBornMSub(ang[i].k0, ang[i].k1, 
+				    ang[j].k0, ang[j].k1, 
+				    ang[i].k, ang[j].k,
+				    te, bethe[2], nq, q, rq);
+	    nq = Min(ang[i].k, ang[j].k);
+	    kkp = (ang[i].k + ang[j].k)/2;
+	    p = 0;
+	    for (t = -j1; t <= 0; t += 2) {
+	      for (h = -j2; h <= j2; h += 2) {
+		m = t-h;
+		if (abs(m) <= nq) {
+		  s3j = W3j(j1, ang[i].k, j2, -t, m, h);
+		  if (ang[j].k != ang[i].k) {
+		    s3j *= W3j(j1, ang[j].k, j2, -t, m, h);
+		  } else {
+		    s3j *= s3j;
+		  }
+		  if (m < 0 && IsOdd(kkp)) s3j = -s3j;
+		  m = abs(m)/2;
+		  g2[p] += c*rq[m]*s3j;
+		  p++;
+		}
+	      }
+	    }
+	  }
+	}
+	p = 0;
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {
+	    params[p] = 8.0*g2[p]/born_cross;
+	    p++;
+	  }
+	}
+      }
+    }      
   } else {
     bethe[0] = -1.0;
     bethe[1] = 0.0;
@@ -1448,11 +1748,13 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     SetCEPWGrid(0, NULL, NULL);
   }
 
-  n_born = 3;
-  e = 50.0*emax;
+  e = 1000.0*emax;
   e1 = sqrt(2.0*e);
   e0 = sqrt(2.0*(e - emin));
   rmin = e1 - e0;
+  e = 50.0*emax;
+  e1 = sqrt(2.0*e);
+  e0 = sqrt(2.0*(e - emin));
   rmax = e1 + e0;
   kgrid[0] = rmin;
   kgrid[NGOSK-1] = rmax;
@@ -1599,7 +1901,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
     InitFile(f, &fhdr, &ce_hdr);  
     nsub = 1;
-    if (qk_mode == QK_FIT) {
+    if (msub) {
+      r.params = (float *) malloc(sizeof(float)*nsub);
+    } else if (qk_mode == QK_FIT) {
       m = ce_hdr.nparams * nsub;
       r.params = (float *) malloc(sizeof(float)*m);
     }
@@ -1621,16 +1925,17 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	r.upper = up[j];
 	r.nsub = k;
 	if (r.nsub > nsub) {
-	  if (qk_mode == QK_FIT) {
-	    m = ce_hdr.nparams * r.nsub;
-	    r.params = (float *) realloc(r.params, sizeof(float)*m);
-	  }
+	  r.params = (float *) realloc(r.params, sizeof(float)*r.nsub);
 	  m = ce_hdr.n_usr * r.nsub;
 	  r.strength = (float *) realloc(r.strength, sizeof(float)*m);
 	  nsub = r.nsub;
 	}
 
-	if (qk_mode == QK_FIT) {
+	if (msub) {
+	  for (m = 0; m < r.nsub; m++) {
+	    r.params[m] = (float) params[m];
+	  }
+	} else if (qk_mode == QK_FIT) {
 	  ip = 0;
 	  for (m = 0; m < r.nsub; m++) {
 	    for (ie = 0; ie < ce_hdr.nparams; ie++) {
@@ -1650,7 +1955,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	WriteCERecord(f, &r);
       }
     }
-    if (qk_mode == QK_FIT) free(r.params);
+    if (msub || qk_mode == QK_FIT) free(r.params);
     free(r.strength);
     DeinitFile(f, &fhdr);
     e0 = e1;

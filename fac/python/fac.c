@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.57 2003/06/07 01:19:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.58 2003/07/10 14:04:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1440,6 +1440,16 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 
   if (err < 0) return NULL;
 
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
+  double x;
+  
+  if (!PyArg_ParseTuple(args, "d", &x)) return NULL;
+
+  SetCEBorn(x);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -3579,6 +3589,35 @@ static PyObject *PLevelInfor(PyObject *self, PyObject *args) {
 		       r.ncomplex, r.sname, r.name);
 }
 
+static PyObject *PCECross(PyObject *self, PyObject *args) { 
+  PyObject *p, *q;
+  int i, negy, i0, i1;
+  double *egy;
+  char *ifn, *ofn;
+  
+  if (!PyArg_ParseTuple(args, "ssiiO", &ifn, &ofn, &i0, &i1, &p))
+    return NULL;
+
+  if (!PyList_Check(p) && !PyTuple_Check(p)) {
+    printf("Energy List must be a sequence\n");
+    return NULL;
+  }
+  
+  negy = PySequence_Length(p);
+  egy = (double *) malloc(sizeof(double)*negy);  
+  for (i = 0; i < negy; i++) {
+    q = PySequence_GetItem(p, i);
+    egy[i] = PyFloat_AsDouble(q);
+    Py_DECREF(q);
+  }
+  
+  CECross(ifn, ofn, i0, i1, negy, egy);
+  free(egy);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3588,6 +3627,7 @@ static struct PyMethodDef fac_methods[] = {
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
+  {"CECross", PCECross, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
@@ -3643,6 +3683,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
+  {"SetCEBorn", PSetCEBorn, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},

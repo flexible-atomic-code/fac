@@ -68,7 +68,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     9
-#define SUBSUBVERSION  8
+#define SUBSUBVERSION  9
 
 
 /* 
@@ -262,6 +262,7 @@
 #define EXCLMAX            128
 #define EXCLCB             48
 #define EXCTOL             5E-2
+#define XBORN              -1.0
 
 /* ionization */
 #define IONMAXK            8

@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.45 2003/06/19 02:31:54 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.46 2003/07/10 14:04:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -498,7 +498,13 @@ int WriteCERecord(FILE *f, CE_RECORD *r) {
   ce_header.ntransitions += 1;
   ce_header.length += m;
   m0 = m;
-  if (ce_header.qk_mode == QK_FIT) {
+  if (ce_header.msub) {
+    m = r->nsub;
+    ce_header.length += sizeof(float)*m;
+    n = fwrite(r->params, sizeof(float), m, f);
+    if (n != m) return 0;
+    m0 += sizeof(float)*m;
+  } else if (ce_header.qk_mode == QK_FIT) {
     m = ce_header.nparams * r->nsub;
     ce_header.length += sizeof(float)*m;
     n = fwrite(r->params, sizeof(float), m, f);
@@ -727,7 +733,21 @@ int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   m0 = sizeof(CE_RECORD);
   if (swp) SwapEndianCERecord(r);
   
-  if (h->qk_mode == QK_FIT) {
+  if (h->msub) {
+    m = r->nsub;
+    r->params = (float *) malloc(sizeof(float)*m);
+    n = fread(r->params, sizeof(float), m, f);
+    if (n != m) {
+      free(r->params);
+      return 0;
+    }
+    if (swp) {
+      for (i = 0; i < m; i++) {
+	SwapEndian((char *) &(r->params[i]), sizeof(float));
+      }
+    }
+    m0 += sizeof(float)*m;
+  } else if (h->qk_mode == QK_FIT) {
     m = h->nparams * r->nsub;
     r->params = (float *) malloc(sizeof(float)*m);
     n = fread(r->params, sizeof(float), m, f);
@@ -1249,6 +1269,217 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
   default:
     break;
   }
+  return 0;
+}
+
+void PrepCECrossHeader(CE_HEADER *h, double *data) {
+  double *eusr, *x, *logx;
+  int m, m1, j, t;
+
+  eusr = h->usr_egrid;
+  m = h->n_usr;
+  m1 = m + 1;
+  x = data+2+m1;
+  logx = x + m1;
+  x[0] = 0.0;
+  data[0] = h->te0*HARTREE_EV;
+  for (j = 0; j < m; j++) {
+    t = m-j;
+    x[t] = h->te0/(h->te0 + eusr[j]);
+  }
+}
+
+void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, double *data) {
+  double *eusr, *x, *y, *logx, *w;
+  double e, tcs[MAXNUSR];
+  float *cs;
+  int m, m1, j, t;
+  int j1, j2, t1, t2;
+
+  eusr = h->usr_egrid;
+  m = h->n_usr;
+  m1 = m + 1;
+  y = data + 2;
+  x = y + m1;
+  logx = x + m1;
+  w = logx + m1;
+  e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
+  data[1] = r->bethe;
+  x[0] = h->te0/(h->te0 + r->born[1]);
+  
+  cs = r->strength;
+
+  if (k == 0) {
+    if (h->msub) {
+      j1 = mem_en_table[r->lower].j;
+      j2 = mem_en_table[r->upper].j;
+      for (j = 0; j < m; j++) {
+	tcs[j] = 0.0;
+      }
+      t = 0;
+      for (t1 = -j1; t1 <= 0; t1 += 2) {
+	for (t2 = -j2; t2 <= j2; t2 += 2) {
+	  for (j = 0; j < m; j++) {
+	    tcs[j] += cs[t];
+	    if (t1 != 0) tcs[j] += cs[t];
+	    t++;
+	  }
+	}
+      }
+    } else {
+      for (j = 0; j < m; j++) {
+	tcs[j] = cs[j];
+      }
+    }
+
+    y[0] = r->born[0];
+    if (r->bethe <= 0) {
+      for (j = 0; j < m; j++) {
+	t = m-j;
+	y[t] = tcs[j];
+      }
+    } else {
+      for (j = 0; j < m; j++) {
+	t = m-j;
+	logx[j] = log(e/(e+eusr[j]));
+	y[t] = tcs[j] + r->bethe*logx[j];
+      }
+    }
+  }
+
+  if (h->msub) {
+    for (j = 0; j < m; j++) {
+      t = m-j;
+      if (r->bethe < 0) {
+	w[t] = cs[k*m+j]/y[t];
+      } else {
+	w[t] = cs[k*m+j]/(y[t] - r->bethe*logx[j]);
+      }
+    }
+    if (r->bethe < 0) {
+      w[0] = w[1];
+    } else {
+      w[0] = r->params[k];
+    }
+  }
+}
+
+double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h, 
+			  double *data, double *ratio) {
+  double *x, *y, *w;
+  int m, m1, n, one;
+  double a, b, x0, eth;
+
+  eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
+  eth = eth * HARTREE_EV;
+  
+  a = 0.0;
+  *ratio = 1.0;
+
+  if (e >= eth) {  
+    m = h->n_usr;
+    m1 = m + 1;
+    x0 = data[0]/(data[0]+e-eth);
+    y = data + 2;
+    x = y + m1;
+    w = x + 2*m1;
+    
+    n = 2;
+    one = 1;
+    UVIP3P(n, m1, x, y, one, &x0, &a);
+    if (data[1] > 0.0) {
+      a -= data[1]*log(eth/e);
+    }
+    if (h->msub) {
+      UVIP3P(n, m1, x, w, one, &x0, &b);
+      a *= b;
+      *ratio = b;
+    }
+  }
+
+  return a;
+}
+
+int CECross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CE_HEADER h;
+  CE_RECORD r;
+  int i, t, m, k;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, ratio;
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+    
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;  
+  }
+  
+  if (fh.type != DB_CE || fh.nblocks == 0) {
+    printf("File %s is not of DB_CE type\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+   
+  while (1) {
+    n = ReadCEHeader(f1, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCERecord(f1, &r, swp, &h);
+      if (r.lower == i0 && r.upper == i1) {
+	PrepCECrossHeader(&h, data);
+	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
+		r.lower, mem_en_table[r.lower].j,
+		r.upper, mem_en_table[r.upper].j,
+		e*HARTREE_EV, negy, r.nsub);
+	for (k = 0; k < r.nsub; k++) {
+	  PrepCECrossRecord(k, &r, &h, data);
+	  for (t = 0; t < negy; t++) {
+	    cs = InterpolateCECross(egy[t], &r, &h, data, &ratio);
+	    a = egy[t]/HARTREE_EV;
+	    a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
+	    a = PI*AREA_AU20/(2.0*a);
+	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
+	    a *= cs;
+	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\n", 
+		    egy[t], cs, a, ratio);
+	  }
+	  fprintf(f2, "\n\n");
+	}
+	goto DONE;
+      }
+    }
+  }
+
+ DONE:
+  fclose(f1);
+  fclose(f2);
   return 0;
 }
 
@@ -2034,7 +2265,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 		r.upper, mem_en_table[r.upper].j,
 		e*HARTREE_EV, r.nsub);
 	fprintf(f2, "%11.4E %11.4E %11.4E\n", 
-		r.bethe, r.born[0], r.born[1]);
+		r.bethe, r.born[0], r.born[1]*HARTREE_EV);
       } else {
 	fprintf(f2, "%5d\t%5d\t%d\n", 
 		r.lower, r.upper, r.nsub);
@@ -2045,7 +2276,9 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
       p1 = 0;
       p2 = 0;
       for (k = 0; k < r.nsub; k++) {
-	if (h.qk_mode == QK_FIT) {
+	if (h.msub) {
+	  fprintf(f2, "%11.4E\n", r.params[k]);
+	} else if (h.qk_mode == QK_FIT) {
 	  for (t = 0; t < h.nparams; t++) {
 	    fprintf(f2, "%11.4E ", r.params[p1]);
 	    p1++;
@@ -2072,7 +2305,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	  fprintf(f2, "--------------------------------------------\n");
 	}
       }      
-      if (h.qk_mode == QK_FIT) free(r.params);
+      if (h.msub || h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
     }
     free(h.tegrid);

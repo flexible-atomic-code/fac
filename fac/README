@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.32 2003/06/19 02:31:49 mfgu Exp $
+# rcsid = $Id: README,v 1.33 2003/07/10 14:04:33 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -18,7 +18,8 @@ minpack/,    minpack optimization package.
 quadpack/,   some routines from quadpack for quadrature.
 mpfun/,      it used to be the multi-precision floating point arithmetic 
              package by Beiley. Since v0.8.6, it was replaced by my own
-	     implementation of quad-precision arithmetics.
+	     implementation of quad-precision arithmetics. The associated
+	     Legendre functions are also put into this directory.
 ode/,	     Livermore Solver for odinary differential equations.
 python/,     python interface.
 sfac/,       non-python interface.
