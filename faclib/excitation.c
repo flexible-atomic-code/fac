@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.59 2003/07/31 21:40:26 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.60 2003/08/13 20:44:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -42,6 +42,9 @@ static double kint[NGOSK];
 static double log_kint[NGOSK];
 static double gosint[NGOSK];
 static double xborn = XBORN;
+static double goskmax = -1.0;
+static double goskmin = -1.0;
+static double goseps = 0.0;
 
 #ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
@@ -76,6 +79,17 @@ int SetCEQkMode(int m, double tol) {
 int SetCEBorn(double x) {
   xborn = x;
   return 0;
+}
+
+int SetGOSLimits(double max, double min) {
+  goskmin = min;
+  goskmax = max;
+
+  return 0;
+}
+
+double GetGOSTail(void) {
+  return goseps;
 }
 
 int SetCEEGridLimits(double min, double max, int type) {
@@ -412,7 +426,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   }
   for (t = nk-1; t >= 0; t--) {
     if (kint[t] > kgrid[nk-1]) {
-      gosint[t] = gos[nk-1];
+      gosint[t] = 0.0;
     } else {
       break;
     }
@@ -497,7 +511,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   }
   for (t = nk-1; t >= 0; t--) {
     if (kint[t] > kgrid[nk-1]) {
-      gost[t] = gos[nk-1];
+      gost[t] = 0.0;
     } else {
       break;
     }
@@ -1291,6 +1305,10 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     } else {
       r /= 3.0;
       bethe[0] = r*2.0;
+      c1 = fabs(gos[NGOSK-1]/c);
+      if (c1 > goseps) {
+	goseps = c1;
+      }
       c *= EPS8;
       for (i = NGOSK-1; i >= 0; i--) {
 	if (gos[i] > c) break;
@@ -1321,11 +1339,11 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       }
       for (t = j-1; t >= 0; t--) {
 	if (kint[t] > kgrid[j-1]) {
-	  gosint[t] = gos[j-1];
+	  gosint[t] = 0.0;
 	} else {
 	  break;
 	}
-      }    
+      }
       born_cross = 4.0*c1*Simpson(gosint, 0, NGOSK-1);
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
@@ -1619,11 +1637,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     SetCEPWGrid(0, NULL, NULL);
   }
 
-  e = 1000.0*emax;
+  goseps = 0.0;
+  if (goskmin < 0.0) {
+    e = 1000.0*emax;
+  } else {
+    e = goskmin*emax;
+  }
   e1 = sqrt(2.0*e);
   e0 = sqrt(2.0*(e - emin));
   rmin = e1 - e0;
-  e = 50.0*emax;
+  if (goskmax < 0.0) {
+    e = 50.0*emax;
+  } else {
+    e = goskmax*emax;
+  }
   e1 = sqrt(2.0*e);
   e0 = sqrt(2.0*(e - emin));
   rmax = e1 + e0;

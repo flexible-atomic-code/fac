@@ -2210,6 +2210,13 @@ function \key{Config}. It is useful, e.g., when one wants to know the
 non-relativistic configurations of \key{1*2 2*2 3*1}. 
 \end{fundesc}
 
+\begin{fundesc}{GetGOSTail}{}
+Return the maximum ratio of the generalized oscillator strengths at the
+largest momentum transfer to its maximum. This number should be generally
+small in order for the plane-wave Born approximation of collisional
+excitation to be accurate. 
+\end{fundesc}
+
 \begin{fundesc}{GetPotential}{fn}
 Print the radial potential obtained by \key{OptimizeRadial} to the file
 \var{fn}. The file starts with the parameters for the analytic fit the to
@@ -2544,6 +2551,13 @@ ionization.
 Set the computation mode for the ionization radial integrals. \var{mode} may
 be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
+\end{fundesc}
+
+\begin{fundesc}{SetGOSLimits}{max\opt{, min}}
+Set the collision energy corresponding to the maximum and minimum momentum
+transfer grid for generalized oscillator strenghth. These numbers are
+multiplied by the maximum transition energy of the transition array to produce
+the actual energy values.
 \end{fundesc}
 
 \begin{fundesc}{SetHydrogenicNL}{\opt{n,\opt{l}}}
