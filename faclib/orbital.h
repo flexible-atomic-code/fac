@@ -44,9 +44,9 @@ int GetNMax(void);
 double *GetVEffective(void);
 double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
-int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
-int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
-int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
+int RadialSolver(ORBITAL *orb,  POTENTIAL *pot);
+int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
+int RadialBound(ORBITAL *orb, POTENTIAL *pot);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);

@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.78 2003/05/15 18:05:43 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.79 2003/05/17 21:47:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -62,8 +62,8 @@ static struct {
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
-static double rgrid_min;
-static double rgrid_max;    
+static double rgrid_min = 0;
+static double rgrid_max = 0;    
  
 static MULTI *slater_array;
 static MULTI *breit_array;
@@ -171,8 +171,8 @@ void SetScreening(int n_screen, int *screened_n,
 }
 
 int SetRadialGrid(double rmin, double rmax) {
-  if (rmin > 0.0) rgrid_min = rmin;
-  if (rmax > 0.0) rgrid_max = rmax;
+  rgrid_min = rmin;
+  rgrid_max = rmax;
   potential->flag = 0;
   return 0;
 }
@@ -525,9 +525,10 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   potential->N = a;  
 
   /* setup the radial grid if not yet */
-  if (potential->flag == 0) { 
+  if (potential->flag == 0) {
     SetOrbitalRGrid(potential, rgrid_min, rgrid_max);
   }
+
   SetPotentialZ(potential, 0.0);
   z = potential->Z[MAX_POINTS-1];
   if (a > 0.0) z = z - a + 1;
@@ -669,7 +670,7 @@ int RefineRadial(int maxfun, int msglvl) {
     orb.n = i + 1;
     orb.kappa = -1;
     potential->flag = 1;
-    ierr = RadialSolver(&orb, potential, EPS8);
+    ierr = RadialSolver(&orb, potential);
     if (ierr) return ierr;
     memcpy(pbasis.b[i], orb.wfun, sizeof(double)*MAX_POINTS);    
     free(orb.wfun);
@@ -697,7 +698,6 @@ int RefineRadial(int maxfun, int msglvl) {
 }
 
 int SolveDirac(ORBITAL *orb) {
-  double eps;
   int err;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -705,10 +705,9 @@ int SolveDirac(ORBITAL *orb) {
 #endif
   
   err = 0;
-  eps = 1E-8;
   
   potential->flag = -1;
-  err = RadialSolver(orb, potential, eps);
+  err = RadialSolver(orb, potential);
   if (err) { 
     printf("Error ocuured in RadialSolver, %d\n", err);
     printf("%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);

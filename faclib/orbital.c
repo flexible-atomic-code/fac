@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.45 2003/03/29 23:21:15 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.46 2003/05/17 21:47:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -175,7 +175,7 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
   return energy;
 }
   
-int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
+int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
   int ierr;
   int nm, km, k;
   double z;
@@ -193,9 +193,9 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
       return 0;
     }    
     if (orb->n < nmax) {
-      ierr = RadialBound(orb, pot, tol);
+      ierr = RadialBound(orb, pot);
     } else {
-      ierr = RadialRydberg(orb, pot, tol);
+      ierr = RadialRydberg(orb, pot);
     }
   } else {
     ierr = RadialFree(orb, pot);
@@ -265,7 +265,7 @@ void Differential(double *p, double *dp, int i1, int i2) {
   }
 }    
     
-int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
+int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   double z, z0, e, de, ep, delta, emin, emax;
   double *p, norm2, fact, p1, p2, qo, qi;
   int i, kl, nr, nodes, niter;
@@ -337,6 +337,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   }
 
   niter = 0;
+  de = 0.0;
   while (niter < max_iteration) {
     niter++;
     SetPotentialW(pot, e, orb->kappa);
@@ -367,11 +368,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     qi /= p[i2]*pot->dr_drho[i2];
     fact = p2/p[i2];
     norm2 += fact*fact*InnerProduct(i2, MAX_POINTS-1, p, p, pot);
-    
+
     delta = 0.5*p2*p2*(qo - qi)/norm2;
-    ep = fabs(e)*tol;
-    ep = Max(tol, ep);
     e = e + delta;
+    ep = fabs(e)*ENERELERR;
+    if (ep < ENEABSERR) ep = ENEABSERR;
     if (fabs(delta) < ep) break;
   }
   if (niter == max_iteration) {
@@ -408,7 +409,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   return 0;
 }
 
-int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
+int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 #define ME 20
   double z, e, e0;
   int i, kl, niter, ierr;
@@ -484,9 +485,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       norm2 += fact*fact*InnerProduct(i2, MAX_POINTS-1, p, p, pot);
       
       delta = 0.5*p2*p2*(qo - qi)/norm2;
-      ep = fabs(e)*tol;
-      ep = Max(tol, ep);
       e = e + delta;
+      ep = fabs(e)*ENERELERR;
+      if (ep < ENEABSERR) ep = ENEABSERR;
       if (fabs(delta) < ep) {
 	fact = 1.0/sqrt(norm2);
 	if (IsOdd(nodes)) fact = -fact;
