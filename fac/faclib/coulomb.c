@@ -1,4 +1,5 @@
 #include "coulomb.h"
+#include "cf77.h"
 
 /*************************************************************
   Implementation for module "coulomb". 
@@ -7,7 +8,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.21 2003/01/13 02:57:41 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.22 2003/01/13 18:48:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -28,12 +29,6 @@ static int _nm_max = 50000;
 static int _nm_factor = 100;
 static int _nm = 0;
 
-
-double argam_(double *x, double *y);
-void acofz1_(double *, double *, int *, int *, double *, 
-	     double *, int *, int *);
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
 
 void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
@@ -75,7 +70,7 @@ double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
   double z0 = 1.0;
   int nmax = 512;
   double ac[1024];
-  static iopt = 2;
+  static int iopt = 2;
   double **qk, *t;
   int n, i;
   
@@ -92,11 +87,11 @@ double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
     t = *qk;
     am = 100.0;
     if (iopt == 2) {
-      acofz1_(&z0, &am, &nmax, &n0, ac, &anc, &n1, &iopt);
+      ACOFZ1(z0, am, nmax, n0, ac, &anc, n1, iopt);
     }
     iopt = 1;
     for (n = 1; n < n1; n++) {
-      acofz1_(&z0, &am, &n1, &n, ac, &anc, &n1, &iopt);
+      ACOFZ1(z0, am, n1, n, ac, &anc, n1, iopt);
       for (i = 0; i < n; i++) {
 	*(t++) = ac[i];
       }
@@ -115,7 +110,7 @@ double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
 }
 
 double TRRateHydrogenic(double z, int n0, int kl0, int n1, int kl1, int s) {
-  double e, c, g, al;
+  double c, g, al;
   double factor, e2, r;
 
   c = HydrogenicDipole(z, n0, kl0, n1, kl1);
@@ -253,7 +248,7 @@ double HydrogenicSelfEnergy(double z, int n, int k) {
     return 0.0;
   }
 
-  uvip3p_(&np, &nx, zd, sd[id], &m, &z, &r);
+  UVIP3P(np, nx, zd, sd[id], m, &z, &r);
   
   c = FINE_STRUCTURE_CONST*z;
   c = c*c*c*c;
@@ -282,7 +277,7 @@ double CoulombPhaseShift(double z, double e, int kappa) {
     phase = -0.5*(atan(b1) + atan(b2) + PI);
   }
 
-  phase -= argam_(&r, &y);
+  phase -= ARGAM(r, y);
   phase += (1.0 - r)*0.5*PI;
 
   return phase;

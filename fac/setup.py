@@ -13,6 +13,7 @@ if (platform == 'linux'):
       ldflags = ''
       cc = 'gcc'
       fc = 'g77'
+      cfortran = 'f2cFortran'
 elif (platform == 'cygwi'):
       fortranlib = ['g2c']
       fflags = '-O -c'
@@ -20,6 +21,7 @@ elif (platform == 'cygwi'):
       ldflags = ''
       cc = 'gcc'
       fc = 'g77'
+      cfortran = 'f2cFortran'
 elif (platform == 'sunos'):
       fortranlib = ['F77', 'M77', 'sunmath']
       fflags = '-O -c -KPIC'
@@ -27,6 +29,7 @@ elif (platform == 'sunos'):
       ldflags = ''
       cc = 'cc'
       fc = 'f77'
+      cfortran = 'sunFortran'
 elif (platform == 'darwi'):
       fortranlib = ['g2c']
       fflags = '-O -c -fno-common'
@@ -34,11 +37,12 @@ elif (platform == 'darwi'):
       ldflags = ''
       cc = 'cc'
       fc = 'f77'
+      cfortran = 'f2cFortran'
 
 flib = ' '.join(map(lambda a:'-l%s'%a, fortranlib))
 macros = '"CC=%s" "FC=%s" '%(cc, fc)
 macros = macros + '"FORTRANLIB=%s" '%flib
-macros = macros + '"CFLAGS=%s" '%cflags
+macros = macros + '"CFLAGS=%s -D%s" '%(cflags, cfortran)
 macros = macros + '"FFLAGS=%s" '%fflags 
 macros = macros + '"LDFLAGS=%s" '%ldflags 
 
@@ -72,5 +76,6 @@ else:
                                      ["python/util.c"],
                                      include_dirs = incdir,
                                      library_dirs = libdir,
-                                     libraries = libs)
+                                     libraries = libs,
+                                     define_macros = [(cfortran, None)])
                            ])

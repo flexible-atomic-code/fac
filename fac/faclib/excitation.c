@@ -1,6 +1,7 @@
 #include "excitation.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.43 2003/01/13 02:57:42 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.44 2003/01/13 18:48:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -53,9 +54,6 @@ static MULTI *pk_array;
 static MULTI *kappa0_array;
 static MULTI *kappa1_array;
 static MULTI *qk_array;
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
 
 
 CEPW_SCRATCH *GetCEPWScratch(void) {
@@ -545,8 +543,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  kl1 = pw_scratch.kl[i];
 	  for (j = kl0+1; j < kl1; j++) {
 	    logj = LnInteger(j);
-	    uvip3p_(&np, &nkl, pw_scratch.log_kl, qk, 
-		    &one, &logj, &s);
+	    UVIP3P(np, nkl, pw_scratch.log_kl, qk, 
+		   one, &logj, &s);
 	    r += s;
 	  }
 	}
@@ -758,8 +756,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	  kl1 = pw_scratch.kl[i];        
 	  for (j = kl0+1; j < kl1; j++) {       
 	    logj = LnInteger(j);
-	    uvip3p_(&np, &nkl, pw_scratch.log_kl, qk,
-		    &one, &logj, &s);
+	    UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
+		   one, &logj, &s);
 	    r += s; 
 	  }      
 	}    
@@ -862,7 +860,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
 	rq[m] = rqe[j];
 	j += n_egrid;
       }
-      uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
+      UVIP3P(np, n_tegrid, xte, rq, nd, &x0, &rqc[i]);
     }
   }
 
@@ -905,7 +903,7 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
 	  rq[m] = rqe[j];
 	  j += n_egrid;
 	}
-	uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
+	UVIP3P(np, n_tegrid, xte, rq, nd, &x0, &rqc[i]);
       }
       rqe += n;
       rqc += n_egrid;
@@ -1182,7 +1180,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	}
 	np = 3;
 	j = NGOSK;
-	uvip3p_(&np, &j, log_kgrid, gos, &j, log_kint, gosint);
+	UVIP3P(np, j, log_kgrid, gos, j, log_kint, gosint);
 	for (t = 0; t < NGOSK; t++) {
 	  gosint[t] = exp(gosint[t]);
 	}
@@ -1254,7 +1252,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	  qkc[ie] *= 8.0;
 	  qkc[ie] = log(qkc[ie]);
 	}
-	uvip3p_(&np, &n_egrid, log_egrid, qkc, &n_usr, log_usr, qkt);
+	UVIP3P(np, n_egrid, log_egrid, qkc, n_usr, log_usr, qkt);
 	for (ie = 0; ie < n_usr; ie++) {
 	  qkt[ie] = exp(qkt[ie]);
 	}
@@ -1262,7 +1260,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	for (ie = 0; ie < n_egrid; ie++) {
 	  qkc[ie] *= 8.0;
 	}
-	uvip3p_(&np, &n_egrid, log_egrid, qkc, &n_usr, log_usr, qkt);
+	UVIP3P(np, n_egrid, log_egrid, qkc, n_usr, log_usr, qkt);
       }
     } else if (qk_mode == QK_EXACT) {
       for (ie = 0; ie < n_usr; ie++) {
@@ -1296,7 +1294,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	      rqk[ie] *= 8.0;
 	      rqk[ie] = log(rqk[ie]);
 	    }
-	    uvip3p_(&np, &n_egrid, log_egrid, rqk, &n_usr, log_usr, qkt);
+	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, qkt);
 	    for (ie = 0; ie < n_usr; ie++) {
 	      qkt[ie] = exp(qkt[ie]);
 	    }
@@ -1311,7 +1309,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    for (ie = 0; ie < n_egrid; ie++) {
 	      rqk[ie] *= 8.0;
 	    }
-	    uvip3p_(&np, &n_egrid, log_egrid, rqk, &n_usr, log_usr, qkt);
+	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, qkt);
 	    p++;
 	    rqk += n_egrid;
 	    qkt += n_usr;

@@ -1,6 +1,7 @@
 #include "interpolation.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.10 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.11 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,20 +16,6 @@ static struct {
   void (*function)(int, double *, int , double *, double *, 
 		   double *, double *, int, void *);
 } minpack_params;
-
-void dgesdd_(char *jobz, int *m, int *n, double *a, int *lda, 
-	     double *s, double *u, int *ldu, double *vt, int *ldvt,
-	     double *work, int *lwork, int *iwork, int *info);
-void chkder_(int *, int *, double *, double *, double *, int *, 
-	     double *, double *, int *, double *);
-void lmder_(void F(int *, int *, double *, double *, double *, int *, int *),
-	    int *, int *, double *, double *, double *, int *, double *, 
-	    double *, double *, int *, double *, int *, double *, int *,
-	    int *, int *, int *, int *, double *, double *, double *,
-	    double *, double *);
-void lmder1_(void F(int *, int *, double *, double *, double *, int *, int *),
-	     int *, int *, double *, double *, double *, int *, double *, 
-	     int *, int *, double *, int *);
 
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2) {
@@ -166,8 +153,8 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
     }
   }
 
-  dgesdd_(jobz, &nd, &np, u, &nd, w, u, &nd, v, &np, 
-	  dwork, &lwork, iwork, &infor);
+  DGESDD(jobz, nd, np, u, nd, w, u, nd, v, np,
+	  dwork, lwork, iwork, &infor);
     
   wmax = w[0];
   thresh = tol*wmax;
@@ -242,8 +229,10 @@ static void MinFunc(int *m, int *n, double *x, double *fvec,
       }
     }
   }
-
 }
+/* provide fortran access with cfortran.h */
+FCALLSCSUB7(MinFunc, MINFUNC, minfunc, PINT, PINT, 
+	    DOUBLEV, DOUBLEV, DOUBLEV, PINT, PINT)
     
 int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    double *fvec, double *fjac, int ldfjac, double *wa, int lwa,
@@ -273,11 +262,11 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   mode = 1;
   /*
   MinFunc(&n, &np, p, fvec, fjac, &ldfjac, &mode);
-  chkder_(&n, &np, p, fvec, fjac, &ldfjac, wa3, wa4, &mode, diag);
+  CHKDER(n, np, p, fvec, fjac, ldfjac, wa3, wa4, mode, diag);
   MinFunc(&n, &np, wa3, wa4, fjac, &ldfjac, &mode);
   mode = 2;
   MinFunc(&n, &np, p, fvec, fjac, &ldfjac, &mode);
-  chkder_(&n, &np, p, fvec, fjac, &ldfjac, wa3, wa4, &mode, diag);
+  CHKDER(n, np, p, fvec, fjac, ldfjac, wa3, wa4, mode, diag);
   for (nfev = 0; nfev < n; nfev++) {
     printf("%d %10.3E\n", nfev, diag[nfev]);
   }
@@ -288,9 +277,9 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   nprint = 0;
   factor = 100.0;
   ftol = tol*tol*n;
-  lmder_(MinFunc, &n, &np, p, fvec, fjac, &ldfjac, 
-	 &ftol, &tol, &zero, &maxfev, diag, &mode, &factor,
-	 &nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
+  LMDER(C_FUNCTION(MINFUNC, minfunc), n, np, p, fvec, fjac, ldfjac, 
+	ftol, tol, zero, maxfev, diag, mode, factor,
+	nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
 
   return info;
 }

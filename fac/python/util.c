@@ -1,4 +1,4 @@
-static char *rcsid="$Id: util.c,v 1.1 2002/04/25 16:22:29 mfgu Exp $";
+static char *rcsid="$Id: util.c,v 1.2 2003/01/13 18:48:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -8,9 +8,7 @@ USE (rcsid);
 #include <stdio.h>
 
 #include "interpolation.h"
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
+#include "cf77.h"
 
 static PyObject *ErrorObject;
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
@@ -110,7 +108,7 @@ static PyObject *PUVIP3P(PyObject *self, PyObject *args) {
     x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
     y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
   }
-  uvip3p_(&np, &n, x, y, &m, x0, y0);
+  UVIP3P(np, n, x, y, m, x0, y0);
   if (f) {
     py0 = Py_BuildValue("d", y0[0]);
   } else {

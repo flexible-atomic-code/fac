@@ -1,7 +1,9 @@
-#include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.42 2003/01/13 02:57:43 mfgu Exp $";
+#include "structure.h"
+#include "cf77.h"
+
+static char *rcsid="$Id: structure.c,v 1.43 2003/01/13 18:48:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -35,14 +37,6 @@ static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 
-double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
-void dspevd_(char *jpbz, char *uplo, int *n, double *ap, double *w, 
-	     double *z, int *ldz, double *work, int *lwork,
-	     int *iwork, int *liwork, int *info);
-void dgemv_(char *trans, int *m, int *n, double *alpha, double *b, 
-	    int *lda, double *x, int *incx, double *beta, 
-	    double *y, int *incy);
-void dscal_(int *n, double *a, double *x, int *incx);
 
 #ifdef PERFORM_STATISTICS 
 static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -629,8 +623,8 @@ int DiagnolizeHamilton(void) {
   
   w = mixing;
   z = mixing + n;
-  dspevd_(jobz, uplo, &n, ap, w, z, &ldz, h->work, &lwork,
-	  h->iwork, &liwork, &info);
+  DSPEVD(jobz, uplo, n, ap, w, z, ldz, h->work, lwork,
+	 h->iwork, liwork, &info);
   if (info) {
     printf("dspevd Error: %d\n", info);
     goto ERROR;
@@ -645,7 +639,7 @@ int DiagnolizeHamilton(void) {
     d_zero = 0.0;
     for (i = 0; i < n; i++) {
       x = y+n;
-      dgemv_(trans, &np, &n, &d_one, b, &np, z, &one, &d_zero, x, &one);
+      DGEMV(trans, np, n, d_one, b, np, z, one, d_zero, x, one);
       y += m;
       z += n;
     }
@@ -666,20 +660,20 @@ int DiagnolizeHamilton(void) {
     }
     w = h->mixing;
     d = h->work+lwork+t0;
-    dspevd_(jobz, uplo, &n, ap, w, d, &ldz, h->work, &lwork,
-	    h->iwork, &liwork, &info);
+    DSPEVD(jobz, uplo, n, ap, w, d, ldz, h->work, lwork,
+	    h->iwork, liwork, &info);
     y = h->mixing+n;
     z = mixing+n;
     for (i = 0; i < n; i++) {
       x = y+n;
-      dgemv_(trans, &n, &n, &d_one, z, &n, d, &one, &d_zero, y, &one);
-      dgemv_(trans, &np, &n, &d_one, b, &np, y, &one, &d_zero, x, &one);
+      DGEMV(trans, n, n, d_one, z, n, d, one, d_zero, y, one);
+      DGEMV(trans, np, n, d_one, b, np, y, one, d_zero, x, one);
       for (j = 0; j < np; j++) {
 	x[j] *= 1.0/(w[i]-ep[j]);
       } 
-      a = ddot_(&np, x, &one, x, &one);
+      a = DDOT(np, x, one, x, one);
       a = 1.0/sqrt(1.0+a);
-      dscal_(&m, &a, y, &one);
+      DSCAL(m, a, y, one);
       y += m;
       d += n;
     }

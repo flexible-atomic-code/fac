@@ -1,6 +1,7 @@
 #include "dbase.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.38 2002/12/06 02:52:54 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.39 2003/01/13 18:48:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,9 +21,6 @@ static DR_HEADER dr_header;
 static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
 static int iground;
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
 
 int CheckEndian(F_HEADER *fh) {
   unsigned short t = 0x01;
@@ -532,7 +530,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   int n, swp;
   RR_HEADER h;
   RR_RECORD r;
-  int i, t, nb, m, k;
+  int i, t, nb, m;
   float *params, *strength;
   float e, eph, ee, phi, rr;
   double *xusr, *dstrength, *c, tc, emax;
@@ -648,7 +646,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	eph = ee + e;
 	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
-	  uvip3p_(&np, &(h.n_usr), xusr, dstrength, &one, &x, &tc);
+	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
 	  tc = exp(tc);
 	} else {
 	  x = (ee + params[3])/params[3];
@@ -1297,8 +1295,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
-  int nb;
-  int m, k;
+  int nb, k, m;
   float *params, *strength;
   float e, eph, ee, phi, rr;
 
@@ -1508,8 +1505,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
-  int nb;
-  int m, k;
+  int nb, m;
   float *params, *strength;
   float e, a;
 
