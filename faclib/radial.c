@@ -35,9 +35,9 @@ static struct {
 } optimize_control = {EPS6, 100, 1.0, 1, 0, NULL, 0};
 
 static AVERAGE_CONFIG average_config;
-
+ 
 static double rgrid_min = 1E-5;
-static double rgrid_max = 0.5E4;    
+static double rgrid_max = 5E3;    
 
 static RAD_TIMING rad_timing = {0, 0};
  

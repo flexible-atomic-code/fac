@@ -5,7 +5,6 @@
 #include "nucleus.h"
 
 #define MAX_POINTS 650
-#define CUTOFF_POINTS 10
 
 typedef struct _POTENTIAL_ {
   int flag;

@@ -35,6 +35,7 @@ static double _dwork3[MAX_POINTS];
 static double _dwork4[MAX_POINTS];
 
 static int max_iteration = 2000;
+static int nmax;
 
 static int _SetVEffective(int kl, POTENTIAL *pot);
 static int _MatchPoints(double e, int *i1, int *i2);
@@ -53,12 +54,51 @@ double *GetVEffective() {
 }
 
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
-  if (orb->n > 0) {
+  if (orb->n >= nmax) {
+    return RadialRydberg(orb, pot, tol);
+  }else if (orb->n > 0) {
     return RadialBound(orb, pot, tol);
   } else {
     return RadialFree(orb, pot, tol);
   }  
 }
+
+int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
+  double z, e, e0;
+  int i, kl, niter, ierr;
+  double *p, neff;
+  double lambda, eta0, x0, y5, y5p;
+
+  z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
+  kl = orb->kappa;
+  if (kl < 0 || kl >= orb->n) {
+      printf("Invalid orbital angular momentum, L=%d\n", kl);
+      return -1;
+  }
+  _SetVEffective(kl, pot);
+  
+  neff = orb->n;
+  e = z/neff;
+  for (i = MAX_POINTS-1; i > 100; i--) {
+    if (e > _veff[i]) break;
+    e0 = fabs((pot->Vc[i]+pot->U[i])*pot->rad[i]-z);
+    if (e0 > tol*z || e0 > z) break;
+  }
+  i2 = i;
+  lambda = kl;
+
+  while (1) {    
+    eta0 = neff;
+    x0 = z*pot->rad[i2]/eta0;
+    y5n_(&lambda, &eta0, &x0, &y5, &y5p, &ierr);
+    i2p = i2+1;
+    nodes = _Outward(p, e, pot, i2p, i2p);
+    i2m = i2-1;
+    qo = (-p[i2m]+p[i2p]);
+  }
+
+}  
+  
 
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double z, e, e0, emin, emax;
@@ -77,12 +117,12 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   if (pot->flag < 0) {
     kl = (kl < 0)? (-kl-1):kl;
   }
+  if (kl < 0 || kl >= orb->n) {
+      printf("Invalid orbital angular momentum, L=%d\n", kl);
+      return -1;
+  }
 
   if (pot->flag < 0) {
-    if (orb->kappa == 0 || orb->kappa > orb->n) {
-      printf("Kappa == 0 or Kappa > N in Bound\n");
-      return -1;
-    }
     SetPotentialW(pot, e, orb->kappa); 
     p = malloc(sizeof(double)*2*MAX_POINTS);
     if (!p) return -1;
@@ -496,7 +536,7 @@ int _SetVEffective(int kl, POTENTIAL *pot) {
 
   kl1 = 0.5*kl*(kl+1);
  
-  for (i = 0; i < MAX_POINTS-CUTOFF_POINTS; i++) {
+  for (i = 0; i < MAX_POINTS; i++) {
     r = pot->rad[i];
     r *= r;
     _veff[i] = pot->Vc[i] + pot->U[i] + kl1/r;
@@ -504,7 +544,6 @@ int _SetVEffective(int kl, POTENTIAL *pot) {
       _veff[i] += pot->W[i];
     }
   }
-  for (; i < MAX_POINTS; i++) _veff[i] = 0.0;
 
   return 0;
 }
@@ -513,7 +552,7 @@ int _MatchPointsFree(double e, int *i1, int *i2, POTENTIAL *pot) {
   int i, i0, nz;
   double x, a, b;
 
-  i0 = MAX_POINTS - CUTOFF_POINTS + 2;
+  i0 = MAX_POINTS - 10;
   for (i = i0; i > 100; i--) { 
     x = e - _veff[i];
     if (x < 0.0) {
@@ -539,12 +578,14 @@ int _MatchPoints(double e, int *i1, int *i2) {
   *i1 = 0;  
 
   i = MAX_POINTS - 1;
-  if (e >= _veff[i]) return -1;
   *i2 = 0;
   for (; i > 0; i--) {   
-    if (e > _veff[i]) break;
+    if (e > _veff[i]) break;    
   }
-  if (i == 0) return -2;
+  if (i == 0) {
+    printf("E < VMIN int bound\n");
+    return -2;
+  }
   *i2 = i + 4;
   
   for (i = 0; i < MAX_POINTS; i++) {
@@ -561,7 +602,7 @@ int _MatchPoints(double e, int *i1, int *i2) {
   *i1 = i-1;
   
   if (*i2 - *i1 < 5) {
-    if (*i2 >= MAX_POINTS-CUTOFF_POINTS) {
+    if (*i2 >= MAX_POINTS-10) {
       *i1 = *i2 - 5;
     } else {
       *i2 = *i1 + 5;
@@ -755,10 +796,12 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
 
   z = GetAtomicNumber();
   if (pot->N > 0) z = z - pot->N + 1;
-  if (pot->flag == 0) pot->flag = -1;
+  if (pot->flag == 0) pot->flag = -1; 
 
   if (rmin <= 0.0) rmin = 1E-5;
   if (rmax <= 0.0) rmax = 5E+3;
+  nmax = sqrt(rmax/3.0);
+
   rmin /= z;
   rmax /= z;
   

@@ -284,6 +284,11 @@ int CEContinuaKappas(int ie, int k, int *nkl, int *nkappa,
     kl_max = pw_scratch.max_kl;
   }
   if (k > 2) kl_max = Min(kl_max, pw_scratch.max_kl_1);
+  
+  rmax = GetRMax();
+  z = GetResidualZ(1);
+  m = rmax*sqrt(e1+2.0*z/rmax);
+  kl_max = Min(kl_max, m);
 
   m = 0;
   last_kl = 0;

@@ -293,6 +293,11 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
     kl_max1 = pw_scratch.max_kl;
   }
   if (k > 2) kl_max1 = Min(kl_max1, pw_scratch.max_kl_1);
+  r = GetRMax();
+  rp = GetResidualZ(1);
+  t = r*sqrt(e1+2.0*rp/r);
+  kl_max1 = Min(kl_max1, t);
+
   e2 = egrid[ie2];
   if (pw_scratch.max_kl_f > 0) {
     kl_max2 = pw_scratch.max_kl_f*(e1/tegrid[0]);
@@ -302,6 +307,8 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
     kl_max2 = pw_scratch.max_kl;
   }
   if (k > 2) kl_max2 = Min(kl_max2, pw_scratch.max_kl_1);
+  t = r*sqrt(e2+2.0*rp/r);
+  kl_max2 = Min(kl_max2, t);
 
   orb = GetOrbital(kb);
   kappab = orb->kappa;
