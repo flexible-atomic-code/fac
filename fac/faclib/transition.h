@@ -2,7 +2,6 @@
 #define _TRANSITION_H_
 
 #include "global.h"
-#include "dbase.h"
 #include "nucleus.h"
 #include "angular.h"
 #include "config.h"

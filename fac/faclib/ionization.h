@@ -9,6 +9,7 @@ int InitIonization();
 int SetIEGrid(int n, double emin, double emax);
 int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol);
 int SetCIPWGrid(int ns, int *n, int *step);
+int SetCIFormat(int m);
 int SetCIEGrid(int n, double emin, double emax, double eth);
 int SetCIEGridDetail(int n, double *x);
 int SetUsrCIEGrid(int n, double emin, double emax, double eth);

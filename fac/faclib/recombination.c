@@ -657,20 +657,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     n_usr = 6;
   }
   if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr) {
+    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
       SetUsrPEGridDetail(n_egrid, egrid);
-      if (egrid_type == 0 && usr_egrid_type == 1) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] -= e;
-	}
-      } else if (egrid_type == 1 && usr_egrid_type == 0) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] += e;
-	  log_usr[i] = log(usr_egrid[i]);
-	}
-      } else {
-	interpolate_egrid = 0;
-      }
+      interpolate_egrid = 0;
     } else {
       SetUsrPEGrid(n_usr, emin, emax, e);
     }
@@ -680,20 +669,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr <= 6) {
+    if (n_usr <= 6 && egrid_type == usr_egrid_type) {
       SetPEGridDetail(n_usr, usr_egrid);
-      if (egrid_type == 0 && usr_egrid_type == 1) {
-	for (i = 0; i < n_egrid; i++) {
-	  egrid[i] += e;
-	  log_egrid[i] = log(egrid[i]);
-	}
-      } else if (egrid_type == 1 && usr_egrid_type == 0) {
-	for (i = 0; i < n_egrid; i++) {
-	  egrid[i] -= e;
-	}
-      } else {
-	interpolate_egrid = 0;
-      }
+      interpolate_egrid = 0;
     } else {
       emax = usr_egrid[n_usr-1];
       if (usr_egrid_type == 0) {

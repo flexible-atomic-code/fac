@@ -1,4 +1,4 @@
-This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  4 SEP 2001 12:08
+This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  5 SEP 2001 11:11
 **guide
 (guide.tex
 LaTeX2e <1999/12/01> patch level 1
@@ -70,31 +70,31 @@ Overfull \hbox (10.34401pt too wide) in paragraph at lines 228--236
 []\OT1/cmr/m/n/12 Calculate the tran-si-tion rates be-tween lower
  []
 
-[4]
-Overfull \hbox (33.21005pt too wide) in paragraph at lines 310--314
+[4] [5]
+Overfull \hbox (33.21005pt too wide) in paragraph at lines 315--319
 []\OT1/cmr/m/n/12 Set the par-tial wave op-tions. ``lmax[]eject''
  []
 
-[5]
-Overfull \hbox (12.93854pt too wide) in paragraph at lines 363--366
+
+Overfull \hbox (12.93854pt too wide) in paragraph at lines 373--376
 []\OT1/cmr/m/n/12 Construct re-com-bined states based on the tar-get states fro
 m ``groups'',
  []
 
 [6]
-Overfull \hbox (6.32117pt too wide) in paragraph at lines 393--401
+Overfull \hbox (6.32117pt too wide) in paragraph at lines 403--411
 []\OT1/cmr/m/n/12 Corrects the en-ergy value of ``lev-els'' to ``en-er-gies'', 
 where
  []
 
 
-Overfull \hbox (3.96681pt too wide) in paragraph at lines 408--410
+Overfull \hbox (3.96681pt too wide) in paragraph at lines 418--420
 []\OT1/cmr/m/n/12 Calculates the au-toion-iza-tion width from ``bound'' to ``fr
 ee''
  []
 
 [7]
-Overfull \hbox (5.06255pt too wide) in paragraph at lines 446--458
+Overfull \hbox (5.06255pt too wide) in paragraph at lines 456--468
 []\OT1/cmr/m/n/12 This rou-tine
  []
 
@@ -108,4 +108,4 @@ Here is how much of TeX's memory you used:
  14 hyphenation exceptions out of 1000
  23i,6n,29p,141b,251s stack positions out of 300i,100n,500p,50000b,4000s
 
-Output written on guide.dvi (8 pages, 29708 bytes).
+Output written on guide.dvi (8 pages, 30308 bytes).
