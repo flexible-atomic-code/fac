@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.71 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.72 2004/07/26 17:26:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -44,6 +44,7 @@ static double gos2[NKINT];
 static double gost[NKINT];
 static double gosint[NKINT];
 static double xborn = XBORN;
+static double xborn1 = XBORN1;
 
 static FILE *fpw=NULL;
 
@@ -82,8 +83,9 @@ int SetCEQkMode(int m, double tol) {
   return 0;
 }
 
-int SetCEBorn(double x) {
+int SetCEBorn(double x, double x1) {
   xborn = x;
+  xborn1 = x1;
   return 0;
 }
 
@@ -551,7 +553,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 }
 
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
-  int type, t, ie, ite, ipk, ipkp, nqk, ieb;
+  int type, t, ie, ite, ipk, ipkp, nqk, ieb, nopb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   CEPK *cepk, *cepkp, *tmp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p;
@@ -562,7 +564,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   double *rqc, **p, *ptr;
   int index[6];
   int np = 3, one = 1;
-  double logj;
+  double logj, xb;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -697,23 +699,26 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	}
 	if (ieb == 0) {
 	  nklp = nkl-1;
-	  s = 0.0;
+	  s = 0.0;	  
 	  if (type >= CBMULTIPOLES) {
 	    b = pw_scratch.kl[nklp]-pw_scratch.kl[nklp-2];
 	    b = pow(dqk[nklp]/dqk[nklp-2], 1.0/b);
 	    if (b < 0.0 || b >= 1.0 ||IsNan(b)) {
 	      b = GetCoulombBetheAsymptotic(te, e1);
 	    }
+	    xb = xborn;
 	  } else if (type >= 0) {
 	    b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
 	    if (b < 0 || IsNan(b)) b = GetCoulombBetheAsymptotic(te, e1);
+	    xb = xborn1;
 	  } else {
 	    b = 0.0;
+	    xb = xborn;
 	  }
-	  s = dqk[nklp]*b;
+	  s = dqk[nklp]*b;	  
 	  if (ite == 0 &&
-	      ((xborn < 0 && rd && -xborn < s/rd) ||
-	       (xborn > 0 && xborn < e1/te0))) {
+	      ((xb < 0 && rd && -xb < s/rd) ||
+	       (xb > 0 && xb < e1/te0))) {
 	    ieb = 1;
 	  } else {
 	    rq[ite][ie] = r + s;
@@ -757,7 +762,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
   double r, rd, e0, e1, te, s, sd, b, te0;
-  double pha0, phap0;
+  double pha0, phap0, xb;
   double s3j1, s3j2, s3j3, s3j4;
   int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp, ieb;
   double qk[MAXMSUB][MAXNKL], dqk[MAXMSUB][MAXNKL];
@@ -953,6 +958,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	if (ieb == 0) {
 	  i = nkl - 1;
 	  r = 0.0;
+	  if (type1 >= 0 && type1 < CBMULTIPOLES) xb = xborn1;
+	  else xb = xborn;
 	  for (iq = 0; iq < nq; iq++) {
 	    if (type1 >= CBMULTIPOLES) {
 	      b = pw_scratch.kl[i]-pw_scratch.kl[i-2];
@@ -972,14 +979,14 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	    }
 	    s = dqk[iq][i]*b;
 	    rqt[iq] = s;
-	    if (xborn < 0 && drq[iq][ite][ie]) {
+	    if (xb < 0 && drq[iq][ite][ie]) {
 	      s /= drq[iq][ite][ie];
 	      if (s > r) r = s;
 	    }
 	  }
-	  if (ite == 0 && 
-	      ((xborn < 0 && -xborn < r) ||
-	       (xborn > 0 && xborn < e1/te0))) {
+	  if (ite == 0 &&
+	      ((xb < 0 && -xb < r) ||
+	       (xb > 0 && xb < e1/te0))) {
 	    ieb = 1;
 	  } else {
 	    for (iq = 0; iq < nq; iq++) {

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.72 2004/07/01 18:18:31 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.73 2004/07/26 17:26:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3885,8 +3885,8 @@ int SetAIRatesInner(char *fn) {
   int swp;
   int ibase;
 
-  if (inner_auger != 3) {
-    printf("inner_auger must be 3 for this mode\n");
+  if (inner_auger != 2) {
+    printf("inner_auger must be 2 for this mode\n");
     return 0;
   }
   if (ion0.n < 0.0) return 0;
