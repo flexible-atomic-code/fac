@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.45 2003/01/22 21:58:03 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.46 2003/04/15 13:54:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1628,6 +1628,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
 
   FreeGOSArray();
+  ReinitExcitation(1);
+
   ArrayFree(&subte, NULL);
   if (alev) free(alev);
   CloseFile(f, &fhdr);

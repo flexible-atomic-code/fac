@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.63 2003/03/09 22:10:25 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.64 2003/04/15 13:54:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1156,6 +1156,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
+  ReinitRadial(1);
+  ReinitRecombination(1);
+
   return 0;
 }
 
@@ -1366,6 +1369,9 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   CloseFile(fa, &fhdra);
   CloseFile(ft, &fhdrt);
 
+  ReinitRadial(1);
+  ReinitRecombination(1);
+
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&st_stop);
   
@@ -1488,6 +1494,10 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   free(e);
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
+
+  ReinitRadial(1);
+  ReinitRecombination(1);
+
   return 0;
 }
 

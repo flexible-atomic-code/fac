@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.17 2003/04/15 04:23:53 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.18 2003/04/15 13:54:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -240,6 +240,8 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
+
+  ReinitRadial(1);
 
   free(a);
   free(s);
