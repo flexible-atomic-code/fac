@@ -1,6 +1,13 @@
-version 0.9.7, 06/2/2003
+version 0.9.7, 06/6/2003
 	1. move LevelInfor from crm to fac. remove MemENTable from crm.
 	2. do not write the data block header if the block is empty.
+	3. put small energy corrections for He-like ions in atom.py.
+	   whith these corrections, the output would give He-lines and
+	   edge to within 1mA. The Delta N=0 DR resonance energy
+	   corrections for several L-shell ions are also put in atom.py.
+	4. allow a negative index in CorrectEnergy(), which means the 
+	   correction is a shift, instead of the energy value relative 
+	   to the reference level.
 	
 version 0.9.6, 05/23/2003
 	1. bug fix on partial-wave summation.

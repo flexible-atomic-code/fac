@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.37 2003/05/23 21:28:04 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.38 2003/06/07 01:19:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -611,7 +611,10 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     while (1) {
       if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
       e /= HARTREE_EV;
-      if (i == 0) {
+      if (k < 0) {
+	k = -k;
+	kref = k;
+      } else if (i == 0) {
 	kref = k;
       }
       AddECorrection(kref, k, e, nmin);
@@ -634,7 +637,10 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
       k = atoi(iv[i]);
       e = atof(ev[i]);
       e /= HARTREE_EV;
-      if (i == 0) {
+      if (k < 0) {
+	k = -k;
+	kref = k;
+      } else if (i == 0) {
 	kref = k;
       }
       AddECorrection(kref, k, e, nmin);

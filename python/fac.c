@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.56 2003/06/02 16:27:58 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.57 2003/06/07 01:19:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2681,7 +2681,10 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
     while (1) {
       if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
       e /= HARTREE_EV;
-      if (i == 0) {
+      if (k < 0) {
+	k = -k;
+	kref = k;
+      } else if (i == 0) {
 	kref = k;
       }
       AddECorrection(kref, k, e, nmin);
@@ -2704,7 +2707,10 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
       k = PyInt_AsLong(ip);
       e = PyFloat_AsDouble(iq);
       e /= HARTREE_EV;
-      if (i == 0) {
+      if (k < 0) {
+	k = -k;
+	kref = k;
+      } else if (i == 0) {
 	kref = k;
       }
       AddECorrection(kref, k, e, nmin);
