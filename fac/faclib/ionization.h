@@ -15,7 +15,8 @@
 int FreeIonizationQk();
 int InitIonization();
 int SetIEGrid(int n, double emin, double emax);
-int SetCIPWOptions(int qr, int max, int max_1, int max_f, double tol);
+int SetCIPWOptions(int max_k, int qr, int max, int max_1, int max_2, 
+		   int max_f, double tol);
 int ADDCIPW(int n, int step);
 int SetCIPWGrid(int ns, int *n, int *step);
 int SetCIEGrid(int n, double emin, double emax, int type);
