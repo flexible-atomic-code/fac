@@ -630,7 +630,16 @@ which is free software and available for most
 platforms. Python has the reputation of having clear syntax, rich run time
 service and good documentation. Only minimum knowledge is assumed to write
 scripts to perform atomic calculations using FAC, not much beyond the tutorial
-that comes with the Python distribution. In this section, we discuss the
+that comes with the Python distribution. The Python modules are grouped under
+the package ``pfac''. An import statement in the beginning of a script, 
+``from pfac import *'', makes all functions available to the user with the
+module name qualifiers, e.g., ``fac.SetAtom('Fe')''. Alternatively, one may
+use the fully qualified names including the package name to avoid any possible
+name space crash with other installed modules and packages. For example,
+the import statement ``import pfac.fac'' makes the ``pfac.fac.SetAtom('Fe')''
+available to the user. 
+
+In this section, we discuss the
 installation of FAC and the important routines relevant to atomic structure
 calculations that interface with the core numerical library.
 
@@ -641,7 +650,7 @@ integration of Python and the core numerical library. Porting to
 non-Unix systems should be relatively simple. 
 
 First, Python should be installed, which can be obtained from
-www.python.org. FAC should work with Python 1.5 or higher. There is a Makefile
+www.python.org. FAC should work with Python 2.0 or higher. There is a Makefile
 included in the FAC distribution. Minimal modification is needed according to
 the user's system, such as the location of Python header files, the system
 library path, and the location where the FAC modules are to be
@@ -755,8 +764,7 @@ the ground state and $n = 3$ levels are included. Lines beginning with ``\#''
 are comments in Python scripts.
 \begin{verbatim}
 # import the modules
-import config
-import fac
+from pfac import config, fac
 
 fac.SetAtom('Fe')
 # 1s shell is closed

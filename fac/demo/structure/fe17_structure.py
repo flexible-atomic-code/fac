@@ -1,8 +1,8 @@
 
 """ calculation of the energy levels. and radiative transition rates
 """
-import config
-import fac
+
+from pfac import config, fac
 
 fac.SetAtom('Fe')
 # 1s shell is closed

@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.9 2001/09/24 16:57:41 mfgu Exp $
+# rcsid = $Id: README,v 1.10 2001/09/24 19:36:42 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -18,7 +18,7 @@ toms/,       some numerical routines from TOMS.
 
 INSTALL:
 1. Obtain (From www.python.org) and install Python if it is not installed yet. 
-   Version 1.5 or later is required. Make sure that python interpreter is 
+   Version 2.0 or later is required. Make sure that python interpreter is 
    in your path.
 
 2. Choose the appropriate Makefile and make possible adjustments 
