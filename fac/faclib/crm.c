@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.24 2002/03/11 01:56:41 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.25 2002/03/11 02:57:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -453,7 +453,7 @@ void ExtrapolateRR(ION *ion, int inv) {
       }
     }
     c = a/c;
-    rr_extra[j] = 1.0 + b/a;
+    rr_extra[j] = b/a;
     for (k = rec->n; k < rec->n_ext; k++) {
       n0 = rec->nrec[k];
       b = RRRateHydrogenic(temp, z, n0, NULL);
