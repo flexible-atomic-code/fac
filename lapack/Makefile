@@ -7,8 +7,8 @@ OBJS = ${SRC:.f=.o}
 	$(FC) ${FFLAGS} $<
 
 lapack: $(OBJS)
-	ar cr liblapack.a $(OBJS)
-	ranlib liblapack.a
+	ar cr libflapack.a $(OBJS)
+	ranlib libflapack.a
 
 clean:
 	rm -f *.o *.a *~

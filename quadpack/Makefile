@@ -6,8 +6,8 @@ OBJS = ${SRC:.f=.o}
 	$(FC) ${FFLAGS} $<
 
 quadpack: $(OBJS)
-	ar cr libquadpack.a $(OBJS)
-	ranlib libquadpack.a
+	ar cr libfquadpack.a $(OBJS)
+	ranlib libfquadpack.a
 
 clean:
 	rm -f *.o *.a *~

@@ -2,6 +2,8 @@ Version 0.8.4, 09/26/2002
 	1. the type of EN_RECORD.energy is changed to double, 
 	   to avoid cancellations. this makes the data file incompartible 
 	   with earlier version.
+	2. change the lib. name of lapack, blas, minpack, quadpack, ode, 
+	   mpfun, to avoid possible clash with system installations.
 	   
 
 Version 0.8.3, 09/25/2002
