@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.1 2003/07/14 16:27:35 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.2 2003/07/31 21:40:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -119,6 +119,73 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PSetIDR(PyObject *self, PyObject *args) {
+  int idr, ndr, i;
+  double *pdr;
+  PyObject *p, *q;
+
+  if (spol_file) {
+    SPOLStatement("SetIDR", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  p = NULL;
+  if (!PyArg_ParseTuple(args, "i|O", &idr, &p)) return NULL;
+
+  ndr = 0;
+  pdr = NULL;
+  if (p) {
+    if (!PyList_Check(p) && !PyTuple_Check(p)) return NULL;
+    ndr = PySequence_Length(p);
+    pdr = (double *) malloc(sizeof(double)*ndr);
+    for (i = 0; i < ndr; i++) {
+      q = PySequence_GetItem(p, i);
+      pdr[i] = PyFloat_AsDouble(q);
+      Py_DECREF(q);
+    }
+  }
+  
+  if (SetIDR(idr, ndr, pdr) < 0) return NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+  
+static PyObject *PSetEnergy(PyObject *self, PyObject *args) {
+  double e, es;
+
+  if (spol_file) {
+    SPOLStatement("SetEnergy", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "dd", &e, &es)) return NULL;
+
+  SetEnergy(e, es);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+ 
+static PyObject *PSetDensity(PyObject *self, PyObject *args) {
+  double d;
+
+  if (spol_file) {
+    SPOLStatement("SetDensity", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &d)) return NULL;
+
+  SetDensity(d);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}     
+  
 static PyObject *PSetMLevels(PyObject *self, PyObject *args) {
   char *efn, *tfn;
   
@@ -138,7 +205,6 @@ static PyObject *PSetMLevels(PyObject *self, PyObject *args) {
 
 static PyObject *PSetMCERates(PyObject *self, PyObject *args) {
   char *fn;
-  double e;
   
   if (spol_file) {
     SPOLStatement("SetMCERates", args, NULL);
@@ -146,9 +212,26 @@ static PyObject *PSetMCERates(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "sd", &fn, &e)) return NULL;
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
   
-  if (SetMCERates(fn, e) < 0) return NULL;
+  if (SetMCERates(fn) < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetMAIRates(PyObject *self, PyObject *args) {
+  char *fn;
+  
+  if (spol_file) {
+    SPOLStatement("SetMAIRates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  
+  if (SetMAIRates(fn) < 0) return NULL;
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -156,7 +239,6 @@ static PyObject *PSetMCERates(PyObject *self, PyObject *args) {
 
 static PyObject *PPopulationTable(PyObject *self, PyObject *args) {
   char *fn;
-  double d;
   
   if (spol_file) {
     SPOLStatement("PopulationTable", args, NULL);
@@ -164,9 +246,9 @@ static PyObject *PPopulationTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "sd", &fn, &d)) return NULL;
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
   
-  if (PopulationTable(fn, d) < 0) return NULL;
+  if (PopulationTable(fn) < 0) return NULL;
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -193,8 +275,12 @@ static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
   {"CloseSPOL", PCloseSPOL, METH_VARARGS},
+  {"SetIDR", PSetIDR, METH_VARARGS},
+  {"SetEnergy", PSetEnergy, METH_VARARGS},
+  {"SetDensity", PSetDensity, METH_VARARGS},
   {"SetMLevels", PSetMLevels, METH_VARARGS},
   {"SetMCERates", PSetMCERates, METH_VARARGS},
+  {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
   {"", NULL, METH_VARARGS}

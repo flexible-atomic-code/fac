@@ -17,9 +17,6 @@ AC_PROG_RANLIB
 AC_CHECK_PROG([PYTHON], [python], [python])
 AC_SUBST(PYTHON)
 
-# Checks for header files.
-AC_CHECK_HEADERS([malloc.h stdlib.h string.h])
-
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
@@ -35,15 +32,9 @@ AC_F77_LIBRARY_LDFLAGS
 # some F77 LDFLAGS have a -lcrt1.o which causes trouble.
 # actually any crtn.o may cause trouble, we don't need that.
 AC_MSG_CHECKING([for -lcrtn.o in FLIBS])
-NFLIBS=[`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`]
-NFLIBS=[`echo $NFLIBS | sed 's/  */ /g'`]
-if test "x$NFLIBS" = "x$FLIBS"
-then
-  AC_MSG_RESULT([no.])
-else
-  FLIBS=$NFLIBS
-  AC_MSG_RESULT([$FLIBS])
-fi
+FLIBS=[`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`]
+FLIBS=[`echo $FLIBS | sed 's/  */ /g'`]
+AC_MSG_RESULT([$FLIBS])
 
 # override the default CFLAGS and FFLAGS
 if test -n "$GCC"

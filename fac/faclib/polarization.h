@@ -25,10 +25,22 @@ typedef struct _MCE_ {
   double *rates;
 } MCE;
 
+typedef struct _MAI_ {
+  int f;
+  int b;
+  int n;
+  double *rates;
+} MAI;
+
+
 int InitPolarization(void);
+int SetEnergy(double energy, double esigma);
+int SetDensity(double eden);
+int SetIDR(int idr, int ndr, double *pdr);
 int SetMLevels(char *fn, char *tfn);
-int SetMCERates(char *fn, double energy);
-int PopulationTable(char *fn, double eden);
+int SetMCERates(char *fn);
+int SetMAIRates(char *fn);
+int PopulationTable(char *fn);
 int PolarizationTable(char *fn);
 
 #endif

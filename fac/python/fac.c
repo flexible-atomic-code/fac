@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.58 2003/07/10 14:04:39 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.59 2003/07/31 21:40:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2048,7 +2048,30 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveAI(nlow, low, nup, up, s, c);
+  SaveAI(nlow, low, nup, up, s, c, 0);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PAITableMSub(PyObject *self, PyObject *args) { 
+  int nlow, *low, nup, *up, c;
+  char *s;
+  PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("AITableMSub", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  c = 0;
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
+  nlow = SelectLevels(p, &low);
+  nup = SelectLevels(q, &up);
+  SaveAI(nlow, low, nup, up, s, c, 1);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -3626,6 +3649,7 @@ static struct PyMethodDef fac_methods[] = {
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
+  {"AITableMSub", PAITableMSub, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CECross", PCECross, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},

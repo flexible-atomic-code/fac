@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.39 2003/07/10 14:04:40 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.40 2003/07/31 21:40:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -466,7 +466,28 @@ static int PAITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  SaveAI(nlow, low, nup, up, argv[0], c);
+  SaveAI(nlow, low, nup, up, argv[0], c, 0);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  return 0;
+}
+
+static int PAITableMSub(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nlow, *low, nup, *up, c;
+
+  if (argc != 3 && argc != 4) return -1;
+  if (argt[0] != STRING) return -1;
+  
+  if (argc == 4) {
+    if (argt[3] != NUMBER) return -1;
+    c = atoi(argv[3]);
+  } else c = 0;
+  
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  SaveAI(nlow, low, nup, up, argv[0], c, 1);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -2701,6 +2722,7 @@ static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
+  {"AITableMSub", PAITableMSub, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},

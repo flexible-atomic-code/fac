@@ -51,10 +51,11 @@ int BoundFreeOS(double *rqu, double *p,
 		double *eb, int rec, int f, int m);
 int PrepRREGrids(double eth, double emax0);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
-int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel);
+int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
+	   int channel, int msub);
 int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf, int k);
-int AutoionizeRate(double *rate, double *e, int rec, int f);
+int AutoionizeRate(double *rate, double *e, int rec, int f, int msub);
 int DROpen(int n, int *nlev, int **ops);
  
 #endif

@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.0}\xspace}
+\newcommand{\facversion}{{1.0.1}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -380,8 +380,8 @@ describe the structure of these files in detail.
 \section{Binary Format}
 \label{sec:binary}
 \index{Binary format}
-Presently, FAC produces 9 different types of files. Each type is asigned
-a unique integer from 1--9, which corresponds to a macro define in the file
+Presently, FAC produces 10 different types of files. Each type is asigned
+a unique integer from 1--10, which corresponds to a macro define in the file
 \verb|faclib/dbase.h|. These types are
 \begin{description}
 \item[\texttt{DB\_EN = 1}] Energy levels produced by the function
@@ -400,7 +400,9 @@ sections produced by \verb|fac.RRTable|.
 \item[\texttt{DB\_RT = 8}] Various population rates produced by
 \verb|crm.RateTable|. 
 \item[\texttt{DB\_DR = 9}] Various population rates produced by
-\verb|crm.DRStrength|. 
+\verb|crm.DRStrength|.
+\item[\texttt{dB\_AIM = 10}] Magnetic sublevel autoionization rates and DR
+capture strengths produced by \verb|fac.AITableMSub|.
 \end{description}
 
 All files have a common structure. It consists of a file header and one or
@@ -1309,6 +1311,71 @@ braching ratio of radiative transition to individual states.
 state, i.e., including all autoionization and radiative decay channels.
 \end{dbdesc}
 
+\subsection{\texttt{AIM\_HEADER}}
+\index{AIM\_HEADER}
+\begin{verbatim}
+typedef struct _AIM_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int channel;
+  int n_egrid;
+  double *egrid;
+} AIM_HEADER;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{long position}:] The number of bytes from the beginning of the
+file to the place where this data block starts.
+\item[\texttt{long length}:] Number of bytes in this data block, excluding the
+length of the header.
+\item[\texttt{int nele}:] Number of electrons in the ion for this block.
+\item[\texttt{int ntransitions}:] Number of transitions in this block.
+\item[\texttt{int channel}:] This an identifier to label the autoionization
+channel, which does not have specific physical meaning.
+\item[\texttt{int n\_egrid}:] The number of points for the Auger electron
+energy grid. The autoionzation radial integrals are calculated on this grid
+and interpolated to the actual discrete energies.
+\item[\texttt{double *egrid}:] The energy grid. The number of elements is
+given by \texttt{n\_egrid}.
+\end{dbdesc}
+
+\subsection{\texttt{AIM\_RECORD}}
+\index{AIM\_RECORD}
+\begin{verbatim}
+typedef struct _AIM_RECORD_ {
+  int b;
+  int f;
+  int nsub;
+  float *rate;
+} AIM_RECORD;
+\end{verbatim}
+\begin{dbdesc}
+\item[\texttt{int b}:] The bound state index.
+\item[\texttt{int f}:] The free state index.
+\item[\texttt{int nsub}:] The number of entries in array \texttt{rate}. It is
+twice the number of transitions tabulated, because both autoionziation and DR
+capture strength need to be stored. 
+\item[\texttt{float *rate}:] An array containing magnetic sublevel
+autoionization rates and DR capture strength. Suppose $A(M_1,M_2)$ represents
+autoionization rate from $M_1$ sublevel of \texttt{b} to $M_2$ sublevel of
+\texttt{f}, and $R(M_1,M_2)$ is capture strength from $M_2$ sublevel of
+\texttt{f} to $M_1$ sublevel of \texttt{b}. Then the array \texttt{rate} is
+generated in the order consistent with the following code:
+\begin{verbatim}
+t = 0
+for (M1 = -J1; M1 <= 0; M1++) {
+  for (M2 = -J2; M2 <= J2; M2++) {
+     rate[t++] = A(M1,M2);
+     rate[t++] = R(M1,M2);
+  }
+}
+\end{verbatim}
+Due to axial symmetry, values for $M_1 > 0$ can be obtained from those with
+$M_1 \le 0$.
+\end{dbdesc}
+
 \section{ASCII Format}
 \index{ASCII Format}
 FAC provides functions to convert the binary output to ASCII files. There are
@@ -1821,7 +1888,8 @@ Dens	=  1.00000000E+00
 
 \subsection{\texttt{DB\_DR}}
 \index{\texttt{DB\_DR}}
-\begin{verbatim}FAC 0.8.6
+\begin{verbatim}
+FAC 0.8.6
 Endian	= 0
 TSess	= 1036783874
 Type	= 9
@@ -1844,6 +1912,37 @@ NREC	= 6
 #AI 2J Rec 2J ibase flev fbase NREC L ERes       AI Rate     Total Rate  Branching
 275  0  37  3    39   -1    -1    6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
 ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_AIM}}
+\index{\texttt{DB\_AIM}}
+\begin{verbatim}
+FAC 1.0.0
+Endian	= 0
+TSess	= 1059655031
+Type	= 10
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 1
+
+# data blocks begin
+NELE	= 4
+# number of transitions
+NTRANS	= 87
+# channel number (no physical meaning)
+CHANNE	= 0
+# free electron energy grid
+NEGRID	= 1
+	  4.70510700E+03
+#bound 2J free 2J Delta E     nsub
+   13	 0   10	 1	 4.6448E+03	 4
+#AI rates    DC strength
+ 3.5842E+13	 1.9099E+00
+ 3.5842E+13	 1.9099E+00
+   13	 0   11	 1	 4.5958E+03	 4
+ 5.7277E+13	 3.0847E+00
+ 5.7277E+13	 3.0847E+00
+ ......
 \end{verbatim}
 
 \chapter{FAC Function Reference}
@@ -1924,6 +2023,14 @@ Calculate the autoionization rates between the bound configuration group
 \var{b} and the free configuration group \var{f}. The results are saved in
 file \var{fn}. The optional channel number \var{c} can be supplied as an
 identification of the transition array.
+\end{fundesc}
+
+\begin{fundesc}{AITableMSub}{fn, b, f\opt{, c}}
+Calculate the magnetic sublevel autoionization rates and dielectronic capture
+strength between the bound configuration group \var{b} and the free
+configuration group \var{f}. The results are saved in file \var{fn}. The
+optional channel number \var{c} can be supplied as an identification of the
+transition array.
 \end{fundesc}
 
 \begin{fundesc}{AvgConfig}{c}
@@ -3130,8 +3237,8 @@ transition energy in eV, total line emissivity, emission anisotropy factor at
 $90^\circ$, and linear polarization, respectively.
 \end{fundesc}
 
-\begin{fundesc}{PopulationTable}{fn, den}
-Calculate the magnetic sublevel populations at electron density \var{den}, and
+\begin{fundesc}{PopulationTable}{fn}
+Calculate the magnetic sublevel populations, and
 output the results to file \var{fn} in a simple ASCII format. For each level,
 it tabulates the total population and magnetic sublevel fractions.
 \end{fundesc}
@@ -3142,10 +3249,36 @@ asist the conversion to SFAC interface, since Python's \key{print} statement
 is not converted.
 \end{fundesc}
 
-\begin{fundesc}{SetMCERates}{fn, E}
-Setup the magnetic sublevel excitation rates at electron energy
-\var{E}. Excitation cross sections are interpolated from the binary data file
-\var{fn}.
+\begin{fundesc}{SetDensity}{d}
+Set the electron density in $10^{10}$ cm$^{-3}$ for collsional radiative
+model.
+\end{fundesc}
+
+\begin{fundesc}{SetEnergy}{e, s}
+Set the electron energy \var{e} in eV. if \var{s} is positive, the energy
+distribution is a Gaussian with standard deviation $\sigma=s$ in eV, and mean
+$e$.
+\end{fundesc}
+
+\begin{fundesc}{SetIDR}{idr\opt{, p}}
+Set if the DR satellites polarization to be calculated for a specific target
+level \var{idr}. The routine must be called after \key{SetMLevels}. If
+\var{idr} is set to be a valid level, then only DR onto this target will be
+allowed. The optional \var{p} specifies the sublevel
+population of \var{idr}. \var{p} must be a List or Tuple with number of
+elements equal to the number of sublevels of level \var{idr}. In counting
+number of sublevels, $\pm M$ are treated as a single sublevel. When \var{p} is
+not given, sublevels are assumed to be equally populated.
+\end{fundesc}
+
+\begin{fundesc}{SetMAIRates}{fn}
+Set the magnetic sublevel autoionization rates and dielectronic capture
+rates by reading data from binary file \var{fn}
+\end{fundesc}
+
+\begin{fundesc}{SetMCERates}{fn}
+Setup the magnetic sublevel excitation rates. Excitation cross sections are
+interpolated from the binary data file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{SetMLevels}{efn, tfn}
