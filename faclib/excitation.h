@@ -15,8 +15,16 @@ typedef struct _CEPW_SCRATCH_ {
   int ns;
   double kl[MAXNKL+1];
   double log_kl[MAXNKL];
-  double qk[MAXNKL];
 } CEPW_SCRATCH;
+
+typedef struct _CEPK_ {
+  short nkl;
+  short nkappa;
+  short *kappa0;
+  short *kappa1;
+  double *pkd;
+  double *pke;
+} CEPK;
 
 #ifdef PERFORM_STATISTICS
 typedef struct _EXCIT_TIMING_ {
@@ -52,9 +60,7 @@ int SetCEEGrid(int n, double emin, double emax, double eth);
 int SetUsrCEEGridDetail(int n, double *x);
 int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 
-int CERadialPk(int *nkappa, int *nkl, double **pk, 
-	       short **kappa0, short **kappa1, int ie,
-	       int k0, int k1, int k);
+int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k);
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
 		   double te, double e1, double *qk);
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
