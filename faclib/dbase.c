@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.69 2005/01/15 01:13:17 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.70 2005/01/15 01:16:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -345,6 +345,7 @@ int InitDBase(void) {
   mem_en_table = NULL;
   mem_en_table_size = 0;
   iground = 0;
+  itrf = 0;
 
   return 0;
 }
@@ -362,6 +363,7 @@ int ReinitDBase(int m) {
     return InitDBase();
   } else {
     iground = 0;
+    itrf = 0;
     if (m > NDB) return -1;
     i = m-1;
     fheader[i].tsession = (long int) time(0);
