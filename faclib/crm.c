@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.32 2002/07/10 21:26:04 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.33 2002/07/11 00:27:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2154,7 +2154,7 @@ int BlockPopulation(void) {
   q = 0;
   m = 0;
   for (i = 0; i < n; i++) {
-    if (1.0+bmatrix[i+i*n] == 1.0) {
+    if (bmatrix[i+i*n] == 0) {
       x[i] = -1.0;
       p += n;
       continue;
@@ -2207,15 +2207,10 @@ int BlockPopulation(void) {
     if (x[i] < 0.0) {
       blk->nb = 0.0;
       for (j = 0; j < blk->nlevels; j++) {
-	blk->r[j] = 0.0;
 	blk->n[j] = 0.0;
       }
     } else {
       blk->nb = b[p++];
-      for (j = 0; j < blk->nlevels; j++) {
-	blk->r[j] *= blk->nb;
-	blk->n[j] = 0.0;
-      }
     }
   }
 
@@ -2232,15 +2227,19 @@ double BlockRelaxation(int iter) {
   double a, b, c, d, h;
   int nlevels;
 
-  if (iter < 0) {
-    for (k = 0; k < blocks->dim; k++) {
-      blk1 = (LBLOCK *) ArrayGet(blocks, k);
+  for (k = 0; k < blocks->dim; k++) {
+    blk1 = (LBLOCK *) ArrayGet(blocks, k);
+    if (blk1->nlevels == 1) {
+      blk1->r[0] = blk1->nb;
+      blk1->n[0] = 0.0;
+    } else {
       for (m = 0; m < blk1->nlevels; m++) {
 	blk1->r[m] = blk1->n[m];
 	blk1->n[m] = 0.0;
       }
     }
   }
+  
   b = 1.0-iter_stablizer;
   c = iter_stablizer;
   for (k = 0; k < ions->dim; k++) {
@@ -2427,7 +2426,7 @@ double BlockRelaxation(int iter) {
     
     if (iter >= 0) {
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m]) {
+	if (blk1->n[m]+1.0 != 1.0) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
 	}
@@ -2496,7 +2495,7 @@ double BlockRelaxation(int iter) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m] > 0.0 && blk1->rec == NULL) {
+	if (blk1->n[m]+1.0 != 1.0 && blk1->rec == NULL) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
 	}
