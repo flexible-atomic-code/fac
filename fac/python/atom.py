@@ -153,6 +153,12 @@ class CGROUP:
 # a generic atomic ion
 class ATOM:    
     def __init__(self, nele, asym = 0):
+	self.process = {'ce': 1, 
+		        'tr': 1, 
+			'rr': 1, 
+			'ci': 1,
+			'ai': 1}
+
         self.nele = nele
 
         self.nele_max = [0, 2, 10, 28]
@@ -269,12 +275,13 @@ class ATOM:
         else:
             up = b
             
-        for m in tr:
-            s = 'TR: %s -> %s %d'%(str(a), str(b), m)
-            Print(s)
-            TransitionTable(self.bfiles['tr'], low, up, m)
+	if (self.process['tr'] != 0):
+            for m in tr:
+                s = 'TR: %s -> %s %d'%(str(a), str(b), m)
+                Print(s)
+                TransitionTable(self.bfiles['tr'], low, up, m)
 
-        if (ce != 0):
+        if (ce != 0 and self.process['ce'] != 0):
             if (type(c) == StringType or type(c) == IntType):
                 low = [c]
             else:
@@ -293,7 +300,7 @@ class ATOM:
 
 
     def run_ci_rr(self, a, b, c, d, ci = 1, rr = 1):
-        if (rr != 0):
+        if (rr != 0 and self.process['rr'] != 0):
             if (type(c) == StringType or type(c) == IntType):
                 low = [c]
             else:
@@ -311,7 +318,7 @@ class ATOM:
             SetUsrPEGrid(0)
             SetRRTEGrid(0)
             
-        if (ci != 0):
+        if (ci != 0 and self.process['ci'] != 0):
             if (type(a) == StringType or type(a) == IntType):
                 low = [a]
             else:
@@ -333,6 +340,9 @@ class ATOM:
 
 
     def run_ai(self, a, b, k):
+	if (self.process['ai'] == 0):
+	    return
+
         s = 'AI: %s -> %s'%(a, b)
         Print(s)
         if (type(a) == StringType or type(a) == IntType):
@@ -695,7 +705,7 @@ class ATOM:
         return
 
 
-def atomic_data(nele, asym, iprint = -1):
+def atomic_data(nele, asym, iprint = -1, **process):
     if (type(asym) == StringType):
         a = [asym]
     else:
@@ -708,6 +718,17 @@ def atomic_data(nele, asym, iprint = -1):
 
     for m in n:
         atom = ATOM(m)
+	if (process.has_key('no_ce')):
+	    atom.process['ce'] = not process['no_ce']
+	if (process.has_key('no_tr')):
+	    atom.process['tr'] = not process['no_tr']
+	if (process.has_key('no_rr')):
+	    atom.process['rr'] = not process['no_rr']
+	if (process.has_key('no_ci')):
+	    atom.process['ci'] = not process['no_ci']
+	if (process.has_key('no_ai')):
+	    atom.process['ai'] = not process['no_ai']
+
         atom.set_configs()
         for b in a:
             s = 'NELE = %d'%m
