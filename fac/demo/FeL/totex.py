@@ -1,4 +1,4 @@
-from pfac.spm import *
+from pfac.table import *
 
 tbl = TABLE('rates.tbl')
 tbl.convert2tex('rates.tex', [1,2,4,5,8,9,11,12], filter='c[0]==10')

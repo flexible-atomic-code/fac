@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.18 2002/02/27 15:02:39 mfgu Exp $
+# rcsid = $Id: README,v 1.19 2002/04/16 16:15:32 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -47,6 +47,10 @@ To install "pfac" interface:
 2. run:
 	make clean
 	python setup.py install
+
+With python installed, the "sfac" interface can also be installed using
+the setup.py script, to do so, run
+	python setup.py sfac
 
 
 Usage:

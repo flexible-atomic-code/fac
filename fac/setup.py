@@ -3,6 +3,7 @@ import os
 import sys
 
 # set the fortran runtime lib. appropriately.
+# and the compiler flags. 
 
 platform = sys.platform[:5]
 if (platform == 'linux'):
@@ -27,7 +28,7 @@ elif (platform == 'sunos'):
       cc = 'cc'
       fc = 'f77'
 elif (platform == 'darwi'):
-      fortranlib = ['f2c']
+      fortranlib = ['g2c']
       fflags = '-O -c -fno-common'
       cflags = '-O -c -no-cpp-precomp -fno-common'
       ldflags = ''
@@ -55,7 +56,7 @@ else:
       setup(name = "FAC",
             version = "0.7.2",
             package_dir = {'pfac': 'python'},
-            py_modules = ['pfac.const', 'pfac.config', 
+            py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
                           'pfac.atom', 'pfac.spm'],
             ext_modules = [Extension("pfac.fac",
                                      ["python/fac.c"],

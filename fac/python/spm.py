@@ -1,4 +1,5 @@
 from pfac.crm import *
+from pfac.table import *
 from pfac import const
 from math import *
 import sys
@@ -6,249 +7,8 @@ import time
 import copy
 import string
 import cPickle
-import biggles
-import pprint
+import pprint        
 
-class TABLE:
-    def __init__(self,
-                 fname = '',
-                 title='',
-                 authors=[],
-                 date='',
-                 separator0 = '',
-                 separator = ''):
-        self.fname = fname
-        self.title = title
-        self.authors = authors
-        if (time):
-            self.date = date
-        else:
-            self.date = time.localtime()
-        if (separator0):
-            self.separator = separator
-        else:
-            self.separator0 = '='*72+'\n'
-        if (separator):
-            self.separator = separator
-        else:
-            self.separator = '-'*72+'\n'
-            
-        self.columns = []
-        self.notes = []
-
-    def add_column(self, **c):
-        if (not c.has_key('label')):
-            raise 'column must have a label'
-        if (not c.has_key('format')):
-            raise 'column must have a format'
-        fmt = c['format']
-        c['width'] = int(float(fmt[1:]))
-        if (fmt[0] == 'A'):
-            fmt = '%' + fmt[1:] + 's'
-        elif (fmt[0] == 'I'):
-            fmt = '%' + fmt[1:] + 'd'
-        elif (fmt[0] == 'F'):
-            fmt = '%' + fmt[1:] + 'f'
-        elif (fmt[0] == 'E'):
-            fmt = '%' + fmt[1:] + 'E'
-        else:
-            raise('Format unsupported')
-        c['format0'] = fmt
-        if (not c.has_key('units')):
-            c['units'] = 'None'
-        if (not c.has_key('description')):
-            c['description'] = 'Column %d'%len(self.columns)
-        if (not c.has_key('padding')):
-            c['padding'] = ' '
-        if (c.has_key('notes')):
-            notes = c['notes']
-            for a in notes:
-                if (type(a) == type(1)):
-                    k = a-1
-                    if (k >= len(self.notes)):
-                        raise 'Notes %d has not been defined'%(k+1)
-                elif (type(a) != type(())):
-                    raise 'New Notes must be in a tuple'
-                k = a[0]-1
-                t = a[1]
-                if (k < len(self.notes)):
-                    raise 'Notes %d already exists'%(k+1)
-                elif (k > len(self.notes)):
-                    raise 'Next notes must be %d'%(len(self.notes)+1)
-                else:
-                    self.notes.append(t)
-                    c['notes'] = a[0]
-                    
-        self.columns.append(c)
-            
-    def open(self, mode, fname=''):
-        if (fname):
-            self.fname = fname
-        self.file = open(self.fname, mode)
-
-    def close(self):
-        self.file.close()
-
-    def write_header(self):
-        f = self.file
-        s = 'Title:   %s\n'%(self.title)
-        f.write(s)
-        a = ', '.join(self.authors)
-        s = 'Authors: %s\n'%(a)
-        f.write(s)
-        f.write(self.separator0)
-        s = 'byte-by-byte description of file: %s\n'%(self.fname)
-        f.write(s)
-        f.write(self.separator)
-        s = '  %8s %6s %20s %10s %-s\n'%('Bytes', 'Format', 'Units',
-                                         'Label', 'Explanation')
-        f.write(s)
-        f.write(self.separator)
-        
-        b0 = 1
-        for i in range(len(self.columns)):
-            c = self.columns[i]
-            label = c['label']
-            d = c['description']
-            units = c['units']
-            fmt = c['format']
-            w = c['width']
-            p = c['padding']
-            b1 = b0 + w-1                
-            s = '  %3d-%4d %6s %20s %10s %-s'%(b0, b1, fmt,
-                                               units, label, d)
-            if (c.has_key('notes')):
-                s = s+'; (%d)'%(c['notes'])
-            s = s + '\n'
-            f.write(s)
-            b0 = 1 + b1 + len(p)
-        f.write(self.separator)
-        if (len(self.notes) > 0):
-            for i in range(len(self.notes)):
-                s = 'Note (%d): '%(i+1)
-                p = ' '*len(s)
-                t = pad_text(self.notes[i], p)
-                s = s+t+'\n'
-                f.write(s)
-            f.write(self.separator)
-            
-        self.dstart = f.tell()
-        
-    def write_raw(self, *data):
-        if (len(data) != len(self.columns)):
-            raise 'num. of data items does not match columns'
-        s = ''
-        for i in range(len(data)):
-            fmt = self.columns[i]['format0']
-            s = s + fmt%(data[i]) + self.columns[i]['padding']
-        s = s + '\n'
-        self.file.write(s)
-
-    def read_header(self):
-        f = self.file
-        a = f.readline()
-        a = a.split(':')
-        self.title = a[1].strip()
-        a = f.readline()
-        a = a.split(':')
-        self.author = a[1].split(',')
-        a = f.readline()
-        self.separator0 = a
-        a = f.readline()
-        a = f.readline()
-        self.separator = a
-        a = f.readline()
-        a = f.readline()
-        has_notes = 0
-        while (1):
-            a = f.readline()
-            if (a[0] == self.separator[0]):
-                break
-            fmt = a[11:17].strip()
-            units = a[18:38].strip()
-            label = a[39:49].strip()
-            d = a[50:-1].strip()
-            d = d.split(';')
-            if (len(d) > 1):
-                has_notes = 1
-            self.add_column(label=label,
-                            units=units,
-                            format=fmt,
-                            description=d[0])
-        if (has_notes):
-            while (1):
-                a = f.readline()
-                if (a[0] == self.separator[0]):
-                    break
-        self.dstart = f.tell()
-        
-    def read_columns(self, k, filter='', start=0, stop=-1):
-        nk = len(k)
-        r = []
-        for i in range(nk):
-            r.append([])
-        f = self.file
-        nc = len(self.columns)
-        n = range(nc)
-        i = 0
-        while (i < start):
-            c = f.readline()
-        
-        while (1):
-            if (stop >= 0):
-                if (i >= stop):
-                    break
-            c = f.readline()
-            if (not c):
-                break
-            c = c.split()
-            for i in n:
-                fmt = self.columns[i]['format'][0]
-                if (fmt == 'I'):
-                    c[i] = int(c[i])
-                elif (fmt == 'F' or fmt == 'E'):
-                    c[i] = float(c[i])
-            
-            if (filter):
-                if (not eval(filter)):
-                    continue
-            for i in range(nk):
-                r[i].append(c[k[i]])
-        return r
-
-    def convert2tex(self, tfn, k, filter='', start=0, stop=-1):
-        f = open(tfn, 'w')
-        self.open('r')
-        self.read_header()
-        d = self.read_columns(k, filter=filter, start=start, stop=stop)
-        nd = len(d)
-        for i in range(len(d[0])):
-            s = ''
-            for j in range(nd):
-                fmt = self.columns[k[j]]['format0']
-                s = s + fmt%(d[j][i])
-                if (j == nd-1):
-                    s = s + '\\\\'
-                else:
-                    s = s + ' & '
-            s = s + '\n'
-            f.write(s)
-        self.close()
-        f.close()
-        
-    def rewind(self):
-        self.file.seek(self.dstart)
-        
-    
-def pad_text(t, p):
-    s = t.split('\n')
-    a = ''
-    for i in range(len(s)):
-        a = a+s[i]
-        if (i < len(s)-1):
-            a = a + '\n' + p
-    return a
-    
 def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
     tbl = TABLE(fname=dfile,
                 title='Energy Levels for Z=%d'%z,
@@ -256,12 +16,12 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
                 date=time.localtime())
     d = 'Num. of Electrons'
     tbl.add_column(label='NELE',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I2')
     d = 'Level Index'
     tbl.add_column(label='Index',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I6')
     d = 'Level Energy'
@@ -269,28 +29,28 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
     notetext = notetext+'while the energies of excited states are given '
     notetext = notetext+'relative to the ground state.'
     tbl.add_column(label='Energy',
-                   units='eV',
+                   unit='eV',
                    description=d,
                    format='E11.4',
                    notes=[(1, notetext)])
     d = 'Parity'
     tbl.add_column(label='P',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I1')
     d = 'Twice of Total Angular Momentum'
     tbl.add_column(label='2J',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I2')
     d = 'N Complex'
     tbl.add_column(label='NComplex',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='A12')
     d = 'Non-relativistic Configuration'
     tbl.add_column(label='ConfigNR',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='A12')
     d = 'Relativistic Configuration'
@@ -325,34 +85,34 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
                 authors=['M. F. Gu'],
                 date=time.localtime())
     d = 'Num. of Electrons'
-    tbl.add_column(label='NELE', units='None',
+    tbl.add_column(label='NELE', unit='None',
                    description=d, format='I2')
     d = 'Temperature'
-    tbl.add_column(label='Temp', units='[K]',
+    tbl.add_column(label='Temp', unit='[K]',
                    description=d, format='F4.2')
     d = 'Total DR rate coefficients'
-    tbl.add_column(label='DR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='DR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DR Arnaud & Raymond'
-    tbl.add_column(label='DR_AR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='DR_AR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total RR rate coefficients'
-    tbl.add_column(label='RR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='RR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total RR Arnaud & Raymond'
-    tbl.add_column(label='RR_AR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='RR_AR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DCI rate coefficients'
-    tbl.add_column(label='CI', units='10^-10^cm^3^/s',
+    tbl.add_column(label='CI', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total DCI Arnaud & Raymond'
-    tbl.add_column(label='DCI_AR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='DCI_AR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total EA rate coefficients'
-    tbl.add_column(label='EA', units='10^-10^cm^3^/s',
+    tbl.add_column(label='EA', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     d = 'Total EA Arnaud & Raymond'
-    tbl.add_column(label='EA_AR', units='10^-10^cm^3^/s',
+    tbl.add_column(label='EA_AR', unit='10^-10^cm^3^/s',
                    description=d, format='E8.2')
     tbl.open('w')
     tbl.write_header()
@@ -409,69 +169,69 @@ def tabulate_rates(dfile, neles, z=26, pref='Fe'):
                 date=time.localtime())
     d = 'Num. of electrons'
     tbl.add_column(label='NELE',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I2')
     d = 'Level Index'
     tbl.add_column(label='Index',
-                   units='None',
+                   unit='None',
                    description=d,
                    format='I3')
     d = 'Temperature'
     tbl.add_column(label='Temp',
-                   units='[K]',
+                   unit='[K]',
                    description=d,
                    format='F4.2')
-    units = 's^-1^'
+    unit = 's^-1^'
     d = 'Total Depletion Rate'
     tbl.add_column(label = 'RT',
-                   units=units,
+                   unit=unit,
                    description = d,
                    format = 'E8.2')
-    units = '10^-10^cm^3^/s'
+    unit = '10^-10^cm^3^/s'
     d = 'Collisional Excitation' 
     tbl.add_column(label='CE',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'Resonance Excitation'
     tbl.add_column(label='RE',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'Radiative Recombination'
     tbl.add_column(label='RR',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'CE + n=3 Cascades'
     tbl.add_column(label='CE+CS3',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'CE + All Cascades'
     tbl.add_column(label='CE+CS',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'RE + All Cascades'
     tbl.add_column(label='RE+CS',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'DR + RR + n=3 Cascades'
     tbl.add_column(label='DR+RR+CS3',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'DR + RR + All Cascades'
     tbl.add_column(label='DR+RR+CS',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
     d = 'Collisional Ionization'
     tbl.add_column(label='CI',
-                   units=units,
+                   unit=unit,
                    description=d,
                    format='E8.2')
 
@@ -926,7 +686,8 @@ def get_complexes(nelectrons):
 
 def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
-             dist = 0, cascade = 0, rrc = 0, abund0=1.0):
+             dist = 0, cascade = 0, rrc = 0,
+             abund0=1.0, abundm=-1, abundp=-1):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -953,8 +714,14 @@ def spectrum(neles, temp, den, population, pref,
             p1 = population[i][k-1]
             p2 = population[i][k]
             p3 = population[i][k+1]
-            p1 = abund0*(p1/p2)
-            p3 = abund0*(p3/p2)
+            if (abundm <= 0):
+                p1 = abund0*(p1/p2)
+            else:
+                p1 = abundm
+            if (abundp <= 0):
+                p3 = abund0*(p3/p2)
+            else:
+                p3 = abundp
             p2 = abund0
             print 'Temp = %10.3E'%(temp[i])
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
@@ -984,6 +751,10 @@ def spectrum(neles, temp, den, population, pref,
                 print 'Init blocks...'
                 InitBlocks()
                 s = 't%02dd%di%d'%(i, d, nion)
+                if (abundm > 0):
+                    s = s + 'm'
+                if (abundp > 0):
+                    s = s + 'p'
                 rt_file = dir1+'%s_%s.rt'%(f2,s)
                 sp_file = dir1+'%s_%s.sp'%(f2,s)
                 rt_afile = dir1+'%sa_%s.rt'%(f2[:-1],s)
@@ -1002,41 +773,3 @@ def spectrum(neles, temp, den, population, pref,
             ReinitCRM(1)
         ReinitCRM()
 
-def read_lines(file, nele):
-    k = -1
-    s = []
-    for line in open(file, 'r').readlines():
-        a = string.split(line)
-        if (len(a) != 5):
-            continue
-        if (int(a[0]) != nele):
-            continue
-        e = float(a[3])
-        i = int(a[1])
-        j = int(a[2])
-        s0 = float(a[4])
-        s.append([i, j, e, s0])
-                
-    return s
-
-def id_lines(w, s, name, eps=''):
-    n = len(w)
-    biggles.configure('screen', 'width', 800)
-    biggles.configure('screen', 'height', 500)
-    p = biggles.FramedPlot()
-    p.aspect_ratio = 0.7
-    xmin = min(w)
-    xmax = max(w)
-    for i in range(n):
-        q1 = (w[i], 0)
-        q2 = (w[i], s[i])
-        l = biggles.Line(q1, q2)
-        p.add(l)
-        l = biggles.Label(q2[0], q2[1], '%d: %s'%(i,name[i]),
-                          color='red', textangle=90)
-        p.add(l)
-    p.add(biggles.Line((xmin,0), (xmax,0), color='red'))
-    if (eps):
-        p.write_eps(eps)
-    else:
-        p.show()

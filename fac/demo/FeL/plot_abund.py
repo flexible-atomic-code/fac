@@ -1,6 +1,7 @@
 import cPickle
 import biggles
 from pfac import const
+from pfac.table import *
 from pfac.spm import *
 from math import *
 
