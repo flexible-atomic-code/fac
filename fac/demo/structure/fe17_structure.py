@@ -14,10 +14,11 @@ fac.Config('n3', '2*7 3*1')
 # Self-consistent iteration for optimized central potential
 fac.ConfigEnergy(0)
 # the configurations passed to OptimizeRadial should always
-# be one or two of the lowest lying ones. If you need more highly
+# be one or two of the lowest lying ones. and it is often best to
+# just use the ground configurations. If you need more highly
 # excited levels, such as n=4, 5, 6, ..., do not put them
 # in the OptimizeRadial. 
-fac.OptimizeRadial(['n2','n3'])
+fac.OptimizeRadial(['n2'])
 fac.ConfigEnergy(1)
 fac.Structure('ne.lev.b', ['n2', 'n3'])
 fac.MemENTable('ne.lev.b')
