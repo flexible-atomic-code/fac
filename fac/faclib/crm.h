@@ -77,6 +77,8 @@ int BlockPopulation(void);
 double BlockRelaxation(int iter);
 int LevelPopulation(void);
 int SpecTable(char *fn, double smin);
+int SelectLines(char *ifn, char *ofn, int type, 
+		double emin, double emax);
 int PlotSpec(char *ifn, char *ofn, int type,
 	     double emin, double emax, double de, double smin);
 

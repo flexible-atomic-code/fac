@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.5 2002/01/24 04:49:49 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.6 2002/01/25 00:44:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -644,6 +644,26 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", y0);
 }  
 
+static PyObject *PSelectLines(PyObject *self, PyObject *args) {
+  char *ifn, *ofn;
+  double emin, emax;
+  int type;
+
+  if (scrm_file) {
+    SCRMStatement("SelectLines", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ssidd", &ifn, &ofn, &type, &emin, &emax)) 
+    return NULL;
+  
+  SelectLines(ifn, ofn, type, emin, emax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -668,6 +688,7 @@ static struct PyMethodDef crm_methods[] = {
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
+  {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
