@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.79 2004/06/11 22:41:14 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.80 2004/06/14 04:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -979,7 +979,7 @@ static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  maxfun = 100;
+  maxfun = 0;
   msglvl = 0;
   if (!PyArg_ParseTuple(args, "|ii", &maxfun, &msglvl)) return NULL;
   

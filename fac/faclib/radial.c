@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.97 2004/06/13 23:45:35 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.98 2004/06/14 04:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -713,77 +713,53 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   return 0;
 }      
 
-static void TNFunc(int *n, double *x, double *f, double *g) {
-  double a, delta;
+static double EnergyFunc(int *n, double *x) {
+  double a;
 
   potential->lambda = x[0];
   potential->a = x[1];
   SetPotentialVc(potential);
   ReinitRadial(1);
   ClearOrbitalTable(0);
-  *f = AverageEnergyAvgConfig(&average_config);
-
-  delta = 0.01*x[0];
-  potential->lambda += delta;
-  SetPotentialVc(potential);
-  ReinitRadial(1);
-  ClearOrbitalTable(0);
   a = AverageEnergyAvgConfig(&average_config);
-  g[0] = (a - *f)/delta;
-  potential->lambda -= delta;
-
-  delta = 0.01;
-  potential->a += delta;
-  SetPotentialVc(potential);
-  ReinitRadial(1);
-  ClearOrbitalTable(0);
-  a = AverageEnergyAvgConfig(&average_config);
-  g[1] = (a - *f)/delta;
-  potential->a -= delta;
   
-  return;
+  return a;
 }
 
 int RefineRadial(int maxfun, int msglvl) {
-  int n, lw, ierr;
-  int maxit, ip[2];
-  double eta, stepmx, accrcy, xtol;
-  double f0, f, x[2], g[2], x0[2], x1[2];
+  int n, ierr, mode, nfe, lw[4];
+  double xtol, scale[2];
+  double f0, f, x[2];
   
-  if (msglvl == 0) msglvl = -3;
-  maxit = 10;
-  eta = 0.25;
-  stepmx = 0.5;
-  accrcy = EPS10;
-  xtol = EPS4;
+  if (maxfun <= 0) maxfun = 250;
+  xtol = EPS3;
   n = 2;
-  lw = potential->maxrp;
+  mode = 0;
   x[0] = potential->lambda;
-  x0[0] = x[0] - x[0]*0.5;
-  x1[0] = x[0] + x[0]*1.5;
   x[1] = potential->a;
-  x0[1] = 0.0;
-  x1[1] = 5.0;
+  scale[0] = 0.01;
+  scale[1] = 0.01;
   
+  f0 = EnergyFunc(&n, x);
   if (msglvl > 0) {
-    printf("%10.3E %10.3E\n", x[0], x[1]);
+    printf("%10.3E %10.3E %15.8E\n", x[0], x[1], f0);
   }
-  TNFunc(&n, x, &f0, g);
-  LMQNBC(&ierr, n, x, &f, g, _dwork11, lw, TNFunc, 
-	 x0, x1, ip, msglvl, maxit, maxfun, eta, 
-	 stepmx, accrcy, xtol);
+  nfe = 0;
+  ierr = 0;
+  SUBPLX(EnergyFunc, n, xtol, maxfun, mode, scale, x,
+	 &f, &nfe, _dwork11, lw, &ierr);
   if (msglvl > 0) {
-    printf("%10.3E %10.3E\n", x[0], x[1]);
+    printf("%10.3E %10.3E %15.8E %d\n", x[0], x[1], f, nfe);
   }
   potential->lambda = x[0];
   potential->a = x[1];
   SetPotentialVc(potential);
   if (ierr) {
     if (f > f0) {
-      printf("Error in RefineRadial: %d %10.3E %10.3E\n", ierr, f0, f);
+      printf("Error in RefineRadial: %d\n", ierr);
       return ierr;
     } else if (msglvl > 0) {
-      printf("Warning in RefineRadial: %d %10.3E %10.3E\n", ierr, f0, f);
+      printf("Warning in RefineRadial: %d\n", ierr);
     }
   }
   
