@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.19 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.20 2005/01/13 04:27:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -342,8 +342,7 @@ int SetMLevels(char *fn, char *tfn) {
       j1 = levels[r1.lower].j;
       j2 = levels[r1.upper].j;
       e = levels[r1.upper].energy-levels[r1.lower].energy;
-      a = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
-      a *= r1.strength;
+      b = OscillatorStrength(h1.multipole, e, r1.strength, &a);
       a *= RATE_AU;
       tr_rates[t0].rtotal = a/(j2+1.0);
       tr_rates[t0].n = (j1/2+1)*(j2/2+1);
