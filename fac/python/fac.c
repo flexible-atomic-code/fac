@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.81 2004/06/22 22:18:31 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.82 2004/06/23 18:11:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -194,7 +194,7 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
     return Py_None;
   }
   p = -1.0;
-  bqp = 1E30;
+  bqp = 0.0;
   if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
     return NULL;
   SetBoundary(nmax, p, bqp);

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.61 2004/06/22 22:18:31 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.62 2004/06/23 18:11:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3032,7 +3032,7 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
   int nmax;
   double bqp, p;
 
-  bqp = 1E30;
+  bqp = 0.0;
   p = -1.0;
   if (argc > 1) {
     p = atof(argv[1]);    
