@@ -28,6 +28,8 @@ static double mix_cut = EPS3;
 
 static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
+
 int GetStructTiming(STRUCT_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
@@ -50,6 +52,7 @@ HAMILTON *GetNewHamilton() {
   }
  
   h->basis = NULL;
+  h->hamilton = NULL;
   h->mixing = NULL;
   n_hamiltons++;
   return h;
@@ -59,8 +62,8 @@ HAMILTON *GetHamilton(int ih) {
   return (HAMILTON *) ArrayGet(hamiltons, ih);
 }
 
-int ConstructHamilton(int isym, int k, int *kg) {
-  int i, j, t;
+int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp) {
+  int i, j, t, jp;
   CONFIG *cfg_i, *cfg_j;
   HAMILTON *h;
   ARRAY *st;
@@ -78,12 +81,14 @@ int ConstructHamilton(int isym, int k, int *kg) {
 #endif
 
   j = 0;
+  jp = 0;
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
   st = &(sym->states);
   for (t = 0; t < sym->n_states; t++) {
     s = (STATE *) ArrayGet(st, t);
     if (InGroups(s->kgroup, k, kg)) j++;
+    else if (kp > 0 && InGroups(s->kgroup, kp, kgp)) jp++;
   }
   
   if (j == 0) return -1;
@@ -93,14 +98,15 @@ int ConstructHamilton(int isym, int k, int *kg) {
   h->pj = isym;
 
   h->dim = j;
+  h->n_basis = jp+j;
   t = j*(j+1)/2;
   /*  if (h->basis != NULL) free(h->basis); */
-  h->basis = (int *) malloc(sizeof(int)*j);
+  h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
   if (!(h->basis)) goto ERROR;
-  h->hamilton = (double *) malloc(sizeof(double)*t);
+  h->hamilton = (double *) malloc(sizeof(double)*(t+(h->dim*jp)+jp));
   if (!(h->hamilton)) goto ERROR;
 
-  j = 0;
+  j = 0;  
   for (t = 0; t < sym->n_states; t++) {
     s = (STATE *) ArrayGet(st, t);
     if (InGroups(s->kgroup, k, kg)) {
@@ -108,6 +114,16 @@ int ConstructHamilton(int isym, int k, int *kg) {
       j++;
     }
   }
+  if (jp > 0) {  
+    for (t = 0; t < sym->n_states; t++) {
+      s = (STATE *) ArrayGet(st, t);
+      if (kp > 0 && InGroups(s->kgroup, kp, kgp)) {
+	h->basis[j] = t;
+	j++;
+      }
+    }
+  }
+
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
   fprintf(debug_log, "%d %d %X \n", h->dim, n_hamiltons-1, h->pj);
 #endif /* (FAC_DEBUG >= DEBUG_STRUCTURE) */
@@ -117,6 +133,20 @@ int ConstructHamilton(int isym, int k, int *kg) {
     for (i = 0; i <= j; i++) {
       r = HamiltonElement(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
+    }
+  }
+
+  if (jp > 0) {
+    t = ((h->dim+1)*(h->dim))/2;
+    for (i = 0; i < h->dim; i++) {
+      for (j = h->dim; j < h->n_basis; j++) {
+	r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	h->hamilton[t++] = r;
+      }
+    }
+    for (j = h->dim; j < h->n_basis; j++) {
+      r = HamiltonElement(isym, h->basis[j], h->basis[j]);
+      h->hamilton[t++] = r;
     }
   }
 
@@ -190,6 +220,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
       j++;
     } 
   }
+  
   if (j == 0) return -1;
   
   h = GetNewHamilton();
@@ -197,6 +228,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   h->pj = isym;
   
   h->dim = j;
+  h->n_basis = j;
   t = j*(j+1)/2;
   h->basis = (int *) malloc(sizeof(int)*j); 
   if (!(h->basis)) goto ERROR;
@@ -542,10 +574,12 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 int DiagnolizeHamilton(int ih) {
   double *ap;
   double *w;
-  double *z;
+  double *z, *x, *y, *b, *d0, *d, *ep;
+  double *mixing = NULL;
   char jobz[] = "V";
   char uplo[] = "U";
-  int n;
+  char trans[] = "N";
+  int n, m, np;
   int ldz;
   double *work;
   int lwork;
@@ -553,6 +587,8 @@ int DiagnolizeHamilton(int ih) {
   int liwork;
   int info;
   HAMILTON *h;
+  int i, j, t, k, one;
+  double d_one, d_zero, e0, c, a, t1, t2;
   clock_t start, stop;
 
 #ifdef PERFOM_SATISTICS
@@ -561,32 +597,96 @@ int DiagnolizeHamilton(int ih) {
 
   h = GetHamilton(ih);
   n = h->dim;
-  ap = h->hamilton;
+  m = h->n_basis;
   ldz = n;
   lwork = 1 + 6*n + n*n;
   liwork = 3 + 5*n;
   work = malloc(sizeof(double)*lwork);
   iwork = malloc(sizeof(int)*liwork);
 
-  h->mixing = malloc(sizeof(double)*n*(n+1));
+  h->mixing = malloc(sizeof(double)*n*(m+1));
+  ap = h->hamilton;
+  if (m > n) {
+    j = n*(n+1)*sizeof(double);
+    mixing = malloc(j);
+  } else {
+    mixing = h->mixing;
+  }
   if (!work ||
       !iwork ||
-      !(h->mixing)) goto ERROR;
-  w = h->mixing;
-  z = h->mixing + n;
+      !(mixing)) goto ERROR;
+  w = mixing;
+  z = mixing + n;
 
   dspevd_(jobz, uplo, &n, ap, w, z, &ldz, work, &lwork,
 	  iwork, &liwork, &info);
   if (info) goto ERROR;
+
+  if (m > n) {
+    np = m-n;
+    b = h->hamilton + n*(n+1)/2;
+    ep = b + n*np;
+    y = h->mixing+n;
+    one = 1;
+    d_one = 1.0;
+    d_zero = 0.0;
+    for (i = 0; i < n; i++) {
+      x = y+n;
+      dgemv_(trans, &np, &n, &d_one, b, &np, z, &one, &d_zero, x, &one);
+      y += m;
+      z += n;
+    }
+    y = h->mixing + 2*n;
+    for (j = 0; j < n; j++) {
+      t = j*(j+1)/2;
+      x = h->mixing + 2*n;
+      for (i = 0; i <= j; i++) {
+	a = 0.0;
+	for (k = 0; k < np; k++) {
+	  a += x[k]*y[k]/(w[j] - ep[k]);
+	}
+	if (i == j) a += w[j];
+	h->hamilton[i+t] = a;
+	x += m;
+      }
+      y += m;
+    }
+    w = h->mixing;
+    d0 = malloc(sizeof(double)*n*n);
+    d = d0;
+    dspevd_(jobz, uplo, &n, ap, w, d, &ldz, work, &lwork,
+	    iwork, &liwork, &info);
+    y = h->mixing+n;
+    z = mixing+n;
+    for (i = 0; i < n; i++) {
+      x = y+n;
+      dgemv_(trans, &n, &n, &d_one, z, &n, d, &one, &d_zero, y, &one);
+      dgemv_(trans, &np, &n, &d_one, b, &np, y, &one, &d_zero, x, &one);
+      for (j = 0; j < np; j++) {
+	x[j] *= 1.0/(w[i]-ep[j]);
+      } 
+      a = ddot_(&np, x, &one, x, &one);
+      a = 1.0/sqrt(1.0+a);
+      dscal_(&m, &a, y, &one);
+      y += m;
+      d += n;
+    }
+    free(d0);
+  }
+
   free(work);
   free(iwork);
+  if (m > n) free(mixing);
+  free(h->hamilton);
+  h->hamilton = NULL;
   return 0;
   
  ERROR:
   if(work) free(work);
   if(iwork) free(iwork);
-  if(h->mixing) free(h->mixing);
-
+  if(mixing) free(mixing);
+  if (m > n && !h->mixing) free(h->mixing);
+ 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.diag_ham += stop-start;
@@ -618,7 +718,7 @@ int AddToLevels(int ih) {
       abort();
     }
     j++;
-    mix += d;
+    mix += h->n_basis;
   }
   
   n_levels = j;
@@ -731,6 +831,7 @@ int SortLevels(int start, int n) {
 int SaveLevelsToAscii(char *fn, int m, int n) {
   FILE *f;
   char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
   int i, j, k;
   int hi, si;
   double mix;
@@ -767,14 +868,14 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 	if (n != orb->n) continue;
       }
     }
-    ConstructLevelName(name, s);
-    fprintf(f, "%-5d %11.4E  %-50s\n", i, 
-	    (lev->energy-e0)*HARTREE_EV, name);
+    ConstructLevelName(name, sname, s);
+    fprintf(f, "%-5d %11.4E  %-20s  %-30s\n", i, 
+	    (lev->energy-e0)*HARTREE_EV, sname, name);
     if (m == 0) continue;
 
     si = lev->mix_index;
-    k = h->dim * (si + 1);
-    for (j = 0; j < h->dim; j++) {
+    k = h->n_basis * si + h->dim;
+    for (j = 0; j < h->n_basis; j++) {
       mix = h->mixing[k];
       sp = (STATE *) ArrayGet(&(sym->states), h->basis[j]);
       fprintf(f, "  (%2d %2d %2d) %10.4E \n", 
@@ -789,7 +890,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   return 0;
 }
 
-int ConstructLevelName(char *name, STATE *basis) {
+int ConstructLevelName(char *name, char *sname, STATE *basis) {
   int n, nq, kl, j;
   int i, len;
   char symbol[20];
@@ -798,20 +899,36 @@ int ConstructLevelName(char *name, STATE *basis) {
   CONFIG *c;
   SHELL_STATE *s;
   ORBITAL *orb;
-  
+  LEVEL *lev;
+  HAMILTON *h;
+  SYMMETRY *sym;
+  int hi, si;
+  int n0, kl0, nq0;
+
   symbol[0] = '\0';
   if (basis->kgroup < 0) {
     i = basis->kgroup;
     i = -(i + 1);
-    orb = GetOrbital(basis->kcfg);
-    GetJLFromKappa(orb->kappa, &j, &kl);
-    if (j < kl) jsym = '-';
-    else jsym = '+';
-
-    kl /= 2;
-    SpecSymbol(symbol, kl);
-    sprintf(name, "%5d + %d%s%c1(%d)%d ", 
-	    i, orb->n, symbol, jsym, j, basis->kstate);
+    if (name) {
+      orb = GetOrbital(basis->kcfg);
+      GetJLFromKappa(orb->kappa, &j, &kl);
+      if (j < kl) jsym = '-';
+      else jsym = '+';
+      
+      kl /= 2;
+      SpecSymbol(symbol, kl);
+      sprintf(name, "%-5d + %d%s%c1(%d)%d ", 
+	      i, orb->n, symbol, jsym, j, basis->kstate);
+    }
+    if (sname) {
+      lev = GetLevel(i);
+      hi = lev->ham_index;
+      si = lev->major_component;
+      h = GetHamilton(hi);
+      sym = GetSymmetry(h->pj);
+      basis = (STATE *) ArrayGet(&(sym->states), h->basis[si]);
+      ConstructLevelName(NULL, sname, basis);
+    }
     return 0;
   }
 
@@ -819,18 +936,46 @@ int ConstructLevelName(char *name, STATE *basis) {
   s = c->csfs + basis->kstate;
 
   len = 0;
-  name[0] = '\0';
+  if (name) name[0] = '\0';
+  if (sname) sname[0] = '\0';
+  n0 = 0;
+  kl0= -1;
+  nq0 = 0;
   for (i = c->n_shells-1; i >= 0; i--) {
     UnpackShell(c->shells+i, &n, &kl, &j, &nq);
     if (j < kl) jsym = '-';
     else jsym = '+';
     kl = kl/2;
-    SpecSymbol(symbol, kl);
-    sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
-	    n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
-    len += strlen(ashell);
-    if (len >= LEVEL_NAME_LEN) return -1;
-    strcat(name, ashell);
+    if (name) {
+      if (nq > 0 || (i == 0 && name[0] == '\0')) {
+	SpecSymbol(symbol, kl);
+	sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
+		n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	len += strlen(ashell);
+	if (len >= LEVEL_NAME_LEN) return -1;
+	strcat(name, ashell);
+      }
+    }
+    if (sname) {
+      if (n == n0 && kl == kl0) {
+	nq0 += nq;
+      } else {
+	if (nq0 > 0) {
+	  SpecSymbol(symbol, kl0);
+	  sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+	  strcat(sname, ashell);
+	}
+	n0 = n;
+	kl0 = kl;
+	nq0 = nq;
+      }
+    }
+  }
+  
+  if (n0 > 0 && (nq0 > 0 || sname[0] == '\0')) {
+    SpecSymbol(symbol, kl0);
+    sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+    strcat(sname, ashell);
   }
   return len;
 }
@@ -840,6 +985,7 @@ int GetBasisTable(char *fn) {
   FILE *f;
   int i, p, j, k, nsym;
   char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
   ARRAY *st;
   STATE *s;
   SYMMETRY *sym;
@@ -855,9 +1001,9 @@ int GetBasisTable(char *fn) {
     fprintf(f, "%d: J = %d, Parity = %d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
-      ConstructLevelName(name, s);
-      fprintf(f, "%4d (%2d %2d %2d) %-50s \n",
-	      k, s->kgroup, s->kcfg, s->kstate, name);
+      ConstructLevelName(name, sname, s);
+      fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
+	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }
     fprintf(f, "\n");
   }
@@ -1503,8 +1649,8 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
     (*ang)->kb = sup->kcfg;
     (*ang)->coeff = 0.0;
     i2 = lev2->mix_index;
-    i2 = h2->dim * (i2 + 1);
-    for (j = 0; j < h2->dim; j++) {
+    i2 = h2->n_basis * i2 + h2->dim;
+    for (j = 0; j < h2->n_basis; j++) {
       mix2 = h2->mixing[i2];
       if (fabs(mix2) < mix_cut) {
 	i2++;
@@ -1535,18 +1681,18 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
     nz = ANGZ_BLOCK;
     (*ang) = malloc(sizeof(ANGULAR_ZFB)*nz);
     i1 = lev1->mix_index;
-    i1 = h1->dim * (i1 + 1);
+    i1 = h1->n_basis * i1 + h1->dim;
     
-    for (i = 0; i < h1->dim; i++) {
+    for (i = 0; i < h1->n_basis; i++) {
       mix1 = h1->mixing[i1];
       if (fabs(mix1) < mix_cut) {
 	i1++;
 	continue;
       }
       i2 = lev2->mix_index;
-      i2 = h2->dim * (i2 + 1);
+      i2 = h2->n_basis * i2 + h2->dim;
       slow = (STATE *) ArrayGet(&(sym1->states), h1->basis[i]);
-      for (j = 0; j < h2->dim; j++) {
+      for (j = 0; j < h2->n_basis; j++) {
 	mix2 = h2->mixing[i2];
 	if (fabs(mix2) < mix_cut) {
 	  i2++;
@@ -1670,16 +1816,16 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
     
     i1 = lev1->mix_index;
-    i1 = h1->dim * (i1 + 1);
+    i1 = h1->n_basis * i1 + h1->dim;
     
-    for (i = 0; i < h1->dim; i++) {
+    for (i = 0; i < h1->n_basis; i++) {
       mix1 = h1->mixing[i1];
       if (fabs(mix1) < mix_cut) {
 	i1++;
 	continue;
       }
       i2 = lev2->mix_index;
-      i2 = h2->dim * (i2 + 1);
+      i2 = h2->n_basis * i2 + h2->dim;
       slow = (STATE *) ArrayGet(&(sym1->states), h1->basis[i]);
       jlow = GetBaseJ(slow);
       kg1 = slow->kgroup;
@@ -1687,7 +1833,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
       kb1 = slow->kcfg;
       jb1 = GetOrbital(kb1)->kappa;
       jb1 = GetJFromKappa(jb1);
-      for (j = 0; j < h2->dim; j++) {
+      for (j = 0; j < h2->n_basis; j++) {
 	mix2 = h2->mixing[i2];
 	if (fabs(mix2) < mix_cut) {
 	  i2++;
@@ -1743,8 +1889,8 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     n = 0;
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
     i1 = lev1->mix_index;
-    i1 = h1->dim * (i1 + 1); 
-    for (i = 0; i < h1->dim; i++) {
+    i1 = h1->n_basis * i1 + h1->dim; 
+    for (i = 0; i < h1->n_basis; i++) {
       mix1 = h1->mixing[i1];
       if (fabs(mix1) < mix_cut) {
 	i1++;
@@ -1777,8 +1923,8 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     n = 0;
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
     i2 = lev2->mix_index;
-    i2 = h2->dim * (i2 + 1);
-    for (j = 0; j < h2->dim; j++) {
+    i2 = h2->n_basis * i2 + h2->dim;
+    for (j = 0; j < h2->n_basis; j++) {
       mix2 = h2->mixing[i2];
       if (fabs(mix2) < mix_cut) {
 	i2++;
@@ -1813,18 +1959,18 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     if (!(*ang)) return -1;
   
     i1 = lev1->mix_index;
-    i1 = h1->dim * (i1 + 1);
+    i1 = h1->n_basis * i1 + h1->dim;
 
-    for (i = 0; i < h1->dim; i++) {
+    for (i = 0; i < h1->n_basis; i++) {
       mix1 = h1->mixing[i1];
       if (fabs(mix1) < mix_cut) {
 	i1++;
 	continue;
       }
       i2 = lev2->mix_index;
-      i2 = h2->dim * (i2 + 1);
+      i2 = h2->n_basis * i2 + h2->dim;
       slow = (STATE *) ArrayGet(&(sym1->states), h1->basis[i]);
-      for (j = 0; j < h2->dim; j++) {
+      for (j = 0; j < h2->n_basis; j++) {
 	mix2 = h2->mixing[i2];
 	if (fabs(mix2) < mix_cut) {
 	  i2++;
@@ -1900,8 +2046,8 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
   sup = (STATE *) ArrayGet(&(sym2->states), h2->basis[lev2->major_component]);
   if (sup->kgroup < 0) {  
     i2 = lev2->mix_index;
-    i2 = h2->dim * (i2 + 1);
-    for (j = 0; j < h2->dim; j++) {
+    i2 = h2->n_basis * i2 + h2->dim;
+    for (j = 0; j < h2->n_basis; j++) {
       mix2 = h2->mixing[i2];
       if (fabs(mix2) < mix_cut) {
 	i2++;
@@ -1946,18 +2092,18 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
   } else { 
 
     i1 = lev1->mix_index;
-    i1 = h1->dim * (i1 + 1);
+    i1 = h1->n_basis * i1 + h1->dim;
 
-    for (i = 0; i < h1->dim; i++) {
+    for (i = 0; i < h1->n_basis; i++) {
       mix1 = h1->mixing[i1];
       if (fabs(mix1) < mix_cut) {
 	i1++;
 	continue;
       }
       i2 = lev2->mix_index;
-      i2 = h2->dim * (i2 + 1);
+      i2 = h2->n_basis * i2 + h2->dim;
       slow = (STATE *) ArrayGet(&(sym1->states), h1->basis[i]);
-      for (j = 0; j < h2->dim; j++) {
+      for (j = 0; j < h2->n_basis; j++) {
 	mix2 = h2->mixing[i2];
 	if (fabs(mix2) < mix_cut) {
 	  i2++;
@@ -2113,4 +2259,49 @@ int InitStructure() {
   return 0;
 }
 
+int ClearLevelTable() {
+  n_levels = 0;
+  ArrayFree(levels, NULL);
+  return 0;
+}
 
+int ClearHamilton(int ih) {
+  HAMILTON *h;
+  
+  if (ih >= n_hamiltons) return -1;
+  if (ih >= 0) {
+    h = GetHamilton(ih);
+    if (h->basis) {
+      free(h->basis);
+      h->basis = NULL;
+    }
+    if (h->hamilton) {
+      free(h->hamilton);
+      h->hamilton = NULL;
+    }
+    if (h->mixing) {
+      free(h->mixing);
+      h->mixing = NULL;
+    }
+  } else {
+    for (ih = 0; ih < n_hamiltons; ih++) {
+      h = GetHamilton(ih);
+      if (h->basis) {
+	free(h->basis);
+	h->basis = NULL;
+      }
+      if (h->hamilton) {
+	free(h->hamilton);
+	h->hamilton = NULL;
+      }
+      if (h->mixing) {
+	free(h->mixing);
+	h->mixing = NULL;
+      }
+    }
+    ArrayFree(hamiltons, NULL);
+    n_hamiltons = 0;
+  }
+  
+  return 0;
+}

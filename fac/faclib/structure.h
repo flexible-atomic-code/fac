@@ -18,6 +18,7 @@
 typedef struct _HAMILTON_ {
   int pj;
   int dim;
+  int n_basis;
   int *basis;
   double *hamilton;
   double *mixing;
@@ -73,7 +74,7 @@ typedef struct _STRUCT_TIMING_ {
 
 HAMILTON *GetNewHamilton(void);
 HAMILTON *GetHamilton(int ih);
-int ConstructHamilton(int isym, int k, int *kg);
+int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);
@@ -113,12 +114,14 @@ int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);
-int ConstructLevelName(char *name, STATE *basis);
+int ConstructLevelName(char *name, char *sname, STATE *basis);
 int SaveLevelsToAscii(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int GetStructTiming(STRUCT_TIMING *t);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
+int ClearLevelTable();
+int ClearHamilton(int ih);
 
 #endif
 
