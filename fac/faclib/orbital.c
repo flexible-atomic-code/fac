@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.51 2004/02/21 23:20:43 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.52 2004/02/26 03:39:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -685,6 +685,13 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   return 0;
 }
 
+/*
+** The storage of amplitude and phase in the wfun array is arranged:
+** large component: large[i]=amplitude_i, large[i+1]=phase_i,
+** small component: small[i]=a_cos_i, small[i+1]=a_sin_i,
+** so: P[i] = large[i]*sin(large[i+1])
+** and Q[i] = small[i]*cos(large[i+1])+small[i+1]*sin(large[i+1])
+*/
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
   int i, i1, kappa;
   double xi, e, *p, a, b;
