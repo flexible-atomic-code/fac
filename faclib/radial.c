@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.106 2004/07/06 07:09:25 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.107 2004/07/08 18:41:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -60,9 +60,6 @@ static struct {
 } qed = {QEDSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
- 
-static double rgrid_ratio = GRIDRATIO;
-static double rgrid_asymp = GRIDASYMP;    
  
 static MULTI *slater_array;
 static MULTI *breit_array;
@@ -276,7 +273,7 @@ int SetBoundary(int nmax, double p, double bqp) {
       return -1;
     }
   }
-  potential->ib1 = potential->maxrp-10;
+  potential->ib1 = potential->ib;
   return 0;
 }
 
@@ -385,10 +382,10 @@ int SetRadialGrid(int maxrp, double ratio, double asymp) {
   }
   if (maxrp < 0) maxrp = DMAXRP;
   potential->maxrp = maxrp;
-  if (ratio < 0) rgrid_ratio = GRIDRATIO;
-  else rgrid_ratio = ratio;
-  if (asymp < 0) rgrid_asymp = GRIDASYMP;
-  else rgrid_asymp = asymp;
+  if (ratio < 0) potential->ratio = GRIDRATIO;
+  else potential->ratio = ratio;
+  if (asymp < 0) potential->asymp = GRIDASYMP;
+  else potential->asymp = asymp;
   potential->flag = 0;
   return 0;
 }
@@ -745,7 +742,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
-    SetOrbitalRGrid(potential, rgrid_ratio, rgrid_asymp);
+    SetOrbitalRGrid(potential);
   }
 
   SetPotentialZ(potential, 0.0);
@@ -1188,8 +1185,10 @@ int ClearOrbitalTable(int m) {
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
-      if (orb->n != 0) {
-	n_continua -= n_orbitals - (i+1);
+      if (orb->n == 0) {
+	n_continua--;
+      }
+      if (orb->n > 0) {
 	n_orbitals = i+1;
 	ArrayTrim(orbitals, i+1, FreeOrbitalData);
 	break;
