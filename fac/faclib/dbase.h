@@ -174,11 +174,11 @@ typedef struct _SP_HEADER_ {
   int iedist;
   int np_edist;
   double *p_edist;
-  double eden;
+  float eden;
   int ipdist;
   int np_pdist;
   double *p_pdist;
-  double pden;
+  float pden;
 } SP_HEADER;
 
 typedef struct _SP_RECORD_ {
@@ -200,7 +200,7 @@ typedef struct _RT_HEADER_ {
   int np_pdist;
   double *p_pdist;
   int iblock;
-  double nb;
+  float nb;
 } RT_HEADER;
 
 typedef struct _RT_RECORD_ {
