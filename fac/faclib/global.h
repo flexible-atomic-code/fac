@@ -260,8 +260,8 @@
 #define MAXRANK            16
 
 /* coulomb */
-#define NHYDROGEN          10
-#define LHYDROGEN          7
+#define NHYDROGEN          20
+#define LHYDROGEN          10
 #define NHYDROGENMAX       512
 #define LHYDROGENMAX       20
 #define DIPOLE_BLOCK       64
