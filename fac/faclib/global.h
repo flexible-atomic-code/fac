@@ -204,8 +204,8 @@
 #define MULTI_BLOCK6   10
 
 /* orbital */
-#define MAXRP      5000 /* maximum radial mesh */
-#define DMAXRP     1000 /* default radial mesh points */
+#define MAXRP      3000 /* maximum radial mesh */
+#define DMAXRP     1200 /* default radial mesh points */
 #define GRIDASYMP  36   /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1  /* ratio of successive mesh near origin */
 #define ENERELERR  1E-4 /* relative energy error */

@@ -83,10 +83,8 @@ typedef struct _ECORRECTION_ {
 
 typedef struct _CORR_CONFIG_ {
   CONFIG *c;
-  int inp, inq;
+  int inp, inq, ncs;
   int np, nq, kp, kq;
-  int *nbasis, ncs;
-  double **ene, ***ham;
 } CORR_CONFIG;
 
 #ifdef PERFORM_STATISTICS
@@ -117,7 +115,8 @@ int MBPT(char *fn, int n, int *s, int k, int *kg, int *n0, int n1,
 int MBPTS(char *fn, char *fn1, int n, int *s, int k, int *kg,
 	  int *n0, int nmax, int kmax, int nt);
 int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
-		  int *n0, int nmax, int kmax, int nt, double eps);
+		  int *n0, int *ni, int nmax, int kmax, int nt, 
+		  char *gn0, double eps, double eps1);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg);
 int ValidBasis(STATE *s, int k, int *kg, int n);

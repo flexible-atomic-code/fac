@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.55 2004/05/27 15:55:00 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.56 2004/05/30 22:26:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2346,24 +2346,19 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PStructureMBPT(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int *n0, i, n1, *s, *kg, n, ng, kmax, nt;
+  int *n0, *ni, i, n1, *s, *kg, n, ng, kmax, nt;
   char *v[MAXNARGS];
   int t[MAXNARGS], nv;
-  double eps;
+  double eps, eps1;
   
-  if (argc < 7 || argc > 9) return -1;
-  if (argt[0] != STRING) return -1;
-  if (argt[1] != STRING) return -1;
-  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
-  if (argt[5] != NUMBER || 
-      argt[6] != NUMBER) return -1;
-  nt = 5;
+  if (argc < 10 || argc > 12) return -1;
+
   eps = 1E-4;
-  if (argc > 7) {
-    nt = atoi(argv[7]);
-    if (argc > 8) {
-      eps = atof(argv[8]);
+  eps1 = 1E-2;
+  if (argc > 10) {
+    eps = atof(argv[10]);
+    if (argc > 11) {
+      eps1 = atof(argv[11]);
     }
   }
 
@@ -2377,6 +2372,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   }
   
   n0 = malloc(sizeof(int)*ng);
+  ni = malloc(sizeof(int)*ng);
   if (argt[4] == NUMBER) {
     n0[0] = atoi(argv[4]);
     for (i = 1; i < ng; i++) {
@@ -2390,6 +2386,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       free(s);
       free(kg);
       free(n0);
+      free(ni);
       return -1;
     }
     for (i = 0; i < nv; i++) {
@@ -2399,15 +2396,33 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   } else {
     return -1;
   }
-    
-  n1 = atoi(argv[5]);
-  kmax = atoi(argv[6]);
+  if (argt[5] != LIST) return -1;
+  nv = DecodeArgs(argv[5], v, t, variables);
+  if (nv != ng) {
+    for (i = 0; i < nv; i++) free(v[i]);
+    printf("ni array must have the same size as the gp array\n");
+    free(s);
+    free(kg);
+    free(n0);
+    free(ni);
+    return -1;
+  }
+  for (i = 0; i < nv; i++) {
+    ni[i] = atoi(v[i]);
+    free(v[i]);
+  }
   
-  StructureMBPT(argv[0], argv[1], n, s, ng, kg, n0, n1, kmax, nt, eps);
+  n1 = atoi(argv[6]);
+  kmax = atoi(argv[7]);
+  nt = atoi(argv[8]);
+  
+  StructureMBPT(argv[0], argv[1], n, s, ng, kg, n0, ni, n1, kmax, nt, argv[9], 
+		eps, eps1);
 
   free(s);
   free(kg);
   free(n0);
+  free(ni);
 
   return 0;
 }
@@ -2999,18 +3014,18 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
   int nmax;
   double bqp, p;
 
-  if (argc == 2) {
-    p = -1.0;
-  } else if (argc == 3) {
-    p = atof(argv[2]);
-  } else {
-    return -1;
+  bqp = 1.0;
+  p = -1.0;
+  if (argc > 1) {
+    p = atof(argv[1]);    
+    if (argc > 2) {
+      bqp = atof(argv[2]);
+    }
   }
 
   nmax = atoi(argv[0]);
-  bqp = atof(argv[1]);
   
-  SetBoundary(nmax, bqp, p);
+  SetBoundary(nmax, p, bqp);
 
   return 0;
 }

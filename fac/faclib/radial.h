@@ -26,7 +26,7 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
-void SetBoundary(int nmax, double bqp, double p);
+void SetBoundary(int nmax, double p, double bqp);
 int RadialOverlaps(char *fn);
 void SetSE(int n);
 void SetVP(int n);
