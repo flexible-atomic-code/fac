@@ -260,7 +260,7 @@
 #define MAXNUSR            30
 #define MAXNE              20
 #define MAXNTE             6
-#define TE_MIN_MAX         0.5
+#define TE_MIN_MAX         (1.0/3.0)
 
 /* excitation */
 #define NGOSK              64
@@ -268,7 +268,7 @@
 #define EXCLMAX            20
 #define EXCLCB             20
 #define EXCTOL             5E-2
-#define XBORN              -0.25
+#define XBORN              (-0.25)
 
 /* ionization */
 #define IONMAXK            8

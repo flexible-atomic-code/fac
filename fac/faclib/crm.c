@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.60 2003/08/15 16:17:28 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.61 2003/10/13 23:43:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3219,11 +3219,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   int swp;
   int idist;
 
-  if (type == 0) {
-    printf("Type must not be 0\n");
-    return -1;
-  }
-  
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
@@ -3278,19 +3273,21 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     r1 = h.type / 10000;
     r0 = h.type % 10000;
     r0 = r0/100;
-    if (t2 == 0) {
-      if (t != h.type) goto LOOPEND;
-    } else if (t2 == 1) {
-      if (r1 < t1) goto LOOPEND;
-      if (h.type < 100) goto LOOPEND;
-      if (t%10000 != h.type%10000) goto LOOPEND;
-    } else {
-      if (t < 100) {
-	if (h.type > 99) goto LOOPEND;
-	if (h.type < t) goto LOOPEND;
-      } else {
+    if (type != 0) {
+      if (t2 == 0) {
+	if (t != h.type) goto LOOPEND;
+      } else if (t2 == 1) {
 	if (r1 < t1) goto LOOPEND;
-	if (r0 < t0) goto LOOPEND;
+	if (h.type < 100) goto LOOPEND;
+	if (t%10000 != h.type%10000) goto LOOPEND;
+      } else {
+	if (t < 100) {
+	  if (h.type > 99) goto LOOPEND;
+	  if (h.type < t) goto LOOPEND;
+	} else {
+	  if (r1 < t1) goto LOOPEND;
+	  if (r0 < t0) goto LOOPEND;
+	}
       }
     }
     m = 2*h.ntransitions;
@@ -3337,7 +3334,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     fseek(f1, h.length, SEEK_CUR);
   }
 
-  if (t < 100) {
+  if (type != 0 && t < 100) {
     dist = GetEleDist(&idist);
     sig = dist->params[0];
     m = 10*sig/de01;
