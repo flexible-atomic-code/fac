@@ -2528,10 +2528,8 @@ subsystem. The following keyword identifiers may be used:
 \var{config$\ge$0}, exsisting configurations and coupling are cleared.
 \item[\key{recouple}] Angular recoupling package. If \var{recouple$\ge$0}, all
 recoupling interaction array is cleared.
-\item[\key{structure}] Atomic structure calculatoin. If \var{structure$=$0},
-the energy level table and all angular coefficients are cleared. If
-\var{structure$=$1}, only the angular coefficients are cleared. If
-\var{structure$=$2}, only the energy level table is cleared.
+\item[\key{structure}] Atomic structure calculatoin. If \var{structure$\ge$0},
+the energy level table and all angular coefficients are cleared.
 \item[\key{radial}] Radial wavefunction and integrals. If \var{radial$=$0}, the
 radial orbital table, the potential table, all radial integral tables are
 cleared. If \var{radial$=$1}, only continuum orbitals are cleared.
@@ -2552,11 +2550,11 @@ memory is cleared and all database headers are reinitialized. If
 In the second form, the integer \var{m} requires a certain combination of
 subsystems to be reinitialized. It may be $-1$, 0, or 1. If \var{m=0}, then all
 keywords are set to 0, i.e., a full reinitialization. If \var{m=1}, keywords
-\key{radial}, \key{excitation}, \key{recombination}, \key{ionization}, and
-\key{dbase} are set to 0, \key{structure} is set to 2, and \key{config} and
+\key{radial}, \key{excitation}, \key{recombination}, \key{ionization},
+\key{structure}, and \key{dbase} are set to 0, \key{config} and
 \key{recouple} are not reinitialized. This is useful to clear all information
-related to radial wavefunctions, but keep the angular coupling and recoupling
-coefficients intact. If \var{m=$-1$}, all keywords are set to 1.
+related to radial wavefunctions, but keep the configuration data intact. If
+\var{m=$-1$}, all keywords are set to 1.
 \end{fundesc}
 
 \begin{fundesc}{ReinitConfig}{m}
@@ -4283,7 +4281,7 @@ calculated energy levels by specified amount.}
 \faq{Why is it advised to make seperate calls to \key{AITable} for different
 bound or free state complexes}{
 The autoionization radial integrals are only calculated for a few free
-electron energies. The actuall values are interpolated from them. This only
+electron energies. The actual values are interpolated from them. This only
 works well if the the free electron energy after autoionization does not vary
 widely. Therefore, one should avoid calling \key{AITable} with bound or free
 states in different complexes. e.g., KLL and KLM resonances should be

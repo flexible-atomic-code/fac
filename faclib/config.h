@@ -164,14 +164,6 @@ typedef struct _AVERAGE_CONFIG_ {
   double *nq;
 } AVERAGE_CONFIG;
 
-
-typedef struct _PARTITION_ {
-  int icfg1;
-  int icfg2;
-  int n_csfs;
-} PARTITION;
-
-
 /*
 ** STRUCT:      CONFIG_GROUP
 ** PURPOSE:     a group of configurations.
@@ -189,7 +181,6 @@ typedef struct _PARTITION_ {
 typedef struct _CONFIG_GROUP_ { 
   int n_cfgs;
   int n_electrons;
-  ARRAY partition;
   ARRAY cfg_list;
   char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
@@ -231,7 +222,6 @@ typedef struct _SYMMETRY_ {
 } SYMMETRY;
 
 void        *ReallocNew(void *p, int s);
-int          SetNStatesPartition(int n);
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
 int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
 int          GetConfigOrAverageFromString(CONFIG **cfg, 
@@ -268,9 +258,9 @@ int          RemoveGroup(int k);
 CONFIG_GROUP *GetGroup(int k);
 CONFIG_GROUP *GetNewGroup(void);
 int          GetNumGroups(void);
+int          GetNumConfigs(void);
 CONFIG       *GetConfig(STATE *s);
 CONFIG       *GetConfigFromGroup(int kg, int kc);
-PARTITION    *GetPartition(int kg, int kp);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 
 				int parity, int j);
 int          AddConfigToSymmetry(int kg, int kc, CONFIG *cfg);
@@ -280,5 +270,6 @@ int          SpecSymbol(char *s, int kl);
 int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
 int          ReinitConfig(int m);
+int          SetNCG(void);
 
 #endif

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.90 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.91 2004/12/12 06:15:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -358,7 +358,7 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
       p++;
     }
   }
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -2619,47 +2619,6 @@ static PyObject *PFreeExcitationQk(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PFreeRecAngZ(PyObject *self, PyObject *args) { 
-
-  if (sfac_file) {
-    SFACStatement("FreeRecAngZ", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  FreeRecAngZ();
-  Py_INCREF(Py_None);
-  return Py_None;  
-}
-
-static PyObject *PFreeAngZ(PyObject *self, PyObject *args) { 
-  PyObject *p;
-  int i, m;
-  int n, *kg;
-
-  if (sfac_file) {
-    SFACStatement("FreeAngZ", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  p = NULL;
-  m = -1;
-  if (!PyArg_ParseTuple(args, "|Oi", &p, &m)) return NULL;
-  if (p == NULL) {
-    FreeAngZ(-1, m);
-  } else {
-    n = DecodeGroupArgs(p, &kg);
-    for (i = 0; i < n; i++) {
-      FreeAngZ(kg[i], m);
-    }
-    free(kg);
-  }
-
-  Py_INCREF(Py_None);
-  return Py_None;  
-}
-
 static PyObject *PSetIEGrid(PyObject *self, PyObject *args) {
   int i, n;
   double xg[MAXNTE];
@@ -3632,23 +3591,6 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PSetNStatesPartition(PyObject *self, PyObject *args) {
-  int n;  
-
-  if (sfac_file) {
-    SFACStatement("SetNStatesPartition", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  n = 0;
-  if (!PyArg_ParseTuple(args, "|i", &n)) return NULL;
-  SetNStatesPartition(n);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PY5N(PyObject *self, PyObject *args) {
   double lambda, xi, eta0, x0;
   double y5, y5i, y5p, y5pi;
@@ -4334,7 +4276,6 @@ static struct PyMethodDef fac_methods[] = {
   {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
-  {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
@@ -4345,7 +4286,6 @@ static struct PyMethodDef fac_methods[] = {
   {"FreeResidual", PFreeResidual, METH_VARARGS},
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
-  {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetCFPOld", PGetCFPOld, METH_VARARGS},
   {"GetW3j", PGetW3j, METH_VARARGS},
   {"GetW6j", PGetW6j, METH_VARARGS},
@@ -4394,7 +4334,6 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
   {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
-  {"SetNStatesPartition", PSetNStatesPartition, METH_VARARGS},
   {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},

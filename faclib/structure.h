@@ -28,16 +28,23 @@ typedef struct _HAMILTON_ {
   int *iwork;
 } HAMILTON;
 
+typedef struct _SHAMILTON_ {
+  int pj;
+  int nbasis;
+  STATE **basis;
+} SHAMILTON;
+
 typedef struct _LEVEL_ {
   int pj;
+  int iham;
   int n_basis;
   int pb;
   int kpb[NPRINCIPLE];
   int ibase;
   int *basis;
+  short *ibasis;
   double *mixing;
   double energy;
-  int ngp, *igp;
 } LEVEL;
 
 typedef struct _LEVEL_ION_ {
@@ -47,7 +54,6 @@ typedef struct _LEVEL_ION_ {
 
 typedef struct _ANGZ_DATUM_ {
   int ns;
-  int *ic;
   int *nz;
   void **angz;
 } ANGZ_DATUM;
@@ -150,7 +156,7 @@ LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels(void);
 int GetNumElectrons(int k);
-int SortMixing(int start, int n, int *basis, double *mix, SYMMETRY *sym);
+int SortMixing(int start, int n, LEVEL *lev, SYMMETRY *sym);
 int GetPrincipleBasis(double *mix, int d, int *kpb);
 int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
@@ -165,18 +171,11 @@ int PackAngularZxZMix(int *n, ANGULAR_ZxZMIX **ang, int nz);
 int PackAngularZMix(int *n, ANGULAR_ZMIX **ang, int nz);
 int PackAngularZFB(int *n, ANGULAR_ZFB **ang, int nz);
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper);
-int AngularZMixStates(ANGZ_DATUM **ad, 
-		      int kg1, int kg2, 
-		      int kp1, int kp2);
+int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2);
 int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p);
-int AngularZFreeBoundStates(ANGZ_DATUM **ad, 
-			    int kg1, int kg2, int kc1, int kc2);
-int AngularZxZMixStates(ANGZ_DATUM **ad, 
-			int kg1, int kg2, 
-			int kp1, int kp2);
-int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, 
-			      int kg1, int kg2, 
-			      int kp1, int kp2);
+int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2);
+int AngularZxZMixStates(ANGZ_DATUM **ad, int ih1, int ih2);
+int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2);
 int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang, 
 		    int n_shells, int phase, SHELL_STATE *sbra, 
 		    SHELL_STATE *sket, INTERACT_SHELL *s, int m);
@@ -195,7 +194,8 @@ int SaveLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetMixCut(double c);
-int FreeAngZ(int g, int which_array);
+int FreeAngZArray(void);
+int InitAngZArray(void);
 void ClearRMatrixLevels(int n);
 int ClearLevelTable(void);
 int InitStructure(void);
