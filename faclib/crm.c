@@ -1,6 +1,6 @@
 #include "crm.h"
 
-static char *rcsid="$Id: crm.c,v 1.2 2002/01/17 02:57:10 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.3 2002/01/18 20:59:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -76,17 +76,22 @@ static void FreeIonData(void *p) {
     free(ion->ilev);
     free(ion->j);
     free(ion->energy);
-    for (i = 0; i < NDB; i++) {
-      free(ion->dbfiles[i]);
-    }
     ion->nlevels = 0;
+  }
+  for (i = 0; i < NDB; i++) {
+    free(ion->dbfiles[i]);
   }
 
   ArrayFree(ion->ce_rates, NULL);
+  free(ion->ce_rates);
   ArrayFree(ion->tr_rates, NULL);
+  free(ion->tr_rates);
   ArrayFree(ion->ci_rates, NULL);
+  free(ion->ci_rates);
   ArrayFree(ion->rr_rates, NULL);
+  free(ion->rr_rates);
   ArrayFree(ion->ai_rates, NULL);
+  free(ion->ai_rates);
 }
 
 static void FreeBlockData(void *p) {
@@ -1256,12 +1261,12 @@ int SpecTable(char *fn, double strength_threshold) {
   sp_hdr.np_pdist = pdist->nparams;
   sp_hdr.p_pdist = pdist->params;
 
-  ArrayInit(&ri, sizeof(SP_RECORD), 512);
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     sp_hdr.nele = ion->nele;
     sp_hdr.type = 0;
     f = InitFile(fn, &fhdr, &sp_hdr);
+    ArrayInit(&ri, sizeof(SP_RECORD), 512);
     for (m = 0; m < ion->nlevels; m++) {
       i = ion->iblock[m];
       p = ion->ilev[m];
@@ -1287,14 +1292,15 @@ int SpecTable(char *fn, double strength_threshold) {
 	t = (SP_RECORD *) ArrayGet(&ri, m);
 	WriteSPRecord(f, t);
       }
-      ArrayFree(&ri, NULL);
       CloseFile(f, &fhdr);
     }
+    ArrayFree(&ri, NULL);
 
     sp_hdr.nele = ion->nele;
     sp_hdr.type = 1;
     f = InitFile(fn, &fhdr, &sp_hdr);    
     smax = 0.0;
+    ArrayInit(&ri, sizeof(SP_RECORD), 512);
     for (m = 0; m < ion->tr_rates->dim; m++) {
       rt = (RATE *) ArrayGet(ion->tr_rates, m);
       if (k == 0 && 
@@ -1337,9 +1343,9 @@ int SpecTable(char *fn, double strength_threshold) {
 	t = (SP_RECORD *) ArrayGet(&ri, m);
 	WriteSPRecord(f, t);
       }
-      ArrayFree(&ri, NULL);
       CloseFile(f, &fhdr);
     }
+    ArrayFree(&ri, NULL);
     
     if (electron_density <= 0) continue;
     if (ion->rr_rates->dim == 0) continue;
@@ -1440,6 +1446,7 @@ int PlotSpec(char *ifn, char *ofn, int type,
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
     m = sizeof(double)*(h.np_edist + h.np_pdist);
     fseek(f1, m, SEEK_CUR);
+    if (h.ntransitions == 0) continue;
     if (h.type == type) {    
       if (type == 1) {	
 	m = 2*h.ntransitions;
@@ -1457,24 +1464,27 @@ int PlotSpec(char *ifn, char *ofn, int type,
 	  lines[k++] = r.strength;
 	}
 	m = k;
+	
 	qsort(lines, m/2, sizeof(double)*2, CompareLine);
 	k = 0;
 	i = 0;
-	while (k < m && i < nsp) {
-	  while (lines[k] < xsp[i]) k+= 2;
-	  if (lines[k] < xsp[i+1]) {
+	while (k < m && i < nsp-1) {
+	  if (lines[k] < xsp[i]) {
+	    k += 2;
+	  } else if (lines[k] < xsp[i+1]) {
 	    sp[i] += lines[k+1];
 	    k += 2;
 	  } else {
 	    i++;
 	  }
-	}
+	} 
+	fflush(stdout);
 	free(lines);
 	for (i = 0; i < nsp; i++) xsp[i] = 0.0;
 	for (i = 0; i < nsp; i++) {
 	  if (sp[i] > 0.0) {
 	    for (m = i-64, k = 0; k < 128; k++, m++) {
-	      if (m > 0) xsp[m] += sp[i]*kernel[k];
+	      if (m > 0 && m < nsp) xsp[m] += sp[i]*kernel[k];
 	    }
 	  }
 	}
@@ -1497,6 +1507,7 @@ int PlotSpec(char *ifn, char *ofn, int type,
   free(xsp);
   free(sp);
   free(kernel);
+
   fclose(f1);
   fclose(f2);
 
