@@ -1,5 +1,6 @@
 Version 0.8.6, 11/08/2002
 	1. implement DRBranch and DRStrength.
+	2. radial solver for Rydberg states has been improved.
 	
 Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.
