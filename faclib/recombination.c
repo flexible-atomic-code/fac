@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.80 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.81 2004/05/04 16:34:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -270,7 +270,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
-    m = ConstructHamilton(i, k, kg, 0, NULL);
+    m = ConstructHamilton(i, k, k, kg, 0, NULL);
     if (m < 0) continue;
     j = DiagnolizeHamilton();
     if (j < 0) return -1;

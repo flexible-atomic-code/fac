@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.71 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.72 2004/05/04 16:34:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -126,6 +126,63 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static int DecodeGroupArgs(PyObject *args, int **kg) {
+  PyObject *p;
+  char *s;
+  int i, k, ng;  
+
+  if (args) {
+    if (!PyList_Check(args) && !PyTuple_Check(args)) return -1;
+    ng = PySequence_Length(args);
+  } else {
+    ng = 0;
+  }
+  if (ng > 0) {
+    p = PySequence_GetItem(args, 0);
+    if (PyList_Check(p) || PyTuple_Check(p)) {
+      if (ng > 1) {
+	onError("there should only be one list or tuple");
+	return -1;
+      }
+      ng = PySequence_Length(p);
+      args = p;
+      Py_DECREF(p);
+    }
+    (*kg) = malloc(sizeof(int)*ng);
+    if (!(*kg)) {
+      onError("not enough memory");
+      return -1;
+    }
+    for (i = 0; i < ng; i++) {
+      p = PySequence_GetItem(args, i);
+      if (!PyString_Check(p)) {
+	free((*kg));
+	onError("argument must be a group name");
+	return -1;
+      }
+      s = PyString_AsString(p);
+      k = GroupExists(s);
+      Py_DECREF(p);
+      
+      if (k < 0) {
+	free((*kg));
+	onError("group does not exist");
+	return -1;
+      }
+      (*kg)[i] = k;
+    }
+  } else {
+    ng = GetNumGroups();
+    (*kg) = malloc(sizeof(int)*ng);
+    if (!(*kg)) {
+      onError("not enough memory");
+      return -1;
+    }
+    for (i = 0; i < ng; i++) (*kg)[i] = i;
+  }
+  return ng;
+}
 
 static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   int nmax;
@@ -396,7 +453,35 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
+  int k, ng, *kg;
+  PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("RemoveConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  ng = PyTuple_Size(args);
+  if (ng <= 0) return NULL;
+  p = PyTuple_GET_ITEM(args, 0);
+  if (PyString_Check(p)) {
+    ng = DecodeGroupArgs(args, &kg);
+  } else {
+    ng = DecodeGroupArgs(p, &kg);
+  }
   
+  for (k = 0; k < ng; k++) {
+    RemoveGroup(kg[k]);
+  }
+  if (ng > 0) free(kg);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+ 
 static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
   char *s;
   int ns, *n, *kappa;
@@ -799,63 +884,6 @@ static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
-static int DecodeGroupArgs(PyObject *args, int **kg) {
-  PyObject *p;
-  char *s;
-  int i, k, ng;  
-
-  if (args) {
-    if (!PyList_Check(args) && !PyTuple_Check(args)) return -1;
-    ng = PySequence_Length(args);
-  } else {
-    ng = 0;
-  }
-  if (ng > 0) {
-    p = PySequence_GetItem(args, 0);
-    if (PyList_Check(p) || PyTuple_Check(p)) {
-      if (ng > 1) {
-	onError("there should only be one list or tuple");
-	return -1;
-      }
-      ng = PySequence_Length(p);
-      args = p;
-      Py_DECREF(p);
-    }
-    (*kg) = malloc(sizeof(int)*ng);
-    if (!(*kg)) {
-      onError("not enough memory");
-      return -1;
-    }
-    for (i = 0; i < ng; i++) {
-      p = PySequence_GetItem(args, i);
-      if (!PyString_Check(p)) {
-	free((*kg));
-	onError("argument must be a group name");
-	return -1;
-      }
-      s = PyString_AsString(p);
-      k = GroupExists(s);
-      Py_DECREF(p);
-      
-      if (k < 0) {
-	free((*kg));
-	onError("group does not exist");
-	return -1;
-      }
-      (*kg)[i] = k;
-    }
-  } else {
-    ng = GetNumGroups();
-    (*kg) = malloc(sizeof(int)*ng);
-    if (!(*kg)) {
-      onError("not enough memory");
-      return -1;
-    }
-    for (i = 0; i < ng; i++) (*kg)[i] = i;
-  }
-  return ng;
-}
-
 static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   int ng, i, k;
   int *kg;
@@ -1037,10 +1065,9 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 
   if (ngp < 0) return NULL;
   
-  ng0 = 0;
+  ng0 = ng;
   if (!ip) {
     if (ngp) {
-      ng0 = ng;
       ng += ngp;
       kg = (int *) realloc(kg, sizeof(int)*ng);
       memcpy(kg+ng0, kgp, sizeof(int)*ngp);
@@ -1053,13 +1080,17 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;
   for (i = 0; i < ns; i++) {
-    k = ConstructHamilton(i, ng, kg, ngp, kgp);
+    k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
     if (k < 0) continue;
     if (DiagnolizeHamilton() < 0) {
       onError("Diagnolizing Hamiltonian Error");
       return NULL;
     }
-    AddToLevels(ng0, kg);
+    if (ng0 < ng) {
+      AddToLevels(ng0, kg);
+    } else {
+      AddToLevels(0, kg);
+    }
   }
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
@@ -3848,6 +3879,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
+  {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
