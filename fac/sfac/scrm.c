@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.8 2002/02/19 21:26:22 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.9 2002/03/10 15:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -220,17 +220,23 @@ static int PSpecTable(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
   char *fn;
   double smin;
+  int rrc;
 
   smin = EPS10;
+  rrc = 0;
   if (argc == 1) {
    fn = argv[0];
   } else if (argc == 2) {
     fn = argv[0];
-    smin = atof(argv[1]);
+    rrc = atoi(argv[1]);
+  } else if (argc == 3) {
+    fn = argv[0];
+    rrc = atoi(argv[1]);
+    smin = atof(argv[2]);
   } else {
     return -1;
   }
-  SpecTable(fn, smin);
+  SpecTable(fn, rrc, smin);
   return 0;
 }
 

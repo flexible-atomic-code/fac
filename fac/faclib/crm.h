@@ -120,7 +120,7 @@ int BlockPopulation(void);
 double BlockRelaxation(int iter);
 int LevelPopulation(void);
 int Cascade(void);
-int SpecTable(char *fn, double smin);
+int SpecTable(char *fn, int rrc, double smin);
 int SelectLines(char *ifn, char *ofn, int nele, int type, 
 		double emin, double emax, double fmin);
 int PlotSpec(char *ifn, char *ofn, int nele, int type,

@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.24 2002/01/15 07:36:36 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.25 2002/03/10 15:09:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -279,10 +279,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       printf("Invalid orbital angular momentum, L=%d\n", kl);
       return -1;
   }
-  
-  emin = z/(orb->n - 0.9);
+  emin = z/(orb->n - 0.8);
   emin = -emin*emin*0.5;
-  emax = z/(orb->n + 0.1);
+  emax = z/(orb->n + 0.2);
   emax = -emax*emax*0.5;
   eta0 = orb->n-0.05;
   dk = z/eta0;
@@ -366,9 +365,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
 	   orb->n, orb->kappa);
     printf("The wavefunction may be inaccurate\n");
   } 
-  for (i = MAX_POINTS-1; i > i2; i--) {
+  for (i = MAX_POINTS-1; i > i2+10; i--) {
     if (e > _veff[i]) break;
-  } 
+  }
   i2p = i;
   nodes = _Outward(p, e, pot, i1, &i2p);
   if (i2p < MAX_POINTS-1) ierr = _Inward(p, e, pot, i2p);
@@ -748,27 +747,29 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     }
     *i2 = i-1;
     if (*i1 <= 10) *i1 = *i2 - 5;
-  } else if (n < nmax) {
-    for (i = 0; i < MAX_POINTS; i++) {
+  } else {
+    for (i = 10; i < MAX_POINTS; i++) {
       if (e > _veff[i]) break;
     }
     *i1 = i; 
 
-    for (i = MAX_POINTS-10; i > 0; i--) {
+    for (i = MAX_POINTS-10; i > 10; i--) {
       if (e > _veff[i]) break;
     }
     if (i == 0) return -2;
-    *i2 = i + 7;
-    if (*i1 == 0) *i1 = *i2 - 8; 
-  } else {
-    for (i = 0; i < MAX_POINTS; i++) {
-      if (e > _veff[i]) break;
+    if (n >= nmax) {
+      *i2 = i - 16;
+      i = pot->r_core+16;
+      i = Min(i, MAX_POINTS-10);
+      if (*i2 < i) *i2 = i;
+      if (*i1 > *i2 - 8) {
+	*i1 = *i2 - 8;
+      }
+    } else {
+      *i2 = i + 7;
+      if (*i1 == 0) *i1 = *i2 - 8; 
     }
-    *i1 = i; 
-    *i2 = Max(pot->r_core, *i1)+32;
-    if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
-    if (*i1 == 0) *i1 = *i2 - 16; 
-  }
+  } 
 
   return 0;
 }
