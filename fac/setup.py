@@ -54,7 +54,7 @@ else:
       incdir = ["faclib"]
     
       setup(name = "FAC",
-            version = "0.7.8",
+            version = "0.7.9",
             package_dir = {'pfac': 'python'},
             py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
                           'pfac.atom', 'pfac.spm'],

@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.34 2002/08/02 14:07:12 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.35 2002/08/21 22:01:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3162,37 +3162,33 @@ int SetCERates(int inv) {
 	j1 = ion->j[r.lower];
 	j2 = ion->j[r.upper];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
-	data[1] = r.bethe;	
+	data[1] = r.bethe[0];
 	n = fread(cs, sizeof(float), m, f);
 	if (swp) {
 	  for (j = 0; j < m; j++) {
 	    SwapEndian((char *) &(cs[j]), sizeof(float));
 	  }
 	}
-	if (r.bethe < 0.0) {
+	if (r.bethe[0] < 0.0) {
 	  y[0] = 0.0;
 	  for (j = 0; j < m; j++) {
 	    t = m-j;
 	    y[t] = cs[j];
 	  }
 	} else {
-	  if (r.bethe > 0.0) {
+	  y[0] = r.bethe[1];
+	  if (r.bethe[0] > 0.0) {
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
-	      logx[j] = log(e/(e+eusr[j]));
-	      y[t] = cs[j] + r.bethe*logx[j];
+	      logx[j] = e/(e+eusr[j]);
+	      logx[j] = log(logx[j]);
+	      y[t] = cs[j] + r.bethe[0]*logx[j];
 	    }
 	  } else {
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
 	      y[t] = cs[j];
 	    }
-	  }
-	  n = 3;
-	  m1 = 1;
-	  uvip3p_(&n, &m, &(x[1]), &(y[1]), &m1, &(x[0]), &(y[0]));
-	  if (r.bethe + 1.0 == 1.0) {
-	    if (y[0] < 0.0) y[0] = 0.0;
 	  }
 	}
 	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
@@ -3261,37 +3257,34 @@ int SetCERates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  data[1] = r.bethe;
+	  data[1] = r.bethe[0];	
 	  n = fread(cs, sizeof(float), m, f);
 	  if (swp) {
 	    for (j = 0; j < m; j++) {
 	      SwapEndian((char *) &(cs[j]), sizeof(float));
 	    }
 	  }
-	  if (r.bethe < 0.0) {
+	  if (r.bethe[0] < 0.0) {
 	    y[0] = 0.0;
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
 	      y[t] = cs[j];
 	    }
 	  } else {
-	    if (r.bethe > 0.0) {
+	    y[0] = r.bethe[1];
+	    if (r.bethe[0] > 0.0) {
 	      for (j = 0; j < m; j++) {
 		t = m-j;
-	        logx[j] = log(e/(e+eusr[j]));
-		y[t] = cs[j] + r.bethe*logx[j];
+		logx[j] = e/(e+eusr[j]);
+		logx[j] = log(logx[j]);
+		y[t] = cs[j] + r.bethe[0]*logx[j];
 	      }
 	    } else {
 	      for (j = 0; j < m; j++) {
 		t = m-j;
+		logx[j] = e/(e+eusr[j]);
 		y[t] = cs[j];
 	      }
-	    }
-	    n = 3;
-	    m1 = 1;
-	    uvip3p_(&n, &m, &(x[1]), &(y[1]), &m1, &(x[0]), &(y[0]));
-	    if (r.bethe + 1.0 == 1.0) {
-	      if (y[0] < 0.0) y[0] = 0.0;
 	    }
 	  }
 	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,

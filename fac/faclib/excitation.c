@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.37 2002/08/17 20:21:39 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.38 2002/08/21 22:01:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,6 +32,16 @@ static int egrid_limits_type = 0;
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
+
+#define NGOSK 60
+static double kgrid[NGOSK];
+static double log_kgrid[NGOSK];
+static double gos[NGOSK];
+static double kint[NGOSK];
+static double log_kint[NGOSK];
+static double gosint[NGOSK];
+static int n_born;
+static double born_egrid[MAXNE];
 
 #ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
@@ -978,6 +988,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   int nq, q[MAXMSUB];
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
+  double c1, c2, *g1, *g2;
+  double x1, x2, x3, x1s, x2s, x3s;
   int ierr, ipvt[NPARAMS];
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
@@ -1059,16 +1071,96 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
   }
 
+  for (t = 0; t < NGOSK; t++) {
+    gos[t] = 0.0;
+  }
+  r = 0;
+  if (type >= 0) {
+    for (i = 0; i < nz; i++) {
+      p = GetOrbital(ang[i].k0)->kappa;
+      p = GetJFromKappa(p);
+      m = GetOrbital(ang[i].k1)->kappa;
+      m = GetJFromKappa(m);
+      c1 = ReducedCL(p, ang[i].k, m);
+      if (c1 == 0) continue;
+      g1 = GeneralizedMoments(NGOSK, kgrid, 
+			      ang[i].k0, ang[i].k1, ang[i].k/2);
+      for (j = i; j < nz; j++) {
+	if (ang[j].k != ang[i].k) continue;
+	p = GetOrbital(ang[j].k0)->kappa;
+	p = GetJFromKappa(p);
+	m = GetOrbital(ang[j].k1)->kappa;
+	m = GetJFromKappa(m);
+	c2 = ReducedCL(p, ang[j].k, m);
+	if (c2 == 0) continue;
+	g2 = GeneralizedMoments(NGOSK, kgrid, 
+				ang[j].k0, ang[j].k1, ang[j].k/2);
+	c = ang[i].coeff*ang[j].coeff;
+	if (i != j) c *= 2.0;
+	c *= 2.0*c1*c2;
+	if (ang[i].k == 2) {
+	  r += c * (RadialMoments(1, ang[i].k0, ang[i].k1)*
+		    RadialMoments(1, ang[j].k0, ang[j].k1));
+	}
+	c *= ang[i].k + 1.0;
+	for (t = 0; t < NGOSK; t++) {
+	  gos[t] += (c/(kgrid[t]*kgrid[t]))*g1[t]*g2[t];
+	}
+      }
+    }
+    r /= 3.0;
+    bethe[0] = r*2.0;
+    for (t = 0; t < NGOSK; t++) {
+      gos[t] = log(gos[t]);
+    }
+    for (i = 0; i < n_born; i++) {
+      c1 = sqrt(2.0*te*born_egrid[i]);
+      c2 = sqrt(2.0*te*(born_egrid[i]-1.0));
+      kint[0] = c1 - c2;
+      kint[NGOSK-1] = c1 + c2;
+      log_kint[0] = log(kint[0]);
+      log_kint[NGOSK-1] = log(kint[NGOSK-1]);
+      c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
+      for (t = 1; t < NGOSK-1; t++) {
+	log_kint[t] = log_kint[t-1] + c1;
+	kint[t] = exp(log_kint[t]);
+      }
+      np = 3;
+      j = NGOSK;
+      uvip3p_(&np, &j, log_kgrid, gos, &j, log_kint, gosint);
+      for (t = 0; t < NGOSK; t++) {
+	gosint[t] = exp(gosint[t]);
+      }
+      fvec[i] = Simpson(gosint, 0, NGOSK-1);
+      fvec[i] *= 4.0*c1;
+      if (bethe[0]) {
+	fvec[i] -= bethe[0]*log(born_egrid[i]);
+      }
+    }
+    x1 = 1.0/born_egrid[0];
+    x2 = 1.0/born_egrid[1];
+    x3 = 1.0/born_egrid[2];
+    x1s = x1*x1;
+    x2s = x2*x2;
+    x3s = x3*x3;
+    bethe[2] = (((fvec[0]*x2s - fvec[1]*x1s)*(x3s - x1s) -
+		 (fvec[0]*x3s - fvec[2]*x1s)*(x2s - x1s))/
+		((x1*x2s - x2*x1s)*(x3s - x1s) - 
+		 (x1*x3s - x3*x1s)*(x2s - x1s)));
+    bethe[1] = fvec[0]*x2s - fvec[1]*x1s - bethe[2]*(x1*x2s - x2*x1s);
+    bethe[1] /= (x2s - x1s);
+    bethe[3] = (fvec[0] - bethe[1] - bethe[2]*x1)/x1s;
+  } else {
+    bethe[0] = -1.0;
+    bethe[1] = 0.0;
+    bethe[2] = 0.0;
+    bethe[3] = 0.0;
+  }
+
   free(ang);
   
   /* there is a factor of 4 coming from normalization and the 2 
      from the formula */
-  OscillatorStrength(&r, &te, -1, lower, upper);
-  *bethe = r*2.0/te;
-  if (r < EPS10) {
-    if (type >= 0) *bethe = 0.0;
-    else *bethe = -1.0;
-  }
   if (!msub) {
     if (qk_mode == QK_FIT) {
       for (ie = 0; ie < n_egrid; ie++) {
@@ -1219,7 +1311,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set;
   double emin, emax, e, c, e0, e1, te0;
-  double rmin, rmax, bethe;
+  double rmin, rmax, bethe[4];
 
   n = 0;
   alev = NULL;
@@ -1311,6 +1403,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   te0 = emax;
 
+  born_egrid[0] = 15.0;
+  born_egrid[1] = 30.0;
+  born_egrid[2] = 60.0;
+  n_born = 3;
+
   e0 = emin;
   fhdr.type = DB_CE;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -1340,7 +1437,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    c = 100.0*e1;
+    c = 10.0*e1;
     if (te0 > c) ce_hdr.te0 = c;
     else ce_hdr.te0 = te0;
     emin = rmin*ce_hdr.te0;
@@ -1398,6 +1495,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
+    emax = sqrt(2.0*e1*born_egrid[2]);
+    emin = sqrt(2.0*(e1*born_egrid[2] - e1));
+    rmin = emax - emin;
+    rmax = emax + emin;
+    kgrid[0] = rmin;
+    kgrid[NGOSK-1] = rmax;
+    log_kgrid[0] = log(rmin);
+    log_kgrid[NGOSK-1] = log(rmax);
+    e = (log_kgrid[NGOSK-1] - log_kgrid[0])/(NGOSK-1);
+    for (i = 1; i < NGOSK-1; i++) {
+      log_kgrid[i] = log_kgrid[i-1] + e;
+      kgrid[i] = exp(log_kgrid[i]);
+    }
+
     e = 0.0;
     c = GetResidualZ();
     PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
@@ -1436,9 +1547,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	lev2 = GetLevel(up[j]);
 	e = lev2->energy - lev1->energy;
 	if (e < e0 || e >= e1) continue;
-	k = CollisionStrength(qkc, params, &e, &bethe, low[i], up[j], msub); 
+	k = CollisionStrength(qkc, params, &e, bethe, low[i], up[j], msub); 
 	if (k < 0) continue;
-	r.bethe = bethe;
+	for (m = 0; m < 4; m++) {
+	  r.bethe[m] = bethe[m];
+	}
 	r.lower = low[i];
 	r.upper = up[j];
 	r.nsub = k;
