@@ -69,7 +69,7 @@ typedef struct _ION_ {
 typedef struct _IONIZED_ {
   int nele;
   char symbol[4];
-  int atom;
+  double atom;
   char *dbfiles[NDB];
   int nionized;
   int *ionized_map[2];

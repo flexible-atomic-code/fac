@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.20 2002/05/01 22:19:25 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.21 2002/05/08 15:32:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -51,12 +51,12 @@ void SwapEndian(char *p, int size) {
 }
 
 int SwapEndianFHeader(F_HEADER *h) {
-  SwapEndian((char *) &(h->tsession), sizeof(time_t));
+  SwapEndian((char *) &(h->tsession), sizeof(long int));
   SwapEndian((char *) &(h->version), sizeof(int));
   SwapEndian((char *) &(h->sversion), sizeof(int));
   SwapEndian((char *) &(h->ssversion), sizeof(int));
   SwapEndian((char *) &(h->type), sizeof(int));
-  SwapEndian((char *) &(h->atom), sizeof(int));
+  SwapEndian((char *) &(h->atom), sizeof(float));
   SwapEndian((char *) &(h->nblocks), sizeof(int));
   return 0;
 }
@@ -193,10 +193,10 @@ int SwapEndianSPHeader(SP_HEADER *h) {
   SwapEndian((char *) &(h->type), sizeof(int));
   SwapEndian((char *) &(h->iedist), sizeof(int));
   SwapEndian((char *) &(h->np_edist), sizeof(int));
-  SwapEndian((char *) &(h->eden), sizeof(double));
+  SwapEndian((char *) &(h->eden), sizeof(float));
   SwapEndian((char *) &(h->ipdist), sizeof(int));
   SwapEndian((char *) &(h->np_pdist), sizeof(int));
-  SwapEndian((char *) &(h->pden), sizeof(double));
+  SwapEndian((char *) &(h->pden), sizeof(float));
   return 0;
 }
 
@@ -217,9 +217,11 @@ int SwapEndianRTHeader(RT_HEADER *h) {
   SwapEndian((char *) &(h->ilev), sizeof(int));
   SwapEndian((char *) &(h->iedist), sizeof(int));
   SwapEndian((char *) &(h->np_edist), sizeof(int));
+  SwapEndian((char *) &(h->eden), sizeof(float));
   SwapEndian((char *) &(h->ipdist), sizeof(int));
   SwapEndian((char *) &(h->np_pdist), sizeof(int));
-  SwapEndian((char *) &(h->nb), sizeof(double));
+  SwapEndian((char *) &(h->pden), sizeof(float));
+  SwapEndian((char *) &(h->nb), sizeof(float));
   return 0;
 }
 
@@ -236,7 +238,7 @@ int SwapEndianRTRecord(RT_RECORD *r) {
 int InitDBase(void) {
   int i;
   for (i = 0; i < NDB; i++) {
-    fheader[i].tsession = time(0);
+    fheader[i].tsession = (long int) time(0);
     fheader[i].version = VERSION;
     fheader[i].sversion = SUBVERSION;
     fheader[i].ssversion = SUBSUBVERSION;
@@ -265,7 +267,7 @@ int ReinitDBase(int m) {
     iground = 0;
     if (m > NDB) return -1;
     i = m-1;
-    fheader[i].tsession = time(0);
+    fheader[i].tsession = (long int) time(0);
     fheader[i].version = VERSION;
     fheader[i].sversion = SUBVERSION;
     fheader[i].ssversion = SUBSUBVERSION;
@@ -519,7 +521,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
   fprintf(f2, "TSess\t= %lu\n", fh.tsession);
   fprintf(f2, "Type\t= %d\n", fh.type);
   fprintf(f2, "Verbose\t= %d\n", v);
-  fprintf(f2, "%s Z\t= %d\n", fh.symbol, fh.atom);
+  fprintf(f2, "%s Z\t= %5.1f\n", fh.symbol, fh.atom);
   fprintf(f2, "NBlocks\t= %d\n", fh.nblocks);
   
   switch (fh.type) {
@@ -1474,6 +1476,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "IBLK\t= %d\n", h.iblock);
     fprintf(f2, "ILEV\t= %d\n", h.ilev);
     fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
+    fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
@@ -1482,6 +1485,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
       if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
     }
+    fprintf(f2, "PDEN\t= %15.8E\n", h.pden);
     fprintf(f2, "PDIST\t= %d\n", h.ipdist);
     fprintf(f2, "NPPDIS\t= %d\n", h.np_pdist);
     h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);

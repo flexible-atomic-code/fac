@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.15 2002/04/25 16:22:29 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.16 2002/05/08 15:34:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -645,7 +645,7 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  fmin = EPS6;
+  fmin = 0.0;
   if (!PyArg_ParseTuple(args, "ssiidd|d", 
 			&ifn, &ofn, &nele, &type, &emin, &emax, &fmin)) 
     return NULL;

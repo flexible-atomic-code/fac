@@ -1,4 +1,4 @@
-Version 0.7.2, 05/01/2002
+Version 0.7.2, 05/08/2002
 	1. add hydrogenic TRRate routine.
 	2. update papers for submission to PRA.
 	3. the r_core for H-like ions changed to 0.75*MAX_POINTS.
@@ -12,6 +12,9 @@ Version 0.7.2, 05/01/2002
 	   neutral ions.
 	9. add 2-photon decay rates for 2s S_1/2 of H-like ions and
 	   1s 2s S_0 of He-like ions in CRM.
+	10.written draft version of the manual. change some of the 
+	   internal structure of database files. the changes are not
+	   compartible with earlier versions. 
 	
 Version 0.7.1, 03/11/2002
 	1. add pfac.spm module for processing spectral data

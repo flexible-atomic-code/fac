@@ -2,7 +2,6 @@
 #define _DBASE_H_ 1
 
 #include <time.h>
-
 #include "global.h"
 
 #define DB_EN 1
@@ -20,13 +19,13 @@
 #define LNAME       56
 
 typedef struct _F_HEADER_ {
-  time_t tsession;
+  long int tsession;
   int version;
   int sversion;
   int ssversion;
   int type;
+  float atom;
   char symbol[4];
-  int atom;
   int nblocks;
 } F_HEADER;
 
@@ -203,9 +202,11 @@ typedef struct _RT_HEADER_ {
   int iedist;
   int np_edist;
   double *p_edist;
+  float eden;
   int ipdist;
   int np_pdist;
   double *p_pdist;
+  float pden;
   float nb;
 } RT_HEADER;
 
