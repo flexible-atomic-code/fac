@@ -113,12 +113,14 @@ int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);
-int ConstructLevelName(char *name, STATE *basis);
+int ConstructLevelName(char *name, char *sname, STATE *basis);
 int SaveLevelsToAscii(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int GetStructTiming(STRUCT_TIMING *t);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
+int ClearLevelTable();
+int ClearHamilton(int ih);
 
 #endif
 
