@@ -49,7 +49,9 @@
      :                 AI,RP,RM,FP,FM,AL,CU,CL,BU,BL,TWOL,REM,
      :                 ZERO,ONE,TWO,FOUR,TEN
 *
-      DIMENSION FAL(1000),ALO(1000),AC(NDL,2)
+      INTEGER NMAX
+      PARAMETER (NMAX=1024)
+      DIMENSION FAL(NMAX),ALO(NMAX),AC(NDL,2)
       PARAMETER (ZERO=0.D0, ONE=1.D0, TWO=2.D0, FOUR=4.D0, TEN=10.D0)
 *
 *              Save arrays of factorials and exponentials
@@ -60,7 +62,7 @@
 *
       IF(IOPT.EQ.2) THEN
            MAX=2*NU
-           IF(MAX.GT.1000) THEN
+           IF(MAX.GT.NMAX) THEN
              WRITE(6,101)
              IOPT=-1
              RETURN

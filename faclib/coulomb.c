@@ -1,6 +1,6 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.10 2002/02/18 03:15:14 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.11 2002/03/21 20:15:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -19,6 +19,8 @@ static int _nm_factor = 50;
 static int _nm = 0;
 
 double argam_(double *x, double *y);
+void acofz1_(double *, double *, int *, int *, double *, 
+	     double *, int *, int *);
 
 void SetHydrogenicNL(int n, int kl) {
   if (n > 0) n_hydrogenic = n;
@@ -30,6 +32,38 @@ void SetHydrogenicNL(int n, int kl) {
 void GetHydrogenicNL(int *n, int *kl) {
   if (n) *n = n_hydrogenic;
   if (kl) *kl = kl_hydrogenic;
+}
+
+double TRRateHydrogenic(double z, int n0, int n1, double *ac, int s) {
+  double anc, am;
+  int nmax = 512;
+  static iopt = 2;
+  int i, j;
+  double e, c, g;
+  
+  am = 2.0*z;
+  if (iopt == 2) {
+    acofz1_(&z, &am, &nmax, &n0, ac, &anc, &n1, &iopt);
+  }
+  if (s < 0) iopt = 1;
+  else iopt = 0;
+  
+  acofz1_(&z, &am, &n1, &n0, ac, &anc, &n1, &iopt);
+
+  if (s == 1) {
+    e = 0.5*z*z*(1.0/(n0*n0) - 1.0/(n1*n1));
+    c = 1.0/(2.0*pow(FINE_STRUCTURE_CONST, 3.0)*e*e);
+    for (i = 0; i < n1; i++) {
+      j = i+n1;
+      ac[i] /= RATE_AU;
+      ac[j] /= RATE_AU;
+      g = 2.0*(2*i+1.0);
+      ac[i] *= g*c;
+      ac[j] *= (g+4.0)*c;
+    }
+  }
+  
+  return anc;
 }
 
 double CoulombPhaseShift(double z, double e, int kappa) {
