@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.19 2002/09/04 13:27:14 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.20 2002/11/04 20:57:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -509,9 +509,9 @@ double RRRate1E(double e, double eth, int np, void *p) {
   x = y + np;
   logx = x + np;
   r = logx + np;
-  
+
+  x0 = (e + eth)/eth;
   if (x0 < x[np-1]) {
-    x0 = (e+eth)/eth;
     logx0 = log(x0);
     n = 3;
     one = 1;
@@ -547,8 +547,8 @@ double PIRate1E(double e, double eth, int np, void *p) {
   logx = x + np;
   r = logx + np;
   
+  x0 = e/eth;
   if (x0 < x[np-1]) {
-    x0 = e/eth;
     logx0 = log(x0);
     n = 3;
     one = 1;
