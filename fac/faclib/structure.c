@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.63 2004/06/03 00:44:04 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.64 2004/06/03 20:37:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -355,27 +355,71 @@ int AddMBPTConfig(int kgp, CORR_CONFIG *ccp) {
   return 0;
 }    
 
+static int CompareInt(const void *a1, const void *a2) {
+  int *i1, *i2;
+  
+  i1 = (int *) a1;
+  i2 = (int *) a2;
+  return (*i1 - *i2);
+}
+
+static int SortUnique(int n, int *a) {
+  int i, j, b;
+
+  qsort(a, n, sizeof(int), CompareInt);
+  j = 1;
+  b = a[0];
+  for (i = 1; i < n; i++) {
+    if (a[i] != b) {
+      a[j] = a[i];
+      b = a[i];
+      j++;      
+    }
+  }
+  
+  return j;
+}
+
+static int IBisect(int b, int n, int *a) {
+  int i, i0, i1;
+
+  i0 = 0;
+  i1 = n - 1;
+  while (i1 - i0 > 1) {
+    i = (i0 + i1)/2;
+    if (b == a[i]) return i;
+    else if (b < a[i]) i1 = i;
+    else i0 = i;
+  }
+  
+  if (b == a[i0]) return i0;
+  else if (b == a[i1]) return i1;
+  else return -1;
+}
+
 int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 		  int *n0, int *ni, int nmax, int kmax, int nt0,
 		  char *gn0, double eps, double eps1) {
   CONFIG_GROUP *g1, *g0;
-  CONFIG *c1, *c0;
+  CONFIG *c1;
   SYMMETRY *sym;
   STATE *st;
   LEVEL *lev;
   char gn[GROUP_NAME_LEN] = "_@nb@_";
   int nele0, nele1, nk, *s, nt, np0, np1;
+  int npp0, ncc1, p0;
   int i, p, np, nq, inp, inq, k0, k1, q;
   int jp, jq, kap, kaq, kp, kq, kp2, kq2;
   int n1, n2, ic, kgp;
   int nm[10], nmp[10], ncc, ncc0;
-  int *bs1, nbs1;
+  int *bs1, nbs1, *bs0, nbs0, *ibs0;
   double a1, a2, d, *e1;
   CORR_CONFIG cc, *ccp, *ccp1, **pp;
   ARRAY ccfg, ccfg0, ccfg1;
   double **de, **deq, a, b, xnq, ynq, *tq, tnq;
   double dnq[10];
-  int m, nlev, nlev1, ilev, t, kb, r, dim;
+  double *ham;
+  int m, nlev, nlev1, ilev, t, kb, r, dim;  
   typedef struct _MBPT_BASE_ {
     int isym;
     int nbasis;
@@ -463,6 +507,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
       for (ic = 0; ic < g1->n_cfgs; ic++) {
 	c1 = GetConfigFromGroup(kg[p], ic);
 	cc.c = c1;
+	cc.ig = p;
 	cc.ncs = 0;
 	cc.np = c1->shells[0].n;
 	cc.inp = cc.np;
@@ -474,14 +519,14 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	if (cc.np <= ni[p]) ArrayAppend(&ccfg0, &ccp, NULL);
       } 
     } else if (nele1 == nele0-1) {
-      for (ic = 0; ic < g1->n_cfgs; ic++) {
-	c1 = GetConfigFromGroup(kg[p], ic);
-	for (inp = n0[p]; inp <= n1; inp++) {
-	  if (inp <= nmax) {
-	    np = inp;
-	  } else {
-	    np = nmax + nm[inp-nmax];
-	  }
+      for (inp = n0[p]; inp <= n1; inp++) {
+	if (inp <= nmax) {
+	  np = inp;
+	} else {
+	  np = nmax + nm[inp-nmax];
+	}
+	for (ic = 0; ic < g1->n_cfgs; ic++) {
+	  c1 = GetConfigFromGroup(kg[p], ic);
 	  for (kp = 0; kp <= kmax; kp++) {
 	    if (kp >= np) break;
 	    kp2 = 2*kp;
@@ -489,6 +534,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	      if (jp < 0) continue;
 	      cc.c = c1;
 	      cc.ncs = 0;
+	      cc.ig = p;
 	      cc.inp = inp;
 	      cc.np = np;
 	      cc.inq = 0;
@@ -502,16 +548,16 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	}
       }
     } else if (nele1 == nele0-2) {
-      for (ic = 0; ic < g1->n_cfgs; ic++) {
-	c1 = GetConfigFromGroup(kg[p], ic);
-	for (inp = n0[p]; inp <= n1; inp++) {
-	  if (inp <= nmax) {
-	    np = inp;
-	  } else {
-	    np = nmax + nm[inp-nmax];
-	  }
-	  for (inq = 0; inq < n2; inq++) {
-	    nq = np + nmp[inq];
+      for (inp = n0[p]; inp <= n1; inp++) {
+	if (inp <= nmax) {
+	  np = inp;
+	} else {
+	  np = nmax + nm[inp-nmax];
+	}
+	for (inq = 0; inq < n2; inq++) {
+	  nq = np + nmp[inq];
+	  for (ic = 0; ic < g1->n_cfgs; ic++) {
+	    c1 = GetConfigFromGroup(kg[p], ic);
 	    for (kp = 0; kp <= kmax; kp++) {
 	      if (kp >= np) break;
 	      kp2 = 2*kp;
@@ -527,6 +573,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 		    if (np == nq && kaq > kap) continue;
 		    cc.c = c1;
 		    cc.ncs = 0;
+		    cc.ig = p;
 		    cc.inp = inp;
 		    cc.np = np;
 		    cc.inq = inq;
@@ -566,16 +613,26 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
   ncc = 0;
   t1 = clock();
   t1 /= CLOCKS_PER_SEC;
-  c0 = NULL;
+  p0 = -1;
+  np0 = 0;
+  ncc1 = 1;
+  np1 = nmax + nm[n1-nmax];
   for (p = 0; p < ccfg0.dim; p++) {
     pp = ArrayGet(&ccfg0, p);
     ccp = *pp;
-    if (ccp->c != c0) {
-      c0 = ccp->c;
-      np0 = nmax+nm[n1-nmax];
+    if (ccp->ig != p0) {
+      p0 = ccp->ig;
+      np0 = ccp->np;
+      ncc0 = 0;
+      np1 = nmax + nm[n1-nmax];
+    } else if (ccp->np != np0) {
+      ncc1 = ncc0;
+      ncc0 = 0;
+      npp0 = np0;
+      np0 = ccp->np;
     }
     kgp = GroupIndex(gn);
-    if (ccp->np <= np0) {
+    if (ccp->np <= np1) {
       AddMBPTConfig(kgp, ccp);
       ArrayAppend(&ccfg1, &ccp, NULL);
     }
@@ -583,7 +640,8 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
     if (ncc == ccfg0.block || p == ccfg0.dim-1) {
       t2 = clock();
       t2 /= CLOCKS_PER_SEC;
-      printf("%5d %7d %7d %10.3E %10.3E\n", ncc, p+1, ccfg0.dim, t2-t1, t2-t0);
+      printf("%5d %7d %7d %7d %10.3E %10.3E\n", ncc, p+1, 
+	     ccfg0.dim, ccfg1.dim, t2-t1, t2-t0);
       t1 = t2;
       if (ccfg1.dim > 0) {
 	for (i = 0; i < base.dim; i++) {
@@ -617,22 +675,23 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	RemoveGroup(kgp);
 	ReinitRecouple(0);
 	ReinitRadial(1);      
-	ncc0 = 0;
-	np1 = 0;
 	for (r = 0; r < ccfg1.dim; r++) {
 	  pp = ArrayGet(&ccfg1, r);
 	  ccp1 = *pp;
-	  if (ccp1->c == c0) {
-	    ncc0 += ccp1->ncs;
-	    if (np1 == 0) np1 = ccp1->np;
+	  if (ccp1->ig == p0) {
+	    if (ccp1->np == np0) {
+	      ncc0 += ccp1->ncs;
+	    } else if (ccp1->np == npp0) {
+	      ncc1 += ccp1->ncs;
+	    }
 	  }
 	}
-	if (ncc0 > 0) {
-	  np0 = nmax+nm[n1-nmax];
-	} else {
-	  np0 = np1 + 1;
+	if (ncc1 == 0) {
+	  np1 = npp0;
 	}
 	ArrayFree(&ccfg1, NULL);
+      } else {
+	RemoveGroup(kgp);
       }
       ncc = 0;
       fflush(stdout);
@@ -710,20 +769,68 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	bs1 = _ham.basis;
 	e1 = _ham.hamilton;
 	printf("sym: %3d %3d %3d %6d\n", i, mbp->isym, mbp->nbasis, nbs1);
+	fflush(stdout);
 	sym = GetSymmetry(mbp->isym);	
+	nbs0 = 0;
+	r = 0;
+	m = ilev;
 	for (t = 0; t < mbp->nbasis; t++) {
-	  lev = GetLevel(ilev);
+	  lev = GetLevel(m);
+	  nbs0 += lev->n_basis;
+	  if (lev->n_basis > r) r = lev->n_basis;
+	  m++;
+	}
+	bs0 = malloc(sizeof(int)*nbs0);
+	ibs0 = malloc(sizeof(int)*r);
+	q = 0;
+	m = ilev;
+	for (t = 0; t < mbp->nbasis; t++) {
+	  lev = GetLevel(m);
+	  for (k0 = 0; k0 < lev->n_basis; k0++) {
+	    a1 = lev->mixing[k0];
+	    if (fabs(a1) < eps1) continue;
+	    bs0[q] = lev->basis[k0];
+	    q++;
+	  }
+	  m++;
+	}
+	nbs0 = SortUnique(q, bs0);
+	ham = malloc(sizeof(double)*nbs0*nbs1);
+	m = 0;
+	for (t = 0; t < nbs0; t++) {	  
+	  k0 = bs0[t];
 	  for (q = 0; q < nbs1; q++) {
 	    st = ArrayGet(&(sym->states), bs1[q]);
 	    r = st->kcfg + ncc0;
-	    ccp1 = ArrayGet(&ccfg, r);	  
-	    k1 = bs1[q];
+	    ccp1 = ArrayGet(&ccfg, r);
+	    if (ccp1->ncs == 0) {
+	      k1 = bs1[q];
+	      ham[m] = HamiltonElement(mbp->isym, k0, k1);
+	    } else {
+	      ham[m] = 0.0;
+	    }
+	    m++;
+	  }
+	}
+	for (t = 0; t < mbp->nbasis; t++) {
+	  lev = GetLevel(ilev);
+	  for (k0 = 0; k0 < lev->n_basis; k0++) {
+	    a1 = lev->mixing[k0];
+	    if (fabs(a1) < eps1) continue;
+	    ibs0[k0] = IBisect(lev->basis[k0], nbs0, bs0);
+	  }
+	  for (q = 0; q < nbs1; q++) {
+	    st = ArrayGet(&(sym->states), bs1[q]);
+	    r = st->kcfg + ncc0;
+	    ccp1 = ArrayGet(&ccfg, r);
 	    if (ccp1->ncs == 0) {
 	      a = 0.0;
 	      for (k0 = 0; k0 < lev->n_basis; k0++) {
 		a1 = lev->mixing[k0];
 		if (fabs(a1) < eps1) continue;
-		a2 = HamiltonElement(lev->pj, lev->basis[k0], k1);
+		m = ibs0[k0];
+		if (m < 0) continue;
+		a2 = ham[m*nbs1 + q];
 		a += a1*a2;
 	      }
 	      d = a*a/(lev->energy - e1[q]);
@@ -736,6 +843,9 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	  }
 	  ilev++;
 	}
+	free(ibs0);
+	free(bs0);
+	free(ham);
       }
       RemoveGroup(kgp);
       ReinitRecouple(0);

@@ -83,6 +83,7 @@ typedef struct _ECORRECTION_ {
 
 typedef struct _CORR_CONFIG_ {
   CONFIG *c;
+  int ig;
   int inp, inq, ncs;
   int np, nq, kp, kq;
 } CORR_CONFIG;
