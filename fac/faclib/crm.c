@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.25 2002/03/11 02:57:54 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.26 2002/03/11 19:28:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -422,7 +422,7 @@ void ExtrapolateRR(ION *ion, int inv) {
   int n0, n1;
   int i, j, t, k, p;
   int imin, imax;
-  double a, b, c, z, temp, h;
+  double a, b, c, z, temp, h, d;
   double rr_extra[MAXNREC];
 
   dist = GetEleDist(&i);
@@ -480,18 +480,19 @@ void ExtrapolateRR(ION *ion, int inv) {
       nr = rates->dim;
       for (t = 0; t < nr; t++) {
 	r = (RATE *) ArrayGet(rates, t);
+	r->dir *= c;
 	if (t < rates0->dim) {
 	  rp = (RATE *) ArrayGet(rates0, t);
 	  h = rp->dir/(r->dir*rr_extra[j-1]);
 	} else {
 	  h = 1.0;
 	}
-	r->dir *= c;
 	for (k = rec->n; k < rec->n_ext; k++) {
 	  r0.i = r->i;
 	  r0.f = r->f - imin + rec->imin[k];
 	  b = rr_extra[k];
-	  b *= h + (rec->nrec[k]-n0)*(1.0-h)/(n1-n0);
+	  d = (double)(rec->nrec[k]-n0)/(n1-n0);
+	  b *= h + d*(1.0-h);
 	  r0.dir = b*r->dir;
 	  r0.inv = 0.0;
 	  AddRate(ion, ion->rr_rates, &r0, 0);
@@ -2245,7 +2246,7 @@ double BlockRelaxation(int iter) {
 	q = ion->ilev[r->f];    
 	if (electron_density > 0.0) {
 	  if (blk1->r[p] > 0.0) {
-	    blk2->n[q] += blk1->r[p] * r->dir;
+	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	} 
 	if (r->inv > 0.0 && photon_density > 0.0) {
@@ -2343,7 +2344,7 @@ double BlockRelaxation(int iter) {
       a = blk1->nb/a;
       for (m = 0; m < blk1->nlevels; m++) {
 	blk1->n[m] *= a;
-	if (blk1->n[m] > 0.0) {
+	if (blk1->n[m]) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
 	}

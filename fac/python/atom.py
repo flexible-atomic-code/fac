@@ -217,7 +217,7 @@ class ATOM:
         self.ai_cut0 = 1E-3
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
-            self.nexc_max = [7, 7, 5]
+            self.nexc_max = [6, 7, 5]
             self.nexc_rec = [0, 0, 0]
             self.nrec_max = [10, 8, 6]
             self.nrec_ext = 25
