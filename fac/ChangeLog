@@ -1,3 +1,12 @@
+Version 0.7.7, 08/14/2002
+	1. fix a bug that causes the OptimizeRadial fails on neutral atoms.
+	2. rewrite ConfigEnergy so that the average energy of
+	   configuration groups instead of configurations are used 
+	   for energy adjustments. It can now be called more than once
+	   with the argument 0, and can have additional arguments, which
+	   are lists of configuration groups. They are used for radial
+	   optimization. 
+
 Version 0.7.6, 08/10/2002
 	1. add Makefiles to the demo dir.
 	2. add the NL values for the valence electron in the 

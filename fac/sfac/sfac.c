@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.21 2002/06/26 20:04:02 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.22 2002/08/14 16:09:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -367,16 +367,23 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   
 static int PConfigEnergy(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  int m;
+  int m, i;
+  int ng, *kg;
 
-  if (argc != 1) return -1;
+  if (argc == 0) return -1;
   m = atoi(argv[0]);
-  if (m == 0) {
-    ConfigEnergy();
-  } else {
-    AdjustConfigEnergy();
-  }
   
+  if (argc == 1) {
+    ConfigEnergy(m, 0, NULL);
+  } else {
+    for (i = 1; i < argc; i++) {
+      ng = DecodeGroupArgs(&kg, 1, argv+i, argt+i, variables);
+      if (ng < 0) return NULL;
+      ConfigEnergy(m, ng, kg);
+      if (ng > 0) free(kg);
+    }
+  }
+
   return 0;
 }
 

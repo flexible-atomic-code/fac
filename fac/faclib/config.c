@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.18 2002/08/11 01:24:48 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.19 2002/08/14 16:09:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1178,8 +1178,6 @@ int AddConfigToList(int k, CONFIG *cfg) {
     return -1;
   }
   clist = &(cfg_groups[k].cfg_list);
-  cfg->energy = 0.0;
-  cfg->delta = 0.0;
   if (ArrayAppend(clist, cfg) == NULL) return -1;
   
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
@@ -1537,6 +1535,8 @@ int InitConfig(void) {
   for (i = 0; i < MAX_GROUPS; i++) {
     strcpy(cfg_groups[i].name, "_all_");
     cfg_groups[i].n_cfgs = 0;
+    cfg_groups[i].energy = 0;
+    cfg_groups[i].delta = 0;
     ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
   }
 
@@ -1590,6 +1590,8 @@ int ReinitConfig(int m) {
   for (i = 0; i < n_groups; i++) {
     ArrayFree(&(cfg_groups[i].cfg_list), _FreeConfigData);
     cfg_groups[i].n_cfgs = 0;
+    cfg_groups[i].energy = 0;
+    cfg_groups[i].delta = 0;
     strcpy(cfg_groups[i].name, "_all_");
   }
   n_groups = 0;

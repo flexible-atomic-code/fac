@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.6}\xspace}
+\newcommand{\facversion}{{0.7.7}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -272,14 +272,14 @@ results in the potential to be less optimized for \verb|n2| and \verb|n3|
 individually. Lines 8 and 10 are used to make a crude correction to the
 resulting energy levels due to this effect. The first call to
 \verb|ConfigEnergy(0)| will make individual optimization to all configuration
-groups. The average energy of each configuration is then calculated and stored
-under the potentials optimized for each configuration groups. The second call
-to \verb|ConfigEnergy(1)| will then recalculate the average energy of
-configurations under the potential taking into account all configuration
-groups. The difference between the two represents the effect of a less
-optimized potential, and are used to adjust the final energy levels. If this
-procedure is not needed, one can omit line 8 and 10 in this script. Line 11
-sets up the Hamiltonian matrix for levels in $n = 2$ and $n = 3$ complexes,
+groups. The average energy of each configuration group is then calculated and
+stored under the potentials optimized for that group. The
+second call to \verb|ConfigEnergy(1)| will then recalculate the average energy
+of configuration groups under the potential taking into account all
+configuration groups. The difference between the two represents the effect of
+a less optimized potential, and are used to adjust the final energy levels. If
+this procedure is not needed, one can omit line 8 and 10 in this script. Line
+11 sets up the Hamiltonian matrix for levels in $n = 2$ and $n = 3$ complexes,
 diagonalize it, and saves to the energy level information in the binary file
 \verb|ne.lev.b|. Line 12 builds an in-memory table of energy levels, which is
 used to convert the binary files to their ASCII counterparts in verbose mode,
@@ -1898,16 +1898,20 @@ values. For $l > 13$, no spectroscopic symbol is available, it is specified as
 works for $l \le 13$ shells.
 \end{fundesc}
 
-\begin{fundesc}{ConfigEnergy}{m}
+\begin{fundesc}{ConfigEnergy}{m\opt{, g, ...} }
 This function should be called twice just before (with \var{m} = 0) and after
 (with \var{m} = 1) \key{OptimizeRadial} if used. The call with \var{m} = 0
-performs a radial optimization for each configuration group, and calculate the
-configuration average energy under each potential. The call with \var{m} = 1
-recalculates the configuration average energy under the potential obtained by
-\key{OptimizeRadial}, The energy of each level obtained by \key{Structure} is
-then adjusted by the difference of the two average energies for each
-configuration. The purpose of this routine is to remove some of the errors in
-the level energies introduced by using a single central potential for all configurations.
+performs a radial optimization for the configuration groups given by the list
+\var{g}, and calculate the average energy of each configuration group under
+such potentials. Multiple optimizations are performed if more than one list
+are given. If none is given, the optimization are carried out for each
+configuration group. The call with \var{m} = 1 does not accept additional
+arguments. It recalculates the average energy of each configuration group
+under the potential obtained by \key{OptimizeRadial} issured by the user, The
+energy of each level obtained by \key{Structure} is then adjusted by the
+difference of the two average energies for each configuration. The purpose of
+this routine is to remove some of the errors in the level energies introduced
+by using a single central potential for all configurations. 
 \end{fundesc}
 
 \begin{fundesc}{ConvertToSFAC}{fn}
