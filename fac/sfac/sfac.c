@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.20 2002/06/26 19:57:53 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.21 2002/06/26 20:04:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -559,6 +559,7 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
 	kref = k;
       }
       AddECorrection(kref, k, e);
+      i++;
     }
     fclose(f);
   } else if (argc == 2) {
