@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.31 2004/05/27 01:34:37 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.32 2004/06/12 22:51:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -576,7 +576,7 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
 */       
 int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   CONFIG **dcfg, **p1;
-  double *dnq, *p2;
+  double *dnq, *p2, a, b;
   char *s;
   int ncfg, *dnc;  
   int size, size_old, tmp;
@@ -656,9 +656,14 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
     *nq = (double *) malloc(sizeof(double)*ncfg);
     p1 = dcfg + ns-1;
     t = 0;
-    for (i = ns-1; i >= 0; i--) {  
+    for (i = ns-1; i >= 0; i--) {
+      a = 0.0;
       for (j = 0; j < dnc[i]; j++) {
-	(*nq)[t] = dnq[i]/dnc[i];
+	a += GetJFromKappa((*p1)->shells[j].kappa) + 1.0;
+      }
+      for (j = 0; j < dnc[i]; j++) {
+	b = GetJFromKappa((*p1)->shells[j].kappa) + 1.0;
+	(*nq)[t] = dnq[i]*b/a;
 	memcpy((*cfg)->shells+t, (*p1)->shells+j, sizeof(SHELL));
 	t++;
       }
@@ -667,9 +672,15 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   }    
   
   for (i = 0; i < ns; i++) {
-    for (j = 0; j < dnc[i]; j++) {
-      if ((dcfg[i][j]).n_shells > 0) {
-	free((dcfg[i][j]).shells);
+    if (!nq) {
+      for (j = 0; j < dnc[i]; j++) {
+	if ((dcfg[i][j]).n_shells > 0) {
+	  free((dcfg[i][j]).shells);
+	}
+      } 
+    } else {
+      if (dcfg[i][0].n_shells > 0) {
+	free((dcfg[i][0]).shells);
       }
     }
     free(dcfg[i]);
