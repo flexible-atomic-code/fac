@@ -2510,12 +2510,10 @@ levels are saved in file \var{fn}.
 
 \begin{fundesc}{RefineRadial}{\opt{n\opt{, m}}}
 This function may be called after \key{OptimizeRadial}, which performs a
-minimization of the total energy of the mean configuration by adding a
-correction to the radial potential. The correction is expressed as linear
-superposion of $s$ orbitals with $n=1$--$5$. The coefficients are obtained by
-minimization of the energy. \var{n} is the number of energy evaluations
-allowed in the minimization, and \var{m} controls the print out during the
-calculation. Default: \var{n} = 100, \var{m} = 0 (no print out).
+minimization of the total energy of the mean configuration by adjusting the
+parameters in the analytic central potential. \var{n} is the number of energy
+evaluations allowed in the minimization, and \var{m} controls the print out
+during the calculation. Default: \var{n} = 100, \var{m} = 0 (no print out).
 \end{fundesc}
 
 \begin{fundesc}{Reinit}{\textnormal{**}mkey $\mid$ m}
