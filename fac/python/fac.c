@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.38 2002/11/13 22:28:26 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.39 2002/11/13 22:29:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2990,9 +2990,7 @@ static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
   int i, negy, ilev;
   double *egy;
   char *ifn, *ofn;
-  FILE *f;
   
-  p = NULL;
   if (!PyArg_ParseTuple(args, "ssiO", &ifn, &ofn, &ilev, &p))
     return NULL;
   
