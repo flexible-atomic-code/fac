@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.73 2004/07/26 17:26:48 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.74 2004/08/13 23:43:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2502,7 +2502,11 @@ int BlockMatrix(void) {
 	  x[k0] = den;
 	  p = k0;
 	  for (k = 0; k < n; k++) {
+	    /*
 	    if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	    else bmatrix[p] = 0.0;
+	    */
+	    if (k == k0) bmatrix[p] = 1.0;
 	    else bmatrix[p] = 0.0;
 	    p += n;
 	  }
@@ -2521,7 +2525,11 @@ int BlockMatrix(void) {
     x[k0] = den;
     p = k0;
     for (k = 0; k < n; k++) {
+      /*
       if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+      else bmatrix[p] = 0.0;
+      */
+      if (k == k0) bmatrix[p] = 1.0;
       else bmatrix[p] = 0.0;
       p += n;
     }
@@ -2850,6 +2858,7 @@ double BlockRelaxation(int iter) {
 	ion = (ION *) ArrayGet(ions, p);
 	h = ion->n;
       }
+      /*
       if (h > 0.0) {
 	if (p == -1) ion0.nt = h;
 	else ion->nt = h;
@@ -2867,6 +2876,9 @@ double BlockRelaxation(int iter) {
 	if (p == -1) ion0.nt = a;
 	else ion->nt = a;
       }
+      */
+      if (p == -1) ion0.nt = a;
+      else ion->nt = a;
       p = blk1->iion;
       a = 0.0;
       q = k;
@@ -2874,6 +2886,7 @@ double BlockRelaxation(int iter) {
     a += blk1->nb;
   }
   ion = (ION *) ArrayGet(ions, p);
+  /*
   if (ion->n > 0.0) {
     ion->nt = ion->n;
     if (iter < 0) {
@@ -2889,7 +2902,9 @@ double BlockRelaxation(int iter) {
   } else {
     ion->nt = a;
   }
-
+  */
+  ion->nt = a;
+  
   if (iter < 0) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);

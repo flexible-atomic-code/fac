@@ -1011,7 +1011,7 @@ class ATOM:
                     if (c[j].nrec_ext > 0):
                         m = n + (self.nrec_max[i]+1)*1000
                         m = -m
-                    if (self.nele > 5):
+                    if (self.nele > 5 and t > 0):
                         b1 = b[:na]
                     else:
                         b1 = b
