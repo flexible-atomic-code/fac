@@ -194,7 +194,7 @@ class CGROUP:
 
 # a generic atomic ion
 class ATOM:    
-    def __init__(self, nele, asym = 0):
+    def __init__(self, nele, asym=0, dir=''):
         if (nele <= 0):
             raise 'NELE must > 0'
         
@@ -262,26 +262,26 @@ class ATOM:
             self.rec_pw_max.append(self.nrec_max[i]-1)
             
         if (type(asym) == StringType):
-            self.set_atom(asym)
+            self.set_atom(asym, dir=dir)
             
         return
 
     
-    def set_atom(self, asym):
+    def set_atom(self, asym, dir=''):
         self.asym = asym
-        self.bfiles = {'en': '%s%02db.en'%(asym, self.nele),
-                       'tr': '%s%02db.tr'%(asym, self.nele),
-                       'ce': '%s%02db.ce'%(asym, self.nele),
-                       'rr': '%s%02db.rr'%(asym, self.nele),
-                       'ai': '%s%02db.ai'%(asym, self.nele),
-                       'ci': '%s%02db.ci'%(asym, self.nele)}
+        self.bfiles = {'en': dir+'%s%02db.en'%(asym, self.nele),
+                       'tr': dir+'%s%02db.tr'%(asym, self.nele),
+                       'ce': dir+'%s%02db.ce'%(asym, self.nele),
+                       'rr': dir+'%s%02db.rr'%(asym, self.nele),
+                       'ai': dir+'%s%02db.ai'%(asym, self.nele),
+                       'ci': dir+'%s%02db.ci'%(asym, self.nele)}
         
-        self.afiles = {'en': '%s%02da.en'%(asym, self.nele),
-                       'tr': '%s%02da.tr'%(asym, self.nele),
-                       'ce': '%s%02da.ce'%(asym, self.nele),
-                       'rr': '%s%02da.rr'%(asym, self.nele),
-                       'ai': '%s%02da.ai'%(asym, self.nele),
-                       'ci': '%s%02da.ci'%(asym, self.nele)}
+        self.afiles = {'en': dir+'%s%02da.en'%(asym, self.nele),
+                       'tr': dir+'%s%02da.tr'%(asym, self.nele),
+                       'ce': dir+'%s%02da.ce'%(asym, self.nele),
+                       'rr': dir+'%s%02da.rr'%(asym, self.nele),
+                       'ai': dir+'%s%02da.ai'%(asym, self.nele),
+                       'ci': dir+'%s%02da.ci'%(asym, self.nele)}
 
         return
 
@@ -816,7 +816,7 @@ class ATOM:
         return
 
 
-def atomic_data(nele, asym, iprint = -1, **process):
+def atomic_data(nele, asym, iprint=-1, dir='', **process):
     if (type(asym) == StringType):
         a = [asym]
     else:
@@ -852,7 +852,7 @@ def atomic_data(nele, asym, iprint = -1, **process):
                 Print('%s, skipping'%s)
                 continue
             Print(s)
-            atom.set_atom(b)
+            atom.set_atom(b, dir=dir)
             atom.run_fac()
             if (iprint >= 0):
                 atom.print_table(['en', 'tr', 'ce', 'rr', 'ai', 'ci'], iprint)
