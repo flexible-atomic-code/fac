@@ -9,7 +9,7 @@
 #include "dbase.h"
 #include "rates.h"
 
-#define RATES_BLOCK   8192
+#define RATES_BLOCK   1024
 #define ION_BLOCK     4
 #define LBLOCK_BLOCK  1024
 
