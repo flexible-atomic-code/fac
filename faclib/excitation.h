@@ -1,12 +1,13 @@
 #ifndef _EXCITATION_H_
 #define _EXCITATION_H_
 
+#include "coulomb.h"
 #include "structure.h"
 
-#define MAX_USR_EGRID 20
+#define MAX_USR_EGRID 50
 #define MAX_EGRID  15
-#define MAX_KL     512
 #define MAX_TEGRID 5
+#define MAX_KL     5000
 #define MAX_NKL    50
 #define MAX_MSUB   200
 
@@ -19,9 +20,8 @@ typedef struct _EXCIT_TIMING_ {
 typedef struct _CEPW_SCRATCH_ {
   int qr;
   int max_kl;
-  double eps_dipole;
-  double eps_allowed;
-  double eps_forbidden;
+  int kl_cb;
+  double tolerence;
   int nkl0;
   int nkl;
   double kl[MAX_NKL+1];
@@ -34,8 +34,7 @@ int FreeExcitationPk(int ie);
 int InitExcitation();
 int SetTEGrid(int n, double emin, double emax);
 int SetTEGridDetail(int n, double *x);
-int SetCEPWOptions(int qr, int max, double eps_dipole,
-		   double eps_allowed, double eps_forbidden);
+int SetCEPWOptions(int qr, int max, int kl_cb, double tol);
 int AddCEPW(int n, int step);
 int SetCEPWGrid(int ns, int *n, int *step);
 int SetEGridDetail(int n, double *x);
@@ -50,8 +49,8 @@ double CERadialQk(int ie, double te,
 		  int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, int nq, int *q);
-double CEMSubAngNR(int lf, int li1, int li2, int k, int q);
-int CERadialQkMSubRatio(int k, double *rq, int lf, 
+double CEMSubAngNR(int lf, int li1, int li2, int q);
+int CERadialQkMSubRatio(double *rq, int lf, double c1, double c2,
 			double z, double e1, double te);
 double InterpolatePk(double te, int type, double *pk);
 

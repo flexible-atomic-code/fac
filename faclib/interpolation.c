@@ -26,7 +26,7 @@ void spline(double *x, double *y, int n,
   } else {
     qn = 0.5;
     un = (3.0/(x[n-1]-x[n-2]))*(ypn-(y[n-1]-y[n-2])/(x[n-1]-x[n-2]));
-  }
+  } 
 
   y2[n-1] = (un-qn*u[n-2])/(qn*y2[n-2]+1.0);
   for (k = n-2; k >= 0; k--) {

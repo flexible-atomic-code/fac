@@ -1,14 +1,17 @@
 #ifndef _RADIAL_H_
 #define _RADIAL_H_
 
+#include <time.h>
+#include <math.h>
+
 #include "global.h"
 #include "dbase.h"
 #include "nucleus.h"
+#include "interpolation.h"
 #include "orbital.h"
 #include "config.h"
 #include "angular.h"
-#include "interpolation.h"
-#include <time.h>
+#include "recouple.h"
 
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 
@@ -72,7 +75,6 @@ double MultipoleRadialNR(int m, int k1, int k2, int guage);
 double MultipoleRadial(double aw, int m, int k1, int k2, int guage);
 double MultipoleIJ(double aw, int m, 
 		   ORBITAL *orb1, ORBITAL *orb2, int type);
-double Interpolate(double x, int npts, double *xg, double *yg);
 
 int SaveOrbital(int i);
 int RestoreOrbital(int i); 

@@ -4,9 +4,9 @@
 #include "structure.h"
 #include "excitation.h"
 
-#define MAX_USR_CIEGRID 20
+#define MAX_USR_CIEGRID 50
 #define MAX_CIEGRID 15
-#define MAX_CIKL 100
+#define MAX_CIKL 500
 #define MAX_CINKL 30
 #define MAX_IEGRID 5
 #define N_INTEGRATE 32
@@ -14,11 +14,10 @@
 int FreeIonizationQk();
 int InitIonization();
 int SetIEGrid(int n, double emin, double emax);
-int SetCIPWOptions(int qr, int max, int max_eject, double eps_dipole, 
-		   double eps_allowed, double eps_forbidden, double eps_k);
-int ADDCIPW(int n, int step);
+int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol);
+int AddCIPW(int n, int step);
 int SetCIPWGrid(int ns, int *n, int *step);
-int SetCIEGrid(int n, double emin, double emax, int type);
+int SetCIEGrid(int n, double emin, double emax);
 int SetCIEGridDetail(int n, double *x);
 int SetUsrCIEGrid(int n, double emin, double emax, int type);
 int SetUsrEGrid(int n, double emin, double emax, int type);

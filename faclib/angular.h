@@ -32,9 +32,9 @@ int  W6jTriangle(int j1, int j2, int j3, int i1, int i2, int i3);
 double W9j(int j1, int j2, int j3,
 	   int i1, int i2, int i3,
 	   int k1, int k2, int k3);
-int W9jTraiangle(int j1, int j2, int j3,
-		    int i1, int i2, int i3,
-		    int k1, int k2, int k3);
+int W9jTriangle(int j1, int j2, int j3,
+		int i1, int i2, int i3,
+		int k1, int k2, int k3);
 double WignerEckartFactor(int jf, int k, int ji,
 			  int mf, int q, int mi);
 double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf);

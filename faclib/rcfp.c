@@ -1252,7 +1252,7 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
       run.nq = ket->nq + q_m3 + q_m4;
       run.subshellMQ = run.nq - (jrun +1)/2;
       if (Qrun >= abs(run.subshellMQ)) {
-	if (1 || W6jTriangle(kj2, kj2, 0, Jket, Jbra, Jrun)) {
+	if (W6jTriangle(kj2, kj2, 0, Jket, Jbra, Jrun)) {
 	  coeff1 = (ReducedW(bra, &run, k_j, q_m1, q_m2) *
 		    ReducedW(&run, ket, k_j, q_m3, q_m4));
 	  if (IsOdd((kj2 - Jbra + Jrun)/2)) coeff1 = -coeff1;
