@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.74 2004/07/18 01:46:22 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.75 2004/11/02 05:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2520,7 +2520,6 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   ResidualPotential(&r0, k1, k2);
   if (k1 == k2) r0 += (GetOrbital(k1))->energy;
   r0 += QED1E(k1, k2);
-
   z0 *= sqrt(s[0].j + 1.0);
 
   r0 *= z0;

@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.51 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.52 2004/11/02 05:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1487,7 +1487,7 @@ int InitIonization(void) {
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qk_array, sizeof(double *), ndim, blocks);
   
-  SetCIMaxK(8);
+  SetCIMaxK(IONMAXK);
   n_egrid = 0;
   n_tegrid = 0;
   n_usr = 0;
@@ -1507,7 +1507,6 @@ int ReinitIonization(int m) {
 
   FreeIonizationQk(); 
 
-  SetCIMaxK(IONMAXK);
   n_egrid = 0;
   n_tegrid = 0;
   n_usr = 0;
@@ -1515,9 +1514,10 @@ int ReinitIonization(int m) {
   SetCIEGridLimits(-1.0, -1.0, 0);
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
+  /*
   SetCIQkMode(QK_DEFAULT, 1E-3);
   SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
-
+  */
   return 0;
 }  
 
