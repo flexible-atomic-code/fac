@@ -19,4 +19,6 @@ Ryd_eV = 13.6056981
 rbohr = 0.529177249
 re = 2.81794092             #fm
 sig_t = 6.6524616           #E-25 cm2
+kb = 8.617385E-5            #Boltzman constant in ev/K
+
 

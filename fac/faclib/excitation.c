@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.29 2002/01/17 02:57:11 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.30 2002/01/20 06:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -54,7 +54,7 @@ CEPW_SCRATCH *GetCEPWScratch(void) {
 }
 
 int SetCEQkMode(int m, double tol) {
-  if (m == QK_DEFAULT) qk_mode = QK_FIT;
+  if (m == QK_DEFAULT) qk_mode = QK_EXACT;
   else qk_mode = m;
   if (tol > 0.0) qk_fit_tolerance = tol;
   return 0;
@@ -870,29 +870,28 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
   if (D >= 0.0) {
     if (ndy <= 0) {
       for (i = 0; i < n; i++) {
-	a = -2.0 + p[1]/x[i];
-	b = (1.0 - 1.0/x[i]);
+	a = p[1]*p[1];
+	b = 1.0 - x[i];
 	c = pow(x[i], a);
 	d = pow(b, p[3]*p[3]);
 	y[i] = p[0]*c + p[2]*d;
-	if (D > 0.0) {
-	  y[i] += D*logx[i];
-	}
       }
     } else {
       for (i = 0; i < n; i++) {
-	a = -2.0 + p[1]/x[i];
-	b = (1.0 - 1.0/x[i]);
+	a = p[1]*p[1];
+	b = 1.0 - x[i];
 	c = pow(x[i], a);
 	d = pow(b, p[3]*p[3]);
 	k = i;
 	dy[k] = c;
 	k += ndy;
-	dy[k] = p[0]*c*logx[i]/x[i];
+	c *= p[0]*logx[i];
+	dy[k] = 2.0*c*p[1];
 	k += ndy;
 	dy[k] = d;
 	k += ndy;
-	dy[k] = p[2]*d*log(b)*2*p[3];
+	d *= p[2]*log(b);
+	dy[k] = 2.0*d*p[3];
       }
     }
   } else {
@@ -923,7 +922,7 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
   }
 }
 
-int CollisionStrength(double *qkt, double *params, double *e, 
+int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 		      int lower, int upper, int msub) {
   int i, j, t, h, p, m, type, ty;  
   LEVEL *lev1, *lev2;
@@ -1018,25 +1017,21 @@ int CollisionStrength(double *qkt, double *params, double *e,
   
   /* there is a factor of 4 coming from normalization and the 2 
      from the formula */
+  OscillatorStrength(&r, &te, -1, lower, upper);
+  *bethe = r*2.0/te;
+  if (*bethe <= 0.0) {
+    if (type == 0) *bethe = 0.0;
+    else *bethe = -1.0;
+  }
   if (!msub) {
     if (qk_mode == QK_FIT) {
-      if (type == 1) {
-	OscillatorStrength(&r, &te, -1, lower, upper);
-	r *= 2.0/te;
-	params[NPARAMS] = r;
-      } else if (type == 0) {
-	params[NPARAMS] = 0.0;
-      } else {
-	params[NPARAMS] = -1.0;
-      }
       for (ie = 0; ie < n_egrid; ie++) {
 	qkc[ie] = 8.0*qkc[ie];
 	qkt[ie] = qkc[ie];
 	xusr[ie] = egrid[ie]/te;
 	if (egrid_type == 1) xusr[ie] += 1.0;
 	log_xusr[ie] = log(xusr[ie]);
-      }
-	
+      }	
       if (qkt[0] < EPS16 && qkt[n_egrid-1] < EPS16) {
 	params[0] = 0.0;
 	params[1] = 0.0;
@@ -1044,22 +1039,31 @@ int CollisionStrength(double *qkt, double *params, double *e,
 	params[3] = 0.0;
       } else {
 	tol = qk_fit_tolerance;
-	if (params[NPARAMS] < 0.0) {
+	if (*bethe < 0.0) {
 	  params[0] = qkc[0];
 	  params[1] = 0.0;
 	  params[2] = 0.0;
 	  params[3] = 0.0;
 	} else {
+	  for (ie = 0; ie < n_egrid; ie++) {
+	    qkc[ie] -= (*bethe)*log_xusr[ie];
+	    xusr[ie] = 1.0/xusr[ie];
+	    log_xusr[ie] = -log_xusr[ie];
+	  }
 	  params[0] = qkc[0];
 	  params[1] = 1.0;
 	  params[2] = qkc[n_egrid-1];
-	  params[3] = 1.0;
+	  params[3] = 0.1;
 	}
 	np = NPARAMS;
 	ierr = NLSQFit(np, params, tol, ipvt, fvec, fjac, MAXNE, wa, lwa,
-		       n_egrid, xusr, log_xusr, qkc, qkc, 
-		       CERadialQkFromFit, &(params[NPARAMS]));
-	if (ierr > 3) params[0] = ierr*1E30;      
+		       n_egrid, xusr, log_xusr, qkc, qkt, 
+		       CERadialQkFromFit, (void *) bethe);
+	if (ierr > 3) params[0] = ierr*1E30;
+	if (*bethe >= 0.0) {
+	  params[1] *= params[1];
+	  params[3] *= params[3];
+	}
       }
     } else if (qk_mode == QK_INTERPOLATE) {
       np = 3;
@@ -1159,7 +1163,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   int i, j, k, n, m, ie, ip;
   FILE *f;
   double qkc[MAXMSUB*MAXNUSR];
-  double params[MAXMSUB*(NPARAMS+1)];
+  double params[MAXMSUB*NPARAMS];
   int *alev;
   int nsub;
   LEVEL *lev1, *lev2;
@@ -1167,7 +1171,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   CE_HEADER ce_hdr;
   F_HEADER fhdr;
   double emin, emax, e, c;
-  double rmin, rmax;
+  double rmin, rmax, bethe;
 
   n = 0;
   alev = NULL;
@@ -1310,7 +1314,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   fhdr.atom = GetAtomicNumber();
   ce_hdr.nele = GetNumElectrons(low[0]);
   ce_hdr.qk_mode = qk_mode;
-  ce_hdr.nparams = NPARAMS + 1;
+  if (qk_mode == QK_FIT) 
+    ce_hdr.nparams = NPARAMS;
+  else
+    ce_hdr.nparams = 0;
   ce_hdr.pw_type = pw_type;
   ce_hdr.n_tegrid = n_tegrid;
   ce_hdr.n_egrid = n_egrid;
@@ -1334,9 +1341,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   
   for (i = 0; i < nlow; i++) {
     for (j = 0; j < nup; j++) {
-      k = CollisionStrength(qkc, params, &e, low[i], up[j], msub); 
+      k = CollisionStrength(qkc, params, &e, &bethe, low[i], up[j], msub); 
       if (k < 0) continue;
-
+      r.bethe = bethe;
       r.lower = low[i];
       r.upper = up[j];
       r.nsub = k;

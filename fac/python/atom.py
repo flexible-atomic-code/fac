@@ -443,8 +443,11 @@ class ATOM:
     def run_en(self):        
         SetAtom(self.asym)
         SetAngZCut(self.angz_cut0)
-        
-        OptimizeRadial([self.grd_complex.name])
+
+        g = [self.grd_complex.name]
+        if (self.nele > 2 and self.nele <= 10):
+            g.append(self.exc_complex[0].cgroup[0].name)
+        OptimizeRadial(g)
 
         c = self.exc_complex[0].complex_names()
         # ground and the first excited complex are interacting

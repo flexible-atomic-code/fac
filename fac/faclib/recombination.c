@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.38 2002/01/17 19:52:23 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.39 2002/01/20 06:02:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -565,7 +565,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   if (qk_mode == QK_FIT) {
     *p = (double *) malloc(sizeof(double)*nqk);
     (*p)[n_tegrid*NPARAMS] = klb0;
-    tol = qk_fit_tolerance * 1E-3;
+    tol = qk_fit_tolerance * 1E-2;
     tol = Max(tol, 1E-4);
   } else {
     *p = (double *) malloc(sizeof(double)*nqk);

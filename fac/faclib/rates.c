@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.4 2002/01/18 20:59:41 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.5 2002/01/20 06:02:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,11 +20,11 @@ static double _dwork[4*QUAD_LIMIT];
 #define RT_RR 3
 static struct {
   DISTRIBUTION *d;
-  double (*Rate1E)(double, double, int, int, float *);
+  double (*Rate1E)(double, double, int, int, void *);
   double eth;
   int np;
   int nshells;
-  float *params;
+  void *params;
   double epsabs;
   double epsrel;
   int i, f;
@@ -36,6 +36,9 @@ void dqagi_(double (*f)(double *),
 	    double *epsrel, double *result, double *abserr,
 	    int *neval, int *ier, int *limit, int *lenw,
 	    int *last, int *iwork, double *work);
+
+void uvip3p_(int *np, int *ndp, double *x, double *y, 
+	     int *n, double *xi, double *yi);
 
 
 int SetEleDist(int i, int np, double *p) {
@@ -103,9 +106,9 @@ static double RateIntegrand(double *e) {
 }
   
 double IntegrateRate(int idist, double eth, double bound, 
-		     int np, int nshells, float *params, 
+		     int np, int nshells, void *params, 
 		     int i0, int f0, int type, 
-		     double (*Rate1E)(double, double, int, int, float *)) { 
+		     double (*Rate1E)(double, double, int, int, void *)) { 
   double result;
   int neval, inf, ier, limit, lenw, last;
   double epsabs, epsrel, abserr;
@@ -150,38 +153,40 @@ double IntegrateRate(int idist, double eth, double bound,
 }
 
 double IntegrateRate2(int idist, double e, int np, 
-		      int nshells, float *params,
+		      int nshells, void *params,
 		      int i0, int f0, int type,
 		      double (*Rate1E)(double, double, 
-				       double, int, int, float *)) { 
+				       double, int, int, void *)) { 
   double a;
   
   a = Rate1E(e, e, e, np, nshells, params);
   return a;
 }
 
-double CERate1E(double e, double eth, int np, int ns, float *p) {
-  double x, a, b, c, d;
+double CERate1E(double e, double eth, int np, int ns, void *p) {
+  double *x, *y;
+  int m1, m2, n, one;
+  double *dp, a, x0;
 
   if (e < eth) return 0.0;
-  if (p[4] >= 0.0) {
-    x = e/eth;
-    a = -2.0 + p[1]/x;
-    b = 1.0 - 1.0/x;
-    c = pow(x, a);
-    d = pow(b, p[3]*p[3]);
-    a = p[0]*c + p[2]*d;
-    if (p[4] > 0.0) {
-      a += p[4]*log(x);
-    }
+  m1 = np + 1;
+  m2 = m1 + m1;
+  dp = (double *) p;
+  y = dp+1;
+  x0 = eth/e;
+  if (dp[0] >= 0) {
+    x = y + m1;
   } else {
-    x = e/eth;
-    a = 1.0/(x+p[3]);
-    b = a*a;
-    c = -2.0 + p[1]*a + p[2]*b;
-    a = p[0]*pow(x, c);
+    x = y + m2;
+    x0 *= x0;
   }
 
+  n = 3;
+  one = 1;
+  uvip3p_(&n, &m1, x, y, &one, &x0, &a);
+  if (dp[0] > 0.0) {
+    a -= dp[0]*log(x0);
+  }
   if (a <= 0.0) {
     a = 0.0;
     return a;
@@ -192,28 +197,30 @@ double CERate1E(double e, double eth, int np, int ns, float *p) {
   return a;
 }
 
-double DERate1E(double e, double eth, int np, int ns, float *p) {
-  double x, a, b, c, d;
+double DERate1E(double e, double eth, int np, int ns, void *p) {
+  double a, x0, *x, *y;
+  double *dp;
+  int m1, m2, n, one;
 
-  if (p[4] > 0.0) {
-    x = 1.0 + e/eth;
-    a = -2.0 + p[1]/x;
-    b = 1.0 - 1.0/x;
-    c = pow(x, a);
-    d = pow(b, p[3]*p[3]);
-    a = p[0]*c + p[2]*d;
-    if (p[4] > 0.0) {
-      a += p[4]*log(x);
-    }
+  x0 = eth/(eth+e);
+  m1 = np + 1;
+  m2 = m1 + m1;
+  dp = (double *) p;
+  y = dp+1;
+  if (dp[0] >= 0) {
+    x = y + m1;
   } else {
-    x = 1.0 + e/eth;
-    a = 1.0/(x+p[3]);
-    b = a*a;
-    c = -2.0 + p[1]*a + p[2]*b;
-    a = p[0]*pow(x, c);
+    x = y + m2;
+    x0 *= x0;
   }
 
-
+  n = 3;
+  one = 1;
+  uvip3p_(&n, &m1, x, y, &one, &x0, &a);
+  if (dp[0] > 0.0) {
+    a += dp[0]*log(e);
+  }
+  
   if (a <= 0.0) {
     a = 0.0;
     return a;
@@ -226,7 +233,7 @@ double DERate1E(double e, double eth, int np, int ns, float *p) {
   
 int CERate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
-	   int m, float *params, int i0, int f0) {
+	   int m, double *params, int i0, int f0) {
   double a, e0;
 
   e0 = e*HARTREE_EV;	     
@@ -273,14 +280,16 @@ int TRRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
-double CIRate1E(double e, double eth, int np, int ns, float *p) {
+double CIRate1E(double e, double eth, int np, int ns, void *p) {
   int i;
+  float *dp;
   double x;
   double a, b, c, f;
   double c2, logc, logx;
 
   if (np != 5) return 0.0;
-  
+
+  dp = (float *) p;
   x = e/eth;
   c = 2.0/(1.0+x);
   c2 = sqrt(c);
@@ -288,10 +297,10 @@ double CIRate1E(double e, double eth, int np, int ns, float *p) {
   logx = log(x);
   f = 0.0;
   for (i = 0; i < ns; i++) {
-    a = (3.5 + p[4])*logc;
-    b = p[1]*log((1.0 + p[2])/(c2 + p[2]));
-    f += p[0]*(1.0 - exp(a+b));
-    f += p[3]*(1.0 - 1.0/x - logx/(1.0+x));
+    a = (3.5 + dp[4])*logc;
+    b = dp[1]*log((1.0 + dp[2])/(c2 + dp[2]));
+    f += dp[0]*(1.0 - exp(a+b));
+    f += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
     p += np;
   }
 
@@ -302,7 +311,7 @@ double CIRate1E(double e, double eth, int np, int ns, float *p) {
 }
 
 double R3BRate1E(double e1, double e2, double eth, 
-		 int np, int ns, float *p) {
+		 int np, int ns, void *p) {
   return 0.0;
 }
 
@@ -325,22 +334,25 @@ int CIRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
-double RRRate1E(double e, double eth, int np, int ns, float *p) {
+double RRRate1E(double e, double eth, int np, int ns, void *p) {
   int i;
+  float *dp;
   double x;
   double a, b, c, f;
   double x2, logx;
   
   if (np != 4) return 0.0;
+  dp = (float *) p;
+
   x = 1.0 + e/eth;
   x2 = sqrt(x);
   logx = log(x);
   f = 0.0;
   for (i = 0; i < ns; i++) {  
-    a = -3.5-p[3] + 0.5*p[1];
-    b = (1.0 + p[2])/(x2 + p[2]);
-    c = p[1]*log(b) + a*logx;
-    c = p[0]*exp(c);
+    a = -3.5-dp[3] + 0.5*dp[1];
+    b = (1.0 + dp[2])/(x2 + dp[2]);
+    c = dp[1]*log(b) + a*logx;
+    c = dp[0]*exp(c);
     f += c;
     p += np;
   }
@@ -353,23 +365,26 @@ double RRRate1E(double e, double eth, int np, int ns, float *p) {
   return c;
 }
 
-double PIRate1E(double e, double eth, int np, int ns, float *p) {
+double PIRate1E(double e, double eth, int np, int ns, void *p) {
   int i;
+  float *dp;
   double x;
   double a, b, c, f;
   double x2, logx;
   const double factor = 1.871156686E2;
   
   if (np != 4) return 0.0;
+
+  dp = (float *) p;
   x = e/eth;
   x2 = sqrt(x);
   logx = log(x);
   f = 0.0;
   for (i = 0; i < ns; i++) {
-    a = -3.5-p[3] + 0.5*p[1];
-    b = (1.0 + p[2])/(x2 + p[2]);
-    c = p[1]*log(b) + a*logx;
-    c = p[0]*exp(c);
+    a = -3.5-dp[3] + 0.5*dp[1];
+    b = (1.0 + dp[2])/(x2 + dp[2]);
+    c = dp[1]*log(b) + a*logx;
+    c = dp[0]*exp(c);
     f += c;
     p += np;
   }
