@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.67 2004/06/11 22:41:14 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.68 2004/06/19 00:19:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1098,20 +1098,23 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	  if (tq[inq] >= 0) break;
 	}
 	tnq = 0.0;
-	if (inq == n2 && n2-t > 2) {      
+	if (inq == n2 && n2-t > 2) {
 	  for (inq = 0; inq < t; inq++) {
 	    tnq += tq[inq];
 	  }
 	  for (inq = t; inq < n2; inq++) {
 	    tq[inq] = log(-tq[inq]);
+	    dnq[inq] = log(dnq[inq]);
 	  }
 	  for (nq = np+nmp[t]; nq <= np + nmp[n2-1]; nq++) {
-	    xnq = nq;
+	    xnq = log(nq);
 	    UVIP3P(3, n2-t, dnq+t, tq+t, 1, &xnq, &ynq);
 	    tnq += -exp(ynq);
 	  }
-	  a = exp((tq[n2-1] - tq[n2-2])/(dnq[n2-1]-dnq[n2-2]));
-	  tnq += -exp(tq[n2-1])*a/(1.0-a);
+	  a = -(tq[n2-1] - tq[n2-2])/(dnq[n2-1]-dnq[n2-2]);
+	  if (a > 1.0) {
+	    tnq += -exp(tq[n2-1])*(np+nmp[n2-1])/(a-1.0);
+	  }
 	} else {
 	  tnq = tq[0];
 	  for (nq = np+1; nq <= np + nmp[n2-1]; nq++) {
