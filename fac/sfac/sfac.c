@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.3 2001/11/07 16:34:07 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.4 2001/11/07 19:46:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -13,8 +13,28 @@ USE (rcsid);
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;
   for (i = 0; i < argc; i++) {
-    printf("%d %d %s\n", i, argt[i], argv[i]);
+    switch (argt[i]) {
+    case NUMBER:
+      printf("%s", argv[i]);
+      break;
+    case STRING:
+      printf("\"%s\"", argv[i]);
+      break;
+    case LIST:
+      printf("[%s]", argv[i]);
+      break;
+    case TUPLE:
+      printf("(%s)", argv[i]);
+      break;
+    case KEYWORD:
+      printf("%s = ", argv[i]);
+    }
+    if (i != argc-1 && argt[i] != KEYWORD) {
+      printf(", ");
+    }
   }
+  if (i > 0) printf("\n");
+  return 0;
 }
 
 static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
