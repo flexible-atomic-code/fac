@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.78 2004/02/25 17:59:55 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.79 2004/02/25 18:02:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1582,7 +1582,7 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
   for (i = 1; i < 2*m+1; i++) {
     b[i] /= b[0];
   }
-  c = FINE_STRUCTURE_CONST2*e
+  c = FINE_STRUCTURE_CONST2*e;
   c = (1.0+c)/(1.0+0.5*c);
   c *= 2.0*PI/(j0+1.0);
   b[0] *= c;
