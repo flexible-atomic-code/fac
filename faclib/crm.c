@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.39 2002/11/11 20:36:51 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.40 2002/11/15 17:05:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2880,13 +2880,12 @@ static int CompareLine(const void *p1, const void *p2) {
   else if (*v1 > *v2) return 1;
   else return 0;
 }
-
+      
 int SelectLines(char *ifn, char *ofn, int nele, int type, 
 		double emin, double emax, double fmin) {
   F_HEADER fh;
   SP_HEADER h;
   SP_RECORD r, *rp;
-  DISTRIBUTION *dist;
   ARRAY sp;
   ARRAY linetype;
   int *tt;
@@ -2913,7 +2912,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     printf("ERROR: Cannot open file %s\n", ofn);
     return -1;
   }
-  dist = GetEleDist(&i);
 
   t2 = abs(type) / 1000000;
   if (type < 0) t2 = -1;

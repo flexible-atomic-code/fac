@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.18 2002/11/08 22:27:57 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.19 2002/11/15 17:05:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -799,7 +799,7 @@ static PyObject *PDRStrength(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
