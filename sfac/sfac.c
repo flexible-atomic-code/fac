@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.59 2004/06/11 22:41:14 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.60 2004/06/14 04:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -912,7 +912,7 @@ static int PRefineRadial(int argc, char *argv[], int argt[],
 		  ARRAY *variables) {
   int maxfun, msglvl;
   
-  maxfun = 100;
+  maxfun = 0;
   msglvl = 0;
   if (argc > 0) {
     maxfun = atoi(argv[0]);
