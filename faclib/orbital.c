@@ -34,14 +34,13 @@ static double _dwork2[MAX_POINTS];
 static double _dwork3[MAX_POINTS];
 static double _dwork4[MAX_POINTS];
  
-static int max_iteration = 2000;
+static int max_iteration = 100;
 static int nmax = 0;
-static double wave_zero = 1E-15;
+static double wave_zero = 1E-10;
 
 static int _SetVEffective(int kl, POTENTIAL *pot);
-static int _MatchPoints(double e, int *i1, int *i2);
-static int _MatchPointsFree(double e, int *i1, int *i2, POTENTIAL *pot);
-static int _Outward(double *p, double e, POTENTIAL *pot, int i1, int i2);
+static int _MatchPoints(int n, double e, int *i1, int *i2);
+static int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2);
 static int _Inward(double *p, double e, POTENTIAL *pot, int i2);
 static int _Amplitude(double *p, double e, int kl, POTENTIAL *pot, 
 		      int i1, double tol);
@@ -50,9 +49,12 @@ static int _Phase(double *p, POTENTIAL *pot,
 static int _DiracSmall(ORBITAL *orb, POTENTIAL *pot);
 
 void y5n_(double *lambda, double *eta0, double *x0, 
-	  double *y5, double *y5p, int *ierr);
+	  double *y5, double *y5p, double *norm, int *ierr);
 double dlogam_(double *x);
 
+int GetNMax() {
+  return nmax;
+}
  
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
   int ierr;
@@ -76,8 +78,8 @@ double *GetVEffective() {
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double z, e, e0, emin, emax;
   int i, kl, nr, nodes, nodes_old, niter;
-  int i1, i2, i2p, i2m, ierr;
-  double *p, p2, qi, qo, delta, ep, norm2, fact, eps;
+  int i1, i2, i2p, i2m, i2p2, i2m2, ierr;
+  double *p, p1, p2, qi, qo, delta, ep, norm2, fact, eps;
   
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
   if (orb->energy >= 0.0) {
@@ -106,13 +108,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   }
   _SetVEffective(kl, pot);
 
-  if (kl == 0) {
-    emin = -2.0 * (pot->Z[MAX_POINTS-1] * pot->Z[MAX_POINTS-1]);
-  } else {
-    emin = 1.0;
-    for (i = 0; i < MAX_POINTS; i++) {
-      if (emin > _veff[i]) emin = _veff[i];
-    }
+  emin = e*2.0;
+  for (i = 0; i < MAX_POINTS; i++) {
+    if (emin > _veff[i]) emin = _veff[i];
   }
      
   if (emin > -1E-30) return 1;
@@ -133,7 +131,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       ierr = 2;
       break;
     }
-    ierr = _MatchPoints(e, &i1, &i2);
+    ierr = _TurningPoints(orb->n, e, &i1, &i2);
     if (ierr == -1) {
       break;
     } else if (ierr == -2) {
@@ -142,8 +140,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       continue;
     }
    
-    i2p = i2+1;
-    nodes = _Outward(p, e, pot, i1, i2p);
+    nodes = _Outward(p, e, pot, i1, &i2);
+    
     if (nodes != nr) {
       e0 = e;
       if (nodes > nr) {
@@ -188,12 +186,16 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       continue;
     } 
     
-    i2m = i2-1;
-    qo = (-p[i2m] + p[i2p]);
+    i2m = i2 - 1;
+    i2p = i2 + 1;
+    i2p2 = i2 + 2;
+    i2m2 = i2 - 2;
+    qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(-p[i2m] + p[i2p]))/24.0;
     ierr = _Inward(p, e, pot, i2);
     if (ierr) break;
-    p2 = (p[i2]*_B[i2] - p[i2p]*_A[i2p])/_A[i2m];
-    qi = (-p2 + p[i2p]);
+    p1 = (p[i2]*_B[i2] - p[i2p]*_A[i2p])/_A[i2m];
+    p2 = (p[i2m]*_B[i2m] - p[i2]*_A[i2])/_A[i2m2];
+    qi = ((p2 - p[i2p2])*2.0 + 16.0*(-p1 + p[i2p]))/24.0;
 
     for (i = 0; i < MAX_POINTS; i++) {
       p[i] = p[i] * sqrt(pot->dr_drho[i]);
@@ -204,13 +206,13 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     
     norm2 = InnerProduct(MAX_POINTS, p, p, pot);
     
-    delta = 0.25*p[i2]*(qo - qi)/(norm2);
+    delta = 0.5*p[i2]*(qo - qi)/(norm2);
     ep = e+delta;
     if (ep >= emax) ep = 0.5*(e+emax);
     if (ep <= emin) ep = 0.5*(e+emin);
     e0 = e;
     e = ep;
-    ep = fabs(ep)*tol;
+    ep = Min(tol, fabs(ep)*tol);
     if ((fabs(delta) < ep || fabs(e-e0) < ep)) break;
     if (pot->flag < 0) {
       SetPotentialW(pot, e, orb->kappa);
@@ -248,11 +250,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 }
 
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
-  double z, e, e0;
+  double z, e, e0, emin, emax;
   int i, kl, niter, ierr;
   double *p;
-  double lambda, eta0, x0, y5, y5p;
-  int i0, i0p, i0m, nodes;
+  double lambda, eta0, x0, y5, y5p, y5norm;
+  int i1, i2, i2p, i2m, i2p2, i2m2, nodes;
   double qo, qi, norm2, delta, dk, zp;
 
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
@@ -265,59 +267,79 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       return -1;
   }
   
+  emin = z/(orb->n - 0.99);
+  emin = -emin*emin*0.5;
+  emax = z/(orb->n);
+  emax = -emax*emax*0.5;
   eta0 = orb->n-0.05;
   dk = z/eta0;
   e = -dk*dk*0.5;
-
+  lambda = kl;
   if (pot->flag < 0) {
+    zp = FINE_STRUCTURE_CONST2*e;
+    e *= (1.0 + zp)/(1.0+0.5*zp);
+    dk *= sqrt(1.0+0.5*zp);
+    e0 = lambda*(lambda+1.0) - FINE_STRUCTURE_CONST2*z*z;
+    lambda = (sqrt(1.0+4.0*e0)-1.0)*0.5;
+    zp = z*(1.0+zp);
     SetPotentialW(pot, e, orb->kappa); 
     p = malloc(sizeof(double)*2*MAX_POINTS);
     if (!p) return -1;
-  } else { 
+  } else {
+    zp = z;
     p = malloc(sizeof(double)*MAX_POINTS);
     if (!p) return -1;
   }
   _SetVEffective(kl, pot);
 
-  lambda = kl;
-  zp = z;
-  if (pot->flag < 0) {
-    e0 = lambda*(lambda+1.0) - FINE_STRUCTURE_CONST2*z*z;
-    lambda = (sqrt(1.0+4.0*e0)-1.0)*0.5;
-    zp *= 1.0 + FINE_STRUCTURE_CONST2*e;
-  }
-  i0 = pot->r_core;
-  i0p = i0+1;
-  i0m = i0-1;
-
   niter = 0;
-  while (niter <= max_iteration) {
+  while (niter < max_iteration) {
     niter++;
-    x0 = dk*pot->rad[i0];
-    y5n_(&lambda, &eta0, &x0, &y5, &y5p, &ierr);
+    ierr = _TurningPoints(orb->n, e, &i1, &i2, pot);
+    nodes = _Outward(p, e, pot, i1, &i2);
+    x0 = dk*pot->rad[i2];
+    y5n_(&lambda, &eta0, &x0, &y5, &y5p, &y5norm, &ierr);
     qi = dk*(y5p/y5);
-    nodes = _Outward(p, e, pot, i0, i0p);
-    qo = (-p[i0m]+p[i0p])*0.5;
-    qo /= (p[i0]*pot->dr_drho[i0]);
-    delta = 0.5*(qo - qi);
+    i2p = i2 + 1;
+    i2m = i2 - 1;
+    i2p2 = i2 + 2;
+    i2m2 = i2 - 2;
+    p[i2m2] *= sqrt(pot->dr_drho[i2m2]);
+    p[i2m] *= sqrt(pot->dr_drho[i2m]);
+    p[i2] *= sqrt(pot->dr_drho[i2]);
+    p[i2p2] *= sqrt(pot->dr_drho[i2p2]);
+    p[i2p] *= sqrt(pot->dr_drho[i2p]);
+    qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(p[i2p]-p[i2m]))/24.0;
+    qo /= (p[i2]*pot->dr_drho[i2]);
+    delta = qo - qi;
     e0 = eta0 - lambda;
     norm2 = dlogam_(&e0);
     e0 = eta0 + lambda + 1.0;
     norm2 += dlogam_(&e0);
     e0 = zp/(eta0*eta0);
     norm2 = -norm2 + log(e0);
-    norm2 = norm2 + 2.0*log(fabs(y5));
-    norm2 = exp(norm2);
-    delta *= norm2;
-    e0 = e;
-    e += delta;
-    if (fabs(delta) < -tol*e0) break;
-    if (e > 0) e = e0*0.5;
-    if (pot->flag < 0) {
+    norm2 = 0.5*norm2+y5norm; 
+    norm2 = exp(norm2)*y5;
+    delta *= 0.5*(norm2*norm2);
+    e0 = -tol*e;
+    if (emax - emin < e0) break;
+    if (delta > e0) {
+      emin = e;
+      e += delta;
+      if (e > emax) e = 0.5*(emin+emax);
+    } else if (delta < -e0) {
+      emax = e;
+      e += delta;
+      if (e < emin) e = 0.5*(emin+emax);
+    } else {
+      break;
+    }
+    if (pot->flag < 0) {      
       SetPotentialW(pot, e, orb->kappa);
       _SetVEffective(kl, pot);
-      dk = sqrt(-2.0*e*(1.0+0.5*FINE_STRUCTURE_CONST2*e));
-      zp = z*(1.0+FINE_STRUCTURE_CONST2*e);
+      zp = FINE_STRUCTURE_CONST2*e;
+      dk = sqrt(-2.0*e*(1.0+0.5*zp));
+      zp = z*(1.0+zp);
       eta0 = zp/dk;
     } else {
       dk = sqrt(-2.0*e);
@@ -329,17 +351,19 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     printf("MAX iteration reached in RadialRydberg, for N=%d, Kappa=%d\n",
 	   orb->n, orb->kappa);
     printf("The wavefunction may be inaccurate\n");
-  }
-  for (i = MAX_POINTS-1; i > i0; i--) {
+  } 
+  for (i = MAX_POINTS-1; i > i2; i--) {
     if (e > _veff[i]) break;
   } 
-  i0p = i;
-  nodes = _Outward(p, e, pot, i0, i0p);
-  if (i0p < MAX_POINTS-1) ierr = _Inward(p, e, pot, i0p);
-  norm2 = sqrt(norm2);
-  qi = norm2/(p[i0]*sqrt(pot->dr_drho[i0]));
+  i2p = i;
+  nodes = _Outward(p, e, pot, i1, &i2p);
+  if (i2p < MAX_POINTS-1) ierr = _Inward(p, e, pot, i2p);
   for (i = 0; i < MAX_POINTS; i++) {
-    p[i] *= qi*sqrt(pot->dr_drho[i]);
+    p[i] *= sqrt(pot->dr_drho[i]);
+  }
+  qi = norm2/(p[i2]);
+  for (i = 0; i < MAX_POINTS; i++) {
+    p[i] *= qi;
   }
 
   for (i = MAX_POINTS-1; i >= 0; i--) {
@@ -365,7 +389,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
    amplitude of 1/sqrt(k), */
 int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
   int i, kl, nodes;
-  int i1, i2, i2p, i2m, i2p2;
+  int i1, i2, i2p, i2m, i2p2, i2m2;
   double *p, po, qo, pm, e;
   double dfact, da, cs, si, phase0;
 
@@ -394,24 +418,28 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
   }
   _SetVEffective(kl, pot);
 
-  _MatchPointsFree(e, &i1, &i2, pot);
-  i2p = i2 + 1;
-  i2p2 = i2p + 1;
+  _TurningPoints(0, e, &i1, &i2, pot);
+  nodes = _Outward(p, e, pot, i1, &i2);
   i2m = i2 - 1;
-  nodes = _Outward(p, e, pot, i1, i2p2);
+  i2p = i2 + 1;
+  i2m2 = i2 - 2;
+  i2p2 = i2 + 2;
 
   for (i = i2p2; i >= 0; i--) {
     p[i] *= sqrt(pot->dr_drho[i]);
   }
   dfact = 1.0 / pot->dr_drho[i2];
-  qo = ((p[i2m-1] - p[i2p2])*2.0 + 16.0*(p[i2p] - p[i2m]))/24.0;
+  qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
+	+ 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
   qo *= dfact;
   po = p[i2];
 
   pm = p[i2m];
   
   _Amplitude(p, e, kl, pot, i2m, tol);
-  da = 0.5*(p[i2p] - p[i2m])*dfact;
+  da = (-24.0*p[i2m] - 130.0*p[i2] + 240.0*p[i2p] - 120.0*p[i2p2] 
+	+ 40.0*p[i2p2+1] - 6.0*p[i2p2+2])/(120.0); 
+  da *= dfact;
 
   cs = p[i2] * qo - da*po;
   si = po / p[i2];
@@ -637,74 +665,51 @@ int _SetVEffective(int kl, POTENTIAL *pot) {
   return 0;
 }
 
-int _MatchPointsFree(double e, int *i1, int *i2, POTENTIAL *pot) {
-  int i, i0;
+int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
+  int i;
   double x, a, b;
 
-  i0 = MAX_POINTS - 10;
-  for (i = i0; i > 100; i--) { 
-    x = e - _veff[i];
-    if (x < 0.0) {
-      i += 1;
-      break;
-    }
-    b = 1.0/pot->rad[i];
-    a = 16.0/(0.5*pot->ar*sqrt(b) + pot->br*b);  
-    x = TWO_PI/sqrt(2.0*x);
-    if (x > a) break;
-  }
-  if (IsOdd(i)) *i2 = i + 3;
-  else *i2 = i + 2; 
-  *i1 = *i2 - 6;
-
-  return 0;
-}
-  
-    
-int _MatchPoints(double e, int *i1, int *i2) {
-  int i;
-
-  *i1 = 0;  
-
-  i = MAX_POINTS - 10;
-  *i2 = 0;
-  for (; i > 0; i--) {   
-    if (e > _veff[i]) break;    
-  }
-  if (i == 0) {
-    printf("E < VMIN in bound\n");
-    return -2;
-  }
-  *i2 = i + 4;
-  
   for (i = 0; i < MAX_POINTS; i++) {
     if (e > _veff[i]) break;
   }
-  if (i == 0) {
-    for (i = 0; i < *i2; i++) {
-      if (e < _veff[i]) break;
+  *i1 = i; 
+
+  if (n <= 0) {
+    for (i = MAX_POINTS - 5; i > 50; i--) {
+      x = e - _veff[i];
+      if (x < 0.0) {
+	*i2 = i;
+	return -2;
+      }
+      b = 1.0/pot->rad[i];
+      a = 14.0/(0.5*pot->ar*sqrt(b) + pot->br*b);
+      x = TWO_PI/sqrt(2.0*x);
+      if (x > a) break;
     }
-    for (; i < *i2; i++) {
+    *i2 = i + 14;
+    if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
+    if (*i1 == 0) *i1 = *i2 - 10; 
+  } else if (n < nmax) {
+    for (i = MAX_POINTS-10; i > 0; i--) {
       if (e > _veff[i]) break;
     }
-  }
-  *i1 = i-1;
-  
-  if (*i2 - *i1 < 5) {
-    if (*i2 >= MAX_POINTS-10) {
-      *i1 = *i2 - 5;
-    } else {
-      *i2 = *i1 + 5;
-    }
+    *i2 = i;
+    if (*i2 == 0) return -2;
+    if (*i1 == 0) *i1 = *i2 - 8; 
+  } else {
+    *i2 = Max(pot->r_core, *i1)+32;
+    if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
+    if (*i1 == 0) *i1 = *i2 - 16; 
   }
 
   return 0;
 }
-  
-int _Outward(double *p, double e, POTENTIAL *pot, int i1, int i2) {
-  int i, nodes;
+     
+int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
+  int i, nodes, i2;
   double a, b, r, x, y, z, p0;
 
+  i2 = *k2;
   for (i = 0; i <= i2; i++) {
     r = pot->rad[i];
     x = 2.0*(_veff[i] - e);
@@ -755,6 +760,21 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int i2) {
       }
     }
   }
+
+  i1 += 5;
+  if (p[i2-1] > p[i2]) {
+    for (i = i2-1; i > i1; i--) {
+      if (p[i-1] <= p[i]) break;
+    }
+  } else {
+    for (i = i2-1; i > i1; i--) {
+      if (p[i-1] >= p[i]) break;
+    }
+  }
+  if (i == i2-1) *k2 = i-1;
+  else *k2 = i;
+  if (e > 0 && IsOdd(*k2)) (*k2)--;
+ 
   return nodes;
 }
 
@@ -888,7 +908,7 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
 
   if (rmin <= 0.0) rmin = 1E-5;
   if (rmax <= 0.0) rmax = 1E+3;
-  nmax = 0.5*sqrt(rmax);
+  nmax = sqrt(rmax)/2.0;
 
   rmin /= z;
   rmax /= z;
@@ -896,7 +916,7 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
 
-  a = 12.0*sqrt(2.0*z)/PI;
+  a = 14.0*sqrt(2.0*z)/PI;
   b = (MAX_POINTS - 1.0 - (a*d2))/d1;
   if (b < 1.0/log(1.15)) {
     printf("Not enough radial mesh points, ");

@@ -35,7 +35,7 @@ C                factor (dependent only on XX) to bring nearer unity   C
 C                the functions for large /XX/, small ETA & /ZL/ < /XX/ C
 C        Define SCALE = (  0        if MODE1 > 0                       C
 C                       (  IMAG(XX) if MODE1 < 0  &  KFN < 3           C
-C                       (  REAL(XX) if MODE1 < 0  &  KFN = 3           C
+C                       (  DBLE(XX) if MODE1 < 0  &  KFN = 3           C
 C        then FC = EXP(-ABS(SCALE)) * ( F, j, J, or I)                 C
 C         and GC = EXP(-ABS(SCALE)) * ( G, y, or Y )                   C
 C               or EXP(SCALE)       * ( H+, H(1), or K)                C
@@ -116,6 +116,8 @@ C
       REAL*8 ERR,RERR,ABSC,ACCUR,ACCT,ACC8,ACCH,ACC16,ACCB, XNEAR,CF1R,
      X       ZERO,ONE,TWO,HALF,HPI,TLOG,FPMAX,FPMIN,FPLMIN,FPLMAX,
      X       PACCQ,EPS,OFF,SCALE,SF,SFSH,TA,RK,OMEGA,R20,ASYM,ABSX
+      COMPLEX*16 LOGAM, ZTMP
+
 C
       COMMON       /STEED/ RERR,NFP,N11,NPQ(2),N20,KAS(2)
 C***  common blocks are for information & storage only.
@@ -130,8 +132,8 @@ C
      X     R20,ASYM,XNEAR,NDROP / 3., 3., .5, 5 /,
      X     ACCUR, ACC8, ACC16 / 1D-14, 2D-16, 3D-33 /
       NINTC(W) = NINT(REAL(REAL(W)))
-      ABSC(W) = ABS(REAL(W)) + ABS(IMAG(W))
-      NPINT(W,ACCB) = ABSC(NINTC(W)-W).LT.ACCB .AND. REAL(W).LT.HALF
+      ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
+      NPINT(W,ACCB) = ABSC(NINTC(W)-W).LT.ACCB .AND. DBLE(W).LT.HALF
 C
       MODE = MOD(ABS(MODE1),10)
       IFCP = MOD(MODE,2).EQ.1
@@ -149,7 +151,7 @@ C
       ACCUR = MAX(ACCUR, 50*ACC8)
       ACCT = ACCUR * .5
 C                       initialise the log-gamma function :
-      CALL LOGAM(ACC8)
+      ZTMP = LOGAM(ACC8)
       ACCH  = SQRT(ACCUR)
       ACCB  = SQRT(ACCH)
       RERR = ACCT
@@ -208,14 +210,14 @@ C
      X                                          + (CLGAA+CLGAB)*HALF
               THETA  = X - ETA*(XLOG+TLOG) - ZLL*HPI + SIGMA
 C
-        TA = (IMAG(AA)**2+IMAG(AB)**2+ABS(REAL(AA))+ABS(REAL(AB)))*HALF
+        TA = (IMAG(AA)**2+IMAG(AB)**2+ABS(DBLE(AA))+ABS(DBLE(AB)))*HALF
       IF(ID.GT.0 .AND. ABSX .LT. TA*ASYM .AND. .NOT.ZLNEG) GO TO 20
 C
 C ***         use CF1 instead of CF1A, if predicted to converge faster,
 C                 (otherwise using CF1A as it treats negative lambda &
 C                  recurrence-unstable cases properly)
 C
-           RK = SIGN(ONE, REAL(X) + ACC8)
+           RK = SIGN(ONE, DBLE(X) + ACC8)
            P =  THETA
            IF(RK.LT.0) P = -X + ETA*(LOG(-X)+TLOG)-ZLL*HPI-SIGMA
       F = RK * CF1A(X*RK,ETA*RK,ZLL,P,ACCT,JMAX,NFP,FEST,ERR,FPMAX,XRCF,
@@ -246,7 +248,7 @@ C
 C ***  Make a simple check for CF1 being badly unstable:
 C
       IF(ID.LT.0) GO TO 30
-      UNSTAB = REAL((ONE-ETA*XI)*CI*IMAG(THETA)/F).GT.ZERO
+      UNSTAB = DBLE((ONE-ETA*XI)*CI*IMAG(THETA)/F).GT.ZERO
      X .AND..NOT.AXIAL .AND. ABS(IMAG(THETA)).GT.-LOG(ACC8)*.5
      X .AND. ABSC(ETA)+ABSC(ZLL).LT.ABSC(X)
       IF(UNSTAB) GO TO 60
@@ -257,11 +259,11 @@ C
    30 W   =  X*X  *(HALF/TPK1 + ONE/TPK1**2) + ETA*(ETA-TWO*X)/TPK1
       FESL   = (ZLL+ONE) * XLOG + CLL - W - LOG(FCL)
    40 FESL = FESL - ABS(SCALE)
-          RK   =        MAX(REAL(FESL), FPLMIN*HALF)
+          RK   =        MAX(DBLE(FESL), FPLMIN*HALF)
           FESL = DCMPLX(MIN(RK,   FPLMAX*HALF ) , IMAG(FESL))
       FEST= EXP(FESL)
 C
-           RERR = MAX(RERR, ERR, ACC8 * ABS(REAL(THETA)) )
+           RERR = MAX(RERR, ERR, ACC8 * ABS(DBLE(THETA)) )
 C
       FCL = FEST
       FPL = FCL*F
@@ -278,8 +280,8 @@ C
       DO 70  L  = L1-ID,LF,-ID
          IF(ETANE0) THEN
                IF(RLEL) THEN
-                    DSIG = ATAN2(REAL(ETA),REAL(ZL))
-                    RL = SQRT(REAL(ZL)**2 + REAL(ETA)**2)
+                    DSIG = ATAN2(DBLE(ETA),DBLE(ZL))
+                    RL = SQRT(DBLE(ZL)**2 + DBLE(ETA)**2)
                   ELSE
                     AA = ZL - ETAI
                     BB = ZL + ETAI
@@ -327,7 +329,7 @@ C             IF(ABSC(FCL1).LT.ABSC(FCL)) THEN
            IF(MODE .LE. 2) GC(L+ID) = RL
       ZL = ZL - ID
       IF(MONO.LT.NDROP) GO TO 70
-      IF(AXIAL .OR. REAL(ZLM)*ID.GT.-NDROP.AND..NOT.ETANE0) GO TO 70
+      IF(AXIAL .OR. DBLE(ZLM)*ID.GT.-NDROP.AND..NOT.ETANE0) GO TO 70
          UNSTAB = .TRUE.
 C
 C ***    take action if cannot or should not recur below this ZL:
@@ -364,7 +366,7 @@ C       so H(omega) is smaller and recurs upwards accurately.
 C     (x-plane boundary is shifted to give CF2(LH) a chance to converge)
 C
                            OMEGA = SIGN(ONE,IMAG(X)+ACC8)
-      IF(REAL(X).GE.XNEAR) OMEGA = SIGN(ONE,IMAG(THETAM)+ACC8)
+      IF(DBLE(X).GE.XNEAR) OMEGA = SIGN(ONE,IMAG(THETAM)+ACC8)
 C
          SFSH = EXP(OMEGA*SCALE - ABS(SCALE))
          OFF=EXP(MIN(TWO * MAX(ABS(IMAG(X)),ABS(IMAG(THETAM)),
@@ -403,18 +405,18 @@ C
        IF(ERR.LT.ACCH)       GO TO 110
 C
 C *** check if impossible to get F-PQ accurately because of cancellation
-               NOCF2 = REAL(X).LT.XNEAR .AND. ABS(IMAG(X)).LT.-LOG(ACC8)
+               NOCF2 = DBLE(X).LT.XNEAR .AND. ABS(IMAG(X)).LT.-LOG(ACC8)
 C                original guess for OMEGA (based on THETAM) was wrong
 C                Use KASE 5 or 6 if necessary if Re(X) < XNEAR
   100            OMEGA = - OMEGA
                 IF(UNSTAB) GO TO 360
-                IF(REAL(X).LT.-XNEAR .AND. PR) WRITE(6,1060) '-X',ERR
+                IF(DBLE(X).LT.-XNEAR .AND. PR) WRITE(6,1060) '-X',ERR
   110     RERR = MAX(RERR,ERR)
 C
 C ***  establish case of calculation required for irregular solution
 C
   120 IF(KASE.GE.5) GO TO 130
-      IF(REAL(X) .GT. XNEAR) THEN
+      IF(DBLE(X) .GT. XNEAR) THEN
 C          estimate errors if KASE 2 or 3 were to be used:
          PACCQ = EPS * OFF * ABSC(PQ1) / MAX(ABS(IMAG(PQ1)),ACC8)
         ENDIF
@@ -437,7 +439,7 @@ C
         P     = (PQ2 + PQ1) * HALF
         Q     = (PQ2 - PQ1) * HALF*PM
       GO TO 160
-  150   P     = REAL(PQ1)
+  150   P     = DBLE(PQ1)
         Q     = IMAG(PQ1)
 C
 C ***   With Kase = 3 on the real axes, P and Q are real & PQ2 = PQ1*
@@ -451,7 +453,7 @@ C
       FCM = SQRT(Q / W) * SF
 C                  any SQRT given here is corrected by
 C                  using sign for FCM nearest to phase of FCL
-      IF(REAL(FCM/FCL).LT.ZERO) FCM  = - FCM
+      IF(DBLE(FCM/FCL).LT.ZERO) FCM  = - FCM
       GAM = (F - P)/Q
          TA = ABSC(GAM + PM)
          PACCQ= EPS * MAX(TA,ONE/TA)
@@ -475,7 +477,7 @@ C
         IF(N20.LE.0) GO TO 190
         RERR = MAX(RERR,ERR)
          HCL = FPMIN
-         IF(ABS(REAL(PM*THETAM)+OMEGA*SCALE).GT.FPLMAX) GO TO 330
+         IF(ABS(DBLE(PM*THETAM)+OMEGA*SCALE).GT.FPLMAX) GO TO 330
   180 HCL = F20V * EXP(PM * THETAM + OMEGA*SCALE)
       FCM = SFSH / ((F - PQ1) * HCL )
       GO TO 230
@@ -505,8 +507,8 @@ C                               Consider a KASE 2 or 3 calculation :
      X                       + CLOGAM(Z11 + ONE + P11*ETA) - P11*SIGMA
       EK   = (Z11+ONE)*XLOG - P11*X + CLL  - ABS(SCALE)
       IF(ID.GT.0) EK = EK - FESL + LOG(FCL)
-         IF(REAL(EK).GT.FPLMAX) GO TO 350
-         IF(REAL(EK).LT.FPLMIN) GO TO 340
+         IF(DBLE(EK).GT.FPLMAX) GO TO 350
+         IF(DBLE(EK).LT.FPLMIN) GO TO 340
       FCM = F11V * EXP(EK)
 C
       IF(KASE.GE.5) THEN
@@ -516,7 +518,7 @@ C ***  For abs(X) < XNEAR, then CF2 may not converge accurately, so
 C ***      use an expansion for irregular soln from origin :
 C
          SL = ZLM
-            ZLNEG = REAL(ZLM) .LT. -ONE + ACCB
+            ZLNEG = DBLE(ZLM) .LT. -ONE + ACCB
          IF(KASE.EQ.5 .OR. ZLNEG) SL = - ZLM - ONE
          PK = SL + ONE
             AA = PK - ETAP
@@ -603,7 +605,7 @@ C
                           BETA  = ONE
           IF(KFN  .EQ. 1) BETA  = XI
           IF(KFN  .GE. 2) BETA  = SQRT(XI/HPI)
-          IF(KFN  .GE. 2 .AND. REAL(BETA).LT.ZERO) BETA  = - BETA
+          IF(KFN  .GE. 2 .AND. DBLE(BETA).LT.ZERO) BETA  = - BETA
 C
       AA = ONE
       IF(KFN.GT.0) AA = -P11 * BETA
@@ -751,7 +753,7 @@ C     GO TO 390
       REAL*8 ONE,TWO,EPS,ERR,ACCH,FPMIN,FPMAX,ABSC,SMALL,RK,PX
       CHARACTER*6 CALLER
       DATA ONE,TWO / 1D+0, 2D+0 /
-      ABSC(W) = ABS(REAL(W)) + ABS(IMAG(W))
+      ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
 C
 C
 C ***    Evaluate CF1  =  F   =  F'(ZL,ETA,X)/F(ZL,ETA,X)
@@ -778,7 +780,7 @@ C ***   test ensures b1 .ne. zero for negative ETA etc.; fixup is exact.
          ENDIF
    20 D   =  ONE/TK
       DF  = -FCL*RK2*D
-            IF(REAL(PK).GT.REAL(ZL)+TWO) FCL = - RK2 * SL
+            IF(DBLE(PK).GT.DBLE(ZL)+TWO) FCL = - RK2 * SL
             FCL = FCL * D * TPK1 * XI
       F   =  F  + DF
 C
@@ -805,10 +807,10 @@ C
             IF(ABSC(FCL).GT.FPMAX) FCL = FCL / FPMAX
         DF  = DF*(D*TK - ONE)
         F   = F  + DF
-              IF( REAL(PK) .GT. PX ) GO TO 50
+              IF( DBLE(PK) .GT. PX ) GO TO 50
       IF(ABSC(DF) .GE. ABSC(F)*EPS)             GO TO 30
                 NFP = PK - ZL - 1
-                  ERR = EPS * SQRT(REAL(NFP))
+                  ERR = EPS * SQRT(DBLE(NFP))
       CF1C = F
       RETURN
  1000 FORMAT(/' ',A6,': CF1 ACCURACY LOSS: D,DF,ACCH,K,ETA/K,ETA,X = ',
@@ -827,7 +829,7 @@ C
      X       ABSC,ZERO,HALF,ONE,TWO
       CHARACTER*6 CALLER
       DATA ZERO,HALF,ONE,TWO / 0D+0, .5D+0, 1D+0, 2D+0 /
-      ABSC(W) = ABS(REAL(W)) + ABS(IMAG(W))
+      ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
 C
 C                                    (omega)        (omega)
 C *** Evaluate  CF2  = p + PM.q  =  H   (ETA,X)' / H   (ETA,X)
@@ -875,11 +877,11 @@ C
       FUNCTION F11(X,ETA,ZL,P,EPS,LIMIT,KIND,ERR,NITS,FPMAX,ACC8,ACC16)
       IMPLICIT REAL*8(A-H,O-Z)
       COMPLEX*16 X,ETA,ZL,P,AA,BB,Z,F11,CDIGAM,CI
-       COMPLEX*16 DD,G,F,AI,BI,T
+      COMPLEX*16 DD,G,F,AI,BI,T
       LOGICAL ZLLIN
       REAL*16 AR,BR,GR,GI,DR,DI,TR,TI,UR,UI,FI,FI1,DEN
       DATA ZERO,ONE,TWO / 0D+0, 1D+0, 2D+0 /, CI / (0D+0, 1D+0) /
-      ABSC(AA) = ABS(REAL(AA)) + ABS(IMAG(AA))
+      ABSC(AA) = ABS(DBLE(AA)) + ABS(IMAG(AA))
       NINTC(AA) = NINT(REAL(REAL(AA)))
 C
 C *** evaluate the HYPERGEOMETRIC FUNCTION 1F1
@@ -898,8 +900,8 @@ C  where
 C  and
          Z  = TWO*P*X
 C
-         ZLLIN = REAL(BB).LE.ZERO .AND. ABS(BB-NINTC(BB)).LT.ACC8**0.25
-             IF(.NOT.ZLLIN.OR.REAL(BB)+LIMIT.LT.1.5) GO TO 10
+         ZLLIN = DBLE(BB).LE.ZERO .AND. ABS(BB-NINTC(BB)).LT.ACC8**0.25
+             IF(.NOT.ZLLIN.OR.DBLE(BB)+LIMIT.LT.1.5) GO TO 10
                 NITS = -1
                 RETURN
    10 IF(LIMIT.LE.0) THEN
@@ -915,8 +917,8 @@ C
          DI = ZERO
          GR = ONE
          GI = ZERO
-         AR = REAL(AA)
-         BR = REAL(BB)
+         AR = DBLE(AA)
+         BR = DBLE(BB)
          FI = ZERO
       DO 20 I=2,LIMIT
          FI1 = FI + ONE
@@ -927,8 +929,8 @@ C
          UI = (IMAG(AA)*TR - AR*TI) * DEN
          TR = UR*GR - UI*GI
          TI = UR*GI + UI*GR
-         GR = REAL(Z) * TR - IMAG(Z)*TI
-         GI = REAL(Z) * TI + IMAG(Z)*TR
+         GR = DBLE(Z) * TR - IMAG(Z)*TI
+         GI = DBLE(Z) * TI + IMAG(Z)*TR
          DR = DR + GR
          DI = DI + GI
             ERR = ABS(GR) + ABS(GI)
@@ -1037,7 +1039,7 @@ C
               IF( PK .GT. PX ) GO TO 50
       IF(ABS(DF) .GE. ABS(F)*EPS)             GO TO 30
                 NFP = PK - ZL - 1
-                  ERR = EPS * SQRT(REAL(NFP))
+                  ERR = EPS * SQRT(DBLE(NFP))
       CF1R = F
       RETURN
  1000 FORMAT(/' ',A6,': CF1 ACCURACY LOSS: D,DF,ACCH,K,ETA/K,ETA,X = ',
@@ -1068,7 +1070,7 @@ C
       LOGICAL FINITE
       REAL*8 EP,EPS,AT,ATL,ABSC,RE,FPMAX
       DATA ONE,ZERO / (1D+0,0D+0), (0D+0,0D+0) /
-      ABSC(W) = ABS(REAL(W)) + ABS(IMAG(W))
+      ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
       NINTC(W) = NINT(REAL(REAL(W)))
 C
       RE = 0.0
@@ -1082,8 +1084,8 @@ C
       EP = EPS * JMAX *10.
       MA = - NINTC(AA)
       MB = - NINTC(BB)
-      FINITE = ABS(ABS(REAL(AA))-MA).LT.EP .AND. ABS(IMAG(AA)).LT.EP
-     X    .OR. ABS(ABS(REAL(BB))-MB).LT.EP .AND. ABS(IMAG(BB)).LT.EP
+      FINITE = ABS(ABS(DBLE(AA))-MA).LT.EP .AND. ABS(IMAG(AA)).LT.EP
+     X    .OR. ABS(ABS(DBLE(BB))-MB).LT.EP .AND. ABS(IMAG(BB)).LT.EP
       IMAX = JMAX
       IF(FINITE.AND.MA.GE.0) IMAX = MIN(MA+1,IMAX)
       IF(FINITE.AND.MB.GE.0) IMAX = MIN(MB+1,IMAX)
@@ -1128,7 +1130,7 @@ C            LOGARITHMIC DERIVATIVE OF THE REGULAR SOLUTION
 C
 C ***        CF1A  =  f   =  F'(XL,ETA,RHO)/F(XL,ETA,RHO)
 C
-C      that is valid for REAL(RHO)>0, and best for RHO >> ETA**2, XL,
+C      that is valid for DBLE(RHO)>0, and best for RHO >> ETA**2, XL,
 C      and is derived from the 2F0 expansions for H+ and H-
 C      e.g. by Froeberg (Rev. Mod. Physics Vol 27, p399 , 1955)
 C      Some lines of this subprogram are for convenience copied from
@@ -1146,11 +1148,11 @@ C
       DIMENSION XX(2,NMAX),G(NMAX),C(NMAX)
       REAL*8 RE,EPS,T1,T2,T3,ZERO,ONE,TWO,AT,ATL,ABSC,FPMAX
       DATA ZERO,ONE,TWO,CI / 0D+0, 1D+0, 2D+0, (0D+0,1D+0) /
-      ABSC(W) = ABS(REAL(W)) + ABS(IMAG(W))
+      ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
 C
       HPI = TWO*ATAN(ONE)
-      T1 = SIN(REAL(PSI))
-      T2 = COS(REAL(PSI))
+      T1 = SIN(DBLE(PSI))
+      T2 = COS(DBLE(PSI))
       ATL= TANH(IMAG(PSI))
 C             GIVE COS(PSI)/COSH(IM(PSI)), WHICH ALWAYS HAS CORRECT SIGN
           COSL = DCMPLX( T2 , -T1 * ATL )
@@ -1335,7 +1337,7 @@ C     this routine computes the logarithm of the gamma function gamma(z)
 C     for any complex argument 'Z' to any accuracy preset by CALL LOGAM
 C
       IMPLICIT REAL*8(A-H,O-Z)
-      COMPLEX*16 Z,U,V,H,R,CLOGAM,CDIGAM,SER
+      COMPLEX*16 Z,U,V,H,R,CLOGAM,CDIGAM,LOGAM,SER
       DIMENSION B(15),BN(15),BD(15)
 C
       DATA LERR /6/, NX0 /6/, NB /15/,
@@ -1357,15 +1359,15 @@ C
      X     BN(15),BD(15)  / 8615841276005D+0, 14322D+0/
       DATA FPLMIN / -140D+0 /
 C
-      X=REAL(Z)
+      X=DBLE(Z)
       T=IMAG(Z)
-      MX = INT(REAL(ACCUR*100 - X))
+      MX = INT(DBLE(ACCUR*100 - X))
       IF(ABS(ABS(X)-MX) + ABS(T).LT.ACCUR*50) GO TO 60
       F=ABS(T)
       V=DCMPLX(X,F)
       IF(X .LT. ZERO) V=ONE-V
       H=ZERO
-      C=REAL(V)
+      C=DBLE(V)
       N=NX0-INT(C)
       IF(N .LT. 0) GO TO 30
       H=V
@@ -1377,7 +1379,7 @@ C
       V=DCMPLX(C,D)
       H=H*V
    10 A=A+ATAN2(D,C)
-   20 H=DCMPLX(HALF*LOG(REAL(H)**2+IMAG(H)**2),A)
+   20 H=DCMPLX(HALF*LOG(DBLE(H)**2+IMAG(H)**2),A)
       V=V+ONE
    30 R=ONE/V**2
       SER = B(NT)
@@ -1414,7 +1416,7 @@ C     function  psi(Z) = digamma(Z) = d (ln gamma(Z))/dZ  for any
 C     complex argument Z, to any accuracy preset by CALL LOGAM(ACC)
 C
       U=Z
-      X=REAL(U)
+      X=DBLE(U)
       A=ABS(X)
       IF(ABS(IMAG(U)) + ABS(A + INT(X)) .LT. ACCUR) GO TO 110
       IF(X .LT. ZERO) U=-U
@@ -1461,6 +1463,7 @@ C
        NX0 = INT((ERR/ACC)**(ONE/F21) * X0)
        K = NB
   130 NT = K
+      LOGAM = (0D0, 0D0)
 C     print *,' logam requires k = ',k ,' with cutoff at x =',nx0+1
       RETURN
       END
@@ -1469,7 +1472,7 @@ C                     TIDY A COMPLEX NUMBER
       REAL*8 X,Y,ACC,AZ
       COMPLEX*16 Z,TIDY
 C
-      X = REAL(Z)
+      X = DBLE(Z)
       Y = IMAG(Z)
       AZ= (ABS(X) + ABS(Y)) * ACC * 5
       IF(ABS(X) .LT. AZ) X = 0D+0

@@ -121,8 +121,6 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     norbs++;
   }
 
-  potential->r_core = Min(jmax+5, MAX_POINTS-2);
-
   if (norbs && (potential->N > 1)) {
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = 0.0;
@@ -193,6 +191,10 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
+    for (j = jmax-5; j > 0; j--) {
+      if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
+    }
+    potential->r_core = j+1;
     _AdjustScreeningParams(v, u); 
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
@@ -277,7 +279,7 @@ double GetResidualZ(int m) {
 }
 
 double GetRMax() {
-  return potential->rad[MAX_POINTS-1];
+  return potential->rad[MAX_POINTS-10];
 }
   
 int OptimizeRadial(int ng, int *kg, double *weight) {
@@ -318,6 +320,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
   potential->lambda = 0.5*z;
+  potential->r_core = MAX_POINTS-5;
 
   no_old = 0;  
   tol = 1.0; 

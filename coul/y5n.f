@@ -2,7 +2,7 @@ C calculates the negtive energy coulomb wavefunction,
 C and the derivative.
 C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
 
-      subroutine y5n(lambda, eta0, x0, y5, y5p, ierr)
+      subroutine y5n(lambda, eta0, x0, y5, y5p, norm, ierr)
 C
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C     lambda:    the orbital angular momentum. 
@@ -18,14 +18,15 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       real*8 HALFPI
       parameter (HALFPI = 1.5707963268D0)
-      complex*16 CI
-      parameter (CI = (0.0D0, 1.0D0)) 
+      integer MAXL, MAXN
+      parameter (MAXL = 50, MAXN = 1)
 
-      real*8 lambda, y5, y5p, x0, eta0
-      complex*16 eta, x, zlmin, norm
-      complex*16 fc(1), fcp(1), gc(1), gcp(1)
-      complex*16 sig(1)
-      integer kfn, ierr
+      real*8 lambda, y5, y5p, x0, eta0, norm
+      real*8 c, d, b, sb, cb
+      complex*16 eta, x, zlmin
+      complex*16 fc(MAXN), fcp(MAXN), gc(MAXN), gcp(MAXN)
+      complex*16 sig(MAXN)
+      integer kfn, ierr, k
 
       if (eta0 .gt. 0.0) then
          eta = dcmplx(0.0, eta0)
@@ -33,15 +34,34 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       else
          kfn = 1
       endif 
-   
+
       x = dcmplx(0.0, x0)
-      zlmin = dcmplx(lambda, 0.0)
+      if (lambda .lt. MAXL+1) then
+         zlmin = dcmplx(lambda, 0.0)
+         k = 1
+      else
+         k = lambda - MAXL
+         zlmin = dcmplx(lambda-k, 0.0)
+         k = k+1
+         if (k .gt. MAXN) then
+            write(*,*) "Max recusion work array reached in y5n"
+            ierr = -100
+            return
+         endif
+      endif
 
       ierr = 0
-      call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
+      call coulcc(x, eta, zlmin, k, fc, gc, fcp, gcp, sig, 
      +            11, kfn, ierr)
-      norm = CI*((lambda-eta0)*HALFPI - sig(1))
-      norm = exp(norm)
-      y5 = dble(gc(1)*norm)
-      y5p = -imag(gcp(1)*norm)
+      norm = imag(sig(k))
+      b = (lambda-eta0)*HALFPI - dble(sig(k))
+      sb = sin(b)
+      cb = cos(b)
+      c = dble(gc(k))
+      d = imag(gc(k))
+      y5 = c*cb - d*sb
+      c = dble(gcp(k))
+      d = imag(gcp(k))
+      y5p = -(c*sb + d*cb)
+
       end

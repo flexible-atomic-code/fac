@@ -1,4 +1,4 @@
-SRC = coulcc.f y5n.f dlogam.f besljn.f clgam.f dcoul.f deltac.f fcoul.f scoul.f sum2f0.f
+SRC = coulcc.f y5n.f dlogam.f besljn.f 
 
 OBJS = ${SRC:.f=.o}
 
