@@ -1,3 +1,5 @@
+from math import *
+
 Hartree_eV = 27.2113962            # Hartree in eV   
 Rate_AU = 4.13413733E16            # Atomic Rate Unit in s-1
 Rate_AU10 = 4.13413733E06          # Atomic Rate Unit in 10^10 s-1
@@ -22,4 +24,24 @@ re = 2.81794092                    # electron classical radius in fm
 sig_t = 6.6524616                  # Thompson cross section in 10^{-25} cm2
 kb = 8.617385E-5                   # Boltzman constant in ev/K
 
+def EnergyH(z, n, l, j):
+    if (j == 1):
+        ka = (l + 1.0)
+    elif (j == -1):
+        ka = l
+    else:
+        raise 'j must be +1 or -1'
 
+    if (n <= 0):
+        raise 'n must be > 0'
+
+    if (l < 0 or l >= n):
+        raise 'l must be > 0 and < n'
+
+    az = Alpha * z
+    g = sqrt(ka*ka - az*az)
+    np = n + g - ka
+    x = az/np;
+    e = (1.0/sqrt(1.0+x*x)) - 1.0
+    e = e * Me_eV
+    return e

@@ -1,3 +1,11 @@
+Version 0.7.5, 08/02/2002
+	1. break down the long DATA statements in ionis.f
+	2. fix the beam energy distribution in spm.py
+	3. fix the High-Z element problem.
+	4. fix the magnetic sublevel collisional excitation problem.
+	5. rewrite the Dirac eq. solver for more robustness.
+	6. add a function for relativistic H energy in const.py
+	
 Version 0.7.4, 07/10/2002
 	1. write FAQ chapter of the manual.
 	2. fix a bug introduced in atom.py

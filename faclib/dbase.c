@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.23 2002/05/17 19:23:45 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.24 2002/08/02 14:07:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -516,7 +516,6 @@ int PrintTable(char *ifn, char *ofn, int v) {
   fprintf(f2, "Verbose\t= %d\n", v);
   fprintf(f2, "%s Z\t= %5.1f\n", fh.symbol, fh.atom);
   fprintf(f2, "NBlocks\t= %d\n", fh.nblocks);
-  
   switch (fh.type) {
   case DB_EN:
     if (v) {
@@ -959,7 +958,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	  m = h.nparams * r.nsub;
 	  params = (float *) realloc(params, sizeof(float)*m);
 	}
-	m = h.n_usr * nsub;
+	m = h.n_usr * r.nsub;
 	strength = (float *) realloc(strength, sizeof(float)*m);
 	nsub = r.nsub;
       }
@@ -1007,6 +1006,9 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	    fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], strength[p2]);
 	  }
 	  p2++;
+	}
+	if (k < r.nsub-1) {
+	  fprintf(f2, "--------------------------------------------\n");
 	}
       }      
     }

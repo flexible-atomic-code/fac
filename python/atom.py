@@ -478,6 +478,8 @@ class ATOM:
         for a in c:
             if (len(a.name) == 0):
                 continue
+            s = '    %s'%str(a.name)
+            Print(s)
             Structure(self.bfiles['en'], a.name)
 
         Print('Structure: excited complexes')
@@ -490,9 +492,13 @@ class ATOM:
                 if (i == 0 and j == 0):
                     continue
                 if (a.nrec > 0):
+                    s = '    (%s, %d)'%(str(a.name), a.nrec)
+                    Print(s)
                     RecStates(self.bfiles['en'], a.name, a.nrec)
                 else:
                     if (len(a.name) != 0):
+                        s = '    %s'%str(a.name)
+                        Print(s)
                         Structure(self.bfiles['en'], a.name)
 
         return
@@ -877,9 +883,6 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         s = 'ATOM = %s'%asym
         z = ATOMICSYMBOL.index(asym.lower())
         s = '%s, Z = %d'%(s, z)
-        if (z < 1.5*m):
-            Print('%s, skipping'%s)
-            continue
         Print(s)
         atom.set_atom(asym, dir=dir)
         atom.run_fac()

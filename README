@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.22 2002/04/30 19:52:09 mfgu Exp $
+# rcsid = $Id: README,v 1.23 2002/08/02 14:07:04 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -43,8 +43,18 @@ To install "pfac" interface:
    Version 2.0 or later is required. Make sure that python interpreter is 
    in your path.
 2. run:
-	make clean
 	python setup.py install
+
+This will install the "pfac" package into the standard Python site-package 
+path. If Python was installed as root, this requires the root permission as 
+well. Alternatively, one may install the "pfac" package into a given directory
+by running:
+	python setup.py install --prefix=/my/own/dir
+
+In order for python to find the installed "pfac" modules, one would have to 
+define an environment variable PYTHONPATH to point to the directory 
+"/my/own/dir". In cshell, this requires "setenv PYTHONPATH /my/own/dir", or 
+in bash, "PYTHONPATH=/my/own/dir;export PYTHONPATH".
 
 With python installed, the "sfac" interface can also be installed using
 the setup.py script, to do so, run

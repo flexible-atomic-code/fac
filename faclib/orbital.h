@@ -13,7 +13,7 @@ typedef struct _POTENTIAL_ {
   double a;
   double rad[MAX_POINTS], ar, br;
   double dr_drho[MAX_POINTS];
-  double drho_dr2[MAX_POINTS];
+  double dr_drho2[MAX_POINTS];
   double Vc[MAX_POINTS];
   double dVc[MAX_POINTS];
   double dVc2[MAX_POINTS];
@@ -44,7 +44,8 @@ int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
-double InnerProduct(int n, double *p1, double *p2, POTENTIAL *pot);
+double InnerProduct(int i1, int n, 
+		    double *p1, double *p2, POTENTIAL *pot);
 double Simpson(double *y, int ia, int ib);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m);
 int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax);

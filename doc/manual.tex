@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.4}\xspace}
+\newcommand{\facversion}{{0.7.5}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -37,12 +37,14 @@
 	   \setlength{\rightmargin}{0.2in}}}
 	{\end{list}}
 \newenvironment{fundesc}[2]{
+	\addcontentsline{toc}{subsubsection}{#1}
 	\index{#1}
 	\begin{center}
 	\begin{minipage}{\textwidth}
 	\key{\textbf{#1}}(\var{#2}):\\}
 	{\end{minipage}\end{center}}
 \newenvironment{vardesc}[1]{
+	\addcontentsline{toc}{subsubsection}{#1}
 	\index{#1}
 	\begin{center}
 	\begin{minipage}{\textwidth}
@@ -55,7 +57,7 @@
 	\textbf{Q\arabic{faq}: #1?}\\#2
 	\end{minipage}}
 
-\setcounter{tocdepth}{2}
+\setcounter{tocdepth}{3}
 
 \makeindex
 
@@ -151,7 +153,23 @@ from the tar-ball, change to the top directory and type
 \end{verbatim}
 where the first command installs the Python package \verb|pfac| which 
 contains several Python and extension modules, and the second command
-installs the SFAC interface in your \verb|${HOME}/bin|.
+installs the SFAC interface in your \verb|${HOME}/bin|. This will install the
+PFAC modules in the standard Python site-package directory. If Python was
+installed as root, this requires the root permission as well. Alternatively,
+one may install the PFAC package into a given directory by running,
+\begin{verbatim}
+    python setup.py install --prefix=/my/own/dir
+\end{verbatim}
+In order for python to find the installed PFAC modules, one would have to 
+define an environment variable PYTHONPATH to point to the directory 
+\verb|/my/own/dir|. In cshell, this requires
+\begin{verbatim}
+    setenv PYTHONPATH /my/own/dir
+\end{verbatim}
+or in bash, 
+\begin{verbatim}
+PYTHONPATH=/my/own/dir;export PYTHONPATH
+\end{verbatim}
 
 Without Python, one may install the SFAC interface by 
 \begin{verbatim}
@@ -1393,6 +1411,14 @@ NUSR	= 6
  ......
 \end{verbatim}
 
+If \texttt{MSUB} = 1, then the data for each transition contains \texttt{nsub}
+blocks, representing several $m_i\to m_f$ transitions. Due to the time
+reversal symmetry, the cross section for $-m_i \to -m_f$ is the same as that
+for $m_i \to m_j$, only the cross sections with $m_i \le 0$ are tabulated in
+the order $-J_i\to -J_f$, $-J_i\to -J_f+1$, $\cdots$, $-J_i\to J_f$,
+$-J_i+1\to -J_f$, $-J_i+1\to -J_f+1$, $\cdots$, $-J_i+1\to J_f$, $\cdots$.
+
+
 \subsection{\texttt{DB\_RR}}
 \index{DB\_RR}
 \begin{verbatim}
@@ -2471,7 +2497,8 @@ decimal digits of \var{t}, \var{t1} is the next 2 digits, and so on. e.g., if
 10000\var{t2}+100\var{t1}+\var{t0} are selected. If \var{t3}=1, then lines of
 type 10000\var{q}+100\var{t1}+\var{t0} with \var{q}$\ge$\var{t2} are
 selected. If \var{t3}$<$0, then lines of type \var{q} with
-\var{q}$\ge$\var{t0} are selected. The physical meaning of line types are discussed in \S\ref{subsec:sp_header}
+\var{q}$\ge$\var{t0} are selected. The physical meaning of line types are
+discussed in \S\ref{subsec:sp_header} 
 \end{fundesc}
 
 \begin{fundesc}{SetAIRates}{inv}
