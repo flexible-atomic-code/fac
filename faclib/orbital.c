@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.59 2004/06/12 23:19:40 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.60 2004/06/13 01:20:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -561,11 +561,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     i2 = TurningPoints(orb->n, e, pot);
     i2p2 = i2 + 2;
     nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, NULL);
-    if (nodes != nr) {
-      printf("RadialBound: No. nodes changed in iteration\n");
-      free(p);
-      return -4;
-    }
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
@@ -601,7 +596,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     free(p);
     return -3;
   }
-
   ep = sqrt(norm2);
   fact = 1.0/ep;
   if (IsOdd(nodes)) {
@@ -614,6 +608,25 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   }
   if (IsEven(i)) i++;
   orb->ilast = i;
+
+  nodes = 0;
+  i = orb->ilast;
+  p1 = p[i];
+  for (; i > 0; i--) {
+    p2 = fabs(p[i]);
+    if (p2 > wave_zero) {
+      if ((p1 > 0 && p[i] < 0) ||
+	  (p1 < 0 && p[i] > 0)) {
+	nodes++;
+	p1 = p[i];
+      }
+    }
+  }
+  if (nodes != nr) {
+    printf("RadialBound: No. nodes changed in iteration\n");
+    free(p);
+    return -6;
+  }
        
   for (i = 0; i < pot->maxrp; i++) {    
     p[i] *= fact;
