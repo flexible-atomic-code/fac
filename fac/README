@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.34 2003/07/14 16:27:25 mfgu Exp $
+# rcsid = $Id: README,v 1.35 2003/09/26 18:11:52 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -36,7 +36,13 @@ STEPS:
 Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler 
         is not g77 or sun's f77. see faclib/cfortran.doc for supported F77 
 	compilers.
-Note 2: specify --prefix=my/dir, if the default /usr/local is not what you 
+Note 2: If your C compiler is not gcc, then you need to supply the PIC
+	(position independent code) option with --enable-cpic=***
+	If your F77 compiler is not g77, then you need to supply the PIC
+	option with --enable-fpic=***
+	Supply the optimization option for C and F77 compilers with
+	--enable-copt=*** and --enable-fopt=*** respectively if desired.
+Note 3: specify --prefix=my/dir, if the default /usr/local is not what you 
 	want. This dir only affects the installation of SFAC executables.
 
 2) make; make install

@@ -449,7 +449,7 @@ s,@host_cpu@,i686,;t t
 s,@host_vendor@,pc,;t t
 s,@host_os@,linux-gnu,;t t
 s,@CC@,gcc,;t t
-s,@CFLAGS@,-O2 -fno-strength-reduce,;t t
+s,@CFLAGS@,-O2 -fPIC -fno-strength-reduce,;t t
 s,@LDFLAGS@, -L/home/mfgu/src/fac,;t t
 s,@CPPFLAGS@, -I/home/mfgu/src/fac -I/home/mfgu/src/fac/faclib,;t t
 s,@ac_ct_CC@,gcc,;t t
@@ -465,7 +465,7 @@ s,@PYTHON@,python,;t t
 s,@CPP@,gcc -E,;t t
 s,@LIBOBJS@,,;t t
 s,@F77@,g77,;t t
-s,@FFLAGS@,-O2 -fno-strength-reduce,;t t
+s,@FFLAGS@,-O2 fPIC -fno-strength-reduce,;t t
 s,@ac_ct_F77@,g77,;t t
 s,@FLIBS@,-L/usr/lib/gcc-lib/i386-redhat-linux/3.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s,;t t
 CEOF

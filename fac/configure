@@ -834,6 +834,10 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+ --enable-copt=opt	optimization option for C compiler
+ --enable-fopt=opt	optimization option for F77 Compiler
+ --enable-cpic=opt	PIC option for C compiler
+ --enable-fpic=opt	PIC option for F77 Compiler
   --enable-cdebug=opt    Debugging option for C
   --enable-fdebug=opt    Debugging option for F77
   --enable-warnings	GCC warnings
@@ -3413,7 +3417,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:3416:" \
+echo "$as_me:3420:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -3581,7 +3585,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:3584: \"$ac_link\") >&5
+(eval echo $as_me:3588: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -3660,7 +3664,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:3663: \"$ac_link\") >&5
+(eval echo $as_me:3667: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -3838,19 +3842,55 @@ FLIBS=`echo $FLIBS | sed 's/  */ /g'`
 echo "$as_me:$LINENO: result: $FLIBS" >&5
 echo "${ECHO_T}$FLIBS" >&6
 
-# override the default CFLAGS and FFLAGS
+#get optimization option for C and f77 compilers
+# Check whether --enable-copt or --disable-copt was given.
+if test "${enable_copt+set}" = set; then
+  enableval="$enable_copt"
+  copt="$enableval"
+fi;
+# Check whether --enable-fopt or --disable-fopt was given.
+if test "${enable_fopt+set}" = set; then
+  enableval="$enable_fopt"
+  fopt="enableval"
+fi;
+
+# get position independent code option for C and f77 compilers
+# Check whether --enable-cpic or --disable-cpic was given.
+if test "${enable_cpic+set}" = set; then
+  enableval="$enable_cpic"
+  cpic="$enableval"
+fi;
+# Check whether --enable-fpic or --disable-fpic was given.
+if test "${enable_fpic+set}" = set; then
+  enableval="$enable_fpic"
+  fpic="$enableval"
+fi;
+
+# override the default CFLAGS and FFLAGS for GCC and G77
 if test -n "$GCC"
 then
-  CFLAGS="-O2"
-else
-  CFLAGS="-O"
+  if test -z "$copt"
+  then
+    copt="-O2"
+  fi
+  if test -z "$cpic"
+  then
+    cpic="-fPIC"
+  fi
 fi
 if test -n "$G77"
 then
-  FFLAGS="-O2"
-else
-  FFLAGS="-O"
+  if test -z "$fopt"
+  then
+    fopt="-O2"
+  fi
+  if test -z "$fpic"
+  then
+    fpic="fPIC"
+  fi
 fi
+CFLAGS="$copt $cpic"
+FFLAGS="$fopt $fpic"
 
 # Debugging option
 # Check whether --enable-cdebug or --disable-cdebug was given.
@@ -3920,6 +3960,9 @@ then
       ;;
       *sunos*)
 	xxFortran=sunFortran
+      ;;
+      *hpux*)
+	xxFortran=hpuxFortran
       ;;
       *)
         echo "NOTE: F77 known by cfortran.h is not detected."
