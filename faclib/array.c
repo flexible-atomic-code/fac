@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.12 2003/09/26 19:42:52 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.13 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -14,25 +14,6 @@ USE (rcsid);
 
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
-
-#ifdef PERFORM_STATISTICS  
-static ARRAY_TIMING timing = {0, 0};
-/* 
-** FUNCTION:    GetArrayTiming
-** PURPOSE:     retreive the timing information.
-** INPUT:       {ARRAY_TIMING *t},
-**              pointer to ARRAY_TIMING struct, holding the result.
-** RETURN:      {int},
-**              always 0.
-** SIDE EFFECT: 
-** NOTE:        
-*/
-int GetArrayTiming(ARRAY_TIMING *t) {
-  memcpy(t, &timing, sizeof(timing)); 
-  return 0;
-}
-#endif
-
 
 void InitIntData(void *p, int n) {
   int *d;
@@ -150,12 +131,6 @@ void *ArraySet(ARRAY *a, int i, void *d,
   void *pt;
   char *ct;
   DATA *p;
-  /*
-#ifdef PERFORM_STATISTICS
-  clock_t start, stop;
-  start = clock();
-#endif
-  */
  
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
@@ -187,13 +162,6 @@ void *ArraySet(ARRAY *a, int i, void *d,
   pt = (void *) ct;
 
   if (d) memcpy(pt, d, a->esize);
-
-  /*
-#ifdef PERFORM_STATISTICS
-  stop = clock();
-  timing.array += stop-start;
-#endif 
-  */
   return pt;
 }
 
@@ -371,7 +339,7 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
 }         
 
 /* 
-** FUNCTION:    MultiInit
+** FUNCTION:    SMultiInit
 ** PURPOSE:     initialize a multi-dimensional array.
 ** INPUT:       {MULTI *ma},
 **              pointer to the multi-dimensional array.
@@ -387,7 +355,7 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */    
-int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
+int SMultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i;
   ma->ndim = ndim;
   ma->esize = esize;
@@ -398,7 +366,7 @@ int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
 }
 
 /* 
-** FUNCTION:    MultiGet
+** FUNCTION:    SMultiGet
 ** PURPOSE:     get an element in a multi-dimensional array.
 ** INPUT:       {MULTI *ma},
 **              pointer to the multi-dimensional array.
@@ -410,7 +378,7 @@ int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */    
-void *MultiGet(MULTI *ma, int *k) {
+void *SMultiGet(MULTI *ma, int *k) {
   ARRAY *a;
   int i;
   a = ma->array;
@@ -424,7 +392,7 @@ void *MultiGet(MULTI *ma, int *k) {
 }
 
 /* 
-** FUNCTION:    MultiSet
+** FUNCTION:    SMultiSet
 ** PURPOSE:     Set an element in a multi-dimensional array.
 ** INPUT:       {MULTI *ma},
 **              pointer to the multi-dimensional array.
@@ -438,17 +406,11 @@ void *MultiGet(MULTI *ma, int *k) {
 ** SIDE EFFECT: 
 ** NOTE:        if d == NULL, returns an uninitialized element.
 */    
-void *MultiSet(MULTI *ma, int *k, void *d, 
+void *SMultiSet(MULTI *ma, int *k, void *d, 
 	       void (*InitData)(void *, int)) {
   ARRAY *a;
   void *pt;
   int i, ndim1, ndim2;
-  /*
-#ifdef PERFORM_STATISTICS
-  clock_t start, stop;
-  start = clock();
-#endif
-  */
 
   if (ma->array == NULL) {
     ma->array = (ARRAY *) malloc(sizeof(ARRAY));
@@ -473,40 +435,12 @@ void *MultiSet(MULTI *ma, int *k, void *d,
   }
     
   pt = ArraySet(a, k[i], d, InitData);
-  /*
-#ifdef PERFORM_STATISTICS
-  stop = clock();
-  timing.multi += stop-start;
-#endif
-  */
   return pt;
 }
 
-/* 
-** FUNCTION:    MultiFree
-** PURPOSE:     Free multi-dimensional array.
-** INPUT:       {MULTI *ma},
-**              pointer to the multi-dimensional array.
-**              {void (*FreeElem)(void *)},
-**              a function called before freeing each element.
-** RETURN:      {int},
-**              always 0.
-** SIDE EFFECT: 
-** NOTE:        
-*/    
-int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
-  if (ma->ndim <= 0) return 0;
-  MultiFreeData(ma->array, ma->ndim, FreeElem);
-  free(ma->array);
-  ma->array = NULL;
-  free(ma->block);
-  ma->block = NULL;
-  ma->ndim = 0;
-  return 0;
-}
 
 /* 
-** FUNCTION:    MultiFreeData
+** FUNCTION:    SMultiFreeDataOnly
 ** PURPOSE:     Free the data of a multi-dimensional array.
 ** INPUT:       {ARRAY *a},
 **              pointer to an array, which is the data of MULTI.
@@ -519,7 +453,7 @@ int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */    
-int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
+int SMultiFreeDataOnly(ARRAY *a, int d, void (*FreeElem)(void *)) {
   int i, d1;
   ARRAY *b;
   if (a == NULL) return 0;
@@ -528,7 +462,7 @@ int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
     for (i = 0; i < a->dim; i++) {
       b = (ARRAY *) ArrayGet(a, i);
       if (b) {
-	MultiFreeData(b, d1, FreeElem);
+	SMultiFreeDataOnly(b, d1, FreeElem);
       }
     }
     ArrayFree(a, NULL);
@@ -538,58 +472,131 @@ int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   return 0;
 }
 
-/*
-** the following set of funcitons are a different implementation
-** for the MULTI array, which turns out to be much worse than
-** than the original one. It is not being used.
-*/
+int SMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
+  return SMultiFreeDataOnly(ma->array, ma->ndim, FreeElem);
+}
+
+/* 
+** FUNCTION:    SMultiFree
+** PURPOSE:     Free multi-dimensional array.
+** INPUT:       {MULTI *ma},
+**              pointer to the multi-dimensional array.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing each element.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
+int SMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
+  if (ma->ndim <= 0) return 0;
+  SMultiFreeData(ma, FreeElem);
+  free(ma->array);
+  ma->array = NULL;
+  free(ma->block);
+  ma->block = NULL;
+  ma->ndim = 0;
+  return 0;
+}
+
+
+/* hash table size 2^NHASH */
+typedef unsigned long int ub4;
+typedef struct _MDATA_ {
+  int *index;
+  void *data;
+} MDATA;
+
+void InitMDataData(void *p, int n) {
+  MDATA *d;
+  int i;
+  
+  d = (MDATA *) p;
+  for (i = 0; i < n; i++) {
+    d[i].index = NULL;
+    d[i].data = NULL;
+  }
+}
+
+#define HashSize(n) ((ub4)1<<(n+12))
+#define HashMask(n) (HashSize(n)-1)
+#define Mix(a, b, c) \
+{ \
+  a -= b; a -= c; a ^= (c>>13); \
+  b -= c; b -= a; b ^= (a<<8); \
+  c -= a; c -= b; c ^= (b>>13); \
+  a -= b; a -= c; a ^= (c>>12);  \
+  b -= c; b -= a; b ^= (a<<16); \
+  c -= a; c -= b; c ^= (b>>5); \
+  a -= b; a -= c; a ^= (c>>3);  \
+  b -= c; b -= a; b ^= (a<<10); \
+  c -= a; c -= b; c ^= (b>>15); \
+}
+
+static int Hash2(int *id, ub4 length, ub4 initval, int n) {
+  register ub4 a, b, c, len, *k;
+  ub4 kd[32], i;
+
+  k = kd;
+  for (i = 0; i < length; i++) k[i] = id[i];
+
+  len = length;  a = b = 0x9e3779b9;  /* the golden ratio; an arbitrary value */
+  c = initval;           /* the previous hash value */
+  
+  /*---------------------------------------- handle most of the key */
+  while (len >= 3) {
+    a += k[0];
+    b += k[1];
+    c += k[2];
+    Mix(a,b,c);
+    k += 3; len -= 3;
+  }
+
+  /*-------------------------------------- handle the last 2 ub4's */
+  c += length;
+  switch(len) {
+    /* c is reserved for the length */
+  case 2 : b+=k[1];
+  case 1 : a+=k[0];
+    /* case 0: nothing left to add */
+  }
+  Mix(a,b,c);
+  /*-------------------------------------------- report the result */
+  return (int) (c & HashMask(n));
+}
+
 int NMultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i, n;
 
   ma->ndim = ndim;
+  ma->isize = sizeof(int)*ndim;
   ma->esize = esize;
   ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
-  n = 1;
-  for (i = 0; i < ndim; i++) {
-    ma->block[i] = block[i];
-    n *= block[i];
+  n = HashSize(ma->ndim);
+
+  ma->array = (ARRAY *) malloc(sizeof(ARRAY)*n);
+  for (i = 0; i < n; i++) {
+    ArrayInit(&(ma->array[i]), sizeof(MDATA), 10);
   }
-  ma->array = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ma->array, sizeof(MDATA), n);
+
   return 0;
-}
-
-static int IndexMatch(unsigned short *i, int *k, int n) {
-  int q;
-  
-  for (q = 0; q < n; q++) {
-    if (i[q] != k[q]) return 0;
-  }
-  return 1;
-}
-
-static void IndexCopy(unsigned short *i, int *k, int n) {
-  int q;
-
-  for (q = 0; q < n; q++) {
-    i[q] = k[q];
-  }
 }
 
 void *NMultiGet(MULTI *ma, int *k) {
   ARRAY *a;
   MDATA *pt;
   DATA *p;
-  int i, j, m;
+  int i, j, m, h;
 
-  a = ma->array;
+  h = Hash2(k, ma->ndim, 0, ma->ndim);
+  a = &(ma->array[h]);
   p = a->data;
   i = a->dim;
   j = 0;
   while (p) {
     pt = (MDATA *) p->dptr;
     for (m = 0; m < a->block && j < i; j++, m++) {
-      if (IndexMatch(pt->index, k, ma->ndim)) {
+      if (memcmp(pt->index, k, ma->isize) == 0) {
 	return pt->data;
       }
       pt++;
@@ -602,15 +609,17 @@ void *NMultiGet(MULTI *ma, int *k) {
 
 void *NMultiSet(MULTI *ma, int *k, void *d, 
 		void (*InitData)(void *, int)) {
-  int i, j, m;
+  int i, j, m, h;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
   
-  a = ma->array;
+  h = Hash2(k, ma->ndim, 0, ma->ndim);
+  a = &(ma->array[h]);
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
     a->data->dptr = malloc(a->bsize);
+    InitMDataData(a->data->dptr, a->block);
     a->data->next = NULL;
     pt = (MDATA *) a->data->dptr;
   } else {
@@ -620,7 +629,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
     while (p) {
       pt = (MDATA *) p->dptr;
       for (m = 0; m < a->block && j < i; j++, m++) {
-	if (IndexMatch(pt->index, k, ma->ndim)) {
+	if (memcmp(pt->index, k, ma->isize) == 0) {
 	  if (d) {
 	    memcpy(pt->data, d, ma->esize);
 	  }
@@ -635,13 +644,14 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
       p0->next = (DATA *) malloc(sizeof(DATA));
       p = p0->next;
       p->dptr = malloc(a->bsize);
+      InitMDataData(p->dptr, a->block);
       p->next = NULL;
       pt = (MDATA *) p->dptr;
     }
   }
 
-  pt->index = (unsigned short *) malloc(sizeof(unsigned short)*ma->ndim);
-  IndexCopy(pt->index, k, ma->ndim);
+  pt->index = malloc(ma->isize);
+  memcpy(pt->index, k, ma->isize);
   pt->data = malloc(ma->esize);
   if (InitData) InitData(pt->data, 1);
   if (d) memcpy(pt->data, d, ma->esize);
@@ -651,7 +661,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
 }
 
 static int NMultiArrayFreeData(DATA *p, int esize, int block, 
-			void (*FreeElem)(void *)) { 
+			       void (*FreeElem)(void *)) { 
   MDATA *pt;
   int i;
   
@@ -663,7 +673,7 @@ static int NMultiArrayFreeData(DATA *p, int esize, int block,
     pt = p->dptr;
     for (i = 0; i < block; i++) {
       free(pt->index);
-      if (FreeElem) FreeElem(pt->data);
+      if (FreeElem && pt->data) FreeElem(pt->data);
       free(pt->data);
       pt++;
     }
@@ -676,7 +686,7 @@ static int NMultiArrayFreeData(DATA *p, int esize, int block,
   return 0;
 }
     
-int NMultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
+int NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *)) {
   if (!a) return 0;
   if (a->dim == 0) return 0;
   NMultiArrayFreeData(a->data, a->esize, a->block, FreeElem);
@@ -685,10 +695,22 @@ int NMultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   return 0;
 }
 
+int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
+  ARRAY *a;
+  int i, n;
+
+  n = HashSize(ma->ndim);
+  for (i = 0; i < n; i++) {
+    a = &(ma->array[i]);
+    NMultiFreeDataOnly(a, FreeElem);
+  }
+  return 0;
+}
+
 int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   if (!ma) return 0;
   if (ma->ndim <= 0) return 0;
-  NMultiFreeData(ma->array, ma->ndim, FreeElem);
+  NMultiFreeData(ma, FreeElem);
   free(ma->array);
   ma->array = NULL;
   free(ma->block);

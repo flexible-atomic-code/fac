@@ -1,4 +1,4 @@
-Version 1.0.4, 01/20/2004
+Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.
 	2. enable the LMn inner-shell Auger extrapolation.
 	3. make all atomic symbols capitalized.
@@ -6,6 +6,7 @@ Version 1.0.4, 01/20/2004
 	5. add MaxPower electron energy distribution, Maxwellian+Powerlaw.
 	6. reading file for inner-shell Auger extrapolation.
 	7. determine base level in structure.
+	8. reimplementation of MULTI array.
 	
 Version 1.0.3, 12/01/2003
 	1. change contact information to my new address.

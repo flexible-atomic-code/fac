@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.46 2003/12/05 06:24:51 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.47 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -513,7 +513,7 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     q[i] = log(q[i]);
   }
   for (i = 1; i < NINT; i++) {
-    if (t[i] < logxe[i]) break;
+    if (t[i] < logxe[n_egrid-1]) break;
   }
   if (i > 1) {
     d = te/p[3];
@@ -1126,10 +1126,7 @@ void FreeIonizationQkData(void *p) {
 }
 
 int FreeIonizationQk(void) {
-  ARRAY *b;
-  b = qk_array->array;
-  if (b == NULL) return 0;
-  MultiFreeData(b, qk_array->ndim, FreeIonizationQkData);
+  MultiFreeData(qk_array, FreeIonizationQkData);
   return 0;
 }
 

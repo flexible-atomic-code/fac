@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.68 2004/01/19 04:45:37 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.69 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,7 +24,7 @@ static double iter_stabilizer = 0.75;
 static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
-static int do_extrapolate = 0;
+static int do_extrapolate = 100;
 static int inner_auger = 0;
 
 int SetInnerAuger(int i) {
@@ -853,6 +853,7 @@ int SetBlocks(double ni, char *ifn) {
 	  if (nlevels != h.nlevels) {
 	    printf("ERROR: Ionized block %d of ion %d ", nb, ion->nele);
 	    printf("does not match a block in file %s\n", ifn);
+	    printf("nlevels = %d VS %d\n", h.nlevels, nlevels);
 	    exit(1);
 	  }
 	}
@@ -1156,7 +1157,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   EN_HEADER h;
   EN_RECORD g;
   FILE *f;
-  int i, k, nr, nb;
+  int i, k, j, nr, nb;
   int swp;
 
   f = fopen(ifn, "r");
@@ -1173,7 +1174,6 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
       fseek(f, h.length, SEEK_CUR);
       continue;
     }
-    k = 0;
     for (i = 0; i < h.nlevels; i++) {
       nr = ReadENRecord(f, &r1[k], swp);
       if (strcmp(r1[k].ncomplex, r0[0].ncomplex) == 0) {
@@ -1184,11 +1184,25 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
     if (k == n) break;
   }
 
-  if (k < n) return -1;
+  if (k < n) {
+    fseek(f, sizeof(F_HEADER), SEEK_SET);
+    nr = ReadENHeader(f, &h, swp);
+    j = h.nlevels;
+    for (i = 0; i < h.nlevels; i++) {
+      nr = ReadENRecord(f, &r1[k], swp);
+      if (strcmp(r1[k].ncomplex, r0[0].ncomplex) != 0) j--;
+      if (j < n) {
+	k++;
+	if (k == n) break;
+      }
+    }
+  }
+
+  if (k != n) return k;
 
   memcpy(&g, r0, sizeof(EN_RECORD));
   qsort(r0, n, sizeof(EN_RECORD), CompareENRecord);
-  qsort(r1, n, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1, k, sizeof(EN_RECORD), CompareENRecord);
   for (i = 0; i < n; i++) {
     if (g.ilev == r0[i].ilev) {
       if (i != 0) {
@@ -2763,7 +2777,8 @@ double BlockRelaxation(int iter) {
 	  }
 	  if (r->inv) {
 	    if (blk2->r[q] > 0.0) {
-	      blk1->n[p] += blk2->r[q] * electron_density * r->inv;
+	      blk1->n[p] += blk2->r[q] * electron_density * 
+		electron_density * r->inv;
 	    }
 	  }
 	}
@@ -3751,6 +3766,7 @@ int SetCIRates(int inv) {
     n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadCIHeader(f, &h, swp);
+      m = h.nparams;
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCIRecord(f, &r, swp, &h);
 	rt.i = r.b;

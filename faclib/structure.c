@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.53 2004/02/02 19:35:51 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.54 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2840,20 +2840,7 @@ void FreeAngZDatum(void *p) {
 }
 
 int FreeAngZArray(int g, MULTI *ma) {  
-  ARRAY *a, *b;  
-  int ndim;
-  
-  a = ma->array;
-  if (a == NULL) return 0;
-  ndim = ma->ndim;
-  if (g < 0) {
-    MultiFreeData(a, ndim, FreeAngZDatum);
-  } else {
-    b = (ARRAY *) ArrayGet(a, g);
-    if (b) {
-      MultiFreeData(b, ndim - 1, FreeAngZDatum);
-    }
-  }
+  MultiFreeData(ma, FreeAngZDatum);
   return 0;
 }
 

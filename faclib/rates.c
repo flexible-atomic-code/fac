@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.36 2004/02/04 04:41:01 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.37 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -314,8 +314,7 @@ double CIRate1E(double e, double eth, int np, void *p) {
   double a, b, c, f;
   double logx;
 
-  if (np != 4) return 0.0;
-
+  if (e < eth) return 0.0;
   dp = (float *) p;
   x = e/eth;
   logx = log(x);
@@ -343,16 +342,21 @@ double R3BRate1E(double e1, double e2, double eth,
 int CIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, float *params, int i0, int f0) {
-  double e0;
-
+  const double p = 1.65156E-12; /* 0.5*(h^2/(2pi*m*eV))^{3/2} */
+  double e0, a;
+  
   e0 = e*HARTREE_EV;
-  *dir = IntegrateRate(0, e0, e0, m, params, 
-		       i0, f0, RT_CI, CIRate1E);
-  *dir /= (j1 + 1.0);
+  a = IntegrateRate(0, e0, e0, m, params, 
+		    i0, f0, RT_CI, CIRate1E);
+  *dir = a/(j1 + 1.0);
   if (iinv) {
-    *inv = IntegrateRate2(0, e0, m, params, 
-			  i0, f0, -RT_CI, R3BRate1E);
-    *inv /= (j2 + 1.0); 
+    if (iedist == 0) {
+      a *= exp(e0/ele_dist[0].params[0]);
+      *inv = p*pow(ele_dist[0].params[0], -1.5)*a;
+      *inv /= (j2 + 1.0); 
+    } else {
+      *inv = 0.0;
+    }
   } else {
     *inv = 0.0;
   }

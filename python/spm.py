@@ -687,7 +687,10 @@ def spectrum(neles, temp, den, population, pref,
                     SetRRRates(0)
                 if (ci > 0):
                     print 'CI rates...'
-                    SetCIRates(0)
+                    SetCIRates(1)
+                elif (ci < 0):
+                    print 'CI rates...'
+                    SetCIRates(0)                    
                 if (ai > 0):
                     print 'AI rates...'
                     SetAIRates(1)

@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.17 2003/09/26 19:42:52 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.18 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2002,17 +2002,8 @@ void FreeInteractDatum(void *p) {
 ** NOTE:        
 */
 int ReinitRecouple(int m) {
-  ARRAY *a;
-  int ndim;
-
   if (m < 0) return 0;
-
-  a = interact_shells->array;
-  ndim = interact_shells->ndim;
-
-  if (a == NULL) return 0;
-  MultiFreeData(a, ndim, FreeInteractDatum);
-  
+  MultiFreeData(interact_shells, FreeInteractDatum);  
   return 0;
 }
   
