@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.13 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.14 2005/01/17 05:39:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -43,6 +43,12 @@ int SetAtom(char *s, double z, double mass, double rn) {
   int i;
 
   if (s == NULL) return -1;
+  if (strlen(s) == 0) {
+    if (z <= 0) {
+      printf("atomic symbol and z cannot be both unset\n");
+    }
+    s = _ename[(int)(z-0.8)];
+  }
   strncpy(atom.symbol, s, 2); 
   if (z <= 0 || mass <= 0) {
     for (i = 0; i < N_ELEMENTS; i++) {
