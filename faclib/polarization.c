@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.18 2004/11/02 05:54:32 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.19 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -140,6 +140,7 @@ int SetMLevels(char *fn, char *tfn) {
   EN_RECORD r;
   TR_HEADER h1;
   TR_RECORD r1;
+  TR_EXTRA r1x;
   FILE *f;  
   int n, k, m, t, t0, p;
   int m1, m2, j1, j2;
@@ -333,7 +334,7 @@ int SetMLevels(char *fn, char *tfn) {
     if (n == 0) break;
     k = abs(h1.multipole)*2;
     for (t = 0; t < h1.ntransitions; t++) {
-      n = ReadTRRecord(f, &r1, swp);
+      n = ReadTRRecord(f, &r1, &r1x, swp);
       if (n == 0) break;
       tr_rates[t0].multipole = h1.multipole;
       tr_rates[t0].lower = r1.lower;

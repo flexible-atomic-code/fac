@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.52 2004/11/02 05:54:32 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.53 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -715,6 +715,121 @@ int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
   return 0;
 }
  
+int IonizeStrengthUTA(double *qku, double *qkc, double *te, 
+		      int b, int f) {
+  INTERACT_DATUM *idatum;
+  LEVEL *lev1, *lev2;
+  int jb, kb, qb, klb, nq, ierr;
+  double bethe, b0, c, cmax, qke[MAXNUSR], sigma[MAXNUSR];
+  int ns, nqk, ip, i, j;
+  double tol, x[MAXNE], logx[MAXNE], es;
+  
+  
+  c = GetResidualZ()-1.0;
+  es = GetAtomicNumber();
+  es = (es - c)/(es + c);
+
+  lev1 = GetLevel(b);
+  lev2 = GetLevel(f);
+  *te = lev2->energy - lev1->energy;
+  if (*te <= 0) return -1;
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
+		   lev2->pb, lev1->pb, 0, 0, 1);  
+  if (ns <= 0) return -1;
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) return -1;
+  jb = idatum->s[1].j;
+  qb = idatum->s[1].nq_ket;
+
+  if (qk_mode == QK_CB) {
+    klb = GetLFromKappa(idatum->s[1].kappa);
+    klb /= 2;
+    nq = idatum->s[1].n;
+    nqk = NPARAMS;
+    for (j = 0; j < nqk; j++) {
+      qkc[j] = 0.0;
+    }
+    ip = (nq - 1)*nq/2;
+    for (j = 0; j < nqk; j++) {
+      qkc[j] = (cbo_params[ip+klb][j]/(*te)) * (PI/2.0);
+      qkc[j] *= qb*(lev1->ilev+1.0);
+    }
+    for (i = 0; i < n_usr; i++) {
+      xusr[i] = usr_egrid[i]/(*te);
+      if (usr_egrid_type == 1) xusr[i] += 1.0;
+      log_xusr[i] = log(xusr[i]);
+      qku[i] = 0.0;
+    }
+    CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+    return klb;
+  } else {
+    klb = BoundFreeOSUTA(qke, qkc, te, b, f, -1);
+    for (i = 0; i < n_egrid; i++) {
+      x[i] = (*te + egrid[i])/(*te);
+      logx[i] = log(x[i]);
+      xusr[i] = x[i];
+    }
+    CIRadialQkBED(qku, &bethe, &b0, klb, logx, qke, qkc, *te);
+    if (qk_mode == QK_BED) {
+      b0 = ((4.0*PI)/(*te))*qb*(lev1->ilev+1.0) - b0;      
+      for (j = 0; j < n_egrid; j++) {
+	qku[j] = qku[j]*logx[j] + 
+	  b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
+	qku[j] *= (x[j]/(es+x[j]));
+      }     
+      for (i = 0; i < n_egrid; i++) {
+	qke[i] = qku[i] - bethe*logx[i];
+	sigma[i] = qke[i];
+      }
+      qkc[0] = bethe;
+      for (i = 1; i < NPARAMS; i++) {
+	qkc[i] = 0.0;
+      }
+      tol = qk_fit_tolerance;
+      SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
+	     qke, sigma, CIRadialQkBasis);
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
+    } else { 
+      for (i = 0; i < n_egrid; i++) {
+	qku[i] = 0.0;
+      } 
+      kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+      ierr = CIRadialQkIntegrated(qke, *te, kb, kb);
+      for (j = 0; j < n_egrid; j++) {
+	qku[j] = qke[j]*qb*(lev1->ilev+1.0);
+      }      
+      for (i = 0; i < n_egrid; i++) {
+	qke[i] = qku[i] - bethe*logx[i];
+	sigma[i] = qke[i];
+      }
+      qkc[0] = bethe;
+      for (i = 1; i < NPARAMS; i++) {
+	qkc[i] = 0.0;
+      }
+      tol = qk_fit_tolerance;
+      SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
+	     qke, sigma, CIRadialQkBasis);
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
+    }
+    return klb;
+  }
+}
+ 
 int IonizeStrength(double *qku, double *qkc, double *te, 
 		   int b, int f) {
   int i, ip, j, ierr;
@@ -882,8 +997,10 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int nq, nqk;  
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set;
+  int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
+
+  iuta = IsUTA();
 
   emin = 1E10;
   emax = 1E-10;
@@ -1084,7 +1201,11 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	lev2 = GetLevel(f[j]);
 	e = lev2->energy - lev1->energy;
 	if (e < e0 || e >= e1) continue;
-	nq = IonizeStrength(qku, qk, &e, b[i], f[j]);
+	if (iuta) {
+	  nq = IonizeStrengthUTA(qku, qk, &e, b[i], f[j]);
+	} else {
+	  nq = IonizeStrength(qku, qk, &e, b[i], f[j]);
+	}
 	if (nq < 0) continue;
 	r.b = b[i];
 	r.f = f[j];

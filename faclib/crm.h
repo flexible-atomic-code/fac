@@ -60,6 +60,7 @@ typedef struct _ION_ {
   double *energy;
   ARRAY *ce_rates;
   ARRAY *tr_rates;
+  ARRAY *tr_sdev;
   ARRAY *tr2_rates;
   ARRAY *ci_rates;
   ARRAY *rr_rates;
@@ -120,7 +121,7 @@ void ExtrapolateAI(ION *ion, int inv);
 int SetBlocks(double ni, char *ifn);
 int SetAbund(int nele, double abund);
 int InitBlocks(void);
-void AddRate(ION *ion, ARRAY *rts, RATE *r, int m);
+int AddRate(ION *ion, ARRAY *rts, RATE *r, int m);
 int SetCERates(int inv);
 int SetTRRates(int inv);
 int SetCIRates(int inv);

@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.77 2004/12/19 01:04:58 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.78 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1245,6 +1245,165 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
   }
 }
 
+int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
+			 int lower, int upper) {  
+  INTERACT_DATUM *idatum;
+  LEVEL *lev1, *lev2;
+  int p1, p2, j1, j2, k0, k1, type, ty;
+  int ns, q1, q2, ie, kmin, kmax, k, np;
+  double te, *rqk, tol;
+  double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
+  int ierr, ipvt[NPARAMS];
+  int lwa=5*NPARAMS+MAXNE;
+  double wa[5*NPARAMS+MAXNE];
+  double fvec[MAXNE], fjac[MAXNE*NPARAMS];
+  double born_egrid, born_cross, c, d, r;
+  
+  lev1 = GetLevel(lower);
+  if (lev1 == NULL) return -1;
+  lev2 = GetLevel(upper);
+  if (lev2 == NULL) return -1;
+  te = lev2->energy - lev1->energy;
+  if (te <= 0) return -1;
+  *e = te;
+  p1 = lev1->pj;
+  p2 = lev2->pj;
+
+  rqk = qkc;
+  for (ie = 0; ie < n_egrid1; ie++) {
+    rqk[ie] = 0.0;
+  }
+
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, lev1->iham, lev2->iham,
+		   lev1->pb, lev2->pb, 0, 0, 0);
+  if (ns <= 0) return -1;
+  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) return -1;
+  if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
+    j1 = idatum->s[0].j;
+    j2 = idatum->s[1].j;
+    q1 = idatum->s[0].nq_bra;
+    q2 = idatum->s[1].nq_bra;
+    k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
+    k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  } else {
+    j1 = idatum->s[1].j;
+    j2 = idatum->s[0].j;
+    q1 = idatum->s[1].nq_bra;
+    q2 = idatum->s[0].nq_bra;
+    k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
+    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  }
+    
+  type = -1;
+  kmin = abs(j1-j2);
+  kmax = j1 + j2;
+  for (k = kmin; k <= kmax; k += 2) {
+    ty = CERadialQk(rq, te, k0, k1, k0, k1, k);
+    if (ty > type) type = ty;
+    for (ie = 0; ie < n_egrid1; ie++) {
+      qkc[ie] += rq[ie]/(k+1.0);
+    }
+  }
+
+  d = (lev1->ilev+1.0)*q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0));
+  for (ie = 0; ie < n_egrid1; ie++) {
+    qkc[ie] *= d;
+  }
+  if (type >= 0) {
+    r = 0.0;
+    if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
+      r = MultipoleRadialNR(-1, k0, k1, G_BABUSHKIN);
+    }
+    if (fabs(r) > 0.0) {
+      r = OscillatorStrength(-1, te, r, NULL);
+      bethe[0] = d*2.0*r/te;
+    } else {
+      bethe[0] = 0.0;
+    }
+    ie = n_egrid;
+    born_cross = qkc[ie]*8.0;
+    if (born_cross > 0) {
+      born_egrid = 1.0+(egrid[ie]/te);
+      if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
+      else bethe[1] = born_cross;
+      bethe[2] = egrid[ie]; 
+    } else {
+      bethe[0] = -1.0;
+      bethe[1] = 0.0;
+      bethe[2] = 0.0;
+    }
+  } else {
+    bethe[0] = -1.0;
+    bethe[1] = 0.0;
+    bethe[2] = 0.0;
+  }
+  if (qk_mode == QK_FIT) {
+    for (ie = 0; ie < n_egrid; ie++) {
+      qkc[ie] = 8.0*qkc[ie];
+      qkt[ie] = qkc[ie];
+      xusr[ie] = egrid[ie]/te;
+      if (egrid_type == 1) xusr[ie] += 1.0;
+      log_xusr[ie] = log(xusr[ie]);
+    }	
+    if (qkt[0] < EPS16 && qkt[n_egrid-1] < EPS16) {
+      params[0] = 0.0;
+      params[1] = 0.0;
+      params[2] = 0.0;
+      params[3] = 0.0;
+    } else {
+      tol = qk_fit_tolerance;
+      if (bethe[0] < 0.0) {
+	params[0] = qkc[0];
+	params[1] = 0.0;
+	params[2] = 0.0;
+	params[3] = 0.0;
+      } else {
+	for (ie = 0; ie < n_egrid; ie++) {
+	  qkc[ie] -= (*bethe)*log_xusr[ie];
+	  xusr[ie] = 1.0/xusr[ie];
+	  log_xusr[ie] = -log_xusr[ie];
+	}
+	params[0] = qkc[0];
+	params[1] = 1.0;
+	params[2] = qkc[n_egrid-1];
+	params[3] = 0.1;
+      }
+      np = NPARAMS;
+      ierr = NLSQFit(np, params, tol, ipvt, fvec, fjac, MAXNE, wa, lwa,
+		     n_egrid, xusr, log_xusr, qkc, qkt, 
+		     CERadialQkFromFit, (void *) bethe);
+      if (ierr > 3) params[0] = ierr*1E30;
+      if (*bethe >= 0.0) {
+	params[1] *= params[1];
+	params[3] *= params[3];
+      }
+    }
+  } else if (qk_mode == QK_INTERPOLATE) {
+    np = 3;
+    if (type != 1) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	qkc[ie] *= 8.0;
+	qkc[ie] = log(qkc[ie]);
+      }
+      UVIP3P(np, n_egrid, log_egrid, qkc, n_usr, log_usr, qkt);
+      for (ie = 0; ie < n_usr; ie++) {
+	qkt[ie] = exp(qkt[ie]);
+      }
+    } else {
+      for (ie = 0; ie < n_egrid; ie++) {
+	qkc[ie] *= 8.0;
+      }
+      UVIP3P(np, n_egrid, log_egrid, qkc, n_usr, log_usr, qkt);
+    }
+  } else if (qk_mode == QK_EXACT) {
+    for (ie = 0; ie < n_usr; ie++) {
+      qkt[ie] = 8.0*qkc[ie];
+    }
+  }
+  return 1;
+}
+
 int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 		      int lower, int upper, int msub) {
   int i, j, t, h, p, m, type, ty, p1, p2;  
@@ -1563,11 +1722,16 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   F_HEADER fhdr;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set, iempty;
+  int te_set, e_set, usr_set, iempty, iuta;
   double emin, emax, e, c;
   double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
 
+  iuta = IsUTA();
+  if (iuta && msub) {
+    printf("cannot call CETableMSub in UTA mode\n");
+    return -1;
+  }
   n = 0;
   alev = NULL;
   if (nlow == 0 || nup == 0) {
@@ -1606,20 +1770,29 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
 
   ei = 1E31;
-  for (j = 0; j < nup; j++) {
-    lev2 = GetLevel(up[j]);
-    sym = GetSymmetry(lev2->pj);
-    st = (STATE *) ArrayGet(&(sym->states), lev2->pb);
-    if (st->kgroup < 0) {
-      k = st->kcfg;
-    } else {
-      cfg = GetConfig(st);
+  if (iuta) {
+    for (j = 0; j < nup; j++) {
+      lev2 = GetLevel(up[j]);
+      cfg = GetConfigFromGroup(lev2->iham, lev2->pb);
       k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+      e = -(GetOrbital(k)->energy);
+      if (e < ei) ei = e;
     }
-    e = -(GetOrbital(k)->energy);
-    if (e < ei) ei = e;
+  } else {
+    for (j = 0; j < nup; j++) {
+      lev2 = GetLevel(up[j]);
+      sym = GetSymmetry(lev2->pj);
+      st = (STATE *) ArrayGet(&(sym->states), lev2->pb);
+      if (st->kgroup < 0) {
+	k = st->kcfg;
+      } else {
+	cfg = GetConfig(st);
+	k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+      }
+      e = -(GetOrbital(k)->energy);
+      if (e < ei) ei = e;
+    }
   }
-
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1807,7 +1980,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	lev2 = GetLevel(up[j]);
 	e = lev2->energy - lev1->energy;
 	if (e < e0 || e >= e1) continue;
-	k = CollisionStrength(qkc, params, &e, bethe, low[i], up[j], msub); 
+	if (iuta) {
+	  k = CollisionStrengthUTA(qkc, params, &e, bethe, low[i], up[j]);
+	} else {
+	  k = CollisionStrength(qkc, params, &e, bethe, low[i], up[j], msub); 
+	}
 	if (k < 0) continue;
 	r.bethe = bethe[0];
 	r.born[0] = bethe[1];

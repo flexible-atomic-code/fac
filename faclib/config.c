@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.34 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.35 2005/01/06 18:59:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -50,7 +50,6 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
-
 
 static void InitConfigData(void *p, int n) {
   CONFIG *d;
@@ -904,7 +903,7 @@ int SpecSymbol(char *s, int kl) {
 */
 int Couple(CONFIG *cfg) {
   CONFIG outmost, inner;
-  int errcode;
+  int errcode, i;
 
   if (cfg->n_shells == 0) {
     errcode = -1;
@@ -914,6 +913,16 @@ int Couple(CONFIG *cfg) {
   if (cfg == NULL) {
     errcode = -2;
     goto ERROR; 
+  }
+
+  if (IsUTA()) {
+    cfg->csfs = NULL;
+    cfg->n_csfs = 0;
+    cfg->n_electrons = 0;
+    for (i = 0; i < cfg->n_shells; i++) {
+      cfg->n_electrons += cfg->shells[i].nq;
+    }
+    return 0;
   }
 
   if (cfg->n_shells == 1) {
@@ -1503,7 +1512,9 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->delta = 0.0;
 
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
-  AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
+  if (cfg->n_csfs > 0) {
+    AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
+  }
   cfg_groups[k].n_cfgs++;
 
   return 0;

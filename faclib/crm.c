@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.77 2004/12/14 18:26:10 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.78 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -129,6 +129,7 @@ static void InitIonData(void *p, int n) {
     }
     ion->ce_rates = NULL;
     ion->tr_rates = NULL;
+    ion->tr_sdev = NULL;
     ion->tr2_rates = NULL;
     ion->ci_rates = NULL;
     ion->rr_rates = NULL;
@@ -171,6 +172,9 @@ static void FreeIonData(void *p) {
   ArrayFree(ion->tr_rates, FreeBlkRateData);
   free(ion->tr_rates);
   ion->tr_rates = NULL;
+  ArrayFree(ion->tr_sdev, FreeBlkRateData);
+  free(ion->tr_sdev);
+  ion->tr_sdev = NULL;
   free(ion->tr2_rates);
   ion->tr2_rates = NULL;
   ArrayFree(ion->ci_rates, FreeBlkRateData);
@@ -224,6 +228,7 @@ int ReinitCRM(int m) {
       ion = (ION *) ArrayGet(ions, k);
       ArrayFree(ion->ce_rates, FreeBlkRateData);
       ArrayFree(ion->tr_rates, FreeBlkRateData);
+      ArrayFree(ion->tr_sdev, FreeBlkRateData);
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
       ArrayFree(ion->ci_rates, FreeBlkRateData);
       ArrayFree(ion->rr_rates, FreeBlkRateData);
@@ -270,6 +275,8 @@ int AddIon(int nele, double n, char *pref) {
   ArrayInit(ion.ce_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.tr_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.tr_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ion.tr_sdev = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(ion.tr_sdev, sizeof(BLK_RATE), RATES_BLOCK);
   ion.tr2_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.tr2_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.rr_rates = (ARRAY *) malloc(sizeof(ARRAY));
@@ -438,9 +445,10 @@ void ExtrapolateTR(ION *ion, int inv) {
   int nr;
   int n0, n1, n;
   int i, j, t, k, p, q, s;
-  int imin, imax;
+  int imin, imax, iuta;
   double a, b, c, h;
 
+  iuta = IsUTA();
   for (i = 0; i < ion->recombined->dim; i++) {
     if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
@@ -497,6 +505,11 @@ void ExtrapolateTR(ION *ion, int inv) {
 	    r0.dir = b*r->dir;
 	    r0.inv = b*r->inv;
 	    AddRate(ion, ion->tr_rates, &r0, 0);
+	    if (iuta) {
+	      r0.dir = ion->energy[r0.i] - ion->energy[r0.f];
+	      r0.inv = 0.0;
+	      AddRate(ion, ion->tr_sdev, &r0, 0);
+	    }
 	  } else {
 	    for (s = 0; s < blk->rec->n_ext; s++) {
 	      if (blk->rec->nrec[s] == n0) {
@@ -505,6 +518,11 @@ void ExtrapolateTR(ION *ion, int inv) {
 		r0.dir = r->dir;
 		r0.inv = r->inv;
 		AddRate(ion, ion->tr_rates, &r0, 0);
+		if (iuta) {
+		  r0.dir = ion->energy[r0.i] - ion->energy[r0.f];
+		  r0.inv = 0.0;
+		  AddRate(ion, ion->tr_sdev, &r0, 0);
+		}
 		break;
 	      }
 	    }
@@ -2984,18 +3002,20 @@ int Cascade(void) {
 
 int SpecTable(char *fn, int rrc, double strength_threshold) {
   SP_RECORD r;
+  SP_EXTRA rx;
   SP_HEADER sp_hdr;
   F_HEADER fhdr;
   ION *ion;
-  RATE *rt;
+  RATE *rt, *dev;
   LBLOCK *blk, *iblk, *fblk;
-  BLK_RATE *brts;
+  BLK_RATE *brts, *brdev;
   int k, m, j;
   FILE *f;
   double e, a;
-  int i, p, q, ib;
+  int i, p, q, ib, iuta;
   double smax, s;
 
+  iuta = IsUTA();
   fhdr.type = DB_SP;
   fhdr.atom = ion0.atom;
   strcpy(fhdr.symbol, ion0.symbol);
@@ -3028,8 +3048,9 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       r.upper = m;
       r.lower = p;
       r.energy = ion->energy[m];
+      rx.sdev = 0.0;
       r.strength = blk->n[p];
-      WriteSPRecord(f, &r);
+      WriteSPRecord(f, &r, &rx);
 	/*}*/
     }
     if (ib >= 0) DeinitFile(f, &fhdr);
@@ -3037,6 +3058,9 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
     for (i = 0; i < ion->tr_rates->dim; i++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, i);
       if (brts->rates->dim == 0) continue;
+      if (iuta) {
+	brdev = (BLK_RATE *) ArrayGet(ion->tr_sdev, i);
+      }
       iblk = brts->iblock;
       fblk = brts->fblock;
       if (iblk->iion != k) {
@@ -3079,7 +3103,12 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	  s = r.strength*e;
 	  if (s < strength_threshold*smax) continue;
 	  if (s > smax) smax = s;
-	  WriteSPRecord(f, &r);
+	  if (iuta) {
+	    dev = (RATE *) ArrayGet(brdev->rates, m);
+	    r.energy = dev->dir;
+	    rx.sdev = dev->inv;
+	  }
+	  WriteSPRecord(f, &r, &rx);
 	}
       }
       DeinitFile(f, &fhdr);
@@ -3113,7 +3142,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	  s = r.strength * e;
 	  if (s < strength_threshold*smax) continue;
 	  if (s > smax) smax = s;
-	  WriteSPRecord(f, &r);
+	  rx.sdev = 0.0;
+	  WriteSPRecord(f, &r, &rx);
 	}
       }
       DeinitFile(f, &fhdr);
@@ -3137,7 +3167,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   F_HEADER fh;
   SP_HEADER h;
   SP_RECORD r, *rp;
-  ARRAY sp;
+  SP_EXTRA rx, *rpx;
+  ARRAY sp, spx;
   ARRAY linetype;
   int *tt;
   FILE *f1, *f2;
@@ -3148,6 +3179,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   double e, a, smax;
   int swp;  
   
+  rx.sdev = 0.0;
+
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
@@ -3174,6 +3207,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   if (n == 0) return -1;
 
   ArrayInit(&sp, sizeof(SP_RECORD), 512);
+  ArrayInit(&spx, sizeof(SP_EXTRA), 512);
   ArrayInit(&linetype, sizeof(int), 512);
   smax = 0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
@@ -3199,14 +3233,16 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	  if (r0 < t0) goto LOOPEND;
 	}
       }
-    }
+    }    
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
       r.energy *= HARTREE_EV;
+      rx.sdev *= HARTREE_EV;
       if (fmin < 0.0) {
 	if (r.lower == low && r.upper == up) {
 	  ArrayAppend(&sp, &r, NULL);
+	  ArrayAppend(&spx, &rx, NULL);
 	  ArrayAppend(&linetype, &(h.type), NULL);
 	  break;
 	}
@@ -3216,6 +3252,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	if (a < smax*fmin) continue;
 	if (a > smax) smax = a;
 	ArrayAppend(&sp, &r, NULL);
+	ArrayAppend(&spx, &rx, NULL);
 	ArrayAppend(&linetype, &(h.type), NULL);
       }
     }
@@ -3228,25 +3265,28 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   if (fmin < 0.0) {
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
+      rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (int *) ArrayGet(&linetype, 0);
-      fprintf(f2, "%2d %6d %6d %6d %15.8E %15.8E\n", 
-	      nele, rp->lower, rp->upper, *tt, rp->energy, rp->strength);
+      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %11.4E\n", 
+	      nele, rp->lower, rp->upper, *tt, rp->energy, rpx->sdev, rp->strength);
     }
   } else {
     if (sp.dim > 0) {
       smax *= fmin;
       for (i = 0; i < sp.dim; i++) {
 	rp = (SP_RECORD *) ArrayGet(&sp, i);
+	rpx = (SP_EXTRA *) ArrayGet(&spx, i);
 	tt = (int *) ArrayGet(&linetype, i);
 	e = rp->energy;
 	if (rp->strength*e > smax) {
-	  fprintf(f2, "%2d %6d %6d %6d %15.8E %15.8E\n", 
-		  nele, rp->lower, rp->upper, *tt, e, rp->strength);
+	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %11.4E\n", 
+		  nele, rp->lower, rp->upper, *tt, e, rpx->sdev, rp->strength);
 	}
       }
     }
   }	
   ArrayFree(&sp, NULL);
+  ArrayFree(&spx, NULL);
   ArrayFree(&linetype, NULL);
 
   fclose(f1);
@@ -3260,6 +3300,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   F_HEADER fh;
   SP_HEADER h;
   SP_RECORD r;
+  SP_EXTRA rx;
   DISTRIBUTION *dist;
   FILE *f1, *f2;
   int n, nb, i;
@@ -3285,7 +3326,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     printf("ERROR: Cannot open file %s\n", ofn);
     return -1;
   }
-  
+
+  rx.sdev = 0.0;
+
   t2 = abs(type) / 1000000;
   if (type < 0) t2 = -1;
   t = abs(type) % 1000000;
@@ -3352,7 +3395,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     k = 0;
     smax = 0.0;
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
       e = r.energy;
       a = r.strength * e;
@@ -3462,7 +3505,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   return 0;
 }
 
-void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
+int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
   LBLOCK *ib, *fb;
   BLK_RATE *brt, brt0;
   RATE *r0;
@@ -3494,11 +3537,13 @@ void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
       } else {
 	r0->dir += r->dir;
 	r0->inv += r->inv;
+	return 1;
       }
     } else {
       ArrayAppend(brt->rates, r, NULL);
     }
   }
+  return 0;
 }
   
 int SetCERates(int inv) {
@@ -3649,10 +3694,11 @@ int SetTRRates(int inv) {
   F_HEADER fh;
   TR_HEADER h;
   TR_RECORD r;
+  TR_EXTRA rx;
   LBLOCK *ib;
   double e, gf;
   FILE *f;  
-  int swp;
+  int swp, iuta, im;
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -3669,6 +3715,7 @@ int SetTRRates(int inv) {
     n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadTRHeader(f, &h, swp);
+      iuta = IsUTA();
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
 	  fseek(f, h.length, SEEK_CUR);
@@ -3678,7 +3725,7 @@ int SetTRRates(int inv) {
       if (abs(h.multipole) == 1) m = 0;
       else m = 1;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadTRRecord(f, &r, swp);
+	n = ReadTRRecord(f, &r, &rx, swp);
 	rt.i = r.upper;
 	if (ion0.n < 0) {
 	  ib = ion->iblock[r.upper];
@@ -3691,9 +3738,15 @@ int SetTRRates(int inv) {
 	j1 = ion->j[r.upper];
 	j2 = ion->j[r.lower];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
+	if (iuta) e = rx.energy;
 	gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
 	TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	AddRate(ion, ion->tr_rates, &rt, m);
+	im = AddRate(ion, ion->tr_rates, &rt, m);
+	if (iuta && im == 0) {
+	  rt.dir = rx.energy;
+	  rt.inv = rx.sdev;
+	  AddRate(ion, ion->tr_sdev, &rt, 0);
+	}
       }
     }
     fclose(f);
@@ -3742,6 +3795,7 @@ int SetTRRates(int inv) {
       n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadTRHeader(f, &h, swp);
+	iuta = IsUTA();
 	if (h.nele != ion0.nele) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
@@ -3749,7 +3803,7 @@ int SetTRRates(int inv) {
 	if (abs(h.multipole) == 1) m = 0;
 	else m = 1;
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadTRRecord(f, &r, swp);
+	  n = ReadTRRecord(f, &r, &rx, swp);
 	  p = IonizedIndex(r.lower, 0);
 	  if (p < 0) {
 	    continue;
@@ -3763,9 +3817,15 @@ int SetTRRates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
+	  if (iuta) e = rx.energy;
 	  gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
 	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	  AddRate(ion, ion->tr_rates, &rt, m);
+	  im = AddRate(ion, ion->tr_rates, &rt, m);
+	  if (iuta && im == 0) {
+	    rt.dir = rx.energy;
+	    rt.inv = rx.sdev;
+	    AddRate(ion, ion->tr_sdev, &rt, 0);
+	  }
 	}
       }
       fclose(f);

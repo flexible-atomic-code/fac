@@ -165,6 +165,7 @@ int GetInteract(INTERACT_DATUM **idatum,
 		int kgi, int kgj,
 		int kci, int kcj, 
 		int ki, int kj, int bf);
+void CompactInteractShell(char c[4], INTERACT_SHELL *s, int m);
 
 /* only compile these test routines if the debug flag is on */
 #if FAC_DEBUG 

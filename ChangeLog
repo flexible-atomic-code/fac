@@ -1,3 +1,9 @@
+Version 1.0.8, 01/01/2005
+	1. implement configuration average radiative transitions. including
+	   energy shift and width of the UTAs.
+	2. configuration average transitions for all other processes.
+	3. update CRM module for UTA model.
+	
 Version 1.0.7, 11/10/2004
 	1. add DR satellite energy to the DB_DR file.
 	2. add the RRMultipole function for bound-free multipole matrix
