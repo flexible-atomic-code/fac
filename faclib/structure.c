@@ -836,16 +836,16 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
   s = c->csfs + basis->kstate;
 
   len = 0;
-  name[0] = '\0';
-  sname[0] = '\0';
+  if (name) name[0] = '\0';
+  if (sname) sname[0] = '\0';
   n0 = 0;
   kl0= -1;
   nq0 = 0;
   for (i = c->n_shells-1; i >= 0; i--) {
     UnpackShell(c->shells+i, &n, &kl, &j, &nq);
+    if (j < kl) jsym = '-';
+    else jsym = '+';
     if (name) {
-      if (j < kl) jsym = '-';
-      else jsym = '+';
       kl = kl/2;
       SpecSymbol(symbol, kl);
       sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
