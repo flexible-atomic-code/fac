@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.23 2001/11/04 15:42:58 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.24 2001/12/05 01:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1357,7 +1357,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   FILE *file;
   LEVEL *lev1, *lev2;
   double delta, emin, emax, e, e0, s;
-  double *qkc, qku[MAXNUSR];
+  double *qk, *qkc, qku[MAXNUSR];
   int nqkc, nq, nqk;
   
   file = fopen(fn, "w");
@@ -1479,13 +1479,14 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   nqkc = 10;
   nqk = NPARAMS;
   if (qk_mode == QK_BED) nqk += 1;
-  qkc = (double *) malloc(sizeof(double)*nqkc*nqk);
+  qk = (double *) malloc(sizeof(double)*nqkc*nqk);
 
   for (i = 0; i < nb; i++) {
     j1 = LevelTotalJ(b[i]);
     for (j = 0; j < nf; j++) {
       j2 = LevelTotalJ(f[j]);
-      nq = IonizeStrength(qku, &nqkc, qkc, &e, b[i], f[j]);
+      nq = IonizeStrength(qku, &nqkc, qk, &e, b[i], f[j]);
+      qkc = qk;
       if (nq < 0) continue;
       fprintf(file, "%-5d %-2d   %-5d %-2d   %10.4E \n",
 	      b[i], j1, f[j], j2, e*HARTREE_EV);
@@ -1522,7 +1523,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
 
   fclose(file);
-  free(qkc);
+  free(qk);
 
   return 0;
 }
