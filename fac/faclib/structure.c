@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.38 2002/09/24 18:49:29 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.39 2002/09/26 15:15:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -823,7 +823,6 @@ int AddECorrection(int iref, int ilev, double e) {
   c.iref = iref;
   c.ilev = ilev;
   c.e = e;
-
   ArrayAppend(ecorrections, &c);
   ncorrections += 1;
 
@@ -1004,15 +1003,13 @@ int SaveLevels(char *fn, int m, int n) {
 	ec = (ECORRECTION *) ArrayGet(ecorrections, p);
 	if (ec->ilev == i) {
 	  if (ec->ilev == ec->iref) {
-	    lev->energy += ec->e;
-	    ec->ilev = -1;
-	    ncorrections -= 1;
+	    e0 = lev->energy;
 	  } else {
 	    e0 = GetLevel(ec->iref)->energy;
-	    lev->energy = e0 + ec->e;
-	    ec->ilev = -1;
-	    ncorrections -= 1;
 	  }
+	  lev->energy = e0 + ec->e;
+	  ec->ilev = -1;
+	  ncorrections -= 1;
 	  break;
 	}
       }

@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.28 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.29 2002/09/26 15:15:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -73,7 +73,7 @@ int SwapEndianENRecord(EN_RECORD *r) {
   SwapEndian((char *) &(r->p), sizeof(short));
   SwapEndian((char *) &(r->j), sizeof(short));
   SwapEndian((char *) &(r->ilev), sizeof(int));
-  SwapEndian((char *) &(r->energy), sizeof(float));
+  SwapEndian((char *) &(r->energy), sizeof(double));
   return 0;
 }
 
@@ -789,7 +789,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   EN_RECORD r;
   int n, i;
   int nb;
-  float e;
+  double e;
   int p, vnl;
 
   nb = 0;

@@ -1,3 +1,9 @@
+Version 0.8.4, 09/26/2002
+	1. the type of EN_RECORD.energy is changed to double, 
+	   to avoid cancellations. this makes the data file incompartible 
+	   with earlier version.
+	   
+
 Version 0.8.3, 09/25/2002
 	1. implement Breit interaction in the 0 energy limit of the
 	   exchanged photon.
