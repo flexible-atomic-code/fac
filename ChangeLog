@@ -4,7 +4,9 @@ version 0.9.2, 04/10/2003
 	   sometimes. It usualy occurs when the upper and lower levels are
 	   affected by configuration interaction significantly.
 	3. add reinitialization step in the end of every calculation
-	   procedure, so that it is no longer necessary to call it manually.
+	   procedure, so that it is no longer necessary to call it
+	   manually.
+	4. add EPhFit() for the ionization thresholds used in PhFit.
 	
 version 0.9.1, 03/27/2003
 	1. correct manual on GetPotential.

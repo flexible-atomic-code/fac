@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.29 2003/04/07 17:06:59 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.30 2003/04/16 15:02:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -668,6 +668,13 @@ double DRFit(int z, int nele, double t) {
   
   r *= 1E10;
   
+  return r;
+}
+
+double EPhFit2(int z, int nele, int is) {
+  double r;
+
+  EPHFIT2(z, nele, is, &r);
   return r;
 }
 

@@ -1,4 +1,5 @@
-static char *rcsid="$Id: pcrm.c,v 1.24 2003/04/07 17:07:00 mfgu Exp $";
+
+static char *rcsid="$Id: pcrm.c,v 1.25 2003/04/16 15:02:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -656,6 +657,15 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PEPhFit(PyObject *self, PyObject *args) {
+  int z, nele, is;
+  double e;
+  
+  if (!PyArg_ParseTuple(args, "iii", &z, &nele, &is)) return NULL;
+  e = EPhFit2(z, nele, is);
+  return Py_BuildValue("d", e);
+}
+
 static PyObject *PPhFit(PyObject *self, PyObject *args) {
   int z, nele, is;
   double e, r;
@@ -890,6 +900,7 @@ static struct PyMethodDef crm_methods[] = {
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"PhFit", PPhFit, METH_VARARGS},
+  {"EPhFit", PEPhFit, METH_VARARGS},
   {"RRFit", PRRFit, METH_VARARGS},
   {"DRFit", PDRFit, METH_VARARGS},
   {"NRRFit", PNRRFit, METH_VARARGS},
