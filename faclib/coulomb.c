@@ -7,16 +7,16 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.18 2002/12/06 02:52:54 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.19 2002/12/12 03:06:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-static int n_hydrogenic = 8;
-static int kl_hydrogenic = 7;
-static int n_hydrogenic_max = 128;
-static int kl_hydrogenic_max = 20;
+static int n_hydrogenic;
+static int kl_hydrogenic;
+static int n_hydrogenic_max;
+static int kl_hydrogenic_max;
 static ARRAY *dipole_array;
 
 static int _ncb = 0;
@@ -39,7 +39,7 @@ void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
   else n_hydrogenic = 10;
   if (kl >= 0) kl_hydrogenic = kl;
-  else kl_hydrogenic = 8;
+  else kl_hydrogenic = 6;
   if (nm > 0) n_hydrogenic_max = nm;
   else n_hydrogenic_max = 128;
   if (klm >= 0) kl_hydrogenic_max = klm;
