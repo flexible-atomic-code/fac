@@ -14,4 +14,7 @@ void splie2(double *x1a, double *x2a, double **ya,
 void splin2(double *x1a, double *x2a, double **ya, double **y2a,
 	   int m, int n, double x1, double x2, double *y);
 
+void SVDFit(int np, double *coeff, double *chisq, double tol,
+	    int nd, double *x, double *logx, double *y, double *sig,
+	    void Basis(int, double *, double, double));
 #endif

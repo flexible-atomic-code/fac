@@ -1,5 +1,5 @@
 
-SRC = dlacpy.f dlae2.f dlaed0.f dlaed1.f dlaed2.f dlaed3.f dlaed4.f dlaed5.f dlaed6.f dlaed7.f dlaed8.f dlaed9.f dlaeda.f dlaev2.f dlamch.f dlamrg.f dlansp.f dlanst.f dlapy2.f dlarf.f dlarfg.f dlartg.f dlascl.f dlaset.f dlasr.f dlasrt.f dlassq.f dopmtr.f dspevd.f dsptrd.f dstedc.f dsteqr.f dsterf.f ieeeck.f ilaenv.f
+SRC = dbdsdc.f dbdsqr.f dgebd2.f dgebrd.f dgelq2.f dgelqf.f dgeqr2.f dgeqrf.f dgesdd.f dlabrd.f dlacpy.f dlae2.f dlaed0.f dlaed1.f dlaed2.f dlaed3.f dlaed4.f dlaed5.f dlaed6.f dlaed7.f dlaed8.f dlaed9.f dlaeda.f dlaev2.f dlamch.f dlamrg.f dlange.f dlansp.f dlanst.f dlapy2.f dlarf.f dlarfb.f dlarfg.f dlarft.f dlartg.f dlas2.f dlascl.f dlasd0.f dlasd1.f dlasd2.f dlasd3.f dlasd4.f dlasd5.f dlasd6.f dlasd7.f dlasd8.f dlasda.f dlasdq.f dlasdt.f dlaset.f dlasq1.f dlasq2.f dlasq3.f dlasq4.f dlasq5.f dlasq6.f dlasr.f dlasrt.f dlassq.f dlasv2.f dopmtr.f dorg2r.f dorgbr.f dorgl2.f dorglq.f dorgqr.f dorm2r.f dormbr.f dorml2.f dormlq.f dormqr.f dspevd.f dsptrd.f dstedc.f dsteqr.f dsterf.f ieeeck.f ilaenv.f
 
 OBJS = ${SRC:.f=.o}
 

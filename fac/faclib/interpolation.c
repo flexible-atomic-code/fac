@@ -1,10 +1,14 @@
 #include "interpolation.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.4 2001/09/14 13:17:00 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.5 2001/10/12 03:15:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+void dgesdd_(char *jobz, int *m, int *n, double *a, int *lda, 
+	     double *s, double *u, int *ldu, double *vt, int *ldvt,
+	     double *work, int *lwork, int *iwork, int *info);
 
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2) {
@@ -98,5 +102,98 @@ void splin2(double *x1a, double *x2a, double **ya, double **y2a,
   splint(x1a, yytmp, ytmp, m, x1, y);
   free(ytmp);
   free(yytmp);
+}
+
+void SVDFit(int np, double *coeff, double *chisq, double tol,
+	    int nd, double *x, double *logx, double *y, double *sig,
+	    void Basis(int, double *, double, double)) {
+  double *u, *v, *w, *b, *afunc;
+  int i, j, k;
+  double tmp, thresh, wmax, sum;
+  double *dwork;
+  int *iwork, lwork, infor;
+  char jobz[] = "O";
+ 
+  k = np*np;
+  lwork = 5*k + 4*np;
+  if (lwork < nd) lwork = nd;
+  lwork += 3*k;
+  lwork *= 2;
+  i = (np+nd)*(np+1)+np;
+  w = (double *) malloc(sizeof(double)*(i+lwork));
+  iwork = (int *) malloc(sizeof(int)*8*np);
+
+  v = w + np;
+  u = v + np*np;
+  b = u + np*nd;
+  afunc = b + nd;
+  dwork = afunc + np;
+  
+  for (i = 0; i < nd; i++) {
+    Basis(np, afunc, x[i], logx[i]);
+    k = i;
+    if (sig) {
+      tmp = 1.0/sig[i];
+      for (j = 0; j < np; j++) {
+	u[k] = afunc[j]*tmp;
+	k += nd;
+      }
+      b[i] = y[i]*tmp;
+    } else {
+      for (j = 0; j < np; j++) {
+	u[k] = afunc[j];
+	k += nd;
+      }
+      b[i] = y[i];
+    }
+  }
+
+  dgesdd_(jobz, &nd, &np, u, &nd, w, u, &nd, v, &np, 
+	  dwork, &lwork, iwork, &infor);
+    
+  wmax = w[0];
+  thresh = tol*wmax;
+  for (j = 0; j < np; j++) {
+    if (w[j] < thresh) w[j] = 0.0;
+  }
+  
+  k = 0;
+  for (j = 0; j < np; j++) {
+    tmp = 0.0;
+    if (w[j] != 0.0) {
+      for (i = 0; i < nd; i++) {
+	tmp += u[k++]*b[i];
+      }
+      tmp /= w[j];
+    }
+    afunc[j] = tmp;
+  }
+  
+  k = 0;
+  for (j = 0; j < np; j++) {
+    tmp = 0.0;
+    for (i = 0; i < np; i++) {
+      tmp += v[k++]*afunc[i];
+    }
+    coeff[j] = tmp;
+  }
+  
+  if (chisq) {
+    *chisq = 0.0;
+    for (i = 0; i < nd; i++) {
+      Basis(np, afunc, x[i], logx[i]);
+      sum = 0.0;
+      for (j = 0; j < np; j++) {
+	sum += coeff[j]*afunc[j];
+      }
+      tmp = y[i] - sum;
+      if (sig) tmp /= sig[i];
+      *chisq += tmp*tmp;
+    }
+  }  
+  
+  free(w);
+  free(iwork);
 
 }
+	    

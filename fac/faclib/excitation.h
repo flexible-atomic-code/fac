@@ -28,6 +28,7 @@ typedef struct _EXCIT_TIMING_ {
 
 CEPW_SCRATCH *GetCEPWScratch();
 int FreeExcitationPk(int ie);
+int FreeExcitationQk();
 int InitExcitation();
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
@@ -46,11 +47,14 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 int CERadialPk(int *nkappa, int *nkl, double **pk, 
 	       short **kappa0, short **kappa1, int ie,
 	       int k0, int k1, int k);
-int CERadialQk(double *r, int ie, double te, 
-		  int k0, int k1, int k2, int k3, int k);
-int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
+double *CERadialQkTable(int k0, int k1, int k2, int k3, int k);
+double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, 
+			    int k, int kp, int nq, int *q);
+int CERadialQk(double *r, double te, 
+	       int k0, int k1, int k2, int k3, int k);
+int CERadialQkMSub(double *rq, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, int nq, int *q);
-double InterpolatePk(double te, int type, double *pk);
+void CERadialQkBasis(int npar, double *yb, double x, double logx);
 int CollisionStrength(double *s, double *e, int lower, int upper, int msub);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 
