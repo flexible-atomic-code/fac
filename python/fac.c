@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.32 2002/08/14 16:09:45 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.33 2002/08/17 20:21:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1494,7 +1494,7 @@ static  PyObject *PSetCEPWOptions(PyObject *self, PyObject *args) {
   double tol;
 
   qr = 0;
-  max = 128;
+  max = 256;
   kl_cb = 64;
   tol = 5E-2;
 
@@ -2434,9 +2434,9 @@ static  PyObject *PSetCIPWOptions(PyObject *self, PyObject *args) {
   double tol;
 
   qr = 0;
-  max = 128;
+  max = 256;
   max_1 = 8;
-  kl_cb = 50;
+  kl_cb = 64;
   tol = 5E-2;
   if (!PyArg_ParseTuple(args, "d|iiii", &tol, &max, &max_1, &qr, &kl_cb)) 
     return NULL;

@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.8 2002/01/14 23:19:44 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.9 2002/08/17 20:21:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1931,7 +1931,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 ** NOTE:        
 */
 int InitRecouple(void) {
-  int blocks[4] = {3, 3, 50, 50};
+  int blocks[4] = {4, 4, 32, 32};
   int ndim = 4;
 
   interact_shells = (MULTI *) malloc(sizeof(MULTI));

@@ -10,7 +10,7 @@
 #include "transition.h"
 #include "coulomb.h"
 
-#define MAX_COMPLEX 500
+#define MAX_COMPLEX 512
 typedef struct _REC_COMPLEX_ {
   int n;
   ARRAY *rg;

@@ -11,8 +11,6 @@
 #include "recouple.h"
 #include <time.h>
 
-#define LEVELS_BLOCK    5000
-
 typedef struct _HAMILTON_ {
   int pj;
   int dim;
@@ -38,7 +36,6 @@ typedef struct _LEVEL_ {
   double energy;
 } LEVEL;
 
-#define ANGZ_BLOCK 4096
 typedef struct _ANGZ_DATUM_ {
   void *angz;
   short nz;

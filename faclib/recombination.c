@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.49 2002/05/15 18:45:52 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.50 2002/08/17 20:21:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1512,7 +1512,7 @@ int FreeRecAngZ(void) {
 }
 
 int InitRecombination(void) {
-  int blocks[5] = {5, 10, 5, 10, 5};
+  int blocks[5] = {4, 8, 4, 8, 4};
   int ndim;
   int i;
   
