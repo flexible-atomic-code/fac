@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.25 2003/03/29 23:21:16 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.26 2003/03/30 05:50:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -682,6 +682,15 @@ double PhFit2(int z, int nele, int is, double e) {
   return r;
 }
 
+double RBeli(int z, int nele, double t, double *a, double *dir) {
+  double total;
+  
+  RBELI(z, nele, t, a, dir);
+  total = *a + *dir;
+  
+  return total;
+}
+
 double CBeli(int z, int nele, double ene, 
 	     double *a, double *dir, double *err) {
   double total;
@@ -736,6 +745,8 @@ double Ionis(int z, int nele, double t, double *a, double *dir, int m) {
     total = ColFit(z, nele, 0, t, &aa, &dd);
   } else if (m == 2) {
     total = CFit(z, nele, t, &aa, &dd);
+  } else if (m == 3) {
+    total = RBeli(z, nele, t, &aa, &dd);
   } else {
     printf("unrecognized mode in Ionis\n");
     return 0.0;
