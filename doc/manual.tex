@@ -3303,14 +3303,13 @@ the first argument of \key{Config} is an empty string.}
 \faq{Which configurations should be used as basis for the mean cofiguration
 which optimizes the radial potential}{
 The function \key{fac.OptimizeRadial} accepts a list of configurations, which
-form the basis for the construction of the mean configuration. Usually, the
-most important configurations for which the atomic processes are to be
-calculated should be included. Configurations whose only purpose is to provide
-configuration interaction should excluded. e.g., if one wants to calculate the
-transitions between $1s^2$ and $1s2l$ configurations, but the configuration
-$1s 3l$ is also included in the wavefunction expansion, then $1s^2$ and
-$1s2l$, but not $1s 3l$ configurations should be passed to
-\key{fac.OptimizeRadial} for the construction of mean configuration.}
+form the basis for the construction of the mean configuration. Usually, only
+the lowest lying configurations should be used in \key{fac.OptimizeRadial} for
+the construction of mean configuration. I have found that using configurations
+corresponding to the ground complex is always a good idea. Sometimes, it maybe
+worthwile to inlcude the first excited configurations. However, it is always a
+bad practice to inlcude very highly excited configurations, especially those
+inner shell excited ones.}
 
 \faq{Can I use a specific mean configuration to be used in potential
 optimization}{
@@ -3325,9 +3324,8 @@ to obtain the mean configuration used, and the resulting radial potential.}
 
 \faq{When calculating ionization or recombination processes, should I use the
 mean configuration for recombined (ionizing) or recombining (ionized) ion}{
-Usually, it does not matter for highly charged ions, and I usually use a
-combination of them, i.e., the number of electrons in the mean configuration
-is fractional. The difference of one more or less electron screening the
+Usually, it does not matter for highly charged ions, and I usually use the 
+recombined ion. The difference of one more or less electron screening the
 nuclear charge may be substaintial for low-$Z$ elements, in which case, one
 may have to make a decision by comparing the results to experimental values or
 other theoretical works.}
