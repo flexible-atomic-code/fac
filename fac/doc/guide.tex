@@ -26,15 +26,15 @@ Some functions are general to all atomic processes such as specifying an
 electronic configuration. They are collected in this section. In this and the
 following sections, if a function name is not fully qualified with its module
 name, it is assumed that it comes from module ``fac'', which is the main module
-interfacing within the internal ``C'' library. As a convention, all functions
+interfacing with the internal ``C'' library. As a convention, all functions
 from ``fac'' has names with each word capitalized in first letter.
 
 \begin{description}
 \item[SetAtom(s, z, mass)] 
 Set the Element. ``s'' is the element symbol, ``z'' is
-the atomic number, ``mass'' is the mass of the nucleus. ``mass'' may be
-ommited, it is only used to determine the size of the neucleus. e.g.,
-SetAtom('Fe', 26), SetAtom('Fe', 26, 56)
+the atomic number, ``mass'' is the mass of the nucleus. ``z'' and ``mass'' may
+be omitted, in which case, their values are determined by looking up an
+internal table. e.g., SetAtom('Fe'), SetAtom('Fe', 26), SetAtom('Fe', 26, 56).
 
 \item[config.closed(s)] 
 Specify any fully occupied shell for all the
@@ -49,7 +49,8 @@ shell. When it is called with an empty string, it resets to no closed shells.
 Specify electronic configuration which
 belongs to a group with name ``g''. ``s'' is a string denoting a
 configuration. Each configuration consists a sequence of shells with
-occupation number indicated immediately after the shell. The pricipile quantum
+occupation number indicated immediately after the shell. For each shell, the
+pricipile quantum 
 number comes first, followed by the orbital angular momentum $l$. A ``*'' may
 be used to specify $l$ instead of the detailed spectroscopic notation, which
 means $l$ may assume any allowed value. After $l$,  A $\pm$ sign
@@ -116,6 +117,19 @@ representation also.
 
 \end{description}
 
+A cubic spline interpolation routine is exported from fac, which may be
+useful. 
+\begin{description}
+\item[y2 = Spline(x, y, dy1, dy2)]
+Calculates the cubic spline coefficients for given ``x'' and ``y'' arrays,
+with the second derivative at both ends ``dy1'' and ``dy2''. If ``dy1'' and
+``dy2'' are missing, a natural cubic spline is assumed. The functions returns
+a List contains the second derivatives of the spline at each node.
+
+\item[y0 = Splint(x, y, y2, x0)] 
+Evaluates the interpolation at ``x0'', ``y2'' is the List returned by
+Spline(). 
+\end{description}
 
 \section{Atomic Structure}
 The atomic structure part calculates the energy levels for the specified
@@ -133,18 +147,16 @@ The following routines set some global options controlling the computation.
 Set parameters affecting the optimization of radial central potentials. 
 ``tol'' is the desired accuracy for self-consistent iterations. ``maxiter'' is
 the maximum iteration the optimization may perform. ``iprint'' indicates
-whether iteration summary should 
-be printed out. The defaults: ``tol = 1E-6'', ``maxiter = 100'', ``nscreen =
-8'', ``iprint = 0''.
+whether iteration summary should be printed out. The defaults: ``tol = 1E-6'',
+``maxiter = 100'', ``iprint = 0''. 
 
-\item[SetScreening(n)] 
-Set the principle quantum number, beyond which the central potential should be
-modified in the aymptotic region to add the screening of one more
-electron. This is used for solution of continuum orbitals and the high Rydberg
-levels resulting from recombinaiton, because these orbitals see the screening
-of all bound electrons. If only the radiative transition rates of a given ion
-is needed, this parameter should be set to 0, Otherwise, some inaccuracy is
-introduced for levels higher than ``n''. The default is 8.
+\item[SetScreening(screen, charge)] 
+Set the principle quantum numbers, which should be included in optimizing the
+radial potential. This is used to provide additional electron sreening for
+recombined bound orbitals and free orbitals. The total charge specified by
+``charge'' is distributed among all shells specified by ``screen'', which is
+and integer list. For each principal quantum number in ``screen'', only the
+s-orbital is used. ``charge'' may be absent, which defaults to 1.0.
 
 \item[SetRadialGrid(rmin, rmax)]
 Set the radial grid limits. The actual grid limits are ``rmin/z'', and 
@@ -184,16 +196,22 @@ then determine including the electron-electron interaction (both direct and
 exchange) with this mean configuration. The central potential is used to
 construct the radial basis for configuration interaction. 
 
-\item[Structure(groups)] 
+\item[Structure(groups, perturbing\_groups)] 
 Setup the Hamilton matrix, and diagonalize
-it. Only the configurations in the specified groups are assumed to
-interact. If no argument is given, all configurations are mixed. 
+it. Only the configurations in ``groups'' and ``perturbing\_groups'' are
+assumed to interact. However, configurations in ``perturbing\_groups'' are of
+minor importance. The levels belong to them are not calculated. They exist
+only to interact with ``groups''. In setting up the Hamiltonian, only the
+diagonal matrix elements within ``perturbing\_groups'' and the non-diagonal
+elements between ``groups'' and ``perturbing\_groups'' are retained. If no
+argument is given, all configurations are mixed.  
 
 \item[LevelTable(fname, n, m)] 
 Output the Energy Level to an ascii file ``fname''. ``n'' is the principle
 quantum number, only levels with the last orbital having such ``n'' is printed
-out. If ``n == 0'', all levels are outpup. ``m'' indicates whether the mixing
-coefficients should be printed out. The defautls: ``n = 0'', ``m = 0''.
+out. If ``n == 0'', all levels are output. ``m'' indicates whether the mixing
+coefficients should be printed out. The last two arguments may be absent which
+defaults to ``n = 0'', ``m = 0''.
 
 \item[TransitionTable(low, up, fname, multipole)] 
 Calculate the transition rates between lower and upper levels specified by
@@ -213,16 +231,18 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(max_allow, max_forbidden, max_f, qr, tol)] 
+\item[SetCEPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
 Set partial wave options for excitation calculation. ``qr'' is the orbital
 angular momentum value beyond which a ``quasi-relativistic'' approximaiton
 is used for the radial integrals, which ignores the small component of the
-wavefunction and treat the orbitals with differetn $j$ but same $l$ as the
-same. ``max_allow'' is the maximum partial wave to be included for dipole
-allowed transitions, ``max_forbidden'' is that for forbidden transitions,
-``max_f'' is a factor to be multiplied to e/delta_e to produce a limit on the
-maximum partial wave. Internally, a partial wave grid is setup from $l = 0$ to 
-``max'', which includes every $l$ below 5 but use a logrithmic grid beyond
+wavefunction and treat the orbitals with different $j$ but same $l$ as the
+same. ``max\_allow'' is the maximum partial wave to be included for dipole
+allowed transitions, 
+``max\_f'' is a factor to be multiplied to e/delta\_e to produce a limit on the
+maximum partial wave. ``max\_forbidden'' is that for forbidden transitions,
+Internally, a partial wave grid is setup from $l = 0$ to 
+``max\_allow'', which includes every $l$ below 5 but use a logrithmic grid
+beyond 
 that. The radial integrals are then interpolated on this grid. If
 a detailed specification of the grid is needed, SetCEPWGrid() may be used.
 ``tol'' is a small number, When the exchange integral is smaller than the
@@ -251,7 +271,7 @@ Set the scattered electron energy grid. From emin to emax with n points in a
 logrithmic grid. This function may also take a list of energy points. This
 grid is used internally to calculate the radial integrals. The output energy
 grid is specified with SetUsrCEGrid(). Usually, the internal grid is generated
-automatically according to the output grid. 
+automatically according to the user output grid. 
 
 \item[SetUsrCEGrid(n, emin, emax)]
 Set the output grid for the scattered electron energy. Arguments are the same
@@ -268,10 +288,11 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 
 \section{Ionization}
 The calculation of collisional ionization is similar to that of excitation, we
-refer to the parrel routines in the excitation for the syntax.
+refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(max_allow, max_forbidden, max_f, qr, tol)] 
-See SetCEPWOptions() for detail.
+\item[SetCIPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
+See SetCEPWOptions() for detail. The default for ``max\_f'' is 0, unlike in 
+Set CEPWOptions.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
@@ -317,12 +338,17 @@ in the range ``m1'' and ``m2'' inclusive.
 \item[RecStates(n, groups)] 
 Construct recombined states based on the  target
 states from ``groups'', and captured electron in ``n'' levels. The recombined
-states constructed this way can be referred to by a tuple (n, groupnames). 
+states constructed this way can be referred to by a tuple (n, groups). 
 
 \item[SetPEGrid(n, emin, emax)] 
-Set the photo-electron energy grid in photo-ionization and radiative
+Set the internal photo-electron energy grid in photo-ionization and radiative
 recombination calculations. A Python list may also be used to specify the
 detailed energy grid. 
+
+\item[SetUsrPEGrid(n, emin, emax)]
+Set the photo-electron energy grid where photo-ionization and radiative
+recombination cross sections are desired. The radial integrals involved will
+be interpolated from the internal grid set by SetPEGrid.
 
 \item[RRTable(bound, free, fname, m)] Calculates the photoionization cross
 section and radiative recombination cross section between ``bound'' and
@@ -355,7 +381,9 @@ calculation of autoionization rates and radiative transition rates in a single
 routine. All autoionization channels between ``ai'' and ``free'' are
 included. ``g'' specifies the levels to which the DR recombination is to be
 computed. The radiative transition rates between ``ai'' and ``bound'' are
-calculated if ``ai'' is accessable from ``g''.
+calculated if ``ai'' is accessable from ``g''. The resulting autoionization
+rates and transition rates are output in ``aifile'' and ``trfile''
+respectively. 
 
 \end{description}
 
@@ -368,7 +396,7 @@ This routine coordinates the DR calculation for various DR
 channels. ``prefix'' is a string which is used to construct the output file
 names. ``gr'' is a list of target configuration groups that are
 involved. ``reclevel'' is a list of levels from which the recombination is to
-ocuur, e.g., [0], if only DR on to the ground level is to be
+ocuur, e.g., [0], if only DR onto the ground level is to be
 calculated. ``ground'' is the target state group to which autoionization is
 allowed. ``aigroup'' is the bound autoionizing groups. ``decaygroup'' is the
 bound group to which the radiative decay is allowed. ``channel'' gives a
@@ -377,7 +405,7 @@ quantum numbers for the recombined electron. Detiled calculation is only
 performed for these levels. Other missing levels are obtained through
 interpolation. ``nmin'' is the minimum principal quantum number in the
 construction of recombined states. ``nj0'' is the maximum principal quantum
-number to which the decay of autoioning levels are allowed. ``nspec'' is the
+number to which the decay of autoionizing levels are allowed. ``nspec'' is the
 option to be used in SetRecSpectator(). ``correlations'' regroups the list of
 target configurations to specify the configuration mixing schemes. See a
 sample script under the directory ``demo'' to see how it is used.
@@ -399,7 +427,7 @@ satellite lines.
 \item[dr.sumrate(outfile, prefix, nrec, nopen, c, nmax=nmax)]
 This routine sums up the rate coefficients for all recombined complexes. The
 interpolation on the ``n'' grid is carried out. From the last calculated ``n''
-to nmax, extrapolation using $n^{-3}$ scaling law.
+to nmax, extrapolation is used with the $n^{-3}$ scaling law.
 \end{description}
 
 \end{document}

@@ -1,12 +1,12 @@
-This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.4.24)  9 JUN 2001 17:22
+This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  10 JUL 2001 16:28
 **guide
 (guide.tex
 LaTeX2e <1999/12/01> patch level 1
 Babel <v3.6Z> and hyphenation patterns for american, french, german, ngerman, n
 ohyphenation, loaded.
-(/usr/share/texmf/tex/latex/base/article.cls
+(/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/base/article.cls
 Document Class: article 1999/09/10 v1.4a Standard LaTeX document class
-(/usr/share/texmf/tex/latex/base/size12.clo
+(/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/base/size12.clo
 File: size12.clo 1999/09/10 v1.4a Standard LaTeX file (size option)
 )
 \c@part=\count79
@@ -21,17 +21,17 @@ File: size12.clo 1999/09/10 v1.4a Standard LaTeX file (size option)
 \belowcaptionskip=\skip42
 \bibindent=\dimen102
 )
-(/usr/share/texmf/tex/latex/misc/geometry.sty
+(/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/misc/geometry.sty
 Package: geometry 1999/10/07 v2.2 Page Geometry
 
-(/usr/share/texmf/tex/latex/graphics/keyval.sty
+(/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/graphics/keyval.sty
 Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
 \KV@toks@=\toks14
 )
 \geom@cnth=\count87
 \geom@cntv=\count88
 
-(/usr/share/texmf/tex/latex/config/geometry.cfg)) (guide.aux)
+(/pyxis/d0/mfgu/teTeX/share/texmf/tex/latex/config/geometry.cfg)) (guide.aux)
 \openout1 = `guide.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 6.
@@ -56,56 +56,61 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 43.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 43.
- [1
 
-]
-Overfull \hbox (7.72523pt too wide) in paragraph at lines 133--143
-\OT1/cmr/m/n/12 it-er-a-tions. ``max-iter'' is the max-i-mum it-er-a-tion the o
-p-ti-miza-tion may per-form. ``nscreen''
- []
+[1
 
-[2]
-Overfull \hbox (6.92325pt too wide) in paragraph at lines 145--150
+] [2]
+Overfull \hbox (6.92325pt too wide) in paragraph at lines 162--167
 []\OT1/cmr/m/n/12 Set the ra-dial grid lim-its. The ac-tual grid lim-its are ``
 rmin/z'',
  []
 
-
-Overfull \hbox (10.34401pt too wide) in paragraph at lines 193--200
+[3]
+Overfull \hbox (10.34401pt too wide) in paragraph at lines 217--224
 []\OT1/cmr/m/n/12 Calculate the tran-si-tion rates be-tween lower
  []
 
-[3]
-Overfull \hbox (1.66243pt too wide) in paragraph at lines 211--223
-[]\OT1/cmr/m/n/12 Set par-tial wave op-tions for ex-ci-ta-tion cal-cu-la-tion. 
-``qr''
+[4]
+Overfull \hbox (12.50427pt too wide) in paragraph at lines 294--296
+[]\OT1/cmr/m/n/12 See Set-CEP-WOp-tions()
  []
 
-[4]
-Overfull \hbox (12.93854pt too wide) in paragraph at lines 310--313
+[5]
+Overfull \hbox (12.93854pt too wide) in paragraph at lines 339--342
 []\OT1/cmr/m/n/12 Construct re-com-bined states based on the tar-get states fro
 m ``groups'',
  []
 
-[5]
-Overfull \hbox (3.96681pt too wide) in paragraph at lines 342--344
+
+Overfull \hbox (6.1167pt too wide) in paragraph at lines 344--347
+[]\OT1/cmr/m/n/12 Set the in-ter-nal photo-electron en-ergy grid in photo-ioniz
+ation
+ []
+
+
+Overfull \hbox (5.4628pt too wide) in paragraph at lines 349--352
+[]\OT1/cmr/m/n/12 Set the photo-electron en-ergy grid where photo-ionization
+ []
+
+
+Overfull \hbox (3.96681pt too wide) in paragraph at lines 376--378
 []\OT1/cmr/m/n/12 Calculates the au-toion-iza-tion width from ``bound'' to ``fr
 ee''
  []
 
-
-Overfull \hbox (5.06255pt too wide) in paragraph at lines 378--390
+[6]
+Overfull \hbox (5.06255pt too wide) in paragraph at lines 414--426
 []\OT1/cmr/m/n/12 This rou-tine
  []
 
-[6] [7] (guide.aux) ) 
+[7] (guide.aux) ) 
 Here is how much of TeX's memory you used:
- 459 strings out of 10901
- 5858 string characters out of 72572
+ 460 strings out of 10901
+ 5988 string characters out of 72060
  53671 words of memory out of 263001
- 3445 multiletter control sequences out of 10000+0
+ 3446 multiletter control sequences out of 10000+0
  9109 words of font info for 32 fonts, out of 400000 for 1000
  14 hyphenation exceptions out of 1000
  23i,6n,29p,141b,251s stack positions out of 300i,100n,500p,50000b,4000s
 
-Output written on guide.dvi (7 pages, 24764 bytes).
+Output written on guide.dvi (7 pages, 27392 bytes).
