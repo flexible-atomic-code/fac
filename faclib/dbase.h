@@ -231,7 +231,7 @@ int PrintTable(char *ifn, char *ofn, int v);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
-int LevelName(char *fn, int ilev, char *cname, char *sname, char *name);
+int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);

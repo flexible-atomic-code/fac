@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.17 2002/02/22 02:12:30 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.18 2002/02/25 02:54:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

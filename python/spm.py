@@ -2,11 +2,407 @@ from pfac.crm import *
 from pfac import const
 from math import *
 import sys
+import time
 import copy
 import string
 import cPickle
 import biggles
+import pprint
 
+class TABLE:
+    def __init__(self,
+                 fname = '',
+                 title='',
+                 author='',
+                 date='',
+                 separator = ''):
+        self.fname = fname
+        self.title = title
+        self.author = author
+        if (time):
+            self.date = date
+        else:
+            self.date = time.localtime()
+        if (separator):
+            self.separator = separator
+        else:
+            self.separator = '-'*72+'\n'
+        self.columns = []
+
+    def add_column(self, **c):
+        if (not c.has_key('label')):
+            raise 'column must have a label'
+        if (not c.has_key('format')):
+            raise 'column must have a format'
+        fmt = c['format']
+        c['width'] = int(float(fmt[1:]))
+        if (fmt[0] == 'A'):
+            fmt = '%' + fmt[1:] + 's'
+        elif (fmt[0] == 'I'):
+            fmt = '%' + fmt[1:] + 'd'
+        elif (fmt[0] == 'F'):
+            fmt = '%' + fmt[1:] + 'f'
+        elif (fmt[0] == 'E'):
+            fmt = '%' + fmt[1:] + 'E'
+        else:
+            raise('Format unsupported')
+        c['format0'] = fmt
+        if (not c.has_key('unit')):
+            c['unit'] = 'None'
+        if (not c.has_key('description')):
+            c['description'] = 'Column %d'%len(self.columns)
+        if (not c.has_key('padding')):
+            c['padding'] = ' '
+        self.columns.append(c)
+            
+    def open(self, mode, fname=''):
+        if (fname):
+            self.fname = fname
+        self.file = open(self.fname, mode)
+
+    def close(self):
+        self.file.close()
+
+    def write_header(self):
+        f = self.file
+        a = self.author.split()
+        f.write(self.separator)
+        s = '%s (%s, %d)\n'%(self.title, a[-1], self.date[0])
+        f.write(s)
+        b0 = 1
+        for i in range(len(self.columns)):
+            c = self.columns[i]
+            label = c['label']
+            d = c['description']
+            unit = c['unit']
+            fmt = c['format']
+            w = c['width']
+            p = c['padding']
+            b1 = b0 + w-1                
+            s = '  %d-%d %s %s %s %s\n'%(b0, b1, fmt, label, unit, d)
+            f.write(s)
+            b0 = 1 + b1 + len(p)
+        f.write(self.separator)
+        
+    def write_raw(self, *data):
+        if (len(data) != len(self.columns)):
+            raise 'num. of data items does not match columns'
+        s = ''
+        for i in range(len(data)):
+            fmt = self.columns[i]['format0']
+            s = s + fmt%(data[i]) + self.columns[i]['padding']
+        s = s + '\n'
+        self.file.write(s)
+        
+def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
+    tbl = TABLE(fname=dfile,
+                title='Energy Levels for Z=%d'%z,
+                author='M. F. Gu',
+                date=time.localtime())
+    d = 'Num. of Electrons'
+    tbl.add_column(label='NELE',
+                   unit='None',
+                   description=d,
+                   format='I2')
+    d = 'Level Index'
+    tbl.add_column(label='Index',
+                   unit='None',
+                   description=d,
+                   format='I6')
+    d = 'Level Energy'
+    tbl.add_column(label='Energy',
+                   unit='eV',
+                   description=d,
+                   format='E11.4')
+    d = 'Parity'
+    tbl.add_column(label='P',
+                   unit='None',
+                   description=d,
+                   format='I1')
+    d = 'Twice of Total Angular Momentum'
+    tbl.add_column(label='2J',
+                   unit='None',
+                   description=d,
+                   format='I2')
+    d = 'N Complex'
+    tbl.add_column(label='NComplex',
+                   unit='None',
+                   description=d,
+                   format='A12')
+    d = 'Non-relativistic Configuration'
+    tbl.add_column(label='ConfigNR',
+                   unit='None',
+                   description=d,
+                   format='A12')
+    d = 'Relativistic Configuration'
+    tbl.add_column(label='ConfigR',
+                   description=d,
+                   format='A48')
+    tbl.open('w')
+    tbl.write_header()
+    for k in neles:
+        efile = dir+'%s%02d%s.en'%(pref, k, suffix)
+        c = get_complexes(k)
+        print '%d %s %s'%(k, efile, str(c))
+        i = 0
+        while (1):
+            a = LevelInfor(efile, i)
+            if (not a[3].strip() in c):
+                break
+            if (i == 0):
+                e0 = a[0]
+                e = 0.0
+            else:
+                e = (a[0]-e0)*const.Ryd_eV*2.0
+            col = (k, i, e, a[1], a[2],
+                   a[3].strip(), a[4].strip(), a[5].strip())
+            tbl.write_raw(*col)
+            i = i + 1
+    tbl.close()
+            
+def tabulate_trates(dfile, neles, z=26, pref='Fe'):
+    tbl = TABLE(fname=dfile,
+                title='Total Ionization and Recombination Rate Coefficients',
+                author='M. F. Gu',
+                date=time.localtime())
+    d = 'Num. of Electrons'
+    tbl.add_column(label='NELE', unit='None',
+                   description=d, format='I2')
+    d = 'Temperature'
+    tbl.add_column(label='Temp', unit='[K]',
+                   description=d, format='F4.2')
+    d = 'Total DR rate coefficients'
+    tbl.add_column(label='DR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total DR Arnaud & Raymond'
+    tbl.add_column(label='DR_AR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total RR rate coefficients'
+    tbl.add_column(label='RR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total RR Arnaud & Raymond'
+    tbl.add_column(label='RR_AR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total DCI rate coefficients'
+    tbl.add_column(label='CI', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total DCI Arnaud & Raymond'
+    tbl.add_column(label='DCI_AR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total EA rate coefficients'
+    tbl.add_column(label='EA', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    d = 'Total EA Arnaud & Raymond'
+    tbl.add_column(label='EA_AR', unit='10^-10^cm^3^/s',
+                   description=d, format='E8.2')
+    tbl.open('w')
+    tbl.write_header()
+    for k in neles:
+        dir0 = '%s%02d/'%(pref, k)
+        rates2 = cPickle.load(open(dir0+'rates2.sav', 'r'))
+        rates3 = cPickle.load(open(dir0+'rates3.sav', 'r'))
+        logt = rates2['logt']
+        nt = len(logt)
+        if (k == neles[0]):
+            tdr = rates2['tdr'][1][1]
+            trr = rates2['trr'][1][1]
+            for i in range(nt):
+                b = (10**logt[i])*const.kb
+                (a0, a1, a2) = Recomb(z, k-1, b)
+                (b0, b1, b2) = Ionis(z, k-1, b)
+                tbl.write_raw(k-1, logt[i],
+                              tdr[i], a2,
+                              trr[i], a1,
+                              0.0, b2,
+                              0.0, b1)
+        tdr = rates3['tdr'][2][1]
+        trr = rates3['trr'][2][1]
+        tci = rates2['tci'][0][1]
+        tea = rates2['tea'][0][1]     
+        for i in range(nt):
+            b = (10**logt[i])*const.kb
+            (a0, a1, a2) = Recomb(z, k, b)
+            (b0, b1, b2) = Ionis(z, k, b)
+            tbl.write_raw(k, logt[i],
+                          tdr[i], a2,
+                          trr[i], a1,
+                          tci[i], b2,
+                          tea[i], b1)
+        if (k == neles[-1]):
+            tci = rates3['tci'][1][1]
+            tea = rates3['tea'][1][1]
+            for i in range(nt):
+                b = (10**logt[i])*const.kb
+                (a0, a1, a2) = Recomb(z, k+1, b)
+                (b0, b1, b2) = Ionis(z, k+1, b)
+                tbl.write_raw(k+1, logt[i],
+                              0.0, a2,
+                              0.0, a1,
+                              tci[i], b2,
+                              tea[i], b1)
+                
+    tbl.close()    
+    
+def tabulate_rates(dfile, neles, z=26, pref='Fe'):
+    tbl = TABLE(fname=dfile,
+                title='Line Formation Rate Coefficients',
+                author='M. F. Gu',
+                date=time.localtime())
+    d = 'Num. of electrons'
+    tbl.add_column(label='NELE',
+                   unit='None',
+                   description=d,
+                   format='I2')
+    d = 'Level Index'
+    tbl.add_column(label='Index',
+                   unit='None',
+                   description=d,
+                   format='I3')
+    d = 'Temperature'
+    tbl.add_column(label='Temp',
+                   unit='[K]',
+                   description=d,
+                   format='F4.2')
+    unit = 's^-1^'
+    d = 'Total Depletion Rate'
+    tbl.add_column(label = 'RT',
+                   unit=unit,
+                   descriptio = d,
+                   format = 'E8.2')
+    unit = '10^-10^cm^3^/s'
+    d = 'Collisional Excitation' 
+    tbl.add_column(label='CE',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'Resonance Excitation'
+    tbl.add_column(label='RE',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'Radiative Recombination'
+    tbl.add_column(label='RR',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'CE + n=3 Cascades'
+    tbl.add_column(label='CE+CS3',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'CE + All Cascades'
+    tbl.add_column(label='CE+CS',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'RE + All Cascades'
+    tbl.add_column(label='RE+CS',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'DR + RR + n=3 Cascades'
+    tbl.add_column(label='DR+RR+CS3',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'DR + RR + All Cascades'
+    tbl.add_column(label='DR+RR+CS',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+    d = 'Collisional Ionization'
+    tbl.add_column(label='CI',
+                   unit=unit,
+                   description=d,
+                   format='E8.2')
+
+    tbl.open('w')
+    tbl.write_header()
+    for k in neles:
+        dir0 = '%s%02d/'%(pref, k)
+        rates3 = cPickle.load(open(dir0+'rates3.sav', 'r'))
+        rates2 = cPickle.load(open(dir0+'rates2.sav', 'r'))
+        rates1 = cPickle.load(open(dir0+'rates1.sav', 'r'))
+        logt = rates2['logt']
+        nt = len(logt)
+        rt1 = rates1['rt']
+        ce1 = rates1['ce']
+        cs1 = rates1['cs']
+        cs2 = rates2['cs']
+        rr2 = rates2['rr']
+        cs3 = rates3['cs']
+        ci3 = rates3['ci']
+        re3 = rates3['re']
+        a1 = rates2['abund']
+        b = []
+        for i in range(len(rt1)):
+            b.append([0.0]*nt)
+        c = []
+        for i in range(10):
+            c.append(copy.deepcopy(b))
+        for i in range(nt):
+            p1 = a1[i][k-1]
+            p2 = a1[i][k]
+            p = p1/p2
+            for m in range(len(rt1)):
+                c[0][m][i] = rt1[m][2][i]
+            for m in range(len(ce1)):
+                n = ce1[m][1]
+                c[1][n][i] = ce1[m][2][i]
+            for m in range(len(cs1)):
+                n = cs1[m][1]
+                c[5][n][i] = cs1[m][2][i]
+                c[4][n][i] = cs1[m][3][i]
+            for m in range(len(cs2)):
+                if (cs2[m][0] != k):
+                    continue
+                n = cs2[m][1]
+                c[8][n][i] = (cs2[m][2][i]-c[5][n][i])/p
+                c[7][n][i] = (cs2[m][3][i]-c[4][n][i])/p
+                if (c[7][n][i] < 0):
+                    c[7][n][i] = 0.0
+                if (c[8][n][i] < c[7][n][i]):
+                    c[8][n][i] = c[7][n][i]
+            for m in range(len(rr2)):
+                if (rr2[m][0] != k):
+                    continue
+                n = rr2[m][1]
+                c[3][n][i] = rr2[m][2][i]
+            for m in range(len(re3)):
+                if (re3[m][0] != k):
+                    continue
+                n = re3[m][1]
+                c[2][n][i] = re3[m][2][i]
+            for m in range(len(ci3)):
+                if (ci3[m][0] != k):
+                    continue
+                n = ci3[m][1]
+                c[9][n][i] = ci3[m][2][i]
+            for m in range(len(cs3)):
+                if (cs3[m][0] != k):
+                    continue
+                n = cs3[m][1]
+                c[6][n][i] = (cs3[m][2][i]-c[5][n][i]-p*c[8][n][i])
+                if (c[6][n][i] < 0.0):
+                    c[6][n][i] = 0.0
+        for m in range(len(ce1)):
+            for i in range(nt):
+                col = [ce1[m][0], ce1[m][1]]
+                col.append(logt[i])
+                for j in range(10):
+                    if (j == 4 or j == 5):
+                        c[j][m][i] = c[j][m][i]+c[1][m][i]
+                    elif (j == 6):
+                        c[j][m][i] = c[j][m][i]+c[2][m][i]
+                    elif (j == 7 or j == 8):
+                        c[j][m][i] = c[j][m][i]+c[3][m][i]
+                    col.append(c[j][m][i])
+                col = tuple(col)
+                tbl.write_raw(*col)
+        
+    tbl.close()
+    
+        
 def write_trates(f, r, header, nele):
     s = '# %s\n'%(header)
     f.write(s)
@@ -26,11 +422,12 @@ def write_rates(f, r, header, nele):
     for i in range(len(r)):
         if (r[i][0] == nele):
             continue
-        s = '%2d %4d  '%(r[i][0], r[i][1])
-        for a in r[i][2]:
-            s = s + '%9.3E '%(a)
-        s = s[:-1] + '\n'
-        f.write(s)
+        for j in range(2, len(r[i])):
+            s = '%2d %4d  '%(r[i][0], r[i][1])
+            for a in r[i][j]:
+                s = s + '%9.3E '%(a)
+            s = s[:-1] + '\n'
+            f.write(s)
     f.write('\n')
     
 
@@ -93,11 +490,14 @@ def save_rates(rates, sfile, dfile, **kwd):
     if (rates.has_key('tci')):
         write_trates(f, rates['tci'],
                      'Total Direct Ionization', neles[-1])
+    if (rates.has_key('rt')):
+        write_rates(f, rates['rt'],
+                    'Total Depletion Rate', -1)
     if (rates.has_key('cs')):
         write_rates(f, rates['cs'],
                     'Radiative Cascades', -1)
-    if (rates.has_key('ex')):
-        write_rates(f, rates['ex'],
+    if (rates.has_key('ce')):
+        write_rates(f, rates['ce'],
                     'Direct Excitation', -1)
     if (rates.has_key('re')):
         write_rates(f, rates['re'],
@@ -113,11 +513,20 @@ def save_rates(rates, sfile, dfile, **kwd):
     
     
 def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
+    c = get_complexes(nele)
+    complexes = [c[1]]
+    if (nion > 1):
+        c = get_complexes(nele-1)
+        complexes.append(c[1])
+        if (nion > 2):
+            c = get_complexes(nele+1)
+            complexes.append(c[1])
     re = []
     ci = []
     rr = []
     cs = []
-    ex = []
+    ce = []
+    rt = []
     tdc = []
     tre = []
     trr = []
@@ -134,7 +543,8 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
             ici = 0
             irr = 0
             ics = 0
-            iex = 0
+            ice = 0
+            irt = 0
             itot = 0
             while (1):
                 a = f.readline()
@@ -144,11 +554,13 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                     continue
                 if (a[:4] == 'NELE'):
                     a = string.split(a)
-                    nele = int(a[2])
-                if (a[:4] == 'ILEV'):
+                    nel = int(a[2])
+                elif (a[:4] == 'ILEV'):
                     a = string.split(a)
                     ilev = int(a[2])
-                if (a[:4] == ' Sum'):
+                    nilev = 1
+                    r3 = 0.0
+                elif (a[:4] == ' Sum'):
                     a = string.split(a)
                     b = []
                     for c in a[1:-1]:
@@ -163,12 +575,12 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                         b[4] = b[4]/den[2]
                         b[5] = b[5]/den[2]
                     if (t == 0 and d == 0):
-                        trr.append([nele, [b[0]]])
-                        tdc.append([nele, [b[1]]])
-                        tre.append([nele, [b[2]]])
-                        tpi.append([nele, [b[3]]])
-                        tea.append([nele, [b[4]]])
-                        tci.append([nele, [b[5]]])
+                        trr.append([nel, [b[0]]])
+                        tdc.append([nel, [b[1]]])
+                        tre.append([nel, [b[2]]])
+                        tpi.append([nel, [b[3]]])
+                        tea.append([nel, [b[4]]])
+                        tci.append([nel, [b[5]]])
                     else:
                         trr[itot][1].append(b[0])
                         tdc[itot][1].append(b[1])
@@ -178,62 +590,88 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                         tci[itot][1].append(b[5])
                     itot = itot + 1
                 elif (ilev >= 0):
-                    if (a[2:4] == '-1'):
+                    if (a[:4] == 'Dens'):
+                        a = string.split(a)
+                        d0 = float(a[2])
+                        tp = 0.0
+                    elif (a[2:4] == '-1'):
                         a = string.split(a)
                         den[0] = float(a[1])
                         if (not den[0]):
                             continue
                         b = float(a[4])
                         if (b > 0):
+                            tp = tp + b
                             b = b/den[0]
                             if (t == 0 and d == 0):
-                                rr.append([nele, ilev, [b]])
+                                rr.append([nel, ilev, [b]])
                             else:
                                 rr[irr][2].append(b)
                             irr = irr + 1
-                    if (a[2:4] == '-2'):
+                    elif (a[2:4] == '-2'):
                         a = string.split(a)
                         den[1] = float(a[1])
                         if (not den[1]):
                             continue
                         b = float(a[2])
                         if (b > 0):
+                            tp = tp + b
                             b = b/den[1]
+                            r3 = r3/den[1]
                             if (t == 0 and d == 0):
-                                cs.append([nele, ilev, [b]])
+                                cs.append([nel, ilev, [b], [r3]])
                             else:
                                 cs[ics][2].append(b)
+                                cs[ics][3].append(r3)
                             ics = ics + 1
                         b = float(a[3])
                         if (b > 0):
+                            tp = tp + b
                             b = b/den[1]
                             if (t == 0 and d == 0):
-                                ex.append([nele, ilev, [b]])
+                                ce.append([nel, ilev, [b]])
                             else:
-                                ex[iex][2].append(b)
-                            iex = iex + 1
+                                ce[ice][2].append(b)
+                            ice = ice + 1
                         b = float(a[5])
                         if (b > 0):
+                            tp = tp + b
                             b = b/den[1]
                             if (t == 0 and d == 0):
-                                re.append([nele, ilev, [b]])
+                                re.append([nel, ilev, [b]])
                             else:
                                 re[ire][2].append(b)
                             ire = ire + 1
-                    if (a[2:4] == '-3'):
+                    elif (a[2:4] == '-3'):
                         a = string.split(a)
                         den[2] = float(a[1])
-                        if (not den[2]):
-                            continue
-                        b = float(a[6])
-                        if (b > 0):
-                            b = b/den[2]
-                            if (t == 0 and d == 0):
-                                ci.append([nele, ilev, [b]])
-                            else:
-                                ci[ici][2].append(b)
-                            ici = ici + 1
-
+                        if (den[2] > 0):
+                            b = float(a[6])
+                            if (b > 0):
+                                tp = tp + b
+                                b = b/den[2]
+                                if (t == 0 and d == 0):
+                                    ci.append([nel, ilev, [b]])
+                                else:
+                                    ci[ici][2].append(b)
+                                ici = ici + 1
+                        tp = tp/d0
+                        if (t == 0 and d == 0):
+                            rt.append([nel, ilev, [tp]])
+                        else:
+                            rt[irt][2].append(tp)
+                        irt = irt + 1
+                    else:
+                        c = a[72:-1]
+                        if (len(c) > 1):
+                            c = string.strip(c)
+                            if c in complexes:
+                                a = string.split(a[:72])
+                                b = float(a[2])
+                                if (b > 0):
+                                    r3 = r3 + b
+                                
+                            
     def compare(x, y):
         if (x[0] < y[0]):
             return -1
@@ -247,24 +685,26 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
             else:
                 return 0
     cs.sort(compare)
-    ex.sort(compare)
+    ce.sort(compare)
     re.sort(compare)
     ci.sort(compare)
     rr.sort(compare)
+    rt.sort(compare)
     return {'tdc': tdc,
             'tre': tre,
             'trr': trr,
             'tpi': tpi,
             'tea': tea,
             'tci': tci,
+            'rt':  rt,
             'cs':  cs,
-            'ex':  ex,
+            'ce':  ce,
             'rr':  rr,
             're':  re,
             'ci':  ci}
 
                     
-def get_tgrid(z, nele, dt = 0.15, amin = 5E-2, limits=[]):
+def get_tgrid(z, nele, dt = 0.15, amin = 1E-2, limits=[]):
     if (len(limits) == 0):
         limits = [5.0, 8.0]
         

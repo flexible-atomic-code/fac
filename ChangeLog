@@ -11,6 +11,7 @@ Version 0.7.1, 02/17/2001
 	7. make the RateTable output more useful.
 	8. improve the convergence of radial optimizer for near neutral
 	   ions. It should now work even for neutral atoms.
+	9. added TABLE class to spm module.
 	
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
