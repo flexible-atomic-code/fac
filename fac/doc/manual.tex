@@ -2525,6 +2525,14 @@ mode, otherwise it is done in simple mode. Note that before conversion in
 verbose mode is carried out, one must call \key{MemENTable} first.
 \end{fundesc}
 
+\begin{fundesc}{PropogateDirection}{m}
+\var{m} specifies the direction in which the R-matrix solution in the outer
+region is propogated. $m\ge 0$ indicates that the R-matrix in the first zone
+is propogated outward to the final matching radius. $m<0$ indicates that the
+wavefunction at the final matching radius is propogated inward to the first
+zone and matched to the R-matrix there. Default is $m=0$.
+\end{fundesc}
+
 \begin{fundesc}{RecStates}{fn, b, n}
 Construct recombined states by adding a spectator electron with the principle
 quantum number \var{n} onto the basis states in the configuration groups
@@ -2626,12 +2634,106 @@ keywords in
 \key{Reinit}.
 \end{fundesc}
 
+\begin{fundesc}{RMatrixBasis}{fn, k, nb}
+Calculate the R-matrix basis functions, and buttle corrections, and save in
+file \var{fn}. \var{k} is the maximum orbital angular momentum of the
+continuum electron. \var{nb} is the number of basis functions per-$\kappa$
+orbital.
+\end{fundesc}
+
 \begin{fundesc}{RMatrixBoundary}{r0, r1, b}
 Set the R-matrix boundary conditions. When $r0=0$, it sets the normal boundary
 condition via a call to \key{SetBoundary}(\var{n}, \var{r1}, \var{b}), where
 $n$ is the maximum principle quantum numbers of the existing states, i.e., the
 R-matrix target states. When $r0\ne 0$, it sets the boundary condition in the
-propagation zone via a call to \key{SetBoundary}(-100, \var{r1}, \var{r0}).
+propagation zone via a call to \key{SetBoundary}(-100, \var{r1}, \var{r0}). In
+addition, the boundary condition is reset to \var{b}.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixCE}{fn, bfn, rfn, emin, emax, de\opt{, m}}
+Solve the outer region wavefunction, calculate the collision
+strength. \var{fn} is the file for saving results. \var{bfn} is a list a
+R-matrix basis files for each R-matrix zone. \var{rfn} is a list of R-matrix
+surface files for each R-matrix zone. By default, the R-matrix in the first zone is
+propogated outward to the last zone, and matched with the outer region
+solution to obtain S-matrix. If the propogation direction has been set inward
+in \key{PropogateDirection}, then the outer region solution is propagated
+inward to the first zone, and matched with the R-matrix there. \var{emin},
+\var{emax}, and \var{de} specifies 
+the energy grid. The entire energy grid is divided into batches to be
+processed in once pass of all symmetris. The number of energy points in one
+batch does not exceed 100 by default, or the value set by
+\key{RMatrixNBatch}. \var{m} specfies the output content. If $m=0$, only the
+total collision strengths are output. If $m=1$, the partial collision
+strengths are output in addition. If $m=2$, the R-matrix and T-matrix elements
+are output. If $m=3$, both partial collision strengths and R-matrix, T-matrix
+elements are output.
+
+R-matrix, T-matrix output format: each line tabulate, isym, its0, ka0, it1,
+ka1, et, Real(T), Imag(T), Omega, R, where isym is the symmetry ID. its0 is
+the target state index for the initial channel, ka0 is the $\kappa$ value of
+the continuum electron in the initial channel. its1 and ka1 are corresponding
+values for the final channel. et is the energy if the system relative to the
+initial target energy. Real(T) and Imag(T) are the real and imaginary part of
+the T-matrix, Omega is the partial collision strength of the symmetry. R is
+the R-matrix. These data are repeated for every energy and every symmetry.
+
+Total and partial collision strength output format: for each transition, first
+line lists, initial target state index, 2J of initial state, final state
+index, 2J of final state, transition energy, number of energy points in this
+block, and the number of partial-waves. It is followed by the block for total
+collision strengths in two columns: energy, collision strengths. If partial
+collision strength output is requested, it is followed by three columns:
+energy, orbital angular momentum of the partial wave, and partial collision
+strength. The above data are repeated for each block of the energy points
+processed in the individual batches.
+
+For details of using the R-matrix functions, see the example in
+\key{demo/rmatrix/} directory.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixConvert}{ifn, ofn, m}
+Convert R-matrix basis and surface files between binary and ascii format. If
+$m = 0$, convert binary basis file \var{ifn} to ascii file \var{ofn}, if $m =
+1$, convert ascii basis file \var{ifn} to binary file \var{ofn}, if $m = 2$,
+convert binary surface file \var{ifn} to ascii file \var{ofn}, if $m = 3$,
+convert ascii surface file \var{ifn} to binary file \var{ofn}.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixExpansion}{m\opt{, r}}
+Set how the channel wavefunctions at the outmost radius should be
+calculated. $m$ is the number of terms in the Gailitis asymptotic
+expansion. $m = 0$ indicates use the Dirac-Coulomb functions, which is the
+default. $r$ is the outmost radius where the wavefunctions should be
+calculated. If outer boundary of the last R-matrix zone, $a$ is smaller than
+$r$, the the wavefunctions at $r$ is integrated inward until $a$, and matched
+with the R-matrix there. If $r \le a$, then $a$ is used as the outmost radius.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixFMode}{m}
+If $m=0$, use binary format for the R-matrix output files, if $m = 1$, use
+ascii format for the R-matrix output files.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixNBatch}{n}
+$n$ is the number of energy points to process at one pass of all symmetries in
+  \key{RMatrixCE}. Default is $n=100$.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixNMultipoles}{m}
+The maximum multipoles included in the outer region potential. If $m$ is
+larger than the number of multipoles saved in the R-matrix surface file, that
+smaller value is used. The default is $m=2$.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixSurface}{fn}
+Calculate the R-matrix surface amplititudes and save in file \var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{RMatrixTargets}{t\opt{, c}}
+Set the target and correlation states. $t$ and $c$ are lists of configuration
+groups, for target and correlation configurations respectively. The atomic
+structure for both $t$ and $c$ must have been solved with \key{Structure}.
 \end{fundesc}
 
 \begin{fundesc}{RRCrossH}{Z, E, n, l}

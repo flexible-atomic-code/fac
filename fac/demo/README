@@ -14,3 +14,4 @@ FeL/,        a general application to the calculation of Fe-L shell
 	     line formation.
 polariz/,    use of pfac.pol module to calculate the polarizations of
 	     He-like Fe lines.
+rmatrix/,    collisional excitation with the Dirac R-matrix method.
