@@ -2,7 +2,8 @@ C calculates the negtive energy coulomb wavefunction,
 C and the derivative.
 C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
 
-      subroutine y5n(lambda, eta0, x0, y5, y5p, norm, ierr)
+      subroutine y5n(lambda, xi, eta0, x0, 
+     +     y5, y5i, y5p, y5pi, ierr)
 C
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C     lambda:    the orbital angular momentum. 
@@ -22,8 +23,8 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       integer MAXL, MAXN
       parameter (MAXL = 100, MAXN = 1)
 
-      real*8 lambda, y5, y5p, x0, eta0, norm
-      real*8 c, d, b, sb, cb
+      real*8 lambda, xi, y5, y5i, y5p, y5pi, x0, eta0, c0, d0
+      complex*16 b, c, d, a1, a2, clogam, logam, norm
       complex*16 eta, x, zlmin
       complex*16 fc(MAXN), fcp(MAXN), gc(MAXN), gcp(MAXN)
       complex*16 sig(MAXN)
@@ -38,11 +39,11 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       x = dcmplx(0.0, x0)
       if (lambda .lt. MAXL+1) then
-         zlmin = dcmplx(lambda, 0.0)
+         zlmin = dcmplx(lambda, xi)
          k = 1
       else
          k = lambda - MAXL
-         zlmin = dcmplx(lambda-k, 0.0)
+         zlmin = dcmplx(lambda-k, xi)
          k = k+1
          if (k .gt. MAXN) then
             write(*,*) "Max recusion work array reached in y5n"
@@ -54,15 +55,20 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       ierr = 1
       call coulcc(x, eta, zlmin, k, fc, gc, fcp, gcp, sig, 
      +            11, kfn, ierr)
-      norm = imag(sig(k))
-      b = (lambda-eta0)*HALFPI - dble(sig(k))
-      sb = sin(b)
-      cb = cos(b)
-      c = dble(gc(k))
-      d = imag(gc(k))
-      y5 = c*cb - d*sb
-      c = dble(gcp(k))
-      d = imag(gcp(k))
-      y5p = -(c*sb + d*cb)
+      c0 = imag(sig(k)) - HALFPI*xi
+      d0 = (lambda-eta0)*HALFPI - dble(sig(k))
+      norm = dcmplx(c0, d0)
+      b = logam(2D-16)
+      b = dcmplx(lambda, xi)
+      a1 = clogam(eta0+b+1.0)
+      a2 = clogam(eta0-b)
+      b = norm - 0.5*(a1+a2)
+      b = exp(b)/eta0
+      c = b*gc(k)
+      d = b*gcp(k)
+      y5 = dble(c)
+      y5i = imag(c)
+      y5p = -imag(d)
+      y5pi = dble(d)
 
       end
