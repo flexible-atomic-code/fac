@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "global.h"
 
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2);

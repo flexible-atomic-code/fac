@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.29 2001/10/25 21:57:42 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.30 2001/11/04 15:42:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,7 +32,7 @@ static double _zk[MAX_POINTS];
 static double _xk[MAX_POINTS];
 
 static struct {
-  double tolerence; /* tolerence for self-consistency */
+  double tolerance; /* tolerance for self-consistency */
   int maxiter; /* max iter. for self-consistency */
   double screened_charge; 
   int screened_kl;
@@ -84,9 +84,9 @@ int SetAWGrid(int n, double awmin, double awmax) {
   return 0;
 }
   
-void SetOptimizeControl(double tolerence, int maxiter, int iprint) {
+void SetOptimizeControl(double tolerance, int maxiter, int iprint) {
   optimize_control.maxiter = maxiter;
-  optimize_control.tolerence = tolerence;
+  optimize_control.tolerance = tolerance;
   optimize_control.iprint = iprint;  
 }
 
@@ -420,7 +420,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
   else z = 0.0;
-  while (tol > optimize_control.tolerence || z > 0.0) {
+  while (tol > optimize_control.tolerance || z > 0.0) {
     if (iter > optimize_control.maxiter) break;
     if (z < 1E-3 && z > 0.0) {
       z = 0.0;
@@ -506,7 +506,7 @@ int SolveDirac(ORBITAL *orb) {
 #endif
   
   err = 0;
-  eps = optimize_control.tolerence*1E-1;
+  eps = optimize_control.tolerance*1E-1;
   potential->flag = -1;
   err = RadialSolver(orb, potential, eps);
   if (err) { 

@@ -23,6 +23,9 @@
 #define QK_EXACT 0
 #define QK_INTERPOLATE 1
 #define QK_FIT 2
+#define QK_CB  3
+#define QK_DW  4
+#define QK_BED 5
 
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 

@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.11 2001/10/04 14:03:19 mfgu Exp $
+# rcsid = $Id: README,v 1.12 2001/11/04 15:42:57 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -13,6 +13,7 @@ doc/,        reference guide for FAC
 doc/papers/, papers submitted to Computer Phys. Comm.
 faclib/,     core numerical library.
 lapack/,     fortran routines from LAPACK.
+minpack/,    minpack optimization package.
 mpfunc/,     multi-precision floating point arithmetic package by Beiley.
 python/,     python interface.
 toms/,       some numerical routines from TOMS.
