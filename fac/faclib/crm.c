@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.80 2005/01/14 18:25:09 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.81 2005/03/09 18:39:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3794,7 +3794,7 @@ int SetTRRates(int inv) {
     if (k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_TR-1], "r");
       if (f == NULL) {
-	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_CE-1]);
+	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_TR-1]);
 	continue;
       }
       n = ReadFHeader(f, &fh, &swp);

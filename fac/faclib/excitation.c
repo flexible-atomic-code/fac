@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.79 2005/03/03 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.80 2005/03/09 18:39:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1278,7 +1278,11 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
   ns = GetInteract(&idatum, NULL, NULL, lev1->iham, lev2->iham,
 		   lev1->pb, lev2->pb, 0, 0, 0);
   if (ns <= 0) return -1;
-  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) return -1;
+  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
     j1 = idatum->s[0].j;
     j2 = idatum->s[1].j;
@@ -1401,6 +1405,8 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
       qkt[ie] = 8.0*qkc[ie];
     }
   }
+  free(idatum->bra);
+  free(idatum);
   return 1;
 }
 

@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.87 2005/03/03 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.88 2005/03/09 18:39:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -863,8 +863,12 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
 		   lev2->pb, lev1->pb, 0, 0, 1);  
   if (ns <= 0) return -1;
-  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) return -1;
-  
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+
   j1 = idatum->s[1].j;
   q1 = idatum->s[1].nq_ket;
   kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
@@ -952,6 +956,8 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   }
   rqc[0] *= d;
 
+  free(idatum->bra);
+  free(idatum);
   return nkl;
 }
     
@@ -1097,8 +1103,12 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
 		   lev2->pb, lev1->pb, 0, 0, 1);  
   if (ns <= 0) return -1;
-  if (idatum->s[3].index < 0) return -1;
-  
+  if (idatum->s[3].index < 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+
   kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   k0 = OrbitalIndex(idatum->s[2].n, idatum->s[2].kappa, 0.0);
   k1 = OrbitalIndex(idatum->s[3].n, idatum->s[3].kappa, 0.0);
@@ -1169,6 +1179,8 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
 
   *rate = r;
   
+  free(idatum->bra);
+  free(idatum);
   return 0;
 }
 
