@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.51 2003/05/23 21:28:02 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.52 2003/06/19 02:31:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -593,8 +593,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	    r = r + s;
  	  }
 	}      
-      }
-      
+      }      
       rq[ite][ie] = r;
     }
   }
@@ -615,9 +614,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   return rqc;
 }
 
-  
-double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, 
-			    int k, int kp, int nq, int *q) {
+
+static iflag = 0;  
+double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int type1, type2, kl, nqk;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int nkappa, nkappap, nkl, nklp;
@@ -628,7 +627,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   double r, e0, e1, te, s, b;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
-  int ie, ite, iq, ipk, ipkp;
+  int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp;
   double qk[MAXMSUB][MAXNKL];
   double rq[MAXMSUB][MAXNTE][MAXNE];
   double rqt[MAXMSUB];
@@ -648,12 +647,17 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   index[3] = k1;
   index[4] = k2;
   index[5] = k3;
-  
+
   p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
-  } 
-  
+  }
+ 
+  nq = Min(k, kp)/2 + 1;
+  q[0] = 0;
+  for (iq = 1; iq < nq; iq++) {
+    q[iq] = q[iq-1] + 2;
+  }
   pkp = NULL;
   nqk = nq*n_tegrid*n_egrid;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
@@ -746,18 +750,19 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	
 	  for (iq = 0; iq < nq; iq++) { 
 	    rqt[iq] = 0.0; 
-	  } 
+	  }
 	  for (mi = -1; mi <= 1; mi += 2) { 
 	    s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
 	    s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
 	    for (iq = 0; iq < nq; iq++) { 
-	      mf = mi + q[iq]; 
-	      s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
-	      s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
-	      rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+	      if (-q[iq] <= k && -q[iq] <= kp) {
+		mf = mi + q[iq]; 
+		s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
+		s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
+		rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+	      } 
 	    } 
-	  } 
-	  
+	  }
 	  for (iq = 0; iq < nq; iq++) { 
 	    qk[iq][i] += s*rqt[iq]; 
 	  } 
@@ -766,7 +771,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	}
 	ipk += n_tegrid;
       }
-    
+      
       for (iq = 0; iq < nq; iq++) { 
 	r = qk[iq][0];
 	for (i = 1; i < nkl; i++) { 
@@ -780,9 +785,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	    r += s; 
 	  }      
 	}    
-	rq[iq][ite][ie] = r; 
+	rq[iq][ite][ie] = r;
       } 
-      
       i = nkl - 1;
       if (type1 == type2) {
 	if (type1 >= CBMULTIPOLES) {
@@ -803,28 +807,18 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	  }
 	} else if (type1 >= 0) {
 	  for (iq = 0; iq < nq; iq++) {
-	    b = (GetCoulombBethe(0, ite, ie, type1, iq+1))[i];
+	    if (abs(q[iq]) == 2) {
+	      b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
+	    } else if (q[iq] == 0) {
+	      b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
+	    } else {
+	      b = 0.0;
+	    }
 	    if (b > 0) {
 	      s = qk[iq][i]*b;
 	      rq[iq][ite][ie] += s;
 	    }
 	  }
-	}
-      } else if (type1 >= 0) {
-	for (iq = 0; iq < nq; iq++) {
-	  if (nkl > 10) {
-	    b = qk[iq][i]/qk[iq][i-1];
-	    if (b < 1.0 && b > 0.0) {
-	      b = pow(b, 1.0/(pw_scratch.kl[i] - pw_scratch.kl[i-1]));
-	      b = b/(1.0 - b);
-	    } else {
-	      b = GetCoulombBetheAsymptotic(te, e1);
-	    }
-	  } else {
-	    b = GetCoulombBetheAsymptotic(te, e1);
-	  }
-	  s = qk[iq][i]*b;
-	  rq[iq][ite][ie] += s;
 	}
       }
     }
@@ -855,7 +849,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
   int j, m;
   double *rqe, rq[MAXNTE];
   double *xte, x0;
-  
+
   rqe = CERadialQkTable(k0, k1, k2, k3, k);
   if (n_tegrid == 1) {
     for (i = 0; i < n_egrid; i++) {
@@ -887,13 +881,15 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
 }
 
 int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3, 
-		   int k, int kp, int nq, int *q) {
+		   int k, int kp) {
   int i, np, nd, iq, n;
-  int j, m, type;
+  int j, m, type, nq;
   double *rqe, rq[MAXNTE];
   double *xte, x0;
   
-  rqe = CERadialQkMSubTable(k0, k1, k2, k3, k, kp, nq, q);
+  rqe = CERadialQkMSubTable(k0, k1, k2, k3, k, kp);
+  nq = Min(k, kp)/2 + 1;
+
   if (n_tegrid == 1) {
     for (iq = 0; iq < nq; iq++) {
       for (i = 0; i < n_egrid; i++) {
@@ -1026,8 +1022,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2, ie, np;
-  int nq, q[MAXMSUB];
+  int nz, j1, j2, ie, np, nq, kkp;
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
   double c1, c2, *g1, *g2;
@@ -1050,10 +1045,6 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     DecodePJ(j1, NULL, &j1);
     DecodePJ(j2, NULL, &j2);
     j = 0;
-    for (i = -j1-j2; i <= 0; i += 2) {
-      q[j++] = i;
-    }
-    nq = j;
     rqk = qkc;
     for (t = -j1; t <= 0; t += 2) {
       for (h = -j2; h <= j2; h += 2) {
@@ -1088,22 +1079,26 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	}
       } else {
 	ty = CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
-			    ang[j].k0, ang[j].k1,
-			    ang[i].k, ang[j].k, nq, q);
+			    ang[j].k0, ang[j].k1, ang[i].k, ang[j].k);
+	nq = Min(ang[i].k, ang[j].k);
+	kkp = (ang[i].k + ang[j].k)/2;
 	if (ty > type) type = ty;
 	rqk = qkc;
 	for (t = -j1; t <= 0; t += 2) {
 	  for (h = -j2; h <= j2; h += 2) {
-	    m = (-abs(t-h)-q[0])/2;
-	    m *= n_egrid;
-	    s3j = W3j(j1, ang[i].k, j2, -t, t-h, h);
-	    if (ang[j].k != ang[i].k) {
-	      s3j *= W3j(j1, ang[j].k, j2, -t, t-h, h);
-	    } else {
-	      s3j *= s3j;
-	    }
-	    for (ie = 0; ie < n_egrid; ie++) {
-	      rqk[ie] += c*rq[m+ie]*s3j;
+	    m = t-h;
+	    if (abs(m) <= nq) {
+	      s3j = W3j(j1, ang[i].k, j2, -t, m, h);
+	      if (ang[j].k != ang[i].k) {
+		s3j *= W3j(j1, ang[j].k, j2, -t, m, h);
+	      } else {
+		s3j *= s3j;
+	      }
+	      if (m < 0 && IsOdd(kkp)) s3j = -s3j;
+	      m = abs(m)*n_egrid/2;
+	      for (ie = 0; ie < n_egrid; ie++) {
+		rqk[ie] += c*rq[m+ie]*s3j;
+	      }
 	    }
 	    rqk += n_egrid;
 	  }
@@ -1446,7 +1441,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     pw_type = 1;
     qk_mode = QK_EXACT;
   } else {
-    if (pw_type < 0) pw_type = 0;
+    pw_type = 0;
   }
   egrid_type = 1;
   usr_egrid_type = 1;
