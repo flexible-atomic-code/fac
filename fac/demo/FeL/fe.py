@@ -10,7 +10,7 @@ asym = 'Fe'
 
 # generate atomic data for H-like to Na-like ions.
 os.system('mkdir data')
-nele = range(1, 2)
+nele = range(2, 5)
 atomic_data(nele, asym, iprint=1, dir='data/')
 
 #fac.CloseSFAC()

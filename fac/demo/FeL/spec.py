@@ -3,7 +3,7 @@ from pfac import const
 import os
 
 z = 26
-neles = range(3,11)
+neles = range(3,4)
 
 dir0 = 'data/'
 den = [1.0]
