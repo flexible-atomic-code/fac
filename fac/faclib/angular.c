@@ -1,13 +1,13 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.9 2001/11/10 01:13:24 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.10 2001/11/12 22:23:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 /************************************************************
-  Implementation of module *angular*.
+  Implementation of module "angular".
 
   All angular momentum arguments are twice their actual
   values to represent half-integer using integers.

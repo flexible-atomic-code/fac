@@ -2,7 +2,7 @@
 #define _ANGULAR_H_ 1
 
 /*************************************************************
-  Header for module *angular*. 
+  Header for module "angular". 
   This module calculates Wigner 3j, 6j, 9j symbols, 
   and related vector coupling coefficients.
   

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.2 2001/11/07 03:08:05 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.3 2001/11/12 22:23:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -71,6 +71,7 @@ char StrTrim(char *s, char c) {
     while (i >= 0 && (s[i] == ' '  || 
 		      s[i] == '\t' || 
 		      s[i] == '\n' || 
+		      s[i] == '\r' ||
 		      s[i] == EOF)) {
       i--;
     }

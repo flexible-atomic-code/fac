@@ -1,12 +1,75 @@
 #ifndef _RECOUPLE_H_
-#define _RECOUPLE_H_
+#define _RECOUPLE_H_ 1
+
+/*************************************************************
+  Header for module "recouple".
+  This module calculates the recoupling coefficients. 
+
+  The main task is to determine which electrons are the 
+  interacting ones, and calculate the reduced matrix elements
+  of the operator Z and ZxZ0, 
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+/* 
+<** The following format is used for documenting the source **>
+*/
+
+/* documenting a struct */
+/*
+** STRUCT:      
+** PURPOSE:     
+** FIELDS:      
+** NOTE:        
+*/
+
+/* documenting a function */
+/* 
+** FUNCTION:    
+** PURPOSE:     
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+
+/* documenting a macro function */
+/* 
+** MACRO:       
+** PURPOSE:     
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+
+/* documenting a global, static varialbe or a macro constant */
+/*
+** VARIABLE:    
+** TYPE:        
+** PURPOSE:     
+** NOTE:        
+*/
 
 #include "config.h"
 #include "angular.h"
 #include "rcfp.h"
 #include <time.h>
 
-/* qunatum numbers of an interacting shell */
+/*
+** STRUCT:      INTERACT_SHELL
+** PURPOSE:     stores information of an itneracting shell.
+** FIELDS:      {int index},
+**              the index of the shell within the SHELL_STATE.
+**              {int n, j, kl, kappa},
+**              the principal quantum number, the angular momentum,
+**              the orbital angular momentum, and the relativistic 
+**              angular quantum number of the shell.
+**              {int nq_bra, nq_ket}, 
+**              the occupation numbers int the bra and the ket states.
+** NOTE:        
+*/
 typedef struct _INTERACT_SHELL_ {
   int index; /* the index of the shell within the SHELL_STATE */
   int n; /* principal quantum number */
@@ -17,7 +80,23 @@ typedef struct _INTERACT_SHELL_ {
   int nq_ket; /* occupation number in the ket state */
 } INTERACT_SHELL;
 
-
+/*
+** STRUCT:      INTERACT_DATUM
+** PURPOSE:     the information about interacting shells to be 
+**              saved for later use.
+** FIELDS:      {SHELL *bra},
+**              the shell structure of the bra state.
+**              {short s[4]},
+**              the indexes of all interacting shells,
+**              s[0] and s[2] are shells from the bra state,
+**              s[1] and s[3] are shells from the ket state.
+**              {short n_shells}, 
+**              number of shells in the bra state.
+**              {short phase},
+**              the phase resulting from the decoupling that depends
+**              on the shell structure of the states.
+** NOTE:        
+*/
 typedef struct _INTERACT_DATUM_ {
   SHELL *bra;
   short s[4];
@@ -27,6 +106,15 @@ typedef struct _INTERACT_DATUM_ {
 
 
 #ifdef PERFORM_STATISTICS
+/*
+** STRUCT:      RECOUPLE_TIMING
+** PURPOSE:     the timing statistics of the module "recouple".
+** FIELDS:      {clock_t angz, angzxz, decouple, interact},
+**              time used in the functions AngZ, AngZxZ0, 
+**              DecoupleShell, and GetInteract respectively.
+** NOTE:        it is only compiled in when the macro 
+**              PERFORM_STATISTICS is defined in "global.h".
+*/
 typedef struct _RECOUPLE_TIMING_ {
   clock_t angz;
   clock_t angzxz;

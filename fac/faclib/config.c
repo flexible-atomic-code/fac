@@ -1,16 +1,54 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.11 2001/11/06 23:55:20 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.12 2001/11/12 22:23:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
+/*************************************************************
+  Implementation of module "config".
+
+  This module generates electron configuations and 
+  carries out the angular momentum coupling. 
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+/*
+** VARIABLE:    cfg_groups
+** TYPE:        static array
+** PURPOSE:     a list of configuration groups.
+** NOTE:        
+*/
 static CONFIG_GROUP *cfg_groups;
+
+/*
+** VARIABLE:    n_groups
+** TYPE:        static int
+** PURPOSE:     number of groups present.
+** NOTE:        
+*/
 static int n_groups; 
 
+/*
+** VARIABLE:    symmetry_list
+** TYPE:        static array
+** PURPOSE:     a list of symmetries.
+** NOTE:        the symmetry array is initialized in InitConfig.
+**              the number of symmetries are fixed at 512. the i-th 
+**              symmetry have the j = floor(i/2), 
+**              and the parity = mod(i, 2). 
+*/
 static SYMMETRY *symmetry_list;
 
+/*
+** VARIABLE:    spec_symbols
+** TYPE:        string.
+** PURPOSE:     a string orbital angular momentum symbols.
+** NOTE:        the last char "*" is not part of the symbol, 
+**              rather, it represents any of the previous symbols.
+*/
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqr*"; 
 
 
