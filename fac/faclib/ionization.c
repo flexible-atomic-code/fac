@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.18 2001/10/12 03:15:00 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.19 2001/10/12 18:49:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -652,6 +652,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 
   if (n_egrid == 0) {    
     n_egrid = 6;
+  } else if (n_egrid <= NPARAMS) {
+    printf("n_egrid should be at least %d\n", NPARAMS+1);
+    exit(1);
   }
   if (egrid[0] < 0.0) {
     SetCIEGrid(n_egrid, emin, emax, e);

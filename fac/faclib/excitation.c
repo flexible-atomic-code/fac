@@ -1,13 +1,13 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.22 2001/10/12 03:15:00 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.23 2001/10/12 18:49:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 #define MAXMSUB  32
-#define NPARAMS  5
+#define NPARAMS  6
 
 static int output_format = 0;
 static int egrid_type = -1;
@@ -535,12 +535,18 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 
   ptr = rqc;
   if (interpolate_egrid) {
-    if (type == 1) np = NPARAMS;
-    else np = NPARAMS - 1;
+    if (type == 1) {
+      np = 6;
+      t = 0;
+    } else {
+      np = 5;
+      t = 1;
+    }
     for (ite = 0; ite < n_tegrid; ite++) {      
-      SVDFit(np, ptr, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+      SVDFit(np, ptr+t, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
 	     rq[ite], sigma, CERadialQkBasis);
-      if (np < NPARAMS) ptr[np] = 0.0;
+      for (i = 0; i < t; i++) ptr[i] = 0.0;
+      for (i = np+t; i < NPARAMS; i++) ptr[i] = 0.0;
       ptr += n_qk;
     }
   } else {
@@ -753,13 +759,19 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 
   ptr = rqc;
   if (interpolate_egrid) {
-    if (type1 == 1 && type2 == 1) np = NPARAMS;
-    else np = NPARAMS - 1;
+    if (type1 == 1 && type2 == 1) {
+      np = 6;
+      t = 0;
+    } else {
+      np = 5;
+      t = 1;
+    }
     for (iq = 0; iq < nq; iq++) {
       for (ite = 0; ite < n_tegrid; ite++) {      
-	SVDFit(np, ptr, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
-	       rq[iq][ite], NULL, CERadialQkBasis);
-	if (np < NPARAMS) ptr[np] = 0.0;
+	SVDFit(np, ptr+t, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+	       rq[iq][ite], sigma, CERadialQkBasis);
+	for (i = 0; i < t; i++) ptr[i] = 0.0;
+	for (i = np+t; i < NPARAMS; i++) ptr[i] = 0.0;
 	ptr += n_qk;
       }
     }
@@ -849,13 +861,25 @@ void CERadialQkBasis(int npar, double *yb, double x, double logx) {
   double t;
 
   t = 1.0/x;
-  yb[0] = 1.0;
-  for (i = 1; i < NPARAMS-2; i++) {
-    yb[i] = yb[i-1]*t;
-  }
-  yb[i++] = t*logx;
-  if (i < npar) {
-    yb[i] = logx;
+
+  if (npar == 6) {
+    yb[0] = logx;
+    yb[1] = 1.0;
+    yb[2] = logx*t;
+    yb[3] = t;
+    t *= t;
+    yb[4] = t*logx;
+    yb[5] = t;
+  } else if (npar == 5) {
+    yb[0] = 1.0;
+    yb[1] = logx*t;
+    yb[2] = t;
+    t *= t;
+    yb[3] = t*logx;
+    yb[4] = t;
+  } else {
+    printf("npar illegal in fitting of collision strength\n");
+    exit(1);
   }
 }
 
@@ -987,6 +1011,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   if (!f) return -1;
 
   n = 0;
+  alev = NULL;
   if (nlow == 0 || nup == 0) {
     n = GetNumLevels();
     if (n <= 0) return -1;
@@ -1065,10 +1090,18 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
 
   if (egrid[0] < 0.0) {
-    if (n_usr > 0 && n_usr <= NPARAMS && egrid_type == usr_egrid_type) {
+    if (n_usr > 0 && n_usr < NPARAMS && egrid_type == usr_egrid_type) {
       SetCEEGridDetail(n_usr, usr_egrid);
       interpolate_egrid = 0;
     } else {
+      if (n_usr > 0) {
+	emin = usr_egrid[0];
+	emax = usr_egrid[n_usr-1];
+	if (usr_egrid_type == 0) {
+	  emin -= e;
+	  emax -= e;
+	}
+      }
       if (egrid_type == 0) {
 	SetCEEGrid(n_egrid, emin, emax, -e);
       } else {
@@ -1116,7 +1149,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   fprintf(f, "\n\n");  
 
   if (interpolate_egrid) {
-    fprintf(f, " Strength = A + B/u + C/u^2 + Dln(u)/u + Eln(u)\n");
+    fprintf(f, 
+	    " Strength = Aln(u) + B + Cln(u)/u + D/u + Eln(u)/u^2 + F/u^2\n");
   }
 
   if (output_format >= 0 && n_usr > 0) {
@@ -1236,7 +1270,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #endif /* PERFORM_STATISTICS */
 
   fclose(f);
-  if (n > 0) free(alev);
+  if (alev) free(alev);
   return 0;
 }
 
