@@ -1,6 +1,8 @@
 Version 1.0.7, 11/10/2004
 	1. add DR satellite energy to the DB_DR file.
-	2. add the RRMultipole function for bound-free multipole matrix elements.
+	2. add the RRMultipole function for bound-free multipole matrix
+	   elements.
+	3. rewrite Angular coupling routines, much faster now.
 	
 Version 1.0.6, 09/05/2004
 	1. parallelize StructureMBPT

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.68 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.69 2004/12/12 06:15:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -716,30 +716,6 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
   exit(0);
 }
 
-static int PFreeAngZ(int argc, char *argv[], int argt[], ARRAY *variables) {
-  int i, m;
-  int n, *kg;
-  
-  m = -1;
-  if (argc == 0) {
-    FreeAngZ(-1, m);
-  } else if (argc > 0) {
-    if (argc > 2) return -1;
-    if (argt[0] != LIST) return -1;
-    n = DecodeGroupArgs(&kg, 1, argv, argt, variables);
-    if (argc == 2) {
-      if (argt[1] != NUMBER) return -1;
-      m = atoi(argv[1]);
-    }
-    for (i = 0; i < n; i++) {
-      FreeAngZ(kg[i], m);
-    }
-    free(kg);
-  }
-    
-  return 0;
-}
-
 static int PFreeExcitationPk(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int ie;
@@ -807,13 +783,6 @@ static int PFreeRecQk(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
   if (argc != 0) return -1;
   FreeRecQk();
-  return 0;
-}
-
-static int PFreeRecAngZ(int argc, char *argv[], int argt[], 
-			ARRAY *variables) {
-  if (argc != 0) return -1;
-  FreeRecAngZ();
   return 0;
 }
 
@@ -2782,17 +2751,6 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PSetNStatesPartition(int argc, char *argv[], int argt[],
-				ARRAY *variables) {
-  int n;
-  
-  if (argc == 1) n = atoi(argv[0]);
-  else if (argc == 0) n = 0;
-  else return -1;
-  
-  return 0;
-}
-  
 static int PWaveFuncTable(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   int k, n;
@@ -3294,7 +3252,6 @@ static METHOD methods[] = {
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
-  {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
@@ -3304,7 +3261,6 @@ static METHOD methods[] = {
   {"FreeResidual", PFreeResidual, METH_VARARGS},
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
-  {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
@@ -3361,7 +3317,6 @@ static METHOD methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
-  {"SetNStatesPartition", PSetNStatesPartition, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},

@@ -216,13 +216,12 @@
 #define ENEABSERR  1E-5 /* absolute energy error */
 
 /* config */
-#define NSPARTITION        100
 #define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     64
-#define MAX_GROUPS         4096
+#define MAX_GROUPS         1000
 #define MAX_SYMMETRIES     256
-#define CONFIGS_BLOCK      256
+#define CONFIGS_BLOCK      1024
 #define STATES_BLOCK       2048
 
 /* radial */
@@ -238,10 +237,11 @@
 #define QEDBREIT           5
 
 /* structure */
+#define MAX_HAMS           2000
 #define LEVELS_BLOCK       1024
-#define ANGZ_BLOCK         32
-#define ANGZCUT            1E-6
-#define MIXCUT             1E-5
+#define ANGZ_BLOCK         1024
+#define ANGZCUT            1E-4
+#define MIXCUT             1E-4
 #define NPRINCIPLE         2
 #define MAXDN              3
 
