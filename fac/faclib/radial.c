@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.44 2002/02/25 15:24:46 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.45 2002/03/21 20:15:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -434,7 +434,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (potential->N > 1) {
     potential->r_core = MAX_POINTS-5;
   } else {
-    potential->r_core = MAX_POINTS/2;
+    potential->r_core = MAX_POINTS*0.75;
   }
 
   if (optimize_control.iset == 0) {

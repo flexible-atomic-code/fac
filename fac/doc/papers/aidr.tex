@@ -1,35 +1,20 @@
-\documentclass{elsart}
-\usepackage[numbers]{natbib}
-\usepackage[dvips]{graphicx}
-\graphicspath{{/nfs/pyxis/d1/mfgu/atomic/tmp/fe18/}}
+\documentclass[preprint, floatfix, pra, showpacs, showkeys]{revtex4}
+\usepackage{graphicx}
+\usepackage{dcolumn}
 
 \newcommand{\threej}[6]{\ensuremath{\left({#1\atop #4}{#2\atop #5}
 {#3\atop #6}\right)}}
 \newcommand{\sixj}[6]{\ensuremath{\left\{{#1\atop #4}{#2\atop #5}
 {#3\atop #6}\right\}}}
 
-\newcommand{\pra}{Phys. Rev. A}
-\newcommand{\cpc}{Comput. Phys. Commun.}
-\newcommand{\jpb}{J. Phys. B}
-\newcommand{\ant}{At. Data Nucl. Data Tables}
-\newcommand{\amp}{Adv. Atom. Mol. Phys.}
-\newcommand{\aaa}{Astron. Astrophys.}
-\newcommand{\apjs}{ApJ. Suppl.}
-\newcommand{\apj}{ApJ.}
-\newcommand{\pscr}{Phys. Scr.}
-
-\defcitealias{gu01a}{Paper~I}
-\defcitealias{gu01b}{Paper~II}
-\defcitealias{gu01c}{Paper~III}
-
 \begin{document}
 
-\begin{frontmatter}
-
-\title{Flexible Atomic Code: IV. Autoionization and Dielectronic
+\title{The Flexible Atomic Code: IV. Autoionization and Dielectronic
 Recombination}  
 \author{Ming Feng Gu}
-\address{Massachusetts Institute of Technology, Cambridge, MA 02139, USA}
+\affiliation{Center for Space Research, Massachusetts Institute of Technology,
+Cambridge, MA 02139} 
+\email[Email: ]{mfgu@space.mit.edu}
 
 \begin{abstract} 
 A computer program for calculating autoionization and radiationless electron
@@ -48,56 +33,12 @@ of rate coefficients for dielectronic recombination of F-like iron to form
 Ne-like iron. 
 \end{abstract}
 
-\begin{keyword}
-Distorted-wave \sep Autoionization \sep Dielectronic recombination. 
-\PACS 32.80.Dz
-\end{keyword}
-
-\end{frontmatter}
-
-\textbf{\large PROGRAM SUMMARY}
-
-Title of program: FAC
-
-Catalogue identifier:
-
-Distribution formate:
-
-Computer for which the program is designed and others on which the program has
-been tested:\\
-Computers: Sun Workstations, PCs\\
-Operating systems under which the program has been tested: Unix
-
-Programming language used: C, Fortran, Python
-
-Number of bits in a word: 64
-
-Number of processors used: 1
-
-Has the code been vectorized or parallelized: No
-
-Keywords: Distorted-wave, Autoionization, Dielectronic recombination.
-
-Nature of physical problem: Autoionization and radiationless electron capture
-can be thought of an intermediate step in various resonant processes occurring
-in recombination, excitation, and ionization.  
-
-Method of solution: The autoionization and radiationless electron capture
-rates are calculated in the first order perturbation theory, using continuum
-wave functions obtained in the relativistic distorted-wave approximation. An
-efficient interpolation procedure is implemented in calculating the
-autoionization radial integrals.
-
-Restrictions on the complexity of program: No special restrictions except for
-that of system resources. 
-
-Typical running time: The test calculation of autoionization for Ne-like
-selenium takes 1.0 seconds, and that of DR for F-like iron takes 48 seconds.
-
-\textbf{\large LONG WRITE-UP}
+\pacs{32.80.Dz}
+\keywords{Distorted-wave; Autoionization; Dielectronic recombination}
+\maketitle
 
 \section{Introduction}
-In \citetalias{gu01c} \citep{gu01c} of this sequence of papers, we discussed
+In Ref.~\cite{gu02c}, we discussed
 the calculation of non-resonant photoionization and radiative recombination
 cross sections
 using the Flexible Atomic Code (FAC). In many cases, the resonance
@@ -111,15 +52,15 @@ the close-coupling (CC) approximation, which yield unified results for both
 background and resonant contributions. The efficient R-matrix implementation
 of the CC approximation has been used extensively in the past to calculate
 photoionization, recombination and electron impact excitation cross sections
-\citep{hummer93, berrington95}. The main drawback of this approximation is
+\cite{hummer93, berrington95}. The main drawback of this approximation is
 that it is very CPU-time consuming. Therefore, the number of coupled
 channels are often limited in realistic calculations. Fortunately, in many
 applications, especially for highly 
 ionized ions, methods based on the distorted-wave (DW) approximation are
-proven to be reasonably accurate even for resonant processes, see, for
-example, the comparison between various DW calculations and experimental
+proven to be reasonably accurate even for resonant processes, e.g., as
+indicated by the comparison between various DW calculations and experimental 
 measurements of the dielectronic recombination (DR) rate coefficients for
-O-like and F-like iron \citep{savin99}. In the DW methods, resonances are
+O-like and F-like iron \cite{savin99}. In the DW methods, resonances are
 usually treated as 
 multi-step processes, one or more of these steps involve autoionization (AI)
 or its inverse process, radiationless
@@ -127,18 +68,18 @@ electron capture. For example, the first step of DR is the radiationless
 electron capture, followed by radiative decay, which competes with
 autoionization. Therefore, the calculation of autoionization rates is the
 major task in any DW treatments of resonant processes. Several DW programs
-have been developed for this purpose in the past decades \citep{pindzola80,
+have been developed for this purpose in the past decades \cite{pindzola80,
 kim87, oreg91}. The present method is most similar to that of
-\citet{oreg91}, which uses an efficient factorization-interpolation procedure
+\textcite{oreg91}, which uses an efficient factorization-interpolation procedure
 for the calculation of the autoionization radial integrals. 
 
-In \S\ref{sec_theory}, we outline the theoretical background and discuss
-the important numerical techniques used in the program. \S\ref{sec_program}
-introduces functions in the FAC software package which are used to calculate
-the AI and DR rates. \S\ref{sec_example} presents the calculated AI rates for
-Ne-like selenium, as compared with the results of \citet{oreg91}. In addition,
+In Section \ref{sec_theory}, we outline the theoretical background and discuss
+the important numerical techniques used in the program. Section
+\ref{sec_results} presents the calculated AI rates for Ne-like selenium, as
+compared with the results of \textcite{oreg91}. In addition, 
 the $\Delta n = 0$ DR rate coefficients of F-like iron are calculated and
-compared with the experimental and theoretical results of \citet{savin99}. 
+compared with the experimental and theoretical results of \textcite{savin99}. 
+Section \ref{sec_conclusions} gives a biref summary.
 
 \section{Theory and Numerical Techniques}
 \label{sec_theory}
@@ -151,7 +92,7 @@ A^a = \sum_\kappa \left|
 where $\psi_i$ is the autoionizing state, $\psi_f$ is the final state which has
 one less electron than $\psi_i$, $\kappa$ is the relativistic angular quantum
 number of the free electron, whose wavefunction is normalized as discussed in
-\citetalias{gu01b}. The total angular momentum of the coupled final state must
+Ref.~\cite{gu02b}. The total angular momentum of the coupled final state must
 be equal to that of $\psi_i$, i.e.,  $J_T = J_i$ and $M_T = M_i$. After the
 separation of the angular and radial integrals, we have
 \begin{equation}
@@ -164,7 +105,7 @@ $\psi_i$, $\alpha$ is the orbital which makes the internal transition in
 $\psi_f$, and
 $P^k$ is the radial integral as defined in the expression for the DW collision
 strength of electron impact excitation, except that one of the free orbital
-is replaced by a bound orbital \citepalias{gu01b}. For autoionization of
+is replaced by a bound orbital \cite{gu02b}. For autoionization of
 complex ions, the radial integrals $P^k$ with the same set of bound orbitals,
 $\alpha$, $\gamma$, and $\delta$, 
 often appear in many different transitions. However, the energies of the free
@@ -172,7 +113,7 @@ electrons in these integrals are different due to the conservation of
 energy. It is 
 computationally demanding to calculate such integrals for each transition
 individually. Fortunately, the dependence of $P^k$ on the free electron energy
-is rather weak, as noticed by \citet{oreg91}. Therefore, it is possible to
+is rather weak, as noticed by \textcite{oreg91}. Therefore, it is possible to
 calculate $P^k$ at a few energies, and the integrals at actual transition
 energies are obtained by interpolation from these values. Usually, for a given
 class of 
@@ -208,15 +149,15 @@ ionization limit, $a$ denotes levels which
 may further autoionize, and $k^\prime$ are the final levels of
 autoionization. In most cases, the effect of radiative decay to autoionizing
 levels is small, an approximate expression for the branching ratio may be used
-by dropping the final term in both the numerator and denominator of Equation
-\ref{eq_B}, that is
+by dropping the final term in both the numerator and denominator of
+Eq.~(\ref{eq_B}), that is 
 \begin{equation}
 \label{eq_BApprox}B(i) = \frac{\sum_k A^r(i\to k)}
 {\sum_{k^\prime}A^a(i\to k^\prime) + \sum_k A^r(i\to k)}.
 \end{equation}
 This approximation turns out to be fairly good even if the decay to
 autoionizing levels is not completely negligible as demonstrated and explained
-by \citet{behar95, behar96}. The DR strength $S_{DR}$ is the product of DC
+by \textcite{behar95, behar96}. The DR strength $S_{DR}$ is the product of DC
 strength and the branching ratio.
 
 In plasma modeling, the DR rate coefficients, $\alpha_{DR}$, for electrons in
@@ -231,7 +172,7 @@ Planck constant, and $k_B$ is the Boltzmann constant. Since rate coefficients
 are not fundamental atomic parameters, atomic units is not used in this
 expression. 
 
-The summation over the autoionizing levels $i$ in Equation \ref{eq_rate}
+The summation over the autoionizing levels $i$ in Eq.~(\ref{eq_rate})
 extends to all possible states which may be formed by DC. Usually, the states
 of each 
 complex, designated as $nln^\prime l^\prime$, where the excited core electron
@@ -265,152 +206,81 @@ energies should be used with caution for resonances below a few tens of
 eV. Sometimes, shifting the resonance energies for an entire series according
 to the experimental transition energies of the core prove to be practical.
 
-\section{User Interface}
-\label{sec_program}
-The general features of the FAC user interface, and that related to the atomic
-structure calculations are discussed in \citetalias{gu01a}. The calculation of 
-the electron impact excitation collision strengths is discussed in
-\citetalias{gu01b}, and that for non-resonant photoionization and radiative
-recombination cross sections is presented in \citetalias{gu01c}. In this
-section, we discuss functions relevant to the calculation of AI rates, DR
-strengths, and DR rate coefficients. 
-
-The specification of configurations of the recombined ion and the
-diagonalization 
-of its Hamiltonian are the same as those discussed in \citetalias{gu01c}. Once
-this is done, one may call the optional routine ``SetPEGrid(n, emin, emax)'' to
-set up an internal energy grid for the free electrons present in the 
-autoionization radial integrals. If it is not called, a three-point grid 
-is automatically determined according to the transitions involved (a
-two-point grid is used if the transition energies vary by $<$ 20\%).
-
-For $\Delta n = 0$ resonances, one may use ``CorrectEnergy(levels, energies)''
-to correct the resonance energies. ``levels'' and ``energies'' are two Python
-lists which specify the level indices and the experimental energies for these
-levels. The levels should be the core states of the recombining ion. When the
-spectator is added, the energies of the resulting doubly excited states are
-adjusted accordingly. Note that this only works when the recombined states are 
-constructed with the routine ``RecStates'', and the captured electron can be
-treated as a spectator, which is usually the case for low energy
-resonances. Instead of giving two lists as arguments, one may supply
-a file as the argument, which contains 
-two columns, one for the level indices, and the other for the corresponding
-energy values.
-
-The function ``DROpen(groups)'' calculates the principal quantum numbers of
-the spectator electron using the hydrogenic energy formula, where DR channels
-corresponding to the levels in ``groups'' start to open . This function
-returns a list which contains the results. This list can be used to construct
-the $n^\prime$ grid for $\Delta n = 0$ resonances.
-
-``AITable(b, f, fname)'' calculates the AI rates from the states in ``b'' to
-the states in ``f'', where ``b'' and ``f'' may be lists containing
-configuration groups or actual level indices. States in ``b'' must have one
-more electron than those 
-in ``f''. The results are output in ``fname'' in plain ASCII format, which
-tabulates, for each transition, the resonance energy in eV, the AI rates in
-atomic units, and the DC strengths in $10^{-20}$ cm$^2$ eV. 
-
-``DRTable(f, a, b, g, afile, tfile)'' combines ``AITable'' and
-``TransitionTable'' in a single routine. It is almost equivalent to calling 
-``AITable(a, f, afile)'' and ``TransitionTable(a, b, tfile, -1)'' in
-sequence. The only difference is the presence of an additional argument,
-``g'', which is a list containing the target states from which DR is
-to be calculated. If the levels in ``a'' does not autoionize to levels in
-``g'', their transition rates to levels in ``b'' are not calculated either,
-since these decays do not contribute to the DR processes of interest.
-
-\section{Examples}
-\label{sec_example}
+\section{Results}
+\label{sec_results}
 \subsection{Autoionization rates of Ne-like Selenium}
 The autoionization rates for the selected configurations of Ne-like Se is
 calculated. Only the doubly excited states of the Ne-like configurations, 
 $2s^22p^43s^2$ and $2s^22p^43s3p$ are included for the purpose of comparison
-with the results of \citet{oreg91}. The Python script for such a calculation is
-shown below. Note that the Ne-like doubly excited configurations are used to
-construct the optimal central potential. This is to make the calculation
-more similar to that of \citet{oreg91}, where the optimal potential is
+with the results of \textcite{oreg91}. The Ne-like doubly excited
+configurations are used to construct the optimal central potential. This is to
+make the calculation 
+more similar to that of \textcite{oreg91}, where the optimal potential is
 determined by minimizing the energies of the doubly excited configurations.
-However, The
-resulting AI rates are not very sensitive to the exact manner the potential
+The resulting AI rates are not very sensitive to the exact manner the potential
 is determined. For example, using the ground configuration of the F-like ion
 plus an $n = 3$ screening electron as the mean configuration results in
-less than 10\% change for most rates. 
-
-\begin{verbatim}
-# import the modules
-from pfac import config, fac
-
-fac.SetAtom('Se')
-
-# configurations for the F-like ion
-config.closed('1s')
-config.closed('2s')
-config.config('2p5', group = 'n2')
-
-# configurations of doubly excited Ne-like ion
-config.config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
-
-fac.OptimizeRadial('n33')
-fac.Structure('n2')
-fac.Structure('n33')
-
-fac.LevelTable('se.lev')
-fac.AITable(['n33'], ['n2'], 'se.ai')
-\end{verbatim}
+less than 10\% change for most transitions.
 
 In Table \ref{tab_comparison}, we show AI rates to the two F-like
 states, $2p_{1/2}2p^4_{3/2}$ and $2p^2_{1/2}2p^3_{3/2}$, calculated by the
-present code. Two sets of results are shown, one is obtained by constructing
+present program. Two sets of results are shown, one is obtained by constructing
 the mean configuration based on the doubly excited configurations, the other
 has the mean configuration constructed by adding an $n = 3$ screening electron
 to the ground configuration of the F-like ion. For comparison, the rates of
-\citet{oreg91} are presented as 
-well. The difference between the two FAC results and those of \citet{oreg91}
-is mostly within a few percent, with a few exceptions of $\sim$ 20--30\%. 
+\textcite{oreg91} are presented as 
+well. The difference between the two FAC results and those of \textcite{oreg91}
+is mostly within a few percent, with a few exceptions of $\sim$ 10--30\%. 
  
+\begingroup
+\squeezetable
 \begin{table}
 \caption{\label{tab_comparison} The comparison of AI rates (in $10^{12}$
 s$^{-1}$) for Ne-like selenium. The level labels are identical to those of
-\citet{oreg91}. The columns labeled by ``O'' are the results of \citet{oreg91},
-the columns labeled by ``F1'' are the present results obtained with the mean
+\textcite{oreg91}. 
+The columns labeled by FAC$_1$ are the present results obtained with the mean
 configuration constructed from the Ne-like doubly excited configurations, and
-those labeled by ``F2'' have the mean configuration constructed by adding an
+those labeled by FAC$_2$ have the mean configuration constructed by adding an
 $n = 3$ screening electron to the ground configuration of the F-like ion. To
 save the space, only the rates for autoionizing states having
 $J = 0$, and $1$ are listed.}
-\begin{tabular}{*{8}{c}}
-\hline\hline
+\begin{ruledtabular}
+\begin{tabular}{l*{7}{d}}
 &&\multicolumn{3}{c}{$2p_{1/2}2p^4_{3/2}$}&
-\multicolumn{3}{c}{$2p^2_{1/2}2p^3_{3/2}$} \\
-&J&O&F1&F2&O&F1&F2\\
+\multicolumn{3}{c}{$2p^2_{1/2}2p^3_{3/2}$}\\
+\cline{3-5}\cline{6-8}
+Level&\multicolumn{1}{c}{J}&\multicolumn{1}{c}{Ref.~\cite{oreg91}}&
+\multicolumn{1}{c}{FAC$_1$}&\multicolumn{1}{c}{FAC$_2$}&
+\multicolumn{1}{c}{Ref.~\cite{oreg91}}&
+\multicolumn{1}{c}{FAC$_1$}&\multicolumn{1}{c}{FAC$_2$}\\
 \hline
 $(2p^2_{1/2}2p^2_{3/2})_03s^2$&0&0.85&0.80&0.78&13.3&13.1&13.2\\
 $2p^4_{3/2}3s^2$&0&13.0&12.1&12.3&0.84&0.82&0.80\\
 $[(2p^2_{1/2}2p^2_{3/2})_03s]_{1/2}3p_{1/2}$&0&0.003&0.002&0.002&0.21&0.25&0.23\\
-$[(2p_{1/2}2p^3_{3/2})_13s]_{1/2}3p_{1/2}$&0&9E-6&0.018&0.02&0.32&0.37&0.35\\
-$(2p^4_{3/2}3s)_{1/2}3p_{1/2}$&0&168&168&164&0.03&0.038&0.037\\
+$[(2p_{1/2}2p^3_{3/2})_13s]_{1/2}3p_{1/2}$&0&0.0&0.018&0.02&0.32&0.37&0.35\\
+$(2p^4_{3/2}3s)_{1/2}3p_{1/2}$&0&168.0&168.0&164.0&0.03&0.038&0.037\\
 $[(2p^2_{1/2}2p^2_{3/2})_23s]_{3/2}3p_{3/2}$&0&0.78&0.74&0.74&0.73&0.84&0.78\\
 $[(2p_{1/2}2p^3_{3/2})_13s]_{3/2}3p_{3/2}$&0&5.96&6.84&6.89&0.21&0.22&0.22\\
-$[(2p_{1/2}2p^3_{3/2})_23s]_{3/2}3p_{3/2}$&0&188&185&185&0.003&0.006&0.003\\
+$[(2p_{1/2}2p^3_{3/2})_23s]_{3/2}3p_{3/2}$&0&188.0&185.0&185.0&0.003&0.006&0.003\\
 $(2p_{1/2}2p^3_{3/2})_13s^2$&1&7.11&6.98&7.06&6.96&6.52&6.58\\
 $[(2p^2_{1/2}2p^2_{3/2})_03s]_{1/2}3p_{1/2}$&1&0.002&0.002&0.002&0.84&0.95&0.92\\
 $[(2p^2_{1/2}2p^2_{3/2})_23s]_{3/2}3p_{1/2}$&1&0.13&0.12&0.11&0.50&0.57&0.54\\
 $[(2p_{1/2}2p^3_{3/2})_23s]_{1/2}3p_{1/2}$&1&0.41&0.50&0.43&11.6&10.2&7.74\\
 $[(2p_{1/2}2p^3_{3/2})_13s]_{3/2}3p_{1/2}$&1&0.78&0.75&0.56&10.5&9.75&6.08\\
-$[(2p_{1/2}2p^3_{3/2})_23s]_{3/2}3p_{1/2}$&1&34.9&33.2&32.1&154&156&152\\
-$(2p^4_{3/2}3s)_{1/2}3p_{1/2}$&1&152&153&150&3.21&3.54&3.33\\
+$[(2p_{1/2}2p^3_{3/2})_23s]_{3/2}3p_{1/2}$&1&34.9&33.2&32.1&154.0&156.0&152.0\\
+$(2p^4_{3/2}3s)_{1/2}3p_{1/2}$&1&152.0&153.0&150.0&3.21&3.54&3.33\\
 $[(2p^2_{1/2}2p^2_{3/2})_03s]_{1/2}3p_{3/2}$&1&1.57&1.69&1.63&20.4&21.7&24.7\\
 $[(2p^2_{1/2}2p^2_{3/2})_23s]_{3/2}3p_{3/2}$&1&0.34&0.34&0.34&1.25&0.94&0.86\\
 $[(2p^2_{1/2}2p^2_{3/2})_23s]_{5/2}3p_{3/2}$&1&1.20&1.32&1.45&54.2&56.7&62.0\\
 $[(2p_{1/2}2p^3_{3/2})_13s]_{1/2}3p_{3/2}$&1&1.71&1.54&1.62&6.90&6.65&5.96\\
 $[(2p_{1/2}2p^3_{3/2})_13s]_{3/2}3p_{3/2}$&1&0.89&0.71&0.69&80.6&78.9&78.7\\
 $[(2p_{1/2}2p^3_{3/2})_23s]_{3/2}3p_{3/2}$&1&0.15&0.12&0.11&8.57&7.29&8.56\\
-$[(2p_{1/2}2p^3_{3/2})_23s]_{5/2}3p_{3/2}$&1&143&142&144&84.3&85.4&83.0\\
+$[(2p_{1/2}2p^3_{3/2})_23s]_{5/2}3p_{3/2}$&1&143.0&142.0&144.0&84.3&85.4&83.0\\
 $(2p^4_{3/2}3s)_{1/2}3p_{3/2}$&1&64.3&66.0&65.1&3.02&3.08&2.97\\
-\hline\hline
 \end{tabular}
+\end{ruledtabular}
 \end{table}
+\endgroup
 
 \subsection{$\Delta n = 0$ DR of F-like iron}
 \begin{figure}
@@ -420,8 +290,8 @@ strengths of F-like iron. The top panel is for $P_{3/2}\to P_{1/2}$ channel,
 the bottom 
 panel is for $P_{3/2}\to S_{1/2}$ channel. The filled diamonds are the present
 resuts, open diamonds and filled circles are the MCDF calculations and
-experimental results of \citet{savin99}. Note that the weighting factors of
-the resonance strengths plotted in Figures 6 and 7 of \citet{savin99} are that
+experimental results of \textcite{savin99}. Note that the weighting factors of
+the resonance strengths plotted in Figures 6 and 7 of \textcite{savin99} are that
 of the highest energy resonances in each complex. The data plotted here
 include a small corrections factor ($\sim$ 10\%) for the first three points in
 both pannels.}
@@ -434,16 +304,16 @@ coefficients of F-like iron. The dotted line is the present result for
 $P_{3/2}\to P_{1/2}$ channel, the dashed line is the present result for
 $P_{3/2}\to S_{1/2}$ channel, the solid line is the present total rate
 coefficients, the dash-dotted and long-dashed lines are the MCDF calculations
-and experimental results of \citet{savin99}.}
+and experimental results of \textcite{savin99}.}
 \end{figure}
 
-\citet{savin99} have measured the $\Delta n = 0$ DR cross sections of O-like
+\textcite{savin99} have measured the $\Delta n = 0$ DR cross sections of O-like
 and F-like iron 
 using the heavy-ion Test Storage Ring, and compared the experimental results
 with various theoretical calculations, all of them in the DW approximation. The
 multi-configuration Dirac-Fork (MCDF) and Breit-Pauli (MCBP) calculations
 presented in their paper are shown to agree with the measurement to within
-20--30\%. Recently, \citet{pradhan01} have calculated the $\Delta n = 0$ DR
+20--30\%. Recently, \textcite{pradhan01} have calculated the $\Delta n = 0$ DR
 of F-like iron using the CC approximation, and found to agree with the
 experiment to within a similar percentage. 
 
@@ -472,9 +342,9 @@ calculated as
 S_n = \sum_i E_{if}S_{DC}B(i),
 \end{equation}
 which removes the trivial dependence on the resonance energies. The approximate
-branching ratio, Equation \ref{eq_BApprox}, is used. 
+branching ratio given by Eq.~(\ref{eq_BApprox}) is used. 
 Along with the present results, the MCDF calculations and the experimental
-results of \citet{savin99} are also shown. The present results seem to be
+results of \textcite{savin99} are also shown. The present results seem to be
 systematically lower than the MCDF calculations by $\sim$ 10--15\%, and 
 both theoretical results are smaller than the measurements. 
 Figure \ref{fig_rate} shows the comparison of total $\Delta n = 0$ DR rate
@@ -485,6 +355,7 @@ present calculations and the MCDF results is less than 15\%, and the difference
 between the present calculations and the measurements is $\sim$ 10--40\%.
 
 \section{Conclusions}
+\label{sec_conclusions}
 A DW program is presented for calculating AI rates and DR rate
 coefficients in the isolated resonance approximation. The interpolation of
 autoionization radial integral in the continuum electron energy is implemented
@@ -498,15 +369,16 @@ MCDF results and measurements to within a few percent at temperatures above
 100 eV. At lower temperatures, the agreement is worse, $\sim$ 10--15\% with
 the MCDF results and up to 40\% with the measurements.
 
-\section*{Acknowlegements}
-The author would like to thank Ehud Behar for the helpful discussion, and
+\begin{acknowledgments}
+The author would like to thank Ehud Behar for helpful discussions, and
 Daniel Savin for providing the experimental and MCDF data in electronic
-version. This work is supported by
+format. This work is supported by
 NASA through Chandra Postdoctoral Fellowship Award Number PF01-10014 issued by
 the Chandra X-ray Observatory Center, which is operated by Smithsonian
 Astrophysical Observatory for and on behalf of NASA under contract NAS8-39073.
+\end{acknowledgments}
 
-\bibliographystyle{unsrtnat}
+\bibliographystyle{apsrev}
 \bibliography{facref}
 
 \end{document}

@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.8 2002/01/14 23:19:41 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.9 2002/03/21 20:15:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -211,7 +211,7 @@ int ArrayFreeData(DATA *p, int esize, int block,
 **              pointer to the array.
 **              {void (*FreeElem)(void *)},
 **              a function called before freeing each element.
-** RETURN:      {int 0},
+** RETURN:      {int},
 **              always 0.
 ** SIDE EFFECT: 
 ** NOTE:        
@@ -225,6 +225,20 @@ int ArrayFree(ARRAY *a, void (*FreeElem)(void *)) {
   return 0;
 }
 
+/* 
+** FUNCTION:    ArrayTrim
+** PURPOSE:     Trim the tail of an array to a given length.
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+**              {int n},
+**              length of the final array.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing each element.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        if the length of array is <= n, nothing happens.
+*/    
 int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
   DATA *p;
   void *pt;
@@ -266,6 +280,23 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
   return 0;
 }         
 
+/* 
+** FUNCTION:    MultiInit
+** PURPOSE:     initialize a multi-dimensional array.
+** INPUT:       {MULTI *ma},
+**              pointer to the multi-dimensional array.
+**              {int esize},
+**              size of each element in bytes.
+**              {int ndim},
+**              number of dimensions of the array.
+**              {int *block},
+**              integer array of length ndim,
+**              giving the block size in each dimension.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
 int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i;
   ma->ndim = ndim;
@@ -276,6 +307,19 @@ int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
   return 0;
 }
 
+/* 
+** FUNCTION:    MultiGet
+** PURPOSE:     get an element in a multi-dimensional array.
+** INPUT:       {MULTI *ma},
+**              pointer to the multi-dimensional array.
+**              {int *k},
+**              integer array of length ndim, 
+**              giving the indexes in each dimension.
+** RETURN:      {void *},
+**              pointer to the element
+** SIDE EFFECT: 
+** NOTE:        
+*/    
 void *MultiGet(MULTI *ma, int *k) {
   ARRAY *a;
   int i;
@@ -289,6 +333,21 @@ void *MultiGet(MULTI *ma, int *k) {
   return (void *) a;
 }
 
+/* 
+** FUNCTION:    MultiSet
+** PURPOSE:     Set an element in a multi-dimensional array.
+** INPUT:       {MULTI *ma},
+**              pointer to the multi-dimensional array.
+**              {int *k},
+**              integer array of length ndim, 
+**              giving the indexes in each dimension.
+**              {void *d},
+**              pointer to a piece of data to be copied to the array.
+** RETURN:      {void *},
+**              pointer to the element just set.
+** SIDE EFFECT: 
+** NOTE:        if d == NULL, returns an uninitialized element.
+*/    
 void *MultiSet(MULTI *ma, int *k, void *d) {
   ARRAY *a;
   void *pt;
@@ -332,6 +391,18 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
   return pt;
 }
 
+/* 
+** FUNCTION:    MultiFree
+** PURPOSE:     Free multi-dimensional array.
+** INPUT:       {MULTI *ma},
+**              pointer to the multi-dimensional array.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing each element.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
 int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   if (ma->ndim <= 0) return 0;
   MultiFreeData(ma->array, ma->ndim, FreeElem);
@@ -343,6 +414,20 @@ int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   return 0;
 }
 
+/* 
+** FUNCTION:    MultiFreeData
+** PURPOSE:     Free the data of a multi-dimensional array.
+** INPUT:       {ARRAY *a},
+**              pointer to an array, which is the data of MULTI.
+**              {int d},
+**              the number of dimensions the array contains.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing each element.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
 int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   int i, d1;
   ARRAY *b;

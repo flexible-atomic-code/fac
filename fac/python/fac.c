@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.25 2002/02/25 02:54:43 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.26 2002/03/21 20:15:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3055,6 +3055,38 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PTRRateH(PyObject *self, PyObject *args) {
+  PyObject *p, *q, *t;
+  int i, j, os, n0, n1;
+  double z, anc;
+  double ac[1024];
+
+  os = 0;
+  if (!PyArg_ParseTuple(args, "dii|i", &z, &n0, &n1, &os)) return NULL;
+  if (n1 > 512) {
+    printf("maximum NU is 512\n");
+    return NULL;
+  }
+  anc = TRRateHydrogenic(z, n0, n1, ac, os);
+
+  p = Py_BuildValue("[]");
+  q = Py_BuildValue("[]");
+  t = Py_BuildValue("[]");
+  for (i = 0; i < n1; i++) {
+    j = i + n1;
+    if (i+1 < n0) {
+      PyList_Append(p, Py_BuildValue("d", ac[i]));
+    } 
+    if (i < n0) {
+      PyList_Append(q, Py_BuildValue("d", ac[j]));
+    }
+  }
+  PyList_Append(t, p);
+  PyList_Append(t, q);
+  
+  return t;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3155,6 +3187,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TestMyArray", PTestMyArray, METH_VARARGS},  
   {"TestSpline", PTestSpline, METH_VARARGS},     
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
+  {"TRRateH", PTRRateH, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}
 };

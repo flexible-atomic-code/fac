@@ -1,29 +1,21 @@
-\documentclass{elsart}
-\usepackage[numbers]{natbib}
+\documentclass[preprint, floatfix, pra, showpacs, showkeys]{revtex4}
+\usepackage{graphicx}
+\usepackage{dcolumn}
+
 \newcommand{\threej}[6]{\ensuremath{\left({#1\atop #4}{#2\atop #5}
 {#3\atop #6}\right)}}
 \newcommand{\sixj}[6]{\ensuremath{\left\{{#1\atop #4}{#2\atop #5}
 {#3\atop #6}\right\}}}
 
-\newcommand{\aaa}{Astron. Astrophys.}
-\newcommand{\pra}{Phys. Rev. A}
-\newcommand{\cpc}{Comput. Phys. Commun.}
-\newcommand{\jpb}{J. Phys. B}
-\newcommand{\ant}{At. Data Nucl. Data Tables}
-\newcommand{\amp}{Adv. Atom. Mol. Phys.}
-\newcommand{\cc}{Astron. Astrophys.}
-\newcommand{\apjs}{ApJ. Suppl.}
-
-\defcitealias{gu01a}{Paper~I}
-\defcitealias{gu01b}{Paper~II}
-
 \begin{document}
 
-\begin{frontmatter}
+\title{The Flexible Atomic Code: III. Photoionization and Radiative
+Recombination} 
 
-\title{Flexible Atomic Code: III. Photoionization and Radiative Recombination} 
 \author{Ming Feng Gu}
-\address{Massachusetts Institute of Technology, Cambridge, MA 02139, USA}
+\affiliation{Center for Space Research, Massachusetts Institute of Technology,
+Cambridge, MA 02139} 
+\email[Email: ]{mfgu@space.mit.edu}
 
 \begin{abstract} 
 A computer program for the calculation of non-resonant photoionization and
@@ -36,58 +28,12 @@ factorization-interpolation procedure is implemented by separating the
 coupling of the continuum electron from the bound states.
 \end{abstract}
 
-\begin{keyword}
-Distorted-wave \sep Photoionization \sep Radiative recombination. 
-\PACS 32.80.Fb
-\end{keyword}
-\end{frontmatter}
-
-\textbf{\large PROGRAM SUMMARY}
-
-Title of program: FAC
-
-Catalogue identifier:
-
-Distribution formate:
-
-Computer for which the program is designed and others on which the program has
-been tested:\\
-Computers: Sun Workstations, PCs\\
-Operating systems under which the program has been tested: Unix
-
-Programming language used: C, Fortran, Python
-
-Number of bits in a word: 64
-
-Number of processors used: 1
-
-Has the code been vectorized or parallelized: No
-
-Keywords: Distorted-wave, Photoionization, Radiative recombination.
-
-Nature of physical problem: Photoionization and radiative recombination are
-important processes determining the ionization balance and level population in
-hot plasma. The cross sections for these processes must be known for reliable
-interpretation of spectroscopical data in laboratory experiments and
-astrophysics. 
-
-Method of solution: The continuum wavefunctions are obtained in relativistic
-distorted wave approximation. The bound-free differential oscillator strengths
-are calculated using non-relativistic multipole operators, which is valid for
-photon energies less than the electron rest mass. An efficient interpolation
-procedure is used to calculate the radial integrals at many collision
-energies. 
-
-Restrictions on the complexity of program: No special restrictions except for
-that of system resources. 
-
-Typical running time: The test run takes 0.4 seconds on an Ultra-10 Sun
-Workstation. 
-
-\textbf{\large LONG WRITE-UP}
+\pacs{32.80.Fb}
+\keywords{Distorted-wave; Photoionization; Radiative recombination}
+\maketitle
 
 \section{Introduction}
-This is the third of a sequence of papers describing a complete software
+This is the third of a series of papers describing a complete software
 package for calculating various atomic processes, the Flexible Atomic Code
 (FAC). The present paper describes a procedure for the calculation of
 non-resonant photoionization (PI) and radiative recombination (RR) cross
@@ -102,35 +48,36 @@ The most accurate methods for calculating low energy PI and
 recombination (both RR and dielectronic recombination) cross sections are ones
 based on the close-coupling (CC) approximation. The most widely used
 implementation of the CC approximation is the 
-R-matrix method \citep{hummer93, berrington95}. In this method, resonances are
+R-matrix method \cite{hummer93, berrington95}. In this method, resonances are
 treated in the most natural way through the coupling to closed channels. The
 main drawback of the CC approximation is the prohibitively long computing time
-required, especially at high energies \citep{zhang98}. The other class of
+required, especially at high energies \cite{zhang98}. The other class of
 methods is based on the DW approximation, and ignores the inter-channel
 coupling. The non-resonant background and the resonances are calculated
 separately. In the present paper, we only discuss the non-resonant
 PI and RR. Many calculations have been carried out using the DW approximation
 employing different approaches to the bound and continuum wavefunctions
-\citep{reilman79, clark86, verner93}. Most of previous theoretical results are
+\cite{reilman79, clark86, verner93}. Most of previous theoretical results are
 for PI from or RR onto a specific non-relativistic subshell, not for the
-specific atomic states. \citet{zhang98} has extended their fully relativistic
-code originally developed for the electron impact excitation (EIE) to the
+specific atomic states. \textcite{zhang98} has extended their fully
+relativistic code originally developed for the electron impact excitation
+(EIE) to the 
 calculation of PI and RR, and provided high energy PI cross sections to
-complement the Opacity Project database \citep{seaton87}. The
-present code is similar in technique to the program of \citet{zhang98}. To
+complement the Opacity Project database \cite{seaton87}. The
+present code is similar in technique to the program of \textcite{zhang98}. To
 improve the efficiency, we have extended the factorization-interpolation
-procedure of \citet{barshalom88} first developed for the calculation of EIE
+procedure of \textcite{barshalom88} first developed for the calculation of EIE
 cross sections to the calculation of PI and RR cross sections. 
 In addition, we have implemented the option to calculate PI and RR cross
 sections through multipole operators other than electric dipole (E1), although
 no interference between different multipoles is taken into account. 
 
-In \S\ref{sec_theory} we present the factorized formalism of non-resonant PI 
-and key numerical techniques of the computer program. \S\ref{sec_program}
-introduces essential FAC routines for the calculation of PI and RR cross
-sections. \S\ref{sec_example} illustrates the practical usage of these
-routines through the calculation of the PI cross sections for Li-like
-iron. The results are compared with those of \citet{zhang98}.
+In Secion \ref{sec_theory} we present the factorized formalism of non-resonant
+PI and key numerical techniques of the computer program. Section
+\ref{sec_results} illustrates the accuracy of the present program
+by calculating the PI cross sections for Li-like iron and comparing the
+results with those of \textcite{zhang98}. Section \ref{sec_conclusions} gives
+a brief summary.
 
 \section{Theory and Numerical Techniques}
 \label{sec_theory}
@@ -139,7 +86,7 @@ The partial PI cross section can be expressed in terms of the differential
 oscillator strength (in atomic units), and the partial RR cross section is
 related to that of PI through the Milne relation
 \begin{eqnarray}
-\sigma_{PI} &=& 2\pi^2\alpha\frac{\d f}{\d E} \nonumber\\
+\sigma_{PI} &=& 2\pi\alpha\frac{ d f}{ d E} \nonumber\\*
 \sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}\frac{\omega^2}{\varepsilon}
 \sigma_{PI},
 \end{eqnarray}
@@ -148,10 +95,10 @@ statistical weight of the bound states before and after the photoionzation
 takes place respectively, $\omega$ is the photon energy, and $\varepsilon$ is
 the energy of the ejected photo-electron. 
 The differential oscillator
-strength, $\d f/\d E$, may be calculated similar to the bound-bound oscillator
+strength, $df/dE$, may be calculated similar to the bound-bound oscillator
 strength through the generalized line strength
 \begin{equation}
-\frac{\d f}{\d E} = \frac{\omega}{g_i}[L]^{-1}(\alpha\omega)^{2L-2}S,
+\frac{df}{dE} = \frac{\omega}{g_i}[L]^{-1}(\alpha\omega)^{2L-2}S,
 \end{equation}
 where $L$ is the rank of the multipole operator inducing the transition,
 $[L]$ denotes $2L+1$, and the generalized line strength is 
@@ -165,8 +112,8 @@ coupled to the continuum electron, and $O^L$ is the multiple operator
 inducing the transition.
 
 As in the calculation of bound-bound radiative transitions,
-Equation \ref{eq_S} may be decomposed into an angular part and a radial part
-\citepalias{gu01a} 
+Eq.~(\ref{eq_S}) may be decomposed into an angular part and a radial part
+\cite{gu02a} 
 \begin{equation}
 \label{eq_Sf}
 S = \sum_{\kappa J_T}\left|\sum_{\alpha\beta}
@@ -190,36 +137,37 @@ Since the continuum orbital is absent in the initial bound state, the creation
 operator $a^{\dagger}_{\tilde{\alpha}}$ must be chosen to be that of the free
 electron. Using the decoupling formula of Racah, the reduced matrix elements
 of the angular operator can be written as
-\begin{eqnarray}
-<\psi_f,\kappa;J_T||Z^L_M(\kappa,\beta)||\psi_i> &=&
- (-1)^{J_T+J_i-L}[J_T]^{1/2}
-<\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>\nonumber\\
-&\times& \sixj{J_f}{j}{J_T}{L}{J_i}{j_\beta},
-\end{eqnarray}
+\begin{equation}
+<\psi_f,\kappa;J_T||Z^L_M(\kappa,\beta)||\psi_i>=(-1)^{J_T+J_i-L}[J_T]^{1/2}
+<\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>\sixj{J_f}{j}{J_T}{L}{J_i}{j_\beta},
+\end{equation}
 where $J_i$ and $J_f$ are the total angular momenta of the initial and final
 states, $j$ is the angular momentum of the free electron, and
 \sixj{j_1}{j_2}{j_3}{j_4}{j_5}{j_6} is the Wigner $6j$ symbol. Substituting
-this into Equation \ref{eq_Sf} results in
+this into Eq.~(\ref{eq_Sf}) results in
 \begin{eqnarray}
-S &=&\sum_{\beta\beta^\prime}
+S=\sum_{\kappa\beta\beta^\prime}&\Bigg\{&\sum_{J_T}[J_T]
+\sixj{J_f}{j}{J_T}{L}{J_i}{j_\beta}
+\sixj{J_f}{j}{J_T}{L}{J_i}{j_{\beta^\prime}} 
+\nonumber\\*
+&\times&
 <\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>
-<\psi_f||\tilde{a}_{\tilde{\beta^\prime}}||\psi_i>  
-\nonumber\\
-&\times& \sum_{\kappa}<\kappa||C^L||\beta><\kappa||C^L||\beta^\prime>
-M^L_{\kappa\beta}M^L_{\kappa\beta^\prime}
-\nonumber\\
-&\times&\sum_{J_T}[J_T]\sixj{J_f}{j}{J_T}{L}{J_i}{j_\beta}
-\sixj{J_f}{j}{J_T}{L}{J_i}{j_{\beta^\prime}}.
+<\psi_f||\tilde{a}_{\tilde{\beta^\prime}}||\psi_i> 
+\nonumber\\*
+&\times& 
+<\kappa||C^L||\beta><\kappa||C^L||\beta^\prime>
+M^L_{\kappa\beta}M^L_{\kappa\beta^\prime}\Bigg\}.
 \end{eqnarray}
 The summation over $J_T$ can be carried out analytically using the
 orthogonality relation of $6j$ symbols to give
 \begin{eqnarray}
-S &=& \sum_{\beta\beta^\prime} \delta_{j_\beta j_{\beta^\prime}}[j_\beta]^{-1}
-<\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>
-<\psi_f||\tilde{a}_{\tilde{\beta^\prime}}||\psi_i>  
-\nonumber\\
-&\times&\sum_{\kappa}<\kappa||C^L||\beta><\kappa||C^L||\beta^\prime>
-M^L_{\kappa\beta}M^L_{\kappa\beta^\prime}.
+S=\sum_{\kappa\beta\beta^\prime}&\Bigg\{&\delta_{j_\beta
+j_{\beta^\prime}}[j_\beta]^{-1} <\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>
+<\psi_f||\tilde{a}_{\tilde{\beta^\prime}}||\psi_i>
+\nonumber\\*
+&\times&
+<\kappa||C^L||\beta><\kappa||C^L||\beta^\prime>
+M^L_{\kappa\beta}M^L_{\kappa\beta^\prime}\Bigg\}.
 \end{eqnarray}
 Note that the condition $j_\beta = j_{\beta^\prime}$ in the summation also
 implies $l_\beta = l_{\beta^\prime}$, since only basis states with the same
@@ -235,7 +183,7 @@ $<\psi_f||\tilde{a}_{\tilde{\beta}}||\psi_i>$ are calculated as
 where $b_\mu$ are the mixing coefficients. The reduced matrix elements
 $<\Phi_\mu||\tilde{a}_{\tilde{\beta}}||\Phi_\nu>$, which are related to the
 coefficients of fractional parentage, are calculated using the method of
-\citet{gaigalas97}. 
+\textcite{gaigalas97}. 
 
 \subsection{Construction of Recombined Bound States}
 In the calculation of PI and RR cross sections, bound states in two
@@ -244,7 +192,7 @@ states are involved. The central potential entering the Dirac equation may be
 constructed with either the configurations of the ion before photoionization
 (recombined ion) or after photoionization (recombining ion). The difference
 between the two choices is small for high $Z$ elements. However, it can be
-substantial for low $Z$ elements. As discussed in \citetalias{gu01b}, the
+substantial for low $Z$ elements. As discussed in \textcite{gu02b}, the
 effective nuclear charge experienced by the free electron at large radial
 distances is screened by one additional electron as compared to that
 experienced by the bound electrons in the
@@ -255,7 +203,7 @@ construction of the central potential.
 
 The Hamiltonian matrix for the recombined ion may be constructed as for the
 recombining ion by specifying appropriate configurations. However, it is
-sometimes beneficial to use an alternative approach, that utilizes the already
+sometimes beneficial to use an alternative approach, which utilizes the already
 diagonalized Hamiltonian of the recombining ion. In this method, the basis
 states are constructed by coupling one additional electron to a specific
 atomic state 
@@ -286,14 +234,14 @@ simply the energy values of the core states. When one interacting electron can
 be chosen to be the spectator, the kinetic and nuclear potential contributions
 are also diagonal, which are their expectation values in the spectator
 wavefunctions. With the aid of Racah algebra, the two-electron Coulomb
-interactions in such cases may be written as \citep{barshalom88} 
+interactions in such cases may be written as \cite{barshalom88} 
 \begin{eqnarray}
-<\psi_a,\alpha;J_TM_T|&\sum_{i<j}\frac{1}{r_{ij}}&|\psi_b,\gamma;J_TM_T> = 
-\sum_k
-(-1)^{j_\alpha+J_b+J_T}\sixj{J_a}{j_\alpha}{J_T}{j_\gamma}{J_b}{k}\nonumber\\
+<\psi_a,\alpha;J_TM_T|\sum_{i<j}\frac{1}{r_{ij}}|\psi_b,\gamma;J_TM_T>&=&
+\sum_{k,\beta\delta}\Bigg\{(-1)^{j_\alpha+J_b+J_T}
+\sixj{J_a}{j_\alpha}{J_T}{j_\gamma}{J_b}{k}
+\nonumber\\*
 &\times&
-\sum_{\beta\delta}<\psi_a||Z^k(\beta,\delta)||\psi_b>
-P^k(\alpha\gamma;\beta\delta),
+<\psi_a||Z^k(\beta,\delta)||\psi_b>P^k(\alpha\gamma;\beta\delta)\Bigg\},
 \end{eqnarray}
 where $\alpha$ and $\gamma$ are the spectator orbitals, $\beta$ and $\delta$
 are the interacting electrons from the core states $\psi_a$ and $\psi_b$, $J_T$
@@ -301,187 +249,77 @@ and $M_T$ are the total angular momentum of the new basis function and its
 projection, 
 the radial integrals $P^k$ are identical to those involved in the DW collision
 strength of EIE with free electrons now replaced with the spectators
-\citep{gu01b}. 
+\cite{gu02b}. 
 
 \subsection{Multipole Radial Integrals}
 The radial integrals $M^L_{\kappa\beta}$ are the same as those involved in the
 the calculation of bound-bound radiative transitions, with a free electron
 replacing one of the bound orbitals. They may be calculated with the fully
-relativistic expressions of \citet{grant74}. These expressions depend on
-both the photon and the ejected photo-electron energies. However, the current
-implementation only takes into account the photo-electron energy dependence,
-which is valid when the photon energy is not too high. In fact, when the
-photo-electron energy is less than the electron rest mass, which is high
-enough for most applications, the non-relativistic limits of the multipole
-operators suffices. Therefore, using non-relativistic multipole operators to
+relativistic expressions of \textcite{grant74}. These expressions depend on
+both the photon and the ejected photo-electron energies. However, when the
+photon energy is not too high, the non-relativistic limits of the multipole
+operators suffices. Using non-relativistic multipole operators to
 evaluate radial integrals is the default of the program. 
 Bound and continuum wavefunctions are obtained by solving the Dirac equations,
-as discussed in \citetalias{gu01a} and \citetalias{gu01b} in detail.   
+as discussed in Refs.~\cite{gu02a,gu02b} in detail.
 
-Unlike in the bound-bound radiative transition, the radial integral now
-depends on the photo-electron energy. In order to reduce the computing time,
+Unlike in bound-bound radiative transitions, the radial integrals now
+depend on the photo-electron energy. In order to reduce the computing time,
 when cross sections at a large number of collision energy points are needed,
 the $M^L_{\kappa\beta}$ are calculated on an internal grid for the
-photo-electron 
-energy. The integrals needed at other energies are interpolated on this
-grid. The grid points may be specified from the input, or if not specified, it
-is generated according to the photo-electron energies where the cross sections
-are to be calculated. For highly charged ions, where no Cooper minimum is
-present, few points are needed for accurate interpolation. However, when the
-PI cross sections show Cooper minima in the low energy region, a dense grid
+photo-electron energy. The integrals needed at other energies are interpolated
+on this grid. The grid points may be specified from the input, or if not
+specified, it is generated according to the photo-electron energies where the
+cross sections are to be calculated. For highly charged ions, where no Cooper
+minimum is present, few points are needed for accurate interpolation. However,
+when the PI cross sections show Cooper minima in the low energy region, which
+often occurs in neutral or near neutral ions, a dense grid
 should be used. On the other hand, the DW approximation at such low energies
-in neutral or near neutral ions is rather inaccurate anyway \citep{zhang98}.
+in neutral or near neutral ions is rather inaccurate \cite{zhang98}.
 
-\section{User Interface}
-\label{sec_program}
-The general features of the FAC user interface, and that related to
-the calculation of 
-atomic structure and EIE collision strengths are presented in
-\citetalias{gu01a} 
-and \citetalias{gu01b}. In this section, we only discuss routines relevant to
-the calculation of PI and RR cross sections. 
-
-When solving the atomic structure problem in preparation for the calculation
-of PI and RR cross sections, 
-one should use the routine ``SetScreening'' before calling
-``OptimizeRadial'' \citepalias{gu01b} to setup the appropriate mean
-configuration, if the arguments given to ``OptimizeRadial'' are the
-configurations of the recombining ion. Alternatively, one may use
-``config.avgconfig(s)'' as 
-discussed in \citetalias{gu01a} to specify the mean configuration in
-detial. Once the optimized central potential is obtained, and the 
-Hamiltonian of the recombining ion is diagonalized, the energy levels for the
-recombined ion may be solved in two methods. One is to specify the recombined
-configurations, and diagonalize the Hamiltonian as for the recombining ion. An
-alternative approach is to use the routine ``RecStates(n, groups)'', where
-``n'' is an 
-integer specifying the principal quantum number of the spectator electron, and
-``groups'' is the configuration group names for the recombining ion. The
-basis states will be constructed by coupling the added spectator to the core
-states within these configuration groups. Three optional routines,
-``SetRecSpectator(n1, n2)'', ``SetRecPWOptions(lmax)'', and
-``SetRecPWLimits(m1, m2)'', may be called to control the behavior of the
-coupling. The first integer argument, ``n1'',  of ``SetRecSpectator''
-specifies the minimum principal quantum number of the spectator electron. If
-the ``n'' given to ``RecStates'' is less than ``n1'', the recombined basis
-states will be constructed in the normal way, instead of coupling the
-spectator to the core states. When the principal quantum number of the
-spectator ``n $\ge$ n2'', the mixing between the basis functions having
-different core 
-states is neglected. ``n2'' must be $\ge$ ``n1'', and may be omitted which
-defauts to ``n2 = n1''. If this routine is not called, ``n1 = n2 = 6'' is
-used. The routine ``SetRecPWOptions(lmax)'' sets the maximum orbital angular
-momentum of the spectator electron to be included. For very high lying
-spectator electrons, usually only small orbital angular momentum states
-contribute to PI and RR cross sections appreciably. If it is not called, the
-default maximum is 12. ``SetRecPWLimits(m1, m2)'' is an alternative way of
-specifying the orbital angular momentum of the 
-spectator electron to be included, which is the range from ``m1'' to ``m2''
-inclusive. 
-
-Once the energy levels of the recombining and recombined ions are
-solved, one may optionally specify the internal grid of the photo-electron
-energy by calling ``SetPEGrid(n, emin, emax)''. This routime  constructs a
-logarithmic 
-grid from ``emin'' to ``emax'' with ``n'' points. Alternatively, a Python list
-may be given to this routine to specify the grid points in detail. If it is
-not called, a 5-point internal grid is generated from the energy points where
-the cross sections are to be calculated. These energy points are specified by
-the routine ``SetUsrPEGrid'' with the same syntax as ``SetPEGrid''. If the
-routine ``SetUsrPEGridType(type)'' is called with
-``type = 0'' prior to calling ``SetUsrPEGrid'', the energies specified are
-those of the incident photons. If it is called with ``type = 1'', the energies
-are those of the photo-electrons, which is the default behavior. However, the
-internal energy grid on which the radial integrals are calculated is always
-for photo-electrons, the PI and RR cross sections at given photon energies are
-obtained by interpolation. The units of energy in these routines is eV.   
-
-The PI and RR cross sections are calculated with the routine ``RRTable(b, f,
-fname, m)'', where ``b'' is a list containing the recombined states, ``f'' is
-a list containing the recombining
-states, ``fname'' is the output file name, and ``m'' indicates the multipole
-operator inducing the transition as discussed in the calculation of
-bound-bound transitions. If omitted, m defaults to $-1$. ``b'' and ``f'' may be
-lists of configuration groups or actual level indices output by FAC. If the
-recombined states are constructed by coupling the spectator to the core
-states, ``b'' is specified with the Python tuple ``(groups, n)'', where
-``groups'' are the configuration groups of the recombining ion and ``n'' is
-the principal quantum number of the spectator electron. The results are output
-in the file ``fname'' in plain ASCII format. For each transition, the values of
-the PI and RR cross sections multiplied by the statistical weight of their
-respective initial states are tabulated for the photo-electron energies
-specified. The cross sections are in the units of $10^{-20}$ cm$^2$. 
-
-\section{Example}
-\label{sec_example}
-In this section, a simple example of calculating the PI cross sections of
-``2s'' and ``2p'' electrons for the Li-like iron is presented. The Python
-script below is the specification of input.
-\begin{verbatim}
-# import the modules
-from pfac import config, fac
-
-fac.SetAtom('Fe')
-
-# specify the configurations for both recombining 
-# and recombined ions.
-config.config('1s2', group = 'n1')
-config.config('1s1 2*1', group = 'n2')
-config.config('1s2 2*1', group = 'rn2')
-
-# since the recombined electron is in n=2 shell, 
-# set the appropriate screening
-fac.SetScreening([2])
-
-fac.OptimizeRadial('n1')
-
-# configuration interaction between n=1 and n=2 
-# complexes are included for the recombining ion.
-fac.Structure(['n1', 'n2'])
-fac.Structure('rn2')
-
-fac.LevelTable('li.lev')
-
-# photo-electron energy grid
-fac.SetUsrPEGrid([20.0, 400.0, 2E3, 4E3, 6E3, 10E3])
-
-fac.RRTable(['rn2'], ['n1'], 'li.rr')
-\end{verbatim}
-
+\section{Results}
+\label{sec_results}
 Table \ref{tab_comparison} shows the results from the present code and
-as compared with those of
-\citet{zhang98}. The photo-electron energy grid used in the FAC calculation
-is lightly different from that used by \citet{zhang98}. Our results shown in
+the comparison with those of \textcite{zhang98}. Only electric dipole
+operators are included in the calculations.
+The photo-electron energy grid used in the FAC calculation
+is lightly different from that used by \textcite{zhang98}. Our results shown in
 the table are the 
 interpolated values at their energy grid. The ionization potentials and PI
-cross sections for the $1s^22s$$\rightarrow$$1s^2$, and
-$1s^22p_{1/2,3/2}$$\rightarrow$$1s^2$ transitions are listed. The agreement is
-generally good to within a few percent.
+cross sections for the $1s^22s$$\rightarrow$$1s^2$,
+$1s^22p_{1/2}$$\rightarrow$$1s^2$, and $1s^22p_{3/2}$$\rightarrow$$1s^2$
+transitions are listed. The agreement is generally good to within a few percent.
 
+\begingroup
+\squeezetable
 \begin{table}
-\caption{\label{tab_comparison}}
+\caption{\label{tab_comparison}
 Comparison of ionization energies (eV) and PI cross sections (Mb) of
-$1s^22s$$\rightarrow$$1s^2$, and $1s^22p_{1/2,3/2}$$\rightarrow$$1s^2$ for
-Li-like iron. The energy grid is indicated by the photon energy in threshold
-units (X).  The first entries are the present results interpolated at the
-energy grid used by \citet{zhang98}, and the second entries
-are the results of \citet{zhang98}
-
+$1s^22s$$\rightarrow$$1s^2$, $1s^22p_{1/2}$$\rightarrow$$1s^2$, and
+$1s^22p_{3/2}$$\rightarrow$$1s^2$ for Li-like iron. The energy grid is
+indicated by the photon energy in threshold units.  The first entries are the
+present results interpolated to the 
+energy grid used by \textcite{zhang98}, and the second entries
+are the results of \textcite{zhang98}}
+\begin{ruledtabular}
 \begin{tabular}{*{8}{c}}
-\hline\hline
-&$E_{th}$&1.01&1.20&2.00&3.00&4.00&6.00\\
+&&\multicolumn{6}{c}{$E_{ph}/E_{th}$}\\
+\cline{3-8}
+Shell&$E_{th}$&1.01&1.20&2.00&3.00&4.00&6.00\\
 \hline
-$2s$&2046.5&2.35E-2&1.65E-2&5.47E-3&2.13E-3&1.05E-3&3.67E-4\\
-$2s$&N/A&2.28E-2&1.62E-2&5.44E-3&2.13E-3&1.06E-3&3.74E-4\\
+$2s_{1/2}$&2046.5&2.35E-2&1.65E-2&5.47E-3&2.13E-3&1.05E-3&3.67E-4\\
+&N/A&2.28E-2&1.62E-2&5.44E-3&2.13E-3&1.06E-3&3.74E-4\\
 $2p_{1/2}$&1997.6&2.37E-2&1.42E-2&2.89E-3&7.74E-4&2.93E-4&7.12E-5\\
-$2p_{1/2}$&2000.5&2.24E-2&1.36E-2&2.84E-3&7.65E-4&2.91E-4&7.06E-5\\
+&2000.5&2.24E-2&1.36E-2&2.84E-3&7.65E-4&2.91E-4&7.06E-5\\
 $2p_{3/2}$&1981.1&2.36E-2&1.40E-2&2.84E-3&7.54E-4&2.84E-4&6.82E-5\\
-$2p_{3/2}$&1984.5&2.23E-2&1.35E-2&2.79E-3&7.43E-4&2.81E-4&6.77E-6\\
-\hline\hline
+&1984.5&2.23E-2&1.35E-2&2.79E-3&7.43E-4&2.81E-4&6.77E-6\\
 \end{tabular}
+\end{ruledtabular}
 \end{table}
+\endgroup
 
 \section{Conclusions}
+\label{sec_conclusions}
 A relativistic DW code for calculating non-resonant photoionization and
 radiative recombination cross sections is presented. This code is part of an
 integrated atomic software package, FAC. A factorized formula for the PI cross
@@ -490,15 +328,16 @@ radial integrals are used. The
 test results for Li-like iron are in good agreement with previous works using
 similar approximations.  
 
-\section*{Acknowlegements}
+\begin{acknowledgments}
 The author would like to thank M. Sako and A. Kinkhabwala for their continuous
 test of the code, and Peter Beiersdorfer for his helpful suggestions. 
 This work is supported by
 NASA through Chandra Postdoctoral Fellowship Award Number PF01-10014 issued by
 the Chandra X-ray Observatory Center, which is operated by Smithsonian
 Astrophysical Observatory for and on behalf of NASA under contract NAS8-39073.
+\end{acknowledgments}
 
-\bibliographystyle{unsrtnat}
+\bibliographystyle{apsrev}
 \bibliography{facref}
 
 \end{document}

@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.29 2002/02/28 16:55:04 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.30 2002/03/21 20:15:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -412,13 +412,21 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
 	  if (type >= CBMULTIPOLES) {
 	    for (i = 0; i < n_tegrid; i++) {
 	      b = GetCoulombBetheAsymptotic(tegrid[i]+e2, e1);
-	      r = qkl * b;
+	      if (b < 10.0) {
+		r = qkl * b;
+	      } else {
+		r = qkl * 10.0;
+	      }
 	      qk[i] += r;  
 	    }
 	  } else if (type >= 0) {
 	    for (i = 0; i < n_tegrid; i++) {
 	      b = (GetCoulombBethe(ie2, i, ie1, type, 1))[t];
-	      r = qkl*b;
+	      if (b < 50.0) {
+		r = qkl*b;
+	      } else {
+		r = qkl*50.0;
+	      }
 	      qk[i] += r;
 	    }    
           } 
@@ -1183,6 +1191,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       x = Simpson(integrand, 0, NINT-1);
       x *= yegrid0[1]*egrid[ie1];
       qkt[ie1] = x - qkc[0]*log_xegrid[ite][ie1];
+      sigma[ie1] = xegrid[ite][ie1];
     }
     SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, xegrid[ite], 
 	   log_xegrid[ite], qkt, sigma, CIRadialQkBasis);
@@ -1341,6 +1350,11 @@ int IonizeStrength(double *qku, int *nqkc, double **qkc, double *te,
       p += nqk;
     }
     CIRadialQkFromFit(NPARAMS, *qkc, n_usr, xusr, log_xusr, qku);
+    /*
+    for (j = 0; j < n_usr; j++) {
+      qku[j] = qku[j]*xusr[j]/(xusr[j]+1.0);
+    }
+    */
     nq = 1;
   }
 
@@ -1443,7 +1457,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       if (egrid_type == 1) xegrid[i][ie] += 1.0;
       log_xegrid[i][ie] = log(xegrid[i][ie]);
     }
-    sigma[ie] = 1.0/sqrt(xegrid[0][ie]);
+    sigma[ie] = 1.0;
   }
   yegrid0[0] = 0.0;
   delta = 0.5/(NINT-1.0);

@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.26 2002/03/11 01:56:41 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.27 2002/03/21 20:15:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -678,7 +678,6 @@ int _Amplitude(double *p, double e, int kl,
     } else {
       b = 0.0;
     }
-    x0 = zp/r + lambda*(lambda+1.0)/(r*r);
     a0 = pow(a0, -4.0);
     a0 += a + b; 
     p[i] = pow(a0, -0.25);
