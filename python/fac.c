@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.77 2004/05/30 22:26:14 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.78 2004/05/31 23:29:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1350,18 +1350,24 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 	n0[i] = n0[0];
       }
     }
-    if (!PyList_Check(t)) return NULL;
-    if (!PyList_Check(t) || PyList_Size(t) != ng) {
-      printf("ni array must have the same size as gp array\n");
-      free(s);
-      free(kg);
-      free(n0);
-      free(ni);
-      return NULL;
-    }
-    for (i = 0; i < ng; i++) {
-      p = PyList_GetItem(t, i);
-      ni[i] = PyInt_AsLong(p);
+    if (PyList_Check(t)) { 
+      if (PyList_Size(t) != ng) {
+	printf("ni array must have the same size as gp array\n");
+	free(s);
+	free(kg);
+	free(n0);
+	free(ni);
+	return NULL;
+      }
+      for (i = 0; i < ng; i++) {
+	p = PyList_GetItem(t, i);
+	ni[i] = PyInt_AsLong(p);
+      }
+    } else {
+      ni[0] = PyInt_AsLong(t);
+      for (i = 1; i < ng; i++) {
+	ni[i] = ni[0];
+      }
     }
     StructureMBPT(fn, fn1, n, s, ng, kg, n0, ni, n1, kmax, nt, gn0, eps, eps1);
     free (kg);

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.61 2004/05/30 22:26:14 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.62 2004/05/31 23:29:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -727,7 +727,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	if (tq[inq] >= 0) break;
       }
       tnq = 0.0;
-      if (inq == n2 && t < n2) {      
+      if (inq == n2 && n2-t > 2) {      
 	for (inq = 0; inq < t; inq++) {
 	  tnq += tq[inq];
 	}
@@ -745,7 +745,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	tnq = tq[0];
 	for (nq = np+1; nq <= np + nm[n2-1]; nq++) {
 	  xnq = nq;
-	  UVIP3P(3, n2-t, dnq+t, tq+t, 1, &xnq, &ynq);
+	  UVIP3P(3, n2-1, dnq+1, tq+1, 1, &xnq, &ynq);
 	  tnq += ynq;
 	}
       }
