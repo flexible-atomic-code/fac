@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.28 2002/05/01 22:19:24 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.29 2002/05/08 15:32:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1334,6 +1334,8 @@ int RateTable(char *fn, int nc, char *sc[]) {
   fhdr.type = DB_RT;
   fhdr.atom = ion0.atom;
   strcpy(fhdr.symbol, ion0.symbol);
+  rt_hdr.eden = electron_density;
+  rt_hdr.pden = photon_density;
   rt_hdr.iedist = i;
   rt_hdr.ipdist = j;
   rt_hdr.np_edist = edist->nparams;

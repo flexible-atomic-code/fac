@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.46 2002/04/25 16:22:28 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.47 2002/05/08 15:32:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -519,7 +519,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       if (tol < b) tol = b;
     }
     if (optimize_control.iprint) {
-      printf("%4d %13.5E %13.5E %10.3E\n", iter, tol, a, z);
+      printf("%4d %13.5E %13.5E\n", iter, tol, a);
     }
     if (tol < a) tol = a;
     iter++;

@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.13 2002/05/01 22:19:25 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.14 2002/05/08 15:32:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -792,8 +792,8 @@ int InitRates(void) {
   ele_dist[i].nparams = 3;
   ele_dist[i].params = (double *) malloc(sizeof(double)*3);
   ele_dist[i].params[0] = 1.0E3;
-  ele_dist[i].params[1] = 0.1;
-  ele_dist[i].params[2] = 1E5;
+  ele_dist[i].params[1] = 1E-10;
+  ele_dist[i].params[2] = 1E10;
   ele_dist[i].dist = Maxwell;
   i++;
   ele_dist[i].nparams = 4;
