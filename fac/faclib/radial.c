@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.104 2004/07/01 18:18:31 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.105 2004/07/02 17:27:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -886,9 +886,9 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
-  fprintf(f, "# energy = %10.3E\n", orb->energy*HARTREE_EV);
-  fprintf(f, "\n\n");
+  fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
   if (n > 0) {
+    fprintf(f, "\n\n");
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
 	      i, potential->rad[i], 
@@ -897,13 +897,18 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      Large(orb)[i], Small(orb)[i]); 
     }
   } else {
+    a = GetPhaseShift(k);
+    while(a < 0) a += TWO_PI;
+    a -= (int)(a/TWO_PI);
+    fprintf(f, "#  phase = %15.8E\n", a);
+    fprintf(f, "\n\n");
     z = GetResidualZ();
     e = orb->energy;
     a = FINE_STRUCTURE_CONST2 * e;
     ke = sqrt(2.0*e*(1.0+0.5*a));
     y = (1.0+a)*z/ke; 
     for (i = 0; i <= orb->ilast; i++) {
-      fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
 	      i, potential->rad[i],
 	      (potential->Vc[i])*potential->rad[i],
 	      potential->U[i] * potential->rad[i],
@@ -912,7 +917,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
     for (; i < potential->maxrp; i += 2) {
       a = ke * potential->rad[i];
       a = a + y*log(2.0*a);
-      fprintf(f, "%-4d %10.3E %13.6E %13.6E %13.6E %13.6E\n",
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n",
 	      i, potential->rad[i],
 	      Large(orb)[i], Large(orb)[i+1], 
 	      Small(orb)[i], a);

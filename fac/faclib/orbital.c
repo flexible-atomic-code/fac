@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.68 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.69 2004/07/02 17:27:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1319,10 +1319,10 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   r1 = pot->rad[n];
   _dwork[0] = r1;
   _dwork1[0] = _veff[n];
-  dk = sqrt(2.0*e);
-  dk = EPS3*e*dk;
+  dk = sqrt(2.0*e*(1.0+0.5*FINE_STRUCTURE_CONST2*e));
+  dk = EPS5*e*dk;
   for (i = 1; i < pot->maxrp; i++) {
-    r = _dwork[i-1]*1.02;
+    r = _dwork[i-1]*1.05;
     _dwork[i] = r;
     r2 = r*r;
     r3 = r2*r;
@@ -1339,7 +1339,6 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     b = kl1/r3;
     if (a < dk && b < dk) break;
   }
-
   r0 = r;
   w = 2.0*(e - _dwork1[i]);
   y[0] = pow(w, -0.25);

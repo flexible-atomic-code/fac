@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.69 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.70 2004/07/02 17:27:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -753,7 +753,6 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int index[6];
   int np = 3, one = 1;
   double logj;
-
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -884,7 +883,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	      c0 = OrbitalIndex(0, km0_m, e0); 
 	      cp0 = OrbitalIndex(0, kmp0_m, e0);
 	      pha0 = GetPhaseShift(c0); 
-	      phap0 = GetPhaseShift(cp0);
+	      phap0 = GetPhaseShift(cp0);	      
 	      r = cos(pha0 - phap0);
 	      s *= r;
 	      sd *= r;
