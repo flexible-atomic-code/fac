@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.32 2003/04/18 17:33:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.33 2003/04/21 02:21:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -116,7 +116,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->basis[0];
+	im = lev->pb;
 	sym = GetSymmetry(lev->pj);
 	s = (STATE *) ArrayGet(&(sym->states), im);
 	ig = s->kgroup;
@@ -175,7 +175,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->basis[0];
+	  im = lev->pb;
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), im);
 	  ig = s->kgroup;
@@ -2426,6 +2426,17 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetNStatesPartition(int argc, char *argv[], int argt[],
+				ARRAY *variables) {
+  int n;
+  
+  if (argc == 1) n = atoi(argv[0]);
+  else if (argc == 0) n = 0;
+  else return -1;
+  
+  return 0;
+}
+  
 static int PWaveFuncTable(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   int k, n;
@@ -2524,6 +2535,7 @@ static METHOD methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
+  {"SetNStatesPartition", PSetNStatesPartition, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
