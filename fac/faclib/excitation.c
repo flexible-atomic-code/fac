@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.46 2003/04/15 13:54:00 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.47 2003/04/18 17:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1469,9 +1469,25 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
+    emin = e1;
+    emax = e0;
+    m = 0;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	if (e < emin) emin = e;
+	if (e > emax) emax = e;
+	m++;
+      }
+    }
+    if (m == 0) {
+      e0 = e1;
+      continue;
+    }
     if (!te_set) {
-      emin = e0;
-      emax = e1;
       e = emax/emin;  
       if (e < 1.1) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
@@ -1485,10 +1501,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    c = 100.0*e1;
+    c = 100.0*emax;
     if (te0 > c) ce_hdr.te0 = c;
     else ce_hdr.te0 = te0;
-    emin = rmin*e1;
+    e = 0.5*(emin + emax);
+    emin = rmin*e;
     emax = rmax*ce_hdr.te0;
     
     if (qk_mode == QK_EXACT) {

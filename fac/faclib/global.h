@@ -68,7 +68,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     9
-#define SUBSUBVERSION  2
+#define SUBSUBVERSION  3
 
 
 /* 
@@ -199,10 +199,10 @@
 #define GRIDRATIO  1.1 /* ratio of successive mesh near origin */
 
 /* config */
-#define MAX_SPEC_SYMBOLS   14
+#define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     128
-#define GROUP_NAME_LEN     32
-#define MAX_GROUPS         2048
+#define GROUP_NAME_LEN     64
+#define MAX_GROUPS         4096
 #define MAX_SYMMETRIES     512
 #define CONFIGS_BLOCK      256
 #define STATES_BLOCK       512

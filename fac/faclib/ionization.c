@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.41 2003/04/15 13:54:00 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.42 2003/04/18 17:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -855,9 +855,13 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   CI_RECORD r;
   CI_HEADER ci_hdr;
   F_HEADER fhdr;
-  double delta, emin, emax, e;
+  double delta, emin, emax, e, emax0;
   double qk[MAXNE], qku[MAXNUSR];
   int nq, nqk;  
+  ARRAY subte;
+  int isub, n_tegrid0, n_egrid0, n_usr0;
+  int te_set, e_set, usr_set;
+  double c, e0, e1;
 
   emin = 1E10;
   emax = 1E-10;
@@ -872,96 +876,53 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       if (e > emax) emax = e;
     }
   }
-  if (emin < TE_MIN_MAX*emax) {
-    emin = TE_MIN_MAX*emax;
-  }
   if (k == 0) {
     return 0;
   }
-  if (qk_mode == QK_CB) {
-    SetIEGrid(1, 0.5*(emin+emax), emax);
+
+  if (tegrid[0] < 0) {
+    te_set = 0;
   } else {
-    if (n_tegrid == 0) {
-      n_tegrid = 3;
-    }
-    if (tegrid[0] < 0.0) {
-      e = 2.0*(emax-emin)/(emax+emin);
-      if (e < 0.1) {
-	SetIEGrid(1, 0.5*(emin+emax), emax);
-      } else if (e < 0.5) {
-	SetIEGrid(2, emin, emax);
-      } else {
-	if (k == 2) n_tegrid = 2;
-	SetIEGrid(n_tegrid, emin, emax);
-      }
-    }
+    te_set = 1;
+  }
+  if (egrid[0] < 0) {
+    e_set = 0;
+  } else {
+    e_set = 1;
+  }
+  if (usr_egrid[0] < 0) {
+    usr_set = 0;
+  } else {
+    usr_set = 1;
+  }
+  n_tegrid0 = n_tegrid;
+  n_egrid0 = n_egrid;
+  n_usr0 = n_usr;
+
+  if (egrid_limits_type == 0) {
+    emax0 = 0.5*(emin + emax)*egrid_max;
+  } else {
+    emax0 = egrid_max;
   }
 
-  e = 0.5*(emin + emax);
-  if (egrid_limits_type == 0) {
-    emin = egrid_min*e;
-    emax = egrid_max*e;
-  } else {
-    emin = egrid_min;
-    emax = egrid_max;
+  ArrayInit(&subte, sizeof(double), 128);
+  ArrayAppend(&subte, &emin);
+  c = 1.0/TE_MIN_MAX;
+  if (!e_set || !te_set) {
+    e = c*emin;
+    while (e < emax) {
+      ArrayAppend(&subte, &e);
+      e *= c;
+    }
   }
+  ArrayAppend(&subte, &emax);
+
   egrid_type = 1;
   pw_type = 0;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
-
-  if (n_usr > 0 && usr_egrid[0] < 0.0) {
-    SetUsrCIEGrid(n_usr, emin, emax, e);
-  }    
-
-  if (n_egrid == 0) {    
-    n_egrid = 6;
-  } else if (n_egrid <= NPARAMS) {
-    printf("n_egrid should be at least %d\n", NPARAMS+1);
-    exit(1);
-  }
-  if (egrid[0] < 0.0) {
-    SetCIEGrid(n_egrid, emin, emax, e);
-  }
-
-  if (qk_mode != QK_CB) {
-    SetTransitionOptions(2, 1, 4, 4);
-    SetRRTEGrid(1, e, e);
-    SetPEGridLimits(egrid_min, egrid_max, egrid_limits_type);
-    SetPEGridDetail(n_egrid, egrid);
-    PrepRREGrids(e);
-  }
-
-  if (n_usr <= 0) {
-    SetUsrCIEGridDetail(n_egrid, egrid);
-    usr_egrid_type = 1;
-  }
-		  
-  for (ie = 0; ie < n_egrid; ie++) {
-    for (i = 0; i < n_tegrid; i++) {
-      xegrid[i][ie] = egrid[ie]/tegrid[i];
-      if (egrid_type == 1) xegrid[i][ie] += 1.0;
-      log_xegrid[i][ie] = log(xegrid[i][ie]);
-    }
-    sigma[ie] = 1.0;
-  }
-  yegrid0[0] = 0.0;
-  delta = 0.5/(NINT-1.0);
-  for (i = 1; i < NINT; i++) {
-    yegrid0[i] = yegrid0[i-1] + delta;
-  }
-
-  if (pw_scratch.nkl == 0) {
-    SetCIPWGrid(0, NULL, NULL);
-  }
-  
-  e = GetResidualZ();
-  PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
-		   pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);  
-
   nqk = NPARAMS;
   r.params = (float *) malloc(sizeof(float)*nqk);
-  r.strength = (float *) malloc(sizeof(float)*n_usr);
-  
+    
   fhdr.type = DB_CI;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
@@ -969,44 +930,170 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.qk_mode = qk_mode;
   ci_hdr.nparams = nqk;
   ci_hdr.pw_type = pw_type;
-  ci_hdr.n_tegrid = n_tegrid;
-  ci_hdr.n_egrid = n_egrid;
   ci_hdr.egrid_type = egrid_type;
-  ci_hdr.n_usr = n_usr;
   ci_hdr.usr_egrid_type = usr_egrid_type;
-  ci_hdr.tegrid = tegrid;
-  ci_hdr.egrid = egrid;
-  ci_hdr.usr_egrid = usr_egrid;
   file = OpenFile(fn, &fhdr);
-  InitFile(file, &fhdr, &ci_hdr);
 
-  for (i = 0; i < nb; i++) {
-    for (j = 0; j < nf; j++) {
-      nq = IonizeStrength(qku, qk, &e, b[i], f[j]);
-      if (nq < 0) continue;
-      r.b = b[i];
-      r.f = f[j];
-      r.kl = nq;
-     
-      for (ip = 0; ip < nqk; ip++) {
-	r.params[ip] = (float) qk[ip];
+  e0 = emin;
+  for (isub = 1; isub < subte.dim; isub++) {
+    e1 = *((double *) ArrayGet(&subte, isub));
+    if (isub == subte.dim-1) e1 = e1*1.001;
+    emin = e1;
+    emax = e0;
+    k = 0;
+    for (i = 0; i < nb; i++) {
+      lev1 = GetLevel(b[i]);
+      for (j = 0; j < nf; j++) {
+	lev2 = GetLevel(f[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	if (e < emin) emin = e;
+	if (e > emax) emax = e;
+	k++;
       }
-      
-      for (ie = 0; ie < n_usr; ie++) {
-	r.strength[ie] = (float) qku[ie];
-      }
-
-      WriteCIRecord(file, &r);
     }
+    if (k == 0) {
+      e0 = e1;
+      continue;
+    }
+
+    if (qk_mode == QK_CB) {
+      SetIEGrid(1, 0.5*(emin+emax), emax);
+    } else {
+      if (n_tegrid0 == 0) {
+	n_tegrid = 3;
+      }
+      if (!te_set) {
+	e = 2.0*(emax-emin)/(emax+emin);
+	if (e < 0.1) {
+	  SetIEGrid(1, 0.5*(emin+emax), emax);
+	} else if (e < 0.5) {
+	  SetIEGrid(2, emin, emax);
+	} else {
+	  if (k == 2) n_tegrid = 2;
+	  SetIEGrid(n_tegrid, emin, emax);
+	}
+      }
+    }
+
+    n_egrid = n_egrid0;
+    n_usr = n_usr0;
+    if (!usr_set) usr_egrid[0] = -1.0;
+    if (!e_set) egrid[0] = -1.0;
+    
+    e = 0.5*(emin + emax);
+    if (egrid_limits_type == 0) {
+      emin = egrid_min*e;
+      emax = egrid_max*e;
+    } else {
+      emin = egrid_min;
+      emax = egrid_max;
+    }
+    if (emax < emax0) {
+      emax = 50.0*e;
+      if (emax > emax0) emax = emax0;
+    }
+    
+    if (n_usr > 0 && usr_egrid[0] < 0.0) {
+      SetUsrCIEGrid(n_usr, emin, emax, e);
+    }    
+    
+    if (n_egrid == 0) {    
+      n_egrid = 6;
+    } else if (n_egrid <= NPARAMS) {
+      printf("n_egrid should be at least %d\n", NPARAMS+1);
+      exit(1);
+    }
+    if (egrid[0] < 0.0) {
+      SetCIEGrid(n_egrid, emin, emax, e);
+    }
+    
+    if (qk_mode != QK_CB) {
+      SetTransitionOptions(2, 1, 4, 4);
+      SetRRTEGrid(1, e, e);
+      SetPEGridLimits(egrid_min, egrid_max, egrid_limits_type);
+      SetPEGridDetail(n_egrid, egrid);
+      PrepRREGrids(e, emax0);
+    }
+    
+    if (n_usr <= 0) {
+      SetUsrCIEGridDetail(n_egrid, egrid);
+    }
+		  
+    for (ie = 0; ie < n_egrid; ie++) {
+      for (i = 0; i < n_tegrid; i++) {
+	xegrid[i][ie] = egrid[ie]/tegrid[i];
+	if (egrid_type == 1) xegrid[i][ie] += 1.0;
+	log_xegrid[i][ie] = log(xegrid[i][ie]);
+      }
+      sigma[ie] = 1.0;
+    }
+    yegrid0[0] = 0.0;
+    delta = 0.5/(NINT-1.0);
+    for (i = 1; i < NINT; i++) {
+      yegrid0[i] = yegrid0[i-1] + delta;
+    }
+
+    if (pw_scratch.nkl == 0) {
+      SetCIPWGrid(0, NULL, NULL);
+    }
+  
+    e = GetResidualZ();
+    PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
+		     pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);  
+
+    r.strength = (float *) malloc(sizeof(float)*n_usr);
+
+    ci_hdr.n_tegrid = n_tegrid;
+    ci_hdr.n_egrid = n_egrid;
+    ci_hdr.n_usr = n_usr;
+    ci_hdr.tegrid = tegrid;
+    ci_hdr.egrid = egrid;
+    ci_hdr.usr_egrid = usr_egrid;
+    InitFile(file, &fhdr, &ci_hdr);
+
+    for (i = 0; i < nb; i++) {
+      lev1 = GetLevel(b[i]);
+      for (j = 0; j < nf; j++) {
+	lev2 = GetLevel(f[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	nq = IonizeStrength(qku, qk, &e, b[i], f[j]);
+	if (nq < 0) continue;
+	r.b = b[i];
+	r.f = f[j];
+	r.kl = nq;
+	
+	for (ip = 0; ip < nqk; ip++) {
+	  r.params[ip] = (float) qk[ip];
+	}
+      
+	for (ie = 0; ie < n_usr; ie++) {
+	  r.strength[ie] = (float) qku[ie];
+	}
+	
+	WriteCIRecord(file, &r);
+      }
+    }
+
+    DeinitFile(file, &fhdr);
+
+    free(r.strength);
+    ReinitRadial(1);
+    FreeRecQk();
+    FreeRecPk();
+    FreeIonizationQk();
+    
+    e0 = e1;
   }
 
-  DeinitFile(file, &fhdr);
-  CloseFile(file, &fhdr);
   free(r.params);
-  free(r.strength);
 
-  ReinitRadial(1);
+  ReinitRecombination(1);
   ReinitIonization(1);
+
+  ArrayFree(&subte, NULL);
+  CloseFile(file, &fhdr);
 
   return 0;
 }

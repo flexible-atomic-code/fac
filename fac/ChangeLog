@@ -1,3 +1,8 @@
+version 0.9.3, 04/18/2003
+	1. remove DRTable function.
+	2. break up transition arrays for RR, AI, and CI, as for CE.
+	3. add function GetConfigNR().
+	
 version 0.9.2, 04/10/2003
 	1. add routines returning ionization thresholds in CRM.
 	2. correct a bug that causes incorrect M1 transition rates

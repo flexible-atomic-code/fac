@@ -220,8 +220,10 @@ typedef struct _SYMMETRY_ {
 } SYMMETRY;
 
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
+int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
 int          GetConfigOrAverageFromString(CONFIG **cfg, 
 					  double **nq, char *scfg);
+int          GetConfigFromStringNR(CONFIG **cfg, char *scfg);
 int          GetConfigFromString(CONFIG **cfg, char *scfg);
 int          GetAverageConfigFromString(int **n, int **kappa, 
 					double **nq, char *scfg);
