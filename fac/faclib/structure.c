@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.25 2002/02/28 16:55:05 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.26 2002/04/25 16:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1022,6 +1022,9 @@ int SaveLevels(char *fn, int m, int n) {
     strncpy(r.name, name, LNAME);
     strncpy(r.sname, sname, LSNAME);
     strncpy(r.ncomplex, nc, LNCOMPLEX);
+    r.name[LNAME-1] = '\0';
+    r.sname[LSNAME-1] = '\0';
+    r.ncomplex[LNCOMPLEX-1] = '\0';
     if (nele != nele0) {
       if (nele0 >= 0) DeinitFile(f, &fhdr);
       nele0 = nele;

@@ -15,7 +15,7 @@
 #define DB_RT 8
 #define NDB   DB_RT
 
-#define LNCOMPLEX   24
+#define LNCOMPLEX   32
 #define LSNAME      24
 #define LNAME       56
 

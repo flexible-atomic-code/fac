@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.27 2002/03/21 20:15:46 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.28 2002/04/25 16:22:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -41,7 +41,7 @@ static double _dwork2[MAX_POINTS];
 static double _dwork3[MAX_POINTS];
 static double _dwork4[MAX_POINTS];
  
-static int max_iteration = 100;
+static int max_iteration = 512;
 static int nmax = 0;
 static double wave_zero = 1E-10;
 
@@ -83,6 +83,19 @@ double *GetVEffective(void) {
   return _veff;
 }
 
+static double EstimateBoundEnergy(ORBITAL *orb, POTENTIAL *pot) {
+  int i;
+  double a, b;
+  a = orb->n;
+  a = 1.0/(a*a);
+  for (i = MAX_POINTS-1; i > 0; i--) {
+    b = (pot->Vc[i] + pot->U[i])*pot->rad[i];
+    if (b*a*pot->rad[i] < 1.0) break;
+  }
+  b = -0.5*b*b*a;
+  return b;
+}
+  
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double z, e, e0, emin, emax;
   int i, kl, nr, nodes, nodes_old, niter;
@@ -90,13 +103,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double *p, p1, p2, qi, qo, delta, ep, norm2, fact, eps;
   
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
-  /* use ilast to indicate whether the initial energy should be estimated */
-  if (orb->ilast < 0) {
-    e = z/orb->n; 
-    e = -e*e/2.0;
-  } else {
-    e = orb->energy;
-  }
+  e = EstimateBoundEnergy(orb, pot);
 
   kl = orb->kappa;
   if (pot->flag < 0) {
@@ -169,11 +176,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 	e = e0*(1.0+(eps*(nodes-nr))/orb->n);
       }
       if (e >= emax) {
-	e = 0.5*(e0+emax);
+	e = e0 + 0.2*(emax - e0);
 	eps = 1.0;
       }
       if (e <= emin) {
-	e = 0.5*(e0+emin);
+	e = e0 + 0.2*(emin - e0);
 	eps = 1.0;
       }
       nodes_old = nodes;
@@ -193,7 +200,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       }
       continue;
     } 
-    
     i2m = i2 - 1;
     i2p = i2 + 1;
     i2p2 = i2 + 2;
@@ -218,12 +224,24 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     
     delta = 0.5*p[i2]*(qo - qi)/(norm2);
     ep = e+delta;
-    if (ep >= emax) ep = 0.5*(e+emax);
-    if (ep <= emin) ep = 0.5*(e+emin);
+    if (ep >= emax) {
+      ep = e + 0.5*(emax - e);
+    }
+    if (ep <= emin) {
+      ep = e + 0.5*(emin - e);
+    }
     e0 = e;
     e = ep;
     ep = Min(tol, fabs(ep)*tol);
     if ((fabs(delta) < ep || fabs(e-e0) < ep)) break;
+    if (niter > max_iteration) {
+      printf("MAX iteration reached in Bound.\n");
+      printf("probably needs to extend the radial ");
+      printf("grid to larger distances.\n");
+      printf("%10.3E %10.3E %10.3E %10.3E\n", e, e0, emin, delta);
+      ierr = -4;
+      break;
+    }
     if (pot->flag < 0) {
       SetPotentialW(pot, e, orb->kappa);
       _SetVEffective(kl, pot);
@@ -755,7 +773,7 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     for (i = MAX_POINTS-10; i > 10; i--) {
       if (e > _veff[i]) break;
     }
-    if (i == 0) return -2;
+    if (i <= 10) return -2;
     if (n >= nmax) {
       *i2 = i - 16;
       i = pot->r_core+16;
@@ -766,7 +784,7 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
       }
     } else {
       *i2 = i + 7;
-      if (*i1 == 0) *i1 = *i2 - 8; 
+      if (*i1 <= 10) *i1 = *i2 - 8; 
     }
   } 
 
@@ -971,28 +989,29 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m) {
 
 int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
   int i;  
-  double z, d1, d2, del;
+  double z0, z, d1, d2, del;
   double a, b;
 
-  z = GetAtomicNumber();
-  if (pot->N > 0) z = z - pot->N + 1;
+  z0 = GetAtomicNumber();
+  z = z0;
+  if (pot->N > 0) z = (z - pot->N + 1);
   if (pot->flag == 0) pot->flag = -1; 
 
   if (rmin <= 0.0) rmin = 1E-5;
-  if (rmax <= 0.0) rmax = 1E+3;
+  if (rmax <= 0.0) rmax = 5E+2;
   nmax = sqrt(rmax)/2.0;
 
-  rmin /= z;
+  rmin /= z0;
   rmax /= z;
   
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
 
-  a = 14.0*sqrt(2.0*z)/PI;
+  a = 16.0*sqrt(2.0*z)/PI;
   b = (MAX_POINTS - 1.0 - (a*d2))/d1;
-  if (b < 1.0/log(1.15)) {
+  if (b < 1.0/log(1.1)) {
     printf("Not enough radial mesh points, ");
-    printf("enlarge to at least %d\n", (int) (1 + a*d2 + d1/log(1.2)));
+    printf("enlarge to at least %d\n", (int) (1 + a*d2 + d1/log(1.1)));
     exit(1);
   }
 

@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.46 2002/04/09 18:09:42 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.47 2002/04/25 16:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -807,6 +807,7 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
       rqu[ie] = ((*eb)+usr_egrid[ie])*rqu[ie];
     }
   } else {
+    nq = 0;
     gauge = GetTransitionGauge();
     mode = GetTransitionMode();
     c = 2*abs(m) - 2;
@@ -1227,11 +1228,13 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     }
   }
   
-  if (qk_mode == QK_FIT) free(r.params);
+  if (qk_mode == QK_FIT) {
+    free(r.params);
+    free(qc);
+  }
   free(r.strength);
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-  free(qc);
 
   return 0;
 }
