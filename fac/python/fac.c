@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.60 2003/08/13 01:38:17 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.61 2003/08/13 13:19:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3670,6 +3670,30 @@ static PyObject *PCERate(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTRBranch(PyObject *self, PyObject *args) { 
+  int i, j;
+  char *fn;
+  double te, pa, ta;
+
+  if (!PyArg_ParseTuple(args, "sii", &fn, &i, &j)) return NULL;
+  
+  if (TRBranch(fn, i, j, &te, &pa, &ta) < 0) return NULL;
+
+  return Py_BuildValue("(ddd)", te, pa, ta);
+}
+  
+static PyObject *PAIBranch(PyObject *self, PyObject *args) { 
+  int i, j;
+  char *fn;
+  double te, pa, ta;
+
+  if (!PyArg_ParseTuple(args, "sii", &fn, &i, &j)) return NULL;
+  
+  if (AIBranch(fn, i, j, &te, &pa, &ta) < 0) return NULL;
+
+  return Py_BuildValue("(ddd)", te, pa, ta);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3677,6 +3701,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Closed", PClosed, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
+  {"AIBranch", PAIBranch, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
   {"AITableMSub", PAITableMSub, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
@@ -3782,7 +3807,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
-  {"TransitionTable", PTransitionTable, METH_VARARGS},  
+  {"TransitionTable", PTransitionTable, METH_VARARGS}, 
+  {"TRBranch", PTRBranch, METH_VARARGS}, 
   {"TRRateH", PTRRateH, METH_VARARGS},  
   {"PICrossH", PPICrossH, METH_VARARGS},  
   {"RRCrossH", PRRCrossH, METH_VARARGS},  

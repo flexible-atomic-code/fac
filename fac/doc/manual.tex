@@ -2018,6 +2018,13 @@ are numbers.
 
 \subsection{Functions}
 The module contains the following functions.
+\begin{fundesc}{AIBranch}{fn, b, f}
+Looking up the autoionization rate from \var{b} to \var{f} and the total
+autoionization rate from \var{b} in the binary file \var{fn}. It returns a
+Tuple consisting of the resonance energy, partial autoionization rate, and
+total autoionization rate.
+\end{fundesc}
+
 \begin{fundesc}{AITable}{fn, b, f\opt{, c}}
 Calculate the autoionization rates between the bound configuration group
 \var{b} and the free configuration group \var{f}. The results are saved in
@@ -2806,6 +2813,12 @@ Calculate the weighted oscillator strength and radiative transition rates from
 states in \var{up} groups to states in \var{low} groups with multipole type
 \var{m}. The default for \var{m} is -1, i.e., E1 transitions. The results are
 saved to file \var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{TRBranch}{fn, upper, lower}
+Looking up the radiative decay rate from \var{upper} to \var{lower} and the
+total decay rate of \var{upper} in the binary file \var{fn}. It returns a
+Tuple consisting of the transition energy, partial decay rate, and total decay rate.
 \end{fundesc}
 
 \begin{fundesc}{TRRateH}{z, n0, l0, n1, l1\opt{, m}}

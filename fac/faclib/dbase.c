@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.51 2003/08/13 01:38:15 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.52 2003/08/13 13:19:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2277,10 +2277,12 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadENHeader(f, &h, swp);
+    if (n == 0) break;
     nlevels += h.nlevels;
     if (k < h.nlevels) {
       if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
       n = ReadENRecord(f, &r, swp);
+      if (n == 0) break;
       if (r.ilev != ilev) {
 	fclose(f);
 	return -1;
@@ -2433,6 +2435,72 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   }
 
   return nb;
+}
+
+int TRBranch(char *fn, int upper, int lower, 
+	     double *te, double *pa, double *ta) {
+  F_HEADER fh;
+  TR_HEADER h;
+  TR_RECORD r;
+  FILE *f;
+  int n, i, k;
+  double a, b, c, e;
+  int swp;
+ 
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return 0;
+  }
+  if (fh.type != DB_TR) {
+    printf("File type is not DB_TR\n");
+    fclose(f);
+    return -1;
+  }
+  
+  a = 0.0;
+  c = 0.0;
+  for (i = 0; i < fh.nblocks; i++) {
+    n = ReadTRHeader(f, &h, swp);
+    if (n == 0) break;
+    for (k = 0; k < h.ntransitions; k++) {
+      n = ReadTRRecord(f, &r, swp);
+      if (n == 0) break;
+      if (r.upper == upper) {
+	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	b = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
+	b *= r.strength/(mem_en_table[r.upper].j + 1.0);
+	b *= RATE_AU;
+	a += b;
+	if (r.lower == lower) {
+	  c += b;
+	}
+      }
+    }
+  }
+  
+  *pa = c;
+  *ta = a;
+  if (lower >= 0) {
+    *te = mem_en_table[upper].energy - mem_en_table[lower].energy;
+    *te *= HARTREE_EV;
+  } else {
+    *te = 0.0;
+  }
+
+  fclose(f);
+
+  return 0;
 }
   
 int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
@@ -2701,6 +2769,71 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
+int AIBranch(char *fn, int ib, int ia,
+	     double *te, double *pa, double *ta) {
+  F_HEADER fh;
+  AI_HEADER h;
+  AI_RECORD r;
+  FILE *f;
+  int n, i, k;
+  double a, b, c, e;
+  int swp;
+    
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return 0;
+  }
+  if (fh.type != DB_AI) {
+    printf("File type is not DB_AI\n");
+    fclose(f);
+    return -1;
+  }
+   
+  a = 0.0;
+  c = 0.0;
+  for (i = 0; i < fh.nblocks; i++) {
+    n = ReadAIHeader(f, &h, swp);
+    if (n == 0) break;
+    for (k = 0; k < h.ntransitions; k++) {
+      n = ReadAIRecord(f, &r, swp);
+      if (n == 0) break;
+      if (r.b == ib) {
+	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
+	b = RATE_AU*r.rate;
+	a += b;
+	if (r.f == ia) {
+	  c += b;
+	}
+      }
+    }    
+    free(h.egrid);
+  }
+  
+  *pa = c;
+  *ta = a;
+  if (ia >= 0) {
+    *te = mem_en_table[ib].energy - mem_en_table[ia].energy;
+    *te *= HARTREE_EV;
+  } else {
+    *te = 0.0;
+  }
+
+  fclose(f);
+  
+  return 0;
+}
+  
 int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp) {
   AIM_HEADER h;
   AIM_RECORD r;

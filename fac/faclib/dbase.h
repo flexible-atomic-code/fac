@@ -304,6 +304,8 @@ int ReadDRRecord(FILE *f, DR_RECORD *r, int swp);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
+int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
+int AIBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
 int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
 int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
