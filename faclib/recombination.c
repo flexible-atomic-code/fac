@@ -668,8 +668,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	  usr_egrid[i] += e;
 	  log_usr[i] = log(usr_egrid[i]);
 	}
+      } else {
+	interpolate_egrid = 0;
       }
-      interpolate_egrid = 0;
     } else {
       SetUsrPEGrid(n_usr, emin, emax, e);
     }
@@ -690,20 +691,19 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	for (i = 0; i < n_egrid; i++) {
 	  egrid[i] -= e;
 	}
+      } else {
+	interpolate_egrid = 0;
       }
-      interpolate_egrid = 0;
     } else {
-      emin = usr_egrid[0];
       emax = usr_egrid[n_usr-1];
       if (usr_egrid_type == 0) {
-        emin -= e;
         emax -= e;
       } 
       SetPEGrid(n_egrid, emin, emax, e);
     }
   }
   
-  fprintf(f, " EGRID: ");
+  fprintf(f, " EGRID:\n   ");
   for (i = 0; i < n_egrid; i++) {
     fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
   }
@@ -711,8 +711,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   else t = 'M';
   fprintf(f, "\tMultipole %c%d", t, abs(m));
   fprintf(f, "\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid\n\n");
-  else fprintf(f, " Photo-Electron UsrEGrid\n\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid:\n\n");
+  else fprintf(f, " Photo-Electron UsrEGrid:\n\n");
 
   fprintf(f, "Free  2J\tBound 2J\tE_Binding\n\n");
   for (i = 0; i < nup; i++) {

@@ -233,7 +233,7 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
 
   r = w3[n-1];
   tn = r/(1.0-r);
-  for (i = n-2; ; i--) {
+  for (i = n-2; i > 0 ; i--) {
     if (fabs(1.0 - w3[i]/r) > 1E-3) break;
   }	
   for (j = nkl - 1; j > 0; j--) {
@@ -365,7 +365,7 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	  k = kl[i];
 	  tcb[i] = w3[k];
 	}
-	tcb = GetCoulombBethe(ie2, ite, ie1, 0, 1);	
+	tcb = GetCoulombBethe(ie2, ite, ie1, 0, 1);
 	CoulombBetheTail(n, w3, nkl, kl, tcb);
 
 	/* Coulomb Bethe for dipoles */
@@ -513,7 +513,6 @@ int TestCoulomb(char *s) {
   }
   
   PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 0, 0, 0);
-  printf("done\n");
   for (ite = 0; ite < nte; ite++) {
     for (ie1 = 0; ie1 < ne1; ie1++) {
       fprintf(f, "## TE = %10.3E, E1 = %10.3E\n", te[ite], e1[ie1]);

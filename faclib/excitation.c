@@ -976,7 +976,17 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
 
-  if (egrid_type == 0) e = emax/1.05;
+  if (msub) {
+    pw_type = 1;
+    if (egrid_type < 0) egrid_type = 0;
+    if (usr_egrid_type < 0) usr_egrid_type = 1;
+  } else {
+    if (pw_type < 0) pw_type = 0;
+    if (egrid_type < 0) egrid_type = 1;
+    if (usr_egrid_type < 0) usr_egrid_type = 1;
+  }
+
+  if (egrid_type == 0) e = emax;
   else e = 0.5*(emin+emax);
   emin = 0.1*e;
   emax = 8.0*e;
@@ -984,15 +994,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     n_usr = 6;
   }
   interpolate_egrid = 1;
-  if (msub) {
-    pw_type = 1;
-    if (egrid_type < 0) egrid_type = 0;
-    if (usr_egrid_type < 0) usr_egrid_type = 0;
-  } else {
-    if (pw_type < 0) pw_type = 0;
-    if (egrid_type < 0) egrid_type = 1;
-    if (usr_egrid_type < 0) usr_egrid_type = 1;
-  }
     
   if (usr_egrid[0] < 0.0) {
     if (n_egrid > n_usr) {
@@ -1006,8 +1007,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  usr_egrid[i] += e;
 	  log_usr[i] = log(usr_egrid[i]);
 	}
+      } else {
+	interpolate_egrid = 0;
       }
-      interpolate_egrid = 0;
     } else {
       if (usr_egrid_type == 0) {
 	SetUsrCEEGrid(n_usr, emin, emax, -e);
@@ -1031,13 +1033,12 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	for (i = 0; i < n_egrid; i++) {
 	  egrid[i] -= e;
 	}
+      } else {
+	interpolate_egrid = 0;
       }
-      interpolate_egrid = 0;
     } else {
-      emin = usr_egrid[0];
       emax = usr_egrid[n_usr-1];
       if (usr_egrid_type == 0) {
-	emin -= e;
 	emax -= e;
       }
       if (egrid_type == 0) {
@@ -1058,7 +1059,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 		   pw_scratch.nkl, pw_scratch.kl, egrid_type, 
 		   pw_type, msub);
  
-  fprintf(f, " TEGRID:   ");
+  fprintf(f, " TEGRID:\n   ");
   for (i = 0; i < n_tegrid; i++) {
     fprintf(f, "%10.4E ", tegrid[i]*HARTREE_EV);
   }
@@ -1066,13 +1067,13 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (egrid_type == 0) fprintf(f, " Incident Electron ");
   else fprintf(f, " Scattered Electron ");
-  fprintf(f, "EGRID:    ");
+  fprintf(f, "EGRID:\n   ");
   for (i = 0; i < n_egrid; i++) {
     fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
   }
   fprintf(f, "\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid\n\n");
-  else fprintf(f, " Scattered Electron UsrEGrid\n\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid:\n\n");
+  else fprintf(f, " Scattered Electron UsrEGrid:\n\n");
 
   fprintf(f, "low  2J\tup   2J\tDelta_E\n");
   for (i = 0; i < nlow; i++) {
