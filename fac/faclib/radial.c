@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.65 2002/09/25 21:13:51 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.66 2002/09/26 00:23:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1660,8 +1660,8 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 
 double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   ORBITAL *orb1, *orb2;
-  int n1, i, jy, n;
-  double x, r;
+  int n1, i, jy;
+  double x, r, r0;
   double *p1, *p2, *q1, *q2;
   int index[3], t;
   double **p, k;
@@ -1693,7 +1693,6 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
     return *p;
   }
 
-  n = 4;
   jy = 1;
   p1 = Large(orb1);
   p2 = Large(orb2);
@@ -1703,7 +1702,18 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   n1 = Min(orb1->ilast, orb2->ilast);
   
   for (i = 0; i <= n1; i++) {
-    _phase[i] = p1[i]*p2[i] + q1[i]*q2[i];
+    _phase[i] = (p1[i]*p2[i] + q1[i]*q2[i])*potential->dr_drho[i];
+  }
+    
+  if (m == 0) {
+    if (k1 == k2) r0 = 1.0;
+    else if (orb1->n != orb2->n) r0 = 0.0;
+    else {
+      if (orb1->kappa + orb2->kappa != -1) r0 = 0.0;
+      else {
+	r0 = Simpson(_phase, 0, n1);
+      }
+    }
   }
   
   for (t = 0; t < nk; t++) {
@@ -1712,11 +1722,10 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
       x = k * potential->rad[i];
       _dphase[i] = besljn_(&jy, &m, &x);
       _dphase[i] *= _phase[i];
-      _dphase[i] *= potential->dr_drho[i];
     }
-    r = Simpson(_dphase, 0, n1);    
-    if (k1 == k2 && m == 0) r -= 1.0;
-    (*p)[t] = r;
+    r = Simpson(_dphase, 0, n1);
+
+    (*p)[t] = r - r0;
   }
   return *p;
 }
