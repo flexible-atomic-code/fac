@@ -5,12 +5,12 @@
 #include "excitation.h"
 
 #define MAX_USR_CIEGRID 20
-#define MAX_CIEGRID 10
+#define MAX_CIEGRID 15
 #define MAX_CIKL 100
 #define MAX_CINKL 50
 #define MAX_IEGRID 5
 #define MAX_CIK 12
-#define N_INTEGRATE 15
+#define N_INTEGRATE 32
 
 int FreeIonizationQk();
 int InitIonization();

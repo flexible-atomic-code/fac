@@ -847,9 +847,11 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       fclose(ft);
       return 0;
     }
-    if ((emax - emin) < EPS5) {
-      if (fabs(emax) < EPS10) return -1;
+    e0 = 2.0*(emax-emin)/(emax+emin);
+    if (e0 < EPS3) {
       SetDRTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e0 < 0.1) {
+      SetDRTEGrid(2, emin, emax);
     } else {
       SetDRTEGrid(n_tegrid, emin, emax);
     }
@@ -1046,9 +1048,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       fclose(f);
       return 0;
     }
-    if ((emax - emin) < EPS3) {
-      if (fabs(emax) < EPS10) return -1;
+    a = 2.0*(emax-emin)/(emax+emin);
+    if (a < EPS3) {
       SetDRTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (a < 0.2) {
+      SetDRTEGrid(2, emin, emax);
     } else {
       SetDRTEGrid(n_tegrid, emin, emax);
     }

@@ -293,9 +293,13 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(max\_allow, max\_forbidden, qr, tol)] 
-See SetCEPWOptions() for detail. Default same as SetCEPWOptions, except
-``max\_allow = 30''.
+\item[SetCIPWOptions(max\_a, max\_f, max\_k, max\_e, qr, tol)] 
+See SetCEPWOptions() for detail. Additional parameters ``max\_k'' and
+``max\_e'' are optional, specifies the maximum rank of Coulomb expansion for
+ionization radial integrals (if a smaller value than that specified by
+``SetMaxRank'' is desired'' and the maximum orbital angular momentum of the
+ejected electron. Defaults are ``max\_a = 30'', ``max\_f=10'', ``max\_k=6'',
+``max\_e=8'', ``qr=0'', ``tol=1E-3''.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
