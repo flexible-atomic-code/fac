@@ -10,7 +10,7 @@
 #include "parser.h"
 
 #define MAXNARGS 128
-#define MAXLINELENGTH 1024
+#define MAXLINELENGTH 4000
 #define MAXMETHODNAME 64
 
 #define ERR_LINEUNTERMINATED (-1)

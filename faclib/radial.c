@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.89 2004/05/27 15:55:00 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.90 2004/05/30 22:26:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -102,7 +102,7 @@ static void InitOrbitalData(void *p, int n) {
   }
 }
 
-void SetBoundary(int nmax, double bqp, double p) {
+void SetBoundary(int nmax, double p, double bqp) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
@@ -117,6 +117,10 @@ void SetBoundary(int nmax, double bqp, double p) {
     if (p < 0.0) p = 2.0*d1*d1/d;
     for (i = 0; i < potential->maxrp; i++) {
       if (potential->rad[i] >= p) break;
+    }
+    if (i > potential->maxrp-10) {
+      printf("enlarge maxrp\n");
+      exit(1);
     }
     if (IsEven(i)) i++;
     potential->ib = i;
@@ -141,7 +145,7 @@ void SetBoundary(int nmax, double bqp, double p) {
 	  kappa = GetKappaFromJL(j, kl2);
 	  k = OrbitalIndex(n, kappa, 0);
 	  orb = GetOrbitalSolved(k);	  
-	  for (i = orb->ilast; i >= 0; i--) {
+	  for (i = orb->ilast-3; i >= 0; i--) {
 	    d1 = Large(orb)[i];
 	    d2 = Small(orb)[i];
 	    d = d1*d1 + d2*d2;
@@ -155,6 +159,10 @@ void SetBoundary(int nmax, double bqp, double p) {
       }
     }
     if (IsEven(i)) i++;
+    if (i > potential->maxrp-10) {
+      printf("enlarge maxrp\n");
+      exit(1);
+    }
   }
 }
 
@@ -170,10 +178,12 @@ int RadialOverlaps(char *fn) {
   }
   for (i = 0; i < n_orbitals; i++) {
     orb1 = GetOrbital(i);
+    if (orb1->kappa != -1) continue;
     for (j = 0; j <= i; j++) {
       orb2 = GetOrbital(j);
+      if (orb2->kappa != -1) continue;
       Integrate(_yk, orb1, orb2, 1, &r);
-      fprintf(f, "%2d %2d %10.3E  %2d %2d %10.3E  %10.3E\n", 
+      fprintf(f, "%2d %2d %10.3E  %2d %2d %10.3E  %12.5E\n", 
 	      orb1->n, orb1->kappa, orb1->energy, 
 	      orb2->n, orb2->kappa, orb2->energy, r);
     }
@@ -256,6 +266,7 @@ void SetScreening(int n_screen, int *screened_n,
 int SetRadialGrid(int maxrp, double ratio, double asymp) {
   if (maxrp > MAXRP) {
     printf("MAXRP must be <= %d\n", MAXRP);
+    printf("to enlarge the limit, change MAXRP in global.h\n");
     return -1;
   }
   if (maxrp < 0) maxrp = DMAXRP;
@@ -578,6 +589,12 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   /* get the average configuration for the groups */
   acfg = &(average_config);
   if (ng > 0) {
+    if (ng > 1) {
+      printf("\nWarning: more than 1 configuration groups");
+      printf(" are used in OptimizeRadial.\n");
+      printf("It is usually best to use the lowest lying configuration group.");
+      printf("Make sure that you know what you are doing.\n\n");
+    }
     if (acfg->n_shells > 0) {      
       acfg->n_cfgs = 0;
       acfg->n_shells = 0;
@@ -2089,11 +2106,13 @@ double QED1E(int k0, int k1) {
   }
 
   if (k0 == k1 && orb1->n <= qed.se) {
-    a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
-			     orb1->n, orb1->kappa);
-    if (a) {
-      a *= SelfEnergyRatio(orb1);
-      r += a;
+    if (potential->ib <= 0 || orb1->n <= potential->nb) {
+      a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
+			       orb1->n, orb1->kappa);
+      if (a) {
+	a *= SelfEnergyRatio(orb1);
+	r += a;
+      }
     }
   }
   *p = r;

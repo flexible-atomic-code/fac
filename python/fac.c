@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.76 2004/05/27 15:55:00 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.77 2004/05/30 22:26:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -194,9 +194,10 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
     return Py_None;
   }
   p = -1.0;
-  if (!PyArg_ParseTuple(args, "id|d", &nmax, &bqp, &p))
+  bqp = 1.0;
+  if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
     return NULL;
-  SetBoundary(nmax, bqp, p);
+  SetBoundary(nmax, p, bqp);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -599,7 +600,7 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   rmax = -1.0;
   if (!PyArg_ParseTuple(args, "i|dd", &maxrp, &rmin, &rmax))
     return NULL;
-  if (-1 == SetRadialGrid(maxrp, rmin, rmax));
+  if (-1 == SetRadialGrid(maxrp, rmin, rmax))
     return NULL;
   Py_INCREF(Py_None);
   return Py_None;
@@ -1305,35 +1306,38 @@ static int SelectLevels(PyObject *p, int **t) {
 }
 
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *r;
-  int *n0, i, n1, n, ng, *s, *kg, kmax, nt;
-  char *fn, *fn1;
-  double eps;
+  PyObject *p, *q, *t, *r;
+  int *n0, *ni, i, n1, n, ng, *s, *kg, kmax, nt;
+  char *fn, *fn1, *gn0;
+  double eps, eps1;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  nt = 5;
   eps = 1E-4;
+  eps1 = 1E-2;
 
-  if (!(PyArg_ParseTuple(args, "ssOOOii|id", 
-			 &fn, &fn1, &p, &q, &r, &n1, &kmax, &nt, &eps))) 
+  if (!(PyArg_ParseTuple(args, "ssOOOOiiis|dd", 
+			 &fn, &fn1, &p, &q, &r, &t, &n1, 
+			 &kmax, &nt, &gn0, &eps, &eps1))) 
     return NULL;
-    
+  
   n = DecodeGroupArgs(p, &s);
   if (n <= 0) return NULL;
 
   ng = DecodeGroupArgs(q, &kg);
   if (ng > 0) {
     n0 = malloc(sizeof(int)*ng);
+    ni = malloc(sizeof(int)*ng);
     if (PyList_Check(r)) {
       if (PyList_Size(r) != ng) {
 	printf("n0 array must have the same size as gp array\n");
 	free(s);
 	free(kg);
 	free(n0);
+	free(ni);
 	return NULL;
       }
       for (i = 0; i < ng; i++) {
@@ -1346,9 +1350,23 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 	n0[i] = n0[0];
       }
     }
-    StructureMBPT(fn, fn1, n, s, ng, kg, n0, n1, kmax, nt, eps);
+    if (!PyList_Check(t)) return NULL;
+    if (!PyList_Check(t) || PyList_Size(t) != ng) {
+      printf("ni array must have the same size as gp array\n");
+      free(s);
+      free(kg);
+      free(n0);
+      free(ni);
+      return NULL;
+    }
+    for (i = 0; i < ng; i++) {
+      p = PyList_GetItem(t, i);
+      ni[i] = PyInt_AsLong(p);
+    }
+    StructureMBPT(fn, fn1, n, s, ng, kg, n0, ni, n1, kmax, nt, gn0, eps, eps1);
     free (kg);
     free(n0);
+    free(ni);
   }
   free(s);
 

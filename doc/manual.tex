@@ -2103,7 +2103,7 @@ explicitly. Their usage in SFAC
 interface is therefore not documented separately. Functions and classes of
 other python modules are generally not implemented in SFAC interface. In the
 documentation of each function, the arguments in brackets are optional,
-arguments separated by ``$|$'' are alternative forms of calling syntax,
+arguments separated by ``$\mid$'' are alternative forms of calling syntax,
 ``...'' in the argument list denotes variable number of arguments, and
 keyword arguments are indicated by \var{key=arg} pair.
 
@@ -2303,7 +2303,7 @@ in the spectroscopic notation. e.g., \key{2s} for $2s$ shell, \key{2p-} for
 $2p_{1/2}$ shell, and \key{2p+} for $2p_{3/2}$ shell.
 \end{fundesc}
 
-\begin{fundesc}{Config}{c, ..., group=g $|$ g, c, ...}
+\begin{fundesc}{Config}{c, ..., group=g $\mid$ g, c, ...}
 Add one or more configurations to the configuration group \var{g}. In the
 first form, the group name \var{g} is given as a keyword, while in the second
 form, the first argument must be a group name instead of a configuration. It
@@ -2347,7 +2347,7 @@ input file \var{fn}. The resulting file can then be run using the \key{sfac}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
-\begin{fundesc}{CorrectEnergy}{fn, nmin $|$ ilev, e, nmin}
+\begin{fundesc}{CorrectEnergy}{fn, nmin $\mid$ ilev, e, nmin}
 Correct the energies of certain levels by given amount. This is used if the
 exact energy of some levels is critical. In the first form, the indexes and the
 energy corrections are listed as two columns in the file \var{fn}. In the
@@ -2518,7 +2518,7 @@ allowed in the minimization, and \var{m} controls the print out during the
 calculation. Default: \var{n} = 100, \var{m} = 0 (no print out).
 \end{fundesc}
 
-\begin{fundesc}{Reinit}{\textnormal{**}mkey $|$ m}
+\begin{fundesc}{Reinit}{\textnormal{**}mkey $\mid$ m}
 Reinitialize some or all subsystems of FAC package. In the first form, it
 accepts variable number of keyword arguments, each represents one
 subsystem. The following keyword identifiers may be used:
@@ -2671,7 +2671,7 @@ contributions represents no more than 25\% of the explicitly calculated low
 partial-wave sum.
 \end{fundesc}
 
-\begin{fundesc}{SetCEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetCEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the collsion energy grid for collsional excitation. In the first form, the
 grid is given by a Python list \var{g}. In the second form, the grid is
 constructed with \var{n} points, from \var{e0} to \var{e1}. The energies are
@@ -2710,7 +2710,7 @@ be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
 \end{fundesc}
 
-\begin{fundesc}{SetCIEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetCIEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the collsion energy grid for collsional ionization. In the first form, the
 grid is given by a Python list \var{g}. In the second form, the grid is
 constructed with \var{n} points, from \var{e0} to \var{e1}. The energies are
@@ -2766,7 +2766,7 @@ integrals should be used. If this routine is not called or the argument is not
 given, the default is \var{n}=8, and \var{l}=7. 
 \end{fundesc}
 
-\begin{fundesc}{SetIEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetIEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the ionization threshold energy grid for the collisional ionization. In
 the first form, the grid is given by a Python list \var{g}. In the second
 form, the grid is constructed with \var{n} points from \var{e0} to
@@ -2827,7 +2827,7 @@ Set the stablilizer factor in \key{OptimizeRadial}.
 Set the tolerance factor in \key{OptimizeRadial}.
 \end{fundesc}
 
-\begin{fundesc}{SetPEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetPEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the free electron energy grid for photoionization, radiative recombination
 and autoionization. In the first form, the grid is given by a Python list
 \var{g}. In the second form, the grid is constructed with \var{n} points from
@@ -2846,14 +2846,14 @@ is 0.05 and 8.0 if this routine is not called.
 
 \begin{fundesc}{SetRadialGrid}{n\opt{, r0\opt{,r1}}}
 Set the radial grid properties. \var{n} is the number of radial grid
-points. It must be an even number and $< 5000$ (which may be changed with the
-MAXRP macro). \var{r0} specifies the ratio of successive radial points near
+points. It must be an even number and less than the macro
+\key{MAXRP}. \var{r0} specifies the ratio of successive radial points near 
 origin, which is approximately logarithmic. \var{r1} specifies the number of
 oscillations of very high-$n$ orbitals at large radii, which approximately
 scales as $\sqrt{r}$.
 \end{fundesc}
 
-\begin{fundesc}{SetRRTEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetRRTEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the transition energy grid for photoionization and radiative
 recombination. In the first form, the grid is given by a Python list
 \var{g}. In the second form, the grid is constructed with \var{n} points from
@@ -2905,7 +2905,7 @@ Set the maximum principle quantum number of the orbitals for which the
 self-energy correction should be included in the Hamiltonian. Default is 5.
 \end{fundesc}
 
-\begin{fundesc}{SetTEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetTEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the transition energy grid for collisional excitation. In the first form,
 the grid is given by a Python list \var{g}. In the second form, the grid is
 constructed with \var{n} points from 
@@ -2944,18 +2944,18 @@ integral, 0 for fully relativistic and 1 for non-relativistic approximation
 (the default is 1).
 \end{fundesc}
 
-\begin{fundesc}{SetUsrCEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetUsrCEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the user collision energy grid for collisional excitation. The collsion
 strengths on this grid are output. It is forced to be same as that set by
 \key{SetCEGrid} if the \key{QKMODE} is \key{'exact'}.
 \end{fundesc}
 
-\begin{fundesc}{SetUsrCIEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetUsrCIEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the user collision energy grid for collisional ionization. The collsion
 strengths on this grid are output. 
 \end{fundesc}
 
-\begin{fundesc}{SetUsrPEGrid}{g $|$ n\opt{, e0, e1}}
+\begin{fundesc}{SetUsrPEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the user electron energy grid for photoionization and radiative
 recombination. The bound-free differential oscillator
 strengths on this grid are output. It is forced to be same as that set by
