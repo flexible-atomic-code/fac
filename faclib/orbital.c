@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.76 2004/07/27 05:18:19 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.77 2004/08/04 15:19:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -625,11 +625,11 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot); 
       i2 = TurningPoints(orb->n, e, pot); 
-      i2m1 = i2 - 1;
-      i2m2 = i2 - 2;
-      i2p1 = i2 + 1;
-      i2p2 = i2 + 2;      
       if (i2 == pot->ib) {
+	i2m1 = i2 - 1;
+	i2m2 = i2 - 2;
+	i2p1 = i2 + 1;
+	i2p2 = i2 + 2;      
 	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
 	for (k = i2m2-1; k <= i2p2; k++) {
 	  p[k] *= pot->dr_drho2[k];
@@ -670,10 +670,19 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 	p1 = 0.5*(pot->dr_drho2[i1+1] - pot->dr_drho2[i1-1]);
 	p1 /= pot->dr_drho2[i1];
 	p2 -= p1;
+	i2p2 = i2 + 2;
 	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
 	for (i = 0; i <= i2p2; i++) {
 	  p[i] *= pot->dr_drho2[i];
 	}
+	if (i2 > i1-10) {
+	  i2 = i1 - 10;
+	  i2 = LastMaximum(p, 0, i2);
+	}
+	i2m1 = i2 - 1;
+	i2m2 = i2 - 2;
+	i2p1 = i2 + 1;
+	i2p2 = i2 + 2;
 	p1 = p[i2m2]/pot->dr_drho2[i2m2];
 	qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m1]
 	      + 40.0*p[i2] + 60.0*p[i2p1] - 6.0*p[i2p2])/120.0;

@@ -42,7 +42,7 @@ AC_ARG_ENABLE(copt,
 	[copt="$enableval"])
 AC_ARG_ENABLE(fopt,
 	[ --enable-fopt=opt	optimization option for F77 Compiler],
-	[fopt="enableval"])
+	[fopt="$enableval"])
 
 # get position independent code option for C and f77 compilers
 AC_ARG_ENABLE(cpic,
