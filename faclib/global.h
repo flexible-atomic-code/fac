@@ -257,7 +257,7 @@
 #define TRCUT              1E-4
 
 /* recouple */
-#define MAXRANK            16
+#define MAXRANK            20
 
 /* coulomb */
 #define NHYDROGEN          20
