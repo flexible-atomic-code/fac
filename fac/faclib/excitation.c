@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.76 2004/12/18 16:33:52 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.77 2004/12/19 01:04:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -89,8 +89,14 @@ int SetCEQkMode(int m, double tol) {
 int SetCEBorn(double eb, double x, double x1) {
   xborn = x;
   xborn1 = x1;
-  eborn = eb;
-
+  if (eb > 0) {
+    eborn = eb;
+  } else if (eb < 0) {
+    eborn = eb/HARTREE_EV;
+  } else {
+    eborn = EBORN;
+  }
+  
   return 0;
 }
 

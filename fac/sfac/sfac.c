@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.70 2004/12/16 08:25:46 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.71 2004/12/19 01:04:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2701,6 +2701,30 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrepAngular(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nlow, nup, *low, *up;
+
+  nlow = 0; 
+  nup = 0;
+  low = NULL;
+  up = NULL;
+
+  if (argc < 1 || argc > 2) return -1;
+  nlow = SelectLevels(&low, argv[0], argt[0], variables);
+  if (nlow <= 0) return -1;
+  if (argc == 2) {
+    nup = SelectLevels(&up, argv[1], argt[1], variables);
+    if (nup <= 0) {
+      free(low);
+      return -1;
+    }
+  }
+  PrepAngular(nlow, low, nup, up);
+
+  return 0;
+}
+
 static int PTransitionTable(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   int n, m;
@@ -3263,6 +3287,7 @@ static METHOD methods[] = {
   {"MBPTS", PMBPTS, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},

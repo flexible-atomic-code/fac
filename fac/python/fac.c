@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.93 2004/12/16 08:25:46 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.94 2004/12/19 01:04:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1482,6 +1482,41 @@ static PyObject *PMBPT(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PPrepAngular(PyObject *self, PyObject *args) {
+  PyObject *p, *q;  
+  int nlow, nup, *low, *up;
+
+  if (sfac_file) {
+    SFACStatement("PrepAngular", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  nlow = 0;
+  nup = 0;
+  low = NULL;
+  up = NULL;
+  
+  q = NULL;
+  if (!PyArg_ParseTuple(args, "O|O", &p, &q)) return NULL;
+  nlow = SelectLevels(p, &low);
+  if (nlow <= 0) return NULL;
+  if (q) {
+    nup = SelectLevels(q, &up);
+    if (nup <= 0) {
+      free(low);
+      return NULL;
+    }
+  }
+  PrepAngular(nlow, low, nup, up);
+
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
   
 static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   char *s;
@@ -4289,6 +4324,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
