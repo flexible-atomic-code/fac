@@ -505,7 +505,7 @@ C
    10 IER = -3
       RETURN
       END
-      REAL FUNCTION AREAP (X,Y,NB,NODES)
+      DOUBLE PRECISION FUNCTION AREAP (X,Y,NB,NODES)
       INTEGER NB, NODES(NB)
       DOUBLE PRECISION  X(*), Y(*)
 C
@@ -2679,7 +2679,7 @@ C
       RETURN
       END
       LOGICAL FUNCTION INTSEC (X1,Y1,X2,Y2,X3,Y3,X4,Y4)
-      REAL X1, Y1, X2, Y2, X3, Y3, X4, Y4
+      DOUBLE PRECISION X1, Y1, X2, Y2, X3, Y3, X4, Y4
 C
 C***********************************************************
 C
@@ -2721,7 +2721,7 @@ C Modules required by INTSEC:  None
 C
 C***********************************************************
 C
-      REAL A, B, D, DX12, DX31, DX34, DY12, DY31, DY34
+      DOUBLE PRECISION A, B, D, DX12, DX31, DX34, DY12, DY31, DY34
 C
 C Test for overlap between the smallest rectangles that
 C   contain the line segments and have sides parallel to
@@ -2803,7 +2803,7 @@ C Modules required by LEFT:  None
 C
 C***********************************************************
 C
-      REAL DX1, DY1, DX2, DY2
+      DOUBLE PRECISION DX1, DY1, DX2, DY2
 C
 C Local parameters:
 C
@@ -3681,8 +3681,8 @@ C
       CALL PERMUT (NN,IND, C )
       RETURN
       END
-      REAL FUNCTION STORE (X)
-      REAL X
+      DOUBLE PRECISION FUNCTION STORE (X)
+      DOUBLE PRECISION X
 C
 C***********************************************************
 C
@@ -3716,7 +3716,7 @@ C Modules required by STORE:  None
 C
 C***********************************************************
 C
-      REAL Y
+      DOUBLE PRECISION Y
       COMMON/STCOM/Y
 C
       Y = X
@@ -3873,7 +3873,8 @@ C Modules required by SWPTST:  None
 C
 C***********************************************************
 C
-      REAL DX11, DX12, DX22, DX21, DY11, DY12, DY22, DY21,
+      DOUBLE PRECISION DX11, DX12, DX22, DX21, DY11, 
+     .     DY12, DY22, DY21,
      .     SIN1, SIN2, COS1, COS2, SIN12, SWTOL
 C
 C Tolerance stored by TRMESH or TRMSHR.
