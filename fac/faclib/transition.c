@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.23 2004/12/14 07:30:16 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.24 2004/12/14 18:26:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -66,8 +66,8 @@ int GetTransitionMode(void) {
   return transition_option.mode;
 }
 
-int OscillatorStrength(double *strength, double *energy,
-		       int m, int lower, int upper) {
+int TRMultipole(double *strength, double *energy,
+		int m, int lower, int upper) {
   int m2;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
@@ -114,13 +114,8 @@ int OscillatorStrength(double *strength, double *energy,
     s += r * ang[i].coeff;
   }
   free(ang);	  
-
-  *strength = s*s/(m2+1.0);
-  *strength *= (*energy);
-  m2 = m2 - 2;
-  if (m2) {
-    (*strength) *= pow(aw, m2);
-  }
+  
+  *strength = s;
 
   return 0;
 }
@@ -150,7 +145,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   TR_RECORD r;
   TR_HEADER tr_hdr;
   F_HEADER fhdr;
-  double *s, *et, *a, trd;
+  double *s, *et, *a, trd, gf;
   double e0, emin, emax;
   int *alev;
 #ifdef PERFORM_STATISTICS
@@ -237,11 +232,10 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     for (i = 0; i < nlow; i++) {
       a[i] = 0.0;
       et[i] = 0.0;
-      k = OscillatorStrength(s+i, et+i, m, low[i], up[j]);
+      k = TRMultipole(s+i, et+i, m, low[i], up[j]);
       if (k != 0) continue;
-      if (s[i] < 1E-30) continue;
-      a[i] = 2*pow((FINE_STRUCTURE_CONST*et[i]),2)*FINE_STRUCTURE_CONST;
-      a[i] *= s[i]/(jup+1.0);
+      gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
+      a[i] /= jup+1.0;
       trd += a[i];
     } 
     if (trd < 1E-30) continue;

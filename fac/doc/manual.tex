@@ -586,15 +586,22 @@ typedef struct _TR_RECORD_ {
 \begin{dbdesc}
 \item[\texttt{int lower}:] The lower level index of the transition.
 \item[\texttt{int upper}:] The upper level index of the transition.
-\item[\texttt{float strength}:] The weighted oscillator strength $gf$ of the
-transition. The weighted radiative transition rate is related to $gf$ as (in
-atomic units):
+\item[\texttt{float strength}:] In versions 1.0.6 or older, This is the
+  weighted oscillator strength $gf$ of the transition. The weighted radiative
+  transition rate is related to $gf$ as (in atomic units):
 \begin{equation}
 gA = 2\alpha^3 \omega^2 gf,
 \end{equation}
 where $\alpha$ is the fine structure constant, and $\omega$ is transition
 energy in Hartree atomic units. 
 
+In version 1.0.7 or newer, this stores the multipole matrix elements $M$
+instead. It is related to the $gf$ value as
+\begin{equation}
+gf =
+\left(2L+1\right)^{-1}\omega\left(\alpha\omega\right)^{2L-2}\left|M\right|^2,
+\end{equation}
+where $L$ is the multipole rank.
 \end{dbdesc}
 
 \subsection{\texttt{CE\_HEADER}}
@@ -1507,8 +1514,9 @@ sections, and eV for energies. For data files other than \texttt{DB\_EN} type,
 the energies and angular momenta of the levels involved in the processes are
 not included in the binary version. In the verbose form of corresponding ASCII
 files, these infomations are added by looking up in the energy level
-table. Also, for \texttt{DB\_TR} files, not only $gf$ values, but radiative
-transition rates are tabulated. For \texttt{DB\_CE} and \texttt{DB\_CI}, cross
+table. Also, for \texttt{DB\_TR} files, not only matrix elements, but also
+$gf$ values and radiative transition rates are tabulated. For \texttt{DB\_CE}
+and \texttt{DB\_CI}, cross
 sections are tabulated along with the collision strengths. For \texttt{DB\_RR},
 radiative recombination and photionization cross sections are tabulated along
 with the bound-free differential $gf$ values. For \texttt{DB\_AI}, the energy
@@ -1568,7 +1576,7 @@ electron.
 \subsection{\texttt{DB\_TR}}
 \index{DB\_TR}
 \begin{verbatim}
-FAC 0.7.3
+FAC 1.0.7
 Endian	= 0
 TSess	= 1021577025
 Type	= 2
@@ -1586,14 +1594,14 @@ Multip	= -1
 Gauge	= 2
 # mode used in the radial integral
 Mode	= 1
-#upper 2J lower 2J  Delta E    gf              transition rate
-    2	 2	    0	 0	 7.2639E+02  1.22460909E-01  9.34607847E+11
-    4	 2	    0	 0	 7.3858E+02  1.04401767E-01  8.23736009E+11
-   16	 2	    0	 0	 8.0171E+02  1.02572665E-02  9.53581158E+10
-   22	 2	    0	 0	 8.1220E+02  6.31995082E-01  6.03009109E+12
-   26	 2	    0	 0	 8.2661E+02  2.61516762E+00  2.58458989E+13
-   30	 2	    0	 0	 8.9495E+02  3.35459821E-02  3.88623761E+11
-   32	 2	    0	 0	 8.9931E+02  2.80110925E-01  3.27671218E+12
+#upper 2J  lower 2J  Delta E     gf            TR rate(1/s)  matrix
+     2  2      0  0  7.2587E+02  1.130597E-01  8.616084E+11  1.127617E-01
+     4  2      0  0  7.3774E+02  9.944485E-02  7.828559E+11  1.048997E-01
+    16  2      0  0  8.0114E+02  9.438239E-03  8.761793E+10 -3.101188E-02
+    22  2      0  0  8.1133E+02  6.221187E-01  5.923155E+12 -2.501928E-01
+    26  2      0  0  8.2527E+02  2.493449E+00  2.456309E+13  4.966355E-01
+    30  2      0  0  8.9415E+02  3.203146E-02  3.704097E+11  5.407792E-02
+    32  2      0  0  8.9844E+02  2.652003E-01  3.096259E+12 -1.552313E-01
 \end{verbatim}
 
 \subsection{\texttt{DB\_CE}}

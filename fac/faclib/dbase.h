@@ -338,6 +338,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);
 int WriteTRRecord(FILE *f, TR_RECORD *r);
+double OscillatorStrength(int m, double e, double s, double *ga);
 int PrintTRTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianTRHeader(TR_HEADER *h);
 int SwapEndianTRRecord(TR_RECORD *r);
