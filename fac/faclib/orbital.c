@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.73 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.74 2004/07/18 01:46:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1592,13 +1592,14 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _dwork1[i+1]*r0;
     y[4] = (_dwork1[i]*r - y[3])/(r - r0);
     y[5] = e;
-    LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol, 
-	  itask, istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
-    r0 = r;
-    if (istate == -1) istate = 2;
-    else if (istate < 0) {
-      printf("LSODE Error\n");
-      exit(1);
+    while (r0 != r) {
+      LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol, 
+	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
+      if (istate == -1) istate = 2;
+      else if (istate < 0) {
+	printf("LSODE Error %d\n", istate);
+	exit(1);
+      }
     }
   }
 
@@ -1609,16 +1610,18 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _veff[i+1]*r0;
     y[4] = (_veff[i]*r - y[3])/(r - r0);
     y[5] = e;
-    LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol,
-	  itask, istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
-    r0 = r;
-    p[i] = y[0];
-    if (istate == -1) istate = 2;
-    else if (istate < 0) {
-      printf("LSODE Error\n");
-      exit(1);
+    while (r0 != r) {
+      LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol,
+	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
+      if (istate == -1) istate = 2;
+      else if (istate < 0) {
+	printf("LSODE Error %d\n", istate);
+	exit(1);
+      }
     }
+    p[i] = y[0];
   }
+
   return y[1];
 }    
 

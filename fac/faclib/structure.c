@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.73 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.74 2004/07/18 01:46:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2351,7 +2351,7 @@ double MultipoleCoeff(int isym, int ilev1, int ka1,
     GetJLFromKappa(orb1->kappa, &j1, &kl1);
     if (IsOdd((kl0+kl1)/2+k)) continue;    
     if (!Triangle(j0, j1, k2)) continue;
-    b = RadialMoments(ang[i].k0, ang[i].k1, k);
+    b = RadialMoments(k, ang[i].k0, ang[i].k1);
     b *= ReducedCL(j0, k2, j1);
     b *= ReducedCL(ji2, k2, jj2);
     b *= ang[i].coeff*r0;

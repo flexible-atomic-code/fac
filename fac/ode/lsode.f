@@ -978,7 +978,7 @@ c-----------------------------------------------------------------------
      4   icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
 c
-      data  mord(1),mord(2)/12,5/, mxstp0/500/, mxhnl0/10/
+      data  mord(1),mord(2)/12,5/, mxstp0/5000/, mxhnl0/10/
 c-----------------------------------------------------------------------
 c block a.
 c this code block is executed on every call.
@@ -1322,7 +1322,9 @@ c-----------------------------------------------------------------------
       return
 c
  430  ntrep = ntrep + 1
-      if (ntrep .lt. 5) return
+      if (ntrep .lt. 5) then
+         return
+      endif
       call xerrwv(
      1  60hlsode--  repeated calls with istate = 1 and tout = t (=r1)  ,
      1   60, 301, 0, 0, 0, 0, 1, t, 0.0d0)

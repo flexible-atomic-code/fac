@@ -30,13 +30,15 @@ typedef struct _RMATRIX_ {
 } RMATRIX;
 
 typedef struct _DCFG_ {
-  int *iwork, diag;
-  double *dwork;
+  int *iwork, diag, nop;
+  double *dwork, *rwork;
   double *fs, *fc, *gs, *gc;
   double *fs0, *fc0, *gs0, *gc0;
   double *a, *b, *c, *d, *e, *p, *p2, *rm;
-  int nmultipoles, ngailitis;
+  int nmultipoles, ngailitis, nlam, pdirection;
   double rgailitis, degenerate, accuracy;
+  int lrw, liw;
+  RMATRIX *rmx;
 } DCFG;
 
 int InitRMatrix(void);
@@ -61,6 +63,10 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0);
 int SMatrix(RMATRIX *rmx0);
 void RMatrixExpansion(int n, double d, double a, double r);
 int GailitisExp(RMATRIX *rmx, double r);
+int IntegrateExternal(RMATRIX *rmx, double r1, double r0);
+void TransformQ(RMATRIX *rmx, double b, double r, int m);
+void PropogateDirection(int m);
+int PropogateExternal(RMATRIX *rmx, RBASIS *rbs);
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[], 
 	      double emin, double emax, double de, int m, int mb);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
