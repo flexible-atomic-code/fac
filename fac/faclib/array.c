@@ -155,7 +155,7 @@ int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   int i;
   ARRAY *b;
-  if (a == NULL) return;
+  if (a == NULL) return 0;
   if (d > 1) {
     for (i = 0; i < a->dim; i++) {
       b = (ARRAY *) ArrayGet(a, i);
@@ -167,5 +167,6 @@ int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   } else {
     ArrayFree(a, FreeElem);
   }
+  return 0;
 }
 

@@ -43,10 +43,8 @@ int TransitionGauge() {
 int OscillatorStrength(double *strength, double *energy, 
 			  int *multipole, int lower, int upper) {
   int m, m2, n;
-  int hlow, hup;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
-  HAMILTON *h1, *h2;
   double s, r, aw;
   int nz, i;
   ANGULAR_ZMIX *ang;
@@ -61,14 +59,8 @@ int OscillatorStrength(double *strength, double *energy,
   }
   if (*energy <= 0.0) return -1;
 
-  hlow = lev1->ham_index;
-  hup = lev2->ham_index;
-  
-  h1 = GetHamilton(hlow);
-  h2 = GetHamilton(hup);
-
-  DecodePJ(h1->pj, &p1, &j1);
-  DecodePJ(h2->pj, &p2, &j2);
+  DecodePJ(lev1->pj, &p1, &j1);
+  DecodePJ(lev2->pj, &p2, &j2);
 
   m = GetLowestMultipole(p1, j1, p2, j2);
   if (m > transition_option.max_m || m < -transition_option.max_e) return 1;
