@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.4 2001/09/14 13:17:00 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.5 2001/10/02 16:24:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -58,7 +58,7 @@ double GetAtomicNumber() {
   return atom.atomic_number;
 }
 
-char *GetAtomSymbol() {
+char *GetAtomicSymbol() {
   return atom.symbol;
 }
 

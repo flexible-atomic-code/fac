@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.16 2001/09/14 13:17:00 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.17 2001/10/02 16:24:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -90,7 +90,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double *p, p1, p2, qi, qo, delta, ep, norm2, fact, eps;
   
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
-  if (orb->energy >= 0.0) {
+  if (orb->energy > -1E-10) {
     e = z/orb->n; 
     e = -e*e/2.0;
   } else {

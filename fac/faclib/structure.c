@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.12 2001/09/14 13:17:01 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.13 2001/10/02 16:24:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -845,7 +845,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   FILE *f;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
-  int i, j, p, j0;
+  int i, j, p, j0, nele;
   int si;
   double mix;
   STATE *s, *sp;
@@ -860,10 +860,11 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   if (f == NULL) return -1;
   
   e0 = GetLevel(0)->energy;
-  asym = GetAtomSymbol();
-  fprintf(f, "%s,  Ground State Energy:\n   %16.8E\n\n", 
-	  asym, e0*HARTREE_EV);
-  fprintf(f, "      Energy(eV)  P 2J\n\n");
+  asym = GetAtomicSymbol();
+  i = GetAtomicNumber();
+  fprintf(f, "%s, Z = %d\n", asym, i);
+  fprintf(f, "E0 = %16.8E\n\n",  e0*HARTREE_EV);
+  fprintf(f, "      Energy(eV)  Ne  P 2J\n\n");
   for (i = 0; i < n_levels; i++) {
     lev = GetLevel(i);
     si = lev->major_component;
@@ -879,9 +880,10 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 	if (n != orb->n) continue;
       }
     }
-    ConstructLevelName(name, sname, s);
-    fprintf(f, "%-5d %-11.4E %1d %-2d %-20s  %-30s\n", i, 
-	    (lev->energy-e0)*HARTREE_EV, p, j0, sname, name);
+    nele = ConstructLevelName(name, sname, s);
+    fprintf(f, "%-5d %-11.4E %-3d %1d %-2d %-20s  %-30s\n", i, 
+	    (lev->energy-e0)*HARTREE_EV, nele, 
+	    p, j0, sname, name);
     if (m == 0) continue;
 
     for (j = 0; j < lev->n_basis; j++) {
@@ -900,7 +902,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 
 int ConstructLevelName(char *name, char *sname, STATE *basis) {
   int n, nq, kl, j;
-  int i, len;
+  int nele, i, len;
   char symbol[20];
   char jsym;
   char ashell[16];
@@ -915,7 +917,7 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
   symbol[0] = '\0';
   if (basis->kgroup < 0) {
     i = basis->kgroup;
-    i = -(i + 1);
+    i = -(i + 1);    
     if (name) {
       orb = GetOrbital(basis->kcfg);
       GetJLFromKappa(orb->kappa, &j, &kl);
@@ -927,17 +929,22 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
       sprintf(name, "%-5d + %d%s%c1(%d)%d ", 
 	      i, orb->n, symbol, jsym, j, basis->kstate);
     }
+    lev = GetLevel(i);
+    si = lev->major_component;
+    sym = GetSymmetry(lev->pj);
+    basis = (STATE *) ArrayGet(&(sym->states), si);
     if (sname) {
-      lev = GetLevel(i);
-      si = lev->major_component;
-      sym = GetSymmetry(lev->pj);
-      basis = (STATE *) ArrayGet(&(sym->states), si);
-      ConstructLevelName(NULL, sname, basis);
+      nele = ConstructLevelName(NULL, sname, basis);
+    } else {
+      nele = ConstructLevelName(NULL, NULL, basis);
     }
-    return 0;
+    return nele+1;
   }
 
   c = GetConfig(basis);
+  nele = c->n_electrons;
+  if (!name && !sname) return nele;
+
   s = c->csfs + basis->kstate;
 
   len = 0;
@@ -952,7 +959,7 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
     else jsym = '+';
     kl = kl/2;
     if (name) {
-      if (nq > 0 || (i == 0 && name[0] == '\0')) {
+      if (((nq < j+1) && nq > 0) || (i == 0 && name[0] == '\0')) {
 	SpecSymbol(symbol, kl);
 	sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
 		n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
@@ -965,7 +972,7 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0) {
+	if (nq0 > 0 && nq0 < 2*(2*kl0+1)) {
 	  SpecSymbol(symbol, kl0);
 	  sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
 	  strcat(sname, ashell);
@@ -977,12 +984,14 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
     }
   }
   
-  if (n0 > 0 && (nq0 > 0 || sname[0] == '\0')) {
-    SpecSymbol(symbol, kl0);
-    sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
-    strcat(sname, ashell);
+  if (sname && n0 > 0) {
+    if ((nq0 > 0 && nq0 < 2*(2*kl0+1)) || sname[0] == '\0') {
+      SpecSymbol(symbol, kl0);
+      sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+      strcat(sname, ashell);
+    }
   }
-  return len;
+  return nele;
 }
     
 

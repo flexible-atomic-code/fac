@@ -90,9 +90,23 @@ def distribute(s):
     
     n = string.atoi(s[0:i0])
 
-    # 2nd char is the orbital angular momentum. * means any allowed value.
+    # 2nd char or those in the [] is the orbital angular momentum.
+    # * means any allowed value.
     if s[i0] == '*':
         l = range(n)
+    elif s[i0] == '[':
+        i0 = i0+1
+        i1 = i0
+        while (s[i1] != ']'):
+            i1 = i1+1
+        b = string.split(s[i0:i1],',')
+        l = []
+        for a in b:
+            if a.isdigit():
+                l.append(string.atoi(a))
+            else:
+                l.append(_orbital_symbols[a])
+        i0 = i1
     else:
         l = [_orbital_symbols[s[i0]]]
 
@@ -131,8 +145,8 @@ def distribute(s):
             q = string.atoi(s[i0:])
             half_q = 2*half_q + len_l
             
-# if the occupation number is more than half of the maximum, convert it
-# to the hole states.
+    # if the occupation number is more than half of the maximum,
+    # convert it to the hole states.
     hole = 0 
     if q > half_q:
         q = 2*half_q - q
