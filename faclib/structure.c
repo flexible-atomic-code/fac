@@ -50,6 +50,7 @@ HAMILTON *GetNewHamilton() {
   }
  
   h->basis = NULL;
+  h->hamilton = NULL;
   h->mixing = NULL;
   n_hamiltons++;
   return h;
@@ -2159,4 +2160,49 @@ int InitStructure() {
   return 0;
 }
 
+int ClearLevelTable() {
+  n_levels = 0;
+  ArrayFree(levels, NULL);
+  return 0;
+}
 
+int ClearHamilton(int ih) {
+  HAMILTON *h;
+  
+  if (ih >= n_hamiltons) return -1;
+  if (ih >= 0) {
+    h = GetHamilton(ih);
+    if (h->basis) {
+      free(h->basis);
+      h->basis = NULL;
+    }
+    if (h->hamilton) {
+      free(h->hamilton);
+      h->hamilton = NULL;
+    }
+    if (h->mixing) {
+      free(h->mixing);
+      h->mixing = NULL;
+    }
+  } else {
+    for (ih = 0; ih < n_hamiltons; ih++) {
+      h = GetHamilton(ih);
+      if (h->basis) {
+	free(h->basis);
+	h->basis = NULL;
+      }
+      if (h->hamilton) {
+	free(h->hamilton);
+	h->hamilton = NULL;
+      }
+      if (h->mixing) {
+	free(h->mixing);
+	h->mixing = NULL;
+      }
+    }
+    ArrayFree(hamiltons, NULL);
+    n_hamiltons = 0;
+  }
+  
+  return 0;
+}

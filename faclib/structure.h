@@ -119,6 +119,8 @@ int SetAngZOptions(int n, double mc, double c);
 int GetStructTiming(STRUCT_TIMING *t);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
+int ClearLevelTable();
+int ClearHamilton(int ih);
 
 #endif
 
