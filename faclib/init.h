@@ -18,7 +18,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-int Infor();
+int Info();
 int InitFac();
 
 #endif

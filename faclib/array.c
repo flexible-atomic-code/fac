@@ -1,24 +1,52 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.6 2001/10/19 22:45:38 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.7 2001/11/24 21:12:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
+/*************************************************************
+  Implementation of module "array"
+  
+  This module implements a variable length one- and 
+  multi-dimensional array.
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
 #ifdef PERFORM_STATISTICS  
 static ARRAY_TIMING timing = {0, 0};
-
+/* 
+** FUNCTION:    GetArrayTiming
+** PURPOSE:     retreive the timing information.
+** INPUT:       {ARRAY_TIMING *t},
+**              pointer to ARRAY_TIMING struct, holding the result.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetArrayTiming(ARRAY_TIMING *t) {
   memcpy(t, &timing, sizeof(timing)); 
   return 0;
 }
 #endif
 
-/******************************************************************/
-/* implements a variable length one- and multi- dimensional array */
-/******************************************************************/
-
+/* 
+** FUNCTION:    ArrayInit
+** PURPOSE:     initialize the one-dimensional array.
+** INPUT:       {ARRAY *a},
+**              pointer to the array to be initialized.
+**              {int esize},
+**              size of the elements in bytes.
+**              {int block},
+**              number of elements in one block.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int ArrayInit(ARRAY *a, int esize, int block) {
   a->esize = esize;
   a->block = block;
@@ -27,6 +55,19 @@ int ArrayInit(ARRAY *a, int esize, int block) {
   return 0;
 }
 
+/* 
+** FUNCTION:    ArrayGet
+** PURPOSE:     retrieve the i-th element of the array.
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+**              {int i},
+**              index of the element.
+** RETURN:      {void *},
+**              pointer to the element. 
+**              NULL, if does not exist.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void *ArrayGet(ARRAY *a, int i) {
   DATA *p;
   if (i < 0 || i >= a->dim) return NULL;
@@ -42,6 +83,22 @@ void *ArrayGet(ARRAY *a, int i) {
   }
 }
 
+/* 
+** FUNCTION:    ArraySet
+** PURPOSE:     set the i-th element.
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+**              {int i},
+**              index of the element.
+**              {void *d},
+**              pointer to the data to be copied.
+** RETURN:      {void *},
+**              pointer to the element.
+** SIDE EFFECT: 
+** NOTE:        if d == NULL, this function simply retrieve the
+**              i-th element. if the element does not exist,
+**              an empty one is created.
+*/
 void *ArraySet(ARRAY *a, int i, void *d) {
   void *pt;
   DATA *p;
@@ -85,12 +142,40 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   return pt;
 }
 
+/* 
+** FUNCTION:    ArrayAppend
+** PURPOSE:     append an element to the array
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+**              {void *d},
+**              data to be appened.
+** RETURN:      {void *},
+**              pointer to the appended element.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void *ArrayAppend(ARRAY *a, void *d) {
   int i;  
   i = a->dim;
   return ArraySet(a, i, d);
 }
 
+/* 
+** FUNCTION:    ArrayFreeData
+** PURPOSE:     free the data stored in the array.
+** INPUT:       {DATA *p},
+**              pointer to the data to be freed
+**              {int esize},
+**              size of the element in bytes.
+**              {int block},
+**              number of elements in one block.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing the data.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        this function calls itself recursively.
+*/
 int ArrayFreeData(DATA *p, int esize, int block, 
 		  void (*FreeElem)(void *)) {
   void *pt;
@@ -112,7 +197,19 @@ int ArrayFreeData(DATA *p, int esize, int block,
   p = NULL;
   return 0;
 }
-    
+
+/* 
+** FUNCTION:    ArrayFree
+** PURPOSE:     deinitialize the array.
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+**              {void (*FreeElem)(void *)},
+**              a function called before freeing each element.
+** RETURN:      {int 0},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
 int ArrayFree(ARRAY *a, void (*FreeElem)(void *)) {
   if (!a) return 0;
   if (a->dim == 0) return 0;

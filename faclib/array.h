@@ -2,7 +2,7 @@
 #define _ARRAY_H_ 1
 
 /*************************************************************
-  Header for module "array"
+  Header of module "array"
   
   This module implements a variable length one- and 
   multi-dimensional array.

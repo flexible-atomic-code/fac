@@ -49,7 +49,7 @@ Version 0.6.1, 10/13/2001
 Version 0.6.0, 10/12/2001
 	1. fix a bug in the construction of central potential, which
 	   caused the potential at very large distances incorrect, this
-	   bug did affected the results.
+	   bug did not affected the results.
 	2. fix another occasional failur in the Dirac Solver.
 	3. implemented the paramatric fitting of collision strength,
 	   RR cross sections and ionization cross sections.
