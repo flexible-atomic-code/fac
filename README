@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.20 2002/04/25 16:22:27 mfgu Exp $
+# rcsid = $Id: README,v 1.21 2002/04/30 15:40:59 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -10,7 +10,7 @@ blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.
 doc/,        reference guide for FAC
-doc/papers/, papers submitted to Computer Phys. Comm.
+doc/papers/, papers describe the theoretical backgrounds.
 faclib/,     core numerical library.
 ionis/,      ionization balance calculation of Arnaud&Raymond.
 lapack/,     fortran routines from LAPACK.
@@ -28,7 +28,7 @@ The other interface uses a simple command parser, compiled into executables.
 The two interfaces are independent. Either one or both can be installed.
 
 Before installing, check the top level Makefile, and the setup script 
-"setup.py" (for Python interface). Normally, only a few macro defines at 
+"setup.py" (for Python interface). Normally, only a few macro defined at 
 the top of Makefile are OS dependent. Make appropriate changes according
 to the comments. In "setup.py", the Fortran runtime library need to be 
 specified through the variable "fortranlib" (see "setup.py" for details).
