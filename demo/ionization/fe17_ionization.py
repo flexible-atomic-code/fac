@@ -13,7 +13,9 @@ fac.Config('2*8', group='fe17')
 fac.Config('2*7', group='fe18')
 
 # solve the structure problem
+fac.ConfigEnergy(0)
 fac.OptimizeRadial(['fe17', 'fe18'])
+fac.ConfigEnergy(1)
 fac.Structure('ne_f.lev.b', ['fe17'])
 fac.Structure('ne_f.lev.b', ['fe18'])
 fac.MemENTable('ne_f.lev.b')

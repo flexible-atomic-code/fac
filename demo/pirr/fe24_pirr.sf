@@ -13,7 +13,9 @@ Config('1s2 2*1', group = 'rn2')
 # set the appropriate screening
 SetScreening([2])
 
+ConfigEnergy(0)
 OptimizeRadial('n1')
+ConfigEnergy(1)
 
 # configuration interaction between n=1 and n=2
 # complexes are included for the recombining ion.
