@@ -61,6 +61,7 @@ double CBeli(int z, int nele, double ene,
 	     double *a, double *dir, double *err);
 double EBeli(int z, int nele);
 double EColFit(int z, int nele, int is);
+double EPhFit2(int z, int nele, int is);
 double RBeli(int z, int nele, double t, double *a, double *dir);
 double CFit(int z, int nele, double t, double *a, double *dir);
 double ColFit(int z, int nele, int is, double t, double *a, double *dir);

@@ -1,3 +1,47 @@
+      subroutine ephfit2(nz,ne,is,s)
+*** Version 2. March 25, 1996.
+*** Written by D. A. Verner, verner@pa.uky.edu
+*** Inner-shell ionization energies of some low-ionized species are slightly
+*** improved to fit smoothly the experimental inner-shell ionization energies 
+*** of neutral atoms.
+*** modified by M. F. Gu. 04/16/2004
+
+******************************************************************************
+*** This subroutine returns the ionization threshold of a particular shell.
+*** for all ionization stages of all atoms from H to Zn (Z=30) by use of
+*** the following fit parameters:
+*** Outer shells of the Opacity Project (OP) elements:
+***    Verner, Ferland, Korista, Yakovlev, 1996, ApJ, in press.
+*** Inner shells of all elements, and outer shells of the non-OP elements:
+***    Verner and Yakovlev, 1995, A&AS, 109, 125
+*** Input parameters:  nz - atomic number from 1 to 30 (integer) 
+***                    ne - number of electrons from 1 to iz (integer)
+***                    is - shell number (integer)
+*** Output parameter:  s - ionization threshold, in eV
+*** Shell numbers:
+*** 1 - 1s, 2 - 2s, 3 - 2p, 4 - 3s, 5 - 3p, 6 - 3d, 7 - 4s. 
+*** If a species in the ground state has no electrons on the given shell,
+*** the subroutine returns s=0.
+******************************************************************************
+      integer nz,ne,is
+      real*8 s
+      common/ninn/ninn(30)
+      common/ntot/ntot(30)
+      common/ph1/ph1(6,30,30,7)
+
+      s = 0.0
+      if (is .lt. 1) return
+      if(nz.lt.1.or.nz.gt.30)return
+      if(ne.lt.1.or.ne.gt.nz)return
+      nout=ntot(ne)
+      if(nz.eq.ne.and.nz.gt.18)nout=7
+      if(nz.eq.(ne+1).and.(nz.eq.20.or.nz.eq.21.or.nz.eq.22.or.nz.
+     &     eq.25.or.nz.eq.26))nout=7
+      if(is.gt.nout)return
+      s=ph1(1,nz,ne,is)
+      return
+      end
+
       subroutine phfit2(nz,ne,is,e,s)
 *** Version 2. March 25, 1996.
 *** Written by D. A. Verner, verner@pa.uky.edu
