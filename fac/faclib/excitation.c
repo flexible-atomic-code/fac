@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.74 2004/12/16 08:25:46 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.75 2004/12/16 16:36:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -586,8 +586,6 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   return Max(ko2, ko2p);
 }
 
-int qkcalc = 0;
-int qkload = 0;
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   int type, t, ie, ite, ipk, ipkp, nqk, ieb, nopb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
@@ -614,11 +612,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[4] = k3;
   p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
-    qkload++;
     return *p;
   }   
   
-  qkcalc++;
   nqk = n_tegrid*n_egrid1;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
@@ -1865,7 +1861,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     fclose(fpw);
     fpw = NULL;
   }
-  printf("%d %d\n", qkcalc, qkload);
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);

@@ -240,8 +240,8 @@
 #define MAX_HAMS           2000
 #define LEVELS_BLOCK       1024
 #define ANGZ_BLOCK         1024
-#define ANGZCUT            1E-4
-#define MIXCUT             1E-4
+#define ANGZCUT            1E-5
+#define MIXCUT             1E-5
 #define NPRINCIPLE         2
 #define MAXDN              3
 
