@@ -14,7 +14,7 @@ C     ierr error code returned by coulcc
       implicit none     
       integer k, ierr, kfn, inorm
       double precision z, e, r, p, q, p1, q1, c, ki, zp, gam
-      double precision lambda, qi, y, x0, b1, b2, np
+      double precision lambda, y, qi, x0, b1, b2, np
       complex*16 x, eta, zlmin, omega, a, pp, qq, mu, nu, IONE
       complex*16 fc(1), gc(1), fcp(1), gcp(1), sig(1), clgam, lam0
       double precision SL, SL2, TSL2, ALPHA
@@ -65,7 +65,7 @@ C     ierr error code returned by coulcc
             a = exp(omega)*b1
             a = a/(mu*sqrt(2.0*x0))
          else
-            a = exp(omega)
+            a = exp(IONE*dimag(omega))
             a = a/mu
             a = a*qi/sqrt(2.0*x0)
          endif
@@ -73,8 +73,8 @@ C     ierr error code returned by coulcc
          qq = (ALPHA*e/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
          p = dble(pp)
          q = dble(qq)
-         p1 = dimag(pp)
-         q1 = dimag(qq)
+         p1 = dble(omega)
+         q1 = dimag(omega)
       else
          a = qi/sqrt(2.0*IONE*mu*x)
          pp = a*((mu + nu)*gc(1) - x*gcp(1))

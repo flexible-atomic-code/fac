@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.28 2003/12/06 00:30:15 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.29 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -568,23 +568,23 @@ double AngularMSub(int lf, int li1, int li2, int q) {
   return a;
 }
 
-int TestCoulomb(char *s) {
+int CoulombBethe(char *s, double z, double te, double e1) {
 #define M 80
-
-  double kl[M], z;
+  double kl[M];
   int i, j;
   FILE *f;
   int nte, ne1, ne2, ie1, ite;
-  double e2[] = {0.0};
-  double e1[] = {6.0986E1,5.296E2};
-  double te[] = {1.68686E-1,8.434314E-1};
+  double e2, a0, a1;
   
   ne2 = 1;
-  ne1 = 2;
-  nte = 2;
-  z = 17;
-
+  ne1 = 1;
+  nte = 1;
+  e2 = 0.0;
   f = fopen(s, "w");
+  fprintf(f, "## TE = %10.3E, E1 = %10.3E\n", te, e1);
+
+  te /= HARTREE_EV;
+  e1 /= HARTREE_EV;
   for (i = 0; i < 50; i++) {
     kl[i] = i;
   }
@@ -594,20 +594,20 @@ int TestCoulomb(char *s) {
     j += 1;
   }
   
-  PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 1, 0, 0);
-  for (ite = 0; ite < nte; ite++) {
-    for (ie1 = 0; ie1 < ne1; ie1++) {
-      fprintf(f, "## TE = %10.3E, E1 = %10.3E\n", te[ite], e1[ie1]);
-      for (i = 0; i < M; i++) {
-	fprintf(f, "%d %d ", i, (int)kl[i]);
-	for (j = 0; j < _ncb; j++) {
-	  fprintf(f, "%12.5E ", _cb[0][ite][ie1][j][i]);
-	}
-	fprintf(f, "\n");
-      }
-      fprintf(f, "\n\n");
-    }
+  PrepCoulombBethe(ne2, nte, ne1, z, &e2, &te, &e1, M, kl, 1, 0, 0);
+  a0 = 1.0;
+  a1 = 1.0;
+  for (i = 1; i < M; i++) {
+    fprintf(f, "%3d %3d ", i, (int)kl[i]);
+    for (j = 0; j < _ncb; j++) {
+      fprintf(f, "%12.5E ", _cb[0][0][0][j][i]);
+    }    
+    fprintf(f, "%12.5E %12.5E\n", a0, a1);
+    a0 *= _cb[0][0][0][0][i];
+    a1 *= _cb[0][0][0][2][i];
   }
+
+  fclose(f);
 
   return 0;
 #undef M

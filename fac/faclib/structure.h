@@ -133,6 +133,8 @@ int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
 double HamiltonElement(int isym, int isi, int isj);
 double HamiltonElementFrozen(int isym, int isi, int isj);
+double MultipoleCoeff(int isym, int ilev1, int ka1,
+		      int ilev2, int ka2, int k);
 double HamiltonElementFB(int isym, int isi, int isj);
 double Hamilton2E2(int n_shells, SHELL_STATE *sbra, 
 		   SHELL_STATE *sket,INTERACT_SHELL *s);
@@ -194,6 +196,7 @@ int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetMixCut(double c);
 int FreeAngZ(int g, int which_array);
+void ClearRMatrixLevels(int n);
 int ClearLevelTable(void);
 int InitStructure(void);
 int ReinitStructure(int m);

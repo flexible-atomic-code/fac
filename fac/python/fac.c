@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.86 2004/07/08 18:41:48 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.87 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2968,17 +2968,19 @@ static PyObject *PTestIntegrate(PyObject *self, PyObject *args) {
   
 }
 
-static PyObject *PTestCoulomb(PyObject *self, PyObject *args) { 
+static PyObject *PCoulombBethe(PyObject *self, PyObject *args) { 
   char *s;
+  double z, te, e1;
   
   if (sfac_file) {
-    SFACStatement("TestCoulomb", args, NULL);
+    SFACStatement("CoulombBethe", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
-  TestCoulomb(s);
+  if (!PyArg_ParseTuple(args, "sddd", &s, &z, &te, &e1)) return NULL;
+  CoulombBethe(s, z, te, e1);
+
   Py_INCREF(Py_None);
   return Py_None;  
 }
@@ -3637,9 +3639,9 @@ static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
   double p, q, u, v;
   int k, ierr;
 
-  if (!PyArg_ParseTuple(args, "ddid", &z, &e, &k, &r)) return NULL;
-  e /= HARTREE_EV;
   ierr = 1;
+  if (!PyArg_ParseTuple(args, "ddid|i", &z, &e, &k, &r, &ierr)) return NULL;
+  e /= HARTREE_EV;
   DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
   
   return Py_BuildValue("(ddddi)", p, q, u, v, ierr);
@@ -4037,6 +4039,42 @@ static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRMatrixExpansion(PyObject *self, PyObject *args) {
+  int m;
+  double d, a, r;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixExpansion", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  d = 1E-3;
+  a = 1E-4;
+  r = 0.0;
+  if (!PyArg_ParseTuple(args, "i|ddd", &m, &d, &a, &r)) return NULL;
+  RMatrixExpansion(m, d, a, r);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+
+static PyObject *PRMatrixNMultipoles(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixNMultipoles", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  RMatrixNMultipoles(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
 static PyObject *PRMatrixBoundary(PyObject *self, PyObject *args) {
   double r0, r1, b;
 
@@ -4159,8 +4197,65 @@ static PyObject *PSetSlaterCut(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  char **f1, **f2, *fn;
+  double emin, emax, de;
+  int i, np, m, mb;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixCE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = 0;
+  mb = 1;
+  if (!PyArg_ParseTuple(args, "sOOddd|ii", 
+			&fn, &p, &q, &emin, &emax, &de, &m, &mb)) return NULL;
+  
+  if (!PyList_Check(p)) return NULL;
+  if (!PyList_Check(q)) return NULL;
+  np = PyList_Size(p);
+  if (PyList_Size(q) != np) return NULL;
+  f1 = malloc(sizeof(char *)*np);
+  f2 = malloc(sizeof(char *)*np);
+  for (i = 0; i < np; i++) {
+    f1[i] = PyString_AsString(PyList_GetItem(p, i));
+    f2[i] = PyString_AsString(PyList_GetItem(q, i));
+  }
+  RMatrixCE(fn, np, f1, f2, emin, emax, de, m, mb);
+  
+  free(f1);
+  free(f2);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
+
+static PyObject *PSetCEPWFile(PyObject *self, PyObject *args) {
+  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("SetCEPWFile", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  
+  SetCEPWFile(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
   
 static struct PyMethodDef fac_methods[] = {
+  {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
+  {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
+  {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
+  {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
   {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
   {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 
@@ -4284,7 +4379,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SortLevels", PSortLevels, METH_VARARGS},
   {"Structure", PStructure, METH_VARARGS},
   {"TestAngular", PTestAngular, METH_VARARGS},
-  {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
+  {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
