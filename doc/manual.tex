@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.8}\xspace}
+\newcommand{\facversion}{{1.0.9}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -40,9 +40,9 @@
 \newenvironment{fundesc}[2]{
 	\begin{center}
 	\begin{minipage}{\textwidth}
+	\subsubsection*{\key{\textbf{#1}}(\var{#2}):}
 	\index{#1}
-	\addcontentsline{toc}{subsubsection}{#1}
-	\key{\textbf{#1}}(\var{#2}):\\}
+	\addcontentsline{toc}{subsubsection}{#1}}
 	{\end{minipage}\end{center}}
 \newenvironment{vardesc}[1]{
 	\begin{center}
@@ -609,6 +609,29 @@ gf =
 where $L$ is the multipole rank.
 \end{dbdesc}
 
+\subsection{\texttt{TR\_EXTRA}}
+\index{TR\_EXTRA}
+\texttt{TR\_EXTRA} contains the UTA related transition data, namely, the
+transition energy including the UTA shift, the UTA Gaussian width, and the
+configuration interaction multipler. This structure is written to the
+\texttt{DB\_TR} file only in UTA mode, which is set by \key{SetUTA()}
+function.
+
+\begin{verbatim}
+typedef struct _TR_EXTRA_ {
+  float energy;
+  float sdev;
+  float sci;
+} TR_EXTRA;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{float energy}:] The transition energy including UTA shift.
+\item[\texttt{float sdev}:] The Gaussian standard deviation of the UTA.
+\item[\texttt{float sci}:] The configuration interaction multipler, which
+  accounts for the CI within the same non-relativistic configurations.
+\end{dbdesc}
+
 \subsection{\texttt{CE\_HEADER}}
 \index{CE\_HEADER}
 \texttt{CE\_HEADER} is the data header for collisional excitation data blocks.
@@ -1107,6 +1130,22 @@ transition energy in eV.
 \item[\texttt{float strength}:] For the level population table, this is the
 concentration of the level. For the line emissivity, this is the line
 luminosity in photons/s. 
+\end{dbdesc}
+
+\subsection{\texttt{SP\_EXTRA}}
+\index{SP\_EXTRA}
+\texttt{SP\_EXTRA} contains the UTA width of the transition. It is written to
+the \texttt{DB\_SP} file only in the UTA mode.
+
+\begin{verbatim}
+typedef struct _SP_EXTRA_ {
+  float sdev;
+} SP_EXTRA;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{float sdev}:] The Gaussian UTA standard deviation of the
+  transition.
 \end{dbdesc}
 
 \subsection{\texttt{RT\_HEADER}}
@@ -1615,6 +1654,11 @@ Mode	= 1
     30  2      0  0  8.9415E+02  3.203146E-02  3.704097E+11  5.407792E-02
     32  2      0  0  8.9844E+02  2.652003E-01  3.096259E+12 -1.552313E-01
 \end{verbatim}
+
+After version 1.0.8, if the UTA mode is used, the output contains an
+additional column after the transition energy, which is the Gaussian standard
+deviation of the UTA transition. The $2J$ values in this case are also
+redefined to be the statistical weight of the configuraiton minus 1.
 
 \subsection{\texttt{DB\_CE}}
 \index{DB\_CE}
@@ -3165,15 +3209,16 @@ strengths on this grid are output. It is forced to be same as that set by
 \begin{fundesc}{SetUTA}{m\opt{, ci}}
 Set the flag for configuration average models. If $m=1$, all calculations are
 carried out in the configuration average approximation. The radiative
-transition rates output contains three additional fields, the energy shift,
-gausian standard deviation, and the correction to the line strengths due to
+transition rates output contains three additional fields, the transition
+energy including the UTA shift,
+the Gausian standard deviation, and the correction to the line strengths due to
 the configuration interaction within the same non-relativisitc
 configurations. If $m=0$, which is the default,
 the usual detailed term accounting method is used. This function should be
 called in the beginning of the script, before \key{Config} function, since it
 disables the angular momentum coupling performed by \key{Config}. The optional
-argument \var{ci} indicates when reading the \key{DB\_TR} files, the
-configuration interaction correction factors should be included. These
+argument \var{ci} indicates whether the configuration interaction correction
+factors should be included when reading the \key{DB\_TR} files. These 
 correction factors are always calculated in \key{TransitionTable} irrespective
 of the value of \var{ci}.
 \end{fundesc}
