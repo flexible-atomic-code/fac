@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.1}\xspace}
+\newcommand{\facversion}{{0.8.2}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -1921,15 +1921,17 @@ values. For $l > 13$, no spectroscopic symbol is available, it is specified as
 works for $l \le 13$ shells.
 \end{fundesc}
 
-\begin{fundesc}{ConfigEnergy}{m\opt{, g, ...} }
+\begin{fundesc}{ConfigEnergy}{m\opt{, n\opt{, g, ...}}}
 This function should be called twice just before (with \var{m} = 0) and after
 (with \var{m} = 1) \key{OptimizeRadial} if used. The call with \var{m} = 0
 performs a radial optimization for the configuration groups given by the list
 \var{g}, and calculate the average energy of each configuration under
 such potentials. Multiple optimizations are performed if more than one list
 are given. If none is given, the optimization are carried out for each
-configuration group. The call with \var{m} = 1 does not accept additional
-arguments. It recalculates the average energy of each configuration
+configuration group. If \var{m} = 0, one may also
+specify an integer \var{n} to indicate that \key{RefineRadial(n)} should be
+called after the optimization. The call with \var{m} = 1 does not accept
+additional arguments. It recalculates the average energy of each configuration
 under the potential obtained by \key{OptimizeRadial} issured by the user, The
 diagonal elements of the Hamiltonian calculated in the \key{Structure} call is
 then adjusted by the difference of the two average energies for each
@@ -2074,6 +2076,16 @@ quantum number \var{n} onto the basis states in the configuration groups
 \var{b}. The orbital angular momentum of the spectator electron is set by two
 functions \key{SetRecPWLimits} and \key{SetRecSpectator}. The resulting energy
 levels are saved in file \var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{RefineRadial}{\opt{n\opt{, m}}}
+This function may be called after \key{OptimizeRadial}, which performs a
+minimization of the total energy of the mean configuration by adding a
+correction to the radial potential. The correction is expressed as linear
+superposion of $s$ orbitals with $n=1$--$5$. The coefficients are obtained by
+minimization of the energy. \var{n} is the number of energy evaluations
+allowed in the minimization, and \var{m} controls the print out during the
+calculation. Default: \var{n} = 100, \var{m} = 0 (no print out).
 \end{fundesc}
 
 \begin{fundesc}{Reinit}{\textnormal{**}mkey $|$ m}
@@ -2350,6 +2362,13 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
+\begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}
+Calculate the weighted oscillator strength and radiative transition rates from
+states in \var{up} groups to states in \var{low} groups with multipole type
+\var{m}. The default for \var{m} is -1, i.e., E1 transitions. The results are
+saved to file \var{fn}.
+\end{fundesc}
+
 \begin{fundesc}{TRRateH}{z, n0, l0, n1, l1\opt{, m}}
 Calculate the radiative transition rate or weighted oscillator strength of
 the transition from state (\var{n1, l1}) to state (\var{n0,l0}) in the
@@ -2357,13 +2376,6 @@ non-relativistic hydrogenic approximation for the ion with charge \var{z}. If
 \var{m}=0, the transition rate is returned, which is the default, if
 \var{m}=1, the weighted oscillator strength is returned, and if \var{m}=2, the
 dipole radial integral is returned.
-\end{fundesc}
-
-\begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}
-Calculate the weighted oscillator strength and radiative transition rates from
-states in \var{up} groups to states in \var{low} groups with multipole type
-\var{m}. The default for \var{m} is -1, i.e., E1 transitions. The results are
-saved to file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{WaveFuncTable}{fn, n, k\opt{, e}}

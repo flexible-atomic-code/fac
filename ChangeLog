@@ -1,5 +1,7 @@
 Version 0.8.2, 09/19/2002
 	1. ConfigEnergy correction based on configurations.
+	2. add RefineRadial function, maybe usefule for neutrals.
+	3. fix a bug in RadialBound.
 	
 Version 0.8.1, 09/03/2002
 	1. fix the unit bug for PhFit.

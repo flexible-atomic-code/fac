@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.34 2002/09/04 13:27:13 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.35 2002/09/19 15:59:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -193,7 +193,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   z = (z0 - pot->N + 1.0);
   e = EnergyH(z, orb->n, orb->kappa);
   emin = EnergyH(z0, orb->n, orb->kappa);
-
   niter = 0;
   while (niter < max_iteration) {
     niter++;
@@ -227,8 +226,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     return -2;
   }
   
-  p1 = 0.2;
-  while (p1 > EPS3) {
+  p1 = 0.5;
+  while (p1 > EPS2) {
     de = -p1*e;
     while (nodes == nr) {
       e += de;
@@ -238,9 +237,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0);
     }
     e -= de;
-    p1 *= 0.2;
+    nodes = nr;
+    p1 *= 0.5;
   }
-  e -= de;
 
   niter = 0;
   while (niter < max_iteration) {
@@ -306,7 +305,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   orb->energy = e;
   orb->wfun = p;
   orb->qr_norm = 1.0;
-  DiracSmall(orb, pot);
+
+  if (pot->flag == -1) {
+    DiracSmall(orb, pot);
+  }
  
   return 0;
 }
@@ -451,7 +453,10 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
   
   e0 = InnerProduct(0, MAX_POINTS-1, p, p, pot);
   orb->qr_norm = 1.0/e0;
-  DiracSmall(orb, pot);
+
+  if (pot->flag == -1) {
+    DiracSmall(orb, pot);
+  }
   
   return 0;
 }  
@@ -520,7 +525,10 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   orb->phase = NULL;
 
   orb->qr_norm = 1.0;
-  DiracSmall(orb, pot);
+  
+  if (pot->flag == -1) {
+    DiracSmall(orb, pot);
+  }
   return 0;
 }
 
@@ -1110,8 +1118,10 @@ int SetPotentialU(POTENTIAL *pot, int n, double *u) {
     return 0;
   }
 
-  for (i = 0; i < n; i++) {
-    pot->U[i] = u[i];    
+  if (u) {
+    for (i = 0; i < n; i++) {
+      pot->U[i] = u[i];    
+    }
   }
 
   Differential(pot->U, pot->dU, 0, MAX_POINTS-1);

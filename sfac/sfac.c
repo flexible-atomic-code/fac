@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.24 2002/09/04 13:27:15 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.25 2002/09/19 15:59:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -367,20 +367,25 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   
 static int PConfigEnergy(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  int m, i;
+  int m, mr, i;
   int ng, *kg;
 
   if (argc == 0) return -1;
   m = atoi(argv[0]);
   
-  if (argc == 1) {
-    ConfigEnergy(m, 0, NULL);
+  if (argc == 1 || m != 0) {
+    ConfigEnergy(m, 0, 0, NULL);
   } else {
-    for (i = 1; i < argc; i++) {
-      ng = DecodeGroupArgs(&kg, 1, argv+i, argt+i, variables);
-      if (ng < 0) return -1;
-      ConfigEnergy(m, ng, kg);
-      if (ng > 0) free(kg);
+    mr = atoi(argv[1]);
+    if (argc == 2) {
+      ConfigEnergy(m, mr, 0, NULL);
+    } else {
+      for (i = 1; i < argc; i++) {
+	ng = DecodeGroupArgs(&kg, 1, argv+i, argt+i, variables);
+	if (ng < 0) return -1;
+	ConfigEnergy(m, mr, ng, kg);
+	if (ng > 0) free(kg);
+      }
     }
   }
 
@@ -822,6 +827,22 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   for (i = 0; i < ni; i++) free(vw[i]);
 
   return 0;
+}
+
+static int PRefineRadial(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int maxfun, msglvl;
+  
+  maxfun = 100;
+  msglvl = 0;
+  if (argc > 0) {
+    maxfun = atoi(argv[0]);
+    if (argc > 1) {
+      msglvl = atoi(argv[1]);
+    }
+  }
+  
+  return RefineRadial(maxfun, msglvl);
 }
 
 static int PPause(int argc, char *argv[], int argt[], 
@@ -2102,7 +2123,7 @@ static int PStructure(int argc, char *argv[], int argt[],
     if (ng < 0) return -1;
     if (n >= 3) {
       if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-      ngp = DecodeGroupArgs(&kg, 1, &(argv[2]), &(argt[2]), variables);
+      ngp = DecodeGroupArgs(&kgp, 1, &(argv[2]), &(argt[2]), variables);
     }
   }
   
@@ -2305,6 +2326,7 @@ static METHOD methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},

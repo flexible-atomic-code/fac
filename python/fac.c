@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.35 2002/09/04 13:27:15 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.36 2002/09/19 15:59:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -799,6 +799,24 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   }
   if (weight) free(weight);
   if (kg) free(kg);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
+  int maxfun, msglvl;
+
+  if (sfac_file) {
+    SFACStatement("RefineRadial", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  maxfun = 100;
+  msglvl = 0;
+  if (!PyArg_ParseTuple(args, "|ii", &maxfun, &msglvl)) return NULL;
+  
+  if (RefineRadial(maxfun, msglvl)) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -2810,7 +2828,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
 } 
 
 static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
-  int m, n, i;
+  int m, mr, n, i;
   PyObject *p;
   int ng, *kg;
 
@@ -2825,16 +2843,22 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
 
   p = PyTuple_GetItem(args, 0);
   m = PyInt_AsLong(p);
-  if (n == 1) {
-    ConfigEnergy(m, 0, NULL);
-  } else {  
-    for (i = 1; i < n; i++) {
-      p = PyTuple_GetItem(args, i);
-      if (!PyList_Check(p)) return NULL;
-      ng = DecodeGroupArgs(p, &kg);
-      if (ng < 0) return NULL;
-      ConfigEnergy(m, ng, kg);
-      if (ng > 0) free(kg);
+  if (n == 1 || m != 0) {
+    ConfigEnergy(m, 0, 0, NULL);
+  } else {
+    p = PyTuple_GetItem(args, 1);
+    mr = PyInt_AsLong(p);
+    if (n == 2) {
+      ConfigEnergy(m, mr, 0, NULL);
+    } else {
+      for (i = 1; i < n; i++) {
+	p = PyTuple_GetItem(args, i);
+	if (!PyList_Check(p)) return NULL;
+	ng = DecodeGroupArgs(p, &kg);
+	if (ng < 0) return NULL;
+	ConfigEnergy(m, mr, ng, kg);
+	if (ng > 0) free(kg);
+      }
     }
   }
 
@@ -2938,6 +2962,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},

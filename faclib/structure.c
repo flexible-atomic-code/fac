@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.35 2002/09/18 15:53:49 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.36 2002/09/19 15:59:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -751,6 +751,7 @@ int AddToLevels(int ng, int *kg) {
   
   n_levels = j;
   if (i < d-1) return -2;
+
   return 0;
 }
 
@@ -899,6 +900,7 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
 int SortLevels(int start, int n) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
+
   if (n < 0) n = n_levels-start;
   while (1 < n) {
     i = start;
