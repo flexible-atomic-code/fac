@@ -40,6 +40,7 @@ typedef struct _ORBITAL_ {
 #define Large(orb) ((orb)->wfun)
 #define Small(orb) ((orb)->wfun + MAX_POINTS)
 
+int GetNMax();
 double *GetVEffective();
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
