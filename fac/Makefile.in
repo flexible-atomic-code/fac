@@ -37,6 +37,8 @@ sfac:	lib
 
 pfac:   lib
 	${PYTHON} setup.py build --force -extracomp="${CFLAGS}" -extralink="${LIBS}"
+mpy:
+	${PYTHON} setup.py build -mpy -extracomp="${CFLAGS}" -extralink="${LIBS}"
 
 doc:
 	cd doc; make

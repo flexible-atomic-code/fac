@@ -9,6 +9,7 @@ libs = []
 extralink = []
 extracomp = []
 
+no_setup = 0
 x = sys.argv[2:]
 sys.argv = sys.argv[0:2]
 for s in x:
@@ -32,45 +33,45 @@ for s in x:
                         libs.append(a[2:])
                   else:
                         extralink.append(a)
+      elif (s[0:4] == '-mpy'):
+            pyinc = get_config_var('INCLUDEPY')
+            pylib = get_config_var('LIBPL')+'/'+get_config_var('LDLIBRARY')
+            os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
+            no_setup = 1
       else:
             sys.argv.append(s)
 
-setup(name = "FAC",
-      package_dir = {'pfac': 'python'},
-      py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
-                    'pfac.atom', 'pfac.spm'],
-      ext_modules = [Extension("pfac.fac",
-                               ["python/fac.c"],
-                               include_dirs = incdir,
-                               library_dirs = libdir,
-                               libraries = libs,
-                               extra_compile_args = extracomp,
-                               extra_link_args = extralink),
-                     Extension("pfac.crm",
-                               ["python/pcrm.c"],
-                               include_dirs = incdir,
-                               library_dirs = libdir,
-                               libraries = libs,
-                               extra_compile_args = extracomp,
-                               extra_link_args = extralink),
-                     Extension("pfac.pol",
-                               ["python/ppol.c"],
-                               include_dirs = incdir,
-                               library_dirs = libdir,
-                               libraries = libs,
-                               extra_compile_args = extracomp,
-                               extra_link_args = extralink),
-                     Extension("pfac.util",
-                               ["python/util.c"],
-                               include_dirs = incdir,
-                               library_dirs = libdir,
-                               libraries = libs,
-                               extra_compile_args = extracomp,
-                               extra_link_args = extralink)
-                     ]) 
-
-if (sys.argv[1] == 'build'):
-      pyinc = get_config_var('INCLUDEPY')
-      pylib = get_config_var('LIBPL')+'/'+get_config_var('LDLIBRARY')
-      os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
-      
+if (no_setup == 0):
+      setup(name = "FAC",
+            package_dir = {'pfac': 'python'},
+            py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
+                          'pfac.atom', 'pfac.spm'],
+            ext_modules = [Extension("pfac.fac",
+                                     ["python/fac.c"],
+                                     include_dirs = incdir,
+                                     library_dirs = libdir,
+                                     libraries = libs,
+                                     extra_compile_args = extracomp,
+                                     extra_link_args = extralink),
+                           Extension("pfac.crm",
+                                     ["python/pcrm.c"],
+                                     include_dirs = incdir,
+                                     library_dirs = libdir,
+                                     libraries = libs,
+                                     extra_compile_args = extracomp,
+                                     extra_link_args = extralink),
+                           Extension("pfac.pol",
+                                     ["python/ppol.c"],
+                                     include_dirs = incdir,
+                                     library_dirs = libdir,
+                                     libraries = libs,
+                                     extra_compile_args = extracomp,
+                                     extra_link_args = extralink),
+                           Extension("pfac.util",
+                                     ["python/util.c"],
+                                     include_dirs = incdir,
+                                     library_dirs = libdir,
+                                     libraries = libs,
+                                     extra_compile_args = extracomp,
+                                     extra_link_args = extralink)
+                           ]) 
