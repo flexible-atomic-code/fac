@@ -1,5 +1,11 @@
 #include "recouple.h"
 
+static char *rcsid="$Id: recouple.c,v 1.4 2001/09/14 13:17:01 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 /********************************************************************/ 
 /* The rank appears in this file are all double of its actual value */
 /* Note that the rank in the rcfp routines are the actual values    */

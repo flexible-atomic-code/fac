@@ -1,5 +1,11 @@
 #include "angular.h"
 
+static char *rcsid="$Id: angular.c,v 1.8 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 /* maximum summation terms in the calculation of 3j symbols. 
    this should allow the angular momentum up to about 500 */
 #define MAXTERM 512

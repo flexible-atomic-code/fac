@@ -1,6 +1,12 @@
 #include "angular.h"
 #include "rcfp.h"
 
+static char *rcsid="$Id: rcfp.c,v 1.5 2001/09/14 13:17:01 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 /*****************************************************************/
 /* all the data tables here are derived from rabs package.       */
 /* see Gaigalas et. al.  CPC 139, 263.                           */

@@ -1,5 +1,11 @@
 #include "coulomb.h"
 
+static char *rcsid="$Id: coulomb.c,v 1.5 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 static int _ncb = 0;
 static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];

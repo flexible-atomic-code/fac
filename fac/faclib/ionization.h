@@ -12,6 +12,8 @@ int SetCIPWGrid(int ns, int *n, int *step);
 int SetCIFormat(int m);
 int SetCIEGrid(int n, double emin, double emax, double eth);
 int SetCIEGridDetail(int n, double *x);
+int SetCIFormat(int m);
+int SetUsrCIEGridType(int type);
 int SetUsrCIEGrid(int n, double emin, double emax, double eth);
 int SetUsrCIEGridDetail(int n, double *x);
 double *CIRadialQk(int ie1, int ie2, int kb, int kbp, int k);

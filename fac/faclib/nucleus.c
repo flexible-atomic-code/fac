@@ -1,5 +1,11 @@
 #include "nucleus.h"
 
+static char *rcsid="$Id: nucleus.c,v 1.4 2001/09/14 13:17:00 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 #define N_ELEMENTS 109
 
 static NUCLEUS atom;

@@ -24,6 +24,7 @@ int FreeRecAngZ();
 int SetAICut(double c);
 int SetPEGrid(int n, double emin, double emax, double eth);
 int SetPEGridDetail(int n, double *x);
+int SetUsrPEGridType(int type);
 int SetUsrPEGrid(int n, double emin, double emax, double eth);
 int SetUsrPEGridDetail(int n, double *x);
 int AddRecPW(int n, int step);

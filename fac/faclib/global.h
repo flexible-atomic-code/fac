@@ -7,7 +7,7 @@
 #include <math.h>
 
 /* the following macros for Odd Even integer determination is Paltform
-   dependent. this is good for UNIX systems */
+   dependent. this is good for big endian systems */
 #define IsOdd(x)  ((abs((x))&0x01)?1:0)
 #define IsEven(x) ((abs((x))&0x01)?0:1)
 
