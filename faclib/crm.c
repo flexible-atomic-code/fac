@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.57 2003/07/14 16:27:33 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.58 2003/07/15 18:17:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2799,7 +2799,7 @@ double BlockRelaxation(int iter) {
     
     if (iter >= 0) {
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m]+1.0 != 1.0) {
+	if (blk1->n[m]) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
 	}
@@ -3980,7 +3980,7 @@ int DRBranch(void) {
 	if (blk1->total_rate[m]) {
 	  blk1->n[m] /= blk1->total_rate[m];
 	  a = fabs(blk1->n[m] - blk1->r[m]);
-	  if (blk1->n[m]+1.0 != 1.0) a /= blk1->n[m];
+	  if (blk1->n[m]) a /= blk1->n[m];
 	  if (a > d) d = a;
 	  blk1->r[m] = blk1->n[m];
 	}
