@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.57 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.58 2004/06/14 22:01:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1583,7 +1583,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 			  double *data, double *ratio) {
   double *x, *y, *w;
   int m, m1, n, one;
-  double a, b, x0, y0, eth;
+  double a, b, x0, y0, eth, e0, c, d;
 
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   eth = eth * HARTREE_EV;
@@ -1614,11 +1614,29 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
     x0 = e/(data[0] + e);
     y0 = y[m-1];
     if (data[1] > 0) {
-      b = log(((x[m]*data[0]/(1.0-x[m]))+eth)/eth);
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      y0 /= 1.0 + c;
       y0 -= data[1]*b;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      b = log((e+eth)/eth);
+      e0 = (e + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
       a += data[1]*b;
+      a *= 1.0 + c;
+    } else if (data[1]+1.0 == 1.0) {
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      y0 /= 1.0 + c;
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+      e0 = (e + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      a *= 1.0 + c;
     } else {
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
     }
