@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.76 2003/04/28 13:49:14 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.77 2003/05/14 02:31:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -87,6 +87,18 @@ int GetRadTiming(RAD_TIMING *t) {
   return 0;
 }
 #endif
+
+static void InitOrbitalData(void *p, int n) {
+  ORBITAL *d;
+  int i;
+  
+  d = (ORBITAL *) p;
+  for (i = 0; i < n; i++) {
+    d[i].wfun = NULL;
+    d[i].phase = NULL;
+    d[i].ilast = -1;
+  }
+}
 
 void SetSE(int n) {
   qed.se = n;
@@ -908,7 +920,7 @@ int AddOrbital(ORBITAL *orb) {
 
   if (orb == NULL) return -1;
 
-  orb = (ORBITAL *) ArrayAppend(orbitals, orb, NULL);
+  orb = (ORBITAL *) ArrayAppend(orbitals, orb, InitOrbitalData);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
@@ -944,14 +956,11 @@ ORBITAL *GetOrbitalSolved(int k) {
 ORBITAL *GetNewOrbital(void) {
   ORBITAL *orb;
 
-  orb = (ORBITAL *) ArrayAppend(orbitals, NULL, NULL);
+  orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
   }
-
-  orb->wfun = NULL;
-  orb->ilast = -1;
 
   n_orbitals++;
   return orb;
@@ -959,7 +968,9 @@ ORBITAL *GetNewOrbital(void) {
 
 void FreeOrbitalData(void *p) {
   ORBITAL *orb;
+
   orb = (ORBITAL *) p;
+  fflush(stdout);
   if (orb->wfun) free(orb->wfun);
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
@@ -983,11 +994,6 @@ int ClearOrbitalTable(int m) {
 	n_orbitals = i+1;
 	ArrayTrim(orbitals, i+1, FreeOrbitalData);
 	break;
-      }
-    }
-    if (m == 2) {
-      for (; i >= 0; i--) {
-	FreeOrbital(i);
       }
     }
   }

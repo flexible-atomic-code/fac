@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.46 2003/04/22 16:07:17 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.47 2003/05/14 02:31:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1112,6 +1112,7 @@ int SaveLevels(char *fn, int m, int n) {
 		memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
 		memcmp(csf+1, csf1, mst) == 0) {
 	      lev->energy += ec->e;
+	      break;
 	    }
 	  }
 	}

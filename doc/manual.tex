@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.4}\xspace}
+\newcommand{\facversion}{{0.9.5}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -37,17 +37,17 @@
 	   \setlength{\rightmargin}{0.2in}}}
 	{\end{list}}
 \newenvironment{fundesc}[2]{
-	\addcontentsline{toc}{subsubsection}{#1}
-	\index{#1}
 	\begin{center}
 	\begin{minipage}{\textwidth}
+	\index{#1}
+	\addcontentsline{toc}{subsubsection}{#1}
 	\key{\textbf{#1}}(\var{#2}):\\}
 	{\end{minipage}\end{center}}
 \newenvironment{vardesc}[1]{
-	\addcontentsline{toc}{subsubsection}{#1}
-	\index{#1}
 	\begin{center}
 	\begin{minipage}{\textwidth}
+	\index{#1}
+	\addcontentsline{toc}{subsubsection}{#1}
 	\key{\textbf{#1}}:\\}
 	{\end{minipage}\end{center}}
 
