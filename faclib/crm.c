@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.21 2002/02/28 16:55:03 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.22 2002/03/05 14:35:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,8 +20,8 @@ static int max_iter = 256;
 static double iter_accuracy = EPS4;
 static double iter_stablizer = 0.75;
 
-static double electron_density = EPS3; /* 10^10 cm-3 */
-static double photon_density = 0.0; /* erg/(eV cm3) */
+static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
+static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
