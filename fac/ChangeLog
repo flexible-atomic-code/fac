@@ -1,6 +1,7 @@
 Version 1.0.3, 09/27/2003
 	1. change contact information to my new address.
 	2. add --enable-cpic and --enable-fpic options to configure.
+	3. fix a bug in RateTable, where the optional list must be given.
 	
 Version 1.0.2, 08/15/2003
 	1. add iterative method in pfac.pol.
