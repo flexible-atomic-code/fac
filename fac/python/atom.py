@@ -877,7 +877,8 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
             atom.nexc_max = kw['n_decay']
         if (kw.has_key('rec_pw_max')):
             atom.nexc_max = kw['rec_pw_max']
-        
+
+        atom.set_configs()
         for b in a:
             s = 'NELE = %d'%m
             Print(s)
