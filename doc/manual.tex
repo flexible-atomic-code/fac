@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.1}\xspace}
+\newcommand{\facversion}{{1.0.2}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2040,7 +2040,9 @@ function \key{Config}, except that the occupation can be a non-integer number
 in this routine. The mean configuration setup by this function is effective
 only if the function \key{OptimizeRadial} is called with no
 arguments. Otherwise, the configurations given in that function are used to
-generate the mean configuration automatically.
+generate the mean configuration automatically. It is important that this
+function be called before \key{OptimizeRadial} and after
+\key{ConfigEnergy(0)}, if the later is used.
 \end{fundesc}
 
 \begin{fundesc}{BasisTable}{fn}
@@ -2123,7 +2125,9 @@ g, h, i, k, l, m, n, o, q, r, t, u, v, w, x, y, z} are available.
 
 \begin{fundesc}{ConfigEnergy}{m\opt{, n\opt{, g, ...}}}
 This function should be called twice just before (with \var{m} = 0) and after
-(with \var{m} = 1) \key{OptimizeRadial} if used. The call with \var{m} = 0
+(with \var{m} = 1) \key{OptimizeRadial} if used. If \key{AvgConfig} is
+called, then \key{ConfigEnergy} with \var{m}=0 must be called before that.
+The call with \var{m} = 0
 performs a radial optimization for the configuration groups given by the list
 \var{g}, and calculate the average energy of each configuration under
 such potentials. Multiple optimizations are performed if more than one list
