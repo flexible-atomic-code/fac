@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.109 2004/07/27 05:18:19 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.110 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1351,7 +1351,391 @@ double ZerothEnergyConfig(CONFIG *cfg) {
   }
   return r;
 }
+
+static double FKB(int ka, int kb, int k) {
+  int ja, jb, ia, ib;
+  double a, b;
+  
+  GetJLFromKappa(GetOrbital(ka)->kappa, &ja, &ia);
+  GetJLFromKappa(GetOrbital(kb)->kappa, &jb, &ib);
+  
+  a = W3j(ja, k, ja, 1, 0, -1)*W3j(jb, k, jb, 1, 0, -1);
+  if (fabs(a) < EPS10) return 0.0; 
+  Slater(&b, ka, kb, ka, kb, k/2, 0);
+  
+  b *= a*(ja+1.0)*(jb+1.0);
+  if (IsEven((ja+jb)/2)) b = -b;
+
+  return b;
+}
+
+static double GKB(int ka, int kb, int k) {
+  int ja, jb, ia, ib;
+  double a, b;
+  
+  GetJLFromKappa(GetOrbital(ka)->kappa, &ja, &ia);
+  GetJLFromKappa(GetOrbital(kb)->kappa, &jb, &ib);
+  
+  if (IsOdd((ia+k+ib)/2)) return 0.0;
+  a = W3j(ja, k, jb, 1, 0, -1);
+  if (fabs(a) < EPS10) return 0.0;
+  Slater(&b, ka, kb, kb, ka, k/2, 0);
+  
+  b *= a*a*(ja+1.0)*(jb+1.0);
+  if (IsEven((ja+jb)/2)) b = -b;
+  return b;
+}  
+  
+static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib, 
+					 int m2, int p) {
+  int ja, jb, k, kp, k0, k1, kp0, kp1, ka, kb;
+  double a, b, c, d, e;
+
+  ja = GetJFromKappa(bra[ia].kappa);
+  ka = OrbitalIndex(bra[ia].n, bra[ia].kappa, 0);
+  if (p > 0) {
+    jb = GetJFromKappa(bra[ib].kappa);
+    kb = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
+  }
+  e = 0.0;
+  switch (p) {
+  case 0:
+    k0 = 4;
+    k1 = 2*ja;
+    a = 1.0/(ja*(ja+1.0));
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = k0; kp <= k1; kp += 4) {
+	b = -a + W6j(ja, ja, k, ja, ja, kp);
+	if (k == kp) b += 1.0/(k+1.0);
+	b *= a*FKB(ka, ka, k)*FKB(ka, ka, kp);
+	e += b;
+      }
+    }
+    break;
+  case 1:
+    k0 = 4;
+    k1 = 2*ja;
+    kp0 = abs(ja-jb);
+    if (kp0 < 4) kp0 = 4;
+    kp1 = ja+jb;
+    a = 1.0/(ja*(ja+1.0));
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = kp0; kp <= kp1; kp += 4) {
+	b = a - W6j(ja, ja, kp, ja, ja, k);
+	if (k == kp) b -= 1.0/(k+1.0);
+	b *= W6j(ja, ja, kp, jb, jb, m2);
+	b /= 0.5*ja;
+	b *= FKB(ka, ka, k)*FKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    if (IsOdd((ja+jb)/2+1)) e = -e;
+    break;
+  case 2:
+    k0 = 4;
+    k1 = 2*ja;
+    kp0 = abs(ja-jb);
+    kp1 = ja + jb;
+    a = 1.0/(ja*(ja+1.0));
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = kp0; kp <= kp1; kp += 2) {
+	b = W6j(k, kp, m2, jb, ja, ja);
+	b = -b*b;
+	b += W6j(jb, jb, k, ja, ja, m2)*W6j(jb, jb, k, ja, ja, kp);
+	if (m2 == kp) {
+	  b -= (1.0/(m2+1.0)-1.0/(jb+1.0))*a;
+	} else {
+	  b += a/(jb+1.0);
+	}
+	b /= 0.5*ja;
+	b *= FKB(ka, ka, k)*GKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    if (IsOdd((ja+jb)/2+1)) e = -e;
+    break;
+  case 3:
+    k0 = abs(ja-jb);
+    if (k0 < 4) k0 = 4;
+    k1 = ja+jb;
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = k0; kp <= k1; kp += 4) {
+	b = 0.0;
+	if (k = kp) b += 1.0/((k+1.0)*(jb+1.0));
+	b -= W9j(ja, ja, k, ja, m2, jb, kp, jb, jb);
+	b -= W6j(ja, jb, m2, jb, ja, k)*W6j(ja, jb, m2, jb, ja, kp)/ja;
+	b /= ja;
+	b *= FKB(ka, kb, k)*FKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  case 4:
+    k0 = abs(ja-jb);
+    k1 = ja+jb;
+    for (k = k0; k <= k1; k += 2) {
+      for (kp = k0; kp <= k1; kp += 2) {
+	b = 0.0;
+	if (k == kp) b += 1.0/((k+1.0)*(jb+1.0));
+	b -= W9j(ja, jb, k, jb, m2, ja, kp, ja, jb);
+	c = -1.0/(jb+1.0);	
+	d = c;
+	if (k == m2) {
+	  c += 1.0/(m2+1.0);
+	}
+	if (kp == m2) {	  
+	  d += 1.0/(m2+1.0);
+	}
+	b -= c*d/ja;
+	b /= ja;
+	b *= GKB(ka, kb, k)*GKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  case 5:
+    k0 = abs(ja-jb);
+    if (k0 < 4) k0 = 4;
+    k1 = ja+jb;
+    kp0 = abs(ja-jb);
+    kp1 = ja+jb;
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = kp0; kp <= kp1; kp += 2) {
+	b = -W6j(jb, jb, k, ja, ja, kp)/(jb+1.0);
+	c = W6j(k, kp, m2, ja, jb, jb)*W6j(k, kp, m2, jb, ja, ja);
+	if (IsOdd((ja+jb)/2)) b += c;
+	else b -= c;
+	c = -1.0/(jb+1.0);
+	if (kp == m2) c += 1.0/(m2+1.0);
+	c *= W6j(ja, jb, m2, jb, ja, k);
+	b += c/ja;
+	b /= 0.5*ja;
+	b *= FKB(ka, kb, k)*GKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  case 6:
+    k0 = abs(ja-jb);
+    if (k0 < 4) k0 = 4;
+    k1 = ja+jb;
+    a = 1.0/((ja+1.0)*(jb+1.0));
+    for (k = k0; k <= k1; k += 4) {
+      b = a/(k+1.0);
+      c = FKB(ka, kb, k);
+      b *= c*c;
+      e += b;
+    }
+    break;
+  case 7:
+    k0 = abs(ja-jb);
+    k1 = ja+jb;
+    a = 1.0/((ja+1.0)*(jb+1.0));
+    for (k = k0; k <= k1; k += 2) {
+      for (kp = k0; kp <= k1; kp += 2) {
+	b = 0;
+	if (k == kp) {
+	  b += 1.0/(k+1.0);
+	}
+	b -= a;
+	b *= a*GKB(ka, kb, k)*GKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  case 8:    
+    k0 = abs(ja-jb);
+    k1 = ja+jb;
+    kp0 = k0;
+    kp1 = k1;
+    if (k0 < 4) k0 = 4;
+    a = 1.0/((ja+1.0)*(jb+1.0));
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = kp0; kp <= kp1; kp += 2) {
+	b = W6j(jb, ja, kp, ja, jb, k);
+	if (fabs(b) < EPS10) continue;
+	b *= 2.0*a;
+	if (IsOdd(kp/2)) b = -b;
+	b *= FKB(ka, kb, k)*GKB(ka, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  }
+
+  return e;
+}
+
+static double ConfigEnergyVarianceParts1(SHELL *bra, int i, 
+					 int ia, int ib, int m2, int p) {  
+  int js, ja, jb, k, kp, k0, k1, kp0, kp1, ka, kb, ks;
+  double a, b, e;
+  
+  js = GetJFromKappa(bra[i].kappa);
+  ks = OrbitalIndex(bra[i].n, bra[i].kappa, 0);
+  ja = GetJFromKappa(bra[ia].kappa);
+  ka = OrbitalIndex(bra[ia].n, bra[ia].kappa, 0);
+  jb = GetJFromKappa(bra[ib].kappa);
+  kb = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
+  e = 0.0;
+
+  switch (p) {
+  case 0:
+    k0 = abs(js-ja);
+    k = abs(js-jb);
+    k0 = Max(k0, k);
+    if (k0 < 4) k0 = 4;
+    k1 = js + ja;
+    k = js + jb;
+    k1 = Min(k1, k);
+    for (k = k0; k <= k1; k += 4) {
+      b = W6j(ja, ja, k, jb, jb, m2);
+      if (fabs(b) < EPS10) continue;
+      b *= 2.0/((k+1.0)*(js+1.0));
+      b *= FKB(ks, ka, k)*FKB(ks, kb, k);
+      if (IsOdd((ja+jb)/2)) b = -b;
+      e += b;
+    }
+    break;
+  case 1:
+    k0 = abs(js-ja);
+    k1 = js+ja;
+    kp0 = abs(js-jb);
+    kp1 = js+jb;
+    a = 1.0/((js+1.0)*(ja+1.0)*(jb+1.0));
+    for (k = k0; k <= k1; k += 2) {
+      for (kp = kp0; kp <= kp1; kp += 2) {
+	b = W6j(k, kp, m2, jb, ja, js);
+	b = -b*b + a;
+	b /= (js+1.0);
+	b *= 2.0*GKB(ks, ka, k)*GKB(ks, kb, kp);
+	if (IsOdd((ja+jb)/2+1)) b = -b;
+	e += b;
+      }
+    }
+    break;
+  case 2:
+    k0 = abs(js-ja);
+    if (k0 < 4) k0 = 4;
+    k1 = js+ja;    
+    kp0 = abs(js-jb);
+    kp1 = js+jb;
+    for (k = k0; k <= k1; k += 4) {
+      for (kp = kp0; kp <= kp1; kp += 2) {
+	b = W6j(jb, jb, k, ja, ja, m2);
+	b *= W6j(jb, jb, k, js, js, kp);
+	if (fabs(b) < EPS10) continue;
+	b /= (js+1.0);
+	if (IsOdd((ja+jb+kp)/2)) b = -b;
+	b *= 2.0*FKB(ks, ka, k)*GKB(ks, kb, kp);
+	e += b;
+      }
+    }
+    break;
+  }
+
+  return e;
+}
+
+double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2) {
+  int i, js, p;
+  double e, a, b, c;
+  
+  e = 0.0;
+  for (i = 0; i < ns; i++) {
+    js = GetJFromKappa(bra[i].kappa);
+    a = bra[i].nq;
+    b = js+1.0 - bra[i].nq;
+    if (i == ia) {
+      a -= 1.0;      
+    }
+    if (i == ib) {
+      b -= 1.0;
+    }
+    if (a == 0.0 || b == 0.0) continue;
+    a = a*b;
+    b = 0.0;
+    if (i == ia) {
+      for (p = 0; p < 6; p++) {
+	c = ConfigEnergyVarianceParts0(bra, ia, ib, m2, p);
+	b += c;
+      }
+      b /= js-1.0;
+    } else if (i == ib) {
+      for (p = 0; p < 6; p++) {
+	c = ConfigEnergyVarianceParts0(bra, ib, ia, m2, p);
+	b += c;
+      }
+      b /= js-1.0;
+    } else {
+      for (p = 6; p < 9; p++) {
+	c = ConfigEnergyVarianceParts0(bra, i, ia, m2, p);
+	b += c;
+	c = ConfigEnergyVarianceParts0(bra, i, ib, m2, p);
+	b += c;
+      }
+      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 0);
+      b += c;
+      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 1);
+      b += c;
+      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 2);
+      b += c;
+      c = ConfigEnergyVarianceParts1(bra, i, ib, ia, m2, 2);
+      b += c;
+      b /= js;
+    }
+
+    e += a*b;
+  }
     
+  return e;
+}
+
+double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2) {
+  double qa, qb, a, b, c, sd, e;
+  int ja, jb, k, kmin, kmax;
+  int k0, k1;
+
+  qa = bra[ia].nq;
+  qb = bra[ib].nq;
+  ja = GetJFromKappa(bra[ia].kappa);
+  jb = GetJFromKappa(bra[ib].kappa);
+  if (qa == 1 && qb == 0) e = 0.0;
+  else {
+    e = (qa-1.0)/ja - qb/jb;
+    if (e != 0.0) {
+      kmin = 4;
+      kmax = 2*ja;
+      k = 2*jb;
+      kmax = Min(kmax, k);
+      a = 0.0;
+      k0 = OrbitalIndex(bra[ia].n, bra[ia].kappa, 0);
+      k1 = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
+      for (k = kmin; k <= kmax; k += 4) {
+	b = W6j(k, ja, ja, m2, jb, jb);	
+	if (fabs(b) > EPS10) {
+	  a -= b*FKB(k0, k1, k);
+	}
+      }
+      kmin = abs(ja-jb);
+      kmax = ja + jb;
+      c = 1.0/((ja+1.0)*(jb+1.0));
+      for (k = kmin; k <= kmax; k += 2) {
+	if (k == m2) {	  
+	  b = 1.0/(m2+1.0)-c;
+	} else {
+	  b = -c;
+	}
+	a += b*GKB(k0, k1, k);
+      }
+      if (IsEven((ja+jb)/2)) a = -a;
+      e *= a;
+    }
+  }
+
+  return e;
+}
+
 /* calculate the average energy of a configuration */
 double AverageEnergyConfig(CONFIG *cfg) {
   int i, j, n, kappa, nq, np, kappap, nqp;

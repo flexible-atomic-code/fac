@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.22 2004/12/17 21:19:09 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.23 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1386,6 +1386,8 @@ int InteractingShells(INTERACT_DATUM **idatum,
     goto END;
   }    
 
+  if (csf_i == NULL) goto END;
+
 #if (FAC_DEBUG > DEBUG_RECOUPLE)
   fprintf(debug_log, "before sort: %d %d %d %d\n", 
 	  interaction[0], interaction[1], 
@@ -1467,6 +1469,18 @@ int InteractingShells(INTERACT_DATUM **idatum,
   return n_shells;
 }
 
+void CompactInteractShell(char c[4], INTERACT_SHELL *s, int m) {
+  c[0] = (char) s->n;
+  c[1] = (char) s->kl/2;
+  if (s->j > s->kl) c[2] = '+';
+  else c[2] = '-';
+  if (m == 0) {
+    c[3] = (char) s->nq_bra;
+  } else {
+    c[3] = (char) s->nq_ket;
+  }
+}
+
 /* 
 ** FUNCTION:    GetInteract
 ** PURPOSE:     determing which shells can be interacting.
@@ -1496,8 +1510,13 @@ int GetInteract(INTERACT_DATUM **idatum,
 
   ci = GetConfigFromGroup(kgi, kci);
   cj = GetConfigFromGroup(kgj, kcj);
-  csf_i = ci->csfs + ki;
-  csf_j = cj->csfs + kj;
+  if (ci->n_csfs > 0) {
+    csf_i = ci->csfs + ki;
+    csf_j = cj->csfs + kj;
+  } else {
+    csf_i = NULL;
+    csf_j = NULL;
+  }
   if (ci->n_shells <= 0 || cj->n_shells <= 0) return -1;
   if (abs(ci->n_shells+ifb - cj->n_shells) > 2) return -1;
 
@@ -1515,6 +1534,9 @@ int GetInteract(INTERACT_DATUM **idatum,
   }
   if ((*idatum)->n_shells < 0) return -1;
   if ((*idatum)->n_shells > 0) {
+    if (csf_i == NULL) {
+      return (*idatum)->n_shells;
+    }
     n_shells = (*idatum)->n_shells;
     bra = (*idatum)->bra;
     s = (*idatum)->s;
@@ -1553,22 +1575,29 @@ int GetInteract(INTERACT_DATUM **idatum,
     if (ifb) {
       cip.n_shells = ci->n_shells + 1;
       cip.shells = malloc(sizeof(SHELL)*cip.n_shells);
-      cip.csfs = malloc(sizeof(SHELL_STATE)*cip.n_shells);
       memcpy(cip.shells+1, ci->shells, sizeof(SHELL)*ci->n_shells);
       cip.shells[0].n = 9999;
       cip.shells[0].nq = 1;
       cip.shells[0].kappa = -1;
-      cip.n_csfs = 1;
-      csf_ip = cip.csfs;
-      memcpy(csf_ip+1, csf_i, sizeof(SHELL_STATE)*ci->n_shells);
-      csf_ip[0].shellJ = 1;
-      csf_ip[0].totalJ = 1;
-      csf_ip[0].nu = 1;
-      csf_ip[0].Nr = 0;
+      if (csf_i) {
+	cip.csfs = malloc(sizeof(SHELL_STATE)*cip.n_shells);
+	cip.n_csfs = 1;
+	csf_ip = cip.csfs;
+	memcpy(csf_ip+1, csf_i, sizeof(SHELL_STATE)*ci->n_shells);
+	csf_ip[0].shellJ = 1;
+	csf_ip[0].totalJ = 1;
+	csf_ip[0].nu = 1;
+	csf_ip[0].Nr = 0;
+      } else {
+	cip.n_csfs = 0;
+	csf_ip = NULL;
+      }
       n_shells = InteractingShells(idatum, sbra, sket, 
 				   &cip, cj, csf_ip, csf_j);
       free(cip.shells);
-      free(cip.csfs);
+      if (csf_i) {
+	free(cip.csfs);
+      }
     } else {
       n_shells = InteractingShells(idatum, sbra, sket, 
 				   ci, cj, csf_i, csf_j);

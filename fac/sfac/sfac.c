@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.74 2004/12/23 21:31:03 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.75 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -90,7 +90,7 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
 static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   int n, ng, *kg, i, j, k, im, m, m0;
   int nrg, *krg, nrec;
-  int ig, nlevels;
+  int ig, nlevels, iuta;
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *s;
@@ -103,6 +103,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   nv1 = 0;
   rv = 0;
 
+  iuta = IsUTA();
   n = DecodeArgs(argv, v, at, variables);
   nv = n;
   if (n > 0) {
@@ -117,10 +118,14 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->pb;
-	sym = GetSymmetry(lev->pj);
-	s = (STATE *) ArrayGet(&(sym->states), im);
-	ig = s->kgroup;
+	if (iuta) {
+	  ig = lev->iham;
+	} else {
+	  im = lev->pb;
+	  sym = GetSymmetry(lev->pj);
+	  s = (STATE *) ArrayGet(&(sym->states), im);
+	  ig = s->kgroup;
+	}
 	if (InGroups(ig, ng, kg)) {
 	  (*t)[k] = j;
 	  k++;
@@ -1737,9 +1742,9 @@ static int PSetCIQkMode(int argc, char *argv[], int argt[],
   if (argc > 2) return -1;
   if (argc > 0) {
     if (argt[0] == STRING) {
-      if (strcasecmp(argv[0], "exact") == 0) m = QK_EXACT;
-      else if (strcasecmp(argv[0], "interpolate") == 0) m = QK_INTERPOLATE;
-      else if (strcasecmp(argv[0],"fit") == 0) m = QK_FIT;
+      if (strcasecmp(argv[0], "cb") == 0) m = QK_CB;
+      else if (strcasecmp(argv[0], "bed") == 0) m = QK_BED;
+      else if (strcasecmp(argv[0],"dw") == 0) m = QK_DW;
       else return -1;
     } else if (argt[0] == NUMBER) {
       m = atoi(argv[0]);
@@ -2608,22 +2613,37 @@ static int PStructure(int argc, char *argv[], int argt[],
   }
 
   nlevels = GetNumLevels();
-  ns = MAX_SYMMETRIES;  
-  for (i = 0; i < ns; i++) {
-    k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
-    if (k < 0) continue;
-    if (DiagnolizeHamilton() < 0) return -1;
-    if (ng0 < ng) {
-      AddToLevels(ng0, kg);
-    } else {
-      AddToLevels(0, kg);
+  if (IsUTA()) {
+    AddToLevels(ng0, kg);
+  } else {
+    ns = MAX_SYMMETRIES;  
+    for (i = 0; i < ns; i++) {
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
+      if (k < 0) continue;
+      if (DiagnolizeHamilton() < 0) return -1;
+      if (ng0 < ng) {
+	AddToLevels(ng0, kg);
+      } else {
+	AddToLevels(0, kg);
+      }
     }
   }
+
   SortLevels(nlevels, -1);
   SaveLevels(argv[0], nlevels, -1);
 
   if (ng > 0) free(kg);
   if (ngp > 0) free(kgp);
+  
+  return 0;
+}
+
+static int PSetUTA(int argc, char *argv[], int argt[], 
+		   ARRAY *variables) {
+  
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  
+  SetUTA(atoi(argv[0]));
   
   return 0;
 }
@@ -3275,6 +3295,7 @@ static int PPropogateDirection(int argc, char *argv[], int argt[],
   
 static METHOD methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
+  {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 

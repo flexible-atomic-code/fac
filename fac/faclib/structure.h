@@ -202,6 +202,7 @@ int ClearLevelTable(void);
 int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
+int ShellDegeneracy(int g, int nq);
 
 #endif
 

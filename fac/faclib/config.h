@@ -53,7 +53,7 @@
 #include "global.h"
 #include "parser.h"
 #include "nucleus.h"
-
+#include "dbase.h"
 
 /*
 ** STRUCT:      SHELL
@@ -134,8 +134,6 @@ typedef struct _CONFIG_ {
   int n_electrons;
   int n_shells;
   int n_csfs;
-  int ipart;
-  int npart;
   double energy;
   double delta;
   SHELL *shells;

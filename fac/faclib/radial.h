@@ -78,6 +78,8 @@ void SetScreening(int n_screen, int *screened_n,
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
 int RefineRadial(int maxfun, int msglvl);
+double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);
+double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2);
 int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
 double ZerothEnergyConfig(CONFIG *cfg);

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.98 2005/01/01 18:57:43 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.99 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1084,20 +1084,25 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   }
   
   nlevels = GetNumLevels();
-  ns = MAX_SYMMETRIES;
-  for (i = 0; i < ns; i++) {
-    k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
-    if (k < 0) continue;
-    if (DiagnolizeHamilton() < 0) {
-      onError("Diagnolizing Hamiltonian Error");
-      return NULL;
-    }
-    if (ng0 < ng) {
-      AddToLevels(ng0, kg);
-    } else {
-      AddToLevels(0, kg);
+  if (IsUTA()) {
+    AddToLevels(ng0, kg);
+  } else {
+    ns = MAX_SYMMETRIES;
+    for (i = 0; i < ns; i++) {
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
+      if (k < 0) continue;
+      if (DiagnolizeHamilton() < 0) {
+	onError("Diagnolizing Hamiltonian Error");
+	return NULL;
+      }
+      if (ng0 < ng) {
+	AddToLevels(ng0, kg);
+      } else {
+	AddToLevels(0, kg);
+      }
     }
   }
+
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
   if (ng > 0) free(kg);
@@ -1106,6 +1111,23 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetUTA(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ClearOrbitalTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  
+  SetUTA(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PTestHamilton(PyObject *self, PyObject *args) {
   
   TestHamilton();
@@ -1198,12 +1220,13 @@ static int SelectLevels(PyObject *p, int **t) {
   int n, ng, *kg, i, j, k, im, m, m0;
   int nrg, *krg, nrec;
   PyObject *q;
-  int ig, nlevels;
+  int ig, nlevels, iuta;
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *s;
   char rgn[GROUP_NAME_LEN];
 
+  iuta = IsUTA();
   if (!PyList_Check(p) && !PyTuple_Check(p)) return 0;
   n = PySequence_Length(p);
   if (n > 0) {
@@ -1219,10 +1242,14 @@ static int SelectLevels(PyObject *p, int **t) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->pb;
-	sym = GetSymmetry(lev->pj);
-	s = (STATE *) ArrayGet(&(sym->states), im);
-	ig = s->kgroup;
+	if (iuta) {
+	  ig = lev->iham;
+	} else {
+	  im = lev->pb;
+	  sym = GetSymmetry(lev->pj);
+	  s = (STATE *) ArrayGet(&(sym->states), im);
+	  ig = s->kgroup;
+	}
 	if (InGroups(ig, ng, kg)) {
 	  (*t)[k] = j;
 	  k++;
@@ -4316,6 +4343,7 @@ static PyObject *PSetCEPWFile(PyObject *self, PyObject *args) {
   
 static struct PyMethodDef fac_methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
+  {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 

@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.25 2004/12/18 16:33:52 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.26 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -64,6 +64,72 @@ int GetTransitionGauge(void) {
 
 int GetTransitionMode(void) {
   return transition_option.mode;
+}
+
+int TRMultipoleUTA(double *strength, TR_EXTRA *rx, 
+		   int m, int lower, int upper) {
+  int m2, ns, k0, k1, q1, q2;
+  int p1, p2, j1, j2, ia, ib;
+  LEVEL *lev1, *lev2;
+  double r, aw;
+  INTERACT_DATUM *idatum;
+  
+  *strength = 0.0;
+  lev1 = GetLevel(lower);
+  if (lev1 == NULL) return -1;
+  lev2 = GetLevel(upper);
+  if (lev2 == NULL) return -1;
+
+  p1 = lev1->pj;
+  p2 = lev2->pj;
+  if (m > 0 && IsEven(p1+p2+m)) return -1;
+  if (m < 0 && IsOdd(p1+p2+m)) return -1;
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, lev1->iham, lev2->iham,
+		   lev1->pb, lev2->pb, 0, 0, 0);
+  if (ns <= 0) return -1;
+  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) return -1;
+
+  if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
+    ia = ns-1-idatum->s[0].index;
+    ib = ns-1-idatum->s[1].index;
+    j1 = idatum->s[0].j;
+    j2 = idatum->s[1].j;
+    q1 = idatum->s[0].nq_bra;
+    q2 = idatum->s[1].nq_bra;
+    k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
+    k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  } else {
+    ia = ns-1-idatum->s[1].index;
+    ib = ns-1-idatum->s[0].index;    
+    j1 = idatum->s[1].j;
+    j2 = idatum->s[0].j;
+    q1 = idatum->s[1].nq_bra;
+    q2 = idatum->s[0].nq_bra;
+    k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
+    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  }
+
+  m2 = 2*abs(m);
+  if (!Triangle(j1, j2, m2)) return -1;
+
+  rx->energy = (lev2->energy - lev1->energy);
+  rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
+  rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
+  aw = FINE_STRUCTURE_CONST * rx->energy;
+  if (aw < 0.0) return -1;
+  
+  
+  if (transition_option.mode == M_NR && m != 1) {
+    r = MultipoleRadialNR(m, k0, k1, transition_option.gauge);
+  } else {
+    r = MultipoleRadialFR(aw, m, k0, k1, transition_option.gauge);
+  }
+
+  *strength = sqrt((lev1->ilev+1.0)*q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0)))*r;
+
+  return 0;
 }
 
 int TRMultipole(double *strength, double *energy,
@@ -137,13 +203,13 @@ int GetLowestMultipole(int p1, int j1, int p2, int j2) {
   return m;
 }
 
-
 int SaveTransition(int nlow, int *low, int nup, int *up, 
 		   char *fn, int m) {
   int i, j, k, n, jup;
   FILE *f;
   LEVEL *lev1, *lev2;
   TR_RECORD r;
+  TR_EXTRA rx;
   TR_HEADER tr_hdr;
   F_HEADER fhdr;
   double *s, *et, *a, trd, gf;
@@ -189,7 +255,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	if (e0 > emax) emax = e0;
       }
     }
-
+      
     if (k == 0) {
       return 0;
     }
@@ -207,9 +273,9 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
       SetAWGrid(3, emin, emax);
     }
   }
-      
+    
   if (nlow <= 0 || nup <= 0) return -1;
-
+  
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
@@ -223,40 +289,52 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   }
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &tr_hdr);
-
-  a = malloc(sizeof(double)*nlow);
-  s = malloc(sizeof(double)*nlow);
-  et = malloc(sizeof(double)*nlow);
-  for (j = 0; j < nup; j++) {
-    jup = LevelTotalJ(up[j]);
-    trd = 0.0;
-    for (i = 0; i < nlow; i++) {
-      a[i] = 0.0;
-      et[i] = 0.0;
-      k = TRMultipole(s+i, et+i, m, low[i], up[j]);
-      if (k != 0) continue;
-      gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
-      a[i] /= jup+1.0;
-      trd += a[i];
-    } 
-    if (trd < 1E-30) continue;
-    r.upper = up[j];
-    for (i = 0; i < nlow; i++) {
-      if (a[i] < (transition_option.eps * trd)) continue;
-      r.lower = low[i];
-      r.strength = s[i];
-      WriteTRRecord(f, &r);
+    
+  if (IsUTA()) {
+    for (j = 0; j < nup; j++) {
+      for (i = 0; i < nlow; i++) {
+	k = TRMultipoleUTA(&gf, &rx, m, low[i], up[j]);
+	if (k != 0) continue;
+	r.lower = low[i];
+	r.upper = up[j];
+	r.strength = gf;
+	WriteTRRecord(f, &r, &rx);
+      }
     }
+  } else {
+    a = malloc(sizeof(double)*nlow);
+    s = malloc(sizeof(double)*nlow);
+    et = malloc(sizeof(double)*nlow);
+    for (j = 0; j < nup; j++) {
+      jup = LevelTotalJ(up[j]);
+      trd = 0.0;
+      for (i = 0; i < nlow; i++) {
+	a[i] = 0.0;
+	et[i] = 0.0;
+	k = TRMultipole(s+i, et+i, m, low[i], up[j]);
+	if (k != 0) continue;
+	gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
+	a[i] /= jup+1.0;
+	trd += a[i];
+      } 
+      if (trd < 1E-30) continue;
+      r.upper = up[j];
+      for (i = 0; i < nlow; i++) {
+	if (a[i] < (transition_option.eps * trd)) continue;
+	r.lower = low[i];
+	r.strength = s[i];
+	WriteTRRecord(f, &r, NULL);
+      }
+    }
+    
+    free(a);
+    free(s);
+    free(et);
   }
 
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-
   ReinitRadial(1);
-
-  free(a);
-  free(s);
-  free(et);
   if (n > 0) {
     free(alev);
   }

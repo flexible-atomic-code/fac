@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.85 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.86 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -840,6 +840,120 @@ int BoundFreeMultipole(FILE *fp, int rec, int f, int m) {
 
   return 0;
 }
+
+int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
+		   int rec, int f, int m) {
+  INTERACT_DATUM *idatum;
+  LEVEL *lev1, *lev2;
+  int j1, ns, q1, ie, c;
+  ORBITAL *orb;
+  double a, b, d, eb0, z;
+  double rq[MAXNE], tq[MAXNE];
+  int gauge, mode;
+  int nkl, nq, k;
+  int klb, jb, kb;
+  
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+  
+  *eb = (lev2->energy - lev1->energy);
+  if (*eb <= 0.0) return -1;
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
+		   lev2->pb, lev1->pb, 0, 0, 1);  
+  if (ns <= 0) return -1;
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) return -1;
+  
+  j1 = idatum->s[1].j;
+  q1 = idatum->s[1].nq_ket;
+  kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  orb = GetOrbital(kb);
+  eb0 = -(orb->energy);
+  GetJLFromKappa(orb->kappa, &jb, &klb);
+  klb /= 2;
+  
+  gauge = GetTransitionGauge();
+  mode = GetTransitionMode();
+  c = 2*abs(m) - 2;
+
+  for (ie = 0; ie < n_egrid; ie++) {
+    tq[ie] = 0.0;
+  }
+  
+  k = RRRadialQk(rq, *eb, kb, kb, m);
+  nq = orb->n;
+  nkl = klb;
+  for (ie = 0; ie < n_egrid; ie++) {
+    tq[ie] += (jb+1.0)*rq[ie];
+  }
+
+  if (qk_mode == QK_FIT) {
+    z = GetResidualZ();
+    RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
+    for (ie = 0; ie < n_egrid; ie++) {
+      xegrid[ie] = 1.0 + egrid[ie]/eb0;
+      log_xegrid[ie] = log(xegrid[ie]);
+    }
+
+    for (ie = n_egrid-2; ie > 2; ie--) {
+      a = log(tq[ie+1]/tq[ie]);
+      b = xegrid[ie+1]/xegrid[ie];
+      d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
+      b = log(b);
+      d = log(d);
+      z = (a + (4.5+nkl)*b)/(0.5*b+d);
+      if (a < 0 && z > 0) {
+	rqc[1] = z;
+	break;
+      }
+    }
+    RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
+		      rq, NULL, 0, &nkl);
+    ie++;
+    a = eb0*tq[ie]/rq[ie];
+    rqc[0] *= a;
+    rqc[3] = eb0;
+    for (ie++; ie < n_egrid; ie++) {
+      tq[ie] = a*(rq[ie]/eb0);
+    }
+    for (ie = 0; ie < n_egrid; ie++) {
+      a = (*eb) + egrid[ie];
+      rqu[ie] = tq[ie]*a;
+    }
+  } else {
+    for (ie = 0; ie < n_egrid; ie++) { 
+      a = *eb + egrid[ie];
+      tq[ie] *= a;
+      if (c) {
+	a *= FINE_STRUCTURE_CONST;
+	tq[ie] *= pow(a, c);
+      }
+    }
+    if (qk_mode == QK_INTERPOLATE) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] = log(tq[ie]);
+      }
+      k = 3;
+      UVIP3P(k, n_egrid, log_egrid, tq, n_usr, log_usr, rqu);
+      for (ie = 0; ie < n_usr; ie++) {
+	rqu[ie] = exp(rqu[ie]);
+      }
+    } else {
+      for (ie = 0; ie < n_usr; ie++) {
+	rqu[ie] = tq[ie];
+      }
+    }
+  }      
+
+  d = (lev1->ilev+1.0)*(q1/(j1+1.0));
+  for (ie = 0; ie < n_usr; ie++) {
+    rqu[ie] *= d;
+  }
+  rqc[0] *= d;
+
+  return nkl;
+}
     
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
 		int rec, int f, int m) {
@@ -961,6 +1075,101 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   free(ang);
 
   return nkl;
+}
+
+int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
+  INTERACT_DATUM *idatum;
+  LEVEL *lev1, *lev2;
+  int j0, j1, jb, ns, q0, q1, qb;
+  int k0, k1, kb, kmin, kmax, jmin, jmax;
+  int jf, ik, klf, kappaf, k, np, nt, j, jm;
+  double a, b, r, s, log_e, *ai_pk;
+  
+  *rate = 0.0;
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+  
+  *e = lev1->energy - lev2->energy;
+  if (*e <= 0.0) return -1;
+  log_e = log(*e);
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
+		   lev2->pb, lev1->pb, 0, 0, 1);  
+  if (ns <= 0) return -1;
+  if (idatum->s[3].index < 0) return -1;
+  
+  kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  k0 = OrbitalIndex(idatum->s[2].n, idatum->s[2].kappa, 0.0);
+  k1 = OrbitalIndex(idatum->s[3].n, idatum->s[3].kappa, 0.0);
+  j0 = idatum->s[2].j;
+  j1 = idatum->s[3].j;
+  jb = idatum->s[1].j;
+  q0 = idatum->s[2].nq_ket;
+  q1 = idatum->s[3].nq_ket;
+  qb = idatum->s[1].nq_ket;
+
+  if (idatum->s[1].index != idatum->s[3].index) {
+    kmin = abs(j0-j1);
+    kmax = j0 + j1;
+    jmin = 1;
+    jmax = j1+j0+jb;
+    np = 3;
+    nt = 1;
+    r = 0.0;
+    for (jf = jmin; jf <= jmax; jf += 2) {
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;
+	kappaf = GetKappaFromJL(jf, klf);
+	for (k = kmin; k <= kmax; k += 2) {
+	  if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
+	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k);
+	  if (n_egrid > 1) {
+	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	  } else {
+	    s = ai_pk[0];
+	  }
+	  s = s*s/(k + 1.0);
+	  r += s;
+	}
+      }
+    }  
+    r *= 4.0*(q1/(j1+1.0))*(qb/(jb+1.0))*((j0+1.0-q0)/(j0+1.0));
+  } else {
+    jm = 2*j1;
+    r = 0.0;
+    for (j = 0; j <= jm; j += 4) {
+      jmin = abs(j-j0);
+      jmax = j+j0;
+      for (jf = jmin; jf <= jmax; jf += 2) {
+	for (ik = -1; ik <= 1; ik += 2) {
+	  klf = jf + ik;
+	  kappaf = GetKappaFromJL(jf, klf);
+	  kmin = abs(j0-j1);
+	  kmax = j0 + j1;
+	  a = 0.0;
+	  for (k = kmin; k <= kmax; k += 2) {
+	    if (!Triangle(jb, jf, k)) continue;
+	    b = W6j(j, jf, j0, k, j1, j1);
+	    if (fabs(b) < EPS10) continue;
+	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k);
+	    if (n_egrid > 1) {
+	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	    } else {
+	      s = ai_pk[0];
+	    } 
+	    a += b*s;
+	  }
+	  r += a*a*2.0*(j+1.0);
+	}
+      }
+    }
+    r *= 4.0*(q1/(j1+1.0))*((qb-1.0)/jb)*((j0+1.0-q0)/(j0+1.0));
+  }
+
+  *rate = r;
+  
+  return 0;
 }
 
 int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {  
@@ -1418,8 +1627,10 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int nq, nqk;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set;
+  int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
+
+  iuta = IsUTA();
 
   if (m != -1 && GetTransitionGauge() != G_BABUSHKIN && qk_mode == QK_FIT) {
     printf("QK_FIT mode is only available to LENGTH form of E1 transitions\n");
@@ -1577,7 +1788,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	lev2 = GetLevel(low[j]);
 	e = lev1->energy - lev2->energy;
 	if (e < e0 || e >= e1) continue;
-	nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
+	if (iuta) {
+	  nq = BoundFreeOSUTA(rqu, qc, &eb, low[j], up[i], m);
+	} else {
+	  nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
+	}
 	if (nq < 0) continue;
 	r.b = low[j];
 	r.f = up[i];
@@ -1640,7 +1855,13 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   ARRAY subte;
   double c, e0, e1, b;
   int isub, n_egrid0;
-  int e_set;
+  int e_set, iuta;
+
+  iuta = IsUTA();
+  if (iuta && msub) {
+    printf("cannot call AITableMSub with UTA mode\n");
+    return -1;
+  }
 
   if (nup <= 0 || nlow <= 0) return -1;
 
@@ -1753,7 +1974,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	e = lev1->energy - lev2->energy;
 	if (e < e0 || e >= e1) continue;
 	if (!msub) {
-	  k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	  if (iuta) {
+	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
+	  } else {
+	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	  }
 	  if (k < 0) continue;
 	  if (s < ai_cut) continue;
 	  r.b = low[i];

@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.7}\xspace}
+\newcommand{\facversion}{{1.0.8}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -3124,6 +3124,16 @@ Set the user electron energy grid for photoionization and radiative
 recombination. The bound-free differential oscillator
 strengths on this grid are output. It is forced to be same as that set by
 \key{SetPEGrid} if the \key{QKMODE} is \key{'exact'}.
+\end{fundesc}
+
+\begin{fundesc}{SetUTA}{m}
+Set the flag for configuration average models. If $m=1$, all calculations are
+carried out in the configuration average approximation. The radiative
+transition rates output contains two additional fields, the energy shift and
+gauusian standard deviation in the UTA theory. If $m=0$, which is the default,
+the usual detailed term accounting method is used. This function should be
+called in the beginning of the script, before \key{Config} function, since it
+disables the angular momentum coupling performed by \key{Config}.
 \end{fundesc}
 
 \begin{fundesc}{SetVP}{vp}

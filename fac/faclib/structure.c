@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.86 2004/12/22 23:54:12 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.87 2005/01/06 18:59:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -80,6 +80,16 @@ int SetAngZOptions(int n, double mix, double cut) {
   return 0;
 }
 
+int ShellDegeneracy(int g, int nq) {
+  if (nq == 1) {
+    return g;
+  } else if (nq == g) {
+    return 1;
+  } else {
+    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
+  }
+}
+  
 double MBPT0(int isym, SYMMETRY *sym, int q1, int q2, int kg, int ic) {
   STATE *s;
   int t;
@@ -2830,9 +2840,48 @@ int AddToLevels(int ng, int *kg) {
   SYMMETRY *sym;
   STATE *s;
   CONFIG *c;
+  CONFIG_GROUP *g;
   int g0, p0;
   double *mix, a;
   
+  if (IsUTA()) {
+    m = n_levels;
+    lev.n_basis = 0;
+    lev.ibase = -1;
+    for (i = 0; i < ng; i++) {
+      lev.iham = kg[i];
+      g = GetGroup(kg[i]);
+      for (j = 0; j < g->n_cfgs; j++) {
+	lev.pb = j;
+	c = GetConfigFromGroup(kg[i], j);
+	lev.pj = 0;
+	lev.ilev = 1;
+	for (t = 0; t < c->n_shells; t++) {       
+	  GetJLFromKappa(c->shells[t].kappa, &d, &k);
+	  k /= 2;
+	  d = ShellDegeneracy(d+1, c->shells[t].nq);
+	  if (d > 1) {
+	    lev.ilev *= d;
+	  }
+	  if (IsOdd(k) && IsOdd(c->shells[t].nq)) lev.pj++;
+	}
+	lev.ilev--;
+	lev.pj = IsOdd(lev.pj);
+	if (c->energy == 0) {
+	  c->energy = AverageEnergyConfig(c);
+	}
+	lev.energy = c->energy;
+	if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
+	  printf("Not enough memory for levels array\n");
+	  exit(1);
+	}    
+	m++;
+      }
+    }
+    n_levels = m;
+    return 0;
+  }
+
   h = &_ham;
   if (h->basis == NULL ||
       h->mixing == NULL) return -1;
@@ -3066,6 +3115,12 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
   int i1, i2;
   int p1, p2, j1, j2;
 
+  if (IsUTA()) {
+    if (lev1->energy > lev2->energy) return 1;
+    else if (lev1->energy < lev2->energy) return -1;
+    return 0;
+  }
+
   i1 = lev1->pb;
   i2 = lev2->pb;
   sym1 = GetSymmetry(lev1->pj);
@@ -3154,18 +3209,25 @@ int GetNumElectrons(int k) {
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *s;
+  CONFIG_GROUP *g;
   int nele;
   
   lev = GetLevel(k);
-  sym = GetSymmetry(lev->pj);
-  s = (STATE *) ArrayGet(&(sym->states), lev->basis[0]);
-  nele = ConstructLevelName(NULL, NULL, NULL, NULL, s);
+  if (IsUTA()) {
+    g = GetGroup(lev->iham);
+    nele = g->n_electrons;
+  } else {
+    sym = GetSymmetry(lev->pj);
+    s = (STATE *) ArrayGet(&(sym->states), lev->basis[0]);
+    g = GetGroup(s->kgroup);
+    nele = g->n_electrons;
+  }
 
   return nele;
 }
 
 int SaveLevels(char *fn, int m, int n) {
-  STATE *s, *s1;
+  STATE *s, *s1, sp;
   SYMMETRY *sym, *sym1;
   CONFIG *cfg, *cfg1;
   SHELL_STATE *csf, *csf1;
@@ -3200,6 +3262,84 @@ int SaveLevels(char *fn, int m, int n) {
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   f = OpenFile(fn, &fhdr);
+
+  if (IsUTA()) {
+    for (k = 0; k < n; k++) {
+      i = m + k;
+      lev = GetLevel(i);
+      sp.kgroup = lev->iham;
+      sp.kcfg = lev->pb;
+      sp.kstate = 0;
+
+      r.ilev = i;      
+      r.ibase = lev->ibase;
+      r.p = lev->pj;
+      r.j = lev->ilev;
+      r.energy = lev->energy;
+
+      nele = ConstructLevelName(name, sname, nc, &vnl, &sp);
+      strncpy(r.name, name, LNAME);
+      strncpy(r.sname, sname, LSNAME);
+      strncpy(r.ncomplex, nc, LNCOMPLEX);
+      r.name[LNAME-1] = '\0';
+      r.sname[LSNAME-1] = '\0';
+      r.ncomplex[LNCOMPLEX-1] = '\0';
+      if (r.p == 0) {
+	r.p = vnl;
+      } else {
+	r.p = -vnl;
+      }
+      if (nele != nele0) {
+	if (nele0 >= 0) {
+	  DeinitFile(f, &fhdr);
+	  q = 0;
+	  nk = nele0;
+	  t = levels_per_ion[nk].dim;
+	  if (t > 0) {
+	    gion = (LEVEL_ION *) ArrayGet(levels_per_ion+nk, t-1);
+	    if (gion->imax+1 == n0) {
+	      gion->imax = n_levels-1;
+	      q = 1;
+	    }
+	  }
+	  if (q == 0) {
+	    gion1.imin = n0;
+	    gion1.imax = i-1;
+	    ArrayAppend(levels_per_ion+nk, &gion1, NULL);
+	  }
+	}
+	n0 = i;
+	nele0 = nele;
+	en_hdr.nele = nele;
+	InitFile(f, &fhdr, &en_hdr);
+      }
+      WriteENRecord(f, &r);
+    }
+    
+    DeinitFile(f, &fhdr);
+    CloseFile(f, &fhdr);
+
+    q = 0;
+    nk = nele0;
+    if (nk >= 0) {
+      t = levels_per_ion[nk].dim;
+      if (t > 0) {
+	gion = (LEVEL_ION *) ArrayGet(levels_per_ion+nk, t-1);
+	if (gion->imax+1 == n0) {
+	  gion->imax = n_levels-1;
+	  q = 1;
+	}
+      }
+      if (q == 0 && n_levels > n0) {
+	gion1.imin = n0;
+	gion1.imax = n_levels-1;
+	ArrayAppend(levels_per_ion+nk, &gion1, NULL);
+      }
+    }
+    
+    return 0;
+  }
+      
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
@@ -3481,8 +3621,9 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   nele = c->n_electrons;
   if (!name && !sname && !nc) return nele;
 
-  s = c->csfs + basis->kstate;
-
+  if (c->n_csfs > 0) {
+    s = c->csfs + basis->kstate;
+  }
   len = 0;
   if (name) name[0] = '\0';
   if (sname) sname[0] = '\0';
@@ -3498,8 +3639,12 @@ int ConstructLevelName(char *name, char *sname, char *nc,
     if (name) {
       if (((nq < j+1) && nq > 0) || (i == 0 && name[0] == '\0')) {
 	SpecSymbol(symbol, kl);
-	sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
-		n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	if (c->n_csfs > 0) {
+	  sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
+		  n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	} else {
+	  sprintf(ashell, "%1d%s%c%1d ", n, symbol, jsym, nq);
+	}
 	len += strlen(ashell);
 	if (len >= LEVEL_NAME_LEN) return -1;
 	strcat(name, ashell);
