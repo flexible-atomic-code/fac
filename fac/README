@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.6 2001/09/24 13:23:14 mfgu Exp $
+# rcsid = $Id: README,v 1.7 2001/09/24 13:29:53 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -21,12 +21,11 @@ INSTALL:
 
 2. Choose the appropriate Makefile and make possible adjustments 
    according to your system. Currently, only 2 Makefiles exist, one for 
-   Sun Solaris systems, one for Linux, and the default Makefile is 
-   that for Solaris systems. However, It should be relatively 
+   Sun Solaris systems, one for Linux. However, It should be relatively 
    simple to modify them to fit other Unix systems.
 
-3. make
-   make install
+3. copy the approriate "Makefile.***" to "Makefile" and type
+   "make; make install"
    
 
 Usage:
