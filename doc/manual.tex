@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.5}\xspace}
+\newcommand{\facversion}{{0.8.6}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -415,8 +415,8 @@ describe the structure of these files in detail.
 \section{Binary Format}
 \label{sec:binary}
 \index{Binary format}
-Presently, FAC produces 8 different types of files. Each type is asigned
-a unique integer from 1--8, which corresponds to a macro define in the file
+Presently, FAC produces 9 different types of files. Each type is asigned
+a unique integer from 1--9, which corresponds to a macro define in the file
 \verb|faclib/dbase.h|. These types are
 \begin{description}
 \item[\texttt{DB\_EN = 1}] Energy levels produced by the function
@@ -434,6 +434,8 @@ sections produced by \verb|fac.RRTable|.
 \verb|crm.SpecTable|. 
 \item[\texttt{DB\_RT = 8}] Various population rates produced by
 \verb|crm.RateTable|. 
+\item[\texttt{DB\_DR = 9}] Various population rates produced by
+\verb|crm.DRStrength|. 
 \end{description}
 
 All files have a common structure. It consists of a file header and one or
@@ -1259,6 +1261,68 @@ have the level or block in the header as the initial levels. The former is
 useful in determining the population of the levels by other levels, while the
 latter is useful in determining the branching routes of each level.
 
+\subsection{\texttt{DR\_HEADER}}
+\index{DR\_HEADER}
+\begin{verbatim}	
+typedef struct _DR_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ilev;
+  int ntransitions;
+  int vn;
+  int j;
+  float energy;
+} DR_HEADER;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{long position}:] The number of bytes from the beginning of the
+file to the place where this data block starts.
+\item[\texttt{long length}:] Number of bytes in this data block, excluding the
+length of the header.
+\item[\texttt{int nele}:] Number of electrons in the recombining ion for this
+block. 
+\item[\texttt{int ilev}:] The level index of the recombining ion for this
+block. 
+\item[\texttt{int ntransitions}:] The number of superlevel blocks from which
+the rates are tabulated in this block.
+\item[\texttt{int vn}:] The principal quantum number of the captured electron.
+\item[\texttt{int j}:] The $2j$ value of the recombining state.
+\item[\texttt{float energy}:] The energy of the recombining state.
+\end{dbdesc}
+
+\subsection{\texttt{DR\_RECORD}}
+\index{DR\_RECORD}
+\begin{verbatim}
+typedef struct _DR_RECORD_ {
+  int ilev;
+  int ibase;
+  short vl;
+  short j;
+  float energy;
+  float br;
+  float ai;
+  float total_rate;
+} DR_RECORD;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{int ilev}:] The level index of the autoionizing state.
+\item[\texttt{int ibasis}:] The level index of the core state, if
+applicable. Currently, it always takes the value of 0.
+\item[\texttt{short vl}:] The orbital angular momentum of the captured
+electron. 
+\item[\texttt{short j}:] The $2j$ value of the autoionizaing state.
+\item[\texttt{float energy}:] The energy of the autoionizing state relative to
+the recombining state, whose energy is given in the \texttt{DR\_HEADER}.
+\item[\texttt{float br}:] The radiative branching ratio of the autoionizing
+state.
+\item[\texttt{float ai}:] The autoionization rate to the recombining level.
+\item[\texttt{float total\_rate}:] The total decay rate of the autoionization
+state, i.e., including all autoionization and radiative decay channels.
+\end{dbdesc}
+
 \section{ASCII Format}
 \index{ASCII Format}
 FAC provides functions to convert the binary output to ASCII files. There are
@@ -1765,6 +1829,33 @@ Dens	=  1.00000000E+00
   -2  1.0000E+00 6.1831E-06 0.0000E+00 0.0000E+00 1.1178E+01 0.0000E+00   9
   -3  1.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.2304E-04  10
   ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_DR}}
+\index{\texttt{DB\_DR}}
+\begin{verbatim}FAC 0.8.6
+Endian	= 0
+TSess	= 1036783874
+Type	= 9
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 45
+
+# number of electrons of the recombining ion.
+NELE	= 9
+# number of transitions in this block.
+NTRANS	= 22
+# level index of the recombining state.
+ILEV	= 37
+# energy of the recombining state.
+E	= -2.99679153E+04
+# 2J value of the recombing state.
+JLEV	= 3
+# principal quantum number of the captured electron.
+NREC	= 6
+#AILevel 2J  RecLevel 2J ibase  NREC L ERes       AI Rate     Total Rate  Branching
+  275     0        37  3     0     6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
+......
 \end{verbatim}
 
 \chapter{FAC Function Reference}
@@ -2477,11 +2568,32 @@ input file \var{fn}. The resulting file can then be run using the \key{scrm}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
+\begin{fundesc}{DRBranch}{}
+Calculate the radiative branching ratios of all autoionizing states. It is
+calculated iteratively using:
+\begin{equation}
+B_i = \frac{\sum_j A^r_{ij}B_j}{\sum_j A^a_{ij} + \sum_k A^r_{ik}},
+\end{equation}
+where $A^r_{ij}$ is the radiative decay rate from state $i$ to state $j$,
+$A^a_{ik}$ is the autoionization rate from state $i$ to state $k$. The
+branching ratios of non-autoionizing states is 1.0. This function must be
+called before \key{DRStrength()}.
+\end{fundesc}
+
 \begin{fundesc}{DRFit}{Z, n, Te}
 Calculate the dielectronic recombination rates using the fitting formula and
 data table of P. Mazzotta. \var{Z} is the nuclear charge of the ion, \var{n}
 is the number of electrons, and \var{Te} is the electron temperature in eV.
 The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+\end{fundesc}
+
+\begin{fundesc}{DRStrength}{fn, n, \opt{i}}
+Tabulate the dielectronic recombination resonance strengths onto state \var{i}
+of the ion with \var{n} electrons. \var{fn} specifies the file name of the
+database file. \var{i} is optional, whose default is 0. When \var{i}$\ge$0,
+then the it is the index of the recombining state relative to the ground state
+of the recombining ion; when \var{i}$<$0, then its negative value is the true
+index of the recombining state.
 \end{fundesc}
 
 \begin{fundesc}{FracAbund}{Z, Te\opt{im, rm}}

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.17 2002/08/30 19:00:34 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.18 2002/11/08 22:27:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -778,6 +778,28 @@ static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
   return Py_BuildValue("(dO)", tmax, pa);
 }  
 
+static PyObject *PDRBranch(PyObject *self, PyObject *args) {
+  
+  DRBranch();
+
+  Py_INCREF(Py_None);  
+  return Py_None;
+}
+
+static PyObject *PDRStrength(PyObject *self, PyObject *args) {
+  int n, i;
+  char *s;
+  
+  i = 0;
+  if (!PyArg_ParseTuple(args, "si|i", &s, &n, &i)) 
+    return NULL;
+
+  DRStrength(s, n, i);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -821,6 +843,8 @@ static struct PyMethodDef crm_methods[] = {
   {"RRRateH", PRRRateH, METH_VARARGS},
   {"FracAbund", PFracAbund, METH_VARARGS},
   {"MaxAbund", PMaxAbund, METH_VARARGS},
+  {"DRBranch", PDRBranch, METH_VARARGS},
+  {"DRStrength", PDRStrength, METH_VARARGS},
   {NULL, NULL}
 };
 
