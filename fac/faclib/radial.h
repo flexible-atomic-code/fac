@@ -15,12 +15,14 @@ typedef struct _RAD_TIMING_ {
   clock_t radial_1e;
   clock_t radial_2e;
   clock_t dirac;
+  clock_t radial_slater;
 } RAD_TIMING;
 
 int GetRadTiming(RAD_TIMING *t);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
-double GetResidualZ(int m);
+int GetPotential(char *s);
+double GetResidualZ();
 double GetRMax();
 
 /* solve the dirac equation for the given orbital */
@@ -36,11 +38,14 @@ int GetNumBounds();
 int GetNumOrbitals();
 int GetNumContinua();
 
-double GetPhaseShift(int k, int mode);
+double GetPhaseShift(int k);
+double CoulombPhaseShift(int k);
 
 /* radial optimization */
+int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
 void SetOptimizeControll(double tolerence, int maxiter, int iprint);
-void SetScreening(int n);
+void SetScreening(int n_screen, int *screened_n, 
+		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);
