@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.62 2003/03/09 01:59:15 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.63 2003/03/09 22:10:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -739,7 +739,6 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
       }
     }
   }
-  if (fabs(*eb-eb0)/(*eb) > 1.5) eb0 = *eb;
   if (qk_mode == QK_FIT) {
     z = GetResidualZ();
     RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);

@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.22 2003/01/17 20:33:32 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.23 2003/03/09 22:10:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -502,9 +502,13 @@ double RRRate1E(double e, double eth, int np, void *p) {
     logx0 = log(x0);
     a = logx0*(-3.5-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
-    f = r[0]*exp(a + b)*((e+eth)/(e+r[3]));
+    if (r[0] > 0.0) {
+      f = log(r[0]*((e+eth)/(e+r[3]))) + a + b;
+      f = exp(f);
+    } else {
+      f = 0.0;
+    }
   }
-
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   a = FINE_STRUCTURE_CONST*(e+eth);
   a = a*a;
@@ -539,7 +543,12 @@ double PIRate1E(double e, double eth, int np, void *p) {
     logx0 = log(x0);
     a = logx0*(-3.5-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
-    f = r[0]*exp(a + b)*e/(e-eth+r[3]);
+    if (r[0] > 0) {
+      f = log(r[0]*e/(e-eth+r[3])) + a + b;
+      f = exp(f);
+    } else {
+      f = 0.0;
+    }
   }
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   c *= factor/e;

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.47 2003/01/13 18:48:20 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.48 2003/03/09 22:10:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2836,7 +2836,6 @@ double BlockRelaxation(int iter) {
       }
     }
   }
-	    
   d /= nlevels;
   return d;
 }
