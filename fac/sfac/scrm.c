@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.12 2002/11/27 16:43:05 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.13 2003/01/22 21:58:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -482,6 +482,10 @@ static METHOD methods[] = {
 int main(int argc, char *argv[]) {
   int i;
   FILE *f;
+
+#ifdef PMALLOC_CHECK
+  pmalloc_open();
+#endif
 
   InitCRM();
 

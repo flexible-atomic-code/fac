@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.9 2002/03/21 20:15:45 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.10 2003/01/22 21:58:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -102,6 +102,7 @@ void *ArrayGet(ARRAY *a, int i) {
 */
 void *ArraySet(ARRAY *a, int i, void *d) {
   void *pt;
+  char *ct;
   DATA *p;
   /*
 #ifdef PERFORM_STATISTICS
@@ -130,8 +131,13 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   if (!(p->dptr)) {
     p->dptr = calloc(a->block, a->esize);
   }
-  pt = ((char *) p->dptr) + i*a->esize;
   
+  ct = (char *) p->dptr;
+  for (; i > 0; i--) {
+    ct += a->esize;
+  }
+  pt = (void *) ct;
+
   if (d) memcpy(pt, d, a->esize);
 
   /*
@@ -143,6 +149,41 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   return pt;
 }
 
+/* 
+** FUNCTION:    ArrayContiguous
+** PURPOSE:     Return a 1-d standard c-array contiguous in memory.
+** INPUT:       {ARRAY *a},
+**              pointer to the array.
+** RETURN:      {void *},
+**              pointer to the resulting array.
+** SIDE EFFECT: 
+*/
+void *ArrayContiguous(ARRAY *a) {
+  void *r, *rp;
+  DATA *p;
+  int i, m;
+
+  if (a->dim == 0) return NULL;
+  m = a->esize*a->block;
+  r = malloc(a->esize*a->dim);
+  p = a->data;
+  i = a->dim;
+  rp = r;
+  while (1) {
+    if (i <= a->block) {
+      memcpy(rp, p->dptr, i*a->esize);
+      break;
+    } else {
+      memcpy(rp, p->dptr, m);
+      rp = ((char *)rp) + m;
+      i -= a->block;
+    }
+    p = p->next;
+  }
+  
+  return r;
+}
+  
 /* 
 ** FUNCTION:    ArrayAppend
 ** PURPOSE:     append an element to the array
@@ -301,7 +342,7 @@ int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i;
   ma->ndim = ndim;
   ma->esize = esize;
-  ma->block = (short *) malloc(sizeof(short)*ndim);
+  ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
   for (i = 0; i < ndim; i++) ma->block[i] = block[i];
   ma->array = NULL;
   return 0;
@@ -447,3 +488,159 @@ int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
   return 0;
 }
 
+/*
+** the following set of funcitons are a different implementation
+** for the MULTI array, which turns out to be much worse than
+** than the original one. It is not being used.
+*/
+int NMultiInit(MULTI *ma, int esize, int ndim, int *block) {
+  int i, n;
+
+  ma->ndim = ndim;
+  ma->esize = esize;
+  ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
+  n = 1;
+  for (i = 0; i < ndim; i++) {
+    ma->block[i] = block[i];
+    n *= block[i];
+  }
+  ma->array = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(ma->array, sizeof(MDATA), n);
+  return 0;
+}
+
+static int IndexMatch(unsigned short *i, int *k, int n) {
+  int q;
+  
+  for (q = 0; q < n; q++) {
+    if (i[q] != k[q]) return 0;
+  }
+  return 1;
+}
+
+static void IndexCopy(unsigned short *i, int *k, int n) {
+  int q;
+
+  for (q = 0; q < n; q++) {
+    i[q] = k[q];
+  }
+}
+
+void *NMultiGet(MULTI *ma, int *k) {
+  ARRAY *a;
+  MDATA *pt;
+  DATA *p;
+  int i, j, m;
+
+  a = ma->array;
+  p = a->data;
+  i = a->dim;
+  j = 0;
+  while (p) {
+    pt = (MDATA *) p->dptr;
+    for (m = 0; m < a->block && j < i; j++, m++) {
+      if (IndexMatch(pt->index, k, ma->ndim)) {
+	return pt->data;
+      }
+      pt++;
+    }
+    p = p->next;
+  }
+
+  return NULL;
+}
+
+void *NMultiSet(MULTI *ma, int *k, void *d) {
+  int i, j, m;
+  MDATA *pt;
+  ARRAY *a;
+  DATA *p, *p0;
+  
+  a = ma->array;
+  if (a->dim == 0) {
+    a->data = (DATA *) malloc(sizeof(DATA));
+    a->data->dptr = calloc(a->block, a->esize);
+    a->data->next = NULL;
+    pt = (MDATA *) a->data->dptr;
+  } else {
+    p = a->data;
+    i = a->dim;
+    j = 0;
+    while (p) {
+      pt = (MDATA *) p->dptr;
+      for (m = 0; m < a->block && j < i; j++, m++) {
+	if (IndexMatch(pt->index, k, ma->ndim)) {
+	  if (d) {
+	    memcpy(pt->data, d, ma->esize);
+	  }
+	  return pt->data;
+	}
+	pt++;
+      }
+      p0 = p;
+      p = p->next;
+    }  
+    if (m == a->block) {
+      p0->next = (DATA *) malloc(sizeof(DATA));
+      p = p0->next;
+      p->dptr = calloc(a->block, a->esize);
+      p->next = NULL;
+      pt = (MDATA *) p->dptr;
+    }
+  }
+
+  pt->index = (unsigned short *) malloc(sizeof(unsigned short)*ma->ndim);
+  IndexCopy(pt->index, k, ma->ndim);
+  pt->data = calloc(1, ma->esize);
+  if (d) memcpy(pt->data, d, ma->esize);
+  (a->dim)++;
+
+  return pt->data;
+}
+
+static int NMultiArrayFreeData(DATA *p, int esize, int block, 
+			void (*FreeElem)(void *)) { 
+  MDATA *pt;
+  int i;
+  
+  if (p->next) {
+    NMultiArrayFreeData(p->next, esize, block, FreeElem);
+  }
+
+  if (p->dptr) {
+    pt = p->dptr;
+    for (i = 0; i < block; i++) {
+      free(pt->index);
+      if (FreeElem) FreeElem(pt->data);
+      free(pt->data);
+      pt++;
+    }
+    free(p->dptr);
+  }
+  if (p) {
+    free(p);
+  }
+  p = NULL;
+  return 0;
+}
+    
+int NMultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
+  if (!a) return 0;
+  if (a->dim == 0) return 0;
+  NMultiArrayFreeData(a->data, a->esize, a->block, FreeElem);
+  a->dim = 0;
+  a->data = NULL;
+  return 0;
+}
+
+int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
+  if (!ma) return 0;
+  if (ma->ndim <= 0) return 0;
+  NMultiFreeData(ma->array, ma->ndim, FreeElem);
+  free(ma->array);
+  ma->array = NULL;
+  free(ma->block);
+  ma->block = NULL;
+  ma->ndim = 0;
+  return 0;
+}

@@ -36,9 +36,6 @@ sfac:	lib
 pfac:   lib
 	${PYTHON} setup.py build --force ${FLIBS}
 
-slac:   lib
-	cd slac; make
-
 doc:
 	cd doc; make
 

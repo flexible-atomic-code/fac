@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.45 2003/01/21 14:45:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.46 2003/01/22 21:58:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2042,7 +2042,7 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   double *b;
   MULTI ma;
   int k[3] = {101, 2550, 333};
-  int block[3] = {10, 20, 50};
+  int block[3] = {2, 2, 5};
   int i, j, m;
 
   if (sfac_file) {
@@ -2053,44 +2053,31 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
 
   ArrayInit(&a, sizeof(double), 100);
   d = 0.1;
-  m = 100000;
-  printf("> ");
-  scanf("%d", &i);
+  m = 10000;
+
   for (i = 0; i < m; i++) {
     ArraySet(&a, i, &d);
   }
-  printf("> ");
-  scanf("%d", &i);
 
   b = (double *) ArrayGet(&a, 100);
-  printf("%f ", *b);
   b = (double *) ArrayGet(&a, 200);
-  printf("%f \n", *b);
 
   ArrayFree(&a, 0);
-  printf("> ");
-  scanf("%d", &i);
 
   MultiInit(&ma, sizeof(double), 3, block);
-  printf("%d %d\n", ma.esize, ma.ndim);
-  for (i = 9; i < 15; i++) {
-    for (j = 0; j < m; j++) {
+  for (i = 100; i < 200; i++) {
+    for (j = 100; j < 4000; j++) {
       k[0] = i;
       k[1] = j;
-      k[2] = 20;	
+      k[2] = 20;
       b = (double *) MultiSet(&ma, k, NULL);
       *b = 0.2;
       b = (double *) MultiGet(&ma, k);
     }
   }
-
-  printf("> ");
-  scanf("%d", &i);
+  printf("set\n"); 
   MultiFreeData(ma.array, ma.ndim, NULL);
-
-  printf("> ");
-  scanf("%d", &i); 
- 
+  printf("freed\n");
   Py_INCREF(Py_None);
   return Py_None;
 }  
