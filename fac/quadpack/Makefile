@@ -1,4 +1,4 @@
-SRC = dqpsrt.f dqk15i.f dqelg.f dqagie.f dqagi.f
+SRC = dqpsrt.f dqk15i.f dqelg.f dqagie.f dqagi.f dqags.f dqagse.f dqk21.f dqng.f
 
 OBJS = ${SRC:.f=.o}
 
