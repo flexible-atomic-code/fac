@@ -1,5 +1,17 @@
 #include "cfp.h"
 
+static char *rcsid="$Id: cfp.c,v 1.3 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
+/******************************************************************/
+/* Calculate the coeff. of fractional parentage by looking up the */
+/* table. This is no longer used in FAC. Instead, the reduced cfp */
+/* method is used, implemented in rcfp.c                          */
+/******************************************************************/
+
 /** look up table for CFPs **/
 static double cfp3_5[3][3] = { /** (5/2)3 **/
   {-4.714045207910E-01, 

@@ -1,13 +1,28 @@
+# rcsid = $Id: README,v 1.4 2001/09/23 15:58:34 mfgu Exp $
+
 FAC is a software packge for the calculation of various atomic processes.
 
-INSTALL:
-modify the Makefile according to your system. and type "make".
+Contents of the package:
+Makefile, top level makefile.
+README,   this file.
+blas/,    BLAS routines in fortran.
+coul/,    fortran routines related to coulomb functions.
+demo/,    some demo scripts.
+fac.c,    main python module implemented in C.
+faclib/,  core numerical library.
+lapack/,  fortran routines from LAPACK.
+mpfunc/,  multi-precision floating point arithmetic package by Beiley.
+python/,  additional python modules implemented in Python.
+toms/,    some numerical routines from TOMS.
 
-Environment variable:
-python interpreter must be in your path. $PYTHONPATH that contains the 
-installed module must be setup so that Python can find it. e.g. in csh,
-	setenv PYTHONPATH INSTALL_DIR
-where INSTALL_DIR is the directory where you installed the package.
+INSTALL:
+1. Obtain (From www.python.org) and install Python if it is not installed yet. 
+   Version 1.5 or later is required. Make sure that python interpreter is 
+   in your path.
+2. Modify the Makefile according to your system. 
+3. make
+   make install
+   
 
 Usage:
 The module can be called just like any python modules, either from 

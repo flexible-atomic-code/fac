@@ -1,21 +1,39 @@
 #include "angular.h"
 
-static ANGULAR_TIMING timing = {0, 0, 0};
+static char *rcsid="$Id: angular.c,v 1.8 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
 
+/* maximum summation terms in the calculation of 3j symbols. 
+   this should allow the angular momentum up to about 500 */
+#define MAXTERM 512
+static double _sumk[MAXTERM];
+
+#ifdef PERFORM_STATISTICS
+static ANGULAR_TIMING timing = {0, 0, 0};
 int GetAngularTiming(ANGULAR_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
+#endif
 
+/* initialize the log of factorial and integer arrays,
+   this routine is called only once. */
 int InitAngular() {
   int n;
 
   ln_factorial[0] = 0.0;
+  ln_integer[0] = -100.0;
   for (n = 1; n < MAX_FACTORIAL; n++) {
-    ln_factorial[n] = ln_factorial[n-1] + log((double) n);
+    ln_integer[n] = log((double) n);
+    ln_factorial[n] = ln_factorial[n-1] + ln_integer[n]; 
   }
+  return 0;
 }
 
+/* check whether 3 angular momenta satisfy the triangular relation */
 int Triangle(int j1, int j2, int j3) {
   int i;
 
@@ -30,13 +48,16 @@ int Triangle(int j1, int j2, int j3) {
     return 0;
 }
 
-
+/* calculate the Wigner 3j symbols */
 double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   int i, k, kmin, kmax, ik[14];
-  double delta, sumk, qsum;
-  clock_t start, stop;
+  double delta, qsum, a, b;
 
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
+#endif
+
   if (m1 + m2 + m3) return 0.0;
   if (!Triangle(j1, j2, j3)) return 0.0;
   if (abs(m1) > j1) return 0.0;
@@ -72,29 +93,37 @@ double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   kmax = Min(kmax, ik[7]);
   
   qsum = 0.0;
-  for (k = kmin; k <= kmax; k++) {
-    sumk = LnFactorial(k) +
+  a = 1E30;
+  for (k = kmin, i = 0; k <= kmax && i < MAXTERM; k++, i++) {
+    _sumk[i] = LnFactorial(k) +
       LnFactorial(ik[0]-k) +
       LnFactorial(ik[4]-k) +
       LnFactorial(ik[7]-k) +
       LnFactorial(ik[12]+k) +
       LnFactorial(k-ik[11]);
-    
-    sumk = exp(-sumk);
-    
-    if (IsOdd(k)) sumk = -sumk;
-    
-    qsum += sumk;
+    if (_sumk[i] < a) a = _sumk[i];
+  }
+  if (i == MAXTERM) {
+    printf("Maximum terms in the 3j symbol sum reached\n");
+    printf("Results may be inaccurate\n");
+  }
+  for (k = kmin, i = 0; k <= kmax; k++, i++) {
+    b = exp(-(_sumk[i]-a));    
+    if (IsOdd(k)) b = -b;    
+    qsum += b;
   }
 
   if (IsOdd(ik[13])) qsum = -qsum;
   
-  delta = exp(0.5*delta);
+  b = exp(0.5*delta-a);
+  b *= qsum; 
+
+#ifdef PERFORM_STATISTICS
   stop = clock();
-
   timing.w3j += stop -start;
+#endif
 
-  return delta * qsum;
+  return b;
 }
 
 double W6jDelta(j1, j2, j3) {
@@ -119,13 +148,16 @@ double W6jDelta(j1, j2, j3) {
   return delta;
 }
 
-
+/* Wigner 6j symbols */
 double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
   int n1, n2, n3, n4, n5, n6, n7, k, kmin, kmax, ic, ki;
   double r, a;
-  clock_t start, stop;
 
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
+#endif
+
   if (!(Triangle(j1, j2, j3) &&
 	Triangle(j1, i2, i3) &&
 	Triangle(i1, j2, i3) &&
@@ -177,8 +209,10 @@ double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
   if (IsEven(n5+kmin)) r = -r;
   if (IsOdd(((j1+j2+i1+i2)/2))) r = -r;
 
+#ifdef PERFORM_STATISTICS
   stop = clock();
   timing.w6j += stop - start;
+#endif
   return r;
 
 }
@@ -190,15 +224,18 @@ int W6jTriangle(int j1, int j2, int j3, int i1, int i2, int i3) {
 	  Triangle(i1, i2, j3));
 }
        
-
+/* Wigner 9j symbols */
 double W9j(int j1, int j2, int j3,
 	   int i1, int i2, int i3,
 	   int k1, int k2, int k3) {
   int j, jmin, jmax;
   double r;
-  clock_t start, stop;
-  
+
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop;  
   start = clock();
+#endif
+
   if (!Triangle(j1, j2, j3) ||
       !Triangle(i1, i2, i3) ||
       !Triangle(k1, k2, k3) ||
@@ -221,8 +258,11 @@ double W9j(int j1, int j2, int j3,
   }
 
   if (IsOdd(jmin)) r = -r;
+
+#ifdef PERFORM_STATISTICS
   stop = clock();
   timing.w9j += stop - start;
+#endif
 
   return r;
 }
@@ -238,6 +278,7 @@ int W9jTriangle(int j1, int j2, int j3,
 	  Triangle(j3, i3, k3));
 }
 
+/* The geometric factor in the Wigner Eckart theorem */
 double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
   double r;
 
@@ -250,6 +291,7 @@ double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
   return r;
 }
 
+/* Clebsch Gordan Coeff. */
 double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
   double r;
   r = sqrt(jf+1.0);
@@ -260,13 +302,12 @@ double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
 }
 
 /** Reduced matrix element of C^L in jj coupled states.
-    it does not include the delta factor involving the 
+    it does not include the triangular delta factor involving the 
     orbital angular momenta **/
 double ReducedCL(int ja, int k, int jb) {
   double r;
-
-  r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, -1, 0, 1);
-  if (IsOdd((ja-1)/2)) r = -r;
+  r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, 1, 0, -1);
+  if (IsOdd((ja+1)/2)) r = -r;
   return r;
 }
 
