@@ -2201,6 +2201,12 @@ optional channel number \var{c} can be supplied as an identification of the
 transition array.
 \end{fundesc}
 
+\begin{fundesc}{AppendTable}{fn}
+By default, when a new script is executed, existing binary files are
+overwritten. If instead the new data should be appended to the file, use 
+this function to set the append flag.
+\end{fundesc}
+
 \begin{fundesc}{Asymmetry}{fn, s\opt{, m}}
 Calculate the photoionization asymmetry parameters for given relativistic
 subshells. \var{s} is a string which gives the subshells. It should be in
@@ -2449,6 +2455,12 @@ here are twice of their actual values.
 \begin{fundesc}{Info}{}
 Print out the version information of FAC and contact information of the
 author. 
+\end{fundesc}
+
+\begin{fundesc}{JoinTable}{fn1, fn2, fn}
+Join two binary files \var{fn1} and \var{fn2} to produce a single file
+\var{fn}. \var{fn1} and \var{fn2} must have been produced on the same
+platform, have the same type and for the same element.
 \end{fundesc}
 
 \begin{fundesc}{LevelInfor}{fn, ilev}

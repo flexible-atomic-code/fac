@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.77 2005/01/15 01:13:17 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.78 2005/02/03 22:14:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3314,11 +3314,30 @@ static int PPropogateDirection(int argc, char *argv[], int argt[],
   return 0;
 }
   
+static int PAppendTable(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {  
+  if (argc != 1) return -1;
+  AppendTable(argv[0]);
+  
+  return 0;
+}
+
+static int PJoinTable(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  if (argc != 3) return -1;
+  
+  JoinTable(argv[0], argv[1], argv[2]);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
+  {"AppendTable", PAppendTable, METH_VARARGS}, 
+  {"JoinTable", PJoinTable, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 

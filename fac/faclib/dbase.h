@@ -408,6 +408,8 @@ double IonDensity(char *fn, int k);
 void SetUTA(int m);
 int IsUTA(void);
 void SetTRF(int m);
+int AppendTable(char *fn);
+int JoinTable(char *fn1, char *fn2, char *fn);
 
 #endif
 
