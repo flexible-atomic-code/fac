@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.53 2003/08/15 16:17:29 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.54 2003/10/10 20:28:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2087,12 +2087,6 @@ int PrintTable(char *ifn, char *ofn, int v) {
     fclose(f1);
     fclose(f2);
     return 0;  
-  }
-
-  if (fh.nblocks == 0) {
-    fclose(f1);
-    fclose(f2);
-    return 0;
   }
 
   if (v && (fh.type < DB_SP || fh.type > DB_DR)) {
