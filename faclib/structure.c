@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.78 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.79 2004/12/14 07:30:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3626,7 +3626,7 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   clock_t start, stop;
   start = clock();
 #endif
-
+  
   iz = ih1*angz_dim + ih2;
   *ad = &(angz_array[iz]);
   ns = (*ad)->ns;
@@ -3670,6 +3670,7 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       kc2 = s2->kcfg;
       ks2 = s2->kstate;          
       c2 = GetConfigFromGroup(kg2, kc2);
+	
       if (abs(c1->n_shells - c2->n_shells) > 1) {
 	a[iz] = NULL;
 	pnz[iz] = 0;
@@ -3765,11 +3766,13 @@ int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p) {
   for (i = 0; i < nz; i++) {
     k0 = ang[i].k0;
     k1 = ang[i].k1;
+    ang[i].k0 = k1;
+    ang[i].k1 = k0;
     k0 = GetOrbital(k0)->kappa;
     k1 = GetOrbital(k1)->kappa;
     k0 = GetJFromKappa(k0);
     k1 = GetJFromKappa(k1);
-    if (IsOdd((k1-k0)/2+p)) ang[i].coeff = - ang[i].coeff;
+    if (IsOdd((k1-k0+p)/2)) ang[i].coeff = - ang[i].coeff;
   }
   return 0;
 }
@@ -4176,7 +4179,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
   int nz_sub, nfb;
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
-  LEVEL *lev1, *lev2;
+  LEVEL *lev1, *lev2, *lev;
   CONFIG *c1, *c2;
   ANGZ_DATUM *ad;
   ANGULAR_ZMIX *ang_sub;
@@ -4294,6 +4297,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	}
       }
     }
+    PackAngularZMix(&n, ang, nz);
   } else if (kg1 < 0 && !ignore_ryd) {        
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
@@ -4319,6 +4323,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       }
       if (nfb > 0) free(afb);
     }
+    PackAngularZMix(&n, ang, nz);
   } else if (kg2 < 0 && !ignore_ryd) {    
     nz = ANGZ_BLOCK;
     n = 0;
@@ -4347,7 +4352,15 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       }
       if (nfb > 0) free(afb);
     }
+    PackAngularZMix(&n, ang, nz);
   } else {
+    if (lev1->iham > lev2->iham) {
+      lev = lev1;
+      lev1 = lev2;
+      lev2 = lev;
+    } else {
+      lev = NULL;
+    }
     ns = AngularZMixStates(&ad, lev1->iham, lev2->iham);
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
@@ -4356,6 +4369,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       isz0 = ih1 * hams[lev2->iham].nbasis;
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
+	if (fabs(mix2) < angz_cut) continue;
 	a = mix1*mix2;
 	if (fabs(a) < angz_cut) continue;
 	ih2 = lev2->ibasis[j];
@@ -4372,9 +4386,11 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	}
       }
     }
+    PackAngularZMix(&n, ang, nz);
+    if (lev) {
+      AngZSwapBraKet(n, *ang, j1-j2);
+    }
   }
-
-  PackAngularZMix(&n, ang, nz);
 
 #ifdef PERFORM_STATISTICS
   stop = clock();

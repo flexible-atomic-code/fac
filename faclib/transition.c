@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.22 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.23 2004/12/14 07:30:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -100,6 +100,7 @@ int OscillatorStrength(double *strength, double *energy,
   s = 0.0;
   
   nz = AngularZMix(&ang, lower, upper, m2, m2);
+    
   if (nz <= 0) return -1;
 
   for (i = 0; i < nz; i++) {
@@ -113,7 +114,7 @@ int OscillatorStrength(double *strength, double *energy,
     s += r * ang[i].coeff;
   }
   free(ang);	  
-  
+
   *strength = s*s/(m2+1.0);
   *strength *= (*energy);
   m2 = m2 - 2;
