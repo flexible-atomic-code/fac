@@ -1,7 +1,9 @@
-Version 0.7.4, 06/26/2002
+Version 0.7.4, 07/10/2002
 	1. write FAQ chapter of the manual.
 	2. fix a bug introduced in atom.py
 	3. improve CorrectEnergy.
+	4. renormalization of superblock density removed.
+	5. allow only AI and without DR.
 	
 Version 0.7.3, 05/15/2002
 	1. improving the manual

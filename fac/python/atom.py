@@ -511,18 +511,10 @@ class ATOM:
                 a1 = g
                 if (c[j].nrec == 0):
                     b = c[j].name
+                    a2 = g
                 else:
                     b = (c[j].name, c[j].nrec)
-                if (i == 0 and j == 0):
-                    if (self.nele in self.nele_sim):
-                        a2 = g[:1]
-                    else:
-                        a2 = g
-                else:
-                    if (self.nele == 4):
-                        a2 = [0,1]
-                    else:
-                        a2 = [0]
+                    a2 = g[:1]
                 if (i == 0 and (self.nele <= 2 or j == 0)):
                     tr = [-1, 1, -2, 2]
                     SetAngZCut(self.angz_cut0)

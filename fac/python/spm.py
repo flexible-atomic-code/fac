@@ -694,14 +694,13 @@ def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
              dist = 0, cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
-             ai = 1, ci = 1, rr = 1, ce = 1):
+             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
             rate = rate + get_complexes(k-1)
             if (nion > 2):
                 rate = rate + get_complexes(k+1)
-                
         print 'NELE = %d'%k
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)
@@ -749,6 +748,9 @@ def spectrum(neles, temp, den, population, pref,
                 if (ai > 0):
                     print 'AI rates...'
                     SetAIRates(1)
+                elif (ai < 0):
+                    print 'AI rates...'
+                    SetAIRates(0)
                 SetAbund(k-1, p1)
             SetAbund(k, p2)
             if (nion == 3):
@@ -757,8 +759,8 @@ def spectrum(neles, temp, den, population, pref,
             for d in range(len(den)):
                 print 'Density = %10.3E'%den[d]
                 SetEleDensity(den[d])
-                SetIteration(1E-4)
-                SetCascade(cascade, 1E-4)
+                SetIteration(eps)
+                SetCascade(cascade, eps)
                 print 'Init blocks...'
                 InitBlocks()
                 s = 't%02dd%di%d'%(i, d, nion)
