@@ -62,5 +62,6 @@ int EvalStatement(STATEMENT *st, METHOD *methods, ARRAY *variables);
 void FreeStatementData(void *p);
 void FreeVariableData(void *p);
 void ErrorOcurred(int ierr, int loc);
+void SetModName(char *s);
 
 #endif

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.25 2005/04/01 00:17:48 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.26 2005/04/06 03:34:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -585,6 +585,8 @@ int main(int argc, char *argv[]) {
 #endif
 
   InitCRM();
+
+  SetModName("crm");
 
   if (argc == 1) {
     EvalFile(stdin, 1, methods);

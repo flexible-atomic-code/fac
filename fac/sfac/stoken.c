@@ -1,10 +1,21 @@
-static char *rcsid="$Id: stoken.c,v 1.3 2003/04/22 16:07:18 mfgu Exp $";
+static char *rcsid="$Id: stoken.c,v 1.4 2005/04/06 03:34:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 #include "stoken.h"
+
+static char _mod_name0[128];
+static char _mod_name1[128];
+static int _mod_name0_len, _mod_name1_len;
+
+void SetModName(char *nm) {
+  sprintf(_mod_name0, "%s.", nm);
+  sprintf(_mod_name1, "pfac.%s.", nm);
+  _mod_name0_len = strlen(_mod_name0);
+  _mod_name1_len = strlen(_mod_name1);
+}
 
 VARIABLE *VariableExists(char *name, ARRAY *variables) {
   VARIABLE *v;
@@ -153,6 +164,7 @@ int TokenizeLine(int nline, char *line, METHOD *methods,
   int i, r, n;
   char token[MAXLINELENGTH];
   char *t;
+  char nmod0[128], nmod1[128];
   int brkpos;
   int quotepos;
   int next;
@@ -165,10 +177,10 @@ int TokenizeLine(int nline, char *line, METHOD *methods,
   next = 0;
   r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
   if (r) return ERR_SYNTAX;
-  if (strncmp(token, "pfac.fac.", 9) == 0) {
-    t = token+9;
-  } else if (strncmp(token, "fac.", 4) == 0) {
-    t = token+4;
+  if (strncmp(token, _mod_name1, _mod_name1_len) == 0) {
+    t = token+_mod_name1_len;
+  } else if (strncmp(token, _mod_name0, _mod_name0_len) == 0) {
+    t = token+_mod_name0_len;
   } else {
     t = token;
   }

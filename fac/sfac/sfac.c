@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.79 2005/04/01 00:17:48 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.80 2005/04/06 03:34:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3504,6 +3504,8 @@ int main(int argc, char *argv[]) {
     printf("initialization failed\n");
     exit(1);
   }
+
+  SetModName("fac");
 
   if (argc == 1) {
     EvalFile(stdin, 1, methods);
