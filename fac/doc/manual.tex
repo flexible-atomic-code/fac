@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.7}\xspace}
+\newcommand{\facversion}{{0.8.8}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2691,6 +2691,25 @@ Build an energy level table in the memory for the \texttt{DB\_EN} type file
 \var{fn}. This function also exists in the module \mod{fac}. 
 \end{fundesc}
 
+\begin{fundesc}{NDRFit}{Z, n, Te}
+Calculate the dielectronic recombination rates using the data calculated with
+FAC for H-like through Ne-like ions of Mg, Si, S, Ar, Ca, Fe, and Ni, and the
+fitting formula and data table of P. Mazzotta for other ions. \var{Z} is the
+nuclear charge of the ion, \var{n} is the number of electrons, and \var{Te} is
+the electron temperature in eV. The result is in unit of $10^{-10}$ cm$^3$
+s$^{-1}$.
+\end{fundesc}
+
+\begin{fundesc}{NRRFit}{Z, n, Te}
+Calculate the radiative recombination cross sections using the Fortran
+subroutine \verb|nrrfit| using the data calculated with FAC for Bare through
+F-like ions of Mg, Si, S, Ar, Ca, Fe, and Ni, and use the routine \verb|rrfit|
+for other ions. \var{Z} is the nuclear charge of the
+ion, \var{n} is the number of electrons of the recombining ion, and \var{Te}
+is the electron temperature in eV. The result is in unit of $10^{-10}$ cm$^3$
+s$^{-1}$.
+\end{fundesc}
+
 \begin{fundesc}{PhFit}{Z, n, E, s}
 Calculate the photoionization cross section at energy \var{E} of subshell
 \var{s} for the ion with nuclear charge \var{Z}, and number of electrons
@@ -2739,8 +2758,11 @@ tuple of length 3. The first element is the total recombination rate, the
 second is the radiative recombination rate, and the third is the dielectronic
 recombination rate. The data used are from \citet{arnaud85, arnaud92} if the
 optional argument \var{m} is 0. The functions \key{RRFit} and \key{DRFit}
-are used if \var{m} is 1. The default is 1. The results are in unit of
-$10^{-10}$ cm$^3$ s$^{-1}$.
+are used if \var{m} is 1. If \var{m} is 2, then the New RR and DR rate 
+coefficients are used for Bare through Ne-like ions of Mg, Si, S, Ar, Ca, Fe, 
+and Ni calculated with \key{NRRFit} and \key{NDRFit}, for other ions, 
+\key{RRFit} and \key{DRFit} are used. The default is 1. The results are in unit 
+of $10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
 \begin{fundesc}{ReinitCRM}{\opt{m}}

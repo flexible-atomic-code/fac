@@ -6,7 +6,7 @@
 *     iz, Nuclear charge
 *     in, number of electrons of the recombining ion, 0 to iz-1
 *     t,  temperature in eV.
-*     r,  result.
+*     r,  result in cm3s-1
 *******************************************************
       integer iz, in, i
       integer ind(28)
