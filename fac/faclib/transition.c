@@ -1,13 +1,11 @@
 #include "transition.h"
 #include <time.h>
 
-static struct {
-  int gauge;
-  int mode;
-  int max_e;
-  int max_m;
-  double eps;
-} transition_option = {2, 1, 4, 4, EPS4};
+static char *rcsid="$Id: transition.c,v 1.5 2001/09/14 16:32:06 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
 
 /* the following options controll the computation methods of OS.
    gauge = 1 coulomb gauge (velocity form)
@@ -19,6 +17,13 @@ static struct {
    max_e, the maximum rank of electric multipoles.
    max_m, the maximum rank of magnetic multipoles.
 */
+static struct {
+  int gauge;
+  int mode;
+  int max_e;
+  int max_m;
+  double eps;
+} transition_option = {2, 1, 4, 4, EPS4};
 
 int SetTransitionCut(double c) {
   transition_option.eps = c;
@@ -36,17 +41,15 @@ void SetTransitionOptions(int gauge, int mode,
   transition_option.max_m = max_m;
 }
 
-int TransitionGauge() {
+int GetTransitionGauge() {
   return transition_option.gauge;
 }
 
 int OscillatorStrength(double *strength, double *energy, 
 			  int *multipole, int lower, int upper) {
   int m, m2, n;
-  int hlow, hup;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
-  HAMILTON *h1, *h2;
   double s, r, aw;
   int nz, i;
   ANGULAR_ZMIX *ang;
@@ -61,14 +64,8 @@ int OscillatorStrength(double *strength, double *energy,
   }
   if (*energy <= 0.0) return -1;
 
-  hlow = lev1->ham_index;
-  hup = lev2->ham_index;
-  
-  h1 = GetHamilton(hlow);
-  h2 = GetHamilton(hup);
-
-  DecodePJ(h1->pj, &p1, &j1);
-  DecodePJ(h2->pj, &p2, &j2);
+  DecodePJ(lev1->pj, &p1, &j1);
+  DecodePJ(lev2->pj, &p2, &j2);
 
   m = GetLowestMultipole(p1, j1, p2, j2);
   if (m > transition_option.max_m || m < -transition_option.max_e) return 1;
@@ -92,9 +89,11 @@ int OscillatorStrength(double *strength, double *energy,
   for (i = 0; i < nz; i++) {
     if (fabs(ang[i].coeff) > EPS10) {
       if (transition_option.mode) {
-	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1);
+	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
+			      transition_option.gauge);
       } else {
-	r = MultipoleRadial(aw, m, ang[i].k0, ang[i].k1);
+	r = MultipoleRadial(aw, m, ang[i].k0, ang[i].k1,
+			    transition_option.gauge);
       }
       s += r * ang[i].coeff;
     }
