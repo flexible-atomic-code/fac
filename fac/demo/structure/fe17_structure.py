@@ -12,8 +12,9 @@ fac.Config('2*7 3*1', group = 'n3')
 
 # Self-consistent iteration for optimized central potential
 fac.OptimizeRadial('n2', 'n3')
-fac.Structure('ne.d')
+fac.Structure('ne.lev.b')
+fac.PrintTable('ne.lev.b', 'ne.lev')
 
-fac.PrintTable('ne.d', 'ne.lev')
-fac.TransitionTable('ne.tr', ['n2'], ['n3'])
+fac.TransitionTable('ne.tr.b', ['n2'], ['n3'])
+fac.PrintTable('ne.tr.b', 'ne.tr')
 

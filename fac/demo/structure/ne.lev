@@ -1,11 +1,11 @@
-TSession = 1008287754l
-FAC 0.6.7
-Type = 1
-fe Z = 26
-NBlocks = 1
+FAC 0.6.8
+TSess	= 1008364273L
+Type	= 1
+Fe Z	= 26
+NBlocks	= 1
 
-NELE = 10
-NLEV = 37
+NELE	= 10
+NLEV	= 37
          Energy(eV)   P 2J 
     0 -3.12492363E+04 0  0 1*2 2*8              2p6                  2p+4(0)0 
     1 -3.05242871E+04 1  4 1*2 2*7 3*1          2p5 3s1              2p+3(3)3 3s+1(1)4 
