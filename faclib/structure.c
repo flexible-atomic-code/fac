@@ -817,7 +817,7 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
       
       kl /= 2;
       SpecSymbol(symbol, kl);
-      sprintf(name, "%5d + %d%s%c1(%d)%d ", 
+      sprintf(name, "%-5d + %d%s%c1(%d)%d ", 
 	      i, orb->n, symbol, jsym, j, basis->kstate);
     }
     if (sname) {
@@ -845,20 +845,22 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
     UnpackShell(c->shells+i, &n, &kl, &j, &nq);
     if (j < kl) jsym = '-';
     else jsym = '+';
+    kl = kl/2;
     if (name) {
-      kl = kl/2;
-      SpecSymbol(symbol, kl);
-      sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
-	      n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
-      len += strlen(ashell);
-      if (len >= LEVEL_NAME_LEN) return -1;
-      strcat(name, ashell);
+      if (nq > 0 || (i == 0 && name[0] == '\0')) {
+	SpecSymbol(symbol, kl);
+	sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
+		n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	len += strlen(ashell);
+	if (len >= LEVEL_NAME_LEN) return -1;
+	strcat(name, ashell);
+      }
     }
     if (sname) {
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (n0 > 0) {
+	if (nq0 > 0) {
 	  SpecSymbol(symbol, kl0);
 	  sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
 	  strcat(sname, ashell);
@@ -870,7 +872,7 @@ int ConstructLevelName(char *name, char *sname, STATE *basis) {
     }
   }
   
-  if (n0 > 0) {
+  if (n0 > 0 && (nq0 > 0 || sname[0] == '\0')) {
     SpecSymbol(symbol, kl0);
     sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
     strcat(sname, ashell);
@@ -900,7 +902,7 @@ int GetBasisTable(char *fn) {
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
       ConstructLevelName(name, sname, s);
-      fprintf(f, "%4d (%2d %2d %2d) %-20s %-50s \n",
+      fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
 	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }
     fprintf(f, "\n");
