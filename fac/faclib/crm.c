@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.11 2002/02/04 15:48:32 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.12 2002/02/05 21:55:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -75,7 +75,7 @@ static void FreeBlkRateData(void *p) {
 
   r = (BLK_RATE *) p;
   ArrayFree(r->rates, NULL);
-  free(r->rates);
+  if (r->rates) free(r->rates);
   r->rates = NULL;
 }
 
@@ -92,7 +92,8 @@ static void FreeIonData(void *p) {
     ion->nlevels = 0;
   }
   for (i = 0; i < NDB; i++) {
-    free(ion->dbfiles[i]);
+    if (ion->dbfiles[i]) free(ion->dbfiles[i]);
+    ion->dbfiles[i] = NULL;
   }
   ArrayFree(ion->ce_rates, FreeBlkRateData);
   free(ion->ce_rates);
@@ -109,8 +110,9 @@ static void FreeIonData(void *p) {
   ArrayFree(ion->ai_rates, FreeBlkRateData);
   free(ion->ai_rates);
   ion->ai_rates = NULL;
-  ArrayFree(ion->recombined, FreeBlkRateData);
+  ArrayFree(ion->recombined, NULL);
   free(ion->recombined);
+  ion->recombined = NULL;
 }
 
 static void FreeBlockData(void *p) {
@@ -146,7 +148,6 @@ int ReinitCRM(int m) {
     }
     return 0;
   }
-
   for (i = 0; i < NDB; i++) {
     if (ion0.dbfiles[i]) free(ion0.dbfiles[i]);
     ion0.dbfiles[i] = NULL;
@@ -158,7 +159,6 @@ int ReinitCRM(int m) {
     ion0.nionized = 0;
   }
   ion0.atom = 0;
-
   ArrayFree(ions, FreeIonData);
   ArrayFree(blocks, FreeBlockData);
   if (bmatrix) free(bmatrix);

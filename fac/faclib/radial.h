@@ -58,6 +58,8 @@ void SetOptimizeControl(double tolerence, int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
+int ConfigEnergy(void);
+int AdjustConfigEnergy(void);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);
 

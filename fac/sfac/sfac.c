@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.10 2002/02/04 15:48:35 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.11 2002/02/05 21:55:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -365,6 +365,21 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }      
   
+static int PConfigEnergy(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 1) return -1;
+  m = atoi(argv[0]);
+  if (m == 0) {
+    ConfigEnergy();
+  } else {
+    AdjustConfigEnergy();
+  }
+  
+  return 0;
+}
+
 static int PAddConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg = NULL;
   int k;
@@ -2155,7 +2170,8 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PStructure(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  int i, k, ng, ngp, ns, nlevels;
+  int i, k, ng0, ng, ngp, ns;
+  int ip, nlevels;
   int *kg, *kgp;
   int n;
 
@@ -2181,6 +2197,19 @@ static int PStructure(int argc, char *argv[], int argt[],
   }
   
   if (ngp < 0) return -1;
+  
+  ng0 = 0;
+  if (!ip) {
+    if (ngp) {
+      ng0 = ng;
+      ng += ngp;
+      kg = (int *) realloc(kg, sizeof(int)*ng);
+      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+      free(kgp);
+      kgp = NULL;
+      ngp = 0;
+    }
+  }
 
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;  
@@ -2188,7 +2217,7 @@ static int PStructure(int argc, char *argv[], int argt[],
     k = ConstructHamilton(i, ng, kg, ngp, kgp);
     if (k < 0) continue;
     if (DiagnolizeHamilton() < 0) return -1;
-    AddToLevels();
+    AddToLevels(ng0, kg);
   }
   SortLevels(nlevels, -1);
   SaveLevels(argv[0], nlevels, -1);
@@ -2347,6 +2376,7 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
+  {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DRTable", PDRTable, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},

@@ -798,7 +798,7 @@ C
         TK  = TPK1*(XI + EK/PK1)
         D   =  TK - D*RK2
               IF(ABSC(D) .GT. ACCH)             GO TO 40
-              IF(PR) WRITE (6,1000) CALLER,D,DF,ACCH,PK,EK,ETA,X
+C              IF(PR) WRITE (6,1000) CALLER,D,DF,ACCH,PK,EK,ETA,X
               RK= RK +   ONE
               IF( RK .GT. TWO )                  GO TO 50
    40 D     = ONE/D
@@ -925,7 +925,7 @@ C
         TK  = TPK1*(XI + EK/PK1)
         D   =  TK - D*RK2
               IF(ABS(D) .GT. ACCH)             GO TO 40
-              IF(PR) WRITE (6,1000) CALLER,D,DF,ACCH,PK,EK,ETA,X
+C              IF(PR) WRITE (6,1000) CALLER,D,DF,ACCH,PK,EK,ETA,X
               RK= RK +   ONE
               IF( RK .GT. TWO )                  GO TO 50
    40 D     = ONE/D

@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.14 2002/01/14 23:19:41 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.15 2002/02/05 21:55:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1180,7 +1180,8 @@ int AddConfigToList(int k, CONFIG *cfg) {
     return -1;
   }
   clist = &(cfg_groups[k].cfg_list);
-
+  cfg->energy = 0.0;
+  cfg->delta = 0.0;
   if (ArrayAppend(clist, cfg) == NULL) return -1;
   
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 

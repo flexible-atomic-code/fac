@@ -173,7 +173,11 @@ typedef struct _SHELL_STATE_{
 /*
 ** STRUCT:      CONFIG
 ** PURPOSE:     a configuration.
-** FIELDS:      {int n_electrons},
+** FIELDS:      {double energy}, 
+**		average energy of the configuration.
+**		{float delta},
+**		possible adjustment to the configuration energy.
+**		{int n_electrons},
 **              number of electrons of the configuration.
 **              {n_shells},
 **              number of the subshells.
@@ -187,6 +191,8 @@ typedef struct _SHELL_STATE_{
 **              i.e., the outmost shell is in the beginning of the list.
 */
 typedef struct _CONFIG_ {
+  double energy;
+  float delta;
   int n_electrons;
   int n_shells;
   int n_csfs;
@@ -230,11 +236,11 @@ typedef struct _AVERAGE_CONFIG_ {
 ** NOTE:        all configurations in a group must have the 
 **              same number of electrons.
 */
-typedef struct _CONFIG_GROUP_ {
-  char name[GROUP_NAME_LEN];  
+typedef struct _CONFIG_GROUP_ { 
   int n_cfgs;
   int n_electrons;
   ARRAY cfg_list;
+  char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
 
 /*

@@ -1,4 +1,3 @@
-from pfac import crm
 from pfac.crm import *
 
 # by uncommenting the following line and the one at the end of this file,
@@ -11,7 +10,7 @@ from pfac.crm import *
 r = [1.0]#, 1.5, 2.0, 2.5, 3.0]
 den = 1e1
 z = 26
-k = 9
+k = 10
 (t1, a1) = MaxAbund(z, k-1)
 (t2, a2) = MaxAbund(z, k)
 (t3, a3) = MaxAbund(z, k+1)
