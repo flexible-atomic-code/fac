@@ -738,6 +738,12 @@ class ATOM:
             s = '    %s'%str(a.name)
             Print(s)
             Structure(self.bfiles['en'], a.name)
+            
+        Print('Structure: prepare angular')
+        for i in range(len(c)):
+            PrepAngular(c[i].name)
+            for j in range(i+1, len(c)):
+                PrepAngular(c[i].name, c[j].name)
 
         Print('Structure: excited complexes')
         for i in range(len(self.exc_complex)):

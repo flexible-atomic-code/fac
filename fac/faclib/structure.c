@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.84 2004/12/19 01:04:58 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.85 2004/12/19 18:42:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4225,18 +4225,20 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   if (angmz_array) {
     ih1 = lev1->iham;
     ih2 = lev2->iham;
-    isz = ih1 * MAX_HAMS + ih2;
-    ad = &(angmz_array[isz]);
-    nz = 0;
-    if (ad->ns > 0) {
-      isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
-      nz = (ad->nz)[isz0];
-      if (nz > 0) {
-	*ang = malloc(sizeof(ANGULAR_ZFB)*nz);
-	memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZFB)*nz);
+    if (ih1 >= 0 && ih2 >= 0) {
+      isz = ih1 * MAX_HAMS + ih2;
+      ad = &(angmz_array[isz]);
+      nz = 0;
+      if (ad->ns > 0) {
+	isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
+	nz = (ad->nz)[isz0];
+	if (nz > 0) {
+	  *ang = malloc(sizeof(ANGULAR_ZFB)*nz);
+	  memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZFB)*nz);
+	}
       }
+      if (nz != 0) return nz;
     }
-    if (nz != 0) return nz;
   }
 
   sym1 = GetSymmetry(lev1->pj);
@@ -4348,36 +4350,38 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
   if (angmz_array) {
     ih1 = lev1->iham;
     ih2 = lev2->iham;
-    if (ih1 > ih2) {
-      isz = ih2 * MAX_HAMS + ih1;
-    } else {
-      isz = ih1 * MAX_HAMS + ih2;
-    }
-    ad = &(angmz_array[isz]);
-    nz = 0;
-    if (ad->ns > 0) {
+    if (ih1 >= 0 && ih2 >= 0) {
       if (ih1 > ih2) {
-	isz0 = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	isz = ih2 * MAX_HAMS + ih1;
       } else {
-	isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
+	isz = ih1 * MAX_HAMS + ih2;
       }
-      nz = (ad->nz)[isz0];
-      if (nz > 0) {
-	*ang = malloc(sizeof(ANGULAR_ZMIX)*nz);
-	memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZMIX)*nz);
+      ad = &(angmz_array[isz]);
+      nz = 0;
+      if (ad->ns > 0) {
+	if (ih1 > ih2) {
+	  isz0 = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	} else {
+	  isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
+	}
+	nz = (ad->nz)[isz0];
+	if (nz > 0) {
+	  *ang = malloc(sizeof(ANGULAR_ZMIX)*nz);
+	  memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZMIX)*nz);
+	}
+      }  
+      if (nz != 0) {
+	if (nz > 0 && ih1 > ih2) {
+	  sym1 = GetSymmetry(lev1->pj);
+	  sym2 = GetSymmetry(lev2->pj);
+	  j1 = lev1->pj;
+	  j2 = lev2->pj;
+	  DecodePJ(j1, NULL, &j1);
+	  DecodePJ(j2, NULL, &j2);
+	  AngZSwapBraKet(nz, *ang, j1-j2);
+	}
+	return nz;
       }
-    }  
-    if (nz != 0) {
-      if (nz > 0 && ih1 > ih2) {
-	sym1 = GetSymmetry(lev1->pj);
-	sym2 = GetSymmetry(lev2->pj);
-	j1 = lev1->pj;
-	j2 = lev2->pj;
-	DecodePJ(j1, NULL, &j1);
-	DecodePJ(j2, NULL, &j2);
-	AngZSwapBraKet(nz, *ang, j1-j2);
-      }
-      return nz;
     }
   }
 
@@ -5022,8 +5026,8 @@ int FreeAngZArray(void) {
     if (angmz_array) {
       for (i = 0; i < angz_dim2; i++) {
 	FreeAngZDatum(&(angmz_array[i]));
-	free(angmz_array);
       }
+      free(angmz_array);
     }
     angz_dim = 0;
     angz_dim2 = 0;
