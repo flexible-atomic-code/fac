@@ -66,6 +66,7 @@ typedef struct _ANGULAR_ZxZMIX_ {
 } ANGULAR_ZxZMIX;
 
 typedef struct _ECORRECTION_ {
+  int iref;
   int ilev;
   double e;
 } ECORRECTION;
@@ -101,7 +102,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
-int AddECorrection(int k, double e);
+int AddECorrection(int kref, int k, double e);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels(void);

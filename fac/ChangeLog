@@ -1,6 +1,7 @@
-Version 0.7.4, 05/22/2002
+Version 0.7.4, 06/26/2002
 	1. write FAQ chapter of the manual.
 	2. fix a bug introduced in atom.py
+	3. improve CorrectEnergy.
 	
 Version 0.7.3, 05/15/2002
 	1. improving the manual

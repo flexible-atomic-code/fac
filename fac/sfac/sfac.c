@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.19 2002/05/15 18:45:53 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.20 2002/06/26 19:57:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -535,7 +535,7 @@ static int PClearOrbitalTable(int argc, char *argv[], int argt[],
 
 static int PCorrectEnergy(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int n, k;
+  int n, k, kref;
   double e;
   int i, ie, ii;
   FILE *f;
@@ -544,16 +544,21 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
 
   ii = 0; 
   ie = 0;
+  kref = 0;
   if (argc == 1) {
     if (argt[0] != STRING) {
       return -1;
     }
     f = fopen(argv[0], "r");
     n = -1;
+    i = 0;
     while (1) {
       if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
       e /= HARTREE_EV;
-      AddECorrection(k, e);
+      if (i == 0) {
+	kref = k;
+      }
+      AddECorrection(kref, k, e);
     }
     fclose(f);
   } else if (argc == 2) {
@@ -571,7 +576,10 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
       k = atoi(iv[i]);
       e = atof(ev[i]);
       e /= HARTREE_EV;
-      AddECorrection(k, e);
+      if (i == 0) {
+	kref = k;
+      }
+      AddECorrection(kref, k, e);
     }
   } else {
     return -1;
