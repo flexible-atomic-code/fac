@@ -2978,6 +2978,27 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
+\begin{fundesc}{StructureMBPT}{fn1, fn2, g0, g1, n0, ni, n1, k, nt, gn\opt{,
+x1, x2}} 
+Solve the atomic structure with 2nd order many-body purterbation
+corrrections. \var{fn1} is the file name for binary energy output. \var{fn2}
+is the file containing the MBPT energy corrections. \var{g0} is the
+configuration groups whose energies are to be solved. \var{g1} is a list of
+configuration groups to be included as the virtual states in the MBPT
+correction. \var{n0} specifies the minimum $n$ of the excited orbitals in the
+virtual states. If it is a list, each element corresponds to one configuration
+group in the \var{g1} list. If it is a number, each group in \var{g1} list has
+the same number given by \var{n0}. \var{ni} is the maximum $n$ value of the
+virtual states to be considered for all order inclusion. \var{n1} is the
+maximum $n$ of the virtual states. \var{k} is the maximum $l$ value of the
+virtual states. \var{nt} is the number extra $n$ values to be added to the $n$
+values beyond those given by \var{n1}. \var{gn} is a string specifies the
+configuration group name for configurations included in the all order
+calculation. \var{x1} is a small number specifying the threshold for all-order
+calculation. \var{x2} specifies the minimum mixing amplitude to be included in
+the MBPT summation.
+\end{fundesc}
+
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
 Calculate the total collisional ionization cross sections of level \var{ilev}
 by reading the data from the \texttt{DB\_CI} database file \var{ifn}. The
