@@ -3254,10 +3254,11 @@ Set the electron density in $10^{10}$ cm$^{-3}$ for collsional radiative
 model.
 \end{fundesc}
 
-\begin{fundesc}{SetEnergy}{e, s}
-Set the electron energy \var{e} in eV. if \var{s} is positive, the energy
-distribution is a Gaussian with standard deviation $\sigma=s$ in eV, and mean
-$e$.
+\begin{fundesc}{SetEnergy}{e\opt{, s}}
+Set the electron energy \var{e} in eV. If the optional \var{s} is positive,
+the energy distribution is a Gaussian with standard deviation $\sigma=s$ in
+eV, and mean $e$. This is only used for resonances. For direct excitation, a
+mono-energetic beam is always assumed.
 \end{fundesc}
 
 \begin{fundesc}{SetIDR}{idr\opt{, p}}

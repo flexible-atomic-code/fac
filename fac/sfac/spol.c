@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.2 2003/07/31 21:40:28 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.3 2003/08/01 13:50:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -74,12 +74,17 @@ static int PSetEnergy(int argc, char *argv[], int argt[],
   int i;
   double e, es;
 
-  if (argc != 2) return -1;
-  if (argt[0] != NUMBER || argt[1] != NUMBER) return -1;
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  if (argc == 2 && argt[1] != NUMBER) return -1;
   
   e = atof(argv[0]);
-  es = atof(argv[1]);
-  
+  if (argc == 2) {
+    es = atof(argv[1]);
+  } else {
+    es = 0.0;
+  }
+
   i = SetEnergy(e, es);
   
   return i;
