@@ -1,6 +1,7 @@
 #include "angular.h"
 
 static ANGULAR_TIMING timing = {0, 0, 0};
+static double _sumk[500];
 
 int GetAngularTiming(ANGULAR_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
@@ -12,7 +13,7 @@ int InitAngular() {
 
   ln_factorial[0] = 0.0;
   for (n = 1; n < MAX_FACTORIAL; n++) {
-    ln_factorial[n] = ln_factorial[n-1] + log((double) n);
+    ln_factorial[n] = ln_factorial[n-1] + log((double) n); 
   }
   return 0;
 
@@ -35,10 +36,12 @@ int Triangle(int j1, int j2, int j3) {
 
 double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   int i, k, kmin, kmax, ik[14];
-  double delta, sumk, qsum;
-  clock_t start, stop;
-
+  double delta, qsum, a, b;
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
+#endif
+
   if (m1 + m2 + m3) return 0.0;
   if (!Triangle(j1, j2, j3)) return 0.0;
   if (abs(m1) > j1) return 0.0;
@@ -74,29 +77,35 @@ double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   kmax = Min(kmax, ik[7]);
   
   qsum = 0.0;
-  for (k = kmin; k <= kmax; k++) {
-    sumk = LnFactorial(k) +
+  a = 1E30;
+  for (k = kmin, i = 0; k <= kmax; k++, i++) {
+    _sumk[i] = LnFactorial(k) +
       LnFactorial(ik[0]-k) +
       LnFactorial(ik[4]-k) +
       LnFactorial(ik[7]-k) +
       LnFactorial(ik[12]+k) +
       LnFactorial(k-ik[11]);
-    
-    sumk = exp(-sumk);
-    
-    if (IsOdd(k)) sumk = -sumk;
-    
-    qsum += sumk;
+    if (_sumk[i] < a) a = _sumk[i];
+  }
+
+  for (k = kmin, i = 0; k <= kmax; k++, i++) {
+    b = exp(-(_sumk[i]-a));    
+    if (IsOdd(k)) b = -b;    
+    qsum += b;
   }
 
   if (IsOdd(ik[13])) qsum = -qsum;
   
-  delta = exp(0.5*delta);
+  b = exp(0.5*delta-a);
+  b *= qsum; 
+
+#ifdef PERFORM_STATISTICS
   stop = clock();
 
   timing.w3j += stop -start;
+#endif
 
-  return delta * qsum;
+  return b;
 }
 
 double W6jDelta(j1, j2, j3) {
@@ -125,9 +134,11 @@ double W6jDelta(j1, j2, j3) {
 double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
   int n1, n2, n3, n4, n5, n6, n7, k, kmin, kmax, ic, ki;
   double r, a;
+#ifdef PERFORM_STATISTICS
   clock_t start, stop;
 
   start = clock();
+#endif
   if (!(Triangle(j1, j2, j3) &&
 	Triangle(j1, i2, i3) &&
 	Triangle(i1, j2, i3) &&
@@ -179,8 +190,10 @@ double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
   if (IsEven(n5+kmin)) r = -r;
   if (IsOdd(((j1+j2+i1+i2)/2))) r = -r;
 
+#ifdef PERFORM_STATISTICS
   stop = clock();
   timing.w6j += stop - start;
+#endif
   return r;
 
 }
@@ -198,9 +211,11 @@ double W9j(int j1, int j2, int j3,
 	   int k1, int k2, int k3) {
   int j, jmin, jmax;
   double r;
+#ifdef PERFORM_STATISTICS
   clock_t start, stop;
   
   start = clock();
+#endif
   if (!Triangle(j1, j2, j3) ||
       !Triangle(i1, i2, i3) ||
       !Triangle(k1, k2, k3) ||
@@ -223,8 +238,10 @@ double W9j(int j1, int j2, int j3,
   }
 
   if (IsOdd(jmin)) r = -r;
+#ifdef PERFORM_STATISTICS
   stop = clock();
   timing.w9j += stop - start;
+#endif
 
   return r;
 }

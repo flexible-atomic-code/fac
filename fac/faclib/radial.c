@@ -39,7 +39,7 @@ static AVERAGE_CONFIG average_config;
 static double rgrid_min = 1E-5;
 static double rgrid_max = 1E3;    
 
-static RAD_TIMING rad_timing = {0, 0};
+static RAD_TIMING rad_timing = {0, 0, 0, 0};
  
 static MULTI *slater_array;
 static MULTI *residual_array;
@@ -272,7 +272,7 @@ int GetPotential(char *s) {
   fclose(f);  
 }
 
-double GetResidualZ(int m) {
+double GetResidualZ() {
   double z;
   z = potential->Z[MAX_POINTS-1] - potential->N + 1;
   return z;
@@ -478,7 +478,7 @@ double GetPhaseShift(int k, int mode) {
 
   if (orb->phase >= 0.0) return orb->phase;
 
-  z = GetResidualZ(1);
+  z = GetResidualZ();
   e = orb->energy;
   a = FINE_STRUCTURE_CONST2 * e;
   ke = sqrt(2.0*e*(1.0 + 0.5*e));
@@ -1046,11 +1046,19 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int k0, k1, k2, k3;
   int js[4];
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  
+
+  clock_t start, stop;
+
+#ifdef PERFORM_STATISTICS 
+  start = clock();
+#endif
+
   k0 = ks[0];
   k1 = ks[1];
   k2 = ks[2];
   k3 = ks[3];
+  kk = k/2;
+
   if (j) {
     memcpy(js, j, sizeof(int)*4);
   } else {
@@ -1059,8 +1067,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     js[2] = 0;
     js[3] = 0;
   }
-
-  kk = k/2;
 
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
@@ -1076,27 +1082,30 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   kl2 = GetLFromKappa(orb2->kappa);
   kl3 = GetLFromKappa(orb3->kappa);
   
+  
   if (sd) {
     d = 0.0;
     if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk) &&
 	Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
       err = Slater(&d, k0, k1, k2, k3, kk, mode);
       if (err < 0) return err;
-      d *= ReducedCL(js[0], k, js[2]);
-      d *= ReducedCL(js[1], k, js[3]);
-      if (k0 == k1 && k2 == k3) d *= 0.5;
+      a = ReducedCL(js[0], k, js[2]);
+      a *= ReducedCL(js[1], k, js[3]); 
+      d *= a;
+      if (k0 == k1 && k2 == k3) d *= 0.5;      
     }
-    *sd = d;
+    *sd = d; 
   }
   
-  if (se == NULL) goto EXIT;
+  if (!se) goto EXIT;
+
   if (abs(mode) == 2) {
     *se = 0.0;
     goto EXIT;
   }
   *se = 0.0;
-  if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) return 0;
-  if (k2 == k3 && (orb2->n > 0 || orb3->n > 0)) return 0;
+  if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) goto EXIT;
+  if (k2 == k3 && (orb2->n > 0 || orb3->n > 0)) goto EXIT;
   tmin = abs(js[0] - js[3]);
   tt = abs(js[1] - js[2]);
   tmin = Max(tt, tmin);
@@ -1121,6 +1130,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   }
 
  EXIT:
+#ifdef PERFORM_STATISTICS 
+    stop = clock();
+    rad_timing.radial_slater += stop - start;
+#endif
   return 0;
 }
 
@@ -1131,9 +1144,8 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   int ilast, i, npts, m;
   ORBITAL *orb0, *orb1, *orb2, *orb3;
   double norm;
-  clock_t start, stop;
-
-#ifdef PERFORM_STATISTICS 
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
 #endif
 
@@ -1202,6 +1214,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       norm *= orb1->qr_norm;
       norm *= orb2->qr_norm;
       norm *= orb3->qr_norm;
+      
       *s *= norm;
       break;
 

@@ -15,13 +15,14 @@ typedef struct _RAD_TIMING_ {
   clock_t radial_1e;
   clock_t radial_2e;
   clock_t dirac;
+  clock_t radial_slater;
 } RAD_TIMING;
 
 int GetRadTiming(RAD_TIMING *t);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
 int GetPotential(char *s);
-double GetResidualZ(int m);
+double GetResidualZ();
 double GetRMax();
 
 /* solve the dirac equation for the given orbital */

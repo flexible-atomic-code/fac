@@ -275,8 +275,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   index[0] = ie1;
   index[1] = ie2;
   index[2] = kb;
-  index[3] = kbp;
-  index[4] = k/2;
+  index[3] = k/2;
 
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
@@ -706,8 +705,8 @@ int FreeIonizationQk() {
 }
 
 int InitIonization() {
-  int blocks[4] = {8, 8, 10, 10, 6};
-  int ndim = 5;
+  int blocks[4] = {8, 8, 10, 6};
+  int ndim = 4;
   
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qk_array, sizeof(double *), ndim, blocks);
