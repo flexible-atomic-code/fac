@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.43 2003/05/23 21:28:02 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.44 2003/06/02 16:27:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -458,6 +458,11 @@ int WriteDRHeader(FILE *f, DR_HEADER *h) {
 
 int WriteENRecord(FILE *f, EN_RECORD *r) {
   int n;
+
+  if (en_header.length == 0) {
+    fheader[DB_EN-1].nblocks++;
+    n = WriteENHeader(f, &en_header);
+  }
   n = fwrite(r, sizeof(EN_RECORD), 1, f);
   if (n != 1) return 0;
   en_header.nlevels += 1;
@@ -468,6 +473,10 @@ int WriteENRecord(FILE *f, EN_RECORD *r) {
 int WriteTRRecord(FILE *f, TR_RECORD *r) {
   int n;
 
+  if (tr_header.length == 0) {
+    fheader[DB_TR-1].nblocks++;
+    n = WriteTRHeader(f, &tr_header);
+  }
   n = fwrite(r, sizeof(TR_RECORD), 1, f);  
   if (n != 1) return 0;
   tr_header.ntransitions += 1;
@@ -479,6 +488,10 @@ int WriteCERecord(FILE *f, CE_RECORD *r) {
   int n;
   int m, m0;
 
+  if (ce_header.length == 0) {
+    fheader[DB_CE-1].nblocks++;
+    n = WriteCEHeader(f, &ce_header);
+  }
   m = sizeof(CE_RECORD);
   n = fwrite(r, m, 1, f);
   if (n != 1) return 0;
@@ -505,6 +518,10 @@ int WriteRRRecord(FILE *f, RR_RECORD *r) {
   int n;
   int m, m0;
 
+  if (rr_header.length == 0) {
+    fheader[DB_RR-1].nblocks++;
+    n = WriteRRHeader(f, &rr_header);
+  }
   rr_header.ntransitions += 1;
   m = sizeof(RR_RECORD);
   rr_header.length += m;
@@ -530,6 +547,10 @@ int WriteRRRecord(FILE *f, RR_RECORD *r) {
 int WriteAIRecord(FILE *f, AI_RECORD *r) {
   int n;
 
+  if (ai_header.length == 0) {
+    fheader[DB_AI-1].nblocks++;
+    WriteAIHeader(f, &ai_header);
+  }
   ai_header.ntransitions += 1;
   ai_header.length += sizeof(AI_RECORD);
   n = fwrite(r, sizeof(AI_RECORD), 1, f);
@@ -542,6 +563,10 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
   int n;
   int m, m0;
 
+  if (ci_header.length == 0) {
+    fheader[DB_CI-1].nblocks++;
+    WriteCIHeader(f, &ci_header);
+  }
   ci_header.ntransitions += 1;
   m = sizeof(CI_RECORD);
   ci_header.length += m;
@@ -564,6 +589,11 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
 
 int WriteSPRecord(FILE *f, SP_RECORD *r) {
   int n;
+
+  if (sp_header.length == 0) {
+    fheader[DB_SP-1].nblocks++;
+    WriteSPHeader(f, &sp_header);
+  }
   sp_header.ntransitions += 1;
   sp_header.length += sizeof(SP_RECORD);
   n = fwrite(r, sizeof(SP_RECORD), 1, f);  
@@ -574,6 +604,11 @@ int WriteSPRecord(FILE *f, SP_RECORD *r) {
 
 int WriteRTRecord(FILE *f, RT_RECORD *r) {
   int n;
+
+  if (rt_header.length == 0) {
+    fheader[DB_RT-1].nblocks++;
+    WriteRTHeader(f, &rt_header);
+  }
   rt_header.ntransitions += 1;
   rt_header.length += sizeof(RT_RECORD);
   n = fwrite(r, sizeof(RT_RECORD), 1, f);  
@@ -585,6 +620,10 @@ int WriteRTRecord(FILE *f, RT_RECORD *r) {
 int WriteDRRecord(FILE *f, DR_RECORD *r) {
   int n;
 
+  if (dr_header.length == 0) {
+    fheader[DB_DR-1].nblocks++;
+    WriteDRHeader(f, &dr_header);
+  }
   dr_header.ntransitions += 1;
   dr_header.length += sizeof(DR_RECORD);
   n = fwrite(r, sizeof(DR_RECORD), 1, f);
@@ -1023,9 +1062,8 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
 
   f = fopen(fn, "r+");
   if (f == NULL) {
-    if (fheader[ihdr].nblocks != 0) {
-      printf("File %s written in this session has been erased\n", fn);
-      printf("Exitting");
+    if (fheader[ihdr].nblocks > 0) {
+      printf("A single file for one DB type must be used in one session.\n");
       exit(1);
     }
     f = fopen(fn, "w");
@@ -1072,9 +1110,8 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   int ihdr;
 
   if (f == NULL) return 0;
-
+  
   ihdr = fhdr->type - 1;
-  fheader[ihdr].nblocks += 1;
   fseek(f, 0, SEEK_END);
   p = ftell(f);
 
@@ -1085,7 +1122,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     en_header.length = 0;
     en_header.nele = en_hdr->nele;
     en_header.nlevels = 0;
-    n = WriteENHeader(f, &en_header);
     break;
   case DB_TR:
     tr_hdr = (TR_HEADER *) rhdr;
@@ -1093,7 +1129,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     tr_header.position = p;
     tr_header.length = 0;
     tr_header.ntransitions = 0;
-    n = WriteTRHeader(f, &tr_header);
     break;
   case DB_CE:
     ce_hdr = (CE_HEADER *) rhdr;
@@ -1101,7 +1136,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ce_header.position = p;
     ce_header.length = 0;
     ce_header.ntransitions = 0;
-    n = WriteCEHeader(f, &ce_header);
     break;
   case DB_RR:
     rr_hdr = (RR_HEADER *) rhdr;
@@ -1109,7 +1143,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     rr_header.position = p;
     rr_header.length = 0;
     rr_header.ntransitions = 0;
-    n = WriteRRHeader(f, &rr_header);
     break;
   case DB_AI:
     ai_hdr = (AI_HEADER *) rhdr;
@@ -1117,7 +1150,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ai_header.position = p;
     ai_header.length = 0;
     ai_header.ntransitions = 0;
-    n = WriteAIHeader(f, &ai_header);
     break;
   case DB_CI:    
     ci_hdr = (CI_HEADER *) rhdr;
@@ -1125,7 +1157,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ci_header.position = p;
     ci_header.length = 0;
     ci_header.ntransitions = 0;
-    n = WriteCIHeader(f, &ci_header);
     break;
   case DB_SP:
     sp_hdr = (SP_HEADER *) rhdr;
@@ -1133,7 +1164,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     sp_header.position = p;
     sp_header.length = 0;
     sp_header.ntransitions = 0;
-    n = WriteSPHeader(f, &sp_header);
     break;
   case DB_RT:
     rt_hdr = (RT_HEADER *) rhdr;
@@ -1141,7 +1171,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     rt_header.position = p;
     rt_header.length = 0;
     rt_header.ntransitions = 0;
-    n = WriteRTHeader(f, &rt_header);
     break;
   case DB_DR:
     dr_hdr = (DR_HEADER *) rhdr;
@@ -1149,7 +1178,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     dr_header.position = p;
     dr_header.length = 0;
     dr_header.ntransitions = 0;
-    n = WriteDRHeader(f, &dr_header);
     break;
   default:
     break;
@@ -1165,40 +1193,58 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
 
   switch (fhdr->type) {
   case DB_EN:
-    fseek(f, en_header.position, SEEK_SET);  
-    n = WriteENHeader(f, &en_header);
+    fseek(f, en_header.position, SEEK_SET);
+    if (en_header.length > 0) {
+      n = WriteENHeader(f, &en_header);
+    }
     break;
   case DB_TR:
     fseek(f, tr_header.position, SEEK_SET);
-    n = WriteTRHeader(f, &tr_header);
+    if (tr_header.length > 0) {
+      n = WriteTRHeader(f, &tr_header);
+    }
     break;
   case DB_CE:
     fseek(f, ce_header.position, SEEK_SET);
-    n = WriteCEHeader(f, &ce_header);
+    if (ce_header.length > 0) {
+      n = WriteCEHeader(f, &ce_header);
+    }
     break;
   case DB_RR:
     fseek(f, rr_header.position, SEEK_SET);
-    n = WriteRRHeader(f, &rr_header);
+    if (rr_header.length > 0) {
+      n = WriteRRHeader(f, &rr_header);
+    }
     break;
   case DB_AI:
     fseek(f, ai_header.position, SEEK_SET);
-    n = WriteAIHeader(f, &ai_header);
+    if (ai_header.length > 0) {
+      n = WriteAIHeader(f, &ai_header);
+    }
     break;
   case DB_CI:
     fseek(f, ci_header.position, SEEK_SET);
-    n = WriteCIHeader(f, &ci_header);
+    if (ci_header.length > 0) {
+      n = WriteCIHeader(f, &ci_header);
+    }
     break;
   case DB_SP:
     fseek(f, sp_header.position, SEEK_SET);
-    n = WriteSPHeader(f, &sp_header);
+    if (sp_header.length > 0) {
+      n = WriteSPHeader(f, &sp_header);
+    }
     break;
   case DB_RT:
     fseek(f, rt_header.position, SEEK_SET);
-    n = WriteRTHeader(f, &rt_header);
+    if (rt_header.length > 0) {
+      n = WriteRTHeader(f, &rt_header);
+    }
     break;
   case DB_DR:
     fseek(f, dr_header.position, SEEK_SET);
-    n = WriteDRHeader(f, &dr_header);
+    if (dr_header.length > 0) {
+      n = WriteDRHeader(f, &dr_header);
+    }
     break;
   default:
     break;
@@ -1700,7 +1746,7 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   EN_HEADER h;
   EN_RECORD r;
   FILE *f;
-  int n, i, k;
+  int n, k;
   int swp;
   
   f = fopen(fn, "r");
@@ -1720,7 +1766,7 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
     return -1;
   }
 
-  for (i = 0; i < fh.nblocks; i++) {
+  while (1) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
     if (h.nele != nele) {
@@ -1729,7 +1775,6 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
     }
     for (k = 0; k < h.nlevels; k++) {
       n = ReadENRecord(f, &r, swp);
-      if (n == 0) break;
       if (StrTrimCmp(r.ncomplex, nc) == 0 &&
 	  StrTrimCmp(r.sname, cnr) == 0 &&
 	  StrTrimCmp(r.name, cr) == 0) {
@@ -1766,6 +1811,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     fclose(f);
     return -1;
   }
+
   k = ilev;
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
@@ -1774,7 +1820,6 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     if (k < h.nlevels) {
       if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
       n = ReadENRecord(f, &r, swp);
-      if (n == 0) break;
       if (r.ilev != ilev) {
 	fclose(f);
 	return -1;
@@ -1788,8 +1833,8 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   }
   
   fclose(f);
-  if (i == fh.nblocks) return nlevels;
 
+  if (i == fh.nblocks) return -1;
   return 0;
 }
 
@@ -1809,17 +1854,23 @@ int MemENTable(char *fn) {
   if (n == 0) return 0;
   if (fh.type != DB_EN) return -1;
 
-  if (mem_en_table) free(mem_en_table);  
+  if (mem_en_table) free(mem_en_table);
+
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
-    nlevels += h.nlevels;
-    fseek(f, h.length, SEEK_CUR);
+    n = sizeof(EN_RECORD);
+    if (h.length > n) {
+      fseek(f, h.length-n, SEEK_CUR);
+    }
+    n = ReadENRecord(f, &r, swp);
+    if (r.ilev >= nlevels) nlevels = r.ilev+1;
   }
+
   mem_en_table = (EN_SRECORD *) malloc(sizeof(EN_SRECORD)*nlevels);
   mem_en_table_size = nlevels;
-    
+
   e0 = 0.0;
   fseek(f, sizeof(F_HEADER), SEEK_SET);
   while (1) {

@@ -1,6 +1,7 @@
 from pfac.crm import *
 from pfac.table import *
 from pfac import const
+from pfac import fac
 from math import *
 import sys
 import time
@@ -65,7 +66,7 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
         print '%d %s %s'%(k, efile, str(c))
         i = 0
         while (1):
-            a = LevelInfor(efile, i)
+            a = fac.LevelInfor(efile, i)
             if (not a[3].strip() in c):
                 break
             e = a[0]*const.Ryd_eV*2.0

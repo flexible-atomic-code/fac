@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.14 2003/05/23 21:28:03 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.15 2003/06/02 16:27:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -130,7 +130,7 @@ static int PSetPhoDensity(int argc, char *argv[], int argt[],
 } 
  
 static int PSetRateAccuracy(int argc, char *argv[], int argt[], 
-			 ARRAY *variables) {
+			    ARRAY *variables) {
   double epsrel, epsabs;
 
   if (argc < 1 || argc > 2) return -1;
@@ -144,7 +144,7 @@ static int PSetRateAccuracy(int argc, char *argv[], int argt[],
 }
 
 static int PSetCascade(int argc, char *argv[], int argt[], 
-			 ARRAY *variables) {
+		       ARRAY *variables) {
   int c;
   double a;
 
@@ -344,22 +344,6 @@ static int PSetAIRates(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PFreeMemENTable(int argc, char *argv[], int argt[], 
-			   ARRAY *variables) {
-  
-  if (argc != 0) return -1;
-  FreeMemENTable();
-  return 0;
-}
-
-static int PMemENTable(int argc, char *argv[], int argt[], 
-		       ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != STRING) return -1;
-  MemENTable(argv[0]);
-  return 0;
-}
-
 static int PPrintTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int v;
@@ -469,8 +453,6 @@ static METHOD methods[] = {
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
-  {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
-  {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"DRBranch", PDRBranch, METH_VARARGS},

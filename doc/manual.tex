@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.6}\xspace}
+\newcommand{\facversion}{{0.9.7}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2100,6 +2100,17 @@ Print out the version information of FAC and contact information of the
 author. 
 \end{fundesc}
 
+\begin{fundesc}{LevelInfor}{fn, ilev}
+Look up in the energy database file \var{fn} for the level indexed
+\var{ilev}. It returns a tuple of length 6. The first element is the energy in
+atomic units, the second is the parity and the valence $nl$ values, the
+third is the 2J value, the fourth is the complex name, the fifth is the
+non-relativsitic configuration, and the sixth is the relativistic
+configuration and the coupling. The parity and the $nl$ values are encoded
+as $\pm n*100+l$, where $+$ sign is for even parity and $-$ sign is for odd
+parity.
+\end{fundesc}
+
 \begin{fundesc}{MemENTable}{fn}
 Build an energy level table in the memory for the \texttt{DB\_EN} type file
 \var{fn}. This function must be called before any calls to \key{PrintTable}
@@ -2810,10 +2821,6 @@ passed to the function \key{Ionis}, and \var{rm} is passed to the function
 length \var{Z}+1 indexed by the number of electrons the ion have. 
 \end{fundesc}
 
-\begin{fundesc}{FreeMemENTable}{}
-Clear the energy level table in the memory.
-\end{fundesc}
-
 \begin{fundesc}{InitBlocks}{}
 Initialize the superlevel blocks of the spectral model.
 \end{fundesc}
@@ -2829,17 +2836,6 @@ is 1. The function \key{CFit} is used for the direct ionization rate and
 \key{ColFit} for the autoionization rate, if \var{m} is 2. The data from
 Aladdin database is used if \var{m} is 3. The default is 1.
 The results are in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
-\end{fundesc}
-
-\begin{fundesc}{LevelInfor}{fn, ilev}
-Look up in the energy database file \var{fn} for the level indexed
-\var{ilev}. It returns a tuple of length 6. The first element is the energy in
-atomic units, the second is the parity and the valence $nl$ values, the
-third is the 2J value, the fourth is the complex name, the fifth is the
-non-relativsitic configuration, and the sixth is the relativistic
-configuration and the coupling. The parity and the $nl$ values are encoded
-as $\pm n*100+l$, where $+$ sign is for even parity and $-$ sign is for odd
-parity.
 \end{fundesc}
 
 \begin{fundesc}{LevelPopulation}{}
@@ -2858,11 +2854,6 @@ $10^{-4}$. This functions returns a tuple of length 2. The
 first element is the temperature found, the second is a list for the
 fractional abundances of all ions with nuclear charge \var{Z} at the found
 temperature. 
-\end{fundesc}
-
-\begin{fundesc}{MemENTable}{fn}
-Build an energy level table in the memory for the \texttt{DB\_EN} type file
-\var{fn}. This function also exists in the module \mod{fac}. 
 \end{fundesc}
 
 \begin{fundesc}{NDRFit}{Z, n, Te}

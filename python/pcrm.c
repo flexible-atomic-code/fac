@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.26 2003/05/23 21:28:03 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.27 2003/06/02 16:27:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -508,58 +508,6 @@ static PyObject *PSetAIRates(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PFreeMemENTable(PyObject *self, PyObject *args) {
-
-  if (scrm_file) {
-    SCRMStatement("FreeMemENTable", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  FreeMemENTable();
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PLevelInfor(PyObject *self, PyObject *args) { 
-  char *fn;
-  int i, k;
-  EN_RECORD r;
-  
-  if (!PyArg_ParseTuple(args, "si", &fn, &i)) return NULL;
-
-  k = LevelInfor(fn, i, &r);
-  
-  if (k < 0) {
-    printf("%d %d %s\n", i, k, fn);
-    return NULL;
-  }
-  if (k > 0) {
-    r.ncomplex[0] = '\0';
-    r.sname[0] = '\0';
-    r.name[0] = '\0';
-  }
-  return Py_BuildValue("(diisss)", r.energy, r.p, r.j,
-		       r.ncomplex, r.sname, r.name);
-}
-  
-static PyObject *PMemENTable(PyObject *self, PyObject *args) { 
-  char *fn;
-  
-  if (scrm_file) {
-    SCRMStatement("MemENTable", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
-  MemENTable(fn);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PPrintTable(PyObject *self, PyObject *args) { 
   char *fn1, *fn2;
   int v;
@@ -894,9 +842,6 @@ static struct PyMethodDef crm_methods[] = {
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
-  {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
-  {"LevelInfor", PLevelInfor, METH_VARARGS},
-  {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"PhFit", PPhFit, METH_VARARGS},
