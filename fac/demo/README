@@ -1,0 +1,10 @@
+In this directory. Li-like Fe is used as an example to demonstrate how to 
+calculate the energy levels, collisional excitation, ionization, and 
+recombination processes. 
+
+fe24_level.py, the energy level and transitionrates.
+fe24_exc.py, collisional excitation.
+fe24_rr.py, photoionization and radiative recombination.
+fe24_ion.py, collisional ionization.
+fe24_dr.py, dielectronic recombination.
+

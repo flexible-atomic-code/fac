@@ -1,0 +1,15 @@
+FAC is a software packge for the calculation of various atomic processes.
+
+INSTALL:
+modify the Makefile according to your system. and type "make".
+
+Environment variable:
+python interpreter must be in your path. $PYTHONPATH that contains the 
+installed module must be setup so that Python can find it. e.g. in csh,
+	setenv PYTHONPATH INSTALL_DIR
+where INSTALL_DIR is the directory where you installed the package.
+
+Usage:
+The module can be called just like any python modules, either from 
+interpreter interactively, or pass the script to python. 
+e.g., python fe24_level.py,

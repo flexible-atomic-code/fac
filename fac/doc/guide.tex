@@ -1,0 +1,406 @@
+\documentclass[12pt]{article}
+
+\usepackage[body={6.5in,9.5in}]{geometry}
+\setlength{\parindent}{0em}
+
+\begin{document}
+\title{FAC User Guide}
+\author{M. F. Gu}
+\maketitle
+
+\begin{abstract}
+FAC is a collection of library routines and a Python interface to it for
+calculating various atomic processes, including atomic structure, electron
+collisional excitation and ionization, photoionization, autoionization, and
+their inverse 
+processes, radiative and dielectronic recombination. The theoretical method
+for the atomic structure is based on a self-consistent Dirac-Fork-Slater
+procedure. The excitation, ionization, and recombination implements the
+efficient factorization-interpolation method. The Python interface provides
+functions for accessing the library from the scripting language Python. This
+guide documents these routines in the order of their category.
+\end{abstract}
+
+\section{General}
+Some functions are general to all atomic processes such as specifying an
+electronic configuration. They are collected in this section. In this and the
+following sections, if a function name is not fully qualified with its module
+name, it is assumed that it comes from module ``fac'', which is the main module
+interfacing within the internal ``C'' library. As a convention, all functions
+from ``fac'' has names with each word capitalized in first letter.
+
+\begin{description}
+\item[SetAtom(s, z, mass)] 
+Set the Element. ``s'' is the element symbol, ``z'' is
+the atomic number, ``mass'' is the mass of the nucleus. ``mass'' may be
+ommited, it is only used to determine the size of the neucleus. e.g.,
+SetAtom('Fe', 26), SetAtom('Fe', 26, 56)
+
+\item[config.closed(s)] 
+Specify any fully occupied shell for all the
+configurations to come. ``s'' is a string denotes an electronic shell in
+spectroscopic notation. It may be relativistic or non-relativistic. e.g., 
+``1s'', ``2p-'', ``3d'', et al. A ``-'' sign indicates that $j = l - 1/2$. 
+An ``*'' in the place of orbital angular momentum symbol denotes any possible
+value. This routine may be called several times to specify more than one closed
+shell. When it is called with an empty string, it resets to no closed shells. 
+
+\item[config.config(s, group = g)] 
+Specify electronic configuration which
+belongs to a group with name ``g''. ``s'' is a string denoting a
+configuration. Each configuration consists a sequence of shells with
+occupation number indicated immediately after the shell. The pricipile quantum
+number comes first, followed by the orbital angular momentum $l$. A ``*'' may
+be used to specify $l$ instead of the detailed spectroscopic notation, which
+means $l$ may assume any allowed value. After $l$,  A $\pm$ sign
+indicates the shell is relativistic with $j$ = $l\pm 1/2$. It may be absent,
+which means $j$ may take either value. The occupation number after $j$ may
+also be absent assuming a single electron. For any given configuration, the
+closed shells specified before are added in front of it. e.g, ``1s2 2*3'', 
+``2s1 2p3 3*1'', et al. Multiple configurations belonging to the same group
+may be specified in a single call. The Keyword argument ``group = g'' specify
+the group these configurations belong to. If it is absent, 
+then the last specified group name is used. If none has been specified, they
+belong to a single unnamed group. 
+
+\item[AddConfig(gname, cfg)] 
+This is the low level routine adding a
+configuration to the internal array, and perform angular momentum coupling to
+generate basis states. generally, the two functions discussed above should be
+used instead of this one. ``gname'' is a string denotes the group name, 
+``cfg'' is the numerical representation of a configuration. It must be a
+Pythong List with 
+each element indicating a relativistic shell. each element is in turn a 4
+elements Python Tuple $(n, l, j, nq)$, where $n$ is the pinciple quantum
+number, $l$ the orbital angular momentum, $j$ is $\pm 1$ indicates whether it
+is $l\pm 1$. $nq$ is the occupation number.
+
+\end{description}
+
+The following two routines set two global options. The default values are
+usually sufficient. There should be no need to call them in general. 
+\begin{description}
+\item[SetMaxRank(k)] 
+Set the maximum rank to be included in the multipole
+expansion of the coulomb interaction. The default is 6, which is usually
+sufficient. 
+
+\item[SetAngZOptions(n, eps1, eps2)] 
+Set the options controlling the
+calculation of angular coefficients. ``n'' is the maximum principal quantum
+number beyond which all transitions involving that electron is ignored. If
+``n'' is 0, it is effectively infinity, which is the default. 
+``eps1'' and ``eps2'' are two threshold numbers. when
+the mixing coefficient of a component is smaller than ``eps1'', its
+contribution to the angular coefficients is neglected. When the angular
+coefficient for specific mixing components is smaller than ``eps2'', its
+contribution to the total coefficient is also neglected. The default for
+``eps1'' is 1E-3, and for ``eps2'', it is 1E-4. 
+
+\end{description}
+
+The routines in the following group calculates Wigner $nj$ symbols. They are
+provided only for demonstration purposes. e.g., they can be used to generate a
+table of these coefficients.
+\begin{description}
+\item[Get3j(j1, j2, j3, m1, m2, m3)] This returns a 3j symbol with given
+arguments. All angular momentum parameters are twice their actuall values to
+represent the half integer using integers. This is the internal
+representation also. 
+
+\item[Get6j(j1, j2, j3, j4, j5, j6)] Returns a 6j symbol.
+
+\item[Get9j(j1, j2, j3, j4, j5, j6, j7, j8,j9)] Returns 9j Symbol.
+
+\item[GetCG(j1, j2, j3, m1, m2, m3)] Returns the Clebsch-Gordan coefficients.
+
+\end{description}
+
+
+\section{Atomic Structure}
+The atomic structure part calculates the energy levels for the specified
+configurations, and the radiative transition rates between the resulting
+levels. The calculation is carried out in the suppoposion of configuration
+approximation. In this approximation, a set of radial basis is first
+constructed. They are then used to set up the Hamilton matrix, the
+diagnolization of which gives the energy levels and eigen states. The
+construction of radial basis is based on an average configuration
+self-consistent field procedue. 
+
+The following routines set some global options controlling the computation.
+\begin{description}
+\item[OptimizeRadialControll(tol, maxiter, iprint)] 
+Set parameters affecting the optimization of radial central potentials. 
+``tol'' is the desired accuracy for self-consistent iterations. ``maxiter'' is
+the maximum iteration the optimization may perform. ``iprint'' indicates
+whether iteration summary should 
+be printed out. The defaults: ``tol = 1E-6'', ``maxiter = 100'', ``nscreen =
+8'', ``iprint = 0''.
+
+\item[SetScreening(n)] 
+Set the principle quantum number, beyond which the central potential should be
+modified in the aymptotic region to add the screening of one more
+electron. This is used for solution of continuum orbitals and the high Rydberg
+levels resulting from recombinaiton, because these orbitals see the screening
+of all bound electrons. If only the radiative transition rates of a given ion
+is needed, this parameter should be set to 0, Otherwise, some inaccuracy is
+introduced for levels higher than ``n''. The default is 8.
+
+\item[SetRadialGrid(rmin, rmax)]
+Set the radial grid limits. The actual grid limits are ``rmin/z'', and 
+``rmax/z'', where ``z'' is the residual charge of the atomic ion. The
+defaults: ``rmin = 1E-5'', ``rmax = 5E3''. The large value for ``rmax'' is
+needed for the calculation of very high Rydberg levels. If they are not needed,
+a smaller value may be chosen. 
+
+\item[SetTransitionOptions(gauge, mode, maxe, maxm)] Sets options controlling
+the calculation of transition rates. ``gauge'' specifies the gauge: 
+\begin{enumerate}
+\item[1.] Coulomb (velocity form).
+\item[2.] Babushkin (length form). 
+\end{enumerate}
+If mode = 0, use relativistic expressions
+for the radial integral. If mode = 1, use non-relativistic approximation. 
+``maxe'', and ``maxm'' are the maximum rank of multipoles allowed in the
+calculation. The default is to use non-relativistic radial expression in
+length form. ``maxe = maxm = 4''. 
+
+\item[SetTransitionCut(eps)] 
+When the transition rate is less than ``eps'' fraction of the total decay rate
+for a given level, it is omitted in the output. Default: ``eps = 1E-4''. 
+
+\end{description}
+
+The following routines are called to perform the calculation.
+\begin{description}
+\item[OptimizeRadial(groups)] 
+Carry out the radial optimization. ``groups'' are a set of configuration
+groups on which the optimzation is based. It may be a Python list or just a
+sequence of group names as variable length arguments. Internally, a mean
+configuration with fractional 
+occupation numbers is constructed. A self-consistent Dirac-Fork iteration
+is then performed for this mean configuration. A central radial potential is
+then determine including the electron-electron interaction (both direct and
+exchange) with this mean configuration. The central potential is used to
+construct the radial basis for configuration interaction. 
+
+\item[Structure(groups)] 
+Setup the Hamilton matrix, and diagonalize
+it. Only the configurations in the specified groups are assumed to
+interact. If no argument is given, all configurations are mixed. 
+
+\item[LevelTable(fname, n, m)] 
+Output the Energy Level to an ascii file ``fname''. ``n'' is the principle
+quantum number, only levels with the last orbital having such ``n'' is printed
+out. If ``n == 0'', all levels are outpup. ``m'' indicates whether the mixing
+coefficients should be printed out. The defautls: ``n = 0'', ``m = 0''.
+
+\item[TransitionTable(low, up, fname, multipole)] 
+Calculate the transition rates between lower and upper levels specified by
+``low'' and ``up''. Each one may be a list of configuration group names or a
+list of level indices. ``fname'' is the output file name. ``multipole''
+specifies the mutipole of the transition desired, negative number means
+electric multipole transition, and positive number means magnetic multipoles,
+the absolute value is the rank of the multipole, which must be less than or
+equal to the maximum ranks set before. 
+\end{description}
+
+
+\section{Collisional Excitation}
+This part calculates the electron direct collisional excitation cross
+sections in the distorted wave approximation. In the following routines, all
+appearence of energy has the unit of eV, although internally, the code uses
+the atomic unit.
+
+\begin{description}
+\item[SetCEPWOptions(max_allow, max_forbidden, max_f, qr, tol)] 
+Set partial wave options for excitation calculation. ``qr'' is the orbital
+angular momentum value beyond which a ``quasi-relativistic'' approximaiton
+is used for the radial integrals, which ignores the small component of the
+wavefunction and treat the orbitals with differetn $j$ but same $l$ as the
+same. ``max_allow'' is the maximum partial wave to be included for dipole
+allowed transitions, ``max_forbidden'' is that for forbidden transitions,
+``max_f'' is a factor to be multiplied to e/delta_e to produce a limit on the
+maximum partial wave. Internally, a partial wave grid is setup from $l = 0$ to 
+``max'', which includes every $l$ below 5 but use a logrithmic grid beyond
+that. The radial integrals are then interpolated on this grid. If
+a detailed specification of the grid is needed, SetCEPWGrid() may be used.
+``tol'' is a small number, When the exchange integral is smaller than the
+tol fraction of the direct integral, the exchange integral is neglected, and a
+separated form of the Coulomb interaction is used. 
+
+\item[SetCEPWGrid(m)] 
+``m'' is the partial wave value, beyond which a logrithmic
+grid is used. This function has a more detailed form, taking two equal length
+python lists as arguments. e.g., if the two lists are [5, 2], and [1, 2], then
+the partial wave grid generated will be [0, 1, 2, 3, 4, 5, 7, 9, 13, 17,...].
+ie., the numbers in the 1st list is the repetition number for the increment
+step in the 2nd list. when the list is exhausted, the grid continues, by
+doubling the increment every two points until it reaches the maximum partial
+wave specified by SetCEPWOptions().
+
+\item[SetTEGrid(n, emin, emax)] 
+Set the transition energy grid used in the
+interpolation of radial integrals. Usually, it does not need to be
+called. for a given transition array, the transition energy grid is set
+automatically, with 3 points, which is sufficiently accurate for the
+interpolation of the entire transition array. 
+
+\item[SetCEGrid(n, emin, emax)] 
+Set the scattered electron energy grid. From emin to emax with n points in a
+logrithmic grid. This function may also take a list of energy points. This
+grid is used internally to calculate the radial integrals. The output energy
+grid is specified with SetUsrCEGrid(). Usually, the internal grid is generated
+automatically according to the output grid. 
+
+\item[SetUsrCEGrid(n, emin, emax)]
+Set the output grid for the scattered electron energy. Arguments are the same
+as SetCEGrid().
+
+\item[CETable(low, up, fname)] Calculates the collision strength of the
+transition array specified by ``low'' and ``up''. Output the results to file
+``fname''. ``low'' and ``up'' may be group names or actual level indices.
+
+\item[CETableMSub(low, up, fname)] Calculates the collision strength from and
+to the specific magnetic sublevels of the ``low'' and ``up'' levels.
+
+\end{description}
+
+\section{Ionization}
+The calculation of collisional ionization is similar to that of excitation, we
+refer to the parrel routines in the excitation for the syntax.
+\begin{description}
+\item[SetCIPWOptions(max_allow, max_forbidden, max_f, qr, tol)] 
+See SetCEPWOptions() for detail.
+
+\item[SetCIPWGrid(m)]
+See SetCEPWGrid() for detail.
+
+\item[SetIEGrid(n, emin, emax)]
+See SetTEGrid(). This sets the ionization threshold energy grid, int the same
+way as the excitation energy grid.
+
+\item[SetCIEGrid(n, emin, emax)]
+See SetCEGrid().
+
+\item[SetUsrCIEGrid(n, emin, emax)]
+See SetUsrCIEGrid(). The energy grid specified is the sum of two outgoing
+electrons, i.e., E0-I, where E0 is the energy of the impacting electron, and I
+is the ionization threshold.
+
+\item[CITable(bound, free, fname)] 
+Calculate the collisional ionization cross sections between the ``bound''
+states and ``free'' states, output the results in ``fname''.
+\end{description}
+
+\section{Recombination}
+This part calculates photoionization, autoionization rates, and their inverse
+processes, radiative and dielectronic recombination.
+\begin{description}
+\item[SetRecSpectator(n1, n2)] 
+Set the recombined electron principal quantum
+number options. Above ``n1'', one constructs the recombined states in terms of
+the exsisting target states. In this case, all the electrons in the target
+must have $n < n1$. Above ``n2'', The interaction between different target
+states is ignored. Usually, setting $n1 == n2$ to a suitablely high value. 
+The defaults: ``n1 = n2 = 6''.
+
+\item[SetRecPWOptions(max)] 
+Set the maximum partial waves included in the
+calculation. max = 6 - 8 is usually sufficient. For DR with the transition in
+the core, however, max should be around 12.
+
+\item[SetRecPWLimits(m1, m2)] 
+Further limit the orbital angular momentum value of the recombined electron
+in the range ``m1'' and ``m2'' inclusive.
+
+\item[RecStates(n, groups)] 
+Construct recombined states based on the  target
+states from ``groups'', and captured electron in ``n'' levels. The recombined
+states constructed this way can be referred to by a tuple (n, groupnames). 
+
+\item[SetPEGrid(n, emin, emax)] 
+Set the photo-electron energy grid in photo-ionization and radiative
+recombination calculations. A Python list may also be used to specify the
+detailed energy grid. 
+
+\item[RRTable(bound, free, fname, m)] Calculates the photoionization cross
+section and radiative recombination cross section between ``bound'' and
+``free'' states. Output results to file ``fname''. ``bound'' and ``free'' can
+be specified by actual level indices or by the group names. ``m'' specifies
+the multipole type of the transition. It may be ommited, which defaults to E1
+transtions, ``m = -1''.
+
+\item[SetAICut(eps)] When the autoionization rate is less than ``eps''
+fraction of the total AI rate for that level, it is omitted in the output. The
+default is 1E-8.
+
+\item[SetDRTEGrid(n, emin, emax)] 
+Set the continuum electron energy grid in
+autoionization calculation. The radial integrals needed are interpolated on
+this grid. It does not need to be called explicitly. For given transition
+arrays, they are set automatically. 
+
+\item[nopen=DROpen(groups)]
+Calculates the principal quantum numbers where DR channels corresponds to the
+levels in ``groups'' start to open according to the hydrogenic formula. The
+returned list is used to construct the 
+principal quantum number grid in the DR calculation. 
+
+\item[AITable(bound, free, fname)] Calculates the autoionization width from
+``bound'' to ``free'' states. 
+
+\item[DRTable(free, ai, bound, g, aifile, trfile)] This combines the
+calculation of autoionization rates and radiative transition rates in a single
+routine. All autoionization channels between ``ai'' and ``free'' are
+included. ``g'' specifies the levels to which the DR recombination is to be
+computed. The radiative transition rates between ``ai'' and ``bound'' are
+calculated if ``ai'' is accessable from ``g''.
+
+\end{description}
+
+There is a python module ``dr.py'' that makes the calculation of DR easier. 
+\begin{description}
+\item[dr.dr()] 
+It accepts a long parameter list (prefix, groups, reclevel, ground, aigroup,
+decaygroup, channels, ngrid, nmin, nj0, maxkl, nspec, correlations). 
+This routine coordinates the DR calculation for various DR
+channels. ``prefix'' is a string which is used to construct the output file
+names. ``gr'' is a list of target configuration groups that are
+involved. ``reclevel'' is a list of levels from which the recombination is to
+ocuur, e.g., [0], if only DR on to the ground level is to be
+calculated. ``ground'' is the target state group to which autoionization is
+allowed. ``aigroup'' is the bound autoionizing groups. ``decaygroup'' is the
+bound group to which the radiative decay is allowed. ``channel'' gives a
+numerical symbol to each DR channel. ``ngrid'' is the a grid of principal
+quantum numbers for the recombined electron. Detiled calculation is only
+performed for these levels. Other missing levels are obtained through
+interpolation. ``nmin'' is the minimum principal quantum number in the
+construction of recombined states. ``nj0'' is the maximum principal quantum
+number to which the decay of autoioning levels are allowed. ``nspec'' is the
+option to be used in SetRecSpectator(). ``correlations'' regroups the list of
+target configurations to specify the configuration mixing schemes. See a
+sample script under the directory ``demo'' to see how it is used.
+
+\item[dr.drall(prefix, nrec, c, rate=rate, cross=cross, strength=s, drs=drs)]
+This routine proccess the output from the DR calculation, calculates the rate
+coefficients, cross sections, DR strengthes, and DR satellites. ``prefix'' is
+the file name 
+prefix. ``nrec'' is the principal quantum number grid used for channel
+``c''. ``rate = [Tmin, Tmax, n]'' specifies the temperature grid for the rate
+coefficients. ``cross = [width, vmultiply]'', ``width'' is the broadening of
+the DR resonances. ``vmultiply'' indicates whether the velocity factor should
+be multipled to the cross section to produce the rate
+coefficient. ``strength=1'' specify whether the DR strength for each
+recombined complex should be calculated. ``drs=[lambda0, lambda1, delta]''
+specify the wavelength limits and spectral resolution in the calculation of DR
+satellite lines. 
+
+\item[dr.sumrate(outfile, prefix, nrec, nopen, c, nmax=nmax)]
+This routine sums up the rate coefficients for all recombined complexes. The
+interpolation on the ``n'' grid is carried out. From the last calculated ``n''
+to nmax, extrapolation using $n^{-3}$ scaling law.
+\end{description}
+
+\end{document}
+
