@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.89 2004/07/26 17:26:48 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.90 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2078,6 +2078,34 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+ 
+static PyObject *PRRMultipole(PyObject *self, PyObject *args) { 
+  int nlow, *low, nup, *up;
+  int m;
+  char *s;
+  PyObject *p, *q;
+  
+  if (sfac_file) {
+    SFACStatement("RRMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  m = -1;
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) {
+    printf("Unrecognized parameters in RRMultipole\n");
+    return NULL;
+  }
+  nlow = SelectLevels(p, &low);
+  nup = SelectLevels(q, &up);
+  SaveRRMultipole(nlow, low, nup, up, s, m);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
  
 static PyObject *PRRTable(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
@@ -4345,6 +4373,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},

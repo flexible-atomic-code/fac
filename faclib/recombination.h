@@ -40,16 +40,20 @@ int SetRecSpectator(int n_max, int n_frozen, int n_spec);
 int ConstructRecGroupName(char *rgn, char *gn, int n);
 int RecStates(int n, int k, int *kg, char *fn);
 int RecStatesFrozen(int n, int k, int *kg, char *fn);
+int RRRadialMultipoleTable(double *qr, int k0, int k1, int m);
 int RRRadialQkTable(double *qr, int k0, int k1, int m);
+int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m);
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m);
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra);
 void RRRadialQkHydrogenicParams(int np, double *p, double z, int n, int klb);
 double PICrossH(double z, int n0, int kl0, double e, int os);
 double RRCrossH(double z, int n0, int kl0, double e);
+int BoundFreeMultipole(FILE *fp, int rec, int f, int m);
 int BoundFreeOS(double *rqu, double *p, 
 		double *eb, int rec, int f, int m);
 int PrepRREGrids(double eth, double emax0);
+int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
 	   int channel, int msub);

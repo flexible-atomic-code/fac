@@ -276,6 +276,7 @@ typedef struct _DR_RECORD_ {
   short vl;
   short j;
   float energy;
+  float etrans;
   float br;
   float ai;
   float total_rate;
@@ -392,6 +393,7 @@ int WriteDRRecord(FILE *f, DR_RECORD *r);
 int PrintDRTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianDRHeader(DR_HEADER *h);
 int SwapEndianDRRecord(DR_RECORD *r);
+double IonDensity(char *fn, int k);
 
 #endif
 

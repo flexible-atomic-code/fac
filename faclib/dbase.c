@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.62 2004/11/02 05:54:31 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.63 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -300,6 +300,7 @@ int SwapEndianDRRecord(DR_RECORD *r) {
   SwapEndian((char *) &(r->vl), sizeof(short));
   SwapEndian((char *) &(r->j), sizeof(short));
   SwapEndian((char *) &(r->energy), sizeof(float));
+  SwapEndian((char *) &(r->etrans), sizeof(float));
   SwapEndian((char *) &(r->br), sizeof(float));
   SwapEndian((char *) &(r->ai), sizeof(float));
   SwapEndian((char *) &(r->total_rate), sizeof(float));
@@ -3285,6 +3286,50 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
+double IonDensity(char *fn, int k) {
+  F_HEADER fh;
+  SP_HEADER h;
+  SP_RECORD r;
+  int i;
+  FILE *f;
+  int n, swp;
+  double d;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1.0;
+  }
+  
+  n = ReadFHeader(f, &fh, &swp);
+  
+  if (fh.type != DB_SP) {
+    printf("file not of type DB_SP\n");
+    fclose(f);
+    return -1.0;
+  }
+
+  d = 0.0;
+  while (1) {
+    n = ReadSPHeader(f, &h, swp);
+    if (n == 0) break;
+    if (h.type != 0 || h.nele != k) {
+      fseek(f, h.length, SEEK_CUR);
+      continue;
+    }
+    
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadSPRecord(f, &r, swp);
+      if (n == 0) break;
+      d += r.strength;
+    }
+  }
+ 
+  fclose(f);
+
+  return d;
+}
+		     
 int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_HEADER h;
   RT_RECORD r;
@@ -3364,7 +3409,7 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
   DR_RECORD r;
   int n, i;
   int nb;
-  double e;
+  double e, e1;
   
   nb = 0;
   while (1) {
@@ -3383,15 +3428,17 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
       n = ReadDRRecord(f1, &r, swp);
       if (n == 0) break;
       e = r.energy;
+      e1 = r.etrans;
       if (v) {
 	e *= HARTREE_EV;
-	fprintf(f2, "%6d %2d %4d %2d %3d %4d %3d %2d %2d %10.4E %10.4E %10.4E %10.4E\n",
+	e1 *= HARTREE_EV;
+	fprintf(f2, "%6d %2d %4d %2d %3d %4d %3d %2d %2d %10.4E %10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, h.ilev, h.j, r.ibase, r.flev, r.fbase, 
-		h.vn, r.vl, e, r.ai, r.total_rate, r.br);
+		h.vn, r.vl, e, e1, r.ai, r.total_rate, r.br);
       } else {
-	fprintf(f2, "%6d %2d %3d %4d %3d %2d %10.4E %10.4E %10.4E %10.4E\n",
+	fprintf(f2, "%6d %2d %3d %4d %3d %2d %10.4E %10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, r.ibase, r.flev, r.fbase, r.vl, 
-		e, r.ai, r.total_rate, r.br);
+		e, e1, r.ai, r.total_rate, r.br);
       }
     }
     nb++;

@@ -72,7 +72,7 @@
 */
 #define VERSION        1
 #define SUBVERSION     0
-#define SUBSUBVERSION  6
+#define SUBSUBVERSION  7
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))

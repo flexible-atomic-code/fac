@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.83 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.84 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -520,7 +520,71 @@ double RRCrossH(double z, int n0, int kl0, double e) {
   
   return r;
 }
+
+int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
+  int index[3], k, nqk;
+  double **p, *qk;
+  int kappaf, jf, klf, kf;
+  int ite, ie, i;
+  double aw, e, pref;
+  int mode, gauge;
+
+  klf = k1;
+  if (IsOdd(klf)) {
+    klf++;
+    jf = klf-1;
+  } else {
+    jf = klf+1;
+  }
+  kappaf = GetKappaFromJL(jf, klf);
+
+  k = 2*abs(m);
+  index[0] = k0;
+  index[1] = k1;
+  if (m >= 0) {
+    index[2] = k;
+  } else {
+    index[2] = k-1;
+  }
+
+  nqk = n_tegrid*n_egrid;
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  if (*p) {
+    for (i = 0; i < nqk; i++) {
+      qr[i] = (*p)[i];
+    }
+    return 0;
+  }
   
+  gauge = GetTransitionGauge();
+  mode = GetTransitionMode();
+
+  *p = (double *) malloc(sizeof(double)*nqk);
+  
+  qk = *p;
+  /* the factor 2 comes from the conitinuum norm */
+  pref = sqrt(2.0);  
+  for (ite = 0; ite < n_tegrid; ite++) {
+    aw = FINE_STRUCTURE_CONST * tegrid[ite];        
+    for (ie = 0; ie < n_egrid; ie++) {
+      e = egrid[ie];
+      kf = OrbitalIndex(0, kappaf, e);
+      if (mode == M_NR && m != 1) {
+	qk[ie] = MultipoleRadialNR(m, k0, kf, gauge);
+      } else {
+	qk[ie] = MultipoleRadialFR(aw, m, k0, kf, gauge);
+      }
+      qk[ie] *= pref;
+    }
+    qk += n_egrid;
+  }
+  
+  for (i = 0; i < nqk; i++) {
+    qr[i] = (*p)[i];
+  }
+  return 0;
+}
+    
 int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int index[3], k, nqk;
   double **p, *qk, tq[MAXNE];
@@ -646,6 +710,34 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   return 0;
 }
   
+int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m) {
+  int i, j, np, nd, k;
+  double rq[MAXNTE];
+  double x0, rqe[MAXNTE*MAXNE];
+
+  i = RRRadialMultipoleTable(rqe, k0, k1, m);
+  if (i < 0) return -1;
+  
+  if (n_tegrid == 1) {
+    for (i = 0; i < n_egrid; i++) {
+      rqc[i] = rqe[i];
+    }
+  } else {
+    nd = 1;
+    np = 3;
+    x0 = te;
+    for (i = 0; i < n_egrid; i++) {
+      j = i;
+      for (k = 0; k < n_tegrid; k++) {
+	rq[k] = rqe[j];
+	j += n_egrid;
+      }
+      UVIP3P(np, n_tegrid, tegrid, rq, nd, &x0, &rqc[i]);
+    }
+  }
+  return 0;
+}
+  
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
   double rq[MAXNTE];
@@ -674,6 +766,81 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   return 0;
 }
 
+int BoundFreeMultipole(FILE *fp, int rec, int f, int m) {
+  LEVEL *lev1, *lev2;
+  ANGULAR_ZFB *ang;
+  ORBITAL *orb;
+  int i, nz, ie, k, kb, j1, j2, n, p1, p2;
+  int jmin, jmax, jt, jfmin, jfmax, jf, klf, kf, jb, klb;
+  double rq[MAXNE], rqu[MAXNE], eb, a;
+
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+  j1 = lev1->pj;
+  j2 = lev2->pj;
+  DecodePJ(j1, &p1, &j1);
+  DecodePJ(j2, &p2, &j2);
+
+  eb = (lev2->energy - lev1->energy);
+  if (eb <= 0.0) return -1;
+  
+  eb = (lev2->energy - lev1->energy);
+  if (eb <= 0.0) return -1;
+
+  nz = AngularZFreeBound(&ang, f, rec);
+  if (nz <= 0) return -1;
+
+  k = abs(m)*2;
+  jmax = j1 + k;
+  jmin = abs(j1 - k);
+  for (jt = jmin; jt <= jmax; jt += 2) {
+    jfmin = abs(jt - j2);
+    jfmax = jt + j2;
+    for (jf = jfmin; jf <= jfmax; jf += 2) {
+      for (klf = jf-1; klf <= jf+1; klf += 2) {    
+	kf = klf;
+	if (jf < klf) kf--;	
+	for (ie = 0; ie < n_egrid; ie++) {
+	  rqu[ie] = 0.0;
+	}
+	if (jf <= 0 ||
+	    klf < 0 ||
+	    (m < 0 && IsOdd(p1+p2+klf/2+k/2)) ||
+	    (m > 0 && IsEven(p1+p2+klf/2+k/2))) {
+	  continue;
+	}
+	for (i = 0; i < nz; i++) {
+	  kb = ang[i].kb;
+	  orb = GetOrbital(kb);
+	  GetJLFromKappa(orb->kappa, &jb, &klb);
+	  if ((m < 0 && IsOdd((klb+klf+k)/2)) ||
+	      (m > 0 && IsEven((klb+klf+k)/2))) {
+	    continue;
+	  }
+	  n = RRRadialMultipole(rq, eb, kb, kf, m);
+	  if (n < 0) continue;
+	  a = ang[i].coeff*sqrt(jt+1.0)*W6j(j2, jf, jt, k, j1, jb);
+	  if (IsOdd((jt+j1-k)/2)) a = -a;
+	  if (fabs(a) > EPS16) {
+	    for (ie = 0; ie < n_egrid; ie++) {
+	      rqu[ie] += a * rq[ie];
+	    }
+	  }
+	}
+	for (ie = 0; ie < n_egrid; ie++) {
+	  fprintf(fp, "%5d %2d %5d %2d  %2d  %3d %3d %3d %12.5E %12.5E %12.5E\n",
+		  rec, j1, f, j2, m, jt, klf, jf, eb, egrid[ie], rqu[ie]);
+	}
+      }
+    }
+  }
+
+  fprintf(fp, "\n");
+  free(ang);
+
+  return 0;
+}
+    
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
@@ -682,7 +849,6 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   int nz, ie, k;
   double a, b, d, amax, eb0, z;
   double rq[MAXNE], tq[MAXNE];
-  int j1, j2;
   int i, j, c;
   int gauge, mode;
   int nkl, nq;
@@ -690,10 +856,6 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
-  j1 = lev1->pj;
-  j2 = lev2->pj;
-  DecodePJ(j1, NULL, &j1);
-  DecodePJ(j2, NULL, &j2);
 
   *eb = (lev2->energy - lev1->energy);
   if (*eb <= 0.0) return -1;
@@ -1077,7 +1239,170 @@ int PrepRREGrids(double e, double emax0) {
   }
   return 0;
 }
+
+int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
+  int i, j, k;
+  FILE *f;
+  LEVEL *lev1, *lev2;
+  double e, emin, emax, emax0;
+  double awmin, awmax;
+  ARRAY subte;
+  int isub, n_tegrid0, n_egrid0, n_usr0;
+  int te_set, e_set, usr_set;
+  double c, e0, e1;
+
+  f = fopen(fn, "w");
+  if (f == NULL) return -1;
+  fprintf(f, "# This file contains 11 columns\n");
+  fprintf(f, "#  1, Bound state index\n");
+  fprintf(f, "#  2, 2*J_Bound\n");
+  fprintf(f, "#  3, Ionized state index\n");
+  fprintf(f, "#  4, 2*J_Ionized\n");
+  fprintf(f, "#  5, Multipole type, -1=E1, 1=M1, -2=E2, 2=M2, ...\n");
+  fprintf(f, "#  6, 2*J_total, coupled angular momentum of J_Ionized and J\n");
+  fprintf(f, "#  7, 2*L, L is the orbital angular momentum of the photo-electron\n");
+  fprintf(f, "#  8, 2*J, J is the total angular momentum of the photo-electron\n");
+  fprintf(f, "#  9, E_th, Ionization threshold in Hartree\n");
+  fprintf(f, "# 10, E_e, photo-electron energy in Hartree\n");
+  fprintf(f, "# 11, Multipole matrix element in atomic unit\n");
+  fprintf(f, "\n\n");
   
+  emin = 1E10;
+  emax = 1E-10;
+  k = 0;
+  for (i = 0; i < nlow; i++) {
+    lev1 = GetLevel(low[i]);
+    for (j = 0; j < nup; j++) {
+      lev2 = GetLevel(up[j]);
+      e = lev2->energy - lev1->energy;
+      if (e > 0) k++;
+      if (e < emin && e > 0) emin = e;
+      if (e > emax) emax = e;
+    }
+  }
+  if (k == 0) {
+    return 0;
+  }
+  
+  if (tegrid[0] < 0) {
+    te_set = 0;
+  } else {
+    te_set = 1;
+  }
+  if (egrid[0] < 0) {
+    e_set = 0;
+  } else {
+    e_set = 1;
+  }
+  if (usr_egrid[0] < 0) {
+    usr_set = 0;
+  } else {
+    usr_set = 1;
+  }
+  n_tegrid0 = n_tegrid;
+  n_egrid0 = n_egrid;
+  n_usr0 = n_usr;
+
+  if (egrid_limits_type == 0) {
+    emax0 = 0.5*(emin + emax)*egrid_max;
+  } else {
+    emax0 = egrid_max;
+  }
+  ArrayInit(&subte, sizeof(double), 128);
+  ArrayAppend(&subte, &emin, NULL);
+  c = 1.0/TE_MIN_MAX;
+  if (!e_set || !te_set) {
+    e = c*emin;
+    while (e < emax) {
+      ArrayAppend(&subte, &e, NULL);
+      e *= c;
+    }
+  }
+  ArrayAppend(&subte, &emax, NULL);
+
+    
+  e0 = emin;
+  for (isub = 1; isub < subte.dim; isub++) {
+    e1 = *((double *) ArrayGet(&subte, isub));
+    if (isub == subte.dim-1) e1 = e1*1.001;
+    emin = e1;
+    emax = e0;
+    k = 0;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	if (e < emin) emin = e;
+	if (e > emax) emax = e;
+	k++;
+      }
+    }
+    if (k == 0) {
+      e0 = e1;
+      continue;
+    }
+    emin = e0;
+    emax = e1;  
+    if (m == 1 || GetTransitionMode() == M_FR) {
+      e = (emax - emin)/(0.5*(emin+emax));
+      if (!te_set) {
+	if (e < 0.1) {
+	  SetRRTEGrid(1, 0.5*(emin+emax), emax);
+	} else if (e < 0.5) {
+	  SetRRTEGrid(2, emin, emax);
+	} else {
+	  if (k == 2) n_tegrid = 2;
+	  else if (n_tegrid0 == 0) n_tegrid = 3;
+	  SetRRTEGrid(n_tegrid, emin, emax);
+	}
+      }
+      FreeMultipoleArray();
+      awmin = emin * FINE_STRUCTURE_CONST;
+      awmax = emax * FINE_STRUCTURE_CONST;
+      if (e < 0.3) {
+	SetAWGrid(1, 0.5*(awmin+awmax), awmax);
+      } else if (e < 1.0) {
+	SetAWGrid(2, awmin, awmax);
+      } else {
+	SetAWGrid(3, awmin, awmax);
+      }
+    } else {
+      SetRRTEGrid(1, 0.5*(emin+emax), emax);
+    }
+    
+    n_egrid = n_egrid0;
+    n_usr = n_usr0;
+    if (!usr_set) usr_egrid[0] = -1.0;
+    if (!e_set) egrid[0] = -1.0;
+    e = 0.5*(emin + emax);
+    PrepRREGrids(e, emax0);
+    
+    for (i = 0; i < nup; i++) {
+      lev1 = GetLevel(up[i]);
+      for (j = 0; j < nlow; j++) {
+	lev2 = GetLevel(low[j]);
+	e = lev1->energy - lev2->energy;
+	if (e < e0 || e >= e1) continue;
+	BoundFreeMultipole(f, low[j], up[i], m);
+      }
+    }
+    
+    ReinitRadial(1);
+    FreeRecQk();
+    FreeRecPk();
+    
+    e0 = e1;
+  }
+  
+  fclose(f);
+  ArrayFree(&subte, NULL);
+  ReinitRecombination(1);
+
+  return 0;
+}
+    
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
   int i, j, k, ie, ip;
