@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.75 2004/02/22 23:17:57 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.76 2004/02/23 08:42:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1486,16 +1486,19 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   return 0;
 }
 
-int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
-  ORBITAL *orb;
+int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
+  ORBITAL *orb0;
   double **ak;
-  int *nak, **kak;
+  int *nak, **kak, gauge;
   int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2;
   int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
-  double aw, ph1, ph2, c, d;
+  double aw, aw0, ph1, ph2, c, d;
 
+  orb0 = GetOrbital(k0);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
-  aw = FINE_STRUCTURE_CONST*(e - orb0->energy);
+  aw = FINE_STRUCTURE_CONST*e;
+  aw0 = FINE_STRUCTURE_CONST*(e - orb0->energy);
+  gauge = GetTransitionGauge();
   
   nak = malloc(sizeof(int)*mx);
   ak = malloc(sizeof(double *)*mx);
@@ -1517,6 +1520,7 @@ int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
     } else {
       se = IsOdd(L+kl0/2);
     }
+    c = sqrt((2.0/(L2+1.0))*pow(aw0, L2-1));
     for (p = 0; p < nak[i]; p++) {
       kl1 = j1 - 1;
       if (se) {
@@ -1527,14 +1531,13 @@ int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
       kappa = GetKappaFromJL(j1, kl1);
       kak[i][p] = kappa;
       k = OrbitalIndex(0, kappa, e);
-      orb = GetOrbitalSolved(k);
       if (IsEven(i)) {
-	ak[i][p] = MultipoleEL(orb, orb0, aw, L);
+	ak[i][p] = MultipoleRadialFR(aw, -L, k, k0, gauge);
       } else {
-	ak[i][p] = MultipoleML(orb, orb0, aw, L);
+	ak[i][p] = MultipoleRadialFR(aw, L, k, k0, gauge);
       }
+      ak[i][p] *= c;
       b[0] += ak[i][p]*ak[i][p];
-      printf("%d %d %d %d %d %d %10.3E %10.3E %10.3E %10.3E %10.3E\n", i, L, kl0, j0, kl1, j1, e, e-orb0->energy, aw, ak[i][p], b[0]);
       j1 += 2;
     }
   }
@@ -1556,7 +1559,7 @@ int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
 	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
 	  c *= ak[i][p]*ak[ip][pp];
 	  if (ph1 != ph2) c *= cos(ph1-ph2);
-	  if (IsOdd((L2+j2-Lp2+j0+1)/2)) c = -c;
+	  if (IsOdd((L2+j1-Lp2-j2+j0+1)/2)) c = -c;
 	  for (q = 0; q < m; q++) {
 	    q2 = 2*q;
 	    d = c*(q2 + 1.0);
@@ -1576,13 +1579,11 @@ int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
     }
   }    
   
-  c = 4.0*PI*(1.0+FINE_STRUCTURE_CONST2*e);
-  c /= (j0+1.0)*2.0*aw*(1.0+0.5*FINE_STRUCTURE_CONST2*e);
   for (i = 1; i < 2*m+1; i++) {
     b[i] /= b[0];
   }
+  c = 2.0*PI/(j0+1.0);
   b[0] *= c;
-
   for (i = 0; i < mx; i++) {
     free(ak[i]);
     free(kak[i]);
@@ -1594,18 +1595,36 @@ int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
   return 0;
 }
 
-int SaveAsymmetry(char *fn, char *s, int mx, int m) {
+int SaveAsymmetry(char *fn, char *s, int mx) {
   ORBITAL *orb0;
   CONFIG *cfg;
   char *p, sp[16], js;
-  int k, ns, i, j, q, ncfg;
+  int k, ns, i, j, q, ncfg, m, mlam;
   int kappa, n, jj, kl, k0;
-  double **b, e0, e, emin, emax, a;
+  double **b, e0, e, emin, emax, a, phi;
+  double phi90, phi1, phi2, bphi;
+  double *pqa, *pqa2, nu1, theta;
+  int *ipqa, ierr, nudiff, mu1;
   FILE *f;
   
   ns = StrSplit(s, ' ');
   if (ns <= 0) return 0;
 
+  mlam = 1 + (mx-1)/2;
+  m = 2*mlam+1;
+  pqa = malloc(sizeof(double)*m);
+  pqa2 = malloc(sizeof(double)*m);
+  ipqa = malloc(sizeof(int)*m);
+  theta = acos(0.0);
+  nu1 = 0;
+  nudiff = mlam*2;
+  mu1 = 0;
+  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+  nu1 = 2;
+  nudiff = mlam*2-2;
+  mu1 = 2;
+  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa2, ipqa, &ierr);
+  
   p = s;
   f = fopen(fn, "a");
   if (n_usr <= 0) n_usr = 6;
@@ -1628,15 +1647,20 @@ int SaveAsymmetry(char *fn, char *s, int mx, int m) {
       k0 = OrbitalIndex(n, kappa, 0);
       orb0 = GetOrbital(k0);
       e0 = -(orb0->energy);
+      SetAWGrid(1, e0*FINE_STRUCTURE_CONST, e0);
       if (usr_egrid[0] < 0) {
-	if (egrid_limits_type == 0) {
-	  emin = egrid_min*e0;
-	  emax = egrid_max*e0;
+	if (egrid[0] > 0) {
+	  SetUsrPEGridDetail(n_egrid, egrid);
 	} else {
-	  emin = egrid_min;
-	  emax = egrid_max;
+	  if (egrid_limits_type == 0) {
+	    emin = egrid_min*e0;
+	    emax = egrid_max*e0;
+	  } else {
+	    emin = egrid_min;
+	    emax = egrid_max;
+	  }
+	  SetUsrPEGrid(n_usr, emin, emax, e0);
 	}
-	SetUsrPEGrid(n_usr, emin, emax, e0);
       }
       if (k == 0) {
 	for (i = 0; i < n_usr; i++) {
@@ -1647,25 +1671,37 @@ int SaveAsymmetry(char *fn, char *s, int mx, int m) {
 	}
       }
       e0 *= HARTREE_EV;
-      fprintf(f, "# %d%s%c %d %d %d  %10.3E %d\n",
-	      n, sp, js, n, kl, jj, e0, n_usr);
+      fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
+	      n, sp, js, n, kl, jj, e0, n_usr, mx);
       for (i = 0; i < n_usr; i++) {
 	e = usr_egrid[i];
-	AsymmetryPI(orb0, e, mx, m, b[i]);
+	AsymmetryPI(k0, e, mx, m, b[i]);
       }
     
       for (i = 0; i < n_usr; i++) {
 	e = usr_egrid[i]*HARTREE_EV;
 	a = (e+e0)/xusr[i];
 	a = a*a;
-	fprintf(f, "%10.3E %10.3E %10.3E %10.3E %10.3E\n",
-		e, e+e0, xusr[i], b[i][0]*AREA_AU20, b[i][0]*a*AREA_AU20);
-      }
-      
+	phi = b[i][0]*AREA_AU20;
+	phi90 = 0.0;
+	for (q = 0; q < m; q += 2) {
+	  phi90 += b[i][q+1]*pqa[q];
+	}
+	phi1 = phi90;
+	phi2 = phi90;
+	for (q = 2; q < m; q += 2) {
+	  bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
+	  phi1 -= bphi; /* parallel, Phi=0 */
+	  phi2 += bphi; /* perpendicular Phi=90 */
+	}
+	phi90 *= phi/(4.0*PI);	
+	fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+		e, e+e0, phi, phi90, a*phi, a*phi90, phi2/phi1);
+      }      
       for (q = 0; q < m; q++) {
 	for (i = 0; i < n_usr; i++) {
 	  e = usr_egrid[i]*HARTREE_EV;
-	  fprintf(f, "%10.3E %10.3E %10.3E\n",
+	  fprintf(f, "%12.5E %12.5E %12.5E\n",
 		  e, b[i][q+1], b[i][q+1+m]);
 	}
       }
@@ -1680,7 +1716,11 @@ int SaveAsymmetry(char *fn, char *s, int mx, int m) {
     free(b[i]);
   }
   free(b);
-
+  free(pqa);
+  free(pqa2);
+  free(ipqa);
+  
+  ReinitRadial(1);
   ReinitRecombination(1);
 
   return 0;
