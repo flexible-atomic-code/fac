@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.9 2001/11/04 15:42:59 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.10 2001/11/06 23:55:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -123,6 +123,109 @@ static int ConfigPythonToC(PyObject *python_cfg, CONFIG **cfg) {
   if (shells) free(shells);
   if (cfg) free(cfg);
   return -1;
+}
+
+static char _closed_shells[128] = "";
+static PyObject *PClosed(PyObject *self, PyObject *args) {
+  CONFIG *cfg;
+  PyObject *q;
+  int i, j, kappa, jj, kl, n, nq, ncfg;
+  char js, *p, argv[512];
+  char s[16], st[16];
+  int ns, k;
+  int argc;
+
+  argc = PyTuple_Size(args);
+  if (argc == 0) _closed_shells[0] = '\0';
+  for (i = 0; i < argc; i++) {
+    q = PyTuple_GetItem(args, i);
+    if (!PyString_Check(q)) return NULL;
+    p = PyString_AsString(q);
+    strncpy(argv, p, 512);
+    ns = StrSplit(argv, ' ');
+    p = argv;
+    for (k = 0; k < ns; k++) {
+      while (*p == ' ') p++;
+      ncfg = GetConfigFromString(&cfg, p);
+      for (j = ncfg-1; j >= 0; j--) {
+	if (cfg[j].n_shells != 1) return NULL;	
+	n = (cfg[j].shells)[0].n;
+	kappa = (cfg[j].shells)[0].kappa;
+	GetJLFromKappa(kappa, &jj, &kl);
+	nq = jj + 1;
+	if (jj > kl) js = '+';
+	else js = '-';
+	kl = kl/2;
+	SpecSymbol(s, kl);
+	sprintf(st, "%d%s%c%d ", n, s, js, nq);
+	strcat(_closed_shells, st);
+	free(cfg[j].shells);
+      }
+      if (ncfg > 0) free(cfg);
+      while (*p) p++;
+      p++;
+    }
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
+  CONFIG *cfg;
+  PyObject *q;
+  static char gname[GROUP_NAME_LEN] = "_all_";
+  int i, j, k, t, ncfg;
+  char scfg[1280], *p;
+  int argc;
+
+  q = PyDict_GetItemString(keywds, "group");
+  if (q) {
+    if (!PyString_Check(q)) return NULL;
+    p = PyString_AsString(q);
+    strncpy(gname, p, GROUP_NAME_LEN);
+  }
+
+  argc = PyTuple_Size(args);
+  
+  for (i = 0; i < argc; i++) {   
+    q = PyTuple_GetItem(args, i);
+    if (!PyString_Check(q)) return NULL;
+    p = PyString_AsString(q);
+    strncpy(scfg, _closed_shells, 128);
+    strncat(scfg, p, 1280);
+    ncfg = GetConfigFromString(&cfg, scfg);
+
+    for (j = 0; j < ncfg; j++) {
+      if (Couple(cfg+j) < 0) return NULL;
+      t = GroupIndex(gname);
+      if (t < 0) return NULL;
+      if (AddConfigToList(t, cfg+j) < 0) return NULL;
+    }   
+  }
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
+static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
+  char *s;
+  int ns, *n, *kappa;
+  double *nq;
+  
+  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
+
+  ns = GetAverageConfigFromString(&n, &kappa, &nq, s);
+  if (ns <= 0) return NULL;
+
+  if (SetAverageConfig(ns, n, kappa, nq) < 0) return NULL;
+
+  free(n);
+  free(kappa);
+  free(nq);
+
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 static PyObject *PSetAvgConfig(PyObject *self, PyObject *args) {
@@ -418,7 +521,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
       args = PyTuple_GET_ITEM(args, 1);
       k = PySequence_Length(args);
       if (k < 0 || k > ng) {
-	onError("wieghts must be a sequence");
+	onError("weights must be a sequence");
 	return NULL;
       }
       weight = malloc(sizeof(double)*ng);
@@ -636,6 +739,10 @@ static int SelectLevels(PyObject *p, int **t) {
       (*t) = realloc(*t, k*sizeof(int));
       return k;
     } else if (PyList_Check(q)) {
+      if (n != 2) {
+	printf("recombined states specification unrecoganized\n");
+	return -1;
+      }
       ng = DecodeGroupArgs(q, &kg);
       if (ng <= 0) return -1;
       q = PySequence_GetItem(p, 1);
@@ -1227,7 +1334,7 @@ static  PyObject *PSetRecSpectator(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "i|ii", 
 			&n_spec, &n_frozen, &n_max)) return NULL;
   if (n_frozen == 0) n_frozen = n_spec;
-  if (n_max == 0) n_max = 50;
+  if (n_max == 0) n_max = 100;
 
   SetRecSpectator(n_max, n_frozen, n_spec);
   Py_INCREF(Py_None);
@@ -2095,6 +2202,9 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
 }
 
 static struct PyMethodDef fac_methods[] = {
+  {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
+  {"Closed", PClosed, METH_VARARGS},
+  {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},

@@ -98,6 +98,7 @@ int GetL(SHELL *shell);
 int GetNq(SHELL *shell);
 void GetJLFromKappa(int kappa, int *j, int *kl);
 int GetLFromKappa(int kappa); 
+int GetJLFromSymbol(char *s, int *j, int *kl);
 int GetJFromKappa(int kappa);
 int GetKappaFromJL(int j, int kl); 
 int CompareShell(SHELL *s1, SHELL *s2);
@@ -105,6 +106,9 @@ int ShellClosed(SHELL *s);
 
 /* utilities for packing and unpacking a shell state */
 void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
+
+int GetConfigFromString(CONFIG **cfg, char *scfg);
+int GetAverageConfigFromSTring(int **n, int **kappa, double **nq, char *scfg);
 
 /* determine the average configuration for a given set of groups */
 int GetAverageConfig(int ng, int *kg, double *weight,
