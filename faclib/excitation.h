@@ -8,7 +8,7 @@ typedef struct _CEPW_SCRATCH_ {
   int qr;
   int max_kl;
   int kl_cb;
-  double tolerence;
+  double tolerance;
   int nkl0;
   int nkl;
   int ns;
@@ -55,7 +55,10 @@ int CERadialQk(double *r, double te,
 	       int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, int nq, int *q);
-int CollisionStrength(double *s, double *e, int lower, int upper, int msub);
+void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
+		       double *y, double *dy, int ndy, void *extra);
+int CollisionStrength(double *s, double *p, double *e, 
+		      int lower, int upper, int msub);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 
 #endif

@@ -16,13 +16,14 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.8 2001/10/25 21:57:43 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.9 2001/11/04 15:42:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 static PyObject *ErrorObject;
+static PyObject *PFACVERSION;
 static PyObject *SPECSYMBOL;
 static PyObject *ATOMICSYMBOL;
 static PyObject *ATOMICMASS;
@@ -969,6 +970,22 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
+  int m;
+  double tol;
+
+  m = QK_DEFAULT;
+  tol = -1;
+  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (m >= QK_CB) {
+    printf("CEQkMode must < %d\n", QK_CB);
+    return NULL;
+  }
+  SetCEQkMode(m, tol);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetCEFormat(PyObject *self, PyObject *args) {
   int m;
 
@@ -1171,6 +1188,10 @@ static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
   m = QK_DEFAULT;
   tol = -1;
   if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (m >= QK_CB) {
+    printf("RecQkMode must < %d\n", QK_CB);
+    return NULL;
+  }
   SetRecQkMode(m, tol);
   Py_INCREF(Py_None);
   return Py_None;
@@ -1669,6 +1690,31 @@ static PyObject *PSetIEGrid(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static  PyObject *PSetCIQkMode(PyObject *self, PyObject *args) {
+  int m;
+  double tol;
+
+  m = QK_DEFAULT;
+  tol = -1.0;
+  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (m < QK_CB) {
+    printf("CIQkMode must >= %d\n", QK_CB);
+    return NULL;
+  }
+  SetCIQkMode(m, tol);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static PyObject *PSetCIMaxK(PyObject *self, PyObject *args) {
+  int k;
+  if (!PyArg_ParseTuple(args, "i", &k))
+    return NULL;
+  SetCIMaxK(2*k);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetCIFormat(PyObject *self, PyObject *args) {
   int m;
 
@@ -2096,12 +2142,15 @@ static struct PyMethodDef fac_methods[] = {
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
+  {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},
   {"SetCIFormat", PSetCIFormat, METH_VARARGS},
   {"SetCIEGrid", PSetCIEGrid, METH_VARARGS},
   {"SetCIEGridLimits", PSetCIEGridLimits, METH_VARARGS},
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},
+  {"SetCIMaxK", PSetMaxRank, METH_VARARGS},
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
+  {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
   {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
@@ -2144,6 +2193,7 @@ static struct PyMethodDef fac_methods[] = {
 
 void initfac() {
   PyObject *m, *d;
+  char v[10];
   char sp[2];
   char *ename;
   double *emass;
@@ -2189,6 +2239,9 @@ void initfac() {
     PyList_SetItem(SPECSYMBOL, i, Py_BuildValue("s", sp));
   }
 
+  sprintf(v, "%d.%d.%d", VERSION, SUBVERSION, SUBSUBVERSION);
+  PFACVERSION = PyString_FromString(v);
+
   ename = GetAtomicSymbolTable();
   emass = GetAtomicMassTable();
   ATOMICSYMBOL = PyList_New(N_ELEMENTS+1);
@@ -2207,12 +2260,19 @@ void initfac() {
   PyDict_SetItemString(QKMODE, "INTERPOLATE", 
 		       Py_BuildValue("i", QK_INTERPOLATE));
   PyDict_SetItemString(QKMODE, "FIT", Py_BuildValue("i", QK_FIT));
+  PyDict_SetItemString(QKMODE, "CB", Py_BuildValue("i", QK_CB));
+  PyDict_SetItemString(QKMODE, "DW", Py_BuildValue("i", QK_DW));
+  PyDict_SetItemString(QKMODE, "BED", Py_BuildValue("i", QK_BED));
   PyDict_SetItemString(QKMODE, "default", Py_BuildValue("i", QK_DEFAULT));
   PyDict_SetItemString(QKMODE, "exact", Py_BuildValue("i", QK_EXACT));
   PyDict_SetItemString(QKMODE, "interpolate", 
 		       Py_BuildValue("i", QK_INTERPOLATE));
   PyDict_SetItemString(QKMODE, "fit", Py_BuildValue("i", QK_FIT));
-  
+  PyDict_SetItemString(QKMODE, "cb", Py_BuildValue("i", QK_CB));
+  PyDict_SetItemString(QKMODE, "dw", Py_BuildValue("i", QK_DW));
+  PyDict_SetItemString(QKMODE, "bed", Py_BuildValue("i", QK_BED));
+
+  PyDict_SetItemString(d, "VERSION", PFACVERSION);
   PyDict_SetItemString(d, "SPECSYMBOL", SPECSYMBOL);
   PyDict_SetItemString(d, "ATOMICSYMBOL", ATOMICSYMBOL);
   PyDict_SetItemString(d, "ATOMICMASS", ATOMICMASS);

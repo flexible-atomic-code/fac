@@ -1,6 +1,6 @@
 #include "interpolation.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.6 2001/10/24 23:31:36 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.7 2001/11/04 15:42:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -148,7 +148,6 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
   b = u + np*nd;
   afunc = b + nd;
   dwork = afunc + np;
-  
   for (i = 0; i < nd; i++) {
     Basis(np, afunc, x[i], logx[i]);
     k = i;
@@ -257,6 +256,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   int maxfev, mode;
   double factor, *diag, *qtf, *wa1, *wa2, *wa3, *wa4;
   double zero = 0.0;
+  double ftol;
 
   minpack_params.x = x;
   minpack_params.logx = logx;
@@ -288,8 +288,10 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   mode = 1;
   nprint = 0;
   factor = 100.0;
+  ftol = 1E-3*tol;
+  ftol = Max(ftol, 1E-6);
   lmder_(MinFunc, &n, &np, p, fvec, fjac, &ldfjac, 
-	 &tol, &tol, &zero, &maxfev, diag, &mode, &factor,
+	 &ftol, &tol, &zero, &maxfev, diag, &mode, &factor,
 	 &nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
 
   return info;

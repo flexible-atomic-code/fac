@@ -281,7 +281,7 @@
 *              In addition, use                 R(eu,nl,nl-1) = 0
 *
          ANL=REAL(NL)
-* Need cross sections in Atomic Units. change the conversion factor.
+* Need bound-free OS in Atomic Units. change the conversion factor.
 * M. F. Gu, 10/25/2001.
 *        CON=8.5596557D-19*REM*REM*Z*Z/(ANL*ANL)
          CON = 0.6666666667*REM*REM*Z*Z/(ANL*ANL)

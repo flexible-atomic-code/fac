@@ -1,3 +1,10 @@
+Version 0.6.5, 11/04/2001
+	1. Implement the Binary-Encouter-Dipole model for ionization.
+	2. Separate contributions from individual shells in the output
+	   for photoionization and EII.
+	3. Calculate the Bethe limit for EIE and EII, ensuring the correct
+	   asymptotic behavior at high energies.
+
 Version 0.6.4, 10/25/2001
 	1. adding minpack routines. use an improved version of fitting
 	   formula for PI cross sections.

@@ -6,6 +6,10 @@
 #include <string.h>
 #include <math.h>
 
+#define VERSION        0
+#define SUBVERSION     6
+#define SUBSUBVERSION  4
+
 #define IsOdd(x)  ((abs((x))&0x01)?1:0)
 #define IsEven(x) ((abs((x))&0x01)?0:1)
 #define Max(a, b) (((a)>(b))?(a):(b))
