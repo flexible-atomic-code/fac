@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.12 2001/11/04 15:42:57 mfgu Exp $
+# rcsid = $Id: README,v 1.13 2001/11/06 23:55:20 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -16,10 +16,12 @@ lapack/,     fortran routines from LAPACK.
 minpack/,    minpack optimization package.
 mpfunc/,     multi-precision floating point arithmetic package by Beiley.
 python/,     python interface.
+sfac/,       non-python interface.
 toms/,       some numerical routines from TOMS.
 
 INSTALL:
-1. Obtain (From www.python.org) and install Python if it is not installed yet. 
+1. Obtain (From www.python.org) and install Python if it is not installed yet
+   and the python interface is needed. 
    Version 2.0 or later is required. Make sure that python interpreter is 
    in your path.
 
@@ -28,11 +30,18 @@ INSTALL:
    Sun Solaris systems, one for Linux. However, It should be relatively 
    simple to modify them to fit other Unix systems.
 
-3. copy the approriate "Makefile.***" to "Makefile" and type
-   "make; make install". The building requires GNU make. 
+3. copy the approriate "Makefile.***" to "Makefile" and 
+	make sfac
+	make pyfac
+	make install
+   skip "make pyfac" if python is not available. The building requires 
+   GNU make. 
    
 
 Usage:
 The module can be called just like any python modules, either from 
 interpreter interactively, or pass the script to python. 
 e.g., python fe24_level.py,
+
+The non-python interface produces an executable "sfac", accepting input 
+files as arguments.

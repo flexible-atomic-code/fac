@@ -1,3 +1,12 @@
+Version 0.6.6, 11/06/2001
+	1. Implement the non-python interface "sfac". Its input file
+	   closely resembles the python scripts, without the flow 
+	   control constructs. 
+	2. the module "config" is now depricated. "config.config()" 
+	   should be replaced with "fac.Config()". "config.closed()"
+	   with "fac.Closed()", and "config.avgconfig()" with 
+	   "fac.AvgConfig()". 
+	
 Version 0.6.5, 11/04/2001
 	1. Implement the Binary-Encouter-Dipole model for ionization.
 	2. Separate contributions from individual shells in the output

@@ -78,7 +78,6 @@ def config(*configs, **group):
                 configurations = new_conf
         for t in configurations:
             fac.AddConfig(_group_name, _closed_shells + t)
-            
 
 # For a given specified shell with wild casts, generate all possible
 # distribution of electrons. eg., '2p2' -> ['2p-2', '2p-1 2p+1', '2p+2']

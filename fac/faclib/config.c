@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.10 2001/10/19 22:45:38 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.11 2001/11/06 23:55:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -11,8 +11,373 @@ static int n_groups;
 
 static SYMMETRY *symmetry_list;
 
-static char spec_symbols[MAX_SPEC_SYMBOLS] = 
-{'s', 'p', 'd', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'q', 'r'};
+static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqr*"; 
+
+
+static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell, 
+				int nq, int *maxq) {
+  CONFIG **cfg1, **cfg2;
+  int *ncfg2;
+  int qmin, qmax, j, q, t, k, ncfg;
+
+  if (nq == 0) {
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)->n_shells = 0;
+    return 1;
+  } 
+
+  if (nq == 1){
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ns);
+    for (t = 0; t < ns; t++) {
+      (*cfg)[t].n_shells = 1;
+      (*cfg)[t].shells = (SHELL *) malloc(sizeof(SHELL));
+      (*cfg)[t].shells[0].n = shell[t].n;
+      (*cfg)[t].shells[0].kappa = shell[t].kappa;
+      (*cfg)[t].shells[0].nq = 1;
+    }
+    return ns;
+  }
+
+  if (ns == 1) {
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)->n_shells = ns;
+    (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL));
+    (*cfg)->shells[0].n = shell[0].n;
+    (*cfg)->shells[0].kappa = shell[0].kappa;
+    (*cfg)->shells[0].nq = nq;
+    return 1;
+  } 
+
+  j = GetJFromKappa(shell[0].kappa);
+  qmax = j+1;
+  qmax = Min(qmax, nq);
+  qmin = nq - maxq[0];
+  qmin = Max(qmin, 0);
+  ncfg = 0;
+  t = qmax-qmin+1;
+  cfg1 = (CONFIG **) malloc(sizeof(CONFIG *)*t);
+  cfg2 = (CONFIG **) malloc(sizeof(CONFIG *)*t);
+  ncfg2 = (int *) malloc(sizeof(int)*t);
+  t = 0;
+  for (q = qmin; q <= qmax; q++) {
+    _DistributeElectrons(cfg1+t, 1, shell, q, NULL);
+    ncfg2[t] = _DistributeElectrons(cfg2+t, ns-1, shell+1, nq-q, maxq+1);
+    ncfg += ncfg2[t];
+    t++;
+  }
+  
+  *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ncfg);
+  t = 0;
+  k = 0;
+  for (q = qmin; q <= qmax; q++) {
+    for (j = 0; j < ncfg2[t]; j++) {
+      (*cfg)[k].n_shells = cfg1[t]->n_shells + cfg2[t][j].n_shells;
+      (*cfg)[k].shells = (SHELL *) malloc(sizeof(SHELL)*(*cfg)[k].n_shells);
+      if (cfg1[t]->n_shells > 0) {
+	memcpy((*cfg)[k].shells, cfg1[t]->shells, sizeof(SHELL));
+      }
+      if (cfg2[t][j].n_shells > 0) {
+	memcpy((*cfg)[k].shells+cfg1[t]->n_shells, cfg2[t][j].shells, 
+	       sizeof(SHELL)*(cfg2[t][j].n_shells));
+      }
+      if (cfg2[t][j].n_shells > 0) free(cfg2[t][j].shells);
+      k++;
+    }
+    if (cfg1[t]->n_shells > 0) free(cfg1[t]->shells);
+    free(cfg1[t]);
+    free(cfg2[t]);
+    t++;
+  }
+  free(cfg1);
+  free(cfg2);
+  free(ncfg2);
+  
+  return ncfg;
+}
+    
+static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
+  SHELL *shell;
+  char token[64];
+  int r, brkpos, quotepos, next;
+  int nn, nkl, nkappa;
+  int n[16];
+  int kl[64];
+  int kappa[128];
+  int ncfg = 64;
+  double dnq;
+  int *maxq;
+  int i, j, t, k, kl2, ns;
+  char *s;
+  
+  SetParserQuote("[", "]");
+  SetParserBreak(spec_symbols);
+  SetParserWhite("");
+  SetParserEscape('\0');
+
+  next = 0;
+  r = 0;
+  r = Parse(token, 64, scfg, &next, &brkpos, &quotepos);
+  if (quotepos == 0) {
+    nn = StrSplit(token, ',');
+    if (nn > 64) {
+      printf("number of n's in a single shell must be <= 64\n");
+      exit(1);
+    }
+    s = token;
+    for (i = 0; i < nn; i++) {
+      while (*s == ' ' || *s == '\t') s++;
+      n[i] = atoi(s);
+      while (*s) s++;
+      s++;
+    }
+  } else {
+    nn = 1;
+    n[0] = atoi(token);
+  }
+  if (brkpos < 0) {
+    r = Parse(token, 64, scfg, &next, &brkpos, &quotepos);
+  }
+  if (brkpos >= 0) {
+    kl[0] = brkpos;
+    if (brkpos == MAX_SPEC_SYMBOLS) {
+      nkl = n[nn-1];
+      for (i = 0; i < nkl; i++) {
+	kl[i] = i;
+      }
+    } else {
+      nkl = 1;
+      kl[0] = brkpos;
+    }
+    nkappa = 0;
+    for (i = 0; i < nkl; i++) {
+      kl2 = 2*kl[i];
+      if (scfg[next] != '+' && kl2 > 0) {
+	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
+      }
+      if (scfg[next] != '-') {
+	kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+      }
+    }
+    if (scfg[next] == '+' || scfg[next] == '-') next++;
+    dnq = atof(&(scfg[next]));
+    if (dnq == 0) dnq = 1;
+  } else if (quotepos == 0) {
+    nkl = StrSplit(token, ',');
+    s = token;
+    nkappa = 0;
+    for (i = 0; i < nn; i++) {
+      for (k = 0; k < nkl; k++) {
+	while (*s == ' ' || *s == '\t') s++;
+	GetJLFromSymbol(s, &j, &kl[i]);
+	kl2 = 2*kl[i];
+	if (j != 1 && kl2 > 0) {
+	  kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
+	}
+	if (j != -1) {
+	  kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+	}
+	while (*s) s++;
+	s++;
+      }
+      dnq = atof(&(scfg[next]));
+      if (dnq == 0) dnq = 1;
+    }
+  }
+
+  shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
+  t = 0;
+  for (i = nn-1; i >= 0; i--) {
+    for (k = nkappa-1; k >= 0; k--) {
+      kl2 = GetLFromKappa(kappa[k]);
+      if (kl2/2 >= n[i]) continue;
+      shell[t].n = n[i];
+      shell[t].kappa = kappa[k];
+      t++;
+    }
+  }
+  ns = t;
+  if (ns == 0) {
+    free(shell);
+    return -1;
+  }
+
+  if (nq) {
+    *nq = dnq;
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)->n_shells = ns;
+    (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL)*ns);
+    memcpy((*cfg)->shells, shell, sizeof(SHELL)*ns);
+    free(shell);
+    return ns;
+  }
+
+  maxq = (int *) malloc(sizeof(int)*ns);
+  maxq[ns-1] = 0;
+  for (i = ns-2; i >= 0; i--) {
+    j = GetJFromKappa(shell[i+1].kappa);
+    maxq[i] = maxq[i+1] + j+1;
+  }
+
+  ncfg = _DistributeElectrons(cfg, ns, shell, (int)dnq, maxq);
+
+  free(shell);
+  free(maxq);
+
+  return ncfg;
+}
+       
+static int _GetConfigFromString(CONFIG **cfg, double **nq, char *scfg) {
+  CONFIG **dcfg, **p1;
+  double *dnq, *p2;
+  char *s;
+  int ncfg, *dnc;  
+  int size, size_old, tmp;
+  int i, t, j, k, ns;
+
+  ns = StrSplit(scfg, ' ');
+  if (ns == 0) return ns;
+  dcfg = (CONFIG **) malloc(sizeof(CONFIG *)*ns);
+  dnc = (int *) malloc(sizeof(int)*ns);
+  if (nq) {
+    dnq = (double *) malloc(sizeof(double *)*ns);
+    p2 = dnq;
+  } else {
+    dnq = NULL;
+    p2 = NULL;
+  }
+
+  s = scfg;
+  p1 = dcfg;
+  for (i = 0; i < ns; i++) {
+    while (*s == ' ' || *s == '\t') s++;
+    dnc[i] = DistributeElectrons(p1, p2, s);
+    if (dnc[i] <= 0) {
+      return -1;
+    }
+    while (*s) s++;
+    s++;
+    p1++;
+    if (p2) p2++;
+  }
+
+  if (!nq) {
+    ncfg = dnc[0];
+    for (i = 1; i < ns; i++) ncfg *= dnc[i];
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ncfg);
+    tmp = ncfg;
+    p1 = dcfg + ns - 1;
+    for (i = ns-1; i >= 0; i--) {      
+      tmp /= dnc[i];
+      t = 0;
+      while (t < ncfg) {
+	for (j = 0; j < dnc[i]; j++) {
+	  for (k = 0; k < tmp; k++) {
+	    if (i == ns-1) {
+	      (*cfg)[t].n_shells = (*p1)[j].n_shells;
+	      size = sizeof(SHELL)*(*p1)[j].n_shells;
+	      (*cfg)[t].shells = (SHELL *) malloc(size);
+	      memcpy((*cfg)[t].shells, (*p1)[j].shells, size);
+	    } else {
+	      size_old = sizeof(SHELL)*(*cfg)[t].n_shells;
+	      size = sizeof(SHELL)*(*p1)[j].n_shells;
+	      (*cfg)[t].shells = (SHELL *) realloc((*cfg)[t].shells, 
+						   size_old+size);
+	      memcpy((*cfg)[t].shells+(*cfg)[t].n_shells,
+		     (*p1)[j].shells, size);
+	      (*cfg)[t].n_shells += (*p1)[j].n_shells;
+	    }
+	    t++;
+	  }
+	}
+      }
+      p1--;
+    }
+  } else {
+    ncfg = dnc[0];
+    for (i = 1; i < ns; i++) ncfg += dnc[i];
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)[0].n_shells = ncfg;
+    (*cfg)[0].shells = (SHELL *) malloc(sizeof(SHELL)*ncfg);
+    *nq = (double *) malloc(sizeof(double)*ncfg);
+    p1 = dcfg + ns-1;
+    t = 0;
+    for (i = ns-1; i >= 0; i--) {  
+      for (j = 0; j < dnc[i]; j++) {
+	(*nq)[t] = dnq[i]/dnc[i];
+	memcpy((*cfg)->shells+t, (*p1)->shells+j, sizeof(SHELL));
+	t++;
+      }
+      p1--;
+    }
+  }    
+  
+  for (i = 0; i < ns; i++) {
+    free((dcfg[i])->shells);
+    free(dcfg[i]);
+  }
+  free(dcfg);
+  free(dnc);
+
+  return ncfg;
+}
+
+int GetConfigFromString(CONFIG **cfg, char *scfg) {
+  return _GetConfigFromString(cfg, NULL, scfg);
+}
+
+int GetAverageConfigFromString(int **n, int **kappa, 
+			       double **nq, char *scfg) {
+  CONFIG *cfg;
+  int i, ns;
+
+  ns = _GetConfigFromString(&cfg, nq, scfg);
+  if (ns <= 0) return ns;
+
+  *n = (int *) malloc(sizeof(int)*ns);
+  *kappa = (int *) malloc(sizeof(int)*ns);
+  
+  for (i = 0; i < ns; i++) {
+    (*n)[i] = cfg->shells[i].n;
+    (*kappa)[i] = cfg->shells[i].kappa;
+  }
+
+  free(cfg->shells);
+  free(cfg);
+
+  return ns;
+}
+
+int GetJLFromSymbol(char *s, int *j, int *kl) {
+  int i;
+  char s0[5], *p;
+
+  strncpy(s0, s, 4);
+  p = s0;
+  while (*p) p++;
+  p--;
+  if (*p == '+') {
+    if (*j) *j = 1;
+    *p = '\0';
+  } else if (*p == '-') {
+    if (*j) *j = -1;
+    *p = '\0';
+  } else {
+    if (*j) *j = 0;
+  }
+
+  if (kl) {
+    if (isdigit(p[0])) *kl = atoi(p);
+    else {
+      for (i = 0; i < MAX_SPEC_SYMBOLS; i++) {
+	if (spec_symbols[i] == p[0]) {
+	  *kl = i;
+	  return 0;
+	}
+      }
+    }
+  }
+  return 0;
+}
 
 int SpecSymbol(char *s, int kl) {
   if (kl < MAX_SPEC_SYMBOLS) {
