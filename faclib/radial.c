@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.63 2002/09/24 20:35:27 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.64 2002/09/25 14:52:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1756,17 +1756,30 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 
   maxn = 0;
   orb0 = GetOrbitalSolved(k0);
-  if (orb0->n <= 0) maxn = -1;
-  else if (orb0->n > maxn) maxn = orb0->n;
   orb1 = GetOrbitalSolved(k1);
-  if (orb1->n <= 0) maxn = -1;
-  else if (orb1->n > maxn) maxn = orb1->n;
   orb2 = GetOrbitalSolved(k2);
-  if (orb0->n <= 0) maxn = -1;
-  else if (orb2->n > maxn) maxn = orb2->n;
   orb3 = GetOrbitalSolved(k3);
-  if (orb3->n <= 0) maxn = -1;
-  else if (orb3->n > maxn) maxn = orb3->n;
+
+  if (orb0->n <= 0) {
+    maxn = -1;
+  } else if (orb0->n > maxn) {
+    maxn = orb0->n;
+    if (orb1->n <= 0) {
+      maxn = -1;
+    } else if (orb1->n > maxn) {
+      maxn = orb1->n;
+      if (orb2->n <= 0) {
+	maxn = -1;
+      } else if (orb2->n > maxn) {
+	maxn = orb2->n;
+	if (orb3->n <= 0) {
+	  maxn = -1;
+	} else if (orb3->n > maxn) {
+	  maxn = orb3->n;
+	}
+      }
+    }
+  }
 
   if (orb0->wfun == NULL || orb1->wfun == NULL ||
       orb2->wfun == NULL || orb3->wfun == NULL) {
@@ -1805,7 +1818,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk) &&
 	Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
       err = Slater(&d, k0, k1, k2, k3, kk, mode);
-      if (kk == 1 && qed.sms) {
+      if (kk == 1 && qed.sms && maxn > 0) {
 	d -= Vinti(k0, k2) * Vinti(k1, k3) / am;
       }
       a1 = ReducedCL(js[0], k, js[2]);
@@ -1849,21 +1862,22 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     a = W6j(js[0], js[2], k, js[1], js[3], t);
     if (fabs(a) > EPS10) {
       e = 0.0;
-      d = 0.0;
-      if (IsEven((kl0+kl3+t)/2) || IsEven((kl1+kl2+t)/2)) {
+      if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
-      }      
+      }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
       }
-      if (t == 2 && qed.sms) {
+      if (t == 2 && qed.sms && maxn > 0) {
 	e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
       }
-      e *= ReducedCL(js[0], t, js[3]);
-      e *= ReducedCL(js[1], t, js[2]);
-      e *= a * (k + 1.0);
-      if (IsOdd(t/2 + kk)) e = -e;
-      *se += e;
+      if (e) {
+	e *= ReducedCL(js[0], t, js[3]);
+	e *= ReducedCL(js[1], t, js[2]);
+	e *= a * (k + 1.0);
+	if (IsOdd(t/2 + kk)) e = -e;
+	*se += e;
+      }
     }
   }
 
