@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.40 2003/03/11 21:22:45 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.41 2003/04/15 13:54:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1004,6 +1004,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   CloseFile(file, &fhdr);
   free(r.params);
   free(r.strength);
+
+  ReinitRadial(1);
+  ReinitIonization(1);
 
   return 0;
 }
