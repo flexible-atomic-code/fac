@@ -158,7 +158,7 @@ class TABLE:
             fmt = a[11:17].strip()
             unit = a[18:38].strip()
             label = a[39:49].strip()
-            d = a[50:-1].strip()
+            d = a[50:-1]
             if (d[0] == '*'):
                 has_notes = 1
                 self.add_column(label=label,
