@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.57 2003/07/14 16:27:34 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.58 2003/07/15 18:17:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -680,7 +680,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	}
 	s = dqk[nklp]*b;
 	if (ite == 0 &&
-	    ((xborn < 0 && 1.0+rd != 1.0 && -xborn < s/rd) ||
+	    ((xborn < 0 && rd && -xborn < s/rd) ||
 	     (xborn > 0 && xborn < e1/te0))) {
 	  ieb = 1;
 	} else {
@@ -924,7 +924,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	  }
 	  s = dqk[iq][i]*b;
 	  rqt[iq] = s;
-	  if (xborn < 0 && 1.0+drq[iq][ite][ie] != 1.0) {
+	  if (xborn < 0 && drq[iq][ite][ie]) {
 	    s /= drq[iq][ite][ie];
 	    if (s > r) r = s;
 	  }
