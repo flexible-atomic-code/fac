@@ -4,16 +4,14 @@
       COMPLEX*16 DD,G,F,AI2,BI2,T2
       LOGICAL ZLLIN
 
-      COMMON /MPCOM1/ NW, IDB, LDB, IER, MCR, IRD, ICS, IHS, IMS
-      INTEGER ND
       INTEGER MPDIM
-      PARAMETER (ND = 5, MPDIM = ND+4)
+      PARAMETER (MPDIM = 2)
 
-      REAL AR(MPDIM), BR(MPDIM), GR(MPDIM), GI(MPDIM), DR(MPDIM)
-      REAL DI(MPDIM), TR(MPDIM), TI(MPDIM), UR(MPDIM), UI(MPDIM)
-      REAL FI(MPDIM), FI1(MPDIM), MPONE(MPDIM)
-      REAL AI(MPDIM), BI(MPDIM), DEN(MPDIM), TR2(MPDIM)
-      REAL TI2(MPDIM), MPTMP(MPDIM), ZI(MPDIM), ZR(MPDIM)
+      REAL*8 AR(MPDIM), BR(MPDIM), GR(MPDIM), GI(MPDIM), DR(MPDIM)
+      REAL*8 DI(MPDIM), TR(MPDIM), TI(MPDIM), UR(MPDIM), UI(MPDIM)
+      REAL*8 FI(MPDIM), FI1(MPDIM), MPONE(MPDIM)
+      REAL*8 AI(MPDIM), BI(MPDIM), DEN(MPDIM), TR2(MPDIM)
+      REAL*8 TI2(MPDIM), MPTMP(MPDIM), ZI(MPDIM), ZR(MPDIM)
 
       DATA ZERO,ONE,TWO / 0D+0, 1D+0, 2D+0 /, CI / (0D+0, 1D+0) /
 
@@ -49,19 +47,18 @@ C
       TA = ONE
       RK = ONE
       IF(KIND.LE.0.AND.ABSC(Z)*ABSC(AA).GT.ABSC(BB) * 1.0) THEN
-         NW = ND
-         CALL MPDMC(ONE, 0, DR)
-         CALL MPDMC(ZERO, 0, DI)
-         CALL MPDMC(ONE, 0, GR)
-         CALL MPDMC(ZERO, 0, GI)
-         CALL MPDMC(IMAG(AA), 0, AI)
-         CALL MPDMC(DBLE(AA), 0, AR)
-         CALL MPDMC(IMAG(BB), 0, BI)
-         CALL MPDMC(DBLE(BB), 0, BR)
-         CALL MPDMC(ZERO, 0, FI)
-         CALL MPDMC(ONE, 0, MPONE)
-         CALL MPDMC(DBLE(Z), 0, ZR)
-         CALL MPDMC(IMAG(Z), 0, ZI)
+         CALL MPDMC(ONE, 0D0, DR)
+         CALL MPDMC(ZERO, 0D0, DI)
+         CALL MPDMC(ONE, 0D0, GR)
+         CALL MPDMC(ZERO, 0D0, GI)
+         CALL MPDMC(IMAG(AA), 0D0, AI)
+         CALL MPDMC(DBLE(AA), 0D0, AR)
+         CALL MPDMC(IMAG(BB), 0D0, BI)
+         CALL MPDMC(DBLE(BB), 0D0, BR)
+         CALL MPDMC(ZERO, 0D0, FI)
+         CALL MPDMC(ONE, 0D0, MPONE)
+         CALL MPDMC(DBLE(Z), 0D0, ZR)
+         CALL MPDMC(IMAG(Z), 0D0, ZI)
          
       DO 20 I=2,LIMIT
          CALL MPADD(FI, MPONE, FI1)
@@ -69,8 +66,8 @@ C
          CALL MPMUL(BR, FI1, TR)
          CALL MPMUL(BI, FI1, TI)
 
-         CALL MPNPWR(TR, 2, TR2)
-         CALL MPNPWR(TI, 2, TI2)
+         CALL MPMUL(TR, TR, TR2)
+         CALL MPMUL(TI, TR, TI2)
          CALL MPADD(TR2, TI2, MPTMP)
          CALL MPDIV(MPONE, MPTMP, DEN)
 
@@ -100,43 +97,30 @@ C
          CALL MPMUL(ZI, TR, TI2)
          CALL MPADD(TR2, TI2, GI)
 
-         CALL MPADD(DR, GR, MPTMP)
-         CALL MPEQ(MPTMP, DR)
-         CALL MPADD(DI, GI, MPTMP)
-         CALL MPEQ(MPTMP, DI)
+         CALL MPADD(DR, GR, DR)
+         CALL MPADD(DI, GI, DI)
          
-         CALL MPEQ(GR, TR2)
-         TR2(1) = ABS(TR2(1))
-         CALL MPEQ(GI, TI2)
-         TI2(1) = ABS(TI2(1))
+         CALL MPABS(GR, TR2)
+         CALL MPABS(GI, TI2)
          CALL MPADD(TR2, TI2, MPTMP)
-         CALL MPMDC(MPTMP, ERR, N)
-         ERR = ERR * TWO**N
+         ERR = MPTMP(1) + MPTMP(2)
          IF(ERR.GT.FPMAX) GO TO 60
 
-         CALL MPEQ(DR, TR2)
-         TR2(1) = ABS(TR2(1))
-         CALL MPEQ(DI, TI2)
-         TI2(1) = ABS(TI2(1))
+         CALL MPABS(DR, TR2)
+         CALL MPABS(DI, TI2)
          CALL MPADD(TR2, TI2, MPTMP)
-         CALL MPMDC(MPTMP, RK, N)
-         RK = RK * TWO**N
+         RK = MPTMP(1) + MPTMP(2)
          TA = MAX(TA,RK)
 
          IF(ERR.LT.RK*EPS .OR. I.GE.4.AND.ERR.LT.ACC16) GO TO 30
 
-         CALL MPMDC(FI1, DFI1, N)
          CALL MPEQ(FI1, FI)
-         CALL MPADD(AR, MPONE, MPTMP)
-         CALL MPEQ(MPTMP, AR)
-         CALL MPADD(BR, MPONE, MPTMP)
-         CALL MPEQ(MPTMP, BR)
+         CALL MPADD(AR, MPONE, AR)
+         CALL MPADD(BR, MPONE, BR)
  20      CONTINUE
 C
- 30      CALL MPMDC(DR, F11R, N)
-         F11R = F11R * TWO**N
-         CALL MPMDC(DI, F11I, N)
-         F11I = F11I * TWO**N
+ 30      F11R = DR(1) + DR(2)
+         F11I = DI(1) + DI(2)
          F11 = DCMPLX(F11R, F11I)
          ERR = ACC16 * TA / RK
 C

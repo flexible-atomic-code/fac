@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.27 2002/12/14 16:30:59 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.28 2003/01/13 02:57:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1269,10 +1269,10 @@ static int PSetCEPWOptions(int argc, char *argv[], int argt[],
   int qr, max, kl_cb;
   double tol;
 
-  qr = 0;
-  max = 128;
-  kl_cb = 50;
-  tol = 5E-2;
+  qr = EXCLQR;
+  max = EXCLMAX;
+  kl_cb = EXCLCB;
+  tol = EXCTOL;
   
   if (argc < 1 || argc > 4) return -1;
   
@@ -1477,11 +1477,11 @@ static int PSetCIPWOptions(int argc, char *argv[], int argt[],
   int qr, max, max_1, kl_cb;
   double tol;
 
-  qr = 0;
-  max = 128;
-  max_1 = 8;
-  kl_cb = 50;
-  tol = 5E-2;
+  qr = IONLQR;
+  max = IONLMAX;
+  max_1 = IONLEJEC;
+  kl_cb = IONLCB;
+  tol = IONTOL;
   
   if (argc < 1 || argc > 5) return -1;
   tol = atof(argv[0]);

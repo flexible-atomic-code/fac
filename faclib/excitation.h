@@ -16,7 +16,6 @@ typedef struct _CEPW_SCRATCH_ {
   double kl[MAXNKL+1];
   double log_kl[MAXNKL];
   double qk[MAXNKL];
-  double y2[MAXNKL];
 } CEPW_SCRATCH;
 
 #ifdef PERFORM_STATISTICS

@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.36 2002/12/06 02:52:54 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.37 2003/01/13 02:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -99,7 +99,8 @@ static struct {
   int ns;
   double kl[MAXNKL+1];
   double log_kl[MAXNKL];
-} pw_scratch = {8, 0, MAXKL, 8, 0, 1E-2, 0, 0};
+} pw_scratch = {IONMAXK, IONLQR, IONLMAX, IONLEJEC, 
+		IONLCB, IONTOL, 0, 0};
 
 static MULTI *qk_array;
 
@@ -180,7 +181,8 @@ int SetUsrCIEGrid(int n, double emin, double emax, double eth) {
 }
 
 int SetCIPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(0, 256, 8, 64, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(IONLQR, IONLMAX, 
+					   IONLEJEC, IONLCB, IONTOL);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -199,7 +201,6 @@ int SetCIQkMode(int m, double tol) {
 
 int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   double pk[MAXNTE][MAXNKL];
-  double y2[MAXNKL];
   double e1, e2, e0, te;
   ORBITAL *orb;
   int kappab, jb, klb, i, j, t, kl, klp;
@@ -213,6 +214,8 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   double eps, a, b, h, jb1;
   int kl_max0, kl_max1, kl_max2, max0;
   int type, last_kl0, second_last_kl0;
+  int np = 3, one = 1;
+  double logj;
 
   ko2 = k/2;
 
@@ -440,14 +443,14 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   
   t = pw_scratch.nkl;
   for (i = 0; i < n_tegrid; i++) {
-    spline(pw_scratch.log_kl, pk[i], t, 1E30, 1E30, y2);
     r = pk[i][0];
     for (j = 1; j < t; j++) {
       r += pk[i][j];
       kl0 = pw_scratch.kl[j-1];
       kl1 = pw_scratch.kl[j];
       for (kl = kl0+1; kl < kl1; kl++) {
-	splint(pw_scratch.log_kl, pk[i], y2, t, LnInteger(kl), &s);
+	logj = LnInteger(kl);
+	uvip3p_(&np, &t, pw_scratch.log_kl, pk[i], &one, &logj, &s);
 	r += s;
       }
     } 
@@ -1012,7 +1015,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   return 0;
 }
 
-void _FreeIonizationQk(void *p) {
+void FreeIonizationQkData(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
@@ -1023,7 +1026,7 @@ int FreeIonizationQk(void) {
   ARRAY *b;
   b = qk_array->array;
   if (b == NULL) return 0;
-  MultiFreeData(b, qk_array->ndim, _FreeIonizationQk);
+  MultiFreeData(b, qk_array->ndim, FreeIonizationQkData);
   return 0;
 }
 

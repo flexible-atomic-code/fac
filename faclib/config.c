@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.20 2002/09/18 15:53:48 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.21 2003/01/13 02:57:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -52,7 +52,7 @@ static SYMMETRY *symmetry_list;
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqr*"; 
 
 /* 
-** FUNCTION:    _DistributeElectrons
+** FUNCTION:    DistributeElectronsShell
 ** PURPOSE:     distribute nq electrons among the specified shells
 **              to construct all possible configurations.
 ** INPUT:       {CONFIG **cfg},
@@ -74,7 +74,7 @@ static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqr*";
 ** SIDE EFFECT: 
 ** NOTE:        This is a static function only used in module "config".
 */
-static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell, 
+static int DistributeElectronsShell(CONFIG **cfg, int ns, SHELL *shell, 
 				int nq, int *maxq) {
   CONFIG **cfg1, **cfg2;
   int *ncfg2;
@@ -120,8 +120,8 @@ static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell,
   ncfg2 = (int *) malloc(sizeof(int)*t);
   t = 0;
   for (q = qmin; q <= qmax; q++) {
-    _DistributeElectrons(cfg1+t, 1, shell, q, NULL);
-    ncfg2[t] = _DistributeElectrons(cfg2+t, ns-1, shell+1, nq-q, maxq+1);
+    DistributeElectronsShell(cfg1+t, 1, shell, q, NULL);
+    ncfg2[t] = DistributeElectronsShell(cfg2+t, ns-1, shell+1, nq-q, maxq+1);
     ncfg += ncfg2[t];
     t++;
   }
@@ -312,7 +312,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     maxq[i] = maxq[i+1] + j+1;
   }
 
-  ncfg = _DistributeElectrons(cfg, ns, shell, (int)dnq, maxq);
+  ncfg = DistributeElectronsShell(cfg, ns, shell, (int)dnq, maxq);
 
   free(shell);
   free(maxq);
@@ -1550,7 +1550,7 @@ int InitConfig(void) {
 }
 
 /* 
-** FUNCTION:    _FreeConfigData
+** FUNCTION:    FreeConfigData
 ** PURPOSE:     free the memory in a CONFIG struct.
 ** INPUT:       {void *},
 **              pointer to the CONFIG struct.
@@ -1558,7 +1558,7 @@ int InitConfig(void) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-void _FreeConfigData(void *p) {
+void FreeConfigData(void *p) {
   CONFIG *c;
 
   c = (CONFIG *) p;
@@ -1588,7 +1588,7 @@ int ReinitConfig(int m) {
   if (m) return 0;
 
   for (i = 0; i < n_groups; i++) {
-    ArrayFree(&(cfg_groups[i].cfg_list), _FreeConfigData);
+    ArrayFree(&(cfg_groups[i].cfg_list), FreeConfigData);
     cfg_groups[i].n_cfgs = 0;
     strcpy(cfg_groups[i].name, "_all_");
   }

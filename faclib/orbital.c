@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.39 2002/12/02 22:19:07 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.40 2003/01/13 02:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1162,7 +1162,7 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m) {
 int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
   int i;  
   double z0, z, d1, d2, del;
-  double a, b;
+  double a, b, c, r1;
 
   z0 = GetAtomicNumber();
   z = z0;
@@ -1170,24 +1170,37 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
   if (pot->flag == 0) pot->flag = -1; 
 
   if (rmin <= 0.0) rmin = 1E-5;
-  if (rmax <= 0.0) rmax = 5E+2;
+  rmin /= z0;
+
+  a = GRIDASYMP*sqrt(2.0*z)/PI;
+  c = 1.0/log(GRIDRATIO);
+  if (rmax <= 0.0) {
+    d2 = MAX_POINTS-10.0 + a*sqrt(rmin) + c*log(rmin);
+    rmax = d2/a;
+    rmax *= rmax;
+    d1 = 1.0;
+    while (d1 > EPS3) {
+      r1 = d2 - c*log(rmax);
+      r1 = r1/a;
+      r1 *= r1;
+      d1 = fabs(r1/rmax-1.0);
+      rmax = r1;
+    }
+    rmax *= z;
+  }
   nmax = sqrt(rmax)/2.0;
   if (nmax < 10) {
-    printf("rmax not large enough\n");
+    printf("rmax not large enough, enlarge MAX_PONITS.\n");
     exit(1);
   }
-
-  rmin /= z0;
   rmax /= z;
   
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
-
-  a = 16.0*sqrt(2.0*z)/PI;
   b = (MAX_POINTS - 1.0 - (a*d2))/d1;
-  if (b < 1.0/log(1.1)) {
+  if (b < c) {
     printf("Not enough radial mesh points, ");
-    printf("enlarge to at least %d\n", (int) (1 + a*d2 + d1/log(1.1)));
+    printf("enlarge to at least %d\n", (int) (1 + a*d2 + c*d1));
     exit(1);
   }
 
