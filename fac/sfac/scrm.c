@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.10 2002/03/11 01:56:42 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.11 2002/11/08 22:27:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -411,6 +411,32 @@ static int PSetAbund(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PDRBranch(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  
+  DRBranch();
+  
+  return 0;
+}
+
+static int PDRStrength(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int n, i;
+
+  if (argc < 2) return -1;
+
+  n = atoi(argv[1]);
+  if (argc == 3) {
+    i = atoi(argv[2]);
+  } else {
+    i = 0;
+  }
+
+  DRStrength(argv[0], n, i);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -442,6 +468,8 @@ static METHOD methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
+  {"DRBranch", PDRBranch, METH_VARARGS},
+  {"DRStrength", PDRStrength, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

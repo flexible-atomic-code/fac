@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.37 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.38 2002/11/08 22:27:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -96,6 +96,7 @@ static void FreeIonData(void *p) {
     free(ion->iblock);
     free(ion->ilev);
     free(ion->j);
+    free(ion->vnl);
     free(ion->energy);
     ion->nlevels = 0;
   }
@@ -272,6 +273,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->iblock = (LBLOCK **) realloc(ion->iblock, sizeof(LBLOCK *)*nlev);
   ion->ilev = (int *) realloc(ion->ilev, sizeof(int)*nlev);
   ion->j = (short *) realloc(ion->j, sizeof(short)*nlev);
+  ion->vnl = (short *) realloc(ion->vnl, sizeof(short)*nlev);
   ion->energy = (double *) realloc(ion->energy, sizeof(double)*nlev);
   
   nr0 = ion->nlevels;
@@ -314,6 +316,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	  ion->iblock[p] = blkp;
 	  ion->ilev[p] = q;
 	  ion->j[p] = ion->j[k];
+	  ion->vnl[p] = n*100 + ion->vnl[k]%100;
 	  if (s <= rec->imax[j-1]) {
 	    b = ion->energy[s] - (ion->energy[k] - a);
 	    b = -c/b;
@@ -666,6 +669,7 @@ int SetBlocks(double ni, char *ifn) {
     ion->iblock = (LBLOCK **) malloc(sizeof(LBLOCK *)*nlevels);
     ion->ilev = (int *) malloc(sizeof(int)*nlevels);
     ion->j = (short *) malloc(sizeof(short)*nlevels);
+    ion->vnl = (short *) malloc(sizeof(short)*nlevels);
     ion->energy = (double *) malloc(sizeof(double)*nlevels);
  
     if (k == 0 && ifn) {
@@ -706,6 +710,11 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->iblock[p] = ion1->iblock[q];
 	    ion->ilev[p] = ion1->ilev[q];
 	    ion->j[p] = r0[i].j;
+	    if (r0[i].p < 0) {
+	      ion->vnl[p] = -r0[i].p;
+	    } else {
+	      ion->vnl[p] = r0[i].p;
+	    }
 	    ion->energy[p] = r0[i].energy;
 	  }
 	} else {
@@ -766,6 +775,11 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->iblock[p] = blkp;
 	    ion->ilev[p] = q;
 	    ion->j[p] = r0[i].j;
+	    if (r0[i].p < 0) {
+	      ion->vnl[p] = -r0[i].p;
+	    } else {
+	      ion->vnl[p] = r0[i].p;
+	    }
 	    ion->energy[p] = r0[i].energy;
 	    if (ifn) {
 	      ion0.ionized_map[0][n0] = r1[i].ilev;
@@ -775,6 +789,7 @@ int SetBlocks(double ni, char *ifn) {
 	    }
 	  }
 	}
+	if (nb0 == 0) ion->iground = r0[0].ilev;
 	free(r0);
 	if (ifn) {
 	  free(r1);
@@ -888,6 +903,11 @@ int SetBlocks(double ni, char *ifn) {
 	ion->iblock[p] = blkp;
 	ion->ilev[p] = q;
 	ion->j[p] = r.j;
+	if (r.p < 0) {
+	  ion->vnl[p] = -r.p;
+	} else {
+	  ion->vnl[p] = r.p;
+	}
 	ion->energy[p] = r.energy;
       }
     }
@@ -3820,5 +3840,147 @@ int SetAIRates(int inv) {
     fclose(f);
     ExtrapolateAI(ion, inv);
   }
+  return 0;
+}
+
+int DRBranch(void) {
+  ION *ion;
+  RATE *r;
+  LBLOCK *blk1, *blk2;
+  BLK_RATE *brts;
+  int i, k, m, t;
+  int p, q;
+  double a, d;
+  int swp, endian;
+
+  if (ion0.atom <= 0) {
+    printf("ERROR: Blocks not set, exitting\n");
+    exit(1);
+  }
+
+  for (k = 0; k < blocks->dim; k++) {
+    blk1 = (LBLOCK *) ArrayGet(blocks, k);
+    for (m = 0; m < blk1->nlevels; m++) {
+      blk1->r[m] = 1.0;
+      blk1->n[m] = 0.0;
+    }
+  }
+
+  for (i = 1; i <= max_iter; i++) {
+    for (k = 0; k < ions->dim; k++) {
+      ion = (ION *) ArrayGet(ions, k);
+      for (t = 0; t < ion->tr_rates->dim; t++) {
+	brts = (BLK_RATE *) ArrayGet(ion->tr_rates, t);
+	blk1 = brts->iblock;
+	blk2 = brts->fblock;
+	for (m = 0; m < brts->rates->dim; m++) {
+	  r = (RATE *) ArrayGet(brts->rates, m);
+	  p = ion->ilev[r->i];
+	  q = ion->ilev[r->f];
+	  blk1->n[p] += blk2->r[q] * r->dir;
+	}
+      }
+    }
+  
+    d = 0.0;
+    for (k = 0; k < blocks->dim; k++) {
+      blk1 = (LBLOCK *) ArrayGet(blocks, k);
+      for (m = 0; m < blk1->nlevels; m++) {
+	if (blk1->total_rate[m]) {
+	  blk1->n[m] /= blk1->total_rate[m];
+	  a = fabs(blk1->n[m] - blk1->r[m]);
+	  if (blk1->n[m] > EPS10) a /= blk1->n[m];
+	  if (a > d) d = a;
+	  blk1->r[m] = blk1->n[m];
+	}
+	blk1->n[m] = 0.0;
+      }
+    }
+    printf("%5d %11.4E\n", i, d);
+    if (d < iter_accuracy) break;
+  }
+
+  if (i == max_iter) {
+    printf("Max iteration reached in DRBranch\n");
+  }
+
+  return 0;
+}
+
+int DRStrength(char *fn, int nele, int ilev0) {
+  ION *ion;
+  RATE *r;
+  LBLOCK *blk1;
+  BLK_RATE *brts;
+  DR_RECORD r1;
+  DR_HEADER hdr;
+  F_HEADER fhdr;
+  int k, m, t, p, n, vnl, vn, vl;
+  FILE *f;
+  
+  if (ion0.atom <= 0) {
+    printf("ERROR: Blocks not set, exitting\n");
+    exit(1);
+  }
+
+  fhdr.type = DB_DR;
+  fhdr.atom = ion0.atom;
+  strcpy(fhdr.symbol, ion0.symbol);
+  f = OpenFile(fn, &fhdr);
+  
+  if (ilev0 >= 0) {
+    for (k = 0; k < ions->dim; k++) {
+      ion = (ION *) ArrayGet(ions, k);
+      if (ion->nele - 1 == nele) {
+	ilev0 += ion->iground;
+	break;
+      }
+    }
+  } else {
+    ilev0 = -ilev0;
+  }
+
+  hdr.ilev = ilev0;
+  hdr.nele = nele;
+  n = -1;
+  for (k = 0; k < ions->dim; k++) {
+    ion = (ION *) ArrayGet(ions, k);
+    if (ion->nele - 1 == nele) {
+      hdr.energy = ion->energy[ilev0];
+      hdr.j = ion->j[ilev0];
+      for (t = 0; t < ion->ai_rates->dim; t++) {
+	brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
+	blk1 = brts->iblock;
+	for (m = 0; m < brts->rates->dim; m++) {
+	  r = (RATE *) ArrayGet(brts->rates, m);
+	  if (r->f != ilev0) continue;
+	  vnl = ion->vnl[r->i];
+	  vn = vnl/100;
+	  vl = vnl - vn*100;
+	  if (vn != n) {
+	    if (n > 0) DeinitFile(f, &fhdr);
+	    hdr.vn = vn;
+	    InitFile(f, &fhdr, &hdr);
+	    n = vn;
+	  }	
+	  p = ion->ilev[r->i];
+	  r1.ilev = r->i;
+	  r1.ibase = 0;
+	  r1.energy = ion->energy[r->i] - ion->energy[ilev0];
+	  r1.j = ion->j[r->i];
+	  r1.vl = vl;
+	  r1.br = blk1->r[p];
+	  r1.ai = r->dir;
+	  r1.total_rate = blk1->total_rate[p];
+	  WriteDRRecord(f, &r1);
+	}
+      }
+      break;
+    }
+  }
+
+  if (n >= 0) DeinitFile(f, &fhdr);  
+  CloseFile(f, &fhdr);
+
   return 0;
 }

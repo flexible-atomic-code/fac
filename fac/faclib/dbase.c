@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.29 2002/09/26 15:15:42 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.30 2002/11/08 22:27:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,6 +15,7 @@ static AI_HEADER ai_header;
 static CI_HEADER ci_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
+static DR_HEADER dr_header;
 
 static EN_SRECORD *mem_en_table = NULL;
 static int iground;
@@ -235,6 +236,29 @@ int SwapEndianRTRecord(RT_RECORD *r) {
   return 0;
 }
 
+int SwapEndianDRHeader(DR_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ilev), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->vn), sizeof(int));
+  SwapEndian((char *) &(h->j), sizeof(int));
+  SwapEndian((char *) &(h->energy), sizeof(float));
+  return 0;
+}
+
+int SwapEndianDRRecord(DR_RECORD *r) {
+  SwapEndian((char *) &(r->ilev), sizeof(int));
+  SwapEndian((char *) &(r->ibase), sizeof(int));
+  SwapEndian((char *) &(r->vl), sizeof(short));
+  SwapEndian((char *) &(r->j), sizeof(short));
+  SwapEndian((char *) &(r->energy), sizeof(float));
+  SwapEndian((char *) &(r->br), sizeof(float));
+  SwapEndian((char *) &(r->ai), sizeof(float));
+  SwapEndian((char *) &(r->total_rate), sizeof(float));
+}
+
 int InitDBase(void) {
   int i;
   for (i = 0; i < NDB; i++) {
@@ -330,6 +354,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   CI_HEADER *ci_hdr;
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
+  DR_HEADER *dr_hdr;
   long int p;
   size_t n;
   int ihdr;
@@ -418,6 +443,14 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     n = fwrite(rt_header.p_edist, sizeof(double), rt_header.np_edist, f);
     n = fwrite(rt_header.p_pdist, sizeof(double), rt_header.np_pdist, f);
     break;
+  case DB_DR:
+    dr_hdr = (DR_HEADER *) rhdr;
+    memcpy(&dr_header, dr_hdr, sizeof(DR_HEADER));
+    dr_header.position = p;
+    dr_header.length = 0;
+    dr_header.ntransitions = 0;
+    n = fwrite(&dr_header, sizeof(DR_HEADER), 1, f);
+    break;
   default:
     break;
   }
@@ -473,6 +506,10 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
     fseek(f, rt_header.position, SEEK_SET);
     n = fwrite(&rt_header, sizeof(RT_HEADER), 1, f);
     break;
+  case DB_DR:
+    fseek(f, dr_header.position, SEEK_SET);
+    n = fwrite(&dr_header, sizeof(DR_HEADER), 1, f);
+    break;
   default:
     break;
   }
@@ -505,6 +542,12 @@ int PrintTable(char *ifn, char *ofn, int v) {
   if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
     swp = 1;
     SwapEndianFHeader(&fh);
+  }
+
+  if (fh.nblocks == 0) {
+    fclose(f1);
+    fclose(f2);
+    return 0;
   }
 
   if (v && fh.type < DB_SP) {
@@ -552,10 +595,13 @@ int PrintTable(char *ifn, char *ofn, int v) {
   case DB_RT:
     n = PrintRTTable(f1, f2, v, swp);
     break;
+  case DB_DR:
+    n = PrintDRTable(f1, f2, v, swp);
+    break;
   default:
     break;
   }
-  
+
   fclose(f1);
   if (f2 != stdout) fclose(f2);
   return n;
@@ -1518,5 +1564,55 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   }
   fprintf(f2, "\n Sum  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n\n",
 	  rr, dc, re, pi, ea, ci, nele);
+  return nb;
+}
+
+int WriteDRRecord(FILE *f, DR_RECORD *r) {
+  int n;
+  dr_header.ntransitions += 1;
+  dr_header.length += sizeof(DR_RECORD);
+  n = fwrite(r, sizeof(DR_RECORD), 1, f);
+  return n;
+}
+
+int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
+  DR_HEADER h;
+  DR_RECORD r;
+  int n, i;
+  int nb;
+  double e;
+  
+  nb = 0;
+  while (1) {
+    n = fread(&h, sizeof(DR_HEADER), 1, f1);
+    if (n != 1) break;
+    if (swp) SwapEndianDRHeader(&h);
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "ILEV\t= %d\n", h.ilev);
+    e = h.energy;
+    if (v) e *= HARTREE_EV;
+    fprintf(f2, "E\t= %15.8E\n", e);
+    fprintf(f2, "JLEV\t= %d\n", h.j);
+    fprintf(f2, "NREC\t= %d\n", h.vn);
+    for (i = 0; i < h.ntransitions; i++) {
+      n = fread(&r, sizeof(DR_RECORD), 1, f1);
+      if (n != 1) break;
+      if (swp) SwapEndianDRRecord(&r);
+      e = r.energy;
+      if (v) {
+	e *= HARTREE_EV;
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%5d\t%2d %2d\t%11.4E %11.4E %11.4E %11.4E\n",
+		r.ilev, r.j, h.ilev, h.j, r.ibase, h.vn, r.vl, 
+		e, r.ai, r.total_rate, r.br);
+      } else {
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E %11.4E %11.4E %11.4E\n",
+		r.ilev, r.j, r.ibase, r.vl, e, r.ai, r.total_rate, r.br);
+      }
+    }
+    nb++;
+  }
+
   return nb;
 }

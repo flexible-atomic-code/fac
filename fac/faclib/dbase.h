@@ -12,7 +12,8 @@
 #define DB_CI 6
 #define DB_SP 7
 #define DB_RT 8
-#define NDB   DB_RT
+#define DB_DR 9
+#define NDB   9
 
 #define LNCOMPLEX   32
 #define LSNAME      24
@@ -215,6 +216,29 @@ typedef struct _RT_RECORD_ {
   char icomplex[LNCOMPLEX];
 } RT_RECORD;
 
+typedef struct _DR_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ilev;
+  int ntransitions;
+  int vn;
+  int j;
+  float energy;
+} DR_HEADER;
+
+typedef struct _DR_RECORD_ {
+  int ilev;
+  int ibase;
+  short vl;
+  short j;
+  float energy;
+  float br;
+  float ai;
+  float total_rate;
+} DR_RECORD;
+
+
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
@@ -261,6 +285,10 @@ int WriteRTRecord(FILE *f, RT_RECORD *r);
 int PrintRTTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianRTHeader(RT_HEADER *h);
 int SwapEndianRTRecord(RT_RECORD *r);
+int WriteDRRecord(FILE *f, DR_RECORD *r);
+int PrintDRTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianDRHeader(DR_HEADER *h);
+int SwapEndianDRRecord(DR_RECORD *r);
 
 #endif
 

@@ -48,10 +48,12 @@ typedef struct _BLK_RATE_ {
 } BLK_RATE;
 
 typedef struct _ION_ {
+  int iground;
   int nlevels;
   LBLOCK **iblock;
   int *ilev;
   short *j;
+  short *vnl;
   double *energy;
   ARRAY *ce_rates;
   ARRAY *tr_rates;
@@ -126,6 +128,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 		double emin, double emax, double fmin);
 int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	     double emin, double emax, double de, double smin);
+int DRBranch(void);
+int DRStrength(char *fn, int nele, int ilev0);
 
 #endif
 
