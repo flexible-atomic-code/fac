@@ -9,6 +9,10 @@
 
 int SetTransitionCut(double c);
 double GetTransitionCut(void);
+void SetTransitionMode(int m);
+void SetTransitionGauge(int m);
+void SetTransitionMaxE(int m);
+void SetTransitionMaxM(int m);
 void SetTransitionOptions(int gauge, int mode, int max_e, int max_m);
 int GetTransitionGauge(void);
 int GetTransitionMode(void);

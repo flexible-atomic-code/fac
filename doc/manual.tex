@@ -2302,10 +2302,30 @@ energy of the transition array being considered. The default is 0.05 and 8.0
 if this routine is not called.
 \end{fundesc}
 
+\begin{fundesc}{SetCELCB}{m}
+Set the orbital angular momentum for Coulomb-Bethe approximation.
+\end{fundesc}
+
+\begin{fundesc}{SetCELMax}{m}
+Set the maximum of orbital angular momentum for the partial-wave expansion in
+collisional excitation.
+\end{fundesc}
+
+\begin{fundesc}{SetCELQR}{m}
+Set the maxmum orbital angular momentum for quasi-relativistic approximation
+in collisional excitation. The default is 0, i.e., always use
+quasi-relativistic approximation.
+\end{fundesc}
+
 \begin{fundesc}{SetCEQkMode}{mode}
 Set the computation mode for the excitation radial integrals. \var{mode} may
 be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
+\end{fundesc}
+
+\begin{fundesc}{SetCETol}{t}
+Set the tolerance factor in the partial-wave expansion for collisional
+excitation.
 \end{fundesc}
 
 \begin{fundesc}{SetCIEGrid}{g $|$ n\opt{, e0, e1}}
@@ -2324,6 +2344,31 @@ Set the minimum and maximum collision energy for collisional ionization for
 the automatic construction of the grid. They are in units of average threshold
 energy of the transition array being considered. The default is 0.05 and 8.0
 if this routine is not called.
+\end{fundesc}
+
+\begin{fundesc}{SetCILCB}{m}
+Set the orbital angular momentum for the Coulomb-Bethe approximation in DW
+collisional ionization.
+\end{fundesc}
+
+\begin{fundesc}{SetCILMax}{m}
+Set the maximum orbital angular momentum for the partial-wave expansion in DW
+collisional ionization.
+\end{fundesc}
+
+\begin{fundesc}{SetCILMaxEject}{m}
+Set the maximum orbital angular momentum for the ejected electron in DW
+collisional ionization.
+\end{fundesc}
+
+\begin{fundesc}{SetCILQR}{m}
+Set the orbital angular momentum for quasi-relativistic approximation in DW
+collisional ionization.
+\end{fundesc}
+
+\begin{fundesc}{SetCITol}{m}
+Set the tolerance factor in the partial-wave expansion of DW collisional
+ionization. 
 \end{fundesc}
 
 \begin{fundesc}{SetCIQkMode}{mode}
@@ -2382,6 +2427,22 @@ optimization. This routine does not need to be called. The default for \var{t}
 is $10^{-6}$, \var{s} is determined dynamically according to the
 type of ion, \var{m} is 100, and \var{p} is 0 for no printing out of
 information. 
+\end{fundesc}
+
+\begin{fundesc}{SetOptimizeMaxIter}{m}
+Set the maximum itneration in \key{OptimizeRadial}.
+\end{fundesc}
+
+\begin{fundesc}{SetOptimizePrint}{m}
+Set the printing option in \key{OptimizeRadial}.
+\end{fundesc}
+
+\begin{fundesc}{SetOptimizeStabilizer}{m}
+Set the stablilizer factor in \key{OptimizeRadial}.
+\end{fundesc}
+
+\begin{fundesc}{SetOptimizeTolerance}{m}
+Set the tolerance factor in \key{OptimizeRadial}.
 \end{fundesc}
 
 \begin{fundesc}{SetPEGrid}{g $|$ n\opt{, e0, e1}}
@@ -2466,6 +2527,22 @@ to system default.
 Set the cutoff threshold for the radiative transition rates output. Only rates
 greater than \var{c} times the total decay rate of the upper level is written
 to the output file. The default is $10^{-3}$ if this routine is not called.
+\end{fundesc}
+
+\begin{fundesc}{SetTransitionGauge}{m}
+Set the gauge for radiative transition.
+\end{fundesc}
+
+\begin{fundesc}{SetTransitionMaxE}{m}
+Set the maximum rank of electric multipole transitions.
+\end{fundesc}
+
+\begin{fundesc}{SetTransitionMaxM}{m}
+Set the maximum rank of magnetic multipole transitions.
+\end{fundesc}
+
+\begin{fundesc}{SetTransitionMode}{m}
+Set the mode for the radiative transition.
 \end{fundesc}
 
 \begin{fundesc}{SetTransitionOptions}{g, m}

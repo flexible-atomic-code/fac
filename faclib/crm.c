@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.49 2003/04/22 16:07:15 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.50 2003/04/28 13:49:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -19,7 +19,7 @@ static int rec_cascade = 1;
 static double cas_accuracy = EPS4;
 static int max_iter = 256;
 static double iter_accuracy = EPS4;
-static double iter_stablizer = 0.75;
+static double iter_stabilizer = 0.75;
 
 static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
@@ -43,7 +43,7 @@ int SetPhoDensity(double pho) {
 int SetIteration(double acc, double s, int max) {
   if (max >= 0) max_iter = max;
   if (acc > 0) iter_accuracy = acc;
-  if (s > 0.0 && s < 1.0) iter_stablizer = s;
+  if (s > 0.0 && s < 1.0) iter_stabilizer = s;
   return 0;
 }
 
@@ -2569,8 +2569,8 @@ double BlockRelaxation(int iter) {
     }
   }
   
-  b = 1.0-iter_stablizer;
-  c = iter_stablizer;
+  b = 1.0-iter_stabilizer;
+  c = iter_stabilizer;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (electron_density > 0.0) {

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.52 2003/04/22 16:07:17 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.53 2003/04/28 13:49:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3266,8 +3266,14 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetNStatesPartition(PyObject *self, PyObject *args) {
-  int n;
-  
+  int n;  
+
+  if (sfac_file) {
+    SFACStatement("SetNStatesPartition", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   n = 0;
   if (!PyArg_ParseTuple(args, "|d", &n)) return NULL;
   SetNStatesPartition(n);
@@ -3290,6 +3296,261 @@ static PyObject *PY5N(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddi)", y5, y5p, ierr);
 }
 
+static PyObject *PSetOptimizeMaxIter(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetOptimizeMaxIter", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetOptimizeMaxIter(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetOptimizeStabilizer(PyObject *self, PyObject *args) {
+  double m;
+
+  if (sfac_file) {
+    SFACStatement("SetOptimizeStabilizer", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+  SetOptimizeStabilizer(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetOptimizePrint(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetOptimizePrint", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetOptimizePrint(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetOptimizeTolerance(PyObject *self, PyObject *args) {
+  double m;
+
+  if (sfac_file) {
+    SFACStatement("SetOptimizeTolerance", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+  SetOptimizeTolerance(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCELQR(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCELQR", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCELQR(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCELMax(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCELMax", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCELMax(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCELCB(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCELCB", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCELCB(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCETol(PyObject *self, PyObject *args) {
+  double m;
+
+  if (sfac_file) {
+    SFACStatement("SetCETol", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+  SetCETol(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCILQR(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCILQR", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCILQR(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCILMax(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCILMax", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCILMax(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCILMaxEject(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCILMaxEject", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCILMaxEject(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCILCB(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCILCB", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCILCB(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCITol(PyObject *self, PyObject *args) {
+  double m;
+
+  if (sfac_file) {
+    SFACStatement("SetCITol", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+  SetCITol(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetTransitionMode(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetTransitionMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetTransitionMode(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetTransitionGauge(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetTransitionGauge", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetTransitionGauge(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetTransitionMaxE(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetTransitionMaxE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetTransitionMaxE(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetTransitionMaxM(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetTransitionMaxM", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetTransitionMaxM(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+      
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3406,7 +3667,24 @@ static struct PyMethodDef fac_methods[] = {
   {"TotalPICross", PTotalPICross, METH_VARARGS}, 
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS}, 
-  {"Y5N", PY5N, METH_VARARGS},  
+  {"Y5N", PY5N, METH_VARARGS},
+  {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
+  {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
+  {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},
+  {"SetOptimizeTolerance", PSetOptimizeTolerance, METH_VARARGS},
+  {"SetCELQR", PSetCELQR, METH_VARARGS},
+  {"SetCELMax", PSetCELMax, METH_VARARGS},
+  {"SetCELCB", PSetCELCB, METH_VARARGS},
+  {"SetCETol", PSetCETol, METH_VARARGS},
+  {"SetCILQR", PSetCILQR, METH_VARARGS},
+  {"SetCILMax", PSetCILMax, METH_VARARGS},
+  {"SetCILMaxEject", PSetCILMaxEject, METH_VARARGS},
+  {"SetCILCB", PSetCILCB, METH_VARARGS},
+  {"SetCITol", PSetCITol, METH_VARARGS},
+  {"SetTransitionMode", PSetTransitionMode, METH_VARARGS},
+  {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
+  {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
+  {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS},
   {NULL, NULL}
 };
 

@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.49 2003/04/22 16:07:16 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.50 2003/04/28 13:49:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -130,6 +130,22 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth) {
   return n_usr;
 }
 
+void SetCELQR(int m) {
+  pw_scratch.qr = m;
+}
+
+void SetCELMax(int m) {
+  pw_scratch.max_kl = m;
+}
+
+void SetCELCB(int m) {
+  pw_scratch.kl_cb = m;
+}
+
+void SetCETol(double t) {
+  pw_scratch.tolerance = t;
+}
+
 int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
   pw_scratch.qr = qr;
   if (max > MAXKL) {
@@ -148,7 +164,6 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -1778,6 +1793,7 @@ int InitExcitation(void) {
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
   SetCEQkMode(QK_DEFAULT, 1E-3);
+  SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
 
   return 0;
 }
@@ -1794,6 +1810,7 @@ int ReinitExcitation(int m) {
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
   SetCEQkMode(QK_DEFAULT, 1E-3);
+  SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
 
   return 0;
 }

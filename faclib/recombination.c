@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.68 2003/04/22 16:07:16 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.69 2003/04/28 13:49:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1508,9 +1508,3 @@ int ReinitRecombination(int m) {
   
   return 0;
 }
-
-
-
-
-
-
