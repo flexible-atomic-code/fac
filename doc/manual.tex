@@ -3050,7 +3050,8 @@ The Fortran subroutine \verb|phfit2| of D. A. Verner is used. The result is in u
 \begin{fundesc}{PlotSpec}{ifn, ofn, n, t, e0, e1, de\opt{, s}}
 Print the spectrum of lines in the \key{DB\_SP} file \var{ifn} of a given
 type \var{t} to the file \var{ofn}. See \key{SelectLines} for the meaning of
-this parameter. The lines are convolved with a Gausian
+this parameter except when $t=0$, in which case all lines are included in the
+output. The lines are convolved with a Gausian 
 with FWMH of \var{de} in unit of eV. \var{e0} and \var{e1} are the spectral
 range to be considered. The optional \var{s} gives a cutoff
 threshold for the lines. Lines weaker than \var{s} times the strongest line
