@@ -19,4 +19,6 @@
 #undef pgiFortran
 #undef AbsoftProFortran
 
+#undef USE_MPI
+
 #endif

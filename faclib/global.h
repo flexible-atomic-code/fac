@@ -60,6 +60,10 @@
 
 #include "sysdef.h"
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.
@@ -68,7 +72,7 @@
 */
 #define VERSION        1
 #define SUBVERSION     0
-#define SUBSUBVERSION  5
+#define SUBSUBVERSION  6
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))

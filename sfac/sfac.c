@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.57 2004/05/31 23:29:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.58 2004/06/06 03:46:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3172,10 +3172,14 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
+#ifdef USE_MPI
+  MPI_Init(&argc, &argv);
+#endif
+
 #ifdef PMALLOC_CHECK
   pmalloc_open();
 #endif
-
+  
   if (InitFac() < 0) {
     printf("initialization failed\n");
     exit(1);
@@ -3196,6 +3200,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef PMALLOC_CHECK
   pmalloc_check();
+#endif
+
+#ifdef USE_MPI
+  MPI_Finalize();
 #endif
 
   return 0;

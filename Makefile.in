@@ -13,9 +13,9 @@ RANLIB = @RANLIB@
 
 TOPDIR = @TOPDIR@
 
-LIBS = @LIBS@
+CFLAGS = @CPPFLAGS@ @CFLAGS@
 
-FLIBS = @FLIBS@
+LIBS = @LDFLAGS@ @LIBS@ @FLIBS@
 
 all: lib sfac
 
@@ -36,7 +36,7 @@ sfac:	lib
 	cd sfac; make
 
 pfac:   lib
-	${PYTHON} setup.py build --force ${LIBS} ${FLIBS}
+	${PYTHON} setup.py build --force -extracomp="${CFLAGS}" -extralink="${LIBS}"
 
 doc:
 	cd doc; make
@@ -48,10 +48,10 @@ install:
 	cd sfac; make install
 
 install-pfac:
-	${PYTHON} setup.py install ${pyprefix}
+	${PYTHON} setup.py install
 
-install-slac:
-	cd slac; make install 
+install-mpy:
+	cd python; make install
 
 clean:
 	rm -f *.so *.a *.o *~
@@ -70,3 +70,5 @@ clean:
 
 cleanfac:
 	cd faclib;   make clean
+	cd python;   make clean
+	cd sfac;     make clean
