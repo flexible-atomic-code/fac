@@ -9,6 +9,8 @@ SetMCERates('tb.ce')
 # results are output in pop.txt.
 SetDensity(1.0)
 PopulationTable('pop.txt')
+# calculate the orientation parameters.
+Orientation()
 # calculate polarizations of all polarizations.
 # results are output in pol.txt.
 PolarizationTable('pol.txt')

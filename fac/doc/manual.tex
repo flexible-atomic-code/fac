@@ -3229,18 +3229,30 @@ input file \var{fn}. The resulting file can then be run using the \key{spol}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
-\begin{fundesc}{PolarizationTable}{fn}
+\begin{fundesc}{Orientation}{\opt{etrans\opt{,fn}}}
+Calculate the orientation parameters with optional transverse energy component \var{etrans}. This routine must be called after \key{PopulationTable} and
+before \key{PolarizationTable}. The orientation parameters are output in file
+\var{fn} if it is given.
+\end{fundesc}
+
+\begin{fundesc}{PolarizationTable}{fn\opt{, ifn}}
 Calcuates the line polarizations, and output the results to file \var{fn} in a
-simple ASCII format. It contains 7 columns, which are upper level index, lower
-level index, multipole type (as in the output of \key{TransitionTable}),
-transition energy in eV, total line emissivity, emission anisotropy factor at
-$90^\circ$, and linear polarization, respectively.
+simple ASCII format. It contains 8 columns, which are number of electrons in
+the ion, upper level index, lower level index, multipole type (as in the
+output of \key{TransitionTable}), transition energy in eV, total line
+emissivity, emission anisotropy factor at $90^\circ$, and linear polarization,
+respectively. \var{ifn} is an optional file name which specifies the
+transitions whose polarizations are to be calculated. It should contain 4
+columns, number of electrons, upper level, lower level, and multipole type,
+respectively. Each of the columns may be ``\verb|*|'', which matches any
+transitions. 
 \end{fundesc}
 
 \begin{fundesc}{PopulationTable}{fn}
 Calculate the magnetic sublevel populations, and
 output the results to file \var{fn} in a simple ASCII format. For each level,
-it tabulates the total population and magnetic sublevel fractions.
+it tabulates the total population, the orientation parameters $B_\lambda$,
+and magnetic sublevel fractions.
 \end{fundesc}
 
 \begin{fundesc}{Print}{args}

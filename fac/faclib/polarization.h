@@ -2,8 +2,8 @@
 #define _POLARIZATION_H_
 
 typedef struct _MLEVEL_ {
+  short nele;
   short j;
-  short p;
   double energy;
   double dtotal;
   double *rtotal;
@@ -46,6 +46,7 @@ int SetMLevels(char *fn, char *tfn);
 int SetMCERates(char *fn);
 int SetMAIRates(char *fn);
 int PopulationTable(char *fn);
-int PolarizationTable(char *fn);
+int Orientation(char *fn, double e);
+int PolarizationTable(char *fn, char *ifn);
 
 #endif

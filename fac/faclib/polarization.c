@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.12 2003/08/05 16:25:59 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.13 2003/08/06 16:36:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -6,6 +6,7 @@ USE (rcsid);
 
 #include "angular.h"
 #include "dbase.h"
+#include "parser.h"
 #include "polarization.h"
 #include "rates.h"
 #include "cf77.h"
@@ -25,27 +26,55 @@ static int maxlevels = 0;
 static int nmlevels=0;
 static int nmlevels1;
 static double *rmatrix=NULL;
+static double *BL[MAXPOL+1];
+static double PL[MAXPOL+1];
+static double PL2[MAXPOL+1];
 
 static struct {
   double energy;
   double esigma;
+  double etrans;
   double density;
   int idr, ndr;
   double *pdr;
 } params;
 
 int InitPolarization(void) {
+  int k;
+  double pqa[MAXPOL*2+1];
+  int ipqa[MAXPOL*2+1], ierr;
+  double nu1, theta;
+  int nudiff, mu1;
+
   InitDBase();
   InitAngular();
   InitRates();
   
   params.energy = 1E3;
   params.esigma = 0;
+  params.etrans = 0;
   params.density = 1.0;
 
   params.idr = -1;
   params.ndr = 0;
   params.pdr = NULL;
+
+  theta = acos(0.0);
+  nu1 = 0;
+  nudiff = MAXPOL*2;
+  mu1 = 0;
+  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+  for (k = 0; k <= MAXPOL; k++) {
+    PL[k] = pqa[k*2];
+  }
+  nu1 = 2;
+  nudiff = MAXPOL*2-2;
+  mu1 = 2;
+  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+  PL2[0] = 0.0;
+  for (k = 1; k <= MAXPOL; k++) {
+    PL2[k] = pqa[k*2-2];
+  }
 
   return 0;
 }
@@ -135,6 +164,9 @@ int SetMLevels(char *fn, char *tfn) {
   }
 
   if (nlevels > 0) {
+    for (k = 0; k <= MAXPOL; k++) {
+      free(BL[k]);
+    }
     for (t = 0; t < nlevels; t++) {
       m = levels[t].j/2 + 1;
       for (p = 0; p < m; p++) {
@@ -169,6 +201,9 @@ int SetMLevels(char *fn, char *tfn) {
   fseek(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
 
+  for (k = 0; k <= MAXPOL; k++) {
+    BL[k] = (double *) malloc(sizeof(double)*nlevels);
+  }
   levels = (MLEVEL *) malloc(sizeof(MLEVEL)*nlevels);
   t = 0;
   while (1) {
@@ -177,7 +212,7 @@ int SetMLevels(char *fn, char *tfn) {
     for (k = 0; k < h.nlevels; k++) {
       n = ReadENRecord(f, &r, swp);
       if (n == 0) break;
-      levels[t].p = r.p;
+      levels[t].nele = h.nele;
       levels[t].j = r.j;
       levels[t].energy = r.energy;
       m = r.j/2 + 1;
@@ -567,7 +602,7 @@ int SetMAIRates(char *fn) {
   return 0;
 }
 
-double Population(int iter) {
+static double Population(int iter) {
   int i, p, i1, i2;
   int j1, j2, m1, m2;
   int q1, q2, t, idr;
@@ -968,8 +1003,8 @@ int PopulationTable(char *fn) {
   fprintf(f, "\n");
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
-    p = levels[i].ic;
     fprintf(f, "%7d\t%12.5E\n", i, levels[i].dtotal);
+    p = levels[i].ic;
     for (m1 = -j1; m1 <= 0; m1 += 2) {
       t = (m1+j1)/2;
       if (levels[i].dtotal) {
@@ -988,30 +1023,38 @@ int PopulationTable(char *fn) {
   return 0;
 }
 
-int PolarizationTable(char *fn) {
-  int i, k, k2, t, t2;
-  int j1, j2, m1, i1, i2;
-  FILE *f;
-  double *BL[MAXPOL+1];
-  double AL[MAXPOL+1];
-  double FL[MAXPOL+1];
-  double PL[MAXPOL+1];
-  double PL2[MAXPOL+1];
+int Orientation(char *fn, double etrans) {
+  int k, i, k2, t, j1, m1;
+  double a, b;
   double pqa[MAXPOL*2+1];
   int ipqa[MAXPOL*2+1], ierr;
-  double nu1, theta;
+  double nu1, x, theta;
   int nudiff, mu1;
-  double a, b, tem, e;
-
-  f = fopen(fn, "w");
-  if (f == NULL) {
-    printf("cannot open file %s\n", fn);
-    return -1;
-  }
+  FILE *f;
   
-  for (k = 0; k <= MAXPOL; k++) {
-    BL[k] = (double *) malloc(sizeof(double)*nlevels);
+  if (fn) {
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return -1;
+    }
+  } else {
+    f = NULL;
   }
+  params.etrans = etrans;
+  x = sqrt(etrans/params.energy); 
+  if (x >= 1.0) {
+    printf("ETrans (%11.4E) >= Energy (%11.4E)\n", etrans, params.energy);
+    x = 1.0-EPS10;
+  }
+  if (x > EPS10) {
+    theta = asin(x);  
+    nu1 = 0;
+    nudiff = MAXPOL*2;
+    mu1 = 0;
+    DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+  }
+
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
     for (k = 0; k <= MAXPOL; k++) {
@@ -1030,37 +1073,136 @@ int PolarizationTable(char *fn) {
 	BL[k][i] += a;
       }
       BL[k][i] *= sqrt(j1 + 1.0);
+      if (x > EPS10) {
+	BL[k][i] *= pqa[k*2];
+      }
     }
+  }    
+
+  if (f) {
+    fprintf(f, "Energy  = %-12.5E\n", params.energy);
+    fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
+    fprintf(f, "ETrans  = %-12.5E\n", params.etrans);
+    fprintf(f, "Density = %-12.5E\n", params.density);
+    fprintf(f, "IDR     = %-3d\n", params.idr);
+    fprintf(f, "\n");
+    for (i = 0; i < nlevels; i++) {
+      fprintf(f, "%5d ", i);
+      for (k = 0; k <= MAXPOL; k++) {
+	fprintf(f, " %10.3E", BL[k][i]);
+      }
+      fprintf(f, "\n");
+    }
+    fclose(f);
+  }
+  
+  return 0;
+}
+
+static int InTrans(int n, int *trans, int i1, int i2, int k) {
+  int i, p1, p2, p3, p4;
+
+  for (i = 0; i < n; i += 4) {
+    if (trans[i] < 0) p1 = 1;
+    else if (trans[i] == levels[i1].nele) p1 = 1;
+    else p1 = 0;
+    if (trans[i+1] < 0) p2 = 1;
+    else if (trans[i+1] == i1) p2 = 1;
+    else p2 = 0;
+    if (trans[i+2] < 0) p3 = 1;
+    else if (trans[i+2] == i1) p3 = 1;
+    else p3 = 0;
+    if (trans[i+3] == 0) p4 = 1;
+    else if (trans[i+3] == k) p4 = 1;
+    else p4 = 0;
+    if (p1 && p2 && p3 && p4) return 1;
   }
 
-  theta = acos(0.0);
-  nu1 = 0;
-  nudiff = MAXPOL*2;
-  mu1 = 0;
-  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
-  for (k = 0; k <= MAXPOL; k++) {
-    PL[k] = pqa[k*2];
+  return 0;
+}
+    
+int PolarizationTable(char *fn, char *ifn) {
+  int i, k, k2, t, t2;
+  int j1, j2, m1, i1, i2;
+  FILE *f;
+  double AL[MAXPOL+1];
+  double FL[MAXPOL+1];
+  double a, b, tem, e;
+  char buf[128], *s;
+  int n, *trans;
+
+  n = 0;
+  if (ifn) {
+    f = fopen(ifn, "r");
+    if (f == NULL) {
+      printf("cannot open file %s\n", ifn);
+      return -1;
+    }
+    while (1) {
+      if (fgets(buf, 128, f) == NULL) break;
+      s = buf;
+      while (*s) {
+	if (*s == '\t') *s = ' ';
+	s++;
+      }
+      k = StrSplit(buf, ' ');
+      if (k == 4) {
+	n++;
+      }
+    }
+    if (n > 0) {
+      trans = malloc(sizeof(int)*n*4);
+      fseek(f, 0, SEEK_SET);
+      i = 0;
+      while (1) {
+	if (fgets(buf, 128, f) == NULL) break;
+	s = buf;
+	while (*s) {
+	  if (*s == '\t') *s = ' ';
+	  s++;
+	}
+	k = StrSplit(buf, ' ');
+	if (k == 4) {
+	  s = buf;
+	  for (t = 0; t < k; t++) {
+	    while (*s == ' ') s++;
+	    if (*s == '*') {
+	      if (t == 3) trans[i] = 0;
+	      else trans[i] = -1;
+	    } else {
+	      trans[i] = atoi(s);
+	    }
+	    i++;
+	    while (*s) s++;
+	    s++;
+	  }
+	}
+      }
+    }
+    fclose(f);
   }
-  nu1 = 2;
-  nudiff = MAXPOL*2-2;
-  mu1 = 2;
-  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
-  PL2[0] = 0.0;
-  for (k = 1; k <= MAXPOL; k++) {
-    PL2[k] = pqa[k*2-2];
+
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
   }
   
   fprintf(f, "Energy  = %-12.5E\n", params.energy);
   fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
+  fprintf(f, "ETrans  = %-12.5E\n", params.etrans);
   fprintf(f, "Density = %-12.5E\n", params.density);
   fprintf(f, "IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
   for (i = 0; i < ntr; i++) {
-    k = tr_rates[i].multipole;
-    if (k == 0) continue;
-    k2 = 2*abs(k);
     i1 = tr_rates[i].upper;
     i2 = tr_rates[i].lower;
+    k = tr_rates[i].multipole;
+    if (k == 0) continue;
+    if (n > 0) {
+      if (!(InTrans(n, trans, i1, i2, k))) continue;
+    }
+    k2 = 2*abs(k);
     j1 = levels[i1].j;
     j2 = levels[i2].j;
     for (t = 0; t <= MAXPOL; t++) {
@@ -1096,13 +1238,11 @@ int PolarizationTable(char *fn) {
     }
     tem = levels[i1].dtotal*tr_rates[i].rtotal;
     e = (levels[i1].energy - levels[i2].energy)*HARTREE_EV;
-    fprintf(f, "%5d %5d %2d %12.5E %12.5E %10.3E %10.3E\n",
-	    i1, i2, k, e, tem, b, a);
+    fprintf(f, "%3d %5d %5d %2d %12.5E %12.5E %10.3E %10.3E\n",
+	    levels[i1].nele, i1, i2, k, e, tem, b, a);
   }
-  
-  for (k = 0; k <= MAXPOL; k++) {
-    free(BL[k]);
-  }
+
+  if (n > 0) free(trans);
   fclose(f);
   return 0;
 }

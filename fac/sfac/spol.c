@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.5 2003/08/05 16:29:52 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.6 2003/08/06 16:36:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -179,14 +179,45 @@ static int PSetMAIRates(int argc, char *argv[], int argt[],
 static int PPolarizationTable(int argc, char *argv[], int argt[], 
 			      ARRAY *variables) {
   int i;
+  char *ifn;
 
-  if (argc != 1) return -1;
+  if (argc != 1 && argc != 2) return -1;
   if (argt[0] != STRING) return -1;
+  
+  if (argc == 2) {
+    if (argt[1] != STRING) return -1;
+    ifn = argv[1];
+  } else {
+    ifn = NULL;
+  }
 
-  i = PolarizationTable(argv[0]);
+  i = PolarizationTable(argv[0], ifn);
 
   return i;
 }
+
+static int POrientation(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int i;
+  double e;
+  char *fn;
+
+  if (argc > 2) return -1;
+  e = 0.0;
+  fn = NULL;
+  if (argc > 0) {
+    if (argt[0] != NUMBER) return -1;
+    e = atof(argv[0]);
+    if (argc > 1) {
+      if (argt[1] != STRING) return -1;
+      fn = argv[1];
+    }
+  }
+  i = Orientation(fn, e);
+
+  return i;
+}
+
 static int PPopulationTable(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   int i;
@@ -202,6 +233,7 @@ static int PPopulationTable(int argc, char *argv[], int argt[],
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
+  {"Orientation", POrientation, METH_VARARGS},
   {"SetIDR", PSetIDR, METH_VARARGS},
   {"SetMaxLevels", PSetMaxLevels, METH_VARARGS},
   {"SetMIteration", PSetMIteration, METH_VARARGS},
