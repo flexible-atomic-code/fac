@@ -86,8 +86,8 @@ class TABLE:
         s = 'byte-by-byte description of file: %s\n'%(self.fname)
         f.write(s)
         f.write(self.separator)
-        s = '  %8s %6s %20s %10s %-s\n'%('Bytes', 'Format', 'Units',
-                                         'Label', 'Explanation')
+        s = '  %8s %6s %20s %10s  %-s\n'%('Bytes', 'Format', 'Units',
+                                          'Label', 'Explanation')
         f.write(s)
         f.write(self.separator)
         
@@ -98,6 +98,8 @@ class TABLE:
             d = c['description']
             if (c.has_key('note')):
                 d = '*'+d
+            else:
+                d = ' '+d
             unit = c['unit']
             fmt = c['format']
             w = c['width']
@@ -162,13 +164,13 @@ class TABLE:
                 self.add_column(label=label,
                                 unit=unit,
                                 format=fmt,
-                                description=d[0],
+                                description=d[1:],
                                 note=' ')
             else:
                 self.add_column(label=label,
                                 unit=unit,
                                 format=fmt,
-                                description=d[0])
+                                description=d[1:])
         if (has_notes):
             while (1):
                 a = f.readline()
