@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.30 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.31 2004/05/27 01:34:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1573,7 +1573,7 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
  
   k = IsEven(parity)? 2*j : (2*j+1);
   if (k >= MAX_SYMMETRIES) {
-    printf("MAX_SYMMETRIES reached\n");
+    printf("Maximum symmetry reached: %d %d\n", MAX_SYMMETRIES, k);
     exit(1);
   }
 
@@ -1613,7 +1613,7 @@ int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
     j = (cfg->csfs)[i].totalJ;
     k = IsEven(parity)? 2*j : (2*j+1);
     if (k >= MAX_SYMMETRIES) {
-      printf("MAX_SYMMETRIES reached\n");
+      printf("Maximum symmetry reached: %d %d\n", MAX_SYMMETRIES, k);
       exit(1);
     }
 

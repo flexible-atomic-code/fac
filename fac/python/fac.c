@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.74 2004/05/17 17:57:59 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.75 2004/05/27 01:34:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1301,6 +1301,58 @@ static int SelectLevels(PyObject *p, int **t) {
   }
   return 0;
 }
+
+static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
+  PyObject *p, *q, *r;
+  int *n0, i, n1, n, ng, *s, *kg, kmax, nt;
+  char *fn, *fn1;
+  double eps;
+
+  if (sfac_file) {
+    SFACStatement("StructureMBPT", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  nt = 5;
+  eps = 1E-4;
+
+  if (!(PyArg_ParseTuple(args, "ssOOOii|id", 
+			 &fn, &fn1, &p, &q, &r, &n1, &kmax, &nt, &eps))) 
+    return NULL;
+    
+  n = DecodeGroupArgs(p, &s);
+  if (n <= 0) return NULL;
+
+  ng = DecodeGroupArgs(q, &kg);
+  if (ng > 0) {
+    n0 = malloc(sizeof(int)*ng);
+    if (PyList_Check(r)) {
+      if (PyList_Size(r) != ng) {
+	printf("n0 array must have the same size as gp array\n");
+	free(s);
+	free(kg);
+	free(n0);
+	return NULL;
+      }
+      for (i = 0; i < ng; i++) {
+	p = PyList_GetItem(r, i);
+	n0[i] = PyInt_AsLong(p);
+      }
+    } else {
+      n0[0] = PyInt_AsLong(r);
+      for (i = 1; i < ng; i++) {
+	n0[i] = n0[0];
+      }
+    }
+    StructureMBPT(fn, fn1, n, s, ng, kg, n0, n1, kmax, nt, eps);
+    free (kg);
+    free(n0);
+  }
+  free(s);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
 
 static PyObject *PMBPTS(PyObject *self, PyObject *args) {
   PyObject *p, *q, *r;
@@ -3976,6 +4028,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MBPT", PMBPT, METH_VARARGS},
   {"MBPTS", PMBPTS, METH_VARARGS},
+  {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},

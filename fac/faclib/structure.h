@@ -81,6 +81,14 @@ typedef struct _ECORRECTION_ {
   STATE *s;
 } ECORRECTION;
 
+typedef struct _CORR_CONFIG_ {
+  CONFIG *c;
+  int inp, inq;
+  int np, nq, kp, kq;
+  int *nbasis, ncs;
+  double **ene, ***ham;
+} CORR_CONFIG;
+
 #ifdef PERFORM_STATISTICS
 typedef struct _STRUCT_TIMING_ {
   double angz_mix;
@@ -108,7 +116,10 @@ int MBPT(char *fn, int n, int *s, int k, int *kg, int *n0, int n1,
 	 int kmax, int nt, int m);
 int MBPTS(char *fn, char *fn1, int n, int *s, int k, int *kg,
 	  int *n0, int nmax, int kmax, int nt);
+int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
+		  int *n0, int nmax, int kmax, int nt, double eps);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
+int ConstructHamiltonDiagonal(int isym, int k, int *kg);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);
