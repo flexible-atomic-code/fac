@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.70 2005/01/15 01:16:24 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.71 2005/01/15 01:23:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -395,8 +395,9 @@ int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
     *swp = 1;
     SwapEndianFHeader(fh);
   }
-  if (fh->type == DB_TR) {
+  if (fh->type == DB_TR && itrf >= 0) {
     if (VersionLE(fh, 1, 0, 6)) itrf = 1;
+    else itrf = 0;
   }
   return sizeof(F_HEADER);
 }
