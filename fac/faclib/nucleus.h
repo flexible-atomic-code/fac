@@ -17,6 +17,7 @@ int SetAtom(char *s, double z, double mass);
 char *GetAtomicSymbolTable();
 double *GetAtomicMassTable();
 double GetAtomicNumber();
+double GetAtomicMass();
 char *GetAtomicSymbol();
 double GetAtomicEffectiveZ(double r);
 

@@ -1,9 +1,13 @@
-Version 0.6.4, 10/24/2001
+Version 0.6.4, 10/25/2001
 	1. adding minpack routines. use an improved version of fitting
 	   formula for PI cross sections.
-	2. Increased the default radial grid points from 420 to 640. 
+	2. Increased the default radial grid points from 420 to 500. 
 	   the original grid wasn't quite enough for RR onto high orbital
 	   angular momentum states.
+	3. implement hydrogenic approximtion of RR and PI cross sections
+	   for high-n and high-L states. By default, states with n >= 6
+	   are calculated in hydrogenic approximation. this can be changed
+	   by SetHydrogenicNL(). 
 	
 Version 0.6.3, 10/22/2001
 	1. allow the use of CBO approximation in the collisional

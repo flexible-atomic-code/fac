@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.31 2001/10/24 23:31:36 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.32 2001/10/25 21:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -36,6 +36,7 @@ static double log_te[MAXNTE];
 
 static MULTI *pk_array;
 static MULTI *qk_array;
+static ARRAY *hyd_qk_array;
 
 static struct {
   int n_spec;
@@ -48,7 +49,7 @@ static struct {
   int pw_limits[2];
   int kl[MAXNKL+1];
   int kappa0[(MAXNKL+1)*2];
-} pw_scratch = {6, 6, 100, MAXNKL, 10, 0, 0, {0, MAXKL}};
+} pw_scratch = {8, 8, 500, MAXNKL, 10, 0, 0, {0, MAXKL}};
 
 double ai_cut = EPS8;
 
@@ -57,7 +58,9 @@ int n_complex = 0;
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
-
+void pixz1_(double *z, double *am, int *ne, int *nl, double *phe,
+	    double *pc, double *pcp, double *pnc, int *nde, int *ndl,
+	    int *iopt, int *ipcp);
 
 int SetAICut(double c) {
   ai_cut = c;
@@ -131,9 +134,9 @@ int AddRecPW(int n, int step) {
 }
 
 int SetRecSpectator(int n_max, int n_frozen, int n_spec) {
-  pw_scratch.n_max = n_max;
-  pw_scratch.n_frozen = n_frozen;
-  pw_scratch.n_spec = n_spec;
+  if (n_max > 0) pw_scratch.n_max = n_max;
+  if (n_frozen > 0) pw_scratch.n_frozen = n_frozen;
+  if (n_spec > 0) pw_scratch.n_spec = n_spec;
 }
 
 int SetRecQkMode(int m, double tol) {
@@ -365,10 +368,76 @@ int RecStatesFrozen(int n, int k, int *kg) {
 }
 
 void RRRadialQkHydrogenicParams(int np, double *p, int n, int kl) {
-  p[0] = 1.0;
-  p[1] = 3.0*(kl+1);
-  p[2] = 1.0;
-}
+#define NNE 10
+  double **qk;
+  double *t;
+  double z, am, d, eth;
+  double pc[200*NNE];
+  double pnc[NNE], e[NNE];
+  static double x[NNE], logx[NNE];
+  int ipcp;
+  static int iopt = 2;
+  int ipvt[NPARAMS];
+  int ierr;
+  int lwa=5*NPARAMS+NNE;
+  double wa[5*NPARAMS+NNE];
+  double fvec[NNE], fjac[NNE*NPARAMS];
+  double tol;
+  int i, j, k, ne;
+
+  qk = (double **) ArraySet(hyd_qk_array, n, NULL);
+  if (*qk == NULL) {
+    tol = 1E-4;
+    *qk = (double *) malloc(sizeof(double)*n*np);
+    ipcp = 0;
+    z = 1.0;
+    am = 100.0;
+    ne = NNE;
+    if (iopt == 2) {
+      x[0] = 1.01;
+      logx[0] = log(x[0]);
+      logx[ne-1] = log(50.0);
+      d = (logx[ne-1] - logx[0])/(ne-1.0);
+      for (i = 1; i < ne; i++) {
+	logx[i] = logx[i-1] + d;
+	x[i] = exp(logx[i]);
+      }
+      i = 200;
+      pixz1_(&z, &am, &ne, &i, e, pc, NULL, pnc, 
+	     &ne, &n, &iopt, &ipcp);
+      iopt = 0;
+    }
+    
+    eth = 0.5/(n*n);
+    for (i = 0; i < ne; i++) {
+      e[i] = (x[i]-1.0)*eth;
+    }
+    pixz1_(&z, &am, &ne, &n, e, pc, NULL, pnc, 
+	   &ne, &n, &iopt, &ipcp);
+    t = *qk;    
+    for (i = 0; i < n; i++) {
+      k = i;
+      for (j = 0; j < ne; j++) {
+	pnc[j] = pc[k]/x[j];
+	k += n;
+      }
+      t[0] = pnc[0];
+      t[1] = 3.0*(i+1);
+      t[2] = 1.0;
+      ierr = NLSQFit(np, t, tol, ipvt, fvec, fjac, ne, wa, lwa, 
+		     ne, x, logx, pnc, pnc, RRRadialQkFromFit, &i);
+      t += np;
+    }
+  }
+
+  t = (*qk) + kl*np;
+  z = GetResidualZ();
+  p[0] = t[0]/(z*z);
+  for (i = 1; i < np; i++) {
+    p[i] = t[i];
+  }
+#undef NNE
+}  
 
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra) {
@@ -410,8 +479,8 @@ void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx,
   }
 }
 
-double *RRRadialQkTable(int k0, int k1, int m) {
-  int index[3], k;
+int RRRadialQkTable(double *qr, int k0, int k1, int m) {
+  int index[3], k, nqk;
   double **p, *qk, tq[MAXNE], sig[MAXNE];
   double r0, r1;
   ORBITAL *orb;
@@ -426,7 +495,43 @@ double *RRRadialQkTable(int k0, int k1, int m) {
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
   double fvec[MAXNE], fjac[MAXNE*NPARAMS];
+  int nh, klh;
+  double hparams[NPARAMS];
 
+  orb = GetOrbital(k0);
+  kappa0 = orb->kappa;
+  GetJLFromKappa(kappa0, &jb0, &klb02);
+  klb0 = klb02/2;
+  GetHydrogenicNL(&nh, &klh);
+  if (m == -1) {
+    if (qk_mode == QK_FIT || orb->n >= nh || klb0 >= klh) {
+      RRRadialQkHydrogenicParams(NPARAMS, hparams, orb->n, klb0);
+    }
+    if (orb->n >= nh || klb0 >= klh) {
+      if (k0 != k1) return -1;
+      if (qk_mode != QK_FIT) {
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
+			    xegrid[ite], log_xegrid[ite], qr, NULL, 0, &klb0);
+	  for (ie = 0; ie < n_egrid; ie++) {
+	    qr[ie] /= tegrid[ite];
+	  }
+	  qr += n_tegrid;
+	}
+      } else {
+	k = 0;
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  for (i = 0; i < NPARAMS; i++) {
+	    qr[k] = hparams[i];
+	    k++;
+	  }
+	}
+	qr[k] = klb0;
+      }
+      return 0;
+    }
+  }
+  
   k = 2*abs(m);
   index[0] = k0;
   index[1] = k1;
@@ -436,40 +541,41 @@ double *RRRadialQkTable(int k0, int k1, int m) {
     index[2] = k-1;
   }
 
+  if (qk_mode == QK_FIT) {
+    nqk = n_tegrid*NPARAMS+1;
+  } else {
+    nqk = n_tegrid*n_egrid;
+  }
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
-    return *p;
+    for (i = 0; i < nqk; i++) {
+      qr[i] = (*p)[i];
+    }
+    return 0;
   }
 
-  orb = GetOrbital(k0);
-  kappa0 = orb->kappa;
-  GetJLFromKappa(kappa0, &jb0, &klb02);
-  klb0 = klb02/2;
   if (k1 != k0) {
     orb = GetOrbital(k1);
-    if (GetJFromKappa(orb->kappa) != jb0) return NULL;
+    if (GetJFromKappa(orb->kappa) != jb0) return -1;
   }
 
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
   if (qk_mode == QK_FIT) {
-    *p = (double *) malloc(sizeof(double)*(n_tegrid*NPARAMS+1));
+    *p = (double *) malloc(sizeof(double)*nqk);
     (*p)[n_tegrid*NPARAMS] = klb0;
-    tol = qk_fit_tolerence * 0.01;
+    tol = qk_fit_tolerence * 1E-3;
+    tol = Max(tol, 1E-4);
   } else {
-    *p = (double *) malloc(sizeof(double)*n_tegrid*n_egrid);
+    *p = (double *) malloc(sizeof(double)*nqk);
   }
   qk = *p;
-
   /* the factor 2 comes from the conitinuum norm */
   pref = 2.0/((k+1.0)*(jb0+1.0));
   
   for (ite = 0; ite < n_tegrid; ite++) {
     eb = tegrid[ite];
-    if (qk_mode == QK_FIT) {
-      RRRadialQkHydrogenicParams(NPARAMS, qk, orb->n, klb0);
-    }
     for (ie = 0; ie < n_egrid; ie++) {
       tq[ie] = 0.0;
     }
@@ -509,44 +615,36 @@ double *RRRadialQkTable(int k0, int k1, int m) {
     }
 
     if (qk_mode == QK_FIT) {
+      for (i = 0; i < NPARAMS; i++) {
+	qk[i] = hparams[i];
+      }
       for (ie = 0; ie < n_egrid; ie++) {
 	tq[ie] *= eb*pref;
 	sig[ie] = tq[ie];
       }
-      qk[0] = tq[0];
       ierr = NLSQFit(NPARAMS, qk, tol, ipvt, fvec, fjac, MAXNE, wa, lwa, 
 		     n_egrid, xegrid[ite], log_xegrid[ite], 
 		     tq, sig, RRRadialQkFromFit, &klb0);
-      if (ierr <= 3) {
-	chisq = 0.0;
-	for (ie = 0; ie < n_egrid; ie++) {
-	  chisq += fvec[ie]*fvec[ie];
-	}
-	chisq = sqrt(chisq/n_egrid);
-	if (chisq > qk_fit_tolerence) {
-	  for (i = 0; i < n_egrid; i++) {
+      chisq = 0.0;
+      for (ie = 0; ie < n_egrid; ie++) {
+	chisq += fvec[ie]*fvec[ie];
+      }
+      chisq = sqrt(chisq/n_egrid);
+      if (ierr > 3 || chisq > qk_fit_tolerence) {
+	for (i = 0; i < n_egrid; i++) {
+	  if (xegrid[ite][i] > 4.0) {
+	    sig[i] = tq[i]*1E3;
+	  } else {
 	    sig[i] = (xegrid[ite][i]/xegrid[ite][0])*tq[i];
 	  }
-	  ierr = NLSQFit(NPARAMS, qk, tol, ipvt, fvec, fjac, MAXNE, 
-			 wa, lwa, n_egrid, xegrid[ite], log_xegrid[ite], 
-			 tq, sig, RRRadialQkFromFit, &klb0);
-	  chisq = 0.0;
-	  for (ie = 0; ie < n_egrid; ie++) {
-	    chisq += fvec[ie]*fvec[ie];
-	  }
-	  chisq = sqrt(chisq/n_egrid);
 	}
-      } 
-      if (ierr > 3) {
-	RRRadialQkHydrogenicParams(NPARAMS, qk, orb->n, klb0);
-	RRRadialQkFromFit(NPARAMS, qk, 1, xegrid[ite], log_xegrid[ite],
-			  &r0, NULL, 0, &klb0);
-	qk[0] *= tq[0]/r0;
-      }
-      /*
-      printf("*%d %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
-	     ierr, chisq, qk[0], qk[1], qk[2], qk[3]);
-      */
+	for (i = 0; i < NPARAMS; i++) {
+	  qk[i] = hparams[i];
+	}
+	ierr = NLSQFit(2, qk, tol, ipvt, fvec, fjac, MAXNE, 
+		       wa, lwa, n_egrid, xegrid[ite], log_xegrid[ite], 
+		       tq, sig, RRRadialQkFromFit, &klb0);
+      }      
       qk += NPARAMS;
     } else {
       for (ie = 0; ie < n_egrid; ie++) {
@@ -556,16 +654,19 @@ double *RRRadialQkTable(int k0, int k1, int m) {
     }
   }
   
-  return *p;
+  for (i = 0; i < nqk; i++) {
+    qr[i] = (*p)[i];
+  }
+  return 0;
 }
   
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
-  double *rqe, rq[MAXNTE], tq[NPARAMS];
-  double x0;
+  double rq[MAXNTE], tq[NPARAMS];
+  double x0, rqe[MAXNTE*MAXNE+1];
 
-  rqe = RRRadialQkTable(k0, k1, m);
-  if (rqe == NULL) return -1;
+  i = RRRadialQkTable(rqe, k0, k1, m);
+  if (i < 0) return -1;
 
   if (qk_mode == QK_FIT) {
     if (n_tegrid == 1) {
@@ -963,11 +1064,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
   for (j = 0; j < n_egrid; j++) {
     log_egrid[j] = log(egrid[j] + e);
-    if (qk_mode == QK_FIT) {
-      for (i = 0; i < n_tegrid; i++) {
-	xegrid[i][j] = 1.0 + egrid[j]/tegrid[i];
-	log_xegrid[i][j] = log(xegrid[i][j]);
-      }
+    for (i = 0; i < n_tegrid; i++) {
+      xegrid[i][j] = 1.0 + egrid[j]/tegrid[i];
+      log_xegrid[i][j] = log(xegrid[i][j]);
     }
   }
   if (qk_mode == QK_INTERPOLATE) {
@@ -1486,7 +1585,10 @@ int InitRecombination() {
   blocks[1] = 10;
   blocks[2] = 4;
   MultiInit(qk_array, sizeof(double *), ndim, blocks);  
-
+  
+  hyd_qk_array = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(hyd_qk_array, sizeof(double *), 10);
+  
   n_complex = 0;
   for (i = 0; i < MAX_COMPLEX; i++) {
     rec_complex[i].rg = (ARRAY *) malloc(sizeof(ARRAY));

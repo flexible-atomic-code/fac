@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.28 2001/10/24 23:31:36 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.29 2001/10/25 21:57:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -321,7 +321,8 @@ int GetPotential(char *s) {
 
 double GetResidualZ() {
   double z;
-  z = potential->Z[MAX_POINTS-1] - potential->N + 1;
+  z = potential->Z[MAX_POINTS-1];
+  if (potential->N > 0) z -= potential->N - 1;
   return z;
 }
 

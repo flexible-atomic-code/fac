@@ -8,6 +8,8 @@
 #define CBMULTIPOLES   2
 #define MAXNCB         (CBMULTIPOLES*(CBMULTIPOLES+3)/2)
 
+void SetHydrogenicNL(int n, int kl);
+void GetHydrogenicNL(int *n, int *kl);
 double CoulombPhaseShift(double z, double e, int kappa);
 double AngularMSub(int lf, int li1, int li2, int q);
 double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k);
