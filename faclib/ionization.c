@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.17 2001/10/01 16:28:04 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.18 2001/10/12 03:15:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -8,6 +8,7 @@ USE (rcsid);
 
 #define NINT 15
 #define MAXNQK (MAXNE*(MAXNE+1)/2)
+#define NPARAMS 4
 
 static int output_format = 0;
 static int egrid_type = -1;
@@ -28,9 +29,9 @@ static double qk_usr[MAXNUSR];
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
-static double xegrid[MAXNE];
-static double log_xegrid[MAXNE];
-static double qk_egrid[MAXNE];
+static double sigma[MAXNE];
+static double xegrid[MAXNTE][MAXNE];
+static double log_xegrid[MAXNTE][MAXNE];
 
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
@@ -184,7 +185,6 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   klb /= 2;
   jmin = abs(k - jb);
   jmax = k + jb;
-
 
   qkjt = 0.0;
   for (j = jmin; j <= jmax; j += 2) {
@@ -390,47 +390,49 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   return 0;
 }
 
-int CIRadialQkIntegrated(double te, int kb, int kbp) {
-  int np, i, nd;
-  double *qk;
+int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
+  int np, i, j, k, nd;
+  double *qk, qkc[MAXNTE];
 
   qk = CIRadialQkIntegratedTable(kb, kbp);
-  np = 3;
-  if (n_tegrid == 1) {
-    for (i = 0; i < n_egrid; i++) {
-      qk_egrid[i] = qk[i];
-    }
-  } else {
+  if (qk == NULL) {
+    return -1;
+  }
+
+  if (n_tegrid > 1) {
     nd = 1;
-    for (i = 0; i < n_egrid; i++) {
-      uvip3p_(&np, &n_tegrid, tegrid, qk, &nd, &te, &qk_egrid[i]);
-      qk += n_tegrid;
-    }
-  }
-  if (qk_mode == QKFIT) {
-    for (i = 0; i < n_usr; i++) {
-      qk_usr[i] = CIRadialQkIntegratedFromFit(xusr[i], qk_egrid);
+    np = 3;
+    for (i = 0; i < NPARAMS; i++) {
+      k = i;
+      for (j = 0; j < n_tegrid; j++) {
+	qkc[j] = qk[k];
+	k += NPARAMS;
+      }
+      uvip3p_(&np, &n_tegrid, tegrid, qkc, &nd, &te, &qke[i]);
     }
   } else {
-    uvip3p_(&np, &n_egrid, log_xegrid, qk_egrid, 
-	    &n_usr, log_xusr, qk_usr);
+    for (i = 0; i < NPARAMS; i++) {
+      qke[i] = qk[i];
+    }
   }
+
   return 0;
 }
 
-double CIRadialQkIntegratedFromFit(double x, double c[]) {
-  double r, y;
-  
-  y = 1.0/x;
-  r = c[0]*log(x) + c[1]*(1.0-y)*(1.0-y);
-  r += (c[2]*y + c[3]*y*y)*(1.0-y);
-  
-  return r;
+void CIRadialQkIntegratedBasis(int npar, double *yb, double x, double log_x) {
+  double y1, y2;
+
+  y1 = 1.0/x;
+  y2 = 1.0 - y1;
+  yb[0] = log_x;
+  yb[1] = y2*y2;
+  yb[2] = log_x*y1 ;
+  yb[3] = y2;
 }
  
 double *CIRadialQkIntegratedTable(int kb, int kbp) {
   int index[3], ie1, ie2, ite, i, j;
-  double **p, *qkt, *qk;
+  double **p, *qkc, *qk, qkt[MAXNE];
   double xr[MAXNQK], yr[MAXNQK], zr[MAXNE];
   double x, y, integrand[NINT];
   int np, nd, ierr, nqk;
@@ -442,12 +444,16 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
     return (*p);
-  }
-
-  *p = (double *) malloc(sizeof(double)*n_tegrid*n_egrid);
-  qkt = *p;
+  } else if (qk_mode == QKFIT) {
+    return NULL;
+  }    
 
   qk = CIRadialQkTable(kb, kbp);
+  if (qk == NULL) return NULL;
+
+  *p = (double *) malloc(sizeof(double)*n_tegrid*NPARAMS);
+  qkc = *p;
+
   nd = 1;
   for (ite = 0; ite < n_tegrid; ite++) {
     for (ie1 = 0; ie1 < n_egrid; ie1++) {
@@ -474,11 +480,30 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       }   
       x = Simpson(integrand, 0, NINT-1);
       x *= yegrid0[1]*egrid[ie1];
-      qkt[ie1*n_tegrid + ite] = x;
+      qkt[ie1] = x;
     }
+    
+    SVDFit(NPARAMS, qkc, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+	   qkt, sigma, CIRadialQkIntegratedBasis);
     qk += nqk;
+    qkc += NPARAMS;
   }
-  return qkt;
+
+  /*
+  qkc = *p;
+  for (j = 0; j < NPARAMS; j++) {
+    i = j;
+    for (ite = 0; ite < n_tegrid; ite++) {
+      printf("%d %d %10.3E %10.3E\n", 
+	     kb, kbp, tegrid[ite], qkc[i]);
+      i += NPARAMS;
+    }
+    printf("\n\n");
+  }
+  printf("===============\n");
+  */
+
+  return (*p);
 }
 
 double *CIRadialQkTable(int kb, int kbp) {
@@ -493,6 +518,8 @@ double *CIRadialQkTable(int kb, int kbp) {
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
     return (*p);
+  } else if (qk_mode != QKDETAIL) {
+    return NULL;
   }
 
   nqk = n_egrid*(n_egrid+1)/2;
@@ -519,11 +546,11 @@ double *CIRadialQkTable(int kb, int kbp) {
   return qk;
 }
   
-int IonizeStrength(double *s, double *te, int b, int f) {
-  int i, ip, j, k, t, nt, np, ndp, md, ierr;
+int IonizeStrength(double *qkc, double *te, int b, int f) {
+  int i, ip, j, ierr;
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
-  double c, r;
+  double c, r, qke[NPARAMS];
   int nz, j0, j0p, kb, kbp;
 
   lev1 = GetLevel(b);
@@ -534,21 +561,8 @@ int IonizeStrength(double *s, double *te, int b, int f) {
   nz = AngularZFreeBound(&ang, f, b);
   if (nz <= 0) return -1;
 
-  for (j = 0; j < n_usr; j++) {
-    s[j] = 0.0;
-  }
-
-  if (qk_mode != QKFIT) {
-    for (i = 0; i < n_egrid; i++) {
-      xegrid[i] = egrid[i]/(*te);
-      if (egrid_type == 1) xegrid[i] += 1.0;
-      log_xegrid[i] = log(xegrid[i]);
-    }
-    for (i = 0; i < n_usr; i++) {
-      xusr[i] = usr_egrid[i]/(*te);
-      if (usr_egrid_type == 1) xusr[i] += 1.0;
-      log_xusr[i] = log(xusr[i]);
-    }
+  for (j = 0; j < NPARAMS; j++) {
+    qkc[j] = 0.0;
   }
 
   for (i = 0; i < nz; i++) {
@@ -564,15 +578,16 @@ int IonizeStrength(double *s, double *te, int b, int f) {
       if (ip != i) {
 	c *= 2.0;
       }
-      CIRadialQkIntegrated((*te), kb, kbp);
-      for (j = 0; j < n_usr; j++) {
-	s[j] += qk_usr[j];
+      ierr = CIRadialQkIntegrated(qke, (*te), kb, kbp);
+      if (ierr < 0) continue;
+      for (j = 0; j < NPARAMS; j++) {
+	qkc[j] += c * qke[j];
       }
     }
   }
 
-  for (j = 0; j < n_usr; j++) {
-    s[j] *= 16.0;
+  for (j = 0; j < NPARAMS; j++) {
+    qkc[j] *= 16.0;
   }
   
   free(ang);
@@ -585,13 +600,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int j1, j2, ie;
   FILE *file;
   LEVEL *lev1, *lev2;
-  double delta, emin, emax, e, e0, s[MAXNUSR];
+  double delta, emin, emax, e, e0;
+  double qkc[NPARAMS], qkb[NPARAMS], s;
   
-  if (n_usr == 0) {
-    printf("No ionization energy specified \n");
-    return -1;
-  }
-
   file = fopen(fn, "w");
   if (!file) return -1;
 
@@ -618,9 +629,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
   if (tegrid[0] < 0.0) {
     e = 2.0*(emax-emin)/(emax+emin);
-    if (e < 0.1) {
+    if (e < 0.2) {
       SetIEGrid(1, 0.5*(emin+emax), emax);
-    } else if (e < 0.3) {
+    } else if (e < 0.5) {
       SetIEGrid(2, emin, emax);
     } else {
       if (k == 2) n_tegrid = 2;
@@ -629,34 +640,31 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
 
   e = 0.5*(emin + emax);
-  emin = 0.1*e;
+  emin = 0.05*e;
   emax = 8.0*e;
   egrid_type = 1;
   pw_type = 0;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
 
-  if (n_usr == 0) {
-    n_usr = 6;
-  }
-  if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
-      SetUsrCIEGridDetail(n_egrid, egrid);
-    } else {
-      SetUsrCIEGrid(n_usr, emin, emax, e);
-    }
+  if (n_usr > 0 && usr_egrid[0] < 0.0) {
+    SetUsrCIEGrid(n_usr, emin, emax, e);
   }    
 
   if (n_egrid == 0) {    
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (usr_egrid_type == 0) 
-      emax = Min(usr_egrid[n_usr-1]-e, emax);
-    else 
-      emax = Min(usr_egrid[n_usr-1], emax);
     SetCIEGrid(n_egrid, emin, emax, e);
   }
 
+  for (ie = 0; ie < n_egrid; ie++) {
+    for (i = 0; i < n_tegrid; i++) {
+      xegrid[i][ie] = egrid[ie]/tegrid[i];
+      if (egrid_type == 1) xegrid[i][ie] += 1.0;
+      log_xegrid[i][ie] = log(xegrid[i][ie]);
+    }
+    sigma[ie] = 1.0/sqrt(xegrid[0][ie]);
+  }
   yegrid0[0] = 0.0;
   delta = 0.5/(NINT-1.0);
   for (i = 1; i < NINT; i++) {
@@ -682,38 +690,52 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
   }
   fprintf(file, "\n\n");
-  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid, ");
-  else fprintf(file, " Scattered Electron UsrEGrid, ");
-  if (output_format != 2) fprintf(file, "Ionization Strength, ");
-  if (output_format != 1) fprintf(file, "Cross Section");
-  fprintf(file, "\n\n");
+  fprintf(file, " Strength = A*ln(u) + B*(1-1/u)^2 + C*ln(u)/u + D*(1-1/u)\n");
+  if (output_format >= 0 && n_usr >= 0) {	
+    if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid ");
+    else fprintf(file, " Scattered Electron UsrEGrid ");
+    fprintf(file, "\n");
+  }
+  fprintf(file, "\n");
 
-  fprintf(file, "Bound 2J\tFree  2J\tDelta_E\n");
+  fprintf(file, "Bound 2J   Free  2J   Delta_E\n");
 
   for (i = 0; i < nb; i++) {
     j1 = LevelTotalJ(b[i]);
     for (j = 0; j < nf; j++) {
       j2 = LevelTotalJ(f[j]);
-      k = IonizeStrength(s, &e, b[i], f[j]);
+      k = IonizeStrength(qkc, &e, b[i], f[j]);
       if (k < 0) continue;
-      fprintf(file, "%-5d %-2d\t%-5d %-2d\t%10.4E\n",
+      fprintf(file, "%-5d %-2d   %-5d %-2d   %10.4E \n",
 	      b[i], j1, f[j], j2, e*HARTREE_EV);
-      for (ie = 0; ie < n_usr; ie++) {
-	fprintf(file, "%-10.3E ", 
-		usr_egrid[ie]*HARTREE_EV);
-	if (output_format != 2) {
-	  fprintf(file, "%-10.3E ", s[ie]);
-	} 
-	if (output_format != 1) {
-	  e0 = usr_egrid[ie];
-	  if (usr_egrid_type == 1) e0 += e;
-	  s[ie] = AREA_AU20*(s[ie])/(2*e0*(j1+1.0));
-	  fprintf(file, "%-10.3E ", s[ie]);
+      for (k = 0; k < NPARAMS; k++) {
+	fprintf(file, "%11.4E ", qkc[k]);
+      }
+      fprintf(file, "\n\n");
+      if (output_format >= 0 && n_usr > 0) {	
+	for (ie = 0; ie < n_usr; ie++) {
+	  xusr[ie] = usr_egrid[ie]/e;
+	  if (usr_egrid_type == 1) xusr[ie] += 1.0;
+	  log_xusr[ie] = log(xusr[ie]);
+	  CIRadialQkIntegratedBasis(4, qkb, xusr[ie], log_xusr[ie]);
+	  s = 0;
+	  for (k = 0; k < NPARAMS; k++) s += qkb[k]*qkc[k];
+	  fprintf(file, "%-10.3E ", 
+		  usr_egrid[ie]*HARTREE_EV);
+	  if (output_format != 2) {
+	    fprintf(file, "%-10.3E ", s);
+	  } 
+	  if (output_format != 1) {
+	    e0 = usr_egrid[ie];
+	    if (usr_egrid_type == 1) e0 += e;
+	    s *= AREA_AU20/(2*e0*(j1+1.0));
+	    fprintf(file, "%-10.3E ", s);
+	  }
+	  fprintf(file, "\n");
 	}
 	fprintf(file, "\n");
-      }
-      fprintf(file, "\n");
-    }      
+      }      
+    }
   }
 
   fclose(file);
@@ -748,6 +770,8 @@ int InitIonization() {
   egrid[0] = -1.0;
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
+  output_format = 0;
+
   return 0;
 }
 

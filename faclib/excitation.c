@@ -1,12 +1,13 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.21 2001/09/14 13:16:59 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.22 2001/10/12 03:15:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-#define MAXMSUB  64
+#define MAXMSUB  32
+#define NPARAMS  5
 
 static int output_format = 0;
 static int egrid_type = -1;
@@ -14,12 +15,20 @@ static int usr_egrid_type = -1;
 static int pw_type = -1;
 
 static int interpolate_egrid = 0;
+static int n_qk = 0;
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
+static double xusr[MAXNUSR];
+static double log_xusr[MAXNUSR];
+
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
+static double sigma[MAXNE];
+static double xegrid[MAXNTE][MAXNE];
+static double log_xegrid[MAXNTE][MAXNE];
+
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
@@ -33,7 +42,7 @@ static CEPW_SCRATCH pw_scratch = {1, MAXKL, 100, 5E-2, 0, 0, 10};
 static MULTI *pk_array;
 static MULTI *kappa0_array;
 static MULTI *kappa1_array;
-
+static MULTI *qk_array;
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
@@ -403,374 +412,461 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   return type;
 }
 
-int CERadialQk(double *rq, int ie, double te, int k0, 
-		  int k1, int k2, int k3, int k) {
-  int type, t, swap;
+double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
+  int type, t, ie, ite, ipk, ipkp, np;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
-  double *pk, *pkp, r, s, b;
-  double *pk1, *pk2, x1[MAXNTE];  
-  double *qk, *y2, e1;
+  double *pk, *pkp, *ptr, r, s, b;
+  double *qk, *y2, rq[MAXNTE][MAXNE], e1, te;
+  double *rqc, **p;
+  int index[6];
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
 
+  index[0] = 0;
+  index[1] = k/2;
+  index[2] = k0;
+  index[3] = k1;
+  index[4] = k2;
+  index[5] = k3;
+  
+  
+  p = (double **) MultiSet(qk_array, index, NULL);
+  if (*p) {
+    return *p;
+  }   
+  
   qk = pw_scratch.qk;
   y2 = pw_scratch.y2;
 
-  pk2 = NULL;
-  type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, ie,
-		    k0, k1, k);
-  pk1 = malloc(sizeof(double)*nkappa);
-  for (i = 0; i < nkappa; i++) {
-    pk1[i] = InterpolatePk(te, type, pk);
-    pk += n_tegrid;
-  }
-  nklp = nkl;
-  if (k2 != k0 || k3 != k1) {
-    type = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p, ie,
-		      k2, k3, k);
-    pk2 = malloc(sizeof(double)*nkappap);
-    for (i = 0; i < nkappap; i++) {
-      pk2[i] = InterpolatePk(te, type, pkp);
-      pkp += n_tegrid;
-    }
-  }
-  swap = 0;
-  if (nkl > nklp) {
-    pk = pk1;
-    pk1 = pk2;
-    pk2 = pk;
-    i = nkappa;
-    nkappa = nkappap;
-    nkappap = i;
-    tmp = kappa0;
-    kappa0 = kappa0p;
-    kappa0p = tmp;
-    tmp = kappa1;
-    kappa1 = kappa1p;
-    kappa1p = tmp;
-    nkl = nklp;
-    swap = 1;
-  } else if (nkl < nklp) {
-    swap = 1;
-  }
-  nklp = nkl-1;
-  for (i = 0; i < nkl; i++) {
-    qk[i] = 0.0;
-  }
-  t = -1;
-  kl0 = -1;
+  *p = (double *) malloc(sizeof(double)*n_tegrid*n_qk);
+  rqc = *p;
 
-  for (i = 0; i < nkappa; i++) {
-    if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
-    else kl = GetLFromKappa(kappa1[i]);
-    if (kl != kl0) {
-      t++;
-      kl0 = kl;
+  for (ie = 0; ie < n_egrid; ie++) {
+    e1 = egrid[ie];
+    type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, 
+		      ie, k0, k1, k);
+    nklp = nkl;
+    if (k2 != k0 || k3 != k1) {
+      type = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
+			ie, k2, k3, k);
     }
-    if (k2 == k0 && k3 == k1) {
-      s = pk1[i]*pk1[i];
-      qk[t] += s;
-    } else {
-      s = 0.0;
-      for (j = 0; j < nkappap; j++) {
-	if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
-	  s = pk1[i]*pk2[j];
-	  break;
+    if (nkl > nklp) {
+      ptr = pk;
+      pk = pkp;
+      pkp = ptr;
+      i = nkappa;
+      nkappa = nkappap;
+      nkappap = i;
+      tmp = kappa0;
+      kappa0 = kappa0p;
+      kappa0p = tmp;
+      tmp = kappa1;
+      kappa1 = kappa1p;
+      kappa1p = tmp;
+      nkl = nklp;
+    } 
+    nklp = nkl-1;
+    
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      if (egrid_type == 0) e1 = egrid[ie] - te;      
+      for (i = 0; i < nkl; i++) {
+	qk[i] = 0.0;
+      }
+      t = -1;
+      kl0 = -1;
+      
+      ipk = ite;
+      for (i = 0; i < nkappa; i++) {
+	if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
+	else kl = GetLFromKappa(kappa1[i]);
+	if (kl != kl0) {
+	  t++;
+	  kl0 = kl;
+	}
+	if (k2 == k0 && k3 == k1) {
+	  s = pk[ipk]*pk[ipk];
+	  qk[t] += s;
+	} else {
+	  s = 0.0;
+	  ipkp = ite;
+	  for (j = 0; j < nkappap; j++) {
+	    if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
+	      s = pk[ipk]*pkp[ipkp];
+	      break;
+	    }
+	    ipkp += n_tegrid;
+	  }
+	  qk[t] += s;
+	}
+	ipk += n_tegrid;
+      }
+
+      spline(pw_scratch.log_kl, qk, nkl, 1E30, 1E30, y2); 
+      r = qk[0];
+      for (i = 1; i < nkl; i++) {
+	r += qk[i];
+	kl0 = pw_scratch.kl[i-1];
+	kl1 = pw_scratch.kl[i];
+	for (j = kl0+1; j < kl1; j++) {
+	  splint(pw_scratch.log_kl, qk, y2, nkl, 
+		 LnInteger(j), &s);
+	  r += s;
 	}
       }
-      qk[t] += s;
-    }
-  }
-
-  spline(pw_scratch.log_kl, qk, nkl, 1E30, 1E30, y2); 
-  r = qk[0];
-  for (i = 1; i < nkl; i++) {
-    r += qk[i];
-    kl0 = pw_scratch.kl[i-1];
-    kl1 = pw_scratch.kl[i];
-    for (j = kl0+1; j < kl1; j++) {
-      splint(pw_scratch.log_kl, qk, y2, nkl, 
-	     LnInteger(j), &s);
-      r += s;
-    }
-  }
  
-  free(pk1);
-  if (pk2) {
-    free(pk2);
+      if (type >= CBMULTIPOLES) {
+	b = GetCoulombBetheAsymptotic(te, e1);
+	s = qk[nklp]*b;
+	r = r + s;
+      } else if (type >= 0) {
+	b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
+	s = qk[nklp]*b;
+	r = r + s;       
+      }
+      
+      rq[ite][ie] = r;
+    }
   }
 
-  if (type >= CBMULTIPOLES) {
-    e1 = egrid[ie];
-    if (egrid_type == 0) e1 -= te;
-    b = GetCoulombBetheAsymptotic(te, e1);
-    s = qk[nklp]*b;
-    r = r + s;
-  } else if (type >= 0) {
-    for (i = 0; i < n_tegrid; i++) {
-      x1[i] = (GetCoulombBethe(0, i, ie, type, 1))[nklp];
+  ptr = rqc;
+  if (interpolate_egrid) {
+    if (type == 1) np = NPARAMS;
+    else np = NPARAMS - 1;
+    for (ite = 0; ite < n_tegrid; ite++) {      
+      SVDFit(np, ptr, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+	     rq[ite], sigma, CERadialQkBasis);
+      if (np < NPARAMS) ptr[np] = 0.0;
+      ptr += n_qk;
     }
-    b = InterpolatePk(te, -1, x1);
-    s = qk[nklp]*b;
-    r = r + s;       
+  } else {
+    for (ite = 0; ite < n_tegrid; ite++) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	ptr[ie] = rq[ite][ie];
+      }
+      ptr += n_qk;
+    }
   }
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-  *rq = r;
-  return type;
+  return rqc;
 }
 
   
-int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
-		   int k2, int k3, int k, int kp, 
-		   int nq, int *q) {
-  int have_pk2, type1, type2, kl, np, nt;
+double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, 
+			    int k, int kp, int nq, int *q) {
+  int type1, type2, kl, np;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int nkappa, nkappap, nkl, nklp;
   short  *kappa0, *kappa1, *kappa0p, *kappa1p;
-  double *pk1, *pk2;
-  double *pk, *pkp, *qy2;
+  double *pk, *pkp, *ptr, *qy2;
   int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
-  double r, e0, e1, s, b;
+  double r, e0, e1, te, s, b;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
-  double dpha[MAXNTE];
-  int ite, iq;
-  double **qk;
+  int ie, ite, iq, ipk, ipkp;
+  double qk[MAXMSUB][MAXNKL];
+  double rq[MAXMSUB][MAXNTE][MAXNE];
+  double rqt[MAXMSUB];
+  double *rqc, **p;
+  int index[6];
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
 
+  index[0] = kp/2;
+  index[1] = k/2;
+  index[2] = k0;
+  index[3] = k1;
+  index[4] = k2;
+  index[5] = k3;
+  
+  p = (double **) MultiSet(qk_array, index, NULL);
+  if (*p) {
+    return *p;
+  } 
+  
   qy2 = pw_scratch.y2;
+  pkp = NULL;
 
-  pk2 = NULL;
-  have_pk2 = 0;
-  type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, ie, 
-		     k0, k1, k);
-  pk1 = malloc(sizeof(double)*nkappa);
-  for (i = 0; i < nkappa; i++) {
-    pk1[i] = InterpolatePk(te, type1, pk);
-    pk += n_tegrid;
-  }
-  if (kp == k && k2 == k0 && k3 == k1) {
-    pk2 = pk1;
-    nkappap = nkappa;
-    nklp = nkl;
-    kappa0p = kappa0;
-    kappa1p = kappa1;
-    type2 = type1;
-  } else {
-    type2 = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p, ie,
-		       k2, k3, kp);
-    pk2 = malloc(sizeof(double)*nkappap);
-    for (i = 0; i < nkappap; i++) {
-      pk2[i] = InterpolatePk(te, type2, pkp);
-      pkp += n_tegrid;
-    }
-    have_pk2 = 1;
-    if (nklp < nkl) nkl = nklp;
-  }
-  qk = (double **) malloc(sizeof(double *)*nq); 
-  for (i = 0; i < nq; i++) { 
-    qk[i] = (double *) malloc(nkl*sizeof(double)); 
-    for (j = 0; j < nkl; j++) { 
-      qk[i][j] = 0.0; 
-    }   
-  } 
-    
-  np = 3;
-  nt = 1;
-  kl = -1;
-  i = -1;
-  if (egrid_type == 0) {
-    e0 = egrid[ie];
-    e1 = e0 - te;
-  } else {
-    e1 = egrid[ie];
-  }
-  for (j = 0; j < nkappa; j++) {
-    km0 = kappa0[j];
-    km1 = kappa1[j];
-    GetJLFromKappa(km0, &j0, &kl0);
-    GetJLFromKappa(km1, &j1, &kl1);
-    if (kl1 != kl) {
-      i++;
-      kl = kl1;
-      if (i >= nkl) break;
-    }
-    kl0_2 = kl0/2;
-    for (t = 0; t < nkappap; t++) {
-      kmp0 = kappa0p[t];
-      kmp1 = kappa1p[t];
-      if (kmp1 != km1) continue;
-      
-      GetJLFromKappa(kmp0, &jp0, &klp0);
-      klp0_2 = klp0/2;
-      
-      s = pk1[j]*pk2[t];
-      s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
-      if (km0 != kmp0) { 
-	km0_m = km0; 
-	kmp0_m = kmp0; 
-	if (kl0_2 >= pw_scratch.qr) { 
-	  if (IsOdd(kl0_2)) { 
-	    if (km0 < 0) km0_m = -km0 - 1; 
-	  } else { 
-	    if (km0 > 0) km0_m = -km0 - 1; 
-	  } 
-	} 
+  *p = (double *) malloc(sizeof(double)*nq*n_tegrid*n_qk);
+  rqc = *p;
 
-	if (klp0_2 >= pw_scratch.qr) { 
-	  if (IsOdd(klp0_2)) { 
-	    if (kmp0 < 0) kmp0_m = -kmp0 - 1;
-	  } else { 
-	    if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
-	  } 
-	} 
-	
-	if (egrid_type == 1) {
-	  for (ite = 0; ite < n_tegrid; ite++) { 
-	    e0 = e1 + tegrid[ite]; 
+  for (ie = 0; ie < n_egrid; ie++) {
+    type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1,
+		       ie, k0, k1, k);
+    if (kp == k && k2 == k0 && k3 == k1) {
+      pkp = pk;
+      nkappap = nkappa;
+      nklp = nkl;
+      kappa0p = kappa0;
+      kappa1p = kappa1;
+      type2 = type1;
+    } else {
+      type2 = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
+			 ie, k2, k3, kp);
+      if (nklp < nkl) nkl = nklp;
+    }
+
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      if (egrid_type == 0) {
+	e0 = egrid[ie];
+	e1 = e0 - te;
+      } else {
+	e1 = egrid[ie];
+	e0 = e1 + te;
+      }
+      
+      for (i = 0; i < nq; i++) { 
+	for (j = 0; j < nkl; j++) { 
+	  qk[i][j] = 0.0; 
+	}   
+      } 
+      
+      kl = -1;
+      i = -1;
+      ipk = ite;
+      for (j = 0; j < nkappa; j++) {
+	km0 = kappa0[j];
+	km1 = kappa1[j];
+	GetJLFromKappa(km0, &j0, &kl0);
+	GetJLFromKappa(km1, &j1, &kl1);
+	if (kl1 != kl) {
+	  i++;
+	  kl = kl1;
+	  if (i >= nkl) break;
+	}
+	kl0_2 = kl0/2;
+	ipkp = ite;
+	for (t = 0; t < nkappap; t++) {
+	  kmp0 = kappa0p[t];
+	  kmp1 = kappa1p[t];
+	  if (kmp1 != km1) {
+	    ipkp += n_tegrid;
+	    continue;
+	  }
+	  GetJLFromKappa(kmp0, &jp0, &klp0);
+	  klp0_2 = klp0/2;
+	  
+	  s = pk[ipk]*pkp[ipkp];
+	  s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
+	  if (km0 != kmp0) { 
+	    km0_m = km0; 
+	    kmp0_m = kmp0; 
+	    if (kl0_2 >= pw_scratch.qr) { 
+	      if (IsOdd(kl0_2)) { 
+		if (km0 < 0) km0_m = -km0 - 1; 
+	      } else { 
+		if (km0 > 0) km0_m = -km0 - 1; 
+	      } 
+	    } 
+
+	    if (klp0_2 >= pw_scratch.qr) { 
+	      if (IsOdd(klp0_2)) { 
+		if (kmp0 < 0) kmp0_m = -kmp0 - 1;
+	      } else { 
+		if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
+	      } 
+	    } 
 	    c0 = OrbitalIndex(0, km0_m, e0); 
-	    cp0 = OrbitalIndex(0, kmp0_m, e0); 
+	    cp0 = OrbitalIndex(0, kmp0_m, e0);
 	    pha0 = GetPhaseShift(c0); 
-	    phap0 = GetPhaseShift(cp0); 
-	    dpha[ite] = pha0-phap0; 
+	    phap0 = GetPhaseShift(cp0);  
+	    r = pha0 - phap0;
+	    s *= cos(r);
+	  }
+	
+	  for (iq = 0; iq < nq; iq++) { 
+	    rqt[iq] = 0.0; 
 	  } 
-	  r = InterpolatePk(te, -1, dpha);
-	} else {
-	  c0 = OrbitalIndex(0, km0_m, e0); 
-	  cp0 = OrbitalIndex(0, kmp0_m, e0);
-	  pha0 = GetPhaseShift(c0); 
-	  phap0 = GetPhaseShift(cp0);  
-	  r = pha0 - phap0;
+	  for (mi = -1; mi <= 1; mi += 2) { 
+	    s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
+	    s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
+	    for (iq = 0; iq < nq; iq++) { 
+	      mf = mi + q[iq]; 
+	      s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
+	      s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
+	      rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+	    } 
+	  } 
+	  
+	  for (iq = 0; iq < nq; iq++) { 
+	    qk[iq][i] += s*rqt[iq]; 
+	  } 
+
+	  ipkp += n_tegrid;
 	}
-	s *= cos(r);
+	ipk += n_tegrid;
       }
+    
+      for (iq = 0; iq < nq; iq++) { 
+	spline(pw_scratch.log_kl, qk[iq], nkl, 1.0E30, 1.0E30, qy2);     
+	r = qk[iq][0];
+	for (i = 1; i < nkl; i++) { 
+	  r += qk[iq][i]; 
+	  kl0 = pw_scratch.kl[i-1]; 
+	  kl1 = pw_scratch.kl[i];        
+	  for (j = kl0+1; j < kl1; j++) {       
+	    splint(pw_scratch.log_kl, qk[iq], qy2, 
+		   nkl, LnInteger(j), &s); 
+	    r += s; 
+	  }      
+	}    
+	rq[iq][ite][ie] = r; 
+      } 
       
-      for (iq = 0; iq < nq; iq++) { 
-	rq[iq] = 0.0; 
-      } 
-      for (mi = -1; mi <= 1; mi += 2) { 
-	s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
-	s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
-	for (iq = 0; iq < nq; iq++) { 
-	  mf = mi + q[iq]; 
-	  s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
-	  s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
-	  rq[iq] += s3j1*s3j2*s3j3*s3j4; 
-	} 
-      } 
-
-      for (iq = 0; iq < nq; iq++) { 
-	qk[iq][i] += s*rq[iq]; 
-      } 
-    } 
-  } 
-
-  for (iq = 0; iq < nq; iq++) { 
-    spline(pw_scratch.log_kl, qk[iq], nkl, 1.0E30, 1.0E30, qy2);     
-    r = qk[iq][0];
-    for (i = 1; i < nkl; i++) { 
-      r += qk[iq][i]; 
-      kl0 = pw_scratch.kl[i-1]; 
-      kl1 = pw_scratch.kl[i];        
-      for (j = kl0+1; j < kl1; j++) {       
-	splint(pw_scratch.log_kl, qk[iq], qy2, 
-	       nkl, LnInteger(j), &s); 
-	r += s; 
-      }      
-    }    
-    rq[iq] = r; 
-  } 
-
-  i = nkl - 1;
-  if (type1 == type2) {
-    if (type1 >= CBMULTIPOLES) {
-      b = GetCoulombBetheAsymptotic(te, e1);
-      for (iq = 0; iq < nq; iq++) {
-	s = qk[iq][i]*b;
-	rq[iq] += s;
-      }
-    } else if (type1 >= 0) {
-      for (iq = 0; iq < nq; iq++) {
-	for (j = 0; j < n_tegrid; j++) {
-	  dpha[j] = (GetCoulombBethe(0, j, ie, type1, iq+1))[i];
+      i = nkl - 1;
+      if (type1 == type2) {
+	if (type1 >= CBMULTIPOLES) {
+	  b = GetCoulombBetheAsymptotic(te, e1);
+	  for (iq = 0; iq < nq; iq++) {
+	    s = qk[iq][i]*b;
+	    rq[iq][ite][ie] += s;
+	  }
+	} else if (type1 >= 0) {
+	  for (iq = 0; iq < nq; iq++) {
+	    b = (GetCoulombBethe(0, ite, ie, type1, iq+1))[i];
+	    s = qk[iq][i]*b;
+	    rq[iq][ite][ie] += s;
+	  }
 	}
-	b = InterpolatePk(te, -1, dpha);
-	s = qk[iq][i]*b;
-	rq[iq] += s;
+      } else if (type1 >= 0) {
+	b = GetCoulombBetheAsymptotic(te, e1);
+	for (iq = 0; iq < nq; iq++) {
+	  s = qk[iq][i]*b;
+	  rq[iq][ite][ie] += s;
+	}
       }
     }
-  } else if (type1 >= 0) {
-    b = GetCoulombBetheAsymptotic(te, e1);
+  }
+
+  ptr = rqc;
+  if (interpolate_egrid) {
+    if (type1 == 1 && type2 == 1) np = NPARAMS;
+    else np = NPARAMS - 1;
     for (iq = 0; iq < nq; iq++) {
-      s = qk[iq][i]*b;
-      rq[iq] += s;
+      for (ite = 0; ite < n_tegrid; ite++) {      
+	SVDFit(np, ptr, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+	       rq[iq][ite], NULL, CERadialQkBasis);
+	if (np < NPARAMS) ptr[np] = 0.0;
+	ptr += n_qk;
+      }
     }
-  }
-
-  for (i = 0; i < nq; i++) { 
-    free(qk[i]); 
-  } 
-  free(qk); 
-  free(pk1);
-  if (have_pk2) {
-    free(pk2);
-  }
-
+  } else {
+    for (iq = 0; iq < nq; iq++) {
+      for (ite = 0; ite < n_tegrid; ite++) {
+	for (ie = 0; ie < n_egrid; ie++) {
+	  ptr[ie] = rq[iq][ite][ie];
+	}
+	ptr += n_qk;
+      }
+    }
+  }    
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
   
-  return type1;
-} 
-	  
-double InterpolatePk(double te, int type, double *pk) {
-  double *x;
-  double r;
-  int np, nt;
+  return rqc;
+} 	  
 
-  if (n_tegrid == 1) {
-    r = pk[0];
-    return r;
-  }
+int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
+  int i, np, nd;
+  int j, m;
+  double *rqe, rq[MAXNTE];
   
-  if (type == 0 || type == 1) {
-    x = log_te;
-    te = log(te);
-  } else {
-    x = tegrid;
-  }
   np = 3;
-  nt = 1;
-  uvip3p_(&np, &n_tegrid, x, pk, &nt, &te, &r);  
-  return r;
+  nd = 1;
+
+  rqe = CERadialQkTable(k0, k1, k2, k3, k);
+  if (n_tegrid == 1) {
+    for (i = 0; i < n_qk; i++) {
+      rqc[i] = rqe[i];
+    }
+  } else {
+    for (i = 0; i < n_qk; i++) {
+      j = i;
+      for (m = 0; m < n_tegrid; m++) {
+	rq[m] = rqe[j];
+	j += n_qk;
+      }
+      uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &te, &rqc[i]);
+    }
+  }
+
+  return 0;
 }
 
-int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
+int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3, 
+		   int k, int kp, int nq, int *q) {
+  int i, np, nd, iq;
+  int j, m;
+  double *rqe, rq[MAXNTE];
+  
+  rqe = CERadialQkMSubTable(k0, k1, k2, k3, k, kp, nq, q);
+  if (n_tegrid == 1) {
+    for (iq = 0; iq < nq; iq++) {
+      for (i = 0; i < n_qk; i++) {
+	rqc[i] = rqe[i];
+      }
+      rqc += n_qk;
+      rqe += n_qk;
+    }
+  } else {
+    np = 3;
+    nd = 1;
+    for (iq = 0; iq < nq; iq++) {
+      for (i = 0; i < n_qk; i++) {
+	j = i;
+	for (m = 0; m < n_tegrid; m++) {
+	  rq[m] = rqe[j];
+	  j += n_qk;
+	}
+	uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &te, &rqc[i]);
+      }
+      rqe += n_qk*n_tegrid;
+      rqc += n_qk;
+    }
+  }  
+
+  return 0;
+}
+
+void CERadialQkBasis(int npar, double *yb, double x, double logx) {
+  int i;
+  double t;
+
+  t = 1.0/x;
+  yb[0] = 1.0;
+  for (i = 1; i < NPARAMS-2; i++) {
+    yb[i] = yb[i-1]*t;
+  }
+  yb[i++] = t*logx;
+  if (i < npar) {
+    yb[i] = logx;
+  }
+}
+
+int CollisionStrength(double *qkc, double *e, int lower, int upper, int msub) {
   int i, j, t, h, p, m;  
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2;
+  int nz, j1, j2, ie;
   int nq, q[MAXMSUB];
-  int ie, type, tt, np;
-  double rqk_tmp[MAXMSUB];
-  double rq[MAXMSUB][MAXNE], *rqk;
-  double *x0, *x1;
+  double rq[MAXMSUB*NPARAMS], *rqk;
 
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -779,21 +875,6 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   te = lev2->energy - lev1->energy;
   if (te <= 0) return -1;
   *e = te;
-
-  if (interpolate_egrid) {
-    x0 = log_egrid;
-    x1 = log_usr;
-    if (egrid_type == 1) {
-      for (i = 0; i < n_egrid; i++) {
-	x0[i] = log(te + egrid[i]);
-      }
-    }
-    if (usr_egrid_type == 1) {
-      for (i = 0; i < n_usr; i++) {
-	x1[i] = log(te + usr_egrid[i]);
-      }
-    }
-  }
 
   if (msub) {  
     j1 = lev1->pj;
@@ -805,130 +886,88 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
       q[j++] = i;
     }
     nq = j;
-    p = 0;
+    rqk = qkc;
     for (t = -j1; t <= 0; t += 2) {
       for (h = -j2; h <= j2; h += 2) {
-	for (ie = 0; ie < n_egrid; ie++) {
-	  rq[p][ie] = 0.0;
+	for (ie = 0; ie < n_qk; ie++) {
+	  rqk[ie] = 0.0;
 	}
-	p++;
+	rqk += n_qk;
       }
     }
   } else {
-    rqk = rq[0];
-    for (ie = 0; ie < n_egrid; ie++) {
+    rqk = qkc;
+    for (ie = 0; ie < n_qk; ie++) {
       rqk[ie] = 0.0;
     }
   }
-
-
+  
   nz = AngularZMix(&ang, lower, upper, -1, -1);
-  type = -1;
+  
   for (i = 0; i < nz; i++) {
     for (j = i; j < nz; j++) {
       c = ang[i].coeff * ang[j].coeff;
       if (i != j) c *= 2.0;
       if (!msub) {
 	if (ang[i].k != ang[j].k) continue;
-	for (ie = 0; ie < n_egrid; ie++) {
-	  tt = CERadialQk(&r, ie, te, ang[i].k0, ang[i].k1, 
-			    ang[j].k0, ang[j].k1, ang[i].k); 
-	  r /= (ang[i].k + 1.0);
-	  rqk[ie] += c*r;
+	c /= ang[i].k + 1.0;
+	CERadialQk(rq, te, ang[i].k0, ang[i].k1,
+		   ang[j].k0, ang[j].k1, ang[i].k);
+	for (ie = 0; ie < n_qk; ie++) {
+	  qkc[ie] += c*rq[ie];
 	}
-	if (type != 1 && tt >= 0) type = tt;
       } else {
-	for (ie = 0; ie < n_egrid; ie++) {
-	  tt = CERadialQkMSub(rqk_tmp, ie, te, ang[i].k0, ang[i].k1,
-			      ang[j].k0, ang[j].k1,
-			      ang[i].k, ang[j].k, nq, q);
-	  p = 0;
-	  for (t = -j1; t <= 0; t += 2) {
-	    for (h = -j2; h <= j2; h += 2) {
-	      m = (-abs(t-h)-q[0])/2;
-	      s3j = W3j(j1, ang[i].k, j2, -t, t-h, h);
-	      if (ang[j].k != ang[i].k) {
-		s3j *= W3j(j1, ang[j].k, j2, -t, t-h, h);
-	      } else {
-		s3j *= s3j;
-	      }
-	      rq[p][ie] += c*rqk_tmp[m]*s3j;
-	      p++;
+	CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
+		       ang[j].k0, ang[j].k1,
+		       ang[i].k, ang[j].k, nq, q);
+	rqk = qkc;
+	for (t = -j1; t <= 0; t += 2) {
+	  for (h = -j2; h <= j2; h += 2) {
+	    m = (-abs(t-h)-q[0])/2;
+	    m *= n_qk;
+	    s3j = W3j(j1, ang[i].k, j2, -t, t-h, h);
+	    if (ang[j].k != ang[i].k) {
+	      s3j *= W3j(j1, ang[j].k, j2, -t, t-h, h);
+	    } else {
+	      s3j *= s3j;
 	    }
+	    for (ie = 0; ie < n_qk; ie++) {
+	      rqk[ie] += c*rq[m+ie]*s3j;
+	    }
+	    rqk += n_qk;
 	  }
 	}
-	if (type != 1 && tt >= 0) type = tt;
       }
     }
   }
-    
   if (nz > 0) {
     free(ang);
   }
 
   /* there is a factor of 4 coming from normalization and the 2 
      from the formula */
-  np = 3;
   if (!msub) {
-    if (interpolate_egrid) {
-      if (type < 0) {
-	for (ie = 0; ie < n_egrid; ie++) {
-	  rqk[ie] = log(rqk[ie]);
-	}
-      }
-      uvip3p_(&np, &n_egrid, x0, rqk, &n_usr, x1, s);
-      if (type < 0) {
-	for (ie = 0; ie < n_usr; ie++) {
-	  s[ie] = exp(s[ie]);
-	}
-      }
-      for (ie = 0; ie < n_usr; ie++) {
-	s[ie] *= 8.0;
-      }
-    } else {
-      for (ie = 0; ie < n_egrid; ie++) {
-	s[ie] = rqk[ie]*8.0;
-      }
+    for (ie = 0; ie < n_qk; ie++) {
+      qkc[ie] *= 8.0;
     }
     return 1;
   } else {
-    p = 0; 
+    rqk = qkc;
+    p = 0;
     for (t = -j1; t <= 0; t += 2) {
       for (h = -j2; h <= j2; h += 2) {	
-	if (interpolate_egrid) {
-	  if (type < 0) {
-	    for (ie = 0; ie < n_egrid; ie++) {
-	      rq[p][ie] = log(rq[p][ie]);
-	    }
-	  }
-	  uvip3p_(&np, &n_egrid, x0, rq[p], &n_usr, x1, s);	
-	  if (type < 0) {
-	    for (ie = 0; ie < n_usr; ie++) {
-	      s[ie] = exp(s[ie]);
-	    }
-	  }
-	  for (ie = 0; ie < n_usr; ie++) {
-	    (*s) *= 8.0;
-	    s++;
-	  }
-	  p++;
-	} else {
-	  for (ie = 0; ie < n_egrid; ie++) {
-	    (*s) = rq[p][ie]*8.0;
-	    s++;
-	  }
-	  p++;
+	for (ie = 0; ie < n_qk; ie++) {
+	  rqk[ie] *= 8.0;
 	}
-      } 
-    }
-    return (p);
+	p++;
+	rqk += n_qk;
+      }
+    } 
+    return p;
   }
 }
  
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
-  int i, j, k, n, m, ie;
-  int j1, j2;
-
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
@@ -936,8 +975,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   RAD_TIMING radt;
 #endif
 
+  int i, j, k, n, m, ie, ip, jp;
+  int j1, j2;
   FILE *f;
-  double s[MAXMSUB*MAXNUSR];
+  double qkc[MAXMSUB*NPARAMS], qkb[NPARAMS];
   int *alev;
   LEVEL *lev1, *lev2;
   double emin, emax, e, c, b, e0;
@@ -986,9 +1027,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   if (tegrid[0] < 0.0) {
     e = 2.0*(emax-emin)/(emax+emin);    
-    if (e < 0.1) {
+    if (e < 0.2) {
       SetCETEGrid(1, 0.5*(emin+emax), emax);
-    } else if (e < 0.3) {
+    } else if (e < 0.5) {
       SetCETEGrid(2, emin, emax);
     } else {
       if (m == 2) n_tegrid = 2;
@@ -1006,43 +1047,48 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (egrid_type == 0) e = emax;
   else e = 0.5*(emin+emax);
-  emin = 0.1*e;
+  emin = 0.05*e;
   emax = 8.0*e;
-  if (n_usr == 0) {
-    n_usr = 6;
-  }
+
   interpolate_egrid = 1;
     
-  if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
-      SetUsrCEEGridDetail(n_egrid, egrid);
-      interpolate_egrid = 0;
+  if (n_usr > 0 && usr_egrid[0] < 0.0) {
+    if (usr_egrid_type == 0) {
+      SetUsrCEEGrid(n_usr, emin, emax, -e);
     } else {
-      if (usr_egrid_type == 0) {
-	SetUsrCEEGrid(n_usr, emin, emax, -e);
-      } else {
-	SetUsrCEEGrid(n_usr, emin, emax, e);
-      }
+      SetUsrCEEGrid(n_usr, emin, emax, e);
     }
   }
+
   if (n_egrid == 0) {
     n_egrid = 6;
   }
+
   if (egrid[0] < 0.0) {
-    if (n_usr <= 6 && egrid_type == usr_egrid_type) {
+    if (n_usr > 0 && n_usr <= NPARAMS && egrid_type == usr_egrid_type) {
       SetCEEGridDetail(n_usr, usr_egrid);
       interpolate_egrid = 0;
     } else {
-      emax = usr_egrid[n_usr-1];
-      if (usr_egrid_type == 0) {
-	emax -= e;
-      }
       if (egrid_type == 0) {
 	SetCEEGrid(n_egrid, emin, emax, -e);
       } else {
 	SetCEEGrid(n_egrid, emin, emax, e);
       }
     }
+  }
+
+  if (interpolate_egrid) {
+    for (j = 0; j < n_egrid; j++) {
+      for (i = 0; i < n_tegrid; i++) {
+	xegrid[i][j] = egrid[j]/tegrid[i];
+	if (egrid_type == 1) xegrid[i][j] += 1.0;
+	log_xegrid[i][j] = log(xegrid[i][j]);
+      }
+      sigma[j] = 1.0/sqrt(xegrid[0][j]);
+    }
+    n_qk = NPARAMS;
+  } else {
+    n_qk = n_egrid;
   }
 
   if (pw_scratch.nkl == 0) {
@@ -1067,49 +1113,84 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   for (i = 0; i < n_egrid; i++) {
     fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
   }
-  fprintf(f, "\n\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid, ");
-  else fprintf(f, " Scattered Electron UsrEGrid, ");
-  if (output_format != 2) fprintf(f, "Collision Strength, ");
-  if (output_format != 1) fprintf(f, "Cross Section");
-  fprintf(f, "\n\n");
+  fprintf(f, "\n\n");  
 
-  fprintf(f, "low  2J\tup   2J\tDelta_E\n");
+  if (interpolate_egrid) {
+    fprintf(f, " Strength = A + B/u + C/u^2 + Dln(u)/u + Eln(u)\n");
+  }
+
+  if (output_format >= 0 && n_usr > 0) {
+    if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid ");
+    else fprintf(f, " Scattered Electron UsrEGrid ");
+    fprintf(f, "\n");
+  }
+
+  fprintf(f, "\n");
+
+  fprintf(f, "low   2J   up    2J   Delta_E\n");
   for (i = 0; i < nlow; i++) {
     j1 = LevelTotalJ(low[i]);
     for (j = 0; j < nup; j++) {
       j2 = LevelTotalJ(up[j]);
-      k = CollisionStrength(s, &e, low[i], up[j], msub); 
+      k = CollisionStrength(qkc, &e, low[i], up[j], msub); 
       if (k < 0) continue;
-      fprintf(f, "%-4d %-2d\t%-4d %-2d\t%10.4E\n", 
+      fprintf(f, "%-5d %-2d   %-5d %-2d   %10.4E\n", 
 	      low[i], j1, up[j], j2, e*HARTREE_EV);
-      for (ie = 0; ie < n_usr; ie++) {
-	fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
-	if (usr_egrid_type == 0) {
-	  e0 = usr_egrid[ie];
-	} else {
-	  e0 = usr_egrid[ie] + e;
+      if (interpolate_egrid) {
+	if (output_format >= 0) {
+	  for (ie = 0; ie < n_usr; ie++) {
+	    xusr[ie] = usr_egrid[ie]/e;
+	    if (usr_egrid_type == 1) xusr[ie] += 1.0;
+	    log_xusr[ie] = log(xusr[ie]);
+	  }
 	}
-	b = 1.0+0.5*FINE_STRUCTURE_CONST2*e0;
-	n = j2 + 1;
+	ip = 0;
 	for (m = 0; m < k; m++) {
-	  c = s[m*n_usr+ie];
-	  if (output_format != 2) {
-	    fprintf(f, "%-10.3E", c);
+	  for (ie = 0; ie < NPARAMS; ie++) {    
+	    fprintf(f, "%11.4E  ", qkc[ip+ie]);	    
 	  }
-	  if (output_format != 1) {
-	    c *= PI * AREA_AU20/(2*e0*b*(j1+1));
-	    fprintf(f, "%-10.3E", c);
-	  }
-	  fprintf(f, " ");
-	  if (m == n) {
-	    n += j2 + 1;
-	    fprintf(f, "\n           ");
-	  }
+	  fprintf(f, "\n");
+	  ip += n_qk;
 	}
 	fprintf(f, "\n");
       }
-      fprintf(f, "\n");
+      if (output_format >= 0 && n_usr > 0) {
+	for (ie = 0; ie < n_usr; ie++) {
+	  fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
+	  if (usr_egrid_type == 0) {
+	    e0 = usr_egrid[ie];
+	  } else {
+	    e0 = usr_egrid[ie] + e;
+	  }
+	  b = 1.0+0.5*FINE_STRUCTURE_CONST2*e0;
+	  n = j2 + 1;
+	  ip = 0;
+	  for (m = 0; m < k; m++) {
+	    if (interpolate_egrid) {	
+	      CERadialQkBasis(NPARAMS, qkb, xusr[ie], log_xusr[ie]);
+	      c = 0.0;
+	      for (jp = 0; jp < NPARAMS; jp++) c += qkb[jp]*qkc[ip+jp];
+	    } else {
+	      c = qkc[ip+ie];
+	    }
+	    if (output_format != 2) {
+	      fprintf(f, "%-10.3E ", c);
+	    }
+	    if (output_format != 1) {
+	      c *= PI * AREA_AU20/(2*e0*b*(j1+1));
+	      fprintf(f, "%-10.3E ", c);
+	    }
+	    fprintf(f, " ");
+	    if (m == n) {
+	      n += j2 + 1;
+	      fprintf(f, "\n           ");
+	    }
+	    ip += n_qk;
+	  }
+	  fprintf(f, "\n");
+	}
+	fprintf(f, "\n");
+      }
     }
   }
   fprintf(f, "\n");
@@ -1202,16 +1283,32 @@ int FreeExcitationPk(int ie) {
   return 0;
 }
 
+int FreeExcitationQk() {
+  ARRAY *b;
+  b = qk_array->array;
+  if (b == NULL) return 0;
+  MultiFreeData(b, qk_array->ndim, _FreeExcitationPk);
+  FreeExcitationPk(-1);
+  
+  return 0;
+}
+  
 int InitExcitation() {
-  int blocks[] = {6, 10, 10, 6};
-  int ndim = 4;
+  int blocks1[] = {6, 10, 10, 6};
+  int blocks2[] = {3, 3, 5, 5, 5, 5};
+  int ndim;
 
+  ndim = 4;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(pk_array, sizeof(double *), ndim, blocks);
+  MultiInit(pk_array, sizeof(double *), ndim, blocks1);
   kappa0_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(kappa0_array, sizeof(short *), ndim, blocks);
+  MultiInit(kappa0_array, sizeof(short *), ndim, blocks1);
   kappa1_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(kappa1_array, sizeof(short *), ndim, blocks);
+  MultiInit(kappa1_array, sizeof(short *), ndim, blocks1);
+
+  ndim = 6;
+  qk_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(qk_array, sizeof(double *), ndim, blocks2);
   
   n_egrid = 0;
   n_tegrid = 0;
@@ -1219,6 +1316,7 @@ int InitExcitation() {
   egrid[0] = -1.0;
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
+  output_format = 0;
 }
 
   

@@ -7,7 +7,6 @@
 #define QKDETAIL  0
 #define QKFIT     1
 #define QKLOAD    2
-#define QKLOAD2   3
 
 int FreeIonizationQk();
 int InitIonization();
@@ -22,8 +21,8 @@ int SetUsrCIEGridType(int type);
 int SetUsrCIEGrid(int n, double emin, double emax, double eth);
 int SetUsrCIEGridDetail(int n, double *x);
 int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k);
-int CIRadialQkIntegrated(double te, int kb, int kbp);
-double CIRadialQkIntegratedFromFit(double x, double c[]);
+int CIRadialQkIntegrated(double *qku, double te, int kb, int kbp);
+void CIRadialQkIntegratedBasis(int npar, double *yb, double x, double logx);
 double *CIRadialQkIntegratedTable(int kb, int kbp);
 double IntegrateQk(double *qk);
 double *CIRadialQkTable(int kb, int kbp);

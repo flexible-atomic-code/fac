@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.1 2001/09/23 16:20:59 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.2 2001/10/12 03:15:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1231,6 +1231,46 @@ static PyObject *PSetUsrPEGrid(PyObject *self, PyObject *args) {
   return Py_None;
 }    
 
+static PyObject *PSetRRTEGrid(PyObject *self, PyObject *args) {
+  int i, n;
+  double xg[MAXNTE];
+  int ng, err;
+  PyObject *p, *pi;
+  double emin, emax;
+ 
+  n = PyTuple_Size(args);
+  if (n == 1) {
+    if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
+    if (PyInt_Check(p)) {
+      ng = PyInt_AsLong(p);
+      err = SetRRTEGrid(ng, -1.0, 0.0);
+    } else if (!PyList_Check(p) && !PyTuple_Check(p)) {
+      return NULL;
+    } else {
+      ng = PySequence_Length(p);      
+      for (i = 0; i < ng; i++) {
+	pi = PySequence_GetItem(p, i);
+	xg[i] = PyFloat_AsDouble(pi)/HARTREE_EV;
+	Py_DECREF(pi);
+      }
+      err = SetRRTEGridDetail(ng, xg);
+    }
+  } else if (n == 3) {
+    if (!PyArg_ParseTuple(args, "idd", &ng, &emin, &emax)) 
+      return NULL;
+    emin /= HARTREE_EV;
+    emax /= HARTREE_EV;
+    err = SetRRTEGrid(ng, emin, emax);
+  } else {
+    return NULL;
+  }
+
+  if (err < 0) return NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {  
   int n;
   double xg[MAXNE];
@@ -1457,11 +1497,23 @@ static PyObject *PFreeRecPk(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PFreeRecQk(PyObject *self, PyObject *args) {
+  FreeRecQk();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PFreeExcitationPk(PyObject *self, PyObject *args) {
   int ie;
   ie = -1;
   if (!PyArg_ParseTuple(args, "|i", &ie)) return NULL;
   FreeExcitationPk(ie);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PFreeExcitationQk(PyObject *self, PyObject *args) {
+  FreeExcitationQk();
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1800,12 +1852,14 @@ static struct PyMethodDef fac_methods[] = {
   {"DRTable", PDRTable, METH_VARARGS},
   {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
+  {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
   {"FreeMultipole", PFreeMultipole, METH_VARARGS},
   {"FreeOrbitals", PFreeOrbitals, METH_VARARGS},
   {"FreeSlater", PFreeSlater, METH_VARARGS},
   {"FreeResidual", PFreeResidual, METH_VARARGS},
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
+  {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetCFPOld", GetCFPOld, METH_VARARGS},
   {"Get3j", GetW3j, METH_VARARGS},
@@ -1839,6 +1893,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
+  {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetTransitionCut", PSetTransitionCut, METH_VARARGS},
   {"SetTransitionOptions", PSetTransitionOptions, METH_VARARGS},

@@ -1,24 +1,39 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.24 2001/10/08 21:02:12 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.25 2001/10/12 03:15:01 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-static egrid_type = -1;
-static usr_egrid_type = -1;
+#define NPARAMS 5
+
+static int egrid_type = -1;
+static int usr_egrid_type = -1;
+static int output_format = 0;
 
 static int interpolate_egrid;
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
+static double sigma[MAXNE];
+static double xegrid[MAXNTE][MAXNE];
+static double log_xegrid[MAXNTE][MAXNE];
+
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
+static double xusr[MAXNUSR];
+static double log_xusr[MAXNUSR];
+
+static int n_tegrid = 0;
+static double tegrid[MAXNTE];
+static double log_te[MAXNTE];
 
 static MULTI *pk_array;
+static MULTI *qk_array;
+static n_qk;
 
 static struct {
   int n_spec;
@@ -44,6 +59,16 @@ void uvip3p_(int *np, int *ndp, double *x, double *y,
 
 int SetAICut(double c) {
   ai_cut = c;
+}
+
+int SetRRTEGrid(int n, double emin, double emax) {
+  n_tegrid = SetTEGrid(tegrid, log_te, n, emin, emax);
+  return n_tegrid;
+}
+
+int SetRRTEGridDetail(int n, double *x) {
+  n_tegrid = SetTEGridDetail(tegrid, log_te, n, x);
+  return n_tegrid;
 }
 
 int SetUsrPEGridType(int type) {
@@ -320,20 +345,166 @@ int RecStatesFrozen(int n, int k, int *kg) {
   return 0;
 }
 
-int BoundFreeOS(double *strength, double *eb,
-		int rec, int f, int m) {
-  LEVEL *lev1, *lev2;
-  ANGULAR_ZFB *ang;
-  ORBITAL *orb1;
-  int k, kb, kf, nz, ie, gauge, mode, np;
-  double r, s, aw, a, e, *radial_int, inv_jb, eph;
-  int klb1, klb2, klf, jb1, jb2, jf;
-  int jfmin, jfmax, kappaf, kappab1, kappab2;
-  int j1, j2, i, j, njf, c, c1, icf, jcf, nr;
-  double rq[MAXNE], stmp[MAXNE], *x0, *x1;
+double *RRRadialQkTable(int k0, int k1, int m) {
+  int index[3], k;
+  double **p, *qk;
+  double rint[MAXNE];
+  double r0, r1;
+  ORBITAL *orb;
+  int kappa0, jb0, klb0;
+  int kappaf, jf, klf, kf;
+  int jfmin, jfmax;
+  int ite, ie;
+  double eb, aw, e, pref;
+  int mode, gauge, c;
+
+  k = 2*abs(m);
+  index[0] = k0;
+  index[1] = k1;
+  if (m >= 0) {
+    index[2] = k;
+  } else {
+    index[2] = k-1;
+  }
+
+  p = (double **) MultiSet(qk_array, index, NULL);
+  if (*p) {
+    return *p;
+  }
+
+  orb = GetOrbital(k0);
+  kappa0 = orb->kappa;
+  GetJLFromKappa(kappa0, &jb0, &klb0);
+  if (k1 != k0) {
+    orb = GetOrbital(k1);
+    if (GetJFromKappa(orb->kappa) != jb0) return NULL;
+  }
 
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
+
+  *p = (double *) malloc(sizeof(double)*n_tegrid*n_qk);
+  qk = *p;
+
+  /* the factor 2 comes from the conitinuum norm */
+  pref = 2.0/((k+1.0)*(jb0+1.0));
+
+  for (ite = 0; ite < n_tegrid; ite++) {
+    if (mode == M_FR || m == 1 || ite == 0) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	rint[ie] = 0.0;
+      }
+      eb = tegrid[ite];
+      aw = FINE_STRUCTURE_CONST * eb;
+      jfmin = jb0 - k;
+      jfmax = jb0 + k;
+      for (jf = jfmin; jf <= jfmax; jf += 2) {
+	for (c = -1; c <= 1; c += 2) {
+	  klf = jf + c;
+	  if (jf <= 0 ||
+	      klf < 0 ||
+	      (m < 0 && IsOdd((klb0+klf+k)/2)) ||
+	      (m > 0 && IsEven((klb0+klf+k)/2))) {
+	    continue;
+	  }
+	  kappaf = GetKappaFromJL(jf, klf);
+	  for (ie = 0; ie < n_egrid; ie++) {
+	    e = egrid[ie];
+	    kf = OrbitalIndex(0, kappaf, e);
+	    if (mode == M_NR && m != 1) {
+	      r0 = MultipoleRadialNR(m, kf, k0, gauge);
+	      if (k1 == k0) {
+		r1 = r0;
+	      } else {
+		r1 = MultipoleRadialNR(m, kf, k1, gauge);
+	      }
+	    } else {
+	      r0 = MultipoleRadialFR(aw, m, kf, k0, gauge);
+	      if (k1 == k0) {
+		r1 = r0;
+	      } else {
+		r1 = MultipoleRadialFR(aw, m, kf, k1, gauge);
+	      }
+	    }	  
+	    rint[ie] += r0*r1;
+	  }  
+	}
+      }
+      c = k-2;
+      if (gauge == G_COULOMB && mode == M_FR && m < 0) {
+	c -= 2;
+      }
+      for (ie = 0; ie < n_egrid; ie++) {
+	e = eb + egrid[ie];
+	rint[ie] *= e*pref;
+	if (c) {
+	  aw = FINE_STRUCTURE_CONST*e;
+	  rint[ie] *= pow(aw, c);
+	}
+      }
+    }
+    if (interpolate_egrid) {
+      SVDFit(NPARAMS, qk, NULL, 1E-3, n_egrid, xegrid[ite], log_xegrid[ite],
+	     rint, sigma, RRRadialQkBasis);
+    } else {
+      for (ie = 0; ie < n_qk; ie++) {
+	qk[ie] = rint[ie];
+      }
+    }
+    qk += n_qk;
+  }
+
+  return *p;
+}
+  
+int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
+  int i, np, nd;
+  int j, k;
+  double *rqe, rq[MAXNTE];
+ 
+  rqe = RRRadialQkTable(k0, k1, m);
+  if (rqe == NULL) return -1;
+
+  if (n_tegrid == 1) {
+    for (i = 0; i < n_qk; i++) {
+      rqc[i] = rqe[i];
+    }
+  } else {
+    np = 3;
+    nd = 1;
+    for (i = 0; i < n_qk; i++) {
+      j = i;
+      for (k = 0; k < n_tegrid; k++) {
+	rq[k] = rqe[j];
+	j += n_qk;
+      }
+      uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &te, &rqc[i]);
+    }
+  }
+  
+  return 0;
+}
+
+void RRRadialQkBasis(int npar, double *yb, double x, double logx) {
+  int i;
+  double t;
+
+  t = 1.0/x;
+  yb[0] = t*t;
+  t = sqrt(t);
+  for (i = 1; i < npar; i++) {
+    yb[i] = yb[i-1]*t;
+  }
+}
+
+int BoundFreeOS(double *rqc, double *eb, int rec, int f, int m) {
+  LEVEL *lev1, *lev2;
+  ANGULAR_ZFB *ang;
+  ORBITAL *orb1;
+  int nz, ie, k;
+  double rq[NPARAMS], a;
+  int j1, j2;
+  int i, j;
 
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -344,125 +515,25 @@ int BoundFreeOS(double *strength, double *eb,
 
   *eb = (lev2->energy - lev1->energy);
 
-  k = 2*abs(m);
-
   nz = AngularZFreeBound(&ang, f, rec);
   if (nz <= 0) return -1;
 
-  njf = 2*(k+1);
-  nr = njf*n_egrid;
-  radial_int = malloc(sizeof(double)*nz*nr);
-  if (!radial_int) return -1;
-
-  if (interpolate_egrid) {
-    x0 = log_egrid;
-    x1 = log_usr;
-    for (ie = 0; ie < n_egrid; ie++) {
-      x0[ie] = log((*eb) + egrid[ie]);
-    } 
-    if (usr_egrid_type == 1) {
-      for (ie = 0; ie < n_usr; ie++) {
-	x1[ie] = log((*eb) + usr_egrid[ie]);
-      }
-    }
-  }
-
-  for (ie = 0; ie < n_egrid; ie++) {
-    stmp[ie] = 0.0;
-  }
-
-  j = 0;
-  aw = FINE_STRUCTURE_CONST * (*eb);
+  for (ie = 0; ie < n_qk; ie++) rqc[ie] = 0.0;
   for (i = 0; i < nz; i++) {
-    orb1 = GetOrbital(ang[i].kb);
-    kappab1 = orb1->kappa;
-    GetJLFromKappa(kappab1, &jb1, &klb1);
-    jfmin = jb1 - k;
-    jfmax = jb1 + k;    
-    for (jf = jfmin; jf <= jfmax; jf += 2) {
-      for (c = -1; c <= 1; c += 2) {
-	klf = jf+c;
-	if (jf <= 0 ||
-	    klf < 0 ||
-	    (m < 0 && IsOdd((klb1+klf+k)/2)) ||
-	    (m > 0 && IsEven((klb1+klf+k)/2))) {
-	  for (ie = 0; ie < n_egrid; ie++) {
-	    radial_int[j++] = 0.0;	  
-	  }
-	} else {  
-	  kappaf = GetKappaFromJL(jf, klf);
-	  for (ie = 0; ie < n_egrid; ie++) {
-	    e = egrid[ie];
-	    kf = OrbitalIndex(0, kappaf, e);
-	    if (mode == M_NR && m != 1) {
-	      radial_int[j++] = 
-		MultipoleRadialNR(m, kf, ang[i].kb, gauge);
-	    } else {
-	      radial_int[j++] = 
-		MultipoleRadialFR(aw, m, kf, ang[i].kb, gauge);
-	    }
-	  }
-	}
-      }
-    }
-  }
-  for (i = 0; i < nz; i++) {
-    kappab1 = GetOrbital(ang[i].kb)->kappa;
-    jb1 = GetJFromKappa(kappab1);    
-    inv_jb = 1.0 / (jb1+1);
-    icf = i*nr;
     for (j = 0; j <= i; j++) {
-      jcf = j*nr;
+      k = RRRadialQk(rq, *eb, ang[i].kb, ang[j].kb, m);
+      if (k < 0) continue;
       a = ang[i].coeff*ang[j].coeff;    
       if (j != i) {
-	kappab2 = GetOrbital(ang[j].kb)->kappa;
-	jb2 = GetJFromKappa(kappab2);
-	if (jb2 != jb1) continue;
 	a *= 2;
       } 
-      for (ie = 0; ie < n_egrid; ie++) {	
-	r = 0.0;
-	for (c = 0; c < njf; c++) {	  
-	  c1 = c*n_egrid;  
-	  r += radial_int[icf+c1+ie]*radial_int[jcf+c1+ie];
-	}
-	stmp[ie] += inv_jb*a*r;
+      for (ie = 0; ie < n_qk; ie++) {	
+	rqc[ie] += a * rq[ie];
       }
     }
   }
 
-  if (interpolate_egrid) {
-    np = 3;
-    for (ie = 0; ie < n_egrid; ie++) {
-      stmp[ie] = log(stmp[ie]);
-    }
-    uvip3p_(&np, &n_egrid, x0, stmp, &n_usr, x1, strength);
-    for (ie = 0; ie < n_usr; ie++) {
-      strength[ie] = exp(strength[ie]);
-    }
-  } else {
-    for (ie = 0; ie < n_egrid; ie++) {
-      strength[ie] = stmp[ie];
-    }
-  }
-
-  /* the factor 2 comes from the conitinuum norm */
-  c = k - 2;
-  if (gauge == G_COULOMB && mode == M_FR && m < 0) {
-    c -= 2;
-  }
-  for (ie = 0; ie < n_usr; ie++) {
-    if (usr_egrid_type == 1) e = (*eb) + usr_egrid[ie];
-    else e = usr_egrid[ie];
-    strength[ie] *= e * 2.0 / (k+1.0);
-    if (c) {
-      aw = FINE_STRUCTURE_CONST * e;
-      strength[ie] *= pow(aw, c);
-    }
-  }
-  
   free(ang);
-  free(radial_int);
 
   return 0;
 }
@@ -632,11 +703,12 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
 
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
-  int i, j, k, n, ie;
+  int i, j, k, n, ie, jp;
   char t;
   FILE *f;
-  double s[MAXNUSR], phi, rr, ee, eph, eb;
-  double trr[MAXNUSR], tpi[MAXNUSR];
+  double rqc[NPARAMS], rqb[NPARAMS];
+  double phi, rr, ee, eph, eb;
+  double s, trr[MAXNUSR], tpi[MAXNUSR];
   int j1, j2, nlow0;
   LEVEL *lev1, *lev2;
   double e, emin, emax;
@@ -663,13 +735,24 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     printf("No recombination can occur\n");
     return 0;
   }
-
+  
+  e = 2.0*(emax - emin)/(emin+emax);
+  if (tegrid[0] < 0.0) {
+    if (e < 0.1) {
+      SetRRTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e < 0.5) {
+      SetRRTEGrid(2, emin, emax);
+    } else {
+      if (k == 2) n_tegrid = 2;
+      SetRRTEGrid(n_tegrid, emin, emax);
+    }
+  }
+  
   if (m == 1 || GetTransitionMode() == M_FR) {
     FreeMultipoleArray();
-    e = 2.0*(emax - emin)/(emin+emax);
     awmin = emin * FINE_STRUCTURE_CONST;
     awmax = emax * FINE_STRUCTURE_CONST;
-    if (e < 0.1) {
+    if (e < 0.3) {
       SetAWGrid(1, 0.5*(awmin+awmax), awmax);
     } else if (e < 1.0) {
       SetAWGrid(2, awmin, awmax);
@@ -679,51 +762,68 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }  
 
   e = 0.5*(emin + emax);
-  emin = 0.1*e;
+  emin = 0.02*e;
   emax = 8.0*e;
   egrid_type = 1;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
   interpolate_egrid = 1;
-  if (n_usr == 0) {
-    n_usr = 6;
-  }
-  if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
-      SetUsrPEGridDetail(n_egrid, egrid);
-      interpolate_egrid = 0;
-    } else {
-      SetUsrPEGrid(n_usr, emin, emax, e);
-    }
+
+  if (n_usr > 0 && usr_egrid[0] < 0.0) {
+    SetUsrPEGrid(n_usr, emin, emax, e);
   }  
   
   if (n_egrid == 0) {
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr <= 6 && egrid_type == usr_egrid_type) {
+    if (n_usr > 0 && n_usr <= NPARAMS && egrid_type == usr_egrid_type) {
       SetPEGridDetail(n_usr, usr_egrid);
       interpolate_egrid = 0;
     } else {
-      emax = usr_egrid[n_usr-1];
-      if (usr_egrid_type == 0) {
-        emax -= e;
-      } 
       SetPEGrid(n_egrid, emin, emax, e);
     }
   }
-  
-  fprintf(f, " EGRID:\n   ");
+
+  if (interpolate_egrid) {
+    for (j = 0; j < n_egrid; j++) {
+      for (i = 0; i < n_tegrid; i++) {
+	xegrid[i][j] = egrid[j]/tegrid[i];
+	if (egrid_type == 1) xegrid[i][j] += 1.0;
+	log_xegrid[i][j] = log(xegrid[i][j]);
+      }
+      sigma[j] = 1.0/sqrt(xegrid[0][j]);
+    }
+    n_qk = NPARAMS;
+  } else {
+    n_qk = n_egrid;
+  }
+
+  if (m < 0) t = 'E';
+  else t = 'M';
+  fprintf(f, " Multipole %c%d\n\n", t, abs(m));
+
+  fprintf(f,  " IEGRID:\n ");
+  for (i = 0; i < n_tegrid; i++) {
+    fprintf(f, "%10.4E ", tegrid[i]*HARTREE_EV);
+  }
+  fprintf(f, "\n");
+
+  fprintf(f, " PEGRID:\n ");
   for (i = 0; i < n_egrid; i++) {
     fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
   }
-  if (m < 0) t = 'E';
-  else t = 'M';
-  fprintf(f, "\nMultipole %c%d", t, abs(m));
   fprintf(f, "\n\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid\n");
-  else fprintf(f, " Photo-Electron UsrEGrid\n");
+  
+  if (interpolate_egrid) {
+    fprintf(f, " Strength = A/u^2 + B/u^2.5 + C/u^3 + D/u^3.5 + E/u^4\n");
+  }
+  if (output_format >= 0 && n_usr > 0) {
+    if (usr_egrid_type == 0) fprintf(f, " Photon UsrEGrid\n");
+    else fprintf(f, " Electron UsrEGrid\n");
+  }
+  fprintf(f, "\n");
 
-  fprintf(f, "Free  2J\tBound 2J\tE_Binding\n\n");
+  fprintf(f, "Free  2J   Bound 2J   E_Binding\n\n");
   for (i = 0; i < nup; i++) {
     j1 = LevelTotalJ(up[i]);    
     for (ie = 0; ie < n_usr; ie++) {
@@ -733,28 +833,51 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     nlow0 = 0;
     for (j = 0; j < nlow; j++) {
       j2 = LevelTotalJ(low[j]);
-      k = BoundFreeOS(s, &eb, low[j], up[i], m);
+      k = BoundFreeOS(rqc, &eb, low[j], up[i], m);
       if (k < 0) continue;
       nlow0++;
-      fprintf(f, "%-5d %-2d\t%-5d %-2d\t%10.3E\n",
+      fprintf(f, "%-5d %-2d   %-5d %-2d   %10.4E\n",
 	      up[i], j1, low[j], j2, eb*HARTREE_EV);
-      for (ie = 0; ie < n_usr; ie++) {
-        if (usr_egrid_type == 0) {
-          eph = usr_egrid[ie];
- 	  ee = eph - eb;
-  	} else {
- 	  ee = usr_egrid[ie];
-	  eph = eb + ee;
- 	}
-	phi = 2.0*PI*FINE_STRUCTURE_CONST*s[ie]*AREA_AU20;
-	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
-	trr[ie] += rr;
-	tpi[ie] += phi;
-	fprintf(f, "%-10.3E %-10.3E %-10.3E\n", 
-		usr_egrid[ie]*HARTREE_EV, rr, phi);
+      if (interpolate_egrid) {
+	if (output_format >= 0) {
+	  for (ie = 0; ie < n_usr; ie++) {
+	    xusr[ie] = usr_egrid[ie]/eb;
+	    if (usr_egrid_type == 1) xusr[ie] += 1.0;
+	    log_xusr[ie] = log(xusr[ie]);
+	  }
+	}
+	for (ie = 0; ie < NPARAMS; ie++) {
+	  fprintf(f, "%11.4E  ", rqc[ie]);
+	}
+	fprintf(f, "\n\n");
+      }
+      if (output_format >= 0 && n_usr > 0) {
+	for (ie = 0; ie < n_usr; ie++) {
+	  if (usr_egrid_type == 0) {
+	    eph = usr_egrid[ie];
+	    ee = eph - eb;
+	  } else {
+	    ee = usr_egrid[ie];
+	    eph = eb + ee;
+	  }
+	  if (interpolate_egrid) {
+	    RRRadialQkBasis(NPARAMS, rqb, xusr[ie], log_xusr[ie]);
+	    s = 0.0;
+	    for (jp = 0; jp < NPARAMS; jp++) s += rqc[jp]*rqb[jp];
+	  } else {
+	    s = rqc[ie];
+	  }
+	  phi = 2.0*PI*FINE_STRUCTURE_CONST*s*AREA_AU20;
+	  rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
+	  trr[ie] += rr;
+	  tpi[ie] += phi;
+	  fprintf(f, "%-10.3E %-10.3E %-10.3E %-10.3E\n", 
+		usr_egrid[ie]*HARTREE_EV, rr, phi, s);
+	}
+	fprintf(f, "\n");
       }
     }
-    if (nlow0 > 1) {
+    if (output_format >= 0 && n_usr > 0 && nlow0 > 1) {
       fprintf(f, "==================================\n");
       fprintf(f, "%-5d   \tTotal\n", up[i]);
       for (ie = 0; ie < n_usr; ie++) {
@@ -764,7 +887,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     }
     fprintf(f, "\n");
   }
-
+  
   fclose(f);
   
   return 0;
@@ -815,7 +938,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     e0 = 2.0*(emax-emin)/(emax+emin);
     if (e0 < 0.1) {
       SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
-    } else if (e0 < 0.2) {
+    } else if (e0 < 0.5) {
       SetPEGrid(2, emin, emax, 0.0);
     } else {
       if (k == 2) n_egrid = 2;
@@ -1051,11 +1174,12 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   if (n_egrid == 0) {
     n_egrid = 3;
   }
+
   if (egrid[0] < 0.0) {
     a = 2.0*(emax-emin)/(emax+emin);
     if (a < 0.1) {
       SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
-    } else if (a < 0.2) {
+    } else if (a < 0.5) {
       SetPEGrid(2, emin, emax, 0.0);
     } else {
       if (k == 2) n_egrid = 2;
@@ -1145,6 +1269,12 @@ int FreeRecPk() {
   return 0;
 }
 
+int FreeRecQk() {
+  if (qk_array->array == NULL) return 0;
+  MultiFreeData(qk_array->array, qk_array->ndim, _FreeRecPk);
+  return 0;
+}
+
 int FreeRecAngZ() {
   int i, j, *k;
   for (i = 0; i < n_complex; i++) {
@@ -1157,11 +1287,19 @@ int FreeRecAngZ() {
 
 int InitRecombination() {
   int blocks[5] = {5, 10, 5, 10, 5};
-  int ndim = 5;
+  int ndim;
   int i;
-
+  
+  ndim = 5;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(pk_array, sizeof(double *), ndim, blocks);
+  
+  ndim = 3;
+  qk_array = (MULTI *) malloc(sizeof(MULTI));
+  blocks[0] = 10;
+  blocks[1] = 10;
+  blocks[2] = 4;
+  MultiInit(qk_array, sizeof(double *), ndim, blocks);  
 
   n_complex = 0;
   for (i = 0; i < MAX_COMPLEX; i++) {
@@ -1172,6 +1310,11 @@ int InitRecombination() {
   egrid[0] = -1.0;
   n_usr = 0;
   usr_egrid[0] = -1.0;
+  
+  n_tegrid = 0;
+  tegrid[0] = -1.0;
+
+  output_format = 0;
 
   SetRecPWOptions(12, 12);
 

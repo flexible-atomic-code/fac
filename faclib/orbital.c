@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.19 2001/10/08 21:02:12 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.20 2001/10/12 03:15:01 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -170,12 +170,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       }
       if (e >= emax) {
 	e = 0.5*(e0+emax);
-	eps *= 0.5;
+	eps = 1.0;
       }
       if (e <= emin) {
-	emin *= 1.1;
 	e = 0.5*(e0+emin);
-	eps *= 0.5;
+	eps = 1.0;
       }
       nodes_old = nodes;
       if (niter > max_iteration) {
@@ -281,9 +280,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       return -1;
   }
   
-  emin = z/(orb->n - 0.99);
+  emin = z/(orb->n - 0.9);
   emin = -emin*emin*0.5;
-  emax = z/(orb->n);
+  emax = z/(orb->n + 0.1);
   emax = -emax*emax*0.5;
   eta0 = orb->n-0.05;
   dk = z/eta0;
@@ -809,7 +808,7 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
   for (i = i1-1; i > 0; i--) {
     p[i] = _V[i]*p[i+1];
     a = fabs(p[i]);
-    if (e >= _veff[i] && a > 1E-20) {
+    if (e >= _veff[i] && a > wave_zero) {
       if ((p0 > 0 && p[i] < 0) ||
 	  (p0 < 0 && p[i] > 0)) {
 	nodes++;	
@@ -821,7 +820,7 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
   p0 = p[i1];
   for (i = i1+1; i <= i2; i++) {
     p[i] = (_B[i-1]*p[i-1] - _A[i-2]*p[i-2])/_A[i];
-    if (e < 0.0 && e >= _veff[i] && fabs(p[i]) > 1E-20) {
+    if (e < 0.0 && e >= _veff[i] && fabs(p[i]) > wave_zero) {
       if ((p0 > 0 && p[i] < 0) ||
 	  (p0 < 0 && p[i] > 0)) {
 	nodes++;	
