@@ -1424,7 +1424,7 @@ typedef struct _CIM_HEADER_ {
   int usr_egrid_type;
   double *egrid;
   double *usr_egrid;
-} CI_HEADER;
+} CIM_HEADER;
 \end{verbatim}
 
 \begin{dbdesc}
@@ -1455,12 +1455,12 @@ elements is given by \texttt{n\_usr}.
 \texttt{CIM\_RECORD} is for magnetic sublevel collisional ionization data.
 
 \begin{verbatim}
-typedef struct _CI_RECORD_ {
+typedef struct _CIM_RECORD_ {
   int b;
   int f;
   int nsub;
   float *strength;
-} CI_RECORD;
+} CIM_RECORD;
 \end{verbatim}
 
 \begin{dbdesc}
