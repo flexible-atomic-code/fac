@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.78 2004/05/31 23:29:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.79 2004/06/11 22:41:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1316,8 +1316,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  eps = 1E-4;
-  eps1 = 1E-2;
+  eps = -1.0;
+  eps1 = 1.0;
 
   if (!(PyArg_ParseTuple(args, "ssOOOOiiis|dd", 
 			 &fn, &fn1, &p, &q, &r, &t, &n1, 
@@ -1442,7 +1442,7 @@ static PyObject *PMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  m = 2;
+  m = 3;
   kmin = 0;
   if (!(PyArg_ParseTuple(args, "sOOOii|ii", 
 			 &fn, &p, &q, &r, &n1, &kmax, &kmin, &m))) 

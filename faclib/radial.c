@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.92 2004/06/09 01:08:19 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.93 2004/06/11 22:41:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -592,7 +592,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     if (ng > 1) {
       printf("\nWarning: more than 1 configuration groups");
       printf(" are used in OptimizeRadial.\n");
-      printf("It is usually best to use the lowest lying configuration group.");
+      printf("It is usually best to use the lowest lying configuration group.\n");
       printf("Make sure that you know what you are doing.\n\n");
     }
     if (acfg->n_shells > 0) {      

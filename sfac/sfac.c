@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.58 2004/06/06 03:46:06 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.59 2004/06/11 22:41:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2353,8 +2353,8 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   
   if (argc < 10 || argc > 12) return -1;
 
-  eps = 1E-4;
-  eps1 = 1E-2;
+  eps = -1.0;
+  eps1 = 1.0;
   if (argc > 10) {
     eps = atof(argv[10]);
     if (argc > 11) {
@@ -2363,10 +2363,14 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   }
 
   n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
-  if (n <= 0) return -1;
+  if (n <= 0) {
+    printf("Firts configuration group does not exist\n");
+    return -1;
+  }
   
   ng = DecodeGroupArgs(&kg, 1, &(argv[3]), &(argt[3]), variables);
   if (ng <= 0) {
+    printf("Second configuration group does not exist\n");
     free(s);
     return -1;
   }
@@ -2511,7 +2515,7 @@ static int PMBPT(int argc, char *argv[], int argt[],
   if (argt[4] != NUMBER || 
       argt[5] != NUMBER) return -1;
   kmin = 0;
-  m = 1;
+  m = 3;
   if (argc > 6) {
     kmin = atoi(argv[6]);
     if (argc > 7) {
