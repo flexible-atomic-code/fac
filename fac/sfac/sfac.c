@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.50 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.51 2004/05/04 16:34:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -408,6 +408,20 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       
   return 0;
 }      
+  
+static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
+  int k, ng, *kg;
+  
+  if (argc <= 0) return -1;
+  ng = DecodeGroupArgs(&kg, argc, argv, argt, variables);
+  
+  for (k = 0; k < ng; k++) {
+    RemoveGroup(kg[k]);
+  }
+  if (ng > 0) free(kg);
+
+  return 0;
+}
   
 static int PConfigEnergy(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
@@ -2426,10 +2440,9 @@ static int PStructure(int argc, char *argv[], int argt[],
   
   if (ngp < 0) return -1;
   
-  ng0 = 0;
+  ng0 = ng;
   if (!ip) {
     if (ngp) {
-      ng0 = ng;
       ng += ngp;
       kg = (int *) realloc(kg, sizeof(int)*ng);
       memcpy(kg+ng0, kgp, sizeof(int)*ngp);
@@ -2442,10 +2455,14 @@ static int PStructure(int argc, char *argv[], int argt[],
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;  
   for (i = 0; i < ns; i++) {
-    k = ConstructHamilton(i, ng, kg, ngp, kgp);
+    k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
     if (k < 0) continue;
     if (DiagnolizeHamilton() < 0) return -1;
-    AddToLevels(ng0, kg);
+    if (ng0 < ng) {
+      AddToLevels(ng0, kg);
+    } else {
+      AddToLevels(0, kg);
+    }
   }
   SortLevels(nlevels, -1);
   SaveLevels(argv[0], nlevels, -1);
@@ -2881,6 +2898,7 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
+  {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},

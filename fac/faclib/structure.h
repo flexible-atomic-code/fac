@@ -105,8 +105,8 @@ double MBPT0(int isym, SYMMETRY *sym, int q1, int q2, int kg, int ic);
 double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m);
 void MBPT2(int ilev, LEVEL *lev, int kg, int n0, int n1, double *de, int nk);
 int MBPT(char *fn, int n, int *s, int k, int *kg, int *n0, int n1, 
-	 int kmax, int kmin, int m);
-int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
+	 int kmax, int nt, int m);
+int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);

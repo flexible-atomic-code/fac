@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.86 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.87 2004/05/04 16:34:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1019,7 +1019,7 @@ ORBITAL *GetOrbital(int k) {
 ORBITAL *GetOrbitalSolved(int k) {
   ORBITAL *orb;
   int i;
-
+  
   orb = (ORBITAL *) ArrayGet(orbitals, k);
   if (orb->wfun == NULL) {
     i = SolveDirac(orb);
@@ -3533,7 +3533,7 @@ int InitRadial(void) {
 }
 
 int ReinitRadial(int m) {
-  if (m < 0) return 0;
+  if (m < 0) return 0;  
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
   FreeSimpleArray(breit_array);
