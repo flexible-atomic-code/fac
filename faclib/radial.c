@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.79 2003/05/17 21:47:18 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.80 2003/08/15 16:17:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1663,13 +1663,14 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   return r;
 }
 
-double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
+double *GeneralizedMoments(int k1, int k2, int m) {
   ORBITAL *orb1, *orb2;
-  int n1, i, jy;
+  int n1, i, jy, nk;
   double x, r, r0;
   double *p1, *p2, *q1, *q2;
   int index[3], t;
-  double **p, k;
+  double **p, k, *kg;
+  double amin, amax, kmin, kmax;
   
   index[0] = m;
   if (k1 > k2) {
@@ -1689,20 +1690,43 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
     return *p;
   }
 
-  *p = (double *) malloc(sizeof(double)*nk);
+  nk = NGOSK;
+  *p = (double *) malloc(sizeof(double)*nk*2);
+  kg = *p + nk;
 
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
-    for (t = 0; t < nk; t++) {
+    for (t = 0; t < nk*2; t++) {
       (*p)[t] = 0.0;
     }
     return *p;
   }
-
+  
   jy = 1;
   p1 = Large(orb1);
   p2 = Large(orb2);
   q1 = Small(orb1);
   q2 = Small(orb2);
+  
+  for (i = 1; i <= orb1->ilast; i++) {
+    if (fabs(p1[i]) < fabs(p1[i-1])) break;
+  }
+  amin = potential->rad[i];
+  for (i = 1; i <= orb2->ilast; i++) {
+    if (fabs(p2[i]) < fabs(p2[i-1])) break;
+  }
+  amax = potential->rad[i];
+  if (amin > amax) {
+    r = amin;
+    amin = amax;
+    amax = r;
+  }
+  kmin = log(0.01/amax);
+  kmax = log(25.0/amin);
+  r = (kmax - kmin)/(nk-1.0);
+  kg[0] = kmin;
+  for (i = 1; i < nk; i++) {
+    kg[i] = kg[i-1] + r;
+  }
   
   n1 = Min(orb1->ilast, orb2->ilast);
   
@@ -1724,7 +1748,7 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   }
   
   for (t = 0; t < nk; t++) {
-    k = kg[t];
+    k = exp(kg[t]);
     for (i = 0; i <= n1; i++) {
       x = k * potential->rad[i];
       _dphase[i] = BESLJN(jy, m, x);
@@ -1732,7 +1756,7 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
     }
     r = Simpson(_dphase, 0, n1);
 
-    (*p)[t] = r - r0;
+    (*p)[t] = (r - r0)/k;
   }
   return *p;
 }

@@ -263,7 +263,7 @@
 #define TE_MIN_MAX         0.1
 
 /* excitation */
-#define NGOSK              128
+#define NGOSK              64
 #define EXCLQR             0
 #define EXCLMAX            20
 #define EXCLCB             20

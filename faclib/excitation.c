@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.60 2003/08/13 20:44:22 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.61 2003/08/15 16:17:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,17 +34,16 @@ static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
-#define NGOSK 128
-static double kgrid[NGOSK];
-static double log_kgrid[NGOSK];
-static double gos[NGOSK];
-static double kint[NGOSK];
-static double log_kint[NGOSK];
-static double gosint[NGOSK];
+#define NKINT 128
+static double kgrid[NKINT];
+static double log_kgrid[NKINT];
+static double kint[NKINT];
+static double log_kint[NKINT];
+static double gos1[NKINT];
+static double gos2[NKINT];
+static double gost[NKINT];
+static double gosint[NKINT];
 static double xborn = XBORN;
-static double goskmax = -1.0;
-static double goskmin = -1.0;
-static double goseps = 0.0;
 
 #ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
@@ -79,17 +78,6 @@ int SetCEQkMode(int m, double tol) {
 int SetCEBorn(double x) {
   xborn = x;
   return 0;
-}
-
-int SetGOSLimits(double max, double min) {
-  goskmin = min;
-  goskmax = max;
-
-  return 0;
-}
-
-double GetGOSTail(void) {
-  return goseps;
 }
 
 int SetCEEGridLimits(double min, double max, int type) {
@@ -369,13 +357,36 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   return type;
 }
 
+
+static void InterpolateGOS(int n, double *x, double *g, 
+			   int ni, double *xi, double *gi) {
+  int t;
+
+  UVIP3P(3, n, x, g, ni, xi, gi);
+  for (t = 0; t < ni; t++) {
+    if (xi[t] < x[0]) {
+      gi[t] = g[0];
+    } else {
+      break;
+    }
+  }
+  for (t = ni-1; t >= 0; t--) {
+    if (xi[t] > x[n-1]) {
+      gi[t] = 0.0;
+    } else {
+      break;
+    }
+  }
+}
+
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
 		   double te, double e1, double *qk) {
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
-  int ko2, t, nk, np;
-  double r, c0, c1, dk, *g1, *g2;
+  int ko2, t, nk;
+  double r, c0, c1, dk;
+  double *g1, *g2, *x1, *x2;
 
   *qk = 0.0;
   p0 = GetOrbital(k0)->kappa;
@@ -396,15 +407,14 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   ko2 = k/2;
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
   r *= (k+1.0)*(k+1.0);
-  g1 = GeneralizedMoments(NGOSK, kgrid, k0, k1, ko2);
-  g2 = GeneralizedMoments(NGOSK, kgrid, k2, k3, ko2);
-  for (t = 0; t < NGOSK; t++) {
-    gos[t] = r*g1[t]*g2[t]/(kgrid[t]*kgrid[t]);
-  }
+  g1 = GeneralizedMoments(k0, k1, ko2);
+  x1 = g1 + NGOSK;
+  g2 = GeneralizedMoments(k2, k3, ko2);
+  x2 = g2 + NGOSK;
 
   c0 = sqrt(2.0*(te + e1));
   c1 = sqrt(2.0*e1);
-  nk = NGOSK-1;
+  nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
@@ -414,23 +424,15 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
     log_kint[t] = log_kint[t-1] + dk;
     kint[t] = exp(log_kint[t]);
   }
-  np = 3;
-  nk = NGOSK;
-  UVIP3P(np, nk, log_kgrid, gos, nk, log_kint, gosint);
-  for (t = 0; t < NGOSK; t++) {
-    if (kint[t] < kgrid[0]) {
-      gosint[t] = gos[0];
-    } else {
-      break;
-    }
+
+  nk = NKINT;
+  InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
+  InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
+
+  for (t = 0; t < nk; t++) {
+    gosint[t] = r*gos1[t]*gos2[t];
   }
-  for (t = nk-1; t >= 0; t--) {
-    if (kint[t] > kgrid[nk-1]) {
-      gosint[t] = 0.0;
-    } else {
-      break;
-    }
-  }    
+
   *qk = dk*Simpson(gosint, 0, nk-1);
   
   return ko2;
@@ -442,15 +444,15 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
-  int ko2, ko2p, t, nk, np;
+  int ko2, ko2p, t, nk;
   int nudiff, mu1, mu2, ierr, ipqa[MAXMSUB];
   int kkp, iq;
   double xc, theta, dnu1, pqa[MAXMSUB];
-  double r, c0, c1, c01, dk, *g1, *g2;
-  double gost[NGOSK];
-  double gosm1[MAXMSUB][NGOSK];
-  double gosm2[MAXMSUB][NGOSK];
-    
+  double r, c0, c1, c01, dk;
+  double *g1, *g2, *x1, *x2;
+  double gosm1[MAXMSUB][NKINT];
+  double gosm2[MAXMSUB][NKINT];
+  
   for (iq = 0; iq < nq; iq++) {
     qk[iq] = 0.0;
   }
@@ -478,18 +480,17 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, kp, j3);
   r *= (k+1.0)*(kp+1.0);
-  g1 = GeneralizedMoments(NGOSK, kgrid, k0, k1, ko2);
-  g2 = GeneralizedMoments(NGOSK, kgrid, k2, k3, ko2p);
-  for (t = 0; t < NGOSK; t++) {
-    gos[t] = r*g1[t]*g2[t]/(kgrid[t]*kgrid[t]);
-  }
+  g1 = GeneralizedMoments(k0, k1, ko2);
+  x1 = g1 + NGOSK;
+  g2 = GeneralizedMoments(k2, k3, ko2p);
+  x2 = g2 + NGOSK;
 
   c0 = 2.0*(te+e1);
   c1 = 2.0*e1;
   c01 = c0 - c1;
   c0 = sqrt(c0);
   c1 = sqrt(c1);
-  nk = NGOSK-1;
+  nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
@@ -499,28 +500,19 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
     log_kint[t] = log_kint[t-1] + dk;
     kint[t] = exp(log_kint[t]);
   }
-  np = 3;  
-  nk = NGOSK;
-  UVIP3P(np, nk, log_kgrid, gos, nk, log_kint, gost);
-  for (t = 0; t < NGOSK; t++) {
-    if (kint[t] < kgrid[0]) {
-      gost[t] = gos[0];
-    } else {
-      break;
-    }
+
+  nk = NKINT;
+  InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
+  InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
+
+  for (t = 0; t < nk; t++) {
+    gost[t] = r*gos1[t]*gos2[t];
   }
-  for (t = nk-1; t >= 0; t--) {
-    if (kint[t] > kgrid[nk-1]) {
-      gost[t] = 0.0;
-    } else {
-      break;
-    }
-  }    
   
   nudiff = 0;
   mu1 = 0;
   mu2 = q[nq-1]/2;
-  for (t = 0; t < NGOSK; t++) {
+  for (t = 0; t < nk; t++) {
     xc = (c01+kint[t]*kint[t])/(2.0*c0*kint[t]);
     if (xc < 0.0) xc = 0.0;
     if (xc > 1.0) xc = 1.0;
@@ -547,7 +539,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   }
 
   for (iq = 0; iq < nq; iq++) {
-    for (t = 0; t < NGOSK; t++) {
+    for (t = 0; t < nk; t++) {
       gosint[t] = gost[t]*gosm1[iq][t]*gosm2[iq][t];
       if (IsOdd(ko2p+kkp/2)) gosint[t] = -gosint[t];
     }
@@ -1162,10 +1154,11 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2, ie, np, nq, kkp, q[MAXMSUB];
+  int nz, j1, j2, ie, nk, np, nq, kkp, q[MAXMSUB];
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
-  double c1, c2, *g1, *g2;
+  double c1, c2, **g, *ck, dk, kmin, kmax;
+  double *g1, *g2, *x1, *x2;
   int ierr, ipvt[NPARAMS];
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
@@ -1248,8 +1241,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
   }
 
-  for (t = 0; t < NGOSK; t++) {
-    gos[t] = 0.0;
+  for (t = 0; t < NKINT; t++) {
+    gost[t] = 0.0;
   }
   r = 0;
   if (msub) {
@@ -1258,44 +1251,70 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
   }
   if (type >= 0) {
+    nk = NGOSK-1;
+    kmin = 1E30;
+    kmax = -1E30;
+    g = (double **) malloc(sizeof(double *)*nz);
+    ck = (double *) malloc(sizeof(double)*nz);
     for (i = 0; i < nz; i++) {
       p = GetOrbital(ang[i].k0)->kappa;
       GetJLFromKappa(p, &t, &h);
       m = GetOrbital(ang[i].k1)->kappa;
       GetJLFromKappa(m, &np, &ie);
-      if (IsOdd((h+ang[i].k+ie)/2)) continue;
-      c1 = ReducedCL(t, ang[i].k, np);
-      if (c1 == 0) continue;
-      g1 = GeneralizedMoments(NGOSK, kgrid, 
-			      ang[i].k0, ang[i].k1, ang[i].k/2);
+      if (IsOdd((h+ang[i].k+ie)/2)) {
+	ck[i] = 0.0;
+	g[i] = NULL;
+      } else {
+	ck[i] = ReducedCL(t, ang[i].k, np);
+	g[i] = GeneralizedMoments(ang[i].k0, ang[i].k1, ang[i].k/2);
+	x1 = g[i] + NGOSK;
+	if (x1[0] < kmin) kmin = x1[0];
+	if (x1[nk] > kmax) kmax = x1[nk];
+      }
+    }
+	
+    nk = NKINT-1.0;
+    dk = (kmax - kmin)/nk;
+    log_kgrid[0] = kmin;
+    kgrid[0] = exp(log_kgrid[0]);
+    log_kgrid[nk] = kmax;
+    kgrid[nk] = exp(log_kgrid[nk]);
+    for (t = 1; t < nk; t++) {
+      log_kgrid[t] = log_kgrid[t-1] + dk;
+      kgrid[t] = exp(log_kgrid[t]);
+    }
+    nk = NKINT;
+    for (i = 0; i < nz; i++) {
+      g1 = g[i];
+      if (g1 == NULL) continue;
+      x1 = g1 + NGOSK;
+      InterpolateGOS(NGOSK, x1, g1, nk, log_kgrid, gos1);
       for (j = i; j < nz; j++) {
 	if (ang[j].k != ang[i].k) continue;
-	p = GetOrbital(ang[j].k0)->kappa;
-	GetJLFromKappa(p, &t, &h);
-	m = GetOrbital(ang[j].k1)->kappa;
-	GetJLFromKappa(m, &np, &ie);
-	if (IsOdd((h+ang[j].k+ie)/2)) continue;
-	c2 = ReducedCL(t, ang[j].k, np);
-	if (c2 == 0) continue;
-	g2 = GeneralizedMoments(NGOSK, kgrid, 
-				ang[j].k0, ang[j].k1, ang[j].k/2);
+	g2 = g[j];
+	if (g2 == NULL) continue;
+	x2 = g2 + NGOSK;
+	InterpolateGOS(NGOSK, x2, g2, nk, log_kgrid, gos2);
 	c = ang[i].coeff*ang[j].coeff;
 	if (i != j) c *= 2.0;
-	c *= 2.0*c1*c2;
+	c *= 2.0*ck[i]*ck[j];
 	if (ang[i].k == 2) {
 	  r += c * (RadialMoments(1, ang[i].k0, ang[i].k1)*
 		    RadialMoments(1, ang[j].k0, ang[j].k1));
 	}
 	c *= ang[i].k + 1.0;
-	for (t = 0; t < NGOSK; t++) {
-	  gos[t] += (c/(kgrid[t]*kgrid[t]))*g1[t]*g2[t];
+	for (t = 0; t < nk; t++) {
+	  gost[t] += c*gos1[t]*gos2[t];
 	}
       }
     }
+    free(g);
+    free(ck);
+
     c = 0.0;
-    for (t = 0; t < NGOSK; t++) {
-      if (gos[t] > c) {
-	c = gos[t];
+    for (t = 0; t < nk; t++) {
+      if (gost[t] > c) {
+	c = gost[t];
       }
     }
     if (c <= 0.0) {
@@ -1305,46 +1324,27 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     } else {
       r /= 3.0;
       bethe[0] = r*2.0;
-      c1 = fabs(gos[NGOSK-1]/c);
-      if (c1 > goseps) {
-	goseps = c1;
-      }
       c *= EPS8;
-      for (i = NGOSK-1; i >= 0; i--) {
-	if (gos[i] > c) break;
+      nk = NKINT-1;
+      for (i = nk; i >= 0; i--) {
+	if (gost[i] > c) break;
       }
       c = kgrid[i];
-      c1 = 0.5*c*c/te;
-      born_egrid = Max(c1, 1000.0);
+      born_egrid = 2.0*c*c/te;
       c1 = sqrt(2.0*te*born_egrid);
       c2 = sqrt(2.0*te*(born_egrid-1.0));
       kint[0] = c1 - c2;
-      kint[NGOSK-1] = c1 + c2;
+      kint[nk] = c1 + c2;
       log_kint[0] = log(kint[0]);
-      log_kint[NGOSK-1] = log(kint[NGOSK-1]);
-      c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
-      for (t = 1; t < NGOSK-1; t++) {
-	log_kint[t] = log_kint[t-1] + c1;
+      log_kint[nk] = log(kint[nk]);
+      dk = (log_kint[nk] - log_kint[0])/nk;
+      for (t = 1; t < nk; t++) {
+	log_kint[t] = log_kint[t-1] + dk;
 	kint[t] = exp(log_kint[t]);
       }
-      np = 3;
-      j = NGOSK;
-      UVIP3P(np, j, log_kgrid, gos, j, log_kint, gosint);
-      for (t = 0; t < NGOSK; t++) {
-	if (kint[t] < kgrid[0]) {
-	  gosint[t] = gos[0];
-	} else {
-	  break;
-	}
-      }
-      for (t = j-1; t >= 0; t--) {
-	if (kint[t] > kgrid[j-1]) {
-	  gosint[t] = 0.0;
-	} else {
-	  break;
-	}
-      }
-      born_cross = 4.0*c1*Simpson(gosint, 0, NGOSK-1);
+      nk = NKINT;
+      InterpolateGOS(nk, log_kgrid, gost, nk, log_kint, gosint);
+      born_cross = 4.0*dk*Simpson(gosint, 0, nk-1);
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
       bethe[2] = (born_egrid-1.0)*te;
@@ -1540,7 +1540,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   ANGULAR_TIMING angt;
   RECOUPLE_TIMING recouplet;
   RAD_TIMING radt;
-#endif  
+#endif
+  SYMMETRY *sym;
+  STATE *st;
+  CONFIG *cfg;
   int i, j, k, n, m, ie, ip;
   FILE *f;
   double qkc[MAXMSUB*MAXNUSR];
@@ -1554,7 +1557,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set;
-  double emin, emax, e, c, e0, e1, te0;
+  double emin, emax, e, c;
+  double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
 
   n = 0;
@@ -1592,6 +1596,17 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   if (m == 0) {
     return 0;
+  }
+
+  ei = 1E31;
+  for (j = 0; j < nup; j++) {
+    lev2 = GetLevel(up[j]);
+    sym = GetSymmetry(lev2->pj);
+    st = (STATE *) ArrayGet(&(sym->states), lev2->pb);
+    cfg = GetConfig(st);
+    k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+    e = -(GetOrbital(k)->energy);
+    if (e < ei) ei = e;
   }
 
   if (tegrid[0] < 0) {
@@ -1635,33 +1650,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   usr_egrid_type = 1;
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);
-  }
-
-  goseps = 0.0;
-  if (goskmin < 0.0) {
-    e = 1000.0*emax;
-  } else {
-    e = goskmin*emax;
-  }
-  e1 = sqrt(2.0*e);
-  e0 = sqrt(2.0*(e - emin));
-  rmin = e1 - e0;
-  if (goskmax < 0.0) {
-    e = 50.0*emax;
-  } else {
-    e = goskmax*emax;
-  }
-  e1 = sqrt(2.0*e);
-  e0 = sqrt(2.0*(e - emin));
-  rmax = e1 + e0;
-  kgrid[0] = rmin;
-  kgrid[NGOSK-1] = rmax;
-  log_kgrid[0] = log(rmin);
-  log_kgrid[NGOSK-1] = log(rmax);
-  e = (log_kgrid[NGOSK-1] - log_kgrid[0])/(NGOSK-1);
-  for (i = 1; i < NGOSK-1; i++) {
-    log_kgrid[i] = log_kgrid[i-1] + e;
-    kgrid[i] = exp(log_kgrid[i]);
   }
 
   e = (emin + emax)*0.5;
@@ -1717,10 +1705,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    ce_hdr.te0 = te0;
     e = 0.5*(emin + emax);
     emin = rmin*e;
-    emax = rmax*ce_hdr.te0;
+    if (te0 > ei) {
+      emax = rmax*te0;
+      ce_hdr.te0 = te0;
+    } else {
+      emax = rmax*te0*3.0;
+      ce_hdr.te0 = te0;
+    }
     
     if (qk_mode == QK_EXACT) {
       if (n_egrid0 <= 0) {
@@ -1861,7 +1854,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ReinitRadial(2);
   }
 
-  FreeGOSArray();
   ReinitExcitation(1);
 
   ArrayFree(&subte, NULL);

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.62 2003/08/13 20:44:23 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.63 2003/08/15 16:17:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3694,32 +3694,6 @@ static PyObject *PAIBranch(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddd)", te, pa, ta);
 }
 
-static PyObject *PSetGOSLimits(PyObject *self, PyObject *args) { 
-  double max, min;
-
-  if (sfac_file) {
-    SFACStatement("SetGOSLimits", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  min = -1.0;
-  if (!PyArg_ParseTuple(args, "d|d", &max, &min)) return NULL;
-
-  SetGOSLimits(max, min);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PGetGOSTail(PyObject *self, PyObject *args) {
-  double s;
-  
-  s = GetGOSTail();
-
-  return Py_BuildValue("d", s);
-}
-
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3761,7 +3735,6 @@ static struct PyMethodDef fac_methods[] = {
   {"GetW6j", PGetW6j, METH_VARARGS},
   {"GetW9j", PGetW9j, METH_VARARGS},
   {"GetCG", PGetCG, METH_VARARGS},
-  {"GetGOSTail", PGetGOSTail, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
@@ -3799,7 +3772,6 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
   {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
-  {"SetGOSLimits", PSetGOSLimits, METH_VARARGS},
   {"SetNStatesPartition", PSetNStatesPartition, METH_VARARGS},
   {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
