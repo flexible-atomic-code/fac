@@ -1,7 +1,8 @@
-Version 0.7.2, 03/21/2002
+Version 0.7.2, 04/09/2002
 	1. add hydrogenic TRRate routine.
 	2. update papers for submission to PRA.
 	3. the r_core for H-like ions changed to 0.75*MAX_POINTS.
+	4. update Makefile and setup.py for Mac OS X.
 	
 Version 0.7.1, 03/11/2002
 	1. add pfac.spm module for processing spectral data

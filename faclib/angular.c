@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.11 2002/01/14 23:19:41 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.12 2002/04/09 18:08:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,6 +15,8 @@ USE (rcsid);
   Author: M. F. Gu, mfgu@space.mit.edu
 *************************************************************/
 
+double ln_factorial[MAX_FACTORIAL];
+double ln_integer[MAX_FACTORIAL];
 
 #ifdef PERFORM_STATISTICS
 static ANGULAR_TIMING timing = {0, 0, 0};

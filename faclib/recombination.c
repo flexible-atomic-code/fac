@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.44 2002/02/28 16:55:04 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.45 2002/04/09 18:08:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -641,6 +641,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
 	    }
 	  }	  
 	  tq[ie] += r0*r1;
+printf("tq: %d %d %d %d %10.3E %10.3E %d %d %d\n", ie, mode, m, gauge, r0, r1, k0, k1, kf);
 	}  
       }
     }
