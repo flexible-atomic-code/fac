@@ -33,7 +33,7 @@ static struct {
   double kl[MAX_NKL];
   double qk[MAX_NKL];
   double qk_y2[MAX_NKL];
-} pw_scratch = {1, MAX_KL, 15, 2, EPS3, 0, 0, 0};
+} pw_scratch = {1, MAX_KL, 15, 0, EPS3, 0, 0, 0};
 
 static MULTI *pk_array;
 
@@ -1120,7 +1120,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
   if (pw_scratch.nkl0 == 0) {
-    SetCEPWOptions(1, 40, 15, 2, 1E-3);
+    SetCEPWOptions(1, 40, 15, 0, 1E-3);
   }
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);

@@ -1156,6 +1156,9 @@ int InitRecombination() {
   egrid[0] = -1.0;
   n_tegrid = 0;
   tegrid[0] = -1.0;
+
+  SetRecPWOptions(12, 12);
+
 }
 
 

@@ -1,4 +1,4 @@
-This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  10 JUL 2001 16:28
+This is TeX, Version 3.14159 (Web2C 7.3.1) (format=latex 2000.10.7)  18 JUL 2001 18:47
 **guide
 (guide.tex
 LaTeX2e <1999/12/01> patch level 1
@@ -60,46 +60,52 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 [1
 
 ] [2]
-Overfull \hbox (6.92325pt too wide) in paragraph at lines 162--167
+Overfull \hbox (6.92325pt too wide) in paragraph at lines 166--171
 []\OT1/cmr/m/n/12 Set the ra-dial grid lim-its. The ac-tual grid lim-its are ``
 rmin/z'',
  []
 
 [3]
-Overfull \hbox (10.34401pt too wide) in paragraph at lines 217--224
+Overfull \hbox (10.34401pt too wide) in paragraph at lines 221--228
 []\OT1/cmr/m/n/12 Calculate the tran-si-tion rates be-tween lower
  []
 
 [4]
-Overfull \hbox (12.50427pt too wide) in paragraph at lines 294--296
-[]\OT1/cmr/m/n/12 See Set-CEP-WOp-tions()
+Overfull \hbox (5.25502pt too wide) in paragraph at lines 297--299
+[]\OT1/cmr/m/n/12 See Set-CEP-WOp-tions() for de-
  []
 
 [5]
-Overfull \hbox (12.93854pt too wide) in paragraph at lines 339--342
+Overfull \hbox (12.93854pt too wide) in paragraph at lines 342--345
 []\OT1/cmr/m/n/12 Construct re-com-bined states based on the tar-get states fro
 m ``groups'',
  []
 
 
-Overfull \hbox (6.1167pt too wide) in paragraph at lines 344--347
+Overfull \hbox (6.1167pt too wide) in paragraph at lines 347--350
 []\OT1/cmr/m/n/12 Set the in-ter-nal photo-electron en-ergy grid in photo-ioniz
 ation
  []
 
 
-Overfull \hbox (5.4628pt too wide) in paragraph at lines 349--352
+Overfull \hbox (5.4628pt too wide) in paragraph at lines 352--355
 []\OT1/cmr/m/n/12 Set the photo-electron en-ergy grid where photo-ionization
  []
 
 
-Overfull \hbox (3.96681pt too wide) in paragraph at lines 376--378
+Overfull \hbox (6.32117pt too wide) in paragraph at lines 374--382
+[]\OT1/cmr/m/n/12 Corrects the en-ergy value of ``lev-els'' to ``en-er-gies'', 
+where
+ []
+
+[6]
+Overfull \hbox (3.96681pt too wide) in paragraph at lines 389--391
 []\OT1/cmr/m/n/12 Calculates the au-toion-iza-tion width from ``bound'' to ``fr
 ee''
  []
 
-[6]
-Overfull \hbox (5.06255pt too wide) in paragraph at lines 414--426
+
+Overfull \hbox (5.06255pt too wide) in paragraph at lines 427--439
 []\OT1/cmr/m/n/12 This rou-tine
  []
 
@@ -113,4 +119,4 @@ Here is how much of TeX's memory you used:
  14 hyphenation exceptions out of 1000
  23i,6n,29p,141b,251s stack positions out of 300i,100n,500p,50000b,4000s
 
-Output written on guide.dvi (7 pages, 27392 bytes).
+Output written on guide.dvi (7 pages, 28492 bytes).

@@ -250,7 +250,7 @@ int SetUsrCIEGrid(int n, double emin, double emax, int type) {
   return 0;
 }
 
-int CIRadialQk(int ie1, int ie2, int kb, int k) {
+int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   int index[4];
   double pk[MAX_IEGRID][MAX_CIKL+1];
   double **p, e1, e2, e0, te;
@@ -261,7 +261,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
   int kf, kappaf, kf0, kappa0, kf1, kappa1;
   int kl0, kl0p, kl1, kl1p;
   int j0, j1, j1min, j1max;
-  double r, sd, se;
+  double r, rp, sd, se;
   double y2[MAX_CIKL+1], s;
   int kl_max1, kl_max2;
 
@@ -306,8 +306,6 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
   orb = GetOrbital(kb);
   kappab = orb->kappa;
   jb = GetJFromKappa(kappab);
-  js[0] = 0;
-  ks[0] = kb;
   jmin = abs(k - jb);
   jmax = k + jb;
   for (j = jmin; j <= jmax; j += 2) {
@@ -367,6 +365,9 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
 		e0 = e1 + e2 + te;
 		kf0 = OrbitalIndex(0, kappa0, e0);
 		ks[1] = kf0;
+
+		js[0] = 0;
+		ks[0] = kb;
 		if (kl1 >= pw_scratch.qr &&
 		    kl0 >= pw_scratch.qr) {
 		  SlaterTotal(&sd, &se, js, ks, k, -1);
@@ -375,7 +376,21 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
 		} 
 		
 		r = sd + se;
-		r = r*r;
+
+		if (kbp != kb) {
+		  js[0] = 0;
+		  ks[0] = kbp;
+		  if (kl1 >= pw_scratch.qr &&
+		      kl0 >= pw_scratch.qr) {
+		    SlaterTotal(&sd, &se, js, ks, k, -1);
+		  } else {
+		    SlaterTotal(&sd, &se, js, ks, k, 1);
+		  } 
+		  rp = sd + se;
+		} else {
+		  rp = r;
+		}
+		r = r*rp;
 		pk[i][t] += r;
 	      }
 	    }
@@ -406,10 +421,10 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
 }
 
 int IonizeStrength(double *s, double *te, int b, int f) {
-  int i, j, k, t;
+  int i, ip, j, k, t;
   LEVEL *lev1, *lev2;
   double c, r, r0;
-  int nz, j0, kb;
+  int nz, j0, j0p, kb, kbp;
   double *rq[MAX_CIEGRID+1], *qy2[MAX_CIEGRID+1];
   double *x, x0, *rtmp; 
   double e, e2max, e2min, delta, e1, e2t, ehalf;
@@ -437,80 +452,89 @@ int IonizeStrength(double *s, double *te, int b, int f) {
   }
   
   for (i = 0; i < nz; i++) {
-    c = ang[i].coeff;
     kb = ang[i].kb;
     j0 = GetOrbital(kb)->kappa;
     j0 = GetJFromKappa(j0);
-    c = c*c/(j0+1.0);
-    for(ie1 = 0; ie1 < n_egrid; ie1++) {
-      for (ie2 = 0; ie2 < n_egrid; ie2++) {
-	rq[ie1][ie2] = 0.0;
-	if (ie2 > ie1+1) break; 
-	for (k = 0; k <= MAX_CIK; k += 2) {
-	  CIRadialQk(ie1, ie2, kb, k);
-	  if (n_tegrid == 1) {
-	    r = pw_scratch.qk[0];
-	  } else {
-	    x = log_te;
-	    x0 = log(*te);
-	    spline(x, pw_scratch.qk, n_tegrid, 1E30, 1E30, y2);
-	    splint(x, pw_scratch.qk, y2, n_tegrid, x0, &r);
-	  }
-	  r = r/(k+1.0);
-	  rq[ie1][ie2] += r;
-	}
+    for (ip = 0; ip <= i; ip++) {
+      kbp = ang[ip].kb;
+      j0p = GetOrbital(kbp)->kappa;
+      j0p = GetJFromKappa(j0p);
+      if (j0p != j0) continue;
+      c = ang[i].coeff*ang[ip].coeff/(j0+1.0);
+      if (ip != i) {
+	c *= 2.0;
       }
-    }
-
-    for (ie1 = 0; ie1 < n_egrid; ie1++) {
-      spline(egrid, rq[ie1], n_egrid, 1E30, 1E30, qy2[ie1]);
-    }
-    for (j = 0; j < n_usr; j++) {
-      e = usr_egrid[j];
-      ehalf = e*0.5;
-      e2min = 0.0;
-      e2max = (*te)*0.5;
-      e2max = Min(e2max, ehalf);
-      delta = (e2max - e2min)/(N_INTEGRATE - 1);
-      e2[0] = e2min;
-      for (t = 1; t < N_INTEGRATE; t++) {
-	e2[t] = e2[t-1] + delta;
-      }
-      for (t = 0; t < N_INTEGRATE; t++) {
-	e1 = e - e2[t];
-	for (ie1 = 0; ie1 < n_egrid; ie1++) {
-	  splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2[t], &rtmp[ie1]);
-	}
-	spline(egrid, rtmp, n_egrid, 1E30, 1E30, qy2[ie1]);
-	splint(egrid, rtmp, qy2[ie1], n_egrid, e1, &r);
-	integrand[t] = r;
-      }
-      r0 = Simpson(integrand, 0, N_INTEGRATE-1);
-      r0 *= delta;
       
-      if (e2max < ehalf) {
-	e2min = e2max;
-	e2max = ehalf; 
-	e2[0] = log(e2min);
-	delta = (log(e2max)-e2[0])/(N_INTEGRATE-1);
+      for(ie1 = 0; ie1 < n_egrid; ie1++) {
+	for (ie2 = 0; ie2 < n_egrid; ie2++) {
+	  rq[ie1][ie2] = 0.0;
+	  if (ie2 > ie1+1) break; 
+	  for (k = 0; k <= MAX_CIK; k += 2) {
+	    CIRadialQk(ie1, ie2, kb, kbp, k);
+	    if (n_tegrid == 1) {
+	      r = pw_scratch.qk[0];
+	    } else {
+	      x = log_te;
+	      x0 = log(*te);
+	      spline(x, pw_scratch.qk, n_tegrid, 1E30, 1E30, y2);
+	      splint(x, pw_scratch.qk, y2, n_tegrid, x0, &r);
+	    }
+	    r = r/(k+1.0);
+	    rq[ie1][ie2] += r;
+	  }
+	}
+      }
+
+      for (ie1 = 0; ie1 < n_egrid; ie1++) {
+	spline(egrid, rq[ie1], n_egrid, 1E30, 1E30, qy2[ie1]);
+      }
+      for (j = 0; j < n_usr; j++) {
+	e = usr_egrid[j];
+	ehalf = e*0.5;
+	e2min = 0.0;
+	e2max = (*te)*0.5;
+	e2max = Min(e2max, ehalf);
+	delta = (e2max - e2min)/(N_INTEGRATE - 1);
+	e2[0] = e2min;
 	for (t = 1; t < N_INTEGRATE; t++) {
 	  e2[t] = e2[t-1] + delta;
 	}
 	for (t = 0; t < N_INTEGRATE; t++) {
-	  e2t = exp(e2[t]);
-	  e1 = e - e2t;
+	  e1 = e - e2[t];
 	  for (ie1 = 0; ie1 < n_egrid; ie1++) {
-	    splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2t, &rtmp[ie1]);
+	    splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2[t], &rtmp[ie1]);
 	  }
 	  spline(egrid, rtmp, n_egrid, 1E30, 1E30, qy2[ie1]);
 	  splint(egrid, rtmp, qy2[ie1], n_egrid, e1, &r);
-	  integrand[t] = r*e2t;
+	  integrand[t] = r;
 	}
-	r = Simpson(integrand, 0, N_INTEGRATE-1);
-	r *= delta;
-	r0 += r;
+	r0 = Simpson(integrand, 0, N_INTEGRATE-1);
+	r0 *= delta;
+      
+	if (e2max < ehalf) {
+	  e2min = e2max;
+	  e2max = ehalf; 
+	  e2[0] = log(e2min);
+	  delta = (log(e2max)-e2[0])/(N_INTEGRATE-1);
+	  for (t = 1; t < N_INTEGRATE; t++) {
+	    e2[t] = e2[t-1] + delta;
+	  }
+	  for (t = 0; t < N_INTEGRATE; t++) {
+	    e2t = exp(e2[t]);
+	    e1 = e - e2t;
+	    for (ie1 = 0; ie1 < n_egrid; ie1++) {
+	      splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2t, &rtmp[ie1]);
+	    }
+	    spline(egrid, rtmp, n_egrid, 1E30, 1E30, qy2[ie1]);
+	    splint(egrid, rtmp, qy2[ie1], n_egrid, e1, &r);
+	    integrand[t] = r*e2t;
+	  }
+	  r = Simpson(integrand, 0, N_INTEGRATE-1);
+	  r *= delta;
+	  r0 += r;
+	}
+	s[j] += 2*c*r0;
       }
-      s[j] += 2*c*r0;
     }
   }
 

@@ -87,7 +87,7 @@ expansion of the coulomb interaction. The default is 6, which is usually
 sufficient. 
 
 \item[SetAngZOptions(n, eps1, eps2)] 
-Set the options controlling the
+Set the options controling the
 calculation of angular coefficients. ``n'' is the maximum principal quantum
 number beyond which all transitions involving that electron is ignored. If
 ``n'' is 0, it is effectively infinity, which is the default. 
@@ -141,22 +141,26 @@ diagnolization of which gives the energy levels and eigen states. The
 construction of radial basis is based on an average configuration
 self-consistent field procedue. 
 
-The following routines set some global options controlling the computation.
+The following routines set some global options controling the computation.
 \begin{description}
-\item[OptimizeRadialControll(tol, maxiter, iprint)] 
+\item[SetOptimizeControl(tol, maxiter, iprint)] 
 Set parameters affecting the optimization of radial central potentials. 
 ``tol'' is the desired accuracy for self-consistent iterations. ``maxiter'' is
 the maximum iteration the optimization may perform. ``iprint'' indicates
 whether iteration summary should be printed out. The defaults: ``tol = 1E-6'',
 ``maxiter = 100'', ``iprint = 0''. 
 
-\item[SetScreening(screen, charge)] 
+\item[SetScreening(screen, charge, kl)] 
 Set the principle quantum numbers, which should be included in optimizing the
 radial potential. This is used to provide additional electron sreening for
 recombined bound orbitals and free orbitals. The total charge specified by
 ``charge'' is distributed among all shells specified by ``screen'', which is
-and integer list. For each principal quantum number in ``screen'', only the
-s-orbital is used. ``charge'' may be absent, which defaults to 1.0.
+and integer list. For each principal quantum number in ``screen'', if ``kl $<$
+0'', the s-orbital is used, if ``kl $>$ 0'', the nodeless orbital is used, if
+``kl = 0'', the orbital angular momentum is the principal quantum number
+divided by 2, the total angular momentum of the orbital is always
+$l+1/2$.  ``charge'' and ``kl'' may be absent, which defaults to 1.0 and a
+nodeless orbital. 
 
 \item[SetRadialGrid(rmin, rmax)]
 Set the radial grid limits. The actual grid limits are ``rmin/z'', and 
@@ -165,7 +169,7 @@ defaults: ``rmin = 1E-5'', ``rmax = 5E3''. The large value for ``rmax'' is
 needed for the calculation of very high Rydberg levels. If they are not needed,
 a smaller value may be chosen. 
 
-\item[SetTransitionOptions(gauge, mode, maxe, maxm)] Sets options controlling
+\item[SetTransitionOptions(gauge, mode, maxe, maxm)] Sets options controling
 the calculation of transition rates. ``gauge'' specifies the gauge: 
 \begin{enumerate}
 \item[1.] Coulomb (velocity form).
@@ -231,23 +235,22 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
-Set partial wave options for excitation calculation. ``qr'' is the orbital
+\item[SetCEPWOptions(max\_allow, max\_forbidden, qr, tol)] 
+Set partial wave options for excitation calculation. ``max\_allow'' is the
+maximum partial wave to be included for dipole allowed transitions. 
+``max\_forbidden'' is that for forbidden transitions,
+Internally, a partial wave grid is setup from $l = 0$ to 
+``max\_allow'', which includes every $l$ below 5 but use a logarithmic grid
+beyond that. The radial integrals are then interpolated on this grid. If
+a detailed specification of the grid is needed, SetCEPWGrid() may be used.
+``qr'' is the orbital
 angular momentum value beyond which a ``quasi-relativistic'' approximaiton
 is used for the radial integrals, which ignores the small component of the
 wavefunction and treat the orbitals with different $j$ but same $l$ as the
-same. ``max\_allow'' is the maximum partial wave to be included for dipole
-allowed transitions, 
-``max\_f'' is a factor to be multiplied to e/delta\_e to produce a limit on the
-maximum partial wave. ``max\_forbidden'' is that for forbidden transitions,
-Internally, a partial wave grid is setup from $l = 0$ to 
-``max\_allow'', which includes every $l$ below 5 but use a logrithmic grid
-beyond 
-that. The radial integrals are then interpolated on this grid. If
-a detailed specification of the grid is needed, SetCEPWGrid() may be used.
-``tol'' is a small number, When the exchange integral is smaller than the
+same. ``tol'' is a small number, When the exchange integral is smaller than the
 tol fraction of the direct integral, the exchange integral is neglected, and a
-separated form of the Coulomb interaction is used. 
+separated form of the Coulomb interaction is used. The defaults: ``max\_allow
+= 40'', ``max\_forbidden = 15'', ``qr = 1'', ``tol = 1E-3''.
 
 \item[SetCEPWGrid(m)] 
 ``m'' is the partial wave value, beyond which a logrithmic
@@ -257,7 +260,7 @@ the partial wave grid generated will be [0, 1, 2, 3, 4, 5, 7, 9, 13, 17,...].
 ie., the numbers in the 1st list is the repetition number for the increment
 step in the 2nd list. when the list is exhausted, the grid continues, by
 doubling the increment every two points until it reaches the maximum partial
-wave specified by SetCEPWOptions().
+wave specified by SetCEPWOptions(). Default ``m = 5''
 
 \item[SetTEGrid(n, emin, emax)] 
 Set the transition energy grid used in the
@@ -290,9 +293,9 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
-See SetCEPWOptions() for detail. The default for ``max\_f'' is 0, unlike in 
-Set CEPWOptions.
+\item[SetCIPWOptions(max\_allow, max\_forbidden, qr, tol)] 
+See SetCEPWOptions() for detail. Default same as SetCEPWOptions, except
+``max\_allow = 30''.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
@@ -322,14 +325,14 @@ processes, radiative and dielectronic recombination.
 Set the recombined electron principal quantum
 number options. Above ``n1'', one constructs the recombined states in terms of
 the exsisting target states. In this case, all the electrons in the target
-must have $n < n1$. Above ``n2'', The interaction between different target
-states is ignored. Usually, setting $n1 == n2$ to a suitablely high value. 
-The defaults: ``n1 = n2 = 6''.
+must have $n < n1$. Above ``n2'', The interaction between basis having
+different target states is ignored. Usually, setting $n1 = n2$ to a suitablely
+high value (or simply giving one argument). The defaults: ``n1 = n2 = 6''.
 
 \item[SetRecPWOptions(max)] 
 Set the maximum partial waves included in the
 calculation. max = 6 - 8 is usually sufficient. For DR with the transition in
-the core, however, max should be around 12.
+the core, however, max should be around 12. The default is 12.
 
 \item[SetRecPWLimits(m1, m2)] 
 Further limit the orbital angular momentum value of the recombined electron
@@ -338,7 +341,7 @@ in the range ``m1'' and ``m2'' inclusive.
 \item[RecStates(n, groups)] 
 Construct recombined states based on the  target
 states from ``groups'', and captured electron in ``n'' levels. The recombined
-states constructed this way can be referred to by a tuple (n, groups). 
+states constructed this way can be referred to by a tuple (groups, n). 
 
 \item[SetPEGrid(n, emin, emax)] 
 Set the internal photo-electron energy grid in photo-ionization and radiative
@@ -366,6 +369,16 @@ Set the continuum electron energy grid in
 autoionization calculation. The radial integrals needed are interpolated on
 this grid. It does not need to be called explicitly. For given transition
 arrays, they are set automatically. 
+
+\item[CorrectEnergy(levels, energies)]
+Corrects the energy value of ``levels'' to ``energies'', where ``levels'' and
+``energies'' are Python lists. the energies specified are relative to the
+ground state, and in the unit of eV. Instead of giving two lists as arguments,
+one may also give the name of file, which contains two columns, one for level
+indices, and the other for energy values. This is useful to correct the energy
+of low energy resonances according to experimental values. However, this only
+works if the recombined states are constructed using ``RecStates'', which is
+often the case for low energy resonances. 
 
 \item[nopen=DROpen(groups)]
 Calculates the principal quantum numbers where DR channels corresponds to the
