@@ -23,6 +23,7 @@ erg_eV = 6.241506363E-13           # erg in eV
 re = 2.81794092                    # electron classical radius in fm
 sig_t = 6.6524616                  # Thompson cross section in 10^{-25} cm2
 kb = 8.617385E-5                   # Boltzman constant in ev/K
+Maxwellian = 1.12837967            # Constant before the maxwellian dist.
 
 def EnergyH(z, n, l, j):
     if (j == 1):
