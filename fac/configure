@@ -4214,7 +4214,10 @@ fi
 # special flags for some OS
 case "$host_os" in
   *darwin*)
-    CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+    if test -n "$GCC"
+    then
+      CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+    fi
     if test -n "$G77"
     then
       FFLAGS="$FFLAGS -fno-common"
