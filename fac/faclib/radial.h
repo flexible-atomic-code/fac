@@ -60,6 +60,7 @@ int OptimizeRadial(int ng, int *kg, double *weight);
 int ConfigEnergy(int m, int ng, int *kg);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);
+double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 
 /* routines for radial integral calculations */
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type);

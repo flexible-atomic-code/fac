@@ -1925,16 +1925,17 @@ works for $l \le 13$ shells.
 This function should be called twice just before (with \var{m} = 0) and after
 (with \var{m} = 1) \key{OptimizeRadial} if used. The call with \var{m} = 0
 performs a radial optimization for the configuration groups given by the list
-\var{g}, and calculate the average energy of each configuration group under
+\var{g}, and calculate the average energy of each configuration under
 such potentials. Multiple optimizations are performed if more than one list
 are given. If none is given, the optimization are carried out for each
 configuration group. The call with \var{m} = 1 does not accept additional
-arguments. It recalculates the average energy of each configuration group
+arguments. It recalculates the average energy of each configuration
 under the potential obtained by \key{OptimizeRadial} issured by the user, The
-energy of each level obtained by \key{Structure} is then adjusted by the
-difference of the two average energies for each configuration. The purpose of
-this routine is to remove some of the errors in the level energies introduced
-by using a single central potential for all configurations. 
+diagonal elements of the Hamiltonian calculated in the \key{Structure} call is
+then adjusted by the difference of the two average energies for each
+configuration. The purpose of this routine is to remove some of the errors in
+the level energies introduced by using a single central potential for all
+configurations.
 \end{fundesc}
 
 \begin{fundesc}{ConvertToSFAC}{fn}

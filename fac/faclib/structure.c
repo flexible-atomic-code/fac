@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.34 2002/09/04 20:16:47 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.35 2002/09/18 15:53:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -486,6 +486,10 @@ double HamiltonElement(int isym, int isi, int isj) {
   x /= sqrt(sbra[0].totalJ + 1.0);
   if (IsOdd(phase)) x = -x;
 
+  if (isi == isj) {
+    x += ci->delta;
+  }
+
   free(sbra);
   free(sket);
 
@@ -720,11 +724,7 @@ int AddToLevels(int ng, int *kg) {
 	continue;
       }
     }
-    if (s->kgroup >= 0) {
-      lev.energy = h->mixing[i] + GetGroup(s->kgroup)->delta;
-    } else {
-      lev.energy = h->mixing[i];
-    }
+    lev.energy = h->mixing[i];
     lev.pj = h->pj;
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
     lev.mixing = (double *) malloc(sizeof(double)*h->n_basis);
@@ -2411,6 +2411,7 @@ void _FreeLevelData(void *p) {
    
 int ClearLevelTable(void) {
   CONFIG_GROUP *g;
+  CONFIG *cfg;
   int ng, i, k;
 
   n_levels = 0;
@@ -2419,8 +2420,11 @@ int ClearLevelTable(void) {
   ng = GetNumGroups();
   for (k = 0; k < ng; k++) {
     g = GetGroup(k);
-    g->energy = 0.0;
-    g->delta = 0.0;
+    for (i = 0; i < g->n_cfgs; i++) {
+      cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+      cfg->energy = 0.0;
+      cfg->delta = 0.0;
+    }
   }
   
   ncorrections = 0;
