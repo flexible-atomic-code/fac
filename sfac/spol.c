@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.9 2003/12/05 06:32:30 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.10 2005/04/06 03:34:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -265,6 +265,8 @@ int main(int argc, char *argv[]) {
 #endif
 
   InitPolarization();
+
+  SetModName("spol");
 
   if (argc == 1) {
     EvalFile(stdin, 1, methods);
