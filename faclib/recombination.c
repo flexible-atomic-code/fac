@@ -658,8 +658,12 @@ int AIRate(double *rate, double *e, int rec, int f) {
       klf = jf + ik;  
       kappaf = GetKappaFromJL(jf, klf);
       AIRadialPk(k0, k1, kb, kappaf, ang[i].k);
-      spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
-      splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
+      if (n_tegrid > 1) {
+	spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
+	splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
+      } else {
+	s = ai_pk[0];
+      }
       ip = (ik == -1)? ij:(ij+1);
       p[ip] += s*ang[i].coeff;
     }
@@ -843,7 +847,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       fclose(ft);
       return 0;
     }
-    if ((emax - emin) < EPS3) {
+    if ((emax - emin) < EPS5) {
       if (fabs(emax) < EPS10) return -1;
       SetDRTEGrid(1, 0.5*(emin+emax), emax);
     } else {
