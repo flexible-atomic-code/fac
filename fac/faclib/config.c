@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.9 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.10 2001/10/19 22:45:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,7 @@ static int n_groups;
 static SYMMETRY *symmetry_list;
 
 static char spec_symbols[MAX_SPEC_SYMBOLS] = 
-{'s', 'p', 'd', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'q'};
+{'s', 'p', 'd', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'q', 'r'};
 
 int SpecSymbol(char *s, int kl) {
   if (kl < MAX_SPEC_SYMBOLS) {

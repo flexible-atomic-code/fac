@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.5 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.6 2001/10/19 22:45:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -35,10 +35,11 @@ void *ArrayGet(ARRAY *a, int i) {
     p = p->next;
     i -= a->block;
   }
-  if (p->dptr) 
+  if (p->dptr) {
     return ((char *) p->dptr) + i*(a->esize);
-  else 
+  } else {
     return NULL;
+  }
 }
 
 void *ArraySet(ARRAY *a, int i, void *d) {
@@ -147,13 +148,14 @@ void *MultiGet(MULTI *ma, int *k) {
 void *MultiSet(MULTI *ma, int *k, void *d) {
   ARRAY *a;
   void *pt;
-  int i;
+  int i, ndim1, ndim2;
   /*
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
   */
+
   if (ma->array == NULL) {
     ma->array = (ARRAY *) malloc(sizeof(ARRAY));
     if (ma->ndim > 1) {
@@ -163,11 +165,12 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
     }
   }
   a = ma->array;
-
-  for (i = 0; i < ma->ndim-1; i++) {
+  ndim1 = ma->ndim-1;
+  ndim2 = ma->ndim-2;
+  for (i = 0; i < ndim1; i++) {
     a = (ARRAY *) ArraySet(a, k[i], NULL);
     if (a->esize == 0) {
-      if (i < ma->ndim-2) {
+      if (i < ndim2) {
 	ArrayInit(a, sizeof(ARRAY), ma->block[i+1]);
       } else {
 	ArrayInit(a, ma->esize, ma->block[i+1]);
@@ -188,6 +191,8 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
 int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   if (ma->ndim <= 0) return 0;
   MultiFreeData(ma->array, ma->ndim, FreeElem);
+  free(ma->array);
+  ma->array = NULL;
   free(ma->block);
   ma->block = NULL;
   ma->ndim = 0;
@@ -195,14 +200,15 @@ int MultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 }
 
 int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *)) {
-  int i;
+  int i, d1;
   ARRAY *b;
   if (a == NULL) return 0;
   if (d > 1) {
+    d1 = d-1;
     for (i = 0; i < a->dim; i++) {
       b = (ARRAY *) ArrayGet(a, i);
       if (b) {
-	MultiFreeData(b, d-1, FreeElem);
+	MultiFreeData(b, d1, FreeElem);
       }
     }
     ArrayFree(a, NULL);

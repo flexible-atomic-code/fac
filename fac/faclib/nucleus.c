@@ -1,12 +1,10 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.5 2001/10/02 16:24:13 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.6 2001/10/19 22:45:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
-
-#define N_ELEMENTS 109
 
 static NUCLEUS atom;
 static char _ename[N_ELEMENTS][3] = 
@@ -32,6 +30,14 @@ static double _emass[N_ELEMENTS] =
  210, 210, 222, 223, 226, 227, 232, 231, 238, 237, 242, 243, 247, 247, 249, 
  254, 253, 256, 254, 257, 257, 260, 263, 262, 265, 266};
 
+
+char *GetAtomicSymbolTable() {
+  return _ename;
+}
+
+double *GetAtomicMassTable() {
+  return _emass;
+}
 
 int SetAtom(char *s, double z, double mass) {
   int i;

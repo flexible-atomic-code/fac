@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.20 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.21 2001/10/19 22:45:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -9,6 +9,7 @@ USE (rcsid);
 #define NINT 15
 #define MAXNQK (MAXNE*(MAXNE+1)/2)
 #define NPARAMS 4
+#define BUFSIZE 128
 
 static int output_format = 0;
 static int egrid_type = -1;
@@ -45,6 +46,9 @@ void uvip3p_(int *np, int *ndp, double *x, double *y,
 void sdbi3p_(int *md, int *ndp, double *xd, double *yd, 
 	     double *zd, int *nip, double *xi, double *yi,
 	     double *zi, int *ierr, double *wk, int *iwk);
+void rgbi3p_(int *md, int *nxp, int *nyd, double *xd, double *yd, 
+	     double *zd, int *nip, double *xi, double *yi,
+	     double *zi, int *ierr, double *wk);
 
 static struct {
   int max_k;
@@ -152,7 +156,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   int j0, j1, j1min, j1max;
   double z, z2, r, rp, sd, se, s;
   double qkjt, qkj, qklt, qkl, qkl0;
-  double eps, a, b, h;
+  double eps, a, b, h, jb1;
   int kl_max0, kl_max1, kl_max2, max0;
   int type, last_kl0, second_last_kl0;
 
@@ -185,6 +189,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   klb /= 2;
   jmin = abs(k - jb);
   jmax = k + jb;
+  jb1 = jb + 1.0;
 
   qkjt = 0.0;
   for (j = jmin; j <= jmax; j += 2) {
@@ -385,6 +390,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
       }
     } 
     qk[i] += r;
+    qk[i] /= jb1;
   }
 
   return 0;
@@ -429,6 +435,417 @@ void CIRadialQkIntegratedBasis(int npar, double *yb, double x, double log_x) {
   yb[2] = log_x*y1 ;
   yb[3] = y2;
 }
+
+int LoadCIRadialQkIntegrated(int n, char *s) {
+  int kappa, i, nd, np, kl, kl2, j, k, ite;
+  FILE *f;
+  ORBITAL *orb;
+  double e, e0, a, **p;
+  double xte[MAXNTE], xte0[MAXNTE];
+  double qkt[NPARAMS][MAXNTE];
+  int index[3];
+  double emin, emax;
+  char buf[BUFSIZE];
+  char *sb;
+  int nz, nza, nqkz, nqkc, jp, jz, md, ierr;
+  int iz, iza;
+  double *z, *za, *qkc, *dtmp;
+  double z0, za0;
+
+  if (n <= 0) {
+    qk_mode = QKDETAIL;
+    return 0;
+  }
+  if (s == NULL) return -1;
+
+  emin = 1E10;
+  emax = 0.0;
+  for (kl = 0; kl < n; kl++) {
+    kl2 = 2*kl;
+    for (j = kl2-1; j <= kl2+1; j += 2) {
+      if (j < 0) continue;
+      kappa = GetKappaFromJL(j, kl2);
+      i = OrbitalExists(n, kappa, 0.0);
+      if (i < 0) continue;
+      orb = GetOrbital(i);
+      e0 = -(orb->energy);
+      if (e0 > emax) emax = e0;
+      if (e0 < emin) emin = e0;
+    }
+  }
+  if (n_tegrid == 1) emin = 0.5*(emin+emax);
+
+  f = fopen(s, "r");
+
+  sb = fgets(buf, BUFSIZE, f);
+  if (sb == NULL) return -1;
+  sscanf(sb, "%d", &n_tegrid);
+  SetIEGrid(n_tegrid, emin, emax);
+
+  sb = fgets(buf, BUFSIZE, f);
+  if (sb == NULL) return -1;
+  sscanf(sb, "%d", &nz);
+  z = (double *) malloc(sizeof(double)*nz);
+  sb += 6;
+  for (i = 0; i < nz; i++) {
+    sscanf(sb, "%lf", &(z[i]));
+    sb += 6;
+  }
+  sb = fgets(buf, BUFSIZE, f);
+  if (sb == NULL) {
+    free(z);
+    return -1;
+  }
+  sscanf(sb, "%d", &nza);
+  za = (double *) malloc(sizeof(double)*nza);
+  sb += 6;
+  for (i = 0; i < nza; i++) {
+    sscanf(sb, "%le", &(za[i]));
+    sb += 12;
+  }
+
+  nqkz = nz*nza;
+  nqkc = n_tegrid*nqkz;
+  qkc = (double *) malloc(sizeof(double)*nqkc*NPARAMS);
+  if (nz > 1 && nza > 1) {
+    dtmp = (double *) malloc(sizeof(double)*3*nqkz);
+  } else {
+    dtmp = NULL;
+  }
+  z0 = GetAtomicNumber();
+  za0 = GetResidualZ();
+  za0 = za0/z0;
+  
+  while (sb = fgets(buf, BUFSIZE, f)) {
+    sscanf(buf, "%d%d%d", &np, &kl2, &j);
+    if (np != n) {
+      for (ite = 0; ite < nqkc; ite++) 
+	fgets(buf, BUFSIZE, f);
+    } else {
+      kappa = GetKappaFromJL(j, kl2);
+      k = OrbitalExists(n, kappa, 0.0);
+      if (k < 0) {
+	for (i = 0; i < nqkc; i++) 
+	  fgets(buf, BUFSIZE, f);
+	continue;
+      }
+      index[0] = 0;
+      index[1] = k;
+      index[2] = k;
+      p = MultiSet(qk_array, index, NULL);
+      if (*p) free(*p);
+      *p = (double *) malloc(sizeof(double)*n_tegrid*NPARAMS);
+
+      orb = GetOrbital(k);
+      e = -(orb->energy);
+      for (ite = 0; ite < n_tegrid; ite++) {
+	xte[ite] = tegrid[ite]/e;
+      }
+      jz = 0;
+      for (iz = 0; iz < nz; iz++) {
+	for (iza = 0; iza < nza; iza++) {
+          for (ite = 0; ite < n_tegrid; ite++) {
+	    sb = fgets(buf, BUFSIZE, f);
+	    sscanf(sb, "%lE%lE", &e0, &(xte0[ite]));
+	    sb += 24;
+	    for (i = 0; i < NPARAMS; i++) {
+	      sscanf(sb, "%lE", &(qkt[i][ite]));
+	      sb += 12;
+	    }
+          }
+	  jp = jz;
+	  if (n_tegrid == 1) {
+	    for (i = 0; i < NPARAMS; i++) {
+	      qkc[jp] = qkt[i][0]/e;
+	      jp += nqkz;
+	    }
+	  } else {
+	    np = 3; 
+	    nd = 1;
+	    for (ite = 0; ite < n_tegrid; ite++) {
+	      for (i = 0; i < NPARAMS; i++) {
+		uvip3p_(&np, &n_tegrid, xte0, qkt[i], &nd, &(xte[ite]), &a);
+		qkc[jp] = a/e;
+		jp += nqkz;
+	      }
+	    }
+	  }
+	  jz++;
+	}
+      }
+      np = 3;
+      nd = 1;
+      jp = 0;
+      jz = 0;
+      if (nqkz == 1) {
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  for (i = 0; i < NPARAMS; i++) {
+	    (*p)[jp] = qkc[jp];
+	    jp++;
+	  }
+	}
+      } else if (nz == 1) {
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  for (i = 0; i < NPARAMS; i++) {
+	    uvip3p_(&np, &nza, za, &(qkc[jz]), &nd, &za0, &a);
+	    (*p)[jp] = a;
+	    jp++;
+	    jz += nqkz;
+	  }
+	}
+      } else if (nza == 1) {
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  for (i = 0; i < NPARAMS; i++) { 
+	    uvip3p_(&np, &nz, z, &(qkc[jz]), &nd, &z0, &a);
+	    (*p)[jp] = a;
+	    jp++;
+	    jz += nqkz;
+	  }
+	}
+      } else {
+	md = 1;
+	for (ite = 0; ite < n_tegrid; ite++) {
+	  for (i = 0; i < NPARAMS; i++) { 
+	    rgbi3p_(&md, &nza, &nz, za, z, &(qkc[jz]), &nd, 
+		    &za0, &za0, &a, &ierr, dtmp);
+	    (*p)[jp] = a;
+	    jp++;
+	    jz += nqkz;
+	  }
+	}
+      }
+    }
+  }
+
+  if (dtmp) free(dtmp);
+  free(qkc);
+  free(z);
+  free(za);
+
+  qk_mode = QKFIT;    
+  fclose(f);
+  return 0;
+}
+
+int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
+			     int np, int *n, int nte, 
+			     double emin, double emax, char *s) {
+#define MAXNSHELLS 128
+  FILE *f;
+  int i, ite, ie, norbs, k, kl, kl2, j;
+  int jz, jp, iz, ia, in;
+  int an[MAXNSHELLS], akappa[MAXNSHELLS];
+  double mnq, tnq;
+  double anq[MAXNSHELLS];
+  double e0, *qkc, delta, rz;
+  double *qk[MAXNTE][NPARAMS], *e, *xte[MAXNTE]; 
+  ORBITAL *orb;
+  int nshells, maxshells, kappa;
+
+  k = 0;
+  for (i = 1; i <= 10; i++) {
+    for (kl = 0; kl < i; kl++) {
+      kl2 = 2*kl;
+      for (j = kl2-1; j <= kl2+1; j += 2) {
+	if (j < 0) continue;
+	an[k] = i;
+	akappa[k] = GetKappaFromJL(j, kl2);
+	k++;
+      }
+    }
+  }
+  maxshells = k;
+
+  i = 0;
+  for (in = 0; in < np; in++) {
+    i += 2*n[in]-1;
+  }
+  i *= nz*na;
+  e = (double *) malloc(sizeof(double)*i);
+  for (ite = 0; ite < nte; ite++) {
+    xte[ite] = (double *) malloc(sizeof(double)*i);
+    for (j = 0; j < NPARAMS; j++) {
+      qk[ite][j] = (double *) malloc(sizeof(double)*i);
+    }
+  }
+   
+  egrid_type = 1;
+  pw_type = 0; 
+  yegrid0[0] = 0.0;
+  delta = 0.5/(NINT-1.0);
+  for (i = 1; i < NINT; i++) {
+    yegrid0[i] = yegrid0[i-1] + delta;
+  }	    
+  if (pw_scratch.nkl == 0) {
+    SetCIPWGrid(0, NULL, NULL);
+  }	    
+
+  jz = 0;
+  for (iz = 0; iz < nz; iz++) {    
+    SetAtom(" ", z[iz], -1.0);
+    for (ia = 0; ia < na; ia++) {
+      tnq = (1.0-a[ia])*z[iz] + 1.0;
+      for (i = 0; i < maxshells; i++) {
+	j = GetJFromKappa(akappa[i]);
+	mnq = j+1.0;
+	if (tnq > mnq) {
+	  anq[i] = mnq;
+	  tnq -= mnq;
+	} else if (tnq > 0) {
+	  anq[i] = tnq;
+	  tnq = -1.0;
+	} else {
+	  break;
+	}
+      }
+      nshells = i;
+         
+      FreeIonizationQk();
+      FreeSlaterArray();
+      FreeResidualArray();  
+     
+      ClearOrbitalTable();
+      SetAverageConfig(nshells, an, akappa, anq);
+      SetRadialGrid(-1.0, -1.0);
+      OptimizeRadial(0, NULL, NULL);
+      rz = GetResidualZ();
+      jp = jz;
+      for (in = 0; in < np; in++) {
+	for (kl = 0; kl < n[in]; kl++) {
+	  kl2 = 2*kl;
+	  for (j = kl2-1; j <= kl2+1; j += 2) {
+	    if (j < 0) continue;
+	    kappa = GetKappaFromJL(j, kl2);
+	    k = OrbitalIndex(n[in], kappa, 0.0);
+	    printf("%10.3E %10.3E %d %d %d\n", z[iz], a[ia], n[in], kl2, j);
+	    orb = GetOrbital(k);
+	    e0 = -(orb->energy);	
+	    SetIEGrid(nte, emin*e0, emax*e0);
+	    if (kl == 0) SetCIEGrid(6, 0.05*e0, 8.0*e0, e0);
+	    for (ie = 0; ie < n_egrid; ie++) {
+	      for (i = 0; i < n_tegrid; i++) {
+		xegrid[i][ie] = egrid[ie]/tegrid[i];
+		if (egrid_type == 1) xegrid[i][ie] += 1.0;
+		log_xegrid[i][ie] = log(xegrid[i][ie]);
+	      }
+	      sigma[ie] = 1.0/sqrt(xegrid[0][ie]);
+	    }
+	    PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, 
+			     rz, egrid, tegrid, egrid,
+			     pw_scratch.nkl, pw_scratch.kl, 
+			     egrid_type, pw_type, 0);
+	    qkc = CIRadialQkIntegratedTable(k, k);
+	    e[jp] = e0;
+	    k = 0;
+	    for (ite = 0; ite < n_tegrid; ite++) {
+	      xte[ite][jp] = tegrid[ite]/e0;
+	      for (i = 0; i < NPARAMS; i++) {
+		qk[ite][i][jp] = qkc[k]*e0;		
+		k++;
+	      }
+	    }
+	    jp += nz*na;
+	  }
+	}
+      }
+      jz++;
+    }
+  }
+  
+  f = fopen(s, "w");  
+  fprintf(f, "%-5d\n", n_tegrid);
+  fprintf(f, "%-5d ", nz);
+  for (iz = 0; iz < nz; iz++) {
+    fprintf(f, "%-5d ", (int)(z[iz]));
+  }
+  fprintf(f, "\n");
+  fprintf(f, "%-5d ", na);
+  for (ia = 0; ia < na; ia++) {
+    fprintf(f, "%11.4E ", a[ia]);
+  }
+  fprintf(f, "\n"); 
+
+  jp = 0;
+  for (in = 0; in < np; in++) {
+    for (kl = 0; kl < n[in]; kl++) {
+      kl2 = 2*kl;
+      for (j = kl2-1; j <= kl2+1; j += 2) {
+	if (j < 0) continue;
+	fprintf(f, "%-2d %-2d %-2d\n", n[in], kl2, j);
+	for (iz = 0; iz < nz; iz++) {
+	  for (ia = 0; ia < na; ia++) {
+	    for (ite = 0; ite < n_tegrid; ite++) {
+	      fprintf(f, "%11.4E %11.4E ", e[jp], xte[ite][jp]);
+	      for (i = 0; i < NPARAMS; i++) {
+		fprintf(f, "%11.4E ", qk[ite][i][jp]);
+	      }
+	      fprintf(f, "\n");
+	    }
+	    jp++;
+	  }
+	}
+      }
+    }
+  }
+
+  free(e);
+  for (ite = 0; ite < n_tegrid; ite++) {
+    free(xte[ite]);
+    for (i = 0; i < NPARAMS; i++) {
+      free(qk[ite][i]);
+    }
+  }
+
+  fclose(f);
+  return 0;
+
+#undef MAXNSHELLS
+}
+
+int SaveCIRadialQkIntegrated(int n, char *s) {
+  int kappa, i, kl, kl2, j, k, ite;
+  ORBITAL *orb;
+  FILE *f;
+  double e0, z, rz, a, *qkc;
+
+  z = GetAtomicNumber();
+  rz = GetResidualZ();
+  rz = rz/z;
+  
+  f = fopen(s, "w");  
+  
+  fprintf(f, "%-5d\n", n_tegrid);
+  fprintf(f, "%-5d %-5d\n", 1, (int)z);
+  fprintf(f, "%-5d %11.4E\n", 1, rz);
+  for (kl = 0; kl < n; kl++) {
+    kl2 = 2*kl;
+    for (j = kl2-1; j <= kl2+1; j += 2) {
+      if (j < 0) continue;
+      kappa = GetKappaFromJL(j, kl2);
+      i = OrbitalExists(n, kappa, 0.0);
+      if (i < 0) continue;
+      orb = GetOrbital(i);
+      e0 = -(orb->energy);
+      qkc = CIRadialQkIntegratedTable(i, i);
+      if (qkc == NULL) continue;
+      fprintf(f, "%-2d %-2d %-2d\n", n, kl2, j); 
+      k = 0;
+      for (ite = 0; ite < n_tegrid; ite++) {
+	a = tegrid[ite]/e0;
+	fprintf(f, "%11.4E %11.4E ", e0, a);
+	for (i = 0; i < NPARAMS; i++) {
+	  a = qkc[k]*e0;
+	  fprintf(f, "%11.4E ", a);
+	  k++;
+	}
+	fprintf(f, "\n");
+      }
+    }
+  }
+  
+  fclose(f);
+  return 0;
+}     
  
 double *CIRadialQkIntegratedTable(int kb, int kbp) {
   int index[3], ie1, ie2, ite, i, j;
@@ -437,7 +854,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   double x, y, integrand[NINT];
   int np, nd, ierr, nqk;
 
-  index[0] = 1;
+  index[0] = 0;
   index[1] = kb;
   index[2] = kbp;
   
@@ -511,7 +928,7 @@ double *CIRadialQkTable(int kb, int kbp) {
   int nqk, ie1, ie2, ite;
   double **p, *qk, qi[MAXNTE];
 
-  index[0] = 0;
+  index[0] = 1;
   index[1] = kb;
   index[2] = kbp;
 
@@ -574,7 +991,7 @@ int IonizeStrength(double *qkc, double *te, int b, int f) {
       j0p = GetOrbital(kbp)->kappa;
       j0p = GetJFromKappa(j0p);
       if (j0p != j0) continue;
-      c = ang[i].coeff*ang[ip].coeff/(j0+1.0);
+      c = ang[i].coeff*ang[ip].coeff;
       if (ip != i) {
 	c *= 2.0;
       }
@@ -753,7 +1170,6 @@ void _FreeIonizationQk(void *p) {
 
 int FreeIonizationQk() {
   ARRAY *b;
-  
   b = qk_array->array;
   if (b == NULL) return 0;
   MultiFreeData(b, qk_array->ndim, _FreeIonizationQk);

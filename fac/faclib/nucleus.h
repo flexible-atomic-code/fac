@@ -3,6 +3,8 @@
 
 #include "global.h"
 
+#define N_ELEMENTS 109
+
 typedef struct _NUCLEUS_ {
   char symbol[5];
   double atomic_number;
@@ -12,6 +14,8 @@ typedef struct _NUCLEUS_ {
 
 
 int SetAtom(char *s, double z, double mass);
+char *GetAtomicSymbolTable();
+double *GetAtomicMassTable();
 double GetAtomicNumber();
 char *GetAtomicSymbol();
 double GetAtomicEffectiveZ(double r);
