@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.53 2002/09/04 20:16:46 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.54 2002/09/25 14:52:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -873,7 +873,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
     }    
     free(ang);
   }
-  
+
   nzfb = AngularZFreeBound(&zfb, f, rec);
   if (nzfb > 0) {
     for (i = 0; i < nzfb; i++) {
