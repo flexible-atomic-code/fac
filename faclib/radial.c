@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.55 2002/09/04 13:27:14 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.56 2002/09/04 20:16:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1113,15 +1113,21 @@ double RadialMoments(int m, int k1, int k2) {
 
   if (n1 > 0 && n2 > 0) {
     if ((n1 > nh && n2 > nh) || 
-	(kl1 >= klh && kl2 >= klh) ||
+	(kl1 > klh && kl2 > klh) ||
 	orb1->wfun == NULL || 
 	orb2->wfun == NULL) {
-      if (m == 1) {
+      if (n1 == n2 && kl1 == kl2) {
+	z = GetResidualZ();
+	r = HydrogenicExpectation(z, m, n1, kl1);
+	if (r) {
+	  return r;
+	}
+      } else if (m == 1) {
 	z = GetResidualZ();
 	if (n1 < n2) {
 	  r = HydrogenicDipole(z, n1, kl1, n2, kl2);
 	  return r;
-	} else if (n1 > n2) {
+	} else if (n1 < n2) {
 	  r = HydrogenicDipole(z, n2, kl2, n1, kl1);
 	  return r;
 	}
@@ -1129,6 +1135,9 @@ double RadialMoments(int m, int k1, int k2) {
     }
   }
 
+  if (n1 == n2 && m > 0 && n1 > GetNMax()) {
+    return 0.0;
+  }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     return 0.0;
   }
@@ -1539,7 +1548,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   orb1 = GetOrbitalSolved(k1);
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
-  
   if (orb0->wfun == NULL || orb1->wfun == NULL ||
       orb2->wfun == NULL || orb3->wfun == NULL) {
     if (sd) *sd = 0.0;
@@ -1648,10 +1656,10 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   case 1:
     index[5] = 0;
     break;
-  case 2:
+  case -1:
     index[5] = 1;
     break;
-  case -1:
+  case 2:
     index[5] = 2;
     break;
   case -2:
@@ -1662,9 +1670,13 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     return -1;
   }
 
-  SortSlaterKey(index);
-  p = (double *) MultiSet(slater_array, index, NULL);
-  if (*p) {
+  if (index[5] < 2) {
+    SortSlaterKey(index);
+    p = (double *) MultiSet(slater_array, index, NULL);
+  } else {
+    p = NULL;
+  }
+  if (p && *p) {
     *s = *p;
   } else {
     orb0 = GetOrbitalSolved(k0);
@@ -1708,11 +1720,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
 
     case 2: /* separable coulomb interaction, orb0, orb2 is inner part */
       m = k;
-      if (m == 0) {
-	*s = (k0 == k2)?1.0:0.0;
-      } else {
-	*s = RadialMoments(m, k0, k2);
-      }
+      *s = RadialMoments(m, k0, k2);
       if (*s != 0.0) {
 	m = -m-1;
 	*s *= RadialMoments(m, k1, k3);
@@ -1721,11 +1729,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
 
     case -2: /* separable coulomb interaction, orb1, orb3 is inner part  */
       m = k;
-      if (m == 0) {
-	*s = (k0 == k2)?1.0:0.0;
-      } else {
-	*s = RadialMoments(m, k1, k3);
-      }
+      *s = RadialMoments(m, k1, k3);
       if (*s != 0.0) {
 	m = -m-1;
 	*s *= RadialMoments(m, k0, k2);      
@@ -1736,7 +1740,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       break;
     }      
 
-    *p = *s;
+    if (p) *p = *s;
   }
 #ifdef PERFORM_STATISTICS 
     stop = clock();

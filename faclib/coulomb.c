@@ -7,7 +7,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.14 2002/09/04 13:27:13 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.15 2002/09/04 20:16:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -38,9 +38,9 @@ void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   else n_hydrogenic = 10;
   if (kl >= 0) kl_hydrogenic = kl;
   else kl_hydrogenic = 8;
-  if (nm > 0) n_hydrogenic = nm;
+  if (nm > 0) n_hydrogenic_max = nm;
   else n_hydrogenic_max = 128;
-  if (klm >= 0) kl_hydrogenic = klm;
+  if (klm >= 0) kl_hydrogenic_max = klm;
   else kl_hydrogenic_max = 20;
   if (n_hydrogenic_max < n_hydrogenic) 
     n_hydrogenic_max = n_hydrogenic;
@@ -106,16 +106,58 @@ double TRRateHydrogenic(double z, int n0, int kl0, int n1, int kl1, int s) {
   c = HydrogenicDipole(z, n0, kl0, n1, kl1);
   if (c == 0) return c;
   e2 = z*z*(1.0/(n0*n0) - 1.0/(n1*n1));
-  factor = 2.6775015E9*e2*e2*e2;
   al = (double) Max(kl0, kl1);
-  r = (al/(2.0*kl1 + 1.0))*c*c*factor;
-  if (s == 1) {
-    e = e2*0.5;
-    c = 1.0/(2.0*pow(FINE_STRUCTURE_CONST, 3.0)*e*e);
+  if (s == 0) {
+    factor = 2.6775015E9*e2*e2*e2;
+    r = (al/(2.0*kl1 + 1.0))*c*c*factor;
+  } else if (s == 1) {
+    factor = 2.6775015E9*e2;
+    r = (4.0*al/(2.0*kl1 + 1.0))*c*c*factor;
+    c = 1.0/(2.0*pow(FINE_STRUCTURE_CONST, 3.0));
     r /= RATE_AU;
     g = 2.0*(2.0*kl1+1.0);
     r *= g*c;
+  } else {
+    r = c;
   }
+  return r;
+}
+
+double HydrogenicExpectation(double z, int m, int n, int kl) {
+  double r, n2, k, e;
+  
+  k = kl*(kl+1.0);
+  n2 = n*n;
+  e = -0.5*z*z/n2;
+  r = 0.0;
+  
+  switch (m) {
+  case -3:
+    r = 2*z*z/(n2*n*(2.0*kl+1.0));
+    r *= z/k; 
+    break;
+  case -2:
+    r = 2*z*z/(n2*n*(2.0*kl+1.0));
+    break;
+  case -1:
+    r = z/n2;
+    break;
+  case 0:
+    r = 1.0;
+    break;
+  case 1:
+    r = (3.0*n2 - k)/(2.0*z);
+    break;
+  case 2:
+    r = (n2/(2*z*z))*(5*n2 + 1.0 - 3.0*k);
+    break;
+  case 3:
+    r = (n2/(8*z*z*z))*(5*n2*(7*n2+5)+4*k*(k-10*n2-2));
+    break;
+  default:
+    break;
+  }
+
   return r;
 }
 

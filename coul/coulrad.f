@@ -47,7 +47,7 @@
       INTEGER I,L,MAX
       DOUBLE PRECISION FAL,ALO,CON,ANU,ANL,
      :                 AI,RP,RM,FP,FM,AL,CU,CL,BU,BL,TWOL,REM,
-     :                 ZERO,ONE,TWO,FOUR,TEN
+     :                 ZERO,ONE,TWO,FOUR,TEN,FAL1, ALO1
 *
       INTEGER NMAX
       PARAMETER (NMAX=1024)
@@ -101,10 +101,17 @@
            CON=2.6775015D9*REM**3*Z**6*
      :               (ONE/(ANL*ANL) - ONE/(ANU*ANU))**3
 *
-           FM = FAL(NU+NL+1) - FAL(NU-NL) - FAL(NL+NL)
+           IF (NU .GT. NL) THEN
+              FAL1 = FAL(NU-NL)
+              ALO1 = ALO(NU-NL)
+           ELSE
+              FAL1 = 0.0
+              ALO1 = 0.0
+           ENDIF
+           FM = FAL(NU+NL+1) - FAL1 - FAL(NL+NL)
            FM = FM/TWO
      :         + (ANL+TWO)*(ALO(NU)+ALO(NL)+0.602059991327962D0)
-     :         + (ANU-ANL-TWO)*ALO(NU-NL) - (ANU+ANL+TWO)*ALO(NU+NL)
+     :         + (ANU-ANL-TWO)*ALO1 - (ANU+ANL+TWO)*ALO(NU+NL)
            FM = TEN**FM/Z/REM/FOUR
            FP = ZERO
            CU=SQRT((ANU-ANL)*(ANU+ANL))/(ANU*ANL)
