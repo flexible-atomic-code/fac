@@ -27,7 +27,7 @@ static struct {
 static MULTI *qk_array;
 
 int SetIEGrid(int n, double emin, double emax) {
-  int i, ie;
+  int i;
   double del;
 
   if (n < 1) {
@@ -555,7 +555,7 @@ int IonizeStrength(double *s, double *te, int b, int f) {
 }
 
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
-  int i, j, k, n, m;
+  int i, j, k;
   int j1, j2, ie;
   FILE *file;
   LEVEL *lev1, *lev2;

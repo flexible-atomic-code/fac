@@ -38,8 +38,8 @@ static struct {
 static MULTI *pk_array;
 
 int SetTEGrid(int n, double emin, double emax) {
-  int i, ie;
-  double del, log_del;
+  int i;
+  double del;
 
   if (n < 1) {
     n_tegrid = 0;
@@ -122,6 +122,7 @@ int AddCEPW(int n, int step) {
     if ((int) (pw_scratch.kl[i]) > pw_scratch.max_kl) break;
   }
   pw_scratch.nkl0 = i;
+  return 0;
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
@@ -147,6 +148,7 @@ int SetCEPWGrid(int ns, int *n, int *step) {
     k *= 2;
   }
   pw_scratch.nkl = pw_scratch.nkl0;
+  return 0;
 }
   
 
@@ -338,7 +340,7 @@ int CEContinuaKappas(int ie, int k, int *nkl, int *nkappa,
   stop = clock();
   timing.set_kappa += stop-start;
 #endif
-
+  return 0;
 }
 
     
@@ -476,7 +478,7 @@ int CERadialPk(int ie, int k0, int k1, int k,
 double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
   int type1, type2;
   int i, j, kl0, kl1, nk4, kl, km;
-  double *pk, r, s, ratio, a, b, z;
+  double *pk, r, s, a, b, z;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
 #endif
@@ -581,7 +583,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, 
 		   int nq, int *q) {
   int type1, type2;
-  int i, j, n, kl0, klp0, klp1, kl0_2, klp0_2, kl1;
+  int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int km0, km1, j0, jp0, j1, nk4, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0, dkl;
   double *pk, r, e0, e1, s;
@@ -775,7 +777,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, type, m1, m2, j1, j2;
+  int nz, j1, j2;
   int nq, q[MAX_MSUB];
   double rq[MAX_MSUB][MAX_EGRID];
   int ie;
@@ -906,7 +908,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 int CEQkTable(char *fn, int k, double te) {
   FILE *f;
   double x;
-  int i, j, p, m, t, n;
+  int i, j, p, m, t;
   ORBITAL *orb1, *orb2;
   int n1, n2, kl1, kl2, j1, j2, k1, k2;
 
@@ -920,9 +922,8 @@ int CEQkTable(char *fn, int k, double te) {
     SetCEPWGrid(0, NULL, NULL);
   }
   
-  n = GetNumBounds();
   t = 0;
-  n = 4;
+
   for (i = 1; i < 2; i++) {
     for (j = 2; j < 3; j++) {
       orb1 = GetOrbital(i);
@@ -1057,7 +1058,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #endif
 
   FILE *f;
-  double s[MAX_MSUB*MAX_USR_EGRID], energy;
+  double s[MAX_MSUB*MAX_USR_EGRID];
   int *alev;
   LEVEL *lev1, *lev2;
   double emin, emax, e;

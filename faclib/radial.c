@@ -37,7 +37,7 @@ static struct {
 static AVERAGE_CONFIG average_config;
  
 static double rgrid_min = 1E-5;
-static double rgrid_max = 5E3;    
+static double rgrid_max = 1E3;    
 
 static RAD_TIMING rad_timing = {0, 0};
  
@@ -71,7 +71,7 @@ int SetRadialGrid(double rmin, double rmax) {
 
 int _AdjustScreeningParams(double *v, double *u) {
   int i;
-  double a, b, c;
+  double c;
 
   if (v[0] > -0.9E30) {
     for (i = 0; i < MAX_POINTS; i++) {
@@ -216,7 +216,7 @@ int GetPotential(char *s) {
   double large1, small1;
   int norbs, jmax;  
   FILE *f;
-  int i, j, k, k1, k2;
+  int i, j, k, k1;
   double *w, *v;
 
   /* get the average configuration for the groups */
@@ -286,7 +286,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   ORBITAL orb_old, *orb;
   int i, j, k, no_old;
   double a, b, maxp;
-  double z, rmax, lambda, step, q;
+  double z;
   double large, large_old;
   int iter;
 
@@ -383,7 +383,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       if (tol < b) tol = b;
     }
     if (optimize_control.iprint) {
-      printf("%2d %18.10lE %10.3E\n", iter, tol, z);
+      printf("%2d %18.5E %10.3E\n", iter, tol, z);
     }
     iter++;
   }
@@ -398,9 +398,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 }      
     
 int SolveDirac(ORBITAL *orb) {
-  double z;
   double eps;
-  int i, j;
   int err;
   clock_t start, stop;
 
@@ -411,7 +409,6 @@ int SolveDirac(ORBITAL *orb) {
   err = 0;
   eps = optimize_control.tolerence*1E-1;
   potential->flag = -1;
-
   err = RadialSolver(orb, potential, eps);
   if (err) { 
     printf("Error ocuured in RadialSolver, %d\n", err);
@@ -459,7 +456,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
     }
     for (; i < MAX_POINTS; i += 2) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	      potential->rad[i],
+	      i, potential->rad[i],
 	      Large(orb)[i], Large(orb)[i+1], 
 	      Small(orb)[i], Small(orb)[i+1]);
     }
@@ -583,7 +580,6 @@ int OrbitalExists(int n, int kappa, double energy) {
 }
 
 int AddOrbital(ORBITAL *orb) {
-  int j;
 
   if (orb == NULL) return -1;
 
@@ -606,7 +602,6 @@ ORBITAL *GetOrbital(int k) {
 }
 
 ORBITAL *GetNewOrbital() {
-  int j;
   ORBITAL *orb;
 
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL);
@@ -697,7 +692,6 @@ double TotalEnergyGroup(int kg) {
   CONFIG_GROUP *g;
   ARRAY *c;
   CONFIG *cfg;
-  ORBITAL *orb1, *orb2;
   int t;
   double total_energy;
 
@@ -790,7 +784,7 @@ double AverageEnergyConfig(CONFIG *cfg) {
 int ResidualPotential(double *s, int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
-  int index[2], tail;
+  int index[2];
   double *p, z;
 
   if (k0 > k1) {
@@ -1130,9 +1124,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   int index[6];
   double *p;
-  int ilast, i, j, npts, m;
+  int ilast, i, npts, m;
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  double norm, rk;
+  double norm;
   clock_t start, stop;
 
 #ifdef PERFORM_STATISTICS 
@@ -1333,7 +1327,6 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, 
 	      int t, double *x) {
   int i1, i2;
-  double a;
   int i;
   double *r;
 
@@ -1903,7 +1896,7 @@ int IntegrateSinCos(int j, double *x, double *y,
 		    double *phase, double *dphase, 
 		    int i0, double *r, int t) {
   int i, k, m, n, q;
-  double si0, si1, cs0, cs1, x0, x1, y0, y1;
+  double si0, si1, cs0, cs1;
   double is[4], ic[4], delta, p;
   double *z, *u, a[4], b[4], h, dr;
 
@@ -2016,7 +2009,6 @@ int FreeMultipoleArray() {
 
 
 int InitRadial() {
-  int i;
   int ndim;
   int blocks[6] = {5, 5, 5, 5, 5, 5};
 
