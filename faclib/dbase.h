@@ -230,8 +230,9 @@ typedef struct _DR_HEADER_ {
 
 typedef struct _DR_RECORD_ {
   int ilev;
-  int ibase;
   int flev;
+  short ibase;
+  short fbase;
   short vl;
   short j;
   float energy;

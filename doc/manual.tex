@@ -1297,8 +1297,9 @@ the rates are tabulated in this block.
 \begin{verbatim}
 typedef struct _DR_RECORD_ {
   int ilev;
-  int ibase;
   int flev;
+  short ibase;
+  short fbase;
   short vl;
   short j;
   float energy;
@@ -1310,12 +1311,14 @@ typedef struct _DR_RECORD_ {
 
 \begin{dbdesc}
 \item[\texttt{int ilev}:] The level index of the autoionizing state.
-\item[\texttt{int ibasis}:] The level index of the core state, if
-applicable.
 \item[\texttt{int flev}:] The level index of the final state due to the decay
 (either autoionization or radiative) of the autoionizing state. For the total
 DR strength, this variable is always -1, since the result is the sum of all
 radiative stabilazation routes.
+\item[\texttt{short ibase}:] The level index of the core for the resonance
+state. 
+\item[\texttt{short fbase}:] The level index of the core for the final
+state, if applicable.
 \item[\texttt{short vl}:] The orbital angular momentum of the captured
 electron. 
 \item[\texttt{short j}:] The $2j$ value of the autoionizaing state.
@@ -1861,8 +1864,8 @@ E	= -2.99679153E+04
 JLEV	= 3
 # principal quantum number of the captured electron.
 NREC	= 6
-#AILevel 2J  RecLevel 2J ibase  flev  NREC L ERes       AI Rate     Total Rate  Branching
-  275     0        37  3    39    -1     6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
+#AI 2J Rec 2J ibase flev fbase NREC L ERes       AI Rate     Total Rate  Branching
+275  0  37  3    39   -1    -1    6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
 ......
 \end{verbatim}
 

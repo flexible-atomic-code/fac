@@ -1,4 +1,4 @@
-Version 0.8.6, 11/28/2002
+Version 0.8.6, 12/04/2002
 	1. implement DRBranch and DRStrength.
 	2. radial solver for Rydberg states has been improved.
 	3. implement TotalRRCross function.

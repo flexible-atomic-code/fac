@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.42 2002/12/02 22:19:07 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.43 2002/12/05 04:31:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4044,7 +4044,7 @@ int DRBranch(void) {
 	if (blk1->total_rate[m]) {
 	  blk1->n[m] /= blk1->total_rate[m];
 	  a = fabs(blk1->n[m] - blk1->r[m]);
-	  if (blk1->n[m] > EPS10) a /= blk1->n[m];
+	  if (blk1->n[m]+1.0 != 1.0) a /= blk1->n[m];
 	  if (a > d) d = a;
 	  blk1->r[m] = blk1->n[m];
 	}
@@ -4129,7 +4129,9 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  r1.total_rate = blk1->total_rate[p];
 	  if (mode == 0) {
 	    r1.flev = -1;
+	    r1.fbase = -1;
 	    r1.br = blk1->r[p];
+	    if (r1.br + 1.0 == 1.0) continue;
 	    WriteDRRecord(f, &r1);
 	  } else if (mode == 1) {
 	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
@@ -4138,7 +4140,9 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
 		if (rp->i != r1.ilev) continue;
 		r1.flev = rp->f;
+		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
+		if (r1.br + 1.0 == 1.0) continue;
 		WriteDRRecord(f, &r1);
 	      }
 	    }
@@ -4149,7 +4153,9 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
 		if (rp->i != r1.ilev) continue;
 		r1.flev = rp->f;
+		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
+		if (r1.br + 1.0 == 1.0) continue;
 		WriteDRRecord(f, &r1);
 	      }
 	    }
