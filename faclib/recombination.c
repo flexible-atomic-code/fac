@@ -1,13 +1,13 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.25 2001/10/12 03:15:01 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.26 2001/10/12 18:49:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-#define NPARAMS 5
+#define NPARAMS 6
 
 static int egrid_type = -1;
 static int usr_egrid_type = -1;
@@ -59,6 +59,11 @@ void uvip3p_(int *np, int *ndp, double *x, double *y,
 
 int SetAICut(double c) {
   ai_cut = c;
+}
+
+int SetRRFormat(int m) {
+  output_format = m;
+  return m;
 }
 
 int SetRRTEGrid(int n, double emin, double emax) {
@@ -490,8 +495,9 @@ void RRRadialQkBasis(int npar, double *yb, double x, double logx) {
   double t;
 
   t = 1.0/x;
-  yb[0] = t*t;
+  yb[0] = t;
   t = sqrt(t);
+  yb[0] *= t;
   for (i = 1; i < npar; i++) {
     yb[i] = yb[i-1]*t;
   }
@@ -762,7 +768,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }  
 
   e = 0.5*(emin + emax);
-  emin = 0.02*e;
+  emin = 0.05*e;
   emax = 8.0*e;
   egrid_type = 1;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
@@ -776,10 +782,18 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr > 0 && n_usr <= NPARAMS && egrid_type == usr_egrid_type) {
+    if (n_usr > 0 && n_usr < NPARAMS && egrid_type == usr_egrid_type) {
       SetPEGridDetail(n_usr, usr_egrid);
       interpolate_egrid = 0;
     } else {
+      if (n_usr > 0) {
+	emin = usr_egrid[0];
+	emax = usr_egrid[n_usr-1];
+	if (usr_egrid_type == 0) {
+	  emin -= e;
+	  emax -= e;
+	}
+      }
       SetPEGrid(n_egrid, emin, emax, e);
     }
   }
@@ -815,7 +829,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   fprintf(f, "\n\n");
   
   if (interpolate_egrid) {
-    fprintf(f, " Strength = A/u^2 + B/u^2.5 + C/u^3 + D/u^3.5 + E/u^4\n");
+    fprintf(f, " Strength = S_{i=1,%1d} A_i * u^{-0.5*i-1}\n", NPARAMS);
   }
   if (output_format >= 0 && n_usr > 0) {
     if (usr_egrid_type == 0) fprintf(f, " Photon UsrEGrid\n");

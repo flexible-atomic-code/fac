@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.2 2001/10/12 03:15:02 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.3 2001/10/12 18:49:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1157,7 +1157,16 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
+ 
+static PyObject *PSetRRFormat(PyObject *self, PyObject *args) {
+  int m;
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetRRFormat(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+ 
 static PyObject *PRRTable(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
   int n, m;
@@ -1893,6 +1902,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
+  {"SetRRFormat", PSetRRFormat, METH_VARARGS},
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetTransitionCut", PSetTransitionCut, METH_VARARGS},

@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.2 2001/10/08 21:02:12 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.3 2001/10/12 18:49:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -103,7 +103,7 @@ int SetTEGrid(double *te, double *logte, int n, double emin, double emax) {
   }
 
   if (emax < emin) {
-    printf("emin must > 0 and emax < emin\n");
+    printf("emin must > 0 and emax < emin in SetTEGrid\n");
     return -1;
   }
   
@@ -145,7 +145,7 @@ int SetEGrid(double *e, double *log_e,
   }
 
   if (emax < emin) {
-    printf("emin must > 0 and emax < emin\n");
+    printf("emin must > 0 and emax < emin in SetEGrid\n");
     return -1;
   }
 
