@@ -9,14 +9,13 @@
 
 #define MAX_DIST  8
 
-#define VelocityFromE(e) (sqrt((e))*(5.93096895E-3))
-
 typedef struct _DISTRIBUTION_ {
   int nparams;
   double *params;
   double (*dist)(double, double *);
 } DISTRIBUTION;
 
+double VelocityFromE(double e);
 int EleDist(char *fn, int n);
 int PhoDist(char *fn, int n);
 int SetEleDist(int i, int np, double *p);

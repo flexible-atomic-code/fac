@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.67 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.68 2004/06/14 22:01:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -412,8 +412,9 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   g2 = GeneralizedMoments(k2, k3, ko2);
   x2 = g2 + NGOSK;
 
-  c0 = sqrt(2.0*(te + e1));
-  c1 = sqrt(2.0*e1);
+  c0 = te + e1;  
+  c0 = sqrt(2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0));
+  c1 = sqrt(2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1));
   nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
@@ -485,8 +486,9 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   g2 = GeneralizedMoments(k2, k3, ko2p);
   x2 = g2 + NGOSK;
 
-  c0 = 2.0*(te+e1);
-  c1 = 2.0*e1;
+  c0 = te + e1;
+  c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
+  c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
   c01 = c0 - c1;
   c0 = sqrt(c0);
   c1 = sqrt(c1);
@@ -696,6 +698,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
       if (ieb) {
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]));
+	b = e1 + te;
+	b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
+	b = 1.0 + FINE_STRUCTURE_CONST2*b;
+	rq[ite][ie] *= b;
 	rq[ite][ie] += r-rd;
       }
     }
@@ -950,8 +956,11 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
       if (ieb) {
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
 				   nq, q, rqt);
+	b = e1 + te;
+	b = 2.0*b*(1.0 + 0.5*FINE_STRUCTURE_CONST2*b);
+	b = 1.0 + FINE_STRUCTURE_CONST2*b;
 	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][ite][ie] += rqt[iq] - drq[iq][ite][ie];
+	  rq[iq][ite][ie] += b*rqt[iq] - drq[iq][ite][ie];
 	}
       }
     }

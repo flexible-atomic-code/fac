@@ -2991,12 +2991,13 @@ group in the \var{g1} list. If it is a number, each group in \var{g1} list has
 the same number given by \var{n0}. \var{ni} is the maximum $n$ value of the
 virtual states to be considered for all order inclusion. \var{n1} is the
 maximum $n$ of the virtual states. \var{k} is the maximum $l$ value of the
-virtual states. \var{nt} is the number extra $n$ values to be added to the $n$
+virtual states. \var{nt} is the number of extra $n$ values to be added to the $n$
 values beyond those given by \var{n1}. \var{gn} is a string specifies the
 configuration group name for configurations included in the all order
 calculation. \var{x1} is a small number specifying the threshold for all-order
-calculation. \var{x2} specifies the minimum mixing amplitude to be included in
-the MBPT summation.
+calculation. If \var{x1} is negative, then no extra configurations other than
+those in \var{g0} is included in the all order calculation. \var{x2} specifies
+the minimum mixing amplitude to be included in the MBPT summation.
 \end{fundesc}
 
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}

@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.37 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.38 2004/06/14 22:01:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -184,10 +184,24 @@ double IntegrateRate2(int idist, double e, int np,
   return a;
 }
 
+double VelocityFromE(double e) {
+  double k;
+
+  k = e/HARTREE_EV;
+  k = 2.0*k*(1.0 + 0.5*FINE_STRUCTURE_CONST2*k);
+  k = FINE_STRUCTURE_CONST2*k;
+  k = sqrt(k/(1.0+k));
+  k /= FINE_STRUCTURE_CONST;
+  k *= RBOHR*RATE_AU12*1E-6; /* in unit of 10^10 cm/s */
+  
+  return k;
+}
+
 double CERate1E(double e, double eth, int np, void *p) {
   double *x, *y;
   int m1, n, one;
   double *dp, a, x0, y0;
+  double e0, d, c, b;
 
   if (e < eth) return 0.0;
   dp = (double *) p;
@@ -204,9 +218,29 @@ double CERate1E(double e, double eth, int np, void *p) {
     x0 = (e-eth)/(dp[0]+e-eth);
     y0 = y[np-1];
     if (dp[1] > 0) {
-      y0 -= dp[1]*log(((x[np]*dp[0]/(1.0-x[np]))+eth)/eth);
+      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      y0 /= 1.0 + c;
+      y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      a += dp[1]*log(e/eth);
+      e0 = e/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
+      a += dp[1]*b;
+      a *= 1.0 + c;
+    } else if (dp[1] + 1.0 == 1.0) {
+      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      y0 /= 1.0 + c;
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      e0 = e/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      a *= 1.0 + c;
     } else {
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
     }
@@ -217,7 +251,9 @@ double CERate1E(double e, double eth, int np, void *p) {
     return a;
   }
   
-  a *= PI*AREA_AU20*HARTREE_EV/(2.0*e);
+  e0 = e/HARTREE_EV;
+  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
   a *= VelocityFromE(e);
   return a;
 }
@@ -226,6 +262,7 @@ double DERate1E(double e, double eth, int np, void *p) {
   double a, x0, y0, *x, *y;
   double *dp;
   int m1, n, one;
+  double e0, d, c, b;
 
   dp = (double *) p;
   m1 = np + 1;
@@ -241,9 +278,29 @@ double DERate1E(double e, double eth, int np, void *p) {
     x0 = e/(dp[0]+e);
     y0 = y[np-1];
     if (dp[1] > 0) {
-      y0 -= dp[1]*log(((x[np]*dp[0]/(1.0-x[np]))+eth)/eth);
+      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      y0 /= 1.0 + c;
+      y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      a += dp[1]*log((e+eth)/eth);
+      e0 = (e + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
+      a += dp[1]*b;
+      a *= 1.0 + c;
+    } else if (dp[1] + 1.0 == 1.0) {
+      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      y0 /= 1.0 + c;
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      e0 = (e + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      a *= 1.0 + c;
     } else {
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
     }
@@ -253,8 +310,10 @@ double DERate1E(double e, double eth, int np, void *p) {
     a = 0.0;
     return a;
   }
-  
-  a *= PI*AREA_AU20*HARTREE_EV/(2.0*e);
+
+  e0 = e/HARTREE_EV;
+  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
   a *= VelocityFromE(e);
   return a;
 }
