@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.75 2004/07/27 02:38:15 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.76 2004/07/27 05:18:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1178,12 +1178,19 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     }    
     pp = 0.0;
   } else {
+    if (pot->N <= 1) j = 3;
+    else j = 1;
+    i2p2 = pot->maxrp - j*pot->asymp - 5;
+    for (i2 = pot->r_core; i2 < i2p2; i2++) {
+      if (_veff[i2+1] > _veff[i2]) break;
+    }
+    i2 += j*pot->asymp;
     i2p2 = i2 + 2;
     nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
-    i2 = LastMaximum(p, 0, i2);
+    i2 = LastMaximum(p, pot->r_core, i2);
     i2p = i2 + 1;
     i2m = i2 - 1;
     i2p2 = i2 + 2;
@@ -1230,7 +1237,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
-    i2 = LastMaximum(p, 0, i2);
+    i2 = LastMaximum(p, pot->r_core, i2);
     zp = FINE_STRUCTURE_CONST2*e;
     x0 = pot->rad[i2];
     ierr = 1;
