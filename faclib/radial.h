@@ -30,7 +30,7 @@ int GetRadTiming(RAD_TIMING *t);
 
 int SetAWGrid(int n, double min, double max);
 int SetRadialGrid(double rmin, double rmax);
-int SetPotential(AVERAGE_CONFIG *acfg);
+double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 int GetPotential(char *s);
 double GetResidualZ(void);
 double GetRMax(void);
@@ -54,7 +54,8 @@ double GetPhaseShift(int k);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
-void SetOptimizeControl(double tolerence, int maxiter, int iprint);
+void SetOptimizeControl(double tolerence, double stablizer, 
+			int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);

@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.41 2002/02/12 20:32:15 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.42 2002/02/23 13:55:01 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,6 +32,7 @@ static double _zk[MAX_POINTS];
 static double _xk[MAX_POINTS];
 
 static struct {
+  double stablizer;
   double tolerance; /* tolerance for self-consistency */
   int maxiter; /* max iter. for self-consistency */
   double screened_charge; 
@@ -39,7 +40,8 @@ static struct {
   int n_screen;
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
-} optimize_control = {EPS6, 100, 1.0, 1, 0, NULL, 0};
+  int iset;
+} optimize_control = {0.5, EPS6, 100, 1.0, 1, 0, NULL, 0, 0};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
@@ -84,10 +86,13 @@ int SetAWGrid(int n, double awmin, double awmax) {
   return 0;
 }
   
-void SetOptimizeControl(double tolerance, int maxiter, int iprint) {
+void SetOptimizeControl(double tolerance, double stablizer, 
+			int maxiter, int iprint) {
   optimize_control.maxiter = maxiter;
+  optimize_control.stablizer = stablizer;
   optimize_control.tolerance = tolerance;
   optimize_control.iprint = iprint;  
+  optimize_control.iset = 1;
 }
 
 void SetScreening(int n_screen, int *screened_n, 
@@ -105,33 +110,27 @@ int SetRadialGrid(double rmin, double rmax) {
   return 0;
 }
 
-int _AdjustScreeningParams(double *v, double *u) {
+void _AdjustScreeningParams(double *u) {
   int i;
   double c;
-
-  for (i = 0; i < MAX_POINTS; i++) {
-    u[i] = 0.5*(u[i]+v[i]);
-    v[i] = u[i];
-  }
+  
   c = 0.5*u[MAX_POINTS-1];
   for (i = 0; i < MAX_POINTS; i++) {
     if (u[i] > c) break;
   }
   potential->lambda = log(2.0)/potential->rad[i];
-  return 0;
 }
    
-int SetPotential(AVERAGE_CONFIG *acfg) {
+double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
   ORBITAL *orb1, *orb2;
   double large1, small1, large2, small2;
-  int norbs, kmin, kmax, jmax, initp;
-  double *u, *w, *v, w3j, a, b;
+  int norbs, kmin, kmax, jmax;
+  double *u, *w, *v, w3j, a, b, r;
 
   u = potential->U;
   w = potential->W;
-  v = _phase;
-  initp = 0;
+  v = _dwork2;
 
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
@@ -152,8 +151,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     if (jmax < orb1->ilast) jmax = orb1->ilast;
     norbs++;
   }
-
-  if (norbs && (potential->N > 1)) {
+  if (norbs && potential->N > 1) {
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = 0.0;
     }
@@ -234,13 +232,27 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
       potential->r_core = j+1;
     }
 
-    if (initp == 0) {
-      for (i = 0; i < MAX_POINTS; i++) {
-	v[i] = u[i];
+    if (iter < 3) {
+      r = 1.0;
+      for (j = 0; j < MAX_POINTS; j++) {
+	v[j] = u[j];
       }
-      initp = 1;
+    } else {	
+      r = 0.0;
+      k = 0;
+      a = optimize_control.stablizer;
+      b = 1.0 - a;
+      for (j = 0; j < MAX_POINTS; j++) {
+	if (u[j] + 1.0 != 1.0) {
+	  r += fabs(1.0 - v[j]/u[j]);
+	  k++;
+	}
+	u[j] = b*v[j] + a*u[j];
+	v[j] = u[j];
+      }
+      r /= k;
     }
-    _AdjustScreeningParams(v, u); 
+    _AdjustScreeningParams(u);
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       a = u[j] - potential->Z[j];
@@ -252,9 +264,11 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
   } else {
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
+    if (potential->N == 1) r = 0.0;
+    else r = 1.0;
   }
   
-  return 0;
+  return r;
 }
 
 int GetPotential(char *s) {
@@ -366,9 +380,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   double tol;
   ORBITAL orb_old, *orb;
   int i, j, k, m, no_old;
-  double a, b, maxp;
-  double z;
-  double large, large_old;
+  double a, b, z;
   int iter;
   int *frozen;
 
@@ -422,26 +434,19 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     potential->r_core = MAX_POINTS/2;
   }
 
+  if (optimize_control.iset == 0) {
+    optimize_control.stablizer = 0.25 + 0.75*(z/potential->Z[MAX_POINTS-1]);
+  }
+
   no_old = 0;  
   tol = 1.0; 
-  iter = 0;  
+  iter = 0;
+  SetPotentialZ(potential, 0.0);
 
-  orb_old.wfun = malloc(sizeof(double)*MAX_POINTS);
-
-  if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
-  else z = 0.0;
   frozen = calloc(acfg->n_shells, sizeof(int));
-
-  while (tol > optimize_control.tolerance || z > 0.0) {
+  while (tol > optimize_control.tolerance) {
     if (iter > optimize_control.maxiter) break;
-    if (z < 1E-3 && z > 0.0) {
-      z = 0.0;
-      SetPotentialZ(potential, 0.0);
-    } else {
-      SetPotentialZ(potential, z);
-      z *= 0.5;
-    }
-    SetPotential(acfg);
+    a = SetPotential(acfg, iter);
     tol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
@@ -466,8 +471,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	  if (iter == 0) frozen[i] = 1;
 	  if (!frozen[i]) {
 	    orb_old.energy = orb->energy; 
-	    orb_old.ilast = orb->ilast;
-	    memcpy(orb_old.wfun, orb->wfun, sizeof(double)*MAX_POINTS);
 	    free(orb->wfun);
 	    no_old = 0;
 	  } else {
@@ -483,40 +486,26 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	tol = 1.0;
 	continue;
       } 
-      
-      maxp = 0.0;
-      b = 0.0;
-      for (j = 0; j <= Min(orb_old.ilast, orb->ilast); j++) {
-	large = orb->wfun[j];
-	a = fabs(large);
-	if (a > maxp) maxp = a;
-	large_old = orb_old.wfun[j];
-	a = fabs(large - large_old);
-	if (a > b) b = a;
-      }
-      b = b/maxp;
-      a = fabs(1.0 - orb_old.energy/orb->energy);
-      b = Max(a, b);
+      b = fabs(1.0 - orb_old.energy/orb->energy);
       if (tol < b) tol = b;
     }
     if (optimize_control.iprint) {
-      printf("%2d %18.5E %10.3E\n", iter, tol, z);
+      printf("%4d %13.5E %13.5E %10.3E\n", iter, tol, a, z);
     }
+    if (tol < a) tol = a;
     iter++;
   }
 
   for (i = 0; i < acfg->n_shells; i++) {
     k = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0.0);
     for (j = 0; j < acfg->n_shells; j++) {
-      if (frozen[i] && frozen[j]) continue;
+      if (frozen[i] == 1 && frozen[j] == 1) continue;
       m = OrbitalIndex(acfg->n[j], acfg->kappa[j], 0.0);
       ResidualPotential(&a, k, m);
     }
   }
 
-  free(orb_old.wfun);
   free(frozen);
-
   if (iter > optimize_control.maxiter) {
     printf("Maximum iteration reached in OptimizeRadial\n");
     return 1;
