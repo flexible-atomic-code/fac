@@ -1,3 +1,6 @@
+Version 0.8.2, 09/19/2002
+	1. ConfigEnergy correction based on configurations.
+	
 Version 0.8.1, 09/03/2002
 	1. fix the unit bug for PhFit.
 	2. add PICrossH and RRCrossH functions.

@@ -16,7 +16,8 @@
 *** Mn I-V, Co I)        - Landini & Monsignori Fossi, 1991, A&AS, 91, 183
 *** All other species    - interpolations of the power-law fits
 *** Input parameters:  iz - atomic number 
-***                    in - number of electrons from 1 to iz 
+***                    in0 - number of electrons from 0 to iz-1,
+*******                      modification to the original in, by M.F. Gu.
 ***                    t  - temperature, K
 *** Output parameter:  r  - rate coefficient, cm^3 s^(-1)
 ******************************************************************************

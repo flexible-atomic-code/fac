@@ -1,4 +1,13 @@
       subroutine drfit(iz, in, t, r)
+******************************************************
+* DR rate coefficients using the fitting formulae and 
+* data from Mazzotta et al. A&AS, 133, 403.
+* Input:
+*     iz, Nuclear charge
+*     in, number of electrons of the recombining ion, 0 to iz-1
+*     t,  temperature in eV.
+*     r,  result.
+*******************************************************
       integer iz, in, i
       integer ind(28)
       real*8 t, r

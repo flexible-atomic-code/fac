@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.57 2002/09/04 20:22:46 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.58 2002/09/18 15:53:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -537,7 +537,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   return 0;
 }      
-    
+
 int SolveDirac(ORBITAL *orb) {
   double eps;
   int err;
@@ -921,7 +921,8 @@ int FreeContinua(double e) {
 
 int ConfigEnergy(int m, int ng, int *kg) {
   CONFIG_GROUP *g;
-  int k;
+  CONFIG *cfg;
+  int k, i;
 
   if (m == 0) {
     if (ng == 0) {
@@ -929,15 +930,21 @@ int ConfigEnergy(int m, int ng, int *kg) {
       for (k = 0; k < ng; k++) {
 	OptimizeRadial(1, &k, NULL);
 	g = GetGroup(k);
-	g->energy = TotalEnergyGroup(k)/g->n_cfgs;
+	for (i = 0; i < g->n_cfgs; i++) {
+	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	  cfg->energy = AverageEnergyConfig(cfg);
+	}
 	ReinitRadial(1);
       }
     } else {
       OptimizeRadial(ng, kg, NULL);
       for (k = 0; k < ng; k++) {
 	g = GetGroup(kg[k]);
-	if (g->energy == 0) {
-	  g->energy = TotalEnergyGroup(kg[k])/g->n_cfgs;
+	for (i = 0; i < g->n_cfgs; i++) {
+	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	  if (cfg->energy == 0) {
+	    cfg->energy = AverageEnergyConfig(cfg);
+	  }
 	}
       }
       ReinitRadial(1);
@@ -946,8 +953,11 @@ int ConfigEnergy(int m, int ng, int *kg) {
     ng = GetNumGroups();
     for (k = 0; k < ng; k++) {
       g = GetGroup(k);
-      if (g->energy != 0) {
-	g->delta = g->energy - TotalEnergyGroup(k)/g->n_cfgs;
+      for (i = 0; i < g->n_cfgs; i++) {
+	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	if (cfg->energy != 0) {
+	  cfg->delta = cfg->energy - AverageEnergyConfig(cfg);
+	}
       }
     }
   }
@@ -1010,6 +1020,77 @@ double AverageEnergyConfig(CONFIG *cfg) {
       klp = GetLFromKappa(kappap);
       j2p = GetJFromKappa(kappap);
       nqp = (cfg->shells[j]).nq;
+      kp = OrbitalIndex(np, kappap, 0.0);
+
+      kkmin = abs(j2 - j2p);
+      kkmax = (j2 + j2p);
+      if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
+      a = 0.0;
+      for (kk = kkmin; kk <= kkmax; kk += 4) {
+	Slater(&y, k, kp, kp, k, kk/2, 0);
+	q = W3j(j2, kk, j2p, -1, 0, 1);
+	a += y * q * q;
+
+#if FAC_DEBUG
+	fprintf(debug_log, "exchange rank: %d, q*q: %lf, Radial: %lf\n", 
+		kk/2, q*q, y);
+#endif
+
+      }
+      Slater(&y, k, kp, k, kp, 0, 0);
+
+#if FAC_DEBUG
+      fprintf(debug_log, "direct: %lf\n", y);
+#endif
+
+      t += nqp * (y - a);
+    }
+
+    ResidualPotential(&y, k, k);
+
+    r = nq * (b + t + GetOrbital(k)->energy + y);
+    x += r;
+  }
+  return x;
+}
+
+/* calculate the average energy of an average configuration */
+double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
+  int i, j, n, kappa, nq, np, kappap, nqp;
+  int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
+  double x, y, t, q, a, b, r;
+ 
+  x = 0.0;
+  for (i = 0; i < cfg->n_shells; i++) {
+    n = cfg->n[i];
+    kappa = cfg->kappa[i];
+    kl = GetLFromKappa(kappa);
+    j2 = GetJFromKappa(kappa);
+    nq = cfg->nq[i];
+    k = OrbitalIndex(n, kappa, 0.0);
+    
+    if (nq > 1) {
+      t = 0.0;
+      for (kk = 2; kk <= j2; kk += 2) {
+	Slater(&y, k, k, k, k, kk, 0);
+	q = W3j(j2, 2*kk, j2, -1, 0, 1);
+	t += y * q * q ;
+      }
+      Slater(&y, k, k, k, k, 0, 0);
+      b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
+
+#if FAC_DEBUG
+      fprintf(debug_log, "\nAverage Radial: %lf\n", y);
+#endif
+
+    } else b = 0.0;
+    t = 0.0;
+    for (j = 0; j < i; j++) {
+      np = cfg->n[j];
+      kappap = cfg->kappa[j];
+      klp = GetLFromKappa(kappap);
+      j2p = GetJFromKappa(kappap);
+      nqp = cfg->nq[j];
       kp = OrbitalIndex(np, kappap, 0.0);
 
       kkmin = abs(j2 - j2p);
@@ -2604,7 +2685,7 @@ int FreeGOSArray(void) {
 }
 
 int InitRadial(void) {
-  int ndim;
+  int i, ndim;
   int blocks[6] = {4, 4, 4, 4, 4, 1};
 
   potential = malloc(sizeof(POTENTIAL));
@@ -2639,10 +2720,13 @@ int InitRadial(void) {
   awgrid[0]= EPS3;
   
   SetRadialGrid(1E-5, 5E2);
+
   return 0;
 }
 
 int ReinitRadial(int m) {
+  int i;
+
   if (m < 0) return 0;
   ClearOrbitalTable(m);
   FreeSlaterArray();
@@ -2720,7 +2804,3 @@ int TestIntegrate(char *s) {
   fclose(f); 
   return 0;
 }
-
-  
-
-

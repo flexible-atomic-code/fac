@@ -492,6 +492,8 @@ class ATOM:
             SetRecSpectator(self.nexc_max[i]+1)
             for j in range(len(c)):
                 a = c[j]
+                if (len(a.name) == 0):
+                    continue
                 if (i == 0 and j == 0):
                     continue
                 if (a.nrec > 0):
@@ -499,10 +501,9 @@ class ATOM:
                     Print(s)
                     RecStates(self.bfiles['en'], a.name, a.nrec)
                 else:
-                    if (len(a.name) != 0):
-                        s = '    %s'%str(a.name)
-                        Print(s)
-                        Structure(self.bfiles['en'], a.name)
+                    s = '    %s'%str(a.name)
+                    Print(s)
+                    Structure(self.bfiles['en'], a.name)
 
         return
 
