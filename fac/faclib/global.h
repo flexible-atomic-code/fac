@@ -278,16 +278,16 @@
 #define NGOSK              64
 #define EXCLQR             0
 #define EXCLMAX            36
-#define EXCLCB             20
+#define EXCLCB             36
 #define EXCTOL             5E-2
-#define XBORN              (-0.6)
+#define XBORN              (-0.5)
 
 /* ionization */
 #define IONMAXK            8
 #define IONLQR             0
 #define IONLMAX            36
 #define IONLEJEC           8
-#define IONLCB             20
+#define IONLCB             36
 #define IONTOL             5E-2
 
 /* recombination */
