@@ -1,7 +1,8 @@
-Version 0.8.5, 11/04/2002
+Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.
 	2. fix the bug in GeneralizedMoments.
 	3. fix a bug in RRRate1E and PIRate1E.
+	4. correct the spelling in table.write_row (was raw)
 
 Version 0.8.4, 09/26/2002
 	1. the type of EN_RECORD.energy is changed to double, 

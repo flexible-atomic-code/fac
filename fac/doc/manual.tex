@@ -2918,8 +2918,8 @@ Closes the file associated with the table.
 Write the table header to the file.
 \end{fundesc}
 
-\begin{fundesc}{write\_raw}{...}
-Write a raw of data to the file. It must contain as many arguments as the
+\begin{fundesc}{write\_row}{...}
+Write a row of data to the file. It must contain as many arguments as the
 columns, and the arguments are arranged in the same order as the columns were
 added.
 \end{fundesc}
@@ -2931,11 +2931,11 @@ Read the header of the table.
 \begin{fundesc}{read\_columns}{index\opt{, filter, start, stop}}
 Read columns from the table. \var{index} is a list of integers for columns to
 be read counting from 0. \var{filter} is a Python logical expression to be
-evaluated for each raw. Only raws that pass this expression are read. The k-th
+evaluated for each row. Only rows that pass this expression are read. The k-th
 column is referred to as \key{c[k]} in the expression. e.g.,
-\var{filter}=\key{'c[0]$>$0'} only reads the raws that have the first column
-greater than 0. \var{start} is the raw
-number where the read should begin, and \var{stop} is the raw number where the
+\var{filter}=\key{'c[0]$>$0'} only reads the rows that have the first column
+greater than 0. \var{start} is the row
+number where the read should begin, and \var{stop} is the row number where the
 read should stop, all counting from 0. If \var{stop}=$-1$, read through the
 end of the table. This function returns a list with each element being the
 column read.
@@ -3009,7 +3009,7 @@ tbl.open('w')
 tbl.write_header()
 
 ####
-# write each raw of data here
+# write each row of data here
 # ......
 ####
 

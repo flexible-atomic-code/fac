@@ -75,7 +75,7 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
                 e = e-e0
             col = (k, i, e, a[1], a[2],
                    a[3].strip(), a[4].strip(), a[5].strip())
-            tbl.write_raw(*col)
+            tbl.write_row(*col)
             i = i + 1
     tbl.close()
             
@@ -129,7 +129,7 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
                 b = (10**logt[i])*const.kb
                 (a0, a1, a2) = Recomb(z, k-1, b)
                 (b0, b1, b2) = Ionis(z, k-1, b)
-                tbl.write_raw(k-1, logt[i],
+                tbl.write_row(k-1, logt[i],
                               tdr[i], a2,
                               trr[i], a1,
                               0.0, b2,
@@ -142,7 +142,7 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
             b = (10**logt[i])*const.kb
             (a0, a1, a2) = Recomb(z, k, b)
             (b0, b1, b2) = Ionis(z, k, b)
-            tbl.write_raw(k, logt[i],
+            tbl.write_row(k, logt[i],
                           tdr[i], a2,
                           trr[i], a1,
                           tci[i], b2,
@@ -154,7 +154,7 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
                 b = (10**logt[i])*const.kb
                 (a0, a1, a2) = Recomb(z, k+1, b)
                 (b0, b1, b2) = Ionis(z, k+1, b)
-                tbl.write_raw(k+1, logt[i],
+                tbl.write_row(k+1, logt[i],
                               0.0, a2,
                               0.0, a1,
                               tci[i], b2,
@@ -317,7 +317,7 @@ def tabulate_rates(dfile, neles, z=26, pref='Fe'):
                         c[j][m][i] = c[j][m][i]+c[3][m][i]
                     col.append(c[j][m][i])
                 col = tuple(col)
-                tbl.write_raw(*col)
+                tbl.write_row(*col)
         
     tbl.close()
     
