@@ -118,7 +118,7 @@ typedef struct _RR_HEADER_ {
 typedef struct _RR_RECORD_ {
   int b;
   int f;
-  int nshells;
+  int kl;
   float *params;
   float *strength;
 } RR_RECORD;
@@ -160,7 +160,7 @@ typedef struct _CI_HEADER_ {
 typedef struct _CI_RECORD_ {
   int b;
   int f;
-  int nshells;
+  int kl;
   float *params;
   float *strength;
 } CI_RECORD;

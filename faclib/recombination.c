@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.47 2002/04/25 16:22:28 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.48 2002/04/30 15:01:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -495,14 +495,9 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int kappaf, jf, klf, kf;
   int jfmin, jfmax;
   int ite, ie, i;
-  double eb, aw, e, pref, chisq, tol;
+  double eb, aw, e, pref;
   int mode, gauge;
-  int ipvt[NPARAMS];
-  int ierr;
-  int lwa=5*NPARAMS+MAXNE;
-  double wa[5*NPARAMS+MAXNE];
-  double fvec[MAXNE], fjac[MAXNE*NPARAMS];
-  int nh, klh, neg;
+  int nh, klh;
   double hparams[NPARAMS];
 
   orb = GetOrbital(k0);
@@ -510,11 +505,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   GetJLFromKappa(kappa0, &jb0, &klb02);
   klb0 = klb02/2;
   eb = -orb->energy;
-  if (k1 != k0) {
-    orb = GetOrbital(k1);
-    eb += -orb->energy;
-    eb *= 0.5;
-  }
+
   for (ie = 0; ie < n_egrid; ie++) {
     xegrid[ie] = 1.0 + egrid[ie]/eb;
     log_xegrid[ie] = log(xegrid[ie]);
@@ -522,34 +513,20 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
 
   GetHydrogenicNL(&nh, &klh);
   if (m == -1) {
-    if (qk_mode == QK_FIT || orb->n >= nh || klb0 >= klh) {
-      RRRadialQkHydrogenicParams(NPARAMS, hparams, orb->n, klb0);
-    }
+    RRRadialQkHydrogenicParams(NPARAMS, hparams, orb->n, klb0);
+    RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
+		      xegrid, log_xegrid, tq0, NULL, 0, &klb0);
     if (orb->n >= nh || klb0 >= klh) {
       if (k0 != k1) return -1;
-      if (qk_mode != QK_FIT) {
-	RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
-			  xegrid, log_xegrid, qr, NULL, 0, &klb0);
+      for (ie = 0; ie < n_egrid; ie++) {
+	qr[ie] = tq0[ie]/eb;
+      }
+      k = n_egrid;
+      for (ite = 1; ite < n_tegrid; ite++) {
 	for (ie = 0; ie < n_egrid; ie++) {
-	  qr[ie] /= eb;
+	  qr[k] = qr[ie];
+	  k++;
 	}
-	k = n_egrid;
-	for (ite = 1; ite < n_tegrid; ite++) {
-	  for (ie = 0; ie < n_egrid; ie++) {
-	    qr[k] = qr[ie];
-	    k++;
-	  }
-	}
-      } else {
-	k = 0;
-	for (ite = 0; ite < n_tegrid; ite++) {
-	  for (i = 0; i < NPARAMS; i++) {
-	    qr[k] = hparams[i];
-	    k++;
-	  }
-	}
-	qr[k] = klb0;
-	qr[k+1] = eb;
       }
       return 0;
     }
@@ -564,23 +541,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
     index[2] = k-1;
   }
 
-  if (qk_mode == QK_FIT) {
-    nqk = n_tegrid*NPARAMS+2;
-    if (n_egrid < MAXNE-4 && xegrid[n_egrid-1] < 80.0) {
-      neg = n_egrid+4;
-      r0 = (log(80.0)-log_xegrid[n_egrid-1])/4.0;
-      for (ie = n_egrid; ie < neg; ie++) {
-	log_xegrid[ie] = log_xegrid[ie-1] + r0;
-	xegrid[ie] = exp(log_xegrid[ie]);
-      }
-      RRRadialQkFromFit(NPARAMS, hparams, neg, 
-			xegrid, log_xegrid, tq0, NULL, 0, &klb0);
-    } else {
-      neg = n_egrid;
-    }
-  } else {
-    nqk = n_tegrid*n_egrid;
-  }
+  nqk = n_tegrid*n_egrid;
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
     for (i = 0; i < nqk; i++) {
@@ -592,16 +553,8 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
-  if (qk_mode == QK_FIT) {
-    *p = (double *) malloc(sizeof(double)*nqk);
-    i = n_tegrid*NPARAMS;
-    (*p)[i] = klb0;
-    (*p)[i+1] = eb;
-    tol = qk_fit_tolerance * 1E-2;
-    tol = Max(tol, 1E-4);
-  } else {
-    *p = (double *) malloc(sizeof(double)*nqk);
-  }
+  *p = (double *) malloc(sizeof(double)*nqk);
+  
   qk = *p;
   /* the factor 2 comes from the conitinuum norm */
   pref = 2.0/((k+1.0)*(jb0+1.0));
@@ -645,33 +598,10 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
       }
     }
 
-    if (qk_mode == QK_FIT) {
-      for (i = 0; i < NPARAMS; i++) {
-	qk[i] = hparams[i];
-      }
-      r0 = eb*pref;
-      for (ie = 0; ie < n_egrid; ie++) {
-	tq[ie] *= r0;
-	sig[ie] = tq[ie];
-      }
-      if (neg > n_egrid) {
-	ie = n_egrid-1;
-	r0 = tq[ie]/tq0[ie];
-	for (ie = n_egrid; ie < neg; ie++) {
-	  tq[ie] = tq0[ie]*r0;
-	  sig[ie] = tq[ie];
-	}
-      }
-      ierr = NLSQFit(NPARAMS, qk, tol, ipvt, fvec, fjac, MAXNE, wa, lwa, 
-		     neg, xegrid, log_xegrid, 
-		     tq, sig, RRRadialQkFromFit, &klb0);
-      qk += NPARAMS;
-    } else {
-      for (ie = 0; ie < n_egrid; ie++) {
-	qk[ie] = tq[ie]*pref;
-      }
-      qk += n_egrid;
+    for (ie = 0; ie < n_egrid; ie++) {
+      qk[ie] = tq[ie]*pref;
     }
+    qk += n_egrid;
   }
   
   for (i = 0; i < nqk; i++) {
@@ -683,71 +613,45 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
   double eb, rq[MAXNTE];
-  double x0, rqe[MAXNTE*MAXNE+2];
+  double x0, rqe[MAXNTE*MAXNE];
 
   i = RRRadialQkTable(rqe, k0, k1, m);
   if (i < 0) return -1;
 
-  if (qk_mode == QK_FIT) {
-    if (n_tegrid == 1) {
-      k = rqe[NPARAMS];
-      eb = rqe[NPARAMS+1];
-      for (i = 0; i < NPARAMS; i++) {
-	rqc[i] = rqe[i];
-      }
-    } else {
-      nd = 1;
-      np = 3;
-      x0 = te;
-      for (i = 0; i < NPARAMS; i++) {
-	j = i;
-	for (k = 0; k < n_tegrid; k++) {
-	  rq[k] = rqe[j];
-	  j += NPARAMS;
-	}
-	uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &x0, &rqc[i]);
-      }
-      k = rqe[NPARAMS*n_tegrid];
-      eb = rqe[NPARAMS*n_tegrid+1];
+  if (n_tegrid == 1) {
+    for (i = 0; i < n_egrid; i++) {
+      rqc[i] = rqe[i];
     }
-    rqc[NPARAMS] = k;
-    rqc[NPARAMS+1] = eb;
-    return k;
   } else {
-    if (n_tegrid == 1) {
-      for (i = 0; i < n_egrid; i++) {
-	rqc[i] = rqe[i];
+    nd = 1;
+    np = 3;
+    x0 = te;
+    for (i = 0; i < n_egrid; i++) {
+      j = i;
+      for (k = 0; k < n_tegrid; k++) {
+	rq[k] = rqe[j];
+	j += n_egrid;
       }
-    } else {
-      nd = 1;
-      np = 3;
-      x0 = te;
-      for (i = 0; i < n_egrid; i++) {
-	j = i;
-	for (k = 0; k < n_tegrid; k++) {
-	  rq[k] = rqe[j];
-	  j += n_egrid;
-	}
-	uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &x0, &rqc[i]);
-      }
+      uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &x0, &rqc[i]);
     }
-    return 0;
   }
+  return 0;
 }
 
-int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb, 
+int BoundFreeOS(double *rqu, double *rqc, double *eb, 
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
+  ORBITAL *orb;
   int nz, ie, k;
-  double a;
-  double rq[MAXNE], tq[MAXNUSR];
+  double a, b, d, amax;
+  double rq[MAXNE], tq[MAXNE];
   int j1, j2;
   int i, j, c;
   int gauge, mode;
-  int nq, nqk;
+  int nb, nkl, nq;
   double *p;
-  int kb, kbp, jb, jbp;
+  int kb, kbp, jb, klb, jbp;
 
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -761,82 +665,75 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
 
   nz = AngularZFreeBound(&ang, f, rec);
   if (nz <= 0) return -1;
-  if (qk_mode == QK_FIT) {
-    nqk = NPARAMS+2;
-    for (i = 0; i < n_usr; i++) {
-      rqu[i] = 0.0;
-    }
-    nq = 0;
-    p = *rqc;
-    for (i = 0; i < nz; i++) {
-      kb = ang[i].kb;
-      jb = GetOrbital(kb)->kappa;
-      jb = GetJFromKappa(jb);
-      for (j = 0; j <= i; j++) {
-        kbp = ang[j].kb;
-        jbp = GetOrbital(kbp)->kappa;
-        jbp = GetJFromKappa(jbp);
-	if (jbp != jb) continue;
-	if (nq == *nqkc) {
-	  *nqkc *= 2;
-	  *rqc = (double *) realloc(*rqc, sizeof(double)*(*nqkc));
-	  p = *rqc + nq*nqk;
+
+  gauge = GetTransitionGauge();
+  mode = GetTransitionMode();
+  c = 2*abs(m) - 2;
+  if (gauge == G_COULOMB && mode == M_FR && m < 0) {
+    c -= 2;
+  } 
+  for (ie = 0; ie < n_egrid; ie++) {
+    tq[ie] = 0.0;
+  }
+  amax = 0.0;
+  for (i = 0; i < nz; i++) {
+    kb = ang[i].kb;
+    orb = GetOrbital(kb);
+    jbp = orb->kappa;
+    GetJLFromKappa(jbp, &jb, &klb);
+    klb /= 2;
+    for (j = 0; j <= i; j++) {
+      kbp = ang[j].kb;
+      jbp = GetOrbital(kbp)->kappa;
+      jbp = GetJFromKappa(jbp);
+      if (jbp != jb) continue;
+      k = RRRadialQk(rq, *eb, kb, kbp, m);
+      if (k < 0) continue;
+      a = ang[i].coeff*ang[j].coeff;
+      if (j != i) {
+	a *= 2;
+      } else {
+	if (a > amax) {
+	  nkl = klb;
+	  nq = orb->n; 
+	  amax = a;
 	}
-	k = RRRadialQk(p, *eb, kb, kbp, m);
-	if (k < 0) continue;
-	a = ang[i].coeff*ang[j].coeff;    
-	if (j != i) {
-	  a *= 2;
-	} 
-	p[0] *= a;
-	for (ie = 0; ie < n_usr; ie++) {
-	  xusr[ie] = usr_egrid[ie]/p[NPARAMS+1];
-	  xusr[ie] += 1.0;
-	  log_xusr[ie] = log(xusr[ie]);
-	}
-	RRRadialQkFromFit(NPARAMS, p, n_usr, xusr, log_xusr, 
-			  tq, NULL, 0, (void *) &k);
-	for (ie = 0; ie < n_usr; ie++) {
-	  rqu[ie] += tq[ie]/p[NPARAMS+1];
-	}
-	nq++;
-	p += nqk;
+      }
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] += a*rq[ie];
       }
     }
-    for (ie = 0; ie < n_usr; ie++) {
-      rqu[ie] = ((*eb)+usr_egrid[ie])*rqu[ie];
+  }
+  if (qk_mode == QK_FIT) {
+    RRRadialQkHydrogenicParams(NPARAMS, rqc, nq, nkl);
+    for (ie = 0; ie < n_egrid; ie++) {
+      xegrid[ie] = 1.0 + egrid[ie]/(*eb);
+      log_xegrid[ie] = log(xegrid[ie]);
+    }
+
+    ie = n_egrid - 2;
+    a = log(tq[ie+1]/tq[ie]);
+    b = xegrid[ie+1]/xegrid[ie];
+    d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
+    b = log(b);
+    d = log(d);
+    rqc[1] = (a + (4.5+nkl)*b)/(0.5*b+d);
+    RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
+		      rq, NULL, 0, &nkl);
+    a = 0.0;
+    b = 0.0;
+    for (ie = 0; ie < n_egrid; ie++) {
+      if (xegrid[ie] > 2.0) {
+	a += ((*eb)*tq[ie]/rq[ie])*egrid[ie];
+	b += egrid[ie];
+      }
+    }
+    rqc[0] *= a/b;
+    for (ie = 0; ie < n_egrid; ie++) {
+      a = (*eb) + egrid[ie];
+      rqu[ie] = tq[ie]*a;
     }
   } else {
-    nq = 0;
-    gauge = GetTransitionGauge();
-    mode = GetTransitionMode();
-    c = 2*abs(m) - 2;
-    if (gauge == G_COULOMB && mode == M_FR && m < 0) {
-      c -= 2;
-    } 
-    for (ie = 0; ie < n_egrid; ie++) {
-      tq[ie] = 0.0;
-    }
-    for (i = 0; i < nz; i++) {
-      kb = ang[i].kb;
-      jb = GetOrbital(kb)->kappa;
-      jb = GetJFromKappa(jb);
-      for (j = 0; j <= i; j++) {
-        kbp = ang[j].kb;
-        jbp = GetOrbital(kbp)->kappa;
-        jbp = GetJFromKappa(jbp);
-	if (jbp != jb) continue;
-	k = RRRadialQk(rq, *eb, kb, kbp, m);
-	if (k < 0) continue;
-	a = ang[i].coeff*ang[j].coeff;    
-	if (j != i) {
-	  a *= 2;
-	} 
-	for (ie = 0; ie < n_egrid; ie++) {
-	  tq[ie] += a*rq[ie];
-	}
-      }
-    }
     for (ie = 0; ie < n_egrid; ie++) { 
       a = *eb + egrid[ie];
       tq[ie] *= a;
@@ -854,16 +751,16 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
       for (ie = 0; ie < n_usr; ie++) {
 	rqu[ie] = exp(rqu[ie]);
       }
-    } else if (qk_mode == QK_EXACT) {
+    } else {
       for (ie = 0; ie < n_usr; ie++) {
 	rqu[ie] = tq[ie];
       }
-    }      
-  }
+    }
+  }      
  
   free(ang);
 
-  return nq;
+  return nkl;
 }
 
 int AutoionizeRate(double *rate, double *e, int rec, int f) {  
@@ -1096,7 +993,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	      char *fn, int m) {
   int i, j, k, ie, ip;
   FILE *f;
-  double rqu[MAXNUSR], *qc;
+  double rqu[MAXNUSR], qc[NPARAMS];
   double eb;
   LEVEL *lev1, *lev2;
   RR_RECORD r;
@@ -1104,7 +1001,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   F_HEADER fhdr;
   double e, emin, emax;
   double awmin, awmax;
-  int nqkc, nq, nqk, nshells;
+  int nq, nqk;
 
   emin = 1E10;
   emax = 1E-10;
@@ -1168,12 +1065,12 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
 
   if (qk_mode == QK_FIT) {
-    nqkc = 10;
-    nqk = NPARAMS+2;
-    qc = (double *) malloc(sizeof(double)*nqkc*nqk);
+    nqk = NPARAMS;
+    r.params = (float *) malloc(sizeof(float)*nqk);
   } else {
     nqk = 0;
   }
+  r.strength = (float *) malloc(sizeof(float)*n_usr);
 
   fhdr.type = DB_RR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -1192,35 +1089,21 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.usr_egrid = usr_egrid;
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &rr_hdr);
-
-  nshells = 1;
-  if (qk_mode == QK_FIT) {
-    r.params = (float *) malloc(sizeof(float)*nqk);
-  }
-  r.strength = (float *) malloc(sizeof(float)*n_usr);
   
   for (i = 0; i < nup; i++) {
     for (j = 0; j < nlow; j++) {
-      nq = BoundFreeOS(rqu, &nqkc, &qc, &eb, low[j], up[i], m);
+      nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
       if (nq < 0) continue;
       r.b = low[j];
       r.f = up[i];
-      r.nshells = nq;
-      if (r.nshells > nshells && qk_mode == QK_FIT) {
-	r.params = (float *) realloc(r.params, sizeof(float)*nqk*nq);
-	nshells = r.nshells;
-      }
+      r.kl = nq;
       
       if (qk_mode == QK_FIT) {
-	ip = 0;
-	for (k = 0; k < nq; k++) {
-	  for (ie = 0; ie < nqk; ie++) {
-	    r.params[ip] = (float) qc[ip];
-	    ip++;
-	  }
+	for (ip = 0; ip < nqk; ip++) {
+	  r.params[ip] = (float) qc[ip];
 	}
       }
-
+      
       for (ie = 0; ie < n_usr; ie++) {
 	r.strength[ie] = (float) rqu[ie];
       }
@@ -1230,7 +1113,6 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   
   if (qk_mode == QK_FIT) {
     free(r.params);
-    free(qc);
   }
   free(r.strength);
   DeinitFile(f, &fhdr);

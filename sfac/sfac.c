@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.16 2002/04/25 16:22:29 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.17 2002/04/30 15:01:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -736,25 +736,6 @@ static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
-static int PLoadIonizationQk(int argc, char *argv[], int argt[], 
-			     ARRAY *variables) {
-  int n;
-  
-  if (argc == 0) {
-    LoadCIRadialQkIntegrated(-1, NULL);
-  } else if (argc == 1) {
-    n = atoi(argv[0]);
-    LoadCIRadialQkIntegrated(n, NULL);
-  } else if (argc == 2) {
-    n = atoi(argv[0]);
-    LoadCIRadialQkIntegrated(n, argv[1]);
-  } else {
-    return -1;
-  }
-    
-  return 0;
-}
-
 static int PMemENTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   
@@ -843,105 +824,6 @@ static int PPause(int argc, char *argv[], int argt[],
     if (strcmp(s, "go") == 0) break;
   }
   
-  return 0;
-}
-
-static int PPrepIonizationQk(int argc, char *argv[], int argt[], 
-			     ARRAY *variables) {
-  int nz, na, nn, nte;
-  double emin, emax;
-  int *n, i;
-  double *z, *a;
-  char *vz[MAXNARGS], *va[MAXNARGS], *vn[MAXNARGS];
-  int iz[MAXNARGS], ia[MAXNARGS], in[MAXNARGS];
-
-  nz = 0;
-  na = 0;
-  nn = 0;
-  nte = -1;
-  emin = -1.0;
-  emax = -1.0;
-
-  if (argc < 1 || argc > 7) return -1;
-
-  if (argc > 1) {
-    if (argt[1] != LIST) return -1;
-    nz = DecodeArgs(argv[1], vz, iz, variables);
-    if (argc > 2) {
-      if (argt[2] != LIST) return -1;
-      na = DecodeArgs(argv[2], va, ia, variables);
-      if (argc > 3) {
-	if (argt[3] != LIST) return -1;
-	nn = DecodeArgs(argv[3], vn, in, variables);
-	if (argc > 4) {
-	  if (argt[4] != NUMBER) return -1;
-	  nte = atoi(argv[4]);
-	  if (argc > 5) {
-	    emin = atof(argv[5]);
-	    if (argc > 6) {
-	      emax = atof(argv[6]);
-	    }
-	  }
-	}
-      }
-    }
-  }
-
-  if (nz > 0) {
-    z = (double *) malloc(sizeof(double)*nz);
-    for (i = 0; i < nz; i++) {
-      z[i] = atof(vz[i]);
-    }
-  } else {
-    nz = 5;
-    z = (double *) malloc(sizeof(double)*nz);
-    z[0] = 10;
-    z[1] = 30;
-    z[2] = 50;
-    z[3] = 70;
-    z[4] = 90;
-  }
-
-  if (na > 0) {
-    a = (double *) malloc(sizeof(double)*na);
-    for (i = 0; i < na; i++) {
-      a[i] = atof(va[i]);
-    }
-  } else { 
-    na = 5;
-    a = (double *) malloc(sizeof(double)*na);
-    a[0] = 0.1;
-    a[1] = 0.3;
-    a[2] = 0.5;
-    a[3] = 0.7;
-    a[4] = 0.9;
-  }
-
-  if (nn > 0) {
-    n = (int *) malloc(sizeof(int)*nn);
-    for (i = 0; i < nn; i++) {    
-      n[i] = atoi(vn[i]);
-    }
-  } else { 
-    nn = 5;
-    n = (int *) malloc(sizeof(int)*nn);
-    n[0] = 1;
-    n[1] = 2;
-    n[2] = 3;
-    n[3] = 4;
-    n[4] = 5;
-  }
-
-  for (i = 0; i < nz; i++) free(vz[i]);
-  for (i = 0; i < na; i++) free(va[i]);
-  for (i = 0; i < nn; i++) free(vn[i]);
-  
-  PrepCIRadialQkIntegrated(nz, z, na, a, nn, n, nte, emin, emax, argv[0]);
- 
-  free(z);
-  free(a);
-  free(n);
-
   return 0;
 }
 
@@ -1117,17 +999,6 @@ static int PRRTable(int argc, char *argv[], int argt[],
   }
   SaveRecRR(nlow, low, nup, up, argv[0], m);
 
-  return 0;
-}
-
-static int PSaveIonizationQk(int argc, char *argv[], int argt[], 
-			     ARRAY *variables) {
-  int n;
-  if (argc != 2) return -1;
-  
-  n = atoi(argv[0]);
-  SaveCIRadialQkIntegrated(n, argv[0]);
-  
   return 0;
 }
 
@@ -2412,11 +2283,9 @@ static METHOD methods[] = {
   {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
-  {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
-  {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},

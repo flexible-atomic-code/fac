@@ -27,18 +27,11 @@ int CIRadialQkIntegrated(double *qku, double te, int kb, int kbp);
 void CIRadialQkBasis(int npar, double *yb, double x, double logx);
 void CIRadialQkFromFit(int np, double *p, int n, 
 		       double *x, double *logx, double *y);
-void BEDFromFit(int np, double *p, int n, double *x, double *logx,
-		double *y, double *dy, int ndy, void *extra);
-int CIRadialQkBED(double *dp, double *b, int kl, double *p);
-int SaveCIRadialQkIntegrated(int n, char *s);
-int LoadCIRadialQkIntegrated(int n, char *s);
-int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
-			     int np, int *n, int nte, 
-			     double emin, double emax, char *s);
+int CIRadialQkBED(double *dp, double *bethe, double *b0, int kl,
+		  double *logxe, double *q, double *p, double te);
 double *CIRadialQkIntegratedTable(int kb, int kbp);
-double IntegrateQk(double *qk);
 double *CIRadialQkTable(int kb, int kbp);
-int IonizeStrength(double *qku, int *n, double **p, double *e, int b, int f);
+int IonizeStrength(double *qku, double *p, double *e, int b, int f);
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn);
 
 #endif
