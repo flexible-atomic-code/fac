@@ -414,11 +414,16 @@ more data blocks. Each data block is comprised of a data header and one or
 more data records. In the following, we show the C definition of all structs
 and describe each field in detail. When one field is a pointer, it means that
 an array is saved in the database. The pointer points to the memory location
-where the data is stored. The value of the pointer itself is also
-saved in the file followed by the data stored in the array. Obviously, the
-saved pointer itself has no meaning once the program exits (since it is a
-memory location), it is saved for the sake of convenience. When reading out
-the data from the database file, these pointer values should be ignored.
+where the data is stored. In versions 1.0.8 or earlier, the value of the
+pointer itself is also saved in the file followed by the data stored in the
+array. Obviously, the saved pointer itself has no meaning once the program
+exits (since it is a memory location). When reading out the data from the
+database file, these pointer values should be ignored. In version 1.0.9 or
+later, the pointers are no longer saved, and the file IO are rewritten in a
+platform independent way, i.e., the structure fields are written and read one
+by one, instead of dealing with the structure as an integrated object. This
+avoids the different memory padding added by the compilers which may be
+different on different machines.
 
 \subsection{\texttt{F\_HEADER}}
 \index{F\_HEADER}

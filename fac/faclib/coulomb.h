@@ -64,7 +64,6 @@ double HydrogenicExpectation(double z, int m, int n, int kl);
 double HydrogenicSelfEnergy(double z, int n, int k);
 double  TRRateHydrogenic(double z, int n0, int kl0,
 			int n1, int kl1, int s);
-double RRCrossHn(double z, double e, int n);
 double  CoulombPhaseShift(double z, double e, int kappa);
 double  AngularMSub(int lf, int li1, int li2, int q);
 double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k);

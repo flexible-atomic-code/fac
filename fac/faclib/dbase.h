@@ -3,7 +3,6 @@
 
 #include <time.h>
 #include "global.h"
-#include "coulomb.h"
 
 #define DB_EN 1
 #define DB_TR 2
@@ -72,6 +71,7 @@ typedef struct _TR_RECORD_ {
   int upper;
   float strength;
 } TR_RECORD;
+#define SIZE_TR_RECORD (sizeof(int)+sizeof(int)+sizeof(float))
 
 typedef struct _TR_EXTRA_ {
   float energy;
@@ -232,6 +232,7 @@ typedef struct _SP_RECORD_ {
   float energy;
   float strength;
 } SP_RECORD;
+#define SIZE_SP_RECORD (sizeof(int)+sizeof(int)+sizeof(float)+sizeof(float))
 
 typedef struct _SP_EXTRA_ {
   float sdev;
@@ -410,6 +411,7 @@ int IsUTA(void);
 void SetTRF(int m);
 int AppendTable(char *fn);
 int JoinTable(char *fn1, char *fn2, char *fn);
+double RRCrossHn(double z, double e, int n);
 
 #endif
 
