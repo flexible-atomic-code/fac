@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.12 2002/03/10 15:09:24 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.13 2002/03/11 01:56:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -738,6 +738,17 @@ static PyObject *PIonis(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddd)", total, a, d);
 }
 
+static PyObject *PRRRateH(PyObject *self, PyObject *args) {
+  int n;
+  double z, t, r, top;
+
+  if (!PyArg_ParseTuple(args, "did", &z, &n, &t)) return NULL;
+  
+  r = RRRateHydrogenic(t, z, n, &top);
+  
+  return Py_BuildValue("(dd)", r, top);
+}
+
 static PyObject *PRecomb(PyObject *self, PyObject *args) {
   int z, nele;
   double t, total, r, d;
@@ -822,6 +833,7 @@ static struct PyMethodDef crm_methods[] = {
   {"Splint", PSplint, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},
   {"Recomb", PRecomb, METH_VARARGS},
+  {"RRRateH", PRRRateH, METH_VARARGS},
   {"FracAbund", PFracAbund, METH_VARARGS},
   {"MaxAbund", PMaxAbund, METH_VARARGS},
   {NULL, NULL}
