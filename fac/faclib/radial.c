@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.112 2005/03/03 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.113 2005/03/04 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1359,6 +1359,7 @@ static double FKB(int ka, int kb, int k) {
   GetJLFromKappa(GetOrbital(ka)->kappa, &ja, &ia);
   GetJLFromKappa(GetOrbital(kb)->kappa, &jb, &ib);
 
+  if (!Triangle(ia, k, ia) || !Triangle(ib, k, ib)) return 0.0;
   a = W3j(ja, k, ja, 1, 0, -1)*W3j(jb, k, jb, 1, 0, -1);
   if (fabs(a) < EPS10) return 0.0; 
   Slater(&b, ka, kb, ka, kb, k/2, 0);
@@ -1376,7 +1377,7 @@ static double GKB(int ka, int kb, int k) {
   GetJLFromKappa(GetOrbital(ka)->kappa, &ja, &ia);
   GetJLFromKappa(GetOrbital(kb)->kappa, &jb, &ib);
   
-  if (IsOdd((ia+k+ib)/2)) return 0.0;
+  if (IsOdd((ia+k+ib)/2) || !Triangle(ia, k, ib)) return 0.0;
   a = W3j(ja, k, jb, 1, 0, -1);
   if (fabs(a) < EPS10) return 0.0;
   Slater(&b, ka, kb, kb, ka, k/2, 0);
@@ -1415,9 +1416,9 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
   case 1:
     k0 = 4;
     k1 = 2*ja;
-    kp0 = abs(ja-jb);
-    if (kp0 < 4) kp0 = 4;
-    kp1 = ja+jb;
+    kp0 = 4;
+    kp1 = 2*jb;
+    kp1 = Min(kp1, k1);
     a = 1.0/(ja*(ja+1.0));
     for (k = k0; k <= k1; k += 4) {
       for (kp = kp0; kp <= kp1; kp += 4) {
@@ -1455,9 +1456,10 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     if (IsOdd((ja+jb)/2+1)) e = -e;
     break;
   case 3:
-    k0 = abs(ja-jb);
-    if (k0 < 4) k0 = 4;
-    k1 = ja+jb;
+    k0 = 4;
+    k1 = 2*ja;
+    k = 2*jb;
+    k1 = Min(k, k1);
     for (k = k0; k <= k1; k += 4) {
       for (kp = k0; kp <= k1; kp += 4) {
 	b = 0.0;
@@ -1494,9 +1496,10 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     }
     break;
   case 5:
-    k0 = abs(ja-jb);
-    if (k0 < 4) k0 = 4;
-    k1 = ja+jb;
+    k0 = 4;
+    k1 = 2*ja;
+    k = 2*jb;
+    k1 = Min(k1, k);
     kp0 = abs(ja-jb);
     kp1 = ja+jb;
     for (k = k0; k <= k1; k += 4) {
@@ -1516,9 +1519,10 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     }
     break;
   case 6:
-    k0 = abs(ja-jb);
-    if (k0 < 4) k0 = 4;
-    k1 = ja+jb;
+    k0 = 4;
+    k1 = 2*ja;
+    k = 2*jb;
+    k1 = Min(k, k1);
     a = 1.0/((ja+1.0)*(jb+1.0));
     for (k = k0; k <= k1; k += 4) {
       b = a/(k+1.0);
@@ -1538,17 +1542,21 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
 	  b += 1.0/(k+1.0);
 	}
 	b -= a;
-	b *= a*GKB(ka, kb, k)*GKB(ka, kb, kp);
-	e += b;
+	c = GKB(ka, kb, k);
+	d = GKB(ka, kb, kp);
+	e += a*b*c*d;
       }
     }
     break;
   case 8:    
-    k0 = abs(ja-jb);
-    k1 = ja+jb;
+    k0 = 4;
+    k1 = 2*ja;
+    k = 2*jb;
+    k1 = Min(k, k1);
+    kp0 = abs(ja-jb);
+    kp1 = ja+jb;
     kp0 = k0;
     kp1 = k1;    
-    if (k0 < 4) k0 = 4;
     a = 1.0/((ja+1.0)*(jb+1.0));
     for (k = k0; k <= k1; k += 4) {
       for (kp = kp0; kp <= kp1; kp += 2) {
@@ -1582,13 +1590,12 @@ static double ConfigEnergyVarianceParts1(SHELL *bra, int i,
 
   switch (p) {
   case 0:
-    k0 = abs(js-ja);
-    k = abs(js-jb);
-    k0 = Max(k0, k);
-    if (k0 < 4) k0 = 4;
-    k1 = js + ja;
-    k = js + jb;
-    k1 = Min(k1, k);
+    k0 = 4;
+    k1 = 2*ja;
+    k = 2*jb;
+    k1 = Min(k, k1);
+    k = 2*js;
+    k1 = Min(k, k1);
     for (k = k0; k <= k1; k += 4) {
       b = W6j(ja, ja, k, jb, jb, m2);
       if (fabs(b) < EPS10) continue;
@@ -1616,9 +1623,10 @@ static double ConfigEnergyVarianceParts1(SHELL *bra, int i,
     }
     break;
   case 2:
-    k0 = abs(js-ja);
-    if (k0 < 4) k0 = 4;
-    k1 = js+ja;    
+    k0 = 4;
+    k1 = 2*js;    
+    k = 2*ja;
+    k1 = Min(k, k1);
     kp0 = abs(js-jb);
     kp1 = js+jb;
     for (k = k0; k <= k1; k += 4) {
