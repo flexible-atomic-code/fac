@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.38 2004/06/14 22:01:33 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.39 2004/06/23 18:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -211,7 +211,7 @@ double CERate1E(double e, double eth, int np, void *p) {
   x = y + m1;
 
   if (x0 <= x[np-1]) {
-    n = 3;
+    n = 2;
     one = 1;
     UVIP3P(n, np, x, y, one, &x0, &a);
   } else {
@@ -271,7 +271,7 @@ double DERate1E(double e, double eth, int np, void *p) {
   x = y + m1;
 
   if (x0 <= x[np-1]) {
-    n = 3;
+    n = 2;
     one = 1;
     UVIP3P(n, np, x, y, one, &x0, &a);
   } else {
