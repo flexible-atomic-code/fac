@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.3}\xspace}
+\newcommand{\facversion}{{0.7.4}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -48,6 +48,12 @@
 	\begin{minipage}{\textwidth}
 	\key{\textbf{#1}}:\\}
 	{\end{minipage}\end{center}}
+
+\newcounter{faq}[section]
+\newcommand{\faq}[2]{\stepcounter{faq}
+	\begin{minipage}{\textwidth}
+	\textbf{Q\arabic{faq}: #1?}\\#2
+	\end{minipage}}
 
 \setcounter{tocdepth}{1}
 
@@ -114,10 +120,11 @@ tenure.
 \section{Obtain and Install FAC}
 \index{Install}
 \label{sec:install}
-The latest version of FAC is \facversion. It can be obtained from anounymous
-ftp://space.mit.edu/pub/mfgu/fac/. I can also send a copy to you through
-email. Please request to \textbf{mfgu@space.mit.edu}. It is being continously
-developed at present, so please check regularly to get the newest version. 
+The latest version of FAC is \facversion. It can be obtained from anonymous
+\textbf{ftp://space.mit.edu/pub/mfgu/fac/}. I can also send a copy to you
+through email. Please request to \textbf{mfgu@space.mit.edu}. It is being
+continously developed at present, so please check regularly to get the newest
+version.
 
 Much of the FAC package is written in ANSI C and Fortran 77. It should 
 therefore work on any platform with a C and Fortran 77 compilers. However, 
@@ -2206,6 +2213,19 @@ Set the minimum principal quantum number \var{nmin} for the spectator
 electron. The default is 8.
 \end{fundesc}
 
+\begin{fundesc}{SetScreening}{ns\opt{,c\opt{,k}}}
+Set the orbital parameters of screening electrons. \var{ns} is a list of
+integers which are the principal quantum numbers of the screening
+orbitals. The optional \var{c} is the total charge to be screened, whose
+default is 1.0. \var{k} is the either 1, $-1$, or 0. If \var{k}=$-1$, then
+the \var{l=0} orbitals are used. If \var{k}=0, then the the \var{l}=\var{ns}/2
+orbitals are used. If \var{k}=1, then the \var{l}=\var{ns}-1 nodeless orbital
+is used. The default is \var{k}=1. This function is usually used when
+additional screening charge is desired for the mean configuration generating
+the optimal central potential. It is quite experimental, and therefore not
+recommended for general use.
+\end{fundesc}
+
 \begin{fundesc}{SetTEGrid}{g $|$ n\opt{, e0, e1}}
 Set the transition energy grid for collisional excitation. In the first form,
 the grid is given by a Python list \var{g}. In the second form, the grid is
@@ -2839,7 +2859,7 @@ users are encouraged to write their own scripts to deal with specific
 problems. Hower, one function from this module is described here which may
 come to be handy to obtain atomic data for K-shell and L-shell ions.
 \begin{fundesc}{atomic\_data}{nele, asym\opt{, iprint, dir, \textnormal{**}kw}}
-This function calculates all collsional and radiative atomic data fro K-shell
+This function calculates all collsional and radiative atomic data for K-shell
 and L-shell ions. The atomic processes includes radiative transition,
 collisional excitation, photoionization, radiative recombination,
 autoionization, and collisional ionization. \var{nele} is a list of integers
@@ -2873,6 +2893,92 @@ module in the distribution is mainly for demonstration purpose. Anyone
 interested has to read the source code directly.
 
 \chapter{Frequently Asked Questions (FAQ) To FAC}
+\section{General}
+\faq{Where can I obtain FAC}{
+FAC is free software. It can be used, modified and redistributed
+without restriction. Currently, it can be obtained from anonymous
+\textbf{ftp://space.mit.edu/pub/mfgu/fac/}, or one may request to
+\textbf{mfgu@space.mit.edu} for a copy through email.}
+
+\faq{What operating systems does FAC run on}{
+FAC is written in a mixture of ANSI C, Fortran 77, and Python, all of them are
+in principle platform independent. However, the mixed language programming and
+the dynamically loadable Python modules makes it more easyly installed in
+modern UNIX-like systems than others. So far, it has been tested to work under
+solaris, linux, Mac OS X, and windows with the UNIX API emulation provided by
+Cygwin.}
+  
+\faq{How does FAC differ from other atomic codes}{
+The theoretical methods used in FAC are similar to some other distorted-wave
+atomic codes, such as HULLAC and differ from more elaborate programs based on
+close-coupling approximations, such as the Belfast R-Matrix code. The biggest
+advatage of FAC is its ease of use and its scriptability.}
+
+\faq{How does FAC differ from plasma synthetic codes}{
+There are various plasma codes widely used in X-ray astronomy, such as APEC,
+MEKAL, SPEX, XSTAR and Cloudy. These codes use the existing atomic data to
+construct spectral models under different physical conditions. FAC is an
+atomic code, whose primarily purpose is to generate atomic data, which can be
+used in these plasma codes. However, FAC includes a collisional radiative
+model that is able to compute spectral models for optically thin plasmas at a
+given electron temperature and density. Non-Maxwellian distribution of electron
+energy may be easily implemented as well. A power law ionizing continuum
+radiation may also be included.}
+
+\faq{Can FAC be incorporated into XSPEC or other spectral analysis programs}{
+In principle, the collisional radiative model comes with FAC can be used in
+XSPEC or similar spectral analysis programs. However, this is not practicle,
+as the model inlcudes a large number of atomic states, especially, the doubly
+excited states to treat the resonant processes, and is therefore very time
+consumming. The best strategy of incorporating the FAC results to external
+spectral models is to extract basic atomic or plasma parameters and use them
+to build table models or implement dedicated subroutines.}
+
+\faq{Which atomic processes can or cannot be calculated with FAC}{
+FAC can calculate energy levels, radiative transition rates of arbitrary
+multipole type, collisional excitation and ionization cross sections by
+electron impact, photionization and radiative recombination cross sections and
+autoionization rates. In the currect form, FAC does not treat two-photon
+decay, although such decay rates of $2s S_{1/2}$ state of H-like ions and
+$1s2s S_{0}$ state of He-like ions are included in the collisional radiative
+model using interpolation formulae taken from literature. The three-body
+recombination are not implemented as well.}
+
+\faq{What are the typical accuracies of the atomic parameters caculated with
+FAC}{
+The ions other than H-like, the accuracy of energy levels are usually a few
+eV, which translates to 10--30 m{\AA} for the wavelength at $\sim$10{\AA}. For
+radiative transition rates and cross sections, the accuracies are
+$\sim$10--20\%. Data for near-neutral ions or atoms may have even larger
+errors.}
+
+\faq{Can FAC be used to calculate atomic parameters for non-X-ray (UV,
+optical, etc.) lines}{
+For multiply-charged ions, non-X-ray lines usually result from the transitions
+within the same complex, which usually have large relative uncertainties in
+the calculated wavelengths due to the cacellation. The accuracy for UV and
+optical lines from near-neutral ions is also very limited.}
+
+\faq{Are there standard references to FAC}{
+Currently, no papers have been published describing the code, though
+drafts have been written, which are included in the FAC distribution. I have
+been trying to find a suitable journal willing to publish
+them. I originally submitted them to Computer Physics Communications
+(CPC). However, the referee and editor complained about the lack of
+documentation and code comments. The documentation has been improving since
+then, the code commenting still needs extensive work, which may not be done
+soon. Therefore, the references are yet to come.}
+
+\faq{How do I report bugs, make suggestions and get updated about new
+versions}{
+Please contact the author at \textbf{mfgu@space.mit.edu} for bugs and
+suggestions. I maintain a small email address list of people who expressed
+interest in FAC and send release anouncements to them. Let me know if you want
+to be added to the list. If the list ever grows to the point when I can no
+longer put it under my personal address book, we may have to create a true
+mailing list.}
+
+\section{Atomic Structure}
 
 \bibliographystyle{plainapj}
 \bibliography{papers/facref}
