@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.8 2001/09/24 16:47:55 mfgu Exp $
+# rcsid = $Id: README,v 1.9 2001/09/24 16:57:41 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -8,7 +8,7 @@ README,      this file.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.
-doc/,        referece guide for FAC
+doc/,        reference guide for FAC
 doc/papers/, papers submitted to Computer Phys. Comm.
 faclib/,     core numerical library.
 lapack/,     fortran routines from LAPACK.
