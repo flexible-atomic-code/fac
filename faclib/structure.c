@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.49 2003/11/06 15:53:07 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.50 2003/12/05 06:24:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -219,7 +219,6 @@ int ValidBasis(STATE *s, int k, int *kg, int n) {
   }
 }
 
-
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   int i, j, t;
   HAMILTON *h;
@@ -340,7 +339,8 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     if (ji2 == jj2 && ki2 == kj2) {
       ResidualPotential(&r0, si->kcfg, sj->kcfg);
       r += r0;
-      r += QED1E(si->kcfg, sj->kcfg);
+      r0 = QED1E(si->kcfg, sj->kcfg);
+      r += r0;
     } 
   
     if (si->kcfg == sj->kcfg) {

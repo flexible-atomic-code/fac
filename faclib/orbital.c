@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.49 2003/12/01 22:41:26 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.50 2003/12/05 06:24:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -576,7 +576,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->flag == -1) {
     DiracSmall(orb, pot);
   }
-  
+
   return 0;
 #undef ME
 }  
@@ -669,7 +669,6 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     _dwork1[i] = sqrt(_dwork[i])*p[i];
     _dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
   }
-  
   for (i = 0; i < i1; i++) {
     if (fabs(_dwork1[i]) < 1E-16) {
       p[i+MAX_POINTS] = 0.0;
@@ -719,8 +718,8 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
       p[i] = sqrt(_dwork[i])*p[i];
       p[i+MAX_POINTS] = 0.0;
     }
-    a = InnerProduct(0, i1, p+MAX_POINTS, p+MAX_POINTS, pot);
-    b = InnerProduct(0, MAX_POINTS, p, p, pot); 
+    a = InnerProduct(0, i1-1, p+MAX_POINTS, p+MAX_POINTS, pot);
+    b = InnerProduct(0, MAX_POINTS-1, p, p, pot); 
     a *= orb->qr_norm;
     b *= orb->qr_norm;
     a = sqrt(a+b);

@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.45 2003/05/23 21:28:02 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.46 2003/12/05 06:24:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -527,14 +527,16 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
       integrand[j] *= x[j]*d;
     }    
   }
-  n = NINT-i;
-  np = 3;
-  n1 = n_egrid;
-  UVIP3P(np, n1, logxe, q, n, &(t[i]), &(integrand[i]));
-  for (; i < NINT; i++) {
-    integrand[i] = exp(integrand[i]);
+  if (i < NINT) {
+    n = NINT-i;
+    np = 3;
+    n1 = n_egrid;
+    UVIP3P(np, n1, logxe, q, n, &(t[i]), &(integrand[i]));
+    for (; i < NINT; i++) {
+      integrand[i] = exp(integrand[i]);
+    }
   }
-  
+
   integrand[0] = 0.0;
   for (i = 1; i < NINT; i++) {
     integrand[i] *= x[i];

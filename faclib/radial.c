@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.80 2003/08/15 16:17:30 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.81 2003/12/05 06:24:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -703,9 +703,8 @@ int SolveDirac(ORBITAL *orb) {
   clock_t start, stop;
   start = clock();
 #endif
-  
-  err = 0;
-  
+
+  err = 0;  
   potential->flag = -1;
   err = RadialSolver(orb, potential);
   if (err) { 
@@ -857,7 +856,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
     if (n == 0) {
       if (orb->kappa == kappa && 
 	  orb->energy > 0.0 &&
-	  fabs(orb->energy - energy) < EPS6) {
+	  fabs(orb->energy - energy) < EPS10) {
 	if (orb->wfun == NULL) {
 	  if (RestoreOrbital(i) == 0) return i;
 	  else {
@@ -906,7 +905,7 @@ int OrbitalExists(int n, int kappa, double energy) {
     orb = GetOrbital(i);
     if (n == 0) {
       if (orb->kappa == kappa &&
-	  fabs(orb->energy - energy) < EPS6) 
+	  fabs(orb->energy - energy) < EPS10) 
 	return i;
     } else if (orb->n == n && orb->kappa == kappa) {
       return i;
@@ -1317,6 +1316,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
   }
   Integrate(_yk, orb1, orb2, 1, s);
+
   *p = *s;
   return 0;
 }
