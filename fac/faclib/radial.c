@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.66 2002/09/26 00:23:35 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.67 2002/10/23 03:44:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1714,6 +1714,8 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
 	r0 = Simpson(_phase, 0, n1);
       }
     }
+  } else {
+    r0 = 0.0;
   }
   
   for (t = 0; t < nk; t++) {
