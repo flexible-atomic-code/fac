@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.64 2003/12/16 22:29:25 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.65 2003/12/30 22:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,7 +24,13 @@ static double iter_stabilizer = 0.75;
 static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
-static int do_extrapolate = 1;
+static int do_extrapolate = 0;
+static int inner_auger = 1;
+
+int SetInnerAuger(i) {
+  inner_auger = i;
+  return 0;
+}
 
 int SetExtrapolate(e) {
   do_extrapolate = e;
@@ -343,9 +349,9 @@ void ExtrapolateEN(int iion, ION *ion) {
   double a, b, c, d;
   double a0, e0, delta, gamma;
 
-  if (!do_extrapolate) return;
   nlev = ion->nlevels;
   for (i = 0; i < ion->recombined->dim; i++) {
+    if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);    
     j = rec->n-1;
     if (j > 0) {
@@ -367,6 +373,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   c = ion0.atom - ion->nele + 1.0;
   c = 0.5*c*c;
   for (i = 0; i < ion->recombined->dim; i++) {
+    if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     j = rec->n-1;
     rec->n_ext = rec->n;
@@ -434,8 +441,8 @@ void ExtrapolateTR(ION *ion, int inv) {
   int imin, imax;
   double a, b, c, h;
 
-  if (!do_extrapolate) return;
   for (i = 0; i < ion->recombined->dim; i++) {
+    if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     if (rec->n_ext == rec->n) continue;
     j = rec->n-1;
@@ -522,12 +529,12 @@ void ExtrapolateRR(ION *ion, int inv) {
   double a, b, c, z, temp, h, d;
   double rr_extra[MAXNREC];
 
-  if (!do_extrapolate) return;
   dist = GetEleDist(&i);
   if (i != 0) return;
   temp = dist->params[0];
   z = ion0.atom - ion->nele + 1.0;
   for (i = 0; i < ion->recombined->dim; i++) {
+    if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     if (rec->n_ext == rec->n) {
     }
@@ -614,8 +621,8 @@ void ExtrapolateAI(ION *ion, int inv) {
   double a, b, c, e;
   double ai_extra[MAXNREC];
 
-  if (!do_extrapolate) return;
   for (i = 0; i < ion->recombined->dim; i++) {
+    if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     j = rec->n - 1;
     imin = rec->imin[j];
@@ -721,15 +728,17 @@ int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
       name[i] = '\0';
       n2 = strlen(name);
       ibase = -1;
-      for (i = 0; i <n; i++) {
+      for (i = 0; i < n; i++) {
 	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0) {
-	  if (i == 0) ibase = r0[i].ilev;
+	  if (ibase == -1) ibase = r0[i].ilev;
 	  if (n2 == 0 || n3 == 0) {
 	    return r0[i].ilev;
 	  } else {
-	    if (strncmp(name, r0[i].name, n2) == 0 &&
-		strncmp(sname, r0[i].sname, n3) == 0) {	  
-	      return r0[i].ilev;
+	    if (strncmp(sname, r0[i].sname, n3) == 0) {
+	      ibase = r0[i].ilev;
+	      if (strncmp(name, r0[i].name, n2) == 0) {
+		return r0[i].ilev;
+	      }
 	    }
 	  }
 	}
@@ -852,29 +861,58 @@ int SetBlocks(double ni, char *ifn) {
 	for (i = 0; i < h.nlevels; i++) {
 	  n = ReadENRecord(f, &r0[i], swp);
 	}
-	if (ion->nele >= 4 && ion->nele <= 10) {
-	  GetNComplex(ncomplex, r0[0].ncomplex);
-	  if (ncomplex[0].n == 1) {
-	    if (ncomplex[0].nq == 1 &&
-		ncomplex[1].n == 2 &&
-		ncomplex[1].nq == ion->nele-2) {
-	      ion->KLN_bmin = r0[0].ilev;
-	      ion->KLN_bmax = r0[h.nlevels-1].ilev;
-	      ion->KLN_ai = (double *) malloc(sizeof(double)*h.nlevels);
-	      ion->KLN_nai = (int *) malloc(sizeof(int)*h.nlevels);
-	      for (ibase = 0; ibase < h.nlevels; ibase++) {
-		ion->KLN_ai[ibase] = 0.0;
-		ion->KLN_nai[ibase] = 0;
-	      }
-	    } else if (ncomplex[0].nq == 2) {
-	      if (ncomplex[1].n > 2 ||
-		  ncomplex[1].nq == ion->nele-4) {
-		ion->KLN_amin = r0[0].ilev;
-		ion->KLN_amax = r0[h.nlevels-1].ilev;
-	      }
-	    }       
+	if (inner_auger) {
+	  if (ion->nele >= 4 && ion->nele <= 10) {
+	    GetNComplex(ncomplex, r0[0].ncomplex);
+	    if (ncomplex[0].n == 1) {
+	      if (ncomplex[0].nq == 1 &&
+		  ncomplex[1].n == 2 &&
+		  ncomplex[1].nq == ion->nele-2) {
+		ion->KLN_bmin = r0[0].ilev;
+		ion->KLN_bmax = r0[h.nlevels-1].ilev;
+		ion->KLN_ai = (double *) malloc(sizeof(double)*h.nlevels);
+		ion->KLN_nai = (int *) malloc(sizeof(int)*h.nlevels);
+		for (ibase = 0; ibase < h.nlevels; ibase++) {
+		  ion->KLN_ai[ibase] = 0.0;
+		  ion->KLN_nai[ibase] = 0;
+		}
+	      } else if (ncomplex[0].nq == 2) {
+		if (ncomplex[1].n > 2 ||
+		    ncomplex[1].nq == ion->nele-4) {
+		  ion->KLN_amin = r0[0].ilev;
+		  ion->KLN_amax = r0[h.nlevels-1].ilev;
+		}
+	      }       
+	    }
+	  }
+	  
+	  if (ion->nele >= 12) {
+	    GetNComplex(ncomplex, r0[0].ncomplex);
+	    if (ncomplex[0].n == 1 && 
+		ncomplex[0].nq == 2 && 
+		ncomplex[1].n == 2) {
+	      if (ncomplex[1].nq == 7 &&
+		  ncomplex[2].n == 3 &&
+		  ncomplex[2].nq == ion->nele-10) {
+		ion->KLN_bmin = r0[0].ilev;
+		ion->KLN_bmax= r0[h.nlevels-1].ilev;
+		ion->KLN_ai = (double *) malloc(sizeof(double)*h.nlevels);
+		ion->KLN_nai = (int *) malloc(sizeof(int)*h.nlevels);
+		for (ibase = 0; ibase < h.nlevels; ibase++) {
+		  ion->KLN_ai[ibase] = 0.0;
+		  ion->KLN_nai[ibase] = 0;
+		}
+	      } else if (ncomplex[1].nq == 8) {
+		if (ncomplex[2].n > 3 ||
+		    ncomplex[2].nq == ion->nele-12) {
+		  ion->KLN_amin = r0[0].ilev;
+		  ion->KLN_amax = r0[h.nlevels-1].ilev;
+		}
+	      }       
+	    }
 	  }
 	}
+
 	if (ifn) {
 	  r1 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*h.nlevels);
 	  nlevels = FindLevelBlock(h.nlevels, r0, r1, ion->nele-1, ifn); 
@@ -1091,7 +1129,7 @@ int SetBlocks(double ni, char *ifn) {
 	}
 	ion->ibase[p] = GetBaseLevel(nionized, rionized, &r);
 	ion->energy[p] = r.energy;
-	if (ion->nele >= 4 && ion->nele <= 10 && nrec == 0) {
+	if (ion->nele >= 4 && nrec == 0) {
 	  if (ion->ibase[p] <= ion->KLN_bmax &&
 	      ion->ibase[p] >= ion->KLN_bmin) {
 	    ibase = ion->ibase[p] - ion->KLN_bmin;
@@ -1117,6 +1155,15 @@ int SetBlocks(double ni, char *ifn) {
     ion1 = ion;
     free(rionized);
     fclose(f);
+    
+    /* determine the minimum ilev in each block */
+    blkp = NULL;
+    for (i = 0; i < ion->nlevels; i++) {
+      if (ion->iblock[i] != blkp) {
+	blkp = ion->iblock[i];
+	blkp->imin = i;
+      }
+    }
   }
   
   k = blocks->dim;
@@ -1401,7 +1448,7 @@ int InitBlocks(void) {
 
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    if (ion->nele >= 4 && ion->nele <= 10) {
+    if (ion->nele >= 4) {
       for (i = 0; i < ion->nlevels; i++) {
 	if (ion->ibase[i] <= ion->KLN_bmax &&
 	    ion->ibase[i] >= ion->KLN_bmin) {
@@ -3895,7 +3942,8 @@ int SetAIRates(int inv) {
 	e = ion->energy[r.b] - ion->energy[r.f];
 	AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
 	AddRate(ion, ion->ai_rates, &rt, 0);
-	if (rt.i <= ion->KLN_max && rt.i >= ion->KLN_min &&
+	if (rt.i <= ion->KLN_max && 
+	    rt.i >= ion->KLN_min &&
 	    rt.f <= ion->KLN_amax &&
 	    rt.f >= ion->KLN_amin) {
 	  ibase = ion->ibase[rt.i] - ion->KLN_bmin;
@@ -3984,7 +4032,7 @@ int DRBranch(void) {
 int DRStrength(char *fn, int nele, int mode, int ilev0) {
   ION *ion;
   RATE *r, *rp;
-  LBLOCK *blk1;
+  LBLOCK *blk1, *blk2;
   BLK_RATE *brts, *brtsp;
   DR_RECORD r1;
   DR_HEADER hdr;
@@ -4025,6 +4073,10 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
       hdr.j = ion->j[ilev0];
       for (t = 0; t < ion->ai_rates->dim; t++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
+	blk1 = brts->fblock;
+	if (ilev0 < blk1->imin || ilev0 >= blk1->imin+blk1->nlevels) {
+	  continue;
+	}
 	blk1 = brts->iblock;
 	for (m = 0; m < brts->rates->dim; m++) {
 	  r = (RATE *) ArrayGet(brts->rates, m);
@@ -4055,6 +4107,10 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  } else if (mode == 1) {
 	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
 	      brtsp = (BLK_RATE *) ArrayGet(ion->tr_rates, tp);
+	      blk2 = brtsp->iblock;
+	      if (r1.ilev < blk2->imin || r1.ilev >= blk2->imin+blk2->nlevels) {
+		continue;
+	      }
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
 		if (rp->i != r1.ilev) continue;
@@ -4068,13 +4124,16 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  } else if (mode == 2) {
 	    for (tp = 0; tp < ion->ai_rates->dim; tp++) {
 	      brtsp = (BLK_RATE *) ArrayGet(ion->ai_rates, tp);
+	      blk2 = brtsp->iblock;
+	      if (r1.ilev < blk2->imin || r1.ilev >= blk2->imin+blk2->nlevels) {
+		continue;
+	      }
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
-		if (rp->i != r1.ilev) continue;
+		if (rp->i != r1.ilev || !(rp->dir)) continue;
 		r1.flev = rp->f;
 		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
-		if (!(rp->dir)) continue;
 		WriteDRRecord(f, &r1);
 	      }
 	    }

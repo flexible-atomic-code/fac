@@ -3199,7 +3199,18 @@ distribution. The avaliable distributions and their parameters are listed in
 \end{fundesc}
 
 \begin{fundesc}{SetExtrapolate}{i}
-Set if the extrapolation of the high-n levels should be carried out. 
+Set if the extrapolation of the high-n levels should be carried out. If
+$i$ is negative, then no extrapolate is carried out, if $i$ is non-negative,
+then only the DR channels $<= i$ will be included in the extrapolation. The DR
+channels are defined in the order KLn, KMn, ... for K-shell ions, and LLn,
+KLn, LMn, MMn, ... for L-shell ions. If unsure how to extrapolate, set it to
+-1 to disable it.
+\end{fundesc}
+
+\begin{fundesc}{SetInnerAuger}{i}
+Set if the inner-shell Auger transitions should be extrapolated to those
+levels that are not explicitly calculated. Default is 1, enabling the
+extraploation.
 \end{fundesc}
 
 \begin{fundesc}{SetIteration}{a\opt{, s, m}}
