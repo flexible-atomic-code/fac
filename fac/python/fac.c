@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.83 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.84 2004/06/30 04:13:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4037,6 +4037,8 @@ static PyObject *PRMatrix(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
+  nt = 0;
+  nc = 0;
   q = NULL;
   if (!PyArg_ParseTuple(args, "sO|O", &fn, &p, &q)) return NULL;
   
