@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.69 2004/06/22 22:18:31 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.70 2004/06/25 00:00:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3821,39 +3821,40 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad,
 	  jmin = abs(j2 - j1);
 	  jmax = j1 + j2;
 	  for (jf = jmin; jf <= jmax; jf += 2) {
-	    memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
-	    s[0].j = jf;
-	    s[0].kl = jf+1;
-	    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
-	    sbra[0].shellJ = s[0].j;
+	    memcpy(s, idatum->s+2, sizeof(INTERACT_SHELL)*2);
+	    memcpy(s+2, idatum->s, sizeof(INTERACT_SHELL)*2);
+	    s[2].j = jf;
+	    s[2].kl = jf+1;
+	    s[2].kappa = GetKappaFromJL(s[2].j, s[2].kl);
+	    sbra[0].shellJ = s[2].j;
 	    
-	    if (s[2].index >= 0) {
+	    if (s[0].index >= 0) {
 	      AddToAngularZxZ(&n, &nz, &ang, n_shells, phase, 
 			      sbra, sket, s, 1);
 	    } else {
 	      for (i = 0; i < n_shells; i++) {
-		s[2].index = n_shells - i - 1;
-		if (s[2].index == s[0].index) continue;
-		if (s[2].index == s[1].index && s[1].nq_ket < 2) continue;
-		s[3].index = s[2].index;
-		s[2].n = bra[i].n;
-		s[3].n = s[2].n;
-		s[2].kappa = bra[i].kappa;
-		s[3].kappa = s[2].kappa;
-		s[2].j = GetJ(bra+i);
-		s[3].j = s[2].j;
-		s[2].kl = GetL(bra+i);
-		s[3].kl = s[2].kl;
-		s[2].nq_bra = GetNq(bra+i);
-		if (s[2].index == s[0].index) {
-		  s[2].nq_ket = s[2].nq_bra - 1;
-		} else if (s[2].index == s[1].index) {
-		  s[2].nq_ket = s[2].nq_bra + 1;
+		s[0].index = n_shells - i - 1;
+		if (s[0].index == s[2].index) continue;
+		if (s[0].index == s[3].index && s[3].nq_ket < 2) continue;
+		s[1].index = s[0].index;
+		s[0].n = bra[i].n;
+		s[1].n = s[0].n;
+		s[0].kappa = bra[i].kappa;
+		s[1].kappa = s[0].kappa;
+		s[0].j = GetJ(bra+i);
+		s[1].j = s[0].j;
+		s[0].kl = GetL(bra+i);
+		s[1].kl = s[0].kl;
+		s[0].nq_bra = GetNq(bra+i);
+		if (s[0].index == s[2].index) {
+		  s[0].nq_ket = s[0].nq_bra - 1;
+		} else if (s[0].index == s[3].index) {
+		  s[0].nq_ket = s[0].nq_bra + 1;
 		} else {
-		  s[2].nq_ket = s[2].nq_bra;
+		  s[0].nq_ket = s[0].nq_bra;
 		}
-		s[3].nq_bra = s[2].nq_bra;
-		s[3].nq_ket = s[2].nq_ket;
+		s[1].nq_bra = s[0].nq_bra;
+		s[1].nq_ket = s[0].nq_ket;
 		AddToAngularZxZ(&n, &nz, &ang, n_shells, phase, 
 				sbra, sket, s, 1);
 	      }
@@ -4594,12 +4595,15 @@ int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang,
   if (nkk > 0) {    
     if (m == 0) {
       orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      orb1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+      kk0 = OrbitalIndex(s[2].n, s[2].kappa, 0.0);
+      kk1 = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
     } else {
-      orb0 = s[0].j;
+      orb0 = s[2].j;      
+      orb1 = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
+      kk0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      kk1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
     }
-    orb1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
-    kk0 = OrbitalIndex(s[2].n, s[2].kappa, 0.0);
-    kk1 = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
     for (p = 0; p < nkk; p++) {
       if (fabs(r[p]) < EPS10) continue;
       if (IsOdd(phase)) r[p] = -r[p];
