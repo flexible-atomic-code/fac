@@ -731,6 +731,7 @@ int SortLevels(int start, int n) {
 int SaveLevelsToAscii(char *fn, int m, int n) {
   FILE *f;
   char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
   int i, j, k;
   int hi, si;
   double mix;
@@ -767,9 +768,9 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 	if (n != orb->n) continue;
       }
     }
-    ConstructLevelName(name, s);
-    fprintf(f, "%-5d %11.4E  %-50s\n", i, 
-	    (lev->energy-e0)*HARTREE_EV, name);
+    ConstructLevelName(name, sname, s);
+    fprintf(f, "%-5d %11.4E  %-20s  %-30s\n", i, 
+	    (lev->energy-e0)*HARTREE_EV, sname, name);
     if (m == 0) continue;
 
     si = lev->mix_index;
@@ -789,7 +790,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   return 0;
 }
 
-int ConstructLevelName(char *name, STATE *basis) {
+int ConstructLevelName(char *name, char *sname, STATE *basis) {
   int n, nq, kl, j;
   int i, len;
   char symbol[20];
@@ -798,20 +799,36 @@ int ConstructLevelName(char *name, STATE *basis) {
   CONFIG *c;
   SHELL_STATE *s;
   ORBITAL *orb;
-  
+  LEVEL *lev;
+  HAMILTON *h;
+  SYMMETRY *sym;
+  int hi, si;
+  int n0, kl0, nq0;
+
   symbol[0] = '\0';
   if (basis->kgroup < 0) {
     i = basis->kgroup;
     i = -(i + 1);
-    orb = GetOrbital(basis->kcfg);
-    GetJLFromKappa(orb->kappa, &j, &kl);
-    if (j < kl) jsym = '-';
-    else jsym = '+';
-
-    kl /= 2;
-    SpecSymbol(symbol, kl);
-    sprintf(name, "%5d + %d%s%c1(%d)%d ", 
-	    i, orb->n, symbol, jsym, j, basis->kstate);
+    if (name) {
+      orb = GetOrbital(basis->kcfg);
+      GetJLFromKappa(orb->kappa, &j, &kl);
+      if (j < kl) jsym = '-';
+      else jsym = '+';
+      
+      kl /= 2;
+      SpecSymbol(symbol, kl);
+      sprintf(name, "%-5d + %d%s%c1(%d)%d ", 
+	      i, orb->n, symbol, jsym, j, basis->kstate);
+    }
+    if (sname) {
+      lev = GetLevel(i);
+      hi = lev->ham_index;
+      si = lev->major_component;
+      h = GetHamilton(hi);
+      sym = GetSymmetry(h->pj);
+      basis = (STATE *) ArrayGet(&(sym->states), h->basis[si]);
+      ConstructLevelName(NULL, sname, basis);
+    }
     return 0;
   }
 
@@ -819,18 +836,46 @@ int ConstructLevelName(char *name, STATE *basis) {
   s = c->csfs + basis->kstate;
 
   len = 0;
-  name[0] = '\0';
+  if (name) name[0] = '\0';
+  if (sname) sname[0] = '\0';
+  n0 = 0;
+  kl0= -1;
+  nq0 = 0;
   for (i = c->n_shells-1; i >= 0; i--) {
     UnpackShell(c->shells+i, &n, &kl, &j, &nq);
     if (j < kl) jsym = '-';
     else jsym = '+';
     kl = kl/2;
-    SpecSymbol(symbol, kl);
-    sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
-	    n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
-    len += strlen(ashell);
-    if (len >= LEVEL_NAME_LEN) return -1;
-    strcat(name, ashell);
+    if (name) {
+      if (nq > 0 || (i == 0 && name[0] == '\0')) {
+	SpecSymbol(symbol, kl);
+	sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
+		n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	len += strlen(ashell);
+	if (len >= LEVEL_NAME_LEN) return -1;
+	strcat(name, ashell);
+      }
+    }
+    if (sname) {
+      if (n == n0 && kl == kl0) {
+	nq0 += nq;
+      } else {
+	if (nq0 > 0) {
+	  SpecSymbol(symbol, kl0);
+	  sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+	  strcat(sname, ashell);
+	}
+	n0 = n;
+	kl0 = kl;
+	nq0 = nq;
+      }
+    }
+  }
+  
+  if (n0 > 0 && (nq0 > 0 || sname[0] == '\0')) {
+    SpecSymbol(symbol, kl0);
+    sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+    strcat(sname, ashell);
   }
   return len;
 }
@@ -840,6 +885,7 @@ int GetBasisTable(char *fn) {
   FILE *f;
   int i, p, j, k, nsym;
   char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
   ARRAY *st;
   STATE *s;
   SYMMETRY *sym;
@@ -855,9 +901,9 @@ int GetBasisTable(char *fn) {
     fprintf(f, "%d: J = %d, Parity = %d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
-      ConstructLevelName(name, s);
-      fprintf(f, "%4d (%2d %2d %2d) %-50s \n",
-	      k, s->kgroup, s->kcfg, s->kstate, name);
+      ConstructLevelName(name, sname, s);
+      fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
+	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }
     fprintf(f, "\n");
   }

@@ -111,7 +111,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   emin = 1.1*emin;
   if (e >= emax) e = emax*1.1;
   if (e <= emin) e = emin*0.9;
-
   ierr = 0;
   nr = orb->n - kl - 1;
   niter = -1;
@@ -335,6 +334,10 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     _dwork[i] = 1.0 + xi;
     _dwork1[i] = sqrt(_dwork[i])*p[i];
     _dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
+    if (!(_dwork1[i] >= 0) && !(_dwork1[i] < 0)) {
+      printf("%10.3E %10.3E %10.3E %10.3E\n", xi, p[i], pot->Vc[i], pot->U[i]);
+      abort();
+    }
   }
   
   for (i = 0; i < i1; i++) {
