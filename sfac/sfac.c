@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.30 2003/01/21 14:45:34 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.31 2003/01/22 21:58:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2549,6 +2549,10 @@ static METHOD methods[] = {
 int main(int argc, char *argv[]) {
   int i;
   FILE *f;
+
+#ifdef PMALLOC_CHECK
+  pmalloc_open();
+#endif
 
   if (InitFac() < 0) {
     printf("initialization failed\n");

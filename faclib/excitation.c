@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.44 2003/01/13 18:48:20 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.45 2003/01/22 21:58:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1731,8 +1731,9 @@ int FreeExcitationQk(void) {
 }
   
 int InitExcitation(void) {
-  int blocks1[] = {4, 8, 8, 4};
-  int blocks2[] = {4, 4, 4, 4, 4, 4};
+  int blocks1[] = {MULTI_BLOCK4,MULTI_BLOCK4,MULTI_BLOCK4,MULTI_BLOCK4};
+  int blocks2[] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
+		   MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6};
   int ndim;
 
   ndim = 4;

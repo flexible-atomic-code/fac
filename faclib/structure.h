@@ -112,10 +112,13 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);
 
-int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
-		     int k, int k0, int k1, double coeff);
 int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk);
 int CompareAngularZMix(const void *c1, const void *c2);
+int CompareAngularZxZMix(const void *c1, const void *c2);
+int CompareAngularZFB(const void *c1, const void *c2);
+int PackAngularZxZMix(int *n, ANGULAR_ZxZMIX **ang, int nz);
+int PackAngularZMix(int *n, ANGULAR_ZMIX **ang, int nz);
+int PackAngularZFB(int *n, ANGULAR_ZFB **ang, int nz);
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper);
 int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2);
 int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p);
@@ -126,7 +129,11 @@ int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 		    int n_shells, int phase, SHELL_STATE *sbra, 
 		    SHELL_STATE *sket, INTERACT_SHELL *s, int m);
 int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang, 
-		       int k, int k0, int k1, int k2, int k3, double r);
+		       int k, int k0, int k1, int k2, int k3, double coeff);
+int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
+		     int k, int k0, int k1, double coeff);
+int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
+		    int kb, double coeff);
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);

@@ -55,8 +55,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "global.h"
-
 /*
 ** STRUCT:      DATA
 ** PURPOSE:     data structure of the array elements
@@ -83,11 +81,17 @@ typedef struct _DATA_ {
 ** NOTE:        
 */
 typedef struct _ARRAY_ {
-  short esize;
-  short block;
+  unsigned short esize;
+  unsigned short block;
   int   dim;
   DATA  *data;
 } ARRAY;
+
+
+typedef struct _MDATA_ {
+  unsigned short *index;
+  void *data;
+} MDATA;
 
 /*
 ** STRUCT:      MULTI
@@ -104,9 +108,9 @@ typedef struct _ARRAY_ {
 ** NOTE:        
 */
 typedef struct _MULTI_ {
-  short ndim;
-  short esize;
-  short *block;
+  unsigned short ndim;
+  unsigned short esize;
+  unsigned short *block;
   ARRAY *array;
 } MULTI;
 
@@ -130,6 +134,7 @@ int   GetArrayTiming(ARRAY_TIMING *t);
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d);
+void *ArrayContiguous(ARRAY *a);
 void *ArrayAppend(ARRAY *a, void *d);
 int   ArrayTrim(ARRAY *a, int n, void(*FreeElem)(void *));
 int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
@@ -140,5 +145,16 @@ void *MultiGet(MULTI *ma, int *k);
 void *MultiSet(MULTI *ma, int *k, void *d);
 int   MultiFree(MULTI *ma, void (*FreeElem)(void *));
 int   MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
+
+/*
+** the following set of funcitons are a different implementation
+** for the MULTI array, which turns out to be much worse than
+** than the original one. It is not being used.
+*/
+int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
+void *NMultiGet(MULTI *ma, int *k);
+void *NMultiSet(MULTI *ma, int *k, void *d);
+int   NMultiFree(MULTI *ma, void (*FreeElem)(void *));
+int   NMultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
 
 #endif

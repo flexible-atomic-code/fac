@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.70 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.71 2003/01/22 21:58:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3364,8 +3364,9 @@ int FreeGOSArray(void) {
 }
 
 int InitRadial(void) {
-  int ndim;
-  int blocks[6] = {4, 4, 4, 4, 4, 1};
+  int ndim, i;
+  int blocks[6] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
+		   MULTI_BLOCK6,MULTI_BLOCK6, 4};
 
   potential = malloc(sizeof(POTENTIAL));
   potential->flag = 0;
@@ -3382,10 +3383,12 @@ int InitRadial(void) {
   MultiInit(slater_array, sizeof(double), ndim, blocks);
 
   ndim = 5;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(breit_array, sizeof(double), ndim, blocks);
   
   ndim = 2;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK2;
   residual_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(residual_array, sizeof(double), ndim, blocks);
 
@@ -3396,10 +3399,12 @@ int InitRadial(void) {
   MultiInit(qed1e_array, sizeof(double), ndim, blocks);
   
   ndim = 4;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK4;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double *), ndim, blocks);
 
   ndim = 3;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   moments_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(moments_array, sizeof(double), ndim, blocks);
 

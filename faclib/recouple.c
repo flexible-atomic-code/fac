@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.11 2003/01/13 02:57:43 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.12 2003/01/22 21:58:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1931,7 +1931,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 ** NOTE:        
 */
 int InitRecouple(void) {
-  int blocks[4] = {4, 4, 32, 32};
+  int blocks[4] = {10, 10, 64, 64};
   int ndim = 4;
 
   interact_shells = (MULTI *) malloc(sizeof(MULTI));
@@ -1962,8 +1962,8 @@ void FreeInteractDatum(void *p) {
 ** FUNCTION:    ReinitRecouple
 ** PURPOSE:     Reinitialize the module "recouple"
 ** INPUT:       {int m},
-**              0: do a full reinitialization.
-**              1: do nothing.
+**              >=0: do a full reinitialization.
+**               <0: do nothing.
 ** RETURN:      
 ** SIDE EFFECT: 
 ** NOTE:        

@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.38 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.39 2003/01/22 21:58:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1021,7 +1021,7 @@ int FreeIonizationQk(void) {
 }
 
 int InitIonization(void) {
-  int blocks[3] = {4, 8, 8};
+  int blocks[3] = {MULTI_BLOCK3,MULTI_BLOCK3,MULTI_BLOCK3};
   int ndim = 3;
   
   qk_array = (MULTI *) malloc(sizeof(MULTI));

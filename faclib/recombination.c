@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.60 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.61 2003/01/22 21:58:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1540,15 +1540,17 @@ int FreeRecAngZ(void) {
 }
 
 int InitRecombination(void) {
-  int blocks[5] = {4, 8, 4, 8, 4};
+  int blocks[5];
   int ndim;
   int i;
   
   ndim = 5;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(pk_array, sizeof(double *), ndim, blocks);
   
   ndim = 3;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   blocks[0] = 10;
   blocks[1] = 10;
@@ -1556,7 +1558,7 @@ int InitRecombination(void) {
   MultiInit(qk_array, sizeof(double *), ndim, blocks);  
   
   hyd_qk_array = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(hyd_qk_array, sizeof(double *), 10);
+  ArrayInit(hyd_qk_array, sizeof(double *), 32);
   
   n_complex = 0;
   for (i = 0; i < MAX_COMPLEX; i++) {

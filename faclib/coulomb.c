@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.22 2003/01/13 18:48:20 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.23 2003/01/22 21:58:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -630,7 +630,7 @@ int InitCoulomb(void) {
   SetHydrogenicNL(-1, -1, -1, -1);
 
   dipole_array = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(dipole_array, sizeof(double *), 10);
+  ArrayInit(dipole_array, sizeof(double *), DIPOLE_BLOCK);
 
   return 0;
 }

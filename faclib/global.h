@@ -54,14 +54,6 @@
 #include <string.h>
 #include <math.h>
 
-#ifdef MPATROL_CHECK
-#include <mpatrol.h>
-#endif
-
-#ifdef DMALLOC_CHECK
-#include <dmalloc.h>
-#endif
-
 #ifdef PMALLOC_CHECK
 #include "pmalloc.h"
 #endif
@@ -194,6 +186,13 @@
 #define QK_DW          4
 #define QK_BED         5
 
+/* blocks for multi arrays */
+#define MULTI_BLOCK2   128
+#define MULTI_BLOCK3   64
+#define MULTI_BLOCK4   25
+#define MULTI_BLOCK5   15
+#define MULTI_BLOCK6   10
+
 /* orbital */
 #define MAX_POINTS 720 /* radial mesh */
 #define GRIDASYMP  16  /* no. points in half wavelength near infinity */
@@ -245,6 +244,7 @@
 #define LHYDROGEN          7
 #define NHYDROGENMAX       128
 #define LHYDROGENMAX       20
+#define DIPOLE_BLOCK       64
 
 /* grid */
 #define MAXNKL             50
@@ -274,6 +274,15 @@
 #define RECNFROZEN         8
 #define RECLMAX            12
 #define AICUT              1E-8
+
+/* choose multi-array implementation */
+/*
+#define MultiInit     NMultiInit 
+#define MultiGet      NMultiGet 
+#define MultiSet      NMultiSet 
+#define MultiFree     NMultiFree 
+#define MultiFreeData NMultiFreeData
+*/
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG
@@ -309,5 +318,4 @@ extern FILE *perform_log;
 #endif
 
 #endif
-
 
