@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.35 2002/11/27 16:43:04 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.36 2002/12/05 04:31:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -253,8 +253,9 @@ int SwapEndianDRHeader(DR_HEADER *h) {
 
 int SwapEndianDRRecord(DR_RECORD *r) {
   SwapEndian((char *) &(r->ilev), sizeof(int));
-  SwapEndian((char *) &(r->ibase), sizeof(int));
   SwapEndian((char *) &(r->flev), sizeof(int));
+  SwapEndian((char *) &(r->ibase), sizeof(short));
+  SwapEndian((char *) &(r->fbase), sizeof(short));
   SwapEndian((char *) &(r->vl), sizeof(short));
   SwapEndian((char *) &(r->j), sizeof(short));
   SwapEndian((char *) &(r->energy), sizeof(float));
@@ -1776,12 +1777,13 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
       e = r.energy;
       if (v) {
 	e *= HARTREE_EV;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%5d\t%5d\t%2d %2d\t%11.4E %11.4E %11.4E %11.4E\n",
-		r.ilev, r.j, h.ilev, h.j, r.ibase, r.flev, h.vn, r.vl,
-		e, r.ai, r.total_rate, r.br);
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%3d\t%5d\t%3d\t%2d %2d\t%11.4E %11.4E %11.4E %11.4E\n",
+		r.ilev, r.j, h.ilev, h.j, r.ibase, r.flev, r.fbase, 
+		h.vn, r.vl, e, r.ai, r.total_rate, r.br);
       } else {
-	fprintf(f2, "%5d\t%2d\t%5d\t%5d\t%2d\t%11.4E %11.4E %11.4E %11.4E\n",
-		r.ilev, r.j, r.ibase, r.flev, r.vl, e, r.ai, r.total_rate, r.br);
+	fprintf(f2, "%5d\t%2d\t%3d\t%5d\t%3d\t%2d\t%11.4E %11.4E %11.4E %11.4E\n",
+		r.ilev, r.j, r.ibase, r.flev, r.fbase, r.vl, 
+		e, r.ai, r.total_rate, r.br);
       }
     }
     nb++;

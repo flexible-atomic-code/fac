@@ -218,6 +218,7 @@ class ATOM:
         self.ai_cut0 = 1E-3
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
+            self.nterms = [-1,-1,-1]
             self.nexc_max = [8, 8, 6]
             self.nfrozen = [10, 10, 10]
             self.nexc_rec = [10, 6, 5]
@@ -233,6 +234,9 @@ class ATOM:
             self.ai_cut2 = 1E-3
         elif (self.nele <= self.nele_max[2]):
             self.n_shells = 2
+            self.nterms = [-1,-1,-1,-1]
+            if (self.nele > 5):
+                self.nterms = [2, 2, 2, 2]
             self.nexc_max = [4, 4, 4, 4]
             self.nfrozen = [10, 10, 10, 10]
             self.nexc_rec = [7, 4, 4, 4]
@@ -248,6 +252,7 @@ class ATOM:
             self.ai_cut2 = 1E-2
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
+            self.nterms = [-1,-1,-1,-1,-1]
             self.nexc_max = [4, 4, 4, 4, 0]
             self.nfrozen = [10, 10, 10, 10, 10]
             self.nexc_rec = [4, 4, 4, 4, 0]
@@ -312,7 +317,7 @@ class ATOM:
                     ex.terms = ex.terms[:1]
                     ex.name = ex.name[:1]
                 elif (len(ex.terms) == 3 and self.nele > 3):
-                    if (k > 0 or (self.nele > 5 and i1 > self.n_shells+1)):
+                    if (k > 0):
                         ex.terms = ex.terms[:2]
                         ex.name = ex.name[:2]
                 cg.add_complex(ex)
@@ -351,10 +356,7 @@ class ATOM:
             bname = base.name[:1]
         else:
             bname = base.name
-            if (len(bname) > 2):
-                if (self.nele > 5):
-                    bname = bname[:2]
-                elif (ibase != 0):
+            if (len(bname) > 2 and ibase != 0):
                     bname = bname[:2]
         for i0 in n0:
             rec = COMPLEX('rec')
@@ -525,11 +527,15 @@ class ATOM:
                 if (len(c[j].name) == 0):
                     continue
                 a1 = g
+                b = c[j].name
+                nb = len(b)
+                if (self.nterms[i] > 0 and nb > self.nterms[i]):
+                    nb = self.nterms[i]
+                    b = b[:nb]
                 if (c[j].nrec == 0):
-                    b = c[j].name
                     a2 = g
                 else:
-                    b = (c[j].name, c[j].nrec)
+                    b = (b, c[j].nrec)
                     a2 = g[:1]
                 if (i == 0 and (self.nele <= 2 or j == 0)):
                     tr = [-1, 1, -2, 2]
@@ -556,16 +562,20 @@ class ATOM:
         for i in range(len(self.exc_complex)):
             c = self.exc_complex[i].cgroup
             for j in range(len(c)):
-                if (len(c[j].name) == 0):
-                    continue
                 n2 = c[j].nrec
+                b = c[j].name
+                nb = len(b)
+                if (nb == 0):
+                    continue
+                if (self.nterms[i] > 0 and nb > self.nterms[i]):
+                    nb = self.nterms[i]
+                    b = b[:nb]
                 if (n2 == 0):
                     n2 = c[j].complex[-1][0]
-                    b = c[j].name
                     SetAngZCut(self.angz_cut1)
                     SetTransitionCut(self.tr_cut1)
                 else:
-                    b = (c[j].name, n2)
+                    b = (b, n2)
                     SetAngZCut(self.angz_cut2)
                     SetTransitionCut(self.tr_cut2)
                 if (i == 0 and j == 0):
@@ -573,8 +583,13 @@ class ATOM:
                 else:
                     ce = 0
                 for m in range(j+1):
-                    if (len(c[m].name) == 0):
+                    a = c[m].name
+                    na = len(a)
+                    if (na == 0):
                         continue
+                    if (self.nterms[i] > 0 and na > self.nterms[i]):
+                        na = self.nterms[i]
+                        a = a[:na]
                     nmax = c[m].nrec
                     if (nmax == 0):
                         nmax = c[m].complex[-1][0]
@@ -582,6 +597,8 @@ class ATOM:
                         if (i == 0):
                             if (j == 0):
                                 tr = [-1, 1]
+                            else:
+                                tr = [-1]
                         else:
                             if (n2 > self.nexc_max[i]):
                                 tr = []
@@ -589,10 +606,8 @@ class ATOM:
                                 tr = [-1]
                     else:
                         tr = []
-                    if (c[m].nrec == 0):
-                        a = c[m].name
-                    else:
-                        a = (c[m].name, c[m].nrec)
+                    if (c[m].nrec > 0):
+                        a = (a, c[m].nrec)
                     if (ce != 0 or tr != []):
                         self.run_tr_ce(a, b, a[:1], b, tr=tr, ce=ce)
 
@@ -600,31 +615,39 @@ class ATOM:
             c = self.exc_complex[i].cgroup
             d = self.exc_complex[0].cgroup
             for j in range(len(c)):
-                if (len(c[j].name) == 0):
+                b = c[j].name
+                nb = len(b)
+                if (nb == 0):
                     continue
+                if (self.nterms[i] > 0 and nb > self.nterms[i]):
+                    nb = self.nterms[i]
+                    b = b[:nb]
                 n2 = c[j].nrec
                 if (n2 == 0):
                     n2 = c[j].complex[-1][0]
-                    b = c[j].name
                     SetAngZCut(self.angz_cut1)
                     SetTransitionCut(self.tr_cut1)
                 else:
-                    b = (c[j].name, n2)
+                    b = (b, n2)
                     SetAngZCut(self.angz_cut2)
                     SetTransitionCut(self.tr_cut2)
                 if (i == 0 and n2 <= self.n_decay[i]):
                     continue
                 for m in range(len(d)):
-                    if (len(d[m].name) == 0):
+                    a = d[m].name
+                    na = len(a)
+                    if (na == 0):
                         continue
+                    if (self.nterms[0] > 0 and na > self.nterms[0]):
+                        na = self.nterms[0]
+                        a = a[:na]
                     n1 = d[m].nrec
                     if (n1 == 0):
-                        a = d[m].name
                         n1 = d[m].complex[-1][0]
                         SetAngZCut(self.angz_cut1)
                         SetTransitionCut(self.tr_cut1)
                     else:
-                        a = (d[m].name, n1)
+                        a = (a, n1)
                         SetAngZCut(self.angz_cut2)
                         SetTransitionCut(self.tr_cut2)
                     if (n1 != n2):
@@ -656,11 +679,16 @@ class ATOM:
         b = self.ion_complex.cgroup[0].name
         for i in range(len(self.exc_complex[0].cgroup)):
             a = self.exc_complex[0].cgroup[i].name
-            if (len(a) == 0):
+            na = len(a)
+            if (na == 0):
                 continue
+            if (self.nterms[0] > 0 and na > self.nterms[0]):
+                na = self.nterms[0]
+                a = a[:na]
             n = self.exc_complex[0].cgroup[i].nrec
             if (n > 0):
                 a = (a, n)
+            b = b[:na]
             self.run_ci_rr(a, b, a, b, ci=1, rr=1)
              
         return
@@ -689,6 +717,8 @@ class ATOM:
                     else:
                         t = k
                 b = self.ion_complex.cgroup[t].name
+                if (len(b) == 0):
+                    continue
                 if (p > 2 and t > 0):
                     if (i == t):
                         continue
@@ -700,9 +730,9 @@ class ATOM:
                     na = len(a)
                     if (na == 0):
                         continue
-                    if (na > 2 and self.nele > 5):
-                        a = a[:2]
-                        na = 2
+                    if (self.nterms[i] > 0 and na > self.nterms[i]):
+                        na = self.nterms[i]
+                        a = a[:na]
                     n = c[j].nrec
                     if (n > 0):
                         if (nmax > 0):
