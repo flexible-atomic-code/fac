@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.103 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.104 2004/07/01 18:18:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -68,6 +68,7 @@ static MULTI *residual_array;
 static MULTI *multipole_array; 
 static MULTI *moments_array;
 static MULTI *gos_array;
+static MULTI *yk_array;
 
 static int n_awgrid = 0;
 static double awgrid[MAXNTE];
@@ -95,6 +96,65 @@ static void InitOrbitalData(void *p, int n) {
   }
 }
 
+static void InitYkData(void *p, int n) {
+  SLATER_YK *d;
+  int i;
+
+  d = (SLATER_YK *) p;
+  for (i = 0; i < n; i++) {
+    d[i].i0 = -1;
+    d[i].npts = -1;
+    d[i].yk = NULL;
+  }
+}
+
+int FreeSimpleArray(MULTI *ma) {
+  MultiFreeData(ma, NULL);
+  return 0;
+}
+
+int FreeSlaterArray(void) {
+  return FreeSimpleArray(slater_array);
+}
+
+int FreeResidualArray(void) {
+  return FreeSimpleArray(residual_array);
+}
+
+static void FreeMultipole(void *p) {
+  double *dp;
+  dp = *((double **) p);
+  free(dp);
+  *((double **) p) = NULL;
+}
+
+static void FreeYkData(void *p) {
+  SLATER_YK *dp;
+  
+  dp = (SLATER_YK *) p;
+  if (dp->npts > 0) free(dp->yk);
+}
+
+int FreeMultipoleArray(void) {
+  MultiFreeData(multipole_array, FreeMultipole);
+  return 0;
+}
+
+int FreeMomentsArray(void) {
+  MultiFreeData(moments_array, NULL);
+  return 0;
+}
+
+int FreeGOSArray(void) {
+  MultiFreeData(gos_array, FreeMultipole);
+  return 0;
+}
+
+int FreeYkArray(void) {
+  MultiFreeData(yk_array, FreeYkData);
+  return 0;
+}
+  
 double *WLarge(ORBITAL *orb) {
   return Large(orb);
 }
@@ -348,7 +408,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       for (k = kmin; k <= kmax; k += 2) {
 	t = k/2;
 	if (IsOdd(t)) continue;
-	GetYk(t, _yk, orb1, orb1, -1);
+	GetYk(t, _yk, orb1, orb1, k1, k1, -1);
 	if (t > 0) {
 	  w3j = W3j(j1, k, j1, -1, 0, -1);
 	  w3j *= w3j*(j1+1.0)/j1;
@@ -384,7 +444,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
 	for (k = kmin; k <= kmax; k += 2) {
 	  if (IsOdd((k+kl1+kl2)/2)) continue;
 	  t = k/2;
-	  GetYk(t, _yk, orb1, orb2, -1);
+	  GetYk(t, _yk, orb1, orb2, k1, k2, -1);
 	  w3j = W3j(j1, k, j2, -1, 0, -1);
 	  w3j *= w3j;
 	  for (m = 1; m <= jmax; m++) {
@@ -521,7 +581,7 @@ int GetPotential(char *s) {
       small1 = Small(orb1)[j];
       w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
     }
-    GetYk(0, _yk, orb1, orb1, -1);
+    GetYk(0, _yk, orb1, orb1, k1, k1, -1);
     for (k = 0; k < potential->maxrp; k++) {
       v[k] += _yk[k]*acfg->nq[i]/potential->rad[k];
     }
@@ -672,6 +732,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   while (tol > optimize_control.tolerance) {
     if (iter > optimize_control.maxiter) break;
     a = SetPotential(acfg, iter);
+    FreeYkArray();
     tol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
@@ -2353,7 +2414,7 @@ double Breit(int k0, int k1, int k2, int k3, int k,
 
 /* calculate the slater integral of rank k */
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
-  int index[6];
+  int index[5];
   double *p;
   int ilast, i, npts, m;
   ORBITAL *orb0, *orb1, *orb2, *orb3;
@@ -2367,28 +2428,9 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   index[1] = k1;
   index[2] = k2;
   index[3] = k3;
-  index[4] = k;
-  
-  switch (mode) {
-  case 0:
-  case 1:
-    index[5] = 0;
-    break;
-  case -1:
-    index[5] = 1;
-    break;
-  case 2:
-    index[5] = 2;
-    break;
-  case -2:
-    index[5] = 3;
-    break;
-  default:
-    printf("mode unrecognized in slater\n");
-    return -1;
-  }
+  index[4] = k;  
 
-  if (index[5] < 2) {
+  if (abs(mode) < 2) {
     SortSlaterKey(index);
     p = (double *) MultiSet(slater_array, index, NULL, InitDoubleData);
   } else {
@@ -2408,7 +2450,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     switch (mode) {
     case 0: /* fall through to case 1 */
     case 1: /* full relativistic with distorted free orbitals */
-      GetYk(k, _yk, orb0, orb2, -1); 
+      GetYk(k, _yk, orb0, orb2, k0, k2, -1); 
       if (orb1->n > 0) ilast = orb1->ilast;
       else ilast = npts-1;
       if (orb3->n > 0) ilast = Min(ilast, orb3->ilast);
@@ -2419,7 +2461,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       break;
     
     case -1: /* quasi relativistic with distorted free orbitals */
-      GetYk(k, _yk, orb0, orb2, -2); 
+      GetYk(k, _yk, orb0, orb2, k0, k2, -2); 
       if (orb1->n > 0) ilast = orb1->ilast;
       else ilast = npts-1;
       if (orb3->n > 0) ilast = Min(ilast, orb3->ilast);
@@ -2522,7 +2564,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	if (p < i) continue;
 	orb2 = GetOrbital(p);
 	GetJLFromKappa(orb2->kappa, &j2, &k2);
-	GetYk(k, _yk, orb0, orb2, -1);
+	GetYk(k, _yk, orb0, orb2, i, p, -1);
 	ilast = potential->maxrp-1;
 	for (m = 0; m <= ilast; m++) {
 	  _yk[m] /= potential->rad[m];
@@ -2562,46 +2604,103 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
   printf("%d %10.3E\n", c, t);
 }
       
-int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
+int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
+	  int k1, int k2, int type) {
   int i, ilast;
   int i0;
-  double a, max;
+  double a, max, max1;
+  int index[3];
+  SLATER_YK *syk;
 
-  for (i = 0; i < potential->maxrp; i++) {
-    _dwork1[i] = pow(potential->rad[i], k);
+  if (k1 <= k2) {
+    index[0] = k1;
+    index[1] = k2;
+  } else {
+    index[0] = k2;
+    index[1] = k1;
   }
+  index[2] = k;
 
-  Integrate(_dwork1, orb1, orb2, type, _zk);
-  
-  for (i = 0; i < potential->maxrp; i++) {
-    _zk[i] /= _dwork1[i];
-    yk[i] = _zk[i];
-  }
-
-  if (k > 2) {
-    max = 0.0;
+  syk = (SLATER_YK *) MultiSet(yk_array, index, NULL, InitYkData);
+  if (syk->npts < 0) {
     for (i = 0; i < potential->maxrp; i++) {
-      a = fabs(yk[i]);
-      if (max < a) max = a;
+      _dwork1[i] = pow(potential->rad[i], k);
     }
-    max *= 1E-3;
-    for (i = 0; i < Min(orb1->ilast, orb2->ilast); i++) {
-      a = Large(orb1)[i]*Large(orb2)[i]*potential->rad[i];
-      if (fabs(a) > max) break;
-      _dwork1[i] = 0.0;
-    }
-    i0 = i;
-  } else i0 = 0;
-  for (i = i0; i < potential->maxrp; i++) {
-    _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
-  }
-  Integrate(_dwork1, orb1, orb2, type, _xk);
-  ilast = potential->maxrp - 1;
+
+    Integrate(_dwork1, orb1, orb2, type, _zk);
   
-  for (i = i0; i < potential->maxrp; i++) {
-    _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
-    yk[i] += _xk[i];
+    for (i = 0; i < potential->maxrp; i++) {
+      _zk[i] /= _dwork1[i];
+      yk[i] = _zk[i];
+      _zk[i] = _dwork1[i];
+    }
+
+    if (k > 2) {
+      max = 0.0;
+      for (i = 0; i < potential->maxrp; i++) {
+	a = fabs(yk[i]);
+	if (max < a) max = a;
+      }
+      max *= 1E-3;
+      for (i = 0; i < Min(orb1->ilast, orb2->ilast); i++) {
+	a = Large(orb1)[i]*Large(orb2)[i]*potential->rad[i];
+	if (fabs(a) > max) break;
+	_dwork1[i] = 0.0;
+      }
+      i0 = i;
+    } else i0 = 0;
+    for (i = i0; i < potential->maxrp; i++) {
+      _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
+    }
+    Integrate(_dwork1, orb1, orb2, type, _xk);
+    ilast = potential->maxrp - 1;
+    
+    for (i = i0; i < potential->maxrp; i++) {
+      _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
+      yk[i] += _xk[i];
+    }
+
+    max = 0;
+    max1 = 0;
+    for (i = 0; i < potential->maxrp; i++) {
+      _zk[i] *= yk[i];
+      a = fabs(_zk[i]); 
+      if (a > max) max = a;
+      a = fabs(yk[i]);
+      if (a > max1) max1 = a;
+    }
+    max = max*EPS5;
+    max1 = max1*EPS5;
+    for (i = 0; i < potential->maxrp; i++) {
+      if (fabs(yk[i]) > max1) break;
+    }
+    syk->i0 = i;
+    a = _zk[potential->maxrp-1];
+    for (i = potential->maxrp-2; i >= syk->i0; i--) {
+      if (fabs(_zk[i] - a) > max) break;
+    }
+    syk->npts = i-syk->i0+2;
+    syk->yk = malloc(sizeof(float)*(syk->npts));
+    for (i = 0; i < syk->npts ; i++) {
+      syk->yk[i] = _zk[i+syk->i0];
+    }
+  } else {
+    for (i = 0; i < potential->maxrp; i++) {
+      _dwork1[i] = pow(potential->rad[i], k);
+    }
+    for (i = 0; i < syk->i0; i++) {
+      yk[i] = 0.0;
+    }
+    for (i = 0; i < syk->npts; i++) {
+      i0 = i + syk->i0;
+      yk[i0] = syk->yk[i]/_dwork1[i0];
+    }
+    i0 = syk->npts-1;
+    for (i = syk->i0+syk->npts; i < potential->maxrp; i++) {
+      yk[i] = syk->yk[i0]/_dwork1[i];
+    }    
   }
+      
   return 0;
 }  
 
@@ -3525,45 +3624,10 @@ int IntegrateSinCos(int j, double *x, double *y,
   return 0;
 }
 
-int FreeSimpleArray(MULTI *ma) {
-  MultiFreeData(ma, NULL);
-  return 0;
-}
-
-int FreeSlaterArray(void) {
-  return FreeSimpleArray(slater_array);
-}
-
-int FreeResidualArray(void) {
-  return FreeSimpleArray(residual_array);
-}
-
-static void FreeMultipole(void *p) {
-  double *dp;
-  dp = *((double **) p);
-  free(dp);
-  *((double **) p) = NULL;
-}
-
-int FreeMultipoleArray(void) {
-  MultiFreeData(multipole_array, FreeMultipole);
-  return 0;
-}
-
-int FreeMomentsArray(void) {
-  MultiFreeData(moments_array, NULL);
-  return 0;
-}
-
-int FreeGOSArray(void) {
-  MultiFreeData(gos_array, FreeMultipole);
-  return 0;
-}
-
 int InitRadial(void) {
   int ndim, i;
-  int blocks[6] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
-		   MULTI_BLOCK6,MULTI_BLOCK6, 4};
+  int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
+		   MULTI_BLOCK6,MULTI_BLOCK6};
 
   potential = malloc(sizeof(POTENTIAL));
   potential->flag = 0;
@@ -3577,7 +3641,7 @@ int InitRadial(void) {
   if (!orbitals) return -1;
   if (ArrayInit(orbitals, sizeof(ORBITAL), ORBITALS_BLOCK) < 0) return -1;
 
-  ndim = 6;
+  ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(slater_array, sizeof(double), ndim, blocks);
 
@@ -3610,6 +3674,9 @@ int InitRadial(void) {
   gos_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(gos_array, sizeof(double *), ndim, blocks);
 
+  yk_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(yk_array, sizeof(SLATER_YK), ndim, blocks);
+
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
@@ -3627,6 +3694,7 @@ int ReinitRadial(int m) {
   FreeSimpleArray(vinti_array);
   FreeMultipoleArray();
   FreeMomentsArray();
+  FreeYkArray();
   if (m < 2) {
     FreeGOSArray();
     if (m == 0) {
@@ -3646,30 +3714,29 @@ int ReinitRadial(int m) {
   
 int TestIntegrate(void) {
   ORBITAL *orb1, *orb2, *orb3, *orb4;
-  int k1, k2, k3, i;
+  int k1, k2, k3, k4, k, i;
   double r, a, s[6];
-  /*  
+ 
   orb1 = GetOrbital(0);
   orb2 = GetOrbital(1);
   orb3 = GetOrbital(2);
-  
-  for (i = 0; i < potential->maxrp; i++) {  
-    _yk[i] = 1.0;
-  }
-  Integrate(_yk, orb1, orb2, 1, &s[0]);
-  Integrate(_yk, orb2, orb2, 1, &s[1]);
-  Integrate(_yk, orb2, orb3, 1, &s[2]);
+  k4 = OrbitalIndex(0, 1, 3E3/HARTREE_EV);
+  orb4 = GetOrbital(k4);
 
-  printf("%12.5E %12.5E %12.5E %12.5E\n",
-	 s[0], s[2], orb3->energy, orb2->energy);
-  */
-  for (i = 0; i < n_orbitals; i++) {
-    orb1 = GetOrbital(i);
-    r = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
-			     orb1->n, orb1->kappa);
-    a = SelfEnergyRatio(orb1);
-    printf("%2d %2d %12.5E %12.5E %12.5E\n", 
-	   orb1->n, orb1->kappa, r, a, r*a);
+  for (k = 4; k < 5; k++) {
+    GetYk(k, _yk, orb2, orb4, 1, k4, -1);
+    for (i = 0; i < potential->maxrp; i++) {
+      printf("%d %4d %15.8E %15.8E\n", 
+	     0, i, potential->rad[i], _yk[i]);
+    }
+    printf("\n\n");
+
+    GetYk(k, _yk, orb2, orb4, 1, k4, -1);
+    for (i = 0; i < potential->maxrp; i++) {
+      printf("%d %4d %15.8E %15.8E\n", 
+	     1, i, potential->rad[i], _yk[i]);
+    }
+    printf("\n\n");    
   }
     
   return 0;

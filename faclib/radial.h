@@ -14,6 +14,11 @@
 #include "angular.h"
 #include "recouple.h"
 
+typedef struct _SLATER_YK_ {
+  short i0;
+  short npts;
+  float *yk;
+} SLATER_YK;
 
 #ifdef PERFORM_STATISTICS
 typedef struct _RAD_TIMING_ {
@@ -78,7 +83,8 @@ double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 
 /* routines for radial integral calculations */
-int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type);
+int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
+	  int k1, int k2, int type);
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, int type, double *r);
 int IntegrateSubRegion(int i0, int i1, 
 		       double *f, ORBITAL *orb1, ORBITAL *orb2,

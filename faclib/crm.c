@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.71 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.72 2004/07/01 18:18:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3224,7 +3224,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 }
     
 int PlotSpec(char *ifn, char *ofn, int nele, int type, 
-	     double emin, double emax, double de, double smin) {
+	     double emin, double emax, double de0, double smin) {
   F_HEADER fh;
   SP_HEADER h;
   SP_RECORD r;
@@ -3239,7 +3239,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   double de10, de01;
   double a, sig, factor;
   double *lines;
-  double smax;
+  double smax, de, hc=12.3984E3;
   int swp;
   int idist;
 
@@ -3261,6 +3261,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   t0 = t % 10000;
   t0 = t0 / 100;
 
+  de = fabs(de0);
   de01 = 0.1*de;
   de10 = 10.0*de;
   sig = de/2.35;
@@ -3326,6 +3327,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (a < smax*smin) continue;
       if (a > smax) smax = a;
       e *= HARTREE_EV;
+      if (de0 < 0) e = hc/e;
       lines[k++] = e;
       lines[k++] = r.strength;
     }
@@ -3358,7 +3360,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     fseek(f1, h.length, SEEK_CUR);
   }
 
-  if (type != 0 && t < 100) {
+  if (type != 0 && t < 100 && de0 > 0) {
     dist = GetEleDist(&idist);
     sig = dist->params[0];
     m = 10*sig/de01;
