@@ -2597,7 +2597,7 @@ internally to do the calculation.
 \index{crm}
 The module \mod{crm} implements a collisional radiative spectral model for
 optically thin plasmas. It uses an iterative linear equation solver to invert
-the level population equations. This method makes it possible to include very
+the level population equations. This method is capable of including a very
 large number of atomic states in the model. 
 
 \subsection{Functions}
@@ -2624,16 +2624,18 @@ compiled by Bell et al. (J. Phys. Chem. Ref. Data., 12, 891, 1983). \var{Z} is
 the nuclear charge of the ion. \var{n} is the number f electrons, and \var{E}
 is the electron energy in eV. It returns a tuple of length 4. First element is
 the total ionization cross section, 2nd the excitation autoionization
-contribution, 3rd the direct ionization contribution, and the 4th a relative
-error estimate in pencentage.
+contribution, 3rd the direct ionization contribution, and the 4th is a relative
+error estimate in pencentages.
 \end{fundesc}
 
 \begin{fundesc}{CFit}{Z, n, Te}
-Calculate the direct ionization rates using the Fortran subroutine \verb|cfit|
-of D. A. Verner. \var{Z} is the nuclear charge of the ion, \var{n}
+Calculate the ionization rates using the Fortran subroutine \verb|cfit|
+of D. A. Verner for direct ionization, and \verb|colfit| for exciation
+autoionization. \var{Z} is the nuclear charge of the ion, \var{n} 
 is the number of electrons, and \var{Te} is the electron temperature in eV.
-The function returns double as the result in unit of 
-$10^{-10}$ cm$^3$ s$^{-1}$. 
+It returns a tuple of length 3. First element is the total ionization rate
+coefficients in $10^{-10}$ cm$^{3}$ s$^{-1}$., 2nd is the excitation
+autoionization contribution, and the 3rd is the direct ionization contribution.
 \end{fundesc}
 
 \begin{fundesc}{CheckEndian}{\opt{fn}}
@@ -2818,6 +2820,16 @@ being a complex name. All states in the specified complexes must have a single
 data block in the output file, even if these states are within some superlevel
 block. Otherwise, each superlevel block has a single data block in the
 \key{DB\_RT} file.
+\end{fundesc}
+
+\begin{fundesc}{RBeli}{Z, n, T}
+Calculate the ionization rate coefficients using the Aladdin data base. data
+were  compiled by Bell et al. (J. Phys. Chem. Ref. Data., 12, 891,
+1983). \var{Z} is the nuclear charge of the ion. \var{n} is the number f
+electrons, and \var{T} is the electron temperature in eV. It returns a tuple
+of length 3. First element is the total ionization rate coefficients in
+$10^{-10}$ cm$^{3}$ s$^{-1}$., 2nd is the excitation autoionization
+contribution, and the 3rd is the direct ionization contribution.
 \end{fundesc}
 
 \begin{fundesc}{Recomb}{Z, n, Te\opt{, m}}
