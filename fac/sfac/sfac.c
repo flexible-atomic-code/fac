@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.35 2003/04/28 13:49:16 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.36 2003/04/28 19:57:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2461,7 +2461,7 @@ static int PSetOptimizeMaxIter(int argc, char *argv[], int argt[],
 			       ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2474,7 +2474,7 @@ static int PSetOptimizeStabilizer(int argc, char *argv[], int argt[],
 				  ARRAY *variables) {
   double m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2487,7 +2487,7 @@ static int PSetOptimizePrint(int argc, char *argv[], int argt[],
 			     ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2500,7 +2500,7 @@ static int PSetOptimizeTolerance(int argc, char *argv[], int argt[],
 				 ARRAY *variables) {
   double m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2513,7 +2513,7 @@ static int PSetCELQR(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2526,7 +2526,7 @@ static int PSetCELMax(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2539,7 +2539,7 @@ static int PSetCELCB(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2552,7 +2552,7 @@ static int PSetCETol(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   double m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2565,7 +2565,7 @@ static int PSetCILQR(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2578,7 +2578,7 @@ static int PSetCILMax(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2591,7 +2591,7 @@ static int PSetCILMaxEject(int argc, char *argv[], int argt[],
 			   ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2604,7 +2604,7 @@ static int PSetCILCB(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2617,7 +2617,7 @@ static int PSetCITol(int argc, char *argv[], int argt[],
 		     ARRAY *variables) {
   double m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2630,7 +2630,7 @@ static int PSetTransitionMode(int argc, char *argv[], int argt[],
 			      ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2643,7 +2643,7 @@ static int PSetTransitionGauge(int argc, char *argv[], int argt[],
 			       ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2656,7 +2656,7 @@ static int PSetTransitionMaxE(int argc, char *argv[], int argt[],
 			      ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
@@ -2669,7 +2669,7 @@ static int PSetTransitionMaxM(int argc, char *argv[], int argt[],
 			      ARRAY *variables) {
   int m;
   
-  if (argc != 1 || argv[0] != NUMBER) {
+  if (argc != 1 || argt[0] != NUMBER) {
     return -1;
   }
 
