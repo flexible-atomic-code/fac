@@ -2,6 +2,7 @@ Version 1.0.6, 06/05/2004
 	1. parallelize StructureMBPT
 	2. use subplx in RefineRadial.
 	3. using relativistic Bethe formula for extrapolation of excitation.
+	4. add an option for all plane-wave collision strength output.
 	
 Version 1.0.5, 05/30/2004
 	1. implement magnetic sublevel ionization

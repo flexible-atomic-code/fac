@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.70 2004/06/25 00:00:09 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.71 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -30,6 +30,7 @@ static int n_levels = 0;
 
 static MULTI *angz_array;
 static MULTI *angzxz_array;
+static ANGULAR_FROZEN ang_frozen;
 
 static int ncorrections = 0;
 static ARRAY *ecorrections;
@@ -395,7 +396,7 @@ static int SortUnique(int n, int *a) {
   return j;
 }
 
-static int IBisect(int b, int n, int *a) {
+int IBisect(int b, int n, int *a) {
   int i, i0, i1;
 
   i0 = 0;
@@ -1744,6 +1745,10 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
   return 0;
 }
 
+HAMILTON *GetHamilton(void) {
+  return &_ham;
+}
+
 int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
   int i, j, t;
   HAMILTON *h;
@@ -1960,9 +1965,11 @@ int ValidBasis(STATE *s, int k, int *kg, int n) {
   t = s->kgroup;
   if (t >= 0) return 0;
   
-  kb = s->kcfg;
-  kb = GetOrbital(kb)->n;
-  if (kb != n) return 0;
+  if (n > 0) {
+    kb = s->kcfg;
+    kb = GetOrbital(kb)->n;
+    if (kb != n) return 0;
+  }
 
   t = -t-1;
   if (kg) {
@@ -1978,9 +1985,10 @@ int ValidBasis(STATE *s, int k, int *kg, int n) {
   }
 }
 
-int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
-  int i, j, t;
+int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
+  int i, j, t, ncs;
   HAMILTON *h;
+  LEVEL *lev;
   ARRAY *st;
   STATE *s;
   SYMMETRY *sym;
@@ -1991,16 +1999,22 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
 #endif
 
   j = 0;
+  ncs = 0;
   sym = GetSymmetry(isym);
   st = &(sym->states);
   for (t = 0; t < sym->n_states; t++) { 
     s = (STATE *) ArrayGet(st, t);
-    if ((i = ValidBasis(s, k, kg, n))) {
+    if (ValidBasis(s, k, kg, n)) {
       j++;
-    } 
+    } else if (nc > 0) {
+      if (ValidBasis(s, nc, kc, 0)) {
+	j++;
+	ncs++;
+      }
+    }
   }
   
-  if (j == 0) return -1;
+  if (j == ncs) return -1;
 
   h = &_ham;
   h->pj = isym;
@@ -2030,6 +2044,15 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   if (!(h->hamilton)) goto ERROR;
       
   j = 0;
+  if (ncs > 0) {
+    for (t = 0; t < sym->n_states; t++) { 
+      s = (STATE *) ArrayGet(st, t);
+      if (ValidBasis(s, nc, kc, 0)) {
+	h->basis[j] = t;
+	j++;
+      }
+    }
+  }
   for (t = 0; t < sym->n_states; t++) { 
     s = (STATE *) ArrayGet(st, t);
     if (ValidBasis(s, k, kg, n)) {
@@ -2038,15 +2061,31 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
     }
   }
 
-  for (j = 0; j < h->dim; j++) {
+  for (j = ncs; j < h->dim; j++) {
     t = j*(j+1)/2;
-    for (i = 0; i <= j; i++) {
+    for (i = ncs; i <= j; i++) {
       r = HamiltonElementFrozen(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
     }
     for (i = 0; i < j; i++) {
       delta = fabs(h->hamilton[i+t]/h->hamilton[j+t]);
       if (delta < EPS10) h->hamilton[i+t] = 0.0;
+    }
+  }
+  for (j = 0; j < ncs; j++) {
+    t = j*(j+1)/2;
+    for (i = 0; i < j; i++) {
+      h->hamilton[i+t] = 0.0;
+    }
+    s = (STATE *) ArrayGet(st, h->basis[j]);
+    lev = GetLevel(-(s->kgroup+1));
+    h->hamilton[j+t] = lev->energy;
+  }
+  for (i = 0; i < ncs; i++) {
+    for (j = ncs; j < h->dim; j++) {
+      t = j*(j+1)/2 + i;
+      r = HamiltonElementFB(isym, h->basis[j], h->basis[i]);
+      h->hamilton[t] = r;
     }
   }
 
@@ -2065,11 +2104,119 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   return -1;
 }
 
+void AngularFrozen(int nts, int *ts, int ncs, int *cs) {
+  int i, j, kz;
+
+  ang_frozen.nts = nts;
+  ang_frozen.ts = ts;
+  ang_frozen.ncs = ncs;
+  ang_frozen.cs = cs;
+
+  ang_frozen.nz = malloc(sizeof(int)*nts*nts);
+  ang_frozen.z = malloc(sizeof(ANGULAR_ZMIX *)*nts*nts);
+  for (i = 0; i < nts; i++) {
+    for (j = 0; j < nts; j++) {
+      kz = j*nts + i;
+      ang_frozen.nz[kz] = AngularZMix(&(ang_frozen.z[kz]), 
+				      ts[i], ts[j], -1, -1);
+    }
+  }
+  if (ncs > 0) {
+    ang_frozen.nzfb = malloc(sizeof(int)*nts*ncs);
+    ang_frozen.zfb = malloc(sizeof(ANGULAR_ZFB *)*nts*ncs);
+    ang_frozen.nzxzfb = malloc(sizeof(int)*nts*ncs);
+    ang_frozen.zxzfb = malloc(sizeof(ANGULAR_ZxZMIX *)*nts*ncs);
+    for (i = 0; i < nts; i++) {
+      for (j = 0; j < ncs; j++) {
+	kz = j*nts + i;
+	ang_frozen.nzfb[kz] = AngularZFreeBound(&(ang_frozen.zfb[kz]),
+						ts[i], cs[j]);
+	ang_frozen.nzxzfb[kz] = AngularZxZFreeBound(&(ang_frozen.zxzfb[kz]),
+						    ts[i], cs[j]);
+      }
+    }
+  }
+}
+  
+double HamiltonElementFB(int isym, int isi, int isj) {
+  STATE *si, *sj;
+  double r, sd, se, a;
+  int i, ti, tj, ji, jj, j0, k0, k1, nz1, nz2;
+  int kz, ks[4];
+  ORBITAL *orb0, *orb1;
+  ANGULAR_ZFB *a1;
+  ANGULAR_ZxZMIX *a2;
+  SYMMETRY *sym;
+  LEVEL *lev1, *lev2;
+
+  sym = GetSymmetry(isym);
+  si = (STATE *) ArrayGet(&(sym->states), isi);
+  sj = (STATE *) ArrayGet(&(sym->states), isj);
+  r = 0.0;
+  ti = si->kgroup;
+  k0 = si->kcfg;
+  orb0 = GetOrbital(k0);
+  j0 = GetJFromKappa(orb0->kappa);
+  tj = sj->kgroup;
+  ti = -ti-1;
+  tj = -tj-1;
+  lev1 = GetLevel(ti);
+  lev2 = GetLevel(tj);
+  ji = lev1->pj;
+  jj = lev2->pj;
+  DecodePJ(ji, NULL, &ji);
+  DecodePJ(jj, NULL, &jj);
+
+  if (ang_frozen.nts > 0) {
+    ti = IBisect(ti, ang_frozen.nts, ang_frozen.ts);
+    tj = IBisect(tj, ang_frozen.ncs, ang_frozen.cs);
+    kz = tj*ang_frozen.nts + ti;
+    nz1 = ang_frozen.nzfb[kz];
+    a1 = ang_frozen.zfb[kz];
+  } else {
+    nz1 = AngularZFreeBound(&a1, ti, tj);
+  }
+  for (i = 0; i < nz1; i++) {
+    k1 = a1[i].kb;
+    orb1 = GetOrbital(k1);
+    if (orb0->kappa == orb1->kappa) {
+      ResidualPotential(&a, k0, k1);
+      a += QED1E(k0, k1);
+      a *= a1[i].coeff;
+      if (IsOdd((ji-jj+j0)/2)) a = -a;
+      r += a;
+    }
+  }
+  if (nz1 > 0 && ang_frozen.nts == 0) free(a1);
+  if (ang_frozen.nts > 0) {
+    nz2 = ang_frozen.nzxzfb[kz];
+    a2 = ang_frozen.zxzfb[kz];
+  } else {
+    nz2 = AngularZxZFreeBound(&a2, ti, tj);
+  }
+  for (i = 0; i < nz2; i++) {
+    if (j0 == a2[i].k0) {
+      ks[0] = k0;
+      ks[1] = a2[i].k2;
+      ks[2] = a2[i].k1;
+      ks[3] = a2[i].k3;
+      SlaterTotal(&sd, &se, NULL, ks, a2[i].k, 0);
+      a = (sd + se)*a2[i].coeff;
+      r += a;
+    }
+  }
+  if (nz2 > 0 && ang_frozen.nts == 0) free(a2);
+
+  r /= sqrt(jj + 1.0);
+  
+  return r;
+}
+
 double HamiltonElementFrozen(int isym, int isi, int isj) {
   STATE *si, *sj;
   double r, r0, sd, se, a;
   int i, ti, tj, ji1, ji2, jj1, jj2, ki2, kj2, j, nz;
-  int ks[4];
+  int kz, ks[4];
   ORBITAL *orbi, *orbj;
   ANGULAR_ZMIX *ang;
   SYMMETRY *sym;
@@ -2111,7 +2258,15 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
   ks[1] = si->kcfg;
   ks[3] = sj->kcfg;
 
-  nz = AngularZMix(&ang, ti, tj, -1, -1);
+  if (ang_frozen.nts > 0) {
+    ti = IBisect(ti, ang_frozen.nts, ang_frozen.ts);
+    tj = IBisect(tj, ang_frozen.nts, ang_frozen.ts);
+    kz = tj*ang_frozen.nts + ti;
+    nz = ang_frozen.nz[kz];
+    ang = ang_frozen.z[kz];
+  } else {
+    nz = AngularZMix(&ang, ti, tj, -1, -1);
+  }
   a = 0.0;
   for (i = 0; i < nz; i++) {
     if (fabs(ang[i].coeff) < EPS10) continue;
@@ -2127,7 +2282,7 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
   if (IsOdd((ji2 + jj1 + j)/2)) a = -a;
   r += a;
 
-  if (nz > 0) {
+  if (nz > 0 && ang_frozen.nts == 0) {
     free(ang);
   } 
 
@@ -4743,7 +4898,43 @@ void FreeLevelData(void *p) {
     lev->n_basis = 0;
   }
 }
-   
+
+void ClearAngularFrozen(void) {
+  int i, n;
+
+  ang_frozen.nts = 0;
+  ang_frozen.ncs = 0;
+  if (ang_frozen.nts > 0) {
+    free(ang_frozen.ts);
+    n = ang_frozen.nts*ang_frozen.nts;
+    for (i = 0; i < n; i++) {
+      if (ang_frozen.nz[i] > 0) free(ang_frozen.z[i]);
+    }
+    free(ang_frozen.nz);
+    free(ang_frozen.z);
+    ang_frozen.ts = NULL;
+    ang_frozen.nz = NULL;
+    ang_frozen.z = NULL;
+  }
+  if (ang_frozen.ncs > 0) {
+    free(ang_frozen.cs);
+    n = ang_frozen.nts*ang_frozen.ncs;
+    for (i = 0; i < n; i++) {
+      if (ang_frozen.nzfb[i] > 0) free(ang_frozen.zfb[i]);
+      if (ang_frozen.nzxzfb[i] > 0) free(ang_frozen.zxzfb[i]);
+    }
+    free(ang_frozen.nzfb);
+    free(ang_frozen.nzxzfb);
+    free(ang_frozen.zfb);
+    free(ang_frozen.zxzfb);
+    ang_frozen.cs = NULL;
+    ang_frozen.nzfb = NULL;
+    ang_frozen.nzxzfb = NULL;
+    ang_frozen.zfb = NULL;
+    ang_frozen.zxzfb = NULL;
+  }
+}
+
 int ClearLevelTable(void) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
@@ -4769,6 +4960,7 @@ int ClearLevelTable(void) {
   ncorrections = 0;
   ArrayFree(ecorrections, NULL);
 
+  ClearAngularFrozen();
   return 0;
 }
 
@@ -4792,6 +4984,17 @@ int InitStructure(void) {
   angzxz_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(angzxz_array, sizeof(ANGZ_DATUM), ndim, blocks);
   
+  ang_frozen.nts = 0;
+  ang_frozen.ncs = 0;
+  ang_frozen.ts = NULL;
+  ang_frozen.cs = NULL;
+  ang_frozen.nz = NULL;
+  ang_frozen.nzfb = NULL;
+  ang_frozen.nzxzfb = NULL;
+  ang_frozen.z = NULL;
+  ang_frozen.zfb = NULL;
+  ang_frozen.zxzfb = NULL;
+  
   ecorrections = malloc(sizeof(ARRAY));
   ArrayInit(ecorrections, sizeof(ECORRECTION), 512);
   ncorrections = 0;
@@ -4808,6 +5011,7 @@ int ReinitStructure(int m) {
     ClearLevelTable();
   } else if (m == 1) {
     FreeAngZ(-1, -1);
+    ClearAngularFrozen();
   } else {
     ClearLevelTable();
   }

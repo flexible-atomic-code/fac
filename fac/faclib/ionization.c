@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.50 2004/02/29 00:12:17 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.51 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -278,11 +278,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
 	js[2] = 0;
       } else {
 	js[2] = j;
-	if (IsOdd(kl)) {
-	  if (kappaf < 0) kappaf = -kappaf - 1;
-	} else {
-	  if (kappaf > 0) kappaf = -kappaf - 1;
-	}
+	if (kappaf > 0) kappaf = -kappaf - 1;
       }
       kf = OrbitalIndex(0, kappaf, e2);	
       ks[2] = kf;  
@@ -346,11 +342,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
 	    js[1] = 0;
 	  } else {
 	    js[1] = j0;
-	    if (IsOdd(kl0)) {
-	      if (kappa0 < 0) kappa0 = -kappa0 - 1;
-	    } else {
-	      if (kappa0 > 0) kappa0 = -kappa0 - 1;
-	    }
+	    if (kappa0 > 0) kappa0 = -kappa0 - 1;
 	  }
 	  j1min = abs(j0 - k);
 	  j1max = j0 + k;
@@ -362,11 +354,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
 		js[3] = 0;
 	      } else {
 		js[3] = j1;
-		if (IsOdd(kl1)) {
-		  if (kappa1 < 0) kappa1 = -kappa1 - 1;
-		} else {
-		  if (kappa1 > 0) kappa1 = -kappa1 - 1;
-		}
+		if (kappa1 > 0) kappa1 = -kappa1 - 1;
 	      }
 	      kf1 = OrbitalIndex(0, kappa1, e1);
 	      ks[3] = kf1;

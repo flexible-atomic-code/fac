@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.62 2004/06/23 18:11:13 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.63 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3048,7 +3048,47 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRMatrixBasis(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int kmax, nb;
+
+  if (argc != 2) return -1;
+  kmax = atoi(argv[0]);
+  nb = atoi(argv[1]);
+  
+  RMatrixBasis(kmax, nb);
+  
+  return 0;
+}
+
+static int PRMatrix(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int nt, *kt, nc, *kc;
+  
+  if (argc < 2 || argc > 3) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != LIST && argt[1] != TUPLE) return -1;
+  
+  nt = DecodeGroupArgs(&kt, 1, &(argv[1]), &(argt[1]), variables);
+  if (nt < 0) return -1;
+  nc = 0;
+  kc = NULL;
+  if (argc == 3) {
+    nc = DecodeGroupArgs(&kc, 1, &(argv[2]), &(argt[2]), variables);
+    if (nc < 0) nc = 0;
+  }
+    
+  RMatrix(argv[0], nt, kt, nc, kc);
+
+  if (nt > 0) free(kt);
+  if (nc > 0) free(kc);
+
+  return 0;
+}
+
 static METHOD methods[] = {
+  {"RMatrixBasis", PRMatrixBasis, METH_VARARGS}, 
+  {"RMatrix", PRMatrix, METH_VARARGS}, 
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},
