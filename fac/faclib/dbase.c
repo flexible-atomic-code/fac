@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.31 2002/11/13 22:28:26 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.32 2002/11/14 03:29:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -529,7 +529,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   int i, t, nb, m, k;
   float *params, *strength;
   float e, eph, ee, phi, rr;
-  double *dstrength, *c, tc, emax;
+  double *xusr, *dstrength, *c, tc, emax;
   double x, y;
   int np=3, one=1;
 
@@ -583,6 +583,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
     n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
     n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     if (swp) {
       for (i = 0; i < h.n_tegrid; i++) {
@@ -603,10 +604,6 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     strength = (float *) malloc(sizeof(float)*m);
     dstrength = (double *) malloc(sizeof(double)*m);
     emax = h.usr_egrid[h.n_usr-1];
-    for (t = 0; t < h.n_usr; t++) {
-      h.usr_egrid[t] = log(h.usr_egrid[t]);
-    }
-
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RR_RECORD), 1, f1);
       if (swp) SwapEndianRRRecord(&r);
@@ -631,17 +628,18 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       }
       
       for (t = 0; t < h.n_usr; t++) {
-	dstrength[t] = strength[t];
+	dstrength[t] = log(strength[t]);
+	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
       }
       
       for (t = 0; t < negy; t++) {
 	ee = egy[t];
+	eph = ee + e;
 	if (ee <= emax) {
-	  x = log(ee);
-	  uvip3p_(&np, &(h.n_usr), h.usr_egrid, dstrength, &one, &x, &tc);
-	  eph = ee + e;
+	  x = log(eph/e);
+	  uvip3p_(&np, &(h.n_usr), xusr, dstrength, &one, &x, &tc);
+	  tc = exp(tc);
 	} else {
-	  eph = ee + e;
 	  x = (ee + params[3])/params[3];
 	  y = (1 + params[2])/(sqrt(x) + params[2]);
 	  tc = (-3.5 - r.kl + 0.5*params[1])*log(x) + params[1]*log(y);
@@ -660,6 +658,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);      
+    free(xusr);
     
     nb++;
   }
