@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.4 2001/09/14 13:17:01 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.5 2001/10/14 15:23:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1090,8 +1090,9 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
   index[2] = si->kcfg;
   index[3] = sj->kcfg;
 
+  n_shells = -1;
   interact_datum = (INTERACT_DATUM *) MultiSet(interact_shells, index, NULL);
-  if (interact_datum->n_shells < 0) return -1;
+  if (interact_datum->n_shells < 0) goto OUT;
   if (interact_datum->n_shells > 0) {
     n_shells = interact_datum->n_shells;
     (*bra) = interact_datum->bra;
@@ -1150,11 +1151,6 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
     k = ci->n_shells + cj->n_shells;
 
     (*bra) = malloc(sizeof(SHELL)*k);
-    if (!(*bra)) {
-      free((*bra));
-      printf("Not enough memeory in GetInteract\n");
-      abort();
-    }
     i = 0; 
     j = 0;
     m = 0;
@@ -1375,6 +1371,8 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
 	s[i].index = n_shells - 1 - s[i].index;
     }     
   }
+
+ OUT:
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.interact += stop -start;
@@ -1560,7 +1558,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
     free(ang1);
     free(ang4);
     free(kk1);
-    abort();
+    exit(1);
   }
 
   icfg.shells = t;
@@ -1771,7 +1769,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 #endif /* FAC_DEBUG */
 
 int InitRecouple() {
-  int blocks[4] = {10, 10, 20, 20};
+  int blocks[4] = {3, 3, 50, 50};
   int ndim = 4;
 
   interact_shells = (MULTI *) malloc(sizeof(MULTI));

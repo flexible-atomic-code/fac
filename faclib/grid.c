@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.3 2001/10/12 18:49:19 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.4 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -13,7 +13,7 @@ int AddPW(int *nkl0, double *kl, double *logkl,
     if (i >= MAXNKL) {
       printf("Maximum partial wave grid points reached: "); 
       printf("%d > %d in constructing grid\n",  i, MAXNKL);
-      abort();
+      exit(1);
     }
     kl[i] = kl[i-1] + step;
     logkl[i] = log(kl[i]);

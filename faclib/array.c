@@ -1,9 +1,18 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.4 2001/09/14 13:16:59 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.5 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
+#endif
+
+#ifdef PERFORM_STATISTICS  
+static ARRAY_TIMING timing = {0, 0};
+
+int GetArrayTiming(ARRAY_TIMING *t) {
+  memcpy(t, &timing, sizeof(timing)); 
+  return 0;
+}
 #endif
 
 /******************************************************************/
@@ -35,6 +44,12 @@ void *ArrayGet(ARRAY *a, int i) {
 void *ArraySet(ARRAY *a, int i, void *d) {
   void *pt;
   DATA *p;
+  /*
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop;
+  start = clock();
+#endif
+  */
 
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
@@ -59,7 +74,13 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   pt = ((char *) p->dptr) + i*a->esize;
   
   if (d) memcpy(pt, d, a->esize);
- 
+
+  /*
+#ifdef PERFORM_STATISTICS
+  stop = clock();
+  timing.array += stop-start;
+#endif 
+  */
   return pt;
 }
 
@@ -127,7 +148,12 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
   ARRAY *a;
   void *pt;
   int i;
-  
+  /*
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop;
+  start = clock();
+#endif
+  */
   if (ma->array == NULL) {
     ma->array = (ARRAY *) malloc(sizeof(ARRAY));
     if (ma->ndim > 1) {
@@ -150,6 +176,12 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
   }
     
   pt = ArraySet(a, k[i], d);
+  /*
+#ifdef PERFORM_STATISTICS
+  stop = clock();
+  timing.multi += stop-start;
+#endif
+  */
   return pt;
 }
 

@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.9 2001/10/08 21:02:13 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.10 2001/10/14 15:23:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -139,6 +139,13 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   double elow, e0, emin, emax;
   char t;
   int *alev;
+#ifdef PERFORM_STATISTICS
+  ARRAY_TIMING arrayt;
+  STRUCT_TIMING structt;
+  ANGULAR_TIMING angt;
+  RECOUPLE_TIMING recouplet;
+  RAD_TIMING radt;
+#endif
 
   f = fopen(fn, "w");
   if (!f) return -1;
@@ -233,6 +240,47 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     fprintf(f, "%-6d   \tTotal     \t              %9.3E %9.3E\n\n", 
 	    up[j], trd, trd1); 
   }
+
+#ifdef PERFORM_STATISTICS
+  GetArrayTiming(&arrayt);
+  fprintf(f, "Multi: %6.1E, Array: %6.1E\n",
+	  ((double) (arrayt.multi))/CLOCKS_PER_SEC,
+	  ((double) (arrayt.array))/CLOCKS_PER_SEC);
+  GetStructTiming(&structt);
+  fprintf(f, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
+	  ((double) (structt.angz_mix))/CLOCKS_PER_SEC,
+	  ((double) (structt.angz_fb))/CLOCKS_PER_SEC,
+	  ((double) (structt.angzxz_fb))/CLOCKS_PER_SEC,
+	  ((double) (structt.set_ham))/CLOCKS_PER_SEC,
+	  ((double) (structt.diag_ham))/CLOCKS_PER_SEC);
+  fprintf(f, "AngZS: %6.1E, %ld %ld, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+	  ((double) (structt.angz_states))/CLOCKS_PER_SEC, 
+	  structt.angz_states_load, structt.angz_states_calc,
+	  ((double) (structt.angzfb_states))/CLOCKS_PER_SEC,
+	  ((double) (structt.angzxzfb_states))/CLOCKS_PER_SEC,
+	  ((double) (structt.add_angz))/CLOCKS_PER_SEC,
+	  ((double) (structt.add_angzxz))/CLOCKS_PER_SEC);
+
+  GetAngularTiming(&angt);
+  fprintf(f, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
+	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
+	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
+	  ((double)angt.w9j)/CLOCKS_PER_SEC);
+  GetRecoupleTiming(&recouplet);
+  fprintf(f, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
+	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
+	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
+	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
+  GetRadTiming(&radt);
+  fprintf(f, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
+	  GetNumContinua(),
+	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
+	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
+	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
+	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
+  fprintf(f, "\n");
+#endif /* PERFORM_STATISTICS */
+
   free(a);
   free(s);
   free(et);

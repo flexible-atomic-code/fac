@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.26 2001/10/12 18:49:19 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.27 2001/10/14 15:23:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -212,7 +212,7 @@ int RecStates(int n, int k, int *kg) {
     kg[i] = AddGroup(rgn);
     if (kg[i] < 0) {
       printf("Can not add more Groups\n");
-      abort();
+      exit(1);
     }
     ArrayAppend(rec_complex[n_complex].rg, kg+i);
     clist = &(g->cfg_list);

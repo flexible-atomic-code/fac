@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+
+#include "global.h"
 
 typedef struct _DATA_ {
   void *dptr;
@@ -23,6 +26,16 @@ typedef struct _MULTI_ {
   short *block;
   ARRAY *array;
 } MULTI;
+
+
+#ifdef PERFORM_STATISTICS
+typedef struct _ARRAY_TIMING_ {
+  clock_t array;
+  clock_t multi;
+} ARRAY_TIMING;
+
+int GetArrayTiming(ARRAY_TIMING *t);
+#endif
 
 int ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);

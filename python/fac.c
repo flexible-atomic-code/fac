@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.3 2001/10/12 18:49:30 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.4 2001/10/14 15:23:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -223,11 +223,29 @@ static PyObject *PSetAngZOptions(PyObject *self, PyObject *args) {
   double c;
   double mc;
 
-  c = EPS4;
+  c = EPS3;
   mc = EPS3;
   if (!PyArg_ParseTuple(args, "i|dd", &n, &mc, &c))
     return NULL;
   SetAngZOptions(n, mc, c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetAngZCut(PyObject *self, PyObject *args) {
+  double c;
+  if (!PyArg_ParseTuple(args, "d", &c))
+    return NULL;
+  SetAngZCut(c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
+  double c;
+  if (!PyArg_ParseTuple(args, "d", &c))
+    return NULL;
+  SetMixCut(c);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1883,6 +1901,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
+  {"SetAngZCut", PSetAngZCut, METH_VARARGS},
+  {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEFormat", PSetCEFormat, METH_VARARGS},

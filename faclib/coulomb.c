@@ -1,6 +1,6 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.6 2001/10/05 19:23:44 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.7 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -106,7 +106,7 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 
   if (ne2 > MAXNE || ne1 > MAXNE || nte > MAXNTE) {
     printf("Array multipoles not large enough in CoulombMultipoles\n");
-    abort();
+    exit(1);
   }
   PrepCBIndex(mode);
   _nm = _nm_factor*(e1[ne1-1]/(te[0]+e2[0]));

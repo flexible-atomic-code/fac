@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.8 2001/10/02 16:24:13 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.9 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -429,7 +429,7 @@ int AddGroup(char *name) {
   if (name == NULL) return -1;
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
-    abort();
+    exit(1);
   }
   strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN);
   n_groups++;
@@ -444,7 +444,7 @@ CONFIG_GROUP *GetGroup(int k) {
 CONFIG_GROUP *GetNewGroup() {
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
-    abort();
+    exit(1);
   }
   n_groups++;
   return cfg_groups+n_groups-1;
@@ -520,7 +520,7 @@ int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
     k = IsEven(parity)? 2*j : (2*j+1);
     if (k >= MAX_SYMMETRIES) {
       printf("MAX_SYMMETRIES reached\n");
-      abort();
+      exit(1);
     }
 
     s.kgroup = kg;

@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.23 2001/10/12 18:49:18 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.24 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -115,7 +115,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
   if (max > MAXKL) {
     printf("The maximum partial wave reached in Excitation: %d > %d\n", 
 	   max, MAXKL);
-    abort();
+    exit(1);
   }
   pw_scratch.max_kl = max;
   pw_scratch.kl_cb = kl_cb;

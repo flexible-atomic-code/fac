@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.25 2001/10/08 21:02:12 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.26 2001/10/14 15:23:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -494,7 +494,7 @@ int SolveDirac(ORBITAL *orb) {
   if (err) { 
     printf("Error ocuured in RadialSolver, %d\n", err);
     printf("%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
-    abort();
+    exit(1);
   }
 #ifdef PERFORM_STATISTICS
   stop = clock();
@@ -670,7 +670,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
   j = SolveDirac(orb);
   if (j < 0) {
     printf("Error occured in solving Dirac eq. err = %d\n", j);
-    abort();
+    exit(1);
   }
   
   if (n == 0 && !resolve_dirac) {
@@ -703,7 +703,7 @@ int AddOrbital(ORBITAL *orb) {
   orb = (ORBITAL *) ArrayAppend(orbitals, orb);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
-    abort();
+    exit(1);
   }
 
   if (orb->n == 0) {
@@ -724,7 +724,7 @@ ORBITAL *GetNewOrbital() {
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
-    abort();
+    exit(1);
   }
 
   orb->wfun = NULL;
