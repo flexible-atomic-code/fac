@@ -1,11 +1,11 @@
-# rcsid = $Id: README,v 1.14 2001/12/14 00:09:50 mfgu Exp $
+# rcsid = $Id: README,v 1.15 2001/12/14 21:35:31 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
-Makefile,    top level makefile.
 README,      this file.
-setup.py,    setup script for Python interface.
+Makefile,    top level makefile.
+setup.py,    setup script for the Python interface.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.
@@ -20,23 +20,29 @@ sfac/,       non-python interface.
 toms/,       some numerical routines from TOMS.
 
 INSTALL:
+There are two interfaces available to the FAC numerical lib. One makes use
+of the Python scripting language, implemented as a package "pfac", the 
+other uses a simple command parser, compiled into an executable "sfac". 
+The two interfaces are independent. Either one or both can be installed.
+
+Before installing, check the top level Makefile, and the setup script 
+"setup.py" (for Python interface). Normally, only a few macro defines at 
+the top of Makefile are OS dependent. Make appropriate changes according
+to the comments. In "setup.py", the Fortran runtime library need to be 
+specified through the variable "fortranlib" (see "setup.py" for details).
+
+Once these changes are made. 
+To install "sfac" interface:
+	make sfac
+	make install
+
+To install "pfac" interface:
 1. Obtain (From www.python.org) and install Python if it is not installed yet
-   and the python interface is needed. 
    Version 2.0 or later is required. Make sure that python interpreter is 
    in your path.
+2. run:
+	python setup.py install
 
-2. Choose the appropriate Makefile and make possible adjustments 
-   according to your system. Currently, only 2 Makefiles exist, one for 
-   Sun Solaris systems, one for Linux. However, It should be relatively 
-   simple to modify them to fit other Unix systems.
-
-3. copy the approriate "Makefile.***" to "Makefile" and 
-	make sfac
-	make pyfac
-	make install
-   skip "make pyfac" if python is not available. The building requires 
-   GNU make. 
-   
 
 Usage:
 The module can be called just like any python modules, either from 
@@ -45,3 +51,10 @@ e.g., python fe24_level.py,
 
 The non-python interface produces an executable "sfac", accepting input 
 files as arguments.
+
+Contact:
+Bugs, and suggestions, please report to:
+	mfgu@space.mit.edu
+	Ming Feng Gu.
+	Center for Space Research, MIT.
+

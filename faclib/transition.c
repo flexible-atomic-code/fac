@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.10 2001/10/14 15:23:24 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.11 2001/12/14 21:35:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -135,8 +135,13 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   int i, j, k, n, jup, jlow;
   FILE *f;
   LEVEL *lev1, *lev2;
-  double *s, *et, *a, trd, trd1;
-  double elow, e0, emin, emax;
+  SYMMETRY *sym;
+  STATE *st;
+  TR_RECORD r;
+  TR_HEADER tr_hdr;
+  F_HEADER fhdr;
+  double *s, *et, *a, trd;
+  double e0, emin, emax;
   char t;
   int *alev;
 #ifdef PERFORM_STATISTICS
@@ -146,10 +151,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   RECOUPLE_TIMING recouplet;
   RAD_TIMING radt;
 #endif
-
-  f = fopen(fn, "w");
-  if (!f) return -1;
-
+  
   n = 0;
   if (nlow == 0 || nup == 0) {
     n = GetNumLevels();
@@ -202,19 +204,28 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     }
   }
       
-  fprintf(f, "up     2J\tlow     2J\tDelta_E    M  gf        A(AU)\n");
   if (nlow <= 0 || nup <= 0) return -1;
-  e0 = GetLevel(0)->energy;
+
+  fhdr.type = DB_TR;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  lev1 = GetLevel(low[0]);
+  sym = GetSymmetry(lev1->pj);
+  st = (STATE *) ArrayGet(&(sym->states), lev1->major_component);
+  tr_hdr.nele = ConstructLevelName(NULL, NULL, NULL, st);
+  tr_hdr.multipole = m;
+  tr_hdr.gauge = GetTransitionGauge();
+  tr_hdr.mode = GetTransitionMode();
+  f = InitFile(fn, &fhdr, &tr_hdr);
+
   a = malloc(sizeof(double)*nlow);
   s = malloc(sizeof(double)*nlow);
   et = malloc(sizeof(double)*nlow);
   for (j = 0; j < nup; j++) {
     jup = LevelTotalJ(up[j]);
     trd = 0.0;
-    trd1 = 0.0;
     for (i = 0; i < nlow; i++) {
       a[i] = 0.0;
-      elow = GetLevel(low[i])->energy;
       et[i] = 0.0;
       k = OscillatorStrength(s+i, et+i, m, low[i], up[j]);
       if (k != 0) continue;
@@ -222,38 +233,39 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
       a[i] = 2*pow((FINE_STRUCTURE_CONST*et[i]),2)*FINE_STRUCTURE_CONST;
       a[i] *= s[i]/(jup+1.0);
       trd += a[i];
-      if (elow < e0) trd1 += a[i];
     } 
     if (trd < 1E-30) continue;
+    r.upper = up[j];
     for (i = 0; i < nlow; i++) {
       if (a[i] < (transition_option.eps * trd)) continue;
-      jlow = LevelTotalJ(low[i]);
-      elow = GetLevel(low[i])->energy;
-      if (elow < e0) k = -low[i];
-      else k = low[i];
-      et[i] *= HARTREE_EV;
-      if (m < 0) t = 'E';
-      else t = 'M';
-      fprintf(f, "%-6d %-2d\t%-7d %-2d\t%10.4E %c%d %9.3E %9.3E\n", 
-	      up[j], jup, k, jlow, et[i], t, abs(m), s[i], a[i]);
-    }	
-    fprintf(f, "%-6d   \tTotal     \t              %9.3E %9.3E\n\n", 
-	    up[j], trd, trd1); 
+      r.lower = low[i];
+      r.strength = s[i];
+      WriteTRRecord(f, &r);
+    }
+  }
+
+  CloseFile(f);
+
+  free(a);
+  free(s);
+  free(et);
+  if (n > 0) {
+    free(alev);
   }
 
 #ifdef PERFORM_STATISTICS
   GetArrayTiming(&arrayt);
-  fprintf(f, "Multi: %6.1E, Array: %6.1E\n",
+  fprintf(perform_log, "Multi: %6.1E, Array: %6.1E\n",
 	  ((double) (arrayt.multi))/CLOCKS_PER_SEC,
 	  ((double) (arrayt.array))/CLOCKS_PER_SEC);
   GetStructTiming(&structt);
-  fprintf(f, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
+  fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
 	  ((double) (structt.angz_mix))/CLOCKS_PER_SEC,
 	  ((double) (structt.angz_fb))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzxz_fb))/CLOCKS_PER_SEC,
 	  ((double) (structt.set_ham))/CLOCKS_PER_SEC,
 	  ((double) (structt.diag_ham))/CLOCKS_PER_SEC);
-  fprintf(f, "AngZS: %6.1E, %ld %ld, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+  fprintf(perform_log, "AngZS: %6.1E, %ld %ld, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
 	  ((double) (structt.angz_states))/CLOCKS_PER_SEC, 
 	  structt.angz_states_load, structt.angz_states_calc,
 	  ((double) (structt.angzfb_states))/CLOCKS_PER_SEC,
@@ -262,31 +274,24 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	  ((double) (structt.add_angzxz))/CLOCKS_PER_SEC);
 
   GetAngularTiming(&angt);
-  fprintf(f, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
+  fprintf(perform_log, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
 	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w9j)/CLOCKS_PER_SEC);
   GetRecoupleTiming(&recouplet);
-  fprintf(f, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
+  fprintf(perform_log, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
 	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
   GetRadTiming(&radt);
-  fprintf(f, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
+  fprintf(perform_log, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
 	  GetNumContinua(),
 	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
 	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
-  fprintf(f, "\n");
+  fprintf(perform_log, "\n");
 #endif /* PERFORM_STATISTICS */
 
-  free(a);
-  free(s);
-  free(et);
-  fclose(f);
-  if (n > 0) {
-    free(alev);
-  }
   return 0;
 }

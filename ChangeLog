@@ -1,3 +1,11 @@
+Version 0.6.8, 12/15/2001
+	1. use setup.py script to install the python interface. 
+	   successfully built under Windows with Cygwin installed.
+	2. implement binary output.
+
+Version 0.6.7, 12/01/2001
+	1. fix the bug in RR, which causes seg. fault.
+
 Version 0.6.6, 11/06/2001
 	1. Implement the non-python interface "sfac". Its input file
 	   closely resembles the python scripts, without the flow 

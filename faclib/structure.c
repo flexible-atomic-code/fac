@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.15 2001/12/14 00:07:20 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.16 2001/12/14 21:35:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -855,6 +855,8 @@ int SaveLevels(char *fn, int m, int n) {
   SYMMETRY *sym;
   LEVEL *lev;
   EN_RECORD r;
+  EN_HEADER en_hdr;
+  F_HEADER fhdr;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
@@ -874,6 +876,9 @@ int SaveLevels(char *fn, int m, int n) {
   f = NULL;
   nele0 = -1;
   if (n < 0) n = n_levels - m;
+  fhdr.type = DB_EN;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
@@ -890,14 +895,15 @@ int SaveLevels(char *fn, int m, int n) {
     strncpy(r.sname, sname, LSNAME);
     strncpy(r.ncomplex, nc, LNCOMPLEX);
     if (nele != nele0) {
-      CloseFile(f, DB_EN);
+      CloseFile(f);
       nele0 = nele;
-      f = InitFile(fn, DB_EN, nele);
+      en_hdr.nele = nele;
+      f = InitFile(fn, &fhdr, &en_hdr);
     }
     WriteENRecord(f, &r);
   }
 
-  CloseFile(f, DB_EN);
+  CloseFile(f);
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
