@@ -73,6 +73,7 @@ c and for the ibm-360, ibm-370, ibm-303x, and ibm-43xx computers.
 c the following is valid for the pdp-11, or vax with 2-byte integers.
 c     data ncpw/2/
 c-----------------------------------------------------------------------
+      
       if (mesflg .eq. 0) go to 100
 c get logical unit number. ---------------------------------------------
       lun = lunit
@@ -109,6 +110,7 @@ c-----------------------------------------------------------------------
  50   format(6x,15hin above,  r1 =,d21.13,3x,4hr2 =,d21.13)
 c abort the run if level = 2. ------------------------------------------
  100  if (level .ne. 2) return
+      write(*,*) 'stopped in lsode'
       stop
 c----------------------- end of subroutine xerrwv ----------------------
       end

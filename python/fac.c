@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.87 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.88 2004/07/18 01:46:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4198,6 +4198,22 @@ static PyObject *PSetSlaterCut(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PPropogateDirection(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("PropogateDirection", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  
+  PropogateDirection(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   char **f1, **f2, *fn;
@@ -4252,6 +4268,7 @@ static PyObject *PSetCEPWFile(PyObject *self, PyObject *args) {
 }    
   
 static struct PyMethodDef fac_methods[] = {
+  {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
