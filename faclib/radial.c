@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.53 2002/08/23 13:37:17 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.54 2002/08/28 21:41:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -930,7 +930,7 @@ int ConfigEnergy(int m, int ng, int *kg) {
 	OptimizeRadial(1, &k, NULL);
 	g = GetGroup(k);
 	g->energy = TotalEnergyGroup(k)/g->n_cfgs;
-	ReinitRadial(2);
+	ReinitRadial(1);
       }
     } else {
       OptimizeRadial(ng, kg, NULL);
@@ -940,7 +940,7 @@ int ConfigEnergy(int m, int ng, int *kg) {
 	  g->energy = TotalEnergyGroup(kg[k])/g->n_cfgs;
 	}
       }
-      ReinitRadial(2);
+      ReinitRadial(1);
     }
   } else {
     ng = GetNumGroups();
@@ -1061,7 +1061,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     index[0] = k0;
     index[1] = k1;
   }
-
+  
   p = (double *) MultiSet(residual_array, index, NULL);
   if (*p) {
     *s = *p;
@@ -1420,8 +1420,8 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 
 double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   ORBITAL *orb1, *orb2;
-  int n1, i, jy, np, nd, n;
-  double dr, x, a, b, c, r;
+  int n1, i, jy, n;
+  double x, r;
   double *p1, *p2, *q1, *q2;
   int index[3], t;
   double **p, k;
@@ -1430,23 +1430,23 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   if (k1 > k2) {
     index[1] = k2;
     index[2] = k1;
+    orb1 = GetOrbitalSolved(k2);
+    orb2 = GetOrbitalSolved(k1);
   } else {
     index[1] = k1;
     index[2] = k2;
+    orb1 = GetOrbitalSolved(k1);
+    orb2 = GetOrbitalSolved(k2);
   }
 
   p = (double **) MultiSet(gos_array, index, NULL);
   if (*p) {
     return *p;
   }
-  *p = (double *) malloc(sizeof(double)*nk);
 
-  np = 3;
-  nd = 1;
+  *p = (double *) malloc(sizeof(double)*nk);
   n = 4;
   jy = 1;
-  orb1 = GetOrbitalSolved(k1);
-  orb2 = GetOrbitalSolved(k2);
   p1 = Large(orb1);
   p2 = Large(orb2);
   q1 = Small(orb1);
@@ -1454,21 +1454,19 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   
   n1 = Min(orb1->ilast, orb2->ilast);
   
-  for (i = 0; i < n1; i++) {
+  for (i = 0; i <= n1; i++) {
     _phase[i] = p1[i]*p2[i] + q1[i]*q2[i];
   }
   
   for (t = 0; t < nk; t++) {
     k = kg[t];
-
     for (i = 0; i <= n1; i++) {
       x = k * potential->rad[i];
       _dphase[i] = besljn_(&jy, &m, &x);
       _dphase[i] *= _phase[i];
       _dphase[i] *= potential->dr_drho[i];
     }
-    r = Simpson(_dphase, 0, n1);
-    
+    r = Simpson(_dphase, 0, n1);    
     if (k1 == k2 && m == 0) r -= 1.0;
     (*p)[t] = r;
   }
@@ -2545,6 +2543,7 @@ static void FreeMultipole(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
+  *((double **) p) = NULL;
 }
 
 int FreeMultipoleArray(void) {
@@ -2612,20 +2611,19 @@ int ReinitRadial(int m) {
   FreeResidualArray();
   FreeMultipoleArray();
   FreeMomentsArray();
-  if (m == 0) {
-    if (optimize_control.n_screen > 0) {
-      free(optimize_control.screened_n);
-      optimize_control.n_screen = 0;
+  if (m < 2) {
+    FreeGOSArray();
+    if (m == 0) {
+      if (optimize_control.n_screen > 0) {
+	free(optimize_control.screened_n);
+	optimize_control.n_screen = 0;
+      }
+      potential->flag = 0;
+      n_awgrid = 1;
+      awgrid[0] = EPS3;
+      SetRadialGrid(1E-5, 5E2);
     }
-    potential->flag = 0;
-    n_awgrid = 1;
-    awgrid[0] = EPS3;
-    SetRadialGrid(1E-5, 5E2);
-    FreeGOSArray();
-  } else if (m == 2) {
-    FreeGOSArray();
   }
-  
   return 0;
 }
   

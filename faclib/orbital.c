@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.32 2002/08/14 16:09:44 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.33 2002/08/28 21:41:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -292,7 +292,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
  
   orb->energy = e;
   orb->wfun = p;
-
   orb->qr_norm = 1.0;
   DiracSmall(orb, pot);
  
@@ -569,16 +568,17 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     b /= (2.0*_dwork[i]);
     p[i] = _dwork1[i];
     p[i+MAX_POINTS] = b*FINE_STRUCTURE_CONST;
-  } 
+  }
   if (orb->n > 0) {
     for (i = i1; i < MAX_POINTS; i++) {
       xi = e - pot->Vc[i] - pot->U[i];
       xi = xi*FINE_STRUCTURE_CONST2*0.5;
       _dwork[i] = 1.0 + xi;
       p[i] = sqrt(_dwork[i])*p[i];
+      p[i+MAX_POINTS] = 0.0;
     }
     a = InnerProduct(0, i1, p+MAX_POINTS, p+MAX_POINTS, pot);
-    b = InnerProduct(0, MAX_POINTS, p, p, pot);    
+    b = InnerProduct(0, MAX_POINTS, p, p, pot); 
     a *= orb->qr_norm;
     b *= orb->qr_norm;
     a = sqrt(a+b);

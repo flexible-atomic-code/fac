@@ -1,7 +1,9 @@
-Version 0.7.9, 08/21/2002
+Version 0.7.9, 08/27/2002
 	1. implement the generalized oscillator strength. and the first
 	   Born approximaiton for excitation based on that. the
 	   coefficients are output in the DB_CE file.
+	2. fix a bug on the initialization of wavefunc.
+	3. add the source rate blocks in the DB_RT file.
 	
 Version 0.7.8, 08/17/2002
 	1. change the block size of various arrays, which fixes the malloc

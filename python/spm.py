@@ -474,6 +474,7 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
                 if (a[:4] == 'NELE'):
                     a = string.split(a)
                     nel = int(a[2])
+                    bsum = 1
                 elif (a[:4] == 'NTRA'):
                     a = string.split(a)
                     ntrans = int(a[2])
@@ -586,7 +587,10 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
                         else:
                             rt[irt][2].append(tp)
                         irt = irt + 1
+                        bsum = 0
                     else:
+                        if (not bsum):
+                            continue
                         c = a[72:-1]
                         if (len(c) > 1):
                             c = string.strip(c)
@@ -694,13 +698,15 @@ def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
              dist = 0, cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
-             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4):
+             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = ()):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
             rate = rate + get_complexes(k-1)
             if (nion > 2):
                 rate = rate + get_complexes(k+1)
+        if (len(rcomp) > 0):
+            rate = rate + rcomp
         print 'NELE = %d'%k
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)

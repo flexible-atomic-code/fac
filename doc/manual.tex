@@ -1228,8 +1228,9 @@ rates.
 the superlevel block from which the rates originate.
 \end{dbdesc}
 
-\textbf{N.B.:} The last 3 records of each rate block have different
-meanings. The \texttt{iblock} index of these 3 entries are $-1$, $-2$, $-3$
+\textbf{N.B.:} There are 3 records in each rate block that have negative first
+columns. The records before them and after them have different meanings. The
+\texttt{iblock} index of these 3 entries are $-1$, $-2$, $-3$ 
 respectively. Fot \texttt{iblock} = $-1$, \texttt{nb} is the total density of
 the ion which has one less electron than the one this superlevel block belongs
 to. \texttt{tr} is always 0.0. \texttt{ce} is always 0.0. \texttt{rr} is the
@@ -1249,6 +1250,12 @@ photoionization rates to this superlevel block. \texttt{ai} is the part of
 total autoionization rates that originated from the lower charge state, i.e.,
 the inner-shell excitation of the lower charge state which results in the
 autoionization, or excitation-autoionization.
+
+The records before these 3 records all have the level or block in the header
+as the final level of the transitions, while the records after these three all
+have the level or block in the header as the initial levels. The former is
+useful in determining the population of the levels by other levels, while the
+latter is useful in determining the branching routes of each level.
 
 \section{ASCII Format}
 \index{ASCII Format}

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.33 2002/08/17 20:21:40 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.34 2002/08/28 21:41:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -901,7 +901,10 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   for (i = 0; i < ns; i++) {
     k = ConstructHamilton(i, ng, kg, ngp, kgp);
     if (k < 0) continue;
-    if (DiagnolizeHamilton() < 0) return NULL;
+    if (DiagnolizeHamilton() < 0) {
+      onError("Diagnolizing Hamiltonian Error");
+      return NULL;
+    }
     AddToLevels(ng0, kg);
   }
   SortLevels(nlevels, -1);
