@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.85 2004/12/19 18:42:43 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.86 2004/12/22 23:54:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2353,7 +2353,7 @@ double MultipoleCoeff(int isym, int ilev1, int ka1,
   
   a = 0.0;
   for (i = 0; i < nz; i++) {
-    if (ang[i].k != k2 || fabs(ang[i].coeff) < EPS10) continue;
+    if (ang[i].k != k2) continue;
     r0 = W6j(ji1, ji2, j, jj2, jj1, k2);
     if (fabs(r0) < EPS10) continue;
     orb0 = GetOrbital(ang[i].k0);

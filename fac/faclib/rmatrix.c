@@ -1,7 +1,7 @@
 #include "rmatrix.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rmatrix.c,v 1.6 2004/12/22 03:09:38 mfgu Exp $";
+static char *rcsid="$Id: rmatrix.c,v 1.7 2004/12/22 23:54:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,6 +12,7 @@ static int ntg, *tg, nts, *ts;
 static int ncg, *cg, ncs, *cs;
 static DCFG dcfg;
 static int nbatch;
+static int fmode;
 
 void RMatrixNBatch(int n) {
   if (n > 0) {
@@ -19,6 +20,10 @@ void RMatrixNBatch(int n) {
   } else {
     nbatch = 100;
   }
+}
+
+void RMatrixFMode(int m) {
+  fmode = m;
 }
 
 int InitRMatrix(void) {
@@ -35,6 +40,7 @@ int InitRMatrix(void) {
   dcfg.pdirection = 1;
 
   RMatrixNBatch(0);
+  fmode = 0;
   
   return 0;
 }
@@ -48,6 +54,7 @@ void ClearRMatrixBasis(RBASIS *rbs) {
     }
     free(rbs->ebuttle[i]);
     free(rbs->basis[i]);
+    free(rbs->bnode[i]);
     free(rbs->w0[i]);
     free(rbs->w1[i]);
     free(rbs->ek[i]);
@@ -58,6 +65,7 @@ void ClearRMatrixBasis(RBASIS *rbs) {
     }
     free(rbs->ebuttle);
     free(rbs->basis);
+    free(rbs->bnode);
     free(rbs->w0);
     free(rbs->w1);
     free(rbs->ek);
@@ -82,77 +90,145 @@ void RMatrixNMultipoles(int n) {
   dcfg.nmultipoles = n;
 }
 
-void ReadRMatrixBasis(char *fn, RBASIS *rbs) {
+void ReadRMatrixBasis(char *fn, RBASIS *rbs, int fmt) {
   FILE *f;
-  int i, j, k, n, kappa, m;
+  int i, j, k, n, kappa, m, nr;
 
   f = fopen(fn, "r");
-  fscanf(f, "%d %lf %d %lf %lf\n",
-	 &(rbs->ib0), &(rbs->rb0), &(rbs->ib1), &(rbs->rb1),
-	 &(rbs->bqp));
-  fscanf(f, "%d %d %d %d\n",
-	 &(rbs->kmax), &(rbs->nbk), &(rbs->nkappa), &(rbs->nbuttle));
-  rbs->basis = malloc(sizeof(int *)*rbs->nkappa);
-  rbs->ebuttle = malloc(sizeof(double *)*rbs->nkappa);
-  for (k = 0; k < NBTERMS; k++) {
-    rbs->cbuttle[k] = malloc(sizeof(double *)*rbs->nkappa);
-  }
-  rbs->w0 = malloc(sizeof(double *)*rbs->nkappa);
-  rbs->w1 = malloc(sizeof(double *)*rbs->nkappa);
-  rbs->ek = malloc(sizeof(double *)*rbs->nkappa);
-  for (i = 0; i < rbs->nkappa; i++) {
-    rbs->basis[i] = malloc(sizeof(int)*rbs->nbk);
-    rbs->ebuttle[i] = malloc(sizeof(double)*rbs->nbuttle);
+  if (fmt == 0) {
+    nr = fread(&(rbs->ib0), sizeof(int), 1, f);
+    nr = fread(&(rbs->rb0), sizeof(double), 1, f);
+    nr = fread(&(rbs->ib1), sizeof(int), 1, f);
+    nr = fread(&(rbs->rb1), sizeof(double), 1, f);
+    nr = fread(&(rbs->bqp), sizeof(double), 1, f);
+    nr = fread(&(rbs->kmax), sizeof(int), 1, f);
+    nr = fread(&(rbs->nbk), sizeof(int), 1, f);
+    nr = fread(&(rbs->nkappa), sizeof(int), 1, f);
+    nr = fread(&(rbs->nbuttle), sizeof(int), 1, f);
+    rbs->basis = malloc(sizeof(int *)*rbs->nkappa);
+    rbs->bnode = malloc(sizeof(int *)*rbs->nkappa);
+    rbs->ebuttle = malloc(sizeof(double *)*rbs->nkappa);
     for (k = 0; k < NBTERMS; k++) {
-      rbs->cbuttle[k][i] = malloc(sizeof(double)*rbs->nbuttle);
+      rbs->cbuttle[k] = malloc(sizeof(double *)*rbs->nkappa);
     }
-    rbs->w0[i] = malloc(sizeof(double)*rbs->nbk);    
-    rbs->w1[i] = malloc(sizeof(double)*rbs->nbk);
-    rbs->ek[i] = malloc(sizeof(double)*rbs->nbk);
-  }  
-  for (i = 0; i < rbs->nkappa; i++) {
-    for (n = 0; n < rbs->nbk; n++) {
-      fscanf(f, "%d %d %d %lf %lf %lf\n", 
-	     &(rbs->basis[i][n]), &kappa, &m, &(rbs->ek[i][n]),
-	     &(rbs->w0[i][n]), &(rbs->w1[i][n]));
-    }
-    for (n = 0; n < rbs->nbuttle; n++) {
-      fscanf(f, "%d %lf", &kappa, &(rbs->ebuttle[i][n]));
+    rbs->w0 = malloc(sizeof(double *)*rbs->nkappa);
+    rbs->w1 = malloc(sizeof(double *)*rbs->nkappa);
+    rbs->ek = malloc(sizeof(double *)*rbs->nkappa);
+    for (i = 0; i < rbs->nkappa; i++) {
+      rbs->basis[i] = malloc(sizeof(int)*rbs->nbk);
+      rbs->bnode[i] = malloc(sizeof(int)*rbs->nbk);
+      rbs->ebuttle[i] = malloc(sizeof(double)*rbs->nbuttle);
       for (k = 0; k < NBTERMS; k++) {
-	fscanf(f, "%lf", &(rbs->cbuttle[k][i][n]));
+	rbs->cbuttle[k][i] = malloc(sizeof(double)*rbs->nbuttle);
+      }
+      rbs->w0[i] = malloc(sizeof(double)*rbs->nbk);    
+      rbs->w1[i] = malloc(sizeof(double)*rbs->nbk);
+      rbs->ek[i] = malloc(sizeof(double)*rbs->nbk);
+    }
+    for (i = 0; i < rbs->nkappa; i++) {
+      nr = fread(rbs->basis[i], sizeof(int), rbs->nbk, f);
+      nr = fread(rbs->bnode[i], sizeof(int), rbs->nbk, f);
+      nr = fread(rbs->ek[i], sizeof(double), rbs->nbk, f);
+      nr = fread(rbs->w0[i], sizeof(double), rbs->nbk, f);
+      nr = fread(rbs->w1[i], sizeof(double), rbs->nbk, f);
+      nr = fread(rbs->ebuttle[i], sizeof(double), rbs->nbuttle, f);
+      for (k = 0; k < NBTERMS; k++) {
+	nr = fread(rbs->cbuttle[k][i], sizeof(double), rbs->nbuttle, f);
       }
     }
-    fscanf(f, "\n");
+  } else {
+    fscanf(f, "%d %lf %d %lf %lf\n",
+	   &(rbs->ib0), &(rbs->rb0), &(rbs->ib1), &(rbs->rb1),
+	   &(rbs->bqp));
+    fscanf(f, "%d %d %d %d\n",
+	   &(rbs->kmax), &(rbs->nbk), &(rbs->nkappa), &(rbs->nbuttle));
+    rbs->basis = malloc(sizeof(int *)*rbs->nkappa);
+    rbs->bnode = malloc(sizeof(int *)*rbs->nkappa);
+    rbs->ebuttle = malloc(sizeof(double *)*rbs->nkappa);
+    for (k = 0; k < NBTERMS; k++) {
+      rbs->cbuttle[k] = malloc(sizeof(double *)*rbs->nkappa);
+    }
+    rbs->w0 = malloc(sizeof(double *)*rbs->nkappa);
+    rbs->w1 = malloc(sizeof(double *)*rbs->nkappa);
+    rbs->ek = malloc(sizeof(double *)*rbs->nkappa);
+    for (i = 0; i < rbs->nkappa; i++) {
+      rbs->basis[i] = malloc(sizeof(int)*rbs->nbk);
+      rbs->bnode[i] = malloc(sizeof(int)*rbs->nbk);
+      rbs->ebuttle[i] = malloc(sizeof(double)*rbs->nbuttle);
+      for (k = 0; k < NBTERMS; k++) {
+	rbs->cbuttle[k][i] = malloc(sizeof(double)*rbs->nbuttle);
+      }
+      rbs->w0[i] = malloc(sizeof(double)*rbs->nbk);    
+      rbs->w1[i] = malloc(sizeof(double)*rbs->nbk);
+      rbs->ek[i] = malloc(sizeof(double)*rbs->nbk);
+    }  
+    for (i = 0; i < rbs->nkappa; i++) {
+      for (n = 0; n < rbs->nbk; n++) {
+	fscanf(f, "%d %d %d %lf %lf %lf\n", 
+	       &(rbs->basis[i][n]), &kappa, &(rbs->bnode[i][n]), &(rbs->ek[i][n]),
+	       &(rbs->w0[i][n]), &(rbs->w1[i][n]));
+      }
+      for (n = 0; n < rbs->nbuttle; n++) {
+	fscanf(f, "%d %lf", &kappa, &(rbs->ebuttle[i][n]));
+	for (k = 0; k < NBTERMS; k++) {
+	  fscanf(f, "%lf", &(rbs->cbuttle[k][i][n]));
+	}
+      }
+      fscanf(f, "\n");
+    }
   }
   fclose(f);
 }
 
-void WriteRMatrixBasis(char *fn) {
+void WriteRMatrixBasis(char *fn, int fmt) {
   FILE *f;
-  int i, n, k;
+  int i, n, k, ka, nr;
   ORBITAL *orb;
 
   f = fopen(fn, "w");
   if (f == NULL) return;
 
-  fprintf(f, "%4d %15.8E %4d %15.8E %15.8E\n", 
-	  rbasis.ib0, rbasis.rb0, rbasis.ib1, rbasis.rb1, rbasis.bqp);
-  fprintf(f, "%2d %3d %3d %3d\n",
-	  rbasis.kmax, rbasis.nbk, rbasis.nkappa, rbasis.nbuttle);
-  for (i = 0; i < rbasis.nkappa; i++) {
-    for (n = 0; n < rbasis.nbk; n++) {
-      orb = GetOrbital(rbasis.basis[i][n]);
-      fprintf(f, "%4d %3d %3d %15.8E %15.8E %15.8E\n",
-	      rbasis.basis[i][n], orb->kappa, orb->n, rbasis.ek[i][n],
-	      rbasis.w0[i][n], rbasis.w1[i][n]);
-    }
-    for (n = 0; n < rbasis.nbuttle; n++) {
-      fprintf(f, "%4d %15.8E",
-	      orb->kappa, rbasis.ebuttle[i][n]);
+  if (fmt == 0) {
+    nr = fwrite(&(rbasis.ib0), sizeof(int), 1, f);
+    nr = fwrite(&(rbasis.rb0), sizeof(double), 1, f);
+    nr = fwrite(&(rbasis.ib1), sizeof(int), 1, f);
+    nr = fwrite(&(rbasis.rb1), sizeof(double), 1, f);
+    nr = fwrite(&(rbasis.bqp), sizeof(double), 1, f);
+    nr = fwrite(&(rbasis.kmax), sizeof(int), 1, f);
+    nr = fwrite(&(rbasis.nbk), sizeof(int), 1, f);
+    nr = fwrite(&(rbasis.nkappa), sizeof(int), 1, f);
+    nr = fwrite(&(rbasis.nbuttle), sizeof(int), 1, f);
+    for (i = 0; i < rbasis.nkappa; i++) {
+      nr = fwrite(rbasis.basis[i], sizeof(int), rbasis.nbk, f);
+      nr = fwrite(rbasis.bnode[i], sizeof(int), rbasis.nbk, f);
+      nr = fwrite(rbasis.ek[i], sizeof(double), rbasis.nbk, f);
+      nr = fwrite(rbasis.w0[i], sizeof(double), rbasis.nbk, f);
+      nr = fwrite(rbasis.w1[i], sizeof(double), rbasis.nbk, f);
+      nr = fwrite(rbasis.ebuttle[i], sizeof(double), rbasis.nbuttle, f);
       for (k = 0; k < NBTERMS; k++) {
-	fprintf(f, " %15.8E", rbasis.cbuttle[k][i][n]);
+	nr = fwrite(rbasis.cbuttle[k][i], sizeof(double), rbasis.nbuttle, f);
       }
-      fprintf(f, "\n");
+    }
+  } else {
+    fprintf(f, "%4d %15.8E %4d %15.8E %15.8E\n", 
+	    rbasis.ib0, rbasis.rb0, rbasis.ib1, rbasis.rb1, rbasis.bqp);
+    fprintf(f, "%2d %3d %3d %3d\n",
+	    rbasis.kmax, rbasis.nbk, rbasis.nkappa, rbasis.nbuttle);
+    for (i = 0; i < rbasis.nkappa; i++) {
+      ka = KappaFromIndex(i);
+      for (n = 0; n < rbasis.nbk; n++) {
+	fprintf(f, "%4d %3d %3d %15.8E %15.8E %15.8E\n",
+		rbasis.basis[i][n], ka, rbasis.bnode[i][n], rbasis.ek[i][n],
+		rbasis.w0[i][n], rbasis.w1[i][n]);
+      }
+      for (n = 0; n < rbasis.nbuttle; n++) {
+	fprintf(f, "%4d %15.8E",
+		ka, rbasis.ebuttle[i][n]);
+	for (k = 0; k < NBTERMS; k++) {
+	  fprintf(f, " %15.8E", rbasis.cbuttle[k][i][n]);
+	}
+	fprintf(f, "\n");
+      }
     }
   }
   fclose(f);
@@ -281,6 +357,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   rbasis.nkappa = (2*kmax + 1);
   rbasis.nbuttle = nb;
   rbasis.basis = malloc(sizeof(int *)*rbasis.nkappa);
+  rbasis.bnode = malloc(sizeof(int *)*rbasis.nkappa);
   rbasis.ebuttle = malloc(sizeof(double *)*rbasis.nkappa);
   for (kb = 0; kb < NBTERMS; kb++) {
     rbasis.cbuttle[kb] = malloc(sizeof(double *)*rbasis.nkappa);
@@ -290,6 +367,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   rbasis.ek = malloc(sizeof(double *)*rbasis.nkappa);
   for (i = 0; i < rbasis.nkappa; i++) {
     rbasis.basis[i] = malloc(sizeof(int)*rbasis.nbk);
+    rbasis.bnode[i] = malloc(sizeof(int)*rbasis.nbk);
     rbasis.ebuttle[i] = malloc(sizeof(double)*rbasis.nbuttle);
     for (kb = 0; kb < NBTERMS; kb++) {
       rbasis.cbuttle[kb][i] = malloc(sizeof(double)*rbasis.nbuttle);
@@ -321,7 +399,8 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	} else {
 	  n = -(in + n0);
 	}
-	rbasis.basis[t][in] = OrbitalIndex(n, kappa, 0.0);	
+	rbasis.basis[t][in] = OrbitalIndex(n, kappa, 0.0);
+	rbasis.bnode[t][in] = n;
 	orb = GetOrbital(rbasis.basis[t][in]);
 	rbasis.ek[t][in] = orb->energy;
 	rbasis.w1[t][in] = WLarge(orb)[ib1];
@@ -389,7 +468,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       }
     }
   }
-  WriteRMatrixBasis(fn);
+  WriteRMatrixBasis(fn, fmode);
   if (nts > 0 && rbasis.ib0 == 0) {
     nkb1 = GetNumOrbitals();
     PrepSlater(0, nkb0-1, nkb0, nkb1-1, 0, nkb0-1, nkb0, nkb1-1);
@@ -460,9 +539,16 @@ void RMatrixTargets(int nt, int *kt, int nc, int *kc) {
 void ClearRMatrixSurface(RMATRIX *rmx) {
   int i;
 
-  free(rmx->et);
-  free(rmx->ts);
-  free(rmx->jts);
+  if (rmx->nts > 0) {
+    free(rmx->et);
+    free(rmx->ts);
+    free(rmx->jts);
+  } 
+  if (rmx->ncs > 0) {
+    free(rmx->ec);
+    free(rmx->cs);
+    free(rmx->jcs);
+  }
   if (rmx->ndim > 0) free(rmx->ek);
   if (rmx->nchan0 > 0) {
     for (i = 0; i < rmx->nchan0; i++) {
@@ -480,201 +566,506 @@ void ClearRMatrixSurface(RMATRIX *rmx) {
   if (rmx->nlam > 0) free(rmx->aij);
 }  
   
-int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m) {
+int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
   int nkappa, isym, nsym, p, j;
   int n, nchan, mchan, nchan0, ndim, i, k, t, ilam;
   int k1, k2, k3, k4, ierr;
   double a, b, z;
 
-  if (m == 0) {
-    ierr = fscanf(f, "%d %d %d %d %d %lf %d\n", 
-		  &nsym, &mchan, &nts, &ncs, &nkappa, &z, &(rmx->nlam));
-    if (ierr == EOF) return -1;
-    rmx->nsym = nsym;
-    rmx->mchan = mchan;
-    rmx->nts = nts;
-    rmx->nkappa = nkappa;
-    rmx->z = z;
-    nchan = nts*nkappa;
-    rmx->et = malloc(sizeof(double)*nts);
-    rmx->w0 = malloc(sizeof(double *)*nchan);
-    rmx->w1 = malloc(sizeof(double *)*nchan);
-    if (rmx->nlam > 0) {
-      rmx->aij = malloc(sizeof(double *)*rmx->nlam);
+  if (fmt == 0) {
+    if (m == 0) {
+      ierr = fread(&nsym, sizeof(int), 1, f);
+      ierr = fread(&mchan, sizeof(int), 1, f);
+      ierr = fread(&nts, sizeof(int), 1, f);
+      ierr = fread(&ncs, sizeof(int), 1, f);
+      ierr = fread(&nkappa, sizeof(int), 1, f);
+      ierr = fread(&z, sizeof(double), 1, f);
+      ierr = fread(&(rmx->nlam), sizeof(int), 1, f);
+      rmx->nsym = nsym;
+      rmx->mchan = mchan;
+      rmx->nts = nts;
+      rmx->ncs = ncs;
+      rmx->nkappa = nkappa;
+      rmx->z = z;
+      nchan = nts*nkappa;
+      rmx->et = malloc(sizeof(double)*nts);
+      rmx->ec = malloc(sizeof(double)*ncs);
+      rmx->w0 = malloc(sizeof(double *)*nchan);
+      rmx->w1 = malloc(sizeof(double *)*nchan);
+      if (rmx->nlam > 0) {
+	rmx->aij = malloc(sizeof(double *)*rmx->nlam);
+      }
+      for (i = 0; i < nchan; i++) {
+	rmx->w0[i] = NULL;
+	rmx->w1[i] = NULL;
+      }
+      rmx->ts = malloc(sizeof(int)*nts);
+      rmx->jts = malloc(sizeof(int)*nts);
+      rmx->cs = malloc(sizeof(int)*ncs);
+      rmx->jcs = malloc(sizeof(int)*ncs);
+      rmx->et0 = 1E30;
+      for (i = 0; i < nts; i++) {
+	ierr = fread(&(rmx->ts[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->jts[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->et[i]), sizeof(double), 1, f);
+	if (rmx->et[i] < rmx->et0) rmx->et0 = rmx->et[i];
+      }
+      for (i = 0; i < ncs; i++) {
+	ierr = fread(&(rmx->cs[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->jcs[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->ec[i]), sizeof(double), 1, f);
+      }
+      rmx->ndim = 0;
+      rmx->nchan0 = 0;
+      rmx->ek = NULL;
+      rmx->chans = NULL;
+      return 0;
     }
-    for (i = 0; i < nchan; i++) {
-      rmx->w0[i] = NULL;
-      rmx->w1[i] = NULL;
-    }
-    rmx->ts = malloc(sizeof(int)*nts);
-    rmx->jts = malloc(sizeof(int)*nts);
-    rmx->et0 = 1E30;
-    for (i = 0; i < nts; i++) {
-      ierr = fscanf(f, "T %d %d %lf\n", 
-		    &(rmx->ts[i]), &(rmx->jts[i]), &(rmx->et[i]));
-      if (rmx->et[i] < rmx->et0) rmx->et0 = rmx->et[i];
-    }
-    for (i = 0; i < ncs; i++) {
-      ierr = fscanf(f, "C %d %d %lf\n", &k, &k1, &a);     
-    }    
-    rmx->ndim = 0;
-    rmx->nchan0 = 0;
-    rmx->ek = NULL;
-    rmx->chans = NULL;
-    return 0;
-  }
-
-  if (rmx->ndim > 0) free(rmx->ek);
-  if (rmx->nchan0 > 0) {
-    for (i = 0; i < rmx->nchan0; i++) {
-      free(rmx->w0[rmx->chans[i]]);
-      free(rmx->w1[rmx->chans[i]]);
-    }
-    free(rmx->chans);
-    free(rmx->ilev);
-    free(rmx->kappa);
-    for (i = 0; i < 3; i++) {
-      free(rmx->rmatrix[i]);
-    }
-    for (i = 0; i < rmx->nlam; i++) {
-      free(rmx->aij[i]);
-    }
-  }
-  
-  ierr = fscanf(f, "%d %d %d %d %d\n", &isym, &p, &j, &ndim, &nchan0);
-  if (ierr == EOF) {
-    return -1;
-  }
-  rmx->isym = isym;
-  rmx->p = p;
-  rmx->j = j;
-  rmx->ndim = ndim;
-  rmx->ek = malloc(sizeof(double)*ndim);
-  rmx->nchan0 = nchan0;
-  rmx->chans = malloc(sizeof(int)*nchan0);
-  rmx->kappa = malloc(sizeof(int)*nchan0);
-  rmx->ilev = malloc(sizeof(int)*nchan0);
-  for (i = 0; i < 3; i++) {
-    rmx->rmatrix[i] = malloc(sizeof(double)*nchan0*nchan0);
-  }
-  for (i = 0; i < rmx->nlam; i++) {
-    rmx->aij[i] = malloc(sizeof(double)*nchan0*nchan0);
-  }
-  for (i = 0; i < ndim; i++) {
-    fscanf(f, "%d %lf\n", &k, &(rmx->ek[i]));
-  }  
-  for (i = 0; i < nchan0; i++) {
-    fscanf(f, "%d %d %d %d %d\n", 
-	   &k, &k1, &k2, &k3, &k4);
-    rmx->chans[i] = k;
-    rmx->ilev[i] = k1;
-    rmx->kappa[i] = k4;
-    rmx->w0[rmx->chans[i]] = malloc(sizeof(double)*ndim);
-    rmx->w1[rmx->chans[i]] = malloc(sizeof(double)*ndim);
-  }
-  for (ilam = 0; ilam < rmx->nlam; ilam++) {
-    for (i = 0; i < nchan0; i++) {
-      for (t = 0; t <= i; t++) {
-	fscanf(f, "%d %d %d %d %d %d %d %lf\n",
-	       &k, &k1, &k2, &k3, &k1, &k2, &k3, &a);
-	k = t*nchan0 + i;
-	rmx->aij[ilam][k] = a;
-	k = i*nchan0 + t;
-	rmx->aij[ilam][k] = a;
+    
+    if (rmx->ndim > 0) free(rmx->ek);
+    if (rmx->nchan0 > 0) {
+      for (i = 0; i < rmx->nchan0; i++) {
+	free(rmx->w0[rmx->chans[i]]);
+	free(rmx->w1[rmx->chans[i]]);
+	rmx->w0[rmx->chans[i]] = NULL;
+	rmx->w1[rmx->chans[i]] = NULL;
+      }
+      free(rmx->chans);
+      free(rmx->ilev);
+      free(rmx->kappa);
+      for (i = 0; i < 3; i++) {
+	free(rmx->rmatrix[i]);
+      }
+      for (i = 0; i < rmx->nlam; i++) {
+	free(rmx->aij[i]);
       }
     }
-  }
-  for (i = 0; i < nchan0; i++) {
-    for (n = 0; n < ndim; n++) {
-      fscanf(f, "%d %d %lf %lf\n", &k, &t, &a, &b);
-      rmx->w0[k][t] = a;
-      rmx->w1[k][t] = b;
+    
+    ierr = fread(&isym, sizeof(int), 1, f);
+    ierr = fread(&p, sizeof(int), 1, f);
+    ierr = fread(&j, sizeof(int), 1, f);
+    ierr = fread(&ndim, sizeof(int), 1, f);
+    ierr = fread(&nchan0, sizeof(int), 1, f);
+    rmx->isym = isym;
+    rmx->p = p;
+    rmx->j = j;
+    rmx->ndim = ndim;
+    rmx->ek = malloc(sizeof(double)*ndim);
+    rmx->nchan0 = nchan0;
+    rmx->chans = malloc(sizeof(int)*nchan0);
+    rmx->kappa = malloc(sizeof(int)*nchan0);
+    rmx->ilev = malloc(sizeof(int)*nchan0);
+    for (i = 0; i < 3; i++) {
+      rmx->rmatrix[i] = malloc(sizeof(double)*nchan0*nchan0);
+    }
+    for (i = 0; i < rmx->nlam; i++) {
+      rmx->aij[i] = malloc(sizeof(double)*nchan0*nchan0);
+    }
+    ierr = fread(rmx->ek, sizeof(double), ndim, f);
+    for (i = 0; i < nchan0; i++) {
+      ierr = fread(&(rmx->chans[i]), sizeof(int), 1, f);
+      ierr = fread(&(rmx->ilev[i]), sizeof(int), 1, f);
+      ierr = fread(&(rmx->kappa[i]), sizeof(int), 1, f);
+    }
+    for (i = 0; i < nchan0; i++) {
+      rmx->w0[rmx->chans[i]] = malloc(sizeof(double)*ndim);
+      rmx->w1[rmx->chans[i]] = malloc(sizeof(double)*ndim);
+    }
+    for (ilam = 0; ilam < rmx->nlam; ilam++) {
+      for (i = 0; i < nchan0; i++) {
+	for (t = 0; t <= i; t++) {
+	  ierr = fread(&a, sizeof(double), 1, f);	
+	  k = t*nchan0 + i;
+	  rmx->aij[ilam][k] = a;
+	  k = i*nchan0 + t;
+	  rmx->aij[ilam][k] = a;
+	}
+      }
+    }
+    for (i = 0; i < nchan0; i++) {
+      ierr = fread(rmx->w0[rmx->chans[i]], sizeof(double), ndim, f);
+      ierr = fread(rmx->w1[rmx->chans[i]], sizeof(double), ndim, f);
+    }
+  } else {
+    if (m == 0) {
+      ierr = fscanf(f, "%d %d %d %d %d %lf %d\n", 
+		    &nsym, &mchan, &nts, &ncs, &nkappa, &z, &(rmx->nlam));
+      if (ierr == EOF) return -1;
+      rmx->nsym = nsym;
+      rmx->mchan = mchan;
+      rmx->nts = nts;
+      rmx->ncs = ncs;
+      rmx->nkappa = nkappa;
+      rmx->z = z;
+      nchan = nts*nkappa;
+      rmx->et = malloc(sizeof(double)*nts);
+      rmx->ec = malloc(sizeof(double)*ncs);
+      rmx->w0 = malloc(sizeof(double *)*nchan);
+      rmx->w1 = malloc(sizeof(double *)*nchan);
+      if (rmx->nlam > 0) {
+	rmx->aij = malloc(sizeof(double *)*rmx->nlam);
+      }
+      for (i = 0; i < nchan; i++) {
+	rmx->w0[i] = NULL;
+	rmx->w1[i] = NULL;
+      }
+      rmx->ts = malloc(sizeof(int)*nts);
+      rmx->jts = malloc(sizeof(int)*nts);
+      rmx->cs = malloc(sizeof(int)*ncs);
+      rmx->jcs = malloc(sizeof(int)*ncs);
+      rmx->et0 = 1E30;
+      for (i = 0; i < nts; i++) {
+	ierr = fscanf(f, "T %d %d %lf\n", 
+		      &(rmx->ts[i]), &(rmx->jts[i]), &(rmx->et[i]));
+	if (rmx->et[i] < rmx->et0) rmx->et0 = rmx->et[i];
+      }
+      for (i = 0; i < ncs; i++) {
+	ierr = fscanf(f, "C %d %d %lf\n", &k, &k1, &a);
+	rmx->cs[i] = k;
+	rmx->jcs[i] = k1;
+	rmx->ec[i] = a;
+      }    
+      rmx->ndim = 0;
+      rmx->nchan0 = 0;
+      rmx->ek = NULL;
+      rmx->chans = NULL;
+      return 0;
+    }
+
+    if (rmx->ndim > 0) free(rmx->ek);
+    if (rmx->nchan0 > 0) {
+      for (i = 0; i < rmx->nchan0; i++) {
+	free(rmx->w0[rmx->chans[i]]);
+	free(rmx->w1[rmx->chans[i]]);
+	rmx->w0[rmx->chans[i]] = NULL;
+	rmx->w1[rmx->chans[i]] = NULL;
+      }
+      free(rmx->chans);
+      free(rmx->ilev);
+      free(rmx->kappa);
+      for (i = 0; i < 3; i++) {
+	free(rmx->rmatrix[i]);
+      }
+      for (i = 0; i < rmx->nlam; i++) {
+	free(rmx->aij[i]);
+      }
+    }
+  
+    ierr = fscanf(f, "%d %d %d %d %d\n", &isym, &p, &j, &ndim, &nchan0);
+    if (ierr == EOF) {
+      return -1;
+    }
+    rmx->isym = isym;
+    rmx->p = p;
+    rmx->j = j;
+    rmx->ndim = ndim;
+    rmx->ek = malloc(sizeof(double)*ndim);
+    rmx->nchan0 = nchan0;
+    rmx->chans = malloc(sizeof(int)*nchan0);
+    rmx->kappa = malloc(sizeof(int)*nchan0);
+    rmx->ilev = malloc(sizeof(int)*nchan0);
+    for (i = 0; i < 3; i++) {
+      rmx->rmatrix[i] = malloc(sizeof(double)*nchan0*nchan0);
+    }
+    for (i = 0; i < rmx->nlam; i++) {
+      rmx->aij[i] = malloc(sizeof(double)*nchan0*nchan0);
+    }
+    for (i = 0; i < ndim; i++) {
+      fscanf(f, "%d %lf\n", &k, &(rmx->ek[i]));
+    }  
+    for (i = 0; i < nchan0; i++) {
+      fscanf(f, "%d %d %d %d %d\n", 
+	     &k, &k1, &k2, &k3, &k4);
+      rmx->chans[i] = k;
+      rmx->ilev[i] = k1;
+      rmx->kappa[i] = k4;
+      rmx->w0[rmx->chans[i]] = malloc(sizeof(double)*ndim);
+      rmx->w1[rmx->chans[i]] = malloc(sizeof(double)*ndim);
+    }
+    for (ilam = 0; ilam < rmx->nlam; ilam++) {
+      for (i = 0; i < nchan0; i++) {
+	for (t = 0; t <= i; t++) {
+	  fscanf(f, "%d %d %d %d %d %d %d %lf\n",
+		 &k, &k1, &k2, &k3, &k1, &k2, &k3, &a);
+	  k = t*nchan0 + i;
+	  rmx->aij[ilam][k] = a;
+	  k = i*nchan0 + t;
+	  rmx->aij[ilam][k] = a;
+	}
+      }
+    }
+    for (i = 0; i < nchan0; i++) {
+      for (n = 0; n < ndim; n++) {
+	fscanf(f, "%d %d %lf %lf\n", &k, &t, &a, &b);
+	rmx->w0[k][t] = a;
+	rmx->w1[k][t] = b;
+      }
     }
   }
   return 0;
 }  
 
-int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m) {
+int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
+			int fmt, RMATRIX *rmx) {
   HAMILTON *h;
   int nchan, t, ic, nchan0, i, k, ilev, ka;
-  int p, j, jc, i1, k1, ilev1, ka1, ilam;
+  int p, j, jc, i1, k1, ilev1, ka1, ilam, nr;
   double z, a;
   LEVEL *lev;
   
   if (m == 0) {
-    z = GetAtomicNumber();
-    z -= GetNumElectrons(ts[0]);
-    fprintf(f, "%3d %3d %3d %3d %3d %10.3E %2d\n",
-	    m, m, nts, ncs, rbasis.nkappa, z, dcfg.nmultipoles);
-    for (t = 0; t < nts; t++) {
-      ilev = ts[t];
-      lev = GetLevel(ilev);
-      DecodePJ(lev->pj, NULL, &k);
-      fprintf(f, "T %3d %3d %15.8E\n", ilev, k, lev->energy);
-    }
-    for (t = 0; t < ncs; t++) {
-      ilev = cs[t];
-      lev = GetLevel(ilev);
-      DecodePJ(lev->pj, NULL, &k);
-      fprintf(f, "C %3d %3d %15.8E\n", ilev, k, lev->energy);
+    if (rmx == NULL) {
+      z = GetAtomicNumber();
+      z -= GetNumElectrons(ts[0]);
+      if (fmt == 0) {
+	nr = fwrite(&m, sizeof(int), 1, f);
+	nr = fwrite(&m, sizeof(int), 1, f);
+	nr = fwrite(&nts, sizeof(int), 1, f);
+	nr = fwrite(&ncs, sizeof(int), 1, f);
+	nr = fwrite(&(rbasis.nkappa), sizeof(int), 1, f);
+	nr = fwrite(&z, sizeof(double), 1, f);
+	nr = fwrite(&(dcfg.nmultipoles), sizeof(int), 1, f);
+	for (t = 0; t < nts; t++) {
+	  ilev = ts[t];
+	  lev = GetLevel(ilev);
+	  DecodePJ(lev->pj, NULL, &k);
+	  nr = fwrite(&ilev, sizeof(int), 1, f);
+	  nr = fwrite(&k, sizeof(int), 1, f);
+	  nr = fwrite(&(lev->energy), sizeof(double), 1, f);
+	}
+	for (t = 0; t < ncs; t++) {
+	  ilev = cs[t];
+	  lev = GetLevel(ilev);
+	  DecodePJ(lev->pj, NULL, &k);
+	  nr = fwrite(&ilev, sizeof(int), 1, f);
+	  nr = fwrite(&k, sizeof(int), 1, f);
+	  nr = fwrite(&(lev->energy), sizeof(double), 1, f);	  
+	}
+      } else {
+	fprintf(f, "%3d %3d %3d %3d %3d %10.3E %2d\n",
+		m, m, nts, ncs, rbasis.nkappa, z, dcfg.nmultipoles);
+	for (t = 0; t < nts; t++) {
+	  ilev = ts[t];
+	  lev = GetLevel(ilev);
+	  DecodePJ(lev->pj, NULL, &k);
+	  fprintf(f, "T %3d %3d %15.8E\n", ilev, k, lev->energy);
+	}
+	for (t = 0; t < ncs; t++) {
+	  ilev = cs[t];
+	  lev = GetLevel(ilev);
+	  DecodePJ(lev->pj, NULL, &k);
+	  fprintf(f, "C %3d %3d %15.8E\n", ilev, k, lev->energy);
+	}
+      }
+    } else {
+      z = rmx->z;
+      nts = rmx->nts;
+      ncs = rmx->ncs;
+      if (fmt == 0) {
+	nr = fwrite(&(rmx->nsym), sizeof(int), 1, f);
+	nr = fwrite(&(rmx->mchan), sizeof(int), 1, f);
+	nr = fwrite(&nts, sizeof(int), 1, f);
+	nr = fwrite(&ncs, sizeof(int), 1, f);	
+	nr = fwrite(&(rmx->nkappa), sizeof(int), 1, f);
+	nr = fwrite(&z, sizeof(double), 1, f);
+	nr = fwrite(&(rmx->nlam), sizeof(int), 1, f);
+	for (t = 0; t < nts; t++) {
+	  nr = fwrite(&(rmx->ts[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->jts[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->et[t]), sizeof(double), 1, f);
+	}
+	for (t = 0; t < ncs; t++) {
+	  nr = fwrite(&(rmx->cs[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->jcs[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->ec[t]), sizeof(double), 1, f);
+	}
+      } else {
+	fprintf(f, "%3d %3d %3d %3d %3d %10.3E %2d\n",
+		rmx->nsym, rmx->mchan, nts, ncs, rmx->nkappa, z, rmx->nlam);
+	for (t = 0; t < nts; t++) {
+	  ilev = rmx->ts[t];
+	  k = rmx->jts[t];
+	  fprintf(f, "T %3d %3d %15.8E\n", ilev, k, rmx->et[t]);
+	}
+	for (t = 0; t < ncs; t++) {
+	  ilev = rmx->cs[t];
+	  k = rmx->jcs[t];
+	  fprintf(f, "C %3d %3d %15.8E\n", ilev, k, rmx->ec[t]);
+	}
+      }	
     }
     return 0;
   }
 
-  h = GetHamilton();
-  DecodePJ(h->pj, &p, &j);
-  nchan = rbasis.nkappa * nts;
-  nchan0 = 0;
-  for (ic = 0; ic < nchan; ic++) {
-    if (wik1[ic]) nchan0++;
-  }
-  fprintf(f, "%3d %3d %3d %6d %3d\n", h->pj, p, j, h->dim, nchan0);
-  for (t = 0; t < h->dim; t++) {
-    fprintf(f, "%6d %17.10E\n", t, h->mixing[t]);
-  }
-  for (ic = 0; ic < nchan; ic++) {
-    if (wik1[ic]) {
-      i = ic/rbasis.nkappa;
-      k = ic%rbasis.nkappa;
-      ilev = ts[i];
-      lev = GetLevel(ilev);
-      ka = KappaFromIndex(k);
-      fprintf(f, "%6d %3d %3d %3d %3d\n",
-	      ic, i, ilev, k, ka);
-    }
-  }
-  for (ilam = 0; ilam < dcfg.nmultipoles; ilam++) {
+  if (rmx == NULL) {
+    h = GetHamilton();
+    DecodePJ(h->pj, &p, &j);
+    nchan = rbasis.nkappa * nts;
+    nchan0 = 0;
     for (ic = 0; ic < nchan; ic++) {
-      if (wik1[ic] == NULL) continue;
-      i = ic/rbasis.nkappa;
-      ilev = ts[i];
-      k = ic%rbasis.nkappa;
-      ka = KappaFromIndex(k);
-      for (jc = 0; jc <= ic; jc++) {
-	if (wik1[jc] == NULL) continue;
-	i1 = jc/rbasis.nkappa;
-	ilev1 = ts[i1];
-	k1 = jc%rbasis.nkappa;
-	ka1 = KappaFromIndex(k1);
-	a = MultipoleCoeff(h->pj, ilev1, ka1, ilev, ka, ilam+1);
-	fprintf(f, "%2d %6d %3d %3d %6d %3d %3d %15.8E\n",
-		ilam+1, ic, ilev, ka, jc, ilev1, ka1, a);
-      }
+      if (wik1[ic]) nchan0++;
     }
-  }
-  for (ic = 0; ic < nchan; ic++) {
-    if (wik1[ic]) {
+    if (fmt == 0) {
+      nr = fwrite(&(h->pj), sizeof(int), 1, f);
+      nr = fwrite(&p, sizeof(int), 1, f);
+      nr = fwrite(&j, sizeof(int), 1, f);
+      nr = fwrite(&(h->dim), sizeof(int), 1, f);
+      nr = fwrite(&(nchan0), sizeof(int), 1, f);
+      nr = fwrite(h->mixing, sizeof(double), h->dim, f);
+      for (ic = 0; ic < nchan; ic++) {
+	if (wik1[ic]) {
+	  i = ic/rbasis.nkappa;
+	  k = ic%rbasis.nkappa;
+	  ilev = ts[i];
+	  lev = GetLevel(ilev);
+	  ka = KappaFromIndex(k);
+	  nr = fwrite(&ic, sizeof(int), 1, f);
+	  nr = fwrite(&i, sizeof(int), 1, f);
+	  nr = fwrite(&ka, sizeof(int), 1, f);
+	}
+      }
+      for (ilam = 0; ilam < dcfg.nmultipoles; ilam++) {
+	for (ic = 0; ic < nchan; ic++) {
+	  if (wik1[ic] == NULL) continue;
+	  i = ic/rbasis.nkappa;
+	  ilev = ts[i];
+	  k = ic%rbasis.nkappa;
+	  ka = KappaFromIndex(k);
+	  for (jc = 0; jc <= ic; jc++) {
+	    if (wik1[jc] == NULL) continue;
+	    i1 = jc/rbasis.nkappa;
+	    ilev1 = ts[i1];
+	    k1 = jc%rbasis.nkappa;
+	    ka1 = KappaFromIndex(k1);
+	    a = MultipoleCoeff(h->pj, ilev1, ka1, ilev, ka, ilam+1);
+	    nr = fwrite(&a, sizeof(double), 1, f);
+	  }
+	}
+      }
+      for (ic = 0; ic < nchan; ic++) {
+	if (wik1[ic]) {
+	  nr = fwrite(wik0[ic], sizeof(double), h->dim, f);
+	  nr = fwrite(wik1[ic], sizeof(double), h->dim, f);
+	}
+	free(wik0[ic]);
+	free(wik1[ic]);
+	wik0[ic] = NULL;
+	wik1[ic] = NULL;
+      }
+    } else {
+      fprintf(f, "%3d %3d %3d %6d %3d\n", h->pj, p, j, h->dim, nchan0);
       for (t = 0; t < h->dim; t++) {
-	fprintf(f, "%6d %6d %15.8E %15.8E\n", 
-		ic, t, wik0[ic][t], wik1[ic][t]);
+	fprintf(f, "%6d %17.10E\n", t, h->mixing[t]);
       }
-      free(wik0[ic]);
-      free(wik1[ic]);
-      wik0[ic] = NULL;
-      wik1[ic] = NULL;
+      for (ic = 0; ic < nchan; ic++) {
+	if (wik1[ic]) {
+	  i = ic/rbasis.nkappa;
+	  k = ic%rbasis.nkappa;
+	  ilev = ts[i];
+	  lev = GetLevel(ilev);
+	  ka = KappaFromIndex(k);
+	  fprintf(f, "%6d %3d %3d %3d %3d\n",
+		  ic, i, ilev, k, ka);
+	}
+      }
+      for (ilam = 0; ilam < dcfg.nmultipoles; ilam++) {
+	for (ic = 0; ic < nchan; ic++) {
+	  if (wik1[ic] == NULL) continue;
+	  i = ic/rbasis.nkappa;
+	  ilev = ts[i];
+	  k = ic%rbasis.nkappa;
+	  ka = KappaFromIndex(k);
+	  for (jc = 0; jc <= ic; jc++) {
+	    if (wik1[jc] == NULL) continue;
+	    i1 = jc/rbasis.nkappa;
+	    ilev1 = ts[i1];
+	    k1 = jc%rbasis.nkappa;
+	    ka1 = KappaFromIndex(k1);
+	    a = MultipoleCoeff(h->pj, ilev1, ka1, ilev, ka, ilam+1);
+	    fprintf(f, "%2d %6d %3d %3d %6d %3d %3d %15.8E\n",
+		    ilam+1, ic, ilev, ka, jc, ilev1, ka1, a);
+	  }
+	}
+      }
+      for (ic = 0; ic < nchan; ic++) {
+	if (wik1[ic]) {
+	  for (t = 0; t < h->dim; t++) {
+	    fprintf(f, "%6d %6d %15.8E %15.8E\n", 
+		    ic, t, wik0[ic][t], wik1[ic][t]);
+	  }
+	  free(wik0[ic]);
+	  free(wik1[ic]);
+	  wik0[ic] = NULL;
+	  wik1[ic] = NULL;
+	}
+      }
+    }
+  } else {
+    nchan = rmx->nkappa * rmx->nts;
+    nchan0 = rmx->nchan0;
+    if (fmt == 0) {
+      nr = fwrite(&(rmx->isym), sizeof(int), 1, f);
+      nr = fwrite(&(rmx->p), sizeof(int), 1, f);
+      nr = fwrite(&(rmx->j), sizeof(int), 1, f);
+      nr = fwrite(&(rmx->ndim), sizeof(int), 1, f);
+      nr = fwrite(&(nchan0), sizeof(int), 1, f);
+      nr = fwrite(rmx->ek, sizeof(double), rmx->ndim, f);
+      for (ic = 0; ic < nchan0; ic++) {
+	nr = fwrite(&(rmx->chans[ic]), sizeof(int), 1, f);
+	nr = fwrite(&(rmx->ilev[ic]), sizeof(int), 1, f);
+	nr = fwrite(&(rmx->kappa[ic]), sizeof(int), 1, f);
+      }
+      for (ilam = 0; ilam < rmx->nlam; ilam++) {
+	for (i = 0; i < nchan0; i++) {
+	  for (t = 0; t <= i; t++) {
+	    k = t*nchan0 + i;
+	    nr = fwrite(&(rmx->aij[ilam][k]), sizeof(double), 1, f);
+	  }
+	}
+      }
+      for (i = 0; i < nchan0; i++) {
+	nr = fwrite(rmx->w0[rmx->chans[i]], sizeof(double), rmx->ndim, f);
+	nr = fwrite(rmx->w1[rmx->chans[i]], sizeof(double), rmx->ndim, f);
+      }
+    } else {
+      fprintf(f, "%3d %3d %3d %6d %3d\n", 
+	      rmx->isym, rmx->p, rmx->j, rmx->ndim, nchan0);
+      for (t = 0; t < rmx->ndim; t++) {
+	fprintf(f, "%6d %17.10E\n", t, rmx->ek[t]);
+      }
+      for (ic = 0; ic < nchan0; ic++) {
+	i = rmx->ilev[ic];
+	ka = rmx->kappa[ic];
+	k = IndexFromKappa(ka);
+	fprintf(f, "%6d %3d %3d %3d %3d\n",
+		rmx->chans[ic], i, rmx->ts[i], k, ka);
+      }
+      for (ilam = 0; ilam < rmx->nlam; ilam++) {
+	for (i = 0; i < nchan0; i++) {
+	  for (t = 0; t <= i; t++) {
+	    k = t*nchan0 + i;
+	    a = rmx->aij[ilam][k];
+	    ic = rmx->chans[i];
+	    jc = rmx->chans[t];
+	    ilev = rmx->ts[rmx->ilev[i]];
+	    ilev1 = rmx->ts[rmx->ilev[t]];
+	    ka = rmx->kappa[i];
+	    ka1 = rmx->kappa[t];
+	    fprintf(f, "%2d %6d %3d %3d %6d %3d %3d %15.8E\n",
+		    ilam+1, ic, ilev, ka, jc, ilev1, ka1, a);
+	  }
+	}
+      }
+      for (ic = 0; ic < nchan0; ic++) {
+	i = rmx->chans[ic];
+	for (t = 0; t < rmx->ndim; t++) {
+	  fprintf(f,  "%6d %6d %15.8E %15.8E\n", 
+		  i, t, rmx->w0[i][t], rmx->w1[i][t]);
+	}	
+      }
     }
   }
-  
+
   return nchan0;
 }
 
@@ -719,7 +1110,7 @@ int RMatrixSurface(char *fn) {
     }
   }
 
-  WriteRMatrixSurface(f, NULL, NULL, 0);
+  WriteRMatrixSurface(f, NULL, NULL, 0, fmode, NULL);
 
   nchan = nts*rbasis.nkappa;
   printf("%d %d %d %d\n", nchan, nts, rbasis.nkappa, ncs);
@@ -774,13 +1165,18 @@ int RMatrixSurface(char *fn) {
       }
       mix += h->dim;
     }
-    nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1);
+    nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1, fmode, NULL);
     if (nchan0 > nchm) nchm = nchan0;
     nsym++;
   }
   
   fseek(f, 0, SEEK_SET);
-  fprintf(f, "%3d %3d", nsym, nchm);
+  if (fmode == 0) {
+    fwrite(&nsym, sizeof(int), 1, f);
+    fwrite(&nchm, sizeof(int), 1, f);
+  } else {
+    fprintf(f, "%3d %3d", nsym, nchm);
+  }
 
   free(wik0);
   free(wik1);
@@ -1673,10 +2069,10 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   rmx = malloc(sizeof(RMATRIX)*np);
   
   for (i = 0; i < np; i++) {
-    ReadRMatrixBasis(bfn[i], &(rbs[i]));
+    ReadRMatrixBasis(bfn[i], &(rbs[i]), fmode);
     f[i] = fopen(rfn[i], "r");
     if (f[i] == NULL) return -1;
-    ReadRMatrixSurface(f[i], &(rmx[i]), 0);
+    ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
   }
   
   for (t = 0; t < rmx[0].nts; t++) {
@@ -1705,7 +2101,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     for (i = 0; i < np; i++) {
       ClearRMatrixSurface(&(rmx[i]));      
       fseek(f[i], 0, SEEK_SET);
-      ReadRMatrixSurface(f[i], &(rmx[i]), 0);
+      ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
     }
     ns = rmx[0].nts*(rmx[0].nts+1)/2;
     s = malloc(sizeof(double *)*ns);
@@ -1733,7 +2129,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 	    n, npe, nke, e[0]*HARTREE_EV, e[nke-1]*HARTREE_EV);
     for (i = 0; i < rmx[0].nsym;  i++) {
       for (j = 0; j < np; j++) {
-	ReadRMatrixSurface(f[j], &(rmx[j]), 1);
+	ReadRMatrixSurface(f[j], &(rmx[j]), 1, fmode);
       }
       DecodePJ(rmx[0].isym, &pp, &jj);
       printf("sym: %d %d %d\n", rmx[0].isym, pp, jj);
@@ -1804,14 +2200,14 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 		rmx[0].ts[its1], rmx[0].jts[its1], 
 		(rmx[0].et[its1]-rmx[0].et[its0])*HARTREE_EV, 
 		n, npw);
-	for (k = 0; k < n; k++) {
+	for (k = 0; k < nke; k++) {
 	  et = (e[k]-rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
 	  if (et < 0.0) continue;
 	  fprintf(f1, "%15.8E %15.8E\n", et, s[st0+its0][k]);
 	}
 	fprintf(f1, "\n\n");
 	if (m & 1) {
-	  for (k = 0; k < n; k++) {
+	  for (k = 0; k < nke; k++) {
 	    et = (e[k]-rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
 	    if (et < 0.0) continue;
 	    for (j = 0; j < npw; j++) {
@@ -1826,7 +2222,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     for (i = 0; i < ns; i++) {
       free(s[i]);
       if (m & 1) {
-	for (j = 0; j < n; j++) {
+	for (j = 0; j < nke; j++) {
 	  free(sp[i][j]);
 	}
 	free(sp[i]);
@@ -1856,6 +2252,70 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   return 0;
 }
 
+int RMatrixConvert(char *ifn, char *ofn, int m) {
+  int i;
+  FILE *f0, *f1;
+  RMATRIX rmx;
+
+  if (m == 0) {
+    ReadRMatrixBasis(ifn, &rbasis, 0);
+    WriteRMatrixBasis(ofn, 1);
+    ClearRMatrixBasis(&rbasis);
+    return 0;
+  } else if (m == 1) {
+    ReadRMatrixBasis(ifn, &rbasis, 1);
+    WriteRMatrixBasis(ofn, 0);
+    ClearRMatrixBasis(&rbasis);
+    return 0;
+  } else if (m == 2) {
+    f0 = fopen(ifn, "r");
+    if (!f0) {
+      printf("cannot open file %s\n", ifn);
+      return -1;
+    }
+    f1 = fopen(ofn, "w");
+    if (!f1) {
+      printf("cannot open file %s\n", ofn);
+      fclose(f0);
+      return -1;
+    }
+    ReadRMatrixSurface(f0, &rmx, 0, 0);
+    WriteRMatrixSurface(f1, NULL, NULL, 0, 1, &rmx);
+    for (i = 0; i < rmx.nsym; i++) {
+      printf("sym: %3d\n", i);
+      ReadRMatrixSurface(f0, &rmx, 1, 0);
+      WriteRMatrixSurface(f1, NULL, NULL, 1, 1, &rmx);
+    }
+    ClearRMatrixSurface(&rmx);
+    fclose(f0);
+    fclose(f1);
+    return 0;
+  } else if (m == 3) {
+    f0 = fopen(ifn, "r");
+    if (!f0) {
+      printf("cannot open file %s\n", ifn);
+      return -1;
+    }
+    f1 = fopen(ofn, "w");
+    if (!f1) {
+      printf("cannot open file %s\n", ofn);
+      fclose(f0);
+      return -1;
+    }
+    ReadRMatrixSurface(f0, &rmx, 0, 1);
+    WriteRMatrixSurface(f1, NULL, NULL, 0, 0, &rmx);
+    for (i = 0; i < rmx.nsym; i++) {
+      printf("sym: %3d\n", i);
+      ReadRMatrixSurface(f0, &rmx, 1, 1);
+      WriteRMatrixSurface(f1, NULL, NULL, 1, 0, &rmx);
+    }
+    ClearRMatrixSurface(&rmx);
+    fclose(f0);
+    fclose(f1);
+    return 0;
+  }
+}
+
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {
   FILE *f, *f1;
   RMATRIX rmx;
@@ -1866,11 +2326,11 @@ void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {
   e /= HARTREE_EV;
   f = fopen(fn2, "r");
   f1 = fopen(fn3, "w");
-  ReadRMatrixBasis(fn1, &rbs);
-  ReadRMatrixSurface(f, &rmx, 0);
+  ReadRMatrixBasis(fn1, &rbs, fmode);
+  ReadRMatrixSurface(f, &rmx, 0, fmode);
   InitDCFG(rmx.mchan);
   for (k = 0; k < rmx.nsym; k++) {
-    ReadRMatrixSurface(f, &rmx, 1);
+    ReadRMatrixSurface(f, &rmx, 1, fmode);
     RMatrix(e, &rmx, &rbs, 1);
     /*
     if (rmx.isym == 20) {

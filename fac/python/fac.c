@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.95 2004/12/22 03:09:38 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.96 2004/12/22 23:54:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4174,7 +4174,40 @@ static PyObject *PRMatrixSurface(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PRMatrixConvert(PyObject *self, PyObject *args) {
+  char *ifn, *ofn;
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixConvert", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   
+  if (!PyArg_ParseTuple(args, "ssi", &ifn, &ofn, &m)) return NULL;
+  RMatrixConvert(ifn, ofn, m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PRMatrixFMode(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixFMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  RMatrixFMode(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PTestRMatrix(PyObject *self, PyObject *args) {
   char *fn1, *fn2, *fn3;
   double e;
@@ -4285,6 +4318,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
+  {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
+  {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 

@@ -6,6 +6,7 @@ Version 1.0.7, 11/10/2004
 	4. DB_TR file now stores the multipole matrix elements, instead of gf
 	   values. The ASCII mode text file also has an additional column
 	   giving the matrix elements.
+	5. Binary output for rmatrix module.
 	
 Version 1.0.6, 09/05/2004
 	1. parallelize StructureMBPT
