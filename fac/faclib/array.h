@@ -1,7 +1,9 @@
 #ifndef _ARRAY_H_
 #define _ARRAY_H_
 
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct _DATA_ {
   void *dptr;

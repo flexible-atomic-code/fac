@@ -6,23 +6,17 @@
 #include "rcfp.h"
 #include <time.h>
 
-/* qunatum # of an interacting shell */
+/* qunatum numbers of an interacting shell */
 typedef struct _INTERACT_SHELL_ {
   int index; /* the index of the shell within the SHELL_STATE */
-  int n;
+  int n; /* principal quantum number */
   int j; /* the angular momentum of the shell, double of its actual value */
-  int kl;
-  int kappa;
+  int kl; /* orbital angular momentum */
+  int kappa; /* relativistic angular quantum number kappa */
   int nq_bra; /* the occupation number in the bra state */
-  int nq_ket;
+  int nq_ket; /* occupation number in the ket state */
 } INTERACT_SHELL;
 
-typedef struct _RECOUPLE_TIMING_ {
-  clock_t angz;
-  clock_t angzxz;
-  clock_t decouple;
-  clock_t interact;
-} RECOUPLE_TIMING;
 
 typedef struct _INTERACT_DATUM_ {
   SHELL *bra;
@@ -31,7 +25,17 @@ typedef struct _INTERACT_DATUM_ {
   short phase;
 } INTERACT_DATUM;
 
+
+#ifdef PERFORM_STATISTICS
+typedef struct _RECOUPLE_TIMING_ {
+  clock_t angz;
+  clock_t angzxz;
+  clock_t decouple;
+  clock_t interact;
+} RECOUPLE_TIMING;
+
 int GetRecoupleTiming(RECOUPLE_TIMING *t);
+#endif
 
 /* the recoupling matrix going from the coupled operators to uncoupled ones */
 double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 

@@ -23,6 +23,7 @@
 #define EPS4  1E-04
 #define EPS3  1E-03
 #define EPS2  1E-02
+#define EPS1  1E-01
 
 #define PI         3.14159265359
 #define TWO_PI     6.28318530718
@@ -40,13 +41,12 @@
 #define G_COULOMB   1
 #define G_BABUSHKIN 2
 
-
-/* macros controll the debug level */
-
+#define DEBUG_RECOUPLE  10
+#define DEBUG_STRUCTURE 20
 #define FAC_DEBUG 0
-#define DEBUG_STRUCTURE 2
-#define DEBUG_RADIAL 5
-#define DEBUG_RECOUPLE 2
+#if FAC_DEBUG
+extern FILE *debug_log;
+#endif
 
 /*
 #define PERFORM_STATISTICS 1

@@ -5,9 +5,9 @@ OBJS = ${SRC:.f=.o}
 .f.o: 
 	$(FC) -O -c $<
 
-blas.a: $(OBJS)
-	ar cr blas.a $(OBJS)
-	ranlib blas.a
+blas: $(OBJS)
+	ar cr libblas.a $(OBJS)
+	ranlib libblas.a
 
 clean:
 	rm -f *.o *.a
