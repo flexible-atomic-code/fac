@@ -1,3 +1,10 @@
+Version 0.5.7, 10/03/2001
+	1. fix a bug in solving the radial orbital for the energy
+	   initialization.
+	2. added the [s,p,d] notation in the configuration 
+	   specification. ie., 3[s,p] means a shell of either 
+	   3s or 3p, so is 3[0,1].
+	
 Version 0.5.6, 10/01/2001
 	1. fix the bug on the interpolation of PI and RR radial integrals
 	2. change the implementation of ionization, so that it is 
