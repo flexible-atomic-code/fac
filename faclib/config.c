@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.7 2001/09/14 13:16:59 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.8 2001/10/02 16:24:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -148,6 +148,8 @@ int CoupleOutmost(CONFIG *cfg, CONFIG *outmost, CONFIG *inner) {
     csf_outmost++;
   }
   
+  cfg->n_electrons = outmost->n_electrons + inner->n_electrons;
+
   return 0;
   
  ERROR:
@@ -174,6 +176,7 @@ int GetSingleShell(CONFIG *cfg) {
 
   max_q = j2 + 1;
   occupation = GetNq(cfg->shells);
+  cfg->n_electrons = occupation;
   if ((2 * occupation) > max_q) {
     occupation = max_q - occupation;
   }
@@ -465,6 +468,13 @@ int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;
 
   if (k < 0 || k >= n_groups) return -1;
+  if (cfg_groups[k].n_cfgs == 0) {
+    cfg_groups[k].n_electrons = cfg->n_electrons;
+  } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
+    printf("Error: AddConfigToList, Configurations in a group ");
+    printf("must have the same number of electrons\n");
+    return -1;
+  }
   clist = &(cfg_groups[k].cfg_list);
 
   if (ArrayAppend(clist, cfg) == NULL) return -1;
@@ -482,7 +492,7 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
   k = IsEven(parity)? 2*j : (2*j+1);
   if (k >= MAX_SYMMETRIES) {
     printf("MAX_SYMMETRIES reached\n");
-    abort();
+    exit(1);
   }
 
   s.kgroup = kg;

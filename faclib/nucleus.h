@@ -13,7 +13,7 @@ typedef struct _NUCLEUS_ {
 
 int SetAtom(char *s, double z, double mass);
 double GetAtomicNumber();
-char *GetAtomSymbol();
+char *GetAtomicSymbol();
 double GetAtomicEffectiveZ(double r);
 
 #endif

@@ -14,9 +14,7 @@
 /* max number of configuration groups */
 #define MAX_GROUPS         512
 /* max number of j-parity symmetries */
-#define MAX_SYMMETRIES     0x200
-/* max number os states within one symmetry */
-#define MAX_STATES_PER_SYM 0x200000
+#define MAX_SYMMETRIES     512
 /* number of groups in one array block */
 #define CONFIGS_BLOCK      256
 /* number os states in one array block */
@@ -49,6 +47,7 @@ typedef struct _SHELL_STATE_{
 /* in config, shells are ordered in reverse order, i.e., outer shells come
    first.  */
 typedef struct _CONFIG_ {
+  int n_electrons;
   int n_shells;
   int n_csfs;
   SHELL *shells;
@@ -68,6 +67,7 @@ typedef struct _AVERAGE_CONFIG_ {
 typedef struct _CONFIG_GROUP_ {
   char name[GROUP_NAME_LEN];  
   int n_cfgs;
+  int n_electrons;
   ARRAY cfg_list;
 } CONFIG_GROUP;
 
