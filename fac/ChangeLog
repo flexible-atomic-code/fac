@@ -7,6 +7,7 @@ Version 0.7.1, 02/17/2001
 	   more robust.
 	5. added Gaussian electron energy distribution to simulate EBIT
 	   beam.
+	6. improve the integration routine for rate coefficients.
 	
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
