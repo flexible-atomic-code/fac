@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.50 2002/08/17 20:21:40 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.51 2002/08/28 21:41:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1486,6 +1486,7 @@ static void _FreeRecPk(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
+  *((double **) p) = NULL;
 }
 
 int FreeRecPk(void) {

@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.9 2002/08/17 20:21:40 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.10 2002/08/28 21:41:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1383,7 +1383,7 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
 	  nq_plus += qd;
 	  if (nq_plus > 2) break;
 	  s[pb].index = m;
-	  s[ pb].n = n;
+	  s[pb].n = n;
 	  s[pb].kappa = (*bra)[m].kappa;
 	  s[pb].j = jj;
 	  s[pb].kl = kl;
@@ -1949,10 +1949,12 @@ int InitRecouple(void) {
 void _FreeInteractDatum(void *p) {
   INTERACT_DATUM *d;
   
+  if (!p) return;
   d = (INTERACT_DATUM *) p;
   if (d->n_shells > 0) {
     free(d->bra);
-    d->n_shells = 0;
+    d->bra = NULL;
+    d->n_shells = -1;
   }
 }
   

@@ -222,7 +222,7 @@ class ATOM:
             self.nexc_rec = [10, 0, 0]
             self.nrec_max = [10, 8, 6]
             self.nrec_ext = 25
-            self.n_decay = [10, -1, -1]
+            self.n_decay = [10, 3, -1]
             self.angz_cut1 = 1E-3
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
@@ -235,7 +235,7 @@ class ATOM:
             self.nexc_rec = [7, 0, 0, 0]
             self.nrec_max = [10, 6, 8, 5]
             self.nrec_ext = 20
-            self.n_decay = [10, -1, -1, -1]
+            self.n_decay = [10, 3, -1, -1]
             self.angz_cut1 = 1E-2
             self.tr_cut1 = 1E-2
             self.ai_cut1 = 1E-2
@@ -248,7 +248,7 @@ class ATOM:
             self.nexc_rec = [0, 0, 0, 0, 0]
             self.nrec_max = [10, 8, 6, 5, 5]
             self.nrec_ext = 20
-            self.n_decay = [10, -1, -1, -1, -1]
+            self.n_decay = [10, 3, -1, -1, -1]
             self.angz_cut1 = 1E-2
             self.tr_cut1 = 1E-2
             self.ai_cut1 = 1E-2
@@ -460,13 +460,13 @@ class ATOM:
         
         g = self.grd_complex.name
         c = self.exc_complex[0].cgroup[0].name
-        if (self.nele > 1):
+        if (self.nele > 2):
             ConfigEnergy(0)
         if (self.nele < 3):
             OptimizeRadial(g)
         else:
             OptimizeRadial(g+c)
-        if (self.nele > 1):
+        if (self.nele > 2):
             ConfigEnergy(1)
 
         for ec in self.ecorrections:

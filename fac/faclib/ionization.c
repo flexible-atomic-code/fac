@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.33 2002/08/17 20:21:39 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.34 2002/08/28 21:41:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1017,6 +1017,7 @@ void _FreeIonizationQk(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
+  memset(p, NULL, sizeof(double *));
 }
 
 int FreeIonizationQk(void) {

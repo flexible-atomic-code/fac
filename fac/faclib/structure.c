@@ -1,11 +1,20 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.31 2002/08/17 20:21:40 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.32 2002/08/28 21:41:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+#define debug_integral(s, ne, r) \
+        {int ks; \
+         for (ks = 0; ks < (2*(ne)); ks++) { \
+         fprintf(stdout, "%d %d %d %d %d\n", \
+	         (s)[ks].index, (s)[ks].n, (s)[ks].kappa,\
+                 (s)[ks].nq_bra, (s)[ks].nq_ket); \
+        } \
+         fprintf(stdout, "%d electron: %lf\n\n", (ne), (r)); \
+        }
 
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 #define debug_integral(s, ne, r) \
@@ -166,7 +175,6 @@ int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp) {
       h->hamilton[t++] = r;
     }
   }
-
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.set_ham += stop-start;
@@ -179,6 +187,7 @@ int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp) {
   stop = clock();
   timing.set_ham += stop-start;
 #endif
+  printf("ConstructHamilton Error\n");
   return -1;
 }
 
@@ -432,6 +441,7 @@ double HamiltonElement(int isym, int isi, int isj) {
       s[3].nq_ket = s[2].nq_ket;
       r = Hamilton2E(n_shells, sbra, sket, s);
       x += r;
+
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
       debug_integral(s, 2, r);
 #endif
@@ -455,6 +465,7 @@ double HamiltonElement(int isym, int isi, int isj) {
 
       r = Hamilton1E(n_shells, sbra, sket, s);
       x += r;
+
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
       debug_integral(s, 1, r);
 #endif
@@ -475,6 +486,7 @@ double HamiltonElement(int isym, int isi, int isj) {
 	s[3].nq_ket = s[3].nq_bra;
 	r = Hamilton2E(n_shells, sbra, sket, s);
 	x += r;
+
 
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 	debug_integral(s, 2, r);
@@ -631,8 +643,10 @@ int DiagnolizeHamilton(void) {
     h->msize0 = h->msize;
     h->mixing = (double *) realloc(h->mixing, sizeof(double)*h->msize);
   }
-  if (!(h->mixing)) goto ERROR;
-  
+  if (!(h->mixing)) {
+    printf("Allocating Mixing Error\n");
+    goto ERROR;
+  }  
   ap = h->hamilton;
   if (m > n) {
     mixing = h->work + lwork;
@@ -642,11 +656,12 @@ int DiagnolizeHamilton(void) {
   
   w = mixing;
   z = mixing + n;
-
   dspevd_(jobz, uplo, &n, ap, w, z, &ldz, h->work, &lwork,
 	  h->iwork, &liwork, &info);
-  if (info) goto ERROR;
-
+  if (info) {
+    printf("dspevd Error: %d\n", info);
+    goto ERROR;
+  }
   if (m > n) {
     np = m-n;
     b = h->hamilton + t0/2;

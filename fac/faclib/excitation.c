@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.39 2002/08/23 13:37:17 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.40 2002/08/28 21:41:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1139,56 +1139,66 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	}
       }
     }
-    r /= 3.0;
-    bethe[0] = r*2.0;
     c = 0.0;
+    c1 = 1E30;
     for (t = 0; t < NGOSK; t++) {
       if (gos[t] > c) {
 	c = gos[t];
+      } else if (gos[t] < c1 && gos[t] > 0.0) {
+	c1 = gos[t];
       }
     }
-    c *= EPS3;
-    for (t = NGOSK-1; t >= 0; t--) {
-      if (gos[t] > c) break;
-    }
-    c = 0.5*kgrid[t];
-    n_born = 2;
-    c1 = 0.5*c*c/te;
-    c1 = Max(c1, 50.0);
-    c2 = 0.5*c1;
-    born_egrid[0] = c2;
-    born_egrid[n_born-1] = c1;
-    g1 = rq;
-    for (t = 0; t < NGOSK; t++) {
-      gos[t] = log(gos[t]);
-    }
-    for (i = 0; i < n_born; i++) {
-      c1 = sqrt(2.0*te*born_egrid[i]);
-      c2 = sqrt(2.0*te*(born_egrid[i]-1.0));
-      kint[0] = c1 - c2;
-      kint[NGOSK-1] = c1 + c2;
-      log_kint[0] = log(kint[0]);
-      log_kint[NGOSK-1] = log(kint[NGOSK-1]);
-      c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
-      for (t = 1; t < NGOSK-1; t++) {
-	log_kint[t] = log_kint[t-1] + c1;
-	kint[t] = exp(log_kint[t]);
+    if (c <= 0.0) {
+      bethe[0] = -1.0;
+      bethe[1] = 0.0;
+      bethe[2] = 0.0;
+    } else {
+      r /= 3.0;
+      bethe[0] = r*2.0;
+      c *= EPS5;
+      for (i = NGOSK-1; i >= 0; i--) {
+	if (gos[i] > c) break;
       }
-      np = 3;
-      j = NGOSK;
-      uvip3p_(&np, &j, log_kgrid, gos, &j, log_kint, gosint);
+      c2 = log(c1);
       for (t = 0; t < NGOSK; t++) {
-	gosint[t] = exp(gosint[t]);
+	if (gos[t] > c1) gos[t] = log(gos[t]);
+	else gos[t] = c2;
+      }			    
+      c = 0.5*kgrid[i];
+      n_born = 2;
+      c1 = 0.5*c*c/te;
+      c1 = Max(c1, 50.0);
+      c2 = 0.5*c1;
+      born_egrid[0] = c2;
+      born_egrid[1] = c1;
+      g1 = rq;
+      for (i = 0; i < n_born; i++) {
+	c1 = sqrt(2.0*te*born_egrid[i]);
+	c2 = sqrt(2.0*te*(born_egrid[i]-1.0));
+	kint[0] = c1 - c2;
+	kint[NGOSK-1] = c1 + c2;
+	log_kint[0] = log(kint[0]);
+	log_kint[NGOSK-1] = log(kint[NGOSK-1]);
+	c1 = (log_kint[NGOSK-1] - log_kint[0])/(NGOSK-1);
+	for (t = 1; t < NGOSK-1; t++) {
+	  log_kint[t] = log_kint[t-1] + c1;
+	  kint[t] = exp(log_kint[t]);
+	}
+	np = 3;
+	j = NGOSK;
+	uvip3p_(&np, &j, log_kgrid, gos, &j, log_kint, gosint);
+	for (t = 0; t < NGOSK; t++) {
+	  gosint[t] = exp(gosint[t]);
+	}
+	g1[i] = Simpson(gosint, 0, NGOSK-1);
+	g1[i] *= 4.0*c1;
+	if (bethe[0] > 0) g1[i] -= bethe[0]*log(born_egrid[i]);
       }
-      g1[i] = Simpson(gosint, 0, NGOSK-1);
-      g1[i] *= 4.0*c1;
-      if (bethe[0] > 0) g1[i] -= bethe[0]*log(born_egrid[i]);
+      c1 = 1.0/born_egrid[0];
+      c2 = 1.0/born_egrid[1];
+      bethe[2] = (g1[1] - g1[0])/(c2 - c1);
+      bethe[1] = g1[1] - bethe[2]*c2;
     }
-    fflush(stdout);
-    c1 = 1.0/born_egrid[0];
-    c2 = 1.0/born_egrid[1];
-    bethe[2] = (g1[1] - g1[0])/(c2 - c1);
-    bethe[1] = g1[1] - bethe[2]*c2;
   } else {
     bethe[0] = -1.0;
     bethe[1] = 0.0;
@@ -1215,7 +1225,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	params[3] = 0.0;
       } else {
 	tol = qk_fit_tolerance;
-	if (*bethe < 0.0) {
+	if (bethe[0] < 0.0) {
 	  params[0] = qkc[0];
 	  params[1] = 0.0;
 	  params[2] = 0.0;
@@ -1620,7 +1630,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     DeinitFile(f, &fhdr);
     e0 = e1;
     FreeExcitationQk();
-    ReinitRadial(1);
+    ReinitRadial(2);
   }
 
   ArrayFree(&subte, NULL);
@@ -1674,12 +1684,14 @@ void _FreeExcitationPk(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
+  *((double **) p) = NULL;
 }
 
 void _FreeExcitationKappa(void *p) {
   short *kp;
   kp = *((short **) p);
   free(kp);
+  *((short **) p) = NULL;
 }
 
 int FreeExcitationPk(int ie) {
