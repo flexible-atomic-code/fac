@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.21 2002/04/30 15:40:59 mfgu Exp $
+# rcsid = $Id: README,v 1.22 2002/04/30 19:52:09 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -30,7 +30,7 @@ The two interfaces are independent. Either one or both can be installed.
 Before installing, check the top level Makefile, and the setup script 
 "setup.py" (for Python interface). Normally, only a few macro defined at 
 the top of Makefile are OS dependent. Make appropriate changes according
-to the comments. In "setup.py", the Fortran runtime library need to be 
+to the comments. In "setup.py", the Fortran runtime library needs to be 
 specified through the variable "fortranlib" (see "setup.py" for details).
 
 Once these changes are made. 

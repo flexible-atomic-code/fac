@@ -1,4 +1,4 @@
-doc: guide.tex macro.tex
+doc: guide.tex
 	latex guide
 	latex guide
 
