@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.60 2004/06/13 01:20:03 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.61 2004/06/13 04:37:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -246,12 +246,10 @@ void Differential(double *p, double *dp, int i1, int i2) {
 }    
 
 int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
-  #define ME 50
   double z, z0, e, de, ep, delta, emin, emax;
   double *p, norm2, fact, p1, p2, qo, qi, bqp;
-  int i, j, k, kl, nr, nodes, niter;
+  int i, k, kl, nr, nodes, niter;
   int i2, i2m1, i2m2, i2p1, i2p2;
-  double en[ME], dq[ME];
   
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
@@ -302,7 +300,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     return -2;
   }
   emax = e;
-  if (nodes > nr) {
+  if (nodes != nr) {
     if (kl == 0) {
       e = emin;      
       while (niter < max_iteration) {
@@ -310,6 +308,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 	SetPotentialW(pot, e, orb->kappa);
 	SetVEffective(kl, pot);
 	i2 = TurningPoints(orb->n, e, pot);
+	if (i2 < 0) break;	  
 	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
 	if (nodes <= nr) break;
 	e = e*2.0;
@@ -477,7 +476,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     DiracSmall(orb, pot);
   }
   return 0;
-#undef ME
 }
  
 int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
@@ -501,44 +499,94 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 
   z0 = pot->Z[pot->maxrp-1];
   z = (z0 - pot->N + 1.0);
-  emax = EnergyH(z, orb->n+2, orb->kappa);
-  emin = EnergyH(z0*1.5, orb->n, orb->kappa);
-  e = EnergyH(z, orb->n, orb->kappa);
+
+  if (kl > 0) {
+    SetPotentialW(pot, 0.0, orb->kappa);
+    SetVEffective(kl, pot);
+    emin = 1E30;
+    for (i = 0; i < pot->maxrp; i++) {
+      if (_veff[i] < emin) emin = _veff[i];
+    }
+    emin += ENEABSERR;
+  } else {
+    emin = EnergyH(z, orb->n, orb->kappa);
+  }
+  
+  e = emin;
   niter = 0;
   while (niter < max_iteration) {
     niter++;
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot);
     i2 = TurningPoints(orb->n, e, pot);
-    if (i2 == -2) {
-      emin = e;
-      e *= 0.95;
-      niter--;
-      continue;
+    if (i2 > 0) {
+      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
+      if (nodes >= nr) break;
     }
-    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
-    if (nodes == nr) break;
-    else if (nodes < nr) emin = e;
-    else emax = e;
-    p1 = (nodes + kl + 1.0)/orb->n;
-    p1 = p1*p1;
-    ep = e*p1;
-    if (ep < emin) {
-      ep = 0.5*(emin + e);
-    } else if (ep > emax) {
-      ep = 0.5*(emax + e);
-    }
-    e = ep;
+    e *= 0.5;
   }
-
   if (niter == max_iteration) {
-    printf("Maximum iteration before correct nodes RadialBound: %d %d\n",
+    printf("Max iteration before finding correct nodes in RadialBound %d %d\n",
 	   nodes, nr);
     free(p);
     return -2;
   }
-  
-  de = -0.1*e;
+  emax = e;
+  printf("%d %d %10.3E %10.3E %10.3E\n", niter, nodes, e, emin, emax);
+
+  niter = 0;
+  if (nodes != nr) {
+    if (kl == 0) {
+      e = emin;   
+      while (niter < max_iteration) {
+	niter++;
+	SetPotentialW(pot, e, orb->kappa);
+	SetVEffective(kl, pot);
+	i2 = TurningPoints(orb->n, e, pot);
+	if (i2 < 0) break;
+	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
+	if (nodes <= nr) break;
+	e = e*2.0;
+      }
+      emin = e;
+      if (niter == max_iteration) {
+	printf("Max iteration before finding correct nodes in RadialBound %d %d\n",
+	       nodes, nr);
+	free(p);
+	return -3;
+      }
+      e = 0.5*(emin + emax);
+    }
+    if (nodes != nr) {
+      while (niter < max_iteration) {
+	niter++;
+	SetPotentialW(pot, e, orb->kappa);
+	SetVEffective(kl, pot);
+	i2 = TurningPoints(orb->n, e, pot);
+	if (i2 < 0) {
+	  nodes = -1;
+	} else {
+	  nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
+	}
+	if (nodes == nr) break;
+	else if (nodes > nr) {
+	  emax = e;
+	  e = 0.5*(emin + e);
+	} else {
+	  emin = e;
+	  e = 0.5*(emax + e);
+	}
+      }
+      if (niter == max_iteration) {
+	printf("Max iteration before finding correct nodes in RadialBound %d %d\n",
+	       nodes, nr);
+	free(p);
+	return -4;
+      }
+    }
+  }
+
+  de = 0.5*(emax - emin);
   while (de > ENEABSERR) {
     de *= 0.25;
     while (nodes == nr) {
@@ -594,7 +642,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   if (niter == max_iteration) {
     printf("Max iteration reached in RadialBound\n");
     free(p);
-    return -3;
+    return -5;
   }
   ep = sqrt(norm2);
   fact = 1.0/ep;
