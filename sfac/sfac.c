@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.75 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.76 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1228,6 +1228,17 @@ static int PSetAngZOptions(int argc, char *argv[], int argt[],
   }
   SetAngZOptions(n, mc, c);
   
+  return 0;
+}
+
+static int PSetCILevel(int argc, char *argv[], int argt[],
+		       ARRAY *variables) {
+  int i;
+  
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  i = atoi(argv[0]);
+  SetCILevel(i);
+
   return 0;
 }
 
@@ -3366,6 +3377,7 @@ static METHOD methods[] = {
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
+  {"SetCILevel", PSetCILevel, METH_VARARGS},
   {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},

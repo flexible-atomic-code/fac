@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.78 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.79 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3740,6 +3740,7 @@ int SetTRRates(int inv) {
 	e = ion->energy[r.upper] - ion->energy[r.lower];
 	if (iuta) e = rx.energy;
 	gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
+	if (iuta) gf *= rx.sci;
 	TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
 	im = AddRate(ion, ion->tr_rates, &rt, m);
 	if (iuta && im == 0) {
@@ -3817,8 +3818,9 @@ int SetTRRates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  if (iuta) e = rx.energy;
+	  if (iuta) e = rx.energy;	    
 	  gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
+	  if (iuta) gf *= rx.sci;
 	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
 	  im = AddRate(ion, ion->tr_rates, &rt, m);
 	  if (iuta && im == 0) {

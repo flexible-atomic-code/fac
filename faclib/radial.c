@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.110 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.111 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1691,6 +1691,76 @@ double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2) {
   return e;
 }
 
+double ConfigEnergyShiftCI(int nrs0, int nrs1) {
+  int n0, k0, q0, n1, k1, q1;
+  int j0, j1, s0, s1, kmax, k;
+  double a, g, pk, w, sd, q;
+
+  UnpackNRShell(&nrs0, &n0, &k0, &q0);
+  UnpackNRShell(&nrs1, &n1, &k1, &q1);
+  q = (q0-1.0)/(2.0*k0+1.0) - q1/(2.0*k1+1.0);
+  if (q == 0.0) return q;
+  g = 0.0;
+  for (j0 = k0-1; j0 <= k0+1; j0 += 2) {
+    if (j0 < 0) continue;
+    s0 = OrbitalIndex(n0, GetKappaFromJL(j0, k0), 0);    
+    for (j1 = k1-1; j1 <= k1+1; j1 += 2) {
+      if (j1 < 0) continue;
+      s1 = OrbitalIndex(n1, GetKappaFromJL(j1, k1), 0);
+      w = W6j(j0, k0, 1, k1, j1, 2);
+      w = w*w*(j0+1.0)*(j1+1.0)*0.5;
+      pk = ((j0+1.0)*(j1+1.0))/((k0+1.0)*(k1+1.0)*4.0) - w;
+      Slater(&sd, s0, s1, s0, s1, 0, 0);
+      g += sd*pk;
+      kmax = 2*j0;
+      k = 2*j1;
+      kmax = Min(k, kmax);
+      for (k = 4; k <= kmax; k += 4) {	
+	pk = W3j(k0, k, k0, 0, 0, 0);
+	if (fabs(pk) > 0) {
+	  pk *= W3j(k1, k, k1, 0, 0, 0);
+	  if (fabs(pk) > 0) {
+	    pk *= 0.25;
+	    a = W6j(j0, 2, j1, k1, 1, k0);
+	    if (fabs(a) > 0) {
+	      a = a*a;
+	      a *= W6j(j0, k, j0, k0, 1, k0);
+	      if (fabs(a) > 0) {
+		a *= W6j(j1, k, j1, k1, 1, k1);
+		if (fabs(a) > 0) {
+		  a *= W6j(j0, k, j0, j1, 2, j1);
+		  a *= 2.0*(j0+1.0)*(j1+1.0)*(k0+1.0)*(k1+1.0);
+		}
+	      }
+	    }
+	    a += W6j(k0, k, k0, k1, 2, k1);
+	    pk *= a;
+	  }
+	  if (fabs(pk) > 0) {
+	    Slater(&sd, s0, s1, s0, s1, k/2, 0);
+	    g += pk*sd*(j0+1.0)*(j1+1.0);
+	  }
+	}
+      }
+      pk = W3j(k0, 2, k1, 0, 0, 0);
+      if (fabs(pk) > 0) {
+	pk = pk*pk;
+	a = W6j(j0, 2, j1, k1, 1, k0);
+	a *= a;
+	pk *= a;
+	pk *= (k0+1.0)*(k1+1.0)/3.0;
+	pk *= (1.0 - 0.5*(j0+1.0)*(j1+1.0)*a);
+	if (fabs(pk) > 0) {
+	  Slater(&sd, s0, s1, s1, s0, 1, 0);
+	  g += pk*sd*(j0+1.0)*(j1+1.0);
+	}
+      }
+    }
+  }
+
+  return q*g;
+}
+	  
 double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2) {
   double qa, qb, a, b, c, sd, e;
   int ja, jb, k, kmin, kmax;

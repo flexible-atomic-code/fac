@@ -2890,6 +2890,16 @@ Set the orbital angular momentum for the Coulomb-Bethe approximation in DW
 collisional ionization.
 \end{fundesc}
 
+\begin{fundesc}{SetCILevel}{m}
+Set the level of configuration interaction space. By default, $m=0$, the
+configuration space is determined by the configuration groups passed to the
+\key{Structure} function. CI can be further refined by the value of $m$. If
+$m=-1$, then no CI is included, the Hamiltonian is assumed to be diagonal. If
+$m=1$, only CI within the same relativistic configuration is included. If
+$m=2$, only CI within the same non-relativisitc configuration is included. If
+$m=3$, only CI within the same configuration group is included.
+\end{fundesc}
+
 \begin{fundesc}{SetCILMax}{m}
 Set the maximum orbital angular momentum for the partial-wave expansion in DW
 collisional ionization.
@@ -3129,8 +3139,10 @@ strengths on this grid are output. It is forced to be same as that set by
 \begin{fundesc}{SetUTA}{m}
 Set the flag for configuration average models. If $m=1$, all calculations are
 carried out in the configuration average approximation. The radiative
-transition rates output contains two additional fields, the energy shift and
-gauusian standard deviation in the UTA theory. If $m=0$, which is the default,
+transition rates output contains three additional fields, the energy shift,
+gauusian standard deviation, and the correction to the line strengths due to
+the configuration interaction within the same non-relativisitc
+configurations. If $m=0$, which is the default,
 the usual detailed term accounting method is used. This function should be
 called in the beginning of the script, before \key{Config} function, since it
 disables the angular momentum coupling performed by \key{Config}.
@@ -3288,12 +3300,12 @@ must be such that the number of electrons are in consecutive increasing order.
 \end{fundesc}
 
 \begin{fundesc}{Cascade}{}
-Carry ot the cascade iteration. Some of the levels in the spectral model may
+Carry out the cascade iteration. Some of the levels in the spectral model may
 be treated approximately using the cascade matrix.
 \end{fundesc}
 
 \begin{fundesc}{CBeli}{Z, n, E}
-Calculate the ionization cross sections using the Aladdin data base. data were
+Calculate the ionization cross sections using the Aladdin database. data were
 compiled by Bell et al. (J. Phys. Chem. Ref. Data., 12, 891, 1983). \var{Z} is
 the nuclear charge of the ion. \var{n} is the number f electrons, and \var{E}
 is the electron energy in eV. It returns a tuple of length 4. First element is
@@ -3315,7 +3327,7 @@ autoionization contribution, and the 3rd is the direct ionization contribution.
 \begin{fundesc}{CheckEndian}{\opt{fn}}
 Check the byte order of database file \var{fn}. It returns 0 for little endian
 and 1 for big endian. If the optional file name \var{fn} is omitted, the
-endian for the current platform is returned. This functions exists in module
+endian for the current platform is returned. This function exists in module
 \mod{fac} as well.
 \end{fundesc}
 
