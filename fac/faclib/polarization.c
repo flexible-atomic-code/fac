@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.1 2003/07/14 16:27:34 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.2 2003/07/14 20:09:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -374,7 +374,7 @@ int PopulationTable(char *fn, double eden) {
   b = rmatrix + p;
   ipiv = (int *) (b+nmlevels);
   for (i = 0; i < p; i++) {
-    rmatrix[p] = 0.0;
+    rmatrix[i] = 0.0;
   }
 
   for (i = 0; i < ntr; i++) {
