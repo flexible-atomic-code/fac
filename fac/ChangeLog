@@ -1,4 +1,4 @@
-Version 0.5.8, 10/03/2001
+Version 0.5.8, 10/04/2001
 	1. really fixed the occasionall failur of radial solver.
 	2. the output level names are simplified by 
 	   dropping the closed shells.

@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.22 2001/10/04 14:03:19 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.23 2001/10/04 22:27:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -48,7 +48,8 @@ static double rgrid_max = 1E3;
  
 static MULTI *slater_array;
 static MULTI *residual_array;
-static MULTI *multipole_array;  
+static MULTI *multipole_array; 
+static MULTI *moments_array;  
 
 double argam_(double *x, double *y);
 double besljn_(int *jy, int *n, double *x);
@@ -907,64 +908,69 @@ int ResidualPotential(double *s, int k0, int k1) {
   return 0;
 }
 
-/* the multipole operator in non-relativistic approximation.
-   coulomb gauge corresponding to the velocity form. 
-   babushkin gauge to length form. m is the rank. positive means 
-   magnetic multipoles, negtive means electric. If it is <=
-   -256 or >= 256, however, it calculates the expectation value of
-   r^(m+/-256), this is used in the evaluation of slater integral 
-   in separable coulomb interaction. */
-double MultipoleRadialNR(double aw, int m, int k1, int k2, int gauge) {
+double RadialMoments(int m, int k1, int k2) {
+  int index[3], npts, i;
+  ORBITAL *orb1, *orb2;
+  double *q, r;
+
+  if (m >= 0) {
+    index[0] = 2*m;
+  } else {
+    index[0] = -2*m-1;
+  }
+    
+  if (k1 < k2) {
+    index[1] = k1;
+    index[2] = k2;
+  } else {
+    index[1] = k2;
+    index[2] = k1;
+  }
+  
+  q = (double *) MultiSet(moments_array, index, NULL);
+ 
+  if (*q) {
+    return *q;
+  } 
+  
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+
+  npts = MAX_POINTS-1;
+  if (orb1->n > 0) npts = Min(npts, orb1->ilast);
+  if (orb2->n > 0) npts = Min(npts, orb2->ilast);
+
+  r = 0.0;
+  for (i = 0; i <= npts; i++) {
+    _yk[i] = pow(potential->rad[i], m);
+  }
+  Integrate(_yk, orb1, orb2, 1, &r);
+  *q = r;
+
+  return r;
+}
+  
+
+double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   int i, p, t;
-  int npts;
   ORBITAL *orb1, *orb2;
   double r;
-  int index[4];
-  double *q;
   int kappa1, kappa2;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop; 
   start = clock();
 #endif
-
-  if (m == 0) return 0.0;
-
-  if (m >= 256) {
-    gauge = G_BABUSHKIN;
-    index[1] = m-256;
-    index[0] = 0;
-  } else if (m <= -256) {
-    gauge = G_BABUSHKIN;
-    index[1] = -m-256;
-    index[0] = 1;    
-  } else if (m > 0) {
-    index[1] = m;
-    index[0] = (gauge == G_BABUSHKIN)?2:3;
-  } else if (m < 0) {
-    index[1] = -m;
-    index[0] = (gauge == G_BABUSHKIN)?4:5;
-  }
-  index[2] = k1;
-  index[3] = k2;
-  
-  q = (double *) MultiSet(multipole_array, index, NULL);
-  if (*q) {
-    return *q;
-  }
   
   orb1 = GetOrbital(k1);
   orb2 = GetOrbital(k2);
   kappa1 = orb1->kappa;
   kappa2 = orb2->kappa;
-  npts = MAX_POINTS-1;
-  if (orb1->n > 0) npts = Min(npts, orb1->ilast);
-  if (orb2->n > 0) npts = Min(npts, orb2->ilast);
 
   r = 0.0;
   if (m == 1) {
     /**********************************************************/ 
-    /* M1 needs specital treatments, because the lowest order */
+    /* M1 needs special treatments, because the lowest order  */
     /* non-relativistic approximation is simply the overlap   */
     /* integral, which vanishes in most cases.                */
     /**********************************************************/
@@ -979,52 +985,35 @@ double MultipoleRadialNR(double aw, int m, int k1, int k2, int gauge) {
       /* the M1 radial integral vanish in this approximation. 
 	 instead of going to higher orders, use the relativistic 
 	 version is just simpler */
-      r = MultipoleRadial(aw, m, k1, k2, gauge);
+      printf("should call MultipoleRadialFR instead\n");
     }
-  } else if (m > 1 && m < 256) {
+  } else if (m > 1) {
     t = kappa1 + kappa2;
     p = m - t;
     if (p && t) {
-      for (i = 0; i <= npts; i++) {
-	_yk[i] = pow(potential->rad[i], m-1);
-      }
-      Integrate(_yk, orb1, orb2, 1, &r);
+      r = RadialMoments(m-1, k1, k2);
       r *= p*t;
       r /= sqrt(m*(m+1.0));
       r *= -0.5 * FINE_STRUCTURE_CONST;
       for (i = 2*m - 1; i > 0; i -= 2) r /= (double) i;
       r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
     }
-  } else if (m < 0 && m > -256) {
+  } else if (m < 0) {
     m = -m;
     if (gauge == G_BABUSHKIN) {
-      for (i = 0; i <= npts; i++) {
-	_yk[i] = pow(potential->rad[i], m);
-      }
-      Integrate(_yk, orb1, orb2, 1, &r);
+      r = RadialMoments(m, k1, k2);
       r *= sqrt((m+1.0)/m);
       for (i = 2*m - 1; i > 1; i -= 2) r /= (double) i;
     } else {
       /* the velocity form is not implemented yet. 
 	 the following is still the length form */
-      for (i = 0; i <= npts; i++) { 
-	_yk[i] = pow(potential->rad[i], m);
-      }
-      Integrate(_yk, orb1, orb2, 1, &r);
+      r = RadialMoments(m, k1, k2);
       r *= sqrt((m+1.0)/m);
       for (i = 2*m - 1; i > 1; i -= 2) r /= (double) i;
     }
     r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
-  } else {
-    m = (m > 0)?(m-256):(m+256);
-    for (i = 0; i <= npts; i++) {
-      _yk[i] = pow(potential->rad[i], m);
-    }
-    Integrate(_yk, orb1, orb2, 1, &r);
   }
-  
-  *q = r;
-  
+
 #ifdef PERFORM_STATISTICS 
   stop = clock();
   rad_timing.radial_1e += stop - start;
@@ -1035,12 +1024,10 @@ double MultipoleRadialNR(double aw, int m, int k1, int k2, int gauge) {
 
 /* fully relativistic multipole operator, 
    see Grant, J. Phys. B. 1974. Vol. 7, 1458. */ 
-double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
+double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   double r, q, ip, ipm, im, imm;
   int kappa1, kappa2;
   int am, t;
-  int index[4];
-  double *p;
   ORBITAL *orb1, *orb2;
 
 #ifdef PERFORM_STATISTICS 
@@ -1049,21 +1036,6 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
 #endif
 
   if (m == 0) return 0.0;
-
-  if (m > 0) {
-    index[1] = m;
-    index[0] = (gauge == G_BABUSHKIN)?6:7; 
-  } else if (m < 0) {
-    index[1] = -m;
-    index[0] = (gauge == G_BABUSHKIN)?8:9;
-  }
-  index[2] = k1;
-  index[3] = k2;
-
-  p = (double *) MultiSet(multipole_array, index, NULL);
-  if (*p) {
-    return *p;
-  }
   
   orb1 = GetOrbital(k1);
   orb2 = GetOrbital(k2);
@@ -1074,7 +1046,7 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
     am = m;
     t = kappa1 + kappa2;
     if (t) {
-      r = t * MultipoleIJ(aw, m, orb1, orb2, 4);
+      r = t * MultipoleIJ(aw, m, k1, k2, 1);
       r *= (2*m + 1.0)/sqrt(m*(m+1.0));
       r /= pow(aw, m);
     }
@@ -1084,22 +1056,22 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
       t = kappa1 - kappa2;
       q = sqrt(am/(am+1.0));
       if (t) {
-	ip = MultipoleIJ(aw, am+1, orb1, orb2, 4);
-	ipm = MultipoleIJ(aw, am-1, orb1, orb2, 4);
+	ip = MultipoleIJ(aw, am+1, k1, k2, 1);
+	ipm = MultipoleIJ(aw, am-1, k1, k2, 1);
 	r = t*ip*q - t*ipm/q;
       }
-      im = MultipoleIJ(aw, am+1, orb1, orb2, 5);
-      imm = MultipoleIJ(aw, am-1, orb1, orb2, 5);
+      im = MultipoleIJ(aw, am+1, k1, k2, 2);
+      imm = MultipoleIJ(aw, am-1, k1, k2, 2);
       r += (am + 1.0)*im*q + am*imm/q;
       r /= pow(aw,am);
     } else if (gauge == G_BABUSHKIN) {
       t = kappa1 - kappa2;
       if (t) {
-	ip = MultipoleIJ(aw, am+1, orb1, orb2, 4);
+	ip = MultipoleIJ(aw, am+1, k1, k2, 1);
 	r = t*ip;
       }
-      im = MultipoleIJ(aw, am+1, orb1, orb2, 5);
-      imm = MultipoleIJ(aw, am, orb1, orb2, 1);
+      im = MultipoleIJ(aw, am+1, k1, k2, 2);
+      imm = MultipoleIJ(aw, am, k1, k2, 0);
       r += (am + 1.0) * (imm + im);
       q = (2*am + 1.0)/sqrt(am*(am+1.0));
       r = r*q/pow(aw,am);
@@ -1108,8 +1080,6 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
 
   r *= ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
 
-  *p = r;
-
 #ifdef PERFORM_STATISTICS 
     stop = clock();
     rad_timing.radial_1e += stop - start;
@@ -1117,13 +1087,59 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
   return r;
 }
 
-/* calculates the I and J integral defined in Grant. J. Phys. B. 
-   V7. 1458 */
-double MultipoleIJ(double aw, int m, 
-		   ORBITAL *orb1, ORBITAL *orb2, int type) {
-  int i, npts;
+/*********************************************** 
+   calculates the I and J integral defined in 
+   Grant. J. Phys. B. V7. 1458,
+   t = 0, P1P2 + Q1Q2
+   t = 1, P1Q2 + Q1P2
+   t = 2, P1Q2 - Q1P2
+************************************************/
+
+double MultipoleIJ(double aw, int m, int k1, int k2, int t) {
+  int i, npts, s;
   double r, x;
-  int jy, n;
+  int jy, n, type;
+  ORBITAL *orb1, *orb2;
+  int index[4];
+  double *p;
+
+  switch (t) {
+  case 0: 
+    type = 1;
+    break;
+  case 1:
+    type = 4;
+    break;
+  case 2:
+    type = 5;
+    if (k1 == k2) return 0.0;
+    break;
+  default:
+    break;
+  }
+
+  index[0] = t;
+  index[1] = m;
+  if (k1 <= k2) {
+    s = 0;
+    index[2] = k1;
+    index[3] = k2;
+    orb1 = GetOrbital(k1);
+    orb2 = GetOrbital(k2);
+  } else {
+    s = 1;
+    index[2] = k2;
+    index[3] = k1;
+    orb1 = GetOrbital(k2);
+    orb2 = GetOrbital(k1);
+  }
+
+  p = (double *) MultiSet(multipole_array, index, NULL);
+  if (*p) {
+    r = *p;
+    if (t == 2 && s == 1) r = -r;
+    return r;
+  }
 
   jy = 1;
   n = m;
@@ -1135,6 +1151,10 @@ double MultipoleIJ(double aw, int m,
     _yk[i] = besljn_(&jy, &n, &x); 
   }
   Integrate(_yk, orb1, orb2, type, &r);
+  *p = r;
+
+  if (t == 2 && s == 1) r = -r;
+
   return r;
 } 
 
@@ -1327,11 +1347,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(0.0, m+256, k0, k2, 0);
+	*s = RadialMoments(m, k0, k2);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(0.0, m-256, k1, k3, 0);
+	*s *= RadialMoments(m, k1, k3);
       }
       break;
 
@@ -1340,11 +1360,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(0.0, m+256, k1, k3, 0);
+	*s = RadialMoments(m, k1, k3);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(0.0, m-256, k0, k2, 0);      
+	*s *= RadialMoments(m, k0, k2);      
       }
       break;
       
@@ -2188,8 +2208,14 @@ int FreeResidualArray() {
 }
 
 int FreeMultipoleArray() {
-  if (slater_array->array == NULL) return 0;
+  if (multipole_array->array == NULL) return 0;
   MultiFreeData(multipole_array->array, multipole_array->ndim, NULL);
+  return 0;
+}
+
+int FreeMomentsArray() {
+  if (moments_array->array == NULL) return 0;
+  MultiFreeData(moments_array->array, moments_array->ndim, NULL);
   return 0;
 }
 
@@ -2216,9 +2242,12 @@ int InitRadial() {
   MultiInit(residual_array, sizeof(double), ndim, blocks);
   
   ndim = 4;
-  blocks[0] = 10;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double), ndim, blocks);
+
+  ndim = 3;
+  moments_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(moments_array, sizeof(double), ndim, blocks);
 
   return 0;
 }
