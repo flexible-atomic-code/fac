@@ -260,7 +260,7 @@
 #define MAXNUSR            30
 #define MAXNE              20
 #define MAXNTE             6
-#define TE_MIN_MAX         0.1
+#define TE_MIN_MAX         0.5
 
 /* excitation */
 #define NGOSK              64
