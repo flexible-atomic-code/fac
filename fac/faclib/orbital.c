@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.66 2004/06/23 18:11:13 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.67 2004/06/23 19:13:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1435,8 +1435,16 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   m = i2 - i1 - 1;
   if (m < 0) return 0;
   if (m == 0) {
-    p[i1] = p1;
-    p[i2] = p2;
+    if (q == 0) {
+      p[i1] = p1;
+      p[i2] = p2;
+    } else if (q == 1) {
+      p[i1] = p1;
+      p[i2] = (1.0+p2)*p1;
+    } else if (q == 2) {
+      p[i1] = (1.0-p1)*p2;
+      p[i2] = p2;
+    }
     return 0;
   }
 
@@ -1479,7 +1487,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   x += z*y;    
   x *= y / 12.0;
   a2 = 1.0 - x;
-  if (q & 1) {
+  if (q == 1) {
     k -= n;
     ABAND[k] += 2*p2*a2;
     k -= n;
@@ -1502,7 +1510,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   x += z*y;    
   x *= y / 12.0;
   a1 = 1.0 - x;
-  if (q & 2) {
+  if (q == 2) {
     k = kl + ku;
     ABAND[k] -= 2*p1*a1;
     k += n;
@@ -1518,10 +1526,10 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
     exit(1);
   }
 
-  if (q & 1) {
+  if (q == 1) {
     p[i2] = 2*p2*p[i2-1] + p[i2-2];
   }
-  if (q & 2) {
+  if (q == 2) {
     p[i1] = -2*p1*p[i1+1] + p[i1+2];
   }
 
