@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.64 2002/09/25 14:52:21 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.65 2002/09/25 21:13:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -397,6 +397,7 @@ int GetPotential(char *s) {
     ve1[k] += w[k]*0.4235655;
     ve0[k] = potential->Vc[k]+potential->U[k] - v[k];
   }
+  ve1[0] = ve1[1];
 
   fprintf(f, "Mean configuration:\n");
   for (i = 0; i < acfg->n_shells; i++) {
@@ -1066,6 +1067,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  cfg->energy = AverageEnergyConfig(cfg);
 	}
 	ReinitRadial(1);
+	ClearOrbitalTable(0);
       }
     } else {
       OptimizeRadial(ng, kg, NULL);
@@ -1080,6 +1082,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	}
       }
       ReinitRadial(1);
+      ClearOrbitalTable(0);
     }
   } else {
     ng = GetNumGroups();
@@ -3311,11 +3314,11 @@ int FreeSimpleArray(MULTI *ma) {
 }
 
 int FreeSlaterArray(void) {
-  FreeSimpleArray(slater_array);
+  return FreeSimpleArray(slater_array);
 }
 
 int FreeResidualArray(void) {
-  FreeSimpleArray(residual_array);
+  return FreeSimpleArray(residual_array);
 }
 
 static void FreeMultipole(void *p) {
@@ -3418,9 +3421,9 @@ int ReinitRadial(int m) {
       n_awgrid = 1;
       awgrid[0] = EPS3;
       SetRadialGrid(1E-5, 5E2);
+      potential->uehling[0] = 0.0;
     }
   }
-  potential->uehling[0] = 0.0;
   return 0;
 }
   
