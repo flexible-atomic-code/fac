@@ -2,6 +2,7 @@
 #define _COULOMB_H_ 1
 
 #include "global.h"
+#include "array.h"
 #include "angular.h"
 #include "grid.h"
 
@@ -10,7 +11,10 @@
 
 void SetHydrogenicNL(int n, int kl);
 void GetHydrogenicNL(int *n, int *kl);
-double TRRateHydrogenic(double z, int n0, int n1, double *ac, int s);
+double HydrogenicDipole(double z, int n0, int kl0, 
+			int n1, int kl1);
+double TRRateHydrogenic(double z, int n0, int kl0,
+			int n1, int kl1, int s);
 double CoulombPhaseShift(double z, double e, int kappa);
 double AngularMSub(int lf, int li1, int li2, int q);
 double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k);

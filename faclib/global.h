@@ -183,7 +183,7 @@
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
 
 
-#define MAX_POINTS 640
+#define MAX_POINTS 720
 
 #define G_COULOMB   1
 #define G_BABUSHKIN 2

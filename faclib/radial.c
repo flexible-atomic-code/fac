@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.47 2002/05/08 15:32:53 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.48 2002/05/15 18:45:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1095,7 +1095,38 @@ int ResidualPotential(double *s, int k0, int k1) {
 double RadialMoments(int m, int k1, int k2) {
   int index[3], npts, i;
   ORBITAL *orb1, *orb2;
-  double *q, r;
+  double *q, r, z;
+  int n1, n2;
+  int kl1, kl2;
+  int nh, klh;
+
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+  n1 = orb1->n;
+  n2 = orb2->n;
+  if (n1 == n2 && n1 >= GetNMax()) {
+    return 0.0;
+  }
+  if (m == 1 && n1 > 0 && n2 > 0) {
+    kl1 = orb1->kappa;
+    kl2 = orb2->kappa;
+    kl1 = GetLFromKappa(kl1);
+    kl2 = GetLFromKappa(kl2);
+    kl1 /= 2;
+    kl2 /= 2;
+    
+    GetHydrogenicNL(&nh, &klh);
+    if ((orb1->n >= nh && orb2->n >= nh) ||
+	(kl1 >= klh && kl2 >= klh)) {
+      z = GetResidualZ();
+      if (n1 < n2) {
+	r = HydrogenicDipole(z, n1, kl1, n2, kl2);
+      } else {
+	r = HydrogenicDipole(z, n2, kl2, n1, kl1);
+      }
+      return r;
+    }
+  }
 
   if (m >= 0) {
     index[0] = 2*m;
@@ -1145,9 +1176,9 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   clock_t start, stop; 
   start = clock();
 #endif
-  
-  orb1 = GetOrbitalSolved(k1);
-  orb2 = GetOrbitalSolved(k2);
+
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
   kappa1 = orb1->kappa;
   kappa2 = orb2->kappa;
 

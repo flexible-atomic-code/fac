@@ -1,3 +1,9 @@
+Version 0.7.3, 05/15/2002
+	1. improving the manual
+	2. Use hydrogenic approximation for radiative transition rates
+	   between n1 and n2 states when n1 and n2 >= n0, where n0 is
+	   set by SetHydrogenicNL as for RR and PI.
+
 Version 0.7.2, 05/08/2002
 	1. add hydrogenic TRRate routine.
 	2. update papers for submission to PRA.

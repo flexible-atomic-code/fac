@@ -11,7 +11,6 @@
 #include "recouple.h"
 #include <time.h>
 
-#define MAX_ENERGY_CORRECTION 100
 #define LEVELS_BLOCK    5000
 
 typedef struct _HAMILTON_ {
@@ -66,6 +65,11 @@ typedef struct _ANGULAR_ZxZMIX_ {
   short k3;
 } ANGULAR_ZxZMIX;
 
+typedef struct _ECORRECTION_ {
+  int ilev;
+  double e;
+} ECORRECTION;
+
 #ifdef PERFORM_STATISTICS
 typedef struct _STRUCT_TIMING_ {
   clock_t angz_mix;
@@ -97,7 +101,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
-int CorrectEnergy(int n, int *k, double *e);
+int AddECorrection(int k, double e);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels(void);

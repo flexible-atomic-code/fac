@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.28 2002/04/30 15:01:54 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.29 2002/05/15 18:45:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2538,8 +2538,8 @@ static PyObject *PTestCoulomb(PyObject *self, PyObject *args) {
 static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   char *s;
   PyObject *p, *q, *ip, *iq;
-  int n, k[MAX_ENERGY_CORRECTION];
-  double e[MAX_ENERGY_CORRECTION];
+  int n, k;
+  double e;
   int i;
   FILE *f;
 
@@ -2552,26 +2552,18 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "s", &s)) {
-      printf("A single argument for CorrectEnergy must be a file name\n");
       return NULL;
     }
     f = fopen(s, "r");
-    n = -1;
     while (1) {
-      n++;
-      if (n == MAX_ENERGY_CORRECTION) {
-	printf("Maximum # of levels for energy correction reached\n");
-	printf("Ignoring corrections after n = %d\n", n);
-	break;
-      } 
-      if (fscanf(f, "%d%lf\n", k+n, e+n) == EOF) break;
-      e[n] /= HARTREE_EV;
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      e /= HARTREE_EV;
+      AddECorrection(k, e);
     }
     fclose(f);
   } else if (n == 2) {
     if (!PyArg_ParseTuple(args, "OO", &p, &q)) return NULL;
     if (!PyList_Check(p) || !PyList_Check(q)) {
-      printf("The two arguments for CorrectEnergy must be two Lists\n");
       return NULL;
     }
     n = PyList_Size(p);
@@ -2582,16 +2574,14 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
     for (i = 0; i < n; i++) {
       ip = PyList_GetItem(p, i);
       iq = PyList_GetItem(q, i);
-      k[i] = PyInt_AsLong(ip);
-      e[i] = PyFloat_AsDouble(iq);
-      e[i] /= HARTREE_EV;
+      k = PyInt_AsLong(ip);
+      e = PyFloat_AsDouble(iq);
+      e /= HARTREE_EV;
+      AddECorrection(k, e);
     }
   } else {
-    printf("CorrectEnergy takes one or two arrguments\n");
     return NULL;
   }
-
-  CorrectEnergy(n, k, e);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -2820,35 +2810,23 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
 } 
 
 static PyObject *PTRRateH(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *t;
-  int i, j, os, n0, n1;
-  double z, anc;
-  double ac[1024];
+  int os, n0, n1;
+  int kl0, kl1;
+  double z, r;
 
   os = 0;
-  if (!PyArg_ParseTuple(args, "dii|i", &z, &n0, &n1, &os)) return NULL;
+  if (!PyArg_ParseTuple(args, "diiii|i", &z, &n0, &kl0, &n1, &kl1, &os)) 
+    return NULL;
   if (n1 > 512) {
     printf("maximum NU is 512\n");
     return NULL;
   }
-  anc = TRRateHydrogenic(z, n0, n1, ac, os);
-
-  p = Py_BuildValue("[]");
-  q = Py_BuildValue("[]");
-  t = Py_BuildValue("[]");
-  for (i = 0; i < n1; i++) {
-    j = i + n1;
-    if (i+1 < n0) {
-      PyList_Append(p, Py_BuildValue("d", ac[i]));
-    } 
-    if (i < n0) {
-      PyList_Append(q, Py_BuildValue("d", ac[j]));
-    }
+  if (kl0 != kl1+1 && kl0 != kl1-1) {
+    r = 0.0;
+  } else {
+    r = TRRateHydrogenic(z, n0, kl0, n1, kl1, os);
   }
-  PyList_Append(t, p);
-  PyList_Append(t, q);
-  
-  return t;
+  return Py_BuildValue("d", r);
 }
 
 static struct PyMethodDef fac_methods[] = {

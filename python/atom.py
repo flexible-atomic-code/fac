@@ -465,6 +465,9 @@ class ATOM:
         if (self.nele > 1):
             ConfigEnergy(1)
         
+        if (self.nele == 10):
+            CorrectEnergy([38,39], [-0.266, -2.618]) 
+
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
         Structure(self.bfiles['en'], g+c)
@@ -472,6 +475,8 @@ class ATOM:
         Print('Structure: ionized complexes')
         c = self.ion_complex.cgroup
         for a in c:
+            if (len(a.name) == 0):
+                continue
             Structure(self.bfiles['en'], a.name)
 
         Print('Structure: excited complexes')
@@ -678,7 +683,17 @@ class ATOM:
                         b1 = b[:na]
                     else:
                         b1 = b
-                    self.run_ai(a, b1, m)
+                    if (i == 0):
+                        if (n > 0):
+                            for c1 in a[0]:
+                                for c2 in b1:
+                                    self.run_ai(([c1], n), [c2], m)
+                        else:
+                            for c1 in a:
+                                for c2 in b1:
+                                    self.run_ai([c1], [c2], m)
+                    else:
+                        self.run_ai(a, b1, m)
                     
         return
     
@@ -704,29 +719,35 @@ class ATOM:
             self.add_excited(i, range(nexc[j]+1), -1)
             self.add_ionized(i, -1)
             r = range(nexc[j]+1, nrec[j]+1)
-            if (self.nrec_ext > nrec[j]):
+            if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
-            self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
+            try:
+                self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
+            except:
+                pass
 
         j = self.n_shells
         if (self.nele == self.nele_max[self.n_shells-1]+1):
             i = self.n_shells-1
             mrec = nrec[j+1]
             r = range(nexc[j]+1, mrec+1)
-            if (self.nrec_ext > mrec):
+            if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         else:
             i = self.n_shells
             mrec = nrec[j]
             r = range(nexc[j]+1, mrec+1)
-            if (self.nrec_ext > mrec):
+            if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         if (i > 0):
             self.add_excited(i, range(j+1, nexc[j]+1), 0)
             self.add_ionized(i, 0)
             self.add_recombined(r, j)
-            self.exc_complex[j].cgroup[-1].nrec_ext = mrec+1
+            try:
+                self.exc_complex[j].cgroup[-1].nrec_ext = mrec+1
+            except:
+                pass
 
         if (self.nele > self.nele_max[self.n_shells-1]+1):
             i = self.n_shells
@@ -734,10 +755,13 @@ class ATOM:
             self.add_excited(i, range(j+1, nexc[j]+1), 1)
             self.add_ionized(i, 1)
             r = range(nexc[j]+1, nrec[j]+1)
-            if (self.nrec_ext > nrec[j]):
+            if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
-            self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
+            try:
+                self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
+            except:
+                pass
             
         # set up configurations
         c = self.grd_complex.name
@@ -763,6 +787,8 @@ class ATOM:
         cg = self.ion_complex.cgroup
         for i in range(len(cg)):
             c = cg[i].name
+            if (len(c) == 0):
+                continue
             t = cg[i].terms
             s = 'adding complex: %s, %s'%(str(c), str(t))
             Print(s)
@@ -839,8 +865,18 @@ def atomic_data(nele, asym, iprint=-1, dir='', **process):
 	    atom.process['ci'] = not process['no_ci']
 	if (process.has_key('no_ai')):
 	    atom.process['ai'] = not process['no_ai']
-
-        atom.set_configs()
+        if (process.has_key('nexc_max')):
+            atom.nexc_max = process['nexc_max']
+        if (process.has_key('nrec_max')):
+            atom.nexc_max = process['nrec_max']
+        if (process.has_key('nrec_ext')):
+            atom.nexc_max = process['nrec_ext']
+        if (process.has_key('nexc_rec')):
+            atom.nexc_max = process['nexc_rec']
+        if (process.has_key('n_decay')):
+            atom.nexc_max = process['n_decay']
+        if (process.has_key('rec_pw_max')):
+            atom.nexc_max = process['rec_pw_max']
         
         for b in a:
             s = 'NELE = %d'%m
