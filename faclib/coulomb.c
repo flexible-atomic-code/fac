@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.29 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.30 2005/04/05 19:13:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -49,19 +49,6 @@ void GetHydrogenicNL(int *n, int *kl, int *nm, int *klm) {
   if (kl) *kl = kl_hydrogenic;
   if (nm) *nm = n_hydrogenic_max;
   if (klm) *klm = kl_hydrogenic_max;
-}
-
-double RRCrossHn(double z, double e, int n) {
-  double x, z2;
-  double y;
-  double f = 7.499E-6;
-  
-  z2 = z*z;
-  x = n;
-  e = 2.0*e;
-  y = f*z2*z2/(x*e*(z2 + e*x*x));
-
-  return y;
 }
 
 double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
