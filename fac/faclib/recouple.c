@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.16 2003/07/14 16:27:34 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.17 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -14,7 +14,7 @@ USE (rcsid);
   interacting ones, and calculate the reduced matrix elements
   of the operator Z and ZxZ0, 
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /*

@@ -7,7 +7,7 @@
   This module implements a variable length one- and 
   multi-dimensional array.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

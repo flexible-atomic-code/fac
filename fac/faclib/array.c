@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.11 2003/04/22 16:07:15 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.12 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,7 @@ USE (rcsid);
   This module implements a variable length one- and 
   multi-dimensional array.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 #ifdef PERFORM_STATISTICS  
