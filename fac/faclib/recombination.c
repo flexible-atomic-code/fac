@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.79 2004/02/25 18:02:22 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.80 2004/02/28 20:39:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1054,40 +1054,18 @@ int PrepRREGrids(double e, double emax0) {
   egrid_type = 1;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
 
-  if (qk_mode == QK_EXACT) {
-    if (n_egrid <= 0) {
-      if (n_usr <= 0) n_usr = 6;
-      if (usr_egrid[0] < 0.0) {
-	SetUsrPEGrid(n_usr, emin, emax, e);
-	usr_egrid_type = 1;
-      }  
-      SetPEGridDetail(n_usr, usr_egrid);
-    } else {
-      if (egrid[0] < 0.0) {
-	SetPEGrid(n_egrid, emin, emax, e);
-	usr_egrid_type = 1;
-      }
-      SetUsrPEGridDetail(n_egrid, egrid);
-    }
-  } else {
-    if (n_egrid == 0) {
-      n_egrid = 6;
-    }
-    if (egrid[0] < 0.0) {
-      SetPEGrid(n_egrid, emin, emax, e);
-    }
-    if (qk_mode == QK_INTERPOLATE) {
-      if (n_usr <= 0) {
-	SetUsrPEGridDetail(n_egrid, egrid);
-	usr_egrid_type = 1;
-      } else if (usr_egrid[0] < 0) {
-	SetUsrPEGrid(n_usr, emin, emax, e);
-	usr_egrid_type = 1;
-      }
-    } else if (qk_mode == QK_FIT) {
-      SetUsrPEGridDetail(n_egrid, egrid);
-      usr_egrid_type = 1;
-    }
+  if (n_egrid == 0) {
+    n_egrid = 6;
+  }
+  if (egrid[0] < 0.0) {
+    SetPEGrid(n_egrid, emin, emax, e);
+  }
+  if (n_usr <= 0) {
+    SetUsrPEGridDetail(n_egrid, egrid);
+    usr_egrid_type = 1;
+  } else if (usr_egrid[0] < 0) {
+    SetUsrPEGrid(n_usr, emin, emax, e);
+    usr_egrid_type = 1;
   }
 
   if (qk_mode == QK_INTERPOLATE) {

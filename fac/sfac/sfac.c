@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.48 2004/02/23 22:08:41 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.49 2004/02/28 20:39:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -580,6 +580,24 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   nup = SelectLevels(&up, argv[2], argt[2], variables);
   if (nup <= 0) return -1;
   if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
+
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+    
+  return 0;
+}
+
+static int PCITableMSub(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nlow, *low, nup, *up;
+  
+  if (argc != 3) return -1;
+  if (argt[0] != STRING) return -1;
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) return -1;
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) return -1;
+  if (SaveIonizationMSub(nlow, low, nup, up, argv[0]) < 0) return -1;
 
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
@@ -2758,6 +2776,7 @@ static METHOD methods[] = {
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
+  {"CITableMSub", PCITableMSub, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},

@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.4}\xspace}
+\newcommand{\facversion}{{1.0.5}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -382,8 +382,8 @@ describe the structure of these files in detail.
 \section{Binary Format}
 \label{sec:binary}
 \index{Binary format}
-Presently, FAC produces 10 different types of files. Each type is asigned
-a unique integer from 1--10, which corresponds to a macro define in the file
+Presently, FAC produces different types of files. Each type is asigned
+a unique integer, which corresponds to a macro define in the file
 \verb|faclib/dbase.h|. These types are
 \begin{description}
 \item[\texttt{DB\_EN = 1}] Energy levels produced by the function
@@ -405,6 +405,8 @@ sections produced by \verb|fac.RRTable|.
 \verb|crm.DRStrength|.
 \item[\texttt{dB\_AIM = 10}] Magnetic sublevel autoionization rates and DR
 capture strengths produced by \verb|fac.AITableMSub|.
+\item[\texttt{dB\_CIM = 11}] Magnetic sublevel collisional ionization cross
+  sections produced by \verb|fac.CITableMSub|.
 \end{description}
 
 All files have a common structure. It consists of a file header and one or
@@ -1405,6 +1407,82 @@ Due to axial symmetry, values for $M_1 > 0$ can be obtained from those with
 $M_1 \le 0$.
 \end{dbdesc}
 
+\subsection{\texttt{CIM\_HEADER}}
+\index{CIM\_HEADER}
+\texttt{CIM\_HEADER} is the data header for magnetic sublevel collisional
+ionization data blocks. 
+
+\begin{verbatim}
+typedef struct _CIM_HEADER_ {
+  long position;
+  long length;
+  int nele;
+  int ntransitions;
+  int n_egrid;
+  int egrid_type;
+  int n_usr;
+  int usr_egrid_type;
+  double *egrid;
+  double *usr_egrid;
+} CI_HEADER;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{long position}:] The number of bytes from the beginning of the
+file to the place where this data block starts.
+\item[\texttt{long length}:] Number of bytes in this data block, excluding the
+length of the header.
+\item[\texttt{int nele}:] Number of electrons in the ion for this block.
+\item[\texttt{int ntransitions}:] Number of transitions in this block.
+\item[\texttt{int n\_egrid}:] Number of points for the collision energy grid.
+\item[\texttt{int egrid\_type}:] Type of the energy grid. 0 for the incident
+electron energy, 1 for the total energy of scattered and ejected electron.
+\item[\texttt{int n\_usr}:]N umber of points for the user collision energy
+grid.
+\item[\texttt{int usr\_egrid\_type}:] Type of the user energy grid. 0 for the
+incident electron energy, 1 for the total energy of scattered and ejected
+electrons .
+\item[\texttt{double *tegrid}:] The transition energy grid, the number of
+elements is given by \texttt{n\_tegrid}.
+\item[\texttt{double *egrid}:] The energy grid, the number of elements is
+given by \texttt{n\_egrid}.
+\item[\texttt{double *usr\_egrid}:] The user energy grid, the number of
+elements is given by \texttt{n\_usr}.
+\end{dbdesc}
+
+\subsection{\texttt{CIM\_RECORD}}
+\index{CIM\_RECORD}
+\texttt{CIM\_RECORD} is for magnetic sublevel collisional ionization data.
+
+\begin{verbatim}
+typedef struct _CI_RECORD_ {
+  int b;
+  int f;
+  int nsub;
+  float *strength;
+} CI_RECORD;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{int b}:] The bound state index.
+\item[\texttt{int f}:] The free state index.
+\item[\texttt{int nusb}:] The number of sublevel transitions in the
+  \texttt{strength} array. 
+\item[\texttt{float *strength}:] The magnetic sublevel collision strength for
+  ionization. It is related to the ionization cross section as (in atomic
+  units): 
+\begin{equation}
+\sigma = \frac{1}{k_0^2}\Omega,
+\end{equation}
+where ${k_0}$ is the kinetic momentum of the incident electron. The different
+magnetic sublevel transitions are arranged in the order similar to those for
+excitation, i.e., $-J_i\to -J_f$, $-J_i\to -J_f+1$, $\cdots$, $-J_i\to J_f$,
+$-J_i+1\to -J_f$, $-J_i+1\to -J_f+1$, $\cdots$, $-J_i+1\to J_f$,
+$\cdots$. Only the cross sections with $M_i \le 0$ are included, since those
+with $M_i \ge 0$ can be obtained using time reversal symmetry.
+
+\end{dbdesc}
+
 \section{ASCII Format}
 \index{ASCII Format}
 FAC provides functions to convert the binary output to ASCII files. There are
@@ -1974,6 +2052,43 @@ NEGRID	= 1
  ......
 \end{verbatim}
 
+\subsection{\texttt{DB\_CIM}}
+\index{\texttt{DB\_CIM}}
+\begin{verbatim}
+FAC 1.0.5
+Endian	= 1
+TSess	= 1077996307
+Type	= 11
+Verbose	= 1
+Se Z	=  34.0
+NBlocks	= 1
+
+NELE	= 11
+NTRANS	= 1
+ETYPE	= 1
+NEGRID	= 2
+	  6.80000000E+01
+	  8.84000000E+02
+UTYPE	= 1
+NUSR	= 2
+	  6.80000000E+01
+	  8.84000000E+02
+#bound 2J   free 2J  Delta E     nsub
+     0  1      8  2  2.5178E+03  3
+# -1/2 -> -1
+ 6.8000E+01  1.7855E-03  2.6242E-02
+ 8.8400E+02  1.8495E-02  2.0646E-01
+--------------------------------------------
+# -1/2 -> 0
+ 6.8000E+01  8.9710E-04  1.3185E-02
+ 8.8400E+02  9.3091E-03  1.0392E-01
+--------------------------------------------
+# -1/2 -> 1
+ 6.8000E+01  2.8326E-06  4.1632E-05
+ 8.8400E+02  3.1205E-05  3.4833E-04
+ ......
+\end{verbatim}
+
 \chapter{FAC Function Reference}
 \label{cha:function}
 \index{Functions}
@@ -2150,6 +2265,12 @@ states in the configuration groups \var{low} to those in the groups
 Calculate the collision strength for the ionization of states in the bound
 configuration groups \var{b} to those in the free configuration groups
 \var{f}. The results are saved in the file \var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{CITableMSub}{fn, b, f}
+Calculate the magnetic sublevel collision strength for the ionization of
+states in the bound configuration groups \var{b} to those in the free
+configuration groups \var{f}. The results are saved in the file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{CheckEndian}{\opt{fn}}

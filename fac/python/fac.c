@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.69 2004/02/23 22:05:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.70 2004/02/28 20:39:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2685,6 +2685,33 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PCITableMSub(PyObject *self, PyObject *args) { 
+  int nlow, *low, nup, *up;
+  char *s;
+  PyObject *p, *q;
+ 
+  if (sfac_file) {
+    SFACStatement("CITableMSub", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
+  nlow = SelectLevels(p, &low);
+  if (nlow <= 0) return NULL;
+  nup = SelectLevels(q, &up);
+  if (nup <= 0) {
+    free(low);
+    return NULL;
+  }
+  SaveIonizationMSub(nlow, low, nup, up, s);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PTestIntegrate(PyObject *self, PyObject *args) { 
 
   if (sfac_file) {
@@ -3740,6 +3767,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
+  {"CITableMSub", PCITableMSub, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},

@@ -15,7 +15,8 @@
 #define DB_RT 8
 #define DB_DR 9
 #define DB_AIM 10
-#define NDB   10
+#define DB_CIM 11
+#define NDB   11
 
 #define LNCOMPLEX   32
 #define LSNAME      24
@@ -187,6 +188,26 @@ typedef struct _CI_RECORD_ {
   float *strength;
 } CI_RECORD;
 
+typedef struct _CIM_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int n_egrid;
+  int egrid_type;
+  int n_usr;
+  int usr_egrid_type;
+  double *egrid;
+  double *usr_egrid;
+} CIM_HEADER;
+
+typedef struct _CIM_RECORD_ {
+  int b;
+  int f;
+  int nsub;
+  float *strength;
+} CIM_RECORD;
+
 typedef struct _SP_HEADER_ { 
   long int position;
   long int length;
@@ -279,6 +300,7 @@ int WriteRRHeader(FILE *f, RR_HEADER *h);
 int WriteAIHeader(FILE *f, AI_HEADER *h);
 int WriteAIMHeader(FILE *f, AIM_HEADER *h);
 int WriteCIHeader(FILE *f, CI_HEADER *h);
+int WriteCIMHeader(FILE *f, CIM_HEADER *h);
 int WriteSPHeader(FILE *f, SP_HEADER *h);
 int WriteRTHeader(FILE *f, RT_HEADER *h);
 int WriteDRHeader(FILE *f, DR_HEADER *h);
@@ -295,7 +317,9 @@ int ReadAIRecord(FILE *f, AI_RECORD *r, int swp);
 int ReadAIMHeader(FILE *f, AIM_HEADER *h, int swp);
 int ReadAIMRecord(FILE *f, AIM_RECORD *r, int swp);
 int ReadCIHeader(FILE *f, CI_HEADER *h, int swp);
+int ReadCIMHeader(FILE *f, CIM_HEADER *h, int swp);
 int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h);
+int ReadCIMRecord(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h);
 int ReadSPHeader(FILE *f, SP_HEADER *h, int swp);
 int ReadSPRecord(FILE *f, SP_RECORD *r, int swp);
 int ReadRTHeader(FILE *f, RT_HEADER *h, int swp);
@@ -352,6 +376,10 @@ int WriteCIRecord(FILE *f, CI_RECORD *r);
 int PrintCITable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianCIHeader(CI_HEADER *h);
 int SwapEndianCIRecord(CI_RECORD *r);
+int WriteCIMRecord(FILE *f, CIM_RECORD *r);
+int PrintCIMTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianCIMHeader(CIM_HEADER *h);
+int SwapEndianCIMRecord(CIM_RECORD *r);
 int WriteSPRecord(FILE *f, SP_RECORD *r);
 int PrintSPTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianSPHeader(SP_HEADER *h);
