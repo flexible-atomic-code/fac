@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.79 2004/12/14 07:30:16 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.80 2004/12/16 16:36:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4134,6 +4134,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
       isz0 = ih1 * hams[lev2->iham].nbasis;
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
+	if (fabs(mix2) < angz_cut) continue;
 	r0 = mix1*mix2;
 	if (fabs(r0) < angz_cut) continue;
 	ih2 = lev2->ibasis[j];
@@ -4255,6 +4256,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       jb1 = GetJFromKappa(jb1);
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
+	if (fabs(mix2) < angz_cut) continue;
 	a = mix1*mix2;
 	if (fabs(a) < angz_cut) continue;
 	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
@@ -4481,6 +4483,7 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
       isz0 = ih1 * hams[lev2->iham].nbasis;
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
+	if (fabs(mix2) < angz_cut) continue;
 	r = mix1*mix2;
 	if (fabs(r) < angz_cut) continue;	
 	ih2 = lev2->ibasis[j];
