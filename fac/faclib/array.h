@@ -124,21 +124,21 @@ typedef struct _ARRAY_TIMING_ {
   clock_t multi;
 } ARRAY_TIMING;
 
-int GetArrayTiming(ARRAY_TIMING *t);
+int   GetArrayTiming(ARRAY_TIMING *t);
 #endif
 
-int ArrayInit(ARRAY *a, int esize, int block);
+int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d);
 void *ArrayAppend(ARRAY *a, void *d);
-int ArrayTrim(ARRAY *a, int n, void(*FreeElem)(void *));
-int ArrayFree(ARRAY *a, void (*FreeElem)(void *));
-int ArrayFreeData(DATA *p, int esize, int block, void (*FreeElem)(void *));
+int   ArrayTrim(ARRAY *a, int n, void(*FreeElem)(void *));
+int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
+int   ArrayFreeData(DATA *p, int esize, int block, void (*FreeElem)(void *));
 
-int MultiInit(MULTI *ma, int esize, int ndim, int *block);
+int   MultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *MultiGet(MULTI *ma, int *k);
 void *MultiSet(MULTI *ma, int *k, void *d);
-int MultiFree(MULTI *ma, void (*FreeElem)(void *));
-int MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
+int   MultiFree(MULTI *ma, void (*FreeElem)(void *));
+int   MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
 
 #endif

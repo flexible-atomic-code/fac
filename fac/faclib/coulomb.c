@@ -1,6 +1,13 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.12 2002/05/15 18:45:50 mfgu Exp $";
+/*************************************************************
+  Implementation for module "coulomb". 
+  This module calculates quatities related to the H-like ions.
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+static char *rcsid="$Id: coulomb.c,v 1.13 2002/06/05 13:52:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,8 +22,8 @@ static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
 static double *_dwork = NULL;
 static int _nm_min = 100;
-static int _nm_max = 60000;
-static int _nm_factor = 300;
+static int _nm_max = 50000;
+static int _nm_factor = 100;
 static int _nm = 0;
 
 
@@ -156,11 +163,9 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
   double r, a, b, tn;
   int i, j, k, p;
 
-  r = w3[n-1];
+  i = n-1;
+  r = w3[i];
   tn = r/(1.0-r);
-  for (i = n-2; i > 0 ; i--) {
-    if (fabs(1.0 - w3[i]/r) > 1E-3) break;
-  }	
   for (j = nkl - 1; j > 0; j--) {
     k = kl[j];
     if (k >= i) {
@@ -175,6 +180,7 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
       b += a*tn;
       tcb[j] = b;
       tn = b;
+      i = k;
     }
   }
   return 0;
