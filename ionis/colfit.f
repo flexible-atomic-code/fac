@@ -94,7 +94,7 @@
             y=ea/tk
             dz=(iz-11)**0.7
             if(iz.eq.11)dz=1.0
-            if(y.lt.50.0)c=c+2.8e-17/dz*ct*ea*dexp(-y)*(1.0-y*fcl1(y))
+            if(y.lt.50.0)ca=2.8e-17/dz*ct*ea*dexp(-y)*(1.0-y*fcl1(y))
          else
             ea=11*(iz-10)*sqrt(iz-10.0)
             y=ea/tk
