@@ -9,12 +9,8 @@ Config('1s2', group = 'n1')
 Config('1s1 2*1', group = 'n2')
 Config('1s2 2*1', group = 'rn2')
 
-# since the recombined electron is in n=2 shell,
-# set the appropriate screening
-SetScreening([2])
-
 ConfigEnergy(0)
-OptimizeRadial('n1')
+OptimizeRadial(['n1', 'rn2'])
 ConfigEnergy(1)
 
 # configuration interaction between n=1 and n=2
