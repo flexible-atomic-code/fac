@@ -1,4 +1,4 @@
-SRC = lsame.f dasum.f daxpy.f dcopy.f dscal.f ddot.f dgemm.f dgemv.f dger.f dnrm2.f drot.f dspmv.f dspr2.f dswap.f dtrmm.f dtrmv.f idamax.f xerbla.f
+SRC = lsame.f d1mach.f dasum.f daxpy.f dcopy.f dscal.f ddot.f dgemm.f dgemv.f dger.f dnrm2.f drot.f dspmv.f dspr2.f dswap.f dtrmm.f dtrmv.f dtrsm.f idamax.f xerbla.f
 
 OBJS = ${SRC:.f=.o}
 
@@ -10,4 +10,4 @@ blas: $(OBJS)
 	ranlib libblas.a
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *~

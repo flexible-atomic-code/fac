@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.15 2001/12/14 21:35:31 mfgu Exp $
+# rcsid = $Id: README,v 1.16 2002/01/14 23:18:41 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -14,6 +14,7 @@ doc/papers/, papers submitted to Computer Phys. Comm.
 faclib/,     core numerical library.
 lapack/,     fortran routines from LAPACK.
 minpack/,    minpack optimization package.
+quadpack/,   some routines from quadpack for quadrature.
 mpfunc/,     multi-precision floating point arithmetic package by Beiley.
 python/,     python interface.
 sfac/,       non-python interface.
@@ -21,9 +22,11 @@ toms/,       some numerical routines from TOMS.
 
 INSTALL:
 There are two interfaces available to the FAC numerical lib. One makes use
-of the Python scripting language, implemented as a package "pfac", the 
-other uses a simple command parser, compiled into an executable "sfac". 
-The two interfaces are independent. Either one or both can be installed.
+of the Python scripting language, implemented as a package "pfac", which 
+contains two "C" extension modules ("pfac.fac" and "pfac.crm"), and one
+pure python module "pfac.atom". the other interface uses a simple command 
+parser, compiled into two executables, "sfac" and "scrm". The two interfaces 
+are independent. Either one or both can be installed.
 
 Before installing, check the top level Makefile, and the setup script 
 "setup.py" (for Python interface). Normally, only a few macro defines at 
@@ -33,7 +36,7 @@ specified through the variable "fortranlib" (see "setup.py" for details).
 
 Once these changes are made. 
 To install "sfac" interface:
-	make sfac
+	make
 	make install
 
 To install "pfac" interface:
@@ -41,16 +44,19 @@ To install "pfac" interface:
    Version 2.0 or later is required. Make sure that python interpreter is 
    in your path.
 2. run:
+	make clean
 	python setup.py install
 
 
 Usage:
-The module can be called just like any python modules, either from 
+The modules can be called just like any python modules, either from the
 interpreter interactively, or pass the script to python. 
-e.g., python fe24_level.py,
+e.g., python fe24_level.py.
 
-The non-python interface produces an executable "sfac", accepting input 
-files as arguments.
+The non-python interface produces two executables, "sfac" and "scrm", 
+accepting input files as arguments. The syntax of the input file for 
+both programs is identical, and is very similar to the Python syntax,
+except for the missing of flow constrols.
 
 Contact:
 Bugs, and suggestions, please report to:

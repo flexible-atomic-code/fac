@@ -1,7 +1,24 @@
-Version 0.6.8, 12/15/2001
+Version 0.6.8, 01/14/2002
 	1. use setup.py script to install the python interface. 
 	   successfully built under Windows with Cygwin installed.
-	2. implement binary output.
+	2. implement binary output, and its conversion to ASCII format.
+	3. changed the argument order of *Table routines, and the routine
+	   Structure. The first argument of these routines are now always 
+	   the output file name. The routine "LevelTable" is removed. 
+	   The file name for the energy levels are now supplied to the 
+	   routine "Structure" as the first argument. Several "Structure"
+	   calls may share the same output file.
+	4. implement ATOM class in "pfac.atom" module. wrote the function
+	   "pfac.atom.atomic_data()" for systematic calculation of all
+	   K-shell and L-shell processes.
+	5. fix a bug in RR, which produced nonsence for n > 10, when
+	   hydrogenic approximation is used for them.
+	6. implement a collisional radiative model for the construction
+	   of spectra. It is implemented in a separate python module 
+	   "pfac.crm", and the corresponding simple interface "scrm".
+	7. improved the fitting formula for collisonal excitation.
+	   the original one fails in some cases. the current one seems
+	   to be much better.
 
 Version 0.6.7, 12/01/2001
 	1. fix the bug in RR, which causes seg. fault.
