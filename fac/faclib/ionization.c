@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.43 2003/04/22 16:07:16 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.44 2003/04/28 13:49:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -112,6 +112,26 @@ int SetCIMaxK(int k) {
   return 0;
 }
 
+void SetCILQR(int m) {
+  pw_scratch.qr = m;
+}
+
+void SetCILMax(int m) {
+  pw_scratch.max_kl = m;
+}
+
+void SetCILMaxEject(int m) {
+  pw_scratch.max_kl_eject = m;
+}
+
+void SetCILCB(int m) {
+  pw_scratch.kl_cb = m;
+}
+
+void SetCITol(double t) {
+  pw_scratch.tolerance = t;
+}
+
 int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
   pw_scratch.qr = qr;
   if (max > MAXKL) {
@@ -173,8 +193,6 @@ int SetUsrCIEGrid(int n, double emin, double emax, double eth) {
 }
 
 int SetCIPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(IONLQR, IONLMAX, 
-					   IONLEJEC, IONLCB, IONTOL);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -1129,6 +1147,8 @@ int InitIonization(void) {
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
   SetCIQkMode(QK_DEFAULT, 1E-3);
+  SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
+
   return 0;
 }
 
@@ -1147,6 +1167,7 @@ int ReinitIonization(int m) {
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
   SetCIQkMode(QK_DEFAULT, 1E-3);
+  SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
 
   return 0;
 }  

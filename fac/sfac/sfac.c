@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.34 2003/04/22 16:07:18 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.35 2003/04/28 13:49:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2457,6 +2457,227 @@ static int PWaveFuncTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetOptimizeMaxIter(int argc, char *argv[], int argt[], 
+			       ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetOptimizeMaxIter(m);
+  return 0;
+}
+
+static int PSetOptimizeStabilizer(int argc, char *argv[], int argt[], 
+				  ARRAY *variables) {
+  double m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atof(argv[0]);
+  SetOptimizeStabilizer(m);
+  return 0;
+}
+
+static int PSetOptimizePrint(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetOptimizePrint(m);
+  return 0;
+}
+
+static int PSetOptimizeTolerance(int argc, char *argv[], int argt[], 
+				 ARRAY *variables) {
+  double m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atof(argv[0]);
+  SetOptimizeTolerance(m);
+  return 0;
+}
+
+static int PSetCELQR(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCELQR(m);
+  return 0;
+}
+
+static int PSetCELMax(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCELMax(m);
+  return 0;
+}
+
+static int PSetCELCB(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCELCB(m);
+  return 0;
+}
+
+static int PSetCETol(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  double m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atof(argv[0]);
+  SetCETol(m);
+  return 0;
+}
+
+static int PSetCILQR(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCILQR(m);
+  return 0;
+}
+
+static int PSetCILMax(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCILMax(m);
+  return 0;
+}
+
+static int PSetCILMaxEject(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCILMaxEject(m);
+  return 0;
+}
+
+static int PSetCILCB(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetCILCB(m);
+  return 0;
+}
+
+static int PSetCITol(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  double m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atof(argv[0]);
+  SetCITol(m);
+  return 0;
+}
+
+static int PSetTransitionMode(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetTransitionMode(m);
+  return 0;
+}
+
+static int PSetTransitionGauge(int argc, char *argv[], int argt[], 
+			       ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetTransitionGauge(m);
+  return 0;
+}
+
+static int PSetTransitionMaxE(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetTransitionMaxE(m);
+  return 0;
+}
+
+static int PSetTransitionMaxM(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argv[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetTransitionMaxM(m);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
@@ -2557,7 +2778,24 @@ static METHOD methods[] = {
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
-  {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
+  {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
+  {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
+  {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
+  {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},
+  {"SetOptimizeTolerance", PSetOptimizeTolerance, METH_VARARGS},
+  {"SetCELQR", PSetCELQR, METH_VARARGS},
+  {"SetCELMax", PSetCELMax, METH_VARARGS},
+  {"SetCELCB", PSetCELCB, METH_VARARGS},
+  {"SetCETol", PSetCETol, METH_VARARGS},
+  {"SetCILQR", PSetCILQR, METH_VARARGS},
+  {"SetCILMax", PSetCILMax, METH_VARARGS},
+  {"SetCILMaxEject", PSetCILMaxEject, METH_VARARGS},
+  {"SetCILCB", PSetCILCB, METH_VARARGS},
+  {"SetCITol", PSetCITol, METH_VARARGS},
+  {"SetTransitionMode", PSetTransitionMode, METH_VARARGS},
+  {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
+  {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
+  {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS},  
   {"", NULL, METH_VARARGS}
 };
  

@@ -56,6 +56,10 @@ double GetPhaseShift(int k);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
+void SetOptimizeMaxIter(int m);
+void SetOptimizeStabilizer(double m);
+void SetOptimizeTolerance(double c);
+void SetOptimizePrint(int m);
 void SetOptimizeControl(double tolerence, double stablizer, 
 			int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 

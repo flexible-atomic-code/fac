@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.19 2003/04/20 23:22:28 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.20 2003/04/28 13:49:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,6 +32,22 @@ int SetTransitionCut(double c) {
 
 double GetTransitionCut(void) {
   return transition_option.eps;
+}
+
+void SetTransitionMode(int m) {
+  transition_option.mode = m;
+}
+
+void SetTransitionGauge(int m) {
+  transition_option.gauge = m;
+}
+
+void SetTransitionMaxE(int m) {
+  transition_option.max_e = m;
+}
+
+void SetTransitionMaxM(int m) {
+  transition_option.max_m = m;
 }
 
 void SetTransitionOptions(int gauge, int mode, 

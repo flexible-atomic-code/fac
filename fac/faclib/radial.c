@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.75 2003/04/22 16:07:16 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.76 2003/04/28 13:49:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -33,7 +33,7 @@ static double _zk[MAX_POINTS];
 static double _xk[MAX_POINTS];
 
 static struct {
-  double stablizer;
+  double stabilizer;
   double tolerance; /* tolerance for self-consistency */
   int maxiter; /* max iter. for self-consistency */
   double screened_charge; 
@@ -119,11 +119,32 @@ int SetAWGrid(int n, double awmin, double awmax) {
   }
   return 0;
 }
-  
-void SetOptimizeControl(double tolerance, double stablizer, 
+
+void SetOptimizeMaxIter(int m) {
+  optimize_control.maxiter = m;
+}
+
+void SetOptimizeStabilizer(double m) {
+  if (m < 0) {
+    optimize_control.iset = 0;
+  } else {
+    optimize_control.iset = 1;
+    optimize_control.stabilizer = m;
+  }
+}
+
+void SetOptimizeTolerance(double c) {
+  optimize_control.tolerance = c;
+}
+
+void SetOptimizePrint(int m) {
+  optimize_control.iprint = m;
+}
+
+void SetOptimizeControl(double tolerance, double stabilizer, 
 			int maxiter, int iprint) {
   optimize_control.maxiter = maxiter;
-  optimize_control.stablizer = stablizer;
+  optimize_control.stabilizer = stabilizer;
   optimize_control.tolerance = tolerance;
   optimize_control.iprint = iprint;  
   optimize_control.iset = 1;
@@ -275,7 +296,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     } else {	
       r = 0.0;
       k = 0;
-      a = optimize_control.stablizer;
+      a = optimize_control.stabilizer;
       b = 1.0 - a;
       for (j = 0; j < MAX_POINTS; j++) {
 	if (u[j] + 1.0 != 1.0) {
@@ -507,7 +528,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   if (optimize_control.iset == 0) {
-    optimize_control.stablizer = 0.25 + 0.75*(z/potential->Z[MAX_POINTS-1]);
+    optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[MAX_POINTS-1]);
   }
 
   frozen = (int *) malloc(acfg->n_shells*sizeof(int));
