@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.6}\xspace}
+\newcommand{\facversion}{{1.0.7}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -403,9 +403,9 @@ sections produced by \verb|fac.RRTable|.
 \verb|crm.RateTable|. 
 \item[\texttt{DB\_DR = 9}] Various population rates produced by
 \verb|crm.DRStrength|.
-\item[\texttt{dB\_AIM = 10}] Magnetic sublevel autoionization rates and DR
+\item[\texttt{DB\_AIM = 10}] Magnetic sublevel autoionization rates and DR
 capture strengths produced by \verb|fac.AITableMSub|.
-\item[\texttt{dB\_CIM = 11}] Magnetic sublevel collisional ionization cross
+\item[\texttt{DB\_CIM = 11}] Magnetic sublevel collisional ionization cross
   sections produced by \verb|fac.CITableMSub|.
 \end{description}
 
@@ -1311,6 +1311,7 @@ typedef struct _DR_RECORD_ {
   short vl;
   short j;
   float energy;
+  float etrans;
   float br;
   float ai;
   float total_rate;
@@ -1332,6 +1333,8 @@ electron.
 \item[\texttt{short j}:] The $2j$ value of the autoionizaing state.
 \item[\texttt{float energy}:] The energy of the autoionizing state relative to
 the recombining state, whose energy is given in the \texttt{DR\_HEADER}.
+\item[\texttt{float etrans}:] The transition energy from \texttt{ilev} to
+  \texttt{flev}.
 \item[\texttt{float br}:] The branching ratio of the autoionizing state to
 various final states. For total DR strength, this is the total radiative
 branching ratio. For resonance excitation, this is the branching ratio of
@@ -2016,8 +2019,8 @@ E	= -2.99679153E+04
 JLEV	= 3
 # principle quantum number of the captured electron.
 NREC	= 6
-#AI 2J Rec 2J ibase flev fbase NREC L ERes       AI Rate     Total Rate  Branching
-275  0  37  3    39   -1    -1    6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
+#AI 2J Rec 2J ibase flev fbase NREC L ERes       ETrans     AI Rate     Total Rate  Branching
+275  0  37  3    39   -1    -1    6 0 1.2462E+01 0.0000E+00 1.1031E+13  1.1348E+13  2.7940E-02
 ......
 \end{verbatim}
 
@@ -2615,6 +2618,14 @@ propagation zone via a call to \key{SetBoundary}(-100, \var{r1}, \var{r0}).
 Calculate the radiative recombination cross section of bare ion with nuclear
 charge \var{Z} at electron energy \var{E}, onto the non-relativisitc subshell
 \var{nl}. The result is in unit of $10^{-20}$ cm$^2$.
+\end{fundesc}
+
+\begin{fundesc}{RRMultipole}{fn, b, f\opt{, m}}
+Calculate the bound-free multipole matrix elements. Because \key{RRTable}
+does not calculate the matrix elements directly, this function exisits to
+provide such data. The output are written to the file \var{fn} in ASCII
+format. The format is described in the header of the file itself. The
+remaining arguments are identical to those in \key{RRTable}
 \end{fundesc}
 
 \begin{fundesc}{RRTable}{fn, b, f\opt{, m}}
@@ -3307,6 +3318,11 @@ length \var{Z}+1 indexed by the number of electrons the ion have.
 
 \begin{fundesc}{InitBlocks}{}
 Initialize the superlevel blocks of the spectral model.
+\end{fundesc}
+
+\begin{fundesc}{IonDensity}{fn, k}
+Read the \key{DB\_SP} file \var{fn} and return the total density of the ion
+with number of electrons \var{k}.
 \end{fundesc}
 
 \begin{fundesc}{Ionis}{Z, n, Te\opt{, m}}
