@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.58 2002/09/18 15:53:49 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.59 2002/09/19 15:59:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -43,6 +43,13 @@ static struct {
   int iset;
 } optimize_control = {0.5, EPS6, 128, 1.0, 1, 0, NULL, 0, 0};
 
+#define NPB 5
+static struct {
+  double b[NPB][MAX_POINTS];
+  double c[NPB];
+  double u[MAX_POINTS];
+} pbasis;
+
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
 static double rgrid_min;
@@ -63,6 +70,9 @@ double besljn_(int *jy, int *n, double *x);
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
 double _PhaseRDependent(double x, double eta, double b);
+void lmqn_(int *, int *, double *, double *, double *, double *, int *,
+	   void (*sfun)(int *, double *, double *, double *),
+	   int *, int *, int *, double *, double *, double *, double *);
 
 #ifdef PERFORM_STATISTICS
 static RAD_TIMING rad_timing = {0, 0, 0, 0};
@@ -309,13 +319,16 @@ int GetPotential(char *s) {
   int norbs, jmax;  
   FILE *f;
   int i, j, k, k1;
-  double *w, *v;
+  double *w, *v, *ve0, *ve1;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
 
   w = potential->W;
   v = potential->dW;
+  ve0 = _dphase;
+  ve1 = _dphasep;
+
   f = fopen(s, "w");
   if (!f) return -1;
   
@@ -326,6 +339,8 @@ int GetPotential(char *s) {
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
     v[j] = -potential->Z[j]/potential->rad[j];
+    ve0[j] = 0.0;
+    ve1[j] = 0.0;
   }
 
   norbs = 0;
@@ -351,7 +366,8 @@ int GetPotential(char *s) {
   for (k = 0; k < MAX_POINTS; k++) {
     w[k] = w[k]/(potential->rad[k]*potential->rad[k]);
     w[k] = - pow(w[k], 1.0/3);
-    v[k] += w[k]*0.4235655;
+    ve1[k] += w[k]*0.4235655;
+    ve0[k] = potential->Vc[k]+potential->U[k] - v[k];
   }
 
   fprintf(f, "Mean configuration:\n");
@@ -360,9 +376,10 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%-5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
-	    potential->U[i], v[i]);
+    fprintf(f, "%-5d %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E\n",
+	    i, potential->rad[i], potential->Z[i], 
+	    potential->Vc[i]+potential->U[i], v[i], 
+	    ve0[i], ve1[i]);
   }
 
   fclose(f);  
@@ -537,6 +554,88 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   return 0;
 }      
+
+static void TNFunc(int *n, double *x, double *f, double *g) {
+  int i, j;
+  int m;
+  double *u, a, delta;
+
+  u = potential->U;
+  for (j = 0; j < MAX_POINTS; j++) {
+    u[j] = pbasis.u[j];
+  }
+  for (i = 0; i < *n; i++) {
+    if (x[i]) {
+      for (j = 0; j < MAX_POINTS; j++) {
+	u[j] += x[i]*pbasis.b[i][j];
+      }
+    }
+  }
+
+  SetPotentialU(potential, 0, NULL);
+  ReinitRadial(1);
+  ClearOrbitalTable(0);
+  *f = AverageEnergyAvgConfig(&average_config);
+
+  for (i = 0; i < *n; i++) {
+    delta = 0.01*x[i];
+    if (delta < EPS3) delta = EPS3;
+    for (j = 0; j < MAX_POINTS; j++) {
+      u[j] += delta*pbasis.b[i][j];
+    }
+    SetPotentialU(potential, 0, NULL);
+    ReinitRadial(1);
+    ClearOrbitalTable(0);
+    a = AverageEnergyAvgConfig(&average_config);
+    g[i] = (a - *f)/delta;
+    for (j = 0; j < MAX_POINTS; j++) {
+      u[j] -= delta*pbasis.b[i][j];
+    }
+  }
+
+  return;
+}
+
+int RefineRadial(int maxfun, int msglvl) {
+  int i, n, lw, ierr;
+  int maxit;
+  double eta, stepmx, accrcy, xtol;
+  ORBITAL orb;
+  double f0, f, g[NPB];
+
+  if (maxfun <= 0) return 0;
+  memcpy(pbasis.u, potential->U, sizeof(double)*MAX_POINTS);
+  for (i = 0; i < NPB; i++) {
+    pbasis.c[i] = 0.0;
+    orb.n = i + 1;
+    orb.kappa = -1;
+    potential->flag = 1;
+    ierr = RadialSolver(&orb, potential, EPS8);
+    if (ierr) return ierr;
+    memcpy(pbasis.b[i], orb.wfun, sizeof(double)*MAX_POINTS);    
+    free(orb.wfun);
+  }
+  
+  if (msglvl == 0) msglvl = -3;
+  maxit = 60;
+  eta = 0.25;
+  stepmx = 0.5;
+  accrcy = EPS8;
+  xtol = EPS2;
+  n = NPB;
+  lw = MAX_POINTS;
+  
+  TNFunc(&n, pbasis.c, &f, g);
+  f0 = f;
+  lmqn_(&ierr, &n, pbasis.c, &f, g, _dwork11, &lw, TNFunc, 
+	&msglvl, &maxit, &maxfun, &eta, &stepmx, &accrcy, &xtol);
+
+  if (ierr) {
+    if (f > f0) return ierr;
+  }
+  
+  return 0;
+}
 
 int SolveDirac(ORBITAL *orb) {
   double eps;
@@ -919,7 +1018,7 @@ int FreeContinua(double e) {
   return 0;
 }
 
-int ConfigEnergy(int m, int ng, int *kg) {
+int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
   int k, i;
@@ -929,6 +1028,7 @@ int ConfigEnergy(int m, int ng, int *kg) {
       ng = GetNumGroups();
       for (k = 0; k < ng; k++) {
 	OptimizeRadial(1, &k, NULL);
+	if (mr > 0) RefineRadial(mr, 0);
 	g = GetGroup(k);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
@@ -938,6 +1038,7 @@ int ConfigEnergy(int m, int ng, int *kg) {
       }
     } else {
       OptimizeRadial(ng, kg, NULL);
+      if (mr) RefineRadial(mr, 0);
       for (k = 0; k < ng; k++) {
 	g = GetGroup(kg[k]);
 	for (i = 0; i < g->n_cfgs; i++) {
@@ -1056,9 +1157,9 @@ double AverageEnergyConfig(CONFIG *cfg) {
 
 /* calculate the average energy of an average configuration */
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
-  int i, j, n, kappa, nq, np, kappap, nqp;
+  int i, j, n, kappa, np, kappap;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
-  double x, y, t, q, a, b, r;
+  double x, y, t, q, a, b, r, nq, nqp;
  
   x = 0.0;
   for (i = 0; i < cfg->n_shells; i++) {
@@ -1069,21 +1170,19 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
     nq = cfg->nq[i];
     k = OrbitalIndex(n, kappa, 0.0);
     
-    if (nq > 1) {
-      t = 0.0;
-      for (kk = 2; kk <= j2; kk += 2) {
-	Slater(&y, k, k, k, k, kk, 0);
-	q = W3j(j2, 2*kk, j2, -1, 0, 1);
-	t += y * q * q ;
-      }
-      Slater(&y, k, k, k, k, 0, 0);
-      b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
-
+    t = 0.0;
+    for (kk = 2; kk <= j2; kk += 2) {
+      Slater(&y, k, k, k, k, kk, 0);
+      q = W3j(j2, 2*kk, j2, -1, 0, 1);
+      t += y * q * q ;
+    }
+    Slater(&y, k, k, k, k, 0, 0);
+    b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
+    
 #if FAC_DEBUG
       fprintf(debug_log, "\nAverage Radial: %lf\n", y);
 #endif
-
-    } else b = 0.0;
+      
     t = 0.0;
     for (j = 0; j < i; j++) {
       np = cfg->n[j];
@@ -1118,8 +1217,8 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
     }
 
     ResidualPotential(&y, k, k);
-
-    r = nq * (b + t + GetOrbital(k)->energy + y);
+    a = GetOrbital(k)->energy;
+    r = nq * (b + t + a + y);
     x += r;
   }
   return x;
@@ -1165,7 +1264,6 @@ int ResidualPotential(double *s, int k0, int k1) {
     _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
   }
   Integrate(_yk, orb1, orb2, 1, s);
-  
   *p = *s;
   return 0;
 }

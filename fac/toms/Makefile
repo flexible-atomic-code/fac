@@ -1,4 +1,4 @@
-SRC = uvip3p.f tripack.f rgbi3p.f sdbi3p.f
+SRC = uvip3p.f tripack.f rgbi3p.f sdbi3p.f tn.f
 
 OBJS = ${SRC:.f=.o}
 

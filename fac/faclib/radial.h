@@ -57,7 +57,8 @@ void SetOptimizeControl(double tolerence, double stablizer,
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
-int ConfigEnergy(int m, int ng, int *kg);
+int RefineRadial(int maxfun, int msglvl);
+int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
