@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.52 2003/06/19 02:31:54 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.53 2003/07/02 21:05:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -575,14 +575,14 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	if (type >= CBMULTIPOLES) {
 	  if (nkl > 10) {
 	    b = qk[nklp]/qk[nklp-1];
-	    if (b < 1.0 && b > 0.0) {
+	    if (b < 0.9 && b > 0.0) {
 	      b = pow(b, 1.0/(pw_scratch.kl[nklp] - pw_scratch.kl[nklp-1]));
 	      b = b/(1.0 - b);
 	    } else {
-	      b = GetCoulombBetheAsymptotic(te, e1);
+	      b = 0.0;
 	    }
 	  } else {
-	    b = GetCoulombBetheAsymptotic(te, e1);
+	    b = 0.0;
 	  }
 	  s = qk[nklp]*b;
 	  r = r + s;
@@ -615,7 +615,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 }
 
 
-static iflag = 0;  
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int type1, type2, kl, nqk;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
@@ -793,14 +792,14 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	  for (iq = 0; iq < nq; iq++) {
 	    if (nkl > 10) {
 	      b = qk[iq][i]/qk[iq][i-1];
-	      if (b < 1.0 && b > 0.0) {
+	      if (b < 0.9 && b > 0.0) {
 		b = pow(b, 1.0/(pw_scratch.kl[i] - pw_scratch.kl[i-1]));
 		b = b/(1.0 - b);
 	      } else {
-		b = GetCoulombBetheAsymptotic(te, e1);
+		b = 0.0;
 	      }
 	    } else {
-	      b = GetCoulombBetheAsymptotic(te, e1);
+	      b = 0.0;
 	    }
 	    s = qk[iq][i]*b;
 	    rq[iq][ite][ie] += s;
@@ -1518,9 +1517,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    c = 100.0*emax;
-    if (te0 > c) ce_hdr.te0 = c;
-    else ce_hdr.te0 = te0;
+    ce_hdr.te0 = te0;
     e = 0.5*(emin + emax);
     emin = rmin*e;
     emax = rmax*ce_hdr.te0;
