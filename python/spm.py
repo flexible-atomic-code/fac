@@ -132,6 +132,8 @@ class TABLE:
                 f.write(s)
             f.write(self.separator)
             
+        self.dstart = f.tell()
+        
     def write_raw(self, *data):
         if (len(data) != len(self.columns)):
             raise 'num. of data items does not match columns'
@@ -142,6 +144,82 @@ class TABLE:
         s = s + '\n'
         self.file.write(s)
 
+    def read_header(self):
+        f = self.file
+        a = f.readline()
+        a = a.split(':')
+        self.title = a[1].strip()
+        a = f.readline()
+        a = a.split(':')
+        self.author = a[1].split(',')
+        a = f.readline()
+        self.separator0 = a
+        a = f.readline()
+        a = f.readline()
+        self.separator = a
+        a = f.readline()
+        a = f.readline()
+        has_notes = 0
+        while (1):
+            a = f.readline()
+            if (a[0] == self.separator[0]):
+                break
+            fmt = a[11:17].strip()
+            units = a[18:38].strip()
+            label = a[39:49].strip()
+            d = a[50:-1].strip()
+            d = d.split(';')
+            if (len(d) > 1):
+                has_notes = 1
+            self.add_column(label=label,
+                            units=units,
+                            format=fmt,
+                            description=d[0])
+        if (has_notes):
+            while (1):
+                a = f.readline()
+                if (a[0] == self.separator[0]):
+                    break
+        self.dstart = f.tell()
+        
+    def read_columns(self, k, filter='', start=0, stop=-1):
+        nk = len(k)
+        r = []
+        for i in range(nk):
+            r.append([])
+        f = self.file
+        nc = len(self.columns)
+        n = range(nc)
+        i = 0
+        while (i < start):
+            c = f.readline()
+        
+        while (1):
+            if (stop >= 0):
+                if (i >= stop):
+                    break
+            c = f.readline()
+            if (not c):
+                break
+            c = c.split()
+            for i in n:
+                fmt = self.columns[i]['format'][0]
+                if (fmt == 'I'):
+                    c[i] = int(c[i])
+                elif (fmt == 'F' or fmt == 'E'):
+                    c[i] = float(c[i])
+            
+            if (filter):
+                if (not eval(filter)):
+                    continue
+            for i in range(nk):
+                r[i].append(c[k[i]])
+        return r
+    
+    def rewind(self):
+        self.file.seek(self.dstart)
+        
+    
 def pad_text(t, p):
     s = t.split('\n')
     a = ''
