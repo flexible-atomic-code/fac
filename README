@@ -1,18 +1,20 @@
-# rcsid = $Id: README,v 1.7 2001/09/24 13:29:53 mfgu Exp $
+# rcsid = $Id: README,v 1.8 2001/09/24 16:47:55 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
-Makefile, top level makefile.
-README,   this file.
-blas/,    BLAS routines in fortran.
-coul/,    fortran routines related to coulomb functions.
-demo/,    some demo scripts.
-faclib/,  core numerical library.
-lapack/,  fortran routines from LAPACK.
-mpfunc/,  multi-precision floating point arithmetic package by Beiley.
-python/,  python interface.
-toms/,    some numerical routines from TOMS.
+Makefile,    top level makefile.
+README,      this file.
+blas/,       BLAS routines in fortran.
+coul/,       fortran routines related to coulomb functions.
+demo/,       some demo scripts.
+doc/,        referece guide for FAC
+doc/papers/, papers submitted to Computer Phys. Comm.
+faclib/,     core numerical library.
+lapack/,     fortran routines from LAPACK.
+mpfunc/,     multi-precision floating point arithmetic package by Beiley.
+python/,     python interface.
+toms/,       some numerical routines from TOMS.
 
 INSTALL:
 1. Obtain (From www.python.org) and install Python if it is not installed yet. 
