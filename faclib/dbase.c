@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.67 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.68 2005/01/13 23:06:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2766,8 +2766,8 @@ int TRBranch(char *fn, int upper, int lower,
       if (n == 0) break;
       if (r.upper == upper) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	b = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
-	b *= r.strength/(mem_en_table[r.upper].j + 1.0);
+	OscillatorStrength(h.multipole, e, r.strength, &b);
+	b /= (mem_en_table[r.upper].j + 1.0);
 	b *= RATE_AU;
 	a += b;
 	if (r.lower == lower) {
