@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include "global.h"
+#include "coulomb.h"
 
 #define DB_EN 1
 #define DB_TR 2
@@ -267,7 +268,8 @@ int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
-int TotalRRCross(char *ifn, char *ofn, int ilev, int negy, double *egy);
+int TotalRRCross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int n0, int n1, int nmax);
 int SwapEndianRRHeader(RR_HEADER *h);
 int SwapEndianRRRecord(RR_RECORD *r);
 int WriteAIRecord(FILE *f, AI_RECORD *r);

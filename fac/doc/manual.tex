@@ -2478,12 +2478,15 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy}
+\begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy\opt{, n0, n1, nmax}}
 Calculate the total radiative recombination cross sections onto level
 \var{ilev} by reading the data from the \texttt{DB\_RR} database file
 \var{ifn}. The results are written to the ASCII file \var{ofn} in a two column
 format. \var{energy} is a list or tuple giving the electron energies in eV
-where the RR cross sections are needed. Before calling this function,
+where the RR cross sections are needed. The data for recombination onto $n0 <
+n < n1$ and $n > n1$ are not present in the data file \var{ifn}, and the
+hydrogenic approximation for $n0 < n < n1$ and $n1 < n \le nmax$ are added to
+the calculated cross sections. Before calling this function,
 \key{MemENTable()} must be called.
 \end{fundesc}
 

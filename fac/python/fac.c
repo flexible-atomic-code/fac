@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.39 2002/11/13 22:29:52 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.40 2002/11/14 15:21:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2985,13 +2985,31 @@ static PyObject *PRRCrossH(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PRRCrossHn(PyObject *self, PyObject *args) {
+  int n0;
+  double e, z, r;
+
+  if (!PyArg_ParseTuple(args, "ddi", &z, &e, &n0)) 
+    return NULL;
+
+  e = e/HARTREE_EV;
+  r = AREA_AU20*RRCrossHn(z, e, n0);
+
+  return Py_BuildValue("d", r);
+}
+
 static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   int i, negy, ilev;
   double *egy;
   char *ifn, *ofn;
-  
-  if (!PyArg_ParseTuple(args, "ssiO", &ifn, &ofn, &ilev, &p))
+  int n0, n1, nmax;
+
+  n0 = 0;
+  n1 = 0;
+  nmax =0;  
+  if (!PyArg_ParseTuple(args, "ssiO|iii", 
+			&ifn, &ofn, &ilev, &p, &n0, &n1, &nmax))
     return NULL;
   
   if (!PyList_Check(p) && !PyTuple_Check(p)) {
@@ -3008,7 +3026,7 @@ static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
     Py_DECREF(q);
   }
   
-  TotalRRCross(ifn, ofn, ilev, negy, egy);
+  TotalRRCross(ifn, ofn, ilev, negy, egy, n0, n1, nmax);
 
   free(egy);
 
@@ -3118,6 +3136,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TRRateH", PTRRateH, METH_VARARGS},  
   {"PICrossH", PPICrossH, METH_VARARGS},  
   {"RRCrossH", PRRCrossH, METH_VARARGS},  
+  {"RRCrossHn", PRRCrossHn, METH_VARARGS},  
   {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}
