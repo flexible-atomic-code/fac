@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.26 2002/04/25 16:22:28 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.27 2002/05/15 18:45:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -27,6 +27,9 @@ static int n_levels = 0;
 
 static MULTI *angz_array;
 static MULTI *angzxz_array;
+
+static int ncorrections = 0;
+static ARRAY *ecorrections;
 
 static int rydberg_ignored = 0;
 static double angz_cut = EPS3;
@@ -826,21 +829,15 @@ int SortMixing(int start, int n, int *basis, double *mix) {
   return 0;
 }
   
-int CorrectEnergy(int n, int *k, double *e) {
-  int i;
-  LEVEL *lev;
-  double e0;
+int AddECorrection(int ilev, double e) {
+  ECORRECTION c;
 
-  lev = GetLevel(0);
-  e0 = lev->energy;
-  for (i = 0; i < n; i++) {
-    lev = GetLevel(k[i]);
-    if (lev == NULL) {
-      printf("Level %d does not exist when correcting energy\n", k[i]);
-      continue;
-    }
-    lev->energy = e[i] + e0;
-  }
+  c.ilev = ilev;
+  c.e = e;
+
+  ArrayAppend(ecorrections, &c);
+  ncorrections += 1;
+
   return 0;
 }
 
@@ -986,6 +983,7 @@ int SaveLevels(char *fn, int m, int n) {
   EN_RECORD r;
   EN_HEADER en_hdr;
   F_HEADER fhdr;
+  ECORRECTION *ec;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
@@ -1010,6 +1008,17 @@ int SaveLevels(char *fn, int m, int n) {
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
+    if (ncorrections > 0) {
+      for (p = 0; p < ecorrections->dim; p++) {
+	ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+	if (ec->ilev == i) {
+	  lev->energy += ec->e;
+	  ec->ilev = -1;
+	  ncorrections -= 1;
+	  break;
+	}
+      }
+    }
     si = lev->basis[0];
     sym = GetSymmetry(lev->pj);
     DecodePJ(lev->pj, &p, &j0);
@@ -1955,7 +1964,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
   LEVEL *lev1, *lev2;
-  int ik, kmin, kmax, m;
+  int ik, kmin, kmax, m, nmax;
   int nz_sub, nfb;
   ANGULAR_ZMIX *ang_sub;
   ANGULAR_ZFB *afb;
@@ -1996,11 +2005,19 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
   if (kg1 < 0) {
     kb1 = slow->kcfg;
     n = GetOrbital(kb1)->n;
-    if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd =1;
+    if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd = 1;
+    nmax = GetNMax();
+    if (n >= nmax && kg2 < 0) {
+      kb2 = sup->kcfg;
+      m = GetOrbital(kb2)->n;
+      if (m == n) {
+	ignore_ryd = 1;
+      }
+    }
   } else if (kg2 < 0) {
     kb2 = sup->kcfg;
     n = GetOrbital(kb2)->n;
-    if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd =1;
+    if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd = 1;
   }
 
   if (kg1 < 0 && kg2 < 0) {
@@ -2387,6 +2404,9 @@ int ClearLevelTable(void) {
     }
   }
   
+  ncorrections = 0;
+  ArrayFree(ecorrections, NULL);
+
   return 0;
 }
 
@@ -2405,6 +2425,10 @@ int InitStructure(void) {
   angzxz_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(angzxz_array, sizeof(ANGZ_DATUM), ndim, blocks);
   
+  ecorrections = malloc(sizeof(ARRAY));
+  ArrayInit(ecorrections, sizeof(ECORRECTION), 512);
+  ncorrections = 0;
+
   return 0;
 }
 

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.18 2002/04/30 19:52:09 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.19 2002/05/15 18:45:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -535,8 +535,8 @@ static int PClearOrbitalTable(int argc, char *argv[], int argt[],
 
 static int PCorrectEnergy(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int n, k[MAX_ENERGY_CORRECTION];
-  double e[MAX_ENERGY_CORRECTION];
+  int n, k;
+  double e;
   int i, ie, ii;
   FILE *f;
   char *iv[MAXNARGS], *ev[MAXNARGS];
@@ -546,25 +546,20 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
   ie = 0;
   if (argc == 1) {
     if (argt[0] != STRING) {
-      printf("A single argument for CorrectEnergy must be a file name\n");
       return -1;
     }
     f = fopen(argv[0], "r");
     n = -1;
     while (1) {
-      n++; 
-      if (n == MAX_ENERGY_CORRECTION) {
-	printf("Maximum # of levels for energy correction reached\n");
-	printf("Ignoring corrections after n = %d\n", n);
-	break;
-      } 
-      if (fscanf(f, "%d%lf\n", k+n, e+n) == EOF) break;
-      e[n] /= HARTREE_EV;
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      e /= HARTREE_EV;
+      AddECorrection(k, e);
     }
     fclose(f);
   } else if (argc == 2) {
     if (argt[0] != LIST || argt[1] != LIST) {
-      printf("The two arguments for CorrectEnergy must be two Lists\n");
+      printf("The last two of three arguments ");
+      printf("for CorrectEnergy must be two Lists\n");
       return -1;
     }
     ii = DecodeArgs(argv[0], iv, it, variables);
@@ -573,15 +568,14 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     n = ii;
     for (i = 0; i < n; i++) {
       if (it[i] != NUMBER || et[i] != NUMBER) return -1;
-      k[i] = atoi(iv[i]);
-      e[i] = atof(ev[i]);
-      e[i] /= HARTREE_EV;
+      k = atoi(iv[i]);
+      e = atof(ev[i]);
+      e /= HARTREE_EV;
+      AddECorrection(k, e);
     }
   } else {
     return -1;
   }
-
-  CorrectEnergy(n, k, e);
 
   for (i = 0; i < ii; i++) free(iv[i]);
   for (i = 0; i < ie; i++) free(ev[i]);

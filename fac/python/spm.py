@@ -431,7 +431,7 @@ def save_rates(rates, sfile, dfile, **kwd):
     f.close()
     
     
-def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
+def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
     c = get_complexes(nele)
     complexes = [c[1]]
     if (nion > 1):
@@ -474,6 +474,9 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                 if (a[:4] == 'NELE'):
                     a = string.split(a)
                     nel = int(a[2])
+                elif (a[:4] == 'NTRA'):
+                    a = string.split(a)
+                    ntrans = int(a[2])
                 elif (a[:4] == 'ILEV'):
                     a = string.split(a)
                     ilev = int(a[2])
@@ -509,6 +512,8 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                         tci[itot][1].append(b[5])
                     itot = itot + 1
                 elif (ilev >= 0):
+                    if (only_total > 0):
+                        continue
                     if (a[:4] == 'Dens'):
                         a = string.split(a)
                         d0 = float(a[2])
@@ -574,7 +579,8 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2):
                                 else:
                                     ci[ici][2].append(b)
                                 ici = ici + 1
-                        tp = tp/d0
+                        if (ntrans > 3):
+                            tp = tp/d0
                         if (t == 0 and d == 0):
                             rt.append([nel, ilev, [tp]])
                         else:
@@ -688,7 +694,7 @@ def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
              dist = 0, cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
-             ai = 1, ci = 1, rr = 1):
+             ai = 1, ci = 1, rr = 1, ce = 1):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -728,8 +734,9 @@ def spectrum(neles, temp, den, population, pref,
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
 
             SetEleDist(dist, temp[i], -1.0, -1.0)
-            print 'CE rates...'
-            SetCERates(1)
+            if (ce > 0):
+                print 'CE rates...'
+                SetCERates(1)
             print 'TR rates...'
             SetTRRates(0)
             if (nion > 1):
@@ -750,7 +757,7 @@ def spectrum(neles, temp, den, population, pref,
             for d in range(len(den)):
                 print 'Density = %10.3E'%den[d]
                 SetEleDensity(den[d])
-                SetIteration(1E-4)
+                SetIteration(1E-9)
                 SetCascade(cascade, 1E-4)
                 print 'Init blocks...'
                 InitBlocks()
@@ -776,4 +783,10 @@ def spectrum(neles, temp, den, population, pref,
                 ReinitCRM(2)
             ReinitCRM(1)
         ReinitCRM()
+
+
+def maxwell(e, t):
+    x = e/t
+    x = 1.12837967*sqrt(x)*exp(-x)/t
+    return x
 

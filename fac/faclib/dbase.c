@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.21 2002/05/08 15:32:53 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.22 2002/05/15 18:45:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -109,6 +109,7 @@ int SwapEndianCEHeader(CE_HEADER *h) {
   SwapEndian((char *) &(h->nparams), sizeof(int));
   SwapEndian((char *) &(h->pw_type), sizeof(int));
   SwapEndian((char *) &(h->msub), sizeof(int));
+  SwapEndian((char *) &(h->te0), sizeof(float));
   return 0;
 }
 
@@ -191,12 +192,6 @@ int SwapEndianSPHeader(SP_HEADER *h) {
   SwapEndian((char *) &(h->iblock), sizeof(int));
   SwapEndian((char *) &(h->fblock), sizeof(int));
   SwapEndian((char *) &(h->type), sizeof(int));
-  SwapEndian((char *) &(h->iedist), sizeof(int));
-  SwapEndian((char *) &(h->np_edist), sizeof(int));
-  SwapEndian((char *) &(h->eden), sizeof(float));
-  SwapEndian((char *) &(h->ipdist), sizeof(int));
-  SwapEndian((char *) &(h->np_pdist), sizeof(int));
-  SwapEndian((char *) &(h->pden), sizeof(float));
   return 0;
 }
 
@@ -405,8 +400,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     sp_header.length = 0;
     sp_header.ntransitions = 0;
     n = fwrite(&sp_header, sizeof(SP_HEADER), 1, f);
-    n = fwrite(sp_header.p_edist, sizeof(double), sp_header.np_edist, f);
-    n = fwrite(sp_header.p_pdist, sizeof(double), sp_header.np_pdist, f);
     break;
   case DB_RT:
     rt_hdr = (RT_HEADER *) rhdr;
@@ -724,7 +717,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
 
   return 0;
 }
-  
+
 int MemENTable(char *fn) {
   F_HEADER fh;  
   EN_HEADER h;
@@ -925,6 +918,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]);
       }
     }
+    fprintf(f2, "TE0\t= %15.8E\n", h.te0 * HARTREE_EV);
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
@@ -1137,7 +1131,11 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
       if (h.qk_mode == QK_FIT) {
 	for (t = 0; t < h.nparams; t++) {
 	  if (swp) SwapEndian((char *) &(params[t]), sizeof(float));
-	  fprintf(f2, "%11.4E ", params[t]);
+	  if (v && t == h.nparams-1) {
+	    fprintf(f2, "%11.4E ", params[t]*HARTREE_EV);
+	  } else {
+	    fprintf(f2, "%11.4E ", params[t]);
+	  }
 	}
 	fprintf(f2, "\n");
       }
@@ -1400,26 +1398,6 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
     fprintf(f2, "FBLK\t= %d\n", h.fblock);
     fprintf(f2, "FCOMP\t= %s\n", h.fcomplex);
-    fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
-    fprintf(f2, "EDIST\t= %d\n", h.iedist);
-    fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
-    h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
-    n = fread(h.p_edist, sizeof(double), h.np_edist, f1);
-    for (i = 0; i < h.np_edist; i++) {
-      if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
-      fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
-    }
-    fprintf(f2, "PDEN\t= %15.8E\n", h.pden);
-    fprintf(f2, "PDIST\t= %d\n", h.ipdist);
-    fprintf(f2, "NPPDIS\t= %d\n", h.np_pdist);
-    h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
-    n = fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
-    for (i = 0; i < h.np_pdist; i++) {
-      if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
-      fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);
-    }
-    free(h.p_edist);
-    free(h.p_pdist);
 
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(SP_RECORD), 1, f1);

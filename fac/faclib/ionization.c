@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.31 2002/04/30 15:01:53 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.32 2002/05/15 18:45:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -487,7 +487,7 @@ void CIRadialQkFromFit(int np, double *p, int n,
 int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
 		  double *logxe, double *q, double *p, double te) {
   double integrand[NINT];
-  double x[NINT], y[NINT], t[NINT], logt[NINT], d;
+  double x[NINT], y[NINT], t[NINT], s[NINT], d;
   double x0[MAXNUSR];
   int i, j, n, np, n1;
   
@@ -503,11 +503,16 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     if (t[i] < logxe[i]) break;
   }
   if (i > 1) {
-    RRRadialQkFromFit(NPARAMS, p, i-1, &(x[1]), &(t[1]), 
+    d = te/p[3];
+    for (j = 1; j < i; j++) {
+      y[j] = (x[j]-1.0)*d + 1.0;
+      s[j] = log(y[j]);
+    }
+    RRRadialQkFromFit(3, p, i-1, &(y[1]), &(s[1]), 
 		      &(integrand[1]), NULL, 0, &kl);
-  }
-  for (j = 1; j < i; j++) {
-    integrand[j] *= x[j];
+    for (j = 1; j < i; j++) {
+      integrand[j] *= x[j]*d;
+    }    
   }
   n = NINT-i;
   np = 3;
@@ -855,7 +860,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   CI_HEADER ci_hdr;
   F_HEADER fhdr;
   double delta, emin, emax, e;
-  double qk[NPARAMS], qku[MAXNUSR];
+  double qk[MAXNE], qku[MAXNUSR];
   int nq, nqk;  
 
   emin = 1E10;

@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.30 2002/05/10 20:41:59 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.31 2002/05/15 18:45:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1695,7 +1695,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else if (blk1->iion == blk->iion+1) {
 	      rt3.ci += rt.ci;
 	      rt3.rr += rt.rr;
-	      if (rt.ai) {
+	      if (rt.ai && ce.array) {
 		ce0 = 0.0;
 		index1[1] = j;
 		for (s = 0; s < ce.array->dim; s++) {
@@ -1748,6 +1748,8 @@ int RateTable(char *fn, int nc, char *sc[]) {
 		}
 		rt3.ai += ce0;
 		rt2.ai += rt.ai - ce0;
+	      } else {
+		rt2.ai += rt.ai;
 	      }
 	    }
 	  }
@@ -1827,7 +1829,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else if (blk1->iion == blk->iion+1) {
 	    rt3.ci += rt.ci;
 	    rt3.rr += rt.rr;
-	    if (rt.ai) {
+	    if (rt.ai && ce.array) {
 	      ce0 = 0.0;
 	      index1[1] = j;
 	      for (s = 0; s < ce.array->dim; s++) {
@@ -1880,6 +1882,8 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	      }
 	      rt3.ai += ce0;
 	      rt2.ai += rt.ai - ce0;
+	    } else {
+	      rt2.ai += rt.ai;
 	    }
 	  }
 	}
@@ -2553,27 +2557,15 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
   RATE *rt;
   LBLOCK *blk, *iblk, *fblk;
   BLK_RATE *brts;
-  DISTRIBUTION *edist, *pdist;
   int k, m, j;
   FILE *f;
   double e, a;
   int i, p, q, ib;
-  int iedist, ipdist;
   double smax, s;
 
-  edist = GetEleDist(&iedist);
-  pdist = GetPhoDist(&ipdist);
   fhdr.type = DB_SP;
   fhdr.atom = ion0.atom;
   strcpy(fhdr.symbol, ion0.symbol);
-  sp_hdr.eden = electron_density;
-  sp_hdr.iedist = iedist;
-  sp_hdr.np_edist = edist->nparams;
-  sp_hdr.p_edist = edist->params;
-  sp_hdr.pden = photon_density;
-  sp_hdr.ipdist = ipdist;
-  sp_hdr.np_pdist = pdist->nparams;
-  sp_hdr.p_pdist = pdist->params;
   f = OpenFile(fn, &fhdr);
 
   for (k = 0; k < ions->dim; k++) {
@@ -2763,8 +2755,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
     if (swp) SwapEndianSPHeader(&h);
-    m = sizeof(double)*(h.np_edist + h.np_pdist);
-    fseek(f1, m, SEEK_CUR);    
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND;  
     r1 = h.type / 10000;
@@ -2918,8 +2908,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
     if (swp) SwapEndianSPHeader(&h);
-    m = sizeof(double)*(h.np_edist + h.np_pdist);
-    fseek(f1, m, SEEK_CUR);
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND; 
     r1 = h.type / 10000;
@@ -3106,8 +3094,8 @@ int SetCERates(int inv) {
   FILE *f;
   double e;
   float cs[MAXNUSR];
-  double data[1+(1+MAXNUSR)*4];
-  double *y, *x, *x2, *logx;
+  double data[2+(1+MAXNUSR)*3];
+  double *y, *x, *logx;
   double eusr[MAXNUSR];
   int swp, endian;
   
@@ -3116,7 +3104,7 @@ int SetCERates(int inv) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
-  y = data + 1;
+  y = data + 2;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ce_rates, FreeBlkRateData);
@@ -3152,10 +3140,13 @@ int SetCERates(int inv) {
       }
       m1 = m + 1;
       x = y + m1;
-      x2 = x + m1;
-      logx = x2 + m1;
+      logx = x + m1;
       x[0] = 0.0;
-      x2[0] = 0.0;
+      data[0] = h.te0 * HARTREE_EV;
+      for (j = 0; j < m; j++) {
+	t = m-j;
+	x[t] = h.te0/(h.te0 + eusr[j]);
+      }
       for (i = 0; i < h.ntransitions; i++) {
 	n = fread(&r, sizeof(CE_RECORD), 1, f);
 	if (swp) SwapEndianCERecord(&r);
@@ -3167,7 +3158,7 @@ int SetCERates(int inv) {
 	j1 = ion->j[r.lower];
 	j2 = ion->j[r.upper];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
-	data[0] = r.bethe;	
+	data[1] = r.bethe;	
 	n = fread(cs, sizeof(float), m, f);
 	if (swp) {
 	  for (j = 0; j < m; j++) {
@@ -3178,22 +3169,18 @@ int SetCERates(int inv) {
 	  y[0] = 0.0;
 	  for (j = 0; j < m; j++) {
 	    t = m-j;
-	    x[t] = e/(e + eusr[j]);
-	    x2[t] = x[t]*x[t];
 	    y[t] = cs[j];
 	  }
 	} else {
 	  if (r.bethe > 0.0) {
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
-	      x[t] = e/(e + eusr[j]);
-	      logx[j] = log(x[t]);
+	      logx[j] = log(e/(e+eusr[j]));
 	      y[t] = cs[j] + r.bethe*logx[j];
 	    }
 	  } else {
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
-	      x[t] = e/(e + eusr[j]);
 	      y[t] = cs[j];
 	    }
 	  }
@@ -3242,10 +3229,13 @@ int SetCERates(int inv) {
 	}
 	m1 = m + 1;
 	x = y + m1;
-	x2 = x + m1;
-	logx = x2 + m1;
+	logx = x + m1;
 	x[0] = 0.0;
-	x2[0] = 0.0;
+        data[0] = h.te0 * HARTREE_EV;
+        for (j = 0; j < m; j++) {
+	  t = m-j;
+	  x[t] = h.te0/(h.te0 + eusr[j]);
+        }
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = fread(&r, sizeof(CE_RECORD), 1, f);
 	  if (swp) SwapEndianCERecord(&r);
@@ -3267,7 +3257,7 @@ int SetCERates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  data[0] = r.bethe;
+	  data[1] = r.bethe;
 	  n = fread(cs, sizeof(float), m, f);
 	  if (swp) {
 	    for (j = 0; j < m; j++) {
@@ -3278,22 +3268,18 @@ int SetCERates(int inv) {
 	    y[0] = 0.0;
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
-	      x[t] = e/(e + eusr[j]);
-	      x2[t] = x[t]*x[t];
 	      y[t] = cs[j];
 	    }
 	  } else {
 	    if (r.bethe > 0.0) {
 	      for (j = 0; j < m; j++) {
 		t = m-j;
-		x[t] = e/(e + eusr[j]);
-		logx[j] = log(x[t]);
+	        logx[j] = log(e/(e+eusr[j]));
 		y[t] = cs[j] + r.bethe*logx[j];
 	      }
 	    } else {
 	      for (j = 0; j < m; j++) {
 		t = m-j;
-		x[t] = e/(e + eusr[j]);
 		y[t] = cs[j];
 	      }
 	    }
@@ -3628,6 +3614,7 @@ int SetRRRates(int inv) {
 	for (j = 0; j < h.nparams; j++) {
 	  p[j] = params[j];
 	}
+	p[h.nparams-1] *= HARTREE_EV;
 	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, data,
 	       rt.i, rt.f);
 	AddRate(ion, ion->rr_rates, &rt, 0);

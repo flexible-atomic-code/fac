@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.14 2002/05/08 15:32:53 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.15 2002/05/15 18:45:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -261,27 +261,21 @@ double IntegrateRate2(int idist, double e, int np,
 
 double CERate1E(double e, double eth, int np, void *p) {
   double *x, *y;
-  int m1, m2, n, one;
+  int m1, n, one;
   double *dp, a, x0;
 
   if (e < eth) return 0.0;
-  m1 = np + 1;
-  m2 = m1 + m1;
   dp = (double *) p;
-  y = dp+1;
-  x0 = eth/e;
-  if (dp[0] >= 0) {
-    x = y + m1;
-  } else {
-    x = y + m2;
-    x0 *= x0;
-  }
+  m1 = np + 1;
+  y = dp+2;
+  x0 = dp[0]/(dp[0]+e-eth);
+  x = y + m1;
 
   n = 3;
   one = 1;
   uvip3p_(&n, &m1, x, y, &one, &x0, &a);
-  if (dp[0] > 0.0) {
-    a -= dp[0]*log(x0);
+  if (dp[1] > 0.0) {
+    a -= dp[1]*log(eth/e);
   }
   if (a <= 0.0) {
     a = 0.0;
@@ -296,25 +290,19 @@ double CERate1E(double e, double eth, int np, void *p) {
 double DERate1E(double e, double eth, int np, void *p) {
   double a, x0, *x, *y;
   double *dp;
-  int m1, m2, n, one;
+  int m1, n, one;
 
-  x0 = eth/(eth+e);
-  m1 = np + 1;
-  m2 = m1 + m1;
   dp = (double *) p;
-  y = dp+1;
-  if (dp[0] >= 0) {
-    x = y + m1;
-  } else {
-    x = y + m2;
-    x0 *= x0;
-  }
+  m1 = np + 1;
+  x0 = dp[0]/(dp[0]+e);
+  y = dp+2;
+  x = y + m1;
 
   n = 3;
   one = 1;
   uvip3p_(&n, &m1, x, y, &one, &x0, &a);
-  if (dp[0] > 0.0) {
-    a -= dp[0]*log(x0);
+  if (dp[1] > 0.0) {
+    a -= dp[1]*log(eth/(eth+e));
   }
   
   if (a <= 0.0) {
@@ -513,23 +501,24 @@ double RRRate1E(double e, double eth, int np, void *p) {
   double a, b, c, f;
   
   dp = (double *) p;
-  x0 = (e+eth)/eth;
-  logx0 = log(x0);
-
   y = dp + 1;
   x = y + np;
   logx = x + np;
   r = logx + np;
   
   if (x0 < x[np-1]) {
+    x0 = (e+eth)/eth;
+    logx0 = log(x0);
     n = 3;
     one = 1;
     uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
     f = exp(f);
   } else {
+    x0 = (e + r[3])/r[3];
+    logx0 = log(x0);
     a = logx0*(-3.5-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
-    f = r[0]*exp(a + b);
+    f = r[0]*exp(a + b)*((e+eth)/(e+r[3]));
   }
 
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
@@ -549,23 +538,24 @@ double PIRate1E(double e, double eth, int np, void *p) {
   const double factor = 1.871156686E2;
 
   dp = (double *) p;
-  x0 = e/eth;
-  logx0 = log(x0);
-
   y = dp + 1;
   x = y + np;
   logx = x + np;
   r = logx + np;
   
   if (x0 < x[np-1]) {
+    x0 = e/eth;
+    logx0 = log(x0);
     n = 3;
     one = 1;
     uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
     f = exp(f);
   } else {
+    x0 = (e-eth+r[3])/r[3];
+    logx0 = log(x0);
     a = logx0*(-3.5-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
-    f = r[0]*exp(a + b);
+    f = r[0]*exp(a + b)*e/(e-eth+r[3]);
   }
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   c *= factor/e;

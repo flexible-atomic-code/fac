@@ -82,6 +82,7 @@ typedef struct _CE_HEADER_ {
   int nparams;
   int pw_type;
   int msub;
+  float te0;
   double *tegrid;
   double *egrid;
   double *usr_egrid;
@@ -174,14 +175,6 @@ typedef struct _SP_HEADER_ {
   char icomplex[LNCOMPLEX];
   char fcomplex[LNCOMPLEX];
   int type;
-  int iedist;
-  int np_edist;
-  double *p_edist;
-  float eden;
-  int ipdist;
-  int np_pdist;
-  double *p_pdist;
-  float pden;
 } SP_HEADER;
 
 typedef struct _SP_RECORD_ {

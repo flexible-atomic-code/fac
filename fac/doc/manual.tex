@@ -408,7 +408,7 @@ value returned by the C lib function time(0). It is platform dependent.
 \item[\texttt{int sversion}:] Minor version number of FAC.
 \item[\texttt{int ssversion}:] Release number of FAC.
 \item[\texttt{int type}:] Type of the data file. An integer from 1--8.
-\item[\texttt{int atom}:] Atomic number.
+\item[\texttt{float atom}:] Atomic number.
 \item[\texttt{char symbol[4]}:] The first 3 bytes contains a NULL
 terminated C string representing the 2-charactor abbr. of atomic symbol. The
 4th byte is either 0 or 1, indicating whether the platform stores data in
@@ -566,6 +566,7 @@ typedef struct _CE_HEADER_ {
   int nparams;
   int pw_type;
   int msub;
+  float te0;
   double *tegrid;
   double *egrid;
   double *usr_egrid;
@@ -603,6 +604,10 @@ collision strengths are calculated in the FIT mode. At present,
 the incident electron, 1 for the scattered electron.
 \item[\texttt{int msub}:] 0 for total collision strength, 1 for magnetic
 sublevel specific collision strength.
+\item[\texttt{float te0}:] The characteristic transition energy of the 
+transition array. This is used for the automatic construction of the 
+collision energy grid. The grid has equal space in $\ln$(\texttt{egrid+te0})
+if \texttt{egrid\_type = 1}, otherwise, this variable is not used.
 \item[\texttt{double *tegrid}:] The transition energy grid, the number of
 elements is given by \texttt{n\_tegrid}.
 \item[\texttt{double *egrid}:] The energy grid, the number of elements is
@@ -721,7 +726,7 @@ grid.
 incident photon energy, 1 for photo-electron energy.
 \item[\texttt{int nparams}:] Number of parameters in the fitting formula if the
 bound-free oscillator strengths are calculated in the FIT mode. In the present
-imprementation, \texttt{nparams} is 3.
+imprementation, \texttt{nparams} is 4.
 \item[\texttt{double *tegrid}:] The transition energy grid, the number of
 elements is given by \texttt{n\_tegrid}.
 \item[\texttt{double *egrid}:] The energy grid, the number of elements is
@@ -755,14 +760,16 @@ used. The fitting formula only provides a high energy asymptotic behavior. Low
 energy values should be interpolated from the tabulated strengths. The fitting
 formula is
 \begin{eqnarray}
-x &=& \frac{E_\gamma}{E_{th}} \nonumber\\
+x &=& \frac{E_e+p_3}{p_3} \nonumber\\
 y &=& \frac{1+p_2}{\sqrt{x}+p_2} \nonumber\\
-\frac{d(gf)}{dE} &=& p_0x^{-3.5-l+\frac{1}{2}p_1}y^{p_1},
+\frac{d(gf)}{dE} &=&
+\frac{E_\gamma}{E_e+p_3}p_0x^{-3.5-l+\frac{1}{2}p_1}y^{p_1}, 
 \end{eqnarray}
-where $E_\gamma$ is the photon energy, $E_{th}$ is the ionization energy,
-$p_0$, $p_1$, and $p_2$ are the three parameters, and $l$ is the orbital
-angular momentum of the ionized shell. This only takes into account the
-ionization of the dominant basis.
+where $E_e$ is the photo-electron energy, $E_\gamma$ is the photon energy,
+$E_{th}$ is the ionization threshold, $p_0$, $p_1$, $p_2$, and $p_3$ are the
+parameters, and $l$ is the orbital angular momentum of the ionized
+shell. This only takes into account the ionization of the dominant basis in the
+wavefunction expansion.
 \item[\texttt{float *strength}:] The weighted bound-free oscillator strength in
 atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
@@ -953,14 +960,6 @@ typedef struct _SP_HEADER_ {
   char icomplex[LNCOMPLEX];
   char fcomplex[LNCOMPLEX];
   int type;
-  int iedist;
-  int np_edist;
-  double *p_edist;
-  float eden;
-  int ipdist;
-  int np_pdist;
-  double *p_pdist;
-  float pden;
 } SP_HEADER;
 \end{verbatim}
 
@@ -989,58 +988,6 @@ the electron making the transition, and $n_2$ is the final principal quantum
 number. If $n_0 \ne 0$, this transition is the so called dielectronic
 recombination satellite line, which have a spectator electron at the orbital
 with principal quantum number $n_0$.
-\item[\texttt{int iedist}:] The type of electron energy distribution for the
-CRM model. At present, two types are supported. 0 for Maxwellian, and 1 for an
-Gaussian monoenergetic beam.
-\item[\texttt{int np\_edist}:] Number of parameters for the electron energy
-distribution.
-\item[\texttt{double *p\_edist}:] Parameters for the electron energy
-distribution. The following table describes the parameters for exsisting
-distributions:
-
-\hspace{0.6in}\centerline{
-\begin{minipage}{6in}
-\index{Electron Energy Distribution}
-\begin{tabular}{|c|c|ccc|}
-\hline
-ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
-\hline
-0& Maxwellian& 0:& $T_e$ & eV\\
- &           & 1:& $E_{min}$ & eV\\
- &           & 2:& $E_{max}$ & eV\\
-\hline
-1& Gaussian&   0:& $E_0$ & eV\\
- &         &   1:& $\sigma_E$ & eV\\
- &         &   2:& $E_{min}$ & eV\\
- &         &   3:& $E_{max}$ & eV\\
-\hline
-\end{tabular}
-\end{minipage}}
-\item[\texttt{float eden}:] The electron density in unit of $10^{10}$
-cm$^{-3}$. 
-\item[\texttt{int ipdist}:] The type of photon energy distribution for the CRM
-model. At present, only one type is supported. 0 for power law.
-\item[\texttt{int np\_pdist}:] Number of parameters for the photon energy
-distribution.
-\item[\texttt{double *p\_pdist}:] Parameters for the photon energy
-distribution. The following table describes the parameters for exsisting
-distributions:
-
-\hspace{0.6in}\centerline{
-\begin{minipage}{6in}
-\index{Photon Energy Distribution}
-\begin{tabular}{|c|c|ccc|}
-\hline
-ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
-\hline
-0& PowerLaw& 0:& $\alpha$ & \\
- &           & 1:& $E_{min}$ & eV\\
- &           & 2:& $E_{max}$ & eV\\
-\hline
-\end{tabular}
-\end{minipage}}
-\item[\texttt{float pden}:] The photon energy density of the radiation field in
-unit of erg cm$^{-3}$. 
 \end{mydesc}
 
 \subsection{\texttt{SP\_RECORD}}
@@ -1123,6 +1070,25 @@ distribution.
 \item[\texttt{double *p\_edist}:] Parameters for the electron energy
 distribution. The following table describes the parameters for exsisting
 distributions:
+
+\hspace{0.6in}\centerline{
+\begin{minipage}{6in}
+\index{Electron Energy Distribution}
+\begin{tabular}{|c|c|ccc|}
+\hline
+ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
+\hline
+0& Maxwellian& 0:& $T_e$ & eV\\
+ &           & 1:& $E_{min}$ & eV\\
+ &           & 2:& $E_{max}$ & eV\\
+\hline
+1& Gaussian&   0:& $E_0$ & eV\\
+ &         &   1:& $\sigma_E$ & eV\\
+ &         &   2:& $E_{min}$ & eV\\
+ &         &   3:& $E_{max}$ & eV\\
+\hline
+\end{tabular}
+\end{minipage}}
 \item[\texttt{float eden}:] The electron density in unit of $10^{10}$
 cm$^{-3}$. 
 \item[\texttt{int ipdist}:] The type of photon energy distribution for the CRM
@@ -1132,14 +1098,25 @@ distribution.
 \item[\texttt{double *p\_pdist}:] Parameters for the photon energy
 distribution. The following table describes the parameters for exsisting
 distributions:
+
+\hspace{0.6in}\centerline{
+\begin{minipage}{6in}
+\index{Photon Energy Distribution}
+\begin{tabular}{|c|c|ccc|}
+\hline
+ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
+\hline
+0& PowerLaw& 0:& $\alpha$ & \\
+ &           & 1:& $E_{min}$ & eV\\
+ &           & 2:& $E_{max}$ & eV\\
+\hline
+\end{tabular}
+\end{minipage}}
 \item[\texttt{float pden}:] The photon energy density of the radiation field in
 unit of erg cm$^{-3}$. 
 \item[\texttt{float nb}:] The concentration of the superlevel block to which
 the rates are tabulated.
 \end{mydesc}
-
-\textbf{N.B.:} The electron energy distribution and photon energy distribution
-choices are listed in the description of \texttt{SP\_HEADER}.
 
 \subsection{\texttt{RT\_RECORD}}
 \index{\texttt{RT\_RECORD}}

@@ -1,6 +1,6 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.11 2002/03/21 20:15:45 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.12 2002/05/15 18:45:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -8,15 +8,17 @@ USE (rcsid);
 
 static int n_hydrogenic;
 static int kl_hydrogenic;
+static ARRAY *dipole_array;
 
 static int _ncb = 0;
 static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
 static double *_dwork = NULL;
 static int _nm_min = 100;
-static int _nm_max = 50000;
-static int _nm_factor = 50;
+static int _nm_max = 60000;
+static int _nm_factor = 300;
 static int _nm = 0;
+
 
 double argam_(double *x, double *y);
 void acofz1_(double *, double *, int *, int *, double *, 
@@ -34,36 +36,68 @@ void GetHydrogenicNL(int *n, int *kl) {
   if (kl) *kl = kl_hydrogenic;
 }
 
-double TRRateHydrogenic(double z, int n0, int n1, double *ac, int s) {
+double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
   double anc, am;
+  double z0 = 1.0;
   int nmax = 512;
+  double ac[1024];
   static iopt = 2;
-  int i, j;
-  double e, c, g;
+  double **qk, *t;
+  int n, i;
   
-  am = 2.0*z;
-  if (iopt == 2) {
-    acofz1_(&z, &am, &nmax, &n0, ac, &anc, &n1, &iopt);
+  if (n1 > 512) return 0.0;
+  if (n0 >= n1) {
+    return 0.0;
+  } 
+  if (kl1 != kl0 + 1 && kl1 != kl0 - 1) {
+    return 0.0;
   }
-  if (s < 0) iopt = 1;
-  else iopt = 0;
-  
-  acofz1_(&z, &am, &n1, &n0, ac, &anc, &n1, &iopt);
-
-  if (s == 1) {
-    e = 0.5*z*z*(1.0/(n0*n0) - 1.0/(n1*n1));
-    c = 1.0/(2.0*pow(FINE_STRUCTURE_CONST, 3.0)*e*e);
-    for (i = 0; i < n1; i++) {
-      j = i+n1;
-      ac[i] /= RATE_AU;
-      ac[j] /= RATE_AU;
-      g = 2.0*(2*i+1.0);
-      ac[i] *= g*c;
-      ac[j] *= (g+4.0)*c;
+  qk = (double **) ArraySet(dipole_array, n1, NULL);
+  if (*qk == NULL) {
+    *qk = (double *) malloc(sizeof(double)*n1*(n1-1));
+    t = *qk;
+    am = 100.0;
+    if (iopt == 2) {
+      acofz1_(&z0, &am, &nmax, &n0, ac, &anc, &n1, &iopt);
+    }
+    iopt = 1;
+    for (n = 1; n < n1; n++) {
+      acofz1_(&z0, &am, &n1, &n, ac, &anc, &n1, &iopt);
+      for (i = 0; i < n; i++) {
+	*(t++) = ac[i];
+      }
+      for (i = 0; i < n; i++) {
+	*(t++) = ac[i+n1];
+      }
     }
   }
-  
-  return anc;
+
+  t = (*qk) + n0*(n0-1);
+  if (kl1 == kl0 - 1) {
+    return t[kl1]/z;
+  } else {
+    return t[n0 + kl0]/z;
+  }
+}
+
+double TRRateHydrogenic(double z, int n0, int kl0, int n1, int kl1, int s) {
+  double e, c, g, al;
+  double factor, e2, r;
+
+  c = HydrogenicDipole(z, n0, kl0, n1, kl1);
+  if (c == 0) return c;
+  e2 = z*z*(1.0/(n0*n0) - 1.0/(n1*n1));
+  factor = 2.6775015E9*e2*e2*e2;
+  al = (double) Max(kl0, kl1);
+  r = (al/(2.0*kl1 + 1.0))*c*c*factor;
+  if (s == 1) {
+    e = e2*0.5;
+    c = 1.0/(2.0*pow(FINE_STRUCTURE_CONST, 3.0)*e*e);
+    r /= RATE_AU;
+    g = 2.0*(2.0*kl1+1.0);
+    r *= g*c;
+  }
+  return r;
 }
 
 double CoulombPhaseShift(double z, double e, int kappa) {
@@ -437,6 +471,9 @@ int InitCoulomb(void) {
   }
 
   SetHydrogenicNL(-1, -1);
+
+  dipole_array = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(dipole_array, sizeof(double *), 10);
 
   return 0;
 }

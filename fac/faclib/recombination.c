@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.48 2002/04/30 15:01:53 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.49 2002/05/15 18:45:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -644,7 +644,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
   int nz, ie, k;
-  double a, b, d, amax;
+  double a, b, d, amax, eb0;
   double rq[MAXNE], tq[MAXNE];
   int j1, j2;
   int i, j, c;
@@ -697,6 +697,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 	  nkl = klb;
 	  nq = orb->n; 
 	  amax = a;
+	  eb0 = -(orb->energy);
 	}
       }
       for (ie = 0; ie < n_egrid; ie++) {
@@ -707,7 +708,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   if (qk_mode == QK_FIT) {
     RRRadialQkHydrogenicParams(NPARAMS, rqc, nq, nkl);
     for (ie = 0; ie < n_egrid; ie++) {
-      xegrid[ie] = 1.0 + egrid[ie]/(*eb);
+      xegrid[ie] = 1.0 + egrid[ie]/eb0;
       log_xegrid[ie] = log(xegrid[ie]);
     }
 
@@ -724,11 +725,12 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     b = 0.0;
     for (ie = 0; ie < n_egrid; ie++) {
       if (xegrid[ie] > 2.0) {
-	a += ((*eb)*tq[ie]/rq[ie])*egrid[ie];
+	a += (eb0*tq[ie]/rq[ie])*egrid[ie];
 	b += egrid[ie];
       }
     }
     rqc[0] *= a/b;
+    rqc[3] = eb0;
     for (ie = 0; ie < n_egrid; ie++) {
       a = (*eb) + egrid[ie];
       rqu[ie] = tq[ie]*a;
@@ -993,7 +995,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	      char *fn, int m) {
   int i, j, k, ie, ip;
   FILE *f;
-  double rqu[MAXNUSR], qc[NPARAMS];
+  double rqu[MAXNUSR], qc[NPARAMS+1];
   double eb;
   LEVEL *lev1, *lev2;
   RR_RECORD r;
@@ -1065,7 +1067,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
 
   if (qk_mode == QK_FIT) {
-    nqk = NPARAMS;
+    nqk = NPARAMS+1;
     r.params = (float *) malloc(sizeof(float)*nqk);
   } else {
     nqk = 0;

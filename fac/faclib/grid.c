@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.5 2001/10/24 23:31:35 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.6 2002/05/15 18:45:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -45,8 +45,8 @@ int SetPWGrid(int *nkl0, double *kl, double *logkl,
   while (m+k <= maxkl) {
     AddPW(nkl0, kl, logkl, maxkl, j, k);
     m = kl[(*nkl0)-1];
-    if (k < 50) k *= 2;
-    else k += 50;
+    if (k <= 32) k *= 2;
+    else k += 8;
   }
   kl[(*nkl0)] = maxkl+1;
   return (*nkl0);
