@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.35 2004/01/11 22:02:55 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.36 2004/02/04 04:41:01 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1094,8 +1094,8 @@ int InitRates(void) {
   ele_dist[i].nparams = 3;
   ele_dist[i].params = (double *) malloc(sizeof(double)*3);
   ele_dist[i].params[0] = 1.5;
-  ele_dist[i].params[3] = 1.0E3;
-  ele_dist[i].params[4] = 1E7;
+  ele_dist[i].params[1] = 1.0E3;
+  ele_dist[i].params[2] = 1E7;
   ele_dist[i].dist = PowerLaw;
 
   i++;

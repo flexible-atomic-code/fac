@@ -64,7 +64,7 @@
 **              index identifies a particular term in the 
 **              RCFP_TERMS table which this state belongs to. 
 **              {int n},
-**              principal quantum number of the subshell.
+**              principle quantum number of the subshell.
 **              {int nq},
 **              occupation number of the subshell.
 **              {int subshellMQ},
