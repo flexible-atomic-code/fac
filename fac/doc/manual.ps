@@ -8,7 +8,7 @@
 %DVIPSWebPage: (www.radicaleye.com)
 %DVIPSCommandLine: dvips -o manual.ps manual
 %DVIPSParameters: dpi=600, compressed
-%DVIPSSource:  TeX output 2003.03.30:0840
+%DVIPSSource:  TeX output 2003.03.30:0907
 %%BeginProcSet: texc.pro
 %!
 /TeXDict 300 dict def TeXDict begin/N{def}def/B{bind def}N/S{exch}N/X{S
@@ -6005,101 +6005,100 @@ b Fl(is)29 b(0.)41 b(The)29 b(function)g Fk(ColFit)e
 Fl(is)0 660 y(used)k(if)h Fb(m)37 b Fl(is)31 b(1.)47
 b(The)31 b(function)h Fk(CFit)e Fl(is)h(used)g(for)f(the)i(direct)f
 (ionization)f(rate)g(and)h Fk(ColFit)e Fl(for)i(the)g(autoionization)0
-760 y(rate,)c(if)h Fb(m)34 b Fl(is)27 b(2.)37 b(The)28
-b(default)g(is)f(1.)37 b(The)27 b(results)g(are)g(in)h(unit)g(of)g(10)
-2216 730 y Fd(\000)p Fg(10)2365 760 y Fl(cm)2471 730
-y Fg(3)2536 760 y Fl(s)2569 730 y Fd(\000)p Fg(1)2657
-760 y Fl(.)0 923 y Fk(LevelInfor)p Fl(\()p Fb(fn,)e(ilev)9
-b Fl(\):)0 1022 y(Lo)r(ok)31 b(up)h(in)g(the)g(energy)e(database)h
-(\014le)h Fb(fn)38 b Fl(for)31 b(the)h(lev)n(el)f(indexed)h
-Fb(ilev)p Fl(.)51 b(It)32 b(returns)f(a)g(tuple)h(of)g(length)g(6.)48
-b(The)32 b(\014rst)0 1122 y(elemen)n(t)f(is)g(the)h(energy)e(in)h
+760 y(rate,)d(if)h Fb(m)35 b Fl(is)29 b(2.)39 b(The)29
+b(data)f(from)g(Aladdin)h(database)e(is)i(used)f(if)i
+Fb(m)k Fl(is)29 b(3.)39 b(The)29 b(default)g(is)g(1.)39
+b(The)29 b(results)f(are)f(in)i(unit)0 859 y(of)f(10)179
+829 y Fd(\000)p Fg(10)327 859 y Fl(cm)433 829 y Fg(3)498
+859 y Fl(s)531 829 y Fd(\000)p Fg(1)620 859 y Fl(.)0
+1008 y Fk(LevelInfor)p Fl(\()p Fb(fn,)e(ilev)9 b Fl(\):)0
+1108 y(Lo)r(ok)31 b(up)h(in)g(the)g(energy)e(database)h(\014le)h
+Fb(fn)38 b Fl(for)31 b(the)h(lev)n(el)f(indexed)h Fb(ilev)p
+Fl(.)51 b(It)32 b(returns)f(a)g(tuple)h(of)g(length)g(6.)48
+b(The)32 b(\014rst)0 1207 y(elemen)n(t)f(is)g(the)h(energy)e(in)h
 (atomic)g(units,)h(the)g(second)e(is)h(the)h(parit)n(y)-7
 b(,)31 b(the)h(third)f(is)g(the)g(2J)g(v)-5 b(alue,)32
-b(the)f(fourth)g(is)g(the)0 1222 y(complex)g(name,)i(the)f(\014fth)h
+b(the)f(fourth)g(is)g(the)0 1307 y(complex)g(name,)i(the)f(\014fth)h
 (is)e(the)h(non-relativsitic)f(con\014guration,)g(and)h(the)g(sixth)g
-(is)f(the)h(relativistic)f(con\014guration)0 1321 y(and)c(the)h
-(coupling.)0 1485 y Fk(LevelPopulation)p Fl(\(\):)0 1584
+(is)f(the)h(relativistic)f(con\014guration)0 1407 y(and)c(the)h
+(coupling.)0 1572 y Fk(LevelPopulation)p Fl(\(\):)0 1671
 y(Solv)n(e)f(the)h(lev)n(el)f(p)r(opulation)g(using)h(the)g(sup)r
-(erlev)n(el)e(blo)r(c)n(k)h(metho)r(d.)0 1747 y Fk(MaxAbund)p
+(erlev)n(el)e(blo)r(c)n(k)h(metho)r(d.)0 1836 y Fk(MaxAbund)p
 Fl(\()p Fb(Z,)g(n)36 b Fl([)p Fb(,im,)31 b(rm,)f(a)19
-b Fl(]\):)0 1847 y(Calculate)27 b(the)h(temp)r(erature)g(where)f(the)h
+b Fl(]\):)0 1936 y(Calculate)27 b(the)h(temp)r(erature)g(where)f(the)h
 (fractional)f(abundance)g(of)h(the)g(ion)g(with)g(n)n(uclear)f(c)n
 (harge)f Fb(Z)40 b Fl(and)27 b(n)n(um)n(b)r(er)h(of)0
-1947 y(electrons)22 b Fb(n)30 b Fl(reac)n(hes)22 b(maxim)n(um.)35
+2035 y(electrons)22 b Fb(n)30 b Fl(reac)n(hes)22 b(maxim)n(um.)35
 b(The)24 b(optional)e(argumen)n(ts)g Fb(im)31 b Fl(and)23
 b Fb(rm)30 b Fl(sp)r(eci\014es)23 b(the)h(functions)f(used)h(for)f
-(ionization)0 2046 y(rates)33 b(and)i(recom)n(bination)d(rates)i(resp)r
+(ionization)0 2135 y(rates)33 b(and)i(recom)n(bination)d(rates)i(resp)r
 (ectiv)n(ely)-7 b(.)56 b Fb(im)41 b Fl(is)34 b(passed)g(to)g(the)h
 (function)g Fk(Ionis)p Fl(,)f(and)g Fb(rm)40 b Fl(is)35
-b(passed)e(to)h(the)0 2146 y(function)25 b Fk(Recomb)p
+b(passed)e(to)h(the)0 2235 y(function)25 b Fk(Recomb)p
 Fl(.)34 b(The)24 b(default)i(for)e(b)r(oth)h(parameters)e(are)g(1.)36
 b(The)25 b(parameter)e Fb(a)31 b Fl(sp)r(eci\014es)25
-b(the)g(relativ)n(e)e(accuracy)g(for)0 2245 y(the)28
+b(the)g(relativ)n(e)e(accuracy)g(for)0 2334 y(the)28
 b(solution,)g(whic)n(h)g(has)f(the)i(default)f(of)g(10)1469
-2215 y Fd(\000)p Fg(4)1557 2245 y Fl(.)39 b(This)28 b(functions)g
+2304 y Fd(\000)p Fg(4)1557 2334 y Fl(.)39 b(This)28 b(functions)g
 (returns)f(a)h(tuple)g(of)g(length)g(2.)38 b(The)28 b(\014rst)g(elemen)
-n(t)g(is)0 2345 y(the)j(temp)r(erature)g(found,)h(the)f(second)f(is)h
+n(t)g(is)0 2434 y(the)j(temp)r(erature)g(found,)h(the)f(second)f(is)h
 (a)f(list)h(for)g(the)g(fractional)f(abundances)g(of)h(all)f(ions)h
-(with)g(n)n(uclear)f(c)n(harge)f Fb(Z)0 2445 y Fl(at)e(the)h(found)g
-(temp)r(erature.)0 2608 y Fk(MemENTable)p Fl(\()p Fb(fn)6
-b Fl(\):)0 2707 y(Build)26 b(an)f(energy)f(lev)n(el)h(table)h(in)f(the)
-h(memory)f(for)g(the)h Fk(DB)p 1905 2707 27 4 v 30 w(EN)f
+(with)g(n)n(uclear)f(c)n(harge)f Fb(Z)0 2534 y Fl(at)e(the)h(found)g
+(temp)r(erature.)0 2699 y Fk(MemENTable)p Fl(\()p Fb(fn)6
+b Fl(\):)0 2798 y(Build)26 b(an)f(energy)f(lev)n(el)h(table)h(in)f(the)
+h(memory)f(for)g(the)h Fk(DB)p 1905 2798 27 4 v 30 w(EN)f
 Fl(t)n(yp)r(e)h(\014le)f Fb(fn)p Fl(.)37 b(This)25 b(function)h(also)f
-(exists)g(in)h(the)g(mo)r(dule)0 2807 y Fk(fac)p Fl(.)0
-2954 y Fk(NDRFit)p Fl(\()p Fb(Z,)i(n,)i(T)-6 b(e)6 b
-Fl(\):)0 3054 y(Calculate)22 b(the)i(dielectronic)e(recom)n(bination)g
+(exists)g(in)h(the)g(mo)r(dule)0 2898 y Fk(fac)p Fl(.)0
+3047 y Fk(NDRFit)p Fl(\()p Fb(Z,)i(n,)i(T)-6 b(e)6 b
+Fl(\):)0 3146 y(Calculate)22 b(the)i(dielectronic)e(recom)n(bination)g
 (rates)g(using)g(the)i(data)e(calculated)h(with)g(F)-9
 b(A)n(C)23 b(for)g(H-lik)n(e)f(through)g(Ne-lik)n(e)0
-3153 y(ions)28 b(of)h(Mg,)f(Si,)i(S,)f(Ar,)f(Ca,)h(F)-7
-b(e,)29 b(and)g(Ni,)g(and)f(the)h(\014tting)g(form)n(ula)f(and)h(data)f
-(table)g(of)h(P)-7 b(.)28 b(Mazzotta)g(for)g(other)g(ions.)0
-3253 y Fb(Z)41 b Fl(is)29 b(the)h(n)n(uclear)e(c)n(harge)g(of)h(the)g
-(ion,)h Fb(n)35 b Fl(is)29 b(the)h(n)n(um)n(b)r(er)f(of)g(electrons,)g
-(and)g Fb(T)-6 b(e)36 b Fl(is)29 b(the)h(electron)e(temp)r(erature)h
-(in)h(eV.)0 3353 y(The)e(result)f(is)g(in)h(unit)h(of)e(10)936
-3323 y Fd(\000)p Fg(10)1085 3353 y Fl(cm)1191 3323 y
-Fg(3)1256 3353 y Fl(s)1289 3323 y Fd(\000)p Fg(1)1378
-3353 y Fl(.)0 3500 y Fk(NRRFit)p Fl(\()p Fb(Z,)h(n,)i(T)-6
-b(e)6 b Fl(\):)0 3599 y(Calculate)34 b(the)i(radiativ)n(e)d(recom)n
-(bination)h(cross)f(sections)i(using)f(the)h(F)-7 b(ortran)34
-b(subroutine)h Fk(nrrfit)d Fl(using)j(the)g(data)0 3699
-y(calculated)23 b(with)h(F)-9 b(A)n(C)23 b(for)g(Bare)f(through)g
-(F-lik)n(e)h(ions)g(of)g(Mg,)h(Si,)g(S,)g(Ar,)g(Ca,)g(F)-7
-b(e,)24 b(and)f(Ni,)i(and)e(use)g(the)h(routine)f Fk(rrfit)0
-3799 y Fl(for)28 b(other)h(ions.)40 b Fb(Z)h Fl(is)28
-b(the)h(n)n(uclear)f(c)n(harge)f(of)i(the)g(ion,)g Fb(n)35
-b Fl(is)29 b(the)g(n)n(um)n(b)r(er)g(of)g(electrons)e(of)i(the)g(recom)
-n(bining)f(ion,)h(and)0 3898 y Fb(T)-6 b(e)34 b Fl(is)28
+3246 y(ions)28 b(of)h(Mg,)g(Si,)g(S,)g(Ar,)g(Ca,)f(F)-7
+b(e,)30 b(and)e(Ni.)41 b Fb(Z)g Fl(is)28 b(the)h(n)n(uclear)f(c)n
+(harge)f(of)h(the)i(ion,)e Fb(n)35 b Fl(is)29 b(the)g(n)n(um)n(b)r(er)f
+(of)h(electrons,)f(and)0 3345 y Fb(T)-6 b(e)34 b Fl(is)28
 b(the)g(electron)e(temp)r(erature)i(in)g(eV.)f(The)h(result)f(is)h(in)g
-(unit)g(of)g(10)2322 3868 y Fd(\000)p Fg(10)2471 3898
-y Fl(cm)2577 3868 y Fg(3)2642 3898 y Fl(s)2675 3868 y
-Fd(\000)p Fg(1)2763 3898 y Fl(.)0 4061 y Fk(PhFit)p Fl(\()p
-Fb(Z,)g(n,)i(E,)h(s)7 b Fl(\):)0 4161 y(Calculate)26
-b(the)i(photoionization)e(cross)f(section)i(at)g(energy)e
-Fb(E)38 b Fl(of)27 b(subshell)g Fb(s)34 b Fl(for)26 b(the)h(ion)g(with)
-h(n)n(uclear)e(c)n(harge)f Fb(Z)p Fl(,)i(and)0 4261 y(n)n(um)n(b)r(er)i
-(of)g(electrons)f Fb(n)p Fl(.)42 b(The)29 b(meaning)g(of)g
-Fb(s)36 b Fl(are:)j(1)29 b(for)g(1)p Fi(s)p Fl(,)g(2)g(for)g(2)p
-Fi(s)p Fl(,)g(3)g(for)f(2)p Fi(p)p Fl(,)h(4)g(for)g(3)p
-Fi(s)p Fl(,)g(5)g(for)g(3)p Fi(p)p Fl(,)g(6)f(for)h(3)p
-Fi(d)g Fl(and)g(7)0 4360 y(for)e(4)p Fi(s)p Fl(.)36 b(The)28
-b(F)-7 b(ortran)27 b(subroutine)g Fk(phfit2)e Fl(of)i(D.)i(A.)f(V)-7
-b(erner)27 b(is)g(used.)37 b(The)28 b(result)f(is)g(in)h(unit)h(of)e
-(10)3271 4330 y Fd(\000)p Fg(20)3420 4360 y Fl(cm)3526
-4330 y Fg(2)0 4526 y Fk(PlotSpec)p Fl(\()p Fb(ifn,)h(ofn,)i(n,)g(t,)g
-(e0,)h(e1,)g(de)36 b Fl([)p Fb(,)30 b(s)19 b Fl(]\):)0
-4625 y(Prin)n(t)30 b(the)h(sp)r(ectrum)f(of)h(lines)f(in)h(the)g
-Fk(DB)p 1359 4625 V 30 w(SP)f Fl(\014le)h Fb(ifn)37 b
+(unit)g(of)g(10)2322 3315 y Fd(\000)p Fg(10)2471 3345
+y Fl(cm)2577 3315 y Fg(3)2642 3345 y Fl(s)2675 3315 y
+Fd(\000)p Fg(1)2763 3345 y Fl(.)0 3510 y Fk(NRRFit)p
+Fl(\()p Fb(Z,)g(n,)i(T)-6 b(e)6 b Fl(\):)0 3610 y(Calculate)34
+b(the)i(radiativ)n(e)d(recom)n(bination)h(cross)f(sections)i(using)f
+(the)h(F)-7 b(ortran)34 b(subroutine)h Fk(nrrfit)d Fl(using)j(the)g
+(data)0 3710 y(calculated)23 b(with)h(F)-9 b(A)n(C)24
+b(for)f(Bare)f(through)h(F-lik)n(e)g(ions)g(of)h(Mg,)g(Si,)g(S,)g(Ar,)g
+(Ca,)g(F)-7 b(e.)36 b Fb(Z)g Fl(is)23 b(the)h(n)n(uclear)f(c)n(harge)f
+(of)h(the)h(ion,)0 3809 y Fb(n)32 b Fl(is)26 b(the)h(n)n(um)n(b)r(er)f
+(of)g(electrons)f(of)h(the)h(recom)n(bining)d(ion,)j(and)f
+Fb(T)-6 b(e)32 b Fl(is)26 b(the)h(electron)e(temp)r(erature)h(in)g(eV.)
+h(The)f(result)g(is)0 3909 y(in)i(unit)g(of)g(10)451
+3879 y Fd(\000)p Fg(10)600 3909 y Fl(cm)706 3879 y Fg(3)771
+3909 y Fl(s)804 3879 y Fd(\000)p Fg(1)892 3909 y Fl(.)0
+4058 y Fk(PhFit)p Fl(\()p Fb(Z,)g(n,)i(E,)h(s)7 b Fl(\):)0
+4157 y(Calculate)26 b(the)i(photoionization)e(cross)f(section)i(at)g
+(energy)e Fb(E)38 b Fl(of)27 b(subshell)g Fb(s)34 b Fl(for)26
+b(the)h(ion)g(with)h(n)n(uclear)e(c)n(harge)f Fb(Z)p
+Fl(,)i(and)0 4257 y(n)n(um)n(b)r(er)i(of)g(electrons)f
+Fb(n)p Fl(.)42 b(The)29 b(meaning)g(of)g Fb(s)36 b Fl(are:)j(1)29
+b(for)g(1)p Fi(s)p Fl(,)g(2)g(for)g(2)p Fi(s)p Fl(,)g(3)g(for)f(2)p
+Fi(p)p Fl(,)h(4)g(for)g(3)p Fi(s)p Fl(,)g(5)g(for)g(3)p
+Fi(p)p Fl(,)g(6)f(for)h(3)p Fi(d)g Fl(and)g(7)0 4357
+y(for)e(4)p Fi(s)p Fl(.)36 b(The)28 b(F)-7 b(ortran)27
+b(subroutine)g Fk(phfit2)e Fl(of)i(D.)i(A.)f(V)-7 b(erner)27
+b(is)g(used.)37 b(The)28 b(result)f(is)g(in)h(unit)h(of)e(10)3271
+4327 y Fd(\000)p Fg(20)3420 4357 y Fl(cm)3526 4327 y
+Fg(2)0 4524 y Fk(PlotSpec)p Fl(\()p Fb(ifn,)h(ofn,)i(n,)g(t,)g(e0,)h
+(e1,)g(de)36 b Fl([)p Fb(,)30 b(s)19 b Fl(]\):)0 4624
+y(Prin)n(t)30 b(the)h(sp)r(ectrum)f(of)h(lines)f(in)h(the)g
+Fk(DB)p 1359 4624 V 30 w(SP)f Fl(\014le)h Fb(ifn)37 b
 Fl(of)31 b(a)f(giv)n(en)f(t)n(yp)r(e)i Fb(t)38 b Fl(to)30
 b(the)h(\014le)g Fb(ofn)p Fl(.)46 b(See)30 b Fk(SelectLines)c
-Fl(for)k(the)0 4725 y(meaning)i(of)h(this)h(parameter.)51
+Fl(for)k(the)0 4723 y(meaning)i(of)h(this)h(parameter.)51
 b(The)33 b(lines)g(are)f(con)n(v)n(olv)n(ed)f(with)j(a)e(Gausian)h
 (with)g(FWMH)h(of)f Fb(de)40 b Fl(in)33 b(unit)h(of)f(eV.)g
-Fb(e0)0 4825 y Fl(and)28 b Fb(e1)41 b Fl(are)28 b(the)h(sp)r(ectral)f
+Fb(e0)0 4823 y Fl(and)28 b Fb(e1)41 b Fl(are)28 b(the)h(sp)r(ectral)f
 (range)f(to)i(b)r(e)g(considered.)39 b(The)29 b(optional)e
 Fb(s)36 b Fl(giv)n(es)27 b(a)i(cuto\013)g(threshold)f(for)g(the)h
-(lines.)40 b(Lines)0 4924 y(w)n(eak)n(er)26 b(than)h
+(lines.)40 b(Lines)0 4922 y(w)n(eak)n(er)26 b(than)h
 Fb(s)35 b Fl(times)28 b(the)g(strongest)e(line)i(are)e(not)i(included.)
 0 5087 y Fk(Print)p Fl(\()p Fb(ar)l(gs)7 b Fl(\):)0 5187
 y(Prin)n(t)30 b(out)g(the)h(string)f(represen)n(tation)f(of)i

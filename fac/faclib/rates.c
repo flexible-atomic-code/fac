@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.26 2003/03/30 05:50:34 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.27 2003/03/30 14:19:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -638,7 +638,6 @@ double NRRFit(int z, int nele, double t) {
   double r;
 
   NRRFIT(z, nele, t, &r);
-  if (r < 0.0) r = RRFit(z, nele, t);
   return r;
 }
 
@@ -655,7 +654,6 @@ double NDRFit(int z, int nele, double t) {
   double r;
 
   NDRFIT(z, nele, t, &r);
-  if (r < 0.0) r = DRFit(z, nele, t);
   return r;
 }
 
@@ -747,6 +745,7 @@ double Ionis(int z, int nele, double t, double *a, double *dir, int m) {
     total = CFit(z, nele, t, &aa, &dd);
   } else if (m == 3) {
     total = RBeli(z, nele, t, &aa, &dd);
+    if (total <= 0) total = ColFit(z,nele, 0, t, &aa, &dd);
   } else {
     printf("unrecognized mode in Ionis\n");
     return 0.0;
@@ -777,7 +776,9 @@ double Recomb(int z, int nele, double t, double *rr, double *dr, int m) {
     d = DRFit(z, nele, t);
   } else if (m == 2) {
     r = NRRFit(z, nele, t);
+    if (r <= 0) r = RRFit(z, nele, t);
     d = NDRFit(z, nele, t);
+    if (d <= 0) d = DRFit(z, nele, t);
   } else {
     printf("Unrecognized Mode in Recomb\n");
     return 0.0;
