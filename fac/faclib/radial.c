@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.111 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.112 2005/03/03 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1358,7 +1358,7 @@ static double FKB(int ka, int kb, int k) {
   
   GetJLFromKappa(GetOrbital(ka)->kappa, &ja, &ia);
   GetJLFromKappa(GetOrbital(kb)->kappa, &jb, &ib);
-  
+
   a = W3j(ja, k, ja, 1, 0, -1)*W3j(jb, k, jb, 1, 0, -1);
   if (fabs(a) < EPS10) return 0.0; 
   Slater(&b, ka, kb, ka, kb, k/2, 0);
@@ -1547,7 +1547,7 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     k0 = abs(ja-jb);
     k1 = ja+jb;
     kp0 = k0;
-    kp1 = k1;
+    kp1 = k1;    
     if (k0 < 4) k0 = 4;
     a = 1.0/((ja+1.0)*(jb+1.0));
     for (k = k0; k <= k1; k += 4) {
@@ -1556,8 +1556,9 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
 	if (fabs(b) < EPS10) continue;
 	b *= 2.0*a;
 	if (IsOdd(kp/2)) b = -b;
-	b *= FKB(ka, kb, k)*GKB(ka, kb, kp);
-	e += b;
+	c = FKB(ka, kb, k);
+	d = GKB(ka, kb, kp);
+	e += b*c*d;
       }
     }
     break;
@@ -1688,6 +1689,7 @@ double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2) {
     e += a*b;
   }
     
+  if (e < 0.0) e = 0.0;
   return e;
 }
 

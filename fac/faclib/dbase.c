@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.73 2005/02/03 22:14:45 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.74 2005/03/03 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1917,7 +1917,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
-      if (r.lower == i0 && r.upper == i1) {
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
 	PrepCECrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e *= HARTREE_EV;
@@ -1947,7 +1947,8 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  }
 	  fprintf(f2, "\n\n");
 	}
-	goto DONE;
+	if (i0 >= 0 && i1 >= 0) 
+	  goto DONE;
       }
     }
   }
