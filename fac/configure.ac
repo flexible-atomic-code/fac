@@ -56,7 +56,7 @@ AC_ARG_ENABLE(fpic,
 if test -n "$GCC"
 then
   if test -z "$copt"
-  then
+  then 
     copt="-O2"
   fi
   if test -z "$cpic"
@@ -67,7 +67,7 @@ fi
 if test -n "$G77"
 then
   if test -z "$fopt"
-  then
+  then 
     fopt="-O2"
   fi
   if test -z "$fpic"
@@ -153,6 +153,14 @@ then
 fi
 AC_DEFINE_UNQUOTED([$xxFortran])
 
+# setup libs 
+LIBS="$LIBS -lfac"
+fwithm=`echo "$FLIBS " | grep " -lm"`
+if test "x$fwithm" = "x"
+then
+  LIBS="$LIBS -lm"
+fi
+
 # special flags for some OS
 case "$host_os" in
   *darwin*)
@@ -161,21 +169,17 @@ case "$host_os" in
     then 
       FFLAGS="$FFLAGS -fno-common"
     fi
+# darwin needs cc_dynamic lib.
+    LIBS="$LIBS -lcc_dynamic"
   ;;
   *)
   ;;
 esac 
       
-# add include and lib. pathes.	      
+# add include pathes.	      
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
-LIBS="$LIBS -lfac"
-fwithm=`echo "$FLIBS " | grep " -lm"`
-if test "x$fwithm" = "x"
-then
-  LIBS="$LIBS -lm"
-fi
 
 AC_CONFIG_FILES([Makefile 
 		 sfac/Makefile
