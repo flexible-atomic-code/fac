@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.8 2002/01/18 15:27:13 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.9 2002/01/24 03:14:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -267,6 +267,28 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
+  FILE *f;
+  F_HEADER fh;
+  int i;
+
+  if (argc == 0) {
+    i = CheckEndian(NULL);
+  } else {
+    f = fopen(argv[0], "rb");
+    if (f == NULL) {
+      printf("Cannot open file %s\n", argv[0]);
+      return -1;
+    }
+    fread(&fh, sizeof(F_HEADER), 1, f);
+    i = CheckEndian(&fh);
+    fclose(f);
+  }
+
+  printf("Endian: %d\n", i);
+  
+  return 0;
+}  
 
 static char _closed_shells[128] = "";
 static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
@@ -2335,6 +2357,7 @@ static METHOD methods[] = {
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
+  {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
