@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.29 2003/01/21 03:00:19 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.30 2003/01/21 14:45:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -338,7 +338,10 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   k = -2;
   for (i = 0; i < argc; i++) {
     if (argt[i] == KEYWORD) {
-      if (strcmp(argv[i], "group") != 0) return -1;
+      if (strcmp(argv[i], "group") != 0) {
+	printf("The keyword must be group=gname\n");
+	return -1;
+      }
       if (i > argc-2) return -1;
       if (argt[i+1] != STRING) return -1;
       k = i;
@@ -2483,7 +2486,7 @@ static METHOD methods[] = {
   {"ReinitRadial", PReinitRadial, METH_VARARGS},
   {"ReinitDBase", PReinitDBase, METH_VARARGS},
   {"ReinitStructure", PReinitStructure, METH_VARARGS},
-  {"ReiniExcitationt", PReinitExcitation, METH_VARARGS},
+  {"ReinitExcitation", PReinitExcitation, METH_VARARGS},
   {"ReinitRecombination", PReinitRecombination, METH_VARARGS},
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
