@@ -391,7 +391,7 @@ class ATOM:
             Print(s)
             CETable(self.bfiles['ce'], low, up)
 
-        Reinit(radial = 1, excitation = 1, structure = 1)
+        Reinit(radial = 1, excitation = 1)
         
         return
 
@@ -430,8 +430,7 @@ class ATOM:
 
 
         if (ci != 0 or rr != 0):
-            Reinit(radial = 1, recombination = 1,
-                   ionization = 1, structure = 1)
+            Reinit(radial = 1, recombination = 1, ionization = 1)
         
         return
 
@@ -453,7 +452,7 @@ class ATOM:
 
         AITable(self.bfiles['ai'], low, up, k)
 
-        Reinit(radial = 1, recombination = 1, structure = 1)
+        Reinit(radial = 1, recombination = 1)
         
         return
     

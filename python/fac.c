@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.91 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.92 2004/12/14 18:51:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1522,9 +1522,15 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
       return NULL;
     }
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
+    if (nlow <= 0) {
+      printf("cannot determine levels in lower\n");
+      return NULL;
+    }
     nup = SelectLevels(q, &up);
-    if (nup <= 0) return NULL;
+    if (nup <= 0) {
+      printf("cannot determine levels in upper\n");
+      return NULL;
+    }
     SaveTransition(nlow, low, nup, up, s, m);
     free(low);
     free(up);
