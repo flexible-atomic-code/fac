@@ -695,9 +695,9 @@ def get_complexes(nelectrons):
                 c1 = c1 + '%d*%d %d*%d'%(a[0], a[1]-1, a[0]+1, 1)
     return [c0, c1]
 
-def spectrum(neles, den, population, pref,
+def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
-             dist = [], cascade = 0, rrc = 0, ion0 = 1, 
+             dist = 0, params=[], cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
              ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = []):
     for k in neles:
@@ -744,7 +744,11 @@ def spectrum(neles, den, population, pref,
             p2 = abund0
             print 'Temp = %10.3E'%(temp[i])
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
-            SetEleDist(*dist)
+
+            dp = [dist, temp[i]]
+            dp[2:] = params
+            SetEleDist(*dp)
+            
             if (ce > 0):
                 print 'CE rates...'
                 SetCERates(1)
