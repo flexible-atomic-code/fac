@@ -189,7 +189,7 @@ int SetEGrid(int n, double emin, double emax, int type) {
   egrid[0] = emin;
   log_egrid[0] = log(egrid[0]);
   n_egrid = n;
-  if (type == 0) {
+  if (type < 0) {
     del = emax - emin;
     del /= n-1.0;
     for (i = 1; i < n; i++) {
@@ -831,11 +831,11 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 			       ang[j].k0, ang[j].k1, ang[i].k); 
 	}
 	if (n_usr > n_egrid) {
-	  spline(egrid, rqk, n_egrid, 1.0E30, 1.0E30, y2);
+	  spline(log_egrid, rqk, n_egrid, 1.0E30, 1.0E30, y2);
 	}
 	for (ie = 0; ie < n_usr; ie++) {
 	  if (n_usr > n_egrid) {
-	    splint(egrid, rqk, y2, n_egrid, usr_egrid[ie], &r);
+	    splint(log_egrid, rqk, y2, n_egrid, log_usr_egrid[ie], &r);
 	  } else {
 	    r = rqk[ie];
 	  }
@@ -855,7 +855,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 	}
 	for (t = 0; t < nq; t++) {
 	  if (n_usr > n_egrid) {
-	    spline(egrid, rq[t], n_egrid, 1.0E30, 1.0E30, qy2[t]);
+	    spline(log_egrid, rq[t], n_egrid, 1.0E30, 1.0E30, qy2[t]);
 	  }
 	}
 	p = 0;
@@ -870,8 +870,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 	    }
 	    for (ie = 0; ie < n_usr; ie++) {
 	      if (n_usr > n_egrid) {
-		splint(egrid, rq[m], qy2[m], 
-		       n_egrid, usr_egrid[ie], &r);
+		splint(log_egrid, rq[m], qy2[m], 
+		       n_egrid, log_usr_egrid[ie], &r);
 	      } else {
 		r = rq[m][ie];
 	      }
@@ -1061,7 +1061,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   double s[MAX_MSUB*MAX_USR_EGRID];
   int *alev;
   LEVEL *lev1, *lev2;
-  double emin, emax, e;
+  double emin, emax, e, c;
 
   if (n_usr == 0) {
     printf("No collisional energy specified\n");
@@ -1106,20 +1106,23 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	if (e > emax) emax = e;
       }
     }
+    e = 2.0*(emax-emin)/(emax+emin);
     if (m == 2) {
       SetTEGrid(2, emin, emax);
-    } else if ((emax - emin) < EPS3) {
+    } else if (e < EPS3) {
       SetTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e < 0.2) {
+      SetTEGrid(2, emin, emax);
     } else {
       SetTEGrid(n_tegrid, emin, emax);
     }
   }
 
   if (n_egrid == 0) {
-    n_egrid = 5;
+    n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr <= 5) {
+    if (n_usr <= 6) {
       SetEGridDetail(n_usr, usr_egrid);
     } else {
       SetEGrid(n_egrid, usr_egrid[0], usr_egrid[n_usr-1], 0);
@@ -1156,7 +1159,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       for (ie = 0; ie < n_usr; ie++) {
 	fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
 	for (m = 0; m < k; m++) {
-	  fprintf(f, "%-10.3E ", s[m*n_usr+ie]);
+	  c = s[m*n_usr+ie];
+	  fprintf(f, "%-10.3E ", c);
+	  c *= PI * AREA_AU20/(2*(usr_egrid[ie]+e)*(j1+1));
+	  fprintf(f, "%-10.3E  ", c);
 	}
 	fprintf(f, "\n");
       }

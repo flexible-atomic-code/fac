@@ -1104,9 +1104,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   if (IsOdd(tmin)) tmin++;
   
   for (t = tmin; t <= tmax; t += 2) {
+    if (IsOdd((kl0+kl3+t)/2) || IsOdd((kl1+kl2+t)/2)) continue;
     a = W6j(js[0], js[2], k, js[1], js[3], t);
-    if (fabs(a) > EPS10 &&
-	IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
+    if (fabs(a) > EPS10) {
       e = 0.0;
       err = Slater(&e, k0, k1, k3, k2, t/2, mode);
       e *= ReducedCL(js[0], t, js[3]);
@@ -1157,8 +1157,8 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     printf("mode unrecognized in slater\n");
     return -1;
   }
-  SortSlaterKey(index);
 
+  SortSlaterKey(index);
   p = (double *) MultiSet(slater_array, index, NULL);
   if (*p) {
     *s = *p;
@@ -1323,6 +1323,8 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
 /* type = 3,    Q1*Q1 */ 
 /* type = 4:    P1*Q2 + Q1*P2 */
 /* type = 5:    P1*Q2 - Q1*P2 */
+/* if type is positive, only the end point is returned, */
+/* otherwise, the whole function is returned */
 
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, 
 	      int t, double *x) {
