@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.56 2004/02/25 17:59:55 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.57 2004/02/28 20:39:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,6 +15,7 @@ static RR_HEADER rr_header;
 static AI_HEADER ai_header;
 static AIM_HEADER aim_header;
 static CI_HEADER ci_header;
+static CIM_HEADER cim_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
 static DR_HEADER dr_header;
@@ -213,6 +214,25 @@ int SwapEndianCIRecord(CI_RECORD *r) {
   return 0;
 }
 
+int SwapEndianCIMHeader(CIM_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  SwapEndian((char *) &(h->egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->n_usr), sizeof(int));
+  SwapEndian((char *) &(h->usr_egrid_type), sizeof(int));
+  return 0;
+}
+
+int SwapEndianCIMRecord(CIM_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->nsub), sizeof(int));
+  return 0;
+}
+
 int SwapEndianSPHeader(SP_HEADER *h) {
   SwapEndian((char *) &(h->position), sizeof(long int));
   SwapEndian((char *) &(h->length), sizeof(long int));
@@ -337,7 +357,6 @@ int WriteFHeader(FILE *f, F_HEADER *fh) {
 
   n = fwrite(fh, sizeof(F_HEADER), 1, f);
   if (n != 1) return 0;
-
   return sizeof(F_HEADER);
 }
 
@@ -351,7 +370,6 @@ int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
     *swp = 1;
     SwapEndianFHeader(fh);
   }
-
   return sizeof(F_HEADER);
 }
 
@@ -453,6 +471,21 @@ int WriteCIHeader(FILE *f, CI_HEADER *h) {
   if (n != h->n_usr) return 0;
   m += sizeof(double)*h->n_usr;
   
+  return m;
+}
+
+int WriteCIMHeader(FILE *f, CIM_HEADER *h) {
+  int n, m;
+  
+  n = fwrite(h, sizeof(CIM_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(CIM_HEADER);
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  n = fwrite(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) return 0;
+  m += sizeof(double)*h->n_usr;
   return m;
 }
 
@@ -642,6 +675,28 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
   if (n != m) return 0;
   m0 += sizeof(float)*m;
 
+  return m0;
+}
+
+int WriteCIMRecord(FILE *f, CIM_RECORD *r) {
+  int n;
+  int m, m0;
+
+  if (cim_header.length == 0) {
+    fheader[DB_CIM-1].nblocks++;
+    WriteCIMHeader(f, &cim_header);
+  }
+  cim_header.ntransitions += 1;
+  m = sizeof(CIM_RECORD);
+  cim_header.length += m;
+  n = fwrite(r, m, 1, f);
+  if (n != 1) return 0;
+  m0 = m;
+  m = r->nsub*cim_header.n_usr;
+  cim_header.length += sizeof(float)*m;
+  n = fwrite(r->strength, sizeof(float), m, f);
+  if (n != m) return 0;
+  m0 += sizeof(float)*m;
   return m0;
 }
 
@@ -1085,6 +1140,66 @@ int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
   return m0;
 }
 
+int ReadCIMHeader(FILE *f, CIM_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(CIM_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianCIMHeader(h);
+  m = sizeof(CIM_HEADER);
+  
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_egrid;
+  h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
+  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) {
+    free(h->egrid);
+    free(h->usr_egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_usr;
+  if (swp) {
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_usr; i++) {
+      SwapEndian((char *) &(h->usr_egrid[i]), sizeof(double));
+    }
+  }
+
+  return m;
+}
+
+int ReadCIMRecord(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
+  int i, n, m, m0;
+
+  n = fread(r, sizeof(CIM_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianCIMRecord(r);
+  m0 = sizeof(CIM_RECORD);
+
+  m = h->n_usr*r->nsub;
+  r->strength = (float *) malloc(sizeof(float)*m);
+  n = fread(r->strength, sizeof(float), m, f);
+  if (n != m) {
+    free(r->strength);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < m; i++) {
+      SwapEndian((char *) &(r->strength[i]), sizeof(float));
+    }
+  }
+  m0 += sizeof(float)*m;
+ 
+  return m0;
+} 
+
 int ReadSPHeader(FILE *f, SP_HEADER *h, int swp) {
   int n;
 
@@ -1218,6 +1333,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   AI_HEADER *ai_hdr;
   AIM_HEADER *aim_hdr;
   CI_HEADER *ci_hdr;
+  CIM_HEADER *cim_hdr;
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
   DR_HEADER *dr_hdr;
@@ -1302,6 +1418,13 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     aim_header.length = 0;
     aim_header.ntransitions = 0;
     break;
+  case DB_CIM:
+    cim_hdr = (CIM_HEADER *) rhdr;
+    memcpy(&cim_header, cim_hdr, sizeof(CIM_HEADER));
+    cim_header.position = p;
+    cim_header.length = 0;
+    cim_header.ntransitions = 0;
+    break;
   default:
     break;
   }
@@ -1373,6 +1496,12 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
     fseek(f, aim_header.position, SEEK_SET);
     if (aim_header.length > 0) {
       n = WriteAIMHeader(f, &aim_header);
+    }
+    break;
+  case DB_CIM:
+    fseek(f, cim_header.position, SEEK_SET);
+    if (cim_header.length > 0) {
+      n = WriteCIMHeader(f, &cim_header);
     }
     break;
   default:
@@ -2141,6 +2270,8 @@ int PrintTable(char *ifn, char *ofn, int v) {
   case DB_AIM:
     n = PrintAIMTable(f1, f2, v, swp);
     break;
+  case DB_CIM:
+    n = PrintCIMTable(f1, f2, v, swp);
   default:
     break;
   }
@@ -2962,6 +3093,92 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
     }
     
     free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
+    
+    nb++;
+  }
+
+  return nb;
+}
+
+int PrintCIMTable(FILE *f1, FILE *f2, int v, int swp) {
+  CIM_HEADER h;
+  CIM_RECORD r;
+  int n, i, t, q;
+  int nb, m, k;
+  float e, a;
+
+  nb = 0;
+  while (1) {
+    n = ReadCIMHeader(f1, &h, swp);
+    if (n == 0) break;
+    
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
+    fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
+    for (i = 0; i < h.n_egrid; i++) {
+      if (v) {
+	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
+      } else {
+	fprintf(f2, "\t %15.8E\n", h.egrid[i]);
+      }
+    }
+    fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
+    fprintf(f2, "NUSR\t= %d\n", h.n_usr);
+    for (i = 0; i < h.n_usr; i++) {
+      if (v) {
+	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
+      } else {
+	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
+      }
+    }
+
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCIMRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+      
+      if (v) {
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
+		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
+		e*HARTREE_EV, r.nsub);
+      } else {
+	fprintf(f2, "%6d %6d %2d\n", r.b, r.f, r.nsub);
+      }
+
+      if (v) {
+	q = 0;
+	for (k = 0; k < r.nsub; k ++) {
+	  for (t = 0; t < h.n_usr; t++) {
+	    a = h.usr_egrid[t];
+	    if (h.usr_egrid_type == 1) a += e;
+	    a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2*a;
+	    a = AREA_AU20/(2.0*a);
+	    a *= r.strength[q];
+	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
+		    h.usr_egrid[t]*HARTREE_EV, r.strength[q], a);
+	    q++;
+	  }
+	  if (k < r.nsub-1) {
+	    fprintf(f2, "--------------------------------------------\n");
+	  }
+	}
+      } else {
+	q = 0;
+	for (k = 0; k < r.nsub; k++) {
+	  for (t = 0; t < h.n_usr; t++) {
+	    fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[q]);
+	    q++;
+	  }
+	}
+      }
+      free(r.strength);
+    }
+    
     free(h.egrid);
     free(h.usr_egrid);
     

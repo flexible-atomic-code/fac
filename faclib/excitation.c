@@ -1,13 +1,13 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.65 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.66 2004/02/28 20:39:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-#define MAXMSUB  16
+#define MAXMSUB  32
 #define NPARAMS  4
 
 static int qk_mode;
@@ -1720,41 +1720,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       ce_hdr.te0 = te0;
     }
     
-    if (qk_mode == QK_EXACT) {
-      if (n_egrid0 <= 0) {
-	if (n_usr0 <= 0) n_usr = 6;
-	if (!usr_set) {
-	  SetUsrCEEGrid(n_usr, emin, emax, ce_hdr.te0);
-	  usr_egrid_type = 1;
-	}  
-	SetCEEGridDetail(n_usr, usr_egrid);
-      } else {
-	if (!e_set) {
-	  SetCEEGrid(n_egrid, emin, emax, ce_hdr.te0);
-	  usr_egrid_type = 1;
-	}
-	SetUsrCEEGridDetail(n_egrid, egrid);
-      }
-    } else {
-      if (n_egrid0 == 0) {
-	n_egrid = 6;
-      }
-      if (!e_set) {
-	SetCEEGrid(n_egrid, emin, emax, ce_hdr.te0);
-      }
-      if (qk_mode == QK_INTERPOLATE) {
-	if (n_usr0 <= 0) {
-	  SetUsrCEEGridDetail(n_egrid, egrid);
-	  usr_egrid_type = 1;
-	} else if (!usr_set) {
-	  SetUsrCEEGrid(n_usr, emin, emax, ce_hdr.te0);
-	  usr_egrid_type = 1;
-	}
-      } else if (qk_mode == QK_FIT) {
-	SetUsrCEEGridDetail(n_egrid, egrid);
-	usr_egrid_type = 1;
-      }
+    if (n_egrid0 == 0) {
+      n_egrid = 6;
     }
+    if (!e_set) {
+      SetCEEGrid(n_egrid, emin, emax, ce_hdr.te0);
+    }
+    if (n_usr0 <= 0) {
+      SetUsrCEEGridDetail(n_egrid, egrid);
+      usr_egrid_type = 1;
+    } else if (!usr_set) {
+      SetUsrCEEGrid(n_usr, emin, emax, ce_hdr.te0);
+      usr_egrid_type = 1;
+    }
+
     if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
       printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
       return -1;

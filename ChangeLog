@@ -1,3 +1,8 @@
+Version 1.0.5, 02/28/2004
+	1. implement magnetic sublevel ionization
+	2. fix bugs in radial integration.
+	3. replace PS manual with PDF format.
+	
 Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.
 	2. enable the LMn inner-shell Auger extrapolation.
