@@ -12,3 +12,5 @@ FeL/,        a general application to the calculation of Fe-L shell
 	     spectrum of collisionally ionized plasma. It includes 
 	     the recombination, and ionization processes in the
 	     line formation.
+polariz/,    use of pfac.pol module to calculate the polarizations of
+	     He-like Fe lines.

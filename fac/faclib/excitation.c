@@ -1,13 +1,13 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.56 2003/07/11 23:38:31 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.57 2003/07/14 16:27:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-#define MAXMSUB  32
+#define MAXMSUB  16
 #define NPARAMS  4
 
 static int qk_mode;

@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.33 2003/07/10 14:04:33 mfgu Exp $
+# rcsid = $Id: README,v 1.34 2003/07/14 16:27:25 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -75,9 +75,9 @@ The modules can be called just like any python modules, either from the
 interpreter interactively, or pass the script to python. 
 e.g., python fe24_level.py.
 
-The non-python interface produces two executables, "sfac" and "scrm", 
-accepting input files as arguments. The syntax of the input file for 
-both programs is identical, and is very similar to the Python syntax,
+The non-python interface produces 3 executables, "sfac", "scrm" and 
+"spol", accepting input files as arguments. The syntax of the input file 
+for both programs is identical, and is very similar to the Python syntax,
 except for the missing of flow constrols.
 
 For more details, please read the manual, and be sure to read the FAQ 
