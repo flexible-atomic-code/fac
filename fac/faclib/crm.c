@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.19 2002/02/26 13:34:20 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.20 2002/02/28 04:53:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1229,8 +1229,14 @@ int InitBlocks(void) {
       if (blk1->n[k] > 0.0) {
 	blk1->n[k] = 0.0;
       } else {
-	if (blk1->nlevels > 1 && blk1->iion >= 0) {
-	  blk1->total_rate[k] = 0.0;
+	if (blk1->iion < 0) {
+	  if (blk1->nlevels > 1 && i > 0) {
+	    blk1->total_rate[k] = 0.0;
+	  }
+	} else {
+	  if (blk1->nlevels > 1) {
+	    blk1->total_rate[k] = 0.0;
+	  }
 	}
       }
     }

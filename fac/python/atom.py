@@ -345,7 +345,10 @@ class ATOM:
         else:
             bname = base.name
             if (len(bname) > 2):
-                bname = bname[:2]
+                if (self.nele > 5):
+                    bname = bname[:2]
+                elif (ibase != 0):
+                    bname = bname[:2]
         for i0 in n0:
             rec = COMPLEX('rec')
             if (rec.set_recombined(i0, bname) == 0):
@@ -493,7 +496,7 @@ class ATOM:
         g = self.grd_complex.name
         SetAngZCut(self.angz_cut0)
         SetTransitionCut(self.tr_cut0)
-        self.run_tr_ce(g, g, g[:1], g, tr=[-1,1,-2,2], ce=1)
+        self.run_tr_ce(g, g, g, g, tr=[-1,1,-2,2], ce=1)
         for i in range(self.n_shells):
             c = self.exc_complex[i].cgroup
             for j in range(len(c)):
@@ -505,9 +508,15 @@ class ATOM:
                 else:
                     b = (c[j].name, c[j].nrec)
                 if (i == 0 and j == 0):
-                    a2 = g[:1]
+                    if (self.nele in self.nele_sim):
+                        a2 = g[:1]
+                    else:
+                        a2 = g
                 else:
-                    a2 = [0]
+                    if (self.nele == 4):
+                        a2 = [0,1]
+                    else:
+                        a2 = [0]
                 if (i == 0 and j == 0):
                     tr = [-1, 1, -2, 2]
                     SetAngZCut(self.angz_cut0)
@@ -646,7 +655,7 @@ class ATOM:
                     na = len(a)
                     if (na == 0):
                         continue
-                    if (na > 2 and self.nele > 3):
+                    if (na > 2):
                         a = a[:2]
                         na = 2
                     n = c[j].nrec
@@ -665,7 +674,11 @@ class ATOM:
                     if (c[j].nrec_ext > 0):
                         m = n + (self.nrec_max[i]+1)*1000
                         m = -m
-                    self.run_ai(a, b[:na], m)
+                    if (self.nele > 5):
+                        b1 = b[:na]
+                    else:
+                        b1 = b
+                    self.run_ai(a, b1, m)
                     
         return
     
