@@ -72,7 +72,7 @@ then
   fi
   if test -z "$fpic"
   then
-    fpic="fPIC"
+    fpic="-fPIC"
   fi
 fi
 CFLAGS="$copt $cpic"
