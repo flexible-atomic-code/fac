@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.22 2002/02/04 15:48:34 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.23 2002/02/05 21:55:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -705,10 +705,13 @@ int DiagnolizeHamilton(void) {
   return -1;
 }
 
-int AddToLevels(void) {
+int AddToLevels(int ng, int *kg) {
   int i, d, j, k, t, m;
   HAMILTON *h;
   LEVEL lev;
+  SYMMETRY *sym;
+  STATE *s;
+  CONFIG *c;
   double *mix, a;
   
   h = &_ham;
@@ -717,10 +720,23 @@ int AddToLevels(void) {
   d = h->dim;
   mix = h->mixing + d;
   j = n_levels;
+  sym = GetSymmetry(h->pj);
   for (i = 0; i < d; i++) {
-    lev.energy = h->mixing[i];
-    lev.pj = h->pj;
     k = GetPrincipleBasis(mix, d);
+    s = (STATE *) ArrayGet(&(sym->states), h->basis[k]);
+    if (ng > 0) {
+      if (!InGroups(s->kgroup, ng, kg)) {
+	mix += h->n_basis;
+	continue;
+      }
+    }
+    if (s->kgroup >= 0) {
+      c = GetConfig(s);
+      lev.energy = h->mixing[i] + c->delta;
+    } else {
+      lev.energy = h->mixing[i];
+    }
+    lev.pj = h->pj;
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
     lev.mixing = (double *) malloc(sizeof(double)*h->n_basis);
     a = fabs(mix_cut * mix[k]);
@@ -2347,8 +2363,25 @@ void _FreeLevelData(void *p) {
 }
    
 int ClearLevelTable(void) {
+  CONFIG_GROUP *g;
+  ARRAY *c;
+  CONFIG *cfg;
+  int ng, i, k;
+
   n_levels = 0;
   ArrayFree(levels, _FreeLevelData);
+
+  ng = GetNumGroups();
+  for (k = 0; k < ng; k++) {
+    g = GetGroup(k);
+    c = &(g->cfg_list);
+    for (i = 0; i < g->n_cfgs; i++) {
+      cfg = (CONFIG *) ArrayGet(c, i);
+      cfg->energy = 0.0;
+      cfg->delta = 0.0;
+    }
+  }
+  
   return 0;
 }
 

@@ -96,7 +96,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 
 int DiagnolizeHamilton(void);
-int AddToLevels(void);
+int AddToLevels(int ng, int *kg);
 int CorrectEnergy(int n, int *k, double *e);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);

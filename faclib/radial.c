@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.38 2002/02/04 22:49:29 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.39 2002/02/05 21:55:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -905,6 +905,46 @@ int FreeContinua(double e) {
   return 0;
 }
 
+int ConfigEnergy(void) {
+  CONFIG_GROUP *g;
+  ARRAY *c;
+  CONFIG *cfg;
+  int ng, i, k;
+
+  ng = GetNumGroups();
+  for (k = 0; k < ng; k++) {
+    g = GetGroup(k);
+    c = &(g->cfg_list);
+    OptimizeRadial(1, &k, NULL);
+    for (i = 0; i < g->n_cfgs; i++) {
+      cfg = (CONFIG *) ArrayGet(c, i);
+      cfg->energy = AverageEnergyConfig(cfg);
+    }
+    ReinitRadial(2);
+  }
+  
+  return 0;
+}
+
+int AdjustConfigEnergy(void) {
+  CONFIG_GROUP *g;
+  ARRAY *c;
+  CONFIG *cfg;
+  int ng, i, k;
+  
+  ng = GetNumGroups();
+  for (k = 0; k < ng; k++) {
+    g = GetGroup(k);
+    c = &(g->cfg_list);
+    for (i = 0; i < g->n_cfgs; i++) {
+      cfg = (CONFIG *) ArrayGet(c, i);
+      cfg->delta = cfg->energy - AverageEnergyConfig(cfg);
+    }
+  }
+  
+  return 0;
+}
+  
 /* calculate the total configuration average energy of a group. */
 double TotalEnergyGroup(int kg) {
   CONFIG_GROUP *g;
@@ -2461,15 +2501,12 @@ int InitRadial(void) {
 }
 
 int ReinitRadial(int m) {
-
   if (m < 0) return 0;
-
   ClearOrbitalTable(m);
   FreeSlaterArray();
   FreeResidualArray();
   FreeMultipoleArray();
   FreeMomentsArray();
-
   if (m != 1) {
     if (optimize_control.n_screen > 0) {
       free(optimize_control.screened_n);
@@ -2480,7 +2517,6 @@ int ReinitRadial(int m) {
     awgrid[0] = EPS3;
     SetRadialGrid(1E-5, 5E2);
   }
-  
   return 0;
 }
   

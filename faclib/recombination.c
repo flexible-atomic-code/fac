@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.41 2002/02/04 15:48:34 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.42 2002/02/05 21:55:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -276,7 +276,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
     if (m < 0) continue;
     j = DiagnolizeHamilton();
     if (j < 0) return -1;
-    AddToLevels();
+    AddToLevels(0, NULL);
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
@@ -353,7 +353,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	  m = ConstructHamiltonFrozen(i, j, NULL, n);
 	  if (m < 0) continue;
 	  if (DiagnolizeHamilton() < 0) return -2;
-	  AddToLevels();
+	  AddToLevels(0, NULL);
 	}
 	i0 = rec_complex[t].s1+1;
       }
@@ -361,7 +361,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
       m = ConstructHamiltonFrozen(i, k, kg, n);
       if (m < 0) continue;
       if (DiagnolizeHamilton() < 0) return -2;
-      AddToLevels();
+      AddToLevels(0, NULL);
     }
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;

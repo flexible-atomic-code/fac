@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.20 2002/02/04 15:48:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.21 2002/02/05 21:55:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -843,7 +843,8 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PStructure(PyObject *self, PyObject *args) {
-  int i, k, ng, ns, nlevels;
+  int i, k, ng0, ng, ns;
+  int nlevels, ip;
   int ngp;
   int *kg, *kgp;
   char *fn;
@@ -859,8 +860,9 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   q = NULL;
   ngp = 0;
   kgp = NULL;
+  ip = 0;
   
-  if (!(PyArg_ParseTuple(args, "s|OO", &fn, &p, &q))) return NULL;
+  if (!(PyArg_ParseTuple(args, "s|OOi", &fn, &p, &q, &ip))) return NULL;
   
   if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {
@@ -882,13 +884,26 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 
   if (ngp < 0) return NULL;
   
+  ng0 = 0;
+  if (!ip) {
+    if (ngp) {
+      ng0 = ng;
+      ng += ngp;
+      kg = (int *) realloc(kg, sizeof(int)*ng);
+      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+      free(kgp);
+      kgp = NULL;
+      ngp = 0;
+    }
+  }
+  
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;
   for (i = 0; i < ns; i++) {
     k = ConstructHamilton(i, ng, kg, ngp, kgp);
     if (k < 0) continue;
     if (DiagnolizeHamilton() < 0) return NULL;
-    AddToLevels();
+    AddToLevels(ng0, kg);
   }
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
@@ -3020,6 +3035,26 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ConfigEnergy", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  if (m == 0) {
+    ConfigEnergy();
+  } else {
+    AdjustConfigEnergy();
+  }
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3034,6 +3069,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CITable", PCITable, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
+  {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CloseSFAC", PCloseSFAC, METH_VARARGS},
   {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
