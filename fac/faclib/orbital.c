@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.23 2002/01/14 23:54:51 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.24 2002/01/15 07:36:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -736,6 +736,7 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     for (i = MAX_POINTS - 5; i > 10; i--) {
       if (e < _veff[i]) break;
     }
+
     *i1 = i-3;
     i += 5;
     for (; i <= pot->r_core; i++) {
@@ -764,7 +765,6 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
       if (e > _veff[i]) break;
     }
     *i1 = i; 
-
     *i2 = Max(pot->r_core, *i1)+32;
     if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
     if (*i1 == 0) *i1 = *i2 - 16; 
