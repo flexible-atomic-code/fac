@@ -1,4 +1,4 @@
-version 0.9.1, 04/27/2003
+version 0.9.1, 03/27/2003
 	1. correct manual on GetPotential.
 	2. correct an error in Uehling potential.
 	3. add the ionization cross sections from aladdin database.
