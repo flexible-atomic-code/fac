@@ -38,12 +38,11 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          power1 = 1.0 - x
          power = power1
          do i = 3, 7
-            if (cdi(i, k) .gt. 0) then
-               xs = xs + cdi(i, k)*power
-               power = power*power1
-            endif
+            if (cdi(i, k) .eq. 0) goto 10
+            xs = xs + cdi(i, k)*power
+            power = power*power1
          enddo
-         dir = 1E7*xs/(ene*ei0)
+ 10      dir = 1E7*xs/(ene*ei0)
       endif
 
       ea = 0.0
@@ -54,12 +53,11 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
          power1 = 1.0 - x
          power = power1
          do i = 4, 8
-            if (cea(i, k) .gt. 0) then
-               xs = xs + cea(i, k)*power
-               power = power * power1
-            endif
+            if (cea(i, k) .eq. 0) goto 20
+            xs = xs + cea(i, k)*power
+            power = power * power1
          enddo
-         ea = 1E7*xs/(ene*ei1) - dir
+ 20      ea = 1E7*xs/(ene*ei1) - dir
       endif
 
       return
