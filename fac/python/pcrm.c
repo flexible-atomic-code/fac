@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.19 2002/11/15 17:05:32 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.20 2002/11/27 16:43:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -787,14 +787,15 @@ static PyObject *PDRBranch(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PDRStrength(PyObject *self, PyObject *args) {
-  int n, i;
+  int n, i, m;
   char *s;
   
   i = 0;
-  if (!PyArg_ParseTuple(args, "si|i", &s, &n, &i)) 
+  m = 0;
+  if (!PyArg_ParseTuple(args, "si|ii", &s, &n, &m, &i)) 
     return NULL;
 
-  DRStrength(s, n, i);
+  DRStrength(s, n, m, i);
   
   Py_INCREF(Py_None);
   return Py_None;

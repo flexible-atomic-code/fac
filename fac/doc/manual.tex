@@ -1298,6 +1298,7 @@ the rates are tabulated in this block.
 typedef struct _DR_RECORD_ {
   int ilev;
   int ibase;
+  int flev;
   short vl;
   short j;
   float energy;
@@ -1311,13 +1312,20 @@ typedef struct _DR_RECORD_ {
 \item[\texttt{int ilev}:] The level index of the autoionizing state.
 \item[\texttt{int ibasis}:] The level index of the core state, if
 applicable. Currently, it always takes the value of 0.
+\item[\texttt{int flev}:] The level index of the final state due to the decay
+(either autoionization or radiative) of the autoionizing state. For the total
+DR strength, this variable is always -1, since the result is the sum of all
+radiative stabilazation routes.
 \item[\texttt{short vl}:] The orbital angular momentum of the captured
 electron. 
 \item[\texttt{short j}:] The $2j$ value of the autoionizaing state.
 \item[\texttt{float energy}:] The energy of the autoionizing state relative to
 the recombining state, whose energy is given in the \texttt{DR\_HEADER}.
-\item[\texttt{float br}:] The radiative branching ratio of the autoionizing
-state.
+\item[\texttt{float br}:] The branching ratio of the autoionizing state to
+various final states. For total DR strength, this is the total radiative
+branching ratio. For resonance excitation, this is the branching ratio of
+autoionization to individual states. For satellite calculations, this is the
+braching ratio of radiative transition to individual states.
 \item[\texttt{float ai}:] The autoionization rate to the recombining level.
 \item[\texttt{float total\_rate}:] The total decay rate of the autoionization
 state, i.e., including all autoionization and radiative decay channels.
@@ -1853,8 +1861,8 @@ E	= -2.99679153E+04
 JLEV	= 3
 # principal quantum number of the captured electron.
 NREC	= 6
-#AILevel 2J  RecLevel 2J ibase  NREC L ERes       AI Rate     Total Rate  Branching
-  275     0        37  3     0     6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
+#AILevel 2J  RecLevel 2J ibase  flev  NREC L ERes       AI Rate     Total Rate  Branching
+  275     0        37  3     0    -1     6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
 ......
 \end{verbatim}
 
@@ -2590,7 +2598,7 @@ B_i = \frac{\sum_j A^r_{ij}B_j}{\sum_j A^a_{ij} + \sum_k A^r_{ik}},
 where $A^r_{ij}$ is the radiative decay rate from state $i$ to state $j$,
 $A^a_{ik}$ is the autoionization rate from state $i$ to state $k$. The
 branching ratios of non-autoionizing states is 1.0. This function must be
-called before \key{DRStrength()}.
+called before \key{DRStrength()} with \var{mode}=0.
 \end{fundesc}
 
 \begin{fundesc}{DRFit}{Z, n, Te}
@@ -2600,11 +2608,14 @@ is the number of electrons, and \var{Te} is the electron temperature in eV.
 The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
 \end{fundesc}
 
-\begin{fundesc}{DRStrength}{fn, n, \opt{i}}
+\begin{fundesc}{DRStrength}{fn, n, \opt{m, i}}
 Tabulate the dielectronic recombination resonance strengths onto state \var{i}
 of the ion with \var{n} electrons. \var{fn} specifies the file name of the
-database file. \var{i} is optional, whose default is 0. When \var{i}$\ge$0,
-then the it is the index of the recombining state relative to the ground state
+database file. The optional \var{m} indicates the mode of calculation. If
+\var{mode}=0, then the total DR strengths are calculated; if \var{m}=1, then
+individual DR satellite lines are caclulated, and if \var{m}=2, then resonance
+excitation is calculated. \var{i} is optional, whose default is 0. When \var{i}$\ge$0,
+then it is the index of the recombining state relative to the ground state
 of the recombining ion; when \var{i}$<$0, then its negative value is the true
 index of the recombining state.
 \end{fundesc}
