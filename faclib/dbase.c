@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.12 2002/02/04 15:48:33 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.13 2002/02/04 16:20:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -976,7 +976,11 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
 	for (k = 0; k < r.nshells; k++) {
 	  for (t = 0; t < h.nparams; t++) {
 	    if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
-	    fprintf(f2, "%11.4E ", params[p1]);
+	    if (v && t == h.nparams-1) {
+	      fprintf(f2, "%11.4E ", params[p1]*HARTREE_EV);
+	    } else {
+	      fprintf(f2, "%11.4E ", params[p1]);
+	    }
 	    p1++;
 	  }
 	  fprintf(f2, "\n");
@@ -1188,7 +1192,11 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
       for (k = 0; k < r.nshells; k++) {
 	for (t = 0; t < h.nparams; t++) {
 	  if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
-	  fprintf(f2, "%11.4E ", params[p1]);
+	  if (v && t == h.nparams-1) {
+	    fprintf(f2, "%11.4E ", params[p1]*HARTREE_EV);
+	  } else {
+	    fprintf(f2, "%11.4E ", params[p1]);
+	  }
 	  p1++;
 	}
 	fprintf(f2, "\n");
