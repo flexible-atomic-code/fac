@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "array.h"
 #include "dbase.h"
 #include "rates.h"

@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.10 2002/01/24 04:49:48 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.11 2002/01/29 01:26:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -486,6 +486,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
     swp = 1;
     SwapEndianFHeader(&fh);
   }
+
   if (v && fh.type < DB_SP) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
@@ -1251,7 +1252,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
-    fread(h.p_edist, sizeof(double), h.np_edist, f1);
+    n = fread(h.p_edist, sizeof(double), h.np_edist, f1);
     for (i = 0; i < h.np_edist; i++) {
       if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
@@ -1260,7 +1261,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "PDIST\t= %d\n", h.ipdist);
     fprintf(f2, "NPPDIS\t= %d\n", h.np_pdist);
     h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
-    fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
+    n = fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
     for (i = 0; i < h.np_pdist; i++) {
       if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);
@@ -1308,7 +1309,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
-    fread(h.p_edist, sizeof(double), h.np_edist, f1);
+    n = fread(h.p_edist, sizeof(double), h.np_edist, f1);
     for (i = 0; i < h.np_edist; i++) {
       if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
@@ -1316,7 +1317,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "PDIST\t= %d\n", h.ipdist);
     fprintf(f2, "NPPDIS\t= %d\n", h.np_pdist);
     h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
-    fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
+    n = fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
     for (i = 0; i < h.np_pdist; i++) {
       if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);

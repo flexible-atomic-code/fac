@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.8 2002/01/25 00:44:34 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.9 2002/01/29 01:26:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -111,12 +111,25 @@ static void FreeBlockData(void *p) {
 }
 
 int ReinitCRM(int m) {
+  ION *ion;
   int i;
 
   if (m < 0) return 0;
 
   ReinitDBase(0);
-  if (m > 0) return 0;
+  if (m == 2) return 0;
+  
+  if (m == 1) {
+    for (i = 0; i < ions->dim; i++) {
+      ion = (ION *) ArrayGet(ions, i);
+      ArrayFree(ion->ce_rates, NULL);
+      ArrayFree(ion->tr_rates, NULL);
+      ArrayFree(ion->ci_rates, NULL);
+      ArrayFree(ion->rr_rates, NULL);
+      ArrayFree(ion->ai_rates, NULL);
+    }
+    return 0;
+  }
 
   for (i = 0; i < NDB; i++) {
     if (ion0.dbfiles[i]) free(ion0.dbfiles[i]);
@@ -191,7 +204,7 @@ int AddIon(int nele, double n, char *pref) {
   return ions->dim;
   
 }
-
+  
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
@@ -520,7 +533,7 @@ int SetAbund(int nele, double abund) {
   else {
     for (i = 0; i < ions->dim; i++) {
       ion = (ION *) ArrayGet(ions, i);
-      if (ion->nele = nele) {
+      if (ion->nele == nele) {
 	ion->n = abund;
 	break;
       }
@@ -830,7 +843,7 @@ int RateTable(char *fn) {
 int BlockMatrix(void) {
   ION *ion;
   RATE *r;
-  LBLOCK *blk;
+  LBLOCK *blk, *blkp;
   int n, k, m, i, j;
   int p, q, iion, k0, k1;
   double *x, den, a;
@@ -849,6 +862,7 @@ int BlockMatrix(void) {
 	i = ion->iblock[r->i];
 	j = ion->iblock[r->f];
 	if (i == j) continue;
+	blkp = (LBLOCK *) ArrayGet(blocks, j);
 	blk = (LBLOCK *) ArrayGet(blocks, i);
 	den = blk->r[ion->ilev[r->i]];
 	if (den > 0.0) {
@@ -856,8 +870,7 @@ int BlockMatrix(void) {
 	  bmatrix[p] += den * electron_density * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  blk = (LBLOCK *) ArrayGet(blocks, j);
-	  den = blk->r[ion->ilev[r->f]];
+	  den = blkp->r[ion->ilev[r->f]];
 	  if (den > 0.0) {
 	    p = i + j*n;
 	    bmatrix[p] += den * electron_density * r->inv;
@@ -871,6 +884,7 @@ int BlockMatrix(void) {
       i = ion->iblock[r->i];
       j = ion->iblock[r->f];
       if (i == j) continue;
+      blkp = (LBLOCK *) ArrayGet(blocks, j);
       blk = (LBLOCK *) ArrayGet(blocks, i);
       den = blk->r[ion->ilev[r->i]];
       if (den > 0.0) {
@@ -882,8 +896,7 @@ int BlockMatrix(void) {
 	  a = photon_density * r->inv;
 	  bmatrix[p] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
 	}
-	blk = (LBLOCK *) ArrayGet(blocks, j);
-	den = blk->r[ion->ilev[r->f]];
+	den = blkp->r[ion->ilev[r->f]];
 	if (den > 0.0) {
 	  p = i + j*n;
 	  bmatrix[p] += den * photon_density * r->inv;
@@ -895,6 +908,7 @@ int BlockMatrix(void) {
       r = (RATE *) ArrayGet(ion->rr_rates, m); 
       i = ion->iblock[r->i];
       j = ion->iblock[r->f];
+      blkp = (LBLOCK *) ArrayGet(blocks, j);
       blk = (LBLOCK *) ArrayGet(blocks, i);
       den = blk->r[ion->ilev[r->i]];
       if (den > 0.0) {
@@ -904,8 +918,7 @@ int BlockMatrix(void) {
 	}
       }
       if (r->inv > 0.0 && photon_density > 0.0) {
-	blk = (LBLOCK *) ArrayGet(blocks, j);
-	den = blk->r[ion->ilev[r->f]];
+	den = blkp->r[ion->ilev[r->f]];
 	if (den > 0.0) {
 	  p = i + j*n;
 	  bmatrix[p] += den * photon_density * r->inv;
@@ -917,6 +930,7 @@ int BlockMatrix(void) {
       r = (RATE *) ArrayGet(ion->ai_rates, m); 
       i = ion->iblock[r->i];
       j = ion->iblock[r->f];
+      blkp = (LBLOCK *) ArrayGet(blocks, j);
       blk = (LBLOCK *) ArrayGet(blocks, i);
       den = blk->r[ion->ilev[r->i]];
       if (den > 0.0) {
@@ -924,8 +938,7 @@ int BlockMatrix(void) {
 	bmatrix[p] += den * r->dir;
       }
       if (r->inv > 0.0 && electron_density > 0.0) {
-	blk = (LBLOCK *) ArrayGet(blocks, j);
-	den = blk->r[ion->ilev[r->f]];
+	den = blkp->r[ion->ilev[r->f]];
 	if (den > 0.0) {
 	  p = i + j*n;
 	  bmatrix[p] += den * electron_density * r->inv;
@@ -938,6 +951,7 @@ int BlockMatrix(void) {
 	r = (RATE *) ArrayGet(ion->ci_rates, m); 
 	i = ion->iblock[r->i];
 	j = ion->iblock[r->f];
+	blkp = (LBLOCK *) ArrayGet(blocks, j);
 	blk = (LBLOCK *) ArrayGet(blocks, i);
 	den = blk->r[ion->ilev[r->i]];
 	if (den > 0.0) {
@@ -945,8 +959,7 @@ int BlockMatrix(void) {
 	  bmatrix[p] += den * electron_density * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  blk = (LBLOCK *) ArrayGet(blocks, j);
-	  den = blk->r[ion->ilev[r->f]];
+	  den = blkp->r[ion->ilev[r->f]];
 	  if (den > 0.0) {
 	    p = i + j*n;
 	    bmatrix[p] += den * electron_density * r->inv;
@@ -1395,7 +1408,7 @@ int SpecTable(char *fn, double strength_threshold) {
     
     if (electron_density <= 0) continue;
     if (ion->rr_rates->dim == 0) continue;
-    sp_hdr.type = ion->nele;
+    sp_hdr.nele = ion->nele;
     sp_hdr.type = 2;
     f = InitFile(fn, &fhdr, &sp_hdr);  
     smax = 0.0;
