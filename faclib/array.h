@@ -56,6 +56,7 @@
 #include <stddef.h>
 #include <time.h>
 
+#define USE_NMULTI 1
 /* choose MULTI implementation */
 #ifdef USE_NMULTI
 #define MultiInit NMultiInit

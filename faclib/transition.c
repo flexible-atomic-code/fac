@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.20 2003/04/28 13:49:15 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.21 2004/05/20 23:54:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -153,7 +153,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   double e0, emin, emax;
   int *alev;
 #ifdef PERFORM_STATISTICS
-  ARRAY_TIMING arrayt;
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
   RECOUPLE_TIMING recouplet;
