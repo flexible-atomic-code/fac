@@ -269,6 +269,10 @@ int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
+int TotalCICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax);
+int TotalPICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax);
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int n0, int n1, 
 		 int nmax, int imin, int imax);

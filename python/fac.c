@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.46 2003/01/22 21:58:05 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.47 2003/03/11 15:18:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3181,6 +3181,78 @@ static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTotalPICross(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  int i, negy, ilev;
+  double *egy;
+  char *ifn, *ofn;
+  int imin, imax;
+
+  imin = -1;
+  imax = -1;
+  if (!PyArg_ParseTuple(args, "ssiO|ii", 
+			&ifn, &ofn, &ilev, &p,
+			&imin, &imax))
+    return NULL;
+  
+  if (!PyList_Check(p) && !PyTuple_Check(p)) {
+    printf("Energy List must be a sequence\n");
+    return NULL;
+  }
+  
+  negy = PySequence_Length(p);
+  egy = (double *) malloc(sizeof(double)*negy);
+  for (i = 0; i < negy; i++) {
+    q = PySequence_GetItem(p, i);
+    egy[i] = PyFloat_AsDouble(q);
+    egy[i] /= HARTREE_EV;
+    Py_DECREF(q);
+  }
+  
+  TotalPICross(ifn, ofn, ilev, negy, egy, imin, imax);
+
+  free(egy);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  int i, negy, ilev;
+  double *egy;
+  char *ifn, *ofn;
+  int imin, imax;
+
+  imin = -1;
+  imax = -1;
+  if (!PyArg_ParseTuple(args, "ssiO|ii", 
+			&ifn, &ofn, &ilev, &p,
+			&imin, &imax))
+    return NULL;
+  
+  if (!PyList_Check(p) && !PyTuple_Check(p)) {
+    printf("Energy List must be a sequence\n");
+    return NULL;
+  }
+  
+  negy = PySequence_Length(p);
+  egy = (double *) malloc(sizeof(double)*negy);
+  for (i = 0; i < negy; i++) {
+    q = PySequence_GetItem(p, i);
+    egy[i] = PyFloat_AsDouble(q);
+    egy[i] /= HARTREE_EV;
+    Py_DECREF(q);
+  }
+  
+  TotalCICross(ifn, ofn, ilev, negy, egy, imin, imax);
+
+  free(egy);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3293,6 +3365,8 @@ static struct PyMethodDef fac_methods[] = {
   {"RRCrossH", PRRCrossH, METH_VARARGS},  
   {"RRCrossHn", PRRCrossHn, METH_VARARGS},  
   {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
+  {"TotalPICross", PTotalPICross, METH_VARARGS}, 
+  {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}
 };
@@ -3366,6 +3440,4 @@ void initfac(void) {
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");
 }
-
-
 
