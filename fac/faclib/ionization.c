@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.19 2001/10/12 18:49:19 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.20 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -77,7 +77,7 @@ int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
   pw_scratch.qr = qr;
   if (max > MAXKL) {
     printf("The maximum partial wave reached in Ionization: %d\n", MAXKL);
-    abort();
+    exit(1);
   }
   pw_scratch.max_kl = max;
   pw_scratch.max_kl_eject = max_eject;

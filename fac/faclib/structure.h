@@ -73,6 +73,8 @@ typedef struct _STRUCT_TIMING_ {
   clock_t angz_fb;
   clock_t angzxz_fb;
   clock_t angz_states;
+  long angz_states_load;
+  long angz_states_calc;
   clock_t angzfb_states;
   clock_t angzxzfb_states;
   clock_t add_angz;
@@ -124,6 +126,8 @@ int GetBasisTable(char *fn);
 int ConstructLevelName(char *name, char *sname, STATE *basis);
 int SaveLevelsToAscii(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
+int SetAngZCut(double c);
+int SetMixCut(double c);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
 int ClearLevelTable();

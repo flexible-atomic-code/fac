@@ -43,7 +43,7 @@ extern FILE *debug_log;
 #endif
 
 /*
-#define PERFORM_STATISTICS 1
+#define PERFORM_STATISTICS 1 
 */
 
 #endif

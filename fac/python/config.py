@@ -32,18 +32,19 @@ def avgconfig(configs):
     fac.SetAvgConfig(acfg)
 
     
-def closed(configs):
+def closed(*configs):
     global _closed_shells
 
     if len(configs) == 0:
         _closed_shells = []
-    shells = string.split(configs)
-    for s in shells:
-        c = distribute(s)
-        for t in c:
-            p = t[0]
-            q = 2 * p[1] + p[2] + 1
-            _closed_shells.append((p[0], p[1], p[2], q))
+    for con in configs:
+        shells = string.split(con)
+        for s in shells:
+            c = distribute(s)
+            for t in c:
+                p = t[0]
+                q = 2 * p[1] + p[2] + 1
+                _closed_shells.append((p[0], p[1], p[2], q))
 
     
 # specify configurations.

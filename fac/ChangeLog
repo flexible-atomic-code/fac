@@ -1,3 +1,11 @@
+Version 0.6.1, 10/13/2001
+	1. change the default angz_cut t0 1E-3, which seem to be adequate
+	   and makes the calculation much more efficient for large scale 
+	   problems. added SetAngZCut and SetMixCut routines.
+	2. allow multipole closed shells to be specified on one call to 
+	   config.closed().
+	3. add Makefile to python/
+	
 Version 0.6.0, 10/12/2001
 	1. fix a bug in the construction of central potential, which
 	   caused the potential at very large distances incorrect, this

@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.20 2001/10/12 03:15:01 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.21 2001/10/14 15:23:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -993,7 +993,7 @@ int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax) {
   if (b < 1.0/log(1.15)) {
     printf("Not enough radial mesh points, ");
     printf("enlarge to at least %d\n", (int) (1 + a*d2 + d1/log(1.2)));
-    abort();
+    exit(1);
   }
 
   d1 = b*d1;
@@ -1028,7 +1028,7 @@ double GetRFromRho(double rho, double a, double b, double r0) {
   while (fabs(e) > 1E-10) {
     if (i > 100) {
       printf("Newton iteration failed to converge in GetRFromRho\n");
-      abort();
+      exit(1);
     }
     d1 = sqrt(r0)*a;
     e = d1 + b*log(r0) - rho;
