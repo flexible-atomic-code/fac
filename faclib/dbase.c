@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.39 2003/01/13 18:48:20 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.40 2003/03/10 21:58:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -652,7 +652,12 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	  x = (ee + params[3])/params[3];
 	  y = (1 + params[2])/(sqrt(x) + params[2]);
 	  tc = (-3.5 - r.kl + 0.5*params[1])*log(x) + params[1]*log(y);
-	  tc = params[0]*exp(tc)*(eph/(ee+params[3]));
+	  if (params[0] > 0.0) {
+	    tc = tc + log(params[0]*(eph/(ee+params[3])));
+	    tc = exp(tc);
+	  } else {
+	    tc = 0.0;
+	  }
 	}
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
