@@ -36,19 +36,47 @@ FLIBS=[`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`]
 FLIBS=[`echo $FLIBS | sed 's/  */ /g'`]
 AC_MSG_RESULT([$FLIBS])
 
-# override the default CFLAGS and FFLAGS
+#get optimization option for C and f77 compilers
+AC_ARG_ENABLE(copt,
+	[ --enable-copt=opt	optimization option for C compiler],
+	[copt="$enableval"])
+AC_ARG_ENABLE(fopt,
+	[ --enable-fopt=opt	optimization option for F77 Compiler],
+	[fopt="enableval"])
+
+# get position independent code option for C and f77 compilers
+AC_ARG_ENABLE(cpic,
+	[ --enable-cpic=opt	PIC option for C compiler],
+	[cpic="$enableval"])
+AC_ARG_ENABLE(fpic,
+	[ --enable-fpic=opt	PIC option for F77 Compiler],
+	[fpic="$enableval"])
+
+# override the default CFLAGS and FFLAGS for GCC and G77
 if test -n "$GCC"
 then
-  CFLAGS="-O2"
-else
-  CFLAGS="-O"
+  if test -z "$copt"
+  then
+    copt="-O2"
+  fi
+  if test -z "$cpic"
+  then 
+    cpic="-fPIC"
+  fi
 fi
 if test -n "$G77"
-then 
-  FFLAGS="-O2"
-else
-  FFLAGS="-O"
+then
+  if test -z "$fopt"
+  then
+    fopt="-O2"
+  fi
+  if test -z "$fpic"
+  then
+    fpic="fPIC"
+  fi
 fi
+CFLAGS="$copt $cpic"
+FFLAGS="$fopt $fpic"
 
 # Debugging option
 AC_ARG_ENABLE(cdebug,
@@ -109,6 +137,9 @@ then
       ;;
       *sunos*)
 	xxFortran=sunFortran
+      ;;
+      *hpux*)
+	xxFortran=hpuxFortran
       ;;
       *)
         echo "NOTE: F77 known by cfortran.h is not detected."
