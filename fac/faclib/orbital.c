@@ -111,7 +111,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   emin = 1.1*emin;
   if (e >= emax) e = emax*1.1;
   if (e <= emin) e = emin*0.9;
-
   ierr = 0;
   nr = orb->n - kl - 1;
   niter = -1;
@@ -379,6 +378,13 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     p[i+MAX_POINTS] = b*FINE_STRUCTURE_CONST;
   } 
   if (orb->n > 0) {
+    for (i = i1; i < MAX_POINTS; i++) {
+      xi = e - pot->Vc[i] - pot->U[i];
+      if (pot->flag == -2) xi -= pot->Vtail[i];
+      xi = xi*FINE_STRUCTURE_CONST2*0.5;
+      _dwork[i] = 1.0 + xi;
+      p[i] = sqrt(_dwork[i])*p[i];
+    }
     a = InnerProduct(i1, p+MAX_POINTS, p+MAX_POINTS, pot);
     b = InnerProduct(MAX_POINTS, p, p, pot);    
     a = sqrt(a+b);
