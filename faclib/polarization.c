@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.6 2003/07/15 17:59:20 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.7 2003/07/16 02:31:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -330,8 +330,10 @@ int SetMCERates(char *fn, double energy) {
       p = 0;
       for (m1 = -j1; m1 <= j1; m1 += 2) {
 	for (m2 = -j2; m2 <= j2; m2 += 2) {
-	  ce_rates[t].rates[p++] = cs1[k];
-	  ce_rates[t].rates[p++] = cs2[k];
+	  ce_rates[t].rates[p] = cs1[k];
+	  p++;
+	  ce_rates[t].rates[p] = cs2[k];
+	  p++;
 	  if (m1 <= 0) {
 	    k++;
 	  } else {
@@ -340,7 +342,7 @@ int SetMCERates(char *fn, double energy) {
 	}
 	if (m1 == 0) {
 	  k -= j2+2;
-	} else if (m1 == 1) {
+	} else if (m1 == -1) {
 	  k--;
 	}
       }
@@ -415,8 +417,8 @@ int PopulationTable(char *fn, double eden) {
       }
       q1++;
     }
-  }
-  
+  }  
+
   for (q1 = 0; q1 < nmlevels; q1++) {
     p = q1*nmlevels + q1;
     rmatrix[p] = 0.0;
