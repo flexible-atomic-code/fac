@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.82 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.83 2004/02/22 23:17:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1407,6 +1407,63 @@ double RadialMoments(int m, int k1, int k2) {
   return r;
 }
   
+double MultipoleML(ORBITAL *orb1, ORBITAL *orb2, double aw, int L) {
+  int L2, j1, j2, kl1, kl2, i, kl0;
+  double b, x, r;
+  
+  if (orb1->kappa + orb2->kappa == 0) return 0.0;
+
+  L2 = 2*L;
+  GetJLFromKappa(orb1->kappa, &j1, &kl1);
+  GetJLFromKappa(orb2->kappa, &j2, &kl0);
+  if (kl0 < j2) kl2 = kl0 + 2;
+  else kl2 = kl0 - 2;
+  b = sqrt((j2+1.0)*(j1+1.0)*(kl2+1.0)*(kl1+1.0)*(L2+1.0)/(L*(L+1.0)));
+  b *= (orb1->kappa + orb2->kappa);
+  b *= W6j(L2, j2, j1, 1, kl1, kl2);
+  b *= W3j(L2, kl2, kl1, 0, 0, 0);
+  if (IsOdd(1 + (L+1+(kl0-kl1)/2)/2 + (L+(j2+1)/2))) b = -b;
+  
+  for (i = 0; i <= orb2->ilast; i++) {
+    x = aw*potential->rad[i];
+    _yk[i] = BESLJN(1, L, x);
+  }
+  Integrate(_yk, orb1, orb2, 4, &r);
+  
+  return r*b;
+}
+  
+double MultipoleEL(ORBITAL *orb1, ORBITAL *orb2, double aw, int L) {
+  int L2, j1, j2, kl1, kl2, i;
+  double b, x, r, r2;
+
+  L2 = 2*L;
+  GetJLFromKappa(orb1->kappa, &j1, &kl1);
+  GetJLFromKappa(orb2->kappa, &j2, &kl2);
+  b = sqrt((j2+1.0)*(j1+1.0)*(kl2+1.0)*(kl1+1.0)*(L2+1.0)/(L*(L+1.0)));
+  b *= W6j(L2, j2, j1, 1, kl1, kl2);
+  b *= W3j(L2, kl2, kl1, 0, 0, 0);
+  if (IsOdd(1 + (L+(kl2-kl1)/2)/2 + (L+(j2+1)/2))) b = -b;
+  
+  for (i = 0; i <= orb2->ilast; i++) {
+    x = aw*potential->rad[i];
+    _yk[i] = BESLJN(1, L, x)/x;
+  }
+  Integrate(_yk, orb1, orb2, 5, &r);
+  r *= L*(L+1.0);
+  
+  if (orb1->kappa != orb2->kappa) {
+    for (i = 0; i <= orb2->ilast; i++) {
+      x = aw*potential->rad[i];
+      _yk[i] = _yk[i]*L - BESLJN(1, L-1, x);
+    }
+    Integrate(_yk, orb1, orb2, 4, &r2);
+    r2 *= (orb2->kappa - orb1->kappa);
+    r += r2;
+  }
+  printf("%10.3E %10.3E\n", r, r2);
+  return r*b;
+}
 
 double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   int i, p, t;
@@ -1605,6 +1662,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	  Integrate(_zk, orb1, orb2, 5, &imm);
 	  r += (am + 1.0)*im*q + am*imm/q;
 	}
+	printf("%d %d %10.3E %10.3E\n", k1, k2, a, r);
 	r /= pow(a,am);
 	(*p1)[i] = r;
       } else if (gauge == G_BABUSHKIN) {

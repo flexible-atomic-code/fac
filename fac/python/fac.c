@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.66 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.67 2004/02/22 23:17:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1863,6 +1863,26 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
+  char *s, *fn;
+  int mx, m;
+
+  if (sfac_file) {
+    SFACStatement("Asymmetry", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  mx = 4;
+  m = 5;
+  if (!PyArg_ParseTuple(args, "ss|ii", &fn, &s, &m, &mx)) return NULL;
+  
+  SaveAsymmetry(fn, s, mx, m);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+
 static PyObject *PSetUsrPEGridType(PyObject *self, PyObject *args) {
   int type;
   
@@ -3707,6 +3727,7 @@ static PyObject *PAIBranch(PyObject *self, PyObject *args) {
 
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
+  {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
