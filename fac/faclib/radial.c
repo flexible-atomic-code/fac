@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.77 2003/05/14 02:31:27 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.78 2003/05/15 18:05:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -970,7 +970,6 @@ void FreeOrbitalData(void *p) {
   ORBITAL *orb;
 
   orb = (ORBITAL *) p;
-  fflush(stdout);
   if (orb->wfun) free(orb->wfun);
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;

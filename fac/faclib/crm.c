@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.50 2003/04/28 13:49:13 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.51 2003/05/15 18:05:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -73,6 +73,16 @@ int InitCRM(void) {
   return 0;
 }
 
+static void InitBlkRateData(void *p, int n) {
+  BLK_RATE *r;
+  int k;
+
+  r = (BLK_RATE *) p;
+  for (k = 0; k < n; k++, r++) {
+    r->rates = NULL;
+  }
+}
+
 static void FreeBlkRateData(void *p) {
   BLK_RATE *r;
 
@@ -82,6 +92,39 @@ static void FreeBlkRateData(void *p) {
   r->rates = NULL;
 }
 
+static void InitIonData(void *p, int n) {
+  ION *ion;
+  int i, k;
+  
+  ion = (ION *) p;
+  for (k = 0; k < n; k++,ion++) {
+    ion->nlevels = 0;
+    ion->KLN_min = 0;
+    ion->KLN_max = -1;
+    ion->KLN_bmin = 0;
+    ion->KLN_bmax = -1;
+    ion->KLN_amin = 0;
+    ion->KLN_amax = -1;
+    ion->nlevels = 0;
+    ion->iblock = NULL;
+    ion->ilev = NULL;
+    ion->j = NULL;
+    ion->vnl = NULL;
+    ion->ibase = NULL;
+    ion->energy = NULL;
+    for (i = 0; i < NDB; i++) {
+      ion->dbfiles[i] = NULL;
+    }
+    ion->ce_rates = NULL;
+    ion->tr_rates = NULL;
+    ion->tr2_rates = NULL;
+    ion->ci_rates = NULL;
+    ion->rr_rates = NULL;
+    ion->ai_rates = NULL;
+    ion->recombined = NULL;
+  }
+}
+    
 static void FreeIonData(void *p) {
   ION *ion;
   int i;
@@ -130,6 +173,16 @@ static void FreeIonData(void *p) {
   ArrayFree(ion->recombined, NULL);
   free(ion->recombined);
   ion->recombined = NULL;
+}
+
+static void InitBlockData(void *p, int n) {
+  LBLOCK *blk;
+  int k;
+
+  blk = (LBLOCK *) p;
+  for (k = 0; k < n; k++, blk++) {
+    blk->nlevels = 0;
+  }
 }
 
 static void FreeBlockData(void *p) {
@@ -247,7 +300,7 @@ int AddIon(int nele, double n, char *pref) {
 
   ion.n = n;
 
-  ArrayAppend(ions, &ion, NULL);
+  ArrayAppend(ions, &ion, InitIonData);
   
   return ions->dim;
   
@@ -324,7 +377,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	blk.rec = rec;
 	blk.irec = t;
 	blk.ncomplex[nc].n = n;
-	blkp = ArrayAppend(blocks, &blk, NULL);
+	blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	q = -1;
 	p = rec->imin[t];
 	s = rec->imin[j-1];
@@ -857,7 +910,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
-	      blkp = ArrayAppend(blocks, &blk, NULL);
+	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
 	    } else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	      if (blkp) {
@@ -884,7 +937,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
-	      blkp = ArrayAppend(blocks, &blk, NULL);
+	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
 	    }
 	    p = r0[i].ilev;
@@ -952,7 +1005,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
-	  blkp = ArrayAppend(blocks, &blk, NULL);
+	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
 	} else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	  if (blkp) {
@@ -979,7 +1032,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
-	  blkp = ArrayAppend(blocks, &blk, NULL);
+	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
 	}
 	
@@ -3392,7 +3445,7 @@ void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
     ArrayInit(brt0.rates, sizeof(RATE), RATES_BLOCK);
     ArrayAppend(brt0.rates, r, NULL);
-    ArrayAppend(rts, &brt0, NULL);
+    ArrayAppend(rts, &brt0, InitBlkRateData);
   } else {
     if (m) {
       for (i = 0; i < brt->rates->dim; i++) {

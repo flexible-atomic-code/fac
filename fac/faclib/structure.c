@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.47 2003/05/14 02:31:27 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.48 2003/05/15 18:05:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -56,6 +56,16 @@ static void InitAngzDatum(void *p, int n) {
   }
 }
 
+static void InitLevelData(void *p, int n) {
+  LEVEL *lev;
+  int k;
+
+  lev = (LEVEL *) p;
+  for (k = 0; k < n; k++, lev++) {
+    lev->n_basis = 0;
+  }
+}
+  
 int SetAngZCut(double cut) {
   angz_cut = cut;
   return 0;
@@ -776,7 +786,7 @@ int AddToLevels(int ng, int *kg) {
       lev.igp = NULL;
     }
 
-    if (ArrayAppend(levels, &lev, NULL) == NULL) {
+    if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
       printf("Not enough memory for levels array\n");
       exit(1);
     }
