@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.48 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.49 2004/02/28 23:32:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1338,7 +1338,13 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
   i = 0;
   for (m1 = -j1; m1 <= 0; m1 += 2) {
     for (m2 = -j2; m2 <= j2; m2 += 2) {
-      UVIP3P(3, n_egrid, logx, rqk, n_usr, log_xusr, qku);
+      if (n_egrid > 1) {
+	UVIP3P(3, n_egrid, logx, rqk, n_usr, log_xusr, qku);
+      } else {
+	for (ie = 0; ie < n_usr; ie++) {
+	  qku[ie] = rqk[0];
+	}
+      }
       rqk += n_egrid;
       qku += n_usr;
       i++;
