@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.50 2003/08/07 21:25:56 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.51 2003/08/13 01:38:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1480,30 +1480,30 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   eth = eth * HARTREE_EV;
-  
+
   a = 0.0;
   *ratio = 1.0;
 
-  if (e >= eth) {  
-    m = h->n_usr;
-    m1 = m + 1;
-    x0 = data[0]/(data[0]+e-eth);
-    y = data + 2;
-    x = y + m1;
-    w = x + 2*m1;
-    
-    n = 2;
-    one = 1;
-    UVIP3P(n, m1, x, y, one, &x0, &a);
-    if (data[1] > 0.0) {
-      a -= data[1]*log(eth/e);
-    }
-    if (h->msub) {
-      UVIP3P(n, m1, x, w, one, &x0, &b);
-      if (b < 0.0) b = 0.0;
-      a *= b;
-      *ratio = b;
-    }
+  if (e < 0.0) return a;
+
+  m = h->n_usr;
+  m1 = m + 1;
+  x0 = data[0]/(data[0]+e);
+  y = data + 2;
+  x = y + m1;
+  w = x + 2*m1;
+  
+  n = 2;
+  one = 1;
+  UVIP3P(n, m1, x, y, one, &x0, &a);
+  if (data[1] > 0.0) {
+    a -= data[1]*log(eth/(e+eth));
+  }
+  if (h->msub) {
+    UVIP3P(n, m1, x, w, one, &x0, &b);
+    if (b < 0.0) b = 0.0;
+    a *= b;
+    *ratio = b;
   }
 
   return a;
@@ -1563,21 +1563,139 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
       if (r.lower == i0 && r.upper == i1) {
 	PrepCECrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
+	e *= HARTREE_EV;
+	fprintf(f2, "#%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
-		e*HARTREE_EV, negy, r.nsub);
+		e, negy, r.nsub);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
 	    cs = InterpolateCECross(egy[t], &r, &h, data, &ratio);
-	    a = egy[t]/HARTREE_EV;
+	    a = (egy[t]+e)/HARTREE_EV;
 	    a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
 	    a = PI*AREA_AU20/(2.0*a);
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= cs;
 	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\n", 
 		    egy[t], cs, a, ratio);
+	  }
+	  fprintf(f2, "\n\n");
+	}
+	goto DONE;
+      }
+    }
+  }
+
+ DONE:
+  fclose(f1);
+  fclose(f2);
+  return 0;
+}
+
+int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	      int nt, double *temp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CE_HEADER h;
+  CE_RECORD r;
+  int i, t, m, k, p;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, ratio;
+  double xg[15] = {.933078120172818E-01,
+		   .492691740301883E+00,
+		   .121559541207095E+01,
+		   .226994952620374E+01,
+		   .366762272175144E+01,
+		   .542533662741355E+01,
+		   .756591622661307E+01,
+		   .101202285680191E+02,
+		   .131302824821757E+02,
+		   .166544077083300E+02,
+		   .207764788994488E+02,
+		   .256238942267288E+02,
+		   .314075191697539E+02,
+		   .385306833064860E+02,
+		   .480260855726858E+02};
+  double wg[15] = {.218234885940086E+00,
+		   .342210177922884E+00,
+		   .263027577941681E+00,
+		   .126425818105931E+00,
+		   .402068649210010E-01,
+		   .856387780361184E-02,
+		   .121243614721425E-02,
+		   .111674392344251E-03,
+		   .645992676202287E-05,
+		   .222631690709627E-06,
+		   .422743038497938E-08,
+		   .392189726704110E-10,
+		   .145651526407313E-12,
+		   .148302705111330E-15,
+		   .160059490621113E-19};
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+    
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;  
+  }
+  
+  if (fh.type != DB_CE || fh.nblocks == 0) {
+    printf("File %s is not of DB_CE type\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+   
+  while (1) {
+    n = ReadCEHeader(f1, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCERecord(f1, &r, swp, &h);
+      if (r.lower == i0 && r.upper == i1) {
+	PrepCECrossHeader(&h, data);
+	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	e *= HARTREE_EV;
+	fprintf(f2, "#%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
+		r.lower, mem_en_table[r.lower].j,
+		r.upper, mem_en_table[r.upper].j,
+		e, nt, r.nsub);
+	for (k = 0; k < r.nsub; k++) {
+	  PrepCECrossRecord(k, &r, &h, data);
+	  for (t = 0; t < nt; t++) {
+	    cs = 0.0;
+	    for (p = 0; p < 15; p++) {
+	      a = temp[t]*xg[p];
+	      a = InterpolateCECross(a, &r, &h, data, &ratio);
+	      cs += wg[p]*a;
+	    }
+	    a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
+	    a *= cs*exp(-e/temp[t]);
+	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
+	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+		    temp[t], cs, a);
 	  }
 	  fprintf(f2, "\n\n");
 	}
@@ -1680,9 +1798,9 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     nb++;
   }
 
-  fprintf(f2, "Energy (eV)   CI Cross (10^-20 cm2)\n");
+  fprintf(f2, "#Energy (eV)   CI Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
-    fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+    fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
   free(c);  
@@ -1805,9 +1923,9 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     nb++;
   }
 
-  fprintf(f2, "Energy (eV)   PI Cross (10^-20 cm2)\n");
+  fprintf(f2, "#Energy (eV)   PI Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
-    fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+    fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
   free(c);  
@@ -1944,9 +2062,9 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     }
   }
   
-  fprintf(f2, "Energy (eV)   RR Cross (10^-20 cm2)\n");
+  fprintf(f2, "#Energy (eV)   RR Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
-    fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+    fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
   free(c);

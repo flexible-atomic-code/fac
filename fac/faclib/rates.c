@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.31 2003/07/10 14:04:39 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.32 2003/08/13 01:38:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -81,10 +81,10 @@ int SetEleDist(int i, int np, double *p) {
     break;
   case 1:
     if (p[3] <= 0.0) {
-      p[3] = p[0] + 6.0*p[1];
+      p[3] = p[0] + 10.0*p[1];
     }
     if (p[2] <= 0.0) {
-      p[2] = p[0] - 6.0*p[1];
+      p[2] = p[0] - 10.0*p[1];
       if (p[2] < 0) p[2] = 0.0;
     }
     break;

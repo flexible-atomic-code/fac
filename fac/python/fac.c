@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.59 2003/07/31 21:40:27 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.60 2003/08/13 01:38:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3641,6 +3641,35 @@ static PyObject *PCECross(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PCERate(PyObject *self, PyObject *args) { 
+  PyObject *p, *q;
+  int i, nt, i0, i1;
+  double *temp;
+  char *ifn, *ofn;
+  
+  if (!PyArg_ParseTuple(args, "ssiiO", &ifn, &ofn, &i0, &i1, &p))
+    return NULL;
+
+  if (!PyList_Check(p) && !PyTuple_Check(p)) {
+    printf("Energy List must be a sequence\n");
+    return NULL;
+  }
+  
+  nt = PySequence_Length(p);
+  temp = (double *) malloc(sizeof(double)*nt);  
+  for (i = 0; i < nt; i++) {
+    q = PySequence_GetItem(p, i);
+    temp[i] = PyFloat_AsDouble(q);
+    Py_DECREF(q);
+  }
+  
+  CEMaxwell(ifn, ofn, i0, i1, nt, temp);
+  free(temp);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3652,6 +3681,7 @@ static struct PyMethodDef fac_methods[] = {
   {"AITableMSub", PAITableMSub, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CECross", PCECross, METH_VARARGS},
+  {"CERate", PCERate, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
