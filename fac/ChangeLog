@@ -1,3 +1,6 @@
+version 0.9.2, 04/10/2003
+	1. add routines returning ionization thresholds in CRM.
+	
 version 0.9.1, 03/27/2003
 	1. correct manual on GetPotential.
 	2. correct an error in Uehling potential.

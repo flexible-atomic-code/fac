@@ -1,3 +1,24 @@
+      subroutine ebeli(z, n, e)
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c     return the ionization threshold of the ion
+c     input:
+c     z, nuclear charge of the element.
+c     n, number of electrons of the ion.
+c     output:
+c     e, the ionization threshold in eV.
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      integer z, n
+      double precision e
+      double precision error(406), cdi(7,406), cea(8,406)
+      common /idata/ error, cdi, cea
+
+      integer k
+
+      k = 1 + (z*(z-1)/2) + (z-n)
+      e = cdi(1, k)
+      return
+      end
+      
       subroutine cbeli(z, n, ene, ea, dir, e)
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c     calculate the ionization cross sections.
@@ -120,7 +141,7 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
      +         .148302705111330E-15,
      +         .160059490621113E-19/
       integer k, i
-      double precision ei0, ei1, a, b, c, x0, ene
+      double precision ei0, a, b, c, x0, ene
       double precision mc
 c     mc = 1.12837967*c*sqrt(2.0/mc^2)
       parameter(mc = 0.0066923847825)

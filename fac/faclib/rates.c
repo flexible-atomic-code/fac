@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.28 2003/03/30 14:24:37 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.29 2003/04/07 17:06:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -728,6 +728,18 @@ double ColFit(int z, int nele, int is, double t, double *a, double *dir) {
   if (dir) *dir = dd;
   
   return total;
+}
+
+double EColFit(int z, int nele, int is) {
+  double e;
+  ECOLFIT(z, nele, is, &e);
+  return e;
+}
+
+double EBeli(int z, int nele) {
+  double e;
+  EBELI(z, nele, &e);
+  return e;
 }
 
 double Ionis(int z, int nele, double t, double *a, double *dir, int m) {
