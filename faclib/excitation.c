@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.38 2002/08/21 22:01:31 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.39 2002/08/23 13:37:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -33,7 +33,7 @@ static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
-#define NGOSK 60
+#define NGOSK 72
 static double kgrid[NGOSK];
 static double log_kgrid[NGOSK];
 static double gos[NGOSK];
@@ -552,6 +552,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
       } else {
 	r = qk[0];
       }
+            
       if (nkl > 0) {
 	if (type >= CBMULTIPOLES) {
 	  if (nkl > 10) {
@@ -567,7 +568,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  }
 	  s = qk[nklp]*b;
 	  r = r + s;
-	} else if (type >= 0) {
+	} else if (type > 0) {
 	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
 	  if (b > 0) {
 	    s = qk[nklp]*b;
@@ -575,6 +576,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
  	  }
 	}      
       }
+      
       rq[ite][ie] = r;
     }
   }
@@ -780,7 +782,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	    s = qk[iq][i]*b;
 	    rq[iq][ite][ie] += s;
 	  }
-	} else if (type1 >= 0) {
+	} else if (type1 > 0) {
 	  for (iq = 0; iq < nq; iq++) {
 	    b = (GetCoulombBethe(0, ite, ie, type1, iq+1))[i];
 	    if (b > 0) {
@@ -789,7 +791,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	    }
 	  }
 	}
-      } else if (type1 >= 0) {
+      } else if (type1 > 0) {
 	for (iq = 0; iq < nq; iq++) {
 	  if (nkl > 10) {
 	    b = qk[iq][i]/qk[iq][i-1];
@@ -917,6 +919,34 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
   return type;
 }
 
+void BornFromFit(int np, double *p, int n, double *x, double *logx,
+		 double *y, double *dy, int ndy, void *extra) {
+  double a, b;
+
+  int i, k;
+
+  if (ndy <= 0) {
+    for (i = 0; i < n; i++) {
+      a = (1.0 + p[1])/(x[i] + p[1]);
+      y[i] = p[0] + p[2]*a + p[3]*a*a;
+    }
+  } else {
+    for (i = 0; i < n; i++) {
+      a = x[i] + p[1];
+      b = (x[i] - 1.0)/(a*a);
+      a = (1.0 + p[1])/a;
+      k = i;
+      dy[k] = 1.0;
+      k += ndy;
+      dy[k] = p[2]*b + 2.0*p[3]*b*a;
+      k += ndy;
+      dy[k] = a;
+      k += ndy;
+      dy[k] = a*a;
+    }
+  }
+}
+
 void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 		       double *y, double *dy, int ndy, void *extra) {
   double a, b, c, d, D;
@@ -989,7 +1019,6 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
   double *rqk, tol;
   double c1, c2, *g1, *g2;
-  double x1, x2, x3, x1s, x2s, x3s;
   int ierr, ipvt[NPARAMS];
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
@@ -1078,20 +1107,22 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   if (type >= 0) {
     for (i = 0; i < nz; i++) {
       p = GetOrbital(ang[i].k0)->kappa;
-      p = GetJFromKappa(p);
+      GetJLFromKappa(p, &t, &h);
       m = GetOrbital(ang[i].k1)->kappa;
-      m = GetJFromKappa(m);
-      c1 = ReducedCL(p, ang[i].k, m);
+      GetJLFromKappa(m, &np, &ie);
+      if (IsOdd((h+ang[i].k+ie)/2)) continue;
+      c1 = ReducedCL(t, ang[i].k, np);
       if (c1 == 0) continue;
       g1 = GeneralizedMoments(NGOSK, kgrid, 
 			      ang[i].k0, ang[i].k1, ang[i].k/2);
       for (j = i; j < nz; j++) {
 	if (ang[j].k != ang[i].k) continue;
 	p = GetOrbital(ang[j].k0)->kappa;
-	p = GetJFromKappa(p);
+	GetJLFromKappa(p, &t, &h);
 	m = GetOrbital(ang[j].k1)->kappa;
-	m = GetJFromKappa(m);
-	c2 = ReducedCL(p, ang[j].k, m);
+	GetJLFromKappa(m, &np, &ie);
+	if (IsOdd((h+ang[j].k+ie)/2)) continue;
+	c2 = ReducedCL(t, ang[i].k, np);
 	if (c2 == 0) continue;
 	g2 = GeneralizedMoments(NGOSK, kgrid, 
 				ang[j].k0, ang[j].k1, ang[j].k/2);
@@ -1110,6 +1141,24 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
     r /= 3.0;
     bethe[0] = r*2.0;
+    c = 0.0;
+    for (t = 0; t < NGOSK; t++) {
+      if (gos[t] > c) {
+	c = gos[t];
+      }
+    }
+    c *= EPS3;
+    for (t = NGOSK-1; t >= 0; t--) {
+      if (gos[t] > c) break;
+    }
+    c = 0.5*kgrid[t];
+    n_born = 2;
+    c1 = 0.5*c*c/te;
+    c1 = Max(c1, 50.0);
+    c2 = 0.5*c1;
+    born_egrid[0] = c2;
+    born_egrid[n_born-1] = c1;
+    g1 = rq;
     for (t = 0; t < NGOSK; t++) {
       gos[t] = log(gos[t]);
     }
@@ -1131,30 +1180,19 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       for (t = 0; t < NGOSK; t++) {
 	gosint[t] = exp(gosint[t]);
       }
-      fvec[i] = Simpson(gosint, 0, NGOSK-1);
-      fvec[i] *= 4.0*c1;
-      if (bethe[0]) {
-	fvec[i] -= bethe[0]*log(born_egrid[i]);
-      }
+      g1[i] = Simpson(gosint, 0, NGOSK-1);
+      g1[i] *= 4.0*c1;
+      if (bethe[0] > 0) g1[i] -= bethe[0]*log(born_egrid[i]);
     }
-    x1 = 1.0/born_egrid[0];
-    x2 = 1.0/born_egrid[1];
-    x3 = 1.0/born_egrid[2];
-    x1s = x1*x1;
-    x2s = x2*x2;
-    x3s = x3*x3;
-    bethe[2] = (((fvec[0]*x2s - fvec[1]*x1s)*(x3s - x1s) -
-		 (fvec[0]*x3s - fvec[2]*x1s)*(x2s - x1s))/
-		((x1*x2s - x2*x1s)*(x3s - x1s) - 
-		 (x1*x3s - x3*x1s)*(x2s - x1s)));
-    bethe[1] = fvec[0]*x2s - fvec[1]*x1s - bethe[2]*(x1*x2s - x2*x1s);
-    bethe[1] /= (x2s - x1s);
-    bethe[3] = (fvec[0] - bethe[1] - bethe[2]*x1)/x1s;
+    fflush(stdout);
+    c1 = 1.0/born_egrid[0];
+    c2 = 1.0/born_egrid[1];
+    bethe[2] = (g1[1] - g1[0])/(c2 - c1);
+    bethe[1] = g1[1] - bethe[2]*c2;
   } else {
     bethe[0] = -1.0;
     bethe[1] = 0.0;
     bethe[2] = 0.0;
-    bethe[3] = 0.0;
   }
 
   free(ang);
@@ -1311,7 +1349,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set;
   double emin, emax, e, c, e0, e1, te0;
-  double rmin, rmax, bethe[4];
+  double rmin, rmax, bethe[3];
 
   n = 0;
   alev = NULL;
@@ -1393,6 +1431,22 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     SetCEPWGrid(0, NULL, NULL);
   }
 
+  n_born = 3;
+  e = 50.0*emax;
+  e1 = sqrt(2.0*e);
+  e0 = sqrt(2.0*(e - emin));
+  rmin = e1 - e0;
+  rmax = e1 + e0;
+  kgrid[0] = rmin;
+  kgrid[NGOSK-1] = rmax;
+  log_kgrid[0] = log(rmin);
+  log_kgrid[NGOSK-1] = log(rmax);
+  e = (log_kgrid[NGOSK-1] - log_kgrid[0])/(NGOSK-1);
+  for (i = 1; i < NGOSK-1; i++) {
+    log_kgrid[i] = log_kgrid[i-1] + e;
+    kgrid[i] = exp(log_kgrid[i]);
+  }
+
   e = (emin + emax)*0.5;
   if (egrid_limits_type == 0) {
     rmin = egrid_min;
@@ -1402,11 +1456,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     rmax = egrid_max/e;
   }
   te0 = emax;
-
-  born_egrid[0] = 15.0;
-  born_egrid[1] = 30.0;
-  born_egrid[2] = 60.0;
-  n_born = 3;
 
   e0 = emin;
   fhdr.type = DB_CE;
@@ -1419,11 +1468,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     if (!te_set) {
       emin = e0;
       emax = e1;
-      if (emin < 1.0/HARTREE_EV) {
-	emin = 1.0/HARTREE_EV;
-	emax = 3.0*emin;
-	if (emax < e1) emax = e1;
-      }
       e = emax/emin;  
       if (e < 1.1) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
@@ -1437,10 +1481,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    c = 10.0*e1;
+    c = 100.0*e1;
     if (te0 > c) ce_hdr.te0 = c;
     else ce_hdr.te0 = te0;
-    emin = rmin*ce_hdr.te0;
+    emin = rmin*e1;
     emax = rmax*ce_hdr.te0;
     
     if (qk_mode == QK_EXACT) {
@@ -1495,20 +1539,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       }
     }
 
-    emax = sqrt(2.0*e1*born_egrid[2]);
-    emin = sqrt(2.0*(e1*born_egrid[2] - e1));
-    rmin = emax - emin;
-    rmax = emax + emin;
-    kgrid[0] = rmin;
-    kgrid[NGOSK-1] = rmax;
-    log_kgrid[0] = log(rmin);
-    log_kgrid[NGOSK-1] = log(rmax);
-    e = (log_kgrid[NGOSK-1] - log_kgrid[0])/(NGOSK-1);
-    for (i = 1; i < NGOSK-1; i++) {
-      log_kgrid[i] = log_kgrid[i-1] + e;
-      kgrid[i] = exp(log_kgrid[i]);
-    }
-
     e = 0.0;
     c = GetResidualZ();
     PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
@@ -1549,9 +1579,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	if (e < e0 || e >= e1) continue;
 	k = CollisionStrength(qkc, params, &e, bethe, low[i], up[j], msub); 
 	if (k < 0) continue;
-	for (m = 0; m < 4; m++) {
-	  r.bethe[m] = bethe[m];
-	}
+	r.bethe = bethe[0];
+	r.born[0] = bethe[1];
+	r.born[1] = bethe[2];
 	r.lower = low[i];
 	r.upper = up[j];
 	r.nsub = k;
@@ -1737,8 +1767,3 @@ int ReinitExcitation(int m) {
 
   return 0;
 }
-  
-
-
-
-

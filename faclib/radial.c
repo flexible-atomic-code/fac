@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.52 2002/08/21 22:01:31 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.53 2002/08/23 13:37:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1670,7 +1670,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       norm *= orb1->qr_norm;
       norm *= orb2->qr_norm;
       norm *= orb3->qr_norm;
-      
+
       *s *= norm;
       break;
 
@@ -2612,8 +2612,7 @@ int ReinitRadial(int m) {
   FreeResidualArray();
   FreeMultipoleArray();
   FreeMomentsArray();
-  FreeGOSArray();
-  if (m != 1) {
+  if (m == 0) {
     if (optimize_control.n_screen > 0) {
       free(optimize_control.screened_n);
       optimize_control.n_screen = 0;
@@ -2622,7 +2621,11 @@ int ReinitRadial(int m) {
     n_awgrid = 1;
     awgrid[0] = EPS3;
     SetRadialGrid(1E-5, 5E2);
+    FreeGOSArray();
+  } else if (m == 2) {
+    FreeGOSArray();
   }
+  
   return 0;
 }
   

@@ -689,7 +689,8 @@ typedef struct _CE_RECORD_ {
   int lower;
   int upper;
   int nsub;
-  float bethe[4];
+  float bethe;
+  float born[2];
   float *params;
   float *strength;
 } CE_RECORD;
@@ -701,17 +702,20 @@ typedef struct _CE_RECORD_ {
 \item[\texttt{int nsub}:] Number of magnetic sublevel transitions. Because of
 time reversal symmetry, $\sigma_{m_1\to m_2}=\sigma_{-m_1\to -m_2}$, only cross
 sections with $m_1 <= 0$ are tabulated.
-\item[\texttt{float bethe[4]}:] The Bethe coefficients in the first-Born
-approximation. If \texttt{bethe[0]}<0, it is a spin forbidden transition,
-and all Bethe coefficients are 0.0, i.e., the exchange cross sections are not
-calculated in the Born approximation. Otherwise, the high energy behaviour of
-the collision strengths are given by
+\item[\texttt{float bethe}:] The Bethe coefficients in the first-Born
+approximation. It is the logarithmic coefficients at high energies. If
+\texttt{bethe[0]}<0, it is a spin forbidden transition. Otherwise, it is
+either a optical-allowed transition or other multipole-allowed transitions.
+\item[\texttt{float born[2]}:] The Born limit of the collision strengths at
+high energies, which is
 \begin{eqnarray}
 x &=& \frac{E_0}{E_{th}} \nonumber\\
-\Omega &=& b_0\log(x) + b_1 + \frac{b_2}{x} + \frac{b_3}{x^2},
+\Omega &=& b_0\log(x) + b_1 + \frac{b_2}{x},
 \end{eqnarray}
-where $b_0$, $b_1$, $b_2$, and $b_3$ are the elements of the floating array
-\texttt{bethe}. 
+where $b_0$ is given by \texttt{bethe}, if it is an allowed transition. For
+spin forbidden transitions, $b_0 = 0$. $b_1$, $b_2$ are given by the array
+\texttt{born[2]}. These numbers are useful to extrapolate the collision
+strengths to high energies with correct aysmptotic behaviour.
 \item[\texttt{float *params}:] Parameters for the fitting formula, if the
 fitting mode is used. The number of elements is given by \texttt{nparams} in
 \texttt{CE\_HEADER}. In the present implementation, different fitting formulae
@@ -1403,10 +1407,10 @@ NUSR	= 6
 	  2.65576771E+03
 	  4.58848260E+03
 	  7.55863296E+03
-#lower 2J upper 2J Delta E    Bethe coeff. nsub
+#lower 2J upper 2J Delta E  nsub
     0	 0	    1	 4	 7.2435E+02	1
-#The 4 Bethe coefficients in the Born approximation.
--1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
+#The Bethe coefficient and 2 Born coefficients in the Born approximation.
+-1.0000E+00  0.0000E+00  0.0000E+00
 # if QKMODE = 2, the parameter line is present here.
 #user egrid  coll. str.  cross sec.
  4.7241E+01	 1.5347E-03	 2.3789E-01
@@ -1416,7 +1420,7 @@ NUSR	= 6
  4.5885E+03	 1.1322E-04	 2.5376E-03
  7.5586E+03	 5.1291E-05	 7.3523E-04
     0	 0	    2	 2	 7.2639E+02	1
- 9.1750E-03 -7.0402E-03  7.2746E-03  1.2610E-04
+ 9.1750E-03 -7.0392E-03  7.2655E-03
  4.7241E+01	 1.8857E-03	 2.9153E-01
  5.7976E+02	 3.7280E-03	 3.4119E-01
  1.3981E+03	 6.3378E-03	 3.5633E-01
