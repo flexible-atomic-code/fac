@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.55 2002/11/14 20:51:09 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.56 2002/11/15 17:05:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -760,15 +760,8 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     rqc[1] = (a + (4.5+nkl)*b)/(0.5*b+d);
     RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
 		      rq, NULL, 0, &nkl);
-    a = 0.0;
-    b = 0.0;
-    for (ie = 0; ie < n_egrid; ie++) {
-      if (xegrid[ie] > 2.0) {
-	a += (eb0*tq[ie]/rq[ie])*egrid[ie];
-	b += egrid[ie];
-      }
-    }
-    rqc[0] *= a/b;
+    ie = n_egrid-1;
+    rqc[0] *= eb0*tq[ie]/rq[ie];
     rqc[3] = eb0;
     for (ie = 0; ie < n_egrid; ie++) {
       a = (*eb) + egrid[ie];

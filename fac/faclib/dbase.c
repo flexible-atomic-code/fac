@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.33 2002/11/14 15:21:36 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.34 2002/11/15 17:05:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -636,7 +636,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       for (t = 0; t < negy; t++) {
 	ee = egy[t];
 	eph = ee + e;
-	if (ee <= emax) {
+	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
 	  uvip3p_(&np, &(h.n_usr), xusr, dstrength, &one, &x, &tc);
 	  tc = exp(tc);
