@@ -1,26 +1,55 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.8 2001/09/14 13:16:59 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.9 2001/11/10 01:13:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-/* maximum summation terms in the calculation of 3j symbols. 
-   this should allow the angular momentum up to about 500 */
-#define MAXTERM 512
-static double _sumk[MAXTERM];
+/************************************************************
+  Implementation of module *angular*.
+
+  All angular momentum arguments are twice their actual
+  values to represent half-integer using integers.
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+*************************************************************/
+
 
 #ifdef PERFORM_STATISTICS
 static ANGULAR_TIMING timing = {0, 0, 0};
+
+/* 
+** FUNCTION:    GetAngularTiming.
+** PURPOSE:     Get the profiling information for 
+**              module *angular*.
+**              
+** INPUT:       {ANGULAR_TIMING *t},
+**              pointer to the struct
+**              which holds the result on output.
+** RETURN:      {int}, 
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        included only if the macro PERFOR_STATISTICS 
+**              is defined in "global.h".
+**              the input pointer must have the storage allocated.
+*/
 int GetAngularTiming(ANGULAR_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
 #endif
 
-/* initialize the log of factorial and integer arrays,
-   this routine is called only once. */
+/* 
+** FUNCTION:    InitAngular.
+** PURPOSE:     initialize the nature log of factorial 
+**              and integer arrays.
+** INPUT:       
+** RETURN:      {int}, 
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int InitAngular() {
   int n;
 
@@ -32,8 +61,22 @@ int InitAngular() {
   }
   return 0;
 }
-
-/* check whether 3 angular momenta satisfy the triangular relation */
+ 
+/* 
+** FUNCTION:    Triangle.
+** PURPOSE:     check for triangular relation.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+** RETURN:      {int},
+**              0: triangular relation failed.
+**              1: triangular relation holds.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int Triangle(int j1, int j2, int j3) {
   int i;
 
@@ -48,7 +91,38 @@ int Triangle(int j1, int j2, int j3) {
     return 0;
 }
 
-/* calculate the Wigner 3j symbols */
+/* 
+** calculate the Wigner 3j symbols.
+** maximum summation terms of 512 should allow 
+** the angular momentum up to about 500.
+*/
+#define MAXTERM 512
+static double _sumk[MAXTERM];
+/* 
+** FUNCTION:    W3j.
+** PURPOSE:     calculate the Wigner 3j symbol.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+**              {int m1},
+**              projection of j1.
+**              {int m2},
+**              projection of j2.
+**              {int m3},
+**              projection of j3.
+** RETURN:      {double},
+**              3j coefficients.
+** SIDE EFFECT: 
+** NOTE:        the _sumk array is used to store all 
+**              summation terms to avoid overflow. 
+**              the predefined MAXTERM=512 allows the 
+**              maximum angular momentum of about 500.
+**              if this limit is exceeded, the routine
+**              issues a warning.
+*/
 double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   int i, k, kmin, kmax, ik[14];
   double delta, qsum, a, b;
@@ -126,29 +200,26 @@ double W3j(int j1, int j2, int j3, int m1, int m2, int m3) {
   return b;
 }
 
-double W6jDelta(j1, j2, j3) {
-  int i, ik[4];
-  double delta;
-
-  ik[0] = j1 + j2 - j3;
-  ik[1] = j1 - j2 + j3;
-  ik[2] = -j1 + j2 + j3;
-  ik[3] = j1 + j2 + j3 + 2;
-
-  for (i = 0; i < 4; i++) {
-    ik[i] = ik[i] / 2;
-  }
-  
-  delta = (LnFactorial(ik[0]) +
-	   LnFactorial(ik[1]) +
-	   LnFactorial(ik[2]) -
-	   LnFactorial(ik[3]));
-
-  delta = exp(0.5*delta);
-  return delta;
-}
-
-/* Wigner 6j symbols */
+/* 
+** FUNCTION:    W6j.
+** PURPOSE:     calculate the 6j symbol.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+**              {int i1},
+**              angular momentum.
+**              {int i2},
+**              angular momentum.
+**              {int i3},
+**              angular momentum.
+** RETURN:      {double},
+**              6j symbol.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
   int n1, n2, n3, n4, n5, n6, n7, k, kmin, kmax, ic, ki;
   double r, a;
@@ -217,14 +288,61 @@ double W6j(int j1, int j2, int j3, int i1, int i2, int i3) {
 
 }
 
+/* 
+** FUNCTION:    W6jTriangle.
+** PURPOSE:     determine if 6j symbol is permitted
+**              by the triangular constraints.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+**              {int i1},
+**              angular momentum.
+**              {int i2},
+**              angular momentum.
+**              {int i3},
+**              angular momentum.
+** RETURN:      {int},
+**              0: 6j symbol forbidden.
+**              1: 6j symbol allowed.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int W6jTriangle(int j1, int j2, int j3, int i1, int i2, int i3) {
   return (Triangle(j1, j2, j3) &&
 	  Triangle(j1, i2, i3) &&
 	  Triangle(i1, j2, i3) &&
 	  Triangle(i1, i2, j3));
 }
-       
-/* Wigner 9j symbols */
+  
+/* 
+** FUNCTION:    W9j.
+** PURPOSE:     calculate the 9j symbol.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+**              {int i1},
+**              angular momentum.
+**              {int i2},
+**              angular momentum.
+**              {int i3},
+**              angular momentum.
+**              {int k1},
+**              angular momentum.
+**              {int k2},
+**              angular momentum.
+**              {int k3},
+**              angular momentum.
+** RETURN:      {double},
+**              9j symbol.
+** SIDE EFFECT: 
+** NOTE:        
+*/     
 double W9j(int j1, int j2, int j3,
 	   int i1, int i2, int i3,
 	   int k1, int k2, int k3) {
@@ -267,6 +385,34 @@ double W9j(int j1, int j2, int j3,
   return r;
 }
 
+/* 
+** FUNCTION:    W9jTriangle.
+** PURPOSE:     determine if 9j symbol is allowed by
+**              the triangular constraints.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int j2},
+**              angular momentum.
+**              {int j3},
+**              angular momentum.
+**              {int i1},
+**              angular momentum.
+**              {int i2},
+**              angular momentum.
+**              {int i3},
+**              angular momentum.
+**              {int k1},
+**              angular momentum.
+**              {int k2},
+**              angular momentum.
+**              {int k3},
+**              angular momentum.
+** RETURN:      {int},
+**              0: 9j symbol forbidden.
+**              1: 9j symbol allowed.
+** SIDE EFFECT: 
+** NOTE:        
+*/     
 int W9jTriangle(int j1, int j2, int j3,
 		int i1, int i2, int i3,
 		int k1, int k2, int k3) {
@@ -278,7 +424,28 @@ int W9jTriangle(int j1, int j2, int j3,
 	  Triangle(j3, i3, k3));
 }
 
-/* The geometric factor in the Wigner Eckart theorem */
+/* 
+** FUNCTION:    WignerEckartFactor.
+** PURPOSE:     calculate the geometric prefactor in 
+**              Wigner Eckart theorem, 
+**              (-1)^{jf-mf}sqrt(2*jf+1)W3j(jf, k, ji, -mf, q, mi)
+** INPUT:       {int jf},
+**              angular momentum.
+**              {int k },
+**              angular momentum.
+**              {int ji},
+**              angular momentum.
+**              {int mf},
+**              projection of jf.
+**              {int q },
+**              projection of k.
+**              {int mi},
+**              projection of mi.
+** RETURN:      {double},
+**              prefactor.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
   double r;
 
@@ -291,7 +458,27 @@ double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
   return r;
 }
 
-/* Clebsch Gordan Coeff. */
+/* 
+** FUNCTION:    ClebschGordan.
+** PURPOSE:     claculate the Clebsch Gordan coeff.
+** INPUT:       {int j1},
+**              angular momentum.
+**              {int m1},
+**              projection of j1.
+**              {int j2},
+**              angular momentum.
+**              {int m2},
+**              projection of j2.
+**              {int jf},
+**              angular momentum, final result 
+**              of the coupling of j1 and j2.
+**              {int mf},
+**              projection of jf.
+** RETURN:      {double},
+**              CG coefficients.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
   double r;
   r = sqrt(jf+1.0);
@@ -301,13 +488,28 @@ double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
   return r;
 }
 
-/** Reduced matrix element of C^L in jj coupled states.
-    it does not include the triangular delta factor involving the 
-    orbital angular momenta **/
+/* 
+** FUNCTION:    ReducedCL.
+** PURPOSE:     calculate the reduced matrix element
+**              of the normalized spherical harmonics <ja||C^L||jb>
+** INPUT:       {int ja},
+**              angular momentum.
+**              {int k },
+**              rank of the spherical harmonics.
+**              {int jb},
+**              angular momentum.
+** RETURN:      {double},
+**              reduced matrix element.
+** SIDE EFFECT: 
+** NOTE:        it does not check for the triangular delta 
+**              involving the orbital angular momenta.
+*/
 double ReducedCL(int ja, int k, int jb) {
   double r;
   r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, 1, 0, -1);
   if (IsOdd((ja+1)/2)) r = -r;
   return r;
 }
+
+
 

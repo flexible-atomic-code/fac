@@ -1,19 +1,34 @@
 #include "angular.h"
 #include "rcfp.h"
 
-static char *rcsid="$Id: rcfp.c,v 1.5 2001/09/14 13:17:01 mfgu Exp $";
+static char *rcsid="$Id: rcfp.c,v 1.6 2001/11/10 01:13:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-/*****************************************************************/
-/* all the data tables here are derived from rabs package.       */
-/* see Gaigalas et. al.  CPC 139, 263.                           */
-/*****************************************************************/
+/*************************************************************
+  Implementation of "rcfp".
+  This module calculates the reduced coefficients of fractional
+  parentage, the reduced matrix elements of creation, and
+  annihilation operators between the single subshell states.
 
+  It is mainly translated from the F90 package of 
+  Gaigalas et al. CPC 139 (2001) 263.
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+
+/*
+** VARIABLE:    terms_jj
+** TYPE:        static array.
+** PURPOSE:     tabulates the RCFP_TERMs for j <= 9/2
+** NOTE:        the macro subshell_term() is to strip off the
+**              identifier directly copied from CPC 139, 263.
+*/
 #define subshell_term(a, b, c, d, e) {a, b, c, d, e}
-RCFP_TERM terms_jj[63] = {      
+static RCFP_TERM terms_jj[63] = {      
   /* j = 1/2; these terms have indices terms_jj(1:2) */
   subshell_term(1, 0, 1, 1, 0), subshell_term(1, 1, 0, 0, 0),  
      
@@ -55,19 +70,26 @@ RCFP_TERM terms_jj[63] = {
   subshell_term(9, 1, 4,16, 0), subshell_term(9, 1, 4,18, 0),  
   subshell_term(9, 1, 4,20, 0), subshell_term(9, 1, 4,24, 0) };
 
-
+/*
+** VARIABLE:    rcfp_***, W_***
+** TYPE:        static arrays
+** PURPOSE:     tabulates the reduced matrix elements of 
+**              A, AxW, WxA, WxW, for j <= 9/2.
+** NOTE:        the macro reduced_coeff() is to strip off 
+**              the identifier directly copied from CPC 139, 263.
+*/
 #define reduced_coeff(a, b, c) {a, b, c}
 /* Set-up the reduced coefficients of fractional parentage (rcfp) */
 /* j = 1/2  */
-REDUCED_COEFF rcfp_one_half[1][1] = {                            
+static REDUCED_COEFF rcfp_one_half[1][1] = {                            
   reduced_coeff(-1,      4,     1) };
 
 /* j = 3/2 */            
-REDUCED_COEFF rcfp_three_half[2][1] = {                           
+static REDUCED_COEFF rcfp_three_half[2][1] = {                           
   reduced_coeff(-1,     12,     1), reduced_coeff(-1,     20,     1)};
 
 /* j = 5/2 */         
-REDUCED_COEFF rcfp_five_half[3][3] = {
+static REDUCED_COEFF rcfp_five_half[3][3] = {
   {reduced_coeff(-1,     24,     1), reduced_coeff( 0,      1,     1), 
    reduced_coeff( 0,      1,     1)}, 
   {reduced_coeff(-1,     30,     1), reduced_coeff( 1,    120,     7), 
@@ -76,7 +98,7 @@ REDUCED_COEFF rcfp_five_half[3][3] = {
    reduced_coeff( 1,    330,     7)}};
 
 /* j = 7/2	*/
-REDUCED_COEFF rcfp_seven_half[8][6] = {
+static REDUCED_COEFF rcfp_seven_half[8][6] = {
   {reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff(-1,     40,     1), reduced_coeff( 0,      1,     1), 
    reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1)}, 
@@ -103,7 +125,7 @@ REDUCED_COEFF rcfp_seven_half[8][6] = {
   reduced_coeff(-1,   2448,    77), reduced_coeff(-1,   7752,    91)} };
 
 /* j = 9/2 */
-REDUCED_COEFF rcfp_nine_half_ket_46_48[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_46_48[3][20] = {
   /* rcfp for term_jj(46) */
   {reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
@@ -138,7 +160,7 @@ REDUCED_COEFF rcfp_nine_half_ket_46_48[3][20] = {
   reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1)}};
 
-REDUCED_COEFF rcfp_nine_half_ket_49_51[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_49_51[3][20] = {
   /* rcfp for term_jj(49) */
   {reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff(-1,    130,     7), reduced_coeff(-1,     48,     7), 
@@ -174,7 +196,7 @@ REDUCED_COEFF rcfp_nine_half_ket_49_51[3][20] = {
   reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1)}};
 
 
-REDUCED_COEFF rcfp_nine_half_ket_52_54[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_52_54[3][20] = {
   /* rcfp for term_jj(52) */
   {reduced_coeff(-1,   2184,   253), reduced_coeff(-1,     63,    23), 
   reduced_coeff(-1,  59904, 19481), reduced_coeff(-1, 302460, 19481), 
@@ -210,7 +232,7 @@ REDUCED_COEFF rcfp_nine_half_ket_52_54[3][20] = {
    reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1)}};
 
 
-REDUCED_COEFF rcfp_nine_half_ket_55_57[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_55_57[3][20] = {
   /* rcfp for term_jj(55) */
   {reduced_coeff( 0,      1,     1), reduced_coeff( 1,    144,    11), 
   reduced_coeff( 1,    416,    11), reduced_coeff( 0,      1,     1), 
@@ -246,7 +268,7 @@ REDUCED_COEFF rcfp_nine_half_ket_55_57[3][20] = {
   reduced_coeff( 1, 284089, 17765), reduced_coeff( 0,      1,     1)}};
  
 
-REDUCED_COEFF rcfp_nine_half_ket_58_60[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_58_60[3][20] = {
   /* rcfp for term_jj(58) */
   {reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff( 1,   1530,    77), reduced_coeff( 1,  13056,  1001), 
@@ -281,7 +303,7 @@ REDUCED_COEFF rcfp_nine_half_ket_58_60[3][20] = {
   reduced_coeff(-1,   6075,   988), reduced_coeff(-1,    132,    19), 
   reduced_coeff(-1,    253,    95), reduced_coeff(-1,    650,    19)}};
  
-REDUCED_COEFF rcfp_nine_half_ket_61_63[3][20] = {
+static REDUCED_COEFF rcfp_nine_half_ket_61_63[3][20] = {
   /* rcfp for term_jj(61) */
   {reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
   reduced_coeff( 0,      1,     1), reduced_coeff( 0,      1,     1), 
@@ -317,22 +339,22 @@ REDUCED_COEFF rcfp_nine_half_ket_61_63[3][20] = {
   reduced_coeff( 1,   3510,    19), reduced_coeff(-1,  33930,   253)}};
 				   
 
-REDUCED_COEFF W_00_one_half[2] = {
+static REDUCED_COEFF W_00_one_half[2] = {
   reduced_coeff(-1,     2,     1), reduced_coeff(-1,       2,     1)};
  				   
    
-REDUCED_COEFF W_00_three_half[3] = {
+static REDUCED_COEFF W_00_three_half[3] = {
   reduced_coeff(-1,    16,     1), reduced_coeff(-1,       6,     1), 
   reduced_coeff(-1,    10,     1)                                   };
     
    
-REDUCED_COEFF W_00_five_half[6] = {
+static REDUCED_COEFF W_00_five_half[6] = {
   reduced_coeff(-1,    54,     1), reduced_coeff(-1,      12,     1), 
   reduced_coeff(-1,    30,     1), reduced_coeff(-1,      12,     1), 
   reduced_coeff(-1,    30,     1), reduced_coeff(-1,      54,     1)};
     
    
-REDUCED_COEFF W_00_seven_half[14] = {
+static REDUCED_COEFF W_00_seven_half[14] = {
   reduced_coeff(-1,    32,     1), reduced_coeff(-1,      48,     1), 
   reduced_coeff(-1,   128,     1), reduced_coeff(-1,      80,     1), 
   reduced_coeff(-1,    96,     1), reduced_coeff(-1,     128,     1), 
@@ -342,22 +364,22 @@ REDUCED_COEFF W_00_seven_half[14] = {
   reduced_coeff(-1,   156,     1), reduced_coeff(-1,      68,     1)};
  
    
-REDUCED_COEFF W_10_one_half[2] = {
+static REDUCED_COEFF W_10_one_half[2] = {
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,       6,     1)};
     
    
-REDUCED_COEFF W_10_three_half[3] = {
+static REDUCED_COEFF W_10_three_half[3] = {
   reduced_coeff(-1,    12,     1), reduced_coeff(-1,      12,     1), 
   reduced_coeff( 0,     1,     1)                                   };
     
    
-REDUCED_COEFF W_10_five_half[6] = {
+static REDUCED_COEFF W_10_five_half[6] = {
   reduced_coeff(-1,    48,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,      20,     1), 
   reduced_coeff(-1,    10,     1), reduced_coeff(-1,      18,     1)};
     
    
-REDUCED_COEFF W_10_seven_half[14] = {
+static REDUCED_COEFF W_10_seven_half[14] = {
   reduced_coeff(-1,     6,     1), reduced_coeff(-1,       9,     1), 
   reduced_coeff(-1,   120,     1), reduced_coeff(-1,      15,     1), 
   reduced_coeff(-1,    18,     1), reduced_coeff(-1,      24,     1), 
@@ -367,22 +389,22 @@ REDUCED_COEFF W_10_seven_half[14] = {
   reduced_coeff(-1,    78,     1), reduced_coeff( 0,       1,     1)};
     
    
-REDUCED_COEFF W_01_one_half[2] = {
+static REDUCED_COEFF W_01_one_half[2] = {
   reduced_coeff(-1,     6,     1), reduced_coeff( 0,       1,     1)};
 
 
-REDUCED_COEFF W_01_three_half[3] = {
+static REDUCED_COEFF W_01_three_half[3] = {
   reduced_coeff(-1,    12,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff(-1,    12,     1)                                   };
 
 
-REDUCED_COEFF W_01_five_half[6] = {
+static REDUCED_COEFF W_01_five_half[6] = {
   reduced_coeff(-1,   126,     7), reduced_coeff(-1,      12,     7), 
   reduced_coeff(-1,   198,     7), reduced_coeff( 0,       1,     1), 
   reduced_coeff(-1,    48,     7), reduced_coeff(-1,     288,     7)};
     
    
-REDUCED_COEFF W_01_seven_half[14] = {
+static REDUCED_COEFF W_01_seven_half[14] = {
   reduced_coeff(-1,    10,     7), reduced_coeff(-1,       5,     1), 
   reduced_coeff(-1,   168,     7), reduced_coeff(-1,     165,     7), 
   reduced_coeff(-1,   286,     7), reduced_coeff(-1,     680,     7), 
@@ -392,16 +414,16 @@ REDUCED_COEFF W_01_seven_half[14] = {
   reduced_coeff(-1,   546,     7), reduced_coeff(-1,     408,     7)};
     
   
-REDUCED_COEFF W_12_three_half_odd[1][1] = {
+static REDUCED_COEFF W_12_three_half_odd[1][1] = {
   reduced_coeff( 1,    60,     1)                   };
     
    
-REDUCED_COEFF W_12_three_half_even[2][2] = {
+static REDUCED_COEFF W_12_three_half_even[2][2] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 1,      30,     1)}, 
   {reduced_coeff(-1,    30,     1), reduced_coeff( 0,       1,     1)}};
     
    
-REDUCED_COEFF W_12_five_half_odd[3][3] = {
+static REDUCED_COEFF W_12_five_half_odd[3][3] = {
   {reduced_coeff( 1,   420,     7), reduced_coeff( 1,     360,     7), 
   reduced_coeff( 1,   270,     7)}, 
   {reduced_coeff( 1,     360,     7), 
@@ -410,7 +432,7 @@ REDUCED_COEFF W_12_five_half_odd[3][3] = {
   reduced_coeff( 0,     1,     1)}                   };
     
    
-REDUCED_COEFF W_12_five_half_even[3][3] = {
+static REDUCED_COEFF W_12_five_half_even[3][3] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 1,    1960,    49), 
   reduced_coeff( 0,     1,     1)}, 
   {reduced_coeff(-1,    1960,    49), 
@@ -419,7 +441,7 @@ REDUCED_COEFF W_12_five_half_even[3][3] = {
   reduced_coeff( 1,  1980,    49)}                   };
     
    
-REDUCED_COEFF W_12_seven_half_odd[21] = {
+static REDUCED_COEFF W_12_seven_half_odd[21] = {
   reduced_coeff(-1,   252,    10), reduced_coeff( 1,    1056,    70), 
   reduced_coeff( 1,   144,     7), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -433,7 +455,7 @@ REDUCED_COEFF W_12_seven_half_odd[21] = {
   reduced_coeff( 1,  2040,    49)                                   };
     
    
-REDUCED_COEFF W_12_seven_half_even[36] = {
+static REDUCED_COEFF W_12_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,      50,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -454,16 +476,16 @@ REDUCED_COEFF W_12_seven_half_even[36] = {
   reduced_coeff( 1,   340,     7), reduced_coeff( 0,       1,     1)};
 
  
-REDUCED_COEFF W_03_three_half_odd[1][1] = {
+static REDUCED_COEFF W_03_three_half_odd[1][1] = {
   reduced_coeff(-1,    28,     1)                   };
     
    
-REDUCED_COEFF W_03_three_half_even[2][2] = {
+static REDUCED_COEFF W_03_three_half_even[2][2] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1)}, 
   {reduced_coeff( 0,     1,     1), reduced_coeff( 1,      28,     1)} };
     
    
-REDUCED_COEFF W_03_five_half_odd[3][3] = {
+static REDUCED_COEFF W_03_five_half_odd[3][3] = {
   {reduced_coeff(-1,   882,    21), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1)}, 
   {reduced_coeff( 0,       1,     1), 
@@ -472,7 +494,7 @@ REDUCED_COEFF W_03_five_half_odd[3][3] = {
   reduced_coeff( 1,   286,    21) }                  };
     
    
-REDUCED_COEFF W_03_five_half_even[3][3] = {
+static REDUCED_COEFF W_03_five_half_even[3][3] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1)}, 
   {reduced_coeff( 0,       1,     1), 
@@ -481,7 +503,7 @@ REDUCED_COEFF W_03_five_half_even[3][3] = {
   reduced_coeff( 1,    22,     7)}                   };
     
    
-REDUCED_COEFF W_03_seven_half_odd[21] = {
+static REDUCED_COEFF W_03_seven_half_odd[21] = {
   reduced_coeff(-1,  1188,    70), reduced_coeff(-1,     196,    10), 
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,     234,     7), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -495,7 +517,7 @@ REDUCED_COEFF W_03_seven_half_odd[21] = {
   reduced_coeff( 1, 12920,  1001)                                   };
     
    
-REDUCED_COEFF W_03_seven_half_even[36] = {
+static REDUCED_COEFF W_03_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -516,7 +538,7 @@ REDUCED_COEFF W_03_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,    1292,    77)};
     
   
-REDUCED_COEFF W_14_five_half_odd[3][3] = {
+static REDUCED_COEFF W_14_five_half_odd[3][3] = {
   {reduced_coeff( 1,  3780,    35), reduced_coeff(-1,     720,    35), 
   reduced_coeff(-1,  4950,    35)}, {reduced_coeff(-1,     720,    35), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1)}, 
@@ -524,7 +546,7 @@ REDUCED_COEFF W_14_five_half_odd[3][3] = {
   reduced_coeff( 0,     1,     1)}                   };
     
    
-REDUCED_COEFF W_14_five_half_even[3][3] = {
+static REDUCED_COEFF W_14_five_half_even[3][3] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 1,  3528,    49)}, {reduced_coeff( 0,       1,     1), 
   reduced_coeff( 1,  2430,    49), reduced_coeff( 1,    1980,    49)}, 
@@ -532,7 +554,7 @@ REDUCED_COEFF W_14_five_half_even[3][3] = {
   reduced_coeff(-1,  7722,    49)}                   };
     
    
-REDUCED_COEFF W_14_seven_half_odd[21] = {
+static REDUCED_COEFF W_14_seven_half_odd[21] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,      54,     7), 
   reduced_coeff(-1,   528,     7), reduced_coeff( 1,     546,    11), 
   reduced_coeff(-1,   378,    11), reduced_coeff( 0,       1,     1), 
@@ -546,7 +568,7 @@ REDUCED_COEFF W_14_seven_half_odd[21] = {
   reduced_coeff(-1,627912,  7007)                                   };
        
    
-REDUCED_COEFF W_14_seven_half_even[36] = {
+static REDUCED_COEFF W_14_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,      90,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -567,7 +589,7 @@ REDUCED_COEFF W_14_seven_half_even[36] = {
   reduced_coeff(-1, 69768,   847), reduced_coeff( 0,       1,     1)};
       
    
-REDUCED_COEFF W_05_five_half_odd[3][3] = {
+static REDUCED_COEFF W_05_five_half_odd[3][3] = {
   {reduced_coeff(-1,  1386,    21), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1)}, {reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,     440,    21)}, 
@@ -575,7 +597,7 @@ REDUCED_COEFF W_05_five_half_odd[3][3] = {
   reduced_coeff(-1,  1430,    21) }                  };
        
    
-REDUCED_COEFF W_05_five_half_even[3][3] = {
+static REDUCED_COEFF W_05_five_half_even[3][3] = {
   {reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1)}, {reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,     330,     7)}, 
@@ -583,7 +605,7 @@ REDUCED_COEFF W_05_five_half_even[3][3] = {
   reduced_coeff( 1,   572,     7) }                  };
        
    
-REDUCED_COEFF W_05_seven_half_odd[21] = {
+static REDUCED_COEFF W_05_seven_half_odd[21] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,     144,     7), 
   reduced_coeff( 1,    14,     1), reduced_coeff( 0,       1,     1), 
@@ -597,7 +619,7 @@ REDUCED_COEFF W_05_seven_half_odd[21] = {
   reduced_coeff(-1, 28424,143143)                                   };
        
    
-REDUCED_COEFF W_05_seven_half_even[36] = {
+static REDUCED_COEFF W_05_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -618,7 +640,7 @@ REDUCED_COEFF W_05_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff(-1,   28424,  1183)};
   
    
-REDUCED_COEFF W_16_seven_half_odd[21] = {
+static REDUCED_COEFF W_16_seven_half_odd[21] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,     576,    11), 
   reduced_coeff( 1,   390,    77), reduced_coeff(-1,     144,     7), 
@@ -632,7 +654,7 @@ REDUCED_COEFF W_16_seven_half_odd[21] = {
   reduced_coeff( 1, 38760,   143)                                   };
     
    
-REDUCED_COEFF W_16_seven_half_even[36] = {
+static REDUCED_COEFF W_16_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -653,7 +675,7 @@ REDUCED_COEFF W_16_seven_half_even[36] = {
   reduced_coeff( 1, 31654,   121), reduced_coeff( 0,       1,     1)};
     
    
-REDUCED_COEFF W_07_seven_half_odd[21] = {
+static REDUCED_COEFF W_07_seven_half_odd[21] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 1,   162,     7), reduced_coeff( 1,     272,     7), 
@@ -667,7 +689,7 @@ REDUCED_COEFF W_07_seven_half_odd[21] = {
   reduced_coeff(-1,297160,  1859)                                   };
     
    
-REDUCED_COEFF W_07_seven_half_even[36] = {
+static REDUCED_COEFF W_07_seven_half_even[36] = {
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 0,       1,     1), 
@@ -687,33 +709,56 @@ REDUCED_COEFF W_07_seven_half_even[36] = {
   reduced_coeff( 1,  7752,   143), reduced_coeff( 1,    9690,   121), 
   reduced_coeff( 0,     1,     1), reduced_coeff( 1,  222870,  1859)};
 
-
-int rcfp_min_odd[63] = {
+/*
+** VARIABLE:    rcfp_min_odd, rcfp_max_odd, *_even.
+** TYPE:        static array
+** PURPOSE:     the RCFP_TERM index limits for the 
+**              dummy intermediate states inserted in between 
+**              the operators.
+** NOTE:        
+*/
+static int rcfp_min_odd[63] = {
   1, 0, 3, 2, 2, 8, 8, 8, 5, 5, 5,17,17,17,17,17,17,11,11,11,
   11,11,11,11,11,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,
   45,45,45,45,45,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,
   25,25,25 };
 
-int rcfp_max_odd[63] = {
+static int rcfp_max_odd[63] = {
   1, 0, 4, 2, 2,10,10,10, 7, 7, 7,24,24,24,24,24,24,16,16,16,
   16,16,16,16,16,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,
   62,62,62,62,62,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,
   44,44,44 };
 
-int rcfp_min_even[63] = {
+static int rcfp_min_even[63] = {
   0, 1, 2, 3, 3, 5, 5, 5, 8, 8, 8,11,11,11,11,11,11,17,17,17,
   17,17,17,17,17,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,
   25,25,25,25,25,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,
   45,45,45 };
 
-int rcfp_max_even[63] = {
+static int rcfp_max_even[63] = {
   0, 1, 2, 4, 4, 7, 7, 7,10,10,10,16,16,16,16,16,16,24,24,24,
   24,24,24,24,24,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,
   44,44,44,44,44,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,
   62,62,62 };
 
 
-/* reduced coeff. of fractional parentage */
+/* 
+** FUNCTION:    ReducedCFP
+** PURPOSE:     calculates the reduced coefficients 
+**              of fractional parentage by looking up the table.
+**              it's basically the reduced matrix elements of 
+**              the creation or annihilation operator A in both
+**              the angular and quasi-spin space.
+** INPUT:       {int no_bra},
+**              the RCFP_TEMR index of the bra state.
+**              {int no_ket},
+**              the RCFP_TERM index of the ket state.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        when the indexes are out of range, 
+**              0.0 is returned, and warning is issued.
+*/
 double ReducedCFP(int no_bra, int no_ket) {
   double coeff;
   int no_a, no_b, phase, nom, denom;
@@ -790,7 +835,7 @@ double ReducedCFP(int no_bra, int no_ket) {
 
   default:
     printf("improper input in ReducedCFP\n");
-    exit(1);
+    return 0.0;
   }
 
   if (phase != 0) {
@@ -806,8 +851,26 @@ double ReducedCFP(int no_bra, int no_ket) {
 
 }
        
-/* completely reduced matrix elements of operator W in both angular and 
-   quasi-spin space. */
+/* 
+** FUNCTION:    CompleteReducedW
+** PURPOSE:     reduced matrix elements of W=AxA in both the
+**              angular and quasi-spin space.
+** INPUT:       {int no_bra},
+**              bra state index.
+**              {int no_ket},
+**              ket state index.
+**              {int k_q},
+**              rank of the coupled operator in the quasi-spin space.
+**              {int k_j},
+**              rank of the coupled operator in the angular space.
+** RETURN:      {double}
+**              result
+** SIDE EFFECT: 
+** NOTE:        it checks if the angular momentum of the subshell 
+**              is <= 9/2, in which case the coeff. are looked up 
+**              in the table. otherwise, it is calculated using
+**              decoupling formula of Racah.
+*/
 double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
   double coeff;
   int jbra, jket, Jbra, Jket, Qbra, Qket, jrun, Jrun, Qrun;
@@ -861,7 +924,24 @@ double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
   }
 }
 
-/* look up the table when the rank of the operator is low */
+
+/* 
+** FUNCTION:    CompleteReducedWFromTable
+** PURPOSE:     reduced matrix elements of W=AxA in both the
+**              angular and quasi-spin space by looking up the table
+** INPUT:       {int no_bra},
+**              bra state index.
+**              {int no_ket},
+**              ket state index.
+**              {int k1},
+**              rank of the coupled operator in the quasi-spin space.
+**              {int k2},
+**              rank of the coupled operator in the angular space.
+** RETURN:      {double}
+**              result     
+** SIDE EFFECT: 
+** NOTE:        the angular momentum of the subshell must <= 9/2
+*/
 double CompleteReducedWFromTable(int no_bra, int no_ket, int k1, int k2) {
 
   if (rcfp_min_even[no_bra] != rcfp_min_even[no_ket]) 
@@ -984,6 +1064,19 @@ double CompleteReducedWFromTable(int no_bra, int no_ket, int k1, int k2) {
 }
 
 
+/* 
+** FUNCTION:    CompleteReducedW**
+** PURPOSE:     perform actual table looking up for different cases.
+** INPUT:       {REDUCED_COEFF *w}, 2 or 4,
+**              pointer to the tables. 
+**              {int no_bra},
+**              bra state index.
+**              {int no_ket},
+**              ket state index.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double CompleteReducedWAll(REDUCED_COEFF *w1, REDUCED_COEFF *w3,
 			   REDUCED_COEFF *w5, REDUCED_COEFF *w7,
 			   int no_bra, int no_ket) {
@@ -1044,7 +1137,7 @@ double CompleteReducedW3(REDUCED_COEFF *w3_o, REDUCED_COEFF *w3_e,
     denom = w3_e[i].denom;
   } else {
     printf("improper input in CompleteReducedW3\n");
-    exit(1);
+    return 0.0;
   }
 
   if (phase) coeff = phase * sqrt(((double) nom)/denom);
@@ -1073,7 +1166,7 @@ double CompleteReducedW5(REDUCED_COEFF *w5_o, REDUCED_COEFF *w5_e,
     denom = w5_e[i].denom;
   } else {
     printf("improper input in CompleteReducedW5\n");
-    exit(1);
+    return 0.0;
   }
 
   if (phase) coeff = phase * sqrt(((double) nom)/denom);
@@ -1127,7 +1220,23 @@ double CompleteReducedW7(REDUCED_COEFF *w7_o, REDUCED_COEFF *w7_e,
   return coeff;
 }
 
-/* for higher ranks, decompose the operator using Racah Algebra */
+/* 
+** FUNCTION:    ReducedW
+** PURPOSE:     reduced matrix elements of W=AxA only in
+**              the angular space. 
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              bra and ket states
+**              {int k_j},
+**              rank of the coupled operator in the angular space.
+**              {int q_m1, q_m2},
+**              the quasi-spin projection of the components.
+**              i.e., whether they are creation or annihilaiton.
+** RETURN:      {double}
+**              result
+** SIDE EFFECT: 
+** NOTE:        if the input is inconsistent, 0.0 is returned,
+**              and warning is issued.
+*/
 double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket, 
 		int k_j, int q_m1, int q_m2){
   double coeff, w6j1, a1, a2;
@@ -1185,7 +1294,7 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
     UnpackRCFPState(ket->state, &jket, &run_nu, &Jket);
     if (ket->nq > 2 || bra->nq > 2) {
       printf("1. improper input in ReducedW, \n");
-      exit(1);
+      return 0.0;
     }
     if (q_m1 + q_m2 + ket->nq != bra->nq) return 0.0;
 
@@ -1223,12 +1332,26 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
     if (IsOdd((Jbra + Jket + kj2)/2)) coeff = -coeff;
   } else {
     printf("2. improper input in ReducedW\n");
-    exit(1);
+    return 0.0;
   }
   return coeff;
 }
 
-/* reduced matrix elements of the tensorial product WxW with final rank 0 */
+/* 
+** FUNCTION:    ReducedWxW0
+** PURPOSE:     reduced matrix element of WxW with final rank 0
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              pointer to the bra and ket states.
+**              {int k_j},
+**              rank of the component W.
+**              {int q_m1, q_m2, q_m3, q_m4},
+**              quasi-spin projection of all components of W.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        if the input is inconsistent, 0.0 is returned,
+**              and warning is issued.
+*/
 double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
 		   int k_j, int q_m1, int q_m2, int q_m3, int q_m4) {
   int no_run;
@@ -1296,7 +1419,7 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
       break;
     default:
       printf("improper input in ReducedWxW0\n");
-      exit(1);
+      return 0.0;
     }
 
     for (run_i = min_run; run_i <= max_run; run_i += 4) {
@@ -1315,9 +1438,24 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
   }
   return coeff;
 }
-
-/* reduced matrix element of AxW, where A is the creation or 
-   anihilation operator */      
+ 
+/* 
+** FUNCTION:    ReducedAxW
+** PURPOSE:     reduced matrix element of AxW.
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              pointers to the bra and ket states.
+**              {int k_j1},
+**              rank of W.
+**              {int kk_j2},
+**              rank of the final coupled operator.
+**              {int q_m1, q_m2, q_m3},
+**              quasi-spin projection of the 3 compenents.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        if the input is inconsistent, 0.0 is returned,
+**              and warning is issued.
+*/    
 double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
 		  int k_j1, int kk_j2, int q_m1, int q_m2, int q_m3) {
   double coeff, coeff1;
@@ -1389,7 +1527,7 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
       break;
     default:
       printf("improper input in ReducedAxW\n");
-      exit(1);
+      return 0.0;
     }
 
     for (run_i = min_run; run_i <= max_run; run_i += 4) {
@@ -1410,7 +1548,23 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
     
 }
 
-/* WxA */
+/* 
+** FUNCTION:    ReducedWxA
+** PURPOSE:     reduced matrix element of WxA.
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              pointers to the bra and ket states.
+**              {int k_j1},
+**              rank of W.
+**              {int kk_j2},
+**              rank of the final coupled operator.
+**              {int q_m1, q_m2, q_m3},
+**              quasi-spin projection of the 3 compenents.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        if the input is inconsistent, 0.0 is returned,
+**              and warning is issued.
+*/    
 double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
 		  int k_j1, int kk_j2, int q_m1, int q_m2, int q_m3) {
   double coeff, coeff1;
@@ -1480,7 +1634,7 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
       break;
     default:
       printf("improper input in ReducedWxA\n");
-      exit(1);
+      return 0.0;
     }
 
     for (run_i = min_run; run_i <= max_run; run_i += 4) {
@@ -1501,7 +1655,21 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
     
 }
 
-/* reduced matrix element of A */
+/* 
+** FUNCTION:    ReducedA
+** PURPOSE:     reduced matrix element of A. 
+**              i.e., the regular coeff. of fractional parentage.
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              pointers to the bra and ket states.
+**              {int q_m},
+**              quasi-spin projection of the operator,
+**              which indicates whether it is creation or annihilaiton.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        if the input is inconsistent, 0.0 is returned,
+**              and warning is issued.
+*/    
 double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
   double coeff;
   int bra_nu, ket_nu;  
@@ -1543,21 +1711,44 @@ double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
   } else {
     printf("%d %d\n", bra->state, ket->state);
     printf("improper input in ReducedA\n");
-    exit(1);
+    return 0.0;
   }
 
   return coeff;
 }
 
-/* the delta function factor in quasi-spin space */
+/* 
+** FUNCTION:    QSpaceDelta
+** PURPOSE:     determine if the quasi-spin values are consistent.
+** INPUT:       {RCFP_STATE *s},
+**              pointer to the state.
+** RETURN:      {int},
+**              0: inconsistent.
+**              1: consistent.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int QSpaceDelta(RCFP_STATE *s) {
   if (terms_jj[s->state].Q < abs(s->subshellMQ)) return 0;
   if (IsOdd(terms_jj[s->state].Q + s->subshellMQ)) return 0;
   return 1;
 }
 
-/* Clebsch Gordan Coefficients, using simple formulae for small angular 
-   momenta (when ja = 0, 1/2, 1). and the general routine otherwise */
+/* 
+** FUNCTION:    ClebschGordanQuasispin
+** PURPOSE:     the C-G coeff. occuring in quasi-spin space are
+**              usually of small angular momentum, this used more
+**              specialized formulae whenever possible.
+** INPUT:       {int ja, ma},
+**              angular momentum and its projection.
+**              {int jb, mb},
+**              angular momentum and its projection.
+**              {int jab, mab},
+**              coupled angular momentum and its projection.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double ClebschGordanQuasispin(int ja, int ma, int jb, int mb, 
 			      int jab, int mab) {
   double CG;
@@ -1611,7 +1802,16 @@ double ClebschGordanQuasispin(int ja, int ma, int jb, int mb,
   return CG;
 }
   
-/* pack and unpack the state quantum numbers in a single integer */  
+/*
+** FUNCTION:    PackRCFPState, UnPackRCFPState
+** PURPOSE:     when the angular momentum of the subshell is 
+**              > 9/2, only 2 electrons are allowed, the final
+**              state is packed into an integer using the base 1024.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/ 
 void UnpackRCFPState(int s, int *j, int *nu, int *J) {
   *J = s%1024;
   *nu = (s = s/1024) % 1024;
@@ -1622,7 +1822,19 @@ int PackRCFPState(int j, int nu, int J) {
   return J + nu*1024 + j*1024*1024;
 }
 
-/* A general coupled operator */
+/* 
+** FUNCTION:    CoupleOperators
+** PURPOSE:     couple two operators to produce a final
+**              operator with specified rank.
+** INPUT:       {RCFP_OPERATOR *op1, *op2, *op},
+**              pointers to the component operators, 
+**              and the coupled operator.
+**              {int rank},
+**              rank of the coupled operator.
+** RETURN:      none.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void CoupleOperators(RCFP_OPERATOR *op1,
 		     RCFP_OPERATOR *op2,
 		     RCFP_OPERATOR *op, int rank) {
@@ -1637,6 +1849,22 @@ void CoupleOperators(RCFP_OPERATOR *op1,
 /* this routine may be used to calculate any operators including those can
    be calculated by ReducedW, reducedWxA etc. althogh using the latter may
    be slightly faster for these particular cases. */
+/* 
+** FUNCTION:    ReducedOperator
+** PURPOSE:     reduced matrix elements of a general 
+**              coupled operator.
+** INPUT:       {RCFP_STATE *bra, *ket},
+**              pointers to the bra and ket states.
+**              {RCFP_OPERATOR *op},
+**              pointer to the coupled operator.
+** RETURN:      {double},
+**              result.
+** SIDE EFFECT: 
+** NOTE:        this routine may be used to calculate any 
+**              operators including those can be calculated by 
+**              ReducedW, reducedWxA etc. althogh using the latter 
+**              is faster for these particular cases.
+*/
 double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
 		       RCFP_OPERATOR *op) {
   double coeff;
@@ -1713,7 +1941,7 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
 	break;
       default:
 	printf("improper input for ReducedOperator\n");
-	exit(1);
+	return 0.0;
       }
       
       for (Jrun = min_bra; Jrun <= max_bra; Jrun += 4) {
@@ -1736,7 +1964,22 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
   } 
 }
 
-/* determine the term index for a particular state */
+/* 
+** FUNCTION:    RCFPTermIndex
+** PURPOSE:     determine the index of RCFP_TERM for a state.
+** INPUT:       {int j},
+**              angular momentum of the shell.
+**              {int nu},
+**              seneority of the state.
+**              {int Nr},
+**              possible additional quantum numbers.
+**              {int subshellJ},
+**              total angular momentum of the state.
+** RETURN:      {int},
+**              index.
+** SIDE EFFECT: 
+** NOTE:        j <= 9/2
+*/
 int RCFPTermIndex(int j, int nu, int Nr, int subshellJ) {
   int no_min[9] = {0, 0, 2, 0, 5, 0, 11, 0, 25};
   int no_max[9] = {1, 0, 4, 0, 10, 0, 24, 0, 62};

@@ -1,18 +1,26 @@
 #include "cfp.h"
 
-static char *rcsid="$Id: cfp.c,v 1.3 2001/09/14 13:16:59 mfgu Exp $";
+static char *rcsid="$Id: cfp.c,v 1.4 2001/11/10 01:13:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-/******************************************************************/
-/* Calculate the coeff. of fractional parentage by looking up the */
-/* table. This is no longer used in FAC. Instead, the reduced cfp */
-/* method is used, implemented in rcfp.c                          */
-/******************************************************************/
+/*************************************************************
+  Implementation of "cfp". 
+  calculates the coefficients of fractional parentage in 
+  j-j coupling by means of table lookup. 
 
-/** look up table for CFPs **/
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+
+/*
+** VARIABLE:    cfp3_5
+** TYPE:        static array
+** PURPOSE:     cfp for j=5/2, n=3
+** NOTE:        
+*/
 static double cfp3_5[3][3] = { /** (5/2)3 **/
   {-4.714045207910E-01, 
    5.270462766947E-01, 
@@ -27,6 +35,12 @@ static double cfp3_5[3][3] = { /** (5/2)3 **/
    -8.864052604279E-01}
 };
 
+/*
+** VARIABLE:    cfp3_7
+** TYPE:        static array
+** PURPOSE:     cfp for j=7/2, n=3
+** NOTE:        
+*/
 static double cfp3_7[6][4] = {  /** (7/2)3 **/
   {-5.000000000000E-01, 
    3.726779962500E-01, 
@@ -59,6 +73,12 @@ static double cfp3_7[6][4] = {  /** (7/2)3 **/
    8.790490729915E-01}
 }; 
 
+/*
+** VARIABLE:    cfp3_9
+** TYPE:        static array
+** PURPOSE:     cfp for j=9/2, n=3
+** NOTE:        
+*/
 static double cfp3_9[10][5] = { /** (9/2)3 **/
   {-5.163977794943E-01, 
    2.886751345948E-01, 
@@ -121,6 +141,12 @@ static double cfp3_9[10][5] = { /** (9/2)3 **/
    8.755950357709E-01}
 };
 
+/*
+** VARIABLE:    cfp4_7
+** TYPE:        static array
+** PURPOSE:     cfp for j=7/2, n=4
+** NOTE:        
+*/
 static double cfp4_7[8][6] = { /** (7/2)4 **/
   {1.000000000000E+00, 
    0.000000000000E+00, 
@@ -179,6 +205,12 @@ static double cfp4_7[8][6] = { /** (7/2)4 **/
    7.914376958255E-01}
 };
 
+/*
+** VARIABLE:    cfp4_9
+** TYPE:        static array
+** PURPOSE:     cfp for j=9/2, n=4
+** NOTE:        
+*/
 static double cfp4_9[18][10] = { /** (9/2)4 **/
   {1.000000000000E+00, 
    0.000000000000E+00, 
@@ -379,6 +411,12 @@ static double cfp4_9[18][10] = { /** (9/2)4 **/
    -7.847225456709E-01}
 };
 
+/*
+** VARIABLE:    cfp5_9
+** TYPE:        static array
+** PURPOSE:     cfp for j=9/2, n=5
+** NOTE:        
+*/
 static double cfp5_9[20][18] = { /** (9/2)5 **/
   {3.464101615138E-01, 
    -3.162277660168E-01, 
@@ -761,13 +799,23 @@ static double cfp5_9[20][18] = { /** (9/2)5 **/
    7.181993293507E-01}  
 };
 
-/** look up the index of a given state. 
-    j2:  2 times the angular momentum of the shell.
-    q:   the occupation number.
-    tj2: 2 times the coupled angular momentum.
-    w:   other quantum numbers, including seneority.
-**/
 
+/* 
+** FUNCTION:    GetIndex
+** PURPOSE:     look up the index of a given state.
+** INPUT:       {int j2},
+**              angular momentum of the shell.
+**              {int q },
+**              Num. of electrons.
+**              {int tj2},
+**              total angular momentum.
+**              {int w},
+**              other quantum numbers, such as seneority.
+** RETURN:      {int},
+**              the index of the state.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetIndex(int j2, int q, int tj2, int w) {
   switch (q) {
   case 1: /** one electron **/
@@ -979,19 +1027,28 @@ int GetIndex(int j2, int q, int tj2, int w) {
   }  
 }
 
-
-/** calculate the coeff. of fractional parentage **/
-/** j2:  twice of shell angular momentum.
-    q:   occupation number of the daughter state.
-    dj:  twice of the daughter angular momentum.
-    dw:  seneority of the daughter state.
-    pj:  twice of the daughter parent momentum.
-    pw:  seneority of the parent state.
-    
-    CFPs of upto 9/2 shell with any occupation # are available.
-    for shells above 9/2, only 2 electrons are allowed.
-**/
-
+/* 
+** FUNCTION:    CFP
+** PURPOSE:     look up the cfp.
+** INPUT:       {double *coeff},
+**              pointer to double, holds the result on output.
+**              {int j2},
+**              angular momentum of the shell.
+**              {int q},
+**              Num. of the electrons.
+**              {int dj},
+**              total angular momentum of the daughter state.
+**              {int dw},
+**              other quantum numbers of the daughter state.
+**              {int pj},
+**              total angular momentum of the parent state.
+**              other quantum numbers of the parent state.
+** RETURN:      {int},
+**              -1: Improper input.
+**               0: Success.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int CFP(double *coeff, int j2, int q, 
 	int dj, int dw, int pj, int pw) {
   int i, j;
