@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.39 2002/02/05 21:55:12 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.40 2002/02/06 18:28:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -313,7 +313,7 @@ int GetPotential(char *s) {
   for (i = 0; i < acfg->n_shells; i++) {
     fprintf(f, "%-2d %2d\t%-10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
-  fprintf(f, "\n");
+  fprintf(f, "\n\n");
   for (i = 0; i < MAX_POINTS; i++) {
     fprintf(f, "%-5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
@@ -913,16 +913,15 @@ int ConfigEnergy(void) {
 
   ng = GetNumGroups();
   for (k = 0; k < ng; k++) {
+    OptimizeRadial(1, &k, NULL);
     g = GetGroup(k);
     c = &(g->cfg_list);
-    OptimizeRadial(1, &k, NULL);
     for (i = 0; i < g->n_cfgs; i++) {
       cfg = (CONFIG *) ArrayGet(c, i);
       cfg->energy = AverageEnergyConfig(cfg);
     }
     ReinitRadial(2);
   }
-  
   return 0;
 }
 

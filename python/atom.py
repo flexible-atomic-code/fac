@@ -26,6 +26,8 @@ def get_terms(n, nq):
             t = ['2s2 2p%d'%(nq-2)]
             if (nq < 8):
                 t.append('2s1 2p%d'%(nq-1))
+                if (nq < 7):
+                    t.append('2p%d'%nq)
             if (nq > 8):
                 raise 'nq <= 8 for n = 2'
         elif (n == 3):
@@ -297,6 +299,10 @@ class ATOM:
                     k > self.n_shells):
                     ex.terms = ex.terms[:1]
                     ex.name = ex.name[:1]
+                elif (len(ex.terms) == 3):
+                    if (k > 0 or i1 > self.n_shells+1):
+                        ex.terms = ex.terms[:2]
+                        ex.name = ex.name[:2]
                 cg.add_complex(ex)
 
         self.exc_complex.append(cg)
@@ -313,6 +319,13 @@ class ATOM:
         k = len(self.ion_complex.cgroup)
         ion = COMPLEX('%s.%d.'%('ion', k))
         ion.set_ionized(n0, base)
+        if (len(ion.terms) == 3):
+            if (ibase == -1 and n0 != self.n_shells):
+                ion.terms = ion.terms[:2]
+                ion.name = ion.name[:2]
+            elif (ibase > 0):
+                ion.terms = ion.terms[:2]
+                ion.name = ion.name[:2]
         self.ion_complex.add_complex(ion)
 
         return
@@ -439,6 +452,7 @@ class ATOM:
         ConfigEnergy(0)
         OptimizeRadial(g+c)
         ConfigEnergy(1)
+        
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
         Structure(self.bfiles['en'], g+c)
@@ -470,7 +484,7 @@ class ATOM:
         g = self.grd_complex.name
         SetAngZCut(self.angz_cut0)
         SetTransitionCut(self.tr_cut0)
-        self.run_tr_ce(g, g, g, g, tr=[-1,1,-2,2], ce=1)
+        self.run_tr_ce(g, g, g[:1], g, tr=[-1,1,-2,2], ce=1)
         for i in range(self.n_shells):
             c = self.exc_complex[i].cgroup
             for j in range(len(c)):
@@ -482,7 +496,7 @@ class ATOM:
                 else:
                     b = (c[j].name, c[j].nrec)
                 if (i == 0 and j == 0):
-                    a2 = g
+                    a2 = g[:1]
                 else:
                     a2 = [0]
                 if (i == 0 and j == 0):
@@ -500,7 +514,7 @@ class ATOM:
                 if (ce != 0 or len(tr) != 0):
                     self.run_tr_ce(a1, b, a2, b, tr=tr, ce=ce)
 
-        if (self.nele < 3):
+        if (self.nele < 11):
             ce0 = 1
         else:
             ce0 = 0
@@ -538,7 +552,7 @@ class ATOM:
                     else:
                         a = (c[m].name, c[m].nrec)
                     if (ce != 0 or tr != []):
-                        self.run_tr_ce(a, b, a, b, tr=tr, ce=ce)
+                        self.run_tr_ce(a, b, a[:1], b, tr=tr, ce=ce)
 
         for i in range(len(self.exc_complex)):
             c = self.exc_complex[i].cgroup
@@ -802,6 +816,7 @@ def atomic_data(nele, asym, iprint = -1, **process):
 	    atom.process['ai'] = not process['no_ai']
 
         atom.set_configs()
+        
         for b in a:
             s = 'NELE = %d'%m
             Print(s)

@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.15 2002/02/05 21:55:12 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.16 2002/02/06 18:28:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1340,11 +1340,9 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   CONFIG *cfg;
   int weight_allocated = 0;
   double a;
-  int n_states_cfg, n_states_group;
 
   if (ng <= 0) return -1;
   for(i = 0; i < M; i++) tnq[i] = 0.0;
-
 
   if (weight == NULL) {
     weight = malloc(sizeof(double)*ng);
@@ -1366,28 +1364,15 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 
   for (i = 0; i < ng; i++) {
     c = &(cfg_groups[kg[i]].cfg_list);
-    n_states_group = 0;
+    a = 1.0/cfg_groups[kg[i]].n_cfgs;
     for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
       cfg = (CONFIG *) ArrayGet(c, t);
-      n_states_cfg = 0;
-      for (j = 0; j < cfg->n_csfs; j += cfg->n_shells) {
-	n_states_cfg += cfg->csfs[j].totalJ + 1;
-      }
-      n_states_group += n_states_cfg;
-    }
-    for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
-      cfg = (CONFIG *) ArrayGet(c, t);
-      n_states_cfg = 0;
-      for (j = 0; j < cfg->n_csfs; j += cfg->n_shells) {
-	n_states_cfg += cfg->csfs[j].totalJ + 1;
-      }
       for (j = 0; j < cfg->n_shells; j++) {
 	n = cfg->shells[j].n;
 	kappa = cfg->shells[j].kappa;
 	k = (n-1)*(n-1) + 2*abs(kappa)- ((kappa>0)?1:2);
 	if (k >= M) k = M-1;
-	tnq[k] += (((double)(cfg->shells[j].nq)) * weight[i] *
-		   ((double)n_states_cfg)/n_states_group);
+	tnq[k] += (((double)(cfg->shells[j].nq)) * weight[i]*a);
       }
     }
     acfg->n_cfgs += cfg_groups[kg[i]].n_cfgs;
