@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.28 2003/08/11 13:17:32 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.29 2004/02/04 04:41:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -771,7 +771,7 @@ int GetConfigFromString(CONFIG **cfg, char *scfg) {
 ** FUNCTION:    GetAverageConfigFromString
 ** PURPOSE:     construct the average configuration from a string.
 ** INPUT:       {int **n, **kappa, double **nq},
-**              a list of principal quantum numbers, angular 
+**              a list of principle quantum numbers, angular 
 **              quantum numbers, and the fractional occupation
 **              numbers of the resulting average configuration.
 **              {char *scfg},
@@ -1656,7 +1656,7 @@ SYMMETRY *GetSymmetry(int k) {
 **              {int n_screen},
 **              number of screening orbitals.
 **              {int *screened_n},
-**              an array of principal quantum numbers for the 
+**              an array of principle quantum numbers for the 
 **              screening orbitals.
 **              {int screened_charge},
 **              total charge to be screened by the screening orbitals.

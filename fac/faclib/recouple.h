@@ -63,7 +63,7 @@
 ** FIELDS:      {int index},
 **              the index of the shell within the SHELL_STATE.
 **              {int n, j, kl, kappa},
-**              the principal quantum number, the angular momentum,
+**              the principle quantum number, the angular momentum,
 **              the orbital angular momentum, and the relativistic 
 **              angular quantum number of the shell.
 **              {int nq_bra, nq_ket}, 
@@ -72,7 +72,7 @@
 */
 typedef struct _INTERACT_SHELL_ {
   int index; /* the index of the shell within the SHELL_STATE */
-  int n; /* principal quantum number */
+  int n; /* principle quantum number */
   int j; /* the angular momentum of the shell, double of its actual value */
   int kl; /* orbital angular momentum */
   int kappa; /* relativistic angular quantum number kappa */

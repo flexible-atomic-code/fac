@@ -500,7 +500,7 @@ configuration name.
 configuration array.
 \item[\texttt{short p}:] The parity of the level. This parameter was changed
 in version 0.7.6, and it becomes $\pm(100\times n + l)$, where $n$ and $l$ are
-the principal quantum number and orbital angular number of the valence
+the principle quantum number and orbital angular number of the valence
 electron, and the $\pm$ sign indicates an even ($+$) or odd ($-$) parity state.
 \item[\texttt{short j}:] 2 $\times$ the total angular momentum of the level.
 \item[\texttt{int ilev}:] The index of the level.
@@ -517,7 +517,7 @@ electron, and the $\pm$ sign indicates an even ($+$) or odd ($-$) parity state.
 \item[\texttt{energy}:] The energy of the level in Hartree.
 \item[\texttt{char ncomplex[LNCOMPLEX]}:] The complex name. It is in the format
 of \verb|n1*nq1 n2*nq2|$\cdots$, where \verb|n1| and \verb|n2| are the
-principal quantum numbers of the shell, \verb|nq1| and \verb|nq2| are the
+principle quantum numbers of the shell, \verb|nq1| and \verb|nq2| are the
 occupation number of these shells.
 \item[\texttt{char sname[LSNAME]}:] The non-relativstic configuration name of
 the level. Each non-relativistic shell is denoted by the standard
@@ -1054,11 +1054,11 @@ the initial states.
 the final states. For the first part, this is always an empty string.
 \item[\texttt{int type}:] Type of the block. For the first part, the type is
 always 0. For the second part, the type is encoded as $10000\times n_0 +
-100\times n_1 + n_2$, where $n_1$ is the initial principal quantum number of
-the electron making the transition, and $n_2$ is the final principal quantum
+100\times n_1 + n_2$, where $n_1$ is the initial principle quantum number of
+the electron making the transition, and $n_2$ is the final principle quantum
 number. If $n_0 \ne 0$, this transition is the so called dielectronic
 recombination satellite line, which have a spectator electron at the orbital
-with principal quantum number $n_0$.
+with principle quantum number $n_0$.
 \end{dbdesc}
 
 \subsection{\texttt{SP\_RECORD}}
@@ -1288,7 +1288,7 @@ block.
 block. 
 \item[\texttt{int ntransitions}:] The number of superlevel blocks from which
 the rates are tabulated in this block.
-\item[\texttt{int vn}:] The principal quantum number of the captured electron.
+\item[\texttt{int vn}:] The principle quantum number of the captured electron.
 \item[\texttt{int j}:] The $2j$ value of the recombining state.
 \item[\texttt{float energy}:] The energy of the recombining state.
 \end{dbdesc}
@@ -1476,7 +1476,7 @@ NLEV	= 37
 \end{verbatim}
 
 The column labels by \verb|VNL| is $100\times n + l$, where $n$ and $l$ 
-are the principal and orbital angular quantum numbers of the valence 
+are the principle and orbital angular quantum numbers of the valence 
 electron.
 
 \subsection{\texttt{DB\_TR}}
@@ -1931,7 +1931,7 @@ ILEV	= 37
 E	= -2.99679153E+04
 # 2J value of the recombing state.
 JLEV	= 3
-# principal quantum number of the captured electron.
+# principle quantum number of the captured electron.
 NREC	= 6
 #AI 2J Rec 2J ibase flev fbase NREC L ERes       AI Rate     Total Rate  Branching
 275  0  37  3    39   -1    -1    6 0 1.2462E+01 1.1031E+13  1.1348E+13  2.7940E-02
@@ -2208,7 +2208,7 @@ as shifts to be added to the energyies calculated by FAC.
 \end{fundesc}
 
 \begin{fundesc}{DROpen}{g}
-Calculate the principal quantum numbers at which the dielectronic recombnation
+Calculate the principle quantum numbers at which the dielectronic recombnation
 starts to open for the core excitations from the ground state to the states in
 the configuration group list \var{g}. It returns a list of integers.
 \end{fundesc}
@@ -2243,7 +2243,7 @@ V_0(r) = -\frac{Z}{r} + \frac{N-1}{r}\left(1-\frac{\exp(-\lambda
 r)}{1+ar}\right). 
 \end{equation}
 After that, the mean configuration used to generate the potential is printed
-in 3 columns representing the principal quantum number, the relativistic
+in 3 columns representing the principle quantum number, the relativistic
 angular quantum number $\kappa$, and the fractional occupation number
 respectively. Finally, the file gives 8 columns which are $i$, $r$, $Z(r)$,
 $V(r)$, $V_d(r)$, $V_e(r)$, $V_e^\prime(r)$, and $U(r)$, where $i$ is the index
@@ -2324,7 +2324,7 @@ verbose mode is carried out, one must call \key{MemENTable} first.
 \end{fundesc}
 
 \begin{fundesc}{RecStates}{fn, b, n}
-Construct recombined states by adding a spectator electron with the principal
+Construct recombined states by adding a spectator electron with the principle
 quantum number \var{n} onto the basis states in the configuration groups
 \var{b}. The orbital angular momentum of the spectator electron is set by two
 functions \key{SetRecPWLimits} and \key{SetRecSpectator}. The resulting energy
@@ -2463,7 +2463,7 @@ are used.
 \end{fundesc}
 
 \begin{fundesc}{SetBreit}{n}
-Set the maximum principal quantum number of the orbitals for which the
+Set the maximum principle quantum number of the orbitals for which the
 Breit interaction should be included in the Hamiltonian. If \var{n} $<$ 0,
 then the Breit interaction involving all bound and continuum states is
 included. Default is 5.
@@ -2571,7 +2571,7 @@ variable \key{QKMODE}.
 \end{fundesc}
 
 \begin{fundesc}{SetHydrogenicNL}{\opt{n,\opt{l}}}
-Set the principal quantum number \var{n} and the orbital angular momentum
+Set the principle quantum number \var{n} and the orbital angular momentum
 \var{l}, beyond which, the hydrogenic approximation for the E1 multipole
 integrals should be used. If this routine is not called or the argument is not
 given, the default is \var{n}=8, and \var{l}=7. 
@@ -2683,7 +2683,7 @@ mode. These values are listed in the variable \key{QKMODE}.
 \end{fundesc}
 
 \begin{fundesc}{SetRecSpectator}{nmin\opt{, nfrozen}}
-Set the minimum principal quantum numbers \var{nmin} and \var{nfrozen} for the
+Set the minimum principle quantum numbers \var{nmin} and \var{nfrozen} for the
 spectator electron. States with $n > nmin$ are constructed with
 \key{RecStates} function, and those with $n > nfrozen$ are treated with frozen
 core approximation. Default for both \var{nmin} and \var{nfrozen} are 8.
@@ -2691,7 +2691,7 @@ core approximation. Default for both \var{nmin} and \var{nfrozen} are 8.
 
 \begin{fundesc}{SetScreening}{ns\opt{,c\opt{,k}}}
 Set the orbital parameters of screening electrons. \var{ns} is a list of
-integers which are the principal quantum numbers of the screening
+integers which are the principle quantum numbers of the screening
 orbitals. The optional \var{c} is the total charge to be screened, whose
 default is 1.0. \var{k} is the either 1, $-1$, or 0. If \var{k}=$-1$, then
 the \var{l=0} orbitals are used. If \var{k}=0, then the the \var{l}=\var{ns}/2
@@ -2703,7 +2703,7 @@ recommended for general use.
 \end{fundesc}
 
 \begin{fundesc}{SetSE}{n}
-Set the maximum principal quantum number of the orbitals for which the
+Set the maximum principle quantum number of the orbitals for which the
 self-energy correction should be included in the Hamiltonian. Default is 5.
 \end{fundesc}
 
@@ -2855,7 +2855,7 @@ dipole radial integral is returned.
 \end{fundesc}
 
 \begin{fundesc}{WaveFuncTable}{fn, n, k\opt{, e}}
-Print the radial wavefunction of the orbital with the principal quantum number
+Print the radial wavefunction of the orbital with the principle quantum number
 \var{n}, relativistic angular quantum number $\kappa$=\var{k} to the file
 \var{fn}. If \var{n}=0, the orbital is a continuum state. In this case, the
 optiontal \var{e} must be a positive number for the energy of the continuum
@@ -2865,7 +2865,7 @@ orbital in unit of eV.
 \begin{fundesc}{Y5N}{n, l, r}
 Calculate the Seaton's $y5$ (normalized to give the Coulomb wavefunction)
 function for negative energies. This is basically the Coulomb wavefunction
-with principal quantum number \var{n} and orbital angular momentum \var{l} at
+with principle quantum number \var{n} and orbital angular momentum \var{l} at
 radius \var{r}. It returns a tuple (y5, y5p, err), where y5 is the value, y5p
 is the derivative. err is an error code returned by coulcc, which is called
 internally to do the calculation.
@@ -3204,10 +3204,10 @@ s$^{-1}$.
 
 \begin{fundesc}{RRRateH}{Z, n, Te}
 Caculate the radiative recombination rates of H-like ions with nuclear charge
-\var{Z} at temperature \var{Te}. \var{n} is the principal quantum number of
+\var{Z} at temperature \var{Te}. \var{n} is the principle quantum number of
 the recombined electron. This function returns a tuple of length 2. The first
-element is the RR rate on to all states with principal quantum number
-\var{n}. The second is the RR rate on to all states with principal quantum
+element is the RR rate on to all states with principle quantum number
+\var{n}. The second is the RR rate on to all states with principle quantum
 numbers $>$\var{n}.
 \end{fundesc}
 

@@ -59,7 +59,7 @@
 ** STRUCT:      SHELL
 ** PURPOSE:     a relativistic subshell.
 ** FIELDS:      {int n},
-**              the principal quantum number.
+**              the principle quantum number.
 **              {int kappa},
 **              the relativistic angular quantum nubmer.
 **              {int nq},
