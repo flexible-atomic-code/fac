@@ -543,10 +543,6 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   if (ng <= 0) return -1;
   for(i = 0; i < M; i++) tnq[i] = 0.0;
 
-  acfg->n_cfgs = 0;
-  acfg->n = NULL;
-  acfg->nq = NULL;
-  acfg->kappa = NULL;
 
   if (weight == NULL) {
     weight = malloc(sizeof(double)*ng);

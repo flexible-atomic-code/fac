@@ -653,7 +653,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
   double *pk1, *pk2;
   double *pk, *pkp, qy2[MAX_NKL];
   int km0, km1, j0, jp0, j1, nk4, kmp0, kmp1, km0_m, kmp0_m;
-  int mi, mf, t, c0, cp0, dkl;
+  int mi, mf, t, c0, cp0;
   double r, e0, e1, s;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
@@ -692,8 +692,8 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
       pk2[i] = InterpolatePk(te, type2, pkp);
       pkp += n_tegrid;
     }
-    if (nklp < nkl) nkl = nklp;
     type2 = 1;
+    if (nklp < nkl) nkl = nklp;
   }
   qk = (double **) malloc(sizeof(double *)*nq); 
   for (i = 0; i < nq; i++) { 
@@ -705,6 +705,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
     
   kl = -1;
   i = -1;
+  e1 = egrid[ie];
   for (j = 0; j < nkappa; j++) {
     km0 = kappa0[j];
     km1 = kappa1[j];
@@ -726,9 +727,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
       
       s = pk1[j]*pk2[t];
       s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
-
       if (km0 != kmp0) { 
-	dkl = (kl0_2 - klp0_2); 
 	km0_m = km0; 
 	kmp0_m = kmp0; 
 	if (kl0_2 >= pw_scratch.qr) { 
@@ -751,18 +750,17 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 	  e0 = e1 + tegrid[ite]; 
 	  c0 = OrbitalIndex(0, km0_m, e0); 
 	  cp0 = OrbitalIndex(0, kmp0_m, e0); 
-	  pha0 = GetPhaseShift(c0, 0); 
-	  phap0 = GetPhaseShift(cp0, 0); 
-	  cos_p[ite] = cos(pha0-phap0); 
+	  pha0 = GetPhaseShift(c0); 
+	  phap0 = GetPhaseShift(cp0); 
+	  cos_p[ite] = pha0-phap0; 
 	} 
-	if (n_tegrid == 1) r = cos_p[ite];  
+	if (n_tegrid == 1) r = cos_p[0];  
 	else { 
 	  spline(tegrid, cos_p, n_tegrid, 1E30, 1E30, y2); 
 	  splint(tegrid, cos_p, y2, n_tegrid, te, &r); 
 	} 
-	s *= r; 
-	if (IsOdd(dkl)) s = -s;         
-      } 
+	s *= cos(r);
+      }
       
       for (iq = 0; iq < nq; iq++) { 
 	rq[iq] = 0.0; 
@@ -786,7 +784,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
    
   for (iq = 0; iq < nq; iq++) { 
     spline(pw_scratch.log_kl, qk[iq], nkl, 1.0E30, 1.0E30, qy2);     
-    r = qk[iq][0]; 
+    r = qk[iq][0];
     for (i = 1; i < nkl; i++) { 
       r += qk[iq][i]; 
       kl0 = pw_scratch.kl[i-1]; 
@@ -860,7 +858,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   te = lev2->energy - lev1->energy;
   if (te <= 0) return -1;
   *e = te;
-
+  
   if (msub) {
     j1 = lev1->pj;
     j2 = lev2->pj;
@@ -921,8 +919,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 	    if (i != j) rq[t][ie] *= 2.0;
 	  }
 	}
-	for (t = 0; t < nq; t++) {
-	  if (n_usr > n_egrid) {
+	if (n_usr > n_egrid) {
+	  for (t = 0; t < nq; t++) {
 	    spline(log_egrid, rq[t], n_egrid, 1.0E30, 1.0E30, qy2[t]);
 	  }
 	}
@@ -1123,7 +1121,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   double s[MAX_MSUB*MAX_USR_EGRID];
   int *alev;
   LEVEL *lev1, *lev2;
-  double emin, emax, e, c;
+  double emin, emax, e, c, b;
 
   if (n_usr == 0) {
     printf("No collisional energy specified\n");
@@ -1192,7 +1190,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   if (pw_scratch.nkl0 == 0) {
     if (msub) {
-      SetCEPWOptions(0, 100, 1E-2, 1E-2, 1E-3);
+      SetCEPWOptions(20, 100, 1E-3, 1E-3, 1E-3);
     } else {
       SetCEPWOptions(0, 100, 1E-1, 1E-1, 1E-3);
     }
@@ -1224,10 +1222,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	      low[i], j1, up[j], j2, e*HARTREE_EV);
       for (ie = 0; ie < n_usr; ie++) {
 	fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
+	b = 1.0+0.5*FINE_STRUCTURE_CONST2*(usr_egrid[ie]+e);
 	for (m = 0; m < k; m++) {
 	  c = s[m*n_usr+ie];
 	  fprintf(f, "%-10.3E", c);
-	  c *= PI * AREA_AU20/(2*(usr_egrid[ie]+e)*(j1+1));
+	  c *= PI * AREA_AU20/(2*(usr_egrid[ie]+e)*b*(j1+1));
 	  fprintf(f, "%-10.3E  ", c);
 	}
 	fprintf(f, "\n");

@@ -191,18 +191,12 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     i2p = i2 + 1;
     i2p2 = i2 + 2;
     i2m2 = i2 - 2;
-    /*
-    qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(-p[i2m] + p[i2p]))/24.0;
-    */
     qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
 	  + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
     ierr = _Inward(p, e, pot, i2);
     if (ierr) break;
     p1 = (p[i2]*_B[i2] - p[i2p]*_A[i2p])/_A[i2m];
     p2 = (p[i2m]*_B[i2m] - p[i2]*_A[i2])/_A[i2m2];
-    /*
-    qi = ((p2 - p[i2p2])*2.0 + 16.0*(-p1 + p[i2p]))/24.0;
-    */
     qi = (6.0*p2 - 60.0*p1 - 40.0*p[i2] + 120.0*p[i2p]
 	  - 30.0*p[i2p2] + 4.0*p[i2p2+1])/120.0;
 
@@ -235,6 +229,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
   qi = sqrt(norm2);
   fact = 1.0/qi;
+  if ((IsOdd(nodes) && p[i2] > 0.0) || (IsEven(nodes) && p[i2] < 0.0)) {
+    fact = -fact;
+  }
  
   qi *= wave_zero;     
   for (i = MAX_POINTS-1; i >= 0; i--) {
@@ -318,9 +315,6 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     p[i2] *= sqrt(pot->dr_drho[i2]);
     p[i2p2] *= sqrt(pot->dr_drho[i2p2]);
     p[i2p] *= sqrt(pot->dr_drho[i2p]);
-    /*
-    qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(p[i2p]-p[i2m]))/24.0;
-    */
     qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
 	  + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
     qo /= (p[i2]*pot->dr_drho[i2]);
@@ -461,11 +455,12 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
   phase0 = atan2(si, cs);
   if (phase0 < 0) phase0 += TWO_PI;
+  
   if (IsOdd(nodes)) {
     phase0 = (phase0 < PI)?(phase0 + PI):(phase0-PI);
     dfact = -dfact;
   }
-
+  
   p[i2m] = pm;
   for (i = 0; i < i2; i++) {
     p[i] *= dfact;
@@ -703,8 +698,8 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     for (i = MAX_POINTS-10; i > 0; i--) {
       if (e > _veff[i]) break;
     }
-    *i2 = i;
     if (*i2 == 0) return -2;
+    *i2 = i + 7;
     if (*i1 == 0) *i1 = *i2 - 8; 
   } else {
     *i2 = Max(pot->r_core, *i1)+32;

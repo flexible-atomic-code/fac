@@ -285,8 +285,8 @@ double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
 double ReducedCL(int ja, int k, int jb) {
   double r;
 
-  r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, -1, 0, 1);
-  if (IsOdd((ja-1)/2)) r = -r;
+  r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, 1, 0, -1);
+  if (IsOdd((ja+1)/2)) r = -r;
   return r;
 }
 

@@ -6,6 +6,32 @@ _orbital_symbols = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
 _group_name = ''
 _closed_shells = []
 
+def avgconfig(configs):
+    shells = string.split(configs)
+    acfg = []
+    for s in shells:
+        n = len(s)
+        i = n-1
+        nq = 1.0
+        while (i > 0):
+            if (s[i] == '+' or s[i] == '-'):
+                break
+            try:
+                a = float(s[i:n])
+                nq = a
+                i = i - 1
+            except:
+                break
+        s = s[0:i+1]
+        c = distribute(s)
+        n = len(c)
+        nq = nq/n
+        for t in c:
+            p = t[0]
+            acfg.append((p[0], p[1], p[2], nq))
+    fac.SetAvgConfig(acfg)
+
+    
 def closed(configs):
     global _closed_shells
 
