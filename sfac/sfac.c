@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.28 2003/01/13 02:57:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.29 2003/01/21 03:00:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -345,9 +345,17 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
     }
   }
 
+  i = 0;
+  
   if (k >= 0) strncpy(gname, argv[k+1], GROUP_NAME_LEN);
+  else {
+    if (argc == 0) return -1;
+    if (argt[i] != STRING) return -1;
+    strncpy(gname, argv[i], GROUP_NAME_LEN);
+    i++;
+  }
 
-  for (i = 0; i < argc; i++) {
+  for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
     if (argt[i] != STRING) return -1;
     strncpy(scfg, _closed_shells, 128);
@@ -899,6 +907,94 @@ static int PRecStates(int argc, char *argv[], int argt[],
   n = atoi(argv[2]);
   RecStates(n, ng, kg, argv[0]);
   
+  return 0;
+}
+
+static int PReinitConfig(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitConfig(m);
+  return 0;
+}
+
+static int PReinitRecouple(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitRecouple(m);
+  return 0;
+}
+
+static int PReinitRadial(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitRadial(m);
+  return 0;
+}
+
+static int PReinitDBase(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitDBase(m);
+  return 0;
+}
+
+static int PReinitStructure(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitStructure(m);
+  return 0;
+}
+
+static int PReinitExcitation(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitExcitation(m);
+  return 0;
+}
+
+static int PReinitRecombination(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitRecombination(m);
+  return 0;
+}
+
+static int PReinitIonization(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int m;
+
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);
+
+  ReinitIonization(m);
   return 0;
 }
 
@@ -2382,6 +2478,14 @@ static METHOD methods[] = {
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
+  {"ReinitConfig", PReinitConfig, METH_VARARGS},
+  {"ReinitRecouple", PReinitRecouple, METH_VARARGS},
+  {"ReinitRadial", PReinitRadial, METH_VARARGS},
+  {"ReinitDBase", PReinitDBase, METH_VARARGS},
+  {"ReinitStructure", PReinitStructure, METH_VARARGS},
+  {"ReiniExcitationt", PReinitExcitation, METH_VARARGS},
+  {"ReinitRecombination", PReinitRecombination, METH_VARARGS},
+  {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.43 2003/01/13 02:57:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.44 2003/01/21 03:00:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -299,16 +299,23 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     return Py_None;
   }
 
-  q = PyDict_GetItemString(keywds, "group");
-  if (q) {
+  argc = PyTuple_Size(args);
+  i = 0;
+
+  if (keywds && (q = PyDict_GetItemString(keywds, "group"))) {
+    if (!PyString_Check(q)) return NULL;
+    p = PyString_AsString(q);
+    strncpy(gname, p, GROUP_NAME_LEN);
+  } else {
+    if (argc == 0) return NULL;
+    q = PyTuple_GetItem(args, i);
+    i++;
     if (!PyString_Check(q)) return NULL;
     p = PyString_AsString(q);
     strncpy(gname, p, GROUP_NAME_LEN);
   }
-
-  argc = PyTuple_Size(args);
   
-  for (i = 0; i < argc; i++) {   
+  for (; i < argc; i++) {   
     q = PyTuple_GetItem(args, i);
     if (!PyString_Check(q)) return NULL;
     p = PyString_AsString(q);
@@ -2769,6 +2776,134 @@ static PyObject *PFreeMemENTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PReinitConfig(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitConfig(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitRecouple(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitRecouple", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitRecouple(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitRadial(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitRadial", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitRadial(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitDBase(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitDBase", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitDBase(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitStructure(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitStructure", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitStructure(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitExcitation(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitExcitation", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitExcitation(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitRecombination(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitRecombination", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitRecombination(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinitIonization(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ReinitIonization", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  ReinitIonization(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
   PyObject *q;
   int m_config;
@@ -3099,6 +3234,14 @@ static struct PyMethodDef fac_methods[] = {
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
+  {"ReinitConfig", PReinitConfig, METH_VARARGS},
+  {"ReinitRecouple", PReinitRecouple, METH_VARARGS},
+  {"ReinitRadial", PReinitRadial, METH_VARARGS},
+  {"ReinitDBase", PReinitDBase, METH_VARARGS},
+  {"ReinitStructure", PReinitStructure, METH_VARARGS},
+  {"ReiniExcitationt", PReinitExcitation, METH_VARARGS},
+  {"ReinitRecombination", PReinitRecombination, METH_VARARGS},
+  {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
