@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.63 2003/12/10 21:22:05 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.64 2003/12/16 22:29:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,6 +24,12 @@ static double iter_stabilizer = 0.75;
 static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
+static int do_extrapolate = 1;
+
+int SetExtrapolate(e) {
+  do_extrapolate = e;
+  return 0;
+}
 
 int SetNumSingleBlocks(int n) {
   n_single_blocks = n;
@@ -337,6 +343,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   double a, b, c, d;
   double a0, e0, delta, gamma;
 
+  if (!do_extrapolate) return;
   nlev = ion->nlevels;
   for (i = 0; i < ion->recombined->dim; i++) {
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);    
@@ -427,6 +434,7 @@ void ExtrapolateTR(ION *ion, int inv) {
   int imin, imax;
   double a, b, c, h;
 
+  if (!do_extrapolate) return;
   for (i = 0; i < ion->recombined->dim; i++) {
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     if (rec->n_ext == rec->n) continue;
@@ -514,6 +522,7 @@ void ExtrapolateRR(ION *ion, int inv) {
   double a, b, c, z, temp, h, d;
   double rr_extra[MAXNREC];
 
+  if (!do_extrapolate) return;
   dist = GetEleDist(&i);
   if (i != 0) return;
   temp = dist->params[0];
@@ -605,6 +614,7 @@ void ExtrapolateAI(ION *ion, int inv) {
   double a, b, c, e;
   double ai_extra[MAXNREC];
 
+  if (!do_extrapolate) return;
   for (i = 0; i < ion->recombined->dim; i++) {
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     j = rec->n - 1;
@@ -3087,12 +3097,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   int r0, r1;
   int low, up;
   double e, a, smax;
-  int swp;
-  
-  if (type == 0) {
-    printf("Type must not be 0\n");
-    return -1;
-  }
+  int swp;  
   
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {

@@ -3198,10 +3198,19 @@ distribution. The avaliable distributions and their parameters are listed in
 \S\ref{subsec:rt_header}. 
 \end{fundesc}
 
+\begin{fundesc}{SetExtrapolate}{i}
+Set if the extrapolation of the high-n levels should be carried out. 
+\end{fundesc}
+
 \begin{fundesc}{SetIteration}{a\opt{, s, m}}
 Set the options for population iteration. \var{a} is the accuracy, which
 defaults to $10^{-4}$. \var{s} is a stablizer defaults to 0.75, and \var{m} is
 the maximum number of iterations allowed, which defaults to 256.
+\end{fundesc}
+
+\begin{fundesc}{SetNumSingleBlocks}{n}
+Set the number of states in the beginning of the energy table that should not
+be grouped into a super block. 
 \end{fundesc}
 
 \begin{fundesc}{SetPhoDensity}{den}

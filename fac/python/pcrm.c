@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.33 2003/10/10 21:04:29 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.34 2003/12/16 22:29:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -222,6 +222,22 @@ static PyObject *PSetNumSingleBlocks(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "i", &n)) return NULL;
   SetNumSingleBlocks(n);
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetExtrapolate(PyObject *self, PyObject *args) {
+  int n;
+  
+  if (scrm_file) {
+    SCRMStatement("SetExtrapolate", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &n)) return NULL;
+  SetExtrapolate(n);
+
   Py_INCREF(Py_None);
   return Py_None;
 } 
@@ -905,6 +921,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
+  {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
   {"SetCascade", PSetCascade, METH_VARARGS},
