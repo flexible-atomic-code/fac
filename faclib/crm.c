@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.7 2002/01/24 04:49:48 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.8 2002/01/25 00:44:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1431,6 +1431,75 @@ static int CompareLine(const void *p1, const void *p2) {
   else return 0;
 }
 
+int SelectLines(char *ifn, char *ofn, int type, 
+		double emin, double emax) {
+  F_HEADER fh;
+  SP_HEADER h;
+  SP_RECORD r;
+  DISTRIBUTION *dist;
+  FILE *f1, *f2;
+  int n, nb, i, m;
+  double e, a;
+  int swp;
+  
+  if (type == 0 || type > 2) {
+    printf("Type must be > 0 and <= 2\n");
+    return -1;
+  }
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("ERROR: File %s does not exist\n", ifn);
+    return -1;
+  }
+  f2 = fopen(ofn, "a");
+  if (f2 == NULL) {
+    printf("ERROR: Cannot open file %s\n", ofn);
+    return -1;
+  }
+  dist = GetEleDist(&i);
+
+  n = fread(&fh, sizeof(F_HEADER), 1, f1);
+  if (CheckEndian(&fh) != CheckEndian(NULL)) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  } else {
+    swp = 0;
+  }
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = fread(&h, sizeof(SP_HEADER), 1, f1);
+    if (swp) SwapEndianSPHeader(&h);
+    m = sizeof(double)*(h.np_edist + h.np_pdist);
+    fseek(f1, m, SEEK_CUR);
+    if (h.ntransitions == 0) continue;
+    if (h.type == type) {    
+      if (type == 1) {	
+	a = 0.0;
+	fprintf(f2, "NELE = %2d, Emin = %15.8E, Emax = %15.8E\n", 
+		h.nele, emin, emax);
+	for (i = 0; i < h.ntransitions; i++) {
+	  n = fread(&r, sizeof(SP_RECORD), 1, f1);
+	  if (swp) SwapEndianSPRecord(&r);
+	  e = r.energy*HARTREE_EV;
+	  if (e <= emax && e >= emin) {
+	    fprintf(f2, "%6d %6d %15.8E %15.8E\n", 
+		    r.lower, r.upper, e, r.strength);
+	    a += r.strength;
+	  }
+	}
+	fprintf(f2, "Total                         %15.8E\n\n", a);
+      }
+    } else {
+      fseek(f1, h.length, SEEK_CUR);
+    }
+  }
+
+  fclose(f1);
+  fclose(f2);
+  
+  return 0;
+}
+    
 int PlotSpec(char *ifn, char *ofn, int type, 
 	     double emin, double emax, double de, double smin) {
   F_HEADER fh;
