@@ -579,19 +579,19 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
 		   pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);
   
-  fprintf(file, " IEGRID:   ");
+  fprintf(file, " IEGRID:\n   ");
   for (i = 0; i < n_tegrid; i++) {
     fprintf(file, "%10.4E ", tegrid[i]*HARTREE_EV);
   }
   fprintf(file, "\n");
 
-  fprintf(file, " EGRID:    ");
+  fprintf(file, " EGRID:\n   ");
   for (i = 0; i < n_egrid; i++) {
     fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
   }
   fprintf(file, "\n");
-  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid\n\n");
-  else fprintf(file, " Scattered Electron UsrEGrid\n\n");
+  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid:\n\n");
+  else fprintf(file, " Scattered Electron UsrEGrid:\n\n");
 
   fprintf(file, "Bound 2J\tFree  2J\tDelta_E\n");
 
