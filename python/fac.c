@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.41 2002/12/06 02:52:54 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.42 2002/12/14 16:30:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2633,7 +2633,7 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   PyObject *p, *q, *ip, *iq;
   int n, k, kref;
   double e;
-  int i;
+  int i, nmin;
   FILE *f;
 
   if (sfac_file) {
@@ -2644,8 +2644,8 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
 
   kref = 0;
   n = PyTuple_Size(args);
-  if (n == 1) {
-    if (!PyArg_ParseTuple(args, "s", &s)) {
+  if (n == 2) {
+    if (!PyArg_ParseTuple(args, "si", &s, &nmin)) {
       return NULL;
     }
     f = fopen(s, "r");
@@ -2656,12 +2656,12 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
       if (i == 0) {
 	kref = k;
       }
-      AddECorrection(kref, k, e);
+      AddECorrection(kref, k, e, nmin);
       i++;
     }
     fclose(f);
-  } else if (n == 2) {
-    if (!PyArg_ParseTuple(args, "OO", &p, &q)) return NULL;
+  } else if (n == 3) {
+    if (!PyArg_ParseTuple(args, "OOi", &p, &q, &nmin)) return NULL;
     if (!PyList_Check(p) || !PyList_Check(q)) {
       return NULL;
     }
@@ -2679,7 +2679,7 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
       if (i == 0) {
 	kref = k;
       }
-      AddECorrection(kref, k, e);
+      AddECorrection(kref, k, e, nmin);
     }
   } else {
     return NULL;

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.40 2002/11/14 20:51:09 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.41 2002/12/14 16:30:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -221,7 +221,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   ARRAY *st;
   STATE *s;
   SYMMETRY *sym;
-  double r;
+  double r, delta;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -280,6 +280,10 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
     for (i = 0; i <= j; i++) {
       r = HamiltonElementFrozen(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
+    }
+    for (i = 0; i < j; i++) {
+      delta = fabs(h->hamilton[i+t]/h->hamilton[j+t]);
+      if (delta < EPS10) h->hamilton[i+t] = 0.0;
     }
   }
 
@@ -817,12 +821,13 @@ int SortMixing(int start, int n, int *basis, double *mix) {
   return 0;
 }
   
-int AddECorrection(int iref, int ilev, double e) {
+int AddECorrection(int iref, int ilev, double e, int nmin) {
   ECORRECTION c;
 
   c.iref = iref;
   c.ilev = ilev;
   c.e = e;
+  c.nmin = nmin;
   ArrayAppend(ecorrections, &c);
   ncorrections += 1;
 
@@ -968,6 +973,8 @@ int GetNumElectrons(int k) {
 int SaveLevels(char *fn, int m, int n) {
   STATE *s;
   SYMMETRY *sym;
+  CONFIG *cfg, *cfg1;
+  SHELL_STATE *csf, *csf1;
   LEVEL *lev;
   EN_RECORD r;
   EN_HEADER en_hdr;
@@ -980,7 +987,7 @@ int SaveLevels(char *fn, int m, int n) {
   FILE *f;
   int i, k, p, j0;
   int nele, nele0, vnl;
-  int si;
+  int si, ms, mst;
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
@@ -998,6 +1005,9 @@ int SaveLevels(char *fn, int m, int n) {
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
+    si = lev->basis[0];
+    sym = GetSymmetry(lev->pj);
+    s = (STATE *) ArrayGet(&(sym->states), si);
     if (ncorrections > 0) {
       for (p = 0; p < ecorrections->dim; p++) {
 	ec = (ECORRECTION *) ArrayGet(ecorrections, p);
@@ -1007,21 +1017,51 @@ int SaveLevels(char *fn, int m, int n) {
 	  } else {
 	    e0 = GetLevel(ec->iref)->energy;
 	  }
-	  lev->energy = e0 + ec->e;
-	  ec->ilev = -1;
+	  ec->e = e0 + ec->e - lev->energy;
+	  lev->energy += ec->e;
+	  ec->s = s;
+	  ec->ilev = -(ec->ilev+1);
 	  ncorrections -= 1;
 	  break;
 	}
       }
     }
-    si = lev->basis[0];
-    sym = GetSymmetry(lev->pj);
+
+    if (s->kgroup > 0) {
+      cfg = GetConfig(s);
+      if ((cfg->shells[0]).n > (cfg->shells[1]).n &&
+	  (cfg->shells[0]).nq == 1) {
+	for (p = 0; p < ecorrections->dim; p++) {
+	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+	  if (-(i+1) == ec->ilev) break;
+	}
+	if (p == ecorrections->dim) {
+	  csf = cfg->csfs + s->kstate;
+	  for (p = 0; p < ecorrections->dim; p++) {
+	    ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+	    if (ec->ilev >= 0) continue;
+	    if ((cfg->shells[0]).n < ec->nmin) continue;
+	    cfg1 = GetConfig(ec->s);
+	    ms = cfg1->n_shells*sizeof(SHELL);
+	    mst = cfg1->n_shells*sizeof(SHELL_STATE);
+	    csf1 = cfg1->csfs + ec->s->kstate;
+	    if (cfg->n_electrons == cfg1->n_electrons+1 &&
+		cfg->n_shells == cfg1->n_shells+1 &&
+		memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
+		memcmp(csf+1, csf1, mst) == 0) {
+	      lev->energy += ec->e;
+	    }
+	  }
+	}
+      }  
+    }
+ 
     DecodePJ(lev->pj, &p, &j0);
     r.ilev = i;
     r.p = p;
     r.j = j0;
     r.energy = lev->energy;
-    s = (STATE *) ArrayGet(&(sym->states), si);
+
     nele = ConstructLevelName(name, sname, nc, &vnl, s);
     strncpy(r.name, name, LNAME);
     strncpy(r.sname, sname, LSNAME);

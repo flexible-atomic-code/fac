@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.44 2002/12/05 20:57:14 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.45 2002/12/14 16:30:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -275,6 +275,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   int n, n0, n1, nr0;
   int t, p, q, s, k, nc;
   double a, b, c, d;
+  double a0, e0, delta, gamma;
 
   nlev = ion->nlevels;
   for (i = 0; i < ion->recombined->dim; i++) {
@@ -310,6 +311,7 @@ void ExtrapolateEN(int iion, ION *ion) {
       n0 = rec->nrec[j-1]+1;
       nr = rec->imax[j] - rec->imin[j] + 1;
       a = -c/(n1*n1);
+      a0 = -c/((n0-1.0)*(n0-1.0));
       for (n = n0, t = rec->n; n < n1; n++, t++) {
 	rec->nrec[t] = n;
 	rec->imin[t] = nr0;
@@ -337,14 +339,13 @@ void ExtrapolateEN(int iion, ION *ion) {
 	  ion->j[p] = ion->j[k];
 	  ion->vnl[p] = n*100 + ion->vnl[k]%100;
 	  ion->ibase[p] = ion->ibase[k];
+	  e0 = ion->energy[ion->ibase[p]];
+	  delta = ion->energy[k] - e0 - a;
+	  ion->energy[p] = e0 + d + delta;
 	  if (s <= rec->imax[j-1]) {
-	    b = ion->energy[s] - (ion->energy[k] - a);
-	    b = -c/b;
-	    b = b/((n0-1.0)*(n0-1.0));
-	    b = 1.0+(b-1.0)*(n-n1)/(n0-1.0-n1);
-	    ion->energy[p] = ion->energy[k] - a + d/b;
-	  } else {
-	    ion->energy[p] = ion->energy[k] - a + d;
+	    gamma = ion->energy[s] - e0 - a0 - delta;
+	    b = gamma*(n1-n)/(n1-n0+1.0);
+	    ion->energy[p] += b;
 	  }
 	}
       }

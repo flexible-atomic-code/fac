@@ -8,6 +8,7 @@ Version 0.8.6, 12/04/2002
 	6. add DRS and RE calculation in DRStrength.
 	7. add KLnl->Knl Auger damping.
 	8. adjust various n limits in atom.py
+	9. allow energy correction for non-RecStates levels.
 	
 Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.

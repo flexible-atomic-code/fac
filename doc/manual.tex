@@ -2050,12 +2050,14 @@ input file \var{fn}. The resulting file can then be run using the \key{sfac}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
-\begin{fundesc}{CorrectEnergy}{fn $|$ ilev, e}
+\begin{fundesc}{CorrectEnergy}{fn $|$ ilev, e, nmin}
 Correct the energies of certain levels by given amount. This is used if the
 exact energy of some levels is critical. In the first form, the indexes and the
 energy corrections are listed as two columns in the file \var{fn}. In the
 second form, the indexes are given in the Python list \var{ilev}, and the
-energy corrections are given in the list \var{e}. The corrections are given in
+energy corrections are given in the list \var{e}. Only levels with valence
+electron in $n\ge nmin$ are corrected, if these levels are not constructed
+with \key{RecStates}. The corrections are given in
 units of eV. For the first level in the correction list, the amount is added
 to the energies calculated by FAC, and that level is taken as the reference
 level for all other entries in the list. The correction energies in the list

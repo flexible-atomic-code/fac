@@ -220,8 +220,8 @@ class ATOM:
             self.n_shells = 1
             self.nterms = [-1,-1,-1]
             self.nexc_max = [8, 8, 6]
-            self.nfrozen = [10, 10, 10]
-            self.nexc_rec = [10, 6, 5]
+            self.nfrozen = [9, 9, 7]
+            self.nexc_rec = [10, 8, 6]
             self.nrec_max = [10, 10, 10]
             self.rec_pw_max = [9, 9, 6]
             self.nrec_ext = 25
@@ -237,8 +237,8 @@ class ATOM:
             self.nterms = [-1,-1,-1,-1]
             if (self.nele > 5):
                 self.nterms = [2, 2, 2, 2]
-            self.nexc_max = [4, 4, 4, 4]
-            self.nfrozen = [10, 8, 6, 5]
+            self.nexc_max = [5, 5, 5, 4]
+            self.nfrozen = [6, 6, 6, 5]
             self.nexc_rec = [7, 4, 4, 4]
             self.nrec_max = [10, 10, 10, 8]
             self.rec_pw_max = [9, 6, 8, 5]
@@ -253,8 +253,8 @@ class ATOM:
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
             self.nterms = [-1,-1,-1,-1,-1]
-            self.nexc_max = [4, 4, 4, 4, 4]
-            self.nfrozen = [10, 6, 8, 5, 5]
+            self.nexc_max = [5, 5, 5, 4, 4]
+            self.nfrozen = [6, 6, 6, 5, 5]
             self.nexc_rec = [4, 4, 4, 4, 0]
             self.nrec_max = [10, 10, 10, 8, 8]
             self.rec_pw_max = [9, 8, 6, 5, 5]
@@ -268,10 +268,6 @@ class ATOM:
             self.ai_cut2 = 1E-2
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
-
-        self.rec_pw_max = []
-        for i in range(len(self.nrec_max)):
-            self.rec_pw_max.append(self.nrec_max[i]-1)
             
         if (type(asym) == StringType):
             self.set_atom(asym, dir=dir)
@@ -478,7 +474,11 @@ class ATOM:
             ConfigEnergy(1)
 
         for ec in self.ecorrections:
-            CorrectEnergy(ec[0], ec[1])
+            try:
+                nmin = ec[2]
+            except:
+                nmin = self.nexc_max[0] + 1
+            CorrectEnergy(ec[0], ec[1], nmin)
 
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
@@ -940,6 +940,10 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
 	    atom.process['ai'] = not kw['no_ai']
         if (kw.has_key('nexc_max')):
             atom.nexc_max = kw['nexc_max']
+        if (kw.has_key('nterms')):
+            atom.nterms = kw['nterms']
+        if (kw.has_key('nfrozen')):
+            atom.nfrozen = kw['nfrozen']
         if (kw.has_key('nrec_max')):
             atom.nrec_max = kw['nrec_max']
         if (kw.has_key('nrec_ext')):
@@ -963,7 +967,18 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         atom.set_atom(asym, dir=dir)
         atom.run_fac()
         if (iprint >= 0):
-            atom.print_table(['en', 'tr', 'ce', 'rr', 'ai', 'ci'], iprint)
+            t = ['en']
+            if (atom.process['tr']):
+                t.append('tr')
+            if (atom.process['ce']):
+                t.append('ce')
+            if (atom.process['rr']):
+                t.append('rr')
+            if (atom.process['ai']):
+                t.append('ai')
+            if (atom.process['ci']):
+                t.append('ci')
+            atom.print_table(t, iprint)
                 
         Reinit(0)
 
