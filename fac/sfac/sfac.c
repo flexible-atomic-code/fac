@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.26 2002/09/24 18:49:30 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.27 2002/12/14 16:30:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -549,7 +549,7 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
 			  ARRAY *variables) {
   int n, k, kref;
   double e;
-  int i, ie, ii;
+  int i, ie, ii, nmin;
   FILE *f;
   char *iv[MAXNARGS], *ev[MAXNARGS];
   int it[MAXNARGS], et[MAXNARGS];
@@ -557,10 +557,11 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
   ii = 0; 
   ie = 0;
   kref = 0;
-  if (argc == 1) {
+  if (argc == 2) {
     if (argt[0] != STRING) {
       return -1;
     }
+    nmin = atoi(argv[1]);
     f = fopen(argv[0], "r");
     n = -1;
     i = 0;
@@ -570,16 +571,17 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
       if (i == 0) {
 	kref = k;
       }
-      AddECorrection(kref, k, e);
+      AddECorrection(kref, k, e, nmin);
       i++;
     }
     fclose(f);
-  } else if (argc == 2) {
+  } else if (argc == 3) {
     if (argt[0] != LIST || argt[1] != LIST) {
       printf("The last two of three arguments ");
       printf("for CorrectEnergy must be two Lists\n");
       return -1;
     }
+    nmin = atoi(argv[2]);
     ii = DecodeArgs(argv[0], iv, it, variables);
     ie = DecodeArgs(argv[1], ev, et, variables);
     if (ii != ie) return -1;
@@ -592,7 +594,7 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
       if (i == 0) {
 	kref = k;
       }
-      AddECorrection(kref, k, e);
+      AddECorrection(kref, k, e, nmin);
     }
   } else {
     return -1;

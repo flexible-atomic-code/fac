@@ -66,6 +66,8 @@ typedef struct _ECORRECTION_ {
   int iref;
   int ilev;
   double e;
+  int nmin;
+  STATE *s;
 } ECORRECTION;
 
 #ifdef PERFORM_STATISTICS
@@ -99,7 +101,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
-int AddECorrection(int kref, int k, double e);
+int AddECorrection(int kref, int k, double e, int nmin);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels(void);
