@@ -1,4 +1,4 @@
-%% rcsid = $Id: guide.tex,v 1.16 2001/09/24 19:36:43 mfgu Exp $
+%% rcsid = $Id: guide.tex,v 1.17 2001/10/01 16:28:03 mfgu Exp $
 
 \documentclass[12pt]{article}
 
@@ -35,7 +35,7 @@ import statement
 ``from pfac import *'' makes all functions available to the script with module
 name qualifiers, e.g., ``fac.SetAtom('Fe')''. Alternatively, one may use the
 fully qualified names including the package name to avoid any possible name
-space crash with other installed modules and packages. For example, the import
+space clash with other installed modules and packages. For example, the import
 statement ``import pfac.fac'', and ``pfac.fac.SetAtom('Fe')''. 
 
 \begin{description}

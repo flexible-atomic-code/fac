@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.19 2001/09/14 13:17:01 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.20 2001/10/01 16:28:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -329,7 +329,7 @@ int BoundFreeOS(double *strength, double *eb,
   double r, s, aw, a, e, *radial_int, inv_jb, eph;
   int klb1, klb2, klf, jb1, jb2, jf;
   int jfmin, jfmax, kappaf, kappab1, kappab2;
-  int j1, j2, i, j, njf, c, c1, icf, jcf;
+  int j1, j2, i, j, njf, c, c1, icf, jcf, nr;
   double rq[MAXNE], stmp[MAXNE], *x0, *x1;
 
   gauge = GetTransitionGauge();
@@ -348,18 +348,19 @@ int BoundFreeOS(double *strength, double *eb,
   if (nz <= 0) return -1;
 
   njf = 2*(k+1);
-  radial_int = malloc(sizeof(double)*nz*njf*n_egrid);
+  nr = njf*n_egrid;
+  radial_int = malloc(sizeof(double)*nz*nr);
   if (!radial_int) return -1;
 
   if (interpolate_egrid) {
     x0 = log_egrid;
     x1 = log_usr;
     for (ie = 0; ie < n_egrid; ie++) {
-      x0[i] = log((*eb) + egrid[ie]);
+      x0[ie] = log((*eb) + egrid[ie]);
     } 
     if (usr_egrid_type == 1) {
       for (ie = 0; ie < n_usr; ie++) {
-	x1[i] = log((*eb) + usr_egrid[ie]);
+	x1[ie] = log((*eb) + usr_egrid[ie]);
       }
     }
   }
@@ -382,7 +383,7 @@ int BoundFreeOS(double *strength, double *eb,
 	    klf < 0 ||
 	    (m < 0 && IsOdd((klb1+klf+k)/2)) ||
 	    (m > 0 && IsEven((klb1+klf+k)/2))) {
-	  for (ie = 0; ie < n_usr; ie++) {
+	  for (ie = 0; ie < n_egrid; ie++) {
 	    radial_int[j++] = 0.0;	  
 	  }
 	} else {  
@@ -400,9 +401,9 @@ int BoundFreeOS(double *strength, double *eb,
     kappab1 = GetOrbital(ang[i].kb)->kappa;
     jb1 = GetJFromKappa(kappab1);    
     inv_jb = 1.0 / (jb1+1);
-    icf = i*njf*n_egrid;
+    icf = i*nr;
     for (j = 0; j <= i; j++) {
-      jcf = j*njf*n_egrid;
+      jcf = j*nr;
       a = ang[i].coeff*ang[j].coeff;    
       if (j != i) {
 	kappab2 = GetOrbital(ang[j].kb)->kappa;
