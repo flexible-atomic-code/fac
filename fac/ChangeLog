@@ -6,6 +6,7 @@ Version 1.0.3, 12/01/2003
 	5. need to add -lcc_dynamic on Mac OS 10.3.
 	6. fix the method table bug in ppol.c
 	7. bug fix in IntegrateRadial function.
+	8. array out-of-bound bug fix in orbital.c.
 	
 Version 1.0.2, 08/15/2003
 	1. add iterative method in pfac.pol.

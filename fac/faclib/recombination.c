@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.72 2003/11/06 15:53:07 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.73 2003/12/05 06:24:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -215,7 +215,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
 
   if (n >= nm) {
     i = RecStatesFrozen(n, k, kg, fn);
-    return 0;
+    return i;
   }
 
   ns.n = n;

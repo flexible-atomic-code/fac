@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.43 2003/11/25 21:00:33 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.44 2003/12/05 06:24:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -62,6 +62,7 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
     for (i = 0; i < ng; i++) {
       if (t[i] != STRING) {
 	printf("argument must be a group name\n");
+	free((*kg));
 	return -1;
       }
       s = v[i];
@@ -699,6 +700,7 @@ static int PFreeAngZ(int argc, char *argv[], int argt[], ARRAY *variables) {
     for (i = 0; i < n; i++) {
       FreeAngZ(kg[i], m);
     }
+    free(kg);
   }
     
   return 0;
@@ -938,7 +940,13 @@ static int PRecStates(int argc, char *argv[], int argt[],
   ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
   if (ng <= 0) return -1;
   n = atoi(argv[2]);
-  RecStates(n, ng, kg, argv[0]);
+  if (RecStates(n, ng, kg, argv[0]) < 0) {
+    printf("RecStates Error\n");
+    free(kg);
+    return -1;
+  }
+
+  free(kg);
   
   return 0;
 }
@@ -1160,6 +1168,9 @@ static int PRRTable(int argc, char *argv[], int argt[],
     m = atoi(argv[3]);
   }
   SaveRecRR(nlow, low, nup, up, argv[0], m);
+
+  free(low);
+  free(up);
 
   return 0;
 }
@@ -2752,8 +2763,8 @@ static METHOD methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
-  {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
+  {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.63 2003/08/15 16:17:31 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.64 2003/12/05 06:24:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1822,7 +1822,15 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "sOi", &fn, &gargs, &n)) return NULL;
   ng = DecodeGroupArgs(gargs, &kg);
-  RecStates(n, ng, kg, fn);
+  if (ng <= 0) return NULL;
+
+  if (RecStates(n, ng, kg, fn) < 0) {
+    onError("RecStates error");
+    free(kg);
+    return NULL;
+  }
+
+  free(kg);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -2355,6 +2363,7 @@ static PyObject *PFreeAngZ(PyObject *self, PyObject *args) {
     for (i = 0; i < n; i++) {
       FreeAngZ(kg[i], m);
     }
+    free(kg);
   }
 
   Py_INCREF(Py_None);
