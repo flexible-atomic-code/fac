@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.94 2004/12/19 01:04:58 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.95 2004/12/22 03:09:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4056,6 +4056,22 @@ static PyObject *PRMatrixExpansion(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PRMatrixNBatch(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixNBatch", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  RMatrixNBatch(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
 static PyObject *PRMatrixNMultipoles(PyObject *self, PyObject *args) {
   int m;
 
@@ -4268,6 +4284,7 @@ static struct PyMethodDef fac_methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
+  {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 

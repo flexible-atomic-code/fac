@@ -67,6 +67,7 @@ int IntegrateExternal(RMATRIX *rmx, double r1, double r0);
 void TransformQ(RMATRIX *rmx, double b, double r, int m);
 void PropogateDirection(int m);
 int PropogateExternal(RMATRIX *rmx, RBASIS *rbs);
+void RMatrixNBatch(int n);
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[], 
 	      double emin, double emax, double de, int m, int mb);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
