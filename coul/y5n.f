@@ -1,7 +1,6 @@
 C calculates the negtive energy coulomb wavefunction, 
 C and the derivative.
 C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
-C With exponential scaling.
 
       subroutine y5n(lambda, eta0, x0, y5, y5p, ierr)
 C
@@ -24,8 +23,8 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       real*8 lambda, y5, y5p, x0, eta0
       complex*16 eta, x, zlmin, norm
-      complex*16 fc, fcp, gc, gcp
-      complex*16 sig
+      complex*16 fc(1), fcp(1), gc(1), gcp(1)
+      complex*16 sig(1)
       integer kfn, ierr
 
       if (eta0 .gt. 0.0) then
@@ -40,10 +39,9 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       ierr = 0
       call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
-     +            -11, kfn, ierr)
-
-      norm = CI*((lambda-eta0)*HALFPI - sig)
+     +            11, kfn, ierr)
+      norm = CI*((lambda-eta0)*HALFPI - sig(1))
       norm = exp(norm)
-      y5 = real(gc*norm)
-      y5p = -imag(gcp*norm)
+      y5 = dble(gc(1)*norm)
+      y5p = -imag(gcp(1)*norm)
       end
