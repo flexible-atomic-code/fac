@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.29 2002/05/08 15:32:53 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.30 2002/05/10 20:41:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2713,6 +2713,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   SP_RECORD r, *rp;
   DISTRIBUTION *dist;
   ARRAY sp;
+  ARRAY linetype;
+  int *tt;
   FILE *f1, *f2;
   int n, nb, i, m;
   int t, t0, t1, t2;
@@ -2756,6 +2758,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     swp = 0;
   }
   ArrayInit(&sp, sizeof(SP_RECORD), 512);
+  ArrayInit(&linetype, sizeof(int), 512);
   smax = 0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
@@ -2789,6 +2792,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       if (fmin < 0.0) {
 	if (r.lower == low && r.upper == up) {
 	  ArrayAppend(&sp, &r);
+	  ArrayAppend(&linetype, &(h.type));
 	  break;
 	}
       } else {
@@ -2797,6 +2801,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	if (a < smax*fmin) continue;
 	if (a > smax) smax = a;
 	ArrayAppend(&sp, &r);
+	ArrayAppend(&linetype, &(h.type));
       }
     }
     continue;
@@ -2808,23 +2813,26 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   if (fmin < 0.0) {
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
-      fprintf(f2, "%2d %6d %6d %15.8E %15.8E\n", 
-	      nele, rp->lower, rp->upper, rp->energy, rp->strength);
+      tt = (int *) ArrayGet(&linetype, 0);
+      fprintf(f2, "%2d %6d %6d %6d %15.8E %15.8E\n", 
+	      nele, rp->lower, rp->upper, *tt, rp->energy, rp->strength);
     }
   } else {
     if (sp.dim > 0) {
       smax *= fmin;
       for (i = 0; i < sp.dim; i++) {
 	rp = (SP_RECORD *) ArrayGet(&sp, i);
+	tt = (int *) ArrayGet(&linetype, i);
 	e = rp->energy;
 	if (rp->strength*e > smax) {
-	  fprintf(f2, "%2d %6d %6d %15.8E %15.8E\n", 
-		  nele, rp->lower, rp->upper, e, rp->strength);
+	  fprintf(f2, "%2d %6d %6d %6d %15.8E %15.8E\n", 
+		  nele, rp->lower, rp->upper, *tt, e, rp->strength);
 	}
       }
     }
   }	
   ArrayFree(&sp, NULL);
+  ArrayFree(&linetype, NULL);
 
   fclose(f1);
   fclose(f2);

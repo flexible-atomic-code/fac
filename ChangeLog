@@ -12,7 +12,7 @@ Version 0.7.2, 05/08/2002
 	   neutral ions.
 	9. add 2-photon decay rates for 2s S_1/2 of H-like ions and
 	   1s 2s S_0 of He-like ions in CRM.
-	10.written draft version of the manual. change some of the 
+	10.wrote draft version of the manual. change some of the 
 	   internal structure of database files. the changes are not
 	   compartible with earlier versions. 
 	
