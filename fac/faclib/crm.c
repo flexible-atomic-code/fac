@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.69 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.70 2004/02/19 21:45:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -782,10 +782,12 @@ int SetBlocks(double ni, char *ifn) {
     n0 = 0;
     nb0 = 0;
     r0 = rionized;
-    ion0.imin[0] = 100000000;
-    ion0.imin[1] = 100000000;
-    ion0.imax[0] = 0;
-    ion0.imax[1] = 0;
+    if (k == 0) {
+      ion0.imin[0] = 100000000;
+      ion0.imin[1] = 100000000;
+      ion0.imax[0] = 0;
+      ion0.imax[1] = 0;
+    }
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele == ion->nele) {
@@ -1627,7 +1629,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
@@ -1648,7 +1650,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    den *= electron_density;
 	    index[2] = j;
 	    index[1] = i;
@@ -1680,7 +1682,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1700,7 +1702,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    den *= photon_density;
 	    index[2] = j;
 	    index[1] = i;
@@ -1732,7 +1734,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1761,7 +1763,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
@@ -1782,7 +1784,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    den *= photon_density;
 	    index[2] = j;
 	    index[1] = i;
@@ -1813,7 +1815,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1833,7 +1835,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    den *= electron_density;
 	    index[2] = j;
 	    index[1] = i;
@@ -1864,7 +1866,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
@@ -1885,7 +1887,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	}
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    den *= electron_density*electron_density;
 	    index[2] = j;
 	    index[1] = i;
@@ -2336,13 +2338,13 @@ int BlockMatrix(void) {
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
-	  if (den > 0.0) {
+	  if (den) {
 	    p = i*n + j;
 	    bmatrix[p] += den * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
 	    den = blk2->r[ion->ilev[r->f]];
-	    if (den > 0.0) {
+	    if (den) {
 	      p = i + j*n;
 	      bmatrix[p] += den * electron_density * r->inv;
 	    }
@@ -2361,17 +2363,17 @@ int BlockMatrix(void) {
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  p = i*n + j;
 	  bmatrix[p] += den * r->dir;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
-	  if (den > 0.0) {
+	  if (den) {
 	    a = photon_density * r->inv;
 	    bmatrix[p] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
 	  }
 	  den = blk2->r[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    p = i + j*n;
 	    bmatrix[p] += den * photon_density * r->inv;
 	  }
@@ -2389,7 +2391,7 @@ int BlockMatrix(void) {
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  p = i*n + j;
 	  bmatrix[p] += den * r->dir;
 	}
@@ -2406,7 +2408,7 @@ int BlockMatrix(void) {
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  if (electron_density > 0.0) {
 	    p = i*n + j;
 	    bmatrix[p] += den * electron_density * r->dir;
@@ -2414,7 +2416,7 @@ int BlockMatrix(void) {
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk2->r[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    p = i + j*n;
 	    bmatrix[p] += den * photon_density * r->inv;
 	  }
@@ -2432,13 +2434,13 @@ int BlockMatrix(void) {
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
-	if (den > 0.0) {
+	if (den) {
 	  p = i*n + j;
 	  bmatrix[p] += den * r->dir;
 	}
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  den = blk2->r[ion->ilev[r->f]];
-	  if (den > 0.0) {
+	  if (den) {
 	    p = i + j*n;
 	    bmatrix[p] += den * electron_density * r->inv;
 	  }
@@ -2457,13 +2459,13 @@ int BlockMatrix(void) {
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
-	  if (den > 0.0) {
+	  if (den) {
 	    p = i*n + j;
 	    bmatrix[p] += den * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
 	    den = blk2->r[ion->ilev[r->f]];
-	    if (den > 0.0) {
+	    if (den) {
 	      p = i + j*n;
 	      den *= electron_density;
 	      bmatrix[p] += den * electron_density * r->inv;
@@ -2654,11 +2656,11 @@ double BlockRelaxation(int iter) {
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
 	  q = ion->ilev[r->f];
-	  if (blk1->r[p] > 0.0) {
+	  if (blk1->r[p]) {
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
-	    if (blk2->r[q] > 0.0) {
+	    if (blk2->r[q]) {
 	      blk1->n[p] += blk2->r[q] * electron_density * r->inv;
 	    }
 	  }
@@ -2678,15 +2680,15 @@ double BlockRelaxation(int iter) {
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
-	if (blk1->r[p] > 0.0) {
+	if (blk1->r[p]) {
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  a = photon_density * r->inv;
-	  if (blk1->r[p] > 0.0) {
+	  if (blk1->r[p]) {
 	    blk2->n[q] += blk1->r[p]*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
 	  }
-	  if (blk2->r[q] > 0.0) {
+	  if (blk2->r[q]) {
 	    blk1->n[p] += blk2->r[q] * a;
 	  }
 	}
@@ -2705,7 +2707,7 @@ double BlockRelaxation(int iter) {
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
-	if (blk1->r[p] > 0.0) {
+	if (blk1->r[p]) {
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
       }
@@ -2724,12 +2726,12 @@ double BlockRelaxation(int iter) {
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
 	if (electron_density > 0.0) {
-	  if (blk1->r[p] > 0.0) {
+	  if (blk1->r[p]) {
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	} 
 	if (r->inv > 0.0 && photon_density > 0.0) {
-	  if (blk2->r[q] > 0.0) {
+	  if (blk2->r[q]) {
 	    blk1->n[p] += blk2->r[q] * photon_density * r->inv;
 	  }
 	}
@@ -2748,11 +2750,11 @@ double BlockRelaxation(int iter) {
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
-	if (blk1->r[p] > 0.0) {
+	if (blk1->r[p]) {
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
 	if (r->inv > 0.0 && electron_density > 0.0) {
-	  if (blk2->r[q] > 0.0) {
+	  if (blk2->r[q]) {
 	    blk1->n[p] += blk2->r[q] * electron_density * r->inv;
 	  }
 	}
@@ -2772,11 +2774,11 @@ double BlockRelaxation(int iter) {
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
 	  q = ion->ilev[r->f];    
-	  if (blk1->r[p] > 0.0) {
+	  if (blk1->r[p]) {
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	  if (r->inv) {
-	    if (blk2->r[q] > 0.0) {
+	    if (blk2->r[q]) {
 	      blk1->n[p] += blk2->r[q] * electron_density * 
 		electron_density * r->inv;
 	    }
@@ -2990,13 +2992,13 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	ib = i;
       }
       p = ion->ilev[m];
-      if (blk->n[p] > 0.0) {
+      /*      if (blk->n[p]) {*/
 	r.upper = m;
 	r.lower = p;
 	r.energy = ion->energy[m];
 	r.strength = blk->n[p];
 	WriteSPRecord(f, &r);
-      }
+	/*}*/
     }
     if (ib >= 0) DeinitFile(f, &fhdr);
 
