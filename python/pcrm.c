@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.34 2003/12/16 22:29:25 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.35 2003/12/30 22:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -237,6 +237,22 @@ static PyObject *PSetExtrapolate(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "i", &n)) return NULL;
   SetExtrapolate(n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetInnerAuger(PyObject *self, PyObject *args) {
+  int n;
+  
+  if (scrm_file) {
+    SCRMStatement("SetInnerAuger", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &n)) return NULL;
+  SetInnerAuger(n);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -880,6 +896,12 @@ static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
 
 static PyObject *PDRBranch(PyObject *self, PyObject *args) {
   
+  if (scrm_file) {
+    SCRMStatement("DRBranch", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   DRBranch();
 
   Py_INCREF(Py_None);  
@@ -890,6 +912,12 @@ static PyObject *PDRStrength(PyObject *self, PyObject *args) {
   int n, i, m;
   char *s;
   
+  if (scrm_file) {
+    SCRMStatement("DRStrength", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   i = 0;
   m = 0;
   if (!PyArg_ParseTuple(args, "si|ii", &s, &n, &m, &i)) 
@@ -922,6 +950,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
+  {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
   {"SetCascade", PSetCascade, METH_VARARGS},

@@ -33,6 +33,7 @@ typedef struct _LBLOCK_ {
   int iion;
   int irec;
   RECOMBINED *rec;
+  int imin;
   int nlevels;
   double nb;
   double *n, *n0;

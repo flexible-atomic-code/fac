@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.19 2003/12/16 22:29:25 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.20 2003/12/30 22:54:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -116,6 +116,16 @@ static int PSetExtrapolate(int argc, char *argv[], int argt[],
   if (argc != 1) return -1;
   n = atoi(argv[0]);
   SetExtrapolate(n);
+  return 0;
+}
+
+static int PSetInnerAuger(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int n;
+
+  if (argc != 1) return -1;
+  n = atoi(argv[0]);
+  SetInnerAuger(n);
   return 0;
 }
 
@@ -460,6 +470,7 @@ static METHOD methods[] = {
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
+  {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
   {"SetCascade", PSetCascade, METH_VARARGS},
