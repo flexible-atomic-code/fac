@@ -247,8 +247,8 @@ class ATOM:
             self.ai_cut2 = 1E-3
         elif (self.nele <= self.nele_max[2]):
             self.n_shells = 2
-            self.nexc_max = [6, 4, 5]
-            self.nexc_rec = [0, 0, 0]
+            self.nexc_max = [5, 5, 5]
+            self.nexc_rec = [7, 0, 0]
             self.nrec_max = [12, 8, 8]
             self.rec_pw_max = [10, 6, 6]
             self.n_decay = [11, 0, 0]
@@ -262,7 +262,7 @@ class ATOM:
             self.n_shells = 3
             self.nexc_max = [5, 5, 5, 0]
             self.nexc_rec = [0, 0, 0, 0]
-            self.nrec_max = [10, 10, 8, 0]
+            self.nrec_max = [12, 10, 8, 0]
             self.rec_pw_max = [8, 6, 6, 6]
             self.n_decay = [11, 0, 0, 0]
             self.angz_cut1 = 1E-2
@@ -591,7 +591,7 @@ class ATOM:
                                 SetTransitionCut(self.tr_cut2)
                                 
                         self.run_tr_ce(a, b, a, b, tr = tr, ce = ce)
-                        
+
         return
 
     
@@ -715,7 +715,12 @@ class ATOM:
                                     break
                         if (type(b) != IntType):
                             self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
-                    
+                                     
+                    if (n <= self.nexc_rec[k]):
+                        SetAngZCut(self.angz_cut2)
+                        SetAngZCut(self.tr_cut2)
+                        self.run_tr_ce(a, a, 0, 0, tr = [-1], ce = 0)
+       
                     if (n <= self.n_decay[k]):
                         SetAngZCut(self.angz_cut2)
                         SetAngZCut(self.tr_cut2)
@@ -732,8 +737,7 @@ class ATOM:
                         else:
                             b = self.exc_complex[k].cgroup[0].name
                         self.run_tr_ce(b, a, 0, 0, tr = [-1], ce = 0)
-                        
-
+                                                
         return
     
     
