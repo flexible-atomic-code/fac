@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.67 2002/10/23 03:44:10 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.68 2002/12/12 03:06:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1309,7 +1309,6 @@ double RadialMoments(int m, int k1, int k2) {
   int n1, n2;
   int kl1, kl2;
   int nh, klh;
-
   
   orb1 = GetOrbitalSolved(k1);
   orb2 = GetOrbitalSolved(k2);
