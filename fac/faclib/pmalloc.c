@@ -5,7 +5,7 @@
 
 #define MAXNALLOC 1000000
 typedef struct _MEM_INFO_ {
-  off_t base;
+  long int base;
   char *f;
   int nline;
   size_t size;
@@ -20,7 +20,7 @@ void *pmalloc(size_t size, char *f, int nline) {
   void *p;
 
   p = malloc(size);
-  mem_alloc[n_alloc].base = (off_t) p;
+  mem_alloc[n_alloc].base = (long int) p;
   mem_alloc[n_alloc].f = f;
   mem_alloc[n_alloc].nline = nline;
   mem_alloc[n_alloc].size = size;
@@ -36,7 +36,7 @@ void *pcalloc(size_t n, size_t size, char *f, int nline) {
   void *p;
 
   p = calloc(n, size);
-  mem_alloc[n_alloc].base = (off_t) p;
+  mem_alloc[n_alloc].base = (long int) p;
   mem_alloc[n_alloc].f = f;
   mem_alloc[n_alloc].nline = nline;
   mem_alloc[n_alloc].size = size*n;
@@ -52,13 +52,13 @@ void *pcalloc(size_t n, size_t size, char *f, int nline) {
 void *prealloc(void *p, size_t size, char *f, int nline) {
   void *q;
 
-  mem_free[n_free].base = (off_t) p;
+  mem_free[n_free].base = (long int) p;
   mem_free[n_free].f = f;
   mem_free[n_free].nline = nline;
   n_free++;
 
   q = realloc(p, size);
-  mem_alloc[n_alloc].base = (off_t) q;
+  mem_alloc[n_alloc].base = (long int) q;
   mem_alloc[n_alloc].f = f;
   mem_alloc[n_alloc].nline = nline;
   mem_alloc[n_alloc].size = size;
@@ -72,7 +72,7 @@ void *prealloc(void *p, size_t size, char *f, int nline) {
 }
 
 void pfree(void *p, char *f, int nline) {  
-  mem_free[n_free].base = (off_t) p;
+  mem_free[n_free].base = (long int) p;
   mem_free[n_free].f = f;
   mem_free[n_free].nline = nline;
   n_free++;
@@ -81,7 +81,7 @@ void pfree(void *p, char *f, int nline) {
 }
 
 int _CompareMemory(const void *p1, const void *p2) {
-  off_t b1, b2;
+  long int b1, b2;
 
   b1 = ((MEM_INFO *) p1)->base;
   b2 = ((MEM_INFO *) p2)->base;

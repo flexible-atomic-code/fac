@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.5 2002/01/14 23:19:41 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.6 2002/01/18 00:11:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -56,7 +56,7 @@ FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
   FILE *f;
-  off_t p;
+  long int p;
   size_t n;
   int ihdr;
 
