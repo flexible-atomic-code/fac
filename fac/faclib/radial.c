@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.100 2004/06/14 15:17:04 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.101 2004/06/19 00:19:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -524,7 +524,7 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
 	    potential->Vc[i]+potential->U[i], v[i], 
 	    ve0[i], ve1[i], potential->uehling[i]);
@@ -804,13 +804,13 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   
   orb = GetOrbitalSolved(k);
   
-  fprintf(f, "     n = %2d\n", n);
-  fprintf(f, " kappa = %2d\n", kappa);
-  fprintf(f, "energy = %10.3E\n", orb->energy*HARTREE_EV);
+  fprintf(f, "#      n = %2d\n", n);
+  fprintf(f, "#  kappa = %2d\n", kappa);
+  fprintf(f, "# energy = %10.3E\n", orb->energy*HARTREE_EV);
   fprintf(f, "\n\n");
   if (n > 0) {
     for (i = 0; i <= orb->ilast; i++) {
-      fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
 	      i, potential->rad[i], 
 	      (potential->Vc[i])*potential->rad[i],
 	      potential->U[i] * potential->rad[i],

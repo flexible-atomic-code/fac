@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.63 2004/06/13 07:16:08 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.64 2004/06/19 00:19:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,7 +24,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, double *q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
-static int DiracSmall(ORBITAL *orb, POTENTIAL *pot);
+static int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2);
 
 int GetNMax(void) {
   return nmax;
@@ -423,6 +423,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       free(p);
       return -7;
     }
+    i2 = pot->ib;
+    i2p2 = i2;
   } else {
     niter = 0;
     de *= 0.05;
@@ -448,11 +450,13 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     e -= de;
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot);
-    IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, NULL);
-    for (i = 0; i <= i2; i++) {
+    i2 = pot->ib;
+    i2p2 = i2 + 2;
+    IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, NULL);
+    for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
-    norm2 = InnerProduct(0, i2, p, p, pot);    
+    norm2 = InnerProduct(0, i2, p, p, pot);
   }
 
   ep = sqrt(norm2);
@@ -460,10 +464,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   if (IsOdd(nodes)) {
     fact = -fact;
   }
-  for (i = 0; i <= pot->ib; i++) {
+  for (i = 0; i <= i2p2; i++) {
     p[i] *= fact;
   }
-  for (i = pot->ib+1; i < pot->maxrp; i++) {
+  for (i = i2p2+1; i < pot->maxrp; i++) {
     p[i] = 0.0;
   }
   
@@ -473,7 +477,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   orb->qr_norm = 1.0;
 
   if (pot->flag == -1) {
-    DiracSmall(orb, pot);
+    DiracSmall(orb, pot, i2p2);
   }
   return 0;
 }
@@ -684,7 +688,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   orb->qr_norm = 1.0;
 
   if (pot->flag == -1) {
-    DiracSmall(orb, pot);
+    DiracSmall(orb, pot, -1);
   }
  
   return 0;
@@ -911,7 +915,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   orb->qr_norm = 1.0/e0;
 
   if (pot->flag == -1) {
-    DiracSmall(orb, pot);
+    DiracSmall(orb, pot, -1);
   }
 
   return 0;
@@ -984,7 +988,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   orb->qr_norm = 1.0;
   
   if (pot->flag == -1) {
-    DiracSmall(orb, pot);
+    DiracSmall(orb, pot, -1);
   }
 
   return 0;
@@ -997,16 +1001,17 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
 ** so: P[i] = large[i]*sin(large[i+1])
 ** and Q[i] = small[i]*cos(large[i+1])+small[i+1]*sin(large[i+1])
 */
-int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
+int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
   int i, i1, kappa;
   double xi, e, *p, a, b;
 
   e = orb->energy;
   kappa = orb->kappa;
   p = orb->wfun;
+  if (i2 < 0) i2 = orb->ilast;
   i1 = orb->ilast+1;
 
-  for (i = 0; i < i1; i++) {
+  for (i = 0; i <= i2; i++) {
     xi = e - pot->Vc[i] - pot->U[i];
     xi = xi*FINE_STRUCTURE_CONST2*0.5;
     _dwork[i] = 1.0 + xi;
@@ -1030,14 +1035,14 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
       b += 36.0*_dwork1[2];
       b -= 12.0*_dwork1[3];
       b += 2.0 *_dwork1[4];
-    } else if (i == i1-1) {
+    } else if (i == i2) {
       b = -50.0*_dwork1[i];
       b += 96.0*_dwork1[i-1];
       b -= 72.0*_dwork1[i-2];
       b += 32.0*_dwork1[i-3];
       b -= 6.0 *_dwork1[i-4];
       b = -b; 
-    } else if (i == i1-2) {
+    } else if (i == i2-1) {
       b = -6.0*_dwork1[i+1];
       b -= 20.0*_dwork1[i];
       b += 36.0*_dwork1[i-1];
