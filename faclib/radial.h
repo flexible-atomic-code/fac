@@ -19,6 +19,11 @@
 #define M_FR        0
 #define M_NR        1
 
+#define QK_DEFAULT -1
+#define QK_EXACT 0
+#define QK_INTERPOLATE 1
+#define QK_FIT 2
+
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 
 #ifdef PERFORM_STATISTICS

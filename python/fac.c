@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.6 2001/10/22 18:42:16 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.7 2001/10/24 23:31:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -26,6 +26,7 @@ static PyObject *ErrorObject;
 static PyObject *SPECSYMBOL;
 static PyObject *ATOMICSYMBOL;
 static PyObject *ATOMICMASS;
+static PyObject *QKMODE;
 
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
 
@@ -1149,7 +1150,19 @@ static PyObject *PWaveFuncTable(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-    
+
+static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
+  int m;
+  double tol;
+
+  m = QK_DEFAULT;
+  tol = -1;
+  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  SetRecQkMode(m, tol);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static  PyObject *PSetRecPWOptions(PyObject *self, PyObject *args) {
   int kl_interp, max_kl;
   
@@ -2083,6 +2096,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
+  {"SetRecQkMode", PSetRecQkMode, METH_VARARGS},
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
@@ -2172,10 +2186,23 @@ void initfac() {
     PyList_SetItem(ATOMICSYMBOL, i+1, Py_BuildValue("s", &(ename[i*3])));
     PyList_SetItem(ATOMICMASS, i+1, Py_BuildValue("d", emass[i]));
   }
+
+  QKMODE = PyDict_New();
+  PyDict_SetItemString(QKMODE, "DEFAULT", Py_BuildValue("i", QK_DEFAULT));
+  PyDict_SetItemString(QKMODE, "EXACT", Py_BuildValue("i", QK_EXACT));
+  PyDict_SetItemString(QKMODE, "INTERPOLATE", 
+		       Py_BuildValue("i", QK_INTERPOLATE));
+  PyDict_SetItemString(QKMODE, "FIT", Py_BuildValue("i", QK_FIT));
+  PyDict_SetItemString(QKMODE, "default", Py_BuildValue("i", QK_DEFAULT));
+  PyDict_SetItemString(QKMODE, "exact", Py_BuildValue("i", QK_EXACT));
+  PyDict_SetItemString(QKMODE, "interpolate", 
+		       Py_BuildValue("i", QK_INTERPOLATE));
+  PyDict_SetItemString(QKMODE, "fit", Py_BuildValue("i", QK_FIT));
   
   PyDict_SetItemString(d, "SPECSYMBOL", SPECSYMBOL);
   PyDict_SetItemString(d, "ATOMICSYMBOL", ATOMICSYMBOL);
   PyDict_SetItemString(d, "ATOMICMASS", ATOMICMASS);
+  PyDict_SetItemString(d, "QKMODE", QKMODE);
 
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");
