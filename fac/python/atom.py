@@ -529,7 +529,8 @@ class ATOM:
                 a1 = g
                 b = c[j].name
                 nb = len(b)
-                if (self.nterms[i] > 0 and nb > self.nterms[i]):
+                if (c[j].nrec > 0 and
+                    self.nterms[i] > 0 and nb > self.nterms[i]):
                     nb = self.nterms[i]
                     b = b[:nb]
                 if (c[j].nrec == 0):
