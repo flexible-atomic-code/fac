@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.23 2003/03/30 05:50:35 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.24 2003/04/07 17:07:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -738,6 +738,25 @@ static PyObject *PColFit(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddd)", r, a, d);
 }
 
+static PyObject *PEColFit(PyObject *self, PyObject *args) {
+  int z, nele, is;
+  double e;
+  
+  is = 0;
+  if (!PyArg_ParseTuple(args, "ii|i", &z, &nele, &is)) return NULL;
+  e = EColFit(z, nele, is);
+  return Py_BuildValue("d", e);
+}
+
+static PyObject *PEBeli(PyObject *self, PyObject *args) {
+  int z, nele;
+  double e;
+  
+  if (!PyArg_ParseTuple(args, "ii", &z, &nele)) return NULL;
+  e = EBeli(z, nele);
+  return Py_BuildValue("d", e);
+}
+
 static PyObject *PIonis(PyObject *self, PyObject *args) {
   int z, nele, m;
   double t, total, a, d;
@@ -878,8 +897,10 @@ static struct PyMethodDef crm_methods[] = {
   {"CBeli", PCBeli, METH_VARARGS},
   {"CFit", PCFit, METH_VARARGS},
   {"ColFit", PColFit, METH_VARARGS},
+  {"EColFit", PEColFit, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},
   {"RBeli", PRBeli, METH_VARARGS},
+  {"EBeli", PEBeli, METH_VARARGS},
   {"Recomb", PRecomb, METH_VARARGS},
   {"RRRateH", PRRRateH, METH_VARARGS},
   {"FracAbund", PFracAbund, METH_VARARGS},

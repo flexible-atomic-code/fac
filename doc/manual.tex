@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.1}\xspace}
+\newcommand{\facversion}{{0.9.2}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2701,8 +2701,21 @@ of the recombining ion; when \var{i}$<$0, then its negative value is the true
 index of the recombining state.
 \end{fundesc}
 
+\begin{fundesc}{EBeli}{Z, n}
+Calculate the ionization threshold of ion with nuclear charge \var{Z} and
+number of electrons \var{n}. It returns a double in eV. Data are from aladdin
+data base.
+\end{fundesc}
+
+\begin{fundesc}{EColFit}{Z, n, s}
+Calculate the ionization threshold of ion with nuclear charge \var{Z} and
+number of electrons \var{n} for shell \var{s}. \var{s} has the same meaning as
+in \key{ColFit}. It returns a double in eV. Data are from subroutine
+\key{ColFit}.
+\end{fundesc}
+
 \begin{fundesc}{FracAbund}{Z, Te\opt{im, rm}}
-Caculate the fractional abundance of the charge states for element with
+Calculate the fractional abundance of the charge states for element with
 nuclear charge \var{Z} at temperature \var{Te} for collisionally ionized
 plasmas. The optional arguments \var{im} and \var{rm} specifies the functions
 used for ionization rates and recombination rates respectively. \var{im} is

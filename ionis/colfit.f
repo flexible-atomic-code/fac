@@ -1,3 +1,41 @@
+      subroutine ecolfit(iz, in, is, e)
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c     return the ionization threshold of the shell is.
+c     Input parameters:  
+c     iz - atomic number 
+c     in - number of electrons from 1 to iz 
+c     is - shell number 
+c     output:
+c     e, ionization threshold in eV.
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      integer iz, in, is
+      double precision e
+      common/clion/clion(5,30,30,7)
+
+      e = 0.0
+      if(iz.lt.1.or.iz.gt.30)return
+      if(in.lt.1.or.in.gt.iz)return
+      if(in.lt.5)ismin=1
+      if(in.gt.4.and.in.lt.13)ismin=2
+      if(in.gt.12.and.in.lt.29)ismin=4
+      if(in.gt.28.or.(iz.eq.in.and.iz.gt.20).or.((iz-in).eq.1.and.
+     &(iz.eq.22.or.iz.eq.25.or.iz.eq.26)))ismin=5
+      ismax=ismin+2
+      if(in.lt.3)ismax=1
+      if((in.gt.2.and.in.lt.11).or.(in.gt.12.and.in.lt.19))
+     &ismax=ismin+1
+      if((in.eq.19.and.iz.gt.18.and.iz.lt.21).or.(in.eq.20.
+     &and.iz.eq.20))ismax=ismin+3
+      
+      if (is .eq. 0) then
+         e = clion(1, iz, in, ismax)
+         return
+      endif
+      if (is .gt. ismax .or. is .lt. ismin) return
+      e = clion(1, iz, in, is)
+      return
+      end
+
       subroutine colfit(iz,in,is,t,ca,c)
 * Version 4.
 * January 8, 1997. Minor modification (exp are calculated with
