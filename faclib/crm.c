@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.76 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.77 2004/12/14 18:26:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3650,7 +3650,7 @@ int SetTRRates(int inv) {
   TR_HEADER h;
   TR_RECORD r;
   LBLOCK *ib;
-  double e;
+  double e, gf;
   FILE *f;  
   int swp;
 
@@ -3691,7 +3691,8 @@ int SetTRRates(int inv) {
 	j1 = ion->j[r.upper];
 	j2 = ion->j[r.lower];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
-	TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.strength);
+	gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
+	TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
 	AddRate(ion, ion->tr_rates, &rt, m);
       }
     }
@@ -3762,7 +3763,8 @@ int SetTRRates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.strength);
+	  gf = OscillatorStrength(h.multipole, e, (double)r.strength, NULL);
+	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
 	  AddRate(ion, ion->tr_rates, &rt, m);
 	}
       }

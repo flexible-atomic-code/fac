@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.63 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.64 2004/12/14 18:26:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2575,12 +2575,30 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
+double OscillatorStrength(int m, double e, double s, double *ga) {
+  int m2;
+  double aw, x;
+
+  m2 = 2*abs(m);
+  x = s*s/(m2+1.0);
+  x *= e;
+  m2 -= 2;
+  aw = FINE_STRUCTURE_CONST * e;
+  if (m2) {
+    x *= pow(aw, m2);
+  }
+  if (ga) {
+    *ga = x*2.0*pow(aw,2)*FINE_STRUCTURE_CONST;
+  }  
+  return x;
+}
+  
 int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   TR_HEADER h;
   TR_RECORD r;
   int n, i;
   int nb;
-  float e, a;
+  double e, a, gf;
 
   nb = 0;
   
@@ -2600,13 +2618,13 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
       if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	a = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
-	a *= r.strength/(mem_en_table[r.upper].j + 1.0);
+	gf = OscillatorStrength(h.multipole, e, (double)r.strength, &a);
+	a /= (mem_en_table[r.upper].j + 1.0);
 	a *= RATE_AU;
-	fprintf(f2, "%6d %2d %6d %2d %11.4E %15.8E %15.8E\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %13.6E %13.6E %13.6E\n",
 		r.upper, mem_en_table[r.upper].j,
 		r.lower, mem_en_table[r.lower].j,
-		(e*HARTREE_EV), r.strength, a);
+		(e*HARTREE_EV), gf, a, r.strength);
       } else {
 	fprintf(f2, "%6d %6d %15.8E\n", 
 		r.upper, r.lower, r.strength);
