@@ -7,7 +7,7 @@
       data ind(1)/-1/
       save ind
 
-      r = 0.0;
+      r = 0.0
       if (iz .lt. 2 .or. iz .gt. 28) then
          return
       endif
