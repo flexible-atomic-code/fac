@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.48 2003/04/18 21:11:33 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.49 2003/04/22 16:07:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -187,9 +187,9 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   index[2] = k1;
   index[3] = ko2;
 
-  kp0 = (short **) MultiSet(kappa0_array, index, NULL);
-  kp1 = (short **) MultiSet(kappa1_array, index, NULL);
-  p = (double **) MultiSet(pk_array, index, NULL);
+  kp0 = (short **) MultiSet(kappa0_array, index, NULL, InitPointerData);
+  kp1 = (short **) MultiSet(kappa1_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(pk_array, index, NULL, InitPointerData);
   if (*kp0) {
     type = (*p)[0];
     *nkappa = (*kp0)[0];
@@ -457,7 +457,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[5] = k3;
   
   
-  p = (double **) MultiSet(qk_array, index, NULL);
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
   }   
@@ -630,7 +630,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   index[4] = k2;
   index[5] = k3;
   
-  p = (double **) MultiSet(qk_array, index, NULL);
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
   } 
@@ -1412,16 +1412,16 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   n_usr0 = n_usr;
 
   ArrayInit(&subte, sizeof(double), 128);
-  ArrayAppend(&subte, &emin);
+  ArrayAppend(&subte, &emin, NULL);
   c = 1.0/TE_MIN_MAX;
   if (!e_set || !te_set) {
     e = c*emin;
     while (e < emax) {
-      ArrayAppend(&subte, &e);
+      ArrayAppend(&subte, &e, NULL);
       e *= c;
     }
   }
-  ArrayAppend(&subte, &emax);
+  ArrayAppend(&subte, &emax, NULL);
  
   if (msub) {
     pw_type = 1;

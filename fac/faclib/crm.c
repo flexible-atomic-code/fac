@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.48 2003/03/09 22:10:24 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.49 2003/04/22 16:07:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -247,7 +247,7 @@ int AddIon(int nele, double n, char *pref) {
 
   ion.n = n;
 
-  ArrayAppend(ions, &ion);
+  ArrayAppend(ions, &ion, NULL);
   
   return ions->dim;
   
@@ -324,7 +324,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	blk.rec = rec;
 	blk.irec = t;
 	blk.ncomplex[nc].n = n;
-	blkp = ArrayAppend(blocks, &blk);
+	blkp = ArrayAppend(blocks, &blk, NULL);
 	q = -1;
 	p = rec->imin[t];
 	s = rec->imin[j-1];
@@ -857,7 +857,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
-	      blkp = ArrayAppend(blocks, &blk);
+	      blkp = ArrayAppend(blocks, &blk, NULL);
 	      q = -1;
 	    } else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	      if (blkp) {
@@ -884,7 +884,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
-	      blkp = ArrayAppend(blocks, &blk);
+	      blkp = ArrayAppend(blocks, &blk, NULL);
 	      q = -1;
 	    }
 	    p = r0[i].ilev;
@@ -952,7 +952,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
-	  blkp = ArrayAppend(blocks, &blk);
+	  blkp = ArrayAppend(blocks, &blk, NULL);
 	  q = -1;
 	} else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	  if (blkp) {
@@ -979,7 +979,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
-	  blkp = ArrayAppend(blocks, &blk);
+	  blkp = ArrayAppend(blocks, &blk, NULL);
 	  q = -1;
 	}
 	
@@ -1012,7 +1012,7 @@ int SetBlocks(double ni, char *ifn) {
 	    rec0.imin[0] = imin;
 	    rec0.imax[0] = imax;
 	    rec0.nrec[0] = nrec;
-	    blkp->rec = ArrayAppend(ion->recombined, &rec0);
+	    blkp->rec = ArrayAppend(ion->recombined, &rec0, NULL);
 	    blkp->irec = 0;
 	  }
 	}
@@ -1569,13 +1569,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ce, index, NULL);
+	  d = (double *) MultiSet(&ce, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&cep, index, NULL);
+	    d = (double *) MultiSet(&cep, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1590,13 +1590,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ce, index, NULL);
+	    d = (double *) MultiSet(&ce, index, NULL, InitDoubleData);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&cep, index, NULL);
+	      d = (double *) MultiSet(&cep, index, NULL, InitDoubleData);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1621,13 +1621,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&tr, index, NULL);
+	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&trp, index, NULL);
+	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1642,13 +1642,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&tr, index, NULL);
+	    d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&trp, index, NULL);
+	      d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1673,13 +1673,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&tr, index, NULL);
+	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&trp, index, NULL);
+	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1703,13 +1703,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&rr, index, NULL);
+	  d = (double *) MultiSet(&rr, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&rrp, index, NULL);
+	    d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1724,13 +1724,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&rr, index, NULL);
+	    d = (double *) MultiSet(&rr, index, NULL, InitDoubleData);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&rrp, index, NULL);
+	      d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1754,13 +1754,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ai, index, NULL);
+	  d = (double *) MultiSet(&ai, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&aip, index, NULL);
+	    d = (double *) MultiSet(&aip, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1775,13 +1775,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ai, index, NULL);
+	    d = (double *) MultiSet(&ai, index, NULL, InitDoubleData);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&aip, index, NULL);
+	      d = (double *) MultiSet(&aip, index, NULL, InitDoubleData);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1806,13 +1806,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ci, index, NULL);
+	  d = (double *) MultiSet(&ci, index, NULL, InitDoubleData);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&cip, index, NULL);
+	    d = (double *) MultiSet(&cip, index, NULL, InitDoubleData);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1827,13 +1827,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ci, index, NULL);
+	    d = (double *) MultiSet(&ci, index, NULL, InitDoubleData);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&cip, index, NULL);
+	      d = (double *) MultiSet(&cip, index, NULL, InitDoubleData);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -3110,8 +3110,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       r.energy *= HARTREE_EV;
       if (fmin < 0.0) {
 	if (r.lower == low && r.upper == up) {
-	  ArrayAppend(&sp, &r);
-	  ArrayAppend(&linetype, &(h.type));
+	  ArrayAppend(&sp, &r, NULL);
+	  ArrayAppend(&linetype, &(h.type), NULL);
 	  break;
 	}
       } else {
@@ -3119,8 +3119,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	a = r.energy * r.strength;
 	if (a < smax*fmin) continue;
 	if (a > smax) smax = a;
-	ArrayAppend(&sp, &r);
-	ArrayAppend(&linetype, &(h.type));
+	ArrayAppend(&sp, &r, NULL);
+	ArrayAppend(&linetype, &(h.type), NULL);
       }
     }
     continue;
@@ -3391,8 +3391,8 @@ void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
     brt0.fblock = fb;
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
     ArrayInit(brt0.rates, sizeof(RATE), RATES_BLOCK);
-    ArrayAppend(brt0.rates, r);
-    ArrayAppend(rts, &brt0);
+    ArrayAppend(brt0.rates, r, NULL);
+    ArrayAppend(rts, &brt0, NULL);
   } else {
     if (m) {
       for (i = 0; i < brt->rates->dim; i++) {
@@ -3400,13 +3400,13 @@ void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
 	if (r0->i == r->i && r0->f == r0->f) break;
       }
       if (i == brt->rates->dim) {
-	ArrayAppend(brt->rates, r);
+	ArrayAppend(brt->rates, r, NULL);
       } else {
 	r0->dir += r->dir;
 	r0->inv += r->inv;
       }
     } else {
-      ArrayAppend(brt->rates, r);
+      ArrayAppend(brt->rates, r, NULL);
     }
   }
 }

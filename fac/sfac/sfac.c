@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.33 2003/04/21 02:21:36 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.34 2003/04/22 16:07:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2343,7 +2343,7 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   printf("> ");
   scanf("%d", &i);
   for (i = 0; i < m; i++) {
-    ArraySet(&a, i, &d);
+    ArraySet(&a, i, &d, InitDoubleData);
   }
   printf("> ");
   scanf("%d", &i);
@@ -2364,7 +2364,7 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
       k[0] = i;
       k[1] = j;
       k[2] = 20;	
-      b = (double *) MultiSet(&ma, k, NULL);
+      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData);
       *b = 0.2;
       b = (double *) MultiGet(&ma, k);
     }

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.45 2003/04/20 23:22:28 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.46 2003/04/22 16:07:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -45,6 +45,16 @@ int GetStructTiming(STRUCT_TIMING *t) {
   return 0;
 }
 #endif
+
+static void InitAngzDatum(void *p, int n) {
+  ANGZ_DATUM *d;
+  int i;
+  
+  d = (ANGZ_DATUM *) p;
+  for (i = 0; i < n; i++) {
+    d[i].ns = 0;
+  }
+}
 
 int SetAngZCut(double cut) {
   angz_cut = cut;
@@ -766,7 +776,7 @@ int AddToLevels(int ng, int *kg) {
       lev.igp = NULL;
     }
 
-    if (ArrayAppend(levels, &lev) == NULL) {
+    if (ArrayAppend(levels, &lev, NULL) == NULL) {
       printf("Not enough memory for levels array\n");
       exit(1);
     }
@@ -880,7 +890,7 @@ int AddECorrection(int iref, int ilev, double e, int nmin) {
   c.ilev = ilev;
   c.e = e;
   c.nmin = nmin;
-  ArrayAppend(ecorrections, &c);
+  ArrayAppend(ecorrections, &c, NULL);
   ncorrections += 1;
 
   return 0;
@@ -1389,7 +1399,7 @@ int AngularZMixStates(ANGZ_DATUM **ad,
   index[2] = kp1;
   index[3] = kp2;
 
-  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
+  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL, InitAngzDatum);
   ns = (*ad)->ns;
   if (ns < 0) {
 #ifdef PERFORM_STATISTICS
@@ -1571,7 +1581,7 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad,
   index[1] = kg2;
   index[2] = kp1;
   index[3] = kp2;
-  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
+  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL, InitAngzDatum);
   ns = (*ad)->ns;
   if (ns < 0) {
 #ifdef PERFORM_STATISTICS
@@ -1728,7 +1738,7 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad,
   index[1] = kg2;
   index[2] = kp1;
   index[3] = kp2;
-  *ad = (ANGZ_DATUM *) MultiSet(angzxz_array, index, NULL);
+  *ad = (ANGZ_DATUM *) MultiSet(angzxz_array, index, NULL, InitAngzDatum);
 
   ns = (*ad)->ns;
   if (ns < 0) { 

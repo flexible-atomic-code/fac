@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.13 2003/04/20 23:22:28 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.14 2003/04/22 16:07:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -53,6 +53,16 @@ int GetRecoupleTiming(RECOUPLE_TIMING *t) {
   return 0;
 }
 #endif
+
+static void InitInteractDatum(void *p, int n) {
+  INTERACT_DATUM *d;
+  int i;
+
+  d = (INTERACT_DATUM *) p;
+  for (i = 0; i < n; i++) {
+    d[i].n_shells = 0;
+  }
+}
 
 /* 
 ** FUNCTION:    SetMaxRank
@@ -1480,8 +1490,8 @@ int GetInteract(INTERACT_DATUM **idatum,
     index[1] = kgj;
     index[2] = kci;
     index[3] = kcj;
-    (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells,
-					    index, NULL);
+    (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
+					    NULL, InitInteractDatum);
   }
   if ((*idatum)->n_shells < 0) return -1;
   if ((*idatum)->n_shells > 0) {
