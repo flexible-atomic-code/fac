@@ -312,7 +312,7 @@ class ATOM:
                     k > self.n_shells):
                     ex.terms = ex.terms[:1]
                     ex.name = ex.name[:1]
-                elif (len(ex.terms) == 3 and self.nele > 3):
+                elif (len(ex.terms) == 3 and self.nele > 3 and n0 > 1):
                     if (k > 0):
                         ex.terms = ex.terms[:2]
                         ex.name = ex.name[:2]
@@ -332,7 +332,7 @@ class ATOM:
         k = len(self.ion_complex.cgroup)
         ion = COMPLEX('%s.%d.'%('ion', k))
         ion.set_ionized(n0, base)
-        if (len(ion.terms) == 3 and self.nele > 4):
+        if (len(ion.terms) == 3 and self.nele > 4 and n0 > 1):
             if (ibase == -1 and n0 != self.n_shells):
                 ion.terms = ion.terms[:2]
                 ion.name = ion.name[:2]
