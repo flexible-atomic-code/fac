@@ -2028,8 +2028,10 @@ with \key{RecStates}. The corrections are given in
 units of eV. For the first level in the correction list, the amount is added
 to the energies calculated by FAC, and that level is taken as the reference
 level for all other entries in the list. The correction energies in the list
-\var{e} for these other entries are the desired energies relative to the
-reference level, i.e., they replace the energies calculated by FAC.
+\var{e} for these other entries with \var{ilev}$\ge 0$ are the desired energies
+relative to the reference level, i.e., they replace the energies calculated by
+FAC. However, if \var{ilev}$<0$, then these corrections are also interpreted
+as shifts to be added to the energyies calculated by FAC.
 \end{fundesc}
 
 \begin{fundesc}{DROpen}{g}
