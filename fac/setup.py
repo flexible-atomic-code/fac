@@ -15,7 +15,7 @@ for s in flibs:
             extralink.append(s)
 
 setup(name = "FAC",
-      version = "0.8.8",
+      version = "0.8.9",
       package_dir = {'pfac': 'python'},
       py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
                     'pfac.atom', 'pfac.spm'],
