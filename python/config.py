@@ -79,9 +79,39 @@ def config(*configs, **group):
         for t in configurations:
             fac.AddConfig(_group_name, _closed_shells + t)
 
+
+def expand(c):
+    shells = string.split(c)
+    configurations = distribute(shells[0])
+            
+    if len(shells) > 1:
+        for s in shells[1:]:
+            sconf = distribute(s)
+            new_conf = []
+            for t in configurations:
+                for next_shell in sconf:
+                    new_conf.append(t+next_shell)
+            configurations = new_conf
+
+    return configurations
+
+
+def cname(c):
+    name = ''
+    for a in c:
+        if (a[2] > 0):
+            j = '+'
+        else:
+            j = '-'
+        k = fac.SPECSYMBOL[a[1]]
+        s = '%d%s%s%d '%(a[0],k,j,a[3])
+        name = name+s
+        
+    return name[:-1]
+
+
 # For a given specified shell with wild casts, generate all possible
 # distribution of electrons. eg., '2p2' -> ['2p-2', '2p-1 2p+1', '2p+2']
-
 def distribute(s):
     
     # the first char must be the principle quantum number.

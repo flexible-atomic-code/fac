@@ -21,6 +21,15 @@ typedef struct _LBLOCK_ {
   double *total_rate;
 } LBLOCK;
 
+#define MAXNREC 128
+typedef struct _RECOMBINED_ {
+  int bmin, bmax;
+  int n, n_ext;
+  int imin[MAXNREC];
+  int imax[MAXNREC];
+  int nrec[MAXNREC];
+} RECOMBINED;
+
 typedef struct _ION_ {
   int nlevels;
   int *iblock;
@@ -32,6 +41,7 @@ typedef struct _ION_ {
   ARRAY *ci_rates;
   ARRAY *rr_rates;
   ARRAY *ai_rates;
+  ARRAY *recombined;
   int nele;
   char *dbfiles[NDB];
   double n;
@@ -64,6 +74,12 @@ int AddIon(int nele, double n, char *pref);
 int IonizedIndex(int i, int m);
 int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1, 
 		   int nele, char *ifn);
+void GetRecombined(int *b, int *nrec, char *name);
+void ExtrapolateEN(int i, ION *ion);
+int FindFinalTR(ION *ion, int f, int n1, int n0);
+void ExtrapolateTR(ION *ion);
+void ExtrapolateRR(ION *ion);
+void ExtrapolateAI(ION *ion);
 int SetBlocks(double ni, char *ifn);
 int SetAbund(int nele, double abund);
 int InitBlocks(void);

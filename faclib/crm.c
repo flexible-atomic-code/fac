@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.9 2002/01/29 01:26:28 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.10 2002/01/29 22:01:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -28,7 +28,7 @@ void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipvt,
 
 
 int SetNumSingleBlocks(int n) {
-  n_single_blocks = 256;
+  n_single_blocks = n;
   return 0;
 }
 
@@ -95,6 +95,8 @@ static void FreeIonData(void *p) {
   free(ion->rr_rates);
   ArrayFree(ion->ai_rates, NULL);
   free(ion->ai_rates);
+  ArrayFree(ion->recombined, NULL);
+  free(ion->recombined);
 }
 
 static void FreeBlockData(void *p) {
@@ -167,6 +169,8 @@ int AddIon(int nele, double n, char *pref) {
   ArrayInit(ion.rr_rates, sizeof(RATE), RATES_BLOCK);
   ion.ai_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.ai_rates, sizeof(RATE), RATES_BLOCK);
+  ion.recombined = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(ion.recombined, sizeof(RECOMBINED), 16);
   
   ion.nele = nele;
   m = strlen(pref);
@@ -204,13 +208,227 @@ int AddIon(int nele, double n, char *pref) {
   return ions->dim;
   
 }
+
+void GetRecombined(int *b, int *nrec, char *name) {
+  int i;
   
+  *nrec = 0;
+  i = 0;
+  while (name[i] && name[i] != '+') i++;
+  if (name[i] == '+' && name[i-1] == ' ') {
+    *b = atoi(name);
+    *nrec = atoi(&(name[i+1]));
+  }
+}
+
+void ExtrapolateEN(int iion, ION *ion) {
+  RECOMBINED *rec;
+  LBLOCK blk;
+  int i, j, nr, nlev;
+  int n, n0, n1, nr0;
+  int t, p, q, k;
+  double de;
+
+  nlev = ion->nlevels;
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);    
+    j = rec->n-1;
+    if (j > 0) {
+      n1 = rec->nrec[j];
+      n0 = rec->nrec[j-1]+1;
+      nr = rec->imax[j] - rec->imin[j] + 1;
+      nlev += nr*(n1-n0);
+    }
+  }
+  ion->iblock = (int *) realloc(ion->iblock, sizeof(int)*nlev);
+  ion->ilev = (int *) realloc(ion->ilev, sizeof(int)*nlev);
+  ion->j = (short *) realloc(ion->j, sizeof(short)*nlev);
+  ion->energy = (double *) realloc(ion->energy, sizeof(double)*nlev);
+  
+  nr0 = ion->nlevels;
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    j = rec->n-1;
+    rec->n_ext = rec->n;
+    if (j > 0) {
+      n1 = rec->nrec[j];
+      n0 = rec->nrec[j-1]+1;
+      nr = rec->imax[j] - rec->imin[j] + 1;
+      for (n = n0, t = rec->n; n < n1; n++, t++) {
+	rec->nrec[t] = n;
+	rec->imin[t] = nr0;
+	nr0 += nr;
+	rec->imax[t] = nr0-1;
+	blk.iion = iion;
+	blk.nlevels = nr;
+	blk.n = (double *) malloc(sizeof(double)*nr);
+	blk.n0 = (double *) malloc(sizeof(double)*nr);
+	blk.r = (double *) malloc(sizeof(double)*nr);
+	blk.total_rate = (double *) malloc(sizeof(double)*nr);
+	ArrayAppend(blocks, &blk);
+	q = -1;
+	p = nr0;
+	de = -1.0/(2.0*n*n) + 1.0/(2.0*n1*n1);
+	for (k = rec->imin[j]; k <= rec->imax[j]; k++, p++) {
+	  q++;
+	  ion->iblock[p] = blocks->dim-1;
+	  ion->ilev[p] = q;
+	  ion->j[p] = ion->j[k];
+	  ion->energy[p] = ion->energy[k] + de;
+	}
+      }
+      rec->n_ext = t;
+    }
+  }
+  ion->nlevels = nlev;
+}
+
+int FindFinalTR(ION *ion, int f, int n1, int n0) {
+  RECOMBINED *rec;
+  int i, j, k;
+
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    for (j = 0; j < rec->n; j++) {
+      if (f >= rec->imin[j] && f <= rec->imax[j]) {
+	if (rec->nrec[j] != n1) {
+	  return f;
+	} 
+	for (k = rec->n; k < rec->n_ext; k++) {
+	  if (rec->nrec[k] == n0) {
+	    f = f - rec->imin[j] + rec->imin[k];
+	    return f;
+	  }
+	}
+      }
+    }
+  }
+  return f;
+}
+  
+void ExtrapolateTR(ION *ion) {
+  RECOMBINED *rec;
+  RATE *r, r0;
+  int nr;
+  int n0, n1;
+  int i, j, t, k;
+  int imin, imax;
+  double a, b;
+
+  nr = ion->tr_rates->dim;
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    if (rec->n_ext == rec->n) continue;
+    j = rec->n-1;
+    imin = rec->imin[j];
+    imax = rec->imax[j];
+    n1 = rec->nrec[j];
+    a = (double) n1;
+    a = a*a*a;
+    for (t = 0; t < nr; t++) {
+      r = (RATE *) ArrayGet(ion->tr_rates, t);
+      if (r->i < imin || r->i > imax) continue;
+      for (k = rec->n; k < rec->n_ext; k++) {
+	n0 = rec->nrec[k];
+	r0.i = r->i - imin + rec->imin[k];
+	r0.f = FindFinalTR(ion, r->f, n1, n0);
+	if (r0.f == r->f) {
+	  b = 1.0/((double) n0);
+	  b = b*b*b*a;
+	  r0.dir = b*r->dir;
+	  r0.inv = b*r->inv;
+	} else {
+	  r0.dir = r->dir;
+	  r0.inv = r->inv;
+	}
+	ArrayAppend(ion->tr_rates, &r0);
+      }
+    }
+  }
+}
+
+void ExtrapolateRR(ION *ion) {
+  RECOMBINED *rec;
+  RATE *r, r0;
+  int nr;
+  int n0, n1;
+  int i, j, t, k;
+  int imin, imax;
+  double a, b;
+
+  nr = ion->rr_rates->dim;
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    if (rec->n_ext == rec->n) continue;
+    j = rec->n - 1;
+    imin = rec->imin[j];
+    imax = rec->imax[j];
+    n1 = rec->nrec[j];
+    a = (double) n1;
+    a = a*a*a;
+    for (t = 0; t < nr; t++) {
+      r = (RATE *) ArrayGet(ion->rr_rates, t);
+      if (r->i < imin || r->i > imax) continue;
+      for (k = rec->n; k < rec->n_ext; k++) {
+	n0 = rec->nrec[k];
+	r0.i = r->i - imin + rec->imin[k];
+	r0.f = r->f;
+	b = 1.0/((double) n0);
+	b = b*b*b*a;
+	r0.dir = b*r->dir;
+	r0.inv = b*r->inv;
+	ArrayAppend(ion->rr_rates, &r0);
+      }
+    }
+  }
+}
+
+void ExtrapolateAI(ION *ion) {
+  RECOMBINED *rec;
+  RATE *r, r0;
+  int nr;
+  int n0, n1;
+  int i, j, t, k;
+  int imin, imax;
+  double a, b, e;
+
+  nr = ion->ai_rates->dim;
+  for (i = 0; i < ion->recombined->dim; i++) {
+    rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    if (rec->n_ext == rec->n) continue;
+    j = rec->n - 1;
+    imin = rec->imin[j];
+    imax = rec->imax[j];
+    n1 = rec->nrec[j];
+    a = (double) n1;
+    a = a*a*a;
+    for (t = 0; t < nr; t++) {
+      r = (RATE *) ArrayGet(ion->ai_rates, t);
+      if (r->i < imin || r->i > imax) continue;
+      for (k = rec->n; k < rec->n_ext; k++) {
+	n0 = rec->nrec[k];
+	r0.i = r->i - imin + rec->imin[k];
+	r0.f = r->f;
+	e = ion->energy[r0.i] - ion->energy[r0.f];
+	if (e <= 0.0) continue;
+	b = 1.0/((double) n0);
+	b = b*b*b*a;
+	r0.dir = b*r->dir;
+	r0.inv = b*r->inv;
+	ArrayAppend(ion->ai_rates, &r0);
+      }
+    }
+  }  
+}
+
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
   EN_HEADER h;
   EN_RECORD r, *r0, *r1;
   LBLOCK blk;
+  RECOMBINED *rec, rec0;
+  int bmin, bmax, imin, imax, t, nrec;
   FILE *f;
   int n, i, k, nb, nlevels;
   char *fn;
@@ -412,6 +630,35 @@ int SetBlocks(double ni, char *ifn) {
 	    ArrayAppend(blocks, &blk);
 	    q = -1;
 	  }
+	} else {
+	  if (i == 0) {
+	    GetRecombined(&bmin, &nrec, r.name);
+	    imin = r.ilev;
+	  } else if (i == h.nlevels-1) {
+	    if (nrec > 0) {
+	      GetRecombined(&bmax, &nrec, r.name);
+	      imax = r.ilev;
+	      for (t = 0; t < ion->recombined->dim; t++) {
+		rec = (RECOMBINED *) ArrayGet(ion->recombined, t);
+		if (rec->bmin == bmin && rec->bmax == bmax) {
+		  rec->imin[rec->n] = imin;
+		  rec->imax[rec->n] = imax;
+		  rec->nrec[rec->n] = nrec;
+		  rec->n++;
+		  break;
+		}
+	      }
+	      if (t == ion->recombined->dim) {
+		rec0.n = 1;
+		rec0.bmin = bmin;
+		rec0.bmax = bmax;
+		rec0.imin[0] = imin;
+		rec0.imax[0] = imax;
+		rec0.nrec[0] = nrec;
+		ArrayAppend(ion->recombined, &rec0);
+	      }
+	    }
+	  }
 	}
 	p = r.ilev;
 	q++;
@@ -421,6 +668,7 @@ int SetBlocks(double ni, char *ifn) {
 	ion->energy[p] = r.energy;
       }
     }
+    ExtrapolateEN(k, ion);
     ion1 = ion;
     fclose(f);
   }
@@ -1929,6 +2177,7 @@ int SetTRRates(int inv) {
       }
     }
     fclose(f);
+    ExtrapolateTR(ion);
 
     if (k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_TR-1], "r");
@@ -2125,6 +2374,7 @@ int SetRRRates(int inv) {
       free(params);
     }
     fclose(f);
+    ExtrapolateRR(ion);
   }
   return 0;
 }
@@ -2180,6 +2430,7 @@ int SetAIRates(int inv) {
       }
     }
     fclose(f);
+    ExtrapolateAI(ion);
   }
   return 0;
 }

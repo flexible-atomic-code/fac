@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.18 2002/01/24 03:14:31 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.19 2002/01/29 22:01:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2937,7 +2937,7 @@ static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
   m_recombination = -1;
   m_ionization = -1;
 
-  if (PyDict_Size(keywds) == 0) {
+  if (!keywds || PyDict_Size(keywds) == 0) {
     m = 0;
     if (!PyArg_ParseTuple(args, "|i", &m)) return NULL;
     if (m == 0) {
