@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.25 2003/04/22 16:07:15 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.26 2003/05/14 21:59:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -52,6 +52,20 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
+
+
+static void InitConfigData(void *p, int n) {
+  CONFIG *d;
+  int i;
+
+  d = (CONFIG *) p;
+  for (i = 0; i < n; i++) {
+    d[i].n_shells = 0;
+    d[i].n_csfs = 0;
+    d[i].shells = NULL;
+    d[i].csfs = NULL;
+  }
+}
 
 int SetNStatesPartition(int n) {
   if (n > 0) {
@@ -1518,7 +1532,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
     }
   }
 
-  if (ArrayAppend(clist, cfg, NULL) == NULL) return -1;
+  if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   cfg_groups[k].n_cfgs++;
   return 0;

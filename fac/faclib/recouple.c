@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.14 2003/04/22 16:07:17 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.15 2003/05/14 21:59:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -61,6 +61,7 @@ static void InitInteractDatum(void *p, int n) {
   d = (INTERACT_DATUM *) p;
   for (i = 0; i < n; i++) {
     d[i].n_shells = 0;
+    d[i].bra = NULL;
   }
 }
 
@@ -1232,13 +1233,13 @@ int InteractingShells(INTERACT_DATUM **idatum,
   int n_shells;
 
   s = (*idatum)->s;
-  bra = (*idatum)->bra;
 
   for (i = 0; i < 4; i++) s[i].index = -1;
   /* allocate memory. use the sum of two configs to avoid couting the
      exact size in advance */
   k = ci->n_shells + cj->n_shells;
-  bra = malloc(sizeof(SHELL)*k);
+  (*idatum)->bra = malloc(sizeof(SHELL)*k);
+  bra = (*idatum)->bra;
   s = (*idatum)->s;
   i = 0; 
   j = 0;
