@@ -4,27 +4,32 @@
 #include "global.h"
 #include "angular.h"
 
+/* this specifies a subshell. the subshellMQ value determines
+   its angular momentum */
 typedef struct _RCFP_STATE_ {
-  int state;
-  int n;
-  int nq;
-  int subshellMQ;
+  int state; /* identifier */
+  int n; /* principle quantum number */
+  int nq; /* occupation number */
+  int subshellMQ; /*projection of quasi-spin */
 } RCFP_STATE;
 
 typedef struct _RCFP_TERM_ {
-  int j;
-  int Q;
-  int nu;
-  int subshellJ;
-  int Nr;
+  int j; /* angular momentum of the subshell */
+  int Q; /* quasi-spin */
+  int nu; /* seniority */
+  int subshellJ; /* total angular momentum */
+  int Nr; /* additional quantum numbers */
 } RCFP_TERM;
 
+/* reduced coeff. of fractional parentage. the value is 
+   (-1)^phase * nom/denom */
 typedef struct _REDUCED_COEFF_ {
   int phase;
   int nom;
   int denom;
 } REDUCED_COEFF;
 
+/* data structure for a general coupled operator */
 typedef struct _RCFP_OPERATOR_ {
   int rank;
   int nops;
