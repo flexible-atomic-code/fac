@@ -55,7 +55,7 @@
 	\textbf{Q\arabic{faq}: #1?}\\#2
 	\end{minipage}}
 
-\setcounter{tocdepth}{1}
+\setcounter{tocdepth}{2}
 
 \makeindex
 
@@ -854,7 +854,7 @@ length of the header.
 channel, which does not have specific physical meaning.
 \item[\texttt{int n\_egrid}:] The number of points for the Auger electron
 energy grid. The autoionzation radial integrals are calculated on this grid
-and interpolated to the actuall discrete energies.
+and interpolated to the actual discrete energies.
 \item[\texttt{double *egrid}:] The energy grid. The number of elements is
 given by \texttt{n\_egrid}.
 \end{dbdesc}
@@ -2956,7 +2956,7 @@ errors.}
 optical, etc.) lines}{
 For multiply-charged ions, non-X-ray lines usually result from the transitions
 within the same complex, which usually have large relative uncertainties in
-the calculated wavelengths due to the cacellation. The accuracy for UV and
+the calculated wavelengths and transition rates. The accuracy for UV and
 optical lines from near-neutral ions is also very limited.}
 
 \faq{Are there standard references to FAC}{
@@ -2965,7 +2965,7 @@ drafts have been written, which are included in the FAC distribution. I have
 been trying to find a suitable journal willing to publish
 them. I originally submitted them to Computer Physics Communications
 (CPC). However, the referee and editor complained about the lack of
-documentation and code comments. The documentation has been improving since
+documentation and code comments. The documentation has improved since
 then, the code commenting still needs extensive work, which may not be done
 soon. Therefore, the references are yet to come.}
 
@@ -2974,11 +2974,199 @@ versions}{
 Please contact the author at \textbf{mfgu@space.mit.edu} for bugs and
 suggestions. I maintain a small email address list of people who expressed
 interest in FAC and send release anouncements to them. Let me know if you want
-to be added to the list. If the list ever grows to the point when I can no
-longer put it under my personal address book, we may have to create a true
-mailing list.}
+to be added to this list. If the list ever grows to the point when I can no
+longer put it under my personal address book, we may have to create a
+dedicated mailing list.}
 
 \section{Atomic Structure}
+\faq{How do I specify a bare ion}{
+The bare ion is indicated by a call to \key{fac.Config('', group='b')}, i.e.,
+the first argument of \key{Config} is an empty string.}
+
+\faq{Which configurations should be used as basis for the mean cofiguration
+which optimizes the radial potential}{
+The function \key{fac.OptimizeRadial} accepts a list of configurations, which
+form the basis for the construction of the mean configuration. Usually, the
+most important configurations for which the atomic processes are to be
+calculated should be included. Configurations whose only purpose is to provide
+configuration interaction should excluded. e.g., if one wants to calculate the
+transitions between $1s^2$ and $1s2l$ configurations, but the configuration
+$1s 3l$ is also included in the wavefunction expansion, then $1s^2$ and
+$1s2l$, but not $1s 3l$ configurations should be passed to
+\key{fac.OptimizeRadial} for the construction of mean configuration.}
+
+\faq{Can I use a specific mean configuration to be used in potential
+optimization}{
+The function \key{fac.AvgConfig} may be used to set the mean configuration for
+the potential optimization. In this case, the function
+\key{fac.OptimizeRadial} must be called with no arguments.}
+
+\faq{How do I know what mean configuration is used in the potential
+optimization, If one is not given specificly by \key{AvgConfig}}{
+The function \key{fac.GetPotential} may be called after \key{OptimizeRadial}
+to obtain the mean configuration used, and the resulting radial potential.}
+
+\faq{When calculating ionization or recombination processes, should I use the
+mean configuration for recombined (ionizing) or recombining (ionized) ion}{
+Usually, it does not matter for highly charged ions, and I usually use a
+combination of them, i.e., the number of electrons in the mean configuration
+is fractional. The difference of one more or less electron screening the
+nuclear charge may be substaintial for low-$Z$ elements, in which case, one
+may have to make a decision by comparing the results to experimental values or
+other theoretical works.}
+
+\faq{How do I determine which configurations should be interacting}{
+This depends on the computer resource available, and the desired accuracy. The
+dimension of the Hamiltonian matrix increases very rapidly as the number of
+interacting configurations grows. The convergence with respect to the
+configuration interaction is usually slow. For applications which FAC is
+primirily designed for, one typically inlcudes only configurations within the
+same complex, except for some low-lying configurations.}
+
+\faq{What relativistic effects are included}{
+The standard Coulomn-Dirac Hamiltonian is used in FAC, which means that the
+spin-orbit interaction, mass-effect and other leading relativistic effects are
+fully treated. However, higher-order QED effects, such as retardation and
+recoil are not implemented. This results in significant errors for very
+high-$Z$ elements. The inclusion of these effects through the generalized
+Breit interaction is planned.}
+
+\faq{Why the transition rate between two specific states is not in the output
+file, although it should have been calculated}{
+Not every calculated transition rate are output. Some weak transitions are
+discarded to avoid very large files. A small number, which may be set by the
+function \key{fac.SetTransitionCut}, controlls this behavior. If the
+transition rate of $2\to 1$ devided by the total decay rate of state 2 is less
+than this number, this rate is not output. The default for this number is
+$10^{-4}$.}
+
+\section{Collisional Excitation}
+\faq{Why is there multiple data blocks in the output corresponding to a single
+call of \key{CETable} sometimes}{
+Sometimes, the transition array corresponding to a given call to \key{CETable}
+include transitions with a wide range of excitation energies. This typically
+happens for transitions within a single complex or transitions between more
+than 2 complexes are mixed together in one call of \key{CETable} (which should
+generally be avoided). Since the excitation radial integrals are only
+calculated on a few-point transition energy grid, it is undesirable to have a
+very wide range in the actual transition energies. \key{CETable} avoid this by
+subdivide the transitions in groups. Within each group, the transition
+energies does not vary by more than a factor of 5. A different transition
+energy grid and collision energy grid are used for different groups, and
+therefore, corresponding to different data blocks in the output.}
+
+\faq{Why is the default \key{QKMODE} for excitation is \key{EXACT}, not
+\key{FIT}}{
+It used to be in \key{FIT} mode. However, the fitting formulae sometimes fail
+to reproduce the calculated collision strengths. After playing with different
+fitting formulae for a while, I decided that the user should do the fitting
+(if one is desired) on the case by case basis. The function \key{SetCEQkMode}
+may be used to specify a different \key{QKMODE}.}
+
+\faq{Can I use a different collision energy grid}{
+A collision energy grid in terms of the energy of the scattered electron is
+automatically constructed if one is not specified prior to calling
+\key{CETable}. One may use the function \key{SetCEGrid} to specify a different
+grid. Or one may use \key{SetUsrCEGrid} to have a user grid different from the
+grid on which the collision strengths are calculated, and use
+\key{INTERPOLATE} mode for the \key{QKMODE}.}
+
+\section{Photoionization and Radiative Recombination}
+\faq{When can I use the function \key{RecStates} to construct the
+recombined states instead of specifying their configurations by \key{Config}}{
+The function\key{RecStates} can only be used if the free electron is captured
+to an empty orbital.}
+
+\faq{Why is the bound-free oscillator strength differ from some other
+theoretical calculation by a constant factor}{
+The bound-free differential oscillator strengths calculated by FAC have units
+of Hartree$^{-1}$. Also the values depend on the normalization of continuum
+orbitals. It is therefore possible that they differ from other theorectial
+calculations by a constant factor. One should always use the formula in this
+manual or the accompanying papers to convert them to photoionization or
+radiative recombination cross sections.}
+
+\faq{Can I use only the fitting formula and ignore the tabulated the $gf$
+values}{
+The fitting formula and the parameters given for the bound-free oscillator
+strengths is only valid at high energies (beyond the largest energy of the
+photo-electron energy grid). This means that the $gf$ values at energies
+within the photo-electron energy grid should be calculated by interpolation
+instead of the fitting formula. However, this is often only necessary for the
+ionization of valence shells of near neutral ions and atoms, since only in
+these cases, the near threashold behavior of the $gf$ values differ from the
+fitting formula significantly.}
+
+\section{Autoionization and Dielectronic Recombination}{
+\faq{Do I have to use \key{DRTable} to calculate dielectronic recombination
+rates}{
+In the independent process, isolated resonance approximations adopted by FAC,
+dielectronic recomination is a two-step process comprised of dielectronic
+capture and radiative decay. The function \key{DRTable} simply combines the
+work of \key{AITable} and \key{TransitionTable}. One may use the later two
+functions and calculate the dielectronic recombination rates from their
+results.}
+
+\faq{What does the channel number in the call to \key{AITable} or
+\key{DRTable} mean}{
+It does not mean anything. It is simply an identifier which may be useful
+sometimes to tag a certain autoionization channel.}
+
+\faq{How do I improve the resonance energies of low-lying $\Delta n = 0$
+resonances}{
+The energyies of low-lying $\Delta n = 0$ resonances can not the calculated
+accurately. This greatly reduces the reliability of the resulting dielectronic
+recombination rates. In FAC, there is a method to improve the accuracy of
+these energies by adjusting the core transition energies according to the
+experimental values. The function \key{CorrectEnergy} is used to modify the
+calculated energy levels by specified amount.}
+
+\faq{Why is it advised to make seperate calls to \key{AITable} for different
+bound or free state complexes}{
+The autoionization radial integrals are only calculated for a few free
+electron energies. The actuall values are interpolated from them. This only
+works well if the the free electron energy after autoionization does not vary
+widely. Therefore, one should avoid calling \key{AITable} with bound or free
+states in different complexes. e.g., KLL and KLM resonances should be
+calculated with two seperate calls to \key{AITable}.}
+
+\section{Collisional Ionization}
+\faq{Why are FAC ionization cross sections calculated with \key{BED} mode
+usually much smaller at near threshold energies as compared with
+distorted-wave calculations}{
+When using \key{BED} mode to calculate the ionization radial integrals, the
+total ionization cross sections are scaled by a factor $E/(E+I)$, where $E$ is
+the energy of incident electron, and $I$ is the ionization threshold
+energy. The result of this scalling is usually desirable as distorted-wave
+method overestimates the near threshold cross sections.}
+
+\faq{Why is the \key{DW} mode so slow as compared with \key{BED} and \key{CB}
+modes}{
+In the \key{DW} mode, the ionization radial integrals are calculated by
+summing up partial wave contributions. This is a timing consuming process as
+now there are two continuum electrons involved. In the \key{CB} mode, the
+radial integrals are simply looked up in a table, is therefore the fastest
+method. In the \key{BED} mode, the radial integrals are calculated using the
+bound-free differential oscillator strengths, which can be computed much
+faster than the \key{DW} ionization radial integrals.}
+
+\section{Collisional Radiative Model}
+\faq{What kinds of electron energy distributions are built in the \mod{crm}
+module}{
+Currently, the Maxwellian and Gaussian energy distributions are supported for
+electrons. The Gaussian distribution is meant to simulate a monoenergetic
+electron beam with finite energy width.}
+
+\faq{Are photoionization and photo-excitation supported}{
+A power law ionization continuum can be used for the photoionization and
+photo-excitation sources. However, the radiative transfer effects are not
+implemented.}
+
+\faq{How can I add more electron energy and/or photon energy distributions}{
+Take a look at the C header and source files \texttt{faclib/rates.h} and
+\texttt{faclib/rates.c}, and follow the implementation of built-in
+distributions. The FAC package must be recompiled and relink for added
+distributions to work.}
 
 \bibliographystyle{plainapj}
 \bibliography{papers/facref}
