@@ -7,7 +7,7 @@
 #include <time.h>
 
 /** The tabulated ln(n!) goes up to n = MAX_FACTORIAL - 1 **/
-#define MAX_FACTORIAL 500
+#define MAX_FACTORIAL 1000
 
 double ln_factorial[MAX_FACTORIAL];
 

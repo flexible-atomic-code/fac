@@ -1105,7 +1105,7 @@ int DROpen(int n, int *nlev, int **ops) {
   double e0, e, z;
 
   e0 = GetLevel(0)->energy;
-  z = GetResidualZ(1);
+  z = GetResidualZ();
   z = z*z/2.0;
 
   (*ops) = malloc(sizeof(int)*n);

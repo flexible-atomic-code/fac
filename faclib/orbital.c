@@ -772,18 +772,22 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
   }
 
   i1 += 5;
-  if (p[i2-1] > p[i2]) {
-    for (i = i2-1; i > i1; i--) {
-      if (p[i-1] <= p[i]) break;
-    }
+  if (e > 0.0) {
+    *k2 = i2-2;
+    if (IsOdd(*k2)) (*k2)--;
   } else {
-    for (i = i2-1; i > i1; i--) {
-      if (p[i-1] >= p[i]) break;
+    if (p[i2-1] > p[i2]) {
+      for (i = i2-1; i > i1; i--) {
+	if (p[i-1] <= p[i]) break;
+      }
+    } else {
+      for (i = i2-1; i > i1; i--) {
+	if (p[i-1] >= p[i]) break;
+      }
     }
+    if (i == i2-1) *k2 = i-1;
+    else *k2 = i;
   }
-  if (i == i2-1) *k2 = i-1;
-  else *k2 = i;
-  if (e > 0 && IsOdd(*k2)) (*k2)--;
  
   return nodes;
 }
