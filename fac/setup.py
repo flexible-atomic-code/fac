@@ -29,8 +29,8 @@ elif (platform == 'sunos'):
 elif (platform == 'darwi'):
       fortranlib = ['f2c']
       fflags = '-O -c -fno-common'
-      cflags = '-O -c -no-cpp-precompile -fno-common'
-      ldflags = '-L/sw/lib'
+      cflags = '-O -c -no-cpp-precomp -fno-common'
+      ldflags = ''
       cc = 'cc'
       fc = 'f77'
 
