@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.75 2004/11/02 05:54:31 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.76 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4218,6 +4218,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  r1.ai = r->dir;
 	  r1.total_rate = blk1->total_rate[p];
 	  if (mode == 0) {
+	    r1.etrans = 0.0;
 	    r1.flev = -1;
 	    r1.fbase = -1;
 	    r1.br = blk1->r[p];
@@ -4234,6 +4235,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
 		if (rp->i != r1.ilev) continue;
+		r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
 		r1.flev = rp->f;
 		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
@@ -4252,6 +4254,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
 		rp = (RATE *) ArrayGet(brtsp->rates, mp);
 		if (rp->i != r1.ilev || !(rp->dir)) continue;
+		r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
 		r1.flev = rp->f;
 		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;

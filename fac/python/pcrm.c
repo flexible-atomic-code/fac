@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.38 2004/01/17 19:37:49 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.39 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -600,7 +600,7 @@ static PyObject *PPrintTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  v = 0;
+  v = 1;
   if (!PyArg_ParseTuple(args, "ss|i", &fn1, &fn2, &v)) return NULL;
   PrintTable(fn1, fn2, v);
 
@@ -1011,12 +1011,25 @@ static PyObject *PDumpRates(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PIonDensity(PyObject *self, PyObject *args) {
+  char *fn;
+  double d;
+  int k;
+
+  if (!PyArg_ParseTuple(args, "si", &fn, &k)) return NULL;
+  
+  d = IonDensity(fn, k);
+  
+  return Py_BuildValue("d", d);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
+  {"IonDensity", PIonDensity, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},

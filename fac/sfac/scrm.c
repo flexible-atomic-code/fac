@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.23 2004/01/17 19:37:49 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.24 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -403,7 +403,7 @@ static int PPrintTable(int argc, char *argv[], int argt[],
   if (argc != 2 && argc != 3) return -1;
   if (argt[0] != STRING || argt[1] != STRING) return -1;
   
-  v = 0;
+  v = 1;
   if (argc == 3) {
     if (argt[2] != NUMBER) return -1;
     v = atoi(argv[2]);

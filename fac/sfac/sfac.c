@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.67 2004/07/26 17:26:48 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.68 2004/12/08 22:45:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1186,6 +1186,30 @@ static int PReinit(int argc, char *argv[], int argt[],
   if (m_config == 0) {
     _closed_shells[0] = '\0';
   }
+
+  return 0;
+}
+  
+static int PRRMultipole(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nlow, *low, nup, *up, m;
+  
+  m = -1;
+  if (argc != 3 && argc != 4) return -1;
+  if (argt[0] != STRING) return -1;
+
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) return -1;
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) return -1;
+  if (argc == 4) {
+    if (argt[3] != NUMBER) return -1;
+    m = atoi(argv[3]);
+  }
+  SaveRRMultipole(nlow, low, nup, up, argv[0], m);
+
+  free(low);
+  free(up);
 
   return 0;
 }
@@ -3304,6 +3328,7 @@ static METHOD methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
