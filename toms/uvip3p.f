@@ -66,6 +66,11 @@ C Error check
    11 CONTINUE
 
 C Branches off special cases.
+C Take calre of the linear case
+      IF (ND .GE. 3 .AND. NP .EQ. 1) GOTO 30
+C Take Care of the quadratic interpolation case.
+      IF (ND .GE. 4 .AND. NP .EQ. 2) GOTO 30
+C Now for higher polynomials.
       IF (ND.LE.4)   GO TO 50
 C General case  --  Five data points of more
 C Calculates some local variables.
@@ -110,13 +115,19 @@ C cf. Equation (8)
             IINTPV=IINT
             X0=XD(1)
             X1=XD(2)-X0
-            X2=XD(3)-X0
-            X3=XD(4)-X0
             Y0=YD(1)
             Y1=YD(2)-Y0
-            Y2=YD(3)-Y0
-            Y3=YD(4)-Y0
-            IF (NP .EQ. 2) THEN
+            IF (NP .GE. 2) THEN
+               X2=XD(3)-X0
+               Y2=YD(3)-Y0
+               IF (NP .GE. 3) THEN
+                  Y3=YD(4)-Y0    
+                  X3=XD(4)-X0
+               ENDIF
+            ENDIF
+            IF (NP .EQ. 1) THEN
+               A1 = Y1/X1
+            ELSE IF (NP .EQ. 2) THEN
                DLT = X1*X2*(X2-X1)
                A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT
             ELSE
@@ -140,15 +151,21 @@ C cf. Equation (8)
             IINTPV=IINT
             X0=XD(ND)
             X1=XD(ND-1)-X0
-            X2=XD(ND-2)-X0
-            X3=XD(ND-3)-X0
             Y0=YD(ND)
             Y1=YD(ND-1)-Y0
-            Y2=YD(ND-2)-Y0
-            Y3=YD(ND-3)-Y0
-            IF (NP .EQ. 2) THEN
+            IF (NP .GE. 1) THEN
+               X2=XD(ND-2)-X0
+               Y2=YD(ND-2)-Y0
+               IF (NP .GE. 2) THEN
+                  X3=XD(ND-3)-X0
+                  Y3=YD(ND-3)-Y0
+               ENDIF
+            ENDIF
+            IF (NP .EQ. 1) THEN
+               A1 = Y1/X1             
+            ELSE IF (NP .EQ. 2) THEN
                DLT = X1*X2*(X2-X1)
-               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT               
+               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT  
             ELSE
                DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
                A1=(((X2*X3)**2)*(X3-X2)*Y1
@@ -160,8 +177,8 @@ C Evaluates the YI value.
           YI(II)=Y0+A1*(XII-X0)
 C End of Subcase 2
         ELSE
-C ADD QUADRATIC INTERPOLATION WHEN NP=1,2, WHICH ONLY 
-C WORKS IF ND > 4      
+C ADD QUADRATIC INTERPOLATION WHEN NP=2, WHICH ONLY 
+C WORKS IF ND >= 4
            IF (NP .EQ. 2) THEN
               IF (IINT .NE. IINTPV) THEN
                  IINTPV = IINT
@@ -212,6 +229,21 @@ C WORKS IF ND > 4
                  XX = XI(II)-X00
                  YI(II) = 0.5*(YI(II) + Y00+XX*(A11+XX*A22))
               ENDIF
+              GOTO 39
+           ENDIF
+
+C Here is linear interpolation when NP=1
+           IF (NP .EQ. 1) THEN
+              IF (IINT .NE. IINTPV) THEN
+                 IINTPV = IINT
+                 X0 = XD(IINT)
+                 Y0 = YD(IINT)
+                 X1 = XD(IINT+1)-X0
+                 Y1 = YD(IINT+1)-Y0
+                 A1 = Y1/X1
+              ENDIF
+              XX = XI(II)-X0
+              YI(II) = Y0 + A1*XX
               GOTO 39
            ENDIF
 
@@ -387,20 +419,20 @@ C End of Special Case 1
       RETURN
 C Special Case 2  --  Three data points
 C (Quadratic interpolation and linear extrapolation)
-   70 DLT=X1*X2*(X2-X1)
+ 70   DLT=X1*X2*(X2-X1)
       A1=(X2*X2*Y1-X1*X1*Y2)/DLT
       A2=(X1*Y2-X2*Y1)/DLT
       A12=2.0*A2*X2+A1
       DO 71  II=1,NI
-        XX=XI(II)-X0
-        IF (XX.LE.0.0)  THEN
-          YI(II)=Y0+A1*XX
-        ELSE IF (XX.LT.X2) THEN
-          YI(II)=Y0+XX*(A1+XX*A2)
-        ELSE
-          YI(II)=Y0+Y2+A12*(XX-X2)
-        END IF
-   71 CONTINUE
+         XX=XI(II)-X0
+         IF (XX.LE.0.0)  THEN
+            YI(II)=Y0+A1*XX
+         ELSE IF (XX.LT.X2) THEN
+            YI(II)=Y0+XX*(A1+XX*A2)
+         ELSE
+            YI(II)=Y0+Y2+A12*(XX-X2)
+         END IF
+ 71   CONTINUE
 C End of Special Case 2
       RETURN
 C Special Case 3  --  Four data points
