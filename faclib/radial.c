@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.54 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.55 2002/09/04 13:27:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -504,7 +504,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	} else {
 	  if (!frozen[i]) {
 	    orb_old.energy = orb->energy; 
-	    free(orb->wfun);
+	    if (orb->wfun) free(orb->wfun);
 	    no_old = 0;
 	  } else {
 	    continue;
@@ -1054,6 +1054,14 @@ int ResidualPotential(double *s, int k0, int k1) {
   int index[2];
   double *p, z;
 
+  orb1 = GetOrbitalSolved(k0);
+  orb2 = GetOrbitalSolved(k1);
+  if (!orb1 || !orb2) return -1;
+  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+    *s = 0.0;
+    return 0;
+  }
+
   if (k0 > k1) {
     index[0] = k1;
     index[1] = k0;
@@ -1069,9 +1077,6 @@ int ResidualPotential(double *s, int k0, int k1) {
   } 
 
   *s = 0.0;
-  orb1 = GetOrbitalSolved(k0);
-  orb2 = GetOrbitalSolved(k1);
-  if (!orb1 || !orb2) return -1;
  
   for (i = 0; i < MAX_POINTS; i++) {
     z = potential->U[i];
@@ -1092,32 +1097,40 @@ double RadialMoments(int m, int k1, int k2) {
   int kl1, kl2;
   int nh, klh;
 
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
+  
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
   n1 = orb1->n;
   n2 = orb2->n;
-  if (n1 == n2 && n1 >= GetNMax()) {
-    return 0.0;
-  }
-  if (m == 1 && n1 > 0 && n2 > 0) {
-    kl1 = orb1->kappa;
-    kl2 = orb2->kappa;
-    kl1 = GetLFromKappa(kl1);
-    kl2 = GetLFromKappa(kl2);
-    kl1 /= 2;
-    kl2 /= 2;
-    
-    GetHydrogenicNL(&nh, &klh);
-    if ((orb1->n >= nh && orb2->n >= nh) ||
-	(kl1 >= klh && kl2 >= klh)) {
-      z = GetResidualZ();
-      if (n1 < n2) {
-	r = HydrogenicDipole(z, n1, kl1, n2, kl2);
-      } else {
-	r = HydrogenicDipole(z, n2, kl2, n1, kl1);
+  kl1 = orb1->kappa;
+  kl2 = orb2->kappa;
+  kl1 = GetLFromKappa(kl1);
+  kl2 = GetLFromKappa(kl2);
+  kl1 /= 2;
+  kl2 /= 2;	
+
+  GetHydrogenicNL(&nh, &klh, NULL, NULL);
+
+  if (n1 > 0 && n2 > 0) {
+    if ((n1 > nh && n2 > nh) || 
+	(kl1 >= klh && kl2 >= klh) ||
+	orb1->wfun == NULL || 
+	orb2->wfun == NULL) {
+      if (m == 1) {
+	z = GetResidualZ();
+	if (n1 < n2) {
+	  r = HydrogenicDipole(z, n1, kl1, n2, kl2);
+	  return r;
+	} else if (n1 > n2) {
+	  r = HydrogenicDipole(z, n2, kl2, n1, kl1);
+	  return r;
+	}
       }
-      return r;
     }
+  }
+
+  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+    return 0.0;
   }
 
   if (m >= 0) {
@@ -1139,9 +1152,6 @@ double RadialMoments(int m, int k1, int k2) {
   if (*q) {
     return *q;
   } 
-  
-  orb1 = GetOrbitalSolved(k1);
-  orb2 = GetOrbitalSolved(k2);
 
   npts = MAX_POINTS-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
@@ -1266,6 +1276,14 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     index[3] = k1;
     orb1 = GetOrbitalSolved(k2);
     orb2 = GetOrbitalSolved(k1);
+  }
+
+  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+    if (m == -1) {
+      return MultipoleRadialNR(m, k1, k2, gauge);
+    } else {
+      return 0.0;
+    }
   }
   
   ef = Max(orb1->energy, orb2->energy);  
@@ -1445,6 +1463,14 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
   }
 
   *p = (double *) malloc(sizeof(double)*nk);
+
+  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+    for (t = 0; t < nk; t++) {
+      (*p)[t] = 0.0;
+    }
+    return *p;
+  }
+
   n = 4;
   jy = 1;
   p1 = Large(orb1);
@@ -1513,6 +1539,14 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   orb1 = GetOrbitalSolved(k1);
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
+  
+  if (orb0->wfun == NULL || orb1->wfun == NULL ||
+      orb2->wfun == NULL || orb3->wfun == NULL) {
+    if (sd) *sd = 0.0;
+    if (se) *se = 0.0;
+    return 0;
+  }
+
   kl0 = GetLFromKappa(orb0->kappa);
   kl1 = GetLFromKappa(orb1->kappa);
   kl2 = GetLFromKappa(orb2->kappa);

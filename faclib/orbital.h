@@ -3,6 +3,7 @@
 
 #include "global.h"
 #include "nucleus.h"
+#include "coulomb.h"
 
 typedef struct _POTENTIAL_ {
   int flag;

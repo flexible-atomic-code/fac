@@ -7,14 +7,16 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.13 2002/06/05 13:52:42 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.14 2002/09/04 13:27:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-static int n_hydrogenic;
-static int kl_hydrogenic;
+static int n_hydrogenic = 10;
+static int kl_hydrogenic = 8;
+static int n_hydrogenic_max = 128;
+static int kl_hydrogenic_max = 20;
 static ARRAY *dipole_array;
 
 static int _ncb = 0;
@@ -31,18 +33,28 @@ double argam_(double *x, double *y);
 void acofz1_(double *, double *, int *, int *, double *, 
 	     double *, int *, int *);
 
-void SetHydrogenicNL(int n, int kl) {
+void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
-  else n_hydrogenic = 6;
+  else n_hydrogenic = 10;
   if (kl >= 0) kl_hydrogenic = kl;
-  else kl_hydrogenic = 5;
+  else kl_hydrogenic = 8;
+  if (nm > 0) n_hydrogenic = nm;
+  else n_hydrogenic_max = 128;
+  if (klm >= 0) kl_hydrogenic = klm;
+  else kl_hydrogenic_max = 20;
+  if (n_hydrogenic_max < n_hydrogenic) 
+    n_hydrogenic_max = n_hydrogenic;
+  if (kl_hydrogenic_max < kl_hydrogenic) 
+    kl_hydrogenic_max = kl_hydrogenic;
 }
 
-void GetHydrogenicNL(int *n, int *kl) {
+void GetHydrogenicNL(int *n, int *kl, int *nm, int *klm) {
   if (n) *n = n_hydrogenic;
   if (kl) *kl = kl_hydrogenic;
+  if (nm) *nm = n_hydrogenic_max;
+  if (klm) *klm = kl_hydrogenic_max;
 }
-
+  
 double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
   double anc, am;
   double z0 = 1.0;
@@ -476,7 +488,7 @@ int InitCoulomb(void) {
     }
   }
 
-  SetHydrogenicNL(-1, -1);
+  SetHydrogenicNL(-1, -1, -1, -1);
 
   dipole_array = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(dipole_array, sizeof(double *), 10);

@@ -1,13 +1,11 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.51 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.52 2002/09/04 13:27:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
-
-#define NPARAMS 3
 
 static int qk_mode;
 static double qk_fit_tolerance;
@@ -36,6 +34,8 @@ static double log_te[MAXNTE];
 
 static MULTI *pk_array;
 static MULTI *qk_array;
+
+#define NPARAMS 3
 static ARRAY *hyd_qk_array;
 
 static struct {
@@ -372,7 +372,8 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
   return 0;
 }
 
-void RRRadialQkHydrogenicParams(int np, double *p, int n, int kl) {
+void RRRadialQkHydrogenicParams(int np, double *p, 
+				double z0, int n, int kl) {
 #define NNE 12
   double **qk;
   double *t;
@@ -436,8 +437,7 @@ void RRRadialQkHydrogenicParams(int np, double *p, int n, int kl) {
   }
 
   t = (*qk) + kl*np;
-  z = GetResidualZ();
-  p[0] = t[0]/(z*z);
+  p[0] = t[0]/(z0*z0);
   for (i = 1; i < np; i++) {
     p[i] = t[i];
   }
@@ -486,6 +486,43 @@ void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx,
   }
 }
 
+double PICrossH(double z, int n0, int kl0, double e, int os) {
+  double hp[NPARAMS], eth;
+  double x, logx, r;
+
+  eth = 0.5*z*z/(n0*n0);
+  if (e < eth) return 0.0;
+  RRRadialQkHydrogenicParams(NPARAMS, hp, z, n0, kl0);
+  x = e/eth;
+  logx = log(x);
+  RRRadialQkFromFit(NPARAMS, hp, 1, &x, &logx, &r, NULL, 0, &kl0);
+  r *= x;
+  if (os) return r;
+  else {
+    r *= 2.0*PI*FINE_STRUCTURE_CONST*AREA_AU20;
+    return r;
+  }
+}
+
+double RRCrossH(double z, int n0, int kl0, double e) {
+  double hp[NPARAMS], eth;
+  double x, logx, r;
+  
+  eth = 0.5*z*z/(n0*n0);
+  RRRadialQkHydrogenicParams(NPARAMS, hp, z, n0, kl0);
+  x = 1.0 + e/eth;
+  logx = log(x);
+  RRRadialQkFromFit(NPARAMS, hp, 1, &x, &logx, &r, NULL, 0, &kl0);
+  r *= x;
+  r *= 2.0*PI*FINE_STRUCTURE_CONST*AREA_AU20;
+  r *= 2.0*(2.0*kl0 + 1.0);
+  x = FINE_STRUCTURE_CONST*(e+eth);
+  x = x*x;
+  r *= x/(2.0*e);
+  
+  return r;
+}
+  
 int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int index[3], k, nqk;
   double **p, *qk, tq[MAXNE], sig[MAXNE];
@@ -511,9 +548,10 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
     log_xegrid[ie] = log(xegrid[ie]);
   }
 
-  GetHydrogenicNL(&nh, &klh);
+  GetHydrogenicNL(&nh, &klh, NULL, NULL);
   if (m == -1) {
-    RRRadialQkHydrogenicParams(NPARAMS, hparams, orb->n, klb0);
+    r0 = GetResidualZ();
+    RRRadialQkHydrogenicParams(NPARAMS, hparams, r0, orb->n, klb0);
     RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
 		      xegrid, log_xegrid, tq0, NULL, 0, &klb0);
     if (orb->n >= nh || klb0 >= klh) {
@@ -706,7 +744,8 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     }
   }
   if (qk_mode == QK_FIT) {
-    RRRadialQkHydrogenicParams(NPARAMS, rqc, nq, nkl);
+    a = GetResidualZ();
+    RRRadialQkHydrogenicParams(NPARAMS, rqc, a, nq, nkl);
     for (ie = 0; ie < n_egrid; ie++) {
       xegrid[ie] = 1.0 + egrid[ie]/eb0;
       log_xegrid[ie] = log(xegrid[ie]);

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.32 2002/08/28 21:41:44 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.33 2002/09/04 13:27:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1248,31 +1248,48 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 
 int GetBasisTable(char *fn) {
   FILE *f;
-  int i, p, j, k, nsym;
+  int i, p, j, k, si, nsym;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   ARRAY *st;
   STATE *s;
+  LEVEL *lev;
   SYMMETRY *sym;
 
   f = fopen(fn, "w");
   if (!f) return -1;
 
   nsym = MAX_SYMMETRIES;
+  fprintf(f, "============Basis Table===================\n");
   for (i = 0; i < nsym; i++) {
     sym = GetSymmetry(i);
     DecodePJ(i, &p, &j);
     st = &(sym->states);
-    fprintf(f, "%d: J = %d, Parity = %d\n-------------------\n", i, j, p);
+    if (sym->n_states <= 0) continue;
+    fprintf(f, "%2d: J = %2d, Parity = %2d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
       ConstructLevelName(name, sname, NULL, NULL, s);
-      fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
+      fprintf(f, "%3d %3d %3d %3d   %-20s %-50s\n",
 	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }
     fprintf(f, "\n");
   }
-  
+
+  fprintf(f, "============Mixing Coefficients===================\n");
+  for (i = 0; i < n_levels; i++) {
+    lev = GetLevel(i);
+    sym = GetSymmetry(lev->pj);
+    DecodePJ(lev->pj, &p, &j);
+    for (k = 0; k < lev->n_basis; k++) {
+      si = lev->basis[k];
+      s = (STATE *) ArrayGet(&(sym->states), si);
+      fprintf(f, "%6d   %2d %2d   %3d %3d %3d %3d   %15.8E\n", 
+	      i, p, j, si, s->kgroup, s->kcfg, s->kstate, lev->mixing[i]);
+    }
+    fprintf(f, "\n");
+  }
+      
   fclose(f);
   return 0;
 }

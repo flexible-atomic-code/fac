@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.23 2002/08/28 21:41:45 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.24 2002/09/04 13:27:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1574,16 +1574,26 @@ static int PSetOptimizeControl(int argc, char *argv[], int argt[],
 
 static int PSetHydrogenicNL(int argc, char *argv[], int argt[], 
 			    ARRAY *variables){
-  int n, k;
+  int n, k, nm, km;
   
   n = -1;
   k = -1;
+  nm = -1;
+  km = -1;
 
   if (argc > 0) {
     n = atoi(argv[0]);
-    if (argc > 1) k = atoi(argv[1]);
+    if (argc > 1) {
+      k = atoi(argv[1]);
+      if (argc > 2) {
+	nm = atoi(argv[2]);
+	if (argc > 3) {
+	  km = atoi(argv[3]);
+	}
+      }
+    }
   }
-  SetHydrogenicNL(n, k);
+  SetHydrogenicNL(n, k, nm, km);
 
   return 0;
 }  

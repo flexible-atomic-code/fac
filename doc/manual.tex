@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.0}\xspace}
+\newcommand{\facversion}{{0.8.1}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -1855,7 +1855,8 @@ generate the mean configuration automatically.
 \end{fundesc}
 
 \begin{fundesc}{BasisTable}{fn}
-Print out a table of basis wavefunctions in the file \var{fn}.
+Print out a table of basis wavefunctions and mixing coefficients in the file
+\var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{CETable}{fn, low, up}
@@ -2045,6 +2046,14 @@ group when generating the mean configuration. If only \var{g} is present, each
 configuration group is given an equal weight.
 \end{fundesc}
 
+\begin{fundesc}{PICrossH}{Z, E, n, l\opt{, m}}
+Calculate the photionization cross section of H-like ion with nuclear charge
+\var{Z} at photon energy \var{E}, for the non-relativisitc subshell
+\var{nl}. The result is in unit of $10^{-20}$ cm$^2$. If the optional
+parameter \var{m} is not 0, then the differential oscillator strength is
+returned instead of the cross sections.
+\end{fundesc}
+
 \begin{fundesc}{Print}{args}
 Print out the string representation of \var{args}. This function exists to
 asist the conversion to SFAC interface, since Python's \key{print} statement
@@ -2056,15 +2065,6 @@ Convert the binary database file \var{fnb} to the ASCII file \var{fna}. The
 optional argument \var{v} = 1 requires the conversion be done in verbose
 mode, otherwise it is done in simple mode. Note that before conversion in
 verbose mode is carried out, one must call \key{MemENTable} first.
-\end{fundesc}
-
-\begin{fundesc}{RRTable}{fn, b, f\opt{, m}}
-Calculate the bound-free differetial oscillator strengths between the bound
-configuration groups \var{b} and free groups \var{f}, which are related to
-radiative recombination and photoionization cross sections. The optional
-multipole type \var{m} is set to -1 (E1) by default. In almost all cases, no
-other multipole types should be important. The results are saved in file
-\var{fn}. 
 \end{fundesc}
 
 \begin{fundesc}{RecStates}{fn, b, n}
@@ -2113,6 +2113,21 @@ keywords are set to 0, i.e., a full reinitialization. If \var{m=1}, keywords
 \key{recouple} are not reinitialized. This is useful to clear all information
 related to radial wavefunctions, but keep the angular coupling and recoupling
 coefficients intact. If \var{m=$-1$}, all keywords are set to 1.
+\end{fundesc}
+
+\begin{fundesc}{RRCrossH}{Z, E, n, l}
+Calculate the radiative recombination cross section of bare ion with nuclear
+charge \var{Z} at electron energy \var{E}, onto the non-relativisitc subshell
+\var{nl}. The result is in unit of $10^{-20}$ cm$^2$.
+\end{fundesc}
+
+\begin{fundesc}{RRTable}{fn, b, f\opt{, m}}
+Calculate the bound-free differetial oscillator strengths between the bound
+configuration groups \var{b} and free groups \var{f}, which are related to
+radiative recombination and photoionization cross sections. The optional
+multipole type \var{m} is set to -1 (E1) by default. In almost all cases, no
+other multipole types should be important. The results are saved in file
+\var{fn}. 
 \end{fundesc}
 
 \begin{fundesc}{SetAICut}{c}

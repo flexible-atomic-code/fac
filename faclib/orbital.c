@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.33 2002/08/28 21:41:43 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.34 2002/09/04 13:27:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -66,10 +66,37 @@ int GetNMax(void) {
   return nmax;
 }
  
+double EnergyH(double z, double n, int ka) {
+  double a, np;
+
+  ka = abs(ka);
+  a = FINE_STRUCTURE_CONST*z;
+  
+  np = n + sqrt(ka*ka - a*a) - ka;
+  a = a/np;
+  a = (1.0/sqrt(1.0 + a*a)) - 1.0;
+  a /= FINE_STRUCTURE_CONST2;
+  
+  return a;
+}
+
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
   int ierr;
+  int nm, km, k;
+  double z;
   
   if (orb->n > 0) {
+    GetHydrogenicNL(NULL, NULL, &nm, &km);
+    k = GetLFromKappa(orb->kappa);
+    k /= 2;
+    if (orb->n > nm || k > km) {
+      z = pot->Z[MAX_POINTS-1];
+      if (pot->N > 0) z -= pot->N - 1.0;
+      orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
+      orb->ilast = -1;
+      orb->wfun = NULL;
+      return 0;
+    }    
     if (orb->n < nmax) {
       ierr = RadialBound(orb, pot, tol);
     } else {
@@ -83,20 +110,6 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
 double *GetVEffective(void) { 
   return _veff;
-}
-
-double EnergyH(double z, double n, int ka) {
-  double a, np;
-
-  ka = abs(ka);
-  a = FINE_STRUCTURE_CONST*z;
-  
-  np = n + sqrt(ka*ka - a*a) - ka;
-  a = a/np;
-  a = (1.0/sqrt(1.0 + a*a)) - 1.0;
-  a /= FINE_STRUCTURE_CONST2;
-  
-  return a;
 }
 
 int LastMaximum(double *p, int i2) {
