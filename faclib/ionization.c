@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.25 2002/01/14 23:19:42 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.26 2002/01/17 14:54:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1260,7 +1260,7 @@ double *CIRadialQkTable(int kb, int kbp) {
   return qk;
 }
   
-int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te, 
+int IonizeStrength(double *qku, int *nqkc, double **qkc, double *te, 
 		   int b, int f) {
   int i, ip, j, ierr;
   LEVEL *lev1, *lev2;
@@ -1291,7 +1291,7 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
     log_xusr[i] = log(xusr[i]);
   }
 
-  p = qkc;
+  p = *qkc;
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     j0 = GetOrbital(kb)->kappa;
@@ -1307,8 +1307,8 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
       }
       if (nq == *nqkc) {
 	*nqkc *= 2;
-	qkc = (double *) realloc(qkc, sizeof(double)*(*nqkc));
-	p = qkc + nq*nqk;
+	*qkc = (double *) realloc(*qkc, sizeof(double)*(*nqkc));
+	p = *qkc + nq*nqk;
       }
       ierr = CIRadialQkIntegrated(p, (*te), kb, kbp);
       if (ierr < 0) continue;
@@ -1327,7 +1327,7 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
   free(ang);
 
   if (qk_mode == QK_BED) {
-    p = qkc;  
+    p = *qkc;  
     for (i = 0; i < nq; i++) {
       CIRadialQkFromFit(NPARAMS, p, n_usr, xusr, log_xusr, qke);
       for (j = 0; j < n_usr; j++) {
@@ -1336,14 +1336,14 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
       p += nqk;
     }
   } else {
-    p = qkc+nqk;
+    p = *qkc+nqk;
     for (i = 1; i < nq; i++) {
       for (j = 0; j < NPARAMS; j++) {
-	qkc[j] += p[j];
+	(*qkc)[j] += p[j];
       }
       p += nqk;
     }
-    CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+    CIRadialQkFromFit(NPARAMS, *qkc, n_usr, xusr, log_xusr, qku);
     nq = 1;
   }
 
@@ -1491,7 +1491,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 
   for (i = 0; i < nb; i++) {
     for (j = 0; j < nf; j++) {
-      nq = IonizeStrength(qku, &nqkc, qk, &e, b[i], f[j]);
+      nq = IonizeStrength(qku, &nqkc, &qk, &e, b[i], f[j]);
       if (nq < 0) continue;
       r.b = b[i];
       r.f = f[j];

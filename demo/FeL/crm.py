@@ -12,9 +12,13 @@ from pfac.crm import *
 # specified by population.
 neles = [5, 6, 7, 8, 9, 10, 11]
 population = [0.05, 0.06, 0.11, 0.13, 0.25, 0.34, 0.06]
+# the population of the ion NELE=4, which is needed 
+# to construct the spectrum for NELE=5. leave it 0.0 to 
+# let CRM determine its abundance.
+p2 = 0.0
 
 # temperature = 600 eV, electron density = 10^12 cm^{-3}.
-# the unit code uses is 10^10 cm^{-3}
+# the code uses the unit of 10^10 cm^{-3}
 temp = 600.0
 den = [1e2]
 
@@ -23,10 +27,8 @@ for k in range(len(neles)):
     p1 = population[k]
     s = 'NELE = %d, Population = %10.3E'%(nele, p1)
     Print(s)
-    try:
+    if (k > 0):
         p2 = population[k-1]
-    except:
-        p2 = 0.0
     
     f1 = 'Fe%02db'%nele
     f2 = 'Fe%02db'%(nele-1)

@@ -38,7 +38,7 @@ int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
 double *CIRadialQkIntegratedTable(int kb, int kbp);
 double IntegrateQk(double *qk);
 double *CIRadialQkTable(int kb, int kbp);
-int IonizeStrength(double *qku, int *n, double *p, double *e, int b, int f);
+int IonizeStrength(double *qku, int *n, double **p, double *e, int b, int f);
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn);
 
 #endif

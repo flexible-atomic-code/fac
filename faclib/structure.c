@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.18 2002/01/15 07:36:37 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.19 2002/01/17 14:54:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1802,6 +1802,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	break;
       }
     }    
+    if ((*ang)->coeff + 1.0 == 1.0) n = 0;
   } else {
     n = 0;
     nz = ANGZ_BLOCK;
