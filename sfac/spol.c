@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.3 2003/08/01 13:50:58 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.4 2003/08/05 16:25:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -40,8 +40,43 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
   exit(0);
 }
 
+static int PSetMaxLevels(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+
+  m = atoi(argv[0]);
+
+  SetMaxLevels(m);
+  
+  return 0;
+}
+
+static int PSetMIteration(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int m;
+  double a;
+
+  if (argc != 1 && argc != 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  if (argc == 2 && argt[1] != NUMBER) return -1;
+
+  a = atof(argv[0]);
+  if (argc == 2) {
+    m = atoi(argv[1]);
+  } else {
+    m = 0;
+  }
+
+  SetMIteration(a, m);
+  
+  return 0;
+}
+
 static int PSetIDR(int argc, char *argv[], int argt[], 
-		      ARRAY *variables) {
+		   ARRAY *variables) {
   int idr, ndr, i;
   double *pdr;
   char *vg[MAXNARGS];
@@ -168,6 +203,8 @@ static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
   {"SetIDR", PSetIDR, METH_VARARGS},
+  {"SetMaxLevels", PSetMaxLevels, METH_VARARGS},
+  {"SetMIteration", PSetIteration, METH_VARARGS},
   {"SetEnergy", PSetEnergy, METH_VARARGS},
   {"SetDensity", PSetDensity, METH_VARARGS},
   {"SetMLevels", PSetMLevels, METH_VARARGS},

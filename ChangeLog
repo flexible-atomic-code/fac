@@ -1,3 +1,6 @@
+Version 1.0.2, 08/05/2003
+	1. add iterative method in pfac.pol.
+	
 Version 1.0.1, 07/31/2003
 	1. autoionization and capture rates between magnetic sublevels
 	2. add autoionization in pfac.pol for DR satellites.

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.11 2003/08/04 14:38:10 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.12 2003/08/05 16:25:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -19,7 +19,11 @@ static MCE *ce_rates=NULL;
 static int nai = 0;
 static MAI *ai_rates=NULL;
 
+static int max_iter = 128;
+static double iter_accuracy = EPS6;
+static int maxlevels = 0;
 static int nmlevels=0;
+static int nmlevels1;
 static double *rmatrix=NULL;
 
 static struct {
@@ -43,6 +47,19 @@ int InitPolarization(void) {
   params.ndr = 0;
   params.pdr = NULL;
 
+  return 0;
+}
+
+int SetMIteration(double a, int m) {
+  iter_accuracy = a;
+  if (m > 0) max_iter = m;
+  
+  return 0;
+}
+
+int SetMaxLevels(int m) {
+  maxlevels = m;
+  
   return 0;
 }
 
@@ -118,6 +135,14 @@ int SetMLevels(char *fn, char *tfn) {
   }
 
   if (nlevels > 0) {
+    for (t = 0; t < nlevels; t++) {
+      m = levels[t].j/2 + 1;
+      for (p = 0; p < m; p++) {
+	free(levels[t].rtotal);
+	free(levels[t].pop);
+	free(levels[t].npop);
+      }
+    }
     free(levels);
     nlevels = 0;
   }
@@ -155,6 +180,16 @@ int SetMLevels(char *fn, char *tfn) {
       levels[t].p = r.p;
       levels[t].j = r.j;
       levels[t].energy = r.energy;
+      m = r.j/2 + 1;
+      levels[t].rtotal = malloc(sizeof(double)*m);
+      levels[t].pop = malloc(sizeof(double)*m);
+      levels[t].npop = malloc(sizeof(double)*m);
+      levels[t].dtotal = 0.0;
+      for (p = 0; p < m; p++) {
+	levels[t].rtotal[p] = 0.0;
+	levels[t].pop[p] = 0.0;
+	levels[t].npop[p] = 0.0;
+      }
       t++;
     }
   }
@@ -174,7 +209,13 @@ int SetMLevels(char *fn, char *tfn) {
   for (t = 1; t < nlevels; t++) {
     levels[t].ic = levels[t-1].ic + levels[t-1].j/2 + 1;
   }
-  nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
+  if (maxlevels > 0 && maxlevels < nlevels) {
+    nmlevels = levels[maxlevels-1].ic + levels[maxlevels-1].j/2+1 + 1;
+    nmlevels1 = nmlevels-1;
+  } else {
+    nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
+    nmlevels1 = nmlevels;
+  }
   rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
 
   f = fopen(tfn, "r");
@@ -526,19 +567,14 @@ int SetMAIRates(char *fn) {
   return 0;
 }
 
-int PopulationTable(char *fn) {
+double Population(int iter) {
   int i, p, i1, i2;
   int j1, j2, m1, m2;
   int q1, q2, t, idr;
   FILE *f;
   double *b, a, c, eden;
   int *ipiv, info;
-
-  f = fopen(fn, "w");
-  if (f == NULL) {
-    printf("cannot open file %s\n", fn);
-    return -1;
-  }
+  int nmax, nm;
 
   eden = params.density;
 
@@ -548,6 +584,9 @@ int PopulationTable(char *fn) {
   for (i = 0; i < p; i++) {
     rmatrix[i] = 0.0;
   }
+  
+  if (maxlevels > 0) nmax = maxlevels;
+  else nmax = nlevels;
 
   for (i = 0; i < ntr; i++) {
     i1 = tr_rates[i].lower;
@@ -555,18 +594,28 @@ int PopulationTable(char *fn) {
     j1 = levels[i1].j;
     j2 = levels[i2].j;
     t = 0;
-    q1 = levels[i1].ic;
+    q1 = Min(levels[i1].ic, nmlevels1);
     for (m1 = -j1; m1 <= 0; m1 += 2) {
-      q2 = levels[i2].ic;
+      q2 = Min(levels[i2].ic, nmlevels1);
       for (m2 = -j2; m2 <= 0; m2 += 2) {
+	a = tr_rates[i].rates[t++];
 	p = q2*nmlevels+q1;
-	rmatrix[p] += tr_rates[i].rates[t++];
-	q2++;
+	if (q2 < nmlevels1) {
+	  rmatrix[p] += a;
+	  q2++;
+	} else {
+	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	}
+	if (iter == 0) {
+	  levels[i2].rtotal[(m2+j2)/2] += a;
+	}
       }
-      q1++;
+      if (q1 < nmlevels1) {
+	q1++;
+      }
     }
   }
-
+  
   for (i = 0; i < nmlevels; i++) {
     ipiv[i] = 0;
   }
@@ -584,27 +633,45 @@ int PopulationTable(char *fn) {
       if (params.idr == i2) idr = params.idr;
     }
     t = 0;
-    q1 = levels[i1].ic;
+    q1 = Min(levels[i1].ic, nmlevels1);
     for (m1 = -j1; m1 <= 0; m1 += 2) {
-      q2 = levels[i2].ic;
+      q2 = Min(levels[i2].ic, nmlevels1);
       for (m2 = -j2; m2 <= 0; m2 += 2) {
 	p = q1*nmlevels+q2;
 	a = ai_rates[i].rates[t++];
-	rmatrix[p] += a;
+	if (q1 < nmlevels1) {
+	  rmatrix[p] += a;
+	} else {
+	  rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	}
+	if (iter == 0) {
+	  levels[i1].rtotal[(m1+j1)/2] += a;
+	}
 	p = q2*nmlevels+q1;
 	a = eden*ai_rates[i].rates[t++];
-	rmatrix[p] += a;
-	q2++;
+	if (q2 < nmlevels1) {
+	  rmatrix[p] += a;
+	} else {
+	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	}
+	if (iter == 0) {
+	  levels[i2].rtotal[(m2+j2)/2] += a;
+	}
+	if (q2 < nmlevels1) {
+	  q2++;
+	}
       }
-      q1++;
+      if (q1 < nmlevels1) {
+	q1++;
+      }
     }
   }
-
+  
   if (params.idr >= 0 && idr < 0) {
     printf("idr=%d is not a DR target level\n", params.idr);
     return -1;
   }
-
+  
   if (idr < 0) {
     for (i = 0; i < nce; i++) {
       i1 = ce_rates[i].lower;
@@ -612,21 +679,52 @@ int PopulationTable(char *fn) {
       j1 = levels[i1].j;
       j2 = levels[i2].j;
       t = 0;
-      q1 = levels[i1].ic;
+      q1 = Min(levels[i1].ic, nmlevels1);
       for (m1 = -j1; m1 <= 0; m1 += 2) {
-	q2 = levels[i2].ic;
+	q2 = Min(levels[i2].ic, nmlevels1);
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  p = q1*nmlevels+q2;
 	  a = eden*ce_rates[i].rates[t++];
-	  rmatrix[p] += a;
+	  if (q1 < nmlevels1) {
+	    rmatrix[p] += a;
+	  } else {
+	    rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	  }
+	  if (iter == 0) {
+	    levels[i1].rtotal[(m1+j1)/2] += a;
+	  }
 	  p = q2*nmlevels+q1;
 	  a = eden*ce_rates[i].rates[t++];
-	  rmatrix[p] += a;
-	  q2++;
+	  if (q2 < nmlevels1) {
+	    rmatrix[p] += a;
+	  } else {
+	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	  }
+	  if (iter == 0) {
+	    levels[i2].rtotal[(m2+j2)/2] += a;
+	  }
+	  if (q2 < nmlevels1) {
+	    q2++;
+	  }
 	}
-	q1++;
+	if (q1 < nmlevels1) {
+	  q1++;
+	}
       }
     }  
+  }
+
+  if (nlevels > nmax) {
+    a = 0;
+    for (t = nmax; t < nlevels; t++) {
+      a += levels[t].dtotal;
+    }
+    if (a) {
+      for (q2 = 0; q2 < nmlevels; q2++) {
+	p = nmlevels1*nmlevels+q2;
+	rmatrix[p] /= a;
+      }
+    }
   }
 
   for (q1 = 0; q1 < nmlevels; q1++) {
@@ -640,17 +738,6 @@ int PopulationTable(char *fn) {
     }
   }
 
-  if (idr >= 0) {
-    q1 = levels[idr].ic;
-    q2 = levels[idr].ic + (levels[idr].j/2 + 1);
-    for (t = 0; t < nmlevels; t++) {
-      if (ipiv[t] && !(t >= q1 && t < q2)) {
-	p = t*nmlevels+t;
-	rmatrix[p] = 0.0;
-      }
-    }
-  }
-	
   if (idr < 0) {
     i = -1;
     for (q1 = 0; q1 < nmlevels; q1++) {
@@ -676,6 +763,15 @@ int PopulationTable(char *fn) {
     }
     b[i] = 1.0;
   } else {
+    q1 = levels[idr].ic;
+    q2 = levels[idr].ic + (levels[idr].j/2 + 1);
+    for (t = 0; t < nmlevels; t++) {
+      if (ipiv[t] && !(t >= q1 && t < q2)) {
+	p = t*nmlevels+t;
+	rmatrix[p] = 0.0;
+      }
+    }
+
     for (q1 = 0; q1 < nmlevels; q1++) {
       t = q1*nmlevels+q1;
       if (!rmatrix[t]) {
@@ -718,6 +814,153 @@ int PopulationTable(char *fn) {
 
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
 
+  c = 0.0;
+  if (nlevels > nmax) {
+    nm = 0;
+    for (i = 0; i < nmax; i++) {
+      p = levels[i].ic;
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	if (b[p]) {
+	  c += fabs((b[p]-levels[i].pop[t])/b[p]);
+	  nm++;
+	}
+	levels[i].pop[t] = b[p];
+	p++;
+      }
+    }
+  
+    for (i = nmax; i < nlevels; i++) {
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	levels[i].npop[t] = 0.0;
+      }
+    }
+
+    for (i = ntr-1; i >= 0; i--) {
+      i1 = tr_rates[i].lower;
+      if (i1 < nmax) continue;
+      i2 = tr_rates[i].upper;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  a = levels[i2].pop[(m2+j2)/2]*tr_rates[i].rates[t++];
+	  levels[i1].npop[(m1+j1)/2] += a;
+	}
+      }
+    }
+    
+    for (i = nai-1; i >= 0; i--) {
+      i1 = ai_rates[i].b;
+      i2 = ai_rates[i].f;
+      if (i1 < nmax && i2 < nmax) continue;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  if (i2 >= nmax) {
+	    a = levels[i1].pop[(m1+j1)/2]*ai_rates[i].rates[t];
+	    levels[i2].npop[(m2+j2)/2] += a;
+	  }
+	  t++;
+	  if (i1 >= nmax) {
+	    a = levels[i2].pop[(m2+j2)/2]*eden*ai_rates[i].rates[t];
+	    levels[i1].npop[(m1+j1)/2] += a;
+	  }
+	  t++;
+	}
+      }
+    }
+
+    for (i = nce-1; i >= 0; i--) {
+      i1 = ce_rates[i].lower;
+      i2 = ce_rates[i].upper;
+      if (i1 < nmax && i2 < nmax) continue;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  if (i2 >= nmax) {
+	    a = levels[i1].pop[(m1+j1)/2]*eden*ce_rates[i].rates[t];
+	    levels[i2].npop[(m2+j2)/2] += a;
+	  }
+	  t++;
+	  if (i1 >= nmax) {
+	    a = levels[i2].pop[(m2+j2)/2]*eden*ce_rates[i].rates[t];
+	    levels[i1].npop[(m1+j1)/2] += a;
+	  }
+	  t++;
+	}
+      }
+    }
+
+    for (i = nmax; i < nlevels; i++) {
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	if (levels[i].rtotal[t]) {
+	  levels[i].npop[t] = levels[i].npop[t]/levels[i].rtotal[t];
+	} else {
+	  levels[i].npop[t] = 0.0;
+	}
+	if (levels[i].npop[t]) {
+	  c += fabs((levels[i].npop[t]-levels[i].pop[t])/levels[i].npop[t]);
+	  nm++;
+	}
+	levels[i].pop[t] = levels[i].npop[t];
+      }
+    }
+    c /= nm;
+  } else {
+    for (i = 0; i < nlevels; i++) {
+      p = levels[i].ic;
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	levels[i].pop[t] = b[p];
+	p++;
+      }
+    }
+  }
+
+  for (i = 0; i < nlevels; i++) {
+    p = levels[i].ic;
+    j1 = levels[i].j;
+    a = 0.0;
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
+      t = (m1+j1)/2;
+      a += levels[i].pop[t];
+    }
+    levels[i].dtotal = a;
+  }
+    
+  return c;
+}
+
+int PopulationTable(char *fn) {
+  int i, t, j1, m1, p;
+  FILE *f;
+  double c;
+
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+
+  for (i = 0; i < max_iter; i++) {
+    c = Population(i);
+    printf("%5d %11.4E\n", i, c);
+    fflush(stdout);
+    if (c < iter_accuracy) break;
+  }
+
   fprintf(f, "Energy  = %-12.5E\n", params.energy);
   fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
   fprintf(f, "Density = %-12.5E\n", params.density);
@@ -725,18 +968,12 @@ int PopulationTable(char *fn) {
   fprintf(f, "\n");
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
-    a = 0.0;
     p = levels[i].ic;
+    fprintf(f, "%7d\t%12.5E\n", i, levels[i].dtotal);
     for (m1 = -j1; m1 <= 0; m1 += 2) {
-      a += b[p];
-      p++;
-    }
-    levels[i].dtotal = a;
-    p = levels[i].ic;
-    fprintf(f, "%7d\t%12.5E\n", i, a);
-    for (m1 = -j1; m1 <= 0; m1 += 2) {
-      if (a) {
-	c = b[p]/a;
+      t = (m1+j1)/2;
+      if (levels[i].dtotal) {
+	c = levels[i].pop[t]/levels[i].dtotal;
 	if (m1 != 0) c = 0.5*c;
       } else {
 	c = 0.0;
@@ -764,7 +1001,7 @@ int PolarizationTable(char *fn) {
   int ipqa[MAXPOL*2+1], ierr;
   double nu1, theta;
   int nudiff, mu1;
-  double a, b, tem, e, *x;
+  double a, b, tem, e;
 
   f = fopen(fn, "w");
   if (f == NULL) {
@@ -772,8 +1009,6 @@ int PolarizationTable(char *fn) {
     return -1;
   }
   
-  x = rmatrix+nmlevels*nmlevels;
-
   for (k = 0; k <= MAXPOL; k++) {
     BL[k] = (double *) malloc(sizeof(double)*nlevels);
   }
@@ -781,11 +1016,11 @@ int PolarizationTable(char *fn) {
     j1 = levels[i].j;
     for (k = 0; k <= MAXPOL; k++) {
       k2 = k*4;
-      t = levels[i].ic;    
       BL[k][i] = 0.0;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
 	if (levels[i].dtotal) {
-	  b = x[t]/levels[i].dtotal;
+	  b = levels[i].pop[t]/levels[i].dtotal;
 	} else {
 	  b = 0.0;
 	}
@@ -793,7 +1028,6 @@ int PolarizationTable(char *fn) {
 	a *= sqrt(k2+1.0);
 	if (IsOdd((j1+m1)/2)) a = -a;
 	BL[k][i] += a;
-	t++;
       }
       BL[k][i] *= sqrt(j1 + 1.0);
     }

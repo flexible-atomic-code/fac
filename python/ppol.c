@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.3 2003/08/01 13:50:58 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.4 2003/08/05 16:25:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -118,6 +118,42 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 } 
+
+static PyObject *PSetMaxLevels(PyObject *self, PyObject *args) {
+  int m;
+
+  if (spol_file) {
+    SPOLStatement("SetMaxLevels", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  
+  SetMaxLevels(m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}   
+
+static PyObject *PSetMIteration(PyObject *self, PyObject *args) {
+  int m;
+  double a;
+
+  if (spol_file) {
+    SPOLStatement("SetIteration", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  m = 0;
+  if (!PyArg_ParseTuple(args, "d|i", &a, &m)) return NULL;
+  
+  SetMIteration(a, m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}   
 
 static PyObject *PSetIDR(PyObject *self, PyObject *args) {
   int idr, ndr, i;
@@ -277,6 +313,8 @@ static struct PyMethodDef pol_methods[] = {
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
   {"CloseSPOL", PCloseSPOL, METH_VARARGS},
   {"SetIDR", PSetIDR, METH_VARARGS},
+  {"SetMaxLevels", PSetMaxLevels, METH_VARARGS},
+  {"SetMIteration", PSetMIteration, METH_VARARGS},
   {"SetEnergy", PSetEnergy, METH_VARARGS},
   {"SetDensity", PSetDensity, METH_VARARGS},
   {"SetMLevels", PSetMLevels, METH_VARARGS},
