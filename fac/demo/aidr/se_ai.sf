@@ -10,7 +10,9 @@ Config('2p5', group = 'n2')
 # configurations of doubly excited Ne-like ion
 Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
 
+ConfigEnergy(0)
 OptimizeRadial('n33')
+ConfigEnergy(1)
 Structure('se.lev.b', ['n2'])
 Structure('se.lev.b', ['n33'])
 MemENTable('se.lev.b')

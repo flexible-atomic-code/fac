@@ -9,7 +9,9 @@ Config('2*8', group='fe17')
 Config('2*7', group='fe18')
 
 # solve the structure problem
+ConfigEnergy(0)
 OptimizeRadial(['fe17', 'fe18'])
+ConfigEnergy(1)
 Structure('ne_f.lev.b', ['fe17'])
 Structure('ne_f.lev.b', ['fe18'])
 MemENTable('ne_f.lev.b')

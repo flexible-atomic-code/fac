@@ -1,4 +1,4 @@
-Version 0.7.1, 02/26/2001
+Version 0.7.1, 03/04/2002
 	1. add pfac.spm module for processing spectral data
 	2. LevelName function added
 	3. reimplement the output of spectra data to better distinguish
@@ -13,6 +13,7 @@ Version 0.7.1, 02/26/2001
 	   ions. It should now work even for neutral atoms.
 	9. added TABLE class to spm module.
 	10.AI channels with 2s hole need to be included.
+	11.Update demo files for ConfigEnergy. and FeL dir.
 	
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
