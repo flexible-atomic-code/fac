@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.15 2002/05/15 18:45:52 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.16 2002/07/10 21:26:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -594,6 +594,8 @@ int AIRate(double *dir, double *inv, int iinv,
       a *= 0.5*(j1 + 1.0) * PI*PI*rate/(e*(j2+1.0));
       a *= AREA_AU20*HARTREE_EV;
       a *= VelocityFromE(e0);
+    } else {
+      a = 0.0;
     }
     *inv = a;
   } else {

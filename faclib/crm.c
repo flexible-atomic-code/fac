@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.31 2002/05/15 18:45:51 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.32 2002/07/10 21:26:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1703,7 +1703,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 		  for (p = 0; p < n; p++) {
 		    index1[2] = p;
 		    d = (double *) MultiGet(&ce, index1);
-		    if (d && *d+1.0 != 1.0) {
+		    if (d && *d) {
 		      ce0 = *d;
 		      break;
 		    }
@@ -1713,7 +1713,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 		if (ce0) {
 		  ce0 = 0.0;
 		  for (s = 0; s < blk1->nlevels; s++) {
-		    if (1+blk1->total_rate[s] == 1) continue;
+		    if (blk1->total_rate[s] == 0) continue;
 		    ce1 = 0.0;
 		    for (p = 0; p < ion1->ce_rates->dim; p++) {
 		      brts = (BLK_RATE *) ArrayGet(ion1->ce_rates, p);
@@ -1741,8 +1741,10 @@ int RateTable(char *fn, int nc, char *sc[]) {
 			  ai0 += r->dir;
 			}
 		      }
-		      ai0 /= blk1->total_rate[s];
-		      ce0 += ce1 * ai0;
+		      if (ai0) {
+			ai0 /= blk1->total_rate[s];
+			ce0 += ce1 * ai0;
+		      }
 		    }
 		  }
 		}
@@ -1837,7 +1839,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 		for (p = 0; p < n; p++) {
 		  index1[2] = p;
 		  d = (double *) MultiGet(&ce, index1);
-		  if (d && *d+1.0 != 1.0) {
+		  if (d && *d) {
 		    ce0 = *d;
 		    break;
 		  }
@@ -1847,7 +1849,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	      if (ce0) {
 		ce0 = 0.0;
 		for (s = 0; s < blk1->nlevels; s++) {
-		  if (1+blk1->total_rate[s] == 1) continue;
+		  if (blk1->total_rate[s] == 0) continue;
 		  ce1 = 0.0;
 		  for (p = 0; p < ion1->ce_rates->dim; p++) {
 		    brts = (BLK_RATE *) ArrayGet(ion1->ce_rates, p);
@@ -1875,8 +1877,10 @@ int RateTable(char *fn, int nc, char *sc[]) {
 			ai0 += r->dir;
 		      }
 		    }
-		    ai0 /= blk1->total_rate[s];
-		    ce0 += ce1 * ai0;
+		    if (ai0) {
+		      ai0 /= blk1->total_rate[s];
+		      ce0 += ce1 * ai0;
+		    }
 		  }
 		}
 	      }
@@ -2397,13 +2401,14 @@ double BlockRelaxation(int iter) {
     if (iter < 0 || blk1->nlevels > 1) {
       a = 0.0;
       for (m = 0; m < blk1->nlevels; m++) {
-	if (1.0+blk1->total_rate[m] != 1.0) {
+	if (blk1->total_rate[m]) {
 	  blk1->n[m] /= blk1->total_rate[m];
 	  a += blk1->n[m];
 	} else {
 	  blk1->n[m] = 0.0;
 	}
       }
+      if (a) blk1->nb = a;
     } else {
       blk1->n[0] = blk1->nb;
       a = blk1->nb;
@@ -2421,9 +2426,7 @@ double BlockRelaxation(int iter) {
     }
     
     if (iter >= 0) {
-      a = blk1->nb/a;
       for (m = 0; m < blk1->nlevels; m++) {
-	blk1->n[m] *= a;
 	if (blk1->n[m]) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
