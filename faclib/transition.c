@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.29 2005/01/11 03:05:15 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.30 2005/03/09 18:39:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -95,7 +95,11 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   ns = GetInteract(&idatum, NULL, NULL, lev1->iham, lev2->iham,
 		   lev1->pb, lev2->pb, 0, 0, 0);
   if (ns <= 0) return -1;
-  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) return -1;
+  if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
 
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
     ia = ns-1-idatum->s[0].index;
@@ -126,13 +130,21 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   }
 
   m2 = 2*abs(m);
-  if (!Triangle(j1, j2, m2)) return -1;
+  if (!Triangle(j1, j2, m2)) {
+    free(idatum->bra);    
+    free(idatum);
+    return -1;
+  }
 
   rx->energy = (lev2->energy - lev1->energy);
   rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
   rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
   aw = FINE_STRUCTURE_CONST * rx->energy;
-  if (aw < 0.0) return -1;
+  if (aw < 0.0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
   
   if (transition_option.mode == M_NR && m != 1) {
     r = MultipoleRadialNR(m, k0, k1, transition_option.gauge);
@@ -141,7 +153,9 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   }
 
   *strength = sqrt((lev1->ilev+1.0)*q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0)))*r;
-
+  
+  free(idatum->bra);
+  free(idatum);
   return 0;
 }
 

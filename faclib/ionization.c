@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.54 2005/03/03 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.55 2005/03/09 18:39:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -738,7 +738,11 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
   ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
 		   lev2->pb, lev1->pb, 0, 0, 1);  
   if (ns <= 0) return -1;
-  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) return -1;
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
   jb = idatum->s[1].j;
   qb = idatum->s[1].nq_ket;
 
@@ -762,6 +766,8 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
       qku[i] = 0.0;
     }
     CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+    free(idatum->bra);
+    free(idatum);
     return klb;
   } else {
     klb = BoundFreeOSUTA(qke, qkc, te, b, f, -1);
@@ -826,6 +832,8 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
 	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
       }
     }
+    free(idatum->bra);
+    free(idatum);
     return klb;
   }
 }

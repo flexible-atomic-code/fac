@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.23 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.24 2005/03/09 18:39:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1259,6 +1259,10 @@ int InteractingShells(INTERACT_DATUM **idatum,
      exact size in advance */
   k = ci->n_shells + cj->n_shells;
   (*idatum)->bra = malloc(sizeof(SHELL)*k);
+  if ((*idatum)->bra == NULL) {
+    printf("error allocating idatam->bra, likely too many configurations.\n");
+    exit(1);
+  }
   bra = (*idatum)->bra;
   s = (*idatum)->s;
   i = 0; 
@@ -1520,23 +1524,25 @@ int GetInteract(INTERACT_DATUM **idatum,
   if (ci->n_shells <= 0 || cj->n_shells <= 0) return -1;
   if (abs(ci->n_shells+ifb - cj->n_shells) > 2) return -1;
 
-  n_shells = -1;
-  /* check if this is a repeated call,
-   * if not, search in the array.
-   */
-  if (*idatum == NULL) {
-    index[0] = kgi;
-    index[1] = kgj;
-    index[2] = kci;
-    index[3] = kcj;
-    (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
-					    NULL, InitInteractDatum);
-  }
-  if ((*idatum)->n_shells < 0) return -1;
-  if ((*idatum)->n_shells > 0) {
-    if (csf_i == NULL) {
-      return (*idatum)->n_shells;
+  if (csf_i != NULL) {
+    n_shells = -1;
+    /* check if this is a repeated call,
+     * if not, search in the array.
+     */
+    if (*idatum == NULL) {
+      index[0] = kgi;
+      index[1] = kgj;
+      index[2] = kci;
+      index[3] = kcj;
+      (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
+					      NULL, InitInteractDatum);
     }
+    if ((*idatum)->n_shells < 0) return -1;
+  } else {
+    (*idatum) = malloc(sizeof(INTERACT_DATUM));
+    (*idatum)->n_shells = 0;
+  }
+  if ((*idatum)->n_shells > 0) {
     n_shells = (*idatum)->n_shells;
     bra = (*idatum)->bra;
     s = (*idatum)->s;
@@ -1603,6 +1609,8 @@ int GetInteract(INTERACT_DATUM **idatum,
 				   ci, cj, csf_i, csf_j);
     }
   }
+
+  if (n_shells < 0 && csf_i == NULL) free((*idatum));
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
