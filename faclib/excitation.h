@@ -7,7 +7,7 @@
 #define MAX_EGRID  15
 #define MAX_KL     512
 #define MAX_TEGRID 5
-#define MAX_NKL    30
+#define MAX_NKL    50
 #define MAX_MSUB   200
 
 typedef struct _EXCIT_TIMING_ {

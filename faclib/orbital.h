@@ -45,7 +45,7 @@ double *GetVEffective();
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
-int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol);
+int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int n, double *p1, double *p2, POTENTIAL *pot);
 double Simpson(double *y, int ia, int ib);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m);

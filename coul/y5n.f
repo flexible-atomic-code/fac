@@ -6,10 +6,11 @@ C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
 C
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C     lambda:    the orbital angular momentum. 
-C     eta0:      2.0*z/k
+C     eta0:      -z/k
 C     x0:        k*r
 C     y5:        wavefunction at r
 C     y5p:       d(y5)/d(r) at r
+C     norm:      normalization.
 C     ierr:      error code
 C 
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -19,7 +20,7 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       real*8 HALFPI
       parameter (HALFPI = 1.5707963268D0)
       integer MAXL, MAXN
-      parameter (MAXL = 50, MAXN = 1)
+      parameter (MAXL = 100, MAXN = 1)
 
       real*8 lambda, y5, y5p, x0, eta0, norm
       real*8 c, d, b, sb, cb

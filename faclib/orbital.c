@@ -40,18 +40,19 @@ static int nmax = 0;
 static double wave_zero = 1E-10;
 
 static int _SetVEffective(int kl, POTENTIAL *pot);
-static int _MatchPoints(int n, double e, int *i1, int *i2);
+static int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot);
 static int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2);
 static int _Inward(double *p, double e, POTENTIAL *pot, int i2);
-static int _Amplitude(double *p, double e, int kl, POTENTIAL *pot, 
-		      int i1, double tol);
-static int _Phase(double *p, POTENTIAL *pot, 
-		  int i1, double p0);
+static int _Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
+static int _AmplitudeWKB(double *p, double e, int kl, POTENTIAL *pot, int i1);
+static int _Phase(double *p, POTENTIAL *pot, int i1, double p0);
 static int _DiracSmall(ORBITAL *orb, POTENTIAL *pot);
 
+double dlogam_(double *x);
 void y5n_(double *lambda, double *eta0, double *x0, 
 	  double *y5, double *y5p, double *norm, int *ierr);
-double dlogam_(double *x);
+void cphamp_(double *lambda, double *eta0, double *x0, 
+	     double *a0, double *cphase0, double *a0p, int *ierr);
 
 int GetNMax() {
   return nmax;
@@ -67,7 +68,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
       ierr = RadialRydberg(orb, pot, tol);
     }
   } else {
-    ierr = RadialFree(orb, pot, tol);
+    ierr = RadialFree(orb, pot);
   }  
   return ierr;
 }
@@ -132,7 +133,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
       ierr = 2;
       break;
     }
-    ierr = _TurningPoints(orb->n, e, &i1, &i2);
+    ierr = _TurningPoints(orb->n, e, &i1, &i2, pot);
     if (ierr == -1) {
       break;
     } else if (ierr == -2) {
@@ -394,7 +395,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
 /* note that the free states are normalized to have asymptotic 
    amplitude of 1/sqrt(k), */
-int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
+int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   int i, kl, nodes;
   int i1, i2, i2p, i2m, i2p2, i2m2;
   double *p, po, qo, pm, e;
@@ -443,16 +444,15 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
   pm = p[i2m];
   
-  _Amplitude(p, e, kl, pot, i2m, tol);
+  _Amplitude(p, e, kl, pot, i2m);
+
   da = (-24.0*p[i2m] - 130.0*p[i2] + 240.0*p[i2p] - 120.0*p[i2p2] 
 	+ 40.0*p[i2p2+1] - 6.0*p[i2p2+2])/(120.0); 
   da *= dfact;
-
   cs = p[i2] * qo - da*po;
   si = po / p[i2];
   dfact = (si*si + cs*cs);
   dfact = 1.0/sqrt(dfact);
-
   phase0 = atan2(si, cs);
   if (phase0 < 0) phase0 += TWO_PI;
   
@@ -591,9 +591,9 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
   return 0;
 }
   
-int _Amplitude(double *p, double e, int kl, 
-	       POTENTIAL *pot, int i1, double tol) {
-  int i;
+int _AmplitudeWKB(double *p, double e, int kl, 
+		  POTENTIAL *pot, int i1) {
+  int i, j;
   double x, y, a, b, kl1, r, r2;
 
   kl1 = kl*(kl+1.0);
@@ -614,13 +614,11 @@ int _Amplitude(double *p, double e, int kl,
   }
   
   for (i = i1; i < MAX_POINTS; i++) {
-    x = 1.0;
-    while (x > tol) {
+    for (j = 0; j < 4; j++) {
       y = _dwork[i] + _dwork2[i];
       b = _dwork1[i];
       a = 2.0*(e - _veff[i]) + b/y;
       a = pow(a, -0.25) - _dwork[i];
-      x = fabs(a - _dwork2[i])/y;
       _dwork2[i] = a;
     }
   }
@@ -628,6 +626,59 @@ int _Amplitude(double *p, double e, int kl,
   for (i = i1; i < MAX_POINTS; i++) {
     p[i] = _dwork[i] + _dwork2[i];
   }
+
+  return 0;
+}
+  
+int _Amplitude(double *p, double e, int kl, 
+	       POTENTIAL *pot, int i1) {
+  int i, ierr;
+  double a, b, r, z, zp, dk2, x0t;
+  double a0, dk, eta0, x0, lambda, eps1, eps2;
+
+  z = pot->Z[MAX_POINTS-1] - pot->N + 1.0;
+  if (pot->flag < 0) {
+    eps1 = FINE_STRUCTURE_CONST2*e;
+    eps2 = FINE_STRUCTURE_CONST2*z*z;
+    a = kl*(kl+1.0)-eps2;
+    lambda = 0.5*(sqrt(1.0+4.0*a) - 1.0);
+    dk = sqrt(2.0*e*(1.0+0.5*eps1));
+    zp = z*(1.0+eps1);
+  } else {
+    zp = z;
+    dk = sqrt(2.0*e);
+    lambda = kl;
+  }
+  eta0 = zp/dk;
+  dk2 = 1.0/sqrt(dk);
+  eps1 *= e;
+  if (kl > 0) {
+    x0t = 0.5*(-eta0 + sqrt(eta0*eta0 + lambda*(lambda+1.0)));
+  } else {
+    x0t = dk*(pot->rad[i1+5]-pot->rad[i1]);
+  }
+  x0t += dk*pot->rad[i1];
+  for (i = i1; i < MAX_POINTS; i++) {
+    r = pot->rad[i];
+    x0 = dk*r;
+    if (x0 > x0t) break;
+    ierr = 1;
+    cphamp_(&lambda, &eta0, &x0, &a0, NULL, NULL, &ierr);
+    a0 *= dk2;
+    a = -2.0*((pot->Vc[i]+pot->U[i])+zp/r);
+    if (pot->flag < 0) {
+      b = -eps1;
+      b -= 2.0*pot->W[i];
+      b -= eps2/(r*r);
+    } else {
+      b = 0.0;
+    }
+    x0 = zp/r + lambda*(lambda+1.0)/(r*r);
+    a0 = pow(a0, -4.0);
+    a0 += a + b; 
+    p[i] = pow(a0, -0.25);
+  }
+  if (i < MAX_POINTS) _AmplitudeWKB(p, e, kl, pot, i);
 
   return 0;
 }
@@ -675,26 +726,27 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
   int i;
   double x, a, b;
 
-  for (i = 0; i < MAX_POINTS; i++) {
-    if (e > _veff[i]) break;
-  }
-  *i1 = i; 
-
   if (n <= 0) {
-    for (i = MAX_POINTS - 5; i > 50; i--) {
-      x = e - _veff[i];
-      if (x < 0.0) {
-	break;
-      }
-      b = 1.0/pot->rad[i];
-      a = 14.0/(0.5*pot->ar*sqrt(b) + pot->br*b);
-      x = TWO_PI/sqrt(2.0*x);
-      if (x > a) break;
+    for (i = MAX_POINTS - 5; i > 10; i--) {
+      if (e < _veff[i]) break;
     }
-    *i2 = i + 7;
-    if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
-    if (*i1 == 0) *i1 = *i2 - 10; 
+    *i1 = i-3;
+    i += 5;
+    for (; i <= pot->r_core; i++) {
+      x = e - _veff[i];
+      b = 1.0/pot->rad[i];
+      a = 20.0/(0.5*pot->ar*sqrt(b) + pot->br*b);
+      x = TWO_PI/sqrt(2.0*x);
+      if (x < a) break;
+    }
+    *i2 = i-1;
+    if (*i1 <= 10) *i1 = *i2 - 5;
   } else if (n < nmax) {
+    for (i = 0; i < MAX_POINTS; i++) {
+      if (e > _veff[i]) break;
+    }
+    *i1 = i; 
+
     for (i = MAX_POINTS-10; i > 0; i--) {
       if (e > _veff[i]) break;
     }
@@ -702,6 +754,11 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     *i2 = i + 7;
     if (*i1 == 0) *i1 = *i2 - 8; 
   } else {
+    for (i = 0; i < MAX_POINTS; i++) {
+      if (e > _veff[i]) break;
+    }
+    *i1 = i; 
+
     *i2 = Max(pot->r_core, *i1)+32;
     if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
     if (*i1 == 0) *i1 = *i2 - 16; 

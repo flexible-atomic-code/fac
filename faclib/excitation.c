@@ -128,6 +128,7 @@ int AddCEPW(int n, int step) {
 
 int SetCEPWGrid(int ns, int *n, int *step) {
   int i, m, k, j;
+
   if (ns > 0) {
     for (i = 0; i < ns; i++) {
       AddCEPW(n[i], step[i]);
@@ -140,7 +141,7 @@ int SetCEPWGrid(int ns, int *n, int *step) {
     AddCEPW(ns, 1);
     k = 2;
     j = 2;
-  } 
+  }   
 
   m = pw_scratch.kl[pw_scratch.nkl0-1];
   while (m+k <= pw_scratch.max_kl) {
@@ -1190,7 +1191,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   if (pw_scratch.nkl0 == 0) {
     if (msub) {
-      SetCEPWOptions(20, 100, 1E-3, 1E-3, 1E-3);
+      SetCEPWOptions(0, 100, 1E-2, 1E-2, 1E-3);
     } else {
       SetCEPWOptions(0, 100, 1E-1, 1E-1, 1E-3);
     }
