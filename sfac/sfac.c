@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.64 2004/07/06 07:09:25 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.65 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2635,10 +2635,16 @@ static int PStructure(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PTestCoulomb(int argc, char *argv[], int argt[], 
+static int PCoulombBethe(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  if (argc != 1 || argt[0] != STRING) return -1;
-  TestCoulomb(argv[0]);
+  double z, te, e1;
+
+  if (argc != 4) return -1;
+  z = atof(argv[1]);
+  te = atof(argv[2]);
+  e1 = atof(argv[3]);
+
+  CoulombBethe(argv[0], z, te, e1);
 
   return 0;
 }
@@ -3046,6 +3052,43 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
   return SetBoundary(nmax, p, bqp);
 }
 
+static int PRMatrixExpansion(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int m;
+  double d, a, r;
+
+  if (argc < 1) return -1;
+  
+  m = atoi(argv[0]);
+  d = 1E-3;
+  a = 1E-4;
+  r = 0.0;
+  if (argc > 1) {
+    d = atof(argv[1]);
+    if (argc > 2) {
+      a = atof(argv[2]);
+      if (argc > 3) {
+	r = atof(argv[3]);
+      }
+    }
+  }
+
+  RMatrixExpansion(m, d, a, r);
+
+  return 0;
+}
+
+static int PRMatrixNMultipoles(int argc, char *argv[], int argt[], 
+			       ARRAY *variables) {
+  int m;
+
+  if (argc != 1) return -1;
+  m = atoi(argv[0]);
+  RMatrixNMultipoles(m);
+  
+  return 0;
+}
+
 static int PRMatrixBoundary(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   double r0, r1, b;
@@ -3121,7 +3164,69 @@ static int PSetSlaterCut(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PTestRMatrix(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int m;
+  double e;
+
+  if (argc != 5) return -1;
+  e = atof(argv[0]);
+  m = atoi(argv[1]);
+  
+  TestRMatrix(e, m, argv[2], argv[3], argv[4]);
+  
+  return 0;
+}
+
+static int PRMatrixCE(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  double emin, emax, de;
+  int np, m, i, mb;
+  char *v0[MAXNARGS], *v1[MAXNARGS];
+  int t0[MAXNARGS], t1[MAXNARGS];
+  
+  if (argc < 6 || argc > 8) return -1;
+  emin = atof(argv[3]);
+  emax = atof(argv[4]);
+  de = atof(argv[5]);
+  m= 0;
+  mb = 1;
+  if (argc >= 7) {
+    m = atoi(argv[6]);
+    if (argc > 7) {
+      mb = atoi(argv[7]);
+    }
+  }
+
+  np = DecodeArgs(argv[1], v0, t0, variables);
+  if (DecodeArgs(argv[2], v1, t1, variables) != np) {
+    return -1;
+  }
+  
+  RMatrixCE(argv[0], np, v0, v1, emin, emax, de, m, mb);
+
+  for (i = 0; i < np; i++) {
+    free(v0[i]);
+    free(v1[i]);
+  }
+  return 0;
+}
+
+static int PSetCEPWFile(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  if (argc != 1) return -1;
+
+  SetCEPWFile(argv[0]);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
+  {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
+  {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
+  {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
+  {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
+  {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
   {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 
   {"RMatrixBasis", PRMatrixBasis, METH_VARARGS}, 
@@ -3232,7 +3337,7 @@ static METHOD methods[] = {
   {"SolveBound", PSolveBound, METH_VARARGS},
   {"SortLevels", PSortLevels, METH_VARARGS},
   {"Structure", PStructure, METH_VARARGS},
-  {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
+  {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  

@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.72 2004/07/08 21:12:00 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.73 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,6 +20,7 @@ static double wave_zero = 1E-10;
 
 static int SetVEffective(int kl, POTENTIAL *pot);
 static int TurningPoints(int n, double e, POTENTIAL *pot);
+static int CountNodes(double *p, int i1, int i2);
 static int IntegrateRadial(double *p, double e, POTENTIAL *pot, 
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
@@ -323,6 +324,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp);
     i2 = TurningPoints(orb->n, e, pot);
     nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
+    if (nodes > 1) {
+      i2 = LastMaximum(p, pot->ib+20, i2);
+      nodes = CountNodes(p, ib0, i2);
+    }
     nodes += IntegrateRadial(p, e, pot, i2, 1.0, ib1, bqp1, 1);
     if (nodes == nr) break;
     else if (nodes > nr) {
@@ -355,6 +360,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
       bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp);
       i2 = TurningPoints(orb->n, e, pot);
       nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
+      if (nodes > 1) {
+	i2 = LastMaximum(p, pot->ib+20, i2);
+	nodes = CountNodes(p, ib0, i2);
+      }
       nodes += IntegrateRadial(p, e, pot, i2, 1.0, ib1, bqp1, 1);
     }
     e -= de;
@@ -383,6 +392,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
 	bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp);
 	i2 = TurningPoints(orb->n, e, pot);
 	nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
+	if (nodes > 1) {
+	  i2 = LastMaximum(p, pot->ib+20, i2);
+	  nodes = CountNodes(p, ib0, i2);
+	}
 	nodes += IntegrateRadial(p, e, pot, i2, 1.0, ib1, bqp1, 1);
       }
       e += de;
@@ -410,7 +423,7 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     for (i = ib0; i <= i2p2; i++) {
       p[i] *= pot->dr_drho2[i];
     }
-    if (nr > 1) {
+    if (nodes > 1) {
       i2 = LastMaximum(p, pot->ib+20, i2);
     }
     i2m1 = i2 - 1;
@@ -450,6 +463,7 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     free(p);
     return -5;
   }
+  
   if (p[pot->ib] < 0) {
     for (i = ib0; i <= ib1; i++) {
       p[i] = -p[i];
@@ -1683,6 +1697,27 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     i2 = i;
   }
   return i2;
+}
+
+static int CountNodes(double *p, int i1, int i2) {
+  int n, i;
+  double a, p0;
+
+  n = 0;
+  i = i2;
+  p0 = p[i];
+  for (; i >= i1; i--) {
+    a = fabs(p[i]);
+    if (a > wave_zero) {
+      if ((p0 > 0 && p[i] < 0) ||
+	  (p0 < 0 && p[i] > 0)) {
+	n++;
+	p0 = p[i];
+      }
+    }
+  }
+
+  return n;
 }
 
 static int IntegrateRadial(double *p, double e, POTENTIAL *pot,

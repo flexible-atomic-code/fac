@@ -75,7 +75,7 @@ int     PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 			 double *e2, double *te, double *e1,
 			 int nkl, double *kl, 
 			 int etype, int ltype, int mode);
-int     TestCoulomb(char *s);
+int     CoulombBethe(char *s, double z, double te, double e1);
 int     InitCoulomb(void);
 
 #endif

@@ -280,7 +280,7 @@
 #define EXCLMAX            36
 #define EXCLCB             20
 #define EXCTOL             5E-2
-#define XBORN              (-0.35)
+#define XBORN              (-0.6)
 
 /* ionization */
 #define IONMAXK            8

@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.70 2004/07/02 17:27:10 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.71 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -45,6 +45,8 @@ static double gost[NKINT];
 static double gosint[NKINT];
 static double xborn = XBORN;
 
+static FILE *fpw=NULL;
+
 #ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
 #endif
@@ -66,6 +68,11 @@ static void InitCEPK(void *p, int n) {
 
 CEPW_SCRATCH *GetCEPWScratch(void) {
   return &pw_scratch;
+}
+
+int SetCEPWFile(char *fn) {
+  fpw = fopen(fn, "w");
+  return 0;
 }
 
 int SetCEQkMode(int m, double tol) {
@@ -664,6 +671,13 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  }
 	  ipk += n_tegrid;
 	}
+	if (fpw) {
+	  for (i = 0; i < nkl; i++) {
+	    kl0 = pw_scratch.kl[i];
+	    fprintf(fpw, "%12.5E %12.5E %3d %3d %12.5E %12.5E\n",
+		    te*HARTREE_EV, e1*HARTREE_EV, i, kl0, qk[i], dqk[i]);
+	  }
+	}
 	r = qk[0];
 	rd = dqk[0];
 	for (i = 1; i < nkl; i++) {
@@ -1233,12 +1247,20 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   for (i = 0; i < nz; i++) {
     for (j = i; j < nz; j++) {
       c = ang[i].coeff * ang[j].coeff;
+      if (fabs(c) < EPS10) continue;
       if (i != j) c *= 2.0;
       if (!msub) {
 	if (ang[i].k != ang[j].k) continue;
 	c /= ang[i].k + 1.0;
+	if (fpw) {
+	  fprintf(fpw, "# %3d %3d %12.5E %12.5E %2d %2d %2d\n", 
+		  lower, upper, te*HARTREE_EV, 8.0*c, ang[i].k, n_tegrid, n_egrid);
+	}
 	ty = CERadialQk(rq, te, ang[i].k0, ang[i].k1,
 			ang[j].k0, ang[j].k1, ang[i].k);
+	if (fpw) {
+	  fprintf(fpw, "\n\n");
+	}
 	if (ty > type) type = ty;	  
 	for (ie = 0; ie < n_egrid; ie++) {
 	  qkc[ie] += c*rq[ie];
@@ -1875,6 +1897,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   if (alev) free(alev);
   CloseFile(f, &fhdr);
 
+  if (fpw) {
+    fclose(fpw);
+    fpw = NULL;
+  }
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
@@ -1964,6 +1990,10 @@ int InitExcitation(void) {
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qk_array, sizeof(double *), ndim, blocks2);
   
+  if (fpw) {
+    fclose(fpw);
+    fpw = NULL;
+  }
   n_egrid = 0;
   n_tegrid = 0;
   n_usr = 0;
@@ -1981,6 +2011,10 @@ int ReinitExcitation(int m) {
   
   if (m < 0) return 0;
   FreeExcitationQk();  
+  if (fpw) {
+    fclose(fpw);
+    fpw = NULL;
+  }
   n_egrid = 0;
   n_tegrid = 0;
   n_usr = 0;

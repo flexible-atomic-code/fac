@@ -5,6 +5,8 @@ Version 1.0.6, 06/05/2004
 	4. add an option for all plane-wave collision strength output.
 	5. save the slater Y potential.
 	6. improve RadialRydberg, use Dirac Coulomb for asymptotic.
+	7. add an option to printout partial-wave collision strength.
+	8. implement a Dirac R-matrix method.
 	
 Version 1.0.5, 05/30/2004
 	1. implement magnetic sublevel ionization

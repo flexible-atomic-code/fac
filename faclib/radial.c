@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.107 2004/07/08 18:41:48 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.108 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1181,7 +1181,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
-    SetBoundary(0, 1.0, 1E30);
+    SetBoundary(0, 1.0, 0.0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -1532,7 +1532,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     p2 = Large(orb2);
     q1 = Small(orb1);
     q2 = Small(orb2);
-    for (i = potential->ib; i < potential->ib1; i++) {
+    for (i = potential->ib; i <= potential->ib1; i++) {
       z = potential->U[i];
       z += potential->Vc[i];
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.72 2004/07/06 07:09:25 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.73 2004/07/15 18:41:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -173,7 +173,8 @@ double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
       h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
     } else if (h->n_basis > h->n_basis0) {
       h->n_basis0 = h->n_basis;
-      h->basis = (int *) realloc(h->basis, sizeof(int)*h->n_basis);
+      free(h->basis);
+      h->basis = (int *) malloc(sizeof(int)*h->n_basis);
     }
     
     if (h->hamilton == NULL) {
@@ -181,7 +182,8 @@ double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
       h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
     } else if (h->hsize > h->hsize0) {
       h->hsize0 = h->hsize;
-      h->hamilton = (double *) realloc(h->hamilton, sizeof(double)*h->hsize);
+      free(h->hamilton);
+      h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
     }
     h->hamilton[0] = lev->energy;
     for (j = 1; j < nh; j++) {
@@ -799,8 +801,8 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
     nbs0 = _ham.n_basis;
     q = mbp->nbasis;
     if (nbs0 > q) {
-      mbp->basis = realloc(mbp->basis, sizeof(int)*nbs0);
-      mbp->ene = realloc(mbp->ene, sizeof(double)*nbs0);
+      mbp->basis = ReallocNew(mbp->basis, sizeof(int)*nbs0);
+      mbp->ene = ReallocNew(mbp->ene, sizeof(double)*nbs0);
       for (t = mbp->nbasis; t < _ham.n_basis; t++) {
 	for (r = 0; r < _ham.dim; r++) { 
 	  m = GetPrincipleBasis(mix + r*_ham.n_basis, _ham.n_basis, NULL);
@@ -1787,7 +1789,8 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
     h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
   } else if (h->n_basis > h->n_basis0) {
     h->n_basis0 = h->n_basis;
-    h->basis = (int *) realloc(h->basis, sizeof(int)*h->n_basis);
+    free(h->basis);
+    h->basis = (int *) malloc(sizeof(int)*h->n_basis);
   }
   if (!(h->basis)) goto ERROR;
 
@@ -1796,7 +1799,8 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
     h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   } else if (h->hsize > h->hsize0) {
     h->hsize0 = h->hsize;
-    h->hamilton = (double *) realloc(h->hamilton, sizeof(double)*h->hsize);
+    free(h->hamilton);
+    h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   }
   if (!(h->hamilton)) goto ERROR;
 
@@ -1883,7 +1887,8 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
     h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
   } else if (h->n_basis > h->n_basis0) {
     h->n_basis0 = h->n_basis;
-    h->basis = (int *) realloc(h->basis, sizeof(int)*h->n_basis);
+    free(h->basis);
+    h->basis = (int *) malloc(sizeof(int)*h->n_basis);
   }
   if (!(h->basis)) goto ERROR;
 
@@ -1892,7 +1897,8 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
     h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   } else if (h->hsize > h->hsize0) {
     h->hsize0 = h->hsize;
-    h->hamilton = (double *) realloc(h->hamilton, sizeof(double)*h->hsize);
+    free(h->hamilton);
+    h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   }
   if (!(h->hamilton)) goto ERROR;
 
@@ -2042,7 +2048,8 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
     h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
   } else if (h->n_basis > h->n_basis0) {
     h->n_basis0 = h->n_basis;
-    h->basis = (int *) realloc(h->basis, sizeof(int)*h->n_basis);
+    free(h->basis);
+    h->basis = (int *) malloc(sizeof(int)*h->n_basis);
   }
   if (!(h->basis)) goto ERROR;
 
@@ -2051,7 +2058,8 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
     h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   } else if (h->hsize > h->hsize0) {
     h->hsize0 = h->hsize;
-    h->hamilton = (double *) realloc(h->hamilton, sizeof(double)*h->hsize);
+    free(h->hamilton);
+    h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
   }
   if (!(h->hamilton)) goto ERROR;
       
@@ -2084,6 +2092,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
       if (delta < EPS10) h->hamilton[i+t] = 0.0;
     }
   }
+  
   for (j = 0; j < ncs; j++) {
     t = j*(j+1)/2;
     for (i = 0; i < j; i++) {
@@ -2257,6 +2266,7 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     if (ji2 == jj2 && ki2 == kj2) {
       ResidualPotential(&r0, si->kcfg, sj->kcfg);
       r += r0;
+      a = r0;
       r0 = QED1E(si->kcfg, sj->kcfg);
       r += r0;
     } 
@@ -2300,6 +2310,59 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
 
   return r;
 } 
+
+double MultipoleCoeff(int isym, int ilev1, int ka1, 
+		      int ilev2, int ka2, int k) {
+  int k2, ti, tj, kz, nz, i, ji1, ji2, jj1, jj2, ki2, kj2;
+  int j0, j1, kl0, kl1, j;
+  double a, b, r0;
+  ORBITAL *orb0, *orb1;
+  LEVEL *lev1, *lev2;
+  ANGULAR_ZMIX *ang;
+
+  k2 = k*2;
+  lev1 = GetLevel(ilev1);
+  lev2 = GetLevel(ilev2);
+  DecodePJ(lev1->pj, NULL, &ji1);
+  DecodePJ(lev2->pj, NULL, &jj1);
+  GetJLFromKappa(ka1, &ji2, &ki2);
+  GetJLFromKappa(ka2, &jj2, &kj2);
+  if (IsOdd((ki2+kj2)/2+k)) return 0.0;
+  if (!Triangle(ji2, jj2, k2)) return 0.0;
+  DecodePJ(isym, NULL, &j);
+  if (ang_frozen.nts > 0) {
+    ti = IBisect(ilev1, ang_frozen.nts, ang_frozen.ts);
+    tj = IBisect(ilev2, ang_frozen.nts, ang_frozen.ts);
+    kz = tj*ang_frozen.nts + ti;
+    nz = ang_frozen.nz[kz];
+    ang = ang_frozen.z[kz];
+  } else {
+    nz = AngularZMix(&ang, ilev1, ilev2, k2, k2);
+  }
+  
+  a = 0.0;
+  for (i = 0; i < nz; i++) {
+    if (ang[i].k != k2 || fabs(ang[i].coeff) < EPS10) continue;
+    r0 = W6j(ji1, ji2, j, jj2, jj1, k2);
+    if (fabs(r0) < EPS10) continue;
+    orb0 = GetOrbital(ang[i].k0);
+    orb1 = GetOrbital(ang[i].k1);
+    GetJLFromKappa(orb0->kappa, &j0, &kl0);
+    GetJLFromKappa(orb1->kappa, &j1, &kl1);
+    if (IsOdd((kl0+kl1)/2+k)) continue;    
+    if (!Triangle(j0, j1, k2)) continue;
+    b = RadialMoments(ang[i].k0, ang[i].k1, k);
+    b *= ReducedCL(j0, k2, j1);
+    b *= ReducedCL(ji2, k2, jj2);
+    b *= ang[i].coeff*r0;
+    a += b;
+  }
+  if (IsOdd((ji2 + jj1 + j)/2)) a = -a;
+
+  if (nz > 0 && ang_frozen.nts == 0) free(ang);
+
+  return a;
+}
     
 double HamiltonElement(int isym, int isi, int isj) { 
   CONFIG *ci, *cj;
@@ -2656,8 +2719,10 @@ int DiagnolizeHamilton(void) {
     h->iwork = (int *) malloc(sizeof(int)*liwork);
   } else if (h->dim > h->dim0) {
     h->dim0 = h->dim;
-    h->work = (double *) realloc(h->work, sizeof(double)*(lwork+2*t0));
-    h->iwork = (int *) realloc(h->iwork, sizeof(int)*liwork);
+    free(h->work);
+    free(h->iwork);
+    h->work = (double *) malloc(sizeof(double)*(lwork+2*t0));
+    h->iwork = (int *) malloc(sizeof(int)*liwork);
   }
 
   h->msize = h->dim * h->n_basis + h->dim;  
@@ -2666,7 +2731,8 @@ int DiagnolizeHamilton(void) {
     h->mixing = (double *) malloc(sizeof(double)*h->msize);
   } else if (h->msize > h->msize0) {
     h->msize0 = h->msize;
-    h->mixing = (double *) realloc(h->mixing, sizeof(double)*h->msize);
+    free(h->mixing);
+    h->mixing = (double *) malloc(sizeof(double)*h->msize);
   }
   if (!(h->mixing)) {
     printf("Allocating Mixing Error\n");
@@ -2678,7 +2744,6 @@ int DiagnolizeHamilton(void) {
   } else {
     mixing = h->mixing;
   }
-  
   w = mixing;
   z = mixing + n;
   DSPEVD(jobz, uplo, n, ap, w, z, ldz, h->work, lwork,
@@ -4983,6 +5048,26 @@ int ClearLevelTable(void) {
 
   ClearAngularFrozen();
   return 0;
+}
+
+void ClearRMatrixLevels(int n) {
+  int i, m;
+  SYMMETRY *sym;
+  STATE *s;
+
+  ArrayTrim(levels, n, FreeLevelData);
+  n_levels = n;
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    sym = GetSymmetry(i);
+    for (m = 0; m < sym->n_states; m++) {
+      s = ArrayGet(&(sym->states), m);
+      if (s->kgroup < 0) {
+	ArrayTrim(&(sym->states), m, NULL);
+	sym->n_states = m;
+	break;
+      }
+    }
+  }
 }
 
 int InitStructure(void) {
