@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.28 2002/06/26 19:57:53 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.29 2002/08/11 01:24:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -973,7 +973,7 @@ int GetNumElectrons(int k) {
   lev = GetLevel(k);
   sym = GetSymmetry(lev->pj);
   s = (STATE *) ArrayGet(&(sym->states), 0);
-  nele = ConstructLevelName(NULL, NULL, NULL, s);
+  nele = ConstructLevelName(NULL, NULL, NULL, NULL, s);
   return nele;
 }
 
@@ -991,7 +991,7 @@ int SaveLevels(char *fn, int m, int n) {
   char nc[LEVEL_NAME_LEN];
   FILE *f;
   int i, k, p, j0;
-  int nele, nele0;
+  int nele, nele0, vnl;
   int si;
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
@@ -1036,13 +1036,18 @@ int SaveLevels(char *fn, int m, int n) {
     r.j = j0;
     r.energy = lev->energy;
     s = (STATE *) ArrayGet(&(sym->states), si);
-    nele = ConstructLevelName(name, sname, nc, s);
+    nele = ConstructLevelName(name, sname, nc, &vnl, s);
     strncpy(r.name, name, LNAME);
     strncpy(r.sname, sname, LSNAME);
     strncpy(r.ncomplex, nc, LNCOMPLEX);
     r.name[LNAME-1] = '\0';
     r.sname[LSNAME-1] = '\0';
     r.ncomplex[LNCOMPLEX-1] = '\0';
+    if (r.p == 0) {
+      r.p = vnl;
+    } else {
+      r.p = -vnl;
+    }
     if (nele != nele0) {
       if (nele0 >= 0) DeinitFile(f, &fhdr);
       nele0 = nele;
@@ -1093,7 +1098,8 @@ int SaveLevels(char *fn, int m, int n) {
   return 0;
 }
 
-int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
+int ConstructLevelName(char *name, char *sname, char *nc, 
+		       int *vnl, STATE *basis) {
   int n, nq, kl, j;
   int nele, i, len;
   char symbol[20];
@@ -1113,6 +1119,9 @@ int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
     i = -(i + 1);    
     orb = GetOrbital(basis->kcfg);
     GetJLFromKappa(orb->kappa, &j, &kl);
+    if (vnl) {
+      *vnl = (kl/2) + 100*(orb->n);
+    }
     if (name) {
       if (j < kl) jsym = '-';
       else jsym = '+';
@@ -1127,7 +1136,7 @@ int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
     sym = GetSymmetry(lev->pj);
     basis = (STATE *) ArrayGet(&(sym->states), si);
     if (sname || nc) {
-      nele = ConstructLevelName(NULL, sname, nc, basis);
+      nele = ConstructLevelName(NULL, sname, nc, NULL, basis);
       if (nc) {
 	if (nele == 0) {
 	  nc[0] = '\0';
@@ -1136,7 +1145,7 @@ int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
 	strcat(nc, ashell);
       }
     } else {
-      nele = ConstructLevelName(NULL, NULL, NULL, basis);
+      nele = ConstructLevelName(NULL, NULL, NULL, NULL, basis);
     }
     return nele+1;
   }
@@ -1215,6 +1224,11 @@ int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis) {
     }
   }
 
+  if (vnl) {
+    UnpackShell(c->shells, &n, &kl, &j, &nq);
+    *vnl = (kl/2) + 100*n;
+  }
+      
   return nele;
 }
     
@@ -1239,7 +1253,7 @@ int GetBasisTable(char *fn) {
     fprintf(f, "%d: J = %d, Parity = %d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
-      ConstructLevelName(name, sname, NULL, s);
+      ConstructLevelName(name, sname, NULL, NULL, s);
       fprintf(f, "%-4d (%2d %2d %2d) %-20s %-50s \n",
 	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }

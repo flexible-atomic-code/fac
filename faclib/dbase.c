@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.24 2002/08/02 14:07:12 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.25 2002/08/11 01:24:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -783,6 +783,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   int n, i;
   int nb;
   float e;
+  int p, vnl;
 
   nb = 0;
   while (1) {
@@ -792,7 +793,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NLEV\t= %d\n", h.nlevels);
-    fprintf(f2, "         Energy       P 2J \n");
+    fprintf(f2, "         Energy       P   VNL 2J\n");
     for (i = 0; i < h.nlevels; i++) {
       n = fread(&r, sizeof(EN_RECORD), 1, f1);
       if (swp) SwapEndianENRecord(&r);
@@ -802,8 +803,15 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
 	e -= mem_en_table[iground].energy;
 	e *= HARTREE_EV;
       }
-      fprintf(f2, "%5d %15.8E %1d %2d %-20s %-20s %-s\n",
-	      r.ilev, e, r.p, r.j, r.ncomplex, r.sname, r.name);
+      if (r.p < 0) {
+	p = 1;
+	vnl = -r.p;
+      } else {
+	p = 0;
+	vnl = r.p;
+      }
+      fprintf(f2, "%5d %15.8E %1d %5d %2d %-20s %-20s %-s\n",
+	      r.ilev, e, p, vnl, r.j, r.ncomplex, r.sname, r.name);
     }
     nb += 1;
   }

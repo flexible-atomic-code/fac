@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.17 2002/02/12 20:32:12 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.18 2002/08/11 01:24:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -186,9 +186,9 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
   int r, brkpos, quotepos, next;
   int nn, nkl, nkappa;
   int n[16];
-  int kl[64];
-  int kappa[128];
-  int ncfg = 64;
+  int kl[512];
+  int kappa[1024];
+  int ncfg;
   double dnq;
   int *maxq;
   int i, j, t, k, kl2, ns;
@@ -201,7 +201,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
 
   next = 0;
   r = 0;
-  r = Parse(token, 128, scfg, &next, &brkpos, &quotepos);
+  r = Parse(token, 512, scfg, &next, &brkpos, &quotepos);
   if (quotepos == 0) {
     nn = StrSplit(token, ',');
     if (nn > 16) {
@@ -220,13 +220,13 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     n[0] = atoi(token);
   }
   if (brkpos < 0) {
-    r = Parse(token, 128, scfg, &next, &brkpos, &quotepos);
+    r = Parse(token, 512, scfg, &next, &brkpos, &quotepos);
   }
   if (brkpos >= 0) {
     kl[0] = brkpos;
     if (brkpos == MAX_SPEC_SYMBOLS) {
-      if (n[nn-1] >= 64) {
-	printf("not all L-terms are allowed for n >= %d\n", n[nn-1]);
+      if (n[nn-1] >= 512) {
+	printf("not all L-terms are allowed for n >= %d\n", 512);
 	exit(1);
       }
       nkl = n[nn-1];
@@ -252,29 +252,27 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     if (dnq == 0) dnq = 1;
   } else if (quotepos == 0) {
     nkl = StrSplit(token, ',');
-    if (nkl > 64) {
-      printf("number of L-terms must < 64\n");
+    if (nkl > 512) {
+      printf("number of L-terms must < 512\n");
       exit(1);
     }
     s = token;
     nkappa = 0;
-    for (i = 0; i < nn; i++) {
-      for (k = 0; k < nkl; k++) {
-	while (*s == ' ' || *s == '\t') s++;
-	GetJLFromSymbol(s, &j, &kl[i]);
-	kl2 = 2*kl[i];
-	if (j != 1 && kl2 > 0) {
-	  kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
-	}
-	if (j != -1) {
-	  kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
-	}
-	while (*s) s++;
-	s++;
+    for (k = 0; k < nkl; k++) {
+      while (*s == ' ' || *s == '\t') s++;
+      GetJLFromSymbol(s, &j, &kl[k]);
+      kl2 = 2*kl[k];
+      if (j != 1 && kl2 > 0) {
+	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
       }
-      dnq = atof(&(scfg[next]));
-      if (dnq == 0) dnq = 1;
+      if (j != -1) {
+	kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+      }
+      while (*s) s++;
+      s++;
     }
+    dnq = atof(&(scfg[next]));
+    if (dnq == 0) dnq = 1;
   } else {
     return -1;
   }
@@ -350,7 +348,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
-  ns = StrSplit(scfg, ' ');
+  ns = QuotedStrSplit(scfg, ' ', '[', ']');
   if (ns == 0) {
     *cfg = (CONFIG *) malloc(sizeof(CONFIG));
     (*cfg)->n_shells = 1;
@@ -522,9 +520,9 @@ int GetAverageConfigFromString(int **n, int **kappa,
 */
 int GetJLFromSymbol(char *s, int *j, int *kl) {
   int i;
-  char s0[5], *p;
+  char s0[16], *p;
 
-  strncpy(s0, s, 4);
+  strncpy(s0, s, 16);
   p = s0;
   while (*p) p++;
   p--;
@@ -539,10 +537,10 @@ int GetJLFromSymbol(char *s, int *j, int *kl) {
   }
 
   if (kl) {
-    if (isdigit(p[0])) *kl = atoi(p);
+    if (isdigit(s0[0])) *kl = atoi(s0);
     else {
       for (i = 0; i < MAX_SPEC_SYMBOLS; i++) {
-	if (spec_symbols[i] == p[0]) {
+	if (spec_symbols[i] == s0[0]) {
 	  *kl = i;
 	  return 0;
 	}

@@ -1,3 +1,12 @@
+Version 0.7.6, 08/10/2002
+	1. add Makefiles to the demo dir.
+	2. add the NL values for the valence electron in the 
+	   structure output file.
+	3. in atom.py, use only the ground configuration for 
+	   the potential optimization for He-like ions.
+	4. fix a bug in config.c, so that space in the brackets for
+	   the configuration specification is allowed.
+	
 Version 0.7.5, 08/02/2002
 	1. break down the long DATA statements in ionis.f
 	2. fix the beam energy distribution in spm.py

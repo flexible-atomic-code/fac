@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.4 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.5 2002/08/11 01:24:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -80,19 +80,80 @@ char StrTrim(char *s, char c) {
   return r;
 }
  
+int QuotedStrSplit(char *s, char sep, char qb, char qe) {
+  char *p;
+  int ns, qopen;
+
+  ns = 0;
+  p = s;
+  qopen = 0;
+  while (*p == sep) {
+    *p = ' ';
+    p++;
+  }
+  while (*p) {
+    if (*p == qb) qopen++;
+    else if (*p == qe) {
+      qopen--;
+      if (qopen < 0) {
+	printf("The quoted string %s does not have matched quotes\n");
+	return -1;
+      }
+    }
+    if (qopen > 0) {
+      p++;
+      continue;
+    }
+    if (*p == sep) {
+      ns++;
+      *p = '\0';
+      p++;
+      while (*p == sep) {	
+	*p = ' ';
+	p++;
+      }
+    } else {
+      p++;
+    }
+  }
+  
+  if (qopen != 0) {
+    printf("The quoted string %s does not have matched quotes\n");
+    return -1;
+  }
+
+  if (p == s) return 0;
+  p--;
+  while (*p) {
+    if (*p != sep) {
+      ns++;
+      break;
+    }
+    p--;
+  }
+
+  return ns;
+}
+ 
 int StrSplit(char *s, char sep) {
   char *p;
   int ns;
 
   ns = 0;
   p = s;
-  while (*p == sep) p++;
+  while (*p == sep) {
+    *p = ' ';
+    p++;
+  }
   while (*p) {
     if (*p == sep) {
       ns++;
       *p = '\0';
       p++;
-      while (*p == sep) p++;
+      while (*p == sep) {
+	*p = ' ';
+	p++;
+      }
     } else {
       p++;
     }

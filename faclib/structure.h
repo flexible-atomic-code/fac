@@ -131,7 +131,8 @@ int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);
-int ConstructLevelName(char *name, char *sname, char *nc, STATE *basis);
+int ConstructLevelName(char *name, char *sname, char *nc, 
+		       int *vnl, STATE *basis);
 int SaveLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
