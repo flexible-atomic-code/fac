@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.82 2004/12/17 08:27:05 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.83 2004/12/17 08:37:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4360,10 +4360,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       if (nfb > 0) free(afb);
     }
     PackAngularZMix(&n, ang, nz);
-  } else if (kg2 < 0 && !ignore_ryd) {    
-    nz = ANGZ_BLOCK;
-    n = 0;
-    (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
+  } else if (kg2 < 0 && !ignore_ryd) {
     for (j = 0; j < lev2->n_basis; j++) {
       mix2 = lev2->mixing[j];
       if (fabs(mix2) < angz_cut) continue;
