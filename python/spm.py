@@ -1,11 +1,14 @@
 from pfac.crm import *
 from pfac import const
 from math import *
+import sys
 import string
 import biggles
 
 def spectrum(neles, temp, den, population,
-             pref, suf = 'b', dir = '', nion = 3):
+             pref, suf = 'b', dir = '', nion = 3, rate=()):
+    if (type(rate) == type('')):
+        rate = (rate,)
     for k in neles:
         print 'NELE = %d'%k
         f1 = '%s%02d%s'%(pref, k-1, suf)
@@ -60,10 +63,12 @@ def spectrum(neles, temp, den, population,
                 LevelPopulation()
                 Cascade()
 
-                RateTable(rt_file)
+                rt = (rt_file,)+rate
+                RateTable(*rt)
                 SpecTable(sp_file)
                 PrintTable(rt_file, rt_afile, 1)
                 PrintTable(sp_file, sp_afile, 1)
+                sys.stdout.flush()
                 ReinitCRM(2)
             ReinitCRM(1)
         ReinitCRM()
