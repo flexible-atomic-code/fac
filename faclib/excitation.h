@@ -42,7 +42,7 @@ int ReinitExcitation(int m);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
 int SetCEPWFile(char *fn);
-int SetCEBorn(double x);
+int SetCEBorn(double x, double x1);
 void SetCELQR(int m);
 void SetCELMax(int m);
 void SetCELCB(int m);

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.88 2004/07/18 01:46:22 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.89 2004/07/26 17:26:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1687,11 +1687,12 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 }
   
 static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
-  double x;
+  double x, x1;
   
-  if (!PyArg_ParseTuple(args, "d", &x)) return NULL;
+  x1 = -10.0;
+  if (!PyArg_ParseTuple(args, "d|d", &x, &x1)) return NULL;
 
-  SetCEBorn(x);
+  SetCEBorn(x, x1);
   Py_INCREF(Py_None);
   return Py_None;
 }

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.66 2004/07/18 01:46:22 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.67 2004/07/26 17:26:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1520,13 +1520,17 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
 
 static int PSetCEBorn(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
-  double x;
+  double x, x1;
 
-  if (argc != 1) return -1;
+  if (argc < 1 || argc > 2) return -1;
   if (argt[0] != NUMBER) return -1;
-
+  if (argc > 1) {
+    x1 = atof(argv[1]);
+  } else {
+    x1 = -10.0;
+  }
   x = atof(argv[0]);
-  SetCEBorn(x);
+  SetCEBorn(x, x1);
   
   return 0;
 }
