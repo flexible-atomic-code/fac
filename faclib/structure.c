@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.20 2002/01/17 19:52:23 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.21 2002/01/18 15:17:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1423,6 +1423,7 @@ int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {
     k = &k0;
     r = &r0;
     nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
+    if (*r + 1.0 == 1.0) goto END;
     if (IsOdd(phase+(jp+j2-k0)/2)) *r = -(*r);
     *r /= sqrt(jp+1.0)*W6j(j1, jf, jp, k0, j2, s[1].j);
     kb = OrbitalIndex(s[1].n, s[1].kappa, 0.0);

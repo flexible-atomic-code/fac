@@ -37,12 +37,18 @@ def get_terms(n, nq):
             return ['3s2', '3s1 3p1', '3s1 3d1', '3p2', '3p1 3d1', '3d2']
         elif (nq < 8):
             a = ['3s2 3p%d'%(nq-2)]
+	    a.append('3s1 3p%d'%(nq-1))
             a.append('3s1 3p%d 3d1'%(nq-2))
-            if (nq > 3):
+            if (nq == 3):
+	        a.append('3s2 3d1')
+	    else:
                 a.append('3s2 3p%d 3d1'%(nq-3))
             return a
         else:
-            a = ['3s2 3p6 3d%d'%(nq-8)]
+	    if (nq != 8):
+                a = ['3s2 3p6 3d%d'%(nq-8)]
+	    else:
+	        a = ['3s2 2p6']
             a.append('3s2 3p5 3d%d'%(nq-7))
             a.append('3s1 3p6 3d%d'%(nq-7))
             return a
@@ -635,6 +641,8 @@ class ATOM:
                         self.run_ai(a, b, k)
                     else:
                         for j in range(k):
+			    if (k == self.n_shells and j != 0):
+				break;
                             b = ion[j]
                             if (j > 0):
                                 SetAngZCut(self.angz_cut1)
@@ -656,6 +664,8 @@ class ATOM:
                         self.run_ai(a, b, k)
                     else:
                         for j in range(k):
+			    if (k == self.n_shells and j != 0):
+				break;
                             b = ion[j]
                             if (j > 0):
                                 SetAngZCut(self.angz_cut1)
