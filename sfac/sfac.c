@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.76 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.77 2005/01/15 01:13:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2659,6 +2659,16 @@ static int PSetUTA(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetTRF(int argc, char *argv[], int argt[], 
+		   ARRAY *variables) {
+  
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  
+  SetTRF(atoi(argv[0]));
+  
+  return 0;
+}
+
 static int PCoulombBethe(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   double z, te, e1;
@@ -3307,6 +3317,7 @@ static int PPropogateDirection(int argc, char *argv[], int argt[],
 static METHOD methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
+  {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
