@@ -1,4 +1,8 @@
-Version 1.0.6, 06/05/2004
+Version 1.0.7, 11/10/2004
+	1. add DR satellite energy to the DB_DR file.
+	2. add the RRMultipole function for bound-free multipole matrix elements.
+	
+Version 1.0.6, 09/05/2004
 	1. parallelize StructureMBPT
 	2. use subplx in RefineRadial.
 	3. using relativistic Bethe formula for extrapolation of excitation.

@@ -483,14 +483,14 @@ s,@ECHO_N@,-n,;t t
 s,@ECHO_T@,,;t t
 s,@LIBS@, -lfac -lm -lcc_dynamic,;t t
 s,@TOPDIR@,/Users/mfgu/src/atomic/fac,;t t
-s,@build@,powerpc-apple-darwin7.5.0,;t t
+s,@build@,powerpc-apple-darwin7.6.0,;t t
 s,@build_cpu@,powerpc,;t t
 s,@build_vendor@,apple,;t t
-s,@build_os@,darwin7.5.0,;t t
-s,@host@,powerpc-apple-darwin7.5.0,;t t
+s,@build_os@,darwin7.6.0,;t t
+s,@host@,powerpc-apple-darwin7.6.0,;t t
 s,@host_cpu@,powerpc,;t t
 s,@host_vendor@,apple,;t t
-s,@host_os@,darwin7.5.0,;t t
+s,@host_os@,darwin7.6.0,;t t
 s,@CC@,gcc,;t t
 s,@CFLAGS@,-O2 -fPIC -fno-strength-reduce -no-cpp-precomp -fno-common,;t t
 s,@LDFLAGS@, -L/Users/mfgu/src/atomic/fac,;t t
@@ -511,7 +511,7 @@ s,@LIBOBJS@,,;t t
 s,@F77@,g77,;t t
 s,@FFLAGS@,-O2 -fPIC -fno-strength-reduce -fno-common,;t t
 s,@ac_ct_F77@,g77,;t t
-s,@FLIBS@,-L/sw/lib/gcc/powerpc-apple-darwin7.5.0/3.4.1 -L/sw/lib/gcc/powerpc-apple-darwin7.5.0/3.4.1/../../.. -lfrtbegin -lg2c -lSystem,;t t
+s,@FLIBS@,-L/sw/lib/gcc/powerpc-apple-darwin7.6.0/3.4.2 -L/sw/lib/gcc/powerpc-apple-darwin7.6.0/3.4.2/../../.. -lfrtbegin -lg2c -lSystem,;t t
 s,@LTLIBOBJS@,,;t t
 CEOF
 
