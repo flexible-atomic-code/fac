@@ -2,21 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "array.h"
-#include "coulomb.h"
-#include "config.h"
-#include "cfp.h"
-#include "angular.h"
-#include "recouple.h"
-#include "radial.h"
-#include "nucleus.h"
-#include "structure.h"
-#include "transition.h"
-#include "excitation.h"
-#include "recombination.h"
-#include "ionization.h"
+#include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.10 2001/11/06 23:55:21 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.11 2001/11/07 16:34:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1078,12 +1066,22 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 }
   
 static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
+  PyObject *p;
   int m;
   double tol;
 
   m = QK_DEFAULT;
   tol = -1;
-  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
+  if (PyString_Check(p)) {
+    p = PyDict_GetItem(QKMODE, p);
+  } 
+  if (PyInt_Check(p)) {
+    m = PyInt_AsLong(p);
+  } else {
+    return NULL;
+  }
+  
   if (m >= QK_CB) {
     printf("CEQkMode must < %d\n", QK_CB);
     return NULL;
@@ -1289,12 +1287,22 @@ static PyObject *PWaveFuncTable(PyObject *self, PyObject *args) {
 }
 
 static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
+  PyObject *p;
   int m;
   double tol;
 
   m = QK_DEFAULT;
   tol = -1;
-  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
+  if (PyString_Check(p)) {
+    p = PyDict_GetItem(QKMODE, p);
+  }
+  if (PyInt_Check(p)) {
+    m = PyInt_AsLong(p);
+  } else {
+    return NULL;
+  }
+
   if (m >= QK_CB) {
     printf("RecQkMode must < %d\n", QK_CB);
     return NULL;
@@ -1798,12 +1806,21 @@ static PyObject *PSetIEGrid(PyObject *self, PyObject *args) {
 }
 
 static  PyObject *PSetCIQkMode(PyObject *self, PyObject *args) {
+  PyObject *p;
   int m;
   double tol;
 
   m = QK_DEFAULT;
   tol = -1.0;
-  if (!PyArg_ParseTuple(args, "|id", &m, &tol)) return NULL;
+  if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
+  if (PyString_Check(p)) {
+    p = PyDict_GetItem(QKMODE, p);
+  }
+  if (PyInt_Check(p)) {
+    m = PyInt_AsLong(p);
+  } else {
+    return NULL;
+  }
   if (m < QK_CB) {
     printf("CIQkMode must >= %d\n", QK_CB);
     return NULL;
@@ -2201,6 +2218,14 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PInfor(PyObject *self, PyObject *args) { 
+
+  Infor();
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"Closed", PClosed, METH_VARARGS},
@@ -2233,6 +2258,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Get9j", GetW9j, METH_VARARGS},
   {"GetCG", GetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
+  {"Infor", PInfor, METH_VARARGS},
   {"LevelTable", PLevelTable, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
@@ -2315,32 +2341,10 @@ void initfac() {
   ErrorObject = Py_BuildValue("s", "fac.error");
   PyDict_SetItemString(d, "error", ErrorObject);
 
-#if FAC_DEBUG
-  debug_log = fopen("debug.log", "w");
-  if (!debug_log) {
-    onError("can not open the debug log file");
+  if (InitFac() < 0) {
+    onError("initilization failed\n");
     return;
   }
-#endif
-  
-  if (InitConfig() < 0) {
-    onError("initialize failed in InitConfig");
-    return;
-  }
-
-  InitCoulomb();
-  InitAngular();
-  InitRecouple();
-
-  if (InitRadial() < 0) {
-    onError("initialize failed in InitRadial");
-    return;
-  }
-
-  InitStructure();
-  InitExcitation();
-  InitRecombination();
-  InitIonization();
 
   SPECSYMBOL = PyList_New(MAX_SPEC_SYMBOLS);
   sp[1] = '\0';

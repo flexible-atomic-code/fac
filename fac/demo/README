@@ -1,5 +1,7 @@
 This directory contains example scripts and the resulting outputs 
-discussed in the papers submitted to CPC.
+discussed in the papers submitted to CPC. Two versions of the scripts 
+are present, one is for Python interface (*.py), and the other is for
+SFAC interface (*.sf).
 
 structure/,  atomic structure example for Ne-like Fe.
 excitation/, electron impact excitation example for Ne-like Fe.

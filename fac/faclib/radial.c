@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.30 2001/11/04 15:42:58 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.31 2001/11/07 16:34:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -387,7 +387,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   } else {
     if (acfg->n_shells <= 0) {
       printf("No average configuation exist. \n");
-      printf("Specify with config.avgconfig, ");
+      printf("Specify with AvgConfig, ");
       printf("or give config groups to OptimizeRadial.\n");
       return -1;
     }

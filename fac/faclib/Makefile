@@ -1,5 +1,5 @@
 
-SRC = parser.c array.c interpolation.c grid.c coulomb.c config.c cfp.c angular.c rcfp.c recouple.c orbital.c radial.c nucleus.c structure.c transition.c excitation.c recombination.c ionization.c
+SRC = parser.c array.c interpolation.c grid.c coulomb.c config.c cfp.c angular.c rcfp.c recouple.c orbital.c radial.c nucleus.c structure.c transition.c excitation.c recombination.c ionization.c init.c
 
 OBJS = ${SRC:.c=.o}
 

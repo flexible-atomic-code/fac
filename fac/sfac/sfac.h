@@ -6,20 +6,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "array.h"
-#include "coulomb.h"
-#include "config.h"
-#include "cfp.h"
-#include "angular.h"
-#include "recouple.h"
-#include "radial.h"
-#include "nucleus.h"
-#include "structure.h"
-#include "transition.h"
-#include "excitation.h"
-#include "recombination.h"
-#include "ionization.h"
-#include "parser.h"
+#include "init.h"
 
 #define MAXNARGS 128
 #define MAXLINELENGTH 1024
@@ -60,7 +47,7 @@ typedef struct _STATEMENT_ {
 
 int GetValidLine(FILE *f, char *line, int *nlines);
 int TokenizeLine(int nline, char *line, ARRAY *statements, ARRAY *variables);
-int EvalFile(FILE *f);
+int EvalFile(FILE *f, int exebyline);
 int EvalStatement(STATEMENT *st, ARRAY *variables);
 void FreeStatementData(void *p);
 void FreeVariableData(void *p);
