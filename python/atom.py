@@ -219,7 +219,7 @@ class ATOM:
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
             self.nterms = [-1,-1,-1]
-            self.nexc_max = [10, 10, 10]
+            self.nexc_max = [9, 9, 9]
             self.nfrozen = [9, 9, 9]
             self.nexc_rec = [10, 8, 6]
             self.nrec_max = [25, 16, 10]
@@ -238,7 +238,7 @@ class ATOM:
             if (self.nele > 5):
                 self.nterms = [3, 2, 2, 2]
             self.nexc_max = [5, 5, 5, 5]
-            self.nfrozen = [6, 6, 6, 6]
+            self.nfrozen = [10, 8, 7, 6]
             self.nexc_rec = [10, 4, 4, 4]
             self.nrec_max = [25, 16, 12, 8]
             self.rec_pw_max = [10, 9, 9, 5]
@@ -254,7 +254,7 @@ class ATOM:
             self.n_shells = 3
             self.nterms = [-1,-1,-1,-1,-1]
             self.nexc_max = [5, 5, 5, 5, 5]
-            self.nfrozen = [6, 6, 6, 6, 6]
+            self.nfrozen = [10, 7, 6, 6, 6]
             self.nexc_rec = [4, 4, 4, 4, 0]
             self.nrec_max = [25, 10, 10, 8, 8]
             self.rec_pw_max = [10, 9, 6, 5, 5]
