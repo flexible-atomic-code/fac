@@ -7,11 +7,13 @@
 #include <time.h>
 
 /** The tabulated ln(n!) goes up to n = MAX_FACTORIAL - 1 **/
-#define MAX_FACTORIAL 500
+#define MAX_FACTORIAL 1000
 
 double ln_factorial[MAX_FACTORIAL];
+double ln_integer[MAX_FACTORIAL];
 
 #define LnFactorial(n) ln_factorial[(n)]
+#define LnInteger(n) ln_integer[(n)]
 
 typedef struct _ANGULAR_TIMING_ {
   clock_t w3j;
