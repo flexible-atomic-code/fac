@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.59 2002/09/19 15:59:48 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.60 2002/09/21 04:03:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -49,6 +49,13 @@ static struct {
   double c[NPB];
   double u[MAX_POINTS];
 } pbasis;
+
+static struct {
+  int se;
+  int vp;
+  int ms;
+  int br;
+} qed = {0, 0, 0, 0};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
@@ -2008,8 +2015,8 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
 /* integrate a function given by f with two orbitals. */
 /* type indicates the type of integral */
 /* type = 1,    P1*P2 + Q1*Q2 */
-/* type = 2,    P1*P1 */
-/* type = 3,    Q1*Q1 */ 
+/* type = 2,    P1*P2 */
+/* type = 3,    Q1*Q2 */ 
 /* type = 4:    P1*Q2 + Q1*P2 */
 /* type = 5:    P1*Q2 - Q1*P2 */
 /* if type is positive, only the end point is returned, */

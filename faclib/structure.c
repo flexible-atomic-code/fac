@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.36 2002/09/19 15:59:48 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.37 2002/09/21 04:03:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -562,7 +562,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
       SlaterTotal(&sd, NULL, js, ks, kk[i], 0);
     }
     if (nk0 > 0) x -= z0 * sd;
-
   }
     
   if (nk > 0) {

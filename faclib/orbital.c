@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.35 2002/09/19 15:59:48 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.36 2002/09/21 04:03:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -492,7 +492,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   i2m2 = i2 - 2;
   i2p2 = i2 + 2;
   nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
-  
+
   for (i = i2p2; i >= 0; i--) {
     p[i] *= pot->dr_drho2[i];
   }
@@ -529,6 +529,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->flag == -1) {
     DiracSmall(orb, pot);
   }
+
   return 0;
 }
 
@@ -648,7 +649,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
 void DerivODE(int *neq, double *t, double *y, double *ydot) {
   double w0, w;
   double t0, s, e;
-  
+
   t0 = y[2];
   w0 = y[3];
   s = y[4];
@@ -658,7 +659,7 @@ void DerivODE(int *neq, double *t, double *y, double *ydot) {
   w = 2.0*(e - w/(*t));
   
   ydot[0] = y[1];
-  ydot[1] = 1.0/(y[0]*y[0]*y[0]) - y[0]*w;  
+  ydot[1] = 1.0/(y[0]*y[0]*y[0]) - y[0]*w;
 }
   
 double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
@@ -667,7 +668,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   double z, dk, r0, r1, r, w, v1;
   
   int neq, itol, itask, istate, iopt, lrw, iwork[22], liw, mf;
-  double y[6], rtol, atol, *rwork;
+  double y[6], rtol, atol[2], *rwork;
 
   n = MAX_POINTS-1;
   z = pot->Z[n] - pot->N + 1.0;
@@ -691,7 +692,6 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     w = (-2.0*v1/r + 0.75*FINE_STRUCTURE_CONST2*v1*v1/xi - 2*ka*v1/r);
     w /= 4.0*xi;
     _dwork1[i] = a + 0.5*kl1/r2 - 0.5*FINE_STRUCTURE_CONST2*(b - w);
-
     a = z/r2;
     b = kl1/r3;
     if (a < dk && b < dk) break;
@@ -708,9 +708,10 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   lrw = MAX_POINTS;
   liw = 22;
   neq = 2;
-  itol = 1;
-  rtol = EPS5;
-  atol = EPS10;
+  itol = 2;
+  rtol = EPS4;
+  atol[0] = 0.0;
+  atol[1] = EPS6;
   itask = 1;
   istate = 1;
   iopt = 0;
@@ -723,9 +724,14 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _dwork1[i+1]*r0;
     y[4] = (_dwork1[i]*r - y[3])/(r - r0);
     y[5] = e;
-    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, &atol, 
+    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, atol, 
 	   &itask, &istate, &iopt, rwork, &lrw, iwork, &liw, NULL, &mf);
     r0 = r;
+    if (istate == -1) istate = 2;
+    else if (istate < 0) {
+      printf("LSODE Error\n");
+      exit(1);
+    }
   }
 
   p[n] = y[0];
@@ -735,12 +741,16 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _veff[i+1]*r0;
     y[4] = (_veff[i]*r - y[3])/(r - r0);
     y[5] = e;
-    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, &atol, 
+    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, atol, 
 	   &itask, &istate, &iopt, rwork, &lrw, iwork, &liw, NULL, &mf);
     r0 = r;
     p[i] = y[0];
+    if (istate == -1) istate = 2;
+    else if (istate < 0) {
+      printf("LSODE Error\n");
+      exit(1);
+    }
   }
-  
   return y[1];
 }    
 
@@ -921,8 +931,9 @@ double Simpson(double *y, int ia, int ib) {
   a = 0.0;
   
   for (i = ia; i < ib - 1; i += 2) {
-    a += (y[i] + 4.0*y[i+1] + y[i+2])/3.0;
+    a += y[i] + 4.0*y[i+1] + y[i+2];
   }
+  a /= 3.0;
   if (i < ib) a += 0.5 * (y[i] + y[ib]);
 
   return a;
