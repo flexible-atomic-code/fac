@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.18 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.19 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1437,7 +1437,7 @@ int InteractingShells(INTERACT_DATUM **idatum,
   if (n_shells == 0) n_shells = -1;
   (*idatum)->n_shells = n_shells;
   if (n_shells > 0) {
-    (*idatum)->bra = (SHELL *) realloc(bra, sizeof(SHELL)*n_shells);
+    (*idatum)->bra = (SHELL *) ReallocNew(bra, sizeof(SHELL)*n_shells);
     /* adjust the index so that it counts from inner shells */
     for (i = 0; i < 4; i++) {
       if (s[i].index >= 0) 

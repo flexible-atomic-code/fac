@@ -230,6 +230,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
+void        *ReallocNew(void *p, int s);
 int          SetNStatesPartition(int n);
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
 int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
@@ -263,6 +264,7 @@ int          GroupIndex(char *name);
 int          GroupExists(char *name);
 int          AddConfigToList(int k, CONFIG *cfg);
 int          AddGroup(char *name);
+int          RemoveGroup(int k);
 CONFIG_GROUP *GetGroup(int k);
 CONFIG_GROUP *GetNewGroup(void);
 int          GetNumGroups(void);

@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.13 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.14 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -307,6 +307,7 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
   
   if (n == 0) {
     ArrayFree(a, FreeElem);
+    return 0;
   }
 
   i = n;

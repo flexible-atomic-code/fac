@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.12 2004/01/08 19:04:03 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.13 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -39,28 +39,34 @@ double *GetAtomicMassTable(void) {
   return _emass;
 }
 
-int SetAtom(char *s, double z, double mass) {
+int SetAtom(char *s, double z, double mass, double rn) {
   int i;
+
   if (s == NULL) return -1;
   strncpy(atom.symbol, s, 2); 
   if (z <= 0 || mass <= 0) {
     for (i = 0; i < N_ELEMENTS; i++) {
       if (strncasecmp(_ename[i], s, 2) == 0) {
-	if (z <= 0) z = i+1;
-	if (mass <= 0 && mass > -0.5) mass = _emass[i];
+	if (z <= 0) atom.atomic_number = i+1;
+	if (mass <= 0) atom.mass = _emass[i];
 	break;
       }
     }
+    if (i == N_ELEMENTS) return -1;
   }
-  if (z <= 0) return -1;
-  atom.atomic_number = z;
-  if (mass == 0.0) mass = 2.0*z;
-  atom.mass = mass;
-  if (mass < 0.0) {
-    atom.rn = 0.0;
+
+  if (z > 0) {
+    atom.atomic_number = z;
+  } 
+  if (mass > 0.0) {
+    atom.mass = mass;
+  }
+  if (rn < 0.0) {
+    atom.rn = 2.2677E-5 * pow(atom.mass, 1.0/3);
   } else {
-    atom.rn = 2.2677E-5 * pow(mass, 1.0/3);
+    atom.rn = rn;
   }
+
   return 0;
 }
 

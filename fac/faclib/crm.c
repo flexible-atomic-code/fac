@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.70 2004/02/19 21:45:31 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.71 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -903,13 +903,13 @@ int SetBlocks(double ni, char *ifn) {
 	    } else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	      if (blkp) {
 		if (blkp->nlevels > nlevels) {
-		  blkp->n = (double *) realloc(blkp->n, 
+		  blkp->n = (double *) ReallocNew(blkp->n, 
+						  sizeof(double)*nlevels);
+		  blkp->n0 = (double *) ReallocNew(blkp->n0, 
+						   sizeof(double)*nlevels);
+		  blkp->r = (double *) ReallocNew(blkp->r, 
 					       sizeof(double)*nlevels);
-		  blkp->n0 = (double *) realloc(blkp->n0, 
-						sizeof(double)*nlevels);
-		  blkp->r = (double *) realloc(blkp->r, 
-					       sizeof(double)*nlevels);
-		  blkp->total_rate = (double *)realloc(blkp->total_rate,
+		  blkp->total_rate = (double *)ReallocNew(blkp->total_rate,
 						       sizeof(double)*nlevels);
 		  blkp->nlevels = nlevels;
 		}
@@ -1005,14 +1005,14 @@ int SetBlocks(double ni, char *ifn) {
 	} else if (CompareNComplex(ncomplex, blk.ncomplex)) {
 	  if (blkp) {
 	    if (blkp->nlevels > nlevels) {
-	      blkp->n = (double *) realloc(blkp->n, 
-					   sizeof(double)*nlevels);
-	      blkp->n0 = (double *) realloc(blkp->n0, 
-					    sizeof(double)*nlevels);
-	      blkp->r = (double *) realloc(blkp->r, 
-					   sizeof(double)*nlevels);
-	      blkp->total_rate = (double *)realloc(blkp->total_rate,
-						   sizeof(double)*nlevels);
+	      blkp->n = (double *) ReallocNew(blkp->n, 
+					      sizeof(double)*nlevels);
+	      blkp->n0 = (double *) ReallocNew(blkp->n0, 
+					       sizeof(double)*nlevels);
+	      blkp->r = (double *) ReallocNew(blkp->r, 
+					      sizeof(double)*nlevels);
+	      blkp->total_rate = (double *) ReallocNew(blkp->total_rate,
+						       sizeof(double)*nlevels);
 	      blkp->nlevels = nlevels;
 	    }
 	  }

@@ -1,7 +1,8 @@
-Version 1.0.5, 02/28/2004
+Version 1.0.5, 03/03/2004
 	1. implement magnetic sublevel ionization
 	2. fix bugs in radial integration.
 	3. replace PS manual with PDF format.
+	4. implement a version of 2nd order MBPT for energy.
 	
 Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.49 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.50 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -937,7 +937,7 @@ static int PPrintTable(int argc, char *argv[], int argt[],
   if (argc != 2 && argc != 3) return -1;
   if (argt[0] != STRING || argt[1] != STRING) return -1;
   
-  v = 0;
+  v = 1;
   if (argc == 3) {
     if (argt[2] != NUMBER) return -1;
     v = atoi(argv[2]);
@@ -1253,20 +1253,24 @@ static int PSetMixCut(int argc, char *argv[], int argt[],
 
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
-  double z, mass;
+  double z, mass, rn;
 
   mass = 0.0;
   z = 0.0;
+  rn = -1.0;
 
-  if (argc < 1 || argt[0] != STRING || argc > 3) return -1;
+  if (argc < 1 || argt[0] != STRING || argc > 4) return -1;
   if (argc > 1) {
     z = atof(argv[1]);
     if (argc > 2) {
       mass = atof(argv[2]);
+      if (argc > 3) {
+	rn = atof(argv[3]);
+      }
     }
   }
   
-  if (SetAtom(argv[0], z, mass) < 0) return -1;
+  if (SetAtom(argv[0], z, mass, rn) < 0) return -1;
   
   return 0;
 }
@@ -2324,6 +2328,72 @@ static int PSortLevels(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PMBPT(int argc, char *argv[], int argt[], 
+		 ARRAY *variables) {
+  int *n0, i, n1, *s, *kg, n, ng, m, kmax, kmin;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], nv;
+  
+  if (argc < 6 || argc > 8) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != LIST && argt[1] != TUPLE) return -1;
+  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+  if (argt[4] != NUMBER || 
+      argt[5] != NUMBER) return -1;
+  kmin = 0;
+  m = 1;
+  if (argc > 6) {
+    kmin = atoi(argv[6]);
+    if (argc > 7) {
+      m = atoi(argv[7]);
+    }
+  }
+
+  n = SelectLevels(&s, argv[1], argt[1], variables);
+  if (n <= 0) return -1;
+  
+  ng = DecodeGroupArgs(&kg, 1, &(argv[2]), &(argt[2]), variables);
+  if (ng <= 0) {
+    free(s);
+    return -1;
+  }
+  
+  n0 = malloc(sizeof(int)*ng);
+  if (argt[3] == NUMBER) {
+    n0[0] = atoi(argv[3]);
+    for (i = 1; i < ng; i++) {
+      n0[i] = n0[0];
+    }
+  } else if (argt[3] == LIST) {
+    nv = DecodeArgs(argv[3], v, t, variables);
+    if (nv != ng) {
+      for (i = 0; i < nv; i++) free(v[i]);
+      printf("n0 array must have the same size as the gp array\n");
+      free(s);
+      free(kg);
+      free(n0);
+      return -1;
+    }
+    for (i = 0; i < nv; i++) {
+      n0[i] = atoi(v[i]);
+      free(v[i]);
+    }
+  } else {
+    return -1;
+  }
+    
+  n1 = atoi(argv[4]);
+  kmax = atoi(argv[5]);
+  
+  MBPT(argv[0], n, s, ng, kg, n0, n1, kmax, kmin, m);
+
+  free(s);
+  free(kg);
+  free(n0);
+
+  return 0;
+}
+
 static int PStructure(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int i, k, ng0, ng, ngp, ns;
@@ -2764,6 +2834,36 @@ static int PAsymmetry(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRadialOverlaps(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  
+  if (argc != 1 || argt[0] != STRING) return -1;
+  RadialOverlaps(argv[0]);
+  
+  return 0;
+}
+
+static int PSetBoundary(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nmax;
+  double bqp, p;
+
+  if (argc == 2) {
+    p = -1.0;
+  } else if (argc == 3) {
+    p = atof(argv[2]);
+  } else {
+    return -1;
+  }
+
+  nmax = atoi(argv[0]);
+  bqp = atof(argv[1]);
+  
+  SetBoundary(nmax, bqp, p);
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
@@ -2799,8 +2899,10 @@ static METHOD methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
+  {"MBPT", PMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
+  {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
@@ -2818,6 +2920,7 @@ static METHOD methods[] = {
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
+  {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},

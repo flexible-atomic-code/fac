@@ -101,11 +101,18 @@ typedef struct _STRUCT_TIMING_ {
 int GetStructTiming(STRUCT_TIMING *t);
 #endif
 
+double MBPT0(int isym, SYMMETRY *sym, int q1, int q2, int kg, int ic);
+double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m);
+void MBPT2(int ilev, LEVEL *lev, int kg, int n0, int n1, double *de, int nk);
+int MBPT(char *fn, int n, int *s, int k, int *kg, int *n0, int n1, 
+	 int kmax, int kmin, int m);
 int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);
 double HamiltonElementFrozen(int isym, int isi, int isj);
+double Hamilton2E2(int n_shells, SHELL_STATE *sbra, 
+		   SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
@@ -166,6 +173,7 @@ int FreeAngZ(int g, int which_array);
 int ClearLevelTable(void);
 int InitStructure(void);
 int ReinitStructure(int m);
+int TestHamilton(void);
 
 #endif
 

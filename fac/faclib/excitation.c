@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.66 2004/02/28 20:39:38 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.67 2004/03/11 00:26:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -341,14 +341,14 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   (*pk)->nkl = t;
   (*pk)->nkappa = m;
   if (pw_type == 0) {
-    (*pk)->kappa0 = realloc(kappa0, sizeof(short)*m);
-    (*pk)->kappa1 = realloc(kappa1, sizeof(short)*m);
+    (*pk)->kappa0 = ReallocNew(kappa0, sizeof(short)*m);
+    (*pk)->kappa1 = ReallocNew(kappa1, sizeof(short)*m);
   } else {
-    (*pk)->kappa0 = realloc(kappa1, sizeof(short)*m);
-    (*pk)->kappa1 = realloc(kappa0, sizeof(short)*m);
+    (*pk)->kappa0 = ReallocNew(kappa1, sizeof(short)*m);
+    (*pk)->kappa1 = ReallocNew(kappa0, sizeof(short)*m);
   }
-  (*pk)->pkd = realloc(pkd, sizeof(double)*q);
-  (*pk)->pke = realloc(pke, sizeof(double)*q);  
+  (*pk)->pkd = ReallocNew(pkd, sizeof(double)*q);
+  (*pk)->pke = ReallocNew(pke, sizeof(double)*q);  
     
 #ifdef PERFORM_STATISTICS
   stop = clock();
