@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.36 2004/01/04 21:55:23 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.37 2004/01/11 22:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -153,6 +153,23 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PEleDist(PyObject *self, PyObject *args) {
+  int n;
+  char *fn;
+  
+  if (scrm_file) {
+    SCRMStatement("EleDist", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "si", &fn, &n)) return NULL;
+  EleDist(fn, n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, n, k, np;
@@ -182,6 +199,23 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   return Py_None;
 } 
  
+static PyObject *PPhoDist(PyObject *self, PyObject *args) {
+  int n;
+  char *fn;
+  
+  if (scrm_file) {
+    SCRMStatement("PhoDist", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "si", &fn, &n)) return NULL;
+  PhoDist(fn, n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, n, k, np;
@@ -966,6 +1000,8 @@ static struct PyMethodDef crm_methods[] = {
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
+  {"EleDist", PEleDist, METH_VARARGS},
+  {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},

@@ -3016,6 +3016,11 @@ in \key{ColFit}. It returns a double in eV. Data are from subroutine
 \key{ColFit}. 
 \end{fundesc}
 
+\begin{fundesc}{EleDist}{fn, n}
+Calculate the electron energy distribution function, and print it to file \var{fn},
+using \var{n} energy points. The distribution must be already set.
+\end{fundesc}
+
 \begin{fundesc}{EPhFit}{Z, n, s}
 Calculate the ionization threshold of ion with nuclear charge \var{Z} and
 number of electrons \var{n} for shell \var{s}. \var{s} has the same meaning as
@@ -3091,6 +3096,11 @@ Calculate the photoionization cross section at energy \var{E} of subshell
 \var{n}. The meaning of \var{s} are: 1 for $1s$, 2
 for $2s$, 3 for $2p$, 4 for $3s$, 5 for $3p$, 6 for $3d$ and 7 for $4s$.
 The Fortran subroutine \verb|phfit2| of D. A. Verner is used. The result is in unit of $10^{-20}$ cm$^2$
+\end{fundesc}
+
+\begin{fundesc}{PhoDist}{fn, n}
+Calculate the photon energy distribution function, and print it to file \var{fn},
+using \var{n} energy points. The distribution must be already set.
 \end{fundesc}
 
 \begin{fundesc}{PlotSpec}{ifn, ofn, n, t, e0, e1, de\opt{, s}}

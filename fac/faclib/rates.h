@@ -17,7 +17,8 @@ typedef struct _DISTRIBUTION_ {
   double (*dist)(double, double *);
 } DISTRIBUTION;
 
-
+int EleDist(char *fn, int n);
+int PhoDist(char *fn, int n);
 int SetEleDist(int i, int np, double *p);
 int SetPhoDist(int i, int np, double *p);
 DISTRIBUTION *GetEleDist(int *i);

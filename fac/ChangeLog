@@ -3,6 +3,7 @@ Version 1.0.4, 12/31/2003
 	2. enable the LMn inner-shell Auger extrapolation.
 	3. make all atomic symbols capitalized.
 	4. ReinitConfig resets the closed shells to empty.
+	5. add MaxPower electron energy distribution, Maxwellian+Powerlaw.
 	
 Version 1.0.3, 12/01/2003
 	1. change contact information to my new address.
