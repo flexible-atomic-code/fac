@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.8 2003/08/07 21:25:57 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.9 2003/08/15 16:17:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -329,6 +329,7 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
 
   ifn = NULL;
   n = 0;
+  sc = NULL;
   if (p) {
     if (PyString_Check(p)) {
       ifn = PyString_AsString(p);

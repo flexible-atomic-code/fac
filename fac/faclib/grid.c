@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.8 2003/07/31 21:40:26 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.9 2003/08/15 16:17:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -149,30 +149,47 @@ int SetEGrid(double *e, double *log_e,
     return -1;
   }
 
-  et = fabs(eth);
-  if (et > 1E-30) {
+  if (eth >= 0.0) {
+    et = eth;  
     emin += et;
     emax += et;
-  }
   
-  e[0] = emin;
-  log_e[0] = log(emin);
-  if (n == 1) goto DONE;
-  e[n-1] = emax;
-  log_e[n-1] = log(emax);
-  if (n == 2) goto DONE;
-  del = (log_e[n-1] - log_e[0])/(n-1.0);
-  del = exp(del);
-  for (i = 1; i < n-1; i++) {
-    e[i] = e[i-1]*del;
-    log_e[i] = log(e[i]);
-  }
+    e[0] = emin;
+    log_e[0] = log(emin);
+    if (n == 1) goto DONE1;
+    e[n-1] = emax;
+    log_e[n-1] = log(emax);
+    if (n == 2) goto DONE1;
+    del = (log_e[n-1] - log_e[0])/(n-1.0);
+    del = exp(del);
+    for (i = 1; i < n-1; i++) {
+      e[i] = e[i-1]*del;
+      log_e[i] = log(e[i]);
+    }
+    
+  DONE1:
+    if (et > 0.0) {
+      for (i = 0; i < n; i++) {
+	e[i] -= eth;
+      }
+    }
+  } else if (eth < 0.0) {
+    et = -eth;
+    e[0] = emin/(emin+et);
+    if (n == 1) goto DONE2;
+    e[n-1] = emax/(emax+et);
+    if (n == 2) goto DONE2;
+    del = (e[n-1]-e[0])/(n-1.0);
+    for (i = 1; i < n-1; i++) {
+      e[i] = e[i-1] + del;
+    }
 
- DONE:
-  if (eth > 1E-30) {
+  DONE2:
     for (i = 0; i < n; i++) {
-      e[i] -= eth;
+      e[i] = e[i]*et/(1.0-e[i]);
+      log_e[i] = log(e[i]);
     }
   }
+
   return n;
 }

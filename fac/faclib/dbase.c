@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.52 2003/08/13 13:19:49 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.53 2003/08/15 16:17:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1381,26 +1381,23 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
 }
 
 void PrepCECrossHeader(CE_HEADER *h, double *data) {
-  double *eusr, *x, *logx;
-  int m, m1, j, t;
+  double *eusr, *x;
+  int m, m1, j;
 
   eusr = h->usr_egrid;
   m = h->n_usr;
   m1 = m + 1;
   x = data+2+m1;
-  logx = x + m1;
-  x[0] = 0.0;
   data[0] = h->te0*HARTREE_EV;
   for (j = 0; j < m; j++) {
-    t = m-j;
-    x[t] = h->te0/(h->te0 + eusr[j]);
+    x[j] = log((h->te0 + eusr[j])/h->te0);
   }
+  x[m] = eusr[m-1]/(h->te0+eusr[m-1]);
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, 
 		       double *data) {
-  double *eusr, *x, *y, *logx, *w;
-  double e, tcs[MAXNUSR];
+  double *eusr, *x, *y, *w, e;
   float *cs;
   int m, m1, j, t;
   int j1, j2, t1, t2;
@@ -1410,64 +1407,44 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   m1 = m + 1;
   y = data + 2;
   x = y + m1;
-  logx = x + m1;
-  w = logx + m1;
+  w = x + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
   
   cs = r->strength;
-
   if (k == 0) {
     if (h->msub) {
       j1 = mem_en_table[r->lower].j;
       j2 = mem_en_table[r->upper].j;
       for (j = 0; j < m; j++) {
-	tcs[j] = 0.0;
+	y[j] = 0.0;
       }
       t = 0;
       for (t1 = -j1; t1 <= 0; t1 += 2) {
 	for (t2 = -j2; t2 <= j2; t2 += 2) {
 	  for (j = 0; j < m; j++) {
-	    tcs[j] += cs[t];
-	    if (t1 != 0) tcs[j] += cs[t];
+	    y[j] += cs[t];
+	    if (t1 != 0) y[j] += cs[t];
 	    t++;
 	  }
 	}
       }
     } else {
       for (j = 0; j < m; j++) {
-	tcs[j] = cs[j];
+	y[j] = cs[j];
       }
     }
-
-    y[0] = r->born[0];
-    if (r->bethe <= 0) {
-      for (j = 0; j < m; j++) {
-	t = m-j;
-	y[t] = tcs[j];
-      }
-    } else {
-      for (j = 0; j < m; j++) {
-	t = m-j;
-	logx[j] = log(e/(e+eusr[j]));
-	y[t] = tcs[j] + r->bethe*logx[j];
-      }
-    }
+    y[m] = r->born[0];
   }
 
   if (h->msub) {
     for (j = 0; j < m; j++) {
-      t = m-j;
-      if (r->bethe < 0) {
-	w[t] = cs[k*m+j]/y[t];
-      } else {
-	w[t] = cs[k*m+j]/(y[t] - r->bethe*logx[j]);
-      }
+      w[j] = cs[k*m+j]/y[j];
     }
     if (r->bethe < 0) {
-      w[0] = w[1];
+      w[j] = w[j-1];
     } else {
-      w[0] = r->params[k];
+      w[j] = r->params[k];
     }
   }
 }
@@ -1476,7 +1453,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 			  double *data, double *ratio) {
   double *x, *y, *w;
   int m, m1, n, one;
-  double a, b, x0, eth;
+  double a, b, x0, y0, eth;
 
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   eth = eth * HARTREE_EV;
@@ -1488,22 +1465,38 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 
   m = h->n_usr;
   m1 = m + 1;
-  x0 = data[0]/(data[0]+e);
+  x0 = log((data[0]+e)/data[0]);
   y = data + 2;
   x = y + m1;
-  w = x + 2*m1;
+  w = x + m1;
   
-  n = 2;
-  one = 1;
-  UVIP3P(n, m1, x, y, one, &x0, &a);
-  if (data[1] > 0.0) {
-    a -= data[1]*log(eth/(e+eth));
-  }
-  if (h->msub) {
-    UVIP3P(n, m1, x, w, one, &x0, &b);
-    if (b < 0.0) b = 0.0;
-    a *= b;
-    *ratio = b;
+  if (x0 < x[m-1]) {
+    n = 3;
+    one = 1;
+    UVIP3P(n, m, x, y, one, &x0, &a);
+    if (h->msub) {
+      UVIP3P(n, m, x, w, one, &x0, &b);
+      if (b < 0.0) b = 0.0;
+      a *= b;
+      *ratio = b;
+    }
+  } else {
+    x0 = e/(data[0] + e);
+    y0 = y[m-1];
+    if (data[1] > 0) {
+      b = log(((x[m]*data[0]/(1.0-x[m]))+eth)/eth);
+      y0 -= data[1]*b;
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+      b = log((e+eth)/eth);
+      a += data[1]*b;
+    } else {
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+    }
+    if (h->msub) {
+      b = w[m] + (x0-1.0)*(w[m-1]-w[m])/(x[m]-1.0);
+      a *= b;
+      *ratio = b;
+    }
   }
 
   return a;
@@ -1517,7 +1510,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k;
-  double data[2+(1+MAXNUSR)*4], e, cs, a, ratio;
+  double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
   
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");

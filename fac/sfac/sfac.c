@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.41 2003/08/13 20:44:24 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.42 2003/08/15 16:17:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2718,25 +2718,6 @@ static int PSetTransitionMaxM(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PSetGOSLimits(int argc, char *argv[], int argt[], 
-			 ARRAY *variables) {
-  double max, min;
-
-  if (argc < 1) return -1;
-  if (argt[0] != NUMBER) return -1;
-  max = atof(argv[0]);
-  if (argc == 2) {
-    if (argt[1] != NUMBER) return -1;
-    min = atof(argv[1]);
-  } else {
-    min = -1.0;
-  }
-  
-  SetGOSLimits(max, min);
-
-  return 0;
-}
-    
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
@@ -2857,7 +2838,6 @@ static METHOD methods[] = {
   {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
   {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS}, 
-  {"SetGOSLimits", PSetGOSLimits, METH_VARARGS}, 
   {"", NULL, METH_VARARGS}
 };
  

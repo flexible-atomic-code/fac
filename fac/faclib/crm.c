@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.59 2003/08/05 16:25:58 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.60 2003/08/15 16:17:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3447,7 +3447,7 @@ void AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
 }
   
 int SetCERates(int inv) {
-  int nb, i, j, t;
+  int nb, i, j;
   int n, m, m1, k;
   int j1, j2;
   int p, q;
@@ -3459,8 +3459,8 @@ int SetCERates(int inv) {
   FILE *f;
   double e;
   float *cs;
-  double data[2+(1+MAXNUSR)*3];
-  double *y, *x, *logx;
+  double data[2+(1+MAXNUSR)*2];
+  double *y, *x;
   double *eusr;
   int swp;
   
@@ -3490,12 +3490,10 @@ int SetCERates(int inv) {
       m = h.n_usr;
       m1 = m + 1;
       x = y + m1;
-      logx = x + m1;
-      x[0] = 0.0;
+      x[m] = eusr[m-1]/(h.te0+eusr[m-1]);
       data[0] = h.te0*HARTREE_EV;
       for (j = 0; j < m; j++) {
-	t = m-j;
-	x[t] = h.te0/(h.te0 + eusr[j]);
+	x[j] = log((h.te0 + eusr[j])/h.te0);
       }
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCERecord(f, &r, swp, &h);
@@ -3506,18 +3504,9 @@ int SetCERates(int inv) {
 	e = ion->energy[r.upper] - ion->energy[r.lower];
 	data[1] = r.bethe;
 	cs = r.strength;
-	y[0] = r.born[0];
-	if (r.bethe <= 0) {
-	  for (j = 0; j < m; j++) {
-	    t = m-j;
-	    y[t] = cs[j];
-	  }
-	} else {
-	  for (j = 0; j < m; j++) {
-	    t = m-j;
-	    logx[j] = log(e/(e+eusr[j]));
-	    y[t] = cs[j] + r.bethe*logx[j];
-	  }
+	y[m] = r.born[0];
+	for (j = 0; j < m; j++) {
+	  y[j] = cs[j];
 	}
 	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 	       data, rt.i, rt.f);
@@ -3548,12 +3537,10 @@ int SetCERates(int inv) {
 	m = h.n_usr;
 	m1 = m + 1;
 	x = y + m1;
-	logx = x + m1;
-	x[0] = 0.0;
+	x[m] = eusr[m-1]/(h.te0+eusr[m-1]);
 	data[0] = h.te0*HARTREE_EV;
         for (j = 0; j < m; j++) {
-	  t = m-j;
-	  x[t] = h.te0/(h.te0 + eusr[j]);
+	  x[j] = log((h.te0 + eusr[j])/h.te0);
         }
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = ReadCERecord(f, &r, swp, &h);
@@ -3576,18 +3563,9 @@ int SetCERates(int inv) {
 	  e = ion0.energy[q] - ion0.energy[p];
 	  data[1] = r.bethe;	
 	  cs = r.strength;
-	  y[0] = r.born[0];
-	  if (r.bethe <= 0) {
-	    for (j = 0; j < m; j++) {
-	      t = m-j;
-	      y[t] = cs[j];
-	    }
-	  } else {
-	    for (j = 0; j < m; j++) {
-	      t = m-j;
-	      logx[j] = log(e/(e+eusr[j]));
-	      y[t] = cs[j] + r.bethe*logx[j];
-	    }
+	  y[m] = r.born[0];
+	  for (j = 0; j < m; j++) {
+	    y[j] = cs[j];
 	  }
 	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 		 data, rt.i, rt.f);

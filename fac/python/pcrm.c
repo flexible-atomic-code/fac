@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.30 2003/08/13 01:38:17 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.31 2003/08/15 16:17:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -558,6 +558,7 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
   
   nc = 0;
+  sc = NULL;
   if (p) {
     if (!PyList_Check(p)) return NULL;
     nc = PyList_Size(p);

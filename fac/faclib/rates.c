@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.32 2003/08/13 01:38:16 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.33 2003/08/15 16:17:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -247,21 +247,31 @@ double IntegrateRate2(int idist, double e, int np,
 double CERate1E(double e, double eth, int np, void *p) {
   double *x, *y;
   int m1, n, one;
-  double *dp, a, x0;
+  double *dp, a, x0, y0;
 
   if (e < eth) return 0.0;
   dp = (double *) p;
   m1 = np + 1;
   y = dp+2;
-  x0 = dp[0]/(dp[0]+e-eth);
+  x0 = log((dp[0]+e-eth)/dp[0]);
   x = y + m1;
 
-  n = 2;
-  one = 1;
-  UVIP3P(n, m1, x, y, one, &x0, &a);
-  if (dp[1] > 0.0) {
-    a -= dp[1]*log(eth/e);
+  if (x0 <= x[np-1]) {
+    n = 3;
+    one = 1;
+    UVIP3P(n, np, x, y, one, &x0, &a);
+  } else {
+    x0 = (e-eth)/(dp[0]+e-eth);
+    y0 = y[np-1];
+    if (dp[1] > 0) {
+      y0 -= dp[1]*log(((x[np]*dp[0]/(1.0-x[np]))+eth)/eth);
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      a += dp[1]*log(e/eth);
+    } else {
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+    }
   }
+
   if (a <= 0.0) {
     a = 0.0;
     return a;
@@ -273,23 +283,32 @@ double CERate1E(double e, double eth, int np, void *p) {
 }
 
 double DERate1E(double e, double eth, int np, void *p) {
-  double a, x0, *x, *y;
+  double a, x0, y0, *x, *y;
   double *dp;
   int m1, n, one;
 
   dp = (double *) p;
   m1 = np + 1;
-  x0 = dp[0]/(dp[0]+e);
+  x0 = log((dp[0]+e)/dp[0]);
   y = dp+2;
   x = y + m1;
 
-  n = 2;
-  one = 1;
-  UVIP3P(n, m1, x, y, one, &x0, &a);
-  
-  if (dp[1] > 0.0) {
-    a -= dp[1]*log(eth/(eth+e));
+  if (x0 <= x[np-1]) {
+    n = 3;
+    one = 1;
+    UVIP3P(n, np, x, y, one, &x0, &a);
+  } else {
+    x0 = e/(dp[0]+e);
+    y0 = y[np-1];
+    if (dp[1] > 0) {
+      y0 -= dp[1]*log(((x[np]*dp[0]/(1.0-x[np]))+eth)/eth);
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      a += dp[1]*log((e+eth)/eth);
+    } else {
+      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+    }
   }
+
   if (a <= 0.0) {
     a = 0.0;
     return a;
