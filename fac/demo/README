@@ -9,7 +9,6 @@ pirr/,       photoionzation and radiative recombination for Li-like Fe.
 aidr/,       autoionization example for Ne-like Se.
 ionization/, electron impact ionization example for Ne-like Fe.
 FeL/,        a general application to the calculation of Fe-L shell
-	     spectrum of collisionally ionized plasma. The spectrum 
-	     calculated is for Te = 600 eV, and Ne = 10^12 cm^{-3}, the
-	     one used to model the HETG Capella spectrum by 
-	     Ehud Behar (ApJ, 548, 966).
+	     spectrum of collisionally ionized plasma. It includes 
+	     the recombination, and ionization processes in the
+	     line formation.

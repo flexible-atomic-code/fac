@@ -5,66 +5,72 @@ from pfac.crm import *
 # this script will be converted to the input file for the SCRM interface.
 # ConvertToSCRM('crm.sf')
 
-# This script must be run after fe.py, which generates the
-# necessary atomic data.
+# This script construct a three-ion model for Fe L-shell ions.
+# it must be run after fe.py, which generates the necessary atomic data.
 
-# include Fe XVI -- XXII, with the relative abundance
-# specified by population.
-neles = [5, 6, 7, 8, 9, 10, 11]
-population = [0.05, 0.06, 0.11, 0.13, 0.25, 0.34, 0.06]
-# the population of the ion NELE=4, which is needed 
-# to construct the spectrum for NELE=5. leave it 0.0 to 
-# let CRM determine its abundance.
-p2 = 0.0
+r = [1.0]#, 1.5, 2.0, 2.5, 3.0]
+den = 1e1
+z = 26
+k = 9
+(t1, a1) = MaxAbund(z, k-1)
+(t2, a2) = MaxAbund(z, k)
+(t3, a3) = MaxAbund(z, k+1)
+temp = [t1, t2, t3]
+population = [a1, a2, a3]
 
-# temperature = 600 eV, electron density = 10^12 cm^{-3}.
-# the code uses the unit of 10^10 cm^{-3}
-temp = 600.0
-den = [1e2]
+f1 = 'Fe%02db'%(k-1)
+f2 = 'Fe%02db'%k
+f3 = 'Fe%02db'%(k+1)
+AddIon(k, 0.0, f2) 
+AddIon(k+1, 0.0, f3) 
+SetBlocks(0.0, f1) 
 
-for k in range(len(neles)):
-    nele = neles[k]
-    p1 = population[k]
-    s = 'NELE = %d, Population = %10.3E'%(nele, p1)
-    Print(s)
-    if (k > 0):
-        p2 = population[k-1]
+for i in range(len(temp)):
+    print 'Temp = %10.3E'%(temp[i])
+    p1 = population[i][k-1]
+    p2 = population[i][k]
+    p3 = population[i][k+1]
     
-    f1 = 'Fe%02db'%nele
-    f2 = 'Fe%02db'%(nele-1)
-    rt_file = '%s.rt'%f1
-    sp_file = '%s.sp'%f1
-    rt_afile = '%sa.rt'%f1[:-1]
-    sp_afile = '%sa.sp'%f1[:-1]
-    plot_file = '%ssp.d'%f1[:-1]
-
-    AddIon(nele, p1, f1)
-    if (nele == 1):
-        SetBlocks(p2)
-    else:
-        SetBlocks(p2, f2)
-
-    SetEleDist(0, temp)
+    SetEleDist(0, temp[i])
+    print 'CE rates...'
     SetCERates(1)
+    print 'TR rates...'
     SetTRRates(0)
+    print 'RR rates...'
     SetRRRates(0)
+    print 'CI rates...'
     SetCIRates(0)
+    print 'AI rates...'
     SetAIRates(1)
+    
+    SetEleDensity(den)
+    print 'Init blocks...'
+    InitBlocks()
+    for j in range(len(r)):
+        print 'Abund: %10.3E %10.3E %10.3E'%(p1*r[j], p2, p3)
+        s = 't%da%d'%(i,j)
+        rt_file = '%s_%s.rt'%(f2,s)
+        sp_file = '%s_%s.sp'%(f2,s)
+        rt_afile = '%sa_%s.rt'%(f2[:-1],s)
+        sp_afile = '%sa_%s.sp'%(f2[:-1],s)
+        plot_file = '%ssp_%s.d'%(f2[:-1],s)
+    
+        SetAbund(k-1, p1*r[j])
+        SetAbund(k, p2)
+        SetAbund(k+1, p3)
 
-    for i in range(len(den)):
-        s = 'Electron Density = %10.3E\n'%(den[i])
-        Print(s)
-        SetEleDensity(den[i])
-        InitBlocks()
         LevelPopulation()
+        Cascade()
         RateTable(rt_file)
         SpecTable(sp_file)
+    
+        PrintTable(rt_file, rt_afile, 1)
+        PrintTable(sp_file, sp_afile, 1)
 
-    PrintTable(rt_file, rt_afile, 1)
-    PrintTable(sp_file, sp_afile, 1)
+        PlotSpec(sp_file, plot_file, 1, 500.0, 2.0e3, 1.0)
+        ReinitCRM(2)
 
-    PlotSpec(sp_file, plot_file, 1, 500.0, 2.0e3, 1.0)
-
-    ReinitCRM()
+    ReinitCRM(1)
     
 # CloseSCRM()
+
