@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.49 2004/02/28 23:32:50 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.50 2004/02/29 00:12:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -73,6 +73,7 @@ static int egrid_limits_type = 0;
 static double sigma[MAXNE];
 static double xegrid[MAXNTE][MAXNE];
 static double log_xegrid[MAXNTE][MAXNE];
+static int usr_different = 0;
 
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
@@ -565,10 +566,10 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     }
     (*b) = Simpson(integrand, 0, NINT-1);
     (*b) *= d;
-    for (i = 0; i < n_usr; i++) {
+    for (i = 0; i < n_egrid; i++) {
       x0[i] = 1.0/xusr[i];
     }
-    UVIP3P(np, n, t, y, n_usr, x0, dp);
+    UVIP3P(np, n, t, y, n_egrid, x0, dp);
   }
   return 0;
 }
@@ -782,14 +783,10 @@ int IonizeStrength(double *qku, double *qkc, double *te,
     kl0 = BoundFreeOS(qke, qkc, te, b, f, -1);
     if (kl0 < 0) return kl0;
     nz = AngularZFreeBound(&ang, f, b);
-    for (i = 0; i < n_usr; i++) {
-      xusr[i] = usr_egrid[i]/(*te);
-      if (usr_egrid_type == 1) xusr[i] += 1.0;
-      log_xusr[i] = log(xusr[i]);
-    }
     for (i = 0; i < n_egrid; i++) {
       x[i] = (*te + egrid[i])/(*te);
       logx[i] = log(x[i]);
+      xusr[i] = x[i];
     }
     CIRadialQkBED(qku, &bethe, &b0, kl0, logx, qke, qkc, *te);
     if (qk_mode == QK_BED) {
@@ -810,13 +807,13 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 	}
       }
       b0 = ((4.0*PI)/(*te))*cmax - b0;
-      for (j = 0; j < n_usr; j++) {
-	qku[j] = qku[j]*log_xusr[j] + 
-	  b0*(1.0-1.0/xusr[j]-log_xusr[j]/(1.0+xusr[j]));
-	qku[j] *= xusr[j]/(es+xusr[j]);
+      for (j = 0; j < n_egrid; j++) {
+	qku[j] = qku[j]*logx[j] + 
+	  b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
+	qku[j] *= x[j]/(es+x[j]);
       }
-      for (i = 0; i < n_usr; i++) {
-	qke[i] = qku[i] - bethe*log_xusr[i];
+      for (i = 0; i < n_egrid; i++) {
+	qke[i] = qku[i] - bethe*logx[i];
 	sigma[i] = qke[i];
       }
       qkc[0] = bethe;
@@ -824,8 +821,16 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 	qkc[i] = 0.0;
       }
       tol = qk_fit_tolerance;
-      SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_usr, xusr, log_xusr, 
+      SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
 	     qke, sigma, CIRadialQkBasis);
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
     } else {  
       for (i = 0; i < n_egrid; i++) {
 	qku[i] = 0.0;
@@ -861,7 +866,14 @@ int IonizeStrength(double *qku, double *qkc, double *te,
       tol = qk_fit_tolerance;
       SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
 	     qke, sigma, CIRadialQkBasis);
-      CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
     }
     free(ang);
     
@@ -1026,13 +1038,16 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       SetCIEGrid(n_egrid, emin, emax, e);
     }
     
+    usr_different = 1;
     if (n_usr > 0 && usr_egrid[0] < 0.0) {
       SetUsrCIEGrid(n_usr, emin, emax, e);
       usr_egrid_type = 1;
+      usr_different = 0;
     }   
     if (n_usr <= 0) {
       SetUsrCIEGridDetail(n_egrid, egrid);
       usr_egrid_type = 1;
+      usr_different = 1;
     } 
     
     if (qk_mode != QK_CB) {
