@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.36 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.37 2002/01/17 14:54:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -718,7 +718,7 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   }
 }
 
-int BoundFreeOS(double *rqu, int *nqkc, double *rqc, double *eb, 
+int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb, 
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
@@ -754,13 +754,13 @@ int BoundFreeOS(double *rqu, int *nqkc, double *rqc, double *eb,
       rqu[i] = 0.0;
     }
     nq = 0;
-    p = rqc;
+    p = *rqc;
     for (i = 0; i < nz; i++) {
       for (j = 0; j <= i; j++) {
 	if (nq == *nqkc) {
 	  *nqkc *= 2;
-	  rqc = (double *) realloc(rqc, sizeof(double)*(*nqkc));
-	  p = rqc + nq*nqk;
+	  *rqc = (double *) realloc(*rqc, sizeof(double)*(*nqkc));
+	  p = *rqc + nq*nqk;
 	}
 	k = RRRadialQk(p, *eb, ang[i].kb, ang[j].kb, m);
 	if (k < 0) continue;
@@ -1175,7 +1175,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   
   for (i = 0; i < nup; i++) {
     for (j = 0; j < nlow; j++) {
-      nq = BoundFreeOS(rqu, &nqkc, qc, &eb, low[j], up[i], m);
+      nq = BoundFreeOS(rqu, &nqkc, &qc, &eb, low[j], up[i], m);
       if (nq < 0) continue;
       r.b = low[j];
       r.f = up[i];

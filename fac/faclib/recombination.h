@@ -45,7 +45,7 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m);
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra);
 void RRRadialQkHydrogenicParams(int np, double *p, int n, int klb);
-int BoundFreeOS(double *rqu, int *np, double *p, 
+int BoundFreeOS(double *rqu, int *np, double **p, 
 		double *eb, int rec, int f, int m);
 int PrepRREGrids(double eth);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
