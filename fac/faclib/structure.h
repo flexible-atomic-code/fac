@@ -18,6 +18,7 @@
 typedef struct _HAMILTON_ {
   int pj;
   int dim;
+  int n_basis;
   int *basis;
   double *hamilton;
   double *mixing;
@@ -73,7 +74,7 @@ typedef struct _STRUCT_TIMING_ {
 
 HAMILTON *GetNewHamilton(void);
 HAMILTON *GetHamilton(int ih);
-int ConstructHamilton(int isym, int k, int *kg);
+int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);
