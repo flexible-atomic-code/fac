@@ -517,7 +517,7 @@ class ATOM:
                         a2 = [0,1]
                     else:
                         a2 = [0]
-                if (i == 0 and j == 0):
+                if (i == 0 and (self.nele <= 2 or j == 0)):
                     tr = [-1, 1, -2, 2]
                     SetAngZCut(self.angz_cut0)
                     SetTransitionCut(self.tr_cut0)

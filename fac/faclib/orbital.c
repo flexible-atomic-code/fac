@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.25 2002/03/10 15:09:24 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.26 2002/03/11 01:56:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

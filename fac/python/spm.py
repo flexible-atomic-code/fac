@@ -979,6 +979,7 @@ def spectrum(neles, temp, den, population, pref,
             for d in range(len(den)):
                 print 'Density = %10.3E'%den[d]
                 SetEleDensity(den[d])
+                SetIteration(1E-4)
                 SetCascade(cascade, 1E-4)
                 print 'Init blocks...'
                 InitBlocks()

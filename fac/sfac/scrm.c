@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.9 2002/03/10 15:09:25 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.10 2002/03/11 01:56:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
