@@ -430,7 +430,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
   }
   _SetVEffective(kl, pot);
 
-  _TurningPoints(0, e, &i1, &i2, pot);
+  i = _TurningPoints(0, e, &i1, &i2, pot);
   nodes = _Outward(p, e, pot, i1, &i2);
   i2m = i2 - 1;
   i2p = i2 + 1;
@@ -598,12 +598,11 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
   
 int _Amplitude(double *p, double e, int kl, 
 	       POTENTIAL *pot, int i1, double tol) {
-  int i, i2;
+  int i;
   double x, y, a, b, kl1, r, r2;
 
   kl1 = kl*(kl+1.0);
-  i2 = i1 - 2;
-  for (i = i2; i < MAX_POINTS; i++) {
+  for (i = i1; i < MAX_POINTS; i++) {
     x = 1.0/(2.0*(e - _veff[i]));    
     y = pow(x, 0.25);
     _dwork[i] = y;
@@ -619,7 +618,7 @@ int _Amplitude(double *p, double e, int kl,
     _dwork2[i] = 0.0;
   }
   
-  for (i = i2; i < MAX_POINTS; i++) {
+  for (i = i1; i < MAX_POINTS; i++) {
     x = 1.0;
     while (x > tol) {
       y = _dwork[i] + _dwork2[i];
@@ -690,15 +689,14 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     for (i = MAX_POINTS - 5; i > 50; i--) {
       x = e - _veff[i];
       if (x < 0.0) {
-	*i2 = i;
-	return -2;
+	break;
       }
       b = 1.0/pot->rad[i];
       a = 14.0/(0.5*pot->ar*sqrt(b) + pot->br*b);
       x = TWO_PI/sqrt(2.0*x);
       if (x > a) break;
     }
-    *i2 = i + 14;
+    *i2 = i + 7;
     if (*i2 > MAX_POINTS-5) *i2 = MAX_POINTS-5;
     if (*i1 == 0) *i1 = *i2 - 10; 
   } else if (n < nmax) {

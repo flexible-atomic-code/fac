@@ -1089,10 +1089,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     *sd = d;
   }
   
-  if (se == NULL) return 0;
+  if (se == NULL) goto EXIT;
   if (abs(mode) == 2) {
     *se = 0.0;
-    return 0;
+    goto EXIT;
   }
   *se = 0.0;
   if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) return 0;
@@ -1120,6 +1120,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     }
   }
 
+ EXIT:
   return 0;
 }
 
@@ -2048,53 +2049,36 @@ int TestIntegrate(char *s) {
   double r;
   FILE *f;
  
-  k1 = OrbitalIndex(3, -1, 0.0);
-  k2 = OrbitalIndex(0, 1, 5000.0/HARTREE_EV);
+  k1 = 3;
+  k2 = 6;
   orb1 = GetOrbital(k1);
   orb2 = GetOrbital(k2);
-  for (i = 0; i < MAX_POINTS; i++) { 
-    _yk[i] = potential->rad[i]; 
-  } 
-  Integrate(_yk, orb1, orb2, -1, _xk);  
-  f = fopen(s, "w");
-  fprintf(f, "# %d %d %10.3E %10.3E\n", 
-	  orb1->ilast, orb2->ilast, 
-	  orb1->energy, orb2->energy);
-  for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
-	    i, potential->rad[i],  
-	    _xk[i], potential->Vc[i],
-	    potential->U[i], 
-	    Large(orb1)[i], Large(orb2)[i]);
-  }
 
-  /*
-  GetYk(1, _yk, orb1, orb2, -1); 
+  GetYk(1, _yk, orb1, orb2, -1);  
 
-  for (i = 0; i < MAX_POINTS; i++) { 
-    _yk[i] /= potential->rad[i]; 
-  } 
-  k3 = OrbitalIndex(0, 17, (5000.0+50.0)/HARTREE_EV);   
-  k4 = OrbitalIndex(0, -17, 5000.0/HARTREE_EV);    
-  orb3 = GetOrbital(k3);  
-  orb4 = GetOrbital(k4);  
+  for (i = 0; i < MAX_POINTS; i++) {  
+    _yk[i] /= potential->rad[i];  
+  }  
+  k3 = OrbitalIndex(0, 49, (2E4+800.0)/HARTREE_EV);    
+  k4 = OrbitalIndex(0, 49, 2E4/HARTREE_EV);     
+  orb3 = GetOrbital(k3);   
+  orb4 = GetOrbital(k4);   
  
-  Integrate(_yk, orb3, orb4, -1, _xk); 
+  Integrate(_yk, orb3, orb4, -1, _xk);  
   
-  f = fopen(s, "w");
-  fprintf(f, "# %d %d %d %d %10.3E %10.3E %10.3E %10.3E\n", 
-	  orb1->ilast, orb2->ilast, orb3->ilast, orb4->ilast, 
-	  orb1->energy, orb2->energy,
-	  orb3->energy, orb4->energy);
-  for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
-	    i, potential->rad[i],  
-	    _yk[i], _zk[i], _xk[i], potential->Vc[i],
-	    potential->U[i],
-	    Large(orb1)[i], Large(orb2)[i], 
-	    Large(orb3)[i], Large(orb4)[i]);
+  f = fopen(s, "w"); 
+  fprintf(f, "# %d %d %d %d %10.3E %10.3E %10.3E %10.3E\n",  
+	  orb1->ilast, orb2->ilast, orb3->ilast, orb4->ilast,  
+	  orb1->energy, orb2->energy, 
+	  orb3->energy, orb4->energy); 
+  for (i = 0; i < MAX_POINTS; i++) { 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
+	    i, potential->rad[i],   
+	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
+	    potential->U[i], 
+	    Large(orb1)[i], Large(orb2)[i],  
+	    Large(orb3)[i], Large(orb4)[i]); 
   }
-  */
   fclose(f); 
 }
 

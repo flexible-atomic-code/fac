@@ -31,7 +31,7 @@ static struct {
   double pk1[MAX_NKAPPA];
   double pk2[MAX_NKAPPA];
   double kl[MAX_NKL];
-  double qk[MAX_NKL];
+  double qk[MAX_NKL+1];
   double qk_y2[MAX_NKL];
 } pw_scratch = {1, MAX_KL, 15, 0, EPS3, 0, 0, 0};
 
@@ -361,20 +361,21 @@ int CERadialPk(int ie, int k0, int k1, int k,
 #ifdef PERFORM_STATISTICS
   start = clock();
 #endif
-  type = 4;
-  if (k == 2) {
+  type = -1;
+  if (k > 0) {
     orb0 = GetOrbital(k0);
     orb1 = GetOrbital(k1);
     i = GetLFromKappa(orb0->kappa);
     m = GetLFromKappa(orb1->kappa);
-    if (IsOdd((i+m)/2)) {
-	type = 1;
+    if (IsEven((i+m+k)/2)) {
+      if (k == 2) type = 1;
+      else type = 2;
     }
   } else if (k == 0) {
     if (k0 == k1) {
       type = 0;
     }
-  }
+  } 
 
   index[0] = ie;
   index[1] = k0;
@@ -514,7 +515,7 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
     }
   }
 
-  for (i = 0; i < pw_scratch.nkl; i++) {
+  for (i = 0; i <= pw_scratch.nkl; i++) {
     pw_scratch.qk[i] = 0.0;
   }
 
@@ -524,7 +525,7 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
   for (j = 0; j < pw_scratch.nkappa; j++) {
     i = j / nk4;
     s =  pw_scratch.pk1[j]*pw_scratch.pk2[j];
-    if (i < pw_scratch.nkl) pw_scratch.qk[i] += s;
+    pw_scratch.qk[i] += s;
     if (type1 == 1 && type2 == 1) {
       if (i == pw_scratch.nkl-1) {
 	kl = pw_scratch.kl[i];
@@ -567,6 +568,14 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
     s /= te;
     s *= (b-a);
     r += s;
+  } else if (type1 >= 0 && type2 >= 0) {
+    i = pw_scratch.nkl;
+    j = i - 1;
+    a = pw_scratch.qk[i]/pw_scratch.qk[j];
+    if (a < 0.95 && a > 0.0) {
+      b = pw_scratch.qk[i]/(1.0-a);
+      r += b;
+    }
   }
   
   r *= 4.0 / (k+1.0);
@@ -916,7 +925,7 @@ int CEQkTable(char *fn, int k, double te) {
   if (!f) return -1;
 
   if (pw_scratch.nkl0 == 0) {
-    SetCEPWOptions(1, 50, 15, 2, 0.0);
+    SetCEPWOptions(1, 40, 25, 0, 1E-3);
   }
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);
@@ -924,8 +933,8 @@ int CEQkTable(char *fn, int k, double te) {
   
   t = 0;
 
-  for (i = 1; i < 2; i++) {
-    for (j = 2; j < 3; j++) {
+  for (i = 3; i < 4; i++) {
+    for (j = 6; j < 7; j++) {
       orb1 = GetOrbital(i);
       n1 = orb1->n;
       k1 = orb1->kappa;
@@ -940,7 +949,7 @@ int CEQkTable(char *fn, int k, double te) {
 	      t++, n1, kl1, j1, n2, kl2, j2);
       for (p = 0; p < n_egrid; p++) {
 	x = CERadialQk(p, te, i, j, i, j, k);
-	for (m = 0; m < pw_scratch.nkl; m++) {
+	for (m = 0; m <= pw_scratch.nkl; m++) {
 	  fprintf(f, " %10.3E %10.3E %3.0f %10.3E %10.3E %10.3E\n",
 		  egrid[p], te,	pw_scratch.kl[m], pw_scratch.qk[m], 
 		  pw_scratch.qk_y2[m], x);
@@ -1129,7 +1138,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
   if (pw_scratch.nkl0 == 0) {
-    SetCEPWOptions(1, 40, 15, 0, 1E-3);
+    SetCEPWOptions(1, 40, 25, 0, 1E-3);
   }
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);
