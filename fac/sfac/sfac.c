@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.56 2004/05/30 22:26:14 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.57 2004/05/31 23:29:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2396,22 +2396,29 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   } else {
     return -1;
   }
-  if (argt[5] != LIST) return -1;
-  nv = DecodeArgs(argv[5], v, t, variables);
-  if (nv != ng) {
-    for (i = 0; i < nv; i++) free(v[i]);
-    printf("ni array must have the same size as the gp array\n");
-    free(s);
-    free(kg);
-    free(n0);
-    free(ni);
+  if (argt[5] == NUMBER) {
+    ni[0] = atoi(argv[5]);
+    for (i = 1; i < ng; i++) {
+      ni[i] = ni[0];
+    }
+  } else if (argt[5] == LIST) {
+    nv = DecodeArgs(argv[5], v, t, variables);
+    if (nv != ng) {
+      for (i = 0; i < nv; i++) free(v[i]);
+      printf("ni array must have the same size as the gp array\n");
+      free(s);
+      free(kg);
+      free(n0);
+      free(ni);
+      return -1;
+    }
+    for (i = 0; i < nv; i++) {
+      ni[i] = atoi(v[i]);
+      free(v[i]);
+    }
+  } else {
     return -1;
   }
-  for (i = 0; i < nv; i++) {
-    ni[i] = atoi(v[i]);
-    free(v[i]);
-  }
-  
   n1 = atoi(argv[6]);
   kmax = atoi(argv[7]);
   nt = atoi(argv[8]);
