@@ -3139,11 +3139,12 @@ file \var{ofn}. \var{n} is the number of electrons of the ion. \var{e0} and
 for the lines. If \var{s}$<$0, then \var{e0} and \var{e1} are interpreted as
 the lower and upper level indexes for the line selected. In this case a single
 line will be output, and \var{t} is ignored. Otherwise, \var{t} is the type of
-the lines to be selected. The value of \var{t} is decomposed into 4 fields,
+the lines to be selected. If \var{t} is 0, then all transition types are
+allowed. Otherwise, the value of \var{t} is decomposed into 4 fields,
 say, \var{t0}, \var{t1}, \var{t2}, and \var{t3}, where \var{t0} is the lowest 2
 decimal digits of \var{t}, \var{t1} is the next 2 digits, and so on. e.g., if
-\var{t}=01000201, then \var{t0}=01, \var{t1}=02, \var{t2}=00, and
-\var{t3}=01. If \var{t3}=0, then the lines have type equal to
+\var{t}=1000201, then \var{t0}=1, \var{t1}=2, \var{t2}=0, and
+\var{t3}=1. If \var{t3}=0, then the lines have type equal to
 10000\var{t2}+100\var{t1}+\var{t0} are selected. If \var{t3}=1, then lines of
 type 10000\var{q}+100\var{t1}+\var{t0} with \var{q}$\ge$\var{t2} are
 selected. If \var{t3}$<$0, then lines of type \var{q} with

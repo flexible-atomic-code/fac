@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.62 2003/11/06 15:53:07 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.63 2003/12/10 21:22:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3129,19 +3129,21 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     r1 = h.type / 10000;
     r0 = h.type % 10000;
     r0 = r0/100;
-    if (t2 == 0) {
-      if (t != h.type) goto LOOPEND;
-    } else if (t2 == 1) {
-      if (r1 < t1) goto LOOPEND;
-      if (h.type < 100) goto LOOPEND;
-      if (t%10000 != h.type%10000) goto LOOPEND;
-    } else {
-      if (t < 100) {
-	if (h.type > 99) goto LOOPEND;
-	if (h.type < t) goto LOOPEND;
-      } else {
+    if (type != 0) {
+      if (t2 == 0) {
+	if (t != h.type) goto LOOPEND;
+      } else if (t2 == 1) {
 	if (r1 < t1) goto LOOPEND;
-	if (r0 < t0) goto LOOPEND;
+	if (h.type < 100) goto LOOPEND;
+	if (t%10000 != h.type%10000) goto LOOPEND;
+      } else {
+	if (t < 100) {
+	  if (h.type > 99) goto LOOPEND;
+	  if (h.type < t) goto LOOPEND;
+	} else {
+	  if (r1 < t1) goto LOOPEND;
+	  if (r0 < t0) goto LOOPEND;
+	}
       }
     }
     for (i = 0; i < h.ntransitions; i++) {
