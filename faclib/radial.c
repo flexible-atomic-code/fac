@@ -64,9 +64,15 @@ int _AdjustScreeningParams(double *v, double *u) {
   int i;
   double a, b, c;
 
-  for (i = 0; i < MAX_POINTS; i++) {
-    u[i] = 0.5*(u[i]+v[i]);
-    v[i] = u[i];
+  if (v[0] > -0.9E30) {
+    for (i = 0; i < MAX_POINTS; i++) {
+      u[i] = 0.5*(u[i]+v[i]);
+      v[i] = u[i];
+    }
+  } else {
+    for (i = 0; i < MAX_POINTS; i++) {
+      v[i] = u[i];
+    }
   }
   c = 0.5*u[MAX_POINTS-1];
   for (i = 0; i < MAX_POINTS; i++) {
@@ -176,7 +182,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
-    _AdjustScreeningParams(v, u);
+    _AdjustScreeningParams(v, u); 
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = u[j] - potential->Z[j];
@@ -185,10 +191,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     }
     SetPotentialU(potential, 0, NULL);
   } else {
-    for (j = 0; j < MAX_POINTS; j++) {
-      v[j] = (potential->U[i] + potential->Vc[i])*potential->rad[i];
-      v[j] += potential->Z[MAX_POINTS-1];
-    }
+    v[0] = -1E30;
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
   }
