@@ -32,9 +32,9 @@ from ``fac'' has names with each word capitalized in first letter.
 \begin{description}
 \item[SetAtom(s, z, mass)] 
 Set the Element. ``s'' is the element symbol, ``z'' is
-the atomic number, ``mass'' is the mass of the nucleus. ``mass'' may be
-ommited, it is only used to determine the size of the neucleus. e.g.,
-SetAtom('Fe', 26), SetAtom('Fe', 26, 56)
+the atomic number, ``mass'' is the mass of the nucleus. ``z'' and ``mass'' may
+be ommited, in which case, their values are determined by looking up an
+internal table. e.g., SetAtom('Fe'), SetAtom('Fe', 26), SetAtom('Fe', 26, 56).
 
 \item[config.closed(s)] 
 Specify any fully occupied shell for all the
@@ -214,15 +214,16 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(max\_allow, max\_forbidden, max\_f, qr, tol)] 
+\item[SetCEPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
 Set partial wave options for excitation calculation. ``qr'' is the orbital
 angular momentum value beyond which a ``quasi-relativistic'' approximaiton
 is used for the radial integrals, which ignores the small component of the
 wavefunction and treat the orbitals with different $j$ but same $l$ as the
 same. ``max\_allow'' is the maximum partial wave to be included for dipole
-allowed transitions, ``max\_forbidden'' is that for forbidden transitions,
+allowed transitions, 
 ``max\_f'' is a factor to be multiplied to e/delta\_e to produce a limit on the
-maximum partial wave. Internally, a partial wave grid is setup from $l = 0$ to 
+maximum partial wave. ``max\_forbidden'' is that for forbidden transitions,
+Internally, a partial wave grid is setup from $l = 0$ to 
 ``max\_allow'', which includes every $l$ below 5 but use a logrithmic grid
 beyond 
 that. The radial integrals are then interpolated on this grid. If
@@ -272,8 +273,9 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(max\_allow, max\_forbidden, max\_f, qr, tol)] 
-See SetCEPWOptions() for detail.
+\item[SetCIPWOptions(max\_allow, max\_f, max\_forbidden, qr, tol)] 
+See SetCEPWOptions() for detail. The default for ``max\_f'' is 0, unlike in 
+Set CEPWOptions.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
