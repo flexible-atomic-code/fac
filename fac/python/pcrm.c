@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.10 2002/02/19 21:26:22 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.11 2002/02/25 02:54:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -518,23 +518,26 @@ static PyObject *PFreeMemENTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PLevelName(PyObject *self, PyObject *args) { 
+static PyObject *PLevelInfor(PyObject *self, PyObject *args) { 
   char *fn;
   int i, k;
-  char cname[LNCOMPLEX];
-  char sname[LSNAME];
-  char name[LNAME];
+  EN_RECORD r;
   
   if (!PyArg_ParseTuple(args, "si", &fn, &i)) return NULL;
 
-  k = LevelName(fn, i, cname, sname, name);
-  if (k < 0) return NULL;
-  if (k > 0) {
-    cname[0] = '\0';
-    sname[0] = '\0';
-    name[0] = '\0';
+  k = LevelInfor(fn, i, &r);
+  
+  if (k < 0) {
+    printf("%d %d %s\n", i, k, fn);
+    return NULL;
   }
-  return Py_BuildValue("(sss)", cname, sname, name);
+  if (k > 0) {
+    r.ncomplex[0] = '\0';
+    r.sname[0] = '\0';
+    r.name[0] = '\0';
+  }
+  return Py_BuildValue("(diisss)", r.energy, r.p, r.j,
+		       r.ncomplex, r.sname, r.name);
 }
   
 static PyObject *PMemENTable(PyObject *self, PyObject *args) { 
@@ -809,7 +812,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
-  {"LevelName", PLevelName, METH_VARARGS},
+  {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.24 2002/02/23 13:55:02 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.25 2002/02/25 02:54:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

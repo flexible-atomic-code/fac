@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.16 2002/02/22 02:12:31 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.17 2002/02/25 02:54:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -559,7 +559,7 @@ int FreeMemENTable(void) {
   return 0;
 }
  
-int LevelName(char *fn, int ilev, char *cname, char *sname, char *name) {
+int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   F_HEADER fh;  
   EN_HEADER h;
   EN_RECORD r;
@@ -568,18 +568,26 @@ int LevelName(char *fn, int ilev, char *cname, char *sname, char *name) {
   int swp;
   
   f = fopen(fn, "r");
-  if (f == NULL) return -1;
-
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
   n = fread(&fh, sizeof(F_HEADER), 1, f);
-  if (n != 1) return 0;
+  if (n != 1) {
+    fclose(f);
+    return 0;
+  }
   if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
     swp = 1;
     SwapEndianFHeader(&fh);
   } else {
     swp = 0;
   }
-  if (fh.type != DB_EN) return -1;
-
+  if (fh.type != DB_EN) {
+    printf("File type is not DB_EN\n");
+    fclose(f);
+    return -1;
+  }
   k = ilev;
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
@@ -594,10 +602,11 @@ int LevelName(char *fn, int ilev, char *cname, char *sname, char *name) {
       if (swp) {
 	SwapEndianENRecord(&r);
       }	
-      if (r.ilev != ilev) return -1;
-      strncpy(cname, r.ncomplex, LNCOMPLEX);
-      strncpy(sname, r.sname, LSNAME);
-      strncpy(name, r.name, LNAME);
+      if (r.ilev != ilev) {
+	fclose(f);
+	return -1;
+      }
+      memcpy(r0, &r, sizeof(EN_RECORD));
       break;
     } else {
       k -= h.nlevels;
@@ -605,6 +614,7 @@ int LevelName(char *fn, int ilev, char *cname, char *sname, char *name) {
     }
   }
   
+  fclose(f);
   if (i == fh.nblocks) return nlevels;
 
   return 0;
