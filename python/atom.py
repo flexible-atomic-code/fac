@@ -462,7 +462,10 @@ class ATOM:
         c = self.exc_complex[0].cgroup[0].name
         if (self.nele > 1):
             ConfigEnergy(0)
-        OptimizeRadial(g+c)
+        if (self.nele < 3):
+            OptimizeRadial(g)
+        else:
+            OptimizeRadial(g+c)
         if (self.nele > 1):
             ConfigEnergy(1)
 

@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.23 2002/08/02 14:07:04 mfgu Exp $
+# rcsid = $Id: README,v 1.24 2002/08/02 20:57:49 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -53,8 +53,11 @@ by running:
 
 In order for python to find the installed "pfac" modules, one would have to 
 define an environment variable PYTHONPATH to point to the directory 
-"/my/own/dir". In cshell, this requires "setenv PYTHONPATH /my/own/dir", or 
-in bash, "PYTHONPATH=/my/own/dir;export PYTHONPATH".
+"/my/own/dir/lib/python#.#/site-packages", where "#.#" is the Python version.
+In cshell, this requires 
+    setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages 
+or in bash, 
+    PYTHONPATH=/my/own/dir/lib/python#.#/site-packages;export PYTHONPATH
 
 With python installed, the "sfac" interface can also be installed using
 the setup.py script, to do so, run

@@ -153,31 +153,32 @@ from the tar-ball, change to the top directory and type
 \end{verbatim}
 where the first command installs the Python package \verb|pfac| which 
 contains several Python and extension modules, and the second command
-installs the SFAC interface in your \verb|${HOME}/bin|. This will install the
-PFAC modules in the standard Python site-package directory. If Python was
-installed as root, this requires the root permission as well. Alternatively,
-one may install the PFAC package into a given directory by running,
+installs the SFAC interface in your \verb|${HOME}/bin|, and places two
+excutables, \verb|sfac| and \verb|scrm|, in your \verb|${HOME}/bin|. 
+This will install the PFAC modules in the standard Python site-package
+directory. If Python was installed as root, this requires the root permission
+as well. Alternatively, one may install the PFAC package into a given
+directory by running, 
 \begin{verbatim}
     python setup.py install --prefix=/my/own/dir
-\end{verbatim}
+\end{verbatim} 
 In order for python to find the installed PFAC modules, one would have to 
-define an environment variable PYTHONPATH to point to the directory 
-\verb|/my/own/dir|. In cshell, this requires
+define an environment variable PYTHONPATH to point to the directory
+\verb|/my/own/dir/lib/python#.#/site-packages|, where \verb|#.#| represents
+the Python version. In cshell, this requires
 \begin{verbatim}
-    setenv PYTHONPATH /my/own/dir
+    setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages
 \end{verbatim}
-or in bash, 
+or in bash,
 \begin{verbatim}
-PYTHONPATH=/my/own/dir;export PYTHONPATH
+    PYTHONPATH=/my/own/dir/lib/python#.#/site-packages; export PYTHONPATH
 \end{verbatim}
 
-Without Python, one may install the SFAC interface by 
+Without Python, one may install the SFAC interface by
 \begin{verbatim}
     make sfac
     make install
 \end{verbatim}
-This will place two excutables, \verb|sfac| and \verb|scrm|, in your 
-\verb|${HOME}/bin|.
 
 The system must have a \verb|make| compartible with GNU \verb|make|, even if
 \verb|setup.py| is used, since this script calls \verb|make| to compile the
