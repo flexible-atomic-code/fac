@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.45 2003/12/05 06:32:30 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.46 2004/01/08 23:32:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -959,6 +959,8 @@ static int PReinitConfig(int argc, char *argv[], int argt[],
   m = atoi(argv[0]);
 
   ReinitConfig(m);
+  _closed_shells[0] = '\0';
+
   return 0;
 }
 
@@ -1147,6 +1149,9 @@ static int PReinit(int argc, char *argv[], int argt[],
  
   ReinitFac(m_config, m_recouple, m_radial, m_dbase,
 	    m_structure, m_excitation, m_recombination, m_ionization);
+  if (m_config == 0) {
+    _closed_shells[0] = '\0';
+  }
 
   return 0;
 }
