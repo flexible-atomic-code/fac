@@ -116,6 +116,19 @@ representation also.
 
 \end{description}
 
+A cubic spline interpolation routine is exported from fac, which may be
+useful. 
+\begin{description}
+\item[y2 = Spline(x, y, dy1, dy2)]
+Calculates the cubic spline coefficients for given ``x'' and ``y'' arrays,
+with the second derivative at both ends ``dy1'' and ``dy2''. If ``dy1'' and
+``dy2'' are missing, a natural cubic spline is assumed. The functions returns
+a List contains the second derivatives of the spline at each node.
+
+\item[y0 = Splint(x, y, y2, x0)] 
+Evaluates the interpolation at ``x0'', ``y2'' is the List returned by
+Spline(). 
+\end{description}
 
 \section{Atomic Structure}
 The atomic structure part calculates the energy levels for the specified
