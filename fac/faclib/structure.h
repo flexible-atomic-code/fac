@@ -12,20 +12,30 @@
 #include <time.h>
 
 #define MAX_ENERGY_CORRECTION 100
-#define HAMILTONS_BLOCK 500
 #define LEVELS_BLOCK    5000
 
 typedef struct _HAMILTON_ {
   int pj;
   int dim;
+  int n_basis;
+  int hsize;
+  int msize;
+  int dim0;
+  int n_basis0;
+  int hsize0;
+  int msize0;
   int *basis;
   double *hamilton;
   double *mixing;
+  double *work;
+  int *iwork;
 } HAMILTON;
 
 typedef struct _LEVEL_ {
-  int ham_index;
-  int mix_index;
+  int pj;
+  int n_basis;
+  int *basis;
+  double *mixing;
   int major_component;
   double energy;
 } LEVEL;
@@ -71,9 +81,7 @@ typedef struct _STRUCT_TIMING_ {
   clock_t set_ham;
 } STRUCT_TIMING;
 
-HAMILTON *GetNewHamilton(void);
-HAMILTON *GetHamilton(int ih);
-int ConstructHamilton(int isym, int k, int *kg);
+int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
 double HamiltonElement(int isym, int isi, int isj);
@@ -83,16 +91,14 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra,
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 
-int DiagnolizeHamilton(int ih);
-int AddToLevels(int ih);
+int DiagnolizeHamilton();
+int AddToLevels();
 int CorrectEnergy(int n, int *k, double *e);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels();
 int GetPrincipleBasis(double *mix, int d);
 int SortLevels(int start, int n);
-int FreeHamilton(int ih);
-int FreeMixing(int ih);
 int GetBaseJ(STATE *s);
 
 int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
@@ -113,12 +119,13 @@ int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 
 int GetBasisTable(char *fn);
-int ConstructLevelName(char *name, STATE *basis);
+int ConstructLevelName(char *name, char *sname, STATE *basis);
 int SaveLevelsToAscii(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int GetStructTiming(STRUCT_TIMING *t);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
+int ClearLevelTable();
 
 #endif
 

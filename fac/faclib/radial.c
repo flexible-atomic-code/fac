@@ -20,6 +20,7 @@ static double _dwork10[MAX_POINTS];
 static double _dwork11[MAX_POINTS];
 static double _phase[MAX_POINTS];
 static double _dphase[MAX_POINTS];
+static double _dphasep[MAX_POINTS];
 static double _yk[MAX_POINTS];
 static double _zk[MAX_POINTS];
 static double _xk[MAX_POINTS];
@@ -27,32 +28,45 @@ static double _xk[MAX_POINTS];
 static struct {
   double tolerence; /* tolerence for self-consistency */
   int maxiter; /* max iter. for self-consistency */
-  int screening; /* after which n, additional screening of one more e-*/
+  double screened_charge; 
+  int screened_kl;
+  int n_screen;
+  int *screened_n;
   int iprint; /* printing infomation in each iteration. */
-} optimize_controll = {EPS6, 100, 8, 0};
+} optimize_control = {EPS6, 100, 1.0, 1, 0, NULL, 0};
 
+static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
+ 
 static double rgrid_min = 1E-5;
-static double rgrid_max = 0.5E4;    
+static double rgrid_max = 1E3;    
 
-static RAD_TIMING rad_timing = {0, 0};
+static RAD_TIMING rad_timing = {0, 0, 0, 0};
  
 static MULTI *slater_array;
 static MULTI *residual_array;
 static MULTI *multipole_array;  
+
+double argam_(double *x, double *y);
+double besljn_(int *jy, int *n, double *x);
+double _PhaseRDependent(double x, double eta, double b);
 
 int GetRadTiming(RAD_TIMING *t) {
   memcpy(t, &rad_timing, sizeof(RAD_TIMING));
   return 0;
 }
 
-void SetOptimizeControll(double tolerence, int maxiter, int iprint) {
-  optimize_controll.maxiter = maxiter;
-  optimize_controll.tolerence = tolerence;
-  optimize_controll.iprint = iprint;  
+void SetOptimizeControl(double tolerence, int maxiter, int iprint) {
+  optimize_control.maxiter = maxiter;
+  optimize_control.tolerence = tolerence;
+  optimize_control.iprint = iprint;  
 }
 
-void SetScreening(int n) {
-  optimize_controll.screening = n;
+void SetScreening(int n_screen, int *screened_n, 
+		  double screened_charge, int kl) {
+  optimize_control.screened_n = screened_n;
+  optimize_control.screened_charge = screened_charge;
+  optimize_control.n_screen = n_screen;
+  optimize_control.screened_kl = kl;
 }
 
 int SetRadialGrid(double rmin, double rmax) {
@@ -62,11 +76,17 @@ int SetRadialGrid(double rmin, double rmax) {
 
 int _AdjustScreeningParams(double *v, double *u) {
   int i;
-  double a, b, c;
+  double c;
 
-  for (i = 0; i < MAX_POINTS; i++) {
-    u[i] = 0.5*(u[i]+v[i]);
-    v[i] = u[i];
+  if (v[0] > -0.9E30) {
+    for (i = 0; i < MAX_POINTS; i++) {
+      u[i] = 0.5*(u[i]+v[i]);
+      v[i] = u[i];
+    }
+  } else {
+    for (i = 0; i < MAX_POINTS; i++) {
+      v[i] = u[i];
+    }
   }
   c = 0.5*u[MAX_POINTS-1];
   for (i = 0; i < MAX_POINTS; i++) {
@@ -75,7 +95,7 @@ int _AdjustScreeningParams(double *v, double *u) {
   potential->lambda = log(2.0)/potential->rad[i];
   return 0;
 }
-  
+   
 int SetPotential(AVERAGE_CONFIG *acfg) {
   int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
   ORBITAL *orb1, *orb2;
@@ -85,7 +105,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
 
   u = potential->U;
   w = potential->W;
-  v = potential->Vtail;
+  v = _phase;
 
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
@@ -176,7 +196,11 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
-    _AdjustScreeningParams(v, u);
+    for (j = jmax-5; j > 0; j--) {
+      if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
+    }
+    potential->r_core = j+1;
+    _AdjustScreeningParams(v, u); 
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = u[j] - potential->Z[j];
@@ -185,10 +209,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     }
     SetPotentialU(potential, 0, NULL);
   } else {
-    for (j = 0; j < MAX_POINTS; j++) {
-      v[j] = (potential->U[i] + potential->Vc[i])*potential->rad[i];
-      v[j] += potential->Z[MAX_POINTS-1];
-    }
+    v[0] = -1E30;
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
   }
@@ -196,25 +217,100 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
   return 0;
 }
 
-double GetResidualZ(int m) {
+int GetPotential(char *s) {
+  AVERAGE_CONFIG *acfg;
+  ORBITAL *orb1;
+  double large1, small1;
+  int norbs, jmax;  
+  FILE *f;
+  int i, j, k, k1;
+  double *w, *v;
+
+  /* get the average configuration for the groups */
+  acfg = &(average_config);
+
+  w = potential->W;
+  v = potential->dW;
+  f = fopen(s, "w");
+  if (!f) return -1;
+  
+  fprintf(f, "Lambda = %10.3E, A = %10.3E\n",
+	  potential->lambda, potential->a);
+
+  
+  for (j = 0; j < MAX_POINTS; j++) {
+    w[j] = 0.0;
+    v[j] = -potential->Z[j]/potential->rad[j];
+  }
+
+  norbs = 0;
+  jmax = 0;
+  for (i = 0; i < acfg->n_shells; i++) {
+    k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
+    if (k1 < 0) continue;
+    orb1 = GetOrbital(k1);
+    for (j = 0; j <= orb1->ilast; j++) {
+      large1 = Large(orb1)[j];
+      small1 = Small(orb1)[j];
+      w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
+    }
+    GetYk(0, _yk, orb1, orb1, -1);
+    for (k = 0; k < MAX_POINTS; k++) {
+      v[k] += _yk[k]*acfg->nq[i]/potential->rad[k];
+    }
+    if (jmax < orb1->ilast) jmax = orb1->ilast;
+    norbs++;
+  }
+  
+  for (k = 0; k < MAX_POINTS; k++) {
+    w[k] = w[k]/(potential->rad[k]*potential->rad[k]);
+    w[k] = - pow(w[k], 1.0/3);
+    v[k] += w[k]*0.4235655;
+  }
+
+  for (i = 0; i < MAX_POINTS; i++) {
+    fprintf(f, "%-5d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
+	    potential->U[i], v[i]);
+  }
+
+  fclose(f);  
+}
+
+double GetResidualZ() {
   double z;
   z = potential->Z[MAX_POINTS-1] - potential->N + 1;
-  if (m) z -= 1; 
   return z;
 }
 
 double GetRMax() {
-  return potential->rad[MAX_POINTS-1];
+  return potential->rad[MAX_POINTS-10];
 }
-  
+
+int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
+
+  if (nshells <= 0) return -1;
+  if (average_config.n_shells > 0) {
+    free(average_config.n);
+    free(average_config.kappa);
+    free(average_config.nq);
+  }
+  average_config.n = n;
+  average_config.nq = nq;
+  average_config.kappa = kappa;
+
+  average_config.n_shells = nshells;
+  average_config.n_cfgs = 1;
+  return 0;
+}
+    
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
-  AVERAGE_CONFIG average_config;
   double tol;
   ORBITAL orb_old, *orb;
   int i, j, k, no_old;
   double a, b, maxp;
-  double z, rmax, lambda, step, q;
+  double z;
   double large, large_old;
   int iter;
 
@@ -223,9 +319,35 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
-  GetAverageConfig(ng, kg, weight, acfg); 
+  if (ng > 0) {
+    if (acfg->n_shells > 0) {      
+      acfg->n_cfgs = 0;
+      acfg->n_shells = 0;
+      free(acfg->n);
+      free(acfg->kappa);
+      free(acfg->nq);
+      acfg->n = NULL;
+      acfg->nq = NULL;
+      acfg->kappa = NULL;
+    }
+    GetAverageConfig(ng, kg, weight, 
+		     optimize_control.n_screen,
+		     optimize_control.screened_n,
+		     optimize_control.screened_charge,
+		     optimize_control.screened_kl, acfg); 
+  } else {
+    if (acfg->n_shells <= 0) {
+      printf("No average configuation exist. \n");
+      printf("Specify with config.avgconfig, ");
+      printf("or give config groups to OptimizeRadial.\n");
+      return -1;
+    }
+  }
+
   a = 0;
   for (i = 0; i < acfg->n_shells; i++) {
+    if (optimize_control.iprint) 
+      printf("%d %d %f\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
     a += acfg->nq[i];
   }
   potential->N = a;  
@@ -239,6 +361,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
   potential->lambda = 0.5*z;
+  potential->r_core = MAX_POINTS-5;
 
   no_old = 0;  
   tol = 1.0; 
@@ -249,8 +372,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
   else z = 0.0;
-  while (tol > optimize_controll.tolerence || z > 0.0) {
-    if (iter > optimize_controll.maxiter) break;
+  while (tol > optimize_control.tolerence || z > 0.0) {
+    if (iter > optimize_control.maxiter) break;
     if (z < 1E-3 && z > 0.0) {
       z = 0.0;
       SetPotentialZ(potential, 0.0);
@@ -303,37 +426,23 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       b = a;
       if (tol < b) tol = b;
     }
-    if (optimize_controll.iprint) {
-      printf("%2d %18.10lE %10.3E\n", iter, tol, z);
+    if (optimize_control.iprint) {
+      printf("%2d %18.5E %10.3E\n", iter, tol, z);
     }
     iter++;
   }
   free(orb_old.wfun);
 
-  if (iter > optimize_controll.maxiter) {
+  if (iter > optimize_control.maxiter) {
     printf("Maximum iteration reached in OptimizeRadial\n");
     return 1;
   }
-
-  a = optimize_controll.screening;
-  a = a*a;
-  if (a > 0) {
-    if (a < 10) a = 10.0;
-    potential->lambdap = potential->lambda / a;
-    potential->ap = potential->a / a;
-  } else {
-    potential->lambdap = 0.0;
-    potential->ap = 0.0;
-  }
-  SetPotentialVTail(potential);
 
   return 0;
 }      
     
 int SolveDirac(ORBITAL *orb) {
-  double z;
   double eps;
-  int i, j;
   int err;
   clock_t start, stop;
 
@@ -342,12 +451,8 @@ int SolveDirac(ORBITAL *orb) {
 #endif
   
   err = 0;
-  eps = optimize_controll.tolerence*1E-1;
+  eps = optimize_control.tolerence*1E-1;
   potential->flag = -1;
-  if (optimize_controll.screening > 0 &&
-      (orb->n <= 0 || orb->n >= optimize_controll.screening)) 
-    potential->flag = -2;
-
   err = RadialSolver(orb, potential, eps);
   if (err) { 
     printf("Error ocuured in RadialSolver, %d\n", err);
@@ -366,6 +471,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   int i, k;
   FILE *f;
   ORBITAL *orb;
+  double z, a, ke, y;
 
   e /= HARTREE_EV;
   k = OrbitalIndex(n, kappa, e);
@@ -386,6 +492,12 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      Large(orb)[i], Small(orb)[i]); 
     }
   } else {
+    z = GetResidualZ();
+    e = orb->energy;
+    a = FINE_STRUCTURE_CONST2 * e;
+    ke = sqrt(2.0*e*(1.0+0.5*a));
+    y = (1.0+a)*z/ke; 
+    printf("%12.5E\n", (CoulombPhaseShift(z, e, orb->kappa)-GetPhaseShift(k))/(2*PI));
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	      i, potential->rad[i],
@@ -394,47 +506,102 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      Large(orb)[i], Small(orb)[i]); 
     }
     for (; i < MAX_POINTS; i += 2) {
-      fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-	      potential->rad[i],
+      a = ke * potential->rad[i];
+      a = a + y*log(2.0*a);
+      fprintf(f, "%-4d %10.3E %13.6E %13.6E %13.6E %13.6E\n",
+	      i, potential->rad[i],
 	      Large(orb)[i], Large(orb)[i+1], 
-	      Small(orb)[i], Small(orb)[i+1]);
+	      Small(orb)[i], a);
     }
   }
 
   fclose(f);
 }
 
-double GetPhaseShift(int k, int mode) {
+double CoulombPhaseShift(double z, double e, int kappa) {
+  double phase, r, y, ke, a, b1, b2;
+
+  a = FINE_STRUCTURE_CONST2 * e;
+  ke = sqrt(2.0*e*(1.0 + 0.5*a));
+  a += 1.0;
+  y = a*z/ke;
+
+  r = kappa;
+  b1 = y/(fabs(r)*a);
+  r = sqrt(r*r - FINE_STRUCTURE_CONST2*z*z);
+  b2 = y/r;
+
+  if (kappa < 0) {
+    phase = 0.5*(atan(b1) - atan(b2));
+  } else {
+    phase = -0.5*(atan(b1) + atan(b2) + PI);
+  }
+
+  phase -= argam_(&r, &y);
+  phase += (1.0 - r)*0.5*PI;
+
+  return phase;
+}
+
+double _PhaseRDependent(double x, double eta, double b) {
+  double tau, tau2, y, y2, t, a1, a2, sb;
+  
+  y = 1.0/x;
+  y2 = y*y;
+  tau2 = 1.0 + 2.0*eta*y - b*y2;
+  tau = x*sqrt(tau2);
+  
+  t = eta*log(x+tau+eta) + tau - eta;
+  if (b > 0.0) {
+    sb = sqrt(b);
+    a1 = b - eta*x;
+    a2 = tau*sb;
+    tau2 = atan2(a1, a2);
+    tau2 -= atan2(-eta, sb);
+    t += sb*tau2;
+  } else if (b < 0.0) {
+    b = -b;
+    sb = sqrt(b);
+    a1 = 2.0*(b+eta*x)/(sb*b*x);
+    a2 = 2.0*tau/(b*x);
+    tau2 = log(a1+a2);
+    tau2 -= log(2.0*(eta/sb + 1.0)/b);
+    t -= sb*tau2;
+  }
+  
+  return t;
+}
+
+double GetPhaseShift(int k) {
   ORBITAL *orb;
-  double phase, r, y, z, ke, e, a;
+  double phase1, r, y, z, ke, e, a, b1;
   int i;
 
   orb = GetOrbital(k);
   if (orb->n > 0) return 0.0;
 
-  if (orb->phase >= 0.0) return orb->phase;
+  if (orb->phase) return *(orb->phase);
 
-  z = GetResidualZ(1);
+  z = GetResidualZ();
   e = orb->energy;
   a = FINE_STRUCTURE_CONST2 * e;
-  ke = sqrt(2.0*e*(1.0 + 0.5*e));
+  ke = sqrt(2.0*e*(1.0 + 0.5*a));
   y = (1.0 + a)*z/ke;
 
-  i = MAX_POINTS - 1;
-  
-  phase = orb->wfun[i];
-  r = potential->rad[i];
-  
+  i = MAX_POINTS - 1;  
+  phase1 = orb->wfun[i];
+  r = potential->rad[i-1];  
+  b1 = orb->kappa;
+  b1 = b1*(b1+1.0) - FINE_STRUCTURE_CONST2*z*z;
+ 
   a = ke * r;
+  b1 = _PhaseRDependent(a, y, b1);
+  phase1 = phase1 - b1;
   
-  phase -= a + y*log(2.0*a);
-  
-  a = phase/TWO_PI;
-  r = floor(a);
-  phase = (a-r)*TWO_PI;
-  orb->phase = phase;
+  orb->phase = malloc(sizeof(double));
+  *(orb->phase) = phase1;
 
-  return phase;  
+  return phase1;  
 }
 
 int GetNumBounds() {
@@ -519,7 +686,6 @@ int OrbitalExists(int n, int kappa, double energy) {
 }
 
 int AddOrbital(ORBITAL *orb) {
-  int j;
 
   if (orb == NULL) return -1;
 
@@ -542,7 +708,6 @@ ORBITAL *GetOrbital(int k) {
 }
 
 ORBITAL *GetNewOrbital() {
-  int j;
   ORBITAL *orb;
 
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL);
@@ -569,7 +734,9 @@ int FreeOrbital(int i) {
   ORBITAL *orb;
   orb = GetOrbital(i);
   if (orb->wfun) free(orb->wfun);
+  if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
+  orb->phase = NULL;
 }
 
 int SaveAllContinua(int mode) {
@@ -633,7 +800,6 @@ double TotalEnergyGroup(int kg) {
   CONFIG_GROUP *g;
   ARRAY *c;
   CONFIG *cfg;
-  ORBITAL *orb1, *orb2;
   int t;
   double total_energy;
 
@@ -726,7 +892,7 @@ double AverageEnergyConfig(CONFIG *cfg) {
 int ResidualPotential(double *s, int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
-  int index[2], tail;
+  int index[2];
   double *p, z;
 
   if (k0 > k1) {
@@ -747,20 +913,10 @@ int ResidualPotential(double *s, int k0, int k1) {
   orb1 = GetOrbital(k0);
   orb2 = GetOrbital(k1);
   if (!orb1 || !orb2) return -1;
-  if (optimize_controll.screening > 0 &&
-      (orb1->n >= optimize_controll.screening || 
-       orb2->n >= optimize_controll.screening ||
-       orb1->n <= 0 ||
-       orb2->n <= 0)) {
-    tail = 1;
-  } else {
-    tail = 0;
-  }
  
   for (i = 0; i < MAX_POINTS; i++) {
     z = potential->U[i];
     z += potential->Vc[i];
-    if (tail) z += potential->Vtail[i];
     _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
   }
   Integrate(_yk, orb1, orb2, 1, s);
@@ -776,24 +932,21 @@ int ResidualPotential(double *s, int k0, int k1) {
    -256 or >= 256, however, it calculates the expectation value of
    r^(m+/-256), this is used in the evaluation of slater integral 
    in separable coulomb interaction. */
-double MultipoleRadialNR(int m, int k1, int k2) {
+double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   int i, p, t;
   int npts;
   ORBITAL *orb1, *orb2;
   double r;
   int index[4];
   double *q;
-  int gauge;
   int kappa1, kappa2;
-  clock_t start, stop;
 
-#ifdef PERFORM_STATISTICS 
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
 #endif
 
   if (m == 0) return 0.0;
-
-  gauge = TransitionGauge();
 
   if (m >= 256) {
     gauge = G_BABUSHKIN;
@@ -881,24 +1034,21 @@ double MultipoleRadialNR(int m, int k1, int k2) {
 
 /* fully relativistic multipole operator, 
    see Grant, J. Phys. B. 1974. Vol. 7, 1458. */ 
-double MultipoleRadial(double aw, int m, int k1, int k2) {
+double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
   double r, q, ip, ipm, im, imm;
   int kappa1, kappa2;
   int am, t;
   int index[4];
   double *p;
   ORBITAL *orb1, *orb2;
-  int gauge;
-  clock_t start, stop;
 
 #ifdef PERFORM_STATISTICS 
+  clock_t start, stop;
   start = clock();
 #endif
 
   if (m == 0) return 0.0;
 
-  gauge = TransitionGauge();
-    
   if (m > 0) {
     index[1] = m;
     index[0] = (gauge == G_BABUSHKIN)?6:7; 
@@ -989,17 +1139,39 @@ double MultipoleIJ(double aw, int m,
 int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int t, kk, tt;
   int tmin, tmax;
-  double e, a, d;
+  double e, a, d, a1, a2;
   int err;
   int kl0, kl1, kl2, kl3;
   int k0, k1, k2, k3;
   int js[4];
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  
+
+#ifdef PERFORM_STATISTICS 
+  clock_t start, stop;
+
+  start = clock();
+#endif
+
   k0 = ks[0];
   k1 = ks[1];
   k2 = ks[2];
   k3 = ks[3];
+  kk = k/2;
+
+  orb0 = GetOrbital(k0);
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+  orb3 = GetOrbital(k3);
+  kl0 = GetLFromKappa(orb0->kappa);
+  kl1 = GetLFromKappa(orb1->kappa);
+  kl2 = GetLFromKappa(orb2->kappa);
+  kl3 = GetLFromKappa(orb3->kappa);
+  if (IsOdd((kl0+kl1+kl2+kl3)/2)) {
+    if (sd) *sd = 0.0;
+    if (se) *se = 0.0;
+    return 0;
+  }
+
   if (j) {
     memcpy(js, j, sizeof(int)*4);
   } else {
@@ -1009,21 +1181,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     js[3] = 0;
   }
 
-  kk = k/2;
-
-  orb0 = GetOrbital(k0);
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-  orb3 = GetOrbital(k3);
   if (js[0] <= 0) js[0] = GetJFromKappa(orb0->kappa);
   if (js[1] <= 0) js[1] = GetJFromKappa(orb1->kappa);
   if (js[2] <= 0) js[2] = GetJFromKappa(orb2->kappa);
-  if (js[3] <= 0) js[3] = GetJFromKappa(orb3->kappa);
-
-  kl0 = GetLFromKappa(orb0->kappa);
-  kl1 = GetLFromKappa(orb1->kappa);
-  kl2 = GetLFromKappa(orb2->kappa);
-  kl3 = GetLFromKappa(orb3->kappa);
+  if (js[3] <= 0) js[3] = GetJFromKappa(orb3->kappa);  
   
   if (sd) {
     d = 0.0;
@@ -1031,21 +1192,23 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
       err = Slater(&d, k0, k1, k2, k3, kk, mode);
       if (err < 0) return err;
-      d *= ReducedCL(js[0], k, js[2]);
-      d *= ReducedCL(js[1], k, js[3]);
-      if (k0 == k1 && k2 == k3) d *= 0.5;
+      a1 = ReducedCL(js[0], k, js[2]);
+      a2 = ReducedCL(js[1], k, js[3]); 
+      d *= a1*a2;
+      if (k0 == k1 && k2 == k3) d *= 0.5;      
     }
-    *sd = d;
+    *sd = d; 
   }
   
-  if (se == NULL) return 0;
+  if (!se) goto EXIT;
+
   if (abs(mode) == 2) {
     *se = 0.0;
-    return 0;
+    goto EXIT;
   }
   *se = 0.0;
-  if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) return 0;
-  if (k2 == k3 && (orb2->n > 0 || orb3->n > 0)) return 0;
+  if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) goto EXIT;
+  if (k2 == k3 && (orb2->n > 0 || orb3->n > 0)) goto EXIT;
   tmin = abs(js[0] - js[3]);
   tt = abs(js[1] - js[2]);
   tmin = Max(tt, tmin);
@@ -1056,9 +1219,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   if (IsOdd(tmin)) tmin++;
   
   for (t = tmin; t <= tmax; t += 2) {
+    if (IsOdd((kl0+kl3+t)/2) || IsOdd((kl1+kl2+t)/2)) continue;
     a = W6j(js[0], js[2], k, js[1], js[3], t);
-    if (fabs(a) > EPS10 &&
-	IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
+    if (fabs(a) > EPS10) {
       e = 0.0;
       err = Slater(&e, k0, k1, k3, k2, t/2, mode);
       e *= ReducedCL(js[0], t, js[3]);
@@ -1069,6 +1232,11 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     }
   }
 
+ EXIT:
+#ifdef PERFORM_STATISTICS 
+    stop = clock();
+    rad_timing.radial_slater += stop - start;
+#endif
   return 0;
 }
 
@@ -1076,12 +1244,11 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   int index[6];
   double *p;
-  int ilast, i, j, npts, m;
+  int ilast, i, npts, m;
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  double norm, rk;
-  clock_t start, stop;
-
-#ifdef PERFORM_STATISTICS 
+  double norm;
+#ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
 #endif
 
@@ -1109,8 +1276,8 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     printf("mode unrecognized in slater\n");
     return -1;
   }
-  SortSlaterKey(index);
 
+  SortSlaterKey(index);
   p = (double *) MultiSet(slater_array, index, NULL);
   if (*p) {
     *s = *p;
@@ -1141,15 +1308,18 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (orb1->n > 0) ilast = orb1->ilast;
       else ilast = npts-1;
       if (orb3->n > 0) ilast = Min(ilast, orb3->ilast);
+      printf("**%d %d %d %d %10.3E\n", k, orb1->n,orb3->n,ilast,_yk[178]);
       for (i = 0; i <= ilast; i++) {
 	_yk[i] /= potential->rad[i];
       }
+      printf("**%d %d %d %10.3E\n", orb1->n,orb3->n,ilast,_yk[178]);
       Integrate(_yk, orb1, orb3, 2, s);
 
       norm  = orb0->qr_norm;
       norm *= orb1->qr_norm;
       norm *= orb2->qr_norm;
       norm *= orb3->qr_norm;
+      
       *s *= norm;
       break;
 
@@ -1158,11 +1328,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k0, k2);
+	*s = MultipoleRadialNR(m+256, k0, k2, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k1, k3);
+	*s *= MultipoleRadialNR(m-256, k1, k3, 0);
       }
       break;
 
@@ -1171,11 +1341,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k1, k3);
+	*s = MultipoleRadialNR(m+256, k1, k3, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k0, k2);      
+	*s *= MultipoleRadialNR(m-256, k0, k2, 0);      
       }
       break;
       
@@ -1245,7 +1415,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
   if (k > 2) {
     max = 0.0;
     for (i = 0; i < MAX_POINTS; i++) {
-      a = fabs(_yk[i]);
+      a = fabs(yk[i]);
       if (max < a) max = a;
     }
     max *= 1E-3;
@@ -1260,10 +1430,23 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
     _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
   }
   Integrate(_dwork1, orb1, orb2, type, _xk);
+  if (type == -2) {
+    printf("###%10.3E %10.3E %10.3E \n", _xk[177], _xk[178], _xk[179]);
+  }
   ilast = MAX_POINTS - 1;
+  
   for (i = i0; i < MAX_POINTS; i++) {
+    if (type == -2 && i == 177) {
+      printf("1##%d %10.3E %10.3E %10.3E \n", ilast, _xk[ilast], _xk[i], _dwork1[i]);
+    }
     _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
+    if (type == -2 && i == 177) {
+      printf("2##%d %10.3E %10.3E %10.3E \n", ilast, _xk[ilast], _xk[i], _dwork1[i]);
+    }
     yk[i] += _xk[i];
+  }
+  if (type == -2) {
+    printf("---%d %d %10.3E %10.3E %10.3E %10.3E %10.3E\n", i0, ilast, yk[177], _xk[177], _zk[177], _dwork1[177], _xk[ilast]);
   }
   return 0;
 }  
@@ -1275,11 +1458,12 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
 /* type = 3,    Q1*Q1 */ 
 /* type = 4:    P1*Q2 + Q1*P2 */
 /* type = 5:    P1*Q2 - Q1*P2 */
+/* if type is positive, only the end point is returned, */
+/* otherwise, the whole function is returned */
 
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, 
 	      int t, double *x) {
   int i1, i2;
-  double a;
   int i;
   double *r;
 
@@ -1294,9 +1478,11 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
   } else if (orb1->n > 0 && orb2->n <= 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
+    if (t == -2) printf("+++%d %d %d %10.3E %10.3E %10.3E\n", i1, orb1->n, orb2->n, r[i1], r[i1-1], r[i1+1]);
     i1 += 1;
     i2 = orb1->ilast;
     IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1);
+    if (t == -2) printf("....%d %d %d %10.3E %10.3E %10.3E\n", i2, orb1->n, orb2->n, r[i2], r[i2-1], r[i2-2]);
   } else if (orb1->n <= 0 && orb2->n > 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
@@ -1304,6 +1490,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     i2 = orb2->ilast;
     IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2);
   } else {
+    if (t == 2) printf("===%10.3E %10.3E %10.3E \n", f[177], f[178],f[179]);
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
     i1 += 1;
@@ -1320,6 +1507,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
       i2 = MAX_POINTS-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3);
     }
+    if (t == 2) printf("===%10.3E %10.3E %10.3E \n", f[177], f[178],f[179]);
   }
 
   if (t >= 0) {
@@ -1330,6 +1518,11 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
       r[i] = r[i2];
     }
   }
+  if (orb1->n > 0 && orb2->n < 0 && t == -2) {
+    printf("######%10.3E %10.3E %10.3E %10.3E %10.3E \n", x[177], x[178], x[179], r[i2], r[i2-1]);
+  }
+
+  return 0;
 }
 
 int IntegrateSubRegion(int i0, int i1, 
@@ -1339,7 +1532,7 @@ int IntegrateSubRegion(int i0, int i1,
   ORBITAL *tmp;
   double *large1, *large2, *small1, *small2;
   double *x, *y, *r1, *x1, *x2, *y1, *y2;
-  double a, b;
+  double a, b, e1, e2, a2;
 
   if (i1 <= i0) return 0;
   type = abs(t);
@@ -1409,6 +1602,9 @@ int IntegrateSubRegion(int i0, int i1,
     large2 = Large(orb2);
     small1 = Small(orb1);
     small2 = Small(orb2);
+    e1 = orb1->energy;
+    e2 = orb2->energy;
+    a2 = 0.5*FINE_STRUCTURE_CONST2;
     switch (type) {
     case 1: /* type = 1 */
       j = 0;
@@ -1419,7 +1615,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       if (i < MAX_POINTS) {
@@ -1438,7 +1635,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = b * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1452,14 +1650,17 @@ int IntegrateSubRegion(int i0, int i1,
       break;
     case 2: /* type = 2 */
       j = 0;
+      printf("%d %d %d %d %d %10.3E %10.3E %10.3E\n", t, i0, i1, orb1->n, orb2->n, large1[i0], orb1->wfun[i0], f[i0]);
       for (i = i0; i <= i1; i+= 2) {
 	ip = i+1;
 	x[j] = large1[i] * large2[i];
 	x[j] *= f[i]; 
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
+      printf("%d %d \n", j, i);
       if (i < MAX_POINTS) {
 	ip = i+1;
 	if (i > orb1->ilast) {
@@ -1471,11 +1672,14 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] = a * large2[i];
 	x[j] *= f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t);
+
       if (t < 0) {
+	printf(",,,,%d %d %10.3E %10.3E %10.3E \n", i0, j, r[i0],r[i1-3],r[i1-1]);
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
@@ -1491,7 +1695,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       if (i < MAX_POINTS) {
@@ -1507,7 +1712,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = b * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1528,7 +1734,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       if (i < MAX_POINTS) {
@@ -1547,7 +1754,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = a * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1568,7 +1776,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = -large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       if (i < MAX_POINTS) {
@@ -1587,7 +1796,8 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = -a * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = 1.0/(large2[i]*large2[i]);
+	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1622,6 +1832,9 @@ int IntegrateSubRegion(int i0, int i1,
     large2 = Large(orb2);
     small1 = Small(orb1);
     small2 = Small(orb2);
+    e1 = orb1->energy;
+    e2 = orb2->energy;
+    a2 = 0.5*FINE_STRUCTURE_CONST2;
     r1[i0] = 0.0;
     switch (type) {
     case 1: /* type = 1 */
@@ -1638,7 +1851,12 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) + 1.0/(large2[i]*large2[i]);
+	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
+	  /(large1[i]*large1[i]);
+	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
+	_dphase[j] = a + b;
+	_dphasep[j] = a - b;
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1650,10 +1868,9 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] + y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] - large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) - 1.0/(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -1677,7 +1894,12 @@ int IntegrateSubRegion(int i0, int i1,
 	y2[j] *= 0.5*f[i];
 	y[j] = y2[j];
 	_phase[j] = large1[ip] + large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) + 1.0/(large2[i]*large2[i]);
+	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
+	  /(large1[i]*large1[i]);
+	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
+	_dphase[j] = a + b;
+	_dphasep[j] = a - b;
 	j++;
       } 
       IntegrateSinCos(j, NULL, y, _phase, _dphase, i0, r, t);
@@ -1686,10 +1908,9 @@ int IntegrateSubRegion(int i0, int i1,
 	ip = i+1;
 	y[j] = -y2[j];
 	_phase[j] = large1[ip] - large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) - 1.0/(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, NULL, y, _phase, _dphase, i0, r1, t);
+      IntegrateSinCos(j, NULL, y, _phase, _dphasep, i0, r1, t);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -1718,7 +1939,12 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) + 1.0/(large2[i]*large2[i]);
+	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
+	  /(large1[i]*large1[i]);
+	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
+	_dphase[j] = a + b;
+	_dphasep[j] = a - b;
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1730,10 +1956,9 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] + y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] - large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) - 1.0/(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -1761,8 +1986,13 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] -= small1[ip] * large2[i];
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
-	_phase[j] = large1[ip] + large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) + 1.0/(large2[i]*large2[i]);
+	_phase[j] = large1[ip] + large2[ip];	
+	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
+	  /(large1[i]*large1[i]);
+	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
+	_dphase[j] = a + b;
+	_dphasep[j] = a - b;
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1773,10 +2003,9 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= 0.5*f[i];
 	y[j] = -y2[j];
 	_phase[j] = large1[ip] - large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) - 1.0/(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -1805,7 +2034,12 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) + 1.0/(large2[i]*large2[i]);
+	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
+	  /(large1[i]*large1[i]);
+	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
+	  /(large2[i]*large2[i]);
+	_dphase[j] = a + b;
+	_dphasep[j] = a - b;
 	j++;
       }
       IntegrateSinCos(j, x, y, _phase, _dphase, i0, r, t);
@@ -1816,10 +2050,9 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= 0.5*f[i];
 	y[j] = -y2[j];
 	_phase[j] = large1[ip] - large2[ip];
-	_dphase[j] = 1.0/(large1[i]*large1[i]) - 1.0/(large2[i]*large2[i]);
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphase, i0, r1, t);
+      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -1849,96 +2082,145 @@ int IntegrateSinCos(int j, double *x, double *y,
 		    double *phase, double *dphase, 
 		    int i0, double *r, int t) {
   int i, k, m, n, q;
-  double si0, si1, cs0, cs1, x0, x1, y0, y1;
-  double is[4], ic[4], delta, p;
-  double *z, *u, a[4], b[4], h, dr;
+  double si0, si1, cs0, cs1;
+  double int_si[4], int_cs[4], coeff[4];
+  double d, p;
+  double *z, *u;
+  double h, dr;
+  static count = 0;
 
+  count++;
   z = _dwork10;
   u = _dwork11;
-  
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
     h = dphase[i-1]+dphase[i];
     dr = potential->rad[k] - potential->rad[k-2];
     if (h*dr > 0.1) break;
     z[i] = 0.0;
-    if (x) z[i] += x[i]*sin(phase[i]);
-    if (y) z[i] += y[i]*cos(phase[i]);
+    if (x != NULL) z[i] += x[i]*sin(phase[i]);
+    if (y != NULL) z[i] += y[i]*cos(phase[i]);
     z[i] *= potential->dr_drho[k];
   }
   if (i > 1) {
     z[0] = 0.0;
-    if (x) z[0] += x[0]*sin(phase[0]);
-    if (y) z[0] += y[0]*cos(phase[0]);
+    if (x != NULL) z[0] += x[0]*sin(phase[0]);
+    if (y != NULL) z[0] += y[0]*cos(phase[0]);
     z[0] *= potential->dr_drho[i0];
     u[0] = 0.0;
     NewtonCotes(u, z, 0, i-1, t);
     for (m = 1, n = i0+2; m < i; m++, n += 2) {
       r[n] = r[i0] + 2.0*u[m];
     }
-  }  
-  m = j-i+1;
+  }
+ 
+  q = i-1; 
+  m = j-q;
   if (m < 2) {
     r[k] = r[k-2];
     return 0;
   }
-  if (i > 1) {
-    q = i-2;
-    m++;
-  } else {
-    q = i-1;
-  }
-  if (x) {
+
+  if (count < 2) printf("%d %x %x\n", t, x, y);
+  else {exit(1);}
+  if (x != NULL) {
+    if (count < 10) printf("%10.3E %10.3E\n", x[i],x[i-1]);
     for (n = q; n < j; n++) {
       x[n] /= dphase[n];
-    }
-    spline(phase+q, x+q, m, 1E30, 1E30, z+q);
+    }    
+    spline(phase+q, x+q, m, 1E30, 1E30, z+q);   
   } 
-  if (y) {
+  if (y != NULL) {
+    if (count < 2) printf("%10.3E %10.3E \n", y[i],y[i-1]);
     for (n = q; n < j; n++) {
       y[n] /= dphase[n];
     }
-    spline(phase+q, y+q, m, 1E30, 1E30, u+q);
+    spline(phase+q, y+q, m, 1E30, 1E30, u+q);      
   } 
 
   si0 = sin(phase[i-1]);
   cs0 = cos(phase[i-1]);
-  for (; i < j; i++, k += 2) {
-    delta = phase[i] - phase[i-1];
+  
+  for (m = 0; m < 2 && i < j; m++, i++, k += 2) {
+    d = phase[i] - phase[i-1];
     si1 = sin(phase[i]);
     cs1 = cos(phase[i]);
-    is[0] = -(cs1 - cs0);
-    ic[0] = si1 - si0;
-    p = delta;
-    for (m = 1; m < 4; m++) {
-      is[m] = -p * cs1 + m*ic[m-1];
-      ic[m] =  p * si1 - m*is[m-1];
-      p *= delta;
-    }
+    int_si[0] = -(cs1 - cs0);
+    int_cs[0] = si1 - si0;
+    int_si[1] = -d * cs1 + int_cs[0];
+    int_cs[1] =  d * si1 - int_si[0];
     r[k] = r[k-2];
-    if (x) {
-      a[3] = (z[i] - z[i-1])/(6.0*delta);
-      a[2] = z[i-1]/3.0;
-      a[1] = (x[i] - x[i-1])/delta - (z[i] + z[i-1])*delta/6.0;
-      a[0] = x[i-1];
-      r[k] += a[0]*is[0] 
-	+ a[1]*is[1]
-	+ a[2]*is[2]
-	+ a[3]*is[3];
+    if (x != NULL) {
+      coeff[1] = (x[i] - x[i-1])/d;
+      coeff[0] = x[i-1];
+      r[k] += coeff[0]*int_si[0] + coeff[1]*int_si[1];
+      if (count < 10) {
+	printf("x %d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",i, x[i-1],x[i],dphase[i-1],dphase[i], r[k-2],r[k]);
+      }
     } 
-    if (y) {
-      b[3] = (u[i] - u[i-1])/(6.0*delta);
-      b[2] = u[i-1]/3.0;
-      b[1] = (y[i] - y[i-1])/delta - (u[i] + u[i-1])*delta/6.0;
-      b[0] = y[i-1];
-      r[k] += b[0]*ic[0] 
-	+ b[1]*ic[1]
-	+ b[2]*ic[2]
-	+ b[3]*ic[3]; 
+    
+    
+    if (y != NULL) {
+      coeff[1] = (y[i] - y[i-1])/d;
+      coeff[0] = y[i-1];
+      r[k] += coeff[0]*int_cs[0] + coeff[1]*int_cs[1]; 
+      if (count < 10) {
+	printf("y %d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", i, y[i-1], y[i],dphase[i-1],dphase[i], r[k-2],r[k]);
+      }
+      
+    } 
+    
+    /*
+    if (!(r[k] > 0) && !(r[k] <=0)) {
+      printf("%d %d %10.3E\n", count, k, r[k]);
+      exit(1);
+    }
+    */
+     
+    if (count < 10) {
+      printf("%d %d %d %x %10.3E %10.3E\n", t, count, k, r, r[k-2], r[k]);
     }
     si0 = si1;
     cs0 = cs1;
   }
-  
+  for (; i < j; i++, k += 2) {
+    d = phase[i] - phase[i-1];
+    si1 = sin(phase[i]);
+    cs1 = cos(phase[i]);
+    int_si[0] = -(cs1 - cs0);
+    int_cs[0] = si1 - si0;
+    p = d;
+    for (m = 1; m < 4; m++) {
+      int_si[m] = -p * cs1 + m*int_cs[m-1];
+      int_cs[m] =  p * si1 - m*int_si[m-1];
+      p *= d;
+    }
+    r[k] = r[k-2];
+    if (x != NULL) {
+      coeff[3] = (z[i] - z[i-1])/(6.0*d);
+      coeff[2] = z[i-1]/3.0;
+      coeff[1] = (x[i] - x[i-1])/d - (z[i] + z[i-1])*d/6.0;
+      coeff[0] = x[i-1];
+      h = (coeff[0]*int_si[0] + coeff[1]*int_si[1] + 
+	   coeff[2]*int_si[2] + coeff[3]*int_si[3]);
+      r[k] += h;
+    } 
+    if (y != NULL) {
+      coeff[3] = (u[i] - u[i-1])/(6.0*d);
+      coeff[2] = u[i-1]/3.0;
+      coeff[1] = (y[i] - y[i-1])/d - (u[i] + u[i-1])*d/6.0;
+      coeff[0] = y[i-1];
+      h = (coeff[0]*int_cs[0] + coeff[1]*int_cs[1] + 
+	   coeff[2]*int_cs[2] + coeff[3]*int_cs[3]);
+      r[k] += h;    
+    }
+    printf("%10.3E\n", h);  
+    si0 = si1;
+    cs0 = cs1;
+    /*
+    printf("%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", k, x[i-1],x[i],z[i-1],z[i],d,int_si[0],int_si[1],int_si[2],int_si[3], r[k]);
+    */
+  }
+  printf("2''''%d %10.3E %10.3E \n", k, r[i0], r[k-2]);
   return 0;
 }
 
@@ -1962,7 +2244,6 @@ int FreeMultipoleArray() {
 
 
 int InitRadial() {
-  int i;
   int ndim;
   int blocks[6] = {5, 5, 5, 5, 5, 5};
 
@@ -1996,54 +2277,53 @@ int TestIntegrate(char *s) {
   int k1, k2, k3, k4, i;
   double r;
   FILE *f;
- 
-  k1 = OrbitalIndex(3, -1, 0.0);
-  k2 = OrbitalIndex(0, 1, 5000.0/HARTREE_EV);
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-  for (i = 0; i < MAX_POINTS; i++) { 
-    _yk[i] = potential->rad[i]; 
-  } 
-  Integrate(_yk, orb1, orb2, -1, _xk);  
-  f = fopen(s, "w");
-  fprintf(f, "# %d %d %10.3E %10.3E\n", 
-	  orb1->ilast, orb2->ilast, 
-	  orb1->energy, orb2->energy);
-  for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
-	    i, potential->rad[i],  
-	    _xk[i], potential->Vc[i],
-	    potential->U[i], potential->Vtail[i], 
-	    Large(orb1)[i], Large(orb2)[i]);
-  }
-
-  /*
-  GetYk(1, _yk, orb1, orb2, -1); 
-
-  for (i = 0; i < MAX_POINTS; i++) { 
-    _yk[i] /= potential->rad[i]; 
-  } 
-  k3 = OrbitalIndex(0, 17, (5000.0+50.0)/HARTREE_EV);   
-  k4 = OrbitalIndex(0, -17, 5000.0/HARTREE_EV);    
-  orb3 = GetOrbital(k3);  
-  orb4 = GetOrbital(k4);  
- 
-  Integrate(_yk, orb3, orb4, -1, _xk); 
   
-  f = fopen(s, "w");
-  fprintf(f, "# %d %d %d %d %10.3E %10.3E %10.3E %10.3E\n", 
-	  orb1->ilast, orb2->ilast, orb3->ilast, orb4->ilast, 
-	  orb1->energy, orb2->energy,
-	  orb3->energy, orb4->energy);
-  for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
-	    i, potential->rad[i],  
-	    _yk[i], _zk[i], _xk[i], potential->Vc[i],
-	    potential->U[i], potential->Vtail[i],
-	    Large(orb1)[i], Large(orb2)[i], 
-	    Large(orb3)[i], Large(orb4)[i]);
+  orb1 = GetOrbital(0);
+  orb2 = GetOrbital(3);
+  printf("%d %d %d %d \n", orb1->n, orb1->kappa, orb2->n, orb2->kappa);
+  GetYk(1, _yk, orb1, orb2, -2); 
+  
+  for (i = 0; i < MAX_POINTS; i++) {  
+    _yk[i] /= potential->rad[i];  
+  }  
+  i = 15;
+  r = 1e4/27.2;
+  k1 = OrbitalIndex(0, i-1, 6.8E2/27.2 +r);    
+  k2 = OrbitalIndex(0, i, r);    
+  k3 = OrbitalIndex(0, i+1, 6.8E2/27.2 +r);     
+  
+  orb1 = GetOrbital(k1); 
+  orb2 = GetOrbital(k2);   
+  orb3 = GetOrbital(k3);   
+ 
+  Integrate(_yk, orb1, orb2, 2, &r);
+  printf("%10.3E\n", r);
+  Integrate(_yk, orb1, orb2, -2, _xk);  
+  
+  f = fopen(s, "w"); 
+  for (i = 0; i < MAX_POINTS; i++) { 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
+	    i, potential->rad[i],   
+	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
+	    potential->U[i], 
+	    Large(orb1)[i], Large(orb2)[i],  
+	    Large(orb3)[i]); 
   }
-  */
+
+  Integrate(_yk, orb3, orb2, 2, &r);
+  printf("%10.3E\n", r);
+  Integrate(_yk, orb3, orb2, -2, _xk);  
+  fprintf(f, "\n\n\n"); 
+  for (i = 0; i < MAX_POINTS; i++) { 
+    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
+	    i, potential->rad[i],   
+	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
+	    potential->U[i], 
+	    Large(orb1)[i], Large(orb2)[i],  
+	    Large(orb3)[i]); 
+  }
+
+
   fclose(f); 
 }
 
