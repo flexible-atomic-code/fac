@@ -4,7 +4,7 @@ SRC = dlacpy.f dlae2.f dlaed0.f dlaed1.f dlaed2.f dlaed3.f dlaed4.f dlaed5.f dla
 OBJS = ${SRC:.f=.o}
 
 .f.o: 
-	$(FC) -O -c $<
+	$(FC) ${FFLAGS} $<
 
 lapack: $(OBJS)
 	ar cr liblapack.a $(OBJS)
