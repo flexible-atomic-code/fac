@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.35 2003/12/30 22:54:32 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.36 2004/01/04 21:55:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -941,6 +941,26 @@ static PyObject *PTwoPhoton(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", z);
 }
 
+static PyObject *PDumpRates(PyObject *self, PyObject *args) {
+  int k, m, imax, a;
+  char *fn;
+
+  if (scrm_file) {
+    SCRMStatement("DumpRates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  imax = -1;
+  a = 0;
+  if (!PyArg_ParseTuple(args, "sii|ii", &fn, &k, &m, &imax, &a)) return NULL;
+  
+  DumpRates(fn, k, m, imax, a);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -993,6 +1013,7 @@ static struct PyMethodDef crm_methods[] = {
   {"MaxAbund", PMaxAbund, METH_VARARGS},
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
+  {"DumpRates", PDumpRates, METH_VARARGS},
   {NULL, NULL}
 };
 
