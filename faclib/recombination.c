@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.74 2004/02/08 07:14:08 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.75 2004/02/22 23:17:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -704,9 +704,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
   c = 2*abs(m) - 2;
-  if (gauge == G_COULOMB && mode == M_FR && m < 0) {
-    c -= 2;
-  } 
+
   for (ie = 0; ie < n_egrid; ie++) {
     tq[ie] = 0.0;
   }
@@ -1488,6 +1486,206 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   return 0;
 }
 
+int AsymmetryPI(ORBITAL *orb0, double e, int mx, int m, double *b) {
+  ORBITAL *orb;
+  double **ak;
+  int *nak, **kak;
+  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2;
+  int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
+  double aw, ph1, ph2, c, d;
+
+  GetJLFromKappa(orb0->kappa, &j0, &kl0);
+  aw = FINE_STRUCTURE_CONST*(e - orb0->energy);
+  
+  nak = malloc(sizeof(int)*mx);
+  ak = malloc(sizeof(double *)*mx);
+  kak = malloc(sizeof(int *)*mx);
+  for (i = 0; i < m*2+1; i++) {
+    b[i] = 0.0;
+  }
+  for (i = 0; i < mx; i++) {
+    L = i/2 + 1;
+    L2 = 2*L;
+    jmin = abs(j0-L2);
+    jmax = j0 + L2;
+    nak[i] = 1 + ((jmax - jmin)/2);
+    ak[i] = malloc(sizeof(double)*nak[i]);
+    kak[i] = malloc(sizeof(int)*nak[i]);
+    j1 = jmin;
+    if (IsEven(i)) {
+      se = IsEven(L+kl0/2);
+    } else {
+      se = IsOdd(L+kl0/2);
+    }
+    for (p = 0; p < nak[i]; p++) {
+      kl1 = j1 - 1;
+      if (se) {
+	if (IsOdd(kl1/2)) kl1 += 2;
+      } else {
+	if (IsEven(kl1/2)) kl1 += 2;
+      }
+      kappa = GetKappaFromJL(j1, kl1);
+      kak[i][p] = kappa;
+      k = OrbitalIndex(0, kappa, e);
+      orb = GetOrbitalSolved(k);
+      if (IsEven(i)) {
+	ak[i][p] = MultipoleEL(orb, orb0, aw, L);
+      } else {
+	ak[i][p] = MultipoleML(orb, orb0, aw, L);
+      }
+      b[0] += ak[i][p]*ak[i][p];
+      printf("%d %d %d %d %d %d %10.3E %10.3E %10.3E %10.3E %10.3E\n", i, L, kl0, j0, kl1, j1, e, e-orb0->energy, aw, ak[i][p], b[0]);
+      j1 += 2;
+    }
+  }
+
+  for (i = 0; i < mx; i++) {
+    L = i/2 + 1;
+    L2 = 2*L;
+    for (p = 0; p < nak[i]; p++) {
+      GetJLFromKappa(kak[i][p], &j1, &kl1);
+      k = OrbitalIndex(0, kak[i][p], e);
+      ph1 = GetPhaseShift(k);
+      for (ip = 0; ip < mx; ip++) {
+	Lp = ip/2 + 1;
+	Lp2 = 2*Lp;
+	for (pp = 0; pp < nak[ip]; pp++) {
+	  GetJLFromKappa(kak[ip][pp], &j2, &kl2);
+	  k = OrbitalIndex(0, kak[ip][pp], e);
+	  ph2 = GetPhaseShift(k);
+	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
+	  c *= ak[i][p]*ak[ip][pp];
+	  if (ph1 != ph2) c *= cos(ph1-ph2);
+	  if (IsOdd((L2+j2-Lp2+j0+1)/2)) c = -c;
+	  for (q = 0; q < m; q++) {
+	    q2 = 2*q;
+	    d = c*(q2 + 1.0);
+	    d *= W3j(kl1, kl2, q2, 0, 0, 0);
+	    d *= W6j(kl1, kl2, q2, j2, j1, 1);
+	    d *= W6j(j1, j2, q2, Lp2, L2, j0);
+	    b[q+1] += d*W3j(q2, Lp2, L2, 0, 2, -2);
+	    if (q >= 2) {
+	      if (IsOdd((kl2-Lp2-kl0)/2)) d = -d;
+	      d *= exp(0.5*(ln_factorial[q-2]-ln_factorial[q+2]));
+	      d *= q*(q-1.0);
+	      b[q+1+m] += d*W3j(q2, Lp2, L2, 4, -2, -2);
+	    }
+	  }
+	}
+      }
+    }
+  }    
+  
+  c = 4.0*PI*(1.0+FINE_STRUCTURE_CONST2*e);
+  c /= (j0+1.0)*2.0*aw*(1.0+0.5*FINE_STRUCTURE_CONST2*e);
+  for (i = 1; i < 2*m+1; i++) {
+    b[i] /= b[0];
+  }
+  b[0] *= c;
+
+  for (i = 0; i < mx; i++) {
+    free(ak[i]);
+    free(kak[i]);
+  }
+  free(nak);
+  free(ak);
+  free(kak);
+
+  return 0;
+}
+
+int SaveAsymmetry(char *fn, char *s, int mx, int m) {
+  ORBITAL *orb0;
+  CONFIG *cfg;
+  char *p, sp[16], js;
+  int k, ns, i, j, q, ncfg;
+  int kappa, n, jj, kl, k0;
+  double **b, e0, e, emin, emax, a;
+  FILE *f;
+  
+  ns = StrSplit(s, ' ');
+  if (ns <= 0) return 0;
+
+  p = s;
+  f = fopen(fn, "a");
+  if (n_usr <= 0) n_usr = 6;
+  b = malloc(sizeof(double *)*n_usr);
+  for (i = 0; i < n_usr; i++) {
+    b[i] = malloc(sizeof(double)*(2*m+1));
+  }
+  for (k = 0; k < ns; k++) {
+    while (*p == ' ') p++;
+    ncfg = GetConfigFromString(&cfg, p);
+    for (j = ncfg-1; j >= 0; j--) {
+      if (cfg[j].n_shells != 1) continue;
+      n = (cfg[j].shells)[0].n;
+      kappa = (cfg[j].shells)[0].kappa;
+      free(cfg[j].shells);
+      GetJLFromKappa(kappa, &jj, &kl);
+      if (jj > kl) js = '+';
+      else js = '-';
+      SpecSymbol(sp, kl/2);
+      k0 = OrbitalIndex(n, kappa, 0);
+      orb0 = GetOrbital(k0);
+      e0 = -(orb0->energy);
+      if (usr_egrid[0] < 0) {
+	if (egrid_limits_type == 0) {
+	  emin = egrid_min*e0;
+	  emax = egrid_max*e0;
+	} else {
+	  emin = egrid_min;
+	  emax = egrid_max;
+	}
+	SetUsrPEGrid(n_usr, emin, emax, e0);
+      }
+      if (k == 0) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = 2.0*usr_egrid[i];
+	  xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
+	  xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
+	  xusr[i] *= HARTREE_EV;
+	}
+      }
+      e0 *= HARTREE_EV;
+      fprintf(f, "# %d%s%c %d %d %d  %10.3E %d\n",
+	      n, sp, js, n, kl, jj, e0, n_usr);
+      for (i = 0; i < n_usr; i++) {
+	e = usr_egrid[i];
+	AsymmetryPI(orb0, e, mx, m, b[i]);
+      }
+    
+      for (i = 0; i < n_usr; i++) {
+	e = usr_egrid[i]*HARTREE_EV;
+	a = (e+e0)/xusr[i];
+	a = a*a;
+	fprintf(f, "%10.3E %10.3E %10.3E %10.3E %10.3E\n",
+		e, e+e0, xusr[i], b[i][0]*AREA_AU20, b[i][0]*a*AREA_AU20);
+      }
+      
+      for (q = 0; q < m; q++) {
+	for (i = 0; i < n_usr; i++) {
+	  e = usr_egrid[i]*HARTREE_EV;
+	  fprintf(f, "%10.3E %10.3E %10.3E\n",
+		  e, b[i][q+1], b[i][q+1+m]);
+	}
+      }
+    }
+    if (ncfg > 0) free(cfg);
+    while (*p) p++;
+    p++;
+  }
+
+  fclose(f);
+  for (i = 0; i < n_usr; i++) {
+    free(b[i]);
+  }
+  free(b);
+
+  ReinitRecombination(1);
+
+  return 0;
+}
+	
 int DROpen(int n, int *nlev, int **ops) {
   int i, j, n0, old_n;
   LEVEL *lev;
