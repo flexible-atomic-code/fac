@@ -23,6 +23,11 @@ int SetUsrCIEGridDetail(int n, double *x);
 int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k);
 int CIRadialQkIntegrated(double *qku, double te, int kb, int kbp);
 void CIRadialQkIntegratedBasis(int npar, double *yb, double x, double logx);
+int SaveCIRadialQkIntegrated(int n, char *s);
+int LoadCIRadialQkIntegrated(int n, char *s);
+int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
+			     int np, int *n, int nte, 
+			     double emin, double emax, char *s);
 double *CIRadialQkIntegratedTable(int kb, int kbp);
 double IntegrateQk(double *qk);
 double *CIRadialQkTable(int kb, int kbp);

@@ -93,6 +93,7 @@ int SaveAllContinua(int mode);
 int SaveContinua(double e, int mode);
 int FreeAllContinua();
 int FreeContinua(double e);
+int ClearOrbitalTable();
 
 int InitRadial();
 

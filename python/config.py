@@ -2,7 +2,9 @@ import string
 import fac
 
 # spectroscopic notation of orbital angular momentums.
-_orbital_symbols = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
+_orbital_symbols = {}
+for i in range(len(fac.SPECSYMBOL)):
+    _orbital_symbols[fac.SPECSYMBOL[i]] = i
 _group_name = ''
 _closed_shells = []
 

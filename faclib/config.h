@@ -12,7 +12,7 @@
 /* max string length for the group name */
 #define GROUP_NAME_LEN     32
 /* max number of configuration groups */
-#define MAX_GROUPS         512
+#define MAX_GROUPS         1024
 /* max number of j-parity symmetries */
 #define MAX_SYMMETRIES     512
 /* number of groups in one array block */

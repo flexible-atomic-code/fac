@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.26 2001/10/14 15:23:24 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.27 2001/10/19 22:45:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -99,23 +99,18 @@ void SetScreening(int n_screen, int *screened_n,
 }
 
 int SetRadialGrid(double rmin, double rmax) {
-  rgrid_min = rmin;
-  rgrid_max = rmax;
+  if (rmin > 0.0) rgrid_min = rmin;
+  if (rmax > 0.0) rgrid_max = rmax;
+  potential->flag = 0;
 }
 
-int _AdjustScreeningParams(double *v, double *u, int initp) {
+int _AdjustScreeningParams(double *v, double *u) {
   int i;
   double c;
 
-  if (initp == 0) {
-    for (i = 0; i < MAX_POINTS; i++) {
-      u[i] = 0.5*(u[i]+v[i]);
-      v[i] = u[i];
-    }
-  } else {
-    for (i = 0; i < MAX_POINTS; i++) {
-      v[i] = u[i];
-    }
+  for (i = 0; i < MAX_POINTS; i++) {
+    u[i] = 0.5*(u[i]+v[i]);
+    v[i] = u[i];
   }
   c = 0.5*u[MAX_POINTS-1];
   for (i = 0; i < MAX_POINTS; i++) {
@@ -135,6 +130,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
   u = potential->U;
   w = potential->W;
   v = _phase;
+  initp = 0;
 
   for (j = 0; j < MAX_POINTS; j++) {
     w[j] = 0.0;
@@ -146,6 +142,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
     if (k1 < 0) continue;
     orb1 = GetOrbital(k1);
+    if (orb1->wfun == NULL) continue;
     for (j = 0; j <= orb1->ilast; j++) {
       large1 = Large(orb1)[j];
       small1 = Small(orb1)[j];
@@ -163,6 +160,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
       k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k1 < 0) continue;
       orb1 = GetOrbital(k1);
+      if (orb1->wfun == NULL) continue;
       GetJLFromKappa(acfg->kappa[i], &j1, &kl1);
       kmin = 0;
       kmax = 2*j1;
@@ -196,6 +194,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
 	k2 = OrbitalExists(acfg->n[j], acfg->kappa[j], 0.0);
 	if (k2 < 0) continue;
 	orb2 = GetOrbital(k2);
+	if (orb2->wfun == NULL) continue;
 	GetJLFromKappa(acfg->kappa[j], &j2, &kl2);
 	kmin = abs(j1 - j2);
 	kmax = j1 + j2;
@@ -231,8 +230,13 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
       if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
     }
     potential->r_core = j+1;
-    _AdjustScreeningParams(v, u, initp); 
-    initp = 0;
+    if (initp == 0) {
+      for (i = 0; i < MAX_POINTS; i++) {
+	v[i] = u[i];
+      }
+      initp = 1;
+    }
+    _AdjustScreeningParams(v, u); 
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       a = u[j] - potential->Z[j];
@@ -242,7 +246,6 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     }
     SetPotentialU(potential, 0, NULL);
   } else {
-    initp = 1;
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
   }
@@ -282,6 +285,7 @@ int GetPotential(char *s) {
     k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
     if (k1 < 0) continue;
     orb1 = GetOrbital(k1);
+    if (orb1->wfun == NULL) SolveDirac(orb1);
     for (j = 0; j <= orb1->ilast; j++) {
       large1 = Large(orb1)[j];
       small1 = Small(orb1)[j];
@@ -326,17 +330,25 @@ double GetRMax() {
 }
 
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
-
+  int i;
   if (nshells <= 0) return -1;
   if (average_config.n_shells > 0) {
-    free(average_config.n);
-    free(average_config.kappa);
-    free(average_config.nq);
+    average_config.kappa = (int *) realloc(average_config.kappa, 
+					   sizeof(int)*nshells);
+    average_config.nq = (double *) realloc(average_config.nq, 
+					   sizeof(double)*nshells);
+    average_config.n = (int *) realloc(average_config.n, 
+				       sizeof(int)*nshells);
+  } else {
+    average_config.kappa = (int *) malloc(sizeof(int)*nshells);
+    average_config.nq = (double *) malloc(sizeof(double)*nshells);
+    average_config.n = (int *) malloc(sizeof(int)*nshells);
   }
-  average_config.n = n;
-  average_config.nq = nq;
-  average_config.kappa = kappa;
-
+  for (i = 0; i < nshells; i++) {
+    average_config.n[i] = n[i];
+    average_config.kappa[i] = kappa[i];
+    average_config.nq[i] = nq[i];
+  }
   average_config.n_shells = nshells;
   average_config.n_cfgs = 1;
   return 0;
@@ -351,10 +363,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   double z;
   double large, large_old;
   int iter;
-
   FreeSlaterArray();
   FreeResidualArray();
-
   /* get the average configuration for the groups */
   acfg = &(average_config);
   if (ng > 0) {
@@ -406,7 +416,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   iter = 0;  
 
   orb_old.wfun = malloc(sizeof(double)*MAX_POINTS);
-  if (!(orb_old.wfun)) return -1;
 
   if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
   else z = 0.0;
@@ -429,14 +438,22 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	orb->kappa = acfg->kappa[i];
 	orb->n = acfg->n[i];
 	orb->energy = 1.0;
-	no_old = 1;
+	no_old = 1;	
       } else {
 	orb = GetOrbital(k);
-	orb_old.energy = orb->energy; 
-	orb_old.ilast = orb->ilast;
-	memcpy(orb_old.wfun, orb->wfun, sizeof(double)*MAX_POINTS);
-	free(orb->wfun);
-	no_old = 0;
+	if (orb->wfun == NULL) {
+	  orb_old.energy = 0.0;
+	  orb->energy = 1.0;
+	  orb->kappa = acfg->kappa[i];
+	  orb->n = acfg->n[i];
+	  no_old = 1;	
+	} else {
+	  orb_old.energy = orb->energy; 
+	  orb_old.ilast = orb->ilast;
+	  memcpy(orb_old.wfun, orb->wfun, sizeof(double)*MAX_POINTS);
+	  free(orb->wfun);
+	  no_old = 0;
+	}
       }
  
       if (SolveDirac(orb) < 0) {
@@ -689,9 +706,9 @@ int OrbitalExists(int n, int kappa, double energy) {
       if (orb->kappa == kappa &&
 	  fabs(orb->energy - energy) < EPS6) 
 	return i;
-    } else if (orb->n == n &&
-	       orb->kappa == kappa)
+    } else if (orb->n == n && orb->kappa == kappa) {
       return i;
+    }
   }
   return -1;
 }
@@ -734,6 +751,22 @@ ORBITAL *GetNewOrbital() {
   return orb;
 }
 
+void _FreeOrbitalData(void *p) {
+  ORBITAL *orb;
+  orb = (ORBITAL *) p;
+  if (orb->wfun) free(orb->wfun);
+  if (orb->phase) free(orb->phase);
+  orb->wfun = NULL;
+  orb->phase = NULL;
+  orb->ilast = -1;
+}
+
+int ClearOrbitalTable() {
+  n_continua = 0;
+  n_orbitals = 0;
+  ArrayFree(orbitals, _FreeOrbitalData);
+}
+
 int SaveOrbital(int i) {
   return 0;
 }
@@ -745,11 +778,7 @@ int RestoreOrbital(int i) {
 int FreeOrbital(int i) {
   ORBITAL *orb;
   orb = GetOrbital(i);
-  if (orb->wfun) free(orb->wfun);
-  if (orb->phase) free(orb->phase);
-  orb->wfun = NULL;
-  orb->phase = NULL;
-  orb->ilast = -1;
+  _FreeOrbitalData((void *)orb);
 }
 
 int SaveAllContinua(int mode) {

@@ -16,13 +16,16 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.4 2001/10/14 15:23:25 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.5 2001/10/19 22:45:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 static PyObject *ErrorObject;
+static PyObject *SPECSYMBOL;
+static PyObject *ATOMICSYMBOL;
+static PyObject *ATOMICMASS;
 
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
 
@@ -146,6 +149,9 @@ static PyObject *PSetAvgConfig(PyObject *self, PyObject *args) {
   }
 
   if (SetAverageConfig(ns, n, kappa, nq) < 0) return NULL;
+  free(n);
+  free(kappa);
+  free(nq);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -182,9 +188,9 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   double rmax, rmin;
 
-  rmin = 0.0;
-  rmax = 0.0;
-  if (!PyArg_ParseTuple(args, "dd", &rmin, &rmax))
+  rmin = -1.0;
+  rmax = -1.0;
+  if (!PyArg_ParseTuple(args, "|dd", &rmin, &rmax))
     return NULL;
   SetRadialGrid(rmin, rmax);
   Py_INCREF(Py_None);
@@ -518,6 +524,12 @@ static PyObject *PLevelTable(PyObject *self, PyObject *args) {
   m = 0;
   if (!PyArg_ParseTuple(args, "s|ii", &fn, &n, &m)) return NULL;
   if (SaveLevelsToAscii(fn, m, n) < 0) return NULL;
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PClearOrbitalTable(PyObject *self, PyObject *args) {
+  ClearOrbitalTable();
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1176,15 +1188,6 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   return Py_None;
 }
  
-static PyObject *PSetRRFormat(PyObject *self, PyObject *args) {
-  int m;
-
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetRRFormat(m);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
- 
 static PyObject *PRRTable(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
   int n, m;
@@ -1414,7 +1417,9 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
       }
     }
   }
-  MultiFree(&ma, 0);
+  printf("%x\n", ma.array);
+  MultiFree(&ma, NULL);
+  printf("%x\n", ma.array);
   Py_INCREF(Py_None);
   return Py_None;
 }  
@@ -1723,6 +1728,119 @@ static PyObject *PFreeIonizationQk(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSaveIonizationQk(PyObject *self, PyObject *args) {
+  int n;
+  char *s;
+  
+  if (!PyArg_ParseTuple(args, "is", &n, &s)) return NULL;
+  SaveCIRadialQkIntegrated(n, s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PLoadIonizationQk(PyObject *self, PyObject *args) {
+  int n;
+  char *s;
+  
+  s = NULL;
+  n = -1;
+  if (!PyArg_ParseTuple(args, "|is", &n, &s)) return NULL;
+  if (LoadCIRadialQkIntegrated(n, s) < 0) {
+    return NULL;
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPrepIonizationQk(PyObject *self, PyObject *args) {
+  PyObject *pz, *pa, *pn, *p;
+  int nz, na, nn, nte;
+  double emin, emax;
+  char *s;
+  int *n, i;
+  double *z, *a;
+  
+  pz = NULL;
+  pa = NULL;
+  pn = NULL;
+  nte = -1;
+  emin = -1.0;
+  emax = -1.0;
+  if (!PyArg_ParseTuple(args, "s|OOOidd", 
+			&s, &pz, &pa, &pn, &nte, &emin, &emax))
+    return NULL;
+  if (emin < 0) emin = 0.7;
+  if (emax < 0) emax = 1.3;
+  if (nte <= 1) {
+    nte = 1;
+    emin = 1.0;
+    emax = 1.0;
+  }
+  if (pz) {
+    if (!PyList_Check(pz)) return NULL;
+    nz = PyList_Size(pz);
+    z = (double *) malloc(sizeof(double)*nz);
+    for (i = 0; i < nz; i++) {
+      p = PyList_GetItem(pz, i);
+      z[i] = PyInt_AsLong(p);
+    }
+  } else {
+    nz = 5;
+    z = (double *) malloc(sizeof(double)*nz);
+    z[0] = 10;
+    z[1] = 30;
+    z[2] = 50;
+    z[3] = 70;
+    z[4] = 90;
+  }
+  
+  if (pa) {
+    if (!PyList_Check(pa)) return NULL;
+    na = PyList_Size(pa);
+    a = (double *) malloc(sizeof(double)*na);
+    for (i = 0; i < na; i++) {
+      p = PyList_GetItem(pa, i);
+      a[i] = PyFloat_AsDouble(p);
+    }
+  } else {
+    na = 5;
+    a = (double *) malloc(sizeof(double)*na);
+    a[0] = 0.1;
+    a[1] = 0.3;
+    a[2] = 0.5;
+    a[3] = 0.7;
+    a[4] = 0.9;
+  }
+
+  if (pn) {
+    if (!PyList_Check(pn)) return NULL;
+    nn = PyList_Size(pn);
+    n = (int *) malloc(sizeof(int)*nn);
+    for (i = 0; i < nn; i++) {
+      p = PyList_GetItem(pn, i);
+      n[i] = PyInt_AsLong(p);
+    }
+  } else {
+    nn = 5;
+    n = (int *) malloc(sizeof(int)*nn);
+    n[0] = 1;
+    n[1] = 2;
+    n[2] = 3;
+    n[3] = 4;
+    n[4] = 5;
+  }
+  PrepCIRadialQkIntegrated(nz, z, na, a, nn, n, nte, emin, emax, s);
+ 
+  free(z);
+  free(a);
+  free(n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static  PyObject *PSetCIPWOptions(PyObject *self, PyObject *args) {
   int qr, max, max_1, kl_cb;
   double tol;
@@ -1874,6 +1992,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
+  {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
   {"DRTable", PDRTable, METH_VARARGS},
@@ -1895,9 +2014,12 @@ static struct PyMethodDef fac_methods[] = {
   {"GetCG", GetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"LevelTable", PLevelTable, METH_VARARGS},
+  {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
@@ -1922,7 +2044,6 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecSpectator", PSetRecSpectator, METH_VARARGS},
-  {"SetRRFormat", PSetRRFormat, METH_VARARGS},
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetTransitionCut", PSetTransitionCut, METH_VARARGS},
@@ -1954,6 +2075,10 @@ static struct PyMethodDef fac_methods[] = {
 
 void initfac() {
   PyObject *m, *d;
+  char sp[2];
+  char *ename;
+  double *emass;
+  int i;
 
   m = Py_InitModule("fac", fac_methods);
   
@@ -1987,6 +2112,29 @@ void initfac() {
   InitExcitation();
   InitRecombination();
   InitIonization();
+
+  SPECSYMBOL = PyList_New(MAX_SPEC_SYMBOLS);
+  sp[1] = '\0';
+  for (i = 0; i < MAX_SPEC_SYMBOLS; i++) {
+    SpecSymbol(sp, i);
+    PyList_SetItem(SPECSYMBOL, i, Py_BuildValue("s", sp));
+  }
+
+  ename = GetAtomicSymbolTable();
+  emass = GetAtomicMassTable();
+  ATOMICSYMBOL = PyList_New(N_ELEMENTS+1);
+  ATOMICMASS = PyList_New(N_ELEMENTS+1);
+  PyList_SetItem(ATOMICSYMBOL, 0, Py_BuildValue("s", ""));
+  PyList_SetItem(ATOMICMASS, 0, Py_BuildValue("d", 0.0));
+  
+  for (i = 0; i < N_ELEMENTS; i++) {
+    PyList_SetItem(ATOMICSYMBOL, i+1, Py_BuildValue("s", &(ename[i*3])));
+    PyList_SetItem(ATOMICMASS, i+1, Py_BuildValue("d", emass[i]));
+  }
+  
+  PyDict_SetItemString(d, "SPECSYMBOL", SPECSYMBOL);
+  PyDict_SetItemString(d, "ATOMICSYMBOL", ATOMICSYMBOL);
+  PyDict_SetItemString(d, "ATOMICMASS", ATOMICMASS);
 
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");

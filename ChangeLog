@@ -1,3 +1,8 @@
+Version 0.6.2, 10/19/2001
+	1. the fitting of RR cross sections doesn't work quite well, 
+	   changed back to interpolation.
+	2. added routine to prepare and load ionization Qk tables.
+	
 Version 0.6.1, 10/13/2001
 	1. change the default angz_cut t0 1E-3, which seem to be adequate
 	   and makes the calculation much more efficient for large scale 
