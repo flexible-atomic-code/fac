@@ -6,7 +6,7 @@ C the asymptotic behavior is defined by Seaton, MNRAS 118, 504.
 C
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C     lambda:    the orbital angular momentum. 
-C     eta0:      -z/k
+C     eta0:      -z/k, z negative for electron-ion system.
 C     x0:        k*r
 C     y5:        wavefunction at r
 C     y5p:       d(y5)/d(r) at r

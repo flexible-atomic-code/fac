@@ -67,8 +67,8 @@
 ** NOTE:        
 */
 #define VERSION        0
-#define SUBVERSION     8
-#define SUBSUBVERSION  9
+#define SUBVERSION     9
+#define SUBSUBVERSION  0
 
 
 /* 
@@ -195,7 +195,7 @@
 
 /* orbital */
 #define MAX_POINTS 720 /* radial mesh */
-#define GRIDASYMP  16  /* no. points in half wavelength near infinity */
+#define GRIDASYMP  14  /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1 /* ratio of successive mesh near origin */
 
 /* config */

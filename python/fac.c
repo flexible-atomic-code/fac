@@ -3,8 +3,9 @@
 #include <string.h>
 
 #include "init.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.47 2003/03/11 15:18:47 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.48 2003/03/17 03:35:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3253,6 +3254,27 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PY5N(PyObject *self, PyObject *args) {
+  double lambda, eta0, x0;
+  double y5, y5p, norm, norm1;
+  int ierr;
+
+  if (!PyArg_ParseTuple(args, "ddd", &eta0, &lambda, &x0))
+    return NULL;
+
+  x0 /= eta0;
+  Y5N(lambda, eta0, x0, &y5, &y5p, &norm, &ierr);
+  x0 = eta0 - lambda;
+  norm1 = DLOGAM(x0);
+  x0 = eta0 + lambda + 1.0;
+  norm1 += DLOGAM(x0);
+  x0 = eta0*eta0;
+  norm1 += log(x0);
+  norm1 *= -0.5;
+  
+  return Py_BuildValue("(ddddi)", y5, y5p, norm, norm1, ierr);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3367,7 +3389,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
   {"TotalPICross", PTotalPICross, METH_VARARGS}, 
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
-  {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
+  {"WaveFuncTable", PWaveFuncTable, METH_VARARGS}, 
+  {"Y5N", PY5N, METH_VARARGS},  
   {NULL, NULL}
 };
 
