@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.71 2004/07/08 18:41:48 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.72 2004/07/08 21:12:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1185,22 +1185,17 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
       nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
-      for (i = 0; i <= i2p2; i++) {
-	p[i] = p[i] * pot->dr_drho2[i];
-      }
       p2 = p[i2];
       qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
 	    + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
-      qo /= p2*pot->dr_drho[i2];
+      qo /= p2;
       zp = FINE_STRUCTURE_CONST2*e;
       x0 = pot->rad[i2];
       ierr = 1;
       DCOUL(z, e, orb->kappa, x0, &pp, &qq, &ppi, &qqi, &ierr);
       p1 = (qq/pp)*2.0*x0/FINE_STRUCTURE_CONST - orb->kappa;
       qi = DpDr(orb->kappa, i2, e, pot, p1);
-      qi /= pot->dr_drho[i2];
-      norm2 = pp*pp/(1.0+0.5*FINE_STRUCTURE_CONST2*(e-pot->Vc[i2]-pot->U[i2]));
-      delta = 0.5*norm2*(qo-qi);
+      delta = qo-qi;
       dq[j] = delta;
     }
     for (j = 0; j < ME; j++) {
@@ -1216,8 +1211,6 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     }
     np = 3;
     UVIP3P(np, nme, &(dq[i]), &(en[i]), one, &zero, &e);
-    SetPotentialW(pot, e, orb->kappa);
-    SetVEffective(kl, pot);
     i2p2 = pot->maxrp-1;
     nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
     for (i = 0; i <= i2p2; i++) {
