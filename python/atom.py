@@ -449,9 +449,11 @@ class ATOM:
         
         g = self.grd_complex.name
         c = self.exc_complex[0].cgroup[0].name
-        ConfigEnergy(0)
+        if (self.nele > 1):
+            ConfigEnergy(0)
         OptimizeRadial(g+c)
-        ConfigEnergy(1)
+        if (self.nele > 1):
+            ConfigEnergy(1)
         
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
