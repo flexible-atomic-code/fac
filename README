@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.29 2003/01/20 03:34:40 mfgu Exp $
+# rcsid = $Id: README,v 1.30 2003/01/20 15:05:42 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -31,10 +31,12 @@ The two interfaces are independent. Either one or both can be installed.
 
 STEPS:
 1) ./configure
-Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler is not 
-        g77 or sun's f77. see faclib/cfortran.doc for supported F77 compilers.
-Note 2: specify --prefix=my/dir, if the default /usr/local is not what you want.
-        This only affects the installation of SFAC executables.
+Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler 
+        is not g77 or sun's f77. see faclib/cfortran.doc for supported F77 
+	compilers.
+Note 2: specify --prefix=my/dir, if the default /usr/local is not what you 
+	want. This dir only affects the installation of SFAC executables.
+
 2) make; make install
 This installs the SFAC interface.
 
@@ -44,14 +46,27 @@ This installs the SFAC interface.
 This installs the PFAC interface into Python's default site-package dir. If
 this is not what you want, or you don't have the permision. then, instead of
 running "make install-pfac", try:
+
    python setup.py install --prefix=/my/own/dir
+
 In order for python to find the installed "pfac" modules, one would have to 
 define an environment variable PYTHONPATH to point to the directory 
 "/my/own/dir/lib/python#.#/site-packages", where "#.#" is the Python version.
 In csh, this requires 
+
     setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages 
+
 or in bash, 
+
     PYTHONPATH=/my/own/dir/lib/python#.#/site-packages;export PYTHONPATH
+
+Alternatively, one may do:
+
+   python setup.py install --home=/my/own/dir
+
+in this case, PYTHONPATH should be set to "/my/own/dir/lib/python. There
+are some other ways to specify where you want the python modules go. Check
+the python distutil documentation for details.
 
 Usage:
 The modules can be called just like any python modules, either from the

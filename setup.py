@@ -8,38 +8,11 @@ extralink = []
 
 flibs = sys.argv[2:]
 sys.argv = sys.argv[0:2]
-nt = 'arg'
 for s in flibs:
-      s.strip()
-      if (s[0:2] == '-L'):
-	    if (len(s) > 2):
-                  libdir.append(s[2:])
-            else:
-                  nt = 'dir'
-      elif (s[0:2] == '-l'):
-            if (len(s) > 2):
-                  libs.append(s[2:])
-            else:
-                  nt = 'lib'
+      if (s[0:2] == '--'):
+            sys.argv.append(s)
       else:
-            if (nt == 'dir'):
-                  libdir.append(s)
-                  nt = 'arg'
-            elif (nt == 'lib'):
-                  libs.append(s)
-            elif (nt == 'arg'):
-                  if (s[0:1] == '-' and s[1:2] != '-'):
-                        if (len(s) > 2):
-                              extralink.append(s)
-                        else:
-                              nt = s[0:2]
-                  elif (s[0:2] != '--'):
-                        extralink.append(s)
-                  else:
-                        sys.argv.append(s)
-            else:
-                  extralink.append(nt+' '+s)
-                  nt = 'arg'
+            extralink.append(s)
 
 setup(name = "FAC",
       version = "0.8.8",
