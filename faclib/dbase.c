@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.19 2002/04/30 15:01:53 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.20 2002/05/01 22:19:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -573,7 +573,95 @@ int FreeMemENTable(void) {
   mem_en_table = NULL;
   return 0;
 }
- 
+
+static int StrTrimCmp(char *s1, char *s2) {
+  int i, j;
+
+  i = 0;
+  while (s1[i] == ' ' || s1[i] == '\t') i++;
+  j = 0;
+  while (s2[j] == ' ' || s2[j] == '\t') j++;
+  while (s1[i] && s2[j]) {
+    if (s1[i] != s2[j]) {
+      return 1;
+    }
+    i++;
+    j++;
+  }
+  if (s1[i] == '\0') {
+    while (s2[j]) {
+      if (s2[j] != ' ' && s2[j] != '\t') {
+	return 1;
+      }
+      j++;
+    }
+  }
+  if (s2[j] == '\0') {
+    while (s1[i]) {
+      if (s1[i] != ' ' && s1[i] != '\t') {
+	return 1;
+      }
+      i++;
+    }
+  }
+  return 0;
+}
+   
+int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
+  F_HEADER fh;  
+  EN_HEADER h;
+  EN_RECORD r;
+  FILE *f;
+  int n, i, k;
+  int swp;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  n = fread(&fh, sizeof(F_HEADER), 1, f);
+  if (n != 1) {
+    fclose(f);
+    return 0;
+  }
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  } else {
+    swp = 0;
+  }
+  if (fh.type != DB_EN) {
+    printf("File type is not DB_EN\n");
+    fclose(f);
+    return -1;
+  }
+
+  for (i = 0; i < fh.nblocks; i++) {
+    n = fread(&h, sizeof(EN_HEADER), 1, f);
+    if (swp) {
+      SwapEndianENHeader(&h);
+    }
+    if (h.nele != nele) {
+      fseek(f, h.length, SEEK_CUR);
+      continue;
+    }
+    for (k = 0; k < h.nlevels; k++) {
+      n = fread(&r, sizeof(EN_RECORD), 1, f);
+      if (swp) SwapEndianENRecord(&r);
+      if (StrTrimCmp(r.ncomplex, nc) == 0 &&
+	  StrTrimCmp(r.sname, cnr) == 0 &&
+	  StrTrimCmp(r.name, cr) == 0) {
+	fclose(f);
+	return r.ilev;
+      }
+    }
+  }
+  
+  fclose(f);
+  return -1;
+}
+      
 int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   F_HEADER fh;  
   EN_HEADER h;

@@ -55,6 +55,7 @@ typedef struct _ION_ {
   double *energy;
   ARRAY *ce_rates;
   ARRAY *tr_rates;
+  ARRAY *tr2_rates;
   ARRAY *ci_rates;
   ARRAY *rr_rates;
   ARRAY *ai_rates;
