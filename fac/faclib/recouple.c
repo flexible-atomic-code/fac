@@ -1398,10 +1398,10 @@ void TestAngular() {
     s2 = s1;
     for (t = 0; t < sym->n_states; t++) {
       c1 = GetConfig((STATE *) ArrayGet(s1, t));
-      ConstructLevelName(name1, &(s1->s));
+      ConstructLevelName(name1, NULL, &(s1->s));
       for (q = 0; q < sym->nstates; q++) {
 	c2 = GetConfig((STATE *) ArrayGet(s2, q));
-	ConstructLevelName(name2, &(s2->s));
+	ConstructLevelName(name2, NULL, &(s2->s));
 	fprintf(debug_log, "Bra: %s \nKet: %s\n\n", name1, name2);
 	n_shells = GetInteract(&phase, s, &bra, &sbra, &sket, 
 			       c1, s1->s.kstate, c2, s2->s.kstate, s1, s2);
