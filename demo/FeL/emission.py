@@ -128,14 +128,14 @@ for k in range(3,11):
             continue
         e = s0[i][2]
         w = const.hc/e
-        n1 = crm.LevelName(enf, s0[i][0])
-        n2 = crm.LevelName(enf, s0[i][1])
+        n1 = crm.LevelInfor(enf, s0[i][0])
+        n2 = crm.LevelInfor(enf, s0[i][1])
         m = m+1
         a = '#%4d\t%10.4E %4d %4d\n'%(m, w, s0[i][0], s0[i][1])
         f.write(a)
-        a = '# %-20s %-20s %-s\n'%n1
+        a = '# %-20s %-20s %-s\n'%n1[3:]
         f.write(a)
-        a = '# %-20s %-20s %-s\n'%n2
+        a = '# %-20s %-20s %-s\n'%n2[3:]
         f.write(a)
         for j in range(nt):
             c0 = s0[i][4][j]
