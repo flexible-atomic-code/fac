@@ -1,7 +1,6 @@
 #include "coulomb.h"
 
 static int _ncb = 0;
-static int _mode = 0;
 static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
 static double *_dwork = NULL;
@@ -134,7 +133,7 @@ int SetEGridDetail(double *e, double *log_e, int n, double *xg) {
 
 int SetEGrid(double *e, double *log_e, 
 	     int n, double emin, double emax, double eth) {
-  double del;
+  double del, et;
   int i;
 
   if (n < 1) {
@@ -151,9 +150,10 @@ int SetEGrid(double *e, double *log_e,
     return -1;
   }
 
-  if (eth > 0) {
-    emin += eth;
-    emax += eth;
+  et = fabs(eth);
+  if (et > 1E-30) {
+    emin += et;
+    emax += et;
   }
   
   e[0] = emin;
@@ -167,7 +167,7 @@ int SetEGrid(double *e, double *log_e,
     log_e[i] = log(e[i]);
   }
 
-  if (eth > 0) {
+  if (eth > 1E-30) {
     for (i = 0; i < n; i++) {
       e[i] -= eth;
     }
@@ -215,7 +215,6 @@ double GetCoulombBetheAsymptotic(double te, double e1) {
 
 int PrepCBIndex(int mode) {
   int i;
-  _mode = mode;
   _cbindex[0] = 0;
   for (i = 1; i < CBMULTIPOLES; i++) {
     if (mode) _cbindex[i] = _cbindex[i-1] + i+1;
@@ -257,11 +256,14 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
 
 int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 		     double *e2, double *te, double *e1,
-		     int nkl, double *kl, int mode) {
+		     int nkl, double *kl, 
+		     int etype, int ltype, int mode) {
   double xi, ee0, ee1, z2, a, b, c, d0, d1, d2;
   int i, j, k, n, ie1, ie2, ite, i1p, i1m, nm;
-  double *w0, *w1, *w2, *w3, *tcb, k0, k1, r, eta, eta2;
-  
+  double *w0, *w1, *w2, *w3, *w4, *tcb, k0, k1, r, eta, eta2;
+
+  if (mode) ltype = 1;
+
   if (ne2 > MAXNE || ne1 > MAXNE || nte > MAXNTE) {
     printf("Array multipoles not large enough in CoulombMultipoles\n");
     abort();
@@ -292,23 +294,43 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
   n = nm - 1;
   
   z2 = z*z;
+  if (etype == 0) {
+    w4 = w1;
+  } else {
+    w4 = w0;
+  }
   for (ie1 = 0; ie1 < ne1; ie1++) {
-    ee1 = e1[ie1];
-    k1 = sqrt(2.0*ee1);
-    for (i = 0; i < nm; i++) {
-      w1[i] = sqrt(z2 + k1*k1*i*i);
+    if (etype == 0) {
+      ee0 = e1[ie1];
+      k0 = sqrt(2.0*ee0); 
+      for (i = 0; i < nm; i++) {
+	w0[i] = sqrt(z2 + k0*k0*i*i);
+      }
+    } else {
+      ee1 = e1[ie1];
+      k1 = sqrt(2.0*ee1); 
+      for (i = 0; i < nm; i++) {
+	w1[i] = sqrt(z2 + k1*k1*i*i);
+      }
     }
     for (ie2 = 0; ie2 < ne2; ie2++) {
       for (ite = 0; ite < nte; ite++) {
 	for (k = 0; k < _ncb; k++) {
 	  _cb[ie2][ite][ie1][k] = malloc(sizeof(double)*nkl);
 	}
-	ee0 = ee1 + e2[ie2] + te[ite];   
-	k0 = sqrt(2.0*ee0);
-	for (i = 0; i < nm; i++) {
-	  w0[i] = sqrt(z2 + k0*k0*i*i);	  
+	if (etype == 0) {
+	  ee1 = ee0 - e2[ie2] - te[ite];  
+	  k1 = sqrt(2.0*ee1);
+	  for (i = 0; i < nm; i++) {
+	    w1[i] = sqrt(z2 + k1*k1*i*i);	  
+	  }
+	} else {
+	  ee0 = ee1 + e2[ie2] + te[ite];  
+	  k0 = sqrt(2.0*ee0);
+	  for (i = 0; i < nm; i++) {
+	    w0[i] = sqrt(z2 + k0*k0*i*i);	  
+	  }
 	}
-
 	/* monopole radial integrals using recursion */
 	i1p = n;
 	i = n-1;
@@ -354,15 +376,15 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	for (; i < n; ) {
 	  a = w2[i];
 	  d1 = ((double)i)/i1p;
-	  if (mode) {
-	    d2 = (w1[i1p] - w0[i1p]*a) / (w1[i]/b - w0[i]);
-	    w3[i] = d1 * d2;
-	    d2 = (w0[i1p] - w1[i1p]*a) / (w1[i]/b - w0[i]);
-	    w2[i] = d1 * d2;
-	  } else {
+	  if (ltype == 0) {
 	    d2 = (w0[i1p] - w1[i1p]*a) / (w0[i]/b - w1[i]);
 	    w3[i] = d1 * d2;
 	    d2 = (w1[i1p] - w0[i1p]*a) / (w0[i]/b - w1[i]);
+	    w2[i] = d1 * d2;
+	  } else {
+	    d2 = (w1[i1p] - w0[i1p]*a) / (w1[i]/b - w0[i]);
+	    w3[i] = d1 * d2;
+	    d2 = (w0[i1p] - w1[i1p]*a) / (w1[i]/b - w0[i]);
 	    w2[i] = d1 * d2;
 	  }
 	  b = a;
@@ -414,15 +436,15 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	  }
 	  
 	  for (i = 1; i < n-1; i++) {
-	    w0[i] = w3[i] * w2[i+1]/w2[i];
+	    w4[i] = w3[i] * w2[i+1]/w2[i];
 	  }
 	  tcb = GetCoulombBethe(ie2, ite, ie1, 1, 1);	
-	  CoulombBetheTail(n, w0, nkl, kl, tcb);	
+	  CoulombBetheTail(n, w4, nkl, kl, tcb);	
 	  for (i = 1; i < n-1; i++) {
-	    w0[i] = w3[i] * (1.0-w2[i+1])/(1.0-w2[i]);
+	    w4[i] = w3[i] * (1.0-w2[i+1])/(1.0-w2[i]);
 	  }
 	  tcb = GetCoulombBethe(ie2, ite, ie1, 1, 2);	
-	  CoulombBetheTail(n, w0, nkl, kl, tcb);	
+	  CoulombBetheTail(n, w4, nkl, kl, tcb);	
 	}
       }
     }
@@ -464,7 +486,7 @@ double AngularMSub(int lf, int li1, int li2, int q) {
   return a;
 }
 
-int TestCoulomb() {
+int TestCoulomb(char *s) {
 #define M 80
 
   double kl[M], z;
@@ -472,7 +494,7 @@ int TestCoulomb() {
   FILE *f;
   int nte, ne1, ne2, ie1, ite;
   double e2[] = {0.0};
-  double e1[] = {500.0, 1000.0};
+  double e1[] = {600.0, 1100.0};
   double te[] = {50.0, 100.0};
   
   ne2 = 1;
@@ -480,7 +502,7 @@ int TestCoulomb() {
   nte = 2;
   z = 10;
 
-  f = fopen("tmp.dat", "w");
+  f = fopen(s, "w");
   for (i = 0; i < 50; i++) {
     kl[i] = i;
   }
@@ -490,7 +512,7 @@ int TestCoulomb() {
     j += 1;
   }
   
-  PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 1);
+  PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 0, 0, 0);
   printf("done\n");
   for (ite = 0; ite < nte; ite++) {
     for (ie1 = 0; ie1 < ne1; ie1++) {

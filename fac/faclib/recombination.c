@@ -1,6 +1,9 @@
 #include "recombination.h"
 #include "time.h"
 
+static egrid_type = -1;
+static usr_egrid_type = -1;
+
 static int interpolate_egrid;
 static int n_egrid = 0;
 static double egrid[MAXNE];
@@ -35,6 +38,12 @@ void uvip3p_(int *np, int *ndp, double *x, double *y,
 
 int SetAICut(double c) {
   ai_cut = c;
+}
+
+int SetPEGridType(int utype, int etype) {
+  if (utype >= 0) usr_egrid_type = utype;
+  if (etype >= 0) egrid_type = etype;
+  return 0;
 }
 
 int SetPEGridDetail(int n, double *xg) {
@@ -341,10 +350,12 @@ int BoundFreeOS(double *strength, double *eb,
     x0 = log_egrid;
     x1 = log_usr;
     for (ie = 0; ie < n_egrid; ie++) {
-      x0[i] = log(1.0 + egrid[ie]/(*eb));
+      x0[i] = log((*eb) + egrid[ie]);
     } 
-    for (ie = 0; ie < n_usr; ie++) {
-      x1[i] = log(1.0 + usr_egrid[ie]/(*eb));
+    if (usr_egrid_type == 1) {
+      for (ie = 0; ie < n_usr; ie++) {
+	x1[i] = log((*eb) + usr_egrid[ie]);
+      }
     }
   }
 
@@ -425,7 +436,8 @@ int BoundFreeOS(double *strength, double *eb,
 
   /* the factor 2 comes from the conitinuum norm */
   for (ie = 0; ie < n_usr; ie++) {
-    e = (*eb) + usr_egrid[ie];
+    if (usr_egrid_type == 1) e = (*eb) + usr_egrid[ie];
+    else e = usr_egrid[ie];
     strength[ie] *= e * 2.0 / (k+1.0);
     if (k != 2) {  
       aw = e * FINE_STRUCTURE_CONST;
@@ -607,7 +619,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int i, j, k, n, ie;
   char t;
   FILE *f;
-  double s[MAXNUSR], phi, rr, eph, eb;
+  double s[MAXNUSR], phi, rr, ee, eph, eb;
   double trr[MAXNUSR], tpi[MAXNUSR];
   int j1, j2, nlow0;
   LEVEL *lev1, *lev2;
@@ -638,6 +650,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   e = 0.5*(emin + emax);
   emin = 0.1*e;
   emax = 8.0*e;
+  egrid_type = 1;
+  if (usr_egrid_type < 0) usr_egrid_type = 1;
   interpolate_egrid = 1;
   if (n_usr == 0) {
     n_usr = 6;
@@ -645,6 +659,16 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (usr_egrid[0] < 0.0) {
     if (n_egrid > n_usr) {
       SetUsrPEGridDetail(n_egrid, egrid);
+      if (egrid_type == 0 && usr_egrid_type == 1) {
+	for (i = 0; i < n_egrid; i++) {
+	  usr_egrid[i] -= e;
+	}
+      } else if (egrid_type == 1 && usr_egrid_type == 0) {
+	for (i = 0; i < n_egrid; i++) {
+	  usr_egrid[i] += e;
+	  log_usr[i] = log(usr_egrid[i]);
+	}
+      }
       interpolate_egrid = 0;
     } else {
       SetUsrPEGrid(n_usr, emin, emax, e);
@@ -657,10 +681,24 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (egrid[0] < 0.0) {
     if (n_usr <= 6) {
       SetPEGridDetail(n_usr, usr_egrid);
+      if (egrid_type == 0 && usr_egrid_type == 1) {
+	for (i = 0; i < n_egrid; i++) {
+	  egrid[i] += e;
+	  log_egrid[i] = log(egrid[i]);
+	}
+      } else if (egrid_type == 1 && usr_egrid_type == 0) {
+	for (i = 0; i < n_egrid; i++) {
+	  egrid[i] -= e;
+	}
+      }
       interpolate_egrid = 0;
     } else {
       emin = usr_egrid[0];
       emax = usr_egrid[n_usr-1];
+      if (usr_egrid_type == 0) {
+        emin -= e;
+        emax -= e;
+      } 
       SetPEGrid(n_egrid, emin, emax, e);
     }
   }
@@ -672,7 +710,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (m < 0) t = 'E';
   else t = 'M';
   fprintf(f, "\tMultipole %c%d", t, abs(m));
-  fprintf(f, "\n\n");
+  fprintf(f, "\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid\n\n");
+  else fprintf(f, " Photo-Electron UsrEGrid\n\n");
 
   fprintf(f, "Free  2J\tBound 2J\tE_Binding\n\n");
   for (i = 0; i < nup; i++) {
@@ -690,9 +730,15 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       fprintf(f, "%-5d %-2d\t%-5d %-2d\t%10.3E\n",
 	      up[i], j1, low[j], j2, eb*HARTREE_EV);
       for (ie = 0; ie < n_usr; ie++) {
-	eph = eb + usr_egrid[ie];
+        if (usr_egrid_type == 0) {
+          eph = usr_egrid[ie];
+ 	  ee = eph - eb;
+  	} else {
+ 	  ee = usr_egrid[ie];
+	  eph = eb + ee;
+ 	}
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*s[ie];
-	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*usr_egrid[ie]);
+	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	trr[ie] += rr;
 	tpi[ie] += phi;
 	fprintf(f, "%-10.3E %-10.3E %-10.3E\n", 
