@@ -868,15 +868,15 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         if (kw.has_key('nexc_max')):
             atom.nexc_max = kw['nexc_max']
         if (kw.has_key('nrec_max')):
-            atom.nexc_max = kw['nrec_max']
+            atom.nrec_max = kw['nrec_max']
         if (kw.has_key('nrec_ext')):
-            atom.nexc_max = kw['nrec_ext']
+            atom.nrec_ext = kw['nrec_ext']
         if (kw.has_key('nexc_rec')):
-            atom.nexc_max = kw['nexc_rec']
+            atom.nexc_rec = kw['nexc_rec']
         if (kw.has_key('n_decay')):
-            atom.nexc_max = kw['n_decay']
+            atom.n_decay = kw['n_decay']
         if (kw.has_key('rec_pw_max')):
-            atom.nexc_max = kw['rec_pw_max']
+            atom.rec_pw_max = kw['rec_pw_max']
 
         atom.set_configs()
         for b in a:
