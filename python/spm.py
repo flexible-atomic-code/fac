@@ -484,7 +484,7 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
                     ilev = int(a[2])
                     nilev = 1
                     r3 = 0.0
-                elif (a[:4] == ' Sum'):
+                elif (a[:4] == ' SUM'):
                     a = string.split(a)
                     b = []
                     for c in a[1:-1]:
@@ -516,7 +516,7 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
                 elif (ilev >= 0):
                     if (only_total > 0):
                         continue
-                    if (a[:4] == 'Dens'):
+                    if (a[:4] == 'DENS'):
                         a = string.split(a)
                         d0 = float(a[2])
                         tp = 0.0
