@@ -1,16 +1,24 @@
 #include "ionization.h"
 
-static int n_usr = 0;
-static double usr_egrid[MAX_USR_CIEGRID];
-static double log_usr_egrid[MAX_USR_CIEGRID];
-static int usr_egrid_type = 0;
+#define NINT 31
 
+static int n_usr = 0;
+static double usr_egrid[MAXNUSR];
+static double log_usr[MAXNUSR];
 static int n_egrid = 0;
-static double egrid[MAX_CIEGRID];
-static double log_egrid[MAX_CIEGRID];
+static double egrid[MAXNE];
+static double log_egrid[MAXNE];
 static int n_tegrid = 0;
-static double tegrid[MAX_IEGRID];
-static double log_te[MAX_IEGRID];
+static double tegrid[MAXNTE];
+static double log_te[MAXNTE];
+static double _dwork[17*MAXNE*(MAXNE+1)/2];
+static int _iwork[39*MAXNE*(MAXNE+1)/2];
+
+void uvip3p_(int *np, int *ndp, double *x, double *y, 
+	     int *n, double *xi, double *yi);
+void sdbi3p_(int *md, int *ndp, double *xd, double *yd, 
+	     double *zd, int *nip, double *xi, double *yi,
+	     double *zi, int *ierr, double *wk, int *iwk);
 
 static struct {
   int max_k;
@@ -21,74 +29,28 @@ static struct {
   double tolerence;
   int nkl0;
   int nkl;
-  double kl[MAX_CINKL+1];
-  double log_kl[MAX_CINKL];
-  double *qk;
-} pw_scratch = {12, 0, MAX_CIKL, 8, 0, 1E-2, 0, 0};
+  int ns;
+  double kl[MAXNKL+1];
+  double log_kl[MAXNKL];
+} pw_scratch = {12, 0, MAXKL, 8, 0, 1E-2, 0, 0};
 
 static MULTI *qk_array;
 
 int SetIEGrid(int n, double emin, double emax) {
-  int i;
-  double del;
-
-  if (n < 1) {
-    tegrid[0] = -1.0;
-    n_tegrid = 0;
-    return 0;
-  }
-
-  if (emin < 0.0) {
-    tegrid[0] = emin;
-    return 0;
-  }
-
-  if (n > MAX_TEGRID) {
-    printf("Max # of grid points reached \n");
-    return -1;
-  }
-
-  if (n == 1) {
-    n_tegrid = 1;
-    tegrid[0] = emin;
-    log_te[0] = log(emin);
-    return 0;
-  }
-
-  if (n == 2) {
-    n_tegrid = 2;
-    tegrid[0] = emin;
-    tegrid[1] = emax;
-    log_te[0] = log(emin);
-    log_te[1] = log(emax);
-    return 0;
-  }
-
-  if (emax < emin) {
-    printf("emin must > 0 and emax < emin\n");
-    return -1;
-  }
-  
-  n_tegrid = n;
-  
-  del = emax - emin;
-  del /= n-1.0;
-  tegrid[0] = emin;
-  log_te[0] = log(emin);
-  for (i = 1; i < n; i++) {
-    tegrid[i] = tegrid[i-1] + del;
-    log_te[i] = log(tegrid[i]);
-  }
-  
-  return 0;
+  n_tegrid = SetTEGrid(tegrid, log_te, n, emin, emax);
+  return n_tegrid;
 }
 
+int SetIEGridDetail(int n, double *x) {
+  n_tegrid = SetTEGridDetail(tegrid, log_te, n, x);
+  return n_tegrid;
+}
 
 int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
   pw_scratch.max_k = GetMaxRank();
   pw_scratch.qr = qr;
-  if (max > MAX_CIKL) {
-    printf("The maximum partial wave reached in Ionization: %d\n", MAX_CIKL);
+  if (max > MAXKL) {
+    printf("The maximum partial wave reached in Ionization: %d\n", MAXKL);
     abort();
   }
   pw_scratch.max_kl = max;
@@ -100,158 +62,52 @@ int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
   pw_scratch.log_kl[0] = -100.0;
   pw_scratch.nkl = 0;
   return 0;
+}  
+
+int SetCIEGridDetail(int n, double *xg) {
+  n_egrid = SetEGridDetail(egrid, log_egrid, n, xg);
+  return n_egrid;
 }
 
-int AddCIPW(int n, int step) {
-  int i;
-  for (i = pw_scratch.nkl0; i < n+pw_scratch.nkl0; i++) {
-    if (i >= MAX_CINKL) {
-      printf("Maximum partial wave grid points reached in Ionization: %d\n", 
-	     MAX_CINKL);
-      abort();
-    }
-    pw_scratch.kl[i] = pw_scratch.kl[i-1] + step;
-    pw_scratch.log_kl[i] = log(pw_scratch.kl[i]);
-    if ((int) (pw_scratch.kl[i]) > pw_scratch.max_kl) break;
+int SetCIEGrid(int n, double emin, double emax, double eth) {
+  n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
+  return n_egrid;
+}
+
+int SetUsrCIEGridDetail(int n, double *xg) {
+  if (n > MAXNUSR) {
+    printf("Max # of grid points reached \n");
+    return -1;
   }
-  pw_scratch.nkl0 = i;
+  n_usr = SetEGridDetail(usr_egrid, log_usr, n, xg);
+  return n_usr;
+}
+
+int SetUsrCIEGrid(int n, double emin, double emax, double eth) {
+  if (n > MAXNUSR) {
+    printf("Max # of grid points reached \n");
+    return -1;
+  }
+  n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
+  return n_usr;
 }
 
 int SetCIPWGrid(int ns, int *n, int *step) {
-  int i, m, k, j;
-  if (ns > 0) {
-    for (i = 0; i < ns; i++) {
-      AddCIPW(n[i], step[i]);
-    }
-    k = step[ns-1]*2;
-    j = 2;
-  } else {
-    ns = -ns;
-    if (ns == 0) ns = 5;
-    AddCIPW(ns, 1);
-    k = 2;
-    j = 2;
-  } 
-
-  m = pw_scratch.kl[pw_scratch.nkl0-1];
-  while (m+k <= pw_scratch.max_kl) {
-    AddCIPW(j, k);
-    m = pw_scratch.kl[pw_scratch.nkl0-1];
-    if (k < 50) k *= 2;
-    else k += 50;
-  }
-  pw_scratch.nkl = pw_scratch.nkl0;
-  pw_scratch.kl[pw_scratch.nkl] = pw_scratch.max_kl+1;
-}
-  
-
-int SetCIEGridDetail(int n, double *xg) {
-  int i;
- 
-  n_egrid = n;
-  for (i = 0; i < n; i++) {
-    egrid[i] = xg[i];
-    log_egrid[i] = log(egrid[i]);
-  }
-
+  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(0, 500, 8, 50, 5E-2);
+  pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
+			     pw_scratch.kl,
+			     pw_scratch.log_kl,
+			     pw_scratch.max_kl,
+			     &ns, n, step);
+  pw_scratch.ns = ns;
   return 0;
 }
 
-int SetCIEGrid(int n, double emin, double emax) {
-  double del;
-  int i;
-
-  if (n < 1) {
-    n_egrid = 0;
-    return -1;
-  }
-  if (emin < 0.0) {
-    egrid[0] = emin;
-    return 0;
-  }
-  if (n > MAX_EGRID) {
-    printf("Max # of grid points reached \n");
-    return -1;
-  }
-
-  if (emax < emin) {
-    printf("emin must > 0 and emax < emin\n");
-    return -1;
-  }
-
-  n_egrid = n;
-  egrid[0] = emin;
-  log_egrid[0] = log(egrid[0]);
-  egrid[n-1] = emax;
-  log_egrid[n-1] = log(emax);
-  del = log_egrid[n-1] - log_egrid[0];
-  del = del/(n-1.0);
-  del = exp(del);
-  for (i = 1; i < n-1; i++) {
-    egrid[i] = egrid[i-1]*del;
-    log_egrid[i] = log(egrid[i]);
-  }
-  return 0;
-}
-
-int SetUsrCIEGridDetail(int n, double *xg, int type) {
-  int i; 
-
-  if (n < 1) {
-    printf("Grid points must be at least 1\n");
-    return -1;
-  }
-  if (n > MAX_USR_CIEGRID) {
-    printf("Max # of grid points reached \n");
-    return -1;
-  }
-
-  n_usr = n;
-  usr_egrid_type = type;
-  for (i = 0; i < n; i++) {
-    usr_egrid[i] = xg[i];
-    log_usr_egrid[i] = log(usr_egrid[i]);
-  }
-  return 0;
-}
-
-int SetUsrCIEGrid(int n, double emin, double emax, int type) {
-  double del;
-  int i;
-
-  if (n < 1) {
-    printf("Grid points must be at least 1\n");
-    return -1;
-  }
-  if (n > MAX_USR_CIEGRID) {
-    printf("Max # of grid points reached \n");
-    return -1;
-  }
-
-  if (emin < EPS10 || emax < emin) {
-    printf("emin must > 0 and emax < emin\n");
-    return -1;
-  }
-
-  usr_egrid[0] = emin;
-  log_usr_egrid[0] = log(usr_egrid[0]);
-  n_usr = n;
-  usr_egrid_type = type;
-
-  del = log(emax) - log(emin);
-  del = del/(n-1.0);
-  del = exp(del);
-  for (i = 1; i < n; i++) {
-    usr_egrid[i] = usr_egrid[i-1]*del;
-    log_usr_egrid[i] = log(usr_egrid[i]);
-  }
-  return 0;
-}
-
-int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
+double *CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   int index[4];
-  double pk[MAX_IEGRID][MAX_CINKL+1];
-  double **p, e1, e2, e0, te;
+  double pk[MAXNTE][MAXNKL];
+  double y2[MAXNKL];
+  double **p, *qk, e1, e2, e0, te;
   ORBITAL *orb;
   int kappab, jb, klb, i, j, t, kl, klp;
   int js[4], ks[4];
@@ -259,11 +115,10 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   int kf, kappaf, kf0, kappa0, kf1, kappa1;
   int kl0, kl0p, kl1, kl1p;
   int j0, j1, j1min, j1max;
-  double z, z2, r, rp, sd, se;
-  double y2[MAX_CINKL], s;
+  double z, z2, r, rp, sd, se, s;
   double qkjt, qkj, qklt, qkl, qkl0;
   double eps, a, b, h;
-  int kl_max0, kl_max1, kl_max2;
+  int kl_max0, kl_max1, kl_max2, max0;
   int type, last_kl0, second_last_kl0;
 
   ko2 = k/2;
@@ -274,8 +129,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
 
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
-    pw_scratch.qk = *p;
-    return 0;
+    return (*p);
   }
 
   for (i = 0; i < n_tegrid; i++) {
@@ -284,8 +138,8 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
     }
   }
   (*p) = (double *) malloc(sizeof(double)*n_tegrid);
-  pw_scratch.qk = *p;
-  for (i = 0; i < n_tegrid; i++) pw_scratch.qk[i] = 0.0;
+  qk = *p;
+  for (i = 0; i < n_tegrid; i++) qk[i] = 0.0;
   
   e1 = egrid[ie1];
   r = GetRMax();
@@ -294,6 +148,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   t = r*sqrt(e1+2.0*z/r);
   kl_max0 = pw_scratch.max_kl;
   kl_max0 = Min(kl_max0, t);
+  max0 = pw_scratch.ns;
 
   e2 = egrid[ie2];
   t = r*sqrt(e2+2.0*z/r);
@@ -352,7 +207,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
           last_kl0 = 1;
         } else {
 	  kl0 = pw_scratch.kl[t];
-          if (kl0 > 5) {
+          if (kl0 > max0) {
 	    if (type < 0) {
 	      rp *= qkl;
 	      rp = rp/qklt;
@@ -476,13 +331,13 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
 	    for (i = 0; i < n_tegrid; i++) {
 	      b = GetCoulombBetheAsymptotic(tegrid[i]+e2, e1);
 	      r = qkl * b;
-	      pw_scratch.qk[i] += r;  
+	      qk[i] += r;  
 	    }
 	  } else if (type >= 0) {
 	    for (i = 0; i < n_tegrid; i++) {
 	      b = (GetCoulombBethe(ie2, i, ie1, type, 1))[t];
 	      r = qkl*b;
-	      pw_scratch.qk[i] += r;
+	      qk[i] += r;
 	    }    
           } 
 	  break;
@@ -492,7 +347,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
     }  
     qkjt += qkj;
   }
-
+  
   t = pw_scratch.nkl;
   for (i = 0; i < n_tegrid; i++) {
     spline(pw_scratch.log_kl, pk[i], t, 1E30, 1E30, y2);
@@ -506,28 +361,25 @@ int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
 	r += s;
       }
     } 
-    pw_scratch.qk[i] += r;
+    qk[i] += r;
   }
-  return 0;
+  return qk;
 }
 
 int IonizeStrength(double *s, double *te, int b, int f) {
-  int i, ip, j, k, t, nt;
+  int i, ip, j, k, t, nt, np, ndp, md, ierr;
   LEVEL *lev1, *lev2;
-  double c, r, r0;
+  double c, r, r0, scale;
   int nz, j0, j0p, kb, kbp;
-  double *rq[MAX_CIEGRID+1], *qy2[MAX_CIEGRID+1];
-  double *x, x0, *rtmp; 
-  double e, delta, ratio, e1, ehalf;
-  double e2[N_INTEGRATE], log_e2[N_INTEGRATE], integrand[N_INTEGRATE];
-  double y2[MAX_IEGRID];
+  double rq[MAXNE*(MAXNE+1)/2];
+  double xrq[MAXNE*(MAXNE+1)/2];
+  double yrq[MAXNE*(MAXNE+1)/2];
+  double *qk, *x, x0; 
+  double e, delta, ratio, e1, e2, ehalf;
+  double xr[NINT], yr[NINT], integrand[NINT];
   ANGULAR_ZFB *ang;
-  int ie1, ie2, nie1;
+  int ie1, ie2;
 
-  FILE *f1, *f2, *f3;
-  f1 = fopen("t1.d", "w");
-  f2 = fopen("t2.d", "w");
-  f3 = fopen("t3.d", "w");
   lev1 = GetLevel(b);
   lev2 = GetLevel(f);
   *te = lev2->energy - lev1->energy;
@@ -535,19 +387,22 @@ int IonizeStrength(double *s, double *te, int b, int f) {
   
   nz = AngularZFreeBound(&ang, f, b);
   if (nz <= 0) return -1;
-  
-  for (i = 0; i <= n_egrid; i++) {
-    rq[i] = malloc(n_egrid*sizeof(double));
-    qy2[i] = malloc(n_egrid*sizeof(double));
-  }
-  rtmp = rq[n_egrid];
 
+  i = 0;
   for(ie1 = 0; ie1 < n_egrid; ie1++) {
     for (ie2 = 0; ie2 <= ie1; ie2++) {
-      rq[ie1][ie2] = 0.0;
+      r = log(1.0 + egrid[ie1]/(egrid[ie2]+(*te)));
+      xrq[i] = r;
+      r = log(1.0 + egrid[ie2]/(*te));
+      yrq[i] = r;
+      rq[i++] = 0.0;      
     }
   }
+  ndp = i;
 
+  np = 3;
+  nt = 1;
+  x = log_te;
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     j0 = GetOrbital(kb)->kappa;
@@ -558,114 +413,61 @@ int IonizeStrength(double *s, double *te, int b, int f) {
       j0p = GetJFromKappa(j0p);
       if (j0p != j0) continue;
       c = ang[i].coeff*ang[ip].coeff/(j0+1.0);
-      printf("%d %d %d %d %10.3E \n", kb, j0, kbp, j0p, c);
       if (ip != i) {
 	c *= 2.0;
       }
+      t = 0;
       for(ie1 = 0; ie1 < n_egrid; ie1++) {
 	for (ie2 = 0; ie2 <= ie1; ie2++) {
 	  r0 = 0.0;
 	  for (k = 0; k <= pw_scratch.max_k; k += 2) {
-	    CIRadialQk(ie1, ie2, kb, kbp, k);
+	    qk = CIRadialQk(ie1, ie2, kb, kbp, k);
 	    if (n_tegrid == 1) {
-	      r = pw_scratch.qk[0];
+	      r = qk[0];
 	    } else {
-	      x = log_te;
 	      x0 = log(*te);
-	      spline(x, pw_scratch.qk, n_tegrid, 1E30, 1E30, y2);
-	      splint(x, pw_scratch.qk, y2, n_tegrid, x0, &r);
+	      uvip3p_(&np, &n_tegrid, x, qk, &nt, &x0, &r);
 	    }
 	    r = r/(k+1.0);
 	    r0 += r;
 	    if (k > 2 && fabs(r/r0) < pw_scratch.tolerence) break;
 	  }
-	  rq[ie1][ie2] += c*r0;
+	  rq[t++] += c*r0;
 	}
       }      
     }
   }
-  for (ie2 = 0; ie2 < n_egrid; ie2++) {
-    for (ie1 = ie2; ie1 < n_egrid; ie1++) {
-      fprintf(f1,"%d %d %10.3E %10.3E %10.3E\n", ie2, ie1, egrid[ie2], egrid[ie1], rq[ie1][ie2]);
-    }
-    fprintf(f1,"\n\n");
-  }
 
-  for (ie1 = 0; ie1 < n_egrid; ie1++) {
-    for (ie2 = 0; ie2 <= ie1; ie2++) {
-      fprintf(f2, "%d %d %10.3E %10.3E %10.3E\n", ie1, ie2, egrid[ie1], egrid[ie2], rq[ie1][ie2]);
-    }
-    fprintf(f2,"\n\n");
-  }
-  
-  for (ie1 = 1; ie1 < n_egrid; ie1++) {
-    spline(log_egrid, rq[ie1], ie1+1, 1E30, 1E30, qy2[ie1]);
-  }
   for (j = 0; j < n_usr; j++) {
     e = usr_egrid[j];
     ehalf = e*0.5;
-    e2[0] = egrid[0];
-    log_e2[0] = log(e2[0]);
-    if (ehalf > e2[0]) {
-      nt = N_INTEGRATE;
-      t = nt-1;
-      e2[t] = ehalf;
-      log_e2[t] = log(ehalf);	
-    } else {
-      nt = 3;
-      t = nt-1;
-      e2[t] = 1.5*e2[0];
-      log_e2[t] = log(e2[t]);
+    yr[0] = 0;
+    nt = NINT-1;
+    yr[nt] = log(1.0 + ehalf/(*te));
+    delta = (yr[nt] - yr[0])/(nt);
+    for (t = 1; t < nt; t++) {
+      yr[t] = yr[t-1] + delta;
     }
-    delta = (log_e2[t] - log_e2[0])/t;
-    ratio = exp(delta);
-    for (t = 1; t < nt-1; t++) {
-      e2[t] = e2[t-1]*ratio;
-      log_e2[t] = log_e2[t-1]+delta;
-    }
+    nt = NINT;    
     for (t = 0; t < nt; t++) {
-      e1 = e - e2[t];
-      for (ie1 = 0; ; ie1++) {
-	if (egrid[ie1] >= e2[t]) break;
-      }
-      ie2 = ie1;	    
-      for (; ie1 < n_egrid; ie1++) {
-	if (ie1 == 0) rtmp[ie1] = rq[ie1][0];
-	else {
-	  splint(log_egrid, rq[ie1], qy2[ie1], ie1+1, 
-		 log_e2[t], &rtmp[ie1]);
-	}
-      }
-      spline(log_egrid+ie2, rtmp+ie2, n_egrid-ie2, 
-	     1E30, 1E30, qy2[n_egrid]);
-      splint(log_egrid+ie2, rtmp+ie2, qy2[n_egrid], 
-	     n_egrid-ie2, log(e1), &r);
-      integrand[t] = r*e2[t];
-      fprintf(f3, "%d %d %10.3E %10.3E %10.3E\n", j, t, e, e2[t], r);
+      e2 = (*te)*(exp(yr[t])-1.0);
+      e1 = e - e2;
+      xr[t] = log(1.0 + e1/(e2 + (*te)));
     }
-    fprintf(f3,"\n\n");
-    r = 0.5*(integrand[2] - integrand[0])/delta;
-    if (nt == N_INTEGRATE) {
-      r0 = Simpson(integrand, 0, N_INTEGRATE-1);
-      r0 *= delta;
-      r = integrand[0]*integrand[1]/r;
-      r0 += r;
-    } else {
-      r /= integrand[1];      
-      r0 = (integrand[0]/r)*exp(r*(log(ehalf)-log_e2[0]));
+    if (j == 0) md = 1;
+    else md = 3;
+    sdbi3p_(&md, &ndp, xrq, yrq, rq, &nt, xr, yr, 
+	    integrand, &ierr, _dwork, _iwork);
+    for (t = 0; t < nt; t++) {
+      e2 = (*te)*(exp(yr[t])-1.0);
+      integrand[t] *= e2 + (*te);
     }
-    printf("%d %10.3E %10.3E %10.3E %10.3E\n", j, e, r0, r, r/r0);
+    r0 = Simpson(integrand, 0, nt-1);
+    r0 *= delta;
     s[j] = 16.0*r0;
   }
   
   free(ang);
-  for (i = 0; i <= n_egrid; i++) {
-    free(rq[i]);
-    free(qy2[i]);
-  }
-  fclose(f1);
-  fclose(f2);
-  fclose(f3);
 
   return 0;
 }
@@ -675,7 +477,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int j1, j2, ie;
   FILE *file;
   LEVEL *lev1, *lev2;
-  double emin, emax, e, s[MAX_USR_CIEGRID];
+  double emin, emax, e, s[MAXNUSR];
   
   if (n_usr == 0) {
     printf("No ionization energy specified \n");
@@ -689,47 +491,57 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     n_tegrid = 3;
   }
 
-  if (tegrid[0] < 0.0) {
-    emin = 1E10;
-    emax = 1E-10;
-    k = 0;
-    for (i = 0; i < nb; i++) {
-      lev1 = GetLevel(b[i]);
-      for (j = 0; j < nf; j++) {
-	lev2 = GetLevel(f[j]);
-	e = lev2->energy - lev1->energy;
-	if (e > 0) k++;
-	if (e < emin && e > 0) emin = e;
-	if (e > emax) emax = e;
-      }
+  emin = 1E10;
+  emax = 1E-10;
+  k = 0;
+  for (i = 0; i < nb; i++) {
+    lev1 = GetLevel(b[i]);
+    for (j = 0; j < nf; j++) {
+      lev2 = GetLevel(f[j]);
+      e = lev2->energy - lev1->energy;
+      if (e > 0) k++;
+      if (e < emin && e > 0) emin = e;
+      if (e > emax) emax = e;
     }
+  }
+  if (k == 0) {
+    printf("No ionizations can occur\n");
+    return 0;
+  }
+  if (tegrid[0] < 0.0) {
     e = 2.0*(emax-emin)/(emax+emin);
-    if (k == 2) {
-      SetIEGrid(2, emin, emax);
-    } else if (e < EPS3) {
+    if (e < 0.1) {
       SetIEGrid(1, 0.5*(emin+emax), emax);
-    } else if (e < 0.2) {
+    } else if (e < 0.3) {
       SetIEGrid(2, emin, emax);
     } else {
+      if (k == 2) n_tegrid = 2;
       SetIEGrid(n_tegrid, emin, emax);
     }
   }
 
-  e = 0.5*(tegrid[0] + tegrid[n_tegrid-1]);
-  e = Min(e, usr_egrid[n_usr-1]);
+  e = 0.5*(emin + emax);
   emin = 0.1*e;
-  if (n_egrid == 0) {    
-    n_egrid = ceil(log(usr_egrid[n_usr-1]/emin)/log(2.0));
-    n_egrid = Min(n_egrid, MAX_CIEGRID);
+  emax = 8.0*e;
+  if (n_usr == 0) {
+    n_usr = 6;
+  }
+  if (usr_egrid[0] < 0.0) {
+    if (n_egrid > n_usr) {
+      SetUsrCIEGridDetail(n_egrid, egrid);
+    } else {
+      SetUsrCIEGrid(n_usr, emin, emax, e);
+    }
   }
   
+  if (n_egrid == 0) {    
+    n_egrid = 6;
+  }
   if (egrid[0] < 0.0) {
-    SetCIEGrid(n_egrid, emin, usr_egrid[n_usr-1]);
+    emax = Min(usr_egrid[n_usr-1], emax);
+    SetCIEGrid(n_egrid, emin, emax, e);
   }
 
-  if (pw_scratch.nkl0 == 0) {
-    SetCIPWOptions(0, 500, 8, 50, 5E-2); 
-  } 
   if (pw_scratch.nkl == 0) {
     SetCIPWGrid(0, NULL, NULL);
   }
@@ -798,8 +610,10 @@ int InitIonization() {
   MultiInit(qk_array, sizeof(double *), ndim, blocks);
   n_egrid = 0;
   n_tegrid = 0;
+  n_usr = 0;
   egrid[0] = -1.0;
   tegrid[0] = -1.0;
+  usr_egrid[0] = -1.0;
   return 0;
 }
 

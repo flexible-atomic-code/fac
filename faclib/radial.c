@@ -518,31 +518,6 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fclose(f);
 }
 
-double CoulombPhaseShift(double z, double e, int kappa) {
-  double phase, r, y, ke, a, b1, b2;
-
-  a = FINE_STRUCTURE_CONST2 * e;
-  ke = sqrt(2.0*e*(1.0 + 0.5*a));
-  a += 1.0;
-  y = a*z/ke;
-
-  r = kappa;
-  b1 = y/(fabs(r)*a);
-  r = sqrt(r*r - FINE_STRUCTURE_CONST2*z*z);
-  b2 = y/r;
-
-  if (kappa < 0) {
-    phase = 0.5*(atan(b1) - atan(b2));
-  } else {
-    phase = -0.5*(atan(b1) + atan(b2) + PI);
-  }
-
-  phase -= argam_(&r, &y);
-  phase += (1.0 - r)*0.5*PI;
-
-  return phase;
-}
-
 double _PhaseRDependent(double x, double eta, double b) {
   double tau, tau2, y, y2, t, a1, a2, sb;
   
@@ -1308,11 +1283,9 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (orb1->n > 0) ilast = orb1->ilast;
       else ilast = npts-1;
       if (orb3->n > 0) ilast = Min(ilast, orb3->ilast);
-      printf("**%d %d %d %d %10.3E\n", k, orb1->n,orb3->n,ilast,_yk[178]);
       for (i = 0; i <= ilast; i++) {
 	_yk[i] /= potential->rad[i];
       }
-      printf("**%d %d %d %10.3E\n", orb1->n,orb3->n,ilast,_yk[178]);
       Integrate(_yk, orb1, orb3, 2, s);
 
       norm  = orb0->qr_norm;
@@ -1430,23 +1403,11 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
     _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
   }
   Integrate(_dwork1, orb1, orb2, type, _xk);
-  if (type == -2) {
-    printf("###%10.3E %10.3E %10.3E \n", _xk[177], _xk[178], _xk[179]);
-  }
   ilast = MAX_POINTS - 1;
   
   for (i = i0; i < MAX_POINTS; i++) {
-    if (type == -2 && i == 177) {
-      printf("1##%d %10.3E %10.3E %10.3E \n", ilast, _xk[ilast], _xk[i], _dwork1[i]);
-    }
     _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
-    if (type == -2 && i == 177) {
-      printf("2##%d %10.3E %10.3E %10.3E \n", ilast, _xk[ilast], _xk[i], _dwork1[i]);
-    }
     yk[i] += _xk[i];
-  }
-  if (type == -2) {
-    printf("---%d %d %10.3E %10.3E %10.3E %10.3E %10.3E\n", i0, ilast, yk[177], _xk[177], _zk[177], _dwork1[177], _xk[ilast]);
   }
   return 0;
 }  
@@ -1478,11 +1439,9 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
   } else if (orb1->n > 0 && orb2->n <= 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
-    if (t == -2) printf("+++%d %d %d %10.3E %10.3E %10.3E\n", i1, orb1->n, orb2->n, r[i1], r[i1-1], r[i1+1]);
     i1 += 1;
     i2 = orb1->ilast;
     IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1);
-    if (t == -2) printf("....%d %d %d %10.3E %10.3E %10.3E\n", i2, orb1->n, orb2->n, r[i2], r[i2-1], r[i2-2]);
   } else if (orb1->n <= 0 && orb2->n > 0) {
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
@@ -1490,7 +1449,6 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     i2 = orb2->ilast;
     IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2);
   } else {
-    if (t == 2) printf("===%10.3E %10.3E %10.3E \n", f[177], f[178],f[179]);
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0);
     i1 += 1;
@@ -1507,7 +1465,6 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
       i2 = MAX_POINTS-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3);
     }
-    if (t == 2) printf("===%10.3E %10.3E %10.3E \n", f[177], f[178],f[179]);
   }
 
   if (t >= 0) {
@@ -1517,9 +1474,6 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     for (i = i2+1; i < MAX_POINTS; i++) {
       r[i] = r[i2];
     }
-  }
-  if (orb1->n > 0 && orb2->n < 0 && t == -2) {
-    printf("######%10.3E %10.3E %10.3E %10.3E %10.3E \n", x[177], x[178], x[179], r[i2], r[i2-1]);
   }
 
   return 0;
@@ -1650,7 +1604,6 @@ int IntegrateSubRegion(int i0, int i1,
       break;
     case 2: /* type = 2 */
       j = 0;
-      printf("%d %d %d %d %d %10.3E %10.3E %10.3E\n", t, i0, i1, orb1->n, orb2->n, large1[i0], orb1->wfun[i0], f[i0]);
       for (i = i0; i <= i1; i+= 2) {
 	ip = i+1;
 	x[j] = large1[i] * large2[i];
@@ -1660,7 +1613,6 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      printf("%d %d \n", j, i);
       if (i < MAX_POINTS) {
 	ip = i+1;
 	if (i > orb1->ilast) {
@@ -1679,7 +1631,6 @@ int IntegrateSubRegion(int i0, int i1,
       IntegrateSinCos(j, x, NULL, _phase, _dphase, i0, r, t);
 
       if (t < 0) {
-	printf(",,,,%d %d %10.3E %10.3E %10.3E \n", i0, j, r[i0],r[i1-3],r[i1-1]);
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
@@ -2083,13 +2034,13 @@ int IntegrateSinCos(int j, double *x, double *y,
 		    int i0, double *r, int t) {
   int i, k, m, n, q;
   double si0, si1, cs0, cs1;
-  double int_si[4], int_cs[4], coeff[4];
+  double is0, is1, is2, is3;
+  double ic0, ic1, ic2, ic3;
+  double a0, a1, a2, a3;
   double d, p;
   double *z, *u;
   double h, dr;
-  static count = 0;
 
-  count++;
   z = _dwork10;
   u = _dwork11;
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
@@ -2120,107 +2071,81 @@ int IntegrateSinCos(int j, double *x, double *y,
     return 0;
   }
 
-  if (count < 2) printf("%d %x %x\n", t, x, y);
-  else {exit(1);}
   if (x != NULL) {
-    if (count < 10) printf("%10.3E %10.3E\n", x[i],x[i-1]);
     for (n = q; n < j; n++) {
       x[n] /= dphase[n];
     }    
     spline(phase+q, x+q, m, 1E30, 1E30, z+q);   
   } 
   if (y != NULL) {
-    if (count < 2) printf("%10.3E %10.3E \n", y[i],y[i-1]);
     for (n = q; n < j; n++) {
       y[n] /= dphase[n];
     }
     spline(phase+q, y+q, m, 1E30, 1E30, u+q);      
   } 
-
-  si0 = sin(phase[i-1]);
-  cs0 = cos(phase[i-1]);
   
-  for (m = 0; m < 2 && i < j; m++, i++, k += 2) {
-    d = phase[i] - phase[i-1];
-    si1 = sin(phase[i]);
-    cs1 = cos(phase[i]);
-    int_si[0] = -(cs1 - cs0);
-    int_cs[0] = si1 - si0;
-    int_si[1] = -d * cs1 + int_cs[0];
-    int_cs[1] =  d * si1 - int_si[0];
-    r[k] = r[k-2];
-    if (x != NULL) {
-      coeff[1] = (x[i] - x[i-1])/d;
-      coeff[0] = x[i-1];
-      r[k] += coeff[0]*int_si[0] + coeff[1]*int_si[1];
-      if (count < 10) {
-	printf("x %d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",i, x[i-1],x[i],dphase[i-1],dphase[i], r[k-2],r[k]);
-      }
-    } 
-    
-    
-    if (y != NULL) {
-      coeff[1] = (y[i] - y[i-1])/d;
-      coeff[0] = y[i-1];
-      r[k] += coeff[0]*int_cs[0] + coeff[1]*int_cs[1]; 
-      if (count < 10) {
-	printf("y %d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", i, y[i-1], y[i],dphase[i-1],dphase[i], r[k-2],r[k]);
-      }
-      
-    } 
-    
-    /*
-    if (!(r[k] > 0) && !(r[k] <=0)) {
-      printf("%d %d %10.3E\n", count, k, r[k]);
-      exit(1);
-    }
-    */
-     
-    if (count < 10) {
-      printf("%d %d %d %x %10.3E %10.3E\n", t, count, k, r, r[k-2], r[k]);
-    }
-    si0 = si1;
-    cs0 = cs1;
+  si0 = sin(phase[i-1]);
+  cs0 = cos(phase[i-1]);    
+  d = phase[i] - phase[i-1];
+  si1 = sin(phase[i]);
+  cs1 = cos(phase[i]);
+  is0 = -(cs1 - cs0);
+  ic0 = si1 - si0;
+  is1 = -d * cs1 + ic0;
+  ic1 = d * si1 - is0;
+  r[k] = r[k-2];
+  if (x != NULL) {
+    a1 = (x[i] - x[i-1])/d;
+    a0 = x[i-1];
+    h = a0*is0 + a1*is1;
+    r[k] += h;
+  } 
+  if (y != NULL) {
+    a1 = (y[i] - y[i-1])/d;
+    a0 = y[i-1];
+    h = a0*ic0 + a1*ic1;
+    r[k] += h;    
   }
+  si0 = si1;
+  cs0 = cs1;
+  i++;
+  k += 2;  
+
   for (; i < j; i++, k += 2) {
     d = phase[i] - phase[i-1];
     si1 = sin(phase[i]);
     cs1 = cos(phase[i]);
-    int_si[0] = -(cs1 - cs0);
-    int_cs[0] = si1 - si0;
+    is0 = -(cs1 - cs0);
+    ic0 = si1 - si0;
     p = d;
-    for (m = 1; m < 4; m++) {
-      int_si[m] = -p * cs1 + m*int_cs[m-1];
-      int_cs[m] =  p * si1 - m*int_si[m-1];
-      p *= d;
-    }
+    is1 = -p * cs1 + ic0;
+    ic1 = p * si1 - is0;
+    p *= d;
+    is2 = -p * cs1 + 2.0*ic1;
+    ic2 = p * si1 - 2.0*is1;
+    p *= d;
+    is3 = -p * cs1 + 3.0*ic2;
+    ic3 = p * si1 - 3.0*is2;
     r[k] = r[k-2];
     if (x != NULL) {
-      coeff[3] = (z[i] - z[i-1])/(6.0*d);
-      coeff[2] = z[i-1]/3.0;
-      coeff[1] = (x[i] - x[i-1])/d - (z[i] + z[i-1])*d/6.0;
-      coeff[0] = x[i-1];
-      h = (coeff[0]*int_si[0] + coeff[1]*int_si[1] + 
-	   coeff[2]*int_si[2] + coeff[3]*int_si[3]);
+      a3 = (z[i] - z[i-1])/(6.0*d);
+      a2 = z[i-1]/3.0;
+      a1 = (x[i] - x[i-1])/d - (z[i] + z[i-1])*d/6.0;
+      a0 = x[i-1];
+      h = a0*is0 + a1*is1 + a2*is2 + a3*is3;
       r[k] += h;
     } 
     if (y != NULL) {
-      coeff[3] = (u[i] - u[i-1])/(6.0*d);
-      coeff[2] = u[i-1]/3.0;
-      coeff[1] = (y[i] - y[i-1])/d - (u[i] + u[i-1])*d/6.0;
-      coeff[0] = y[i-1];
-      h = (coeff[0]*int_cs[0] + coeff[1]*int_cs[1] + 
-	   coeff[2]*int_cs[2] + coeff[3]*int_cs[3]);
+      a3 = (u[i] - u[i-1])/(6.0*d);
+      a2 = u[i-1]/3.0;
+      a1 = (y[i] - y[i-1])/d - (u[i] + u[i-1])*d/6.0;
+      a0 = y[i-1];
+      h = a0*ic0 + a1*ic1 + a2*ic2 + a3*ic3;
       r[k] += h;    
     }
-    printf("%10.3E\n", h);  
     si0 = si1;
     cs0 = cs1;
-    /*
-    printf("%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", k, x[i-1],x[i],z[i-1],z[i],d,int_si[0],int_si[1],int_si[2],int_si[3], r[k]);
-    */
   }
-  printf("2''''%d %10.3E %10.3E \n", k, r[i0], r[k-2]);
   return 0;
 }
 

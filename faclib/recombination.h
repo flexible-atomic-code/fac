@@ -9,10 +9,7 @@
 #include "structure.h"
 #include "excitation.h"
 #include "transition.h"
-
-#define MAX_PEGRID   20
-#define MAX_DRTEGRID 5
-#define MAX_USR_PEGRID 50
+#include "coulomb.h"
 
 #define MAX_COMPLEX 500
 typedef struct _REC_COMPLEX_ {
@@ -26,10 +23,10 @@ int InitRecombination();
 int FreeRecPk();
 int FreeRecAngZ();
 int SetAICut(double c);
-int SetPEGrid(int n, double emin, double emax, int type);
+int SetPEGrid(int n, double emin, double emax, double eth);
 int SetPEGridDetail(int n, double *x);
-int SetUsrPEGrid(int n, double emin, double emax, int type);
-int SetUsrPEGridDetail(int n, double *x, int type);
+int SetUsrPEGrid(int n, double emin, double emax, double eth);
+int SetUsrPEGridDetail(int n, double *x);
 int AddRecPW(int n, int step);
 int SetRecPWOptions(int kl_interp, int max_kl);
 int SetRecSpectator(int n_max, int n_frozen, int n_spec);
