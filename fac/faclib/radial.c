@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.83 2004/02/22 23:17:57 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.84 2004/02/23 08:42:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1406,64 +1406,6 @@ double RadialMoments(int m, int k1, int k2) {
 
   return r;
 }
-  
-double MultipoleML(ORBITAL *orb1, ORBITAL *orb2, double aw, int L) {
-  int L2, j1, j2, kl1, kl2, i, kl0;
-  double b, x, r;
-  
-  if (orb1->kappa + orb2->kappa == 0) return 0.0;
-
-  L2 = 2*L;
-  GetJLFromKappa(orb1->kappa, &j1, &kl1);
-  GetJLFromKappa(orb2->kappa, &j2, &kl0);
-  if (kl0 < j2) kl2 = kl0 + 2;
-  else kl2 = kl0 - 2;
-  b = sqrt((j2+1.0)*(j1+1.0)*(kl2+1.0)*(kl1+1.0)*(L2+1.0)/(L*(L+1.0)));
-  b *= (orb1->kappa + orb2->kappa);
-  b *= W6j(L2, j2, j1, 1, kl1, kl2);
-  b *= W3j(L2, kl2, kl1, 0, 0, 0);
-  if (IsOdd(1 + (L+1+(kl0-kl1)/2)/2 + (L+(j2+1)/2))) b = -b;
-  
-  for (i = 0; i <= orb2->ilast; i++) {
-    x = aw*potential->rad[i];
-    _yk[i] = BESLJN(1, L, x);
-  }
-  Integrate(_yk, orb1, orb2, 4, &r);
-  
-  return r*b;
-}
-  
-double MultipoleEL(ORBITAL *orb1, ORBITAL *orb2, double aw, int L) {
-  int L2, j1, j2, kl1, kl2, i;
-  double b, x, r, r2;
-
-  L2 = 2*L;
-  GetJLFromKappa(orb1->kappa, &j1, &kl1);
-  GetJLFromKappa(orb2->kappa, &j2, &kl2);
-  b = sqrt((j2+1.0)*(j1+1.0)*(kl2+1.0)*(kl1+1.0)*(L2+1.0)/(L*(L+1.0)));
-  b *= W6j(L2, j2, j1, 1, kl1, kl2);
-  b *= W3j(L2, kl2, kl1, 0, 0, 0);
-  if (IsOdd(1 + (L+(kl2-kl1)/2)/2 + (L+(j2+1)/2))) b = -b;
-  
-  for (i = 0; i <= orb2->ilast; i++) {
-    x = aw*potential->rad[i];
-    _yk[i] = BESLJN(1, L, x)/x;
-  }
-  Integrate(_yk, orb1, orb2, 5, &r);
-  r *= L*(L+1.0);
-  
-  if (orb1->kappa != orb2->kappa) {
-    for (i = 0; i <= orb2->ilast; i++) {
-      x = aw*potential->rad[i];
-      _yk[i] = _yk[i]*L - BESLJN(1, L-1, x);
-    }
-    Integrate(_yk, orb1, orb2, 4, &r2);
-    r2 *= (orb2->kappa - orb1->kappa);
-    r += r2;
-  }
-  printf("%10.3E %10.3E\n", r, r2);
-  return r*b;
-}
 
 double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   int i, p, t;
@@ -1527,8 +1469,8 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   int kappa1, kappa2;
   int am, t;
   int index[4], s;
-  ORBITAL *orb1, *orb2;
-  double x, a, r, rp, **p1, **p2, aw2, ef;
+  ORBITAL *orb1, *orb2, *orb;
+  double x, a, r, rp, **p1, aw2, ef;
   int jy, n, i, j, npts;
   double rcl;
 
@@ -1539,35 +1481,16 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 
   if (m == 0) return 0.0;
   
-  index[0] = 0;
   if (m >= 0) {
-    index[1] = 2*m;
+    index[0] = 2*m;
+    am = m;
   } else {
-    index[1] = -2*m-1;
-  }
- 
-  if (k1 <= k2) {
-    s = 0;      
-    index[2] = k1;
-    index[3] = k2;
-    orb1 = GetOrbitalSolved(k1);
-    orb2 = GetOrbitalSolved(k2);
-    kappa1 = orb1->kappa;
-    kappa2 = orb2->kappa;
-    rcl = -ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
-		     GetJFromKappa(kappa2));
-  } else {
-    s = 1;     
-    index[2] = k2;
-    index[3] = k1;
-    orb1 = GetOrbitalSolved(k2);
-    orb2 = GetOrbitalSolved(k1);
-    kappa1 = orb1->kappa;
-    kappa2 = orb2->kappa;
-    rcl = -ReducedCL(GetJFromKappa(kappa2), abs(2*m), 
-		     GetJFromKappa(kappa1));
+    index[0] = -2*m-1;
+    am = -m;
   }
 
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     if (m == -1) {
       return MultipoleRadialNR(m, k1, k2, gauge);
@@ -1575,8 +1498,28 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
       return 0.0;
     }
   }
+  if (orb1->energy <= orb2->energy) {
+    s = 0;      
+    index[1] = k1;
+    index[2] = k2;
+    kappa1 = orb1->kappa;
+    kappa2 = orb2->kappa;
+    rcl = ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
+		    GetJFromKappa(kappa2));
+  } else {
+    s = 1;     
+    index[1] = k2;
+    index[2] = k1;
+    orb = orb1;
+    orb1 = orb2;
+    orb2 = orb;
+    kappa1 = orb1->kappa;
+    kappa2 = orb2->kappa;
+    rcl = ReducedCL(GetJFromKappa(kappa2), abs(2*m), 
+		    GetJFromKappa(kappa1));
+  }
   
-  ef = Max(orb1->energy, orb2->energy);  
+  ef = orb2->energy;
   if (ef > 0.0) {
     ef *= FINE_STRUCTURE_CONST;
     if (n_awgrid > 1) {
@@ -1593,28 +1536,13 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   }
 
   p1 = (double **) MultiSet(multipole_array, index, NULL, InitPointerData);
-  p2 = NULL;
-  if (m < 0 && gauge == G_BABUSHKIN) {
-    index[0] = 1;
-    p2 = (double **) MultiSet(multipole_array, index, NULL, InitPointerData);
-  }
-
   if (*p1) {
     r = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p1);
-    if (p2) {
-      rp = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p2);
-      if (s == 1) rp = -rp;
-      r += rp;
-    } 
-    if (m < 0 && s == 1 && gauge == G_COULOMB) r = -r;
+    if (s == 1 && IsOdd(am)) r = -r;
     r *= rcl;
     return r;
-  }
-  
+  }  
   *p1 = (double *) malloc(sizeof(double)*n_awgrid);
-  if (p2) {
-    *p2 = (double *) malloc(sizeof(double)*n_awgrid);
-  }
   
   npts = MAX_POINTS-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
@@ -1641,7 +1569,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	(*p1)[i] = r;
       }
     } else {
-      am = -m;
       if (gauge == G_COULOMB) {
 	t = kappa1 - kappa2;
 	q = sqrt(am/(am+1.0));
@@ -1662,7 +1589,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	  Integrate(_zk, orb1, orb2, 5, &imm);
 	  r += (am + 1.0)*im*q + am*imm/q;
 	}
-	printf("%d %d %10.3E %10.3E\n", k1, k2, a, r);
 	r /= pow(a,am);
 	(*p1)[i] = r;
       } else if (gauge == G_BABUSHKIN) {
@@ -1689,29 +1615,13 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	q /= pow(a, am);
 	r *= q;
 	rp *= q;
-	(*p1)[i] = r;
-	(*p2)[i] = rp;
+	(*p1)[i] = r+rp;
       }
     }
   }
 
-  /*
-  for (i = 0; i < n_awgrid; i++) {
-    printf("%d %d %10.3E %10.3E %10.3E ", 
-	    kappa1, kappa2, awgrid[i], aw2grid[i], (*p1)[i]);
-    if (p2) printf("%10.3E ", (*p2)[i]);
-    printf("\n");
-  }
-  printf("\n\n");
-  */
-
   r = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p1);
-  if (p2) {
-    rp = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p2);
-    if (s == 1) rp = -rp;
-    r += rp;
-  }
-  if (m < 0 && s == 1 && gauge == G_COULOMB) r = -r;
+  if (s == 1 && IsOdd(am)) r = -r;
   r *= rcl;
 
 #ifdef PERFORM_STATISTICS 
@@ -3487,7 +3397,7 @@ int InitRadial(void) {
   qed1e_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qed1e_array, sizeof(double), ndim, blocks);
   
-  ndim = 4;
+  ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK4;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double *), ndim, blocks);

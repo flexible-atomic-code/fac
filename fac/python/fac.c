@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.67 2004/02/22 23:17:57 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.68 2004/02/23 08:42:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1865,7 +1865,7 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
 
 static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
   char *s, *fn;
-  int mx, m;
+  int mx;
 
   if (sfac_file) {
     SFACStatement("Asymmetry", args, NULL);
@@ -1873,11 +1873,10 @@ static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  mx = 4;
-  m = 5;
-  if (!PyArg_ParseTuple(args, "ss|ii", &fn, &s, &m, &mx)) return NULL;
+  mx = 1;
+  if (!PyArg_ParseTuple(args, "ss|i", &fn, &s, &mx)) return NULL;
   
-  SaveAsymmetry(fn, s, mx, m);
+  SaveAsymmetry(fn, s, mx);
   
   Py_INCREF(Py_None);
   return Py_None;
