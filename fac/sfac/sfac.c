@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.69 2004/12/12 06:15:54 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.70 2004/12/16 08:25:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -714,18 +714,6 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
 static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc != 0) return -1;
   exit(0);
-}
-
-static int PFreeExcitationPk(int argc, char *argv[], int argt[], 
-			     ARRAY *variables) {
-  int ie;
-  
-  if (argc == 0) ie = -1;
-  else if (argc == 1 && argt[0] == NUMBER) ie = atoi(argv[0]);
-  else return -1;
-
-  FreeExcitationPk(ie);
-  return 0;
 }
 
 static int PFreeExcitationQk(int argc, char *argv[], int argt[], 
@@ -1513,17 +1501,25 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
 
 static int PSetCEBorn(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
-  double x, x1;
+  double eb, x, x1;
 
-  if (argc < 1 || argc > 2) return -1;
+  if (argc < 1 || argc > 3) return -1;
   if (argt[0] != NUMBER) return -1;
   if (argc > 1) {
-    x1 = atof(argv[1]);
+    if (argt[1] != NUMBER) return -1;
+    x = atof(argv[1]);
+    if (argc > 2) {
+      if (argt[2] != NUMBER) return -1;
+      x1 = atof(argv[2]);
+    } else {
+      x1 = XBORN1;
+    }
   } else {
-    x1 = -10.0;
+    x = XBORN;
+    x1 = XBORN1;
   }
-  x = atof(argv[0]);
-  SetCEBorn(x, x1);
+  eb = atof(argv[0]);
+  SetCEBorn(eb, x, x1);
   
   return 0;
 }
@@ -3252,7 +3248,6 @@ static METHOD methods[] = {
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
-  {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},

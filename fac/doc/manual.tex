@@ -2688,9 +2688,15 @@ then the Breit interaction involving all bound and continuum states is
 included. Default is 5.
 \end{fundesc}
 
-\begin{fundesc}{SetCEBorn}{x\opt{, x1}}
-Set the energy boundary between the distroted-wave Born approximation and
-plane-wave Born approximation for the collisional excitation. If $x > 0$ and the scattered
+\begin{fundesc}{SetCEBorn}{e\opt{,x\opt{, x1}}}
+\var{e} specifies the asysmtotic energy where the plane-wave Born approximation is
+expected to be valid, and is used to deduce the constant component of the
+collision strength at high energies. If $e > 0$, it is in unit of the
+characteristic transition energy of the array. If $e < 0$, then its absolute
+value is the energy in unit of eV. $x$ and $x1$
+set the energy boundary between the distroted-wave Born approximation and
+plane-wave Born approximation for the collisional excitation. If $x > 0$ and
+the scattered
 electron energy is less than $xE_{b}$, DW method is chosen, where $E_{b}$ is
 the binding energy of the electron being excited and $x$ is the positive. 
 If $x$ is negative, the switch between DW and PW occurs when the estimated
@@ -2701,7 +2707,7 @@ contributions represents no more than 50\% of the explicitly calculated low
 partial-wave sum. The contributions of high partial waves for monopole and
 dipole transitions are calculated with coulomb-bethe approximation, their
 cutoff values are treated differently with the switch \var{x1}, whose default
-is $-10.0$.
+is $-1.0$.
 \end{fundesc}
 
 \begin{fundesc}{SetCEGrid}{g $\mid$ n\opt{, e0, e1}}

@@ -35,14 +35,13 @@ typedef struct _EXCIT_TIMING_ {
 #endif
 
 CEPW_SCRATCH *GetCEPWScratch(void);
-int FreeExcitationPk(int ie);
 int FreeExcitationQk(void);
 int InitExcitation(void);
 int ReinitExcitation(int m);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
 int SetCEPWFile(char *fn);
-int SetCEBorn(double x, double x1);
+int SetCEBorn(double e, double x, double x1);
 void SetCELQR(int m);
 void SetCELMax(int m);
 void SetCELCB(int m);
@@ -63,10 +62,10 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 
 int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k);
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
-		   double te, double e1, double *qk);
+		   double te, double e1, double *qk, int m);
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 		       double te, double e1, 
-		       int nq, int *q, double *qk);
+		       int nq, int *q, double *qk, int m);
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k);
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp);
 int CERadialQk(double *r, double te, 
