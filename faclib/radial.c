@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.95 2004/06/13 07:16:08 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.96 2004/06/13 08:43:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -714,36 +714,23 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 }      
 
 static void TNFunc(int *n, double *x, double *f, double *g) {
-  int i;
   double a, delta;
 
   potential->lambda = x[0];
-  potential->a = x[1];
   SetPotentialVc(potential);
   ReinitRadial(1);
   ClearOrbitalTable(0);
   *f = AverageEnergyAvgConfig(&average_config);
 
-  for (i = 0; i < *n; i++) {
-    delta = fabs(0.01*x[i]);
-    if (delta < EPS3) delta = EPS3;
-    if (i == 0) {
-      potential->lambda += delta;
-    } else {
-      potential->a += delta;
-    }
-    SetPotentialVc(potential);
-    ReinitRadial(1);
-    ClearOrbitalTable(0);
-    a = AverageEnergyAvgConfig(&average_config);
-    g[i] = (a - *f)/delta;
-    if (i == 0) {
-      potential->lambda -= delta;
-    } else {
-      potential->a -= delta;
-    }
-  }
-
+  delta = 0.01*x[0];
+  potential->lambda += delta;
+  SetPotentialVc(potential);
+  ReinitRadial(1);
+  ClearOrbitalTable(0);
+  a = AverageEnergyAvgConfig(&average_config);
+  g[0] = (a - *f)/delta;
+  potential->lambda -= delta;
+  
   return;
 }
 
@@ -754,32 +741,28 @@ int RefineRadial(int maxfun, int msglvl) {
   double f0, f, x[2], g[2], x0[2], x1[2];
   
   if (msglvl == 0) msglvl = -3;
-  maxit = 60;
+  maxit = 10;
   eta = 0.25;
   stepmx = 0.5;
-  accrcy = EPS8;
-  xtol = EPS2;
-  n = 2;
+  accrcy = EPS10;
+  xtol = EPS4;
+  n = 1;
   lw = potential->maxrp;
   x[0] = potential->lambda;
-  x[1] = potential->a;
   x0[0] = x[0] - x[0]*0.5;
-  x0[1] = 0.0;
   x1[0] = x[0] + x[0]*1.5;
-  x1[1] = 2.0;
   
   if (msglvl > 0) {
-    printf("%d %10.3E %10.3E\n", maxfun, x[0], x[1]);
+    printf("%10.3E\n", x[0]);
   }
   TNFunc(&n, x, &f0, g);
   LMQNBC(&ierr, n, x, &f, g, _dwork11, lw, TNFunc, 
 	 x0, x1, ip, msglvl, maxit, maxfun, eta, 
 	 stepmx, accrcy, xtol);
   if (msglvl > 0) {
-    printf("%10.3E %10.3E %10.3E %10.3E\n", f0, f, x[0], x[1]);
+    printf("%10.3E\n", x[0]);
   }
   potential->lambda = x[0];
-  potential->a = x[1];
   SetPotentialVc(potential);
   if (ierr) {
     if (f > f0) {
