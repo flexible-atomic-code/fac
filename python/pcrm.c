@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.13 2002/03/11 01:56:42 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.14 2002/03/11 19:28:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -301,6 +301,8 @@ static PyObject *PSetIteration(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  s = -1.0;
+  maxiter = -1;
   if (!PyArg_ParseTuple(args, "d|di", &a, &s, &maxiter)) return NULL;
   SetIteration(a, s, maxiter);
   Py_INCREF(Py_None);
