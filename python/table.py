@@ -125,7 +125,7 @@ class TABLE:
             
         self.dstart = f.tell()
         
-    def write_raw(self, *data):
+    def write_row(self, *data):
         if (len(data) != len(self.columns)):
             raise 'num. of data items does not match columns'
         s = ''
