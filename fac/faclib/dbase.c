@@ -1,11 +1,10 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.17 2002/02/25 02:54:43 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.18 2002/02/28 16:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
-
 
 static F_HEADER fheader[NDB];
 static EN_HEADER en_header;
@@ -277,19 +276,9 @@ int ReinitDBase(int m) {
   }
 }
 
-FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {
-  EN_HEADER *en_hdr;
-  TR_HEADER *tr_hdr;
-  CE_HEADER *ce_hdr;
-  RR_HEADER *rr_hdr;
-  AI_HEADER *ai_hdr;
-  CI_HEADER *ci_hdr;
-  SP_HEADER *sp_hdr;
-  RT_HEADER *rt_hdr;
-  FILE *f;
-  long int p;
-  size_t n;
+FILE *OpenFile(char *fn, F_HEADER *fhdr) {
   int ihdr;
+  FILE *f;
 
   ihdr = fhdr->type - 1;
 
@@ -312,9 +301,39 @@ FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {
   fheader[ihdr].type = fhdr->type;
   strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
-  fheader[ihdr].nblocks += 1;
-  n = fwrite(&fheader[ihdr], sizeof(F_HEADER), 1, f);
+  fwrite(&(fheader[ihdr]), sizeof(F_HEADER), 1, f);
+  return f;
+}
 
+int CloseFile(FILE *f, F_HEADER *fhdr) {
+  int ihdr;
+ 
+  ihdr = fhdr->type-1;
+  fseek(f, 0, SEEK_SET);
+  fheader[ihdr].type = fhdr->type;
+  fwrite(&(fheader[ihdr]), sizeof(F_HEADER), 1, f);
+  
+  fclose(f);
+  return 0;
+}
+
+int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
+  EN_HEADER *en_hdr;
+  TR_HEADER *tr_hdr;
+  CE_HEADER *ce_hdr;
+  RR_HEADER *rr_hdr;
+  AI_HEADER *ai_hdr;
+  CI_HEADER *ci_hdr;
+  SP_HEADER *sp_hdr;
+  RT_HEADER *rt_hdr;
+  long int p;
+  size_t n;
+  int ihdr;
+
+  if (f == NULL) return 0;
+
+  ihdr = fhdr->type - 1;
+  fheader[ihdr].nblocks += 1;
   fseek(f, 0, SEEK_END);
   p = ftell(f);
 
@@ -401,10 +420,10 @@ FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {
     break;
   }
 
-  return f;
+  return 0;
 }
 
-int CloseFile(FILE *f, F_HEADER *fhdr) {
+int DeinitFile(FILE *f, F_HEADER *fhdr) {
   int n;
 
   if (f == NULL || fhdr->type <= 0) return 0;
@@ -455,10 +474,6 @@ int CloseFile(FILE *f, F_HEADER *fhdr) {
   default:
     break;
   }
-
-  fheader[fhdr->type - 1].type = 0;
-  fclose(f);
-
   return 0;
 }
 

@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.20 2002/02/28 04:53:47 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.21 2002/02/28 16:55:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1275,6 +1275,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
   rt_hdr.np_pdist = pdist->nparams;
   rt_hdr.p_edist = edist->params;
   rt_hdr.p_pdist = pdist->params;
+  f = OpenFile(fn, &fhdr);
 
   n = blocks->dim;
   ic = (int *) malloc(sizeof(int)*n);
@@ -1558,7 +1559,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	rt3.rr = 0.0;
 	rt3.ai = 0.0;
 	rt3.ci = 0.0;
-	f = InitFile(fn, &fhdr, &rt_hdr);
+	InitFile(f, &fhdr, &rt_hdr);
 	index[0] = k;
 	for (j = 0; j < n; j++) {
 	  rt.iblock = j;
@@ -1664,7 +1665,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	WriteRTRecord(f, &rt1);
 	WriteRTRecord(f, &rt2);
 	WriteRTRecord(f, &rt3);
-	CloseFile(f, &fhdr);
+	DeinitFile(f, &fhdr);
       }
     } else {
       index[0] = 0;
@@ -1691,7 +1692,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
       rt3.rr = 0.0;
       rt3.ai = 0.0;
       rt3.ci = 0.0;
-      f = InitFile(fn, &fhdr, &rt_hdr);
+      InitFile(f, &fhdr, &rt_hdr);
       for (j = 0; j < n; j++) {
 	rt.iblock = j;
 	blk1 = (LBLOCK *) ArrayGet(blocks, j);
@@ -1796,7 +1797,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
       WriteRTRecord(f, &rt1);
       WriteRTRecord(f, &rt2);
       WriteRTRecord(f, &rt3);
-      CloseFile(f, &fhdr);
+      DeinitFile(f, &fhdr);
     }
   }
 
@@ -1807,6 +1808,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
   MultiFree(&ci, NULL);
   MultiFree(&rr, NULL);
   MultiFree(&ai, NULL);
+  CloseFile(f, &fhdr);
 
   return 0;
 }
@@ -2441,17 +2443,17 @@ int SpecTable(char *fn, double strength_threshold) {
   sp_hdr.ipdist = ipdist;
   sp_hdr.np_pdist = pdist->nparams;
   sp_hdr.p_pdist = pdist->params;
+  f = OpenFile(fn, &fhdr);
 
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     sp_hdr.type = 0;
     ib = -1;
-    f = NULL;
     for (m = 0; m < ion->nlevels; m++) {
       blk = ion->iblock[m];
       i = blk->ib;
       if (i != ib) {
-	if (f) CloseFile(f, &fhdr);
+	if (ib >= 0) DeinitFile(f, &fhdr);
 	if (blk->iion != k) {
 	  sp_hdr.nele = ion->nele - 1;
 	} else {
@@ -2461,7 +2463,7 @@ int SpecTable(char *fn, double strength_threshold) {
 	StrNComplex(sp_hdr.icomplex, blk->ncomplex);
 	sp_hdr.fblock = 0;
 	sp_hdr.fcomplex[0] = '\0';
-	f = InitFile(fn, &fhdr, &sp_hdr);
+	InitFile(f, &fhdr, &sp_hdr);
 	ib = i;
       }
       p = ion->ilev[m];
@@ -2473,7 +2475,7 @@ int SpecTable(char *fn, double strength_threshold) {
 	WriteSPRecord(f, &r);
       }
     }
-    if (f) CloseFile(f, &fhdr);
+    if (ib >= 0) DeinitFile(f, &fhdr);
 
     for (i = 0; i < ion->tr_rates->dim; i++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, i);
@@ -2490,7 +2492,7 @@ int SpecTable(char *fn, double strength_threshold) {
       sp_hdr.type = TransitionType(iblk->ncomplex, fblk->ncomplex);
       StrNComplex(sp_hdr.icomplex, iblk->ncomplex);
       StrNComplex(sp_hdr.fcomplex, fblk->ncomplex);
-      f = InitFile(fn, &fhdr, &sp_hdr);
+      InitFile(f, &fhdr, &sp_hdr);
       smax = 0.0;
       for (m = 0; m < brts->rates->dim; m++) {
 	rt = (RATE *) ArrayGet(brts->rates, m);
@@ -2523,9 +2525,10 @@ int SpecTable(char *fn, double strength_threshold) {
 	  WriteSPRecord(f, &r);
 	}
       }
-      CloseFile(f, &fhdr);
+      DeinitFile(f, &fhdr);
     }
   }  
+  CloseFile(f, &fhdr);
   return 0;
 }
 
