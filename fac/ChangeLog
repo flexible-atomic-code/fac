@@ -1,3 +1,6 @@
+version 0.9.5, 05/13/2003
+	1. fix a bug introduced in 0.9.4, caused seg. fault.
+	
 version 0.9.4, 04/29/2003
 	1. drop the assumption that calloced pointers and doubles will 
 	   have NULL and 0.0 initial values, which is not portable.
