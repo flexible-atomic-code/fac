@@ -8,7 +8,7 @@
 
 typedef struct _POTENTIAL_ {
   int flag;
-  double max_points;
+  int r_core;
   double Z[MAX_POINTS]; /*effective atomic number*/
   double N; /*number of electrons*/
   double lambda;
@@ -42,6 +42,7 @@ typedef struct _ORBITAL_ {
 
 double *GetVEffective();
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
+int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol);
 double InnerProduct(int n, double *p1, double *p2, POTENTIAL *pot);

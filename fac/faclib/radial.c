@@ -121,6 +121,8 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     norbs++;
   }
 
+  potential->r_core = Min(jmax+5, MAX_POINTS-2);
+
   if (norbs && (potential->N > 1)) {
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = 0.0;
