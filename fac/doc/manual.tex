@@ -145,8 +145,8 @@ available at \textbf{www.cygwin.com}). To fully utilize the strength of
 FAC, it is strongly recommended that Python be installed, which can be obtained
 from \textbf{www.python.org}.
 
-Step-by-step instructions can be found in the README file in the top directory
-of FAC distribution.
+Step-by-step instructions for installation can be found in the README file in
+the top directory of FAC distribution.
 
 \section{Quick Start}
 \label{sec:start}
@@ -2506,12 +2506,46 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
+\begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
+Calculate the total collisional ionization cross sections of level \var{ilev}
+by reading the data from the \texttt{DB\_CI} database file \var{ifn}. The
+results are written to the ASCII file \var{ofn} in a two column
+format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
+may be ``-'', which means \texttt{stdout}. \var{energy} is a 
+list or tuple giving the incident electron energies
+in eV where CI cross sections are needed. The optional \var{imin} and
+\var{imax} specifies the index range of the ionized states. Only ionization to
+states with $imin \le i \le imax$ are included.  If \var{imin}$<$0, it is
+assumed to be 0, and if \var{imax}$<$0, it is assumed to be the larges index
+in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
+all ionized states. Before calling this function, \key{MemENTable()} must
+be called. 
+\end{fundesc}
+
+\begin{fundesc}{TotalPICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
+Calculate the total photoionzation cross sections of level \var{ilev}
+by reading the data from the \texttt{DB\_CI} database file \var{ifn}. The
+results are written to the ASCII file \var{ofn} in a two column
+format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
+may be ``-'', which means \texttt{stdout}. \var{energy} is a 
+list or tuple giving the incident photon energies 
+in eV where PI cross sections are needed. The optional \var{imin} and
+\var{imax} specifies the index range of the ionized states. Only ionization to
+states with $imin \le i \le imax$ are included.  If \var{imin}$<$0, it is
+assumed to be 0, and if \var{imax}$<$0, it is assumed to be the larges index
+in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
+all ionized states. Before calling this function, \key{MemENTable()} must
+be called. 
+\end{fundesc}
+
 \begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy\opt{, n0, n1, nmax, imin,
 imax}}
 Calculate the total radiative recombination cross sections onto level
 \var{ilev} by reading the data from the \texttt{DB\_RR} database file
 \var{ifn}. The results are written to the ASCII file \var{ofn} in a two column
-format. \var{energy} is a list or tuple giving the electron energies in eV
+format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
+may be ``-'', which means \texttt{stdout}. \var{energy} is a 
+list or tuple giving the electron energies in eV 
 where the RR cross sections are needed. The data for recombination onto $n0 <
 n < n1$ and $n > n1$ are not present in the data file \var{ifn}, and the
 hydrogenic approximation for $n0 < n < n1$ and $n1 < n \le nmax$ are added to
@@ -2519,8 +2553,9 @@ the calculated cross sections. The optional \var{imin} and \var{imax}
 specifies the index range of the recombined states. Only recombination to
 states with $imin \le i \le imax$ are included. If \var{imin}$<$0, it is
 assumed to be 0, and if \var{imax}$<$0, it is assumed to be the larges index
-in the level file. Both default to -1, i.e., include all recombined
-states. Before calling this function, \key{MemENTable()} must be called.
+in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
+all recombined states. Before calling this function, \key{MemENTable()} must
+be called.
 \end{fundesc}
 
 \begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}

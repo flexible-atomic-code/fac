@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.40 2003/03/10 21:58:51 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.41 2003/03/11 15:18:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -522,6 +522,279 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
   return 0;
 }
 
+int TotalCICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CI_HEADER h;
+  CI_RECORD r;
+  int i, t, nb, m;
+  double *c, tc, a, b, x, e;
+  float *params, *strength;
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) return -1;
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) return -1;
+  
+  
+  swp = 0;
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  }
+
+  if (fh.type != DB_CI || fh.nblocks == 0) {
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+  
+  c = (double *) malloc(sizeof(double)*negy);
+  for (i = 0; i < negy; i++) {
+    c[i] = 0.0;
+  }
+
+  nb = 0;
+  
+  if (imin < 0) imin = 0;
+  if (imax < 0) imax = mem_en_table_size - 1;
+
+  while (1) {
+    n = fread(&h, sizeof(CI_HEADER), 1, f1);
+    if (n != 1) break;
+    if (swp) SwapEndianCIHeader(&h);
+    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
+    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);    
+    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
+    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
+    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
+    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
+    m = h.nparams;
+    params = (float *) malloc(sizeof(float)*m);
+    m = h.n_usr;
+    strength = (float *) malloc(sizeof(float)*m);
+    
+    for (i = 0; i < h.ntransitions; i++) {
+      n = fread(&r, sizeof(CI_RECORD), 1, f1);
+      if (swp) SwapEndianCIRecord(&r);
+      m = h.nparams;
+      n = fread(params, sizeof(float), m, f1);
+      m = h.n_usr;
+      n = fread(strength, sizeof(float), m, f1);
+      if (r.b != ilev) continue;
+      if (r.f < imin || r.f > imax) continue;
+      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;    
+      if (swp) {
+	for (t = 0; t < h.nparams; t++) {
+	  SwapEndian((char *) &(params[t]), sizeof(float));
+	}
+      }
+      
+      for (t = 0; t < negy; t++) {
+	if (egy[t] < e) continue;
+	x = egy[t]/e;
+	a = 1.0/x;
+	b = 1.0 - a;
+	tc = params[0]*log(x) + params[1]*b*b;
+	tc += params[2]*a*b + params[3]*a*a*b;
+	a = egy[t]*(1.0 + FINE_STRUCTURE_CONST2*egy[t]);
+	tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
+	c[t] += tc;
+      }
+    }
+
+    free(params); 
+    free(strength);
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
+    
+    nb++;
+  }
+
+  fprintf(f2, "Energy (eV)   CI Cross (10^-20 cm2)\n");
+  for (t = 0; t < negy; t++) {
+    fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+  }
+
+  free(c);  
+
+  fclose(f1);
+  fclose(f2);
+  return nb;
+} 
+
+int TotalPICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  RR_HEADER h;
+  RR_RECORD r;
+  int i, t, nb, m;
+  float *params, *strength;
+  float e, eph, ee, phi, rr;
+  double *xusr, *dstrength, *c, tc, emax;
+  double x, y;
+  int np=3, one=1, nele;
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) return -1;
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) return -1;
+  
+  
+  swp = 0;
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  }
+
+  if (fh.type != DB_RR || fh.nblocks == 0) {
+    fclose(f1);
+    fclose(f2);
+    return 0;
+  }
+  
+  c = (double *) malloc(sizeof(double)*negy);
+  for (i = 0; i < negy; i++) {
+    c[i] = 0.0;
+  }
+
+  nb = 0;
+  
+  if (imin < 0) imin = 0;
+  if (imax < 0) imax = mem_en_table_size - 1;
+
+  while(1) {
+    n = fread(&h, sizeof(RR_HEADER), 1, f1);
+    if (n != 1) break;
+    if (swp) SwapEndianRRHeader(&h);
+    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
+    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
+    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
+    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
+    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
+    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
+    if (swp) {
+      for (i = 0; i < h.n_tegrid; i++) {
+	SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
+      }
+      for (i = 0; i < h.n_egrid; i++) {
+	SwapEndian((char *) &(h.egrid[i]), sizeof(double));
+      }
+      for (i = 0; i < h.n_usr; i++) {
+	SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
+      }
+    }
+    nele = h.nele;
+    if (h.qk_mode == QK_FIT) {
+      m = h.nparams;
+      params = (float *) malloc(sizeof(float)*m);
+    }
+    m = h.n_usr;
+    strength = (float *) malloc(sizeof(float)*m);
+    dstrength = (double *) malloc(sizeof(double)*m);
+    emax = h.usr_egrid[h.n_usr-1];
+    for (i = 0; i < h.ntransitions; i++) {
+      n = fread(&r, sizeof(RR_RECORD), 1, f1);
+      if (swp) SwapEndianRRRecord(&r);
+      if (h.qk_mode == QK_FIT) {
+	m = h.nparams;
+	n = fread(params, sizeof(float), m, f1);
+      }
+      m = h.n_usr;
+      n = fread(strength, sizeof(float), m, f1);	
+      if (r.b != ilev) continue;
+      if (r.f < imin || r.f > imax) continue;
+      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+      
+      if (swp) {
+	if (h.qk_mode == QK_FIT) {
+	  for (t = 0; t < h.nparams; t++) {
+	    SwapEndian((char *) &(params[t]), sizeof(float));
+	  }
+	}
+	for (t = 0; t < h.n_usr; t++) {
+	  SwapEndian((char *) &(strength[t]), sizeof(float));
+	}
+      }
+      
+      for (t = 0; t < h.n_usr; t++) {
+	dstrength[t] = log(strength[t]);
+	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+      }
+      
+      for (t = 0; t < negy; t++) {
+	eph = egy[t];
+	ee = eph - e;
+	if (ee <= 0.0) continue;
+	if (h.qk_mode != QK_FIT || ee <= emax) {
+	  x = log(eph/e);
+	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
+	  tc = exp(tc);
+	} else {
+	  x = (ee + params[3])/params[3];
+	  y = (1 + params[2])/(sqrt(x) + params[2]);
+	  tc = (-3.5 - r.kl + 0.5*params[1])*log(x) + params[1]*log(y);
+	  if (params[0] > 0.0) {
+	    tc = tc + log(params[0]*(eph/(ee+params[3])));
+	    tc = exp(tc);
+	  } else {
+	    tc = 0.0;
+	  }
+	}
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
+	c[t] += rr/(mem_en_table[r.b].j + 1.0);
+      }
+    }
+
+    if (h.qk_mode == QK_FIT) free(params);
+    free(strength);
+    free(dstrength);
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);      
+    free(xusr);
+    
+    nb++;
+  }
+
+  fprintf(f2, "Energy (eV)   PI Cross (10^-20 cm2)\n");
+  for (t = 0; t < negy; t++) {
+    fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
+  }
+
+  free(c);  
+
+  fclose(f1);
+  fclose(f2);
+  return nb;
+}
+  
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int n0, int n1, int nmax,
 		 int imin, int imax) {

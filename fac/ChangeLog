@@ -1,11 +1,13 @@
-Version 0.8.9, 03/07/2003
+Version 0.8.9, 03/11/2003
 	1. in RadialRyd, the matching point has to be reduced to avoid the
 	   round off errors in COULCC.
 	2. improve the match of RR cross section at highest grid energy.
 	3. update the FAQ on the use of OptimizeRadial, and the demo
 	   scripts accordingly.
 	4. avoid overflow in RRRate1E.
-	5. fix a bug in RRRate1E and PIRate1E for high energy cross sections.
+	5. fix a bug in RRRate1E and PIRate1E for high energy cross
+	   sections.
+	6. add TotalPICross and TotalCICross functions.
 	
 Version 0.8.8, 03/04/2003
 	1. add my new RR and DR rates to CRM.
