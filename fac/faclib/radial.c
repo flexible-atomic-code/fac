@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.90 2004/05/30 22:26:14 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.91 2004/06/03 00:44:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -136,7 +136,7 @@ void SetBoundary(int nmax, double p, double bqp) {
       }
     }
   } else {
-    if (p < 0.0) p = 1E-3;
+    if (p < 0.0) p = 1E-8;
     for (n = 1; n <= potential->nb; n++) {
       for (kl = 0; kl < n; kl++) {
 	kl2 = 2*kl;
