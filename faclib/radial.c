@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.108 2004/07/15 18:41:25 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.109 2004/07/27 05:18:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -508,7 +508,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     }
     if (potential->N > 1) {
       for (j = jmax; j > 0; j--) {
-        if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
+        if (fabs(u[j]-potential->N + 1.0) > EPS16) break;
       }
       potential->r_core = j+1;
     }
@@ -753,7 +753,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (potential->N > 1) {
     potential->r_core = potential->maxrp-5;
   } else {
-    potential->r_core = potential->maxrp*0.75;
+    potential->r_core = 50;
   }
 
   if (optimize_control.iset == 0) {
