@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.6 2001/10/19 22:45:39 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.7 2001/10/19 23:05:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,7 +32,7 @@ static double _emass[N_ELEMENTS] =
 
 
 char *GetAtomicSymbolTable() {
-  return _ename;
+  return (char *) _ename;
 }
 
 double *GetAtomicMassTable() {

@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.28 2001/10/19 22:45:39 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.29 2001/10/19 23:05:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -765,7 +765,6 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (n_usr > 0 && usr_egrid[0] < 0.0) {
     SetUsrPEGrid(n_usr, emin, emax, e);
   }  
-  
   if (n_egrid == 0) {
     n_egrid = 6;
   }
@@ -786,7 +785,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     }
   }
 
-  if (n_usr < 0) {
+  if (n_usr <= 0) {
     SetUsrPEGridDetail(n_egrid, egrid);
     usr_egrid_type = egrid_type;
     interpolate_egrid = 0;
