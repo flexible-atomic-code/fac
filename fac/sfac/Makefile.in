@@ -25,7 +25,9 @@ scrm: 	scrm.c stoken.c ${TOPDIR}/libfac.a
 	$(CC) -o scrm scrm.c stoken.c ${ALL_CFLAGS}
 
 install:
-	${INSTALL} -d sfac scrm ${BINDIR}
+	${INSTALL} -d ${BINDIR}
+	${INSTALL} sfac ${BINDIR}
+	${INSTALL} scrm ${BINDIR}
 
 clean:
 	rm -rf *.o *~ sfac scrm
