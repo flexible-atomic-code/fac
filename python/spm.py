@@ -215,7 +215,27 @@ class TABLE:
             for i in range(nk):
                 r[i].append(c[k[i]])
         return r
-    
+
+    def convert2tex(self, tfn, k, filter='', start=0, stop=-1):
+        f = open(tfn, 'w')
+        self.open('r')
+        self.read_header()
+        d = self.read_columns(k, filter=filter, start=start, stop=stop)
+        nd = len(d)
+        for i in range(len(d[0])):
+            s = ''
+            for j in range(nd):
+                fmt = self.columns[k[j]]['format0']
+                s = s + fmt%(d[j][i])
+                if (j == nd-1):
+                    s = s + '\\\\'
+                else:
+                    s = s + ' & '
+            s = s + '\n'
+            f.write(s)
+        self.close()
+        f.close()
+        
     def rewind(self):
         self.file.seek(self.dstart)
         
