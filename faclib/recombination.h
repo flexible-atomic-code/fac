@@ -37,7 +37,7 @@ int SetRecSpectator(int n_max, int n_frozen, int n_spec);
 int ConstructRecGroupName(char *rgn, char *gn, int n);
 int RecStates(int n, int k, int *kg);
 int RecStatesFrozen(int n, int k, int *kg);
-double *RRRadialQkTable(int k0, int k1, int m);
+int RRRadialQkTable(double *qr, int k0, int k1, int m);
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m);
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra);

@@ -1,10 +1,13 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.7 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.8 2001/10/25 21:57:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+static int n_hydrogenic;
+static int kl_hydrogenic;
 
 static int _ncb = 0;
 static int _cbindex[CBMULTIPOLES];
@@ -14,6 +17,18 @@ static int _nm_min = 100;
 static int _nm_max = 5000;
 static int _nm_factor = 100;
 static int _nm = 0;
+
+void SetHydrogenicNL(int n, int kl) {
+  if (n > 0) n_hydrogenic = n;
+  else n_hydrogenic = 6;
+  if (kl >= 0) kl_hydrogenic = kl;
+  else kl_hydrogenic = 5;
+}
+
+void GetHydrogenicNL(int *n, int *kl) {
+  if (n) *n = n_hydrogenic;
+  if (kl) *kl = kl_hydrogenic;
+}
 
 double CoulombPhaseShift(double z, double e, int kappa) {
   double phase, r, y, ke, a, b1, b2;
@@ -383,6 +398,8 @@ int InitCoulomb() {
       }
     }
   }
+
+  SetHydrogenicNL(-1, -1);
 
   return 0;
 }

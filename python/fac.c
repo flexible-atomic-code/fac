@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.7 2001/10/24 23:31:39 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.8 2001/10/25 21:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -313,6 +313,19 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
+  int n, k;
+  
+  n = -1;
+  k = -1;
+  if (!PyArg_ParseTuple(args, "|ii", &n, &k)) return NULL;
+  if (k < 0) k = n-1;
+
+  SetHydrogenicNL(n, k);
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
 
 static int DecodeGroupArgs(PyObject *args, int **kg) {
   PyObject *p;
@@ -2089,6 +2102,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
+  {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
