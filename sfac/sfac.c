@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.46 2004/01/08 23:32:27 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.47 2004/02/23 22:05:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2378,8 +2378,7 @@ static int PTestCoulomb(int argc, char *argv[], int argt[],
 
 static int PTestIntegrate(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  if (argc != 1 || argt[0] != STRING) return -1;
-  TestIntegrate(argv[0]);  
+  TestIntegrate();  
   return 0;
 }
 

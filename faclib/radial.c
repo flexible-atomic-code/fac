@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.84 2004/02/23 08:42:55 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.85 2004/02/23 22:05:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1498,6 +1498,15 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
       return 0.0;
     }
   }
+  
+  s = 0;      
+  index[1] = k1;
+  index[2] = k2;
+  kappa1 = orb1->kappa;
+  kappa2 = orb2->kappa;
+  rcl = ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
+		  GetJFromKappa(kappa2));
+  /*
   if (orb1->energy <= orb2->energy) {
     s = 0;      
     index[1] = k1;
@@ -1518,8 +1527,9 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     rcl = ReducedCL(GetJFromKappa(kappa2), abs(2*m), 
 		    GetJFromKappa(kappa1));
   }
-  
-  ef = orb2->energy;
+  */
+
+  ef = Max(orb1->energy, orb2->energy);
   if (ef > 0.0) {
     ef *= FINE_STRUCTURE_CONST;
     if (n_awgrid > 1) {
@@ -2439,7 +2449,6 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
 /* type = 6:    P1*Q2 */
 /* if type is positive, only the end point is returned, */
 /* otherwise, the whole function is returned */
-
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, 
 	      int t, double *x) {
   int i1, i2;
@@ -2457,7 +2466,6 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
   for (i = 0; i < MAX_POINTS; i++) {
     r[i] = 0.0;
   }
-  r[0] = 0.0;
 
   ext = 0.0;
   if (orb1->n > 0 && orb2->n > 0) {
@@ -2485,7 +2493,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     i1 = Min(orb1->ilast, orb2->ilast);
     IntegrateSubRegion(0, i1, f, orb1, orb2, t, r, 0, NULL);
     i1 += 1;
-    if (i1 > orb1->ilast) {
+    if (orb1->ilast < orb2->ilast) {
       i2 = orb2->ilast;
       if (type == 6) {
 	i = 7;
@@ -2497,10 +2505,13 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
       i1 = i2+1;
       i2 = MAX_POINTS-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
-    } else {
+    } else if (orb1->ilast > orb2->ilast) {
       i2 = orb1->ilast;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1, NULL);
       i1 = i2+1;
+      i2 = MAX_POINTS-1;
+      IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
+    } else {
       i2 = MAX_POINTS-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     }
@@ -2525,7 +2536,7 @@ int IntegrateSubRegion(int i0, int i1,
   ORBITAL *tmp;
   double *large1, *large2, *small1, *small2;
   double *x, *y, *r1, *x1, *x2, *y1, *y2;
-  double a, b, e1, e2, a2;
+  double a, b, e1, e2, a2, r0;
 
   if (i1 <= i0) return 0;
   type = abs(t);
@@ -2592,6 +2603,13 @@ int IntegrateSubRegion(int i0, int i1,
 
   case 1:
     if (type == 6) { /* type 6 needs special treatments */
+      large1 = Large(orb1);
+      large2 = Large(orb2);
+      small1 = Small(orb1);
+      small2 = Small(orb2);
+      e1 = orb1->energy;
+      e2 = orb2->energy;
+      a2 = 0.5*FINE_STRUCTURE_CONST2;
       j = 0;
       for (i = i0; i <= i1; i+= 2) {
 	ip = i+1;
@@ -2632,6 +2650,13 @@ int IntegrateSubRegion(int i0, int i1,
       }
       break;
     } else if (type == 7) {
+      large1 = Large(orb1);
+      large2 = Large(orb2);
+      small1 = Small(orb1);
+      small2 = Small(orb2);
+      e1 = orb1->energy;
+      e2 = orb2->energy;
+      a2 = 0.5*FINE_STRUCTURE_CONST2;
       j = 0;
       for (i = i0; i <= i1; i+= 2) {
 	ip = i+1;
@@ -2843,6 +2868,10 @@ int IntegrateSubRegion(int i0, int i1,
       break;
     case 5: /* type = 5 */
       j = 0;
+      if (m == 2) {
+	r0 = r[i0];
+	r[i0] = 0.0;
+      }
       for (i = i0; i <= i1; i+= 2) {
 	ip = i+1;
 	x[j] = large1[i] * small2[ip];
@@ -2878,14 +2907,14 @@ int IntegrateSubRegion(int i0, int i1,
       if (m == 2) {
 	if (t < 0) {
 	  for (i = i0; i <= i1; i += 2) {
-	    r[i] = -r[i];
+	    r[i] = r0 - r[i];
 	  }
-	  if (i < MAX_POINTS) r[i] = -r[i];
+	  if (i < MAX_POINTS) r[i] = r0 - r[i];
 	} else {
 	  i = i1 - 1;
-	  r[i] = -r[i];
+	  r[i] = r0 - r[i];
 	  i = i1 + 1;
-	  if (i < MAX_POINTS) r[i] = -r[i];
+	  if (i < MAX_POINTS) r[i] = r0 - r[i];
 	}
       }
       if (t < 0) {
@@ -2944,7 +2973,7 @@ int IntegrateSubRegion(int i0, int i1,
 	_phase[j] = large1[ip] - large2[ip];
 	j++;
       }
-      IntegrateSinCos(j, x, y, _phase, _dphasep, i0, r1, t, ext);
+      IntegrateSinCos(j, NULL, y, _phase, _dphasep, i0, r1, t, ext);
       if (t < 0) {
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
@@ -3211,7 +3240,7 @@ int IntegrateSinCos(int j, double *x, double *y,
   z = _dwork10;
   u = _dwork11;
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
-    h = dphase[i-1]+dphase[i];
+    h = fabs(dphase[i-1]+dphase[i]);
     dr = potential->rad[k] - potential->rad[k-2];
     if (h*dr > 0.5) break;
     z[i] = 0.0;
@@ -3444,58 +3473,60 @@ int ReinitRadial(int m) {
   return 0;
 }
   
-int TestIntegrate(char *s) {
-  ORBITAL *orb1, *orb2, *orb3;
+int TestIntegrate(void) {
+  ORBITAL *orb1, *orb2, *orb3, *orb4;
   int k1, k2, k3, i;
-  double r;
-  FILE *f;
+  double r, s[6];
   
-  orb1 = GetOrbital(0);
+  orb1 = GetOrbital(1);
   orb2 = GetOrbital(3);
-  printf("%d %d %d %d \n", orb1->n, orb1->kappa, orb2->n, orb2->kappa);
-  GetYk(1, _yk, orb1, orb2, -2); 
   
   for (i = 0; i < MAX_POINTS; i++) {  
-    _yk[i] /= potential->rad[i];  
-  }  
-  i = 15;
-  r = 1e4/27.2;
-  k1 = OrbitalIndex(0, i-1, 6.8E2/27.2 +r);    
-  k2 = OrbitalIndex(0, i, r);    
-  k3 = OrbitalIndex(0, i+1, 6.8E2/27.2 +r);     
-  
-  orb1 = GetOrbital(k1); 
-  orb2 = GetOrbital(k2);   
-  orb3 = GetOrbital(k3);   
- 
-  Integrate(_yk, orb1, orb2, 2, &r);
-  printf("%10.3E\n", r);
-  Integrate(_yk, orb1, orb2, -2, _xk);  
-  
-  f = fopen(s, "w"); 
-  for (i = 0; i < MAX_POINTS; i++) { 
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
-	    i, potential->rad[i],   
-	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
-	    potential->U[i], 
-	    Large(orb1)[i], Large(orb2)[i],  
-	    Large(orb3)[i]); 
+    r = potential->rad[i];   
+    _yk[i] = BESLJN(1, 1, r);
   }
 
-  Integrate(_yk, orb3, orb2, 2, &r);
-  printf("%10.3E\n", r);
-  Integrate(_yk, orb3, orb2, -2, _xk);  
-  fprintf(f, "\n\n\n"); 
-  for (i = 0; i < MAX_POINTS; i++) { 
-    fprintf(f, "%d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",  
-	    i, potential->rad[i],   
-	    _yk[i], _zk[i], _xk[i], potential->Vc[i], 
-	    potential->U[i], 
-	    Large(orb1)[i], Large(orb2)[i],  
-	    Large(orb3)[i]); 
+  r = 1e3/27.2;
+  k1 = OrbitalIndex(0, -2, r);
+  orb3 = GetOrbitalSolved(k1);
+
+  r = 4e3/27.2;
+  k2 = OrbitalIndex(0, -1, r);
+  orb4 = GetOrbitalSolved(k2);
+  /*
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb1, orb2, i+1, &s[i]);
   }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb2, orb1, i+1, &s[i]);
+  }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb1, orb3, i+1, &s[i]);
+  }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
 
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb3, orb1, i+1, &s[i]);
+  }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
+  */
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb3, orb4, i+1, &s[i]);
+  }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
 
-  fclose(f); 
+  for (i = 0; i < 6; i++) {
+    Integrate(_yk, orb4, orb3, i+1, &s[i]);
+  }
+  printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	 s[0], s[1], s[2], s[3], s[4], s[5]);
+
   return 0;
 }

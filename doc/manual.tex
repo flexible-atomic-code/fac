@@ -2064,6 +2064,37 @@ optional channel number \var{c} can be supplied as an identification of the
 transition array.
 \end{fundesc}
 
+\begin{fundesc}{Asymmetry}{fn, s\opt{, m}}
+Calculate the photoionization asymmetry parameters for given relativistic
+subshells. \var{s} is a string which gives the subshells. It should be in
+spectroscopic notation, e.g., '1s' for $1s_{1/2}$, '2p' for $2p_{1/2,3/2}$
+shells, '3p-' for $3p_{1/2}$ and '3p+' for $3p_{3/2}$, etc. The optional
+\var{m} specifies the maximum multipole expansion, counting in the order E1,
+M1, E2, M2, ..., therefore, $m=1$ includes only E1, $m=2$ includes E1 and M1,
+etc. Default is $m=1$. The results are stored in file \var{fn}. For each
+subshell, the output starts with one line indicating which subshell it is,
+its $nlj$ values, the ionization energy, the number of energy points, and the
+value of \var{m} used. It is followed by a block, which contains one line for
+each energy point and tabulates the electron energy, photon energy, total
+photoionization cross section ($10^{-20}$ cm$^2$), cross section for electron
+direction perpendicular to that of photon, the total radiative recombination
+cross section, the cross section at 90$^\circ$, and the ratio of
+$\sigma_\perp$/$sigma_\parallel$, where $\sigma_\perp$ is the 90$^\circ$
+radiative cross section for photons polarized in the direction perpendicular
+to the electron direction, and $\sigma_\parallel$ is the 90$^\circ$ cross
+section for photons polarized in the direction parallel to the electron
+direction. The last piece of data for each subshell are the $B_\lambda$ and
+$B_\lambda^\phi$ parameters defined as
+\begin{equation}
+\frac{d\sigma}{d\Omega}=\frac{\sigma}{4\pi}\left[\sum_{\lambda\ge 0} B_\lambda
+  P_{\lambda}(\cos\theta) - \sum_{\lambda\ge 2} \lambda^{-1}(\lambda-1)^{-1}
+  B_\lambda^\phi P_{\lambda}^2(\cos\theta)\cos(2\phi)\right],
+\end{equation}
+where $\sigma$ is the total cross section, $\theta$ is the angle between the
+electron and photon directions, $\phi$ is the azimuth angle of polarization
+direction of the photon relative to the electron direction.
+\end{fundesc}
+
 \begin{fundesc}{AvgConfig}{c}
 Setup a mean configuration for the optimization of central potential as
 specified by a string \var{c}. The format of the string is the same as in the
