@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.24 2003/04/22 16:07:15 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.25 2003/07/14 16:27:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -25,7 +25,7 @@ static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
 static double *_dwork = NULL;
 static int _nm_min = 100;
-static int _nm_max = 50000;
+static int _nm_max = 10000;
 static int _nm_factor = 100;
 static int _nm = 0;
 

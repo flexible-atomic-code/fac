@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.47 2003/07/11 19:10:56 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.48 2003/07/14 16:27:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1290,7 +1290,7 @@ void PrepCECrossHeader(CE_HEADER *h, double *data) {
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, 
-		       F_HEADER *fh, double *data) {
+		       double *data) {
   double *eusr, *x, *y, *logx, *w;
   double e, tcs[MAXNUSR];
   float *cs;
@@ -1306,9 +1306,6 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   w = logx + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
-  if (VersionGE(fh, 0, 9, 9)) {
-    x[0] = h->te0/(h->te0 + r->born[1]);
-  }
   
   cs = r->strength;
 
@@ -1462,7 +1459,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 		r.upper, mem_en_table[r.upper].j,
 		e*HARTREE_EV, negy, r.nsub);
 	for (k = 0; k < r.nsub; k++) {
-	  PrepCECrossRecord(k, &r, &h, &fh, data);
+	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
 	    cs = InterpolateCECross(egy[t], &r, &h, data, &ratio);
 	    a = egy[t]/HARTREE_EV;

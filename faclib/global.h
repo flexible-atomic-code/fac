@@ -66,9 +66,9 @@
 ** PURPOSE:     tracking the version.
 ** NOTE:        
 */
-#define VERSION        0
-#define SUBVERSION     9
-#define SUBSUBVERSION  9
+#define VERSION        1
+#define SUBVERSION     0
+#define SUBSUBVERSION  0
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))
@@ -284,6 +284,9 @@
 #define RECNFROZEN         8
 #define RECLMAX            12
 #define AICUT              1E-16
+
+/* polarization */
+#define MAXPOL             4 /* maximum multipol for polarization */
 
 /* choose multi-array implementation */
 /*

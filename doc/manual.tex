@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.9}\xspace}
+\newcommand{\facversion}{{1.0.0}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -159,16 +159,18 @@ actually contains functions to do the convertion automatically. Through out
 this manuall, we mainly focus on the more useful Python interface. Most of the
 Python fuctions implemented in the extension modules are also available in
 SFAC interface with identical calling sequences. To use SFAC, one passes the
-input files to the two executables \verb|sfac| and \verb|scrm| on the command
-line such as 
+input files to the 3 executables \verb|sfac|, \verb|scrm| and \verb|spol| on
+the command line such as 
 \begin{verbatim}
     sfac input.sf
     scrm input.sf
 \end{verbatim}
 or, one may invoke \verb|sfac| and \verb|scrm| without arguments, in which
 case, they read from \verb|stdin| for inputs, where commands are interpreted
-line by line. The program \verb|sfac| handles atomic calculations, while
-\verb|scrm| is used to construct collisional radiative spectral models.
+line by line. The program \verb|sfac| handles atomic calculations,
+\verb|scrm| is used to construct collisional radiative spectral models, and 
+\verb|spol| is used to calculate line polarizations due to collisional
+excitation. 
 
 \subsection{PFAC Interface}
 To use the PFAC interface, one needs to be familiar with the basics of Python
@@ -1851,9 +1853,10 @@ This chapter describes the functions available in the PFAC interface which are
 organized in the package named \mod{pfac}. Each
 python module is documented in a separate section, where the global variables,
 functions, classes are listed in alphabetic order. All functions in the
-extension modules \mod{fac} and \mod{crm} are also available in SFAC interface
-with identical calling syntax using the two executables \mod{sfac} and
-\mod{scrm}, unless otherwise indicated explicitly. Their usage in SFAC
+extension modules \mod{fac}, \mod{crm}, and \mod{pol} are also available in
+SFAC interface with identical calling syntax using the 3 executables
+\mod{sfac}, \mod{scrm}, and \mod{spol}, unless otherwise indicated
+explicitly. Their usage in SFAC 
 interface is therefore not documented separately. Functions and classes of
 other python modules are generally not implemented in SFAC interface. In the
 documentation of each function, the arguments in brackets are optional,
@@ -3097,6 +3100,57 @@ photo-excitation rates are also set.
 Output the level populations and line emissivities to the \key{DB\_SP}
 database file \var{fn}. If \var{rrc}=1, the radiative recombination continuum
 strength should also be included.
+\end{fundesc}
+
+\section{\mod{pol}--Line Polarizations}
+\label{sec:pol}
+\index{pol}
+This module is used to calculate line polarizations due to electron
+collisional excitation. It takes into account the radiative cascades effects
+if the atomic data provided include the necessary transitions.
+\subsection{Functions}
+\begin{fundesc}{CloseSPOL}{}
+Close the file containing the SFAC input file converted from the current
+Python script. This function must be called after \key{ConvertToSPOL}. Only the
+statements between the call to \key{ConvertToSPOL} and \key{CloseSPOL} are
+converted to SFAC input file. This routine is only available in PFAC interface.
+\end{fundesc}
+
+\begin{fundesc}{ConvertToSPOL}{}
+Converts the statements between this call and the \key{CloseSPOL} call to SFAC
+input file \var{fn}. The resulting file can then be run using the \key{spol}
+executable. This routine is only available in PFAC interface.
+\end{fundesc}
+
+\begin{fundesc}{PolarizationTable}{fn}
+Calcuates the line polarizations, and output the results to file \var{fn} in a
+simple ASCII format. It contains 7 columns, which are lower level index, upper
+level index, multipole type, transition energy, total line emissivity,
+emission anisotropy at $90^\circ$, and linear polarization, respectively.
+\end{fundesc}
+
+\begin{fundesc}{PopulationTable}{fn, den}
+Calculate the magnetic sublevel populations at electron density \var{den}, and
+output the results to file \var{fn} in a simple ASCII format. For each level,
+it tabulates the total population and magnetic sublevel fractions.
+\end{fundesc}
+
+\begin{fundesc}{Print}{args}
+Print out the string representation of \var{args}. This function exists to
+asist the conversion to SFAC interface, since Python's \key{print} statement
+is not converted.
+\end{fundesc}
+
+\begin{fundesc}{SetMCERates}{fn, E}
+Setup the magnetic sublevel excitation rates at electron energy
+\var{E}. Excitation cross sections are interpolated from the binary data file
+\var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{SetMLevels}{efn, tfn}
+Setup the magnetic sublevel table and the radiative transitions rates between
+them. \var{efn} is the binary data file for energy levels, and \var{tfn} is
+that of transition rates.
 \end{fundesc}
 
 \section{\mod{util}--Utility Functions}

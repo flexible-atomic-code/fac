@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.56 2003/07/11 19:10:56 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.57 2003/07/14 16:27:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3505,9 +3505,6 @@ int SetCERates(int inv) {
 	e = ion->energy[r.upper] - ion->energy[r.lower];
 	data[1] = r.bethe;
 	cs = r.strength;
-	if (VersionGE(&fh, 0, 9, 9)) {
-	  x[0] = h.te0/(h.te0+r.born[1]);
-	}
 	y[0] = r.born[0];
 	if (r.bethe <= 0) {
 	  for (j = 0; j < m; j++) {
@@ -3578,9 +3575,6 @@ int SetCERates(int inv) {
 	  e = ion0.energy[q] - ion0.energy[p];
 	  data[1] = r.bethe;	
 	  cs = r.strength;
-	  if (VersionGE(&fh, 0, 9, 9)) {
-	    x[0] = h.te0/(h.te0 + r.born[1]);
-	  }
 	  y[0] = r.born[0];
 	  if (r.bethe <= 0) {
 	    for (j = 0; j < m; j++) {

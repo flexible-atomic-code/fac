@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.15 2003/05/14 21:59:59 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.16 2003/07/14 16:27:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -18,7 +18,7 @@ USE (rcsid);
 **************************************************************/
 
 /*
-** VARIABLE:    max_rank = 12
+** VARIABLE:    max_rank
 ** TYPE:        static int
 ** PURPOSE:     the maximum rank of the operators allowed.
 ** NOTE:        the ranks are represented by an integer that is
