@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.61 2003/10/13 23:43:43 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.62 2003/11/06 15:53:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -15,7 +15,7 @@ static double *bmatrix = NULL;
 
 static int n_single_blocks = 64;
 
-static int rec_cascade = 1;
+static int rec_cascade = 0;
 static double cas_accuracy = EPS4;
 static int max_iter = 256;
 static double iter_accuracy = EPS4;
