@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.23 2002/02/05 21:55:13 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.24 2002/02/12 20:32:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

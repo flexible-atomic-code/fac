@@ -15,9 +15,9 @@
 #define DB_RT 8
 #define NDB   DB_RT
 
-#define LNCOMPLEX   20
-#define LSNAME      20
-#define LNAME       50
+#define LNCOMPLEX   24
+#define LSNAME      24
+#define LNAME       56
 
 typedef struct _F_HEADER_ {
   time_t tsession;
@@ -170,6 +170,10 @@ typedef struct _SP_HEADER_ {
   long int length;
   int nele;
   int ntransitions;
+  int iblock;
+  int fblock;
+  char icomplex[LNCOMPLEX];
+  char fcomplex[LNCOMPLEX];
   int type;
   int iedist;
   int np_edist;
@@ -193,13 +197,14 @@ typedef struct _RT_HEADER_ {
   long int length;
   int nele;
   int ntransitions;
+  int iblock;
+  char icomplex[LNCOMPLEX];
   int iedist;
   int np_edist;
   double *p_edist;
   int ipdist;
   int np_pdist;
   double *p_pdist;
-  int iblock;
   float nb;
 } RT_HEADER;
 
@@ -223,6 +228,7 @@ int PrintTable(char *ifn, char *ofn, int v);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
+int LevelName(char *fn, int ilev, char *cname, char *sname, char *name);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);

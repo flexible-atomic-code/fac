@@ -21,7 +21,14 @@ typedef struct _RECOMBINED_ {
   int nrec[MAXNREC];
 } RECOMBINED;
 
+typedef struct _NCOMPLEX_ {
+  short n;
+  short nq;
+} NCOMPLEX;
+
+#define MAXNCOMPLEX 8
 typedef struct _LBLOCK_ {
+  int ib;
   int iion;
   int irec;
   RECOMBINED *rec;
@@ -30,6 +37,7 @@ typedef struct _LBLOCK_ {
   double *n, *n0;
   double *r;
   double *total_rate;
+  NCOMPLEX ncomplex[MAXNCOMPLEX];
 } LBLOCK;
 
 typedef struct _BLK_RATE_ {
@@ -40,7 +48,7 @@ typedef struct _BLK_RATE_ {
 
 typedef struct _ION_ {
   int nlevels;
-  int *iblock;
+  LBLOCK **iblock;
   int *ilev;
   short *j;
   double *energy;
@@ -53,6 +61,7 @@ typedef struct _ION_ {
   int nele;
   char *dbfiles[NDB];
   double n;
+  NCOMPLEX ce_max;
 } ION;
 
 typedef struct _IONIZED_ {
@@ -75,6 +84,7 @@ typedef struct _RATE_ {
 int SetNumSingleBlocks(int n);
 int SetEleDensity(double ele);
 int SetPhoDensity(double pho);
+int SetCascade(int c, double a);
 int SetIteration(double acc, double s, int max);
 int InitCRM(void);
 int ReinitCRM(int m);
@@ -83,6 +93,11 @@ int IonizedIndex(int i, int m);
 int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1, 
 		   int nele, char *ifn);
 void GetRecombined(int *b, int *nrec, char *name);
+int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);
+int GetNComplex(NCOMPLEX *c, char *s);
+int CompareNComplex(NCOMPLEX *c1, NCOMPLEX *c2);
+int StrNComplex(char *s, NCOMPLEX *c);
+int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc);
 void ExtrapolateEN(int i, ION *ion);
 int FindFinalTR(ION *ion, int f, int n1, int n0);
 void ExtrapolateTR(ION *ion);
@@ -91,7 +106,7 @@ void ExtrapolateAI(ION *ion);
 int SetBlocks(double ni, char *ifn);
 int SetAbund(int nele, double abund);
 int InitBlocks(void);
-void AddRate(ION *ion, ARRAY *rts, RATE *r);
+void AddRate(ION *ion, ARRAY *rts, RATE *r, int m);
 int SetCERates(int inv);
 int SetTRRates(int inv);
 int SetCIRates(int inv);
@@ -104,9 +119,9 @@ double BlockRelaxation(int iter);
 int LevelPopulation(void);
 int Cascade(void);
 int SpecTable(char *fn, double smin);
-int SelectLines(char *ifn, char *ofn, int type, 
-		double emin, double emax);
-int PlotSpec(char *ifn, char *ofn, int type,
+int SelectLines(char *ifn, char *ofn, int nele, int type, 
+		double emin, double emax, double fmin);
+int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	     double emin, double emax, double de, double smin);
 
 #endif

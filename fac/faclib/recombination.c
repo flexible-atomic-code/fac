@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.42 2002/02/05 21:55:12 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.43 2002/02/12 20:32:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

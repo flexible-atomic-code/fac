@@ -1,3 +1,9 @@
+Version 0.7.1, 02/12/2001
+	1. add pfac.spm module for processing spectral data
+	2. LevelName function added
+	3. reimplement the output of spectra data to better distinguish
+	   different type of transitions.
+	
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
 	2. implement extrapolation on recombined states.

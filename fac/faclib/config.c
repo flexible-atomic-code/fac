@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.16 2002/02/06 18:28:52 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.17 2002/02/12 20:32:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

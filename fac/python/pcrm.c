@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.7 2002/02/04 15:48:34 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.8 2002/02/12 20:32:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -272,7 +272,25 @@ static PyObject *PSetRateAccuracy(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+    
+static PyObject *PSetCascade(PyObject *self, PyObject *args) {
+  int c;
+  double a;
   
+  if (scrm_file) {
+    SCRMStatement("SetCascade", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  a = 0.0;
+  if (!PyArg_ParseTuple(args, "i|d", &c, &a)) return NULL;
+  SetCascade(c, a);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PSetIteration(PyObject *self, PyObject *args) {
   int maxiter;
   double a, s;
@@ -368,7 +386,7 @@ static PyObject *PSpecTable(PyObject *self, PyObject *args) {
 static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   char *fn1, *fn2;
   double emin, emax, de, smin;
-  int type;
+  int nele, type;
 
   if (scrm_file) {
     SCRMStatement("PlotSpec", args, NULL);
@@ -376,12 +394,12 @@ static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  smin = EPS10;
-  if (!PyArg_ParseTuple(args, "ssiddd|d", 
-			&fn1, &fn2, &type, &emin, &emax, &de, &smin))
+  smin = EPS6;
+  if (!PyArg_ParseTuple(args, "ssiiddd|d", 
+			&fn1, &fn2, &nele, &type, &emin, &emax, &de, &smin))
     return NULL;
       
-  PlotSpec(fn1, fn2, type, emin, emax, de, smin);
+  PlotSpec(fn1, fn2, nele, type, emin, emax, de, smin);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -500,6 +518,25 @@ static PyObject *PFreeMemENTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PLevelName(PyObject *self, PyObject *args) { 
+  char *fn;
+  int i, k;
+  char cname[LNCOMPLEX];
+  char sname[LSNAME];
+  char name[LNAME];
+  
+  if (!PyArg_ParseTuple(args, "si", &fn, &i)) return NULL;
+
+  k = LevelName(fn, i, cname, sname, name);
+  if (k < 0) return NULL;
+  if (k > 0) {
+    cname[0] = '\0';
+    sname[0] = '\0';
+    name[0] = '\0';
+  }
+  return Py_BuildValue("(sss)", cname, sname, name);
+}
+  
 static PyObject *PMemENTable(PyObject *self, PyObject *args) { 
   char *fn;
   
@@ -659,8 +696,8 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
 
 static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
-  double emin, emax;
-  int type;
+  double emin, emax, fmin;
+  int nele, type;
 
   if (scrm_file) {
     SCRMStatement("SelectLines", args, NULL);
@@ -668,10 +705,12 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ssidd", &ifn, &ofn, &type, &emin, &emax)) 
+  fmin = EPS6;
+  if (!PyArg_ParseTuple(args, "ssiidd|d", 
+			&ifn, &ofn, &nele, &type, &emin, &emax, &fmin)) 
     return NULL;
   
-  SelectLines(ifn, ofn, type, emin, emax);
+  SelectLines(ifn, ofn, nele, type, emin, emax, fmin);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -745,6 +784,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
+  {"SetCascade", PSetCascade, METH_VARARGS},
   {"SetIteration", PSetIteration, METH_VARARGS},
   {"SetRateAccuracy", PSetRateAccuracy, METH_VARARGS},
   {"SetBlocks", PSetBlocks, METH_VARARGS},
@@ -763,6 +803,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
+  {"LevelName", PLevelName, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},

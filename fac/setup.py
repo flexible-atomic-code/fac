@@ -21,7 +21,7 @@ os.system("make doc")
 setup(name = "FAC",
       version = "0.6.8",
       package_dir = {'pfac': 'python'},
-      py_modules = ['pfac.const', 'pfac.config', 'pfac.atom'],
+      py_modules = ['pfac.const', 'pfac.config', 'pfac.atom', 'pfac.spm'],
       ext_modules = [Extension("pfac.fac",
                                ["python/fac.c"],
                                include_dirs = incdir,

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.5 2002/02/04 15:48:35 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.6 2002/02/12 20:32:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -143,6 +143,22 @@ static int PSetRateAccuracy(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetCascade(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int c;
+  double a;
+
+  if (argc == 0 || argc > 2) return -1;
+
+  c = atoi(argv[0]);
+  a = 0.0;
+  if (argc > 1) a = atof(argv[1]);
+  
+  SetCascade(c, a);
+  
+  return 0;
+}
+
 static int PSetIteration(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int maxiter;
@@ -218,24 +234,41 @@ static int PSpecTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSelectLines(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  double emin, emax, fmin;
+  int nele, type;
+  
+  if (argc != 6 && argc != 7) return -1;
+  nele = atoi(argv[2]);
+  type = atoi(argv[3]);
+  emin = atof(argv[4]);
+  emax = atof(argv[5]);
+  fmin = EPS6;
+  if (argc == 7) fmin = atof(argv[6]);
+  SelectLines(argv[0], argv[1], nele, type, emin, emax, fmin);
+  return 0;
+}
+
 static int PPlotSpec(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
   double emin, emax, de, smin;
-  int type;
+  int nele, type;
 
-  if (argc != 6 && argc != 7) return -1;
+  if (argc != 7 && argc != 8) return -1;
   
-  type = atoi(argv[2]);
-  emin = atof(argv[3]);
-  emax = atof(argv[4]);
-  de = atof(argv[5]);
-  if (argc == 7) {
-    smin = atof(argv[6]);
+  nele = atoi(argv[2]);
+  type = atoi(argv[3]);
+  emin = atof(argv[4]);
+  emax = atof(argv[5]);
+  de = atof(argv[6]);
+  if (argc == 8) {
+    smin = atof(argv[7]);
   } else {
-    smin = EPS10;
+    smin = EPS6;
   }
 
-  PlotSpec(argv[0], argv[1], type, emin, emax, de, smin);
+  PlotSpec(argv[0], argv[1], nele, type, emin, emax, de, smin);
   
   return 0;
 }
@@ -381,6 +414,7 @@ static METHOD methods[] = {
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
+  {"SetCascade", PSetCascade, METH_VARARGS},
   {"SetIteration", PSetIteration, METH_VARARGS},
   {"SetRateAccuracy", PSetRateAccuracy, METH_VARARGS},
   {"SetBlocks", PSetBlocks, METH_VARARGS},
@@ -397,6 +431,7 @@ static METHOD methods[] = {
   {"Cascade", PCascade, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
+  {"SelectLines", PSelectLines, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
