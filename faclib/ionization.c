@@ -2,6 +2,10 @@
 
 #define NINT 31
 
+static int egrid_type = -1;
+static int usr_egrid_type = -1;
+static int pw_type = -1;
+
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
@@ -67,6 +71,12 @@ int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
 int SetCIEGridDetail(int n, double *xg) {
   n_egrid = SetEGridDetail(egrid, log_egrid, n, xg);
   return n_egrid;
+}
+
+int SetCIEGridType(int utype, int etype) {
+  if (utype >= 0) usr_egrid_type = utype;
+  if (etype >= 0) egrid_type = etype;
+  return 0;
 }
 
 int SetCIEGrid(int n, double emin, double emax, double eth) {
@@ -440,6 +450,9 @@ int IonizeStrength(double *s, double *te, int b, int f) {
 
   for (j = 0; j < n_usr; j++) {
     e = usr_egrid[j];
+    if (usr_egrid_type == 0) {
+      e -= (*te);
+    }
     ehalf = e*0.5;
     yr[0] = 0;
     nt = NINT-1;
@@ -523,12 +536,25 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   e = 0.5*(emin + emax);
   emin = 0.1*e;
   emax = 8.0*e;
+  egrid_type = 1;
+  pw_type = 0;
+  if (usr_egrid_type < 0) usr_egrid_type = 1;
+
   if (n_usr == 0) {
     n_usr = 6;
   }
   if (usr_egrid[0] < 0.0) {
     if (n_egrid > n_usr) {
       SetUsrCIEGridDetail(n_egrid, egrid);
+      if (egrid_type == 0 && usr_egrid_type == 1) {
+	for (i = 0; i < n_egrid; i++) {
+	  usr_egrid[i] -= e;
+	}
+      } else if (egrid_type == 1 && usr_egrid_type == 0) {
+	for (i = 0; i < n_egrid; i++) {
+	  usr_egrid[i] += e;
+	}
+      }      
     } else {
       SetUsrCIEGrid(n_usr, emin, emax, e);
     }
@@ -538,7 +564,10 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    emax = Min(usr_egrid[n_usr-1], emax);
+    if (usr_egrid_type == 0) 
+      emax = Min(usr_egrid[n_usr-1]-e, emax);
+    else 
+      emax = Min(usr_egrid[n_usr-1], emax);
     SetCIEGrid(n_egrid, emin, emax, e);
   }
 
@@ -548,7 +577,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   
   e = GetResidualZ();
   PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
-		   pw_scratch.nkl, pw_scratch.kl, 0);
+		   pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);
   
   fprintf(file, " IEGRID:   ");
   for (i = 0; i < n_tegrid; i++) {
@@ -560,7 +589,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   for (i = 0; i < n_egrid; i++) {
     fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
   }
-  fprintf(file, "\n\n");
+  fprintf(file, "\n");
+  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid\n\n");
+  else fprintf(file, " Scattered Electron UsrEGrid\n\n");
 
   fprintf(file, "Bound 2J\tFree  2J\tDelta_E\n");
 

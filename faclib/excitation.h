@@ -32,6 +32,7 @@ int SetCETEGridDetail(int n, double *x);
 int SetCEPWOptions(int qr, int max, int kl_cb, double tol);
 int AddCEPW(int n, int step);
 int SetCEPWGrid(int ns, int *n, int *step);
+int SetCEEGridType(int utype, int etype, int ltype);
 int SetCEEGridDetail(int n, double *x);
 int SetCEEGrid(int n, double emin, double emax, double eth);
 int SetUsrCEEGridDetail(int n, double *x);
@@ -39,7 +40,7 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 
 int CERadialPk(int *nkappa, int *nkl, double **pk, 
 	       short **kappa0, short **kappa1, int ie,
-	       int k0, int k1, int k, int mode);
+	       int k0, int k1, int k);
 int CERadialQk(double *r, int ie, double te, 
 		  int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
