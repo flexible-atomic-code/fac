@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.23 2003/03/09 22:10:25 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.24 2003/03/10 21:58:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -500,7 +500,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
   } else {
     x0 = (e + r[3])/r[3];
     logx0 = log(x0);
-    a = logx0*(-3.5-dp[0]+0.5*r[1]);
+    a = logx0*(-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
     if (r[0] > 0.0) {
       f = log(r[0]*((e+eth)/(e+r[3]))) + a + b;
@@ -514,7 +514,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
   a = a*a;
   a = a/(2.0*HARTREE_EV*e);
   c *= a*VelocityFromE(e);
-
+  
   return c;
 }
 
@@ -541,7 +541,7 @@ double PIRate1E(double e, double eth, int np, void *p) {
   } else {
     x0 = (e-eth+r[3])/r[3];
     logx0 = log(x0);
-    a = logx0*(-3.5-dp[0]+0.5*r[1]);
+    a = logx0*(-dp[0]+0.5*r[1]);
     b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
     if (r[0] > 0) {
       f = log(r[0]*e/(e-eth+r[3])) + a + b;
