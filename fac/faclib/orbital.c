@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.30 2002/08/03 02:27:49 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.31 2002/08/03 13:47:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -191,11 +191,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     delta = 0.5*p2*(qo - qi)/norm2;
     ep = e+delta;
     fact = e/ep;
-    if (fact > x1) {
+    if (fact < 0.0 || fact > x1) {
       ep = e + (emax - e)*0.1;
       emin = e;
-    }
-    if (fact < x2) {
+    } else if (fact < x2) {
       ep = e + (emin - e)*0.1;
       emax = e;
     }
@@ -336,6 +335,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       if (niter > max_iteration) {
 	printf("MAX iteration reached in Bound.\n");
 	printf("%10.3E %10.3E %10.3E %10.3E\n", e, e0, qo, qi);
+	free(p);
 	return -4;
       }
       SetPotentialW(pot, e, orb->kappa);
@@ -390,18 +390,13 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       if (niter > max_iteration) {
 	printf("MAX iteration reached in Bound.\n");
 	printf("%10.3E %10.3E %10.3E %10.3E\n", e, e0, qo, qi);
+	free(p);
 	return -5;
       }
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
     }
   }
-
-  if (niter == max_iteration) {
-    printf("MAX iteration reached in RadialRydberg, for N=%d, Kappa=%d\n",
-	   orb->n, orb->kappa);
-    return -3;
-  } 
 
   for (i = MAX_POINTS-1; i >= 0; i--) {
     if (fabs(p[i]) > wave_zero) break;
