@@ -16,7 +16,7 @@
 #include "recombination.h"
 #include "ionization.h"
 
-static char *rcsid="$Id: fac.c,v 1.5 2001/10/19 22:45:40 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.6 2001/10/22 18:42:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -973,6 +973,19 @@ static PyObject *PSetCEGridType(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PSetCEGridLimits(PyObject *self, PyObject *args) {
+  double emin, emax;
+  int type;
+
+  emin = -1;
+  emax = -1;
+  type = 0;
+  if (!PyArg_ParseTuple(args, "|ddi", &emin, &emax, &type)) return NULL;
+  SetCEEGridLimits(emin, emax, type);
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
+
 static PyObject *PSetCEGrid(PyObject *self, PyObject *args) {
   int n;
   double xg[MAXNE];
@@ -1301,6 +1314,19 @@ static PyObject *PSetRRTEGrid(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetPEGridLimits(PyObject *self, PyObject *args) {
+  double emin, emax;
+  int type;
+
+  emin = -1;
+  emax = -1;
+  type = 0;
+  if (!PyArg_ParseTuple(args, "|ddi", &emin, &emax, &type)) return NULL;
+  SetPEGridLimits(emin, emax, type);
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
+
 static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {  
   int n;
   double xg[MAXNE];
@@ -1625,6 +1651,18 @@ static PyObject *PSetCIFormat(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PSetCIEGridLimits(PyObject *self, PyObject *args) {
+  double emin, emax;
+  int type;
+  emin = -1;
+  emax = -1;
+  type = 0;
+  if (!PyArg_ParseTuple(args, "|ddi", &emin, &emax, &type)) return NULL;
+  SetCIEGridLimits(emin, emax, type);
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
 
 static PyObject *PSetCIEGrid(PyObject *self, PyObject *args) {
   int n;
@@ -2034,12 +2072,14 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCIFormat", PSetCIFormat, METH_VARARGS},
   {"SetCIEGrid", PSetCIEGrid, METH_VARARGS},
+  {"SetCIEGridLimits", PSetCIEGridLimits, METH_VARARGS},
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
+  {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
@@ -2050,6 +2090,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetTransitionOptions", PSetTransitionOptions, METH_VARARGS},
   {"SetUsrCEGrid", PSetUsrCEGrid, METH_VARARGS},
   {"SetUsrCEGridType", PSetUsrCEGridType, METH_VARARGS},
+  {"SetCEGridLimits", PSetCEGridLimits, METH_VARARGS},
   {"SetCEGridType", PSetCEGridType, METH_VARARGS},
   {"SetCEPWGridType", PSetCEPWGridType, METH_VARARGS},
   {"SetUsrCIEGrid", PSetUsrCIEGrid, METH_VARARGS},

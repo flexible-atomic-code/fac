@@ -17,6 +17,7 @@ int SetCIFormat(int m);
 int SetCIEGrid(int n, double emin, double emax, double eth);
 int SetCIEGridDetail(int n, double *x);
 int SetCIFormat(int m);
+int SetCIEGridLimits(double min, double max, int type);
 int SetUsrCIEGridType(int type);
 int SetUsrCIEGrid(int n, double emin, double emax, double eth);
 int SetUsrCIEGridDetail(int n, double *x);

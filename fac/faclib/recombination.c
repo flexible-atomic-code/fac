@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.29 2001/10/19 23:05:00 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.30 2001/10/22 18:42:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -18,6 +18,9 @@ static double log_egrid[MAXNE];
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
+static double egrid_min = 0.05;
+static double egrid_max = 8.0;
+static int egrid_limits_type = 0;
 
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
@@ -64,6 +67,16 @@ int SetRRTEGridDetail(int n, double *x) {
 
 int SetUsrPEGridType(int type) {
   if (type >= 0) usr_egrid_type = type;
+  return 0;
+}
+
+int SetPEGridLimits(double min, double max, int type) {
+  if (min <= 0) egrid_min = 0.05;
+  else egrid_min = min;
+  if (max <= 0) egrid_max = 8.0;
+  else egrid_max = max;
+  egrid_limits_type = type;
+
   return 0;
 }
 
@@ -430,7 +443,7 @@ double *RRRadialQkTable(int k0, int k1, int m) {
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
   double *rqe, rq[MAXNTE];
-  double x0, tq[MAXNE];
+  double x0;
 
   rqe = RRRadialQkTable(k0, k1, m);
   if (rqe == NULL) return -1;
@@ -705,7 +718,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int j1, j2, nlow0;
   LEVEL *lev1, *lev2;
   double e, emin, emax;
-  double awmin, awmax;
+  double awmin, awmax, rmin, rmax;
 
   f = fopen(fn, "w");
 
@@ -756,8 +769,15 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
 
   e = 0.5*(emin + emax);
-  emin = 0.05*e;
-  emax = 8.0*e;
+  if (egrid_limits_type == 0) {
+    rmin = egrid_min;
+    rmax = egrid_max;
+  } else {
+    rmin = egrid_min/e;
+    rmax = egrid_max/e;
+  }
+  emin = rmin*e;
+  emax = rmax*e;
   egrid_type = 1;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
   interpolate_egrid = 1;
@@ -775,7 +795,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     } else {
       if (n_usr > 0) {
 	emin = usr_egrid[0];
-	emax = usr_egrid[n_usr-1];
+	emax = Min(usr_egrid[n_usr-1], rmax*e);
+	if (emin > 0.5*emax) emin = rmin*e;
 	if (usr_egrid_type == 0) {
 	  emin -= e;
 	  emax -= e;
@@ -794,7 +815,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     log_egrid[j] = log(egrid[j] + e);
   }
   for (j = 0; j < n_usr; j++) {
-    log_usr[j] = log(usr_egrid[j] + e);
+    log_usr[j] = usr_egrid[j];
+    if (usr_egrid_type == 1) log_usr[j] += e;
+    log_usr[j] = log(log_usr[j]);
   }
 
   if (m < 0) t = 'E';
@@ -1281,6 +1304,7 @@ int InitRecombination() {
   }
   n_egrid = 0;
   egrid[0] = -1.0;
+  SetPEGridLimits(-1, -1, 0);
   n_usr = 0;
   usr_egrid[0] = -1.0;
   
