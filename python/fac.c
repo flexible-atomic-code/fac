@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.51 2003/04/21 02:21:36 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.52 2003/04/22 16:07:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2066,21 +2066,23 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   m = 10000;
 
   for (i = 0; i < m; i++) {
-    ArraySet(&a, i, &d);
+    ArraySet(&a, i, &d, InitDoubleData);
   }
 
   b = (double *) ArrayGet(&a, 100);
   b = (double *) ArrayGet(&a, 200);
 
+  printf("array set\n"); 
   ArrayFree(&a, 0);
+  printf("array freed\n");
 
   MultiInit(&ma, sizeof(double), 3, block);
-  for (i = 100; i < 200; i++) {
+  for (i = 0; i < 500; i++) {
     for (j = 100; j < 4000; j++) {
       k[0] = i;
       k[1] = j;
       k[2] = 20;
-      b = (double *) MultiSet(&ma, k, NULL);
+      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData);
       *b = 0.2;
       b = (double *) MultiGet(&ma, k);
     }

@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.10 2003/01/22 21:58:02 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.11 2003/04/22 16:07:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,6 +34,47 @@ int GetArrayTiming(ARRAY_TIMING *t) {
 #endif
 
 
+void InitIntData(void *p, int n) {
+  int *d;
+  int i;
+  
+  d = (int *) p;
+  for (i = 0; i < n; i++) {
+    d[i] = 0;
+  }
+}
+
+void InitDoubleData(void *p, int n) {
+  double *d;
+  int i;
+  
+  d = (double *) p;
+  for (i = 0; i < n; i++) {
+    d[i] = 0;
+  }
+}
+
+void InitPointerData(void *p, int n) {
+  void **d;
+  int i;
+
+  d = (void **) p;
+  for (i = 0; i < n; i++) {
+    d[i] = NULL;
+  }
+}
+
+void InitArrayData(void *p, int n) {
+  ARRAY *d;
+  int i;
+
+  d = (ARRAY *) p;
+  for (i = 0; i < n; i++) {
+    d[i].dim = 0;
+    d[i].esize = 0;
+  }
+}
+
 /* 
 ** FUNCTION:    ArrayInit
 ** PURPOSE:     initialize the one-dimensional array.
@@ -51,6 +92,7 @@ int GetArrayTiming(ARRAY_TIMING *t) {
 int ArrayInit(ARRAY *a, int esize, int block) {
   a->esize = esize;
   a->block = block;
+  a->bsize = ((int)esize)*((int)block);
   a->dim = 0;
   a->data = NULL;
   return 0;
@@ -93,6 +135,9 @@ void *ArrayGet(ARRAY *a, int i) {
 **              index of the element.
 **              {void *d},
 **              pointer to the data to be copied.
+**              {void (*InitData)(void *, int)},
+**              a function to be called to initialize the data
+**              when first created.
 ** RETURN:      {void *},
 **              pointer to the element.
 ** SIDE EFFECT: 
@@ -100,7 +145,8 @@ void *ArrayGet(ARRAY *a, int i) {
 **              i-th element. if the element does not exist,
 **              an empty one is created.
 */
-void *ArraySet(ARRAY *a, int i, void *d) {
+void *ArraySet(ARRAY *a, int i, void *d, 
+	       void (*InitData)(void *, int)) {
   void *pt;
   char *ct;
   DATA *p;
@@ -113,7 +159,8 @@ void *ArraySet(ARRAY *a, int i, void *d) {
  
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
-    a->data->dptr = calloc(a->block, a->esize);
+    a->data->dptr = malloc(a->bsize);
+    if (InitData) InitData(a->data->dptr, a->block);
     a->data->next = NULL;
   }
   p = a->data;
@@ -129,7 +176,8 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   }
 
   if (!(p->dptr)) {
-    p->dptr = calloc(a->block, a->esize);
+    p->dptr = malloc(a->bsize);
+    if (InitData) InitData(p->dptr, a->block);
   }
   
   ct = (char *) p->dptr;
@@ -196,10 +244,11 @@ void *ArrayContiguous(ARRAY *a) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-void *ArrayAppend(ARRAY *a, void *d) {
+void *ArrayAppend(ARRAY *a, void *d, 
+		  void (*InitData)(void *, int)) {
   int i;  
   i = a->dim;
-  return ArraySet(a, i, d);
+  return ArraySet(a, i, d, InitData);
 }
 
 /* 
@@ -389,7 +438,8 @@ void *MultiGet(MULTI *ma, int *k) {
 ** SIDE EFFECT: 
 ** NOTE:        if d == NULL, returns an uninitialized element.
 */    
-void *MultiSet(MULTI *ma, int *k, void *d) {
+void *MultiSet(MULTI *ma, int *k, void *d, 
+	       void (*InitData)(void *, int)) {
   ARRAY *a;
   void *pt;
   int i, ndim1, ndim2;
@@ -412,7 +462,7 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
   ndim1 = ma->ndim-1;
   ndim2 = ma->ndim-2;
   for (i = 0; i < ndim1; i++) {
-    a = (ARRAY *) ArraySet(a, k[i], NULL);
+    a = (ARRAY *) ArraySet(a, k[i], NULL, InitArrayData);
     if (a->esize == 0) {
       if (i < ndim2) {
 	ArrayInit(a, sizeof(ARRAY), ma->block[i+1]);
@@ -422,7 +472,7 @@ void *MultiSet(MULTI *ma, int *k, void *d) {
     }
   }
     
-  pt = ArraySet(a, k[i], d);
+  pt = ArraySet(a, k[i], d, InitData);
   /*
 #ifdef PERFORM_STATISTICS
   stop = clock();
@@ -550,7 +600,8 @@ void *NMultiGet(MULTI *ma, int *k) {
   return NULL;
 }
 
-void *NMultiSet(MULTI *ma, int *k, void *d) {
+void *NMultiSet(MULTI *ma, int *k, void *d, 
+		void (*InitData)(void *, int)) {
   int i, j, m;
   MDATA *pt;
   ARRAY *a;
@@ -559,7 +610,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d) {
   a = ma->array;
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
-    a->data->dptr = calloc(a->block, a->esize);
+    a->data->dptr = malloc(a->bsize);
     a->data->next = NULL;
     pt = (MDATA *) a->data->dptr;
   } else {
@@ -583,7 +634,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d) {
     if (m == a->block) {
       p0->next = (DATA *) malloc(sizeof(DATA));
       p = p0->next;
-      p->dptr = calloc(a->block, a->esize);
+      p->dptr = malloc(a->bsize);
       p->next = NULL;
       pt = (MDATA *) p->dptr;
     }
@@ -591,7 +642,8 @@ void *NMultiSet(MULTI *ma, int *k, void *d) {
 
   pt->index = (unsigned short *) malloc(sizeof(unsigned short)*ma->ndim);
   IndexCopy(pt->index, k, ma->ndim);
-  pt->data = calloc(1, ma->esize);
+  pt->data = malloc(ma->esize);
+  if (InitData) InitData(pt->data, 1);
   if (d) memcpy(pt->data, d, ma->esize);
   (a->dim)++;
 

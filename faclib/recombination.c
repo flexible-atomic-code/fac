@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.67 2003/04/20 23:22:28 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.68 2003/04/22 16:07:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -231,7 +231,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
       printf("Can not add more Groups\n");
       exit(1);
     }
-    ArrayAppend(rec_complex[n_complex].rg, kg+i);
+    ArrayAppend(rec_complex[n_complex].rg, kg+i, NULL);
     clist = &(g->cfg_list);
     for (t = 0; t < g->n_cfgs; t++) {
       c = (CONFIG *) ArrayGet(clist, t);
@@ -388,7 +388,7 @@ void RRRadialQkHydrogenicParams(int np, double *p,
   double tol;
   int i, j, k, ne;
 
-  qk = (double **) ArraySet(hyd_qk_array, n, NULL);
+  qk = (double **) ArraySet(hyd_qk_array, n, NULL, InitPointerData);
   if (*qk == NULL) {
     tol = 1E-4;
     *qk = (double *) malloc(sizeof(double)*n*np);
@@ -577,7 +577,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   }
 
   nqk = n_tegrid*n_egrid;
-  p = (double **) MultiSet(qk_array, index, NULL);
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
@@ -942,7 +942,7 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   index[3] = k1;
   index[4] = k/2;
 
-  p = (double **) MultiSet(pk_array, index, NULL);
+  p = (double **) MultiSet(pk_array, index, NULL, InitPointerData);
   if (*p) {
     *ai_pk = *p;
     return 0;
@@ -1097,16 +1097,16 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     emax0 = egrid_max;
   }
   ArrayInit(&subte, sizeof(double), 128);
-  ArrayAppend(&subte, &emin);
+  ArrayAppend(&subte, &emin, NULL);
   c = 1.0/TE_MIN_MAX;
   if (!e_set || !te_set) {
     e = c*emin;
     while (e < emax) {
-      ArrayAppend(&subte, &e);
+      ArrayAppend(&subte, &e, NULL);
       e *= c;
     }
   }
-  ArrayAppend(&subte, &emax);
+  ArrayAppend(&subte, &emax, NULL);
 
   if (qk_mode == QK_FIT) {
     nqk = NPARAMS+1;
@@ -1288,16 +1288,16 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   n_egrid0 = n_egrid;
 
   ArrayInit(&subte, sizeof(double), 128);
-  ArrayAppend(&subte, &emin);
+  ArrayAppend(&subte, &emin, NULL);
   c = 1.0/TE_MIN_MAX;
   if (!e_set) {
     b = c*emin;
     while (b < emax) {
-      ArrayAppend(&subte, &b);
+      ArrayAppend(&subte, &b, NULL);
       b *= c;
     }
   }
-  ArrayAppend(&subte, &emax);
+  ArrayAppend(&subte, &emax, NULL);
   
   fhdr.type = DB_AI;
   strcpy(fhdr.symbol, GetAtomicSymbol());

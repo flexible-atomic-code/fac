@@ -1,4 +1,4 @@
-static char *rcsid="$Id: stoken.c,v 1.2 2003/01/13 02:57:45 mfgu Exp $";
+static char *rcsid="$Id: stoken.c,v 1.3 2003/04/22 16:07:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -174,7 +174,7 @@ int TokenizeLine(int nline, char *line, METHOD *methods,
   }
   i = MethodIndex(t, methods);
   if (i >= 0) {
-    fs = (STATEMENT *) ArraySet(statements, statements->dim, NULL);
+    fs = (STATEMENT *) ArraySet(statements, statements->dim, NULL, NULL);
     fs->nline = nline;
     fs->imethod = i;
     r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
@@ -194,7 +194,7 @@ int TokenizeLine(int nline, char *line, METHOD *methods,
     if (v) {
       free(v->value);
     } else {
-      v = (VARIABLE *) ArraySet(variables, variables->dim, NULL);
+      v = (VARIABLE *) ArraySet(variables, variables->dim, NULL, NULL);
       n = strlen(token);
       v->name = (char *) malloc(n+1);
       strcpy(v->name, token);

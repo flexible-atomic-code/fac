@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.24 2003/04/21 02:21:35 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.25 2003/04/22 16:07:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1497,7 +1497,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
     p.icfg1 = clist->dim;
     p.icfg2 = p.icfg1;
     p.n_csfs = cfg->n_csfs;
-    ArrayAppend(part, &p);
+    ArrayAppend(part, &p, NULL);
   } else {
     ip = part->dim - 1;
     t = ArrayGet(part, ip);
@@ -1514,11 +1514,11 @@ int AddConfigToList(int k, CONFIG *cfg) {
       p.icfg1 = clist->dim;
       p.icfg2 = p.icfg1;
       p.n_csfs = cfg->n_csfs;
-      ArrayAppend(part, &p);
+      ArrayAppend(part, &p, NULL);
     }
   }
 
-  if (ArrayAppend(clist, cfg) == NULL) return -1;
+  if (ArrayAppend(clist, cfg, NULL) == NULL) return -1;
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   cfg_groups[k].n_cfgs++;
   return 0;
@@ -1553,7 +1553,7 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
   s.kcfg = kc;
   s.kstate = kstate;
   st = &(symmetry_list[k].states);
-  if (ArrayAppend(st, &s) == NULL) return -1;
+  if (ArrayAppend(st, &s, NULL) == NULL) return -1;
   symmetry_list[k].n_states++;
   return 0;
 }
@@ -1593,7 +1593,7 @@ int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
     s.kcfg = kc;
     s.kstate = i;
     st = &(symmetry_list[k].states);
-    if (ArrayAppend(st, &s) == NULL) return -1;
+    if (ArrayAppend(st, &s, NULL) == NULL) return -1;
     symmetry_list[k].n_states++;
   }
   return 0;

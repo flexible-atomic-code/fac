@@ -1,3 +1,7 @@
+version 0.9.4, 04/22/2003
+	1. drop the assumption that calloced pointers and doubles will 
+	   have NULL and 0.0 initial values, which is not portable.
+
 version 0.9.3, 04/18/2003
 	1. remove DRTable function.
 	2. break up transition arrays for RR, AI, and CI, as for CE.

@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.42 2003/04/18 17:33:42 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.43 2003/04/22 16:07:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -562,7 +562,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   index[1] = kb;
   index[2] = kbp;
   
-  p = (double **) MultiSet(qk_array, index, NULL);
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return (*p);
   } 
@@ -634,7 +634,7 @@ double *CIRadialQkTable(int kb, int kbp) {
   index[1] = kb;
   index[2] = kbp;
 
-  p = (double **) MultiSet(qk_array, index, NULL);
+  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return (*p);
   }
@@ -906,16 +906,16 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   }
 
   ArrayInit(&subte, sizeof(double), 128);
-  ArrayAppend(&subte, &emin);
+  ArrayAppend(&subte, &emin, NULL);
   c = 1.0/TE_MIN_MAX;
   if (!e_set || !te_set) {
     e = c*emin;
     while (e < emax) {
-      ArrayAppend(&subte, &e);
+      ArrayAppend(&subte, &e, NULL);
       e *= c;
     }
   }
-  ArrayAppend(&subte, &emax);
+  ArrayAppend(&subte, &emax, NULL);
 
   egrid_type = 1;
   pw_type = 0;

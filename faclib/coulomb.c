@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.23 2003/01/22 21:58:02 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.24 2003/04/22 16:07:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -28,7 +28,6 @@ static int _nm_min = 100;
 static int _nm_max = 50000;
 static int _nm_factor = 100;
 static int _nm = 0;
-
 
 void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
@@ -81,7 +80,7 @@ double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
   if (kl1 != kl0 + 1 && kl1 != kl0 - 1) {
     return 0.0;
   }
-  qk = (double **) ArraySet(dipole_array, n1, NULL);
+  qk = (double **) ArraySet(dipole_array, n1, NULL, InitPointerData);
   if (*qk == NULL) {
     *qk = (double *) malloc(sizeof(double)*n1*(n1-1));
     t = *qk;
@@ -613,7 +612,7 @@ int TestCoulomb(char *s) {
   return 0;
 #undef M
 }
-    
+
 int InitCoulomb(void) {
   int i, ie1, ie2, ite;
 

@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.74 2003/04/15 04:23:53 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.75 2003/04/22 16:07:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -887,7 +887,7 @@ int AddOrbital(ORBITAL *orb) {
 
   if (orb == NULL) return -1;
 
-  orb = (ORBITAL *) ArrayAppend(orbitals, orb);
+  orb = (ORBITAL *) ArrayAppend(orbitals, orb, NULL);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
@@ -923,7 +923,7 @@ ORBITAL *GetOrbitalSolved(int k) {
 ORBITAL *GetNewOrbital(void) {
   ORBITAL *orb;
 
-  orb = (ORBITAL *) ArrayAppend(orbitals, NULL);
+  orb = (ORBITAL *) ArrayAppend(orbitals, NULL, NULL);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
@@ -1278,7 +1278,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(residual_array, index, NULL);
+  p = (double *) MultiSet(residual_array, index, NULL, InitDoubleData);
   if (p && *p) {
     *s = *p;
     return 0;
@@ -1362,7 +1362,7 @@ double RadialMoments(int m, int k1, int k2) {
     index[2] = k1;
   }
   
-  q = (double *) MultiSet(moments_array, index, NULL);
+  q = (double *) MultiSet(moments_array, index, NULL, InitDoubleData);
  
   if (*q) {
     return *q;
@@ -1510,11 +1510,11 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     aw2 = aw*aw;
   }
 
-  p1 = (double **) MultiSet(multipole_array, index, NULL);
+  p1 = (double **) MultiSet(multipole_array, index, NULL, InitPointerData);
   p2 = NULL;
   if (m < 0 && gauge == G_BABUSHKIN) {
     index[0] = 1;
-    p2 = (double **) MultiSet(multipole_array, index, NULL);
+    p2 = (double **) MultiSet(multipole_array, index, NULL, InitPointerData);
   }
 
   if (*p1) {
@@ -1659,7 +1659,7 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
     orb2 = GetOrbitalSolved(k2);
   }
 
-  p = (double **) MultiSet(gos_array, index, NULL);
+  p = (double **) MultiSet(gos_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
   }
@@ -1944,7 +1944,7 @@ double QED1E(int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(qed1e_array, index, NULL);
+  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData);
   if (p && *p) {
     return *p;
   }
@@ -2008,7 +2008,7 @@ double Vinti(int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(vinti_array, index, NULL);
+  p = (double *) MultiSet(vinti_array, index, NULL, InitDoubleData);
   if (p && *p) {
     return *p;
   }
@@ -2135,7 +2135,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   index[3] = k3;
   index[4] = k;
 
-  p = (double *) MultiSet(breit_array, index, NULL);
+  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData);
   if (p && *p) {
     r = *p;
   } else {
@@ -2258,7 +2258,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
 
   if (index[5] < 2) {
     SortSlaterKey(index);
-    p = (double *) MultiSet(slater_array, index, NULL);
+    p = (double *) MultiSet(slater_array, index, NULL, InitDoubleData);
   } else {
     p = NULL;
   }

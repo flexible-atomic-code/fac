@@ -83,7 +83,8 @@ typedef struct _DATA_ {
 typedef struct _ARRAY_ {
   unsigned short esize;
   unsigned short block;
-  int   dim;
+  int bsize;
+  int dim;
   DATA  *data;
 } ARRAY;
 
@@ -133,18 +134,25 @@ int   GetArrayTiming(ARRAY_TIMING *t);
 
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
-void *ArraySet(ARRAY *a, int i, void *d);
+void *ArraySet(ARRAY *a, int i, void *d, 
+	       void (*InitData)(void *, int));
 void *ArrayContiguous(ARRAY *a);
-void *ArrayAppend(ARRAY *a, void *d);
-int   ArrayTrim(ARRAY *a, int n, void(*FreeElem)(void *));
+void *ArrayAppend(ARRAY *a, void *d, 
+		  void (*InitData)(void *, int));
+int   ArrayTrim(ARRAY *a, int n, 
+		void(*FreeElem)(void *));
 int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
-int   ArrayFreeData(DATA *p, int esize, int block, void (*FreeElem)(void *));
+int   ArrayFreeData(DATA *p, int esize, int block, 
+		    void (*FreeElem)(void *));
 
 int   MultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *MultiGet(MULTI *ma, int *k);
-void *MultiSet(MULTI *ma, int *k, void *d);
-int   MultiFree(MULTI *ma, void (*FreeElem)(void *));
-int   MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
+void *MultiSet(MULTI *ma, int *k, void *d, 
+	       void (*InitData)(void *, int));
+int   MultiFree(MULTI *ma, 
+		void (*FreeElem)(void *));
+int   MultiFreeData(ARRAY *a, int d, 
+		    void (*FreeElem)(void *));
 
 /*
 ** the following set of funcitons are a different implementation
@@ -153,8 +161,15 @@ int   MultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
 */
 int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *NMultiGet(MULTI *ma, int *k);
-void *NMultiSet(MULTI *ma, int *k, void *d);
-int   NMultiFree(MULTI *ma, void (*FreeElem)(void *));
-int   NMultiFreeData(ARRAY *a, int d, void (*FreeElem)(void *));
+void *NMultiSet(MULTI *ma, int *k, void *d, 
+		void (*InitData)(void *, int));
+int   NMultiFree(MULTI *ma, 
+		 void (*FreeElem)(void *));
+int   NMultiFreeData(ARRAY *a, int d, 
+		     void (*FreeElem)(void *));
+
+void  InitIntData(void *p, int n);
+void  InitDoubleData(void *p, int n);
+void  InitPointerData(void *p, int n);
 
 #endif
