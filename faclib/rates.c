@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.17 2002/08/21 22:01:31 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.18 2002/08/30 19:00:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -51,7 +51,11 @@ void ionis_(int *iz, int *ic, double *t,
 	    double *a, double *dir, double *rion);
 void recomb_(int *iz, int *ic, double *t, double *rr, double *dr);
 void recombfe_(int *iz, int *ic, double *t, double *rr, double *dr);
-
+void rrfit_(int *z, int *n, double *t, double *r);
+void drfit_(int *z, int *n, double *t, double *r);
+void phfit2_(int *z, int *n, int *is, double *e, double *r);
+void cfit_(int *z, int *n, double *t, double *r);
+void colfit_(int *z, int *n, int *is, double *t, double *a, double *d);
 
 #define NSEATON 19
 static double log_xseaton[NSEATON];
@@ -641,40 +645,123 @@ static double PowerLaw(double e, double *p) {
   return x;
 }
 
-double Ionis(int z, int nele, double t, double *a, double *dir) {
-  double total, aa, dd;
+double RRFit(int z, int nele, double t) {
+  double r;
+
+  t = t/8.617385E-5;
+  rrfit_(&z, &nele, &t, &r);
+  r *= 1E10;
+  return r;
+}
+
+double DRFit(int z, int nele, double t) {
+  double r;
+
+  if (z > 28) return 0.0;
+  if (nele < 1) return 0.0;
+  if (nele >= z) return 0.0;
+
+  drfit_(&z, &nele, &t, &r);
   
-  nele = z+1 - nele;
-  ionis_(&z, &nele, &t, &aa, &dd, &total);
+  r *= 1E10;
+  
+  return r;
+}
+
+double PhFit2(int z, int nele, int is, double e) {
+  double r;
+
+  phfit2_(&z, &nele, &is, &e, &r);
+  r *= 1E-4;
+  
+  return r;
+}
+
+double CFit(int z, int nele, double t, double *a, double *dir) {
+  double total, aa, dd;
+  int is;
+  
+  t = t/8.617385E-5;
+  is = 0;
+  colfit_(&z, &nele, &is, &t, &aa, &dd);
+  cfit_(&z, &nele, &t, &dd);
   aa *= 1E10;
   dd *= 1E10;
-  total *= 1E10;
+  total = aa + dd;
   if (a) *a = aa;
   if (dir) *dir = dd;
+  
+  return total;
+}
+
+double ColFit(int z, int nele, int is, double t, double *a, double *dir) {
+  double total, aa, dd;
+  
+  t = t/8.617385E-5;
+  colfit_(&z, &nele, &is, &t, &aa, &dd);
+  aa *= 1E10;
+  dd *= 1E10;
+  total = aa + dd;
+  if (a) *a = aa;
+  if (dir) *dir = dd;
+  
+  return total;
+}
+
+double Ionis(int z, int nele, double t, double *a, double *dir, int m) {
+  double total, aa, dd;
+
+  if (m == 0) {
+    nele = z+1 - nele;
+    ionis_(&z, &nele, &t, &aa, &dd, &total);
+    aa *= 1E10;
+    dd *= 1E10;
+    total *= 1E10;
+  } else if (m == 1) {
+    total = ColFit(z, nele, 0, t, &aa, &dd);
+  } else if (m == 2) {
+    total = CFit(z, nele, t, &aa, &dd);
+  } else {
+    printf("unrecognized mode in Ionis\n");
+    return 0.0;
+  }
+  if (a) *a = aa;
+  if (dir) *dir = dd;
+
+  if (total < 1E-30) total = 1E-30;
 
   return total;
 }
 
-double Recomb(int z, int nele, double t, double *rr, double *dr) {
+double Recomb(int z, int nele, double t, double *rr, double *dr, int m) {
   double total, r, d;
   
-  nele = z+1 - nele;
-  t = t/8.617385E-5;
-  if (z == 26) {
-    recombfe_(&z, &nele, &t, &r, &d);
+  if (m == 0) {
+    nele = z+1 - nele;
+    t = t/8.617385E-5;
+    if (z == 26) {
+      recombfe_(&z, &nele, &t, &r, &d);
+    } else {
+      recomb_(&z, &nele, &t, &r, &d);
+    }
+    r *= 1E10;
+    d *= 1E10;
+  } else if (m == 1) {
+    r = RRFit(z, nele, t);
+    d = DRFit(z, nele, t);
   } else {
-    recomb_(&z, &nele, &t, &r, &d);
+    printf("Unrecognized Mode in Recomb\n");
+    return 0.0;
   }
-  r *= 1E10;
-  d *= 1E10;
   if (rr) *rr = r;
   if (dr) *dr = d;
   total = r + d;
 
+  if (total < 1E-30) total = 1E-30;
   return total;
 }
 
-int FracAbund(int z, double t, double *a) {
+int FracAbund(int z, double t, double *a, int im, int rm) {
   int nele;
   double *ir, *rr, c;
 
@@ -683,10 +770,10 @@ int FracAbund(int z, double t, double *a) {
   
   for (nele = 0; nele <= z; nele++) {
     if (nele != 0) {
-      ir[nele] = Ionis(z, nele, t, NULL, NULL);
+      ir[nele] = Ionis(z, nele, t, NULL, NULL, im);
     }
     if (nele != z) {
-      rr[nele] = Recomb(z, nele, t, NULL, NULL);
+      rr[nele] = Recomb(z, nele, t, NULL, NULL, rm);
     }
   }
 
@@ -705,7 +792,7 @@ int FracAbund(int z, double t, double *a) {
   return 0;
 }
 
-double MaxAbund(int z, int nele, double *a, double eps) {
+double MaxAbund(int z, int nele, double *a, double eps, int im, int rm) {
   double amax, da;
   double t1, t2, t;
   double dt;
@@ -713,20 +800,20 @@ double MaxAbund(int z, int nele, double *a, double eps) {
   t1 = 0.1*HARTREE_EV;
   t2 = z*z*HARTREE_EV;
   if (nele == 0) {
-    FracAbund(z, t2, a);
+    FracAbund(z, t2, a, im, rm);
     return t2;
   }
   if (nele == z) {
-    FracAbund(z, t1, a);
+    FracAbund(z, t1, a, im, rm);
     return t1;
   }
   amax = 0.0;
   t = 0.5*(t1+t2);
   dt = t*eps;
   while (t2 - t1 > dt) {
-    FracAbund(z, t, a);
+    FracAbund(z, t, a, im, rm);
     amax = a[nele];
-    FracAbund(z, t+dt, a);
+    FracAbund(z, t+dt, a, im, rm);
     da = a[nele] - amax;
     if (da > 0.0) {
       t1 = t;

@@ -73,8 +73,8 @@
 ** NOTE:        
 */
 #define VERSION        0
-#define SUBVERSION     7
-#define SUBSUBVERSION  9
+#define SUBVERSION     8
+#define SUBSUBVERSION  0
 
 
 /* 

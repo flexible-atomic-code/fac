@@ -1,3 +1,7 @@
+Version 0.8.0, 08/30/2002
+	1. add the ionization and recombinaiton fitting formula from
+	   Verner and Mazzotta.
+	
 Version 0.7.9, 08/27/2002
 	1. implement the generalized oscillator strength. and the first
 	   Born approximaiton for excitation based on that. the

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.16 2002/05/08 15:34:23 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.17 2002/08/30 19:00:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -656,13 +656,60 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
-static PyObject *PIonis(PyObject *self, PyObject *args) {
+static PyObject *PPhFit(PyObject *self, PyObject *args) {
+  int z, nele, is;
+  double e, r;
+  
+  if (!PyArg_ParseTuple(args, "iidi", &z, &nele, &e, &is)) return NULL;
+  r = PhFit2(z, nele, is, e);
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PRRFit(PyObject *self, PyObject *args) {
   int z, nele;
+  double t, r;
+  
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  r = RRFit(z, nele, t);
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PDRFit(PyObject *self, PyObject *args) {
+  int z, nele;
+  double t, r;
+  
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  r = DRFit(z, nele, t);
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PCFit(PyObject *self, PyObject *args) {
+  int z, nele;
+  double t, r, a, d;
+  
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  r = CFit(z, nele, t, &a, &d);
+  return Py_BuildValue("(ddd)", r, a, d);
+}
+
+static PyObject *PColFit(PyObject *self, PyObject *args) {
+  int z, nele, is;
+  double t, r, a, d;
+  
+  is = 0;
+  if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &is)) return NULL;
+  r = ColFit(z, nele, is, t, &a, &d);
+  return Py_BuildValue("(ddd)", r, a, d);
+}
+
+static PyObject *PIonis(PyObject *self, PyObject *args) {
+  int z, nele, m;
   double t, total, a, d;
 
-  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  m = 1;
+  if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &m)) return NULL;
   
-  total = Ionis(z, nele, t, &a, &d);
+  total = Ionis(z, nele, t, &a, &d, m);
   
   return Py_BuildValue("(ddd)", total, a, d);
 }
@@ -679,25 +726,28 @@ static PyObject *PRRRateH(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PRecomb(PyObject *self, PyObject *args) {
-  int z, nele;
+  int z, nele, m;
   double t, total, r, d;
 
-  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  m = 1;
+  if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &m)) return NULL;
   
-  total = Recomb(z, nele, t, &r, &d);
+  total = Recomb(z, nele, t, &r, &d, m);
   
   return Py_BuildValue("(ddd)", total, r, d);
 }
 
 static PyObject *PFracAbund(PyObject *self, PyObject *args) {
   PyObject *pa;
-  int z, i;
+  int z, i, im, rm;
   double t, *a;
 
-  if (!PyArg_ParseTuple(args, "id", &z, &t)) return NULL;
+  im = 1;
+  rm = 1;
+  if (!PyArg_ParseTuple(args, "id|ii", &z, &t, &im, &rm)) return NULL;
   
   a = (double *) malloc(sizeof(double)*(z+1));
-  FracAbund(z, t, a);
+  FracAbund(z, t, a, im, rm);
   pa = Py_BuildValue("[]");
   for (i = 0; i <= z; i++) {
     PyList_Append(pa, Py_BuildValue("d", a[i]));
@@ -709,14 +759,17 @@ static PyObject *PFracAbund(PyObject *self, PyObject *args) {
 
 static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
   PyObject *pa;
-  int i, z, nele;
+  int i, z, nele, im, rm;
   double eps, *a, tmax;
 
+  im = 1;
+  rm = 1;
   eps = 1E-4;
-  if (!PyArg_ParseTuple(args, "ii|d", &z, &nele, &eps)) return NULL;
+  if (!PyArg_ParseTuple(args, "ii|iid", &z, &nele, &im, &rm, &eps)) 
+    return NULL;
   
   a = (double *) malloc(sizeof(double)*(z+1));
-  tmax = MaxAbund(z, nele, a, eps);
+  tmax = MaxAbund(z, nele, a, eps, im, rm);
   pa = Py_BuildValue("[]");
   for (i = 0; i <= z; i++) {
     PyList_Append(pa, Py_BuildValue("d", a[i]));
@@ -758,6 +811,11 @@ static struct PyMethodDef crm_methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
+  {"PhFit", PPhFit, METH_VARARGS},
+  {"RRFit", PRRFit, METH_VARARGS},
+  {"DRFit", PDRFit, METH_VARARGS},
+  {"CFit", PCFit, METH_VARARGS},
+  {"ColFit", PColFit, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},
   {"Recomb", PRecomb, METH_VARARGS},
   {"RRRateH", PRRRateH, METH_VARARGS},

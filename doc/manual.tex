@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.9}\xspace}
+\newcommand{\facversion}{{0.8.0}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2383,6 +2383,14 @@ Carry ot the cascade iteration. Some of the levels in the spectral model may
 be treated approximately using the cascade matrix.
 \end{fundesc}
 
+\begin{fundesc}{CFit}{Z, n, Te}
+Calculate the direct ionization rates using the Fortran subroutine \verb|cfit|
+of D. A. Verner. \var{Z} is the nuclear charge of the ion, \var{n}
+is the number of electrons, and \var{Te} is the electron temperature in eV.
+The function returns double as the result in unit of 
+$10^{-10}$ cm$^3$ s$^{-1}$. 
+\end{fundesc}
+
 \begin{fundesc}{CheckEndian}{\opt{fn}}
 Check the byte order of database file \var{fn}. It returns 0 for little endian
 and 1 for big endian. If the optional file name \var{fn} is omitted, the
@@ -2397,19 +2405,39 @@ statements between the call to \key{ConvertToSCRM} and \key{CloseSCRM} are
 converted to SFAC input file. This routine is only available in PFAC interface.
 \end{fundesc}
 
+\begin{fundesc}{ColFit}{Z, n, Te\opt{, s}}
+Calculate the direct ionization rates and excitation autoionization rates
+using the Fortran subroutine \verb|colfit| of D. A. Verner. \var{Z} is the
+nuclear charge of the ion, \var{n} is the number of electrons, and \var{Te} is
+the electron temperature in eV. The optional argument \var{s} specifies the
+subshell for which the rates are to be calculated. 0 for total. 1 for $1s$, 2
+for $2s$, 3 for $2p$, 4 for $3s$, 5 for $3p$, 6 for $3d$ and 7 for $4s$. The
+function returns a tuple of length 3. The first element is the total rate, the
+second is the excitation autoionization rate, and the third is the direct
+ionization rate. The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+\end{fundesc}
+
 \begin{fundesc}{ConvertToSCRM}{}
 Converts the statements between this call and the \key{CloseSCRM} call to SFAC
 input file \var{fn}. The resulting file can then be run using the \key{scrm}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
-\begin{fundesc}{FracAbund}{Z, Te}
+\begin{fundesc}{DRFit}{Z, n, Te}
+Calculate the dielectronic recombination rates using the fitting formula and
+data table of P. Mazzotta. \var{Z} is the nuclear charge of the ion, \var{n}
+is the number of electrons, and \var{Te} is the electron temperature in eV.
+The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+\end{fundesc}
+
+\begin{fundesc}{FracAbund}{Z, Te\opt{im, rm}}
 Caculate the fractional abundance of the charge states for element with
 nuclear charge \var{Z} at temperature \var{Te} for collisionally ionized
-plasmas. Only astrophysically abundant elements are treated using the
-ionization and recombination data compiled by \citet{arnaud85, arnaud92}.
-It returns a list of length \var{Z}+1 indexed by the number of electrons the
-ion have.
+plasmas. The optional arguments \var{im} and \var{rm} specifies the functions
+used for ionization rates and recombination rates respectively. \var{im} is
+passed to the function \key{Ionis}, and \var{rm} is passed to the function
+\key{Recomb}. The default for both parameters are 1. It returns a list of
+length \var{Z}+1 indexed by the number of electrons the ion have. 
 \end{fundesc}
 
 \begin{fundesc}{FreeMemENTable}{}
@@ -2420,12 +2448,16 @@ Clear the energy level table in the memory.
 Initialize the superlevel blocks of the spectral model.
 \end{fundesc}
 
-\begin{fundesc}{Ionis}{Z, n, Te}
+\begin{fundesc}{Ionis}{Z, n, Te\opt{, m}}
 Caculate the ionization rate coefficients for the ion with nuclear charge
 \var{Z} and number of electrons \var{n}, at the temperature \var{Te}. It
 returns a list of length 3. The first element is the total ionization rate,
 the second is the excitation-autoionization rate, and the third is the direct
-ionization rate. The data used are from \citet{arnaud85, arnaud92}.
+ionization rate. The data used are from \citet{arnaud85, arnaud92} if the
+optional argument \var{m} is 0. The function \key{ColFit} is used if \var{m}
+is 1. The function \key{CFit} is used for the direct ionization rate and
+\key{ColFit} for the autoionization rate, if \var{m} is 2. The default is 1.
+The results are in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
 \end{fundesc}
 
 \begin{fundesc}{LevelInfor}{fn, ilev}
@@ -2440,11 +2472,15 @@ sixth is the relativistic configuration and the coupling.
 Solve the level population using the superlevel block method.
 \end{fundesc}
 
-\begin{fundesc}{MaxAbund}{Z, n\opt{, a}}
+\begin{fundesc}{MaxAbund}{Z, n\opt{,im, rm, a}}
 Calculate the temperature where the fractional abundance of the ion with
 nuclear charge \var{Z} and number of electrons \var{n} reaches maximum. The
-optional \var{a} specifies the relative accuracy for the solution, which has
-the default of $10^{-4}$. This functions returns a tuple of length 2. The
+optional arguments \var{im} and \var{rm} specifies the functions used for
+ionization rates and recombination rates respectively. \var{im} is passed to
+the function \key{Ionis}, and \var{rm} is passed to the function
+\key{Recomb}. The default for both parameters are 1. The parameter \var{a}
+specifies the relative accuracy for the solution, which has the default of
+$10^{-4}$. This functions returns a tuple of length 2. The
 first element is the temperature found, the second is a list for the
 fractional abundances of all ions with nuclear charge \var{Z} at the found
 temperature. 
@@ -2453,6 +2489,14 @@ temperature.
 \begin{fundesc}{MemENTable}{fn}
 Build an energy level table in the memory for the \texttt{DB\_EN} type file
 \var{fn}. This function also exists in the module \mod{fac}. 
+\end{fundesc}
+
+\begin{fundesc}{PhFit}{Z, n, E, s}
+Calculate the photoionization cross section at energy \var{E} of subshell
+\var{s} for the ion with nuclear charge \var{Z}, and number of electrons
+\var{n}. The meaning of \var{s} are: 1 for $1s$, 2
+for $2s$, 3 for $2p$, 4 for $3s$, 5 for $3p$, 6 for $3d$ and 7 for $4s$.
+The Fortran subroutine \verb|phfit2| of D. A. Verner is used. The result is in unit of $10^{-20}$ cm$^2$
 \end{fundesc}
 
 \begin{fundesc}{PlotSpec}{ifn, ofn, n, t, e0, e1, de\opt{, s}}
@@ -2479,15 +2523,6 @@ verbose mode is carried out, one must call \key{MemENTable} first. This
 function also exists in the module \mod{fac}.
 \end{fundesc}
 
-\begin{fundesc}{RRRateH}{Z, n, Te}
-Caculate the radiative recombination rates of H-like ions with nuckear charge
-\var{Z} at temperature \var{Te}. \var{n} is the principal quantum number of
-the recombined electron. This function returns a tuple of length 2. The first
-element is the RR rate on to all states with principal quantum number
-\var{n}. The second is the RR rate on to all states with principal quantum
-numbers $>$\var{n}.
-\end{fundesc}
-
 \begin{fundesc}{RateTable}{fn, ...}
 Output rates for all processes included in the spectral model to the
 \key{DB\_RT} database file \var{fn}. It may contain additional arguments, each
@@ -2497,12 +2532,15 @@ block. Otherwise, each superlevel block has a single data block in the
 \key{DB\_RT} file.
 \end{fundesc}
 
-\begin{fundesc}{Recomb}{Z, n, Te}
+\begin{fundesc}{Recomb}{Z, n, Te\opt{, m}}
 Caclulate the recombination rate coefficients for the ion with nuclear charge
 \var{Z} and number of electrons \var{n} at temperature \var{Te}. It returns a
 tuple of length 3. The first element is the total recombination rate, the
 second is the radiative recombination rate, and the third is the dielectronic
-recombination rate. The data used are from \citet{arnaud85, arnaud92}.
+recombination rate. The data used are from \citet{arnaud85, arnaud92} if the
+optional argument \var{m} is 0. The functions \key{RRFit} and \key{DRFit}
+are used if \var{m} is 1. The default is 1. The results are in unit of
+$10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
 \begin{fundesc}{ReinitCRM}{\opt{m}}
@@ -2510,6 +2548,25 @@ Reinitialize the module \mod{crm}. \var{m}=0 by default, which requests a full
 reinitialization. If \var{m}=1, only the database headers are reinitialized
 and the rates are cleared. If \var{m}=2, only the database headers are
 reinitialized.
+\end{fundesc}
+
+\begin{fundesc}{RRFit}{Z, n, Te}
+Calculate the radiative recombination cross sections using the Fortran
+subroutine \verb|rrfit| of D. A. Verner. \var{Z} is the nuclear charge of the
+ion, \var{n} is the number of electrons, and \var{Te} is the electron
+temperature in eV. Note that in this routine, \var{n} is the number of
+electrons of the recombining ion, while in the original subroutine of Verner,
+it is for the recombined ion. The result is in unit of $10^{-10}$ cm$^3$
+s$^{-1}$.
+\end{fundesc}
+
+\begin{fundesc}{RRRateH}{Z, n, Te}
+Caculate the radiative recombination rates of H-like ions with nuclear charge
+\var{Z} at temperature \var{Te}. \var{n} is the principal quantum number of
+the recombined electron. This function returns a tuple of length 2. The first
+element is the RR rate on to all states with principal quantum number
+\var{n}. The second is the RR rate on to all states with principal quantum
+numbers $>$\var{n}.
 \end{fundesc}
 
 \begin{fundesc}{SelectLines}{ifn, ofn, n, t, e0, e1\opt{, s}}
@@ -2835,7 +2892,7 @@ Convert the table to LaTeX format and save the results to file \var{fn}. The
 remaining arguments have the same meaning as those in
 \key{read\_columns}. Note that this function only adds the LaTex column
 delimiter and the line break for the table contents. The results are meant to
-cut and pasted to LaTex documents. 
+be cut and pasted to LaTex documents. 
 \end{fundesc}
 
 \begin{fundesc}{rewind}{}
