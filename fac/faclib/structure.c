@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.48 2003/05/15 18:05:43 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.49 2003/11/06 15:53:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2396,7 +2396,7 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
 		im = AddToAngularZxZMix(&n, &nz, ang, 
 					ang_sub[m].k, ang_sub[m].k0,
 					ang_sub[m].k1, ang_sub[m].k2,
-					ang_sub[m].k3, r0); 	  
+					ang_sub[m].k3, r0);
 	      }
 	    }
 	  }

@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.71 2003/07/31 21:40:27 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.72 2003/11/06 15:53:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -851,6 +851,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   nz = AngularZxZFreeBound(&ang, f, rec);
   np = 3;
   nt = 1;
+
   if (nz > 0) {
     for (i = 0; i < nz; i++) {
       jf = ang[i].k0;
