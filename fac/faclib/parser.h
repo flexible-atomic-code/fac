@@ -7,6 +7,7 @@
 #include <string.h>
 
 char StrTrim(char *s, char c);
+int QuotedStrSplit(char *s, char sep, char qb, char qe);
 int StrSplit(char *s, char sep);
 int SetParserQuote(char *qbegin, char *qend);
 int SetParserBreak(char *brkch);
