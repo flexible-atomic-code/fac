@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.3}\xspace}
+\newcommand{\facversion}{{1.0.4}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2945,7 +2945,7 @@ is the number of electrons, and \var{Te} is the electron temperature in eV.
 The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
 \end{fundesc}
 
-\begin{fundesc}{DRStrength}{fn, n, \opt{m, i}}
+\begin{fundesc}{DRStrength}{fn, n\opt{, m, i}}
 Tabulate the dielectronic recombination resonance strengths onto state \var{i}
 of the ion with \var{n} electrons. \var{fn} specifies the file name of the
 database file. The optional \var{m} indicates the mode of calculation. If
@@ -2955,6 +2955,52 @@ excitation is calculated. \var{i} is optional, whose default is 0. When \var{i}$
 then it is the index of the recombining state relative to the ground state
 of the recombining ion; when \var{i}$<$0, then its negative value is the true
 index of the recombining state.
+\end{fundesc}
+
+\begin{fundesc}{DumpRates}{fn, nele, m\opt{, imax\opt{, a}}}
+Dump rate coefficients to a file. \var{fn} is the output file name. \var{nele}
+is the number of electrons of the ion whose rates are needed. \var{m}
+specifies which rate is output.
+\begin{description}
+\item[$m=0$]
+Dump the level indexes, 2J values, energies, etc. 
+The record for each level contains 9 fields of the type: short, int,
+int, short, short, short, double, double, double. They are number of electrons
+of the ion, block index of the level, level index within the block, 2J value
+of the level, base level of the level, valence $nl$ of the level, energy,
+total decay rate, and branching ratio computed in \key{DRBranch}
+respectively. 
+\item[$m=1$]
+Dump the radiative transition rates. Each record contains 4 fields of type:
+int, int, double, double. They are upper level index, lower level index, decay
+rate, and photo-excitation rate, respectively.
+\item[$m=2$]
+Dump the 2-photon transition rates. Each record contains 4 fields of type:
+int, int, double, double. They are upper level index, lower level index, decay
+rate, and inverse rate, respectively.
+\item[$m=3$]
+Dump the collisional excitation rates. Each record contains 4 fields of type:
+int, int, double, double. They are lower level index, upper level index, excitation
+rate, and deexcitation rate, respectively.
+\item[$m=4$]
+Dump the radiative recombination rates. Each record contains 4 fields of type:
+int, int, double, double. They are bound level index, continuum level index,
+recombination rate, and photoionization rate, respectively.
+\item[$m=5$]
+Dump the autoionization rates. Each record contains 4 fields of type:
+int, int, double, double. They are bound level index, continuum level index,
+autoionization rate, and dielectronic capture rate, respectively.
+\item[$m=6$]
+Dump the collisional ionization rates. Each record contains 4 fields of type:
+int, int, double, double. They are bound level index, continuum level index,
+ionization rate, and three-body recombination rate (not implemented), respectively.
+\end{description}
+The units of the transition rates are s$^{-1}$, and those of the rate
+coefficients are $10^{-10}$ cm$^{3}$ s$^{-1}$.
+The optional augument \var{imax} indicates the maximum levels to be included
+in the dump. a negative number means all levels, which is the default. \var{a}
+specifies whether the file should be in a binary format (0) or ascii format
+(1). Default is binary format.
 \end{fundesc}
 
 \begin{fundesc}{EBeli}{Z, n}

@@ -9,7 +9,7 @@
 #include "dbase.h"
 #include "rates.h"
 
-#define RATES_BLOCK   1024
+#define RATES_BLOCK   8192
 #define ION_BLOCK     4
 #define LBLOCK_BLOCK  1024
 
@@ -138,6 +138,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	     double emin, double emax, double de, double smin);
 int DRBranch(void);
 int DRStrength(char *fn, int nele, int mode, int ilev0);
+int DumpRates(char *fn, int k, int m, int imax, int a);
+int SetInnerAuger(int i);
+int SetExtrapolate(int e);
 
 #endif
 

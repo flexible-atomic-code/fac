@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.20 2003/12/30 22:54:32 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.21 2004/01/04 21:55:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -462,6 +462,27 @@ static int PDRStrength(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PDumpRates(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int k, m, imax, a;
+
+  if (argc < 3 || argc > 5) return -1;
+  k = atoi(argv[1]);
+  m = atoi(argv[2]);
+  imax = -1;
+  a = 0;
+  if (argc > 3) {
+    imax = atoi(argv[3]);
+    if (argc > 4) {
+      a = atoi(argv[4]);
+    }
+  }
+  
+  DumpRates(argv[0], k, m, imax, a);
+  
+  return 0;
+}
+ 
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -495,6 +516,7 @@ static METHOD methods[] = {
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
+  {"DumpRates", PDumpRates, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

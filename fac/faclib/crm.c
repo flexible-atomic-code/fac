@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.65 2003/12/30 22:54:32 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.66 2004/01/04 21:55:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -27,12 +27,12 @@ static int ai_extra_nmax = 400;
 static int do_extrapolate = 0;
 static int inner_auger = 1;
 
-int SetInnerAuger(i) {
+int SetInnerAuger(int i) {
   inner_auger = i;
   return 0;
 }
 
-int SetExtrapolate(e) {
+int SetExtrapolate(int e) {
   do_extrapolate = e;
   return 0;
 }
@@ -4108,7 +4108,8 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
 	      brtsp = (BLK_RATE *) ArrayGet(ion->tr_rates, tp);
 	      blk2 = brtsp->iblock;
-	      if (r1.ilev < blk2->imin || r1.ilev >= blk2->imin+blk2->nlevels) {
+	      if (r1.ilev < blk2->imin || 
+		  r1.ilev >= blk2->imin+blk2->nlevels) {
 		continue;
 	      }
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
@@ -4125,7 +4126,8 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	    for (tp = 0; tp < ion->ai_rates->dim; tp++) {
 	      brtsp = (BLK_RATE *) ArrayGet(ion->ai_rates, tp);
 	      blk2 = brtsp->iblock;
-	      if (r1.ilev < blk2->imin || r1.ilev >= blk2->imin+blk2->nlevels) {
+	      if (r1.ilev < blk2->imin || 
+		  r1.ilev >= blk2->imin+blk2->nlevels) {
 		continue;
 	      }
 	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
@@ -4148,4 +4150,96 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
   CloseFile(f, &fhdr);
 
   return 0;
+}
+
+int DumpRates(char *fn, int k, int m, int imax, int a) {
+  FILE *f;
+  int i, t, p, q;
+  short nele;
+  double energy;
+  ION *ion;
+  ARRAY *rts;
+  RATE *r;
+  BLK_RATE *brts;
+  
+  for (p = 0; p < ions->dim; p++) {
+    ion = (ION *) ArrayGet(ions, p);
+    if (ion->nele != k) continue;
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return -1;
+    }
+    if (m != 0) {
+      switch (m) {
+      case 1:
+	rts = ion->tr_rates;
+	break;
+      case 2:
+	rts = ion->tr2_rates;
+	break;
+      case 3:
+	rts = ion->ce_rates;
+	break;
+      case 4:
+	rts = ion->rr_rates;
+	break;
+      case 5:
+	rts = ion->ai_rates;
+	break;
+      case 6:
+	rts = ion->ci_rates;
+	break;
+      default:
+	printf("invalid mode %d\n", m);
+	fclose(f);
+	return -1;
+      }
+      for (t = 0; t < rts->dim; t++) {
+	brts = (BLK_RATE *) ArrayGet(rts, t);
+	for (q = 0; q < brts->rates->dim; q++) {
+	  r = (RATE *) ArrayGet(brts->rates, q);
+	  if (imax < 0 || (r->i <= imax && r->f <= imax)) {
+	    if (a == 0) {
+	      fwrite(&(r->i), sizeof(int), 1, f);
+	      fwrite(&(r->f), sizeof(int), 1, f);
+	      fwrite(&(r->dir), sizeof(double), 1, f);
+	      fwrite(&(r->inv), sizeof(double), 1, f);
+	    } else {
+	      fprintf(f, "%7d %7d %10.3E %10.3E\n", 
+		      r->i, r->f, r->dir, r->inv);
+	    }
+	  }
+	}
+      }
+    } else {
+      for (t = 0; t < ion->nlevels; t++) {	
+	if (imax < 0 || t <= imax) {
+	  q = ion->ilev[t];
+	  energy = ion->energy[t];
+	  if (p == ion->iblock[t]->iion) nele = ion->nele;
+	  else if (p == ion->iblock[t]->iion + 1) nele = ion->nele - 1;
+	  else nele = ion->nele + 1;
+	  if (a == 0) {
+	    fwrite(&(nele), sizeof(short), 1, f);
+	    fwrite(&(ion->iblock[t]->ib), sizeof(int), 1, f);
+	    fwrite(&q, sizeof(int), 1, f);
+	    fwrite(&(ion->j[t]), sizeof(short), 1, f);
+	    fwrite(&(ion->ibase[t]), sizeof(short), 1, f);
+	    fwrite(&(ion->vnl[t]), sizeof(short), 1, f);
+	    fwrite(&(ion->energy[t]), sizeof(double), 1, f);
+	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
+	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
+	  } else {
+	    fprintf(f, "%2d %7d %7d %2d %4d %4d %15.8E %10.3E %10.3E\n", 
+		    nele, ion->iblock[t]->ib, q, ion->j[t],
+		    ion->ibase[t], ion->vnl[t], ion->energy[t],
+		    ion->iblock[t]->total_rate[q],
+		    ion->iblock[t]->r[q]);
+	  }
+	}
+      }
+    }    
+    fclose(f);
+  }
 }
