@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.7 2002/02/18 03:15:15 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.8 2002/02/19 21:26:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -384,9 +384,9 @@ static int PReinitCRM(int argc, char *argv[], int argt[],
 
 static int PRateTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-
-  if (argc != 1) return -1;
-  RateTable(argv[0]);
+  if (argc == 0) return -1;
+  
+  RateTable(argv[0], argc-1, &(argv[1]));
   return 0;
 }
 

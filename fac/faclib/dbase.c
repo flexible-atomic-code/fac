@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.14 2002/02/12 20:32:14 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.15 2002/02/19 21:26:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -189,6 +189,8 @@ int SwapEndianSPHeader(SP_HEADER *h) {
   SwapEndian((char *) &(h->length), sizeof(long int));
   SwapEndian((char *) &(h->nele), sizeof(int));
   SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->iblock), sizeof(int));
+  SwapEndian((char *) &(h->fblock), sizeof(int));
   SwapEndian((char *) &(h->type), sizeof(int));
   SwapEndian((char *) &(h->iedist), sizeof(int));
   SwapEndian((char *) &(h->np_edist), sizeof(int));
@@ -212,11 +214,12 @@ int SwapEndianRTHeader(RT_HEADER *h) {
   SwapEndian((char *) &(h->length), sizeof(long int));
   SwapEndian((char *) &(h->nele), sizeof(int));
   SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->iblock), sizeof(int));
+  SwapEndian((char *) &(h->ilev), sizeof(int));
   SwapEndian((char *) &(h->iedist), sizeof(int));
   SwapEndian((char *) &(h->np_edist), sizeof(int));
   SwapEndian((char *) &(h->ipdist), sizeof(int));
   SwapEndian((char *) &(h->np_pdist), sizeof(int));
-  SwapEndian((char *) &(h->iblock), sizeof(int));
   SwapEndian((char *) &(h->nb), sizeof(double));
   return 0;
 }
@@ -1358,6 +1361,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_RECORD r;
   int n, i;
   int nb;
+  float d, tr, ce, ci, ai, rr;
 
   nb = 0;
   while (1) {
@@ -1369,6 +1373,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
     fprintf(f2, "IBLK\t= %d\n", h.iblock);
+    fprintf(f2, "ILEV\t= %d\n", h.ilev);
     fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
@@ -1389,15 +1394,29 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     free(h.p_edist);
     free(h.p_pdist);
 
-    fprintf(f2, "Densit\t= %15.8E\n", h.nb);
-    fprintf(f2,"    \t     TR         CE");
-    fprintf(f2, "          RR          AI          CI\n");
+    fprintf(f2, "Dens\t= %15.8E\n", h.nb);
+    fprintf(f2,"    \t     NB         TR         CE");
+    fprintf(f2, "         RR         AI         CI\n");
+    d = 0.0;
+    tr = 0.0;
+    ce = 0.0;
+    rr = 0.0;
+    ai = 0.0;
+    ci = 0.0;
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RT_RECORD), 1, f1);
       if (swp) SwapEndianRTRecord(&r);
-      fprintf(f2, "%4d\t%11.4E %11.4E %11.4E %11.4E %11.4E\n",
-	      r.iblock, r.tr, r.ce, r.rr, r.ai, r.ci);
+      fprintf(f2, "%4d\t%10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %s\n",
+	      r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
+      d += r.nb;
+      tr += r.tr;
+      ce += r.ce;
+      rr += r.rr;
+      ai += r.ai;
+      ci += r.ci;
     }
+    fprintf(f2, " Sum\t%10.4E %10.4E %10.4E %10.4E %10.4E %10.4E\n",
+	    d, tr, ce, rr, ai, ci);
     fprintf(f2, "\n");
     nb += 1;
   }

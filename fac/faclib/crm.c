@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.14 2002/02/18 03:15:14 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.15 2002/02/19 21:26:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -470,7 +470,7 @@ void ExtrapolateAI(ION *ion, int inv) {
   int n0, n1;
   int i, j, t, k, p;
   int imin, imax;
-  double a, b, e;
+  double a, b, c, e;
   double ai_extra[MAXNREC];
 
   for (i = 0; i < ion->recombined->dim; i++) {
@@ -490,11 +490,14 @@ void ExtrapolateAI(ION *ion, int inv) {
       ai_extra[k] = b/a;
     }
     ai_extra[j] = 0.0;
+    c = 0.0;
     for (k = rec->nrec[j]+1; k <= ai_extra_nmax; k++) {
       b = 1.0/k;
       b = b*b*b;
       ai_extra[j] += b;
+      c += b*b;
     }
+    c = (a + b/a)/(a + ai_extra[j]);
     ai_extra[j] = 1.0 + ai_extra[j]/a;
     a = ai_extra[j];
     for (p = 0; p < ion->ai_rates->dim; p++) {
@@ -516,6 +519,7 @@ void ExtrapolateAI(ION *ion, int inv) {
 	  AddRate(ion, ion->ai_rates, &r0, 0);
 	}
 	r->inv *= a;
+	r->dir *= c;
       }
     }  
   }
@@ -1187,7 +1191,7 @@ int InitBlocks(void) {
   return 0;
 }
 
-int RateTable(char *fn) { 
+int RateTable(char *fn, int nc, char *sc[]) { 
   RT_RECORD rt;
   RT_HEADER rt_hdr;
   F_HEADER fhdr;
@@ -1196,9 +1200,14 @@ int RateTable(char *fn) {
   LBLOCK *blk, *blk1;
   BLK_RATE *brts;
   DISTRIBUTION *edist, *pdist;
-  int n, k, m, i, j, p, q;
+  int n, k, m, i, j, q;
   double den;
-  double *ce, *tr, *rr, *ci, *ai;
+  MULTI ce, tr, ci, rr, ai;
+  int ablks[3] = {10, 5, 5};
+  int index[3];
+  int *ic;
+  NCOMPLEX *c, *cp;
+  double *d;
   FILE *f;
 
   edist = GetEleDist(&i);
@@ -1214,20 +1223,35 @@ int RateTable(char *fn) {
   rt_hdr.p_pdist = pdist->params;
 
   n = blocks->dim;
-  k = n*n;
-  ce = (double *) malloc(sizeof(double)*k);
-  tr = (double *) malloc(sizeof(double)*k);
-  ci = (double *) malloc(sizeof(double)*k);
-  rr = (double *) malloc(sizeof(double)*k);
-  ai = (double *) malloc(sizeof(double)*k);
-  for (i = 0; i < k; i++) {
-    ce[i] = 0.0;
-    tr[i] = 0.0;
-    ci[i] = 0.0;
-    rr[i] = 0.0;
-    ai[i] = 0.0;
+  ic = (int *) malloc(sizeof(int)*n);
+  MultiInit(&ce, sizeof(double), 3, ablks);
+  MultiInit(&tr, sizeof(double), 3, ablks);
+  MultiInit(&ci, sizeof(double), 3, ablks);
+  MultiInit(&rr, sizeof(double), 3, ablks);
+  MultiInit(&ai, sizeof(double), 3, ablks);
+  if (nc > 0) {
+    c = (NCOMPLEX *) malloc(sizeof(NCOMPLEX)*MAXNCOMPLEX*nc);
+    cp = c;
+  } else {
+    c = NULL;
+    cp = NULL;
   }
-
+  for (i = 0; i < nc; i++) {
+    GetNComplex(cp, sc[i]);
+    cp += MAXNCOMPLEX;
+  }
+  for (i = 0; i < n; i++) {
+    blk = (LBLOCK *) ArrayGet(blocks, i);
+    cp = c;
+    ic[i] = 0;
+    for (j = 0; j < nc; j++) {
+      if (CompareNComplex(blk->ncomplex, cp) == 0) {
+	ic[i] = 1;
+	break;
+      }
+      cp += MAXNCOMPLEX;
+    }
+  }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     for (q = 0; q < ion->ce_rates->dim; q++) {
@@ -1238,17 +1262,31 @@ int RateTable(char *fn) {
 	blk1 = ion->iblock[r->f];
 	i = blk->ib;
 	j = blk1->ib;
-	if (blk == blk1) continue;
-	den = blk->r[ion->ilev[r->i]];
+	if (blk == blk1 && !ic[i]) continue;
+	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
-	  p = i*n + j;
-	  ce[p] += den * r->dir;
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&ce, index, NULL);
+	  *d += den * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  den = blk1->r[ion->ilev[r->f]];
+	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
-	    p = i + j*n;
-	    ce[p] += den * r->inv;
+	    index[2] = j;
+	    index[1] = i;
+	    if (ic[i]) {
+	      index[0] = ion->ilev[r->i];
+	    } else {
+	      index[0] = 0;
+	    }
+	    d = (double *) MultiSet(&ce, index, NULL);
+	    *d += den * r->inv;
 	  }
 	}
       }
@@ -1259,19 +1297,33 @@ int RateTable(char *fn) {
 	r = (RATE *) ArrayGet(brts->rates, m);
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
-	if (blk == blk1) continue;
 	i = blk->ib;
 	j = blk1->ib;
-	den = blk->r[ion->ilev[r->i]];
+	if (blk == blk1 && !ic[i]) continue;
+	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
-	  p = i*n + j;
-	  tr[p] += den * r->dir;
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&tr, index, NULL);
+	  *d += den * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  den = blk1->r[ion->ilev[r->f]];
+	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
-	    p = i + j*n;
-	    tr[p] += den * r->inv;
+	    index[2] = j;
+	    index[1] = i;
+	    if (ic[i]) {
+	      index[0] = ion->ilev[r->i];
+	    } else {
+	      index[0] = 0;
+	    }
+	    d = (double *) MultiSet(&tr, index, NULL);
+	    *d += den * r->inv;
 	  }
 	}
       }
@@ -1284,16 +1336,30 @@ int RateTable(char *fn) {
 	blk1 = ion->iblock[r->f];
 	i = blk->ib;
 	j = blk1->ib;
-	den = blk->r[ion->ilev[r->i]];
+	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
-	  p = i*n + j;
-	  rr[p] += den * r->dir;
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&rr, index, NULL);
+	  *d += den * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  den = blk1->r[ion->ilev[r->f]];
+	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
-	    p = i + j*n;
-	    rr[p] += den * r->inv;
+	    index[2] = j;
+	    index[1] = i;
+	    if (ic[i]) {
+	      index[0] = ion->ilev[r->i];
+	    } else {
+	      index[0] = 0;
+	    }
+	    d = (double *) MultiSet(&rr, index, NULL);
+	    *d += den * r->inv;
 	  }
 	}
       }
@@ -1306,16 +1372,30 @@ int RateTable(char *fn) {
 	blk1 = ion->iblock[r->f];
 	i = blk->ib;
 	j = blk1->ib;
-	den = blk->r[ion->ilev[r->i]];
+	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
-	  p = i*n + j;
-	  ai[p] += den * r->dir;
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&ai, index, NULL);
+	  *d += den * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  den = blk1->r[ion->ilev[r->f]];
+	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
-	    p = i + j*n;
-	    ai[p] += den * r->inv;
+	    index[2] = j;
+	    index[1] = i;
+	    if (ic[i]) {
+	      index[0] = ion->ilev[r->i];
+	    } else {
+	      index[0] = 0;
+	    }
+	    d = (double *) MultiSet(&ai, index, NULL);
+	    *d += den * r->inv;
 	  }
 	}
       }  
@@ -1328,23 +1408,36 @@ int RateTable(char *fn) {
 	blk1 = ion->iblock[r->f];
 	i = blk->ib;
 	j = blk1->ib;
-	den = blk->r[ion->ilev[r->i]];
+	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
-	  p = i*n + j;
-	  ci[p] += den * r->dir;
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&ci, index, NULL);
+	  *d += den * r->dir;
 	}
 	if (r->inv > 0.0) {
-	  den = blk1->r[ion->ilev[r->f]];
+	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
-	    p = i + j*n;
-	    ci[p] += den * r->inv;
+	    index[2] = j;
+	    index[1] = i;
+	    if (ic[i]) {
+	      index[0] = ion->ilev[r->i];
+	    } else {
+	      index[0] = 0;
+	    }
+	    d = (double *) MultiSet(&ci, index, NULL);
+	    *d += den * r->inv;
 	  }
 	}  
       }
     }
   }
 
-  p = 0;
   for (i = 0; i < n; i++) {
     blk = (LBLOCK *) ArrayGet(blocks, i);
     k = blk->iion;
@@ -1356,36 +1449,107 @@ int RateTable(char *fn) {
     }
     rt_hdr.nele = m;
     rt_hdr.iblock = i;
-    rt_hdr.nb = blk->nb;
     StrNComplex(rt_hdr.icomplex, blk->ncomplex);
-    f = InitFile(fn, &fhdr, &rt_hdr);
-    for (j = 0; j < n; j++) {
-      blk1 = (LBLOCK *) ArrayGet(blocks, j);
-      if (tr[p] + 1.0 == 1.0 &&
-	  ce[p] + 1.0 == 1.0 &&
-	  ci[p] + 1.0 == 1.0 &&
-	  rr[p] + 1.0 == 1.0 &&
-	  ai[p] + 1.0 == 1.0) {
-	p++;
-	continue;
+    index[1] = i;
+    if (ic[i]) {
+      for (k = 0; k < blk->nlevels; k++) {
+	rt_hdr.ilev = k;
+	rt_hdr.nb = blk->n[k];
+	if (rt_hdr.nb + 1 == 1) continue;
+	f = InitFile(fn, &fhdr, &rt_hdr);
+	index[0] = k;
+	for (j = 0; j < n; j++) {
+	  rt.iblock = j;
+	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	  rt.nb = blk1->nb;
+	  index[2] = j;
+	  d = (double *) MultiGet(&ce, index);
+	  if (d && *d) {
+	    rt.ce = *d;
+	  }
+	  d = (double *) MultiGet(&tr, index);
+	  if (d && *d) {
+	    rt.tr = *d;
+	  }
+	  d = (double *) MultiGet(&rr, index);
+	  if (d && *d) {
+	    rt.rr = *d;
+	  }
+	  d = (double *) MultiGet(&ai, index);
+	  if (d && *d) {
+	    rt.ai = *d;
+	  }
+	  d = (double *) MultiGet(&ci, index);
+	  if (d && *d) {
+	    rt.ci = *d;
+	  }
+	  if (1 + rt.ce != 1 || 
+	      1 + rt.tr != 1 || 
+	      1 + rt.rr != 1 || 
+	      1 + rt.ai != 1 || 
+	      1 + rt.ci != 1) {
+	    StrNComplex(rt.icomplex, blk1->ncomplex);
+	    WriteRTRecord(f, &rt);
+	  }
+	}
+	CloseFile(f, &fhdr);
       }
-      rt.iblock = j;
-      rt.ce = ce[p];
-      rt.tr = tr[p];
-      rt.rr = rr[p];
-      rt.ci = ci[p];
-      rt.ai = ai[p];
-      WriteRTRecord(f, &rt);
-      p++;
+    } else {
+      index[0] = 0;
+      rt_hdr.ilev=-1;
+      rt_hdr.nb = blk->nb;
+      if (rt_hdr.nb + 1 == 1) continue;
+      f = InitFile(fn, &fhdr, &rt_hdr);
+      for (j = 0; j < n; j++) {
+	rt.iblock = j;
+	blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	rt.nb = blk1->nb;
+	index[2] = j;
+	rt.ce = 0.0;
+	rt.tr = 0.0;
+	rt.rr = 0.0;
+	rt.ai = 0.0;
+	rt.ci = 0.0;
+	d = (double *) MultiGet(&ce, index);
+	if (d && *d) {
+	  rt.ce = *d;
+	} 
+	d = (double *) MultiGet(&tr, index);
+	if (d && *d) {
+	  rt.tr = *d;
+	}
+	d = (double *) MultiGet(&rr, index);
+	if (d && *d) {
+	  rt.rr = *d;
+	}
+	d = (double *) MultiGet(&ai, index);
+	if (d && *d) {
+	  rt.ai = *d;
+	}
+	d = (double *) MultiGet(&ci, index);
+	if (d && *d) {
+	  rt.ci = *d;
+	}
+	if (1 + rt.ce != 1 || 
+	    1 + rt.tr != 1 || 
+	    1 + rt.rr != 1 || 
+	    1 + rt.ai != 1 || 
+	    1 + rt.ci != 1) {
+	  StrNComplex(rt.icomplex, blk1->ncomplex);
+	  WriteRTRecord(f, &rt);
+	}
+      }
+      CloseFile(f, &fhdr);
     }
-    CloseFile(f, &fhdr);
   }
 
-  free(ce);
-  free(tr);
-  free(ci);
-  free(rr);
-  free(ai);
+  free(ic);
+  if (c) free(c);
+  MultiFree(&ce, NULL);
+  MultiFree(&tr, NULL);
+  MultiFree(&ci, NULL);
+  MultiFree(&rr, NULL);
+  MultiFree(&ai, NULL);
 
   return 0;
 }

@@ -198,6 +198,7 @@ typedef struct _RT_HEADER_ {
   int nele;
   int ntransitions;
   int iblock;
+  int ilev;
   char icomplex[LNCOMPLEX];
   int iedist;
   int np_edist;
@@ -210,11 +211,13 @@ typedef struct _RT_HEADER_ {
 
 typedef struct _RT_RECORD_ {
   int iblock;
+  float nb;
   float tr;
   float ce;
   float rr;
   float ai;
   float ci;
+  char icomplex[LNCOMPLEX];
 } RT_RECORD;
 
 int CheckEndian(F_HEADER *fh);

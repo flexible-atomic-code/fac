@@ -112,7 +112,7 @@ int SetTRRates(int inv);
 int SetCIRates(int inv);
 int SetRRRates(int inv);
 int SetAIRates(int inv);
-int RateTable(char *fn);
+int RateTable(char *fn, int nc, char *sc[]);
 int BlockMatrix(void);
 int BlockPopulation(void);
 double BlockRelaxation(int iter);

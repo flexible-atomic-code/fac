@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.10 2002/02/18 03:15:15 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.11 2002/02/19 21:26:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -40,10 +40,10 @@ void dqagi_(double (*f)(double *),
 void dqng_(double (*f)(double *),
 	   double *a, double *b, double *epsabs, double *epsrel, 
 	   double *result, double *abserr, int *neval, int *ier);
-void dqags(double (*f)(double *),
-	   double *a, double *b, double *epsabs, double *epsrel, 
-	   double *result, double *abserr, int *neval, int *ier,
-	   int *limit, int *lenw, int *last, int *iwork, double *work);
+void dqags_(double (*f)(double *),
+	    double *a, double *b, double *epsabs, double *epsrel, 
+	    double *result, double *abserr, int *neval, int *ier,
+	    int *limit, int *lenw, int *last, int *iwork, double *work);
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
@@ -95,10 +95,10 @@ int SetEleDist(int i, int np, double *p) {
   switch (i) {
   case 0:
     if (p[2] <= 0.0) {
-      p[2] = p[0]*100.0;
+      p[2] = 1E2*p[0];
     }
     if (p[1] <= 0.0) {
-      p[1] = 1E-4*p[0];
+      p[1] = 1E-20*p[0];
     }
     break;
   case 1:
@@ -107,6 +107,7 @@ int SetEleDist(int i, int np, double *p) {
     }
     if (p[2] <= 0.0) {
       p[2] = p[0] - 6.0*p[1];
+      if (p[2] < 0) p[2] = 0.0;
     }
     break;
   default:
@@ -170,14 +171,14 @@ double IntegrateRate(int idist, double eth, double bound,
 		     int i0, int f0, int type, 
 		     double (*Rate1E)(double, double, int, int, void *)) { 
   double result;
-  int neval, inf, ier, limit, lenw, last, n;
+  int neval, ier, limit, lenw, last, n;
   double epsabs, epsrel, abserr;
-  double a, b;
+  double a, b, a0, b0, r0;
 
-  inf = 1;
   ier = 0;
   epsabs = rate_args.epsabs;
   epsrel = rate_args.epsrel;
+
   limit = QUAD_LIMIT;
   lenw = 4*limit;
   
@@ -197,28 +198,60 @@ double IntegrateRate(int idist, double eth, double bound,
   a = rate_args.d->params[n-2];
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
-  /*
-  dqags(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
-	&abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
-  */
-  
-  dqng_(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
-	&abserr, &neval, &ier);
-  
-  if (ier > 0) {
-    if (abserr < epsabs) return result;
-    if (abserr < fabs(epsrel*result)) return Max(0.0, result);
-  }
-  
-  if (ier != 0 && rate_args.iprint) {
-    printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E\n", 
-	   ier, neval, bound, result, abserr);
-    printf("%6d %6d %2d Eth = %10.3E\n", 
-	   rate_args.i, rate_args.f, type, eth);
-  }
 
-  if (result < 0.0) result = 0.0;
-  return result;
+  if (idist == 0 && iedist == 0) {
+    a0 = rate_args.d->params[0];
+    b0 = 5.0*a0;
+    a0 = a;
+    if (b < b0) b0 = b;
+    r0 = 0.0;
+    if (b0 > a0) {
+      dqags_(RateIntegrand, &a0, &b0, &epsabs, &epsrel, &result, 
+	     &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+      r0 += result;
+      if (abserr > epsabs && abserr > r0*epsrel) {
+	if (ier != 0 && rate_args.iprint) {
+	  printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+		 ier, neval, a0, b0, result, abserr);
+	  printf("%6d %6d %2d Eth = %10.3E\n", 
+		 rate_args.i, rate_args.f, type, eth);
+	}
+      }
+      result = 0.1*r0*epsrel;
+      if (epsabs < result) epsabs = result;
+    } else {
+      b0 = a0;
+    }
+    if (b > b0) {
+      dqags_(RateIntegrand, &b0, &b, &epsabs, &epsrel, &result, 
+	     &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+      r0 += result;
+      if (abserr > epsabs && abserr > r0*epsrel) {
+	if (ier != 0 && rate_args.iprint) {
+	  printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+		 ier, neval, b0, b, result, abserr);
+	  printf("%6d %6d %2d Eth = %10.3E\n", 
+		 rate_args.i, rate_args.f, type, eth);
+	}
+      }
+    }
+    if (r0 < 0.0) r0 = 0.0;
+    return r0;
+  } else {
+    dqags_(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
+	   &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+    r0 = result;
+    if (abserr > epsabs && abserr > r0*epsrel) {
+      if (ier != 0 && rate_args.iprint) {
+	printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+	       ier, neval, a, b, result, abserr);
+	printf("%6d %6d %2d Eth = %10.3E\n", 
+	       rate_args.i, rate_args.f, type, eth);
+      }
+    }
+    if (r0 < 0.0) r0 = 0.0;
+    return r0;
+  }
 }
 
 double IntegrateRate2(int idist, double e, int np, 

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.9 2002/02/18 03:15:15 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.10 2002/02/19 21:26:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -589,18 +589,24 @@ static PyObject *PReinitCRM(PyObject *self, PyObject *args) {
 }
  
 static PyObject *PRateTable(PyObject *self, PyObject *args) { 
-  char *fn;
+  int i, nc;
+  char **sc;
     
   if (scrm_file) {
     SCRMStatement("RateTable", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
+  
+  nc = PyTuple_Size(args);
+  if (nc == 0) return NULL;
+  sc = (char **) malloc(sizeof(char *)*nc);
+  for (i = 0; i < nc; i++) {
+    sc[i] = PyString_AsString(PyTuple_GetItem(args, i));
+  }
+  RateTable(sc[0], nc-1, &(sc[1]));
 
-  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
-
-  RateTable(fn);
- 
+  free(sc);
   Py_INCREF(Py_None);
   return Py_None;
 }
