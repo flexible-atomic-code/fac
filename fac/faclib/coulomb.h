@@ -56,8 +56,8 @@
 #define CBMULTIPOLES   2
 #define MAXNCB         (CBMULTIPOLES*(CBMULTIPOLES+3)/2)
 
-void    SetHydrogenicNL(int n, int kl);
-void    GetHydrogenicNL(int *n, int *kl);
+void    SetHydrogenicNL(int n, int kl, int nm, int klm);
+void    GetHydrogenicNL(int *n, int *kl, int *nm, int *klm);
 double  HydrogenicDipole(double z, int n0, int kl0, 
 			int n1, int kl1);
 double  TRRateHydrogenic(double z, int n0, int kl0,

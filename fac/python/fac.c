@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.34 2002/08/28 21:41:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.35 2002/09/04 13:27:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -646,7 +646,7 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
-  int n, k;
+  int n, k, nm, km;
   
   if (sfac_file) {
     SFACStatement("SetHydrogenicNL", args, NULL);
@@ -656,9 +656,11 @@ static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
 
   n = -1;
   k = -1;
-  if (!PyArg_ParseTuple(args, "|ii", &n, &k)) return NULL;
+  nm = -1;
+  km = -1;
+  if (!PyArg_ParseTuple(args, "|iiii", &n, &k, &nm, &km)) return NULL;
 
-  SetHydrogenicNL(n, k);
+  SetHydrogenicNL(n, k, nm, km);
   Py_INCREF(Py_None);
   return Py_None;
 }  
@@ -1162,6 +1164,13 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
 
 static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
   char *s;
+
+  if (sfac_file) {
+    SFACStatement("BasisTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
   GetBasisTable(s);
 
@@ -2853,6 +2862,41 @@ static PyObject *PTRRateH(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PPICrossH(PyObject *self, PyObject *args) {
+  int os, n0, kl0;
+  double e, z, r;
+
+  os = 0;
+  if (!PyArg_ParseTuple(args, "ddii|i", &z, &e, &n0, &kl0, &os)) 
+    return NULL;
+  if (n0 > 256) {
+    printf("maximum NU is 256\n");
+    return NULL;
+  }
+
+  e = e/HARTREE_EV;
+  r = PICrossH(z, n0, kl0, e, os);
+
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PRRCrossH(PyObject *self, PyObject *args) {
+  int n0, kl0;
+  double e, z, r;
+
+  if (!PyArg_ParseTuple(args, "ddii", &z, &e, &n0, &kl0)) 
+    return NULL;
+  if (n0 > 256) {
+    printf("maximum NU is 256\n");
+    return NULL;
+  }
+
+  e = e/HARTREE_EV;
+  r = RRCrossH(z, n0, kl0, e);
+
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -2948,6 +2992,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRRateH", PTRRateH, METH_VARARGS},  
+  {"PICrossH", PPICrossH, METH_VARARGS},  
+  {"RRCrossH", PRRCrossH, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}
 };

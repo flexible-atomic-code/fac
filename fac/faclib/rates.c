@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.18 2002/08/30 19:00:34 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.19 2002/09/04 13:27:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -672,7 +672,7 @@ double PhFit2(int z, int nele, int is, double e) {
   double r;
 
   phfit2_(&z, &nele, &is, &e, &r);
-  r *= 1E-4;
+  r *= 1E2;
   
   return r;
 }

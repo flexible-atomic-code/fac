@@ -1,3 +1,12 @@
+Version 0.8.1, 09/03/2002
+	1. fix the unit bug for PhFit.
+	2. add PICrossH and RRCrossH functions.
+	3. add H approximation for very high n states, where the
+	   wavefunction calculation is avoided completely. At present,
+	   it only works for energy levels, E1 transitions and RR & PI 
+	   cross sections.
+	4. add the Mixing coefficients output to the BasisTable function.
+	
 Version 0.8.0, 08/30/2002
 	1. add the ionization and recombinaiton fitting formula from
 	   Verner and Mazzotta.
