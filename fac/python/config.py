@@ -55,47 +55,54 @@ def config(*configs, **group):
 # distribution of electrons. eg., '2p2' -> ['2p-2', '2p-1 2p+1', '2p+2']
 
 def distribute(s):
-
-# the first char must be the principle quantum number.
-    n = string.atoi(s[0])
+    
+    # the first char must be the principle quantum number.
     len_s = len(s)
+    for i0 in range(len_s):
+        if not s[i0:i0+1].isdigit():
+            break
+    
+    n = string.atoi(s[0:i0])
 
-# 2nd char is the orbital angular momentum. * means any allowed value.
-    if s[1] == '*':
+    # 2nd char is the orbital angular momentum. * means any allowed value.
+    if s[i0] == '*':
         l = range(n)
     else:
-        l = [_orbital_symbols[s[1]]]
+        l = [_orbital_symbols[s[i0]]]
 
-# prepare to calculate the half of maximum occupation number.
+    # prepare to calculate the half of maximum occupation number.
     half_q = 0
     len_l = len(l)
     for m in l:
         half_q = half_q + m
 
-# 3rd char may indicate whether j = l+/-0.5. If it's not +/-, j may be
-# either value. The remaining chars (4th on if the 3rd is +/-, 3rd on
-# otherwise) indicate the occupation number.
-    if len_s == 2:
+    # 3rd char may indicate whether j = l+/-0.5. If it's not +/-, j may be
+    # either value. The remaining chars (4th on if the 3rd is +/-, 3rd on
+    # otherwise) indicate the occupation number.
+
+    i0 = i0+1
+    if len_s == i0:
         j = [-1, 1]
         q = 1
         half_q = 2*half_q + len_l
-    elif len_s > 2:
-        if s[2] == '+':
+    elif len_s > i0:
+        i1 = i0 + 1
+        if s[i0] == '+':
             j = [1]
-            if len_s > 3:
-                q = string.atoi(s[3:])
+            if len_s > i1:
+                q = string.atoi(s[i1:])
             else:
                 q = 1
             half_q = half_q + len_l
-        elif s[2] == '-':
+        elif s[i0] == '-':
             j = [-1]
-            if len_s > 3:
-                q = string.atoi(s[3:])
+            if len_s > i1:
+                q = string.atoi(s[i1:])
             else:
                 q = 1
         else:
             j = [-1,1]
-            q = string.atoi(s[2:])
+            q = string.atoi(s[i0:])
             half_q = 2*half_q + len_l
             
 # if the occupation number is more than half of the maximum, convert it

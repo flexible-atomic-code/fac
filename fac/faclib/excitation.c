@@ -31,15 +31,15 @@ static struct {
   double pk1[MAX_NKAPPA];
   double pk2[MAX_NKAPPA];
   double kl[MAX_NKL];
-  double qk[MAX_NKL];
+  double qk[MAX_NKL+1];
   double qk_y2[MAX_NKL];
-} pw_scratch = {1, MAX_KL, 15, 2, EPS3, 0, 0, 0};
+} pw_scratch = {1, MAX_KL, 15, 0, EPS3, 0, 0, 0};
 
 static MULTI *pk_array;
 
 int SetTEGrid(int n, double emin, double emax) {
-  int i, ie;
-  double del, log_del;
+  int i;
+  double del;
 
   if (n < 1) {
     n_tegrid = 0;
@@ -122,6 +122,7 @@ int AddCEPW(int n, int step) {
     if ((int) (pw_scratch.kl[i]) > pw_scratch.max_kl) break;
   }
   pw_scratch.nkl0 = i;
+  return 0;
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
@@ -147,6 +148,7 @@ int SetCEPWGrid(int ns, int *n, int *step) {
     k *= 2;
   }
   pw_scratch.nkl = pw_scratch.nkl0;
+  return 0;
 }
   
 
@@ -187,7 +189,7 @@ int SetEGrid(int n, double emin, double emax, int type) {
   egrid[0] = emin;
   log_egrid[0] = log(egrid[0]);
   n_egrid = n;
-  if (type == 0) {
+  if (type < 0) {
     del = emax - emin;
     del /= n-1.0;
     for (i = 1; i < n; i++) {
@@ -284,6 +286,11 @@ int CEContinuaKappas(int ie, int k, int *nkl, int *nkappa,
     kl_max = pw_scratch.max_kl;
   }
   if (k > 2) kl_max = Min(kl_max, pw_scratch.max_kl_1);
+  
+  rmax = GetRMax();
+  z = GetResidualZ(1);
+  m = rmax*sqrt(e1+2.0*z/rmax);
+  kl_max = Min(kl_max, m);
 
   m = 0;
   last_kl = 0;
@@ -333,7 +340,7 @@ int CEContinuaKappas(int ie, int k, int *nkl, int *nkappa,
   stop = clock();
   timing.set_kappa += stop-start;
 #endif
-
+  return 0;
 }
 
     
@@ -354,20 +361,21 @@ int CERadialPk(int ie, int k0, int k1, int k,
 #ifdef PERFORM_STATISTICS
   start = clock();
 #endif
-  type = 4;
-  if (k == 2) {
+  type = -1;
+  if (k > 0) {
     orb0 = GetOrbital(k0);
     orb1 = GetOrbital(k1);
     i = GetLFromKappa(orb0->kappa);
     m = GetLFromKappa(orb1->kappa);
-    if (IsOdd((i+m)/2)) {
-	type = 1;
+    if (IsEven((i+m+k)/2)) {
+      if (k == 2) type = 1;
+      else type = 2;
     }
   } else if (k == 0) {
     if (k0 == k1) {
       type = 0;
     }
-  }
+  } 
 
   index[0] = ie;
   index[1] = k0;
@@ -471,7 +479,7 @@ int CERadialPk(int ie, int k0, int k1, int k,
 double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
   int type1, type2;
   int i, j, kl0, kl1, nk4, kl, km;
-  double *pk, r, s, ratio, a, b, z;
+  double *pk, r, s, a, b, z;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
 #endif
@@ -507,7 +515,7 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
     }
   }
 
-  for (i = 0; i < pw_scratch.nkl; i++) {
+  for (i = 0; i <= pw_scratch.nkl; i++) {
     pw_scratch.qk[i] = 0.0;
   }
 
@@ -517,7 +525,7 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
   for (j = 0; j < pw_scratch.nkappa; j++) {
     i = j / nk4;
     s =  pw_scratch.pk1[j]*pw_scratch.pk2[j];
-    if (i < pw_scratch.nkl) pw_scratch.qk[i] += s;
+    pw_scratch.qk[i] += s;
     if (type1 == 1 && type2 == 1) {
       if (i == pw_scratch.nkl-1) {
 	kl = pw_scratch.kl[i];
@@ -560,6 +568,14 @@ double CERadialQk(int ie, double te, int k0, int k1, int k2, int k3, int k) {
     s /= te;
     s *= (b-a);
     r += s;
+  } else if (type1 >= 0 && type2 >= 0) {
+    i = pw_scratch.nkl;
+    j = i - 1;
+    a = pw_scratch.qk[i]/pw_scratch.qk[j];
+    if (a < 0.95 && a > 0.0) {
+      b = pw_scratch.qk[i]/(1.0-a);
+      r += b;
+    }
   }
   
   r *= 4.0 / (k+1.0);
@@ -576,7 +592,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp, 
 		   int nq, int *q) {
   int type1, type2;
-  int i, j, n, kl0, klp0, klp1, kl0_2, klp0_2, kl1;
+  int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
   int km0, km1, j0, jp0, j1, nk4, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0, dkl;
   double *pk, r, e0, e1, s;
@@ -751,6 +767,7 @@ double InterpolatePk(double te, int type, double *pk) {
     r = pk[0];
     return r;
   }
+  
   if (type == 0 || type == 1) {
     x = log_te;
     te = log(te);
@@ -769,7 +786,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   LEVEL *lev1, *lev2;
   double te, c, r, s3j;
   ANGULAR_ZMIX *ang;
-  int nz, type, m1, m2, j1, j2;
+  int nz, j1, j2;
   int nq, q[MAX_MSUB];
   double rq[MAX_MSUB][MAX_EGRID];
   int ie;
@@ -785,8 +802,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   *e = te;
 
   if (msub) {
-    j1 = GetHamilton(lev1->ham_index)->pj;
-    j2 = GetHamilton(lev2->ham_index)->pj;
+    j1 = lev1->pj;
+    j2 = lev2->pj;
     DecodePJ(j1, NULL, &j1);
     DecodePJ(j2, NULL, &j2);
     j = 0;
@@ -823,11 +840,11 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 			       ang[j].k0, ang[j].k1, ang[i].k); 
 	}
 	if (n_usr > n_egrid) {
-	  spline(egrid, rqk, n_egrid, 1.0E30, 1.0E30, y2);
+	  spline(log_egrid, rqk, n_egrid, 1.0E30, 1.0E30, y2);
 	}
 	for (ie = 0; ie < n_usr; ie++) {
 	  if (n_usr > n_egrid) {
-	    splint(egrid, rqk, y2, n_egrid, usr_egrid[ie], &r);
+	    splint(log_egrid, rqk, y2, n_egrid, log_usr_egrid[ie], &r);
 	  } else {
 	    r = rqk[ie];
 	  }
@@ -847,7 +864,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 	}
 	for (t = 0; t < nq; t++) {
 	  if (n_usr > n_egrid) {
-	    spline(egrid, rq[t], n_egrid, 1.0E30, 1.0E30, qy2[t]);
+	    spline(log_egrid, rq[t], n_egrid, 1.0E30, 1.0E30, qy2[t]);
 	  }
 	}
 	p = 0;
@@ -862,8 +879,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 	    }
 	    for (ie = 0; ie < n_usr; ie++) {
 	      if (n_usr > n_egrid) {
-		splint(egrid, rq[m], qy2[m], 
-		       n_egrid, usr_egrid[ie], &r);
+		splint(log_egrid, rq[m], qy2[m], 
+		       n_egrid, log_usr_egrid[ie], &r);
 	      } else {
 		r = rq[m][ie];
 	      }
@@ -900,7 +917,7 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
 int CEQkTable(char *fn, int k, double te) {
   FILE *f;
   double x;
-  int i, j, p, m, t, n;
+  int i, j, p, m, t;
   ORBITAL *orb1, *orb2;
   int n1, n2, kl1, kl2, j1, j2, k1, k2;
 
@@ -908,17 +925,16 @@ int CEQkTable(char *fn, int k, double te) {
   if (!f) return -1;
 
   if (pw_scratch.nkl0 == 0) {
-    SetCEPWOptions(1, 50, 15, 2, 0.0);
+    SetCEPWOptions(1, 40, 25, 0, 1E-3);
   }
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);
   }
   
-  n = GetNumBounds();
   t = 0;
-  n = 4;
-  for (i = 1; i < 2; i++) {
-    for (j = 2; j < 3; j++) {
+
+  for (i = 3; i < 4; i++) {
+    for (j = 6; j < 7; j++) {
       orb1 = GetOrbital(i);
       n1 = orb1->n;
       k1 = orb1->kappa;
@@ -933,7 +949,7 @@ int CEQkTable(char *fn, int k, double te) {
 	      t++, n1, kl1, j1, n2, kl2, j2);
       for (p = 0; p < n_egrid; p++) {
 	x = CERadialQk(p, te, i, j, i, j, k);
-	for (m = 0; m < pw_scratch.nkl; m++) {
+	for (m = 0; m <= pw_scratch.nkl; m++) {
 	  fprintf(f, " %10.3E %10.3E %3.0f %10.3E %10.3E %10.3E\n",
 		  egrid[p], te,	pw_scratch.kl[m], pw_scratch.qk[m], 
 		  pw_scratch.qk_y2[m], x);
@@ -1051,10 +1067,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #endif
 
   FILE *f;
-  double s[MAX_MSUB*MAX_USR_EGRID], energy;
+  double s[MAX_MSUB*MAX_USR_EGRID];
   int *alev;
   LEVEL *lev1, *lev2;
-  double emin, emax, e;
+  double emin, emax, e, c;
 
   if (n_usr == 0) {
     printf("No collisional energy specified\n");
@@ -1088,34 +1104,41 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   if (tegrid[0] < 0.0) {
     emin = 1E10;
     emax = 1E-10;
+    m = 0;
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	e = lev2->energy - lev1->energy;
+	if (e > 0) m++;
 	if (e < emin && e > 0) emin = e;
 	if (e > emax) emax = e;
       }
     }
-    if ((emax - emin) < EPS3) {
+    e = 2.0*(emax-emin)/(emax+emin);
+    if (m == 2) {
+      SetTEGrid(2, emin, emax);
+    } else if (e < EPS3) {
       SetTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e < 0.2) {
+      SetTEGrid(2, emin, emax);
     } else {
       SetTEGrid(n_tegrid, emin, emax);
     }
   }
 
   if (n_egrid == 0) {
-    n_egrid = 5;
+    n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr <= 5) {
+    if (n_usr <= 6) {
       SetEGridDetail(n_usr, usr_egrid);
     } else {
       SetEGrid(n_egrid, usr_egrid[0], usr_egrid[n_usr-1], 0);
     }
   }
   if (pw_scratch.nkl0 == 0) {
-    SetCEPWOptions(1, 40, 15, 2, 1E-3);
+    SetCEPWOptions(1, 40, 25, 0, 1E-3);
   }
   if (pw_scratch.nkl == 0) {
     SetCEPWGrid(0, NULL, NULL);
@@ -1145,7 +1168,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       for (ie = 0; ie < n_usr; ie++) {
 	fprintf(f, "%-10.3E ", usr_egrid[ie]*HARTREE_EV);
 	for (m = 0; m < k; m++) {
-	  fprintf(f, "%-10.3E ", s[m*n_usr+ie]);
+	  c = s[m*n_usr+ie];
+	  fprintf(f, "%-10.3E ", c);
+	  c *= PI * AREA_AU20/(2*(usr_egrid[ie]+e)*(j1+1));
+	  fprintf(f, "%-10.3E  ", c);
 	}
 	fprintf(f, "\n");
       }

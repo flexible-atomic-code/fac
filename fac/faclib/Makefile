@@ -6,9 +6,9 @@ OBJS = ${SRC:.c=.o}
 .c.o: 
 	$(CC) ${CFLAGS} $<
 
-faclib.a: ${OBJS}
-	ar cr faclib.a ${OBJS}
-	ranlib faclib.a
+faclib: ${OBJS}
+	ar cr libfac.a ${OBJS}
+	ranlib libfac.a
 
 clean: 
 	rm -f *.o *.a
