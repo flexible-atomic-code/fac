@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.14 2002/01/14 23:19:47 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.15 2002/01/17 02:57:11 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1641,6 +1641,12 @@ static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
   PyObject *p;
   int m;
   double tol;
+  
+  if (sfac_file) {
+    SFACStatement("SetRecQkMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   m = QK_DEFAULT;
   tol = -1;
@@ -1665,7 +1671,13 @@ static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
   
 static  PyObject *PSetRecPWOptions(PyObject *self, PyObject *args) {
   int kl_interp, max_kl;
-  
+   
+  if (sfac_file) {
+    SFACStatement("SetRecPWOptions", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+ 
   max_kl = -1;
   if (!PyArg_ParseTuple(args, "i|i", 
 			&kl_interp, &max_kl)) return NULL;
@@ -1678,6 +1690,11 @@ static  PyObject *PSetRecPWOptions(PyObject *self, PyObject *args) {
 static  PyObject *PSetRecPWLimits(PyObject *self, PyObject *args) {
   int m1, m2;
 
+  if (sfac_file) {
+    SFACStatement("SetRecPWLimits", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   if (!PyArg_ParseTuple(args, "ii", &m1, &m2)) return NULL;
   SetRecPWLimits(m1, m2);
   Py_INCREF(Py_None);
@@ -1687,6 +1704,12 @@ static  PyObject *PSetRecPWLimits(PyObject *self, PyObject *args) {
 
 static  PyObject *PSetRecSpectator(PyObject *self, PyObject *args) {
   int n_spec, n_frozen, n_max;
+
+  if (sfac_file) {
+    SFACStatement("SetRecSpectator", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   n_spec = 0;
   n_frozen = 0;

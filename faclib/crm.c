@@ -1,6 +1,6 @@
 #include "crm.h"
 
-static char *rcsid="$Id: crm.c,v 1.1 2002/01/14 23:24:21 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.2 2002/01/17 02:57:10 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1193,7 +1193,7 @@ double BlockRelaxation(int iter) {
       if (blk1->n[m] > 0.0) {
 	d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
       }
-      if (iter >= 5) {
+      if (iter >= 3) {
 	blk1->n[m] = b*blk1->n0[m] + c*blk1->n[m];
       }
       blk1->r[m] = blk1->n[m]/blk1->nb;
@@ -1226,7 +1226,7 @@ int LevelPopulation(void) {
   return 0;
 }
 
-int SpecTable(char *fn) {
+int SpecTable(char *fn, double strength_threshold) {
   SP_RECORD r, *t;
   ARRAY ri;
   SP_HEADER sp_hdr;
@@ -1240,6 +1240,7 @@ int SpecTable(char *fn) {
   double e, a;
   int i, p, q;
   int iedist, ipdist;
+  double smax, s;
 
   edist = GetEleDist(&iedist);
   pdist = GetPhoDist(&ipdist);
@@ -1293,6 +1294,7 @@ int SpecTable(char *fn) {
     sp_hdr.nele = ion->nele;
     sp_hdr.type = 1;
     f = InitFile(fn, &fhdr, &sp_hdr);    
+    smax = 0.0;
     for (m = 0; m < ion->tr_rates->dim; m++) {
       rt = (RATE *) ArrayGet(ion->tr_rates, m);
       if (k == 0 && 
@@ -1316,6 +1318,9 @@ int SpecTable(char *fn) {
 	  a *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
 	  r.strength += blk->n[p] * a;
 	}
+	s = r.strength*e;
+	if (s < strength_threshold*smax) continue;
+	if (s > smax) smax = s;
 	if (blk->iion != k) {
 	  ArrayAppend(&ri, &r);
 	} else {
@@ -1340,7 +1345,8 @@ int SpecTable(char *fn) {
     if (ion->rr_rates->dim == 0) continue;
     sp_hdr.type = ion->nele;
     sp_hdr.type = 2;
-    f = InitFile(fn, &fhdr, &sp_hdr);
+    f = InitFile(fn, &fhdr, &sp_hdr);  
+    smax = 0.0;
     for (m = 0; m < ion->rr_rates->dim; m++) {
       rt = (RATE *) ArrayGet(ion->rr_rates, m);
       e = ion->energy[rt->i] - ion->energy[rt->f];
@@ -1352,6 +1358,9 @@ int SpecTable(char *fn) {
 	r.upper = rt->i;
 	r.energy = e;
 	r.strength = blk->n[p] * rt->dir * electron_density;
+	s = r.strength*e;
+	if (s < strength_threshold*smax) continue;
+	if (s > smax) smax = s;
 	WriteSPRecord(f, &r);
       }
     }
@@ -1361,8 +1370,17 @@ int SpecTable(char *fn) {
   return 0;
 }
 
+static int CompareLine(const void *p1, const void *p2) {
+  double *v1, *v2;
+  v1 = (double *) p1;
+  v2 = (double *) p2;
+  if (*v1 < *v2) return -1;
+  else if (*v1 > *v2) return 1;
+  else return 0;
+}
+
 int PlotSpec(char *ifn, char *ofn, int type, 
-	     double emin, double emax, double de) {
+	     double emin, double emax, double de, double smin) {
   F_HEADER fh;
   SP_HEADER h;
   SP_RECORD r;
@@ -1371,9 +1389,11 @@ int PlotSpec(char *ifn, char *ofn, int type,
   int n, nb, i;
   double e;
   int m, k, nsp;
-  double *sp, *xsp;
+  double *sp, *xsp, *kernel;
   double de10, de01;
   double a, sig, factor;
+  double *lines;
+  double smax;
 
   if (type == 0 || type > 2) {
     printf("Type must be > 0 and <= 2\n");
@@ -1393,12 +1413,18 @@ int PlotSpec(char *ifn, char *ofn, int type,
 
   dist = GetEleDist(&i);
   
+  de01 = 0.1*de;
+  de10 = 10.0*de;
   sig = de/2.35;
   factor = 1.0/(sqrt(2*PI)*sig);
   sig = 1.0/(2*sig*sig);
+  kernel = (double *) malloc(sizeof(double)*128);
+  e = -63.5*de01;
+  for (i = 0; i < 128; i++){
+    kernel[i] = factor*exp(-sig*e*e);
+    e += de01;
+  }
 
-  de01 = 0.1*de;
-  de10 = 10.0*de;
   nsp = (emax - emin)/de01;
   sp = (double *) malloc(sizeof(double)*nsp);
   xsp = (double *) malloc(sizeof(double)*nsp);
@@ -1414,47 +1440,54 @@ int PlotSpec(char *ifn, char *ofn, int type,
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
     m = sizeof(double)*(h.np_edist + h.np_pdist);
     fseek(f1, m, SEEK_CUR);
-    if (h.type == type) {
-      if (type == 1) {
+    if (h.type == type) {    
+      if (type == 1) {	
+	m = 2*h.ntransitions;
+	lines = (double *) malloc(sizeof(double)*m);  
+	k = 0;
+	smax = 0.0;
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = fread(&r, sizeof(SP_RECORD), 1, f1);
 	  e = r.energy;
+	  a = r.strength * e;
+	  if (a < smax*smin) continue;
+	  if (a > smax) smax = a;
 	  e *= HARTREE_EV;
-	  k = 0;
-	  while (e - xsp[k] > de10 && k < nsp) k++;
-	  for (; k < nsp; k++) {
-	    a = xsp[k] - e;
-	    if (a > de10) break;
-	    a = a*a*sig;
-	    a = factor * r.strength * exp(-a);
-	    sp[k] += a;
+	  lines[k++] = e;
+	  lines[k++] = r.strength;
+	}
+	m = k;
+	qsort(lines, m/2, sizeof(double)*2, CompareLine);
+	k = 0;
+	i = 0;
+	while (k < m && i < nsp) {
+	  while (lines[k] < xsp[i]) k+= 2;
+	  if (lines[k] < xsp[i+1]) {
+	    sp[i] += lines[k+1];
+	    k += 2;
+	  } else {
+	    i++;
 	  }
 	}
+	free(lines);
+	for (i = 0; i < nsp; i++) xsp[i] = 0.0;
 	for (i = 0; i < nsp; i++) {
-	  fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], sp[i]);
+	  if (sp[i] > 0.0) {
+	    for (m = i-64, k = 0; k < 128; k++, m++) {
+	      if (m > 0) xsp[m] += sp[i]*kernel[k];
+	    }
+	  }
+	}
+	e = emin;
+	for (i = 0; i < nsp; i++) {
+	  fprintf(f2, "%15.8E\t%15.8E\n", e, xsp[i]);
 	  sp[i] = 0.0;
+	  xsp[i] = e;
+	  e += de01;
 	}
 	fprintf(f2, "\n\n");
       } else if (type == 2) {
-	for (i = 0; i < h.ntransitions; i++) {
-	  n = fread(&r, sizeof(SP_RECORD), 1, f1);
-	  e = r.energy;
-	  e *= HARTREE_EV;
-	  k = 0;
-	  while (xsp[k] < e && k < nsp) k++;
-	  for (; k < nsp; k++) {
-	    a = xsp[k] - e;
-	    a = dist->dist(a, dist->params);
-	    if (a <= 0.0) break;
-	    a *= r.strength;
-	    sp[k] += a;
-	  }
-	}
-	for (i = 0; i < nsp; i++) {
-	  fprintf(f2, "%15.8E\t%15.8E\n", xsp[i], sp[i]);
-	  sp[i] = 0.0;
-	}
-	fprintf(f2, "\n\n");
+	printf("plotting RR continuum not implemented yet\n");
       }
     } else {
       fseek(f1, h.length, SEEK_CUR);
@@ -1463,6 +1496,7 @@ int PlotSpec(char *ifn, char *ofn, int type,
 
   free(xsp);
   free(sp);
+  free(kernel);
   fclose(f1);
   fclose(f2);
 

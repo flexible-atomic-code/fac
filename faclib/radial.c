@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.34 2002/01/15 07:36:36 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.35 2002/01/17 02:57:11 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2444,15 +2444,14 @@ int ReinitRadial(int m) {
   FreeMultipoleArray();
   FreeMomentsArray();
 
-  if (m) {
-    if (optimize_control.n_screen > 0) {
-      free(optimize_control.screened_n);
-    }
-
-    potential->flag = -1;
-    n_awgrid = 1;
-    awgrid[0] = EPS3;
+  if (m == 0 && optimize_control.n_screen > 0) {
+    free(optimize_control.screened_n);
+    optimize_control.n_screen = 0;
   }
+
+  SetRadialGrid(1E-5, 5E2);
+  n_awgrid = 1;
+  awgrid[0] = EPS3;
   
   return 0;
 }

@@ -17,9 +17,10 @@ fac.Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
 fac.OptimizeRadial('n33')
 fac.Structure('se.lev.b', ['n2'])
 fac.Structure('se.lev.b', ['n33'])
-fac.PrintTable('se.lev.b', 'se.lev')
+fac.MemENTable('se.lev.b')
+fac.PrintTable('se.lev.b', 'se.lev', 1)
 
 fac.AITable('se.ai.b', ['n33'], ['n2'])
-fac.PrintTable('se.ai.b', 'se.ai')
+fac.PrintTable('se.ai.b', 'se.ai', 1)
 
 

@@ -12,13 +12,12 @@ Config('2*7', group='fe18')
 OptimizeRadial(['fe17', 'fe18'])
 Structure('ne_f.lev.b', ['fe17'])
 Structure('ne_f.lev.b', ['fe18'])
-PrintTable('ne_f.lev.b', 'ne_f.lev')
+MemENTable('ne_f.lev.b')
+PrintTable('ne_f.lev.b', 'ne_f.lev', 1)
 
-# set the collision energies
-# 21 points with 400 eV step starting from 500 eV.
+# set the output collision energies
 e = [500.0, 900.0, 1.3e3, 1.7e3, 2.1e3, 4.2e3, 6.0e3, 8.0e3]
-Print($e)
 SetUsrCIEGrid($e)
 
 CITable('ne.ci.b', ['fe17'], ['fe18'])
-PrintTable('ne.ci.b', 'ne.ci')
+PrintTable('ne.ci.b', 'ne.ci', 1)

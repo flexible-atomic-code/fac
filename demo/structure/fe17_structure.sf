@@ -8,10 +8,11 @@ Config('2*8', group = 'n2')
 Config('2*7 3*1', group = 'n3')
 
 # Self-consistent iteration for optimized central potential
-OptimizeRadial('n2', 'n3')
-Structure('ne.lev.b')
-PrintTable('ne.lev.b', 'ne.lev')
+OptimizeRadial(['n2', 'n3'])
+Structure('ne.lev.b', ['n2', 'n3'])
+MemENTable('ne.lev.b')
+PrintTable('ne.lev.b', 'ne.lev', 1)
 
 TransitionTable('ne.tr.b', ['n2'], ['n3'], -1)
-PrintTable('ne.tr.b', 'ne.tr')
+PrintTable('ne.tr.b', 'ne.tr', 1)
 

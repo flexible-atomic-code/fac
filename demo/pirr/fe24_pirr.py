@@ -23,8 +23,9 @@ fac.OptimizeRadial('n1')
 # complexes are included for the recombining ion.
 fac.Structure('li.lev.b', ['n1', 'n2'])
 fac.Structure('li.lev.b', ['rn2'])
-fac.PrintTable('li.lev.b', 'li.lev')
+fac.MemENTable('li.lev.b')
+fac.PrintTable('li.lev.b', 'li.lev', 1)
 
 fac.RRTable('li.rr.b', ['rn2'], ['n1'])
-fac.PrintTable('li.rr.b', 'li.rr')
+fac.PrintTable('li.rr.b', 'li.rr', 1)
 
