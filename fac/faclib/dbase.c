@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.64 2004/12/14 18:26:10 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.65 2005/01/01 18:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1661,7 +1661,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 }
 
 int CECross(char *ifn, char *ofn, int i0, int i1, 
-	    int negy, double *egy) {
+	    int negy, double *egy, int mp) {
   F_HEADER fh;
   FILE *f1, *f2;
   int n, swp;
@@ -1669,7 +1669,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   CE_RECORD r;
   int i, t, m, k;
   double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
-  double eth, a1, cs1, k2, rp;
+  double eth, a1, cs1, k2, rp, e1, e0;
   
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1723,38 +1723,53 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
-	    cs = InterpolateCECross(egy[t], &r, &h, data, &ratio);
-	    a = (egy[t]+e)/HARTREE_EV;
-	    a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
-	    a = PI*AREA_AU20/(2.0*a);
-	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
-	    a *= cs;
-	    if (data[1] > 0.0) {	      
-	      cs1 = data[1]*log(1.0+egy[t]/e) + r.born[0];
-	      k2 = (egy[t]+e)/HARTREE_EV;
-	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-	      a1 = FINE_STRUCTURE_CONST2*k2;
-	      a1 = a1/(1.0+a1);
-	      a1 = data[1]*(log(0.5*k2/eth) - a1);
-	      a1 += r.born[0];
-	      a1 *= 1.0 + FINE_STRUCTURE_CONST2*k2;
-	      k2 = cs1/a1;
-	      rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*(egy[t]+e)/HARTREE_EV);
-	      if (rp > 1.0) {
-		k2 /= rp;
-		rp = 1.0;
-	      }
-	      cs1 = cs*k2;
-	      a1 = a*rp;
+	    if (mp == 0) {
+	      e0 = egy[t];
+	      e1 = e0 - e;
 	    } else {
-	      k2 = (egy[t]+e)/HARTREE_EV;
-	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-	      k2 = 1.0 + FINE_STRUCTURE_CONST2*k2;
-	      cs1 = cs/k2;
-	      a1 = a*(1.0+0.5*FINE_STRUCTURE_CONST2*(egy[t]+e)/HARTREE_EV)/k2;
+	      e1 = egy[t];
+	      e0 = e1 + e;
+	    }
+	    if (e1 > 0) {
+	      cs = InterpolateCECross(e1, &r, &h, data, &ratio);
+	      a = e0/HARTREE_EV;
+	      a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
+	      a = PI*AREA_AU20/(2.0*a);
+	      if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
+	      a *= cs;
+	      if (data[1] > 0.0) {	      
+		cs1 = data[1]*log(e0/e) + r.born[0];
+		k2 = e0/HARTREE_EV;
+		k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+		a1 = FINE_STRUCTURE_CONST2*k2;
+		a1 = a1/(1.0+a1);
+		a1 = data[1]*(log(0.5*k2/eth) - a1);
+		a1 += r.born[0];
+		a1 *= 1.0 + FINE_STRUCTURE_CONST2*k2;
+		k2 = cs1/a1;
+		rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*e0/HARTREE_EV);
+		if (rp > 1.0) {
+		  k2 /= rp;
+		  rp = 1.0;
+		}
+		cs1 = cs*k2;
+		a1 = a*rp;
+	      } else {
+		k2 = (egy[t]+e)/HARTREE_EV;
+		k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+		k2 = 1.0 + FINE_STRUCTURE_CONST2*k2;
+		cs1 = cs/k2;
+		a1 = a*(1.0+0.5*FINE_STRUCTURE_CONST2*e0/HARTREE_EV)/k2;
+	      }
+	    } else {
+	      cs = 0.0;
+	      a = 0.0;
+	      cs1 = 0.0;
+	      a1 = 0.0;
+	      ratio = 0.0;
 	    }
 	    fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n",
-		    egy[t], cs, a, cs1, a1, ratio);
+		    e0, cs, a, cs1, a1, ratio);
 	  }
 	  fprintf(f2, "\n\n");
 	}

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.97 2004/12/23 21:31:03 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.98 2005/01/01 18:57:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3937,11 +3937,12 @@ static PyObject *PLevelInfor(PyObject *self, PyObject *args) {
 
 static PyObject *PCECross(PyObject *self, PyObject *args) { 
   PyObject *p, *q;
-  int i, negy, i0, i1;
+  int i, negy, i0, i1, mp;
   double *egy;
   char *ifn, *ofn;
   
-  if (!PyArg_ParseTuple(args, "ssiiO", &ifn, &ofn, &i0, &i1, &p))
+  mp = 1;
+  if (!PyArg_ParseTuple(args, "ssiiO|i", &ifn, &ofn, &i0, &i1, &p, &mp))
     return NULL;
 
   if (!PyList_Check(p) && !PyTuple_Check(p)) {
@@ -3957,7 +3958,7 @@ static PyObject *PCECross(PyObject *self, PyObject *args) {
     Py_DECREF(q);
   }
   
-  CECross(ifn, ofn, i0, i1, negy, egy);
+  CECross(ifn, ofn, i0, i1, negy, egy, mp);
   free(egy);
 
   Py_INCREF(Py_None);
