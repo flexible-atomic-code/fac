@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.51 2004/01/17 19:37:49 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.52 2004/01/19 04:45:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1197,6 +1197,7 @@ int SaveLevels(char *fn, int m, int n) {
 	  }
 	}
       }
+
       if (lev->ibase >= 0) {
 	for (p = 0; p < ecorrections->dim; p++) {
 	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
@@ -1206,7 +1207,7 @@ int SaveLevels(char *fn, int m, int n) {
 	    break;
 	  }
 	}
-      }  
+      } 
     } else {
       lev->ibase = -(s->kgroup + 1);
     }

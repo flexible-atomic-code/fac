@@ -2975,11 +2975,11 @@ specifies which rate is output.
 \begin{description}
 \item[$m=0$]
 Dump the level indexes, 2J values, energies, etc. 
-The record for each level contains 9 fields of the type: short, int,
+The record for each level contains 9 fields of the type: short, int, int,
 int, short, short, short, double, double, double. They are number of electrons
-of the ion, block index of the level, level index within the block, 2J value
-of the level, base level of the level, valence $nl$ of the level, energy,
-total decay rate, and branching ratio computed in \key{DRBranch}
+of the ion, level index, block index of the level, level index within the
+block, 2J value of the level, base level of the level, valence $nl$ of the
+level, energy, total decay rate, and branching ratio computed in \key{DRBranch}
 respectively. 
 \item[$m=1$]
 Dump the radiative transition rates. Each record contains 4 fields of type:

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.67 2004/01/17 19:37:49 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.68 2004/01/19 04:45:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -713,6 +713,10 @@ int SetBlocks(double ni, char *ifn) {
 	ion0.dbfiles[i] = (char *) malloc(k);
 	sprintf(ion0.dbfiles[i], "%s.ce", ifn);
 	break;
+      case DB_AI:
+	ion0.dbfiles[i] = (char *) malloc(k);
+	sprintf(ion0.dbfiles[i], "%s.ai", ifn);
+	break;
       default:
 	ion0.dbfiles[i] = NULL;
       }
@@ -778,6 +782,10 @@ int SetBlocks(double ni, char *ifn) {
     n0 = 0;
     nb0 = 0;
     r0 = rionized;
+    ion0.imin[0] = 100000000;
+    ion0.imin[1] = 100000000;
+    ion0.imax[0] = 0;
+    ion0.imax[1] = 0;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele == ion->nele) {
@@ -932,6 +940,10 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	    if (ifn) {
+	      if (r1[i].ilev > ion0.imax[0]) ion0.imax[0] = r1[i].ilev;
+	      if (r0[i].ilev > ion0.imax[1]) ion0.imax[1] = r0[i].ilev;
+	      if (r1[i].ilev < ion0.imin[0]) ion0.imin[0] = r1[i].ilev;
+	      if (r0[i].ilev < ion0.imin[1]) ion0.imin[1] = r0[i].ilev;
 	      ion0.ionized_map[0][n0] = r1[i].ilev;
 	      ion0.ionized_map[1][n0] = r0[i].ilev;
 	      ion0.energy[n0] = r1[i].energy;
@@ -1213,6 +1225,8 @@ int IonIndex(ION *ion, int i, int k) {
 
 int IonizedIndex(int i, int m) {
   int k;
+
+  if (i > ion0.imax[m] || i < ion0.imin[m]) return -1;
 
   for (k = 0; k < ion0.nionized; k++) {
     if (ion0.ionized_map[m][k] == i) {
@@ -4000,13 +4014,16 @@ int SetAIRates(int inv) {
       }
       n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
-	n = ReadAIRecord(f, &r, swp);
-	ib = IonizedIndex(r.b, 0);
-	if (ib >= 0) {
-	  ib = ion0.ionized_map[1][ib];
-	  if (ib <= ion->KLN_bmax && ib >= ion->KLN_bmin) {
-	    ibase = ib - ion->KLN_bmin;
-	    ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	n = ReadAIHeader(f, &h, swp);
+	for (i = 0; i < h.ntransitions; i++) {
+	  n = ReadAIRecord(f, &r, swp);
+	  ib = IonizedIndex(r.b, 0);
+	  if (ib >= 0) {
+	    ib = ion0.ionized_map[1][ib];
+	    if (ib <= ion->KLN_bmax && ib >= ion->KLN_bmin) {
+	      ibase = ib - ion->KLN_bmin;
+	      ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	    }
 	  }
 	}
       }

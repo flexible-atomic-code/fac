@@ -83,6 +83,7 @@ typedef struct _IONIZED_ {
   char *dbfiles[NDB];
   int nionized;
   int *ionized_map[2];
+  int imin[2], imax[2];
   double *energy;
   double n, nt;
 } IONIZED;
