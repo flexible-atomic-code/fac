@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.8}\xspace}
+\newcommand{\facversion}{{0.7.9}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -102,8 +102,8 @@ limit its accuracy for very high-$Z$ elements. Continuum processes are treated
 in the distorted-wave (DW) approximation. Systematic application of the
 factorization-interpolation method of \citet{barshalom88} makes the present
 code highly efficient for large scale calculations. The details of theoretical
-background and computational methods are not discussed in this manual, in
-stead, they are described in a series of papers which are distributed along
+background and computational methods are not discussed in this manual,
+instead, they are described in a series of papers which are distributed along
 with this package and this manual.
 
 FAC is a step forward to bring detailed atomic model accessable to a wide
@@ -165,7 +165,7 @@ directory by running,
 In order for python to find the installed PFAC modules, one would have to 
 define an environment variable PYTHONPATH to point to the directory
 \verb|/my/own/dir/lib/python#.#/site-packages|, where \verb|#.#| represents
-the Python version. In cshell, this requires
+the Python version. In csh, this requires
 \begin{verbatim}
     setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages
 \end{verbatim}
@@ -689,7 +689,7 @@ typedef struct _CE_RECORD_ {
   int lower;
   int upper;
   int nsub;
-  float bethe;
+  float bethe[4];
   float *params;
   float *strength;
 } CE_RECORD;
@@ -701,9 +701,17 @@ typedef struct _CE_RECORD_ {
 \item[\texttt{int nsub}:] Number of magnetic sublevel transitions. Because of
 time reversal symmetry, $\sigma_{m_1\to m_2}=\sigma_{-m_1\to -m_2}$, only cross
 sections with $m_1 <= 0$ are tabulated.
-\item[\texttt{float bethe}:] The logarithmic Bethe coefficient for a dipole
-allowed transition. It is negative if the transition is forbidden, and 0 if the
-transition is allowed by higher multipoles.
+\item[\texttt{float bethe[4]}:] The Bethe coefficients in the first-Born
+approximation. If \texttt{bethe[0]}<0, it is a spin forbidden transition,
+and all Bethe coefficients are 0.0, i.e., the exchange cross sections are not
+calculated in the Born approximation. Otherwise, the high energy behaviour of
+the collision strengths are given by
+\begin{eqnarray}
+x &=& \frac{E_0}{E_{th}} \nonumber\\
+\Omega &=& b_0\log(x) + b_1 + \frac{b_2}{x} + \frac{b_3}{x^2},
+\end{eqnarray}
+where $b_0$, $b_1$, $b_2$, and $b_3$ are the elements of the floating array
+\texttt{bethe}. 
 \item[\texttt{float *params}:] Parameters for the fitting formula, if the
 fitting mode is used. The number of elements is given by \texttt{nparams} in
 \texttt{CE\_HEADER}. In the present implementation, different fitting formulae
@@ -1351,7 +1359,7 @@ Mode	= 1
 \subsection{\texttt{DB\_CE}}
 \index{DB\_CE}
 \begin{verbatim}
-FAC 0.7.3
+FAC 0.7.9
 Endian	= 0
 TSess	= 1021577097
 Type	= 3
@@ -1396,7 +1404,9 @@ NUSR	= 6
 	  4.58848260E+03
 	  7.55863296E+03
 #lower 2J upper 2J Delta E    Bethe coeff. nsub
-    0	 0	    1	 4	 7.2435E+02	-1.0000E+00	1
+    0	 0	    1	 4	 7.2435E+02	1
+#The 4 Bethe coefficients in the Born approximation.
+-1.0000E+00  0.0000E+00  0.0000E+00  0.0000E+00
 # if QKMODE = 2, the parameter line is present here.
 #user egrid  coll. str.  cross sec.
  4.7241E+01	 1.5347E-03	 2.3789E-01
@@ -1405,7 +1415,8 @@ NUSR	= 6
  2.6558E+03	 2.5016E-04	 8.8294E-03
  4.5885E+03	 1.1322E-04	 2.5376E-03
  7.5586E+03	 5.1291E-05	 7.3523E-04
-    0	 0	    2	 2	 7.2639E+02	 9.1750E-03	1
+    0	 0	    2	 2	 7.2639E+02	1
+ 9.1750E-03 -7.0402E-03  7.2746E-03  1.2610E-04
  4.7241E+01	 1.8857E-03	 2.9153E-01
  5.7976E+02	 3.7280E-03	 3.4119E-01
  1.3981E+03	 6.3378E-03	 3.5633E-01

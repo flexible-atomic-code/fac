@@ -92,7 +92,7 @@ typedef struct _CE_RECORD_ {
   int lower;
   int upper;
   int nsub;
-  float bethe;
+  float bethe[4];
   float *params;
   float *strength;
 } CE_RECORD;

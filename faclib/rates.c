@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.16 2002/07/10 21:26:04 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.17 2002/08/21 22:01:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -301,10 +301,10 @@ double DERate1E(double e, double eth, int np, void *p) {
   n = 3;
   one = 1;
   uvip3p_(&n, &m1, x, y, &one, &x0, &a);
+  
   if (dp[1] > 0.0) {
     a -= dp[1]*log(eth/(eth+e));
   }
-  
   if (a <= 0.0) {
     a = 0.0;
     return a;

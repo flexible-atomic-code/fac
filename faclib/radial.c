@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.51 2002/08/17 20:21:39 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.52 2002/08/21 22:01:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -51,7 +51,8 @@ static double rgrid_max;
 static MULTI *slater_array;
 static MULTI *residual_array;
 static MULTI *multipole_array; 
-static MULTI *moments_array;  
+static MULTI *moments_array;
+static MULTI *gos_array;
 
 static int n_awgrid = 0;
 static double awgrid[MAXNTE];
@@ -1417,6 +1418,63 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   return r;
 }
 
+double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
+  ORBITAL *orb1, *orb2;
+  int n1, i, jy, np, nd, n;
+  double dr, x, a, b, c, r;
+  double *p1, *p2, *q1, *q2;
+  int index[3], t;
+  double **p, k;
+  
+  index[0] = m;
+  if (k1 > k2) {
+    index[1] = k2;
+    index[2] = k1;
+  } else {
+    index[1] = k1;
+    index[2] = k2;
+  }
+
+  p = (double **) MultiSet(gos_array, index, NULL);
+  if (*p) {
+    return *p;
+  }
+  *p = (double *) malloc(sizeof(double)*nk);
+
+  np = 3;
+  nd = 1;
+  n = 4;
+  jy = 1;
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
+  p1 = Large(orb1);
+  p2 = Large(orb2);
+  q1 = Small(orb1);
+  q2 = Small(orb2);
+  
+  n1 = Min(orb1->ilast, orb2->ilast);
+  
+  for (i = 0; i < n1; i++) {
+    _phase[i] = p1[i]*p2[i] + q1[i]*q2[i];
+  }
+  
+  for (t = 0; t < nk; t++) {
+    k = kg[t];
+
+    for (i = 0; i <= n1; i++) {
+      x = k * potential->rad[i];
+      _dphase[i] = besljn_(&jy, &m, &x);
+      _dphase[i] *= _phase[i];
+      _dphase[i] *= potential->dr_drho[i];
+    }
+    r = Simpson(_dphase, 0, n1);
+    
+    if (k1 == k2 && m == 0) r -= 1.0;
+    (*p)[t] = r;
+  }
+  return *p;
+}
+    
 double InterpolateMultipole(double aw2, int n, double *x, double *y) {
   double r;
   int np, nd;
@@ -2483,7 +2541,7 @@ int FreeResidualArray(void) {
   return 0;
 }
 
-static void _FreeMultipole(void *p) {
+static void FreeMultipole(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);
@@ -2492,7 +2550,7 @@ static void _FreeMultipole(void *p) {
 int FreeMultipoleArray(void) {
   if (multipole_array->array == NULL) return 0;
   MultiFreeData(multipole_array->array, multipole_array->ndim, 
-		_FreeMultipole);
+		FreeMultipole);
   return 0;
 }
 
@@ -2502,6 +2560,11 @@ int FreeMomentsArray(void) {
   return 0;
 }
 
+int FreeGOSArray(void) {
+  if (gos_array->array == NULL) return 0;
+  MultiFreeData(gos_array->array, gos_array->ndim, FreeMultipole);
+  return 0;
+}
 
 int InitRadial(void) {
   int ndim;
@@ -2532,6 +2595,9 @@ int InitRadial(void) {
   moments_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(moments_array, sizeof(double), ndim, blocks);
 
+  gos_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(gos_array, sizeof(double *), ndim, blocks);
+
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
@@ -2546,6 +2612,7 @@ int ReinitRadial(int m) {
   FreeResidualArray();
   FreeMultipoleArray();
   FreeMomentsArray();
+  FreeGOSArray();
   if (m != 1) {
     if (optimize_control.n_screen > 0) {
       free(optimize_control.screened_n);
