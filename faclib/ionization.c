@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.35 2002/08/30 19:00:33 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.36 2002/12/06 02:52:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -880,7 +880,6 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     emin = TE_MIN_MAX*emax;
   }
   if (k == 0) {
-    printf("No ionizations can occur\n");
     return 0;
   }
   if (qk_mode == QK_CB) {
