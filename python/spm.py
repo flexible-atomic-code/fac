@@ -2,6 +2,7 @@ from pfac.crm import *
 from pfac import const
 from math import *
 import string
+import biggles
 
 def spectrum(neles, temp, den, population,
              pref, suf = 'b', dir = '', nion = 3):
@@ -67,14 +68,6 @@ def spectrum(neles, temp, den, population,
             ReinitCRM(1)
         ReinitCRM()
 
-
-def select(spf, ofn, nele, type, elimits = [], smin = 1E-6):
-    for i in range(0, len(elimits), 2):
-        emin = float(elimits[i])
-        emax = float(elimits[i+1])
-        SelectLines(spf, ofn, nele, type, emin, emax, smin)
-            
-
 def read_lines(file, nele):
     k = -1
     s = []
@@ -92,3 +85,24 @@ def read_lines(file, nele):
                 
     return s
 
+def id_lines(w, s, name, eps=''):
+    n = len(w)
+    biggles.configure('screen', 'width', 800)
+    biggles.configure('screen', 'height', 500)
+    p = biggles.FramedPlot()
+    p.aspect_ratio = 0.7
+    xmin = min(w)
+    xmax = max(w)
+    for i in range(n):
+        q1 = (w[i], 0)
+        q2 = (w[i], s[i])
+        l = biggles.Line(q1, q2)
+        p.add(l)
+        l = biggles.Label(q2[0], q2[1], '%d: %s'%(i,name[i]),
+                          color='red', textangle=90)
+        p.add(l)
+    p.add(biggles.Line((xmin,0), (xmax,0), color='red'))
+    if (eps):
+        p.write_eps(eps)
+    else:
+        p.show()
