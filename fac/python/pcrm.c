@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.37 2004/01/11 22:02:55 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.38 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -574,6 +574,22 @@ static PyObject *PSetAIRates(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetAIRatesInner(PyObject *self, PyObject *args) {
+  char *fn;
+
+  if (scrm_file) {
+    SCRMStatement("SetAIRatesInner", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  SetAIRatesInner(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PPrintTable(PyObject *self, PyObject *args) { 
   char *fn1, *fn2;
   int v;
@@ -1020,6 +1036,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
   {"SetAIRates", PSetAIRates, METH_VARARGS},
+  {"SetAIRatesInner", PSetAIRatesInner, METH_VARARGS},
   {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
@@ -1056,14 +1073,11 @@ static struct PyMethodDef crm_methods[] = {
 void initcrm(void) {
   PyObject *m, *d;
   
-  m = Py_InitModule("crm", crm_methods);
-  
+  m = Py_InitModule("crm", crm_methods);  
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "crm.error");
   PyDict_SetItemString(d, "error", ErrorObject);
-
   InitCRM();
-
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module crm");
 }

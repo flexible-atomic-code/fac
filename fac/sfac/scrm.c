@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.22 2004/01/11 22:02:55 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.23 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -388,6 +388,14 @@ static int PSetAIRates(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetAIRatesInner(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {  
+
+  if (argc != 1) return -1;
+
+  SetAIRatesInner(argv[0]);
+  return 0;
+}
 static int PPrintTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int v;
@@ -531,6 +539,7 @@ static METHOD methods[] = {
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
   {"SetAIRates", PSetAIRates, METH_VARARGS},
+  {"SetAIRatesInner", PSetAIRates, METH_VARARGS},
   {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},

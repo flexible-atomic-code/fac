@@ -3,8 +3,6 @@
 
 #include "global.h"
 
-#define N_ELEMENTS 109
-
 typedef struct _NUCLEUS_ {
   char symbol[5];
   double atomic_number;

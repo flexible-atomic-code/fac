@@ -184,6 +184,9 @@
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
 #define AMU  1836.153
 
+/* nucleus */
+#define N_ELEMENTS 109
+
 /* radial QK modes */
 #define QK_DEFAULT    -1
 #define QK_EXACT       0
@@ -234,6 +237,8 @@
 #define ANGZ_BLOCK         128
 #define ANGZCUT            1E-6
 #define MIXCUT             1E-5
+#define NPRINCIPLE         2
+#define MAXDN              3
 
 /* transition */
 #define G_COULOMB          1

@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.54 2003/10/10 20:28:53 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.55 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -77,6 +77,7 @@ int SwapEndianENRecord(EN_RECORD *r) {
   SwapEndian((char *) &(r->p), sizeof(short));
   SwapEndian((char *) &(r->j), sizeof(short));
   SwapEndian((char *) &(r->ilev), sizeof(int));
+  SwapEndian((char *) &(r->ibase), sizeof(int));
   SwapEndian((char *) &(r->energy), sizeof(double));
   return 0;
 }
@@ -2356,7 +2357,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NLEV\t= %d\n", h.nlevels);
-    fprintf(f2, "         ENERGY       P   VNL 2J\n");
+    fprintf(f2, "  ILEV  IBASE    ENERGY       P   VNL 2J\n");
     for (i = 0; i < h.nlevels; i++) {
       n = ReadENRecord(f1, &r, swp);
       if (n == 0) break;
@@ -2372,8 +2373,8 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
 	p = 0;
 	vnl = r.p;
       }
-      fprintf(f2, "%5d %15.8E %1d %5d %2d %-20s %-20s %-s\n",
-	      r.ilev, e, p, vnl, r.j, r.ncomplex, r.sname, r.name);
+      fprintf(f2, "%6d %6d %15.8E %1d %5d %2d %-20s %-20s %-s\n",
+	      r.ilev, r.ibase, e, p, vnl, r.j, r.ncomplex, r.sname, r.name);
     }
     nb += 1;
   }
@@ -2409,12 +2410,12 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
 	a = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
 	a *= r.strength/(mem_en_table[r.upper].j + 1.0);
 	a *= RATE_AU;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E %15.8E %15.8E\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %15.8E %15.8E\n",
 		r.upper, mem_en_table[r.upper].j,
 		r.lower, mem_en_table[r.lower].j,
 		(e*HARTREE_EV), r.strength, a);
       } else {
-	fprintf(f2, "%5d\t%5d\t%15.8E\n", 
+	fprintf(f2, "%6d %6d %15.8E\n", 
 		r.upper, r.lower, r.strength);
       }
     }
@@ -2545,14 +2546,14 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
       if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%d\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e*HARTREE_EV, r.nsub);
 	fprintf(f2, "%11.4E %11.4E %11.4E\n", 
 		r.bethe, r.born[0], r.born[1]*HARTREE_EV);
       } else {
-	fprintf(f2, "%5d\t%5d\t%d\n", 
+	fprintf(f2, "%6d %6d %d\n", 
 		r.lower, r.upper, r.nsub);
 	fprintf(f2, "%11.4E %11.4E %11.4E\n", 
 		r.bethe, r.born[0], r.born[1]);
@@ -2578,11 +2579,11 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	    a = PI * AREA_AU20/(2.0*a);
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= r.strength[p2];
-	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
+	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
 		    h.usr_egrid[t]*HARTREE_EV,
 		    r.strength[p2], a);
 	  } else {
-	    fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[p2]);
+	    fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[p2]);
 	  }
 	  p2++;
 	}
@@ -2653,13 +2654,13 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
 
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%2d\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
 		r.b, mem_en_table[r.b].j, 
 		r.f, mem_en_table[r.f].j,
 		(e*HARTREE_EV), r.kl);
 	
       } else {
-	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.kl);
+	fprintf(f2, "%6d %6d %2d\n", r.b, r.f, r.kl);
       }
       
       if (h.qk_mode == QK_FIT) {
@@ -2686,10 +2687,10 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
 	  rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	  phi /= (mem_en_table[r.b].j + 1.0);
 	  rr /= (mem_en_table[r.f].j + 1.0);
-	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\n",
+	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E\n",
 		  h.usr_egrid[t]*HARTREE_EV, rr, phi, r.strength[t]);
 	} else {
-	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[t]);
+	  fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
       }
       if (h.qk_mode == QK_FIT) free(r.params);
@@ -2740,12 +2741,12 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
 	sdr = 0.5*(mem_en_table[r.b].j + 1.0);
 	sdr *= PI*PI*r.rate/(e*(mem_en_table[r.f].j + 1.0));
 	sdr *= AREA_AU20*HARTREE_EV;
-	fprintf(f2, "%5d\t%2d%5d\t%2d\t%11.4E\t%11.4E\t%11.4E\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %11.4E %11.4E\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, (RATE_AU*r.rate), sdr);
       } else {
-	fprintf(f2, "%5d\t%5d\t%15.8E\n", r.b, r.f, r.rate);
+	fprintf(f2, "%6d %6d %15.8E\n", r.b, r.f, r.rate);
       }
     }
     
@@ -2853,18 +2854,18 @@ int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp) {
       if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
-	fprintf(f2, "%5d\t%2d%5d\t%2d\t%11.4E\t%2d\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, r.nsub);
 	for (m = 0; m < r.nsub; m += 2) {
-	  fprintf(f2, "%11.4E\t%11.4E\n", 
+	  fprintf(f2, "%11.4E %11.4E\n", 
 		  r.rate[m]*RATE_AU, r.rate[m+1]*u);
 	}
       } else {
-	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.nsub);
+	fprintf(f2, "%6d %6d %2d\n", r.b, r.f, r.nsub);
 	for (m = 0; m < r.nsub; m += 2) {
-	  fprintf(f2, "%11.4E\t%11.4E\n", r.rate[m], r.rate[m+1]);
+	  fprintf(f2, "%11.4E %11.4E\n", r.rate[m], r.rate[m+1]);
 	}
       }
       free(r.rate);
@@ -2928,12 +2929,12 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
       
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%2d\n",
+	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, r.kl);
       } else {
-	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.kl);
+	fprintf(f2, "%6d %6d %2d\n", r.b, r.f, r.kl);
       }
       
       for (t = 0; t < h.nparams; t++) {
@@ -2947,10 +2948,10 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
 	  a *= 1.0 + FINE_STRUCTURE_CONST2*a;
 	  a = AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	  a *= r.strength[t];
-	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
+	  fprintf(f2, "%11.4E %11.4E %11.4E\n",
 		  h.usr_egrid[t]*HARTREE_EV, r.strength[t], a);
 	} else {
-	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[t]);
+	  fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
       }
       free(r.params); 
@@ -2995,7 +2996,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
       e = r.energy;
       if (v) e *= HARTREE_EV;
       a = r.strength;
-      fprintf(f2, "%5d\t%5d\t%15.8E\t%15.8E\n", r.upper, r.lower, e, a);
+      fprintf(f2, "%6d %6d %15.8E %15.8E\n", r.upper, r.lower, e, a);
     }
     nb += 1;
   }
@@ -3103,11 +3104,11 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
       e = r.energy;
       if (v) {
 	e *= HARTREE_EV;
-	fprintf(f2, "%6d\t%2d\t%4d\t%2d\t%3d\t%4d\t%3d\t%2d %2d\t%10.4E %10.4E %10.4E %10.4E\n",
+	fprintf(f2, "%6d %2d %4d %2d %3d %4d %3d %2d %2d %10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, h.ilev, h.j, r.ibase, r.flev, r.fbase, 
 		h.vn, r.vl, e, r.ai, r.total_rate, r.br);
       } else {
-	fprintf(f2, "%6d\t%2d\t%3d\t%4d\t%3d\t%2d\t%10.4E %10.4E %10.4E %10.4E\n",
+	fprintf(f2, "%6d %2d %3d %4d %3d %2d %10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, r.ibase, r.flev, r.fbase, r.vl, 
 		e, r.ai, r.total_rate, r.br);
       }

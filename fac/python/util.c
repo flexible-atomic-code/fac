@@ -1,4 +1,4 @@
-static char *rcsid="$Id: util.c,v 1.3 2003/07/10 14:04:39 mfgu Exp $";
+static char *rcsid="$Id: util.c,v 1.4 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -152,8 +152,8 @@ static struct PyMethodDef util_methods[] = {
 
 void initutil(void) {
   PyObject *m, *d;
-  m = Py_InitModule("util", util_methods);
-  
+
+  m = Py_InitModule("util", util_methods);  
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "util.error");
   PyDict_SetItemString(d, "error", ErrorObject);
