@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.41 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.42 2003/03/04 21:05:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -500,6 +500,16 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       return -3;
     }    
   } else {
+    zp = FINE_STRUCTURE_CONST2*e;
+    dk = sqrt(-2.0*e*(1.0+0.5*zp));
+    zp = z*(1.0 + zp);
+    eta0 = zp/dk;
+    for (i = i2; i > 20; i--) {
+      x0 = dk*pot->rad[i];
+      if (x0 < eta0) break;
+    }
+    i2 = i;
+
     i2p2 = i2 + 2;
     nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
     for (i = 0; i <= i2p2; i++) {

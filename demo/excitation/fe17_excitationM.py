@@ -13,7 +13,7 @@ fac.Config('2*7 3*1', group = 'n3')
 # Self-consistent iteration for optimized central potential
 fac.SetScreening([10])
 fac.ConfigEnergy(0)
-fac.OptimizeRadial('n2', 'n3')
+fac.OptimizeRadial('n2')
 fac.ConfigEnergy(1)
 fac.Structure('ne.lev.b')
 fac.MemENTable('ne.lev.b')
