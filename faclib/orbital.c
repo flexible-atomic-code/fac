@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.48 2003/08/13 01:38:16 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.49 2003/12/01 22:41:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -781,6 +781,7 @@ void DerivODE(int *neq, double *t, double *y, double *ydot) {
   ydot[0] = y[1];
   ydot[1] = 1.0/(y[0]*y[0]*y[0]) - y[0]*w;
 }
+
 /* provide fortran access with cfortran.h */
 FCALLSCSUB4(DerivODE, DERIVODE, derivode, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
   
@@ -934,7 +935,7 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     }
     if (i <= 10) return -2;
 
-    i2 = MAX_POINTS-5;
+     i2 = MAX_POINTS-5;
     i2 = Min(i2, i);
   } 
   return i2;
@@ -1020,7 +1021,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   for (i = i2; i >= i1; i--) {
     if (e >= _veff[i]) break;
   }
-  if (i == i1) return n;
+  if (i <= i1) return n;
 
   p0 = p[i];
   for (; i >= i1; i--) {
