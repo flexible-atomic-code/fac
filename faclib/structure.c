@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.80 2004/12/16 16:36:48 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.81 2004/12/16 21:52:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3606,10 +3606,10 @@ int GetBasisTable(char *fn) {
 
 int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   int kg1, kg2, kc1, kc2;
-  int ns, n, p, q, nz, iz;
+  int ns, n, p, q, nz, iz, iz1, iz2;
   int ns1, ns2, *pnz;
   int nc1, nc2, ncfgs;
-  int ks1, ks2, i1, i2;
+  int ks1, ks2, i1, i2, i2m;
   int n_shells, *k, nkk;
   double *r;
   int phase, im;
@@ -3655,6 +3655,8 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   iz = 0;
+  iz1 = 0;
+  iz2 = 0;
   a = (ANGULAR_ZMIX **) (*ad)->angz;
   pnz = (*ad)->nz;
 
@@ -3664,17 +3666,32 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
     kc1 = s1->kcfg;
     ks1 = s1->kstate;    
     c1 = GetConfigFromGroup(kg1, kc1);
-    for (i2 = 0; i2 < ns2; i2++) {
+    if (ih1 == ih2) {
+      i2m = i1;
+    } else {
+      i2m = 0;
+    }
+    for (i2 = i2m; i2 < ns2; i2++) {
       s2 = hams[ih2].basis[i2];
       kg2 = s2->kgroup;
       kc2 = s2->kcfg;
       ks2 = s2->kstate;          
       c2 = GetConfigFromGroup(kg2, kc2);
-	
+      if (ih1 == ih2) {
+	iz1 = i1*ns2 + i2;
+	iz2 = i2*ns1 + i1;
+      }
       if (abs(c1->n_shells - c2->n_shells) > 1) {
-	a[iz] = NULL;
-	pnz[iz] = 0;
-	iz++;
+	if (ih1 != ih2) {
+	  a[iz] = NULL;
+	  pnz[iz] = 0;
+	  iz++;
+	} else {
+	  a[iz1] = NULL;
+	  pnz[iz1] = 0;
+	  a[iz2] = NULL;
+	  pnz[iz2] = 0;
+	}
 	continue;
       }
 
@@ -3746,9 +3763,21 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       free(sbra);
       free(sket);
     OUT:
-      a[iz] = ang;
-      pnz[iz] = n;
-      iz++;
+      if (ih1 != ih2) {
+	a[iz] = ang;
+	pnz[iz] = n;
+	iz++;
+      } else {
+	a[iz1] = ang;
+	pnz[iz1] = n;
+	if (n > 0) {
+	  ang = malloc(sizeof(ANGULAR_ZMIX)*n);
+	  memcpy(ang, a[iz1], sizeof(ANGULAR_ZMIX)*n);
+	  AngZSwapBraKet(n, ang, 0);
+	}
+	a[iz2] = ang;
+	pnz[iz2] = n;
+      }
     }
   }
 #ifdef PERFORM_STATISTICS

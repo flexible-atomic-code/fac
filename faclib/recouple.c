@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.20 2004/06/25 00:00:09 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.21 2004/12/16 21:52:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,7 +34,8 @@ static int max_rank = MAXRANK;
 **              shells information.
 ** NOTE:        
 */
-static MULTI *interact_shells;
+static int *ninteracts;
+static INTERACT_DATUM **interact_shells;
 
 #ifdef PERFORM_STATISTICS
 static RECOUPLE_TIMING timing = {0, 0, 0, 0};
@@ -53,17 +54,6 @@ int GetRecoupleTiming(RECOUPLE_TIMING *t) {
   return 0;
 }
 #endif
-
-static void InitInteractDatum(void *p, int n) {
-  INTERACT_DATUM *d;
-  int i;
-
-  d = (INTERACT_DATUM *) p;
-  for (i = 0; i < n; i++) {
-    d[i].n_shells = 0;
-    d[i].bra = NULL;
-  }
-}
 
 /* 
 ** FUNCTION:    SetMaxRank
@@ -1447,6 +1437,29 @@ int InteractingShells(INTERACT_DATUM **idatum,
   return n_shells;
 }
 
+static void InitInteractDatum(INTERACT_DATUM *d, int n) {
+  int i;
+
+  if (!d) return;
+  for (i = 0; i < n; i++) {
+    d[i].n_shells = 0;
+    d[i].bra = NULL;
+  }
+}
+
+static void FreeInteractDatum(INTERACT_DATUM *d, int n) {  
+  int i;
+  
+  if (!d) return;
+  for (i = 0; i < n; i++) {
+    if (d[i].n_shells > 0) {
+      free(d[i].bra);
+      d[i].bra = NULL;
+    }
+    d[i].n_shells = 0;
+  }
+}
+
 /* 
 ** FUNCTION:    GetInteract
 ** PURPOSE:     determing which shells can be interacting.
@@ -1461,13 +1474,13 @@ int GetInteract(INTERACT_DATUM **idatum,
 		int kgi, int kgj,
 		int kci, int kcj, 
 		int ki, int kj, int ifb) {
-  int i, j, m;
+  int i, j, m, ig, ic, nc;
+  CONFIG_GROUP *gi, *gj;
   CONFIG *ci, *cj, cip;
   SHELL_STATE *csf_i, *csf_j, *csf_ip;
   SHELL *bra;
   INTERACT_SHELL *s;
   int n_shells;
-  int index[4];
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;  
@@ -1482,17 +1495,19 @@ int GetInteract(INTERACT_DATUM **idatum,
   if (abs(ci->n_shells+ifb - cj->n_shells) > 2) return -1;
 
   n_shells = -1;
-  /* check if this is a repeated call,
-   * if not, search in the array.
-   */
-  if (*idatum == NULL) {
-    index[0] = kgi;
-    index[1] = kgj;
-    index[2] = kci;
-    index[3] = kcj;
-    (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
-					    NULL, InitInteractDatum);
+  
+  gi = GetGroup(kgi);
+  gj = GetGroup(kgj);
+  ig = kgi*MAX_GROUPS + kgj;
+  nc = gi->n_cfgs*gj->n_cfgs;
+  if (interact_shells[ig] == NULL) {
+    interact_shells[ig] = malloc(sizeof(INTERACT_DATUM)*nc);
+    InitInteractDatum(interact_shells[ig], nc);
+    ninteracts[ig] = nc;
   }
+  ic = kci*gj->n_cfgs + kcj;
+  *idatum = interact_shells[ig]+ic;
+
   if ((*idatum)->n_shells < 0) return -1;
   if ((*idatum)->n_shells > 0) {
     n_shells = (*idatum)->n_shells;
@@ -1963,33 +1978,19 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 ** NOTE:        
 */
 int InitRecouple(void) {
-  int blocks[4] = {10, 10, 64, 64};
-  int ndim = 4;
-
-  interact_shells = (MULTI *) malloc(sizeof(MULTI));
-  return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
-}
-
-/* 
-** FUNCTION:    FreeInteractDatum
-** PURPOSE:     free memory of an INTERACT_DATUM struct.
-** INPUT:       
-** RETURN:      
-** SIDE EFFECT: 
-** NOTE:        
-*/
-void FreeInteractDatum(void *p) {
-  INTERACT_DATUM *d;
+  int ndim, i;
   
-  if (!p) return;
-  d = (INTERACT_DATUM *) p;
-  if (d->n_shells > 0) {
-    free(d->bra);
-    d->bra = NULL;
-    d->n_shells = -1;
+  ndim = MAX_GROUPS*MAX_GROUPS;  
+  interact_shells = (INTERACT_DATUM **) malloc(sizeof(INTERACT_DATUM *)*ndim);
+  ninteracts = (int *) malloc(sizeof(int)*ndim);
+  for (i = 0; i < ndim; i++) {
+    interact_shells[i] = NULL;
+    ninteracts[i] = 0;
   }
+
+  return 0;
 }
-  
+
 /* 
 ** FUNCTION:    ReinitRecouple
 ** PURPOSE:     Reinitialize the module "recouple"
@@ -2001,8 +2002,19 @@ void FreeInteractDatum(void *p) {
 ** NOTE:        
 */
 int ReinitRecouple(int m) {
+  int i, n;
+
   if (m < 0) return 0;
-  MultiFreeData(interact_shells, FreeInteractDatum);  
+
+  n = MAX_GROUPS*MAX_GROUPS;
+  for (i = 0; i < n; i++) {
+    if (ninteracts[i] > 0) {
+      FreeInteractDatum(interact_shells[i], ninteracts[i]);      
+      free(interact_shells[i]);
+      interact_shells[i] = NULL;
+      ninteracts[i] = 0;
+    }
+  }
   return 0;
 }
   
