@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.40 2002/02/06 18:28:52 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.41 2002/02/12 20:32:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

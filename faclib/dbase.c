@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.13 2002/02/04 16:20:04 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.14 2002/02/12 20:32:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -556,6 +556,57 @@ int FreeMemENTable(void) {
   return 0;
 }
  
+int LevelName(char *fn, int ilev, char *cname, char *sname, char *name) {
+  F_HEADER fh;  
+  EN_HEADER h;
+  EN_RECORD r;
+  FILE *f;
+  int n, i, k, nlevels;
+  int swp;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) return -1;
+
+  n = fread(&fh, sizeof(F_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  } else {
+    swp = 0;
+  }
+  if (fh.type != DB_EN) return -1;
+
+  k = ilev;
+  nlevels = 0;
+  for (i = 0; i < fh.nblocks; i++) {
+    n = fread(&h, sizeof(EN_HEADER), 1, f);
+    if (swp) {
+      SwapEndianENHeader(&h);
+    }
+    nlevels += h.nlevels;
+    if (k < h.nlevels) {
+      if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
+      n = fread(&r, sizeof(EN_RECORD), 1, f);
+      if (swp) {
+	SwapEndianENRecord(&r);
+      }	
+      if (r.ilev != ilev) return -1;
+      strncpy(cname, r.ncomplex, LNCOMPLEX);
+      strncpy(sname, r.sname, LSNAME);
+      strncpy(name, r.name, LNAME);
+      break;
+    } else {
+      k -= h.nlevels;
+      fseek(f, h.length, SEEK_CUR);
+    }
+  }
+  
+  if (i == fh.nblocks) return nlevels;
+
+  return 0;
+}
+  
 int MemENTable(char *fn) {
   F_HEADER fh;  
   EN_HEADER h;
@@ -1254,7 +1305,11 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
-    fprintf(f2, "TYPE\t= %d\n", h.type);
+    fprintf(f2, "TYPE\t= %06d\n", h.type);
+    fprintf(f2, "IBLK\t= %d\n", h.iblock);
+    fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
+    fprintf(f2, "FBLK\t= %d\n", h.fblock);
+    fprintf(f2, "FCOMP\t= %s\n", h.fcomplex);
     fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
@@ -1313,6 +1368,8 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "IBLK\t= %d\n", h.iblock);
+    fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
@@ -1332,7 +1389,6 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     free(h.p_edist);
     free(h.p_pdist);
 
-    fprintf(f2, "Block\t= %d\n", h.iblock);
     fprintf(f2, "Densit\t= %15.8E\n", h.nb);
     fprintf(f2,"    \t     TR         CE");
     fprintf(f2, "          RR          AI          CI\n");

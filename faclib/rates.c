@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.8 2002/02/04 15:48:33 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.9 2002/02/12 20:32:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -29,6 +29,7 @@ static struct {
   double epsrel;
   int i, f;
   int type;
+  int iprint;
 } rate_args;
 
 void dqagi_(double (*f)(double *), 
@@ -173,7 +174,7 @@ double IntegrateRate(int idist, double eth, double bound,
     if (abserr < fabs(epsrel*result)) return Max(0.0, result);
   }
 
-  if (ier != 0) {
+  if (ier != 0 && rate_args.iprint) {
     printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E\n", 
 	   ier, neval, bound, result, abserr);
     printf("%6d %6d %2d Eth = %10.3E\n", 
@@ -707,8 +708,9 @@ int InitRates(void) {
     pho_dist[i].dist = NULL;
   }
 
-  rate_args.epsabs = EPS10;
+  rate_args.epsabs = EPS8;
   rate_args.epsrel = EPS2;
+  rate_args.iprint = 0;
 
   for (i = 0; i < NSEATON; i++) {
     log_xseaton[i] = log(xseaton[i]);

@@ -173,11 +173,7 @@ typedef struct _SHELL_STATE_{
 /*
 ** STRUCT:      CONFIG
 ** PURPOSE:     a configuration.
-** FIELDS:      {double energy}, 
-**		average energy of the configuration.
-**		{float delta},
-**		possible adjustment to the configuration energy.
-**		{int n_electrons},
+** FIELDS:      {int n_electrons},
 **              number of electrons of the configuration.
 **              {n_shells},
 **              number of the subshells.

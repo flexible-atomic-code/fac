@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.11 2002/02/05 21:55:14 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.12 2002/02/12 20:32:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2179,18 +2179,20 @@ static int PStructure(int argc, char *argv[], int argt[],
   ngp = 0;
   n = argc;
   kgp = NULL;
+  ip = 0;
 
   if (n == 1) {
     if (argt[0] != STRING) return -1;
     ng = DecodeGroupArgs(&kg, 0, NULL, NULL, variables);
     if (ng < 0) return -1;
   } else {
-    if (n > 3) return -1;
+    if (n > 4) return -1;
+    if (n == 4) ip = atoi(argv[3]);		  
     if (argt[0] != STRING) return -1;
     if (argt[1] != LIST && argt[1] != TUPLE) return -1;
     ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
     if (ng < 0) return -1;
-    if (n == 3) {
+    if (n >= 3) {
       if (argt[2] != LIST && argt[2] != TUPLE) return -1;
       ngp = DecodeGroupArgs(&kg, 1, &(argv[2]), &(argt[2]), variables);
     }
