@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.15 2003/08/07 18:59:55 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.16 2003/08/07 21:25:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -168,12 +168,9 @@ int SetMLevels(char *fn, char *tfn) {
       free(BL[k]);
     }
     for (t = 0; t < nlevels; t++) {
-      m = levels[t].j/2 + 1;
-      for (p = 0; p < m; p++) {
-	free(levels[t].rtotal);
-	free(levels[t].pop);
-	free(levels[t].npop);
-      }
+      free(levels[t].rtotal);
+      free(levels[t].pop);
+      free(levels[t].npop);
     }
     free(levels);
     nlevels = 0;
