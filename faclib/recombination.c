@@ -147,6 +147,10 @@ int SetPEGrid(int n, double emin, double emax, int type) {
     printf("Grid points must be at least 1\n");
     return -1;
   }
+  if (emin < 0.0) {
+    egrid[0] = emin;
+    return 0;
+  }
   if (n > MAX_PEGRID) {
     printf("Max # of grid points reached \n");
     return -1;
