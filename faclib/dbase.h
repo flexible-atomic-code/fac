@@ -40,7 +40,7 @@ typedef struct _EN_RECORD_ {
   short p;
   short j;
   int ilev;
-  float energy;
+  double energy;
   char ncomplex[LNCOMPLEX];
   char sname[LSNAME];
   char name[LNAME];
@@ -49,7 +49,7 @@ typedef struct _EN_RECORD_ {
 typedef struct _EN_SRECORD_ {
   short p;
   short j;
-  float energy;
+  double energy;
 } EN_SRECORD;
 
 typedef struct _TR_HEADER_ {

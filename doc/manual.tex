@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.8.3}\xspace}
+\newcommand{\facversion}{{0.8.4}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -512,7 +512,7 @@ typedef struct _EN_RECORD_ {
   short p;
   short j;
   int ilev;
-  float energy;
+  double energy;
   char ncomplex[LNCOMPLEX];
   char sname[LSNAME];
   char name[LNAME];
