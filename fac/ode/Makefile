@@ -6,8 +6,8 @@ OBJS = ${SRC:.f=.o}
 	${FC} ${FFLAGS} $<
 
 ode: ${OBJS}
-	ar cr libode.a ${OBJS}
-	ranlib libode.a
+	ar cr libfode.a ${OBJS}
+	ranlib libfode.a
 
 clean:
 	rm -f *.o *.a *~

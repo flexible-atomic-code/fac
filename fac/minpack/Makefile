@@ -6,8 +6,8 @@ OBJS =  ${SRC:.f=.o}
 	$(FC) ${FFLAGS} $<
 
 minpack: $(OBJS)
-	ar cr libminpack.a $(OBJS)
-	ranlib libminpack.a
+	ar cr libfminpack.a $(OBJS)
+	ranlib libfminpack.a
 
 clean:
 	rm -f *.o *.a *~

@@ -47,8 +47,8 @@ if (sys.argv[1] == 'sfac'):
       os.system("make sfac %s"%macros)
       os.system("make install")
 else:
-      libs = ["fac", "quadpack", "ode", "lapack", "blas", "coul",
-              "toms", "mpfun", "minpack", "ionis", "m"] + fortranlib
+      libs = ["fac", "fquadpack", "fode", "flapack", "fblas", "coul",
+              "toms", "fmpfun", "fminpack", "ionis", "m"] + fortranlib
       libdir = ["faclib", "coul", "ode", "toms", "mpfun", "minpack",
                 "quadpack", "lapack", "blas", "ionis"]
       incdir = ["faclib"]

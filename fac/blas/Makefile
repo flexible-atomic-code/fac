@@ -6,8 +6,8 @@ OBJS = ${SRC:.f=.o}
 	$(FC) ${FFLAGS} $<
 
 blas: $(OBJS)
-	ar cr libblas.a $(OBJS)
-	ranlib libblas.a
+	ar cr libfblas.a $(OBJS)
+	ranlib libfblas.a
 
 clean:
 	rm -f *.o *.a *~

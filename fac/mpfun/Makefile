@@ -6,8 +6,8 @@ OBJS = ${SRC:.f=.o}
 	${FC} ${FFLAGS} $<
 
 mpfun: ${OBJS}
-	ar cr libmpfun.a ${OBJS}
-	ranlib libmpfun.a
+	ar cr libfmpfun.a ${OBJS}
+	ranlib libfmpfun.a
 
 clean:
 	rm -f *.o *.a *~
