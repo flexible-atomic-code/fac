@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.37 2002/09/24 18:49:28 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.38 2002/11/12 20:52:18 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -61,6 +61,8 @@ void lsode_(void (*f)(int *, double *, double *, double *),
 	    void (*jac)(int *, double *, double *, int *, 
 			int *, double *, int *), 
 	    int *mf);
+void uvip3p_(int *np, int *ndp, double *x, double *y, 
+	     int *n, double *xi, double *yi);
 
 int GetNMax(void) {
   return nmax;
@@ -421,12 +423,15 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 }
 
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
+#define ME 12
   double z, e, e0;
   int i, kl, niter, ierr;
   double lambda, eta0, x0, y5, y5p, y5norm;
   int i2, i2p, i2m, i2p2, i2m2, nodes, nr;
   double qo, qi, norm2, delta, dk, zp, *p;
   double ep, p1, p2, fact;
+  double en[ME], dq[ME], dn, zero=0.0;
+  int j, np, nme, one=1;
 
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
   kl = orb->kappa;
@@ -448,22 +453,26 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
   } else {
     lambda = kl;
   }
-  niter = 0;
-  while (niter < max_iteration) {
-    niter++;
-    SetPotentialW(pot, e, orb->kappa);
-    SetVEffective(kl, pot);
-    i2 = TurningPoints(orb->n, e, pot);
-    if (i2 < 0) {
-      printf("The orbital angular momentum = %d too high\n", kl);
-      return -2;
-    }
-    i2p2 = i2 + 2;
-    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
-    for (i = 0; i <= i2p2; i++) {
-      p[i] = p[i] * pot->dr_drho2[i];
-    }
-    if (i2 < MAX_POINTS-20) {
+
+  SetPotentialW(pot, e, orb->kappa);
+  SetVEffective(kl, pot);
+  i2 = TurningPoints(orb->n, e, pot);
+  if (i2 < MAX_POINTS-20) {
+    niter = 0;
+    while (niter < max_iteration) {
+      niter++;
+      SetPotentialW(pot, e, orb->kappa);
+      SetVEffective(kl, pot);
+      i2 = TurningPoints(orb->n, e, pot);
+      if (i2 < 0) {
+	printf("The orbital angular momentum = %d too high\n", kl);
+	return -2;
+      }
+      i2p2 = i2 + 2;
+      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+      for (i = 0; i <= i2p2; i++) {
+	p[i] = p[i] * pot->dr_drho2[i];
+      }
       i2 = LastMaximum(p, i2);
       i2p = i2 + 1;
       i2m = i2 - 1;
@@ -498,16 +507,41 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
 	}
 	break;
       }
-    } else {
-      i2p = i2 + 1;
-      i2m = i2 - 1;
-      i2p2 = i2 + 2;
-      i2m2 = i2 - 2;
+    }
+    if (niter == max_iteration) {
+      printf("Max iteration reached in RadialRydberg\n");
+      free(p);
+      return -3;
+    }    
+  } else {
+    i2p2 = i2 + 2;
+    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+    for (i = 0; i <= i2p2; i++) {
+      p[i] = p[i] * pot->dr_drho2[i];
+    }
+    i2 = LastMaximum(p, i2);
+    i2p = i2 + 1;
+    i2m = i2 - 1;
+    i2p2 = i2 + 2;
+    i2m2 = i2 - 2;
+    dn = 0.8/(ME-1.0);
+    en[0] = orb->n - 0.6;
+    for (j = 1; j < ME; j++) {
+      en[j] = en[j-1] + dn;
+    }
+    for (j = 0; j < ME; j++) {
+      e = EnergyH(z, en[j], orb->kappa);
+      en[j] = e;
+      SetPotentialW(pot, e, orb->kappa);
+      SetVEffective(kl, pot);
+      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+      for (i = 0; i <= i2p2; i++) {
+	p[i] = p[i] * pot->dr_drho2[i];
+      }
       p2 = p[i2];
       qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
 	    + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
       qo /= p2*pot->dr_drho[i2];
-
       zp = FINE_STRUCTURE_CONST2*e;
       dk = sqrt(-2.0*e*(1.0 + 0.5*zp));
       zp = z*(1.0 + zp);
@@ -523,33 +557,53 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       norm2 = 0.5*norm2+y5norm; 
       norm2 = exp(norm2)*y5;
       qi = dk*y5p/y5;
-
       delta = 0.5*norm2*norm2*(qo-qi);
-      ep = fabs(e)*tol;
-      ep = Max(tol, ep);
-      e = e + delta;
-      if (fabs(delta) < ep) {
-	p1 = p[i2p2]/pot->dr_drho2[i2p2];
-	IntegrateRadial(p, e, pot, i2p2, p1, MAX_POINTS-1, 0.0);
-	fact = norm2/p[i2];
-	if (IsOdd(nodes)) fact = -fact;
-	for (i = 0; i < i2p2; i++) {
-	  p[i] *= fact;
-	} 
-	for (i = i2p2; i < MAX_POINTS; i++) {
-	  p[i] *= pot->dr_drho2[i] * fact;
-	}
-	break;
-      }
+      dq[j] = delta;
+    }
+    for (j = 0; j < ME; j++) {
+      if (dq[j] > 0 && dq[j+1] < dq[j]) break;
+    }
+    i = j;
+    for (; j < ME; j++) {
+      if (dq[j+1] >= dq[j]) break;
+    }
+    nme = j - i + 1;
+    for (np = i; np <= j; np++) {
+      dq[np] = -dq[np];
+    }
+    np = 3;
+    uvip3p_(&np, &nme, &(dq[i]), &(en[i]), &one, &zero, &e);
+    SetPotentialW(pot, e, orb->kappa);
+    SetVEffective(kl, pot);
+    i2p2 = MAX_POINTS-1;
+    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+    for (i = 0; i <= i2p2; i++) {
+      p[i] = p[i] * pot->dr_drho2[i];
+    }
+    i2 = LastMaximum(p, i2);
+    zp = FINE_STRUCTURE_CONST2*e;
+    dk = sqrt(-2.0*e*(1.0 + 0.5*zp));
+    zp = z*(1.0 + zp);
+    eta0 = zp/dk;
+    x0 = dk*pot->rad[i2];
+    y5n_(&lambda, &eta0, &x0, &y5, &y5p, &y5norm, &ierr);
+    e0 = eta0 - lambda;
+    norm2 = dlogam_(&e0);
+    e0 = eta0 + lambda + 1.0;
+    norm2 += dlogam_(&e0);
+    e0 = zp/(eta0*eta0);
+    norm2 = -norm2 + log(e0);
+    norm2 = 0.5*norm2+y5norm; 
+    norm2 = exp(norm2)*y5;
+    fact = norm2/p[i2];
+    if (IsOdd(nodes)) {
+      fact = -fact;
+    }
+    for (i = 0; i <= i2p2; i++) {
+      p[i] *= fact;
     }
   }
 
-  if (niter == max_iteration) {
-    printf("Max iteration reached in RadialRydberg\n");
-    free(p);
-    return -3;
-  }
-    
   for (i = MAX_POINTS-1; i >= 0; i--) {
     if (fabs(p[i]) > wave_zero) break;
   }
@@ -566,6 +620,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
   }
   
   return 0;
+#undef ME
 }  
   
 
