@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.58 2004/06/12 22:51:34 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.59 2004/06/12 23:19:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -538,10 +538,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     return -2;
   }
   
-  p1 = 0.5;
-  while (p1 > EPS6) {
-    p1 *= 0.25;
-    de = -p1*e;
+  de = -0.1*e;
+  while (de > ENEABSERR) {
+    de *= 0.25;
     while (nodes == nr) {
       e += de;
       SetPotentialW(pot, e, orb->kappa);
