@@ -2,6 +2,7 @@ Version 0.8.6, 11/08/2002
 	1. implement DRBranch and DRStrength.
 	2. radial solver for Rydberg states has been improved.
 	3. implement TotalRRCross function.
+	4. Change the default AngZCut and MixCut to smaller values.
 	
 Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.

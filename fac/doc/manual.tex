@@ -2246,7 +2246,7 @@ is not called.
 \begin{fundesc}{SetAngZCut}{c}
 Set the cutoff threshold for the mixing basis in the calculation of recoupling
 coefficients. Only the basis functions with mixing coefficients $>$\var{c} are
-included. The default is $10^{-3}$ if this routine is not called.
+included. The default is $10^{-6}$ if this routine is not called.
 \end{fundesc}
 
 \begin{fundesc}{SetAtom}{asym\opt{, z\opt{, m}}}
@@ -2334,7 +2334,8 @@ if this routine is not called.
 
 \begin{fundesc}{SetMixCut}{c}
 Set cutoff threshold of the mixing basis in the wavefunction. Only the basis
-with mixing coefficients greater than \var{c} are included in the wavefunction expansion.
+with mixing coefficients greater than \var{c} are included in the wavefunction
+expansion. Default is $10^{-5}$.
 \end{fundesc}
 
 \begin{fundesc}{SetMS}{nms, sms}
