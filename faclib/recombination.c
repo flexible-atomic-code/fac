@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.64 2003/04/15 13:54:00 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.65 2003/04/18 17:33:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -964,7 +964,7 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   return 0;
 }
 
-int PrepRREGrids(double e) { 
+int PrepRREGrids(double e, double emax0) { 
   double rmin, rmax;
   double emin, emax;
   int j;
@@ -978,6 +978,10 @@ int PrepRREGrids(double e) {
   }
   emin = rmin*e;
   emax = rmax*e;
+  if (emax < emax0) {
+    emax = 50.0*e;
+    if (emax > emax0) emax = emax0;
+  }
   egrid_type = 1;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
 
@@ -1037,9 +1041,19 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   RR_RECORD r;
   RR_HEADER rr_hdr;
   F_HEADER fhdr;
-  double e, emin, emax;
+  double e, emin, emax, emax0;
   double awmin, awmax;
   int nq, nqk;
+  ARRAY subte;
+  int isub, n_tegrid0, n_egrid0, n_usr0;
+  int te_set, e_set, usr_set;
+  double c, e0, e1;
+
+  if (m != -1 && GetTransitionGauge() != G_BABUSHKIN && qk_mode == QK_FIT) {
+    printf("QK_FIT mode is only available to LENGTH form of E1 transitions\n");
+    printf("Changing QK_FIT to QK_INTERPOLATE.\n");
+    SetRecQkMode(QK_INTERPOLATE, -1.0);
+  }
 
   emin = 1E10;
   emax = 1E-10;
@@ -1054,53 +1068,45 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       if (e > emax) emax = e;
     }
   }
-  if (emin < TE_MIN_MAX*emax) {
-    emin = TE_MIN_MAX*emax;
-  }
-
   if (k == 0) {
     return 0;
   }
   
-  if (m == 1 || GetTransitionMode() == M_FR) {
-    e = (emax - emin)/(0.5*(emin+emax));
-    if (tegrid[0] < 0.0) {
-      if (e < 0.1) {
-	SetRRTEGrid(1, 0.5*(emin+emax), emax);
-      } else if (e < 0.5) {
-	SetRRTEGrid(2, emin, emax);
-      } else {
-	if (k == 2) n_tegrid = 2;
-	SetRRTEGrid(n_tegrid, emin, emax);
-      }
-    }
-    FreeMultipoleArray();
-    awmin = emin * FINE_STRUCTURE_CONST;
-    awmax = emax * FINE_STRUCTURE_CONST;
-    if (e < 0.3) {
-      SetAWGrid(1, 0.5*(awmin+awmax), awmax);
-    } else if (e < 1.0) {
-      SetAWGrid(2, awmin, awmax);
-    } else {
-      SetAWGrid(3, awmin, awmax);
-    }
+  if (tegrid[0] < 0) {
+    te_set = 0;
   } else {
-    SetRRTEGrid(1, 0.5*(emin+emax), emax);
+    te_set = 1;
   }
-  
-  if (m != -1 && GetTransitionGauge() != G_BABUSHKIN && qk_mode == QK_FIT) {
-    printf("QK_FIT mode is only available to LENGTH form of E1 transitions\n");
-    printf("Changing QK_FIT to QK_INTERPOLATE.\n");
-    SetRecQkMode(QK_INTERPOLATE, -1.0);
+  if (egrid[0] < 0) {
+    e_set = 0;
+  } else {
+    e_set = 1;
   }
+  if (usr_egrid[0] < 0) {
+    usr_set = 0;
+  } else {
+    usr_set = 1;
+  }
+  n_tegrid0 = n_tegrid;
+  n_egrid0 = n_egrid;
+  n_usr0 = n_usr;
 
-  e = 0.5*(emin + emax);
-  PrepRREGrids(e);
-
-  if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
-    printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
-    return -1;
+  if (egrid_limits_type == 0) {
+    emax0 = 0.5*(emin + emax)*egrid_max;
+  } else {
+    emax0 = egrid_max;
   }
+  ArrayInit(&subte, sizeof(double), 128);
+  ArrayAppend(&subte, &emin);
+  c = 1.0/TE_MIN_MAX;
+  if (!e_set || !te_set) {
+    e = c*emin;
+    while (e < emax) {
+      ArrayAppend(&subte, &e);
+      e *= c;
+    }
+  }
+  ArrayAppend(&subte, &emax);
 
   if (qk_mode == QK_FIT) {
     nqk = NPARAMS+1;
@@ -1108,7 +1114,6 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   } else {
     nqk = 0;
   }
-  r.strength = (float *) malloc(sizeof(float)*n_usr);
 
   fhdr.type = DB_RR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -1116,302 +1121,130 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.nele = GetNumElectrons(low[0]);
   rr_hdr.qk_mode = qk_mode;
   rr_hdr.nparams = nqk;
-  rr_hdr.n_tegrid = n_tegrid;
-  rr_hdr.n_egrid = n_egrid;
   rr_hdr.egrid_type = egrid_type;
-  rr_hdr.n_usr = n_usr;
   rr_hdr.usr_egrid_type = usr_egrid_type;
   rr_hdr.multipole = m;
-  rr_hdr.tegrid = tegrid;
-  rr_hdr.egrid = egrid;
-  rr_hdr.usr_egrid = usr_egrid;
   f = OpenFile(fn, &fhdr);
-  InitFile(f, &fhdr, &rr_hdr);
   
-  for (i = 0; i < nup; i++) {
-    for (j = 0; j < nlow; j++) {
-      nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
-      if (nq < 0) continue;
-      r.b = low[j];
-      r.f = up[i];
-      r.kl = nq;
-      
-      if (qk_mode == QK_FIT) {
-	for (ip = 0; ip < nqk; ip++) {
-	  r.params[ip] = (float) qc[ip];
+  e0 = emin;
+  for (isub = 1; isub < subte.dim; isub++) {
+    e1 = *((double *) ArrayGet(&subte, isub));
+    if (isub == subte.dim-1) e1 = e1*1.001;
+    emin = e1;
+    emax = e0;
+    k = 0;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	if (e < emin) emin = e;
+	if (e > emax) emax = e;
+	k++;
+      }
+    }
+    if (k == 0) {
+      e0 = e1;
+      continue;
+    }
+    emin = e0;
+    emax = e1;  
+    if (m == 1 || GetTransitionMode() == M_FR) {
+      e = (emax - emin)/(0.5*(emin+emax));
+      if (!te_set) {
+	if (e < 0.1) {
+	  SetRRTEGrid(1, 0.5*(emin+emax), emax);
+	} else if (e < 0.5) {
+	  SetRRTEGrid(2, emin, emax);
+	} else {
+	  if (k == 2) n_tegrid = 2;
+	  else if (n_tegrid0 == 0) n_tegrid = 3;
+	  SetRRTEGrid(n_tegrid, emin, emax);
 	}
       }
-      
-      for (ie = 0; ie < n_usr; ie++) {
-	r.strength[ie] = (float) rqu[ie];
+      FreeMultipoleArray();
+      awmin = emin * FINE_STRUCTURE_CONST;
+      awmax = emax * FINE_STRUCTURE_CONST;
+      if (e < 0.3) {
+	SetAWGrid(1, 0.5*(awmin+awmax), awmax);
+      } else if (e < 1.0) {
+	SetAWGrid(2, awmin, awmax);
+      } else {
+	SetAWGrid(3, awmin, awmax);
       }
-      WriteRRRecord(f, &r);
+    } else {
+      SetRRTEGrid(1, 0.5*(emin+emax), emax);
     }
+    
+    n_egrid = n_egrid0;
+    n_usr = n_usr0;
+    if (!usr_set) usr_egrid[0] = -1.0;
+    if (!e_set) egrid[0] = -1.0;
+    e = 0.5*(emin + emax);
+    PrepRREGrids(e, emax0);
+    
+    if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
+      printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
+      return -1;
+    }
+    rr_hdr.n_tegrid = n_tegrid;
+    rr_hdr.tegrid = tegrid;
+    rr_hdr.n_egrid = n_egrid;
+    rr_hdr.egrid = egrid;
+    rr_hdr.n_usr = n_usr;
+    rr_hdr.usr_egrid = usr_egrid;
+    
+    r.strength = (float *) malloc(sizeof(float)*n_usr);
+    
+    InitFile(f, &fhdr, &rr_hdr);
+    
+    for (i = 0; i < nup; i++) {
+      lev1 = GetLevel(up[i]);
+      for (j = 0; j < nlow; j++) {
+	lev2 = GetLevel(low[j]);
+	e = lev1->energy - lev2->energy;
+	if (e < e0 || e >= e1) continue;
+	nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
+	if (nq < 0) continue;
+	r.b = low[j];
+	r.f = up[i];
+	r.kl = nq;
+	
+	if (qk_mode == QK_FIT) {
+	  for (ip = 0; ip < nqk; ip++) {
+	    r.params[ip] = (float) qc[ip];
+	  }
+	}
+	
+	for (ie = 0; ie < n_usr; ie++) {
+	  r.strength[ie] = (float) rqu[ie];
+	}
+	WriteRRRecord(f, &r);
+      }
+    }      
+
+    DeinitFile(f, &fhdr);
+    
+    free(r.strength);
+    ReinitRadial(1);
+    FreeRecQk();
+    FreeRecPk();
+    
+    e0 = e1;
   }
-  
+
   if (qk_mode == QK_FIT) {
     free(r.params);
   }
-  free(r.strength);
-  DeinitFile(f, &fhdr);
+      
+  ReinitRecombination(1);
+
+  ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
 
-  ReinitRadial(1);
-  ReinitRecombination(1);
-
   return 0;
 }
-
-int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g, 
-	   char *fna, char *fnt, int channel) {
-  int i, j, k, j1, m, do_transition;
-  LEVEL *lev1, *lev2;
-  TR_RECORD rt;
-  AI_RECORD ra;
-  TR_HEADER tr_hdr;
-  AI_HEADER ai_hdr;
-  F_HEADER fhdra, fhdrt;
-#ifdef PERFORM_STATISTICS
-  clock_t start, stop;
-  clock_t t_ai, t_rd, tt_ai, tt_rd;
-  STRUCT_TIMING st_start, st_stop;
-  ANGULAR_TIMING angt;
-  RECOUPLE_TIMING recouplet;
-  RAD_TIMING radt;
-#endif
-  double emin, emax;
-  double *ea, *sa, tai, e0; 
-  double *et, *sr, *rd, elow, trd, trd1, tr_cut;
-  FILE *fa, *ft;
-
-  tr_cut = GetTransitionCut();
-
-  emin = 1E10;
-  emax = 1E-16;
-  k = 0;
-  for (i = 0; i < na; i++) {
-    lev1 = GetLevel(a[i]);
-    for (j = 0; j < nf; j++) {
-      lev2 = GetLevel(f[j]);
-      e0 = lev1->energy - lev2->energy;
-      if (e0 > 0) k++;
-      if (e0 < emin && e0 > 0) emin = e0;
-      if (e0 > emax) emax = e0;
-    }
-  }
-  if (emin < TE_MIN_MAX*emax) {
-    emin = TE_MIN_MAX*emax;
-  }
-
-  if (k == 0) {
-    return 0;
-  }
-  
-  if (n_egrid == 0) {
-    n_egrid = 3;
-  }
-  if (egrid[0] < 0.0) {
-    e0 = 2.0*(emax-emin)/(emax+emin);
-    if (e0 < 0.1) {
-      SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
-    } else if (e0 < 0.5) {
-      SetPEGrid(2, emin, emax, 0.0);
-    } else {
-      if (k == 2) n_egrid = 2;
-      SetPEGrid(n_egrid, emin, emax, 0.0);
-    }
-  }
-
-  if (GetTransitionMode() == M_FR) {
-    emin = 1E10;
-    emax = 1E-16;
-    k = 0;
-    for (i = 0; i < na; i++) {
-      lev1 = GetLevel(a[i]);
-      for (j = 0; j < nb; j++) {
-	lev2 = GetLevel(b[j]);
-	e0 = lev1->energy - lev2->energy;
-	if (e0 > 0) k++;
-	if (e0 < emin && e0 > 0) emin = e0;
-	if (e0 > emax) emax = e0;
-      }
-    }
-
-    if (k == 0) {
-      printf("No decay routes\n");
-      return 0;
-    }    
-
-    emin *= FINE_STRUCTURE_CONST;
-    emax *= FINE_STRUCTURE_CONST;
-    e0 = 2.0*(emax-emin)/(emin+emax);
-    
-    FreeMultipoleArray();
-    if (e0 < 0.1) {
-      SetAWGrid(1, 0.5*(emin+emax), emax);
-    } else if (e0 < 1.0) {
-      SetAWGrid(2, emin, emax);
-    } else {
-      SetAWGrid(3, emin, emax);
-    }
-  }
-    
-  if (nf <= 0 || na <= 0 || nb <= 0 || ng <= 0) return -1;
-
-  
-  fhdra.type = DB_AI;
-  strcpy(fhdra.symbol, GetAtomicSymbol());
-  fhdra.atom = GetAtomicNumber();  
-  ai_hdr.nele = GetNumElectrons(a[0]);
-  ai_hdr.channel = channel;
-  ai_hdr.n_egrid = n_egrid;
-  ai_hdr.egrid = egrid;  
-  fa = OpenFile(fna, &fhdra);
-  InitFile(fa, &fhdra, &ai_hdr);
-
-  fhdrt.type = DB_TR;
-  strcpy(fhdrt.symbol, GetAtomicSymbol());
-  fhdrt.atom = GetAtomicNumber();
-  tr_hdr.nele = ai_hdr.nele;
-  tr_hdr.multipole = -1;
-  tr_hdr.gauge = GetTransitionGauge();
-  tr_hdr.mode = GetTransitionMode();
-  ft = OpenFile(fnt, &fhdrt);
-  InitFile(ft, &fhdrt, &tr_hdr);
-
-  sa = malloc(sizeof(double)*nf);
-  ea = malloc(sizeof(double)*nf);
-  e0 = GetLevel(0)->energy;
-  rd = malloc(sizeof(double)*nb);
-  sr = malloc(sizeof(double)*nb);
-  et = malloc(sizeof(double)*nb);
-
-#ifdef PERFORM_STATISTICS
-  start = clock();
-  tt_ai = 0;
-  tt_rd = 0;
-#endif
-
-  for (i = 0; i < na; i++) {
-#ifdef PERFOR_STATISTICS
-    GetStructTiming(&st_start);
-#endif
-    j1 = LevelTotalJ(a[i]);
-    tai = 0.0;
-    for (j = 0; j < nf; j++) {
-      k = AutoionizeRate(sa+j, ea+j, a[i], f[j]);
-      if (k < 0) continue;
-      tai += sa[j];
-    }
-    if (tai < 1E-30) continue;
-    do_transition = 0;
-    for (k = 0; k < ng; k++) {
-      for (j = 0; j < nf; j++) {
-	if (g[k] == f[j]) {
-	  if (sa[j] > ai_cut*tai) do_transition = 1;
-	}
-      }
-    }
-    for (j = 0; j < nf; j++) {
-      if (sa[j] < ai_cut*tai) continue;
-      ra.b = a[i];
-      ra.f = f[j];
-      ra.rate = sa[j];
-      WriteAIRecord(fa, &ra);
-    }
-
-#ifdef PERFORM_STATISTICS
-    stop = clock();
-    t_ai = stop-start;
-    start = stop;
-    tt_ai += t_ai;
-#endif
-    
-    if (!do_transition) continue;
-    trd = 0.0;
-    trd1 = 0.0;
-    for (j = 0; j < nb; j++) {
-      rd[j] = 0.0;
-      elow = GetLevel(b[j])->energy;
-      m = -1;
-      et[j] = 0.0;
-      k = OscillatorStrength(sr+j, et+j, m, b[j], a[i]);
-      if (k != 0) continue;
-      if (sr[j] < 1E-30) continue;
-      rd[j] = 2*pow((FINE_STRUCTURE_CONST*et[j]),2)*FINE_STRUCTURE_CONST;
-      rd[j] *= sr[j]/(j1+1.0);
-      trd += rd[j];
-      if (elow < e0) trd1 += rd[j];
-    }
-    if (trd < 1E-30) continue;
-    for (j = 0; j < nb; j++) {
-      if (rd[j] < (tr_cut*trd)) continue;
-      rt.upper = a[i];
-      rt.lower = b[j];
-      rt.strength = sr[j];
-      WriteTRRecord(ft, &rt);
-    }
-#ifdef PERFORM_STATISTICS
-    stop = clock();
-    t_rd = stop-start;
-    start = stop;
-    tt_rd += t_rd;
-#endif
-  }
-
-  free(sa);
-  free(ea);
-  free(sr);
-  free(rd);
-  free(et);
-  DeinitFile(fa, &fhdra);
-  DeinitFile(ft, &fhdrt);
-  CloseFile(fa, &fhdra);
-  CloseFile(ft, &fhdrt);
-
-  ReinitRadial(1);
-  ReinitRecombination(1);
-
-#ifdef PERFORM_STATISTICS
-  GetStructTiming(&st_stop);
-  
-  fprintf(perform_log, "Time in AI: %6.1E, RD: %6.1E\n", 
-	  ((double) tt_ai)/CLOCKS_PER_SEC, ((double) tt_rd)/CLOCKS_PER_SEC);
-  
-  fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
-	  ((double) (st_stop.angz_mix))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.angz_fb))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.angzxz_fb))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.set_ham))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.diag_ham))/CLOCKS_PER_SEC);
-  fprintf(perform_log, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
-	  ((double) (st_stop.angz_states))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.angzfb_states))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.angzxzfb_states))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.add_angz))/CLOCKS_PER_SEC,
-	  ((double) (st_stop.add_angzxz))/CLOCKS_PER_SEC);
-
-  GetAngularTiming(&angt);
-  fprintf(perform_log, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
-	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
-	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
-	  ((double)angt.w9j)/CLOCKS_PER_SEC);
-  GetRecoupleTiming(&recouplet);
-  fprintf(perform_log, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
-	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
-	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
-	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
-  GetRadTiming(&radt);
-  fprintf(perform_log, "Dirac: %6.1E, 1E: %6.1E, 2E: %6.1E\n", 
-	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
-	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
-	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
-  fprintf(perform_log, "\n");
-#endif /* PERFORM_STATISTICS */
-  
-  return 0;
-}
-
       
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   int i, j, k;
@@ -1420,9 +1253,14 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   AI_HEADER ai_hdr;
   F_HEADER fhdr;
   double emin, emax;
-  double *e, *s, tai, a;
+  double e, s, tai, a;
   FILE *f;
+  ARRAY subte;
+  double c, e0, e1, b;
+  int isub, n_egrid0;
+  int e_set;
 
+  if (nup <= 0 || nlow <= 0) return -1;
 
   emin = 1E10;
   emax = 1E-10;
@@ -1437,66 +1275,109 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       if (a > emax) emax = a;
     }
   }
-  if (emin < TE_MIN_MAX*emax) {
-    emin = TE_MIN_MAX*emax;
-  }
-
   if (k == 0) {
     return 0;
   }
-  if (n_egrid == 0) {
-    n_egrid = 3;
+
+  if (egrid[0] < 0) {
+    e_set = 0;
+  } else {
+    e_set = 1;
   }
 
-  if (egrid[0] < 0.0) {
-    a = 2.0*(emax-emin)/(emax+emin);
-    if (a < 0.1) {
-      SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
-    } else if (a < 0.5) {
-      SetPEGrid(2, emin, emax, 0.0);
-    } else {
-      if (k == 2) n_egrid = 2;
-      SetPEGrid(n_egrid, emin, emax, 0.0);
+  n_egrid0 = n_egrid;
+
+  ArrayInit(&subte, sizeof(double), 128);
+  ArrayAppend(&subte, &emin);
+  c = 1.0/TE_MIN_MAX;
+  if (!e_set) {
+    b = c*emin;
+    while (b < emax) {
+      ArrayAppend(&subte, &b);
+      b *= c;
     }
   }
-  if (nup <= 0 || nlow <= 0) return -1;
- 
+  ArrayAppend(&subte, &emax);
+  
   fhdr.type = DB_AI;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   ai_hdr.nele = GetNumElectrons(low[0]);
   ai_hdr.channel = channel;
-  ai_hdr.n_egrid = n_egrid;
-  ai_hdr.egrid = egrid;
   f = OpenFile(fn, &fhdr);
-  InitFile(f, &fhdr, &ai_hdr);
 
-  s = malloc(sizeof(double)*nup);
-  e = malloc(sizeof(double)*nup);
-  for (i = 0; i < nlow; i++) {
-    tai = 0.0;
-    for (j = 0; j < nup; j++) {
-      k = AutoionizeRate(s+j, e+j, low[i], up[j]);
-      if (k < 0) continue;
-      tai += s[j];
+  e0 = emin;
+  for (isub = 1; isub < subte.dim; isub++) {
+    e1 = *((double *) ArrayGet(&subte, isub));
+    if (isub == subte.dim-1) e1 = e1*1.001;
+    emin = e1;
+    emax = e0;
+    k = 0;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	a = lev1->energy - lev2->energy;
+	if (a < e0 || a >= e1) continue;
+	if (a < emin) emin = a;
+	if (a > emax) emax = a;
+	k++;
+      }
     }
-    if (tai < 1E-30) continue;
-    for (j = 0; j < nup; j++) {
-      if (s[j] < ai_cut*tai) continue;
-      r.b = low[i];
-      r.f = up[j];
-      r.rate = s[j];
-      WriteAIRecord(f, &r);
+    if (k == 0) {
+      e0 = e1;
+      continue;
     }
+    if (!e_set) {
+      a = (emax-emin)/(0.5*(emax+emin));
+      if (a < 0.1) {
+	SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
+      } else if (a < 0.4) {
+	SetPEGrid(2, emin, emax, 0.0);
+      } else if (a < 1.0) {
+	if (k == 2) n_egrid = 2;
+	else if (n_egrid0 == 0)	n_egrid = 3;
+	SetPEGrid(n_egrid, emin, emax, 0.0);
+      } else {
+	if (k == 2) n_egrid = 2;
+	if (n_egrid0 == 0) n_egrid = 4;
+	SetPEGrid(n_egrid, emin, emax, 0.0);
+      }
+    }      
+    
+    ai_hdr.n_egrid = n_egrid;
+    ai_hdr.egrid = egrid; 
+    InitFile(f, &fhdr, &ai_hdr);
+    
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	e = lev1->energy - lev2->energy;
+	if (e < e0 || e >= e1) continue;
+	k = AutoionizeRate(&s, &e, low[i], up[j]);
+	if (k < 0) continue;
+	if (s < ai_cut) continue;
+	r.b = low[i];
+	r.f = up[j];
+	r.rate = s;
+	WriteAIRecord(f, &r);
+      }
+    }
+
+    DeinitFile(f, &fhdr);
+
+    ReinitRadial(1);
+    FreeRecQk();
+    FreeRecPk();
+
+    e0 = e1;
   }
 
-  free(s);
-  free(e);
-  DeinitFile(f, &fhdr);
-  CloseFile(f, &fhdr);
-
-  ReinitRadial(1);
   ReinitRecombination(1);
+  
+  ArrayFree(&subte, NULL);
+  CloseFile(f, &fhdr);
 
   return 0;
 }

@@ -49,14 +49,12 @@ double PICrossH(double z, int n0, int kl0, double e, int os);
 double RRCrossH(double z, int n0, int kl0, double e);
 int BoundFreeOS(double *rqu, double *p, 
 		double *eb, int rec, int f, int m);
-int PrepRREGrids(double eth);
+int PrepRREGrids(double eth, double emax0);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel);
 int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf, int k);
 int AutoionizeRate(double *rate, double *e, int rec, int f);
-int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g, 
-	   char *fna, char *fnt, int channel);
 int DROpen(int n, int *nlev, int **ops);
  
 #endif

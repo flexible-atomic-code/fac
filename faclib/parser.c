@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.6 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.7 2003/04/18 17:33:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -11,7 +11,7 @@ USE (rcsid);
 #define IN_QUOTE 2
 #define IN_OZONE 3
 
-#define NN 16
+#define NN 32
 
 static int state;
 static int tokpos;

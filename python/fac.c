@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.49 2003/03/17 17:50:27 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.50 2003/04/18 17:33:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -284,6 +284,44 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   
   Py_INCREF(Py_None);
   return Py_None;
+}
+
+static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
+  CONFIG *cfg;
+  PyObject *q, *r;
+  int i, j, t, ncfg;
+  char scfg[1280], *p, s[16];
+  int argc;
+
+  r = Py_BuildValue("[]");
+  argc = PyTuple_Size(args);
+  for (i = 0; i < argc; i++) {
+    q = PyTuple_GetItem(args, i);
+    if (!PyString_Check(q)) return NULL;
+    p = PyString_AsString(q);
+    strncpy(scfg, _closed_shells, 128);
+    strncat(scfg, p, 1280);
+    ncfg = GetConfigFromStringNR(&cfg, scfg);
+    for (j = 0; j < ncfg; j++) {
+      scfg[0] = '\0';
+      for (t = cfg[j].n_shells-1; t >= 0; t--) {
+	sprintf(s, "%d", (cfg[j].shells)[t].n);
+	strcat(scfg, s);
+	SpecSymbol(s, (cfg[j].shells)[t].kappa/2);
+	strcat(scfg, s);
+	if (t == 0) {
+	  sprintf(s, "%d", (cfg[j].shells)[t].nq);
+	} else {
+	  sprintf(s, "%d ", (cfg[j].shells)[t].nq);
+	}
+	strcat(scfg, s);
+      }
+      PyList_Append(r, Py_BuildValue("s", scfg));
+    }
+    if (ncfg > 0) free(cfg);
+  }
+
+  return r;
 }
 
 static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
@@ -2008,35 +2046,6 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PDRTable(PyObject *self, PyObject *args) { 
-  int nf, *f, na, *a, nb, *b, ng, *g, c;
-  char *s1, *s2;
-  PyObject *p, *q, *r, *t;
-
-  if (sfac_file) {
-    SFACStatement("DRTable", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "ssOOOO|i", &s1, &s2, &p, &q, &r, &t, &c)) 
-    return NULL;
-  nf = SelectLevels(p, &f);
-  na = SelectLevels(q, &a);
-  nb = SelectLevels(r, &b);
-  ng = SelectLevels(t, &g);
-  
-  SaveDR(nf, f, na, a, nb, b, ng, g, s1, s2, c);
-
-  if (nf > 0) free(f);
-  if (na > 0) free(a);
-  if (nb > 0) free(b);
-  if (ng > 0) free(g);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   ARRAY a;
   double d;
@@ -3272,6 +3281,7 @@ static PyObject *PY5N(PyObject *self, PyObject *args) {
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
+  {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
@@ -3288,7 +3298,6 @@ static struct PyMethodDef fac_methods[] = {
   {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
-  {"DRTable", PDRTable, METH_VARARGS},
   {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},

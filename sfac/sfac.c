@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.31 2003/01/22 21:58:05 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.32 2003/04/18 17:33:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -328,6 +328,38 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
   
   return 0;
 }
+
+static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
+  CONFIG *cfg;
+  int i, j, k, t, ncfg;
+  char scfg[1280], s[16];
+  
+  for (i = 0; i < argc; i++) {
+    if (argt[i] != STRING) return -1;
+    strncpy(scfg, _closed_shells, 128);
+    strncat(scfg, argv[i], 1280);
+    ncfg = GetConfigFromStringNR(&cfg, scfg);
+    for (j = 0; j < ncfg; j++) {
+      scfg[0] = '\0';
+      for (t = cfg[j].n_shells-1; t >= 0; t--) {
+	sprintf(s, "%d", (cfg[j].shells)[t].n);
+	strcat(scfg, s);
+	SpecSymbol(s, (cfg[j].shells)[t].kappa/2);
+	strcat(scfg, s);
+	if (t == 0) {
+	  sprintf(s, "%d", (cfg[j].shells)[t].nq);
+	} else {
+	  sprintf(s, "%d ", (cfg[j].shells)[t].nq);
+	}
+	strcat(scfg, s);
+      }
+      printf("%s\n", scfg);
+    }
+    if (ncfg > 0) free(cfg);
+  }
+  
+  return 0;
+}
   
 static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
@@ -613,35 +645,6 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
 
   for (i = 0; i < ii; i++) free(iv[i]);
   for (i = 0; i < ie; i++) free(ev[i]);
-
-  return 0;
-}
-
-static int PDRTable(int argc, char *argv[], int argt[], 
-		    ARRAY *variables) {
-  int nf, *f, na, *a, nb, *b, ng, *g, c;
-  
-  if (argc == 7 && argt[6] == NUMBER) {
-    c = atoi(argv[6]);
-  } else if (argc == 6) {
-    c = 0;
-  } else {
-    return -1;
-  }
-
-  if (argt[0] != STRING || argt[1] != STRING) return -1;
-
-  nf = SelectLevels(&f, argv[2], argt[2], variables);
-  na = SelectLevels(&a, argv[3], argt[3], variables);
-  nb = SelectLevels(&b, argv[4], argt[4], variables);
-  ng = SelectLevels(&g, argv[5], argt[5], variables);
-
-  SaveDR(nf, f, na, a, nb, b, ng, g, argv[0], argv[1], c);
-
-  if (nf > 0) free(f);
-  if (na > 0) free(a);
-  if (nb > 0) free(b);
-  if (ng > 0) free(g);
 
   return 0;
 }
@@ -2457,9 +2460,9 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
+  {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
-  {"DRTable", PDRTable, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
   {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
