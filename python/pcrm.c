@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.21 2003/01/17 20:33:33 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.22 2003/03/29 23:21:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -701,6 +701,15 @@ static PyObject *PDRFit(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PCBeli(PyObject *self, PyObject *args) {
+  int z, nele;
+  double ene, d, a, err, r;
+
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &ene)) return NULL;
+  r = CBeli(z, nele, ene, &a, &d, &err);
+  return Py_BuildValue("(dddd)", r, a, d, err);
+}
+
 static PyObject *PCFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r, a, d;
@@ -857,6 +866,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DRFit", PDRFit, METH_VARARGS},
   {"NRRFit", PNRRFit, METH_VARARGS},
   {"NDRFit", PNDRFit, METH_VARARGS},
+  {"CBeli", PCBeli, METH_VARARGS},
   {"CFit", PCFit, METH_VARARGS},
   {"ColFit", PColFit, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},

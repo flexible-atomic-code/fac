@@ -1,3 +1,8 @@
+version 0.9.1, 04/27/2003
+	1. correct manual on GetPotential.
+	2. correct an error in Uehling potential.
+	3. add the ionization cross sections from aladdin database.
+	
 Version 0.9.0, 03/17/2003
 	1. RadialRyd match point needs to be further reduced for Intel
 	   machines. the match point is now z*r=10^2.

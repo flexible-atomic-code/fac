@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.0}\xspace}
+\newcommand{\facversion}{{0.9.1}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -819,6 +819,7 @@ atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
 \begin{eqnarray}
 \sigma_{PI} &=& 2\pi\alpha\frac{ d f}{ d E} \nonumber\\
+            &=& \frac{2\pi\alpha}{g_i}\frac{d(gf)}{d E} \nonumber\\
 \sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}\frac{\omega^2}{\varepsilon}
 \sigma_{PI},
 \end{eqnarray}
@@ -2074,14 +2075,14 @@ r)}{1+ar}\right).
 After that, the mean configuration used to generate the potential is printed
 in 3 columns representing the principal quantum number, the relativistic
 angular quantum number $\kappa$, and the fractional occupation number
-respectively. Finally, the file gives 6 columns which are $i$, $r$, $Z(r)$,
-$V_0(r)$, $U(r)$, and $V^\prime(r)$, where $i$ is the index for the radial
-grid, $r$ is the radial grid, $Z(r)$ is the nuclear charge at radius $r$
-taking into account the nuclear charge distribution, $V_0(r)$ is the potential
-given by the analytic formula, $U(r)$ is correction added to $V_0(r)$ to
-produce the optimal potential, and $V^\prime(r)$ is the potential obtained by
-the standard Dirac-Fock-Slater method which includes self-interaction in both
-direct and exchange potentials.
+respectively. Finally, the file gives 8 columns which are $i$, $r$, $Z(r)$,
+$V(r)$, $V_d(r)$, $V_e(r)$, $V_e^\prime(r)$, and $U(r)$, where $i$ is the index
+for the radial grid, $r$ is the radial grid, $Z(r)$ is the nuclear charge at
+radius $r$ taking into account the nuclear charge distribution, $V(r)$ is the
+optimal potential, $V_d(r)$ is the direct interaction part of the potential,
+$V_e(r)$ is the exchange interaction part of the potential, $V_e^\prime(r)$ is
+the Slater approximation of the exchange interaction, and $U(r)$ is the
+Uehling potential which approximates the vacuum polarization effects.
 \end{fundesc}
 
 \begin{fundesc}{GetW3j}{j1, j2, j3, m1, m2, m3}
@@ -2615,6 +2616,16 @@ must be that the number of electrons are in consecutive increasing order.
 \begin{fundesc}{Cascade}{}
 Carry ot the cascade iteration. Some of the levels in the spectral model may
 be treated approximately using the cascade matrix.
+\end{fundesc}
+
+\begin{fundesc}{CBeli}{Z, n, E}
+Calculate the ionization cross sections using the Aladdin data base. data were
+compiled by Bell et al. (J. Phys. Chem. Ref. Data., 12, 891, 1983). \var{Z} is
+the nuclear charge of the ion. \var{n} is the number f electrons, and \var{E}
+is the electron energy in eV. It returns a tuple of length 4. First element is
+the total ionization cross section, 2nd the excitation autoionization
+contribution, 3rd the direct ionization contribution, and the 4th a relative
+error estimate in pencentage.
 \end{fundesc}
 
 \begin{fundesc}{CFit}{Z, n, Te}
