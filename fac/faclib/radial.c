@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.21 2001/10/03 16:31:15 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.22 2001/10/04 14:03:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -914,7 +914,7 @@ int ResidualPotential(double *s, int k0, int k1) {
    -256 or >= 256, however, it calculates the expectation value of
    r^(m+/-256), this is used in the evaluation of slater integral 
    in separable coulomb interaction. */
-double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
+double MultipoleRadialNR(double aw, int m, int k1, int k2, int gauge) {
   int i, p, t;
   int npts;
   ORBITAL *orb1, *orb2;
@@ -962,7 +962,26 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
 
   r = 0.0;
-  if (m > 0 && m < 256) {
+  if (m == 1) {
+    /**********************************************************/ 
+    /* M1 needs specital treatments, because the lowest order */
+    /* non-relativistic approximation is simply the overlap   */
+    /* integral, which vanishes in most cases.                */
+    /**********************************************************/
+    if (k1 == k2) {
+      t = kappa1 + kappa2;
+      p = m - t;
+      if (p && t) {
+	r = -0.5*FINE_STRUCTURE_CONST * (p*t) / sqrt(m*(m+1));
+	r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
+      }
+    } else {
+      /* the M1 radial integral vanish in this approximation. 
+	 instead of going to higher orders, use the relativistic 
+	 version is just simpler */
+      r = MultipoleRadial(aw, m, k1, k2, gauge);
+    }
+  } else if (m > 1 && m < 256) {
     t = kappa1 + kappa2;
     p = m - t;
     if (p && t) {
@@ -974,8 +993,8 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
       r /= sqrt(m*(m+1.0));
       r *= -0.5 * FINE_STRUCTURE_CONST;
       for (i = 2*m - 1; i > 0; i -= 2) r /= (double) i;
+      r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
     }
-    r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
   } else if (m < 0 && m > -256) {
     m = -m;
     if (gauge == G_BABUSHKIN) {
@@ -1052,6 +1071,7 @@ double MultipoleRadial(double aw, int m, int k1, int k2, int gauge) {
   kappa2 = orb2->kappa;
   r = 0.0;
   if (m > 0) {
+    am = m;
     t = kappa1 + kappa2;
     if (t) {
       r = t * MultipoleIJ(aw, m, orb1, orb2, 4);
@@ -1307,11 +1327,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k0, k2, 0);
+	*s = MultipoleRadialNR(0.0, m+256, k0, k2, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k1, k3, 0);
+	*s *= MultipoleRadialNR(0.0, m-256, k1, k3, 0);
       }
       break;
 
@@ -1320,11 +1340,11 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (m == 0) {
 	*s = (k0 == k2)?1.0:0.0;
       } else {
-	*s = MultipoleRadialNR(m+256, k1, k3, 0);
+	*s = MultipoleRadialNR(0.0, m+256, k1, k3, 0);
       }
       if (*s != 0.0) {
 	m = -m-1;
-	*s *= MultipoleRadialNR(m-256, k0, k2, 0);      
+	*s *= MultipoleRadialNR(0.0, m-256, k0, k2, 0);      
       }
       break;
       

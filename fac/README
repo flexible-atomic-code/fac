@@ -1,9 +1,10 @@
-# rcsid = $Id: README,v 1.10 2001/09/24 19:36:42 mfgu Exp $
+# rcsid = $Id: README,v 1.11 2001/10/04 14:03:19 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
-Makefile,    top level makefile.
+Makefile.Solaris, top level makefile for Sun.
+Makefile.Linux,   top level makefile for Linux.
 README,      this file.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
@@ -27,7 +28,7 @@ INSTALL:
    simple to modify them to fit other Unix systems.
 
 3. copy the approriate "Makefile.***" to "Makefile" and type
-   "make; make install"
+   "make; make install". The building requires GNU make. 
    
 
 Usage:
