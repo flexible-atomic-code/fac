@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.37 2002/09/24 18:49:29 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.38 2002/11/13 22:28:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2985,6 +2985,39 @@ static PyObject *PRRCrossH(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  int i, negy, ilev;
+  double *egy;
+  char *ifn, *ofn;
+  FILE *f;
+  
+  p = NULL;
+  if (!PyArg_ParseTuple(args, "ssiO", &ifn, &ofn, &ilev, &p))
+    return NULL;
+  
+  if (!PyList_Check(p) && !PyTuple_Check(p)) {
+    printf("Energy List must be a sequence\n");
+    return NULL;
+  }
+  
+  negy = PySequence_Length(p);
+  egy = (double *) malloc(sizeof(double)*negy);
+  for (i = 0; i < negy; i++) {
+    q = PySequence_GetItem(p, i);
+    egy[i] = PyFloat_AsDouble(q);
+    egy[i] /= HARTREE_EV;
+    Py_DECREF(q);
+  }
+  
+  TotalRRCross(ifn, ofn, ilev, negy, egy);
+
+  free(egy);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -3087,6 +3120,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TRRateH", PTRRateH, METH_VARARGS},  
   {"PICrossH", PPICrossH, METH_VARARGS},  
   {"RRCrossH", PRRCrossH, METH_VARARGS},  
+  {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  
   {NULL, NULL}
 };
