@@ -686,8 +686,9 @@ def get_complexes(nelectrons):
 
 def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
-             dist = 0, cascade = 0, rrc = 0,
-             abund0=1.0, abundm=-1, abundp=-1):
+             dist = 0, cascade = 0, rrc = 0, ion0 = 1, 
+             abund0 = 1.0, abundm = -1, abundp = -1,
+             ai = 1, ci = 1, rr = 1):
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -703,7 +704,7 @@ def spectrum(neles, temp, den, population, pref,
         if (nion == 3):
             AddIon(k+1, 0.0, dir0+f3)
         if (nion > 1):
-            if (k > 1):
+            if (k > 1 and ion0 > 0):
                 SetBlocks(0.0, dir0+f1)
             else:
                 SetBlocks(0.0)
@@ -732,12 +733,15 @@ def spectrum(neles, temp, den, population, pref,
             print 'TR rates...'
             SetTRRates(0)
             if (nion > 1):
-                print 'RR rates...'
-                SetRRRates(0)
-                print 'CI rates...'
-                SetCIRates(0)
-                print 'AI rates...'
-                SetAIRates(1)
+                if (rr > 0):
+                    print 'RR rates...'
+                    SetRRRates(0)
+                if (ci > 0):
+                    print 'CI rates...'
+                    SetCIRates(0)
+                if (ai > 0):
+                    print 'AI rates...'
+                    SetAIRates(1)
                 SetAbund(k-1, p1)
             SetAbund(k, p2)
             if (nion == 3):
