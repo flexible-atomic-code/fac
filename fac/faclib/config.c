@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.27 2003/05/22 20:22:33 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.28 2003/08/11 13:17:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -394,7 +394,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     }
   }
   ns = t;
-  
+
   if (ns == 0) {
     free(shell);
     return -1;
@@ -584,7 +584,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   dcfg = (CONFIG **) malloc(sizeof(CONFIG *)*ns);
   dnc = (int *) malloc(sizeof(int)*ns);
   if (nq) {
-    dnq = (double *) malloc(sizeof(double *)*ns);
+    dnq = (double *) malloc(sizeof(double)*ns);
     p2 = dnq;
   } else {
     dnq = NULL;
