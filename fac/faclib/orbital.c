@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.38 2002/11/12 20:52:18 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.39 2002/12/02 22:19:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -423,7 +423,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 }
 
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
-#define ME 12
+#define ME 20
   double z, e, e0;
   int i, kl, niter, ierr;
   double lambda, eta0, x0, y5, y5p, y5norm;
@@ -524,8 +524,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     i2m = i2 - 1;
     i2p2 = i2 + 2;
     i2m2 = i2 - 2;
-    dn = 0.8/(ME-1.0);
-    en[0] = orb->n - 0.6;
+    dn = 1.2/(ME-1.0);
+    en[0] = orb->n - 0.95;
     for (j = 1; j < ME; j++) {
       en[j] = en[j-1] + dn;
     }

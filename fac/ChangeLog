@@ -1,4 +1,4 @@
-Version 0.8.6, 11/27/2002
+Version 0.8.6, 11/28/2002
 	1. implement DRBranch and DRStrength.
 	2. radial solver for Rydberg states has been improved.
 	3. implement TotalRRCross function.
@@ -6,6 +6,7 @@ Version 0.8.6, 11/27/2002
 	5. made the transition of RR and PI from low to high energy more
 	   smooth. 
 	6. add DRS and RE calculation in DRStrength.
+	7. add KLnl->Knl Auger damping.
 	
 Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.
