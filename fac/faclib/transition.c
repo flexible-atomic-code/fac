@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.27 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.28 2005/01/10 22:06:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -407,6 +407,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	    k = TRMultipoleUTA(&gf, &(rd[ir].rx), m, low[i], up[j], rd[ir].ks);
 	    if (k != 0) {
 	      rd[ir].r.lower = -1;
+	      rd[ir].r.upper = -1;
 	      ir++;
 	      continue;
 	    }
