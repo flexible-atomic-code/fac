@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.6 2002/01/24 03:14:30 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.7 2002/01/24 04:49:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -203,7 +203,7 @@ int SetBlocks(double ni, char *ifn) {
   char *fn;
   int p, q = -1;
   int nionized, n0;
-  int swp;
+  int swp, endian;
 
   ion0.n = ni;
   if (ifn) {
@@ -235,6 +235,7 @@ int SetBlocks(double ni, char *ifn) {
     }
   }
   
+  endian = CheckEndian(NULL);
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (k > 0) {
@@ -256,7 +257,7 @@ int SetBlocks(double ni, char *ifn) {
       return -1;
     }
     n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != CheckEndian(NULL)) {
+    if (CheckEndian(&fh) != endian) {
       swp = 1;
       SwapEndianFHeader(&fh);
     } else {
@@ -1616,7 +1617,7 @@ int SetCERates(int inv) {
       n = fread(eusr, sizeof(double), m, f);
       if (swp) {
 	for (i = 0; i < m; i++) {
-	  SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
+	  SwapEndian((char *) &(eusr[i]), sizeof(double));
 	}
       }
       if (h.nele == ion->nele-1) {

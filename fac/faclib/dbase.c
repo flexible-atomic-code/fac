@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.9 2002/01/24 03:14:30 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.10 2002/01/24 04:49:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -31,7 +31,7 @@ int CheckEndian(F_HEADER *fh) {
   }
        
   p = (char *) &t;
-  p++;
+  p += sizeof(unsigned short)-1;
   if ((unsigned short) (*p) == 1) return 1;
   else return 0;
 }
@@ -116,6 +116,7 @@ int SwapEndianCEHeader(CE_HEADER *h) {
 int SwapEndianCERecord(CE_RECORD *r) {
   SwapEndian((char *) &(r->lower), sizeof(int));
   SwapEndian((char *) &(r->upper), sizeof(int));
+  SwapEndian((char *) &(r->nsub), sizeof(int));
   SwapEndian((char *) &(r->bethe), sizeof(float));
   return 0;
 }
