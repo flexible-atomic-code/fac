@@ -2148,6 +2148,7 @@ void _FreeLevelData(void *p) {
   if (lev->n_basis > 0) {
     free(lev->basis);
     free(lev->mixing);
+    lev->n_basis = 0;
   }
 }
    
