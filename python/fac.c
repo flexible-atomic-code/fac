@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.53 2003/04/28 13:49:15 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.54 2003/05/22 20:22:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3275,8 +3275,9 @@ static PyObject *PSetNStatesPartition(PyObject *self, PyObject *args) {
   }
 
   n = 0;
-  if (!PyArg_ParseTuple(args, "|d", &n)) return NULL;
+  if (!PyArg_ParseTuple(args, "|i", &n)) return NULL;
   SetNStatesPartition(n);
+
   Py_INCREF(Py_None);
   return Py_None;
 }
