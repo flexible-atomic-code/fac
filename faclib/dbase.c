@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.32 2002/11/14 03:29:20 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.33 2002/11/14 15:21:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -520,7 +520,7 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
 }
 
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
-		 int negy, double *egy) {
+		 int negy, double *egy, int n0, int n1, int nmax) {
   F_HEADER fh;
   FILE *f1, *f2;
   int n, swp;
@@ -531,7 +531,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   float e, eph, ee, phi, rr;
   double *xusr, *dstrength, *c, tc, emax;
   double x, y;
-  int np=3, one=1;
+  int np=3, one=1, nele;
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -595,7 +595,8 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       for (i = 0; i < h.n_usr; i++) {
 	SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       }
-    }      
+    }
+    nele = h.nele;
     if (h.qk_mode == QK_FIT) {
       m = h.nparams;
       params = (float *) malloc(sizeof(float)*m);
@@ -662,7 +663,19 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     
     nb++;
   }
-
+  
+  x = fh.atom - nele + 1.0;
+  for (n = n0+1; n < n1; n++) {
+    for (t = 0; t < negy; t++) {
+      c[t] += AREA_AU20*RRCrossHn(x, egy[t], n);
+    }
+  }
+  for (n = n1+1; n <= nmax; n++) {
+    for (t = 0; t < negy; t++) {
+      c[t] += AREA_AU20*RRCrossHn(x, egy[t], n);
+    }
+  }
+  
   fprintf(f2, "Energy (eV)   RR Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
     fprintf(f2, "%11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
