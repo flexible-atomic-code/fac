@@ -64,6 +64,12 @@ the group these configurations belong to. If it is absent,
 then the last specified group name is used. If none has been specified, they
 belong to a single unnamed group. 
 
+\item[config.avgconfig(s)]
+Set the mean configuration for the determination of optimal central
+potential. ``s'' is a string specifying the configuration. It is the same as
+in config.config, except that it allows for the fractional occupation number,
+and the closed shells are not added onto it. 
+
 \item[AddConfig(gname, cfg)] 
 This is the low level routine adding a
 configuration to the internal array, and perform angular momentum coupling to
@@ -160,7 +166,8 @@ and integer list. For each principal quantum number in ``screen'', if ``kl $<$
 ``kl = 0'', the orbital angular momentum is the principal quantum number
 divided by 2, the total angular momentum of the orbital is always
 $l+1/2$.  ``charge'' and ``kl'' may be absent, which defaults to 1.0 and a
-nodeless orbital. 
+nodeless orbital. Instead of use this routine, one may specify the mean
+configuration with config.avgconfig indetail. 
 
 \item[SetRadialGrid(rmin, rmax)]
 Set the radial grid limits. The actual grid limits are ``rmin/z'', and 
@@ -224,7 +231,8 @@ list of level indices. ``fname'' is the output file name. ``multipole''
 specifies the mutipole of the transition desired, negative number means
 electric multipole transition, and positive number means magnetic multipoles,
 the absolute value is the rank of the multipole, which must be less than or
-equal to the maximum ranks set before. 
+equal to the maximum ranks set before. ``multipole'' may be absent, which
+defaults to -1 for E1 transitions.
 \end{description}
 
 
@@ -235,16 +243,19 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(lmax, eps\_dipole, eps\_allowed, eps\_forbidden, qr)] 
-Set partial wave options for excitation calculation. Last four parameters are
+\item[SetCEPWOptions(eps, lmax, lcb, qr)] 
+Set partial wave options for excitation calculation. 
+``eps'' is a tolerence number controlling the trunction of partial wave
+summation. Approximately, the relative error introduced by the truncation is
+equal to ``eps''. The last 3 parameters are
 optional. ``lmax'' sets an absolute limit for the partial wave 
-summation, which may or may not be reached in the calculation. ``eps\_dipole'',
-``eps\_allowed'', and ``eps\_forbidden'' set the partial wave summation
-terminating criteria for dipole allowed, other allowed, and forbidden
-transitions as described in \S\ref{sec_theory}. ``qr'' specifies $l_{qr}$,
+summation, which may or may not be reached in the calculation. ``lcb'' is a
+limit beyond which Coulomb-Bethe approximation should be used, although
+internally, CB approximation is used whenever the desired accuracy can be
+satisfied. ``qr'' specifies $l_{qr}$,
 beyond which, the quasi-relativistic approximaiton should be used. The default
-values for these parameters are, ``lmax = 100'', ``eps\_dipole = 0.1'',
-``eps\_allowed = 0.1'', ``eps\_forbidden = 0.001'', and ``qr = 0''. 
+values for these parameters are, ``eps = 0.05'', ``lmax = 500'', ``lcb = 100''
+and ``qr = 0''. 
 
 \item[SetCEPWGrid(m)] 
 ``m'' is the partial wave value, beyond which a logrithmic
@@ -263,8 +274,16 @@ called. for a given transition array, the transition energy grid is set
 automatically, with 3 points, which is sufficiently accurate for the
 interpolation of the entire transition array. 
 
+\item[SetCEGridType(utype, etype, ltype)]
+Set the type of collision energy grid, and the partial wave summation mode.
+``utype'' is for the user grid, if it is 0, the energies are for the incident
+electron, if it is 1, they are for the scattered electron. ``etype'' is for
+the internal grid with the same meaning. If ``ltype'' is 0, the last summation
+is over the orbital angular momentum of the incident electron, if it is 1, the
+last summation is over the scattered electron. 
+
 \item[SetCEGrid(n, emin, emax)] 
-Set the scattered electron energy grid. From emin to emax with n points in a
+Set the collision energy grid. From emin to emax with n points in a
 logrithmic grid. This function may also take a list of energy points. This
 grid is used internally to calculate the radial integrals. The output energy
 grid is specified with SetUsrCEGrid(). Usually, the internal grid is generated
@@ -287,19 +306,11 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(lmax, lmax\_eject, eps\_dipole, eps\_allowed,
-eps\_forbidden, eps\_k, qr)]
+\item[SetCIPWOptions(eps, lmax, lmax\_eject, lcb, qr)]
 Set the partial wave options. ``lmax\_eject'' is the maximum
-orbital angular momentum for the ejected electron, and ``eps\_k'' is a
-small number which terminates the summation over the rank $k$ when the ratio
-of the added term to the sum falls below ``eps\_k''. Other parameters are the
+orbital angular momentum for the ejected electron. Other parameters are the
 same as in ``SetCEPWOptions''. The default values are,
-``lmax = 50'', ``lmax\_eject = 8'', ``eps\_dipole = 0.1'', ``eps\_allowed =
-0.1'', ``eps\_forbidden = 0.1'', ``eps\_k = 0.01'' and ``qr = 0''. Smaller
-values of the highest partial waves are justified 
-here because the ionzation energies are usually larger than the excitation
-energies(very high partial waves tends to have large contributions only in
-$\Delta n = 0$ excitations, where the transition energies are very small).
+``eps=0.05'', ``lmax=500'', ``lmax\_eject=8'', ``lcb=50'', and ``qr=0''.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
@@ -307,6 +318,12 @@ See SetCEPWGrid() for detail.
 \item[SetIEGrid(n, emin, emax)]
 See SetTEGrid(). This sets the ionization threshold energy grid, int the same
 way as the excitation energy grid.
+
+\item[SetCIEGridType(utype, etype)]
+Set the collision energy grid type, whether it is the incident electron
+energy, or the sum of the scattered and ejected electron energies. This only
+works for utype currently though. Internally, the grid is always for the final
+electrons.  
 
 \item[SetCIEGrid(n, emin, emax)]
 See SetCEGrid().
@@ -347,13 +364,17 @@ Construct recombined states based on the  target
 states from ``groups'', and captured electron in ``n'' levels. The recombined
 states constructed this way can be referred to by a tuple (groups, n). 
 
+\item[SetPEGridType(utype, etype)]
+Set the energy grid type, whether it is the incident photon energy or the
+photo-electron energy. 
+
 \item[SetPEGrid(n, emin, emax)] 
-Set the internal photo-electron energy grid in photo-ionization and radiative
+Set the internal collision energy grid in photo-ionization and radiative
 recombination calculations. A Python list may also be used to specify the
 detailed energy grid. 
 
 \item[SetUsrPEGrid(n, emin, emax)]
-Set the photo-electron energy grid where photo-ionization and radiative
+Set the collision energy grid where photo-ionization and radiative
 recombination cross sections are desired. The radial integrals involved will
 be interpolated from the internal grid set by SetPEGrid.
 
@@ -367,12 +388,6 @@ transtions, ``m = -1''.
 \item[SetAICut(eps)] When the autoionization rate is less than ``eps''
 fraction of the total AI rate for that level, it is omitted in the output. The
 default is 1E-8.
-
-\item[SetDRTEGrid(n, emin, emax)] 
-Set the continuum electron energy grid in
-autoionization calculation. The radial integrals needed are interpolated on
-this grid. It does not need to be called explicitly. For given transition
-arrays, they are set automatically. 
 
 \item[CorrectEnergy(levels, energies)]
 Corrects the energy value of ``levels'' to ``energies'', where ``levels'' and

@@ -137,8 +137,8 @@ int SetEGrid(double *e, double *log_e,
   int i;
 
   if (n < 1) {
-    printf("n must > 0 in SetEGrid\n");
-    return -1;
+    e[0] = -1.0;
+    return 0;
   }
   if (emin < 0.0) {
     e[0] = emin;

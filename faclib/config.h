@@ -6,13 +6,21 @@
 #include "dbase.h"
 #include "nucleus.h"
 
-#define MAX_SPEC_SYMBOLS   14
+/* maximum orbital angular momentum for which a symbol is available */
+#define MAX_SPEC_SYMBOLS   14 
+/* max string length for the level name */
 #define LEVEL_NAME_LEN     128
-#define GROUP_NAME_LEN     20
+/* max string length for the group name */
+#define GROUP_NAME_LEN     32
+/* max number of configuration groups */
 #define MAX_GROUPS         512
+/* max number of j-parity symmetries */
 #define MAX_SYMMETRIES     0x200
+/* max number os states within one symmetry */
 #define MAX_STATES_PER_SYM 0x200000
+/* number of groups in one array block */
 #define CONFIGS_BLOCK      256
+/* number os states in one array block */
 #define STATES_BLOCK       512
 
 /* a SHELL is a set of qunatum #s, the principal quantum number n, 
@@ -23,7 +31,7 @@ typedef struct _SHELL_ {
   int nq;
 } SHELL;
   
-/* a SHELL_STATE specify the seneority and the total angular momentum of 
+/* a SHELL_STATE specify the seniority and the total angular momentum of 
    a shell with any occupation, along with the total angular momentum when
    this shell is coupled to its next inner shell. if this is the inner most 
    shell, this angular momentum is the same as the shell total_j. 
@@ -48,6 +56,8 @@ typedef struct _CONFIG_ {
   SHELL_STATE *csfs; /* all coupled states */
 } CONFIG;
 
+/* this is the mean configuration for the 
+   determinaiton of central potential */
 typedef struct _AVERAGE_CONFIG_ {
   int n_cfgs;
   int n_shells;

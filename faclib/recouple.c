@@ -1,14 +1,25 @@
 #include "recouple.h"
 
+/********************************************************************/ 
+/* The rank appears in this file are all double of its actual value */
+/* Note that the rank in the rcfp routines are the actual values    */
+/********************************************************************/
+
+/* max_ranks of the operators allowed is set to k=6 by default */
 static int max_rank = 12;
-static RECOUPLE_TIMING timing = {0, 0, 0, 0};
+/* the multi-dimensional array stores the reduced matrix elements */
 static MULTI *interact_shells;
+
+#ifdef PERFORM_STATISTICS
+static RECOUPLE_TIMING timing = {0, 0, 0, 0};
 
 int GetRecoupleTiming(RECOUPLE_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
+#endif
 
+/* set and get the maximum rank */
 int SetMaxRank(int k) {
   max_rank = k;
 }
@@ -16,9 +27,6 @@ int SetMaxRank(int k) {
 int GetMaxRank() {
   return max_rank;
 }
-
-/** The rank appears in this file are all double of its actual value **/
-/** Note that the rank in the rcfp routines are the actual values **/
 
 /* macro to check the ordering of interacting shells */
 #define IsOrder(order, a, b, c, d) (((order)[0] == (a)) && \
@@ -54,8 +62,8 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       }
       
       /* it is a 9j symbol, although in most cases it reduces to a 
-	 6j symbol or even a number. shall distinguish them later 
-	 for efficiency */
+	 6j symbol or even a number. shall distinguish them if maximum
+	 efficiency is needed here */
       coeff = (sqrt((Jbra+1.0)*(Jket+1.0)*(rank[0]+1.0)) *
 	       W9j(j1bra, j2bra, Jbra, 
 		   j1ket, j2ket, Jket,
@@ -78,9 +86,6 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       n_shells--;
       bra++;
       ket++;
-      /*
-      printf("de %d %d %d %d %d %d %d %d %d %lf\n",j1bra, j2bra, Jbra,j1ket, j2ket, Jket, k1, k2, k, coeff);
-      */
       coeff *= DecoupleShell(n_shells, bra, ket, 
 			     n_interact, interact, rank);     
       return coeff;
@@ -142,13 +147,10 @@ int AngularZ(double **coeff, int **kk, int nk,
   int n_interact;
   int kmin, kmax, k, m;
   double coeff1, coeff2;
-
-  clock_t start, stop;
-
   RCFP_STATE rcfp_bra, rcfp_ket;
 
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -314,12 +316,11 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   double *coeff1;
   int *kk1, nk1;
   int i, j;
-  double r;
-  clock_t start, stop;
-  
+  double r;  
   RCFP_STATE rcfp_bra[4], rcfp_ket[4];
 
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1002,6 +1003,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   return nk;
 }
 
+/* summation due to the recoupling of operators */
 void SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
 	      double *coeff1, int *kk1, int nk1, int p1, 
 	      int phase, int j1, int j2, int j3, int j4) {
@@ -1031,6 +1033,7 @@ void SumCoeff(double *coeff,  int *kk,  int nk,  int p,
   }
 }
 
+/* sort the interacting shells */
 int SortShell(INTERACT_SHELL *s, int *order) {
   int i, j, k;
   int phase;
@@ -1050,6 +1053,7 @@ int SortShell(INTERACT_SHELL *s, int *order) {
 }
   
 
+/* determine which shells can interact */
 int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
 		SHELL_STATE **sbra, SHELL_STATE **sket, 
 		CONFIG *ci, int ki, CONFIG *cj, int kj,
@@ -1059,7 +1063,6 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
   SHELL_STATE *csf_i, *csf_j;
   SHELL_STATE s_empty = {0, 0, 0, 0};
   int interaction[4] = {-1, -1, -1, -1};
-  clock_t start, stop;  
   char *ptr;
   short temp[5];
   int n_shells;
@@ -1067,6 +1070,7 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
   INTERACT_DATUM *interact_datum;
 
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;  
   start = clock();
 #endif
 

@@ -16,6 +16,7 @@
 
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 
+#ifdef PERFORM_STATISTICS
 typedef struct _RAD_TIMING_ {
   clock_t radial_1e;
   clock_t radial_2e;
@@ -24,6 +25,8 @@ typedef struct _RAD_TIMING_ {
 } RAD_TIMING;
 
 int GetRadTiming(RAD_TIMING *t);
+#endif
+
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
 int GetPotential(char *s);

@@ -1,7 +1,11 @@
 #include "angular.h"
 #include "rcfp.h"
 
-/* all the data tables here are derived from rabs package */
+/*****************************************************************/
+/* all the data tables here are derived from rabs package.       */
+/* see Gaigalas et. al.  CPC 139, 263.                           */
+/*****************************************************************/
+
 #define subshell_term(a, b, c, d, e) {a, b, c, d, e}
 RCFP_TERM terms_jj[63] = {      
   /* j = 1/2; these terms have indices terms_jj(1:2) */
@@ -703,6 +707,7 @@ int rcfp_max_even[63] = {
   62,62,62 };
 
 
+/* reduced coeff. of fractional parentage */
 double ReducedCFP(int no_bra, int no_ket) {
   double coeff;
   int no_a, no_b, phase, nom, denom;
@@ -795,7 +800,8 @@ double ReducedCFP(int no_bra, int no_ket) {
 
 }
        
-
+/* completely reduced matrix elements of operator W in both angular and 
+   quasi-spin space. */
 double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
   double coeff;
   int jbra, jket, Jbra, Jket, Qbra, Qket, jrun, Jrun, Qrun;
@@ -849,6 +855,7 @@ double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
   }
 }
 
+/* look up the table when the rank of the operator is low */
 double CompleteReducedWFromTable(int no_bra, int no_ket, int k1, int k2) {
 
   if (rcfp_min_even[no_bra] != rcfp_min_even[no_ket]) 
@@ -1114,6 +1121,7 @@ double CompleteReducedW7(REDUCED_COEFF *w7_o, REDUCED_COEFF *w7_e,
   return coeff;
 }
 
+/* for higher ranks, decompose the operator using Racah Algebra */
 double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket, 
 		int k_j, int q_m1, int q_m2){
   double coeff, w6j1, a1, a2;
@@ -1214,7 +1222,7 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
   return coeff;
 }
 
-
+/* reduced matrix elements of the tensorial product WxW with final rank 0 */
 double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
 		   int k_j, int q_m1, int q_m2, int q_m3, int q_m4) {
   int no_run;
@@ -1301,7 +1309,9 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
   }
   return coeff;
 }
-			      
+
+/* reduced matrix element of AxW, where A is the creation or 
+   anihilation operator */      
 double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
 		  int k_j1, int kk_j2, int q_m1, int q_m2, int q_m3) {
   double coeff, coeff1;
@@ -1394,6 +1404,7 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
     
 }
 
+/* WxA */
 double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
 		  int k_j1, int kk_j2, int q_m1, int q_m2, int q_m3) {
   double coeff, coeff1;
@@ -1484,6 +1495,7 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
     
 }
 
+/* reduced matrix element of A */
 double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
   double coeff;
   int bra_nu, ket_nu;  
@@ -1531,12 +1543,15 @@ double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
   return coeff;
 }
 
+/* the delta function factor in quasi-spin space */
 int QSpaceDelta(RCFP_STATE *s) {
   if (terms_jj[s->state].Q < abs(s->subshellMQ)) return 0;
   if (IsOdd(terms_jj[s->state].Q + s->subshellMQ)) return 0;
   return 1;
 }
 
+/* Clebsch Gordan Coefficients, using simple formulae for small angular 
+   momenta (when ja = 0, 1/2, 1). and the general routine otherwise */
 double ClebschGordanQuasispin(int ja, int ma, int jb, int mb, 
 			      int jab, int mab) {
   double CG;
@@ -1590,7 +1605,7 @@ double ClebschGordanQuasispin(int ja, int ma, int jb, int mb,
   return CG;
 }
   
-			 
+/* pack and unpack the state quantum numbers in a single integer */  
 void UnpackRCFPState(int s, int *j, int *nu, int *J) {
   *J = s%1024;
   *nu = (s = s/1024) % 1024;
@@ -1601,7 +1616,7 @@ int PackRCFPState(int j, int nu, int J) {
   return J + nu*1024 + j*1024*1024;
 }
 
-
+/* A general coupled operator */
 void CoupleOperators(RCFP_OPERATOR *op1,
 		     RCFP_OPERATOR *op2,
 		     RCFP_OPERATOR *op, int rank) {
@@ -1715,6 +1730,7 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
   } 
 }
 
+/* determine the term index for a particular state */
 int RCFPTermIndex(int j, int nu, int Nr, int subshellJ) {
   int no_min[9] = {0, 0, 2, 0, 5, 0, 11, 0, 25};
   int no_max[9] = {1, 0, 4, 0, 10, 0, 24, 0, 62};
