@@ -14,6 +14,8 @@ int InitAngular() {
   for (n = 1; n < MAX_FACTORIAL; n++) {
     ln_factorial[n] = ln_factorial[n-1] + log((double) n);
   }
+  return 0;
+
 }
 
 int Triangle(int j1, int j2, int j3) {

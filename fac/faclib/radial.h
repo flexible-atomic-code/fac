@@ -20,6 +20,7 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
+int GetPotential(char *s);
 double GetResidualZ(int m);
 double GetRMax();
 
@@ -40,7 +41,8 @@ double GetPhaseShift(int k, int mode);
 
 /* radial optimization */
 void SetOptimizeControll(double tolerence, int maxiter, int iprint);
-void SetScreening(int n);
+void SetScreening(int n_screen, int *screened_n, 
+		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
 double TotalEnergyGroup(int kg);
 double AverageEnergyConfig(CONFIG *cfg);
