@@ -204,8 +204,8 @@
 #define MULTI_BLOCK6   10
 
 /* orbital */
-#define MAX_POINTS 1200 /* radial mesh */
-#define GRIDASYMP  24   /* no. points in one wavelength near infinity */
+#define MAX_POINTS 2000 /* radial mesh */
+#define GRIDASYMP  36   /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1  /* ratio of successive mesh near origin */
 #define ENERELERR  1E-4 /* relative energy error */
 #define ENEABSERR  1E-5 /* absolute energy error */
@@ -216,7 +216,7 @@
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     64
 #define MAX_GROUPS         4096
-#define MAX_SYMMETRIES     512
+#define MAX_SYMMETRIES     256
 #define CONFIGS_BLOCK      256
 #define STATES_BLOCK       2048
 
