@@ -1,7 +1,7 @@
 #include "interpolation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.12 2003/08/13 01:38:16 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.13 2004/05/27 15:55:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -325,7 +325,7 @@ double Simpson(double *y, int ia, int ib) {
 }
 
 /* integration by newton-cotes formula */
-int NewtonCotes(double *r, double *x, int i0, int i1, int m) {
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp) {
   int i, j, n, k;
   double a;
 
@@ -337,7 +337,7 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m) {
     r[i+4] = r[i] + a;
   }
   
-  if (i1 < MAX_POINTS-1) {
+  if (i1 < maxrp-1) {
     if (i > i0) {
       k = i - 3;
       n = i1 - i + 5;

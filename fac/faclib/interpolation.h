@@ -25,6 +25,6 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 		      double *, double *, int, void *), 
 	    void *extra);
 double Simpson(double *y, int ia, int ib);
-int NewtonCotes(double *r, double *x, int i0, int i1, int m);
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp);
 
 #endif

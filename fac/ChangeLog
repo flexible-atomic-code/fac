@@ -5,6 +5,7 @@ Version 1.0.5, 05/30/2004
 	4. implement a version of 2nd order MBPT for energy.
 	5. fix the problem in Uheling potential.
 	6. StructureMBPT, better implementation of MBPT
+	7. allow the number of grid points to be changed.
 	
 Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.

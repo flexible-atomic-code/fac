@@ -2844,7 +2844,16 @@ average threshold energy of the transition array being considered. The default
 is 0.05 and 8.0 if this routine is not called.
 \end{fundesc}
 
-\begin{fundesc}{SetRRTEGrid}{g $|$ n,\opt{, e0, e1}}
+\begin{fundesc}{SetRadialGrid}{n\opt{, r0\opt{,r1}}}
+Set the radial grid properties. \var{n} is the number of radial grid
+points. It must be an even number and $< 5000$ (which may be changed with the
+MAXRP macro). \var{r0} specifies the ratio of successive radial points near
+origin, which is approximately logarithmic. \var{r1} specifies the number of
+oscillations of very high-$n$ orbitals at large radii, which approximately
+scales as $\sqrt{r}$.
+\end{fundesc}
+
+\begin{fundesc}{SetRRTEGrid}{g $|$ n\opt{, e0, e1}}
 Set the transition energy grid for photoionization and radiative
 recombination. In the first form, the grid is given by a Python list
 \var{g}. In the second form, the grid is constructed with \var{n} points from
