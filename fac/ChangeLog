@@ -1,11 +1,16 @@
+Version 0.8.9, 03/07/2003
+	1. in RadialRyd, the matching point has to be reduced to avoid the
+	   round off errors in COULCC.
+	2. improve the match of RR cross section at highest grid energy.
+	3. update the FAQ on the use of OptimizeRadial, and the demo
+	   scripts accordingly.
+	
 Version 0.8.8, 03/04/2003
 	1. add my new RR and DR rates to CRM.
 	2. improve FracAbund for very low temperatures.
 	3. use GNU autoconf to generate configure script,
 	   the build process now uses configure.
 	4. some improvement in angular integration.
-	5. in RadialRyd, the matching point has to be reduced to avoid the
-	   round off errors in COULCC.
 
 Version 0.8.7, 01/06/2003
 	1. replace mpfun with my own implementation.
