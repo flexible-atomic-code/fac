@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.65 2003/04/18 17:33:43 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.66 2003/04/18 21:11:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1340,7 +1340,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
 	SetPEGrid(n_egrid, emin, emax, 0.0);
       } else {
 	if (k == 2) n_egrid = 2;
-	if (n_egrid0 == 0) n_egrid = 4;
+	else if (n_egrid0 == 0) n_egrid = 4;
 	SetPEGrid(n_egrid, emin, emax, 0.0);
       }
     }      

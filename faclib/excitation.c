@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.47 2003/04/18 17:33:42 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.48 2003/04/18 21:11:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1491,12 +1491,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       e = emax/emin;  
       if (e < 1.1) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
-      } else if (e < 2.0) {
+      } else if (e < 1.5) {
 	SetCETEGrid(2, emin, emax);
+      } else if (e < 5.0) {
+	if (m == 2) n_tegrid = 2; 
+	else if (n_tegrid0 == 0) n_tegrid = 3;
+	SetCETEGrid(n_tegrid, emin, emax);
       } else {
-	if (n_tegrid0 == 0) {
-	  n_tegrid = 3;
-	}
+	if (m == 2) n_tegrid = 2;
+	else if (n_tegrid0 == 0) n_tegrid = 4;
 	SetCETEGrid(n_tegrid, emin, emax);
       }
     }
