@@ -12,7 +12,7 @@ double GetTransitionCut();
 void SetTransitionOption(int gauge, int mode, int max_e, int max_m);
 int GetTransitionGauge();
 int GetTransitionMode();
-int OscillatorStrength(double *strength, double *energy, double aw0,
+int OscillatorStrength(double *strength, double *energy,
 		       int m, int low, int up);
 int SaveTransition(int nlow, int *low, int nup, int *up,
 		   char *fn, int multipole);

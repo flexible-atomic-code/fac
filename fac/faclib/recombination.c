@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.22 2001/10/04 22:27:42 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.23 2001/10/05 19:23:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -320,7 +320,7 @@ int RecStatesFrozen(int n, int k, int *kg) {
   return 0;
 }
 
-int BoundFreeOS(double *strength, double *eb, double e0,
+int BoundFreeOS(double *strength, double *eb,
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
@@ -372,6 +372,7 @@ int BoundFreeOS(double *strength, double *eb, double e0,
   }
 
   j = 0;
+  aw = FINE_STRUCTURE_CONST * (*eb);
   for (i = 0; i < nz; i++) {
     orb1 = GetOrbital(ang[i].kb);
     kappab1 = orb1->kappa;
@@ -393,7 +394,6 @@ int BoundFreeOS(double *strength, double *eb, double e0,
 	  for (ie = 0; ie < n_egrid; ie++) {
 	    e = egrid[ie];
 	    kf = OrbitalIndex(0, kappaf, e);
-	    aw = FINE_STRUCTURE_CONST*(e0+e);
 	    if (mode && m != 1) {
 	      radial_int[j++] = 
 		MultipoleRadialNR(m, kf, ang[i].kb, gauge);
@@ -447,13 +447,17 @@ int BoundFreeOS(double *strength, double *eb, double e0,
   }
 
   /* the factor 2 comes from the conitinuum norm */
+  c = k - 2;
+  if (gauge == G_COULOMB && mode == 0 && m < 0) {
+    c -= 2;
+  }
   for (ie = 0; ie < n_usr; ie++) {
     if (usr_egrid_type == 1) e = (*eb) + usr_egrid[ie];
     else e = usr_egrid[ie];
     strength[ie] *= e * 2.0 / (k+1.0);
-    if (k != 2) {  
-      aw = e * FINE_STRUCTURE_CONST;
-      strength[ie] *= pow(aw, k-2);
+    if (c) {
+      aw = FINE_STRUCTURE_CONST * e;
+      strength[ie] *= pow(aw, c);
     }
   }
   
@@ -636,6 +640,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int j1, j2, nlow0;
   LEVEL *lev1, *lev2;
   double e, emin, emax;
+  double awmin, awmax;
 
   f = fopen(fn, "w");
 
@@ -658,7 +663,21 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     printf("No recombination can occur\n");
     return 0;
   }
-  
+
+  if (m == 1 || GetTransitionMode() == 0) {
+    FreeMultipoleArray();
+    e = 2.0*(emax - emin)/(emin+emax);
+    awmin = emin * FINE_STRUCTURE_CONST;
+    awmax = emax * FINE_STRUCTURE_CONST;
+    if (e < 0.1) {
+      SetAWGrid(1, 0.5*(awmin+awmax), awmax);
+    } else if (e < 1.0) {
+      SetAWGrid(2, awmin, awmax);
+    } else {
+      SetAWGrid(3, awmin, awmax);
+    }
+  }  
+
   e = 0.5*(emin + emax);
   emin = 0.1*e;
   emax = 8.0*e;
@@ -714,7 +733,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     nlow0 = 0;
     for (j = 0; j < nlow; j++) {
       j2 = LevelTotalJ(low[j]);
-      k = BoundFreeOS(s, &eb, e, low[j], up[i], m);
+      k = BoundFreeOS(s, &eb, low[j], up[i], m);
       if (k < 0) continue;
       nlow0++;
       fprintf(f, "%-5d %-2d\t%-5d %-2d\t%10.3E\n",
@@ -764,7 +783,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   RAD_TIMING radt;
 #endif
   double emin, emax;
-  double *ea, *sa, tai, sd, e0, aw0; 
+  double *ea, *sa, tai, sd, e0; 
   double *et, *sr, *rd, elow, trd, trd1, tr_cut;
   char t;
   FILE *fa, *ft;
@@ -804,25 +823,39 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     }
   }
 
-  emin = 1E10;
-  emax = 1E-16;
-  k = 0;
-  for (i = 0; i < na; i++) {
-    lev1 = GetLevel(a[i]);
-    for (j = 0; j < nb; j++) {
-      lev2 = GetLevel(b[j]);
-      e0 = lev1->energy - lev2->energy;
-      if (e0 > 0) k++;
-      if (e0 < emin && e0 > 0) emin = e0;
-      if (e0 > emax) emax = e0;
+  if (GetTransitionMode() == 0) {
+    emin = 1E10;
+    emax = 1E-16;
+    k = 0;
+    for (i = 0; i < na; i++) {
+      lev1 = GetLevel(a[i]);
+      for (j = 0; j < nb; j++) {
+	lev2 = GetLevel(b[j]);
+	e0 = lev1->energy - lev2->energy;
+	if (e0 > 0) k++;
+	if (e0 < emin && e0 > 0) emin = e0;
+	if (e0 > emax) emax = e0;
+      }
+    }
+    if (k == 0) {
+      printf("No decay routes\n");
+      return 0;
+    }    
+
+    emin *= FINE_STRUCTURE_CONST;
+    emax *= FINE_STRUCTURE_CONST;
+    e0 = 2.0*(emax-emin)/(emin+emax);
+    
+    FreeMultipoleArray();
+    if (e0 < 0.1) {
+      SetAWGrid(1, 0.5*(emin+emax), emax);
+    } else if (e0 < 1.0) {
+      SetAWGrid(2, emin, emax);
+    } else {
+      SetAWGrid(3, emin, emax);
     }
   }
-  aw0 = FINE_STRUCTURE_CONST * 0.5*(emin+emax);
-  if (k == 0) {
-    printf("No decay routes\n");
-    return 0;
-  }
-
+    
   if (nf <= 0 || na <= 0 || nb <= 0 || ng <= 0) return -1;
 
   fa = fopen(fna, "w");
@@ -903,7 +936,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       elow = GetLevel(b[j])->energy;
       m = -1;
       et[j] = 0.0;
-      k = OscillatorStrength(sr+j, et+j, aw0, m, b[j], a[i]);
+      k = OscillatorStrength(sr+j, et+j, m, b[j], a[i]);
       if (k != 0) continue;
       if (sr[j] < 1E-30) continue;
       rd[j] = 2*pow((FINE_STRUCTURE_CONST*et[j]),2)*FINE_STRUCTURE_CONST;
@@ -1100,7 +1133,7 @@ int DROpen(int n, int *nlev, int **ops) {
   return j;
 }
 
-void _FreeRecPk(void *p) {
+static void _FreeRecPk(void *p) {
   double *dp;
   dp = *((double **) p);
   free(dp);

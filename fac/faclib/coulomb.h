@@ -3,24 +3,11 @@
 
 #include "global.h"
 #include "angular.h"
+#include "grid.h"
 
-#define MAXNKL         50
-#define MAXKL          1000
-#define MAXNUSR        30
-#define MAXNE          15
-#define MAXNTE         6
 #define CBMULTIPOLES   2
 #define MAXNCB         (CBMULTIPOLES*(CBMULTIPOLES+3)/2)
 
-int AddPW(int *nkl0, double *kl, double *logkl, 
-	  int maxkl, int n, int step);
-int SetPWGrid(int *nkl0, double *kl, double *logkl, 
-	      int maxkl, int *ns, int *n, int *step);
-int SetTEGridDetail(double *te, double *logte, int n, double *x);
-int SetTEGrid(double *te, double *logte, int n, double emin, double emax);
-int SetEGridDetail(double *e, double *log_e, int n, double *xg);
-int SetEGrid(double *e, double *log_e, 
-	     int n, double emin, double emax, double eth);
 double CoulombPhaseShift(double z, double e, int kappa);
 double AngularMSub(int lf, int li1, int li2, int q);
 double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k);

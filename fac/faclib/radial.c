@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.23 2001/10/04 22:27:42 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.24 2001/10/05 19:23:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -51,8 +51,14 @@ static MULTI *residual_array;
 static MULTI *multipole_array; 
 static MULTI *moments_array;  
 
+static int n_awgrid = 0;
+static double awgrid[MAXNTE];
+static double aw2grid[MAXNTE];
+
 double argam_(double *x, double *y);
 double besljn_(int *jy, int *n, double *x);
+void uvip3p_(int *np, int *ndp, double *x, double *y, 
+	     int *n, double *xi, double *yi);
 double _PhaseRDependent(double x, double eta, double b);
 
 #ifdef PERFORM_STATISTICS
@@ -63,6 +69,21 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
+int SetAWGrid(int n, double awmin, double awmax) {
+  int i;
+  if (awmin < 1E-3) {
+    awmin = 1E-3;
+    awmax = awmax + 1E-3;
+  }
+  awmin *= awmin;
+  awmax *= awmax;
+  n_awgrid = SetTEGrid(aw2grid, NULL, n, awmin, awmax);
+  for (i = 0; i < n_awgrid; i++) {
+    awgrid[i] = sqrt(aw2grid[i]);
+  }
+  return 0;
+}
+  
 void SetOptimizeControl(double tolerence, int maxiter, int iprint) {
   optimize_control.maxiter = maxiter;
   optimize_control.tolerence = tolerence;
@@ -1025,10 +1046,13 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
 /* fully relativistic multipole operator, 
    see Grant, J. Phys. B. 1974. Vol. 7, 1458. */ 
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
-  double r, q, ip, ipm, im, imm;
+  double q, ip, ipm, im, imm;
   int kappa1, kappa2;
   int am, t;
+  int index[4], s;
   ORBITAL *orb1, *orb2;
+  double x, a, r, rp, **p1, **p2, aw2, ef;
+  int jy, n, i, j, npts;
 
 #ifdef PERFORM_STATISTICS 
   clock_t start, stop;
@@ -1037,126 +1061,191 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 
   if (m == 0) return 0.0;
   
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-  kappa1 = orb1->kappa;
-  kappa2 = orb2->kappa;
-  r = 0.0;
-  if (m > 0) {
-    am = m;
-    t = kappa1 + kappa2;
-    if (t) {
-      r = t * MultipoleIJ(aw, m, k1, k2, 1);
-      r *= (2*m + 1.0)/sqrt(m*(m+1.0));
-      r /= pow(aw, m);
-    }
+  index[0] = 0;
+  if (m >= 0) {
+    index[1] = 2*m;
   } else {
-    am = -m;
-    if (gauge == G_COULOMB) {
-      t = kappa1 - kappa2;
-      q = sqrt(am/(am+1.0));
-      if (t) {
-	ip = MultipoleIJ(aw, am+1, k1, k2, 1);
-	ipm = MultipoleIJ(aw, am-1, k1, k2, 1);
-	r = t*ip*q - t*ipm/q;
-      }
-      im = MultipoleIJ(aw, am+1, k1, k2, 2);
-      imm = MultipoleIJ(aw, am-1, k1, k2, 2);
-      r += (am + 1.0)*im*q + am*imm/q;
-      r /= pow(aw,am);
-    } else if (gauge == G_BABUSHKIN) {
-      t = kappa1 - kappa2;
-      if (t) {
-	ip = MultipoleIJ(aw, am+1, k1, k2, 1);
-	r = t*ip;
-      }
-      im = MultipoleIJ(aw, am+1, k1, k2, 2);
-      imm = MultipoleIJ(aw, am, k1, k2, 0);
-      r += (am + 1.0) * (imm + im);
-      q = (2*am + 1.0)/sqrt(am*(am+1.0));
-      r = r*q/pow(aw,am);
-    }
+    index[1] = -2*m-1;
   }
-
-  r *= ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
-
-#ifdef PERFORM_STATISTICS 
-    stop = clock();
-    rad_timing.radial_1e += stop - start;
-#endif
-  return r;
-}
-
-/*********************************************** 
-   calculates the I and J integral defined in 
-   Grant. J. Phys. B. V7. 1458,
-   t = 0, P1P2 + Q1Q2
-   t = 1, P1Q2 + Q1P2
-   t = 2, P1Q2 - Q1P2
-************************************************/
-
-double MultipoleIJ(double aw, int m, int k1, int k2, int t) {
-  int i, npts, s;
-  double r, x;
-  int jy, n, type;
-  ORBITAL *orb1, *orb2;
-  int index[4];
-  double *p;
-
-  switch (t) {
-  case 0: 
-    type = 1;
-    break;
-  case 1:
-    type = 4;
-    break;
-  case 2:
-    type = 5;
-    if (k1 == k2) return 0.0;
-    break;
-  default:
-    break;
-  }
-
-  index[0] = t;
-  index[1] = m;
+ 
   if (k1 <= k2) {
-    s = 0;
+    s = 0;      
     index[2] = k1;
     index[3] = k2;
     orb1 = GetOrbital(k1);
     orb2 = GetOrbital(k2);
   } else {
-    s = 1;
+    s = 1;     
     index[2] = k2;
     index[3] = k1;
     orb1 = GetOrbital(k2);
     orb2 = GetOrbital(k1);
   }
-
-  p = (double *) MultiSet(multipole_array, index, NULL);
-  if (*p) {
-    r = *p;
-    if (t == 2 && s == 1) r = -r;
-    return r;
+  
+  ef = Max(orb1->energy, orb2->energy);  
+  if (ef > 0.0) {
+    ef *= FINE_STRUCTURE_CONST;
+    if (n_awgrid > 1) {
+      for (i = 0; i < n_awgrid; i++) {
+	aw2grid[i] = awgrid[i] + ef;
+	aw2grid[i] *= aw2grid[i];
+      }
+    }
   }
 
-  jy = 1;
-  n = m;
+  if (n_awgrid > 1) {
+    if (ef > 0) aw += ef;
+    aw2 = aw*aw;
+  }
+
+  p1 = (double **) MultiSet(multipole_array, index, NULL);
+  p2 = NULL;
+  if (m < 0 && gauge == G_BABUSHKIN) {
+    index[0] = 1;
+    p2 = (double **) MultiSet(multipole_array, index, NULL);
+  }
+
+  if (*p1) {
+    r = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p1);
+    if (p2) {
+      rp = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p2);
+      if (s == 1) rp = -rp;
+      r += rp;
+    } 
+    if (s == 1 && gauge == G_COULOMB) r = -r;
+    return r;
+  }
+  
+  *p1 = (double *) malloc(sizeof(double)*n_awgrid);
+  if (p2) {
+    *p2 = (double *) malloc(sizeof(double)*n_awgrid);
+  }
+  
+  kappa1 = orb1->kappa;
+  kappa2 = orb2->kappa;
   npts = MAX_POINTS-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
-  for (i = 0; i <= npts; i++) {
-    x = aw * potential->rad[i];
-    _yk[i] = besljn_(&jy, &n, &x); 
-  }
-  Integrate(_yk, orb1, orb2, type, &r);
-  *p = r;
+  r = 0.0;
+  jy = 1;
 
-  if (t == 2 && s == 1) r = -r;
+  for (i = 0; i < n_awgrid; i++) {
+    a = awgrid[i];
+    if (ef > 0.0) a += ef;
+    if (m > 0) {
+      t = kappa1 + kappa2;
+      if (t) {
+	for (j = 0; j < npts; j++) {
+	  x = a*potential->rad[j];
+	  n = m;
+	  _yk[j] = besljn_(&jy, &n, &x);
+	}
+	Integrate(_yk, orb1, orb2, 4, &r);
+	r *= t;
+	r *= (2*m + 1.0)/sqrt(m*(m+1.0));
+	r /= pow(a, m);
+	r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
+	(*p1)[i] = r;
+      }
+    } else {
+      am = -m;
+      if (gauge == G_COULOMB) {
+	t = kappa1 - kappa2;
+	q = sqrt(am/(am+1.0));
+	for (j = 0; j < npts; j++) {
+	  x = a*potential->rad[j];
+	  n = am+1;
+	  _yk[j] = besljn_(&jy, &n, &x);
+	  n = am-1;
+	  _zk[j] = besljn_(&jy, &n, &x);
+	}
+	if (t) {
+	  Integrate(_yk, orb1, orb2, 4, &ip);
+	  Integrate(_zk, orb1, orb2, 4, &ipm);
+	  r = t*ip*q - t*ipm/q;
+	}
+	if (k1 != k2) {
+	  Integrate(_yk, orb1, orb2, 5, &im);
+	  Integrate(_zk, orb1, orb2, 5, &imm);
+	  r += (am + 1.0)*im*q + am*imm/q;
+	}
+	r /= pow(a,am-1);
+	q = ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
+	r *= q;
+	(*p1)[i] = r;
+      } else if (gauge == G_BABUSHKIN) {
+	t = kappa1 - kappa2;
+	for (j = 0; j < npts; j++) {
+	  x = a*potential->rad[j];
+	  n = am+1;
+	  _yk[j] = besljn_(&jy, &n, &x);
+	  n = am;
+	  _zk[j] = besljn_(&jy, &n, &x);
+	}
+	if (t) {
+	  Integrate(_yk, orb1, orb2, 4, &ip);
+	  r = t*ip;
+	}
+	if (k1 != k2) {
+	  Integrate(_yk, orb1, orb2, 5, &im);
+	} else {
+	  im = 0.0;
+	}
+	Integrate(_zk, orb1, orb2, 1, &imm);
+	rp = (am + 1.0) * (imm + im);
+	q = (2*am + 1.0)/sqrt(am*(am+1.0));
+	q /= pow(a, am);
+	r *= q;
+	rp *= q;
+	q = ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
+	r *= q;
+	rp *= q;
+	(*p1)[i] = r;
+	(*p2)[i] = rp;
+      }
+    }
+  }
+
+  /*
+  for (i = 0; i < n_awgrid; i++) {
+    printf("%d %d %10.3E %10.3E %10.3E ", 
+	    kappa1, kappa2, awgrid[i], aw2grid[i], (*p1)[i]);
+    if (p2) printf("%10.3E ", (*p2)[i]);
+    printf("\n");
+  }
+  printf("\n\n");
+  */
+
+  r = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p1);
+  if (p2) {
+    rp = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p2);
+    if (s == 1) rp = -rp;
+    r += rp;
+  }
+
+  if (s == 1 && gauge == G_COULOMB) r = -r;
+  
+#ifdef PERFORM_STATISTICS 
+  stop = clock();
+  rad_timing.radial_1e += stop - start;
+#endif
+  return r;
+}
+
+double InterpolateMultipole(double aw2, int n, double *x, double *y) {
+  double r;
+  int np, nd;
+
+  if (n == 1) {
+    r = y[0];
+  } else {
+    np = 3;
+    nd = 1;
+    uvip3p_(&np, &n, x, y, &nd, &aw2, &r);
+  }
 
   return r;
-} 
+}
 
 int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int t, kk, tt;
@@ -2207,9 +2296,16 @@ int FreeResidualArray() {
   return 0;
 }
 
+static void _FreeMultipole(void *p) {
+  double *dp;
+  dp = *((double **) p);
+  free(dp);
+}
+
 int FreeMultipoleArray() {
   if (multipole_array->array == NULL) return 0;
-  MultiFreeData(multipole_array->array, multipole_array->ndim, NULL);
+  MultiFreeData(multipole_array->array, multipole_array->ndim, 
+		_FreeMultipole);
   return 0;
 }
 
@@ -2243,11 +2339,14 @@ int InitRadial() {
   
   ndim = 4;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(multipole_array, sizeof(double), ndim, blocks);
+  MultiInit(multipole_array, sizeof(double *), ndim, blocks);
 
   ndim = 3;
   moments_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(moments_array, sizeof(double), ndim, blocks);
+
+  n_awgrid = 1;
+  awgrid[0]= EPS3;
 
   return 0;
 }
