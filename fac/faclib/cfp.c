@@ -1,5 +1,11 @@
 #include "cfp.h"
 
+/******************************************************************/
+/* Calculate the coeff. of fractional parentage by looking up the */
+/* table. This is no longer used in FAC. Instead, the reduced cfp */
+/* method is used, implemented in rcfp.c                          */
+/******************************************************************/
+
 /** look up table for CFPs **/
 static double cfp3_5[3][3] = { /** (5/2)3 **/
   {-4.714045207910E-01, 

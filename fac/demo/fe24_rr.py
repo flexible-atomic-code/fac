@@ -16,5 +16,5 @@ fac.Structrue('be_n2')
 
 fac.LevelTable('li.lev')
 
-fac.SetPEGrid([1e2, 5e2, 1e3, 2e3])
+fac.SetUsrPEGrid([1e2, 5e2, 1e3, 2e3])
 fac.RRTable(['be_n2'], ['n2'], 'li.rr')
