@@ -57,6 +57,8 @@ double DRFit(int z, int nele, double t);
 double NRRFit(int z, int nele, double t);
 double NDRFit(int z, int nele, double t);
 double PhFit2(int z, int nele, int is, double e);
+double CBeli(int z, int nele, double ene, 
+	     double *a, double *dir, double *err);
 double CFit(int z, int nele, double t, double *a, double *dir);
 double ColFit(int z, int nele, int is, double t, double *a, double *dir);
 double Ionis(int z, int nele, double t, double *a, double *dir, int m);

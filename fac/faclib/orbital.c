@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.44 2003/03/17 17:50:26 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.45 2003/03/29 23:21:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1499,7 +1499,7 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
 
   if (vp <= 0) return 0;
 
-  r0 = 3.86159E-5/RBOHR;
+  r0 = 3.86159E-3/RBOHR;
   a = -2.0*pot->Z[MAX_POINTS-1]*FINE_STRUCTURE_CONST/(3.0*PI);
   b = -pot->Z[MAX_POINTS-1]*FINE_STRUCTURE_CONST2/(PI*PI);
   
@@ -1513,6 +1513,7 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
   }
   
   rn = GetAtomicR();
+
   if (rn) {
     a = -2.0*r0*FINE_STRUCTURE_CONST/3.0;
     b = -r0*FINE_STRUCTURE_CONST2/PI;

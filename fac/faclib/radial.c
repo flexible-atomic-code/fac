@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.71 2003/01/22 21:58:03 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.72 2003/03/29 23:21:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -396,11 +396,11 @@ int GetPotential(char *s) {
 
   fprintf(f, "Mean configuration:\n");
   for (i = 0; i < acfg->n_shells; i++) {
-    fprintf(f, "%-2d %2d\t%-10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+    fprintf(f, "%2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
   fprintf(f, "\n\n");
   for (i = 0; i < MAX_POINTS; i++) {
-    fprintf(f, "%-5d %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E\n",
+    fprintf(f, "%5d %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
 	    potential->Vc[i]+potential->U[i], v[i], 
 	    ve0[i], ve1[i], potential->uehling[i]);

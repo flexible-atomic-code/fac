@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.24 2003/03/10 21:58:52 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.25 2003/03/29 23:21:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -680,6 +680,16 @@ double PhFit2(int z, int nele, int is, double e) {
   r *= 1E2;
   
   return r;
+}
+
+double CBeli(int z, int nele, double ene, 
+	     double *a, double *dir, double *err) {
+  double total;
+  
+  CBELI(z, nele, ene, a, dir, err);
+  total = *a + *dir;
+  
+  return total;
 }
 
 double CFit(int z, int nele, double t, double *a, double *dir) {
