@@ -655,7 +655,7 @@ class ATOM:
                     na = len(a)
                     if (na == 0):
                         continue
-                    if (na > 2):
+                    if (na > 2 and self.nele > 5):
                         a = a[:2]
                         na = 2
                     n = c[j].nrec
