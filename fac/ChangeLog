@@ -3,14 +3,14 @@ Version 0.7.0, 02/05/2002
 	2. implement extrapolation on recombined states.
 	3. using Seaton's method (MNRAS 119, 81) to extrapolate RR rates
 	4. adding the ionization balance calculation of Arnaud&Raymond.
+	5. fix a bug in the reinitialization of radial.c
 
 Version 0.6.9, 01/20/2002
-	1. fix a bug in the reinitialization of radial.c
-	2. improve the atom module.
-	3. updated demo scripts for the new version. added the FeL 
+	1. improve the atom module.
+	2. updated demo scripts for the new version. added the FeL 
 	   demo scripts to calculate the FeL spectrum.
-	4. changed the default QkMode for excitation to EXACT.
-	5. added SetAbund routine to CRM.
+	3. changed the default QkMode for excitation to EXACT.
+	4. added SetAbund routine to CRM.
 
 Version 0.6.8, 01/14/2002
 	1. use setup.py script to install the python interface. 

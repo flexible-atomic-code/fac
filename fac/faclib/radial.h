@@ -44,6 +44,7 @@ int OrbitalIndex(int n, int kappa, double energy);
 int OrbitalExists(int n, int kappa, double energy);
 int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
+ORBITAL *GetOrbitalSolved(int k);
 ORBITAL *GetNewOrbital(void);
 int GetNumBounds(void);
 int GetNumOrbitals(void);

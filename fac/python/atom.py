@@ -435,16 +435,17 @@ class ATOM:
         SetAngZCut(self.angz_cut0)
 
         g = self.grd_complex.name
-        OptimizeRadial(g)
-
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
         c = self.exc_complex[0].cgroup[0].name
+        OptimizeRadial(g+c)
         Structure(self.bfiles['en'], g+c)
         
         Print('Structure: ionized complexes')
         c = self.ion_complex.cgroup
         for a in c:
+            Reinit(radial=2)
+            OptimizeRadial(a.name)
             Structure(self.bfiles['en'], a.name)
 
         Print('Structure: excited complexes')
@@ -457,9 +458,15 @@ class ATOM:
                 if (i == 0 and j == 0):
                     continue
                 if (a.nrec > 0):
+                    Reinit(radial=2)
+                    nsc = [min([a.nrec, self.nrec_max[i]])]
+                    SetScreening(nsc)
+                    OptimizeRadial(a.name)
                     RecStates(self.bfiles['en'], a.name, a.nrec)
                 else:
                     if (len(a.name) != 0):
+                        Reinit(radial=2)
+                        OptimizeRadial(a.name)
                         Structure(self.bfiles['en'], a.name)
 
         return
@@ -469,6 +476,8 @@ class ATOM:
         g = self.grd_complex.name
         SetAngZCut(self.angz_cut0)
         SetTransitionCut(self.tr_cut0)
+        Reinit(radial=2)
+        OptimizeRadial(g)
         self.run_tr_ce(g, g, g, g, tr=[-1,1,-2,2], ce=1)
         for i in range(self.n_shells):
             c = self.exc_complex[i].cgroup
@@ -496,7 +505,13 @@ class ATOM:
                     ce = 1
                 else:
                     ce = 0
-                self.run_tr_ce(a1, b, a2, b, tr=tr, ce=ce)
+                if (ce != 0 or len(tr) != 0):
+                    Reinit(radial=2)
+                    if (c[j].nrec > 0):
+                        nsc = [min([c[j].nrec, self.nrec_max[i]])]
+                        SetScreening(nsc, 0.5)
+                    OptimizeRadial(g+c[j].name)
+                    self.run_tr_ce(a1, b, a2, b, tr=tr, ce=ce)
 
         if (self.nele < 3):
             ce0 = 1
@@ -536,6 +551,16 @@ class ATOM:
                     else:
                         a = (c[m].name, c[m].nrec)
                     if (ce != 0 or tr != []):
+                        Reinit(radial=2)
+                        if (c[j].nrec > 0 and c[m].nrec > 0):
+                            nsc = min([c[j].nrec, c[m].nrec])
+                            nsc = [min([self.nrec_max[i], nsc])]
+                            SetScreening(nsc)
+                        elif (c[j].nrec > 0 or c[m].nrec > 0):
+                            n = max([c[j].nrec, c[m].nrec])
+                            nsc = [min([n, self.nrec_max[i]])]
+                            SetScreening(nsc,0.5)
+                        OptimizeRadial(c[j].name+c[m].name)
                         self.run_tr_ce(a, b, a, b, tr=tr, ce=ce)
 
                 if (i == 0 and n2 <= self.n_decay[i]):
@@ -556,6 +581,16 @@ class ATOM:
                         SetTransitionCut(self.tr_cut2)
                     if (n1 != n2):
                         continue
+                    Reinit(radial=2)
+                    if (c[j].nrec > 0 and d[m].nrec > 0):
+                        nsc = min([c[j].nrec, d[m].nrec])
+                        nsc = [min([nsc, self.nrec_max[i]])]
+                        SetScreening(nsc)
+                    elif (c[j].nrec > 0 or d[m].nrec > 0):
+                        n = max([c[j].nrec,d[m].nrec])
+                        nsc = [min([n, self.nrec_max[i]])]
+                        SetScreening(nsc,0.5)
+                    OptimizeRadial(c[j].name+d[m].name)
                     self.run_tr_ce(a, b, a, b, tr=[-1], ce=0)
                         
         return
@@ -566,6 +601,8 @@ class ATOM:
         g = self.grd_complex.name
         for i in range(self.n_shells):
             b = self.ion_complex.cgroup[i].name
+            Reinit(radial=2)
+            OptimizeRadial(g+b)
             self.run_ci_rr(g, b, g, b, ci=1, rr=1)
 
         b = self.ion_complex.cgroup[0].name
@@ -576,6 +613,13 @@ class ATOM:
             n = self.exc_complex[0].cgroup[i].nrec
             if (n > 0):
                 a = (a, n)
+            Reinit(radial=2)
+            if (n > 0):
+                nsc = [min([n, self.nrec_max[0]])]
+                SetScreening(nsc, 0.5)
+                OptimizeRadial(b+a[0])
+            else:
+                OptimizeRadial(b+a)
             self.run_ci_rr(a, b, a, b, ci=1, rr=1)
              
         return
@@ -622,6 +666,13 @@ class ATOM:
                     if (c[j].nrec_ext > 0):
                         m = n + (self.nrec_max[i]+1)*1000
                         m = -m
+                    Reinit(radial=2)
+                    if (n > 0):
+                        nsc = [min([n, self.nrec_max[i]])]
+                        SetScreening(nsc, 0.5)
+                        OptimizeRadial(a[0]+b)
+                    else:
+                        OptimizeRadial(a+b)
                     self.run_ai(a, b, m)
                     
         return
