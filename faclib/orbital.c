@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.50 2003/12/05 06:24:51 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.51 2004/02/21 23:20:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -424,6 +424,38 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   i2 = TurningPoints(orb->n, e, pot);
   if (i2 < MAX_POINTS-20) {
     niter = 0;
+    dn = orb->n;
+    dn = z*z/(dn*dn*dn);
+    while (1) {
+      SetPotentialW(pot, e, orb->kappa);
+      SetVEffective(kl, pot);
+      i2 = TurningPoints(orb->n, e, pot);
+      if (i2 < 0) {
+	printf("The orbital angular momentum = %d too high\n", kl);
+	return -2;
+      }
+      i2p2 = i2 + 2;
+      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+      if (nodes != nr) {
+	e += 0.5*(nr-nodes)*dn;
+      } else {
+	break;
+      }
+    }
+    dn *= 0.05;
+    while (nodes == nr) {
+      e += dn;
+      SetPotentialW(pot, e, orb->kappa);
+      SetVEffective(kl, pot);
+      i2 = TurningPoints(orb->n, e, pot);
+      if (i2 < 0) {
+	printf("The orbital angular momentum = %d too high\n", kl);
+	return -2;
+      }
+      i2p2 = i2 + 2;
+      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0);
+    }
+    e -= 1.5*dn;
     while (niter < max_iteration) {
       niter++;
       SetPotentialW(pot, e, orb->kappa);
