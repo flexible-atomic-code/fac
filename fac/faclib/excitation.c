@@ -786,8 +786,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   *e = te;
 
   if (msub) {
-    j1 = GetHamilton(lev1->ham_index)->pj;
-    j2 = GetHamilton(lev2->ham_index)->pj;
+    j1 = lev1->pj;
+    j2 = lev2->pj;
     DecodePJ(j1, NULL, &j1);
     DecodePJ(j2, NULL, &j2);
     j = 0;
