@@ -3,6 +3,7 @@
 
 #include "coulomb.h"
 #include "structure.h"
+#include "transition.h"
 
 typedef struct _CEPW_SCRATCH_ {
   int qr;
@@ -26,15 +27,17 @@ typedef struct _EXCIT_TIMING_ {
 } EXCIT_TIMING;
 #endif
 
-CEPW_SCRATCH *GetCEPWScratch();
+CEPW_SCRATCH *GetCEPWScratch(void);
 int FreeExcitationPk(int ie);
-int FreeExcitationQk();
-int InitExcitation();
+int FreeExcitationQk(void);
+int InitExcitation(void);
+int ReinitExcitation(int m);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
 int SetCEPWOptions(int qr, int max, int kl_cb, double tol);
 int AddCEPW(int n, int step);
 int SetCEFormat(int m);
+int SetCEQkMode(int m, double tol);
 int SetCEPWGrid(int ns, int *n, int *step);
 int SetCEEGridLimits(double min, double max, int type);
 int SetCEEGridType(int type);

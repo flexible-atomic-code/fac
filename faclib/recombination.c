@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.35 2001/12/14 00:07:20 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.36 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -64,6 +64,7 @@ void pixz1_(double *z, double *am, int *ne, int *nl, double *phe,
 
 int SetAICut(double c) {
   ai_cut = c;
+  return 0;
 }
 
 int SetRRTEGrid(int n, double emin, double emax) {
@@ -130,12 +131,14 @@ int AddRecPW(int n, int step) {
     if (kl > pw_scratch.max_kl) break;
   }
   pw_scratch.nkl0 = i;
+  return 0;
 }
 
 int SetRecSpectator(int n_max, int n_frozen, int n_spec) {
   if (n_max > 0) pw_scratch.n_max = n_max;
   if (n_frozen > 0) pw_scratch.n_frozen = n_frozen;
   if (n_spec > 0) pw_scratch.n_spec = n_spec;
+  return 0;
 }
 
 int SetRecQkMode(int m, double tol) {
@@ -165,6 +168,7 @@ int SetRecPWOptions(int kl_interp, int max_kl) {
     k *= 2;
   }
   pw_scratch.nkl = pw_scratch.nkl0;
+  return 0;
 }
 
 int SetRecPWLimits(int min, int max) {
@@ -285,7 +289,6 @@ int RecStates(int n, int k, int *kg, char *fn) {
 int RecStatesFrozen(int n, int k, int *kg, char *fn) {
   int i, j, m, nlevels, nsym, nstates, ko;
   int kl2, j1, j2, p1, p, jmin, jmax, tj;
-  HAMILTON *h;
   LEVEL *lev;
   STATE *s;
   SYMMETRY *sym;
@@ -305,7 +308,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
     i1 = rec_complex[t].s0;
     for (i = i0; i < i1; i++) {
       lev = GetLevel(i);
-      m = lev->major_component;
+      m = lev->basis[0];
       sym = GetSymmetry(lev->pj);
       s = (STATE *) ArrayGet(&(sym->states), m);
       if (!InGroups(s->kgroup, k, kg)) {
@@ -343,7 +346,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	i1 = rec_complex[t].s0;
 	for (j = i0; j < i1; j++) {
 	  lev = GetLevel(j);
-	  m = lev->major_component;
+	  m = lev->basis[0];
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
@@ -405,7 +408,7 @@ void RRRadialQkHydrogenicParams(int np, double *p, int n, int kl) {
 	x[i] = exp(logx[i]);
       }
       i = 200;
-      pixz1_(&z, &am, &ne, &i, e, pc, NULL, pnc, 
+      pixz1_(&z, &am, &i, &n, e, pc, NULL, pnc, 
 	     &ne, &n, &iopt, &ipcp);
       iopt = 0;
     }
@@ -719,8 +722,7 @@ int BoundFreeOS(double *rqu, int *nqkc, double *rqc, double *eb,
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
-  ORBITAL *orb1;
-  int nz, ie, k, kl;
+  int nz, ie, k;
   double a;
   double rq[MAXNE], tq[MAXNUSR];
   int j1, j2;
@@ -737,6 +739,7 @@ int BoundFreeOS(double *rqu, int *nqkc, double *rqc, double *eb,
   DecodePJ(j2, NULL, &j2);
 
   *eb = (lev2->energy - lev1->energy);
+  if (*eb <= 0.0) return -1;
 
   nz = AngularZFreeBound(&ang, f, rec);
   if (nz <= 0) return -1;
@@ -830,14 +833,14 @@ int BoundFreeOS(double *rqu, int *nqkc, double *rqc, double *eb,
   return nq;
 }
 
-int AIRate(double *rate, double *e, int rec, int f) {  
+int AutoionizeRate(double *rate, double *e, int rec, int f) {  
   LEVEL *lev1, *lev2;
   ANGULAR_ZxZMIX *ang;
   ANGULAR_ZFB *zfb;
   STATE *st;
   int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
-  double *p, y2[MAXNE], r, s, log_e;
+  double *p, r, s, log_e;
   double *ai_pk, ai_pk0[MAXNE];
   int np, nt;
 
@@ -849,7 +852,7 @@ int AIRate(double *rate, double *e, int rec, int f) {
   if (*e <= 0.0) return -1;
   log_e = log(*e);
 
-  i = lev1->major_component;
+  i = lev1->basis[0];
 
   j1 = lev1->pj;
   j2 = lev2->pj;
@@ -955,7 +958,7 @@ int AIRadial1E(double *ai_pk, int kb, int kappaf) {
 }  
 
 int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
-  int i, j, kf;
+  int i, kf;
   int ks[4];
   double e, sd, se;
   double **p;
@@ -1065,17 +1068,17 @@ int PrepRREGrids(double e) {
   
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
-  int i, j, k, n, ie, jp;
-  char t;
+  int i, j, k, ie, ip;
   FILE *f;
-  double rqu[MAXNUSR], *qc, *rqc;
-  double phi, rr, ee, eph, eb;
-  double s, trr[MAXNUSR], tpi[MAXNUSR];
-  int j1, j2, nlow0;
+  double rqu[MAXNUSR], *qc;
+  double eb;
   LEVEL *lev1, *lev2;
+  RR_RECORD r;
+  RR_HEADER rr_hdr;
+  F_HEADER fhdr;
   double e, emin, emax;
   double awmin, awmax;
-  int nqkc, nq, nqk;
+  int nqkc, nq, nqk, nshells;
 
   emin = 1E10;
   emax = 1E-10;
@@ -1090,8 +1093,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       if (e > emax) emax = e;
     }
   }
+  if (emin < TE_MIN_MAX*emax) {
+    emin = TE_MIN_MAX*emax;
+  }
+
   if (k == 0) {
-    printf("No recombination can occur\n");
     return 0;
   }
   
@@ -1135,90 +1141,70 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     return -1;
   }
 
-  f = fopen(fn, "w");
-  if (!f) return -1;
-
-  fprintf(f, " QK_MODE: %d\n", qk_mode);
-  if (m < 0) t = 'E';
-  else t = 'M';
-  fprintf(f, " Multipole: %c%d\n\n", t, abs(m));
-
-  fprintf(f,  " IEGRID:\n ");
-  for (i = 0; i < n_tegrid; i++) {
-    fprintf(f, "%10.4E ", tegrid[i]*HARTREE_EV);
-  }
-  fprintf(f, "\n\n");
-
-  fprintf(f, " PEGRID:\n ");
-  for (i = 0; i < n_egrid; i++) {
-    fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
-  }
-  fprintf(f, "\n\n");
-  
-  if (usr_egrid_type == 0) fprintf(f, " Photon UsrEGrid\n");
-  else fprintf(f, " Electron UsrEGrid\n");
-  fprintf(f, "\n");
-
-  fprintf(f, "Free  2J   Bound 2J   E_Binding\n\n");
-
   if (qk_mode == QK_FIT) {
     nqkc = 10;
     nqk = NPARAMS+1;
     qc = (double *) malloc(sizeof(double)*nqkc*nqk);
+  } else {
+    nqk = 0;
   }
 
+  fhdr.type = DB_RR;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  rr_hdr.nele = GetNumElectrons(low[0]);
+  rr_hdr.qk_mode = qk_mode;
+  rr_hdr.nparams = nqk;
+  rr_hdr.n_tegrid = n_tegrid;
+  rr_hdr.n_egrid = n_egrid;
+  rr_hdr.egrid_type = egrid_type;
+  rr_hdr.n_usr = n_usr;
+  rr_hdr.usr_egrid_type = usr_egrid_type;
+  rr_hdr.multipole = m;
+  rr_hdr.tegrid = tegrid;
+  rr_hdr.egrid = egrid;
+  rr_hdr.usr_egrid = usr_egrid;
+
+  f = InitFile(fn, &fhdr, &rr_hdr);
+
+  nshells = 1;
+  if (qk_mode == QK_FIT) {
+    r.params = (float *) malloc(sizeof(float)*nqk);
+  }
+  r.strength = (float *) malloc(sizeof(float)*n_usr);
+  
   for (i = 0; i < nup; i++) {
-    j1 = LevelTotalJ(up[i]);    
-    for (ie = 0; ie < n_usr; ie++) {
-      trr[ie] = 0.0;
-      tpi[ie] = 0.0;
-    }
-    nlow0 = 0;
     for (j = 0; j < nlow; j++) {
-      j2 = LevelTotalJ(low[j]);
       nq = BoundFreeOS(rqu, &nqkc, qc, &eb, low[j], up[i], m);
-      rqc = qc;
       if (nq < 0) continue;
-      nlow0++;
-      fprintf(f, "%-5d %-2d   %-5d %-2d   %10.4E\n",
-	      up[i], j1, low[j], j2, eb*HARTREE_EV);
+      r.b = low[j];
+      r.f = up[i];
+      r.nshells = nq;
+      if (r.nshells > nshells && qk_mode == QK_FIT) {
+	r.params = (float *) realloc(r.params, sizeof(float)*nqk*nq);
+	nshells = r.nshells;
+      }
+      
       if (qk_mode == QK_FIT) {
+	ip = 0;
 	for (k = 0; k < nq; k++) {
-	  fprintf(f, "%-5d %11.4E %11.4E %11.4E\n", 
-		  (int)(rqc[3]), rqc[0], rqc[1], rqc[2]);
-	  rqc += nqk;	
+	  for (ie = 0; ie < nqk; ie++) {
+	    r.params[ip] = (float) qc[ip];
+	    ip++;
+	  }
 	}
       }
+
       for (ie = 0; ie < n_usr; ie++) {
-	if (usr_egrid_type == 0) {
-	  eph = usr_egrid[ie];
-	  ee = eph - eb;
-	} else {
-	  ee = usr_egrid[ie];
-	  eph = eb + ee;
-	}
-	s = rqu[ie];
-	phi = 2.0*PI*FINE_STRUCTURE_CONST*s*AREA_AU20;
-	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
-	trr[ie] += rr;
-	tpi[ie] += phi;
-	fprintf(f, "%-10.3E %-10.3E %-10.3E %-10.3E\n", 
-		usr_egrid[ie]*HARTREE_EV, rr, phi, s);
+	r.strength[ie] = (float) rqu[ie];
       }
-      fprintf(f, "\n");
+      WriteRRRecord(f, &r);
     }
-    if (nlow0 > 1) {
-      fprintf(f, "==================================\n");
-      fprintf(f, "%-5d   \tTotal\n", up[i]);
-      for (ie = 0; ie < n_usr; ie++) {
-	fprintf(f, "%-10.3E %-10.3E %-10.3E\n", 
-		usr_egrid[ie]*HARTREE_EV, trr[ie], tpi[ie]);
-      }
-    }
-    fprintf(f, "\n");
   }
   
-  fclose(f);
+  if (qk_mode == QK_FIT) free(r.params);
+  free(r.strength);
+  CloseFile(f, &fhdr);
   free(qc);
 
   return 0;
@@ -1226,8 +1212,13 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 
 int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g, 
 	   char *fna, char *fnt, int channel) {
-  int i, j, k, n, kb, j1, j2, m, do_transition;
+  int i, j, k, j1, m, do_transition;
   LEVEL *lev1, *lev2;
+  TR_RECORD rt;
+  AI_RECORD ra;
+  TR_HEADER tr_hdr;
+  AI_HEADER ai_hdr;
+  F_HEADER fhdra, fhdrt;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   clock_t t_ai, t_rd, tt_ai, tt_rd;
@@ -1237,9 +1228,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   RAD_TIMING radt;
 #endif
   double emin, emax;
-  double *ea, *sa, tai, sd, e0; 
+  double *ea, *sa, tai, e0; 
   double *et, *sr, *rd, elow, trd, trd1, tr_cut;
-  char t;
   FILE *fa, *ft;
 
   tr_cut = GetTransitionCut();
@@ -1257,8 +1247,11 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       if (e0 > emax) emax = e0;
     }
   }
+  if (emin < TE_MIN_MAX*emax) {
+    emin = TE_MIN_MAX*emax;
+  }
+
   if (k == 0) {
-    printf("No recombination channels\n");
     return 0;
   }
   
@@ -1291,6 +1284,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
 	if (e0 > emax) emax = e0;
       }
     }
+
     if (k == 0) {
       printf("No decay routes\n");
       return 0;
@@ -1312,22 +1306,24 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     
   if (nf <= 0 || na <= 0 || nb <= 0 || ng <= 0) return -1;
 
-  fa = fopen(fna, "w");
-  if (!fa) return -1;
-  ft = fopen(fnt, "w");
-  if (!ft) return -1;
-
-  fprintf(fa, "DR Channel: %-4d  EGRID: ", channel);
-  for (i = 0; i < n_egrid; i++) {
-    fprintf(fa, "%10.4E ", egrid[i]*HARTREE_EV);
-  }
-  fprintf(fa, "\n\n");
-
-  fprintf(fa, 
-	  "Bound  2J\tFree   2J\tEe         AI(AU)    CS(10^-20)\n");
-
   
-  fprintf(ft, "up     2J\tlow     2J\tDelta_E    M  gf        A(AU)\n");
+  fhdra.type = DB_AI;
+  strcpy(fhdra.symbol, GetAtomicSymbol());
+  fhdra.atom = GetAtomicNumber();  
+  ai_hdr.nele = GetNumElectrons(a[0]);
+  ai_hdr.channel = channel;
+  ai_hdr.n_egrid = n_egrid;
+  ai_hdr.egrid = egrid;  
+  fa = InitFile(fna, &fhdra, &ai_hdr);
+
+  fhdrt.type = DB_TR;
+  strcpy(fhdrt.symbol, GetAtomicSymbol());
+  fhdrt.atom = GetAtomicNumber();
+  tr_hdr.nele = ai_hdr.nele;
+  tr_hdr.multipole = -1;
+  tr_hdr.gauge = GetTransitionGauge();
+  tr_hdr.mode = GetTransitionMode();
+  ft = InitFile(fnt, &fhdrt, &tr_hdr);
 
   sa = malloc(sizeof(double)*nf);
   ea = malloc(sizeof(double)*nf);
@@ -1349,7 +1345,7 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     j1 = LevelTotalJ(a[i]);
     tai = 0.0;
     for (j = 0; j < nf; j++) {
-      k = AIRate(sa+j, ea+j, a[i], f[j]);
+      k = AutoionizeRate(sa+j, ea+j, a[i], f[j]);
       if (k < 0) continue;
       tai += sa[j];
     }
@@ -1364,12 +1360,10 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     }
     for (j = 0; j < nf; j++) {
       if (sa[j] < ai_cut*tai) continue;
-      j2  = LevelTotalJ(f[j]);
-      sd = 0.5*(j1+1.0)*PI*PI*sa[j]/(ea[j]*(j2+1.0));
-      sd *= AREA_AU20*HARTREE_EV;    
-      ea[j] *= HARTREE_EV;
-      fprintf(fa, "%-6d %-2d\t%-6d %-2d\t%10.4E %9.3E %9.3E\n",
-	      a[i], j1, f[j], j2, ea[j], sa[j], sd);
+      ra.b = a[i];
+      ra.f = f[j];
+      ra.rate = sa[j];
+      WriteAIRecord(fa, &ra);
     }
 
 #ifdef PERFORM_STATISTICS
@@ -1378,11 +1372,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     start = stop;
     tt_ai += t_ai;
 #endif
-
-    fprintf(fa, "%-6d   \tTotal   \t           %9.3E\n\n", a[i], tai);
     
     if (!do_transition) continue;
-
     trd = 0.0;
     trd1 = 0.0;
     for (j = 0; j < nb; j++) {
@@ -1401,41 +1392,40 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
     if (trd < 1E-30) continue;
     for (j = 0; j < nb; j++) {
       if (rd[j] < (tr_cut*trd)) continue;
-      et[j] *= HARTREE_EV;      
-      if (m < 0) t = 'E';
-      else t = 'M';
-      elow = GetLevel(b[j])->energy;
-      if (elow < e0) k = -b[j];
-      else k = b[j];
-      j2 = LevelTotalJ(b[j]);
-      fprintf(ft, "%-6d %-2d\t%-7d %-2d\t%10.4E %c%d %9.3E %9.3E\n", 
-	      a[i], j1, k, j2, et[j], t, abs(m), sr[j], rd[j]);
-    }	
-   
-    fprintf(ft, 
-	    "%-6d   \tTotal     \t              %9.3E %9.3E\n\n", 
-	    a[i], trd, trd1);
-
+      rt.upper = a[i];
+      rt.lower = b[j];
+      rt.strength = sr[j];
+      WriteTRRecord(ft, &rt);
+    }
 #ifdef PERFORM_STATISTICS
     stop = clock();
     t_rd = stop-start;
     start = stop;
     tt_rd += t_rd;
 #endif
+  }
+
+  free(sa);
+  free(ea);
+  free(sr);
+  free(rd);
+  free(et);
+  CloseFile(fa, &fhdra);
+  CloseFile(ft, &fhdrt);
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&st_stop);
   
-  fprintf(ft, "Time in AI: %6.1E, RD: %6.1E\n", 
+  fprintf(perform_log, "Time in AI: %6.1E, RD: %6.1E\n", 
 	  ((double) tt_ai)/CLOCKS_PER_SEC, ((double) tt_rd)/CLOCKS_PER_SEC);
   
-  fprintf(ft, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
+  fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
 	  ((double) (st_stop.angz_mix))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.angz_fb))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.angzxz_fb))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.set_ham))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.diag_ham))/CLOCKS_PER_SEC);
-  fprintf(ft, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+  fprintf(perform_log, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
 	  ((double) (st_stop.angz_states))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.angzfb_states))/CLOCKS_PER_SEC,
 	  ((double) (st_stop.angzxzfb_states))/CLOCKS_PER_SEC,
@@ -1443,45 +1433,35 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
 	  ((double) (st_stop.add_angzxz))/CLOCKS_PER_SEC);
 
   GetAngularTiming(&angt);
-  fprintf(ft, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
+  fprintf(perform_log, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
 	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
 	  ((double)angt.w9j)/CLOCKS_PER_SEC);
   GetRecoupleTiming(&recouplet);
-  fprintf(ft, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
+  fprintf(perform_log, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
 	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
 	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
   GetRadTiming(&radt);
-  fprintf(ft, "Dirac: %6.1E, 1E: %6.1E, 2E: %6.1E\n", 
+  fprintf(perform_log, "Dirac: %6.1E, 1E: %6.1E, 2E: %6.1E\n", 
 	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
 	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
-  fprintf(ft, "\n");
+  fprintf(perform_log, "\n");
 #endif /* PERFORM_STATISTICS */
-
-  }
   
-  FreeRecPk();
-  FreeSlaterArray();
-  FreeMultipoleArray();
-
-  free(sa);
-  free(ea);
-  free(sr);
-  free(rd);
-  free(et);
-  fclose(fa);
-  fclose(ft);
   return 0;
 }
 
       
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
-  int i, j, k, n, kb, j1, j2;
+  int i, j, k;
   LEVEL *lev1, *lev2;
+  AI_RECORD r;
+  AI_HEADER ai_hdr;
+  F_HEADER fhdr;
   double emin, emax;
-  double *e, *s, tai, a, sdr;
+  double *e, *s, tai, a;
   FILE *f;
 
 
@@ -1498,9 +1478,12 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       if (a > emax) emax = a;
     }
   }
+  if (emin < TE_MIN_MAX*emax) {
+    emin = TE_MIN_MAX*emax;
+  }
+
   if (k == 0) {
-    printf("No Recombination channels\n");
-    return -1;
+    return 0;
   }
   if (n_egrid == 0) {
     n_egrid = 3;
@@ -1517,47 +1500,40 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       SetPEGrid(n_egrid, emin, emax, 0.0);
     }
   }
- 
-  f = fopen(fn, "w");
-  if (!f) return -1;
-  fprintf(f, "DR Channel: %-4d  EGRID: ", channel);
-  for (i = 0; i < n_egrid; i++) {
-    fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
-  }
-  fprintf(f, "\n\n");
-
-  fprintf(f, "Bound  2J\tFree   2J\tEe         AI(AU)    CS(10^-20)\n");
-
   if (nup <= 0 || nlow <= 0) return -1;
+ 
+  fhdr.type = DB_AI;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  ai_hdr.nele = GetNumElectrons(low[0]);
+  ai_hdr.channel = channel;
+  ai_hdr.n_egrid = n_egrid;
+  ai_hdr.egrid = egrid;
+
+  f = InitFile(fn, &fhdr, &ai_hdr);
+
   s = malloc(sizeof(double)*nup);
   e = malloc(sizeof(double)*nup);
   for (i = 0; i < nlow; i++) {
-    j1 = LevelTotalJ(low[i]);
     tai = 0.0;
     for (j = 0; j < nup; j++) {
-      k = AIRate(s+j, e+j, low[i], up[j]);
+      k = AutoionizeRate(s+j, e+j, low[i], up[j]);
       if (k < 0) continue;
       tai += s[j];
     }
     if (tai < 1E-30) continue;
     for (j = 0; j < nup; j++) {
       if (s[j] < ai_cut*tai) continue;
-      j2  = LevelTotalJ(up[j]);
-      sdr = 0.5*(j1+1.0)*PI*PI*s[j]/(e[j]*(j2+1.0)) * AREA_AU20*HARTREE_EV;
-      e[j] *= HARTREE_EV;
-      fprintf(f, "%-6d %-2d\t%-6d %-2d\t%10.4E %9.3E %9.3E\n",
-	      low[i], j1, up[j], j2, e[j], s[j], sdr);
+      r.b = low[i];
+      r.f = up[j];
+      r.rate = s[j];
+      WriteAIRecord(f, &r);
     }
-    fprintf(f, "%-6d   \tTotal    \t           %9.3E\n\n", low[i], tai);
   }
-
-  FreeRecPk();
-  FreeSlaterArray();
-  FreeMultipoleArray();
 
   free(s);
   free(e);
-  fclose(f);
+  CloseFile(f, &fhdr);
   return 0;
 }
 
@@ -1594,19 +1570,19 @@ static void _FreeRecPk(void *p) {
   free(dp);
 }
 
-int FreeRecPk() {
+int FreeRecPk(void) {
   if (pk_array->array == NULL) return 0;
   MultiFreeData(pk_array->array, pk_array->ndim, _FreeRecPk);
   return 0;
 }
 
-int FreeRecQk() {
+int FreeRecQk(void) {
   if (qk_array->array == NULL) return 0;
   MultiFreeData(qk_array->array, qk_array->ndim, _FreeRecPk);
   return 0;
 }
 
-int FreeRecAngZ() {
+int FreeRecAngZ(void) {
   int i, j, *k;
   for (i = 0; i < n_complex; i++) {
     for (j = 0; j < (rec_complex[i].rg)->dim; j++) {
@@ -1614,9 +1590,10 @@ int FreeRecAngZ() {
       if (k) FreeAngZ(*k, -1);
     }
   }
+  return 0;
 }
 
-int InitRecombination() {
+int InitRecombination(void) {
   int blocks[5] = {5, 10, 5, 10, 5};
   int ndim;
   int i;
@@ -1651,9 +1628,38 @@ int InitRecombination() {
 
   SetRecQkMode(QK_DEFAULT, 0.1);
   SetRecPWOptions(12, 12);
-
+  return 0;
 }
 
+int ReinitRecombination(int m) {
+  int i;
+
+  if (m < 0) return 0;
+
+  FreeRecQk();
+  FreeRecPk();
+
+  n_egrid = 0;
+  egrid[0] = -1.0;
+  SetPEGridLimits(-1, -1, 0);
+  n_usr = 0;
+  usr_egrid[0] = -1.0;
+  
+  n_tegrid = 0;
+  tegrid[0] = -1.0;
+
+  SetRecQkMode(QK_DEFAULT, 0.1);
+  SetRecPWOptions(12, 12);
+
+  if (m > 0) return 0;
+
+  for (i = 0; i < n_complex; i++) {
+    ArrayFree(rec_complex[i].rg, NULL);
+  }
+  n_complex = 0;
+  
+  return 0;
+}
 
 
 

@@ -1,7 +1,7 @@
 #include "angular.h"
 #include "rcfp.h"
 
-static char *rcsid="$Id: rcfp.c,v 1.6 2001/11/10 01:13:25 mfgu Exp $";
+static char *rcsid="$Id: rcfp.c,v 1.7 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -922,6 +922,7 @@ double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
     }
     return coeff;
   }
+  return coeff;
 }
 
 
@@ -1061,6 +1062,7 @@ double CompleteReducedWFromTable(int no_bra, int no_ket, int k1, int k2) {
       return 0.0;
     }
   }
+  return 0.0;
 }
 
 
@@ -1462,7 +1464,7 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
   int no_run;
   RCFP_STATE run;
   int run_nu, Jrun, jrun, Qrun, min_run, max_run;
-  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2, kq2;
+  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2;
   double w6j1;
 
   coeff = 0.0;
@@ -1571,7 +1573,7 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
   int no_run;
   RCFP_STATE run;
   int run_nu, Jrun, jrun, Qrun, min_run, max_run;
-  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2, kq2;
+  int run_i, Jbra, jbra, Jket, jket, Qbra, Qket, kj2;
   double w6j1;
 
   coeff = 0.0;
@@ -1931,7 +1933,7 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
 	min_bra = 0;
 	max_bra = 0;
 	break;
-      case1:
+      case 1:
 	min_bra = jbra;
 	max_bra = jbra;
 	break;
@@ -1996,7 +1998,7 @@ int RCFPTermIndex(int j, int nu, int Nr, int subshellJ) {
     i = PackRCFPState(j, nu, subshellJ);
     return i;
   }
-
+  return -1;
 }
 
 

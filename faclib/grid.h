@@ -4,10 +4,12 @@
 #include "global.h"
 
 #define MAXNKL         50
-#define MAXKL          1000
+#define MAXKL          512
 #define MAXNUSR        30
 #define MAXNE          15
 #define MAXNTE         6
+
+#define TE_MIN_MAX     0.25
 
 int AddPW(int *nkl0, double *kl, double *logkl, 
 	  int maxkl, int n, int step);

@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.7 2001/11/24 21:12:28 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.8 2002/01/14 23:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,6 +32,7 @@ int GetArrayTiming(ARRAY_TIMING *t) {
   return 0;
 }
 #endif
+
 
 /* 
 ** FUNCTION:    ArrayInit
@@ -108,10 +109,10 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   start = clock();
 #endif
   */
-
+ 
   if (a->dim == 0) {
     a->data = (DATA *) malloc(sizeof(DATA));
-    a->data->dptr = (void *) calloc(a->block, a->esize);
+    a->data->dptr = calloc(a->block, a->esize);
     a->data->next = NULL;
   }
   p = a->data;
@@ -127,7 +128,7 @@ void *ArraySet(ARRAY *a, int i, void *d) {
   }
 
   if (!(p->dptr)) {
-    p->dptr = (void *) calloc(a->block, a->esize);
+    p->dptr = calloc(a->block, a->esize);
   }
   pt = ((char *) p->dptr) + i*a->esize;
   
@@ -192,8 +193,13 @@ int ArrayFreeData(DATA *p, int esize, int block,
       pt = ((char *) pt) + esize;
     }
   }
-  if (p->dptr) free(p->dptr);
-  if (p) free(p);
+  if (p->dptr) {
+    free(p->dptr);
+  }
+  if (p) {
+    free(p);
+  }
+    
   p = NULL;
   return 0;
 }
@@ -218,6 +224,47 @@ int ArrayFree(ARRAY *a, void (*FreeElem)(void *)) {
   a->data = NULL;
   return 0;
 }
+
+int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
+  DATA *p;
+  void *pt;
+  int i;
+
+  if (!a) return 0;
+  if (a->dim <= n) return 0;
+  
+  if (n == 0) {
+    ArrayFree(a, FreeElem);
+  }
+
+  i = n;
+  p = a->data;
+  while (i >= a->block) {
+    p = p->next;
+    i -= a->block;
+  }
+
+  if (i == 0) {
+    ArrayFreeData(p, a->esize, a->block, FreeElem);
+    p = NULL;
+  } else {
+    if (p->next) {
+      ArrayFreeData(p->next, a->esize, a->block, FreeElem);
+      p->next = NULL;
+    }
+    if (p->dptr && FreeElem) {
+      pt = ((char *) p->dptr) + i*(a->esize);
+      for (; i < a->block; i++) {
+	FreeElem(pt);
+	pt = ((char *) pt) + a->esize;
+      }
+    }
+  }
+
+  a->dim = n;
+
+  return 0;
+}         
 
 int MultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i;

@@ -3,15 +3,15 @@
 """
 
 # import the modules
-from pfac import config, fac 
+from pfac import fac 
 
 fac.SetAtom('Fe')
 
 # specify the configurations for both recombining
 # and recombined ions.
-config.config('1s2', group = 'n1')
-config.config('1s1 2*1', group = 'n2')
-config.config('1s2 2*1', group = 'rn2')
+fac.Config('1s2', group = 'n1')
+fac.Config('1s1 2*1', group = 'n2')
+fac.Config('1s2 2*1', group = 'rn2')
 
 # since the recombined electron is in n=2 shell,
 # set the appropriate screening
@@ -21,10 +21,10 @@ fac.OptimizeRadial('n1')
 
 # configuration interaction between n=1 and n=2
 # complexes are included for the recombining ion.
-fac.Structure(['n1', 'n2'])
-fac.Structure('rn2')
+fac.Structure('li.lev.b', ['n1', 'n2'])
+fac.Structure('li.lev.b', ['rn2'])
+fac.PrintTable('li.lev.b', 'li.lev')
 
-fac.LevelTable('li.lev')
-
-fac.RRTable(['rn2'], ['n1'], 'li.rr')
+fac.RRTable('li.rr.b', ['rn2'], ['n1'])
+fac.PrintTable('li.rr.b', 'li.rr')
 

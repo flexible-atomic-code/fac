@@ -1,6 +1,6 @@
 #include "interpolation.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.7 2001/11/04 15:42:58 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.8 2002/01/14 23:19:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -34,15 +34,14 @@ void spline(double *x, double *y, int n,
 	    double yp1, double ypn, double *y2) {
   int i, k;
   double p, qn, sig, un, *u;
-  double a, b, c;
 
-  u = malloc(sizeof(double)*n);
-  
   if (n == 2) {
     y2[0] = 0.0;
     y2[n-1] = 0.0;
     return;
   } 
+
+  u = malloc(sizeof(double)*n);
 
   if (yp1 > 0.99E30) {
     y2[0] = 0.0;
@@ -284,7 +283,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   }
   exit(1);
   */
-  maxfev = 1000*np;
+  maxfev = 2000*np;
   mode = 1;
   nprint = 0;
   factor = 100.0;

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.13 2001/12/14 00:07:21 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.14 2002/01/14 23:19:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -17,13 +17,95 @@ static PyObject *ATOMICSYMBOL;
 static PyObject *ATOMICMASS;
 static PyObject *QKMODE;
 
+static FILE *sfac_file = NULL;
+
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
+
+static void SFACStatement(char *func, PyObject *args, PyObject *kargs) {
+  int i, n, nargs;
+  PyObject *sargs;
+  PyObject *klist;
+  PyObject *kvar;
+  PyObject *p, *q;
+  char *s1, *s2;
+  
+  fprintf(sfac_file, "%s", func);
+  nargs = PyTuple_Size(args);
+  sargs = PyObject_Str(args);
+  s1 = PyString_AsString(sargs);
+  n = strlen(s1);
+  if (nargs == 1) {
+    n = n-2;
+  } else {
+    n = n-1;
+  }
+  for (i = 0; i < n; i++) {
+    fprintf(sfac_file, "%c", s1[i]);
+  }
+  if (kargs) {
+    klist = PyDict_Items(kargs);
+    n = PyList_Size(klist);
+    for (i = 0; i < n; i++) {
+      if (nargs > 0 || i > 0) fprintf(sfac_file, ", ");
+      p = PyList_GetItem(klist, i);
+      q = PyTuple_GetItem(p, 0);
+      s2 = PyString_AsString(q);
+      fprintf(sfac_file, "%s=", s2);
+      q = PyTuple_GetItem(p, 1);
+      kvar = PyObject_Str(q);
+      s2 = PyString_AsString(kvar);
+      if (PyString_Check(q)) {
+	fprintf(sfac_file, "'%s'", s2);
+      } else {
+	fprintf(sfac_file, "%s", s2);
+      }
+      Py_XDECREF(kvar);
+    }
+    Py_XDECREF(klist);
+  }
+
+  fprintf(sfac_file, ")\n");
+    
+  Py_XDECREF(sargs);
+
+  return;
+}
+  
+static PyObject *PConvertToSFAC(PyObject *self, PyObject *args) {
+  char *fn;
+
+  sfac_file = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
+
+  if (fn) {
+    sfac_file = fopen(fn, "w");
+    if (sfac_file == NULL) return NULL;
+  }
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
+  
+static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
+
+  fclose(sfac_file);
+  sfac_file = NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
 
 static PyObject *PSetOptimizeControl(PyObject *self, PyObject *args) {
   int maxiter;
   double tol; 
   int iprint;
   
+  if (sfac_file) {
+    SFACStatement("SetOptimizeControl", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+    
   iprint = 0;
   if (!PyArg_ParseTuple(args, "di|i", &tol, &maxiter, &iprint))
     return NULL;
@@ -39,6 +121,12 @@ static PyObject *PSetScreening(PyObject *self, PyObject *args) {
   double screened_charge;
   int i, kl;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("SetScreening", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   n_screen = 0;
   screened_charge = 1.0;  
@@ -80,6 +168,7 @@ static int ConfigPythonToC(PyObject *python_cfg, CONFIG **cfg) {
 
   SHELL *shells;
 
+  shells = NULL;
   /** python_cfg should be a python list **/
   if (!PyList_Check(python_cfg)) goto ERROR;
 
@@ -123,6 +212,12 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   int ns, k;
   int argc;
 
+  if (sfac_file) {
+    SFACStatement("Closed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   argc = PyTuple_Size(args);
   if (argc == 0) _closed_shells[0] = '\0';
   for (i = 0; i < argc; i++) {
@@ -163,9 +258,15 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   CONFIG *cfg;
   PyObject *q;
   static char gname[GROUP_NAME_LEN] = "_all_";
-  int i, j, k, t, ncfg;
+  int i, j, t, ncfg;
   char scfg[1280], *p;
   int argc;
+
+  if (sfac_file) {
+    SFACStatement("Config", args, keywds);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   q = PyDict_GetItemString(keywds, "group");
   if (q) {
@@ -190,6 +291,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       if (t < 0) return NULL;
       if (AddConfigToList(t, cfg+j) < 0) return NULL;
     }   
+    if (ncfg > 0) free(cfg);
   }
 
   Py_INCREF(Py_None);
@@ -201,6 +303,12 @@ static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
   int ns, *n, *kappa;
   double *nq;
   
+  if (sfac_file) {
+    SFACStatement("AvgConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
 
   ns = GetAverageConfigFromString(&n, &kappa, &nq, s);
@@ -221,6 +329,12 @@ static PyObject *PSetAvgConfig(PyObject *self, PyObject *args) {
   int ns, i, m, kl, j;
   int *n, *kappa;
   double *nq, a;  
+
+  if (sfac_file) {
+    SFACStatement("SetAvgConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   if (!PyArg_ParseTuple(args, "O", &acfg))
     return NULL;
@@ -257,6 +371,12 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
   int k;
   PyObject *python_cfg;
 
+  if (sfac_file) {
+    SFACStatement("AddConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "sO", &group_name, &python_cfg)) {
     goto ERROR;
   }
@@ -268,6 +388,7 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
   if (k < 0) goto ERROR;
 
   if (AddConfigToList(k, cfg) < 0) goto ERROR;
+  free(cfg);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -281,6 +402,12 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   double rmax, rmin;
 
+  if (sfac_file) {
+    SFACStatement("SetRadialGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   rmin = -1.0;
   rmax = -1.0;
   if (!PyArg_ParseTuple(args, "|dd", &rmin, &rmax))
@@ -292,6 +419,13 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
 
 static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
   double c;
+
+  if (sfac_file) {
+    SFACStatement("SetTransitionCut", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "d", &c))
     return NULL;
   SetTransitionCut(c);
@@ -301,6 +435,13 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAICut(PyObject *self, PyObject *args) {
   double c;
+
+  if (sfac_file) {
+    SFACStatement("SetAICut", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "d", &c))
     return NULL;
   SetAICut(c);
@@ -310,6 +451,13 @@ static PyObject *PSetAICut(PyObject *self, PyObject *args) {
 
 static PyObject *PSetMaxRank(PyObject *self, PyObject *args) {
   int k;
+
+  if (sfac_file) {
+    SFACStatement("SetMaxRank", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &k))
     return NULL;
   SetMaxRank(2*k);
@@ -322,6 +470,12 @@ static PyObject *PSetAngZOptions(PyObject *self, PyObject *args) {
   double c;
   double mc;
 
+  if (sfac_file) {
+    SFACStatement("SetAngZOptions", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   c = EPS3;
   mc = EPS3;
   if (!PyArg_ParseTuple(args, "i|dd", &n, &mc, &c))
@@ -333,6 +487,13 @@ static PyObject *PSetAngZOptions(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAngZCut(PyObject *self, PyObject *args) {
   double c;
+
+  if (sfac_file) {
+    SFACStatement("SetAngZCut", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "d", &c))
     return NULL;
   SetAngZCut(c);
@@ -342,6 +503,13 @@ static PyObject *PSetAngZCut(PyObject *self, PyObject *args) {
   
 static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
   double c;
+
+  if (sfac_file) {
+    SFACStatement("SetMixCut", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "d", &c))
     return NULL;
   SetMixCut(c);
@@ -350,10 +518,16 @@ static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
 }
 
 /** coeff. of fractional parentage **/
-static PyObject *GetCFPOld(PyObject *self, PyObject *args) {
+static PyObject *PGetCFPOld(PyObject *self, PyObject *args) {
   int j2, q, dj, dw, pj, pw;
   double coeff = 0.0;
   
+  if (sfac_file) {
+    SFACStatement("GetCFPOld", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "iiiiii", &j2, &q, &dj, &dw, &pj, &pw))
     return NULL;
   if (CFP(&coeff, j2, q, dj, dw, pj, pw) == -1)
@@ -362,24 +536,45 @@ static PyObject *GetCFPOld(PyObject *self, PyObject *args) {
 }
 
 /** 3j symbol **/
-static PyObject *GetW3j(PyObject *self, PyObject *args) {
+static PyObject *PGetW3j(PyObject *self, PyObject *args) {
   int j1, j2, j3, m1, m2, m3;
+
+  if (sfac_file) {
+    SFACStatement("GetW3j", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "iiiiii", &j1, &j2, &j3, &m1, &m2, &m3))
     return NULL;
   return Py_BuildValue("d", W3j(j1, j2, j3, m1, m2, m3));
 }
 
 /** 6j symbol **/
-static PyObject *GetW6j(PyObject *self, PyObject *args) {
+static PyObject *PGetW6j(PyObject *self, PyObject *args) {
   int j1, j2, j3, i1, i2, i3;
+
+  if (sfac_file) {
+    SFACStatement("GetW6j", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "iiiiii", &j1, &j2, &j3, &i1, &i2, &i3))
     return NULL;
   return Py_BuildValue("d", W6j(j1, j2, j3, i1, i2, i3));
 }
 
 /** 9j symbol **/
-static PyObject *GetW9j(PyObject *self, PyObject *args) {
+static PyObject *PGetW9j(PyObject *self, PyObject *args) {
   int j1, j2, j3, i1, i2, i3, k1, k2, k3;
+
+  if (sfac_file) {
+    SFACStatement("GetW9j", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "iiiiiiiii", 
 			&j1, &j2, &j3, &i1, &i2, &i3, &k1, &k2, &k3))
     return NULL;
@@ -387,8 +582,15 @@ static PyObject *GetW9j(PyObject *self, PyObject *args) {
 }
 
 /** clebsch gordan coeff. **/
-static PyObject *GetCG(PyObject *self, PyObject *args) {
+static PyObject *PGetCG(PyObject *self, PyObject *args) {
   int j1, j2, j3, m1, m2, m3;
+
+  if (sfac_file) {
+    SFACStatement("GetCG", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "iiiiii", &j1, &j2, &j3, &m1, &m2, &m3))
     return NULL;
   return Py_BuildValue("d", ClebschGordan(j1, j2, j3, m1, m2, m3));
@@ -397,6 +599,12 @@ static PyObject *GetCG(PyObject *self, PyObject *args) {
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
   double z, mass;
+
+  if (sfac_file) {
+    SFACStatement("SetAtom", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   mass = 0.0;
   z = 0.0;
@@ -409,6 +617,12 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
 static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
   int n, k;
   
+  if (sfac_file) {
+    SFACStatement("SetHydrogenicNL", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   n = -1;
   k = -1;
   if (!PyArg_ParseTuple(args, "|ii", &n, &k)) return NULL;
@@ -453,9 +667,9 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
 	onError("argument must be a group name");
 	return -1;
       }
-      s = PyString_AS_STRING(p);
-      Py_DECREF(p);
+      s = PyString_AsString(p);
       k = GroupExists(s);
+      Py_DECREF(p);
       
       if (k < 0) {
 	free((*kg));
@@ -477,12 +691,17 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
 }
 
 static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
-  char *s;
   int ng, i, k;
   int *kg;
   double z;
   PyObject *p;
   double *weight;
+
+  if (sfac_file) {
+    SFACStatement("OptimizeRadial", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   ng = PyTuple_Size(args);
   if (ng == 0) {
@@ -555,6 +774,12 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
 static PyObject *PGetPotential(PyObject *self, PyObject *args) {
   char *s;
 
+  if (sfac_file) {
+    SFACStatement("GetPotential", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
   GetPotential(s);
   Py_INCREF(Py_None);
@@ -565,6 +790,12 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
   int n, kappa;
   ORBITAL *orb;
   int k;
+
+  if (sfac_file) {
+    SFACStatement("SolveBound", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   if (!PyArg_ParseTuple(args, "ii", &n, &kappa)) return NULL;
   if (n <= 0) {
@@ -584,9 +815,14 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   int i, k, ng, ns, nlevels;
   int ngp;
   int *kg, *kgp;
-  int n;
   char *fn;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("Structure", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   p = NULL;
   q = NULL;
@@ -598,18 +834,22 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {
       ng = DecodeGroupArgs(p, &kg);
+      if (ng < 0) return NULL;
       if (q) {
 	if (!PyTuple_Check(q) && !PyList_Check(q)) return NULL;
 	if (PySequence_Length(q) > 0) {
 	  ngp = DecodeGroupArgs(q, &kgp);
 	}
       }
+    } else {
+      return NULL;
     }
   } else {
     ng = DecodeGroupArgs(NULL, &kg);  
+    if (ng < 0) return NULL;
   }
 
-  if (ng < 0 || ngp < 0) return NULL;
+  if (ngp < 0) return NULL;
   
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;
@@ -628,25 +868,56 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PClearOrbitalTable(PyObject *self, PyObject *args) {
-  ClearOrbitalTable();
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("ClearOrbitalTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = 1;
+  if (!PyArg_ParseTuple(args, "|i", &m)) return NULL;
+  
+  ClearOrbitalTable(m);
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PClearLevelTable(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("ClearLevelTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   ClearLevelTable();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PSortLevels(PyObject *self, PyObject *args) {
-  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("SortLevels", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   SortLevels(0, 0);
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PTestAngular(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("TestAngular", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   /* do nothing if the debug flag is not set in compilation */
 #if FAC_DEBUG  
   TestAngular();
@@ -661,6 +932,12 @@ static PyObject *PTestAngular(PyObject *self, PyObject *args) {
 static PyObject *PSetTransitionOptions(PyObject *self, PyObject *args) {
   int gauge, mode, max_m, max_e;
 
+  if (sfac_file) {
+    SFACStatement("SetTransitionOptions", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   max_e = 4;
   max_m = 4;
   if (!PyArg_ParseTuple(args, "ii|ii", &gauge, &mode, &max_e, &max_m)) 
@@ -671,7 +948,7 @@ static PyObject *PSetTransitionOptions(PyObject *self, PyObject *args) {
 } 
 
 static int SelectLevels(PyObject *p, int **t) {
-  int n, ng, *kg, i, j, k, im, kb, m, m0;
+  int n, ng, *kg, i, j, k, im, m, m0;
   int nrg, *krg, nrec;
   PyObject *q;
   int ig, nlevels;
@@ -695,7 +972,7 @@ static int SelectLevels(PyObject *p, int **t) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->major_component;
+	im = lev->basis[0];
 	sym = GetSymmetry(lev->pj);
 	s = (STATE *) ArrayGet(&(sym->states), im);
 	ig = s->kgroup;
@@ -705,6 +982,7 @@ static int SelectLevels(PyObject *p, int **t) {
 	}
       }
       free(kg);
+      Py_DECREF(q);
       (*t) = realloc(*t, k*sizeof(int));
       return k;
     } else if (PyList_Check(q)) {
@@ -714,6 +992,7 @@ static int SelectLevels(PyObject *p, int **t) {
       }
       ng = DecodeGroupArgs(q, &kg);
       if (ng <= 0) return -1;
+      Py_DECREF(q);
       q = PySequence_GetItem(p, 1);
       if (PyList_Check(q)) {
 	p = q;
@@ -731,6 +1010,7 @@ static int SelectLevels(PyObject *p, int **t) {
       (*t) = malloc(sizeof(int)*nlevels);
       if (!(*t)) return 0;
       k = 0;
+      Py_DECREF(q);
       for (m = m0; m < n; m++) {
 	q = PySequence_GetItem(p, m);
 	nrec = PyInt_AS_LONG(q);
@@ -741,7 +1021,7 @@ static int SelectLevels(PyObject *p, int **t) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->major_component;
+	  im = lev->basis[0];
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), im);
 	  ig = s->kgroup;
@@ -784,6 +1064,12 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   int n, m;
   int nlow, nup, *low, *up;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("TransitionTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   nlow = 0;
   nup = 0;
@@ -837,9 +1123,15 @@ static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
 
 static PyObject *PCETable(PyObject *self, PyObject *args) {
   char *s;
-  int n, m;
+  int n;
   int nlow, nup, *low, *up;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("CETable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   nlow = 0;
   nup = 0;
@@ -875,9 +1167,15 @@ static PyObject *PCETable(PyObject *self, PyObject *args) {
 
 static PyObject *PCETableMSub(PyObject *self, PyObject *args) {
   char *s;
-  int n, m;
+  int n;
   int nlow, nup, *low, *up;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("CETableMSub", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   nlow = 0;
   nup = 0;
@@ -916,6 +1214,12 @@ static PyObject *PSpline(PyObject *self, PyObject *args) {
   double *x, *y, *y2, dy1, dy2;
   int n, i;
 
+  if (sfac_file) {
+    SFACStatement("Spline", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   dy1 = 1E30;
   dy2 = 1E30;
   if (!PyArg_ParseTuple(args, "OO|dd", &px, &py, &dy1, &dy2)) return NULL;
@@ -950,6 +1254,12 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
   double *x, *y, *y2, x0, y0;
   int n, i;  
 
+  if (sfac_file) {
+    SFACStatement("Splint", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
   if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
   n = PyList_Size(px);
@@ -979,6 +1289,12 @@ static PyObject *PTestSpline(PyObject *self, PyObject *args) {
   int i, j;
   double f, ff, x1x2, xx1, xx2, x1[M], x2[N], dy[M][N], dy2[M][N];
   double *y[M], *y2[M];
+
+  if (sfac_file) {
+    SFACStatement("TestSpline", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   for (i = 0; i < M; i++) {
     x1[i] = 0.2*i;
@@ -1013,6 +1329,12 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   double emin, emax;
  
+  if (sfac_file) {
+    SFACStatement("SetTEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
@@ -1075,6 +1397,12 @@ static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
 static PyObject *PSetCEFormat(PyObject *self, PyObject *args) {
   int m;
 
+  if (sfac_file) {
+    SFACStatement("SetCEFormat", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
   SetCEFormat(m);
   Py_INCREF(Py_None);
@@ -1084,6 +1412,12 @@ static PyObject *PSetCEFormat(PyObject *self, PyObject *args) {
 static PyObject *PSetCEGridType(PyObject *self, PyObject *args) {
   int type;
   
+  if (sfac_file) {
+    SFACStatement("SetCEGridType", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &type)) return NULL;
   SetCEEGridType(type);
   Py_INCREF(Py_None);
@@ -1093,6 +1427,12 @@ static PyObject *PSetCEGridType(PyObject *self, PyObject *args) {
 static PyObject *PSetCEGridLimits(PyObject *self, PyObject *args) {
   double emin, emax;
   int type;
+
+  if (sfac_file) {
+    SFACStatement("SetCEGridLimits", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   emin = -1;
   emax = -1;
@@ -1111,6 +1451,12 @@ static PyObject *PSetCEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   int i, err;
   
+  if (sfac_file) {
+    SFACStatement("SetCEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   eth = 0.0;
   n = PyTuple_Size(args);
   if (n == 1) {
@@ -1149,6 +1495,12 @@ static PyObject *PSetCEGrid(PyObject *self, PyObject *args) {
 static PyObject *PSetUsrCEGridType(PyObject *self, PyObject *args) {
   int type;
   
+  if (sfac_file) {
+    SFACStatement("SetUsrCEGridType", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &type)) return NULL;
   SetUsrCEEGridType(type);
   Py_INCREF(Py_None);
@@ -1162,6 +1514,12 @@ static PyObject *PSetUsrCEGrid(PyObject *self, PyObject *args) {
   double emin, emax, eth;
   PyObject *p, *pi;
   int i, err;
+
+  if (sfac_file) {
+    SFACStatement("SetUsrCEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   eth = 0.0;
   n = PyTuple_Size(args);
@@ -1202,6 +1560,12 @@ static PyObject *PSetUsrCEGrid(PyObject *self, PyObject *args) {
 static PyObject *PSetCEPWGridType(PyObject *self, PyObject *args) {
   int type;
   
+  if (sfac_file) {
+    SFACStatement("SetCEPWGridType", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &type)) return NULL;
   SetCEPWGridType(type);
   Py_INCREF(Py_None);
@@ -1259,6 +1623,12 @@ static PyObject *PWaveFuncTable(PyObject *self, PyObject *args) {
   int k, n;
   double e;
   
+  if (sfac_file) {
+    SFACStatement("WaveFuncTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   e = 0.0;
   if (!PyArg_ParseTuple(args, "sii|d", &s, &n, &k, &e)) return NULL;
   WaveFuncTable(s, n, k, e);
@@ -1307,7 +1677,8 @@ static  PyObject *PSetRecPWOptions(PyObject *self, PyObject *args) {
 
 static  PyObject *PSetRecPWLimits(PyObject *self, PyObject *args) {
   int m1, m2;
-  if (!PyArg_ParseTuple(args, "i|i", &m1, &m2)) return NULL;
+
+  if (!PyArg_ParseTuple(args, "ii", &m1, &m2)) return NULL;
   SetRecPWLimits(m1, m2);
   Py_INCREF(Py_None);
   return Py_None;
@@ -1337,6 +1708,12 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   char *fn;
   PyObject *gargs;
 
+  if (sfac_file) {
+    SFACStatement("RecStates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "sOi", &fn, &gargs, &n)) return NULL;
   ng = DecodeGroupArgs(gargs, &kg);
   RecStates(n, ng, kg, fn);
@@ -1347,10 +1724,16 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
  
 static PyObject *PRRTable(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
-  int n, m;
+  int m;
   char *s;
   PyObject *p, *q;
   
+  if (sfac_file) {
+    SFACStatement("RRTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   m = -1;
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) {
     printf("Unrecognized parameters in RRTable\n");
@@ -1369,6 +1752,12 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
 static PyObject *PSetUsrPEGridType(PyObject *self, PyObject *args) {
   int type;
   
+  if (sfac_file) {
+    SFACStatement("SetUsrPEGridType", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "i", &type)) return NULL;
   SetUsrPEGridType(type);
   Py_INCREF(Py_None);
@@ -1382,6 +1771,12 @@ static PyObject *PSetUsrPEGrid(PyObject *self, PyObject *args) {
   double emin, emax, eth;
   PyObject *p, *pi;
   int i, err;
+
+  if (sfac_file) {
+    SFACStatement("SetUsrPEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   eth = 0.0;
   n = PyTuple_Size(args);
@@ -1425,6 +1820,12 @@ static PyObject *PSetRRTEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   double emin, emax;
  
+  if (sfac_file) {
+    SFACStatement("SetRRTEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
@@ -1462,6 +1863,12 @@ static PyObject *PSetPEGridLimits(PyObject *self, PyObject *args) {
   double emin, emax;
   int type;
 
+  if (sfac_file) {
+    SFACStatement("SetPEGridLimits", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   emin = -1;
   emax = -1;
   type = 0;
@@ -1479,6 +1886,12 @@ static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   int i, err;
   
+  if (sfac_file) {
+    SFACStatement("SetPEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   eth = 0.0;
   n = PyTuple_Size(args);
   if (n == 1) {
@@ -1518,6 +1931,13 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
   int nlow, *low, nup, *up, c;
   char *s;
   PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("AITable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   c = 0;
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
   nlow = SelectLevels(p, &low);
@@ -1534,6 +1954,12 @@ static PyObject *PDRTable(PyObject *self, PyObject *args) {
   int nf, *f, na, *a, nb, *b, ng, *g, c;
   char *s1, *s2;
   PyObject *p, *q, *r, *t;
+
+  if (sfac_file) {
+    SFACStatement("DRTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   if (!PyArg_ParseTuple(args, "ssOOOO|i", &s1, &s2, &p, &q, &r, &t, &c)) 
     return NULL;
@@ -1561,35 +1987,53 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   int k[3] = {101, 2550, 333};
   int block[3] = {10, 20, 50};
   int i, j, m;
-  
+
+  if (sfac_file) {
+    SFACStatement("TestMyArray", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   ArrayInit(&a, sizeof(double), 100);
   d = 0.1;
-  ArraySet(&a, 200, &d);
-  ArraySet(&a, 100, &d);
+  m = 100000;
+  printf("> ");
+  scanf("%d", &i);
+  for (i = 0; i < m; i++) {
+    ArraySet(&a, i, &d);
+  }
+  printf("> ");
+  scanf("%d", &i);
+
   b = (double *) ArrayGet(&a, 100);
   printf("%f ", *b);
   b = (double *) ArrayGet(&a, 200);
   printf("%f \n", *b);
+
   ArrayFree(&a, 0);
+  printf("> ");
+  scanf("%d", &i);
 
   MultiInit(&ma, sizeof(double), 3, block);
   printf("%d %d\n", ma.esize, ma.ndim);
-  for (i = 10; i < 15; i++) {
-    for (j = 0; j < 5; j++) {
-      for (m = 45; m < 46; m++) {
-	k[0] = i;
-	k[1] = j;
-	k[2] = m;	
-	b = (double *) MultiSet(&ma, k, NULL);
-	*b = 0.2;
-	b = (double *) MultiGet(&ma, k);
-	printf("%d %d %d %f \n", i, j, m, *b);
-      }
+  for (i = 9; i < 15; i++) {
+    for (j = 0; j < m; j++) {
+      k[0] = i;
+      k[1] = j;
+      k[2] = 20;	
+      b = (double *) MultiSet(&ma, k, NULL);
+      *b = 0.2;
+      b = (double *) MultiGet(&ma, k);
     }
   }
-  printf("%x\n", ma.array);
-  MultiFree(&ma, NULL);
-  printf("%x\n", ma.array);
+
+  printf("> ");
+  scanf("%d", &i);
+  MultiFreeData(ma.array, ma.ndim, NULL);
+
+  printf("> ");
+  scanf("%d", &i); 
+ 
   Py_INCREF(Py_None);
   return Py_None;
 }  
@@ -1598,6 +2042,12 @@ static PyObject *PSaveOrbitals(PyObject *self, PyObject *args) {
   int n, i, norbs;
   double e;
   PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("SaveOrbitals", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   norbs = GetNumOrbitals();
   if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
@@ -1627,6 +2077,12 @@ static PyObject *PFreeOrbitals(PyObject *self, PyObject *args) {
   int n, i, norbs;
   double e;
   PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("FreeOrbitals", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   norbs = GetNumOrbitals();
   if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
@@ -1659,6 +2115,12 @@ static PyObject *PDROpen(PyObject *self, PyObject *args) {
   int i, n, *nlev, *n0, nop;
   PyObject *p;
 
+  if (sfac_file) {
+    SFACStatement("DROpen", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
   n = SelectLevels(p, &nlev);
   if (n == 0) return Py_BuildValue("[]");
@@ -1676,30 +2138,66 @@ static PyObject *PDROpen(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PFreeResidual(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeResidual", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeResidualArray();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PFreeSlater(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeSlater", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeSlaterArray();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PFreeMultipole(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeMultipoleArray();
+  FreeMomentsArray();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PFreeRecPk(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeRecPk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeRecPk();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PFreeRecQk(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeRecQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeRecQk();
   Py_INCREF(Py_None);
   return Py_None;
@@ -1707,6 +2205,13 @@ static PyObject *PFreeRecQk(PyObject *self, PyObject *args) {
 
 static PyObject *PFreeExcitationPk(PyObject *self, PyObject *args) {
   int ie;
+
+  if (sfac_file) {
+    SFACStatement("FreeExcitationPk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   ie = -1;
   if (!PyArg_ParseTuple(args, "|i", &ie)) return NULL;
   FreeExcitationPk(ie);
@@ -1715,12 +2220,26 @@ static PyObject *PFreeExcitationPk(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PFreeExcitationQk(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeExcitationQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeExcitationQk();
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PFreeRecAngZ(PyObject *self, PyObject *args) { 
+
+  if (sfac_file) {
+    SFACStatement("FreeRecAngZ", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeRecAngZ();
   Py_INCREF(Py_None);
   return Py_None;  
@@ -1730,6 +2249,12 @@ static PyObject *PFreeAngZ(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, m;
   int n, *kg;
+
+  if (sfac_file) {
+    SFACStatement("FreeAngZ", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   p = NULL;
   m = -1;
@@ -1754,6 +2279,12 @@ static PyObject *PSetIEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   double emin, emax;
  
+  if (sfac_file) {
+    SFACStatement("SetIEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
@@ -1811,18 +2342,15 @@ static  PyObject *PSetCIQkMode(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
-static PyObject *PSetCIMaxK(PyObject *self, PyObject *args) {
-  int k;
-  if (!PyArg_ParseTuple(args, "i", &k))
-    return NULL;
-  SetCIMaxK(2*k);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
 
 static PyObject *PSetCIFormat(PyObject *self, PyObject *args) {
   int m;
+
+  if (sfac_file) {
+    SFACStatement("SetCIFormat", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
   SetCIFormat(m);
@@ -1833,6 +2361,13 @@ static PyObject *PSetCIFormat(PyObject *self, PyObject *args) {
 static PyObject *PSetCIEGridLimits(PyObject *self, PyObject *args) {
   double emin, emax;
   int type;
+
+  if (sfac_file) {
+    SFACStatement("SetCIEGridLimits", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   emin = -1;
   emax = -1;
   type = 0;
@@ -1850,6 +2385,12 @@ static PyObject *PSetCIEGrid(PyObject *self, PyObject *args) {
   PyObject *p, *pi;
   int i, err;
   
+  if (sfac_file) {
+    SFACStatement("SetCIEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   eth = 0.0;
   n = PyTuple_Size(args);
   if (n == 1) {
@@ -1888,6 +2429,12 @@ static PyObject *PSetCIEGrid(PyObject *self, PyObject *args) {
 static PyObject *PSetUsrCIEGridType(PyObject *self, PyObject *args) {
   int type;
   
+  if (sfac_file) {
+    SFACStatement("SetUsrCIEGridType", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   type = -1;
   if (!PyArg_ParseTuple(args, "i", &type)) return NULL;
   SetUsrCIEGridType(type);
@@ -1902,6 +2449,12 @@ static PyObject *PSetUsrCIEGrid(PyObject *self, PyObject *args) {
   double emin, emax, eth;
   PyObject *p, *pi;
   int i, err;
+
+  if (sfac_file) {
+    SFACStatement("SetUsrCIEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   eth = 0.0;
   n = PyTuple_Size(args);
@@ -1939,6 +2492,13 @@ static PyObject *PSetUsrCIEGrid(PyObject *self, PyObject *args) {
 }    
 
 static PyObject *PFreeIonizationQk(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeIonizationQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   FreeIonizationQk();
   Py_INCREF(Py_None);
   return Py_None;
@@ -1948,6 +2508,12 @@ static PyObject *PSaveIonizationQk(PyObject *self, PyObject *args) {
   int n;
   char *s;
   
+  if (sfac_file) {
+    SFACStatement("SaveIonizationQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "is", &n, &s)) return NULL;
   SaveCIRadialQkIntegrated(n, s);
   
@@ -1959,6 +2525,12 @@ static PyObject *PLoadIonizationQk(PyObject *self, PyObject *args) {
   int n;
   char *s;
   
+  if (sfac_file) {
+    SFACStatement("LoadIonizationQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   s = NULL;
   n = -1;
   if (!PyArg_ParseTuple(args, "|is", &n, &s)) return NULL;
@@ -1978,6 +2550,12 @@ static PyObject *PPrepIonizationQk(PyObject *self, PyObject *args) {
   int *n, i;
   double *z, *a;
   
+  if (sfac_file) {
+    SFACStatement("PrepIonizationQk", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   pz = NULL;
   pa = NULL;
   pn = NULL;
@@ -2108,6 +2686,12 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
   char *s;
   PyObject *p, *q;
  
+  if (sfac_file) {
+    SFACStatement("CITable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
   nlow = SelectLevels(p, &low);
   if (nlow <= 0) return NULL;
@@ -2127,6 +2711,12 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
 static PyObject *PTestIntegrate(PyObject *self, PyObject *args) { 
   char *s;
 
+  if (sfac_file) {
+    SFACStatement("TestIntegrate", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
   TestIntegrate(s);
   Py_INCREF(Py_None);
@@ -2137,6 +2727,12 @@ static PyObject *PTestIntegrate(PyObject *self, PyObject *args) {
 static PyObject *PTestCoulomb(PyObject *self, PyObject *args) { 
   char *s;
   
+  if (sfac_file) {
+    SFACStatement("TestCoulomb", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
   TestCoulomb(s);
   Py_INCREF(Py_None);
@@ -2151,6 +2747,12 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   double e[MAX_ENERGY_CORRECTION];
   int i;
   FILE *f;
+
+  if (sfac_file) {
+    SFACStatement("CorrectEnergy", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   n = PyTuple_Size(args);
   if (n == 1) {
@@ -2202,6 +2804,12 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
 
 static PyObject *PInfo(PyObject *self, PyObject *args) { 
 
+  if (sfac_file) {
+    SFACStatement("Info", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   Info();
 
   Py_INCREF(Py_None);
@@ -2210,15 +2818,194 @@ static PyObject *PInfo(PyObject *self, PyObject *args) {
 
 static PyObject *PPrintTable(PyObject *self, PyObject *args) { 
   char *fn1, *fn2;
+  int v;
   
-  if (!PyArg_ParseTuple(args, "ss", &fn1, &fn2)) return NULL;
-  PrintTable(fn1, fn2);
+  if (sfac_file) {
+    SFACStatement("PrintTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  v = 0;
+  if (!PyArg_ParseTuple(args, "ss|i", &fn1, &fn2, &v)) return NULL;
+  PrintTable(fn1, fn2, v);
 
   Py_INCREF(Py_None);
   return Py_None;
 }
 
+static PyObject *PMemENTable(PyObject *self, PyObject *args) { 
+  char *fn;
+  
+  if (sfac_file) {
+    SFACStatement("MemENTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  MemENTable(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PFreeMemENTable(PyObject *self, PyObject *args) {
+
+  if (sfac_file) {
+    SFACStatement("FreeMemENTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  FreeMemENTable();
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
+  PyObject *q;
+  int m_config;
+  int m_recouple;
+  int m_radial;
+  int m_dbase;
+  int m_structure;
+  int m_excitation;
+  int m_recombination;
+  int m_ionization;
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("Reinit", args, keywds);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m_config = -1;
+  m_recouple = -1;
+  m_radial = -1;
+  m_dbase = -1;
+  m_structure = -1;
+  m_excitation = -1;
+  m_recombination = -1;
+  m_ionization = -1;
+
+  if (PyDict_Size(keywds) == 0) {
+    m = 0;
+    if (!PyArg_ParseTuple(args, "|i", &m)) return NULL;
+    if (m == 0) {
+      m_config = 0;
+      m_recouple = 0;
+      m_radial = 0;
+      m_dbase = 0;
+      m_structure = 0;
+      m_excitation = 0;
+      m_recombination = 0;
+      m_ionization = 0;
+    } else if (m > 0) {
+      m_config = -1;
+      m_recouple = -1;
+      m_radial = 0;
+      m_dbase = 0;
+      m_structure = 2;
+      m_excitation = 0;
+      m_recombination = 0;
+      m_ionization = 0;
+    } else {
+      m_config = 1;
+      m_recouple = 1;
+      m_radial = 1;
+      m_dbase = 1;
+      m_structure = 1;
+      m_excitation = 1;
+      m_recombination = 1;
+      m_ionization = 1;
+    }
+  } else {
+    q = PyDict_GetItemString(keywds, "config");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_config = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "recouple");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_recouple = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "dbase");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_dbase = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "structure");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_structure = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "excitation");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_excitation = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "radial");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_radial = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "recombination");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_recombination = PyInt_AsLong(q);
+    }
+    q = PyDict_GetItemString(keywds, "ionization");
+    if (q) {
+      if (!PyInt_Check(q)) return NULL;
+      m_ionization = PyInt_AsLong(q);
+    }
+  }
+
+  ReinitFac(m_config, m_recouple, m_radial, m_dbase,
+	    m_structure, m_excitation, m_recombination, m_ionization);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPrint(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  char *s;
+  int i, n;
+
+  if (sfac_file) {
+    SFACStatement("Print", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  n = PyTuple_Size(args);
+
+  for (i = 0; i < n; i++) {
+    p = PyTuple_GetItem(args, i);
+    q = PyObject_Str(p);
+    s = PyString_AsString(q);
+    printf("%s", s);
+    if (i != n-1) {
+      printf(", ");
+    }
+    Py_XDECREF(q);
+  }
+  
+  if (n > 0) printf("\n");
+
+  fflush(stdout);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static struct PyMethodDef fac_methods[] = {
+  {"Print", PPrint, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"Closed", PClosed, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
@@ -2230,6 +3017,8 @@ static struct PyMethodDef fac_methods[] = {
   {"CITable", PCITable, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
+  {"CloseSFAC", PCloseSFAC, METH_VARARGS},
+  {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
   {"DRTable", PDRTable, METH_VARARGS},
@@ -2237,6 +3026,7 @@ static struct PyMethodDef fac_methods[] = {
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
+  {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"FreeMultipole", PFreeMultipole, METH_VARARGS},
   {"FreeOrbitals", PFreeOrbitals, METH_VARARGS},
   {"FreeSlater", PFreeSlater, METH_VARARGS},
@@ -2244,18 +3034,20 @@ static struct PyMethodDef fac_methods[] = {
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
-  {"GetCFPOld", GetCFPOld, METH_VARARGS},
-  {"Get3j", GetW3j, METH_VARARGS},
-  {"Get6j", GetW6j, METH_VARARGS},
-  {"Get9j", GetW9j, METH_VARARGS},
-  {"GetCG", GetCG, METH_VARARGS},
+  {"GetCFPOld", PGetCFPOld, METH_VARARGS},
+  {"GetW3j", PGetW3j, METH_VARARGS},
+  {"GetW6j", PGetW6j, METH_VARARGS},
+  {"GetW9j", PGetW9j, METH_VARARGS},
+  {"GetCG", PGetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
+  {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
+  {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
@@ -2275,7 +3067,6 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCIEGrid", PSetCIEGrid, METH_VARARGS},
   {"SetCIEGridLimits", PSetCIEGridLimits, METH_VARARGS},
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},
-  {"SetCIMaxK", PSetMaxRank, METH_VARARGS},
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
   {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
@@ -2318,7 +3109,7 @@ static struct PyMethodDef fac_methods[] = {
 };
 
 
-void initfac() {
+void initfac(void) {
   PyObject *m, *d;
   char v[10];
   char sp[2];

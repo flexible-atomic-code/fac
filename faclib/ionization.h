@@ -5,9 +5,11 @@
 #include "excitation.h"
 #include "recombination.h"
 
-int FreeIonizationQk();
-int InitIonization();
+int FreeIonizationQk(void);
+int InitIonization(void);
+int ReinitIonization(int m);
 int SetIEGrid(int n, double emin, double emax);
+int SetIEGridDetail(int n, double *x);
 int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol);
 int SetCIPWGrid(int ns, int *n, int *step);
 int SetCIFormat(int m);

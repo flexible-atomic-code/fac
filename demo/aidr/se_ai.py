@@ -2,22 +2,24 @@
 """
 
 # import the modules
-from pfac import config, fac
+from pfac import fac
 
 fac.SetAtom('Se')
 
 # configurations for the F-like ion
-config.closed('1s')
-config.closed('2s')
-config.config('2p5', group = 'n2')
+fac.Closed('1s')
+fac.Closed('2s')
+fac.Config('2p5', group = 'n2')
 
 # configurations of doubly excited Ne-like ion
-config.config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
+fac.Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
 
 fac.OptimizeRadial('n33')
-fac.Structure('n2')
-fac.Structure('n33')
+fac.Structure('se.lev.b', ['n2'])
+fac.Structure('se.lev.b', ['n33'])
+fac.PrintTable('se.lev.b', 'se.lev')
 
-fac.LevelTable('se.lev')
-fac.AITable(['n33'], ['n2'], 'se.ai')
+fac.AITable('se.ai.b', ['n33'], ['n2'])
+fac.PrintTable('se.ai.b', 'se.ai')
+
 

@@ -18,9 +18,11 @@ typedef struct _REC_COMPLEX_ {
   int s1;
 } REC_COMPLEX;
 
-int InitRecombination();
-int FreeRecPk();
-int FreeRecAngZ();
+int InitRecombination(void);
+int ReinitRecombination(int m);
+int FreeRecPk(void);
+int FreeRecQk(void);
+int FreeRecAngZ(void);
 int SetAICut(double c);
 int SetRRTEGrid(int n, double emin, double emax);
 int SetRRTEGridDetail(int n, double *x);
@@ -33,6 +35,7 @@ int SetUsrPEGridDetail(int n, double *x);
 int AddRecPW(int n, int step);
 int SetRecQkMode(int m, double tol);
 int SetRecPWOptions(int kl_interp, int max_kl);
+int SetRecPWLimits(int m1, int m2);
 int SetRecSpectator(int n_max, int n_frozen, int n_spec);
 int ConstructRecGroupName(char *rgn, char *gn, int n);
 int RecStates(int n, int k, int *kg, char *fn);
@@ -49,7 +52,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel);
 int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf, int k);
-int AIRate(double *rate, double *e, int rec, int f);
+int AutoionizeRate(double *rate, double *e, int rec, int f);
 int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g, 
 	   char *fna, char *fnt, int channel);
 int DROpen(int n, int *nlev, int **ops);

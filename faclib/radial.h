@@ -14,18 +14,6 @@
 #include "angular.h"
 #include "recouple.h"
 
-#define G_COULOMB   1
-#define G_BABUSHKIN 2
-#define M_FR        0
-#define M_NR        1
-
-#define QK_DEFAULT -1
-#define QK_EXACT 0
-#define QK_INTERPOLATE 1
-#define QK_FIT 2
-#define QK_CB  3
-#define QK_DW  4
-#define QK_BED 5
 
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 
@@ -44,27 +32,28 @@ int SetAWGrid(int n, double min, double max);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
 int GetPotential(char *s);
-double GetResidualZ();
-double GetRMax();
+double GetResidualZ(void);
+double GetRMax(void);
 
 /* solve the dirac equation for the given orbital */
 int SolveDirac(ORBITAL *orb);
+int WaveFuncTable(char *s, int n, int kappa, double e);
 
 /* get the index of the given orbital in the table */
 int OrbitalIndex(int n, int kappa, double energy);
 int OrbitalExists(int n, int kappa, double energy);
 int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
-ORBITAL *GetNewOrbital();
-int GetNumBounds();
-int GetNumOrbitals();
-int GetNumContinua();
+ORBITAL *GetNewOrbital(void);
+int GetNumBounds(void);
+int GetNumOrbitals(void);
+int GetNumContinua(void);
 
 double GetPhaseShift(int k);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
-void SetOptimizeControll(double tolerence, int maxiter, int iprint);
+void SetOptimizeControl(double tolerence, int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, double *weight);
@@ -84,10 +73,10 @@ int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
 void SortSlaterKey(int *kd);
 int ResidualPotential(double *s, int k0, int k1);
-int FreeResidualArray();
-int FreeMultipoleArray();
-int FreeSlaterArray();
-int FreeMomentsArray();
+int FreeResidualArray(void);
+int FreeMultipoleArray(void);
+int FreeSlaterArray(void);
+int FreeMomentsArray(void);
 
 double RadialMoments(int m, int k1, int k2);
 double MultipoleRadialNR(int m, int k1, int k2, int guage);
@@ -99,11 +88,13 @@ int RestoreOrbital(int i);
 int FreeOrbital(int i);
 int SaveAllContinua(int mode); 
 int SaveContinua(double e, int mode);
-int FreeAllContinua();
+int FreeAllContinua(void);
 int FreeContinua(double e);
-int ClearOrbitalTable();
+int ClearOrbitalTable(int m);
 
-int InitRadial();
+int InitRadial(void);
+int ReinitRadial(int m);
+int TestIntegrate(char *s);
 
 #endif
 

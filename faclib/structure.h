@@ -36,7 +36,6 @@ typedef struct _LEVEL_ {
   int n_basis;
   int *basis;
   double *mixing;
-  int major_component;
   double energy;
 } LEVEL;
 
@@ -96,12 +95,14 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra,
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 
-int DiagnolizeHamilton();
-int AddToLevels();
+int DiagnolizeHamilton(void);
+int AddToLevels(void);
 int CorrectEnergy(int n, int *k, double *e);
 LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
-int GetNumLevels();
+int GetNumLevels(void);
+int GetNumElectrons(int k);
+int SortMixing(int start, int n, int *basis, double *mix);
 int GetPrincipleBasis(double *mix, int d);
 int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);
@@ -130,8 +131,9 @@ int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetMixCut(double c);
 int FreeAngZ(int g, int which_array);
-int InitStructure();
-int ClearLevelTable();
+int ClearLevelTable(void);
+int InitStructure(void);
+int ReinitStructure(int m);
 
 #endif
 

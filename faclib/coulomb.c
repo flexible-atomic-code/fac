@@ -1,6 +1,6 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.8 2001/10/25 21:57:41 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.9 2002/01/14 23:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -17,6 +17,8 @@ static int _nm_min = 100;
 static int _nm_max = 5000;
 static int _nm_factor = 100;
 static int _nm = 0;
+
+double argam_(double *x, double *y);
 
 void SetHydrogenicNL(int n, int kl) {
   if (n > 0) n_hydrogenic = n;
@@ -107,15 +109,16 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
       tn = b;
     }
   }
+  return 0;
 }
 
 int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 		     double *e2, double *te, double *e1,
 		     int nkl, double *kl, 
 		     int etype, int ltype, int mode) {
-  double xi, ee0, ee1, z2, a, b, c, d0, d1, d2;
-  int i, j, k, n, ie1, ie2, ite, i1p, i1m, nm;
-  double *w0, *w1, *w2, *w3, *w4, *tcb, k0, k1, r, eta, eta2;
+  double ee0, ee1, z2, a, b, c, d0, d1, d2;
+  int i, k, n, ie1, ie2, ite, i1p, i1m, nm;
+  double *w0, *w1, *w2, *w3, *w4, *tcb, k0, k1, eta, eta2;
 
   if (mode) ltype = 1;
 
@@ -386,7 +389,7 @@ int TestCoulomb(char *s) {
 #undef M
 }
     
-int InitCoulomb() {
+int InitCoulomb(void) {
   int i, ie1, ie2, ite;
 
   for (ie2 = 0; ie2 < MAXNE; ie2++) {

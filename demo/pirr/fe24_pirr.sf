@@ -17,10 +17,10 @@ OptimizeRadial('n1')
 
 # configuration interaction between n=1 and n=2
 # complexes are included for the recombining ion.
-Structure(['n1', 'n2'])
-Structure('rn2')
+Structure('li.lev.b', ['n1', 'n2'])
+Structure('li.lev.b', ['rn2'])
+PrintTable('li.lev.b', 'li.lev')
 
-LevelTable('li.lev')
-
-RRTable(['rn2'], ['n1'], 'li.rr')
+RRTable('li.rr.b', ['rn2'], ['n1'])
+PrintTable('li.rr.b', 'li.rr')
 

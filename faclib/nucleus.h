@@ -14,11 +14,11 @@ typedef struct _NUCLEUS_ {
 
 
 int SetAtom(char *s, double z, double mass);
-char *GetAtomicSymbolTable();
-double *GetAtomicMassTable();
-double GetAtomicNumber();
-double GetAtomicMass();
-char *GetAtomicSymbol();
+char *GetAtomicSymbolTable(void);
+double *GetAtomicMassTable(void);
+double GetAtomicNumber(void);
+double GetAtomicMass(void);
+char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
 
 #endif

@@ -292,6 +292,7 @@
 *
          R0=(ANL+TWO)*(0.6020599913279624D0+ALO(NL))-FAL(NL+NL)/TWO
      :          -0.8685889638065036D0*ANL-0.504000052812886D0
+
 *
 *              Obtain R(eu,nl-1,nl) from R(0,nl-1,nl)
 *

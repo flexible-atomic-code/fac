@@ -10,4 +10,4 @@ minpack: $(OBJS)
 	ranlib libminpack.a
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *~

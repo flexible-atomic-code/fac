@@ -10,4 +10,4 @@ toms: ${OBJS}
 	ranlib libtoms.a
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *~

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "global.h"
 #include "array.h"
 #include "coulomb.h"
 #include "config.h"
@@ -19,7 +20,8 @@
 #include "recombination.h"
 #include "ionization.h"
 
-int Info();
-int InitFac();
+int Info(void);
+int InitFac(void);
+int ReinitFac(int, int, int, int, int, int, int, int);
 
 #endif

@@ -10,4 +10,4 @@ mpfun: ${OBJS}
 	ranlib libmpfun.a
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *~

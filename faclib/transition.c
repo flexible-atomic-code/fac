@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.11 2001/12/14 21:35:33 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.12 2002/01/14 23:19:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -27,9 +27,10 @@ static struct {
 
 int SetTransitionCut(double c) {
   transition_option.eps = c;
+  return 0;
 }
 
-double GetTransitionCut() {
+double GetTransitionCut(void) {
   return transition_option.eps;
 }
 
@@ -41,17 +42,17 @@ void SetTransitionOptions(int gauge, int mode,
   transition_option.max_m = max_m;
 }
 
-int GetTransitionGauge() {
+int GetTransitionGauge(void) {
   return transition_option.gauge;
 }
 
-int GetTransitionMode() {
+int GetTransitionMode(void) {
   return transition_option.mode;
 }
 
 int OscillatorStrength(double *strength, double *energy,
 		       int m, int lower, int upper) {
-  int m2, n;
+  int m2;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
   double s, r, aw;
@@ -132,17 +133,14 @@ int GetLowestMultipole(int p1, int j1, int p2, int j2) {
 
 int SaveTransition(int nlow, int *low, int nup, int *up, 
 		   char *fn, int m) {
-  int i, j, k, n, jup, jlow;
+  int i, j, k, n, jup;
   FILE *f;
   LEVEL *lev1, *lev2;
-  SYMMETRY *sym;
-  STATE *st;
   TR_RECORD r;
   TR_HEADER tr_hdr;
   F_HEADER fhdr;
   double *s, *et, *a, trd;
   double e0, emin, emax;
-  char t;
   int *alev;
 #ifdef PERFORM_STATISTICS
   ARRAY_TIMING arrayt;
@@ -185,8 +183,8 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	if (e0 > emax) emax = e0;
       }
     }
+
     if (k == 0) {
-      printf("No transtions occur\n");
       return 0;
     }
     
@@ -209,10 +207,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
-  lev1 = GetLevel(low[0]);
-  sym = GetSymmetry(lev1->pj);
-  st = (STATE *) ArrayGet(&(sym->states), lev1->major_component);
-  tr_hdr.nele = ConstructLevelName(NULL, NULL, NULL, st);
+  tr_hdr.nele = GetNumElectrons(low[0]);
   tr_hdr.multipole = m;
   tr_hdr.gauge = GetTransitionGauge();
   tr_hdr.mode = GetTransitionMode();
@@ -244,7 +239,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     }
   }
 
-  CloseFile(f);
+  CloseFile(f, &fhdr);
 
   free(a);
   free(s);

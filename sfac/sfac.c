@@ -1,14 +1,11 @@
-static char *rcsid="$Id: sfac.c,v 1.6 2001/12/14 00:07:21 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.7 2002/01/14 23:19:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-#include "sfac.h"
-
-#define METH_VARARGS  0
-#define COMMENT       ('#')
-#define CONTINUE      ('\\')
+#include "init.h"
+#include "stoken.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;
@@ -18,7 +15,7 @@ static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
       printf("%s", argv[i]);
       break;
     case STRING:
-      printf("\"%s\"", argv[i]);
+      printf("%s", argv[i]);
       break;
     case LIST:
       printf("[%s]", argv[i]);
@@ -33,7 +30,8 @@ static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
       printf(", ");
     }
   }
-  if (i > 0) printf("\n");
+  if (argc > 0) printf("\n");
+  fflush(stdout);
   return 0;
 }
 
@@ -42,9 +40,10 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
   char *s;
   int i, k, ng;
   char *v[MAXNARGS];
-  int t[MAXNARGS];
+  int t[MAXNARGS], nv;
 
   ng = n;
+  nv = 0;
   if (ng > 0) {
     if (argt[0] == LIST || argt[0] == TUPLE) {
       if (ng > 1) {
@@ -52,6 +51,7 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
 	return -1;
       }
       ng = DecodeArgs(argv[0], v, t, variables);
+      nv = ng;
     } else {
       for (i = 0; i < ng; i++) {
 	v[i] = argv[i];
@@ -80,12 +80,14 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
     (*kg) = malloc(sizeof(int)*ng);
     for (i = 0; i < ng; i++) (*kg)[i] = i;
   }
+
+  for (i = 0; i < nv; i++) free(v[i]);
   
   return ng;
 }
 
 static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
-  int n, ng, *kg, i, j, k, im, kb, m, m0;
+  int n, ng, *kg, i, j, k, im, m, m0;
   int nrg, *krg, nrec;
   int ig, nlevels;
   LEVEL *lev;
@@ -93,21 +95,28 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   STATE *s;
   char rgn[GROUP_NAME_LEN];
   char *v[MAXNARGS], *v1[MAXNARGS];
-  int at[MAXNARGS], at1[MAXNARGS];
+  int at[MAXNARGS], at1[MAXNARGS], nv, nv1, rv;
 
   if (argt != LIST  && argt != TUPLE) return -1;
+  nv = 0; 
+  nv1 = 0;
+  rv = 0;
 
   n = DecodeArgs(argv, v, at, variables);
+  nv = n;
   if (n > 0) {
     if (at[0] == STRING) {
       ng = DecodeGroupArgs(&kg, n, v, at, variables);
-      if (ng <= 0) return -1;
+      if (ng <= 0) {
+	rv = -1;
+	goto END;
+      }
       nlevels = GetNumLevels();
       (*t) = malloc(sizeof(int)*nlevels);
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	im = lev->major_component;
+	im = lev->basis[0];
 	sym = GetSymmetry(lev->pj);
 	s = (STATE *) ArrayGet(&(sym->states), im);
 	ig = s->kgroup;
@@ -118,32 +127,47 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       }
       free(kg);
       (*t) = realloc(*t, k*sizeof(int));
-      return k;
+      rv = k;
+      goto END;
     } else if (at[0] == LIST) {
       if (n != 2) {
 	printf("recombined states specification unrecoganized\n");
-	return -1;
+	rv = -1;
+	goto END;
       }
       ng = DecodeGroupArgs(&kg, 1, v, at, variables);
-      if (ng <= 0) return -1;
+      if (ng <= 0) {
+	rv = -1;
+	goto END;
+      }
       if (at[1] == LIST) {
 	m0 = 0;
 	n = DecodeArgs(v[1], v1, at1, variables);
-      } else if (at[1] = NUMBER) {
+	nv1 = n;
+      } else if (at[1] == NUMBER) {
 	m0 = 1;
 	v1[1] = v[1];
 	at1[1] = at[1];
       } else {
 	printf("Level specification unrecoganized\n");
-	return -1;
+	rv = -1;
+	goto END;
       }
     
       nrg = ng;
       krg = malloc(sizeof(int)*nrg);
       nlevels = GetNumLevels();
+      (*t) = malloc(sizeof(int)*nlevels);
+      if (!(*t)) {
+	rv = -1;
+	goto END;
+      }
       k = 0;
       for (m = m0; m < n; m++) {
-	if (at1[m] != NUMBER) return -1;
+	if (at1[m] != NUMBER) {
+	  rv = -1;
+	  goto END;
+	}
 	nrec = atoi(v1[m]);
 	for (i = 0; i < nrg; i++) {
 	  ConstructRecGroupName(rgn, GetGroup(kg[i])->name, nrec);
@@ -151,7 +175,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->major_component;
+	  im = lev->basis[0];
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), im);
 	  ig = s->kgroup;
@@ -171,18 +195,23 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       free(krg);
       free(kg);
       (*t) = realloc(*t, k*sizeof(int));
-      return k;
+      rv = k;
+      goto END;
     } else {
       (*t) = malloc(sizeof(int)*n);
       for (i = 0; i < n; i++) {
 	if (at[i] != NUMBER) return -1;
 	(*t)[i] = atoi(v[i]);
       }
-      return n;
+      rv = n;
+      goto END;
     }
   }
 
-  return 0;
+ END:
+  for (i = 0; i < nv; i++) free(v[i]);
+  for (i = 0; i < nv1; i++) free(v1[i]);
+  return rv;
 }
 
 static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
@@ -190,10 +219,14 @@ static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
   int i, j, k, m;
   int n_shells, n;
   char *argv[MAXNARGS], *sv[MAXNARGS];
-  int argt[MAXNARGS], st[MAXNARGS];
+  int argt[MAXNARGS], st[MAXNARGS], na, ns;
   
+  na = 0;
+  ns = 0;
+
   (*cfg) = (CONFIG *) malloc(sizeof(CONFIG));
   n_shells = DecodeArgs(clist, argv, argt, variables);
+  na = n_shells;
   (*cfg)->n_shells = n_shells;
   (*cfg)->shells = malloc(sizeof(SHELL)*n_shells);
   shells = (*cfg)->shells;
@@ -201,6 +234,7 @@ static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
   for (i = 0, m = n_shells-1; i < n_shells; i++, m--) {
     if (argt[i] != TUPLE) return -1;
     n = DecodeArgs(argv[i], sv, st, variables);
+    ns = n;
     if (n != 4) return -1;
     shells[m].n = atoi(sv[0]);
     k = atoi(sv[1]);
@@ -209,6 +243,9 @@ static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
     shells[m].kappa = k;
     shells[m].nq = atoi(sv[3]);
   }
+
+  for (i = 0; i < na; i++) free(argv[i]);
+  for (i = 0; i < ns; i++) free(sv[i]);
 
   return 0;     
 }  
@@ -227,6 +264,7 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   free(n);
   free(kappa);
   free(nq);
+  return 0;
 }
 
 
@@ -299,6 +337,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       if (t < 0) return -1;
       if (AddConfigToList(t, cfg+j) < 0) return -1;
     }   
+    if (ncfg > 0) free(cfg);
   }
       
   return 0;
@@ -317,6 +356,7 @@ static int PAddConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   k = GroupIndex(argv[0]);
   if (k < 0) return -1;
   if (AddConfigToList(k, cfg) < 0) return -1;
+  free(cfg);
   
   return 0;
 }
@@ -350,7 +390,6 @@ static int PBasisTable(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
 
 static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
-  int n, m;
   int nlow, nup, *low, *up;
 
   nlow = 0;
@@ -362,13 +401,13 @@ static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
     if (argt[0] != STRING ) return -1;
     SaveExcitation(nlow, low, nup, up, 0, argv[0]);
   } else if (argc == 2) {
-    if (argt[1] != LIST || argt[0] != STRING) return -1;
+    if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     SaveExcitation(nlow, low, nlow, low, 0, argv[0]);
     free(low);
   } else if (argc == 3) {
-    if (argt[1] != LIST || argt[2] != LIST || argt[0] != STRING) return -1;
+    if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -385,7 +424,6 @@ static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
 
 static int PCETableMSub(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  int n, m;
   int nlow, nup, *low, *up;
 
   nlow = 0;
@@ -397,13 +435,13 @@ static int PCETableMSub(int argc, char *argv[], int argt[],
     if (argt[0] != STRING ) return -1;
     SaveExcitation(nlow, low, nup, up, 1, argv[0]);
   } else if (argc == 2) {
-    if (argt[1] != LIST || argt[0] != STRING) return -1;
+    if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     SaveExcitation(nlow, low, nlow, low, 1, argv[0]);
     free(low);
   } else if (argc == 3) {
-    if (argt[1] != LIST || argt[2] != LIST || argt[0] != STRING) return -1;
+    if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -422,7 +460,7 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   int nlow, *low, nup, *up;
   
   if (argc != 3) return -1;
-  if (argt[1] != LIST || argt[2] != LIST || argt[0] != STRING) return -1;
+  if (argt[0] != STRING) return -1;
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -445,8 +483,16 @@ static int PClearLevelTable(int argc, char *argv[], int argt[],
 
 static int PClearOrbitalTable(int argc, char *argv[], int argt[], 
 			      ARRAY *variables) {
-  if (argc != 0) return -1;
-  ClearOrbitalTable();
+  int m;
+  
+  m = 1;
+  if (argc != 0 && argc != 1) return -1;
+  if (argc == 1) {
+    if (argt[0] != NUMBER) return -1;
+    m = atoi(argv[0]);
+  }
+
+  ClearOrbitalTable(m);
   return 0;
 }
 
@@ -457,8 +503,10 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
   int i, ie, ii;
   FILE *f;
   char *iv[MAXNARGS], *ev[MAXNARGS];
-  int *it[MAXNARGS], *et[MAXNARGS];
-  
+  int it[MAXNARGS], et[MAXNARGS];
+
+  ii = 0; 
+  ie = 0;
   if (argc == 1) {
     if (argt[0] != STRING) {
       printf("A single argument for CorrectEnergy must be a file name\n");
@@ -485,7 +533,8 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     ii = DecodeArgs(argv[0], iv, it, variables);
     ie = DecodeArgs(argv[1], ev, et, variables);
     if (ii != ie) return -1;
-    for (i = 0; i < ie; i++) {
+    n = ii;
+    for (i = 0; i < n; i++) {
       if (it[i] != NUMBER || et[i] != NUMBER) return -1;
       k[i] = atoi(iv[i]);
       e[i] = atof(ev[i]);
@@ -496,7 +545,10 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
   }
 
   CorrectEnergy(n, k, e);
-      
+
+  for (i = 0; i < ii; i++) free(iv[i]);
+  for (i = 0; i < ie; i++) free(ev[i]);
+
   return 0;
 }
 
@@ -538,21 +590,21 @@ static int PFreeAngZ(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i, m;
   int n, *kg;
   
+  m = -1;
   if (argc == 0) {
     FreeAngZ(-1, m);
   } else if (argc > 0) {
+    if (argc > 2) return -1;
     if (argt[0] != LIST) return -1;
     n = DecodeGroupArgs(&kg, 1, argv, argt, variables);
     if (argc == 2) {
       if (argt[1] != NUMBER) return -1;
       m = atoi(argv[1]);
-      for (i = 0; i < n; i++) {
-	FreeAngZ(kg[i], m);
-      }
     }
-  } else {
-    return -1;
-  }    
+    for (i = 0; i < n; i++) {
+      FreeAngZ(kg[i], m);
+    }
+  }
     
   return 0;
 }
@@ -583,10 +635,19 @@ static int PFreeIonizationQk(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PFreeMemENTable(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  
+  if (argc != 0) return -1;
+  FreeMemENTable();
+  return 0;
+}
+
 static int PFreeMultipole(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   if (argc != 0) return -1;
   FreeMultipoleArray();
+  FreeMomentsArray();
   return 0;
 }
 
@@ -635,6 +696,7 @@ static int PGetPotential(int argc, char *argv[], int argt[],
 static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc != 0) return -1;
   Info();
+  return 0;
 }
 
 static int PLoadIonizationQk(int argc, char *argv[], int argt[], 
@@ -656,6 +718,14 @@ static int PLoadIonizationQk(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PMemENTable(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  
+  if (argc != 1 || argt[0] != STRING) return -1;
+  MemENTable(argv[0]);
+  return 0;
+}
+
 static int POptimizeRadial(int argc, char *argv[], int argt[], 
 			   ARRAY *variables) {
   int ng, i, k;
@@ -663,8 +733,10 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   double z;
   double *weight;
   char *vw[MAXNARGS];
-  int iw[MAXNARGS];
+  int iw[MAXNARGS], ni;
   
+  ni = 0;
+
   ng = argc;
   if (ng == 0) {
     ng = 0; 
@@ -686,6 +758,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
     } else {
       if (argt[1] != LIST && argt[1] != TUPLE) return -1;
       k = DecodeArgs(argv[1], vw, iw, variables);
+      ni = k;
       if (k < 0 || k > ng) {
 	printf("weights must be a sequence\n");
 	return -1;
@@ -718,6 +791,21 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   if (weight) free(weight);
   if (kg) free(kg);
 
+  for (i = 0; i < ni; i++) free(vw[i]);
+
+  return 0;
+}
+
+static int PPause(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  char s[10];
+
+  while (1) {
+    printf("Type go to continue: ");
+    scanf("%s", s);
+    if (strcmp(s, "go") == 0) break;
+  }
+  
   return 0;
 }
 
@@ -807,6 +895,10 @@ static int PPrepIonizationQk(int argc, char *argv[], int argt[],
     n[4] = 5;
   }
 
+  for (i = 0; i < nz; i++) free(vz[i]);
+  for (i = 0; i < na; i++) free(va[i]);
+  for (i = 0; i < nn; i++) free(vn[i]);
+  
   PrepCIRadialQkIntegrated(nz, z, na, a, nn, n, nte, emin, emax, argv[0]);
  
   free(z);
@@ -816,12 +908,29 @@ static int PPrepIonizationQk(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrintMemInfo(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+#ifdef DEBUG_ARRAY
+  PrintMemInfo();
+#endif
+ 
+  return 0;
+}
+
 static int PPrintTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-  if (argc != 2) return -1;
-  if (argt[0] != STRING || argt[1] != STRING) return -1;
+  int v;
 
-  PrintTable(argv[0], argv[1]);
+  if (argc != 2 && argc != 3) return -1;
+  if (argt[0] != STRING || argt[1] != STRING) return -1;
+  
+  v = 0;
+  if (argc == 3) {
+    if (argt[2] != NUMBER) return -1;
+    v = atoi(argv[2]);
+  }
+
+  PrintTable(argv[0], argv[1], v);
   return 0;
 }
 
@@ -835,15 +944,127 @@ static int PRecStates(int argc, char *argv[], int argt[],
     return -1;
   ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
   if (ng <= 0) return -1;
+  n = atoi(argv[2]);
   RecStates(n, ng, kg, argv[0]);
   
   return 0;
 }
 
+static int PReinit(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int i, m;  
+  int m_config;
+  int m_recouple;
+  int m_radial;
+  int m_dbase;
+  int m_structure;
+  int m_excitation;
+  int m_recombination;
+  int m_ionization;
+
+  m_config = -1;
+  m_recouple = -1;
+  m_radial = -1;
+  m_dbase = -1;
+  m_structure = -1;
+  m_excitation = -1;
+  m_recombination = -1;
+  m_ionization = -1;
+
+  if (argc == 0 || argc == 1) {
+    if (argc == 0) {
+      m = 0;
+    } else {
+      if (argt[0] != NUMBER) return -1;
+      m = atoi(argv[0]);
+    } 
+    if (m == 0) {
+      m_config = 0;
+      m_recouple = 0;
+      m_radial = 0;
+      m_dbase = 0;
+      m_structure = 0;
+      m_excitation = 0;
+      m_recombination = 0;
+      m_ionization = 0;
+    } else if (m > 0) {
+      m_config = -1;
+      m_recouple = -1;
+      m_radial = 0;
+      m_dbase = 0;
+      m_structure = 2;
+      m_excitation = 0;
+      m_recombination = 0;
+      m_ionization = 0;
+    } else {
+      m_config = 1;
+      m_recouple = 1;
+      m_radial = 1;
+      m_dbase = 1;
+      m_structure = 1;
+      m_excitation = 1;
+      m_recombination = 1;
+      m_ionization = 1;
+    }
+  } else {
+    for (i = 0; i < argc; ) {
+      if (argt[i] != KEYWORD) {
+	i++;
+	continue;
+      }
+      if (strcmp(argv[i], "config") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_config = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "recouple") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_recouple = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "dbase") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_dbase = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "structure") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_structure = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "excitation") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_excitation = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "radial") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_radial = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "recombination") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_recombination = atoi(argv[i]);
+	i++;
+      } else if (strcmp(argv[i], "ionization") == 0) {
+	i++;
+	if (argt[i] != NUMBER) return -1;
+	m_ionization = atoi(argv[i]);
+	i++;
+      }
+    }
+  }
+ 
+  ReinitFac(m_config, m_recouple, m_radial, m_dbase,
+	    m_structure, m_excitation, m_recombination, m_ionization);
+
+  return 0;
+}
+  
 static int PRRTable(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
-  int nlow, *low, nup, *up;
-  int n, m;
+  int nlow, *low, nup, *up, m;
   
   m = -1;
   if (argc != 3 && argc != 4) return -1;
@@ -891,6 +1112,8 @@ static int PSetAngZOptions(int argc, char *argv[], int argt[],
   double c, mc;
 
   n = atoi(argv[0]);
+  c = EPS3;
+  mc = EPS3;
   if (argc > 1) {
     mc = atof(argv[1]);
     if (argc > 2) {
@@ -946,11 +1169,11 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 
 static int PSetAvgConfig(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  int ns, i;
+  int ns, i, j;
   int *n, *kappa;
-  double *nq, a;
+  double *nq;
   char *vc[MAXNARGS], *vs[MAXNARGS];
-  int *ic[MAXNARGS], *is[MAXNARGS];
+  int ic[MAXNARGS], is[MAXNARGS];
 
   if (argc != 1 || argt[0] != LIST) {
     return -1;
@@ -970,8 +1193,11 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
     kappa[i] = atoi(vs[1]);
     if (atoi(vs[2]) > 0) kappa[i] = -(kappa[i]+1);
     nq[i] = atof(vs[3]);
+    for (j = 0; j < 4; j++) free(vs[j]);
   }
   
+  for (j = 0; j < ns; j++) free(vc[j]);
+
   if (SetAverageConfig(ns, n, kappa, nq) < 0) return -1;
   free(n);
   free(kappa);
@@ -1007,6 +1233,7 @@ static int PSetCEGrid(int argc, char *argv[], int argt[],
       ng = DecodeArgs(argv[0], vg, ig, variables);
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
+	free(vg[i]);
 	xg[i] /= HARTREE_EV;
       }
       err = SetCEEGridDetail(ng, xg);
@@ -1081,6 +1308,7 @@ static int PSetTEGrid(int argc, char *argv[], int argt[],
 	if (ig[i] != NUMBER) return -1;
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetCETEGridDetail(ng, xg);
     } else {
@@ -1163,6 +1391,8 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
       if (t1[i] != NUMBER || t2[i] != NUMBER) return -1;
       m[i] = atoi(v1[i]);
       step[i] = atoi(v2[i]);
+      free(v1[i]);
+      free(v2[i]);
     }
     SetCEPWGrid(ns, m, step);
     free(m);
@@ -1229,6 +1459,7 @@ static int PSetCIEGrid(int argc, char *argv[], int argt[],
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetCIEGridDetail(ng, xg);
     } else {
@@ -1294,6 +1525,7 @@ static int PSetIEGrid(int argc, char *argv[], int argt[],
 	if (ig[i] != NUMBER) return -1;
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetIEGridDetail(ng, xg);
     } else {
@@ -1369,6 +1601,8 @@ static int PSetCIPWGrid(int argc, char *argv[], int argt[],
       if (t1[i] != NUMBER || t2[i] != NUMBER) return -1;
       m[i] = atoi(v1[i]);
       step[i] = atoi(v2[i]);
+      free(v1[i]);
+      free(v2[i]);
     }
     SetCIPWGrid(ns, m, step);
     free(m);
@@ -1454,6 +1688,7 @@ static int PSetPEGrid(int argc, char *argv[], int argt[],
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetPEGridDetail(ng, xg);
     } else {
@@ -1579,11 +1814,8 @@ static int PSetRadialGrid(int argc, char *argv[], int argt[],
 static int PSetRecPWLimits(int argc, char *argv[], int argt[], 
 			   ARRAY *variables) {
   int m1, m2;
-  
-  if (argc == 1) {
-    if (argt[0] != NUMBER) return -1;
-    m1 = atoi(argv[0]);
-  } else if (argc == 2) {
+
+  if (argc == 2) {
     if (argt[0] != NUMBER) return -1;
     m1 = atoi(argv[0]);
     if (argt[1] != NUMBER) return -1;
@@ -1642,6 +1874,7 @@ static int PSetRRTEGrid(int argc, char *argv[], int argt[],
 	if (ig[i] != NUMBER) return -1;
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetRRTEGridDetail(ng, xg);
     } else {
@@ -1670,7 +1903,7 @@ static int PSetScreening(int argc, char *argv[], int argt[],
   double screened_charge;
   int i, kl;
   char *v[MAXNARGS];
-  int *t[MAXNARGS];
+  int t[MAXNARGS];
 
   n_screen = 0;
   screened_charge = 1.0;
@@ -1690,6 +1923,7 @@ static int PSetScreening(int argc, char *argv[], int argt[],
   for (i = 0; i < n_screen; i++) {
     if (t[i] != NUMBER) return -1;
     screened_n[i] = atoi(v[i]);
+    free(v[i]);
   }
   
   SetScreening(n_screen, screened_n, screened_charge, kl);
@@ -1747,6 +1981,7 @@ static int PSetUsrCEGrid(int argc, char *argv[], int argt[],
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetUsrCEEGridDetail(ng, xg);
     } else {
@@ -1796,6 +2031,7 @@ static int PSetUsrCIEGrid(int argc, char *argv[], int argt[],
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetUsrCIEGridDetail(ng, xg);
     } else {
@@ -1845,6 +2081,7 @@ static int PSetUsrPEGrid(int argc, char *argv[], int argt[],
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
+	free(vg[i]);
       }
       err = SetUsrPEGridDetail(ng, xg);
     } else {
@@ -1915,8 +2152,6 @@ static int PStructure(int argc, char *argv[], int argt[],
   int i, k, ng, ngp, ns, nlevels;
   int *kg, *kgp;
   int n;
-  char *v1[MAXNARGS], *v2[MAXNARGS];
-  int t1[MAXNARGS], t2[MAXNARGS];
 
   ng = 0;
   ngp = 0;
@@ -1926,18 +2161,20 @@ static int PStructure(int argc, char *argv[], int argt[],
   if (n == 1) {
     if (argt[0] != STRING) return -1;
     ng = DecodeGroupArgs(&kg, 0, NULL, NULL, variables);
+    if (ng < 0) return -1;
   } else {
     if (n > 3) return -1;
     if (argt[0] != STRING) return -1;
     if (argt[1] != LIST && argt[1] != TUPLE) return -1;
     ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
+    if (ng < 0) return -1;
     if (n == 3) {
       if (argt[2] != LIST && argt[2] != TUPLE) return -1;
       ngp = DecodeGroupArgs(&kg, 1, &(argv[2]), &(argt[2]), variables);
     }
   }
   
-  if (ng < 0 || ngp < 0) return -1;
+  if (ngp < 0) return -1;
 
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;  
@@ -1983,32 +2220,43 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
  
   ArrayInit(&a, sizeof(double), 100);
   d = 0.1;
-  ArraySet(&a, 200, &d);
-  ArraySet(&a, 100, &d);
+  m = 100000;
+  printf("> ");
+  scanf("%d", &i);
+  for (i = 0; i < m; i++) {
+    ArraySet(&a, i, &d);
+  }
+  printf("> ");
+  scanf("%d", &i);
+
   b = (double *) ArrayGet(&a, 100);
   printf("%f ", *b);
   b = (double *) ArrayGet(&a, 200);
   printf("%f \n", *b);
+
   ArrayFree(&a, 0);
+  printf("> ");
+  scanf("%d", &i);
 
   MultiInit(&ma, sizeof(double), 3, block);
   printf("%d %d\n", ma.esize, ma.ndim);
-  for (i = 10; i < 15; i++) {
-    for (j = 0; j < 5; j++) {
-      for (m = 45; m < 46; m++) {
-	k[0] = i;
-	k[1] = j;
-	k[2] = m;	
-	b = (double *) MultiSet(&ma, k, NULL);
-	*b = 0.2;
-	b = (double *) MultiGet(&ma, k);
-	printf("%d %d %d %f \n", i, j, m, *b);
-      }
+  for (i = 9; i < 15; i++) {
+    for (j = 0; j < m; j++) {
+      k[0] = i;
+      k[1] = j;
+      k[2] = 20;	
+      b = (double *) MultiSet(&ma, k, NULL);
+      *b = 0.2;
+      b = (double *) MultiGet(&ma, k);
     }
   }
-  printf("%x\n", ma.array);
+
+  printf("> ");
+  scanf("%d", &i);
   MultiFree(&ma, NULL);
-  printf("%x\n", ma.array);
+
+  printf("> ");
+  scanf("%d", &i);
 
   return 0;
 }
@@ -2034,7 +2282,7 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
     m = atoi(argv[1]);
     SaveTransition(nlow, low, nup, up, argv[0], m);
   } else if (n == 3) {
-    if (argt[1] != LIST || argt[2] != LIST || argt[0] != STRING) return -1;
+    if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -2043,8 +2291,7 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
     free(low);
     free(up);
   } else if (n == 4) {
-    if (argt[1] != LIST || argt[2] != LIST || 
-	argt[0] != STRING || argt[3] != NUMBER) return -1;
+    if (argt[0] != STRING || argt[3] != NUMBER) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -2100,6 +2347,7 @@ static METHOD methods[] = {
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
+  {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"FreeMultipole", PFreeMultipole, METH_VARARGS},
   {"FreeSlater", PFreeSlater, METH_VARARGS},
   {"FreeResidual", PFreeResidual, METH_VARARGS},
@@ -2109,10 +2357,14 @@ static METHOD methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
+  {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"Pause", PPause, METH_VARARGS},
   {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
+  {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
+  {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
@@ -2167,320 +2419,33 @@ static METHOD methods[] = {
   {"", NULL, METH_VARARGS}
 };
  
-
-int GetLine(FILE *f, char *line, int *nlines) {
-  if (fgets(line, MAXLINELENGTH, f) == NULL) return -1;
-  (*nlines)++;
-  return 0;
-}
-
-int GetValidLine(FILE *f, char *line, int *nlines) {
-  int n, m;
-  char buf[MAXLINELENGTH];
-  char r;
-
-  while (1) {
-    if (GetLine(f, line, nlines) < 0) return 0;
-    r = StrTrim(line, COMMENT);
-    if (r == EOF || (line[0] && line[0] != COMMENT)) break;
-  }
-  n = strlen(line);
-  if (n == 0) return n;
-  if (line[n-1] == CONTINUE) {
-    if (r == EOF) return ERR_LINEUNTERMINATED;
-    line[n-1] = '\0';
-    r = StrTrim(line, COMMENT);
-    n = strlen(line);
-    while (1) {
-      while (1) {
-	if (GetLine(f, buf, nlines) < 0) return 0;
-	r = StrTrim(buf, COMMENT);
-	if (r == EOF || (buf[0] && buf[0] != COMMENT)) break;
-      }
-      m = strlen(buf);
-      if (m == 0) return ERR_LINEUNTERMINATED;
-      n = n+m;
-      if (n >= MAXLINELENGTH) return ERR_LINETOOLONG;
-      strcat(line, buf);
-      if (buf[m-1] != CONTINUE) break;
-      line[n-1] = '\0';
-      r = StrTrim(line, COMMENT);
-      n = strlen(line);      
-      if (r == EOF) return ERR_LINEUNTERMINATED;
-    }
-  }
-  return n;
-}
-	      
-int MethodIndex(char *name) {
+int main(int argc, char *argv[]) {
   int i;
-  
-  i = 0;
-  while (methods[i].func) {
-    if (strncmp(methods[i].name, name, MAXMETHODNAME) == 0) {
-      return i;
-    }
-    i++;
-  }
-  return -1;
-}
+  FILE *f;
 
-VARIABLE *VariableExists(char *name, ARRAY *variables) {
-  VARIABLE *v;
-  int i;
-  
-  for (i = 0; i < variables->dim; i++) {
-    v = (VARIABLE *) ArrayGet(variables, i);
-    if (strcmp(v->name, name) == 0) return v;
+  if (InitFac() < 0) {
+    printf("initialization failed\n");
+    exit(1);
   }
 
-  return NULL;
-}
-
-int DecodeArgs(char *s, char *argv[], int argt[], ARRAY *variables) {
-  VARIABLE *v;
-  int r, i;
-  char token[MAXLINELENGTH];
-  int brkpos;
-  int next;
-  int quotepos;
-  int n;
-
-  SetParserWhite(" \t");
-  SetParserBreak(",=");
-  SetParserQuote("\"'([", "\"')]");
-  SetParserEscape('\0');
-
-  next = 0;
-  r = Parse(token, MAXLINELENGTH, s, &next, &brkpos, &quotepos);
-
-  i = 0; 
-  while (1) {
-    if (r > 0) break;
-    if (r < 0) return ERR_SYNTAX;
-    if (quotepos >= 0) {
-      if (quotepos == 0 || quotepos == 1) {
-	argt[i] = STRING;
-      } else if (quotepos == 2) {
-	argt[i] = TUPLE;
-      } else if (quotepos == 3) {
-	argt[i] = LIST;
-      }
-      n = strlen(token);
-      argv[i] = (char *) malloc(n+1);
-      strcpy(argv[i], token);
-    } else {
-      if (brkpos == 1) {
-	argt[i] = KEYWORD;
-	n = strlen(token);
-	argv[i] = (char *) malloc(n+1);
-	strcpy(argv[i], token);
-      } else {
-	if (token[0] == '$') {
-	  v = VariableExists(&(token[1]), variables);
-	  if (v == NULL) {
-	    return ERR_NOVARIABLE;
-	  }
-	  n = strlen(v->value);
-	  argv[i] = (char *) malloc(n+1);
-	  strcpy(argv[i], v->value);
-	  argt[i] = v->type;
-	} else {
-	  n = strlen(token);
-	  if (n == 0) break;
-	  argv[i] = malloc(n+1);
-	  strcpy(argv[i], token);
-	  argt[i] = NUMBER;
-	}
-      }
-    }
-    i++;
-    if (i == MAXNARGS) {
-      return ERR_ARGSTOOMANY;
-    }
-
-    r = Parse(token, MAXLINELENGTH, s, &next, &brkpos, &quotepos);
-  }
-  
-  return i;
-}
-
-int TokenizeLine(int nline, char *line, ARRAY *statements, ARRAY *variables) {
-  STATEMENT *fs;
-  VARIABLE *v, *w;
-  int i, r, n;
-  char token[MAXLINELENGTH];
-  char *t;
-  int brkpos;
-  int quotepos;
-  int next;
-
-  SetParserWhite(" \t");
-  SetParserBreak(",=");
-  SetParserQuote("\"'([", "\"')]");
-  SetParserEscape('\0');
-
-  next = 0;
-  r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
-  if (r) return ERR_SYNTAX;
-  if (strncmp(token, "pfac.fac.", 9) == 0) {
-    t = token+9;
-  } else if (strncmp(token, "fac.", 4) == 0) {
-    t = token+4;
+  if (argc == 1) {
+    EvalFile(stdin, 1, methods);
   } else {
-    t = token;
-  }
-  i = MethodIndex(t);
-  if (i >= 0) {
-    fs = (STATEMENT *) ArraySet(statements, statements->dim, NULL);
-    fs->nline = nline;
-    fs->imethod = i;
-    r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
-    if (r) {
-      fs->argc = 0;
-    } else {
-      if (quotepos != 2) return ERR_SYNTAX;
-      fs->argc = DecodeArgs(token, fs->argv, fs->argt, variables);
-      if (fs->argc < 0) return fs->argc;
-    }
-    return 1;
-  } else {
-    if (!isalpha(token[0])) return ERR_SYNTAX;
-    if (quotepos >= 0) return ERR_SYNTAX;
-    if (brkpos != 1) return ERR_SYNTAX;
-    v = VariableExists(token, variables);
-    if (v) {
-      free(v->value);
-    } else {
-      v = (VARIABLE *) ArraySet(variables, variables->dim, NULL);
-      n = strlen(token);
-      v->name = (char *) malloc(n+1);
-      strcpy(v->name, token);
-    }
-
-    SetParserBreak(",;");
-    r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
-    
-    if (token[0] == '$') {
-      w = VariableExists(&(token[1]), variables);
-      if (w == NULL) {
-	return ERR_NOVARIABLE;
+    for (i = 1; i < argc; i++) {
+      f = fopen(argv[i], "r");
+      if (!f) {
+	printf("Cannot open file %s, Skipping\n", argv[i]);
+	continue;
       }
-      n = strlen(w->value);
-      v->value = (char *) malloc(n+1);
-      strcpy(v->value, w->value);
-      v->type = w->type;
-    } else {
-      n = strlen(token);
-      v->value = (char *) malloc(n+1);
-      strcpy(v->value, token);
-      if (quotepos == 0 || quotepos == 1) {
-	v->type = STRING;
-      } else if (quotepos == 2) {
-	v->type = TUPLE;
-      } else if (quotepos == 3) {
-	v->type = LIST;
-      } else {
-	v->type = NUMBER;
-      }
-    }
-    return 0;
-  }  
-}
-
-void FreeStatementData(void *p) {
-  STATEMENT *st;
-  int i;
-  
-  st = (STATEMENT *) p;
-  for (i = 0; i < st->argc; i++) {
-    free(st->argv[i]);
-  }
-}
-
-void FreeVariableData(void *p) {
-  VARIABLE *v;
-  
-  v = (VARIABLE *) p;
-  free(v->name);
-  free(v->value);
-}
-
-int EvalFile(FILE *f, int exebyline) {
-  ARRAY statements;
-  ARRAY variables;
-  STATEMENT *st;
-  char buf[MAXLINELENGTH];
-  int i, nlines;
-  int ierr;
-
-  ArrayInit(&statements, sizeof(STATEMENT), 1024);
-  ArrayInit(&variables, sizeof(VARIABLE), 1024);
-
-  nlines = 0;
-  while (1) {
-    i = GetValidLine(f, buf, &nlines);
-    if (i == 0) break;
-    if (i < 0) ErrorOcurred(i, nlines);
-    i = TokenizeLine(nlines, buf, &statements, &variables);
-    if (i < 0) {
-      ErrorOcurred(i, nlines);
-      if (!exebyline) exit(1);
-    }
-    if (exebyline && i > 0) {
-      st = (STATEMENT *) ArrayGet(&statements, statements.dim-1);
-      ierr = EvalStatement(st, &variables);
-      if (ierr < 0) {
-	ErrorOcurred(ERR_EVAL, st->nline);
-      }
+      EvalFile(f, 0, methods);
     }
   }
-  
-  if (!exebyline) {
-    for (i = 0; i < statements.dim; i++) {
-      st = (STATEMENT *) ArrayGet(&statements, i);
-      ierr = EvalStatement(st, &variables);
-      if (ierr < 0) {
-	ErrorOcurred(ERR_EVAL, st->nline);
-	exit(1);
-      }
-    }
-  }
-  
-  ArrayFree(&statements, FreeStatementData);
-  ArrayFree(&variables, FreeVariableData);
-  
+
+#ifdef PMALLOC_CHECK
+  pmalloc_check();
+#endif
+
   return 0;
-}
-
-int EvalStatement(STATEMENT *st, ARRAY *variables) {
-  return methods[st->imethod].func(st->argc, st->argv, st->argt, variables);
-}
-      
-void ErrorOcurred(int ierr, int loc) {
-  printf("Error at Line %d: ", loc);
-  switch (ierr) {
-  case ERR_LINEUNTERMINATED:
-    printf("Line Unterminated\n");
-    break;
-  case ERR_LINETOOLONG:
-    printf("Line Too Long, MaxLength: %d\n", MAXLINELENGTH);
-    break;
-  case ERR_NOVARIABLE:
-    printf("Variable does not exist\n");
-    break;
-  case ERR_ARGSTOOMANY:
-    printf("Arguments Too Many, Max: %d\n", MAXNARGS);
-    break;
-  case ERR_SYNTAX:
-    printf("Syntax Error\n");
-    break;
-  case ERR_EVAL:
-    printf("Evaluation Error\n");
-    break;
-  default:
-    break;
-  }
 }
 
 
