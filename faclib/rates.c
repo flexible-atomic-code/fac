@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.34 2003/10/14 21:26:16 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.35 2004/01/11 22:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -116,7 +116,7 @@ double IntegrateRate(int idist, double eth, double bound,
   a = rate_args.d->params[n-2];
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
-  
+
   if (idist == 0 && iedist == 0) {
     a0 = rate_args.d->params[0];
     b0 = 5.0*a0;
@@ -867,6 +867,41 @@ static double Maxwell(double e, double *p) {
   return x;
 }
 
+static double MaxPower(double e, double *p) {
+  double x, y, logy, py, g, g1, c1, c2, f;
+  const double maxwell_const = 1.12837967;
+
+  y = p[4]/p[3];
+  logy = log(y);
+  py = pow(y, 1.0-p[1]);
+  if (p[1] == 1.0) {
+    g = logy;
+  } else {
+    g = (1.0 - py)/(p[1] - 1.0);
+  }
+  if (p[1] == 2.0) {
+    g1 = logy;
+  } else {
+    g1 = (1.0 - y*py)/(p[1] - 2.0);
+  }
+  y = 1.5*p[2]*p[0]/(p[3]*g1);
+  c1 = maxwell_const/(1.0+y*g);
+  c2 = y/(1.0+y*g);
+
+  if (e > p[5] && e < p[6]) {
+    x = e/p[0];
+    f = c1*sqrt(x)*exp(-x)/p[0];
+  } else {
+    f = 0.0;
+  }
+  if (e > p[3] && e < p[4]) {
+    x = e/p[3];
+    f += c2*pow(x,-p[1])/p[3];
+  } 
+
+  return f;
+}
+  
 static double PowerLaw(double e, double *p) {
   double x;
 
@@ -880,6 +915,39 @@ static double PowerLaw(double e, double *p) {
   x = x*pow(e, -p[0]);
 
   return x;
+}
+
+int EleDist(char *fn, int n) {
+  FILE *f;
+  double y, e, de, emin, emax, *p;
+  int np, i;
+  DISTRIBUTION *d;
+
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+
+  d = ele_dist+iedist;
+  p = d->params;
+  np = d->nparams;
+  emin = p[np-2];
+  emax = p[np-1];
+  de = (log(emax) - log(emin))/(n-1);
+  de = exp(de);
+  fprintf(f, "# dist=%d\n", iedist);
+  for (i = 0; i < np; i++) {
+    fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
+  } 
+  e = emin;
+  for (i = 0; i < n; i++) {
+    y = d->dist(e, p);
+    fprintf(f, "%15.8E %15.8E\n", e, y);
+    e *= de;
+  }
+  
+  fclose(f);
 }
 
 int SetEleDist(int i, int np, double *p) {
@@ -913,15 +981,58 @@ int SetEleDist(int i, int np, double *p) {
       if (p[2] < 0) p[2] = 0.0;
     }
     break;
+  case 2:
+    /* MaxPower */
+    if (p[6] <= 0.0) {
+      p[6] = 1E2*p[0];
+    }
+    if (p[5] <= 0.0) {
+      p[5] = 1E-20*p[0];
+    }
+    break;    
   default:
     break;
   }
+
   iedist = i;
   for (k = 0; k < np; k++) {
     ele_dist[i].params[k] = p[k];
   }
 
   return 0;
+}
+
+int PhoDist(char *fn, int n) {
+  FILE *f;
+  double y, e, de, emin, emax, *p;
+  int np, i;
+  DISTRIBUTION *d;
+
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+
+  d = pho_dist+ipdist;
+  p = d->params;
+  np = d->nparams;
+  emin = p[np-2];
+  emax = p[np-1];
+  de = (log(emax) - log(emin))/(n-1);
+  de = exp(de);
+  fprintf(f, "# dist=%d\n", ipdist);
+  for (i = 0; i < np; i++) {
+    fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
+  } 
+  e = emin;
+  for (i = 0; i < n; i++) {
+    y = d->dist(e, p);
+    fprintf(f, "%15.8E %15.8E\n", e, y);
+    e *= de;
+  }
+  
+  fclose(f);
 }
 
 int SetPhoDist(int i, int np, double *p) {
@@ -957,6 +1068,7 @@ int InitRates(void) {
   ele_dist[i].params[1] = 1E-10;
   ele_dist[i].params[2] = 1E10;
   ele_dist[i].dist = Maxwell;
+
   i++; /* Gaussian */
   ele_dist[i].nparams = 4;
   ele_dist[i].params = (double *) malloc(sizeof(double)*4);
@@ -965,6 +1077,27 @@ int InitRates(void) {
   ele_dist[i].params[2] = 1E3-250.0;
   ele_dist[i].params[3] = 1E3+250.0;
   ele_dist[i].dist = Gaussian;
+
+  i++; /* MaxPower */
+  ele_dist[i].nparams = 7;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*7);
+  ele_dist[i].params[0] = 1.0E3;
+  ele_dist[i].params[1] = 1.5;
+  ele_dist[i].params[2] = 0.1;
+  ele_dist[i].params[3] = 1.0E3;
+  ele_dist[i].params[4] = 1E7;
+  ele_dist[i].params[5] = 1E-10;
+  ele_dist[i].params[6] = 1E10;
+  ele_dist[i].dist = MaxPower;
+
+  i++; /* Power */
+  ele_dist[i].nparams = 3;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*3);
+  ele_dist[i].params[0] = 1.5;
+  ele_dist[i].params[3] = 1.0E3;
+  ele_dist[i].params[4] = 1E7;
+  ele_dist[i].dist = PowerLaw;
+
   i++;
 
   for (; i < MAX_DIST; i++) {

@@ -1219,7 +1219,7 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         s = 'NELE = %d'%m
         Print(s)
         s = 'ATOM = %s'%asym
-        z = ATOMICSYMBOL.index(asym.lower())
+        z = ATOMICSYMBOL.index(asym.capitalize())
         s = '%s, Z = %d'%(s, z)
         Print(s)
         atom.set_atom(asym, dir=dir)

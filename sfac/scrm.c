@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.21 2004/01/04 21:55:23 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.22 2004/01/11 22:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -63,6 +63,18 @@ static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PEleDist(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n;
+
+  if (argc != 2) return -1;
+  n = atoi(argv[1]);
+  
+  EleDist(argv[0], n);
+  
+  return 0;
+}
+
 static int PSetEleDist(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int k, i, np;
@@ -78,6 +90,18 @@ static int PSetEleDist(int argc, char *argv[], int argt[],
   }
   if (SetEleDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
+  return 0;
+}
+
+static int PPhoDist(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n;
+
+  if (argc != 2) return -1;
+  n = atoi(argv[1]);
+  
+  PhoDist(argv[0], n);
+  
   return 0;
 }
 
@@ -487,6 +511,8 @@ static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
+  {"EleDist", PEleDist, METH_VARARGS},
+  {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
