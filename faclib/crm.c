@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.18 2002/02/25 02:54:43 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.19 2002/02/26 13:34:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1313,6 +1313,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	if (blk == blk1 && !ic[i]) continue;
 	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
+	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1326,6 +1327,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
+	    den *= electron_density;
 	    index[2] = j;
 	    index[1] = i;
 	    if (ic[i]) {
@@ -1360,9 +1362,10 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  d = (double *) MultiSet(&tr, index, NULL);
 	  *d += den * r->dir;
 	}
-	if (r->inv > 0.0) {
+	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
+	    den *= photon_density;
 	    index[2] = j;
 	    index[1] = i;
 	    if (ic[i]) {
@@ -1386,6 +1389,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
+	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1396,9 +1400,10 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  d = (double *) MultiSet(&rr, index, NULL);
 	  *d += den * r->dir;
 	}
-	if (r->inv > 0.0) {
+	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
+	    den *= photon_density;
 	    index[2] = j;
 	    index[1] = i;
 	    if (ic[i]) {
@@ -1435,6 +1440,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
+	    den *= electron_density;
 	    index[2] = j;
 	    index[1] = i;
 	    if (ic[i]) {
@@ -1458,6 +1464,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
 	if (den > 0.0) {
+	  den *= electron_density;
 	  index[2] = i;
 	  index[1] = j;
 	  if (ic[j]) {
@@ -1471,6 +1478,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	if (r->inv > 0.0) {
 	  den = blk1->n[ion->ilev[r->f]];
 	  if (den > 0.0) {
+	    den *= electron_density*electron_density;
 	    index[2] = j;
 	    index[1] = i;
 	    if (ic[i]) {
