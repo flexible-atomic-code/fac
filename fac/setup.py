@@ -14,7 +14,7 @@ if (platform == 'linux'):
       cc = 'gcc'
       fc = 'g77'
 elif (platform == 'cygwi'):
-      fortranlib == ['g2c']
+      fortranlib = ['g2c']
       fflags = '-O -c'
       cflags = '-O -c'
       ldflags = ''

@@ -234,6 +234,7 @@ int WriteENRecord(FILE *f, EN_RECORD *r);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
 int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
+int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);

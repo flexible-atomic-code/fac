@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.12 2002/04/30 15:01:53 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.13 2002/05/01 22:19:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -747,7 +747,41 @@ double MaxAbund(int z, int nele, double *a, double eps) {
   
   return t;  
 }
+
+/*
+** two-photon rates are taken from G. W. F. Drake, PRA, 34, 2871, 1986.
+*/
+double TwoPhotonRate(double z, int t) {
+  double a, a2, a4, z6;
   
+  switch (t) {
+  case 0: /* 2S_1/2 of H-like ion */
+    z6 = z*z;
+    z6 = z6*z6*z6;
+    a = FINE_STRUCTURE_CONST*z;
+    a2 = a*a;
+    a4 = a2*a2;
+    a = 8.22943*z6*(1.0 + 3.9448*a2 - 2.04*a4)/(1.0 + 4.6019*a2);
+    break;
+  case 1: /* 1s2s S_0 of He-like ion */
+    a = (z - 0.806389);
+    z6 = a*a;
+    z6 = z6*z6*z6;
+    a = FINE_STRUCTURE_CONST*a;
+    a2 = a*a;
+    a4 = (z+2.5);
+    a4 = a4*a4;
+    a = 16.458762*(z6*(1.0 + 1.539/a4) - 
+		   z6*a2*(0.6571 + 2.04*a2)/(1.0 + 4.6019*a2));
+    break;
+  default:
+    a = 0.0;
+    break;
+  }
+
+  return a;
+}
+
 int InitRates(void) {
   int i;
 

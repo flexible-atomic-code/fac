@@ -56,6 +56,7 @@ double Ionis(int z, int nele, double t, double *a, double *dir);
 double Recomb(int z, int nele, double t, double *rr, double *dr);
 int FracAbund(int z, double t, double *a);
 double MaxAbund(int z, int nele, double *a, double eps);
+double TwoPhotonRate(double z, int t);
 int InitRates(void);	   
 
 #endif

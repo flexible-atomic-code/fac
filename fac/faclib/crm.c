@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.27 2002/04/30 15:01:52 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.28 2002/05/01 22:19:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -109,6 +109,8 @@ static void FreeIonData(void *p) {
   ArrayFree(ion->tr_rates, FreeBlkRateData);
   free(ion->tr_rates);
   ion->tr_rates = NULL;
+  free(ion->tr2_rates);
+  ion->tr2_rates = NULL;
   ArrayFree(ion->ci_rates, FreeBlkRateData);
   free(ion->ci_rates);
   ion->ci_rates = NULL;
@@ -150,6 +152,7 @@ int ReinitCRM(int m) {
       ion = (ION *) ArrayGet(ions, k);
       ArrayFree(ion->ce_rates, FreeBlkRateData);
       ArrayFree(ion->tr_rates, FreeBlkRateData);
+      ArrayFree(ion->tr2_rates, FreeBlkRateData);
       ArrayFree(ion->ci_rates, FreeBlkRateData);
       ArrayFree(ion->rr_rates, FreeBlkRateData);
       ArrayFree(ion->ai_rates, FreeBlkRateData);
@@ -185,6 +188,8 @@ int AddIon(int nele, double n, char *pref) {
   ArrayInit(ion.ce_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.tr_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.tr_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ion.tr2_rates = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(ion.tr2_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.rr_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.rr_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.ci_rates = (ARRAY *) malloc(sizeof(ARRAY));
@@ -1220,6 +1225,17 @@ int InitBlocks(void) {
 	}
       }
     }
+    for (p = 0; p < ion->tr2_rates->dim; p++) {
+      brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, p);
+      blk1 = brts->iblock;
+      blk2 = brts->fblock;
+      for (m = 0; m < brts->rates->dim; m++) {
+	r = (RATE *) ArrayGet(brts->rates, m);
+	j = ion->ilev[r->i];
+	blk1->total_rate[j] += r->dir;
+	blk1->n[j] += r->dir;
+      }
+    }
     for (p = 0; p < ion->rr_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, p);
       blk1 = brts->iblock;
@@ -1432,6 +1448,29 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    d = (double *) MultiSet(&tr, index, NULL);
 	    *d += den * r->inv;
 	  }
+	}
+      }
+    }
+    for (q = 0; q < ion->tr2_rates->dim; q++) {
+      brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, q);
+      for (m = 0; m < brts->rates->dim; m++) {
+	r = (RATE *) ArrayGet(brts->rates, m);
+	blk = ion->iblock[r->i];
+	blk1 = ion->iblock[r->f];
+	i = blk->ib;
+	j = blk1->ib;
+	if (blk == blk1 && !ic[i]) continue;
+	den = blk->n[ion->ilev[r->i]];
+	if (den > 0.0) {
+	  index[2] = i;
+	  index[1] = j;
+	  if (ic[j]) {
+	    index[0] = ion->ilev[r->f];
+	  } else {
+	    index[0] = 0;
+	  }
+	  d = (double *) MultiSet(&tr, index, NULL);
+	  *d += den * r->dir;
 	}
       }
     }
@@ -1933,6 +1972,23 @@ int BlockMatrix(void) {
 	}
       }
     }
+    for (t = 0; t < ion->tr2_rates->dim; t++) {
+      brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
+      blk1 = brts->iblock;
+      blk2 = brts->fblock;
+      if (blk1 == blk2) continue;
+      if (rec_cascade && (blk1->rec || blk2->rec)) continue;
+      for (m = 0; m < brts->rates->dim; m++) {
+	r = (RATE *) ArrayGet(brts->rates, m);
+	i = ion->iblock[r->i]->ib;
+	j = ion->iblock[r->f]->ib;
+	den = blk1->r[ion->ilev[r->i]];
+	if (den > 0.0) {
+	  p = i*n + j;
+	  bmatrix[p] += den * r->dir;
+	}
+      }
+    }
     for (t = 0; t < ion->rr_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, t);
       blk1 = brts->iblock;
@@ -2228,6 +2284,24 @@ double BlockRelaxation(int iter) {
 	  if (blk2->r[q] > 0.0) {
 	    blk1->n[p] += blk2->r[q] * a;
 	  }
+	}
+      }
+    } 
+    for (t = 0; t < ion->tr2_rates->dim; t++) {
+      brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
+      blk1 = brts->iblock;
+      blk2 = brts->fblock;
+      if (rec_cascade && iter >= 0) {
+	if (blk1->rec || blk2->rec) continue;
+      }
+      for (m = 0; m < brts->rates->dim; m++) {
+	r = (RATE *) ArrayGet(brts->rates, m);
+	i = ion->iblock[r->i]->ib;
+	p = ion->ilev[r->i];
+	j = ion->iblock[r->f]->ib;
+	q = ion->ilev[r->f];    
+	if (blk1->r[p] > 0.0) {
+	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
       }
     }
@@ -3035,7 +3109,7 @@ int SetCERates(int inv) {
   y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    ArrayFree(ion->ce_rates, NULL);
+    ArrayFree(ion->ce_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_CE-1], "r");
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CE-1]);
@@ -3253,7 +3327,7 @@ int SetTRRates(int inv) {
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    ArrayFree(ion->tr_rates, NULL);
+    ArrayFree(ion->tr_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_TR-1], "r");
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_TR-1]);
@@ -3297,6 +3371,40 @@ int SetTRRates(int inv) {
       }
     }
     fclose(f);
+    if (ion->nele == 1) {
+      ArrayFree(ion->tr2_rates, FreeBlkRateData);
+      rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
+			     "1*1", "1s1", "1s+1(1)1");
+      rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
+			     "2*1", "2s1", "2s+1(1)1");
+      if (rt.i >= 0 && rt.f >= 0) {
+	rt.dir = TwoPhotonRate(ion0.atom, 0);
+	rt.inv = 0.0;
+	AddRate(ion, ion->tr2_rates, &rt, 0);
+      }
+    } else if (ion->nele == 2) {
+      ArrayFree(ion->tr2_rates, FreeBlkRateData);
+      rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 2, 
+			     "1*2", "1s2", "1s+2(0)0");
+      rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 2,
+			     "1*1 2*1", "1s1 2s1", "1s+1(1)1 2s+1(1)0");
+      if (rt.i >= 0 && rt.f >= 0) {
+	rt.dir = TwoPhotonRate(ion0.atom, 1);
+	rt.inv = 0.0;
+	AddRate(ion, ion->tr2_rates, &rt, 0);
+      }
+      if (k == 0 && ion0.nionized > 0.0) {
+	rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
+			       "1*1", "1s1", "1s+1(1)1");
+	rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
+			       "2*1", "2s1", "2s+1(1)1");
+	if (rt.i >= 0 && rt.f >= 0) {
+	  rt.dir = TwoPhotonRate(ion0.atom, 0);
+	  rt.inv = 0.0;
+	  AddRate(ion, ion->tr2_rates, &rt, 0);
+	}
+      }
+    }
     if (ion0.n < 0.0) continue;
     ExtrapolateTR(ion, inv);
     if (k == 0 && ion0.nionized > 0) {
@@ -3370,7 +3478,7 @@ int SetCIRates(int inv) {
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    ArrayFree(ion->ci_rates, NULL);
+    ArrayFree(ion->ci_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_CI-1], "r");
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CI-1]);
@@ -3443,7 +3551,7 @@ int SetRRRates(int inv) {
   y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    ArrayFree(ion->rr_rates, NULL);
+    ArrayFree(ion->rr_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_RR-1], "r");
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_RR-1]);
@@ -3543,7 +3651,7 @@ int SetAIRates(int inv) {
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    ArrayFree(ion->ai_rates, NULL);
+    ArrayFree(ion->ai_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_AI-1], "r");
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_AI-1]);
