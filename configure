@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS TOPDIR build build_cpu build_vendor build_os host host_cpu host_vendor host_os CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA SET_MAKE RANLIB ac_ct_RANLIB PYTHON CPP EGREP LIBOBJS F77 FFLAGS ac_ct_F77 FLIBS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS TOPDIR build build_cpu build_vendor build_os host host_cpu host_vendor host_os CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA SET_MAKE RANLIB ac_ct_RANLIB PYTHON CPP EGREP LIBOBJS F77 FFLAGS ac_ct_F77 FLIBS FFLAGSNO LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -4303,7 +4303,7 @@ then
   fi
 fi
 CFLAGS="$copt $cpic"
-FFLAGS="$fopt $fpic"
+FFLAGS="$fpic"
 
 # Debugging option
 # Check whether --enable-cdebug or --disable-cdebug was given.
@@ -4498,6 +4498,11 @@ case "$host_os" in
   *)
   ;;
 esac
+
+# add fopt
+FFLAGSNO="$FFLAGS"
+
+FFLAGS="$FFLAGS $fopt"
 
 # add include pathes.
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
@@ -5168,6 +5173,7 @@ s,@F77@,$F77,;t t
 s,@FFLAGS@,$FFLAGS,;t t
 s,@ac_ct_F77@,$ac_ct_F77,;t t
 s,@FLIBS@,$FLIBS,;t t
+s,@FFLAGSNO@,$FFLAGSNO,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
 

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.78 2005/02/03 22:14:45 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.79 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2651,10 +2651,19 @@ static int PStructure(int argc, char *argv[], int argt[],
 
 static int PSetUTA(int argc, char *argv[], int argt[], 
 		   ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != NUMBER) return -1;
-  
-  SetUTA(atoi(argv[0]));
+  int m, mci;
+
+  if (argc == 1) {
+    if (argt[0] != NUMBER) return -1;
+    m = atoi(argv[0]);
+    mci = 1;
+  } else if (argc == 2) {
+    if (argt[0] != NUMBER || argt[1] != NUMBER) return -1;
+    m = atoi(argv[0]);
+    mci = atoi(argv[1]);
+  }
+
+  SetUTA(m, mci);
   
   return 0;
 }

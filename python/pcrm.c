@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.39 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.40 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1023,8 +1023,27 @@ static PyObject *PIonDensity(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", d);
 }
 
+static PyObject *PSetUTA(PyObject *self, PyObject *args) {
+  int m, mci;
+
+  if (scrm_file) {
+    SCRMStatement("SetUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  mci = 1;
+  if (!PyArg_ParseTuple(args, "i|i", &m, &mci)) return NULL;
+  
+  SetUTA(m, mci);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef crm_methods[] = {
-  {"Print", PPrint, METH_VARARGS},
+  {"Print", PPrint, METH_VARARGS}, 
+  {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},

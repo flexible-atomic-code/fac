@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.24 2004/12/08 22:45:59 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.25 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -515,8 +515,28 @@ static int PDumpRates(int argc, char *argv[], int argt[],
   return 0;
 }
  
+static int PSetUTA(int argc, char *argv[], int argt[], 
+		   ARRAY *variables) {
+  int m, mci;
+
+  if (argc == 1) {
+    if (argt[0] != NUMBER) return -1;
+    m = atoi(argv[0]);
+    mci = 1;
+  } else if (argc == 2) {
+    if (argt[0] != NUMBER || argt[1] != NUMBER) return -1;
+    m = atoi(argv[0]);
+    mci = atoi(argv[1]);
+  }
+
+  SetUTA(m, mci);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
+  {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"Exit", PExit, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},

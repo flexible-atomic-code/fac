@@ -6,6 +6,8 @@ Version 1.0.8, 01/01/2005
 	4. enable CI within the same non-relativisitc configuration for UTA.
 	5. fix a bug in GetNumElectrons introduced ealier in this version.
 	6. add JoinTable function.
+	7. it seems that g77 3.4 generate incorrect code for dlamch.f with
+	   -O2, now disable optimization for dlamch.f always.
 	
 Version 1.0.7, 11/10/2004
 	1. add DR satellite energy to the DB_DR file.

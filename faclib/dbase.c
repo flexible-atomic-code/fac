@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.74 2005/03/03 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.75 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,14 +24,16 @@ static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
 static int iground;
 static int iuta = 0;
+static int utaci = 1;
 static int itrf = 0;
 
 void SetTRF(int m) {
   itrf = m;
 }
 
-void SetUTA(int m) {
+void SetUTA(int m, int mci) {
   iuta = m;
+  utaci = mci;
 }
 
 int IsUTA(void) {
@@ -825,7 +827,9 @@ int ReadTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
     if (n != 1) return 0;
   }
   if (swp) SwapEndianTRRecord(r, rx);
-  
+  if (utaci == 0) {
+    rx->sci = 1.0;
+  }
   return sizeof(TR_RECORD);
 }
 
@@ -1764,7 +1768,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
-      if (r.lower == i0 && r.upper == i1) {
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
 	PrepCECrossHeader(&h, data);
 	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e = eth*HARTREE_EV;
@@ -1825,9 +1829,21 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	  }
 	  fprintf(f2, "\n\n");
 	}
-	goto DONE;
+	if (i0 >= 0 && i1 >= 0) {
+	  if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);
+	  goto DONE;
+	}
       }
+      if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
   }
 
  DONE:
@@ -1947,10 +1963,21 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  }
 	  fprintf(f2, "\n\n");
 	}
-	if (i0 >= 0 && i1 >= 0) 
+	if (i0 >= 0 && i1 >= 0) {
+	  if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);
 	  goto DONE;
+	}
       }
+      if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
   }
 
  DONE:
@@ -2522,32 +2549,46 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     return -1;
   }
 
-  k = ilev;
-  nlevels = 0;
-  for (i = 0; i < fh.nblocks; i++) {
-    n = ReadENHeader(f, &h, swp);
-    if (n == 0) break;
-    nlevels += h.nlevels;
-    if (k < h.nlevels) {
-      if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
-      n = ReadENRecord(f, &r, swp);
+  if (ilev >= 0) {
+    k = ilev;
+    nlevels = 0;
+    for (i = 0; i < fh.nblocks; i++) {
+      n = ReadENHeader(f, &h, swp);
       if (n == 0) break;
-      if (r.ilev != ilev) {
-	fclose(f);
-	return -1;
+      nlevels += h.nlevels;
+      if (k < h.nlevels) {
+	if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
+	n = ReadENRecord(f, &r, swp);
+	if (n == 0) break;
+	if (r.ilev != ilev) {
+	  fclose(f);
+	  return -1;
+	}
+	memcpy(r0, &r, sizeof(EN_RECORD));
+	break;
+      } else {
+	k -= h.nlevels;
+	fseek(f, h.length, SEEK_CUR);
       }
-      memcpy(r0, &r, sizeof(EN_RECORD));
-      break;
-    } else {
-      k -= h.nlevels;
+    }
+    fclose(f);
+    if (i == fh.nblocks) return -1;
+    return 0;
+  } else {
+    k = -ilev;
+    if (k >= 1000) k = 0;
+    nlevels = 0;
+    for (i = 0; i < fh.nblocks; i++) {
+      n = ReadENHeader(f, &h, swp);
+      if (n == 0) break;
+      if (h.nele == k) break;
+      nlevels += h.nlevels;
       fseek(f, h.length, SEEK_CUR);
     }
-  }
-  
-  fclose(f);
-
-  if (i == fh.nblocks) return -1;
-  return 0;
+    fclose(f);
+    if (i == fh.nblocks) return -1;
+    return nlevels;
+  }  
 }
 
 int MemENTable(char *fn) {

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.82 2005/03/14 18:33:30 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.83 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2657,7 +2657,7 @@ double BlockRelaxation(int iter) {
   BLK_RATE *brts;
   int i, j, k, m, t;
   int p, q;
-  double a, b, c, d, h;
+  double a, b, c, d, h, td;
   int nlevels;
 
   for (k = 0; k < blocks->dim; k++) {
@@ -2825,6 +2825,7 @@ double BlockRelaxation(int iter) {
 
   nlevels = 0;
   d = 0.0;
+  td = 0.0;
   for (k = 0; k < blocks->dim; k++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, k);
     if (rec_cascade && iter >= 0) {
@@ -2861,7 +2862,9 @@ double BlockRelaxation(int iter) {
     if (iter >= 0) {
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m]) {
-	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
+	  /*	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
+	  d += fabs(blk1->n[m]-blk1->n0[m]);
+	  td += fabs(blk1->n[m]);
 	  nlevels += 1;
 	}
 	if (iter >= 2) {
@@ -2949,7 +2952,9 @@ double BlockRelaxation(int iter) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m] && blk1->rec == NULL) {
-	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
+	  /*	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
+	  d += fabs(blk1->n[m] - blk1->n0[m]);
+	  td += fabs(blk1->n[m]);
 	  nlevels += 1;
 	}
 	if (iter <= -2) {
@@ -2960,7 +2965,7 @@ double BlockRelaxation(int iter) {
       }
     }
   }
-  d /= nlevels;
+  d /= td;
   return d;
 }
 

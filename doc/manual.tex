@@ -448,7 +448,7 @@ value returned by the C lib function time(0). It is platform dependent.
 \item[\texttt{char symbol[4]}:] The first 3 bytes contains a NULL
 terminated C string representing the 2-charactor abbreviation of the atomic
 symbol. The 4th byte is either 0 or 1, indicating whether the platform stores
-data in liitle or big endian.
+data in litle or big endian.
 \item[\texttt{int nblocks}:] Number of data blocks in this file.
 \end{dbdesc}
 
@@ -855,14 +855,15 @@ expansion. The result is in atomic unit Hartree$^{-1}$.
 atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
 \begin{eqnarray}
-\sigma_{PI} &=& 2\pi\alpha\frac{1+\alpha^2\varepsilon}{1+0.5\alpha^2\varepsilon}
+\sigma_{PI} &=& 2\pi\alpha\frac{1+\alpha^2\varepsilon}
+      {1+\frac{1}{2}\alpha^2\varepsilon}
                  \frac{d f}{d E} \nonumber\\
             &=& \frac{2\pi\alpha}{g_i}
-		 \frac{1+\alpha^2\varepsilon}{1+0.5\alpha^2 \varepsilon} 
+		 \frac{1+\alpha^2\varepsilon}{1+\frac{1}{2}\alpha^2 \varepsilon} 
 		 \frac{d(gf)}{d E} \nonumber\\
 \sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}
-                \frac{\omega^2}{\varepsilon (1+0.5\alpha^2 \varepsilon)}
-\sigma_{PI},
+                \frac{\omega^2}{\varepsilon \left(1+\frac{1}{2}\alpha^2
+                  \varepsilon\right)} \sigma_{PI},
 \end{eqnarray}
 where $\alpha$ is the fine structure constant, $g_i$ and $g_f$ are the
 statistical weight of the bound states before and after the photoionzation
@@ -2466,14 +2467,16 @@ platform, have the same type and for the same element.
 \end{fundesc}
 
 \begin{fundesc}{LevelInfor}{fn, ilev}
-Look up in the energy database file \var{fn} for the level indexed
+If \var{ilev}$\ge 0$, look up in the energy database file \var{fn} for the
+level indexed 
 \var{ilev}. It returns a tuple of length 6. The first element is the energy in
 atomic units, the second is the parity and the valence $nl$ values, the
 third is the 2J value, the fourth is the complex name, the fifth is the
 non-relativsitic configuration, and the sixth is the relativistic
 configuration and the coupling. The parity and the $nl$ values are encoded
 as $\pm n*100+l$, where $+$ sign is for even parity and $-$ sign is for odd
-parity.
+parity. If \var{ilev}$<0$, it returns the index of the first level with number
+of electrons equal to $-ilev$.
 \end{fundesc}
 
 \begin{fundesc}{MBPT}{fn, g, gp, n0, n1, lmax\opt{, dn, mode}}
@@ -3154,7 +3157,7 @@ strengths on this grid are output. It is forced to be same as that set by
 \key{SetPEGrid} if the \key{QKMODE} is \key{'exact'}.
 \end{fundesc}
 
-\begin{fundesc}{SetUTA}{m}
+\begin{fundesc}{SetUTA}{m\opt{, ci}}
 Set the flag for configuration average models. If $m=1$, all calculations are
 carried out in the configuration average approximation. The radiative
 transition rates output contains three additional fields, the energy shift,
@@ -3163,7 +3166,11 @@ the configuration interaction within the same non-relativisitc
 configurations. If $m=0$, which is the default,
 the usual detailed term accounting method is used. This function should be
 called in the beginning of the script, before \key{Config} function, since it
-disables the angular momentum coupling performed by \key{Config}.
+disables the angular momentum coupling performed by \key{Config}. The optional
+argument \var{ci} indicates when reading the \key{DB\_TR} files, the
+configuration interaction correction factors should be included. These
+correction factors are always calculated in \key{TransitionTable} irrespective
+of the value of \var{ci}.
 \end{fundesc}
 
 \begin{fundesc}{SetVP}{vp}
@@ -4301,7 +4308,8 @@ them. I originally submitted them to Computer Physics Communications
 (CPC). However, the referee and editor complained about the lack of
 documentation and code comments. The documentation has improved since
 then, the code commenting still needs extensive work, which may not be done
-soon. Therefore, the references are yet to come.}
+soon. The first paper that used results of FAC is Gu, M.F., 2003, ApJ, 582,
+1241, which can be used as the reference.}
 
 \faq{How do I report bugs, make suggestions and get updated about new
 versions}{
@@ -4356,7 +4364,7 @@ primirily designed for, one typically inlcudes only configurations within the
 same complex, except for some low-lying configurations.}
 
 \faq{What relativistic effects are included}{
-The standard Coulomn-Dirac Hamiltonian is used in FAC, which means that the
+The standard Dirac-Coulomb Hamiltonian is used in FAC, which means that the
 spin-orbit interaction, mass-effect and other leading relativistic effects are
 fully treated. However, higher-order QED effects, such as retardation and
 recoil are only included in the Breit interaction with zero energy limit for
@@ -4366,7 +4374,7 @@ treated in the screened hydrogenic approximation.}
 \faq{Why the transition rate between two specific states is not in the output
 file, although it should have been calculated}{
 Not every calculated transition rate are output. Some weak transitions are
-discarded to avoid very large files. A small number, which may be set by the
+discarded to avoids very large files. A small number, which may be set by the
 function \key{fac.SetTransitionCut}, controlls this behavior. If the
 transition rate of $2\to 1$ devided by the total decay rate of state 2 is less
 than this number, this rate is not output. The default for this number is
@@ -4413,7 +4421,7 @@ should be used to obtain them.}
 \section{Photoionization and Radiative Recombination}
 \faq{When can I use the function \key{RecStates} to construct the
 recombined states instead of specifying their configurations by \key{Config}}{
-The function\key{RecStates} can only be used if the free electron is captured
+The function \key{RecStates} can only be used if the free electron is captured
 to an empty orbital.}
 
 \faq{Why is the bound-free oscillator strength differ from some other
@@ -4425,7 +4433,7 @@ calculations by a constant factor. One should always use the formula in this
 manual or the accompanying papers to convert them to photoionization or
 radiative recombination cross sections.}
 
-\faq{Can I use only the fitting formula and ignore the tabulated the $gf$
+\faq{Can I use only the fitting formula and ignore the tabulated $gf$
 values}{
 The fitting formula and the parameters given for the bound-free oscillator
 strengths is only valid at high energies (beyond the largest energy of the
@@ -4472,7 +4480,7 @@ method overestimates the near threshold cross sections.}
 \faq{Why is the \key{DW} mode so slow as compared with \key{BED} and \key{CB}
 modes}{
 In the \key{DW} mode, the ionization radial integrals are calculated by
-summing up partial wave contributions. This is a timing consuming process as
+summing up partial wave contributions. This is a time consuming process as
 now there are two continuum electrons involved. In the \key{CB} mode, the
 radial integrals are simply looked up in a table, is therefore the fastest
 method. In the \key{BED} mode, the radial integrals are calculated using the
