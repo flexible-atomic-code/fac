@@ -93,7 +93,7 @@ then
 	xxFortran=sunFortran
       ;;
       *)
-        echo "Note: F77 known by cfortran.h is not detected."
+        echo "NOTE: F77 known by cfortran.h is not detected."
         echo "      using default f2cFortran."
         echo "      if not, chage it using --with-cfortran=xxFortran"
         echo "      see faclib/cfortran.doc for available options."
@@ -103,6 +103,22 @@ then
 fi
 AC_DEFINE_UNQUOTED([$xxFortran])
 
+# special flags for some OS
+case "$host_os" in
+  *darwin*)
+    CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+    if test -n "$G77"
+    then 
+      FFLAGS="$FFLAGS -fno-common"
+# somehow, darwin gives a lot of junk for F77 LD_FLAGS under g77. 
+# overwrite it with a simple one.
+      FLIBS="-lg2c -lm"
+    fi
+  ;;
+  *)
+  ;;
+esac 
+      
 # add include and lib. pathes.	      
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
