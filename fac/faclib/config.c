@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.26 2003/05/14 21:59:59 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.27 2003/05/22 20:22:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1486,11 +1486,9 @@ int AddConfigToList(int k, CONFIG *cfg) {
   int ip, ns;
 
   if (cfg->n_csfs > nstates_partition) {
-    printf("Error: a single configuration in group %s ", cfg_groups[k].name);
-    printf("has more than %d states\n", nstates_partition);
-    printf("Enlarge nstates_partition to at least %d\n", cfg->n_csfs);
-    return -1;
+    SetNStatesPartition(cfg->n_csfs);
   }
+
   if (k < 0 || k >= n_groups) return -1;
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
