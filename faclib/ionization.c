@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.53 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.54 2005/03/03 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1073,7 +1073,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.usr_egrid_type = usr_egrid_type;
   file = OpenFile(fn, &fhdr);
 
-  e0 = emin;
+  e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;

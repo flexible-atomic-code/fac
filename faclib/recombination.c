@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.86 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.87 2005/03/03 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1707,7 +1707,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.multipole = m;
   f = OpenFile(fn, &fhdr);
   
-  e0 = emin;
+  e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
@@ -1918,7 +1918,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
   f = OpenFile(fn, &fhdr);
 
-  e0 = emin;
+  e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;

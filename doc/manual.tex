@@ -2268,7 +2268,9 @@ default, or that of the incident energy if $m = 0$.
 \begin{fundesc}{CERate}{ifn, ofn, low, up, t}
 Calculate the effective collision strength and rate coefficients at
 temperatures given in list \var{t} between levels \var{low} and \var{up} by
-interpolating the data from CE binary data file \var{ifn}. The results are
+interpolating the data from CE binary data file \var{ifn}. If either \var{low}
+or \var{up} is negative, then the level index is looped over to give rate
+coefficients for all transitions. The results are
 written in \var{ofn} in simple ASCII format. Before this routine is called,
 \key{MemENTable} must be called to establish the energy table that is
 consistent with \var{ifn}

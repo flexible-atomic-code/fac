@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.78 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.79 2005/03/03 23:31:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1846,7 +1846,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   te0 = emax;
 
-  e0 = emin;
+  e0 = emin*0.999;
   fhdr.type = DB_CE;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
