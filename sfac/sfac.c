@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.17 2002/04/30 15:01:54 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.18 2002/04/30 19:52:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2291,7 +2291,6 @@ static METHOD methods[] = {
   {"RecStates", PRecStates, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
-  {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
