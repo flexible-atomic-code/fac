@@ -12,11 +12,12 @@ int InitAngular() {
   int n;
 
   ln_factorial[0] = 0.0;
+  ln_integer[0] = -100.0;
   for (n = 1; n < MAX_FACTORIAL; n++) {
-    ln_factorial[n] = ln_factorial[n-1] + log((double) n); 
+    ln_integer[n] = log((double) n);
+    ln_factorial[n] = ln_factorial[n-1] + ln_integer[n]; 
   }
   return 0;
-
 }
 
 int Triangle(int j1, int j2, int j3) {

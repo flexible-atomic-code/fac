@@ -14,7 +14,7 @@ static double log_te[MAX_TEGRID];
 
 static EXCIT_TIMING timing = {0, 0, 0};
 
-static CEPW_SCRATCH pw_scratch = {1, MAX_KL, 1E-1, 5E-2, 1E-3, 0, 0};
+static CEPW_SCRATCH pw_scratch = {1, MAX_KL, 1E-1, 1E-1, 1E-3, 0, 0};
 
 static MULTI *pk_array;
 static MULTI *kappa0_array;
@@ -105,7 +105,7 @@ int SetCEPWOptions(int qr, int max, double eps_dipole,
   pw_scratch.eps_forbidden = eps_forbidden;
   pw_scratch.nkl0 = 1;
   pw_scratch.kl[0] = 0;
-  pw_scratch.log_kl[0] = -10.0;
+  pw_scratch.log_kl[0] = -100.0;
   pw_scratch.nkl = 0;
   return 0;
 }
@@ -350,7 +350,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   qkt = 0.0;
   q = 1;
   m = 1;
-  z = (egrid[0] / e1);
+  z = (tegrid[0] / e1);
   if (z > 1.0) z = 1.0;
   eps_dipole = pw_scratch.eps_dipole * z;
   eps_allowed = pw_scratch.eps_allowed * z;
@@ -379,7 +379,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	}
       }
       if (pw_scratch.kl[t+1] > kl_max) {      
-	if (type == 1 & mode == 0) second_last_kl0 = 1;
+	if (type == 1 && mode == 0) second_last_kl0 = 1;
 	else last_kl0 = 1;
       }
     }
@@ -602,7 +602,7 @@ double CERadialQk(int ie, double te, int k0,
     kl1 = pw_scratch.kl[i];
     for (j = kl0+1; j < kl1; j++) {
       splint(pw_scratch.log_kl, pw_scratch.qk, y2, nkl, 
-	     log((double)j), &s);
+	     LnInteger(j), &s);
       r += s;
     }
   }
@@ -793,7 +793,7 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
       kl1 = pw_scratch.kl[i];        
       for (j = kl0+1; j < kl1; j++) {       
 	splint(pw_scratch.log_kl, qk[iq], qy2, 
-	       nkl, log((double)j), &s); 
+	       nkl, LnInteger(j), &s); 
 	r += s; 
       }      
     }    
@@ -1192,9 +1192,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   if (pw_scratch.nkl0 == 0) {
     if (msub) {
-      SetCEPWOptions(0, 200, 1E-2, 1E-2, 1E-3);
+      SetCEPWOptions(0, 100, 1E-2, 1E-2, 1E-3);
     } else {
-      SetCEPWOptions(0, 200, 1E-1, 5E-2, 1E-3);
+      SetCEPWOptions(0, 100, 1E-1, 1E-1, 1E-3);
     }
   }
   if (pw_scratch.nkl == 0) {

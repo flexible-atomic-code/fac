@@ -235,22 +235,16 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(max\_allow, max\_forbidden, qr, tol)] 
-Set partial wave options for excitation calculation. ``max\_allow'' is the
-maximum partial wave to be included for dipole allowed transitions. 
-``max\_forbidden'' is that for forbidden transitions,
-Internally, a partial wave grid is setup from $l = 0$ to 
-``max\_allow'', which includes every $l$ below 5 but use a logarithmic grid
-beyond that. The radial integrals are then interpolated on this grid. If
-a detailed specification of the grid is needed, SetCEPWGrid() may be used.
-``qr'' is the orbital
-angular momentum value beyond which a ``quasi-relativistic'' approximaiton
-is used for the radial integrals, which ignores the small component of the
-wavefunction and treat the orbitals with different $j$ but same $l$ as the
-same. ``tol'' is a small number, When the exchange integral is smaller than the
-tol fraction of the direct integral, the exchange integral is neglected, and a
-separated form of the Coulomb interaction is used. The defaults: ``max\_allow
-= 40'', ``max\_forbidden = 15'', ``qr = 1'', ``tol = 1E-3''.
+\item[SetCEPWOptions(lmax, eps\_dipole, eps\_allowed, eps\_forbidden, qr)] 
+Set partial wave options for excitation calculation. Last four parameters are
+optional. ``lmax'' sets an absolute limit for the partial wave 
+summation, which may or may not be reached in the calculation. ``eps\_dipole'',
+``eps\_allowed'', and ``eps\_forbidden'' set the partial wave summation
+terminating criteria for dipole allowed, other allowed, and forbidden
+transitions as described in \S\ref{sec_theory}. ``qr'' specifies $l_{qr}$,
+beyond which, the quasi-relativistic approximaiton should be used. The default
+values for these parameters are, ``lmax = 100'', ``eps\_dipole = 0.1'',
+``eps\_allowed = 0.1'', ``eps\_forbidden = 0.001'', and ``qr = 0''. 
 
 \item[SetCEPWGrid(m)] 
 ``m'' is the partial wave value, beyond which a logrithmic
@@ -293,13 +287,19 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(max\_a, max\_f, max\_k, max\_e, qr, tol)] 
-See SetCEPWOptions() for detail. Additional parameters ``max\_k'' and
-``max\_e'' are optional, specifies the maximum rank of Coulomb expansion for
-ionization radial integrals (if a smaller value than that specified by
-``SetMaxRank'' is desired'' and the maximum orbital angular momentum of the
-ejected electron. Defaults are ``max\_a = 15'', ``max\_f=10'', ``max\_k=6'',
-``max\_e=6'', ``qr=0'', ``tol=1E-3''.
+\item[SetCIPWOptions(lmax, lmax\_eject, eps\_dipole, eps\_allowed,
+eps\_forbidden, eps\_k, qr)]
+Set the partial wave options. ``lmax\_eject'' is the maximum
+orbital angular momentum for the ejected electron, and ``eps\_k'' is a
+small number which terminates the summation over the rank $k$ when the ratio
+of the added term to the sum falls below ``eps\_k''. Other parameters are the
+same as in ``SetCEPWOptions''. The default values are,
+``lmax = 50'', ``lmax\_eject = 8'', ``eps\_dipole = 0.1'', ``eps\_allowed =
+0.1'', ``eps\_forbidden = 0.1'', ``eps\_k = 0.01'' and ``qr = 0''. Smaller
+values of the highest partial waves are justified 
+here because the ionzation energies are usually larger than the excitation
+energies(very high partial waves tends to have large contributions only in
+$\Delta n = 0$ excitations, where the transition energies are very small).
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.

@@ -7,16 +7,15 @@
 #define MAX_USR_CIEGRID 20
 #define MAX_CIEGRID 15
 #define MAX_CIKL 100
-#define MAX_CINKL 50
+#define MAX_CINKL 30
 #define MAX_IEGRID 5
-#define MAX_CIK 12
 #define N_INTEGRATE 32
 
 int FreeIonizationQk();
 int InitIonization();
 int SetIEGrid(int n, double emin, double emax);
-int SetCIPWOptions(int max_k, int qr, int max, int max_1, int max_2, 
-		   int max_f, double tol);
+int SetCIPWOptions(int qr, int max, int max_eject, double eps_dipole, 
+		   double eps_allowed, double eps_forbidden, double eps_k);
 int ADDCIPW(int n, int step);
 int SetCIPWGrid(int ns, int *n, int *step);
 int SetCIEGrid(int n, double emin, double emax, int type);
