@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.61 2004/06/13 04:37:25 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.62 2004/06/13 05:26:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -509,10 +509,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
     emin += ENEABSERR;
   } else {
-    emin = EnergyH(z, orb->n, orb->kappa);
+    emin = 2*EnergyH(z, orb->n, orb->kappa);
   }
   
-  e = emin;
+  e = 0.5*emin;
   niter = 0;
   while (niter < max_iteration) {
     niter++;
@@ -532,7 +532,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     return -2;
   }
   emax = e;
-  printf("%d %d %10.3E %10.3E %10.3E\n", niter, nodes, e, emin, emax);
 
   niter = 0;
   if (nodes != nr) {
@@ -555,7 +554,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 	free(p);
 	return -3;
       }
-      e = 0.5*(emin + emax);
     }
     if (nodes != nr) {
       while (niter < max_iteration) {
@@ -585,7 +583,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       }
     }
   }
-
+  
   de = 0.5*(emax - emin);
   while (de > ENEABSERR) {
     de *= 0.25;
@@ -655,10 +653,15 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     if (fabs(p[i]) > ep) break;
   }
   if (IsEven(i)) i++;
-  orb->ilast = i;
+  orb->ilast = i;       
+  for (i = 0; i < pot->maxrp; i++) {    
+    p[i] *= fact;
+  }
 
   nodes = 0;
-  i = orb->ilast;
+  for (i = orb->ilast; i >= 0; i--) {
+    if (fabs(p[i]) > EPS5) break;
+  }
   p1 = p[i];
   for (; i > 0; i--) {
     p2 = fabs(p[i]);
@@ -671,15 +674,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (nodes != nr) {
-    printf("RadialBound: No. nodes changed in iteration\n");
+    printf("RadialBound: No. nodes changed in iteration %d %d\n", nodes, nr);
     free(p);
     return -6;
   }
-       
-  for (i = 0; i < pot->maxrp; i++) {    
-    p[i] *= fact;
-  }
- 
+
   orb->energy = e;
   orb->wfun = p;
   orb->qr_norm = 1.0;
