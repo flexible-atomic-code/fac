@@ -9,7 +9,7 @@
   interacting ones, and calculate the reduced matrix elements
   of the operator Z and ZxZ0, 
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

@@ -10,7 +10,7 @@
   It is mainly translated from the F90 package of 
   Gaigalas et al. CPC 139 (2001) 263.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

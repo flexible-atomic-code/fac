@@ -1,6 +1,6 @@
 #include "cfp.h"
 
-static char *rcsid="$Id: cfp.c,v 1.4 2001/11/10 01:13:25 mfgu Exp $";
+static char *rcsid="$Id: cfp.c,v 1.5 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -11,7 +11,7 @@ USE (rcsid);
   calculates the coefficients of fractional parentage in 
   j-j coupling by means of table lookup. 
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 

@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.13 2003/05/23 21:28:02 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.14 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,7 @@ USE (rcsid);
   All angular momentum arguments are twice their actual
   values to represent half-integer using integers.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 *************************************************************/
 
 double ln_factorial[MAX_FACTORIAL];

@@ -6,7 +6,7 @@
   This module generates electron configuations and 
   carries out the angular momentum coupling. 
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

@@ -15,7 +15,7 @@
   approach of Gaigalas et al. CPC 139 (2001) 263. is used.
   See the module "rcfp.c"
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

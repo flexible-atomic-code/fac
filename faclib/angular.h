@@ -11,7 +11,7 @@
   for the Wigner 3j symbol which avoids the overflow for 
   large angular momenta.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

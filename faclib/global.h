@@ -5,7 +5,7 @@
 /*************************************************************
   Header file defining some global constants, macros.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 
@@ -68,7 +68,7 @@
 */
 #define VERSION        1
 #define SUBVERSION     0
-#define SUBSUBVERSION  2
+#define SUBSUBVERSION  3
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))

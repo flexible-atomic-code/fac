@@ -1,4 +1,4 @@
-static char *rcsid="$Id: init.c,v 1.4 2002/01/14 23:19:42 mfgu Exp $";
+static char *rcsid="$Id: init.c,v 1.5 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -19,7 +19,7 @@ int Info(void) {
   printf("The Flexible Atomic Code (FAC)\n");
   printf("Version %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
   printf("Bugs and suggestions, please contact:\n");
-  printf("Ming Feng Gu, mfgu@space.mit.edu\n");
+  printf("Ming Feng Gu, mfgu@stanford.edu\n");
   printf("========================================\n");
   return 0;
 }

@@ -5,10 +5,10 @@
   Implementation for module "coulomb". 
   This module calculates quatities related to the H-like ions.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.25 2003/07/14 16:27:33 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.26 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);

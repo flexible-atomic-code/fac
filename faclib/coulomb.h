@@ -5,7 +5,7 @@
   Header for module "coulomb". 
   This module calculates quatities related to the H-like ions.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 /* 

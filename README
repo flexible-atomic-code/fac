@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.35 2003/09/26 18:11:52 mfgu Exp $
+# rcsid = $Id: README,v 1.36 2003/09/26 19:42:51 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -91,7 +91,8 @@ section of the manual.
 
 Contact:
 Bugs, and suggestions, please report to:
-	mfgu@space.mit.edu
+	mfgu@stanford.edu
 	Ming Feng Gu.
-	Center for Space Research, MIT.
+	Physics Department
+	Stanford University
 

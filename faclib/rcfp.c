@@ -1,7 +1,7 @@
 #include "angular.h"
 #include "rcfp.h"
 
-static char *rcsid="$Id: rcfp.c,v 1.7 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: rcfp.c,v 1.8 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -16,7 +16,7 @@ USE (rcsid);
   It is mainly translated from the F90 package of 
   Gaigalas et al. CPC 139 (2001) 263.
 
-  Author: M. F. Gu, mfgu@space.mit.edu
+  Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
 
