@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.36 2003/04/28 19:57:31 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.37 2003/05/23 21:28:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -270,7 +270,7 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   FILE *f;
   F_HEADER fh;
-  int i;
+  int i, swp;
 
   if (argc == 0) {
     i = CheckEndian(NULL);
@@ -280,7 +280,7 @@ static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
       printf("Cannot open file %s\n", argv[0]);
       return -1;
     }
-    fread(&fh, sizeof(F_HEADER), 1, f);
+    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
     fclose(f);
   }
