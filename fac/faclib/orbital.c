@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.74 2004/07/18 01:46:22 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.75 2004/07/27 02:38:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1245,10 +1245,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
 
-  for (i = pot->maxrp-1; i >= 0; i--) {
-    if (fabs(p[i]) > wave_zero) break;
-  }
-  if (IsEven(i)) i++;
+  i = pot->maxrp-1;
   orb->ilast = i;
   orb->energy = e;
   orb->wfun = p;

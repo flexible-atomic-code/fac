@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.60 2004/06/23 18:55:04 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.61 2004/07/27 02:38:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1303,6 +1303,11 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
       fclose(f);
       f = fopen(fn, "w");
     }
+  }
+
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    exit(1);
   }
 
   fheader[ihdr].type = fhdr->type;
