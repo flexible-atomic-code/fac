@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.32 2002/02/04 15:48:33 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.33 2002/02/18 03:15:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -140,7 +140,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 256, 64, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 128, 64, 5E-2);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -518,30 +518,49 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	}
 	ipk += n_tegrid;
       }
-
-      spline(pw_scratch.log_kl, qk, nkl, 1E30, 1E30, y2); 
-      r = qk[0];
-      for (i = 1; i < nkl; i++) {
-	r += qk[i];
-	kl0 = pw_scratch.kl[i-1];
-	kl1 = pw_scratch.kl[i];
-	for (j = kl0+1; j < kl1; j++) {
-	  splint(pw_scratch.log_kl, qk, y2, nkl, 
-		 LnInteger(j), &s);
-	  r += s;
-	}
-      }
- 
-      if (type >= CBMULTIPOLES) {
-	b = GetCoulombBetheAsymptotic(te, e1);
-	s = qk[nklp]*b;
-	r = r + s;
-      } else if (type >= 0) {
-	b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
-	s = qk[nklp]*b;
-	r = r + s;       
-      }
       
+      for (i = 0; i < nkl; i++) {
+	if (!(qk[i] <= 0) && !(qk[i] > 0)) break;
+      }
+      nkl = i;
+      nklp = nkl-1;
+      if (nkl == 0) {
+	r = 1E-31;
+      } else if (nkl > 1) {
+	spline(pw_scratch.log_kl, qk, nkl, 1E30, 1E30, y2); 
+	r = qk[0];
+	for (i = 1; i < nkl; i++) {
+	  r += qk[i];
+	  kl0 = pw_scratch.kl[i-1];
+	  kl1 = pw_scratch.kl[i];
+	  for (j = kl0+1; j < kl1; j++) {
+	    splint(pw_scratch.log_kl, qk, y2, nkl, 
+		 LnInteger(j), &s);
+	    r += s;
+	  }
+	}
+      } else {
+	r = qk[0];
+      }
+      if (nkl > 0) {
+	if (type >= CBMULTIPOLES) {
+	  b = GetCoulombBetheAsymptotic(te, e1);
+	  s = qk[nklp]*b;
+	  if (s/r < 1.0) {
+	    r = r + s;
+	  } else {
+	    r = r + r;
+	  }
+	} else if (type >= 0) {
+	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
+	  if (b < 100.0) {
+	    s = qk[nklp]*b;
+	  } else {
+	    s = qk[nklp]*100.0;
+	  } 
+	  r = r + s;
+	}      
+      }
       rq[ite][ie] = r;
     }
   }
@@ -554,7 +573,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
     ptr += n_egrid;
   }
   rqc[nqk] = type;
-  if (rqc[nqk] >= 0 && rqc[nqk] != 1) rqc[nqk] = 0;
+
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -735,12 +754,20 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	  b = GetCoulombBetheAsymptotic(te, e1);
 	  for (iq = 0; iq < nq; iq++) {
 	    s = qk[iq][i]*b;
-	    rq[iq][ite][ie] += s;
+	    if (s/rq[iq][ite][ie] < 1.0) {
+	      rq[iq][ite][ie] += s;
+	    } else {
+	      rq[iq][ite][ie] *= 2.0;
+	    }
 	  }
 	} else if (type1 >= 0) {
 	  for (iq = 0; iq < nq; iq++) {
 	    b = (GetCoulombBethe(0, ite, ie, type1, iq+1))[i];
-	    s = qk[iq][i]*b;
+	    if (b < 100.0) {
+	      s = qk[iq][i]*b;
+	    } else {
+	      s = qk[iq][i]*100.0;
+	    }
 	    rq[iq][ite][ie] += s;
 	  }
 	}
@@ -748,7 +775,11 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
 	b = GetCoulombBetheAsymptotic(te, e1);
 	for (iq = 0; iq < nq; iq++) {
 	  s = qk[iq][i]*b;
-	  rq[iq][ite][ie] += s;
+	  if (s/rq[iq][ite][ie] < 1.0) {
+	    rq[iq][ite][ie] += s;
+	  } else {
+	    rq[iq][ite][ie] *= 2.0;
+	  }
 	}
       }
     }
@@ -765,7 +796,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3,
   }    
   rqc[nqk] = type1;
   if (type2 != 1) rqc[nqk] = type2;
-  if (rqc[nqk] >= 0 && rqc[nqk] != 1) rqc[nqk] = 0;
+
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -790,7 +821,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
     np = 3;
     nd = 1;
     type = rqe[n_tegrid*n_egrid];
-    if (type == 1 && te > 0.1*tegrid[0]) {
+    if (type == 0 || type == 1) {
       xte = log_te;
       x0 = log(te);
     } else {
@@ -801,9 +832,16 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
       j = i;
       for (m = 0; m < n_tegrid; m++) {
 	rq[m] = rqe[j];
+	if (type == 0) {
+	  rq[m] = log(fabs(rq[m]));
+	}
 	j += n_egrid;
       }
       uvip3p_(&np, &n_tegrid, xte, rq, &nd, &x0, &rqc[i]);
+      if (type == 0) {
+	rqc[i] = exp(rqc[i]);
+	if (rqe[i] < 0.0) rqc[i] = -rqc[i];
+      }
     }
   }
 
@@ -1013,8 +1051,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
      from the formula */
   OscillatorStrength(&r, &te, -1, lower, upper);
   *bethe = r*2.0/te;
-  if (*bethe <= 0.0) {
-    if (type == 0) *bethe = 0.0;
+  if (r < EPS10) {
+    if (type >= 0) *bethe = 0.0;
     else *bethe = -1.0;
   }
   if (!msub) {
@@ -1152,8 +1190,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   ANGULAR_TIMING angt;
   RECOUPLE_TIMING recouplet;
   RAD_TIMING radt;
-#endif
-  
+#endif  
   int i, j, k, n, m, ie, ip;
   FILE *f;
   double qkc[MAXMSUB*MAXNUSR];
@@ -1164,7 +1201,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   CE_RECORD r;
   CE_HEADER ce_hdr;
   F_HEADER fhdr;
-  double emin, emax, e, c;
+  ARRAY subte;
+  int isub, n_tegrid0, n_egrid0, n_usr0;
+  int te_set, e_set, usr_set;
+  double emin, emax, e, c, e0, e1;
   double rmin, rmax, bethe;
 
   n = 0;
@@ -1200,28 +1240,41 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       if (e > emax) emax = e;
     }
   }
-  if (emin < TE_MIN_MAX*emax) {
-    emin = TE_MIN_MAX*emax;
-  }
   if (m == 0) {
     return 0;
   }
 
-  if (n_tegrid == 0) {
-    n_tegrid = 3;
-  } 
-  if (tegrid[0] < 0.0) {
-    e = 2.0*(emax-emin)/(emax+emin);    
-    if (e < 0.1) {
-      SetCETEGrid(1, 0.5*(emin+emax), emax);
-    } else if (e < 0.5) {
-      SetCETEGrid(2, emin, emax);
-    } else {
-      if (m == 2) n_tegrid = 2;
-      SetCETEGrid(n_tegrid, emin, emax);
+  if (tegrid[0] < 0) {
+    te_set = 0;
+  } else {
+    te_set = 1;
+  }
+  if (egrid[0] < 0) {
+    e_set = 0;
+  } else {
+    e_set = 1;
+  }
+  if (usr_egrid[0] < 0) {
+    usr_set = 0;
+  } else {
+    usr_set = 1;
+  }
+  n_tegrid0 = n_tegrid;
+  n_egrid0 = n_egrid;
+  n_usr0 = n_usr;
+
+  ArrayInit(&subte, sizeof(double), 128);
+  ArrayAppend(&subte, &emin);
+  c = 1.0/TE_MIN_MAX;
+  if (!e_set || !te_set) {
+    e = c*emin;
+    while (e < emax) {
+      ArrayAppend(&subte, &e);
+      e *= c;
     }
   }
-
+  ArrayAppend(&subte, &emax);
+ 
   if (msub) {
     pw_type = 1;
   } else {
@@ -1229,9 +1282,14 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
   egrid_type = 1;
   usr_egrid_type = 1;
-
-  if (egrid_type == 0) e = emax;
-  else e = 0.5*(emin+emax);
+  if (pw_scratch.nkl == 0) {
+    SetCEPWGrid(0, NULL, NULL);
+  }
+  
+  e0 = emin;
+  e1 = emax;
+  if (egrid_type == 0) e = e0;
+  else e = 0.5*(e0+e1);
   if (egrid_limits_type == 0) {
     rmin = egrid_min;
     rmax = egrid_max;
@@ -1239,37 +1297,38 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     rmin = egrid_min/e;
     rmax = egrid_max/e;
   }
-  emin = rmin*e;
-  emax = rmax*e;
-
+  e0 = rmin*e;
+  e1 = rmax*e;
+  if (e0 > 0.5*emin) e0 = 0.5*emin;
+    
   if (qk_mode == QK_EXACT) {
-    if (n_egrid <= 0) {
-      if (n_usr <= 0) n_usr = 6;
-      if (usr_egrid[0] < 0.0) {
-	SetUsrCEEGrid(n_usr, emin, emax, e);
+    if (n_egrid0 <= 0) {
+      if (n_usr0 <= 0) n_usr = 6;
+      if (!usr_set) {
+	SetUsrCEEGrid(n_usr, e0, e1, e);
 	usr_egrid_type = 1;
       }  
       SetCEEGridDetail(n_usr, usr_egrid);
     } else {
-      if (egrid[0] < 0.0) {
-	SetCEEGrid(n_egrid, emin, emax, e);
+      if (!e_set) {
+	SetCEEGrid(n_egrid, e0, e1, e);
 	usr_egrid_type = 1;
       }
       SetUsrCEEGridDetail(n_egrid, egrid);
     }
   } else {
-    if (n_egrid == 0) {
+    if (n_egrid0 == 0) {
       n_egrid = 6;
     }
-    if (egrid[0] < 0.0) {
-      SetCEEGrid(n_egrid, emin, emax, e);
+    if (!e_set) {
+      SetCEEGrid(n_egrid, e0, e1, e);
     }
     if (qk_mode == QK_INTERPOLATE) {
-      if (n_usr <= 0) {
+      if (n_usr0 <= 0) {
 	SetUsrCEEGridDetail(n_egrid, egrid);
 	usr_egrid_type = 1;
-      } else if (usr_egrid[0] < 0) {
-	SetUsrCEEGrid(n_usr, emin, emax, e);
+      } else if (!usr_set) {
+	SetUsrCEEGrid(n_usr, e0, e1, e);
 	usr_egrid_type = 1;
       }
     } else if (qk_mode == QK_FIT) {
@@ -1281,99 +1340,123 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
     return -1;
   }
-
-  for (i = 0; i < n_egrid; i++) {
-    log_egrid[i] = egrid[i];
-    if (egrid_type == 1) log_egrid[i] += e;
-    log_egrid[i] = log(log_egrid[i]);
+  if (qk_mode == QK_INTERPOLATE) {
+    for (i = 0; i < n_egrid; i++) {
+      log_egrid[i] = egrid[i];
+      if (egrid_type == 1) log_egrid[i] += e;
+      log_egrid[i] = log(log_egrid[i]);
+    }
+    for (i = 0; i < n_egrid; i++) {
+      log_usr[i] = usr_egrid[i];
+      if (usr_egrid_type == 1) log_usr[i] += e;
+      log_usr[i] = log(log_usr[i]);
+    }
   }
-  for (i = 0; i < n_egrid; i++) {
-    log_usr[i] = usr_egrid[i];
-    if (usr_egrid_type == 1) log_usr[i] += e;
-    log_usr[i] = log(log_usr[i]);
-  }
-
-  if (pw_scratch.nkl == 0) {
-    SetCEPWGrid(0, NULL, NULL);
-  }
-  
-  e = 0.0;
-  c = GetResidualZ();
-  PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
-		   pw_scratch.nkl, pw_scratch.kl, egrid_type, 
-		   pw_type, msub);
-
-  fhdr.type = DB_CE;
-  strcpy(fhdr.symbol, GetAtomicSymbol());
-  fhdr.atom = GetAtomicNumber();
-  ce_hdr.nele = GetNumElectrons(low[0]);
-  ce_hdr.qk_mode = qk_mode;
-  if (qk_mode == QK_FIT) 
-    ce_hdr.nparams = NPARAMS;
-  else
-    ce_hdr.nparams = 0;
-  ce_hdr.pw_type = pw_type;
-  ce_hdr.n_tegrid = n_tegrid;
-  ce_hdr.n_egrid = n_egrid;
-  ce_hdr.egrid_type = egrid_type;
-  ce_hdr.n_usr = n_usr;
-  ce_hdr.usr_egrid_type = usr_egrid_type;
-  ce_hdr.msub = msub;
-  ce_hdr.tegrid = tegrid;
-  ce_hdr.egrid = egrid;
-  ce_hdr.usr_egrid = usr_egrid;
-
-  f = InitFile(fn, &fhdr, &ce_hdr);
-  
-  nsub = 1;
-  if (qk_mode == QK_FIT) {
-    m = ce_hdr.nparams * nsub;
-    r.params = (float *) malloc(sizeof(float)*m);
-  }
-  m = ce_hdr.n_usr * nsub;
-  r.strength = (float *) malloc(sizeof(float)*m);
-  
-  for (i = 0; i < nlow; i++) {
-    for (j = 0; j < nup; j++) {
-      k = CollisionStrength(qkc, params, &e, &bethe, low[i], up[j], msub); 
-      if (k < 0) continue;
-      r.bethe = bethe;
-      r.lower = low[i];
-      r.upper = up[j];
-      r.nsub = k;
-      if (r.nsub > nsub) {
-	if (qk_mode == QK_FIT) {
-	  m = ce_hdr.nparams * r.nsub;
-	  r.params = (float *) realloc(r.params, sizeof(float)*m);
+  e0 = emin;
+  for (isub = 1; isub < subte.dim; isub++) {
+    e1 = *((double *) ArrayGet(&subte, isub));
+    if (isub == subte.dim-1) e1 = e1*1.001;
+    if (!te_set) {
+      e = e1/e0;  
+      if (e < 1.1) {
+	SetCETEGrid(1, 0.5*(e1+e0), e1);
+      } else if (e < 2.0) {
+	SetCETEGrid(2, e0, e1);
+      } else {
+	if (n_tegrid0 == 0) {
+	  n_tegrid = 3;
 	}
-	m = ce_hdr.n_usr * r.nsub;
-	r.strength = (float *) realloc(r.strength, sizeof(float)*m);
-	nsub = r.nsub;
+	SetCETEGrid(n_tegrid, e0, e1);
       }
+    }
 
-      if (qk_mode == QK_FIT) {
+    e = 0.0;
+    c = GetResidualZ();
+    PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
+		     pw_scratch.nkl, pw_scratch.kl, egrid_type, 
+		     pw_type, msub);
+
+    fhdr.type = DB_CE;
+    strcpy(fhdr.symbol, GetAtomicSymbol());
+    fhdr.atom = GetAtomicNumber();
+    ce_hdr.nele = GetNumElectrons(low[0]);
+    ce_hdr.qk_mode = qk_mode;
+    if (qk_mode == QK_FIT) 
+      ce_hdr.nparams = NPARAMS;
+    else
+      ce_hdr.nparams = 0;
+    ce_hdr.pw_type = pw_type;
+    ce_hdr.n_tegrid = n_tegrid;
+    ce_hdr.n_egrid = n_egrid;
+    ce_hdr.egrid_type = egrid_type;
+    ce_hdr.n_usr = n_usr;
+    ce_hdr.usr_egrid_type = usr_egrid_type;
+    ce_hdr.msub = msub;
+    ce_hdr.tegrid = tegrid;
+    ce_hdr.egrid = egrid;
+    ce_hdr.usr_egrid = usr_egrid;
+
+    f = InitFile(fn, &fhdr, &ce_hdr);
+  
+    nsub = 1;
+    if (qk_mode == QK_FIT) {
+      m = ce_hdr.nparams * nsub;
+      r.params = (float *) malloc(sizeof(float)*m);
+    }
+    m = ce_hdr.n_usr * nsub;
+    r.strength = (float *) malloc(sizeof(float)*m);
+    
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetLevel(up[j]);
+	e = lev2->energy - lev1->energy;
+	if (e < e0 || e >= e1) continue;
+	k = CollisionStrength(qkc, params, &e, &bethe, low[i], up[j], msub); 
+	if (k < 0) continue;
+	r.bethe = bethe;
+	r.lower = low[i];
+	r.upper = up[j];
+	r.nsub = k;
+	if (r.nsub > nsub) {
+	  if (qk_mode == QK_FIT) {
+	    m = ce_hdr.nparams * r.nsub;
+	    r.params = (float *) realloc(r.params, sizeof(float)*m);
+	  }
+	  m = ce_hdr.n_usr * r.nsub;
+	  r.strength = (float *) realloc(r.strength, sizeof(float)*m);
+	  nsub = r.nsub;
+	}
+
+	if (qk_mode == QK_FIT) {
+	  ip = 0;
+	  for (m = 0; m < r.nsub; m++) {
+	    for (ie = 0; ie < ce_hdr.nparams; ie++) {
+	      r.params[ip] = (float) params[ip];
+	      ip++;
+	    }
+	  }
+	}
+      
 	ip = 0;
 	for (m = 0; m < r.nsub; m++) {
-	  for (ie = 0; ie < ce_hdr.nparams; ie++) {
-	    r.params[ip] = (float) params[ip];
+	  for (ie = 0; ie < ce_hdr.n_usr; ie++) {
+	    r.strength[ip] = (float) qkc[ip];
 	    ip++;
 	  }
 	}
+	WriteCERecord(f, &r);
       }
-      
-      ip = 0;
-      for (m = 0; m < r.nsub; m++) {
-	for (ie = 0; ie < ce_hdr.n_usr; ie++) {
-	  r.strength[ip] = (float) qkc[ip];
-	  ip++;
-	}
-      }
-      WriteCERecord(f, &r);
     }
+    if (qk_mode == QK_FIT) free(r.params);
+    free(r.strength);
+    CloseFile(f, &fhdr);
+    e0 = e1;
+    FreeExcitationQk();
+    ReinitRadial(1);
   }
-  if (qk_mode == QK_FIT) free(r.params);
-  free(r.strength);
-  CloseFile(f, &fhdr);
+
+  ArrayFree(&subte, NULL);
   if (alev) free(alev);
 
 #ifdef PERFORM_STATISTICS

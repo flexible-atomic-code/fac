@@ -9,7 +9,7 @@
 #define MAXNE          20
 #define MAXNTE         6
 
-#define TE_MIN_MAX     0.25
+#define TE_MIN_MAX     0.2
 
 int AddPW(int *nkl0, double *kl, double *logkl, 
 	  int maxkl, int n, int step);

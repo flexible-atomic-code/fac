@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.9 2002/02/12 20:32:16 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.10 2002/02/18 03:15:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -37,6 +37,13 @@ void dqagi_(double (*f)(double *),
 	    double *epsrel, double *result, double *abserr,
 	    int *neval, int *ier, int *limit, int *lenw,
 	    int *last, int *iwork, double *work);
+void dqng_(double (*f)(double *),
+	   double *a, double *b, double *epsabs, double *epsrel, 
+	   double *result, double *abserr, int *neval, int *ier);
+void dqags(double (*f)(double *),
+	   double *a, double *b, double *epsabs, double *epsrel, 
+	   double *result, double *abserr, int *neval, int *ier,
+	   int *limit, int *lenw, int *last, int *iwork, double *work);
 
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
@@ -84,6 +91,26 @@ int SetEleDist(int i, int np, double *p) {
   if (ele_dist[i].nparams != np) {
     printf("Num of Params for Electron Dist. %d does not match\n", i);
     return -1;
+  }
+  switch (i) {
+  case 0:
+    if (p[2] <= 0.0) {
+      p[2] = p[0]*100.0;
+    }
+    if (p[1] <= 0.0) {
+      p[1] = 1E-4*p[0];
+    }
+    break;
+  case 1:
+    if (p[3] <= 0.0) {
+      p[3] = p[0] + 6.0*p[1];
+    }
+    if (p[2] <= 0.0) {
+      p[2] = p[0] - 6.0*p[1];
+    }
+    break;
+  default:
+    break;
   }
   iedist = i;
   for (k = 0; k < np; k++) {
@@ -143,8 +170,9 @@ double IntegrateRate(int idist, double eth, double bound,
 		     int i0, int f0, int type, 
 		     double (*Rate1E)(double, double, int, int, void *)) { 
   double result;
-  int neval, inf, ier, limit, lenw, last;
+  int neval, inf, ier, limit, lenw, last, n;
   double epsabs, epsrel, abserr;
+  double a, b;
 
   inf = 1;
   ier = 0;
@@ -164,16 +192,24 @@ double IntegrateRate(int idist, double eth, double bound,
   rate_args.f = f0;
   rate_args.type = type;
 
-  if (bound == 0.0) bound = eth*EPS3;
-  dqagi_(RateIntegrand, &bound, &inf, &epsabs, &epsrel,
-	 &result, &abserr, &neval, &ier, &limit, &lenw,
-	 &last, _iwork, _dwork);
-
-  if (ier == 2 || ier == 4) {
+  n = rate_args.d->nparams;
+  b = rate_args.d->params[n-1];
+  a = rate_args.d->params[n-2];
+  if (bound > a) a = bound;
+  if (b <= a) return 0.0;
+  /*
+  dqags(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
+	&abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+  */
+  
+  dqng_(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
+	&abserr, &neval, &ier);
+  
+  if (ier > 0) {
     if (abserr < epsabs) return result;
     if (abserr < fabs(epsrel*result)) return Max(0.0, result);
   }
-
+  
   if (ier != 0 && rate_args.iprint) {
     printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E\n", 
 	   ier, neval, bound, result, abserr);
@@ -548,13 +584,24 @@ int AIRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
+static double Gaussian(double e, double *p) {
+  double x;
+  const double gauss_const = 0.39894228;
+
+  if (e > p[3] || e < p[2]) return 0.0;
+  x = (e - p[0])/p[1];
+  x = 0.5*x*x;
+  x = gauss_const * exp(-x)/p[1];
+
+  return x;
+}
+  
 static double Maxwell(double e, double *p) {
   double x;
   const double maxwell_const = 1.12837967;
-
+  
+  if (e > p[2] || e < p[1]) return 0.0;
   x = e/p[0];
-  if (x < 0.0 || x > 35) return 0.0;
-
   x = maxwell_const * sqrt(x) * exp(-x)/p[0];
   return x;
 }
@@ -563,7 +610,6 @@ static double PowerLaw(double e, double *p) {
   double x;
 
   if (e > p[2] || e < p[1]) return 0.0;
-
   if (p[0] == 1.0) {
     x = 1.0/(log(p[2]) - log(p[1]));
   } else {
@@ -681,12 +727,22 @@ int InitRates(void) {
   ipdist = 0;
   
   i = 0;
-  ele_dist[i].nparams = 1;
-  ele_dist[i].params = (double *) malloc(sizeof(double));
+  ele_dist[i].nparams = 3;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*3);
   ele_dist[i].params[0] = 1.0E3;
+  ele_dist[i].params[1] = 0.1;
+  ele_dist[i].params[2] = 1E5;
   ele_dist[i].dist = Maxwell;
   i++;
-  
+  ele_dist[i].nparams = 4;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*4);
+  ele_dist[i].params[0] = 1.0E3;
+  ele_dist[i].params[1] = 50.0;
+  ele_dist[i].params[2] = 1E3-250.0;
+  ele_dist[i].params[3] = 1E3+250.0;
+  ele_dist[i].dist = Gaussian;
+  i++;
+
   for (; i < MAX_DIST; i++) {
     ele_dist[i].nparams = 0;
     ele_dist[i].params = NULL;
@@ -710,7 +766,7 @@ int InitRates(void) {
 
   rate_args.epsabs = EPS8;
   rate_args.epsrel = EPS2;
-  rate_args.iprint = 0;
+  rate_args.iprint = 1;
 
   for (i = 0; i < NSEATON; i++) {
     log_xseaton[i] = log(xseaton[i]);

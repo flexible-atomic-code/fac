@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.6 2002/02/12 20:32:17 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.7 2002/02/18 03:15:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -76,7 +76,7 @@ static int PSetEleDist(int argc, char *argv[], int argt[],
   for (k = 1; k < argc; k++) {
     p[k-1] = atof(argv[k]);
   }
-  SetEleDist(i, np, p);
+  if (SetEleDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
   return 0;
 }
@@ -94,7 +94,7 @@ static int PSetPhoDist(int argc, char *argv[], int argt[],
   for (k = 1; k < argc; k++) {
     p[k-1] = atof(argv[k]);
   }
-  SetPhoDist(i, np, p);
+  if (SetPhoDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
   return 0;
 }
