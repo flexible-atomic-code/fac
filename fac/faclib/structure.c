@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.58 2004/05/05 16:08:06 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.59 2004/05/17 17:57:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -105,6 +105,7 @@ double MBPT0(int isym, SYMMETRY *sym, int q1, int q2, int kg, int ic) {
   return r;
 }
 
+static int _nnh_=0;
 double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
   STATE *s;
   HAMILTON *h;
@@ -133,7 +134,7 @@ double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
 
     d = d/(lev->energy - e);
     d = d*d;
-    if (d < EPS3) {
+    if (d < EPS4) {
       d = d*(lev->energy - e);
       r += d;
     } else {
@@ -147,6 +148,7 @@ double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
   }
 
   if (nh > 1) {
+    _nnh_ = nh;
     h = &_ham;
     h->dim = nh;
     h->n_basis = nh;
@@ -289,7 +291,272 @@ void MBPT2(int ilev, LEVEL *lev0, int kg,
     }
   }
 }
+
+int MBPTS(char *fn, char *fn1, int n, int *s0, int k, int *kg,
+	  int *n0, int nmax, int kmax, int nt) {
+  LEVEL *lev;
+  CONFIG_GROUP *g1, *g0;
+  CONFIG *c1, cp;
+  char gn[GROUP_NAME_LEN] = "_@nb@_";
+  int nele0, nele1, m, *s;
+  int i, p, p1, p2, q1, q2, ic, np;
+  int nq, kgp, kp, kp2, jp, kap, kq, kq2, jq, kaq;
+  double a, e, x, b, *r, *de, *e0;
+  int nm[10], n1, n2, inp, inq, nlevs, nk;
+  double dnq[10], xdnq[10], *deq, *tq, xnq, ynq, tnq;
+  FILE *f;
+
+  s = malloc(sizeof(int)*(n+1));
+  for (i = 0; i < n; i++) {
+    s[i] = s0[i];
+  }
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    nk = ConstructHamilton(i, n, n, s, 0, NULL);
+    if (nk < 0) continue;
+    DiagnolizeHamilton();
+    AddToLevels(0, s);
+  }
+  SaveLevels(fn, 0, -1);
+  nlevs = GetNumLevels();
+  e0 = malloc(sizeof(double)*nlevs);
+  for (i = 0; i < nlevs; i++) {
+    lev = GetLevel(i);
+    e0[i] = lev->energy;
+  }
+  ReinitRadial(1);
+  ReinitStructure(0);
+  ReinitRecouple(0);
   
+  if (nt > 9) nt = 9;
+  nm[0] = 0;
+  for (i = 1; i < 10; i++) {
+    nm[i] = nm[i-1] + (1<<(i-1));
+  }
+  n1 = nmax + nt;
+  np = nlevs*n1;
+
+  n2 = 6;
+  deq = malloc(sizeof(double)*nlevs*n2);
+  de = malloc(sizeof(double)*np);
+  for (i = 0; i < np; i++) de[i] = 0.0;
+  
+  g0 = GetGroup(s[0]);
+  nele0 = g0->n_electrons;
+  for (p = 0; p < k; p++) {
+    g1 = GetGroup(kg[p]);
+    c1 = GetConfigFromGroup(kg[p],0);
+    nele1 = g1->n_electrons;
+    printf("%2d %s\n", p, g1->name);
+    if (nele1 == nele0) {
+      np = c1->shells[0].n;
+      if (np > nmax) continue;
+      s[n] = kg[p];
+      for (i = 0; i < MAX_SYMMETRIES; i++) {
+	nk = ConstructHamilton(i, n, n+1, s, 0, NULL);
+	if (nk < 0) continue;
+	DiagnolizeHamilton();
+	AddToLevels(n, s);
+      }      
+      SaveLevels(fn, 0, -1);
+      for (m = 0; m < nlevs; m++) {
+	lev = GetLevel(m);
+	b = lev->energy - e0[m];
+	de[m*n1 + np-1] += b;
+      }
+      ReinitRadial(1);
+      ReinitStructure(0);
+      ReinitRecouple(0);
+    } else if (nele1 == nele0-1) {
+      for (inp = n0[p]; inp <= n1; inp++) {
+	if (inp <= nmax) {
+	  np = inp;
+	} else {
+	  np = nmax + nm[inp-nmax];
+	}
+	kgp = GroupIndex(gn);
+	printf("%d %d\n", np, kgp);
+	for (ic = 0; ic < g1->n_cfgs; ic++) {
+	  c1 = GetConfigFromGroup(kg[p], ic);
+	  for (kp = 0; kp <= kmax; kp++) {
+	    if (kp >= np) break;
+	    kp2 = 2*kp;
+	    for (jp = kp2 - 1; jp <= kp2 + 1; jp += 2) {
+	      if (jp < 0) continue;
+	      if (c1->shells[0].nq != 0) {
+		cp.n_shells = c1->n_shells + 1;
+		cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+		memcpy(cp.shells+1, c1->shells, sizeof(SHELL)*c1->n_shells);
+	      } else {
+		cp.n_shells = 1;
+		cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+	      }
+	      cp.shells[0].nq = 1;
+	      cp.shells[0].n = np;
+	      cp.shells[0].kappa = GetKappaFromJL(jp, kp2);
+	      Couple(&cp);
+	      AddConfigToList(kgp, &cp);
+	    }
+	  }
+	}
+	s[n] = kgp;
+	for (i = 0; i < MAX_SYMMETRIES; i++) {
+	  nk = ConstructHamilton(i, n, n+1, s, 0, NULL);
+	  if (nk < 0) continue;
+	  DiagnolizeHamilton();
+	  AddToLevels(n, s);
+	}
+	SaveLevels(fn, 0, -1);
+	for (m = 0; m < nlevs; m++) {
+	  lev = GetLevel(m);
+	  b = lev->energy - e0[m];
+	  de[m*n1 + inp-1] += b;
+	}
+	RemoveGroup(kgp);
+	ReinitStructure(0);
+	ReinitRecouple(0);
+	ReinitRadial(1);
+      }
+    } else if (nele1 == nele0 - 2) {
+      for (inp = n0[p]; inp <= n1; inp++) {
+	if (inp <= nmax) {
+	  np = inp;
+	} else {
+	  np = nmax + nm[inp-nmax];
+	}
+	for (inq = 0; inq < n2; inq++) {
+	  nq = np + nm[inq];
+	  dnq[inq] = nq;
+	  xdnq[inq] = log(nq);
+	  kgp = GroupIndex(gn);
+	  printf("%d %d %d\n", np, nq, kgp);
+	  for (ic = 0; ic < g1->n_cfgs; ic++) {
+	    c1 = GetConfigFromGroup(kg[p], ic);
+	    for (kp = 0; kp <= kmax; kp++) {
+	      if (kp >= np) break;
+	      kp2 = 2*kp;
+	      for (jp = kp2-1; jp <= kp2+1; jp += 2) {
+		if (jp < 0) continue;
+		kap = GetKappaFromJL(jp, kp2);
+		for (kq = 0; kq <= kmax; kq++) {
+		  if (kq >= nq) break;
+		  kq2 = 2*kq;
+		  for (jq = kq2-1; jq <= kq2+1; jq += 2) {
+		    if (jq < 0) continue;
+		    kaq = GetKappaFromJL(jq, kq2);
+		    if (np == nq && kap == kaq) {
+		      if (c1->shells[0].nq != 0) {
+			cp.n_shells = c1->n_shells + 1;
+			cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+			memcpy(cp.shells+1, c1->shells, 
+			       sizeof(SHELL)*c1->n_shells);
+		      } else {
+			cp.n_shells = 1;
+			cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+		      }
+		      cp.shells[0].nq = 2;
+		      cp.shells[0].n = np;
+		      cp.shells[0].kappa = kap;
+		    } else {
+		      if (np == nq && kaq > kap) continue;
+		      if (c1->shells[0].nq != 0) {
+			cp.n_shells = c1->n_shells + 2;
+			cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+			memcpy(cp.shells+2, c1->shells, 
+			       sizeof(SHELL)*c1->n_shells);
+		      } else {
+			cp.n_shells = 2;
+			cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
+		      }
+		      cp.shells[0].nq = 1;
+		      cp.shells[0].n = np;
+		      cp.shells[0].kappa = kap;
+		      cp.shells[1].nq = 1;
+		      cp.shells[1].n = nq;
+		      cp.shells[1].kappa = kaq;
+		    }
+		    Couple(&cp);
+		    AddConfigToList(kgp, &cp);
+		  }
+		}
+	      }
+	    }
+	  }
+	  s[n] = kgp;
+	  for (i = 0; i < MAX_SYMMETRIES; i++) {
+	    nk = ConstructHamilton(i, n, n+1, s, 0, NULL);
+	    if (nk < 0) continue;
+	    DiagnolizeHamilton();
+	    AddToLevels(n, s);
+	  }
+	  SaveLevels(fn, 0, -1);
+	  for (m = 0; m < nlevs; m++) {
+	    lev = GetLevel(m);
+	    b = lev->energy - e0[m];
+	    deq[m*n2 + inq] = b;
+	  }
+	  RemoveGroup(kgp);
+	  ReinitStructure(0);
+	  ReinitRecouple(0);
+	  ReinitRadial(1);
+	}
+	for (i = 0; i < nlevs; i++) {
+	  tnq = 0.0;
+	  tq = deq + i*n2;
+	  for (nq = 0; nq < n2; nq++) {
+	    if (tq[nq] >= 0) break;
+	  }
+	  if (nq == n2) {
+	    for (nq = 0; nq < n2; nq++) {
+	      tq[nq] = log(-tq[nq]);
+	    }
+	    for (nq = np; nq <= np+nm[n2-1]; nq++) {
+	      xnq = log(nq);		 
+	      UVIP3P(3, n2, xdnq, tq, 1, &xnq, &ynq);
+	      tnq += -exp(ynq);		  
+	    }
+	  } else {
+	    for (nq = np; nq <= np+nm[n2-1]; nq++) {
+	      xnq = nq;
+	      UVIP3P(3, n2, dnq, tq, 1, &xnq, &ynq);
+	      tnq += ynq;
+	    }
+	  }
+	  de[i*n1 + inp-1] += tnq;
+	}
+      }
+    }
+  }
+
+  f = fopen(fn1, "w");
+  for (i = 0; i < nlevs; i++) {
+    b = 0.0;
+    p = i*n1;
+    for (np = 1, p1 = 0; np <= n1; np++, p1++) {
+      if (np <= nmax) {
+	inp = np;
+      } else {
+	inp = nmax + nm[np-nmax];
+      }
+      a = de[p+p1];
+      if (a) {
+	a *= HARTREE_EV;
+	b += a;
+	fprintf(f, "%4d %5d %12.5E\n", inp, i, a);
+      }
+    }
+    fprintf(f, "\n#SUM %5d %12.5E ", i, b);
+    fprintf(f, "\n\n");
+  }
+  fprintf(f, "\n\n");
+  fclose(f);
+
+  free(de);
+  free(deq);
+  free(e0);
+  free(s);
+  return 0;
+}
+
 int MBPT(char *fn, int n, int *s, int k, int *kg, 
 	 int *n0, int nmax, int kmax, int nt, int m) {
   LEVEL *lev;
@@ -399,16 +666,16 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 	}
 	ReinitRadial(1);
       } else {
-	for (ic = 0; ic < g1->n_cfgs; ic++) {
-	  c1 = GetConfigFromGroup(kg[p], ic);
-	  if (nele1 == nele0-1) {
-	    for (inp = n0[p]; inp <= n1; inp++) {
-	      if (inp <= nmax) {
-		np = inp;
-	      } else {
-		np = nmax + nm[inp-nmax];
-	      }
-	      kgp = GroupIndex(gn);
+	if (nele1 == nele0-1) {
+	  for (inp = n0[p]; inp <= n1; inp++) {
+	    if (inp <= nmax) {
+	      np = inp;
+	    } else {
+	      np = nmax + nm[inp-nmax];
+	    }
+	    kgp = GroupIndex(gn);
+	    for (ic = 0; ic < g1->n_cfgs; ic++) {
+	      c1 = GetConfigFromGroup(kg[p], ic);
 	      for (kp = 0; kp <= kmax; kp++) {
 		if (kp >= np) break;
 		kp2 = 2*kp;
@@ -429,28 +696,35 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 		  AddConfigToList(kgp, &cp);
 		}
 	      }
-	      for (i = 0; i < n; i++) {
-		lev = GetLevel(s[i]);
-		sym = GetSymmetry(lev->pj);
-		b = MBPT1(lev, sym, kgp, m);
-		de[i*n1 + inp-1] += b;
-	      }
-	      RemoveGroup(kgp);
-	      ReinitRadial(1);
-	      ReinitRecouple(0);
 	    }
-	  } else if (nele1 == nele0 - 2) {
-	    for (inp = n0[p]; inp <= n1; inp++) {
-	      if (inp <= nmax) {
-		np = inp;
-	      } else {
-		np = nmax + nm[inp-nmax];
+	    for (i = 0; i < n; i++) {
+	      lev = GetLevel(s[i]);
+	      sym = GetSymmetry(lev->pj);
+	      _nnh_=0;
+	      b = MBPT1(lev, sym, kgp, m);
+	      if (_nnh_) {
+		printf("1E: %2d %2d %2d %2d %d\n", i, p, ic, np, _nnh_);
 	      }
-	      for (inq = 0; inq < n2; inq++) {
-		nq = np + nm[inq];
-		dnq[inq] = nq;
-		xdnq[inq] = log(nq);
-		kgp = GroupIndex(gn);
+	      de[i*n1 + inp-1] += b;
+	    }
+	    RemoveGroup(kgp);
+	    ReinitRadial(1);
+	    ReinitRecouple(0);
+	  }
+	} else if (nele1 == nele0 - 2) {
+	  for (inp = n0[p]; inp <= n1; inp++) {
+	    if (inp <= nmax) {
+	      np = inp;
+	    } else {
+	      np = nmax + nm[inp-nmax];
+	    }
+	    for (inq = 0; inq < n2; inq++) {
+	      nq = np + nm[inq];
+	      dnq[inq] = nq;
+	      xdnq[inq] = log(nq);
+	      kgp = GroupIndex(gn);
+	      for (ic = 0; ic < g1->n_cfgs; ic++) {
+		c1 = GetConfigFromGroup(kg[p], ic);
 		for (kp = 0; kp <= kmax; kp++) {
 		  if (kp >= np) break;
 		  kp2 = 2*kp;
@@ -477,6 +751,7 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 			  cp.shells[0].n = np;
 			  cp.shells[0].kappa = kap;
 			} else {
+			  if (np == nq && kaq > kap) continue;
 			  if (c1->shells[0].nq != 0) {
 			    cp.n_shells = c1->n_shells + 2;
 			    cp.shells = malloc(sizeof(SHELL)*cp.n_shells);
@@ -499,40 +774,44 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 		    }
 		  }
 		}
-		for (i = 0; i < n; i++) {
-		  lev = GetLevel(s[i]);
-		  sym = GetSymmetry(lev->pj);
-		  b = MBPT1(lev, sym, kgp, m);
-		  deq[i*n2 + inq] = b;
-		}
-		RemoveGroup(kgp);
-		ReinitRadial(1);
-		ReinitRecouple(0);
 	      }
 	      for (i = 0; i < n; i++) {
-		tnq = 0.0;
-		tq = deq + i*n2;
-		for (nq = 0; nq < n2; nq++) {
-		  if (tq[nq] >= 0) break;
+		lev = GetLevel(s[i]);
+		sym = GetSymmetry(lev->pj);
+		_nnh_ = 0;
+		b = MBPT1(lev, sym, kgp, m);
+		if (_nnh_) {
+		  printf("2E: %2d %2d %2d %2d %2d %d\n", i, p, ic, np, nq, _nnh_);
 		}
-		if (nq == n2) {
-		  for (nq = 0; nq < n2; nq++) {
-		    tq[nq] = log(-tq[nq]);
-		  }
-		  for (nq = np; nq <= np+nm[n2-1]; nq++) {
-		    xnq = log(nq);		 
-		    UVIP3P(3, n2, xdnq, tq, 1, &xnq, &ynq);
-		    tnq += -exp(ynq);		  
-		  }
-		} else {
-		  for (nq = np; nq <= np+nm[n2-1]; nq++) {
-		    xnq = nq;
-		    UVIP3P(3, n2, dnq, tq, 1, &xnq, &ynq);
-		    tnq += ynq;
-		  }
-		}
-		de[i*n1 + inp-1] += tnq;
+		deq[i*n2 + inq] = b;
 	      }
+	      RemoveGroup(kgp);
+	      ReinitRadial(1);
+	      ReinitRecouple(0);
+	    }
+	    for (i = 0; i < n; i++) {
+	      tnq = 0.0;
+	      tq = deq + i*n2;
+	      for (nq = 0; nq < n2; nq++) {
+		if (tq[nq] >= 0) break;
+	      }
+	      if (nq == n2) {
+		for (nq = 0; nq < n2; nq++) {
+		  tq[nq] = log(-tq[nq]);
+		}
+		for (nq = np; nq <= np+nm[n2-1]; nq++) {
+		  xnq = log(nq);		 
+		  UVIP3P(3, n2, xdnq, tq, 1, &xnq, &ynq);
+		  tnq += -exp(ynq);		  
+		}
+	      } else {
+		for (nq = np; nq <= np+nm[n2-1]; nq++) {
+		  xnq = nq;
+		  UVIP3P(3, n2, dnq, tq, 1, &xnq, &ynq);
+		  tnq += ynq;
+		}
+	      }
+	      de[i*n1 + inp-1] += tnq;
 	    }
 	  }
 	}
@@ -586,6 +865,11 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
   start = clock();
 #endif
 
+  char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
+  char nc[LEVEL_NAME_LEN];
+  int vnl;
+  
   if (k <= 0) return -1;
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
@@ -876,7 +1160,6 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
   return r;
 } 
     
-
 double HamiltonElement(int isym, int isi, int isj) { 
   CONFIG *ci, *cj;
   int ki, kj;

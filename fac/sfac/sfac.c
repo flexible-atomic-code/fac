@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.52 2004/05/05 16:08:07 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.53 2004/05/17 17:57:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2344,6 +2344,69 @@ static int PSortLevels(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PMBPTS(int argc, char *argv[], int argt[], 
+		  ARRAY *variables) {
+  int *n0, i, n1, *s, *kg, n, ng, kmax, nt;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], nv;
+  
+  if (argc < 7 || argc > 8) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != STRING) return -1;
+  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+  if (argt[5] != NUMBER || 
+      argt[6] != NUMBER) return -1;
+  nt = 5;
+  if (argc > 7) {
+    nt = atoi(argv[7]);
+  }
+
+  n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
+  if (n <= 0) return -1;
+  
+  ng = DecodeGroupArgs(&kg, 1, &(argv[3]), &(argt[3]), variables);
+  if (ng <= 0) {
+    free(s);
+    return -1;
+  }
+  
+  n0 = malloc(sizeof(int)*ng);
+  if (argt[4] == NUMBER) {
+    n0[0] = atoi(argv[4]);
+    for (i = 1; i < ng; i++) {
+      n0[i] = n0[0];
+    }
+  } else if (argt[4] == LIST) {
+    nv = DecodeArgs(argv[4], v, t, variables);
+    if (nv != ng) {
+      for (i = 0; i < nv; i++) free(v[i]);
+      printf("n0 array must have the same size as the gp array\n");
+      free(s);
+      free(kg);
+      free(n0);
+      return -1;
+    }
+    for (i = 0; i < nv; i++) {
+      n0[i] = atoi(v[i]);
+      free(v[i]);
+    }
+  } else {
+    return -1;
+  }
+    
+  n1 = atoi(argv[5]);
+  kmax = atoi(argv[6]);
+  
+  MBPTS(argv[0], argv[1], n, s, ng, kg, n0, n1, kmax, nt);
+
+  free(s);
+  free(kg);
+  free(n0);
+
+  return 0;
+}
+
 static int PMBPT(int argc, char *argv[], int argt[], 
 		 ARRAY *variables) {
   int *n0, i, n1, *s, *kg, n, ng, m, kmax, kmin;
@@ -2920,6 +2983,7 @@ static METHOD methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"MBPT", PMBPT, METH_VARARGS},
+  {"MBPTS", PMBPTS, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},

@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.14 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.15 2004/05/17 17:57:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -240,10 +240,12 @@ int ArrayFreeData(DATA *p, int esize, int block,
   void *pt;
   int i;
 
+  if (p == NULL) return 0;
+
   if (p->next) {
     ArrayFreeData(p->next, esize, block, FreeElem);
   }
-  
+    
   if (FreeElem && p->dptr) {
     pt = p->dptr;
     for (i = 0; i < block; i++) {
@@ -254,11 +256,9 @@ int ArrayFreeData(DATA *p, int esize, int block,
   if (p->dptr) {
     free(p->dptr);
   }
-  if (p) {
-    free(p);
-  }
-    
+  free(p);
   p = NULL;
+
   return 0;
 }
 

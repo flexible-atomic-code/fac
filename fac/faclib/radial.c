@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.87 2004/05/04 16:34:16 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.88 2004/05/17 17:57:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1922,7 +1922,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
       err = Slater(&d, k0, k1, k2, k3, kk, mode);
       if (kk == 1 && qed.sms && maxn > 0) {
-	d -= Vinti(k0, k2) * Vinti(k1, k3) / am;
+	a1 = Vinti(k0, k2);
+	a2 = Vinti(k1, k3);
+	d -= a1 * a2 / am;
       }
       a1 = ReducedCL(js[0], k, js[2]);
       a2 = ReducedCL(js[1], k, js[3]); 
@@ -2108,13 +2110,8 @@ double Vinti(int k0, int k1) {
     return 0.0;
   }
   
-  if (k0 > k1) {
-    index[0] = k1;
-    index[1] = k0;
-  } else {
-    index[0] = k0;
-    index[1] = k1;
-  }
+  index[0] = k0;
+  index[1] = k1;
   
   p = (double *) MultiSet(vinti_array, index, NULL, InitDoubleData);
   if (p && *p) {
