@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.88 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.89 2005/01/30 00:47:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3273,8 +3273,12 @@ int GetNumElectrons(int k) {
   } else {
     sym = GetSymmetry(lev->pj);
     s = (STATE *) ArrayGet(&(sym->states), lev->basis[0]);
-    g = GetGroup(s->kgroup);
-    nele = g->n_electrons;
+    if (s->kgroup >= 0) {
+      g = GetGroup(s->kgroup);
+      nele = g->n_electrons;
+    } else {
+      nele = 1+GetNumElectrons(-(s->kgroup)-1);
+    }
   }
 
   return nele;
