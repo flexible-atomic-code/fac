@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.43 2002/12/05 04:31:31 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.44 2002/12/05 20:57:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4131,7 +4131,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	    r1.flev = -1;
 	    r1.fbase = -1;
 	    r1.br = blk1->r[p];
-	    if (r1.br + 1.0 == 1.0) continue;
+	    if (!(blk1->r[p])) continue;
 	    WriteDRRecord(f, &r1);
 	  } else if (mode == 1) {
 	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
@@ -4142,7 +4142,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 		r1.flev = rp->f;
 		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
-		if (r1.br + 1.0 == 1.0) continue;
+		if (!(rp->dir)) continue;
 		WriteDRRecord(f, &r1);
 	      }
 	    }
@@ -4155,7 +4155,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 		r1.flev = rp->f;
 		r1.fbase = ion->ibase[rp->f];
 		r1.br = rp->dir/r1.total_rate;
-		if (r1.br + 1.0 == 1.0) continue;
+		if (!(rp->dir)) continue;
 		WriteDRRecord(f, &r1);
 	      }
 	    }

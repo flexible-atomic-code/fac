@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.36 2002/12/05 04:31:31 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.37 2002/12/05 21:00:11 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1777,11 +1777,11 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
       e = r.energy;
       if (v) {
 	e *= HARTREE_EV;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%3d\t%5d\t%3d\t%2d %2d\t%11.4E %11.4E %11.4E %11.4E\n",
+	fprintf(f2, "%6d\t%2d\t%4d\t%2d\t%3d\t%4d\t%3d\t%2d %2d\t%10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, h.ilev, h.j, r.ibase, r.flev, r.fbase, 
 		h.vn, r.vl, e, r.ai, r.total_rate, r.br);
       } else {
-	fprintf(f2, "%5d\t%2d\t%3d\t%5d\t%3d\t%2d\t%11.4E %11.4E %11.4E %11.4E\n",
+	fprintf(f2, "%6d\t%2d\t%3d\t%4d\t%3d\t%2d\t%10.4E %10.4E %10.4E %10.4E\n",
 		r.ilev, r.j, r.ibase, r.flev, r.fbase, r.vl, 
 		e, r.ai, r.total_rate, r.br);
       }
