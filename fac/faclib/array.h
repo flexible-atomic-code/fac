@@ -53,7 +53,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include <time.h>
+
+/* choose MULTI implementation */
+#ifdef USE_NMULTI
+#define MultiInit NMultiInit
+#define MultiGet NMultiGet
+#define MultiSet NMultiSet
+#define MultiFreeData NMultiFreeData
+#define MultiFree NMultiFree
+#else
+#define MultiInit SMultiInit
+#define MultiGet SMultiGet
+#define MultiSet SMultiSet
+#define MultiFreeData SMultiFreeData
+#define MultiFree SMultiFree
+#endif /*USE_NMULTI*/
+
 
 /*
 ** STRUCT:      DATA
@@ -88,12 +105,6 @@ typedef struct _ARRAY_ {
   DATA  *data;
 } ARRAY;
 
-
-typedef struct _MDATA_ {
-  unsigned short *index;
-  void *data;
-} MDATA;
-
 /*
 ** STRUCT:      MULTI
 ** PURPOSE:     a multi-dimensional array.
@@ -110,27 +121,11 @@ typedef struct _MDATA_ {
 */
 typedef struct _MULTI_ {
   unsigned short ndim;
+  unsigned short isize;
   unsigned short esize;
   unsigned short *block;
   ARRAY *array;
 } MULTI;
-
-
-#ifdef PERFORM_STATISTICS
-/*
-** STRUCT:      ARRAY_TIMING
-** PURPOSE:     timing informaiton for the modue "array".
-** FIELDS:      {clock_t array, multi},
-**              time spent in ARRAY and MULTI operations.
-** NOTE:        
-*/
-typedef struct _ARRAY_TIMING_ {
-  double array;
-  double multi;
-} ARRAY_TIMING;
-
-int   GetArrayTiming(ARRAY_TIMING *t);
-#endif
 
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
@@ -145,19 +140,17 @@ int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
 int   ArrayFreeData(DATA *p, int esize, int block, 
 		    void (*FreeElem)(void *));
 
-int   MultiInit(MULTI *ma, int esize, int ndim, int *block);
-void *MultiGet(MULTI *ma, int *k);
-void *MultiSet(MULTI *ma, int *k, void *d, 
+int   SMultiInit(MULTI *ma, int esize, int ndim, int *block);
+void *SMultiGet(MULTI *ma, int *k);
+void *SMultiSet(MULTI *ma, int *k, void *d, 
 	       void (*InitData)(void *, int));
-int   MultiFree(MULTI *ma, 
-		void (*FreeElem)(void *));
-int   MultiFreeData(ARRAY *a, int d, 
-		    void (*FreeElem)(void *));
+int   SMultiFree(MULTI *ma, void (*FreeElem)(void *));
+int   SMultiFreeDataOnly(ARRAY *a, int d, void (*FreeElem)(void *));
+int   SMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 
 /*
 ** the following set of funcitons are a different implementation
-** for the MULTI array, which turns out to be much worse than
-** than the original one. It is not being used.
+** for the MULTI array,
 */
 int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *NMultiGet(MULTI *ma, int *k);
@@ -165,11 +158,13 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
 		void (*InitData)(void *, int));
 int   NMultiFree(MULTI *ma, 
 		 void (*FreeElem)(void *));
-int   NMultiFreeData(ARRAY *a, int d, 
-		     void (*FreeElem)(void *));
+int   NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *));
+int   NMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 
 void  InitIntData(void *p, int n);
 void  InitDoubleData(void *p, int n);
 void  InitPointerData(void *p, int n);
+void  InitArrayData(void *p, int n);
+void  InitMDataData(void *p, int n);
 
 #endif

@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.81 2003/12/05 06:24:51 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.82 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3360,8 +3360,7 @@ int IntegrateSinCos(int j, double *x, double *y,
 }
 
 int FreeSimpleArray(MULTI *ma) {
-  if (ma->array == NULL) return 0;
-  MultiFreeData(ma->array, ma->ndim, NULL);
+  MultiFreeData(ma, NULL);
   return 0;
 }
 
@@ -3381,21 +3380,17 @@ static void FreeMultipole(void *p) {
 }
 
 int FreeMultipoleArray(void) {
-  if (multipole_array->array == NULL) return 0;
-  MultiFreeData(multipole_array->array, multipole_array->ndim, 
-		FreeMultipole);
+  MultiFreeData(multipole_array, FreeMultipole);
   return 0;
 }
 
 int FreeMomentsArray(void) {
-  if (moments_array->array == NULL) return 0;
-  MultiFreeData(moments_array->array, moments_array->ndim, NULL);
+  MultiFreeData(moments_array, NULL);
   return 0;
 }
 
 int FreeGOSArray(void) {
-  if (gos_array->array == NULL) return 0;
-  MultiFreeData(gos_array->array, gos_array->ndim, FreeMultipole);
+  MultiFreeData(gos_array, FreeMultipole);
   return 0;
 }
 

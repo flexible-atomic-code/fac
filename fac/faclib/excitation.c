@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.64 2003/12/06 00:30:15 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.65 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1922,19 +1922,7 @@ void FreeExcitationPkData(void *p) {
 }
 
 int FreeExcitationPk(int ie) {
-  ARRAY *b;
-
-  b = pk_array->array;
-  if (b == NULL) return 0;
-  if (ie < 0) {
-    MultiFreeData(b, pk_array->ndim, FreeExcitationPkData);
-  } else {
-    b = (ARRAY *) ArrayGet(b, ie);
-    if (b) {
-      MultiFreeData(b, pk_array->ndim - 1, FreeExcitationPkData);
-    }
-  }
-
+  MultiFreeData(pk_array, FreeExcitationPkData);
   return 0;
 }
 
@@ -1947,12 +1935,8 @@ void FreeExcitationQkData(void *p) {
 }
 
 int FreeExcitationQk(void) {
-  ARRAY *b;
-  b = qk_array->array;
-  if (b == NULL) return 0;
-  MultiFreeData(b, qk_array->ndim, FreeExcitationQkData);
+  MultiFreeData(qk_array, FreeExcitationQkData);
   FreeExcitationPk(-1);
-  
   return 0;
 }
   

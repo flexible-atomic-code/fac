@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "global.h"
 #include "array.h"
+#include "global.h"
 #include "coulomb.h"
 #include "config.h"
 #include "cfp.h"

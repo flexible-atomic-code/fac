@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.65 2004/01/08 19:04:03 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.66 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2129,7 +2129,7 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
     }
   }
   printf("set\n"); 
-  MultiFreeData(ma.array, ma.ndim, NULL);
+  MultiFreeData(&ma, NULL);
   printf("freed\n");
   Py_INCREF(Py_None);
   return Py_None;

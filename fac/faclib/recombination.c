@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.73 2003/12/05 06:24:51 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.74 2004/02/08 07:14:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1523,14 +1523,13 @@ static void FreeRecPkData(void *p) {
 }
 
 int FreeRecPk(void) {
-  if (pk_array->array == NULL) return 0;
-  MultiFreeData(pk_array->array, pk_array->ndim, FreeRecPkData);
+  MultiFreeData(pk_array, FreeRecPkData);
   return 0;
 }
 
 int FreeRecQk(void) {
   if (qk_array->array == NULL) return 0;
-  MultiFreeData(qk_array->array, qk_array->ndim, FreeRecPkData);
+  MultiFreeData(qk_array, FreeRecPkData);
   return 0;
 }
 
