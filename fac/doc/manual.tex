@@ -2443,16 +2443,18 @@ as $\pm n*100+l$, where $+$ sign is for even parity and $-$ sign is for odd
 parity.
 \end{fundesc}
 
-\begin{fundesc}{MBPT}{fn, g, gp, n0, n1, lmax\opt{, lmin}}
+\begin{fundesc}{MBPT}{fn, g, gp, n0, n1, lmax\opt{, dn, mode}}
 Calculate 2nd order correction to the energies using many-body perturbation
 theory. Results are written to file \var{fn}. \var{g} is the group of levels
 need corrections. \var{gp} is the group of configurations included as
 perturbers. \var{n0} and \var{n1} specfifies the minimum and maximum principle
 quantum numbers of the perturbers. \var{n0} may also be an array of ingegers
 with the same size of gp, so that each group in gp can have different value
-for the minimum principle quantum number. \var{lmax} and \var{lmin} are the maximum
-and minimum orbital angular momentum of the perturbers. One should always call
-\key{SetBoundary} 
+for the minimum principle quantum number. \var{lmax} is the maximum
+orbital angular momentum of the perturbers. \var{dn} is the number of
+extrapolating points added beyond \var{n1}, which are logarithmicly 
+spaced. \var{mode} is the calculation mode, which should usually set to 2.
+One should always call \key{SetBoundary} 
 first to impose boundary conditions on the high-n orbitals, which can take
 positive energies to represent the integration over the continuum. In this
 method, only single and double excitations are taken into account in the

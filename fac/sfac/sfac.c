@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.51 2004/05/04 16:34:16 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.52 2004/05/05 16:08:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -418,6 +418,8 @@ static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
   }
+  ReinitStructure(1);
+  ReinitRecouple(0);
   if (ng > 0) free(kg);
 
   return 0;
