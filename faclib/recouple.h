@@ -122,55 +122,55 @@ typedef struct _RECOUPLE_TIMING_ {
   clock_t interact;
 } RECOUPLE_TIMING;
 
-int GetRecoupleTiming(RECOUPLE_TIMING *t);
+int     GetRecoupleTiming(RECOUPLE_TIMING *t);
 #endif
 
 /* the recoupling matrix going from the coupled operators to uncoupled ones */
-double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
-		     int n_interact, int *interact, int *rank);
+double  DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+		      int n_interact, int *interact, int *rank);
 
 /* check if the recoupling matrix is non-zero */
-int IsShellInteracting(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
-		       int n_interact, int *interact, int *rank);
+int     IsShellInteracting(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+			   int n_interact, int *interact, int *rank);
 
 /* the coeff of type (Z^k dot Z^k) */
-int AngularZxZ0(double **coeff, int **kk, int nk, 
-		int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
-		INTERACT_SHELL *s);
+int     AngularZxZ0(double **coeff, int **kk, int nk, 
+		    int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+		    INTERACT_SHELL *s);
 
 /* the coeff of type Z^k */
-int AngularZ(double **coeff, int **kk, int nk,
-	     int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
-	     INTERACT_SHELL *s1, INTERACT_SHELL *s2);
+int     AngularZ(double **coeff, int **kk, int nk,
+		 int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+		 INTERACT_SHELL *s1, INTERACT_SHELL *s2);
 
 
-void SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
-	      double *coeff1, int *kk1, int nk1, int p1, 
-	      int phase, int j1, int j2, int j3, int j4);
+void    SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
+		 double *coeff1, int *kk1, int nk1, int p1, 
+		 int phase, int j1, int j2, int j3, int j4);
 
-int SortShell(INTERACT_SHELL *s, int *order);
+int     SortShell(INTERACT_SHELL *s, int *order);
 
 /* analyze the structure of the configuration of bra and ket to 
    determine if they can interact, get the interacting shells that
    must interact, and determine the phase factor of the recoupling 
    coeff. which does not include the phase resulting from the reordering
    of operators. that is calculated in the AngularZxZ0 and AngularZ0 */
-int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
-		SHELL_STATE **sbra, SHELL_STATE **sket, CONFIG *ci, 
-		int ki, CONFIG *cj, int kj, STATE *s1, STATE *s2);
+int     GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
+		    SHELL_STATE **sbra, SHELL_STATE **sket, CONFIG *ci, 
+		    int ki, CONFIG *cj, int kj, STATE *s1, STATE *s2);
 
 /* only compile these test routines if the debug flag is on */
 #if FAC_DEBUG 
-void TestAngular(void);
-void CheckAngularConsistency(int n_shells, SHELL *bra, 
+void    TestAngular(void);
+void    CheckAngularConsistency(int n_shells, SHELL *bra, 
 			     SHELL_STATE *sbra, SHELL_STATE *sket,
 			     INTERACT_SHELL *s, int phase);
 #endif /* FAC_DEBUG */
 
-int SetMaxRank(int k);
-int GetMaxRank(void);
-int InitRecouple(void);
-int ReinitRecouple(int m);
+int     SetMaxRank(int k);
+int     GetMaxRank(void);
+int     InitRecouple(void);
+int     ReinitRecouple(int m);
 
 #endif
 

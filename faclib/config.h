@@ -312,7 +312,7 @@ CONFIG       *GetConfig(STATE *s);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 
 				int parity, int j);
 int          AddConfigToSymmetry(int kg, int kc, CONFIG *cfg);
-SYMMETRY     *GetSymmetry(int k);
+SYMMETRY    *GetSymmetry(int k);
 void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
 int          InGroups(int kg, int ng, int *kgroup);

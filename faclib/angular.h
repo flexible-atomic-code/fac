@@ -129,7 +129,7 @@ typedef struct _ANGULAR_TIMING_ {
   clock_t w9j;
 } ANGULAR_TIMING;
 
-int  GetAngularTiming(ANGULAR_TIMING *t);
+int    GetAngularTiming(ANGULAR_TIMING *t);
 #endif
 
 /*
