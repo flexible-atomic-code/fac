@@ -112,7 +112,7 @@ FAC is a step forward to bring detailed atomic model accessable to a wide
 community of laboratory and astrophysical plasma diagnostics. Its flexible
 interface is designed to be useful even for people without a deep
 understanding of the underlying atomic theories. It is also powerful enough
-for experieced users to explore the effects of algorithmic choices and
+for experienced users to explore the effects of algorithmic choices and
 different physical approximations.
 
 FAC is freely distributed in the hope that it will be useful. The author makes
@@ -132,9 +132,9 @@ version.
 
 Much of the FAC package is written in ANSI C and Fortran 77. It should 
 therefore work on any platform with a C and Fortran 77 compilers. However, 
-this is only true to the rather simple command parser come with FAC, referred 
+this is only true to the rather simple command parser that comes with FAC, referred 
 to as SFAC. The flexibility of FAC is realized when the Python interface
-(PFAC)is used. The numerical subroutines implemented in FAC are exported
+(PFAC) is used. The numerical subroutines implemented in FAC are exported
 through several Python modules. The computation task can therefore be
 completed by programming in the scripting language Python. These python
 modules are compiled as shared objects, and are dynamically loaded. This
@@ -156,7 +156,7 @@ after Python syntax, with the omission of flow control freatures, such as
 conditional execution and loops. Therefore simple Python scripts may be
 converted to SFAC input files without difficulty. The Python interface
 actually contains functions to do the convertion automatically. Through out
-this manuall, we mainly focus on the more useful Python interface. Most of the
+this manual, we mainly focus on the more useful Python interface. Most of the
 Python fuctions implemented in the extension modules are also available in
 SFAC interface with identical calling sequences. To use SFAC, one passes the
 input files to the 3 executables \verb|sfac|, \verb|scrm| and \verb|spol| on
@@ -174,11 +174,11 @@ excitation.
 
 \subsection{PFAC Interface}
 To use the PFAC interface, one needs to be familiar with the basics of Python
-scripting language. Python has excellent documentations come with the standard
+scripting language. Python has excellent documentations that come with the standard
 distribution. It is an extremely well designed language to learn, and to use.
 
 Perhaps, the quickest way to get familiar with FAC is to inspect the simple
-demo scripts in the \verb|demo/| directory comes with FAC distribution. There
+demo scripts in the \verb|demo/| directory in FAC distribution. There
 are individual scripts and their SFAC conterparts demonstrating the
 calculation of energy levels, radiative transition rates, collisional
 excitation and ionization cross sections, radiative recombination cross
@@ -205,7 +205,7 @@ complexes. The following is a duplication of that script.
 # be one or two of the lowest lying ones. If you need more highly
 # excited levels, such as n=4, 5, 6, ..., do not put them into
 # OptimizeRadial.
- 9: fac.OptimizeRadial(['n2', 'n3'])
+ 9: fac.OptimizeRadial(['n2'])
 10: fac.ConfigEnergy(1)
 11: fac.Structure('ne.lev.b', ['n2', 'n3'])
 12: fac.MemENTable('ne.lev.b')
@@ -271,86 +271,86 @@ mode. The exact formats of binary and ASCII files are explained in Chapter
 \begin{verbatim}
 File ne.lev:
 
-FAC 0.7.6
-Endian	= 0
-TSess	= 1029027579
+FAC 1.0.7
+Endian	= 1
+TSess	= 1103048155
 Type	= 1
 Verbose	= 1
 Fe Z	=  26.0
 NBlocks	= 1
-E0	= 0, -3.12494784E+04
+E0	= 0, -3.12289011E+04
 
 NELE	= 10
 NLEV	= 37
-         Energy       P VNL 2J
-    0  0.00000000E+00 0 201  0 1*2 2*8      2p6       2p+4(0)0 
-    1  7.24353943E+02 1 300  4 1*2 2*7 3*1  2p5 3s1   2p+3(3)3 3s+1(1)4 
-    2  7.26393494E+02 1 300  2 1*2 2*7 3*1  2p5 3s1   2p+3(3)3 3s+1(1)2 
-    3  7.37238831E+02 1 300  0 1*2 2*7 3*1  2p5 3s1   2p-1(1)1 3s+1(1)0 
-    4  7.38577454E+02 1 300  2 1*2 2*7 3*1  2p5 3s1   2p-1(1)1 3s+1(1)2 
-    5  7.54684448E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p-1(1)2 
-    6  7.58348267E+02 0 301  4 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p-1(1)4 
-    7  7.59979248E+02 0 301  6 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)6 
-    8  7.61135193E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)2 
-    9  7.62972046E+02 0 301  4 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)4 
-   10  7.68711975E+02 0 301  0 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)0 
-   11  7.70705017E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p-1(1)1 3p-1(1)2 
-   12  7.73933716E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p-1(1)1 3p+1(3)2 
-   13  7.74405396E+02 0 301  4 1*2 2*7 3*1  2p5 3p1   2p-1(1)1 3p+1(3)4 
-   14  7.91043762E+02 0 301  0 1*2 2*7 3*1  2p5 3p1   2p-1(1)1 3p-1(1)0 
-   15  8.00673401E+02 1 302  0 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d-1(3)0 
-   16  8.01713074E+02 1 302  2 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d-1(3)2 
-   17  8.03623108E+02 1 302  4 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d+1(5)4 
-   18  8.03792480E+02 1 302  8 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d+1(5)8 
-   19  8.04533203E+02 1 302  6 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d-1(3)6 
-   20  8.06197388E+02 1 302  4 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d-1(3)4 
-   21  8.07330078E+02 1 302  6 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d+1(5)6 
-   22  8.12196411E+02 1 302  2 1*2 2*7 3*1  2p5 3d1   2p+3(3)3 3d+1(5)2 
-   23  8.17411499E+02 1 302  4 1*2 2*7 3*1  2p5 3d1   2p-1(1)1 3d-1(3)4 
-   24  8.18119019E+02 1 302  4 1*2 2*7 3*1  2p5 3d1   2p-1(1)1 3d+1(5)4 
-   25  8.18746826E+02 1 302  6 1*2 2*7 3*1  2p5 3d1   2p-1(1)1 3d+1(5)6 
-   26  8.26612610E+02 1 302  2 1*2 2*7 3*1  2p5 3d1   2p-1(1)1 3d-1(3)2 
-   27  8.61517029E+02 0 300  2 1*2 2*7 3*1  2s1 3s1   2s+1(1)1 3s+1(1)2 
-   28  8.68436157E+02 0 300  0 1*2 2*7 3*1  2s1 3s1   2s+1(1)1 3s+1(1)0 
-   29  8.94455078E+02 1 301  0 1*2 2*7 3*1  2s1 3p1   2s+1(1)1 3p-1(1)0 
-   30  8.94953308E+02 1 301  2 1*2 2*7 3*1  2s1 3p1   2s+1(1)1 3p-1(1)2 
-   31  8.97325012E+02 1 301  4 1*2 2*7 3*1  2s1 3p1   2s+1(1)1 3p+1(3)4 
-   32  8.99311401E+02 1 301  2 1*2 2*7 3*1  2s1 3p1   2s+1(1)1 3p+1(3)2 
-   33  9.39470825E+02 0 302  2 1*2 2*7 3*1  2s1 3d1   2s+1(1)1 3d-1(3)2 
-   34  9.39646851E+02 0 302  4 1*2 2*7 3*1  2s1 3d1   2s+1(1)1 3d-1(3)4 
-   35  9.39932495E+02 0 302  6 1*2 2*7 3*1  2s1 3d1   2s+1(1)1 3d+1(5)6 
-   36  9.44828674E+02 0 302  4 1*2 2*7 3*1  2s1 3d1   2s+1(1)1 3d+1(5)4 
+  ILEV  IBASE    ENERGY       P   VNL 2J
+     0     -1  0.00000000E+00 0   201  0 1*2 2*8       2p6         2p+4(0)0 
+     1     -1  7.23817529E+02 1   300  4 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)4 
+     2     -1  7.25866864E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)2 
+     3     -1  7.36421878E+02 1   300  0 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)0 
+     4     -1  7.37744083E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)2 
+     5     -1  7.54155726E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)2 
+     6     -1  7.57795103E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)4 
+     7     -1  7.59348028E+02 0   301  6 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)6 
+     8     -1  7.60559034E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)2 
+     9     -1  7.62368042E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)4 
+    10     -1  7.68005929E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)0 
+    11     -1  7.69846810E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)2 
+    12     -1  7.73062840E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)2 
+    13     -1  7.73470206E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)4 
+    14     -1  7.90365155E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)0 
+    15     -1  8.00169329E+02 1   302  0 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)0 
+    16     -1  8.01137358E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)2 
+    17     -1  8.02966076E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)4 
+    18     -1  8.03096178E+02 1   302  8 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)8 
+    19     -1  8.03812355E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)6 
+    20     -1  8.05502105E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)4 
+    21     -1  8.06580377E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)6 
+    22     -1  8.11326891E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)2 
+    23     -1  8.16455702E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)4 
+    24     -1  8.17103423E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)4 
+    25     -1  8.17679088E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)6 
+    26     -1  8.25272086E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)2 
+    27     -1  8.60711742E+02 0   300  2 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)2 
+    28     -1  8.67823477E+02 0   300  0 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)0 
+    29     -1  8.93685214E+02 1   301  0 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)0 
+    30     -1  8.94146680E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)2 
+    31     -1  8.96450212E+02 1   301  4 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)4 
+    32     -1  8.98437005E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)2 
+    33     -1  9.38592464E+02 0   302  2 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)2 
+    34     -1  9.38724254E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)4 
+    35     -1  9.38975219E+02 0   302  6 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)6 
+    36     -1  9.43734651E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)4 
 
 
 File ne.tr:
 
-FAC 0.7.6
-Endian	= 0
-TSess	= 1020438482
-Type	= 2
-Verbose	= 1
-Fe Z	= 26.0
-NBlocks	= 1
+FAC 1.0.7
+Endian  = 1
+TSess   = 1103048155
+Type    = 2
+Verbose = 1
+Fe Z    =  26.0
+NBlocks = 1
 
-NELE	= 10
-NTRANS	= 7
-Multip	= -1
-Gauge	= 2
-Mode	= 1
-    2	 2	    0	 0	 7.2639E+02  1.22460954E-01  9.34608241E+11
-    4	 2	    0	 0	 7.3858E+02  1.04401819E-01  8.23736467E+11
-   16	 2	    0	 0	 8.0171E+02  1.02572953E-02  9.53583862E+10
-   22	 2	    0	 0	 8.1220E+02  6.31992579E-01  6.03006697E+12
-   26	 2	    0	 0	 8.2661E+02  2.61516809E+00  2.58459031E+13
-   30	 2	    0	 0	 8.9495E+02  3.35455649E-02  3.88618945E+11
-   32	 2	    0	 0	 8.9931E+02  2.80109644E-01  3.27669724E+12
+NELE    = 10
+NTRANS  = 7
+MULTIP  = -1
+GAUGE   = 2
+MODE    = 1
+     2  2      0  0  7.2587E+02  1.130597E-01  8.616084E+11  1.127617E-01
+     4  2      0  0  7.3774E+02  9.944485E-02  7.828559E+11  1.048997E-01
+    16  2      0  0  8.0114E+02  9.438239E-03  8.761793E+10 -3.101188E-02
+    22  2      0  0  8.1133E+02  6.221187E-01  5.923155E+12 -2.501928E-01
+    26  2      0  0  8.2527E+02  2.493449E+00  2.456309E+13  4.966355E-01
+    30  2      0  0  8.9415E+02  3.203146E-02  3.704097E+11  5.407792E-02
+    32  2      0  0  8.9844E+02  2.652003E-01  3.096259E+12 -1.552313E-01
 \end{verbatim}
 
 In file \verb|ne.lev|, the energy, parity, $2J$ ($J$ is the total
 angular momentum of the level), and configuration coupling informations are
 listed. In file \verb|ne.tr|, the upper and lower level indexes, the $2J$
-values of these levels, the transition energy, $gf$-values, and radiative
-decay rates are given.
+values of these levels, the transition energy, $gf$-values, radiative
+decay rates, and the reduced multipole matrix elements are given.
 
 \section*{Acknowledgments}
 Throughout the development of this work, the discussion with Ehud Behar, Masao
@@ -443,12 +443,12 @@ value returned by the C lib function time(0). It is platform dependent.
 \item[\texttt{int version}:] Major version number of FAC.
 \item[\texttt{int sversion}:] Minor version number of FAC.
 \item[\texttt{int ssversion}:] Release number of FAC.
-\item[\texttt{int type}:] Type of the data file. An integer from 1--9.
+\item[\texttt{int type}:] Type of the data file.
 \item[\texttt{float atom}:] Atomic number.
 \item[\texttt{char symbol[4]}:] The first 3 bytes contains a NULL
-terminated C string representing the 2-charactor abbr. of atomic symbol. The
-4th byte is either 0 or 1, indicating whether the platform stores data in
-liitle or big endian.
+terminated C string representing the 2-charactor abbreviation of the atomic
+symbol. The 4th byte is either 0 or 1, indicating whether the platform stores
+data in liitle or big endian.
 \item[\texttt{int nblocks}:] Number of data blocks in this file.
 \end{dbdesc}
 
@@ -568,7 +568,7 @@ length form.
 relativistic. 1 is non-relativistic approximation for multipole operators.
 \item[\texttt{int multipole}:] Multipole type of the transition. Its absolute
 value is the rank of the multipole, 1 for dipole, 2 for quadrupole, etc. The
-positive sign for magnetic type and negative sign for electric type.
+positive sign represents magnetic type and negative sign represents electric type.
 \end{dbdesc}
 
 \subsection{\texttt{TR\_RECORD}}
@@ -586,7 +586,7 @@ typedef struct _TR_RECORD_ {
 \begin{dbdesc}
 \item[\texttt{int lower}:] The lower level index of the transition.
 \item[\texttt{int upper}:] The upper level index of the transition.
-\item[\texttt{float strength}:] In versions 1.0.6 or older, This is the
+\item[\texttt{float strength}:] In version 1.0.6 or older, This is the
   weighted oscillator strength $gf$ of the transition. The weighted radiative
   transition rate is related to $gf$ as (in atomic units):
 \begin{equation}
@@ -649,11 +649,13 @@ strengths of magnetic sublevels, the FIT mode is not implemented.
 \item[\texttt{int n\_tegrid}:] Number of points for the transition energy grid.
 \item[\texttt{int n\_egrid}:] Number of points for the collision energy grid.
 \item[\texttt{int egrid\_type}:] Type of the energy grid. 0 for the incident
-electron energy, 1 for scattered electron energy.
-\item[\texttt{int n\_usr}:]N umber of points for the user collision energy
+electron energy, 1 for scattered electron energy. In the present
+implementation, only scattered electron energy grid is supported.
+\item[\texttt{int n\_usr}:] Number of points for the user collision energy
 grid.
 \item[\texttt{int usr\_egrid\_type}:] Type of the user energy grid. 0 for the
-incident electron energy, 1 for scattered electron energy.
+incident electron energy, 1 for scattered electron energy. In the present
+implementation, only scattered electron energy grid is supported.
 \item[\texttt{int nparams}:] Number of parameters in the fitting formula if the
 collision strengths are calculated in the FIT mode. At present,
 \texttt{nparams} is 4. 
@@ -697,7 +699,7 @@ time reversal symmetry, $\sigma_{m_1\to m_2}=\sigma_{-m_1\to -m_2}$, only cross
 sections with $m_1 <= 0$ are tabulated.
 \item[\texttt{float bethe}:] The Bethe coefficients in the first-Born
 approximation. It is the logarithmic coefficients at high energies. If
-\texttt{bethe[0]}<0, it is a spin forbidden transition. Otherwise, it is
+\texttt{bethe[0]}$<0$, it is a spin forbidden transition. Otherwise, it is
 either a optical-allowed transition or other multipole-allowed transitions.
 \item[\texttt{float born[2]}:] The Born limit of the collision strengths at
 high energies, which is
@@ -707,7 +709,7 @@ x &=& \frac{E_0}{E_{th}} \nonumber\\
 \end{eqnarray}
 where $b_0$ is given by \texttt{bethe}, if it is an allowed transition. The
 parameter $b_1$ is calculated at an energy given by $b_2$, which is chosen to
-be very high, about $10^{3}E_{th}$ or higher.
+be very high, about $10^{2}E_{th}$ or higher.
 For spin forbidden transitions, $b_0 = 0$. $b_1$, $b_2$ are stored in the array
 \texttt{born[2]}. These numbers are useful to extrapolate the collision
 strengths to high energies with correct aysmptotic behaviour.
@@ -715,7 +717,7 @@ strengths to high energies with correct aysmptotic behaviour.
 fitting mode is used. The number of elements is given by \texttt{nparams} in
 \texttt{CE\_HEADER}. In the present implementation, different fitting formulae
 are used for allowed and forbidden transitions. The number of parameters is 4
-in all cases. 
+in all cases. The FIT mode is not robust, avoid using it.
 
 For dipole and higher multipole allowed transitions, the
 collision strength $\Omega$ is given by
@@ -1526,7 +1528,7 @@ are tabulated in addition to the autoionization rates.
 In the following sections, a portion of each type of database file in the
 verbose form is listed and significant fields explained. The lines start with
 a ``\verb|#|'' are the added explanation, which are not part of the output
-file. These files are generated with the scipts in the \texttt{demo/}
+file. These files are generated with the scripts in the \texttt{demo/}
 directory come with FAC.
 
 \subsection{\texttt{DB\_EN}}
@@ -1594,7 +1596,7 @@ Multip	= -1
 Gauge	= 2
 # mode used in the radial integral
 Mode	= 1
-#upper 2J  lower 2J  Delta E     gf            TR rate(1/s)  matrix
+#upper 2J  lower 2J  Delta E     gf            TR rate(1/s)  multipole
      2  2      0  0  7.2587E+02  1.130597E-01  8.616084E+11  1.127617E-01
      4  2      0  0  7.3774E+02  9.944485E-02  7.828559E+11  1.048997E-01
     16  2      0  0  8.0114E+02  9.438239E-03  8.761793E+10 -3.101188E-02
