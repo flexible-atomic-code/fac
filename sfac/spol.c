@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.1 2003/07/14 16:27:35 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.2 2003/07/31 21:40:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -40,6 +40,66 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
   exit(0);
 }
 
+static int PSetIDR(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int idr, ndr, i;
+  double *pdr;
+  char *vg[MAXNARGS];
+  int ig[MAXNARGS];
+  
+  if (argc < 1) return -1;
+  if (argc > 2) return -1;
+
+  if (argt[0] != NUMBER) return -1;
+  if (argc == 2 && argt[1] != LIST && argt[1] != TUPLE) return -1;
+
+  idr = atoi(argv[0]);
+  ndr = DecodeArgs(argv[1], vg, ig, variables);
+  if (ndr > 0) {
+    pdr = (double *) malloc(sizeof(double)*ndr);
+    for (i = 0; i < ndr; i++) {
+      pdr[i] = atof(vg[i]);
+      free(vg[i]);
+    }
+  } else {
+    ndr = 0;
+    pdr = NULL;
+  }
+  
+  return SetIDR(idr, ndr, pdr);
+}
+
+static int PSetEnergy(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int i;
+  double e, es;
+
+  if (argc != 2) return -1;
+  if (argt[0] != NUMBER || argt[1] != NUMBER) return -1;
+  
+  e = atof(argv[0]);
+  es = atof(argv[1]);
+  
+  i = SetEnergy(e, es);
+  
+  return i;
+}
+
+static int PSetDensity(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int i;
+  double d;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+  
+  d = atof(argv[0]);
+  
+  i = SetDensity(d);
+  
+  return i;
+}
+
 static int PSetMLevels(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int i;
@@ -55,13 +115,23 @@ static int PSetMLevels(int argc, char *argv[], int argt[],
 static int PSetMCERates(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int i;
-  double e;
 
-  if (argc != 2) return -1;
-  if (argt[0] != STRING || argt[1] != NUMBER) return -1;
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
 
-  e = atof(argv[1]);
-  i = SetMCERates(argv[0], e);
+  i = SetMCERates(argv[0]);
+
+  return i;
+}
+
+static int PSetMAIRates(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int i;
+
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+
+  i = SetMAIRates(argv[0]);
 
   return i;
 }
@@ -80,13 +150,11 @@ static int PPolarizationTable(int argc, char *argv[], int argt[],
 static int PPopulationTable(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   int i;
-  double d;
 
-  if (argc != 2) return -1;
-  if (argt[0] != STRING || argt[1] != NUMBER) return -1;
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
 
-  d = atof(argv[1]);
-  i = PopulationTable(argv[0], d);
+  i = PopulationTable(argv[0]);
 
   return i;
 }
@@ -94,8 +162,12 @@ static int PPopulationTable(int argc, char *argv[], int argt[],
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
+  {"SetIDR", PSetIDR, METH_VARARGS},
+  {"SetEnergy", PSetEnergy, METH_VARARGS},
+  {"SetDensity", PSetDensity, METH_VARARGS},
   {"SetMLevels", PSetMLevels, METH_VARARGS},
   {"SetMCERates", PSetMCERates, METH_VARARGS},
+  {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
   {"", NULL, METH_VARARGS}

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.8 2003/07/17 14:28:46 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.9 2003/07/31 21:40:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -16,20 +16,72 @@ static int ntr=0;
 static MTR *tr_rates=NULL;
 static int nce=0;
 static MCE *ce_rates=NULL;
+static int nai = 0;
+static MAI *ai_rates=NULL;
 
 static int nmlevels=0;
 static double *rmatrix=NULL;
 
 static struct {
   double energy;
+  double esigma;
   double density;
+  int idr, ndr;
+  double *pdr;
 } params;
 
 int InitPolarization(void) {
   InitDBase();
   InitAngular();
   InitRates();
+  
+  params.energy = 1E3;
+  params.esigma = 0;
+  params.density = 1.0;
 
+  params.idr = -1;
+  params.ndr = 0;
+  params.pdr = NULL;
+
+  return 0;
+}
+
+int SetIDR(int idr, int ndr, double *pdr) {
+  int n;
+
+  if (params.ndr > 0) free(params.pdr);
+
+  if (ndr > 0 && idr > 0) {
+    if (idr < nlevels) {
+      n = levels[idr].j/2 + 1;
+      if (ndr != n) {
+	printf("ndr=%d does not equal no. sublevels for idr=%d\n", ndr, idr);
+	free(pdr);
+	return -1;
+      }
+    } else {
+      printf("idr=%d exceeds level table size\n", idr);
+      free(pdr);
+      return -1;
+    }
+  }
+  params.idr = idr;
+  params.ndr = ndr;
+  params.pdr = pdr;
+  
+  return 0;
+}
+
+int SetEnergy(double energy, double esigma) {
+  params.energy = energy;
+  params.esigma = esigma;
+  
+  return 0;
+}
+
+int SetDensity(double eden) {
+  params.density = eden;
+  
   return 0;
 }
 
@@ -243,7 +295,7 @@ int SetMLevels(char *fn, char *tfn) {
   return 0;
 }  
 
-int SetMCERates(char *fn, double energy) {  
+int SetMCERates(char *fn) {  
   F_HEADER fh;  
   CE_HEADER h;
   CE_RECORD r;
@@ -254,6 +306,7 @@ int SetMCERates(char *fn, double energy) {
   double data[2+(1+MAXNUSR)*4];
   double cs1[128], cs2[128];
   double e1, e2, e, a, v, ratio;
+  double esigma, energy;
 
   
   f = fopen(fn, "r");
@@ -274,7 +327,8 @@ int SetMCERates(char *fn, double energy) {
     return -1;
   }
 
-  params.energy = energy;
+  energy = params.energy;
+  esigma = params.esigma;
 
   if (nce > 0) {
     for (t = 0; t < nce; t++) {
@@ -329,14 +383,18 @@ int SetMCERates(char *fn, double energy) {
       k = 0;
       p = 0;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
-	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	for (m2 = -j2; m2 <= j2; m2 += 2) {
+	  if (m2 > 0) {
+	    k++;
+	    continue;
+	  }
 	  ce_rates[t].rates[p] = cs1[k];
 	  if (m2 != 0) {
 	    ce_rates[t].rates[p] += cs1[k-m2];
 	  }
 	  p++;
 	  ce_rates[t].rates[p] = cs2[k];
-	  if (m2 != 0) {
+	  if (m2 != 0 && m1 != 0) {
 	    ce_rates[t].rates[p] += cs2[k-m2];
 	  }
 	  p++;
@@ -344,7 +402,12 @@ int SetMCERates(char *fn, double energy) {
 	}
       }
       t++;
+      free(r.params);
+      free(r.strength);
     }
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
   }
   fclose(f);
 
@@ -353,12 +416,114 @@ int SetMCERates(char *fn, double energy) {
   return 0;
 }
 
-int PopulationTable(char *fn, double eden) {
+int SetMAIRates(char *fn) {
+  F_HEADER fh;
+  AIM_HEADER h;
+  AIM_RECORD r;
+  FILE *f;
+  int n, k, m, t, p, i;
+  int m1, m2, j1, j2;
+  int swp;
+  double e, v;
+  double esigma, energy;
+    
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return 0;
+  }
+
+  if (fh.type != DB_AIM) {
+    printf("File type is not DB_AIM\n");
+    fclose(f);
+    return -1;
+  }
+  
+  energy = params.energy;
+  esigma = params.esigma;
+
+  if (nai > 0) {
+    for (t = 0; t < nai; t++) {
+      free(ai_rates[t].rates);
+    }
+    free(ai_rates);
+    nai = 0;
+  }
+
+  while (1) {
+    n = ReadAIMHeader(f, &h, swp);
+    if (n == 0) break;
+    nai += h.ntransitions;
+    fseek(f, h.length, SEEK_CUR);
+  }
+  fseek(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+  
+  ai_rates = (MAI *) malloc(sizeof(MAI)*nai);
+  
+  t = 0;
+  while (1) {
+    n = ReadAIMHeader(f, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadAIMRecord(f, &r, swp);
+      e = levels[r.b].energy - levels[r.f].energy;
+      e *= HARTREE_EV;
+      v = VelocityFromE(e)*AREA_AU20*HARTREE_EV;
+      
+      ai_rates[t].f = r.f;
+      ai_rates[t].b = r.b;
+      j1 = levels[r.b].j;
+      j2 = levels[r.f].j;
+      ai_rates[t].n = 2*(j1/2+1)*(j2/2+1);
+      ai_rates[t].rates = (double *) malloc(sizeof(double)*ai_rates[t].n);
+      k = 0;
+      p = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= j2; m2 += 2) {
+	  if (m2 > 0) {
+	    k += 2;
+	    continue;
+	  } 
+	  ai_rates[t].rates[p] = (r.rate[k])*RATE_AU;
+	  if (m2 != 0) {
+	    ai_rates[t].rates[p] += (r.rate[k-m2*2])*RATE_AU;
+	  }
+	  p++;
+	  k++;
+	  ai_rates[t].rates[p] = (r.rate[k])*v;
+	  if (m2 != 0 && m1 != 0) {
+	    ai_rates[t].rates[p] += (r.rate[k-m2*2])*v;
+	  }
+	  p++;
+	  k++;
+	}
+      }
+      t++;
+      free(r.rate);
+    }
+    free(h.egrid);
+  }
+
+  fclose(f);
+  
+  if (t < nai) nai = t;
+  
+  return 0;
+}
+
+int PopulationTable(char *fn) {
   int i, p, i1, i2;
   int j1, j2, m1, m2;
-  int q1, q2, t;
+  int q1, q2, t, idr;
   FILE *f;
-  double *b, a, c;
+  double *b, a, c, eden;
   int *ipiv, info;
 
   f = fopen(fn, "w");
@@ -367,13 +532,16 @@ int PopulationTable(char *fn, double eden) {
     return -1;
   }
 
-  params.density = eden;
+  eden = params.density;
 
   p = nmlevels*nmlevels;
   b = rmatrix + p;
   ipiv = (int *) (b+nmlevels);
   for (i = 0; i < p; i++) {
     rmatrix[i] = 0.0;
+  }
+  for (i = 0; i < nmlevels; i++) {
+    ipiv[i] = 0;
   }
 
   for (i = 0; i < ntr; i++) {
@@ -394,27 +562,64 @@ int PopulationTable(char *fn, double eden) {
     }
   }
 
-  for (i = 0; i < nce; i++) {
-    i1 = ce_rates[i].lower;
-    i2 = ce_rates[i].upper;
+  idr = -1;
+  for (i = 0; i < nai; i++) {
+    i1 = ai_rates[i].b;
+    i2 = ai_rates[i].f;
     j1 = levels[i1].j;
     j2 = levels[i2].j;
+    if (params.idr >= 0) {
+      q2 = levels[i2].ic;
+      for (m2 = -j2; m2 <= 0; m2 += 2) {
+	ipiv[q2++] = 1;
+      }
+      if (params.idr == i2) idr = params.idr;
+    }
     t = 0;
     q1 = levels[i1].ic;
     for (m1 = -j1; m1 <= 0; m1 += 2) {
       q2 = levels[i2].ic;
       for (m2 = -j2; m2 <= 0; m2 += 2) {
 	p = q1*nmlevels+q2;
-	a = eden*ce_rates[i].rates[t++];
+	a = ai_rates[i].rates[t++];
 	rmatrix[p] += a;
 	p = q2*nmlevels+q1;
-	a = eden*ce_rates[i].rates[t++];
+	a = eden*ai_rates[i].rates[t++];
 	rmatrix[p] += a;
 	q2++;
       }
       q1++;
     }
-  }  
+  }
+
+  if (params.idr >= 0 && idr < 0) {
+    printf("idr=%d is not a DR target level\n", params.idr);
+    return -1;
+  }
+
+  if (idr < 0) {
+    for (i = 0; i < nce; i++) {
+      i1 = ce_rates[i].lower;
+      i2 = ce_rates[i].upper;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      q1 = levels[i1].ic;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	q2 = levels[i2].ic;
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  p = q1*nmlevels+q2;
+	  a = eden*ce_rates[i].rates[t++];
+	  rmatrix[p] += a;
+	  p = q2*nmlevels+q1;
+	  a = eden*ce_rates[i].rates[t++];
+	  rmatrix[p] += a;
+	  q2++;
+	}
+	q1++;
+      }
+    }  
+  }
 
   for (q1 = 0; q1 < nmlevels; q1++) {
     p = q1*nmlevels + q1;
@@ -427,17 +632,88 @@ int PopulationTable(char *fn, double eden) {
     }
   }
 
-  for (q1 = 0; q1 < nmlevels; q1++) {
-    p = q1*nmlevels;
-    rmatrix[p] = 1.0;
-    b[q1] = 0.0;
+  if (idr >= 0) {
+    q1 = levels[idr].ic;
+    q2 = levels[idr].ic + (levels[idr].j/2 + 1);
+    for (t = 0; t < nmlevels; t++) {
+      if (ipiv[t] && !(t >= q1 && t < q2)) {
+	p = t*nmlevels+t;
+	rmatrix[p] = 0.0;
+      }
+    }
   }
-  b[0] = 1.0;
+	
+  if (idr < 0) {
+    i = -1;
+    for (q1 = 0; q1 < nmlevels; q1++) {
+      p = q1*nmlevels + q1;
+      if (rmatrix[p]) {
+	i = q1;
+	break;
+      }
+    }
+
+    for (q1 = 0; q1 < nmlevels; q1++) {
+      p = q1*nmlevels+i;
+      rmatrix[p] = 1.0;
+      b[q1] = 0.0;
+      t = q1*nmlevels+q1;
+      if (!rmatrix[t]) {
+	for (q2 = 0; q2 < nmlevels; q2++) {
+	  p = q2*nmlevels+q1;
+	  rmatrix[p] = 0.0;
+	}
+	rmatrix[t] = 1E30;
+      }
+    }
+    b[i] = 1.0;
+  } else {
+    for (q1 = 0; q1 < nmlevels; q1++) {
+      t = q1*nmlevels+q1;
+      if (!rmatrix[t]) {
+	for (q2 = 0; q2 < nmlevels; q2++) {
+	  p = q2*nmlevels+q1;
+	  rmatrix[p] = 0.0;
+	}
+	rmatrix[t] = 1E30;
+      }
+    }
+
+    j2 = levels[idr].j;
+    t = j2/2 + 1;
+    a = 1.0/(j2 + 1.0);
+    q1 = levels[idr].ic;
+    i = 0;
+    for (m2 = -j2; m2 <= 0; m2 += 2) {
+      for (q2 = 0; q2 < nmlevels; q2++) {
+	p = q2*nmlevels+q1;
+	rmatrix[p] = 0.0;
+      }
+      rmatrix[q1*nmlevels+q1] = 1.0;
+      if (params.ndr != t) {
+	if (m2 != 0) {
+	  b[q1] = a*2.0;
+	} else {
+	  b[q1] = a;
+	}
+      } else {
+	if (m2 != 0) {
+	  b[q1] = params.pdr[i]*2.0;
+	} else {
+	  b[q1] = params.pdr[i];
+	}
+      }
+      q1++;
+      i++;
+    }
+  }
 
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
 
-  fprintf(f, "Energy  = %12.5E\n", params.energy);
-  fprintf(f, "Density = %12.5E\n", params.density);
+  fprintf(f, "Energy  = %-12.5E\n", params.energy);
+  fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
+  fprintf(f, "Density = %-12.5E\n", params.density);
+  fprintf(f, "IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
@@ -449,7 +725,7 @@ int PopulationTable(char *fn, double eden) {
     }
     levels[i].dtotal = a;
     p = levels[i].ic;
-    fprintf(f, "%5d\t%12.5E\n", i, a);
+    fprintf(f, "%7d\t%12.5E\n", i, a);
     for (m1 = -j1; m1 <= 0; m1 += 2) {
       if (a) {
 	c = b[p]/a;
@@ -457,7 +733,7 @@ int PopulationTable(char *fn, double eden) {
       } else {
 	c = 0.0;
       }
-      fprintf(f, "%5d\t%12.5E\n", -m1, c);
+      fprintf(f, "%3d %3d\t%12.5E\n", p, -m1, c);
       p++;
     }
     fprintf(f, "\n");
@@ -532,8 +808,10 @@ int PolarizationTable(char *fn) {
     PL2[k] = pqa[k*2-2];
   }
   
-  fprintf(f, "Energy  = %12.5E\n", params.energy);
-  fprintf(f, "Density = %12.5E\n", params.density);
+  fprintf(f, "Energy  = %-12.5E\n", params.energy);
+  fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
+  fprintf(f, "Density = %-12.5E\n", params.density);
+  fprintf(f, "IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
   for (i = 0; i < ntr; i++) {
     k = tr_rates[i].multipole;

@@ -14,7 +14,8 @@
 #define DB_SP 7
 #define DB_RT 8
 #define DB_DR 9
-#define NDB   9
+#define DB_AIM 10
+#define NDB   10
 
 #define LNCOMPLEX   32
 #define LSNAME      24
@@ -142,6 +143,23 @@ typedef struct _AI_RECORD_ {
   float rate;
 } AI_RECORD;
 
+typedef struct _AIM_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int channel;
+  int n_egrid;
+  double *egrid;
+} AIM_HEADER;
+
+typedef struct _AIM_RECORD_ {
+  int b;
+  int f;
+  int nsub;
+  float *rate;
+} AIM_RECORD;
+
 typedef struct _CI_HEADER_ {
   long int position;
   long int length;
@@ -258,6 +276,7 @@ int WriteTRHeader(FILE *f, TR_HEADER *h);
 int WriteCEHeader(FILE *f, CE_HEADER *h);
 int WriteRRHeader(FILE *f, RR_HEADER *h);
 int WriteAIHeader(FILE *f, AI_HEADER *h);
+int WriteAIMHeader(FILE *f, AIM_HEADER *h);
 int WriteCIHeader(FILE *f, CI_HEADER *h);
 int WriteSPHeader(FILE *f, SP_HEADER *h);
 int WriteRTHeader(FILE *f, RT_HEADER *h);
@@ -272,6 +291,8 @@ int ReadRRHeader(FILE *f, RR_HEADER *h, int swp);
 int ReadRRRecord(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h);
 int ReadAIHeader(FILE *f, AI_HEADER *h, int swp);
 int ReadAIRecord(FILE *f, AI_RECORD *r, int swp);
+int ReadAIMHeader(FILE *f, AIM_HEADER *h, int swp);
+int ReadAIMRecord(FILE *f, AIM_RECORD *r, int swp);
 int ReadCIHeader(FILE *f, CI_HEADER *h, int swp);
 int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h);
 int ReadSPHeader(FILE *f, SP_HEADER *h, int swp);
@@ -318,6 +339,10 @@ int WriteAIRecord(FILE *f, AI_RECORD *r);
 int PrintAITable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianAIHeader(AI_HEADER *h);
 int SwapEndianAIRecord(AI_RECORD *r);
+int WriteAIMRecord(FILE *f, AIM_RECORD *r);
+int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianAIMHeader(AIM_HEADER *h);
+int SwapEndianAIMRecord(AIM_RECORD *r);
 int WriteCIRecord(FILE *f, CI_RECORD *r);
 int PrintCITable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianCIHeader(CI_HEADER *h);

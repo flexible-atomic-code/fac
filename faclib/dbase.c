@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.48 2003/07/14 16:27:33 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.49 2003/07/31 21:40:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -13,6 +13,7 @@ static TR_HEADER tr_header;
 static CE_HEADER ce_header;
 static RR_HEADER rr_header;
 static AI_HEADER ai_header;
+static AIM_HEADER aim_header;
 static CI_HEADER ci_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
@@ -162,10 +163,29 @@ int SwapEndianAIHeader(AI_HEADER *h) {
   return 0;
 }
 
+int SwapEndianAIMHeader(AIM_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->channel), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  return 0;
+}
+
 int SwapEndianAIRecord(AI_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
   SwapEndian((char *) &(r->rate), sizeof(float));
+  return 0;
+}
+
+int SwapEndianAIMRecord(AIM_RECORD *r) {
+  int i;
+
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->nsub), sizeof(int));
   return 0;
 }
 
@@ -403,6 +423,19 @@ int WriteAIHeader(FILE *f, AI_HEADER *h) {
   return m;
 }
 
+int WriteAIMHeader(FILE *f, AIM_HEADER *h) {
+  int n, m;
+  
+  n = fwrite(h, sizeof(AIM_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(AIM_HEADER);
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  
+  return m;
+}
+
 int WriteCIHeader(FILE *f, CI_HEADER *h) {
   int n, m;
 
@@ -563,6 +596,24 @@ int WriteAIRecord(FILE *f, AI_RECORD *r) {
   if (n != 1) return 0;
 
   return sizeof(AI_RECORD);
+}
+
+int WriteAIMRecord(FILE *f, AIM_RECORD *r) {
+  int n;
+
+  if (aim_header.length == 0) {
+    fheader[DB_AIM-1].nblocks++;
+    WriteAIMHeader(f, &aim_header);
+  }
+  aim_header.ntransitions += 1;
+  aim_header.length += sizeof(AIM_RECORD);
+  n = fwrite(r, sizeof(AIM_RECORD), 1, f);
+  if (n != 1) return 0;
+  aim_header.length += sizeof(float)*r->nsub;
+  n = fwrite(r->rate, sizeof(float), r->nsub, f);
+  if (n != r->nsub) return 0;
+
+  return sizeof(AIM_RECORD);
 }
 
 int WriteCIRecord(FILE *f, CI_RECORD *r) {
@@ -893,6 +944,30 @@ int ReadAIHeader(FILE *f, AI_HEADER *h, int swp) {
   return m;
 }
 
+int ReadAIMHeader(FILE *f, AIM_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(AIM_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianAIMHeader(h);
+  m = sizeof(AIM_HEADER);
+  
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->egrid);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+  }
+  m += sizeof(double)*h->n_egrid;
+  
+  return m;
+}
+
 int ReadAIRecord(FILE *f, AI_RECORD *r, int swp) {
   int n;
 
@@ -901,6 +976,25 @@ int ReadAIRecord(FILE *f, AI_RECORD *r, int swp) {
   if (swp) SwapEndianAIRecord(r);
   
   return sizeof(AI_RECORD);
+}
+
+int ReadAIMRecord(FILE *f, AIM_RECORD *r, int swp) {
+  int n, i;
+
+  n = fread(r, sizeof(AIM_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) {
+    SwapEndianAIMRecord(r);
+  }
+  r->rate = (float *) malloc(sizeof(float)*r->nsub);
+  n = fread(r->rate, sizeof(float), r->nsub, f);
+  if (n != r->nsub) return 0;
+  if (swp) {
+    for (i = 0; i < r->nsub; i++) {
+      SwapEndian((char *) &(r->rate[i]), sizeof(float));
+    }
+  }
+  return sizeof(AIM_RECORD);
 }
 
 int ReadCIHeader(FILE *f, CI_HEADER *h, int swp) {
@@ -1121,6 +1215,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   CE_HEADER *ce_hdr;
   RR_HEADER *rr_hdr;
   AI_HEADER *ai_hdr;
+  AIM_HEADER *aim_hdr;
   CI_HEADER *ci_hdr;
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
@@ -1199,6 +1294,13 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     dr_header.length = 0;
     dr_header.ntransitions = 0;
     break;
+  case DB_AIM:
+    aim_hdr = (AIM_HEADER *) rhdr;
+    memcpy(&aim_header, aim_hdr, sizeof(AIM_HEADER));
+    aim_header.position = p;
+    aim_header.length = 0;
+    aim_header.ntransitions = 0;
+    break;
   default:
     break;
   }
@@ -1264,6 +1366,12 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
     fseek(f, dr_header.position, SEEK_SET);
     if (dr_header.length > 0) {
       n = WriteDRHeader(f, &dr_header);
+    }
+    break;
+  case DB_AIM:
+    fseek(f, aim_header.position, SEEK_SET);
+    if (aim_header.length > 0) {
+      n = WriteAIMHeader(f, &aim_header);
     }
     break;
   default:
@@ -1875,7 +1983,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
     return 0;
   }
 
-  if (v && fh.type < DB_SP) {
+  if (v && (fh.type < DB_SP || fh.type > DB_DR)) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
       fclose(f1);
@@ -1922,6 +2030,9 @@ int PrintTable(char *ifn, char *ofn, int v) {
     break;
   case DB_DR:
     n = PrintDRTable(f1, f2, v, swp);
+    break;
+  case DB_AIM:
+    n = PrintAIMTable(f1, f2, v, swp);
     break;
   default:
     break;
@@ -2464,6 +2575,62 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
     
+    free(h.egrid);
+    nb++;
+  }
+
+  return nb;
+}
+
+int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp) {
+  AIM_HEADER h;
+  AIM_RECORD r;
+  int n, i, m;
+  int nb;
+  float e;
+  double u = AREA_AU20*HARTREE_EV;
+  
+  nb = 0;
+  while (1) {
+    n = ReadAIMHeader(f1, &h, swp);
+    if (n == 0) break;
+    
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "CHANNE\t= %d\n", h.channel);
+    fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
+    
+    for (i = 0; i < h.n_egrid; i++) {
+      if (v) {
+	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
+      } else {
+	fprintf(f2, "\t %15.8E\n", h.egrid[i]);
+      }
+    }
+    
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadAIMRecord(f1, &r, swp);
+      if (n == 0) break;
+      if (v) {
+	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
+	fprintf(f2, "%5d\t%2d%5d\t%2d\t%11.4E\t%2d\n",
+		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
+		e*HARTREE_EV, r.nsub);
+	for (m = 0; m < r.nsub; m += 2) {
+	  fprintf(f2, "%11.4E\t%11.4E\n", 
+		  r.rate[m]*RATE_AU, r.rate[m+1]*u);
+	}
+      } else {
+	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.nsub);
+	for (m = 0; m < r.nsub; m += 2) {
+	  fprintf(f2, "%11.4E\t%11.4E\n", r.rate[m], r.rate[m+1]);
+	}
+      }
+      free(r.rate);
+    }
+
     free(h.egrid);
     nb++;
   }

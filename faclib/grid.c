@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.7 2002/06/03 15:38:36 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.8 2003/07/31 21:40:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -157,8 +157,10 @@ int SetEGrid(double *e, double *log_e,
   
   e[0] = emin;
   log_e[0] = log(emin);
+  if (n == 1) goto DONE;
   e[n-1] = emax;
   log_e[n-1] = log(emax);
+  if (n == 2) goto DONE;
   del = (log_e[n-1] - log_e[0])/(n-1.0);
   del = exp(del);
   for (i = 1; i < n-1; i++) {
@@ -166,6 +168,7 @@ int SetEGrid(double *e, double *log_e,
     log_e[i] = log(e[i]);
   }
 
+ DONE:
   if (eth > 1E-30) {
     for (i = 0; i < n; i++) {
       e[i] -= eth;

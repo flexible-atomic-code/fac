@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.70 2003/05/22 00:29:08 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.71 2003/07/31 21:40:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -36,6 +36,7 @@ static double log_te[MAXNTE];
 static MULTI *pk_array;
 static MULTI *qk_array;
 
+#define MAXAIM 1024
 #define NPARAMS 3
 static ARRAY *hyd_qk_array;
 
@@ -802,16 +803,17 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   return nkl;
 }
 
-int AutoionizeRate(double *rate, double *e, int rec, int f) {  
+int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {  
   LEVEL *lev1, *lev2;
   ANGULAR_ZxZMIX *ang;
   ANGULAR_ZFB *zfb;
   STATE *st;
   int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
-  double *p, r, s, log_e;
+  double *p, r, s, log_e, a;
   double *ai_pk, ai_pk0[MAXNE];
-  int np, nt;
+  int np, nt, m1, m2, m;
+  int kappafp, jfp, klfp, dkl;
 
   *rate = 0.0;
   lev1 = GetLevel(rec);
@@ -900,18 +902,86 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
     free(zfb);
   }
   if (nz <= 0 && nzfb <= 0) return -1;
- 
-  r = 0.0;
-  for (i = 0; i < nkappaf; i++) {
-    r += p[i]*p[i];
+
+  if (!msub) {
+    r = 0.0;
+    for (i = 0; i < nkappaf; i++) {
+      r += p[i]*p[i];
+    }
+    /* the prefactor 4.0 includes the factor 2 from the continuum norm,
+       otherwize, it should have been 2.0 */
+    *rate = 4.0*r/(j1+1.0);
+    free(p);    
+    return 0;
+  } else {
+    k = 0;
+    for (m1 = -j1; m1 <= 0; m1 += 2) {
+      for (m2 = -j2; m2 <= j2; m2 += 2) {
+	m = m1-m2;
+	rate[k] = 0;
+	rate[k+1] = 0;
+	for (i = 0; i < nkappaf; i++) {
+	  if (IsOdd(i)) {
+	    ij = i-1;
+	    klf = 1;
+	  } else {
+	    ij = i;
+	    klf = -1;
+	  }
+	  jf = ij+jmin;
+	  klf += jf;
+	  kappaf = GetKappaFromJL(jf, klf);
+	  s = W3j(j2, jf, j1, m2, m, -m1);
+	  rate[k] += s*s*p[i]*p[i];
+	  if (m != 1 && m != -1) continue;
+	  for (ip = 0; ip < nkappaf; ip++) {
+	    if (IsOdd(ip)) {
+	      ij = ip-1;
+	      klfp = 1;
+	    } else {
+	      ij = ip;
+	      klfp = -1;
+	    }
+	    jfp = ij + jmin;
+	    klfp += jfp;
+	    if (ip == i) {
+	      r = W3j(klf, 1, jf, 0, m, -m);
+	      r = r*r*s*s*p[i]*p[i];
+	      r *= (klf+1.0)*(jf+1.0);
+	      rate[k+1] += r;
+	    } else {
+	      kappafp = GetKappaFromJL(jfp, klfp);
+	      for (ik = 0; ik < n_egrid; ik++) {
+		k0 = OrbitalIndex(0, kappaf, egrid[ik]);
+		k1 = OrbitalIndex(0, kappafp, egrid[ik]);
+		ai_pk0[ik] = GetPhaseShift(k0);
+		ai_pk0[ik] -= GetPhaseShift(k1);
+	      }	      
+	      if (n_egrid > 1) {
+		UVIP3P(np, n_egrid, log_egrid, ai_pk0, nt, &log_e, &a);
+	      } else {
+		a = ai_pk0[0];
+	      }
+	      r = W3j(klf, 1, jf, 0, m, -m);
+	      r *= W3j(klfp, 1, jfp, 0, m, -m);
+	      r *= W3j(j2, jfp, j1, m2, m, -m1);
+	      r = r*s*p[i]*p[ip];
+	      r *= sqrt((klf+1.0)*(klfp+1.0)*(jf+1.0)*(jfp+1.0));
+	      r *= cos(a);
+	      dkl = (jf + jfp)/2 + 1;
+	      if (IsOdd(dkl)) r = -r;
+	      rate[k+1] += r;
+	    }
+	  }
+	}
+	rate[k] *= 4.0;
+	rate[k+1] *= 2.0*PI*PI/(*e);
+	k += 2;
+      }
+    }
+    free(p);    
+    return k;
   }
-  /* the prefactor 4.0 includes the factor 2 from the continuum norm,
-     otherwize, it should have been 2.0 */
-  *rate = 4.0*r/(j1+1.0);
-
-  free(p);
-
-  return 0;
 }
 
 int AIRadial1E(double *ai_pk, int kb, int kappaf) {
@@ -1246,14 +1316,18 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   return 0;
 }
       
-int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
-  int i, j, k;
+int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
+	   int channel, int msub) {
+  int i, j, k, t;
   LEVEL *lev1, *lev2;
   AI_RECORD r;
+  AIM_RECORD r1;
   AI_HEADER ai_hdr;
+  AIM_HEADER ai_hdr1;
   F_HEADER fhdr;
   double emin, emax;
-  double e, s, tai, a;
+  double e, s, tai, a, s1[MAXAIM];
+  float rt[MAXAIM];
   FILE *f;
   ARRAY subte;
   double c, e0, e1, b;
@@ -1299,11 +1373,20 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   }
   ArrayAppend(&subte, &emax, NULL);
   
-  fhdr.type = DB_AI;
+  if (!msub) {
+    fhdr.type = DB_AI;
+  } else {
+    fhdr.type = DB_AIM;
+  }
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
-  ai_hdr.nele = GetNumElectrons(low[0]);
-  ai_hdr.channel = channel;
+  if (!msub) {
+    ai_hdr.nele = GetNumElectrons(low[0]);
+    ai_hdr.channel = channel;
+  } else {
+    ai_hdr1.nele = GetNumElectrons(low[0]);
+    ai_hdr1.channel = channel;
+  }
   f = OpenFile(fn, &fhdr);
 
   e0 = emin;
@@ -1331,7 +1414,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
     if (!e_set) {
       a = (emax-emin)/(0.5*(emax+emin));
       if (a < 0.1) {
-	SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
+	a = 0.5*(emin+emax);
+	SetPEGrid(1, a, a, 0.0);
       } else if (a < 0.4) {
 	SetPEGrid(2, emin, emax, 0.0);
       } else if (a < 1.0) {
@@ -1345,23 +1429,44 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       }
     }      
     
-    ai_hdr.n_egrid = n_egrid;
-    ai_hdr.egrid = egrid; 
-    InitFile(f, &fhdr, &ai_hdr);
-    
+    if (!msub) {
+      ai_hdr.n_egrid = n_egrid;
+      ai_hdr.egrid = egrid;
+      InitFile(f, &fhdr, &ai_hdr);
+    } else {
+      ai_hdr1.n_egrid = n_egrid;
+      ai_hdr1.egrid = egrid;
+      InitFile(f, &fhdr, &ai_hdr1);
+    }
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	e = lev1->energy - lev2->energy;
 	if (e < e0 || e >= e1) continue;
-	k = AutoionizeRate(&s, &e, low[i], up[j]);
-	if (k < 0) continue;
-	if (s < ai_cut) continue;
-	r.b = low[i];
-	r.f = up[j];
-	r.rate = s;
-	WriteAIRecord(f, &r);
+	if (!msub) {
+	  k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	  if (k < 0) continue;
+	  if (s < ai_cut) continue;
+	  r.b = low[i];
+	  r.f = up[j];
+	  r.rate = s;
+	  WriteAIRecord(f, &r);
+	} else {
+	  k = AutoionizeRate(s1, &e, low[i], up[j], msub);
+	  if (k < 0) continue;
+	  r1.rate = rt;
+	  s = 0;
+	  for (t = 0; t < k; t++) {
+	    r1.rate[t] = s1[t];
+	    s += s1[t];
+	  }
+	  if (s < ai_cut) continue;
+	  r1.b = low[i];
+	  r1.f = up[j];
+	  r1.nsub = k;
+	  WriteAIMRecord(f, &r1);
+	}
       }
     }
 

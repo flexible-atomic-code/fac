@@ -1,3 +1,9 @@
+Version 1.0.1, 07/31/2003
+	1. autoionization and capture rates between magnetic sublevels
+	2. add autoionization in pfac.pol for DR satellites.
+	3. change the way electron energy and density are set in pfac.pol
+	4. allow calculations of DRS specifically from certain target level.
+	
 version 1.0.0, 07/15/2003
 	1. add pol module for constructing magnetic sublevel population
 	   models with collisional excitation.
