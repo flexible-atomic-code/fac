@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.37 2002/02/04 18:50:16 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.38 2002/02/04 22:49:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -636,7 +636,7 @@ double GetPhaseShift(int k) {
   double phase1, r, y, z, ke, e, a, b1;
   int i;
 
-  orb = GetOrbital(k);
+  orb = GetOrbitalSolved(k);
   if (orb->n > 0) return 0.0;
 
   if (orb->phase) return *(orb->phase);
@@ -766,6 +766,21 @@ ORBITAL *GetOrbital(int k) {
   return (ORBITAL *) ArrayGet(orbitals, k);
 }
 
+ORBITAL *GetOrbitalSolved(int k) {
+  ORBITAL *orb;
+  int i;
+
+  orb = (ORBITAL *) ArrayGet(orbitals, k);
+  if (orb->wfun == NULL) {
+    i = SolveDirac(orb);
+    if (i < 0) {
+      printf("Error occured in solving Dirac eq. err = %d\n", i);
+      exit(1);
+    }
+  }
+  return orb;
+}
+
 ORBITAL *GetNewOrbital(void) {
   ORBITAL *orb;
 
@@ -801,17 +816,21 @@ int ClearOrbitalTable(int m) {
     n_continua = 0;
     ArrayFree(orbitals, _FreeOrbitalData);
   } else {
-    for (i = 0; i < n_orbitals; i++) {
+    for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
-      if (orb->n <= 0) {
-	n_orbitals = i;
-	n_continua = 0;
-	ArrayTrim(orbitals, i, _FreeOrbitalData);
+      if (orb->n > 0) {
+	n_continua -= n_orbitals - (i+1);
+	n_orbitals = i+1;
+	ArrayTrim(orbitals, i+1, _FreeOrbitalData);
 	break;
       }
     }
+    if (m == 2) {
+      for (; i >= 0; i--) {
+	FreeOrbital(i);
+      }
+    }
   }
-
   return 0;
 }
 
@@ -1001,8 +1020,8 @@ int ResidualPotential(double *s, int k0, int k1) {
   } 
 
   *s = 0.0;
-  orb1 = GetOrbital(k0);
-  orb2 = GetOrbital(k1);
+  orb1 = GetOrbitalSolved(k0);
+  orb2 = GetOrbitalSolved(k1);
   if (!orb1 || !orb2) return -1;
  
   for (i = 0; i < MAX_POINTS; i++) {
@@ -1041,8 +1060,8 @@ double RadialMoments(int m, int k1, int k2) {
     return *q;
   } 
   
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
 
   npts = MAX_POINTS-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
@@ -1070,8 +1089,8 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   start = clock();
 #endif
   
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
   kappa1 = orb1->kappa;
   kappa2 = orb2->kappa;
 
@@ -1159,14 +1178,14 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     s = 0;      
     index[2] = k1;
     index[3] = k2;
-    orb1 = GetOrbital(k1);
-    orb2 = GetOrbital(k2);
+    orb1 = GetOrbitalSolved(k1);
+    orb2 = GetOrbitalSolved(k2);
   } else {
     s = 1;     
     index[2] = k2;
     index[3] = k1;
-    orb1 = GetOrbital(k2);
-    orb2 = GetOrbital(k1);
+    orb1 = GetOrbitalSolved(k2);
+    orb2 = GetOrbitalSolved(k1);
   }
   
   ef = Max(orb1->energy, orb2->energy);  
@@ -1355,10 +1374,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   k3 = ks[3];
   kk = k/2;
 
-  orb0 = GetOrbital(k0);
-  orb1 = GetOrbital(k1);
-  orb2 = GetOrbital(k2);
-  orb3 = GetOrbital(k3);
+  orb0 = GetOrbitalSolved(k0);
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
+  orb3 = GetOrbitalSolved(k3);
   kl0 = GetLFromKappa(orb0->kappa);
   kl1 = GetLFromKappa(orb1->kappa);
   kl2 = GetLFromKappa(orb2->kappa);
@@ -1479,10 +1498,10 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   if (*p) {
     *s = *p;
   } else {
-    orb0 = GetOrbital(k0);
-    orb1 = GetOrbital(k1);
-    orb2 = GetOrbital(k2);
-    orb3 = GetOrbital(k3);
+    orb0 = GetOrbitalSolved(k0);
+    orb1 = GetOrbitalSolved(k1);
+    orb2 = GetOrbitalSolved(k2);
+    orb3 = GetOrbitalSolved(k3);
     *s = 0.0;
     if (!orb0 || !orb1 || !orb2 || !orb3) return -1;  
 
@@ -2451,9 +2470,11 @@ int ReinitRadial(int m) {
   FreeMultipoleArray();
   FreeMomentsArray();
 
-  if (m == 0 && optimize_control.n_screen > 0) {
-    free(optimize_control.screened_n);
-    optimize_control.n_screen = 0;
+  if (m != 1) {
+    if (optimize_control.n_screen > 0) {
+      free(optimize_control.screened_n);
+      optimize_control.n_screen = 0;
+    }
     potential->flag = 0;
     n_awgrid = 1;
     awgrid[0] = EPS3;
