@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.9 2003/07/31 21:40:26 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.10 2003/08/01 13:50:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -424,7 +424,7 @@ int SetMAIRates(char *fn) {
   int n, k, m, t, p, i;
   int m1, m2, j1, j2;
   int swp;
-  double e, v;
+  double e, v, x, pf=1.0;
   double esigma, energy;
     
   f = fopen(fn, "r");
@@ -447,6 +447,9 @@ int SetMAIRates(char *fn) {
   
   energy = params.energy;
   esigma = params.esigma;
+  if (esigma > 0) {
+    pf = 1.0/(sqrt(2.0*PI)*esigma);
+  }
 
   if (nai > 0) {
     for (t = 0; t < nai; t++) {
@@ -476,7 +479,12 @@ int SetMAIRates(char *fn) {
       e = levels[r.b].energy - levels[r.f].energy;
       e *= HARTREE_EV;
       v = VelocityFromE(e)*AREA_AU20*HARTREE_EV;
-      
+      if (esigma > 0.0) {
+	x = (e - energy)/esigma;
+	x = 0.5*x*x;
+	if (x > 50.0) v = 0.0;
+	v *= pf*exp(-x);
+      }
       ai_rates[t].f = r.f;
       ai_rates[t].b = r.b;
       j1 = levels[r.b].j;
@@ -540,9 +548,6 @@ int PopulationTable(char *fn) {
   for (i = 0; i < p; i++) {
     rmatrix[i] = 0.0;
   }
-  for (i = 0; i < nmlevels; i++) {
-    ipiv[i] = 0;
-  }
 
   for (i = 0; i < ntr; i++) {
     i1 = tr_rates[i].lower;
@@ -562,6 +567,9 @@ int PopulationTable(char *fn) {
     }
   }
 
+  for (i = 0; i < nmlevels; i++) {
+    ipiv[i] = 0;
+  }
   idr = -1;
   for (i = 0; i < nai; i++) {
     i1 = ai_rates[i].b;

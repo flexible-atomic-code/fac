@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.2 2003/07/31 21:40:27 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.3 2003/08/01 13:50:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -161,7 +161,8 @@ static PyObject *PSetEnergy(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "dd", &e, &es)) return NULL;
+  es = 0.0;
+  if (!PyArg_ParseTuple(args, "d|d", &e, &es)) return NULL;
 
   SetEnergy(e, es);
 
