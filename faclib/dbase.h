@@ -31,8 +31,8 @@ typedef struct _F_HEADER_ {
 } F_HEADER;
 
 typedef struct _EN_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int nlevels;
 } EN_HEADER;
@@ -54,8 +54,8 @@ typedef struct _EN_SRECORD_ {
 } EN_SRECORD;
 
 typedef struct _TR_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int gauge;
@@ -70,8 +70,8 @@ typedef struct _TR_RECORD_ {
 } TR_RECORD;
 
 typedef struct _CE_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int qk_mode;
@@ -97,8 +97,8 @@ typedef struct _CE_RECORD_ {
 } CE_RECORD;
 
 typedef struct _RR_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int qk_mode;
@@ -123,8 +123,8 @@ typedef struct _RR_RECORD_ {
 } RR_RECORD;
 
 typedef struct _AI_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int channel;
@@ -139,8 +139,8 @@ typedef struct _AI_RECORD_ {
 } AI_RECORD;
 
 typedef struct _CI_HEADER_ {
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int qk_mode;
@@ -165,8 +165,8 @@ typedef struct _CI_RECORD_ {
 } CI_RECORD;
 
 typedef struct _SP_HEADER_ { 
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int type;
@@ -188,8 +188,8 @@ typedef struct _SP_RECORD_ {
 } SP_RECORD;
 
 typedef struct _RT_HEADER_ { 
-  off_t position;
-  off_t length;
+  long int position;
+  long int length;
   int nele;
   int ntransitions;
   int iedist;
