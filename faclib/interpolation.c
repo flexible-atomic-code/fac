@@ -1,5 +1,11 @@
 #include "interpolation.h"
 
+static char *rcsid="$Id: interpolation.c,v 1.4 2001/09/14 13:17:00 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2) {
   int i, k;

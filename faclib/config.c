@@ -1,5 +1,11 @@
 #include "config.h"
 
+static char *rcsid="$Id: config.c,v 1.7 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 static CONFIG_GROUP *cfg_groups;
 static int n_groups; 
 

@@ -1,5 +1,11 @@
 #include "excitation.h"
 
+static char *rcsid="$Id: excitation.c,v 1.21 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 #define MAXMSUB  64
 
 static int output_format = 0;
@@ -42,10 +48,18 @@ int SetCEFormat(int m) {
   return m;
 }
 
-int SetCEEGridType(int utype, int etype, int ltype) {
-  if (etype >= 0) egrid_type = etype;
-  if (utype >= 0) usr_egrid_type = utype;
-  if (ltype >= 0) pw_type = ltype;
+int SetCEEGridType(int type) {
+  if (type >= 0) egrid_type = type;
+  return 0;
+}
+
+int SetUsrCEEGridType(int type) {
+  if (type >= 0) usr_egrid_type = type;
+  return 0;
+}
+
+int SetCEPWGridType(int type) {
+  if (type >= 0) pw_type = type;
   return 0;
 }
 
@@ -984,13 +998,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (msub) {
     pw_type = 1;
-    if (egrid_type < 0) egrid_type = 1;
-    if (usr_egrid_type < 0) usr_egrid_type = 1;
   } else {
     if (pw_type < 0) pw_type = 0;
-    if (egrid_type < 0) egrid_type = 1;
-    if (usr_egrid_type < 0) usr_egrid_type = 1;
   }
+  if (egrid_type < 0) egrid_type = 1;
+  if (usr_egrid_type < 0) usr_egrid_type = 1;
 
   if (egrid_type == 0) e = emax;
   else e = 0.5*(emin+emax);

@@ -1,5 +1,11 @@
 #include "orbital.h"
 
+static char *rcsid="$Id: orbital.c,v 1.16 2001/09/14 13:17:00 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 /* closed Newton-Cotes formulae coeff. */
 static double _CNC[5][5] = {
   {0, 0, 0, 0, 0},

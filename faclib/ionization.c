@@ -1,5 +1,11 @@
 #include "ionization.h"
 
+static char *rcsid="$Id: ionization.c,v 1.16 2001/09/14 13:17:00 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 #define NINT 31
 
 static int output_format = 0;
@@ -79,9 +85,8 @@ int SetCIFormat(int m) {
   return m;
 }
 
-int SetCIEGridType(int utype, int etype) {
-  if (utype >= 0) usr_egrid_type = utype;
-  if (etype >= 0) egrid_type = etype;
+int SetUsrCIEGridType(int type) {
+  if (type >= 0) usr_egrid_type = type;
   return 0;
 }
 

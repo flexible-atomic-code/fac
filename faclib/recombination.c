@@ -1,6 +1,12 @@
 #include "recombination.h"
 #include "time.h"
 
+static char *rcsid="$Id: recombination.c,v 1.19 2001/09/14 13:17:01 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 static egrid_type = -1;
 static usr_egrid_type = -1;
 
@@ -40,9 +46,8 @@ int SetAICut(double c) {
   ai_cut = c;
 }
 
-int SetPEGridType(int utype, int etype) {
-  if (utype >= 0) usr_egrid_type = utype;
-  if (etype >= 0) egrid_type = etype;
+int SetUsrPEGridType(int type) {
+  if (type >= 0) usr_egrid_type = type;
   return 0;
 }
 
@@ -430,9 +435,6 @@ int BoundFreeOS(double *strength, double *eb,
       strength[ie] = stmp[ie];
     }
   }
-  for (ie = 0; ie < n_egrid; ie++) {
-    printf("%d %10.3E %10.3E \n", ie, egrid[ie], stmp[ie]);
-  }
 
   /* the factor 2 comes from the conitinuum norm */
   for (ie = 0; ie < n_usr; ie++) {
@@ -687,10 +689,10 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
   if (m < 0) t = 'E';
   else t = 'M';
-  fprintf(f, "\tMultipole %c%d", t, abs(m));
-  fprintf(f, "\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid:\n\n");
-  else fprintf(f, " Photo-Electron UsrEGrid:\n\n");
+  fprintf(f, "\nMultipole %c%d", t, abs(m));
+  fprintf(f, "\n\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Photon UsrEGrid\n");
+  else fprintf(f, " Photo-Electron UsrEGrid\n");
 
   fprintf(f, "Free  2J\tBound 2J\tE_Binding\n\n");
   for (i = 0; i < nup; i++) {
@@ -715,7 +717,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
  	  ee = usr_egrid[ie];
 	  eph = eb + ee;
  	}
-	phi = 2.0*PI*FINE_STRUCTURE_CONST*s[ie];
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*s[ie]*AREA_AU20;
 	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	trr[ie] += rr;
 	tpi[ie] += phi;

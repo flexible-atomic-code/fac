@@ -1,6 +1,12 @@
 #include "structure.h"
 #include <time.h>
 
+static char *rcsid="$Id: structure.c,v 1.12 2001/09/14 13:17:01 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 #define debug_integral(s, ne, r) \
         {int ks; \
@@ -839,7 +845,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   FILE *f;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
-  int i, j;
+  int i, j, p, j0;
   int si;
   double mix;
   STATE *s, *sp;
@@ -855,13 +861,14 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   
   e0 = GetLevel(0)->energy;
   asym = GetAtomSymbol();
-  fprintf(f, "%s,  Ground State Energy: %10.4E\n\n", 
+  fprintf(f, "%s,  Ground State Energy:\n   %16.8E\n\n", 
 	  asym, e0*HARTREE_EV);
- 
+  fprintf(f, "      Energy(eV)  P 2J\n\n");
   for (i = 0; i < n_levels; i++) {
     lev = GetLevel(i);
     si = lev->major_component;
     sym = GetSymmetry(lev->pj);
+    DecodePJ(lev->pj, &p, &j0);
     s = (STATE *) ArrayGet(&(sym->states), si);
     if (n > 0) {
       if (s->kgroup >= 0) {
@@ -873,8 +880,8 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
       }
     }
     ConstructLevelName(name, sname, s);
-    fprintf(f, "%-5d %11.4E  %-20s  %-30s\n", i, 
-	    (lev->energy-e0)*HARTREE_EV, sname, name);
+    fprintf(f, "%-5d %-11.4E %1d %-2d %-20s  %-30s\n", i, 
+	    (lev->energy-e0)*HARTREE_EV, p, j0, sname, name);
     if (m == 0) continue;
 
     for (j = 0; j < lev->n_basis; j++) {

@@ -243,19 +243,17 @@ appearence of energy has the unit of eV, although internally, the code uses
 the atomic unit.
 
 \begin{description}
-\item[SetCEPWOptions(eps, lmax, lcb, qr)] 
+\item[SetCEPWOptions(eps, lmax, qr)] 
 Set partial wave options for excitation calculation. 
 ``eps'' is a tolerence number controlling the trunction of partial wave
 summation. Approximately, the relative error introduced by the truncation is
-equal to ``eps''. The last 3 parameters are
+equal to ``eps''. The last 2 parameters are
 optional. ``lmax'' sets an absolute limit for the partial wave 
-summation, which may or may not be reached in the calculation. ``lcb'' is a
-limit beyond which Coulomb-Bethe approximation should be used, although
-internally, CB approximation is used whenever the desired accuracy can be
-satisfied. ``qr'' specifies $l_{qr}$,
+summation, which may or may not be reached in the calculation. ``qr''
+specifies $l_{qr}$, 
 beyond which, the quasi-relativistic approximaiton should be used. The default
-values for these parameters are, ``eps = 0.05'', ``lmax = 500'', ``lcb = 100''
-and ``qr = 0''. 
+values for these parameters are, ``eps = 0.05'', ``lmax = 500'', and ``qr =
+0''.  
 
 \item[SetCEPWGrid(m)] 
 ``m'' is the partial wave value, beyond which a logrithmic
@@ -279,14 +277,6 @@ Set the format of the output. If ``m=0'', both collision strength and cross
 sections in unit of $10^{-20}$ cm$^2$ are output. If ``m=1'', only collision
 strenght is ouput, and if ``m=2'', only cross section is output.
 
-\item[SetCEGridType(utype, etype, ltype)]
-Set the type of collision energy grid, and the partial wave summation mode.
-``utype'' is for the user grid, if it is 0, the energies are for the incident
-electron, if it is 1, they are for the scattered electron. ``etype'' is for
-the internal grid with the same meaning. If ``ltype'' is 0, the last summation
-is over the orbital angular momentum of the incident electron, if it is 1, the
-last summation is over the scattered electron. 
-
 \item[SetCEGrid(n, emin, emax)] 
 Set the collision energy grid. From emin to emax with n points in a
 logrithmic grid. This function may also take a list of energy points. This
@@ -297,6 +287,12 @@ automatically according to the user output grid.
 \item[SetUsrCEGrid(n, emin, emax)]
 Set the output grid for the scattered electron energy. Arguments are the same
 as SetCEGrid().
+
+\item[SetUsrCEGridType(type)]
+Set the type of collision energy grid specified by ``SetUsrCEGrid''
+``type = 0'', the energies are for the incident
+electron, if it is 1, they are for the scattered electron, which is the
+default.  
 
 \item[CETable(low, up, fname)] Calculates the collision strength of the
 transition array specified by ``low'' and ``up''. Output the results to file
@@ -311,11 +307,11 @@ to the specific magnetic sublevels of the ``low'' and ``up'' levels.
 The calculation of collisional ionization is similar to that of excitation, we
 refer to the parallel routines in the excitation for the syntax.
 \begin{description}
-\item[SetCIPWOptions(eps, lmax, lmax\_eject, lcb, qr)]
+\item[SetCIPWOptions(eps, lmax, lmax\_eject, qr)]
 Set the partial wave options. ``lmax\_eject'' is the maximum
 orbital angular momentum for the ejected electron. Other parameters are the
 same as in ``SetCEPWOptions''. The default values are,
-``eps=0.05'', ``lmax=500'', ``lmax\_eject=8'', ``lcb=50'', and ``qr=0''.
+``eps=0.05'', ``lmax=500'', ``lmax\_eject=8'', ``qr=0''.
 
 \item[SetCIPWGrid(m)]
 See SetCEPWGrid() for detail.
@@ -329,12 +325,6 @@ Set the format of the output. If ``m=0'', both ionization strength and cross
 sections in unit of $10^{-20}$ cm$^2$ are output. If ``m=1'', only ionization
 strenght is ouput, and if ``m=2'', only cross section is output.
 
-\item[SetCIEGridType(utype, etype)]
-Set the collision energy grid type, whether it is the incident electron
-energy, or the sum of the scattered and ejected electron energies. This only
-works for utype currently though. Internally, the grid is always for the final
-electrons.  
-
 \item[SetCIEGrid(n, emin, emax)]
 See SetCEGrid().
 
@@ -342,6 +332,11 @@ See SetCEGrid().
 See SetUsrCIEGrid(). The energy grid specified is the sum of two outgoing
 electrons, i.e., E0-I, where E0 is the energy of the impacting electron, and I
 is the ionization threshold.
+
+\item[SetUsrCIEGridType(type)]
+Set the collision energy grid type specified by ``SetUsrCIEGrid'', if ``type =
+0'', the energies are those of the incident electrons, if it is 1, the
+energies are the sum of the two final electrons.
 
 \item[CITable(bound, free, fname)] 
 Calculate the collisional ionization cross sections between the ``bound''
@@ -374,10 +369,6 @@ Construct recombined states based on the  target
 states from ``groups'', and captured electron in ``n'' levels. The recombined
 states constructed this way can be referred to by a tuple (groups, n). 
 
-\item[SetPEGridType(utype, etype)]
-Set the energy grid type, whether it is the incident photon energy or the
-photo-electron energy. 
-
 \item[SetPEGrid(n, emin, emax)] 
 Set the internal collision energy grid in photo-ionization and radiative
 recombination calculations. A Python list may also be used to specify the
@@ -387,6 +378,11 @@ detailed energy grid.
 Set the collision energy grid where photo-ionization and radiative
 recombination cross sections are desired. The radial integrals involved will
 be interpolated from the internal grid set by SetPEGrid.
+
+\item[SetUsrPEGridType(type)]
+Set the energy grid type set by ``SetUsrPEGrid'', if ``type = 0'', the
+energies are those of the incident photons, if it is 1, the energies are those
+of the photo-electrons, which is the default. 
 
 \item[RRTable(bound, free, fname, m)] Calculates the photoionization cross
 section and radiative recombination cross section between ``bound'' and

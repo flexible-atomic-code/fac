@@ -1,5 +1,11 @@
 #include "array.h"
 
+static char *rcsid="$Id: array.c,v 1.4 2001/09/14 13:16:59 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 /******************************************************************/
 /* implements a variable length one- and multi- dimensional array */
 /******************************************************************/

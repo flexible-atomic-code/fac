@@ -1,6 +1,12 @@
 #include "transition.h"
 #include <time.h>
 
+static char *rcsid="$Id: transition.c,v 1.4 2001/09/14 13:17:01 mfgu Exp $";
+#if __GNUC__ == 2
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+USE (rcsid);
+#endif
+
 static struct {
   int gauge;
   int mode;
