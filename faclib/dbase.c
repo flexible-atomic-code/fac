@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.41 2003/03/11 15:18:47 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.42 2003/03/11 16:24:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -539,16 +539,29 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   }
 
   f1 = fopen(ifn, "r");
-  if (f1 == NULL) return -1;
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
 
   if (strcmp(ofn, "-") == 0) {
     f2 = stdout;
   } else {
     f2 = fopen(ofn, "w");
   }
-  if (f2 == NULL) return -1;
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
   
-  
+  n = fread(&fh, sizeof(F_HEADER), 1, f1);
+  if (n != 1) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;  
+  }
+
   swp = 0;
   if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
     swp = 1;
@@ -556,6 +569,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   }
 
   if (fh.type != DB_CI || fh.nblocks == 0) {
+    printf("File %s is not of DB_CI type\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;
@@ -645,7 +659,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   RR_RECORD r;
   int i, t, nb, m;
   float *params, *strength;
-  float e, eph, ee, phi, rr;
+  float e, eph, ee, phi;
   double *xusr, *dstrength, *c, tc, emax;
   double x, y;
   int np=3, one=1, nele;
@@ -656,15 +670,28 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   }
 
   f1 = fopen(ifn, "r");
-  if (f1 == NULL) return -1;
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
 
   if (strcmp(ofn, "-") == 0) {
     f2 = stdout;
   } else {
     f2 = fopen(ofn, "w");
   }
-  if (f2 == NULL) return -1;
-  
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  n = fread(&fh, sizeof(F_HEADER), 1, f1);
+  if (n != 1) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    fclose(f1);
+    fclose(f2);
+    return 0;  
+  }
   
   swp = 0;
   if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
@@ -673,6 +700,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   }
 
   if (fh.type != DB_RR || fh.nblocks == 0) {
+    printf("File %s is not of DB_RR type\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;
@@ -768,7 +796,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	  }
 	}
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
-	c[t] += rr/(mem_en_table[r.b].j + 1.0);
+	c[t] += phi/(mem_en_table[r.b].j + 1.0);
       }
     }
 
@@ -816,17 +844,24 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   }
 
   f1 = fopen(ifn, "r");
-  if (f1 == NULL) return -1;
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
 
   if (strcmp(ofn, "-") == 0) {
     f2 = stdout;
   } else {
     f2 = fopen(ofn, "w");
   }
-  if (f2 == NULL) return -1;
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
 
   n = fread(&fh, sizeof(F_HEADER), 1, f1);
   if (n != 1) {
+    printf("File %s is not in FAC binary format\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;  
@@ -839,6 +874,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   }
 
   if (fh.type != DB_RR || fh.nblocks == 0) {
+    printf("File %s is not of DB_RR type\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;
