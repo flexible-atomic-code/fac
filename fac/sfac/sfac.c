@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.1 2001/11/06 23:55:22 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.2 2001/11/07 03:08:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -349,7 +349,7 @@ static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[1], argt[1], variables);
     if (nup <= 0) return -1;
-    SaveExcitation(nlow, low, nlow, low, 0, argv[2]);
+    SaveExcitation(nlow, low, nup, up, 0, argv[2]);
     free(low);
     free(up);
   } else {
@@ -384,7 +384,7 @@ static int PCETableMSub(int argc, char *argv[], int argt[],
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[1], argt[1], variables);
     if (nup <= 0) return -1;
-    SaveExcitation(nlow, low, nlow, low, 1, argv[2]);
+    SaveExcitation(nlow, low, nup, up, 1, argv[2]);
     free(low);
     free(up);
   } else {
@@ -663,31 +663,31 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   } else {
     ng = DecodeGroupArgs(&kg, 1, argv, argt, variables);
     if (ng < 0) return -1;
-  }
   
-  if (argc == 1) {
-    weight = NULL;
-  } else {
-    if (argt[1] != LIST && argt[1] != TUPLE) return -1;
-    k = DecodeArgs(argv[1], vw, iw, variables);
-    if (k < 0 || k > ng) {
-      printf("weights must be a sequence\n");
-      return -1;
-    } 
-    weight = (double *) malloc(sizeof(double)*ng);
-    z = 0.0;
-    for (i = 0; i < k; i++) {
-      if (iw[i] != NUMBER) {
+    if (argc == 1) {
+      weight = NULL;
+    } else {
+      if (argt[1] != LIST && argt[1] != TUPLE) return -1;
+      k = DecodeArgs(argv[1], vw, iw, variables);
+      if (k < 0 || k > ng) {
+	printf("weights must be a sequence\n");
 	return -1;
       } 
-      weight[i] = atof(vw[i]);
-      z += weight[i];
-    }
-    for (i = k; i < ng; i++) {
-      if (z >= 1.0) {
-	weight[i] = weight[k-1];
-      } else {
-	weight[i] = (1.0-z)/(ng-k);
+      weight = (double *) malloc(sizeof(double)*ng);
+      z = 0.0;
+      for (i = 0; i < k; i++) {
+	if (iw[i] != NUMBER) {
+	  return -1;
+	} 
+	weight[i] = atof(vw[i]);
+	z += weight[i];
+      }
+      for (i = k; i < ng; i++) {
+	if (z >= 1.0) {
+	  weight[i] = weight[k-1];
+	} else {
+	  weight[i] = (1.0-z)/(ng-k);
+	}
       }
     }
   }
@@ -975,7 +975,7 @@ static int PSetCEGrid(int argc, char *argv[], int argt[],
     if (argt[0] == NUMBER) {
       ng = atoi(argv[0]);
       err = SetCEEGrid(ng, -1.0, -1.0, 0.0);
-    } else if (argt[0] = LIST && argt[0] == TUPLE) {
+    } else if (argt[0] == LIST || argt[0] == TUPLE) {
       ng = DecodeArgs(argv[0], vg, ig, variables);
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
@@ -1196,7 +1196,7 @@ static int PSetCIEGrid(int argc, char *argv[], int argt[],
     if (argt[0] == NUMBER) {
       ng = atoi(argv[0]);
       err = SetCIEGrid(ng, -1.0, -1.0, 0.0);
-    } else if (argt[0] = LIST || argt[0] == TUPLE) {
+    } else if (argt[0] == LIST || argt[0] == TUPLE) {
       ng = DecodeArgs(argv[0], vg, ig, variables);
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
@@ -1421,7 +1421,7 @@ static int PSetPEGrid(int argc, char *argv[], int argt[],
     if (argt[0] == NUMBER) {
       ng = atoi(argv[0]);
       err = SetPEGrid(ng, -1.0, -1.0, 0.0);
-    } else if (argt[0] = LIST || argt[0] == TUPLE) {
+    } else if (argt[0] == LIST || argt[0] == TUPLE) {
       ng = DecodeArgs(argv[0], vg, ig, variables);
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
