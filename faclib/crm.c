@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.66 2004/01/04 21:55:23 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.67 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -25,7 +25,7 @@ static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
 static int do_extrapolate = 0;
-static int inner_auger = 1;
+static int inner_auger = 0;
 
 int SetInnerAuger(int i) {
   inner_auger = i;
@@ -672,81 +672,6 @@ void ExtrapolateAI(ION *ion, int inv) {
     }  
   }
 }
-
-int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
-  int i, k, n1, n2, n3, ibase;
-  char ncomp[LNCOMPLEX];
-  char name[LNAME];
-  char sname[LSNAME];
-
-  i = 0;
-  while (r->name[i] && r->name[i] != '+') i++;
-  if (r->name[i] == '+' && r->name[i-1] == ' ') {
-    return atoi(r->name);
-  } else {
-    strcpy(ncomp, r->ncomplex);
-    strcpy(sname, r->sname);
-    strcpy(name, r->name);
-    i = 0;
-    while (ncomp[i]) i++;
-    while (ncomp[i] != '*') i--;
-    k = atoi(&(ncomp[i+1]));
-    k--;
-    if (k == 0) {
-      while (ncomp[i] != ' ' && i > 0) i--;
-      ncomp[i] = '\0';
-    } else {
-      sprintf(&(ncomp[i+1]), "%1d", k);
-    }    
-    n1 = strlen(ncomp);
-    i = 0; 
-    while (sname[i]) i++;
-    i--;
-    while (sname[i] == ' ' && i > 0) i--;
-    if (sname[i] == '1') {
-      while (sname[i] != ' ' && i > 0) i--;
-      sname[i] = '\0';
-      n3 = strlen(sname);
-    } else {
-      k = atoi(&(sname[i]));
-      k--;
-      sprintf(&(sname[i]), "%1d", k);
-      n3 = strlen(sname);
-    }
-
-    i = 0;
-    while (name[i]) i++;
-    while (name[i] != '(') i--;
-    i--;
-    if (name[i] != '1') {
-      for (i = 0; i < n; i++) {
-	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0) return r0[i].ilev;
-      }
-      return -1;
-    } else {
-      while (name[i] != ' ' && i > 0) i--;
-      name[i] = '\0';
-      n2 = strlen(name);
-      ibase = -1;
-      for (i = 0; i < n; i++) {
-	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0) {
-	  if (ibase == -1) ibase = r0[i].ilev;
-	  if (n2 == 0 || n3 == 0) {
-	    return r0[i].ilev;
-	  } else {
-	    if (strncmp(sname, r0[i].sname, n3) == 0) {
-	      ibase = r0[i].ilev;
-	      if (strncmp(name, r0[i].name, n2) == 0) {
-		return r0[i].ilev;
-	      }
-	    }
-	  }
-	}
-      }
-      return ibase;
-    }
-  }
-}
     
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
@@ -835,6 +760,7 @@ int SetBlocks(double ni, char *ifn) {
     }
     ion->nlevels = nlevels;
     ion->iblock = (LBLOCK **) malloc(sizeof(LBLOCK *)*nlevels);
+    for (i = 0; i < nlevels; i++) ion->iblock[i] = NULL;
     ion->ilev = (int *) malloc(sizeof(int)*nlevels);
     ion->j = (short *) malloc(sizeof(short)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
@@ -926,6 +852,7 @@ int SetBlocks(double ni, char *ifn) {
 	  for (i = 0; i < h.nlevels; i++) {
 	    p = r0[i].ilev;
 	    q = r1[i].ilev;
+	    ion1->iblock[q]->ionized = 1;
 	    ion->iblock[p] = ion1->iblock[q];
 	    ion->ilev[p] = ion1->ilev[q];
 	    ion->j[p] = r0[i].j;
@@ -948,6 +875,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.ib = blocks->dim;
 	      blk.iion = -1;
 	      blk.irec = -1;
+	      blk.ionized = 1;
 	      blk.rec = NULL;
 	      if (i < n_single_blocks) {
 		blk.nlevels = 1;
@@ -979,6 +907,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.ib = blocks->dim;
 	      blk.iion = -1;
 	      blk.irec = -1;
+	      blk.ionized = 1;
 	      blk.rec = NULL;
 	      blk.nlevels = h.nlevels;
 	      blk.n = (double *) malloc(sizeof(double)*blk.nlevels);
@@ -1016,6 +945,9 @@ int SetBlocks(double ni, char *ifn) {
 	}
 	nb0++;
 	r0 += h.nlevels;
+      } else if (h.nele == ion->nele-2) {
+	fseek(f, h.length, SEEK_CUR);
+	continue;	
       } else {
 	printf("ERROR: Ion charge state does not match %d %d %d %d\n",
 	       k, nb, h.nele, ion->nele);
@@ -1041,6 +973,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.ib = blocks->dim;
 	  blk.iion = k;
 	  blk.irec = -1;
+	  blk.ionized = 0;
 	  blk.rec = NULL;
 	  if (i < n_single_blocks) {
 	    blk.nlevels = 1;
@@ -1072,6 +1005,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.ib = blocks->dim;
 	  blk.iion = k;
 	  blk.irec = -1;
+	  blk.ionized = 0;
 	  blk.rec = NULL;
 	  blk.nlevels = h.nlevels;
 	  blk.n = (double *) malloc(sizeof(double)*blk.nlevels);
@@ -1127,7 +1061,7 @@ int SetBlocks(double ni, char *ifn) {
 	} else {
 	  ion->vnl[p] = r.p;
 	}
-	ion->ibase[p] = GetBaseLevel(nionized, rionized, &r);
+	ion->ibase[p] = r.ibase;
 	ion->energy[p] = r.energy;
 	if (ion->nele >= 4 && nrec == 0) {
 	  if (ion->ibase[p] <= ion->KLN_bmax &&
@@ -1159,6 +1093,7 @@ int SetBlocks(double ni, char *ifn) {
     /* determine the minimum ilev in each block */
     blkp = NULL;
     for (i = 0; i < ion->nlevels; i++) {
+      if (ion->iblock[i] == NULL) continue;
       if (ion->iblock[i] != blkp) {
 	blkp = ion->iblock[i];
 	blkp->imin = i;
@@ -1264,7 +1199,9 @@ int IonIndex(ION *ion, int i, int k) {
 
   m = 0;
   while (m < ion->nlevels) {
-    if (ion->iblock[m]->ib != i) {
+    if (ion->iblock[m] == NULL) {
+      m++;
+    } else if (ion->iblock[m]->ib != i) {
       m += ion->iblock[m]->nlevels;
     } else {
       if (ion->ilev[m] == k) return m;
@@ -1450,10 +1387,11 @@ int InitBlocks(void) {
     ion = (ION *) ArrayGet(ions, k);
     if (ion->nele >= 4) {
       for (i = 0; i < ion->nlevels; i++) {
+	blk1 = ion->iblock[i];
+	if (blk1 == NULL) continue;
 	if (ion->ibase[i] <= ion->KLN_bmax &&
 	    ion->ibase[i] >= ion->KLN_bmin) {
 	  p = ion->ibase[i] - ion->KLN_bmin;
-	  blk1 = ion->iblock[i];
 	  if (blk1->irec >= 0) {
 	    blk1->total_rate[ion->ilev[i]] = ion->KLN_ai[p];
 	  }
@@ -3006,6 +2944,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
     ib = -1;
     for (m = 0; m < ion->nlevels; m++) {
       blk = ion->iblock[m];
+      if (blk == NULL) continue;
       i = blk->ib;
       if (i != ib) {
 	if (ib >= 0) DeinitFile(f, &fhdr);
@@ -3902,11 +3841,77 @@ int SetRRRates(int inv) {
   return 0;
 }
 
+int SetAIRatesInner(char *fn) {
+  int nb, n, k, i, b0, nm;
+  ION *ion;
+  F_HEADER fh;
+  AI_HEADER h;
+  AI_RECORD r;
+  FILE *f;  
+  int swp;
+  int ibase;
+
+  if (inner_auger != 3) {
+    printf("inner_auger must be 3 for this mode\n");
+    return 0;
+  }
+  if (ion0.n < 0.0) return 0;
+  if (ion0.atom <= 0) {
+    printf("ERROR: Blocks not set, exitting\n");
+    exit(1);
+  }
+  
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("File %s does not exist, skipping.\n", fn);
+    return 0;
+  }
+
+  n = ReadFHeader(f, &fh, &swp);
+  b0 = -1;
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadAIHeader(f, &h, swp);
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadAIRecord(f, &r, swp);
+      if (b0 < 0 || r.b < b0) b0 = r.b;
+    }
+    free(h.egrid);
+  }
+
+  fseek(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadAIHeader(f, &h, swp);
+    for (k = 0; k < ions->dim; k++) {
+      ion = (ION *) ArrayGet(ions, k);
+      if (ion->nele == h.nele+1) break;
+    }
+    nm = ion->KLN_bmax - ion->KLN_bmin;    
+    if (k < ions->dim) {
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadAIRecord(f, &r, swp);
+	r.rate *= RATE_AU;
+	ibase = r.b - b0;
+	if (ibase >= 0 && ibase <= nm) {
+	  ion->KLN_ai[ibase] += r.rate;
+	}
+      }    
+    } else {
+      fseek(f, h.length, SEEK_CUR);
+    }
+    free(h.egrid);
+  }
+
+  fclose(f);
+
+  return 0;
+}
+  
 int SetAIRates(int inv) {
-  int nb, i;
+  int nb, i, ib;
   int n, k;
   int j1, j2;
-  ION *ion;
+  ION *ion, *ion1;
   RATE rt;
   F_HEADER fh;
   AI_HEADER h;
@@ -3923,7 +3928,10 @@ int SetAIRates(int inv) {
     exit(1);
   }
   for (k = 0; k < ions->dim; k++) {
-    ion = (ION *) ArrayGet(ions, k);
+    if (k == 0) ion = (ION *) ArrayGet(ions, k);
+    else ion = ion1;
+    if (k < ions->dim - 1) ion1 = (ION *) ArrayGet(ions, k+1);
+    else ion1 = NULL;
     ArrayFree(ion->ai_rates, FreeBlkRateData);
     f = fopen(ion->dbfiles[DB_AI-1], "r");
     if (f == NULL) {
@@ -3935,6 +3943,34 @@ int SetAIRates(int inv) {
       n = ReadAIHeader(f, &h, swp);
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadAIRecord(f, &r, swp);
+	if (inner_auger == 1) {
+	  if (r.b <= ion->KLN_max && 
+	      r.b >= ion->KLN_min &&
+	      r.f <= ion->KLN_amax &&
+	      r.f >= ion->KLN_amin) {
+	    ibase = ion->ibase[r.b] - ion->KLN_bmin;
+	    if (ibase >= 0) {
+	      ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	    }
+	  }
+	} else if (inner_auger == 3) {
+	  if (h.nele == ion->nele-1 &&
+	      r.b <= ion->KLN_bmax && 
+	      r.b >= ion->KLN_bmin) {
+	    ibase = r.b - ion->KLN_bmin;	   
+	    ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	    continue;
+	  }
+	} else if (inner_auger == 4) {
+	  if (ion->iblock[r.b]->ionized) {
+	    ib = IonIndex(ion1, ion->iblock[r.b]->ib, ion->ilev[r.b]);
+	    if (ib <= ion1->KLN_bmax && ib >= ion1->KLN_bmin) {
+	      ibase = ib - ion1->KLN_bmin;
+	      ion1->KLN_ai[ibase] += r.rate*RATE_AU;
+	    }
+	  }
+	}
+	if (h.nele == ion->nele - 1) continue;
 	rt.i = r.b;
 	rt.f = r.f;
 	j1 = ion->j[r.b];
@@ -3942,26 +3978,40 @@ int SetAIRates(int inv) {
 	e = ion->energy[r.b] - ion->energy[r.f];
 	AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
 	AddRate(ion, ion->ai_rates, &rt, 0);
-	if (rt.i <= ion->KLN_max && 
-	    rt.i >= ion->KLN_min &&
-	    rt.f <= ion->KLN_amax &&
-	    rt.f >= ion->KLN_amin) {
-	  ibase = ion->ibase[rt.i] - ion->KLN_bmin;
-	  if (ibase >= 0) {
-	    ion->KLN_ai[ibase] += rt.dir;
-	  }
-	}
       }
       free(h.egrid);
     }
-    n = ion->KLN_bmax - ion->KLN_bmin + 1;
-    for (ibase = 0; ibase < n; ibase++) {
-      if (ion->KLN_nai[ibase]) {
-	ion->KLN_ai[ibase] /= ion->KLN_nai[ibase];
+    if (inner_auger == 1) {
+      n = ion->KLN_bmax - ion->KLN_bmin + 1;
+      for (ibase = 0; ibase < n; ibase++) {
+	if (ion->KLN_nai[ibase]) {
+	  ion->KLN_ai[ibase] /= ion->KLN_nai[ibase];
+	}
       }
     }
     fclose(f);
     ExtrapolateAI(ion, inv);
+    
+    if (inner_auger == 4 && k == 0 && ion0.nionized > 0) {
+      f = fopen(ion0.dbfiles[DB_AI-1], "r");
+      if (f == NULL) {
+	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_AI-1]);
+	continue;
+      }
+      n = ReadFHeader(f, &fh, &swp);
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadAIRecord(f, &r, swp);
+	ib = IonizedIndex(r.b, 0);
+	if (ib >= 0) {
+	  ib = ion0.ionized_map[1][ib];
+	  if (ib <= ion->KLN_bmax && ib >= ion->KLN_bmin) {
+	    ibase = ib - ion->KLN_bmin;
+	    ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	  }
+	}
+      }
+      fclose(f);
+    }
   }
   return 0;
 }
@@ -4215,6 +4265,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
     } else {
       for (t = 0; t < ion->nlevels; t++) {	
 	if (imax < 0 || t <= imax) {
+	  if (ion->iblock[t] == NULL) continue;
 	  q = ion->ilev[t];
 	  energy = ion->energy[t];
 	  if (p == ion->iblock[t]->iion) nele = ion->nele;
@@ -4222,6 +4273,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	  else nele = ion->nele + 1;
 	  if (a == 0) {
 	    fwrite(&(nele), sizeof(short), 1, f);
+	    fwrite(&t, sizeof(int), 1, f);
 	    fwrite(&(ion->iblock[t]->ib), sizeof(int), 1, f);
 	    fwrite(&q, sizeof(int), 1, f);
 	    fwrite(&(ion->j[t]), sizeof(short), 1, f);
@@ -4231,8 +4283,8 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
 	  } else {
-	    fprintf(f, "%2d %7d %7d %2d %4d %4d %15.8E %10.3E %10.3E\n", 
-		    nele, ion->iblock[t]->ib, q, ion->j[t],
+	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.3E %10.3E\n", 
+		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
 		    ion->ibase[t], ion->vnl[t], ion->energy[t],
 		    ion->iblock[t]->total_rate[q],
 		    ion->iblock[t]->r[q]);

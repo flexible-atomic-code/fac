@@ -509,7 +509,7 @@ s,@LIBOBJS@,,;t t
 s,@F77@,g77,;t t
 s,@FFLAGS@,-O2 -fPIC -fno-strength-reduce -fno-common,;t t
 s,@ac_ct_F77@,g77,;t t
-s,@FLIBS@,-L/sw/lib/gcc/powerpc-apple-darwin6.6/3.4 -L/sw/lib/gcc/powerpc-apple-darwin6.6/3.4/../../.. -lfrtbegin -lg2c -lSystem,;t t
+s,@FLIBS@,-L/sw/lib/gcc/powerpc-apple-darwin7.0.0/3.4 -L/sw/lib/gcc/powerpc-apple-darwin7.0.0/3.4/../../.. -lfrtbegin -lg2c -lSystem,;t t
 s,@LTLIBOBJS@,,;t t
 CEOF
 

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.50 2003/12/05 06:24:52 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.51 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,6 +24,7 @@ USE (rcsid);
 static HAMILTON _ham = {0, 0, 0, 0, 0, 0, 0, 0, 0, 
 			NULL, NULL, NULL, NULL, NULL};
 
+static ARRAY levels_per_ion[N_ELEMENTS+1];
 static ARRAY *levels;
 static int n_levels = 0;
 
@@ -734,8 +735,9 @@ int AddToLevels(int ng, int *kg) {
   mix = h->mixing + d;
   j = n_levels;
   sym = GetSymmetry(h->pj);
+
   for (i = 0; i < d; i++) {
-    k = GetPrincipleBasis(mix, d);
+    k = GetPrincipleBasis(mix, d, NULL);
     s = (STATE *) ArrayGet(&(sym->states), h->basis[k]);
     if (ng > 0) {
       if (!InGroups(s->kgroup, ng, kg)) {
@@ -761,6 +763,7 @@ int AddToLevels(int ng, int *kg) {
       lev.mixing = (double *) realloc(lev.mixing, sizeof(double)*m);
     }
     SortMixing(0, m, lev.basis, lev.mixing, sym);
+    GetPrincipleBasis(lev.mixing, m, lev.kpb);
 
     if (s->kgroup >= 0) {
       lev.ngp = 0;
@@ -784,6 +787,7 @@ int AddToLevels(int ng, int *kg) {
     } else {
       lev.ngp = 0;
       lev.igp = NULL;
+      lev.ibase = -(s->kgroup + 1);
     }
 
     if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
@@ -793,7 +797,7 @@ int AddToLevels(int ng, int *kg) {
     j++;
     mix += h->n_basis;
   }
-  
+
   n_levels = j;
   if (i < d-1) return -2;
 
@@ -921,17 +925,43 @@ int GetNumLevels(void) {
   return n_levels;
 }
 
-int GetPrincipleBasis(double *mix, int d) {
-  int i, k;
-  double c = 0.0;
+int GetPrincipleBasis(double *mix, int d, int *kpb) {
+  int i, k, t, q, iskpb;
+  double c;
   double fm;
 
-  k = 0;
-  for (i = 0; i < d; i++) {
-    fm = fabs(mix[i]);
-    if (fm > c) {
-      c = fm;
-      k = i;
+  if (kpb) {
+    for (t = 0; t < NPRINCIPLE; t++) {
+      if (d <= t) {
+	kpb[t] = kpb[t-1];
+	continue;
+      } 
+      c = 0.0;
+      for (i = 0; i < d; i++) {
+	iskpb = 0;
+	for (q = 0; q < t; q++) {
+	  if (i == kpb[q]) {
+	    iskpb = 1;
+	    break;
+	  }
+	}
+	if (iskpb) continue;
+	fm = fabs(mix[i]);
+	if (fm > c) {
+	  c = fm;
+	  kpb[t] = i;
+	}
+      }
+    }
+    k = kpb[0];
+  } else {
+    c = 0.0;
+    for (i = 0; i < d; i++) {
+      fm = fabs(mix[i]);
+      if (fm > c) {
+	c = fm;
+	k = i;
+      }
     }
   }
 
@@ -1043,23 +1073,26 @@ int GetNumElectrons(int k) {
 }
 
 int SaveLevels(char *fn, int m, int n) {
-  STATE *s;
-  SYMMETRY *sym;
+  STATE *s, *s1;
+  SYMMETRY *sym, *sym1;
   CONFIG *cfg, *cfg1;
   SHELL_STATE *csf, *csf1;
-  LEVEL *lev;
+  LEVEL *lev, *lev1;
   EN_RECORD r;
   EN_HEADER en_hdr;
   F_HEADER fhdr;
   ECORRECTION *ec;
-  double e0;
+  LEVEL_ION *gion, gion1;
+  ORBITAL *orb;
+  double e0, md, md1, a;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
   FILE *f;
   int i, k, p, j0;
-  int nele, nele0, vnl;
-  int si, ms, mst;
+  int nele, nele0, vnl, ib, dn, ik;
+  int si, ms, mst, t, q, nk, n0;
+
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
@@ -1069,6 +1102,7 @@ int SaveLevels(char *fn, int m, int n) {
  
   f = NULL;
   nele0 = -1;
+  n0 = m;
   if (n < 0) n = n_levels - m;
   fhdr.type = DB_EN;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -1101,36 +1135,85 @@ int SaveLevels(char *fn, int m, int n) {
 
     if (s->kgroup > 0) {
       cfg = GetConfig(s);
-      if ((cfg->shells[0]).n > (cfg->shells[1]).n &&
-	  (cfg->shells[0]).nq == 1) {
+      nk = cfg->n_electrons-1;
+      if (nk < 0 || 
+	  levels_per_ion[nk].dim == 0 ||
+	  cfg->shells[0].nq > 1) {
+	lev->ibase = -1;
+      } else {
+	csf = cfg->csfs + s->kstate;
+	md = 1E30;
+	lev->ibase = -1;
+	dn = cfg->shells[0].n - cfg->shells[1].n;
+	a = 0.0;
+	if (dn < MAXDN) {
+	  a = 0.0;
+	  for (t = 0; t < lev->n_basis; t++) {
+	    s1 = ArrayGet(&(sym->states), lev->basis[t]);
+	    cfg1 = GetConfig(s1);
+	    if (cfg1->shells[0].n == cfg->shells[0].n &&
+		cfg1->shells[0].nq == 1) {
+	      a += (lev->mixing[t])*(lev->mixing[t]);
+	    }
+	  }
+	  a = 1.0/a;
+	}
+	for (ib = 0; ib < NPRINCIPLE; ib++) {
+	  for (t = 0; t < levels_per_ion[nk].dim; t++) {
+	    gion = (LEVEL_ION *) ArrayGet(levels_per_ion+nk, t);
+	    for (q = gion->imin; q <= gion->imax; q++) {
+	      lev1 = GetLevel(q);
+	      sym1 = GetSymmetry(lev1->pj);
+	      s1 = ArrayGet(&(sym1->states), lev1->basis[lev1->kpb[ib]]);
+	      cfg1 = GetConfig(s1);
+	      csf1 = cfg1->csfs + s1->kstate;
+	      mst = cfg1->n_shells*sizeof(SHELL_STATE);
+	      ms = cfg1->n_shells*sizeof(SHELL);
+	      if (cfg->n_shells == cfg1->n_shells+1 &&
+		  memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
+		  memcmp(csf+1, csf1, mst) == 0) {
+		if (dn < MAXDN) {
+		  md1 = fabs(fabs(a*lev->mixing[lev->kpb[0]]) - 
+			     fabs(lev1->mixing[lev1->kpb[ib]]));
+		  if (md1 < md) {
+		    md = md1;
+		    lev->ibase = q;
+		  }
+		} else {
+		  ik = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+		  orb = GetOrbital(ik);
+		  a = lev->energy - orb->energy;
+		  md1 = fabs(a - lev1->energy);
+		  if (md1 < md) {
+		    md = md1;
+		    lev->ibase = q;
+		  }
+		}
+	      }
+	    }
+	  }
+	  if (lev->ibase >= 0) {
+	    break;
+	  }
+	}
+      }
+      if (lev->ibase >= 0) {
 	for (p = 0; p < ecorrections->dim; p++) {
 	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
 	  if (-(i+1) == ec->ilev) break;
-	}
-	if (p == ecorrections->dim) {
-	  csf = cfg->csfs + s->kstate;
-	  for (p = 0; p < ecorrections->dim; p++) {
-	    ec = (ECORRECTION *) ArrayGet(ecorrections, p);
-	    if (ec->ilev >= 0) continue;
-	    if ((cfg->shells[0]).n < ec->nmin) continue;
-	    cfg1 = GetConfig(ec->s);
-	    ms = cfg1->n_shells*sizeof(SHELL);
-	    mst = cfg1->n_shells*sizeof(SHELL_STATE);
-	    csf1 = cfg1->csfs + ec->s->kstate;
-	    if (cfg->n_electrons == cfg1->n_electrons+1 &&
-		cfg->n_shells == cfg1->n_shells+1 &&
-		memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
-		memcmp(csf+1, csf1, mst) == 0) {
-	      lev->energy += ec->e;
-	      break;
-	    }
+	  if (-(lev->ibase + 1) == ec->ilev && cfg->shells[0].n >= ec->nmin) {
+	    lev->energy += ec->e;
+	    break;
 	  }
 	}
       }  
+    } else {
+      lev->ibase = -(s->kgroup + 1);
     }
  
     DecodePJ(lev->pj, &p, &j0);
     r.ilev = i;
+    r.ibase = lev->ibase;
     r.p = p;
     r.j = j0;
     r.energy = lev->energy;
@@ -1148,7 +1231,25 @@ int SaveLevels(char *fn, int m, int n) {
       r.p = -vnl;
     }
     if (nele != nele0) {
-      if (nele0 >= 0) DeinitFile(f, &fhdr);
+      if (nele0 >= 0) {
+	DeinitFile(f, &fhdr);
+	q = 0;
+	nk = nele0;
+	t = levels_per_ion[nk].dim;
+	if (t > 0) {
+	  gion = (LEVEL_ION *) ArrayGet(levels_per_ion+nk, t-1);
+	  if (gion->imax+1 == n0) {
+	    gion->imax = n_levels-1;
+	    q = 1;
+	  }
+	}
+	if (q == 0) {
+	  gion1.imin = n0;
+	  gion1.imax = i-1;
+	  ArrayAppend(levels_per_ion+nk, &gion1, NULL);
+	}
+      }
+      n0 = i;
       nele0 = nele;
       en_hdr.nele = nele;
       InitFile(f, &fhdr, &en_hdr);
@@ -1158,6 +1259,22 @@ int SaveLevels(char *fn, int m, int n) {
 
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
+
+  q = 0;
+  nk = nele0;
+  t = levels_per_ion[nk].dim;
+  if (t > 0) {
+    gion = (LEVEL_ION *) ArrayGet(levels_per_ion+nk, t-1);
+    if (gion->imax+1 == n0) {
+      gion->imax = n_levels-1;
+      q = 1;
+    }
+  }
+  if (q == 0) {
+    gion1.imin = n0;
+    gion1.imax = n_levels-1;
+    ArrayAppend(levels_per_ion+nk, &gion1, NULL);
+  }
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
@@ -2774,6 +2891,10 @@ int ClearLevelTable(void) {
     }
   }
   
+  for (k = 0; k <= N_ELEMENTS; k++) {
+    ArrayFree(levels_per_ion+k, NULL);
+  }
+
   ncorrections = 0;
   ArrayFree(ecorrections, NULL);
 
@@ -2784,6 +2905,10 @@ int InitStructure(void) {
   int i, ndim = 4;
   int blocks[4];
 
+  for (i = 0; i <= N_ELEMENTS; i++) {
+    ArrayInit(levels_per_ion+i, sizeof(LEVEL_ION), 512);
+  }
+  
   n_levels = 0;
   levels = malloc(sizeof(ARRAY));
   if (!levels) return -1;

@@ -484,6 +484,7 @@ typedef struct _EN_RECORD_ {
   short p;
   short j;
   int ilev;
+  int ibase;
   double energy;
   char ncomplex[LNCOMPLEX];
   char sname[LSNAME];
@@ -503,6 +504,16 @@ the principal quantum number and orbital angular number of the valence
 electron, and the $\pm$ sign indicates an even ($+$) or odd ($-$) parity state.
 \item[\texttt{short j}:] 2 $\times$ the total angular momentum of the level.
 \item[\texttt{int ilev}:] The index of the level.
+\item[\texttt{int ibase}:] The index of the base level. The base level
+  obtained by peeling off the valence electron, and the resulting levels must
+  be present in the same level file. Other wise, its value is -1. It is not
+  always possible to determine the base level, e.g., when the valence orbital
+  is occupied by more than one electrons. In such cases, \texttt{ibase} is
+  also -1. The value of \texttt{ibase} is primarily used in dealing with DR
+  and RE rates, where it may help the distinguish different resonance channels
+  and facilitate easy extrapolation. This variable is only added in version
+  FAC 1.0.4. So these later versions are not compartible with the binary
+  output of the ealier versions.
 \item[\texttt{energy}:] The energy of the level in Hartree.
 \item[\texttt{char ncomplex[LNCOMPLEX]}:] The complex name. It is in the format
 of \verb|n1*nq1 n2*nq2|$\cdots$, where \verb|n1| and \verb|n2| are the
@@ -1416,7 +1427,7 @@ directory come with FAC.
 \index{DB\_EN}
 \begin{verbatim}
 # version numbers
-FAC 0.7.3
+FAC 1.0.4
 # binary order used in the binary file
 Endian	= 0
 # time stamp when the file was created.
@@ -1437,18 +1448,18 @@ E0	= 0, -3.12494784E+04
 NELE	= 10
 # number of levels in this block
 NLEV	= 37
-         Energy       P VNL 2J
-    0  0.00000000E+00 0 201  0 1*2 2*8      2p6       2p+4(0)0 
-    1  7.24353943E+02 1 300  4 1*2 2*7 3*1  2p5 3s1   2p+3(3)3 3s+1(1)4 
-    2  7.26393494E+02 1 300  2 1*2 2*7 3*1  2p5 3s1   2p+3(3)3 3s+1(1)2 
-    3  7.37238831E+02 1 300  0 1*2 2*7 3*1  2p5 3s1   2p-1(1)1 3s+1(1)0 
-    4  7.38577454E+02 1 300  2 1*2 2*7 3*1  2p5 3s1   2p-1(1)1 3s+1(1)2 
-    5  7.54684448E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p-1(1)2 
-    6  7.58348267E+02 0 301  4 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p-1(1)4 
-    7  7.59979248E+02 0 301  6 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)6 
-    8  7.61135193E+02 0 301  2 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)2 
-    9  7.62972046E+02 0 301  4 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)4 
-   10  7.68711975E+02 0 301  0 1*2 2*7 3*1  2p5 3p1   2p+3(3)3 3p+1(3)0 
+  ILEV  IBASE    ENERGY       P   VNL 2J
+     0     -1  0.00000000E+00 0   201  0 1*2 2*8      2p6      2p+4(0)0 
+     1     -1  7.23810448E+02 1   300  4 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)4 
+     2     -1  7.25859655E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)2 
+     3     -1  7.36414516E+02 1   300  0 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)0 
+     4     -1  7.37736604E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)2 
+     5     -1  7.54149163E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)2 
+     6     -1  7.57788593E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)4 
+     7     -1  7.59341459E+02 0   301  6 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)6 
+     8     -1  7.60552577E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)2 
+     9     -1  7.62361512E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)4 
+    10     -1  7.67999430E+02 0   301  0 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)0 
    ......
 \end{verbatim}
 
@@ -3213,6 +3224,13 @@ Set autoionization rates in the spectral model. If \var{inv}=1, the rates for
 the inverse process, dielectronic capture, are also set. 
 \end{fundesc}
 
+\begin{fundesc}{SetAIRatesInner}{fn}
+Read the AI file \var{fn} to obtain the inner Auger transition rates. This
+file must only contain the the rates of such transitions. and the energy level
+indexes of the bound states must be continuous, and have exactly the same
+order as the corresponding levels in the level table already setup.
+\end{fundesc}
+
 \begin{fundesc}{SetAbund}{n, den}
 Set the abundance of the ion with number of electrons \var{n} to
 \var{den}. This overrides the settings given by \key{AddIon}.
@@ -3265,8 +3283,15 @@ KLn, LMn, MMn, ... for L-shell ions. If unsure how to extrapolate, set it to
 
 \begin{fundesc}{SetInnerAuger}{i}
 Set if the inner-shell Auger transitions should be extrapolated to those
-levels that are not explicitly calculated. Default is 1, enabling the
-extraploation.
+levels that are not explicitly calculated. There are several different ways
+such extrapolation can be done. \var{i}=0 indicates no
+extrapolation. \var{i}=1 is to extrapolate by averaging the Auger rates of the
+last calculated complex. \var{i}=2 is to extrapolate by reading an extra file
+that contains the Auger rates in the core, which must be supplied by calling
+\key{SetAIRatesInner}. \var{i}=3 is to extrapolate by reading the same AI file
+that contains the normal AI rates. In this case, the AI file must contain
+those rates between the core. \var{i}=4 is to read the rates from the AI file
+of the next higher charge state.
 \end{fundesc}
 
 \begin{fundesc}{SetIteration}{a\opt{, s, m}}

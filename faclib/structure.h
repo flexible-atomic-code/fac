@@ -32,11 +32,18 @@ typedef struct _LEVEL_ {
   int pj;
   int n_basis;
   int pb;
+  int kpb[NPRINCIPLE];
+  int ibase;
   int *basis;
   double *mixing;
   double energy;
   int ngp, *igp;
 } LEVEL;
+
+typedef struct _LEVEL_ION_ {
+  int imin;
+  int imax;
+} LEVEL_ION;
 
 typedef struct _ANGZ_DATUM_ {
   int ns;
@@ -112,7 +119,7 @@ int LevelTotalJ(int k);
 int GetNumLevels(void);
 int GetNumElectrons(int k);
 int SortMixing(int start, int n, int *basis, double *mix, SYMMETRY *sym);
-int GetPrincipleBasis(double *mix, int d);
+int GetPrincipleBasis(double *mix, int d, int *kpb);
 int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);

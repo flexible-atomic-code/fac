@@ -43,6 +43,7 @@ typedef struct _EN_RECORD_ {
   short p;
   short j;
   int ilev;
+  int ibase;
   double energy;
   char ncomplex[LNCOMPLEX];
   char sname[LSNAME];

@@ -32,6 +32,7 @@ typedef struct _LBLOCK_ {
   int ib;
   int iion;
   int irec;
+  int ionized;
   RECOMBINED *rec;
   int imin;
   int nlevels;
@@ -106,7 +107,6 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
 		   int nele, char *ifn);
 void GetRecombined(int *b, int *nrec, char *name);
 int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);
-int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r);
 int GetNComplex(NCOMPLEX *c, char *s);
 int CompareNComplex(NCOMPLEX *c1, NCOMPLEX *c2);
 int StrNComplex(char *s, NCOMPLEX *c);
@@ -125,6 +125,7 @@ int SetTRRates(int inv);
 int SetCIRates(int inv);
 int SetRRRates(int inv);
 int SetAIRates(int inv);
+int SetAIRatesInner(char *fn);
 int RateTable(char *fn, int nc, char *sc[]);
 int BlockMatrix(void);
 int BlockPopulation(void);
