@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.64 2003/12/05 06:24:52 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.65 2004/01/08 19:04:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2838,6 +2838,7 @@ static PyObject *PReinitConfig(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
   ReinitConfig(m);
+  _closed_shells[0] = '\0';
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -3058,6 +3059,7 @@ static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
 
   ReinitFac(m_config, m_recouple, m_radial, m_dbase,
 	    m_structure, m_excitation, m_recombination, m_ionization);
+  if (m_config == 0) _closed_shells[0] = '\0';
 
   Py_INCREF(Py_None);
   return Py_None;
