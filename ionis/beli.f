@@ -28,13 +28,13 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       ei1 = cea(2, k)
       a1 = cea(3, k)
 
+      e = error(k)
+
       if (ei0 .eq. 0) then
          ea = -1.0
          dir = -1.0
          return
       endif
-
-      e = error(k)
 
       dir = 0.0
       if (ei0 .gt. 0 .and. ene .gt. ei0) then
