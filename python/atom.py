@@ -213,7 +213,7 @@ class ATOM:
         self.exc_complex = []
         self.ion_complex = CGROUP('ion')
 
-        self.angz_cut0 = 1E-6
+        self.angz_cut0 = 1E-5
         self.tr_cut0 = 1E-3
         self.ai_cut0 = 1E-16
         if (self.nele <= self.nele_max[1]):
@@ -226,7 +226,7 @@ class ATOM:
             self.rec_pw_max = [10, 9, 6]
             self.nrec_ext = 45
             self.n_decay = [10, 3, -1]
-            self.angz_cut1 = 1E-6
+            self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-14
             self.angz_cut2 = 1E-4
@@ -237,8 +237,8 @@ class ATOM:
             self.nterms = [-1,-1,-1,-1]
             if (self.nele > 5):
                 self.nterms = [3, 2, 2, 2]
-            self.nexc_max = [5, 5, 5, 5]
-            self.nfrozen = [10, 6, 6, 6]
+            self.nexc_max = [6, 6, 6, 6]
+            self.nfrozen = [10, 7, 7, 7]
             self.nexc_rec = [10, 4, 4, 4]
             self.nrec_max = [25, 16, 12, 8]
             self.rec_pw_max = [10, 9, 9, 5]
