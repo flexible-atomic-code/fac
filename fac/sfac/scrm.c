@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.13 2003/01/22 21:58:05 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.14 2003/05/23 21:28:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -43,7 +43,7 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   FILE *f;
   F_HEADER fh;
-  int i;
+  int i, swp;
 
   if (argc == 0) {
     i = CheckEndian(NULL);
@@ -53,7 +53,7 @@ static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
       printf("Cannot open file %s\n", argv[0]);
       return -1;
     }
-    fread(&fh, sizeof(F_HEADER), 1, f);
+    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
     fclose(f);
   }

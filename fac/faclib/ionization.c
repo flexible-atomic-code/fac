@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.44 2003/04/28 13:49:14 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.45 2003/05/23 21:28:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -243,7 +243,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   t = r*sqrt(e1+2.0*z/r);
   kl_max0 = pw_scratch.max_kl;
   kl_max0 = Min(kl_max0, t);
-  max0 = pw_scratch.ns;
+  max0 = 12;
 
   e2 = egrid[ie2];
   t = r*sqrt(e2+2.0*z/r);

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.54 2003/05/22 20:22:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.55 2003/05/23 21:28:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -100,7 +100,7 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
   FILE *f;
   F_HEADER fh;
-  int i;
+  int i, swp;
 
   if (sfac_file) {
     SFACStatement("CheckEndian", args, NULL);
@@ -116,7 +116,7 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    fread(&fh, sizeof(F_HEADER), 1, f);
+    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);

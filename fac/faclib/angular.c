@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.12 2002/04/09 18:08:49 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.13 2003/05/23 21:28:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -508,6 +508,7 @@ double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
 */
 double ReducedCL(int ja, int k, int jb) {
   double r;
+
   r = sqrt((ja+1.0)*(jb+1.0))*W3j(ja, k, jb, 1, 0, -1);
   if (IsOdd((ja+1)/2)) r = -r;
   return r;

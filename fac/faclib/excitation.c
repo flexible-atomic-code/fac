@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.50 2003/04/28 13:49:14 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.51 2003/05/23 21:28:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -244,7 +244,11 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 
   max0 = 2*Max(orb0->n, orb1->n);
   max0 *= sqrt(2.0-e1/Min(orb0->energy, orb1->energy));
-  max0 = Max(16, max0);
+  max0 = Max(12, max0);
+  max0 = Min(36, max0);
+  i = pw_scratch.kl[pw_scratch.nkl0-2];
+  max0 = Min(i, max0);
+
   if (type >= 0 && type < CBMULTIPOLES) {
     kl_max = pw_scratch.kl_cb;
   } else {
@@ -382,7 +386,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 		ks[1] = kf0;	      
 	      }
 	    }
-	    
+
 	    if (kl1 >= pw_scratch.qr &&
 		kl0 >= pw_scratch.qr) {
 	      SlaterTotal(&sd, &se, js, ks, k, -1);

@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.25 2003/04/16 15:02:06 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.26 2003/05/23 21:28:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -94,7 +94,7 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
   FILE *f;
   F_HEADER fh;
-  int i;
+  int i, swp;
 
   if (scrm_file) {
     SCRMStatement("CheckEndian", args, NULL);
@@ -110,7 +110,7 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    fread(&fh, sizeof(F_HEADER), 1, f);
+    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);

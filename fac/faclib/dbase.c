@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.42 2003/03/11 16:24:59 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.43 2003/05/23 21:28:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -230,6 +230,7 @@ int SwapEndianRTHeader(RT_HEADER *h) {
 
 int SwapEndianRTRecord(RT_RECORD *r) {
   SwapEndian((char *) &(r->iblock), sizeof(int));
+  SwapEndian((char *) &(r->nb), sizeof(float));
   SwapEndian((char *) &(r->tr), sizeof(float));
   SwapEndian((char *) &(r->ce), sizeof(float));
   SwapEndian((char *) &(r->rr), sizeof(float));
@@ -310,6 +311,710 @@ int ReinitDBase(int m) {
   }
 }
 
+int WriteFHeader(FILE *f, F_HEADER *fh) {
+  int n;
+
+  n = fwrite(fh, sizeof(F_HEADER), 1, f);
+  if (n != 1) return 0;
+
+  return sizeof(F_HEADER);
+}
+
+int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
+  int n;
+
+  n = fread(fh, sizeof(F_HEADER), 1, f);
+  if (n != 1) return 0;
+  *swp = 0;
+  if (CheckEndian(fh) != (int) (fheader[0].symbol[3])) {
+    *swp = 1;
+    SwapEndianFHeader(fh);
+  }
+
+  return sizeof(F_HEADER);
+}
+
+int WriteENHeader(FILE *f, EN_HEADER *h) {
+  int n;
+  
+  n = fwrite(h, sizeof(EN_HEADER), 1, f);
+  if (n != 1) return 0;
+
+  return sizeof(EN_HEADER);
+}
+
+int WriteTRHeader(FILE *f, TR_HEADER *h) {
+  int n;
+  
+  n = fwrite(h, sizeof(TR_HEADER), 1, f);
+  if (n != 1) return 0;
+  
+  return sizeof(TR_HEADER);
+}
+
+int WriteCEHeader(FILE *f, CE_HEADER *h) {
+  int n, m;
+
+  n = fwrite(h, sizeof(CE_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(CE_HEADER);
+  n = fwrite(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) return 0;
+  m += sizeof(double)*h->n_tegrid;
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  n = fwrite(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) return 0;
+  m += sizeof(double)*h->n_usr;
+  
+  return m;
+}
+
+int WriteRRHeader(FILE *f, RR_HEADER *h) {
+  int n, m;
+
+  n = fwrite(h, sizeof(RR_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(RR_HEADER);
+  n = fwrite(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) return 0;
+  m += sizeof(double)*h->n_tegrid;
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  n = fwrite(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) return 0;
+  m += sizeof(double)*h->n_usr;
+  
+  return m;
+}
+
+int WriteAIHeader(FILE *f, AI_HEADER *h) {
+  int n, m;
+  
+  n = fwrite(h, sizeof(AI_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(AI_HEADER);
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  
+  return m;
+}
+
+int WriteCIHeader(FILE *f, CI_HEADER *h) {
+  int n, m;
+
+  n = fwrite(h, sizeof(CI_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(CI_HEADER);
+  n = fwrite(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) return 0;
+  m += sizeof(double)*h->n_tegrid;
+  n = fwrite(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) return 0;
+  m += sizeof(double)*h->n_egrid;
+  n = fwrite(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) return 0;
+  m += sizeof(double)*h->n_usr;
+  
+  return m;
+}
+
+int WriteSPHeader(FILE *f, SP_HEADER *h) {
+  int n;
+  
+  n = fwrite(h, sizeof(SP_HEADER), 1, f);
+  if (n != 1) return 0;
+  
+  return sizeof(SP_HEADER);
+}
+
+int WriteRTHeader(FILE *f, RT_HEADER *h) {
+  int n, m;
+  
+  n = fwrite(h, sizeof(RT_HEADER), 1, f);
+  if (n != 1) return 0;
+  m = sizeof(RT_HEADER);
+  n = fwrite(h->p_edist, sizeof(double), h->np_edist, f);
+  if (n != h->np_edist) return 0;
+  m += sizeof(double)*h->np_edist;
+  n = fwrite(h->p_pdist, sizeof(double), h->np_pdist, f);
+  if (n != h->np_pdist) return 0;
+  m += sizeof(double)*h->np_pdist;
+  
+  return m;
+}
+
+int WriteDRHeader(FILE *f, DR_HEADER *h) {
+  int n;
+
+  n = fwrite(h, sizeof(DR_HEADER), 1, f);
+  if (n != 1) return 0;
+  
+  return sizeof(DR_HEADER);
+}
+
+int WriteENRecord(FILE *f, EN_RECORD *r) {
+  int n;
+  n = fwrite(r, sizeof(EN_RECORD), 1, f);
+  if (n != 1) return 0;
+  en_header.nlevels += 1;
+  en_header.length += sizeof(EN_RECORD);
+  return sizeof(EN_RECORD);
+}
+
+int WriteTRRecord(FILE *f, TR_RECORD *r) {
+  int n;
+
+  n = fwrite(r, sizeof(TR_RECORD), 1, f);  
+  if (n != 1) return 0;
+  tr_header.ntransitions += 1;
+  tr_header.length += sizeof(TR_RECORD);
+  return sizeof(TR_RECORD);
+}
+
+int WriteCERecord(FILE *f, CE_RECORD *r) {
+  int n;
+  int m, m0;
+
+  m = sizeof(CE_RECORD);
+  n = fwrite(r, m, 1, f);
+  if (n != 1) return 0;
+  ce_header.ntransitions += 1;
+  ce_header.length += m;
+  m0 = m;
+  if (ce_header.qk_mode == QK_FIT) {
+    m = ce_header.nparams * r->nsub;
+    ce_header.length += sizeof(float)*m;
+    n = fwrite(r->params, sizeof(float), m, f);
+    if (n != m) return 0;
+    m0 += sizeof(float)*m;
+  }
+  m = ce_header.n_usr * r->nsub;
+  ce_header.length += sizeof(float)*m;
+  n = fwrite(r->strength, sizeof(float), m, f);
+  if (n != m) return 0;
+  m0 += sizeof(float)*m;
+
+  return m0;
+}
+
+int WriteRRRecord(FILE *f, RR_RECORD *r) {
+  int n;
+  int m, m0;
+
+  rr_header.ntransitions += 1;
+  m = sizeof(RR_RECORD);
+  rr_header.length += m;
+  n = fwrite(r, m, 1, f);
+  if (n != 1) return 0;
+  m0 = m;
+  if (rr_header.qk_mode == QK_FIT) {
+    m = rr_header.nparams;
+    rr_header.length += sizeof(float)*m;
+    n = fwrite(r->params, sizeof(float), m, f);
+    if (n != m) return 0;
+    m0 += sizeof(float)*m;
+  }
+  m = rr_header.n_usr;
+  rr_header.length += sizeof(float)*m;
+  n = fwrite(r->strength, sizeof(float), m, f);
+  if (n != m) return 0;
+  m0 += sizeof(float)*m;
+
+  return m0;
+}
+
+int WriteAIRecord(FILE *f, AI_RECORD *r) {
+  int n;
+
+  ai_header.ntransitions += 1;
+  ai_header.length += sizeof(AI_RECORD);
+  n = fwrite(r, sizeof(AI_RECORD), 1, f);
+  if (n != 1) return 0;
+
+  return sizeof(AI_RECORD);
+}
+
+int WriteCIRecord(FILE *f, CI_RECORD *r) {
+  int n;
+  int m, m0;
+
+  ci_header.ntransitions += 1;
+  m = sizeof(CI_RECORD);
+  ci_header.length += m;
+  n = fwrite(r, m, 1, f);
+  if (n != 1) return 0;
+  m0 = m;
+  m = ci_header.nparams;
+  ci_header.length += sizeof(float)*m;
+  n = fwrite(r->params, sizeof(float), m, f);
+  if (n != m) return 0;
+  m0 += sizeof(float)*m;
+  m = ci_header.n_usr;
+  ci_header.length += sizeof(float)*m;
+  n = fwrite(r->strength, sizeof(float), m, f);
+  if (n != m) return 0;
+  m0 += sizeof(float)*m;
+
+  return m0;
+}
+
+int WriteSPRecord(FILE *f, SP_RECORD *r) {
+  int n;
+  sp_header.ntransitions += 1;
+  sp_header.length += sizeof(SP_RECORD);
+  n = fwrite(r, sizeof(SP_RECORD), 1, f);  
+  if (n != 1) return 0;
+
+  return sizeof(SP_RECORD);
+}
+
+int WriteRTRecord(FILE *f, RT_RECORD *r) {
+  int n;
+  rt_header.ntransitions += 1;
+  rt_header.length += sizeof(RT_RECORD);
+  n = fwrite(r, sizeof(RT_RECORD), 1, f);  
+  if (n != 1) return 0;
+
+  return sizeof(RT_RECORD);
+}
+
+int WriteDRRecord(FILE *f, DR_RECORD *r) {
+  int n;
+
+  dr_header.ntransitions += 1;
+  dr_header.length += sizeof(DR_RECORD);
+  n = fwrite(r, sizeof(DR_RECORD), 1, f);
+  if (n != 1) return 0;
+  
+  return sizeof(DR_RECORD);
+}
+
+int ReadENHeader(FILE *f, EN_HEADER *h, int swp) {
+  int n;
+
+  n = fread(h, sizeof(EN_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianENHeader(h);
+  
+  return sizeof(EN_HEADER);
+}
+  
+int ReadENRecord(FILE *f, EN_RECORD *r, int swp) {
+  int n;
+
+  n = fread(r, sizeof(EN_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianENRecord(r);
+  
+  return sizeof(EN_RECORD);
+}
+
+int ReadTRHeader(FILE *f, TR_HEADER *h, int swp) {
+  int n;
+
+  n = fread(h, sizeof(TR_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianTRHeader(h);
+  
+  return sizeof(TR_HEADER);
+}
+
+int ReadTRRecord(FILE *f, TR_RECORD *r, int swp) {
+  int n;
+  
+  n = fread(r, sizeof(TR_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianTRRecord(r);
+  
+  return sizeof(TR_RECORD);
+}
+
+int ReadCEHeader(FILE *f, CE_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(CE_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianCEHeader(h);
+  m = sizeof(CE_HEADER);
+
+  h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
+  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) {
+    free(h->tegrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_tegrid;
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->tegrid);
+    free(h->egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_egrid;
+  h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
+  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) {
+    free(h->tegrid);
+    free(h->egrid);
+    free(h->usr_egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_usr;
+  if (swp) {
+    for (i = 0; i < h->n_tegrid; i++) {
+      SwapEndian((char *) &(h->tegrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_usr; i++) {
+      SwapEndian((char *) &(h->usr_egrid[i]), sizeof(double));
+    }
+  }
+
+  return m;
+}
+
+int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
+  int i, n, m, m0;
+
+  n = fread(r, sizeof(CE_RECORD), 1, f);
+  if (n != 1) return 0;
+  m0 = sizeof(CE_RECORD);
+  if (swp) SwapEndianCERecord(r);
+  
+  if (h->qk_mode == QK_FIT) {
+    m = h->nparams * r->nsub;
+    r->params = (float *) malloc(sizeof(float)*m);
+    n = fread(r->params, sizeof(float), m, f);
+    if (n != m) {
+      free(r->params);
+      return 0;
+    }
+    if (swp) {
+      for (i = 0; i < m; i++) {
+	SwapEndian((char *) &(r->params[i]), sizeof(float));
+      }
+    }
+    m0 += sizeof(float)*m;
+  }
+  
+  m = h->n_usr * r->nsub;
+  r->strength = (float *) malloc(sizeof(float)*m);
+  n = fread(r->strength, sizeof(float), m, f);
+  if (n != m) {
+    if (h->qk_mode) free(r->params);
+    free(r->strength);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < m; i++) {
+      SwapEndian((char *) &(r->strength[i]), sizeof(float));
+    }
+  }
+  m0 += sizeof(float)*m;
+  
+  return m0;
+}
+
+int ReadRRHeader(FILE *f, RR_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(RR_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianRRHeader(h);
+  m = sizeof(RR_HEADER);
+
+  h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
+  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) {
+    free(h->tegrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_tegrid;
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->tegrid);
+    free(h->egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_egrid;
+  h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
+  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) {
+    free(h->tegrid);
+    free(h->egrid);
+    free(h->usr_egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_usr;
+  if (swp) {
+    for (i = 0; i < h->n_tegrid; i++) {
+      SwapEndian((char *) &(h->tegrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_usr; i++) {
+      SwapEndian((char *) &(h->usr_egrid[i]), sizeof(double));
+    }
+  }
+
+  return m;
+}
+
+int ReadRRRecord(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
+  int i, n, m, m0;
+  
+  n = fread(r, sizeof(RR_RECORD), 1, f);
+  if (n != 1) return 0;
+  m0 = sizeof(RR_RECORD);
+  if (swp) SwapEndianRRRecord(r);
+  
+  if (h->qk_mode == QK_FIT) {
+    m = h->nparams;
+    r->params = (float *) malloc(sizeof(float)*m);
+    n = fread(r->params, sizeof(float), m, f);
+    if (n != m) {
+      free(r->params);
+      return 0;
+    }
+    if (swp) {
+      for (i = 0; i < m; i++) {
+	SwapEndian((char *) &(r->params[i]), sizeof(float));
+      }
+    }
+    m0 += sizeof(float)*m;
+  }
+  m = h->n_usr;
+  r->strength = (float *) malloc(sizeof(float)*m);
+  n = fread(r->strength, sizeof(float), m, f);
+  if (n != m) {
+    if (h->qk_mode) free(r->params);
+    free(r->strength);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < m; i++) {
+      SwapEndian((char *) &(r->strength[i]), sizeof(float));
+    }
+  }
+  m0 += sizeof(float)*m;
+  
+  return m0;
+}
+
+int ReadAIHeader(FILE *f, AI_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(AI_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianAIHeader(h);
+  m = sizeof(AI_HEADER);
+  
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->egrid);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+  }
+  m += sizeof(double)*h->n_egrid;
+  
+  return m;
+}
+
+int ReadAIRecord(FILE *f, AI_RECORD *r, int swp) {
+  int n;
+
+  n = fread(r, sizeof(AI_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianAIRecord(r);
+  
+  return sizeof(AI_RECORD);
+}
+
+int ReadCIHeader(FILE *f, CI_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(CI_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianCIHeader(h);
+  m = sizeof(CI_HEADER);
+  
+  h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
+  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  if (n != h->n_tegrid) {
+    free(h->tegrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_tegrid;
+  h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
+  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  if (n != h->n_egrid) {
+    free(h->tegrid);
+    free(h->egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_egrid;
+  h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
+  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  if (n != h->n_usr) {
+    free(h->tegrid);
+    free(h->egrid);
+    free(h->usr_egrid);
+    return 0;
+  }
+  m += sizeof(double)*h->n_usr;
+  if (swp) {
+    for (i = 0; i < h->n_tegrid; i++) {
+      SwapEndian((char *) &(h->tegrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_egrid; i++) {
+      SwapEndian((char *) &(h->egrid[i]), sizeof(double));
+    }
+    for (i = 0; i < h->n_usr; i++) {
+      SwapEndian((char *) &(h->usr_egrid[i]), sizeof(double));
+    }
+  }
+
+  return m;
+}
+
+int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
+  int i, n, m, m0;
+
+  n = fread(r, sizeof(CI_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianCIRecord(r);
+  m0 = sizeof(CI_RECORD);
+
+  m = h->nparams;
+  r->params = (float *) malloc(sizeof(float)*m);
+  n = fread(r->params, sizeof(float), m, f);
+  if (n != m) {
+    free(r->params);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < m; i++) {
+      SwapEndian((char *) &(r->params[i]), sizeof(float));
+    }
+  }
+  m0 += sizeof(float)*m;
+
+  m = h->n_usr;
+  r->strength = (float *) malloc(sizeof(float)*m);
+  n = fread(r->strength, sizeof(float), m, f);
+  if (n != m) {
+    free(r->params);
+    free(r->strength);
+    return 0;
+  }
+  if (swp) {
+    for (i = 0; i < m; i++) {
+      SwapEndian((char *) &(r->strength[i]), sizeof(float));
+    }
+  }
+  m0 += sizeof(float)*m;
+  
+  return m0;
+}
+
+int ReadSPHeader(FILE *f, SP_HEADER *h, int swp) {
+  int n;
+
+  n = fread(h, sizeof(SP_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianSPHeader(h);
+  return sizeof(SP_HEADER);
+}
+
+int ReadSPRecord(FILE *f, SP_RECORD *r, int swp) {
+  int n;
+
+  n = fread(r, sizeof(SP_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianSPRecord(r);
+  return sizeof(SP_RECORD);
+}
+
+int ReadRTHeader(FILE *f, RT_HEADER *h, int swp) {
+  int i, n, m;
+
+  n = fread(h, sizeof(RT_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianRTHeader(h);
+  m = sizeof(RT_HEADER);
+  
+  h->p_edist = (double *) malloc(sizeof(double)*h->np_edist);
+  n = fread(h->p_edist, sizeof(double), h->np_edist, f);
+  if (n != h->np_edist) {
+    free(h->p_edist);
+    return 0;
+  }
+  m += sizeof(double)*h->np_edist;
+
+  h->p_pdist = (double *) malloc(sizeof(double)*h->np_pdist);
+  n = fread(h->p_pdist, sizeof(double), h->np_pdist, f);
+  if (n != h->np_pdist) {
+    free(h->p_edist);
+    free(h->p_pdist);
+    return 0;
+  }
+  m += sizeof(double)*h->np_pdist;
+
+  if (swp) {
+    for (i = 0; i < h->np_edist; i++) {
+      SwapEndian((char *) &(h->p_edist[i]), sizeof(double));
+    }
+    for (i = 0; i < h->np_pdist; i++) {
+      SwapEndian((char *) &(h->p_pdist[i]), sizeof(double));
+    }
+  }
+  
+  return m;
+}
+
+int ReadRTRecord(FILE *f, RT_RECORD *r, int swp) {
+  int n;
+
+  n = fread(r, sizeof(RT_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianRTRecord(r);
+  return sizeof(RT_RECORD);
+}
+
+int ReadDRHeader(FILE *f, DR_HEADER *h, int swp) {
+  int n;
+  
+  n = fread(h, sizeof(DR_HEADER), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianDRHeader(h);
+  
+  return sizeof(DR_HEADER);
+}
+
+int ReadDRRecord(FILE *f, DR_RECORD *r, int swp) {
+  int n;
+
+  n = fread(r, sizeof(DR_RECORD), 1, f);
+  if (n != 1) return 0;
+  if (swp) SwapEndianDRRecord(r);
+  
+  return sizeof(DR_RECORD);
+} 
+  
 FILE *OpenFile(char *fn, F_HEADER *fhdr) {
   int ihdr;
   FILE *f;
@@ -335,7 +1040,8 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
   fheader[ihdr].type = fhdr->type;
   strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
-  fwrite(&(fheader[ihdr]), sizeof(F_HEADER), 1, f);
+  WriteFHeader(f, &(fheader[ihdr]));
+
   return f;
 }
 
@@ -345,7 +1051,7 @@ int CloseFile(FILE *f, F_HEADER *fhdr) {
   ihdr = fhdr->type-1;
   fseek(f, 0, SEEK_SET);
   fheader[ihdr].type = fhdr->type;
-  fwrite(&(fheader[ihdr]), sizeof(F_HEADER), 1, f);
+  WriteFHeader(f, &(fheader[ihdr]));
   
   fclose(f);
   return 0;
@@ -379,7 +1085,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     en_header.length = 0;
     en_header.nele = en_hdr->nele;
     en_header.nlevels = 0;
-    n = fwrite(&en_header, sizeof(EN_HEADER), 1, f);
+    n = WriteENHeader(f, &en_header);
     break;
   case DB_TR:
     tr_hdr = (TR_HEADER *) rhdr;
@@ -387,7 +1093,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     tr_header.position = p;
     tr_header.length = 0;
     tr_header.ntransitions = 0;
-    n = fwrite(&tr_header, sizeof(TR_HEADER), 1, f);
+    n = WriteTRHeader(f, &tr_header);
     break;
   case DB_CE:
     ce_hdr = (CE_HEADER *) rhdr;
@@ -395,10 +1101,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ce_header.position = p;
     ce_header.length = 0;
     ce_header.ntransitions = 0;
-    n = fwrite(&ce_header, sizeof(CE_HEADER), 1, f);
-    n = fwrite(ce_header.tegrid, sizeof(double), ce_header.n_tegrid, f);
-    n = fwrite(ce_header.egrid, sizeof(double), ce_header.n_egrid, f);
-    n = fwrite(ce_header.usr_egrid, sizeof(double), ce_header.n_usr, f);
+    n = WriteCEHeader(f, &ce_header);
     break;
   case DB_RR:
     rr_hdr = (RR_HEADER *) rhdr;
@@ -406,10 +1109,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     rr_header.position = p;
     rr_header.length = 0;
     rr_header.ntransitions = 0;
-    n = fwrite(&rr_header, sizeof(RR_HEADER), 1, f);
-    n = fwrite(rr_header.tegrid, sizeof(double), rr_header.n_tegrid, f);
-    n = fwrite(rr_header.egrid, sizeof(double), rr_header.n_egrid, f);
-    n = fwrite(rr_header.usr_egrid, sizeof(double), rr_header.n_usr, f);
+    n = WriteRRHeader(f, &rr_header);
     break;
   case DB_AI:
     ai_hdr = (AI_HEADER *) rhdr;
@@ -417,8 +1117,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ai_header.position = p;
     ai_header.length = 0;
     ai_header.ntransitions = 0;
-    n = fwrite(&ai_header, sizeof(AI_HEADER), 1, f);
-    n = fwrite(ai_header.egrid, sizeof(double), ai_header.n_egrid, f);
+    n = WriteAIHeader(f, &ai_header);
     break;
   case DB_CI:    
     ci_hdr = (CI_HEADER *) rhdr;
@@ -426,10 +1125,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     ci_header.position = p;
     ci_header.length = 0;
     ci_header.ntransitions = 0;
-    n = fwrite(&ci_header, sizeof(CI_HEADER), 1, f);
-    n = fwrite(ci_header.tegrid, sizeof(double), ci_header.n_tegrid, f);
-    n = fwrite(ci_header.egrid, sizeof(double), ci_header.n_egrid, f);
-    n = fwrite(ci_header.usr_egrid, sizeof(double), ci_header.n_usr, f);
+    n = WriteCIHeader(f, &ci_header);
     break;
   case DB_SP:
     sp_hdr = (SP_HEADER *) rhdr;
@@ -437,7 +1133,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     sp_header.position = p;
     sp_header.length = 0;
     sp_header.ntransitions = 0;
-    n = fwrite(&sp_header, sizeof(SP_HEADER), 1, f);
+    n = WriteSPHeader(f, &sp_header);
     break;
   case DB_RT:
     rt_hdr = (RT_HEADER *) rhdr;
@@ -445,9 +1141,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     rt_header.position = p;
     rt_header.length = 0;
     rt_header.ntransitions = 0;
-    n = fwrite(&rt_header, sizeof(RT_HEADER), 1, f);
-    n = fwrite(rt_header.p_edist, sizeof(double), rt_header.np_edist, f);
-    n = fwrite(rt_header.p_pdist, sizeof(double), rt_header.np_pdist, f);
+    n = WriteRTHeader(f, &rt_header);
     break;
   case DB_DR:
     dr_hdr = (DR_HEADER *) rhdr;
@@ -455,7 +1149,7 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
     dr_header.position = p;
     dr_header.length = 0;
     dr_header.ntransitions = 0;
-    n = fwrite(&dr_header, sizeof(DR_HEADER), 1, f);
+    n = WriteDRHeader(f, &dr_header);
     break;
   default:
     break;
@@ -472,49 +1166,39 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
   switch (fhdr->type) {
   case DB_EN:
     fseek(f, en_header.position, SEEK_SET);  
-    n = fwrite(&en_header, sizeof(EN_HEADER), 1, f);
+    n = WriteENHeader(f, &en_header);
     break;
   case DB_TR:
     fseek(f, tr_header.position, SEEK_SET);
-    n = fwrite(&tr_header, sizeof(TR_HEADER), 1, f);
+    n = WriteTRHeader(f, &tr_header);
     break;
   case DB_CE:
     fseek(f, ce_header.position, SEEK_SET);
-    n = fwrite(&ce_header, sizeof(CE_HEADER), 1, f);
-    n = fwrite(ce_header.tegrid, sizeof(double), ce_header.n_tegrid, f);
-    n = fwrite(ce_header.egrid, sizeof(double), ce_header.n_egrid, f);
-    n = fwrite(ce_header.usr_egrid, sizeof(double), ce_header.n_usr, f);
+    n = WriteCEHeader(f, &ce_header);
     break;
   case DB_RR:
     fseek(f, rr_header.position, SEEK_SET);
-    n = fwrite(&rr_header, sizeof(RR_HEADER), 1, f);
-    n = fwrite(rr_header.tegrid, sizeof(double), rr_header.n_tegrid, f);
-    n = fwrite(rr_header.egrid, sizeof(double), rr_header.n_egrid, f);
-    n = fwrite(rr_header.usr_egrid, sizeof(double), rr_header.n_usr, f);
+    n = WriteRRHeader(f, &rr_header);
     break;
   case DB_AI:
     fseek(f, ai_header.position, SEEK_SET);
-    n = fwrite(&ai_header, sizeof(AI_HEADER), 1, f);
-    n = fwrite(ai_header.egrid, sizeof(double), ai_header.n_egrid, f);
+    n = WriteAIHeader(f, &ai_header);
     break;
   case DB_CI:
     fseek(f, ci_header.position, SEEK_SET);
-    n = fwrite(&ci_header, sizeof(CI_HEADER), 1, f);
-    n = fwrite(ci_header.tegrid, sizeof(double), ci_header.n_tegrid, f);
-    n = fwrite(ci_header.egrid, sizeof(double), ci_header.n_egrid, f);
-    n = fwrite(ci_header.usr_egrid, sizeof(double), ci_header.n_usr, f);
+    n = WriteCIHeader(f, &ci_header);
     break;
   case DB_SP:
     fseek(f, sp_header.position, SEEK_SET);
-    n = fwrite(&sp_header, sizeof(SP_HEADER), 1, f);
+    n = WriteSPHeader(f, &sp_header);
     break;
   case DB_RT:
     fseek(f, rt_header.position, SEEK_SET);
-    n = fwrite(&rt_header, sizeof(RT_HEADER), 1, f);
+    n = WriteRTHeader(f, &rt_header);
     break;
   case DB_DR:
     fseek(f, dr_header.position, SEEK_SET);
-    n = fwrite(&dr_header, sizeof(DR_HEADER), 1, f);
+    n = WriteDRHeader(f, &dr_header);
     break;
   default:
     break;
@@ -531,7 +1215,6 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   CI_RECORD r;
   int i, t, nb, m;
   double *c, tc, a, b, x, e;
-  float *params, *strength;
   
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -554,18 +1237,12 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     return -1;
   }
   
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (n != 1) {
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
     printf("File %s is not in FAC binary format\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;  
-  }
-
-  swp = 0;
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
   }
 
   if (fh.type != DB_CI || fh.nblocks == 0) {
@@ -586,51 +1263,30 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   if (imax < 0) imax = mem_en_table_size - 1;
 
   while (1) {
-    n = fread(&h, sizeof(CI_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianCIHeader(&h);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);    
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
-    m = h.nparams;
-    params = (float *) malloc(sizeof(float)*m);
-    m = h.n_usr;
-    strength = (float *) malloc(sizeof(float)*m);
-    
+    n = ReadCIHeader(f1, &h, swp);
+    if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(CI_RECORD), 1, f1);
-      if (swp) SwapEndianCIRecord(&r);
-      m = h.nparams;
-      n = fread(params, sizeof(float), m, f1);
-      m = h.n_usr;
-      n = fread(strength, sizeof(float), m, f1);
+      n = ReadCIRecord(f1, &r, swp, &h);
+      if (n == 0) break;
       if (r.b != ilev) continue;
       if (r.f < imin || r.f > imax) continue;
-      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;    
-      if (swp) {
-	for (t = 0; t < h.nparams; t++) {
-	  SwapEndian((char *) &(params[t]), sizeof(float));
-	}
-      }
+      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy; 
       
       for (t = 0; t < negy; t++) {
 	if (egy[t] < e) continue;
 	x = egy[t]/e;
 	a = 1.0/x;
 	b = 1.0 - a;
-	tc = params[0]*log(x) + params[1]*b*b;
-	tc += params[2]*a*b + params[3]*a*a*b;
+	tc = r.params[0]*log(x) + r.params[1]*b*b;
+	tc += r.params[2]*a*b + r.params[3]*a*a*b;
 	a = egy[t]*(1.0 + FINE_STRUCTURE_CONST2*egy[t]);
 	tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	c[t] += tc;
       }
+      free(r.params);
+      free(r.strength);
     }
 
-    free(params); 
-    free(strength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
@@ -658,7 +1314,6 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   RR_HEADER h;
   RR_RECORD r;
   int i, t, nb, m;
-  float *params, *strength;
   float e, eph, ee, phi;
   double *xusr, *dstrength, *c, tc, emax;
   double x, y;
@@ -685,18 +1340,12 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     return -1;
   }
 
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (n != 1) {
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
     printf("File %s is not in FAC binary format\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;  
-  }
-  
-  swp = 0;
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
   }
 
   if (fh.type != DB_RR || fh.nblocks == 0) {
@@ -717,62 +1366,21 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   if (imax < 0) imax = mem_en_table_size - 1;
 
   while(1) {
-    n = fread(&h, sizeof(RR_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianRRHeader(&h);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    xusr = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
-    if (swp) {
-      for (i = 0; i < h.n_tegrid; i++) {
-	SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
-      }
-      for (i = 0; i < h.n_egrid; i++) {
-	SwapEndian((char *) &(h.egrid[i]), sizeof(double));
-      }
-      for (i = 0; i < h.n_usr; i++) {
-	SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
-      }
-    }
+    n = ReadRRHeader(f1, &h, swp);
+    if (n == 0) break;
     nele = h.nele;
-    if (h.qk_mode == QK_FIT) {
-      m = h.nparams;
-      params = (float *) malloc(sizeof(float)*m);
-    }
-    m = h.n_usr;
-    strength = (float *) malloc(sizeof(float)*m);
-    dstrength = (double *) malloc(sizeof(double)*m);
+    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(RR_RECORD), 1, f1);
-      if (swp) SwapEndianRRRecord(&r);
-      if (h.qk_mode == QK_FIT) {
-	m = h.nparams;
-	n = fread(params, sizeof(float), m, f1);
-      }
-      m = h.n_usr;
-      n = fread(strength, sizeof(float), m, f1);	
+      n = ReadRRRecord(f1, &r, swp, &h);
+      if (n == 0) break;
       if (r.b != ilev) continue;
       if (r.f < imin || r.f > imax) continue;
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-      
-      if (swp) {
-	if (h.qk_mode == QK_FIT) {
-	  for (t = 0; t < h.nparams; t++) {
-	    SwapEndian((char *) &(params[t]), sizeof(float));
-	  }
-	}
-	for (t = 0; t < h.n_usr; t++) {
-	  SwapEndian((char *) &(strength[t]), sizeof(float));
-	}
-      }
-      
+
       for (t = 0; t < h.n_usr; t++) {
-	dstrength[t] = log(strength[t]);
+	dstrength[t] = log(r.strength[t]);
 	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
       }
       
@@ -785,11 +1393,11 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
 	  tc = exp(tc);
 	} else {
-	  x = (ee + params[3])/params[3];
-	  y = (1 + params[2])/(sqrt(x) + params[2]);
-	  tc = (-3.5 - r.kl + 0.5*params[1])*log(x) + params[1]*log(y);
-	  if (params[0] > 0.0) {
-	    tc = tc + log(params[0]*(eph/(ee+params[3])));
+	  x = (ee + r.params[3])/r.params[3];
+	  y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
+	  tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	  if (r.params[0] > 0.0) {
+	    tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 	    tc = exp(tc);
 	  } else {
 	    tc = 0.0;
@@ -798,10 +1406,10 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	c[t] += phi/(mem_en_table[r.b].j + 1.0);
       }
+      if (h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }
 
-    if (h.qk_mode == QK_FIT) free(params);
-    free(strength);
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
@@ -832,7 +1440,6 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   RR_HEADER h;
   RR_RECORD r;
   int i, t, nb, m;
-  float *params, *strength;
   float e, eph, ee, phi, rr;
   double *xusr, *dstrength, *c, tc, emax;
   double x, y;
@@ -859,18 +1466,12 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     return -1;
   }
 
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (n != 1) {
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
     printf("File %s is not in FAC binary format\n", ifn);
     fclose(f1);
     fclose(f2);
     return 0;  
-  }
-
-  swp = 0;
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
   }
 
   if (fh.type != DB_RR || fh.nblocks == 0) {
@@ -891,62 +1492,21 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   if (imax < 0) imax = mem_en_table_size - 1;
 
   while(1) {
-    n = fread(&h, sizeof(RR_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianRRHeader(&h);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    xusr = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
-    if (swp) {
-      for (i = 0; i < h.n_tegrid; i++) {
-	SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
-      }
-      for (i = 0; i < h.n_egrid; i++) {
-	SwapEndian((char *) &(h.egrid[i]), sizeof(double));
-      }
-      for (i = 0; i < h.n_usr; i++) {
-	SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
-      }
-    }
+    n = ReadRRHeader(f1, &h, swp);
+    if (n == 0) break;
     nele = h.nele;
-    if (h.qk_mode == QK_FIT) {
-      m = h.nparams;
-      params = (float *) malloc(sizeof(float)*m);
-    }
-    m = h.n_usr;
-    strength = (float *) malloc(sizeof(float)*m);
-    dstrength = (double *) malloc(sizeof(double)*m);
+    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(RR_RECORD), 1, f1);
-      if (swp) SwapEndianRRRecord(&r);
-      if (h.qk_mode == QK_FIT) {
-	m = h.nparams;
-	n = fread(params, sizeof(float), m, f1);
-      }
-      m = h.n_usr;
-      n = fread(strength, sizeof(float), m, f1);	
+      n = ReadRRRecord(f1, &r, swp, &h);
+      if (n == 0) break;
       if (r.f != ilev) continue;
       if (r.b < imin || r.b > imax) continue;
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
       
-      if (swp) {
-	if (h.qk_mode == QK_FIT) {
-	  for (t = 0; t < h.nparams; t++) {
-	    SwapEndian((char *) &(params[t]), sizeof(float));
-	  }
-	}
-	for (t = 0; t < h.n_usr; t++) {
-	  SwapEndian((char *) &(strength[t]), sizeof(float));
-	}
-      }
-      
       for (t = 0; t < h.n_usr; t++) {
-	dstrength[t] = log(strength[t]);
+	dstrength[t] = log(r.strength[t]);
 	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
       }
       
@@ -958,11 +1518,11 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
 	  tc = exp(tc);
 	} else {
-	  x = (ee + params[3])/params[3];
-	  y = (1 + params[2])/(sqrt(x) + params[2]);
-	  tc = (-3.5 - r.kl + 0.5*params[1])*log(x) + params[1]*log(y);
-	  if (params[0] > 0.0) {
-	    tc = tc + log(params[0]*(eph/(ee+params[3])));
+	  x = (ee + r.params[3])/r.params[3];
+	  y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
+	  tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	  if (r.params[0] > 0.0) {
+	    tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 	    tc = exp(tc);
 	  } else {
 	    tc = 0.0;
@@ -973,10 +1533,10 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	rr /= (mem_en_table[r.f].j + 1.0);
 	c[t] += rr;
       }
+      if (h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }  
 
-    if (h.qk_mode == QK_FIT) free(params);
-    free(strength);
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
@@ -1025,17 +1585,11 @@ int PrintTable(char *ifn, char *ofn, int v) {
   }
   if (f2 == NULL) return -1;
 
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (n != 1) {
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
     fclose(f1);
     fclose(f2);
     return 0;  
-  }
-
-  swp = 0;
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
   }
 
   if (fh.nblocks == 0) {
@@ -1101,14 +1655,6 @@ int PrintTable(char *ifn, char *ofn, int v) {
   return n;
 }
 
-int WriteENRecord(FILE *f, EN_RECORD *r) {
-  int n;
-  en_header.nlevels += 1;
-  en_header.length += sizeof(EN_RECORD);
-  n = fwrite(r, sizeof(EN_RECORD), 1, f);  
-  return n;
-}
-
 int FreeMemENTable(void) {
   if (mem_en_table) free(mem_en_table);
   mem_en_table = NULL;
@@ -1162,17 +1708,12 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  n = fread(&fh, sizeof(F_HEADER), 1, f);
-  if (n != 1) {
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
     fclose(f);
     return 0;
   }
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
-  }
+
   if (fh.type != DB_EN) {
     printf("File type is not DB_EN\n");
     fclose(f);
@@ -1180,17 +1721,15 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   }
 
   for (i = 0; i < fh.nblocks; i++) {
-    n = fread(&h, sizeof(EN_HEADER), 1, f);
-    if (swp) {
-      SwapEndianENHeader(&h);
-    }
+    n = ReadENHeader(f, &h, swp);
+    if (n == 0) break;
     if (h.nele != nele) {
       fseek(f, h.length, SEEK_CUR);
       continue;
     }
     for (k = 0; k < h.nlevels; k++) {
-      n = fread(&r, sizeof(EN_RECORD), 1, f);
-      if (swp) SwapEndianENRecord(&r);
+      n = ReadENRecord(f, &r, swp);
+      if (n == 0) break;
       if (StrTrimCmp(r.ncomplex, nc) == 0 &&
 	  StrTrimCmp(r.sname, cnr) == 0 &&
 	  StrTrimCmp(r.name, cr) == 0) {
@@ -1217,16 +1756,10 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  n = fread(&fh, sizeof(F_HEADER), 1, f);
-  if (n != 1) {
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
     fclose(f);
     return 0;
-  }
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
   }
   if (fh.type != DB_EN) {
     printf("File type is not DB_EN\n");
@@ -1236,17 +1769,12 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   k = ilev;
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
-    n = fread(&h, sizeof(EN_HEADER), 1, f);
-    if (swp) {
-      SwapEndianENHeader(&h);
-    }
+    n = ReadENHeader(f, &h, swp);
     nlevels += h.nlevels;
     if (k < h.nlevels) {
       if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
-      n = fread(&r, sizeof(EN_RECORD), 1, f);
-      if (swp) {
-	SwapEndianENRecord(&r);
-      }	
+      n = ReadENRecord(f, &r, swp);
+      if (n == 0) break;
       if (r.ilev != ilev) {
 	fclose(f);
 	return -1;
@@ -1276,24 +1804,16 @@ int MemENTable(char *fn) {
 
   f = fopen(fn, "r");
   if (f == NULL) return -1;
-  
-  n = fread(&fh, sizeof(F_HEADER), 1, f);
-  if (n != 1) return 0;
-  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
-  }
+
+  n = ReadFHeader(f, &fh, &swp);  
+  if (n == 0) return 0;
   if (fh.type != DB_EN) return -1;
 
   if (mem_en_table) free(mem_en_table);  
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
-    n = fread(&h, sizeof(EN_HEADER), 1, f);
-    if (swp) {
-      SwapEndianENHeader(&h);
-    }
+    n = ReadENHeader(f, &h, swp);
+    if (n == 0) break;
     nlevels += h.nlevels;
     fseek(f, h.length, SEEK_CUR);
   }
@@ -1303,17 +1823,11 @@ int MemENTable(char *fn) {
   e0 = 0.0;
   fseek(f, sizeof(F_HEADER), SEEK_SET);
   while (1) {
-    n = fread(&h, sizeof(EN_HEADER), 1, f);
-    if (swp) {
-      SwapEndianENHeader(&h);
-    }
-    if (n != 1) break;
+    n = ReadENHeader(f, &h, swp);
+    if (n == 0) break;
     for (i = 0; i < h.nlevels; i++) {
-      n = fread(&r, sizeof(EN_RECORD), 1, f);
-      if (swp) {
-	SwapEndianENRecord(&r);
-      }
-      if (n != 1) break;
+      n = ReadENRecord(f, &r, swp);
+      if (n == 0) break;
       if (r.energy < e0) {
 	e0 = r.energy;
 	iground = r.ilev;
@@ -1336,17 +1850,15 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
 
   nb = 0;
   while (1) {
-    n = fread(&h, sizeof(EN_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianENHeader(&h);
+    n = ReadENHeader(f1, &h, swp);
+    if (n == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NLEV\t= %d\n", h.nlevels);
-    fprintf(f2, "         Energy       P   VNL 2J\n");
+    fprintf(f2, "         ENERGY       P   VNL 2J\n");
     for (i = 0; i < h.nlevels; i++) {
-      n = fread(&r, sizeof(EN_RECORD), 1, f1);
-      if (swp) SwapEndianENRecord(&r);
-      if (n != 1) break;
+      n = ReadENRecord(f1, &r, swp);
+      if (n == 0) break;
       e = r.energy;
       if (v) {
 	e -= mem_en_table[iground].energy;
@@ -1368,14 +1880,6 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int WriteTRRecord(FILE *f, TR_RECORD *r) {
-  int n;
-  tr_header.ntransitions += 1;
-  tr_header.length += sizeof(TR_RECORD);
-  n = fwrite(r, sizeof(TR_RECORD), 1, f);  
-  return n;
-}
-
 int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   TR_HEADER h;
   TR_RECORD r;
@@ -1386,20 +1890,19 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   nb = 0;
   
   while (1) {
-    n = fread(&h, sizeof(TR_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianTRHeader(&h);
+    n = ReadTRHeader(f1, &h, swp);
+    if (n == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
-    fprintf(f2, "Multip\t= %d\n", (int)h.multipole);
-    fprintf(f2, "Gauge\t= %d\n", (int)h.gauge);
-    fprintf(f2, "Mode\t= %d\n", (int)h.mode);
+    fprintf(f2, "MULTIP\t= %d\n", (int)h.multipole);
+    fprintf(f2, "GAUGE\t= %d\n", (int)h.gauge);
+    fprintf(f2, "MODE\t= %d\n", (int)h.mode);
 
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(TR_RECORD), 1, f1);
-      if (swp) SwapEndianTRRecord(&r);
+      n = ReadTRRecord(f1, &r, swp);
+      if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	a = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
@@ -1419,42 +1922,20 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
 
   return nb;
 }
-
-int WriteCERecord(FILE *f, CE_RECORD *r) {
-  int n;
-  int m;
-
-  ce_header.ntransitions += 1;
-  m = sizeof(CE_RECORD);
-  ce_header.length += m;
-  n = fwrite(r, m, 1, f);
-  if (ce_header.qk_mode == QK_FIT) {
-    m = ce_header.nparams * r->nsub;
-    ce_header.length += sizeof(float)*m;
-    n = fwrite(r->params, sizeof(float), m, f);
-  }
-  m = ce_header.n_usr * r->nsub;
-  ce_header.length += sizeof(float)*m;
-  n = fwrite(r->strength, sizeof(float), m, f);
-
-  return n;
-}
   
 int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
   CE_HEADER h;
   CE_RECORD r;
   int n, i, t;
-  int nb, nsub;
+  int nb;
   int m, k, p1, p2;
-  float *params, *strength;
   float a, e;
 
   nb = 0;
  
   while (1) {
-    n = fread(&h, sizeof(CE_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianCEHeader(&h);
+    n = ReadCEHeader(f1, &h, swp);
+    if (n == 0) break;
 
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -1464,10 +1945,8 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "MSUB\t= %d\n", h.msub);
     fprintf(f2, "PWTYPE\t= %d\n", h.pw_type);
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
+
     for (i = 0; i < h.n_tegrid; i++) {
-      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -1477,10 +1956,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "TE0\t= %15.8E\n", h.te0 * HARTREE_EV);
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
-      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -1489,10 +1965,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
     }
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
-      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -1500,32 +1973,9 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
 
-    nsub = 1;
-    if (h.qk_mode == QK_FIT) {
-      m = h.nparams * nsub;
-      params = (float *) malloc(sizeof(float)*m);
-    }
-    m = h.n_usr * nsub;
-    strength = (float *) malloc(sizeof(float)*m);
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(CE_RECORD), 1, f1);
-      if (swp) SwapEndianCERecord(&r);
-      if (r.nsub > nsub) {
-	if (h.qk_mode == QK_FIT) {
-	  m = h.nparams * r.nsub;
-	  params = (float *) realloc(params, sizeof(float)*m);
-	}
-	m = h.n_usr * r.nsub;
-	strength = (float *) realloc(strength, sizeof(float)*m);
-	nsub = r.nsub;
-      }
-
-      if (h.qk_mode == QK_FIT) {
-	m = h.nparams * r.nsub;
-	n = fread(params, sizeof(float), m, f1);
-      }
-      m = h.n_usr * r.nsub;
-      n = fread(strength, sizeof(float), m, f1);
+      n = ReadCERecord(f1, &r, swp, &h);
+      if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%d\n",
@@ -1546,25 +1996,23 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
       for (k = 0; k < r.nsub; k++) {
 	if (h.qk_mode == QK_FIT) {
 	  for (t = 0; t < h.nparams; t++) {
-	    if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
-	    fprintf(f2, "%11.4E ", params[p1]);
+	    fprintf(f2, "%11.4E ", r.params[p1]);
 	    p1++;
 	  }
 	  fprintf(f2, "\n");
 	}
 	for (t = 0; t < h.n_usr; t++) {
-	  if (swp) SwapEndian((char *) &(strength[p2]), sizeof(float));
 	  if (v) {
 	    a = h.usr_egrid[t];
 	    if (h.usr_egrid_type == 1) a += e;
 	    a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2 * a;
 	    a = PI * AREA_AU20/(2.0*a*(mem_en_table[r.lower].j+1.0));
-	    a *= strength[p2];
+	    a *= r.strength[p2];
 	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
 		    h.usr_egrid[t]*HARTREE_EV,
-		    strength[p2], a);
+		    r.strength[p2], a);
 	  } else {
-	    fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], strength[p2]);
+	    fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[p2]);
 	  }
 	  p2++;
 	}
@@ -1572,9 +2020,9 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	  fprintf(f2, "--------------------------------------------\n");
 	}
       }      
+      if (h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }
-    if (h.qk_mode == QK_FIT) free(params);
-    free(strength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
@@ -1584,41 +2032,17 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int WriteRRRecord(FILE *f, RR_RECORD *r) {
-  int n;
-  int m;
-
-  rr_header.ntransitions += 1;
-  m = sizeof(RR_RECORD);
-  rr_header.length += m;
-  n = fwrite(r, m, 1, f);
-  if (rr_header.qk_mode == QK_FIT) {
-    m = rr_header.nparams;
-    rr_header.length += sizeof(float)*m;
-    n = fwrite(r->params, sizeof(float), m, f);
-  }
-  
-  m = rr_header.n_usr;
-  rr_header.length += sizeof(float)*m;
-  n = fwrite(r->strength, sizeof(float), m, f);
-  
-  return n;
-}
-
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
   int nb, k, m;
-  float *params, *strength;
   float e, eph, ee, phi, rr;
 
   nb = 0;
-
   while (1) {
-    n = fread(&h, sizeof(RR_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianRRHeader(&h);
+    n = ReadRRHeader(f1, &h, swp);
+    if (n == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -1627,10 +2051,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "MULTIP\t= %d\n", h.multipole);
     fprintf(f2, "NPARAMS\t= %d\n", h.nparams);
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
     for (i = 0; i < h.n_tegrid; i++) {
-      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -1639,10 +2060,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
     }
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
-      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -1651,10 +2069,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
     }
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
-      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -1662,22 +2077,10 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
     
-    if (h.qk_mode == QK_FIT) {
-      m = h.nparams;
-      params = (float *) malloc(sizeof(float)*m);
-    }
-    m = h.n_usr;
-    strength = (float *) malloc(sizeof(float)*m);
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(RR_RECORD), 1, f1);
-      if (swp) SwapEndianRRRecord(&r);
-      
-      if (h.qk_mode == QK_FIT) {
-	m = h.nparams;
-	n = fread(params, sizeof(float), m, f1);
-      }
-      m = h.n_usr;
-      n = fread(strength, sizeof(float), m, f1);
+      n = ReadRRRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%2d\n",
@@ -1691,18 +2094,16 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
       
       if (h.qk_mode == QK_FIT) {
 	for (t = 0; t < h.nparams; t++) {
-	  if (swp) SwapEndian((char *) &(params[t]), sizeof(float));
 	  if (v && t == h.nparams-1) {
-	    fprintf(f2, "%11.4E ", params[t]*HARTREE_EV);
+	    fprintf(f2, "%11.4E ", r.params[t]*HARTREE_EV);
 	  } else {
-	    fprintf(f2, "%11.4E ", params[t]);
+	    fprintf(f2, "%11.4E ", r.params[t]);
 	  }
 	}
 	fprintf(f2, "\n");
       }
       
       for (t = 0; t < h.n_usr; t++) {
-	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
 	  if (h.usr_egrid_type == 0) {
 	    eph = h.usr_egrid[t];
@@ -1711,20 +2112,20 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
 	    ee = h.usr_egrid[t];
 	    eph = ee + e;
 	  }
-	  phi = 2.0*PI*FINE_STRUCTURE_CONST*strength[t]*AREA_AU20;
+	  phi = 2.0*PI*FINE_STRUCTURE_CONST*r.strength[t]*AREA_AU20;
 	  rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	  phi /= (mem_en_table[r.b].j + 1.0);
 	  rr /= (mem_en_table[r.f].j + 1.0);
 	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\n",
-		  h.usr_egrid[t]*HARTREE_EV, rr, phi, strength[t]);
+		  h.usr_egrid[t]*HARTREE_EV, rr, phi, r.strength[t]);
 	} else {
-	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], strength[t]);
+	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
       }
+      if (h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
     }
 
-    if (h.qk_mode == QK_FIT) free(params);
-    free(strength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
@@ -1733,14 +2134,6 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   }
 
   return nb;
-}
-
-int WriteAIRecord(FILE *f, AI_RECORD *r) {
-  int n;
-  ai_header.ntransitions += 1;
-  ai_header.length += sizeof(AI_RECORD);
-  n = fwrite(r, sizeof(AI_RECORD), 1, f);
-  return n;
 }
 
 int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
@@ -1753,19 +2146,15 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
   nb = 0;
   
   while (1) {
-    n = fread(&h, sizeof(AI_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianAIHeader(&h);
+    n = ReadAIHeader(f1, &h, swp);
+    if (n == 0) break;
  
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
     fprintf(f2, "CHANNE\t= %d\n", h.channel);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
-      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -1774,8 +2163,8 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
     }
        
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(AI_RECORD), 1, f1);
-      if (swp) SwapEndianAIRecord(&r);
+      n = ReadAIRecord(f1, &r, swp);
+      if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
 	sdr = 0.5*(mem_en_table[r.b].j + 1.0);
@@ -1797,38 +2186,17 @@ int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int WriteCIRecord(FILE *f, CI_RECORD *r) {
-  int n;
-  int m;
-
-  ci_header.ntransitions += 1;
-  m = sizeof(CI_RECORD);
-  ci_header.length += m;
-  n = fwrite(r, m, 1, f);
-  m = ci_header.nparams;
-  ci_header.length += sizeof(float)*m;
-  n = fwrite(r->params, sizeof(float), m, f);
-  m = ci_header.n_usr;
-  ci_header.length += sizeof(float)*m;
-  n = fwrite(r->strength, sizeof(float), m, f);
-  
-  return n;
-}
-
 int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
   int nb, m;
-  float *params, *strength;
   float e, a;
 
   nb = 0;
-
   while (1) {
-    n = fread(&h, sizeof(CI_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianCIHeader(&h);
+    n = ReadCIHeader(f1, &h, swp);
+    if (n == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -1837,10 +2205,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "NPARAMS\t= %d\n", h.nparams);
     fprintf(f2, "PWTYPE\t= %d\n", h.pw_type);
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
-    h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
-    n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
     for (i = 0; i < h.n_tegrid; i++) {      
-      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -1849,10 +2214,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
     }
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
-    h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
-    n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
-      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -1861,10 +2223,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
     }
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
-    h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
-    n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
-      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -1872,18 +2231,9 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
 
-    m = h.nparams;
-    params = (float *) malloc(sizeof(float)*m);
-    m = h.n_usr;
-    strength = (float *) malloc(sizeof(float)*m);
-    
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(CI_RECORD), 1, f1);
-      if (swp) SwapEndianCIRecord(&r);
-      m = h.nparams;
-      n = fread(params, sizeof(float), m, f1);
-      m = h.n_usr;
-      n = fread(strength, sizeof(float), m, f1);
+      n = ReadCIRecord(f1, &r, swp, &h);
+      if (n == 0) break;
       
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
@@ -1896,28 +2246,26 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
       }
       
       for (t = 0; t < h.nparams; t++) {
-	if (swp) SwapEndian((char *) &(params[t]), sizeof(float));
-	fprintf(f2, "%11.4E ", params[t]);
+	fprintf(f2, "%11.4E ", r.params[t]);
       }
       fprintf(f2, "\n");
       for (t = 0; t < h.n_usr; t++) {
-	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
 	  a = h.usr_egrid[t];
 	  if (h.usr_egrid_type == 1) a += e;
 	  a *= 1.0 + FINE_STRUCTURE_CONST2*a;
 	  a = AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
-	  a *= strength[t];
+	  a *= r.strength[t];
 	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
-		  h.usr_egrid[t]*HARTREE_EV, strength[t], a);
+		  h.usr_egrid[t]*HARTREE_EV, r.strength[t], a);
 	} else {
-	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], strength[t]);
+	  fprintf(f2, "%11.4E\t%11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
       }
+      free(r.params); 
+      free(r.strength);
     }
     
-    free(params); 
-    free(strength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
@@ -1926,14 +2274,6 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   }
 
   return nb;
-}
-
-int WriteSPRecord(FILE *f, SP_RECORD *r) {
-  int n;
-  sp_header.ntransitions += 1;
-  sp_header.length += sizeof(SP_RECORD);
-  n = fwrite(r, sizeof(SP_RECORD), 1, f);  
-  return n;
 }
 
 int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
@@ -1946,9 +2286,8 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
   nb = 0;
   
   while (1) {
-    n = fread(&h, sizeof(SP_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianSPHeader(&h);
+    n = ReadSPHeader(f1, &h, swp);
+    if (n == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -1960,8 +2299,8 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "FCOMP\t= %s\n", h.fcomplex);
 
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(SP_RECORD), 1, f1);
-      if (swp) SwapEndianSPRecord(&r);
+      n = ReadSPRecord(f1, &r, swp);
+      if (n == 0) break;
       e = r.energy;
       if (v) e *= HARTREE_EV;
       a = r.strength;
@@ -1973,30 +2312,22 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int WriteRTRecord(FILE *f, RT_RECORD *r) {
-  int n;
-  rt_header.ntransitions += 1;
-  rt_header.length += sizeof(RT_RECORD);
-  n = fwrite(r, sizeof(RT_RECORD), 1, f);  
-  return n;
-}
-
 int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_HEADER h;
   RT_RECORD r;
   int n, i;
   int nb, nele;
   double dc, re, ea, ci, rr, pi;
+
   nb = 0;
   nele = -1;
   while (1) {
-    n = fread(&h, sizeof(RT_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianRTHeader(&h);
+    n = ReadRTHeader(f1, &h, swp);
+    if (n == 0) break;
     if (h.nele != nele) {
       if (nele != -1) {
 	fprintf(f2, "\n");
-	fprintf(f2, " Sum  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n",
+	fprintf(f2, " SUM  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n",
 		rr, dc, re, pi, ea, ci, nele);
 	fprintf(f2, "\n");
       }
@@ -2017,30 +2348,24 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
-    h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
-    n = fread(h.p_edist, sizeof(double), h.np_edist, f1);
     for (i = 0; i < h.np_edist; i++) {
-      if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
     }
     fprintf(f2, "PDEN\t= %15.8E\n", h.pden);
     fprintf(f2, "PDIST\t= %d\n", h.ipdist);
     fprintf(f2, "NPPDIS\t= %d\n", h.np_pdist);
-    h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
-    n = fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
     for (i = 0; i < h.np_pdist; i++) {
-      if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);
     }
     free(h.p_edist);
     free(h.p_pdist);
 
-    fprintf(f2, "Dens\t= %15.8E\n", h.nb);
+    fprintf(f2, "DENS\t= %15.8E\n", h.nb);
     fprintf(f2,"         NB         TR         CE");
     fprintf(f2, "         RR         AI         CI\n");
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(RT_RECORD), 1, f1);
-      if (swp) SwapEndianRTRecord(&r);
+      n = ReadRTRecord(f1, &r, swp);
+      if (n == 0) break;
       fprintf(f2, "%4d  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %s\n",
 	      r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
       if (r.iblock == -1) {
@@ -2056,17 +2381,9 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     }
     nb += 1;
   }
-  fprintf(f2, "\n Sum  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n\n",
+  fprintf(f2, "\n SUM  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n\n",
 	  rr, dc, re, pi, ea, ci, nele);
   return nb;
-}
-
-int WriteDRRecord(FILE *f, DR_RECORD *r) {
-  int n;
-  dr_header.ntransitions += 1;
-  dr_header.length += sizeof(DR_RECORD);
-  n = fwrite(r, sizeof(DR_RECORD), 1, f);
-  return n;
 }
 
 int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
@@ -2078,9 +2395,8 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
   
   nb = 0;
   while (1) {
-    n = fread(&h, sizeof(DR_HEADER), 1, f1);
-    if (n != 1) break;
-    if (swp) SwapEndianDRHeader(&h);
+    n = ReadDRHeader(f1, &h, swp);
+    if (n == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
@@ -2091,9 +2407,8 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "JLEV\t= %d\n", h.j);
     fprintf(f2, "NREC\t= %d\n", h.vn);
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(DR_RECORD), 1, f1);
-      if (n != 1) break;
-      if (swp) SwapEndianDRRecord(&r);
+      n = ReadDRRecord(f1, &r, swp);
+      if (n == 0) break;
       e = r.energy;
       if (v) {
 	e *= HARTREE_EV;

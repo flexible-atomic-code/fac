@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.51 2003/05/15 18:05:42 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.52 2003/05/23 21:28:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -735,7 +735,7 @@ int SetBlocks(double ni, char *ifn) {
   char *fn;
   int p, q = -1;
   int nionized, n0;
-  int swp, endian;
+  int swp;
 
   ion0.n = ni;
   if (ifn) {
@@ -767,7 +767,6 @@ int SetBlocks(double ni, char *ifn) {
     }
   }
   
-  endian = CheckEndian(NULL);
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (k > 0) {
@@ -788,13 +787,8 @@ int SetBlocks(double ni, char *ifn) {
       printf("File %s does not exist\n", fn);
       return -1;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
+
     if (k == 0) {
       ion0.atom = fh.atom;
       strcpy(ion0.symbol, fh.symbol);
@@ -803,8 +797,7 @@ int SetBlocks(double ni, char *ifn) {
     nlevels = 0;
     nionized = 0;
     for (i = 0; i < fh.nblocks; i++) {
-      n = fread(&h, sizeof(EN_HEADER), 1, f);
-      if (swp) SwapEndianENHeader(&h);
+      n = ReadENHeader(f, &h, swp);
       nlevels += h.nlevels;
       if (h.nele == ion->nele-1) {
 	nionized += h.nlevels;
@@ -831,15 +824,13 @@ int SetBlocks(double ni, char *ifn) {
     nb0 = 0;
     r0 = rionized;
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(EN_HEADER), 1, f);
-      if (swp) SwapEndianENHeader(&h);
+      n = ReadENHeader(f, &h, swp);
       if (h.nele == ion->nele) {
 	fseek(f, h.length, SEEK_CUR);
 	continue;
       } else if (h.nele == ion->nele-1) {
 	for (i = 0; i < h.nlevels; i++) {
-	  n = fread(&r0[i], sizeof(EN_RECORD), 1, f);
-	  if (swp) SwapEndianENRecord(&(r0[i]));
+	  n = ReadENRecord(f, &r0[i], swp);
 	}
 	if (ion->nele >= 4 && ion->nele <= 10) {
 	  GetNComplex(ncomplex, r0[0].ncomplex);
@@ -976,8 +967,7 @@ int SetBlocks(double ni, char *ifn) {
 
     fseek(f, sizeof(F_HEADER), SEEK_SET);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(EN_HEADER), 1, f);
-      if (swp) SwapEndianENHeader(&h);
+      n = ReadENHeader(f, &h, swp);
       if (h.nele != ion->nele) {
 	fseek(f, h.length, SEEK_CUR);
 	continue;
@@ -986,8 +976,7 @@ int SetBlocks(double ni, char *ifn) {
       blkp = NULL;
       nlevels = 0;
       for (i = 0; i < h.nlevels; i++) {
-	n = fread(&r, sizeof(EN_RECORD), 1, f);
-	if (swp) SwapEndianENRecord(&r);
+	n = ReadENRecord(f, &r, swp);
 	GetNComplex(ncomplex, r.ncomplex);
 	if (nb == 0 && i <= n_single_blocks) {
 	  nlevels = 0;
@@ -1162,25 +1151,17 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
     return -1;
   }
   
-  nr = fread(&fh, sizeof(F_HEADER), 1, f);
-  if (CheckEndian(&fh) != CheckEndian(NULL)) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
-  }
+  nr = ReadFHeader(f, &fh, &swp);
   k = 0;
   for (nb = 0; nb < fh.nblocks; nb++) {
-    nr = fread(&h, sizeof(EN_HEADER), 1, f);
-    if (swp) SwapEndianENHeader(&h);
+    nr = ReadENHeader(f, &h, swp);
     if (h.nele != nele) {
       fseek(f, h.length, SEEK_CUR);
       continue;
     }
     k = 0;
     for (i = 0; i < h.nlevels; i++) {
-      nr = fread(&r1[k], sizeof(EN_RECORD), 1, f);
-      if (swp) SwapEndianENRecord(&(r1[k]));
+      nr = ReadENRecord(f, &r1[k], swp);
       if (strcmp(r1[k].ncomplex, r0[0].ncomplex) == 0) {
 	k++;
 	if (k == n) break;
@@ -3124,19 +3105,14 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     low = emin;
     up = emax;
   }
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (CheckEndian(&fh) != CheckEndian(NULL)) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
-  }
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) return -1;
+
   ArrayInit(&sp, sizeof(SP_RECORD), 512);
   ArrayInit(&linetype, sizeof(int), 512);
   smax = 0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = fread(&h, sizeof(SP_HEADER), 1, f1);
-    if (swp) SwapEndianSPHeader(&h);
+    n = ReadSPHeader(f1, &h, swp);
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND;  
     r1 = h.type / 10000;
@@ -3158,8 +3134,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       }
     }
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(SP_RECORD), 1, f1);
-      if (swp) SwapEndianSPRecord(&r);
+      n = ReadSPRecord(f1, &r, swp);
+      if (n == 0) break;
       r.energy *= HARTREE_EV;
       if (fmin < 0.0) {
 	if (r.lower == low && r.upper == up) {
@@ -3280,17 +3256,12 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     xsp[i] = xsp[i-1] + de01;
   }
 
-  n = fread(&fh, sizeof(F_HEADER), 1, f1);
-  if (CheckEndian(&fh) != CheckEndian(NULL)) {
-    swp = 1;
-    SwapEndianFHeader(&fh);
-  } else {
-    swp = 0;
-  }
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) return -1;
 
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = fread(&h, sizeof(SP_HEADER), 1, f1);
-    if (swp) SwapEndianSPHeader(&h);
+    n = ReadSPHeader(f1, &h, swp);
+    if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND; 
     r1 = h.type / 10000;
@@ -3316,8 +3287,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     k = 0;
     smax = 0.0;
     for (i = 0; i < h.ntransitions; i++) {
-      n = fread(&r, sizeof(SP_RECORD), 1, f1);
-      if (swp) SwapEndianSPRecord(&r);
+      n = ReadSPRecord(f1, &r, swp);
+      if (n == 0) break;
       e = r.energy;
       a = r.strength * e;
       if (a < smax*smin) continue;
@@ -3476,13 +3447,12 @@ int SetCERates(int inv) {
   CE_RECORD r;
   FILE *f;
   double e;
-  float cs[MAXNUSR];
+  float *cs;
   double data[2+(1+MAXNUSR)*3];
   double *y, *x, *logx;
-  double eusr[MAXNUSR];
-  int swp, endian;
+  double *eusr;
+  int swp;
   
-  endian = CheckEndian(NULL);
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
@@ -3496,31 +3466,17 @@ int SetCERates(int inv) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CE-1]);
       continue;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(CE_HEADER), 1, f);
-      if (swp) SwapEndianCEHeader(&h);
-      m = h.n_tegrid + h.n_egrid;
-      fseek(f, sizeof(double)*m, SEEK_CUR);
-      m = h.n_usr;
-      n = fread(eusr, sizeof(double), m, f);
-      if (swp) {
-	for (i = 0; i < m; i++) {
-	  SwapEndian((char *) &(eusr[i]), sizeof(double));
-	}
-      }
+      n = ReadCEHeader(f, &h, swp);
+      eusr = h.usr_egrid;
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
 	}
       }
+      m = h.n_usr;
       m1 = m + 1;
       x = y + m1;
       logx = x + m1;
@@ -3531,23 +3487,14 @@ int SetCERates(int inv) {
 	x[t] = h.te0/(h.te0 + eusr[j]);
       }
       for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(CE_RECORD), 1, f);
-	if (swp) SwapEndianCERecord(&r);
-	if (h.nparams > 0) {
-	  fseek(f, sizeof(float)*h.nparams, SEEK_CUR);
-	}
+	n = ReadCERecord(f, &r, swp, &h);
 	rt.i = r.lower;
 	rt.f = r.upper;
 	j1 = ion->j[r.lower];
 	j2 = ion->j[r.upper];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
 	data[1] = r.bethe;
-	n = fread(cs, sizeof(float), m, f);
-	if (swp) {
-	  for (j = 0; j < m; j++) {
-	    SwapEndian((char *) &(cs[j]), sizeof(float));
-	  }
-	}
+	cs = r.strength;
 	y[0] = r.born[0];
 	if (r.bethe <= 0) {
 	  for (j = 0; j < m; j++) {
@@ -3564,7 +3511,12 @@ int SetCERates(int inv) {
 	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 	       data, rt.i, rt.f);
 	AddRate(ion, ion->ce_rates, &rt, 0);
+	if (h.qk_mode == QK_FIT) free(r.params);
+	free(r.strength);
       }
+      free(h.tegrid);
+      free(h.egrid);
+      free(h.usr_egrid);
     }
     fclose(f);
     
@@ -3574,29 +3526,15 @@ int SetCERates(int inv) {
 	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_CE-1]);
 	continue;
       }
-      n = fread(&fh, sizeof(F_HEADER), 1, f);
-      if (CheckEndian(&fh) != endian) {
-	swp = 1;
-	SwapEndianFHeader(&fh);
-      } else {
-	swp = 0;
-      }
+      n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
-	n = fread(&h, sizeof(CE_HEADER), 1, f);
-	if (swp) SwapEndianCEHeader(&h);
-	m = h.n_tegrid + h.n_egrid;
-	fseek(f, sizeof(double)*m, SEEK_CUR);
-	m = h.n_usr;   
-	n = fread(eusr, sizeof(double), m, f);
-	if (swp) {
-	  for (i = 0; i < m; i++) {
-	    SwapEndian((char *) &(eusr[i]), sizeof(double));
-	  }
-	}
+	n = ReadCEHeader(f, &h, swp);
+	eusr = h.usr_egrid;
 	if (h.nele != ion0.nele) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
 	}
+	m = h.n_usr;
 	m1 = m + 1;
 	x = y + m1;
 	logx = x + m1;
@@ -3607,20 +3545,18 @@ int SetCERates(int inv) {
 	  x[t] = h.te0/(h.te0 + eusr[j]);
         }
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = fread(&r, sizeof(CE_RECORD), 1, f);
-	  if (swp) SwapEndianCERecord(&r);
+	  n = ReadCERecord(f, &r, swp, &h);
 	  p = IonizedIndex(r.lower, 0);
 	  if (p < 0) {
-	    fseek(f, sizeof(float)*(h.nparams+h.n_usr), SEEK_CUR);
+	    if (h.qk_mode == QK_FIT) free(r.params);
+	    free(r.strength);
 	    continue;
 	  }
 	  q = IonizedIndex(r.upper, 0);
 	  if (q < 0) {
-	    fseek(f, sizeof(float)*(h.nparams+h.n_usr), SEEK_CUR);
+	    if (h.qk_mode == QK_FIT) free(r.params);
+	    free(r.strength);
 	    continue;
-	  }
-	  if (h.nparams > 0) {
-	    fseek(f, sizeof(float)*h.nparams, SEEK_CUR);
 	  }
 	  rt.i = ion0.ionized_map[1][p];
 	  rt.f = ion0.ionized_map[1][q];
@@ -3628,12 +3564,7 @@ int SetCERates(int inv) {
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
 	  data[1] = r.bethe;	
-	  n = fread(cs, sizeof(float), m, f);
-	  if (swp) {
-	    for (j = 0; j < m; j++) {
-	      SwapEndian((char *) &(cs[j]), sizeof(float));
-	    }
-	  }
+	  cs = r.strength;
 	  y[0] = r.born[0];
 	  if (r.bethe <= 0) {
 	    for (j = 0; j < m; j++) {
@@ -3650,7 +3581,12 @@ int SetCERates(int inv) {
 	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 		 data, rt.i, rt.f);
 	  AddRate(ion, ion->ce_rates, &rt, 0);
+	  if (h.qk_mode == QK_FIT) free(r.params);
+	  free(r.strength);
 	}
+	free(h.tegrid);
+	free(h.egrid);
+	free(h.usr_egrid);
       }
       fclose(f);
     }
@@ -3672,9 +3608,8 @@ int SetTRRates(int inv) {
   LBLOCK *ib;
   double e;
   FILE *f;  
-  int swp, endian;
+  int swp;
 
-  endian = CheckEndian(NULL);
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
@@ -3687,16 +3622,9 @@ int SetTRRates(int inv) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_TR-1]);
       continue;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(TR_HEADER), 1, f);
-      if (swp) SwapEndianTRHeader(&h);
+      n = ReadTRHeader(f, &h, swp);
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
 	  fseek(f, h.length, SEEK_CUR);
@@ -3706,8 +3634,7 @@ int SetTRRates(int inv) {
       if (abs(h.multipole) == 1) m = 0;
       else m = 1;
       for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(TR_RECORD), 1, f);
-	if (swp) SwapEndianTRRecord(&r);
+	n = ReadTRRecord(f, &r, swp);
 	rt.i = r.upper;
 	if (ion0.n < 0) {
 	  ib = ion->iblock[r.upper];
@@ -3767,16 +3694,9 @@ int SetTRRates(int inv) {
 	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_CE-1]);
 	continue;
       }
-      n = fread(&fh, sizeof(F_HEADER), 1, f);
-      if (CheckEndian(&fh) != endian) {
-	swp = 1;
-	SwapEndianFHeader(&fh);
-      } else {
-	swp = 0;
-      }
+      n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
-	n = fread(&h, sizeof(TR_HEADER), 1, f);
-	if (swp) SwapEndianTRHeader(&h);
+	n = ReadTRHeader(f, &h, swp);
 	if (h.nele != ion0.nele) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
@@ -3784,8 +3704,7 @@ int SetTRRates(int inv) {
 	if (abs(h.multipole) == 1) m = 0;
 	else m = 1;
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = fread(&r, sizeof(TR_RECORD), 1, f);
-	  if (swp) SwapEndianTRRecord(&r);
+	  n = ReadTRRecord(f, &r, swp);
 	  p = IonizedIndex(r.lower, 0);
 	  if (p < 0) {
 	    continue;
@@ -3820,11 +3739,9 @@ int SetCIRates(int inv) {
   CI_RECORD r;
   double e;
   FILE *f;  
-  float *params;
-  int swp, endian;
+  int swp;
 
   if (ion0.n < 0.0) return 0;
-  endian = CheckEndian(NULL);
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -3838,40 +3755,25 @@ int SetCIRates(int inv) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CI-1]);
       continue;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(CI_HEADER), 1, f);
-      if (swp) SwapEndianCIHeader(&h);
-      m = h.n_tegrid + h.n_egrid + h.n_usr;
-      fseek(f, sizeof(double)*m, SEEK_CUR);
-      m = h.nparams;
-      params = (float *) malloc(sizeof(float)*m);
+      n = ReadCIHeader(f, &h, swp);
       for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(CI_RECORD), 1, f);
-	if (swp) SwapEndianCIRecord(&r);
-	n = fread(params, sizeof(float), m, f);
-	if (swp) {
-	  for (t = 0; t < m; t++) {
-	    SwapEndian((char *) &(params[t]), sizeof(float));
-	  }
-	}
-	fseek(f, sizeof(float)*h.n_usr, SEEK_CUR);
+	n = ReadCIRecord(f, &r, swp, &h);
 	rt.i = r.b;
 	rt.f = r.f;
 	j1 = ion->j[r.b];
 	j2 = ion->j[r.f];
 	e = ion->energy[r.f] - ion->energy[r.b];
-	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, params,
+	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, r.params,
 	       rt.i, rt.f);
 	AddRate(ion, ion->ci_rates, &rt, 0);
+	free(r.params);
+	free(r.strength);
       }
-      free(params);
+      free(h.tegrid);
+      free(h.egrid);
+      free(h.usr_egrid);
     }
     fclose(f);
   }
@@ -3889,15 +3791,13 @@ int SetRRRates(int inv) {
   RR_RECORD r;
   double e;
   FILE *f;  
-  int endian, swp;
-  float cs[MAXNUSR];
-  float params[MAXNUSR];
+  int swp;
+  float *cs;
   double data[1+MAXNUSR*4];
-  double eusr[MAXNUSR];
+  double *eusr;
   double *x, *logx, *y, *p;
 
   if (ion0.n < 0.0) return 0;
-  endian = CheckEndian(NULL);
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
@@ -3911,41 +3811,19 @@ int SetRRRates(int inv) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_RR-1]);
       continue;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(RR_HEADER), 1, f);
-      if (swp) SwapEndianRRHeader(&h);
-      m = h.n_tegrid + h.n_egrid;
-      fseek(f, sizeof(double)*m, SEEK_CUR);
+      n = ReadRRHeader(f, &h, swp);
+      eusr = h.usr_egrid;
       m = h.n_usr;
-      n = fread(eusr, sizeof(double), m, f);
-      if (swp) {
-	for (i = 0; i < m; i++) {
-	  SwapEndian((char *) &(eusr[i]), sizeof(double));
-	}
-      }
-      
       x = y + m;
       logx = x + m;
       p = logx + m;
       for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(RR_RECORD), 1, f);
-	if (swp) SwapEndianRRRecord(&r);
+	n = ReadRRRecord(f, &r, swp, &h);
 	if (h.nparams <= 0) {
 	  printf("RR QkMode must be in QK_FIT\n");
 	  exit(1);
-	}
-	n = fread(params, sizeof(float), h.nparams, f);
-	if (swp) {
-	  for (j = 0; j < h.nparams; j++) {
-	    SwapEndian((char *) &(params[j]), sizeof(float));
-	  }
 	}
 	rt.i = r.f;
 	rt.f = r.b;
@@ -3958,25 +3836,25 @@ int SetRRRates(int inv) {
 		 r.f, r.b, ion->energy[r.f],ion->energy[r.b]);
 	  exit(1);
 	}
-	n = fread(cs, sizeof(float), m, f);
-	if (swp) {
-	  for (j = 0; j < m; j++) {
-	    SwapEndian((char *) &(cs[j]), sizeof(float));
-	  }
-	}
+	cs = r.strength;
 	for (j = 0; j < m; j++) {
 	  x[j] = (e+eusr[j])/e;
 	  logx[j] = log(x[j]);
 	  y[j] = log(cs[j]);
 	}
 	for (j = 0; j < h.nparams; j++) {
-	  p[j] = params[j];
+	  p[j] = r.params[j];
 	}
 	p[h.nparams-1] *= HARTREE_EV;
 	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, data,
 	       rt.i, rt.f);
 	AddRate(ion, ion->rr_rates, &rt, 0);
+	free(r.params);
+	free(r.strength);
       }
+      free(h.tegrid);
+      free(h.egrid);
+      free(h.usr_egrid);
     }
     fclose(f);
     ExtrapolateRR(ion, inv);
@@ -3995,11 +3873,10 @@ int SetAIRates(int inv) {
   AI_RECORD r;
   double e;
   FILE *f;  
-  int swp, endian;
+  int swp;
   int ibase;
 
   if (ion0.n < 0.0) return 0;
-  endian = CheckEndian(NULL);
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -4013,20 +3890,11 @@ int SetAIRates(int inv) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_AI-1]);
       continue;
     }
-    n = fread(&fh, sizeof(F_HEADER), 1, f);
-    if (CheckEndian(&fh) != endian) {
-      swp = 1;
-      SwapEndianFHeader(&fh);
-    } else {
-      swp = 0;
-    }
+    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = fread(&h, sizeof(AI_HEADER), 1, f);
-      if (swp) SwapEndianAIHeader(&h);
-      fseek(f, sizeof(double)*h.n_egrid, SEEK_CUR);
+      n = ReadAIHeader(f, &h, swp);
       for (i = 0; i < h.ntransitions; i++) {
-	n = fread(&r, sizeof(AI_RECORD), 1, f);
-	if (swp) SwapEndianAIRecord(&r);
+	n = ReadAIRecord(f, &r, swp);
 	rt.i = r.b;
 	rt.f = r.f;
 	j1 = ion->j[r.b];
@@ -4043,6 +3911,7 @@ int SetAIRates(int inv) {
 	  }
 	}
       }
+      free(h.egrid);
     }
     n = ion->KLN_bmax - ion->KLN_bmin + 1;
     for (ibase = 0; ibase < n; ibase++) {

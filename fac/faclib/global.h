@@ -68,7 +68,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     9
-#define SUBSUBVERSION  5
+#define SUBSUBVERSION  6
 
 
 /* 
@@ -276,7 +276,7 @@
 #define RECNSPEC           8
 #define RECNFROZEN         8
 #define RECLMAX            12
-#define AICUT              1E-8
+#define AICUT              1E-16
 
 /* choose multi-array implementation */
 /*

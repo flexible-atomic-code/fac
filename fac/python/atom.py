@@ -215,7 +215,7 @@ class ATOM:
 
         self.angz_cut0 = 1E-6
         self.tr_cut0 = 1E-3
-        self.ai_cut0 = 1E-3
+        self.ai_cut0 = 1E-16
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
             self.nterms = [-1,-1,-1]
@@ -228,10 +228,10 @@ class ATOM:
             self.n_decay = [10, 3, -1]
             self.angz_cut1 = 1E-6
             self.tr_cut1 = 1E-3
-            self.ai_cut1 = 1E-3
+            self.ai_cut1 = 1E-14
             self.angz_cut2 = 1E-4
             self.tr_cut2 = 1E-3
-            self.ai_cut2 = 1E-3
+            self.ai_cut2 = 1E-12
         elif (self.nele <= self.nele_max[2]):
             self.n_shells = 2
             self.nterms = [-1,-1,-1,-1]
@@ -246,10 +246,10 @@ class ATOM:
             self.n_decay = [10, 4, 4, -1]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
-            self.ai_cut1 = 1E-3
+            self.ai_cut1 = 1E-14
             self.angz_cut2 = 1E-4
             self.tr_cut2 = 1E-2
-            self.ai_cut2 = 1E-2
+            self.ai_cut2 = 1E-12
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
             self.nterms = [-1,-1,-1,-1,-1]
@@ -262,10 +262,10 @@ class ATOM:
             self.n_decay = [10, 4, 4, 4, 4]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
-            self.ai_cut1 = 1E-3
+            self.ai_cut1 = 1E-14
             self.angz_cut2 = 1E-3
             self.tr_cut2 = 1E-2
-            self.ai_cut2 = 1E-2
+            self.ai_cut2 = 1E-12
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
             

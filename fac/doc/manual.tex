@@ -8,7 +8,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.9.5}\xspace}
+\newcommand{\facversion}{{0.9.6}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2259,9 +2259,8 @@ other multipole types should be important. The results are saved in file
 
 \begin{fundesc}{SetAICut}{c}
 Set the autoionization rate cutoff threshold in the output. Only
-autoionization rates greater than \var{c} times the total rates from a given
-bound state are written to the file. The default is $10^{-8}$, if this routine
-is not called.
+autoionization rates greater than \var{c} a.u. are output. The default is
+$10^{-16}$ a.u. or $\sim 4.13$ s$^{-1}$, if this routine is not called. 
 \end{fundesc}
 
 \begin{fundesc}{SetAngZCut}{c}
