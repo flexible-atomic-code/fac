@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.22 2003/04/18 17:33:42 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.23 2003/04/20 23:22:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -14,6 +14,8 @@ USE (rcsid);
 
   Author: M. F. Gu, mfgu@space.mit.edu
 **************************************************************/
+
+static int nstates_partition = NSPARTITION;
 
 /*
 ** VARIABLE:    cfg_groups
@@ -1433,6 +1435,14 @@ CONFIG *GetConfig(STATE *s) {
   return c;
 }
 
+CONFIG *GetConfigFromGroup(int kg, int kc) {
+  return (CONFIG *) ArrayGet(&(cfg_groups[kg].cfg_list), kc);
+}
+
+PARTITION *GetPartition(int kg, int kp) {
+  return (PARTITION *) ArrayGet(&(cfg_groups[kg].partition), kp);
+}
+
 /* 
 ** FUNCTION:    AddConfigToList
 ** PURPOSE:     add a configuration to the specified group,
@@ -1449,7 +1459,16 @@ CONFIG *GetConfig(STATE *s) {
 */
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;
+  ARRAY *part;
+  PARTITION p, *t;
+  int ip, ns;
 
+  if (cfg->n_csfs > nstates_partition) {
+    printf("Error: a single configuration in group %s ", cfg_groups[k].name);
+    printf("has more than %d states\n", nstates_partition);
+    printf("Enlarge nstates_partition to at least %d\n", cfg->n_csfs);
+    return -1;
+  }
   if (k < 0 || k >= n_groups) return -1;
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
@@ -1459,10 +1478,39 @@ int AddConfigToList(int k, CONFIG *cfg) {
     return -1;
   }
   clist = &(cfg_groups[k].cfg_list);
+  part = &(cfg_groups[k].partition);
+
   cfg->energy = 0.0;
   cfg->delta = 0.0;
+
+  if (part->dim == 0) {
+    cfg->ipart = 0;
+    cfg->npart = 0;
+    p.icfg1 = clist->dim;
+    p.icfg2 = p.icfg1;
+    p.n_csfs = cfg->n_csfs;
+    ArrayAppend(part, &p);
+  } else {
+    ip = part->dim - 1;
+    t = ArrayGet(part, ip);
+    ns = t->n_csfs + cfg->n_csfs;
+    if (ns <= nstates_partition) {
+      cfg->ipart = ip;
+      cfg->npart = t->n_csfs;
+      t->icfg2++;
+      t->n_csfs = ns;
+    } else {
+      ip++;
+      cfg->ipart = ip;
+      cfg->npart = 0;
+      p.icfg1 = clist->dim;
+      p.icfg2 = p.icfg1;
+      p.n_csfs = cfg->n_csfs;
+      ArrayAppend(part, &p);
+    }
+  }
+
   if (ArrayAppend(clist, cfg) == NULL) return -1;
-  
   AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   cfg_groups[k].n_cfgs++;
   return 0;
@@ -1818,6 +1866,7 @@ int InitConfig(void) {
   for (i = 0; i < MAX_GROUPS; i++) {
     strcpy(cfg_groups[i].name, "_all_");
     cfg_groups[i].n_cfgs = 0;
+    ArrayInit(&(cfg_groups[i].partition), sizeof(PARTITION), CONFIGS_BLOCK);
     ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
   }
 
@@ -1869,6 +1918,7 @@ int ReinitConfig(int m) {
   if (m) return 0;
 
   for (i = 0; i < n_groups; i++) {
+    ArrayFree(&(cfg_groups[i].partition), NULL);
     ArrayFree(&(cfg_groups[i].cfg_list), FreeConfigData);
     cfg_groups[i].n_cfgs = 0;
     strcpy(cfg_groups[i].name, "_all_");

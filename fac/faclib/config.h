@@ -134,6 +134,8 @@ typedef struct _CONFIG_ {
   int n_electrons;
   int n_shells;
   int n_csfs;
+  int ipart;
+  int npart;
   double energy;
   double delta;
   SHELL *shells;
@@ -162,6 +164,14 @@ typedef struct _AVERAGE_CONFIG_ {
   double *nq;
 } AVERAGE_CONFIG;
 
+
+typedef struct _PARTITION_ {
+  int icfg1;
+  int icfg2;
+  int n_csfs;
+} PARTITION;
+
+
 /*
 ** STRUCT:      CONFIG_GROUP
 ** PURPOSE:     a group of configurations.
@@ -179,6 +189,7 @@ typedef struct _AVERAGE_CONFIG_ {
 typedef struct _CONFIG_GROUP_ { 
   int n_cfgs;
   int n_electrons;
+  ARRAY partition;
   ARRAY cfg_list;
   char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
@@ -255,6 +266,8 @@ CONFIG_GROUP *GetGroup(int k);
 CONFIG_GROUP *GetNewGroup(void);
 int          GetNumGroups(void);
 CONFIG       *GetConfig(STATE *s);
+CONFIG       *GetConfigFromGroup(int kg, int kc);
+PARTITION    *GetPartition(int kg, int kp);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 
 				int parity, int j);
 int          AddConfigToSymmetry(int kg, int kc, CONFIG *cfg);

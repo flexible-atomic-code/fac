@@ -199,6 +199,7 @@
 #define GRIDRATIO  1.1 /* ratio of successive mesh near origin */
 
 /* config */
+#define NSPARTITION        512
 #define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     64
@@ -310,9 +311,8 @@ extern FILE *debug_log;
 **              information should be compiled in.
 ** NOTE:        normally, should be commented out.
 */
-/*
-#define PERFORM_STATISTICS 1 
-*/
+
+/* #define PERFORM_STATISTICS 1 */
 #ifdef PERFORM_STATISTICS
 extern FILE *perform_log;
 #endif

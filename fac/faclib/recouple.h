@@ -99,7 +99,7 @@ typedef struct _INTERACT_SHELL_ {
 */
 typedef struct _INTERACT_DATUM_ {
   SHELL *bra;
-  short s[4];
+  INTERACT_SHELL s[4];
   short n_shells;
   short phase;
 } INTERACT_DATUM;
@@ -116,10 +116,10 @@ typedef struct _INTERACT_DATUM_ {
 **              PERFORM_STATISTICS is defined in "global.h".
 */
 typedef struct _RECOUPLE_TIMING_ {
-  clock_t angz;
-  clock_t angzxz;
-  clock_t decouple;
-  clock_t interact;
+  double angz;
+  double angzxz;
+  double decouple;
+  double interact;
 } RECOUPLE_TIMING;
 
 int     GetRecoupleTiming(RECOUPLE_TIMING *t);
@@ -143,7 +143,6 @@ int     AngularZ(double **coeff, int **kk, int nk,
 		 int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		 INTERACT_SHELL *s1, INTERACT_SHELL *s2);
 
-
 void    SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
 		 double *coeff1, int *kk1, int nk1, int p1, 
 		 int phase, int j1, int j2, int j3, int j4);
@@ -155,9 +154,17 @@ int     SortShell(INTERACT_SHELL *s, int *order);
    must interact, and determine the phase factor of the recoupling 
    coeff. which does not include the phase resulting from the reordering
    of operators. that is calculated in the AngularZxZ0 and AngularZ0 */
-int     GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
-		    SHELL_STATE **sbra, SHELL_STATE **sket, CONFIG *ci, 
-		    int ki, CONFIG *cj, int kj, STATE *s1, STATE *s2);
+int InteractingShells(INTERACT_DATUM **idatum,
+		      SHELL_STATE **sbra, 
+		      SHELL_STATE **sket, 
+		      CONFIG *ci, CONFIG *cj,
+		      SHELL_STATE *csf_i, SHELL_STATE *csf_j);
+int GetInteract(INTERACT_DATUM **idatum,
+		SHELL_STATE **sbra, 
+		SHELL_STATE **sket, 
+		int kgi, int kgj,
+		int kci, int kcj, 
+		int ki, int kj, int bf);
 
 /* only compile these test routines if the debug flag is on */
 #if FAC_DEBUG 

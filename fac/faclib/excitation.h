@@ -20,9 +20,9 @@ typedef struct _CEPW_SCRATCH_ {
 
 #ifdef PERFORM_STATISTICS
 typedef struct _EXCIT_TIMING_ {
-  clock_t rad_pk;
-  clock_t rad_qk;
-  clock_t set_kappa;
+  double rad_pk;
+  double rad_qk;
+  double set_kappa;
 } EXCIT_TIMING;
 #endif
 

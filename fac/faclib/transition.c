@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.18 2003/04/15 13:54:00 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.19 2003/04/20 23:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -251,10 +251,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   }
 
 #ifdef PERFORM_STATISTICS
-  GetArrayTiming(&arrayt);
-  fprintf(perform_log, "Multi: %6.1E, Array: %6.1E\n",
-	  ((double) (arrayt.multi))/CLOCKS_PER_SEC,
-	  ((double) (arrayt.array))/CLOCKS_PER_SEC);
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
 	  ((double) (structt.angz_mix))/CLOCKS_PER_SEC,
@@ -262,9 +258,10 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	  ((double) (structt.angzxz_fb))/CLOCKS_PER_SEC,
 	  ((double) (structt.set_ham))/CLOCKS_PER_SEC,
 	  ((double) (structt.diag_ham))/CLOCKS_PER_SEC);
-  fprintf(perform_log, "AngZS: %6.1E, %ld %ld, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+  fprintf(perform_log, "AngZS: %7d %7d %6.1E, %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+	  structt.n_angz_states, structt.n_angz_states_load,
 	  ((double) (structt.angz_states))/CLOCKS_PER_SEC, 
-	  structt.angz_states_load, structt.angz_states_calc,
+	  ((double) (structt.angz_states_load))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzfb_states))/CLOCKS_PER_SEC,
 	  ((double) (structt.angzxzfb_states))/CLOCKS_PER_SEC,
 	  ((double) (structt.add_angz))/CLOCKS_PER_SEC,
@@ -288,6 +285,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
   fprintf(perform_log, "\n");
+  fflush(perform_log);
 #endif /* PERFORM_STATISTICS */
 
   return 0;

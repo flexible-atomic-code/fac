@@ -31,14 +31,18 @@ typedef struct _HAMILTON_ {
 typedef struct _LEVEL_ {
   int pj;
   int n_basis;
+  int pb;
   int *basis;
   double *mixing;
   double energy;
+  int ngp, *igp;
 } LEVEL;
 
 typedef struct _ANGZ_DATUM_ {
-  void *angz;
-  short nz;
+  int ns;
+  int *ic;
+  int *nz;
+  void **angz;
 } ANGZ_DATUM;
 
 typedef struct _ANGULAR_ZMIX_ {
@@ -72,19 +76,20 @@ typedef struct _ECORRECTION_ {
 
 #ifdef PERFORM_STATISTICS
 typedef struct _STRUCT_TIMING_ {
-  clock_t angz_mix;
-  clock_t angzxz_mix;
-  clock_t angz_fb;
-  clock_t angzxz_fb;
-  clock_t angz_states;
-  long angz_states_load;
-  long angz_states_calc;
-  clock_t angzfb_states;
-  clock_t angzxzfb_states;
-  clock_t add_angz;
-  clock_t add_angzxz;
-  clock_t diag_ham;
-  clock_t set_ham;
+  double angz_mix;
+  double angzxz_mix;
+  double angz_fb;
+  double angzxz_fb;
+  double angz_states;
+  double angz_states_load;
+  long n_angz_states;
+  long n_angz_states_load;
+  double angzfb_states;
+  double angzxzfb_states;
+  double add_angz;
+  double add_angzxz;
+  double diag_ham;
+  double set_ham;
 } STRUCT_TIMING;
 int GetStructTiming(STRUCT_TIMING *t);
 #endif
@@ -106,7 +111,7 @@ LEVEL *GetLevel(int k);
 int LevelTotalJ(int k);
 int GetNumLevels(void);
 int GetNumElectrons(int k);
-int SortMixing(int start, int n, int *basis, double *mix);
+int SortMixing(int start, int n, int *basis, double *mix, SYMMETRY *sym);
 int GetPrincipleBasis(double *mix, int d);
 int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
@@ -120,11 +125,18 @@ int PackAngularZxZMix(int *n, ANGULAR_ZxZMIX **ang, int nz);
 int PackAngularZMix(int *n, ANGULAR_ZMIX **ang, int nz);
 int PackAngularZFB(int *n, ANGULAR_ZFB **ang, int nz);
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper);
-int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2);
+int AngularZMixStates(ANGZ_DATUM **ad, 
+		      int kg1, int kg2, 
+		      int kp1, int kp2);
 int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p);
-int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup);
-int AngularZxZMixStates(ANGULAR_ZxZMIX **ang, STATE *slow, STATE *sup);
-int AngularZxZFreeBoundStates(ANGULAR_ZxZMIX **ang, STATE *slow, STATE *sup);
+int AngularZFreeBoundStates(ANGZ_DATUM **ad, 
+			    int kg1, int kg2, int kc1, int kc2);
+int AngularZxZMixStates(ANGZ_DATUM **ad, 
+			int kg1, int kg2, 
+			int kp1, int kp2);
+int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, 
+			      int kg1, int kg2, 
+			      int kp1, int kp2);
 int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang, 
 		    int n_shells, int phase, SHELL_STATE *sbra, 
 		    SHELL_STATE *sket, INTERACT_SHELL *s, int m);
