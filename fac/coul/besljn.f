@@ -35,7 +35,7 @@ C        ABRAMOWITZ AND STEGUN, EQ. 10.1.15.
 C  ****  SELECTION OF CALCULATION MODE.                                
       IF(NL.LT.0) GO TO 10                                             
       IF(X.GT.1.0D0*NL) GO TO 7                                        
-      XI=X*X                                                           
+      XI=X*X                                                          
       IF(XI.GT.NL+NL+3.0D0) GO TO 4                                    
 C  ****  POWER SERIES FOR SMALL ARGUMENTS AND POSITIVE ORDERS.         
 C        ABRAMOWITZ AND STEGUN, EQ. 10.1.2.                            

@@ -459,7 +459,7 @@ def drall(prefix, nrec, dn, f = 0, **p):
         str_file = constructfn(prefix, 'str', -1, dn)
         f = open(str_file, 'w')
         for i in range(len(nrec)):
-            f.write('%-2d %10.3E\n'%(nrec[i], str[i]))
+            f.write('%-2d %15.8E\n'%(nrec[i], str[i]))
         f.close()
 
 

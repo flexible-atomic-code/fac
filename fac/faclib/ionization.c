@@ -13,21 +13,25 @@ static double tegrid[MAX_IEGRID];
 static double log_te[MAX_IEGRID];
 
 static struct {
+  int max_k;
   int qr;
   int max_kl;
-  int max_kl_1;
-  int max_kl_f;
-  double tolerence;
+  int max_kl_eject;
+  double eps_dipole;
+  double eps_allowed;
+  double eps_forbidden;
+  double eps_k;
   int nkl0;
   int nkl;
-  double kl[MAX_CINKL];
+  double kl[MAX_CINKL+1];
+  double log_kl[MAX_CINKL];
   double *qk;
-} pw_scratch = {1, MAX_CIKL, 15, 0, EPS3, 0, 0};
+} pw_scratch = {12, 0, MAX_CIKL, 8, 1E-1, 1E-1, 1E-1, 1E-2, 0, 0};
 
 static MULTI *qk_array;
 
 int SetIEGrid(int n, double emin, double emax) {
-  int i, ie;
+  int i;
   double del;
 
   if (n < 1) {
@@ -82,19 +86,23 @@ int SetIEGrid(int n, double emin, double emax) {
 }
 
 
-int SetCIPWOptions(int qr, int max, int max_1, int max_f, double tolerence) {
+int SetCIPWOptions(int qr, int max, int max_eject, double eps_dipole, 
+		   double eps_allowed, double eps_forbidden, double eps_k) {
+  pw_scratch.max_k = GetMaxRank();
   pw_scratch.qr = qr;
   if (max > MAX_CIKL) {
     printf("The maximum partial wave reached in Ionization: %d\n", MAX_CIKL);
     abort();
   }
   pw_scratch.max_kl = max;
-  pw_scratch.max_kl_1 = max_1;
-  pw_scratch.max_kl_f = max_f;
-  if (tolerence >= EPS16) pw_scratch.tolerence = tolerence;
-  else tolerence = EPS3;
+  pw_scratch.max_kl_eject = max_eject;
+  pw_scratch.eps_dipole = eps_dipole;
+  pw_scratch.eps_allowed = eps_allowed;
+  pw_scratch.eps_forbidden = eps_forbidden;
+  pw_scratch.eps_k = eps_k;
   pw_scratch.nkl0 = 1;
   pw_scratch.kl[0] = 0;
+  pw_scratch.log_kl[0] = -100.0;
   pw_scratch.nkl = 0;
   return 0;
 }
@@ -108,6 +116,7 @@ int AddCIPW(int n, int step) {
       abort();
     }
     pw_scratch.kl[i] = pw_scratch.kl[i-1] + step;
+    pw_scratch.log_kl[i] = log(pw_scratch.kl[i]);
     if ((int) (pw_scratch.kl[i]) > pw_scratch.max_kl) break;
   }
   pw_scratch.nkl0 = i;
@@ -136,6 +145,7 @@ int SetCIPWGrid(int ns, int *n, int *step) {
     k *= 2;
   }
   pw_scratch.nkl = pw_scratch.nkl0;
+  pw_scratch.kl[pw_scratch.nkl] = pw_scratch.max_kl+1;
 }
   
 
@@ -176,7 +186,7 @@ int SetCIEGrid(int n, double emin, double emax, int type) {
   egrid[0] = emin;
   log_egrid[0] = log(egrid[0]);
   n_egrid = n;
-  if (type == 0) {
+  if (type < 0) {
     del = emax - emin;
     del /= n-1.0;
     for (i = 1; i < n; i++) {
@@ -250,25 +260,29 @@ int SetUsrCIEGrid(int n, double emin, double emax, int type) {
   return 0;
 }
 
-int CIRadialQk(int ie1, int ie2, int kb, int k) {
+int CIRadialQk(int ie1, int ie2, int kb, int kbp, int k) {
   int index[4];
-  double pk[MAX_IEGRID][MAX_CIKL+1];
+  double pk[MAX_IEGRID][MAX_CINKL+1];
   double **p, e1, e2, e0, te;
   ORBITAL *orb;
-  int kappab, jb, i, j, t, kl, klp;
+  int kappab, jb, klb, i, j, t, kl, klp;
   int js[4], ks[4];
-  int jmin, jmax;
+  int jmin, jmax, ko2;
   int kf, kappaf, kf0, kappa0, kf1, kappa1;
   int kl0, kl0p, kl1, kl1p;
   int j0, j1, j1min, j1max;
-  double r, sd, se;
-  double y2[MAX_CIKL+1], s;
-  int kl_max1, kl_max2;
+  double z, z2, r, rp, sd, se;
+  double y2[MAX_CINKL], s;
+  double qkjt, qkj, qklt, qkl;
+  double eps_dipole, eps_allowed, eps_forbidden;
+  int kl_max0, kl_max1, kl_max2;
+  int type, last_kl0, second_last_kl0;
 
+  ko2 = k/2;
   index[0] = ie1;
   index[1] = ie2;
   index[2] = kb;
-  index[3] = k/2;
+  index[3] = ko2;
 
   p = (double **) MultiSet(qk_array, index, NULL);
   if (*p) {
@@ -283,38 +297,47 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
   }
   (*p) = (double *) malloc(sizeof(double)*n_tegrid);
   pw_scratch.qk = *p;
+  for (i = 0; i < n_tegrid; i++) pw_scratch.qk[i] = 0.0;
   
   e1 = egrid[ie1];
-  if (pw_scratch.max_kl_f > 0) {
-    kl_max1 = pw_scratch.max_kl_f*(e1/tegrid[0]);
-    kl_max1 = Max(kl_max1, pw_scratch.max_kl_1);
-    kl_max1 = Min(pw_scratch.max_kl, kl_max1); 
-  } else {
-    kl_max1 = pw_scratch.max_kl;
-  }
-  if (k > 2) kl_max1 = Min(kl_max1, pw_scratch.max_kl_1);
+  r = GetRMax();
+  z = GetResidualZ(1);
+  z2 = z*z;
+  t = r*sqrt(e1+2.0*z/r);
+  kl_max1 = pw_scratch.max_kl;
+  kl_max1 = Min(kl_max1, t);
+
   e2 = egrid[ie2];
-  if (pw_scratch.max_kl_f > 0) {
-    kl_max2 = pw_scratch.max_kl_f*(e1/tegrid[0]);
-    kl_max2 = Max(kl_max2, pw_scratch.max_kl_1);
-    kl_max2 = Min(pw_scratch.max_kl, kl_max2); 
-  } else {
-    kl_max2 = pw_scratch.max_kl;
-  }
-  if (k > 2) kl_max2 = Min(kl_max2, pw_scratch.max_kl_1);
+  t = r*sqrt(e2+2.0*z/r);
+  kl_max2 = pw_scratch.max_kl_eject;
+  kl_max2 = Min(kl_max2, t);
 
   orb = GetOrbital(kb);
   kappab = orb->kappa;
-  jb = GetJFromKappa(kappab);
-  js[0] = 0;
-  ks[0] = kb;
+  GetJLFromKappa(kappab, &jb, &klb);
+  klb /= 2;
   jmin = abs(k - jb);
   jmax = k + jb;
+  r = (tegrid[0] + e2) / e1;
+  eps_dipole = pw_scratch.eps_dipole * r;
+  eps_allowed = pw_scratch.eps_allowed * r;
+  eps_forbidden = pw_scratch.eps_forbidden;
+  
+  qkjt = 0.0;
   for (j = jmin; j <= jmax; j += 2) {
+    if (qkjt && fabs(qkj/qkjt) < pw_scratch.eps_k) break;
+    qkj = 0.0;
     for (klp = j - 1; klp <= j + 1; klp += 2) {
       kappaf = GetKappaFromJL(j, klp);
       kl = klp/2;
-      if (kl >= kl_max2) continue;
+      if (kl > kl_max2) break;
+      if (IsEven(kl + klb + ko2)) {
+        if (k == 2) type = 1;
+        else if (k > 2) type = 2;
+	else type = 0;
+      } else {
+        type = -1;
+      }
       if (kl < pw_scratch.qr) {
 	js[2] = 0;
       } else {
@@ -328,9 +351,35 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
       kf = OrbitalIndex(0, kappaf, e2);	
       ks[2] = kf;  
 
-      for (t = 0; t < pw_scratch.nkl0; t++) {
-	kl0 = pw_scratch.kl[t];
+      last_kl0 = 0;
+      second_last_kl0 = 0;
+      for (i = 0; i < n_tegrid; i++) {
+	pk[i][MAX_CINKL] = 0.0;
+      }
+      qklt = 0.0;
+      for (t = 0; ; t++) {
+        if (second_last_kl0) {
+          last_kl0 = 1;
+	  kl0 += 1;
+        } else {
+	  kl0 = pw_scratch.kl[t];
+          if (kl0 > 10) {
+            rp = (qkjt)?fabs(qkl/qkjt):fabs(qkl/qklt);
+            if (type == 1) {
+              if (rp < eps_dipole) kl_max1 = kl0;
+            } else if (type > 0) {
+              if (rp < eps_allowed) kl_max1 = kl0;
+            } else {
+              if (rp < eps_forbidden) kl_max1 = kl0;
+            }
+          }
+          if (pw_scratch.kl[t+1] > kl_max1) {
+            if (type == 1) second_last_kl0 = 1;
+            else last_kl0 = 1;
+          }   
+	}	  
 	kl0p = 2*kl0;
+        qkl = 0.0;
 	for (j0 = abs(kl0p - 1); j0 <= kl0p + 1; j0 += 2) {
 	  kappa0 = GetKappaFromJL(j0, kl0p);
 	  if (kl0 < pw_scratch.qr) {
@@ -349,7 +398,7 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
 	    for (kl1p = j1 - 1; kl1p <= j1 + 1; kl1p += 2) {
 	      kappa1 = GetKappaFromJL(j1, kl1p);
 	      kl1 = kl1p/2;
-	      if (kl1 >= kl_max1) continue;
+	      if (last_kl0 && type == 1 && kl1 >= kl0) continue;
 	      if (kl1 < pw_scratch.qr) {
 		js[3] = 0;
 	      } else {
@@ -367,56 +416,110 @@ int CIRadialQk(int ie1, int ie2, int kb, int k) {
 		e0 = e1 + e2 + te;
 		kf0 = OrbitalIndex(0, kappa0, e0);
 		ks[1] = kf0;
+
+		js[0] = 0;
+		ks[0] = kb;
 		if (kl1 >= pw_scratch.qr &&
 		    kl0 >= pw_scratch.qr) {
 		  SlaterTotal(&sd, &se, js, ks, k, -1);
 		} else {
 		  SlaterTotal(&sd, &se, js, ks, k, 1);
 		} 
-		
+		if (fabs(sd) < EPS10 && fabs(se) < EPS10) continue;
 		r = sd + se;
-		r = r*r;
-		pk[i][t] += r;
+                if (!r) break;
+
+		if (kbp != kb) {
+		  js[0] = 0;
+		  ks[0] = kbp;
+		  if (kl1 >= pw_scratch.qr &&
+		      kl0 >= pw_scratch.qr) {
+		    SlaterTotal(&sd, &se, js, ks, k, -1);
+		  } else {
+		    SlaterTotal(&sd, &se, js, ks, k, 1);
+		  } 
+		  rp = sd + se;
+                  if (!rp) break;
+		} else {
+		  rp = r;
+		}
+		r = r*rp;
+		if (last_kl0) {
+		  pk[i][MAX_CINKL] += r;
+		} else {
+                  if (i == 0) qkl += r;
+		  pk[i][t] += r;
+		  if (second_last_kl0 && 
+		    kl1 > kl0) {
+		    pk[i][MAX_CINKL] -= r;
+		  }
+		}
 	      }
 	    }
 	  }
 	}
+        if (t == 0) qklt += qkl;
+        else qklt += qkl * (kl0 - pw_scratch.kl[t-1]);
+	if (last_kl0) {
+          if (type == 1) {
+	    for (i = 0; i < n_tegrid; i++) {
+	      e0 = e2+tegrid[i];
+	      r = e0+e1+0.5*z2/(kl0*kl0);
+	      r /= e0;
+	      r *= pk[i][MAX_CINKL];
+	      pw_scratch.qk[i] += r;
+	    }    
+          } else if (type > 0) {
+            for (i = 0; i < n_tegrid; i++) {
+              r = pk[i][t]/pk[i][t-1];
+              rp = kl0 - pw_scratch.kl[t-1];
+              r = pow(r, 1.0/rp);
+	      if (r > 0.0 && r < 0.9) {
+                rp = r/(1.0 - r);
+	        rp *= pk[i][t];
+                pw_scratch.qk[i] += rp;
+              } 
+            }
+          }
+	  break;
+	}
       }
-    }
-  }  
+      qkj += qklt;
+    }  
+    qkjt += qkj;
+  }
 
+  t = pw_scratch.nkl;
   for (i = 0; i < n_tegrid; i++) {
-    spline(pw_scratch.kl, pk[i], pw_scratch.nkl, 1E30, 1E30, y2);
+    spline(pw_scratch.log_kl, pk[i], t, 1E30, 1E30, y2);
     r = pk[i][0];
-    for (j = 1; j < pw_scratch.nkl; j++) {
+    for (j = 1; j < t; j++) {
       r += pk[i][j];
       kl0 = pw_scratch.kl[j-1];
       kl1 = pw_scratch.kl[j];
       for (kl = kl0+1; kl < kl1; kl++) {
-	splint(pw_scratch.kl, pk[i], y2, pw_scratch.nkl, (double)kl, &s);
+	splint(pw_scratch.log_kl, pk[i], y2, t, LnInteger(kl), &s);
 	r += s;
       }
-    }
- 
-    r *= 8.0;
-    pw_scratch.qk[i] = r;
+    } 
+    pw_scratch.qk[i] += r;
   }
-
   return 0;
 }
 
 int IonizeStrength(double *s, double *te, int b, int f) {
-  int i, j, k, t;
+  int i, ip, j, k, t;
   LEVEL *lev1, *lev2;
   double c, r, r0;
-  int nz, j0, kb;
+  int nz, j0, j0p, kb, kbp;
   double *rq[MAX_CIEGRID+1], *qy2[MAX_CIEGRID+1];
   double *x, x0, *rtmp; 
-  double e, e2max, e2min, delta, e1, e2t, ehalf;
-  double e2[N_INTEGRATE], integrand[N_INTEGRATE];
+  double e, delta, ratio, e1, ehalf;
+  double e2[N_INTEGRATE], log_e2[N_INTEGRATE], integrand[N_INTEGRATE];
   double y2[MAX_IEGRID];
   ANGULAR_ZFB *ang;
-  int ie1, ie2;
+  int ie1, ie2, nie1;
+  FILE *file;
 
   lev1 = GetLevel(b);
   lev2 = GetLevel(f);
@@ -432,88 +535,90 @@ int IonizeStrength(double *s, double *te, int b, int f) {
   }
   rtmp = rq[n_egrid];
 
-  for (j = 0; j < n_usr; j++) {
-    s[j] = 0.0;
+  for(ie1 = 0; ie1 < n_egrid; ie1++) {
+    for (ie2 = 0; ie2 <= ie1; ie2++) {
+      rq[ie1][ie2] = 0.0;
+    }
   }
-  
+
   for (i = 0; i < nz; i++) {
-    c = ang[i].coeff;
     kb = ang[i].kb;
     j0 = GetOrbital(kb)->kappa;
     j0 = GetJFromKappa(j0);
-    c = c*c/(j0+1.0);
-    for(ie1 = 0; ie1 < n_egrid; ie1++) {
-      for (ie2 = 0; ie2 < n_egrid; ie2++) {
-	rq[ie1][ie2] = 0.0;
-	if (ie2 > ie1+1) break; 
-	for (k = 0; k <= MAX_CIK; k += 2) {
-	  CIRadialQk(ie1, ie2, kb, k);
-	  if (n_tegrid == 1) {
-	    r = pw_scratch.qk[0];
-	  } else {
-	    x = log_te;
-	    x0 = log(*te);
-	    spline(x, pw_scratch.qk, n_tegrid, 1E30, 1E30, y2);
-	    splint(x, pw_scratch.qk, y2, n_tegrid, x0, &r);
+    for (ip = 0; ip <= i; ip++) {
+      kbp = ang[ip].kb;
+      j0p = GetOrbital(kbp)->kappa;
+      j0p = GetJFromKappa(j0p);
+      if (j0p != j0) continue;
+      c = ang[i].coeff*ang[ip].coeff/(j0+1.0);
+      if (ip != i) {
+	c *= 2.0;
+      }
+      for(ie1 = 0; ie1 < n_egrid; ie1++) {
+	for (ie2 = 0; ie2 <= ie1; ie2++) {
+	  r0 = 0.0;
+	  for (k = 0; k <= pw_scratch.max_k; k += 2) {
+	    CIRadialQk(ie1, ie2, kb, kbp, k);
+	    if (n_tegrid == 1) {
+	      r = pw_scratch.qk[0];
+	    } else {
+	      x = log_te;
+	      x0 = log(*te);
+	      spline(x, pw_scratch.qk, n_tegrid, 1E30, 1E30, y2);
+	      splint(x, pw_scratch.qk, y2, n_tegrid, x0, &r);
+	    }
+	    r = r/(k+1.0);
+	    r0 += r;
+	    if (k > 2 && fabs(r/r0) < pw_scratch.eps_k) break;
 	  }
-	  r = r/(k+1.0);
-	  rq[ie1][ie2] += r;
+	  rq[ie1][ie2] += c*r0;
 	}
-      }
-    }
-
-    for (ie1 = 0; ie1 < n_egrid; ie1++) {
-      spline(egrid, rq[ie1], n_egrid, 1E30, 1E30, qy2[ie1]);
-    }
-    for (j = 0; j < n_usr; j++) {
-      e = usr_egrid[j];
-      ehalf = e*0.5;
-      e2min = 0.0;
-      e2max = (*te)*0.5;
-      e2max = Min(e2max, ehalf);
-      delta = (e2max - e2min)/(N_INTEGRATE - 1);
-      e2[0] = e2min;
-      for (t = 1; t < N_INTEGRATE; t++) {
-	e2[t] = e2[t-1] + delta;
-      }
-      for (t = 0; t < N_INTEGRATE; t++) {
-	e1 = e - e2[t];
-	for (ie1 = 0; ie1 < n_egrid; ie1++) {
-	  splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2[t], &rtmp[ie1]);
-	}
-	spline(egrid, rtmp, n_egrid, 1E30, 1E30, qy2[ie1]);
-	splint(egrid, rtmp, qy2[ie1], n_egrid, e1, &r);
-	integrand[t] = r;
-      }
-      r0 = Simpson(integrand, 0, N_INTEGRATE-1);
-      r0 *= delta;
-      
-      if (e2max < ehalf) {
-	e2min = e2max;
-	e2max = ehalf; 
-	e2[0] = log(e2min);
-	delta = (log(e2max)-e2[0])/(N_INTEGRATE-1);
-	for (t = 1; t < N_INTEGRATE; t++) {
-	  e2[t] = e2[t-1] + delta;
-	}
-	for (t = 0; t < N_INTEGRATE; t++) {
-	  e2t = exp(e2[t]);
-	  e1 = e - e2t;
-	  for (ie1 = 0; ie1 < n_egrid; ie1++) {
-	    splint(egrid, rq[ie1], qy2[ie1], n_egrid, e2t, &rtmp[ie1]);
-	  }
-	  spline(egrid, rtmp, n_egrid, 1E30, 1E30, qy2[ie1]);
-	  splint(egrid, rtmp, qy2[ie1], n_egrid, e1, &r);
-	  integrand[t] = r*e2t;
-	}
-	r = Simpson(integrand, 0, N_INTEGRATE-1);
-	r *= delta;
-	r0 += r;
-      }
-      s[j] += 2*c*r0;
+      }      
     }
   }
-
+  
+  for (ie1 = 1; ie1 < n_egrid; ie1++) {
+    spline(log_egrid, rq[ie1], ie1+1, 1E30, 1E30, qy2[ie1]);
+  }
+  for (j = 0; j < n_usr; j++) {
+    e = usr_egrid[j];
+    ehalf = e*0.5;
+    e2[0] = (*te) * EPS3;
+    log_e2[0] = log(e2[0]);
+    t = N_INTEGRATE-1;
+    e2[t] = ehalf;
+    log_e2[t] = log(ehalf);	
+    delta = (log_e2[t] - log_e2[0])/t;
+    ratio = exp(delta);
+    for (t = 1; t < N_INTEGRATE; t++) {
+      e2[t] = e2[t-1]*ratio;
+      log_e2[t] = log_e2[t-1]+delta;
+    }
+    for (t = 0; t < N_INTEGRATE; t++) {
+      e1 = e - e2[t];
+      for (ie1 = 0; ; ie1++) {
+	if (egrid[ie1] >= e2[t]) break;
+      }
+      ie2 = ie1;	    
+      for (; ie1 < n_egrid; ie1++) {
+	if (ie1 == 0) rtmp[ie1] = rq[ie1][0];
+	else {
+	  splint(log_egrid, rq[ie1], qy2[ie1], ie1+1, 
+		 log_e2[t], &rtmp[ie1]);
+	}
+      }
+      spline(log_egrid+ie2, rtmp+ie2, n_egrid-ie2, 
+	     1E30, 1E30, qy2[n_egrid]);
+      splint(log_egrid+ie2, rtmp+ie2, qy2[n_egrid], 
+	     n_egrid-ie2, log(e1), &r);
+      integrand[t] = r*e2[t];
+    }
+    r0 = Simpson(integrand, 0, N_INTEGRATE-1);
+    r0 *= delta;
+    r0 += integrand[0];
+    s[j] = 16.0*r0;
+  }
+  
   free(ang);
   for (i = 0; i <= n_egrid; i++) {
     free(rq[i]);
@@ -524,7 +629,7 @@ int IonizeStrength(double *s, double *te, int b, int f) {
 }
 
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
-  int i, j, k, n, m;
+  int i, j, k;
   int j1, j2, ie;
   FILE *file;
   LEVEL *lev1, *lev2;
@@ -545,32 +650,42 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   if (tegrid[0] < 0.0) {
     emin = 1E10;
     emax = 1E-10;
+    k = 0;
     for (i = 0; i < nb; i++) {
       lev1 = GetLevel(b[i]);
       for (j = 0; j < nf; j++) {
 	lev2 = GetLevel(f[j]);
 	e = lev2->energy - lev1->energy;
+	if (e > 0) k++;
 	if (e < emin && e > 0) emin = e;
 	if (e > emax) emax = e;
       }
     }
-    if ((emax - emin) < EPS3) {
+    e = 2.0*(emax-emin)/(emax+emin);
+    if (k == 2) {
+      SetIEGrid(2, emin, emax);
+    } else if (e < EPS3) {
       SetIEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e < 0.2) {
+      SetIEGrid(2, emin, emax);
     } else {
       SetIEGrid(n_tegrid, emin, emax);
     }
   }
 
   if (n_egrid == 0) {
-    n_egrid = 6;
+    n_egrid = usr_egrid[n_usr-1]/tegrid[0];
+    n_egrid += 2;
+    n_egrid = Min(n_egrid, MAX_CIEGRID);
+    n_egrid = Max(n_egrid, 5);
   }
-
+  
   if (egrid[0] < 0.0) {
     SetCIEGrid(n_egrid, EPS2*tegrid[0], usr_egrid[n_usr-1], 0);
   }
 
   if (pw_scratch.nkl0 == 0) {
-    SetCIPWOptions(1, 30, 15, 0, 1E-3);
+    SetCIPWOptions(0, 50, 8, 1E-1, 1E-1, 1E-1, 1E-2);
   } 
   if (pw_scratch.nkl == 0) {
     SetCIPWGrid(0, NULL, NULL);
@@ -589,6 +704,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   fprintf(file, "\n\n");
 
   fprintf(file, "Bound 2J\tFree  2J\tDelta_E\n");
+
   for (i = 0; i < nb; i++) {
     j1 = LevelTotalJ(b[i]);
     for (j = 0; j < nf; j++) {
@@ -600,12 +716,12 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       for (ie = 0; ie < n_usr; ie++) {
 	fprintf(file, "%-10.3E %-10.3E ", 
 		usr_egrid[ie]*HARTREE_EV, s[ie]);
-	s[ie] = AREA_AU20*(1E4*s[ie])/(2*(e+usr_egrid[ie])*(j1+1.0));
+	s[ie] = AREA_AU20*(s[ie])/(2*(e+usr_egrid[ie])*(j1+1.0));
 	fprintf(file, "%-10.3E ", s[ie]);
 	fprintf(file, "\n");
       }
       fprintf(file, "\n");
-    }
+    }      
   }
 
   fclose(file);

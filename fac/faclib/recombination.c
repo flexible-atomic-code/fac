@@ -3,10 +3,15 @@
 
 static int n_egrid = 0;
 static double egrid[MAX_PEGRID];
+static double log_egrid[MAX_PEGRID];
+static int n_usr = 0;
+static double usr_egrid[MAX_USR_PEGRID];
+static double log_usr_egrid[MAX_USR_PEGRID];
+static int usr_egrid_type = 0;
+
 static int n_tegrid = 0;
 static double tegrid[MAX_DRTEGRID];
 static double kegrid[MAX_DRTEGRID];
-static double *ai_pk;
 static ARRAY tegrid_sav = {0, 0, 0, NULL};
 static MULTI *pk_array;
 
@@ -119,10 +124,15 @@ int SetDRTEGrid(int n, double emin, double emax) {
 
 int SetPEGridDetail(int n, double *xg) {
   int i;
- 
+  
+  if (n > MAX_PEGRID) {
+    printf("Max # PEGrid reached\n");
+    return -1;
+  } 
   n_egrid = n;
   for (i = 0; i < n; i++) {
     egrid[i] = xg[i];
+    log_egrid[i] = log(egrid[i]);
   }
 
   return 0;
@@ -136,6 +146,10 @@ int SetPEGrid(int n, double emin, double emax, int type) {
     printf("Grid points must be at least 1\n");
     return -1;
   }
+  if (emin < 0.0) {
+    egrid[0] = emin;
+    return 0;
+  }
   if (n > MAX_PEGRID) {
     printf("Max # of grid points reached \n");
     return -1;
@@ -147,12 +161,14 @@ int SetPEGrid(int n, double emin, double emax, int type) {
   }
 
   egrid[0] = emin;
+  log_egrid[0] = log(egrid[0]);
   n_egrid = n;
   if (type < 0) {
     del = emax - emin;
     del /= n-1.0;
     for (i = 1; i < n; i++) {
       egrid[i] = egrid[i-1] + del;
+      log_egrid[i] = log(egrid[i]);
     }
   } else {
     del = log(emax) - log(emin);
@@ -160,9 +176,64 @@ int SetPEGrid(int n, double emin, double emax, int type) {
     del = exp(del);
     for (i = 1; i < n; i++) {
       egrid[i] = egrid[i-1]*del;
+      log_egrid[i] = log(egrid[i]);
     }
   }
 
+  return 0;
+}
+
+int SetUsrPEGridDetail(int n, double *xg, int type) {
+  int i; 
+
+  if (n < 1) {
+    printf("Grid points must be at least 1\n");
+    return -1;
+  }
+  if (n > MAX_USR_PEGRID) {
+    printf("Max # of grid points reached for UsrPEGrid\n");
+    return -1;
+  }
+
+  n_usr = n;
+  usr_egrid_type = type;
+  for (i = 0; i < n; i++) {
+    usr_egrid[i] = xg[i];
+    log_usr_egrid[i] = log(usr_egrid[i]);
+  }
+  return 0;
+}
+
+int SetUsrPEGrid(int n, double emin, double emax, int type) {
+  double del;
+  int i;
+
+  if (n < 1) {
+    printf("Grid points must be at least 1\n");
+    return -1;
+  }
+  if (n > MAX_USR_PEGRID) {
+    printf("Max # of grid points reached \n");
+    return -1;
+  }
+
+  if (emin < EPS10 || emax < emin) {
+    printf("emin must > 0 and emax < emin\n");
+    return -1;
+  }
+
+  usr_egrid[0] = emin;
+  log_usr_egrid[0] = log(usr_egrid[0]);
+  n_usr = n;
+  usr_egrid_type = type;
+
+  del = log(emax) - log(emin);
+  del = del/(n-1.0);
+  del = exp(del);
+  for (i = 1; i < n; i++) {
+    usr_egrid[i] = usr_egrid[i-1]*del;
+    log_usr_egrid[i] = log(usr_egrid[i]);
+  }
   return 0;
 }
 
@@ -309,11 +380,11 @@ int RecStates(int n, int k, int *kg) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
-    m = ConstructHamilton(i, k, kg);
+    m = ConstructHamilton(i, k, kg, 0, NULL);
     if (m < 0) continue;
-    j = DiagnolizeHamilton(m);
+    j = DiagnolizeHamilton();
     if (j < 0) return -1;
-    AddToLevels(m);
+    AddToLevels();
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
@@ -345,14 +416,13 @@ int RecStatesFrozen(int n, int k, int *kg) {
     i1 = rec_complex[t].s0;
     for (i = i0; i < i1; i++) {
       lev = GetLevel(i);
-      h = GetHamilton(lev->ham_index);
       m = lev->major_component;
-      sym = GetSymmetry(h->pj);
-      s = (STATE *) ArrayGet(&(sym->states), h->basis[m]);
+      sym = GetSymmetry(lev->pj);
+      s = (STATE *) ArrayGet(&(sym->states), m);
       if (!InGroups(s->kgroup, k, kg)) {
 	continue;
       }
-      j1 = h->pj;
+      j1 = lev->pj;
       DecodePJ(j1, &p1, &j1);
       
       for (j = 1; j < 2*pw_scratch.nkl0; j++) {
@@ -384,23 +454,22 @@ int RecStatesFrozen(int n, int k, int *kg) {
 	i1 = rec_complex[t].s0;
 	for (j = i0; j < i1; j++) {
 	  lev = GetLevel(j);
-	  h = GetHamilton(lev->ham_index);
 	  m = lev->major_component;
-	  sym = GetSymmetry(h->pj);
-	  s = (STATE *) ArrayGet(&(sym->states), h->basis[m]);
+	  sym = GetSymmetry(lev->pj);
+	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
 	  m = ConstructHamiltonFrozen(i, j, NULL, n);
 	  if (m < 0) continue;
-	  if (DiagnolizeHamilton(m) < 0) return -2;
-	  AddToLevels(m);
+	  if (DiagnolizeHamilton() < 0) return -2;
+	  AddToLevels();
 	}
 	i0 = rec_complex[t].s1+1;
       }
     } else {
       m = ConstructHamiltonFrozen(i, k, kg, n);
       if (m < 0) continue;
-      if (DiagnolizeHamilton(m) < 0) return -2;
-      AddToLevels(m);
+      if (DiagnolizeHamilton() < 0) return -2;
+      AddToLevels();
     }
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
@@ -409,39 +478,41 @@ int RecStatesFrozen(int n, int k, int *kg) {
   return 0;
 }
 
-int BoundFreeOS(double *strength, int ie, double *eph, 
+int BoundFreeOS(double *strength, double *eb, 
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
-  int k, kb, kf, nz;
-  double r, s, aw, a, e, *radial_int, sqrt_jb;
+  ORBITAL *orb1;
+  int k, kb, kf, nz, ie;
+  double r, s, aw, a, e, *radial_int, inv_jb, eph;
   int klb1, klb2, klf, jb1, jb2, jf;
   int jfmin, jfmax, kappaf, kappab1, kappab2;
-  int j1, j2, i, j, njf, c;
+  int j1, j2, i, j, njf, c, c1, icf, jcf;
+  double rq[MAX_PEGRID], y2[MAX_PEGRID], x[MAX_PEGRID];
 
-  e = egrid[ie];
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
-  j1 = GetHamilton(lev1->ham_index)->pj;
-  j2 = GetHamilton(lev2->ham_index)->pj;
+  j1 = lev1->pj;
+  j2 = lev2->pj;
   DecodePJ(j1, NULL, &j1);
   DecodePJ(j2, NULL, &j2);
 
-  *eph = e + (lev2->energy - lev1->energy);
+  *eb = (lev2->energy - lev1->energy);
 
   k = 2*abs(m);
 
   nz = AngularZFreeBound(&ang, f, rec);
-  s = 0.0;
   if (nz <= 0) return -1;
 
   njf = 2*(k+1);
-  radial_int = malloc(sizeof(double)*nz*njf);
+  radial_int = malloc(sizeof(double)*nz*njf*n_usr);
   if (!radial_int) return -1;
+  for (ie = 0; ie < n_usr; ie++) strength[ie] = 0.0;
 
   j = 0;
   for (i = 0; i < nz; i++) {
-    kappab1 = GetOrbital(ang[i].kb)->kappa;
+    orb1 = GetOrbital(ang[i].kb);
+    kappab1 = orb1->kappa;
     GetJLFromKappa(kappab1, &jb1, &klb1);
     jfmin = jb1 - k;
     jfmax = jb1 + k;    
@@ -452,44 +523,70 @@ int BoundFreeOS(double *strength, int ie, double *eph,
 	    klf < 0 ||
 	    (m < 0 && IsOdd((klb1+klf+k)/2)) ||
 	    (m > 0 && IsEven((klb1+klf+k)/2))) {
-	  radial_int[j++] = 0.0;	  
+	  for (ie = 0; ie < n_usr; ie++) {
+	    radial_int[j++] = 0.0;	  
+	  }
 	} else {  
 	  kappaf = GetKappaFromJL(jf, klf);
-	  kf = OrbitalIndex(0, kappaf, e);
-	  radial_int[j++] = MultipoleRadialNR(m, kf, ang[i].kb);
+	  for (ie = 0; ie < n_egrid; ie++) {
+	    e = egrid[ie];
+	    kf = OrbitalIndex(0, kappaf, e);
+	    rq[ie] = MultipoleRadialNR(m, kf, ang[i].kb);
+	    if (n_usr == n_egrid) radial_int[j++] = rq[ie];
+	  }
+	  if (n_usr > n_egrid) {
+	    if (rq[0] < 0.0) c1 = -1;
+	    else c1 = 1;
+	    for (ie = 0; ie < n_egrid; ie++) {
+	      rq[ie] = log(fabs(rq[ie]));
+	      x[ie] = log(egrid[ie] - orb1->energy);
+	    }
+	    spline(x, rq, n_egrid, 1.0E30, 1.0E30, y2);
+	    for (ie = 0; ie < n_usr; ie++) {
+	      splint(x, rq, y2, n_egrid, 
+		     log(usr_egrid[ie] - orb1->energy), radial_int+j);
+	      radial_int[j] = exp(radial_int[j]);
+	      if (c1 < 0) radial_int[j] = -radial_int[j];
+	      j++;
+	    }
+	  }	    
 	}
       }
     }
   }
   for (i = 0; i < nz; i++) {
     kappab1 = GetOrbital(ang[i].kb)->kappa;
-    GetJLFromKappa(kappab1, &jb1, &klb1);    
-    sqrt_jb = 1.0 / sqrt(jb1);
+    jb1 = GetJFromKappa(kappab1);    
+    inv_jb = 1.0 / (jb1+1);
+    icf = i*njf*n_usr;
     for (j = 0; j <= i; j++) {
-      a = ang[i].coeff*ang[j].coeff;      
-      if (fabs(a) < EPS10) continue;
+      jcf = j*njf*n_usr;
+      a = ang[i].coeff*ang[j].coeff;    
       if (j != i) {
 	kappab2 = GetOrbital(ang[j].kb)->kappa;
-	GetJLFromKappa(kappab2, &jb2, &klb2);
+	jb2 = GetJFromKappa(kappab2);
 	if (jb2 != jb1) continue;
 	a *= 2;
-      } else {
-	kappab2 = kappab1;
-	jb2 = jb1;
-	klb2 = klb1;
+      } 
+      for (ie = 0; ie < n_usr; ie++) {	
+	r = 0.0;
+	for (c = 0; c < njf; c++) {	  
+	  c1 = c*n_usr;  
+	  r += radial_int[icf+c1+ie]*radial_int[jcf+c1+ie];
+	}
+	strength[ie] += inv_jb*a*r;
       }
-      r = 0.0;
-      for (c = 0; c < njf; c++) {
-	r += radial_int[i*njf+c]*radial_int[j*njf+c];
-      }
-      s += sqrt_jb*a*r;
     }
   }
 
-  *strength = (*eph) * s * 2.0/(k+1.0);
-  if (k != 2) {  
-    aw = *eph * FINE_STRUCTURE_CONST;
-    *strength *= pow(aw, k-2);
+  /* the factor 2 comes from the conitinuum norm */
+  for (ie = 0; ie < n_usr; ie++) {
+    e = (*eb) + usr_egrid[ie];
+    strength[ie] *= e * 2.0 / (k+1.0);
+    if (k != 2) {  
+      aw = e * FINE_STRUCTURE_CONST;
+      strength[ie] *= pow(aw, k-2);
+    }
   }
   
   free(ang);
@@ -501,11 +598,12 @@ int BoundFreeOS(double *strength, int ie, double *eph,
 int AIRate(double *rate, double *e, int rec, int f) {  
   LEVEL *lev1, *lev2;
   ANGULAR_ZxZMIX *ang;
-  HAMILTON *h1, *h2;
+  ANGULAR_ZFB *zfb;
   STATE *st;
-  int k, nz, ik, i, j1, j2, ij, kappaf, ip;
+  int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
   double *p, y2[MAX_DRTEGRID], r, s;
+  double *ai_pk, ai_pk0[MAX_DRTEGRID];
 
   *rate = 0.0;
   lev1 = GetLevel(rec);
@@ -514,12 +612,10 @@ int AIRate(double *rate, double *e, int rec, int f) {
   *e = lev1->energy - lev2->energy;
   if (*e <= 0.0) return -1;
 
-  h1 = GetHamilton(lev1->ham_index);
-  h2 = GetHamilton(lev2->ham_index);
-  i = h1->basis[lev1->major_component];
+  i = lev1->major_component;
 
-  j1 = h1->pj;
-  j2 = h2->pj;
+  j1 = lev1->pj;
+  j2 = lev2->pj;
 
   st = (STATE *) ArrayGet(&(GetSymmetry(j1)->states), i);
   if (st->kgroup < 0) {
@@ -542,35 +638,60 @@ int AIRate(double *rate, double *e, int rec, int f) {
   for (ip = 0; ip < nkappaf; ip++) p[ip] = 0.0;
 
   nz = AngularZxZFreeBound(&ang, f, rec);
-  /*
-  printf("%d %d %d\n", rec, f, nz);
-  */
-  if (nz <= 0) return -1;
-  for (i = 0; i < nz; i++) {
-    jf = ang[i].k0;
-    kb = ang[i].k1;
-    k0 = ang[i].k2;
-    k1 = ang[i].k3;
-    /*
-    printf("%d %d, %d %d, %d %d, %d %d, %d %10.3E\n", i, jf, 
-	   GetOrbital(kb)->n, GetOrbital(kb)->kappa, 
-	   GetOrbital(k0)->n, GetOrbital(k0)->kappa,
-	   GetOrbital(k1)->n, GetOrbital(k1)->kappa,
-	   ang[i].k, ang[i].coeff);
-    */
-    ij = (jf - jmin);
-    for (ik = -1; ik <= 1; ik += 2) {
-      klf = jf + ik;  
-      kappaf = GetKappaFromJL(jf, klf);
-      AIRadialPk(k0, k1, kb, kappaf, ang[i].k);
-      spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
-      splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
-      ip = (ik == -1)? ij:(ij+1);
-      p[ip] += s*ang[i].coeff;
+  if (nz > 0) {
+    for (i = 0; i < nz; i++) {
+      jf = ang[i].k0;
+      kb = ang[i].k1;
+      k0 = ang[i].k2;
+      k1 = ang[i].k3;
+      ij = (jf - jmin);
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;  
+	kappaf = GetKappaFromJL(jf, klf);
+	AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k);
+	if (n_tegrid > 1) {
+	  spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
+	  splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
+	} else {
+	  s = ai_pk[0];
+	}
+	ip = (ik == -1)? ij:(ij+1);
+	p[ip] += s*ang[i].coeff;
+      }
+    }    
+    free(ang);
+  }
+  
+  nzfb = AngularZFreeBound(&zfb, f, rec);
+  if (nzfb > 0) {
+    for (i = 0; i < nzfb; i++) {
+      kb = zfb[i].kb;
+      jf = GetOrbital(kb)->kappa;
+      jf = GetJFromKappa(jf);
+      ij = jf - jmin;
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;
+	kappaf = GetKappaFromJL(jf, klf);
+	AIRadial1E(ai_pk0, kb, kappaf);
+	if (n_tegrid > 1) {
+	  spline(tegrid, ai_pk0, n_tegrid, 1E30, 1E30, y2);
+	  splint(tegrid, ai_pk0, y2, n_tegrid, *e, &s);
+	} else {
+	  s = ai_pk0[0];
+	}
+	ip = (ik == -1)?ij:(ij+1);
+	if (j2 > j1) {
+	  if (IsEven(ij/2)) s = -s;
+	} else {
+	  if (IsOdd(ij/2)) s = -s;
+	}
+	p[ip] += s*zfb[i].coeff;
+      }
     }
+    free(zfb);
   }
 
-  free(ang);
+  if (nz <= 0 && nzfb <= 0) return -1;
 
   r = 0.0;
   for (i = 0; i < nkappaf; i++) {
@@ -585,8 +706,18 @@ int AIRate(double *rate, double *e, int rec, int f) {
   return 0;
 }
 
+int AIRadial1E(double *ai_pk, int kb, int kappaf) {
+  int kf;
+  int i;
 
-int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
+  for (i = 0; i < n_tegrid; i++) {
+    kf = OrbitalIndex(0, kappaf, tegrid[i]);
+    ResidualPotential(ai_pk+i, kf, kb);
+  }
+  return 0;
+}  
+
+int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   int i, j, kf;
   int ks[4];
   double e, sd, se;
@@ -605,12 +736,12 @@ int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
 
   p = (double **) MultiSet(pk_array, index, NULL);
   if (*p) {
-    ai_pk = *p;
+    *ai_pk = *p;
     return 0;
   } 
  
   (*p) = (double *) malloc(sizeof(double)*n_tegrid);
-  ai_pk = *p;
+  *ai_pk = *p;
   for (i = 0; i < n_tegrid; i++) {
     e = tegrid[i];
     kf = OrbitalIndex(0, kappaf, e);
@@ -619,7 +750,7 @@ int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
     ks[2] = k1;
     ks[3] = kb;
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
-    ai_pk[i] = sd+se;
+    (*ai_pk)[i] = sd+se;
   }
 
   return 0;
@@ -630,10 +761,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int i, j, k, n, ie;
   char t;
   FILE *f;
-  double s, phi, rr, eph, trr, tpi;
-  int j1, j2;
+  double s[MAX_USR_PEGRID], phi, rr, eph, eb;
+  double trr[MAX_USR_PEGRID], tpi[MAX_USR_PEGRID];
+  int j1, j2, nlow0;
 
-  if (n_egrid < 1) {
+  if (n_usr < 1) {
     printf("no photo electron energy specified\n");
     return -1;
   }
@@ -641,6 +773,17 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   f = fopen(fn, "w");
 
   if (!f) return -1;
+
+  if (n_egrid == 0) {
+    n_egrid = 5;
+  }
+  if (egrid[0] < 0.0) {
+    if (n_usr <= 5) {
+      SetPEGridDetail(n_usr, usr_egrid);
+    } else {
+      SetPEGrid(n_egrid, usr_egrid[0], usr_egrid[n_usr-1], 0);
+    }
+  }
   
   fprintf(f, " EGRID: ");
   for (i = 0; i < n_egrid; i++) {
@@ -649,32 +792,42 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (m < 0) t = 'E';
   else t = 'M';
   fprintf(f, "\tMultipole %c%d", t, abs(m));
-  fprintf(f, "\n");
+  fprintf(f, "\n\n");
 
-  for (ie = 0; ie < n_egrid; ie++) {
-    fprintf(f, "\nEe = %10.4E\n", egrid[ie]*HARTREE_EV);
-    fprintf(f, "Free  2J\tBound 2J\tEph       g*RR      g*PI\n");
-    for (i = 0; i < nup; i++) {
-      trr = 0.0;
-      tpi = 0.0;
-      j1 = LevelTotalJ(up[i]);
-      for (j = 0; j < nlow; j++) {
-	j2 = LevelTotalJ(low[j]);
-	k = BoundFreeOS(&s, ie, &eph, low[j], up[i], m);
-	if (k < 0) continue;
-	phi = PI*FINE_STRUCTURE_CONST*s;
-	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*egrid[ie]);
-	trr += rr;
-	tpi += phi;
-	eph *= HARTREE_EV;	
-	fprintf(f, "%-5d %-2d\t%-5d %-2d\t%9.3E %9.3E %9.3E\n", 
-		up[i], j1, low[j], j2, eph, rr, phi);
-      }
-      fprintf(f, "%-5d   \tTotal   \t          %9.3E %9.3E\n\n", 
-	      up[i], trr, tpi);
+  fprintf(f, "Free  2J\tBound 2J\tE_Binding\n\n");
+  for (i = 0; i < nup; i++) {
+    j1 = LevelTotalJ(up[i]);    
+    for (ie = 0; ie < n_usr; ie++) {
+      trr[ie] = 0.0;
+      tpi[ie] = 0.0;
     }
-    FreeAllContinua(1);
-    FreeMultipoleArray();
+    nlow0 = 0;
+    for (j = 0; j < nlow; j++) {
+      j2 = LevelTotalJ(low[j]);
+      k = BoundFreeOS(s, &eb, low[j], up[i], m);
+      if (k < 0) continue;
+      nlow0++;
+      fprintf(f, "%-5d %-2d\t%-5d %-2d\t%10.3E\n",
+	      up[i], j1, low[j], j2, eb*HARTREE_EV);
+      for (ie = 0; ie < n_usr; ie++) {
+	eph = eb + usr_egrid[ie];
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*s[ie];
+	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*usr_egrid[ie]);
+	trr[ie] += rr;
+	tpi[ie] += phi;
+	fprintf(f, "%-10.3E %-10.3E %-10.3E\n", 
+		usr_egrid[ie]*HARTREE_EV, rr, phi);
+      }
+    }
+    if (nlow0 > 1) {
+      fprintf(f, "==================================\n");
+      fprintf(f, "%-5d   \tTotal\n", up[i]);
+      for (ie = 0; ie < n_usr; ie++) {
+	fprintf(f, "%-10.3E %-10.3E %-10.3E\n", 
+		usr_egrid[ie]*HARTREE_EV, trr[ie], tpi[ie]);
+      }
+    }
+    fprintf(f, "\n");
   }
 
   fclose(f);
@@ -726,9 +879,11 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       fclose(ft);
       return 0;
     }
-    if ((emax - emin) < EPS3) {
-      if (fabs(emax) < EPS10) return -1;
+    e0 = 2.0*(emax-emin)/(emax+emin);
+    if (e0 < EPS3) {
       SetDRTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (e0 < 0.1) {
+      SetDRTEGrid(2, emin, emax);
     } else {
       SetDRTEGrid(n_tegrid, emin, emax);
     }
@@ -925,9 +1080,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       fclose(f);
       return 0;
     }
-    if ((emax - emin) < EPS3) {
-      if (fabs(emax) < EPS10) return -1;
+    a = 2.0*(emax-emin)/(emax+emin);
+    if (a < EPS3) {
       SetDRTEGrid(1, 0.5*(emin+emax), emax);
+    } else if (a < 0.2) {
+      SetDRTEGrid(2, emin, emax);
     } else {
       SetDRTEGrid(n_tegrid, emin, emax);
     }
@@ -952,6 +1109,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
       if (k < 0) continue;
       tai += s[j];
     }
+    if (tai < 1E-30) continue;
     for (j = 0; j < nup; j++) {
       if (s[j] < ai_cut*tai) continue;
       j2  = LevelTotalJ(up[j]);
@@ -979,7 +1137,7 @@ int DROpen(int n, int *nlev, int **ops) {
   double e0, e, z;
 
   e0 = GetLevel(0)->energy;
-  z = GetResidualZ(1);
+  z = GetResidualZ();
   z = z*z/2.0;
 
   (*ops) = malloc(sizeof(int)*n);
@@ -1036,8 +1194,12 @@ int InitRecombination() {
     ArrayInit(rec_complex[i].rg, sizeof(int), 64);
   }
   n_egrid = 0;
+  egrid[0] = -1.0;
   n_tegrid = 0;
   tegrid[0] = -1.0;
+
+  SetRecPWOptions(12, 12);
+
 }
 
 
