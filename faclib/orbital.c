@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.43 2003/03/17 03:35:52 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.44 2003/03/17 17:50:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -412,7 +412,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
 #define ME 20
   double z, e, e0;
   int i, kl, niter, ierr;
-  double lambda, eta0, x0, y5, y5p, y5norm;
+  double lambda, xi, eta0, x0, y5, y5i, y5p, y5pi;
   int i2, i2p, i2m, i2p2, i2m2, nodes, nr;
   double qo, qi, norm2, delta, dk, zp, *p;
   double ep, p1, p2, fact;
@@ -434,10 +434,12 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
   zp = z*FINE_STRUCTURE_CONST;
   lambda = kl + 0.5;
   lambda = lambda*lambda - zp*zp;
-  if (lambda > 0) {
+  if (lambda >= 0.0) {
+    xi = 0.0;
     lambda = sqrt(lambda) - 0.5;
   } else {
-    lambda = kl;
+    xi = sqrt(-lambda);
+    lambda = -0.5;
   }
 
   SetPotentialW(pot, e, orb->kappa);
@@ -539,17 +541,10 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       zp = z*(1.0 + zp);
       eta0 = zp/dk;
       x0 = dk*pot->rad[i2];
-      Y5N(lambda, eta0, x0, &y5, &y5p, &y5norm, &ierr);
-      e0 = eta0 - lambda;
-      norm2 = DLOGAM(e0);
-      e0 = eta0 + lambda + 1.0;
-      norm2 += DLOGAM(e0);
-      e0 = zp/(eta0*eta0);
-      norm2 = -norm2 + log(e0);
-      norm2 = 0.5*norm2+y5norm; 
-      norm2 = exp(norm2)*y5;
+      Y5N(lambda, xi, eta0, x0, &y5, &y5i, &y5p, &y5pi, &ierr);
+      norm2 = zp*(y5*y5+y5i*y5i);
       qi = dk*y5p/y5;
-      delta = 0.5*norm2*norm2*(qo-qi);
+      delta = 0.5*norm2*(qo-qi);
       dq[j] = delta;
     }
     for (j = 0; j < ME; j++) {
@@ -578,15 +573,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     zp = z*(1.0 + zp);
     eta0 = zp/dk;
     x0 = dk*pot->rad[i2];
-    Y5N(lambda, eta0, x0, &y5, &y5p, &y5norm, &ierr);
-    e0 = eta0 - lambda;
-    norm2 = DLOGAM(e0);
-    e0 = eta0 + lambda + 1.0;
-    norm2 += DLOGAM(e0);
-    e0 = zp/(eta0*eta0);
-    norm2 = -norm2 + log(e0);
-    norm2 = 0.5*norm2+y5norm; 
-    norm2 = exp(norm2)*y5;
+    xi = 0.0;
+    Y5N(lambda, xi, eta0, x0, &y5, &y5i, &y5p, &y5pi, &ierr);
+    norm2 = sqrt(zp)*y5;
     fact = norm2/p[i2];
     if (IsOdd(nodes)) {
       fact = -fact;

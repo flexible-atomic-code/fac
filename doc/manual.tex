@@ -2583,15 +2583,12 @@ orbital in unit of eV.
 \end{fundesc}
 
 \begin{fundesc}{Y5N}{n, l, r}
-Calculate the Seaton's $y5$ function for negative energies. This is
-basically the Coulomb wavefunction with principal quantum number \var{n} and
-orbital angular momentum \var{l} at radius \var{r}. It returns a tuple (y5,
-y5p, n1, n2, err), where y5 is the value, y5p is the derivative. n1 is the
-ln of a normalization factor which, multiplied with y5, gives the Wittaker
-function. n2 is the ln of an additional normalization factor which,
-mutiplied with Wittaker function, gives the normalized Coulomb wavefunction.
-err is an error code returned by coulcc, which is called internally to do
-the calculation.
+Calculate the Seaton's $y5$ (normalized to give the Coulomb wavefunction)
+function for negative energies. This is basically the Coulomb wavefunction
+with principal quantum number \var{n} and orbital angular momentum \var{l} at
+radius \var{r}. It returns a tuple (y5, y5p, err), where y5 is the value, y5p
+is the derivative. err is an error code returned by coulcc, which is called
+internally to do the calculation.
 \end{fundesc}
 
 \section{\mod{crm}--Collisional Radiative Model}

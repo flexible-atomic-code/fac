@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.48 2003/03/17 03:35:52 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.49 2003/03/17 17:50:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3255,24 +3255,18 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PY5N(PyObject *self, PyObject *args) {
-  double lambda, eta0, x0;
-  double y5, y5p, norm, norm1;
+  double lambda, xi, eta0, x0;
+  double y5, y5i, y5p, y5pi;
   int ierr;
 
   if (!PyArg_ParseTuple(args, "ddd", &eta0, &lambda, &x0))
     return NULL;
 
   x0 /= eta0;
-  Y5N(lambda, eta0, x0, &y5, &y5p, &norm, &ierr);
-  x0 = eta0 - lambda;
-  norm1 = DLOGAM(x0);
-  x0 = eta0 + lambda + 1.0;
-  norm1 += DLOGAM(x0);
-  x0 = eta0*eta0;
-  norm1 += log(x0);
-  norm1 *= -0.5;
+  xi = 0.0;
+  Y5N(lambda, xi, eta0, x0, &y5, &y5i, &y5p, &y5pi, &ierr);
   
-  return Py_BuildValue("(ddddi)", y5, y5p, norm, norm1, ierr);
+  return Py_BuildValue("(ddi)", y5, y5p, ierr);
 }
 
 static struct PyMethodDef fac_methods[] = {
