@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.81 2004/05/04 16:34:16 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.82 2004/05/20 23:54:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1295,6 +1295,12 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
 	   int channel, int msub) {
+#ifdef PERFORM_STATISTICS
+  STRUCT_TIMING structt;
+  ANGULAR_TIMING angt;
+  RECOUPLE_TIMING recouplet;
+  RAD_TIMING radt;
+#endif
   int i, j, k, t;
   LEVEL *lev1, *lev2;
   AI_RECORD r;
@@ -1460,6 +1466,42 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
+
+#ifdef PERFORM_STATISTICS
+  GetStructTiming(&structt);
+  fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
+	  ((double) (structt.angz_mix))/CLOCKS_PER_SEC,
+	  ((double) (structt.angz_fb))/CLOCKS_PER_SEC,
+	  ((double) (structt.angzxz_fb))/CLOCKS_PER_SEC,
+	  ((double) (structt.set_ham))/CLOCKS_PER_SEC,
+	  ((double) (structt.diag_ham))/CLOCKS_PER_SEC);
+  fprintf(perform_log, "AngZS: %6.1E, AngZFBS: %6.1E, AngZxZFBS: %6.1E, AddZ: %6.1E, AddZxZ: %6.1E\n",
+	  ((double) (structt.angz_states))/CLOCKS_PER_SEC,
+	  ((double) (structt.angzfb_states))/CLOCKS_PER_SEC,
+	  ((double) (structt.angzxzfb_states))/CLOCKS_PER_SEC,
+	  ((double) (structt.add_angz))/CLOCKS_PER_SEC,
+	  ((double) (structt.add_angzxz))/CLOCKS_PER_SEC);
+
+  GetAngularTiming(&angt);
+  fprintf(perform_log, "W3J: %6.1E, W6J: %6.1E, W9J: %6.1E\n", 
+	  ((double)angt.w3j)/CLOCKS_PER_SEC, 
+	  ((double)angt.w6j)/CLOCKS_PER_SEC, 
+	  ((double)angt.w9j)/CLOCKS_PER_SEC);
+  GetRecoupleTiming(&recouplet);
+  fprintf(perform_log, "AngZ: %6.1E, AngZxZ: %6.1E, Interact: %6.1E\n",
+	  ((double)recouplet.angz)/CLOCKS_PER_SEC,
+	  ((double)recouplet.angzxz)/CLOCKS_PER_SEC,
+	  ((double)recouplet.interact)/CLOCKS_PER_SEC);
+  GetRadTiming(&radt);
+  fprintf(perform_log, "Dirac: %d, %6.1E, 1E: %6.1E, Slater: %6.1E, 2E: %6.1E\n", 
+	  GetNumContinua(),
+	  ((double)radt.dirac)/CLOCKS_PER_SEC, 
+	  ((double)radt.radial_1e)/CLOCKS_PER_SEC,
+	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
+	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
+
+  fprintf(perform_log, "\n");
+#endif /* PERFORM_STATISTICS */
 
   return 0;
 }

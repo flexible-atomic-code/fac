@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.15 2004/05/17 17:57:59 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.16 2004/05/20 23:54:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -519,7 +519,7 @@ void InitMDataData(void *p, int n) {
   }
 }
 
-#define HashSize(n) ((ub4)1<<(n+12))
+#define HashSize(n) ((ub4)1<<(((n)/2)+16))
 #define HashMask(n) (HashSize(n)-1)
 #define Mix(a, b, c) \
 { \
@@ -614,7 +614,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
-  
+
   h = Hash2(k, ma->ndim, 0, ma->ndim);
   a = &(ma->array[h]);
   if (a->dim == 0) {
