@@ -199,6 +199,7 @@ class ATOM:
 
         self.nele = nele
         self.nele_max = [0, 2, 10, 28]
+        self.nele_sim = [6,7,8,9]
         
         self.grd_complex = COMPLEX('grd.', nele)
         self.exc_complex = []
@@ -314,7 +315,7 @@ class ATOM:
         base = self.ion_complex.cgroup[ibase]
         n0.sort()
         cg = self.exc_complex[ibase]
-        if (ibase > 0 and self.nele < 9 and self.nele > 6):
+        if (ibase > 0 and self.nele in self.nele_sim):
             bname = base.name[:1]
         else:
             bname = base.name
@@ -432,7 +433,7 @@ class ATOM:
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
         c = self.exc_complex[0].cgroup[0].name
-        if (self.nele > 6 and self.nele < 9):
+        if (self.nele in self.nele_sim):
             Structure(self.bfiles['en'], g, c)
             Structure(self.bfiles['en'], c)
         else:
