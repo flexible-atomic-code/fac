@@ -14,6 +14,11 @@
 #include "angular.h"
 #include "recouple.h"
 
+#define G_COULOMB   1
+#define G_BABUSHKIN 2
+#define M_FR        0
+#define M_NR        1
+
 #define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
 
 #ifdef PERFORM_STATISTICS

@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.8 2001/10/05 19:23:44 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.9 2001/10/08 21:02:13 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -86,7 +86,7 @@ int OscillatorStrength(double *strength, double *energy,
   nz = AngularZMix(&ang, lower, upper, m2, m2);
   if (nz <= 0) return -1;
   for (i = 0; i < nz; i++) {
-    if (transition_option.mode && 
+    if (transition_option.mode == M_NR && 
 	!(m == 1 && ang[i].k0 != ang[i].k1)) {
       r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
 			    transition_option.gauge);
@@ -103,7 +103,7 @@ int OscillatorStrength(double *strength, double *energy,
   *strength *= (*energy);
   m2 = m2 - 2;
   if (transition_option.gauge == G_COULOMB && 
-      transition_option.mode == 0 && m < 0) 
+      transition_option.mode == M_FR && m < 0) 
     m2 = m2 - 2; 
 
   if (m2) {
@@ -162,7 +162,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     }
   }
   
-  if (m == 1 || transition_option.mode == 0) {
+  if (m == 1 || transition_option.mode == M_FR) {
     k = 0;
     emin = 1E10;
     emax = 1E-10;
@@ -186,7 +186,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     e0 = 2.0*(emax-emin)/(emin+emax);
     
     FreeMultipoleArray();
-    printf("%10.3E %10.3E %10.3E\n", e0, emin, emax);
     if (e0 < 0.1) {
       SetAWGrid(1, 0.5*(emin+emax), emax);
     } else if (e0 < 1.0) {
