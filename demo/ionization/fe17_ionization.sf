@@ -1,0 +1,24 @@
+# calculate the electron impact ionization cross sections
+
+SetAtom('Fe')
+# 1s shell is closed
+Closed('1s')
+# Ne-like ground state
+Config('2*8', group='fe17')
+# F-like configuations
+Config('2*7', group='fe18')
+
+# solve the structure problem
+OptimizeRadial(['fe17', 'fe18'])
+Structure('fe17')
+Structure('fe18')
+LevelTable('ne_f.lev')
+
+# set the collision energies
+# 21 points with 400 eV step starting from 500 eV.
+e = [500.0, 900.0, 1.3e3, 1.7e3, 2.1e3, 4.2e3, 6.0e3, 8.0e3]
+Print($e)
+SetUsrCIEGrid($e)
+
+CITable(['fe17'], ['fe18'], 'ne.ci')
+

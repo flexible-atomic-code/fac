@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.2 2001/11/07 03:08:06 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.3 2001/11/07 16:34:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -305,8 +305,12 @@ static int PAITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   int nlow, *low, nup, *up, c;
 
   if (argc != 3 && argc != 4) return -1;
-  if (argc == 4) c = atoi(argv[3]);
-  else c = 0;
+  if (argt[2] != STRING) return -1;
+  
+  if (argc == 4) {
+    if (argt[3] != NUMBER) return -1;
+    c = atoi(argv[3]);
+  } else c = 0;
   
   nlow = SelectLevels(&low, argv[0], argt[0], variables);
   nup = SelectLevels(&up, argv[1], argt[1], variables);
@@ -403,7 +407,7 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[1], argt[1], variables);
   if (nup <= 0) return -1;
-  SaveIonization(nlow, low, nup, up, argv[3]);
+  if (SaveIonization(nlow, low, nup, up, argv[2]) < 0) return -1;
 
   free(low);
   free(up);
@@ -443,7 +447,8 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     f = fopen(argv[0], "r");
     n = -1;
     while (1) {
-      n++;     if (n == MAX_ENERGY_CORRECTION) {
+      n++; 
+      if (n == MAX_ENERGY_CORRECTION) {
 	printf("Maximum # of levels for energy correction reached\n");
 	printf("Ignoring corrections after n = %d\n", n);
 	break;
@@ -461,6 +466,7 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     ie = DecodeArgs(argv[1], ev, et, variables);
     if (ii != ie) return -1;
     for (i = 0; i < ie; i++) {
+      if (it[i] != NUMBER || et[i] != NUMBER) return -1;
       k[i] = atoi(iv[i]);
       e[i] = atof(ev[i]);
       e[i] /= HARTREE_EV;
@@ -501,6 +507,11 @@ static int PDRTable(int argc, char *argv[], int argt[],
   if (ng > 0) free(g);
 
   return 0;
+}
+
+static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 0) return -1;
+  exit(0);
 }
 
 static int PFreeAngZ(int argc, char *argv[], int argt[], ARRAY *variables) {
@@ -599,6 +610,11 @@ static int PGetPotential(int argc, char *argv[], int argt[],
   if (argc != 1 || argt[0] != STRING) return -1;
   GetPotential(argv[0]);
   return 0;
+}
+
+static int PInfor(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 0) return -1;
+  Infor();
 }
 
 static int PLevelTable(int argc, char *argv[], int argt[], 
@@ -2082,6 +2098,7 @@ static METHOD methods[] = {
   {"Config", PConfig, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DRTable", PDRTable, METH_VARARGS},
+  {"Exit", PExit, METH_VARARGS},
   {"FreeAngZ", PFreeAngZ, METH_VARARGS},
   {"FreeExcitationPk", PFreeExcitationPk, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
@@ -2093,6 +2110,7 @@ static METHOD methods[] = {
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
+  {"Infor", PInfor, METH_VARARGS},
   {"LevelTable", PLevelTable, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
@@ -2322,9 +2340,14 @@ int TokenizeLine(int nline, char *line, ARRAY *statements, ARRAY *variables) {
     fs->nline = nline;
     fs->imethod = i;
     r = Parse(token, MAXLINELENGTH, line, &next, &brkpos, &quotepos);
-    if (quotepos != 2) return ERR_SYNTAX;
-    fs->argc = DecodeArgs(token, fs->argv, fs->argt, variables);
-    if (fs->argc < 0) return fs->argc;
+    if (r) {
+      fs->argc = 0;
+    } else {
+      if (quotepos != 2) return ERR_SYNTAX;
+      fs->argc = DecodeArgs(token, fs->argv, fs->argt, variables);
+      if (fs->argc < 0) return fs->argc;
+    }
+    return 1;
   } else {
     if (!isalpha(token[0])) return ERR_SYNTAX;
     if (quotepos >= 0) return ERR_SYNTAX;
@@ -2365,9 +2388,8 @@ int TokenizeLine(int nline, char *line, ARRAY *statements, ARRAY *variables) {
 	v->type = NUMBER;
       }
     }
-  }
-  
-  return 0;
+    return 0;
+  }  
 }
 
 void FreeStatementData(void *p) {
@@ -2388,7 +2410,7 @@ void FreeVariableData(void *p) {
   free(v->value);
 }
 
-int EvalFile(FILE *f) {
+int EvalFile(FILE *f, int exebyline) {
   ARRAY statements;
   ARRAY variables;
   STATEMENT *st;
@@ -2405,13 +2427,28 @@ int EvalFile(FILE *f) {
     if (i == 0) break;
     if (i < 0) ErrorOcurred(i, nlines);
     i = TokenizeLine(nlines, buf, &statements, &variables);
-    if (i < 0) ErrorOcurred(i, nlines);
+    if (i < 0) {
+      ErrorOcurred(i, nlines);
+      if (!exebyline) exit(1);
+    }
+    if (exebyline && i > 0) {
+      st = (STATEMENT *) ArrayGet(&statements, statements.dim-1);
+      ierr = EvalStatement(st, &variables);
+      if (ierr < 0) {
+	ErrorOcurred(ERR_EVAL, st->nline);
+      }
+    }
   }
   
-  for (i = 0; i < statements.dim; i++) {
-    st = (STATEMENT *) ArrayGet(&statements, i);
-    ierr = EvalStatement(st, &variables);
-    if (ierr < 0) ErrorOcurred(ERR_EVAL, st->nline);
+  if (!exebyline) {
+    for (i = 0; i < statements.dim; i++) {
+      st = (STATEMENT *) ArrayGet(&statements, i);
+      ierr = EvalStatement(st, &variables);
+      if (ierr < 0) {
+	ErrorOcurred(ERR_EVAL, st->nline);
+	exit(1);
+      }
+    }
   }
   
   ArrayFree(&statements, FreeStatementData);
@@ -2425,8 +2462,29 @@ int EvalStatement(STATEMENT *st, ARRAY *variables) {
 }
       
 void ErrorOcurred(int ierr, int loc) {
-  printf("Error %d ocurred at Line %d\n", ierr, loc);
-  exit(1);
+  printf("Error at Line %d: ", loc);
+  switch (ierr) {
+  case ERR_LINEUNTERMINATED:
+    printf("Line Unterminated\n");
+    break;
+  case ERR_LINETOOLONG:
+    printf("Line Too Long, MaxLength: %d\n", MAXLINELENGTH);
+    break;
+  case ERR_NOVARIABLE:
+    printf("Variable does not exist\n");
+    break;
+  case ERR_ARGSTOOMANY:
+    printf("Arguments Too Many, Max: %d\n", MAXNARGS);
+    break;
+  case ERR_SYNTAX:
+    printf("Syntax Error\n");
+    break;
+  case ERR_EVAL:
+    printf("Evaluation Error\n");
+    break;
+  default:
+    break;
+  }
 }
 
 

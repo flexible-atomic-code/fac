@@ -26,7 +26,5 @@ fac.Structure('rn2')
 
 fac.LevelTable('li.lev')
 
-# photo-electron energy grid
-fac.SetUsrPEGrid([20.0, 400.0, 2E3, 4E3, 6E3, 10E3])
 fac.RRTable(['rn2'], ['n1'], 'li.rr')
 

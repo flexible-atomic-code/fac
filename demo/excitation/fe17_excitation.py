@@ -16,6 +16,5 @@ fac.OptimizeRadial('n2', 'n3')
 fac.Structure()
 fac.LevelTable('ne.lev')
 
-fac.SetUsrCEGrid([1.0E2, 2.5E3])
 fac.CETable(['n2'], ['n3'], 'ne.ce')
 
