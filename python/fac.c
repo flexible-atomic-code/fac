@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.72 2004/05/04 16:34:16 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.73 2004/05/05 16:08:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -476,6 +476,8 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
   }
+  ReinitStructure(1);
+  ReinitRecouple(0);
   if (ng > 0) free(kg);
 
   Py_INCREF(Py_None);

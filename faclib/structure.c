@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.57 2004/05/04 16:34:16 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.58 2004/05/05 16:08:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -304,7 +304,7 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
   int nq, kgp, kp, kp2, jp, kap, kq, kq2, jq, kaq;
   double a1, a2, a, e, x, b, *r, *de;
   int nm[10], n1, n2, inp, inq;
-  double dnq[10], *deq, xnq, ynq, tnq;
+  double dnq[10], xdnq[10], *deq, *tq, xnq, ynq, tnq;
   FILE *f;
   
   if (nt > 9) nt = 9;
@@ -448,7 +448,8 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 	      }
 	      for (inq = 0; inq < n2; inq++) {
 		nq = np + nm[inq];
-		dnq[inq] = log(nq);
+		dnq[inq] = nq;
+		xdnq[inq] = log(nq);
 		kgp = GroupIndex(gn);
 		for (kp = 0; kp <= kmax; kp++) {
 		  if (kp >= np) break;
@@ -502,11 +503,7 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 		  lev = GetLevel(s[i]);
 		  sym = GetSymmetry(lev->pj);
 		  b = MBPT1(lev, sym, kgp, m);
-		  if (b) {
-		    deq[i*n2 + inq] = log(-b);
-		  } else {
-		    deq[i*n2 + inq] = 0.0;
-		  }
+		  deq[i*n2 + inq] = b;
 		}
 		RemoveGroup(kgp);
 		ReinitRadial(1);
@@ -514,11 +511,24 @@ int MBPT(char *fn, int n, int *s, int k, int *kg,
 	      }
 	      for (i = 0; i < n; i++) {
 		tnq = 0.0;
-		if (deq[i*n2]) {
+		tq = deq + i*n2;
+		for (nq = 0; nq < n2; nq++) {
+		  if (tq[nq] >= 0) break;
+		}
+		if (nq == n2) {
+		  for (nq = 0; nq < n2; nq++) {
+		    tq[nq] = log(-tq[nq]);
+		  }
 		  for (nq = np; nq <= np+nm[n2-1]; nq++) {
 		    xnq = log(nq);		 
-		    UVIP3P(3, n2, dnq, &(deq[i*n2]), 1, &xnq, &ynq);
+		    UVIP3P(3, n2, xdnq, tq, 1, &xnq, &ynq);
 		    tnq += -exp(ynq);		  
+		  }
+		} else {
+		  for (nq = np; nq <= np+nm[n2-1]; nq++) {
+		    xnq = nq;
+		    UVIP3P(3, n2, dnq, tq, 1, &xnq, &ynq);
+		    tnq += ynq;
 		  }
 		}
 		de[i*n1 + inp-1] += tnq;
