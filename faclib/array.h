@@ -124,8 +124,8 @@ typedef struct _MULTI_ {
 ** NOTE:        
 */
 typedef struct _ARRAY_TIMING_ {
-  clock_t array;
-  clock_t multi;
+  double array;
+  double multi;
 } ARRAY_TIMING;
 
 int   GetArrayTiming(ARRAY_TIMING *t);

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.44 2003/01/22 21:58:04 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.45 2003/04/20 23:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -39,7 +39,7 @@ static double mix_cut = MIXCUT;
 
 
 #ifdef PERFORM_STATISTICS 
-static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int GetStructTiming(STRUCT_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
@@ -188,7 +188,7 @@ int ValidBasis(STATE *s, int k, int *kg, int n) {
   t = -t-1;
   if (kg) {
     lev = GetLevel(t);
-    m = lev->basis[0];
+    m = lev->pb;
     sym = GetSymmetry(lev->pj);
     sp = (STATE *) ArrayGet(&(sym->states), m);
     t = sp->kgroup;
@@ -364,6 +364,7 @@ double HamiltonElement(int isym, int isi, int isj) {
   SHELL_STATE *sbra, *sket;
   SHELL *bra;
   int n_shells, i, j;
+  INTERACT_DATUM *idatum;
   INTERACT_SHELL s[4];
   double x, r;
   int phase;
@@ -378,11 +379,17 @@ double HamiltonElement(int isym, int isi, int isj) {
   
   ki = si->kstate;
   kj = sj->kstate;
-  for (i = 0; i < 4; i++) s[i].index = -1;
-  n_shells = GetInteract(&phase, s, &bra, &sbra, &sket, 
-			 ci, ki, cj, kj, si, sj);
+
+  idatum = NULL;
+  n_shells = GetInteract(&idatum, &sbra, &sket, 
+			 si->kgroup, sj->kgroup,
+			 si->kcfg, sj->kcfg,
+			 ki, kj, 0);
   if (n_shells <= 0) return 0.0;
-  
+  memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
+  bra = idatum->bra;
+  phase = idatum->phase;
+
   x = 0.0;
   if (s[0].index >= 0 && s[3].index >= 0) {
     r = Hamilton2E(n_shells, sbra, sket, s);
@@ -696,6 +703,8 @@ int AddToLevels(int ng, int *kg) {
   LEVEL lev;
   SYMMETRY *sym;
   STATE *s;
+  CONFIG *c;
+  int g0, p0;
   double *mix, a;
   
   h = &_ham;
@@ -716,6 +725,7 @@ int AddToLevels(int ng, int *kg) {
     }
     lev.energy = h->mixing[i];
     lev.pj = h->pj;
+    lev.pb = h->basis[k];
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
     lev.mixing = (double *) malloc(sizeof(double)*h->n_basis);
     a = fabs(mix_cut * mix[k]);
@@ -730,7 +740,32 @@ int AddToLevels(int ng, int *kg) {
       lev.basis = (int *) realloc(lev.basis, sizeof(int)*m);
       lev.mixing = (double *) realloc(lev.mixing, sizeof(double)*m);
     }
-    SortMixing(0, m, lev.basis, lev.mixing);
+    SortMixing(0, m, lev.basis, lev.mixing, sym);
+
+    if (s->kgroup >= 0) {
+      lev.ngp = 0;
+      lev.igp = (int *) malloc(sizeof(int)*(m+1));
+      g0 = -1;
+      p0 = -1;
+      for (t = 0; t < m; t++) {
+	s = (STATE *) ArrayGet(&(sym->states), lev.basis[t]);
+	c = GetConfig(s);
+	if (s->kgroup != g0 || c->ipart != p0) {
+	  lev.igp[lev.ngp] = t;
+	  lev.ngp++;
+	  g0 = s->kgroup;
+	  p0 = c->ipart;
+	}
+      }
+      lev.igp[lev.ngp] = m;
+      if (lev.ngp < m) {
+	lev.igp = (int *) realloc(lev.igp, sizeof(int)*(lev.ngp+1));
+      }
+    } else {
+      lev.ngp = 0;
+      lev.igp = NULL;
+    }
+
     if (ArrayAppend(levels, &lev) == NULL) {
       printf("Not enough memory for levels array\n");
       exit(1);
@@ -745,8 +780,35 @@ int AddToLevels(int ng, int *kg) {
   return 0;
 }
 
-int SortMixing(int start, int n, int *basis, double *mix) {
-  int i, j, i0, j0, t, bp;
+static int CompareBasis(int b1, int b2, 
+			double m1, double m2, SYMMETRY *sym) {
+  STATE *s1, *s2;
+  
+  s1 = (STATE *) ArrayGet(&(sym->states), b1);
+  s2 = (STATE *) ArrayGet(&(sym->states), b2);
+  if (s1->kgroup >= 0 && s2->kgroup >= 0) {
+    if (s1->kgroup > s2->kgroup) return 1;
+    else if (s1->kgroup < s2->kgroup) return -1;
+    else {
+      if (s1->kcfg > s2->kcfg) return 1;
+      else if (s1->kcfg < s2->kcfg) return -1;
+      else {
+	if (fabs(m1) > fabs(m2)) return 1;
+	else if (fabs(m1) < fabs(m2)) return -1;
+	else return 0;
+      }
+    }
+  } else {
+    if (fabs(m1) > fabs(m2)) return 1;
+    else if (fabs(m1) < fabs(m2)) return -1;
+    else return 0;
+  }
+}  
+
+int SortMixing(int start, int n, 
+	       int *basis, double *mix, SYMMETRY *sym) {
+  int i, j, i0, j0, t;
+  int *b1, *b2, *bp;
   double *m1, *m2, *mp, tmp;
 
   while (1 < n) {
@@ -754,50 +816,55 @@ int SortMixing(int start, int n, int *basis, double *mix) {
     j = start + n - 1;
     m1 = mix + i;
     m2 = mix + j;
-    mp = m2;
-    bp = j;
+    b1 = basis + i;
+    b2 = basis + j;
+    mp = m2;    
+    bp = b2;
     
     while (i < j) {
       while (i < j) {
-	if (fabs(*m1) < fabs(*mp)) break;
+	if (CompareBasis(*b1, *bp, *m1, *mp, sym) < 0) break;
 	i++;
 	m1 = mix + i;
+	b1 = basis + i;
       }
       while (i < j) {
-	if (fabs(*mp) < fabs(*m2)) break;
+	if (CompareBasis(*bp, *b2, *mp, *m2, sym) < 0) break;
 	j--;
 	m2 = mix + j;
+	b2 = basis + j;
       }
       if (i < j) {
 	tmp = *m1;
 	*m1 = *m2;
 	*m2 = tmp;
-	t = basis[i];
-	basis[i] = basis[j];
-	basis[j] = t;
+	t = *b1;
+	*b1 = *b2;
+	*b2 = t;
 	i++;
 	m1 = mix + i;
+	b1 = basis + i;
       }
     }
-    if (m1 != mp) {
+    if (CompareBasis(*b1, *bp, *m1, *mp, sym)) {
       tmp = *m1;
       *m1 = *mp;
       *mp = tmp;
-      t = basis[i];
-      basis[i] = basis[bp];
-      basis[bp] = t;
+      t = *b1;
+      *b1 = *bp;
+      *bp = t;
     }
 
     i0 = i - start;
     j0 = n - i0 - 1;
     if (j0 < i0) {
       if (1 < j0) {
-	SortMixing(i+1, j0, basis, mix);
+	SortMixing(i+1, j0, basis, mix, sym);
       }
       n = i0;
     } else {
       if (1 < i0) {
-	SortMixing(start, i0, basis, mix);
+	SortMixing(start, i0, basis, mix, sym);
       }
       start = i+1;
       n = j0;
@@ -858,8 +925,8 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
   int i1, i2;
   int p1, p2, j1, j2;
 
-  i1 = lev1->basis[0];
-  i2 = lev2->basis[0];
+  i1 = lev1->pb;
+  i2 = lev2->pb;
   sym1 = GetSymmetry(lev1->pj);
   sym2 = GetSymmetry(lev2->pj);
   s1 = (STATE *) ArrayGet(&(sym1->states), i1);
@@ -990,7 +1057,7 @@ int SaveLevels(char *fn, int m, int n) {
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
-    si = lev->basis[0];
+    si = lev->pb;
     sym = GetSymmetry(lev->pj);
     s = (STATE *) ArrayGet(&(sym->states), si);
     if (ncorrections > 0) {
@@ -1104,6 +1171,7 @@ int SaveLevels(char *fn, int m, int n) {
 	  ((double)radt.radial_slater)/CLOCKS_PER_SEC,
 	  ((double)radt.radial_2e)/CLOCKS_PER_SEC);
   fprintf(perform_log, "\n");
+  fflush(perform_log);
 #endif /* PERFORM_STATISTICS */
   
   return 0;
@@ -1143,7 +1211,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 	      i, orb->n, symbol, jsym, j, basis->kstate);
     }
     lev = GetLevel(i);
-    si = lev->basis[0];
+    si = lev->pb;
     sym = GetSymmetry(lev->pj);
     basis = (STATE *) ArrayGet(&(sym->states), si);
     if (sname || nc) {
@@ -1291,130 +1359,172 @@ int GetBasisTable(char *fn) {
   return 0;
 }
 
-int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2) {
-  CONFIG *c1, *c2;
-  int nz, n, p, q;
+int AngularZMixStates(ANGZ_DATUM **ad, 
+		      int kg1, int kg2, 
+		      int kp1, int kp2) {
+  int ns, n, p, q, nz, iz;
+  int ns1, ns2, *pnz, *pic;
+  int nc1, nc2;
+  int kc1, kc2;
+  int ks1, ks2;
   int n_shells, *k, nkk;
-  INTERACT_SHELL s[4];
   double *r;
   int phase, im;
   int orb0, orb1;
+  CONFIG *c1, *c2;
+  PARTITION *part1, *part2;
+  INTERACT_DATUM *idatum;
+  INTERACT_SHELL s[4];
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
-  ANGZ_DATUM *angz_datum;
-  int index[6];
+  ANGULAR_ZMIX **a, *ang;
+  int index[4];
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
 
-  index[0] = s2->kgroup;
-  index[1] = s1->kgroup;
-  index[2] = s2->kcfg;
-  index[3] = s1->kcfg;
-  index[4] = s2->kstate;
-  index[5] = s1->kstate;
-  angz_datum = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
-  nz = angz_datum->nz;
-  if (nz < 0) {
+  index[0] = kg1;
+  index[1] = kg2;
+  index[2] = kp1;
+  index[3] = kp2;
+
+  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
+  ns = (*ad)->ns;
+  if (ns < 0) {
 #ifdef PERFORM_STATISTICS
     stop = clock();
-    timing.angz_states += stop-start;
-    timing.angz_states_load += 1;
+    timing.angz_states_load += stop-start;
+    timing.n_angz_states_load++;
 #endif
     return -1;
   }
   
-  if (nz > 0) {
-    (*ang) = (ANGULAR_ZMIX *) (angz_datum->angz);
+  if (ns > 0) {
 #ifdef PERFORM_STATISTICS
     stop = clock();
-    timing.angz_states += stop-start;
-    timing.angz_states_load += 1;
+    timing.angz_states_load += stop-start;
+    timing.n_angz_states_load++;
 #endif
-    return nz;
+    return ns;
   }
 
-  angz_datum->nz = -1;
-  c1 = GetConfig(s1);
-  c2 = GetConfig(s2);
-  if (abs(c1->n_shells - c2->n_shells) > 1) goto OUT;
-
-  n_shells = GetInteract(&phase, s, &bra, &sbra, &sket, 
-			 c1, s1->kstate, c2, s2->kstate, s1, s2);
-			
-  if (n_shells <= 0) goto OUT;
-  if (s[2].index >= 0 && s[0].index >= 0) {
-    free(sbra);
-    free(sket);
-    goto OUT;
+  part1 = GetPartition(kg1, kp1);
+  part2 = GetPartition(kg2, kp2);
+  nc1 = part1->icfg2 - part1->icfg1 + 1;
+  nc2 = part2->icfg2 - part2->icfg1 + 1;
+  (*ad)->ns = part1->n_csfs * part2->n_csfs;
+  if ((*ad)->ns == 0) {
+    (*ad)->ns = -1;
+    return (*ad)->ns;
   }
-
-  n = 0;
-  nz = ANGZ_BLOCK;
-  (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
+  ns = (*ad)->ns;
+  (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
+  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->ic = (int *) malloc(sizeof(int)*nc1*nc2);
   
-  if (s[0].index >= 0) {
-    nkk = AngularZ(&r, &k, 0, n_shells, sbra, sket, s, s+1);
-    if (nkk > 0) {
-      orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
-      orb1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
-      for (p = 0; p < nkk; p++) {
-	if (IsOdd(phase)) r[p] = -r[p];
-	im = AddToAngularZMix(&n, &nz, ang, k[p], orb0, orb1, r[p]);
+  iz = 0;
+  a = (ANGULAR_ZMIX **) (*ad)->angz;
+  pnz = (*ad)->nz;
+  pic = (*ad)->ic;
+
+  nz = ANGZ_BLOCK;
+  for (kc1 = part1->icfg1; kc1 <= part1->icfg2; kc1++) {
+    c1 = GetConfigFromGroup(kg1, kc1);
+    ns1 = c1->n_csfs * c1->n_shells; 
+    for (kc2 = part2->icfg1; kc2 <= part2->icfg2; kc2++) {
+      *pic = iz;
+      pic++;
+      c2 = GetConfigFromGroup(kg2, kc2);  
+      if (abs(c1->n_shells - c2->n_shells) > 1) {
+	for (ks1 = 0; ks1 < c1->n_csfs; ks1++) {
+	  for (ks2 = 0; ks2 < c2->n_csfs; ks2++) {
+	    a[iz] = NULL;
+	    pnz[iz] = 0;
+	    iz++;
+	  }
+	}
+	continue;
       }
-      free(r);
-      free(k);
-    }
-  } else {
-    for (q = 0; q < n_shells; q++) {	    
-      s[0].index = n_shells - q - 1;      
-      s[1].index = s[0].index;
-      s[0].n = bra[q].n;
-      s[1].n = s[0].n;
-      s[0].kappa = bra[q].kappa;
-      s[1].kappa = s[0].kappa;
-      s[0].j = GetJ(bra+q);
-      s[1].j = s[0].j;
-      s[0].kl = GetL(bra+q);
-      s[1].kl = s[0].kl;
-      s[0].nq_bra = GetNq(bra+q);
-      s[0].nq_ket = s[0].nq_bra;
-      s[1].nq_bra = s[0].nq_bra;
-      s[1].nq_ket = s[1].nq_bra;
-      nkk = AngularZ(&r, &k, 0, n_shells, sbra, sket, s, s+1);
-      if (nkk > 0) {
-	orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
-	orb1 = orb0;
-	for (p = 0; p < nkk; p++) {
-	  if (fabs(r[p]) < EPS10) continue;
-	  if (IsOdd(phase)) r[p] = -r[p];
-	  im = AddToAngularZMix(&n, &nz, ang, k[p], orb0, orb1, r[p]);
-	}	    
-	free(r);
-	free(k);
+      ns2 = c2->n_csfs * c2->n_shells;
+      idatum = NULL; 
+      for (ks1 = 0; ks1 < ns1; ks1 += c1->n_shells) {  
+	for (ks2 = 0; ks2 < ns2; ks2 += c2->n_shells) {
+	  n_shells = GetInteract(&idatum, &sbra, &sket, 
+				 kg1, kg2, kc1, kc2, 
+				 ks1, ks2, 0);
+	  n = 0;
+	  ang = NULL;
+	  if (n_shells <= 0) goto OUT;
+	  memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
+	  phase = idatum->phase;
+	  bra = idatum->bra;
+	  if (s[2].index >= 0 && s[0].index >= 0) {
+	    free(sbra);
+	    free(sket);
+	    goto OUT;
+	  }
+
+	  ang = malloc(sizeof(ANGULAR_ZMIX)*nz);
+	  if (s[0].index >= 0) {
+	    nkk = AngularZ(&r, &k, 0, n_shells, sbra, sket, s, s+1);
+	    if (nkk > 0) {
+	      orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+	      orb1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+	      for (p = 0; p < nkk; p++) {
+		if (IsOdd(phase)) r[p] = -r[p];
+		im = AddToAngularZMix(&n, &nz, &ang, k[p], orb0, orb1, r[p]);
+	      }
+	      free(r);
+	      free(k);
+	    }
+	  } else {
+	    for (q = 0; q < n_shells; q++) {	    
+	      s[0].index = n_shells - q - 1;      
+	      s[1].index = s[0].index;
+	      s[0].n = bra[q].n;
+	      s[1].n = s[0].n;
+	      s[0].kappa = bra[q].kappa;
+	      s[1].kappa = s[0].kappa;
+	      s[0].j = GetJ(bra+q);
+	      s[1].j = s[0].j;
+	      s[0].kl = GetL(bra+q);
+	      s[1].kl = s[0].kl;
+	      s[0].nq_bra = GetNq(bra+q);
+	      s[0].nq_ket = s[0].nq_bra;
+	      s[1].nq_bra = s[0].nq_bra;
+	      s[1].nq_ket = s[1].nq_bra;
+	      nkk = AngularZ(&r, &k, 0, n_shells, sbra, sket, s, s+1);
+	      if (nkk > 0) {
+		orb0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+		orb1 = orb0;
+		for (p = 0; p < nkk; p++) {
+		  if (fabs(r[p]) < EPS10) continue;
+		  if (IsOdd(phase)) r[p] = -r[p];
+		  im = AddToAngularZMix(&n, &nz, &ang, k[p], orb0, orb1, r[p]);
+		}	    
+		free(r);
+		free(k);
+	      }
+	    }
+	  }
+	  PackAngularZMix(&n, &ang, nz);
+	  free(sbra);
+	  free(sket);
+	OUT:
+	  a[iz] = ang;
+	  pnz[iz] = n;
+	  iz++;
+	}
       }
     }
   }
-      
-  free(sbra);
-  free(sket);
-
-  PackAngularZMix(&n, ang, nz);
-  if (n <= 0) {
-    angz_datum->nz = -1;
-  } else {
-    angz_datum->angz = (void *) (*ang);
-    angz_datum->nz = n;
-  }
-
- OUT:
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.angz_states += stop - start;
-  timing.angz_states_calc += 1;
+  timing.n_angz_states++;
 #endif
-  return angz_datum->nz;
+  return (*ad)->ns;
 }
 
 int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p) {
@@ -1432,266 +1542,196 @@ int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p) {
   return 0;
 }
     
-int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {  
-  int nz, j1, j2, kb;
-  int n_shells, *k, k0, nkk;
-  int jf, jp, tf;
-  INTERACT_SHELL s[4];
-  SHELL *bra;
-  SHELL_STATE *sbra, *sket;
-  CONFIG *clow, *cup, clowf;
+int AngularZFreeBoundStates(ANGZ_DATUM **ad, 
+			    int kg1, int kg2, 
+			    int kp1, int kp2) {
+  int n_shells;
   int phase;
+  int j1, j2, kb;
+  int *k, k0, nkk, kmax;
+  int jf, jp, tf;
   double *r, r0;
-  SHELL sh[200];
-  SHELL_STATE cs[200];  
-  ANGULAR_ZFB afb;
-  ANGZ_DATUM *angz_datum;
-  int index[6];
+  int ns1, ns2, *pnz, iz, *pic;
+  int kc1, kc2, nc1, nc2;
+  int ns, ks1, ks2, n;
+  PARTITION *part1, *part2;
+  INTERACT_DATUM *idatum;
+  INTERACT_SHELL s[4];
+  SHELL_STATE *sbra, *sket;
+  CONFIG *c1, *c2;
+  ANGULAR_ZFB *ang, **a;
+  
+  int index[4];
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
   
-  index[1] = slow->kgroup;
-  index[0] = sup->kgroup;
-  index[3] = slow->kcfg;
-  index[2] = sup->kcfg;
-  index[5] = slow->kstate;
-  index[4] = sup->kstate;
-  angz_datum = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
-  nz = angz_datum->nz;
-  if (nz < 0) {
+  index[0] = kg1;
+  index[1] = kg2;
+  index[2] = kp1;
+  index[3] = kp2;
+  *ad = (ANGZ_DATUM *) MultiSet(angz_array, index, NULL);
+  ns = (*ad)->ns;
+  if (ns < 0) {
 #ifdef PERFORM_STATISTICS
     stop = clock();
     timing.angzfb_states += stop-start;
 #endif
     return -1;
   }
-  if (nz == 1) {
-    (*ang) = (ANGULAR_ZFB *) angz_datum->angz;
+  if (ns > 0) {
 #ifdef PERFORM_STATISTICS
     stop = clock();
     timing.angzfb_states += stop-start;
 #endif
-    return nz;
+    return ns;
   }
 
-  nz = -1;
-  angz_datum->nz = -1;
-  clow = GetConfig(slow);
-  cup = GetConfig(sup);
-  if (abs(clow->n_shells+1 - cup->n_shells) > 1) goto END;
+  part1 = GetPartition(kg1, kp1);
+  part2 = GetPartition(kg2, kp2);
+  nc1 = part1->icfg2 - part1->icfg1 + 1;
+  nc2 = part2->icfg2 - part2->icfg1 + 1;
+  (*ad)->ns = part1->n_csfs * part2->n_csfs;
+  if ((*ad)->ns == 0) {
+    (*ad)->ns = -1;
+    return (*ad)->ns;
+  }
+  ns = (*ad)->ns;
+  (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
+  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->ic = (int *) malloc(sizeof(int)*nc1*nc2);
   
-  clowf.shells = sh;
-  clowf.csfs = cs;    
+  kmax = GetMaxRank();
 
-  j1 = clow->csfs[slow->kstate].totalJ;
-  j2 = cup->csfs[sup->kstate].totalJ;
+  iz = 0;
+  a = (ANGULAR_ZFB **) (*ad)->angz;
+  pnz = (*ad)->nz;
+  pic = (*ad)->ic;
 
-  clowf.n_shells = clow->n_shells+1;
-  memcpy(clowf.shells+1, clow->shells, sizeof(SHELL)*clow->n_shells);
-  clowf.shells[0].n = 1000;
-  clowf.shells[0].nq = 1;
-  clowf.shells[0].kappa = -1;
-  clowf.n_csfs = 1;
-  memcpy(clowf.csfs+1, clow->csfs+slow->kstate, 
-	 sizeof(SHELL_STATE)*clow->n_shells);	
-
-  clowf.csfs[0].shellJ = 1;
-  clowf.csfs[0].totalJ = j2;
-  clowf.csfs[0].nu = 1;
-  clowf.csfs[0].Nr = 0; 
-
-  n_shells = GetInteract(&phase, s, &bra, &sbra, &sket,
-			 &clowf, 0, cup, sup->kstate, 
-			 slow, sup);
-  if (n_shells <= 0) {
-    goto END;
-  }
-  if (s[0].index < 0 || (s[0].index >= 0 && s[2].index >= 0)) {
-    free(sbra);
-    free(sket);
-    goto END;
-  }
-
-  nkk = GetMaxRank();
-  tf = 0;
-  for (k0 = 0; k0 <= nkk; k0 += 2) {
-    for (jf = abs(k0-s[1].j); jf <= k0+s[1].j; jf += 2) {
-      for (jp = abs(jf-j1); jp <= jf+j1; jp += 2) {
-	if (Triangle(jp, j2, k0) && Triangle(j1, j2, s[1].j)) {
-	  tf = 1;
-	  goto TF;
+  for (kc1 = part1->icfg1; kc1 <= part1->icfg2; kc1++) {
+    c1 = GetConfigFromGroup(kg1, kc1);
+    ns1 = c1->n_csfs * c1->n_shells; 
+    for (kc2 = part2->icfg1; kc2 <= part2->icfg2; kc2++) {
+      *pic = iz;
+      pic++;
+      c2 = GetConfigFromGroup(kg2, kc2);    
+      if (abs(c1->n_shells+1 - c2->n_shells) > 1) {
+	for (ks1 = 0; ks1 < c1->n_csfs; ks1++) {
+	  for (ks2 = 0; ks2 < c2->n_csfs; ks2++) {
+	    a[iz] = NULL;
+	    pnz[iz] = 0;
+	    iz++;
+	  }
+	}
+	continue;
+      }      
+      ns2 = c2->n_csfs * c2->n_shells;    
+      idatum = NULL;
+      for (ks1 = 0; ks1 < ns1; ks1 += c1->n_shells) {
+	j1 = (c1->csfs[ks1]).totalJ;
+	for (ks2 = 0; ks2 < ns2; ks2 += c2->n_shells) {
+	  j2 = (c2->csfs[ks2]).totalJ;
+	  n_shells = GetInteract(&idatum, &sbra, &sket,
+				 kg1, kg2, kc1, kc2, 
+				 ks1, ks2, 1);
+	  n = 0;
+	  ang = NULL;
+	  if (n_shells <= 0) goto END;
+	  memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
+	  phase = idatum->phase;
+	  if (s[0].index < 0 || (s[0].index >= 0 && s[2].index >= 0)) {
+	    free(sbra);
+	    free(sket);
+	    goto END;
+	  }
+      
+	  tf = 0;
+	  for (k0 = 0; k0 <= kmax; k0 += 2) {
+	    for (jf = abs(k0-s[1].j); jf <= k0+s[1].j; jf += 2) {
+	      for (jp = abs(jf-j1); jp <= jf+j1; jp += 2) {
+		if (Triangle(jp, j2, k0) && Triangle(j1, j2, s[1].j)) {
+		  tf = 1;
+		  goto TF;
+		}
+	      }
+	    }
+	  }	  
+	TF:	  
+	  if (tf == 1) {
+	    s[0].j = jf;
+	    s[0].kl = jf + 1;
+	    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
+	    sbra[0].shellJ = jf;
+	    sbra[0].totalJ = jp; 
+	    k = &k0;
+	    r = &r0;
+	    nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
+	    if (fabs(*r) < EPS10) goto END;
+	    if (IsOdd(phase+(jp+j2-k0)/2)) *r = -(*r);
+	    *r /= sqrt(jp+1.0)*W6j(j1, jf, jp, k0, j2, s[1].j);
+	    kb = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+	    ang = (ANGULAR_ZFB *) malloc(sizeof(ANGULAR_ZFB));
+	    ang->kb = kb;
+	    ang->coeff = *r;
+	    n = 1;
+	  }
+	  free(sbra);
+	  free(sket);
+	END:
+	  a[iz] = ang;
+	  pnz[iz] = n;
+	  iz++;
 	}
       }
     }
   }
-
- TF:
-  nz = -1;
-  if (tf == 1) {
-    s[0].j = jf;
-    s[0].kl = jf+1;
-    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
-    sbra[0].shellJ = jf;
-    sbra[0].totalJ = jp; 
-    k = &k0;
-    r = &r0;
-    nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
-    if (fabs(*r) < EPS10) goto END;
-    if (IsOdd(phase+(jp+j2-k0)/2)) *r = -(*r);
-    *r /= sqrt(jp+1.0)*W6j(j1, jf, jp, k0, j2, s[1].j);
-    kb = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
-    afb.kb = kb;
-    afb.coeff = *r;
-    nz = 1;
-  }
-
-  free(sbra);
-  free(sket);
-
- END:
-  if (nz != 1) {
-    angz_datum->nz = -1;
-    nz = -1;
-  } else {
-    angz_datum->angz = malloc(sizeof(ANGULAR_ZFB));
-    angz_datum->nz = 1;
-    memcpy(angz_datum->angz, &afb, sizeof(ANGULAR_ZFB));
-    (*ang) = (ANGULAR_ZFB *) angz_datum->angz;
-    nz = 1;
-  }
-
+  
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
-  return angz_datum->nz;
+  return (*ad)->ns;
 }
 
-int AngularZxZMixStates(ANGULAR_ZxZMIX **ang, STATE *slow, STATE *sup) {
-  int nz, n, i, j;
+int AngularZxZMixStates(ANGZ_DATUM **ad, 
+			int kg1, int kg2, 
+			int kp1, int kp2) {
+  return 0;
+}
+
+int AngularZxZFreeBoundStates(ANGZ_DATUM **ad,  
+			      int kg1, int kg2, 
+			      int kp1, int kp2) {
   int n_shells;
+  int phase;
+  int j1, j2, i, n, nz;
+  int jmin, jmax, jf;
+  int ns1, ns2, *pnz, iz, *pic;
+  int kc1, kc2, nc1, nc2;
+  int ns, ks1, ks2;
+  PARTITION *part1, *part2;
   INTERACT_SHELL s[4];
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
-  CONFIG *clow, *cup;
-  int phase; 
+  INTERACT_DATUM *idatum;
+  CONFIG *c1, *c2;
+  ANGULAR_ZxZMIX **a, *ang;
+  int index[4];
 
-  clow = GetConfig(slow);
-  cup = GetConfig(sup);
-  n_shells = GetInteract(&phase, s, &bra, &sbra, &sket,
-			 clow, slow->kstate, cup, sup->kstate,
-			 slow, sup);
-
-  if (n_shells <= 0) return -1;
-
-  n = 0;
-  nz = ANGZ_BLOCK;
-  (*ang) = malloc(sizeof(ANGULAR_ZxZMIX)*nz);
-  
-  if (s[0].index >= 0 && s[2].index >= 0) {
-    AddToAngularZxZ(&n, &nz, ang, n_shells, phase, sbra, sket, s, 0);
-  } else if (s[0].index >= 0) {
-    for (i = 0; i < n_shells; i++) {      
-      s[2].index = n_shells - i - 1;
-      if (s[2].index == s[0].index) continue;
-      s[3].index = s[2].index;
-      s[2].n = bra[i].n;
-      s[3].n = s[2].n;
-      s[2].kappa = bra[i].kappa;
-      s[3].kappa = s[2].kappa;
-      s[2].j = GetJ(bra+i);
-      s[3].j = s[2].j;
-      s[2].kl = GetL(bra+i);
-      s[3].kl = s[2].kl;
-      s[2].nq_bra = GetNq(bra+i);
-      if (s[2].index == s[0].index) {
-	s[2].nq_ket = s[2].nq_bra - 1;
-      } else if (s[2].index == s[1].index) {
-	s[2].nq_ket = s[2].nq_bra + 1;
-      } else {
-	s[2].nq_ket = s[2].nq_bra;
-      }
-      if (s[2].nq_bra < 0 || s[2].nq_ket < 0 ||
-	  s[2].nq_bra > s[2].j+1 || s[2].nq_ket > s[2].j+1.0) {
-	continue;
-      }
-      s[3].nq_bra = s[2].nq_bra;
-      s[3].nq_ket = s[2].nq_ket;
-      AddToAngularZxZ(&n, &nz, ang, n_shells, phase, sbra, sket, s, 0);
-    }
-  } else {   
-    for (i = 0; i < n_shells; i++) {
-      s[0].index = n_shells - i - 1;
-      s[1].index = s[0].index;
-      s[0].n = bra[i].n;
-      s[1].n = s[0].n;
-      s[0].kappa = bra[i].kappa;
-      s[1].kappa = s[0].kappa;
-      s[0].j = GetJ(bra+i);
-      s[1].j = s[0].j;
-      s[0].kl = GetL(bra+i);
-      s[1].kl = s[0].kl;
-      s[0].nq_bra = GetNq(bra+i);
-      s[0].nq_ket = s[0].nq_bra;
-      s[1].nq_bra = s[0].nq_bra;
-      s[1].nq_ket = s[1].nq_bra;  
-      for (j = 0; j <= i; j++) {
-	s[2].index = n_shells - j - 1;
-	if (s[2].index == s[0].index) continue;
-	s[3].index = s[2].index;
-	s[2].n = bra[j].n;
-	s[3].n = s[2].n;
-	s[2].kappa = bra[j].kappa;
-	s[3].kappa = s[2].kappa;
-	s[2].j = GetJ(bra+j);
-	s[3].j = s[2].j;
-	s[2].kl = GetL(bra+j);
-	s[3].kl = s[2].kl;
-	s[2].nq_bra = GetNq(bra+j);
-	s[2].nq_ket = s[2].nq_bra;
-	s[3].nq_bra = s[2].nq_bra;
-	s[3].nq_ket = s[3].nq_bra;
-	AddToAngularZxZ(&n, &nz, ang, n_shells, phase, sbra, sket, s, 0);
-      }
-    }
-  }
-  free(sbra);
-  free(sket);
-
-  PackAngularZxZMix(&n, ang, nz);
-
-  return n;
-}
-
-int AngularZxZFreeBoundStates(ANGULAR_ZxZMIX **ang, 
-			      STATE *slow, STATE *sup) {  
-  int nz, n, j1, j2, i;
-  int n_shells;
-  INTERACT_SHELL s[4], sp[4];
-  SHELL *bra;
-  SHELL_STATE *sbra, *sket;
-  CONFIG *clow, *cup, clowf;
-  int phase, jmin, jmax, jf;
-  SHELL sh[200];
-  SHELL_STATE cs[200];
-  ANGZ_DATUM *angz_datum;
-  int index[6];
 #ifdef PERFORM_STATISTICS
   clock_t start, stop; 
   start = clock();
 #endif
 
-  index[1] = slow->kgroup;
-  index[0] = sup->kgroup;
-  index[3] = slow->kcfg;
-  index[2] = sup->kcfg;
-  index[5] = slow->kstate;
-  index[4] = sup->kstate;
-  angz_datum = (ANGZ_DATUM *) MultiSet(angzxz_array, index, NULL);
-  nz = angz_datum->nz;
-  if (nz < 0) { 
+  index[0] = kg1;
+  index[1] = kg2;
+  index[2] = kp1;
+  index[3] = kp2;
+  *ad = (ANGZ_DATUM *) MultiSet(angzxz_array, index, NULL);
+
+  ns = (*ad)->ns;
+  if (ns < 0) { 
 #ifdef PERFORM_STATISTICS
     stop = clock();
     timing.angzxzfb_states += stop-start;
@@ -1699,122 +1739,148 @@ int AngularZxZFreeBoundStates(ANGULAR_ZxZMIX **ang,
     return -1;
   }
   
-  if (nz > 0) {
-    (*ang) = (ANGULAR_ZxZMIX *) angz_datum->angz;
+  if (ns > 0) {
 #ifdef PERFORM_STATISTICS
     stop = clock();
-    timing.angzxzfb_states += stop-start;
+    timing.angzfb_states += stop-start;
 #endif
-    return nz;
+    return ns;
   }
 
-  angz_datum->nz = -1;
-  n = 0;
-
-  clow = GetConfig(slow);
-  j1 = clow->csfs[slow->kstate].totalJ;
-  cup = GetConfig(sup);
-  j2 = cup->csfs[sup->kstate].totalJ;
-  if (abs(clow->n_shells+1 - cup->n_shells) > 2) goto OUT;
-
-  clowf.shells = sh;
-  clowf.csfs = cs;
+  part1 = GetPartition(kg1, kp1);
+  part2 = GetPartition(kg2, kp2);
+  nc1 = part1->icfg2 - part1->icfg1 + 1;
+  nc2 = part2->icfg2 - part2->icfg1 + 1;
+  (*ad)->ns = part1->n_csfs * part2->n_csfs;
+  if ((*ad)->ns == 0) {
+    (*ad)->ns = -1;
+    return (*ad)->ns;
+  }
+  ns = (*ad)->ns;
+  (*ad)->angz = malloc(sizeof(ANGULAR_ZxZMIX *)*ns);
+  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->ic = (int *) malloc(sizeof(int)*nc1*nc2);
   
-  clowf.n_shells = clow->n_shells+1;
-  memcpy(clowf.shells+1, clow->shells, sizeof(SHELL)*clow->n_shells);
-  clowf.shells[0].n = 1000;
-  clowf.shells[0].nq = 1;
-  clowf.shells[0].kappa = -1;
-  clowf.n_csfs = 1;
-  memcpy(clowf.csfs+1, clow->csfs+slow->kstate, 
-	 sizeof(SHELL_STATE)*clow->n_shells);	
-
-  clowf.csfs[0].shellJ = 1;
-  clowf.csfs[0].totalJ = j2;
-  clowf.csfs[0].nu = 1;
-  clowf.csfs[0].Nr = 0;   
-  n_shells = GetInteract(&phase, sp, &bra, &sbra, &sket,
-			 &clowf, 0, cup, sup->kstate,
-			 slow, sup);
-
-  
-  if (n_shells <= 0) {
-    goto OUT;
-  } 
+  iz = 0;
+  a = (ANGULAR_ZxZMIX **) (*ad)->angz;
+  pnz = (*ad)->nz;
+  pic = (*ad)->ic;
 
   nz = ANGZ_BLOCK;
-  (*ang) = malloc(sizeof(ANGULAR_ZxZMIX)*nz);
 
-  jmin = abs(j2-j1);
-  jmax = j1+j2;
-
-  for (jf = jmin; jf <= jmax; jf += 2) {    
-    memcpy(s, sp, sizeof(INTERACT_SHELL)*4);
-    s[0].j = jf;
-    s[0].kl = jf+1;
-    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
-    sbra[0].shellJ = s[0].j;
-
-    if (s[2].index >= 0) {
-      AddToAngularZxZ(&n, &nz, ang, n_shells, phase, sbra, sket, s, 1);
-    } else {      
-      for (i = 0; i < n_shells; i++) {      
-	s[2].index = n_shells - i - 1;
-	if (s[2].index == s[0].index) continue;
-	s[3].index = s[2].index;
-	s[2].n = bra[i].n;
-	s[3].n = s[2].n;
-	s[2].kappa = bra[i].kappa;
-	s[3].kappa = s[2].kappa;
-	s[2].j = GetJ(bra+i);
-	s[3].j = s[2].j;
-	s[2].kl = GetL(bra+i);
-	s[3].kl = s[2].kl;
-	s[2].nq_bra = GetNq(bra+i);
-	if (s[2].index == s[0].index) {
-	  s[2].nq_ket = s[2].nq_bra - 1;
-	} else if (s[2].index == s[1].index) {
-	  s[2].nq_ket = s[2].nq_bra + 1;
-	} else {
-	  s[2].nq_ket = s[2].nq_bra;
+  for (kc1 = part1->icfg1; kc1 <= part1->icfg2; kc1++) {
+    c1 = GetConfigFromGroup(kg1, kc1);
+    ns1 = c1->n_csfs * c1->n_shells; 
+    for (kc2 = part2->icfg1; kc2 <= part2->icfg2; kc2++) {
+      *pic = iz;
+      pic++;
+      c2 = GetConfigFromGroup(kg2, kc2);    
+      if (abs(c1->n_shells+1 - c2->n_shells) > 2) {
+	for (ks1 = 0; ks1 < c1->n_csfs; ks1++) {
+	  for (ks2 = 0; ks2 < c2->n_csfs; ks2++) {
+	    a[iz] = NULL;
+	    pnz[iz] = 0;
+	    iz++;
+	  }
 	}
-	s[3].nq_bra = s[2].nq_bra;
-	s[3].nq_ket = s[2].nq_ket;
-	AddToAngularZxZ(&n, &nz, ang, n_shells, phase, sbra, sket, s, 1);
+	continue;
+      }
+      ns2 = c2->n_csfs * c2->n_shells;    
+      idatum = NULL;
+      for (ks1 = 0; ks1 < ns1; ks1 += c1->n_shells) {
+	j1 = (c1->csfs[ks1]).totalJ;
+	for (ks2 = 0; ks2 < ns2; ks2 += c2->n_shells) {
+	  j2 = (c2->csfs[ks2]).totalJ;
+	  n_shells = GetInteract(&idatum, &sbra, &sket,
+				 kg1, kg2, kc1, kc2, 
+				 ks1, ks2, 1);
+	  n = 0;
+	  ang = NULL;
+	  if (n_shells <= 0) goto END;
+
+	  ang = malloc(sizeof(ANGULAR_ZxZMIX)*nz);
+	  phase = idatum->phase;
+	  bra = idatum->bra;
+	  sbra[0].totalJ = j2;
+	  jmin = abs(j2 - j1);
+	  jmax = j1 + j2;
+	  for (jf = jmin; jf <= jmax; jf += 2) {
+	    memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
+	    s[0].j = jf;
+	    s[0].kl = jf+1;
+	    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
+	    sbra[0].shellJ = s[0].j;
+	    
+	    if (s[2].index >= 0) {
+	      AddToAngularZxZ(&n, &nz, &ang, n_shells, phase, 
+			      sbra, sket, s, 1);
+	    } else {
+	      for (i = 0; i < n_shells; i++) {
+		s[2].index = n_shells - i - 1;
+		if (s[2].index == s[0].index) continue;
+		s[3].index = s[2].index;
+		s[2].n = bra[i].n;
+		s[3].n = s[2].n;
+		s[2].kappa = bra[i].kappa;
+		s[3].kappa = s[2].kappa;
+		s[2].j = GetJ(bra+i);
+		s[3].j = s[2].j;
+		s[2].kl = GetL(bra+i);
+		s[3].kl = s[2].kl;
+		s[2].nq_bra = GetNq(bra+i);
+		if (s[2].index == s[0].index) {
+		  s[2].nq_ket = s[2].nq_bra - 1;
+		} else if (s[2].index == s[1].index) {
+		  s[2].nq_ket = s[2].nq_bra + 1;
+		} else {
+		  s[2].nq_ket = s[2].nq_bra;
+		}
+		s[3].nq_bra = s[2].nq_bra;
+		s[3].nq_ket = s[2].nq_ket;
+		AddToAngularZxZ(&n, &nz, &ang, n_shells, phase, 
+				sbra, sket, s, 1);
+	      }
+	    }
+	  }
+
+	  PackAngularZxZMix(&n, &ang, nz);
+	  free(sbra);
+	  free(sket);
+
+	END:	  
+	  a[iz] = ang;
+	  pnz[iz] = n;
+	  iz++;
+	}
       }
     }
   }
-  
-  
-  free(sbra);
-  free(sket);
 
-  PackAngularZxZMix(&n, ang, nz);
-  if (n <= 0) {
-    angz_datum->nz = -1;
-  } else {
-    angz_datum->angz = (void *) *ang;
-    angz_datum->nz = n;
-  }
-
- OUT:
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
-  return angz_datum->nz;
+
+  return (*ad)->ns;
 }
+
 
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   int i, j, m; 
   int nz, n;
   double r0;
+  int kg1, kg2, kc1, kc2, ks1, ks2;
+  int igp,jgp, imin, imax, jmin, jmax;
+  int ns, isz, kp1, kp2;
+  PARTITION *part1, *part2;
+  CONFIG *c1, *c2;
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
   LEVEL *lev1, *lev2;
+  ANGZ_DATUM *ad;
+  ANGULAR_ZFB *ang_sub;
   double mix1, mix2, sqrt_j2;
   int kg, jf, kb, ia, j1, j2;
-  ANGULAR_ZFB *ang_sub;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -1829,7 +1895,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   DecodePJ(j1, NULL, &j1);
   DecodePJ(j2, NULL, &j2);
   
-  sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[0]);
+  sup = (STATE *) ArrayGet(&(sym2->states), lev2->pb);
   if (sup->kgroup < 0) {
     sqrt_j2 = sqrt(j2 + 1.0);
     n = 0;
@@ -1856,22 +1922,54 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
     n = 0;
     nz = ANGZ_BLOCK;
     (*ang) = malloc(sizeof(ANGULAR_ZFB)*nz);
-    for (i = 0; i < lev1->n_basis; i++) {
-      mix1 = lev1->mixing[i];
-      if (fabs(mix1) < angz_cut) break;
-      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
-      for (j = 0; j < lev2->n_basis; j++) {
-	mix2 = lev2->mixing[j];
-	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
-	r0 = mix1*mix2;
-	if (fabs(r0) < angz_cut) {
-	  break;
-	}
-	m = AngularZFreeBoundStates(&ang_sub, slow, sup);
-	if (m == 1) {
-	  kb = ang_sub->kb;
-	  r0 *= ang_sub->coeff;
-	  ia = AddToAngularZFB(&n, &nz, ang, kb, r0);
+    ns = -1;
+    for (igp = 0; igp < lev1->ngp; igp++) {
+      imin = lev1->igp[igp];
+      imax = lev1->igp[igp+1];
+      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[imin]);
+      kg1 = slow->kgroup;
+      kc1 = slow->kcfg;
+      c1 = GetConfigFromGroup(kg1, kc1);
+      kp1 = c1->ipart;
+      part1 = GetPartition(kg1, kp1);
+      for (jgp = 0; jgp < lev2->ngp; jgp++) {
+	jmin = lev2->igp[jgp];
+	jmax = lev2->igp[jgp+1];
+	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[jmin]);
+	kg2 = sup->kgroup;
+	kc2 = sup->kcfg;
+	c2 = GetConfigFromGroup(kg2, kc2);
+	kp2 = c2->ipart;
+	part2 = GetPartition(kg2, kp2);
+	ns = AngularZFreeBoundStates(&ad, kg1, kg2, kp1, kp2);
+	if (ns <= 0) continue;
+	for (i = imin; i < imax; i++) {
+	  mix1 = lev1->mixing[i];
+	  if (fabs(mix1) < angz_cut) continue;
+	  slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
+	  kc1 = slow->kcfg;
+	  c1 = GetConfigFromGroup(kg1, kc1);
+	  ks1 = slow->kstate/c1->n_shells;
+	  for (j = jmin; j < jmax; j++) {
+	    mix2 = lev2->mixing[j];	
+	    r0 = mix1*mix2;
+	    if (fabs(r0) < angz_cut) continue;
+	    sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
+	    kc2 = sup->kcfg;
+	    c2 = GetConfigFromGroup(kg2, kc2);
+	    ks2 = sup->kstate/c2->n_shells;
+	    m = (kc1 - part1->icfg1)*(part2->icfg2 - part2->icfg1 + 1);
+	    m += kc2 - part2->icfg1;
+	    isz = (ad->ic)[m];
+	    isz += ks1*c2->n_csfs + ks2;
+	    m = (ad->nz)[isz];
+	    if (m == 1) {
+	      ang_sub = (ad->angz)[isz];
+	      kb = ang_sub->kb;
+	      r0 *= ang_sub->coeff;
+	      ia = AddToAngularZFB(&n, &nz, ang, kb, r0);
+	    }
+	  }
 	}
       }
     }
@@ -1896,17 +1994,24 @@ int GetBaseJ(STATE *s) {
   return ih;
 }
 
-int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, 
+int AngularZMix(ANGULAR_ZMIX **ang, 
+		int lower, int upper, 
 		int mink, int maxk) {
-  int i, j, j1, j2, jb1, jb2, kg1, kg2, jlow, jup, kb1, kb2;
-  int nz, n;
-  int im;
+  int i, j, j1, j2, jb1, jb2;
+  int kg1, kg2, kc1, kc2, kp1, kp2;
+  int ks1, ks2, isz;
+  int jlow, jup, kb1, kb2;
+  int nz, n, ns, im;
+  int igp, jgp, imin, imax, jmin, jmax;
   double r0;
+  int ik, kmin, kmax, m, nmax;
+  int nz_sub, nfb;
+  PARTITION *part1, *part2;
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
   LEVEL *lev1, *lev2;
-  int ik, kmin, kmax, m, nmax;
-  int nz_sub, nfb;
+  CONFIG *c1, *c2;
+  ANGZ_DATUM *ad;
   ANGULAR_ZMIX *ang_sub;
   ANGULAR_ZFB *afb;
   double mix1, mix2, sqrt_j12, a;
@@ -1938,10 +2043,12 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     return 0;
   }
 
-  slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[0]);
-  sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[0]);
+  slow = (STATE *) ArrayGet(&(sym1->states), lev1->pb);
+  sup = (STATE *) ArrayGet(&(sym2->states), lev2->pb);
   kg1 = slow->kgroup;
   kg2 = sup->kgroup;
+  kc1 = slow->kcfg;
+  kc2 = sup->kcfg;
 
   if (kg1 < 0) {
     kb1 = slow->kcfg;
@@ -1968,7 +2075,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
-      if (fabs(mix1) < angz_cut) break;
+      if (fabs(mix1) < angz_cut) continue;
       slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
       jlow = GetBaseJ(slow);
       kg1 = slow->kgroup;
@@ -1979,9 +2086,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
 	a = mix1*mix2;
-	if (fabs(a) < angz_cut) {
-	  break;
-	}
+	if (fabs(a) < angz_cut) continue;
 	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
 	jup = GetBaseJ(sup);
 	kg2 = sup->kgroup;
@@ -2028,7 +2133,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
-      if (fabs(mix1) < angz_cut) break;
+      if (fabs(mix1) < angz_cut) continue;
       slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
       kb1 = slow->kcfg;
       jb1 = GetOrbital(kb1)->kappa;
@@ -2056,7 +2161,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
     for (j = 0; j < lev2->n_basis; j++) {
       mix2 = lev2->mixing[j];
-      if (fabs(mix2) < angz_cut) break;
+      if (fabs(mix2) < angz_cut) continue;
       sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
       kb2 = sup->kcfg;
       jb2 = GetOrbital(kb2)->kappa;
@@ -2082,24 +2187,56 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
     nz = ANGZ_BLOCK;
     n = 0;
     (*ang) = malloc(sizeof(ANGULAR_ZMIX)*nz);
-
-    for (i = 0; i < lev1->n_basis; i++) {
-      mix1 = lev1->mixing[i];
-      if (fabs(mix1) < angz_cut) break;
-      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
-      for (j = 0; j < lev2->n_basis; j++) {
-	mix2 = lev2->mixing[j];
-	a = mix1*mix2;
-	if (fabs(a) < angz_cut) {
-	  break;
-	}
-	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
-	nz_sub = AngularZMixStates(&ang_sub, slow, sup);
-	for (m = 0; m < nz_sub; m++) {
-	  r0 = ang_sub[m].coeff*a;
-	  if (ang_sub[m].k > kmax || ang_sub[m].k < kmin) continue;
-	  im = AddToAngularZMix(&n, &nz, ang, ang_sub[m].k, 
-				ang_sub[m].k0, ang_sub[m].k1, r0);
+    for (igp = 0; igp < lev1->ngp; igp++) {
+      imin = lev1->igp[igp];
+      imax = lev1->igp[igp+1];
+      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[imin]);
+      kg1 = slow->kgroup;
+      kc1 = slow->kcfg;
+      c1 = GetConfigFromGroup(kg1, kc1);
+      kp1 = c1->ipart;
+      part1 = GetPartition(kg1, kp1);
+      for (jgp = 0; jgp < lev2->ngp; jgp++) {
+	jmin = lev2->igp[jgp];
+	jmax = lev2->igp[jgp+1];
+	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[jmin]);
+	kg2 = sup->kgroup;
+	kc2 = sup->kcfg;
+	c2 = GetConfigFromGroup(kg2, kc2);
+	kp2 = c2->ipart;
+	part2 = GetPartition(kg2, kp2);
+	ns = AngularZMixStates(&ad, kg1, kg2, kp1, kp2);
+	if (ns <= 0) continue;
+	for (i = imin; i < imax; i++) {
+	  mix1 = lev1->mixing[i];
+	  if (fabs(mix1) < angz_cut) continue;
+	  slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
+	  kc1 = slow->kcfg;
+	  c1 = GetConfigFromGroup(kg1, kc1);
+	  ks1 = slow->kstate/c1->n_shells;
+	  for (j = jmin; j < jmax; j++) {
+	    mix2 = lev2->mixing[j];
+	    a = mix1*mix2;
+	    if (fabs(a) < angz_cut) continue;
+	    sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
+	    kc2 = sup->kcfg;
+	    c2 = GetConfigFromGroup(kg2, kc2);
+	    ks2 = sup->kstate/c2->n_shells;
+	    m = (kc1 - part1->icfg1)*(part2->icfg2 - part2->icfg1 + 1);
+	    m += kc2 - part2->icfg1;
+	    isz = (ad->ic)[m];
+	    isz += ks1*c2->n_csfs + ks2;
+	    nz_sub = (ad->nz)[isz];
+	    if (nz_sub > 0) {
+	      ang_sub = (ad->angz)[isz];
+	      for (m = 0; m < nz_sub; m++) {
+		r0 = ang_sub[m].coeff*a;
+		if (ang_sub[m].k > kmax || ang_sub[m].k < kmin) continue;
+		im = AddToAngularZMix(&n, &nz, ang, ang_sub[m].k, 
+				      ang_sub[m].k0, ang_sub[m].k1, r0);
+	      }
+	    }
+	  }
 	}
       }
     }
@@ -2119,15 +2256,21 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
   int i, j, j1, j2;
   int nz, n;
   int kg, jf;
+  int kg1, kg2, kc1, kc2, ks1, ks2;
+  int igp, jgp, imin, imax, jmin, jmax;
+  int ns, isz, kp1, kp2;
   double mix1, mix2;
+  PARTITION *part1, *part2;
+  CONFIG *c1, *c2;
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
   LEVEL *lev1, *lev2;
-  int kb, jb, jup, jmin, jmax, orb0, orb1;
-  double r, r0, sqrt_j2;
-  int nz_sub;
+  ANGZ_DATUM *ad;
   ANGULAR_ZxZMIX *ang_sub;
   ANGULAR_ZMIX *ang_z;
+  int kb, jb, jup, orb0, orb1;
+  double r, r0, sqrt_j2;
+  int nz_sub;
   int im, m;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -2149,11 +2292,11 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
   (*ang) = malloc(sizeof(ANGULAR_ZxZMIX)*nz);
   if (!(*ang)) return -1;
     
-  sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[0]);
+  sup = (STATE *) ArrayGet(&(sym2->states), lev2->pb);
   if (sup->kgroup < 0) {  
     for (j = 0; j < lev2->n_basis; j++) {
       mix2 = lev2->mixing[j];
-      if (fabs(mix2) < angz_cut) break;
+      if (fabs(mix2) < angz_cut) continue;
       sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
       kb = sup->kcfg;
       jb = GetOrbital(kb)->kappa;
@@ -2184,26 +2327,58 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
       }
       free(ang_z);
     }
-  } else { 
-    for (i = 0; i < lev1->n_basis; i++) {
-      mix1 = lev1->mixing[i];
-      if (fabs(mix1) < angz_cut) break;
-      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
-      for (j = 0; j < lev2->n_basis; j++) {
-	mix2 = lev2->mixing[j];
-	r = mix1*mix2;
-	if (fabs(r) < angz_cut) {
-	  break;
-	}
-	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]); 
-	nz_sub = AngularZxZFreeBoundStates(&ang_sub, slow, sup); 
-
-	for (m = 0; m < nz_sub; m++) {
-	  r0 = ang_sub[m].coeff*r;
-	  im = AddToAngularZxZMix(&n, &nz, ang, 
-				  ang_sub[m].k, ang_sub[m].k0,
-				  ang_sub[m].k1, ang_sub[m].k2,
-				  ang_sub[m].k3, r0); 	  
+  } else {
+    for (igp = 0; igp < lev1->ngp; igp++) {
+      imin = lev1->igp[igp];
+      imax = lev1->igp[igp+1];
+      slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[imin]);
+      kg1 = slow->kgroup;
+      kc1 = slow->kcfg;
+      c1 = GetConfigFromGroup(kg1, kc1);
+      kp1 = c1->ipart;
+      part1 = GetPartition(kg1, kp1);
+      for (jgp = 0; jgp < lev2->ngp; jgp++) {
+	jmin = lev2->igp[jgp];
+	jmax = lev2->igp[jgp+1];
+	sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[jmin]);
+	kg2 = sup->kgroup;
+	kc2 = sup->kcfg;
+	c2 = GetConfigFromGroup(kg2, kc2);
+	kp2 = c2->ipart;
+	part2 = GetPartition(kg2, kp2);
+	ns = AngularZxZFreeBoundStates(&ad, kg1, kg2, kp1, kp2);
+	if (ns <= 0) continue;
+	for (i = imin; i < imax; i++) {
+	  mix1 = lev1->mixing[i];
+	  if (fabs(mix1) < angz_cut) continue;
+	  slow = (STATE *) ArrayGet(&(sym1->states), lev1->basis[i]);
+	  kc1 = slow->kcfg;
+	  c1 = GetConfigFromGroup(kg1, kc1);
+	  ks1 = slow->kstate/c1->n_shells;
+	  for (j = jmin; j < jmax; j++) {
+	    mix2 = lev2->mixing[j];
+	    r = mix1*mix2;
+	    if (fabs(r) < angz_cut) continue;
+	    sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]); 
+	    kc2 = sup->kcfg;
+	    c2 = GetConfigFromGroup(kg2, kc2);
+	    ks2 = sup->kstate/c2->n_shells;
+	    m = (kc1 - part1->icfg1)*(part2->icfg2 - part2->icfg1 + 1);
+	    m += kc2 - part2->icfg1;
+	    isz = (ad->ic)[m];
+	    isz += ks1*c2->n_csfs + ks2;
+	    nz_sub = (ad->nz)[isz];
+	    if (nz_sub > 0) {
+	      ang_sub = (ad->angz)[isz];
+	      for (m = 0; m < nz_sub; m++) {
+		r0 = ang_sub[m].coeff*r;
+		im = AddToAngularZxZMix(&n, &nz, ang, 
+					ang_sub[m].k, ang_sub[m].k0,
+					ang_sub[m].k1, ang_sub[m].k2,
+					ang_sub[m].k3, r0); 	  
+	      }
+	    }
+	  }
 	}
       }
     }
@@ -2505,10 +2680,16 @@ int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
 
 void FreeAngZDatum(void *p) {
   ANGZ_DATUM *ap;
+  int i;
+
   ap = (ANGZ_DATUM *) p;
-  if (ap->nz > 0) {
+  for (i = 0; i < ap->ns; i++) {
+    if (ap->nz[i] > 0) free(ap->angz[i]);
+  }
+  if (ap->ns > 0) {
     free(ap->angz);
-    ap->nz = 0;
+    free(ap->nz);
+    free(ap->ic);
   }
 }
 
@@ -2549,6 +2730,7 @@ void FreeLevelData(void *p) {
   if (lev->n_basis > 0) {
     free(lev->basis);
     free(lev->mixing);
+    free(lev->igp);
     lev->n_basis = 0;
   }
 }
@@ -2578,15 +2760,15 @@ int ClearLevelTable(void) {
 }
 
 int InitStructure(void) {
-  int i, ndim = 6;
-  int blocks[6];
+  int i, ndim = 4;
+  int blocks[4];
 
   n_levels = 0;
   levels = malloc(sizeof(ARRAY));
   if (!levels) return -1;
   ArrayInit(levels, sizeof(LEVEL), LEVELS_BLOCK);
 
-  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK6;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK4;
   angz_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(angz_array, sizeof(ANGZ_DATUM), ndim, blocks);
 

@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.12 2003/01/22 21:58:04 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.13 2003/04/20 23:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1208,7 +1208,235 @@ int SortShell(INTERACT_SHELL *s, int *order) {
   }
   return phase;
 }
+
+int InteractingShells(INTERACT_DATUM **idatum,
+		      SHELL_STATE **sbra, 
+		      SHELL_STATE **sket, 
+		      CONFIG *ci, CONFIG *cj,
+		      SHELL_STATE *csf_i, SHELL_STATE *csf_j) {
+  int i, j, k, m, pb, pk;
+  int n, kl, jj, nq, nq_plus, nq_minus, qd;
+  SHELL *bra;
+  INTERACT_SHELL *s;
+  int interaction[4] = {-1, -1, -1, -1};
+  int n_shells;
+
+  s = (*idatum)->s;
+  bra = (*idatum)->bra;
+
+  for (i = 0; i < 4; i++) s[i].index = -1;
+  /* allocate memory. use the sum of two configs to avoid couting the
+     exact size in advance */
+  k = ci->n_shells + cj->n_shells;
+  bra = malloc(sizeof(SHELL)*k);
+  s = (*idatum)->s;
+  i = 0; 
+  j = 0;
+  m = 0;
+  pb = 0;
+  pk = 1;
+  nq_plus = 0;
+  nq_minus = 0;
+  while (1) {
+    if (i >= ci->n_shells) {
+      if (j < cj->n_shells) {
+	k = -1;
+      } else {
+	break;      
+      }
+    } else {
+      if (j >= cj->n_shells) {
+	k = 1;
+      }
+      else {
+	k = CompareShell(ci->shells+i, cj->shells+j);
+      }
+    }
+    if (k > 0) { /* bra has a shell that does not exist in ket */
+      if (nq_plus >= 2) break;
+      if (ci->shells[i].nq > 0) {
+	memcpy(bra+m, ci->shells+i, sizeof(SHELL));
+	UnpackShell(bra+m, &n, &kl, &jj, &nq);
+	nq_plus += nq;
+	if (nq_plus > 2) break;
+	s[pb].index = m;
+	s[pb].n = n;
+	s[pb].kappa = bra[m].kappa;
+	s[pb].j = jj;
+	s[pb].kl = kl;
+	s[pb].nq_bra = nq;
+	s[pb].nq_ket = 0;
+	pb += 2;
+	if (nq == 2) {
+	  memcpy(s+pb, s, sizeof(INTERACT_SHELL));
+	} else {
+	  interaction[pb-2] = m;
+	}
+	m++;
+      }
+      i++;
+    } else if (k < 0) { /* ket has a shell that does not exist in bra */
+      if (nq_minus >= 2) break;
+      if (cj->shells[j].nq > 0) {
+	memcpy(bra+m, cj->shells+j, sizeof(SHELL));
+	UnpackShell(bra+m, &n, &kl, &jj, &nq);
+	nq_minus += nq;
+	if (nq_minus > 2) break;
+	s[pk].index = m;
+	s[pk].n = n;
+	s[pk].kappa = bra[m].kappa;
+	s[pk].j = jj;
+	s[pk].kl = kl;
+	s[pk].nq_bra = 0;
+	bra[m].nq = 0;
+	s[pk].nq_ket = nq;
+	pk += 2;
+	if (nq == 2) {
+	  memcpy(s+pk, s+1, sizeof(INTERACT_SHELL));
+	} else {
+	  interaction[pk-2] = m;
+	}
+	m++;
+      }
+      j++;
+    } else { /* both bra and ket has the shell */
+      memcpy(bra+m, ci->shells+i, sizeof(SHELL));
+      qd = ci->shells[i].nq - cj->shells[j].nq;
+      if (qd > 0) { /* bra has more electrons in the shell */
+	if (nq_plus >= 2) break;
+	UnpackShell(bra+m, &n, &kl, &jj, &nq);
+	nq_plus += qd;
+	if (nq_plus > 2) break;
+	s[pb].index = m;
+	s[pb].n = n;
+	s[pb].kappa = bra[m].kappa;
+	s[pb].j = jj;
+	s[pb].kl = kl;
+	s[pb].nq_bra = nq;
+	s[pb].nq_ket = cj->shells[j].nq;
+	pb += 2;
+	if (qd == 2) {
+	  memcpy(s+pb, s, sizeof(INTERACT_SHELL));
+	} else {
+	  interaction[pb-2] = m;
+	}
+      } else if (qd < 0) { /* ket has more electrons in the shell */
+	if (nq_minus >= 2) break;
+	UnpackShell(bra+m, &n, &kl, &jj, &nq);
+	nq_minus += -qd;
+	if (nq_minus > 2) break;
+	s[pk].index = m;
+	s[pk].n = n;
+	s[pk].kappa = bra[m].kappa;
+	s[pk].j = jj;
+	s[pk].kl = kl;
+	s[pk].nq_bra = nq;
+	s[pk].nq_ket = cj->shells[j].nq;
+	pk += 2;
+	if (qd == -2) {
+	  memcpy(s+pk, s+1, sizeof(INTERACT_SHELL));
+	} else {
+	  interaction[pk-2] = m;
+	}
+      }
+      i++;
+      j++;
+      m++;
+    }
+  }
+  n_shells = m;
+  if (nq_plus != nq_minus ||
+      nq_plus > 2 ||
+      nq_minus > 2 ||
+      i < ci->n_shells ||
+      j < cj->n_shells) {
+    free(bra);
+    bra = NULL;
+    n_shells = -1;
+    goto END;
+  }    
+
+#if (FAC_DEBUG > DEBUG_RECOUPLE)
+  fprintf(debug_log, "before sort: %d %d %d %d\n", 
+	  interaction[0], interaction[1], 
+	  interaction[2], interaction[3]);
+#endif
+
+  /* determine the phase factor */
+  for (j = 0; j < 3; j++){
+    for (i = 3; i > j; i--) {
+      if (interaction[i] < interaction[i-1]) {
+	k = interaction[i];
+	interaction[i] = interaction[i-1];
+	interaction[i-1] = k;
+      }
+    }
+  }
+
+#if (FAC_DEBUG > DEBUG_RECOUPLE)
+  fprintf(debug_log, "after sort: %d %d %d %d\n", 
+	  interaction[0], interaction[1], 
+	  interaction[2], interaction[3]);
+#endif
   
+  (*idatum)->phase = 0;
+  if (interaction[0] >= 0) {
+    for (j = interaction[0]+1; j <= interaction[1]; j++) {
+      (*idatum)->phase += bra[j].nq;
+    }
+    for (j = interaction[2]+1; j <= interaction[3]; j++) {
+      (*idatum)->phase += bra[j].nq;
+    }
+  } else if (interaction[2] >= 0) {
+    for (j = interaction[2]+1; j <= interaction[3]; j++) {
+      (*idatum)->phase += bra[j].nq;
+    }
+    (*idatum)->phase += 1;
+  }
+
+  if (n_shells > 0) {
+    i = 0;
+    j = 0;
+      
+    (*sbra) = calloc(n_shells, sizeof(SHELL_STATE));
+    (*sket) = calloc(n_shells, sizeof(SHELL_STATE));
+    for (m = 0; m < n_shells; m++) {
+      if (i < ci->n_shells) {
+	if (bra[m].n == ci->shells[i].n &&
+	      bra[m].kappa == ci->shells[i].kappa) {
+	  memcpy((*sbra)+m, csf_i+i, sizeof(SHELL_STATE));
+	  i++;
+	} else {
+	  (*sbra)[m].totalJ = csf_i[i].totalJ;
+	}
+      }
+      if (j < cj->n_shells) {
+	if (bra[m].n == cj->shells[j].n &&
+	    bra[m].kappa == cj->shells[j].kappa) {
+	  memcpy((*sket)+m, csf_j+j, sizeof(SHELL_STATE));
+	  j++;
+	} else {
+	  (*sket)[m].totalJ = csf_j[j].totalJ;
+	}	
+      }
+    }
+  }
+
+ END:
+  if (n_shells == 0) n_shells = -1;
+  (*idatum)->n_shells = n_shells;
+  if (n_shells > 0) {
+    (*idatum)->bra = (SHELL *) realloc(bra, sizeof(SHELL)*n_shells);
+    /* adjust the index so that it counts from inner shells */
+    for (i = 0; i < 4; i++) {
+      if (s[i].index >= 0) 
+	s[i].index = n_shells - 1 - s[i].index;
+    }     
+  }
+
+  return n_shells;
+}
+
 /* 
 ** FUNCTION:    GetInteract
 ** PURPOSE:     determing which shells can be interacting.
@@ -1217,60 +1445,57 @@ int SortShell(INTERACT_SHELL *s, int *order) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
-		SHELL_STATE **sbra, SHELL_STATE **sket, 
-		CONFIG *ci, int ki, CONFIG *cj, int kj,
-		STATE *si, STATE *sj) {
-  int i, j, k, m, pb, pk;
-  int n, kl, jj, nq, nq_plus, nq_minus, qd;
-  SHELL_STATE *csf_i, *csf_j;
-  int interaction[4] = {-1, -1, -1, -1};
+int GetInteract(INTERACT_DATUM **idatum,
+		SHELL_STATE **sbra, 
+		SHELL_STATE **sket, 
+		int kgi, int kgj,
+		int kci, int kcj, 
+		int ki, int kj, int ifb) {
+  int i, j, m;
+  CONFIG *ci, *cj, cip;
+  SHELL_STATE *csf_i, *csf_j, *csf_ip;
+  SHELL *bra;
+  INTERACT_SHELL *s;
   int n_shells;
   int index[4];
-  INTERACT_DATUM *interact_datum;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;  
   start = clock();
 #endif
 
+  ci = GetConfigFromGroup(kgi, kci);
+  cj = GetConfigFromGroup(kgj, kcj);
   csf_i = ci->csfs + ki;
   csf_j = cj->csfs + kj;
   if (ci->n_shells <= 0 || cj->n_shells <= 0) return -1;
-  if (abs(ci->n_shells - cj->n_shells) > 2) return -1;
-
-  index[0] = si->kgroup;
-  index[1] = sj->kgroup;
-  index[2] = si->kcfg;
-  index[3] = sj->kcfg;
+  if (abs(ci->n_shells+ifb - cj->n_shells) > 2) return -1;
 
   n_shells = -1;
-  interact_datum = (INTERACT_DATUM *) MultiSet(interact_shells, index, NULL);
-  if (interact_datum->n_shells < 0) goto OUT;
-  if (interact_datum->n_shells > 0) {
-    n_shells = interact_datum->n_shells;
-    (*bra) = interact_datum->bra;
- 
-    for (i = 0; i < 4; i++) {
-      k = interact_datum->s[i];
-      s[i].index = k;
-      UnpackShell((*bra)+k, &n, &kl, &jj, &nq);
-      s[i].n = n;
-      s[i].kappa = (*bra)[k].kappa;
-      s[i].kl = kl;
-      s[i].j = jj;
-      s[i].nq_bra = nq;
-    }
-    *phase = interact_datum->phase;  
-
+  /* check if this is a repeated call,
+   * if not, search in the array.
+   */
+  if (*idatum == NULL) {
+    index[0] = kgi;
+    index[1] = kgj;
+    index[2] = kci;
+    index[3] = kcj;
+    (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells,
+					    index, NULL);
+  }
+  if ((*idatum)->n_shells < 0) return -1;
+  if ((*idatum)->n_shells > 0) {
+    n_shells = (*idatum)->n_shells;
+    bra = (*idatum)->bra;
+    s = (*idatum)->s;
     i = 0;
     j = 0;
     (*sbra) = calloc(n_shells, sizeof(SHELL_STATE));
     (*sket) = calloc(n_shells, sizeof(SHELL_STATE));
     for (m = 0; m < n_shells; m++) {
       if (i < ci->n_shells) {
-	if ((*bra)[m].n == ci->shells[i].n &&
-	    (*bra)[m].kappa == ci->shells[i].kappa) {
+	if (bra[m].n == ci->shells[i].n &&
+	    bra[m].kappa == ci->shells[i].kappa) {
 	  memcpy((*sbra)+m, csf_i+i, sizeof(SHELL_STATE));
 	  i++;
 	} else {
@@ -1278,255 +1503,48 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
 	}
       }
       if (j < cj->n_shells) {
-	if ((*bra)[m].n == cj->shells[j].n &&
-	    (*bra)[m].kappa == cj->shells[j].kappa) {
+	if (bra[m].n == cj->shells[j].n &&
+	    bra[m].kappa == cj->shells[j].kappa) {
 	  memcpy((*sket)+m, csf_j+j, sizeof(SHELL_STATE));
-	  for (k = 0; k < 4; k++) {
-	    if (m == s[k].index) s[k].nq_ket = cj->shells[j].nq;
-	  }
 	  j++;
 	} else {
 	  (*sket)[m].totalJ = csf_j[j].totalJ;
-	  for (k = 0; k < 4; k++) {
-	    if (m == s[k].index) s[k].nq_ket = 0;
-	  }
 	}	
-      } else {
-	for (k = 0; k < 4; k++) {
-	  if (m == s[k].index) s[k].nq_ket = 0;
-	}
       }
+    }
+    /* the quantum number for the free electron must be reset */
+    if (ifb) {
+      (*sbra)[0].shellJ = 1;
+      (*sbra)[0].totalJ = 1;
+      (*sbra)[0].nu = 1;
+      (*sbra)[0].Nr = 0;
     }
   } else {
-
-    for (i = 0; i < 4; i++) s[i].index = -1;
-    /* allocate memory. use the sum of two configs to avoid couting the
-     exact size in advance */
-    k = ci->n_shells + cj->n_shells;
-
-    (*bra) = malloc(sizeof(SHELL)*k);
-    i = 0; 
-    j = 0;
-    m = 0;
-    pb = 0;
-    pk = 1;
-    nq_plus = 0;
-    nq_minus = 0;
-    while (1) {
-      if (i >= ci->n_shells) {
-	if (j < cj->n_shells) {
-	  k = -1;
-	} else {
-	  break;      
-	}
-      } else {
-	if (j >= cj->n_shells) {
-	  k = 1;
-	}
-	else {
-	  k = CompareShell(ci->shells+i, cj->shells+j);
-	}
-      }
-      if (k > 0) { /* bra has a shell that does not exist in ket */
-	if (nq_plus >= 2) break;
-	if (ci->shells[i].nq > 0) {
-	  memcpy((*bra)+m, ci->shells+i, sizeof(SHELL));
-	  UnpackShell((*bra)+m, &n, &kl, &jj, &nq);
-	  nq_plus += nq;
-	  if (nq_plus > 2) break;
-	  s[pb].index = m;
-	  s[pb].n = n;
-	  s[pb].kappa = (*bra)[m].kappa;
-	  s[pb].j = jj;
-	  s[pb].kl = kl;
-	  s[pb].nq_bra = nq;
-	  s[pb].nq_ket = 0;
-	  pb += 2;
-	  if (nq == 2) {
-	    memcpy(s+pb, s, sizeof(INTERACT_SHELL));
-	  } else {
-	    interaction[pb-2] = m;
-	  }
-	  m++;
-	}
-	i++;
-      } else if (k < 0) { /* ket has a shell that does not exist in bra */
-	if (nq_minus >= 2) break;
-	if (cj->shells[j].nq > 0) {
-	  memcpy((*bra)+m, cj->shells+j, sizeof(SHELL));
-	  UnpackShell((*bra)+m, &n, &kl, &jj, &nq);
-	  nq_minus += nq;
-	  if (nq_minus > 2) break;
-	  s[pk].index = m;
-	  s[pk].n = n;
-	  s[pk].kappa = (*bra)[m].kappa;
-	  s[pk].j = jj;
-	  s[pk].kl = kl;
-	  s[pk].nq_bra = 0;
-	  (*bra)[m].nq = 0;
-	  s[pk].nq_ket = nq;
-	  pk += 2;
-	  if (nq == 2) {
-	    memcpy(s+pk, s+1, sizeof(INTERACT_SHELL));
-	  } else {
-	    interaction[pk-2] = m;
-	  }
-	  m++;
-	}
-	j++;
-      } else { /* both bra and ket has the shell */
-	memcpy((*bra)+m, ci->shells+i, sizeof(SHELL));
-	qd = ci->shells[i].nq - cj->shells[j].nq;
-	if (qd > 0) { /* bra has more electrons in the shell */
-	  if (nq_plus >= 2) break;
-	  UnpackShell((*bra)+m, &n, &kl, &jj, &nq);
-	  nq_plus += qd;
-	  if (nq_plus > 2) break;
-	  s[pb].index = m;
-	  s[pb].n = n;
-	  s[pb].kappa = (*bra)[m].kappa;
-	  s[pb].j = jj;
-	  s[pb].kl = kl;
-	  s[pb].nq_bra = nq;
-	  s[pb].nq_ket = cj->shells[j].nq;
-	  pb += 2;
-	  if (qd == 2) {
-	    memcpy(s+pb, s, sizeof(INTERACT_SHELL));
-	  } else {
-	    interaction[pb-2] = m;
-	  }
-	} else if (qd < 0) { /* ket has more electrons in the shell */
-	  if (nq_minus >= 2) break;
-	  UnpackShell((*bra)+m, &n, &kl, &jj, &nq);
-	  nq_minus += -qd;
-	  if (nq_minus > 2) break;
-	  s[pk].index = m;
-	  s[pk].n = n;
-	  s[pk].kappa = (*bra)[m].kappa;
-	  s[pk].j = jj;
-	  s[pk].kl = kl;
-	  s[pk].nq_bra = nq;
-	  s[pk].nq_ket = cj->shells[j].nq;
-	  pk += 2;
-	  if (qd == -2) {
-	    memcpy(s+pk, s+1, sizeof(INTERACT_SHELL));
-	  } else {
-	    interaction[pk-2] = m;
-	  }
-	}
-	i++;
-	j++;
-	m++;
-      }
+    if (ifb) {
+      cip.n_shells = ci->n_shells + 1;
+      cip.shells = malloc(sizeof(SHELL)*cip.n_shells);
+      cip.csfs = malloc(sizeof(SHELL_STATE)*cip.n_shells);
+      memcpy(cip.shells+1, ci->shells, sizeof(SHELL)*ci->n_shells);
+      cip.shells[0].n = 9999;
+      cip.shells[0].nq = 1;
+      cip.shells[0].kappa = -1;
+      cip.n_csfs = 1;
+      csf_ip = cip.csfs;
+      memcpy(csf_ip+1, csf_i, sizeof(SHELL_STATE)*ci->n_shells);
+      csf_ip[0].shellJ = 1;
+      csf_ip[0].totalJ = 1;
+      csf_ip[0].nu = 1;
+      csf_ip[0].Nr = 0;
+      n_shells = InteractingShells(idatum, sbra, sket, 
+				   &cip, cj, csf_ip, csf_j);
+      free(cip.shells);
+      free(cip.csfs);
+    } else {
+      n_shells = InteractingShells(idatum, sbra, sket, 
+				   ci, cj, csf_i, csf_j);
     }
-    n_shells = m;
-    if (nq_plus != nq_minus ||
-	nq_plus > 2 ||
-	nq_minus > 2 ||
-	i < ci->n_shells ||
-	j < cj->n_shells) {
-      free((*bra));
-      n_shells = -1;
-      goto END;
-    }    
-
-#if (FAC_DEBUG > DEBUG_RECOUPLE)
-    fprintf(debug_log, "before sort: %d %d %d %d\n", 
-	    interaction[0], interaction[1], 
-	    interaction[2], interaction[3]);
-#endif
-
-    /* determine the phase factor */
-    for (j = 0; j < 3; j++){
-      for (i = 3; i > j; i--) {
-	if (interaction[i] < interaction[i-1]) {
-	  k = interaction[i];
-	  interaction[i] = interaction[i-1];
-	  interaction[i-1] = k;
-	}
-      }
-    }
-
-#if (FAC_DEBUG > DEBUG_RECOUPLE)
-    fprintf(debug_log, "after sort: %d %d %d %d\n", 
-	    interaction[0], interaction[1], 
-	    interaction[2], interaction[3]);
-#endif
-
-    (*phase) = 0;
-    if (interaction[0] >= 0) {
-      for (j = interaction[0]+1; j <= interaction[1]; j++) {
-	(*phase) += (*bra)[j].nq;
-      }
-      for (j = interaction[2]+1; j <= interaction[3]; j++) {
-	(*phase) += (*bra)[j].nq;
-      }
-    } else if (interaction[2] >= 0) {
-      for (j = interaction[2]+1; j <= interaction[3]; j++) {
-	(*phase) += (*bra)[j].nq;
-
-#if (FAC_DEBUG > DEBUG_RECOUPLE)
-	fprintf(debug_log,"%d %d %d\n", 
-		(*bra)[j].n, (*bra)[j].kappa, (*bra)[j].nq);
-#endif
-
-      }
-      (*phase) += 1;
-    }
-
-#if (FAC_DEBUG > DEBUG_RECOUPLE)
-    fprintf(debug_log, "phase %d\n", *phase);
-#endif
-
-    if (n_shells > 0) {
-      i = 0;
-      j = 0;
-      
-      (*sbra) = calloc(n_shells, sizeof(SHELL_STATE));
-      (*sket) = calloc(n_shells, sizeof(SHELL_STATE));
-      for (m = 0; m < n_shells; m++) {
-	if (i < ci->n_shells) {
-	  if ((*bra)[m].n == ci->shells[i].n &&
-	      (*bra)[m].kappa == ci->shells[i].kappa) {
-	    memcpy((*sbra)+m, csf_i+i, sizeof(SHELL_STATE));
-	    i++;
-	  } else {
-	    (*sbra)[m].totalJ = csf_i[i].totalJ;
-	  }
-	}
-	if (j < cj->n_shells) {
-	  if ((*bra)[m].n == cj->shells[j].n &&
-	      (*bra)[m].kappa == cj->shells[j].kappa) {
-	    memcpy((*sket)+m, csf_j+j, sizeof(SHELL_STATE));
-	    j++;
-	  } else {
-	    (*sket)[m].totalJ = csf_j[j].totalJ;
-	  }	
-	}
-      }
-    }
-
-  END:
-    if (n_shells == 0) n_shells = -1;
-    interact_datum->n_shells = n_shells;
-    if (n_shells > 0) {
-      interact_datum->phase = IsOdd(*phase);
-      interact_datum->bra = (SHELL *) realloc((*bra), 
-					      sizeof(SHELL)*n_shells);
-      *bra = interact_datum->bra;
-      for (i = 0; i < 4; i++) interact_datum->s[i] = s[i].index;
-    }
-  }      
-
-  /* adjust the index so that it counts from inner shells */
-  if (n_shells > 0) {
-    for (i = 0; i < 4; i++) {
-      if (s[i].index >= 0) 
-	s[i].index = n_shells - 1 - s[i].index;
-    }     
   }
 
- OUT:
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.interact += stop -start;
@@ -1546,7 +1564,8 @@ void TestAngular(void) {
   int n_shells;
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
-  INTERACT_SHELL s[4];
+  INTERACT_DATUM *idatum;
+  INTERACT_SHELL *s;
   INTERACT_SHELL es[4];
   char name1[LEVEL_NAME_LEN];
   char name2[LEVEL_NAME_LEN];
@@ -1565,8 +1584,11 @@ void TestAngular(void) {
 	c2 = GetConfig((STATE *) ArrayGet(s2, q));
 	ConstructLevelName(name2, NULL, NULL, &(s2->s));
 	fprintf(debug_log, "Bra: %s \nKet: %s\n\n", name1, name2);
-	n_shells = GetInteract(&phase, s, &bra, &sbra, &sket, 
+	n_shells = GetInteract(&idatum, &sbra, &sket, 
 			       c1, s1->s.kstate, c2, s2->s.kstate, s1, s2);
+	phase = idatum->phase;
+	s = idatum->s;
+	bra = idatum->bra;
 
 	if (n_shells <= 0) {
 	  fprintf(debug_log, "no interaction for this case\n");

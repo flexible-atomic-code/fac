@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.66 2003/04/18 21:11:33 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.67 2003/04/20 23:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -305,7 +305,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
     i1 = rec_complex[t].s0;
     for (i = i0; i < i1; i++) {
       lev = GetLevel(i);
-      m = lev->basis[0];
+      m = lev->pb;
       sym = GetSymmetry(lev->pj);
       s = (STATE *) ArrayGet(&(sym->states), m);
       if (!InGroups(s->kgroup, k, kg)) {
@@ -343,7 +343,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	i1 = rec_complex[t].s0;
 	for (j = i0; j < i1; j++) {
 	  lev = GetLevel(j);
-	  m = lev->basis[0];
+	  m = lev->pb;
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
@@ -821,7 +821,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
   if (*e <= 0.0) return -1;
   log_e = log(*e);
 
-  i = lev1->basis[0];
+  i = lev1->pb;
 
   j1 = lev1->pj;
   j2 = lev2->pj;

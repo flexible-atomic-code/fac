@@ -17,10 +17,10 @@
 
 #ifdef PERFORM_STATISTICS
 typedef struct _RAD_TIMING_ {
-  clock_t radial_1e;
-  clock_t radial_2e;
-  clock_t dirac;
-  clock_t radial_slater;
+  double radial_1e;
+  double radial_2e;
+  double dirac;
+  double radial_slater;
 } RAD_TIMING;
 
 int GetRadTiming(RAD_TIMING *t);
