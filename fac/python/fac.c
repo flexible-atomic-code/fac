@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.102 2005/02/03 22:14:45 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.103 2005/04/01 00:17:48 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1128,7 +1128,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetUTA(PyObject *self, PyObject *args) {
-  int m;
+  int m, mci;
 
   if (sfac_file) {
     SFACStatement("SetUTA", args, NULL);
@@ -1136,9 +1136,10 @@ static PyObject *PSetUTA(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  mci = 1;
+  if (!PyArg_ParseTuple(args, "i|i", &m, &mci)) return NULL;
   
-  SetUTA(m);
+  SetUTA(m, mci);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -3981,18 +3982,24 @@ static PyObject *PLevelInfor(PyObject *self, PyObject *args) {
   
   if (!PyArg_ParseTuple(args, "si", &fn, &i)) return NULL;
 
+  r.ncomplex[0] = '\0';
+  r.sname[0] = '\0';
+  r.name[0] = '\0';
   k = LevelInfor(fn, i, &r);
   
   if (k < 0) {
-    return Py_BuildValue("()");
+    if (i >= 0) {
+      return Py_BuildValue("()");
+    } else {
+      return Py_BuildValue("i", k);
+    }
   }
-  if (k > 0) {
-    r.ncomplex[0] = '\0';
-    r.sname[0] = '\0';
-    r.name[0] = '\0';
+  if (i >= 0) {
+    return Py_BuildValue("(diisss)", r.energy, r.p, r.j,
+			 r.ncomplex, r.sname, r.name);
+  } else {
+    return Py_BuildValue("i", k);
   }
-  return Py_BuildValue("(diisss)", r.energy, r.p, r.j,
-		       r.ncomplex, r.sname, r.name);
 }
 
 static PyObject *PCECross(PyObject *self, PyObject *args) { 
@@ -4470,6 +4477,7 @@ static struct PyMethodDef fac_methods[] = {
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
+  {"LevelInfo", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},

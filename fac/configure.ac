@@ -76,7 +76,7 @@ then
   fi
 fi
 CFLAGS="$copt $cpic"
-FFLAGS="$fopt $fpic"
+FFLAGS="$fpic"
 
 # Debugging option
 AC_ARG_ENABLE(cdebug,
@@ -241,6 +241,11 @@ case "$host_os" in
   *)
   ;;
 esac 
+
+# add fopt
+FFLAGSNO="$FFLAGS"
+AC_SUBST(FFLAGSNO)
+FFLAGS="$FFLAGS $fopt"
       
 # add include pathes.	      
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
