@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.19 2002/01/17 14:54:55 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.20 2002/01/17 19:52:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1320,6 +1320,7 @@ int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p) {
 int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {  
   int nz, j1, j2, kb;
   int n_shells, *k, k0, nkk;
+  int jf, jp, tf;
   INTERACT_SHELL s[4];
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
@@ -1366,10 +1367,6 @@ int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {
   cup = GetConfig(sup);
   if (abs(clow->n_shells+1 - cup->n_shells) > 1) goto END;
   
-  k = &k0;
-  r = &r0;
-  k0 = 0;
-
   clowf.shells = sh;
   clowf.csfs = cs;    
 
@@ -1402,16 +1399,32 @@ int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {
     goto END;
   }
 
-  s[0].kappa = s[1].kappa;
-  s[0].j = s[1].j;
-  s[0].kl = s[1].kl;
-  sbra[0].shellJ = s[0].j;
-  
+  nkk = GetMaxRank();
+  tf = 0;
+  for (k0 = 0; k0 <= nkk; k0 += 2) {
+    for (jf = abs(k0-s[1].j); jf <= k0+s[1].j; jf += 2) {
+      for (jp = abs(jf-j1); jp <= jf+j1; jp += 2) {
+	if (Triangle(jp, j2, k0) && Triangle(j1, j2, s[1].j)) {
+	  tf = 1;
+	  goto TF;
+	}
+      }
+    }
+  }
+
+ TF:
   nz = -1;
-  nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
-  if (nkk == 1) {
-    if (IsOdd(phase+(j1+s[0].j-j2)/2)) *r = -(*r);
-    (*r) *= sqrt(s[0].j + 1.0);
+  if (tf == 1) {
+    s[0].j = jf;
+    s[0].kl = jf+1;
+    s[0].kappa = GetKappaFromJL(s[0].j, s[0].kl);
+    sbra[0].shellJ = jf;
+    sbra[0].totalJ = jp; 
+    k = &k0;
+    r = &r0;
+    nkk = AngularZ(&r, &k, 1, n_shells, sbra, sket, s, s+1);
+    if (IsOdd(phase+(jp+j2-k0)/2)) *r = -(*r);
+    *r /= sqrt(jp+1.0)*W6j(j1, jf, jp, k0, j2, s[1].j);
     kb = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
     afb.kb = kb;
     afb.coeff = *r;
@@ -1609,10 +1622,6 @@ int AngularZxZFreeBoundStates(ANGULAR_ZxZMIX **ang,
 
   
   if (n_shells <= 0) {
-#ifdef PERFORM_STATISTICS
-  stop = clock();
-  timing.angzfb_states += stop-start;
-#endif
     goto OUT;
   } 
 
@@ -1759,7 +1768,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   STATE *slow, *sup;
   SYMMETRY *sym1, *sym2;
   LEVEL *lev1, *lev2;
-  double mix1, mix2;
+  double mix1, mix2, sqrt_j2;
   int kg, jf, kb, ia, j1, j2;
   ANGULAR_ZFB *ang_sub;
 #ifdef PERFORM_STATISTICS
@@ -1778,36 +1787,48 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   
   sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[0]);
   if (sup->kgroup < 0) {
-    n = 1;
-    nz = 1;
-    (*ang) = malloc(sizeof(ANGULAR_ZFB));
-    (*ang)->kb = sup->kcfg;
-    (*ang)->coeff = 0.0;
+    sqrt_j2 = sqrt(j2 + 1.0);
+    n = 0;
+    nz = ANGZ_BLOCK;
+    (*ang) = malloc(sizeof(ANGULAR_ZFB)*nz);
     for (j = 0; j < lev2->n_basis; j++) {
       mix2 = lev2->mixing[j];
       if (fabs(mix2) < angz_cut) {
-	n = 0;
 	break;
       }
       sup = (STATE *) ArrayGet(&(sym2->states), lev2->basis[j]);
       kg = sup->kgroup;
       kg = -kg-1;
       if (kg == lower) {
-	(*ang)->kb = sup->kcfg;
-	kb = GetOrbital(sup->kcfg)->kappa;
-	jf = GetJFromKappa(kb);
-	mix2 *= sqrt(j2 + 1.0);
-	if (IsEven((j2+jf-j1)/2)) mix2 = -mix2;
-	(*ang)->coeff = mix2;
-	break;
+	kb = sup->kcfg;
+	jf = GetOrbital(kb)->kappa;
+	jf = GetJFromKappa(jf);
+	r0 = mix2*sqrt_j2;
+	if (IsEven((j2+jf-j1)/2)) r0 = -r0;
+	for (ia = 0; ia < n; ia++) {
+	  if ((*ang)[ia].kb == kb) break;
+	}
+	if (ia == n) {
+	  n++;
+	  if (n > nz) {
+	    nz += ANGZ_BLOCK;
+	    *ang = realloc((*ang), nz*sizeof(ANGULAR_ZFB));
+	    if (!(*ang)) {
+	      printf("Cannot enlarge AngularZFB array\n");
+	      return -1;
+	    }
+	  }
+	  (*ang)[ia].kb = kb;
+	  (*ang)[ia].coeff = r0;
+	} else {
+	  (*ang)[ia].coeff += r0;
+	}
       }
     }    
-    if ((*ang)->coeff + 1.0 == 1.0) n = 0;
   } else {
     n = 0;
     nz = ANGZ_BLOCK;
     (*ang) = malloc(sizeof(ANGULAR_ZFB)*nz);
-    
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
       if (fabs(mix1) < angz_cut) break;
@@ -1828,6 +1849,14 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	  }
 	  if (ia == n) {
 	    n++;
+	    if (n > nz) {
+	      nz += ANGZ_BLOCK;
+	      *ang = realloc((*ang), nz*sizeof(ANGULAR_ZFB));
+	      if (!(*ang)) {
+	        printf("Cannot enlarge AngularZFB array\n");
+	        return -1;
+	      }
+	    }
 	    (*ang)[ia].kb = kb;
 	    (*ang)[ia].coeff = r0;
 	  } else {
@@ -1836,10 +1865,10 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	}
       }
     }
+  }
 
-    if (n == 0) {
-      free(*ang);
-    }
+  if (n == 0) {
+    free(*ang);
   }
 
 #ifdef PERFORM_STATISTICS

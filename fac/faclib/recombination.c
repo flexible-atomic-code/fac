@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.37 2002/01/17 14:54:54 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.38 2002/01/17 19:52:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -559,11 +559,6 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
     return 0;
   }
 
-  if (k1 != k0) {
-    orb = GetOrbital(k1);
-    if (GetJFromKappa(orb->kappa) != jb0) return -1;
-  }
-
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
@@ -730,6 +725,7 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
   int gauge, mode;
   int nq, nqk;
   double *p;
+  int kb, kbp, jb, jbp;
 
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -756,13 +752,20 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
     nq = 0;
     p = *rqc;
     for (i = 0; i < nz; i++) {
+      kb = ang[i].kb;
+      jb = GetOrbital(kb)->kappa;
+      jb = GetJFromKappa(jb);
       for (j = 0; j <= i; j++) {
+        kbp = ang[j].kb;
+        jbp = GetOrbital(kbp)->kappa;
+        jbp = GetJFromKappa(jbp);
+	if (jbp != jb) continue;
 	if (nq == *nqkc) {
 	  *nqkc *= 2;
 	  *rqc = (double *) realloc(*rqc, sizeof(double)*(*nqkc));
 	  p = *rqc + nq*nqk;
 	}
-	k = RRRadialQk(p, *eb, ang[i].kb, ang[j].kb, m);
+	k = RRRadialQk(p, *eb, kb, kbp, m);
 	if (k < 0) continue;
 	a = ang[i].coeff*ang[j].coeff;    
 	if (j != i) {
@@ -779,7 +782,7 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
       }
     }
     for (ie = 0; ie < n_usr; ie++) {
-      rqu[ie] = xusr[ie]*tq[ie];
+      rqu[ie] = xusr[ie]*rqu[ie];
     }
   } else {
     gauge = GetTransitionGauge();
@@ -792,8 +795,15 @@ int BoundFreeOS(double *rqu, int *nqkc, double **rqc, double *eb,
       tq[ie] = 0.0;
     }
     for (i = 0; i < nz; i++) {
+      kb = ang[i].kb;
+      jb = GetOrbital(kb)->kappa;
+      jb = GetJFromKappa(jb);
       for (j = 0; j <= i; j++) {
-	k = RRRadialQk(rq, *eb, ang[i].kb, ang[j].kb, m);
+        kbp = ang[j].kb;
+        jbp = GetOrbital(kbp)->kappa;
+        jbp = GetJFromKappa(jbp);
+	if (jbp != jb) continue;
+	k = RRRadialQk(rq, *eb, kb, kbp, m);
 	if (k < 0) continue;
 	a = ang[i].coeff*ang[j].coeff;    
 	if (j != i) {
