@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.27 2002/01/14 23:19:42 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.28 2002/01/15 07:36:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -247,6 +247,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   qkt = 0.0;
   q = 1;
   m = 1;
+  *nkl = -1;
   eps = pw_scratch.tolerance;
   if (type >= CBMULTIPOLES) {
     z = GetCoulombBetheAsymptotic(tegrid[0], e1);
@@ -372,7 +373,7 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	      SlaterTotal(&sd, &se, js, ks, k, 1);
 	    } 
 	    r = sd + se;
-	    if (i == 0 && (!sd && !se)) break;
+	    if (i == 0 && (sd == 0.0 && se == 0.0)) break;
 	    (*p)[q++] = r;
 	    r = r*r;
 	    if (i == 0) {
@@ -489,7 +490,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
       nkl = nklp;
     } 
     nklp = nkl-1;
-    
     for (ite = 0; ite < n_tegrid; ite++) {
       te = tegrid[ite];
       if (egrid_type == 0) e1 = egrid[ie] - te;      
@@ -971,10 +971,9 @@ int CollisionStrength(double *qkt, double *params, double *e,
       rqk[ie] = 0.0;
     }
   }
-  
+ 
   nz = AngularZMix(&ang, lower, upper, -1, -1);
   if (nz <= 0) return -1;
-
   type = -1;
   for (i = 0; i < nz; i++) {
     for (j = i; j < nz; j++) {

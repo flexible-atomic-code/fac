@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.17 2002/01/14 23:19:44 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.18 2002/01/15 07:36:37 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1282,7 +1282,7 @@ int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2) {
       
   free(sbra);
   free(sket);  
-  
+
   if (n <= 0) {
     angz_datum->nz = -1;
     free(*ang);
@@ -2127,7 +2127,6 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
 	jmin = Max(jmin, abs(jb-ang_z[i].k));
 	jmax = j1+j2;
 	jmax = Min(jmax, jb+ang_z[i].k);
-	/*	printf("%d %d %d %d\n", i, jmin, jmax, ang_sub[i].k); */
 	for (jf = jmin; jf <= jmax; jf += 2) {
 	  r0 = W6j(j1, jf, j2, jb, jup, ang_z[i].k);
 	  if (fabs(r0) < EPS10) continue;

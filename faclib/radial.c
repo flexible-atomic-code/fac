@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.33 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.34 2002/01/15 07:36:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -227,10 +227,13 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
-    for (j = jmax; j > 0; j--) {
-      if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
+    if (potential->N > 1) {
+      for (j = jmax; j > 0; j--) {
+        if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
+      }
+      potential->r_core = j+1;
     }
-    potential->r_core = j+1;
+
     if (initp == 0) {
       for (i = 0; i < MAX_POINTS; i++) {
 	v[i] = u[i];
@@ -415,7 +418,11 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
   potential->lambda = 0.5*z;
-  potential->r_core = MAX_POINTS-5;
+  if (potential->N > 1) {
+    potential->r_core = MAX_POINTS-5;
+  } else {
+    potential->r_core = MAX_POINTS/2;
+  }
 
   no_old = 0;  
   tol = 1.0; 
@@ -2275,7 +2282,9 @@ int IntegrateSinCos(int j, double *x, double *y,
   q = i-1; 
   m = j-q;
   if (m < 2) {
-    r[k] = r[k-2];
+    if (k < MAX_POINTS) {
+      r[k] = r[k-2];
+    }
     return 0;
   }
 
