@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.44 2003/06/02 16:27:57 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.45 2003/06/19 02:31:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2057,7 +2057,8 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	    a = h.usr_egrid[t];
 	    if (h.usr_egrid_type == 1) a += e;
 	    a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2 * a;
-	    a = PI * AREA_AU20/(2.0*a*(mem_en_table[r.lower].j+1.0));
+	    a = PI * AREA_AU20/(2.0*a);
+	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= r.strength[p2];
 	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
 		    h.usr_egrid[t]*HARTREE_EV,

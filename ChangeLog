@@ -1,4 +1,7 @@
-version 0.9.7, 06/6/2003
+version 0.9.8, 06/18/2003
+	1. bug fix on CETableMSub.
+	
+version 0.9.7, 06/06/2003
 	1. move LevelInfor from crm to fac. remove MemENTable from crm.
 	2. do not write the data block header if the block is empty.
 	3. put small energy corrections for He-like ions in atom.py.

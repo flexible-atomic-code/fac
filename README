@@ -1,9 +1,10 @@
-# rcsid = $Id: README,v 1.31 2003/02/02 21:13:55 mfgu Exp $
+# rcsid = $Id: README,v 1.32 2003/06/19 02:31:49 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
 README,      this file.
+ChangeLog,   changes.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 demo/,       some demo scripts.
@@ -18,7 +19,7 @@ quadpack/,   some routines from quadpack for quadrature.
 mpfun/,      it used to be the multi-precision floating point arithmetic 
              package by Beiley. Since v0.8.6, it was replaced by my own
 	     implementation of quad-precision arithmetics.
-ode/,	     Livermore Solve for odinary differential equations.
+ode/,	     Livermore Solver for odinary differential equations.
 python/,     python interface.
 sfac/,       non-python interface.
 toms/,       some numerical routines from TOMS.
