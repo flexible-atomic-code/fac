@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.40 2002/11/15 17:05:31 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.41 2002/11/27 16:43:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3905,15 +3905,16 @@ int DRBranch(void) {
   return 0;
 }
 
-int DRStrength(char *fn, int nele, int ilev0) {
+int DRStrength(char *fn, int nele, int mode, int ilev0) {
   ION *ion;
-  RATE *r;
+  RATE *r, *rp;
   LBLOCK *blk1;
-  BLK_RATE *brts;
+  BLK_RATE *brts, *brtsp;
   DR_RECORD r1;
   DR_HEADER hdr;
   F_HEADER fhdr;
   int k, m, t, p, n, vnl, vn, vl;
+  int mp, tp;
   FILE *f;
   
   if (ion0.atom <= 0) {
@@ -3967,10 +3968,35 @@ int DRStrength(char *fn, int nele, int ilev0) {
 	  r1.energy = ion->energy[r->i] - ion->energy[ilev0];
 	  r1.j = ion->j[r->i];
 	  r1.vl = vl;
-	  r1.br = blk1->r[p];
 	  r1.ai = r->dir;
 	  r1.total_rate = blk1->total_rate[p];
-	  WriteDRRecord(f, &r1);
+	  if (mode == 0) {
+	    r1.flev = -1;
+	    r1.br = blk1->r[p];
+	    WriteDRRecord(f, &r1);
+	  } else if (mode == 1) {
+	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
+	      brtsp = (BLK_RATE *) ArrayGet(ion->tr_rates, tp);
+	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
+		rp = (RATE *) ArrayGet(brtsp->rates, mp);
+		if (rp->i != r1.ilev) continue;
+		r1.flev = rp->f;
+		r1.br = rp->dir/r1.total_rate;
+		WriteDRRecord(f, &r1);
+	      }
+	    }
+	  } else if (mode == 2) {
+	    for (tp = 0; tp < ion->ai_rates->dim; tp++) {
+	      brtsp = (BLK_RATE *) ArrayGet(ion->ai_rates, tp);
+	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
+		rp = (RATE *) ArrayGet(brtsp->rates, mp);
+		if (rp->i != r1.ilev) continue;
+		r1.flev = rp->f;
+		r1.br = rp->dir/r1.total_rate;
+		WriteDRRecord(f, &r1);
+	      }
+	    }
+	  }
 	}
       }
       break;

@@ -231,14 +231,14 @@ typedef struct _DR_HEADER_ {
 typedef struct _DR_RECORD_ {
   int ilev;
   int ibase;
+  int flev;
   short vl;
   short j;
   float energy;
   float br;
   float ai;
   float total_rate;
-} DR_RECORD;
-
+} DR_RECORD;  
 
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.11 2002/11/08 22:27:57 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.12 2002/11/27 16:43:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -421,18 +421,23 @@ static int PDRBranch(int argc, char *argv[], int argt[],
 
 static int PDRStrength(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-  int n, i;
+  int n, i, m;
 
   if (argc < 2) return -1;
 
   n = atoi(argv[1]);
-  if (argc == 3) {
-    i = atoi(argv[2]);
+  if (argc == 4) {
+    m = atoi(argv[2]);
+    i = atoi(argv[3]);
+  } else if (argc == 3) {
+    m = atoi(argv[2]);
+    i = 0;
   } else {
     i = 0;
+    m = 0;
   }
 
-  DRStrength(argv[0], n, i);
+  DRStrength(argv[0], n, m, i);
   
   return 0;
 }

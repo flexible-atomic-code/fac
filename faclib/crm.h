@@ -129,7 +129,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	     double emin, double emax, double de, double smin);
 int DRBranch(void);
-int DRStrength(char *fn, int nele, int ilev0);
+int DRStrength(char *fn, int nele, int mode, int ilev0);
 
 #endif
 
