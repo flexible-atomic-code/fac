@@ -197,7 +197,7 @@
 #define MAX_POINTS 720  /* radial mesh */
 #define GRIDASYMP  14   /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1  /* ratio of successive mesh near origin */
-#define ENERELERR  1E-5 /* relative energy error */
+#define ENERELERR  1E-3 /* relative energy error */
 #define ENEABSERR  1E-4 /* absolute energy error */
 
 /* config */

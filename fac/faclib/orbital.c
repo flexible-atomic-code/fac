@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.46 2003/05/17 21:47:18 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.47 2003/05/17 23:08:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -372,7 +372,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     delta = 0.5*p2*p2*(qo - qi)/norm2;
     e = e + delta;
     ep = fabs(e)*ENERELERR;
-    if (ep < ENEABSERR) ep = ENEABSERR;
+    if (ep > ENEABSERR) ep = ENEABSERR;
     if (fabs(delta) < ep) break;
   }
   if (niter == max_iteration) {
@@ -487,7 +487,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       delta = 0.5*p2*p2*(qo - qi)/norm2;
       e = e + delta;
       ep = fabs(e)*ENERELERR;
-      if (ep < ENEABSERR) ep = ENEABSERR;
+      if (ep > ENEABSERR) ep = ENEABSERR;
       if (fabs(delta) < ep) {
 	fact = 1.0/sqrt(norm2);
 	if (IsOdd(nodes)) fact = -fact;
