@@ -68,3 +68,5 @@ clean:
 	cd faclib;   make clean
 	cd sfac;     make clean
 
+cleanfac:
+	cd faclib;   make clean
