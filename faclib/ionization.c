@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.28 2002/02/04 15:48:33 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.29 2002/02/28 16:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1479,8 +1479,8 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.tegrid = tegrid;
   ci_hdr.egrid = egrid;
   ci_hdr.usr_egrid = usr_egrid;
-
-  file = InitFile(fn, &fhdr, &ci_hdr);
+  file = OpenFile(fn, &fhdr);
+  InitFile(file, &fhdr, &ci_hdr);
 
   nshells = 1;
   r.params = (float *) malloc(sizeof(float)*nqk);
@@ -1514,6 +1514,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     }
   }
 
+  DeinitFile(file, &fhdr);
   CloseFile(file, &fhdr);
   free(r.params);
   free(r.strength);

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.24 2002/02/12 20:32:16 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.25 2002/02/28 16:55:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1006,6 +1006,7 @@ int SaveLevels(char *fn, int m, int n) {
   fhdr.type = DB_EN;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
+  f = OpenFile(fn, &fhdr);
   for (k = 0; k < n; k++) {
     i = m + k;
     lev = GetLevel(i);
@@ -1022,14 +1023,15 @@ int SaveLevels(char *fn, int m, int n) {
     strncpy(r.sname, sname, LSNAME);
     strncpy(r.ncomplex, nc, LNCOMPLEX);
     if (nele != nele0) {
-      CloseFile(f, &fhdr);
+      if (nele0 >= 0) DeinitFile(f, &fhdr);
       nele0 = nele;
       en_hdr.nele = nele;
-      f = InitFile(fn, &fhdr, &en_hdr);
+      InitFile(f, &fhdr, &en_hdr);
     }
     WriteENRecord(f, &r);
   }
 
+  DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
 #ifdef PERFORM_STATISTICS

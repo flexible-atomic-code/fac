@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.43 2002/02/12 20:32:16 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.44 2002/02/28 16:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1189,8 +1189,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.tegrid = tegrid;
   rr_hdr.egrid = egrid;
   rr_hdr.usr_egrid = usr_egrid;
-
-  f = InitFile(fn, &fhdr, &rr_hdr);
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &rr_hdr);
 
   nshells = 1;
   if (qk_mode == QK_FIT) {
@@ -1229,6 +1229,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   
   if (qk_mode == QK_FIT) free(r.params);
   free(r.strength);
+  DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
   free(qc);
 
@@ -1339,7 +1340,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   ai_hdr.channel = channel;
   ai_hdr.n_egrid = n_egrid;
   ai_hdr.egrid = egrid;  
-  fa = InitFile(fna, &fhdra, &ai_hdr);
+  fa = OpenFile(fna, &fhdra);
+  InitFile(fa, &fhdra, &ai_hdr);
 
   fhdrt.type = DB_TR;
   strcpy(fhdrt.symbol, GetAtomicSymbol());
@@ -1348,7 +1350,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   tr_hdr.multipole = -1;
   tr_hdr.gauge = GetTransitionGauge();
   tr_hdr.mode = GetTransitionMode();
-  ft = InitFile(fnt, &fhdrt, &tr_hdr);
+  ft = OpenFile(fnt, &fhdrt);
+  InitFile(ft, &fhdrt, &tr_hdr);
 
   sa = malloc(sizeof(double)*nf);
   ea = malloc(sizeof(double)*nf);
@@ -1435,6 +1438,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   free(sr);
   free(rd);
   free(et);
+  DeinitFile(fa, &fhdra);
+  DeinitFile(ft, &fhdrt);
   CloseFile(fa, &fhdra);
   CloseFile(ft, &fhdrt);
 
@@ -1534,8 +1539,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   ai_hdr.channel = channel;
   ai_hdr.n_egrid = n_egrid;
   ai_hdr.egrid = egrid;
-
-  f = InitFile(fn, &fhdr, &ai_hdr);
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &ai_hdr);
 
   s = malloc(sizeof(double)*nup);
   e = malloc(sizeof(double)*nup);
@@ -1558,6 +1563,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
 
   free(s);
   free(e);
+  DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
   return 0;
 }

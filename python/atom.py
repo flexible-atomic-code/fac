@@ -305,7 +305,7 @@ class ATOM:
                     ex.terms = ex.terms[:1]
                     ex.name = ex.name[:1]
                 elif (len(ex.terms) == 3 and self.nele > 3):
-                    if (k > 0 or i1 > self.n_shells+1):
+                    if (k > 0 or (self.nele > 5 and i1 > self.n_shells+1)):
                         ex.terms = ex.terms[:2]
                         ex.name = ex.name[:2]
                 cg.add_complex(ex)
@@ -328,7 +328,7 @@ class ATOM:
             if (ibase == -1 and n0 != self.n_shells):
                 ion.terms = ion.terms[:2]
                 ion.name = ion.name[:2]
-            elif (ibase > 0):
+            elif (ibase > 0 and self.nele > 6):
                 ion.terms = ion.terms[:2]
                 ion.name = ion.name[:2]
         self.ion_complex.add_complex(ion)

@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.33 2002/02/18 03:15:14 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.34 2002/02/28 16:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1353,6 +1353,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
   e0 = emin;
+  fhdr.type = DB_CE;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  f = OpenFile(fn, &fhdr);
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
@@ -1376,9 +1380,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 		     pw_scratch.nkl, pw_scratch.kl, egrid_type, 
 		     pw_type, msub);
 
-    fhdr.type = DB_CE;
-    strcpy(fhdr.symbol, GetAtomicSymbol());
-    fhdr.atom = GetAtomicNumber();
     ce_hdr.nele = GetNumElectrons(low[0]);
     ce_hdr.qk_mode = qk_mode;
     if (qk_mode == QK_FIT) 
@@ -1396,8 +1397,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ce_hdr.egrid = egrid;
     ce_hdr.usr_egrid = usr_egrid;
 
-    f = InitFile(fn, &fhdr, &ce_hdr);
-  
+    InitFile(f, &fhdr, &ce_hdr);  
     nsub = 1;
     if (qk_mode == QK_FIT) {
       m = ce_hdr.nparams * nsub;
@@ -1450,7 +1450,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
     if (qk_mode == QK_FIT) free(r.params);
     free(r.strength);
-    CloseFile(f, &fhdr);
+    DeinitFile(f, &fhdr);
     e0 = e1;
     FreeExcitationQk();
     ReinitRadial(1);
@@ -1458,6 +1458,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   ArrayFree(&subte, NULL);
   if (alev) free(alev);
+  CloseFile(f, &fhdr);
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);

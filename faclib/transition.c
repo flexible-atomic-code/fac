@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.12 2002/01/14 23:19:44 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.13 2002/02/28 16:55:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -211,7 +211,8 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   tr_hdr.multipole = m;
   tr_hdr.gauge = GetTransitionGauge();
   tr_hdr.mode = GetTransitionMode();
-  f = InitFile(fn, &fhdr, &tr_hdr);
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &tr_hdr);
 
   a = malloc(sizeof(double)*nlow);
   s = malloc(sizeof(double)*nlow);
@@ -239,6 +240,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     }
   }
 
+  DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
   free(a);
