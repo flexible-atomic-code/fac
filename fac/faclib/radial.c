@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.27 2001/10/19 22:45:39 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.28 2001/10/24 23:31:36 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -43,8 +43,8 @@ static struct {
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
-static double rgrid_min = 1E-5;
-static double rgrid_max = 1E3;    
+static double rgrid_min;
+static double rgrid_max;    
  
 static MULTI *slater_array;
 static MULTI *residual_array;
@@ -2385,7 +2385,8 @@ int InitRadial() {
 
   n_awgrid = 1;
   awgrid[0]= EPS3;
-
+  
+  SetRadialGrid(1E-5, 5E2);
   return 0;
 }
 
