@@ -1,6 +1,7 @@
 #include "radial.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.69 2003/01/13 02:57:42 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.70 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -77,14 +78,7 @@ static int n_awgrid = 0;
 static double awgrid[MAXNTE];
 static double aw2grid[MAXNTE];
 
-double argam_(double *x, double *y);
-double besljn_(int *jy, int *n, double *x);
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-double PhaseRDependent(double x, double eta, double b);
-void lmqn_(int *, int *, double *, double *, double *, double *, int *,
-	   void (*sfun)(int *, double *, double *, double *),
-	   int *, int *, int *, double *, double *, double *, double *);
+static double PhaseRDependent(double x, double eta, double b);
 
 #ifdef PERFORM_STATISTICS
 static RAD_TIMING rad_timing = {0, 0, 0, 0};
@@ -457,7 +451,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
   double tol;
   ORBITAL orb_old, *orb;
-  int i, j, k, m, no_old;
+  int i, k, no_old;
   double a, b, z;
   int iter;
   int *frozen;
@@ -590,7 +584,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
 static void TNFunc(int *n, double *x, double *f, double *g) {
   int i, j;
-  int m;
   double *u, a, delta;
 
   u = potential->U;
@@ -660,8 +653,8 @@ int RefineRadial(int maxfun, int msglvl) {
   
   TNFunc(&n, pbasis.c, &f, g);
   f0 = f;
-  lmqn_(&ierr, &n, pbasis.c, &f, g, _dwork11, &lw, TNFunc, 
-	&msglvl, &maxit, &maxfun, &eta, &stepmx, &accrcy, &xtol);
+  LMQN(&ierr, n, pbasis.c, &f, g, _dwork11, lw, TNFunc, 
+       msglvl, maxit, maxfun, eta, stepmx, accrcy, xtol);
 
   if (ierr) {
     if (f > f0) return ierr;
@@ -1564,7 +1557,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	for (j = 0; j < npts; j++) {
 	  x = a*potential->rad[j];
 	  n = m;
-	  _yk[j] = besljn_(&jy, &n, &x);
+	  _yk[j] = BESLJN(jy, n, x);
 	}
 	Integrate(_yk, orb1, orb2, 4, &r);
 	r *= t;
@@ -1581,9 +1574,9 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	for (j = 0; j < npts; j++) {
 	  x = a*potential->rad[j];
 	  n = am+1;
-	  _yk[j] = besljn_(&jy, &n, &x);
+	  _yk[j] = BESLJN(jy, n, x);
 	  n = am-1;
-	  _zk[j] = besljn_(&jy, &n, &x);
+	  _zk[j] = BESLJN(jy, n, x);
 	}
 	if (t) {
 	  Integrate(_yk, orb1, orb2, 4, &ip);
@@ -1604,9 +1597,9 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	for (j = 0; j < npts; j++) {
 	  x = a*potential->rad[j];
 	  n = am+1;
-	  _yk[j] = besljn_(&jy, &n, &x);
+	  _yk[j] = BESLJN(jy, n, x);
 	  n = am;
-	  _zk[j] = besljn_(&jy, &n, &x);
+	  _zk[j] = BESLJN(jy, n, x);
 	}
 	if (t) {
 	  Integrate(_yk, orb1, orb2, 4, &ip);
@@ -1722,7 +1715,7 @@ double *GeneralizedMoments(int nk, double *kg, int k1, int k2, int m) {
     k = kg[t];
     for (i = 0; i <= n1; i++) {
       x = k * potential->rad[i];
-      _dphase[i] = besljn_(&jy, &m, &x);
+      _dphase[i] = BESLJN(jy, m, x);
       _dphase[i] *= _phase[i];
     }
     r = Simpson(_dphase, 0, n1);
@@ -1741,7 +1734,7 @@ double InterpolateMultipole(double aw2, int n, double *x, double *y) {
   } else {
     np = 3;
     nd = 1;
-    uvip3p_(&np, &n, x, y, &nd, &aw2, &r);
+    UVIP3P(np, n, x, y, nd, &aw2, &r);
   }
 
   return r;
@@ -3371,7 +3364,7 @@ int FreeGOSArray(void) {
 }
 
 int InitRadial(void) {
-  int i, ndim;
+  int ndim;
   int blocks[6] = {4, 4, 4, 4, 4, 1};
 
   potential = malloc(sizeof(POTENTIAL));
@@ -3421,8 +3414,6 @@ int InitRadial(void) {
 }
 
 int ReinitRadial(int m) {
-  int i;
-
   if (m < 0) return 0;
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);

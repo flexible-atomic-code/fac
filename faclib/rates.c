@@ -1,6 +1,7 @@
 #include "rates.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.20 2002/11/04 20:57:00 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.21 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -30,32 +31,6 @@ static struct {
   int type;
   int iprint;
 } rate_args;
-
-void dqagi_(double (*f)(double *), 
-	    double *bound, int *inf, double *epsabs,
-	    double *epsrel, double *result, double *abserr,
-	    int *neval, int *ier, int *limit, int *lenw,
-	    int *last, int *iwork, double *work);
-void dqng_(double (*f)(double *),
-	   double *a, double *b, double *epsabs, double *epsrel, 
-	   double *result, double *abserr, int *neval, int *ier);
-void dqags_(double (*f)(double *),
-	    double *a, double *b, double *epsabs, double *epsrel, 
-	    double *result, double *abserr, int *neval, int *ier,
-	    int *limit, int *lenw, int *last, int *iwork, double *work);
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-
-void ionis_(int *iz, int *ic, double *t, 
-	    double *a, double *dir, double *rion);
-void recomb_(int *iz, int *ic, double *t, double *rr, double *dr);
-void recombfe_(int *iz, int *ic, double *t, double *rr, double *dr);
-void rrfit_(int *z, int *n, double *t, double *r);
-void drfit_(int *z, int *n, double *t, double *r);
-void phfit2_(int *z, int *n, int *is, double *e, double *r);
-void cfit_(int *z, int *n, double *t, double *r);
-void colfit_(int *z, int *n, int *is, double *t, double *a, double *d);
 
 #define NSEATON 19
 static double log_xseaton[NSEATON];
@@ -167,6 +142,9 @@ static double RateIntegrand(double *e) {
   b = rate_args.Rate1E(*e, rate_args.eth, rate_args.np, rate_args.params);
   return a*b;
 }
+/* provide fortran access with cfortran.h */
+FCALLSCFUN1(DOUBLE, RateIntegrand, RATEINTEGRAND, rateintegrand, PDOUBLE)
+	    
 
 double IntegrateRate(int idist, double eth, double bound, 
 		     int np, void *params, int i0, int f0, int type, 
@@ -206,8 +184,9 @@ double IntegrateRate(int idist, double eth, double bound,
     if (b < b0) b0 = b;
     r0 = 0.0;
     if (b0 > a0) {
-      dqags_(RateIntegrand, &a0, &b0, &epsabs, &epsrel, &result, 
-	     &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+      DQAGS(C_FUNCTION(RATEIINTEGRAND, rateintegrand), 
+	    a0, b0, epsabs, epsrel, &result, 
+	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
       if (abserr > epsabs && abserr > r0*epsrel) {
 	if (ier != 0 && rate_args.iprint) {
@@ -223,8 +202,9 @@ double IntegrateRate(int idist, double eth, double bound,
       b0 = a0;
     }
     if (b > b0) {
-      dqags_(RateIntegrand, &b0, &b, &epsabs, &epsrel, &result, 
-	     &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+      DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
+	    b0, b, epsabs, epsrel, &result, 
+	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
       if (abserr > epsabs && abserr > r0*epsrel) {
 	if (ier != 0 && rate_args.iprint) {
@@ -238,8 +218,9 @@ double IntegrateRate(int idist, double eth, double bound,
     if (r0 < 0.0) r0 = 0.0;
     return r0;
   } else {
-    dqags_(RateIntegrand, &a, &b, &epsabs, &epsrel, &result, 
-	   &abserr, &neval, &ier, &limit, &lenw, &last, _iwork, _dwork);
+    DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
+	  a, b, epsabs, epsrel, &result, 
+	  &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
     r0 = result;
     if (abserr > epsabs && abserr > r0*epsrel) {
       if (ier != 0 && rate_args.iprint) {
@@ -277,7 +258,7 @@ double CERate1E(double e, double eth, int np, void *p) {
 
   n = 3;
   one = 1;
-  uvip3p_(&n, &m1, x, y, &one, &x0, &a);
+  UVIP3P(n, m1, x, y, one, &x0, &a);
   if (dp[1] > 0.0) {
     a -= dp[1]*log(eth/e);
   }
@@ -304,7 +285,7 @@ double DERate1E(double e, double eth, int np, void *p) {
 
   n = 3;
   one = 1;
-  uvip3p_(&n, &m1, x, y, &one, &x0, &a);
+  UVIP3P(n, m1, x, y, one, &x0, &a);
   
   if (dp[1] > 0.0) {
     a -= dp[1]*log(eth/(eth+e));
@@ -369,11 +350,10 @@ int TRRate(double *dir, double *inv, int iinv,
 }
 
 double CIRate1E(double e, double eth, int np, void *p) {
-  int i;
   float *dp;
   double x;
   double a, b, c, f;
-  double c2, logc, logx;
+  double logx;
 
   if (np != 4) return 0.0;
 
@@ -479,13 +459,13 @@ double RRRateHydrogenic(double t, double z, int n, double *top) {
     i = NSEATON;
     np = 3;
     one = 1;
-    uvip3p_(&np, &i, log_xseaton, seaton[0], &one, &logx, &s0);
-    uvip3p_(&np, &i, log_xseaton, seaton[1], &one, &logx, &s1);
-    uvip3p_(&np, &i, log_xseaton, seaton[2], &one, &logx, &s2);
+    UVIP3P(np, i, log_xseaton, seaton[0], one, &logx, &s0);
+    UVIP3P(np, i, log_xseaton, seaton[1], one, &logx, &s1);
+    UVIP3P(np, i, log_xseaton, seaton[2], one, &logx, &s2);
     if (top) {
-      uvip3p_(&np, &i, log_xseaton, seaton[3], &one, &logx, &g0);
-      uvip3p_(&np, &i, log_xseaton, seaton[4], &one, &logx, &g1);
-      uvip3p_(&np, &i, log_xseaton, seaton[5], &one, &logx, &g2);
+      UVIP3P(np, i, log_xseaton, seaton[3], one, &logx, &g0);
+      UVIP3P(np, i, log_xseaton, seaton[4], one, &logx, &g1);
+      UVIP3P(np, i, log_xseaton, seaton[5], one, &logx, &g2);
     }
   }
   y = s0 + c3*s1 + c3*c3*s2;
@@ -499,7 +479,7 @@ double RRRateHydrogenic(double t, double z, int n, double *top) {
 }
   
 double RRRate1E(double e, double eth, int np, void *p) {
-  int i, one, n;
+  int one, n;
   double *dp;
   double x0, logx0, *x, *logx, *y, *r;
   double a, b, c, f;
@@ -515,7 +495,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
     logx0 = log(x0);
     n = 3;
     one = 1;
-    uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
+    UVIP3P(n, np, logx, y, one, &logx0, &f);
     f = exp(f);
   } else {
     x0 = (e + r[3])/r[3];
@@ -535,7 +515,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
 }
 
 double PIRate1E(double e, double eth, int np, void *p) {
-  int i, one, n;
+  int one, n;
   double *dp;
   double x0, logx0, *x, *logx, *y, *r;
   double a, b, c, f;
@@ -552,7 +532,7 @@ double PIRate1E(double e, double eth, int np, void *p) {
     logx0 = log(x0);
     n = 3;
     one = 1;
-    uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
+    UVIP3P(n, np, logx, y, one, &logx0, &f);
     f = exp(f);
   } else {
     x0 = (e-eth+r[3])/r[3];
@@ -649,7 +629,7 @@ double RRFit(int z, int nele, double t) {
   double r;
 
   t = t/8.617385E-5;
-  rrfit_(&z, &nele, &t, &r);
+  RRFIT(z, nele, t, &r);
   r *= 1E10;
   return r;
 }
@@ -661,7 +641,7 @@ double DRFit(int z, int nele, double t) {
   if (nele < 1) return 0.0;
   if (nele >= z) return 0.0;
 
-  drfit_(&z, &nele, &t, &r);
+  DRFIT(z, nele, t, &r);
   
   r *= 1E10;
   
@@ -671,7 +651,7 @@ double DRFit(int z, int nele, double t) {
 double PhFit2(int z, int nele, int is, double e) {
   double r;
 
-  phfit2_(&z, &nele, &is, &e, &r);
+  PHFIT2(z, nele, is, e, &r);
   r *= 1E2;
   
   return r;
@@ -683,8 +663,8 @@ double CFit(int z, int nele, double t, double *a, double *dir) {
   
   t = t/8.617385E-5;
   is = 0;
-  colfit_(&z, &nele, &is, &t, &aa, &dd);
-  cfit_(&z, &nele, &t, &dd);
+  COLFIT(z, nele, is, t, &aa, &dd);
+  CFIT(z, nele, t, &dd);
   aa *= 1E10;
   dd *= 1E10;
   total = aa + dd;
@@ -698,7 +678,7 @@ double ColFit(int z, int nele, int is, double t, double *a, double *dir) {
   double total, aa, dd;
   
   t = t/8.617385E-5;
-  colfit_(&z, &nele, &is, &t, &aa, &dd);
+  COLFIT(z, nele, is, t, &aa, &dd);
   aa *= 1E10;
   dd *= 1E10;
   total = aa + dd;
@@ -713,7 +693,7 @@ double Ionis(int z, int nele, double t, double *a, double *dir, int m) {
 
   if (m == 0) {
     nele = z+1 - nele;
-    ionis_(&z, &nele, &t, &aa, &dd, &total);
+    IONIS(z, nele, t, &aa, &dd, &total);
     aa *= 1E10;
     dd *= 1E10;
     total *= 1E10;
@@ -740,9 +720,9 @@ double Recomb(int z, int nele, double t, double *rr, double *dr, int m) {
     nele = z+1 - nele;
     t = t/8.617385E-5;
     if (z == 26) {
-      recombfe_(&z, &nele, &t, &r, &d);
+      RECOMBFE(z, nele, t, &r, &d);
     } else {
-      recomb_(&z, &nele, &t, &r, &d);
+      RECOMB(z, nele, t, &r, &d);
     }
     r *= 1E10;
     d *= 1E10;

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.5 2002/08/11 01:24:48 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.6 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -96,7 +96,7 @@ int QuotedStrSplit(char *s, char sep, char qb, char qe) {
     else if (*p == qe) {
       qopen--;
       if (qopen < 0) {
-	printf("The quoted string %s does not have matched quotes\n");
+	printf("The quoted string %s does not have matched quotes\n", s);
 	return -1;
       }
     }
@@ -118,7 +118,7 @@ int QuotedStrSplit(char *s, char sep, char qb, char qe) {
   }
   
   if (qopen != 0) {
-    printf("The quoted string %s does not have matched quotes\n");
+    printf("The quoted string %s does not have matched quotes\n", s);
     return -1;
   }
 

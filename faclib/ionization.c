@@ -1,6 +1,7 @@
 #include "ionization.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.37 2003/01/13 02:57:42 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.38 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -77,15 +78,6 @@ static double log_te[MAXNTE];
 
 static double _dwork[17*MAXNQK];
 static int _iwork[39*MAXNQK];
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-void sdbi3p_(int *md, int *ndp, double *xd, double *yd, 
-	     double *zd, int *nip, double *xi, double *yi,
-	     double *zi, int *ierr, double *wk, int *iwk);
-void rgbi3p_(int *md, int *nxp, int *nyd, double *xd, double *yd, 
-	     double *zd, int *nip, double *xi, double *yi,
-	     double *zi, int *ierr, double *wk);
 
 static struct {
   int max_k;
@@ -450,7 +442,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
       kl1 = pw_scratch.kl[j];
       for (kl = kl0+1; kl < kl1; kl++) {
 	logj = LnInteger(kl);
-	uvip3p_(&np, &t, pw_scratch.log_kl, pk[i], &one, &logj, &s);
+	UVIP3P(np, t, pw_scratch.log_kl, pk[i], one, &logj, &s);
 	r += s;
       }
     } 
@@ -473,7 +465,7 @@ void CIRadialQkBasis(int npar, double *yb, double x, double log_x) {
 
 void CIRadialQkFromFit(int np, double *p, int n, 
 		       double *x, double *logx, double *y) {
-  double a, c, d, e, f, g;
+  double a, c, d;
   int i;
 
   for (i = 0; i < n; i++) {
@@ -520,7 +512,7 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
   n = NINT-i;
   np = 3;
   n1 = n_egrid;
-  uvip3p_(&np, &n1, logxe, q, &n, &(t[i]), &(integrand[i]));
+  UVIP3P(np, n1, logxe, q, n, &(t[i]), &(integrand[i]));
   for (; i < NINT; i++) {
     integrand[i] = exp(integrand[i]);
   }
@@ -554,19 +546,17 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     for (i = 0; i < n_usr; i++) {
       x0[i] = 1.0/xusr[i];
     }
-    uvip3p_(&np, &n, t, y, &n_usr, x0, dp);
+    UVIP3P(np, n, t, y, n_usr, x0, dp);
   }
   return 0;
 }
 
 double *CIRadialQkIntegratedTable(int kb, int kbp) {
-  ORBITAL *orb;
   int index[3], ie1, ie2, ite, i, j;
   double **p, *qkc, *qk;
   double xr[MAXNQK], yr[MAXNQK], zr[MAXNE];
   double x, y, integrand[NINT];
   int np, nd, ierr, nqk;
-  double te;
 
   index[0] = 0;
   index[1] = kb;
@@ -604,7 +594,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
 	y = log(1.0 + egrid[ie1]*yegrid0[i]/tegrid[ite]);
 	if (np == 0) np = 1;
 	else np = 3;
-	sdbi3p_(&np, &nqk, xr, yr, qk, &nd, &x, &y, &integrand[i],
+	SDBI3P(np, nqk, xr, yr, qk, nd, &x, &y, &integrand[i],
 		&ierr, _dwork, _iwork);
 	if (kb == kbp) {
 	  integrand[i] = exp(integrand[i]);
@@ -704,7 +694,7 @@ int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
 	qkc[j] = qk[k];
 	k += n_egrid;
       }
-      uvip3p_(&np, &n_tegrid, tegrid, qkc, &nd, &te, &qke[i]);
+      UVIP3P(np, n_tegrid, tegrid, qkc, nd, &te, &qke[i]);
     }
   } else {
     for (i = 0; i < nq; i++) {

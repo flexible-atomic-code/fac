@@ -50,6 +50,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);
+void Differential(double *p, double *dp, int i1, int i2);
 double Simpson(double *y, int ia, int ib);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m);
 int SetOrbitalRGrid(POTENTIAL *pot, double rmin, double rmax);
@@ -61,12 +62,5 @@ int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW (POTENTIAL *pot, double e, int kappa);
 
 #endif
-
-
-
-
-
-
-
 
 

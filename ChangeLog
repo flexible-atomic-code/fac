@@ -3,6 +3,7 @@ Version 0.8.7, 01/06/2003
 	2. add the prompt ">>> " to the interactive sfac interface.
 	3. add extrapolate for long range free-free radial integral.
 	4. determine the rmax from the number of mesh points.
+	5. use cfortran.h for c-fortran interfacing.
 	
 Version 0.8.6, 12/04/2002
 	1. implement DRBranch and DRStrength.

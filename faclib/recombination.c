@@ -1,7 +1,8 @@
 #include "recombination.h"
 #include "time.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.59 2003/01/13 02:57:43 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.60 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -57,12 +58,6 @@ double ai_cut = AICUT;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-void pixz1_(double *z, double *am, int *ne, int *nl, double *phe,
-	    double *pc, double *pcp, double *pnc, int *nde, int *ndl,
-	    int *iopt, int *ipcp);
 
 int SetAICut(double c) {
   ai_cut = c;
@@ -411,8 +406,8 @@ void RRRadialQkHydrogenicParams(int np, double *p,
 	x[i] = exp(logx[i]);
       }
       i = 200;
-      pixz1_(&z, &am, &i, &n, e, pc, NULL, pnc, 
-	     &ne, &n, &iopt, &ipcp);
+      PIXZ1(z, am, i, n, e, pc, NULL, pnc, 
+	    ne, n, iopt, ipcp);
       iopt = 0;
     }
     
@@ -420,8 +415,8 @@ void RRRadialQkHydrogenicParams(int np, double *p,
     for (i = 0; i < ne; i++) {
       e[i] = (x[i]-1.0)*eth;
     }
-    pixz1_(&z, &am, &ne, &n, e, pc, NULL, pnc, 
-	   &ne, &n, &iopt, &ipcp);
+    PIXZ1(z, am, ne, n, e, pc, NULL, pnc, 
+	  ne, n, iopt, ipcp);
     t = *qk;    
     for (i = 0; i < n; i++) {
       k = i;
@@ -527,7 +522,7 @@ double RRCrossH(double z, int n0, int kl0, double e) {
   
 int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int index[3], k, nqk;
-  double **p, *qk, tq[MAXNE], sig[MAXNE];
+  double **p, *qk, tq[MAXNE];
   double r0, r1, tq0[MAXNE];
   ORBITAL *orb;
   int kappa0, jb0, klb02, klb0;
@@ -652,7 +647,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
-  double eb, rq[MAXNTE];
+  double rq[MAXNTE];
   double x0, rqe[MAXNTE*MAXNE];
 
   i = RRRadialQkTable(rqe, k0, k1, m);
@@ -672,7 +667,7 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
 	rq[k] = rqe[j];
 	j += n_egrid;
       }
-      uvip3p_(&np, &n_tegrid, tegrid, rq, &nd, &x0, &rqc[i]);
+      UVIP3P(np, n_tegrid, tegrid, rq, nd, &x0, &rqc[i]);
     }
   }
   return 0;
@@ -689,8 +684,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   int j1, j2;
   int i, j, c;
   int gauge, mode;
-  int nb, nkl, nq;
-  double *p;
+  int nkl, nq;
   int kb, kbp, jb, klb, jbp;
 
   lev1 = GetLevel(rec);
@@ -783,7 +777,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 	tq[ie] = log(tq[ie]);
       }
       k = 3;
-      uvip3p_(&k, &n_egrid, log_egrid, tq, &n_usr, log_usr, rqu);
+      UVIP3P(k, n_egrid, log_egrid, tq, n_usr, log_usr, rqu);
       for (ie = 0; ie < n_usr; ie++) {
 	rqu[ie] = exp(rqu[ie]);
       }
@@ -858,7 +852,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
 	kappaf = GetKappaFromJL(jf, klf);
 	AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k);
 	if (n_egrid > 1) {
-	  uvip3p_(&np, &n_egrid, log_egrid, ai_pk, &nt, &log_e, &s);
+	  UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	} else {
 	  s = ai_pk[0];
 	}
@@ -881,7 +875,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
 	kappaf = GetKappaFromJL(jf, klf);
 	AIRadial1E(ai_pk0, kb, kappaf);
 	if (n_egrid > 1) {
-	  uvip3p_(&np, &n_egrid, log_egrid, ai_pk0, &nt, &log_e, &s);
+	  UVIP3P(np, n_egrid, log_egrid, ai_pk0, nt, &log_e, &s);
 	} else {
 	  s = ai_pk0[0];
 	}

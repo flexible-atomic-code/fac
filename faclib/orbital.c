@@ -1,6 +1,7 @@
 #include "orbital.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.40 2003/01/13 02:57:42 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.41 2003/01/13 18:48:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -49,21 +50,6 @@ static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
 static int DiracSmall(ORBITAL *orb, POTENTIAL *pot);
 
-void dgbsv_(int *n, int *kl, int *ku, int *nrhs, double *a, 
-	    int *lda, int *ipiv, double *b, int *ldb, int *info);
-double dlogam_(double *x);
-void y5n_(double *lambda, double *eta0, double *x0, 
-	  double *y5, double *y5p, double *norm, int *ierr);
-void lsode_(void (*f)(int *, double *, double *, double *), 
-	    int *neq, double *y, double *r0, double *r, int *itol, 
-	    double *rtol, double *atol, int *itask, int *istate, 
-	    int *iopt, double *rwork, int *lrw, int *iwork, int *liw, 
-	    void (*jac)(int *, double *, double *, int *, 
-			int *, double *, int *), 
-	    int *mf);
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-
 int GetNMax(void) {
   return nmax;
 }
@@ -110,10 +96,10 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
   for (i = 1; i <= nr; i++) nrfac = nrfac*i;
   
   argr = twogp1 + nr;
-  rgamm1 = dlogam_(&argr);
+  rgamm1 = DLOGAM(argr);
   rgamm1 = exp(rgamm1);
   argr = twogp1;
-  rgamm2 = dlogam_(&argr);
+  rgamm2 = DLOGAM(argr);
   rgamm2 = exp(rgamm2);
 
   fac = - sqrt(rgamm1) / (rgamm2*sqrt((double)nrfac)) *
@@ -547,11 +533,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       zp = z*(1.0 + zp);
       eta0 = zp/dk;
       x0 = dk*pot->rad[i2];
-      y5n_(&lambda, &eta0, &x0, &y5, &y5p, &y5norm, &ierr);
+      Y5N(lambda, eta0, x0, &y5, &y5p, &y5norm, &ierr);
       e0 = eta0 - lambda;
-      norm2 = dlogam_(&e0);
+      norm2 = DLOGAM(e0);
       e0 = eta0 + lambda + 1.0;
-      norm2 += dlogam_(&e0);
+      norm2 += DLOGAM(e0);
       e0 = zp/(eta0*eta0);
       norm2 = -norm2 + log(e0);
       norm2 = 0.5*norm2+y5norm; 
@@ -572,7 +558,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
       dq[np] = -dq[np];
     }
     np = 3;
-    uvip3p_(&np, &nme, &(dq[i]), &(en[i]), &one, &zero, &e);
+    UVIP3P(np, nme, &(dq[i]), &(en[i]), one, &zero, &e);
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot);
     i2p2 = MAX_POINTS-1;
@@ -586,11 +572,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     zp = z*(1.0 + zp);
     eta0 = zp/dk;
     x0 = dk*pot->rad[i2];
-    y5n_(&lambda, &eta0, &x0, &y5, &y5p, &y5norm, &ierr);
+    Y5N(lambda, eta0, x0, &y5, &y5p, &y5norm, &ierr);
     e0 = eta0 - lambda;
-    norm2 = dlogam_(&e0);
+    norm2 = DLOGAM(e0);
     e0 = eta0 + lambda + 1.0;
-    norm2 += dlogam_(&e0);
+    norm2 += DLOGAM(e0);
     e0 = zp/(eta0*eta0);
     norm2 = -norm2 + log(e0);
     norm2 = 0.5*norm2+y5norm; 
@@ -823,6 +809,8 @@ void DerivODE(int *neq, double *t, double *y, double *ydot) {
   ydot[0] = y[1];
   ydot[1] = 1.0/(y[0]*y[0]*y[0]) - y[0]*w;
 }
+/* provide fortran access with cfortran.h */
+FCALLSCSUB4(DerivODE, DERIVODE, derivode, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
   
 double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   int i, n, kl1;
@@ -886,8 +874,8 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _dwork1[i+1]*r0;
     y[4] = (_dwork1[i]*r - y[3])/(r - r0);
     y[5] = e;
-    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, atol, 
-	   &itask, &istate, &iopt, rwork, &lrw, iwork, &liw, NULL, &mf);
+    LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol, 
+	  itask, istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
     r0 = r;
     if (istate == -1) istate = 2;
     else if (istate < 0) {
@@ -903,8 +891,8 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[3] = _veff[i+1]*r0;
     y[4] = (_veff[i]*r - y[3])/(r - r0);
     y[5] = e;
-    lsode_(DerivODE, &neq, y, &r0, &r, &itol, &rtol, atol, 
-	   &itask, &istate, &iopt, rwork, &lrw, iwork, &liw, NULL, &mf);
+    LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol,
+	  itask, istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
     r0 = r;
     p[i] = y[0];
     if (istate == -1) istate = 2;
@@ -1050,7 +1038,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   p[i2] = p2;
   p[i2-1] = -a*p2;
   
-  dgbsv_(&m, &kl, &ku, &nrhs, ABAND, &n, ipiv, p+i1+1, &m, &info);
+  DGBSV(m, kl, ku, nrhs, ABAND, n, ipiv, p+i1+1, m, &info);
   if (info) {
     printf("Error in Integrating the radial equation: %d\n", info);
     exit(1);

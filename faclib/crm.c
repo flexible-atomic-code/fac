@@ -1,7 +1,8 @@
 #include "crm.h"
 #include "grid.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.46 2002/12/22 02:15:45 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.47 2003/01/13 18:48:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -23,12 +24,6 @@ static double iter_stablizer = 0.75;
 static double electron_density = EPS3; /* electron density in 10^10 cm-3 */
 static double photon_density = 0.0; /* photon energy density in erg cm-3 */
 static int ai_extra_nmax = 400;
-
-void uvip3p_(int *np, int *ndp, double *x, double *y, 
-	     int *n, double *xi, double *yi);
-void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipvt,
-	    double *b, int *ldb, int *info);
-
 
 int SetNumSingleBlocks(int n) {
   n_single_blocks = n;
@@ -2528,7 +2523,7 @@ int BlockPopulation(void) {
   lda = n;
   ldb = n;
 
-  dgesv_(&m, &nrhs, a, &lda, ipiv, b, &ldb, &info);
+  DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
   if (info != 0) {
     printf("Error in solving BlockMatrix\n");
     exit(1);
@@ -3043,7 +3038,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   ARRAY linetype;
   int *tt;
   FILE *f1, *f2;
-  int n, nb, i, m;
+  int n, nb, i;
   int t, t0, t1, t2;
   int r0, r1;
   int low, up;
@@ -3832,7 +3827,7 @@ int SetCIRates(int inv) {
 }
 
 int SetRRRates(int inv) { 
-  int nb, i, j, t;
+  int nb, i, j;
   int n, m, k;
   int j1, j2;
   ION *ion;
@@ -4017,7 +4012,6 @@ int DRBranch(void) {
   int i, k, m, t;
   int p, q;
   double a, d;
-  int swp, endian;
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
