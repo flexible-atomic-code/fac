@@ -32,7 +32,7 @@ AC_F77_LIBRARY_LDFLAGS
 # some F77 LDFLAGS have a -lcrt1.o which causes trouble.
 # actually any crtn.o may cause trouble, we don't need that.
 AC_MSG_CHECKING([for -lcrtn.o in FLIBS])
-FLIBS=[`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`]
+FLIBS=[`echo $FLIBS | sed 's/-lcrt.*\.o//g'`]
 FLIBS=[`echo $FLIBS | sed 's/  */ /g'`]
 AC_MSG_RESULT([$FLIBS])
 
