@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.62 2002/09/24 20:33:46 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.63 2002/09/24 20:35:27 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1812,8 +1812,8 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       a2 = ReducedCL(js[1], k, js[3]); 
       d *= a1*a2;
       if (k0 == k1 && k2 == k3) d *= 0.5;
-      *sd = d;
     }
+    *sd = d;
     d = 0.0;
     if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
       if (Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
@@ -1823,8 +1823,8 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	d *= a1*a2;
 	if (k0 == k1 && k2 == k3) d *= 0.5;
       }
-      *sd += d;
     }
+    *sd += d;
   }
   
   if (!se) goto EXIT;
