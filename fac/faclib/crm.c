@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.38 2002/11/08 22:27:56 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.39 2002/11/11 20:36:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -547,7 +547,7 @@ void ExtrapolateAI(ION *ion, int inv) {
       ai_extra[j] += b;
       c += b*b;
     }
-    c = (a + b/a)/(a + ai_extra[j]);
+    c = (a + c/a)/(a + ai_extra[j]);
     ai_extra[j] = 1.0 + ai_extra[j]/a;
     a = ai_extra[j];
     for (p = 0; p < ion->ai_rates->dim; p++) {
