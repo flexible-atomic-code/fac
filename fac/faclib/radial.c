@@ -46,6 +46,7 @@ static MULTI *residual_array;
 static MULTI *multipole_array;  
 
 double argam_(double *x, double *y);
+double _PhaseRDependent(double x, double eta, double b);
 
 int GetRadTiming(RAD_TIMING *t) {
   memcpy(t, &rad_timing, sizeof(RAD_TIMING));
@@ -544,6 +545,35 @@ double CoulombPhaseShift(int k) {
   return phase;
 }
 
+double _PhaseRDependent(double x, double eta, double b) {
+  double tau, tau2, y, y2, t, a1, a2, sb;
+  
+  y = 1.0/x;
+  y2 = y*y;
+  tau2 = 1.0 + 2.0*eta*y - b*y2;
+  tau = x*sqrt(tau2);
+  
+  t = eta*log(x+tau+eta) + tau - eta;
+  if (b > 0.0) {
+    sb = sqrt(b);
+    a1 = b - eta*x;
+    a2 = tau*sb;
+    tau2 = atan2(a1, a2);
+    tau2 -= atan2(-eta, sb);
+    t += sb*tau2;
+  } else if (b < 0.0) {
+    b = -b;
+    sb = sqrt(b);
+    a1 = 2.0*(b+eta*x)/(sb*b*x);
+    a2 = 2.0*tau/(b*x);
+    tau2 = log(a1+a2);
+    tau2 -= log(2.0*(eta/sb + 1.0)/b);
+    t -= sb*tau2;
+  }
+  
+  return t;
+}
+
 double GetPhaseShift(int k) {
   ORBITAL *orb;
   double phase1, r, y, z, ke, e, a, b1;
@@ -563,8 +593,11 @@ double GetPhaseShift(int k) {
   i = MAX_POINTS - 1;  
   phase1 = orb->wfun[i];
   r = potential->rad[i-1];  
+  b1 = orb->kappa;
+  b1 = b1*(b1+1.0) - FINE_STRUCTURE_CONST2*z*z;
+ 
   a = ke * r;
-  b1 = a + y*log(2.0*a);
+  b1 = _PhaseRDependent(a, y, b1);
   phase1 = phase1 - b1;
   
   orb->phase = malloc(sizeof(double));
