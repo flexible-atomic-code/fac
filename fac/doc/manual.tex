@@ -3342,9 +3342,9 @@ same complex, except for some low-lying configurations.}
 The standard Coulomn-Dirac Hamiltonian is used in FAC, which means that the
 spin-orbit interaction, mass-effect and other leading relativistic effects are
 fully treated. However, higher-order QED effects, such as retardation and
-recoil are not implemented. This results in significant errors for very
-high-$Z$ elements. The inclusion of these effects through the generalized
-Breit interaction is planned.}
+recoil are only included in the Breit interaction with zero energy limit for
+the exchanged photon. Vacuum polarization and self-energy corrections are
+treated in the screened hydrogenic approximation.}
 
 \faq{Why the transition rate between two specific states is not in the output
 file, although it should have been calculated}{
@@ -3385,6 +3385,13 @@ automatically constructed if one is not specified prior to calling
 grid. Or one may use \key{SetUsrCEGrid} to have a user grid different from the
 grid on which the collision strengths are calculated, and use
 \key{INTERPOLATE} mode for the \key{QKMODE}.}
+
+\faq{The collision strengths at very high energies are incorrect}{
+Due to the limited radial grid size, the collision strengths at energies much
+higher than the excitation energy (more than a few hundred times higher) are
+unlikely to be reliabe. However, the high energy collision strengths should
+not be calculated directly. The Bethe and Born limit parameters in the output
+should be used to obtain them.}
 
 \section{Photoionization and Radiative Recombination}
 \faq{When can I use the function \key{RecStates} to construct the
