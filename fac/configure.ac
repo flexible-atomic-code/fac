@@ -148,7 +148,12 @@ esac
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
-LIBS="$LIBS -lfac -lm"
+LIBS="$LIBS -lfac"
+fwithm=`echo "$FLIBS " | grep " -lm"`
+if test "x$fwithm" = "x"
+then
+  LIBS="$LIBS -lm"
+fi
 
 AC_CONFIG_FILES([Makefile 
 		 sfac/Makefile

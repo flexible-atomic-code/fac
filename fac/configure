@@ -4078,7 +4078,12 @@ esac
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
-LIBS="$LIBS -lfac -lm"
+LIBS="$LIBS -lfac"
+fwithm=`echo "$FLIBS " | grep " -lm"`
+if test "x$fwithm" = "x"
+then
+  LIBS="$LIBS -lm"
+fi
 
 ac_config_files="$ac_config_files Makefile sfac/Makefile faclib/Makefile blas/Makefile coul/Makefile ionis/Makefile lapack/Makefile minpack/Makefile mpfun/Makefile ode/Makefile toms/Makefile quadpack/Makefile"
 
