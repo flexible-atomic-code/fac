@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.7 2002/01/21 21:59:00 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.8 2002/02/04 15:48:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -40,6 +40,38 @@ void dqagi_(double (*f)(double *),
 void uvip3p_(int *np, int *ndp, double *x, double *y, 
 	     int *n, double *xi, double *yi);
 
+void ionis_(int *iz, int *ic, double *t, 
+	    double *a, double *dir, double *rion);
+void recomb_(int *iz, int *ic, double *t, double *rr, double *dr);
+void recombfe_(int *iz, int *ic, double *t, double *rr, double *dr);
+
+
+#define NSEATON 19
+static double log_xseaton[NSEATON];
+static double xseaton[NSEATON] = {
+  0.02, 0.03, 0.045, 0.07, 0.11, 0.15, 0.20, 0.30, 0.45, 
+  0.70, 1.1, 1.5, 2.0, 3.0, 4.5, 7.0, 11.0, 15.0, 20.0};
+static double seaton[6][NSEATON] = {
+  {0.06845, 0.09148, 0.1209, 0.1615, 0.2133, 0.2552, 
+   0.2987, 0.3668, 0.4413, 0.5269, 0.6146, 0.6724, 
+   0.7226, 0.7862, 0.8399, 0.8865, 0.9223, 0.9408, 0.9544},
+  {0.00417, 0.00538, 0.0067, 0.0080, 0.0088, 0.0086,
+   0.0074, 0.0035, -0.0044, -0.0190, -0.0422, -0.0638,
+   -0.0882, -0.1295, -0.1784, -0.2397, -0.3099, -0.3622, -0.4147},
+  {-0.00120, -0.00175, -0.0025, -0.0038, -0.0056, -0.0074,
+   -0.0095, -0.0133, -0.0187, -0.0269, -0.0388, -0.0497,
+   -0.0625, -0.0859, -0.1174, -0.1638, -0.228, -0.285, -0.350},
+  {0.0877, 0.1199, 0.1627, 0.2247, 0.3090, 0.3815,
+   0.4611, 0.5958, 0.7595, 0.9733, 1.231, 1.431, 
+   1.632, 1.938, 2.268, 2.650, 3.059, 3.348, 3.621},
+  {0.0053, 0.0073, 0.0097, 0.0130, 0.0168, 0.0195,
+   0.0218, 0.0242, 0.0241, 0.0193, 0.006, -0.011,
+   -0.032, -0.076, -0.138, -0.230, -0.354, -0.459, -0.570},
+  {-0.0012, -0.0018, -0.0027, -0.0041, -0.0062, -0.0082, 
+   -0.0106, -0.0152, -0.0216, -0.0316, -0.046, -0.060,
+   -0.076, -0.106, -0.147, -0.208, -0.296, -0.375, -0.467}
+};
+   
 
 int SetEleDist(int i, int np, double *p) {
   int k;
@@ -287,7 +319,7 @@ double CIRate1E(double e, double eth, int np, int ns, void *p) {
   double a, b, c, f;
   double c2, logc, logx;
 
-  if (np != 5) return 0.0;
+  if (np != 6) return 0.0;
 
   dp = (float *) p;
   x = e/eth;
@@ -299,12 +331,13 @@ double CIRate1E(double e, double eth, int np, int ns, void *p) {
   for (i = 0; i < ns; i++) {
     a = (3.5 + dp[4])*logc;
     b = dp[1]*log((1.0 + dp[2])/(c2 + dp[2]));
-    f += dp[0]*(1.0 - exp(a+b))*logx;
-    f += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
+    c = dp[0]*(1.0 - exp(a+b))*logx;
+    c += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
+    f += c*x/(x+1.0);
     dp += np;
   }
 
-  c = AREA_AU20*HARTREE_EV*f/(2.0*(e+eth));
+  c = AREA_AU20*HARTREE_EV*f/(2.0*e);
   c *= VelocityFromE(e);
 
   return c;
@@ -334,26 +367,105 @@ int CIRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
+double RRRateHydrogenic(double t, double z, int n, double *top) {
+  const double a = 5.197E-4;
+  const double b = HARTREE_EV/2.0;
+  double d, x, logx, y, c, c3;
+  double s0, s1, s2;
+  double g0, g1, g2;
+  double a0[4] = {-1.0, 2.0, -6.0, 24.0};
+  double a1[4] = {-8.0/3.0, 70.0/9.0, -800.0/27.0, 11440.0/81.0};
+  double a2[4] = {-1.0, 32.0/9.0, -448.0/27.0, 0.0};
+  double b1[4] = {4.0/3.0, -14.0/9.0, 100.0/27.0, 0.0};
+  double b2[4] = {6.0/3.0, -16.0/9.0, 128.0/27.0, 0.0};
+  int i, np, one;
+
+  c = b * z*z/t;
+  c3 = pow(c, -1.0/3.0);
+  x = c/(n*n);
+  logx = log(x);
+
+  if (x <= 0.02) {
+    s0 = x*exp(x)*(-logx-0.5772+x);
+    s1 = 0.4629*x*(1+4*x) - 1.0368*pow(x, 4.0/3.0)*(1.0+15.0*x/8.0);
+    s2 = -0.0672*x*(1+3.0*x) + 0.1488*pow(x, 5.0/3.0)*(1.0+9.0*x/5.0);
+    if (top) {
+      g0 = x*((1.0+0.5*x)*(-logx-0.5772)+(1.0+0.75*x));
+      g1 = x*(0.4629*(1+2.0*x)-0.776*pow(x, 1.0/3.0)*(1.0+15.0*x/14.0));
+      g2 = x*(-0.0672*(1.0+1.5*x)+0.0893*pow(x, 2.0/3.0)*(1+9.0*x/8.0));
+    }
+  } else if (x >= 20.0) {
+    s0 = 1.0;
+    s1 = 1.0;
+    s2 = 1.0;
+    if (top) {
+      g0 = s0/x + logx + 0.5772;
+      g1 = 1.0;
+      g2 = 1.0;
+    }
+    y = 1.0/x;
+    d = y;
+    for (i = 0; i < 4; i++) {
+      s0 += a0[i]*d;
+      s1 += a1[i]*d;
+      s2 += a2[i]*d;
+      if (top) {
+	g1 += b1[i]*d;
+	g2 += b2[i]*d;
+      }
+      d *= y;
+    }
+    y = pow(x, 1.0/3.0);
+    s1 *= -0.1728*y;
+    s2 *= -0.0496*y*y;
+    if (top) {
+      g1 = 0.926 - 0.5184*y*g1;
+      g2 = 0.134 - 0.0744*y*y*g2;
+    }
+  } else {
+    i = NSEATON;
+    np = 3;
+    one = 1;
+    uvip3p_(&np, &i, log_xseaton, seaton[0], &one, &logx, &s0);
+    uvip3p_(&np, &i, log_xseaton, seaton[1], &one, &logx, &s1);
+    uvip3p_(&np, &i, log_xseaton, seaton[2], &one, &logx, &s2);
+    if (top) {
+      uvip3p_(&np, &i, log_xseaton, seaton[3], &one, &logx, &g0);
+      uvip3p_(&np, &i, log_xseaton, seaton[4], &one, &logx, &g1);
+      uvip3p_(&np, &i, log_xseaton, seaton[5], &one, &logx, &g2);
+    }
+  }
+  y = s0 + c3*s1 + c3*c3*s2;
+  y /= n;
+  d = a*z*sqrt(c);
+  if (top) {
+    *top = 0.5*d*(y + g0 + c3*g1 + c3*c3*g2);
+  }
+  y *= d;
+  return y;
+}
+  
 double RRRate1E(double e, double eth, int np, int ns, void *p) {
   int i;
   float *dp;
-  double x;
+  double x, eth0;
   double a, b, c, f;
   double x2, logx;
   
-  if (np != 4) return 0.0;
+  if (np != 5) return 0.0;
   dp = (float *) p;
 
-  x = 1.0 + e/eth;
-  x2 = sqrt(x);
-  logx = log(x);
   f = 0.0;
   for (i = 0; i < ns; i++) {  
-    a = -3.5-dp[3] + 0.5*dp[1];
+    eth0 = HARTREE_EV * dp[4];
+    x = 1.0 + e/eth0;
+    x2 = sqrt(x);
+    logx = log(x);
+    a = -4.5-dp[3] + 0.5*dp[1];
     b = (1.0 + dp[2])/(x2 + dp[2]);
     c = dp[1]*log(b) + a*logx;
     c = dp[0]*exp(c);
-    f += c;
+    f += c*(e+eth)/eth0;
     dp += np;
   }
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
@@ -368,7 +480,7 @@ double RRRate1E(double e, double eth, int np, int ns, void *p) {
 double PIRate1E(double e, double eth, int np, int ns, void *p) {
   int i;
   float *dp;
-  double x;
+  double x, eth0;
   double a, b, c, f;
   double x2, logx;
   const double factor = 1.871156686E2;
@@ -376,16 +488,17 @@ double PIRate1E(double e, double eth, int np, int ns, void *p) {
   if (np != 4) return 0.0;
 
   dp = (float *) p;
-  x = e/eth;
-  x2 = sqrt(x);
-  logx = log(x);
   f = 0.0;
   for (i = 0; i < ns; i++) {
-    a = -3.5-dp[3] + 0.5*dp[1];
+    eth0 = HARTREE_EV * dp[4];
+    x = (e-eth+eth0)/eth0;
+    x2 = sqrt(x);
+    logx = log(x);
+    a = -4.5-dp[3] + 0.5*dp[1];
     b = (1.0 + dp[2])/(x2 + dp[2]);
     c = dp[1]*log(b) + a*logx;
     c = dp[0]*exp(c);
-    f += c;
+    f += c*e/eth0;
     dp += np;
   }
   
@@ -461,7 +574,105 @@ static double PowerLaw(double e, double *p) {
   return x;
 }
 
+double Ionis(int z, int nele, double t, double *a, double *dir) {
+  double total, aa, dd;
+  
+  nele = z+1 - nele;
+  ionis_(&z, &nele, &t, &aa, &dd, &total);
+  aa *= 1E10;
+  dd *= 1E10;
+  total *= 1E10;
+  if (a) *a = aa;
+  if (dir) *dir = dd;
 
+  return total;
+}
+
+double Recomb(int z, int nele, double t, double *rr, double *dr) {
+  double total, r, d;
+  
+  nele = z+1 - nele;
+  t = t/8.617385E-5;
+  if (z == 26) {
+    recombfe_(&z, &nele, &t, &r, &d);
+  } else {
+    recomb_(&z, &nele, &t, &r, &d);
+  }
+  r *= 1E10;
+  d *= 1E10;
+  if (rr) *rr = r;
+  if (dr) *dr = d;
+  total = r + d;
+
+  return total;
+}
+
+int FracAbund(int z, double t, double *a) {
+  int nele;
+  double *ir, *rr, c;
+
+  ir = (double *) malloc(sizeof(double)*(z+1));
+  rr = (double *) malloc(sizeof(double)*(z+1));
+  
+  for (nele = 0; nele <= z; nele++) {
+    if (nele != 0) {
+      ir[nele] = Ionis(z, nele, t, NULL, NULL);
+    }
+    if (nele != z) {
+      rr[nele] = Recomb(z, nele, t, NULL, NULL);
+    }
+  }
+
+  a[0] = 1.0;
+  c = 1.0;
+  for (nele = 1; nele <= z; nele++) {
+    a[nele] = a[nele-1]*(rr[nele-1]/ir[nele]);
+    c += a[nele];
+  }
+  for (nele = 0; nele <= z; nele++) {
+    a[nele] /= c;
+  }
+  
+  free(ir);
+  free(rr);
+  return 0;
+}
+
+double MaxAbund(int z, int nele, double *a, double eps) {
+  double amax, da;
+  double t1, t2, t;
+  double dt;
+  
+  t1 = 0.1*HARTREE_EV;
+  t2 = z*z*HARTREE_EV;
+  if (nele == 0) {
+    FracAbund(z, t2, a);
+    return t2;
+  }
+  if (nele == z) {
+    FracAbund(z, t1, a);
+    return t1;
+  }
+  amax = 0.0;
+  t = 0.5*(t1+t2);
+  dt = t*eps;
+  while (t2 - t1 > dt) {
+    FracAbund(z, t, a);
+    amax = a[nele];
+    FracAbund(z, t+dt, a);
+    da = a[nele] - amax;
+    if (da > 0.0) {
+      t1 = t;
+    } else {
+      t2 = t;
+    }
+    t = 0.5*(t1+t2);
+    dt = t*eps;
+  }
+  
+  return t;  
+}
+  
 int InitRates(void) {
   int i;
 
@@ -499,5 +710,8 @@ int InitRates(void) {
   rate_args.epsabs = EPS10;
   rate_args.epsrel = EPS2;
 
+  for (i = 0; i < NSEATON; i++) {
+    log_xseaton[i] = log(xseaton[i]);
+  }
   return 0;
 }

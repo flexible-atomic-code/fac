@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.6 2002/01/25 00:44:35 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.7 2002/02/04 15:48:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -334,6 +334,19 @@ static PyObject *PLevelPopulation(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PCascade(PyObject *self, PyObject *args) {
+  
+  if (scrm_file) {
+    SCRMStatement("Cascade", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  Cascade();
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   char *fn;
   double smin;
@@ -663,7 +676,65 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PIonis(PyObject *self, PyObject *args) {
+  int z, nele;
+  double t, total, a, d;
+
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   
+  total = Ionis(z, nele, t, &a, &d);
+  
+  return Py_BuildValue("(ddd)", total, a, d);
+}
+
+static PyObject *PRecomb(PyObject *self, PyObject *args) {
+  int z, nele;
+  double t, total, r, d;
+
+  if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
+  
+  total = Recomb(z, nele, t, &r, &d);
+  
+  return Py_BuildValue("(ddd)", total, r, d);
+}
+
+static PyObject *PFracAbund(PyObject *self, PyObject *args) {
+  PyObject *pa;
+  int z, i;
+  double t, *a;
+
+  if (!PyArg_ParseTuple(args, "id", &z, &t)) return NULL;
+  
+  a = (double *) malloc(sizeof(double)*(z+1));
+  FracAbund(z, t, a);
+  pa = Py_BuildValue("[]");
+  for (i = 0; i <= z; i++) {
+    PyList_Append(pa, Py_BuildValue("d", a[i]));
+  }
+  free(a);
+
+  return pa;
+}
+
+static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
+  PyObject *pa;
+  int i, z, nele;
+  double eps, *a, tmax;
+
+  eps = 1E-4;
+  if (!PyArg_ParseTuple(args, "ii|d", &z, &nele, &eps)) return NULL;
+  
+  a = (double *) malloc(sizeof(double)*(z+1));
+  tmax = MaxAbund(z, nele, a, eps);
+  pa = Py_BuildValue("[]");
+  for (i = 0; i <= z; i++) {
+    PyList_Append(pa, Py_BuildValue("d", a[i]));
+  }
+  free(a);
+  return Py_BuildValue("(dO)", tmax, pa);
+}  
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -687,6 +758,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
+  {"Cascade", PCascade, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
@@ -696,6 +768,10 @@ static struct PyMethodDef crm_methods[] = {
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"Spline", PSpline, METH_VARARGS},
   {"Splint", PSplint, METH_VARARGS},
+  {"Ionis", PIonis, METH_VARARGS},
+  {"Recomb", PRecomb, METH_VARARGS},
+  {"FracAbund", PFracAbund, METH_VARARGS},
+  {"MaxAbund", PMaxAbund, METH_VARARGS},
   {NULL, NULL}
 };
 

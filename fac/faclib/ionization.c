@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.27 2002/01/21 21:59:00 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.28 2002/02/04 15:48:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -47,7 +47,6 @@ static double cbo_params[(NCBOMAX+1)*NCBOMAX/2][NPARAMS+1] = {
   {0.047,	6.21,	3.90,	2.34},
 };
 
-static int output_format = 0;
 static int egrid_type = -1;
 static int usr_egrid_type = -1;
 static int pw_type = -1;
@@ -150,11 +149,6 @@ int SetCIEGridLimits(double min, double max, int type) {
 int SetCIEGridDetail(int n, double *xg) {
   n_egrid = SetEGridDetail(egrid, log_egrid, n, xg);
   return n_egrid;
-}
-
-int SetCIFormat(int m) {
-  output_format = m;
-  return m;
 }
 
 int SetUsrCIEGridType(int type) {
@@ -482,7 +476,9 @@ int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
     }
   }
   if (qk_mode == QK_BED) {
-    qke[NPARAMS] = qk[n_tegrid*NPARAMS];
+    k = n_tegrid*NPARAMS;
+    qke[NPARAMS] = qk[k];
+    qke[NPARAMS+1] = qk[k+1];
     return qke[NPARAMS];
   } else {
     return 0;
@@ -1103,7 +1099,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   double xr[MAXNQK], yr[MAXNQK], zr[MAXNE];
   double x, y, integrand[NINT];
   int np, nd, ierr, nqk;
-  double dp[NPARAMS], a, b, c, params[MAXNE], te;
+  double dp[NPARAMS], a, b, c, params[10], te;
 
   if (qk_mode == QK_CB && kbp != kb) return NULL;
 
@@ -1116,7 +1112,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
     return (*p);
   } 
   nqk = n_tegrid*NPARAMS;
-  if (qk_mode == QK_BED) nqk += 1;
+  if (qk_mode == QK_BED) nqk += 2;
   *p = (double *) malloc(sizeof(double)*nqk);
   qkc = *p;
 
@@ -1147,6 +1143,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       qkc += NPARAMS;
     }
     *qkc = kl;
+    *(qkc+1) = params[4];
     return (*p);
   }
       
@@ -1280,7 +1277,7 @@ int IonizeStrength(double *qku, int *nqkc, double **qkc, double *te,
   nq = 0;
   nqk = NPARAMS;
   if (qk_mode == QK_BED) {
-    nqk += 1;
+    nqk += 2;
     for (i = 0; i < n_usr; i++) {
       qku[i] = 0.0;
     }
@@ -1331,7 +1328,7 @@ int IonizeStrength(double *qku, int *nqkc, double **qkc, double *te,
     for (i = 0; i < nq; i++) {
       CIRadialQkFromFit(NPARAMS, p, n_usr, xusr, log_xusr, qke);
       for (j = 0; j < n_usr; j++) {
-	qku[j] += qke[j];
+	qku[j] += qke[j]*xusr[j]/(xusr[j]+1.0);
       }
       p += nqk;
     }
@@ -1464,7 +1461,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 
   nqkc = 10;
   nqk = NPARAMS;
-  if (qk_mode == QK_BED) nqk += 1;
+  if (qk_mode == QK_BED) nqk += 2;
   qk = (double *) malloc(sizeof(double)*nqkc*nqk);
 
   fhdr.type = DB_CI;
@@ -1554,7 +1551,6 @@ int InitIonization(void) {
   SetCIEGridLimits(-1.0, -1.0, 0);
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
-  output_format = 0;
   SetCIQkMode(QK_DEFAULT, 1E-3);
   return 0;
 }
@@ -1573,7 +1569,6 @@ int ReinitIonization(int m) {
   SetCIEGridLimits(-1.0, -1.0, 0);
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
-  output_format = 0;
   SetCIQkMode(QK_DEFAULT, 1E-3);
 
   return 0;

@@ -6,7 +6,7 @@
 #define MAXNKL         50
 #define MAXKL          512
 #define MAXNUSR        30
-#define MAXNE          15
+#define MAXNE          20
 #define MAXNTE         6
 
 #define TE_MIN_MAX     0.25

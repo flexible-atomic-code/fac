@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.21 2002/01/18 15:17:37 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.22 2002/02/04 15:48:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -860,6 +860,42 @@ int GetPrincipleBasis(double *mix, int d) {
   return k;
 }
 
+int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
+  STATE *s1, *s2;
+  SYMMETRY *sym1, *sym2;
+  ORBITAL *orb;
+  int i1, i2;
+  int p1, p2, j1, j2;
+
+  i1 = lev1->basis[0];
+  i2 = lev2->basis[0];
+  sym1 = GetSymmetry(lev1->pj);
+  sym2 = GetSymmetry(lev2->pj);
+  s1 = (STATE *) ArrayGet(&(sym1->states), i1);
+  s2 = (STATE *) ArrayGet(&(sym2->states), i2);
+  if (s1->kgroup < 0 && s2->kgroup < 0) {
+    orb = GetOrbital(s1->kcfg);
+    GetJLFromKappa(orb->kappa, &p1, &j1);
+    orb = GetOrbital(s2->kcfg);
+    GetJLFromKappa(orb->kappa, &p2, &j2);
+    i1 = p1 - p2;
+    if (i1) return i1;
+    i1 = j1 - j2;
+    if (i1) return i1;
+    i1 = (s2->kgroup - s1->kgroup);
+    if (i1) return i1;
+    DecodePJ(lev1->pj, &p1, &j1);
+    DecodePJ(lev2->pj, &p2, &j2);
+    i1 = p1 - p2;
+    if (i1) return i1;
+    return (j1 - j2);
+  } else {
+    if (lev1->energy > lev2->energy) return 1;
+    else if (lev1->energy < lev2->energy) return -1;
+    else return 0;
+  }
+}
+
 int SortLevels(int start, int n) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
@@ -873,12 +909,12 @@ int SortLevels(int start, int n) {
     
     while (i < j) {
       while (i < j) {
-	if (lev1->energy > levp->energy) break;
+	if (CompareLevels(lev1, levp) > 0) break;
 	i++;
 	lev1 = GetLevel(i);
       }
       while (i < j) {
-	if (levp->energy > lev2->energy) break;
+	if (CompareLevels(levp, lev2) > 0) break;
 	j--;
 	lev2 = GetLevel(j);
       }

@@ -12,15 +12,6 @@
 #define ION_BLOCK     16
 #define LBLOCK_BLOCK  1024
 
-typedef struct _LBLOCK_ {
-  int iion;
-  int nlevels;
-  double nb;
-  double *n, *n0;
-  double *r;
-  double *total_rate;
-} LBLOCK;
-
 #define MAXNREC 128
 typedef struct _RECOMBINED_ {
   int bmin, bmax;
@@ -29,6 +20,23 @@ typedef struct _RECOMBINED_ {
   int imax[MAXNREC];
   int nrec[MAXNREC];
 } RECOMBINED;
+
+typedef struct _LBLOCK_ {
+  int iion;
+  int irec;
+  RECOMBINED *rec;
+  int nlevels;
+  double nb;
+  double *n, *n0;
+  double *r;
+  double *total_rate;
+} LBLOCK;
+
+typedef struct _BLK_RATE_ {
+  LBLOCK *iblock;
+  LBLOCK *fblock;
+  ARRAY *rates;
+} BLK_RATE;
 
 typedef struct _ION_ {
   int nlevels;
@@ -83,6 +91,7 @@ void ExtrapolateAI(ION *ion);
 int SetBlocks(double ni, char *ifn);
 int SetAbund(int nele, double abund);
 int InitBlocks(void);
+void AddRate(ION *ion, ARRAY *rts, RATE *r);
 int SetCERates(int inv);
 int SetTRRates(int inv);
 int SetCIRates(int inv);
@@ -93,6 +102,7 @@ int BlockMatrix(void);
 int BlockPopulation(void);
 double BlockRelaxation(int iter);
 int LevelPopulation(void);
+int Cascade(void);
 int SpecTable(char *fn, double smin);
 int SelectLines(char *ifn, char *ofn, int type, 
 		double emin, double emax);

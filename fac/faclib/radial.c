@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.35 2002/01/17 02:57:11 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.36 2002/02/04 15:48:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -365,15 +365,13 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
   double tol;
   ORBITAL orb_old, *orb;
-  int i, j, k, no_old;
+  int i, j, k, m, no_old;
   double a, b, maxp;
   double z;
   double large, large_old;
   int iter;
   int *frozen;
 
-  FreeSlaterArray();
-  FreeResidualArray();
   /* get the average configuration for the groups */
   acfg = &(average_config);
   if (ng > 0) {
@@ -499,7 +497,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       b = b/maxp;
       a = fabs(1.0 - orb_old.energy/orb->energy);
       b = Max(a, b);
-      b = a;
       if (tol < b) tol = b;
     }
     if (optimize_control.iprint) {
@@ -507,6 +504,16 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     }
     iter++;
   }
+
+  for (i = 0; i < acfg->n_shells; i++) {
+    k = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0.0);
+    for (j = 0; j < acfg->n_shells; j++) {
+      if (frozen[i] && frozen[j]) continue;
+      m = OrbitalIndex(acfg->n[j], acfg->kappa[j], 0.0);
+      ResidualPotential(&a, k, m);
+    }
+  }
+
   free(orb_old.wfun);
   free(frozen);
 

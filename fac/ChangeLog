@@ -1,6 +1,8 @@
-Version 0.7.0, 01/29/2002
+Version 0.7.0, 02/05/2002
 	1. add endian swapping in dbase.c and crm.c
 	2. implement extrapolation on recombined states.
+	3. using Seaton's method (MNRAS 119, 81) to extrapolate RR rates
+	4. adding the ionization balance calculation of Arnaud&Raymond.
 
 Version 0.6.9, 01/20/2002
 	1. fix a bug in the reinitialization of radial.c

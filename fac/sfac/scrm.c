@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.4 2002/01/24 03:14:32 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.5 2002/02/04 15:48:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -191,6 +191,12 @@ static int PInitBlocks(int argc, char *argv[], int argt[],
 static int PLevelPopulation(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   LevelPopulation();
+  return 0;
+}
+
+static int PCascade(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {
+  Cascade();
   return 0;
 }
 
@@ -388,6 +394,7 @@ static METHOD methods[] = {
   {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
+  {"Cascade", PCascade, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
