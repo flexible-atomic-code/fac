@@ -309,11 +309,11 @@ int RecStates(int n, int k, int *kg) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
-    m = ConstructHamilton(i, k, kg);
+    m = ConstructHamilton(i, k, kg, 0, NULL);
     if (m < 0) continue;
-    j = DiagnolizeHamilton(m);
+    j = DiagnolizeHamilton();
     if (j < 0) return -1;
-    AddToLevels(m);
+    AddToLevels();
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
@@ -345,14 +345,13 @@ int RecStatesFrozen(int n, int k, int *kg) {
     i1 = rec_complex[t].s0;
     for (i = i0; i < i1; i++) {
       lev = GetLevel(i);
-      h = GetHamilton(lev->ham_index);
       m = lev->major_component;
-      sym = GetSymmetry(h->pj);
-      s = (STATE *) ArrayGet(&(sym->states), h->basis[m]);
+      sym = GetSymmetry(lev->pj);
+      s = (STATE *) ArrayGet(&(sym->states), m);
       if (!InGroups(s->kgroup, k, kg)) {
 	continue;
       }
-      j1 = h->pj;
+      j1 = lev->pj;
       DecodePJ(j1, &p1, &j1);
       
       for (j = 1; j < 2*pw_scratch.nkl0; j++) {
@@ -384,23 +383,22 @@ int RecStatesFrozen(int n, int k, int *kg) {
 	i1 = rec_complex[t].s0;
 	for (j = i0; j < i1; j++) {
 	  lev = GetLevel(j);
-	  h = GetHamilton(lev->ham_index);
 	  m = lev->major_component;
-	  sym = GetSymmetry(h->pj);
-	  s = (STATE *) ArrayGet(&(sym->states), h->basis[m]);
+	  sym = GetSymmetry(lev->pj);
+	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
 	  m = ConstructHamiltonFrozen(i, j, NULL, n);
 	  if (m < 0) continue;
-	  if (DiagnolizeHamilton(m) < 0) return -2;
-	  AddToLevels(m);
+	  if (DiagnolizeHamilton() < 0) return -2;
+	  AddToLevels();
 	}
 	i0 = rec_complex[t].s1+1;
       }
     } else {
       m = ConstructHamiltonFrozen(i, k, kg, n);
       if (m < 0) continue;
-      if (DiagnolizeHamilton(m) < 0) return -2;
-      AddToLevels(m);
+      if (DiagnolizeHamilton() < 0) return -2;
+      AddToLevels();
     }
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
@@ -414,7 +412,7 @@ int BoundFreeOS(double *strength, int ie, double *eph,
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
   int k, kb, kf, nz;
-  double r, s, aw, a, e, *radial_int, sqrt_jb;
+  double r, s, aw, a, e, *radial_int, inv_jb;
   int klb1, klb2, klf, jb1, jb2, jf;
   int jfmin, jfmax, kappaf, kappab1, kappab2;
   int j1, j2, i, j, njf, c;
@@ -422,8 +420,8 @@ int BoundFreeOS(double *strength, int ie, double *eph,
   e = egrid[ie];
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
-  j1 = GetHamilton(lev1->ham_index)->pj;
-  j2 = GetHamilton(lev2->ham_index)->pj;
+  j1 = lev1->pj;
+  j2 = lev2->pj;
   DecodePJ(j1, NULL, &j1);
   DecodePJ(j2, NULL, &j2);
 
@@ -464,7 +462,7 @@ int BoundFreeOS(double *strength, int ie, double *eph,
   for (i = 0; i < nz; i++) {
     kappab1 = GetOrbital(ang[i].kb)->kappa;
     GetJLFromKappa(kappab1, &jb1, &klb1);    
-    sqrt_jb = 1.0 / sqrt(jb1);
+    inv_jb = 1.0 / (jb1+1);
     for (j = 0; j <= i; j++) {
       a = ang[i].coeff*ang[j].coeff;      
       if (fabs(a) < EPS10) continue;
@@ -482,11 +480,12 @@ int BoundFreeOS(double *strength, int ie, double *eph,
       for (c = 0; c < njf; c++) {
 	r += radial_int[i*njf+c]*radial_int[j*njf+c];
       }
-      s += sqrt_jb*a*r;
+      s += inv_jb*a*r;
     }
   }
 
-  *strength = (*eph) * s * 2.0/(k+1.0);
+  /* the factor 2 comes from the conitinuum norm */
+  *strength = (*eph) * s * 2.0 / (k+1.0);
   if (k != 2) {  
     aw = *eph * FINE_STRUCTURE_CONST;
     *strength *= pow(aw, k-2);
@@ -501,7 +500,6 @@ int BoundFreeOS(double *strength, int ie, double *eph,
 int AIRate(double *rate, double *e, int rec, int f) {  
   LEVEL *lev1, *lev2;
   ANGULAR_ZxZMIX *ang;
-  HAMILTON *h1, *h2;
   STATE *st;
   int k, nz, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
@@ -514,12 +512,10 @@ int AIRate(double *rate, double *e, int rec, int f) {
   *e = lev1->energy - lev2->energy;
   if (*e <= 0.0) return -1;
 
-  h1 = GetHamilton(lev1->ham_index);
-  h2 = GetHamilton(lev2->ham_index);
-  i = h1->basis[lev1->major_component];
+  i = lev1->major_component;
 
-  j1 = h1->pj;
-  j2 = h2->pj;
+  j1 = lev1->pj;
+  j2 = lev2->pj;
 
   st = (STATE *) ArrayGet(&(GetSymmetry(j1)->states), i);
   if (st->kgroup < 0) {
@@ -662,7 +658,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	j2 = LevelTotalJ(low[j]);
 	k = BoundFreeOS(&s, ie, &eph, low[j], up[i], m);
 	if (k < 0) continue;
-	phi = PI*FINE_STRUCTURE_CONST*s;
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*s;
 	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*egrid[ie]);
 	trr += rr;
 	tpi += phi;

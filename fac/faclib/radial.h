@@ -20,6 +20,7 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 int SetRadialGrid(double rmin, double rmax);
 int SetPotential(AVERAGE_CONFIG *acfg);
+int GetPotential(char *s);
 double GetResidualZ(int m);
 double GetRMax();
 

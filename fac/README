@@ -1,7 +1,10 @@
 FAC is a software packge for the calculation of various atomic processes.
 
 INSTALL:
-modify the Makefile according to your system. and type "make".
+modify the Makefile according to your system. and type "make". After make,
+the Python modules will reside in the subdir python. If you need to put it 
+in some other dir, set the INSTDIR variable in the make file, and type  
+"make install".
 
 Environment variable:
 python interpreter must be in your path. $PYTHONPATH that contains the 

@@ -31,6 +31,8 @@ static struct {
   int iprint; /* printing infomation in each iteration. */
 } optimize_controll = {EPS6, 100, 8, 0};
 
+static AVERAGE_CONFIG average_config;
+
 static double rgrid_min = 1E-5;
 static double rgrid_max = 0.5E4;    
 
@@ -64,9 +66,15 @@ int _AdjustScreeningParams(double *v, double *u) {
   int i;
   double a, b, c;
 
-  for (i = 0; i < MAX_POINTS; i++) {
-    u[i] = 0.5*(u[i]+v[i]);
-    v[i] = u[i];
+  if (v[0] > -0.9E30) {
+    for (i = 0; i < MAX_POINTS; i++) {
+      u[i] = 0.5*(u[i]+v[i]);
+      v[i] = u[i];
+    }
+  } else {
+    for (i = 0; i < MAX_POINTS; i++) {
+      v[i] = u[i];
+    }
   }
   c = 0.5*u[MAX_POINTS-1];
   for (i = 0; i < MAX_POINTS; i++) {
@@ -75,7 +83,7 @@ int _AdjustScreeningParams(double *v, double *u) {
   potential->lambda = log(2.0)/potential->rad[i];
   return 0;
 }
-  
+   
 int SetPotential(AVERAGE_CONFIG *acfg) {
   int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
   ORBITAL *orb1, *orb2;
@@ -176,7 +184,7 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     for (j = jmax+1; j < MAX_POINTS; j++) {
       u[j] = u[jmax];
     }
-    _AdjustScreeningParams(v, u);
+    _AdjustScreeningParams(v, u); 
     SetPotentialVc(potential);
     for (j = 0; j < MAX_POINTS; j++) {
       u[j] = u[j] - potential->Z[j];
@@ -185,15 +193,73 @@ int SetPotential(AVERAGE_CONFIG *acfg) {
     }
     SetPotentialU(potential, 0, NULL);
   } else {
-    for (j = 0; j < MAX_POINTS; j++) {
-      v[j] = (potential->U[i] + potential->Vc[i])*potential->rad[i];
-      v[j] += potential->Z[MAX_POINTS-1];
-    }
+    v[0] = -1E30;
     SetPotentialVc(potential);
     SetPotentialU(potential, -1, NULL);
   }
   
   return 0;
+}
+
+int GetPotential(char *s) {
+  AVERAGE_CONFIG *acfg;
+  ORBITAL *orb1;
+  double large1, small1;
+  int norbs, jmax;  
+  FILE *f;
+  int i, j, k, k1, k2;
+  double *w, *v;
+
+  /* get the average configuration for the groups */
+  acfg = &(average_config);
+
+  w = potential->W;
+  v = potential->dW;
+  f = fopen(s, "w");
+  if (!f) return -1;
+  
+  fprintf(f, "Lambda = %10.3E, A = %10.3E;\tLambdaP = %10.3E, AP = %10.3E\n",
+	  potential->lambda, potential->a, potential->lambdap, potential->ap);
+
+  
+  for (j = 0; j < MAX_POINTS; j++) {
+    w[j] = 0.0;
+    v[j] = -potential->Z[j]/potential->rad[j];
+  }
+
+  norbs = 0;
+  jmax = 0;
+  for (i = 0; i < acfg->n_shells; i++) {
+    k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
+    if (k1 < 0) continue;
+    orb1 = GetOrbital(k1);
+    for (j = 0; j <= orb1->ilast; j++) {
+      large1 = Large(orb1)[j];
+      small1 = Small(orb1)[j];
+      w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
+    }
+    GetYk(0, _yk, orb1, orb1, -1);
+    for (k = 0; k < MAX_POINTS; k++) {
+      v[k] += _yk[k]*acfg->nq[i]/potential->rad[k];
+    }
+    if (jmax < orb1->ilast) jmax = orb1->ilast;
+    norbs++;
+  }
+  
+  for (k = 0; k < MAX_POINTS; k++) {
+    w[k] = w[k]/(potential->rad[k]*potential->rad[k]);
+    w[k] = - pow(w[k], 1.0/3);
+    v[k] += w[k]*0.4235655;
+  }
+
+  for (i = 0; i < MAX_POINTS; i++) {
+    fprintf(f, "%-5d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	    i, potential->rad[i], potential->Z[i], potential->Vc[i], 
+	    potential->U[i], v[i], potential->Vtail[i]);
+  }
+
+  fclose(f);
+  
 }
 
 double GetResidualZ(int m) {
@@ -209,7 +275,6 @@ double GetRMax() {
   
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
-  AVERAGE_CONFIG average_config;
   double tol;
   ORBITAL orb_old, *orb;
   int i, j, k, no_old;

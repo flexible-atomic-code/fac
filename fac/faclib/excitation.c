@@ -751,6 +751,7 @@ double InterpolatePk(double te, int type, double *pk) {
     r = pk[0];
     return r;
   }
+  
   if (type == 0 || type == 1) {
     x = log_te;
     te = log(te);
@@ -785,8 +786,8 @@ int CollisionStrength(double *s, double *e, int lower, int upper, int msub) {
   *e = te;
 
   if (msub) {
-    j1 = GetHamilton(lev1->ham_index)->pj;
-    j2 = GetHamilton(lev2->ham_index)->pj;
+    j1 = lev1->pj;
+    j2 = lev2->pj;
     DecodePJ(j1, NULL, &j1);
     DecodePJ(j2, NULL, &j2);
     j = 0;
@@ -1088,16 +1089,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   if (tegrid[0] < 0.0) {
     emin = 1E10;
     emax = 1E-10;
+    m = 0;
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	e = lev2->energy - lev1->energy;
+	if (e > 0) m++;
 	if (e < emin && e > 0) emin = e;
 	if (e > emax) emax = e;
       }
     }
-    if ((emax - emin) < EPS3) {
+    if (m == 2) {
+      SetTEGrid(2, emin, emax);
+    } else if ((emax - emin) < EPS3) {
       SetTEGrid(1, 0.5*(emin+emax), emax);
     } else {
       SetTEGrid(n_tegrid, emin, emax);
