@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.5 2003/08/05 16:30:51 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.6 2003/08/06 16:36:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -291,8 +291,29 @@ static PyObject *PPopulationTable(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *POrientation(PyObject *self, PyObject *args) {
+  double e;
+  char *fn;
+  
+  if (spol_file) {
+    SPOLStatement("Orientation", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  fn = NULL;
+  e = 0.0;
+  if (!PyArg_ParseTuple(args, "|ds", &e, &fn)) return NULL;
+  
+  if (Orientation(fn, e) < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   char *fn;
+  char *ifn;
   
   if (spol_file) {
     SPOLStatement("PolarizationTable", args, NULL);
@@ -300,9 +321,10 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  ifn = NULL;
+  if (!PyArg_ParseTuple(args, "s|s", &fn, &ifn)) return NULL;
   
-  if (PolarizationTable(fn) < 0) return NULL;
+  if (PolarizationTable(fn, ifn) < 0) return NULL;
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -312,6 +334,7 @@ static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
   {"CloseSPOL", PCloseSPOL, METH_VARARGS},
+  {"Orientation", POrientation, METH_VARARGS},
   {"SetIDR", PSetIDR, METH_VARARGS},
   {"SetMaxLevels", PSetMaxLevels, METH_VARARGS},
   {"SetMIteration", PSetMIteration, METH_VARARGS},
