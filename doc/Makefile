@@ -1,10 +1,9 @@
 doc: manual.tex
-	latex manual
+	pdflatex manual
 	bibtex manual
 	makeindex manual
-	latex manual
-	latex manual
-	dvips -o manual.ps manual
+	pdflatex manual
+	pdflatex manual
 
 clean:
 	rm -rf *~ 
