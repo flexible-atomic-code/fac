@@ -1,4 +1,7 @@
-Version 0.6.9, 01/20`1/2002
+Version 0.7.0, 01/23/2002
+	1. add endian swapping in dbase.c and crm.c
+
+Version 0.6.9, 01/20/2002
 	1. fix a bug in the reinitialization of radial.c
 	2. improve the atom module.
 	3. updated demo scripts for the new version. added the FeL 

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.17 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.18 2002/01/24 03:14:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -90,6 +90,37 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
 
   fclose(sfac_file);
   sfac_file = NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+
+static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
+  char *fn;
+  FILE *f;
+  F_HEADER fh;
+  int i;
+
+  if (sfac_file) {
+    SFACStatement("CheckEndian", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  fn = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
+  if (fn) {
+    f = fopen(fn, "rb");
+    if (f == NULL) {
+      printf("Cannot open file %s\n", fn);
+      return NULL;
+    }
+    fread(&fh, sizeof(F_HEADER), 1, f);
+    i = CheckEndian(&fh);
+  } else {
+    i = CheckEndian(NULL);
+  }
+  printf("Endian: %d\n", i);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -3029,6 +3060,7 @@ static struct PyMethodDef fac_methods[] = {
   {"BasisTable", PBasisTable, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
+  {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},

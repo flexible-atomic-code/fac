@@ -212,6 +212,9 @@ typedef struct _RT_RECORD_ {
   float ci;
 } RT_RECORD;
 
+int CheckEndian(F_HEADER *fh);
+void SwapEndian(char *p, int size);
+int SwapEndianFHeader(F_HEADER *h);
 int InitDBase(void);
 int ReinitDBase(int m);
 FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr);
@@ -220,21 +223,37 @@ int PrintTable(char *ifn, char *ofn, int v);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
-int PrintENTable(FILE *f1, FILE *f2, int v);
+int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianENHeader(EN_HEADER *h);
+int SwapEndianENRecord(EN_RECORD *r);
 int WriteTRRecord(FILE *f, TR_RECORD *r);
-int PrintTRTable(FILE *f1, FILE *f2, int v);
+int PrintTRTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianTRHeader(TR_HEADER *h);
+int SwapEndianTRRecord(TR_RECORD *r);
 int WriteCERecord(FILE *f, CE_RECORD *r);
-int PrintCETable(FILE *f1, FILE *f2, int v);
+int PrintCETable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianCEHeader(CE_HEADER *h);
+int SwapEndianCERecord(CE_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
-int PrintRRTable(FILE *f1, FILE *f2, int v);
+int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianRRHeader(RR_HEADER *h);
+int SwapEndianRRRecord(RR_RECORD *r);
 int WriteAIRecord(FILE *f, AI_RECORD *r);
-int PrintAITable(FILE *f1, FILE *f2, int v);
+int PrintAITable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianAIHeader(AI_HEADER *h);
+int SwapEndianAIRecord(AI_RECORD *r);
 int WriteCIRecord(FILE *f, CI_RECORD *r);
-int PrintCITable(FILE *f1, FILE *f2, int v);
+int PrintCITable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianCIHeader(CI_HEADER *h);
+int SwapEndianCIRecord(CI_RECORD *r);
 int WriteSPRecord(FILE *f, SP_RECORD *r);
-int PrintSPTable(FILE *f1, FILE *f2, int v);
+int PrintSPTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianSPHeader(SP_HEADER *h);
+int SwapEndianSPRecord(SP_RECORD *r);
 int WriteRTRecord(FILE *f, RT_RECORD *r);
-int PrintRTTable(FILE *f1, FILE *f2, int v);
+int PrintRTTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianRTHeader(RT_HEADER *h);
+int SwapEndianRTRecord(RT_RECORD *r);
 
 #endif
 

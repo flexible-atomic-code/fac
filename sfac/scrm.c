@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.3 2002/01/21 18:33:51 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.4 2002/01/24 03:14:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -38,6 +38,29 @@ static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
 static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc != 0) return -1;
   exit(0);
+}
+
+static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
+  FILE *f;
+  F_HEADER fh;
+  int i;
+
+  if (argc == 0) {
+    i = CheckEndian(NULL);
+  } else {
+    f = fopen(argv[0], "rb");
+    if (f == NULL) {
+      printf("Cannot open file %s\n", argv[0]);
+      return -1;
+    }
+    fread(&fh, sizeof(F_HEADER), 1, f);
+    i = CheckEndian(&fh);
+    fclose(f);
+  }
+
+  printf("Endian: %d\n", i);
+
+  return 0;
 }
 
 static int PSetEleDist(int argc, char *argv[], int argt[], 
@@ -346,6 +369,7 @@ static int PSetAbund(int argc, char *argv[], int argt[],
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
+  {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},

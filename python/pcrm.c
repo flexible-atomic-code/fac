@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.3 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.4 2002/01/24 03:14:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -89,6 +89,37 @@ static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
+  char *fn;
+  FILE *f;
+  F_HEADER fh;
+  int i;
+
+  if (scrm_file) {
+    SCRMStatement("CheckEndian", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  fn = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
+  if (fn) {
+    f = fopen(fn, "rb");
+    if (f == NULL) {
+      printf("Cannot open file %s\n", fn);
+      return NULL;
+    }
+    fread(&fh, sizeof(F_HEADER), 1, f);
+    i = CheckEndian(&fh);
+  } else {
+    i = CheckEndian(NULL);
+  }
+  printf("Endian: %d\n", i);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static PyObject *PPrint(PyObject *self, PyObject *args) {
   PyObject *p, *q;
@@ -617,6 +648,7 @@ static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
+  {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},

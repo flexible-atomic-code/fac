@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.8 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.9 2002/01/24 03:14:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,6 +20,216 @@ static RT_HEADER rt_header;
 static EN_SRECORD *mem_en_table = NULL;
 static int iground;
 
+int CheckEndian(F_HEADER *fh) {
+  unsigned short t = 0x01;
+  char *p;
+
+  if (fh) {
+    if (fh->version > 0 || fh->sversion >= 7) {
+      return (int) (fh->symbol[3]);
+    }
+  }
+       
+  p = (char *) &t;
+  p++;
+  if ((unsigned short) (*p) == 1) return 1;
+  else return 0;
+}
+ 
+void SwapEndian(char *p, int size) {
+  int t1, t2;
+  char tmp;
+
+  t1 = 0;
+  t2 = size-1;
+  while (t2 > t1) {
+    tmp = p[t1];
+    p[t1] = p[t2];
+    p[t2] = tmp;
+    t1++;
+    t2--;
+  }
+}
+
+int SwapEndianFHeader(F_HEADER *h) {
+  SwapEndian((char *) &(h->tsession), sizeof(time_t));
+  SwapEndian((char *) &(h->version), sizeof(int));
+  SwapEndian((char *) &(h->sversion), sizeof(int));
+  SwapEndian((char *) &(h->ssversion), sizeof(int));
+  SwapEndian((char *) &(h->type), sizeof(int));
+  SwapEndian((char *) &(h->atom), sizeof(int));
+  SwapEndian((char *) &(h->nblocks), sizeof(int));
+  return 0;
+}
+
+int SwapEndianENHeader(EN_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->nlevels), sizeof(int));
+  return 0;
+}
+
+int SwapEndianENRecord(EN_RECORD *r) {
+  SwapEndian((char *) &(r->p), sizeof(short));
+  SwapEndian((char *) &(r->j), sizeof(short));
+  SwapEndian((char *) &(r->ilev), sizeof(int));
+  SwapEndian((char *) &(r->energy), sizeof(float));
+  return 0;
+}
+
+int SwapEndianTRHeader(TR_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->gauge), sizeof(int));
+  SwapEndian((char *) &(h->mode), sizeof(int));
+  SwapEndian((char *) &(h->multipole), sizeof(int));
+  return 0;
+}
+
+int SwapEndianTRRecord(TR_RECORD *r) {
+  SwapEndian((char *) &(r->lower), sizeof(int));
+  SwapEndian((char *) &(r->upper), sizeof(int));
+  SwapEndian((char *) &(r->strength), sizeof(float));
+  return 0;
+}
+
+int SwapEndianCEHeader(CE_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->qk_mode), sizeof(int));
+  SwapEndian((char *) &(h->n_tegrid), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  SwapEndian((char *) &(h->egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->n_usr), sizeof(int));
+  SwapEndian((char *) &(h->usr_egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->nparams), sizeof(int));
+  SwapEndian((char *) &(h->pw_type), sizeof(int));
+  SwapEndian((char *) &(h->msub), sizeof(int));
+  return 0;
+}
+
+int SwapEndianCERecord(CE_RECORD *r) {
+  SwapEndian((char *) &(r->lower), sizeof(int));
+  SwapEndian((char *) &(r->upper), sizeof(int));
+  SwapEndian((char *) &(r->bethe), sizeof(float));
+  return 0;
+}
+ 
+int SwapEndianRRHeader(RR_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->qk_mode), sizeof(int));
+  SwapEndian((char *) &(h->multipole), sizeof(int));
+  SwapEndian((char *) &(h->n_tegrid), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  SwapEndian((char *) &(h->egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->n_usr), sizeof(int));
+  SwapEndian((char *) &(h->usr_egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->nparams), sizeof(int));
+  return 0;
+}
+  
+int SwapEndianRRRecord(RR_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->nshells), sizeof(int));
+  return 0;
+}
+
+int SwapEndianAIHeader(AI_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->channel), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  return 0;
+}
+
+int SwapEndianAIRecord(AI_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->rate), sizeof(float));
+  return 0;
+}
+
+int SwapEndianCIHeader(CI_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->qk_mode), sizeof(int));
+  SwapEndian((char *) &(h->n_tegrid), sizeof(int));
+  SwapEndian((char *) &(h->n_egrid), sizeof(int));
+  SwapEndian((char *) &(h->egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->n_usr), sizeof(int));
+  SwapEndian((char *) &(h->usr_egrid_type), sizeof(int));
+  SwapEndian((char *) &(h->nparams), sizeof(int));
+  SwapEndian((char *) &(h->pw_type), sizeof(int));
+  return 0;
+}
+
+int SwapEndianCIRecord(CI_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->nshells), sizeof(int));
+  return 0;
+}
+
+int SwapEndianSPHeader(SP_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->type), sizeof(int));
+  SwapEndian((char *) &(h->iedist), sizeof(int));
+  SwapEndian((char *) &(h->np_edist), sizeof(int));
+  SwapEndian((char *) &(h->eden), sizeof(double));
+  SwapEndian((char *) &(h->ipdist), sizeof(int));
+  SwapEndian((char *) &(h->np_pdist), sizeof(int));
+  SwapEndian((char *) &(h->pden), sizeof(double));
+  return 0;
+}
+
+int SwapEndianSPRecord(SP_RECORD *r) {
+  SwapEndian((char *) &(r->lower), sizeof(int));
+  SwapEndian((char *) &(r->upper), sizeof(int));
+  SwapEndian((char *) &(r->energy), sizeof(float));
+  SwapEndian((char *) &(r->strength), sizeof(float));
+  return 0;
+}
+
+int SwapEndianRTHeader(RT_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->iedist), sizeof(int));
+  SwapEndian((char *) &(h->np_edist), sizeof(int));
+  SwapEndian((char *) &(h->ipdist), sizeof(int));
+  SwapEndian((char *) &(h->np_pdist), sizeof(int));
+  SwapEndian((char *) &(h->iblock), sizeof(int));
+  SwapEndian((char *) &(h->nb), sizeof(double));
+  return 0;
+}
+
+int SwapEndianRTRecord(RT_RECORD *r) {
+  SwapEndian((char *) &(r->iblock), sizeof(int));
+  SwapEndian((char *) &(r->tr), sizeof(float));
+  SwapEndian((char *) &(r->ce), sizeof(float));
+  SwapEndian((char *) &(r->rr), sizeof(float));
+  SwapEndian((char *) &(r->ai), sizeof(float));
+  SwapEndian((char *) &(r->ci), sizeof(float));
+  return 0;
+}
+
 int InitDBase(void) {
   int i;
   for (i = 0; i < NDB; i++) {
@@ -27,6 +237,8 @@ int InitDBase(void) {
     fheader[i].version = VERSION;
     fheader[i].sversion = SUBVERSION;
     fheader[i].ssversion = SUBSUBVERSION;
+    fheader[i].symbol[2] = '\0';
+    fheader[i].symbol[3] = (char) (CheckEndian(NULL));
     fheader[i].type = 0;
     fheader[i].atom = 0;
     fheader[i].nblocks = 0;
@@ -94,7 +306,7 @@ FILE *InitFile(char *fn, F_HEADER *fhdr, void *rhdr) {
   }
 
   fheader[ihdr].type = fhdr->type;
-  strcpy(fheader[ihdr].symbol, fhdr->symbol);
+  strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
   fheader[ihdr].nblocks += 1;
   n = fwrite(&fheader[ihdr], sizeof(F_HEADER), 1, f);
@@ -249,7 +461,7 @@ int CloseFile(FILE *f, F_HEADER *fhdr) {
 int PrintTable(char *ifn, char *ofn, int v) {
   F_HEADER fh;
   FILE *f1, *f2;
-  int n;
+  int n, swp;
 
   f1 = fopen(ifn, "r");
   if (f1 == NULL) return -1;
@@ -268,6 +480,11 @@ int PrintTable(char *ifn, char *ofn, int v) {
     return 0;  
   }
 
+  swp = 0;
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  }
   if (v && fh.type < DB_SP) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
@@ -278,6 +495,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
   }
 
   fprintf(f2, "FAC %d.%d.%d\n", fh.version, fh.sversion, fh.ssversion);
+  fprintf(f2, "Endian\t= %d\n", (int) CheckEndian(&fh));
   fprintf(f2, "TSess\t= %lu\n", fh.tsession);
   fprintf(f2, "Type\t= %d\n", fh.type);
   fprintf(f2, "Verbose\t= %d\n", v);
@@ -290,28 +508,28 @@ int PrintTable(char *ifn, char *ofn, int v) {
       fprintf(f2, "E0\t= %-d, %15.8E\n", 
 	      iground, (mem_en_table[iground].energy * HARTREE_EV));
     }
-    n = PrintENTable(f1, f2, v);
+    n = PrintENTable(f1, f2, v, swp);
     break;
   case DB_TR:
-    n = PrintTRTable(f1, f2, v);
+    n = PrintTRTable(f1, f2, v, swp);
     break;
   case DB_CE:
-    n = PrintCETable(f1, f2, v);
+    n = PrintCETable(f1, f2, v, swp);
     break;
   case DB_RR:
-    n = PrintRRTable(f1, f2, v);
+    n = PrintRRTable(f1, f2, v, swp);
     break;
   case DB_AI:
-    n = PrintAITable(f1, f2, v);
+    n = PrintAITable(f1, f2, v, swp);
     break;
   case DB_CI:
-    n = PrintCITable(f1, f2, v);
+    n = PrintCITable(f1, f2, v, swp);
     break;
   case DB_SP:
-    n = PrintSPTable(f1, f2, v);
+    n = PrintSPTable(f1, f2, v, swp);
     break;
   case DB_RT:
-    n = PrintRTTable(f1, f2, v);
+    n = PrintRTTable(f1, f2, v, swp);
     break;
   default:
     break;
@@ -343,18 +561,28 @@ int MemENTable(char *fn) {
   FILE *f;
   int n, i, nlevels;
   float e0;
+  int swp;
 
   f = fopen(fn, "r");
   if (f == NULL) return -1;
   
   n = fread(&fh, sizeof(F_HEADER), 1, f);
   if (n != 1) return 0;
+  if (CheckEndian(&fh) != (int) (fheader[0].symbol[3])) {
+    swp = 1;
+    SwapEndianFHeader(&fh);
+  } else {
+    swp = 0;
+  }
   if (fh.type != DB_EN) return -1;
 
   if (mem_en_table) free(mem_en_table);  
   nlevels = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = fread(&h, sizeof(EN_HEADER), 1, f);
+    if (swp) {
+      SwapEndianENHeader(&h);
+    }
     nlevels += h.nlevels;
     fseek(f, h.length, SEEK_CUR);
   }
@@ -364,9 +592,15 @@ int MemENTable(char *fn) {
   fseek(f, sizeof(F_HEADER), SEEK_SET);
   while (1) {
     n = fread(&h, sizeof(EN_HEADER), 1, f);
+    if (swp) {
+      SwapEndianENHeader(&h);
+    }
     if (n != 1) break;
     for (i = 0; i < h.nlevels; i++) {
       n = fread(&r, sizeof(EN_RECORD), 1, f);
+      if (swp) {
+	SwapEndianENRecord(&r);
+      }
       if (n != 1) break;
       if (r.energy < e0) {
 	e0 = r.energy;
@@ -380,7 +614,7 @@ int MemENTable(char *fn) {
   return 0;
 }    
 
-int PrintENTable(FILE *f1, FILE *f2, int v) {
+int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   EN_HEADER h;
   EN_RECORD r;
   int n, i;
@@ -391,12 +625,14 @@ int PrintENTable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(EN_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianENHeader(&h);
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NLEV\t= %d\n", h.nlevels);
     fprintf(f2, "         Energy       P 2J \n");
     for (i = 0; i < h.nlevels; i++) {
       n = fread(&r, sizeof(EN_RECORD), 1, f1);
+      if (swp) SwapEndianENRecord(&r);
       if (n != 1) break;
       e = r.energy;
       if (v) {
@@ -420,7 +656,7 @@ int WriteTRRecord(FILE *f, TR_RECORD *r) {
   return n;
 }
 
-int PrintTRTable(FILE *f1, FILE *f2, int v) {
+int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   TR_HEADER h;
   TR_RECORD r;
   int n, i;
@@ -432,6 +668,7 @@ int PrintTRTable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(TR_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianTRHeader(&h);
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -442,6 +679,7 @@ int PrintTRTable(FILE *f1, FILE *f2, int v) {
 
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(TR_RECORD), 1, f1);
+      if (swp) SwapEndianTRRecord(&r);
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	a = 2.0*pow((FINE_STRUCTURE_CONST*e),2)*FINE_STRUCTURE_CONST;
@@ -482,7 +720,7 @@ int WriteCERecord(FILE *f, CE_RECORD *r) {
   return n;
 }
   
-int PrintCETable(FILE *f1, FILE *f2, int v) {
+int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
   CE_HEADER h;
   CE_RECORD r;
   int n, i, t;
@@ -496,6 +734,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(CE_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianCEHeader(&h);
 
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -508,6 +747,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
     h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
     n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
     for (i = 0; i < h.n_tegrid; i++) {
+      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -519,6 +759,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
     n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
+      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -530,6 +771,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
     h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
     n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
+      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -546,6 +788,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
     strength = (float *) malloc(sizeof(float)*m);
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(CE_RECORD), 1, f1);
+      if (swp) SwapEndianCERecord(&r);
       if (r.nsub > nsub) {
 	if (h.qk_mode == QK_FIT) {
 	  m = h.nparams * r.nsub;
@@ -578,12 +821,14 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
       for (k = 0; k < r.nsub; k++) {
 	if (h.qk_mode == QK_FIT) {
 	  for (t = 0; t < h.nparams; t++) {
+	    if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
 	    fprintf(f2, "%11.4E ", params[p1]);
 	    p1++;
 	  }
 	  fprintf(f2, "\n");
 	}
 	for (t = 0; t < h.n_usr; t++) {
+	  if (swp) SwapEndian((char *) &(strength[p2]), sizeof(float));
 	  if (v) {
 	    a = h.usr_egrid[t];
 	    if (h.usr_egrid_type == 1) a += e;
@@ -632,7 +877,7 @@ int WriteRRRecord(FILE *f, RR_RECORD *r) {
   return n;
 }
 
-int PrintRRTable(FILE *f1, FILE *f2, int v) {
+int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
@@ -646,6 +891,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(RR_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianRRHeader(&h);
     
     fprintf(f2, "\n");
     fprintf(f2, "\n");
@@ -658,6 +904,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
     h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
     n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
     for (i = 0; i < h.n_tegrid; i++) {
+      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -669,6 +916,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
     n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
+      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -680,6 +928,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
     h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
     n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
+      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -696,6 +945,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
     strength = (float *) malloc(sizeof(float)*m);
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RR_RECORD), 1, f1);
+      if (swp) SwapEndianRRRecord(&r);
       if (r.nshells > nshells && h.qk_mode == QK_FIT) {
 	m = h.nparams * r.nshells;
 	params = (float *) realloc(params, sizeof(float)*m);
@@ -723,6 +973,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
       if (h.qk_mode == QK_FIT) {
 	for (k = 0; k < r.nshells; k++) {
 	  for (t = 0; t < h.nparams; t++) {
+	    if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
 	    fprintf(f2, "%11.4E ", params[p1]);
 	    p1++;
 	  }
@@ -730,6 +981,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v) {
 	}
       }
       for (t = 0; t < h.n_usr; t++) {
+	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
 	  if (h.usr_egrid_type == 0) {
 	    eph = h.usr_egrid[t];
@@ -770,7 +1022,7 @@ int WriteAIRecord(FILE *f, AI_RECORD *r) {
   return n;
 }
 
-int PrintAITable(FILE *f1, FILE *f2, int v) {
+int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
   AI_HEADER h;
   AI_RECORD r;
   int n, i;
@@ -782,6 +1034,7 @@ int PrintAITable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(AI_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianAIHeader(&h);
  
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -791,6 +1044,7 @@ int PrintAITable(FILE *f1, FILE *f2, int v) {
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
     n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
+      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -800,6 +1054,7 @@ int PrintAITable(FILE *f1, FILE *f2, int v) {
        
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(AI_RECORD), 1, f1);
+      if (swp) SwapEndianAIRecord(&r);
       if (v) {
 	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
 	sdr = 0.5*(mem_en_table[r.b].j + 1.0);
@@ -839,7 +1094,7 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
   return n;
 }
 
-int PrintCITable(FILE *f1, FILE *f2, int v) {
+int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
@@ -853,6 +1108,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(CI_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianCIHeader(&h);
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -864,6 +1120,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
     h.tegrid = (double *) malloc(sizeof(double)*h.n_tegrid);
     n = fread(h.tegrid, sizeof(double), h.n_tegrid, f1);
     for (i = 0; i < h.n_tegrid; i++) {      
+      if (swp) SwapEndian((char *) &(h.tegrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
@@ -875,6 +1132,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
     h.egrid = (double *) malloc(sizeof(double)*h.n_egrid);
     n = fread(h.egrid, sizeof(double), h.n_egrid, f1);
     for (i = 0; i < h.n_egrid; i++) {
+      if (swp) SwapEndian((char *) &(h.egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
@@ -886,6 +1144,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
     h.usr_egrid = (double *) malloc(sizeof(double)*h.n_usr);
     n = fread(h.usr_egrid, sizeof(double), h.n_usr, f1);
     for (i = 0; i < h.n_usr; i++) {
+      if (swp) SwapEndian((char *) &(h.usr_egrid[i]), sizeof(double));
       if (v) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
@@ -901,6 +1160,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
     
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(CI_RECORD), 1, f1);
+      if (swp) SwapEndianCIRecord(&r);
       if (r.nshells > nshells) {
 	m = h.nparams * r.nshells;
 	params = (float *) realloc(params, sizeof(float)*m);
@@ -925,12 +1185,14 @@ int PrintCITable(FILE *f1, FILE *f2, int v) {
       p1 = 0;
       for (k = 0; k < r.nshells; k++) {
 	for (t = 0; t < h.nparams; t++) {
+	  if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
 	  fprintf(f2, "%11.4E ", params[p1]);
 	  p1++;
 	}
 	fprintf(f2, "\n");
       }
       for (t = 0; t < h.n_usr; t++) {
+	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
 	  a = h.usr_egrid[t];
 	  if (h.usr_egrid_type == 1) a += e;
@@ -966,7 +1228,7 @@ int WriteSPRecord(FILE *f, SP_RECORD *r) {
   return n;
 }
 
-int PrintSPTable(FILE *f1, FILE *f2, int v) {
+int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
   SP_HEADER h;
   SP_RECORD r;
   int n, i;
@@ -978,6 +1240,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(SP_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianSPHeader(&h);
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -989,6 +1252,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v) {
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
     fread(h.p_edist, sizeof(double), h.np_edist, f1);
     for (i = 0; i < h.np_edist; i++) {
+      if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
     }
     fprintf(f2, "PDEN\t= %15.8E\n", h.pden);
@@ -997,6 +1261,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v) {
     h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
     fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
     for (i = 0; i < h.np_pdist; i++) {
+      if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);
     }
     free(h.p_edist);
@@ -1004,6 +1269,7 @@ int PrintSPTable(FILE *f1, FILE *f2, int v) {
 
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(SP_RECORD), 1, f1);
+      if (swp) SwapEndianSPRecord(&r);
       e = r.energy;
       if (v) e *= HARTREE_EV;
       a = r.strength;
@@ -1023,7 +1289,7 @@ int WriteRTRecord(FILE *f, RT_RECORD *r) {
   return n;
 }
 
-int PrintRTTable(FILE *f1, FILE *f2, int v) {
+int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_HEADER h;
   RT_RECORD r;
   int n, i;
@@ -1033,6 +1299,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v) {
   while (1) {
     n = fread(&h, sizeof(RT_HEADER), 1, f1);
     if (n != 1) break;
+    if (swp) SwapEndianRTHeader(&h);
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -1042,6 +1309,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v) {
     h.p_edist = (double *) malloc(sizeof(double)*h.np_edist);
     fread(h.p_edist, sizeof(double), h.np_edist, f1);
     for (i = 0; i < h.np_edist; i++) {
+      if (swp) SwapEndian((char *) &(h.p_edist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_edist[i]);
     }
     fprintf(f2, "PDIST\t= %d\n", h.ipdist);
@@ -1049,6 +1317,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v) {
     h.p_pdist = (double *) malloc(sizeof(double)*h.np_pdist);
     fread(h.p_pdist, sizeof(double), h.np_pdist, f1);
     for (i = 0; i < h.np_pdist; i++) {
+      if (swp) SwapEndian((char *) &(h.p_pdist[i]), sizeof(double));
       fprintf(f2, "\t %15.8E\n", h.p_pdist[i]);
     }
     free(h.p_edist);
@@ -1060,6 +1329,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v) {
     fprintf(f2, "          RR          AI          CI\n");
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RT_RECORD), 1, f1);
+      if (swp) SwapEndianRTRecord(&r);
       fprintf(f2, "%4d\t%11.4E %11.4E %11.4E %11.4E %11.4E\n",
 	      r.iblock, r.tr, r.ce, r.rr, r.ai, r.ci);
     }
