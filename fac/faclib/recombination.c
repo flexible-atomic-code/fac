@@ -12,7 +12,6 @@ static int usr_egrid_type = 0;
 static int n_tegrid = 0;
 static double tegrid[MAX_DRTEGRID];
 static double kegrid[MAX_DRTEGRID];
-static double *ai_pk;
 static ARRAY tegrid_sav = {0, 0, 0, NULL};
 static MULTI *pk_array;
 
@@ -599,10 +598,12 @@ int BoundFreeOS(double *strength, double *eb,
 int AIRate(double *rate, double *e, int rec, int f) {  
   LEVEL *lev1, *lev2;
   ANGULAR_ZxZMIX *ang;
+  ANGULAR_ZFB *zfb;
   STATE *st;
-  int k, nz, ik, i, j1, j2, ij, kappaf, ip;
+  int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
   double *p, y2[MAX_DRTEGRID], r, s;
+  double *ai_pk, ai_pk0[MAX_DRTEGRID];
 
   *rate = 0.0;
   lev1 = GetLevel(rec);
@@ -637,39 +638,60 @@ int AIRate(double *rate, double *e, int rec, int f) {
   for (ip = 0; ip < nkappaf; ip++) p[ip] = 0.0;
 
   nz = AngularZxZFreeBound(&ang, f, rec);
-  /*
-  printf("%d %d %d\n", rec, f, nz);
-  */
-  if (nz <= 0) return -1;
-  for (i = 0; i < nz; i++) {
-    jf = ang[i].k0;
-    kb = ang[i].k1;
-    k0 = ang[i].k2;
-    k1 = ang[i].k3;
-    /*
-    printf("%d %d, %d %d, %d %d, %d %d, %d %10.3E\n", i, jf, 
-	   GetOrbital(kb)->n, GetOrbital(kb)->kappa, 
-	   GetOrbital(k0)->n, GetOrbital(k0)->kappa,
-	   GetOrbital(k1)->n, GetOrbital(k1)->kappa,
-	   ang[i].k, ang[i].coeff);
-    */
-    ij = (jf - jmin);
-    for (ik = -1; ik <= 1; ik += 2) {
-      klf = jf + ik;  
-      kappaf = GetKappaFromJL(jf, klf);
-      AIRadialPk(k0, k1, kb, kappaf, ang[i].k);
-      if (n_tegrid > 1) {
-	spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
-	splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
-      } else {
-	s = ai_pk[0];
+  if (nz > 0) {
+    for (i = 0; i < nz; i++) {
+      jf = ang[i].k0;
+      kb = ang[i].k1;
+      k0 = ang[i].k2;
+      k1 = ang[i].k3;
+      ij = (jf - jmin);
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;  
+	kappaf = GetKappaFromJL(jf, klf);
+	AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k);
+	if (n_tegrid > 1) {
+	  spline(tegrid, ai_pk, n_tegrid, 1.0E30, 1.0E30, y2);
+	  splint(tegrid, ai_pk, y2, n_tegrid, *e, &s);
+	} else {
+	  s = ai_pk[0];
+	}
+	ip = (ik == -1)? ij:(ij+1);
+	p[ip] += s*ang[i].coeff;
       }
-      ip = (ik == -1)? ij:(ij+1);
-      p[ip] += s*ang[i].coeff;
+    }    
+    free(ang);
+  }
+  
+  nzfb = AngularZFreeBound(&zfb, f, rec);
+  if (nzfb > 0) {
+    for (i = 0; i < nzfb; i++) {
+      kb = zfb[i].kb;
+      jf = GetOrbital(kb)->kappa;
+      jf = GetJFromKappa(jf);
+      ij = jf - jmin;
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;
+	kappaf = GetKappaFromJL(jf, klf);
+	AIRadial1E(ai_pk0, kb, kappaf);
+	if (n_tegrid > 1) {
+	  spline(tegrid, ai_pk0, n_tegrid, 1E30, 1E30, y2);
+	  splint(tegrid, ai_pk0, y2, n_tegrid, *e, &s);
+	} else {
+	  s = ai_pk0[0];
+	}
+	ip = (ik == -1)?ij:(ij+1);
+	if (j2 > j1) {
+	  if (IsEven(ij/2)) s = -s;
+	} else {
+	  if (IsOdd(ij/2)) s = -s;
+	}
+	p[ip] += s*zfb[i].coeff;
+      }
     }
+    free(zfb);
   }
 
-  free(ang);
+  if (nz <= 0 && nzfb <= 0) return -1;
 
   r = 0.0;
   for (i = 0; i < nkappaf; i++) {
@@ -684,8 +706,18 @@ int AIRate(double *rate, double *e, int rec, int f) {
   return 0;
 }
 
+int AIRadial1E(double *ai_pk, int kb, int kappaf) {
+  int kf;
+  int i;
 
-int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
+  for (i = 0; i < n_tegrid; i++) {
+    kf = OrbitalIndex(0, kappaf, tegrid[i]);
+    ResidualPotential(ai_pk+i, kf, kb);
+  }
+  return 0;
+}  
+
+int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   int i, j, kf;
   int ks[4];
   double e, sd, se;
@@ -704,12 +736,12 @@ int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
 
   p = (double **) MultiSet(pk_array, index, NULL);
   if (*p) {
-    ai_pk = *p;
+    *ai_pk = *p;
     return 0;
   } 
  
   (*p) = (double *) malloc(sizeof(double)*n_tegrid);
-  ai_pk = *p;
+  *ai_pk = *p;
   for (i = 0; i < n_tegrid; i++) {
     e = tegrid[i];
     kf = OrbitalIndex(0, kappaf, e);
@@ -718,7 +750,7 @@ int AIRadialPk(int k0, int k1, int kb, int kappaf, int k) {
     ks[2] = k1;
     ks[3] = kb;
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
-    ai_pk[i] = sd+se;
+    (*ai_pk)[i] = sd+se;
   }
 
   return 0;
