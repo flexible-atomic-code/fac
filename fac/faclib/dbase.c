@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.26 2002/08/21 22:01:31 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.27 2002/08/23 13:37:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -119,8 +119,9 @@ int SwapEndianCERecord(CE_RECORD *r) {
   SwapEndian((char *) &(r->lower), sizeof(int));
   SwapEndian((char *) &(r->upper), sizeof(int));
   SwapEndian((char *) &(r->nsub), sizeof(int));
-  for (m = 0; m < 4; m++) {
-    SwapEndian((char *) &(r->bethe[m]), sizeof(float));
+  SwapEndian((char *) &(r->bethe), sizeof(float));
+  for (m = 0; m < 2; m++) {
+    SwapEndian((char *) &(r->born[m]), sizeof(float));
   }
   return 0;
 }
@@ -987,13 +988,13 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e*HARTREE_EV, r.nsub);
-	fprintf(f2, "%11.4E %11.4E %11.4E %11.4E\n", 
-		r.bethe[0], r.bethe[1], r.bethe[2], r.bethe[3]);
+	fprintf(f2, "%11.4E %11.4E %11.4E\n", 
+		r.bethe, r.born[0], r.born[1]);
       } else {
 	fprintf(f2, "%5d\t%5d\t%d\n", 
 		r.lower, r.upper, r.nsub);
-	fprintf(f2, "%11.4E %11.4E %11.4E %11.4E\n", 
-		r.bethe[0], r.bethe[1], r.bethe[2], r.bethe[3]);
+	fprintf(f2, "%11.4E %11.4E %11.4E\n", 
+		r.bethe, r.born[0], r.born[1]);
       }
       
       p1 = 0;

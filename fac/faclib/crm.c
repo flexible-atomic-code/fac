@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.35 2002/08/21 22:01:30 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.36 2002/08/23 13:37:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3146,7 +3146,7 @@ int SetCERates(int inv) {
       x = y + m1;
       logx = x + m1;
       x[0] = 0.0;
-      data[0] = h.te0 * HARTREE_EV;
+      data[0] = h.te0;
       for (j = 0; j < m; j++) {
 	t = m-j;
 	x[t] = h.te0/(h.te0 + eusr[j]);
@@ -3162,33 +3162,25 @@ int SetCERates(int inv) {
 	j1 = ion->j[r.lower];
 	j2 = ion->j[r.upper];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
-	data[1] = r.bethe[0];
+	data[1] = r.bethe;
 	n = fread(cs, sizeof(float), m, f);
 	if (swp) {
 	  for (j = 0; j < m; j++) {
 	    SwapEndian((char *) &(cs[j]), sizeof(float));
 	  }
 	}
-	if (r.bethe[0] < 0.0) {
-	  y[0] = 0.0;
+	y[0] = r.born[0];
+	if (r.bethe <= 0) {
 	  for (j = 0; j < m; j++) {
 	    t = m-j;
 	    y[t] = cs[j];
 	  }
-	} else {
-	  y[0] = r.bethe[1];
-	  if (r.bethe[0] > 0.0) {
-	    for (j = 0; j < m; j++) {
-	      t = m-j;
-	      logx[j] = e/(e+eusr[j]);
-	      logx[j] = log(logx[j]);
-	      y[t] = cs[j] + r.bethe[0]*logx[j];
-	    }
-	  } else {
-	    for (j = 0; j < m; j++) {
-	      t = m-j;
-	      y[t] = cs[j];
-	    }
+	else {
+	  for (j = 0; j < m; j++) {
+	    t = m-j;
+	    logx[j] = e/(e+eusr[j]);
+	    logx[j] = log(logx[j]);
+	    y[t] = cs[j] + r.bethe*logx[j];
 	  }
 	}
 	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
@@ -3231,7 +3223,7 @@ int SetCERates(int inv) {
 	x = y + m1;
 	logx = x + m1;
 	x[0] = 0.0;
-        data[0] = h.te0 * HARTREE_EV;
+	data[0] = h.te0;
         for (j = 0; j < m; j++) {
 	  t = m-j;
 	  x[t] = h.te0/(h.te0 + eusr[j]);
@@ -3257,34 +3249,25 @@ int SetCERates(int inv) {
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  data[1] = r.bethe[0];	
+	  data[1] = r.bethe;	
 	  n = fread(cs, sizeof(float), m, f);
 	  if (swp) {
 	    for (j = 0; j < m; j++) {
 	      SwapEndian((char *) &(cs[j]), sizeof(float));
 	    }
 	  }
-	  if (r.bethe[0] < 0.0) {
-	    y[0] = 0.0;
+	  y[0] = r.born[0];
+	  if (r.bethe <= 0) {
 	    for (j = 0; j < m; j++) {
 	      t = m-j;
 	      y[t] = cs[j];
 	    }
 	  } else {
-	    y[0] = r.bethe[1];
-	    if (r.bethe[0] > 0.0) {
-	      for (j = 0; j < m; j++) {
-		t = m-j;
-		logx[j] = e/(e+eusr[j]);
-		logx[j] = log(logx[j]);
-		y[t] = cs[j] + r.bethe[0]*logx[j];
-	      }
-	    } else {
-	      for (j = 0; j < m; j++) {
-		t = m-j;
-		logx[j] = e/(e+eusr[j]);
-		y[t] = cs[j];
-	      }
+	    for (j = 0; j < m; j++) {
+	      t = m-j;
+	      logx[j] = e/(e+eusr[j]);
+	      logx[j] = log(logx[j]);
+	      y[t] = cs[j] + r.bethe*logx[j];
 	    }
 	  }
 	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
