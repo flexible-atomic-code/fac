@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.5 2003/07/14 20:52:56 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.6 2003/07/15 17:59:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -452,7 +452,7 @@ int PopulationTable(char *fn, double eden) {
     p = levels[i].ic;
     fprintf(f, "%5d\t%12.5E\n", i, a);
     for (m1 = -j1; m1 <= j1; m1 += 2) {
-      if (1.0+a != 1.0) {
+      if (a) {
 	c = b[p]/a;
       } else {
 	c = 0.0;
@@ -500,7 +500,7 @@ int PolarizationTable(char *fn) {
       t = levels[i].ic;    
       BL[k][i] = 0.0;
       for (m1 = -j1; m1 <= j1; m1 += 2) {
-	if (1.0+levels[i].dtotal != 1) {
+	if (levels[i].dtotal) {
 	  b = x[t]/levels[i].dtotal;
 	} else {
 	  b = 0.0;
@@ -547,7 +547,7 @@ int PolarizationTable(char *fn) {
       t2 = 4*t;
       b = W3j(k2, k2, t2, 2, -2, 0);
       a = b*W6j(k2, k2, t2, j1, j1, j2);
-      if (1.0+a != 1.0) {
+      if (a) {
 	a *= k2+1.0;
 	a *= sqrt(j1+1.0);
 	a *= sqrt(t2+1.0);
@@ -556,7 +556,7 @@ int PolarizationTable(char *fn) {
       AL[t] = a;
       FL[t] = 0;
       if (t > 0) {
-	if (1.0+b != 1.0) {
+	if (b) {
 	  a = W3j(k2, k2, t2, 2, 2, -4);
 	  a = a/b;
 	  a *= exp(0.5*(LnFactorial(2*t-2)-LnFactorial(2*t+2)));
@@ -571,7 +571,7 @@ int PolarizationTable(char *fn) {
       a += FL[t]*PL2[t]*AL[t]*BL[t][i1];
       b += PL[t]*AL[t]*BL[t][i1];
     }
-    if (1.0 + a != 1.0) {
+    if (a) {
       a = a/b;
     }
     tem = levels[i1].dtotal*tr_rates[i].rtotal/params.density;
