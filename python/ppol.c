@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.4 2003/08/05 16:25:59 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.5 2003/08/05 16:30:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -141,7 +141,7 @@ static PyObject *PSetMIteration(PyObject *self, PyObject *args) {
   double a;
 
   if (spol_file) {
-    SPOLStatement("SetIteration", args, NULL);
+    SPOLStatement("SetMIteration", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
