@@ -28,10 +28,11 @@ static struct {
   double tolerence; /* tolerence for self-consistency */
   int maxiter; /* max iter. for self-consistency */
   double screened_charge; 
+  int screened_kl;
   int n_screen;
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
-} optimize_controll = {EPS6, 100, 1.0, 0, NULL, 0};
+} optimize_control = {EPS6, 100, 1.0, 1, 0, NULL, 0};
 
 static AVERAGE_CONFIG average_config;
 
@@ -49,17 +50,18 @@ int GetRadTiming(RAD_TIMING *t) {
   return 0;
 }
 
-void SetOptimizeControll(double tolerence, int maxiter, int iprint) {
-  optimize_controll.maxiter = maxiter;
-  optimize_controll.tolerence = tolerence;
-  optimize_controll.iprint = iprint;  
+void SetOptimizeControl(double tolerence, int maxiter, int iprint) {
+  optimize_control.maxiter = maxiter;
+  optimize_control.tolerence = tolerence;
+  optimize_control.iprint = iprint;  
 }
 
 void SetScreening(int n_screen, int *screened_n, 
-		  double screened_charge) {
-  optimize_controll.screened_n = screened_n;
-  optimize_controll.screened_charge = screened_charge;
-  optimize_controll.n_screen = n_screen;
+		  double screened_charge, int kl) {
+  optimize_control.screened_n = screened_n;
+  optimize_control.screened_charge = screened_charge;
+  optimize_control.n_screen = n_screen;
+  optimize_control.screened_kl = kl;
 }
 
 int SetRadialGrid(double rmin, double rmax) {
@@ -292,13 +294,14 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   /* get the average configuration for the groups */
   acfg = &(average_config);
   GetAverageConfig(ng, kg, weight, 
-		   optimize_controll.n_screen,
-		   optimize_controll.screened_n,
-		   optimize_controll.screened_charge,
+		   optimize_control.n_screen,
+		   optimize_control.screened_n,
+		   optimize_control.screened_charge,
+		   optimize_control.screened_kl,
 		   acfg); 
   a = 0;
   for (i = 0; i < acfg->n_shells; i++) {
-    if (optimize_controll.iprint) 
+    if (optimize_control.iprint) 
       printf("%d %d %f\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
     a += acfg->nq[i];
   }
@@ -323,8 +326,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
   else z = 0.0;
-  while (tol > optimize_controll.tolerence || z > 0.0) {
-    if (iter > optimize_controll.maxiter) break;
+  while (tol > optimize_control.tolerence || z > 0.0) {
+    if (iter > optimize_control.maxiter) break;
     if (z < 1E-3 && z > 0.0) {
       z = 0.0;
       SetPotentialZ(potential, 0.0);
@@ -377,14 +380,14 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       b = a;
       if (tol < b) tol = b;
     }
-    if (optimize_controll.iprint) {
+    if (optimize_control.iprint) {
       printf("%2d %18.10lE %10.3E\n", iter, tol, z);
     }
     iter++;
   }
   free(orb_old.wfun);
 
-  if (iter > optimize_controll.maxiter) {
+  if (iter > optimize_control.maxiter) {
     printf("Maximum iteration reached in OptimizeRadial\n");
     return 1;
   }
@@ -404,7 +407,7 @@ int SolveDirac(ORBITAL *orb) {
 #endif
   
   err = 0;
-  eps = optimize_controll.tolerence*1E-1;
+  eps = optimize_control.tolerence*1E-1;
   potential->flag = -1;
 
   err = RadialSolver(orb, potential, eps);

@@ -536,7 +536,7 @@ SYMMETRY *GetSymmetry(int k) {
 
 int GetAverageConfig(int ng, int *kg, double *weight,
 		     int n_screen, int *screened_n, double screened_charge,
-		     AVERAGE_CONFIG *acfg) {
+		     int screened_kl, AVERAGE_CONFIG *acfg) {
 #define M 2500 /* max # of shells may be present in an average config */
 
   double tnq[M];
@@ -636,13 +636,27 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   /* add in configs for screened_charge */
   if (n_screen > 0) {
     screened_charge /= (double) n_screen;
-    for (i = 0; i < n_screen; i++) {    
+    for (i = 0; i < n_screen; i++) {
+      if (screened_kl < 0) {
+	t = 0;
+	kappa = -1;
+      } else if (screened_kl == 0) {
+	t = screened_n[i];
+	kappa = GetKappaFromJL(t, t+1);
+      } else {
+	t = screened_n[i]*2-2;
+	kappa = GetKappaFromJL(t, t+1);
+      }    
       for (j = 0; j < acfg->n_shells; j++) {
-	if (acfg->n[j] >= screened_n[i]) break;
+	k = GetLFromKappa(acfg->kappa[j]);
+	if (acfg->n[j] < screened_n[i]) continue;
+	if (acfg->n[j] > screened_n[i]) break;
+	if (k > t) break;
+	if (acfg->kappa[j] == kappa) break;
       }
       if (j < acfg->n_shells && 
 	  acfg->n[j] == screened_n[i] && 
-	  acfg->kappa[j] == -1) {
+	  acfg->kappa[j] == kappa) {
 	acfg->nq[j] += screened_charge; 
       } else {
 	acfg->n_shells += 1;
@@ -655,7 +669,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 	  acfg->nq[k] = acfg->nq[k-1];
 	}
 	acfg->n[j] = screened_n[i];
-	acfg->kappa[j] = -1;
+	acfg->kappa[j] = kappa;
 	acfg->nq[j] = screened_charge;
       }
     }
