@@ -3,10 +3,10 @@ import os
 
 # set the fortran runtime lib. appropriately.
 # this only works for sun solaris.
-fortranlib = ["F77", "M77", "sunmath"]
+# fortranlib = ["F77", "M77", "sunmath"]
 
 # for Linux (or Windows with Cygwin), you would use:
-# fortranlib = ["g2c"]
+fortranlib = ["g2c"]
 
 libs = ["fac", "quadpack", "lapack", "blas", "coul",
         "toms", "mpfun", "minpack", "ionis", "m"] + fortranlib
