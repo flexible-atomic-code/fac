@@ -32,8 +32,32 @@ AC_HEADER_STDC
 AC_PROG_F77
 AC_F77_LIBRARY_LDFLAGS
 
-CFLAGS=""
-FFLAGS=""
+# some F77 LDFLAGS have a -lcrt1.o which causes trouble.
+# actuall any crtn.o may cause trouble, we don't need that.
+AC_MSG_CHECKING([for -lcrtn.o in FLIBS])
+NFLIBS=[`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`]
+NFLIBS=[`echo $NFLIBS | sed 's/  */ /g'`]
+if test "x$NFLIBS" = "x$FLIBS"
+then
+  AC_MSG_RESULT([no.])
+else
+  FLIBS=$NFLIBS
+  AC_MSG_RESULT([$FLIBS])
+fi
+
+# override the default CFLAGS and FFLAGS
+if test -n "$GCC"
+then
+  CFLAGS="-O2"
+else
+  CFLAGS="-O"
+fi
+if test -n "$G77"
+then 
+  FFLAGS="-O2"
+else
+  FFLAGS="-O"
+fi
 
 # Debugging option
 AC_ARG_ENABLE(cdebug,
@@ -92,12 +116,16 @@ then
       *solaris*)
 	xxFortran=sunFortran
       ;;
+      *sunos*)
+	xxFortran=sunFortran
+      ;;
       *)
         echo "NOTE: F77 known by cfortran.h is not detected."
         echo "      using default f2cFortran."
         echo "      if not, chage it using --with-cfortran=xxFortran"
         echo "      see faclib/cfortran.doc for available options."
         xxFortran=f2cFortran
+      ;;
     esac
   fi
 fi
@@ -110,9 +138,6 @@ case "$host_os" in
     if test -n "$G77"
     then 
       FFLAGS="$FFLAGS -fno-common"
-# somehow, darwin gives a lot of junk for F77 LD_FLAGS under g77. 
-# overwrite it with a simple one.
-      FLIBS="-lg2c -lm"
     fi
   ;;
   *)

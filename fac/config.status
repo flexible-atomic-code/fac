@@ -449,7 +449,7 @@ s,@host_cpu@,i686,;t t
 s,@host_vendor@,pc,;t t
 s,@host_os@,linux-gnu,;t t
 s,@CC@,gcc,;t t
-s,@CFLAGS@, -fno-strength-reduce,;t t
+s,@CFLAGS@,-O2 -fno-strength-reduce,;t t
 s,@LDFLAGS@, -L/nfs/cxc/h2/mfgu/d1/atomic/fac,;t t
 s,@CPPFLAGS@, -I/nfs/cxc/h2/mfgu/d1/atomic/fac -I/nfs/cxc/h2/mfgu/d1/atomic/fac/faclib,;t t
 s,@ac_ct_CC@,gcc,;t t
@@ -465,9 +465,9 @@ s,@PYTHON@,python,;t t
 s,@CPP@,gcc -E,;t t
 s,@LIBOBJS@,,;t t
 s,@F77@,g77,;t t
-s,@FFLAGS@, -fno-strength-reduce,;t t
+s,@FFLAGS@,-O2 -fno-strength-reduce,;t t
 s,@ac_ct_F77@,,;t t
-s,@FLIBS@, -L/usr/lib/gcc-lib/i386-linux/2.95.4 -lg2c -lm,;t t
+s,@FLIBS@,-L/usr/lib/gcc-lib/i386-linux/2.95.4 -lg2c -lm,;t t
 CEOF
 
   # Split the substitutions into bite-sized pieces for seds with

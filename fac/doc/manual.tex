@@ -199,6 +199,10 @@ complexes. The following is a duplication of that script.
 
  7: # Self-consistent iteration for optimized central potential
  8: fac.ConfigEnergy(0)
+# the configurations passed to OptimizeRadial should always
+# be one or two of the lowest lying ones. If you need more highly
+# excited levels, such as n=4, 5, 6, ..., do not put them into
+# OptimizeRadial.
  9: fac.OptimizeRadial(['n2', 'n3'])
 10: fac.ConfigEnergy(1)
 11: fac.Structure('ne.lev.b', ['n2', 'n3'])
@@ -235,8 +239,8 @@ results in the potential to be less optimized for \verb|n2| and \verb|n3|
 individually. Lines 8 and 10 are used to make a crude correction to the
 resulting energy levels due to this effect. The first call to
 \verb|ConfigEnergy(0)| will make individual optimization to all configuration
-groups. The average energy of each configuration group is then calculated and
-stored under the potentials optimized for that group. The
+groups. The average energy of each configuration group with these indivudually 
+optimized potential is then calculated and stored. The
 second call to \verb|ConfigEnergy(1)| will then recalculate the average energy
 of configuration groups under the potential taking into account all
 configuration groups. The difference between the two represents the effect of
@@ -431,7 +435,7 @@ value returned by the C lib function time(0). It is platform dependent.
 \item[\texttt{int version}:] Major version number of FAC.
 \item[\texttt{int sversion}:] Minor version number of FAC.
 \item[\texttt{int ssversion}:] Release number of FAC.
-\item[\texttt{int type}:] Type of the data file. An integer from 1--8.
+\item[\texttt{int type}:] Type of the data file. An integer from 1--9.
 \item[\texttt{float atom}:] Atomic number.
 \item[\texttt{char symbol[4]}:] The first 3 bytes contains a NULL
 terminated C string representing the 2-charactor abbr. of atomic symbol. The
