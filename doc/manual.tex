@@ -1206,14 +1206,18 @@ distributions:
 \hline
 ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
 \hline
-0& PowerLaw& 0:& $\alpha$ & \\
+0& Black Body & 0:& $T$ & eV\\
+ &           & 1:& $E_{min}$ & eV\\
+ &           & 2:& $E_{max}$ & eV\\
+1& PowerLaw& 0:& $\alpha$ & \\
  &           & 1:& $E_{min}$ & eV\\
  &           & 2:& $E_{max}$ & eV\\
 \hline
 \end{tabular}
 \end{minipage}}
 \item[\texttt{float pden}:] The photon energy density of the radiation field in
-unit of erg cm$^{-3}$. 
+unit of erg cm$^{-3}$. If the distribution is Black Body, this is the dilution
+factor.
 \item[\texttt{float nb}:] The concentration of the superlevel block to which
 the rates are tabulated.
 \end{dbdesc}

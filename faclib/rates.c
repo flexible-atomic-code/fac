@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.39 2004/06/23 18:55:04 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.40 2005/01/14 18:25:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -980,6 +980,22 @@ static double PowerLaw(double e, double *p) {
   return x;
 }
 
+static double BBody(double e, double *p) {
+  double c = 21.0989; /* 8*PI*eV^4/(hc)^3 in erg/cm^3 */
+  double x;
+
+  if (e > p[2] || e < p[1]) return 0.0;
+  
+  x = e/p[0];
+  if (x < EPS5) {    
+    return c*e*e*e/x;
+  } else if (x > 50.0) {
+    return c*(((exp(-x)*e)*e)*e);
+  } else {
+    return c*e*e*e/(exp(x) - 1.0);
+  }
+}
+
 int EleDist(char *fn, int n) {
   FILE *f;
   double y, e, de, emin, emax, *p;
@@ -1110,6 +1126,19 @@ int SetPhoDist(int i, int np, double *p) {
     printf("Num of Params for Photon Dist. %d does not match\n", i);
     return -1;
   }
+
+  switch (i) {
+  case 0:
+    /* Default parameters for BBody */
+    if (p[2] <= 0.0) {
+      p[2] = 1E2*p[0];
+    }
+    if (p[1] <= 0.0) {
+      p[1] = 1E-20*p[0];
+    }
+    break;
+  }
+
   ipdist = i;
   for (k = 0; k < np; k++) {
     pho_dist[i].params[k] = p[k];
@@ -1169,7 +1198,16 @@ int InitRates(void) {
     ele_dist[i].dist = NULL;
   }
 
-  i = 0; /* Power Law */
+  /* photon energy distribution */
+  i = 0; /* black body */
+  pho_dist[i].nparams = 3;
+  pho_dist[i].params = (double *) malloc(sizeof(double)*3);
+  pho_dist[i].params[0] = 1E1;
+  pho_dist[i].params[1] = 1E-10;
+  pho_dist[i].params[2] = 1E5;
+  pho_dist[i].dist = BBody;
+
+  i++; /* Power Law */
   pho_dist[i].nparams = 3;
   pho_dist[i].params = (double *) malloc(sizeof(double)*3);
   pho_dist[i].params[0] = 2.0;
