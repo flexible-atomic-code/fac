@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.19 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.20 2004/06/25 00:00:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1258,8 +1258,7 @@ int InteractingShells(INTERACT_DATUM **idatum,
     } else {
       if (j >= cj->n_shells) {
 	k = 1;
-      }
-      else {
+      } else {
 	k = CompareShell(ci->shells+i, cj->shells+j);
       }
     }
