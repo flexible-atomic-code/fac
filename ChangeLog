@@ -1,5 +1,6 @@
 Version 1.0.3, 09/27/2003
 	1. change contact information to my new address.
+	2. add --enable-cpic and --enable-fpic options to configure.
 	
 Version 1.0.2, 08/15/2003
 	1. add iterative method in pfac.pol.
