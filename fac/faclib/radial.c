@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.56 2002/09/04 20:16:46 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.57 2002/09/04 20:22:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2605,7 +2605,7 @@ int FreeGOSArray(void) {
 
 int InitRadial(void) {
   int ndim;
-  int blocks[6] = {4, 4, 4, 4, 4, 4};
+  int blocks[6] = {4, 4, 4, 4, 4, 1};
 
   potential = malloc(sizeof(POTENTIAL));
   potential->flag = 0;
