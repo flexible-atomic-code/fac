@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.59 2004/06/16 00:50:44 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.60 2004/06/23 18:55:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1601,7 +1601,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   w = x + m1;
   
   if (x0 < x[m-1]) {
-    n = 3;
+    n = 2;
     one = 1;
     UVIP3P(n, m, x, y, one, &x0, &a);
     if (h->msub) {
