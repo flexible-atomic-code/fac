@@ -1970,9 +1970,11 @@ in the spectroscopic notation. e.g., \key{2s} for $2s$ shell, \key{2p-} for
 $2p_{1/2}$ shell, and \key{2p+} for $2p_{3/2}$ shell.
 \end{fundesc}
 
-\begin{fundesc}{Config}{c, ..., group=g}
-Add one or more configurations to the configuration group \var{g}. It takes
-one or more strings for the configuration specification. A configuration
+\begin{fundesc}{Config}{c, ..., group=g | g, c, ...}
+Add one or more configurations to the configuration group \var{g}. In the
+first form, the group name \var{g} is given as a keyword, while in the second
+form, the first argument must be a group name instead of a configuration. It
+takes one or more strings for the configuration specification. A configuration
 \var{c} is a string comprised of one or more non-relativistic or relativistic
 shells in spectroscopic notation separated by white spaces. e.g.,
 \key{2p+3} is a $2p_{3/2}$ shell with 3 electrons. If a \key{*} is given
@@ -2191,6 +2193,53 @@ keywords are set to 0, i.e., a full reinitialization. If \var{m=1}, keywords
 \key{recouple} are not reinitialized. This is useful to clear all information
 related to radial wavefunctions, but keep the angular coupling and recoupling
 coefficients intact. If \var{m=$-1$}, all keywords are set to 1.
+\end{fundesc}
+
+\begin{fundesc}{ReinitConfig}{m}
+Reinitialize electronic configuration module. \var{m} the same as correponding
+keywords in \key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitDBase}{m}
+Reinitialize database module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitExciation}{m}
+Reinitialize collisional excitation module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitIonization}{m}
+Reinitialize collisional ionization module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitRadial}{m}
+Reinitialize radial module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitRecombination}{m}
+Reinitialize recombination module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitRecouple}{m}
+Reinitialize recouple module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
+\end{fundesc}
+
+\begin{fundesc}{ReinitStructure}{m}
+Reinitialize atomic structure module. \var{m} the same as correponding
+keywords in
+\key{Reinit}.
 \end{fundesc}
 
 \begin{fundesc}{RRCrossH}{Z, E, n, l}

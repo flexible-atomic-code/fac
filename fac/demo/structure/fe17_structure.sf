@@ -5,7 +5,9 @@ SetAtom('Fe')
 # 1s shell is closed
 Closed('1s')
 Config('2*8', group = 'n2')
-Config('2*7 3*1', group = 'n3')
+# instead of a keyword, the group name can also
+# be given as the first argument.
+Config('n3', '2*7 3*1')
 
 # Self-consistent iteration for optimized central potential
 ConfigEnergy(0)

@@ -8,8 +8,9 @@ fac.SetAtom('Fe')
 # 1s shell is closed
 fac.Closed('1s')
 fac.Config('2*8', group = 'n2')
-fac.Config('2*7 3*1', group = 'n3')
-
+# instead of a keyword, the group name can also
+# be given as the first argument.
+fac.Config('n3', '2*7 3*1')
 # Self-consistent iteration for optimized central potential
 fac.ConfigEnergy(0)
 fac.OptimizeRadial(['n2','n3'])
