@@ -2058,6 +2058,15 @@ ASCII format. Before this routine is called, \key{MemENTable} must be called
 to establish the energy table that is consistent with \var{ifn}
 \end{fundesc}
 
+\begin{fundesc}{CERate}{ifn, ofn, low, up, t}
+Calculate the effective collision strength and rate coefficients at
+temperatures given in list \var{t} between levels \var{low} and \var{up} by
+interpolating the data from CE binary data file \var{ifn}. The results are
+written in \var{ofn} in simple ASCII format. Before this routine is called,
+\key{MemENTable} must be called to establish the energy table that is
+consistent with \var{ifn}
+\end{fundesc}
+
 \begin{fundesc}{CETable}{fn, low, up}
 Calculate the collision strength for the excitation of states in the
 configuration group list \var{low} to those in the group list\var{up}. The
@@ -3211,6 +3220,12 @@ photo-excitation rates are also set.
 Output the level populations and line emissivities to the \key{DB\_SP}
 database file \var{fn}. If \var{rrc}=1, the radiative recombination continuum
 strength should also be included.
+\end{fundesc}
+
+\begin{fundesc}{TwoPhoton}{z, t}
+Calculate the two-photon decay rate of H-like and He-like transitions
+$2s_{1/2}\to 1s_{1/2}$ and $1s2s S_{0}\to 1s^2 S_{0}$ for nuclear charge
+\var{z}. \var{t} = 0 is for H-like, and 1 is for He-like. 
 \end{fundesc}
 
 \section{\mod{pol}--Line Polarizations}

@@ -326,6 +326,8 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 			  double *data, double *ratio);
 int CECross(char *ifn, char *ofn, int i0, int i1, 
 	    int negy, double *egy);
+int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	      int nt, double *temp);
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax);
 int TotalPICross(char *ifn, char *ofn, int ilev, 

@@ -1,11 +1,35 @@
 #include "interpolation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.11 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.12 2003/08/13 01:38:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+/* closed Newton-Cotes formulae coeff. */
+static double _CNC[5][5] = {
+  {0, 0, 0, 0, 0},
+  {0.5, 0.5, 0, 0, 0},
+  {1.0/3.0, 4.0/3.0, 1.0/3.0, 0, 0},
+  {3.0/8, 9.0/8, 9.0/8, 3.0/8, 0},
+  {14.0/45, 64.0/45, 24.0/45, 64.0/45, 14.0/45,}
+};
+
+/* open Newton-Cotes formulae coeff. */
+static double _ONC[9][9] = {
+  {0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 2.0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 1.5, 1.5, 0, 0, 0, 0, 0, 0},
+  {0, 8./3, -4./3, 8./3, 0, 0, 0, 0, 0},
+  {0, 55./24, 5./24, 5./24, 55./24, 0, 0, 0, 0},
+  {0, 33./10, -42./10, 78./10, -42./10, 33./10, 0, 0, 0},
+  {0, 4277./1440, -3171./1440, 3934./1440, 3934./440, 
+   -3171./1440, 4277./1440, 0, 0},
+  {0, 3680./945, -7632./945, 17568./945, -19672./945,
+   17568./945, -7632./945, 3680./945, 0}
+};
 
 static struct {
   double *x;
@@ -284,3 +308,76 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   return info;
 }
 
+
+double Simpson(double *y, int ia, int ib) {
+  int i;
+  double a;
+
+  a = 0.0;
+  
+  for (i = ia; i < ib - 1; i += 2) {
+    a += y[i] + 4.0*y[i+1] + y[i+2];
+  }
+  a /= 3.0;
+  if (i < ib) a += 0.5 * (y[i] + y[ib]);
+
+  return a;
+}
+
+/* integration by newton-cotes formula */
+int NewtonCotes(double *r, double *x, int i0, int i1, int m) {
+  int i, j, n, k;
+  double a;
+
+  for (i = i0; i <= i1-4; i += 4) {
+    a = 0.0;
+    for (j = 0, k = i; j <= 4; j++, k++) {
+      a += _CNC[4][j] * x[k];
+    }
+    r[i+4] = r[i] + a;
+  }
+  
+  if (i1 < MAX_POINTS-1) {
+    if (i > i0) {
+      k = i - 3;
+      n = i1 - i + 5;
+    } else {
+      k = i + 1;
+      n = i1 - i + 1;
+    }
+    a = 0.0;
+    for (j = 1; j < n; j++, k++) {
+      a += _ONC[n][j] * x[k];
+    }
+    r[i1+1] = r[i1+1-n] + a;
+  }
+
+  if (m >= 0) {
+    n = i1 - i - 1;
+    if (n > 0) {
+      a = 0.0;
+      for (j = 0, k = i; j <= n; j++, k++) {
+	a += _CNC[n][j] * x[k];
+      }
+      r[i1-1] = r[i] + a;
+    }
+    n++;
+    a = 0.0;
+    for (j = 0, k = i; j <= n; j++, k++) {
+      a += _CNC[n][j] * x[k];
+    }
+    r[i1] = r[i] + a;
+  } else {
+    for (i = i0; i <= i1; i += 4) {
+      for (n = 1; n <= Min(3, i1-i); n++) {
+	a = 0.0;
+	for (j = 0, k = i; j <= n; j++, k++) {
+	  a += _CNC[n][j] * x[k];
+	}
+	r[i+n] = r[i] + a;
+      }
+    }
+  }
+
+  return 0;
+}

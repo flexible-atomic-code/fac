@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.29 2003/08/08 13:12:29 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.30 2003/08/13 01:38:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -882,6 +882,18 @@ static PyObject *PDRStrength(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTwoPhoton(PyObject *self, PyObject *args) {
+  int t;
+  double z;
+  
+  if (!PyArg_ParseTuple(args, "di", &z, &t))
+    return NULL;
+
+  z = TwoPhotonRate(z, t);
+  
+  return Py_BuildValue("d", z);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -927,6 +939,7 @@ static struct PyMethodDef crm_methods[] = {
   {"EBeli", PEBeli, METH_VARARGS},
   {"Recomb", PRecomb, METH_VARARGS},
   {"RRRateH", PRRRateH, METH_VARARGS},
+  {"TwoPhoton", PTwoPhoton, METH_VARARGS},
   {"FracAbund", PFracAbund, METH_VARARGS},
   {"MaxAbund", PMaxAbund, METH_VARARGS},
   {"DRBranch", PDRBranch, METH_VARARGS},
