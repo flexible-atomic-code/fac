@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.14 2002/03/11 19:28:55 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.15 2002/04/25 16:22:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -8,7 +8,6 @@ USE (rcsid);
 #include <stdio.h>
 #include <string.h>
 
-#include "interpolation.h"
 #include "crm.h"
 
 static PyObject *ErrorObject;
@@ -635,78 +634,6 @@ static PyObject *PSetAbund(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PSpline(PyObject *self, PyObject *args) {
-  PyObject *px, *py, *py2;
-  double *x, *y, *y2, dy1, dy2;
-  int n, i;
-
-  if (scrm_file) {
-    printf("SCRM does not support Spline\n");
-    return NULL;
-  }
-
-  dy1 = 1E30;
-  dy2 = 1E30;
-  if (!PyArg_ParseTuple(args, "OO|dd", &px, &py, &dy1, &dy2)) return NULL;
-  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
-  n = PyList_Size(px);
-  if (PyList_Size(py) != n) return NULL;
-  if (n == 0) return NULL;
-
-  x = malloc(sizeof(double)*n);
-  y = malloc(sizeof(double)*n);
-  y2 = malloc(sizeof(double)*n);
-  
-  for (i = 0; i < n; i++) {
-    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
-    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
-  }
-
-  spline(x, y, n, dy1, dy2, y2);
-  py2 = Py_BuildValue("[]");
-  for (i = 0; i < n; i++) {
-    PyList_Append(py2, Py_BuildValue("d", y2[i]));
-  }
-  free(x);
-  free(y);
-  free(y2);
-  
-  return py2;
-}
-
-static PyObject *PSplint(PyObject *self, PyObject *args) {  
-  PyObject *px, *py, *py2;
-  double *x, *y, *y2, x0, y0;
-  int n, i;  
-
-  if (scrm_file) {
-    printf("SCRM does not support Splint\n");
-    return NULL;
-  }
-
-  if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
-  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
-  n = PyList_Size(px);
-  if (PyList_Size(py) != n) return NULL;
-  if (PyList_Size(py2) != n) return NULL;
-  x = malloc(sizeof(double)*n);
-  y = malloc(sizeof(double)*n);
-  y2 = malloc(sizeof(double)*n);  
-  for (i = 0; i < n; i++) {
-    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
-    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
-    y2[i] = PyFloat_AsDouble(PyList_GetItem(py2, i));
-  }
-
-  splint(x, y, y2, n, x0, &y0);
-
-  free(x);
-  free(y);
-  free(y2);
-  
-  return Py_BuildValue("d", y0);
-}  
-
 static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   double emin, emax, fmin;
@@ -831,8 +758,6 @@ static struct PyMethodDef crm_methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
-  {"Spline", PSpline, METH_VARARGS},
-  {"Splint", PSplint, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},
   {"Recomb", PRecomb, METH_VARARGS},
   {"RRRateH", PRRRateH, METH_VARARGS},

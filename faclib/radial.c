@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.45 2002/03/21 20:15:46 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.46 2002/04/25 16:22:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -126,7 +126,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   ORBITAL *orb1, *orb2;
   double large1, small1, large2, small2;
   int norbs, kmin, kmax, jmax;
-  double *u, *w, *v, w3j, a, b, r;
+  double *u, *w, *v, w3j, a, b, c, r;
 
   u = potential->U;
   w = potential->W;
@@ -151,11 +151,10 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     if (jmax < orb1->ilast) jmax = orb1->ilast;
     norbs++;
   }
-  if (norbs && 
-      potential->N > 1+EPS3) {
-    for (j = 0; j < MAX_POINTS; j++) {
-      u[j] = 0.0;
-    }
+  for (j = 0; j < MAX_POINTS; j++) {
+    u[j] = 0.0;
+  }
+  if (norbs && potential->N > 1+EPS3) {
     for (i = 0; i < acfg->n_shells; i++) {
       k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k1 < 0) continue;
@@ -263,12 +262,39 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     }
     SetPotentialU(potential, 0, NULL);
   } else {
+    if (potential->N < 1.0+EPS3) {
+      SetPotentialVc(potential);
+      SetPotentialU(potential, -1, NULL);
+      return 0.0;
+    }
+    k = 0;
+    a = 0.0;
+    r = potential->Z[MAX_POINTS-1];
+    b = 1.0 - 1.0/potential->N;
+    for (i = 0; i < acfg->n_shells; i++) {
+      if (acfg->n[i] != k) {
+	if (k > 0) {
+	  r -= a*b;
+	  c = r/k;
+	  for (j = 0; j < MAX_POINTS; j++) {
+	    u[j] += a*b*(exp(-c*potential->rad[j])-1.0);
+	  }
+	  a = 0.0;
+	}
+      } else {
+	a += acfg->nq[i];
+      }
+    }
+    _AdjustScreeningParams(u);
     SetPotentialVc(potential);
-    SetPotentialU(potential, -1, NULL);
-    if (potential->N < 1+EPS3) 
-      r = 0.0;
-    else 
-      r = 1.0;
+    for (j = 0; j < MAX_POINTS; j++) {
+      a = u[j] - potential->Z[j];
+      b = potential->Vc[j]*potential->rad[j];
+      u[j] = a - b;
+      u[j] /= potential->rad[j];
+    }
+    SetPotentialU(potential, 0, NULL);
+    r = 1.0;
   }
   
   return r;

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.26 2002/03/21 20:15:47 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.27 2002/04/25 16:22:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1251,111 +1251,6 @@ static PyObject *PCETableMSub(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PSpline(PyObject *self, PyObject *args) {
-  PyObject *px, *py, *py2;
-  double *x, *y, *y2, dy1, dy2;
-  int n, i;
-
-  if (sfac_file) {
-    printf("SFAC does not support Spline\n");
-    return NULL;
-  }
-
-  dy1 = 1E30;
-  dy2 = 1E30;
-  if (!PyArg_ParseTuple(args, "OO|dd", &px, &py, &dy1, &dy2)) return NULL;
-  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
-  n = PyList_Size(px);
-  if (PyList_Size(py) != n) return NULL;
-  if (n == 0) return NULL;
-
-  x = malloc(sizeof(double)*n);
-  y = malloc(sizeof(double)*n);
-  y2 = malloc(sizeof(double)*n);
-  
-  for (i = 0; i < n; i++) {
-    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
-    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
-  }
-
-  spline(x, y, n, dy1, dy2, y2);
-  py2 = Py_BuildValue("[]");
-  for (i = 0; i < n; i++) {
-    PyList_Append(py2, Py_BuildValue("d", y2[i]));
-  }
-  free(x);
-  free(y);
-  free(y2);
-  
-  return py2;
-}
-
-static PyObject *PSplint(PyObject *self, PyObject *args) {  
-  PyObject *px, *py, *py2;
-  double *x, *y, *y2, x0, y0;
-  int n, i;  
-
-  if (sfac_file) {
-    printf("SFAC does not support Splint\n");
-    return NULL;
-  }
-
-  if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
-  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
-  n = PyList_Size(px);
-  if (PyList_Size(py) != n) return NULL;
-  if (PyList_Size(py2) != n) return NULL;
-  x = malloc(sizeof(double)*n);
-  y = malloc(sizeof(double)*n);
-  y2 = malloc(sizeof(double)*n);  
-  for (i = 0; i < n; i++) {
-    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
-    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
-    y2[i] = PyFloat_AsDouble(PyList_GetItem(py2, i));
-  }
-
-  splint(x, y, y2, n, x0, &y0);
-
-  free(x);
-  free(y);
-  free(y2);
-  
-  return Py_BuildValue("d", y0);
-}  
-  
-static PyObject *PTestSpline(PyObject *self, PyObject *args) {
-#define M 10
-#define N 10
-  int i, j;
-  double f, ff, x1x2, xx1, xx2, x1[M], x2[N], dy[M][N], dy2[M][N];
-  double *y[M], *y2[M];
-
-  for (i = 0; i < M; i++) {
-    x1[i] = 0.2*i;
-    y[i] = dy[i];
-    y2[i] = dy2[i];
-  }
-  for (i = 0; i < N; i++) x2[i] = 0.2*i;
-  for (i = 0; i < M; i++) {
-    for (j = 0; j < N; j++) {
-      x1x2 = x1[i]*x2[j];
-      y[i][j] = x1x2*exp(-x1x2);
-    }
-  }
-  splie2(x1, x2, y, M, N, y2);
-  printf("%9s %12s %14s %12s\n","x1","x2","splin2","actual");
-  for (i=0; i < 10; i++) {
-    xx1=0.1*i;
-    xx2=xx1*xx1;
-    splin2(x1,x2,y,y2,M,N,xx1,xx2,&f);
-    x1x2=xx1*xx2;
-    ff=x1x2*exp(-x1x2);
-    printf("%12.6f %12.6f %12.6f %12.6f\n",xx1,xx2,f,ff);
-  }
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -3178,14 +3073,11 @@ static struct PyMethodDef fac_methods[] = {
   {"SetUsrPEGridType", PSetUsrPEGridType, METH_VARARGS},
   {"SolveBound", PSolveBound, METH_VARARGS},
   {"SortLevels", PSortLevels, METH_VARARGS},
-  {"Spline", PSpline, METH_VARARGS},
-  {"Splint", PSplint, METH_VARARGS},
   {"Structure", PStructure, METH_VARARGS},
   {"TestAngular", PTestAngular, METH_VARARGS},
   {"TestCoulomb", PTestCoulomb, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
-  {"TestMyArray", PTestMyArray, METH_VARARGS},  
-  {"TestSpline", PTestSpline, METH_VARARGS},     
+  {"TestMyArray", PTestMyArray, METH_VARARGS},     
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRRateH", PTRRateH, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},  

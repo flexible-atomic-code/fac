@@ -67,5 +67,10 @@ else:
                                      ["python/pcrm.c"],
                                      include_dirs = incdir,
                                      library_dirs = libdir,
+                                     libraries = libs),
+                           Extension("pfac.util",
+                                     ["python/util.c"],
+                                     include_dirs = incdir,
+                                     library_dirs = libdir,
                                      libraries = libs)
                            ])

@@ -74,7 +74,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     7
-#define SUBSUBVERSION  1
+#define SUBSUBVERSION  2
 
 
 /* 
@@ -183,7 +183,7 @@
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
 
 
-#define MAX_POINTS 500
+#define MAX_POINTS 640
 
 #define G_COULOMB   1
 #define G_BABUSHKIN 2

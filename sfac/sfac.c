@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.15 2002/02/25 02:54:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.16 2002/04/25 16:22:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1691,6 +1691,22 @@ static int PSetOptimizeControl(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetHydrogenicNL(int argc, char *argv[], int argt[], 
+			    ARRAY *variables){
+  int n, k;
+  
+  n = -1;
+  k = -1;
+
+  if (argc > 0) {
+    n = atoi(argv[0]);
+    if (argc > 1) k = atoi(argv[1]);
+  }
+  SetHydrogenicNL(n, k);
+
+  return 0;
+}  
+
 static int PSetPEGrid(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) { int n, ng, i, err;
   double xg[MAXNE];
@@ -2424,6 +2440,7 @@ static METHOD methods[] = {
   {"SetCIQkMode", PSetCIQkMode, METH_VARARGS},
   {"SetCIPWOptions", PSetCIPWOptions, METH_VARARGS},
   {"SetCIPWGrid", PSetCIPWGrid, METH_VARARGS},
+  {"SetHydrogenicNL", PSetHydrogenicNL, METH_VARARGS},
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
