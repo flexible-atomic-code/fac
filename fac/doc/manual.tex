@@ -3272,6 +3272,16 @@ number of sublevels, $\pm M$ are treated as a single sublevel. When \var{p} is
 not given, sublevels are assumed to be equally populated.
 \end{fundesc}
 
+\begin{fundesc}{SetMIteration}{a\opt{, m}}
+Set the accuracy \var{a} and maximum iteration \var{m} for iterative solution
+of the level population.
+\end{fundesc}
+
+\begin{fundesc}{SetMaxLevels}{m}
+Set the maximum number of levels to be retained in the rate matrix. Levels
+higher than that are treated iteratively. 0 means retain all levels.
+\end{fundesc}
+
 \begin{fundesc}{SetMAIRates}{fn}
 Set the magnetic sublevel autoionization rates and dielectronic capture
 rates by reading data from binary file \var{fn}

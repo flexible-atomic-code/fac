@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.58 2003/07/15 18:17:54 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.59 2003/08/05 16:25:58 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2868,7 +2868,7 @@ double BlockRelaxation(int iter) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m]+1.0 != 1.0 && blk1->rec == NULL) {
+	if (blk1->n[m] && blk1->rec == NULL) {
 	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  nlevels += 1;
 	}
@@ -2913,6 +2913,7 @@ int Cascade(void) {
   for (i = 1; i <= max_iter; i++) {
     d = BlockRelaxation(-i);
     printf("%5d %11.4E\n", i, d);
+    fflush(stdout);
     if (d < cas_accuracy) break;
   }
   

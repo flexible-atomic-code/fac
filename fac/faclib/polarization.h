@@ -6,6 +6,9 @@ typedef struct _MLEVEL_ {
   short p;
   double energy;
   double dtotal;
+  double *rtotal;
+  double *pop;
+  double *npop;
   int ic;
 } MLEVEL;
 
@@ -34,6 +37,8 @@ typedef struct _MAI_ {
 
 
 int InitPolarization(void);
+int SetMaxLevels(int m);
+int SetMIteration(double a, int m);
 int SetEnergy(double energy, double esigma);
 int SetDensity(double eden);
 int SetIDR(int idr, int ndr, double *pdr);
