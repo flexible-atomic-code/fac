@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.20 2001/09/14 13:17:00 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.21 2001/10/03 16:31:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -397,7 +397,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	orb = GetNewOrbital();
 	orb->kappa = acfg->kappa[i];
 	orb->n = acfg->n[i];
-	orb->energy = 0.0;
+	orb->energy = 1.0;
 	no_old = 1;
       } else {
 	orb = GetOrbital(k);
@@ -697,6 +697,7 @@ ORBITAL *GetNewOrbital() {
   }
 
   orb->wfun = NULL;
+  orb->ilast = -1;
 
   n_orbitals++;
   return orb;
@@ -717,6 +718,7 @@ int FreeOrbital(int i) {
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
   orb->phase = NULL;
+  orb->ilast = -1;
 }
 
 int SaveAllContinua(int mode) {

@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.17 2001/10/02 16:24:14 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.18 2001/10/03 16:31:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -90,7 +90,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   double *p, p1, p2, qi, qo, delta, ep, norm2, fact, eps;
   
   z = (pot->Z[MAX_POINTS-1] - pot->N + 1.0);
-  if (orb->energy > -1E-10) {
+  /* use ilast to indicate whether the initial energy should be estimated */
+  if (orb->ilast < 0) {
     e = z/orb->n; 
     e = -e*e/2.0;
   } else {
@@ -121,8 +122,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     if (emin > _veff[i]) emin = _veff[i];
   }
      
-  if (emin > -1E-30) return 1;
-  emax = -1E-30;
+  emax = EPS10 * e;
+  if (emin > emax) return 1;
   emin = 1.1*emin;
   if (e >= emax) e = emax*1.1;
   if (e <= emin) e = emin*0.9;
@@ -756,7 +757,7 @@ int _TurningPoints(int n, double e, int *i1, int *i2, POTENTIAL *pot) {
     for (i = MAX_POINTS-10; i > 0; i--) {
       if (e > _veff[i]) break;
     }
-    if (*i2 == 0) return -2;
+    if (i == 0) return -2;
     *i2 = i + 7;
     if (*i1 == 0) *i1 = *i2 - 8; 
   } else {
