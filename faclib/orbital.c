@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.56 2004/05/30 22:26:14 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.57 2004/06/03 00:44:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -402,18 +402,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     return -5;
   }
 
-  ep = sqrt(norm2);
-  fact = 1.0/ep;
-  if (IsOdd(nodes)) {
-    fact = -fact;
-  }
-  for (i = 0; i <= pot->ib; i++) {
-    p[i] *= fact;
-  }
-  for (i = pot->ib+1; i < pot->maxrp; i++) {
-    p[i] = 0.0;
-  }
-  
   nodes = 0;
   i = pot->ib-1;
   p1 = p[i];
@@ -428,11 +416,23 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (nodes != nr) {
-    printf("RadialBound: No. nodes changed in iteration\n");
+    printf("RadialBasis: No. nodes changed in iteration\n");
     free(p);
     return -6;
   }
  
+  ep = sqrt(norm2);
+  fact = 1.0/ep;
+  if (IsOdd(nodes)) {
+    fact = -fact;
+  }
+  for (i = 0; i <= pot->ib; i++) {
+    p[i] *= fact;
+  }
+  for (i = pot->ib+1; i < pot->maxrp; i++) {
+    p[i] = 0.0;
+  }
+  
   orb->ilast = pot->ib;
   orb->energy = e;
   orb->wfun = p;
