@@ -4264,7 +4264,7 @@ fi;
 # Check whether --enable-fopt or --disable-fopt was given.
 if test "${enable_fopt+set}" = set; then
   enableval="$enable_fopt"
-  fopt="enableval"
+  fopt="$enableval"
 fi;
 
 # get position independent code option for C and f77 compilers

@@ -2605,6 +2605,14 @@ keywords in
 \key{Reinit}.
 \end{fundesc}
 
+\begin{fundesc}{RMatrixBoundary}{r0, r1, b}
+Set the R-matrix boundary conditions. When $r0=0$, it sets the normal boundary
+condition via a call to \key{SetBoundary}(\var{n}, \var{r1}, \var{b}), where
+$n$ is the maximum principle quantum numbers of the existing states, i.e., the
+R-matrix target states. When $r0\ne 0$, it sets the boundary condition in the
+propagation zone via a call to \key{SetBoundary}(-100, \var{r1}, \var{r0}).
+\end{fundesc}
+
 \begin{fundesc}{RRCrossH}{Z, E, n, l}
 Calculate the radiative recombination cross section of bare ion with nuclear
 charge \var{Z} at electron energy \var{E}, onto the non-relativisitc subshell
@@ -2639,16 +2647,23 @@ and the nucleus radius of the element can be set optionally. If they are not
 set, the standard values are used.
 \end{fundesc}
 
-\begin{fundesc}{SetBoundary}{n, b\opt{, p}}
+\begin{fundesc}{SetBoundary}{n\opt{, p, b}}
 Set the boundary condition for high-n orbitals, so that they can represent the
-continuum. \var{n} is the maximum principle quantum number represents the
+continuum. In the normal mode when $n>0$, \var{n} is the maximum principle
+quantum number represents the 
 bound states. Above n, the orbitals have the boundary conditions imposed,
 which is in the form $Q/P = (b+\kappa)/2ac$, where $Q$ and $P$ are the small
 and large components of the wave function, $\kappa$ is the angular quantum
 number of the orbital, $b$ is given by the input, $c$ is the speed of light,
 and $a$ is the boundary radius, which is determined by the criterion that the
 bound states have densities $<p$ beyond the boundary. The default value of $p$
-is 0.001. 
+is 0.001. When $n<0$ and $n \ne -100$, $p$ is interpreted as the actual radius
+of the boundary, and $-n$ is interpreted as the maximum principle quantum
+number of the bound states. When $n==-100$, it sets two boundaries. The radius
+of the outer boundary is given by $p$, and that of the inner boundary is given
+by $b$, if $b > 0$. Otherwise, the inner boundary takes the value of a
+previous call to \key{SetBoundary}. This mode is used to set the R-matrix
+boundary conditions in the propagation zones.
 \end{fundesc}
 
 \begin{fundesc}{SetBreit}{n}
@@ -2852,8 +2867,8 @@ Set the radial grid properties. \var{n} is the number of radial grid
 points. It must be an even number and less than the macro
 \key{MAXRP}. \var{r0} specifies the ratio of successive radial points near 
 origin, which is approximately logarithmic. \var{r1} specifies the number of
-oscillations of very high-$n$ orbitals at large radii, which approximately
-scales as $\sqrt{r}$.
+mesh-points per oscillation wavelength for very high-$n$ orbitals at large 
+radii.
 \end{fundesc}
 
 \begin{fundesc}{SetRRTEGrid}{g $\mid$ n\opt{, e0, e1}}
@@ -2906,6 +2921,13 @@ recommended for general use.
 \begin{fundesc}{SetSE}{n}
 Set the maximum principle quantum number of the orbitals for which the
 self-energy correction should be included in the Hamiltonian. Default is 5.
+\end{fundesc}
+
+\begin{fundesc}{SetSlaterCut}{k1, k2}
+Set the calulation modes of Slater integrals. \var{k1} and \var{k2} are
+orbital angular momentum values. When one of the orbitals has $l > k1$, then
+exchange integrals are not calculated. When one has $l > k2$, the direct
+integrals are evaluated with the multipole moments.
 \end{fundesc}
 
 \begin{fundesc}{SetTEGrid}{g $\mid$ n\opt{, e0, e1}}
@@ -2981,9 +3003,9 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{fn1, fn2, g0, g1, n0, ni, n1, k, nt, n2, nt2, gn\opt{,
-x1, x2}} 
-Solve the atomic structure with 2nd order many-body purterbation
+\begin{fundesc}{StructureMBPT}{fn1, fn2, g0, g1, n0, ni, n1, k, nt, 
+n2, nt2, gn\opt{,x1, x2}} 
+Solve the atomic structure with 2nd order many-body perturbation
 corrrections. \var{fn1} is the file name for binary energy output. \var{fn2}
 is the file containing the MBPT energy corrections. \var{g0} is the
 configuration groups whose energies are to be solved. \var{g1} is a list of
