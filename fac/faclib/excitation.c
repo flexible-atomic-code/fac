@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.55 2003/07/11 19:10:57 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.56 2003/07/11 23:38:31 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -50,10 +50,17 @@ static EXCIT_TIMING timing = {0, 0, 0};
 static CEPW_SCRATCH pw_scratch = {1, MAXKL, 100, 5E-2, 0, 0, 10};
 
 static MULTI *pk_array;
-static MULTI *kappa0_array;
-static MULTI *kappa1_array;
 static MULTI *qk_array;
 
+static void InitCEPK(void *p, int n) {
+  CEPK *d;
+  int i;
+  
+  d = (CEPK *) p;
+  for (i = 0; i < n; i++) {
+    d[i].nkl = -1;
+  }
+}
 
 CEPW_SCRATCH *GetCEPWScratch(void) {
   return &pw_scratch;
@@ -177,21 +184,18 @@ int SetCEPWGrid(int ns, int *n, int *step) {
   return 0;
 }
 
-int CERadialPk(int *nkappa, int *nkl, double **pk, 
-	       short **kappa0, short **kappa1, int ie,
-	       int k0, int k1, int k) {
+int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   int type, ko2, i, m, t, q;
   int kf0, kf1, kpp0, kpp1, km0, km1;
   int kl0, kl1, kl0p, kl1p;
   int j0, j1, kl_max, j1min, j1max;
   ORBITAL *orb0, *orb1;
   int index[4];
-  double te, e0, e1;
-  double qkt, qkl, qkl0, r;  
+  double te, e0, e1, sd, se;
   int js1, js3, js[4], ks[4];
-  double sd, se;
-  double **p;
-  short **kp0, **kp1;
+  int nkappa;
+  short *kappa0, *kappa1;
+  double *pkd, *pke;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -203,28 +207,6 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   index[1] = k0;
   index[2] = k1;
   index[3] = ko2;
-
-  kp0 = (short **) MultiSet(kappa0_array, index, NULL, InitPointerData);
-  kp1 = (short **) MultiSet(kappa1_array, index, NULL, InitPointerData);
-  p = (double **) MultiSet(pk_array, index, NULL, InitPointerData);
-  if (*kp0) {
-    type = (*p)[0];
-    *nkappa = (*kp0)[0];
-    *nkl = (*kp1)[0];
-    if (pw_type == 0) {
-      *kappa0 = *kp0 + 1;
-      *kappa1 = *kp1 + 1;
-    } else {
-      *kappa0 = *kp1 + 1;
-      *kappa1 = *kp0 + 1;
-    }
-    *pk = *p + 1;
-    return type;
-  } 
-  *nkappa = (MAXNKL+1)*(GetMaxRank()+1)*4;
-  *kp0 = (short *) malloc(sizeof(short)*(*nkappa));
-  *kp1 = (short *) malloc(sizeof(short)*(*nkappa));
-  *p = (double *) malloc(sizeof(double)*((*nkappa)*n_tegrid));
   
   type = -1;
   orb0 = GetOrbital(k0);
@@ -236,6 +218,17 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   if (IsEven(kl0 + kl1 + ko2) && Triangle(j0, j1, k)) {
     type = ko2;
   }
+
+  *pk = (CEPK *) MultiSet(pk_array, index, NULL, InitCEPK);
+  if ((*pk)->nkl >= 0) {
+    return type;
+  }
+
+  nkappa = (MAXNKL)*(GetMaxRank()+1)*4;
+  kappa0 = (short *) malloc(sizeof(short)*nkappa);
+  kappa1 = (short *) malloc(sizeof(short)*nkappa);
+  pkd = (double *) malloc(sizeof(double)*(nkappa*n_tegrid));
+  pke = (double *) malloc(sizeof(double)*(nkappa*n_tegrid));
 
   e1 = egrid[ie];
   if (type >= 0 && type < CBMULTIPOLES) {
@@ -249,10 +242,8 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   js[2] = 0;
   ks[2] = k1;		
 
-  qkt = 0.0;
-  q = 1;
-  m = 1;
-  *nkl = -1;
+  q = 0;
+  m = 0;
   if (pw_type == 0) {
     js1 = 1;
     js3 = 3;
@@ -264,8 +255,6 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   for (t = 0; t < pw_scratch.nkl; t++) {
     kl0 = pw_scratch.kl[t];
     if (pw_scratch.kl[t] > kl_max) break;
-    qkl0 = qkl;
-    qkl = 0.0;
     kl0p = 2*kl0;
     for (j0 = abs(kl0p-1); j0 <= kl0p+1; j0 += 2) {
       kpp0 = GetKappaFromJL(j0, kl0p); 
@@ -327,16 +316,19 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	      SlaterTotal(&sd, &se, js, ks, k, -1);
 	    } else {
 	      SlaterTotal(&sd, &se, js, ks, k, 1);
-	    } 
-	    r = sd + se;
-	    if (i == 0 && (sd == 0.0 && se == 0.0)) break;
-	    (*p)[q++] = r;
-	    r = r*r;
+	    }
+	    if (i == 0) {
+	      if (1.0+sd == 1.0 && 1.0+se == 1.0) {
+		break;
+	      }
+	    }
+	    pkd[q] = sd;
+	    pke[q] = se;
+	    q++;
 	  }
 	  if (i > 0) {
-	    (*kp0)[m] = kpp0;
-	    (*kp1)[m] = kpp1;
-	    *nkl = t;
+	    kappa0[m] = kpp0;
+	    kappa1[m] = kpp1;
 	    m++;
 	  }
 	}
@@ -344,22 +336,17 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
     }
   }
 
-  *nkl += 1;
-  *nkappa = m-1;
-  *p = realloc(*p, sizeof(double)*q);
-  (*p)[0] = type;
-  *pk = *p + 1;
-  *kp0 = realloc(*kp0, sizeof(short)*m);
-  *kp1 = realloc(*kp1, sizeof(short)*m);
-  (*kp0)[0] = *nkappa;
-  (*kp1)[0] = *nkl;
+  (*pk)->nkl = t;
+  (*pk)->nkappa = m;
   if (pw_type == 0) {
-    *kappa0 = *kp0 + 1;
-    *kappa1 = *kp1 + 1;
+    (*pk)->kappa0 = realloc(kappa0, sizeof(short)*m);
+    (*pk)->kappa1 = realloc(kappa1, sizeof(short)*m);
   } else {
-    *kappa0 = *kp1 + 1;
-    *kappa1 = *kp0 + 1;
+    (*pk)->kappa0 = realloc(kappa1, sizeof(short)*m);
+    (*pk)->kappa1 = realloc(kappa0, sizeof(short)*m);
   }
+  (*pk)->pkd = realloc(pkd, sizeof(double)*q);
+  (*pk)->pke = realloc(pke, sizeof(double)*q);  
     
 #ifdef PERFORM_STATISTICS
   stop = clock();
@@ -559,13 +546,16 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   int type, t, ie, ite, ipk, ipkp, nqk, ieb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
-  short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
-  double *pk, *pkp, *ptr, r, s, b;
-  double *qk, rq[MAXNTE][MAXNE], e1, te, te0;
-  double *rqc, **p;
+  CEPK *cepk, *cepkp, *tmp;
+  short *kappa0, *kappa1, *kappa0p, *kappa1p;
+  double *pkd, *pke, *pkdp, *pkep;
+  double r, rd, s, b;
+  double qk[MAXNKL], dqk[MAXNKL];
+  double rq[MAXNTE][MAXNE], e1, te, te0;
+  double *rqc, **p, *ptr;
   int index[6];
   int np = 3, one = 1;
-  double logj, sx;
+  double logj;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -579,14 +569,11 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[4] = k2;
   index[5] = k3;
   
-  
   p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
   if (*p) {
     return *p;
   }   
   
-  qk = pw_scratch.qk;
-
   nqk = n_tegrid*n_egrid;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
@@ -601,106 +588,88 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   ieb = 0;
   for (ie = 0; ie < n_egrid; ie++) {
     e1 = egrid[ie];
-    if (ieb) {
-      for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
-	type = CERadialQkBorn(k0, k1, k2, k3, k, 
-			      te, e1, &(rq[ite][ie]));
-      }
-    } else if (xborn > 0) {
-      s = e1/te0;
-      if (s > xborn) {
-	te = tegrid[0];
-	type = CERadialQkBorn(k0, k1, k2, k3, k, 
-			      te, e1, &(rq[0][ie]));
-	if (type >= 0) {
-	  for (ite = 1; ite < n_tegrid; ite++) {
-	    te = tegrid[ite];
-	    type = CERadialQkBorn(k0, k1, k2, k3, k, 
-				  te, e1, &(rq[ite][ie]));
-	  }
-	  ieb = 1;
-	}
-      }
+    type = CERadialPk(&cepk, ie, k0, k1, k);
+    if (k2 != k0 || k3 != k1) {
+      type = CERadialPk(&cepkp, ie, k2, k3, k);
+    } else {
+      cepkp = cepk;
     }
-    if (ieb == 0) {
-      type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, 
-			ie, k0, k1, k);
-      nklp = nkl;
-      if (k2 != k0 || k3 != k1) {
-	type = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
-			  ie, k2, k3, k);
+    if (cepk->nkl > cepkp->nkl) {
+      tmp = cepk;
+      cepk = cepkp;
+      cepkp = tmp;
+    }
+    kappa0 = cepk->kappa0;
+    kappa1 = cepk->kappa1;
+    nkappa = cepk->nkappa;
+    kappa0p = cepkp->kappa0;
+    kappa1p = cepkp->kappa1;
+    nkappap= cepkp->nkappa;
+    pkd = cepk->pkd;
+    pke = cepk->pke;
+    pkdp = cepkp->pkd;
+    pkep = cepkp->pke;
+    nkl = cepk->nkl;
+    nklp = nkl-1;
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      for (i = 0; i < nkl; i++) {
+	qk[i] = 0.0;
+	dqk[i] = 0.0;
       }
-      if (nkl > nklp) {
-	ptr = pk;
-	pk = pkp;
-	pkp = ptr;
-	i = nkappa;
-	nkappa = nkappap;
-	nkappap = i;
-	tmp = kappa0;
-	kappa0 = kappa0p;
-	kappa0p = tmp;
-	tmp = kappa1;
-	kappa1 = kappa1p;
-	kappa1p = tmp;
-	nkl = nklp;
-      } 
-      nklp = nkl-1;
-      for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
-	for (i = 0; i < nkl; i++) {
-	  qk[i] = 0.0;
-	}
-	t = -1;
-	kl0 = -1;
+      t = -1;
+      kl0 = -1;
       
-	ipk = ite;
-	for (i = 0; i < nkappa; i++) {
-	  if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
-	  else kl = GetLFromKappa(kappa1[i]);
-	  if (kl != kl0) {
-	    t++;
-	    kl0 = kl;
-	  }
-	  if (k2 == k0 && k3 == k1) {
-	    s = pk[ipk]*pk[ipk];
-	    qk[t] += s;
-	  } else {
-	    s = 0.0;
-	    ipkp = ite;
-	    for (j = 0; j < nkappap; j++) {
-	      if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
-		s = pk[ipk]*pkp[ipkp];
-		break;
-	      }
-	      ipkp += n_tegrid;
-	    }
-	    qk[t] += s;
-	  }
-	  ipk += n_tegrid;
+      ipk = ite;
+      for (i = 0; i < nkappa; i++) {
+	if (pw_type == 0) kl = GetLFromKappa(kappa0[i]);
+	else kl = GetLFromKappa(kappa1[i]);
+	if (kl != kl0) {
+	  t++;
+	  kl0 = kl;
 	}
-	
-	nklp = nkl-1;
-	if (nkl == 0) {
-	  r = 1E-31;
-	} else if (nkl > 1) {
-	  r = qk[0];
-	  for (i = 1; i < nkl; i++) {
-	    r += qk[i];
-	    kl0 = pw_scratch.kl[i-1];
-	    kl1 = pw_scratch.kl[i];
-	    for (j = kl0+1; j < kl1; j++) {
-	      logj = LnInteger(j);
-	      UVIP3P(np, nkl, pw_scratch.log_kl, qk, 
-		     one, &logj, &s);
-	      r += s;
-	    }
-	  }
+	if (k2 == k0 && k3 == k1) {
+	  s = (pkd[ipk]+pke[ipk])*(pkd[ipk]+pke[ipk]);
+	  qk[t] += s;
+	  s = pkd[ipk]*pkd[ipk];
+	  dqk[t] += s;
 	} else {
-	  r = qk[0];
+	  s = 0.0;
+	  ipkp = ite;
+	  for (j = 0; j < nkappap; j++) {
+	    if (kappa0[i] == kappa0p[j] && kappa1[i] == kappa1p[j]) {
+	      s = (pkd[ipk]+pke[ipk])*(pkdp[ipkp]+pkep[ipkp]);
+	      qk[t] += s;
+	      s = pkd[ipk]*pkdp[ipkp];
+	      dqk[t] += s;
+	      break;
+	    }
+	    ipkp += n_tegrid;
+	  }
 	}
-            
+	ipk += n_tegrid;
+      }
+      
+      r = qk[0];
+      rd = dqk[0];
+      for (i = 1; i < nkl; i++) {
+	r += qk[i];
+	rd += dqk[i];
+	kl0 = pw_scratch.kl[i-1];
+	kl1 = pw_scratch.kl[i];
+	for (j = kl0+1; j < kl1; j++) {
+	  logj = LnInteger(j);
+	  UVIP3P(np, nkl, pw_scratch.log_kl, qk, 
+		 one, &logj, &s);
+	  r += s;
+	  UVIP3P(np, nkl, pw_scratch.log_kl, dqk, 
+		 one, &logj, &s);
+	  rd += s;
+	}
+      }
+      
+      if (ieb == 0) {
+	nklp = nkl-1;
 	if (type >= CBMULTIPOLES) {
 	  b = GetCoulombBetheAsymptotic(te, e1);
 	} else if (type >= 0) {
@@ -709,24 +678,19 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	} else {
 	  b = 0.0;
 	}
-	s = qk[nklp]*b;
-	if (xborn < 0) {
-	  sx = -xborn;
-	  if (1.0+r != 1.0 && sx < s/r) {
-	    for (ite = 0; ite < n_tegrid; ite++) {
-	      te = tegrid[ite];
-	      for (ite = 0; ite < n_tegrid; ite++) {
-		te = tegrid[ite];
-		type = CERadialQkBorn(k0, k1, k2, k3, k, 
-				      te, e1, &(rq[ite][ie]));
-	      }
-	    }
-	    ieb = 1;
-	    break;
-	  }
+	s = dqk[nklp]*b;
+	if (ite == 0 &&
+	    ((xborn < 0 && 1.0+rd != 1.0 && -xborn < s/rd) ||
+	     (xborn > 0 && xborn < e1/te0))) {
+	  ieb = 1;
+	} else {
+	  rq[ite][ie] = r + s;
 	}
-	r += s;
-	rq[ite][ie] = r;
+      }
+      if (ieb) {
+	type = CERadialQkBorn(k0, k1, k2, k3, k,
+			      te, e1, &(rq[ite][ie]));
+	rq[ite][ie] += r-rd;
       }
     }
   }
@@ -750,22 +714,23 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   int type1, type2, kl, nqk;
   int i, j, kl0, klp0, kl0_2, klp0_2, kl1;
+  CEPK *cepk, *cepkp;
   int nkappa, nkappap, nkl, nklp;
   short  *kappa0, *kappa1, *kappa0p, *kappa1p;
-  double *pk, *pkp, *ptr;
+  double *pkd, *pke, *pkdp, *pkep, *ptr;
   int km0, km1, j0, jp0, j1, kmp0, kmp1, km0_m, kmp0_m;
   int mi, mf, t, c0, cp0;
-  double r, e0, e1, te, s, b, te0;
+  double r, rd, e0, e1, te, s, sd, b, te0;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
   int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp, ieb;
-  double qk[MAXMSUB][MAXNKL];
-  double rq[MAXMSUB][MAXNTE][MAXNE];
+  double qk[MAXMSUB][MAXNKL], dqk[MAXMSUB][MAXNKL];
+  double rq[MAXMSUB][MAXNTE][MAXNE], drq[MAXMSUB][MAXNTE][MAXNE];
   double rqt[MAXMSUB];
   double *rqc, **p;
   int index[6];
   int np = 3, one = 1;
-  double logj, sx;
+  double logj;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -789,7 +754,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   for (iq = 1; iq < nq; iq++) {
     q[iq] = q[iq-1] + 2;
   }
-  pkp = NULL;
+  pkdp = NULL;
+  pkep = NULL;
   nqk = nq*n_tegrid*n_egrid;
   *p = (double *) malloc(sizeof(double)*(nqk+1));
   rqc = *p;
@@ -804,190 +770,182 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   ieb = 0;
   for (ie = 0; ie < n_egrid; ie++) {
     e1 = egrid[ie];
-    if (ieb) {
-      for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
-	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				   nq, q, rqt);
-	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][ite][ie] = rqt[iq];
-	}
-      }
+
+    type1 = CERadialPk(&cepk, ie, k0, k1, k);
+    nkl = cepk->nkl;
+    nkappa = cepk->nkappa;
+    kappa0 = cepk->kappa0;
+    kappa1 = cepk->kappa1;
+    pkd = cepk->pkd;
+    pke = cepk->pke;
+    if (kp == k && k2 == k0 && k3 == k1) {
+      cepkp = cepk;
       type2 = type1;
-    } else if (xborn > 0) {
-      s = e1/te0;
-      if (s > xborn) {
-	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				   nq, q, rqt);
-	if (type1 >= 0) {
-	  for (iq = 0; iq < nq; iq++) {
-	    rq[iq][0][ie] = rqt[iq];
-	  }
-	  for (ite = 1; ite < n_tegrid; ite++) {
-	    te = tegrid[ite];
-	    type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				       nq, q, rqt);
-	    for (iq = 0; iq < nq; iq++) {
-	      rq[iq][ite][ie] = rqt[iq];
-	    }
-	  }
-	  ieb = 1;
-	  type2 = type1;
-	}
-      }
+    } else {
+      type2 = CERadialPk(&cepkp, ie, k2, k3, kp);
     }
+    nklp = cepkp->nkl;
+    if (nklp < nkl) nkl = nklp;
+    nkappap = cepkp->nkappa;
+    kappa0p = cepkp->kappa0;
+    kappa1p = cepkp->kappa1;
+    pkdp = cepkp->pkd;
+    pkep = cepkp->pke;
 
-    if (ieb == 0) {
-      type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1,
-			 ie, k0, k1, k);
-      if (kp == k && k2 == k0 && k3 == k1) {
-	pkp = pk;
-	nkappap = nkappa;
-	nklp = nkl;
-	kappa0p = kappa0;
-	kappa1p = kappa1;
-	type2 = type1;
-      } else {
-	type2 = CERadialPk(&nkappap, &nklp, &pkp, &kappa0p, &kappa1p,
-			   ie, k2, k3, kp);
-	if (nklp < nkl) nkl = nklp;
-      }
-
-      for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
-	e0 = e1 + te;
+    for (ite = 0; ite < n_tegrid; ite++) {
+      te = tegrid[ite];
+      e0 = e1 + te;
       
-	for (i = 0; i < nq; i++) { 
-	  for (j = 0; j < nkl; j++) { 
-	    qk[i][j] = 0.0; 
-	  }   
-	} 
+      for (i = 0; i < nq; i++) { 
+	for (j = 0; j < nkl; j++) { 
+	  qk[i][j] = 0.0; 
+	  dqk[i][j] = 0.0;
+	}   
+      } 
       
-	kl = -1;
-	i = -1;
-	ipk = ite;
-	for (j = 0; j < nkappa; j++) {
-	  km0 = kappa0[j];
-	  km1 = kappa1[j];
-	  GetJLFromKappa(km0, &j0, &kl0);
-	  GetJLFromKappa(km1, &j1, &kl1);
-	  if (kl1 != kl) {
-	    i++;
-	    kl = kl1;
-	    if (i >= nkl) break;
-	  }
-	  kl0_2 = kl0/2;
-	  ipkp = ite;
-	  for (t = 0; t < nkappap; t++) {
-	    kmp0 = kappa0p[t];
-	    kmp1 = kappa1p[t];
-	    if (kmp1 != km1) {
-	      ipkp += n_tegrid;
-	      continue;
-	    }
-	    GetJLFromKappa(kmp0, &jp0, &klp0);
-	    klp0_2 = klp0/2;
-	  
-	    s = pk[ipk]*pkp[ipkp];
-	    s *= sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
-	    if (km0 != kmp0) { 
-	      km0_m = km0; 
-	      kmp0_m = kmp0; 
-	      if (kl0_2 >= pw_scratch.qr) { 
-		if (IsOdd(kl0_2)) { 
-		  if (km0 < 0) km0_m = -km0 - 1; 
-		} else { 
-		  if (km0 > 0) km0_m = -km0 - 1; 
-		} 
-	      } 
-
-	      if (klp0_2 >= pw_scratch.qr) { 
-		if (IsOdd(klp0_2)) { 
-		  if (kmp0 < 0) kmp0_m = -kmp0 - 1;
-		} else { 
-		  if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
-		} 
-	      } 
-	      c0 = OrbitalIndex(0, km0_m, e0); 
-	      cp0 = OrbitalIndex(0, kmp0_m, e0);
-	      pha0 = GetPhaseShift(c0); 
-	      phap0 = GetPhaseShift(cp0);  
-	      r = pha0 - phap0;
-	      s *= cos(r);
-	    }
-	
-	    for (iq = 0; iq < nq; iq++) { 
-	      rqt[iq] = 0.0; 
-	    }
-	    for (mi = -1; mi <= 1; mi += 2) { 
-	      s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
-	      s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
-	      for (iq = 0; iq < nq; iq++) { 
-		if (-q[iq] <= k && -q[iq] <= kp) {
-		  mf = mi + q[iq]; 
-		  s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
-		  s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
-		  rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
-		} 
-	      } 
-	    }
-	    for (iq = 0; iq < nq; iq++) { 
-	      qk[iq][i] += s*rqt[iq]; 
-	    } 
-
-	    ipkp += n_tegrid;
-	  }
-	  ipk += n_tegrid;
+      kl = -1;
+      i = -1;
+      ipk = ite;
+      for (j = 0; j < nkappa; j++) {
+	km0 = kappa0[j];
+	km1 = kappa1[j];
+	GetJLFromKappa(km0, &j0, &kl0);
+	GetJLFromKappa(km1, &j1, &kl1);
+	if (kl1 != kl) {
+	  i++;
+	  kl = kl1;
+	  if (i >= nkl) break;
 	}
+	kl0_2 = kl0/2;
+	ipkp = ite;
+	for (t = 0; t < nkappap; t++) {
+	  kmp0 = kappa0p[t];
+	  kmp1 = kappa1p[t];
+	  if (kmp1 != km1) {
+	    ipkp += n_tegrid;
+	    continue;
+	  }
+	  GetJLFromKappa(kmp0, &jp0, &klp0);
+	  klp0_2 = klp0/2;
+	  
+	  s = (pkd[ipk]+pke[ipk])*(pkdp[ipkp]+pkep[ipkp]);
+	  sd = pkd[ipk]*pkdp[ipkp];
+	  b = sqrt((j0+1.0)*(jp0+1.0)*(kl0+1.0)*(klp0+1.0));
+	  s *= b;
+	  sd *= b;
+	  if (km0 != kmp0) { 
+	    km0_m = km0; 
+	    kmp0_m = kmp0; 
+	    if (kl0_2 >= pw_scratch.qr) { 
+	      if (IsOdd(kl0_2)) { 
+		if (km0 < 0) km0_m = -km0 - 1; 
+	      } else { 
+		if (km0 > 0) km0_m = -km0 - 1; 
+	      } 
+	    } 
+	    
+	    if (klp0_2 >= pw_scratch.qr) { 
+	      if (IsOdd(klp0_2)) { 
+		if (kmp0 < 0) kmp0_m = -kmp0 - 1;
+	      } else { 
+		if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
+	      } 
+	    } 
+	    c0 = OrbitalIndex(0, km0_m, e0); 
+	    cp0 = OrbitalIndex(0, kmp0_m, e0);
+	    pha0 = GetPhaseShift(c0); 
+	    phap0 = GetPhaseShift(cp0);  
+	    r = cos(pha0 - phap0);
+	    s *= r;
+	    sd *= r;
+	  }
+	
+	  for (iq = 0; iq < nq; iq++) { 
+	    rqt[iq] = 0.0; 
+	  }
+	  for (mi = -1; mi <= 1; mi += 2) { 
+	    s3j1 = W3j(j0, 1, kl0, -mi, mi, 0); 
+	    s3j2 = W3j(jp0, 1, klp0, -mi, mi, 0); 
+	    for (iq = 0; iq < nq; iq++) { 
+	      if (-q[iq] <= k && -q[iq] <= kp) {
+		mf = mi + q[iq]; 
+		s3j3 = W3j(j0, k, j1, -mi, -q[iq], mf); 
+		s3j4 = W3j(jp0, kp, j1, -mi, -q[iq], mf); 
+		rqt[iq] += s3j1*s3j2*s3j3*s3j4; 
+	      } 
+	    } 
+	  }
+	  for (iq = 0; iq < nq; iq++) { 
+	    qk[iq][i] += s*rqt[iq]; 
+	    dqk[iq][i] += sd*rqt[iq];
+	  } 
+
+	  ipkp += n_tegrid;
+	}
+	ipk += n_tegrid;
+      }
       
-	for (iq = 0; iq < nq; iq++) { 
-	  r = qk[iq][0];
-	  for (i = 1; i < nkl; i++) { 
-	    r += qk[iq][i]; 
-	    kl0 = pw_scratch.kl[i-1]; 
-	    kl1 = pw_scratch.kl[i];        
-	    for (j = kl0+1; j < kl1; j++) {       
-	      logj = LnInteger(j);
-	      UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
-		     one, &logj, &s);
-	      r += s; 
-	    }      
-	  }    
-	  rq[iq][ite][ie] = r;
-	} 
+      for (iq = 0; iq < nq; iq++) { 
+	r = qk[iq][0];
+	rd = qk[iq][0];
+	for (i = 1; i < nkl; i++) { 
+	  r += qk[iq][i]; 
+	  rd += qk[iq][i];
+	  kl0 = pw_scratch.kl[i-1]; 
+	  kl1 = pw_scratch.kl[i];        
+	  for (j = kl0+1; j < kl1; j++) {       
+	    logj = LnInteger(j);
+	    UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
+		   one, &logj, &s);
+	    r += s;
+	    UVIP3P(np, nkl, pw_scratch.log_kl, dqk[iq],
+		   one, &logj, &s);
+	    rd += s;
+	  }      
+	}    
+	rq[iq][ite][ie] = r;
+	drq[iq][ite][ie] = rd;
+      } 
+
+      if (ieb == 0) {
 	i = nkl - 1;
+	r = 0.0;
 	for (iq = 0; iq < nq; iq++) {
 	  if (type1 >= CBMULTIPOLES) {
-	    b = GetCoulombBetheAsymptotic(te, e1);
+	    b = GetCoulombBetheAsymptotic(te, e1);	  
 	  } else if (type1 >= 0) {
 	    if (abs(q[iq]) == 2) {
 	      b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
 	    } else if (q[iq] == 0) {
 	      b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
 	    }
-	  } else {
+	  } else {	  
 	    b = 0.0;
 	  }
-	  s = qk[iq][i]*b;
-	  if (xborn < 0) {
-	    sx = -xborn;
-	    if (1+rq[iq][ite][ie] != 1.0 && sx < s/rq[iq][ite][ie]) {
-	      for (ite = 0; ite < n_tegrid; ite++) {
-		te = tegrid[ite];
-		type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-					   nq, q, rqt);
-		for (iq = 0; iq < nq; iq++) {
-		  rq[iq][ite][ie] = rqt[iq];
-		}
-	      }
-	      type2 = type1;
-	      ieb = 1;
-	      break;
-	    }
+	  s = dqk[iq][i]*b;
+	  rqt[iq] = s;
+	  if (xborn < 0 && 1.0+drq[iq][ite][ie] != 1.0) {
+	    s /= drq[iq][ite][ie];
+	    if (s > r) r = s;
 	  }
-	  rq[iq][ite][ie] += s;
 	}
-	if (ieb) break;
+	if (ite == 0 && 
+	    ((xborn < 0 && -xborn < r) ||
+	     (xborn > 0 && xborn < e1/te0))) {
+	  ieb = 1;
+	} else {
+	  for (iq = 0; iq < nq; iq++) {
+	    rq[iq][ite][ie] += rqt[iq];
+	  }
+	}
+      }
+      
+      if (ieb) {
+	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				   nq, q, rqt);
+	for (iq = 0; iq < nq; iq++) {
+	  rq[iq][ite][ie] += rqt[iq] - drq[iq][ite][ie];
+	}
       }
     }
   }
@@ -1245,7 +1203,6 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	if (ty > type) type = ty;	  
 	for (ie = 0; ie < n_egrid; ie++) {
 	  qkc[ie] += c*rq[ie];
-	  printf("%d %d %d %12.5E %12.5E %12.5E %12.5E\n", i,j,ie,qkc[ie],c,rq[ie],c*rq[ie]);
 	}
       } else {
 	ty = CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
@@ -1928,17 +1885,16 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 }
 
 void FreeExcitationPkData(void *p) {
-  double *dp;
-  dp = *((double **) p);
-  free(dp);
-  *((double **) p) = NULL;
-}
-
-void FreeExcitationKappaData(void *p) {
-  short *kp;
-  kp = *((short **) p);
-  free(kp);
-  *((short **) p) = NULL;
+  CEPK *dp;
+  
+  dp = (CEPK *)p;
+  if (dp->nkl > 0) {
+    free(dp->kappa0);
+    free(dp->kappa1);
+    free(dp->pkd);
+    free(dp->pke);
+  }
+  dp->nkl = -1;
 }
 
 int FreeExcitationPk(int ie) {
@@ -1948,35 +1904,29 @@ int FreeExcitationPk(int ie) {
   if (b == NULL) return 0;
   if (ie < 0) {
     MultiFreeData(b, pk_array->ndim, FreeExcitationPkData);
-    b = kappa0_array->array;
-    MultiFreeData(b, kappa0_array->ndim, FreeExcitationKappaData);
-    b = kappa1_array->array;
-    MultiFreeData(b, kappa1_array->ndim, FreeExcitationKappaData);
   } else {
     b = (ARRAY *) ArrayGet(b, ie);
     if (b) {
       MultiFreeData(b, pk_array->ndim - 1, FreeExcitationPkData);
-    }
-    b = kappa0_array->array;
-    b = (ARRAY *) ArrayGet(b, ie);
-    if (b) {
-      MultiFreeData(b, kappa0_array->ndim - 1, FreeExcitationKappaData);
-    }
-    b = kappa1_array->array;
-    b = (ARRAY *) ArrayGet(b, ie);
-    if (b) {
-      MultiFreeData(b, kappa1_array->ndim - 1, FreeExcitationKappaData);
     }
   }
 
   return 0;
 }
 
+void FreeExcitationQkData(void *p) {
+  double *dp;
+
+  dp = *((double **) p);
+  free(dp);
+  *((double **) p) = NULL;
+}
+
 int FreeExcitationQk(void) {
   ARRAY *b;
   b = qk_array->array;
   if (b == NULL) return 0;
-  MultiFreeData(b, qk_array->ndim, FreeExcitationPkData);
+  MultiFreeData(b, qk_array->ndim, FreeExcitationQkData);
   FreeExcitationPk(-1);
   
   return 0;
@@ -1990,11 +1940,7 @@ int InitExcitation(void) {
 
   ndim = 4;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(pk_array, sizeof(double *), ndim, blocks1);
-  kappa0_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(kappa0_array, sizeof(short *), ndim, blocks1);
-  kappa1_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(kappa1_array, sizeof(short *), ndim, blocks1);
+  MultiInit(pk_array, sizeof(CEPK), ndim, blocks1);
 
   ndim = 6;
   qk_array = (MULTI *) malloc(sizeof(MULTI));
