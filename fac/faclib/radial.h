@@ -70,6 +70,7 @@ int OptimizeRadial(int ng, int *kg, double *weight);
 int RefineRadial(int maxfun, int msglvl);
 int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
+double ZerothEnergyConfig(CONFIG *cfg);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 

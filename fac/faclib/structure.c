@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.65 2004/06/06 03:46:06 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.66 2004/06/09 01:08:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -770,6 +770,21 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
     AddToLevels(n, s);
     nlev1 = GetNumLevels();
     mbp->nbasis = nlev1 - ilev;
+    free(mbp->ene);
+    mbp->ene = malloc(sizeof(double)*mbp->nbasis);
+    sym = GetSymmetry(mbp->isym);
+    for (r = ilev; r < nlev1; r++) {
+      lev = GetLevel(r);
+      a = 0.0;
+      for (t = 0; t < lev->n_basis; t++) {
+	a1 = lev->mixing[t];
+	st = ArrayGet(&(sym->states), lev->basis[t]);
+	c1 = GetConfig(st);
+	a2 = ZerothEnergyConfig(c1);
+	a += a1*a1*a2;
+      }
+      mbp->ene[r-ilev] = a;
+    }
     ilev = nlev1;
   }
   if (sr == 0) {
@@ -883,7 +898,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 		a2 = ham[m*nbs1 + q];
 		a += a1*a2;
 	      }
-	      d = a*a/(lev->energy - e1[q]);
+	      d = a*a/(mbp->ene[t] - e1[q]);
 	      if (ccp1->kq == 0) {
 		de[ilev-nlev][ccp1->inp-1] += d;
 	      } else {
@@ -1654,7 +1669,8 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
   }
 
   for (j = 0; j < h->dim; j++) {
-    r = HamiltonElement(isym, h->basis[j], h->basis[j]);
+    s = ArrayGet(st, h->basis[j]);
+    r = ZerothEnergyConfig(GetConfig(s));
     h->hamilton[j] = r;
   }
  

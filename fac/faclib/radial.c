@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.91 2004/06/03 00:44:04 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.92 2004/06/09 01:08:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1242,6 +1242,21 @@ double TotalEnergyGroup(int kg) {
   return total_energy;
 }
 
+double ZerothEnergyConfig(CONFIG *cfg) {
+  int i, n, nq, kappa, k;
+  double r;
+
+  r = 0.0;
+  for (i = 0; i < cfg->n_shells; i++) {
+    n = (cfg->shells[i]).n;
+    nq = (cfg->shells[i]).nq;
+    kappa = (cfg->shells[i]).kappa;
+    k = OrbitalIndex(n, kappa, 0.0);
+    r += nq * (GetOrbital(k)->energy);
+  }
+  return r;
+}
+    
 /* calculate the average energy of a configuration */
 double AverageEnergyConfig(CONFIG *cfg) {
   int i, j, n, kappa, nq, np, kappap, nqp;
