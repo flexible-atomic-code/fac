@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.13 2002/02/18 03:15:16 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.14 2002/02/23 13:55:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1676,16 +1676,17 @@ static int PSetMaxRank(int argc, char *argv[], int argt[],
 static int PSetOptimizeControl(int argc, char *argv[], int argt[], 
 			       ARRAY *variables) {
   int maxiter, iprint;
-  double tol;
+  double tol, s;
 
   iprint = 0;
   
-  if (argc != 2 && argc != 3) return -1;
+  if (argc != 3 && argc != 4) return -1;
   tol = atof(argv[0]);
-  maxiter = atoi(argv[1]);
-  if (argc == 3) iprint = atoi(argv[2]);
+  s = atof(argv[1]);
+  maxiter = atoi(argv[2]);
+  if (argc == 4) iprint = atoi(argv[3]);
   
-  SetOptimizeControl(tol, maxiter, iprint);
+  SetOptimizeControl(tol, s, maxiter, iprint);
 
   return 0;
 }

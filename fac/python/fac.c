@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.23 2002/02/18 03:15:15 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.24 2002/02/23 13:55:02 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -128,7 +128,7 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
 
 static PyObject *PSetOptimizeControl(PyObject *self, PyObject *args) {
   int maxiter;
-  double tol; 
+  double tol, s; 
   int iprint;
   
   if (sfac_file) {
@@ -138,9 +138,9 @@ static PyObject *PSetOptimizeControl(PyObject *self, PyObject *args) {
   }
     
   iprint = 0;
-  if (!PyArg_ParseTuple(args, "di|i", &tol, &maxiter, &iprint))
+  if (!PyArg_ParseTuple(args, "ddi|i", &tol, &s, &maxiter, &iprint))
     return NULL;
-  SetOptimizeControl(tol, maxiter, iprint);
+  SetOptimizeControl(tol, s, maxiter, iprint);
 
   Py_INCREF(Py_None);
   return Py_None;

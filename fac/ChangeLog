@@ -9,6 +9,8 @@ Version 0.7.1, 02/17/2001
 	   beam.
 	6. improve the integration routine for rate coefficients.
 	7. make the RateTable output more useful.
+	8. improve the convergence of radial optimizer for near neutral
+	   ions. It should now work even for neutral atoms.
 	
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
