@@ -535,8 +535,9 @@ SYMMETRY *GetSymmetry(int k) {
 }
 
 int GetAverageConfig(int ng, int *kg, double *weight,
-		     AVERAGE_CONFIG *acfg) {
-#define M 200 /* max # of shells may be present in an average config */
+		     int n_screen, int *screened_n, double screened_charge,
+		     int screened_kl, AVERAGE_CONFIG *acfg) {
+#define M 2500 /* max # of shells may be present in an average config */
 
   double tnq[M];
   int i, j, k, n, kappa, t;
@@ -557,9 +558,8 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   if (weight == NULL) {
     weight = malloc(sizeof(double)*ng);
     if (!weight) return -1;
-    weight[0] = 0.5;
-    for (i = 1; i < ng; i++) {
-      weight[i] = (1.0 - weight[0])/(ng-1);
+    for (i = 0; i < ng; i++) {
+      weight[i] = 1.0;
     }
     weight_allocated = 1;
   }
@@ -617,7 +617,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
       !acfg->kappa ||
       !acfg->nq) goto ERROR;
 
-  for (i = 0, j = 0; i < 100; i++) {
+  for (i = 0, j = 0; i < M; i++) {
     if (tnq[i] > EPS10) {
       n = ((int) sqrt(i)) + 1 ;
       k = i - (n-1)*(n-1) + 1;
@@ -632,7 +632,54 @@ int GetAverageConfig(int ng, int *kg, double *weight,
       j++;
     }
   }
-  if (weight_allocated) free(weight);
+
+  /* add in configs for screened_charge */
+  if (n_screen > 0) {
+    screened_charge /= (double) n_screen;
+    for (i = 0; i < n_screen; i++) {
+      if (screened_kl < 0) {
+	t = 0;
+	kappa = -1;
+      } else if (screened_kl == 0) {
+	t = screened_n[i];
+	kappa = GetKappaFromJL(t+1, t);
+      } else {
+	t = screened_n[i]*2-2;
+	kappa = GetKappaFromJL(t+1, t);
+      }    
+      for (j = 0; j < acfg->n_shells; j++) {
+	k = GetLFromKappa(acfg->kappa[j]);
+	if (acfg->n[j] < screened_n[i]) continue;
+	if (acfg->n[j] > screened_n[i]) break;
+	if (k > t) break;
+	if (acfg->kappa[j] == kappa) break;
+      }
+      if (j < acfg->n_shells && 
+	  acfg->n[j] == screened_n[i] && 
+	  acfg->kappa[j] == kappa) {
+	acfg->nq[j] += screened_charge; 
+      } else {
+	acfg->n_shells += 1;
+	acfg->n = realloc(acfg->n, sizeof(int)*acfg->n_shells);
+	acfg->kappa = realloc(acfg->kappa, sizeof(int)*acfg->n_shells);
+	acfg->nq = realloc(acfg->nq, sizeof(double)*acfg->n_shells);
+	for (k = acfg->n_shells-1; k > j; k--) {
+	  acfg->n[k] = acfg->n[k-1];
+	  acfg->kappa[k] = acfg->kappa[k-1];
+	  acfg->nq[k] = acfg->nq[k-1];
+	}
+	acfg->n[j] = screened_n[i];
+	acfg->kappa[j] = kappa;
+	acfg->nq[j] = screened_charge;
+      }
+    }
+  }
+	  
+  if (weight_allocated) {
+    free(weight);
+    weight = NULL;
+  }
+
   return j;
 
  ERROR:
