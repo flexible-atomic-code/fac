@@ -8,6 +8,7 @@ Version 0.8.9, 03/11/2003
 	5. fix a bug in RRRate1E and PIRate1E for high energy cross
 	   sections.
 	6. add TotalPICross and TotalCICross functions.
+	7. the scaling factor in BED CI cross sections is modified.
 	
 Version 0.8.8, 03/04/2003
 	1. add my new RR and DR rates to CRM.

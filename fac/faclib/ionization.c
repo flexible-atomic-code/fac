@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.39 2003/01/22 21:58:03 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.40 2003/03/11 21:22:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -712,8 +712,11 @@ int IonizeStrength(double *qku, double *qkc, double *te,
   ANGULAR_ZFB *ang;
   double bethe, b0, c, cmax, qke[MAXNUSR], sigma[MAXNUSR];
   int nz, j0, j0p, kl0, kl, kb, kbp, nq, nqk;
-  double tol, x[MAXNE], logx[MAXNE];
+  double tol, x[MAXNE], logx[MAXNE], es;
 
+  c = GetResidualZ()-1.0;
+  es = GetAtomicNumber();
+  es = (es - c)/(es + c);
   cmax = 0.0;
   if (qk_mode == QK_CB) {
     nqk = NPARAMS;
@@ -788,7 +791,7 @@ int IonizeStrength(double *qku, double *qkc, double *te,
       for (j = 0; j < n_usr; j++) {
 	qku[j] = qku[j]*log_xusr[j] + 
 	  b0*(1.0-1.0/xusr[j]-log_xusr[j]/(1.0+xusr[j]));
-	qku[j] *= xusr[j]/(1.0+xusr[j]);
+	qku[j] *= xusr[j]/(es+xusr[j]);
       }
       for (i = 0; i < n_usr; i++) {
 	qke[i] = qku[i] - bethe*log_xusr[i];
