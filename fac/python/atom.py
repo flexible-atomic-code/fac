@@ -218,9 +218,11 @@ class ATOM:
         self.ai_cut0 = 1E-3
         if (self.nele <= self.nele_max[1]):
             self.n_shells = 1
-            self.nexc_max = [7, 7, 5]
-            self.nexc_rec = [10, 0, 0]
-            self.nrec_max = [10, 8, 6]
+            self.nexc_max = [8, 8, 6]
+            self.nfrozen = [10, 10, 10]
+            self.nexc_rec = [10, 6, 5]
+            self.nrec_max = [10, 10, 10]
+            self.rec_pw_max = [9, 9, 6]
             self.nrec_ext = 25
             self.n_decay = [10, 3, -1]
             self.angz_cut1 = 1E-6
@@ -232,8 +234,10 @@ class ATOM:
         elif (self.nele <= self.nele_max[2]):
             self.n_shells = 2
             self.nexc_max = [4, 4, 4, 4]
-            self.nexc_rec = [7, 0, 0, 0]
-            self.nrec_max = [10, 6, 8, 6]
+            self.nfrozen = [10, 10, 10, 10]
+            self.nexc_rec = [7, 4, 4, 4]
+            self.nrec_max = [10, 10, 10, 8]
+            self.rec_pw_max = [9, 6, 8, 5]
             self.nrec_ext = 20
             self.n_decay = [10, 3, 3, -1]
             self.angz_cut1 = 1E-5
@@ -245,8 +249,10 @@ class ATOM:
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
             self.nexc_max = [4, 4, 4, 4, 0]
-            self.nexc_rec = [0, 0, 0, 0, 0]
-            self.nrec_max = [10, 8, 6, 5, 5]
+            self.nfrozen = [10, 10, 10, 10, 10]
+            self.nexc_rec = [4, 4, 4, 4, 0]
+            self.nrec_max = [10, 10, 10, 8, 0]
+            self.rec_pw_max = [9, 8, 6, 5, 5]
             self.nrec_ext = 20
             self.n_decay = [10, 3, 3, -1, -1]
             self.angz_cut1 = 1E-5
@@ -489,7 +495,7 @@ class ATOM:
         for i in range(len(self.exc_complex)):
             c = self.exc_complex[i].cgroup
             SetRecPWOptions(self.rec_pw_max[i])
-            SetRecSpectator(self.nexc_max[i]+1)
+            SetRecSpectator(self.nexc_max[i]+1, self.nfrozen[i])
             for j in range(len(c)):
                 a = c[j]
                 if (len(a.name) == 0):
@@ -533,7 +539,10 @@ class ATOM:
                     tr = [-1]
                     SetAngZCut(self.angz_cut1)
                     SetTransitionCut(self.tr_cut1)
-                if (c[j].nrec <= self.nexc_rec[i]):
+                nmax = c[j].nrec
+                if (nmax == 0):
+                    nmax = c[j].complex[-1][0]
+                if (nmax <= self.nexc_rec[i]):
                     ce = 1
                 else:
                     ce = 0
