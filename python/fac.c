@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.29 2002/05/15 18:45:52 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.30 2002/05/21 20:13:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -657,7 +657,6 @@ static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
   n = -1;
   k = -1;
   if (!PyArg_ParseTuple(args, "|ii", &n, &k)) return NULL;
-  if (k < 0) k = n-1;
 
   SetHydrogenicNL(n, k);
   Py_INCREF(Py_None);

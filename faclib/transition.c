@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.13 2002/02/28 16:55:05 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.14 2002/05/21 20:13:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,7 @@ USE (rcsid);
          = 2 babushkin gauge (length form)
 
    mode = 0 use relativistic expression for radial integrals.
-        = 1 use non-resltivistic approximation.
+        = 1 use non-relativistic approximation.
    
    max_e, the maximum rank of electric multipoles.
    max_m, the maximum rank of magnetic multipoles.
@@ -74,7 +74,6 @@ int OscillatorStrength(double *strength, double *energy,
 
   m2 = 2*abs(m);
 
-  if (m > transition_option.max_m || m < -transition_option.max_e) return 1;
   if (!Triangle(j1, j2, m2)) return -1;
   if (m > 0 && IsEven(p1+p2+m)) return -1;
   if (m < 0 && IsOdd(p1+p2-m)) return -1;
