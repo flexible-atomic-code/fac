@@ -407,6 +407,7 @@ int SwapEndianDRRecord(DR_RECORD *r);
 double IonDensity(char *fn, int k);
 void SetUTA(int m);
 int IsUTA(void);
+void SetTRF(int m);
 
 #endif
 

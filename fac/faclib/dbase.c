@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.68 2005/01/13 23:06:39 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.69 2005/01/15 01:13:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,6 +24,11 @@ static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
 static int iground;
 static int iuta = 0;
+static int itrf = 0;
+
+void SetTRF(int m) {
+  itrf = m;
+}
 
 void SetUTA(int m) {
   iuta = m;
@@ -387,6 +392,9 @@ int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
   if (CheckEndian(fh) != (int) (fheader[0].symbol[3])) {
     *swp = 1;
     SwapEndianFHeader(fh);
+  }
+  if (fh->type == DB_TR) {
+    if (VersionLE(fh, 1, 0, 6)) itrf = 1;
   }
   return sizeof(F_HEADER);
 }
@@ -2645,13 +2653,17 @@ double OscillatorStrength(int m, double e, double s, double *ga) {
   int m2;
   double aw, x;
 
-  m2 = 2*abs(m);
-  x = s*s/(m2+1.0);
-  x *= e;
-  m2 -= 2;
   aw = FINE_STRUCTURE_CONST * e;
-  if (m2) {
-    x *= pow(aw, m2);
+  if (itrf == 0) {
+    m2 = 2*abs(m);
+    x = s*s/(m2+1.0);
+    x *= e;
+    m2 -= 2;
+    if (m2) {
+      x *= pow(aw, m2);
+    }
+  } else {
+    x = s;
   }
   if (ga) {
     *ga = x*2.0*pow(aw,2)*FINE_STRUCTURE_CONST;
