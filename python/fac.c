@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.19 2002/01/29 22:01:35 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.20 2002/02/04 15:48:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1417,21 +1417,6 @@ static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PSetCEFormat(PyObject *self, PyObject *args) {
-  int m;
-
-  if (sfac_file) {
-    SFACStatement("SetCEFormat", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetCEFormat(m);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PSetCEGridType(PyObject *self, PyObject *args) {
   int type;
   
@@ -2389,21 +2374,6 @@ static  PyObject *PSetCIQkMode(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PSetCIFormat(PyObject *self, PyObject *args) {
-  int m;
-
-  if (sfac_file) {
-    SFACStatement("SetCIFormat", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetCIFormat(m);
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PSetCIEGridLimits(PyObject *self, PyObject *args) {
   double emin, emax;
   int type;
@@ -3104,13 +3074,11 @@ static struct PyMethodDef fac_methods[] = {
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
-  {"SetCEFormat", PSetCEFormat, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},
-  {"SetCIFormat", PSetCIFormat, METH_VARARGS},
   {"SetCIEGrid", PSetCIEGrid, METH_VARARGS},
   {"SetCIEGridLimits", PSetCIEGridLimits, METH_VARARGS},
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},

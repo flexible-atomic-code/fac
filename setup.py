@@ -9,10 +9,10 @@ fortranlib = ["F77", "M77", "sunmath"]
 # fortranlib = ["g2c"]
 
 libs = ["fac", "quadpack", "lapack", "blas", "coul",
-        "toms", "mpfun", "minpack", "m"] + fortranlib
+        "toms", "mpfun", "minpack", "ionis", "m"] + fortranlib
 
 libdir = ["faclib", "coul", "toms", "mpfun", "minpack",
-          "quadpack", "lapack", "blas"]
+          "quadpack", "lapack", "blas", "ionis"]
 incdir = ["faclib"]
     
 os.system("make lib")

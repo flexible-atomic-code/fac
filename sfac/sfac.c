@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.9 2002/01/24 03:14:32 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.10 2002/02/04 15:48:35 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1228,14 +1228,6 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PSetCEFormat(int argc, char *argv[], int argt[], 
-			ARRAY *variables) {
-  if (argc != 1) return -1;
-  SetCEFormat(atoi(argv[0]));
-
-  return 0;
-}
-
 static int PSetCEGrid(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int n, ng, i, err;
@@ -1454,14 +1446,6 @@ static int PSetCEQkMode(int argc, char *argv[], int argt[],
   return 0;
 }
     
-static int PSetCIFormat(int argc, char *argv[], int argt[], 
-			ARRAY *variables) {
-  if (argc != 1 || argt[0] != NUMBER) return -1;
-  SetCIFormat(atoi(argv[0]));
-
-  return 0;
-}
-
 static int PSetCIEGrid(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {  int n, ng, i, err;
   double xg[MAXNE];
@@ -2396,13 +2380,11 @@ static METHOD methods[] = {
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
-  {"SetCEFormat", PSetCEFormat, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},
-  {"SetCIFormat", PSetCIFormat, METH_VARARGS},
   {"SetCIEGrid", PSetCIEGrid, METH_VARARGS},
   {"SetCIEGridLimits", PSetCIEGridLimits, METH_VARARGS},
   {"SetIEGrid", PSetIEGrid, METH_VARARGS},

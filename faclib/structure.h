@@ -104,6 +104,7 @@ int GetNumLevels(void);
 int GetNumElectrons(int k);
 int SortMixing(int start, int n, int *basis, double *mix);
 int GetPrincipleBasis(double *mix, int d);
+int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);
 

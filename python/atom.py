@@ -213,8 +213,7 @@ class ATOM:
             self.nexc_max = [7, 7, 5]
             self.nexc_rec = [0, 0, 0]
             self.nrec_max = [10, 8, 6]
-            self.nrec_ext = [30, 20, 15]
-            self.rec_pw_max = [9, 7, 5]
+            self.nrec_ext = 25
             self.n_decay = [10, -1, -1]
             self.angz_cut1 = 1E-3
             self.tr_cut1 = 1E-3
@@ -227,8 +226,7 @@ class ATOM:
             self.nexc_max = [4, 4, 4, 4]
             self.nexc_rec = [7, 0, 0, 0]
             self.nrec_max = [10, 6, 8, 5]
-            self.nrec_ext = [30, 15, 20, 15]
-            self.rec_pw_max = [9, 5, 7, 5]
+            self.nrec_ext = 20
             self.n_decay = [10, -1, -1, -1]
             self.angz_cut1 = 1E-2
             self.tr_cut1 = 1E-2
@@ -241,8 +239,7 @@ class ATOM:
             self.nexc_max = [4, 4, 4, 4, 0]
             self.nexc_rec = [0, 0, 0, 0, 0]
             self.nrec_max = [10, 8, 6, 5, 5]
-            self.nrec_ext = [30, 20, 15, 15, 15]
-            self.rec_pw_max = [9, 7, 5, 5, 5]
+            self.nrec_ext = 20
             self.n_decay = [10, -1, -1, -1, -1]
             self.angz_cut1 = 1E-2
             self.tr_cut1 = 1E-2
@@ -253,6 +250,10 @@ class ATOM:
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
 
+        self.rec_pw_max = []
+        for i in range(len(self.nrec_max)):
+            self.rec_pw_max.append(self.nrec_max[i]-1)
+            
         if (type(asym) == StringType):
             self.set_atom(asym)
             
@@ -287,10 +288,15 @@ class ATOM:
         n1.sort()
         
         cg = CGROUP('exc')
-        bn = 'exc.%d'%(len(self.exc_complex))
+        k = len(self.exc_complex)
+        bn = 'exc.%d'%(k)
         for i1 in n1:
             ex = COMPLEX('%s.%d.'%(bn,i1))
             if (ex.set_excited(n0, i1, base) == 0):
+                if (self.nele in self.nele_sim and
+                    k > self.n_shells):
+                    ex.terms = ex.terms[:1]
+                    ex.name = ex.name[:1]
                 cg.add_complex(ex)
 
         self.exc_complex.append(cg)
@@ -303,8 +309,9 @@ class ATOM:
             base = self.grd_complex
         else:
             base = self.exc_complex[0].cgroup[ibase]
-        
-        ion = COMPLEX('%s.%d.%d.'%('ion', ibase, n0))
+
+        k = len(self.ion_complex.cgroup)
+        ion = COMPLEX('%s.%d.'%('ion', k))
         ion.set_ionized(n0, base)
         self.ion_complex.add_complex(ion)
 
@@ -434,7 +441,7 @@ class ATOM:
         Print('Structure: ground complex')
         c = self.exc_complex[0].cgroup[0].name
         if (self.nele in self.nele_sim):
-            Structure(self.bfiles['en'], g, c)
+            Structure(self.bfiles['en'], g)
             Structure(self.bfiles['en'], c)
         else:
             Structure(self.bfiles['en'], g+c)
@@ -504,12 +511,14 @@ class ATOM:
             for j in range(len(c)):
                 if (len(c[j].name) == 0):
                     continue
-                if (c[j].nrec == 0):
+                n2 = c[j].nrec
+                if (n2 == 0):
+                    n2 = c[j].complex[-1][0]
                     b = c[j].name
                     SetAngZCut(self.angz_cut1)
                     SetTransitionCut(self.tr_cut1)
                 else:
-                    b = (c[j].name, c[j].nrec)
+                    b = (c[j].name, n2)
                     SetAngZCut(self.angz_cut2)
                     SetTransitionCut(self.tr_cut2)
                 if (i == 0 and j == 0):
@@ -533,7 +542,7 @@ class ATOM:
                     if (ce != 0 or tr != []):
                         self.run_tr_ce(a, b, a, b, tr=tr, ce=ce)
 
-                if (i == 0):
+                if (i == 0 and n2 <= self.n_decay[i]):
                     continue
                 d = self.exc_complex[0].cgroup
                 for m in range(len(d)):
@@ -546,12 +555,9 @@ class ATOM:
                         SetAngZCut(self.angz_cut1)
                         SetTransitionCut(self.tr_cut1)
                     else:
-                        a = ([d[m].name], n1)
+                        a = (d[m].name, n1)
                         SetAngZCut(self.angz_cut2)
                         SetTransitionCut(self.tr_cut2)
-                    n2 = c[j].nrec
-                    if (n2 == 0):
-                        n2 = c[j].complex[-1][0]
                     if (n1 != n2):
                         continue
                     self.run_tr_ce(a, b, a, b, tr=[-1], ce=0)
@@ -646,8 +652,8 @@ class ATOM:
             self.add_excited(i, range(nexc[j]+1), -1)
             self.add_ionized(i, -1)
             r = range(nexc[j]+1, nrec[j]+1)
-            if (self.nrec_ext[j] > nrec[j]):
-                r.append(self.nrec_ext[j])
+            if (self.nrec_ext > nrec[j]):
+                r.append(self.nrec_ext)
             self.add_recombined(r, j)
             self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
 
@@ -656,14 +662,14 @@ class ATOM:
             i = self.n_shells-1
             mrec = nrec[j+1]
             r = range(nexc[j]+1, mrec+1)
-            if (self.nrec_ext[j+1] > mrec):
-                r.append(self.nrec_ext[j+1])
+            if (self.nrec_ext > mrec):
+                r.append(self.nrec_ext)
         else:
             i = self.n_shells
             mrec = nrec[j]
             r = range(nexc[j]+1, mrec+1)
-            if (self.nrec_ext[j] > mrec):
-                r.append(self.nrec_ext[j])
+            if (self.nrec_ext > mrec):
+                r.append(self.nrec_ext)
         if (i > 0):
             self.add_excited(i, range(j+1, nexc[j]+1), 0)
             self.add_ionized(i, 0)
@@ -676,8 +682,8 @@ class ATOM:
             self.add_excited(i, range(j+1, nexc[j]+1), 1)
             self.add_ionized(i, 1)
             r = range(nexc[j]+1, nrec[j]+1)
-            if (self.nrec_ext[j] > nrec[j]):
-                r.append(self.nrec_ext[j])
+            if (self.nrec_ext > nrec[j]):
+                r.append(self.nrec_ext)
             self.add_recombined(r, j)
             self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
             

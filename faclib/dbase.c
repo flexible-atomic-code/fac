@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.11 2002/01/29 01:26:28 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.12 2002/02/04 15:48:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1198,7 +1198,6 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
 	if (v) {
 	  a = h.usr_egrid[t];
 	  if (h.usr_egrid_type == 1) a += e;
-	  a += e;
 	  a *= 1.0 + FINE_STRUCTURE_CONST2*a;
 	  a = AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	  a *= strength[t];

@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.16 2002/01/14 23:18:41 mfgu Exp $
+# rcsid = $Id: README,v 1.17 2002/02/04 15:48:32 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -12,6 +12,7 @@ demo/,       some demo scripts.
 doc/,        reference guide for FAC
 doc/papers/, papers submitted to Computer Phys. Comm.
 faclib/,     core numerical library.
+ionis/,      ionization balance calculation of Arnaud&Raymond.
 lapack/,     fortran routines from LAPACK.
 minpack/,    minpack optimization package.
 quadpack/,   some routines from quadpack for quadrature.

@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.31 2002/01/21 18:33:50 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.32 2002/02/04 15:48:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,6 @@ USE (rcsid);
 static int qk_mode;
 static double qk_fit_tolerance;
 
-static int output_format = 0;
 static int egrid_type = -1;
 static int usr_egrid_type = -1;
 static int pw_type = -1;
@@ -58,11 +57,6 @@ int SetCEQkMode(int m, double tol) {
   else qk_mode = m;
   if (tol > 0.0) qk_fit_tolerance = tol;
   return 0;
-}
-
-int SetCEFormat(int m) {
-  output_format = m;
-  return m;
 }
 
 int SetCEEGridLimits(double min, double max, int type) {
@@ -1234,7 +1228,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     if (pw_type < 0) pw_type = 0;
   }
   egrid_type = 1;
-  if (usr_egrid_type < 0) usr_egrid_type = 1;
+  usr_egrid_type = 1;
 
   if (egrid_type == 0) e = emax;
   else e = 0.5*(emin+emax);
@@ -1502,7 +1496,6 @@ int InitExcitation(void) {
   SetCEEGridLimits(0.05, 8.0, 0);
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
-  output_format = 0;
   SetCEQkMode(QK_DEFAULT, 1E-3);
 
   return 0;
@@ -1519,7 +1512,6 @@ int ReinitExcitation(int m) {
   SetCEEGridLimits(0.05, 8.0, 0);
   usr_egrid[0] = -1.0;
   tegrid[0] = -1.0;  
-  output_format = 0;
   SetCEQkMode(QK_DEFAULT, 1E-3);
 
   return 0;

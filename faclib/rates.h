@@ -47,7 +47,7 @@ double R3BRate1E(double e1, double e2, double eth, int np, int ns, void *p);
 int CIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, int nshells, float *params, int i0, int f0);
-
+double RRRateHydrogenic(double t, double z, int n, double *top);
 double RRRate1E(double e, double eth, int np, int ns, void *p);
 double PIRate1E(double e, double eth, int np, int ns, void *p);
 int RRRate(double *dir, double *inv, int iinv, 
@@ -55,7 +55,10 @@ int RRRate(double *dir, double *inv, int iinv,
 	   int m, int nshells, float *params, int i0, int f0);
 int AIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e, float rate);
-
+double Ionis(int z, int nele, double t, double *a, double *dir);
+double Recomb(int z, int nele, double t, double *rr, double *dr);
+int FracAbund(int z, double t, double *a);
+double MaxAbund(int z, int nele, double *a, double eps);
 int InitRates(void);	   
 
 #endif
