@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.41 2002/11/27 16:43:04 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.42 2002/12/02 22:19:07 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -97,7 +97,16 @@ static void FreeIonData(void *p) {
     free(ion->ilev);
     free(ion->j);
     free(ion->vnl);
+    free(ion->ibase);
     free(ion->energy);
+    free(ion->KLN_ai);
+    free(ion->KLN_nai);
+    ion->KLN_min = 0;
+    ion->KLN_max = 0;
+    ion->KLN_bmin = 0;
+    ion->KLN_bmax = 0;
+    ion->KLN_amin = 0;
+    ion->KLN_amax = 0;
     ion->nlevels = 0;
   }
   for (i = 0; i < NDB; i++) {
@@ -198,6 +207,15 @@ int AddIon(int nele, double n, char *pref) {
   ion.ai_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.ai_rates, sizeof(BLK_RATE), RATES_BLOCK);
 
+  ion.KLN_min = 0;
+  ion.KLN_max = 0;
+  ion.KLN_bmin = 0;
+  ion.KLN_bmax = 0;
+  ion.KLN_amin = 0;
+  ion.KLN_amax = 0;
+  ion.KLN_ai = NULL;
+  ion.KLN_nai = NULL;
+
   ion.recombined = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.recombined, sizeof(RECOMBINED), 16);
   
@@ -274,6 +292,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->ilev = (int *) realloc(ion->ilev, sizeof(int)*nlev);
   ion->j = (short *) realloc(ion->j, sizeof(short)*nlev);
   ion->vnl = (short *) realloc(ion->vnl, sizeof(short)*nlev);
+  ion->ibase = (short *) realloc(ion->ibase, sizeof(short)*nlev);
   ion->energy = (double *) realloc(ion->energy, sizeof(double)*nlev);
   
   nr0 = ion->nlevels;
@@ -317,6 +336,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	  ion->ilev[p] = q;
 	  ion->j[p] = ion->j[k];
 	  ion->vnl[p] = n*100 + ion->vnl[k]%100;
+	  ion->ibase[p] = ion->ibase[k];
 	  if (s <= rec->imax[j-1]) {
 	    b = ion->energy[s] - (ion->energy[k] - a);
 	    b = -c/b;
@@ -575,15 +595,84 @@ void ExtrapolateAI(ION *ion, int inv) {
   }
 }
 
+int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r) {
+  int i, k, n1, n2, n3;
+  char ncomp[LNCOMPLEX];
+  char name[LNAME];
+  char sname[LSNAME];
+
+  i = 0;
+  while (r->name[i] && r->name[i] != '+') i++;
+  if (r->name[i] == '+' && r->name[i-1] == ' ') {
+    return atoi(r->name);
+  } else {
+    strcpy(ncomp, r->ncomplex);
+    strcpy(sname, r->sname);
+    strcpy(name, r->name);
+    i = 0;
+    while (ncomp[i]) i++;
+    while (ncomp[i] != '*') i--;
+    k = atoi(&(ncomp[i+1]));
+    k--;
+    if (k == 0) {
+      while (ncomp[i] != ' ') i--;
+      ncomp[i] = '\0';
+    } else {
+      sprintf(&(ncomp[i+1]), "%1d", k);
+    }    
+    n1 = strlen(ncomp);
+    
+    i = 0; 
+    while (sname[i]) i++;
+    i--;
+    while (sname[i] == ' ') i--;
+    if (sname[i] == '1') {
+      while (sname[i] != ' ') i--;
+      sname[i] = '\0';
+      n3 = strlen(sname);
+    } else {
+      k = atoi(&(sname[i]));
+      k--;
+      sprintf(&(sname[i]), "%1d", k);
+      n3 = strlen(sname);
+    }
+
+    i = 0;
+    while (name[i]) i++;
+    while (name[i] != '(') i--;
+    i--;
+    if (name[i] != '1') {
+      for (i = 0; i < n; i++) {
+	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0) return r0[i].ilev;
+      }
+      return -1;
+    } else {
+      while (name[i] != ' ') i--;
+      name[i] = '\0';
+      n2 = strlen(name);
+      for (i = 0; i <n; i++) {
+	if (strncmp(ncomp, r0[i].ncomplex, n1) == 0 &&
+	    strncmp(name, r0[i].name, n2) == 0 &&
+	    strncmp(sname, r0[i].sname, n3) == 0) {	  
+	  return r0[i].ilev;
+	}
+      }
+      return -1;
+    }
+  }
+} 
+    
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
   EN_HEADER h;
   EN_RECORD r, *r0, *r1;
+  EN_RECORD *rionized;
   LBLOCK blk, *blkp;
   RECOMBINED *rec, rec0;
   NCOMPLEX ncomplex[MAXNCOMPLEX];
   int bmin, bmax, imin, imax, t, nrec;
+  int ibase, tbase;
   FILE *f;
   int n, i, k, nb, nb0, nlevels;
   char *fn;
@@ -670,8 +759,9 @@ int SetBlocks(double ni, char *ifn) {
     ion->ilev = (int *) malloc(sizeof(int)*nlevels);
     ion->j = (short *) malloc(sizeof(short)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
+    ion->ibase = (short *) malloc(sizeof(short)*nlevels);
     ion->energy = (double *) malloc(sizeof(double)*nlevels);
- 
+    rionized = (EN_RECORD *) malloc(sizeof(EN_RECORD )*nionized);
     if (k == 0 && ifn) {
       ion0.nionized = nionized;
       ion0.ionized_map[0] = (int *) malloc(sizeof(int)*nionized);
@@ -682,6 +772,7 @@ int SetBlocks(double ni, char *ifn) {
     fseek(f, sizeof(F_HEADER), SEEK_SET);
     n0 = 0;
     nb0 = 0;
+    r0 = rionized;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = fread(&h, sizeof(EN_HEADER), 1, f);
       if (swp) SwapEndianENHeader(&h);
@@ -689,10 +780,32 @@ int SetBlocks(double ni, char *ifn) {
 	fseek(f, h.length, SEEK_CUR);
 	continue;
       } else if (h.nele == ion->nele-1) {
-	r0 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*h.nlevels);
 	for (i = 0; i < h.nlevels; i++) {
 	  n = fread(&r0[i], sizeof(EN_RECORD), 1, f);
 	  if (swp) SwapEndianENRecord(&(r0[i]));
+	}
+	if (ion->nele >= 4 && ion->nele <= 10) {
+	  GetNComplex(ncomplex, r0[0].ncomplex);
+	  if (ncomplex[0].n == 1) {
+	    if (ncomplex[0].nq == 1 &&
+		ncomplex[1].n == 2 &&
+		ncomplex[1].nq == ion->nele-2) {
+	      ion->KLN_bmin = r0[0].ilev;
+	      ion->KLN_bmax = r0[h.nlevels-1].ilev;
+	      ion->KLN_ai = (double *) malloc(sizeof(double)*h.nlevels);
+	      ion->KLN_nai = (int *) malloc(sizeof(int)*h.nlevels);
+	      for (ibase = 0; ibase < h.nlevels; ibase++) {
+		ion->KLN_ai[ibase] = 0.0;
+		ion->KLN_nai[ibase] = 0;
+	      }
+	    } else if (ncomplex[0].nq == 2) {
+	      if (ncomplex[1].n > 2 ||
+		  ncomplex[1].nq == ion->nele-4) {
+		ion->KLN_amin = r0[0].ilev;
+		ion->KLN_amax = r0[h.nlevels-1].ilev;
+	      }
+	    }       
+	  }
 	}
 	if (ifn) {
 	  r1 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*h.nlevels);
@@ -715,6 +828,7 @@ int SetBlocks(double ni, char *ifn) {
 	    } else {
 	      ion->vnl[p] = r0[i].p;
 	    }
+	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	  }
 	} else {
@@ -780,6 +894,7 @@ int SetBlocks(double ni, char *ifn) {
 	    } else {
 	      ion->vnl[p] = r0[i].p;
 	    }
+	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	    if (ifn) {
 	      ion0.ionized_map[0][n0] = r1[i].ilev;
@@ -790,11 +905,11 @@ int SetBlocks(double ni, char *ifn) {
 	  }
 	}
 	if (nb0 == 0) ion->iground = r0[0].ilev;
-	free(r0);
 	if (ifn) {
 	  free(r1);
 	}
 	nb0++;
+	r0 += h.nlevels;
       } else {
 	printf("ERROR: Ion charge state does not match %d %d %d %d\n",
 	       k, nb, h.nele, ion->nele);
@@ -908,13 +1023,33 @@ int SetBlocks(double ni, char *ifn) {
 	} else {
 	  ion->vnl[p] = r.p;
 	}
+	ion->ibase[p] = GetBaseLevel(nionized, rionized, &r);
 	ion->energy[p] = r.energy;
+	if (ion->nele >= 4 && ion->nele <= 10 && nrec == 0) {
+	  if (ion->ibase[p] <= ion->KLN_bmax &&
+	      ion->ibase[p] >= ion->KLN_bmin) {
+	    ibase = ion->ibase[p] - ion->KLN_bmin;
+	    if (i == 0) { 
+	      ion->KLN_min = r.ilev;
+	      for (tbase = ion->KLN_bmin; tbase <= ion->KLN_bmax; tbase++) {
+		ion->KLN_nai[tbase-ion->KLN_bmin] = 0;
+	      }
+	      ion->KLN_nai[ibase]++;
+	    } else if (i == h.nlevels-1) {
+	      ion->KLN_max = r.ilev;
+	      ion->KLN_nai[ibase]++;
+	    } else {
+	      ion->KLN_nai[ibase]++;
+	    }
+	  }
+	}
       }
     }
     if (ion0.n >= 0.0) {
       ExtrapolateEN(k, ion);
     }
     ion1 = ion;
+    free(rionized);
     fclose(f);
   }
   
@@ -1196,9 +1331,6 @@ int InitBlocks(void) {
 
   for (i = 0; i < blocks->dim; i++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, i);
-    k = blk1->iion;
-    if (k == -1) k = 0;
-    ion = (ION *) ArrayGet(ions, k);
     blk1->nb = 1.0;
     for (k = 0; k < blk1->nlevels; k++) {
       blk1->n0[k] = 0.0;
@@ -1210,7 +1342,19 @@ int InitBlocks(void) {
   }
 
   for (k = 0; k < ions->dim; k++) {
-    ion = (ION *) ArrayGet(ions, k);   
+    ion = (ION *) ArrayGet(ions, k);
+    if (ion->nele >= 4 && ion->nele <= 10) {
+      for (i = 0; i < ion->nlevels; i++) {
+	if (ion->ibase[i] <= ion->KLN_bmax &&
+	    ion->ibase[i] >= ion->KLN_bmin) {
+	  p = ion->ibase[i] - ion->KLN_bmin;
+	  blk1 = ion->iblock[i];
+	  if (blk1->irec >= 0) {
+	    blk1->total_rate[ion->ilev[i]] = ion->KLN_ai[p];
+	  }
+	}
+      }
+    }
     if (electron_density > 0.0) {
       for (p = 0; p < ion->ce_rates->dim; p++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ce_rates, p);
@@ -3796,6 +3940,7 @@ int SetAIRates(int inv) {
   double e;
   FILE *f;  
   int swp, endian;
+  int ibase;
 
   if (ion0.n < 0.0) return 0;
   endian = CheckEndian(NULL);
@@ -3833,6 +3978,18 @@ int SetAIRates(int inv) {
 	e = ion->energy[r.b] - ion->energy[r.f];
 	AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
 	AddRate(ion, ion->ai_rates, &rt, 0);
+	if (rt.i <= ion->KLN_max && rt.i >= ion->KLN_min &&
+	    rt.f <= ion->KLN_amax &&
+	    rt.f >= ion->KLN_amin) {
+	  ibase = ion->ibase[rt.i] - ion->KLN_bmin;
+	  ion->KLN_ai[ibase] += rt.dir;
+	}
+      }
+    }
+    n = ion->KLN_bmax - ion->KLN_bmin + 1;
+    for (ibase = 0; ibase < n; ibase++) {
+      if (ion->KLN_nai[ibase]) {
+	ion->KLN_ai[ibase] /= ion->KLN_nai[ibase];
       }
     }
     fclose(f);
@@ -3964,7 +4121,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  }	
 	  p = ion->ilev[r->i];
 	  r1.ilev = r->i;
-	  r1.ibase = 0;
+	  r1.ibase = ion->ibase[r->i];
 	  r1.energy = ion->energy[r->i] - ion->energy[ilev0];
 	  r1.j = ion->j[r->i];
 	  r1.vl = vl;

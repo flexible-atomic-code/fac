@@ -54,6 +54,7 @@ typedef struct _ION_ {
   int *ilev;
   short *j;
   short *vnl;
+  short *ibase;
   double *energy;
   ARRAY *ce_rates;
   ARRAY *tr_rates;
@@ -66,6 +67,11 @@ typedef struct _ION_ {
   char *dbfiles[NDB];
   double n, nt;
   NCOMPLEX ce_max;
+  int KLN_min, KLN_max;
+  int KLN_bmin, KLN_bmax;
+  int KLN_amin, KLN_amax;
+  double *KLN_ai;
+  int *KLN_nai;
 } ION;
 
 typedef struct _IONIZED_ {
@@ -99,6 +105,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
 		   int nele, char *ifn);
 void GetRecombined(int *b, int *nrec, char *name);
 int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);
+int GetBaseLevel(int n, EN_RECORD *r0, EN_RECORD *r);
 int GetNComplex(NCOMPLEX *c, char *s);
 int CompareNComplex(NCOMPLEX *c1, NCOMPLEX *c2);
 int StrNComplex(char *s, NCOMPLEX *c);

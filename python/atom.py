@@ -233,9 +233,9 @@ class ATOM:
             self.n_shells = 2
             self.nexc_max = [4, 4, 4, 4]
             self.nexc_rec = [7, 0, 0, 0]
-            self.nrec_max = [10, 6, 8, 5]
+            self.nrec_max = [10, 6, 8, 6]
             self.nrec_ext = 20
-            self.n_decay = [10, 3, -1, -1]
+            self.n_decay = [10, 3, 3, -1]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
@@ -248,7 +248,7 @@ class ATOM:
             self.nexc_rec = [0, 0, 0, 0, 0]
             self.nrec_max = [10, 8, 6, 5, 5]
             self.nrec_ext = 20
-            self.n_decay = [10, 3, -1, -1, -1]
+            self.n_decay = [10, 3, 3, -1, -1]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
@@ -566,11 +566,18 @@ class ATOM:
                 for m in range(j+1):
                     if (len(c[m].name) == 0):
                         continue
-                    if (c[m].nrec <= self.n_decay[i]):
-                        if (i == 0 and j == 0):
-                            tr = [-1, 1]
+                    nmax = c[m].nrec
+                    if (nmax == 0):
+                        nmax = c[m].complex[-1][0]
+                    if (nmax <= self.n_decay[i]):
+                        if (i == 0):
+                            if (j == 0):
+                                tr = [-1, 1]
                         else:
-                            tr = [-1]
+                            if (n2 > self.nexc_max[i]):
+                                tr = []
+                            else:
+                                tr = [-1]
                     else:
                         tr = []
                     if (c[m].nrec == 0):
@@ -612,7 +619,19 @@ class ATOM:
                         SetAngZCut(self.angz_cut2)
                         SetTransitionCut(self.tr_cut2)
                     if (n1 != n2):
-                        continue
+                        try:
+                            nq = c[j].complex[-1][1]
+                        except:
+                            nq = 1
+                        if (nq > 1):
+                            n3 = n2
+                        else:
+                            try:
+                                n3 = c[j].complex[-2][0]
+                            except:
+                                n3 = 0
+                        if (n2 > self.nexc_max[i] or n3 != n1):
+                            continue
                     self.run_tr_ce(a, b, a, b, tr=[-1], ce=0)
                         
         return
@@ -647,17 +666,26 @@ class ATOM:
                 if (self.nele == self.nele_max[self.n_shells-1]+1):
                     continue
                 p = 1
+            elif (i == self.n_shells-1 and
+                  self.nele > self.nele_max[self.n_shells-1]+1):
+                p = len(self.ion_complex.cgroup)
             else:
                 p = 2
             for k in range(p):
                 if (self.nele == self.nele_max[self.n_shells-1]+1):
                     t = k
                 else:
-                    if (k == 1 and i >= self.n_shells):
+                    if (p == 2 and k == 1):
                         t = self.n_shells
                     else:
                         t = k
                 b = self.ion_complex.cgroup[t].name
+                if (p > 2 and t > 0):
+                    if (i == t):
+                        continue
+                    nmax = self.ion_complex.cgroup[t].complex[-1][0]
+                else:
+                    nmax = 0
                 for j in range(len(c)):
                     a = c[j].name
                     na = len(a)
@@ -668,10 +696,16 @@ class ATOM:
                         na = 2
                     n = c[j].nrec
                     if (n > 0):
+                        if (nmax > 0):
+                            continue
                         a = (a, n)
                         SetAngZCut(self.angz_cut1)
                         SetAICut(self.ai_cut1)
                     else:
+                        if (nmax > 0):
+                            nmax1 = c[j].complex[-1][0]
+                            if (nmax1 != nmax):
+                                continue
                         SetAngZCut(self.angz_cut0)
                         SetAICut(self.ai_cut0)
                         
