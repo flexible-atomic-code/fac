@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.36 2002/08/02 14:07:12 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.37 2002/08/17 20:21:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -140,7 +140,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 128, 64, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 256, 64, 5E-2);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -1581,8 +1581,8 @@ int FreeExcitationQk(void) {
 }
   
 int InitExcitation(void) {
-  int blocks1[] = {6, 10, 10, 6};
-  int blocks2[] = {3, 3, 5, 5, 5, 5};
+  int blocks1[] = {4, 8, 8, 4};
+  int blocks2[] = {4, 4, 4, 4, 4, 4};
   int ndim;
 
   ndim = 4;

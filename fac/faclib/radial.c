@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.50 2002/08/14 16:09:44 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.51 2002/08/17 20:21:39 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2505,7 +2505,7 @@ int FreeMomentsArray(void) {
 
 int InitRadial(void) {
   int ndim;
-  int blocks[6] = {5, 5, 5, 5, 5, 5};
+  int blocks[6] = {4, 4, 4, 4, 4, 4};
 
   potential = malloc(sizeof(POTENTIAL));
   potential->flag = 0;

@@ -15,8 +15,6 @@
 #include "recouple.h"
 
 
-#define ORBITALS_BLOCK    1000 /* # of orbitals in one block*/
-
 #ifdef PERFORM_STATISTICS
 typedef struct _RAD_TIMING_ {
   clock_t radial_1e;

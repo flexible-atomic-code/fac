@@ -1,3 +1,7 @@
+Version 0.7.8, 08/17/2002
+	1. change the block size of various arrays, which fixes the malloc
+	   bomb on Mac OS X.
+	
 Version 0.7.7, 08/14/2002
 	1. fix a bug that causes the OptimizeRadial fails on neutral atoms.
 	2. rewrite ConfigEnergy so that the average energy of

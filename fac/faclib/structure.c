@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.30 2002/08/14 16:09:44 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.31 2002/08/17 20:21:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2427,7 +2427,7 @@ int ClearLevelTable(void) {
 
 int InitStructure(void) {
   int ndim = 6;
-  int blocks[6] = {1, 1, 10, 10, 50, 50};
+  int blocks[6] = {2, 2, 4, 4, 8, 8};
 
   n_levels = 0;
   levels = malloc(sizeof(ARRAY));

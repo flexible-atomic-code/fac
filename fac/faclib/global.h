@@ -74,7 +74,7 @@
 */
 #define VERSION        0
 #define SUBVERSION     7
-#define SUBSUBVERSION  7
+#define SUBSUBVERSION  8
 
 
 /* 
@@ -183,8 +183,6 @@
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
 
 
-#define MAX_POINTS 720
-
 #define G_COULOMB   1
 #define G_BABUSHKIN 2
 #define M_FR        0
@@ -197,6 +195,22 @@
 #define QK_CB          3
 #define QK_DW          4
 #define QK_BED         5
+
+/* dimensions */
+#define MAX_POINTS 720
+
+#define MAX_SPEC_SYMBOLS   14
+#define LEVEL_NAME_LEN     128
+#define GROUP_NAME_LEN     32
+#define MAX_GROUPS         2048
+#define MAX_SYMMETRIES     512
+#define CONFIGS_BLOCK      256
+#define STATES_BLOCK       512
+
+#define ORBITALS_BLOCK     1024
+
+#define LEVELS_BLOCK       1024
+#define ANGZ_BLOCK         128
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG

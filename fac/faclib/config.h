@@ -54,62 +54,6 @@
 #include "parser.h"
 #include "nucleus.h"
 
-/*
-** VARIABLE:    MAX_SPEC_SYMBOLS = 14
-** TYPE:        macro constant
-** PURPOSE:     the maximum number of spectroscopic symbols for 
-**              orbital angular momentum.
-** NOTE:        
-*/
-#define MAX_SPEC_SYMBOLS   14 
-
-/*
-** VARIABLE:    LEVEL_NAME_LEN = 128
-** TYPE:        macro constant
-** PURPOSE:     The maximum length of the level name.
-** NOTE:        
-*/
-#define LEVEL_NAME_LEN     128
-
-/*
-** VARIABLE:    GROUP_NAME_LEN = 32
-** TYPE:        macro constant.
-** PURPOSE:     the maximum length of the group name.
-** NOTE:        
-*/
-#define GROUP_NAME_LEN     32
-
-/*
-** VARIABLE:    MAX_GROUPS = 1024
-** TYPE:        macro constant.
-** PURPOSE:     the maximum number of configuration groups
-** NOTE:        
-*/
-#define MAX_GROUPS         1024
-
-/*
-** VARIABLE:    MAX_SYMMETRIES = 512
-** TYPE:        macro constant
-** PURPOSE:     the maximum number of j-parity symmetries.
-** NOTE:        
-*/
-#define MAX_SYMMETRIES     512
-
-/*
-** VARIABLE:    CONFIGS_BLOCK = 256
-** TYPE:        macro constant
-** PURPOSE:     the number of configurations in one array block.
-** NOTE:        
-*/
-#define CONFIGS_BLOCK      256
-
-/*
-** VARIABLE:    STATES_BLOCK = 512
-** TYPE:        macro constant
-** PURPOSE:     the number of states in one array block
-** NOTE:        
-*/
-#define STATES_BLOCK       512
 
 /*
 ** STRUCT:      SHELL
