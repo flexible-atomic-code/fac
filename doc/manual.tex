@@ -2319,12 +2319,13 @@ included. Default is 5.
 Set the energy boundary between the distroted-wave Born approximation and
 plane-wave Born approximation for the collisional excitation. If the scattered
 electron energy is less than $xE_{b}$, DW method is chosen, where $E_{b}$ is
-the binding energy of the electron being excited. If $x$ is negative, DW is
-always used. DW approximation may fail at very high energies due to the
-failure of convergence in the partial-wave summation. It is therefor desirable
-to switch to PW approximation at some suitable energy scale. Usually $3\le x
-\ge5$ should give accurate results for both low and high energy regions. The
-default for $x$ is -1.0, i.e., always use DW approximation.
+the binding energy of the electron being excited and $x$ is the positive. 
+If $x$ is negative, the switch between DW and PW occurs when the estimated
+high partial-wave contributions becomes larger than $-x$ times the low
+partial-waves calculated explicitly. If $x=0$, then DW is always used.
+default for $x$ is -0.25, i.e., use DW when the estimated high partial-wave
+contributions represents no more than 25\% of the explicitly calculated low
+partial-wave sum.
 \end{fundesc}
 
 \begin{fundesc}{SetCEGrid}{g $|$ n\opt{, e0, e1}}
@@ -2364,11 +2365,6 @@ quasi-relativistic approximation.
 Set the computation mode for the excitation radial integrals. \var{mode} may
 be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
-\end{fundesc}
-
-\begin{fundesc}{SetCETol}{t}
-Set the tolerance factor in the partial-wave expansion for collisional
-excitation.
 \end{fundesc}
 
 \begin{fundesc}{SetCIEGrid}{g $|$ n\opt{, e0, e1}}
