@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.30 2002/05/21 20:13:03 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.31 2002/06/26 19:57:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2537,7 +2537,7 @@ static PyObject *PTestCoulomb(PyObject *self, PyObject *args) {
 static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   char *s;
   PyObject *p, *q, *ip, *iq;
-  int n, k;
+  int n, k, kref;
   double e;
   int i;
   FILE *f;
@@ -2548,16 +2548,22 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  kref = 0;
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "s", &s)) {
       return NULL;
     }
     f = fopen(s, "r");
+    i = 0;
     while (1) {
       if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
       e /= HARTREE_EV;
-      AddECorrection(k, e);
+      if (i == 0) {
+	kref = k;
+      }
+      AddECorrection(kref, k, e);
+      i++;
     }
     fclose(f);
   } else if (n == 2) {
@@ -2576,7 +2582,10 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
       k = PyInt_AsLong(ip);
       e = PyFloat_AsDouble(iq);
       e /= HARTREE_EV;
-      AddECorrection(k, e);
+      if (i == 0) {
+	kref = k;
+      }
+      AddECorrection(kref, k, e);
     }
   } else {
     return NULL;

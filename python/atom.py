@@ -204,6 +204,7 @@ class ATOM:
 			'ci': 1,
 			'ai': 1}
 
+        self.ecorrections = []
         self.nele = nele
         self.nele_max = [0, 2, 10, 28]
         self.nele_sim = [6,7,8,9]
@@ -464,9 +465,9 @@ class ATOM:
         OptimizeRadial(g+c)
         if (self.nele > 1):
             ConfigEnergy(1)
-        
-        if (self.nele == 10):
-            CorrectEnergy([38,39], [-0.266, -2.618]) 
+
+        for ec in self.ecorrections:
+            CorrectEnergy(ec[0], ec[1])
 
         # ground and the first excited complex are interacting
         Print('Structure: ground complex')
@@ -843,17 +844,15 @@ class ATOM:
 
 
 def atomic_data(nele, asym, iprint=1, dir='', **kw):
-    if (type(asym) == StringType):
-        a = [asym]
-    else:
-        a = asym
-
     if (type(nele) == IntType):
         n = [nele]
+        if (kw.has_key('ecorrections')):
+            kw['ecorrections'] = [kw['ecorrections']]
     else:
         n = nele
 
-    for m in n:
+    for im in range(len(n)):
+        m = n[im]
         atom = ATOM(m)
 	if (kw.has_key('no_ce')):
 	    atom.process['ce'] = not kw['no_ce']
@@ -877,25 +876,24 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
             atom.n_decay = kw['n_decay']
         if (kw.has_key('rec_pw_max')):
             atom.rec_pw_max = kw['rec_pw_max']
+        if (kw.has_key('ecorrections')):
+            atom.ecorrections = kw['ecorrections'][im]
 
         atom.set_configs()
-        for b in a:
-            s = 'NELE = %d'%m
-            Print(s)
-            s = 'ATOM = %s'%b
-            z = ATOMICSYMBOL.index(b.lower())
-            s = '%s, Z = %d'%(s, z)
-            if (z < 1.5*m):
-                Print('%s, skipping'%s)
-                continue
-            Print(s)
-            atom.set_atom(b, dir=dir)
-            atom.run_fac()
-            if (iprint >= 0):
-                atom.print_table(['en', 'tr', 'ce', 'rr', 'ai', 'ci'], iprint)
+        s = 'NELE = %d'%m
+        Print(s)
+        s = 'ATOM = %s'%asym
+        z = ATOMICSYMBOL.index(asym.lower())
+        s = '%s, Z = %d'%(s, z)
+        if (z < 1.5*m):
+            Print('%s, skipping'%s)
+            continue
+        Print(s)
+        atom.set_atom(asym, dir=dir)
+        atom.run_fac()
+        if (iprint >= 0):
+            atom.print_table(['en', 'tr', 'ce', 'rr', 'ai', 'ci'], iprint)
                 
-            Reinit(1)
-
         Reinit(0)
 
     return

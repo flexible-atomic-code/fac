@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.27 2002/05/15 18:45:52 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.28 2002/06/26 19:57:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -829,9 +829,10 @@ int SortMixing(int start, int n, int *basis, double *mix) {
   return 0;
 }
   
-int AddECorrection(int ilev, double e) {
+int AddECorrection(int iref, int ilev, double e) {
   ECORRECTION c;
 
+  c.iref = iref;
   c.ilev = ilev;
   c.e = e;
 
@@ -984,6 +985,7 @@ int SaveLevels(char *fn, int m, int n) {
   EN_HEADER en_hdr;
   F_HEADER fhdr;
   ECORRECTION *ec;
+  double e0;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
@@ -1012,9 +1014,16 @@ int SaveLevels(char *fn, int m, int n) {
       for (p = 0; p < ecorrections->dim; p++) {
 	ec = (ECORRECTION *) ArrayGet(ecorrections, p);
 	if (ec->ilev == i) {
-	  lev->energy += ec->e;
-	  ec->ilev = -1;
-	  ncorrections -= 1;
+	  if (ec->ilev == ec->iref) {
+	    lev->energy += ec->e;
+	    ec->ilev = -1;
+	    ncorrections -= 1;
+	  } else {
+	    e0 = GetLevel(ec->iref)->energy;
+	    lev->energy = e0 + ec->e;
+	    ec->ilev = -1;
+	    ncorrections -= 1;
+	  }
 	  break;
 	}
       }
