@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.4 2001/11/07 19:46:28 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.5 2001/11/24 21:12:29 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -632,9 +632,9 @@ static int PGetPotential(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PInfor(int argc, char *argv[], int argt[], ARRAY *variables) {
+static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc != 0) return -1;
-  Infor();
+  Info();
 }
 
 static int PLevelTable(int argc, char *argv[], int argt[], 
@@ -2130,7 +2130,7 @@ static METHOD methods[] = {
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"FreeRecAngZ", PFreeRecAngZ, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
-  {"Infor", PInfor, METH_VARARGS},
+  {"Info", PInfo, METH_VARARGS},
   {"LevelTable", PLevelTable, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},

@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.11 2001/11/07 16:34:06 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.12 2001/11/24 21:12:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2218,9 +2218,9 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PInfor(PyObject *self, PyObject *args) { 
+static PyObject *PInfo(PyObject *self, PyObject *args) { 
 
-  Infor();
+  Info();
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -2258,7 +2258,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Get9j", GetW9j, METH_VARARGS},
   {"GetCG", GetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
-  {"Infor", PInfor, METH_VARARGS},
+  {"Info", PInfo, METH_VARARGS},
   {"LevelTable", PLevelTable, METH_VARARGS},
   {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
