@@ -1,4 +1,4 @@
-static char *rcsid="$Id: init.c,v 1.5 2003/09/26 19:42:52 mfgu Exp $";
+static char *rcsid="$Id: init.c,v 1.6 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -56,6 +56,7 @@ int InitFac(void) {
   InitExcitation();
   InitRecombination();
   InitIonization();
+  InitRMatrix();
 
   return 0;
 }

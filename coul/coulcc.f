@@ -367,6 +367,8 @@ C     (x-plane boundary is shifted to give CF2(LH) a chance to converge)
 C
                            OMEGA = SIGN(ONE,IMAG(X)+ACC8)
       IF(DBLE(X).GE.XNEAR) OMEGA = SIGN(ONE,IMAG(THETAM)+ACC8)
+C     correction from erratum.
+      IF (AXIAL) OMEGA = ONE
 C
          SFSH = EXP(OMEGA*SCALE - ABS(SCALE))
          OFF=EXP(MIN(TWO * MAX(ABS(IMAG(X)),ABS(IMAG(THETAM)),

@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.105 2004/07/02 17:27:10 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.106 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -46,6 +46,10 @@ static struct {
   int iset;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
 		      1.0, 1, 0, NULL, OPTPRINT, 0};
+static struct {
+  int kl0;
+  int kl1;
+} slater_cut = {100000, 1000000};
 
 static struct {
   int se;
@@ -167,6 +171,19 @@ POTENTIAL *RadialPotential(void) {
   return potential;
 }
 
+void SetSlaterCut(int k0, int k1) {
+  if (k0 > 0) {
+    slater_cut.kl0 = 2*k0;
+  } else {
+    slater_cut.kl0 = 1000000;
+  } 
+  if (k1 > 0) {
+    slater_cut.kl1 = 2*k1;
+  } else {
+    slater_cut.kl1 = 1000000;
+  }
+}
+
 int GetBoundary(double *rb, double *b, int *nmax) {
   *rb = potential->rad[potential->ib];
   *b = potential->bqp;
@@ -174,11 +191,34 @@ int GetBoundary(double *rb, double *b, int *nmax) {
   return potential->ib;
 }
 
-void SetBoundary(int nmax, double p, double bqp) {
+int SetBoundary(int nmax, double p, double bqp) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
 
+  if (nmax == -100) {
+    if (p <= 0.0) {
+      printf("2nd argument must be > 0 in SetBoundary(-100,...)\n");
+      return -1;
+    }
+    for (i = 0; i < potential->maxrp-10; i++) {
+      if (potential->rad[i] >= p) break;
+    }
+    potential->ib1 = i;
+    if (bqp > 0) {
+      if (bqp >= p) {
+	printf("3rd argument must be less than 2nd in SetBoundary(-100,...)\n");
+	return -1;
+      }
+      for (i = 0; i < potential->maxrp; i++) {
+	if (potential->rad[i] >= bqp) break;
+      }
+      if (i < potential->ib1) {
+	potential->ib = i;
+      }
+    }
+    return 0;
+  }
   potential->nb = abs(nmax);
   potential->bqp = bqp;
   if (nmax == 0) {
@@ -233,9 +273,11 @@ void SetBoundary(int nmax, double p, double bqp) {
     if (IsEven(i)) i++;
     if (i > potential->maxrp-10) {
       printf("enlarge maxrp\n");
-      exit(1);
+      return -1;
     }
   }
+  potential->ib1 = potential->maxrp-10;
+  return 0;
 }
 
 int RadialOverlaps(char *fn, int kappa) {
@@ -559,6 +601,7 @@ int GetPotential(char *s) {
   fprintf(f, "#     ar = %10.3E\n", potential->ar);
   fprintf(f, "#     br = %10.3E\n", potential->br);
   fprintf(f, "#     rb = %10.3E\n", potential->rad[potential->ib]);
+  fprintf(f, "#    rb1 = %10.3E\n", potential->rad[potential->ib1]);
   fprintf(f, "#    bqp = %10.3E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
   
@@ -887,9 +930,11 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
-  if (n > 0) {
+  if (n != 0) {
     fprintf(f, "\n\n");
-    for (i = 0; i <= orb->ilast; i++) {
+    if (n < 0) k = potential->ib;
+    else k = 0;
+    for (i = k; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
 	      i, potential->rad[i], 
 	      (potential->Vc[i])*potential->rad[i],
@@ -1011,7 +1056,8 @@ int OrbitalIndex(int n, int kappa, double energy) {
   for (i = 0; i < n_orbitals; i++) {
     orb = GetOrbital(i);
     if (n == 0) {
-      if (orb->kappa == kappa && 
+      if (orb->n == 0 &&
+	  orb->kappa == kappa && 
 	  orb->energy > 0.0 &&
 	  fabs(orb->energy - energy) < EPS10) {
 	if (orb->wfun == NULL) {
@@ -1142,7 +1188,7 @@ int ClearOrbitalTable(int m) {
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
-      if (orb->n > 0) {
+      if (orb->n != 0) {
 	n_continua -= n_orbitals - (i+1);
 	n_orbitals = i+1;
 	ArrayTrim(orbitals, i+1, FreeOrbitalData);
@@ -1456,7 +1502,7 @@ int ResidualPotential(double *s, int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
   int index[2];
-  double *p, z;
+  double *p, z, *p1, *p2, *q1, *q2;
 
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
@@ -1482,21 +1528,36 @@ int ResidualPotential(double *s, int k0, int k1) {
 
   *s = 0.0;
  
-  for (i = 0; i < potential->maxrp; i++) {
-    z = potential->U[i];
-    z += potential->Vc[i];
-    _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
+  if (orb1->n < 0 || orb2->n < 0) {
+    p1 = Large(orb1);
+    p2 = Large(orb2);
+    q1 = Small(orb1);
+    q2 = Small(orb2);
+    for (i = potential->ib; i < potential->ib1; i++) {
+      z = potential->U[i];
+      z += potential->Vc[i];
+      _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
+      _yk[i] *= potential->dr_drho[i];
+      _yk[i] *= p1[i]*p2[i] + q1[i]*q2[i];
+    }
+    *s = Simpson(_yk, potential->ib, potential->ib1);
+  } else {
+    for (i = 0; i < potential->maxrp; i++) {
+      z = potential->U[i];
+      z += potential->Vc[i];
+      _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
+    }
+    Integrate(_yk, orb1, orb2, 1, s);
   }
-  Integrate(_yk, orb1, orb2, 1, s);
-
   *p = *s;
   return 0;
 }
 
 double RadialMoments(int m, int k1, int k2) {
-  int index[3], npts, i;
+  int index[3];
+  int npts, i0, i;
   ORBITAL *orb1, *orb2;
-  double *q, r, z;
+  double *q, r, z, *p1, *p2, *q1, *q2;
   int n1, n2;
   int kl1, kl2;
   int nh, klh;
@@ -1514,7 +1575,7 @@ double RadialMoments(int m, int k1, int k2) {
 
   GetHydrogenicNL(&nh, &klh, NULL, NULL);
 
-  if (n1 > 0 && n2 > 0) {
+  if (n1 > 0 && n2 > 0 && potential->ib <= 0) {
     if ((n1 > nh && n2 > nh) || 
 	(kl1 > klh && kl2 > klh) ||
 	orb1->wfun == NULL || 
@@ -1538,7 +1599,7 @@ double RadialMoments(int m, int k1, int k2) {
     }
   }
 
-  if (n1 == n2 && m > 0 && n1 > GetNMax()) {
+  if (potential->ib <= 0 && n1 == n2 && m > 0 && n1 > GetNMax()) {
     return 0.0;
   }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
@@ -1565,17 +1626,32 @@ double RadialMoments(int m, int k1, int k2) {
     return *q;
   } 
 
-  npts = potential->maxrp-1;
-  if (orb1->n > 0) npts = Min(npts, orb1->ilast);
-  if (orb2->n > 0) npts = Min(npts, orb2->ilast);
+  if (n1 < 0 || n2 < 0) {
+    i0 = potential->ib;
+    npts = potential->ib1;
+    p1 = Large(orb1);
+    q1 = Small(orb1);
+    p2 = Large(orb2);
+    q2 = Small(orb2);
+    for (i = i0; i <= npts; i++) {
+      r = p1[i]*p2[i] + q1[i]*q2[i];
+      r *= potential->dr_drho[i];
+      _yk[i] = pow(potential->rad[i], m)*r;
+    }
+    r = Simpson(_yk, i0, npts);
+    *q = r;
+  } else {    
+    npts = potential->maxrp-1;
+    if (n1 != 0) npts = Min(npts, orb1->ilast);
+    if (n2 != 0) npts = Min(npts, orb2->ilast);
 
-  r = 0.0;
-  for (i = 0; i <= npts; i++) {
-    _yk[i] = pow(potential->rad[i], m);
+    for (i = 0; i <= npts; i++) {
+      _yk[i] = pow(potential->rad[i], m);
+    }
+    r = 0.0;
+    Integrate(_yk, orb1, orb2, 1, &r);
+    *q = r;
   }
-  Integrate(_yk, orb1, orb2, 1, &r);
-  *q = r;
-
   return r;
 }
 
@@ -1985,6 +2061,29 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   kl1 = GetLFromKappa(orb1->kappa);
   kl2 = GetLFromKappa(orb2->kappa);
   kl3 = GetLFromKappa(orb3->kappa);
+
+  if (orb1->n < 0 || orb3->n < 0) {
+    mode = 2;
+  } else {
+    if (kl1 > slater_cut.kl0 && kl3 > slater_cut.kl0) {
+      if (se) {
+	*se = 0.0;
+	se = NULL;
+      }
+    }
+    if (kl0 > slater_cut.kl0 && kl2 > slater_cut.kl0) {
+      if (se) {
+	*se = 0.0;
+	se = NULL;
+      }
+    }  
+    if (kl1 > slater_cut.kl1 && kl3 > slater_cut.kl1) {
+      mode = 2;
+    }
+    if (kl0 > slater_cut.kl1 && kl2 > slater_cut.kl1) {
+      mode = 2;
+    }
+  }
   if (qed.br == 0 && IsOdd((kl0+kl1+kl2+kl3)/2)) {
     if (sd) *sd = 0.0;
     if (se) *se = 0.0;
@@ -2354,7 +2453,6 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     }
 
     Integrate(_zk, orb2, orb3, 6, &r);
-    
     *p = r;
   }
 
@@ -2555,10 +2653,8 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
   int index[6];
   double *dp;
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  int c = 0, start, stop;
-  double t;
+  int c = 0;
 
-  start = clock();
   kmax = GetMaxRank();
   for (kk = 0; kk <= kmax; kk += 2) {
     k = kk/2;
@@ -2569,6 +2665,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	if (p < i) continue;
 	orb2 = GetOrbital(p);
 	GetJLFromKappa(orb2->kappa, &j2, &k2);
+	if (k0 > slater_cut.kl0 || k2 > slater_cut.kl0) continue;
 	GetYk(k, _yk, orb0, orb2, i, p, -1);
 	ilast = potential->maxrp-1;
 	for (m = 0; m <= ilast; m++) {
@@ -2603,10 +2700,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
       }
     }
   }
-  stop = clock();
-  t = (stop - start);
-  t /= CLOCKS_PER_SEC;
-  printf("%d %10.3E\n", c, t);
+  printf("PrepSlater: %d\n", c);
 }
       
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
@@ -2631,15 +2725,12 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
     for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
     }
-
     Integrate(_dwork1, orb1, orb2, type, _zk);
-  
     for (i = 0; i < potential->maxrp; i++) {
       _zk[i] /= _dwork1[i];
       yk[i] = _zk[i];
       _zk[i] = _dwork1[i];
     }
-
     if (k > 2) {
       max = 0.0;
       for (i = 0; i < potential->maxrp; i++) {
@@ -2647,7 +2738,8 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 	if (max < a) max = a;
       }
       max *= 1E-3;
-      for (i = 0; i < Min(orb1->ilast, orb2->ilast); i++) {
+      ilast = Min(orb1->ilast, orb2->ilast);
+      for (i = 0; i < ilast; i++) {
 	a = Large(orb1)[i]*Large(orb2)[i]*potential->rad[i];
 	if (fabs(a) > max) break;
 	_dwork1[i] = 0.0;
@@ -2658,13 +2750,12 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
     }
     Integrate(_dwork1, orb1, orb2, type, _xk);
-    ilast = potential->maxrp - 1;
-    
+
+    ilast = potential->maxrp - 1;    
     for (i = i0; i < potential->maxrp; i++) {
       _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
       yk[i] += _xk[i];
     }
-
     max = 0;
     max1 = 0;
     for (i = 0; i < potential->maxrp; i++) {
@@ -3686,11 +3777,13 @@ int InitRadial(void) {
   awgrid[0]= EPS3;
   
   SetRadialGrid(DMAXRP, -1.0, -1.0);
+  SetSlaterCut(-1, -1);
   return 0;
 }
 
 int ReinitRadial(int m) {
-  if (m < 0) return 0;  
+  if (m < 0) return 0;
+  SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
   FreeSimpleArray(breit_array);
@@ -3723,26 +3816,20 @@ int TestIntegrate(void) {
   double r, a, s[6];
  
   orb1 = GetOrbital(0);
-  orb2 = GetOrbital(1);
-  orb3 = GetOrbital(2);
+  orb2 = GetOrbital(3);
+  k3 = OrbitalIndex(0, 1, 1E3/HARTREE_EV);
+  orb3 = GetOrbital(k3);
   k4 = OrbitalIndex(0, 1, 3E3/HARTREE_EV);
   orb4 = GetOrbital(k4);
 
-  for (k = 4; k < 5; k++) {
-    GetYk(k, _yk, orb2, orb4, 1, k4, -1);
+  for (k = 1; k < 2; k++) {
+    GetYk(1, _yk, orb1, orb2, 0, 3, -1);
     for (i = 0; i < potential->maxrp; i++) {
       printf("%d %4d %15.8E %15.8E\n", 
 	     0, i, potential->rad[i], _yk[i]);
     }
     printf("\n\n");
-
-    GetYk(k, _yk, orb2, orb4, 1, k4, -1);
-    for (i = 0; i < potential->maxrp; i++) {
-      printf("%d %4d %15.8E %15.8E\n", 
-	     1, i, potential->rad[i], _yk[i]);
-    }
-    printf("\n\n");    
   }
-    
+  
   return 0;
 }

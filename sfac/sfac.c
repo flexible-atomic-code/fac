@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.63 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.64 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3043,8 +3043,20 @@ static int PSetBoundary(int argc, char *argv[], int argt[],
 
   nmax = atoi(argv[0]);
   
-  SetBoundary(nmax, p, bqp);
+  return SetBoundary(nmax, p, bqp);
+}
 
+static int PRMatrixBoundary(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {
+  double r0, r1, b;
+  
+  if (argc != 3) return -1;
+  r0 = atof(argv[0]);
+  r1 = atof(argv[1]);
+  b = atof(argv[2]);
+  
+  RMatrixBoundary(r0, r1, b);
+  
   return 0;
 }
 
@@ -3052,33 +3064,32 @@ static int PRMatrixBasis(int argc, char *argv[], int argt[],
 			 ARRAY *variables) {
   int kmax, nb;
 
-  if (argc != 2) return -1;
-  kmax = atoi(argv[0]);
-  nb = atoi(argv[1]);
+  if (argc != 3) return -1;
+  kmax = atoi(argv[1]);
+  nb = atoi(argv[2]);
   
-  RMatrixBasis(kmax, nb);
+  RMatrixBasis(argv[0], kmax, nb);
   
   return 0;
 }
 
-static int PRMatrix(int argc, char *argv[], int argt[], 
-		    ARRAY *variables) {
+static int PRMatrixTargets(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
   int nt, *kt, nc, *kc;
   
-  if (argc < 2 || argc > 3) return -1;
-  if (argt[0] != STRING) return -1;
-  if (argt[1] != LIST && argt[1] != TUPLE) return -1;
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != LIST && argt[0] != TUPLE) return -1;
   
-  nt = DecodeGroupArgs(&kt, 1, &(argv[1]), &(argt[1]), variables);
+  nt = DecodeGroupArgs(&kt, 1, &(argv[0]), &(argt[0]), variables);
   if (nt < 0) return -1;
   nc = 0;
   kc = NULL;
-  if (argc == 3) {
-    nc = DecodeGroupArgs(&kc, 1, &(argv[2]), &(argt[2]), variables);
+  if (argc == 2) {
+    nc = DecodeGroupArgs(&kc, 1, &(argv[1]), &(argt[1]), variables);
     if (nc < 0) nc = 0;
   }
     
-  RMatrix(argv[0], nt, kt, nc, kc);
+  RMatrixTargets(nt, kt, nc, kc);
 
   if (nt > 0) free(kt);
   if (nc > 0) free(kc);
@@ -3086,9 +3097,36 @@ static int PRMatrix(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRMatrixSurface(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+
+  RMatrixSurface(argv[0]);
+  
+  return 0;
+}
+
+static int PSetSlaterCut(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int k0, k1;
+
+  if (argc != 2) return -1;
+  
+  k0 = atoi(argv[0]);
+  k1 = atoi(argv[1]);
+  
+  SetSlaterCut(k0, k1);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
+  {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
+  {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 
   {"RMatrixBasis", PRMatrixBasis, METH_VARARGS}, 
-  {"RMatrix", PRMatrix, METH_VARARGS}, 
+  {"RMatrixTargets", PRMatrixTargets, METH_VARARGS}, 
+  {"RMatrixSurface", PRMatrixSurface, METH_VARARGS}, 
   {"Print", PPrint, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AITable", PAITable, METH_VARARGS},

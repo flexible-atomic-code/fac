@@ -1,7 +1,7 @@
 #include "interpolation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.13 2004/05/27 15:55:00 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.14 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -134,6 +134,21 @@ void splin2(double *x1a, double *x2a, double **ya, double **y2a,
   free(yytmp);
 }
 
+void PolyBasis(int n, double *y, double x, double logx) {
+  int i;
+  double t;
+  
+  t = 1.0;
+  for (i = 0; i < n; i++) {
+    y[i] = t;
+    t *= x;
+  }
+}
+
+void PolyFit(int n, double *c, int nd, double *x, double *y) {
+  SVDFit(n, c, NULL, EPS6, nd, x, NULL, y, NULL, PolyBasis);
+}
+
 void SVDFit(int np, double *coeff, double *chisq, double tol,
 	    int nd, double *x, double *logx, double *y, double *sig,
 	    void Basis(int, double *, double, double)) {
@@ -159,7 +174,11 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
   afunc = b + nd;
   dwork = afunc + np;
   for (i = 0; i < nd; i++) {
-    Basis(np, afunc, x[i], logx[i]);
+    if (logx) {
+      Basis(np, afunc, x[i], logx[i]);
+    } else {
+      Basis(np, afunc, x[i], 0.0);
+    }
     k = i;
     if (sig) {
       tmp = 1.0/sig[i];
@@ -210,7 +229,11 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
   if (chisq) {
     *chisq = 0.0;
     for (i = 0; i < nd; i++) {
-      Basis(np, afunc, x[i], logx[i]);
+      if (logx) {
+	Basis(np, afunc, x[i], logx[i]);
+      } else {
+	Basis(np, afunc, x[i], 0);
+      }
       sum = 0.0;
       for (j = 0; j < np; j++) {
 	sum += coeff[j]*afunc[j];
@@ -336,7 +359,6 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp) {
     }
     r[i+4] = r[i] + a;
   }
-  
   if (i1 < maxrp-1) {
     if (i > i0) {
       k = i - 3;
