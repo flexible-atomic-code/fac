@@ -119,6 +119,7 @@ SYMMETRY *GetSymmetry(int k);
 void DecodePJ(int i, int *p, int *j);
 
 int SpecSymbol(char *s, int kl);
+int InGroups(int kg, int ng, int *kgroup);
 
 int InitConfig();
 

@@ -841,7 +841,7 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
   FILE *f;
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
-  int i, j, k;
+  int i, j;
   int si;
   double mix;
   STATE *s, *sp;
@@ -886,7 +886,6 @@ int SaveLevelsToAscii(char *fn, int m, int n) {
 	      sp->kgroup,
 	      sp->kcfg,
 	      sp->kstate, mix);
-      k++;
     }
   }
   fclose(f);

@@ -21,10 +21,7 @@ int SpecSymbol(char *s, int kl) {
 /** This function recursively construct all possible states for a Config. **/
 int Couple(CONFIG *cfg) {
   CONFIG outmost, inner;
-  SHELL *shells;
   int errcode;
-  int i;
-  int bytes_csf;
 
   if (cfg->n_shells == 0) {
     errcode = -1;
@@ -35,8 +32,6 @@ int Couple(CONFIG *cfg) {
     errcode = -2;
     goto ERROR; 
   }
-
-  bytes_csf = cfg->n_shells * sizeof(SHELL_STATE);
 
   if (cfg->n_shells == 1) {
     if (GetSingleShell(cfg) < 0) {
@@ -401,7 +396,7 @@ void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr){
 }
 
 int GroupIndex(char *name) {
-  int i, j;
+  int i;
 
   for (i = n_groups - 1; i >= 0; i--) {
     if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN) == 0) 
@@ -422,7 +417,6 @@ int GroupExists(char *name) {
 }
 
 int AddGroup(char *name) {
-  int j;
   if (name == NULL) return -1;
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
@@ -439,7 +433,6 @@ CONFIG_GROUP *GetGroup(int k) {
 }
 
 CONFIG_GROUP *GetNewGroup() {
-  int j;
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
     abort();
@@ -724,7 +717,7 @@ int CompareShell(SHELL *s1, SHELL *s2) {
 
 
 int InitConfig() {
-  int i, n, m;
+  int i;
 
   n_groups = 0;
   cfg_groups = malloc(MAX_GROUPS*sizeof(CONFIG_GROUP));

@@ -4,7 +4,7 @@
 #include "global.h"
 #include "nucleus.h"
 
-#define MAX_POINTS 650
+#define MAX_POINTS 420
 
 typedef struct _POTENTIAL_ {
   int flag;
