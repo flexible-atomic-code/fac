@@ -243,7 +243,7 @@ class ATOM:
             self.nrec_max = [10, 10, 10, 8]
             self.rec_pw_max = [9, 6, 8, 5]
             self.nrec_ext = 20
-            self.n_decay = [10, 3, 3, -1]
+            self.n_decay = [10, 4, 4, -1]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
@@ -253,13 +253,13 @@ class ATOM:
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
             self.nterms = [-1,-1,-1,-1,-1]
-            self.nexc_max = [4, 4, 4, 4, 0]
+            self.nexc_max = [4, 4, 4, 4, 4]
             self.nfrozen = [10, 10, 10, 10, 10]
             self.nexc_rec = [4, 4, 4, 4, 0]
-            self.nrec_max = [10, 10, 10, 8, 0]
+            self.nrec_max = [10, 10, 10, 8, 8]
             self.rec_pw_max = [9, 8, 6, 5, 5]
             self.nrec_ext = 20
-            self.n_decay = [10, 3, 3, -1, -1]
+            self.n_decay = [10, 4, 4, 4, 4]
             self.angz_cut1 = 1E-5
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
@@ -594,19 +594,12 @@ class ATOM:
                     nmax = c[m].nrec
                     if (nmax == 0):
                         nmax = c[m].complex[-1][0]
-                    if (nmax <= self.n_decay[i]):
-                        if (i == 0):
-                            if (j == 0):
-                                tr = [-1, 1]
-                            else:
-                                tr = [-1]
+                    tr = []
+                    if (i == 0 and nmax <= self.n_decay[0]):
+                        if (j == 0):
+                            tr = [-1, 1]
                         else:
-                            if (n2 > self.nexc_max[i]):
-                                tr = []
-                            else:
-                                tr = [-1]
-                    else:
-                        tr = []
+                            tr = [-1]
                     if (c[m].nrec > 0):
                         a = (a, c[m].nrec)
                     if (ce != 0 or tr != []):
@@ -663,7 +656,7 @@ class ATOM:
                                 n3 = c[j].complex[-2][0]
                             except:
                                 n3 = 0
-                        if (n2 > self.nexc_max[i] or n3 != n1):
+                        if (n3 != n1 or n2 > self.n_decay[i]):
                             continue
                     self.run_tr_ce(a, b, a, b, tr=[-1], ce=0)
                         
