@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.61 2003/08/15 16:17:29 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.62 2003/09/20 06:14:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1603,8 +1603,12 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     lev2 = GetLevel(up[j]);
     sym = GetSymmetry(lev2->pj);
     st = (STATE *) ArrayGet(&(sym->states), lev2->pb);
-    cfg = GetConfig(st);
-    k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+    if (st->kgroup < 0) {
+      k = st->kcfg;
+    } else {
+      cfg = GetConfig(st);
+      k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+    }
     e = -(GetOrbital(k)->energy);
     if (e < ei) ei = e;
   }
