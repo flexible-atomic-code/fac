@@ -19,7 +19,7 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       implicit none
       integer MAXL, MAXN
-      parameter (MAXL = 500, MAXN = 1)
+      parameter (MAXL = 2500, MAXN = 1)
       
       real*8 lambda, eta0, x0, a0, a0p, phase
       real*8 dfc, dgc, dfcp, dgcp, PI

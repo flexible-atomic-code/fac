@@ -17,7 +17,9 @@ static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
+#ifdef PERFORM_STATISTICS
 static EXCIT_TIMING timing = {0, 0, 0};
+#endif
 
 static CEPW_SCRATCH pw_scratch = {1, MAXKL, 100, 5E-2, 0, 0, 10};
 
@@ -97,7 +99,7 @@ int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
 }
 
 int SetCEPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 1000, 100, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCEPWOptions(0, 500, 100, 5E-2);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -127,9 +129,6 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
-#endif
-
-#ifdef PERFORM_STATISTICS
   start = clock();
 #endif
 
@@ -395,7 +394,6 @@ int CERadialQk(double *rq, int ie, double te, int k0,
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
-
   start = clock();
 #endif
 
@@ -530,9 +528,6 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
-#endif     
-
-#ifdef PERFORM_STATISTICS
   start = clock();
 #endif
 
@@ -981,7 +976,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
   }
 
-  e = 0.5*(emin+emax);
+  if (egrid_type == 0) e = emax/1.05;
+  else e = 0.5*(emin+emax);
   emin = 0.1*e;
   emax = 8.0*e;
   if (n_usr == 0) {

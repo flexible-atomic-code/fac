@@ -26,8 +26,6 @@ static int rydberg_ignored = 0;
 static double angz_cut = EPS4;
 static double mix_cut = EPS3;
 
-static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
 double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
 void dspevd_(char *jpbz, char *uplo, int *n, double *ap, double *w, 
 	     double *z, int *ldz, double *work, int *lwork,
@@ -37,10 +35,13 @@ void dgemv_(char *trans, int *m, int *n, double *alpha, double *b,
 	    double *y, int *incy);
 void dscal_(int *n, double *a, double *x, int *incx);
 
+#ifdef PERFORM_STATISTICS 
+static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int GetStructTiming(STRUCT_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
+#endif
 
 int SetAngZOptions(int n, double mix, double cut) {
   rydberg_ignored = n;
@@ -56,13 +57,11 @@ int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp) {
   STATE *s;
   SYMMETRY *sym;
   double r;
-  clock_t start, stop;
-
 #if (FAC_DEBUG >= DEBUG_STRUCTURE) 
   char name[LEVEL_NAME_LEN];
 #endif
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -199,9 +198,8 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n) {
   STATE *s;
   SYMMETRY *sym;
   double r;
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -334,7 +332,6 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     a += r0;
   }
   
-  /*  a /= sqrt(j+1.0);*/
   if (IsOdd((ji2 + jj1 + j)/2)) a = -a;
   r += a;
 
@@ -342,11 +339,6 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     free(ang);
   } 
 
-  /*
-  if (ti == tj && si->kcfg == sj->kcfg) {
-    printf("%10.3E %10.3E\n", a, r);
-  } 
-  */
   return r;
 } 
     
@@ -590,9 +582,8 @@ int DiagnolizeHamilton() {
   HAMILTON *h;
   int i, j, t, t0, k, one;
   double d_one, d_zero, e0, c, a, t1, t2;
-  clock_t start, stop;
-
 #ifdef PERFOM_SATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1032,9 +1023,8 @@ int AngularZMixStates(ANGULAR_ZMIX **ang, STATE *s1, STATE *s2) {
   int j1, j2;
   ANGZ_DATUM *angz_datum;
   int index[6];
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1188,9 +1178,8 @@ int AngularZFreeBoundStates(ANGULAR_ZFB **ang, STATE *slow, STATE *sup) {
   ANGULAR_ZFB afb;
   ANGZ_DATUM *angz_datum;
   int index[6];
-  clock_t start, stop;
-  
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
   
@@ -1407,9 +1396,8 @@ int AngularZxZFreeBoundStates(ANGULAR_ZxZMIX **ang,
   SHELL_STATE cs[200];
   ANGZ_DATUM *angz_datum;
   int index[6];
-  clock_t start, stop; 
-  
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop; 
   start = clock();
 #endif
 
@@ -1577,9 +1565,8 @@ int AddToAngularZxZ(int *n, int *nz, ANGULAR_ZxZMIX **ang,
 int AddToAngularZxZMix(int *n, int *nz, ANGULAR_ZxZMIX **ang, 
 		       int k, int k0, int k1, int k2, int k3, double r) {
   int im;
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1627,9 +1614,8 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   double mix1, mix2;
   int kg, jf, kb, ia, j1, j2;
   ANGULAR_ZFB *ang_sub;
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1739,9 +1725,8 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
   ANGULAR_ZFB *afb;
   double mix1, mix2, sqrt_j12, a;
   int ignore_ryd = 0;
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 
@@ -1914,7 +1899,6 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper,
 	  im = AddToAngularZMix(&n, &nz, ang, ang_sub[m].k, 
 				ang_sub[m].k0, ang_sub[m].k1, r0);
 	}
-	/*if (nz_sub > 0) free(ang_sub);*/
       }
     }
   }
@@ -1942,9 +1926,8 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
   ANGULAR_ZxZMIX *ang_sub;
   ANGULAR_ZMIX *ang_z;
   int im, m;
-  clock_t start, stop;
-  	
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
 

@@ -4,12 +4,6 @@
 #include "coulomb.h"
 #include "structure.h"
 
-typedef struct _EXCIT_TIMING_ {
-  clock_t rad_pk;
-  clock_t rad_qk;
-  clock_t set_kappa;
-} EXCIT_TIMING;
-
 typedef struct _CEPW_SCRATCH_ {
   int qr;
   int max_kl;
@@ -23,6 +17,14 @@ typedef struct _CEPW_SCRATCH_ {
   double qk[MAXNKL];
   double y2[MAXNKL];
 } CEPW_SCRATCH;
+
+#ifdef PERFORM_STATISTICS
+typedef struct _EXCIT_TIMING_ {
+  clock_t rad_pk;
+  clock_t rad_qk;
+  clock_t set_kappa;
+} EXCIT_TIMING;
+#endif
 
 CEPW_SCRATCH *GetCEPWScratch();
 int FreeExcitationPk(int ie);

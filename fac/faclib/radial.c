@@ -39,8 +39,6 @@ static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
 static double rgrid_min = 1E-5;
 static double rgrid_max = 1E3;    
-
-static RAD_TIMING rad_timing = {0, 0, 0, 0};
  
 static MULTI *slater_array;
 static MULTI *residual_array;
@@ -50,10 +48,13 @@ double argam_(double *x, double *y);
 double besljn_(int *jy, int *n, double *x);
 double _PhaseRDependent(double x, double eta, double b);
 
+#ifdef PERFORM_STATISTICS
+static RAD_TIMING rad_timing = {0, 0, 0, 0};
 int GetRadTiming(RAD_TIMING *t) {
   memcpy(t, &rad_timing, sizeof(RAD_TIMING));
   return 0;
 }
+#endif
 
 void SetOptimizeControl(double tolerence, int maxiter, int iprint) {
   optimize_control.maxiter = maxiter;
@@ -444,9 +445,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 int SolveDirac(ORBITAL *orb) {
   double eps;
   int err;
-  clock_t start, stop;
-
 #ifdef PERFORM_STATISTICS
+  clock_t start, stop;
   start = clock();
 #endif
   
@@ -497,7 +497,6 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
     a = FINE_STRUCTURE_CONST2 * e;
     ke = sqrt(2.0*e*(1.0+0.5*a));
     y = (1.0+a)*z/ke; 
-    printf("%12.5E\n", (CoulombPhaseShift(z, e, orb->kappa)-GetPhaseShift(k))/(2*PI));
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
 	      i, potential->rad[i],
@@ -1123,7 +1122,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 
 #ifdef PERFORM_STATISTICS 
   clock_t start, stop;
-
   start = clock();
 #endif
 

@@ -1,5 +1,9 @@
 #include "array.h"
 
+/******************************************************************/
+/* implements a variable length one- and multi- dimensional array */
+/******************************************************************/
+
 int ArrayInit(ARRAY *a, int esize, int block) {
   a->esize = esize;
   a->block = block;

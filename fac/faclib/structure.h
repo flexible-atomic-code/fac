@@ -67,6 +67,7 @@ typedef struct _ANGULAR_ZxZMIX_ {
   short k3;
 } ANGULAR_ZxZMIX;
 
+#ifdef PERFORM_STATISTICS
 typedef struct _STRUCT_TIMING_ {
   clock_t angz_mix;
   clock_t angzxz_mix;
@@ -80,6 +81,8 @@ typedef struct _STRUCT_TIMING_ {
   clock_t diag_ham;
   clock_t set_ham;
 } STRUCT_TIMING;
+int GetStructTiming(STRUCT_TIMING *t);
+#endif
 
 int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp);
 int ValidBasis(STATE *s, int k, int *kg, int n);
@@ -122,7 +125,6 @@ int GetBasisTable(char *fn);
 int ConstructLevelName(char *name, char *sname, STATE *basis);
 int SaveLevelsToAscii(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
-int GetStructTiming(STRUCT_TIMING *t);
 int FreeAngZ(int g, int which_array);
 int InitStructure();
 int ClearLevelTable();

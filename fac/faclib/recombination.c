@@ -765,12 +765,14 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
 	   char *fna, char *fnt, int channel) {
   int i, j, k, n, kb, j1, j2, m, do_transition;
   LEVEL *lev1, *lev2;
+#ifdef PERFORM_STATISTICS
   clock_t start, stop;
   clock_t t_ai, t_rd, tt_ai, tt_rd;
   STRUCT_TIMING st_start, st_stop;
   ANGULAR_TIMING angt;
   RECOUPLE_TIMING recouplet;
   RAD_TIMING radt;
+#endif
   double emin, emax;
   double *ea, *sa, tai, sd, e0; 
   double *et, *sr, *rd, elow, trd, trd1, tr_cut;
@@ -803,12 +805,12 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
   if (egrid[0] < 0.0) {
     e0 = 2.0*(emax-emin)/(emax+emin);
     if (e0 < 0.1) {
-      SetPEGrid(1, 0.5*(emin+emax), emax, -1.0);
+      SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
     } else if (e0 < 0.2) {
-      SetPEGrid(2, emin, emax, -1.0);
+      SetPEGrid(2, emin, emax, 0.0);
     } else {
       if (k == 2) n_egrid = 2;
-      SetPEGrid(n_egrid, emin, emax, -1.0);
+      SetPEGrid(n_egrid, emin, emax, 0.0);
     }
   }
 
@@ -840,12 +842,14 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
 
 #ifdef PERFORM_STATISTICS
   start = clock();
-#endif
-
   tt_ai = 0;
   tt_rd = 0;
+#endif
+
   for (i = 0; i < na; i++) {
+#ifdef PERFOR_STATISTICS
     GetStructTiming(&st_start);
+#endif
     j1 = LevelTotalJ(a[i]);
     tai = 0.0;
     for (j = 0; j < nf; j++) {
@@ -1009,12 +1013,12 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel) {
   if (egrid[0] < 0.0) {
     a = 2.0*(emax-emin)/(emax+emin);
     if (a < 0.1) {
-      SetPEGrid(1, 0.5*(emin+emax), emax, -1.0);
+      SetPEGrid(1, 0.5*(emin+emax), emax, 0.0);
     } else if (a < 0.2) {
-      SetPEGrid(2, emin, emax, -1.0);
+      SetPEGrid(2, emin, emax, 0.0);
     } else {
       if (k == 2) n_egrid = 2;
-      SetPEGrid(n_egrid, emin, emax, -1.0);
+      SetPEGrid(n_egrid, emin, emax, 0.0);
     }
   }
  

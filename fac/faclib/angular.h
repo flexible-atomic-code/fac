@@ -6,22 +6,22 @@
 #include "config.h"
 #include <time.h>
 
-/** The tabulated ln(n!) goes up to n = MAX_FACTORIAL - 1 **/
+/** The tabulated ln(n!) and ln(n) goes up to n = MAX_FACTORIAL - 1 **/
 #define MAX_FACTORIAL 1000
-
 double ln_factorial[MAX_FACTORIAL];
 double ln_integer[MAX_FACTORIAL];
 
 #define LnFactorial(n) ln_factorial[(n)]
 #define LnInteger(n) ln_integer[(n)]
 
+#ifdef PERFORM_STATISTICS
 typedef struct _ANGULAR_TIMING_ {
   clock_t w3j;
   clock_t w6j;
   clock_t w9j;
 } ANGULAR_TIMING;
-
 int GetAngularTiming(ANGULAR_TIMING *t);
+#endif
 
 int InitAngular();
 int Triangle(int j1, int j2, int j3);
