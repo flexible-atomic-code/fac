@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.58 2004/06/14 22:01:33 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.59 2004/06/16 00:50:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1742,7 +1742,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k, p;
-  double data[2+(1+MAXNUSR)*4], e, cs, a, ratio;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, b, c, ratio;
   double xg[15] = {.933078120172818E-01,
 		   .492691740301883E+00,
 		   .121559541207095E+01,
@@ -1829,8 +1829,13 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    cs = 0.0;
 	    for (p = 0; p < 15; p++) {
 	      a = temp[t]*xg[p];
+	      b = a/HARTREE_EV;
 	      a = InterpolateCECross(a, &r, &h, data, &ratio);
-	      cs += wg[p]*a;
+	      c = 2.0*b*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+	      c = 1.0+FINE_STRUCTURE_CONST2*c;
+	      c = c*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+	      c = sqrt(c);
+	      cs += wg[p]*a/c;
 	    }
 	    a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
 	    a *= cs*exp(-e/temp[t]);
