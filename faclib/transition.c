@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.16 2003/04/15 02:03:06 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.17 2003/04/15 04:23:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -101,10 +101,6 @@ int OscillatorStrength(double *strength, double *energy,
   *strength = s*s/(m2+1.0);
   *strength *= (*energy);
   m2 = m2 - 2;
-  if (transition_option.gauge == G_COULOMB && 
-      transition_option.mode == M_FR && m < 0) 
-    m2 = m2 - 2; 
-
   if (m2) {
     (*strength) *= pow(aw, m2);
   }

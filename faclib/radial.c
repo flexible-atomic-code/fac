@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.73 2003/04/15 02:03:05 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.74 2003/04/15 04:23:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1541,6 +1541,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   jy = 1;
 
   for (i = 0; i < n_awgrid; i++) {
+    r = 0.0;
     a = awgrid[i];
     if (ef > 0.0) a += ef;
     if (m > 0) {
@@ -1579,7 +1580,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	  Integrate(_zk, orb1, orb2, 5, &imm);
 	  r += (am + 1.0)*im*q + am*imm/q;
 	}
-	r /= pow(a,am-1);
+	r /= pow(a,am);
 	(*p1)[i] = r;
       } else if (gauge == G_BABUSHKIN) {
 	t = kappa1 - kappa2;
