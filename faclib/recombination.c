@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.21 2001/10/04 14:03:19 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.22 2001/10/04 22:27:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -396,10 +396,10 @@ int BoundFreeOS(double *strength, double *eb, double e0,
 	    aw = FINE_STRUCTURE_CONST*(e0+e);
 	    if (mode && m != 1) {
 	      radial_int[j++] = 
-		MultipoleRadialNR(aw, m, kf, ang[i].kb, gauge);
+		MultipoleRadialNR(m, kf, ang[i].kb, gauge);
 	    } else {
 	      radial_int[j++] = 
-		MultipoleRadial(aw, m, kf, ang[i].kb, gauge);
+		MultipoleRadialFR(aw, m, kf, ang[i].kb, gauge);
 	    }
 	  }
 	}
@@ -903,9 +903,8 @@ int SaveDR(int nf, int *f, int na, int *a, int nb, int *b, int ng, int *g,
       elow = GetLevel(b[j])->energy;
       m = -1;
       et[j] = 0.0;
-      k = OscillatorStrength(sr+j, et+j, aw0, &m, b[j], a[i]);
+      k = OscillatorStrength(sr+j, et+j, aw0, m, b[j], a[i]);
       if (k != 0) continue;
-      if (m == 0) continue;
       if (sr[j] < 1E-30) continue;
       rd[j] = 2*pow((FINE_STRUCTURE_CONST*et[j]),2)*FINE_STRUCTURE_CONST;
       rd[j] *= sr[j]/(j1+1.0);

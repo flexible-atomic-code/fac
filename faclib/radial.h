@@ -72,11 +72,12 @@ int ResidualPotential(double *s, int k0, int k1);
 int FreeResidualArray();
 int FreeMultipoleArray();
 int FreeSlaterArray();
+int FreeMomentsArray();
 
-double MultipoleRadialNR(double aw, int m, int k1, int k2, int guage);
-double MultipoleRadial(double aw, int m, int k1, int k2, int guage);
-double MultipoleIJ(double aw, int m, 
-		   ORBITAL *orb1, ORBITAL *orb2, int type);
+double RadialMoments(int m, int k1, int k2);
+double MultipoleRadialNR(int m, int k1, int k2, int guage);
+double MultipoleRadialFR(double aw, int m, int k1, int k2, int guage);
+double MultipoleIJ(double aw, int m, int k1, int k2, int t);
 
 int SaveOrbital(int i);
 int RestoreOrbital(int i); 

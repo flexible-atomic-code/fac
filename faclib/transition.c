@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.6 2001/10/04 14:03:20 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.7 2001/10/04 22:27:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -50,8 +50,8 @@ int GetTransitionMode() {
 }
 
 int OscillatorStrength(double *strength, double *energy, double aw0,
-		       int *multipole, int lower, int upper) {
-  int m, m2, n;
+		       int m, int lower, int upper) {
+  int m2, n;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
   double s, r, aw;
@@ -71,21 +71,16 @@ int OscillatorStrength(double *strength, double *energy, double aw0,
   DecodePJ(lev1->pj, &p1, &j1);
   DecodePJ(lev2->pj, &p2, &j2);
 
-  m = GetLowestMultipole(p1, j1, p2, j2);
+  m2 = 2*abs(m);
+
   if (m > transition_option.max_m || m < -transition_option.max_e) return 1;
-  if (*multipole != 0) {
-    if (m != *multipole) {
-      if (m == 1 && *multipole == -2) m = -2;
-      else return -1;
-    }
-  } else {
-    *multipole = m;
-  }
+  if (!Triangle(j1, j2, m2)) return -1;
+  if (m > 0 && IsEven(p1+p2+m)) return -1;
+  if (m < 0 && IsOdd(p1+p2-m)) return -1;
 
   aw = FINE_STRUCTURE_CONST * (*energy);
   if (aw < 0.0) return -1;
 
-  m2 = 2*abs(m);
   s = 0.0;
   
   nz = AngularZMix(&ang, lower, upper, m2, m2);
@@ -93,11 +88,11 @@ int OscillatorStrength(double *strength, double *energy, double aw0,
   for (i = 0; i < nz; i++) {
     if (transition_option.mode && 
 	!(m == 1 && ang[i].k0 != ang[i].k1)) {
-      r = MultipoleRadialNR(aw0, m, ang[i].k0, ang[i].k1, 
+      r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
 			    transition_option.gauge);
     } else {
-      r = MultipoleRadial(aw0, m, ang[i].k0, ang[i].k1,
-			  transition_option.gauge);
+      r = MultipoleRadialFR(aw0, m, ang[i].k0, ang[i].k1,
+			    transition_option.gauge);
     }
     s += r * ang[i].coeff;
   }
@@ -106,9 +101,7 @@ int OscillatorStrength(double *strength, double *energy, double aw0,
   
   *strength = s*s/(m2+1.0);
   *strength *= (*energy) * pow(aw, m2-2);
-#if FAC_DEBUG
-  fprintf(debug_log, "**%12.8lE %12.8lE \n", s, *strength);
-#endif
+
   return 0;
 }
 
@@ -130,8 +123,8 @@ int GetLowestMultipole(int p1, int j1, int p2, int j2) {
 
 
 int SaveTransition(int nlow, int *low, int nup, int *up, 
-		   char *fn, int multipole) {
-  int i, j, k, n, m, jup, jlow;
+		   char *fn, int m) {
+  int i, j, k, n, jup, jlow;
   FILE *f;
   LEVEL *lev1, *lev2;
   double *s, *et, *a, trd, trd1;
@@ -194,11 +187,9 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     for (i = 0; i < nlow; i++) {
       a[i] = 0.0;
       elow = GetLevel(low[i])->energy;
-      m = multipole;
       et[i] = 0.0;
-      k = OscillatorStrength(s+i, et+i, aw0, &m, low[i], up[j]);
+      k = OscillatorStrength(s+i, et+i, aw0, m, low[i], up[j]);
       if (k != 0) continue;
-      if (m == 0) continue;
       if (s[i] < 1E-30) continue;
       a[i] = 2*pow((FINE_STRUCTURE_CONST*et[i]),2)*FINE_STRUCTURE_CONST;
       a[i] *= s[i]/(jup+1.0);
