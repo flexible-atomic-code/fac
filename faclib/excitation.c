@@ -1,6 +1,6 @@
 #include "excitation.h"
 
-static char *rcsid="$Id: excitation.c,v 1.41 2002/09/26 00:23:34 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.42 2002/10/10 13:47:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1634,6 +1634,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ReinitRadial(2);
   }
 
+  FreeGOSArray();
   ArrayFree(&subte, NULL);
   if (alev) free(alev);
   CloseFile(f, &fhdr);
