@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.6 2002/01/18 00:11:36 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.7 2002/01/20 06:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -549,12 +549,13 @@ int PrintCETable(FILE *f1, FILE *f2, int v) {
       n = fread(strength, sizeof(float), m, f1);
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%d\n",
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%11.4E\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
-		e*HARTREE_EV, r.nsub);
+		e*HARTREE_EV, r.bethe, r.nsub);
       } else {
-	fprintf(f2, "%5d\t%5d\t%d\n", r.lower, r.upper, r.nsub);
+	fprintf(f2, "%5d\t%5d\t%10.4E\t%d\n", 
+		r.lower, r.upper, r.bethe, r.nsub);
       }
       
       p1 = 0;

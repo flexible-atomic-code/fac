@@ -1,6 +1,7 @@
 #include "crm.h"
+#include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.3 2002/01/18 20:59:41 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.4 2002/01/20 06:02:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,6 +21,8 @@ static double iter_stablizer = 0.75;
 static double electron_density = EPS3;
 static double photon_density = 0.0;
 
+void uvip3p_(int *np, int *ndp, double *x, double *y, 
+	     int *n, double *xi, double *yi);
 void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipvt,
 	    double *b, int *ldb, int *info);
 
@@ -1515,8 +1518,8 @@ int PlotSpec(char *ifn, char *ofn, int type,
 }
 
 int SetCERates(int inv) {
-  int nb, i;
-  int n, m, k;
+  int nb, i, j, t;
+  int n, m, m1, k;
   int j1, j2;
   int p, q;
   ION *ion;
@@ -1526,12 +1529,16 @@ int SetCERates(int inv) {
   CE_RECORD r;
   FILE *f;
   double e;
-  float *params;
+  float cs[MAXNUSR];
+  double data[1+(1+MAXNUSR)*4];
+  double *y, *x, *x2, *logx;
+  double eusr[MAXNUSR];
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ce_rates, NULL);
@@ -1543,37 +1550,68 @@ int SetCERates(int inv) {
     n = fread(&fh, sizeof(F_HEADER), 1, f);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = fread(&h, sizeof(CE_HEADER), 1, f);
-      m = h.n_tegrid + h.n_egrid + h.n_usr;
+      m = h.n_tegrid + h.n_egrid;
       fseek(f, sizeof(double)*m, SEEK_CUR);
+      m = h.n_usr;
+      n = fread(eusr, sizeof(double), m, f);
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
 	}
       }
-      m = h.nparams;
-      params = (float *) malloc(sizeof(float) * h.nparams);
+      m1 = m + 1;
+      x = y + m1;
+      x2 = x + m1;
+      logx = x2 + m1;
+      x[0] = 0.0;
+      x2[0] = 0.0;
       for (i = 0; i < h.ntransitions; i++) {
 	n = fread(&r, sizeof(CE_RECORD), 1, f);
-	n = fread(params, sizeof(float), m, f);
-	fseek(f, sizeof(float)*h.n_usr, SEEK_CUR);
-	if (params[0] > 1E30) continue;
-	if (params[0]+1.0 == 1.0 &&
-	    params[1]+1.0 == 1.0 &&
-	    params[2]+1.0 == 1.0 &&
-	    params[3]+1.0 == 1.0 &&
-	    params[4]+1.0 == 1.0) continue;
-
+	if (h.nparams > 0) {
+	  fseek(f, sizeof(float)*h.nparams, SEEK_CUR);
+	}
 	rt.i = r.lower;
 	rt.f = r.upper;
 	j1 = ion->j[r.lower];
 	j2 = ion->j[r.upper];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
-	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, params,
-	       rt.i, rt.f);
+	data[0] = r.bethe;	
+	n = fread(cs, sizeof(float), m, f);
+	if (r.bethe < 0.0) {
+	  y[0] = 0.0;
+	  for (j = 0; j < m; j++) {
+	    t = m-j;
+	    x[t] = e/(e + eusr[j]);
+	    x2[t] = x[t]*x[t];
+	    y[t] = cs[j];
+	  }
+	} else {
+	  if (r.bethe > 0.0) {
+	    for (j = 0; j < m; j++) {
+	      t = m-j;
+	      x[t] = e/(e + eusr[j]);
+	      logx[j] = log(x[t]);
+	      y[t] = cs[j] + r.bethe*logx[j];
+	    }
+	  } else {
+	    for (j = 0; j < m; j++) {
+	      t = m-j;
+	      x[t] = e/(e + eusr[j]);
+	      y[t] = cs[j];
+	    }
+	  }
+	  n = 3;
+	  m1 = 1;
+	  uvip3p_(&n, &m, &(x[1]), &(y[1]), &m1, &(x[0]), &(y[0]));
+	  if (r.bethe + 1.0 == 1.0) {
+	    if (y[0] < 0.0) y[0] = 0.0;
+	  }
+	}
+	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
+	       data, rt.i, rt.f);
 	ArrayAppend(ion->ce_rates, &rt);
       }
-      free(params);
     }
     fclose(f);
     
@@ -1586,45 +1624,76 @@ int SetCERates(int inv) {
       n = fread(&fh, sizeof(F_HEADER), 1, f);
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = fread(&h, sizeof(CE_HEADER), 1, f);
-	m = h.n_tegrid + h.n_egrid + h.n_usr;
-	fseek(f, sizeof(double)*m, SEEK_CUR);  
+	m = h.n_tegrid + h.n_egrid;
+	fseek(f, sizeof(double)*m, SEEK_CUR);
+	m = h.n_usr;   
+	n = fread(eusr, sizeof(double), m, f);
 	if (h.nele != ion0.nele) {
 	  fseek(f, h.length, SEEK_CUR);
 	  continue;
 	}
-	m = h.nparams;
-	params = (float *) malloc(sizeof(float) * h.nparams);
+	m1 = m + 1;
+	x = y + m1;
+	x2 = x + m1;
+	logx = x2 + m1;
+	x[0] = 0.0;
+	x2[0] = 0.0;
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = fread(&r, sizeof(CE_RECORD), 1, f);
 	  p = IonizedIndex(r.lower, 0);
 	  if (p < 0) {
-	    fseek(f, sizeof(float)*(m+h.n_usr), SEEK_CUR);
+	    fseek(f, sizeof(float)*(h.nparams+h.n_usr), SEEK_CUR);
 	    continue;
 	  }
 	  q = IonizedIndex(r.upper, 0);
 	  if (q < 0) {
-	    fseek(f, sizeof(float)*(m+h.n_usr), SEEK_CUR);
+	    fseek(f, sizeof(float)*(h.nparams+h.n_usr), SEEK_CUR);
 	    continue;
 	  }
-	  n = fread(params, sizeof(float), m, f);
-	  fseek(f, sizeof(float)*h.n_usr, SEEK_CUR);
-	  if (params[0] > 1E30) continue;
-	  if (params[0]+1.0 == 1.0 &&
-	      params[1]+1.0 == 1.0 &&
-	      params[2]+1.0 == 1.0 &&
-	      params[3]+1.0 == 1.0 &&
-	      params[4]+1.0 == 1.0) continue;
-
+	  if (h.nparams > 0) {
+	    fseek(f, sizeof(float)*h.nparams, SEEK_CUR);
+	  }
 	  rt.i = ion0.ionized_map[1][p];
 	  rt.f = ion0.ionized_map[1][q];
 	  j1 = ion->j[rt.i];
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
-	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, params,
-		 rt.i, rt.f);
+	  data[0] = r.bethe;
+	  n = fread(cs, sizeof(float), m, f);
+	  if (r.bethe < 0.0) {
+	    y[0] = 0.0;
+	    for (j = 0; j < m; j++) {
+	      t = m-j;
+	      x[t] = e/(e + eusr[j]);
+	      x2[t] = x[t]*x[t];
+	      y[t] = cs[j];
+	    }
+	  } else {
+	    if (r.bethe > 0.0) {
+	      for (j = 0; j < m; j++) {
+		t = m-j;
+		x[t] = e/(e + eusr[j]);
+		logx[j] = log(x[t]);
+		y[t] = cs[j] + r.bethe*logx[j];
+	      }
+	    } else {
+	      for (j = 0; j < m; j++) {
+		t = m-j;
+		x[t] = e/(e + eusr[j]);
+		y[t] = cs[j];
+	      }
+	    }
+	    n = 3;
+	    m1 = 1;
+	    uvip3p_(&n, &m, &(x[1]), &(y[1]), &m1, &(x[0]), &(y[0]));
+	    if (r.bethe + 1.0 == 1.0) {
+	      if (y[0] < 0.0) y[0] = 0.0;
+	    }
+	  }
+	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
+		 data, rt.i, rt.f);
 	  ArrayAppend(ion->ce_rates, &rt);
 	}
-	free(params);
       }
       fclose(f);
     }

@@ -1,6 +1,6 @@
 #include "interpolation.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.8 2002/01/14 23:19:42 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.9 2002/01/20 06:02:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -283,12 +283,11 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   }
   exit(1);
   */
-  maxfev = 2000*np;
+  maxfev = 5000*np;
   mode = 1;
   nprint = 0;
   factor = 100.0;
-  ftol = 1E-3*tol;
-  ftol = Max(ftol, 1E-6);
+  ftol = tol*tol*n;
   lmder_(MinFunc, &n, &np, p, fvec, fjac, &ldfjac, 
 	 &ftol, &tol, &zero, &maxfev, diag, &mode, &factor,
 	 &nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
