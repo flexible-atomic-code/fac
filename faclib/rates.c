@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.33 2003/08/15 16:17:30 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.34 2003/10/14 21:26:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -58,66 +58,6 @@ static double seaton[6][NSEATON] = {
    -0.076, -0.106, -0.147, -0.208, -0.296, -0.375, -0.467}
 };
    
-
-int SetEleDist(int i, int np, double *p) {
-  int k;
-
-  if (ele_dist[i].dist == NULL) {
-    printf("Electron Dist. does not exist\n");
-    return -1;
-  }
-  if (ele_dist[i].nparams != np) {
-    printf("Num of Params for Electron Dist. %d does not match\n", i);
-    return -1;
-  }
-  switch (i) {
-  case 0:
-    if (p[2] <= 0.0) {
-      p[2] = 1E2*p[0];
-    }
-    if (p[1] <= 0.0) {
-      p[1] = 1E-20*p[0];
-    }
-    break;
-  case 1:
-    if (p[3] <= 0.0) {
-      p[3] = p[0] + 10.0*p[1];
-    }
-    if (p[2] <= 0.0) {
-      p[2] = p[0] - 10.0*p[1];
-      if (p[2] < 0) p[2] = 0.0;
-    }
-    break;
-  default:
-    break;
-  }
-  iedist = i;
-  for (k = 0; k < np; k++) {
-    ele_dist[i].params[k] = p[k];
-  }
-
-  return 0;
-}
-
-int SetPhoDist(int i, int np, double *p) {
-  int k;
-
-  if (pho_dist[i].dist == NULL) {
-    printf("Photon Dist. does not exist\n");
-    return -1;
-  }
-
-  if (pho_dist[i].nparams != np) {
-    printf("Num of Params for Photon Dist. %d does not match\n", i);
-    return -1;
-  }
-  ipdist = i;
-  for (k = 0; k < np; k++) {
-    pho_dist[i].params[k] = p[k];
-  }
-
-  return 0;
-}
 
 DISTRIBUTION *GetEleDist(int *i) {
   if (i) *i = iedist;
@@ -616,43 +556,6 @@ int AIRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
-static double Gaussian(double e, double *p) {
-  double x;
-  const double gauss_const = 0.39894228;
-
-  if (e > p[3] || e < p[2]) return 0.0;
-  x = (e - p[0])/p[1];
-  x = 0.5*x*x;
-  x = gauss_const * exp(-x)/p[1];
-
-  return x;
-}
-  
-static double Maxwell(double e, double *p) {
-  double x;
-  const double maxwell_const = 1.12837967;
-  
-  if (e > p[2] || e < p[1]) return 0.0;
-  x = e/p[0];
-  x = maxwell_const * sqrt(x) * exp(-x)/p[0];
-  return x;
-}
-
-static double PowerLaw(double e, double *p) {
-  double x;
-
-  if (e > p[2] || e < p[1]) return 0.0;
-  if (p[0] == 1.0) {
-    x = 1.0/(log(p[2]) - log(p[1]));
-  } else {
-    x = 1.0 - p[0];
-    x = x/(pow(p[2], x) - pow(p[1], x));
-  }
-  x = x*pow(e, -p[0]);
-
-  return x;
-}
-
 double NRRFit(int z, int nele, double t) {
   double r;
 
@@ -937,20 +840,124 @@ double TwoPhotonRate(double z, int t) {
   return a;
 }
 
+
+/*
+** The following routines should be modified to 
+** add more electron or photon energy distributions.
+*/
+static double Gaussian(double e, double *p) {
+  double x;
+  const double gauss_const = 0.39894228;
+
+  if (e > p[3] || e < p[2]) return 0.0;
+  x = (e - p[0])/p[1];
+  x = 0.5*x*x;
+  x = gauss_const * exp(-x)/p[1];
+
+  return x;
+}
+  
+static double Maxwell(double e, double *p) {
+  double x;
+  const double maxwell_const = 1.12837967;
+  
+  if (e > p[2] || e < p[1]) return 0.0;
+  x = e/p[0];
+  x = maxwell_const * sqrt(x) * exp(-x)/p[0];
+  return x;
+}
+
+static double PowerLaw(double e, double *p) {
+  double x;
+
+  if (e > p[2] || e < p[1]) return 0.0;
+  if (p[0] == 1.0) {
+    x = 1.0/(log(p[2]) - log(p[1]));
+  } else {
+    x = 1.0 - p[0];
+    x = x/(pow(p[2], x) - pow(p[1], x));
+  }
+  x = x*pow(e, -p[0]);
+
+  return x;
+}
+
+int SetEleDist(int i, int np, double *p) {
+  int k;
+
+  if (ele_dist[i].dist == NULL) {
+    printf("Electron Dist. does not exist\n");
+    return -1;
+  }
+  if (ele_dist[i].nparams != np) {
+    printf("Num of Params for Electron Dist. %d does not match\n", i);
+    return -1;
+  }
+  switch (i) {
+  case 0:
+    /* Default parameters for Maxwellian */
+    if (p[2] <= 0.0) {
+      p[2] = 1E2*p[0];
+    }
+    if (p[1] <= 0.0) {
+      p[1] = 1E-20*p[0];
+    }
+    break;
+  case 1:
+    /* Gaussian */
+    if (p[3] <= 0.0) {
+      p[3] = p[0] + 10.0*p[1];
+    }
+    if (p[2] <= 0.0) {
+      p[2] = p[0] - 10.0*p[1];
+      if (p[2] < 0) p[2] = 0.0;
+    }
+    break;
+  default:
+    break;
+  }
+  iedist = i;
+  for (k = 0; k < np; k++) {
+    ele_dist[i].params[k] = p[k];
+  }
+
+  return 0;
+}
+
+int SetPhoDist(int i, int np, double *p) {
+  int k;
+
+  if (pho_dist[i].dist == NULL) {
+    printf("Photon Dist. does not exist\n");
+    return -1;
+  }
+
+  if (pho_dist[i].nparams != np) {
+    printf("Num of Params for Photon Dist. %d does not match\n", i);
+    return -1;
+  }
+  ipdist = i;
+  for (k = 0; k < np; k++) {
+    pho_dist[i].params[k] = p[k];
+  }
+
+  return 0;
+}
+
 int InitRates(void) {
   int i;
 
   iedist = 0;
   ipdist = 0;
   
-  i = 0;
+  i = 0; /* Maxwellian */
   ele_dist[i].nparams = 3;
   ele_dist[i].params = (double *) malloc(sizeof(double)*3);
   ele_dist[i].params[0] = 1.0E3;
   ele_dist[i].params[1] = 1E-10;
   ele_dist[i].params[2] = 1E10;
   ele_dist[i].dist = Maxwell;
-  i++;
+  i++; /* Gaussian */
   ele_dist[i].nparams = 4;
   ele_dist[i].params = (double *) malloc(sizeof(double)*4);
   ele_dist[i].params[0] = 1.0E3;
@@ -966,7 +973,7 @@ int InitRates(void) {
     ele_dist[i].dist = NULL;
   }
 
-  i = 0; 
+  i = 0; /* Power Law */
   pho_dist[i].nparams = 3;
   pho_dist[i].params = (double *) malloc(sizeof(double)*3);
   pho_dist[i].params[0] = 2.0;

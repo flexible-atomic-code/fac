@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.62 2003/09/20 06:14:54 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.63 2003/10/14 21:26:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -680,7 +680,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  b = GetCoulombBetheAsymptotic(te, e1);
 	} else if (type >= 0) {
 	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
-	  if (b < 0) b = GetCoulombBetheAsymptotic(te, e1);
+	  if (b < 0 || IsNan(b)) b = GetCoulombBetheAsymptotic(te, e1);
 	} else {
 	  b = 0.0;
 	}
