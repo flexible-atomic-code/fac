@@ -697,7 +697,7 @@ def get_complexes(nelectrons):
 
 def spectrum(neles, temp, den, population, pref,
              suf = 'b', dir0 = '', dir1= '', nion = 3,
-             dist = 0, params=[], cascade = 0, rrc = 0, ion0 = 1, 
+             dist = 0, params=[-1,-1], cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1,
              ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = []):
     for k in neles:
