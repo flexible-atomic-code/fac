@@ -13,6 +13,8 @@ RANLIB = @RANLIB@
 
 TOPDIR = @TOPDIR@
 
+LIBS = @LIBS@
+
 FLIBS = @FLIBS@
 
 all: lib sfac
@@ -34,7 +36,7 @@ sfac:	lib
 	cd sfac; make
 
 pfac:   lib
-	${PYTHON} setup.py build --force ${FLIBS}
+	${PYTHON} setup.py build --force ${LIBS} ${FLIBS}
 
 doc:
 	cd doc; make

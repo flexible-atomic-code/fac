@@ -1,7 +1,7 @@
 from distutils.core import setup, Extension
 import sys
 
-libs = ["fac", "m"]
+libs = []
 libdir = ["."]
 incdir = [".", "faclib"]
 extralink = []
