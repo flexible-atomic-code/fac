@@ -1,0 +1,13 @@
+SRC = lsame.f d1mach.f dasum.f daxpy.f dcopy.f dscal.f ddot.f dgemm.f dgemv.f dger.f dnrm2.f drot.f dspmv.f dspr2.f dswap.f dtbsv.f dtrmm.f dtrmv.f dtrsm.f idamax.f xerbla.f
+
+OBJS = ${SRC:.f=.o}
+
+.f.o: 
+	$(FC) ${FFLAGS} $<
+
+blas: $(OBJS)
+	ar cr libfblas.a $(OBJS)
+	ranlib libfblas.a
+
+clean:
+	rm -f *.o *.a *~
