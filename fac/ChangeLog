@@ -1,5 +1,6 @@
 version 0.9.5, 05/13/2003
 	1. fix a bug introduced in 0.9.4, caused seg. fault.
+	2. slightly relax the energy accuracy of the radial solver.
 	
 version 0.9.4, 04/29/2003
 	1. drop the assumption that calloced pointers and doubles will 
