@@ -739,12 +739,12 @@ class ATOM:
             Print(s)
             Structure(self.bfiles['en'], a.name)
             
-        Print('Structure: prepare angular')
         for i in range(len(c)):
             PrepAngular(c[i].name)
             for j in range(i+1, len(c)):
                 PrepAngular(c[i].name, c[j].name)
-
+        PrepAngular(c[0].name, g)
+            
         Print('Structure: excited complexes')
         for i in range(len(self.exc_complex)):
             c = self.exc_complex[i].cgroup
@@ -755,6 +755,10 @@ class ATOM:
                 if (len(a.name) == 0):
                     continue
                 if (i == 0 and j == 0):
+                    x = self.ion_complex.cgroup[0]
+                    PrepAngular(x.name, a.name)
+                    PrepAngular(g, a.name)
+                    PrepAngular(a.name)
                     continue
                 if (a.nrec > 0):
                     s = '    (%s, %d)'%(str(a.name), a.nrec)
@@ -764,6 +768,10 @@ class ATOM:
                     s = '    %s'%str(a.name)
                     Print(s)
                     Structure(self.bfiles['en'], a.name)
+                    if (i == 0):
+                        x = self.ion_complex.cgroup[0]
+                        PrepAngular(x.name, a.name)
+                        PrepAngular(g, a.name)
 
         return
 
