@@ -24,6 +24,5 @@ fac.PrintTable('ne_f.lev.b', 'ne_f.lev', 1)
 # set the output collision energies
 e = [500.0, 900.0, 1.3e3, 1.7e3, 2.1e3, 4.2e3, 6.0e3, 8.0e3]
 fac.SetUsrCIEGrid(e)
-
 fac.CITable('ne.ci.b', ['fe17'], ['fe18'])
 fac.PrintTable('ne.ci.b', 'ne.ci', 1)

@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.11 2002/02/19 21:26:21 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.12 2002/04/30 15:01:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,10 +20,9 @@ static double _dwork[4*QUAD_LIMIT];
 #define RT_RR 3
 static struct {
   DISTRIBUTION *d;
-  double (*Rate1E)(double, double, int, int, void *);
+  double (*Rate1E)(double, double, int, void *);
   double eth;
   int np;
-  int nshells;
   void *params;
   double epsabs;
   double epsrel;
@@ -161,15 +160,13 @@ static double RateIntegrand(double *e) {
   double a, b;
 
   a = rate_args.d->dist(*e, rate_args.d->params);
-  b = rate_args.Rate1E(*e, rate_args.eth, rate_args.np,
-		       rate_args.nshells, rate_args.params);
+  b = rate_args.Rate1E(*e, rate_args.eth, rate_args.np, rate_args.params);
   return a*b;
 }
-  
+
 double IntegrateRate(int idist, double eth, double bound, 
-		     int np, int nshells, void *params, 
-		     int i0, int f0, int type, 
-		     double (*Rate1E)(double, double, int, int, void *)) { 
+		     int np, void *params, int i0, int f0, int type, 
+		     double (*Rate1E)(double, double, int, void *)) { 
   double result;
   int neval, ier, limit, lenw, last, n;
   double epsabs, epsrel, abserr;
@@ -187,18 +184,17 @@ double IntegrateRate(int idist, double eth, double bound,
   else rate_args.d = pho_dist + ipdist;
   rate_args.eth = eth;
   rate_args.np = np;
-  rate_args.nshells = nshells;
   rate_args.params = params;
   rate_args.i = i0;
   rate_args.f = f0;
   rate_args.type = type;
-
+  
   n = rate_args.d->nparams;
   b = rate_args.d->params[n-1];
   a = rate_args.d->params[n-2];
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
-
+  
   if (idist == 0 && iedist == 0) {
     a0 = rate_args.d->params[0];
     b0 = 5.0*a0;
@@ -255,17 +251,15 @@ double IntegrateRate(int idist, double eth, double bound,
 }
 
 double IntegrateRate2(int idist, double e, int np, 
-		      int nshells, void *params,
-		      int i0, int f0, int type,
-		      double (*Rate1E)(double, double, 
-				       double, int, int, void *)) { 
+		      void *params, int i0, int f0, int type,
+		      double (*Rate1E)(double, double, double, int, void *)) { 
   double a;
   
-  a = Rate1E(e, e, e, np, nshells, params);
+  a = Rate1E(e, e, e, np, params);
   return a;
 }
 
-double CERate1E(double e, double eth, int np, int ns, void *p) {
+double CERate1E(double e, double eth, int np, void *p) {
   double *x, *y;
   int m1, m2, n, one;
   double *dp, a, x0;
@@ -299,7 +293,7 @@ double CERate1E(double e, double eth, int np, int ns, void *p) {
   return a;
 }
 
-double DERate1E(double e, double eth, int np, int ns, void *p) {
+double DERate1E(double e, double eth, int np, void *p) {
   double a, x0, *x, *y;
   double *dp;
   int m1, m2, n, one;
@@ -320,7 +314,7 @@ double DERate1E(double e, double eth, int np, int ns, void *p) {
   one = 1;
   uvip3p_(&n, &m1, x, y, &one, &x0, &a);
   if (dp[0] > 0.0) {
-    a += dp[0]*log(e);
+    a -= dp[0]*log(x0);
   }
   
   if (a <= 0.0) {
@@ -339,7 +333,7 @@ int CERate(double *dir, double *inv, int iinv,
   double a, e0;
 
   e0 = e*HARTREE_EV;	     
-  a = IntegrateRate(0, e0, e0, m, 1, params, 
+  a = IntegrateRate(0, e0, e0, m, params, 
 		    i0, f0, RT_CE, CERate1E);
   *dir = a/(j1 + 1.0);
   if (iinv) {
@@ -347,7 +341,7 @@ int CERate(double *dir, double *inv, int iinv,
       a *= exp(e0/ele_dist[0].params[0]);
       *inv = a/(j2 + 1.0);
     } else {
-      *inv = IntegrateRate(0, e0, 0.0, m, 1, params, 
+      *inv = IntegrateRate(0, e0, 0.0, m, params, 
 			   i0, f0, -RT_CE, DERate1E);
       *inv /= (j2 + 1.0);
     }
@@ -382,31 +376,28 @@ int TRRate(double *dir, double *inv, int iinv,
   return 0;
 }
 
-double CIRate1E(double e, double eth, int np, int ns, void *p) {
+double CIRate1E(double e, double eth, int np, void *p) {
   int i;
   float *dp;
   double x;
   double a, b, c, f;
   double c2, logc, logx;
 
-  if (np != 6) return 0.0;
+  if (np != 4) return 0.0;
 
   dp = (float *) p;
   x = e/eth;
-  c = 2.0/(1.0+x);
-  c2 = sqrt(c);
-  logc = log(c);
   logx = log(x);
-  f = 0.0;
-  for (i = 0; i < ns; i++) {
-    a = (3.5 + dp[4])*logc;
-    b = dp[1]*log((1.0 + dp[2])/(c2 + dp[2]));
-    c = dp[0]*(1.0 - exp(a+b))*logx;
-    c += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
-    f += c*x/(x+1.0);
-    dp += np;
-  }
-
+  
+  a = 1.0/x;
+  b = 1.0 - a;
+  c = b * a;
+  
+  f = dp[0]*logx;
+  f += dp[1]*b*b;
+  f += dp[2]*c;
+  f += dp[3]*a*c;
+  
   c = AREA_AU20*HARTREE_EV*f/(2.0*e);
   c *= VelocityFromE(e);
 
@@ -414,21 +405,21 @@ double CIRate1E(double e, double eth, int np, int ns, void *p) {
 }
 
 double R3BRate1E(double e1, double e2, double eth, 
-		 int np, int ns, void *p) {
+		 int np, void *p) {
   return 0.0;
 }
 
 int CIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
-	   int m, int nshells, float *params, int i0, int f0) {
+	   int m, float *params, int i0, int f0) {
   double e0;
 
   e0 = e*HARTREE_EV;
-  *dir = IntegrateRate(0, e0, e0, m, nshells, params, 
+  *dir = IntegrateRate(0, e0, e0, m, params, 
 		       i0, f0, RT_CI, CIRate1E);
   *dir /= (j1 + 1.0);
   if (iinv) {
-    *inv = IntegrateRate2(0, e0, m, nshells, params, 
+    *inv = IntegrateRate2(0, e0, m, params, 
 			  i0, f0, -RT_CI, R3BRate1E);
     *inv /= (j2 + 1.0); 
   } else {
@@ -515,29 +506,32 @@ double RRRateHydrogenic(double t, double z, int n, double *top) {
   return y;
 }
   
-double RRRate1E(double e, double eth, int np, int ns, void *p) {
-  int i;
-  float *dp;
-  double x, eth0;
+double RRRate1E(double e, double eth, int np, void *p) {
+  int i, one, n;
+  double *dp;
+  double x0, logx0, *x, *logx, *y, *r;
   double a, b, c, f;
-  double x2, logx;
   
-  if (np != 5) return 0.0;
-  dp = (float *) p;
+  dp = (double *) p;
+  x0 = (e+eth)/eth;
+  logx0 = log(x0);
 
-  f = 0.0;
-  for (i = 0; i < ns; i++) {  
-    eth0 = HARTREE_EV * dp[4];
-    x = 1.0 + e/eth0;
-    x2 = sqrt(x);
-    logx = log(x);
-    a = -4.5-dp[3] + 0.5*dp[1];
-    b = (1.0 + dp[2])/(x2 + dp[2]);
-    c = dp[1]*log(b) + a*logx;
-    c = dp[0]*exp(c);
-    f += c*(e+eth)/eth0;
-    dp += np;
+  y = dp + 1;
+  x = y + np;
+  logx = x + np;
+  r = logx + np;
+  
+  if (x0 < x[np-1]) {
+    n = 3;
+    one = 1;
+    uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
+    f = exp(f);
+  } else {
+    a = logx0*(-3.5-dp[0]+0.5*r[1]);
+    b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
+    f = r[0]*exp(a + b);
   }
+
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   a = FINE_STRUCTURE_CONST*(e+eth);
   a = a*a;
@@ -547,31 +541,32 @@ double RRRate1E(double e, double eth, int np, int ns, void *p) {
   return c;
 }
 
-double PIRate1E(double e, double eth, int np, int ns, void *p) {
-  int i;
-  float *dp;
-  double x, eth0;
+double PIRate1E(double e, double eth, int np, void *p) {
+  int i, one, n;
+  double *dp;
+  double x0, logx0, *x, *logx, *y, *r;
   double a, b, c, f;
-  double x2, logx;
   const double factor = 1.871156686E2;
-  
-  if (np != 4) return 0.0;
 
-  dp = (float *) p;
-  f = 0.0;
-  for (i = 0; i < ns; i++) {
-    eth0 = HARTREE_EV * dp[4];
-    x = (e-eth+eth0)/eth0;
-    x2 = sqrt(x);
-    logx = log(x);
-    a = -4.5-dp[3] + 0.5*dp[1];
-    b = (1.0 + dp[2])/(x2 + dp[2]);
-    c = dp[1]*log(b) + a*logx;
-    c = dp[0]*exp(c);
-    f += c*e/eth0;
-    dp += np;
-  }
+  dp = (double *) p;
+  x0 = e/eth;
+  logx0 = log(x0);
+
+  y = dp + 1;
+  x = y + np;
+  logx = x + np;
+  r = logx + np;
   
+  if (x0 < x[np-1]) {
+    n = 3;
+    one = 1;
+    uvip3p_(&n, &np, logx, y, &one, &logx0, &f);
+    f = exp(f);
+  } else {
+    a = logx0*(-3.5-dp[0]+0.5*r[1]);
+    b = log((1.0 + r[2])/(sqrt(x0) + r[2]))*r[1];
+    f = r[0]*exp(a + b);
+  }
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   c *= factor/e;
 
@@ -580,15 +575,15 @@ double PIRate1E(double e, double eth, int np, int ns, void *p) {
 
 int RRRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
-	   int m, int nshells, float *params, int i0, int f0) {
+	   int m, double *params, int i0, int f0) {
   double e0;
 
   e0 = e*HARTREE_EV;	
-  *dir = IntegrateRate(0, e0, 0.0, m, nshells, params, 
+  *dir = IntegrateRate(0, e0, 0.0, m, params, 
 		       i0, f0, RT_RR, RRRate1E);
   *dir /= (j1 + 1.0);
   if (iinv) {
-    *inv = IntegrateRate(1, e0, e0, m, nshells, params, 
+    *inv = IntegrateRate(1, e0, e0, m, params, 
 			 i0, f0, -RT_RR, PIRate1E);
     *inv /= (j2 + 1.0);
   } else {

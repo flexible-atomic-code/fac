@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.27 2002/04/25 16:22:29 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.28 2002/04/30 15:01:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2430,137 +2430,6 @@ static PyObject *PFreeIonizationQk(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PSaveIonizationQk(PyObject *self, PyObject *args) {
-  int n;
-  char *s;
-  
-  if (sfac_file) {
-    SFACStatement("SaveIonizationQk", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "is", &n, &s)) return NULL;
-  SaveCIRadialQkIntegrated(n, s);
-  
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PLoadIonizationQk(PyObject *self, PyObject *args) {
-  int n;
-  char *s;
-  
-  if (sfac_file) {
-    SFACStatement("LoadIonizationQk", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  s = NULL;
-  n = -1;
-  if (!PyArg_ParseTuple(args, "|is", &n, &s)) return NULL;
-  if (LoadCIRadialQkIntegrated(n, s) < 0) {
-    return NULL;
-  }
-  
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PPrepIonizationQk(PyObject *self, PyObject *args) {
-  PyObject *pz, *pa, *pn, *p;
-  int nz, na, nn, nte;
-  double emin, emax;
-  char *s;
-  int *n, i;
-  double *z, *a;
-  
-  if (sfac_file) {
-    SFACStatement("PrepIonizationQk", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  pz = NULL;
-  pa = NULL;
-  pn = NULL;
-  nte = -1;
-  emin = -1.0;
-  emax = -1.0;
-  if (!PyArg_ParseTuple(args, "s|OOOidd", 
-			&s, &pz, &pa, &pn, &nte, &emin, &emax))
-    return NULL;
-  if (emin < 0) emin = 0.7;
-  if (emax < 0) emax = 1.3;
-  if (nte <= 1) {
-    nte = 1;
-    emin = 1.0;
-    emax = 1.0;
-  }
-  if (pz) {
-    if (!PyList_Check(pz)) return NULL;
-    nz = PyList_Size(pz);
-    z = (double *) malloc(sizeof(double)*nz);
-    for (i = 0; i < nz; i++) {
-      p = PyList_GetItem(pz, i);
-      z[i] = PyInt_AsLong(p);
-    }
-  } else {
-    nz = 5;
-    z = (double *) malloc(sizeof(double)*nz);
-    z[0] = 10;
-    z[1] = 30;
-    z[2] = 50;
-    z[3] = 70;
-    z[4] = 90;
-  }
-  
-  if (pa) {
-    if (!PyList_Check(pa)) return NULL;
-    na = PyList_Size(pa);
-    a = (double *) malloc(sizeof(double)*na);
-    for (i = 0; i < na; i++) {
-      p = PyList_GetItem(pa, i);
-      a[i] = PyFloat_AsDouble(p);
-    }
-  } else {
-    na = 5;
-    a = (double *) malloc(sizeof(double)*na);
-    a[0] = 0.1;
-    a[1] = 0.3;
-    a[2] = 0.5;
-    a[3] = 0.7;
-    a[4] = 0.9;
-  }
-
-  if (pn) {
-    if (!PyList_Check(pn)) return NULL;
-    nn = PyList_Size(pn);
-    n = (int *) malloc(sizeof(int)*nn);
-    for (i = 0; i < nn; i++) {
-      p = PyList_GetItem(pn, i);
-      n[i] = PyInt_AsLong(p);
-    }
-  } else {
-    nn = 5;
-    n = (int *) malloc(sizeof(int)*nn);
-    n[0] = 1;
-    n[1] = 2;
-    n[2] = 3;
-    n[3] = 4;
-    n[4] = 5;
-  }
-  PrepCIRadialQkIntegrated(nz, z, na, a, nn, n, nte, emin, emax, s);
- 
-  free(z);
-  free(a);
-  free(n);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static  PyObject *PSetCIPWOptions(PyObject *self, PyObject *args) {
   int qr, max, max_1, kl_cb;
   double tol;
@@ -3021,15 +2890,12 @@ static struct PyMethodDef fac_methods[] = {
   {"GetCG", PGetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
-  {"LoadIonizationQk", PLoadIonizationQk, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
-  {"PrepIonizationQk", PPrepIonizationQk, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
-  {"SaveIonizationQk", PSaveIonizationQk, METH_VARARGS},
   {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},

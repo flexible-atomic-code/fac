@@ -1,4 +1,4 @@
-Version 0.7.2, 04/25/2002
+Version 0.7.2, 04/30/2002
 	1. add hydrogenic TRRate routine.
 	2. update papers for submission to PRA.
 	3. the r_core for H-like ions changed to 0.75*MAX_POINTS.
@@ -7,6 +7,9 @@ Version 0.7.2, 04/25/2002
 	6. better initial estimate of binding energies for improved 
 	   convergence.
 	7. separate interpolation functions in pfac.util extension.
+	8. making the fitting formula of RR and CI simpler. Do not fit
+	   RR at low energies any more, since that's not valid for near
+	   neutral ions.
 	
 Version 0.7.1, 03/11/2002
 	1. add pfac.spm module for processing spectral data

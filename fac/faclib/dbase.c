@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.18 2002/02/28 16:55:04 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.19 2002/04/30 15:01:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -139,7 +139,7 @@ int SwapEndianRRHeader(RR_HEADER *h) {
 int SwapEndianRRRecord(RR_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
-  SwapEndian((char *) &(r->nshells), sizeof(int));
+  SwapEndian((char *) &(r->kl), sizeof(int));
   return 0;
 }
 
@@ -179,7 +179,7 @@ int SwapEndianCIHeader(CI_HEADER *h) {
 int SwapEndianCIRecord(CI_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
-  SwapEndian((char *) &(r->nshells), sizeof(int));
+  SwapEndian((char *) &(r->kl), sizeof(int));
   return 0;
 }
 
@@ -946,11 +946,11 @@ int WriteRRRecord(FILE *f, RR_RECORD *r) {
   rr_header.length += m;
   n = fwrite(r, m, 1, f);
   if (rr_header.qk_mode == QK_FIT) {
-    m = rr_header.nparams * r->nshells;
+    m = rr_header.nparams;
     rr_header.length += sizeof(float)*m;
     n = fwrite(r->params, sizeof(float), m, f);
   }
-
+  
   m = rr_header.n_usr;
   rr_header.length += sizeof(float)*m;
   n = fwrite(r->strength, sizeof(float), m, f);
@@ -962,8 +962,8 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
-  int nb, nshells;
-  int m, k, p1;
+  int nb;
+  int m, k;
   float *params, *strength;
   float e, eph, ee, phi, rr;
 
@@ -1017,9 +1017,8 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
     
-    nshells = 1;
     if (h.qk_mode == QK_FIT) {
-      m = h.nparams * nshells;
+      m = h.nparams;
       params = (float *) malloc(sizeof(float)*m);
     }
     m = h.n_usr;
@@ -1027,44 +1026,32 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(RR_RECORD), 1, f1);
       if (swp) SwapEndianRRRecord(&r);
-      if (r.nshells > nshells && h.qk_mode == QK_FIT) {
-	m = h.nparams * r.nshells;
-	params = (float *) realloc(params, sizeof(float)*m);
-	nshells = r.nshells;
-      }
       
       if (h.qk_mode == QK_FIT) {
-	m = h.nparams * r.nshells;
+	m = h.nparams;
 	n = fread(params, sizeof(float), m, f1);
       }
       m = h.n_usr;
       n = fread(strength, sizeof(float), m, f1);
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%d\n",
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%2d\n",
 		r.b, mem_en_table[r.b].j, 
 		r.f, mem_en_table[r.f].j,
-		(e*HARTREE_EV), r.nshells);
-		
+		(e*HARTREE_EV), r.kl);
+	
       } else {
-	fprintf(f2, "%5d\t%5d\t%d\n", r.b, r.f, r.nshells);
+	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.kl);
       }
       
-      p1 = 0;      
       if (h.qk_mode == QK_FIT) {
-	for (k = 0; k < r.nshells; k++) {
-	  for (t = 0; t < h.nparams; t++) {
-	    if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
-	    if (v && t == h.nparams-1) {
-	      fprintf(f2, "%11.4E ", params[p1]*HARTREE_EV);
-	    } else {
-	      fprintf(f2, "%11.4E ", params[p1]);
-	    }
-	    p1++;
-	  }
-	  fprintf(f2, "\n");
+	for (t = 0; t < h.nparams; t++) {
+	  if (swp) SwapEndian((char *) &(params[t]), sizeof(float));
+	  fprintf(f2, "%11.4E ", params[t]);
 	}
+	fprintf(f2, "\n");
       }
+      
       for (t = 0; t < h.n_usr; t++) {
 	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
@@ -1169,7 +1156,7 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
   m = sizeof(CI_RECORD);
   ci_header.length += m;
   n = fwrite(r, m, 1, f);
-  m = ci_header.nparams * r->nshells;
+  m = ci_header.nparams;
   ci_header.length += sizeof(float)*m;
   n = fwrite(r->params, sizeof(float), m, f);
   m = ci_header.n_usr;
@@ -1183,8 +1170,8 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
-  int nb, nshells;
-  int m, k, p1;
+  int nb;
+  int m, k;
   float *params, *strength;
   float e, a;
 
@@ -1237,8 +1224,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
       }
     }
 
-    nshells = 1;
-    m = h.nparams * nshells;
+    m = h.nparams;
     params = (float *) malloc(sizeof(float)*m);
     m = h.n_usr;
     strength = (float *) malloc(sizeof(float)*m);
@@ -1246,40 +1232,26 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
     for (i = 0; i < h.ntransitions; i++) {
       n = fread(&r, sizeof(CI_RECORD), 1, f1);
       if (swp) SwapEndianCIRecord(&r);
-      if (r.nshells > nshells) {
-	m = h.nparams * r.nshells;
-	params = (float *) realloc(params, sizeof(float)*m);
-	nshells = r.nshells;
-      }
-      
-      m = h.nparams * r.nshells;
+      m = h.nparams;
       n = fread(params, sizeof(float), m, f1);
       m = h.n_usr;
       n = fread(strength, sizeof(float), m, f1);
-
+      
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%d\n",
+	fprintf(f2, "%5d\t%2d\t%5d\t%2d\t%11.4E\t%2d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
-		e*HARTREE_EV, r.nshells);
+		e*HARTREE_EV, r.kl);
       } else {
-	fprintf(f2, "%5d\t%5d\t%d\n", r.b, r.f, r.nshells);
+	fprintf(f2, "%5d\t%5d\t%2d\n", r.b, r.f, r.kl);
       }
       
-      p1 = 0;
-      for (k = 0; k < r.nshells; k++) {
-	for (t = 0; t < h.nparams; t++) {
-	  if (swp) SwapEndian((char *) &(params[p1]), sizeof(float));
-	  if (v && t == h.nparams-1) {
-	    fprintf(f2, "%11.4E ", params[p1]*HARTREE_EV);
-	  } else {
-	    fprintf(f2, "%11.4E ", params[p1]);
-	  }
-	  p1++;
-	}
-	fprintf(f2, "\n");
+      for (t = 0; t < h.nparams; t++) {
+	if (swp) SwapEndian((char *) &(params[t]), sizeof(float));
+	fprintf(f2, "%11.4E ", params[t]);
       }
+      fprintf(f2, "\n");
       for (t = 0; t < h.n_usr; t++) {
 	if (swp) SwapEndian((char *) &(strength[t]), sizeof(float));
 	if (v) {
@@ -1295,13 +1267,13 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
 	}
       }
     }
-
+    
     free(params); 
     free(strength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-
+    
     nb++;
   }
 

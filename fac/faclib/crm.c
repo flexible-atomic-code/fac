@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.26 2002/03/11 19:28:55 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.27 2002/04/30 15:01:52 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3351,7 +3351,6 @@ int SetCIRates(int inv) {
   int nb, i, t;
   int n, m, k;
   int j1, j2;
-  int nshells;
   ION *ion;
   RATE rt;
   F_HEADER fh;
@@ -3390,18 +3389,13 @@ int SetCIRates(int inv) {
       m = h.n_tegrid + h.n_egrid + h.n_usr;
       fseek(f, sizeof(double)*m, SEEK_CUR);
       m = h.nparams;
-      nshells = 1;
-      params = (float *) malloc(sizeof(float)*m*nshells);
+      params = (float *) malloc(sizeof(float)*m);
       for (i = 0; i < h.ntransitions; i++) {
 	n = fread(&r, sizeof(CI_RECORD), 1, f);
 	if (swp) SwapEndianCIRecord(&r);
-	if (r.nshells > nshells) {
-	  nshells = r.nshells;
-	  params = (float *) realloc(params, sizeof(float)*m*nshells);
-	}
-	n = fread(params, sizeof(float), m*r.nshells, f);
+	n = fread(params, sizeof(float), m, f);
 	if (swp) {
-	  for (t = 0; t < m*r.nshells; t++) {
+	  for (t = 0; t < m; t++) {
 	    SwapEndian((char *) &(params[t]), sizeof(float));
 	  }
 	}
@@ -3411,7 +3405,7 @@ int SetCIRates(int inv) {
 	j1 = ion->j[r.b];
 	j2 = ion->j[r.f];
 	e = ion->energy[r.f] - ion->energy[r.b];
-	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, nshells, params,
+	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, params,
 	       rt.i, rt.f);
 	AddRate(ion, ion->ci_rates, &rt, 0);
       }
@@ -3423,10 +3417,9 @@ int SetCIRates(int inv) {
 }
 
 int SetRRRates(int inv) { 
-  int nb, i, t;
+  int nb, i, j, t;
   int n, m, k;
   int j1, j2;
-  int nshells;
   ION *ion;
   RATE rt;
   F_HEADER fh;
@@ -3434,8 +3427,12 @@ int SetRRRates(int inv) {
   RR_RECORD r;
   double e;
   FILE *f;  
-  float *params;
   int endian, swp;
+  float cs[MAXNUSR];
+  float params[MAXNUSR];
+  double data[1+MAXNUSR*4];
+  double eusr[MAXNUSR];
+  double *x, *logx, *y, *p;
 
   if (ion0.n < 0.0) return 0;
   endian = CheckEndian(NULL);
@@ -3443,6 +3440,7 @@ int SetRRRates(int inv) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->rr_rates, NULL);
@@ -3461,41 +3459,61 @@ int SetRRRates(int inv) {
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = fread(&h, sizeof(RR_HEADER), 1, f);
       if (swp) SwapEndianRRHeader(&h);
-      m = h.n_tegrid + h.n_egrid + h.n_usr;
+      m = h.n_tegrid + h.n_egrid;
       fseek(f, sizeof(double)*m, SEEK_CUR);
-      m = h.nparams;
-      nshells = 1;
-      params = (float *) malloc(sizeof(float)*m*nshells);
+      m = h.n_usr;
+      n = fread(eusr, sizeof(double), m, f);
+      if (swp) {
+	for (i = 0; i < m; i++) {
+	  SwapEndian((char *) &(eusr[i]), sizeof(double));
+	}
+      }
+      
+      x = y + m;
+      logx = x + m;
+      p = logx + m;
       for (i = 0; i < h.ntransitions; i++) {
 	n = fread(&r, sizeof(RR_RECORD), 1, f);
 	if (swp) SwapEndianRRRecord(&r);
-	if (r.nshells > nshells) {
-	  nshells = r.nshells;
-	  params = (float *) realloc(params, sizeof(float)*m*nshells);
+	if (h.nparams <= 0) {
+	  printf("RR QkMode must be in QK_FIT\n");
+	  exit(1);
 	}
-	n = fread(params, sizeof(float), m*r.nshells, f);
+	n = fread(params, sizeof(float), h.nparams, f);
 	if (swp) {
-	  for (t = 0; t < m*r.nshells; t++) {
-	    SwapEndian((char *) &(params[t]), sizeof(float));
+	  for (j = 0; j < h.nparams; j++) {
+	    SwapEndian((char *) &(params[j]), sizeof(float));
 	  }
 	}
-	  
-	fseek(f, sizeof(float)*h.n_usr, SEEK_CUR);
 	rt.i = r.f;
 	rt.f = r.b;
 	j1 = ion->j[r.f];
 	j2 = ion->j[r.b];
 	e = ion->energy[r.f] - ion->energy[r.b];
+	data[0] = 3.5 + r.kl;
 	if (e < 0.0) {
 	  printf("%d %d %10.3E %10.3E\n", 
 		 r.f, r.b, ion->energy[r.f],ion->energy[r.b]);
 	  exit(1);
 	}
-	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, nshells, params,
+	n = fread(cs, sizeof(float), m, f);
+	if (swp) {
+	  for (j = 0; j < m; j++) {
+	    SwapEndian((char *) &(cs[j]), sizeof(float));
+	  }
+	}
+	for (j = 0; j < m; j++) {
+	  x[j] = (e+eusr[j])/e;
+	  logx[j] = log(x[j]);
+	  y[j] = log(cs[j]);
+	}
+	for (j = 0; j < h.nparams; j++) {
+	  p[j] = params[j];
+	}
+	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, data,
 	       rt.i, rt.f);
 	AddRate(ion, ion->rr_rates, &rt, 0);
       }
-      free(params);
     }
     fclose(f);
     ExtrapolateRR(ion, inv);
