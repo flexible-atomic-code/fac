@@ -33,7 +33,8 @@ int SetRecSpectator(int n_max, int n_frozen, int n_spec);
 int ConstructRecGroupName(char *rgn, char *gn, int n);
 int RecStates(int n, int k, int *kg);
 int RecStatesFrozen(int n, int k, int *kg);
-int BoundFreeOS(double *strength, double *eb, int rec, int f, int m);
+int BoundFreeOS(double *strength, double *eb, double e0, 
+		int rec, int f, int m);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, int channel);
 int AIRadial1E(double *pk, int kb, int kappaf);

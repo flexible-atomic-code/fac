@@ -73,7 +73,7 @@ int FreeResidualArray();
 int FreeMultipoleArray();
 int FreeSlaterArray();
 
-double MultipoleRadialNR(int m, int k1, int k2, int guage);
+double MultipoleRadialNR(double aw, int m, int k1, int k2, int guage);
 double MultipoleRadial(double aw, int m, int k1, int k2, int guage);
 double MultipoleIJ(double aw, int m, 
 		   ORBITAL *orb1, ORBITAL *orb2, int type);

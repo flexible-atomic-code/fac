@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.5 2001/09/14 16:32:06 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.6 2001/10/04 14:03:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -45,8 +45,12 @@ int GetTransitionGauge() {
   return transition_option.gauge;
 }
 
-int OscillatorStrength(double *strength, double *energy, 
-			  int *multipole, int lower, int upper) {
+int GetTransitionMode() {
+  return transition_option.mode;
+}
+
+int OscillatorStrength(double *strength, double *energy, double aw0,
+		       int *multipole, int lower, int upper) {
   int m, m2, n;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
@@ -87,16 +91,15 @@ int OscillatorStrength(double *strength, double *energy,
   nz = AngularZMix(&ang, lower, upper, m2, m2);
   if (nz <= 0) return -1;
   for (i = 0; i < nz; i++) {
-    if (fabs(ang[i].coeff) > EPS10) {
-      if (transition_option.mode) {
-	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
-			      transition_option.gauge);
-      } else {
-	r = MultipoleRadial(aw, m, ang[i].k0, ang[i].k1,
+    if (transition_option.mode && 
+	!(m == 1 && ang[i].k0 != ang[i].k1)) {
+      r = MultipoleRadialNR(aw0, m, ang[i].k0, ang[i].k1, 
 			    transition_option.gauge);
-      }
-      s += r * ang[i].coeff;
+    } else {
+      r = MultipoleRadial(aw0, m, ang[i].k0, ang[i].k1,
+			  transition_option.gauge);
     }
+    s += r * ang[i].coeff;
   }
  
   free(ang);	  
@@ -130,7 +133,9 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 		   char *fn, int multipole) {
   int i, j, k, n, m, jup, jlow;
   FILE *f;
-  double *s, *et, *a, trd, trd1, elow, e0;
+  LEVEL *lev1, *lev2;
+  double *s, *et, *a, trd, trd1;
+  double elow, e0, aw0, emin, emax;
   char t;
   int *alev;
 
@@ -155,6 +160,26 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
       up = alev;
     }
   }
+  
+  k = 0;
+  emin = 1E10;
+  emax = 1E-10;
+  for (i = 0; i < nlow; i++) {
+    lev1 = GetLevel(low[i]);
+    for (j = 0; j < nup; j++) {
+      lev2 = GetLevel(up[j]);
+      e0 = lev2->energy - lev1->energy;
+      if (e0 > 0) k++;
+      if (e0 < emin && e0 > 0) emin = e0;
+      if (e0 > emax) emax = e0;
+    }
+  }
+  if (k == 0) {
+    printf("No transtions occur\n");
+    return 0;
+  }
+  e0 = 0.5*(emin+emax);
+  aw0 = FINE_STRUCTURE_CONST*e0;
 
   fprintf(f, "up     2J\tlow     2J\tDelta_E    M  gf        A(AU)\n");
   if (nlow <= 0 || nup <= 0) return -1;
@@ -171,7 +196,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
       elow = GetLevel(low[i])->energy;
       m = multipole;
       et[i] = 0.0;
-      k = OscillatorStrength(s+i, et+i, &m, low[i], up[j]);
+      k = OscillatorStrength(s+i, et+i, aw0, &m, low[i], up[j]);
       if (k != 0) continue;
       if (m == 0) continue;
       if (s[i] < 1E-30) continue;

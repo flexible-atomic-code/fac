@@ -2,6 +2,8 @@ Version 0.5.8, 10/03/2001
 	1. really fixed the occasionall failur of radial solver.
 	2. the output level names are simplified by 
 	   dropping the closed shells.
+	3. fix the M1 transition rates. which should almost always 
+	   use the relativistic expression. 
 	
 Version 0.5.7, 10/03/2001
 	1. fix a bug in solving the radial orbital for the energy
