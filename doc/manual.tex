@@ -3244,8 +3244,12 @@ emissivity, emission anisotropy factor at $90^\circ$, and linear polarization,
 respectively. \var{ifn} is an optional file name which specifies the
 transitions whose polarizations are to be calculated. It should contain 4
 columns, number of electrons, upper level, lower level, and multipole type,
-respectively. Each of the columns may be ``\verb|*|'', which matches any
-transitions. 
+respectively. Each of the columns may be in the form ``\verb|*|'', which
+matches any transitions. The first 3 columns may also specify a range in the
+form, e.g., ``0-5'', which matches any number between 0 and 5 inclusive. Either
+limit of the range may also be ``\verb|*|'', so that that limit is not
+enforced. The second argument may also be given as a list of strings instead
+of a file name, which correspond to rows of the equivelent file.
 \end{fundesc}
 
 \begin{fundesc}{PopulationTable}{fn}

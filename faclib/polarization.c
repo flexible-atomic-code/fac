@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.14 2003/08/06 19:43:33 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.15 2003/08/07 18:59:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1101,29 +1101,87 @@ int Orientation(char *fn, double etrans) {
   return 0;
 }
 
-static int InTrans(int n, int *trans, int i1, int i2, int k) {
-  int i, p1, p2, p3, p4;
+static int InBetween(int k, int *t) {
+  int p1, p2;
 
-  for (i = 0; i < n; i += 4) {
-    if (trans[i] < 0) p1 = 1;
-    else if (trans[i] == levels[i1].nele) p1 = 1;
-    else p1 = 0;
-    if (trans[i+1] < 0) p2 = 1;
-    else if (trans[i+1] == i1) p2 = 1;
-    else p2 = 0;
-    if (trans[i+2] < 0) p3 = 1;
-    else if (trans[i+2] == i1) p3 = 1;
-    else p3 = 0;
-    if (trans[i+3] == 0) p4 = 1;
-    else if (trans[i+3] == k) p4 = 1;
+  p1 = 1;
+  p2 = 1;
+  if (t[0] >= 0 && k < t[0]) p1 = 0;
+  if (t[1] >= 0 && k > t[1]) p2 = 0;
+
+  return p1 && p2;
+}
+
+static int InTrans(int n, int *trans, int i1, int i2, int k) {
+  int i, p1, p2, p3, p4, *t;
+
+  t = trans;
+  for (i = 0; i < n; i += 7) {
+    p1 = InBetween(levels[i1].nele, t);
+    t += 2;
+    p2 = InBetween(i1, t);
+    t += 2;
+    p3 = InBetween(i2, t);
+    t += 2;
+    if (*t == 0 || *t == k) p4 = 1;
     else p4 = 0;
+    t += 1;
     if (p1 && p2 && p3 && p4) return 1;
   }
 
   return 0;
 }
     
-int PolarizationTable(char *fn, char *ifn) {
+static int GetTrans(int *trans, char *buf) {
+  char *s, *p;
+  int k, t, i;
+
+  s = buf;
+  while (*s) {
+    if (*s == '\t') *s = ' ';
+    s++;
+  }
+
+  k = StrSplit(buf, ' ');
+  if (k != 4) return -1;
+
+  if (k == 4) {
+    s = buf;
+    i = 0;
+    for (t = 0; t < k; t++) {
+      while (*s == ' ') s++;
+      if (t == 3) {
+	if (*s == '*') {
+	  trans[i] = 0;
+	} else {
+	  trans[i] = atoi(s);
+	} 
+      } else {
+	p = s;
+	while (*p && *p != '-') p++;
+	if (*p) {
+	  *p = '\0';
+	  if (*s == '*') trans[i] = -1;
+	  else trans[i] = atoi(s);
+	  if (*(p+1) == '*') trans[i+1] = -1;
+	  else trans[i+1] = atoi(p+1);
+	  *p = '-';
+	} else {
+	  if (*s == '*') trans[i] = -1;
+	  else trans[i] = atoi(s);
+	  trans[i+1] = trans[i];
+	}
+      }
+      i += 2;
+      while (*s) s++;
+      s++;
+    }
+  }
+
+  return 0;
+}
+
+int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
   int i, k, k2, t, t2;
   int j1, j2, m1, i1, i2;
   FILE *f;
@@ -1131,10 +1189,11 @@ int PolarizationTable(char *fn, char *ifn) {
   double FL[MAXPOL+1];
   double a, b, tem, e;
   char buf[128], *s;
-  int n, *trans;
+  int *trans, *tp, ns;
 
-  n = 0;
+  ns = 0;
   if (ifn) {
+    n = 0;
     f = fopen(ifn, "r");
     if (f == NULL) {
       printf("cannot open file %s\n", ifn);
@@ -1153,35 +1212,29 @@ int PolarizationTable(char *fn, char *ifn) {
       }
     }
     if (n > 0) {
-      trans = malloc(sizeof(int)*n*4);
+      trans = malloc(sizeof(int)*n*7);
       fseek(f, 0, SEEK_SET);
-      i = 0;
+      tp = trans;
       while (1) {
 	if (fgets(buf, 128, f) == NULL) break;
-	s = buf;
-	while (*s) {
-	  if (*s == '\t') *s = ' ';
-	  s++;
-	}
-	k = StrSplit(buf, ' ');
-	if (k == 4) {
-	  s = buf;
-	  for (t = 0; t < k; t++) {
-	    while (*s == ' ') s++;
-	    if (*s == '*') {
-	      if (t == 3) trans[i] = 0;
-	      else trans[i] = -1;
-	    } else {
-	      trans[i] = atoi(s);
-	    }
-	    i++;
-	    while (*s) s++;
-	    s++;
-	  }
+	k = GetTrans(tp, buf);
+	if (k == 0) {
+	  tp += 7;
+	  ns++;
 	}
       }
     }
     fclose(f);
+  } else if (n > 0) {
+    trans = malloc(sizeof(int)*n*7);
+    tp = trans;
+    for (i = 0; i < n; i++) {
+      k = GetTrans(tp, sc[i]);
+      if (k == 0) {
+	tp += 7;
+	ns++;
+      }
+    }
   }
 
   f = fopen(fn, "w");
@@ -1202,8 +1255,8 @@ int PolarizationTable(char *fn, char *ifn) {
     i2 = tr_rates[i].lower;
     k = tr_rates[i].multipole;
     if (k == 0) continue;
-    if (n > 0) {
-      if (!(InTrans(n, trans, i1, i2, k))) continue;
+    if (ns > 0) {
+      if (!(InTrans(ns, trans, i1, i2, k))) continue;
     }
     k2 = 2*abs(k);
     j1 = levels[i1].j;
