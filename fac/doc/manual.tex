@@ -8,16 +8,34 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{0.7.2}\xspace}
+\newcommand{\facversion}{{0.7.3}\xspace}
+\newcommand{\opt}[1]{
+  {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
+\newcommand{\var}[1]{\textit{#1}}
+\newcommand{\key}[1]{\textbf{\texttt{#1}}}
+\newcommand{\mod}[1]{\texttt{#1}}
+\newcommand{\atom}[1]{\textbf{\texttt{#1}}}
 
-\newenvironment{mydesc}{\textbf{Field Description:} \begin{list}
+\newenvironment{dbdesc}{\textbf{Field Description:} \begin{list}
 	{:}{\setlength{\labelwidth}{2in}
 	   \setlength{\leftmargin}{2in}
 	   \setlength{\labelsep}{0.1in}
 	   \setlength{\rightmargin}{0.2in}}}
 	{\end{list}}
+\newenvironment{fundesc}[2]{
+	\index{#1}
+	\begin{center}
+	\begin{minipage}{\textwidth}
+	\key{#1}(\var{#2}):\\}
+	{\end{minipage}\end{center}}
+\newenvironment{vardesc}[1]{
+	\index{#1}
+	\begin{center}
+	\begin{minipage}{\textwidth}
+	\key{#1}:\\}
+	{\end{minipage}\end{center}}
 
-\setcounter{tocdepth}{2}
+\setcounter{tocdepth}{1}
 
 \makeindex
 
@@ -244,12 +262,12 @@ mode. The exact formats of binary and ASCII files are explained in Chapter
 \begin{verbatim}
 File ne.lev:
 
-FAC 0.7.2
+FAC 0.7.3
 Endian	= 0
 TSess	= 1020438482
 Type	= 1
 Verbose	= 1
-Fe Z	= 26
+Fe Z	= 26.0
 NBlocks	= 1
 E0	= 0, -3.12494784E+04
 
@@ -297,12 +315,12 @@ NLEV	= 37
 
 File ne.tr:
 
-FAC 0.7.2
+FAC 0.7.3
 Endian	= 0
 TSess	= 1020438482
 Type	= 2
 Verbose	= 1
-Fe Z	= 26
+Fe Z	= 26.0
 NBlocks	= 1
 
 NELE	= 10
@@ -332,14 +350,17 @@ useful. Many Fortran 77 subroutines were retrieved from Netlib repository
 (\textbf{www.netlib.org}) and used in this package, as well as several
 programs from Computer Physics Communications Program Library at
 \textbf{www.cpc.cs.qub.ac.uk}. The multi-precision floating point arithmetic
-package is developed by \citet{bailey93} of NASA Ames Research Center.
+package used here is developed by \citet{bailey93} of NASA Ames Research
+Center.
 
 This work is supported by NASA through Chandra Postdoctoral Fellowship Award
 Number PF01-10014 issued by the Chandra X-ray Observatory Center, which is
 operated by Smithsonian Astrophysical Observatory for and on behalf of NASA
-under contract NAS8-39073. Any opinions, findings and conclusions or
+under contract NAS8-39073. 
+
+Any opinions, findings and conclusions or
 recommendations expressed in this manual are those of the author and do not
-necessrarily reflext the views of the National Aeronautics Space
+necessrarily reflect the views of the National Aeronautics Space
 Administration and/or the Smithonian Astrophysical Observatory.
 
 \chapter{Description of Output Files}
@@ -401,7 +422,7 @@ typedef struct _F_HEADER_ {
 } F_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long tsession}:] Time stamp when the file is created. This is the
 value returned by the C lib function time(0). It is platform dependent. 
 \item[\texttt{int version}:] Major version number of FAC.
@@ -414,7 +435,7 @@ terminated C string representing the 2-charactor abbr. of atomic symbol. The
 4th byte is either 0 or 1, indicating whether the platform stores data in
 liitle or big endian.
 \item[\texttt{int nblocks}:] Number of data blocks in this file.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{EN\_HEADER}}
 \index{\texttt{EN\_HEADER}}
@@ -429,14 +450,14 @@ typedef struct _EN_HEADER_ {
 } EN_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
 length of the header.
 \item[\texttt{int nele}:] Number of electrons in the ion for this block.
 \item[\texttt{int nlevels}:] Number of levels in this block.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{EN\_RECORD}}
 \index{\texttt{EN\_RECORD}}
@@ -458,7 +479,7 @@ typedef struct _EN_RECORD_ {
 } EN_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{LNCOMPLEX}:] The length of array holding the complex name.
 \item[\texttt{LSNAME}:] The length of array holding the non-relativistic
 configuration name.
@@ -485,7 +506,7 @@ momentum of the coupled shell. Immediately after the parenthesis, there is a
 number indicate the $2J$ value when all preceding shells are
 coupled. Therefore, \verb|2p+2(2)2 2p-2(2)0| represents a state
 $[2p_{3/2}^{2}(J=1) 2p_{1/2}^2(J=1)]J=0$.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{TR\_HEADER}}
 \index{\texttt{TR\_HEADER}}
@@ -504,7 +525,7 @@ typedef struct _TR_HEADER_ {
 } TR_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -519,7 +540,7 @@ relativistic. 1 is non-relativistic approximation for multipole operators.
 \item[\texttt{int multipole}:] Multipole type of the transition. Its absolute
 value is the rank of the multipole, 1 for dipole, 2 for quadrupole, etc. The
 positive sign for magnetic type and negative sign for electric type.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{TR\_RECORD}}
 \index{\texttt{TR\_RECORD}}
@@ -533,7 +554,7 @@ typedef struct _TR_RECORD_ {
 } TR_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int lower}:] The lower level index of the transition.
 \item[\texttt{int upper}:] The upper level index of the transition.
 \item[\texttt{float strength}:] The weighted oscillator strength $gf$ of the
@@ -545,7 +566,7 @@ gA = 2\alpha^3 \omega^2 gf,
 where $\alpha$ is the fine structure constant, and $\omega$ is transition
 energy in Hartree atomic units. 
 
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{CE\_HEADER}}
 \index{\texttt{CE\_HEADER}}
@@ -573,7 +594,7 @@ typedef struct _CE_HEADER_ {
 } CE_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -614,7 +635,7 @@ elements is given by \texttt{n\_tegrid}.
 given by \texttt{n\_egrid}.
 \item[\texttt{double *usr\_egrid}:] The user energy grid, the number of
 elements is given by \texttt{n\_usr}.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{CE\_RECORD}}
 \index{\texttt{CE\_RECORD}}
@@ -631,7 +652,7 @@ typedef struct _CE_RECORD_ {
 } CE_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int lower}:] The lower level index.
 \item[\texttt{int upper}:] The upper level index.
 \item[\texttt{int nsub}:] Number of magnetic sublevel transitions. Because of
@@ -673,7 +694,7 @@ atomic units):
 where $g_0$ is the statistical weight of the initial state, and $k_0$ is the
 kinetic momentum of the incident electron. The number of elements in this
 array is \texttt{nsub}$\times$\texttt{n\_usr}.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{RR\_HEADER}}
 \index{\texttt{RR\_HEADER}}
@@ -700,7 +721,7 @@ typedef struct _RR_HEADER_ {
 } RR_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -733,7 +754,7 @@ elements is given by \texttt{n\_tegrid}.
 given by \texttt{n\_egrid}.
 \item[\texttt{double *usr\_egrid}:] The user energy grid, the number of
 elements is given by \texttt{n\_usr}.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{RR\_RECORD}}
 \index{\texttt{RR\_RECORD}}
@@ -749,7 +770,7 @@ typedef struct _RR_RECORD_ {
 } RR_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int b}:] The bound state index.
 \item[\texttt{int f}:] The free state index.
 \item[\texttt{int kl}:] The orbital angular momentum of the ionized shell for
@@ -768,8 +789,9 @@ y &=& \frac{1+p_2}{\sqrt{x}+p_2} \nonumber\\
 where $E_e$ is the photo-electron energy, $E_\gamma$ is the photon energy,
 $E_{th}$ is the ionization threshold, $p_0$, $p_1$, $p_2$, and $p_3$ are the
 parameters, and $l$ is the orbital angular momentum of the ionized
-shell. This only takes into account the ionization of the dominant basis in the
-wavefunction expansion.
+shell. The asymptotic behavior represented by the power law only takes into
+account the ionization of the dominant basis in the wavefunction
+expansion. The result is in atomic unit Hartree$^{-1}$.
 \item[\texttt{float *strength}:] The weighted bound-free oscillator strength in
 atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
@@ -782,7 +804,7 @@ where $\alpha$ is the fine structure constant, $g_i$ and $g_f$ are the
 statistical weight of the bound states before and after the photoionzation
 takes place respectively, $\omega$ is the photon energy, and $\varepsilon$ is
 the energy of the ejected photo-electron. The tabulated values are $d(gf)/dE$.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{AI\_HEADER}}
 \index{\texttt{AI\_HEADER}}
@@ -800,7 +822,7 @@ typedef struct _AI_HEADER_ {
 } AI_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -814,7 +836,7 @@ energy grid. The autoionzation radial integrals are calculated on this grid
 and interpolated to the actuall discrete energies.
 \item[\texttt{double *egrid}:] The energy grid. The number of elements is
 given by \texttt{n\_egrid}.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{AI\_RECORD}}
 \index{\texttt{AI\_RECORD}}
@@ -828,11 +850,11 @@ typedef struct _AI_RECORD_ {
 } AI_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int b}:] The bound state index.
 \item[\texttt{int f}:] The free state index.
 \item[\texttt{float rate}:] The autoionization rate.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{CI\_HEADER}}
 \index{\texttt{CI\_HEADER}}
@@ -858,7 +880,7 @@ typedef struct _CI_HEADER_ {
 } CI_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -895,7 +917,7 @@ elements is given by \texttt{n\_tegrid}.
 given by \texttt{n\_egrid}.
 \item[\texttt{double *usr\_egrid}:] The user energy grid, the number of
 elements is given by \texttt{n\_usr}.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{CI\_RECORD}}
 \index{\texttt{CI\_RECORD}}
@@ -911,7 +933,7 @@ typedef struct _CI_RECORD_ {
 } CI_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int b}:] The bound state index.
 \item[\texttt{int f}:] The free state index.
 \item[\texttt{int kl}:] The orbital angular momentum of the ionized shell for
@@ -937,7 +959,7 @@ where ${k_0}$ is the kinetic momentum of the incident electron, and $g_0$ is
 the statistical weight of the initial state. The missing of the factor $\pi$
 as compared to the formula for collisional excitation is due to the different
 normalization for bound and free states.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{SP\_HEADER}}
 \index{\texttt{SP\_HEADER}}
@@ -963,7 +985,7 @@ typedef struct _SP_HEADER_ {
 } SP_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -988,7 +1010,7 @@ the electron making the transition, and $n_2$ is the final principal quantum
 number. If $n_0 \ne 0$, this transition is the so called dielectronic
 recombination satellite line, which have a spectator electron at the orbital
 with principal quantum number $n_0$.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{SP\_RECORD}}
 \index{\texttt{SP\_RECORD}}
@@ -1001,7 +1023,7 @@ typedef struct _SP_RECORD_ {
 } SP_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int lower}:] For the level population table, this is level index
 within the same ion. For the line emissivity table, this is the level index for
 the lower state of the transition.
@@ -1014,7 +1036,7 @@ transition energy in eV.
 \item[\texttt{float strength}:] For the level population table, this is the
 concentration of the level. For the line emissivity, this is the line
 luminosity in photons/s. 
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{RT\_HEADER}}
 \index{\texttt{RT\_HEADER}}
@@ -1045,7 +1067,7 @@ typedef struct _RT_HEADER_ {
 } RT_HEADER;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{long position}:] The number of bytes from the beginning of the
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
@@ -1116,7 +1138,7 @@ ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
 unit of erg cm$^{-3}$. 
 \item[\texttt{float nb}:] The concentration of the superlevel block to which
 the rates are tabulated.
-\end{mydesc}
+\end{dbdesc}
 
 \subsection{\texttt{RT\_RECORD}}
 \index{\texttt{RT\_RECORD}}
@@ -1133,7 +1155,7 @@ typedef struct _RT_RECORD_ {
 } RT_RECORD;
 \end{verbatim}
 
-\begin{mydesc}
+\begin{dbdesc}
 \item[\texttt{int iblock}:] The index of the superlevel block from which the
 rates originate.
 \item[\texttt{float nb}:] The concentration of the superlevel block from which
@@ -1147,7 +1169,7 @@ rates.
 \item[\texttt{float ci}:] The collisional ionization rates. 
 \item[\texttt{char icomplex[LNCOMPLEX]}:] The configuration complex name of
 the superlevel block from which the rates originate.
-\end{mydesc}
+\end{dbdesc}
 
 \textbf{N.B.:} The last 3 records of each rate block have different
 meanings. The \texttt{iblock} index of these 3 entries are $-1$, $-2$, $-3$
@@ -1169,7 +1191,7 @@ always 0.0. \texttt{ce} is always 0.0. \texttt{rr} is the total
 photoionization rates to this superlevel block. \texttt{ai} is the part of
 total autoionization rates that originated from the lower charge state, i.e.,
 the inner-shell excitation of the lower charge state which results in the
-autoionization.
+autoionization, or excitation-autoionization.
 
 \section{ASCII Format}
 \index{ASCII Format}
@@ -1187,7 +1209,7 @@ create the binary files on a little endian machine (probably faster), then
 convert them to ASCII format on a slower big endian machine.
 
 In the verbose form, the more common units of physical quanties are
-used. Specifically, s$^{-1}$ for transition rates, 10$^-20$ cm$^2$ for cross
+used. Specifically, s$^{-1}$ for transition rates, 10$^{-20}$ cm$^2$ for cross
 sections, and eV for energies. For data files other than \texttt{DB\_EN} type,
 the energies and angular momenta of the levels involved in the processes are
 not included in the binary version. In the verbose form of corresponding ASCII
@@ -1197,11 +1219,544 @@ transition rates are tabulated. For \texttt{DB\_CE} and \texttt{DB\_CI}, cross
 sections are tabulated along with the collision strengths. For \texttt{DB\_RR},
 radiative recombination and photionization cross sections are tabulated along
 with the bound-free differential $gf$ values. For \texttt{DB\_AI}, the energy
-integrated dielectronic capture strengths (in unit of eV cm$^2$) are tabulated
-in addition to the autoionization rates.
+integrated dielectronic capture strengths (in unit of 10$^{-20}$ eV cm$^2$)
+are tabulated in addition to the autoionization rates.
+
+In the following sections, a portion of each type of database file in the
+verbose form is listed and significant fields explained. The lines start with
+a ``\verb|#|'' are the added explanation, which are not part of the output
+file. These files are generated with the scipts in the \texttt{demo/}
+directory come with FAC.
+
+\subsection{\texttt{DB\_EN}}
+\index{\texttt{DB\_EN}}
+\begin{verbatim}
+# version numbers
+FAC 0.7.3
+# binary order used in the binary file
+Endian	= 0
+# time stamp when the file was created.
+TSess	= 1020438482
+# database type
+Type	= 1
+# this file is in verbose form
+Verbose	= 1
+# atomic symbol and atomic number
+Fe Z	= 26.0
+# number of data blocks in this file
+NBlocks	= 1
+# the index and the absolute energy of the ground state
+E0	= 0, -3.12494784E+04
+
+# data block begins
+# number of electron for the states in this block
+NELE	= 10
+# number of levels in this block
+NLEV	= 37
+         Energy       P 2J 
+    0  0.00000000E+00 0  0 1*2 2*8      2p6      2p+4(0)0 
+    1  7.24353943E+02 1  4 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)4 
+    2  7.26393494E+02 1  2 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)2 
+    3  7.37238831E+02 1  0 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)0 
+    4  7.38577454E+02 1  2 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)2 
+    5  7.54684448E+02 0  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)2 
+    6  7.58348267E+02 0  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)4 
+    7  7.59979248E+02 0  6 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)6 
+    8  7.61135193E+02 0  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)2 
+    9  7.62972046E+02 0  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)4 
+   10  7.68711975E+02 0  0 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)0 
+   11  7.70705017E+02 0  2 1*2 2*7 3*1  2p5 3p1  2p-1(1)1 3p-1(1)2 
+   12  7.73933716E+02 0  2 1*2 2*7 3*1  2p5 3p1  2p-1(1)1 3p+1(3)2 
+   13  7.74402039E+02 0  4 1*2 2*7 3*1  2p5 3p1  2p-1(1)1 3p+1(3)4 
+   14  7.91043762E+02 0  0 1*2 2*7 3*1  2p5 3p1  2p-1(1)1 3p-1(1)0
+   ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_TR}}
+\index{\texttt{DB\_TR}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021577025
+Type	= 2
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 1
+
+# the data block begins
+NELE	= 10
+# number of transitions in this block
+NTRANS	= 7
+# multipole type of the transition
+Multip	= -1
+# gauge used in the calculation
+Gauge	= 2
+# mode used in the radial integral
+Mode	= 1
+#upper 2J lower 2J  Delta E    gf              transition rate
+    2	 2	    0	 0	 7.2639E+02  1.22460909E-01  9.34607847E+11
+    4	 2	    0	 0	 7.3858E+02  1.04401767E-01  8.23736009E+11
+   16	 2	    0	 0	 8.0171E+02  1.02572665E-02  9.53581158E+10
+   22	 2	    0	 0	 8.1220E+02  6.31995082E-01  6.03009109E+12
+   26	 2	    0	 0	 8.2661E+02  2.61516762E+00  2.58458989E+13
+   30	 2	    0	 0	 8.9495E+02  3.35459821E-02  3.88623761E+11
+   32	 2	    0	 0	 8.9931E+02  2.80110925E-01  3.27671218E+12
+\end{verbatim}
+
+\subsection{\texttt{DB\_CE}}
+\index{\texttt{DB\_CE}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021577097
+Type	= 3
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 1
+
+# data blocks begin
+NELE	= 10
+NTRANS	= 36
+# mode used in the radial integral
+QKMODE	= 0
+# number of parameters in the fitting formula (only if QKMODE = 2)
+NPARAMS	= 0
+# 0 for total collision strength. 1 for magnetic sublevel.
+MSUB	= 0
+# partial wave summation mode. always 0. 
+PWTYPE	= 0
+# number of points in the transition energy grid, followed by the grid
+NTEGRID	= 2
+	  7.24352072E+02
+	  9.45773957E+02
+# characteristic transition energy used in grid construction.
+TE0	=  9.44829120E+02
+# energy grid type. 
+ETYPE	= 1
+# energy grid
+NEGRID	= 6
+	  4.72414560E+01
+	  5.79761386E+02
+	  1.39812537E+03
+	  2.65576771E+03
+	  4.58848260E+03
+	  7.55863296E+03
+# user energy grid type and the user grid.
+UTYPE	= 1
+NUSR	= 6
+	  4.72414560E+01
+	  5.79761386E+02
+	  1.39812537E+03
+	  2.65576771E+03
+	  4.58848260E+03
+	  7.55863296E+03
+#lower 2J upper 2J Delta E    Bethe coeff. nsub
+    0	 0	    1	 4	 7.2435E+02	-1.0000E+00	1
+# if QKMODE = 2, the parameter line is present here.
+#user egrid  coll. str.  cross sec.
+ 4.7241E+01	 1.5347E-03	 2.3789E-01
+ 5.7976E+02	 9.5137E-04	 8.7207E-02
+ 1.3981E+03	 5.1906E-04	 2.9211E-02
+ 2.6558E+03	 2.5016E-04	 8.8294E-03
+ 4.5885E+03	 1.1322E-04	 2.5376E-03
+ 7.5586E+03	 5.1291E-05	 7.3523E-04
+    0	 0	    2	 2	 7.2639E+02	 9.1750E-03	1
+ 4.7241E+01	 1.8857E-03	 2.9153E-01
+ 5.7976E+02	 3.7280E-03	 3.4119E-01
+ 1.3981E+03	 6.3378E-03	 3.5633E-01
+ 2.6558E+03	 9.4893E-03	 3.3472E-01
+ 4.5885E+03	 1.2996E-02	 2.9116E-01
+ 7.5586E+03	 1.6729E-02	 2.3974E-01
+ ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_RR}}
+\index{\texttt{DB\_RR}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021577047
+Type	= 4
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 1
+
+# the data blocks begin
+NELE	= 3
+NTRANS	= 3
+QKMODE	= 2
+# multipole type
+MULTIP	= -1
+# number of parameters in the fitting formula
+NPARAMS	= 4
+NTEGRID	= 1
+	  2.01377924E+03
+ETYPE	= 1
+NEGRID	= 6
+	  1.00688962E+02
+	  1.23568529E+03
+	  2.97992069E+03
+	  5.66042025E+03
+	  9.77974833E+03
+	  1.61102339E+04
+UTYPE	= 1
+NUSR	= 6
+	  1.00688962E+02
+	  1.23568529E+03
+	  2.97992069E+03
+	  5.66042025E+03
+	  9.77974833E+03
+	  1.61102339E+04
+#bound 2J  free 2J  Delta E    L 
+    7	 1	    0	 0	 2.0465E+03	 0
+# the parameters in the fitting formula
+ 3.8124E-02  4.9724E+00  1.2195E+00  2.1768E+03 
+#user egrid RR cross sec. PI cross sec. gf
+ 1.0069E+02	 1.7567E-01	 1.9604E+00	 3.0537E-02
+ 1.2357E+03	 1.4375E-02	 8.4255E-01	 1.3124E-02
+ 2.9799E+03	 5.5123E-03	 3.3223E-01	 5.1751E-03
+ 5.6604E+03	 2.4847E-03	 1.2100E-01	 1.8848E-03
+ 9.7797E+03	 1.1476E-03	 4.1004E-02	 6.3872E-04
+ 1.6110E+04	 5.2175E-04	 1.3029E-02	 2.0295E-04
+    8	 1	    0	 0	 1.9975E+03	 1
+ 3.4223E-02  5.3145E+00  1.2206E+00  2.1537E+03 
+ 1.0069E+02	 1.5214E-01	 1.7781E+00	 2.7697E-02
+ 1.2357E+03	 8.4472E-03	 5.1024E-01	 7.9480E-03
+ 2.9799E+03	 2.1814E-03	 1.3407E-01	 2.0885E-03
+ 5.6604E+03	 6.5910E-04	 3.2509E-02	 5.0639E-04
+ 9.7797E+03	 2.0448E-04	 7.3672E-03	 1.1476E-04
+ 1.6110E+04	 6.2231E-05	 1.5624E-03	 2.4338E-05
+    9	 3	    0	 0	 1.9810E+03	 1
+ 6.9754E-02  5.1620E+00  1.2206E+00  2.1350E+03 
+ 1.0069E+02	 2.9691E-01	 1.7625E+00	 5.4910E-02
+ 1.2357E+03	 1.6320E-02	 4.9796E-01	 1.5513E-02
+ 2.9799E+03	 4.1721E-03	 1.2907E-01	 4.0209E-03
+ 5.6604E+03	 1.2475E-03	 3.0899E-02	 9.6262E-04
+ 9.7797E+03	 3.8274E-04	 6.9143E-03	 2.1541E-04
+ 1.6110E+04	 1.1506E-04	 1.4471E-03	 4.5081E-05
+\end{verbatim}
+
+\subsection{\texttt{DB\_AI}}
+\index{\texttt{DB\_AI}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021577153
+Type	= 5
+Verbose	= 1
+Se Z	=  34.0
+NBlocks	= 1
+
+# data blocks begin
+NELE	= 10
+# number of transitions
+NTRANS	= 92
+# channel number (no physical meaning)
+CHANNE	= 0
+# free electron energy grid
+NEGRID	= 2
+	  3.43213508E+02
+	  5.58605513E+02
+#bound 2J free 2J  Delta E     AI rate    DC strength
+    2	 4    0	 3	 3.8679E+02	 1.3705E+13	 1.0962E+01
+    2	 4    1	 1	 3.4322E+02	 1.6996E+11	 3.0642E-01
+    3	 0    0	 3	 4.0594E+02	 1.2973E+13	 1.9775E+00
+    3	 0    1	 1	 3.6236E+02	 7.9903E+11	 2.7289E-01
+    4	 4    0	 3	 4.1845E+02	 2.3652E+11	 1.7487E-01
+    4	 4    1	 1	 3.7487E+02	 2.2905E+09	 3.7807E-03
+    ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_CI}}
+\index{\texttt{DB\_CI}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021577194
+Type	= 6
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 1
+
+# data blocks begin
+NELE	= 10
+NTRANS	= 3
+QKMODE	= 5
+NPARAMS	= 4
+PWTYPE	= 0
+NTEGRID	= 2
+	  1.26072567E+03
+	  1.39546596E+03
+ETYPE	= 1
+NEGRID	= 6
+	  6.64047908E+01
+	  8.14939607E+02
+	  1.96527014E+03
+	  3.73307079E+03
+	  6.44978485E+03
+	  1.06247665E+04
+UTYPE	= 1
+NUSR	= 8
+	  5.00000000E+02
+	  9.00000000E+02
+	  1.30000000E+03
+	  1.70000000E+03
+	  2.10000000E+03
+	  4.20000000E+03
+	  6.00000000E+03
+	  8.00000000E+03
+#bound 2J  free 2J  Delta E    L
+    0	 0	    1	 3	 1.2607E+03	 1
+# parameters in the fitting formula
+ 1.2549E-01  6.7308E-01 -5.4651E-01  7.2856E-01 
+#user egrid  coll. str.  cross sec.
+ 5.0000E+02	 9.0588E-02	 1.9535E+00
+ 9.0000E+02	 1.5721E-01	 2.7605E+00
+ 1.3000E+03	 2.1672E-01	 3.2084E+00
+ 1.7000E+03	 2.6991E-01	 3.4532E+00
+ 2.1000E+03	 3.1773E-01	 3.5785E+00
+ 4.2000E+03	 5.0773E-01	 3.5050E+00
+ 6.0000E+03	 6.1976E-01	 3.2065E+00
+ 8.0000E+03	 7.1292E-01	 2.8808E+00
+    0	 0	    2	 1	 1.2737E+03	 1
+ 6.3179E-02  3.3088E-01 -2.6847E-01  3.5591E-01 
+ 5.0000E+02	 4.4336E-02	 9.4904E-01
+ 9.0000E+02	 7.7083E-02	 1.3454E+00
+ 1.3000E+03	 1.0639E-01	 1.5671E+00
+ 1.7000E+03	 1.3263E-01	 1.6894E+00
+ 2.1000E+03	 1.5624E-01	 1.7529E+00
+ 4.2000E+03	 2.5023E-01	 1.7233E+00
+ 6.0000E+03	 3.0577E-01	 1.5791E+00
+ 8.0000E+03	 3.5203E-01	 1.4205E+00
+    0	 0	    3	 1	 1.3955E+03	 0
+ 5.7526E-02  2.8628E-01 -2.4531E-01  3.1267E-01 
+ 5.0000E+02	 3.4409E-02	 6.8908E-01
+ 9.0000E+02	 6.0280E-02	 9.9604E-01
+ 1.3000E+03	 8.4082E-02	 1.1823E+00
+ 1.7000E+03	 1.0585E-01	 1.2950E+00
+ 2.1000E+03	 1.2576E-01	 1.3615E+00
+ 4.2000E+03	 2.0705E-01	 1.3946E+00
+ 6.0000E+03	 2.5609E-01	 1.3005E+00
+ 8.0000E+03	 2.9733E-01	 1.1840E+00
+\end{verbatim}
+
+\subsection{\texttt{DB\_SP}}
+\index{\texttt{DB\_SP}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021484432
+Type	= 7
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 2952
+
+# data blocks begin
+NELE	= 10
+NTRANS	= 1
+# type 0 is for level population
+TYPE	= 000000
+# block number
+IBLK	= 5
+# block complex
+ICOMP	= 1*2 2*8 
+FBLK	= 0
+FCOMP	= 
+#block level  abs. energy      population
+    0	    0	-3.12496016E+04	 9.99987960E-01
+
+NELE	= 10
+NTRANS	= 1
+TYPE	= 000000
+IBLK	= 6
+ICOMP	= 1*2 2*7 3*1 
+FBLK	= 0
+FCOMP	= 
+    1	    0	-3.05250918E+04	 5.11909866E-06
+
+NELE	= 10
+NTRANS	= 1
+TYPE	= 000000
+IBLK	= 7
+ICOMP	= 1*2 2*7 3*1 
+FBLK	= 0
+FCOMP	= 
+    2	    0	-3.05230508E+04	 6.65310797E-13
+
+NELE	= 10
+NTRANS	= 1
+TYPE	= 000000
+IBLK	= 8
+ICOMP	= 1*2 2*7 3*1 
+FBLK	= 0
+FCOMP	= 
+    3	    0	-3.05122168E+04	 6.89876970E-06
+
+ ......
+
+# this block is for line emissivity
+NELE	= 10
+NTRANS	= 113
+# transition type 16->4 transition
+TYPE	= 001604
+# initial block
+IBLK	= 54
+# initial block complex
+ICOMP	= 1*2 2*7 16*1 
+# final block
+FBLK	= 42
+# final block complex
+FCOMP	= 1*2 2*7 4*1
+#upper lower  Delta E         emissivity 
+ 1831	  158	 2.55395828E+02	 6.58072258E-06
+ 1831	  163	 2.48938431E+02	 2.54685597E-06
+ 1831	  164	 2.54269775E+02	 7.99868485E-06
+ 1831	  165	 2.53695114E+02	 6.73144177E-06
+ 1832	  157	 2.56149841E+02	 1.01010974E-05
+ 1832	  158	 2.55389191E+02	 8.33697595E-06
+ 1832	  165	 2.53688477E+02	 8.52791436E-06
+ 1832	  166	 2.54721527E+02	 2.41980142E-05
+ 1833	  160	 2.55734634E+02	 5.87857039E-06
+ 1833	  167	 2.54585327E+02	 1.21048633E-05
+ 1834	  159	 2.52442841E+02	 4.88687328E-06
+ 1834	  160	 2.55741287E+02	 1.01619125E-05
+ 1834	  167	 2.54591980E+02	 5.23122890E-06
+ ......
+\end{verbatim}
+
+\subsection{\texttt{DB\_RT}}
+\index{\texttt{DB\_RT}}
+\begin{verbatim}
+FAC 0.7.3
+Endian	= 0
+TSess	= 1021484432
+Type	= 8
+Verbose	= 1
+Fe Z	=  26.0
+NBlocks	= 87
+
+# data blocks begin
+NELE	= 9
+NTRANS	= 49
+# block index
+IBLK	= 0
+# level index within the ion
+ILEV	= 0
+ICOMP	= 1*2 2*7 
+# electron density
+EDEN	=  1.00000000E+00
+# electron energy distribution, 0 for Maxwellian.
+EDIST	= 0
+# parameters for electron energy distribution
+NPEDIS	= 3
+# temperature
+	  1.00000000E+00
+# Emin
+	  1.00000000E-20
+# Emax
+	  1.00000000E+02
+# photon energy density
+PDEN	=  0.00000000E+00
+# photon energy distribution
+PDIST	= 0
+NPPDIS	= 3
+	  2.00000000E+00
+	  1.00000000E+01
+	  1.00000000E+05
+# population of this block
+Dens	=  1.00000000E+00
+# each line is contribution to this level or block by other blocks
+         NB         TR         CE         RR         AI         CI
+   1  2.9983E-10 6.1831E-06 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1*2 2*7 
+  44  6.0874E-12 0.0000E+00 0.0000E+00 0.0000E+00 8.8866E-04 0.0000E+00 1*2 2*7 6*1 
+  45  1.0708E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.6693E-18 0.0000E+00 1*2 2*7 7*1 
+  46  1.7088E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.0329E-27 2.0448E-37 1*2 2*7 8*1 
+  47  2.5457E-11 0.0000E+00 0.0000E+00 0.0000E+00 7.2230E-34 1.9952E-31 1*2 2*7 9*1 
+  48  3.1069E-11 0.0000E+00 0.0000E+00 0.0000E+00 3.3995E-38 3.8637E-27 1*2 2*7 10*1 
+  49  1.2877E-10 0.0000E+00 0.0000E+00 0.0000E+00 4.1495E-41 2.8210E-24 1*2 2*7 11*1 
+  50  5.2642E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 8.2326E-22 1*2 2*7 12*1 
+  51  5.5315E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 9.8721E-20 1*2 2*7 13*1 
+  52  6.3140E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 4.8804E-18 1*2 2*7 14*1 
+  53  7.3613E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.2070E-16 1*2 2*7 15*1 
+  54  8.4200E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.7049E-15 1*2 2*7 16*1 
+  55  9.3432E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.5542E-14 1*2 2*7 17*1 
+  56  1.5446E-10 0.0000E+00 0.0000E+00 0.0000E+00 8.3172E+00 1.0338E-13 1*2 2*7 18*1 
+  57  1.2547E-10 0.0000E+00 0.0000E+00 0.0000E+00 1.9623E+00 5.2262E-13 1*2 2*7 19*1 
+  58  1.2279E-10 0.0000E+00 0.0000E+00 0.0000E+00 5.6143E-01 2.1193E-12 1*2 2*7 20*1 
+  ......
+  -1  0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00   8
+  -2  1.0000E+00 6.1831E-06 0.0000E+00 0.0000E+00 1.1178E+01 0.0000E+00   9
+  -3  1.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.2304E-04  10
+  ......
+\end{verbatim}
 
 \chapter{FAC Function Reference}
 \label{cha:function}
+\index{Functions}
+This chapter describes the functions available in the PFAC interface which are
+organized in the package named \mod{pfac}. Each
+python module is documented in a separate section, where the global variables,
+functions, classes are listed in alphabatic order. Most functions in the
+extension modules \mod{fac} and \mod{crm} are also available in SFAC interface
+with identical calling syntax using the two executables \mod{sfac} and
+\mod{scrm}. Their usage in SFAC interface is therefore not documented
+separately. Functions and classes of other python modules are generally not
+implemented in SFAC interface. In the documentation of each function, the
+arguments in brackets are optional, and keyword arguments are indicated by
+\var{key=arg} pair.
+
+\section{\mod{fac}--Core FAC module}
+\label{sec:fac}
+\index{\mod{fac}}
+\subsection{Variables}
+There are several global variables one may make use of.
+\begin{vardesc}{VERSION}
+This is a string representing the version of FAC. It is in the form of
+\var{major.minor.release}, where \var{major}, \var{minor}, and \var{release}
+are numbers.
+\end{vardesc}
+\begin{vardesc}{ATOMICSYMBOL}
+This is a list of strings representing the atomic symbols of all elements in
+the periodic table. The first element of this list is empty. Therefore 
+\key{ATOMICSYMBOL[i]} is for atom with nuclear charge equal to \key{i}.
+\end{vardesc}
+
+\subsection{Functions}
+The module contains the following functions.
+\begin{fundesc}{SetAtom}{asym\opt{, z\opt{, m}}}
+This function set the atomic element to \var{asym}, where \var{asym} is the
+standard elemental symbol. The nuclear charge \var{z} and atomic mass \var{m}
+of the element can be set optionally. If they are not set, the standard values
+are used.
+\end{fundesc}
+
+\section{\mod{crm}--Collisional Radiative Model}
+\label{sec:crm}
+\index{\mod{crm}}
+
+\section{\mod{const}--Physical Constants}
+\label{sec:const}
+\index{\mod{const}}
+
+\section{\mod{atom}--Systematic Atomic Calculation}
+\label{sec:atom}
+\index{\mod{atom}}
+
+\section{\mod{spm}--Spectral Modeling}
+\label{sec:spm}
+\index{\mod{spm}}
+
+\section{\mod{table}--Text Tabulation}
+\label{sec:table}
+\index{\mod{table}}
+
+\section{\mod{util}--Utility Functions}
+\label{sec:util}
+\index{\mod{util}}
+
+\section{\mod{config}--Electronic Configuration Specification}
+\label{sec:config}
+\index{\mod{config}}
 
 \bibliographystyle{plainapj}
 \bibliography{papers/facref}

@@ -1,9 +1,9 @@
-FAC 0.7.2
+FAC 0.7.3
 Endian	= 0
-TSess	= 1020173360
+TSess	= 1021577194
 Type	= 1
 Verbose	= 1
-Fe Z	= 26
+Fe Z	=  26.0
 NBlocks	= 2
 E0	= 0, -3.12493820E+04
 
