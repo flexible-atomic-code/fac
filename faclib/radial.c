@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.72 2003/03/29 23:21:15 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.73 2003/04/15 02:03:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1401,24 +1401,8 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
 
   r = 0.0;
   if (m == 1) {
-    /**********************************************************/ 
-    /* M1 needs special treatments, because the lowest order  */
-    /* non-relativistic approximation is simply the overlap   */
-    /* integral, which vanishes in most cases.                */
-    /**********************************************************/
-    if (k1 == k2) {
-      t = kappa1 + kappa2;
-      p = m - t;
-      if (p && t) {
-	r = -0.5*FINE_STRUCTURE_CONST * (p*t) / sqrt(m*(m+1));
-	r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
-      }
-    } else {
-      /* the M1 radial integral vanish in this approximation. 
-	 instead of going to higher orders, use the relativistic 
-	 version is just simpler */
-      printf("should call MultipoleRadialFR instead\n");
-    }
+    /* use the relativistic version is just simpler */
+    printf("should call MultipoleRadialFR instead\n");
   } else if (m > 1) {
     t = kappa1 + kappa2;
     p = m - t;
@@ -1464,6 +1448,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   ORBITAL *orb1, *orb2;
   double x, a, r, rp, **p1, **p2, aw2, ef;
   int jy, n, i, j, npts;
+  double rcl;
 
 #ifdef PERFORM_STATISTICS 
   clock_t start, stop;
@@ -1485,12 +1470,20 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     index[3] = k2;
     orb1 = GetOrbitalSolved(k1);
     orb2 = GetOrbitalSolved(k2);
+    kappa1 = orb1->kappa;
+    kappa2 = orb2->kappa;
+    rcl = -ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
+		     GetJFromKappa(kappa2));
   } else {
     s = 1;     
     index[2] = k2;
     index[3] = k1;
     orb1 = GetOrbitalSolved(k2);
     orb2 = GetOrbitalSolved(k1);
+    kappa1 = orb1->kappa;
+    kappa2 = orb2->kappa;
+    rcl = -ReducedCL(GetJFromKappa(kappa2), abs(2*m), 
+		     GetJFromKappa(kappa1));
   }
 
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
@@ -1531,7 +1524,8 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
       if (s == 1) rp = -rp;
       r += rp;
     } 
-    if (s == 1 && gauge == G_COULOMB) r = -r;
+    if (m < 0 && s == 1 && gauge == G_COULOMB) r = -r;
+    r *= rcl;
     return r;
   }
   
@@ -1540,8 +1534,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     *p2 = (double *) malloc(sizeof(double)*n_awgrid);
   }
   
-  kappa1 = orb1->kappa;
-  kappa2 = orb2->kappa;
   npts = MAX_POINTS-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
@@ -1554,7 +1546,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     if (m > 0) {
       t = kappa1 + kappa2;
       if (t) {
-	for (j = 0; j < npts; j++) {
+	for (j = 0; j <= npts; j++) {
 	  x = a*potential->rad[j];
 	  n = m;
 	  _yk[j] = BESLJN(jy, n, x);
@@ -1563,7 +1555,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	r *= t;
 	r *= (2*m + 1.0)/sqrt(m*(m+1.0));
 	r /= pow(a, m);
-	r *= ReducedCL(GetJFromKappa(kappa1), 2*m, GetJFromKappa(kappa2));
 	(*p1)[i] = r;
       }
     } else {
@@ -1571,7 +1562,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
       if (gauge == G_COULOMB) {
 	t = kappa1 - kappa2;
 	q = sqrt(am/(am+1.0));
-	for (j = 0; j < npts; j++) {
+	for (j = 0; j <= npts; j++) {
 	  x = a*potential->rad[j];
 	  n = am+1;
 	  _yk[j] = BESLJN(jy, n, x);
@@ -1589,8 +1580,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	  r += (am + 1.0)*im*q + am*imm/q;
 	}
 	r /= pow(a,am-1);
-	q = ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
-	r *= q;
 	(*p1)[i] = r;
       } else if (gauge == G_BABUSHKIN) {
 	t = kappa1 - kappa2;
@@ -1616,9 +1605,6 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
 	q /= pow(a, am);
 	r *= q;
 	rp *= q;
-	q = ReducedCL(GetJFromKappa(kappa1), 2*am, GetJFromKappa(kappa2));
-	r *= q;
-	rp *= q;
 	(*p1)[i] = r;
 	(*p2)[i] = rp;
       }
@@ -1641,9 +1627,9 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     if (s == 1) rp = -rp;
     r += rp;
   }
+  if (m < 0 && s == 1 && gauge == G_COULOMB) r = -r;
+  r *= rcl;
 
-  if (s == 1 && gauge == G_COULOMB) r = -r;
-  
 #ifdef PERFORM_STATISTICS 
   stop = clock();
   rad_timing.radial_1e += stop - start;

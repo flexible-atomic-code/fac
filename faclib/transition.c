@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.15 2003/01/13 02:57:43 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.16 2003/04/15 02:03:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -86,8 +86,7 @@ int OscillatorStrength(double *strength, double *energy,
   nz = AngularZMix(&ang, lower, upper, m2, m2);
   if (nz <= 0) return -1;
   for (i = 0; i < nz; i++) {
-    if (transition_option.mode == M_NR && 
-	!(m == 1 && ang[i].k0 != ang[i].k1)) {
+    if (transition_option.mode == M_NR && m != 1) {
       r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
 			    transition_option.gauge);
     } else {
@@ -209,7 +208,11 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   tr_hdr.nele = GetNumElectrons(low[0]);
   tr_hdr.multipole = m;
   tr_hdr.gauge = GetTransitionGauge();
-  tr_hdr.mode = GetTransitionMode();
+  if (m == 1) { /* always FR for M1 transitions */
+    tr_hdr.mode = M_FR;
+  } else {
+    tr_hdr.mode = GetTransitionMode();
+  }
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &tr_hdr);
 
