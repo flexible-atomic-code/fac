@@ -2,7 +2,7 @@
 #define _CFP_H_ 1
 
 /*************************************************************
-  Header for module *cfp*
+  Header for module "cfp"
 
   This module calculates the coefficients of fractional 
   parentage for relativistic subshell with j <= 9/2, by 

@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.12 2001/11/12 22:23:52 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.13 2001/11/13 22:42:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -51,7 +51,29 @@ static SYMMETRY *symmetry_list;
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqr*"; 
 
-
+/* 
+** FUNCTION:    _DistributeElectrons
+** PURPOSE:     distribute nq electrons among the specified shells
+**              to construct all possible configurations.
+** INPUT:       {CONFIG **cfg},
+**              pointer to a pointer of CONFIG, which holds the
+**              resulting configrations on output.
+**              {int ns},
+**              number of shells.
+**              {SHELL *shells}
+**              an array of shells.
+**              {int nq},
+**              number of electrons to be distributed.
+**              {int *maxq},
+**              maxq[i] is the maximum number of electrons allowed 
+**              in all the shells except the the i-th shell. 
+**              this is to determine the minimum number of electrons
+**              allowed in the i-th shell, nq-maxq[i]. 
+** RETURN:      {int},
+**              number of configurations.
+** SIDE EFFECT: 
+** NOTE:        This is a static function only used in module "config".
+*/
 static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell, 
 				int nq, int *maxq) {
   CONFIG **cfg1, **cfg2;
@@ -132,10 +154,35 @@ static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell,
   
   return ncfg;
 }
-    
-static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
+
+/* 
+** FUNCTION:    DistributeElectrons
+** PURPOSE:     Decode a single string shell, distribute electrons
+**              among all physical shells if the configurations 
+**              are not the average configurations, otherwise, the
+**              average configurations is constructed with all 
+**              shells present, and the number of electrons returned.
+** INPUT:       {CONFIG **cfg},
+**              pointer to a pointer to CONFIG, which holds the 
+**              resulting configurations or average configurations.
+**              {double *nq},
+**              pointer to double, which will hold the total number of 
+**              electrons for the average configuration. it should be 
+**              passed in as NULL if the actual configurations to be
+**              constructed. 
+**              {char *},
+**              a single string shell. 
+** RETURN:      {int},
+**              if actual configurations to be constructed (nq == NULL),
+**              return the number of configurations constructed.
+**              if average configuration is to be determined,
+**              return the number of shells in the average configuration.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
+int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
   SHELL *shell;
-  char token[64];
+  char token[128];
   int r, brkpos, quotepos, next;
   int nn, nkl, nkappa;
   int n[16];
@@ -154,11 +201,11 @@ static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
 
   next = 0;
   r = 0;
-  r = Parse(token, 64, scfg, &next, &brkpos, &quotepos);
+  r = Parse(token, 128, scfg, &next, &brkpos, &quotepos);
   if (quotepos == 0) {
     nn = StrSplit(token, ',');
-    if (nn > 64) {
-      printf("number of n's in a single shell must be <= 64\n");
+    if (nn > 16) {
+      printf("number of n's in a single shell must be <= 16\n");
       exit(1);
     }
     s = token;
@@ -173,11 +220,15 @@ static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     n[0] = atoi(token);
   }
   if (brkpos < 0) {
-    r = Parse(token, 64, scfg, &next, &brkpos, &quotepos);
+    r = Parse(token, 128, scfg, &next, &brkpos, &quotepos);
   }
   if (brkpos >= 0) {
     kl[0] = brkpos;
     if (brkpos == MAX_SPEC_SYMBOLS) {
+      if (n[nn-1] >= 64) {
+	printf("not all L-terms are allowed for n >= %d\n", n[nn-1]);
+	exit(1);
+      }
       nkl = n[nn-1];
       for (i = 0; i < nkl; i++) {
 	kl[i] = i;
@@ -201,6 +252,10 @@ static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     if (dnq == 0) dnq = 1;
   } else if (quotepos == 0) {
     nkl = StrSplit(token, ',');
+    if (nkl > 64) {
+      printf("number of L-terms must < 64\n");
+      exit(1);
+    }
     s = token;
     nkappa = 0;
     for (i = 0; i < nn; i++) {
@@ -263,8 +318,28 @@ static int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
 
   return ncfg;
 }
-       
-static int _GetConfigFromString(CONFIG **cfg, double **nq, char *scfg) {
+
+/* 
+** FUNCTION:    GetConfigOrAverageFromString
+** PURPOSE:     decode the string representation of configurations,
+**              construct all possible configurations or average 
+**              configuration.
+** INPUT:       {CONFIG **cfg}
+**              holds the resuting configurations or average configuration.
+**              {double **nq}, 
+**              return fractional occupation numbers of each shell in the
+**              average configuration, if it is not NULL on input. 
+**              {char *scfg},
+**              a string representation of configurations.
+** RETURN:      {int},
+**              if nq == NULL, return the number of configurations 
+**              constructed.
+**              if (nq != NULL, return the number of shells in the 
+**              average configuration.
+** SIDE EFFECT: 
+** NOTE:        
+*/       
+int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   CONFIG **dcfg, **p1;
   double *dnq, *p2;
   char *s;
@@ -359,16 +434,42 @@ static int _GetConfigFromString(CONFIG **cfg, double **nq, char *scfg) {
   return ncfg;
 }
 
+/* 
+** FUNCTION:    GetConfigFromString
+** PURPOSE:     construct all possible cofigurations from string.
+** INPUT:       {CONFIG **cfg},
+**              holds the resulting configurations.
+**              {char *scfg},
+**              string representation of the configuraitons.
+** RETURN:      {int},
+**              number of the resulting configurations.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetConfigFromString(CONFIG **cfg, char *scfg) {
-  return _GetConfigFromString(cfg, NULL, scfg);
+  return GetConfigOrAverageFromString(cfg, NULL, scfg);
 }
 
+/* 
+** FUNCTION:    GetAverageConfigFromString
+** PURPOSE:     construct the average configuration from a string.
+** INPUT:       {int **n, **kappa, double **nq},
+**              a list of principal quantum numbers, angular 
+**              quantum numbers, and the fractional occupation
+**              numbers of the resulting average configuration.
+**              {char *scfg},
+**              string representation of the average configuration.
+** RETURN:      {int},
+**              number shells in the average configuration.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetAverageConfigFromString(int **n, int **kappa, 
 			       double **nq, char *scfg) {
   CONFIG *cfg;
   int i, ns;
 
-  ns = _GetConfigFromString(&cfg, nq, scfg);
+  ns = GetConfigOrAverageFromString(&cfg, nq, scfg);
   if (ns <= 0) return ns;
 
   *n = (int *) malloc(sizeof(int)*ns);
@@ -385,6 +486,26 @@ int GetAverageConfigFromString(int **n, int **kappa,
   return ns;
 }
 
+/* 
+** FUNCTION:    GetJLFromSymbol
+** PURPOSE:     decode the spectroscopic symbol for a shell
+**              and retrieve the j and L values.
+** INPUT:       {char *s},
+**              the spectroscopic symbol.
+**              {int *j},
+**              holds the total angular momentum of the shell,
+**              either +1 or -1, indicates whether it's *kl+1 or
+**              *kl-1.
+**              {int *kl},
+**              holds the orbital angular momentum of the shell.
+** RETURN:      {int},
+**               0: success.
+**              -1: the symobel unrecoginized.
+** SIDE EFFECT: 
+** NOTE:        if the "+/-" sign is not present in the symbol, 
+**              the j-value returned is 0, which indicates either 
+**              value can be taken.
+*/
 int GetJLFromSymbol(char *s, int *j, int *kl) {
   int i;
   char s0[5], *p;
@@ -412,11 +533,26 @@ int GetJLFromSymbol(char *s, int *j, int *kl) {
 	  return 0;
 	}
       }
+      return -1;
     }
   }
   return 0;
 }
 
+/* 
+** FUNCTION:    SpecSymbol
+** PURPOSE:     construct the spectroscopic symbol for the 
+**              non-relativistic shell.
+** INPUT:       {char *s},
+**              string holding the result.
+**              {int kl},
+**              orbital angular momentum of the shell.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        if kl >= MAX_SPEC_SYMBOLS, then the symbol is 
+**              returned as "[kl]".
+*/
 int SpecSymbol(char *s, int kl) {
   if (kl < MAX_SPEC_SYMBOLS) {
     s[0] = spec_symbols[kl];
@@ -427,7 +563,17 @@ int SpecSymbol(char *s, int kl) {
   return 0;
 }
 
-/** This function recursively construct all possible states for a Config. **/
+/* 
+** FUNCTION:    Couple
+** PURPOSE:     recursively construct all possible states for a Config.
+** INPUT:       {CONFIG *cfg},
+**              pointer to the config. to be coupled.
+** RETURN:      {int},
+**               0: success.
+**              <0: error.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int Couple(CONFIG *cfg) {
   CONFIG outmost, inner;
   int errcode;
@@ -480,12 +626,22 @@ int Couple(CONFIG *cfg) {
   return errcode;
 }
 
-
-/**************************************************************************
-  This function constructs all possible states by coupling the outmost shell
-  to the inner shells. both outmost shell and inner shells must have been
-  coupled.
-***************************************************************************/
+/* 
+** FUNCTION:    CoupleOutmost
+** PURPOSE:     constructs all possible states by coupling 
+**              the outmost shell to the inner shells.
+** INPUT:       {CONFIG *cfg},
+**              pointer to the resulting configuaration.
+**              {CONFIG *outmost, *inner},
+**              pointer to the configurations of the outmost shell
+**              and the inner shells.
+** RETURN:      {int},
+**               0: success.
+**              -1: error.
+** SIDE EFFECT: 
+** NOTE:        both outmost shell and inner shells must 
+**              have been coupled.
+*/
 int CoupleOutmost(CONFIG *cfg, CONFIG *outmost, CONFIG *inner) {
   int i, j, k;
   int bytes_csf, bytes_csf_inner, bytes_csf_outmost;
@@ -560,12 +716,20 @@ int CoupleOutmost(CONFIG *cfg, CONFIG *outmost, CONFIG *inner) {
   return -1;
 }
 
-
-/**************************************************************************
-  GetSingleShell construct all possible states for a single shell.
-  for j > 9/2, no more than 2 electrons are allowed. The data were taken
-  from "Nuclear Shell Theory" by AMOS de-SHALIT and IGAL TALMI.
-***************************************************************************/
+/* 
+** FUNCTION:    GetSingleShell
+** PURPOSE:     construct all possible states for a single shell.
+** INPUT:       {CONFIG *cfg},
+**              pointer to the resulting configuration for the 
+**              single shell.
+** RETURN:      {int},
+**               0: success.
+**              -1: error.
+** SIDE EFFECT: 
+** NOTE:        for j > 9/2, no more than 2 electrons are allowed. 
+**              The data were taken from "Nuclear Shell Theory" by 
+**              AMOS de-SHALIT and IGAL TALMI.
+*/
 int GetSingleShell(CONFIG *cfg) {
   int j2, max_q;
   int occupation;
@@ -745,7 +909,14 @@ int GetSingleShell(CONFIG *cfg) {
   return -1;
 }
 
-
+/* 
+** FUNCTION:    PackShell, UnpackShell
+** PURPOSE:     pack and unpack the fields of SHELL.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void UnpackShell(SHELL *s, int *n, int *kl, int *j, int *nq) {
   *n = s->n;
   *nq = s->nq;
@@ -759,6 +930,14 @@ void PackShell(SHELL *s, int n, int kl, int j, int nq){
   s->kappa = (kl - j)*(j + 1)/2;
 }
 
+/* 
+** FUNCTION:    GetNq, GetJ, GetL
+** PURPOSE:     retrieve nq, j, and L of a shell.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetNq(SHELL *s){
   return s->nq;
 }
@@ -773,6 +952,14 @@ int GetL(SHELL *s){
   return (s->kappa < 0)? (j - 1):(j + 1);
 } 
 
+/* 
+** FUNCTION:    ShellClosed
+** PURPOSE:     determine if the shell is a closed one.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int ShellClosed(SHELL *s) {
   int j;
   j = GetJ(s);
@@ -780,6 +967,15 @@ int ShellClosed(SHELL *s) {
   return 1;
 }
 
+/* 
+** FUNCTION:    GetLFromKappa, GetJFromKappa, 
+**              GetKappaFromJL, GetJLFromKappa
+** PURPOSE:     convert between kappa and JL values.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetLFromKappa(int kappa) {
   int j;
   j = 2*abs(kappa) - 1;
@@ -800,6 +996,14 @@ void GetJLFromKappa(int kappa, int *j, int *kl) {
   *kl = (kappa < 0)? (*j - 1):(*j + 1);
 }
 
+/* 
+** FUNCTION:    PackShellState
+** PURPOSE:     pack fields of SHELL_STATE to the structure.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr){
   s->totalJ = J;
   s->shellJ = j;
@@ -807,6 +1011,16 @@ void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr){
   s->Nr = Nr;
 }
 
+/* 
+** FUNCTION:    GroupIndex
+** PURPOSE:     find the index of the group by its name.
+** INPUT:       {char *name},
+**              the group name.
+** RETURN:      {int},
+**              the group index.
+** SIDE EFFECT: if the group does not exist, a new one is created.
+** NOTE:        
+*/
 int GroupIndex(char *name) {
   int i;
 
@@ -818,6 +1032,17 @@ int GroupIndex(char *name) {
   return i;
 }
 
+/* 
+** FUNCTION:    GroupExists
+** PURPOSE:     determine if a group exists.
+** INPUT:       {char *name},
+**              the group name.
+** RETURN:      {int},
+**              >=0: the group index, if it exists.
+**               <0: the group does not exist.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GroupExists(char *name) {
   int i;
 
@@ -828,6 +1053,16 @@ int GroupExists(char *name) {
   return i;
 }
 
+/* 
+** FUNCTION:    AddGroup
+** PURPOSE:     add a group to the group array.
+** INPUT:       {char *name},
+**              the group name.
+** RETURN:      {int},
+**              the index of the added group
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int AddGroup(char *name) {
   if (name == NULL) return -1;
   if (n_groups == MAX_GROUPS) {
@@ -839,11 +1074,30 @@ int AddGroup(char *name) {
   return n_groups-1;
 }
 
+/* 
+** FUNCTION:    GetGroup
+** PURPOSE:     retrieve the pointer to the group by its index.
+** INPUT:       {int k},
+**              the index of the group.
+** RETURN:      {CONFIG_GROUP *},
+**              the pointer to the group.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 CONFIG_GROUP *GetGroup(int k) {
   if (k < 0 || k >= n_groups) return NULL;
   return cfg_groups+k;
 }
 
+/* 
+** FUNCTION:    GetNewGroup
+** PURPOSE:     add a new group and return its pointer.
+** INPUT:       
+** RETURN:      {CONFIG_GROUP *},
+**              pointer to the added group.
+** SIDE EFFECT: 
+** NOTE:        the name of the group is initialized as '_all_'.
+*/
 CONFIG_GROUP *GetNewGroup() {
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
@@ -853,10 +1107,29 @@ CONFIG_GROUP *GetNewGroup() {
   return cfg_groups+n_groups-1;
 }
 
+/* 
+** FUNCTION:    GetNumGroups
+** PURPOSE:     retrieve the number of groups in the array.
+** INPUT:       
+** RETURN:      {int},
+**              the number of groups.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetNumGroups() {
   return n_groups;
 }
 
+/* 
+** FUNCTION:    GetConfig
+** PURPOSE:     return a pointer to CONFIG, which a state belongs to.
+** INPUT:       {STATE *s},
+**              pointer to a state.
+** RETURN:      {CONFIG *},
+**              the configuration the state belongs to.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 CONFIG *GetConfig(STATE *s) {
   CONFIG *c;
   int i, j;
@@ -867,6 +1140,20 @@ CONFIG *GetConfig(STATE *s) {
   return c;
 }
 
+/* 
+** FUNCTION:    AddConfigToList
+** PURPOSE:     add a configuration to the specified group,
+**              and add all states to the symmetry list.
+** INPUT:       {int k},
+**              the group index where the config is add to.
+**              {CONFIG *cfg},
+**              pointer to CONFIG to be added.
+** RETURN:      {int},
+**               0: success.
+**              -1: error.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;
 
@@ -887,6 +1174,20 @@ int AddConfigToList(int k, CONFIG *cfg) {
   return 0;
 }
 
+/* 
+** FUNCTION:    AddStateToSymmetry
+** PURPOSE:     add a state to the symmetry list.
+** INPUT:       {int kg, kc, kstate},
+**              the group index, configuration index, and state index
+**              of the state.
+**              {int parity, j},
+**              parity and total angular momentum of the state.
+** RETURN:      {int},
+**               0: success.
+**              -1: error.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
   int k;
   STATE s;
@@ -907,6 +1208,18 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
   return 0;
 }
 
+/* 
+** FUNCTION:    AddConfigToSymmetry
+** PURPOSE:     add all states of a configuration to the symmetry list.
+** INPUT:       {int kg, kc},
+**              the group index and configuration index of the config.
+**              a pointer of the configuration to be added.
+** RETURN:      {int},
+**               0: success.
+**              -1: error.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
   int parity;
   int i, j, k;
@@ -936,16 +1249,71 @@ int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
   return 0;
 }
 
+/* 
+** FUNCTION:    DecodePJ
+** PURPOSE:     get the parity and J value from the symmetry index.
+** INPUT:       {int i},
+**              the symmetry index.
+**              {int *p, int *j},
+**              pointer holding the parity and J values.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        if p or j is not required, pass in a NULL pointer.
+*/
 void DecodePJ(int i, int *p, int *j) {
   if (p) *p = IsOdd(i);
   if (j) *j = i/2;
 }
 
+/* 
+** FUNCTION:    GetSymmetry
+** PURPOSE:     return a pointer to the symmetry by its index.
+** INPUT:       {int k},
+**              the symmetry index.
+** RETURN:      {SYMMETRY *},
+**              pointer to the returned symmetry.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 SYMMETRY *GetSymmetry(int k) {
   if (k < 0 || k >= MAX_SYMMETRIES) return NULL;
   return symmetry_list+k;
 }
 
+/* 
+** FUNCTION:    GetAverageConfig
+** PURPOSE:     determine the average configuration based on given
+**              groups, the weight given to each group, and possible
+**              screening orbitals.
+** INPUT:       {int ng},
+**              number of groups which determines the average config.
+**              {int *kg},
+**              ng elements array of groups indexes.
+**              {double *weight},
+**              weight given for each group.
+**              {int n_screen},
+**              number of screening orbitals.
+**              {int *screened_n},
+**              an array of principal quantum numbers for the 
+**              screening orbitals.
+**              {int screened_charge},
+**              total charge to be screened by the screening orbitals.
+**              {int screened_kl},
+**              the orbital angular momentum used for the screening orbital.
+**              -1: use the kl = 0 orbital.
+**               0: use the kl = n/2 orbital.
+**              +1: use the kl = n-1 orbital.
+**              {AVERAGE_CONFIG *acfg},
+**              pointer holding the resulting average configuration.
+** RETURN:      {int},
+**              >=0: success, the number of shells in the average config.
+**               -1: error.
+** SIDE EFFECT: 
+** NOTE:        there is a limit the highest n the shells in the average
+**              configuration can take. it is determined by the macro M.
+**              with M = 2500, the limit is about 70, which should be 
+**              more than enough.
+*/
 int GetAverageConfig(int ng, int *kg, double *weight,
 		     int n_screen, int *screened_n, double screened_charge,
 		     int screened_kl, AVERAGE_CONFIG *acfg) {
@@ -1100,6 +1468,19 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 #undef M
 }
 
+/* 
+** FUNCTION:    InGroups
+** PURPOSE:     determing if a group is within a list of groups.
+** INPUT:       {int kg},
+**              the index of the group to be tested.
+**              {int ng, *kgroup}
+**              the number and index of the groups in the list.
+** RETURN:      {int},
+**              0: group kg is not in the list.
+**              1: group kg is in the list.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int InGroups(int kg, int ng, int *kgroup) {
   int i;
   if (ng == 0) {
@@ -1111,6 +1492,18 @@ int InGroups(int kg, int ng, int *kgroup) {
   return 0;
 }
 
+/* 
+** FUNCTION:    CompareShell
+** PURPOSE:     determine which of the two shells is the inner one.
+** INPUT:       {SHELL *s1, *s2},
+**              two shells in comparison.
+** RETURN:      {int},
+**              -1: s1 is inside s2.
+**               0: s1 and s2 are the same.
+**              +1: s1 is outside s2.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int CompareShell(SHELL *s1, SHELL *s2) {
   int ak1, ak2;
   if (s1->n > s2->n) return 1;
@@ -1130,7 +1523,14 @@ int CompareShell(SHELL *s1, SHELL *s2) {
   }
 }
 
-
+/* 
+** FUNCTION:    InitConfig
+** PURPOSE:     initialize the module "config".
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int InitConfig() {
   int i;
 

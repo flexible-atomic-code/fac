@@ -272,7 +272,12 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
-
+int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
+int          GetConfigOrAverageFromString(CONFIG **cfg, 
+					  double **nq, char *scfg);
+int          GetConfigFromString(CONFIG **cfg, char *scfg);
+int          GetAverageConfigFromString(int **n, int **kappa, 
+					double **nq, char *scfg);
 int          Couple(CONFIG *cfg);
 int          CoupleOutmost(CONFIG *cfg, CONFIG *outmost, CONFIG *inner);
 int          GetSingleShell(CONFIG *cfg);
@@ -289,9 +294,6 @@ int          GetKappaFromJL(int j, int kl);
 int          CompareShell(SHELL *s1, SHELL *s2);
 int          ShellClosed(SHELL *s);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
-int          GetConfigFromString(CONFIG **cfg, char *scfg);
-int          GetAverageConfigFromSTring(int **n, int **kappa, 
-					double **nq, char *scfg);
 int          GetAverageConfig(int ng, int *kg, double *weight,
 			      int n_screen, int *screened_n, 
 			      double screened_charge,
