@@ -1,6 +1,6 @@
 #include "rates.h"
 
-static char *rcsid="$Id: rates.c,v 1.5 2002/01/20 06:02:56 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.6 2002/01/21 18:33:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -301,7 +301,7 @@ double CIRate1E(double e, double eth, int np, int ns, void *p) {
     b = dp[1]*log((1.0 + dp[2])/(c2 + dp[2]));
     f += dp[0]*(1.0 - exp(a+b));
     f += dp[3]*(1.0 - 1.0/x - logx/(1.0+x));
-    p += np;
+    dp += np;
   }
 
   c = AREA_AU20*HARTREE_EV*f/(2.0*(e+eth));
@@ -354,7 +354,7 @@ double RRRate1E(double e, double eth, int np, int ns, void *p) {
     c = dp[1]*log(b) + a*logx;
     c = dp[0]*exp(c);
     f += c;
-    p += np;
+    dp += np;
   }
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;
   a = FINE_STRUCTURE_CONST*(e+eth);
@@ -386,7 +386,7 @@ double PIRate1E(double e, double eth, int np, int ns, void *p) {
     c = dp[1]*log(b) + a*logx;
     c = dp[0]*exp(c);
     f += c;
-    p += np;
+    dp += np;
   }
   
   c = 2.0*PI*FINE_STRUCTURE_CONST*f*AREA_AU20;

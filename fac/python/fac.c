@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.16 2002/01/18 15:26:15 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.17 2002/01/21 18:33:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1215,9 +1215,8 @@ static PyObject *PSpline(PyObject *self, PyObject *args) {
   int n, i;
 
   if (sfac_file) {
-    SFACStatement("Spline", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
+    printf("SFAC does not support Spline\n");
+    return NULL;
   }
 
   dy1 = 1E30;
@@ -1255,9 +1254,8 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
   int n, i;  
 
   if (sfac_file) {
-    SFACStatement("Splint", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
+    printf("SFAC does not support Splint\n");
+    return NULL;
   }
 
   if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
@@ -1289,12 +1287,6 @@ static PyObject *PTestSpline(PyObject *self, PyObject *args) {
   int i, j;
   double f, ff, x1x2, xx1, xx2, x1[M], x2[N], dy[M][N], dy2[M][N];
   double *y[M], *y2[M];
-
-  if (sfac_file) {
-    SFACStatement("TestSpline", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
 
   for (i = 0; i < M; i++) {
     x1[i] = 0.2*i;

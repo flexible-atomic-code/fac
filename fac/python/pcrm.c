@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.2 2002/01/17 02:57:12 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.3 2002/01/21 18:33:50 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -8,6 +8,7 @@ USE (rcsid);
 #include <stdio.h>
 #include <string.h>
 
+#include "interpolation.h"
 #include "crm.h"
 
 static PyObject *ErrorObject;
@@ -490,14 +491,17 @@ static PyObject *PPrintTable(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PReinitCRM(PyObject *self, PyObject *args) { 
-    
+  int m;
+
   if (scrm_file) {
     SCRMStatement("ReinitCRM", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
-  ReinitCRM();
+  m = 0;
+  if (!PyArg_ParseTuple(args, "|i", &m)) return NULL;
+  ReinitCRM(m);
  
   Py_INCREF(Py_None);
   return Py_None;
@@ -520,6 +524,95 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
  
+static PyObject *PSetAbund(PyObject *self, PyObject *args) { 
+  int nele;
+  double a;
+    
+  if (scrm_file) {
+    SCRMStatement("SetAbund", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "id", &nele, &a)) return NULL;
+  SetAbund(nele, a);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSpline(PyObject *self, PyObject *args) {
+  PyObject *px, *py, *py2;
+  double *x, *y, *y2, dy1, dy2;
+  int n, i;
+
+  if (scrm_file) {
+    printf("SCRM does not support Spline\n");
+    return NULL;
+  }
+
+  dy1 = 1E30;
+  dy2 = 1E30;
+  if (!PyArg_ParseTuple(args, "OO|dd", &px, &py, &dy1, &dy2)) return NULL;
+  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
+  n = PyList_Size(px);
+  if (PyList_Size(py) != n) return NULL;
+  if (n == 0) return NULL;
+
+  x = malloc(sizeof(double)*n);
+  y = malloc(sizeof(double)*n);
+  y2 = malloc(sizeof(double)*n);
+  
+  for (i = 0; i < n; i++) {
+    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
+    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
+  }
+
+  spline(x, y, n, dy1, dy2, y2);
+  py2 = Py_BuildValue("[]");
+  for (i = 0; i < n; i++) {
+    PyList_Append(py2, Py_BuildValue("d", y2[i]));
+  }
+  free(x);
+  free(y);
+  free(y2);
+  
+  return py2;
+}
+
+static PyObject *PSplint(PyObject *self, PyObject *args) {  
+  PyObject *px, *py, *py2;
+  double *x, *y, *y2, x0, y0;
+  int n, i;  
+
+  if (scrm_file) {
+    printf("SCRM does not support Splint\n");
+    return NULL;
+  }
+
+  if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
+  if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
+  n = PyList_Size(px);
+  if (PyList_Size(py) != n) return NULL;
+  if (PyList_Size(py2) != n) return NULL;
+  x = malloc(sizeof(double)*n);
+  y = malloc(sizeof(double)*n);
+  y2 = malloc(sizeof(double)*n);  
+  for (i = 0; i < n; i++) {
+    x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
+    y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
+    y2[i] = PyFloat_AsDouble(PyList_GetItem(py2, i));
+  }
+
+  splint(x, y, y2, n, x0, &y0);
+
+  free(x);
+  free(y);
+  free(y2);
+  
+  return Py_BuildValue("d", y0);
+}  
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
@@ -539,6 +632,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
   {"SetAIRates", PSetAIRates, METH_VARARGS},
+  {"SetAbund", PSetAbund, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
@@ -547,6 +641,8 @@ static struct PyMethodDef crm_methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
+  {"Spline", PSpline, METH_VARARGS},
+  {"Splint", PSplint, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
