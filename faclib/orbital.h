@@ -32,7 +32,7 @@ typedef struct _ORBITAL_ {
   int kappa;
   double energy;
   double qr_norm;
-  double phase;
+  double *phase;
   double *wfun;
   int ilast;
 } ORBITAL;

@@ -753,14 +753,14 @@ int CERadialQkMSub(double *rq, int ie, double te, int k0, int k1,
 	  cp0 = OrbitalIndex(0, kmp0_m, e0); 
 	  pha0 = GetPhaseShift(c0, 0); 
 	  phap0 = GetPhaseShift(cp0, 0); 
-	  cos_p[ite] = phap0-pha0; 
+	  cos_p[ite] = cos(pha0-phap0); 
 	} 
 	if (n_tegrid == 1) r = cos_p[ite];  
 	else { 
 	  spline(tegrid, cos_p, n_tegrid, 1E30, 1E30, y2); 
 	  splint(tegrid, cos_p, y2, n_tegrid, te, &r); 
 	} 
-	s *= cos(r); 
+	s *= r; 
 	if (IsOdd(dkl)) s = -s;         
       } 
       

@@ -470,13 +470,13 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 
 double GetPhaseShift(int k, int mode) {
   ORBITAL *orb;
-  double phase, r, y, z, ke, e, a;
+  double phase1, phase2, r, y, z, ke, e, a, b1, b2;
   int i;
 
   orb = GetOrbital(k);
   if (orb->n > 0) return 0.0;
 
-  if (orb->phase >= 0.0) return orb->phase;
+  if (orb->phase) return *(orb->phase);
 
   z = GetResidualZ();
   e = orb->energy;
@@ -486,19 +486,32 @@ double GetPhaseShift(int k, int mode) {
 
   i = MAX_POINTS - 1;
   
-  phase = orb->wfun[i];
-  r = potential->rad[i];
-  
+  phase1 = orb->wfun[i];
+  r = potential->rad[i];  
   a = ke * r;
-  
-  phase -= a + y*log(2.0*a);
-  
-  a = phase/TWO_PI;
-  r = floor(a);
-  phase = (a-r)*TWO_PI;
-  orb->phase = phase;
+  b1 = a + y*log(2.0*a);
+  b1 = 1.0/b1;
 
-  return phase;  
+  i = i - 4;
+  phase2 = orb->wfun[i];
+  r = potential->rad[i];
+  a = ke * r;
+  b2 = a + y*log(2.0*a);
+  b2 = 1.0/b2;
+
+  phase1 = (phase1*b1 - phase2*b2)/(b1 - b2);
+
+  a = orb->kappa;
+  a = a * (a + 1.0) - FINE_STRUCTURE_CONST2*z*z;
+  a = 0.5 * (sqrt(1.0 + 4.0*a) - 1.0);
+  a = a - 0.5*GetLFromKappa(orb->kappa);
+  a *= 0.5*PI;
+  
+  phase1 += a;
+  orb->phase = malloc(sizeof(double));
+  *(orb->phase) = phase1;
+
+  return phase1;  
 }
 
 int GetNumBounds() {

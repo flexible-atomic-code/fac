@@ -24,6 +24,7 @@ static double _ONC[9][9] = {
    17568./945, -7632./945, 3680./945, 0}
 };
 
+/* the following arrays provide storage space in the calculation */
 static double _veff[MAX_POINTS];
 static double _A[MAX_POINTS];
 static double _B[MAX_POINTS];
@@ -460,12 +461,11 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
   phase0 = atan2(si, cs);
   if (phase0 < 0) phase0 += TWO_PI;
-
   if (IsOdd(nodes)) {
     phase0 = (phase0 < PI)?(phase0 + PI):(phase0-PI);
     dfact = -dfact;
   }
-  
+
   p[i2m] = pm;
   for (i = 0; i < i2; i++) {
     p[i] *= dfact;
@@ -475,7 +475,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot, double tol) {
 
   orb->ilast = i2m;
   orb->wfun = p;
-  orb->phase = -1.0;
+  orb->phase = NULL;
 
   orb->qr_norm = 1.0;
   if (pot->flag < 0) {
