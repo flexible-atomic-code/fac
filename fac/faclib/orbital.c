@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.22 2002/01/14 23:19:43 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.23 2002/01/14 23:54:51 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -32,9 +32,9 @@ static double _ONC[9][9] = {
 
 /* the following arrays provide storage space in the calculation */
 static double _veff[MAX_POINTS];
-static double _A[MAX_POINTS];
-static double _B[MAX_POINTS];
-static double _V[MAX_POINTS];
+static double _ACOEF[MAX_POINTS];
+static double _BCOEF[MAX_POINTS];
+static double _VCOEF[MAX_POINTS];
 static double _dwork[MAX_POINTS];
 static double _dwork1[MAX_POINTS];
 static double _dwork2[MAX_POINTS];
@@ -202,8 +202,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
 	  + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
     ierr = _Inward(p, e, pot, i2);
     if (ierr) break;
-    p1 = (p[i2]*_B[i2] - p[i2p]*_A[i2p])/_A[i2m];
-    p2 = (p[i2m]*_B[i2m] - p[i2]*_A[i2])/_A[i2m2];
+    p1 = (p[i2]*_BCOEF[i2] - p[i2p]*_ACOEF[i2p])/_ACOEF[i2m];
+    p2 = (p[i2m]*_BCOEF[i2m] - p[i2]*_ACOEF[i2])/_ACOEF[i2m2];
     qi = (6.0*p2 - 60.0*p1 - 40.0*p[i2] + 120.0*p[i2p]
 	  - 30.0*p[i2p2] + 4.0*p[i2p2+1])/120.0;
 
@@ -790,14 +790,14 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
     z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
     x += z*y;    
     x *= y / 12.0;
-    _A[i] = 1.0 - x;
-    _B[i] = 2.0 + 10.0*x;
+    _ACOEF[i] = 1.0 - x;
+    _BCOEF[i] = 2.0 + 10.0*x;
   }
 
-  _V[0] = 0.0;
+  _VCOEF[0] = 0.0;
   for (i = 1; i < i1; i++) {
-    a = _B[i] - _A[i-1]*_V[i-1];
-    _V[i] = _A[i+1] / a;
+    a = _BCOEF[i] - _ACOEF[i-1]*_VCOEF[i-1];
+    _VCOEF[i] = _ACOEF[i+1] / a;
   }
 
   p[0] = 0.0;
@@ -806,7 +806,7 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
   p0 = p[i1];
 
   for (i = i1-1; i > 0; i--) {
-    p[i] = _V[i]*p[i+1];
+    p[i] = _VCOEF[i]*p[i+1];
     a = fabs(p[i]);
     if (e >= _veff[i] && a > wave_zero) {
       if ((p0 > 0 && p[i] < 0) ||
@@ -819,7 +819,7 @@ int _Outward(double *p, double e, POTENTIAL *pot, int i1, int *k2) {
   }
   p0 = p[i1];
   for (i = i1+1; i <= i2; i++) {
-    p[i] = (_B[i-1]*p[i-1] - _A[i-2]*p[i-2])/_A[i];
+    p[i] = (_BCOEF[i-1]*p[i-1] - _ACOEF[i-2]*p[i-2])/_ACOEF[i];
     if (e < 0.0 && e >= _veff[i] && fabs(p[i]) > wave_zero) {
       if ((p0 > 0 && p[i] < 0) ||
 	  (p0 < 0 && p[i] > 0)) {
@@ -866,21 +866,21 @@ int _Inward(double *p, double e, POTENTIAL *pot, int i2) {
     z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
     x += z*y;    
     x *= y / 12.0;
-    _A[i] = 1.0 - x;
-    _B[i] = 2.0 + 10.0*x;
+    _ACOEF[i] = 1.0 - x;
+    _BCOEF[i] = 2.0 + 10.0*x;
   }
   
   i = MAX_POINTS - 1;
   p[i] = 0.0;
-  _V[i] = 0.0;
+  _VCOEF[i] = 0.0;
   i--;
   for (; i > i2; i--) {
-    a = _B[i] - _A[i+1]*_V[i+1];
-    _V[i] = _A[i-1] / a;
+    a = _BCOEF[i] - _ACOEF[i+1]*_VCOEF[i+1];
+    _VCOEF[i] = _ACOEF[i-1] / a;
   }
   
   for (i = i2+1; i < MAX_POINTS-1; i++) {
-    p[i] = _V[i]*p[i-1];
+    p[i] = _VCOEF[i]*p[i-1];
   }
   
   return 0;
