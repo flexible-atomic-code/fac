@@ -60,6 +60,7 @@ void    SetHydrogenicNL(int n, int kl, int nm, int klm);
 void    GetHydrogenicNL(int *n, int *kl, int *nm, int *klm);
 double  HydrogenicDipole(double z, int n0, int kl0, 
 			int n1, int kl1);
+double HydrogenicExpectation(double z, int m, int n, int kl);
 double  TRRateHydrogenic(double z, int n0, int kl0,
 			int n1, int kl1, int s);
 double  CoulombPhaseShift(double z, double e, int kappa);

@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.33 2002/09/04 13:27:14 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.34 2002/09/04 20:16:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -149,10 +149,6 @@ int ConstructHamilton(int isym, int k, int *kg, int kp, int *kgp) {
       }
     }
   }
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-  fprintf(debug_log, "%d %d %X \n", h->dim, n_hamiltons-1, h->pj);
-#endif /* (FAC_DEBUG >= DEBUG_STRUCTURE) */
 
   for (j = 0; j < h->dim; j++) {
     t = j*(j+1)/2;
@@ -401,19 +397,9 @@ double HamiltonElement(int isym, int isi, int isj) {
   if (s[0].index >= 0 && s[3].index >= 0) {
     r = Hamilton2E(n_shells, sbra, sket, s);
     x += r;
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-    debug_integral(s, 2, r);
-#endif
-
   } else if( s[0].index >= 0) {
     r = Hamilton1E(n_shells, sbra, sket, s);
     x += r;
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-    debug_integral(s, 1, r);
-#endif
-
     for (i = 0; i < n_shells; i++) {
       s[2].index = n_shells - i - 1;
       s[3].index = s[2].index;
@@ -524,16 +510,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   k2 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
   if (fabs(z0) < EPS10) return 0.0;
   ResidualPotential(&r0, k1, k2);
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-  fprintf(debug_log, "Radial1E: %lf\n", r0);
-#endif
-
   if (k1 == k2) r0 += (GetOrbital(k1))->energy;
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-  fprintf(debug_log, "Angular: %lf, Radial: %lf\n", z0, r0);
-#endif
 
   return r0 * z0 * sqrt(s[0].j + 1.0);
 }
@@ -574,10 +551,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     
   nk = AngularZxZ0(&ang, &kk, 0, n_shells, sbra, sket, s);
   for (i = 0; i < nk; i++) {
-
-#if (FAC_DEBUG >= DEBUG_STRUCTURE)
-    fprintf(debug_log, "rank: %d, Angular: %lf \n", kk[i], ang[i]);
-#endif
     if (fabs(ang[i]) > EPS10) {
       SlaterTotal(&sd, &se, js, ks, kk[i], 0);
       x += ang[i] * (sd+se);
@@ -1266,12 +1239,11 @@ int GetBasisTable(char *fn) {
     DecodePJ(i, &p, &j);
     st = &(sym->states);
     if (sym->n_states <= 0) continue;
-    fprintf(f, "%2d: J = %2d, Parity = %2d\n-------------------\n", i, j, p);
     for (k = 0; k < sym->n_states; k++) {
       s = (STATE *) ArrayGet(st, k);
       ConstructLevelName(name, sname, NULL, NULL, s);
-      fprintf(f, "%3d %3d %3d %3d   %-20s %-50s\n",
-	      k, s->kgroup, s->kcfg, s->kstate, sname, name);
+      fprintf(f, "%6d   %2d %2d   %3d %3d %3d %3d   %-20s %-20s\n",
+	      i, p, j, k, s->kgroup, s->kcfg, s->kstate, sname, name);
     }
     fprintf(f, "\n");
   }
@@ -1285,7 +1257,7 @@ int GetBasisTable(char *fn) {
       si = lev->basis[k];
       s = (STATE *) ArrayGet(&(sym->states), si);
       fprintf(f, "%6d   %2d %2d   %3d %3d %3d %3d   %15.8E\n", 
-	      i, p, j, si, s->kgroup, s->kcfg, s->kstate, lev->mixing[i]);
+	      i, p, j, si, s->kgroup, s->kcfg, s->kstate, lev->mixing[k]);
     }
     fprintf(f, "\n");
   }

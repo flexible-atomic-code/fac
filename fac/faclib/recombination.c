@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.52 2002/09/04 13:27:14 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.53 2002/09/04 20:16:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -554,7 +554,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
     RRRadialQkHydrogenicParams(NPARAMS, hparams, r0, orb->n, klb0);
     RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
 		      xegrid, log_xegrid, tq0, NULL, 0, &klb0);
-    if (orb->n >= nh || klb0 >= klh) {
+    if (orb->n > nh || klb0 > klh) {
       if (k0 != k1) return -1;
       for (ie = 0; ie < n_egrid; ie++) {
 	qr[ie] = tq0[ie]/eb;
