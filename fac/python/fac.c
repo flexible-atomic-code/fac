@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.84 2004/06/30 04:13:02 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.85 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -185,7 +185,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
 }
 
 static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
-  int nmax;
+  int nmax, ierr;
   double bqp, p;
   
   if (sfac_file) {
@@ -197,8 +197,9 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   bqp = 0.0;
   if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
     return NULL;
-  SetBoundary(nmax, p, bqp);
+  ierr = SetBoundary(nmax, p, bqp);
   
+  if (ierr < 0) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -3624,12 +3625,38 @@ static PyObject *PY5N(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "ddd", &eta0, &lambda, &x0))
     return NULL;
-
-  x0 /= eta0;
+  
   xi = 0.0;
   Y5N(lambda, xi, eta0, x0, &y5, &y5i, &y5p, &y5pi, &ierr);
   
-  return Py_BuildValue("(ddi)", y5, y5p, ierr);
+  return Py_BuildValue("(ddddi)", y5, y5p, y5i, y5pi, ierr);
+}
+
+static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
+  double z, e, r, ph;
+  double p, q, u, v;
+  int k;
+
+  if (!PyArg_ParseTuple(args, "ddid", &z, &e, &k, &r)) return NULL;
+  e /= HARTREE_EV;
+  DCOUL(-z, e, k, r, &p, &q, &u, &v, &ph);
+  
+  return Py_BuildValue("(ddddd)", p, q, u, v, ph);
+}
+  
+static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {
+  double z, e, p;
+  int k;
+  
+  if (!PyArg_ParseTuple(args, "ddi", &z, &e, &k)) return NULL;
+
+  e /= HARTREE_EV;
+  p = CoulombPhaseShift(z, e, k);
+
+  while (p < 0) p += TWO_PI;
+  p = p - (int)(p/TWO_PI);
+
+  return Py_BuildValue("d", p);
 }
 
 static PyObject *PSetOptimizeMaxIter(PyObject *self, PyObject *args) {
@@ -4009,8 +4036,25 @@ static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRMatrixBoundary(PyObject *self, PyObject *args) {
+  double r0, r1, b;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixBoundary", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ddd", &r0, &r1, &b)) return NULL;
+  RMatrixBoundary(r0, r1, b);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PRMatrixBasis(PyObject *self, PyObject *args) {
   int kmax, nb;
+  char *fn;
 
   if (sfac_file) {
     SFACStatement("RMatrixBasis", args, NULL);
@@ -4018,21 +4062,20 @@ static PyObject *PRMatrixBasis(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ii", &kmax, &nb)) return NULL;
+  if (!PyArg_ParseTuple(args, "sii", &fn, &kmax, &nb)) return NULL;
   
-  RMatrixBasis(kmax, nb);
+  RMatrixBasis(fn, kmax, nb);
 
   Py_INCREF(Py_None);
   return Py_None;
 }
 
-static PyObject *PRMatrix(PyObject *self, PyObject *args) {
+static PyObject *PRMatrixTargets(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   int nt, *kt, nc, *kc;
-  char *fn;
   
   if (sfac_file) {
-    SFACStatement("RMatrix", args, NULL);
+    SFACStatement("RMatrixTargets", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -4040,7 +4083,7 @@ static PyObject *PRMatrix(PyObject *self, PyObject *args) {
   nt = 0;
   nc = 0;
   q = NULL;
-  if (!PyArg_ParseTuple(args, "sO|O", &fn, &p, &q)) return NULL;
+  if (!PyArg_ParseTuple(args, "O|O", &p, &q)) return NULL;
   
   if (PyTuple_Check(p) || PyList_Check(p)) {
     nt = DecodeGroupArgs(p, &kt);
@@ -4055,7 +4098,7 @@ static PyObject *PRMatrix(PyObject *self, PyObject *args) {
     }
   }
 
-  RMatrix(fn, nt, kt, nc, kc);
+  RMatrixTargets(nt, kt, nc, kc);
 
   if (nt > 0) free(kt);
   if (nc > 0) free(kc);
@@ -4063,10 +4106,46 @@ static PyObject *PRMatrix(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PRMatrixSurface(PyObject *self, PyObject *args) {
+  char *fn;
+  
+  if (sfac_file) {
+    SFACStatement("RMatrixSurface", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  RMatrixSurface(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static PyObject *PSetSlaterCut(PyObject *self, PyObject *args) {
+  int k0, k1;
+  
+  if (sfac_file) {
+    SFACStatement("SetSlaterCut", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ii", &k0, &k1)) return NULL;
+  
+  SetSlaterCut(k0, k1);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
   
 static struct PyMethodDef fac_methods[] = {
+  {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
+  {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 
+  {"RMatrixTargets", PRMatrixTargets, METH_VARARGS}, 
   {"RMatrixBasis", PRMatrixBasis, METH_VARARGS}, 
-  {"RMatrix", PRMatrix, METH_VARARGS}, 
+  {"RMatrixSurface", PRMatrixSurface, METH_VARARGS}, 
   {"Print", PPrint, METH_VARARGS},
   {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
@@ -4199,6 +4278,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS}, 
   {"Y5N", PY5N, METH_VARARGS},
+  {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
+  {"CoulombPhase", PCoulombPhase, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},

@@ -14,7 +14,7 @@ typedef struct _POTENTIAL_ {
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
   double ar, br; /* parameter for the transformation */
-  int ib, nb; 
+  int ib, nb, ib1; 
   double bqp; /* boundary condition */
   double rad[MAXRP];
   double dr_drho[MAXRP];
@@ -47,8 +47,10 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot);
 int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
+int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot);
+int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);

@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.71 2004/06/30 04:06:56 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.72 2004/07/06 07:09:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1967,8 +1967,20 @@ int ValidBasis(STATE *s, int k, int *kg, int n) {
   
   if (n > 0) {
     kb = s->kcfg;
+    if (kb < 0) return 0;
     kb = GetOrbital(kb)->n;
     if (kb != n) return 0;
+  } else if (n == 0) {
+    kb = s->kcfg;
+    if (kb >= 0) {
+      kb = GetOrbital(kb)->n;
+      if (kb <= 0) return 0;
+    }
+  } else {
+    kb = s->kcfg;
+    if (kb < 0) return 0;
+    kb = GetOrbital(kb)->n;
+    if (kb > 0) return 0;
   }
 
   t = -t-1;
@@ -3361,38 +3373,47 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   symbol[0] = '\0';
   if (basis->kgroup < 0) {
     i = basis->kgroup;
-    i = -(i + 1);    
-    orb = GetOrbital(basis->kcfg);
-    GetJLFromKappa(orb->kappa, &j, &kl);
-    if (vnl) {
-      *vnl = (kl/2) + 100*(orb->n);
-    }
-    if (name) {
-      if (j < kl) jsym = '-';
-      else jsym = '+';
-      
-      kl /= 2;
-      SpecSymbol(symbol, kl);
-      sprintf(name, "%5d + %d%s%c1(%d)%d ", 
-	      i, orb->n, symbol, jsym, j, basis->kstate);
-    }
-    lev = GetLevel(i);
-    si = lev->pb;
-    sym = GetSymmetry(lev->pj);
-    basis = (STATE *) ArrayGet(&(sym->states), si);
-    if (sname || nc) {
-      nele = ConstructLevelName(NULL, sname, nc, NULL, basis);
-      if (nc) {
-	if (nele == 0) {
-	  nc[0] = '\0';
-	}
-	sprintf(ashell, "%1d*1", orb->n);
-	strcat(nc, ashell);
-      }
+    i = -(i + 1);
+    if (basis->kcfg < 0) {
+      lev = GetLevel(i);
+      si = lev->pb;
+      sym = GetSymmetry(lev->pj);
+      basis = ArrayGet(&(sym->states), si);
+      nele = ConstructLevelName(name, sname, nc, vnl, basis);
+      return nele;
     } else {
-      nele = ConstructLevelName(NULL, NULL, NULL, NULL, basis);
+      orb = GetOrbital(basis->kcfg);
+      GetJLFromKappa(orb->kappa, &j, &kl);
+      if (vnl) {
+	*vnl = (kl/2) + 100*(orb->n);
+      }
+      if (name) {
+	if (j < kl) jsym = '-';
+	else jsym = '+';
+	
+	kl /= 2;
+	SpecSymbol(symbol, kl);
+	sprintf(name, "%5d + %d%s%c1(%d)%d ", 
+		i, orb->n, symbol, jsym, j, basis->kstate);
+      }
+      lev = GetLevel(i);
+      si = lev->pb;
+      sym = GetSymmetry(lev->pj);
+      basis = (STATE *) ArrayGet(&(sym->states), si);
+      if (sname || nc) {
+	nele = ConstructLevelName(NULL, sname, nc, NULL, basis);
+	if (nc) {
+	  if (nele == 0) {
+	    nc[0] = '\0';
+	  }
+	  sprintf(ashell, "%1d*1", orb->n);
+	  strcat(nc, ashell);
+	}
+      } else {
+	nele = ConstructLevelName(NULL, NULL, NULL, NULL, basis);
+      }
+      return nele+1;
     }
-    return nele+1;
   }
 
   c = GetConfig(basis);
