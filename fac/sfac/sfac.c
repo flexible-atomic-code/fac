@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.71 2004/12/19 01:04:59 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.72 2004/12/22 03:09:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3084,6 +3084,17 @@ static int PRMatrixExpansion(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRMatrixNBatch(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int m;
+
+  if (argc != 1) return -1;
+  m = atoi(argv[0]);
+  RMatrixNBatch(m);
+  
+  return 0;
+}
+
 static int PRMatrixNMultipoles(int argc, char *argv[], int argt[], 
 			       ARRAY *variables) {
   int m;
@@ -3243,6 +3254,7 @@ static METHOD methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
+  {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
