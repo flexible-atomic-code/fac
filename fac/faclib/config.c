@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.35 2005/01/06 18:59:16 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.36 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -59,6 +59,8 @@ static void InitConfigData(void *p, int n) {
   for (i = 0; i < n; i++) {
     d[i].n_shells = 0;
     d[i].n_csfs = 0;
+    d[i].nnrs = 0;
+    d[i].nrs = NULL;
     d[i].shells = NULL;
     d[i].csfs = NULL;
   }
@@ -1267,6 +1269,16 @@ void PackShell(SHELL *s, int n, int kl, int j, int nq){
   s->kappa = (kl - j)*(j + 1)/2;
 }
 
+void UnpackNRShell(int *s, int *n, int *kl, int *nq) {
+  *nq = (*s)&0xFF;
+  *kl = 2*(((*s)>>8)&0xFF);
+  *n = ((*s)>>16)&0xFF;
+}
+
+void PackNRShell(int *s, int n, int kl, int nq) {
+  *s = (n<<16) | ((kl/2)<<8) | nq;
+}
+
 /* 
 ** FUNCTION:    GetNq, GetJ, GetL
 ** PURPOSE:     retrieve nq, j, and L of a shell.
@@ -1497,6 +1509,7 @@ CONFIG *GetConfigFromGroup(int kg, int kc) {
 */
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
+  int n0, kl0, nq0, m, i, n, kl, j, nq;
 
   if (k < 0 || k >= n_groups) return -1;
   if (cfg_groups[k].n_cfgs == 0) {
@@ -1510,6 +1523,35 @@ int AddConfigToList(int k, CONFIG *cfg) {
 
   cfg->energy = 0.0;
   cfg->delta = 0.0;
+
+  n0 = 0;
+  kl0 = -1;
+  nq0 = 0;
+  m = 0;
+  cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
+  for (i = 0; i < cfg->n_shells; i++) {
+    UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
+    if (n == n0 && kl == kl0) {
+      nq0 += nq;
+    } else {
+      if (nq0 > 0) {
+	PackNRShell(cfg->nrs+m, n0, kl0, nq0);
+	m++;
+      }
+      n0 = n;
+      kl0 = kl;
+      nq0 = nq;
+    }
+  }
+  if (nq0 > 0) {
+    PackNRShell(cfg->nrs+m, n0, kl0, nq0);
+    m++;
+  }
+
+  cfg->nnrs = m;
+  if (m < cfg->n_shells) {
+    cfg->nrs = ReallocNew(cfg->nrs, sizeof(int)*m);
+  }
 
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
   if (cfg->n_csfs > 0) {
@@ -1902,6 +1944,10 @@ static void FreeConfigData(void *p) {
   if (c->n_csfs > 0) {
     free(c->csfs);
     c->n_csfs = 0;
+  }
+  if (c->nnrs > 0) {
+    free(c->nrs);
+    c->nnrs = 0;
   }
 }
 

@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.66 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.67 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -110,6 +110,7 @@ int SwapEndianTRRecord(TR_RECORD *r, TR_EXTRA *rx) {
   if (iuta) {
     SwapEndian((char *) &(rx->energy), sizeof(float));
     SwapEndian((char *) &(rx->sdev), sizeof(float));
+    SwapEndian((char *) &(rx->sci), sizeof(float));
   }
   return 0;
 }
@@ -2691,15 +2692,15 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
 	  gf = OscillatorStrength(h.multipole, e, r.strength, &a);
 	  a /= (mem_en_table[r.upper].j + 1.0);
 	  a *= RATE_AU;
-	  fprintf(f2, "%5d %4d %5d %4d %13.6E %11.4E %13.6E %13.6E %13.6E\n",
+	  fprintf(f2, "%5d %4d %5d %4d %13.6E %11.4E %13.6E %13.6E %13.6E %10.3E\n",
 		  r.upper, mem_en_table[r.upper].j, 
 		  r.lower, mem_en_table[r.lower].j,
 		  (e*HARTREE_EV), 
-		  (rx.sdev*HARTREE_EV), gf, a, r.strength);
+		  (rx.sdev*HARTREE_EV), gf, a, r.strength, rx.sci);
 	} else {
 	  e = rx.energy;
-	  fprintf(f2, "%5d %6s %5d %6s %13.6E %11.4E %13.6E\n",
-		  r.upper, sup, r.lower, slow, e, rx.sdev, r.strength);
+	  fprintf(f2, "%5d %6s %5d %6s %13.6E %11.4E %13.6E %10.3E\n",
+		  r.upper, sup, r.lower, slow, e, rx.sdev, r.strength, rx.sci);
 	}
       } else {
 	if (v) {

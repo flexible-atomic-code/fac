@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.99 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.100 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -735,6 +735,22 @@ static PyObject *PSetAngZOptions(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "i|dd", &n, &mc, &c))
     return NULL;
   SetAngZOptions(n, mc, c);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCILevel(PyObject *self, PyObject *args) {
+  int i;
+
+  if (sfac_file) {
+    SFACStatement("SetCILevel", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &i))
+    return NULL;
+  SetCILevel(i);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4425,6 +4441,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
+  {"SetCILevel", PSetCILevel, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},

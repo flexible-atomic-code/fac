@@ -76,6 +76,7 @@ typedef struct _TR_RECORD_ {
 typedef struct _TR_EXTRA_ {
   float energy;
   float sdev;
+  float sci;
 } TR_EXTRA;
 
 typedef struct _CE_HEADER_ {

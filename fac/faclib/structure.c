@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.87 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.88 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -40,6 +40,7 @@ static ANGULAR_FROZEN ang_frozen;
 static int ncorrections = 0;
 static ARRAY *ecorrections;
 
+static int ci_level = 0;
 static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
@@ -62,7 +63,11 @@ static void InitLevelData(void *p, int n) {
     lev->n_basis = 0;
   }
 }
-  
+
+int SetCILevel(m) {
+  ci_level = m;
+}
+
 int SetAngZCut(double cut) {
   angz_cut = cut;
   return 0;
@@ -645,7 +650,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
   printf("RANK: %2d, %d %d %d %d\n", sr, ncg, icg0, icg1, n1*n2*k+1);
 
   for (i = 0; i < MAX_SYMMETRIES; i++) {
-    nk = ConstructHamiltonDiagonal(i, n, s0);    
+    nk = ConstructHamiltonDiagonal(i, n, s0, 0);    
     if (nk < 0) continue;
     mb.nbasis = _ham.dim;
     mb.isym = i;
@@ -696,7 +701,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	  t1 = t2;
 	  for (i = 0; i < base.dim; i++) {
 	    mbp = ArrayGet(&base, i);
-	    nk = ConstructHamiltonDiagonal(mbp->isym, 1, &kgp);
+	    nk = ConstructHamiltonDiagonal(mbp->isym, 1, &kgp, 0);
 	    if (nk < 0) continue;
 	    nbs1 = _ham.dim;
 	    bs1 = _ham.basis;
@@ -880,7 +885,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 	t1 = t2;
 	for (i = 0; i < base.dim; i++) {
 	  mbp = ArrayGet(&base, i);
-	  nk = ConstructHamiltonDiagonal(mbp->isym, 1, &kgp);
+	  nk = ConstructHamiltonDiagonal(mbp->isym, 1, &kgp, 0);
 	  if (nk < 0) continue;
 	  nbs1 = _ham.dim;
 	  bs1 = _ham.basis;
@@ -1756,9 +1761,10 @@ HAMILTON *GetHamilton(void) {
   return &_ham;
 }
 
-int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
+int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   int i, j, t;
   HAMILTON *h;
+  SHAMILTON *hs;
   ARRAY *st;
   STATE *s;
   SYMMETRY *sym;
@@ -1820,13 +1826,31 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg) {
 
   for (j = 0; j < h->dim; j++) {
     s = ArrayGet(st, h->basis[j]);
-    r = ZerothEnergyConfig(GetConfig(s));
-    /*
-    r = HamiltonElement(isym, h->basis[j], h->basis[j]);
-    */
+    if (m == 0) {
+      r = ZerothEnergyConfig(GetConfig(s));
+    } else {
+      r = HamiltonElement(isym, h->basis[j], h->basis[j]);
+    }
     h->hamilton[j] = r;
   }
- 
+
+  if (m > 0) {
+    hs = hams + nhams;
+    nhams++;
+    if (nhams > MAX_HAMS) {
+      printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
+      exit(1);
+    }
+    hs->pj = h->pj;
+    hs->nlevs = h->dim;
+    hs->nbasis = h->n_basis;
+    hs->basis = malloc(sizeof(STATE *)*hs->nbasis);
+    for (t = 0; t < h->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
+      hs->basis[t] = s;
+    }
+  }
+
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.set_ham += stop-start;
@@ -1858,8 +1882,11 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
   clock_t start, stop;
   start = clock();
 #endif
-  
+
   if (k <= 0) return -1;
+  if (ci_level == -1) {
+    return ConstructHamiltonDiagonal(isym, k, kg, 1);
+  }
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
   st = &(sym->states);
@@ -1932,8 +1959,8 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp) {
       r = HamiltonElement(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
     }
-  }
-
+  } 
+	
   if (jp > 0) {
     t = ((h->dim+1)*(h->dim))/2;
     for (i = 0; i < h->dim; i++) {
@@ -2401,11 +2428,24 @@ double HamiltonElement(int isym, int isi, int isj) {
   sym = GetSymmetry(isym);
   si = (STATE *) ArrayGet(&(sym->states), isi);
   sj = (STATE *) ArrayGet(&(sym->states), isj);
+  
   ci = GetConfig(si);
   if (ci->n_shells == 0) return 0.0;
   cj = GetConfig(sj);
   if (cj->n_shells == 0) return 0.0;
   
+  switch (ci_level) {
+  case 1:
+    if (ci != cj) return 0.0;
+  case 2:
+    if (ci->nnrs != cj->nnrs) return 0.0;
+    else {
+      if (memcmp(ci->nrs, cj->nrs, sizeof(int)*ci->nnrs)) return 0.0;
+    }
+  case 3:
+    if (si->kgroup != sj->kgroup) return 0.0;
+  }
+    
   ki = si->kstate;
   kj = sj->kstate;
 
@@ -2757,7 +2797,21 @@ int DiagnolizeHamilton(void) {
   if (!(h->mixing)) {
     printf("Allocating Mixing Error\n");
     goto ERROR;
-  }  
+  }
+
+  if (ci_level == -1) {
+    mixing = h->mixing+n;
+    for (i = 0; i < n; i++) {
+      h->mixing[i] = h->hamilton[i];
+      for (j = 0; j < n; j++) {
+	if (i == j) *mixing = 1.0;
+	else *mixing = 0.0;
+	mixing++;
+      }
+    }
+    return 0;
+  }
+
   ap = h->hamilton;
   if (m > n) {
     mixing = h->work + lwork;

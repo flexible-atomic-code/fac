@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.26 2005/01/06 18:59:17 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.27 2005/01/10 22:05:23 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -24,6 +24,12 @@ static struct {
   int max_m;
   double eps;
 } transition_option = {DGAUGE, DMODE, ERANK, MRANK, TRCUT};
+
+typedef struct {
+  TR_RECORD r;
+  TR_EXTRA rx;
+  int ks[2];
+} TR_DATUM;
 
 int SetTransitionCut(double c) {
   transition_option.eps = c;
@@ -67,7 +73,7 @@ int GetTransitionMode(void) {
 }
 
 int TRMultipoleUTA(double *strength, TR_EXTRA *rx, 
-		   int m, int lower, int upper) {
+		   int m, int lower, int upper, int *ks) {
   int m2, ns, k0, k1, q1, q2;
   int p1, p2, j1, j2, ia, ib;
   LEVEL *lev1, *lev2;
@@ -100,6 +106,10 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
     q2 = idatum->s[1].nq_bra;
     k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+    PackNRShell(ks, idatum->s[0].n, idatum->s[0].kl, q1);
+    if (idatum->s[0].kappa > 0) ks[0] |= 0x01000000;
+    PackNRShell(ks+1, idatum->s[1].n, idatum->s[1].kl, q2);
+    if (idatum->s[1].kappa > 0) ks[1] |= 0x01000000;
   } else {
     ia = ns-1-idatum->s[1].index;
     ib = ns-1-idatum->s[0].index;    
@@ -109,6 +119,10 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
     q2 = idatum->s[0].nq_bra;
     k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+    PackNRShell(ks, idatum->s[1].n, idatum->s[1].kl, q1);
+    if (idatum->s[1].kappa > 0)  ks[0] |= 0x01000000;
+    PackNRShell(ks+1, idatum->s[0].n, idatum->s[0].kl, q2);
+    if (idatum->s[0].kappa > 0)  ks[1] |= 0x01000000;
   }
 
   m2 = 2*abs(m);
@@ -119,7 +133,6 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
   aw = FINE_STRUCTURE_CONST * rx->energy;
   if (aw < 0.0) return -1;
-  
   
   if (transition_option.mode == M_NR && m != 1) {
     r = MultipoleRadialNR(m, k0, k1, transition_option.gauge);
@@ -203,6 +216,46 @@ int GetLowestMultipole(int p1, int j1, int p2, int j2) {
   return m;
 }
 
+static int CompareNRConfig(const void *p1, const void *p2) {
+  CONFIG *c1, *c2;
+
+  c1 = (CONFIG *) p1;
+  c2 = (CONFIG *) p2;
+  if (c1->nnrs > c2->nnrs) return 1;
+  else if (c1->nnrs < c2->nnrs) return -1;
+  else {
+    return memcmp(c1->nrs, c2->nrs, sizeof(int)*c1->nnrs);
+  }
+}
+
+static int CompareNRLevel(const void *p1, const void *p2) {
+  int *i1, *i2;
+  LEVEL *lev1, *lev2;
+  CONFIG *c1, *c2;
+  
+  i1 = p1;
+  i2 = p2;
+  lev1 = GetLevel(*i1);
+  lev2 = GetLevel(*i2);
+  c1 = GetConfigFromGroup(lev1->iham, lev1->pb);
+  c2 = GetConfigFromGroup(lev2->iham, lev2->pb);
+  return CompareNRConfig(c1, c2);
+}
+
+static int CompareTRDatum(const void *p1, const void *p2) {
+  TR_DATUM *r1, *r2;
+
+  r1 = p1;
+  r2 = p2;
+  if ((r1->r).upper < (r2->r).upper) return -1;
+  else if ((r1->r).upper > (r2->r).upper) return 1;
+  else {
+    if ((r1->r).lower < (r2->r).lower) return -1;
+    else if ((r1->r).lower > (r2->r).lower) return 1;
+    else return 0;
+  }
+}
+
 int SaveTransition(int nlow, int *low, int nup, int *up, 
 		   char *fn, int m) {
   int i, j, k, n, jup;
@@ -215,6 +268,13 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   double *s, *et, *a, trd, gf;
   double e0, emin, emax;
   int *alev;
+  int ic0, ic1, nic0, nic1, *nc0, *nc1, j0, j1, ntr;
+  int imin, imax, jmin, jmax, nrs0, nrs1, ir, ir0;
+  double ep, em, wp, wm, w0, de, cp, cm;
+  CONFIG *c0, *c1;
+  TR_DATUM *rd;
+  int mj = 0xFF000000, mn = 0xFFFFFF;
+
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
@@ -291,16 +351,146 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   InitFile(f, &fhdr, &tr_hdr);
     
   if (IsUTA()) {
-    for (j = 0; j < nup; j++) {
-      for (i = 0; i < nlow; i++) {
-	k = TRMultipoleUTA(&gf, &rx, m, low[i], up[j]);
-	if (k != 0) continue;
-	r.lower = low[i];
-	r.upper = up[j];
-	r.strength = gf;
-	WriteTRRecord(f, &r, &rx);
+    qsort(low, nlow, sizeof(int), CompareNRLevel);
+    nc0 = malloc(sizeof(int)*nlow);    
+    ic0 = 0;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetLevel(low[i]);
+      c1 = GetConfigFromGroup(lev1->iham, lev1->pb);
+      if (i > 0 && CompareNRConfig(c1, c0)) {
+	nc0[ic0++] = i;
       }
+      c0 = c1;
     }
+    nc0[ic0] = nlow;
+    nic0 = ic0+1;
+    if (up != low) {
+      qsort(up, nup, sizeof(int), CompareNRLevel);
+      nc1 = malloc(sizeof(int)*nup);    
+      ic1 = 0;
+      for (i = 0; i < nup; i++) {
+	lev1 = GetLevel(up[i]);
+	c1 = GetConfigFromGroup(lev1->iham, lev1->pb);
+	if (i > 0 && CompareNRConfig(c1, c0) != 0) {
+	  nc1[ic1++] = i;
+	}
+	c0 = c1;
+      }
+      nc1[ic1] = nup;
+      nic1 = ic1+1;
+    } else {
+      nc1 = nc0;
+      nic1 = nic0;
+    }
+    imin = 0;
+    for (ic0 = 0; ic0 < nic0; ic0++) {
+      imax = nc0[ic0];
+      jmin = 0;
+      lev1 = GetLevel(low[imin]);
+      c0 = GetConfigFromGroup(lev1->iham, lev1->pb);
+      for (ic1 = 0; ic1 < nic1; ic1++) {
+	jmax = nc1[ic1];
+	lev2 = GetLevel(up[jmin]);
+	c1 = GetConfigFromGroup(lev2->iham, lev2->pb);
+	ir = 0;
+	ntr = (jmax-jmin)*(imax-imin);
+	rd = malloc(sizeof(TR_DATUM)*ntr);
+	ep = 0.0;
+	em = 0.0;
+	e0 = 0.0;
+	wp = 0.0;
+	wm = 0.0;
+	w0 = 0.0;
+	ir0 = -1;
+	for (i = imin; i < imax; i++) {
+	  for (j = jmin; j < jmax; j++) {
+	    k = TRMultipoleUTA(&gf, &(rd[ir].rx), m, low[i], up[j], rd[ir].ks);
+	    if (k != 0) {
+	      rd[ir].r.lower = -1;
+	      ir++;
+	      continue;
+	    }
+	    ir0 = ir;
+	    rd[ir].r.lower = low[i];
+	    rd[ir].r.upper = up[j];
+	    rd[ir].r.strength = gf;
+	    rd[ir].rx.sci = 1.0;
+	    if (m == -1) {
+	      gf = OscillatorStrength(m, rd[ir].rx.energy, rd[ir].r.strength, NULL);
+	      j0 = rd[ir].ks[0]&mj;
+	      j1 = rd[ir].ks[1]&mj;
+	      if (j0==0 && j1==0) {
+		wp += gf;
+		ep += gf*rd[ir].rx.energy;
+	      } else if (j0 && j1) {
+		wm += gf;
+		em += gf*rd[ir].rx.energy;
+	      }
+	      e0 += gf*rd[ir].rx.energy;
+	      w0 += gf;
+	    }
+	    ir++;
+	  }
+	}	
+	if (wm > 0.0 && ir0 >= 0) {
+	  nrs0 = 0;
+	  nrs1 = 0;
+	  for (i = 0; i < c0->nnrs; i++) {
+	    if (c0->nrs[i]>>8 == (rd[ir0].ks[0]&mn)>>8) nrs0 = c0->nrs[i];
+	    else if (c0->nrs[i]>>8 == (rd[ir0].ks[1]&mn)>>8) nrs1 = c1->nrs[i];
+	  }
+	  if (nrs0 == 0) {
+	    nrs0 = rd[ir0].ks[0] & mn;
+	  }
+	  if (nrs1 == 0) {
+	    nrs1 = rd[ir0].ks[1] & mn;
+	  }
+	  ep /= wp;
+	  em /= wm;
+	  e0 /= w0;
+	  de = ConfigEnergyShiftCI(nrs0, nrs1);
+	  cm = 1.0 + de/(e0 - ep);
+	  cp = 1.0 + de/(e0 - em);
+	  if (cm < EPS3) {
+	    cp = (wp+wm)/wp;
+	    cm = 0.0;
+	  } else if (cp < EPS3) {
+	    cm = (wp+wm)/wm;
+	    cp = 0.0;
+	  }
+	  ir = 0;
+	  for (i = imin; i < imax; i++) {
+	    for (j = jmin; j < jmax; j++) {
+	      if (rd[ir].r.lower < 0) {
+		ir++;
+		continue;
+	      }
+	      j0 = rd[ir].ks[0]&mj;
+	      j1 = rd[ir].ks[1]&mj;
+	      if (j0==0 && j1==0) {
+		rd[ir].rx.sci = cp;
+	      } else if (j0 && j1) {
+		rd[ir].rx.sci = cm;
+	      }
+	      ir++;
+	    }
+	  }
+	}
+	qsort(rd, ntr, sizeof(TR_DATUM), CompareTRDatum);
+	ir = 0;
+	for (ir = 0; ir < ntr; ir++) {
+	  if (rd[ir].r.lower < 0) {
+	    continue;
+	  }
+	  WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
+	}
+	free(rd);
+	jmin = jmax;
+      }
+      imin = imax;
+    }    
+    free(nc0);
+    if (up != low) free(nc1);
   } else {
     a = malloc(sizeof(double)*nlow);
     s = malloc(sizeof(double)*nlow);

@@ -134,7 +134,7 @@ int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 		  int n2, int nt2, char *gn0, double eps, double eps1);
 int IBisect(int k, int n, int *a);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
-int ConstructHamiltonDiagonal(int isym, int k, int *kg);
+int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
 double HamiltonElement(int isym, int isi, int isj);
@@ -194,6 +194,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 int SaveLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
+int SetCILevel(int m);
 int SetMixCut(double c);
 int FreeAngZArray(void);
 int InitAngZArray(void);
