@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.99 2004/06/14 05:49:58 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.100 2004/06/14 15:17:04 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -725,7 +725,7 @@ static double EnergyFunc(int *n, double *x) {
   ReinitRadial(1);
   ClearOrbitalTable(0);
   a = AverageEnergyAvgConfig(&average_config);
-  
+
   return a;
 }
 
@@ -754,9 +754,7 @@ int RefineRadial(int maxfun, int msglvl) {
   if (msglvl > 0) {
     printf("%10.3E %10.3E %15.8E %d\n", x[0], x[1], f, nfe);
   }
-  potential->lambda = x[0];
-  potential->a = x[1];
-  SetPotentialVc(potential);
+  f = EnergyFunc(&n, x);
   if (ierr) {
     if (f > f0) {
       printf("Error in RefineRadial: %d\n", ierr);
