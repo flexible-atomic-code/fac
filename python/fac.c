@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.31 2002/06/26 19:57:53 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.32 2002/08/14 16:09:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2798,7 +2798,9 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
 } 
 
 static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
-  int m;
+  int m, n, i;
+  PyObject *p;
+  int ng, *kg;
 
   if (sfac_file) {
     SFACStatement("ConfigEnergy", args, NULL);
@@ -2806,11 +2808,22 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  if (m == 0) {
-    ConfigEnergy();
-  } else {
-    AdjustConfigEnergy();
+  n = PyTuple_Size(args);
+  if (n == 0) return NULL;
+
+  p = PyTuple_GetItem(args, 0);
+  m = PyInt_AsLong(p);
+  if (n == 1) {
+    ConfigEnergy(m, 0, NULL);
+  } else {  
+    for (i = 1; i < n; i++) {
+      p = PyTuple_GetItem(args, i);
+      if (!PyList_Check(p)) return NULL;
+      ng = DecodeGroupArgs(p, &kg);
+      if (ng < 0) return NULL;
+      ConfigEnergy(m, ng, kg);
+      if (ng > 0) free(kg);
+    }
   }
 
   Py_INCREF(Py_None);

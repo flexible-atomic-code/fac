@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.49 2002/08/02 14:07:13 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.50 2002/08/14 16:09:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -41,7 +41,7 @@ static struct {
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
   int iset;
-} optimize_control = {0.5, EPS6, 100, 1.0, 1, 0, NULL, 0, 0};
+} optimize_control = {0.5, EPS6, 128, 1.0, 1, 0, NULL, 0, 0};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
@@ -125,7 +125,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
   ORBITAL *orb1, *orb2;
   double large1, small1, large2, small2;
-  int norbs, kmin, kmax, jmax;
+  int norbs, kmin, kmax, jmax, kmax0 = 0;
   double *u, *w, *v, w3j, a, b, c, r;
 
   u = potential->U;
@@ -163,7 +163,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       GetJLFromKappa(acfg->kappa[i], &j1, &kl1);
       kmin = 0;
       kmax = 2*j1;
-      kmax = Min(kmax, 6);
+      kmax = Min(kmax, kmax0);
       for (k = kmin; k <= kmax; k += 2) {
 	t = k/2;
 	if (IsOdd(t)) continue;
@@ -189,6 +189,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
 	  }
 	}
       }
+      if (iter < 3) continue;
       for (j = 0; j < i; j++) {
 	k2 = OrbitalExists(acfg->n[j], acfg->kappa[j], 0.0);
 	if (k2 < 0) continue;
@@ -197,7 +198,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
 	GetJLFromKappa(acfg->kappa[j], &j2, &kl2);
 	kmin = abs(j1 - j2);
 	kmax = j1 + j2;
-	kmax = Min(kmax, 6);
+	kmax = Min(kmax, kmax0);
 	if (IsOdd(kmin)) kmin++;
 	for (k = kmin; k <= kmax; k += 2) {
 	  if (IsOdd((k+kl1+kl2)/2)) continue;
@@ -467,12 +468,15 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     optimize_control.stablizer = 0.25 + 0.75*(z/potential->Z[MAX_POINTS-1]);
   }
 
-  no_old = 0;  
-  tol = 1.0; 
+  frozen = (int *) malloc(acfg->n_shells*sizeof(int));
+  for (i = 0; i < acfg->n_shells; i++) {
+    frozen[i] = 0;
+  }
+
+  no_old = 0;
   iter = 0;
   SetPotentialZ(potential, 0.0);
-
-  frozen = calloc(acfg->n_shells, sizeof(int));
+  tol = 1.0; 
   while (tol > optimize_control.tolerance) {
     if (iter > optimize_control.maxiter) break;
     a = SetPotential(acfg, iter);
@@ -497,7 +501,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	  orb->n = acfg->n[i];
 	  no_old = 1;	
 	} else {
-	  if (iter == 0) frozen[i] = 1;
 	  if (!frozen[i]) {
 	    orb_old.energy = orb->energy; 
 	    free(orb->wfun);
@@ -510,7 +513,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       if (SolveDirac(orb) < 0) {
 	return -1;
       }
-
+      
       if (no_old) { 
 	tol = 1.0;
 	continue;
@@ -524,16 +527,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     if (tol < a) tol = a;
     iter++;
   }
-
-  for (i = 0; i < acfg->n_shells; i++) {
-    k = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0.0);
-    for (j = 0; j < acfg->n_shells; j++) {
-      if (frozen[i] == 1 && frozen[j] == 1) continue;
-      m = OrbitalIndex(acfg->n[j], acfg->kappa[j], 0.0);
-      ResidualPotential(&a, k, m);
-    }
-  }
-
+  
   free(frozen);
   if (iter > optimize_control.maxiter) {
     printf("Maximum iteration reached in OptimizeRadial\n");
@@ -924,45 +918,41 @@ int FreeContinua(double e) {
   return 0;
 }
 
-int ConfigEnergy(void) {
+int ConfigEnergy(int m, int ng, int *kg) {
   CONFIG_GROUP *g;
-  ARRAY *c;
-  CONFIG *cfg;
-  int ng, i, k;
+  int k;
 
-  ng = GetNumGroups();
-  for (k = 0; k < ng; k++) {
-    OptimizeRadial(1, &k, NULL);
-    g = GetGroup(k);
-    c = &(g->cfg_list);
-    for (i = 0; i < g->n_cfgs; i++) {
-      cfg = (CONFIG *) ArrayGet(c, i);
-      cfg->energy = AverageEnergyConfig(cfg);
+  if (m == 0) {
+    if (ng == 0) {
+      ng = GetNumGroups();
+      for (k = 0; k < ng; k++) {
+	OptimizeRadial(1, &k, NULL);
+	g = GetGroup(k);
+	g->energy = TotalEnergyGroup(k)/g->n_cfgs;
+	ReinitRadial(2);
+      }
+    } else {
+      OptimizeRadial(ng, kg, NULL);
+      for (k = 0; k < ng; k++) {
+	g = GetGroup(kg[k]);
+	if (g->energy == 0) {
+	  g->energy = TotalEnergyGroup(kg[k])/g->n_cfgs;
+	}
+      }
+      ReinitRadial(2);
     }
-    ReinitRadial(2);
+  } else {
+    ng = GetNumGroups();
+    for (k = 0; k < ng; k++) {
+      g = GetGroup(k);
+      if (g->energy != 0) {
+	g->delta = g->energy - TotalEnergyGroup(k)/g->n_cfgs;
+      }
+    }
   }
   return 0;
 }
 
-int AdjustConfigEnergy(void) {
-  CONFIG_GROUP *g;
-  ARRAY *c;
-  CONFIG *cfg;
-  int ng, i, k;
-  
-  ng = GetNumGroups();
-  for (k = 0; k < ng; k++) {
-    g = GetGroup(k);
-    c = &(g->cfg_list);
-    for (i = 0; i < g->n_cfgs; i++) {
-      cfg = (CONFIG *) ArrayGet(c, i);
-      cfg->delta = cfg->energy - AverageEnergyConfig(cfg);
-    }
-  }
-  
-  return 0;
-}
-  
 /* calculate the total configuration average energy of a group. */
 double TotalEnergyGroup(int kg) {
   CONFIG_GROUP *g;

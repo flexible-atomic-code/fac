@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.29 2002/08/11 01:24:48 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.30 2002/08/14 16:09:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -714,7 +714,6 @@ int AddToLevels(int ng, int *kg) {
   LEVEL lev;
   SYMMETRY *sym;
   STATE *s;
-  CONFIG *c;
   double *mix, a;
   
   h = &_ham;
@@ -734,8 +733,7 @@ int AddToLevels(int ng, int *kg) {
       }
     }
     if (s->kgroup >= 0) {
-      c = GetConfig(s);
-      lev.energy = h->mixing[i] + c->delta;
+      lev.energy = h->mixing[i] + GetGroup(s->kgroup)->delta;
     } else {
       lev.energy = h->mixing[i];
     }
@@ -2409,8 +2407,6 @@ void _FreeLevelData(void *p) {
    
 int ClearLevelTable(void) {
   CONFIG_GROUP *g;
-  ARRAY *c;
-  CONFIG *cfg;
   int ng, i, k;
 
   n_levels = 0;
@@ -2419,12 +2415,8 @@ int ClearLevelTable(void) {
   ng = GetNumGroups();
   for (k = 0; k < ng; k++) {
     g = GetGroup(k);
-    c = &(g->cfg_list);
-    for (i = 0; i < g->n_cfgs; i++) {
-      cfg = (CONFIG *) ArrayGet(c, i);
-      cfg->energy = 0.0;
-      cfg->delta = 0.0;
-    }
+    g->energy = 0.0;
+    g->delta = 0.0;
   }
   
   ncorrections = 0;

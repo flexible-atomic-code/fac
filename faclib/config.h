@@ -187,8 +187,6 @@ typedef struct _SHELL_STATE_{
 **              i.e., the outmost shell is in the beginning of the list.
 */
 typedef struct _CONFIG_ {
-  double energy;
-  float delta;
   int n_electrons;
   int n_shells;
   int n_csfs;
@@ -237,6 +235,8 @@ typedef struct _CONFIG_GROUP_ {
   int n_electrons;
   ARRAY cfg_list;
   char name[GROUP_NAME_LEN]; 
+  double energy;
+  double delta;
 } CONFIG_GROUP;
 
 /*
