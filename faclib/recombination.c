@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.82 2004/05/20 23:54:14 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.83 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -348,7 +348,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
-	  m = ConstructHamiltonFrozen(i, j, NULL, n);
+	  m = ConstructHamiltonFrozen(i, j, NULL, n, 0, NULL);
 	  if (m < 0) continue;
 	  if (DiagnolizeHamilton() < 0) return -2;
 	  AddToLevels(0, NULL);
@@ -356,7 +356,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	i0 = rec_complex[t].s1+1;
       }
     } else {
-      m = ConstructHamiltonFrozen(i, k, kg, n);
+      m = ConstructHamiltonFrozen(i, k, kg, n, 0, NULL);
       if (m < 0) continue;
       if (DiagnolizeHamilton() < 0) return -2;
       AddToLevels(0, NULL);

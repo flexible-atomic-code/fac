@@ -73,6 +73,15 @@ typedef struct _ANGULAR_ZxZMIX_ {
   short k3;
 } ANGULAR_ZxZMIX;
 
+typedef struct _ANGULAR_FROZEN_ {
+  int nts, ncs;
+  int *ts, *cs;
+  int *nz, *nzfb, *nzxzfb;
+  ANGULAR_ZMIX **z;
+  ANGULAR_ZFB **zfb;
+  ANGULAR_ZxZMIX **zxzfb;
+} ANGULAR_FROZEN;
+
 typedef struct _ECORRECTION_ {
   int iref;
   int ilev;
@@ -117,19 +126,21 @@ int MBPTS(char *fn, char *fn1, int n, int *s, int k, int *kg,
 int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
 		  int *n0, int *ni, int nmax, int kmax, int nt, 
 		  int n2, int nt2, char *gn0, double eps, double eps1);
+int IBisect(int k, int n, int *a);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg);
 int ValidBasis(STATE *s, int k, int *kg, int n);
-int ConstructHamiltonFrozen(int isym, int k, int *kg, int n);
+int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
 double HamiltonElement(int isym, int isi, int isj);
 double HamiltonElementFrozen(int isym, int isi, int isj);
+double HamiltonElementFB(int isym, int isi, int isj);
 double Hamilton2E2(int n_shells, SHELL_STATE *sbra, 
 		   SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
-
+HAMILTON *GetHamilton(void);
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
@@ -142,7 +153,8 @@ int GetPrincipleBasis(double *mix, int d, int *kpb);
 int CompareLevels(LEVEL *lev1, LEVEL *lev2);
 int SortLevels(int start, int n);
 int GetBaseJ(STATE *s);
-
+void AngularFrozen(int nts, int *ts, int ncs, int *cs);
+void ClearAngularFrozeb(void);
 int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk);
 int CompareAngularZMix(const void *c1, const void *c2);
 int CompareAngularZxZMix(const void *c1, const void *c2);

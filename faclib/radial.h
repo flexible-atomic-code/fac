@@ -26,6 +26,9 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
+double *WLarge(ORBITAL *orb);
+double *WSmall(ORBITAL *orb);
+int GetBoundary(double *rb, double *b, int *nmax);
 void SetBoundary(int nmax, double p, double bqp);
 int RadialOverlaps(char *fn, int kappa);
 void SetSE(int n);
@@ -94,6 +97,8 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m);
 double Breit(int k0, int k1, int k2, int k3, int k,
 	     int kl0, int kl1, int kl2, int kl3);
 void SortSlaterKey(int *kd);
+void PrepSlater(int ib0, int iu0, int ib1, int iu1,
+		int ib2, int iu2, int ib3, int iu3);
 int ResidualPotential(double *s, int k0, int k1);
 int FreeResidualArray(void);
 int FreeMultipoleArray(void);

@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.67 2004/06/23 19:13:56 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.68 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -177,9 +177,11 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	ierr = RadialRydberg(orb, pot);
       }
     }
-  } else {
+  } else if (orb->n == 0) {
     ierr = RadialFree(orb, pot);
-  }  
+  } else {
+    ierr = RadialFreeInner(orb, pot);
+  }
   return ierr;
 }
 
@@ -1053,8 +1055,46 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 
   return 0;
 #undef ME
-}  
+}
   
+int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
+  int i, kl, nodes;
+  int i2;
+  double *p, e;
+
+  e = orb->energy;
+  kl = orb->kappa;
+  if (orb->kappa == 0) {
+    printf("Kappa == 0 in Free\n");
+    return -1;
+  }
+  if (pot->ib <= 0) {
+    printf("Boundary not set\n");
+    return -2;
+  }
+  SetPotentialW(pot, e, kl);
+  kl = (kl < 0)? (-kl-1):kl;  
+  p = malloc(2*pot->maxrp*sizeof(double));
+  if (!p) return -1;
+  SetVEffective(kl, pot);
+
+  i2 = pot->ib + 2;
+  nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
+  for (i = i2; i >= 0; i--) {
+    p[i] *= pot->dr_drho2[i];
+  }
+  orb->ilast = pot->ib;
+  orb->wfun = p;
+  orb->phase = NULL;
+  
+  orb->qr_norm = 1.0;
+  
+  if (pot->flag == -1) {
+    DiracSmall(orb, pot, i2);
+  }
+
+  return 0;
+}
 
 /* note that the free states are normalized to have asymptotic 
    amplitude of 1/sqrt(k), */
@@ -1194,7 +1234,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
   }
   p[pot->maxrp] = p[pot->maxrp+1];
 
-  if (orb->n > 0) {
+  if (orb->n != 0) {
     for (i = i1; i < pot->maxrp; i++) {
       p[i] = 0;
       p[i+pot->maxrp] = 0.0;
@@ -1398,8 +1438,10 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
   int i, i2;
   double x, a, b;
 
-  if (n <= 0) {
-    for (i = 10; i < pot->maxrp-5; i++) {
+  if (n < 0) {
+    return pot->ib;
+  } else if (n == 0) {
+    for (i = pot->ib+10; i < pot->maxrp-5; i++) {
       x = e - _veff[i];
       if (x <= 0) continue;
       b = 1.0/pot->rad[i];

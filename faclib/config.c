@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.32 2004/06/12 22:51:34 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.33 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1857,7 +1857,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 */
 int InGroups(int kg, int ng, int *kgroup) {
   int i;
-  if (ng == 0) {
+  if (ng < 0) {
     if (kg >= 0 && kg < n_groups) return 1;
   }
   for (i = 0; i < ng; i++) {

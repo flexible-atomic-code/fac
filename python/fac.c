@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.82 2004/06/23 18:11:13 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.83 2004/06/30 04:06:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4009,7 +4009,62 @@ static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRMatrixBasis(PyObject *self, PyObject *args) {
+  int kmax, nb;
+
+  if (sfac_file) {
+    SFACStatement("RMatrixBasis", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ii", &kmax, &nb)) return NULL;
+  
+  RMatrixBasis(kmax, nb);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PRMatrix(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
+  int nt, *kt, nc, *kc;
+  char *fn;
+  
+  if (sfac_file) {
+    SFACStatement("RMatrix", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  q = NULL;
+  if (!PyArg_ParseTuple(args, "sO|O", &fn, &p, &q)) return NULL;
+  
+  if (PyTuple_Check(p) || PyList_Check(p)) {
+    nt = DecodeGroupArgs(p, &kt);
+    if (nt == 0) return NULL;
+  }
+  if (q) {
+    if (PyTuple_Check(q) || PyList_Check(q)) {
+      nc = DecodeGroupArgs(q, &kc);
+    } else {
+      nc = 0;
+      kc = NULL;
+    }
+  }
+
+  RMatrix(fn, nt, kt, nc, kc);
+
+  if (nt > 0) free(kt);
+  if (nc > 0) free(kc);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
+  {"RMatrixBasis", PRMatrixBasis, METH_VARARGS}, 
+  {"RMatrix", PRMatrix, METH_VARARGS}, 
   {"Print", PPrint, METH_VARARGS},
   {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
