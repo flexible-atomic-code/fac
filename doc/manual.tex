@@ -1892,10 +1892,11 @@ exact energy of some levels is critical. In the first form, the indexes and the
 energy corrections are listed as two columns in the file \var{fn}. In the
 second form, the indexes are given in the Python list \var{ilev}, and the
 energy corrections are given in the list \var{e}. The corrections are given in
-units of eV, and are added to the energies calculated by FAC. If one needs to
-bring the energy of certain level to a desired experimental value, the
-calculated energy without correction must be known, presumably by a
-calculation without calling \key{CorrectEnergy}.
+units of eV. For the first level in the correction list, the amount is added
+to the energies calculated by FAC, and that level is taken as the reference
+level for all other entries in the list. The correction energies in the list
+\var{e} for these other entries are the desired energies relative to the
+reference level, i.e., they replace the energies calculated by FAC.
 \end{fundesc}
 
 \begin{fundesc}{DROpen}{g}
