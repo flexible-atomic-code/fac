@@ -11,9 +11,9 @@ Config('2p5', group = 'n2')
 Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
 
 OptimizeRadial('n33')
-Structure('n2')
-Structure('n33')
+Structure('se.lev.b', ['n2'])
+Structure('se.lev.b', ['n33'])
+PrintTable('se.lev.b', 'se.lev')
 
-LevelTable('se.lev')
-AITable(['n33'], ['n2'], 'se.ai')
-
+AITable('se.ai.b', ['n33'], ['n2'])
+PrintTable('se.ai.b', 'se.ai')

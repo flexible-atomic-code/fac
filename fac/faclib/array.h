@@ -131,6 +131,7 @@ int ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d);
 void *ArrayAppend(ARRAY *a, void *d);
+int ArrayTrim(ARRAY *a, int n, void(*FreeElem)(void *));
 int ArrayFree(ARRAY *a, void (*FreeElem)(void *));
 int ArrayFreeData(DATA *p, int esize, int block, void (*FreeElem)(void *));
 

@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.10 2001/11/12 22:23:52 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.11 2002/01/14 23:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -50,7 +50,7 @@ int GetAngularTiming(ANGULAR_TIMING *t) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int InitAngular() {
+int InitAngular(void) {
   int n;
 
   ln_factorial[0] = 0.0;

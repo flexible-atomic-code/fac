@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.21 2001/10/14 15:23:23 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.22 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -60,7 +60,7 @@ void y5n_(double *lambda, double *eta0, double *x0,
 void cphamp_(double *lambda, double *eta0, double *x0, 
 	     double *a0, double *cphase0, double *a0p, int *ierr);
 
-int GetNMax() {
+int GetNMax(void) {
   return nmax;
 }
  
@@ -79,7 +79,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot, double tol) {
   return ierr;
 }
 
-double *GetVEffective() { 
+double *GetVEffective(void) { 
   return _veff;
 }
 

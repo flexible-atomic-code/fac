@@ -3,4 +3,4 @@ pyfac:	fac.c
 	${LD} ${LDFLAGS} -o fac.so fac.o ${LIBS}
 
 clean:
-	rm -rf *.o *.so
+	rm -rf *.o *.so *~

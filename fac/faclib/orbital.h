@@ -4,8 +4,6 @@
 #include "global.h"
 #include "nucleus.h"
 
-#define MAX_POINTS 500
-
 typedef struct _POTENTIAL_ {
   int flag;
   int r_core;
@@ -40,8 +38,8 @@ typedef struct _ORBITAL_ {
 #define Large(orb) ((orb)->wfun)
 #define Small(orb) ((orb)->wfun + MAX_POINTS)
 
-int GetNMax();
-double *GetVEffective();
+int GetNMax(void);
+double *GetVEffective(void);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot, double tol);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol);

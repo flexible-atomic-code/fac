@@ -1,12 +1,12 @@
 FAC 0.6.8
-TSess	= 1008364273L
+TSess	= 1008611259
 Type	= 2
 Fe Z	= 26
-NBlocks	= 2
+NBlocks	= 1
 
 NELE	= 10
-NTRS	= 7
-Multi	= -1
+NTRANS	= 7
+Multip	= -1
 Gauge	= 2
 Mode	= 1
 Upper	Lower	    gf

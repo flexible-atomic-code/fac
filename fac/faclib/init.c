@@ -1,4 +1,4 @@
-static char *rcsid="$Id: init.c,v 1.3 2001/12/14 00:07:20 mfgu Exp $";
+static char *rcsid="$Id: init.c,v 1.4 2002/01/14 23:19:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -6,7 +6,15 @@ USE (rcsid);
 
 #include "init.h"
 
-int Info() {
+#if FAC_DEBUG
+  FILE *debug_log = NULL;
+#endif
+
+#ifdef PERFORM_STATISTICS
+  FILE *perform_log = NULL;
+#endif
+
+int Info(void) {
   printf("========================================\n");
   printf("The Flexible Atomic Code (FAC)\n");
   printf("Version %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
@@ -16,7 +24,7 @@ int Info() {
   return 0;
 }
 
-int InitFac() {
+int InitFac(void) {
   int ierr;
 
 #if FAC_DEBUG
@@ -48,6 +56,21 @@ int InitFac() {
   InitExcitation();
   InitRecombination();
   InitIonization();
+
+  return 0;
+}
+
+int ReinitFac(int m_config, int m_recouple, int m_radial,
+	      int m_dbase, int m_structure, int m_excitation,
+	      int m_recombination, int m_ionization) {
+  ReinitConfig(m_config);
+  ReinitRecouple(m_recouple);
+  ReinitRadial(m_radial);
+  ReinitDBase(m_dbase);
+  ReinitStructure(m_structure);
+  ReinitExcitation(m_excitation);
+  ReinitRecombination(m_recombination);
+  ReinitIonization(m_ionization);
 
   return 0;
 }

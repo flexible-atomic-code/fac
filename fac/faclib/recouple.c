@@ -1,6 +1,6 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.7 2001/12/14 00:07:20 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.8 2002/01/14 23:19:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -79,7 +79,7 @@ int SetMaxRank(int k) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int GetMaxRank() {
+int GetMaxRank(void) {
   return max_rank;
 }
 
@@ -714,7 +714,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
       coeff1[m] *= ReducedA(rcfp_bra+2, rcfp_ket+2, qm[order[0]]);
     }
     recouple_operators = 7;
-  } else if (nops[0] = 1 && nops[1] == 1 && nops[2] == 2) { /* 2 x 1 x 1 */
+  } else if (nops[0] == 1 && nops[1] == 1 && nops[2] == 2) { /* 2 x 1 x 1 */
     if (!(order[0] == 0 && order[1] == 1) &&
 	!(order[0] == 2 && order[1] == 3)) {
       m = 0;
@@ -1152,7 +1152,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
 void SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
 	      double *coeff1, int *kk1, int nk1, int p1, 
 	      int phase, int j1, int j2, int j3, int j4) {
-  int i, j, k;
+  int i, j;
   double x;
   
   for (i = 0; i < nk; i++) {
@@ -1224,10 +1224,7 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
   int i, j, k, m, pb, pk;
   int n, kl, jj, nq, nq_plus, nq_minus, qd;
   SHELL_STATE *csf_i, *csf_j;
-  SHELL_STATE s_empty = {0, 0, 0, 0};
   int interaction[4] = {-1, -1, -1, -1};
-  char *ptr;
-  short temp[5];
   int n_shells;
   int index[4];
   INTERACT_DATUM *interact_datum;
@@ -1541,7 +1538,7 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
 
 /* only compile these test routines if the debug flag is on */
 #if FAC_DEBUG 
-void TestAngular() {
+void TestAngular(void) {
   int i, j, k, ns, t;  
   SYMMETRY *sym;  
   CONFIG *c1, *c2;
@@ -1933,7 +1930,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int InitRecouple() {
+int InitRecouple(void) {
   int blocks[4] = {3, 3, 50, 50};
   int ndim = 4;
 
@@ -1941,4 +1938,46 @@ int InitRecouple() {
   return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
 }
 
+/* 
+** FUNCTION:    _FreeInteractDatum
+** PURPOSE:     free memory of an INTERACT_DATUM struct.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+void _FreeInteractDatum(void *p) {
+  INTERACT_DATUM *d;
+  
+  d = (INTERACT_DATUM *) p;
+  if (d->n_shells > 0) {
+    free(d->bra);
+    d->n_shells = 0;
+  }
+}
+  
+/* 
+** FUNCTION:    ReinitRecouple
+** PURPOSE:     Reinitialize the module "recouple"
+** INPUT:       {int m},
+**              0: do a full reinitialization.
+**              1: do nothing.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+int ReinitRecouple(int m) {
+  ARRAY *a;
+  int ndim;
 
+  if (m < 0) return 0;
+
+  a = interact_shells->array;
+  ndim = interact_shells->ndim;
+
+  if (a == NULL) return 0;
+  MultiFreeData(a, ndim, _FreeInteractDatum);
+  
+  return 0;
+}
+  

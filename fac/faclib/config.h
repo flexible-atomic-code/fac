@@ -51,6 +51,7 @@
 
 #include "array.h"
 #include "global.h"
+#include "parser.h"
 #include "nucleus.h"
 
 /*
@@ -303,8 +304,8 @@ int          GroupExists(char *name);
 int          AddConfigToList(int k, CONFIG *cfg);
 int          AddGroup(char *name);
 CONFIG_GROUP *GetGroup(int k);
-CONFIG_GROUP *GetNewGroup();
-int          GetNumGroups();
+CONFIG_GROUP *GetNewGroup(void);
+int          GetNumGroups(void);
 CONFIG       *GetConfig(STATE *s);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 
 				int parity, int j);
@@ -313,6 +314,7 @@ SYMMETRY     *GetSymmetry(int k);
 void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
 int          InGroups(int kg, int ng, int *kgroup);
-int          InitConfig();
+int          InitConfig(void);
+int          ReinitConfig(int m);
 
 #endif

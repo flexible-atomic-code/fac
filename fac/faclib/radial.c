@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.32 2001/11/12 22:23:53 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.33 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -102,6 +102,7 @@ int SetRadialGrid(double rmin, double rmax) {
   if (rmin > 0.0) rgrid_min = rmin;
   if (rmax > 0.0) rgrid_max = rmax;
   potential->flag = 0;
+  return 0;
 }
 
 int _AdjustScreeningParams(double *v, double *u) {
@@ -317,16 +318,18 @@ int GetPotential(char *s) {
   }
 
   fclose(f);  
+  
+  return 0;
 }
 
-double GetResidualZ() {
+double GetResidualZ(void) {
   double z;
   z = potential->Z[MAX_POINTS-1];
   if (potential->N > 0) z -= potential->N - 1;
   return z;
 }
 
-double GetRMax() {
+double GetRMax(void) {
   return potential->rad[MAX_POINTS-10];
 }
 
@@ -581,6 +584,8 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   }
 
   fclose(f);
+
+  return 0;
 }
 
 double _PhaseRDependent(double x, double eta, double b) {
@@ -644,15 +649,15 @@ double GetPhaseShift(int k) {
   return phase1;  
 }
 
-int GetNumBounds() {
+int GetNumBounds(void) {
   return n_orbitals - n_continua;
 }
 
-int GetNumOrbitals() {
+int GetNumOrbitals(void) {
   return n_orbitals;
 }
 
-int GetNumContinua() {
+int GetNumContinua(void) {
   return n_continua;
 }
 
@@ -747,7 +752,7 @@ ORBITAL *GetOrbital(int k) {
   return (ORBITAL *) ArrayGet(orbitals, k);
 }
 
-ORBITAL *GetNewOrbital() {
+ORBITAL *GetNewOrbital(void) {
   ORBITAL *orb;
 
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL);
@@ -773,10 +778,27 @@ void _FreeOrbitalData(void *p) {
   orb->ilast = -1;
 }
 
-int ClearOrbitalTable() {
-  n_continua = 0;
-  n_orbitals = 0;
-  ArrayFree(orbitals, _FreeOrbitalData);
+int ClearOrbitalTable(int m) {
+  ORBITAL *orb;
+  int i;
+
+  if (m == 0) {
+    n_orbitals = 0;
+    n_continua = 0;
+    ArrayFree(orbitals, _FreeOrbitalData);
+  } else {
+    for (i = 0; i < n_orbitals; i++) {
+      orb = GetOrbital(i);
+      if (orb->n <= 0) {
+	n_orbitals = i;
+	n_continua = 0;
+	ArrayTrim(orbitals, i, _FreeOrbitalData);
+	break;
+      }
+    }
+  }
+
+  return 0;
 }
 
 int SaveOrbital(int i) {
@@ -791,6 +813,7 @@ int FreeOrbital(int i) {
   ORBITAL *orb;
   orb = GetOrbital(i);
   _FreeOrbitalData((void *)orb);
+  return 0;
 }
 
 int SaveAllContinua(int mode) {
@@ -823,7 +846,7 @@ int SaveContinua(double e, int mode) {
   return 0;
 }
 
-int FreeAllContinua() {
+int FreeAllContinua(void) {
   int i;
   ORBITAL *orb;
   for (i = 0; i < n_orbitals; i++) {
@@ -2334,13 +2357,13 @@ int IntegrateSinCos(int j, double *x, double *y,
   return 0;
 }
 
-int FreeSlaterArray() {
+int FreeSlaterArray(void) {
   if (slater_array->array == NULL) return 0;
   MultiFreeData(slater_array->array, slater_array->ndim, NULL);
   return 0;
 }
 
-int FreeResidualArray() {
+int FreeResidualArray(void) {
   if (residual_array->array == NULL) return 0;
   MultiFreeData(residual_array->array, residual_array->ndim, NULL);
   return 0;
@@ -2352,21 +2375,21 @@ static void _FreeMultipole(void *p) {
   free(dp);
 }
 
-int FreeMultipoleArray() {
+int FreeMultipoleArray(void) {
   if (multipole_array->array == NULL) return 0;
   MultiFreeData(multipole_array->array, multipole_array->ndim, 
 		_FreeMultipole);
   return 0;
 }
 
-int FreeMomentsArray() {
+int FreeMomentsArray(void) {
   if (moments_array->array == NULL) return 0;
   MultiFreeData(moments_array->array, moments_array->ndim, NULL);
   return 0;
 }
 
 
-int InitRadial() {
+int InitRadial(void) {
   int ndim;
   int blocks[6] = {5, 5, 5, 5, 5, 5};
 
@@ -2402,9 +2425,32 @@ int InitRadial() {
   return 0;
 }
 
+int ReinitRadial(int m) {
+
+  if (m < 0) return 0;
+
+  ClearOrbitalTable(m);
+  FreeSlaterArray();
+  FreeResidualArray();
+  FreeMultipoleArray();
+  FreeMomentsArray();
+
+  if (m) {
+    if (optimize_control.n_screen > 0) {
+      free(optimize_control.screened_n);
+    }
+
+    potential->flag = -1;
+    n_awgrid = 1;
+    awgrid[0] = EPS3;
+  }
+  
+  return 0;
+}
+  
 int TestIntegrate(char *s) {
-  ORBITAL *orb1, *orb2, *orb3, *orb4;
-  int k1, k2, k3, k4, i;
+  ORBITAL *orb1, *orb2, *orb3;
+  int k1, k2, k3, i;
   double r;
   FILE *f;
   
@@ -2455,6 +2501,7 @@ int TestIntegrate(char *s) {
 
 
   fclose(f); 
+  return 0;
 }
 
   

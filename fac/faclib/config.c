@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.13 2001/11/13 22:42:47 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.14 2002/01/14 23:19:41 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -81,7 +81,7 @@ static int _DistributeElectrons(CONFIG **cfg, int ns, SHELL *shell,
   int qmin, qmax, j, q, t, k, ncfg;
 
   if (nq == 0) {
-    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ns);
     (*cfg)->n_shells = 0;
     return 1;
   } 
@@ -275,6 +275,8 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
       dnq = atof(&(scfg[next]));
       if (dnq == 0) dnq = 1;
     }
+  } else {
+    return -1;
   }
 
   shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
@@ -289,6 +291,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     }
   }
   ns = t;
+  
   if (ns == 0) {
     free(shell);
     return -1;
@@ -348,7 +351,14 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   int i, t, j, k, ns;
 
   ns = StrSplit(scfg, ' ');
-  if (ns == 0) return ns;
+  if (ns == 0) {
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)->n_shells = 1;
+    (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL));
+    PackShell((*cfg)->shells, 1, 0, 1, 0);
+    return 1;
+  }
+
   dcfg = (CONFIG **) malloc(sizeof(CONFIG *)*ns);
   dnc = (int *) malloc(sizeof(int)*ns);
   if (nq) {
@@ -425,7 +435,11 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   }    
   
   for (i = 0; i < ns; i++) {
-    free((dcfg[i])->shells);
+    for (j = 0; j < dnc[i]; j++) {
+      if ((dcfg[i][j]).n_shells > 0) {
+	free((dcfg[i][j]).shells);
+      }
+    }
     free(dcfg[i]);
   }
   free(dcfg);
@@ -1098,7 +1112,7 @@ CONFIG_GROUP *GetGroup(int k) {
 ** SIDE EFFECT: 
 ** NOTE:        the name of the group is initialized as '_all_'.
 */
-CONFIG_GROUP *GetNewGroup() {
+CONFIG_GROUP *GetNewGroup(void) {
   if (n_groups == MAX_GROUPS) {
     printf("Max # groups reached\n");
     exit(1);
@@ -1116,7 +1130,7 @@ CONFIG_GROUP *GetNewGroup() {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int GetNumGroups() {
+int GetNumGroups(void) {
   return n_groups;
 }
 
@@ -1531,7 +1545,7 @@ int CompareShell(SHELL *s1, SHELL *s2) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int InitConfig() {
+int InitConfig(void) {
   int i;
 
   n_groups = 0;
@@ -1551,4 +1565,57 @@ int InitConfig() {
   return 0; 
 }
 
+/* 
+** FUNCTION:    _FreeConfigData
+** PURPOSE:     free the memory in a CONFIG struct.
+** INPUT:       {void *},
+**              pointer to the CONFIG struct.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+void _FreeConfigData(void *p) {
+  CONFIG *c;
 
+  c = (CONFIG *) p;
+  if (c->n_shells > 0) {
+    free(c->shells);
+    c->n_shells = 0;
+  }
+  if (c->n_csfs > 0) {
+    free(c->csfs);
+    c->n_csfs = 0;
+  }
+}
+
+/* 
+** FUNCTION:    ReinitConfig
+** PURPOSE:     reinitialize the module "config".
+** INPUT:       {int m},
+**              0: do a full reinitialization.
+**              -1, 1: do nothing.
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
+int ReinitConfig(int m) {
+  int i;
+
+  if (m) return 0;
+
+  for (i = 0; i < n_groups; i++) {
+    ArrayFree(&(cfg_groups[i].cfg_list), _FreeConfigData);
+    cfg_groups[i].n_cfgs = 0;
+    strcpy(cfg_groups[i].name, "_all_");
+  }
+  n_groups = 0;
+
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    if (symmetry_list[i].n_states > 0) {
+      ArrayFree(&(symmetry_list[i].states), NULL);
+      symmetry_list[i].n_states = 0;
+    }
+  }
+
+  return 0;
+}

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.3 2001/11/12 22:23:53 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.4 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -141,7 +141,7 @@ int Parse(char *token, int tokmax, char *line,
 
   state = IN_WHITE;
   
-  for (tokpos = 0; c = line[*next]; (*next)++) {
+  for (tokpos = 0; (c = line[*next]); (*next)++) {
     if ((qp = sindex(c, delim)) >= 0) {
       switch(state) {
       case IN_WHITE:

@@ -135,7 +135,7 @@ int  GetAngularTiming(ANGULAR_TIMING *t);
 /*
 ** Public functions provided by *angular*
 */
-int    InitAngular();
+int    InitAngular(void);
 int    Triangle(int j1, int j2, int j3);
 double W3j(int j1, int j2, int j3, int m1, int m2, int m3);
 double W6j(int j1, int j2, int j3, int i1, int i2, int i3);

@@ -8,10 +8,10 @@
 #include "structure.h"
 
 int SetTransitionCut(double c);
-double GetTransitionCut();
-void SetTransitionOption(int gauge, int mode, int max_e, int max_m);
-int GetTransitionGauge();
-int GetTransitionMode();
+double GetTransitionCut(void);
+void SetTransitionOptions(int gauge, int mode, int max_e, int max_m);
+int GetTransitionGauge(void);
+int GetTransitionMode(void);
 int OscillatorStrength(double *strength, double *energy,
 		       int m, int low, int up);
 int SaveTransition(int nlow, int *low, int nup, int *up,

@@ -1,6 +1,6 @@
 #include "nucleus.h"
 
-static char *rcsid="$Id: nucleus.c,v 1.8 2001/10/25 21:57:42 mfgu Exp $";
+static char *rcsid="$Id: nucleus.c,v 1.9 2002/01/14 23:19:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -31,11 +31,11 @@ static double _emass[N_ELEMENTS] =
  254, 253, 256, 254, 257, 257, 260, 263, 262, 265, 266};
 
 
-char *GetAtomicSymbolTable() {
+char *GetAtomicSymbolTable(void) {
   return (char *) _ename;
 }
 
-double *GetAtomicMassTable() {
+double *GetAtomicMassTable(void) {
   return _emass;
 }
 
@@ -60,15 +60,15 @@ int SetAtom(char *s, double z, double mass) {
   return 0;
 }
 
-double GetAtomicMass() {
+double GetAtomicMass(void) {
   return atom.mass;
 }
 
-double GetAtomicNumber() {
+double GetAtomicNumber(void) {
   return atom.atomic_number;
 }
 
-char *GetAtomicSymbol() {
+char *GetAtomicSymbol(void) {
   return atom.symbol;
 }
 

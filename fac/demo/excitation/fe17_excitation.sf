@@ -9,8 +9,8 @@ Config('2*7 3*1', group = 'n3')
 # Self-consistent iteration for optimized central potential
 SetScreening([10])
 OptimizeRadial('n2', 'n3')
-Structure()
-LevelTable('ne.lev')
+Structure('ne.lev.b')
+PrintTable('ne.lev.b', 'ne.lev')
 
-CETable(['n2'], ['n3'], 'ne.ce')
-
+CETable('ne.ce.b', ['n2'], [2]) 
+PrintTable('ne.ce.b', 'ne.ce') 

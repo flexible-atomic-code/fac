@@ -1,6 +1,6 @@
 #include "ionization.h"
 
-static char *rcsid="$Id: ionization.c,v 1.24 2001/12/05 01:19:41 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.25 2002/01/14 23:19:42 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -55,14 +55,12 @@ static int qk_mode;
 static double qk_fit_tolerance;
 
 static double yegrid0[NINT];
-static double log_yegrid0[NINT];
 
 static int n_usr = 0;
 static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
 static double xusr[MAXNUSR];
 static double log_xusr[MAXNUSR];
-static double qk_usr[MAXNUSR];
 
 static int n_egrid = 0;
 static double egrid[MAXNE];
@@ -188,7 +186,7 @@ int SetUsrCIEGrid(int n, double emin, double emax, double eth) {
 }
 
 int SetCIPWGrid(int ns, int *n, int *step) {
-  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(0, 500, 8, 50, 5E-2);
+  if (pw_scratch.nkl0 <= 0) SetCIPWOptions(0, 256, 8, 64, 5E-2);
   pw_scratch.nkl = SetPWGrid(&(pw_scratch.nkl0),
 			     pw_scratch.kl,
 			     pw_scratch.log_kl,
@@ -503,7 +501,7 @@ void CIRadialQkBasis(int npar, double *yb, double x, double log_x) {
 
 void CIRadialQkFromFit(int np, double *p, int n, 
 		       double *x, double *logx, double *y) {
-  double a, c, d, e, f, g, h;
+  double a, c, d, e, f, g;
   int i;
 
   if (qk_mode == QK_BED) {
@@ -675,7 +673,7 @@ int LoadCIRadialQkIntegrated(int n, char *s) {
   za0 = GetResidualZ();
   za0 = za0/z0;
   
-  while (sb = fgets(buf, BUFSIZE, f)) {
+  while ((sb = fgets(buf, BUFSIZE, f))) {
     sscanf(buf, "%d%d%d", &np, &kl2, &j);
     if (np != n) {
       for (ite = 0; ite < nqkc; ite++) 
@@ -810,7 +808,7 @@ int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
 			     double emin, double emax, char *s) {
 #define MAXNSHELLS 128
   FILE *f;
-  int i, ite, ie, norbs, k, kl, kl2, j;
+  int i, ite, ie, k, kl, kl2, j;
   int jz, jp, iz, ia, in;
   int an[MAXNSHELLS], akappa[MAXNSHELLS];
   double mnq, tnq;
@@ -882,7 +880,7 @@ int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
       FreeSlaterArray();
       FreeResidualArray();  
      
-      ClearOrbitalTable();
+      ClearOrbitalTable(1);
       SetAverageConfig(nshells, an, akappa, anq);
       SetRadialGrid(-1.0, -1.0);
       OptimizeRadial(0, NULL, NULL);
@@ -926,7 +924,7 @@ int PrepCIRadialQkIntegrated(int nz, double *z, int na, double *a,
 	    for (ite = 0; ite < n_tegrid; ite++) {
 	      xte[ite][jp] = tegrid[ite]/e0;
 	      for (i = 0; i < NPARAMS; i++) {
-		if (qk_mode = QK_BED && (i == 1 || i == 2)) {
+		if (qk_mode == QK_BED && (i == 1 || i == 2)) {
 		  qk[ite][i][jp] = qkc[k];		
 		} else {
 		  qk[ite][i][jp] = qkc[k]*e0;
@@ -1213,7 +1211,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
 }
 
 double *CIRadialQkTable(int kb, int kbp) {
-  int index[3], ie, i, j, k, t;
+  int index[3], j, k, t;
   int nqk, ie1, ie2, ite;
   double **p, *qk, qi[MAXNTE];
 
@@ -1267,7 +1265,7 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
   int i, ip, j, ierr;
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
-  double c, r, qke[MAXNUSR];
+  double c, qke[MAXNUSR];
   int nz, j0, j0p, kb, kbp, nq, nqk;
   double *p;
 
@@ -1346,6 +1344,7 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
       p += nqk;
     }
     CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+    nq = 1;
   }
 
   return nq;
@@ -1353,15 +1352,15 @@ int IonizeStrength(double *qku, int *nqkc, double *qkc, double *te,
 
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int i, j, k;
-  int j1, j2, ie;
+  int ie, ip;
   FILE *file;
   LEVEL *lev1, *lev2;
-  double delta, emin, emax, e, e0, s;
-  double *qk, *qkc, qku[MAXNUSR];
-  int nqkc, nq, nqk;
-  
-  file = fopen(fn, "w");
-  if (!file) return -1;
+  CI_RECORD r;
+  CI_HEADER ci_hdr;
+  F_HEADER fhdr;
+  double delta, emin, emax, e;
+  double *qk, qku[MAXNUSR];
+  int nqkc, nq, nqk, nshells;  
 
   emin = 1E10;
   emax = 1E-10;
@@ -1375,6 +1374,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       if (e < emin && e > 0) emin = e;
       if (e > emax) emax = e;
     }
+  }
+  if (emin < TE_MIN_MAX*emax) {
+    emin = TE_MIN_MAX*emax;
   }
   if (k == 0) {
     printf("No ionizations can occur\n");
@@ -1433,6 +1435,11 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     SetCIEGrid(n_egrid, emin, emax, e);
   }
 
+  if (n_usr <= 0) {
+    SetUsrCIEGridDetail(n_egrid, egrid);
+    usr_egrid_type = 1;
+  }
+		  
   for (ie = 0; ie < n_egrid; ie++) {
     for (i = 0; i < n_tegrid; i++) {
       xegrid[i][ie] = egrid[ie]/tegrid[i];
@@ -1453,76 +1460,66 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   
   e = GetResidualZ();
   PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
-		   pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);
-  
-  fprintf(file, " QK_MODE: %d\n", qk_mode);
-  fprintf(file, " IEGRID:\n   ");
-  for (i = 0; i < n_tegrid; i++) {
-    fprintf(file, "%10.4E ", tegrid[i]*HARTREE_EV);
-  }
-  fprintf(file, "\n");
-
-  fprintf(file, " EGRID:\n   ");
-  for (i = 0; i < n_egrid; i++) {
-    fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
-  }
-  fprintf(file, "\n\n");
-  if (output_format >= 0 && n_usr >= 0) {	
-    if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid ");
-    else fprintf(file, " Scattered Electron UsrEGrid ");
-    fprintf(file, "\n");
-  }
-  fprintf(file, "\n");
-
-  fprintf(file, "Bound 2J   Free  2J   Delta_E\n");
+		   pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);  
 
   nqkc = 10;
   nqk = NPARAMS;
   if (qk_mode == QK_BED) nqk += 1;
   qk = (double *) malloc(sizeof(double)*nqkc*nqk);
 
+  fhdr.type = DB_CI;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  ci_hdr.nele = GetNumElectrons(b[0]);
+  ci_hdr.qk_mode = qk_mode;
+  ci_hdr.nparams = nqk;
+  ci_hdr.pw_type = pw_type;
+  ci_hdr.n_tegrid = n_tegrid;
+  ci_hdr.n_egrid = n_egrid;
+  ci_hdr.egrid_type = egrid_type;
+  ci_hdr.n_usr = n_usr;
+  ci_hdr.usr_egrid_type = usr_egrid_type;
+  ci_hdr.tegrid = tegrid;
+  ci_hdr.egrid = egrid;
+  ci_hdr.usr_egrid = usr_egrid;
+
+  file = InitFile(fn, &fhdr, &ci_hdr);
+
+  nshells = 1;
+  r.params = (float *) malloc(sizeof(float)*nqk);
+  r.strength = (float *) malloc(sizeof(float)*n_usr);
+
   for (i = 0; i < nb; i++) {
-    j1 = LevelTotalJ(b[i]);
     for (j = 0; j < nf; j++) {
-      j2 = LevelTotalJ(f[j]);
       nq = IonizeStrength(qku, &nqkc, qk, &e, b[i], f[j]);
-      qkc = qk;
       if (nq < 0) continue;
-      fprintf(file, "%-5d %-2d   %-5d %-2d   %10.4E \n",
-	      b[i], j1, f[j], j2, e*HARTREE_EV);
-      if (qk_mode == QK_BED) {
-	for (k = 0; k < nq; k++) {
-	  fprintf(file, "%-2d %11.4E %11.4E %11.4E %11.4E\n", 
-		  (int)(qkc[4]), qkc[0], qkc[1], qkc[2], qkc[3]);
-	  qkc += nqk;
-	}
-      } else {
-	fprintf(file, "   %11.4E %11.4E %11.4E %11.4E\n", 
-		qkc[0], qkc[1], qkc[2], qkc[3]);
+      r.b = b[i];
+      r.f = f[j];
+      r.nshells = nq;
+      if (r.nshells > nshells) {
+	r.params = (float *) realloc(r.params, sizeof(float)*nqk*r.nshells);
+	nshells = r.nshells;
       }
-      if (output_format >= 0 && n_usr > 0) {	
-	for (ie = 0; ie < n_usr; ie++) {
-	  s = qku[ie];
-	  fprintf(file, "%-10.3E ", 
-		  usr_egrid[ie]*HARTREE_EV);
-	  if (output_format != 2) {
-	    fprintf(file, "%-10.3E ", s);
-	  } 
-	  if (output_format != 1) {
-	    e0 = usr_egrid[ie];
-	    if (usr_egrid_type == 1) e0 += e;
-	    e0 *= 1.0+FINE_STRUCTURE_CONST2*e0;
-	    s *= AREA_AU20/(2*e0*(j1+1.0));
-	    fprintf(file, "%-10.3E ", s);
-	  }
-	  fprintf(file, "\n");
+      
+      ip = 0;
+      for (k = 0; k < nq; k++) {
+	for (ie = 0; ie < nqk; ie++) {
+	  r.params[ip] = (float) qk[ip];
+	  ip++;
 	}
-	fprintf(file, "\n");
-      }      
+      }
+      
+      for (ie = 0; ie < n_usr; ie++) {
+	r.strength[ie] = (float) qku[ie];
+      }
+
+      WriteCIRecord(file, &r);
     }
   }
 
-  fclose(file);
+  CloseFile(file, &fhdr);
+  free(r.params);
+  free(r.strength);
   free(qk);
 
   return 0;
@@ -1534,7 +1531,7 @@ void _FreeIonizationQk(void *p) {
   free(dp);
 }
 
-int FreeIonizationQk() {
+int FreeIonizationQk(void) {
   ARRAY *b;
   b = qk_array->array;
   if (b == NULL) return 0;
@@ -1542,7 +1539,7 @@ int FreeIonizationQk() {
   return 0;
 }
 
-int InitIonization() {
+int InitIonization(void) {
   int blocks[3] = {2, 10, 10};
   int ndim = 3;
   
@@ -1561,4 +1558,24 @@ int InitIonization() {
   SetCIQkMode(QK_DEFAULT, 1E-3);
   return 0;
 }
+
+int ReinitIonization(int m) {
+
+  if (m < 0) return 0;
+
+  FreeIonizationQk(); 
+
+  SetCIMaxK(8);
+  n_egrid = 0;
+  n_tegrid = 0;
+  n_usr = 0;
+  egrid[0] = -1.0;
+  SetCIEGridLimits(-1.0, -1.0, 0);
+  tegrid[0] = -1.0;
+  usr_egrid[0] = -1.0;
+  output_format = 0;
+  SetCIQkMode(QK_DEFAULT, 1E-3);
+
+  return 0;
+}  
 

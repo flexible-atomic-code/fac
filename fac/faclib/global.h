@@ -50,8 +50,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <math.h>
+
+#ifdef MPATROL_CHECK
+#include <mpatrol.h>
+#endif
+
+#ifdef DMALLOC_CHECK
+#include <dmalloc.h>
+#endif
+
+#ifdef PMALLOC_CHECK
+#include "pmalloc.h"
+#endif
 
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
@@ -133,6 +146,7 @@
 ** NOTE:        
 */
 #define HARTREE_EV 27.2113962 
+
 /*
 ** VARIABLE:    RATE_AU, RATE_AU10, RATE_AU12
 ** TYPE:        macro constants.
@@ -142,6 +156,7 @@
 #define RATE_AU    4.13413733E16
 #define RATE_AU10  4.13413733E06
 #define RATE_AU12  4.13413733E04
+
 /*
 ** VARIABLE:    AREA_AU20
 ** TYPE:        macro constants.
@@ -149,6 +164,7 @@
 ** NOTE:        
 */
 #define AREA_AU20  2.80028560859E3
+
 /*
 ** VARIABLE:    RBOHR
 ** TYPE:        macro constant.
@@ -156,6 +172,7 @@
 ** NOTE:        
 */
 #define RBOHR      0.529177249
+
 /*
 ** VARIABLE:    FINE_STRUCTURE_CONST, FINE_STRUCTURE_CONST2
 ** TYPE:        macro constants.
@@ -164,6 +181,22 @@
 */
 #define FINE_STRUCTURE_CONST  7.29735308E-3
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
+
+
+#define MAX_POINTS 500
+
+#define G_COULOMB   1
+#define G_BABUSHKIN 2
+#define M_FR        0
+#define M_NR        1
+
+#define QK_DEFAULT    -1
+#define QK_EXACT       0
+#define QK_INTERPOLATE 1
+#define QK_FIT         2
+#define QK_CB          3
+#define QK_DW          4
+#define QK_BED         5
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG

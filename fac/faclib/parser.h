@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 
 char StrTrim(char *s, char c);
 int StrSplit(char *s, char sep);

@@ -161,15 +161,16 @@ int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra,
 
 /* only compile these test routines if the debug flag is on */
 #if FAC_DEBUG 
-void TestAngular();
+void TestAngular(void);
 void CheckAngularConsistency(int n_shells, SHELL *bra, 
 			     SHELL_STATE *sbra, SHELL_STATE *sket,
 			     INTERACT_SHELL *s, int phase);
 #endif /* FAC_DEBUG */
 
 int SetMaxRank(int k);
-int GetMaxRank();
-int InitRecouple();
+int GetMaxRank(void);
+int InitRecouple(void);
+int ReinitRecouple(int m);
 
 #endif
 
