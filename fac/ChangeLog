@@ -3,6 +3,7 @@ Version 1.0.5, 03/03/2004
 	2. fix bugs in radial integration.
 	3. replace PS manual with PDF format.
 	4. implement a version of 2nd order MBPT for energy.
+	5. fix the problem in Uheling potential.
 	
 Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.

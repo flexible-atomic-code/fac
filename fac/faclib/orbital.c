@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.53 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.54 2004/04/25 20:44:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1640,7 +1640,7 @@ double UehlingL1(double x) {
 int SetPotentialUehling(POTENTIAL *pot, int vp) {
   int i, j, i1;
   double a, b, r0, r, rm, rp, rn;
-  double v, d;
+  double v, d, c;
 
   if (vp <= 0) return 0;
 
@@ -1681,8 +1681,21 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
 	}
 	_dwork[j] *= pot->rad[j]*pot->dr_drho[j]*d;
       }
-      v = Simpson(_dwork, 0, i1-1) / pot->rad[i];
-      if (fabs(1.0 - v/pot->uehling[i]) < EPS2) break;
+      j = i1 - 1;
+      v = Simpson(_dwork, 0, j) / pot->rad[i];
+      rp = r + rn;
+      rp = 2.0*rp/r0;
+      rm = fabs(r - rn);
+      rm = 2.0*rm/r0;
+      _dwork[i1] = a*(UehlingK0(rm) - UehlingK0(rp));
+      if (vp > 1) {
+	_dwork[i1] += b*(UehlingL0(rm) - UehlingL0(rp));
+      }
+      _dwork[i1] *= rn*d;
+      _dwork[j] /= pot->dr_drho[j];
+      c = 0.5*(_dwork[j] + _dwork[i1])*(rn - pot->rad[j]);
+      v += c/pot->rad[i];
+      if (fabs(1.0 - v/pot->uehling[i]) < EPS3) break;
       pot->uehling[i] = v;
     }
   }

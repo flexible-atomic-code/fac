@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.55 2004/03/11 00:26:05 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.56 2004/04/25 20:44:47 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -127,7 +127,14 @@ double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m) {
     } else if (m == 1) {
       e = AverageEnergyConfig(GetConfig(s));
     }
-    d = d*d/(lev->energy - e);
+
+    d = d/(lev->energy - e);
+    d = d*d;
+    if (d < EPS3) {
+      d = d*(lev->energy - e);
+    } else {
+      d = 0.5*(lev->energy - e)*(sqrt(1+4.0*d)-1.0);
+    }
     r += d;
   }
   
