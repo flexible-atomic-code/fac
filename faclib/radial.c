@@ -1,6 +1,6 @@
 #include "radial.h"
 
-static char *rcsid="$Id: radial.c,v 1.31 2001/11/07 16:34:06 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.32 2001/11/12 22:23:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -364,6 +364,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   double z;
   double large, large_old;
   int iter;
+  int *frozen;
+
   FreeSlaterArray();
   FreeResidualArray();
   /* get the average configuration for the groups */
@@ -420,6 +422,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 
   if(a > 2*z) z = a/potential->Z[MAX_POINTS-1];
   else z = 0.0;
+  frozen = calloc(acfg->n_shells, sizeof(int));
+
   while (tol > optimize_control.tolerance || z > 0.0) {
     if (iter > optimize_control.maxiter) break;
     if (z < 1E-3 && z > 0.0) {
@@ -434,6 +438,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     for (i = 0; i < acfg->n_shells; i++) {
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
+	frozen[i] = 0;
 	orb_old.energy = 0.0;
 	orb = GetNewOrbital();
 	orb->kappa = acfg->kappa[i];
@@ -443,20 +448,25 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       } else {
 	orb = GetOrbital(k);
 	if (orb->wfun == NULL) {
+	  frozen[i] = 0;
 	  orb_old.energy = 0.0;
 	  orb->energy = 1.0;
 	  orb->kappa = acfg->kappa[i];
 	  orb->n = acfg->n[i];
 	  no_old = 1;	
 	} else {
-	  orb_old.energy = orb->energy; 
-	  orb_old.ilast = orb->ilast;
-	  memcpy(orb_old.wfun, orb->wfun, sizeof(double)*MAX_POINTS);
-	  free(orb->wfun);
-	  no_old = 0;
+	  if (iter == 0) frozen[i] = 1;
+	  if (!frozen[i]) {
+	    orb_old.energy = orb->energy; 
+	    orb_old.ilast = orb->ilast;
+	    memcpy(orb_old.wfun, orb->wfun, sizeof(double)*MAX_POINTS);
+	    free(orb->wfun);
+	    no_old = 0;
+	  } else {
+	    continue;
+	  }
 	}
       }
- 
       if (SolveDirac(orb) < 0) {
 	return -1;
       }
@@ -488,6 +498,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     iter++;
   }
   free(orb_old.wfun);
+  free(frozen);
 
   if (iter > optimize_control.maxiter) {
     printf("Maximum iteration reached in OptimizeRadial\n");

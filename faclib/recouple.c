@@ -1,46 +1,128 @@
 #include "recouple.h"
 
-static char *rcsid="$Id: recouple.c,v 1.5 2001/10/14 15:23:24 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.6 2001/11/12 22:23:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
-/********************************************************************/ 
-/* The rank appears in this file are all double of its actual value */
-/* Note that the rank in the rcfp routines are the actual values    */
-/********************************************************************/
+/*************************************************************
+  Implementation of the module "recouple".
+  This module calculates the recoupling coefficients. 
 
-/* max_ranks of the operators allowed is set to k=6 by default */
+  The main task is to determine which electrons are the 
+  interacting ones, and calculate the reduced matrix elements
+  of the operator Z and ZxZ0, 
+
+  Author: M. F. Gu, mfgu@space.mit.edu
+**************************************************************/
+
+/*
+** VARIABLE:    max_rank = 12
+** TYPE:        static int
+** PURPOSE:     the maximum rank of the operators allowed.
+** NOTE:        the ranks are represented by an integer that is
+**              twice of its actuall value. The default value of 
+**              12 means a maximum rank of 6.
+*/
 static int max_rank = 12;
-/* the multi-dimensional array stores the reduced matrix elements */
+
+/*
+** VARIABLE:    interact_shells
+** TYPE:        static MULTI *
+** PURPOSE:     the multi-dimensional array stores the interacting 
+**              shells information.
+** NOTE:        
+*/
 static MULTI *interact_shells;
 
 #ifdef PERFORM_STATISTICS
 static RECOUPLE_TIMING timing = {0, 0, 0, 0};
-
+/* 
+** FUNCTION:    GetRecoupleTiming
+** PURPOSE:     retrieve the timing information of the module "recouple".
+** INPUT:       {RECOUPLE_TIMING *t},
+**              pointer of the structure which will hold the result.
+** RETURN:      {int},
+**              always 0.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetRecoupleTiming(RECOUPLE_TIMING *t) {
   memcpy(t, &timing, sizeof(timing));
   return 0;
 }
 #endif
 
-/* set and get the maximum rank */
+/* 
+** FUNCTION:    SetMaxRank
+** PURPOSE:     set the maximum rank of the operators.
+** INPUT:       {int k},
+**              the maximum rank. it should be twice the 
+**              actual value.
+** RETURN:      {int}
+**              always 0.
+** SIDE EFFECT: the static max_rank is set to k.
+** NOTE:        
+*/
 int SetMaxRank(int k) {
   max_rank = k;
+  return 0;
 }
 
+/* 
+** FUNCTION:    GetMaxRank
+** PURPOSE:     retrieve the maximum rank.
+** INPUT:       
+** RETURN:      {int},
+**              the maximum rank.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetMaxRank() {
   return max_rank;
 }
 
-/* macro to check the ordering of interacting shells */
+/* 
+** MACRO:       IsOrder
+** PURPOSE:     check the ordering of the shells.
+** INPUT:       {int order[4]},
+**              the shell indexes to be checked.
+**              {int a, b, c, d},
+**              the ordering required.
+** RETURN:      {int},
+**              0: if the order is not of the required type.
+**              1: otherwise.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 #define IsOrder(order, a, b, c, d) (((order)[0] == (a)) && \
 				    ((order)[1] == (b)) && \
 				    ((order)[2] == (c)) && \
 				    ((order)[3] == (d)))
 
-/* converting the reduced matrix to ones that involve individual shells */
+/* 
+** FUNCTION:    DecoupleShell
+** PURPOSE:     decouple the operators, so that their reduced 
+**              matrix elements are expressed in terms of those 
+**              involve individual shells.
+** INPUT:       {int n_shells},
+**              number of shells in the bra and ket states.
+**              {SHELL_STATE *bra, *ket},
+**              the shell states. if the bra and ket have different 
+**              shell structures, they must be padded with empty shells
+**              to make them identical. this is done in GetInteract.
+**              {int n_interact},
+**              number of interacting shells.
+**              {int *interact},
+**              the indexes of the interacting shells.
+**              {int *rank},
+**              the ranks of the operators.
+** RETURN:      {double},
+**              the decoupling coefficient.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		     int n_interact, int *interact, int *rank) {
   double coeff;
@@ -111,7 +193,27 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
   return coeff;
 }
 
-/* check if given states lead to non-zero matrix elements */
+/* 
+** FUNCTION:    IsShellInteracting
+** PURPOSE:     check if the states lead to non-zero matrix elements.
+** INPUT:       {int n_shells},
+**              number of shells in the bra and ket states.
+**              {SHELL_STATE *bra, *ket},
+**              the shell states. if the bra and ket have different 
+**              shell structures, they must be padded with empty shells
+**              to make them identical. this is done in GetInteract.
+**              {int n_interact},
+**              number of interacting shells.
+**              {int *interact},
+**              the indexes of the interacting shells.
+**              {int *rank},
+**              the ranks of the operators.
+** RETURN:      {int},
+**              0: the states alwas results in zero matrix elements.
+**              1: otherwise.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int IsShellInteracting(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		       int n_interact, int *interact, int *rank) {
   int i, j, j0;
@@ -130,20 +232,42 @@ int IsShellInteracting(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
   return 1;
 }
 
-/* this calculates the reduced matrix of Z operator, see the definition 
-   by Bar-Shalom et al. Phys. Rev A. 38, 1773. 
+/* 
+** FUNCTION:    AngularZ
+** PURPOSE:     calculate the reduced matrix element of Z operator.
+** INPUT:       {double **coeff},
+**              a pointer to a double array, which holds the 
+**              results on exit.
+**              {int **k},
+**              a pointer to an int array, which holds all possible 
+**              ranks of the operator.
+**              {int n_shells},
+**              number of the shells in the bra and ket states.
+**              {SHELL_STATE *bra, *ket},
+**              the bra and ket states.
+**              {INTERACT_SHELL *s1, *s2},
+**              two interacting shells involved in the operator.
+** RETURN:      {int},
+**              0: error occured.
+**              1: succeeded.
+** SIDE EFFECT: 
+** NOTE:        For the definition of the operator see 
+**              Bar-Shalom et al. Phys. Rev A. 38, 1773. 
 
-   if the rank of the operator is passed in, the total number of ranks and
-   the ranks should be set in nk, and **kk, and the storage for the coeff 
-   should be provided. otherwise all possible ranks are determined and 
-   storage for the coeff. and kk allocated in this routine. 
+**              if the rank of the operator is passed in, the total 
+**              number of ranks and ranks should be set in nk, and **kk, 
+**              and the storage for the coeff be provided. 
+**              otherwise all possible ranks are determined and 
+**              storage for the coeff. and kk allocated in this routine. 
 
-   Note that the reduced matrix element calculated here does not include
-   the overall phase factor that arise from interchanging of electron
-   shells, which depends on the occupation numbers of the config.
-   However, the phase factor arise from the interchanging of operators
-   are included. This is also the same for the next routine, AngularZxZ0 */
-   
+**              Note that the reduced matrix element calculated here 
+**              does not include the overall phase factor that arises 
+**              from interchanging of electron shells, which depends 
+**              on the occupation numbers of the config.
+**              However, the phase factor arise from the interchanging 
+**              of operators are included. This is also the same for 
+**              the next routine, AngularZxZ0
+*/   
 int AngularZ(double **coeff, int **kk, int nk,
 	     int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 	     INTERACT_SHELL *s1, INTERACT_SHELL *s2){
@@ -243,19 +367,11 @@ int AngularZ(double **coeff, int **kk, int nk,
     st2 = ket[n_shells - s1->index -1];
     rcfp_bra.state = RCFPTermIndex(s1->j, (st1).nu, 
 				   (st1).Nr, (st1).shellJ);
-    /*
-    printf("1,%d %d %d %d %d %d %d %d %d\n", 
-	   s1->n, s1->j, s1->kl, s1->nq_bra, s1->nq_ket, 
-	   (st1).nu, (st1).Nr, (st1).shellJ, rcfp_bra.state);
-    */
     rcfp_bra.nq = s1->nq_bra;
     rcfp_bra.subshellMQ = rcfp_bra.nq - (s1->j + 1)/2;
 
     rcfp_ket.state = RCFPTermIndex(s1->j, (st2).nu, 
 				   (st2).Nr, (st2).shellJ);
-    /*    
-    printf("2,%d %d %d %d %d\n", s1->j, (st1).nu, (st1).Nr, (st1).shellJ, rcfp_ket.state);
-    */
     rcfp_ket.nq = s1->nq_ket;
     rcfp_ket.subshellMQ = rcfp_ket.nq - (s1->j + 1)/2;  
     coeff1 = ReducedA(&rcfp_bra, &rcfp_ket, 1);
@@ -264,16 +380,10 @@ int AngularZ(double **coeff, int **kk, int nk,
     st2 = ket[n_shells - s2->index -1];
     rcfp_bra.state = RCFPTermIndex(s2->j, (st1).nu, 
 				   (st1).Nr, (st1).shellJ);
-    /*
-    printf("3,%d %d %d %d %d\n", s1->j, (st1).nu, (st1).Nr, (st1).shellJ, rcfp_bra.state);
-    */
     rcfp_bra.nq = s2->nq_bra;
     rcfp_bra.subshellMQ = rcfp_bra.nq - (s2->j + 1)/2;
     rcfp_ket.state = RCFPTermIndex(s2->j, (st2).nu, 
 				   (st2).Nr, (st2).shellJ);
-    /*
-    printf("4, %d %d %d %d %d\n", s1->j, (st1).nu, (st1).Nr, (st1).shellJ, rcfp_bra.state);
-    */
     rcfp_ket.nq = s2->nq_ket;
     rcfp_ket.subshellMQ = rcfp_ket.nq - (s2->j + 1)/2;  
     coeff2 = ReducedA(&rcfp_bra, &rcfp_ket, -1);
@@ -300,11 +410,32 @@ int AngularZ(double **coeff, int **kk, int nk,
   return nk;
 }
 
-/* calculate the reduced matrix of operator (Z dot Z), see the comments 
-   before AngularZ. Note that the order of the interacting shells is 
-   different from that in the radial part. e.g. if the order in the
-   slater integral is R(ab, cd), then the order passing into this routine
-   is a, c, b, d */
+/* 
+** FUNCTION:    AngularZxZ0
+** PURPOSE:     calculate the reduced matrix element of 
+**              (Z \dot Z) operator.
+** INPUT:       {double **coeff},
+**              a pointer to a double array, which holds the 
+**              results on exit.
+**              {int **k},
+**              a pointer to an int array, which holds all possible 
+**              ranks of the operator.
+**              {int n_shells},
+**              number of the shells in the bra and ket states.
+**              {SHELL_STATE *bra, *ket},
+**              the bra and ket states.
+**              {INTERACT_SHELL s[4]},
+**              4 interacting shells involved in the operator.
+** RETURN:      {int},
+**              0: error occured.
+**              1: succeeded.
+** SIDE EFFECT: 
+** NOTE:        see the notes of the routine AngularZ. 
+**              Note that the order of the interacting shells is 
+**              different from that in the radial part. 
+**              e.g. if the order in the slater integral is R(ab, cd), 
+**              then the order passing into this routine is a, c, b, d 
+*/
 int AngularZxZ0(double **coeff, int **kk, int nk,
 		int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		INTERACT_SHELL *s) {
@@ -1009,7 +1140,15 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   return nk;
 }
 
-/* summation due to the recoupling of operators */
+/* 
+** FUNCTION:    SumCoeff
+** PURPOSE:     perform the summation due to the exchange of 
+**              two operators.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 void SumCoeff(double *coeff,  int *kk,  int nk,  int p, 
 	      double *coeff1, int *kk1, int nk1, int p1, 
 	      int phase, int j1, int j2, int j3, int j4) {
@@ -1039,7 +1178,19 @@ void SumCoeff(double *coeff,  int *kk,  int nk,  int p,
   }
 }
 
-/* sort the interacting shells */
+/* 
+** FUNCTION:    SortShell
+** PURPOSE:     sort the interacting shells. 
+**              calculate the phase of the interchange.
+** INPUT:       {INTERACT_SHELL *s},
+**              shell indexes to be sorted.
+**              {int *order},
+**              the order returned.
+** RETURN:      {int},
+**              the phase.
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int SortShell(INTERACT_SHELL *s, int *order) {
   int i, j, k;
   int phase;
@@ -1058,8 +1209,14 @@ int SortShell(INTERACT_SHELL *s, int *order) {
   return phase;
 }
   
-
-/* determine which shells can interact */
+/* 
+** FUNCTION:    GetInteract
+** PURPOSE:     determing which shells can be interacting.
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int GetInteract(int *phase, INTERACT_SHELL *s, SHELL **bra, 
 		SHELL_STATE **sbra, SHELL_STATE **sket, 
 		CONFIG *ci, int ki, CONFIG *cj, int kj,
@@ -1768,12 +1925,20 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 
 #endif /* FAC_DEBUG */
 
+/* 
+** FUNCTION:    InitRecouple
+** PURPOSE:     Initialize the module "recouple"
+** INPUT:       
+** RETURN:      
+** SIDE EFFECT: 
+** NOTE:        
+*/
 int InitRecouple() {
   int blocks[4] = {3, 3, 50, 50};
   int ndim = 4;
 
   interact_shells = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
+  return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
 }
 
 
