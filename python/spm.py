@@ -29,7 +29,7 @@ def spectrum(neles, temp, den, population,
             print 'Temp = %10.3E'%(temp[i])
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
 
-            SetEleDist(0, temp[i])
+            SetEleDist(0, temp[i], -1.0, -1.0)
             print 'CE rates...'
             SetCERates(1)
             print 'TR rates...'

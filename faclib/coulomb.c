@@ -1,6 +1,6 @@
 #include "coulomb.h"
 
-static char *rcsid="$Id: coulomb.c,v 1.9 2002/01/14 23:19:41 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.10 2002/02/18 03:15:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -14,8 +14,8 @@ static int _cbindex[CBMULTIPOLES];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
 static double *_dwork = NULL;
 static int _nm_min = 100;
-static int _nm_max = 5000;
-static int _nm_factor = 100;
+static int _nm_max = 50000;
+static int _nm_factor = 50;
 static int _nm = 0;
 
 double argam_(double *x, double *y);
@@ -352,13 +352,13 @@ int TestCoulomb(char *s) {
   FILE *f;
   int nte, ne1, ne2, ie1, ite;
   double e2[] = {0.0};
-  double e1[] = {600.0, 1100.0};
-  double te[] = {50.0, 100.0};
+  double e1[] = {6.0986E1,5.296E2};
+  double te[] = {1.68686E-1,8.434314E-1};
   
   ne2 = 1;
   ne1 = 2;
   nte = 2;
-  z = 10;
+  z = 17;
 
   f = fopen(s, "w");
   for (i = 0; i < 50; i++) {
@@ -370,7 +370,7 @@ int TestCoulomb(char *s) {
     j += 1;
   }
   
-  PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 0, 0, 0);
+  PrepCoulombBethe(ne2, nte, ne1, z, e2, te, e1, M, kl, 1, 0, 0);
   for (ite = 0; ite < nte; ite++) {
     for (ie1 = 0; ie1 < ne1; ie1++) {
       fprintf(f, "## TE = %10.3E, E1 = %10.3E\n", te[ite], e1[ie1]);

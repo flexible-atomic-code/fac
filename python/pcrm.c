@@ -1,4 +1,4 @@
-static char *rcsid="$Id: pcrm.c,v 1.8 2002/02/12 20:32:17 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.9 2002/02/18 03:15:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -175,7 +175,7 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
     p = PyTuple_GetItem(args, k);
     par[k-1] = PyFloat_AsDouble(p);
   }
-  SetEleDist(i, np, par);
+  if (SetEleDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
  
   Py_INCREF(Py_None);
@@ -204,7 +204,7 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
     p = PyTuple_GetItem(args, k);
     par[k-1] = PyFloat_AsDouble(p);
   }
-  SetPhoDist(i, np, par);
+  if (SetPhoDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
  
   Py_INCREF(Py_None);

@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.13 2002/02/12 20:32:13 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.14 2002/02/18 03:15:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -18,7 +18,7 @@ static int rec_cascade = 1;
 static double cas_accuracy = EPS4;
 static int max_iter = 256;
 static double iter_accuracy = EPS3;
-static double iter_stablizer = 0.5;
+static double iter_stablizer = 0.75;
 
 static double electron_density = EPS3; /* 10^10 cm-3 */
 static double photon_density = 0.0; /* erg/(eV cm3) */
@@ -326,7 +326,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->nlevels = nlev;
 }
   
-void ExtrapolateTR(ION *ion) {
+void ExtrapolateTR(ION *ion, int inv) {
   RECOMBINED *rec;
   RATE *r, r0;
   ARRAY *rates;
@@ -390,7 +390,7 @@ void ExtrapolateTR(ION *ion) {
   }
 }
 
-void ExtrapolateRR(ION *ion) {
+void ExtrapolateRR(ION *ion, int inv) {
   RECOMBINED *rec;
   RATE *r, r0;
   ARRAY *rates;
@@ -460,24 +460,19 @@ void ExtrapolateRR(ION *ion) {
   }
 }
 
-void ExtrapolateAI(ION *ion) {
+void ExtrapolateAI(ION *ion, int inv) {
   RECOMBINED *rec;
   RATE *r, r0;
   LBLOCK *blk0;
   BLK_RATE *brts;
   ARRAY *rates;
-  DISTRIBUTION *dist;
   int nr;
   int n0, n1;
   int i, j, t, k, p;
   int imin, imax;
-  double a, b, e, e1, temp;
+  double a, b, e;
   double ai_extra[MAXNREC];
 
-  dist = GetEleDist(&i);
-  if (i != 0) return;
-  temp = dist->params[0];
-  temp /= HARTREE_EV;
   for (i = 0; i < ion->recombined->dim; i++) {
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
     if (rec->n_ext == rec->n) continue;
@@ -516,9 +511,8 @@ void ExtrapolateAI(ION *ion) {
 	  if (e < EPS16) continue;
 	  b = ai_extra[k];
 	  r0.dir = b*r->dir;
-	  e1 = ion->energy[r->i] - ion->energy[r->f];
-	  b *= exp((e1-e)/temp);
-	  r0.inv = b*r->inv;
+	  AIRate(&(r0.dir), &(r0.inv), inv, ion->j[r->i], ion->j[r->f],
+		 e, r0.dir/RATE_AU);
 	  AddRate(ion, ion->ai_rates, &r0, 0);
 	}
 	r->inv *= a;
@@ -2729,7 +2723,7 @@ int SetTRRates(int inv) {
     }
     fclose(f);
     if (ion0.n < 0.0) continue;
-    ExtrapolateTR(ion);
+    ExtrapolateTR(ion, inv);
     if (k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_TR-1], "r");
       if (f == NULL) {
@@ -2929,7 +2923,7 @@ int SetRRRates(int inv) {
       free(params);
     }
     fclose(f);
-    ExtrapolateRR(ion);
+    ExtrapolateRR(ion, inv);
   }
   return 0;
 }
@@ -2986,7 +2980,7 @@ int SetAIRates(int inv) {
       }
     }
     fclose(f);
-    ExtrapolateAI(ion);
+    ExtrapolateAI(ion, inv);
   }
   return 0;
 }
