@@ -334,10 +334,6 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     _dwork[i] = 1.0 + xi;
     _dwork1[i] = sqrt(_dwork[i])*p[i];
     _dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
-    if (!(_dwork1[i] >= 0) && !(_dwork1[i] < 0)) {
-      printf("%10.3E %10.3E %10.3E %10.3E\n", xi, p[i], pot->Vc[i], pot->U[i]);
-      abort();
-    }
   }
   
   for (i = 0; i < i1; i++) {
@@ -382,6 +378,13 @@ int _DiracSmall(ORBITAL *orb, POTENTIAL *pot) {
     p[i+MAX_POINTS] = b*FINE_STRUCTURE_CONST;
   } 
   if (orb->n > 0) {
+    for (i = i1; i < MAX_POINTS; i++) {
+      xi = e - pot->Vc[i] - pot->U[i];
+      if (pot->flag == -2) xi -= pot->Vtail[i];
+      xi = xi*FINE_STRUCTURE_CONST2*0.5;
+      _dwork[i] = 1.0 + xi;
+      p[i] = sqrt(_dwork[i])*p[i];
+    }
     a = InnerProduct(i1, p+MAX_POINTS, p+MAX_POINTS, pot);
     b = InnerProduct(MAX_POINTS, p, p, pot);    
     a = sqrt(a+b);

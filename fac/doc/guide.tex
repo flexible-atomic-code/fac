@@ -26,14 +26,14 @@ Some functions are general to all atomic processes such as specifying an
 electronic configuration. They are collected in this section. In this and the
 following sections, if a function name is not fully qualified with its module
 name, it is assumed that it comes from module ``fac'', which is the main module
-interfacing within the internal ``C'' library. As a convention, all functions
+interfacing with the internal ``C'' library. As a convention, all functions
 from ``fac'' has names with each word capitalized in first letter.
 
 \begin{description}
 \item[SetAtom(s, z, mass)] 
 Set the Element. ``s'' is the element symbol, ``z'' is
 the atomic number, ``mass'' is the mass of the nucleus. ``z'' and ``mass'' may
-be ommited, in which case, their values are determined by looking up an
+be omitted, in which case, their values are determined by looking up an
 internal table. e.g., SetAtom('Fe'), SetAtom('Fe', 26), SetAtom('Fe', 26, 56).
 
 \item[config.closed(s)] 
@@ -49,7 +49,8 @@ shell. When it is called with an empty string, it resets to no closed shells.
 Specify electronic configuration which
 belongs to a group with name ``g''. ``s'' is a string denoting a
 configuration. Each configuration consists a sequence of shells with
-occupation number indicated immediately after the shell. The pricipile quantum
+occupation number indicated immediately after the shell. For each shell, the
+pricipile quantum 
 number comes first, followed by the orbital angular momentum $l$. A ``*'' may
 be used to specify $l$ instead of the detailed spectroscopic notation, which
 means $l$ may assume any allowed value. After $l$,  A $\pm$ sign
@@ -146,9 +147,8 @@ The following routines set some global options controlling the computation.
 Set parameters affecting the optimization of radial central potentials. 
 ``tol'' is the desired accuracy for self-consistent iterations. ``maxiter'' is
 the maximum iteration the optimization may perform. ``iprint'' indicates
-whether iteration summary should 
-be printed out. The defaults: ``tol = 1E-6'', ``maxiter = 100'', ``nscreen =
-8'', ``iprint = 0''.
+whether iteration summary should be printed out. The defaults: ``tol = 1E-6'',
+``maxiter = 100'', ``iprint = 0''. 
 
 \item[SetScreening(n)] 
 Set the principle quantum number, beyond which the central potential should be
