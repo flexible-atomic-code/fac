@@ -1,3 +1,11 @@
+version 0.9.9, 07/10/2003
+	1. add interpolating routine for CECross.
+	2. add plane-wave Born approximation for magnetic sublevel
+	   excitation.
+	3. change the parameter born[1] to the energy where it is
+	   calculated.
+	4. add the quadratic interpolation feature in UVIP3P.
+	
 version 0.9.8, 06/18/2003
 	1. bug fix on CETableMSub.
 	

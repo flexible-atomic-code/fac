@@ -64,6 +64,7 @@ C Error check
       DO 11  ID=2,ND
         IF (XD(ID).LE.XD(ID-1))     GO TO 92
    11 CONTINUE
+
 C Branches off special cases.
       IF (ND.LE.4)   GO TO 50
 C General case  --  Five data points of more
@@ -115,22 +116,27 @@ C cf. Equation (8)
             Y1=YD(2)-Y0
             Y2=YD(3)-Y0
             Y3=YD(4)-Y0
-            DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
-            A1=(((X2*X3)**2)*(X3-X2)*Y1
-     1         +((X3*X1)**2)*(X1-X3)*Y2
-     2         +((X1*X2)**2)*(X2-X1)*Y3)/DLT
-          END IF
+            IF (NP .EQ. 2) THEN
+               DLT = X1*X2*(X2-X1)
+               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT
+            ELSE
+               DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+               A1=(((X2*X3)**2)*(X3-X2)*Y1
+     1              +((X3*X1)**2)*(X1-X3)*Y2
+     2              +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+            ENDIF
+         ENDIF
 C Evaluates the YI value.
-          YI(II)=Y0+A1*(XII-X0)
+         YI(II)=Y0+A1*(XII-X0)
 C End of Subcase 1
-        ELSE IF (IINT.GE.ND)  THEN
+      ELSE IF (IINT.GE.ND)  THEN
 C Subcase 2  --  Linear extrapolation when the abscissa of the
 C                desired point is equal to that of the last data
 C                point or greater.
 C Estimates the first derivative when the interval is not the
 C same as the one for the previous desired point.  --
 C cf. Equation (8)
-          IF (IINT.NE.IINTPV)  THEN
+         IF (IINT.NE.IINTPV)  THEN
             IINTPV=IINT
             X0=XD(ND)
             X1=XD(ND-1)-X0
@@ -140,15 +146,75 @@ C cf. Equation (8)
             Y1=YD(ND-1)-Y0
             Y2=YD(ND-2)-Y0
             Y3=YD(ND-3)-Y0
-            DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
-            A1=(((X2*X3)**2)*(X3-X2)*Y1
-     1         +((X3*X1)**2)*(X1-X3)*Y2
-     2         +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+            IF (NP .EQ. 2) THEN
+               DLT = X1*X2*(X2-X1)
+               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT               
+            ELSE
+               DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+               A1=(((X2*X3)**2)*(X3-X2)*Y1
+     1              +((X3*X1)**2)*(X1-X3)*Y2
+     2              +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+            ENDIF
           END IF
 C Evaluates the YI value.
           YI(II)=Y0+A1*(XII-X0)
 C End of Subcase 2
         ELSE
+C ADD QUADRATIC INTERPOLATION WHEN NP=1,2, WHICH ONLY 
+C WORKS IF ND > 4      
+           IF (NP .EQ. 2) THEN
+              IF (IINT .NE. IINTPV) THEN
+                 IINTPV = IINT
+                 IF (IINT .EQ. 1) THEN
+                    X0 = XD(IINT)
+                    Y0 = YD(IINT)
+                    X1 = XD(IINT+1)-X0
+                    Y1 = YD(IINT+1)-Y0
+                    X2 = XD(IINT+2)-X0
+                    Y2 = YD(IINT+2)-Y0
+                    DLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
+                    A2=(X1*Y2-X2*Y1)/DLT
+                 ELSE IF (IINT .EQ. ND-1) THEN
+                    X0 = XD(IINT-1)
+                    Y0 = YD(IINT-1)
+                    X1 = XD(IINT)-X0
+                    Y1 = YD(IINT)-Y0
+                    X2 = XD(IINT+1)-X0
+                    Y2 = YD(IINT+1)-Y0
+                    DLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
+                    A2=(X1*Y2-X2*Y1)/DLT
+                 ELSE
+                    X0 = XD(IINT)
+                    Y0 = YD(IINT)
+                    X1 = XD(IINT+1)-X0
+                    Y1 = YD(IINT+1)-Y0
+                    X2 = XD(IINT+2)-X0
+                    Y2 = YD(IINT+2)-Y0
+                    DLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
+                    A2=(X1*Y2-X2*Y1)/DLT
+                    X00 = XD(IINT-1)
+                    Y00 = YD(IINT-1)
+                    X11 = XD(IINT)-X00
+                    Y11 = YD(IINT)-Y00
+                    X22 = XD(IINT+1)-X00
+                    Y22 = YD(IINT+1)-Y00
+                    DLT = X11*X22*(X22-X11)
+                    A11=(X22*X22*Y11-X11*X11*Y22)/DLT
+                    A22=(X11*Y22-X22*Y11)/DLT
+                 ENDIF
+              ENDIF
+              XX = XI(II)-X0
+              YI(II) = Y0 + XX*(A1+XX*A2)
+              IF (IINT .NE. 1 .AND. IINT .NE. ND-1) THEN
+                 XX = XI(II)-X00
+                 YI(II) = 0.5*(YI(II) + Y00+XX*(A11+XX*A22))
+              ENDIF
+              GOTO 39
+           ENDIF
+
 C Subcase 3  --  Interpolation when the abscissa of the desired
 C                point is  between those of the first and last
 C                data points.

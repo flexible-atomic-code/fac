@@ -33,6 +33,7 @@ int InitExcitation(void);
 int ReinitExcitation(int m);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
+int SetCEBorn(double x);
 void SetCELQR(int m);
 void SetCELMax(int m);
 void SetCELCB(int m);
@@ -54,9 +55,13 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 int CERadialPk(int *nkappa, int *nkl, double **pk, 
 	       short **kappa0, short **kappa1, int ie,
 	       int k0, int k1, int k);
+int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
+		   double te, double e1, double *qk);
+int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
+		       double te, double e1, 
+		       int nq, int *q, double *qk);
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k);
-double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, 
-			    int k, int kp);
+double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp);
 int CERadialQk(double *r, double te, 
 	       int k0, int k1, int k2, int k3, int k);
 int CERadialQkMSub(double *rq, double te, int k0, int k1,

@@ -298,6 +298,12 @@ int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
+void PrepCECrossHeader(CE_HEADER *h, double *data);
+void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, double *data);
+double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h, 
+			  double *data, double *ratio);
+int CECross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy);
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax);
 int TotalPICross(char *ifn, char *ofn, int ilev, 

@@ -257,4 +257,11 @@
 #define EBELI(A1,A2,A3)\
      CCALLSFSUB3(EBELI, ebeli, INT, INT, DOUBLEV, A1,A2,A3)
 
+     PROTOCCALLSFSUB9(DXLEGF, dxlegf, DOUBLE, INT, INT, INT,\
+		      DOUBLE, INT, DOUBLEV, INTV, INTV)
+#define DXLEGF(A1,A2,A3,A4,A5,A6,A7,A8,A9)\
+     CCALLSFSUB9(DXLEGF, dxlegf, DOUBLE, INT, INT, INT,\
+                 DOUBLE, INT, DOUBLEV, INTV, INTV,\
+                 A1,A2,A3,A4,A5,A6,A7,A8,A9)
+
 #endif

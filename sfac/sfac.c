@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.38 2003/06/07 01:19:35 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.39 2003/07/10 14:04:40 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1443,6 +1443,19 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetCEBorn(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  double x;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+
+  x = atof(argv[0]);
+  SetCEBorn(x);
+  
+  return 0;
+}
+
 static int PSetCEQkMode(int argc, char *argv[], int argt[],
 			ARRAY *variables) {
   int m;
@@ -2740,6 +2753,7 @@ static METHOD methods[] = {
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
+  {"SetCEBorn", PSetCEBorn, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},
