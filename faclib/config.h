@@ -3,7 +3,6 @@
 
 #include "array.h"
 #include "global.h"
-#include "dbase.h"
 #include "nucleus.h"
 
 /* maximum orbital angular momentum for which a symbol is available */

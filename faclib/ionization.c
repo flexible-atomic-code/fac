@@ -2,6 +2,7 @@
 
 #define NINT 31
 
+static int output_format = 0;
 static int egrid_type = -1;
 static int usr_egrid_type = -1;
 static int pw_type = -1;
@@ -71,6 +72,11 @@ int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
 int SetCIEGridDetail(int n, double *xg) {
   n_egrid = SetEGridDetail(egrid, log_egrid, n, xg);
   return n_egrid;
+}
+
+int SetCIFormat(int m) {
+  output_format = m;
+  return m;
 }
 
 int SetCIEGridType(int utype, int etype) {
@@ -544,17 +550,8 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     n_usr = 6;
   }
   if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr) {
+    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
       SetUsrCIEGridDetail(n_egrid, egrid);
-      if (egrid_type == 0 && usr_egrid_type == 1) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] -= e;
-	}
-      } else if (egrid_type == 1 && usr_egrid_type == 0) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] += e;
-	}
-      }      
     } else {
       SetUsrCIEGrid(n_usr, emin, emax, e);
     }
@@ -589,9 +586,12 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   for (i = 0; i < n_egrid; i++) {
     fprintf(file, "%10.4E ", egrid[i]*HARTREE_EV);
   }
-  fprintf(file, "\n");
-  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid:\n\n");
-  else fprintf(file, " Scattered Electron UsrEGrid:\n\n");
+  fprintf(file, "\n\n");
+  if (usr_egrid_type == 0) fprintf(file, " Incident Electron UsrEGrid, ");
+  else fprintf(file, " Scattered Electron UsrEGrid, ");
+  if (output_format != 2) fprintf(file, "Ionization Strength, ");
+  if (output_format != 1) fprintf(file, "Cross Section");
+  fprintf(file, "\n\n");
 
   fprintf(file, "Bound 2J\tFree  2J\tDelta_E\n");
 
@@ -604,10 +604,15 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       fprintf(file, "%-5d %-2d\t%-5d %-2d\t%10.4E\n",
 	      b[i], j1, f[j], j2, e*HARTREE_EV);
       for (ie = 0; ie < n_usr; ie++) {
-	fprintf(file, "%-10.3E %-10.3E ", 
-		usr_egrid[ie]*HARTREE_EV, s[ie]);
-	s[ie] = AREA_AU20*(s[ie])/(2*(e+usr_egrid[ie])*(j1+1.0));
-	fprintf(file, "%-10.3E ", s[ie]);
+	fprintf(file, "%-10.3E ", 
+		usr_egrid[ie]*HARTREE_EV);
+	if (output_format != 2) {
+	  fprintf(file, "%-10.3E ", s[ie]);
+	} 
+	if (output_format != 1) {
+	  s[ie] = AREA_AU20*(s[ie])/(2*(e+usr_egrid[ie])*(j1+1.0));
+	  fprintf(file, "%-10.3E ", s[ie]);
+	}
 	fprintf(file, "\n");
       }
       fprintf(file, "\n");

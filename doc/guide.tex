@@ -274,6 +274,11 @@ called. for a given transition array, the transition energy grid is set
 automatically, with 3 points, which is sufficiently accurate for the
 interpolation of the entire transition array. 
 
+\item[SetCEFormat(m)]
+Set the format of the output. If ``m=0'', both collision strength and cross
+sections in unit of $10^{-20}$ cm$^2$ are output. If ``m=1'', only collision
+strenght is ouput, and if ``m=2'', only cross section is output.
+
 \item[SetCEGridType(utype, etype, ltype)]
 Set the type of collision energy grid, and the partial wave summation mode.
 ``utype'' is for the user grid, if it is 0, the energies are for the incident
@@ -318,6 +323,11 @@ See SetCEPWGrid() for detail.
 \item[SetIEGrid(n, emin, emax)]
 See SetTEGrid(). This sets the ionization threshold energy grid, int the same
 way as the excitation energy grid.
+
+\item[SetCIFormat(m)]
+Set the format of the output. If ``m=0'', both ionization strength and cross
+sections in unit of $10^{-20}$ cm$^2$ are output. If ``m=1'', only ionization
+strenght is ouput, and if ``m=2'', only cross section is output.
 
 \item[SetCIEGridType(utype, etype)]
 Set the collision energy grid type, whether it is the incident electron

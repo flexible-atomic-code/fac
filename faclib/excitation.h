@@ -33,6 +33,7 @@ int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
 int SetCEPWOptions(int qr, int max, int kl_cb, double tol);
 int AddCEPW(int n, int step);
+int SetCEFormat(int m);
 int SetCEPWGrid(int ns, int *n, int *step);
 int SetCEEGridType(int utype, int etype, int ltype);
 int SetCEEGridDetail(int n, double *x);

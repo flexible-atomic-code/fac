@@ -1,7 +1,8 @@
 #include "excitation.h"
 
-#define MAXMSUB  200
+#define MAXMSUB  64
 
+static int output_format = 0;
 static int egrid_type = -1;
 static int usr_egrid_type = -1;
 static int pw_type = -1;
@@ -34,6 +35,11 @@ void uvip3p_(int *np, int *ndp, double *x, double *y,
 
 CEPW_SCRATCH *GetCEPWScratch() {
   return &pw_scratch;
+}
+
+int SetCEFormat(int m) {
+  output_format = m;
+  return m;
 }
 
 int SetCEEGridType(int utype, int etype, int ltype) {
@@ -978,7 +984,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (msub) {
     pw_type = 1;
-    if (egrid_type < 0) egrid_type = 0;
+    if (egrid_type < 0) egrid_type = 1;
     if (usr_egrid_type < 0) usr_egrid_type = 1;
   } else {
     if (pw_type < 0) pw_type = 0;
@@ -996,20 +1002,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   interpolate_egrid = 1;
     
   if (usr_egrid[0] < 0.0) {
-    if (n_egrid > n_usr) {
+    if (n_egrid > n_usr && egrid_type == usr_egrid_type) {
       SetUsrCEEGridDetail(n_egrid, egrid);
-      if (egrid_type == 0 && usr_egrid_type == 1) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] -= e;
-	}
-      } else if (egrid_type == 1 && usr_egrid_type == 0) {
-	for (i = 0; i < n_egrid; i++) {
-	  usr_egrid[i] += e;
-	  log_usr[i] = log(usr_egrid[i]);
-	}
-      } else {
-	interpolate_egrid = 0;
-      }
+      interpolate_egrid = 0;
     } else {
       if (usr_egrid_type == 0) {
 	SetUsrCEEGrid(n_usr, emin, emax, -e);
@@ -1022,20 +1017,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     n_egrid = 6;
   }
   if (egrid[0] < 0.0) {
-    if (n_usr <= 6) {
+    if (n_usr <= 6 && egrid_type == usr_egrid_type) {
       SetCEEGridDetail(n_usr, usr_egrid);
-      if (egrid_type == 0 && usr_egrid_type == 1) {
-	for (i = 0; i < n_egrid; i++) {
-	  egrid[i] += e;
-	  log_egrid[i] = log(egrid[i]);
-	}
-      } else if (egrid_type == 1 && usr_egrid_type == 0) {
-	for (i = 0; i < n_egrid; i++) {
-	  egrid[i] -= e;
-	}
-      } else {
-	interpolate_egrid = 0;
-      }
+      interpolate_egrid = 0;
     } else {
       emax = usr_egrid[n_usr-1];
       if (usr_egrid_type == 0) {
@@ -1071,9 +1055,12 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   for (i = 0; i < n_egrid; i++) {
     fprintf(f, "%10.4E ", egrid[i]*HARTREE_EV);
   }
-  fprintf(f, "\n");
-  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid:\n\n");
-  else fprintf(f, " Scattered Electron UsrEGrid:\n\n");
+  fprintf(f, "\n\n");
+  if (usr_egrid_type == 0) fprintf(f, " Incident Electron UsrEGrid, ");
+  else fprintf(f, " Scattered Electron UsrEGrid, ");
+  if (output_format != 2) fprintf(f, "Collision Strength, ");
+  if (output_format != 1) fprintf(f, "Cross Section");
+  fprintf(f, "\n\n");
 
   fprintf(f, "low  2J\tup   2J\tDelta_E\n");
   for (i = 0; i < nlow; i++) {
@@ -1092,11 +1079,21 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  e0 = usr_egrid[ie] + e;
 	}
 	b = 1.0+0.5*FINE_STRUCTURE_CONST2*e0;
+	n = j2 + 1;
 	for (m = 0; m < k; m++) {
 	  c = s[m*n_usr+ie];
-	  fprintf(f, "%-10.3E", c);
-	  c *= PI * AREA_AU20/(2*e0*b*(j1+1));
-	  fprintf(f, "%-10.3E  ", c);
+	  if (output_format != 2) {
+	    fprintf(f, "%-10.3E", c);
+	  }
+	  if (output_format != 1) {
+	    c *= PI * AREA_AU20/(2*e0*b*(j1+1));
+	    fprintf(f, "%-10.3E", c);
+	  }
+	  fprintf(f, " ");
+	  if (m == n) {
+	    n += j2 + 1;
+	    fprintf(f, "\n           ");
+	  }
 	}
 	fprintf(f, "\n");
       }

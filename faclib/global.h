@@ -41,13 +41,12 @@
 #define G_COULOMB   1
 #define G_BABUSHKIN 2
 
-
-/* macros controll the debug level */
-
+#define DEBUG_RECOUPLE  10
+#define DEBUG_STRUCTURE 20
 #define FAC_DEBUG 0
-#define DEBUG_STRUCTURE 2
-#define DEBUG_RADIAL 5
-#define DEBUG_RECOUPLE 2
+#if FAC_DEBUG
+extern FILE *debug_log;
+#endif
 
 /*
 #define PERFORM_STATISTICS 1

@@ -2,7 +2,6 @@
 #define _STRUCTURE_H_
 
 #include "global.h"
-#include "dbase.h"
 #include "config.h"
 #include "nucleus.h"
 #include "radial.h"

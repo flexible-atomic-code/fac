@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include "global.h"
-#include "dbase.h"
 #include "nucleus.h"
 #include "interpolation.h"
 #include "coulomb.h"
