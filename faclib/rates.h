@@ -54,6 +54,8 @@ int AIRate(double *dir, double *inv, int iinv,
 	   int j1, int j2, double e, float rate);
 double RRFit(int z, int nele, double t);
 double DRFit(int z, int nele, double t);
+double NRRFit(int z, int nele, double t);
+double NDRFit(int z, int nele, double t);
 double PhFit2(int z, int nele, int is, double e);
 double CFit(int z, int nele, double t, double *a, double *dir);
 double ColFit(int z, int nele, int is, double t, double *a, double *dir);

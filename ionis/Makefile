@@ -1,4 +1,4 @@
-SRC = intexp.f ionis.f recomb.f recomb_Fe.f cfit.f colfit.f phfit2.f rrfit.f drfit.f
+SRC = intexp.f ionis.f recomb.f recomb_Fe.f cfit.f colfit.f phfit2.f rrfit.f drfit.f nrrfit.f ndrfit.f
 
 OBJS = ${SRC:.f=.o}
 

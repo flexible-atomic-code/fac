@@ -6,6 +6,7 @@ import sys
 # and the compiler flags. 
 
 platform = sys.platform[:5]
+
 if (platform == 'linux'):
       fortranlib = ['g2c']
       fflags = '-O -c -fPIC'
@@ -58,7 +59,7 @@ else:
       incdir = ["faclib"]
     
       setup(name = "FAC",
-            version = "0.8.6",
+            version = "0.8.8",
             package_dir = {'pfac': 'python'},
             py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
                           'pfac.atom', 'pfac.spm'],

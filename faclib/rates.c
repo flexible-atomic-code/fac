@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.21 2003/01/13 18:48:21 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.22 2003/01/17 20:33:32 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -625,12 +625,28 @@ static double PowerLaw(double e, double *p) {
   return x;
 }
 
+double NRRFit(int z, int nele, double t) {
+  double r;
+
+  NRRFIT(z, nele, t, &r);
+  if (r < 0.0) r = RRFit(z, nele, t);
+  return r;
+}
+
 double RRFit(int z, int nele, double t) {
   double r;
 
   t = t/8.617385E-5;
   RRFIT(z, nele, t, &r);
   r *= 1E10;
+  return r;
+}
+
+double NDRFit(int z, int nele, double t) {
+  double r;
+
+  NDRFIT(z, nele, t, &r);
+  if (r < 0.0) r = DRFit(z, nele, t);
   return r;
 }
 
@@ -729,6 +745,9 @@ double Recomb(int z, int nele, double t, double *rr, double *dr, int m) {
   } else if (m == 1) {
     r = RRFit(z, nele, t);
     d = DRFit(z, nele, t);
+  } else if (m == 2) {
+    r = NRRFit(z, nele, t);
+    d = NDRFit(z, nele, t);
   } else {
     printf("Unrecognized Mode in Recomb\n");
     return 0.0;
@@ -742,7 +761,7 @@ double Recomb(int z, int nele, double t, double *rr, double *dr, int m) {
 }
 
 int FracAbund(int z, double t, double *a, int im, int rm) {
-  int nele;
+  int nele, k;
   double *ir, *rr, c;
 
   ir = (double *) malloc(sizeof(double)*(z+1));
@@ -758,9 +777,17 @@ int FracAbund(int z, double t, double *a, int im, int rm) {
   }
 
   a[0] = 1.0;
-  c = 1.0;
   for (nele = 1; nele <= z; nele++) {
     a[nele] = a[nele-1]*(rr[nele-1]/ir[nele]);
+    if (a[nele] > 1E20) {
+      for (k = 0; k < nele; k++) {
+	a[k] /= a[nele];
+      }
+      a[nele] = 1.0;
+    }
+  }
+  c = 0.0;
+  for (nele = 0; nele <= z; nele++) {
     c += a[nele];
   }
   for (nele = 0; nele <= z; nele++) {
