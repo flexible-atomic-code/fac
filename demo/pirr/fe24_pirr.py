@@ -14,7 +14,7 @@ fac.Config('1s1 2*1', group = 'n2')
 fac.Config('1s2 2*1', group = 'rn2')
 
 fac.ConfigEnergy(0)
-fac.OptimizeRadial(['n1', 'rn2'])
+fac.OptimizeRadial(['rn2'])
 fac.ConfigEnergy(1)
 
 # configuration interaction between n=1 and n=2

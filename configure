@@ -3947,8 +3947,35 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-CFLAGS=""
-FFLAGS=""
+# some F77 LDFLAGS have a -lcrt1.o which causes trouble.
+# actuall any crtn.o may cause trouble, we don't need that.
+echo "$as_me:$LINENO: checking for -lcrtn.o in FLIBS" >&5
+echo $ECHO_N "checking for -lcrtn.o in FLIBS... $ECHO_C" >&6
+NFLIBS=`echo $FLIBS | sed 's/-lcrt[0-9]\.o//g'`
+NFLIBS=`echo $NFLIBS | sed 's/  */ /g'`
+if test "x$NFLIBS" = "x$FLIBS"
+then
+  echo "$as_me:$LINENO: result: no." >&5
+echo "${ECHO_T}no." >&6
+else
+  FLIBS=$NFLIBS
+  echo "$as_me:$LINENO: result: $FLIBS" >&5
+echo "${ECHO_T}$FLIBS" >&6
+fi
+
+# override the default CFLAGS and FFLAGS
+if test -n "$GCC"
+then
+  CFLAGS="-O2"
+else
+  CFLAGS="-O"
+fi
+if test -n "$G77"
+then
+  FFLAGS="-O2"
+else
+  FFLAGS="-O"
+fi
 
 # Debugging option
 # Check whether --enable-cdebug or --disable-cdebug was given.
@@ -4016,12 +4043,16 @@ then
       *solaris*)
 	xxFortran=sunFortran
       ;;
+      *sunos*)
+	xxFortran=sunFortran
+      ;;
       *)
         echo "NOTE: F77 known by cfortran.h is not detected."
         echo "      using default f2cFortran."
         echo "      if not, chage it using --with-cfortran=xxFortran"
         echo "      see faclib/cfortran.doc for available options."
         xxFortran=f2cFortran
+      ;;
     esac
   fi
 fi
@@ -4037,9 +4068,6 @@ case "$host_os" in
     if test -n "$G77"
     then
       FFLAGS="$FFLAGS -fno-common"
-# somehow, darwin gives a lot of junk for F77 LD_FLAGS under g77.
-# overwrite it with a simple one.
-      FLIBS="-lg2c -lm"
     fi
   ;;
   *)
