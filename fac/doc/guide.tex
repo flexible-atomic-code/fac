@@ -196,10 +196,15 @@ then determine including the electron-electron interaction (both direct and
 exchange) with this mean configuration. The central potential is used to
 construct the radial basis for configuration interaction. 
 
-\item[Structure(groups)] 
+\item[Structure(groups, perturbing\_groups)] 
 Setup the Hamilton matrix, and diagonalize
-it. Only the configurations in the specified groups are assumed to
-interact. If no argument is given, all configurations are mixed. 
+it. Only the configurations in ``groups'' and ``perturbing\_groups'' are
+assumed to interact. However, configurations in ``perturbing\_groups'' are of
+minor importance. The levels belong to them are not calculated. They exist
+only to interact with ``groups''. In setting up the Hamiltonian, only the
+diagonal matrix elements within ``perturbing\_groups'' and the non-diagonal
+elements between ``groups'' and ``perturbing\_groups'' are retained. If no
+argument is given, all configurations are mixed.  
 
 \item[LevelTable(fname, n, m)] 
 Output the Energy Level to an ascii file ``fname''. ``n'' is the principle
@@ -336,9 +341,14 @@ states from ``groups'', and captured electron in ``n'' levels. The recombined
 states constructed this way can be referred to by a tuple (n, groups). 
 
 \item[SetPEGrid(n, emin, emax)] 
-Set the photo-electron energy grid in photo-ionization and radiative
+Set the internal photo-electron energy grid in photo-ionization and radiative
 recombination calculations. A Python list may also be used to specify the
 detailed energy grid. 
+
+\item[SetUsrPEGrid(n, emin, emax)]
+Set the photo-electron energy grid where photo-ionization and radiative
+recombination cross sections are desired. The radial integrals involved will
+be interpolated from the internal grid set by SetPEGrid.
 
 \item[RRTable(bound, free, fname, m)] Calculates the photoionization cross
 section and radiative recombination cross section between ``bound'' and
