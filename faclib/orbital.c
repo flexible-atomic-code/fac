@@ -190,12 +190,20 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     i2p = i2 + 1;
     i2p2 = i2 + 2;
     i2m2 = i2 - 2;
+    /*
     qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(-p[i2m] + p[i2p]))/24.0;
+    */
+    qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
+	  + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
     ierr = _Inward(p, e, pot, i2);
     if (ierr) break;
     p1 = (p[i2]*_B[i2] - p[i2p]*_A[i2p])/_A[i2m];
     p2 = (p[i2m]*_B[i2m] - p[i2]*_A[i2])/_A[i2m2];
+    /*
     qi = ((p2 - p[i2p2])*2.0 + 16.0*(-p1 + p[i2p]))/24.0;
+    */
+    qi = (6.0*p2 - 60.0*p1 - 40.0*p[i2] + 120.0*p[i2p]
+	  - 30.0*p[i2p2] + 4.0*p[i2p2+1])/120.0;
 
     for (i = 0; i < MAX_POINTS; i++) {
       p[i] = p[i] * sqrt(pot->dr_drho[i]);
@@ -309,7 +317,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot, double tol) {
     p[i2] *= sqrt(pot->dr_drho[i2]);
     p[i2p2] *= sqrt(pot->dr_drho[i2p2]);
     p[i2p] *= sqrt(pot->dr_drho[i2p]);
+    /*
     qo = ((p[i2m2]-p[i2p2])*2.0 + 16.0*(p[i2p]-p[i2m]))/24.0;
+    */
+    qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
+	  + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
     qo /= (p[i2]*pot->dr_drho[i2]);
     delta = qo - qi;
     e0 = eta0 - lambda;

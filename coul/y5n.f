@@ -50,7 +50,7 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
          endif
       endif
 
-      ierr = 0
+      ierr = 1
       call coulcc(x, eta, zlmin, k, fc, gc, fcp, gcp, sig, 
      +            11, kfn, ierr)
       norm = imag(sig(k))
