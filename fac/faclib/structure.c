@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.76 2004/11/02 06:40:27 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.77 2004/11/02 17:29:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2089,7 +2089,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
     }
     for (i = 0; i < j; i++) {
       delta = fabs(h->hamilton[i+t]/h->hamilton[j+t]);
-      if (delta < EPS8) h->hamilton[i+t] = 0.0;
+      if (delta < EPS16) h->hamilton[i+t] = 0.0;
     }
   }
   
