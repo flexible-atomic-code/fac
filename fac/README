@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.17 2002/02/04 15:48:32 mfgu Exp $
+# rcsid = $Id: README,v 1.18 2002/02/27 15:02:39 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -24,8 +24,8 @@ toms/,       some numerical routines from TOMS.
 INSTALL:
 There are two interfaces available to the FAC numerical lib. One makes use
 of the Python scripting language, implemented as a package "pfac", which 
-contains two "C" extension modules ("pfac.fac" and "pfac.crm"), and one
-pure python module "pfac.atom". the other interface uses a simple command 
+contains two "C" extension modules ("pfac.fac" and "pfac.crm"), and a few
+pure python modules. the other interface uses a simple command 
 parser, compiled into two executables, "sfac" and "scrm". The two interfaces 
 are independent. Either one or both can be installed.
 

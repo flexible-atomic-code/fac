@@ -19,8 +19,13 @@ def get_index(n, complex):
     return -i-2
 
 def get_terms(n, nq):
-    if (nq <= 2):
-        t = ['%d*%d'%(n,nq)]
+    if (nq == 1):
+        t = ['%d*1'%n]
+    elif (nq == 2):
+        if (n == 2):
+            t = ['2s2', '2s1 2p1', '2p2']
+        else:
+            t = ['%d*2'%n]
     else:
         if (n == 2):
             t = ['2s2 2p%d'%(nq-2)]
@@ -299,7 +304,7 @@ class ATOM:
                     k > self.n_shells):
                     ex.terms = ex.terms[:1]
                     ex.name = ex.name[:1]
-                elif (len(ex.terms) == 3):
+                elif (len(ex.terms) == 3 and self.nele > 3):
                     if (k > 0 or i1 > self.n_shells+1):
                         ex.terms = ex.terms[:2]
                         ex.name = ex.name[:2]
@@ -319,7 +324,7 @@ class ATOM:
         k = len(self.ion_complex.cgroup)
         ion = COMPLEX('%s.%d.'%('ion', k))
         ion.set_ionized(n0, base)
-        if (len(ion.terms) == 3):
+        if (len(ion.terms) == 3 and self.nele > 4):
             if (ibase == -1 and n0 != self.n_shells):
                 ion.terms = ion.terms[:2]
                 ion.name = ion.name[:2]
@@ -335,10 +340,12 @@ class ATOM:
         base = self.ion_complex.cgroup[ibase]
         n0.sort()
         cg = self.exc_complex[ibase]
-        if (ibase > 0 and self.nele in self.nele_sim):
+        if (ibase > self.n_shells and self.nele in self.nele_sim):
             bname = base.name[:1]
         else:
             bname = base.name
+            if (len(bname) > 2):
+                bname = bname[:2]
         for i0 in n0:
             rec = COMPLEX('rec')
             if (rec.set_recombined(i0, bname) == 0):
@@ -639,6 +646,9 @@ class ATOM:
                     na = len(a)
                     if (na == 0):
                         continue
+                    if (na > 2 and self.nele > 3):
+                        a = a[:2]
+                        na = 2
                     n = c[j].nrec
                     if (n > 0):
                         a = (a, n)
