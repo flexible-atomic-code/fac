@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.81 2004/12/16 21:52:06 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.82 2004/12/17 08:27:05 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4020,6 +4020,7 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       if (abs(c1->n_shells+1 - c2->n_shells) > 2) {
 	a[iz] = NULL;
 	pnz[iz] = 0;
+	iz++;
 	continue;
       }
    
@@ -4147,6 +4148,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	jf = GetOrbital(kb)->kappa;
 	jf = GetJFromKappa(jf);
 	r0 = mix2*sqrt_j2;
+	if (fabs(r0) < angz_cut) continue;
 	if (IsEven((j2+jf-j1)/2)) r0 = -r0;
 	ia = AddToAngularZFB(&n, &nz, ang, kb, r0);
       }
@@ -4173,6 +4175,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	  ang_sub = (ad->angz)[isz];
 	  kb = ang_sub->kb;
 	  r0 *= ang_sub->coeff;
+	  if (fabs(r0) < angz_cut) continue;
 	  ia = AddToAngularZFB(&n, &nz, ang, kb, r0);
 	}
       }
@@ -4305,8 +4308,8 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	    r0 = W6j(jlow, jb1, j1, ik, j2, jb2);
 	    if (fabs(r0) < EPS10) continue;
 	    r0 *= a*sqrt_j12;
-	    if (IsEven((j1+jb2-jlow-ik)/2+j2)) 
-	      r0 = -r0;
+	    if (fabs(r0) < angz_cut) continue;
+	    if (IsEven((j1+jb2-jlow-ik)/2+j2)) r0 = -r0;
 	    im = AddToAngularZMix(&n, &nz, ang, ik, kb1, kb2, r0);
 	  }
 	}
@@ -4319,6 +4322,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	    r0 = W6j(jlow, jb1, j1, j2, ang_sub[m].k, jup);
 	    if (fabs(r0) < EPS10) continue;
 	    r0 *= a*ang_sub[m].coeff;
+	    if (fabs(r0) < angz_cut) continue;
 	    r0 *= sqrt_j12;
 	    if (IsOdd((jlow+jb1+j2+ang_sub[m].k)/2)) r0 = -r0;
 	    im = AddToAngularZMix(&n, &nz, ang, ang_sub[m].k, 
@@ -4348,6 +4352,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	  r0 = W6j(jlow, jb1, j1, ik, j2, jb2);
 	  if (fabs(r0) < EPS10) continue;
 	  r0 *= mix1*afb[m].coeff*sqrt(j1+1.0);
+	  if (fabs(r0) < angz_cut) continue;
 	  if (IsOdd((j1+j2-ik)/2)) r0 = -r0;
 	  im = AddToAngularZMix(&n, &nz, ang, ik, kb1, afb[m].kb, r0);
 	}
@@ -4377,6 +4382,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	  r0 = W6j(jup, jb2, j2, ik, j1, jb1);
 	  if (fabs(r0) < EPS10) continue;
 	  r0 *= mix2*afb[m].coeff*sqrt(j2+1.0);
+	  if (fabs(r0) < angz_cut) continue;
 	  if (IsOdd((2*j1-ik+jb1-jb2)/2)) r0 = -r0;
 	  im = AddToAngularZMix(&n, &nz, ang, ik, afb[m].kb, kb2, r0);
 	}
@@ -4411,6 +4417,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	  for (m = 0; m < nz_sub; m++) {
 	    if (ang_sub[m].k > kmax || ang_sub[m].k < kmin) continue;
 	    r0 = ang_sub[m].coeff*a;
+	    if (fabs(r0) < angz_cut) continue;
 	    im = AddToAngularZMix(&n, &nz, ang, ang_sub[m].k, 
 				  ang_sub[m].k0, ang_sub[m].k1, r0);
 	  }
@@ -4497,6 +4504,7 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
 	  if (fabs(r0) < EPS10) continue;
 	  if (IsOdd((jup+jf+j2)/2)) r0 = -r0;
 	  r0 *= r;
+	  if (fabs(r0) < angz_cut) continue;
 	  im = AddToAngularZxZMix(&n, &nz, ang, ang_z[i].k, 
 				  jf, kb, orb0, orb1, r0);
 	}
@@ -4522,6 +4530,7 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
 	  ang_sub = (ad->angz)[isz];
 	  for (m = 0; m < nz_sub; m++) {
 	    r0 = ang_sub[m].coeff*r;
+	    if (fabs(r0) < angz_cut) continue;
 	    im = AddToAngularZxZMix(&n, &nz, ang, 
 				    ang_sub[m].k, ang_sub[m].k0,
 				    ang_sub[m].k1, ang_sub[m].k2,
