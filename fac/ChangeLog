@@ -1,0 +1,8 @@
+Version 0.5.6, 10/01/2001
+	1. fix the bug on the interpolation of PI and RR radial integrals
+	2. change the implementation of ionization, so that it is 
+	possible to use precomputed tables.
+	
+Version	0.5.5, 9/24/2001,
+	Create the Package "pfac". Start Logging
+
