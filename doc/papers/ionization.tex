@@ -242,9 +242,17 @@ average kinetic energy of the active bound electron should also be added), as
 opposed to $\varepsilon_0$ in various first order Born approximaitions
 (including DW). This modification effectively introduces a scaling factor
 $\varepsilon_0/(\varepsilon_0+I)$, which reduces the ionization cross sections
-at low energies. Comparison with experimental results for H-like ions
-indicates that such scaling brings the theoretical results in better
-agreement with experiments \cite{kim94}.
+at low energies. Comparison with experimental results for Low-Z near neutral
+ions indicates that such scaling brings the theoretical results in better
+agreement with experiments \cite{kim94}. However, for highly charged ions, we
+find that this scaling reduces the cross sections by a too large factor. A
+modified scaling factor is therefore introduced as
+$\varepsilon_0/(\varepsilon_0+I_s)$ with
+\begin{equation}
+I_s = \frac{N}{2Z-N}I,
+\end{equation}
+where $N$ is the number of electrons of the ion and $Z$ is the atomic
+number.
 
 \begin{figure}
 \includegraphics[width=5in]{ion.eps}
@@ -266,10 +274,8 @@ calculation for iron, which are based on the non-relativistic DW results of
 present CBE cross sections agrees with those of \textcite{younger82} very
 well. The present DW results are slightly smaller than those of
 \textcite{zhang90}, though the differences are within 10\%. The BED cross
-sections are significantly smaller at low energies, which is due to the
-scaling factor discussed above. The BED theory may lead to more reliable
-cross sections at low energies as the results for H-like ions have shown
-\cite{kim94}.
+sections are significantly smaller at low energies, which is 
+due to the scaling factor discussed above.
 
 \section{Conclusions}
 \label{sec_conclusions}
