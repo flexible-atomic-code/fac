@@ -47,6 +47,6 @@ int SetMCERates(char *fn);
 int SetMAIRates(char *fn);
 int PopulationTable(char *fn);
 int Orientation(char *fn, double e);
-int PolarizationTable(char *fn, char *ifn);
+int PolarizationTable(char *fn, char *ifn, int n, char **sc);
 
 #endif

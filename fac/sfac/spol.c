@@ -1,4 +1,4 @@
-static char *rcsid="$Id: spol.c,v 1.6 2003/08/06 16:36:49 mfgu Exp $";
+static char *rcsid="$Id: spol.c,v 1.7 2003/08/07 18:59:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -178,21 +178,29 @@ static int PSetMAIRates(int argc, char *argv[], int argt[],
 
 static int PPolarizationTable(int argc, char *argv[], int argt[], 
 			      ARRAY *variables) {
-  int i;
+  int i, n, k;
   char *ifn;
+  char *vg[MAXNARGS];
+  int ig[MAXNARGS];
 
   if (argc != 1 && argc != 2) return -1;
   if (argt[0] != STRING) return -1;
-  
+
+  ifn = NULL;
+  n = 0;
   if (argc == 2) {
-    if (argt[1] != STRING) return -1;
-    ifn = argv[1];
-  } else {
-    ifn = NULL;
+    if (argt[1] == STRING) {
+      ifn = argv[1];
+    } else if (argt[1] == LIST) {
+      n = DecodeArgs(argv[1], vg, ig, variables);
+    }
   }
 
-  i = PolarizationTable(argv[0], ifn);
-
+  i = PolarizationTable(argv[0], ifn, n, vg);
+  for (k = 0; k < n; k++) {
+    free(vg[k]);
+  }
+  
   return i;
 }
 

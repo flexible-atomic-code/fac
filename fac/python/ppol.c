@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: ppol.c,v 1.6 2003/08/06 16:36:49 mfgu Exp $";
+static char *rcsid="$Id: ppol.c,v 1.7 2003/08/07 18:59:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -312,8 +312,11 @@ static PyObject *POrientation(PyObject *self, PyObject *args) {
 } 
 
 static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
+  PyObject *p, *q;
   char *fn;
   char *ifn;
+  char **sc;
+  int n, i;
   
   if (spol_file) {
     SPOLStatement("PolarizationTable", args, NULL);
@@ -321,11 +324,36 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  ifn = NULL;
-  if (!PyArg_ParseTuple(args, "s|s", &fn, &ifn)) return NULL;
+  p = NULL;
+  if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
+
+  ifn == NULL;
+  n = 0;
+  if (p) {
+    if (PyString_Check(p)) {
+      ifn = PyString_AsString(p);
+    } else if (PyList_Check(p)) {
+      n = PyList_Size(p);
+      if (n > 0) {
+	sc = malloc(sizeof(char *)*n);
+	for (i = 0; i < n; i++) {
+	  q = PyList_GetItem(p, i);
+	  if (!PyString_Check(q)) {
+	    free(sc);
+	    return NULL;
+	  }
+	  sc[i] = PyString_AsString(q);
+	}
+      }
+    }
+  }
   
-  if (PolarizationTable(fn, ifn) < 0) return NULL;
-  
+  i = PolarizationTable(fn, ifn, n, sc);
+  if (n > 0) {
+    free(sc);
+  }
+
+  if (i < 0) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 } 
