@@ -4,7 +4,7 @@
 
 #include "init.h"
 
-static char *rcsid="$Id: fac.c,v 1.15 2002/01/17 02:57:11 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.16 2002/01/18 15:26:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2724,8 +2724,8 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
     return NULL;
   }
   SaveIonization(nlow, low, nup, up, s);
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
 
   Py_INCREF(Py_None);
   return Py_None;
