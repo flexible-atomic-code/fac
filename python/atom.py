@@ -213,7 +213,7 @@ class ATOM:
         self.exc_complex = []
         self.ion_complex = CGROUP('ion')
 
-        self.angz_cut0 = 1E-3
+        self.angz_cut0 = 1E-6
         self.tr_cut0 = 1E-3
         self.ai_cut0 = 1E-3
         if (self.nele <= self.nele_max[1]):
@@ -223,10 +223,10 @@ class ATOM:
             self.nrec_max = [10, 8, 6]
             self.nrec_ext = 25
             self.n_decay = [10, 3, -1]
-            self.angz_cut1 = 1E-3
+            self.angz_cut1 = 1E-6
             self.tr_cut1 = 1E-3
             self.ai_cut1 = 1E-3
-            self.angz_cut2 = 1E-3
+            self.angz_cut2 = 1E-4
             self.tr_cut2 = 1E-3
             self.ai_cut2 = 1E-3
         elif (self.nele <= self.nele_max[2]):
@@ -236,12 +236,12 @@ class ATOM:
             self.nrec_max = [10, 6, 8, 5]
             self.nrec_ext = 20
             self.n_decay = [10, 3, -1, -1]
-            self.angz_cut1 = 1E-2
-            self.tr_cut1 = 1E-2
-            self.ai_cut1 = 1E-2
-            self.angz_cut2 = 1E-1
-            self.tr_cut2 = 5E-2
-            self.ai_cut2 = 5E-2
+            self.angz_cut1 = 1E-5
+            self.tr_cut1 = 1E-3
+            self.ai_cut1 = 1E-3
+            self.angz_cut2 = 1E-4
+            self.tr_cut2 = 1E-2
+            self.ai_cut2 = 1E-2
         elif (self.nele <= self.nele_max[3]):
             self.n_shells = 3
             self.nexc_max = [4, 4, 4, 4, 0]
@@ -249,12 +249,12 @@ class ATOM:
             self.nrec_max = [10, 8, 6, 5, 5]
             self.nrec_ext = 20
             self.n_decay = [10, 3, -1, -1, -1]
-            self.angz_cut1 = 1E-2
-            self.tr_cut1 = 1E-2
-            self.ai_cut1 = 1E-2
-            self.angz_cut2 = 1E-1
-            self.tr_cut2 = 5E-2
-            self.ai_cut2 = 5E-2
+            self.angz_cut1 = 1E-5
+            self.tr_cut1 = 1E-3
+            self.ai_cut1 = 1E-3
+            self.angz_cut2 = 1E-3
+            self.tr_cut2 = 1E-2
+            self.ai_cut2 = 1E-2
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
 

@@ -1,7 +1,7 @@
 #include "recombination.h"
 #include "time.h"
 
-static char *rcsid="$Id: recombination.c,v 1.54 2002/09/25 14:52:21 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.55 2002/11/14 20:51:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -901,9 +901,8 @@ int AutoionizeRate(double *rate, double *e, int rec, int f) {
     }
     free(zfb);
   }
-
   if (nz <= 0 && nzfb <= 0) return -1;
-
+ 
   r = 0.0;
   for (i = 0; i < nkappaf; i++) {
     r += p[i]*p[i];

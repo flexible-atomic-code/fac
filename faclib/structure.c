@@ -1,7 +1,7 @@
 #include "structure.h"
 #include <time.h>
 
-static char *rcsid="$Id: structure.c,v 1.39 2002/09/26 15:15:42 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.40 2002/11/14 20:51:09 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -41,8 +41,8 @@ static int ncorrections = 0;
 static ARRAY *ecorrections;
 
 static int rydberg_ignored = 0;
-static double angz_cut = EPS3;
-static double mix_cut = EPS3;
+static double angz_cut = EPS6;
+static double mix_cut = EPS5;
 
 double ddot_(int *n, double *dx, int *incx, double *dy, int *incy);
 void dspevd_(char *jpbz, char *uplo, int *n, double *ap, double *w, 
