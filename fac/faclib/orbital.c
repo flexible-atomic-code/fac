@@ -1,6 +1,6 @@
 #include "orbital.h"
 
-static char *rcsid="$Id: orbital.c,v 1.29 2002/08/02 14:07:13 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.30 2002/08/03 02:27:49 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -100,7 +100,7 @@ double EnergyH(double z, double n, int ka) {
 }
 
 int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
-  double z, z0, e, e0, emin, emax;
+  double z, z0, e, e0, emin, emax, x1, x2;
   int i, kl, nr, nodes, niter;
   int i2, i2p, i2m, i2p2, i2m2, ierr;
   double *p, p1, p2, qi, qo, delta, ep, norm2, fact, eps;
@@ -126,6 +126,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
   emax = e*0.95;
   emin = EnergyH(z0, orb->n, orb->kappa);
   emin *= 1.05;
+  x1 = (orb->n + 1.0)/(orb->n);
+  x1 *= x1*1.1;
+  x2 = (orb->n - 1.0)/(orb->n);
+  x2 *= x2*0.9;
 
   SetPotentialW(pot, e, orb->kappa);   
   SetVEffective(kl, pot);
@@ -146,10 +150,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     if (nodes != nr) {
       if (nodes > nr) {
 	ep = emin;
-	emax = e*0.95;
+	emax = e*0.99;
       } else {
 	ep = emax;
-	emin = e*1.05;
+	emin = e*1.01;
       }
       p1 = nodes + kl + 1;
       p1 = fabs(p1 - orb->n)/(p1 + orb->n);
@@ -186,11 +190,12 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     niter++;
     delta = 0.5*p2*(qo - qi)/norm2;
     ep = e+delta;
-    if (ep >= emax) {
+    fact = e/ep;
+    if (fact > x1) {
       ep = e + (emax - e)*0.1;
       emin = e;
     }
-    if (ep <= emin) {
+    if (fact < x2) {
       ep = e + (emin - e)*0.1;
       emax = e;
     }
@@ -200,7 +205,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot, double tol) {
     if ((fabs(delta) < ep || fabs(e-e0) < ep)) break;
     if (niter > max_iteration) {
       printf("MAX iteration reached in Bound.\n");
-      printf("%10.3E %10.3E %10.3E %10.3E\n", e, e0, qo, qi);
+      printf("%10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", 
+	     e, e0, emin, emax, qo, qi);
       ierr = -4;
       break;
     }
