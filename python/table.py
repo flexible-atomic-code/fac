@@ -12,16 +12,16 @@ def pad_text(t, p):
         a = a+s[i]
         if (i < len(s)-1):
             a = a + '\n' + p
-    return a
+    return p+a
     
 class TABLE:
     def __init__(self,
-                 fname = '',
+                 fname='',
                  title='',
                  authors=[],
                  date='',
-                 separator0 = '',
-                 separator = ''):
+                 separator0='',
+                 separator=''):
         self.fname = fname
         self.title = title
         self.authors = authors
@@ -39,7 +39,6 @@ class TABLE:
             self.separator = '-'*72+'\n'
             
         self.columns = []
-        self.notes = []
 
     def add_column(self, **c):
         if (not c.has_key('label')):
@@ -65,24 +64,6 @@ class TABLE:
             c['description'] = 'Column %d'%len(self.columns)
         if (not c.has_key('padding')):
             c['padding'] = ' '
-        if (c.has_key('notes')):
-            notes = c['notes']
-            for a in notes:
-                if (type(a) == type(1)):
-                    k = a-1
-                    if (k >= len(self.notes)):
-                        raise 'Notes %d has not been defined'%(k+1)
-                elif (type(a) != type(())):
-                    raise 'New Notes must be in a tuple'
-                k = a[0]-1
-                t = a[1]
-                if (k < len(self.notes)):
-                    raise 'Notes %d already exists'%(k+1)
-                elif (k > len(self.notes)):
-                    raise 'Next notes must be %d'%(len(self.notes)+1)
-                else:
-                    self.notes.append(t)
-                    c['notes'] = a[0]
                     
         self.columns.append(c)
             
@@ -115,6 +96,8 @@ class TABLE:
             c = self.columns[i]
             label = c['label']
             d = c['description']
+            if (c.has_key('note')):
+                d = '*'+d
             unit = c['unit']
             fmt = c['format']
             w = c['width']
@@ -122,19 +105,20 @@ class TABLE:
             b1 = b0 + w-1                
             s = '  %3d-%4d %6s %20s %10s %-s'%(b0, b1, fmt,
                                                unit, label, d)
-            if (c.has_key('notes')):
-                s = s+'; (%d)'%(c['notes'])
             s = s + '\n'
             f.write(s)
             b0 = 1 + b1 + len(p)
         f.write(self.separator)
-        if (len(self.notes) > 0):
-            for i in range(len(self.notes)):
-                s = 'Note (%d): '%(i+1)
-                p = ' '*len(s)
-                t = pad_text(self.notes[i], p)
-                s = s+t+'\n'
+        s = ''
+        for i in range(len(self.columns)):
+            c = self.columns[i]
+            if (c.has_key('note')):
+                s = 'Note on %s:\n'%c['label']
+                p = ' '*4
+                t = pad_text(c['note'], p)
+                s = s + t + '\n'
                 f.write(s)
+        if (s):
             f.write(self.separator)
             
         self.dstart = f.tell()
@@ -173,13 +157,18 @@ class TABLE:
             unit = a[18:38].strip()
             label = a[39:49].strip()
             d = a[50:-1].strip()
-            d = d.split(';')
-            if (len(d) > 1):
+            if (d[0] == '*'):
                 has_notes = 1
-            self.add_column(label=label,
-                            unit=unit,
-                            format=fmt,
-                            description=d[0])
+                self.add_column(label=label,
+                                unit=unit,
+                                format=fmt,
+                                description=d[0],
+                                note=' ')
+            else:
+                self.add_column(label=label,
+                                unit=unit,
+                                format=fmt,
+                                description=d[0])
         if (has_notes):
             while (1):
                 a = f.readline()

@@ -842,7 +842,7 @@ class ATOM:
         return
 
 
-def atomic_data(nele, asym, iprint=-1, dir='', **process):
+def atomic_data(nele, asym, iprint=1, dir='', **kw):
     if (type(asym) == StringType):
         a = [asym]
     else:
@@ -855,28 +855,28 @@ def atomic_data(nele, asym, iprint=-1, dir='', **process):
 
     for m in n:
         atom = ATOM(m)
-	if (process.has_key('no_ce')):
-	    atom.process['ce'] = not process['no_ce']
-	if (process.has_key('no_tr')):
-	    atom.process['tr'] = not process['no_tr']
-	if (process.has_key('no_rr')):
-	    atom.process['rr'] = not process['no_rr']
-	if (process.has_key('no_ci')):
-	    atom.process['ci'] = not process['no_ci']
-	if (process.has_key('no_ai')):
-	    atom.process['ai'] = not process['no_ai']
-        if (process.has_key('nexc_max')):
-            atom.nexc_max = process['nexc_max']
-        if (process.has_key('nrec_max')):
-            atom.nexc_max = process['nrec_max']
-        if (process.has_key('nrec_ext')):
-            atom.nexc_max = process['nrec_ext']
-        if (process.has_key('nexc_rec')):
-            atom.nexc_max = process['nexc_rec']
-        if (process.has_key('n_decay')):
-            atom.nexc_max = process['n_decay']
-        if (process.has_key('rec_pw_max')):
-            atom.nexc_max = process['rec_pw_max']
+	if (kw.has_key('no_ce')):
+	    atom.kw['ce'] = not kw['no_ce']
+	if (kw.has_key('no_tr')):
+	    atom.kw['tr'] = not kw['no_tr']
+	if (kw.has_key('no_rr')):
+	    atom.kw['rr'] = not kw['no_rr']
+	if (kw.has_key('no_ci')):
+	    atom.kw['ci'] = not kw['no_ci']
+	if (kw.has_key('no_ai')):
+	    atom.kw['ai'] = not kw['no_ai']
+        if (kw.has_key('nexc_max')):
+            atom.nexc_max = kw['nexc_max']
+        if (kw.has_key('nrec_max')):
+            atom.nexc_max = kw['nrec_max']
+        if (kw.has_key('nrec_ext')):
+            atom.nexc_max = kw['nrec_ext']
+        if (kw.has_key('nexc_rec')):
+            atom.nexc_max = kw['nexc_rec']
+        if (kw.has_key('n_decay')):
+            atom.nexc_max = kw['n_decay']
+        if (kw.has_key('rec_pw_max')):
+            atom.nexc_max = kw['rec_pw_max']
         
         for b in a:
             s = 'NELE = %d'%m

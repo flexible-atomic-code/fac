@@ -32,7 +32,7 @@ def tabulate_states(dfile, neles, z = 26, dir='', pref='Fe', suffix='b'):
                    unit='eV',
                    description=d,
                    format='E11.4',
-                   notes=[(1, notetext)])
+                   note=notetext)
     d = 'Parity'
     tbl.add_column(label='P',
                    unit='None',
