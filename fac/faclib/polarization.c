@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.4 2003/07/14 20:34:21 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.5 2003/07/14 20:52:56 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -359,7 +359,7 @@ int PopulationTable(char *fn, double eden) {
   int j1, j2, m1, m2;
   int q1, q2, t;
   FILE *f;
-  double *b, a;
+  double *b, a, c;
   int *ipiv, info;
 
   f = fopen(fn, "w");
@@ -452,7 +452,12 @@ int PopulationTable(char *fn, double eden) {
     p = levels[i].ic;
     fprintf(f, "%5d\t%12.5E\n", i, a);
     for (m1 = -j1; m1 <= j1; m1 += 2) {
-      fprintf(f, "%5d\t%12.5E\n", m1, b[p]/a);
+      if (1.0+a != 1.0) {
+	c = b[p]/a;
+      } else {
+	c = 0.0;
+      }
+      fprintf(f, "%5d\t%12.5E\n", m1, c);
       p++;
     }
     fprintf(f, "\n");
@@ -495,7 +500,12 @@ int PolarizationTable(char *fn) {
       t = levels[i].ic;    
       BL[k][i] = 0.0;
       for (m1 = -j1; m1 <= j1; m1 += 2) {
-	a = W3j(j1, j1, k2, -m1, m1, 0)*x[t]/levels[i].dtotal;
+	if (1.0+levels[i].dtotal != 1) {
+	  b = x[t]/levels[i].dtotal;
+	} else {
+	  b = 0.0;
+	}
+	a = W3j(j1, j1, k2, -m1, m1, 0)*b;
 	a *= sqrt(k2+1.0);
 	if (IsOdd((j1+m1)/2)) a = -a;
 	BL[k][i] += a;
