@@ -1,3 +1,8 @@
+Version 0.5.8, 10/03/2001
+	1. really fixed the occasionall failur of radial solver.
+	2. the output level names are simplified by 
+	   dropping the closed shells.
+	
 Version 0.5.7, 10/03/2001
 	1. fix a bug in solving the radial orbital for the energy
 	   initialization.
@@ -8,8 +13,8 @@ Version 0.5.7, 10/03/2001
 Version 0.5.6, 10/01/2001
 	1. fix the bug on the interpolation of PI and RR radial integrals
 	2. change the implementation of ionization, so that it is 
-	possible to use precomputed tables.
+    	   possible to use precomputed tables.
 	
 Version	0.5.5, 9/24/2001,
-	Create the Package "pfac". Start Logging
+	1. Create the Package "pfac". Start Logging
 
