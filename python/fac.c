@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.75 2004/05/27 01:34:37 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.76 2004/05/27 15:55:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -587,6 +587,7 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
 
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   double rmax, rmin;
+  int maxrp;
 
   if (sfac_file) {
     SFACStatement("SetRadialGrid", args, NULL);
@@ -596,9 +597,10 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
 
   rmin = -1.0;
   rmax = -1.0;
-  if (!PyArg_ParseTuple(args, "|dd", &rmin, &rmax))
+  if (!PyArg_ParseTuple(args, "i|dd", &maxrp, &rmin, &rmax))
     return NULL;
-  SetRadialGrid(rmin, rmax);
+  if (-1 == SetRadialGrid(maxrp, rmin, rmax));
+    return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }

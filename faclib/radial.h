@@ -33,7 +33,7 @@ void SetVP(int n);
 void SetBreit(int n);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
-int SetRadialGrid(double ratio, double asymp);
+int SetRadialGrid(int maxrp, double ratio, double asymp);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 int GetPotential(char *s);
 double GetResidualZ(void);

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.54 2004/05/27 01:34:37 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.55 2004/05/27 15:55:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1941,22 +1941,22 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
 static int PSetRadialGrid(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   double rmin, rmax;
+  int maxrp;
 
   rmin = -1.0;
   rmax = -1.0;
   
-  if (argc > 2) return -1;
+  if (argc < 1 || argc > 3) return -1;
   
-  if (argc > 0) {
-    rmin = atof(argv[0]);
-    if (argc > 1) {
-      rmax = atof(argv[1]);
+  maxrp = atoi(argv[0]);
+  if (argc > 1) {
+    rmin = atof(argv[1]);
+    if (argc > 2) {
+      rmax = atof(argv[2]);
     }
   }
 
-  SetRadialGrid(rmin, rmax);
-
-  return 0;
+  return SetRadialGrid(maxrp, rmin, rmax);
 }
 
 static int PSetRecPWLimits(int argc, char *argv[], int argt[], 

@@ -1,36 +1,38 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.88 2004/05/17 17:57:59 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.89 2004/05/27 15:55:00 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 static POTENTIAL *potential;
+#define Large(orb) ((orb)->wfun)
+#define Small(orb) ((orb)->wfun + potential->maxrp)
 
 static ARRAY *orbitals;
 static int n_orbitals;
 static int n_continua;
  
-static double _dwork[MAX_POINTS];
-static double _dwork1[MAX_POINTS];
-static double _dwork2[MAX_POINTS];
-static double _dwork3[MAX_POINTS];
-static double _dwork4[MAX_POINTS];
-static double _dwork5[MAX_POINTS];
-static double _dwork6[MAX_POINTS];
-static double _dwork7[MAX_POINTS];
-static double _dwork8[MAX_POINTS];
-static double _dwork9[MAX_POINTS];
-static double _dwork10[MAX_POINTS];
-static double _dwork11[MAX_POINTS];
-static double _phase[MAX_POINTS];
-static double _dphase[MAX_POINTS];
-static double _dphasep[MAX_POINTS];
-static double _yk[MAX_POINTS];
-static double _zk[MAX_POINTS];
-static double _xk[MAX_POINTS];
+static double _dwork[MAXRP];
+static double _dwork1[MAXRP];
+static double _dwork2[MAXRP];
+static double _dwork3[MAXRP];
+static double _dwork4[MAXRP];
+static double _dwork5[MAXRP];
+static double _dwork6[MAXRP];
+static double _dwork7[MAXRP];
+static double _dwork8[MAXRP];
+static double _dwork9[MAXRP];
+static double _dwork10[MAXRP];
+static double _dwork11[MAXRP];
+static double _phase[MAXRP];
+static double _dphase[MAXRP];
+static double _dphasep[MAXRP];
+static double _yk[MAXRP];
+static double _zk[MAXRP];
+static double _xk[MAXRP];
 
 static struct {
   double stabilizer;
@@ -47,9 +49,9 @@ static struct {
 
 #define NPB 5
 static struct {
-  double b[NPB][MAX_POINTS];
+  double b[NPB][MAXRP];
   double c[NPB];
-  double u[MAX_POINTS];
+  double u[MAXRP];
 } pbasis;
 
 static struct {
@@ -113,7 +115,7 @@ void SetBoundary(int nmax, double bqp, double p) {
     d = GetResidualZ();
     d1 = potential->nb;
     if (p < 0.0) p = 2.0*d1*d1/d;
-    for (i = 0; i < MAX_POINTS; i++) {
+    for (i = 0; i < potential->maxrp; i++) {
       if (potential->rad[i] >= p) break;
     }
     if (IsEven(i)) i++;
@@ -163,7 +165,7 @@ int RadialOverlaps(char *fn) {
   FILE *f;
 
   f = fopen(fn, "w");
-  for (k = 0; k < MAX_POINTS; k++) {
+  for (k = 0; k < potential->maxrp; k++) {
     _yk[k] = 1.0;
   }
   for (i = 0; i < n_orbitals; i++) {
@@ -251,7 +253,13 @@ void SetScreening(int n_screen, int *screened_n,
   optimize_control.screened_kl = kl;
 }
 
-int SetRadialGrid(double ratio, double asymp) {
+int SetRadialGrid(int maxrp, double ratio, double asymp) {
+  if (maxrp > MAXRP) {
+    printf("MAXRP must be <= %d\n", MAXRP);
+    return -1;
+  }
+  if (maxrp < 0) maxrp = DMAXRP;
+  potential->maxrp = maxrp;
   if (ratio < 0) rgrid_ratio = GRIDRATIO;
   else rgrid_ratio = ratio;
   if (asymp < 0) rgrid_asymp = GRIDASYMP;
@@ -264,8 +272,8 @@ void AdjustScreeningParams(double *u) {
   int i;
   double c;
   
-  c = 0.5*u[MAX_POINTS-1];
-  for (i = 0; i < MAX_POINTS; i++) {
+  c = 0.5*u[potential->maxrp-1];
+  for (i = 0; i < potential->maxrp; i++) {
     if (u[i] > c) break;
   }
   potential->lambda = log(2.0)/potential->rad[i];
@@ -282,7 +290,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   w = potential->W;
   v = _dwork2;
 
-  for (j = 0; j < MAX_POINTS; j++) {
+  for (j = 0; j < potential->maxrp; j++) {
     w[j] = 0.0;
   }
 
@@ -301,7 +309,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     if (jmax < orb1->ilast) jmax = orb1->ilast;
     norbs++;
   }
-  for (j = 0; j < MAX_POINTS; j++) {
+  for (j = 0; j < potential->maxrp; j++) {
     u[j] = 0.0;
   }
   if (norbs && potential->N > 1+EPS3) {
@@ -373,7 +381,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     u[0] = u[1];
    
     jmax = jmax - 8;
-    for (j = jmax+1; j < MAX_POINTS; j++) {
+    for (j = jmax+1; j < potential->maxrp; j++) {
       u[j] = u[jmax];
     }
     if (potential->N > 1) {
@@ -385,7 +393,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
 
     if (iter < 3) {
       r = 1.0;
-      for (j = 0; j < MAX_POINTS; j++) {
+      for (j = 0; j < potential->maxrp; j++) {
 	v[j] = u[j];
       }
     } else {	
@@ -393,7 +401,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       k = 0;
       a = optimize_control.stabilizer;
       b = 1.0 - a;
-      for (j = 0; j < MAX_POINTS; j++) {
+      for (j = 0; j < potential->maxrp; j++) {
 	if (u[j] + 1.0 != 1.0) {
 	  r += fabs(1.0 - v[j]/u[j]);
 	  k++;
@@ -405,7 +413,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     }
     AdjustScreeningParams(u);
     SetPotentialVc(potential);
-    for (j = 0; j < MAX_POINTS; j++) {
+    for (j = 0; j < potential->maxrp; j++) {
       a = u[j] - potential->Z[j];
       b = potential->Vc[j]*potential->rad[j];
       u[j] = a - b;
@@ -418,19 +426,19 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       SetPotentialU(potential, -1, NULL);
       return 0.0;
     }
-    r = potential->Z[MAX_POINTS-1];
+    r = potential->Z[potential->maxrp-1];
     b = (1.0 - 1.0/potential->N);
     for (i = 0; i < acfg->n_shells; i++) {
       a = acfg->nq[i];
       c = acfg->n[i];
       c = r/(c*c);
-      for (j = 0; j < MAX_POINTS; j++) {
+      for (j = 0; j < potential->maxrp; j++) {
 	u[j] += a*b*(1.0 - exp(-c*potential->rad[j]));
       }
     }
     AdjustScreeningParams(u);
     SetPotentialVc(potential);
-    for (j = 0; j < MAX_POINTS; j++) {
+    for (j = 0; j < potential->maxrp; j++) {
       a = u[j] - potential->Z[j];
       b = potential->Vc[j]*potential->rad[j];
       u[j] = a - b;
@@ -470,7 +478,7 @@ int GetPotential(char *s) {
   fprintf(f, "   bqp = %10.3E\n", potential->bqp);
   fprintf(f, "    nb = %d\n", potential->nb);
   
-  for (j = 0; j < MAX_POINTS; j++) {
+  for (j = 0; j < potential->maxrp; j++) {
     w[j] = 0.0;
     v[j] = -potential->Z[j]/potential->rad[j];
     ve0[j] = 0.0;
@@ -490,14 +498,14 @@ int GetPotential(char *s) {
       w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
     }
     GetYk(0, _yk, orb1, orb1, -1);
-    for (k = 0; k < MAX_POINTS; k++) {
+    for (k = 0; k < potential->maxrp; k++) {
       v[k] += _yk[k]*acfg->nq[i]/potential->rad[k];
     }
     if (jmax < orb1->ilast) jmax = orb1->ilast;
     norbs++;
   }
   
-  for (k = 0; k < MAX_POINTS; k++) {
+  for (k = 0; k < potential->maxrp; k++) {
     w[k] = w[k]/(potential->rad[k]*potential->rad[k]);
     w[k] = - pow(w[k], 1.0/3);
     ve1[k] += w[k]*0.4235655;
@@ -510,7 +518,7 @@ int GetPotential(char *s) {
     fprintf(f, "%2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
   fprintf(f, "\n\n");
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     fprintf(f, "%5d %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E %11.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
 	    potential->Vc[i]+potential->U[i], v[i], 
@@ -524,13 +532,13 @@ int GetPotential(char *s) {
 
 double GetResidualZ(void) {
   double z;
-  z = potential->Z[MAX_POINTS-1];
+  z = potential->Z[potential->maxrp-1];
   if (potential->N > 0) z -= potential->N - 1;
   return z;
 }
 
 double GetRMax(void) {
-  return potential->rad[MAX_POINTS-10];
+  return potential->rad[potential->maxrp-10];
 }
 
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
@@ -608,18 +616,18 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   SetPotentialZ(potential, 0.0);
-  z = potential->Z[MAX_POINTS-1];
+  z = potential->Z[potential->maxrp-1];
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
   potential->lambda = 0.5*z;
   if (potential->N > 1) {
-    potential->r_core = MAX_POINTS-5;
+    potential->r_core = potential->maxrp-5;
   } else {
-    potential->r_core = MAX_POINTS*0.75;
+    potential->r_core = potential->maxrp*0.75;
   }
 
   if (optimize_control.iset == 0) {
-    optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[MAX_POINTS-1]);
+    optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[potential->maxrp-1]);
   }
 
   frozen = (int *) malloc(acfg->n_shells*sizeof(int));
@@ -699,12 +707,12 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
   double *u, a, delta;
 
   u = potential->U;
-  for (j = 0; j < MAX_POINTS; j++) {
+  for (j = 0; j < potential->maxrp; j++) {
     u[j] = pbasis.u[j];
   }
   for (i = 0; i < *n; i++) {
     if (x[i]) {
-      for (j = 0; j < MAX_POINTS; j++) {
+      for (j = 0; j < potential->maxrp; j++) {
 	u[j] += x[i]*pbasis.b[i][j];
       }
     }
@@ -718,7 +726,7 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
   for (i = 0; i < *n; i++) {
     delta = 0.01*x[i];
     if (delta < EPS3) delta = EPS3;
-    for (j = 0; j < MAX_POINTS; j++) {
+    for (j = 0; j < potential->maxrp; j++) {
       u[j] += delta*pbasis.b[i][j];
     }
     SetPotentialU(potential, 0, NULL);
@@ -726,7 +734,7 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
     ClearOrbitalTable(0);
     a = AverageEnergyAvgConfig(&average_config);
     g[i] = (a - *f)/delta;
-    for (j = 0; j < MAX_POINTS; j++) {
+    for (j = 0; j < potential->maxrp; j++) {
       u[j] -= delta*pbasis.b[i][j];
     }
   }
@@ -742,7 +750,7 @@ int RefineRadial(int maxfun, int msglvl) {
   double f0, f, g[NPB];
 
   if (maxfun <= 0) return 0;
-  memcpy(pbasis.u, potential->U, sizeof(double)*MAX_POINTS);
+  memcpy(pbasis.u, potential->U, sizeof(double)*potential->maxrp);
   for (i = 0; i < NPB; i++) {
     pbasis.c[i] = 0.0;
     orb.n = i + 1;
@@ -750,7 +758,7 @@ int RefineRadial(int maxfun, int msglvl) {
     potential->flag = 1;
     ierr = RadialSolver(&orb, potential);
     if (ierr) return ierr;
-    memcpy(pbasis.b[i], orb.wfun, sizeof(double)*MAX_POINTS);    
+    memcpy(pbasis.b[i], orb.wfun, sizeof(double)*potential->maxrp);    
     free(orb.wfun);
   }
   
@@ -761,7 +769,7 @@ int RefineRadial(int maxfun, int msglvl) {
   accrcy = EPS8;
   xtol = EPS2;
   n = NPB;
-  lw = MAX_POINTS;
+  lw = potential->maxrp;
   
   TNFunc(&n, pbasis.c, &f, g);
   f0 = f;
@@ -837,7 +845,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      potential->U[i] * potential->rad[i],
 	      Large(orb)[i], Small(orb)[i]); 
     }
-    for (; i < MAX_POINTS; i += 2) {
+    for (; i < potential->maxrp; i += 2) {
       a = ke * potential->rad[i];
       a = a + y*log(2.0*a);
       fprintf(f, "%-4d %10.3E %13.6E %13.6E %13.6E %13.6E\n",
@@ -897,7 +905,7 @@ double GetPhaseShift(int k) {
   ke = sqrt(2.0*e*(1.0 + 0.5*a));
   y = (1.0 + a)*z/ke;
 
-  i = MAX_POINTS - 1;  
+  i = potential->maxrp - 1;  
   phase1 = orb->wfun[i];
   r = potential->rad[i-1];  
   b1 = orb->kappa;
@@ -1392,7 +1400,7 @@ int ResidualPotential(double *s, int k0, int k1) {
 
   *s = 0.0;
  
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     z = potential->U[i];
     z += potential->Vc[i];
     _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
@@ -1475,7 +1483,7 @@ double RadialMoments(int m, int k1, int k2) {
     return *q;
   } 
 
-  npts = MAX_POINTS-1;
+  npts = potential->maxrp-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
 
@@ -1636,7 +1644,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   }  
   *p1 = (double *) malloc(sizeof(double)*n_awgrid);
   
-  npts = MAX_POINTS-1;
+  npts = potential->maxrp-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
   r = 0.0;
@@ -2003,14 +2011,14 @@ double SelfEnergyRatio(ORBITAL *orb) {
   
   if (orb->wfun == NULL) return 1.0;
 
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     if (potential->rad[i] > r0) break;
   }
   npts = i;
   
   p = _xk;
   q = _zk;
-  z = potential->Z[MAX_POINTS-1];
+  z = potential->Z[potential->maxrp-1];
   e = RadialDiracCoulomb(npts, p, q, potential->rad, z, 
 			 orb->n, orb->kappa);
   large = Large(orb);
@@ -2063,7 +2071,7 @@ double QED1E(int k0, int k1) {
   r = 0.0;
   
   if (qed.nms > 0) {
-    for (i = 0; i < MAX_POINTS; i++) {
+    for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = potential->U[i] + potential->Vc[i];
     }
     a = 0.0;
@@ -2081,7 +2089,7 @@ double QED1E(int k0, int k1) {
   }
 
   if (k0 == k1 && orb1->n <= qed.se) {
-    a = HydrogenicSelfEnergy(potential->Z[MAX_POINTS-1], 
+    a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
 			     orb1->n, orb1->kappa);
     if (a) {
       a *= SelfEnergyRatio(orb1);
@@ -2128,19 +2136,19 @@ double Vinti(int k0, int k1) {
   b = 0.5*(-ka0*(-ka0+1.0) + ka1*(-ka1+1.0));
   r = 0.0;
 
-  Differential(large1, _zk, 0, MAX_POINTS-1);
-  for (i = 0; i < MAX_POINTS; i++) {
+  Differential(large1, _zk, 0, potential->maxrp-1);
+  for (i = 0; i < potential->maxrp; i++) {
     _yk[i] = large0[i]*_zk[i] - a*large0[i]*large1[i]/potential->rad[i];
     _yk[i] *= potential->dr_drho[i];
   }
-  r += Simpson(_yk, 0, MAX_POINTS-1);
+  r += Simpson(_yk, 0, potential->maxrp-1);
   
-  Differential(small1, _zk, 0, MAX_POINTS-1);
-  for (i = 0; i < MAX_POINTS; i++) {
+  Differential(small1, _zk, 0, potential->maxrp-1);
+  for (i = 0; i < potential->maxrp; i++) {
     _yk[i] = small0[i]*_zk[i] - b*small0[i]*small1[i]/potential->rad[i];
     _yk[i] *= potential->dr_drho[i];
   }
-  r += Simpson(_yk, 0, MAX_POINTS-1);
+  r += Simpson(_yk, 0, potential->maxrp-1);
   
   *p = r;
 
@@ -2250,13 +2258,13 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     orb3 = GetOrbitalSolved(k3);
     if (!orb0 || !orb1 || !orb2 || !orb3) return 0.0;
     
-    for (i = 0; i < MAX_POINTS; i++) {
+    for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
     }
     
     Integrate(_dwork1, orb0, orb1, -6, _zk);
     
-    for (i = 0; i < MAX_POINTS; i++) {
+    for (i = 0; i < potential->maxrp; i++) {
       _zk[i] /= _dwork1[i]*potential->rad[i];
     }
 
@@ -2377,7 +2385,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     *s = 0.0;
     if (!orb0 || !orb1 || !orb2 || !orb3) return -1;  
 
-    npts = MAX_POINTS;
+    npts = potential->maxrp;
     switch (mode) {
     case 0: /* fall through to case 1 */
     case 1: /* full relativistic with distorted free orbitals */
@@ -2479,20 +2487,20 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
   int i0;
   double a, max;
 
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     _dwork1[i] = pow(potential->rad[i], k);
   }
 
   Integrate(_dwork1, orb1, orb2, type, _zk);
   
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     _zk[i] /= _dwork1[i];
     yk[i] = _zk[i];
   }
 
   if (k > 2) {
     max = 0.0;
-    for (i = 0; i < MAX_POINTS; i++) {
+    for (i = 0; i < potential->maxrp; i++) {
       a = fabs(yk[i]);
       if (max < a) max = a;
     }
@@ -2504,13 +2512,13 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
     }
     i0 = i;
   } else i0 = 0;
-  for (i = i0; i < MAX_POINTS; i++) {
+  for (i = i0; i < potential->maxrp; i++) {
     _dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k+1);
   }
   Integrate(_dwork1, orb1, orb2, type, _xk);
-  ilast = MAX_POINTS - 1;
+  ilast = potential->maxrp - 1;
   
-  for (i = i0; i < MAX_POINTS; i++) {
+  for (i = i0; i < potential->maxrp; i++) {
     _xk[i] = (_xk[ilast] - _xk[i])/_dwork1[i];
     yk[i] += _xk[i];
   }
@@ -2541,7 +2549,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     r = _dwork;
     type = t;
   }
-  for (i = 0; i < MAX_POINTS; i++) {
+  for (i = 0; i < potential->maxrp; i++) {
     r[i] = 0.0;
   }
 
@@ -2584,16 +2592,16 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
 	IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 2, NULL);
       }
       i1 = i2+1;
-      i2 = MAX_POINTS-1;
+      i2 = potential->maxrp-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     } else if (orb1->ilast > orb2->ilast) {
       i2 = orb1->ilast;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 1, NULL);
       i1 = i2+1;
-      i2 = MAX_POINTS-1;
+      i2 = potential->maxrp-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     } else {
-      i2 = MAX_POINTS-1;
+      i2 = potential->maxrp-1;
       IntegrateSubRegion(i1, i2, f, orb1, orb2, t, r, 3, &ext);
     }
   }
@@ -2602,7 +2610,7 @@ int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2,
     *x = r[i2-1] + ext;
   } else {
     i2++;
-    for (i = i2+1; i < MAX_POINTS; i++) {
+    for (i = i2+1; i < potential->maxrp; i++) {
       r[i] = r[i2];
     }
   }
@@ -2679,7 +2687,7 @@ int IntegrateSubRegion(int i0, int i1,
     default: /* error */
       return -1;
     }
-    NewtonCotes(r, x, i0, i1, t);
+    NewtonCotes(r, x, i0, i1, t, potential->maxrp);
     break;
 
   case 1:
@@ -2702,7 +2710,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) { 
 	  a = sin(large1[ip]);
@@ -2726,7 +2734,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -2748,7 +2756,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) { 
 	  a = sin(large1[ip]);
@@ -2769,7 +2777,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -2802,7 +2810,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) {
 	  a = sin(large1[ip]);
@@ -2827,7 +2835,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -2842,7 +2850,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) {
 	  a = sin(large1[ip]);
@@ -2863,7 +2871,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -2879,7 +2887,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) {
 	  a = sin(large1[ip]);
@@ -2901,7 +2909,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;  
@@ -2918,7 +2926,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) {
 	  a = sin(large1[ip]);
@@ -2943,7 +2951,7 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -2964,7 +2972,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  /(large2[i]*large2[i]);
 	j++;
       }
-      if (i < MAX_POINTS) {
+      if (i < potential->maxrp) {
 	ip = i+1;
 	if (i > orb1->ilast) { 
 	  a = sin(large1[ip]);
@@ -2990,19 +2998,19 @@ int IntegrateSubRegion(int i0, int i1,
 	  for (i = i0; i <= i1; i += 2) {
 	    r[i] = r0 - r[i];
 	  }
-	  if (i < MAX_POINTS) r[i] = r0 - r[i];
+	  if (i < potential->maxrp) r[i] = r0 - r[i];
 	} else {
 	  i = i1 - 1;
 	  r[i] = r0 - r[i];
 	  i = i1 + 1;
-	  if (i < MAX_POINTS) r[i] = r0 - r[i];
+	  if (i < potential->maxrp) r[i] = r0 - r[i];
 	}
       }
       if (t < 0) {
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       }
       break;
@@ -3059,11 +3067,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3099,11 +3107,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3147,11 +3155,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3194,11 +3202,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3241,11 +3249,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3285,11 +3293,11 @@ int IntegrateSubRegion(int i0, int i1,
 	for (i = i0; i <= i1; i += 2) {
 	  r[i] += r1[i];
 	}
-	if (i < MAX_POINTS) r[i] += r1[i];
+	if (i < potential->maxrp) r[i] += r1[i];
 	for (i = i0+1; i < i1; i += 2) {
 	  r[i] = 0.5*(r[i-1] + r[i+1]);
 	}
-	if (i1 < MAX_POINTS-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
+	if (i1 < potential->maxrp-1) r[i1] = 0.5*(r[i1-1] + r[i1+1]);
 	else r[i1] = r[i1-1];
       } else {
 	i = i1-1;
@@ -3335,7 +3343,7 @@ int IntegrateSinCos(int j, double *x, double *y,
     if (y != NULL) z[0] += y[0]*cos(phase[0]);
     z[0] *= potential->dr_drho[i0];
     u[0] = 0.0;
-    NewtonCotes(u, z, 0, i-1, t);
+    NewtonCotes(u, z, 0, i-1, t, potential->maxrp);
     for (m = 1, n = i0+2; m < i; m++, n += 2) {
       r[n] = r[i0] + 2.0*u[m];
     }
@@ -3344,7 +3352,7 @@ int IntegrateSinCos(int j, double *x, double *y,
   q = i-1; 
   m = j-q;
   if (m < 2) {
-    if (k < MAX_POINTS) {
+    if (k < potential->maxrp) {
       r[k] = r[k-2];
     }
     return 0;
@@ -3525,7 +3533,7 @@ int InitRadial(void) {
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
-  SetRadialGrid(-1.0, -1.0);
+  SetRadialGrid(DMAXRP, -1.0, -1.0);
   return 0;
 }
 
@@ -3549,7 +3557,7 @@ int ReinitRadial(int m) {
       potential->flag = 0;
       n_awgrid = 1;
       awgrid[0] = EPS3;
-      SetRadialGrid(-1.0, -1.0);
+      SetRadialGrid(DMAXRP, -1.0, -1.0);
       potential->uehling[0] = 0.0;
     }
   }
@@ -3565,7 +3573,7 @@ int TestIntegrate(void) {
   orb2 = GetOrbital(1);
   orb3 = GetOrbital(2);
   
-  for (i = 0; i < MAX_POINTS; i++) {  
+  for (i = 0; i < potential->maxrp; i++) {  
     _yk[i] = 1.0;
   }
   Integrate(_yk, orb1, orb2, 1, &s[0]);

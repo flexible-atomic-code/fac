@@ -9,25 +9,26 @@
 typedef struct _POTENTIAL_ {
   int flag;
   int r_core;
-  double Z[MAX_POINTS]; /*effective atomic number*/
+  int maxrp;
+  double Z[MAXRP]; /*effective atomic number*/
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
   double ar, br; /* parameter for the transformation */
   int ib, nb; 
   double bqp; /* boundary condition */
-  double rad[MAX_POINTS];
-  double dr_drho[MAX_POINTS];
-  double dr_drho2[MAX_POINTS];
-  double Vc[MAX_POINTS];
-  double dVc[MAX_POINTS];
-  double dVc2[MAX_POINTS];
-  double U[MAX_POINTS];
-  double dU[MAX_POINTS];
-  double dU2[MAX_POINTS];
-  double W[MAX_POINTS];
-  double dW[MAX_POINTS];
-  double dW2[MAX_POINTS];
-  double uehling[MAX_POINTS];
+  double rad[MAXRP];
+  double dr_drho[MAXRP];
+  double dr_drho2[MAXRP];
+  double Vc[MAXRP];
+  double dVc[MAXRP];
+  double dVc2[MAXRP];
+  double U[MAXRP];
+  double dU[MAXRP];
+  double dU2[MAXRP];
+  double W[MAXRP];
+  double dW[MAXRP];
+  double dW2[MAXRP];
+  double uehling[MAXRP];
 } POTENTIAL;
 
 typedef struct _ORBITAL_ {
@@ -39,9 +40,6 @@ typedef struct _ORBITAL_ {
   double *wfun;
   int ilast;
 } ORBITAL;
-
-#define Large(orb) ((orb)->wfun)
-#define Small(orb) ((orb)->wfun + MAX_POINTS)
 
 int GetNMax(void);
 double *GetVEffective(void);

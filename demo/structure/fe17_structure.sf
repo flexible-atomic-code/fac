@@ -16,7 +16,7 @@ ConfigEnergy(0)
 # to just use the ground configurations. If you need more highly
 # excited levels, such as n=4, 5, 6, ..., do not put them
 # in the OptimizeRadial. 
-OptimizeRadial(['n2', 'n3'])
+OptimizeRadial(['n2'])
 ConfigEnergy(1)
 Structure('ne.lev.b', ['n2', 'n3'])
 MemENTable('ne.lev.b')
