@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.2 2003/07/14 20:09:04 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.3 2003/07/14 20:29:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -564,10 +564,10 @@ int PolarizationTable(char *fn) {
     if (1.0 + a != 1.0) {
       a = a/b;
     }
-    tem = levels[i1].dtotal*tr_rates[i].rtotal;
+    tem = levels[i1].dtotal*tr_rates[i].rtotal/params.density;
     e = (levels[i1].energy - levels[i2].energy)*HARTREE_EV;
     fprintf(f, "%5d %5d %2d %12.5E %12.5E %10.3E %10.3E\n",
-	    i1, i2, k, e, tem, b, a);
+	    i2, i1, k, e, tem, b, a);
   }
   
   for (k = 0; k <= MAXPOL; k++) {

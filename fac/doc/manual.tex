@@ -3124,9 +3124,10 @@ executable. This routine is only available in PFAC interface.
 
 \begin{fundesc}{PolarizationTable}{fn}
 Calcuates the line polarizations, and output the results to file \var{fn} in a
-simple ASCII format. It contains 7 columns, which are lower level index, upper
-level index, multipole type, transition energy, total line emissivity,
-emission anisotropy at $90^\circ$, and linear polarization, respectively.
+simple ASCII format. It contains 7 columns, which are upper level index, lower
+level index, multipole type (as in the output of \key{TransitionTable}),
+transition energy in eV, total line emissivity, emission anisotropy factor at
+$90^\circ$, and linear polarization, respectively.
 \end{fundesc}
 
 \begin{fundesc}{PopulationTable}{fn, den}
