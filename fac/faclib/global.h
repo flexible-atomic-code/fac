@@ -69,7 +69,12 @@
 #define VERSION        0
 #define SUBVERSION     9
 #define SUBSUBVERSION  9
-
+#define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
+                                  ((h)->sversion >= (b)) &&\
+                                  ((h)->ssversion >= (c)))
+#define VersionLE(h, a, b, c)    (((h)->version <= (a)) &&\
+                                  ((h)->sversion <= (b)) &&\
+                                  ((h)->ssversion <= (c)))
 
 /* 
 ** MACRO:       IsOdd, IsEven
@@ -258,18 +263,19 @@
 #define TE_MIN_MAX         0.1
 
 /* excitation */
+#define NGOSK              128
 #define EXCLQR             0
-#define EXCLMAX            128
-#define EXCLCB             48
+#define EXCLMAX            20
+#define EXCLCB             20
 #define EXCTOL             5E-2
-#define XBORN              -1.0
+#define XBORN              -0.25
 
 /* ionization */
 #define IONMAXK            8
 #define IONLQR             0
-#define IONLMAX            128
+#define IONLMAX            36
 #define IONLEJEC           8
-#define IONLCB             48
+#define IONLCB             20
 #define IONTOL             5E-2
 
 /* recombination */

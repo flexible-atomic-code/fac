@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.54 2003/07/10 14:04:38 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.55 2003/07/11 19:10:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -68,6 +68,7 @@ int SetCEQkMode(int m, double tol) {
 
 int SetCEBorn(double x) {
   xborn = x;
+  return 0;
 }
 
 int SetCEEGridLimits(double min, double max, int type) {
@@ -182,17 +183,15 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
   int type, ko2, i, m, t, q;
   int kf0, kf1, kpp0, kpp1, km0, km1;
   int kl0, kl1, kl0p, kl1p;
-  int j0, j1, kl_max, max0, j1min, j1max;
+  int j0, j1, kl_max, j1min, j1max;
   ORBITAL *orb0, *orb1;
   int index[4];
-  double te, e0, e1, z;
-  double qkt, qkl, qkl0, h, a, r, rp;  
+  double te, e0, e1;
+  double qkt, qkl, qkl0, r;  
   int js1, js3, js[4], ks[4];
   double sd, se;
-  int last_kl0, second_last_kl0;
   double **p;
   short **kp0, **kp1;
-  double eps;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -238,44 +237,22 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
     type = ko2;
   }
 
-  if (egrid_type == 0) {
-    e0 = egrid[ie];
-    e1 = e0 - tegrid[0];
-  } else {
-    e1 = egrid[ie];
-  }
-
-  max0 = 2*Max(orb0->n, orb1->n);
-  max0 *= sqrt(2.0-e1/Min(orb0->energy, orb1->energy));
-  max0 = Max(12, max0);
-  max0 = Min(36, max0);
-  i = pw_scratch.kl[pw_scratch.nkl0-2];
-  max0 = Min(i, max0);
-
+  e1 = egrid[ie];
   if (type >= 0 && type < CBMULTIPOLES) {
     kl_max = pw_scratch.kl_cb;
   } else {
-    z = GetResidualZ();
-    r = GetRMax();
-    kl_max = r*sqrt(e1+2.0*z/r);
-    kl_max = Min(kl_max, pw_scratch.max_kl);
+    kl_max = pw_scratch.max_kl;
   }
-
+  
   js[0] = 0;
   ks[0] = k0;
   js[2] = 0;
   ks[2] = k1;		
 
-  last_kl0 = 0;
-  second_last_kl0 = 0;
   qkt = 0.0;
   q = 1;
   m = 1;
   *nkl = -1;
-  eps = pw_scratch.tolerance;
-  if (type >= CBMULTIPOLES) {
-    z = GetCoulombBetheAsymptotic(tegrid[0], e1);
-  }
   if (pw_type == 0) {
     js1 = 1;
     js3 = 3;
@@ -284,43 +261,9 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
     js3 = 1;
   }
 
-  for (t = 0; !last_kl0; t++) {
+  for (t = 0; t < pw_scratch.nkl; t++) {
     kl0 = pw_scratch.kl[t];
-    if (second_last_kl0) last_kl0 = 1;
-    else {
-      if (kl0 > max0) { 	
-	if (type < 0) {
-	  rp *= qkl;
-	  rp = rp/qkt;
-	  if (rp < eps) last_kl0 = 1;
-	} else if (type >= CBMULTIPOLES) {
-	  h = z*qkl;
-	  h = h/(h + qkt);
-	  if (h < eps) last_kl0 = 1;
-	  else {
-	    rp = fabs(1.0 - rp/z);
-	    rp *= h;
-	    if (rp < eps) last_kl0 = 1;
-	  }
-	} else {
-	  z = (GetCoulombBethe(0, 0, ie, type, 1))[t-1];
-	  h = z*qkl;
-	  h = h/(h+qkt);
-	  if (h < eps) last_kl0 = 1;
-	  else {
-	    z = (GetCoulombBethe(0, 0, ie, type, 0))[t-1];
-	    z = z/(1.0-z);
-	    rp = fabs(1.0 - rp/z);
-	    rp *= h;
-	    if (rp < eps) last_kl0 = 1;
-	  }
-	}
-	if (pw_scratch.kl[t+1] > kl_max) {      
-	  second_last_kl0 = 1;
-	}
-      }
-    }
-   
+    if (pw_scratch.kl[t] > kl_max) break;
     qkl0 = qkl;
     qkl = 0.0;
     kl0p = 2*kl0;
@@ -370,26 +313,15 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	  }
 	  for (i = 0; i < n_tegrid; i++) {
 	    te = tegrid[i];
-	    if (egrid_type == 0) {
-	      e1 = e0 - te;
-	      if (pw_type == 0) {
-		kf0 = OrbitalIndex(0, km1, e1);
-		ks[3] = kf0;
-	      } else {
-		kf0 = OrbitalIndex(0, km0, e1);
-		ks[3] = kf0;
-	      }
+	    e0 = e1 + te;
+	    if (pw_type == 0) {
+	      kf0 = OrbitalIndex(0, km0, e0);
+	      ks[1] = kf0;
 	    } else {
-	      e0 = e1 + te;
-	      if (pw_type == 0) {
-		kf0 = OrbitalIndex(0, km0, e0);
-		ks[1] = kf0;
-	      } else {
-		kf0 = OrbitalIndex(0, km1, e0);
-		ks[1] = kf0;	      
-	      }
+	      kf0 = OrbitalIndex(0, km1, e0);
+	      ks[1] = kf0;	      
 	    }
-
+	    
 	    if (kl1 >= pw_scratch.qr &&
 		kl0 >= pw_scratch.qr) {
 	      SlaterTotal(&sd, &se, js, ks, k, -1);
@@ -400,9 +332,6 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	    if (i == 0 && (sd == 0.0 && se == 0.0)) break;
 	    (*p)[q++] = r;
 	    r = r*r;
-	    if (i == 0) {
-	      qkl += r;
-	    }
 	  }
 	  if (i > 0) {
 	    (*kp0)[m] = kpp0;
@@ -412,25 +341,9 @@ int CERadialPk(int *nkappa, int *nkl, double **pk,
 	  }
 	}
       }
-    }    
-    if (t == 0) {
-      qkt += qkl;
-    } else if (!last_kl0 && !second_last_kl0) {
-      if (qkl + 1.0 == 1.0) rp = 0.0;
-      else rp = qkl/qkl0;
-      h = kl0 - pw_scratch.kl[t-1];
-      if (h > 1) {
-	a = (1.0 - rp)*qkl0;
-	rp = pow(rp, 1.0/h);
-	rp = rp/(1.0-rp);
-	a *= rp;
-	qkt += a;
-      } else {
-	qkt += qkl;
-	rp = rp/(1.0-rp);
-      }
     }
   }
+
   *nkl += 1;
   *nkappa = m-1;
   *p = realloc(*p, sizeof(double)*q);
@@ -644,7 +557,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 }
 
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
-  int type, t, ie, ite, ipk, ipkp, nqk;
+  int type, t, ie, ite, ipk, ipkp, nqk, ieb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p, *tmp;
   double *pk, *pkp, *ptr, r, s, b;
@@ -652,7 +565,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   double *rqc, **p;
   int index[6];
   int np = 3, one = 1;
-  double logj;
+  double logj, sx;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -685,21 +598,32 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   te0 = Max(te0, te);
   te = -GetOrbital(k3)->energy;
   te0 = Max(te0, te);
+  ieb = 0;
   for (ie = 0; ie < n_egrid; ie++) {
     e1 = egrid[ie];
-    if (xborn > 0 && e1/te0 > xborn) {
-      type = CERadialQkBorn(k0, k1, k2, k3, k, 
-			    tegrid[0], e1, &(rq[0][ie]));
-      if (type >= 0) {
-	for (ite = 1; ite < n_tegrid; ite++) {
-	  type = CERadialQkBorn(k0, k1, k2, k3, k, 
-				tegrid[ite], e1, &(rq[ite][ie]));
+    if (ieb) {
+      for (ite = 0; ite < n_tegrid; ite++) {
+	te = tegrid[ite];
+	type = CERadialQkBorn(k0, k1, k2, k3, k, 
+			      te, e1, &(rq[ite][ie]));
+      }
+    } else if (xborn > 0) {
+      s = e1/te0;
+      if (s > xborn) {
+	te = tegrid[0];
+	type = CERadialQkBorn(k0, k1, k2, k3, k, 
+			      te, e1, &(rq[0][ie]));
+	if (type >= 0) {
+	  for (ite = 1; ite < n_tegrid; ite++) {
+	    te = tegrid[ite];
+	    type = CERadialQkBorn(k0, k1, k2, k3, k, 
+				  te, e1, &(rq[ite][ie]));
+	  }
+	  ieb = 1;
 	}
       }
-    } else {
-      type = -1;
     }
-    if (type == -1) {
+    if (ieb == 0) {
       type = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1, 
 			ie, k0, k1, k);
       nklp = nkl;
@@ -725,7 +649,6 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
       nklp = nkl-1;
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
-	if (egrid_type == 0) e1 = egrid[ie] - te;      
 	for (i = 0; i < nkl; i++) {
 	  qk[i] = 0.0;
 	}
@@ -757,11 +680,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  }
 	  ipk += n_tegrid;
 	}
-      
-	for (i = 0; i < nkl; i++) {
-	  if (!(qk[i] <= 0) && !(qk[i] > 0)) break;
-	}
-	nkl = i;
+	
 	nklp = nkl-1;
 	if (nkl == 0) {
 	  r = 1E-31;
@@ -782,29 +701,31 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  r = qk[0];
 	}
             
-	if (nkl > 0) {
-	  if (type >= CBMULTIPOLES) {
-	    if (nkl > 10) {
-	      b = qk[nklp]/qk[nklp-1];
-	      if (b < 0.9 && b > 0.0) {
-		b = pow(b, 1.0/(pw_scratch.kl[nklp] - pw_scratch.kl[nklp-1]));
-		b = b/(1.0 - b);
-	      } else {
-		b = 0.0;
+	if (type >= CBMULTIPOLES) {
+	  b = GetCoulombBetheAsymptotic(te, e1);
+	} else if (type >= 0) {
+	  b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
+	  if (b < 0) b = GetCoulombBetheAsymptotic(te, e1);
+	} else {
+	  b = 0.0;
+	}
+	s = qk[nklp]*b;
+	if (xborn < 0) {
+	  sx = -xborn;
+	  if (1.0+r != 1.0 && sx < s/r) {
+	    for (ite = 0; ite < n_tegrid; ite++) {
+	      te = tegrid[ite];
+	      for (ite = 0; ite < n_tegrid; ite++) {
+		te = tegrid[ite];
+		type = CERadialQkBorn(k0, k1, k2, k3, k, 
+				      te, e1, &(rq[ite][ie]));
 	      }
-	    } else {
-	      b = 0.0;
 	    }
-	    s = qk[nklp]*b;
-	    r = r + s;
-	  } else if (type >= 0) {
-	    b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
-	    if (b > 0) {
-	      s = qk[nklp]*b;
-	      r = r + s;
-	    }
-	  }      
-	}      
+	    ieb = 1;
+	    break;
+	  }
+	}
+	r += s;
 	rq[ite][ie] = r;
       }
     }
@@ -837,14 +758,14 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   double r, e0, e1, te, s, b, te0;
   double pha0, phap0;
   double s3j1, s3j2, s3j3, s3j4;
-  int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp;
+  int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp, ieb;
   double qk[MAXMSUB][MAXNKL];
   double rq[MAXMSUB][MAXNTE][MAXNE];
   double rqt[MAXMSUB];
   double *rqc, **p;
   int index[6];
   int np = 3, one = 1;
-  double logj;
+  double logj, sx;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -880,44 +801,43 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   te0 = Max(te0, te);
   te = -GetOrbital(k3)->energy;
   te0 = Max(te0, te);
+  ieb = 0;
   for (ie = 0; ie < n_egrid; ie++) {
-    te = tegrid[0];
-    if (egrid_type == 0) {
-      e0 = egrid[ie];
-      e1 = e0 - te;
-    } else {
-      e1 = egrid[ie];
-      e0 = e1 + te;
-    }
-    if (xborn > 0 && e1/te0 > xborn) {
-      type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				 nq, q, rqt);
-      if (type1 >= 0) {
+    e1 = egrid[ie];
+    if (ieb) {
+      for (ite = 0; ite < n_tegrid; ite++) {
+	te = tegrid[ite];
+	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				   nq, q, rqt);
 	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][0][ie] = rqt[iq];
-	}
-	for (ite = 1; ite < n_tegrid; ite++) {
-	  te = tegrid[ite];
-	  if (egrid_type == 0) {
-	    e0 = egrid[ie];
-	    e1 = e0 - te;
-	  } else {
-	    e1 = egrid[ie];
-	    e0 = e1 + te;
-	  }
-	  type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				     nq, q, rqt);
-	  for (iq = 0; iq < nq; iq++) {
-	    rq[iq][ite][ie] = rqt[iq];
-	  }
+	  rq[iq][ite][ie] = rqt[iq];
 	}
       }
       type2 = type1;
-    } else {
-      type1 = -1;
+    } else if (xborn > 0) {
+      s = e1/te0;
+      if (s > xborn) {
+	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				   nq, q, rqt);
+	if (type1 >= 0) {
+	  for (iq = 0; iq < nq; iq++) {
+	    rq[iq][0][ie] = rqt[iq];
+	  }
+	  for (ite = 1; ite < n_tegrid; ite++) {
+	    te = tegrid[ite];
+	    type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+				       nq, q, rqt);
+	    for (iq = 0; iq < nq; iq++) {
+	      rq[iq][ite][ie] = rqt[iq];
+	    }
+	  }
+	  ieb = 1;
+	  type2 = type1;
+	}
+      }
     }
 
-    if (type1 == -1) {
+    if (ieb == 0) {
       type1 = CERadialPk(&nkappa, &nkl, &pk, &kappa0, &kappa1,
 			 ie, k0, k1, k);
       if (kp == k && k2 == k0 && k3 == k1) {
@@ -935,13 +855,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
-	if (egrid_type == 0) {
-	  e0 = egrid[ie];
-	  e1 = e0 - te;
-	} else {
-	  e1 = egrid[ie];
-	  e0 = e1 + te;
-	}
+	e0 = e1 + te;
       
 	for (i = 0; i < nq; i++) { 
 	  for (j = 0; j < nkl; j++) { 
@@ -1042,39 +956,38 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	  rq[iq][ite][ie] = r;
 	} 
 	i = nkl - 1;
-	if (type1 == type2) {
+	for (iq = 0; iq < nq; iq++) {
 	  if (type1 >= CBMULTIPOLES) {
-	    for (iq = 0; iq < nq; iq++) {
-	      if (nkl > 10) {
-		b = qk[iq][i]/qk[iq][i-1];
-		if (b < 0.9 && b > 0.0) {
-		  b = pow(b, 1.0/(pw_scratch.kl[i] - pw_scratch.kl[i-1]));
-		  b = b/(1.0 - b);
-		} else {
-		  b = 0.0;
-		}
-	      } else {
-		b = 0.0;
-	      }
-	      s = qk[iq][i]*b;
-	      rq[iq][ite][ie] += s;
-	    }
+	    b = GetCoulombBetheAsymptotic(te, e1);
 	  } else if (type1 >= 0) {
-	    for (iq = 0; iq < nq; iq++) {
-	      if (abs(q[iq]) == 2) {
-		b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
-	      } else if (q[iq] == 0) {
-		b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
-	      } else {
-		b = 0.0;
+	    if (abs(q[iq]) == 2) {
+	      b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
+	    } else if (q[iq] == 0) {
+	      b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
+	    }
+	  } else {
+	    b = 0.0;
+	  }
+	  s = qk[iq][i]*b;
+	  if (xborn < 0) {
+	    sx = -xborn;
+	    if (1+rq[iq][ite][ie] != 1.0 && sx < s/rq[iq][ite][ie]) {
+	      for (ite = 0; ite < n_tegrid; ite++) {
+		te = tegrid[ite];
+		type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
+					   nq, q, rqt);
+		for (iq = 0; iq < nq; iq++) {
+		  rq[iq][ite][ie] = rqt[iq];
+		}
 	      }
-	      if (b > 0) {
-		s = qk[iq][i]*b;
-		rq[iq][ite][ie] += s;
-	      }
+	      type2 = type1;
+	      ieb = 1;
+	      break;
 	    }
 	  }
+	  rq[iq][ite][ie] += s;
 	}
+	if (ieb) break;
       }
     }
   }
@@ -1332,6 +1245,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	if (ty > type) type = ty;	  
 	for (ie = 0; ie < n_egrid; ie++) {
 	  qkc[ie] += c*rq[ie];
+	  printf("%d %d %d %12.5E %12.5E %12.5E %12.5E\n", i,j,ie,qkc[ie],c,rq[ie],c*rq[ie]);
 	}
       } else {
 	ty = CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
