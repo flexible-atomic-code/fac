@@ -1,7 +1,7 @@
 #include "crm.h"
 #include "grid.h"
 
-static char *rcsid="$Id: crm.c,v 1.15 2002/02/19 21:26:21 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.16 2002/02/20 18:30:16 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -919,6 +919,21 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   return n;
 }
 
+int IonIndex(ION *ion, int i, int k) {
+  int m;
+
+  m = 0;
+  while (m < ion->nlevels) {
+    if (ion->iblock[m]->ib != i) {
+      m += ion->iblock[m]->nlevels;
+    } else {
+      if (ion->ilev[m] == k) return m;
+      m++;
+    }
+  }
+  return -1;
+}
+
 int IonizedIndex(int i, int m) {
   int k;
 
@@ -1443,6 +1458,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
     k = blk->iion;
     if (k < 0) {
       m = ion0.nele;
+      ion = (ION *) ArrayGet(ions, 0);
     } else {
       ion = (ION *) ArrayGet(ions, k);
       m = ion->nele;
@@ -1453,9 +1469,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
     index[1] = i;
     if (ic[i]) {
       for (k = 0; k < blk->nlevels; k++) {
-	rt_hdr.ilev = k;
 	rt_hdr.nb = blk->n[k];
-	if (rt_hdr.nb + 1 == 1) continue;
+	if (!(blk->n[k])) continue;
+	rt_hdr.ilev = IonIndex(ion, i, k);
+	if (blk->iion < 0 && ion0.nionized > 0) {
+	  rt_hdr.ilev = IonizedIndex(rt_hdr.ilev, 1);
+	  rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
+	}
 	f = InitFile(fn, &fhdr, &rt_hdr);
 	index[0] = k;
 	for (j = 0; j < n; j++) {
@@ -1463,6 +1483,11 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
 	  rt.nb = blk1->nb;
 	  index[2] = j;
+	  rt.ce = 0.0;
+	  rt.tr = 0.0;
+	  rt.rr = 0.0;
+	  rt.ai = 0.0;
+	  rt.ci = 0.0;
 	  d = (double *) MultiGet(&ce, index);
 	  if (d && *d) {
 	    rt.ce = *d;
@@ -1483,11 +1508,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  if (d && *d) {
 	    rt.ci = *d;
 	  }
-	  if (1 + rt.ce != 1 || 
-	      1 + rt.tr != 1 || 
-	      1 + rt.rr != 1 || 
-	      1 + rt.ai != 1 || 
-	      1 + rt.ci != 1) {
+	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
 	    StrNComplex(rt.icomplex, blk1->ncomplex);
 	    WriteRTRecord(f, &rt);
 	  }
@@ -1496,9 +1517,14 @@ int RateTable(char *fn, int nc, char *sc[]) {
       }
     } else {
       index[0] = 0;
-      rt_hdr.ilev=-1;
       rt_hdr.nb = blk->nb;
-      if (rt_hdr.nb + 1 == 1) continue;
+      if (!(blk->nb)) continue;
+      rt_hdr.ilev = IonIndex(ion, i, 0);
+      if (blk->iion < 0 && ion0.nionized > 0) {
+	rt_hdr.ilev = IonizedIndex(rt_hdr.ilev, 1);
+	rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
+      }
+      rt_hdr.ilev = -(rt_hdr.ilev+1);
       f = InitFile(fn, &fhdr, &rt_hdr);
       for (j = 0; j < n; j++) {
 	rt.iblock = j;
@@ -1530,11 +1556,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	if (d && *d) {
 	  rt.ci = *d;
 	}
-	if (1 + rt.ce != 1 || 
-	    1 + rt.tr != 1 || 
-	    1 + rt.rr != 1 || 
-	    1 + rt.ai != 1 || 
-	    1 + rt.ci != 1) {
+	if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
 	  StrNComplex(rt.icomplex, blk1->ncomplex);
 	  WriteRTRecord(f, &rt);
 	}
@@ -2229,6 +2251,8 @@ int SpecTable(char *fn, double strength_threshold) {
 	    (p = IonizedIndex(rt->i, 1)) >= 0 &&
 	    (q = IonizedIndex(rt->f, 1)) >= 0) {
 	  e = ion0.energy[p] - ion0.energy[q];
+	  p = ion0.ionized_map[0][p];
+	  q = ion0.ionized_map[0][q];
 	} else {
 	  p = rt->i;
 	  q = rt->f;

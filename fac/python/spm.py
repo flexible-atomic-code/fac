@@ -5,11 +5,41 @@ import sys
 import string
 import biggles
 
+def get_complexes(nelectrons):
+    n = 1
+    nele = nelectrons
+    g = []
+    while (nele > 0):
+        nqm = 2*n*n
+        if (nele < nqm):
+            g.append((n,nele))
+        else:
+            g.append((n,nqm))
+        nele = nele - nqm
+        n = n + 1
+    c0 = ''
+    c1 = ''
+    for a in g:
+        if (a != g[-1]):
+            c0 = c0 + '%d*%d '%a
+            c1 = c1 + '%d*%d '%a
+        else:
+            c0 = c0 + '%d*%d'%a
+            if (a[1] == 1):
+                c1 = c1 + '%d*%d'%(a[0]+1,1)
+            else:
+                c1 = c1 + '%d*%d %d*%d'%(a[0], a[1]-1, a[0]+1, 1)
+    return (c0, c1)
+
 def spectrum(neles, temp, den, population,
-             pref, suf = 'b', dir = '', nion = 3, rate=()):
-    if (type(rate) == type('')):
-        rate = (rate,)
+             pref, suf = 'b', dir = '', nion = 3, dist = 0):
     for k in neles:
+        rate = get_complexes(k)
+        if (nion > 1):
+            rate = rate + get_complexes(k-1)
+            if (nion > 2):
+                rate = rate + get_complexes(k+1)
+                
         print 'NELE = %d'%k
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)
@@ -32,7 +62,7 @@ def spectrum(neles, temp, den, population,
             print 'Temp = %10.3E'%(temp[i])
             print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
 
-            SetEleDist(0, temp[i], -1.0, -1.0)
+            SetEleDist(dist, temp[i], -1.0, -1.0)
             print 'CE rates...'
             SetCERates(1)
             print 'TR rates...'
