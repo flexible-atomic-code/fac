@@ -28,10 +28,16 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       ei1 = cea(2, k)
       a1 = cea(3, k)
 
+      if (ei0 .eq. 0) then
+         ea = -1.0
+         dir = -1.0
+         return
+      endif
+
       e = error(k)
 
       dir = 0.0
-      if (ene .gt. ei0) then
+      if (ei0 .gt. 0 .and. ene .gt. ei0) then
          x = ei0/ene
          x2 = 1.0/x
          xs = a0*dlog(x2)
@@ -120,11 +126,16 @@ c     mc = 1.12837967*c*sqrt(2.0/mc^2)
       parameter(mc = 0.0066923847825)
 
       k = 1 + (z*(z-1)/2) + (z-n)
-
       ei0 = cdi(1, k)
-      
+      if (ei0 .eq. 0) then
+         ea = -1.0
+         dir = -1.0
+         return
+      endif
+
       ea = 0.0
       dir = 0.0
+
       x0 = ei0/t
       do i = 1, ng
          ene = t*xg(i) + ei0
