@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.94 2004/06/12 22:51:34 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.95 2004/06/13 07:16:08 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -726,7 +726,7 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
 
   for (i = 0; i < *n; i++) {
     delta = fabs(0.01*x[i]);
-    if (delta < EPS8) delta = EPS8;
+    if (delta < EPS3) delta = EPS3;
     if (i == 0) {
       potential->lambda += delta;
     } else {
@@ -749,9 +749,9 @@ static void TNFunc(int *n, double *x, double *f, double *g) {
 
 int RefineRadial(int maxfun, int msglvl) {
   int n, lw, ierr;
-  int maxit;
+  int maxit, ip[2];
   double eta, stepmx, accrcy, xtol;
-  double f0, f, x[2], g[2];
+  double f0, f, x[2], g[2], x0[2], x1[2];
   
   if (msglvl == 0) msglvl = -3;
   maxit = 60;
@@ -763,10 +763,21 @@ int RefineRadial(int maxfun, int msglvl) {
   lw = potential->maxrp;
   x[0] = potential->lambda;
   x[1] = potential->a;
+  x0[0] = x[0] - x[0]*0.5;
+  x0[1] = 0.0;
+  x1[0] = x[0] + x[0]*1.5;
+  x1[1] = 2.0;
   
+  if (msglvl > 0) {
+    printf("%d %10.3E %10.3E\n", maxfun, x[0], x[1]);
+  }
   TNFunc(&n, x, &f0, g);
-  LMQN(&ierr, n, x, &f, g, _dwork11, lw, TNFunc, 
-       msglvl, maxit, maxfun, eta, stepmx, accrcy, xtol);
+  LMQNBC(&ierr, n, x, &f, g, _dwork11, lw, TNFunc, 
+	 x0, x1, ip, msglvl, maxit, maxfun, eta, 
+	 stepmx, accrcy, xtol);
+  if (msglvl > 0) {
+    printf("%10.3E %10.3E %10.3E %10.3E\n", f0, f, x[0], x[1]);
+  }
   potential->lambda = x[0];
   potential->a = x[1];
   SetPotentialVc(potential);
@@ -774,6 +785,8 @@ int RefineRadial(int maxfun, int msglvl) {
     if (f > f0) {
       printf("Error in RefineRadial: %d %10.3E %10.3E\n", ierr, f0, f);
       return ierr;
+    } else if (msglvl > 0) {
+      printf("Warning in RefineRadial: %d %10.3E %10.3E\n", ierr, f0, f);
     }
   }
   
