@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.22 2002/05/15 18:45:51 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.23 2002/05/17 19:23:45 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1058,7 +1058,6 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
     if (n != 1) break;
     if (swp) SwapEndianRRHeader(&h);
     
-    fprintf(f2, "\n");
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
