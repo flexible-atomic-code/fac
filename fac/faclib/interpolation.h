@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "global.h"
+#include "dbase.h"
 
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2);
@@ -27,5 +28,24 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    void *extra);
 double Simpson(double *y, int ia, int ib);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp);
+
+double RRCrossHn(double z, double e, int n);
+int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
+void PrepCECrossHeader(CE_HEADER *h, double *data);
+void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
+		       double *data);
+double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
+			  double *data, double *ratio);
+int CECross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy, int mp);
+int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	      int nt, double *temp);
+int TotalCICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax);
+int TotalPICross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int imin, int imax);
+int TotalRRCross(char *ifn, char *ofn, int ilev, 
+		 int negy, double *egy, int n0, int n1, 
+		 int nmax, int imin, int imax);
 
 #endif
