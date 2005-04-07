@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.83 2005/04/01 00:17:48 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.84 2005/04/07 19:36:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -711,7 +711,7 @@ int SetBlocks(double ni, char *ifn) {
   char *fn;
   int p, q = -1;
   int nionized, n0;
-  int swp;
+  int swp, sfh;
 
   ion0.n = ni;
   ion0.n0 = ni;
@@ -770,6 +770,8 @@ int SetBlocks(double ni, char *ifn) {
       return -1;
     }
     n = ReadFHeader(f, &fh, &swp);
+    if (VersionLE((&fh), 1, 0, 8)) sfh = sizeof(F_HEADER);
+    else sfh = SIZE_F_HEADER;
 
     if (k == 0) {
       ion0.atom = fh.atom;
@@ -802,7 +804,7 @@ int SetBlocks(double ni, char *ifn) {
       ion0.energy = (double *) malloc(sizeof(double)*nionized);
     }
     
-    fseek(f, sizeof(F_HEADER), SEEK_SET);
+    fseek(f, sfh, SEEK_SET);
     n0 = 0;
     nb0 = 0;
     r0 = rionized;
@@ -994,7 +996,7 @@ int SetBlocks(double ni, char *ifn) {
       }
     }
 
-    fseek(f, sizeof(F_HEADER), SEEK_SET);
+    fseek(f, sfh, SEEK_SET);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele != ion->nele) {
@@ -1184,7 +1186,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   EN_RECORD g;
   FILE *f;
   int i, k, j, nr, nb;
-  int swp;
+  int swp, sfh;
 
   f = fopen(ifn, "r");
   if (f == NULL) {
@@ -1193,6 +1195,9 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   }
   
   nr = ReadFHeader(f, &fh, &swp);
+  if (VersionLE((&fh), 1, 0, 8)) sfh = sizeof(F_HEADER);
+  else sfh = SIZE_F_HEADER;
+
   k = 0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     nr = ReadENHeader(f, &h, swp);
@@ -1211,7 +1216,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   }
 
   if (k < n) {
-    fseek(f, sizeof(F_HEADER), SEEK_SET);
+    fseek(f, sfh, SEEK_SET);
     nr = ReadENHeader(f, &h, swp);
     j = h.nlevels;
     for (i = 0; i < h.nlevels; i++) {

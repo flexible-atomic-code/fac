@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.76 2005/04/05 19:13:52 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.77 2005/04/07 19:36:59 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2119,7 +2119,6 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   RT_HEADER *rt_hdr;
   DR_HEADER *dr_hdr;
   long int p;
-  size_t n;
   int ihdr;
 
   if (f == NULL) return 0;
@@ -3358,7 +3357,11 @@ int MemENTable(char *fn) {
   mem_en_table_size = nlevels;
 
   e0 = 0.0;
-  fseek(f, sizeof(F_HEADER), SEEK_SET);
+  if (version_read[DB_EN-1] < 109) {
+    fseek(f, sizeof(F_HEADER), SEEK_SET);
+  } else {
+    fseek(f, SIZE_F_HEADER, SEEK_SET);
+  }
   while (1) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;

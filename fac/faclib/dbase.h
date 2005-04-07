@@ -31,6 +31,7 @@ typedef struct _F_HEADER_ {
   char symbol[4];
   int nblocks;
 } F_HEADER;
+#define SIZE_F_HEADER (sizeof(long int)+5*sizeof(int)+sizeof(float)+4)
 
 typedef struct _EN_HEADER_ {
   long int position;
