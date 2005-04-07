@@ -1,7 +1,7 @@
 #include "dbase.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: dbase.c,v 1.77 2005/04/07 19:36:59 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.78 2005/04/07 20:35:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -53,7 +53,7 @@ static int itrf = 0;
 #define RSF0(sv) _RSF0(sv, f)
 #define RSF1(sv, s, k) _RSF1(sv, s, k, f)
 
-void SetVersionRead(t, v) {
+void SetVersionRead(int t, int v) {
   version_read[t-1] = v;
 }
 
