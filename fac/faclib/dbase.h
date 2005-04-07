@@ -296,10 +296,7 @@ typedef struct _DR_RECORD_ {
 
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
- * files directly. To do so, copy dbase.h, global.h, and dbase.c
- * files to the local directory, and compile and link with the user code, 
- * which uses these functions. One may study the Print**Table functions 
- * to understand how these functions can be used.
+ * files directly.
  */
 int ReadFHeader(FILE *f, F_HEADER *fh, int *swp);
 int ReadENHeader(FILE *f, EN_HEADER *h, int swp);
