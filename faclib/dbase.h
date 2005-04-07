@@ -2,7 +2,8 @@
 #define _DBASE_H_ 1
 
 #include <time.h>
-#include "global.h"
+#include <stdio.h>
+#include "consts.h"
 
 #define DB_EN 1
 #define DB_TR 2
@@ -294,9 +295,12 @@ typedef struct _DR_RECORD_ {
   float total_rate;
 } DR_RECORD;  
 
+
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
- * files directly.
+ * files directly. to do so, copy consts.h, dbase.h, and dbase.c
+ * into a working directory, and compile and link dbase.c against the
+ * custom code using these functions.
  */
 int ReadFHeader(FILE *f, F_HEADER *fh, int *swp);
 int ReadENHeader(FILE *f, EN_HEADER *h, int swp);
@@ -351,10 +355,7 @@ int DeinitFile(FILE *f, F_HEADER *fhdr);
 int PrintTable(char *ifn, char *ofn, int v);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
-int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
-int AIBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
-int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
-int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
+EN_SRECORD *GetMemENTable(int *s);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);
@@ -368,23 +369,6 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
-int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
-void PrepCECrossHeader(CE_HEADER *h, double *data);
-void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
-		       double *data);
-double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
-			  double *data, double *ratio);
-int CECross(char *ifn, char *ofn, int i0, int i1, 
-	    int negy, double *egy, int mp);
-int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
-	      int nt, double *temp);
-int TotalCICross(char *ifn, char *ofn, int ilev, 
-		 int negy, double *egy, int imin, int imax);
-int TotalPICross(char *ifn, char *ofn, int ilev, 
-		 int negy, double *egy, int imin, int imax);
-int TotalRRCross(char *ifn, char *ofn, int ilev, 
-		 int negy, double *egy, int n0, int n1, 
-		 int nmax, int imin, int imax);
 int SwapEndianRRHeader(RR_HEADER *h);
 int SwapEndianRRRecord(RR_RECORD *r);
 int WriteAIRecord(FILE *f, AI_RECORD *r);
@@ -421,7 +405,10 @@ int IsUTA(void);
 void SetTRF(int m);
 int AppendTable(char *fn);
 int JoinTable(char *fn1, char *fn2, char *fn);
-double RRCrossHn(double z, double e, int n);
+int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
+int AIBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
+int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
+int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
 
 #endif
 
