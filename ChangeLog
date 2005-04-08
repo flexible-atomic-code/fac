@@ -1,5 +1,7 @@
 Version 1.0.9, 04/04/2005
 	1. modify dbase.c so that it is platform independent.	
+	2. split the functionality of dbase.c so that it is isolated from
+	   other files. It now only depends on dbase.h, and consts.h.
 	
 Version 1.0.8, 01/01/2005
 	1. implement configuration average radiative transitions. including

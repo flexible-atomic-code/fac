@@ -8,46 +8,6 @@
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
-/* 
-<** The following format is used for documenting the source **>
-*/
-
-/* documenting a struct */
-/*
-** STRUCT:      
-** PURPOSE:     
-** FIELDS:      
-** NOTE:        
-*/
-
-/* documenting a function */
-/* 
-** FUNCTION:    
-** PURPOSE:     
-** INPUT:       
-** RETURN:      
-** SIDE EFFECT: 
-** NOTE:        
-*/
-
-/* documenting a macro function */
-/* 
-** MACRO:       
-** PURPOSE:     
-** INPUT:       
-** RETURN:      
-** SIDE EFFECT: 
-** NOTE:        
-*/
-
-/* documenting a global, static varialbe or a macro constant */
-/*
-** VARIABLE:    
-** TYPE:        
-** PURPOSE:     
-** NOTE:        
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -64,6 +24,7 @@
 #include <mpi.h>
 #endif
 
+/* define constants */
 #include "consts.h"
 
 /* choose multi-array implementation */

@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.79 2005/04/07 21:27:57 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.80 2005/04/08 00:45:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2659,6 +2659,7 @@ double OscillatorStrength(int m, double e, double s, double *ga) {
   if (ga) {
     *ga = x*2.0*pow(aw,2)*FINE_STRUCTURE_CONST;
   }  
+
   return x;
 }  
 
