@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.81 2005/04/08 20:43:38 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.82 2005/04/08 21:01:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -407,14 +407,20 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   GetJLFromKappa(p0, &j0, &m0);
   p1 = GetOrbital(k1)->kappa;
   GetJLFromKappa(p1, &j1, &m1);
-  if (IsOdd((m0+m1+k)/2) || !Triangle(j0, k, j1)) {
+  if (!Triangle(j0, k, j1)) {
+    return -1;
+  }
+  if (IsOdd((m0+m1+k)/2)) {
     ty = -1;
   }
   p2 = GetOrbital(k2)->kappa;
   GetJLFromKappa(p2, &j2, &m2);
   p3 = GetOrbital(k3)->kappa;
   GetJLFromKappa(p3, &j3, &m3);
-  if (IsOdd((m2+m3+k)/2) || !Triangle(j2, k, j3)) {
+  if (!Triangle(j2, k, j3)) {
+    return -1;
+  }
+  if (IsOdd((m2+m3+k)/2)) {
     ty = -1;
   }
 							
