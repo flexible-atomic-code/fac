@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.80 2005/03/09 18:39:48 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.81 2005/04/08 20:43:38 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -395,28 +395,29 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
-  int ko2, t, nk;
+  int ko2, t, nk, ty;
   double r, c0, c1, dk;
   double x, b, d, c, a;
   double *g1, *g2, *x1, *x2;
 
+  ko2 = k/2;  
+  ty = ko2;
   *qk = 0.0;
   p0 = GetOrbital(k0)->kappa;
   GetJLFromKappa(p0, &j0, &m0);
   p1 = GetOrbital(k1)->kappa;
   GetJLFromKappa(p1, &j1, &m1);
   if (IsOdd((m0+m1+k)/2) || !Triangle(j0, k, j1)) {
-    return -1;
+    ty = -1;
   }
   p2 = GetOrbital(k2)->kappa;
   GetJLFromKappa(p2, &j2, &m2);
   p3 = GetOrbital(k3)->kappa;
   GetJLFromKappa(p3, &j3, &m3);
   if (IsOdd((m2+m3+k)/2) || !Triangle(j2, k, j3)) {
-    return -1;
+    ty = -1;
   }
-
-  ko2 = k/2;
+							
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
   r *= (k+1.0)*(k+1.0);
   g1 = GeneralizedMoments(k0, k1, ko2);
@@ -450,20 +451,35 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
   
-  for (t = 0; t < nk; t++) {
-    gosint[t] = r*gos1[t]*gos2[t];
-    if (m == 0) {
-      x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
-      a = 1.0 - x*(1.0+1.0/b);
-      c = 1.0 - x;
-      d = a*b/(c*c);
-      gosint[t] *= d;
+  if (ty >= 0) {
+    for (t = 0; t < nk; t++) {
+      gosint[t] = r*gos1[t]*gos2[t];
+      if (m == 0) {
+	x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
+	a = 1.0 - x*(1.0+1.0/b);
+	c = 1.0 - x;
+	d = a*b/(c*c);
+	gosint[t] *= d;
+      }
     }
+
+    *qk = dk*Simpson(gosint, 0, nk-1);
+  } else {
+    *qk = 0.0;
   }
 
-  *qk = dk*Simpson(gosint, 0, nk-1);
-  
-  return ko2;
+  if (m == 0) {
+    for (t = 0; t < nk; t++) {
+      gosint[t] = r*gos1[t]*gos2[t];
+      x = kint[t]*kint[t];
+      gosint[t] *= x*x;
+    }
+    d = dk*Simpson(gosint, 0, nk-1);
+    d /= 4.0*(te + e1)*(te + e1);
+    *qk += d;
+  }
+
+  return ty;
 }
   
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
