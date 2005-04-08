@@ -1,6 +1,12 @@
 #ifndef _CONSTS_H_
 #define _CONSTS_H_ 1
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <math.h>
+
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.
