@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.81 2005/04/08 01:45:20 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.82 2005/04/08 01:56:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2465,7 +2465,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   EN_RECORD r;
   FILE *f;
   int n, i, k, nlevels;
-  int swp;
+  int swp, sr;
   
   f = fopen(fn, "r");
   if (f == NULL) {
@@ -2482,6 +2482,8 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     fclose(f);
     return -1;
   }
+  if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
+  else sr = SIZE_EN_RECORD;
 
   if (ilev >= 0) {
     k = ilev;
@@ -2491,7 +2493,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
       if (n == 0) break;
       nlevels += h.nlevels;
       if (k < h.nlevels) {
-	if (k > 0) fseek(f, sizeof(EN_RECORD)*k, SEEK_CUR);
+	if (k > 0) fseek(f, sr*k, SEEK_CUR);
 	n = ReadENRecord(f, &r, swp);
 	if (n == 0) break;
 	if (r.ilev != ilev) {
