@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.80 2005/04/08 00:45:43 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.81 2005/04/08 01:45:20 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2538,7 +2538,7 @@ int MemENTable(char *fn) {
   char *s;
   int n, i, nlevels;
   float e0;
-  int swp;
+  int swp, sr;
 
   f = fopen(fn, "r");
   if (f == NULL) return -1;
@@ -2546,6 +2546,8 @@ int MemENTable(char *fn) {
   n = ReadFHeader(f, &fh, &swp);  
   if (n == 0) return 0;
   if (fh.type != DB_EN) return -1;
+  if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
+  else sr = SIZE_EN_RECORD;
 
   if (mem_en_table) free(mem_en_table);
 
@@ -2553,9 +2555,8 @@ int MemENTable(char *fn) {
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
-    n = sizeof(EN_RECORD);
-    if (h.length > n) {
-      fseek(f, h.length-n, SEEK_CUR);
+    if (h.length > sr) {
+      fseek(f, h.length-sr, SEEK_CUR);
     }
     n = ReadENRecord(f, &r, swp);
     if (r.ilev >= nlevels) nlevels = r.ilev+1;

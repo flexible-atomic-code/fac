@@ -52,6 +52,8 @@ typedef struct _EN_RECORD_ {
   char sname[LSNAME];
   char name[LNAME];
 } EN_RECORD;
+#define SIZE_EN_RECORD \
+  (sizeof(short)*2+sizeof(int)*2+sizeof(double)+LNCOMPLEX+LSNAME+LNAME)
 
 typedef struct _EN_SRECORD_ {
   short p;
