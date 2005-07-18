@@ -26,6 +26,7 @@ typedef struct _HAMILTON_ {
   double *mixing;
   double *work;
   int *iwork;
+  double *heff;
 } HAMILTON;
 
 typedef struct _SHAMILTON_ {
@@ -96,12 +97,6 @@ typedef struct _ECORRECTION_ {
   STATE *s;
 } ECORRECTION;
 
-typedef struct _CORR_CONFIG_ {
-  CONFIG *c;
-  int inp, inq, np, nq;
-  int ig, ncs, kp, kq;
-} CORR_CONFIG;
-
 #ifdef PERFORM_STATISTICS
 typedef struct _STRUCT_TIMING_ {
   double angz_mix;
@@ -122,21 +117,14 @@ typedef struct _STRUCT_TIMING_ {
 int GetStructTiming(STRUCT_TIMING *t);
 #endif
 
-double MBPT0(int isym, SYMMETRY *sym, int q1, int q2, int kg, int ic);
-double MBPT1(LEVEL *lev, SYMMETRY *sym, int kg, int m);
-void MBPT2(int ilev, LEVEL *lev, int kg, int n0, int n1, double *de, int nk);
-int MBPT(char *fn, int n, int *s, int k, int *kg, int *n0, int n1, 
-	 int kmax, int nt, int m);
-int MBPTS(char *fn, char *fn1, int n, int *s, int k, int *kg,
-	  int *n0, int nmax, int kmax, int nt);
-int StructureMBPT(char *fn, char *fn1, int n, int *s0, int k, int *kg,
-		  int *n0, int *ni, int nmax, int kmax, int nt, 
-		  int n2, int nt2, char *gn0, double eps, double eps1);
+int SortUnique(int n, int *a);
+int CompareInt(const void *a1, const void *a2);
 int IBisect(int k, int n, int *a);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
+void HamiltonElement1E2E(int isym, int isi, int isj, double *r1, double *r2);
 double HamiltonElement(int isym, int isi, int isj);
 double HamiltonElementFrozen(int isym, int isi, int isj);
 double MultipoleCoeff(int isym, int ilev1, int ka1,

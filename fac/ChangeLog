@@ -1,3 +1,7 @@
+Version 1.1.0, 07/04/2005
+	1. reimpliment the StructureMBPT function.
+	2. add interface to njgraf, and using that for general recoupling.
+	
 Version 1.0.9, 04/04/2005
 	1. modify dbase.c so that it is platform independent.	
 	2. split the functionality of dbase.c so that it is isolated from

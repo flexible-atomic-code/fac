@@ -19,7 +19,7 @@ for nele in neles:
     nd = len(den)
     print 'NION = 3'
     spectrum([nele], temp, den, population,
-             'Fe', temp, dir0=dir0, dir1=dir1, nion=3)
+             'Fe', dir0=dir0, dir1=dir1, nion=3)
     print 'NION = 2'
     spectrum([nele], temp, den, population,
              'Fe', dir0=dir0, dir1=dir1, nion=2)

@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.80 2005/04/06 03:34:25 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.81 2005/07/18 15:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -430,6 +430,33 @@ static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
   
+static int PListConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
+  int k, ng, *kg;
+  char *s;
+  
+  s = NULL;
+  ng = 0;
+  if (argc > 0) {
+    s = argv[0];
+    if (argc > 1) {
+      ng = DecodeGroupArgs(&kg, 1, argv+1, argt+1, variables);
+    }
+  }
+  if (ng <= 0) {
+    ng = GetNumGroups();
+    kg = malloc(sizeof(int)*ng);
+    for (k = 0; k < ng; k++) {
+      kg[k] = k;
+    }
+  }
+
+  ListConfig(s, ng, kg);
+
+  if (ng > 0) free(kg);
+
+  return 0;
+}
+
 static int PConfigEnergy(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int m, mr, i;
@@ -1952,8 +1979,8 @@ static int PSetRadialGrid(int argc, char *argv[], int argt[],
   double rmin, rmax;
   int maxrp;
 
-  rmin = -1.0;
-  rmax = -1.0;
+  rmin = 0.0;
+  rmax = 0.0;
   
   if (argc < 1 || argc > 3) return -1;
   
@@ -2355,226 +2382,98 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PStructureMBPT(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int *n0, *ni, i, n1, *s, *kg, n, ng, kmax, nt, n2, nt2;
-  char *v[MAXNARGS];
+  int i, n, *s, n1, *ng1, n2, *ng2, kmax, n3;
+  char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
-  double eps, eps1;
-  
-  if (argc < 12 || argc > 14) return -1;
+  double c;
 
-  eps = -1.0;
-  eps1 = 1.0;
-  if (argc > 12) {
-    eps = atof(argv[12]);
-    if (argc > 13) {
-      eps1 = atof(argv[13]);
+  if (argc == 1) {
+    if (argt[0] != NUMBER) return -1;
+    i = atoi(argv[0]);
+    SetExtraMBPT(i);    
+    return 0;
+  }
+  if (argc == 2) {
+    if (argt[0] != NUMBER) return -1;
+    if (argt[1] != NUMBER) return -1;
+    n3 = atoi(argv[0]);
+    c = atof(argv[1]);
+    SetOptMBPT(n3, c);
+    return 0;
+  }
+  if (argc == 3) {
+    if (argt[0] != NUMBER) return -1;
+    if (argt[1] != NUMBER) return -1;
+    if (argt[2] != NUMBER) return -1;
+    i = atoi(argv[0]);
+    n1 = atoi(argv[1]);
+    n2 = atoi(argv[2]);
+    SetSymMBPT(i, n1, n2);    
+    return 0;
+  }
+  if (argc == 4 || argc == 5) {
+    if (argt[3] != LIST) return -1;
+    n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
+    if (n <= 0) return -1;
+    if (argt[2] != LIST) return -1;
+    n1 = DecodeArgs(argv[2], v, t, variables);
+    for (i = 0; i < n1; i++) {
+      if (t[i] != STRING) return -1;
     }
+    if (n1 <= 0) return -1;
+    if (argc == 5) {
+      n3 = atoi(argv[4]);
+    } else {
+      n3 = -1;
+    }
+    StructureReadMBPT(argv[0], argv[1], n1, v, n, s, n3);
+    
+    free(s);
+    for (i = 0; i < n1; i++) {
+      free(v[i]);
+    }
+    
+    return 0;
   }
 
+  if (argc < 6 || argc > 7) return -1;
+
+  if (argt[2] != LIST) return -1;
   n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
   if (n <= 0) {
-    printf("Firts configuration group does not exist\n");
+    printf("First configuration group does not exist\n");
     return -1;
   }
+  kmax = atoi(argv[3]);
   
-  ng = DecodeGroupArgs(&kg, 1, &(argv[3]), &(argt[3]), variables);
-  if (ng <= 0) {
-    printf("Second configuration group does not exist\n");
-    free(s);
-    return -1;
-  }
+  if (argt[4] != LIST) return -1;
+  if (argt[5] != LIST) return -1;
   
-  n0 = malloc(sizeof(int)*ng);
-  ni = malloc(sizeof(int)*ng);
-  if (argt[4] == NUMBER) {
-    n0[0] = atoi(argv[4]);
-    for (i = 1; i < ng; i++) {
-      n0[i] = n0[0];
-    }
-  } else if (argt[4] == LIST) {
-    nv = DecodeArgs(argv[4], v, t, variables);
-    if (nv != ng) {
-      for (i = 0; i < nv; i++) free(v[i]);
-      printf("n0 array must have the same size as the gp array\n");
-      free(s);
-      free(kg);
-      free(n0);
-      free(ni);
-      return -1;
-    }
-    for (i = 0; i < nv; i++) {
-      n0[i] = atoi(v[i]);
-      free(v[i]);
-    }
-  } else {
-    return -1;
+  n1 = DecodeArgs(argv[4], v, t, variables);
+  ng1 = malloc(sizeof(int)*n1);
+  for (i = 0; i < n1; i++) {
+    ng1[i] = atoi(v[i]);
+    free(v[i]);
   }
-  if (argt[5] == NUMBER) {
-    ni[0] = atoi(argv[5]);
-    for (i = 1; i < ng; i++) {
-      ni[i] = ni[0];
-    }
-  } else if (argt[5] == LIST) {
-    nv = DecodeArgs(argv[5], v, t, variables);
-    if (nv != ng) {
-      for (i = 0; i < nv; i++) free(v[i]);
-      printf("ni array must have the same size as the gp array\n");
-      free(s);
-      free(kg);
-      free(n0);
-      free(ni);
-      return -1;
-    }
-    for (i = 0; i < nv; i++) {
-      ni[i] = atoi(v[i]);
-      free(v[i]);
-    }
-  } else {
-    return -1;
+
+  n2 = DecodeArgs(argv[5], v, t, variables);
+  ng2 = malloc(sizeof(int)*n2);
+  for (i = 0; i < n2; i++) {
+    ng2[i] = atoi(v[i]);
+    free(v[i]);
   }
-  n1 = atoi(argv[6]);
-  kmax = atoi(argv[7]);
-  nt = atoi(argv[8]);
-  n2 = atoi(argv[9]);
-  nt2 = atoi(argv[10]);
-  
-  StructureMBPT(argv[0], argv[1], n, s, ng, kg, n0, ni, n1, 
-		kmax, nt, n2, nt2, argv[9], eps, eps1);
+
+  gn = NULL;
+  n3 = -1;
+  if (argc == 7) {
+    if (argt[6] == NUMBER) n3 = atoi(argv[6]);
+    else gn = argv[6];
+  }
+  StructureMBPT(argv[0], argv[1], n, s, kmax, n1, ng1, n2, ng2, n3, gn);
 
   free(s);
-  free(kg);
-  free(n0);
-  free(ni);
-
-  return 0;
-}
-
-  
-static int PMBPTS(int argc, char *argv[], int argt[], 
-		  ARRAY *variables) {
-  int *n0, i, n1, *s, *kg, n, ng, kmax, nt;
-  char *v[MAXNARGS];
-  int t[MAXNARGS], nv;
-  
-  if (argc < 7 || argc > 8) return -1;
-  if (argt[0] != STRING) return -1;
-  if (argt[1] != STRING) return -1;
-  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
-  if (argt[5] != NUMBER || 
-      argt[6] != NUMBER) return -1;
-  nt = 5;
-  if (argc > 7) {
-    nt = atoi(argv[7]);
-  }
-
-  n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
-  if (n <= 0) return -1;
-  
-  ng = DecodeGroupArgs(&kg, 1, &(argv[3]), &(argt[3]), variables);
-  if (ng <= 0) {
-    free(s);
-    return -1;
-  }
-  
-  n0 = malloc(sizeof(int)*ng);
-  if (argt[4] == NUMBER) {
-    n0[0] = atoi(argv[4]);
-    for (i = 1; i < ng; i++) {
-      n0[i] = n0[0];
-    }
-  } else if (argt[4] == LIST) {
-    nv = DecodeArgs(argv[4], v, t, variables);
-    if (nv != ng) {
-      for (i = 0; i < nv; i++) free(v[i]);
-      printf("n0 array must have the same size as the gp array\n");
-      free(s);
-      free(kg);
-      free(n0);
-      return -1;
-    }
-    for (i = 0; i < nv; i++) {
-      n0[i] = atoi(v[i]);
-      free(v[i]);
-    }
-  } else {
-    return -1;
-  }
-    
-  n1 = atoi(argv[5]);
-  kmax = atoi(argv[6]);
-  
-  MBPTS(argv[0], argv[1], n, s, ng, kg, n0, n1, kmax, nt);
-
-  free(s);
-  free(kg);
-  free(n0);
-
-  return 0;
-}
-
-static int PMBPT(int argc, char *argv[], int argt[], 
-		 ARRAY *variables) {
-  int *n0, i, n1, *s, *kg, n, ng, m, kmax, kmin;
-  char *v[MAXNARGS];
-  int t[MAXNARGS], nv;
-  
-  if (argc < 6 || argc > 8) return -1;
-  if (argt[0] != STRING) return -1;
-  if (argt[1] != LIST && argt[1] != TUPLE) return -1;
-  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-  if (argt[4] != NUMBER || 
-      argt[5] != NUMBER) return -1;
-  kmin = 0;
-  m = 3;
-  if (argc > 6) {
-    kmin = atoi(argv[6]);
-    if (argc > 7) {
-      m = atoi(argv[7]);
-    }
-  }
-
-  n = SelectLevels(&s, argv[1], argt[1], variables);
-  if (n <= 0) return -1;
-  
-  ng = DecodeGroupArgs(&kg, 1, &(argv[2]), &(argt[2]), variables);
-  if (ng <= 0) {
-    free(s);
-    return -1;
-  }
-  
-  n0 = malloc(sizeof(int)*ng);
-  if (argt[3] == NUMBER) {
-    n0[0] = atoi(argv[3]);
-    for (i = 1; i < ng; i++) {
-      n0[i] = n0[0];
-    }
-  } else if (argt[3] == LIST) {
-    nv = DecodeArgs(argv[3], v, t, variables);
-    if (nv != ng) {
-      for (i = 0; i < nv; i++) free(v[i]);
-      printf("n0 array must have the same size as the gp array\n");
-      free(s);
-      free(kg);
-      free(n0);
-      return -1;
-    }
-    for (i = 0; i < nv; i++) {
-      n0[i] = atoi(v[i]);
-      free(v[i]);
-    }
-  } else {
-    return -1;
-  }
-    
-  n1 = atoi(argv[4]);
-  kmax = atoi(argv[5]);
-  
-  MBPT(argv[0], n, s, ng, kg, n0, n1, kmax, kmin, m);
-
-  free(s);
-  free(kg);
-  free(n0);
+  free(ng1);
+  free(ng2);
 
   return 0;
 }
@@ -2689,6 +2588,12 @@ static int PCoulombBethe(int argc, char *argv[], int argt[],
 
   CoulombBethe(argv[0], z, te, e1);
 
+  return 0;
+}
+
+static int PTestAngular(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  TestAngular();  
   return 0;
 }
 
@@ -3376,6 +3281,7 @@ static METHOD methods[] = {
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
+  {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
@@ -3391,8 +3297,6 @@ static METHOD methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
-  {"MBPT", PMBPT, METH_VARARGS},
-  {"MBPTS", PMBPTS, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
@@ -3464,6 +3368,7 @@ static METHOD methods[] = {
   {"SortLevels", PSortLevels, METH_VARARGS},
   {"Structure", PStructure, METH_VARARGS},
   {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
+  {"TestAngular", PTestAngular, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  

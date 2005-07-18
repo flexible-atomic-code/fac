@@ -33,7 +33,7 @@ int GetRadTiming(RAD_TIMING *t);
 
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
-int GetBoundary(double *rb, double *b, int *nmax);
+int GetBoundary(double *rb, double *b, int *nmax, double *dr);
 int SetBoundary(int nmax, double p, double bqp);
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);

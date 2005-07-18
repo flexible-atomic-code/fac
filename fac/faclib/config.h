@@ -245,8 +245,11 @@ int          GetLFromKappa(int kappa);
 int          GetJLFromSymbol(char *s, int *j, int *kl);
 int          GetJFromKappa(int kappa);
 int          GetKappaFromJL(int j, int kl); 
-int          CompareShell(SHELL *s1, SHELL *s2);
+int          CompareShell(const void *s1, const void *s2);
+int          CompareShellInvert(const void *s1, const void *s2);
 int          ShellClosed(SHELL *s);
+int          ShellToInt(int n, int k);
+void         IntToShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
 int          GetAverageConfig(int ng, int *kg, double *weight,
 			      int n_screen, int *screened_n, 
@@ -269,6 +272,8 @@ int          AddConfigToSymmetry(int kg, int kc, CONFIG *cfg);
 SYMMETRY    *GetSymmetry(int k);
 void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
+int          ConstructConfigName(char *s, int n, CONFIG *c);
+void         ListConfig(char *fn, int n, int *kg);
 int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
 int          ReinitConfig(int m);

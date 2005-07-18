@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.0.9}\xspace}
+\newcommand{\facversion}{{1.1.0}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -2528,26 +2528,6 @@ parity. If \var{ilev}$<0$, it returns the index of the first level with number
 of electrons equal to $-ilev$.
 \end{fundesc}
 
-\begin{fundesc}{MBPT}{fn, g, gp, n0, n1, lmax\opt{, dn, mode}}
-Calculate 2nd order correction to the energies using many-body perturbation
-theory. Results are written to file \var{fn}. \var{g} is the group of levels
-need corrections. \var{gp} is the group of configurations included as
-perturbers. \var{n0} and \var{n1} specfifies the minimum and maximum principle
-quantum numbers of the perturbers. \var{n0} may also be an array of ingegers
-with the same size of gp, so that each group in gp can have different value
-for the minimum principle quantum number. \var{lmax} is the maximum
-orbital angular momentum of the perturbers. \var{dn} is the number of
-extrapolating points added beyond \var{n1}, which are logarithmicly 
-spaced. \var{mode} is the calculation mode, which should usually set to 2.
-One should always call \key{SetBoundary} 
-first to impose boundary conditions on the high-n orbitals, which can take
-positive energies to represent the integration over the continuum. In this
-method, only single and double excitations are taken into account in the
-perturbation expansion. Configurations in \var{gp} can also be the core of the
-perturbers without the highly excited orbitals, in which case, those orbitals
-are added to the core configurations before the expansion is evaluated.
-\end{fundesc}
-
 \begin{fundesc}{MemENTable}{fn}
 Build an energy level table in the memory for the \texttt{DB\_EN} type file
 \var{fn}. This function must be called before any calls to \key{PrintTable}
@@ -3239,27 +3219,60 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{fn1, fn2, g0, g1, n0, ni, n1, k, nt, 
-n2, nt2, gn\opt{,x1, x2}} 
-Solve the atomic structure with 2nd order many-body perturbation
-corrrections. \var{fn1} is the file name for binary energy output. \var{fn2}
-is the file containing the MBPT energy corrections. \var{g0} is the
-configuration groups whose energies are to be solved. \var{g1} is a list of
-configuration groups to be included as the virtual states in the MBPT
-correction. \var{n0} specifies the minimum $n$ of the excited orbitals in the
-virtual states. If it is a list, each element corresponds to one configuration
-group in the \var{g1} list. If it is a number, each group in \var{g1} list has
-the same number given by \var{n0}. \var{ni} is the maximum $n$ value of the
-virtual states to be considered for all order inclusion. \var{n1} is the
-maximum $n$ of the virtual states. \var{k} is the maximum $l$ value of the
-virtual states. \var{nt} is the number of extra $n$ values to be added to the $n$
-values beyond those given by \var{n1}. \var{n2} and \var{nt2} are similar
-parameters for the second excited orbital. \var{gn} is a string specifies the
-configuration group name for configurations included in the all order
-calculation. \var{x1} is a small number specifying the threshold for all-order
-calculation. If \var{x1} is negative, then no extra configurations other than
-those in \var{g0} is included in the all order calculation. \var{x2} specifies
-the minimum mixing amplitude to be included in the MBPT summation.
+\begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2\opt{, n0}}
+There are five different forms of this function with different argument
+list. This is the primary form, and the rest are documented below. This
+function calculates the level energies of the states belonging to the
+configuration groups in the \var{g} list. The energy values are stored in the
+binary file \var{efn} the same way as \key{Structure} function. The effective
+Hamiltonian of the second order MBPT is stored in the file
+\var{hfn}. \var{kmax} is the maximum orbital angular quantum number of the
+virtual states. \var{n1} and \var{n2} are two lists for the grid of principle
+qunatum numbers of the virtual states. The \var{n1} grid is used for one
+electron excitations, and the first electron of the double excitations. The
+\var{n2} grid is for the second electron of the double excitation. The
+optional $n0$ is an integer specifying the number of configuration groups in
+the \var{g} list to be included in the MBPT calculation, and the remaining are
+included for all-order perturbation treatment.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{efn, hfn1, hfns, g}
+This is the second form of the \key{StructureMBPT} function. It reads the
+effective Hamiltonians in a list of files \var{hfns}, that are produced in
+previous \key{StructureMBPT} calls in the first form, and combines the
+contributions from different \var{n1} and \var{n2} values for the virtual
+state and sum them up to form the total effective Hamiltonian, which is saved
+to the text file \var{hfn1}. It then diagonalizes the effective Hamiltonian to
+obtain the energy values, which are stored in \var{efn} the same way as in
+\key{Structure}. The configuration list \var{g} must be the same as those used
+in generating the \var{hfns} files.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{m}
+This is the third form of the \key{StructureMBPT} function. It sets an option
+to indicate whether extrapolation beyond the maximum $n$-values in the
+\var{n1} and \var{n2} grid is carried out in forming the effective
+Hamiltonian. If $m=0$, no extrapolation, which is the default; if $m>0$, with
+extrapolation.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{p, j, i}
+This is the fourth form of the \key{StructureMBPT} function. It sets which
+$\pi J$ symmetry and/or which level to include in the MBPT calculation. By
+default, all symmetries are processes. But if this function is called with
+$p=0$, or 1, $j \ge 0$, then only the specified symmetry is processes. $j$ is
+the twice of the actual value of the total angular momentum. If $i\ge 0$, then
+only the $i$-th level in the symmetry is included.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{m, c}
+This is the fifth form of the \key{StructureMBPT} function. It sets two
+options. \var{m} indicates whether only single excitation or double excitation
+should be included. If $m=0$, both single and double excitations are included;
+if $m=1$, only single excitations are included, and if $m=2$, only double
+excitations are included. $c$ is the cutof of the mixing coeffients. The
+effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
+$max(|b_{ki}b_{kj}|) < c$. The default is $c=10^{-4}$.
 \end{fundesc}
 
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
