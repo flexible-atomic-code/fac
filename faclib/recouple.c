@@ -1,6 +1,7 @@
 #include "recouple.h"
+#include "cf77.h"
 
-static char *rcsid="$Id: recouple.c,v 1.24 2005/03/09 18:39:48 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.25 2005/07/18 15:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -132,6 +133,16 @@ int GetMaxRank(void) {
 				    ((order)[2] == (c)) && \
 				    ((order)[3] == (d)))
 
+int IsPresent(int i, int n, int *m) {
+  int k, j;
+
+  k = 0;
+  for (j = 0; j < n; j++) {
+    if (i == m[j]) k++;
+  }
+  return k;
+}
+
 /* 
 ** FUNCTION:    DecoupleShell
 ** PURPOSE:     decouple the operators, so that their reduced 
@@ -156,7 +167,36 @@ int GetMaxRank(void) {
 */
 double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		     int n_interact, int *interact, int *rank) {
+  int i, j, k;
   double coeff;
+
+  /* check the delta function for non-interacting shells first */
+  i = 0;
+  for (j = 0; j < n_interact; j++) {
+    k = n_shells - interact[j] - 1;
+    for (; i < k; i++) {
+      if (bra[i].shellJ != ket[i].shellJ ||
+	  bra[i].nu != ket[i].nu ||
+	  bra[i].Nr != ket[i].Nr) return 0.0;
+    }
+    i++;
+  }
+  
+  for (; i < n_shells; i++) {
+    if (bra[i].shellJ != ket[i].shellJ ||
+	bra[i].totalJ != ket[i].totalJ ||
+	bra[i].nu != ket[i].nu ||
+	bra[i].Nr != ket[i].Nr) return 0.0;
+  }
+
+  coeff = DecoupleShellRecursive(n_shells, bra, ket, n_interact, interact, rank);
+
+  return coeff;
+}
+  
+double DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+			      int n_interact, int *interact, int *rank) {
+  double coeff, a;
   int Jbra, Jket, j1bra, j1ket, j2bra, j2ket, i;
   int k1, k2, k;
 
@@ -169,7 +209,7 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       j1bra = (bra[1]).totalJ;
       j1ket = (ket[1]).totalJ;
       j2bra = (bra[0]).shellJ;
-      j2ket = (ket[0]).shellJ;
+      j2ket = (ket[0]).shellJ;      
 
       k = rank[0];
       if (interact[0] < n_shells-1) {
@@ -187,13 +227,11 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
 	       W9j(j1bra, j2bra, Jbra, 
 		   j1ket, j2ket, Jket,
 		   k1, k2, k));
+      if (fabs(coeff) < EPS10) return 0.0;
       if (interact[0] < n_shells - 1) {
 	/* if the current shell is not an interacting one, the two shells
 	   in bra and ket state should be identical. and the reduced matrix
 	   element of the identity operator should be included */
-	if (j2bra != j2ket || 
-	    (*bra).nu != (*ket).nu)
-	  return 0.0;
 	coeff *= sqrt(j2bra + 1);	
       } else {
 	/* otherwise proceed to the next interacting one */
@@ -205,21 +243,12 @@ double DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       n_shells--;
       bra++;
       ket++;
-      coeff *= DecoupleShell(n_shells, bra, ket, 
-			     n_interact, interact, rank);     
-      return coeff;
+      a = DecoupleShellRecursive(n_shells, bra, ket, 
+				 n_interact, interact, rank);
+      coeff *= a;
     }
   } else {
-    /* if no interaction, give a trivial delta function */
-    for (i = 0; i < n_shells; i++) {
-      if ((bra[i]).totalJ != (ket[i]).totalJ ||
-	  (bra[i]).shellJ != (ket[i]).shellJ ||
-	  (bra[i]).nu != (ket[i]).nu){
-	return 0.0;
-      }
-    }
     coeff = sqrt(bra[0].totalJ + 1.0);
-    return coeff;
   }
   return coeff;
 }
@@ -484,7 +513,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   double *coeff1;
   int *kk1, nk1;
   int i, j;
-  double r;  
+  double r, a, b;  
   RCFP_STATE rcfp_bra[4], rcfp_ket[4];
 
 #ifdef PERFORM_STATISTICS
@@ -518,7 +547,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   nk1 = nk;
 
   /* sort the order of interacting shells */
-  phase = SortShell(s, order);
+  phase = SortShell(4, s, order);
   n_interact = 0;
   j = -1;
   for (i = 3; i >= 0; i--) {
@@ -548,9 +577,10 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   if (nops[0] == 4) { /* 4 identical interacting shells */
     for (m = 0; m < nk1; m++){
       rank[1] = 0;      
-      coeff1[m] = DecoupleShell(n_shells, bra, ket, 
-				  n_interact, interact, rank); 
-      coeff1[m] *= ReducedWxW0(rcfp_bra, rcfp_ket, kk1[m]/2, 1, -1, 1, -1);
+      a = DecoupleShell(n_shells, bra, ket, 
+			n_interact, interact, rank); 
+      b = ReducedWxW0(rcfp_bra, rcfp_ket, kk1[m]/2, 1, -1, 1, -1);
+      coeff1[m] = a*b;
     }
     recouple_operators = 0;
   } else if (nops[0] == 3 && nops[1] == 1) { /* 1 x 3 */
@@ -1213,7 +1243,9 @@ void SumCoeff(double *coeff,  int *kk,  int nk,  int p,
 ** FUNCTION:    SortShell
 ** PURPOSE:     sort the interacting shells. 
 **              calculate the phase of the interchange.
-** INPUT:       {INTERACT_SHELL *s},
+** INPUT:       {int ns},
+**              number of shells.
+**              {INTERACT_SHELL *s},
 **              shell indexes to be sorted.
 **              {int *order},
 **              the order returned.
@@ -1222,13 +1254,13 @@ void SumCoeff(double *coeff,  int *kk,  int nk,  int p,
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int SortShell(INTERACT_SHELL *s, int *order) {
+int SortShell(int ns, INTERACT_SHELL *s, int *order) {
   int i, j, k;
   int phase;
 
   phase = 0;
-  for (j = 0; j < 3; j++){
-    for (i = 3; i > j; i--) {
+  for (j = 0; j < ns-1; j++){
+    for (i = ns-1; i > j; i--) {
       if (s[order[i]].index < s[order[i-1]].index) {
 	k = order[i];
 	order[i] = order[i-1];
@@ -1620,14 +1652,320 @@ int GetInteract(INTERACT_DATUM **idatum,
   return n_shells;
 }
 
+double EvaluateFormula(FORMULA *fm) {
+  double r;
 
-/* only compile these test routines if the debug flag is on */
-#if FAC_DEBUG 
+  if (fm->js[0]) {
+    CPYDAT(MAXNJGD, fm->njgdata, 1);
+  }
+  NJSUM(fm->js+1, &r);
+  return r;
+}
+
+int GenerateFormula(FORMULA *fm) {
+  int ij2[MAXJ*3], ij3[MAXJ*3];
+  int n, i, j, k, ns;
+  
+  ns = fm->ns;  
+  n = 3*(ns-1);
+  k = 0;
+  for (i = 1; i < ns; i++) {
+    for (j = 1; j <= 3; j++) {
+      ij2[k] = fm->tr1[i][j];
+      ij3[k] = fm->tr2[i][j];
+      k++;
+    }
+  }
+  NJFORM(n, ns, ij2, ij3, fm->ifree+1);
+  if (fm->js[0]) {
+    CPYDAT(MAXNJGD, fm->njgdata, 0);
+  }
+  return 0;
+}
+   
+int FixJsZ(INTERACT_SHELL *s, FORMULA *fm) {
+  int *js, i, ns;
+
+  ns = fm->ns;
+  js = fm->js;
+  for (i = 1; i <= ns; i++) {
+    js[i] = s[i-1].j;
+    if (IsOdd(i)) {
+      s[i-1].n = 1;
+    } else {
+      s[i-1].n = -1;
+    }
+  }
+
+  return 0;
+}
+
+int TriadsZ(int n1, int n2, FORMULA *fm) {
+  int ns, i0, i;
+
+  ns = 2*n1 + 2*n2;
+  fm->ns = ns;
+  for (i = 1; i <= 3*(ns-1); i++) {
+    fm->js[i] = 0;
+    fm->ifree[i] = 1;
+  }
+  i0 = n1+n2;
+  for (i = 0; i < i0; i++) {
+    fm->tr1[i+1][1] = 2*i + 1;
+    fm->tr1[i+1][2] = 2*i + 2;
+    fm->tr1[i+1][3] = ns + i + 1;
+  }
+
+  i0 = ns;
+  ns++;
+  if (n1 == 1 && n2 == 1) {
+    fm->tr1[3][1] = ns;
+    fm->tr1[3][2] = ns+1;
+    fm->tr1[3][3] = ns+2;
+    fm->ifree[ns] = 0;
+    fm->ifree[ns+1] = 0;
+    fm->ifree[ns+2] = 0;
+  } else if (n1 == 1 && n2 == 2) {
+    fm->tr1[4][1] = ns+1;
+    fm->tr1[4][2] = ns+2;
+    fm->tr1[4][3] = ns+3;
+    fm->tr1[5][1] = ns;
+    fm->tr1[5][2] = ns+3;
+    fm->tr1[5][3] = ns+4;
+    fm->ifree[ns] = 0;
+    fm->ifree[ns+3] = 0;
+    fm->ifree[ns+4] = 0;
+  } else if (n1 == 2 && n2 == 1) {
+    fm->tr1[4][1] = ns;
+    fm->tr1[4][2] = ns+1;
+    fm->tr1[4][3] = ns+3;
+    fm->tr1[5][1] = ns+3;
+    fm->tr1[5][2] = ns+2;
+    fm->tr1[5][3] = ns+4;
+    fm->ifree[ns+2] = 0;
+    fm->ifree[ns+3] = 0;
+    fm->ifree[ns+4] = 0;
+  } else if (n1 == 2 && n2 == 2) {
+    fm->tr1[5][1] = ns;
+    fm->tr1[5][2] = ns+1;
+    fm->tr1[5][3] = ns+4;
+    fm->tr1[6][1] = ns+2;
+    fm->tr1[6][2] = ns+3;
+    fm->tr1[6][3] = ns+5;
+    fm->tr1[7][1] = ns+4;
+    fm->tr1[7][2] = ns+5;
+    fm->tr1[7][3] = ns+6;
+    fm->ifree[ns+4] = 0;
+    fm->ifree[ns+5] = 0;
+    fm->ifree[ns+6] = 0;
+  }
+
+  return i0;
+}
+
+int CoupleSuccessive(int n, int *ik, int itr, TRIADS tr, int *i0) {
+  int i;
+
+  if (n <= 1) return itr;
+
+  tr[itr][1] = ik[0];
+  tr[itr][2] = ik[1];
+  tr[itr][3] = (*i0)++;
+  itr++;
+  for (i = 2; i < n; i++) {
+    tr[itr][1] = tr[itr-1][3];
+    tr[itr][2] = ik[i];
+    tr[itr][3] = (*i0)++;
+    itr++;
+  }
+
+  return itr;
+}
+
+int RecoupleTensor(int ns, INTERACT_SHELL *s, FORMULA *fm) {
+  int ninter, nop;
+  int *inter, *interp, *irank, *order;
+  int i, j, ij, itr;
+  int ik[MAXJ], fk[MAXJ];
+
+  order = fm->order;
+  inter = fm->inter;
+  interp = fm->interp;
+  irank = fm->irank;
+  
+  for (i = 0; i < ns; i++) order[i] = i;
+  fm->phase = SortShell(ns, s, order);  
+  ninter = 1;
+  inter[0] = s[order[0]].index;
+  interp[0] = 0;
+  for (i = 1; i < ns; i++) {
+    if (s[order[i]].index != s[order[i-1]].index) {
+      inter[ninter] = s[order[i]].index;
+      interp[ninter] = i;
+      ninter++;
+    }
+  }
+  interp[ninter] = ns;
+  ij = ninter/2;
+  if (IsOdd(ninter)) ij++;
+  for (i = 0; i < ij; i++) {
+    j = inter[i];
+    inter[i] = inter[ninter-i-1];
+    inter[ninter-i-1] = j;
+  }
+
+  itr = 1;
+  ij = 2*ns;
+  for (i = 0; i < ninter; i++) {
+    nop = interp[i+1] - interp[i];
+    if (nop > 1) {
+      for (j = interp[i]; j < interp[i+1]; j++) {
+	ik[j-interp[i]] = order[j]+1;
+      }
+      itr = CoupleSuccessive(nop, ik, itr, fm->tr2, &ij);
+      fk[i] = fm->tr2[itr-1][3];
+    } else {
+      fk[i] = order[interp[i]]+1;
+    }
+  }
+  if (ninter > 1) {
+    itr = CoupleSuccessive(ninter, fk, itr, fm->tr2, &ij);
+  }
+  fm->tr2[itr-1][3] = 2*ns-1;
+
+  j = 0;
+  irank[j++] = fm->tr2[itr-1][3];
+  for (i = 1; i < ninter; i++) {
+    irank[j++] = fm->tr2[itr-i][2];
+    irank[j++] = fm->tr2[itr-i][1];
+  }
+  irank[j] = irank[j-1];
+
+  fm->ns = ns;
+  fm->ninter = ninter;
+  if (GenerateFormula(fm) < 0) return -1;
+
+  return ninter;
+}
+
+void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
+		    INTERACT_SHELL *s, int itr, FORMULA *fm) {
+  int i, j, k, i0, j0, j1, kmin, kmax, ncp;
+  int *js, m, nop, k1, k2, ns, ninter;
+  int *order, *inter, *interp, *irank;
+  double a, b, a1, a2, *r;
+  SHELL_STATE st1, st2;
+  RCFP_STATE rcfp_bra, rcfp_ket;
+  RCFP_OPERATOR ops[2*MAXJ];
+  int rank[2*MAXJ];
+  
+  r = &(fm->coeff);
+  order = fm->order;
+  ninter = fm->ninter;
+  inter = fm->inter;
+  interp = fm->interp;
+  irank = fm->irank;
+  ns = fm->ns;
+  if (itr == 1) {
+    *r = 0.0;
+  }
+  js = fm->js;
+  i0 = 2*ns;
+  ncp = ns-1;
+  j0 = js[fm->tr2[itr][1]];
+  j1 = js[fm->tr2[itr][2]];
+  kmin = abs(j0-j1);
+  kmax = j0+j1;
+  if (fm->tr2[itr][3] >= i0) {
+    for (k = kmin; k <= kmax; k += 2) {
+      js[fm->tr2[itr][3]] = k;
+      for (i = itr+1; i <= ncp; i++) {
+	if (fm->tr2[i][1] == fm->tr2[itr][3]) {
+	  js[fm->tr2[i][1]] = k;
+	  break;
+	}	
+	if (fm->tr2[i][2] == fm->tr2[itr][3]) {
+	  js[fm->tr2[i][2]] = k;
+	  break;
+	}
+      }
+      EvaluateTensor(nshells, bra, ket, s, itr+1, fm);
+    }
+  } else {
+    k = js[fm->tr2[itr][3]];
+    if (!(kmin <= k && kmax >= k)) return;
+    k = 2*ninter;
+    for (i = 0; i < k; i++) {
+      rank[i] = js[irank[i]];
+    }
+    a1 = DecoupleShell(nshells, bra, ket, ninter, inter, rank);
+    if (fabs(a1) < EPS10) return;
+    a2 = EvaluateFormula(fm);
+    if (fabs(a2) < EPS10) return;
+    i0 = 1;
+    a = 1.0;
+    for (i = 0; i < ninter; i++) {
+      nop = interp[i+1] - interp[i];
+      k = order[interp[i]];
+      k1 = nshells - s[k].index -1;
+      st1 = bra[k1];
+      st2 = ket[k1];
+      rcfp_bra.state = RCFPTermIndex(s[k].j, st1.nu, st1.Nr, st1.shellJ);
+      rcfp_bra.nq = s[k].nq_bra;
+      rcfp_bra.subshellMQ = rcfp_bra.nq - (s[k].j + 1)/2;
+      rcfp_ket.state = RCFPTermIndex(s[k].j, st2.nu, st2.Nr, st2.shellJ);
+      rcfp_ket.nq = s[k].nq_ket;
+      rcfp_ket.subshellMQ = rcfp_ket.nq - (s[k].j + 1)/2;
+      b = 0.0;
+      switch (nop) {
+      case 1:
+	b = ReducedA(&rcfp_bra, &rcfp_ket, s[k].n);
+	break;
+      case 2:
+	k1 = order[interp[i]+1];
+	b = ReducedW(&rcfp_bra, &rcfp_ket, js[fm->tr2[i0][3]]/2, s[k].n, s[k1].n);
+	break;
+      case 3:
+	k1 = order[interp[i]+1];
+	k2 = order[interp[i]+2];
+	b = ReducedWxA(&rcfp_bra, &rcfp_ket, js[fm->tr2[i0][3]]/2, 
+		       js[fm->tr2[i0+1][3]], s[k].n, s[k1].n, s[k2].n);
+	break;
+      default:
+	for (m = 0; m < nop; m++) {
+	  ops[m].rank = s[k].j;
+	  ops[m].left = NULL;
+	  ops[m].right = NULL;
+	  ops[m].nops = 1;
+	  k1 = order[interp[i]+m];
+	  ops[m].qm = s[k1].n;
+	}
+	CoupleOperators(&ops[0], &ops[1], &ops[nop], js[fm->tr2[i0][3]]);
+	for (m = 2; m < nop; m++) {
+	  CoupleOperators(&ops[nop+m-2], &ops[m], &ops[nop+m-1], 
+			  js[fm->tr2[i0+m-1][3]]);
+	}
+	m = 2*nop-2;
+	b = ReducedOperator(&rcfp_bra, &rcfp_ket, &ops[m]);
+	break;
+      }
+      if (fabs(b) < EPS10) return;
+      a *= b;
+      i0 += nop - 1;
+    }
+    if (IsOdd(fm->phase)) a = -a;    
+    (*r) += a*a1*a2;
+  }
+
+  return;
+}
+
 void TestAngular(void) {
   int i, j, k, ns, t;  
   SYMMETRY *sym;  
   CONFIG *c1, *c2;
   ARRAY *s1, *s2;
+  STATE *st1, *st2;
   int n_shells;
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
@@ -1636,35 +1974,35 @@ void TestAngular(void) {
   INTERACT_SHELL es[4];
   char name1[LEVEL_NAME_LEN];
   char name2[LEVEL_NAME_LEN];
-  int phase;
+  int phase, q;
 
-  ns = GetNumSymmetries();
+  ns = MAX_SYMMETRIES;
   
   for (i = 0; i < ns; i++) {
     sym = GetSymmetry(i);
     s1 = &(sym->states);
     s2 = s1;
     for (t = 0; t < sym->n_states; t++) {
-      c1 = GetConfig((STATE *) ArrayGet(s1, t));
-      ConstructLevelName(name1, NULL, NULL, &(s1->s));
-      for (q = 0; q < sym->nstates; q++) {
-	c2 = GetConfig((STATE *) ArrayGet(s2, q));
-	ConstructLevelName(name2, NULL, NULL, &(s2->s));
-	fprintf(debug_log, "Bra: %s \nKet: %s\n\n", name1, name2);
+      st1 = ArrayGet(s1, t);
+      c1 = GetConfig(st1);      
+      ConstructLevelName(name1, NULL, NULL, NULL, st1);
+      for (q = 0; q < sym->n_states; q++) {
+	st2 = ArrayGet(s2, q);
+	c2 = GetConfig(st2);
+	ConstructLevelName(name2, NULL, NULL, NULL, st2);
+	printf("Bra: %s \nKet: %s\n", name1, name2);
 	n_shells = GetInteract(&idatum, &sbra, &sket, 
-			       c1, s1->s.kstate, c2, s2->s.kstate, s1, s2);
+			       st1->kgroup, st2->kgroup, 
+			       st1->kcfg, st2->kcfg, 
+			       st1->kstate, st2->kstate, 0);
 	phase = idatum->phase;
 	s = idatum->s;
 	bra = idatum->bra;
-
-	if (n_shells <= 0) {
-	  fprintf(debug_log, "no interaction for this case\n");
-	  s2 = s2->next;
-	  continue;
-	}
-	fprintf(debug_log, "n_shells: %d \n", n_shells);
+	printf("n_shells: %d \n", n_shells);
+	if (n_shells < 0) continue;
 	if (s[0].index >= 0 && s[3].index >= 0) {
 	  CheckAngularConsistency(n_shells, bra, sbra, sket, s, phase);
+	  /*
 	  if (s[0].index != s[2].index &&
 	      s[1].index != s[3].index) {
 	    memcpy(es, s, sizeof(INTERACT_SHELL));
@@ -1673,6 +2011,7 @@ void TestAngular(void) {
 	    memcpy(es+3, s+1, sizeof(INTERACT_SHELL));
 	    CheckAngularConsistency(n_shells, bra, sbra, sket, es, phase);
 	  }
+	  */
 	} else if (s[0].index >= 0) {
 	  for (j = 0; j < n_shells; j++) {
 	    s[2].index = n_shells - j - 1;
@@ -1696,24 +2035,26 @@ void TestAngular(void) {
 	    s[3].nq_bra = s[2].nq_bra;
 	    s[3].nq_ket = s[2].nq_ket;
 
-	    fprintf(debug_log, "In Pfac: %d %d  %d %d  %d %d  %d %d\n",
+	    printf("In Pfac: %d %d  %d %d  %d %d  %d %d\n",
 		    s[0].nq_bra, s[0].nq_ket, s[1].nq_bra, s[1].nq_ket, 
 		    s[2].nq_bra, s[2].nq_ket, s[3].nq_bra, s[3].nq_ket);
 		    
 	    
 	    CheckAngularConsistency(n_shells, bra, sbra, sket, s, phase);
+	    /*
 	    memcpy(es, s+2, sizeof(INTERACT_SHELL));
 	    memcpy(es+1, s+1, sizeof(INTERACT_SHELL));
 	    memcpy(es+2, s, sizeof(INTERACT_SHELL));
 	    memcpy(es+3, s+3, sizeof(INTERACT_SHELL));
 
-	    fprintf(debug_log, "In Pfac: %d %d  %d %d  %d %d  %d %d\n",
+	    printf("In Pfac: %d %d  %d %d  %d %d  %d %d\n",
 		    s[0].nq_bra, s[0].nq_ket, s[1].nq_bra, s[1].nq_ket, 
 		    s[2].nq_bra, s[2].nq_ket, s[3].nq_bra, s[3].nq_ket);
-	    fprintf(debug_log, "In Pfac ex: %d %d  %d %d  %d %d  %d %d\n",
+	    printf("In Pfac ex: %d %d  %d %d  %d %d  %d %d\n",
 		    s[0].nq_bra, es[0].nq_ket, es[1].nq_bra, es[1].nq_ket, 
 		    s[2].nq_bra, es[2].nq_ket, es[3].nq_bra, es[3].nq_ket);
 	    CheckAngularConsistency(n_shells, bra, sbra, sket, es, phase);
+	    */
 	  }
 	} else {
 	  for (j = 0; j < n_shells; j++) {
@@ -1748,11 +2089,13 @@ void TestAngular(void) {
 	      s[3].nq_ket = s[3].nq_bra;
 	      
 	      CheckAngularConsistency(n_shells, bra, sbra, sket, s, phase);
+	      /*
 	      memcpy(es, s+2, sizeof(INTERACT_SHELL));
 	      memcpy(es+1, s+1, sizeof(INTERACT_SHELL));
 	      memcpy(es+2, s, sizeof(INTERACT_SHELL));
 	      memcpy(es+3, s+3, sizeof(INTERACT_SHELL));
 	      CheckAngularConsistency(n_shells, bra, sbra, sket, es, phase);
+	      */
 	    }
 	  }
 	}
@@ -1773,7 +2116,34 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
   INTERACT_SHELL s[4];
   SHELL *t;
   int maxq;
+  FORMULA fm;
 
+  fm.js[0] = 0;
+  memcpy(s, ss, sizeof(INTERACT_SHELL)*4);
+  nk1 = AngularZxZ0(&ang1, &kk1, 0, n_shells, sbra, sket, s);
+  if (nk1 > 0) {
+    TriadsZ(1, 1, &fm);
+    RecoupleTensor(4, s, &fm);
+    FixJsZ(s, &fm);
+    kk2 = fm.js;
+    printf("js = ");
+    for (j = 1; j <= 9; j++) printf("%d ", kk2[j]);
+    printf("\n");
+    printf("%d %d %d %d\n", s[0].index, s[1].index, s[2].index, s[3].index);
+    for (i = 0; i < nk1; i++) {
+      k = kk1[i];
+      kk2[5] = k;
+      kk2[6] = k;
+      kk2[7] = 0;      
+      EvaluateTensor(n_shells, sbra, sket, s, 1, &fm);
+      y = fm.coeff;
+      y /= sqrt(k+1.0);
+      if (IsOdd(k/2)) y = -y;
+      printf("Ang: %2d %15.8E %15.8E\n", k, ang1[i], y);
+    }
+  }
+
+#if FAC_DEBUG
   memcpy(s, ss, sizeof(INTERACT_SHELL)*4);
 
   nk1 = AngularZxZ0(&ang1, &kk1, 0, n_shells, sbra, sket, s);
@@ -2001,15 +2371,14 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
   }
   fprintf(debug_log, "\n");
 
-  free(kk1);
-  free(ang1);
   free(ang4);
   free(t);
   free(icfg.csfs);
-
-}
-
 #endif /* FAC_DEBUG */
+
+  free(kk1);
+  free(ang1);
+}
 
 /* 
 ** FUNCTION:    InitRecouple
@@ -2022,7 +2391,8 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
 int InitRecouple(void) {
   int blocks[4] = {10, 10, 64, 64};
   int ndim = 4;
-
+  
+  FACTT();
   interact_shells = (MULTI *) malloc(sizeof(MULTI));
   return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
 }

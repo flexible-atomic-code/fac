@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.103 2005/04/01 00:17:48 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.104 2005/07/18 15:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -182,6 +182,15 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
     for (i = 0; i < ng; i++) (*kg)[i] = i;
   }
   return ng;
+}
+
+static PyObject *PGetBoundary(PyObject *self, PyObject *args) {
+  int nmax, ib;
+  double bqp, rmax, dr;
+  
+  ib = GetBoundary(&rmax, &bqp, &nmax, &dr);
+  
+  return Py_BuildValue("[iiddd]", ib, nmax, rmax, bqp, dr);
 }
 
 static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
@@ -486,6 +495,42 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
   return Py_None;
 }  
  
+static PyObject *PListConfig(PyObject *self, PyObject *args) {
+  int k, ng, *kg;
+  PyObject *p;
+  char *s;
+
+  if (sfac_file) {
+    SFACStatement("ListConfig", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  s = NULL;
+  p = NULL;
+  if (!PyArg_ParseTuple(args, "|sO", &s, &p)) return NULL;
+  if (p) {
+    ng = DecodeGroupArgs(p, &kg);
+  } else {
+    ng = 0;
+  }
+  
+  if (ng <= 0) {
+    ng = GetNumGroups();
+    kg = malloc(sizeof(int)*ng);
+    for (k = 0; k < ng; k++) {
+      kg[k] = k;
+    }
+  }
+
+  ListConfig(s, ng, kg);
+
+  if (ng > 0) free(kg);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+ 
 static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
   char *s;
   int ns, *n, *kappa;
@@ -597,8 +642,8 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  rmin = -1.0;
-  rmax = -1.0;
+  rmin = 0.0;
+  rmax = 0.0;
   if (!PyArg_ParseTuple(args, "i|dd", &maxrp, &rmin, &rmax))
     return NULL;
   if (-1 == SetRadialGrid(maxrp, rmin, rmax))
@@ -1221,12 +1266,7 @@ static PyObject *PTestAngular(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  /* do nothing if the debug flag is not set in compilation */
-#if FAC_DEBUG  
   TestAngular();
-#else 
-  printf("Turn on the FAC_DEBUG flag in compilation\n");
-#endif /* FAC_DEBUG */
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1366,179 +1406,100 @@ static int SelectLevels(PyObject *p, int **t) {
   }
   return 0;
 }
-
+  
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *t, *r;
-  int *n0, *ni, i, n1, n, ng, *s, *kg, kmax, nt, n2, nt2;
-  char *fn, *fn1, *gn0;
-  double eps, eps1;
+  PyObject *p, *q, *t, *r, *x;
+  int i, n, n1, *ng1, n2, *ng2, *s, kmax, n3;
+  char *fn, *fn1, *gn0, **fn2;
+  double c;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  eps = -1.0;
-  eps1 = 1.0;
 
-  if (!(PyArg_ParseTuple(args, "ssOOOOiiiiis|dd", 
-			 &fn, &fn1, &p, &q, &r, &t, &n1, 
-			 &kmax, &nt, &n2, &nt2, &gn0, &eps, &eps1))) 
-    return NULL;
+  n = PyTuple_Size(args);
   
-  n = DecodeGroupArgs(p, &s);
-  if (n <= 0) return NULL;
-
-  ng = DecodeGroupArgs(q, &kg);
-  if (ng > 0) {
-    n0 = malloc(sizeof(int)*ng);
-    ni = malloc(sizeof(int)*ng);
-    if (PyList_Check(r)) {
-      if (PyList_Size(r) != ng) {
-	printf("n0 array must have the same size as gp array\n");
-	free(s);
-	free(kg);
-	free(n0);
-	free(ni);
-	return NULL;
-      }
-      for (i = 0; i < ng; i++) {
-	p = PyList_GetItem(r, i);
-	n0[i] = PyInt_AsLong(p);
-      }
-    } else {
-      n0[0] = PyInt_AsLong(r);
-      for (i = 1; i < ng; i++) {
-	n0[i] = n0[0];
-      }
-    }
-    if (PyList_Check(t)) { 
-      if (PyList_Size(t) != ng) {
-	printf("ni array must have the same size as gp array\n");
-	free(s);
-	free(kg);
-	free(n0);
-	free(ni);
-	return NULL;
-      }
-      for (i = 0; i < ng; i++) {
-	p = PyList_GetItem(t, i);
-	ni[i] = PyInt_AsLong(p);
-      }
-    } else {
-      ni[0] = PyInt_AsLong(t);
-      for (i = 1; i < ng; i++) {
-	ni[i] = ni[0];
-      }
-    }
-    StructureMBPT(fn, fn1, n, s, ng, kg, n0, ni, n1, kmax, nt, 
-		  n2, nt2, gn0, eps, eps1);
-    free (kg);
-    free(n0);
-    free(ni);
+  if (n == 1) {
+    if (!(PyArg_ParseTuple(args, "i", &i))) return NULL;
+    SetExtraMBPT(i);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }    
+  if (n == 2) {
+    if (!(PyArg_ParseTuple(args, "id", &n3, &c))) return NULL;
+    SetOptMBPT(n3, c);
+    Py_INCREF(Py_None);
+    return Py_None;
   }
-  free(s);
+  if (n == 3) {
+    if (!(PyArg_ParseTuple(args, "iii", &i, &n1, &n2))) return NULL;
+    SetSymMBPT(i, n1, n2);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }    
 
-  Py_INCREF(Py_None);
-  return Py_None;
-}  
+  if (n == 4 || n == 5) {
+    n3 = -1;
+    if (!(PyArg_ParseTuple(args, "ssOO|i", &fn, &fn1, &q, &p, &n3)))
+      return NULL;
+    n = DecodeGroupArgs(p, &s);
+    if (n <= 0) return NULL;
+    n1 = PyList_Size(q);
+    if (n1 <= 0) return NULL;
+    fn2 = malloc(sizeof(char *)*n1);
+    for (i = 0; i < n1; i++) {
+      t = PyList_GetItem(q, i);
+      if (!PyString_Check(t)) return NULL;
+      fn2[i] = PyString_AsString(t);
+    }
+    StructureReadMBPT(fn, fn1, n1, fn2, n, s, n3);
+    free(s);
+    free(fn2);
 
-static PyObject *PMBPTS(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *r;
-  int *n0, i, n1, n, ng, *s, *kg, kmax, nt;
-  char *fn, *fn1;
-  
-  if (sfac_file) {
-    SFACStatement("MBPTS", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
-  nt = 5;
-  if (!(PyArg_ParseTuple(args, "ssOOOii|i", 
-			 &fn, &fn1, &p, &q, &r, &n1, &kmax, &nt))) 
+  gn0 = NULL;
+  n3 = -1;
+  x = NULL;
+  if (!(PyArg_ParseTuple(args, "ssOiOO|O",
+			 &fn, &fn1, &p, &kmax, &q, &r, &x)))
     return NULL;
-  
+  if (!PyList_Check(q)) return NULL;
+  if (!PyList_Check(r)) return NULL;
+
+  if (x) {
+    if (PyInt_Check(x)) {
+      n3 = PyInt_AsLong(x);
+    } else {
+      gn0 = PyString_AsString(x);
+    }
+  }
   n = DecodeGroupArgs(p, &s);
   if (n <= 0) return NULL;
-
-  ng = DecodeGroupArgs(q, &kg);
-  if (ng > 0) {
-    n0 = malloc(sizeof(int)*ng);
-    if (PyList_Check(r)) {
-      if (PyList_Size(r) != ng) {
-	printf("n0 array must have the same size as gp array\n");
-	free(s);
-	free(kg);
-	free(n0);
-	return NULL;
-      }
-      for (i = 0; i < ng; i++) {
-	p = PyList_GetItem(r, i);
-	n0[i] = PyInt_AsLong(p);
-      }
-    } else {
-      n0[0] = PyInt_AsLong(r);
-      for (i = 1; i < ng; i++) {
-	n0[i] = n0[0];
-      }
-    }
-    MBPTS(fn, fn1, n, s, ng, kg, n0, n1, kmax, nt);
-    free (kg);
-    free(n0);
-  }
-  free(s);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}  
   
-    
-static PyObject *PMBPT(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *r;
-  int *n0, i, n1, n, ng, *s, *kg, m, kmax, kmin;
-  char *fn;
-
-  if (sfac_file) {
-    SFACStatement("MBPT", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
+  n1 = PyList_Size(q);
+  ng1 = malloc(sizeof(int)*n1);
+  for (i = 0; i < n1; i++) {
+    t = PyList_GetItem(q, i);
+    ng1[i] = PyInt_AsLong(t);
   }
 
-  m = 3;
-  kmin = 0;
-  if (!(PyArg_ParseTuple(args, "sOOOii|ii", 
-			 &fn, &p, &q, &r, &n1, &kmax, &kmin, &m))) 
-    return NULL;
-  n = SelectLevels(p, &s);
-  if (n <= 0) return NULL;
+  n2 = PyList_Size(r);
+  ng2 = malloc(sizeof(int)*n2);
+  for (i = 0; i < n2; i++) {
+    t = PyList_GetItem(r, i);
+    ng2[i] = PyInt_AsLong(t);
+  }
   
-  ng = DecodeGroupArgs(q, &kg);
-  if (ng > 0) {
-    n0 = malloc(sizeof(int)*ng);
-    if (PyList_Check(r)) {
-      if (PyList_Size(r) != ng) {
-	printf("n0 array must have the same size as gp array\n");
-	free(s);
-	free(kg);
-	free(n0);
-	return NULL;
-      }
-      for (i = 0; i < ng; i++) {
-	p = PyList_GetItem(r, i);
-	n0[i] = PyInt_AsLong(p);
-      }
-    } else {
-      n0[0] = PyInt_AsLong(r);
-      for (i = 1; i < ng; i++) {
-	n0[i] = n0[0];
-      }
-    }
-    MBPT(fn, n, s, ng, kg, n0, n1, kmax, kmin, m);
-    free (kg);
-    free(n0);
-  }
+  StructureMBPT(fn, fn1, n, s, kmax, n1, ng1, n2, ng2, n3, gn0);
+
   free(s);
+  free(ng1);
+  free(ng2);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -4434,6 +4395,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
+  {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
@@ -4472,8 +4434,6 @@ static struct PyMethodDef fac_methods[] = {
   {"GetCG", PGetCG, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
-  {"MBPT", PMBPT, METH_VARARGS},
-  {"MBPTS", PMBPTS, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
@@ -4504,6 +4464,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetAtom", PSetAtom, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetBoundary", PSetBoundary, METH_VARARGS},
+  {"GetBoundary", PGetBoundary, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},

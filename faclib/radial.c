@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.113 2005/03/04 23:31:38 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.114 2005/07/18 15:39:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -181,10 +181,18 @@ void SetSlaterCut(int k0, int k1) {
   }
 }
 
-int GetBoundary(double *rb, double *b, int *nmax) {
-  *rb = potential->rad[potential->ib];
+int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
+  int ib;
+
+  if (potential->ib > 0) {
+    ib = potential->ib;
+  } else {
+    ib = potential->maxrp-1;
+  }
+  *rb = potential->rad[ib];
   *b = potential->bqp;
   *nmax = potential->nb;
+  *dr = potential->rad[ib]-potential->rad[ib-1];
   return potential->ib;
 }
 
@@ -382,9 +390,13 @@ int SetRadialGrid(int maxrp, double ratio, double asymp) {
   }
   if (maxrp < 0) maxrp = DMAXRP;
   potential->maxrp = maxrp;
-  if (ratio < 0) potential->ratio = GRIDRATIO;
+  if (asymp < 0 && ratio < 0) {
+    asymp = GRIDASYMP;
+    ratio = GRIDRATIO;
+  }
+  if (ratio == 0) potential->ratio = GRIDRATIO;
   else potential->ratio = ratio;
-  if (asymp < 0) potential->asymp = GRIDASYMP;
+  if (asymp == 0) potential->asymp = GRIDASYMP;
   else potential->asymp = asymp;
   potential->flag = 0;
   return 0;
@@ -2733,7 +2745,7 @@ double QED1E(int k0, int k1) {
     r += a;
   }
 
-  if (k0 == k1 && orb1->n <= qed.se) {
+  if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
     if (potential->ib <= 0 || orb1->n <= potential->nb) {
       a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
 			       orb1->n, orb1->kappa);

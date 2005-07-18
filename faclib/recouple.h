@@ -104,6 +104,17 @@ typedef struct _INTERACT_DATUM_ {
   short phase;
 } INTERACT_DATUM;
 
+#define MAXJ 80
+#define MAXNJGD 2000
+typedef int TRIADS[MAXJ][4];
+typedef struct _FORMULA_ {
+  int njgdata[MAXNJGD];
+  int ifree[MAXJ], js[MAXJ], ns, ninter;
+  int order[MAXJ], inter[MAXJ], interp[MAXJ], irank[MAXJ];
+  TRIADS tr1, tr2;  
+  double coeff;
+  int phase;
+} FORMULA;
 
 #ifdef PERFORM_STATISTICS
 /*
@@ -128,6 +139,9 @@ int     GetRecoupleTiming(RECOUPLE_TIMING *t);
 /* the recoupling matrix going from the coupled operators to uncoupled ones */
 double  DecoupleShell(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
 		      int n_interact, int *interact, int *rank);
+double  DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
+			       int n_interact, int *interact, int *rank);
+int IsPresent(int i, int n, int *m);
 
 /* check if the recoupling matrix is non-zero */
 int     IsShellInteracting(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket, 
@@ -147,7 +161,7 @@ void    SumCoeff(double *coeff,  int *kk,  int nk,  int p,
 		 double *coeff1, int *kk1, int nk1, int p1, 
 		 int phase, int j1, int j2, int j3, int j4);
 
-int     SortShell(INTERACT_SHELL *s, int *order);
+int     SortShell(int ns, INTERACT_SHELL *s, int *order);
 
 /* analyze the structure of the configuration of bra and ket to 
    determine if they can interact, get the interacting shells that
@@ -168,18 +182,22 @@ int GetInteract(INTERACT_DATUM **idatum,
 void CompactInteractShell(char c[4], INTERACT_SHELL *s, int m);
 
 /* only compile these test routines if the debug flag is on */
-#if FAC_DEBUG 
 void    TestAngular(void);
 void    CheckAngularConsistency(int n_shells, SHELL *bra, 
 			     SHELL_STATE *sbra, SHELL_STATE *sket,
 			     INTERACT_SHELL *s, int phase);
-#endif /* FAC_DEBUG */
-
 int     SetMaxRank(int k);
 int     GetMaxRank(void);
 int     InitRecouple(void);
 int     ReinitRecouple(int m);
-
+double EvaluateFormula(FORMULA *fm);
+int GenerateFormula(FORMULA *fm);
+int FixJsZ(INTERACT_SHELL *s, FORMULA *fm);
+int TriadsZ(int n1, int n2, FORMULA *fm);
+int CoupleSuccessive(int n, int *ik, int itr, TRIADS tr, int *i0);
+int RecoupleTensor(int ns, INTERACT_SHELL *s, FORMULA *fm);
+void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
+		    INTERACT_SHELL *s, int itr, FORMULA *fm);
 #endif
 
 

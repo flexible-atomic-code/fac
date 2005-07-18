@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.84 2005/04/07 19:36:59 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.85 2005/07/18 15:39:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2865,11 +2865,16 @@ double BlockRelaxation(int iter) {
     }
     
     if (iter >= 0) {
+      if (blk1->iion < 0) a = ion0.nt;
+      else {
+	ion = (ION *) ArrayGet(ions, blk1->iion);
+	a = ion->nt;
+      }
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m]) {
-	  /*	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
-	  d += fabs(blk1->n[m]-blk1->n0[m]);
-	  td += fabs(blk1->n[m]);
+	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
+	  d += fabs((blk1->n[m]-blk1->n0[m])/a);
+	  td += fabs(blk1->n[m]/a);
 	  nlevels += 1;
 	}
 	if (iter >= 2) {
@@ -2955,11 +2960,16 @@ double BlockRelaxation(int iter) {
   if (iter < 0) {
     for (k = 0; k < blocks->dim; k++) {
       blk1 = (LBLOCK *) ArrayGet(blocks, k);
+      if (blk1->iion < 0) a = ion0.nt;
+      else {
+	ion = (ION *) ArrayGet(ions, blk1->iion);
+	a = ion->nt;
+      }
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m] && blk1->rec == NULL) {
-	  /*	  d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
-	  d += fabs(blk1->n[m] - blk1->n0[m]);
-	  td += fabs(blk1->n[m]);
+	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
+	  d += fabs((blk1->n[m] - blk1->n0[m])/a);
+	  td += fabs(blk1->n[m]/a);
 	  nlevels += 1;
 	}
 	if (iter <= -2) {

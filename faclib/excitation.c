@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.83 2005/04/09 22:26:00 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.84 2005/07/18 15:39:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -411,7 +411,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
     return -1;
   }
   if (IsOdd((m0+m1+k)/2)) {
-    return -1;
+    ty = -1;
   }
   p2 = GetOrbital(k2)->kappa;
   GetJLFromKappa(p2, &j2, &m2);
@@ -421,9 +421,9 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
     return -1;
   }
   if (IsOdd((m2+m3+k)/2)) {
-    return -1;
+    ty = -1;
   }
-							
+  
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
   r *= (k+1.0)*(k+1.0);
   g1 = GeneralizedMoments(k0, k1, ko2);
@@ -457,18 +457,29 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
   
-  for (t = 0; t < nk; t++) {
-    gosint[t] = r*gos1[t]*gos2[t];
-    if (m == 0) {
-      x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
-      a = 1.0 - x*(1.0+1.0/b);
-      c = 1.0 - x;
-      d = a*b/(c*c);
-      gosint[t] *= d;
-    }
+  if (ty >= 0) {
+    for (t = 0; t < nk; t++) {
+      gosint[t] = r*gos1[t]*gos2[t];
+      if (m == 0) {
+	x = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
+	a = 1.0 - x*(1.0+1.0/b);
+	c = 1.0 - x;
+	d = a*b/(c*c);
+	gosint[t] *= d;
+      }
+    }    
+    *qk += dk*Simpson(gosint, 0, nk-1);
   }
 
-  *qk = dk*Simpson(gosint, 0, nk-1);
+  if (m == 0) {
+    for (t = 0; t < nk; t++) {
+      gosint[t] = r*gos1[t]*gos2[t];
+      a = kint[t]*kint[t];
+      d = 2.0*(e1+te);
+      gosint[t] *= (a*a)/(d*d);
+    }
+    *qk += dk*Simpson(gosint, 0, nk-1);
+  }
 
   return ty;
 }

@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.36 2005/01/10 22:05:23 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.37 2005/07/18 15:39:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -917,6 +917,9 @@ int Couple(CONFIG *cfg) {
     goto ERROR; 
   }
 
+  /* make sure that the shells are sorted in inverse order */
+  qsort(cfg->shells, cfg->n_shells, sizeof(SHELL), CompareShellInvert);
+
   if (IsUTA()) {
     cfg->csfs = NULL;
     cfg->n_csfs = 0;
@@ -1668,6 +1671,68 @@ SYMMETRY *GetSymmetry(int k) {
   return symmetry_list+k;
 }
 
+int ShellToInt(int n, int kappa) {  
+  int k;
+  k = (n-1)*(n-1) + 2*abs(kappa)- ((kappa>0)?1:2);
+  return k;
+}
+
+void IntToShell(int i, int *n, int *kappa) {  
+  int k;
+
+  *n = ((int) sqrt(i)) + 1 ;
+  k = i - ((*n)-1)*((*n)-1) + 1;
+  if (IsOdd(k)) *kappa = -(k+1)/2;
+  else *kappa = k/2;
+}
+
+int ConstructConfigName(char *s, int n, CONFIG *c) {
+  int i, j, k, m;
+  char a[16], b[32], x;
+
+  m = 0;
+  s[0] = '\0';
+  for (i = c->n_shells-1; i >= 0; i--) {
+    GetJLFromKappa(c->shells[i].kappa, &j, &k);
+    SpecSymbol(a, k/2);
+    if (j > k) x = '+';
+    else x = '-';
+    if (i > 0) {
+      sprintf(b, "%d%s%c%d ", c->shells[i].n, a, x, c->shells[i].nq);
+    } else {
+      sprintf(b, "%d%s%c%d", c->shells[i].n, a, x, c->shells[i].nq);
+    }
+    m += strlen(b);
+    if (m >= n) return -1;
+    strcat(s, b);
+  }
+  return m;
+}
+
+void ListConfig(char *fn, int n, int *kg) {
+  int i, m, j;
+  CONFIG *c;
+  CONFIG_GROUP *g;
+  char a[2048];
+  FILE *f;
+  
+  if (fn == NULL || strcmp(fn, "-") == 0) f = stdout;
+  else f = fopen(fn, "w");
+
+  m = 0;
+  for (i = 0; i < n; i++) {
+    g = GetGroup(kg[i]);
+    for (j = 0; j < g->n_cfgs; j++) {
+      c = GetConfigFromGroup(kg[i], j);
+      ConstructConfigName(a, 2048, c);
+      fprintf(f, "%10s %6d   %s\n", g->name, m, a);
+      m++;
+    }
+  }
+  
+  if (f != stdout) fclose(f);
+}
+
 /* 
 ** FUNCTION:    GetAverageConfig
 ** PURPOSE:     determine the average configuration based on given
@@ -1743,7 +1808,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
       for (j = 0; j < cfg->n_shells; j++) {
 	n = cfg->shells[j].n;
 	kappa = cfg->shells[j].kappa;
-	k = (n-1)*(n-1) + 2*abs(kappa)- ((kappa>0)?1:2);
+	k = ShellToInt(n, kappa);
 	if (k >= M) k = M-1;
 	tnq[k] += (((double)(cfg->shells[j].nq)) * weight[i]*a);
       }
@@ -1768,10 +1833,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 
   for (i = 0, j = 0; i < M; i++) {
     if (tnq[i] > EPS10) {
-      n = ((int) sqrt(i)) + 1 ;
-      k = i - (n-1)*(n-1) + 1;
-      if (IsOdd(k)) kappa = -(k+1)/2;
-      else kappa = k/2;
+      IntToShell(i, &n, &kappa);
       acfg->n[j] = n;
       acfg->kappa[j] = kappa;
       acfg->nq[j] = tnq[i];
@@ -1868,7 +1930,7 @@ int InGroups(int kg, int ng, int *kgroup) {
 /* 
 ** FUNCTION:    CompareShell
 ** PURPOSE:     determine which of the two shells is the inner one.
-** INPUT:       {SHELL *s1, *s2},
+** INPUT:       {const void *s1, *s2},
 **              two shells in comparison.
 ** RETURN:      {int},
 **              -1: s1 is inside s2.
@@ -1877,8 +1939,12 @@ int InGroups(int kg, int ng, int *kgroup) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-int CompareShell(SHELL *s1, SHELL *s2) {
+int CompareShell(const void *ts1, const void *ts2) {
+  SHELL *s1, *s2;
   int ak1, ak2;
+
+  s1 = (SHELL *) ts1;
+  s2 = (SHELL *) ts2;
   if (s1->n > s2->n) return 1;
   else if (s1->n < s2->n) return -1;
   else {
@@ -1894,6 +1960,10 @@ int CompareShell(SHELL *s1, SHELL *s2) {
       }
     }
   }
+}
+
+int CompareShellInvert(const void *ts1, const void *ts2) {
+  return -CompareShell(ts1, ts2);
 }
 
 /* 

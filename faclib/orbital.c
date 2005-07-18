@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.77 2004/08/04 15:19:18 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.78 2005/07/18 15:39:43 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1891,23 +1891,33 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   rmin = 1E-5;
   rmin /= z0;
 
-  a = gasymp*sqrt(2.0*z)/PI;
-  c = 1.0/log(gratio);
-  d2 = pot->maxrp-10.0 + a*sqrt(rmin) + c*log(rmin);
-  rmax = d2/a;
-  rmax *= rmax;
-  d1 = 1.0;
-  while (d1 > EPS3) {
-    r1 = d2 - c*log(rmax);
-    r1 = r1/a;
-    r1 *= r1;
-    d1 = fabs(r1/rmax-1.0);
-    rmax = r1;
-  }
-  rmax *= z;
-  nmax = sqrt(rmax)/2.0;
-  rmax /= z;
-  
+  if (gasymp > 0 && gratio > 0) {
+    a = gasymp*sqrt(2.0*z)/PI;
+    c = 1.0/log(gratio);
+    d2 = pot->maxrp-10.0 + a*sqrt(rmin) + c*log(rmin);
+    rmax = d2/a;
+    rmax *= rmax;
+    d1 = 1.0;
+    while (d1 > EPS3) {
+      r1 = d2 - c*log(rmax);
+      r1 = r1/a;
+      r1 *= r1;
+      d1 = fabs(r1/rmax-1.0);
+      rmax = r1;
+    }
+  } else if (gratio > 0) {
+    rmax = -gasymp;
+    c = 1.0/log(gratio);
+    a = pot->maxrp-15.0 + c*(log(rmin)-log(rmax));
+    a /= sqrt(rmax) - sqrt(rmin);
+  } else if (gasymp > 0) {
+    rmax = -gratio;
+    a = gasymp*sqrt(2.0*z)/PI;
+    c = pot->maxrp-15.0 + a*(sqrt(rmin)-sqrt(rmax));
+    c /= log(rmax) - log(rmin);
+  }     
+  nmax = sqrt(rmax*z)/2.0;
+
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
   b = (pot->maxrp - 1.0 - (a*d2))/d1;

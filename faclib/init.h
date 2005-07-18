@@ -15,6 +15,7 @@
 #include "nucleus.h"
 #include "dbase.h"
 #include "structure.h"
+#include "mbpt.h"
 #include "transition.h"
 #include "excitation.h"
 #include "recombination.h"
