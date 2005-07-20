@@ -1,3550 +1,3868 @@
-c*****************************************************************
-c===============================================  n j g r a f  =====
-c*****************************************************************
-c*****************************************************************
-c
-c   section 4          njgraf 
-c
-c     ******************************
-      subroutine njgraf(recup,fail)
-      implicit real*8(a-h,o-z)
-c     ******************************
-c
-c
-c  ***this is the main program.it handles  all the analysis of the
-c  ***recoupling coefficient without referring explicitly to the values
-c  ***of angular momenta which are in j1(j),except for zero in case free
-c  ***=.false. .like njsym it prepares arrays of arguments for phase
-c  ***factors,(2*j+1) factors and 6j coefficients to be computed in
-c  ***gensum,which can also be called separately when only the numerical
-c  ***values of angular momenta change.these variable angular momenta 
-c  ***should be declared free(j)=.true.,so that the formula prepared for
-c  ***gensum should be correct when  j1 is not zero.
-c  ***fail will be true when the recoupling coefficient is zero because
-c  ***of unsatisfied delta or other similar causes.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-      parameter(mfact=100)
-c
-      logical fail,find,tabs,cut,free,sumvar
-c
-      integer arrow,arr,tab1
-c
-      character*6 name,namsub 
-c
-      common/nam/namsub
-c
-      common/const/i6c,i7c,i8c,i9c,idel,iwc
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-      common/cutdig/cut
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),
-     + free(mangm)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-c     common block /facts / used to store ln(i!) in the new racah
-c     routine written by stan scott.
-c
-      common /facts / gam(mfact)
-c
-      common/dim/j6cc,j7cc,j8cc,j9cc,jwcc,jdelc
-c
-      common/sumarg/j6p(mangmp),j7p(mangmp),j8p(mangmp),j9p(mangmp),
-     + jword(6,m6j),nlsum,nbj(msum),nb6j(msum),k6cp(msum),
-     + k7cp(msum),k8cp(msum),k9cp(msum),jsum6(mtriad),
-     + jsum4(mtriad,m6j),jsum5(mtriad,m6j),inv6j(m6j)
-c
-c
-      data name/'njgraf'/
-c
-c
-c ***building up of the unstructured graph
-c
-      fail=.false.
-      j6c=0
-      j7c=0
-      j8c=0
-      j9c=0
-      jwc=0
-      jdel=0
-      i6c=1
-      i7c=1
-      i8c=1
-      i9c=1
-      idel=1
-      iwc=1
-      call setdim
-      nfin=0
-      cut=.false.
-      call settab(fail)
-      m=m+1
-      if(fail)go to 7
-      m=m-1
-      jf=0
-      jf1=0
-c
-c   ***locating and handling of zeros
-c
-      call zero(jf1,jf,fail)
-      if(fail)go to 7
-      mp=m
-      if(nbtr.eq.0)go to 6
-      jump=1
-c
-c   ***building of a flat diagram out of the unstructured graph.
-c   ***there may be several flat diagrams out of the original
-c   ***graph,in case of possible cuts.then the flat diagrams
-c   ***will have free ends.
-c
-    1 call diagrm(jump)
-      nfin=max0(0,nfree-2)
-c
-      if(nfin.ne.0) then
-        jump=3
-c
-c  ***handling of free ends if a cut was found
-c
-        call cutnl(fail)
-        if(fail)go to 7
-      else
-       jump=2
-       if(nfree .eq. 1) then
-          call cut1l(fail)
-          if(fail)go to 7
-       else
-         if (nfree .gt. 1) then
-           call cut2l(fail)
-           if(fail)go to 7
-         endif
-       endif
-      endif
-c
-      nbtr=nbtr+nfin
-      if(nbtr.ne.0)cut=.true. 
-c
-c  ***analysis of the flat diagram.
-c  ***closed circuits of increasing order nc are searched,analysed,and
-c  ***taken out of the flat diagram,thus reducing the number of nodes,
-c  ***nbnode.
-  
-c
-      nc=0
-   10 nc=nc+1
-      call search(find)
-      if(.not.find)go to 10
-      ncp=nc-2
-      jpol=0
-      if(m.eq.mp.and.nc.gt.3)call setdim
-      if(ipartl.gt.2)call polygn(jpol)
-      go to (11,12,13,14),nc
-   11 call lolpop(fail)
-      if(fail)go to 7
-      go to 15
-   12 call bubble(jpol,fail)
-      if(fail)go to 7
-      go to 15
-   13 call triang(fail)
-      if(fail)go to 7
-      go to 15
-   14 call square
-   15 nbnode=nbnode-2
-      if(nbnode.eq.0)go to 9
-      ifirst=ih(1)
-      ilast=ih(nbnode)
-c
-c **printj is an all purpose printing subroutine called from many places
-c
-      call printj(namsub,8)
-      if(nbnode.eq.nfin)go to 9
-      nc=ncp
-c
-c  ***proceed to other circuits of order nc-1
-c
-      go to 10
-    9 if(nbtr.eq.0)go to 6
-      if(jump.eq.3)call ordtri 
-c
-c ***at this stage,the flat diagram has been reduced to nodes
-c ***involving free ends.proceed to build other flat diagrams
-c ***if necessary.
-c
-      go to 1
-c
-c  ***all parts of the original graph have been reduced.
-c
-    7 recup=0.
-      m=m-1
-      return
-    6 call printj(name,0)
-c
-c
-c  ***preparation of the results,and separation in several sums
-c  *** if cuts have been detected,also in the flat diagram itself
-c
-      call sprate(m)
-      m=m-1
-c
-c
-c  ***gensum computes the numerical value of the recoupling 
-c  ***coefficient.
-c
-      call gensum(recup)
-c
-      return
-      end 
-c
-c
-c     ****************************
-      subroutine bubble(jpol,fail)
-      implicit real*8(a-h,o-z)
-c     ****************************
-c
-c  ***reduces a circuit of order 2,giving delta function and phase
-c  ***factors.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,sumvar
-c
-      integer arr,tab1
-c
-      character*6 name,namsub 
-c
-      common/nam/namsub
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'bubble'/
-c
-      namsub=name
-      k2=2
-      k23=3
-      i1=1
-      i2=1
-      it1=npoint(1) 
-      it2=npoint(2) 
-c
-      if(it2.eq.ilast) then
-        if(it1.ne.ifirst) then
-          it2=it1
-          it1=ilast 
-        endif
-          i1=-1
-          k23=2
-          i2=2
-      endif
-c
-      call phase(it1,jdiag,m4trd)
-      k=iabs((3*arr(it2,1)+2*arr(it2,2)+arr(it2,3))/2)+1
-      if(k.ne.4)call phase2(jdiag(it2,k))
-      if(nbnode.eq.2)return
-      il1=il(it2)+i1
-      it=ih(il1)
-      arr(it,k23)=arr(it1,k23)
-      l=jdiag(it1,k23)
-      l1=jdiag(it,k23)
-      jdiag(it,k23)=l
-c
-c
-      if(jpol.ne.1) then
-        call delta(l,l1,fail) 
-        if(fail)return
-      else
-        mp=mp-1
-        kw(2,jwc)=l 
-        j6(j6c-1)=l 
-        j6(j6c)=l
-        if(k.eq.2)j8(j8c)=l
-      endif
-c
-      tab1(l,i2)=it 
-c
-      if(it1.ne.ilast)then
-        if(it2.eq.ilast) then 
-          tab1(l,1)=ih(2)
-          il1=2
-          k2=1
-        endif
-c
-      do 5 i=il1,nbnode
-        it=ih(i)
-        il(it)=i-k2 
-        ih(i-k2)=it 
-    5 continue
-c
-      endif
-c
-    6 j9(j9c+1)=l
-      j9c=j9c+2
-      j9(j9c)=l
-c
-      return
-      end 
-c
-c
-c     **********************
-      subroutine change(l,k)
-      implicit real*8(a-h,o-z)
-c     **********************
-c
-c     exchanges the free ends in either first or last triad of jdiag. 
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm)
-c
-      integer arr,tab1
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      call phase(l,jdiag,m4trd)
-      jp=jdiag(l,k) 
-      jdiag(l,k)=jdiag(l,1)
-      jdiag(l,1)=jp 
-      jar=arr(l,k)
-      arr(l,k)=arr(l,1)
-      arr(l,1)=jar
-c
-      return
-      end 
-c
-c
-c     *****************************************
-      subroutine chvar(jp,nbc,kbc,jt,jinv,nsum)
-      implicit real*8(a-h,o-z)
-c     *****************************************
-c
-c
-c   ***change the order of summation variable to be able to perform
-c   ***separately the summations in gensum.
-c
-      logical jt(nsum)
-      dimension jp(nbc),jinv(nsum)
-c
-c
-      kb=kbc+1
-c
-      if(kb.le.nbc) then
-        do 1 i=kb,nbc
-          jk=jp(i)
-          if(jt(jk))then
-            kbc=kbc+1
-            jp(i)=jp(kbc)
-            jp(kbc)=jinv(jk)
-          endif
-    1   continue
-      endif
-c
-      return
-      end 
-c
-c
-c     **********************
-      subroutine cut1l(fail)
-      implicit real*8(a-h,o-z)
-c     **********************
-c
-c  ***cut on one line,that was left as a free end in jdiag.puts
-c  ***corresponding delta in j23.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,sumvar,free
-c
-      integer arr,tab1
-c
-      character*6 name
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-      data name/'cut1l '/
-c
-c
-      it=itfree(1)
-      j0=jdiag(it,1)
-      call delta (j0,m,fail)
-      if(fail)go to 2
-      call delta(jdiag(it,3),jdiag(it,2),fail)
-      if(fail)go to 2
-      jdiag(it+1,3)=jdiag(it,3)
-c
-      if(arr(it,2) .eq. arr(it,3))then
-        arr(it+1,3)=1
-        arr(it-1,2)=-1
-      else
-      if (arr(it,2) .lt. arr(it,3))then 
-        arr(it+1,3)=-1
-        arr(it-1,2)=1
-      endif
-      endif
-c
-      j9c=j9c+1
-      j9(j9c)=jdiag(it,3)
-      j=2 
-      call zero(j,j0,fail)
-      if(fail)go to 2
-      il1=il(it+1)
-c
-      do 1 i=il1,nbnode
-        it=ih(i)
-        ilp=i-1
-        il(it)=ilp
-        ih(ilp)=it
-    1 continue
-c
-      nbnode=nbnode-1
-c
-    2 call printj(name,mtriad)
-      return
-      end 
-c
-c
-c     **********************
-      subroutine cut2l(fail)
-      implicit real*8(a-h,o-z)
-c     **********************
-c
-c  ***cut on two lines that were left as free ends in jdiag.puts
-c  ***corresponding delta in j23.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,tabs,sumvar
-c
-      integer arr,tab1,arrow
-c
-      character*6 name
-c
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'cut2l '/
-c
-c
-      it1=itfree(1) 
-      it2=itfree(2) 
-      jt1=jdiag(it1,1)
-      jt2=jdiag(it2,1)
-      call delta(jt1,jt2,fail)
-      if(fail) go to 1
-      if(arr(it1,1).eq.arr(it2,1))call phase2(jt1)
-      arr(it2,1)=-arr(it1,1)
-      jdiag(it2,1)=jt1
-      tab1(jt1,2)=it2
-      j9(j9c+1)=jt1 
-      j9c=j9c+2
-      j9(j9c)=jt1
-      call otherj(0,jt1,l1,lc1,k1)
-      call otherj(0,jt2,l2,lc2,k2)
-      j23(l2,lc2)=jt1
-      line(jt1,k1)=l2
-      lcol(jt1,k1)=lc2
-      arrow(l2,lc2)=-arrow(l1,lc1)
-c
-    1 call printj(name,mtriad)
-c
-      return
-      end 
-c
-c
-c     **********************
-      subroutine cutnl(fail)
-      implicit real*8(a-h,o-z)
-c     **********************
-c
-c  ***this subroutine  examines the case where there are more than
-c  ***two free ends,but they are contiguous,so that the graph can
-c  ***be cut without destroying the flat structure.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      integer arrow,arr,tab1
-c
-      logical tabs,sumvar,fail
-c
-      character*6 name
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/keep/jkp(2,3),jarr(2,3),it2,it3,it5
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'cutnl '/
-c
-c
-      ntf=itfree(nfree)-itfree(1)
-      if(ntf.gt.nfree)go to 8 
-      it2=itfree(1) 
-      it3=itfree(nfree)
-      it1=it2-1
-      it4=it3+1
-c
-      if(ntf.ne.nfree)then
-        jt=jdiag(it2,3)
-        call delta(jt,jdiag(it3,2),fail)
-c
-        if(fail)go to 8
-c
-        if(arr(it2,3).eq.arr(it3,2))then
-          call phase2(jt)
-          arr(it2,3)=-arr(it2,3)
-          arr(it1,2)=-arr(it1,2)
-        endif
-c
-        jdiag(it3,2)=jt
-        jdiag(it4,3)=jt
-        j9(j9c+1)=jt
-        j9c=j9c+2
-        j9(j9c)=jt
-        nbtr=nbtr+nfree
-        it5=0
-       go to 6
-      endif
-      nfr=0
-c
-      do 3 it5=it2,it3
-        nfr=nfr+1
-        if(itfree(nfr).gt.it5)go to 4
-    3 continue
-c
-    4 jkp(1,1)=jdiag(it5,1)
-      jarr(1,1)=-arr(it5,1)
-      jkp(1,2)=jdiag(it2,3)
-      jarr(1,2)=-arr(it2,3)
-      jkp(1,3)=jdiag(it3,2)
-      jarr(1,3)=-arr(it3,2)
-c
-      do 5 j=1,3
-        jkp(2,j)=jdiag(it5,j) 
-        jarr(2,j)=arr(it5,j)
-    5 continue
-c
-      jdiag(it5,2)=jdiag(it3,2)
-      arr(it5,2)=arr(it3,2)
-      jdiag(it5,3)=jdiag(it2,3)
-      arr(it5,3)=arr(it2,3)
-      ilp=il(it2)
-      il(it5)=ilp
-      ih(ilp)=it5
-      nbtr=nbtr+nfree+2
-      call phase(it5,jdiag,m4trd)
-      k=iabs((3*arr(it5,1)+2*arr(it5,2)+arr(it5,3))/2+1)
-      if(k.ne.4) call phase2(jdiag(it5,k))
-    6 il1=il(it4)
-c
-      do 7 i=il1,nbnode
-        it=ih(i)
-        ilp=i-nfree 
-        il(it)=ilp
-        ih(ilp)=it
-    7 continue
-c
-      nbnode=nbnode-nfree
-      nfin=0
-c
-    8 call printj(name,8)
-c
-      return
-      end 
-c
-c
-c     ****************************
-      subroutine delta(ja,jb,fail)
-      implicit real*8(a-h,o-z)
-c     ****************************
-c
-c  ***test for delta(ja,jb).if they are summation variables,the second
-c  ***is changed into the first everywhere.if they are fixed,their
-c  ***value is checked,and fail put to .true. if they differ.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,cut,sumvar,free
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/cutdig/cut
-      common/debug/ibug1,ibug2,ibug3,ibug4,ibug5,ibug6
-      common/dim/j6cc,j7cc,j8cc,j9cc,jwcc,jdelc
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
- 1000 format(/2x,'from delta',2x,'ja=',i2,l2,5x,'jb=',i2,l2)
-c
-c
-c
-      if(ibug3.eq.1)print 1000,ja,sumvar(ja),jb,sumvar(jb)
-      if(sumvar(ja).and.sumvar(jb))go to 2
-      if(free(ja).or.free(jb)) then
-        jdel=jdel+1 
-        ldel(jdel,1)=ja
-        ldel(jdel,2)=jb
-        sumvar(ja)=.false.
-        sumvar(jb)=.false.
-        return
-      endif
-c
-      if(j1(ja).ne.j1(jb))fail=.true.
-      cut=.true.
-      return
-c
-    2 if(j6c.ne.j6cc) then
-        j61=j6cc+1
-c
-        do 3 i=j61,j6c
-          if(j6(i).eq.jb)j6(i)=ja
-    3   continue
-c
-      endif
-c
-      if(j7c.ne.j7cc) then
-        j71=j7cc+1
-c
-        do 5 i=j71,j7c
-          if(j7(i).eq.jb)j7(i)=ja
-    5   continue
-      endif
-c
-      if(j8c.ne.j8cc) then
-        j81=j8cc+1
-c
-        do 7 i=j81,j8c
-          if(j8(i).eq.jb)j8(i)=ja
-    7   continue
-      endif
-c
-      if(j9c.ne.j9cc) then
-        j91=j9cc+1
-c
-        do 9 i=j91,j9c
-          if(j9(i).eq.jb)j9(i)=ja
-    9   continue
-      endif
-c
-      if(jwc.ne.jwcc) then
-       jw1=jwcc+1
-c
-        do 14 i=jw1,jwc
-         do 13 j=1,6
-           if(kw(j,i).eq.jb)kw(j,i)=ja
-   13    continue
-   14   continue
-      endif
-c
-      if(jdel.ne.jdelc) then
-        jdel1=jdelc+1
-c
-        do 17 i=jdel1,jdel
-          do 16 j=1,2
-            if(ldel(i,j).eq.jb)ldel(i,j)=ja
-   16     continue
-   17   continue
-c
-        sumvar(jb)=.false.
-      endif
-c
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine diagrm(jump) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c     this subroutine builds up a flat diagram from the triads j23 and
-c  ***places them in jdiag.arrows are in arr (integer).the diagram is 
-c  ***built so as to maximize the number of triads involved,within  a 
-c  ***one-step-forward-check process.if the diagram does not
-c  ***include all the nbtr triads,it will have 'free ends'.jdiag has
-c  ***dimension double that of j23,because the path may proceed either
-c  ***way.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical tabs,free,sumvar
-c
-      integer arr,tab1,arrow
-c
-      character*6 name
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/build/ial(m4trd),if1,if2,node
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-      data name/'diagrm'/
-c
-c
-c
-c  ***initialization
-c
-      if(jump .gt. 2) go to 17
-      if(jump .lt. 2) nb=0
-    1 nb=nb+1
-      if(tabs(nb))go to 1
-      node=nbtr
-      ilast=nbtr
-c
-      do 2 j=1,3
-        jdiag(node,j)=j23(nb,j)
-        arr(node,j)=arrow(nb,j)
-    2 continue
-c
-      tabs(nb)=.true.
-c
-      do 15 i=1,mp
-        ial(i)=0
-   15 continue
-c
-      if1=jdiag(node,1)
-      if2=jdiag(node,3)
-      ial(if1)=1
-      ial(if2)=1
-   17 ntime=0
-      i1=1
-      k1=1
-      k2=2
-      k3=3
-    3 jb=jdiag(node,k2)
-      call otherj(0,jb,l,lc,kp)
-      call neibor(lc,l1,l2)
-c  november 22 1989 check consistency of triads
-      if(tabs(l))stop' building diagram impossible '
-      call way(l,l1,l2,ich,nd)
-      node=node+i1
-      tabs(l)=.true.
-      jdiag(node,k3)=j23(l,lc)
-      arr(node,k3)=arrow(l,lc)
-      ict=ich*i1
-c
-      if (ich .le. 0) then
-        lp=l1
-        l1=l2
-        l2=lp
-      endif
-c
-      if (ict .le. 0) call phase(l,j23,m2trd)
-      jdiag(node,k1)=j23(l,l1)
-      arr(node,k1)=arrow(l,l1)
-      jdiag(node,k2)=j23(l,l2)
-      arr(node,k2)=arrow(l,l2)
-      j=j23(l,l1)
-      ial(j)=ial(j)+1
-      j=j23(l,l2)
-      ial(j)=ial(j)+1
-      if(nd.lt.1)go to 3
-      ntime=ntime+1 
-      ilast=max0(node,ilast)
-      ifirst=min0(node,nbtr)
-      nbp=ial(if1)+ial(if2)
-      if (nbp .gt. 3 .or. ntime .gt. 1) then
-        nbnode=ilast-ifirst+1 
-        nbtr=nbtr-nbnode
-c
-c  ***definition of free ends and other quantities.
-c
-        call intab
-        call printj(name,mtriad)
-        go to 50
-      endif
-c
-      if (nbp .gt. 2) then
-        if (ial(if1) .le. ial(if2)) then
-          jt=jdiag(nbtr,1)
-          jar=arr(nbtr,1)
-          jdiag(nbtr,1)=jdiag(nbtr,3)
-          arr(nbtr,1)=arr(nbtr,3)
-          jdiag(nbtr,3)=jt
-          arr(nbtr,3)=jar
-          call phase(nbtr,jdiag,m4trd)
-      endif
-      endif
-c
-      node=nbtr
-      i1=-1
-      k2=3
-      k3=2
-      go to 3
-c
-   50 return
-      end 
-c
-c
-c     **********************
-      subroutine dracah(rac)
-      implicit real*8(a-h,o-z)
-c     **********************
-c
-c
-c  ***subroutine to calculate racah coefficients
-c  ***the arguments i,j,k,l,m,n should be twice their actual value
-c  ***works for integer and half-integer values of angular momenta.
-c  ***the routine makes use of the gam array, thus subroutine factt
-c  ***must be called before this routine is used. 
-c  ***written by n s scott.
-c
-      parameter(mfact=100)
-c
-      common /facts / gam(mfact)
-      common/debug/ibug1,ibug2,ibug3,ibug4,ibug5,ibug6
-      common/jrac/i,j,k,l,m,n
-c
-      data zero,one,two/0.D0,1.D0,2.D0/
-c
-c
-      j1=i+j+m
-      j2=k+l+m
-      j3=i+k+n
-      j4=j+l+n
-      if((2*max0(i,j,m)-j1).gt.0.or.mod(j1,2).ne.0) go to 2 
-      if((2*max0(k,l,m)-j2).gt.0.or.mod(j2,2).ne.0) go to 2 
-      if((2*max0(i,k,n)-j3).gt.0.or.mod(j3,2).ne.0) go to 2 
-      if((2*max0(j,l,n)-j4).gt.0.or.mod(j4,2).ne.0) go to 2 
-      go to 1
-   2  rac=zero
-      return
-c
-   1  continue
-      j1=j1/2
-      j2=j2/2
-      j3=j3/2
-      j4=j4/2
-      j5=(i+j+k+l)/2
-      j6=(i+l+m+n)/2
-      j7=(j+k+m+n)/2
-      numin=max0(j1,j2,j3,j4)+1
-      numax=min0(j5,j6,j7)+1
-      rac=one
-c
-      if(numin.eq.numax)go to 4
-      numin=numin+1 
-c
-      do 3 ki=numax,numin,-1
-        xnom=ki*(j5-ki+2)*(j6-ki+2)*(j7-ki+2)
-        xdnom=(ki-1-j1)*(ki-1-j2)*(ki-1-j3)*(ki-1-j4)
-        rac=one-rac*xnom/xdnom
-   3  continue
-c
-      numin=numin-1 
-   4  rac=rac*((-one  )**(j5+numin+1))*exp((gam(numin+1)-gam(numin-j1)
-     * -gam(numin  -j2)-gam(numin  -j3)-gam(numin  -j4)-gam(j5+2-numin)
-     * -gam(j6+2-numin)-gam(j7+2-numin))+((gam(j1+1-i)+gam(j1+1-j)
-     * +gam(j1+1-m)-gam(j1+2)+gam(j2+1-k)+gam(j2+1-l)+gam(j2+1-m)
-     * -gam(j2+2)+gam(j3+1-i)+gam(j3+1-k)+gam(j3+1-n)-gam(j3+2)
-     * +gam(j4+1-j)+gam(j4+1-l)+gam(j4+1-n)-gam(j4+2))/two  ))
-c
-  6   return
-      end 
-c
-c
-c     ****************
-      subroutine factt
-      implicit real*8(a-h,o-z)
-c     ****************
-c
-c
-c  ***calculates the logs of factorials required by the racah
-c  ***coefficient routine dracah
-c  *** written by n.s. scott
-c
-      parameter(mfact=100)
-      common /facts / gam(mfact)
-      data thirty,one,two/30.D0,1.D0,2.D0/
-c
-c
-      gam(1)=one
-      gam(2)=one
-      x=two
-c
-      do 10 i=3,30
-        gam(i)=gam(i-1)*x
-        x=x+one
-   10 continue
-c
-      do 20 i=1,30
-        gam(i)=log(gam(i))
-  20  continue
-c
-      x=thirty
-c
-      do 30 i=31,mfact
-        gam(i)=gam(i-1)+log(x)
-        x=x+one
-  30  continue
-c
-      return
-      end 
-c
-c     ************************
-      subroutine gensum(recup)
-      implicit real*8(a-h,o-z)
-c     ************************
-c
-c
-c
-c  ***carries out the summation over coefficients defined by the arrays
-c  ***the arrays j6,j7,j8,ldel and jw to give recup
-c  ***the entry is either made from njgraf or directly assuming that the
-c  ***arrays j6,...,jw have already been determined by a previous
-c  ***entry to njgraf and that the summation is required for another set
-c  ***of j values defined by the array j1
-c
-c  ***recup is the recoupling coefficient
-c
-c  ***subroutine called: dracah
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-      parameter(mfact=100)
-c
-      logical ldiag,noel,free,sumvar
-c
-      common/graph/j12(4,mtriad,mtriad)
-      common/debug/ibug1,ibug2,ibug3,ibug4,ibug5,ibug6
-c
-      common/inform/ ird , ipd ,
-     +               imene , iiene , icene ,
-     +               imradd, iiradd, icradd,
-     +               imcolx, iicolx, iccolx,
-     +               imradr, iiradr, icradr,
-     +               imcoli, iicoli, iccoli,
-     +               imaug , iiaug , icaug
-c
-      common /facts / gam(mfact)
-      common/jrac/ist(6)
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-      common/sumarg/j6p(mangmp),j7p(mangmp),j8p(mangmp),j9p(mangmp),
-     + jword(6,m6j),nlsum,nbj(msum),nb6j(msum),k6cp(msum),
-     + k7cp(msum),k8cp(msum),k9cp(msum),jsum6(mtriad),
-     + jsum4(mtriad,m6j),jsum5(mtriad,m6j),inv6j(m6j)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),jw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      dimension mat(mtriad,mtriad),jmnp(5),jmxp(5),noel(mtriad),
-     + maxlp(mtriad),jsum2(mtriad),jsum3(mtriad),
-     + jsum(2,m6j),jwtest(m6j),wstor(m6j),ipair(2,2),ldiag(mtriad)
-c
-      dimension xj1(mangm)
-c
-      dimension jlow(2),jhig(2)
-c
-      logical already
-c
-      data zero,one,two /0.D0,1.D0,2.D0/
-      data epsil/1.D-10/
-      data mxcsvr/4/
-c
-c  ***format statements used in gensum
-c
-  302 format('   sum nr.',i3)
-  303 format(' no summation. recoupling coefficient=',g15.8)
-  304 format(' recoupling coefficient=',g15.8)
-  305 format(6f5.1,10x,g15.8)
-  315 format(i6,2x,6f5.1,10x,g15.8)
-  306 format(' number of independent sums:',i3)
-  307 format(' sum nr.',i2,' sum value=',g15.8,' recup=',g15.8)
-  308 format(' fail in gensum at 310')
-  309 format('   not involving summation variable')
-  400 format(//' print out from subroutine gensum'//' values of angular
-     + momenta in *real* format'/,(14f5.1))
-  401 format(/' racah w functions(6j)'/' arguments in *real* format'
-     +, 18x,'value')
-c
-c
-c
-c   ***evaluates all terms in j6,j7,j8,j9,ldel,and jw which do not invol
-c   ***a summation.the result is stored in recup and iastor
-c
-      if(ibug3.eq.1) then
-c
-        do 139 i=1,m
-          xj1(i)=(j1(i)-one)/two
-  139   continue
-c
-        write(ipd ,400) (xj1(i),i=1,m)
-        write(ipd ,306) nlsum
-        write(ipd ,401)
-      endif
-c
-      mm=m+1
-      j1(mm)=1
-c
-c  ***test delta functions
-c
-      j1(mm)=1
-      if(jdel.le.0) go to 180
-c
-      do 141 i=1,jdel
-        i1=ldel(i,1)
-        i2=ldel(i,2)
-        if(i1.gt.mm.or.i2.gt.mm)then
-          if(i1.gt.mm)j1(i1)=j1(i2)
-          if(i2.gt.mm)j1(i2)=j1(i1)
-        else
-        if(j1(i1).ne.j1(i2)) then
-          recup=zero
-          return
-        endif
-        endif
-  141 continue
-c
-  180 recup=one
-      if(jwc.ne.0)then
-c
-c  ***multiply recup by all racah coefficients which do not involve a
-c  ***summation
-c
-      if(ibug3.eq.1) write(ipd ,309)
-c
-      do 7 i=1,jwc
-        if(inv6j(i).gt.0)go to 7
-       do 3 j=1,6
-         i1=jw(j,i)
-         ist(j) = j1(i1) - 1
-    3  continue
-c
-       call dracah(x1)
-       if(ibug3.eq.1) write(ipd ,305) (xj1(jw(k,i)),k=1,6),x1
-       recup = recup*x1
-c
-    7 continue
-c
-      endif
-c
-      sqr=1.0
-c
-      if(j6c.ne.0) then
-        do 12 i=1,j6c
-          i1=j6(i)
-          sqr=sqr*j1(i1)
-   12   continue
-      endif
-c
-      spr=1.0
-c
-      if(j9c.ne.0) then
-        do 144 i=1,j9c
-          i1=j9(i)
-          spr=spr*j1(i1)
-  144   continue
-      endif
-c
-      recup=recup*sqrt(sqr/spr)
-      if(abs(recup).lt.epsil)go to 145
-      iastor = 0
-c
-      if(j7c.ne.0) then
-        do 17 i=1,j7c
-          i1=j7(i)
-          iastor = iastor + j1(i1) -1
-   17   continue
-      endif
-c
-      if(j8c.ne.0) then
-        do 22 i=1,j8c
-          i1=j8(i)
-          iastor = iastor +2*(j1(i1)-1)
-   22   continue
-      endif
-c
-      if(nlsum.le.0) then
-        iastor=iastor/2
-c
-c  ***no summation involved.end of computation
-c
-        stor1=one
-        stor=one
-        if(mod(iastor,2).eq.1)recup=-recup
-        if(ibug3.eq.1) write(ipd ,303) recup
-        return
-c
-      endif
-c
-c
-c  ***evaluation of the part involving summations.
-c
-c
-      nfs=0
-      jwr=0
-      j6f=0
-      j7f=0
-      j8f=0
-      j9f=0
-      nps=0
-   25 nps=nps+1
-      if(ibug3.eq.1)write(ipd ,302) nps
-c
-c
-c   *** loop on the disconnected summations
-c
-c
-      ias=0
-      nsum=nbj(nps)-nfs
-      jwrd=nb6j(nps)-jwr
-      j6cp=k6cp(nps)
-      j7cp=k7cp(nps)
-      j8cp=k8cp(nps)
-      j9cp=k9cp(nps)
-c
-c
-c     ***the range of values of each summation variable is
-c     ***defined by establishing a matrix of the links between
-c     ***variables.mat(i,j) contains:
-c        i=j    number of possible values of i due to triangular
-c               relations with non-variables,i.e. constants.
-c       i.gt.j  number of links between i and j through constants
-c       i.lt.j  value of the constant,if the above is 1.if not,
-c               these values are srored in j12(l,i,j) where there
-c               is room for mxcsvr such values (l.le.4)
-c
-c
-      do 52 i=1,nsum
-       do 152 j=1,nsum
-         mat(i,j)=0
-  152  continue
-   52 continue
-c
-      do 66 i1=1,nsum
-        i1t=i1+nfs
-        i2=jsum6(i1t)
-       do 65 i3=1,i2
-         i=jsum5(i1t,i3)
-         j=jsum4(i1t,i3)
-         go to (54,55,56,57,58,59),j
-c
-c  ***the rows of the ipair arrays give limits of summation imposed
-c
-c
-   54    ipair(1,1) = jword(2,i)
-         ipair(1,2) = jword(5,i)
-         ipair(2,1) = jword(3,i)
-         ipair(2,2) = jword(6,i)
-         go to 60
-c
-   55    ipair(1,1) = jword(1,i)
-         ipair(1,2) = jword(5,i)
-         ipair(2,1) = jword(4,i)
-         ipair(2,2) = jword(6,i)
-         go to 60
-c
-   56    ipair(1,1) = jword(1,i)
-         ipair(1,2) = jword(6,i)
-         ipair(2,1) = jword(4,i)
-         ipair(2,2) = jword(5,i)
-         go to 60
-c
-   57    ipair(1,1) = jword(2,i)
-         ipair(1,2) = jword(6,i)
-         ipair(2,1) = jword(3,i)
-         ipair(2,2) = jword(5,i)
-         go to 60
-c
-   58    ipair(1,1)= jword(1,i)
-         ipair(1,2) = jword(2,i)
-         ipair(2,1) = jword(3,i)
-         ipair(2,2) = jword(4,i)
-         go to 60
-c
-   59    ipair(1,1) = jword(1,i)
-         ipair(1,2) = jword(3,i)
-         ipair(2,1) = jword(2,i)
-         ipair(2,2) = jword(4,i)
-c
-   60    do 63 i4=1,2
-           km=0
-          do 62 i5=1,2
-            if(ipair(i4,i5).gt.mp)km=km+1
-   62     continue
-c
-          jj1=ipair(i4,1)
-          jj2=ipair(i4,2)
-          if(km .eq. 1) go to 67
-          if(km .gt. 1) go to 63
-c
-c  ***one variable linked to two constants.fix the diagonal mat(i,i)
-c
-          jt1=j1(jj1)-1
-          jt2=j1(jj2)-1
-          jmin=iabs(jt1-jt2)
-          jmax=jt1+jt2
-c
-          if(mat(i1,i1) .gt. 1) then
-c
-c  ***if there are several couples of constants ,take the more
-c  ***stringent combination
-c
-            jmin=max0(jmin,jsum(1,i1))
-            jmax=min0(jmax,jsum(2,i1))
-            if(jmax.ge.jmin)then
-             jsum(1,i1)=jmin
-             jsum(2,i1)=jmax
-             mat(i1,i1)=(jmax-jmin)/2+1
-             go to 63
-            else
-             recup=zero
-             go to 110
-            endif
-          else
-          if(mat(i1,i1) .lt. 1) then
-c
-c  ***first time
-c
-            mat(i1,i1)=(jmax-jmin)/2+1
-            jsum(1,i1)=jmin
-            jsum(2,i1)=jmax
-c
-          endif
-          endif
-c
-          go to 63
-c
-c
-c
-c
-c  ***one variable linked to one constant and one variable  non diagonal
-c  ***element
-c
-   67     jt1=min0(jj1,jj2)
-          jt2=max0(jj1,jj2)-mp
-          if(jt2.gt.i1)go to 63
-          jt4=j1(jt1)-1
-          k=mat(i1,jt2)
-          if(k.eq.0)go to 107
-c
-      do 71 ll=1,k
-        if(jt4.eq.j12(ll,jt2,i1))go to 63
-   71 continue
-c
-  107 k=k+1
-      if(k.gt.mxcsvr)go to 63
-      mat(i1,jt2)=k
-      j12(k,jt2,i1)=jt4
-c
-   63 continue
-   65 continue
-   66 continue
-c
-c  ***reduce the diagonal elements by taking into account the non
-c  ***diagonal elements,and keep the latter only if needed
-c
-  150 ichan=0
-c
-      do 74 i=1,nsum
-        noel(i)=.true.
-        i1=i-1
-        jlow(1) = 1
-        jhig(1) = i1
-        jlow(2) = i+1
-        jhig(2) = nsum
-        do 720 ireduc = 1,2
-        if(i1.eq.0)go to 170
-       do 72  j=jlow(ireduc),jhig(ireduc)
-       if(ireduc.eq.1)then
-         ik1=i
-         ik2=j
-       else
-         ik1 = j
-         ik2 = i
-       endif
-         if(mat(ik1,ik2).eq.0 .or. mat(j,j) .eq. 0) go to 72
-      jmin1=0
-      jmax1=1000
-      k=mat(ik1,ik2)
-c
-      do 203 l1=1,k
-c
-        l3=mat(j,j)
-        jj1=jsum(1,j)
-        jnd=j12(l1,ik2,ik1)
-        jmin=1000
-        jmax=0
-        jmnp(l1)=0
-        jmxp(l1)=1000
-c
-      do 204 l2=1,l3
-c
-        jmn=iabs(jnd-jj1)
-        jmx=jnd+jj1
-        jmin=min0(jmn,jmin)
-        jmax=max0(jmx,jmax)
-        jmnp(l1)=max0(jmn,jmnp(l1))
-        jmxp(l1)=min0(jmx,jmxp(l1))
-        jj1=jj1+2
-c
-  204 continue
-c
-      jmin1=max0(jmin1,jmin)
-      jmax1=min0(jmax1,jmax)
-c
-  203 continue
-c
-      if(mat(i,i).eq.0) then
-        jsum(1,i)=jmin1
-        jsum(2,i)=jmax1
-        mat(i,i)=(jmax1-jmin1)/2+1
-        ichan=ichan+1
-        go to 206
-      endif
-c
-      if(jsum(1,i).lt.jmin1) then
-        jsum(1,i)=jmin1
-        ichan=ichan+1
-      endif
-c
-      if(jsum(2,i).gt.jmax1) then
-        jsum(2,i)=jmax1
-        ichan=ichan+1
-      endif
-c
-  206 k1=0
-c
-      do 207 l1=1,k
-        if(jmnp(l1).le.jsum(1,i).and.jmxp(l1).ge.jsum(2,i))go to 207
-        k1=k1+1
-        j12(k1,ik2,ik1)=j12(l1,ik2,ik1)
-  207 continue
-c
-      if(k1.ne.k) then
-        mat(ik1,ik2)=k1
-        ichan=ichan+1
-      endif
-c
-      mat(ik2,ik1)=j12(1,ik2,ik1)
-      if(ireduc.eq.1)noel(i)=.false.
-   72  continue
-c
-c
-  170 if(i.eq.nsum)go to 74
-720   continue
-c
-c
-   74 continue
-c
-      if(ichan.ne.0)go to 150
-c
-c
-c
-c
-c
-c  ***carry out the summations.
-c
-  220 do 230 i=1,nsum
-        jsum3(i)=1
-        ldiag(i)=.false.
-        if(mat(i,i).eq.1)ldiag(i)=.true.
-  230 continue
-c
-      do 231 i=1,jwrd
-        jwtest(i)=1
-  231 continue
-c
-      stor=zero
-      stor1=one
-      nolp=0
-      ip=1
-      ipold=ip
-  240 nolp=nolp+1
-c
-c
-c  ***find the range of jsum2(nolp)
-c  ***nolp is the index  of the summation variable
-c
-      jmin=jsum(1,nolp)
-      jmax=jsum(2,nolp)
-      if(noel(nolp))go to 241
-      no1=nolp-1
-c
-      do 242 nj=1,no1
-        if(mat(nolp,nj) .eq. 1) then
-          jj1=mat(nj,nolp)
-          jj2=jsum2(nj)
-          jmin=max0(jmin,iabs(jj2-jj1))
-          jmax=min0(jmax,jj1+jj2)
-        else
-        if(mat(nolp,nj) .gt. 1) then
-          k=mat(nolp,nj)
-          jj2=jsum2(nj)
-c
-         do 245 i=1,k
-          jj1=j12(i,nj,nolp)
-          jmin=max0(jmin,iabs(jj2-jj1))
-          jmax=min0(jmax,jj1+jj2)
-  245    continue
-c
-        endif
-        endif
-c
-  242 continue
-c
-  241 jsum2(nolp)=jmin
-      maxlp(nolp)=jmax
-      if(ldiag(nolp))jsum3(nolp)=0
-      if(nolp.lt.nsum)go to 240
-c
-      already=.false.
-      ipold=ip
-      do 260 jj=jmin,jmax,2
-        jsum2(nsum)=jj
-c
-c
-c  ***determine which racah coefficients need re-evaluating and
-c  ***set jwtest appropriately
-c
-      do 114 j=ip,nsum
-        if(jsum3(j).le.0) go to 114
-        i2=jsum6(j)
-c
-      do 113 i1=1,i2
-          i3=jsum5(j,i1)
-          jwtest(i3)=1
-c
-  113 continue
-c
-  114 continue
-c
-      do 98 j=1,jwrd
-        if(jwtest(j).eq.0)go to 98
-        jwj=j+jwr
-c
-      do 90 i=1,6
-        if(jword(i,jwj).le.mp) then
-          i1=jword(i,jwj)
-          ist(i) = j1(i1) - 1
-        else
-          i1=jword(i,jwj)-mp-nfs
-          ist(i) = jsum2(i1)
-        endif
-   90 continue
-c
-      call dracah(x1)
-      wstor(j)=x1
-      if(ibug3.eq.1) then
-        do 99 i=1,6
-          xj1(i)=ist(i)/two
-   99   continue
-c
-        write (ipd,315) jwj,(xj1(i), i=1,6),x1
-      endif
-   98 continue
-c
-c
-c  ***form product of racah coefficients,(2j+1) factors and (-1)
-c  ***factors in stor1
-c
-      do 126 i=1,jwrd
-        stor1 = stor1*wstor(i)
-  126 continue
-c
-c  ***iastor contains the power of (-1)which is common to all terms
-c
-      ix2 = 0
-      xij6cp=1.
-      if(j6cp.ne.j6f) then
-        jb=j6f+1
-c
-        do 128 i=jb,j6cp
-          i1=j6p(i)-nfs
-          xij6cp=xij6cp*(jsum2(i1)+1.)
-  128   continue
-      endif
-c
-      if(j9cp.ne.j9f) then
-        jb=j9f+1
-c
-        do 147 i=jb,j9cp
-          i1=j9p(i)-nfs
-          xij6cp=xij6cp/(jsum2(i1)+1.)
-  147   continue
-      endif
-c
-      stor1 = stor1*sqrt(xij6cp)
-c
-      if(j7cp.ne.j7f) then
-        jb=j7f+1
-c
-        do 131 i=jb,j7cp
-          i1=j7p(i)-nfs
-          ix2 = ix2 + jsum2(i1)
-  131   continue
-      endif
-c
-      if(j8cp.ne.j8f) then
-        jb=j8f+1
-c
-        do 134 i=jb,j8cp
-          i1=j8p(i)-nfs
-          ix2 = ix2 + 2*(jsum2(i1))
-  134   continue
-      endif
-c
-      if(mod(ix2,2).eq.1) then
-        ias=-1
-        ix2=ix2+1
-      endif
-c
-      ix2 = ix2/2
-c
-c
-c  ***add term into stor and reset stor1 to 1 ready for next term
-c
-      if (mod(ix2,2) .eq. 1) stor1 = -stor1
-      stor = stor + stor1
-      stor1=one
-      nsum1 =nsum-1
-      already=.true.
-      if(nsum1.eq.0)go to 260
-c
-      do 261 ik=1,nsum1
-        jsum3(ik)=0
-  261 continue
-c
-      do 262 ik=1,jwrd
-        jwtest(ik)=0
-  262 continue
-c
-  260 continue
-c
-  250 nolp=nolp-1
-c
-      if(nolp.ne.0) then
-        if(ldiag(nolp))go to 250
-        jsum3(nolp)=1
-        jsum2(nolp)=jsum2(nolp)+2
-        if(jsum2(nolp).gt.maxlp(nolp))go to 250
-        ip=nolp
-        if(.not.already)ip=min(ipold,ip)
-c
-c
-c    ***proceed to next variable
-c
-        go to 240
-c
-      endif
-c
-      recup=recup*stor
-      if(ibug3.eq.1) write(ipd ,307) nps,stor,recup
-      if(abs(recup).lt.epsil)go to 145
-      jwr=jwrd+jwr
-      nfs=nsum+nfs
-      j6f=j6cp
-      j7f=j7cp
-      j8f=j8cp
-      j9f=j9cp
-      iastor=iastor+ias
-c
-c
-c  ***proceed to next sum
-c
-      if(nps.lt.nlsum)go to 25
-      iastor=iastor/2
-      if(mod(iastor,2).ne.0)recup=-recup
-      if(ibug3.eq.1) write(ipd ,304) recup
-  110 return
-c
-c  ***no summations. check that there are no inconsistencies. then
-c  ***multiply by (-1) factor and exit
-c
-  145 recup=zero
-      return
-      end
-c
-c     ****************
-      subroutine intab
-      implicit real*8(a-h,o-z)
-c     ****************
-c
-c  ***this subroutine called at the end of diagrm,fixes the arrays ih 
-c  ***and il-so to speak hardware and logical addresses of triads in
-c  ***jdiag.also determines the number of free ends nfree and their
-c  ***location itfree.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm)
-c
-      logical free
-c
-      integer arr,tab1
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/build/ial(m4trd),if1,if2,node
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-c
-c
-      do 1 i=1,m
-    1   ial(i)=1
-c
-      do 3 i=ifirst,ilast
-        j=jdiag(i,1)
-        k=ial(j)
-        tab1(j,k)=i 
-        ial(j)=k+1
-    3 continue
-c
-      ifr=ifirst-1
-c
-      do 4 i=ifirst,ilast
-        it=i-ifr
-        il(i)=it
-        ih(it)=i
-    4 continue
-c
-      j=jdiag(ifirst,3)
-      k=ial(j)
-      if(k .gt. 1) tab1(j,2)=tab1(j,1)
-      tab1(j,1)=ifirst
-      ial(j)=3
-      j=jdiag(ilast,2)
-      tab1(j,2)=ilast
-      ial(j)=3
-      nfree=0
-c
-      do 7 i=ifirst,ilast
-        j=jdiag(i,1)
-        if(ial(j).ne.3)then
-          nfree=nfree+1
-          itt=ilast+nfree
-          tab1(j,2)=itt
-          il(itt)=nfree*1000
-          itfree(nfree)=i
-        endif
-    7 continue
-c
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine lolpop(fail) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c  ***reduces a loop with one line and one node in the flat graph.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-c
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),
-     + free(mangm)
-c
-      logical fail,sumvar
-c
-      integer arr,tab1
-c
-      character*6 name,namsub 
-c
-      dimension kp(3),ks(3)
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-      logical free
-c
-      common/nam/namsub
-c
-      data name/'lolpop'/
-      data kp/2,3,1/
-      data ks/0,1,-1/
-c
-c
-c
-      namsub=name
-      i1=npoint(1)
-      k3=2
-      if(i1.eq.ilast)k3=3
-      l=jdiag(i1,k3)
-      call delta(l,mp,fail)
-      if(fail)return
-      k=kp(k3)
-      if(arr(i1,k).lt.0)call phase2(jdiag(i1,k))
-      k1=ks(k3)
-      il1=il(i1)+k1 
-      i2=ih(il1)
-      l1=jdiag(i2,1)
-      call delta(l1,jdiag(i2,k3),fail)
-      if(fail)return
-      if(arr(i2,k3).eq.k1)call phase2(l1)
-      il2=il(i2)+k1 
-      i3=ih(il2)
-      k2=k3+k1
-      jdiag(i3,k2)=l1
-      arr(i3,k2)=arr(i2,1)
-      j9c=j9c+1
-      j9(j9c)=l1
-      j6c=j6c+1
-      j6(j6c)=jdiag(i1,1)
-      if(k3.eq.3)return
-c
-      do 1 i=3,nbnode
-        it=ih(i)
-        ilp=i-2
-        il(it)=ilp
-        ih(ilp)=it
-    1 continue
-c
-      return
-      end 
-c
-c
-c     ***************************
-      subroutine neibor(lc,l1,l2)
-      implicit real*8(a-h,o-z)
-c     ***************************
-c
-c  ***gives the positions of the other two arguments in the triad.
-c
-c
-      if (lc .lt. 2) then
-        l1=2
-        l2=3
-      else
-      if (lc .eq. 2) then
-        l1=3
-        l2=1
-      else
-        l1=1
-        l2=2
-      endif
-      endif
-      return
-      end 
-c
-c
-c     ****************
-      subroutine ordtri
-      implicit real*8(a-h,o-z)
-c     ****************
-c
-c  ***this subroutine orders the triads which were left with free ends
-c  ***as consequence of cutting,so that the new graph will start there.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar,tabs
-c
-      integer arrow,arr,tab1
-c
-      character*6 name
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/build/ial(m4trd),if1,if2,node
-      common/keep/jkp(2,3),jarr(2,3),it2,it3,it5
-c
-      data name/'ordtri '/
-c
-c
-      do 10 i=1,mp
-        ial(i)=0
-   10 continue
-c
-      if(nfin.ne.0)then
-        nbt1=nbtr-1 
-        nbt=nbt1+nfin
-        nbtt=nbt+1
-        nb=0
-        go to 31
-      endif
-c
-      nf=nbtr-itfree(1)
-c
-      if(it5.eq.0) then
-        nbt1=nbtr-1 
-        n0=0
-        nft=nfree
-        isw=2
-        go to 100
-      endif
-c
-      nft=it5-it2
-      nm=nft+nbtr+1 
-      nbt1=nbtr
-c
-      do 21 j=1,3
-        jdiag(nbtr,j)=jkp(1,j)
-        arr(nbtr,j)=jarr(1,j) 
-c  June 25  1989  (avi)
-c        jdiag(nm,j)=jkp(2,j)
-c        arr(nm,j)=jarr(2,j)
-   21 continue
-c
-      n0=0
-      isw= 1
-      go to 100
-c
-   22 n0=nft
-c June 25 1989 (avi)
-      do 211 j=1,3
-        jdiag(nm,j)=jkp(2,j)
-        arr(nm,j)=jarr(2,j)
- 211  continue
-c June 25 1989 (avi)
-c      nbt1=nbt1+n0
-      nbt1=nbt1+1
-      nft=it3-it5
-      isw= 3
-      go to 100
-c
-c June 25 1989 (avi)
-c   24 nft=nft+1
-   24 nbt1=k-nft
-c
-   23 node=nbt1+nft 
-      call change(node,2)
-      go to 40
-c
-c
-   31 do 35 i=1,nbnode
-        i1=ih(i)
-        if(il(i1).gt.ilast)go to 35
-        i2=nbt1+i
-        if(i1.gt.nbtt)go to 33
-        if(i1.eq.i2)go to 32
-        if(il(i2).le.nbnode)go to 35
-c
-   33 do 34 j=1,3
-        jdiag(i2,j)=jdiag(i1,j)
-        arr(i2,j)=arr(i1,j)
-   34 continue
-c
-      il(i1)=ilast+i
-   32 nb=nb+1
-      il(i2)=0
-c
-   35 continue
-c
-      if(nb.ne.nfin)go to 31
-      node=nbt
-   40 if1=jdiag(nbtr,1)
-      if2=jdiag(nbtr,3)
-c
-      do 51 i=nbtr,node
-       do 50 k=1,3
-         j=jdiag(i,k)
-         ial(j)=ial(j)+1
-   50  continue
-   51 continue
-c
-      ilast=node
-      call printj(name,8)
-c
-      return
-c
-  100 if(nf.le.0)then
-        nfr=n0
-        i1=1
-      else
-        nfr=nft+1
-        i1=-1
-      endif
-c
-      do 4 i=1,nft
-        ik=nfr+i1*i 
-        it=itfree(ik)
-        k=nbt1+ik
-c
-      do 3 j=1,3
-        jdiag(k,j)=jdiag(it,j)
-        arr(k,j)=arr(it,j)
-    3 continue
-c
-    4 continue
-c
-      go to (22,23,24),isw
-      end 
-c
-c
-c     ********************************* 
-      subroutine otherj(lin,j,lo,lco,k) 
-      implicit real*8(a-h,o-z)
-c     ********************************* 
-c
-c
-c  ***gives the other triad where a given j occurs and its position.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm)
-c
-      logical tabs
-      integer arrow 
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-c
-      lo=line(j,1)
-      if(lo.eq.lin.or.tabs(lo)) then
-        k=1
-        lo=line(j,2)
-        lco=lcol(j,2)
-      else
-        k=2
-        lco=lcol(j,1)
-      endif
-c
-      return
-      end 
-c
-c
-c     ***************************
-      subroutine phase(l,jm,ndim)
-      implicit real*8(a-h,o-z)
-c     ***************************
-c
-c  ***phase factor arising from non-cyclic permutation of arguments in
-c  ***triad l.jm may be either j23 or jdiag.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar
-      dimension jm(ndim,3)
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-c
-      j7(j7c+1)=jm(l,1)
-      j7(j7c+2)=jm(l,2)
-      j7c=j7c+3
-      j7(j7c)=jm(l,3)
-c
-      return
-      end 
-c
-c
-c     ********************
-      subroutine phase2(j)
-      implicit real*8(a-h,o-z)
-c     ********************
-c
-c  ***adds a phase factor (-1)**2j
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-c
-      j8c=j8c+1
-      j8(j8c)=j
-c
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine polygn(jpol) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c  ***this routine reduces a circuit of arbitrary order nc.it exchanges
-c  ***nodes on the flat diagram until the distance on the axis between
-c  ***nodes equeals one.each exchange introduces a summation variable 
-c  ***and a 6j symbol.the circuit has a maximum of npart=2 disconnected
-c  ***parts on the axis.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      integer arr,tab1
-      logical sumvar
-      character*6 name
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'polygn'/
-c
-c
-      nc1=nc+1
-      nc2=nc
-      nbc=ipartl-2
-c
-   10 do 8 i=1,nbc
-        it2=npoint(nc1-i)
-        it1=npoint(nc2-i)
-        jb=jdiag(it1,1)
-        jc=jdiag(it2,1)
-        jdiag(it1,1)=jc
-        jdiag(it2,1)=jb
-        jar=arr(it1,1)
-        arr(it1,1)=arr(it2,1) 
-        arr(it2,1)=jar
-        je=jdiag(it1,2)
-        mp=mp+1
-        sumvar(mp)=.true.
-        jdiag(it1,2)=mp
-        jdiag(it2,3)=mp
-c
-        if(tab1(jb,1) .eq. it1) then
-          tab1(jb,1)=it2
-        else
-          tab1(jb,2)=it2
-        endif
-c
-        if(tab1(jc,1) .eq. it2) then
-          tab1(jc,1)=it1
-        else
-          tab1(jc,2)=it1
-        endif
-c
-        if(arr(it1,2).le.0)then
-          call phase2(je)
-          arr(it1,2)=1
-          arr(it2,3)=-1
-        endif
-c
-        jwc=jwc+1
-        kw(1,jwc)=jb
-        kw(2,jwc)=mp
-        kw(3,jwc)=je
-        kw(4,jwc)=jc
-        kw(5,jwc)=jdiag(it2,2)
-        kw(6,jwc)=jdiag(it1,3)
-        j6(j6c+1)=mp
-        j6c=j6c+2
-        j6(j6c)=mp
-    8 continue
-c
-      nc=nc-nbc
-c
-      if(nc .gt. 4) then
-        nbc=iparts-2
-        nc1=iparts+1
-        nc2=iparts
-        go to 10
-      endif
-c
-      if(npart .ne. 1) then
-        npoint(3)=npoint(nc1) 
-        npoint(4)=npoint(nc1+1)
-      endif
-c
-      if(nc.eq.2)jpol=1
-      call printj(name,msum)
-c
-      return
-      end 
-c
-c
-c     ***************************
-      subroutine printj(names,jp)
-      implicit real*8(a-h,o-z)
-c     ***************************
-c
-c  ***this subroutine prints intermediate results in standard form from
-c  ***wherever it is called.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-      parameter(mtab=30)
-c
-      integer arr,tab1,arrow
-c
-      logical tabs,sumvar,free
-c
-      character im,ip,is(3)
-      character*4 i6,i7,i8,i9,ij1
-      character*6 names,nsettb
-      character*8 iblank,ifree,ifr
-c
-      dimension ix(6),jtab(mtab,3)
-c
-      equivalence(i6c,ix(1))
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/const/i6c,i7c,i8c,i9c,idel,iwc
-      common/zer/nzero,jzero(m6j)
-      common/debug/ibug1,ibug2,ibug3,ibug4,ibug5,ibug6
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      data iblank,ifree,ip,im/'        ','free end','+','-'/
-      data nsettb/'settab'/
-      data i6,i7,i8,i9,ij1/'i6= ','i7= ','i8= ','i9= ','j1= '/
-c
- 1000 format(/10x,'nbnode=',i3,10x,'nbtr=',i3,10x,'nfin=',i3,
-     + /10x,'ifirst=',i3,10x,'ilast=',i3,9x,'nfree=',i3)
- 1001 format(//7x,'il',3x,'ih',14x,'jdiag'//)
- 1002 format(28x,3(a1,2x))
- 1003 format(7x,i2,3x,i2,2x,a8,2x,3i3/) 
- 1004 format(/5x,'tab1'/)
- 1005 format(4(i3,1h),2x,i3,i5,5x))
- 1006 format(/2x,'sumvar=',15(i3,l1))
- 1010 format(//10x,'j23',10x,'nbtr1=',i3//)
- 1012 format(18x,3(a1,2x))
- 1013 format(i9,i5,2x,3i3/)
- 1014 format(/3x,'j  l1 k1  l2 k2')
- 1015 format(4(i4,1h),i3,i3,i4,i3))
- 1020 format(/3x,a4,3x,3(20i3/))
- 1021 format(/3x,'delta=',7(i5,i3))
- 1022 format(/3x,'kw(arg. of 6j)',6i3)
- 1030 format(//2x,'nc=',i2,4x,'npart=',i2,4x,'ipartl=',i2,4x,
-     +  'iparts=',i2,4x,'icross=',i2,4x,/2x,'npoint=',20i3) 
- 1040 format(//2x,'nzero=',i2,5x,12(i4,1h),i3))
- 1050 format(///3x,'print out after calling subroutine ',a7)
-c
-c
-c
-      if(ibug3.ne.1)return
-      print 1050,names
-c
-c  ***initialise variables
-c
-c
-      jump=jp
-      if(jump.eq.0)then
-c
-        do 9 i=1,6
-          ix(i)=1
-    9   continue
-c
-        print 1020,ij1,(j1(i),i=1,m)
-      endif
-c
-      if(jump.lt.8)go to 20
-      print 1000,nbnode,nbtr,nfin,ifirst,ilast,nfree
-      jump=jump-8
-      print 1001
-      k=0 
-c
-      do 1 i=1,nbnode
-        it=ih(i)
-        ifr=iblank
-        jt=jdiag(it,1)
-c
-        if(tab1(jt,2).ne.it.or.jt.eq.jdiag(ifirst,3))then
-          k=k+1
-          jtab(k,1)=jt
-          jtab(k,2)=tab1(jt,1)
-          jtab(k,3)=tab1(jt,2)
-        endif
-c
-      if(tab1(jt,2).gt.ilast)ifr=ifree
-c
-      do 2 j=1,3
-        is(j)=ip
-        if(arr(it,j).lt.1)is(j)=im
-    2 continue
-c
-      print 1002,(is(j),j=1,3)
-      print 1003,il(it),it,ifr,(jdiag(it,j),j=1,3)
-c
-    1 continue
-c
-      print 1004
-      ntime=0
-      jt=jdiag(ifirst,3)
-      if(jt.ne.jdiag(ilast,2))then
-       if(tab1(jt,2).lt.1000)go to 5
-      endif
-    4 k=k+1
-      jtab(k,1)=jt
-      jtab(k,2)=tab1(jt,1)
-      jtab(k,3)=tab1(jt,2)
-    5 ntime=ntime+1 
-c
-      if(ntime.ne.2) then
-        jt=jdiag(ilast,2)
-        if(tab1(jt,2).eq.1000)go to 4
-      endif
-c
-      print 1005,((jtab(i,j),j=1,3),i=1,k)
-      print 1006,(i,sumvar(i),i=1,mp)
-   20 if(jump.lt.4)go to 30
-      jump=jump-4
-      nbtr1=2*n-2
-      print 1010,nbtr1
-      k=0 
-c
-      do 11 i=1,nbtr1
-        if(tabs(i))go to 11
-        k=k+1
-c
-      do 12 j=1,3
-        is(j)=ip
-        if(arrow(i,j).lt.1)is(j)=im
-   12 continue
-c
-      print 1012,(is(j),j=1,3)
-      print 1013,k,i,(j23(i,j),j=1,3)
-c
-   11 continue
-c
-      print 1014
-      mm=m
-      if(names.ne.nsettb) mm=m-1
-      print 1015,(i,(line(i,j),lcol(i,j),j=1,2),i=1,mm)
-c
-   30 if(jump.ge.2)then
-        jump=jump-2 
-        print 1030,nc,npart,ipartl,iparts,icross,(npoint(i),i=1,nc)
-      endif
-c
-      if(jump.ge.1) print 1040,nzero,(i,jzero(i),i=1,nzero) 
-      if(j6c.ge.i6c)print 1020,i6,(j6(i),i=i6c,j6c)
-      if(j7c.ge.i7c)print 1020,i7,(j7(i),i=i7c,j7c)
-      if(j8c.ge.i8c)print 1020,i8,(j8(i),i=i8c,j8c)
-      if(j9c.ge.i9c)print 1020,i9,(j9(i),i=i9c,j9c)
-      if(jdel.ge.idel)print 1021,((ldel(i,j),j=1,2),i=idel,jdel)
-      if(jwc.ge.iwc)print 1022,((kw(j,i),j=1,6),i=iwc,jwc)
-      i6c=j6c+1
-      i7c=j7c+1
-      i8c=j8c+1
-      i9c=j9c+1
-      idel=jdel+1
-      iwc=jwc+1
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine search(find) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm)
-c
-      logical find
-      integer arr,tab1
-      character*6 name
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      data name/'search'/
-c
- 1000 format(' error in search.i,i1,i2,i3,npart,ipart,nc=',7i5)
-c
-c  ***this subroutine locates circuits or loops of order nc.npoint(nc)
-c  ***are the indices of the points(triads) pertaining to the first
-c  ***such loop found.
-c  ***npart is the number of separate parts(groups of contiguous points)
-c  ***on the axis of the flat graph.iparts is the number of points in 
-c  ***the smallest part.ipartl is the number of points in the largest 
-c  ***part.
-c  ***this subroutine finds all the possible loops of order 3 and 4.for
-c  ***nc.ge.5,it looks for only those who are partitionned in npart.le.2
-c  ***which can eventually reduce tp a loop of order 4 without breaking
-c  ***the basic structure of the flat graph. icross=-1,if lines cross 
-c-------------------------------------------------------------------- 
-c
-c
-c  ***initialization
-c
-      find=.false.
-      ncm1=nc-1
-      ncm=nc-2
-      icross=0
-c
-c  ***first are treated two cases that do not involve do loops
-c  ***1.one isolated point,either the first or the last
-c
-      npart=1
-      ipartl=nc-1
-      iparts=1
-c
-c  ***a.first
-c
-      i1=ifirst
-      k3=3
-      k2=2
-  200 ja=jdiag(i1,1)
-      jc=jdiag(i1,k3)
-c
-      if(ja.eq.jc) then
-        if(nc.gt.1) go to 800 
-        npoint(1)=i1
-        go to 900
-      endif
-c
-      i2=tab1(ja,k2)
-      i3=tab1(jc,k2)
-c
-      if(iabs(il(i3)-il(i2))-ncm .lt. 0) go to 800
-c
-      if(iabs(il(i3)-il(i2))-ncm .gt. 0) then
-c
-c  ***b.last
-c
-        if(i1.ne.ifirst) go to 250
-        i1 = ilast
-        k3=2
-        k2=1
-        go to 200
-      endif
-c
-      ic=1
-      npoint(ic)= i1
-      i20=min0(i2,i3)
-      i21=il(i20)
-      i31=i21+ncm1
-c
-      do 203 ii=i21,i31
-        ic=ic+1
-        npoint(ic)=ih(ii)
-  203 continue
-c
-      if(nc.le.2) then
-        if(jdiag(ifirst,1).ne.jdiag(ilast,1))call phase(i1,jdiag,m4trd)
-        go to 900
-      endif
-c
-      if(i1.ne.ilast) then
-        it=i2
-        jt=jdiag(ilast,2)
-        k4=2
-        i4=ilast
-      else
-        it=i3
-        jt=jdiag(ifirst,3)
-        k4=3
-        i4=ifirst
-      endif
-c
-      if(it.eq.i20)call phase(i1,jdiag,m4trd)
-      if(jt.eq.ja.or.jt.eq.jc)call change(i4,k4)
-      go to 900
-c
-c  ***2.two isolated points,first and last.
-c
-  250 if(nc.eq.1)return
-      if(nc.le.3) go to 100
-      ipartl=nc-2
-      iparts=1
-      i1=ifirst
-      i2=ilast
-      ja=jdiag(i1,1)
-      jb=jdiag(i1,3)
-c
-      if(tab1(ja,2).ne.i2) then
-        ja=jdiag(i1,3)
-        jb=jdiag(i1,1)
-        if(tab1(ja,2).ne.i2) go to 100
-      endif
-c
-      if(ja.eq.jdiag(i2,1)) then
-        jc=jdiag(i2,2)
-      else
-        jc=jdiag(ilast,1)
-      endif
-c
-      i3=tab1(jb,2) 
-      i4=tab1(jc,1) 
-      idist=il(i4)-il(i3)
-c
-      if(iabs(idist)-(ncm-1) .lt. 0) go to 800
-      if(iabs(idist)-(ncm-1) .eq. 0) then
-        npoint(1)= ilast
-        npoint(2) = ifirst
-        icross=isign(1,idist) 
-        ic=2
-        i20=min0(i3,i4)
-        i21=il(i20) 
-        i31=i21+ncm 
-c
-        do 261 ii=i21,i31
-          ic=ic+1
-          npoint(ic) = ih(ii) 
-  261   continue
-c
-        if(ja.eq.jdiag(ifirst,1))call change(ifirst,3)
-        if(ja.eq.jdiag(ilast,1))call change(ilast,2)
-        go to 900
-      endif
-c
-c  ***first general case:all points in one group
-c
-  100 npart=1
-      iparts=0
-      ipartl=nc
-      k3=1
-c
-      do 101 in=1,nbnode
-        i=ih(in)
-  108   ja=jdiag(i,k3)
-        if(i.ne.tab1(ja,2))then
-          i2=tab1(ja,2)
-c
-          if(il(i2)-in-ncm1 .lt. 0) go to 800
-          if(il(i2)-in-ncm1 .eq. 0)then 
-            i21=il(i2)
-            ic=0
-c
-            do 103 ii=in,i21
-             ic=ic+1
-             npoint(ic)=ih(ii)
-  103       continue
-c
-            if(ja.eq.jdiag(ifirst,3))call change(ifirst,3)
-            if(ja.eq.jdiag(ilast,2))call change(ilast,2)
-            go to 900
-        endif
-      endif
-c
-        if(in.eq.1) then
-          if(k3.ne.3) then
-            k3=3
-            go to 108
-          else
-            k3=1
-          endif
-        endif
-c
-  101 continue
-c
-c  ***search did not find loop nc.le.3
-c
-      if(nc.le.3) return
-c
-c  ***general case of loop partitionned in 2 groups.do loop 
-c  ***on iparts
-c
-      npart=2
-      nc2=nc/2
-      k3=1
-      k2=1
-c
-      do 400 ips=2,nc2
-        jps=ips-1
-        nbn=nbnode-jps
-c
-      do 301 i1=1,nbn
-        i=ih(i1)
-        i2=ih(i1+jps)
-  302   ja=jdiag(i,k3)
-        jd=jdiag(i2,k2)
-c
-        if(i.eq.tab1(ja,1)) then
-          ii2=tab1(jd,2)
-          ii1=tab1(ja,2)
-        else
-          ii1=tab1(ja,1)
-          ii2=tab1(jd,1)
-        endif
-c
-        idist=il(ii1)-il(ii2) 
-c
-        if(iabs(idist)-(ncm-jps) .lt. 0) go to 800
-        if(iabs(idist)-(ncm-jps) .gt. 0) go to 320
-  306   icross=isign(1,idist) 
-        ic=0
-        i21=il(i2)
-c
-      do 310 ii=i1,i21
-        ic=ic+1
-        npoint(ic)=ih(ii)
-  310 continue
-c
-      i20=min0(ii1,ii2)
-      i30=max0(ii1,ii2)
-      i21=il(i20)
-      i31=il(i30)
-c
-      do 311 ii=i21,i31
-        ic=ic+1
-        npoint(ic)=ih(ii)
-  311 continue
-c
-      iparts=ips
-      ipartl=nc-ips 
-      if(jdiag(ifirst,3).eq.ja.or.jdiag(ifirst,3).eq.jd)call
-     +change(ifirst,3)
-      if(jdiag(ilast,2).eq.ja.or.jdiag(ilast,2).eq.jd)call
-     +change(ilast,2)
-      go to 900
-c
-  320 if(i1.eq.1) then
-        if(k3.eq.3) then
-          k3=1
-          go to 301 
-        else
-          k3=3
-          go to 302 
-      endif
-      endif
-c
-      if(i2.eq.ilast)then
-       if(k2.ne.2) then
-        k2=2
-        go to 302
-       endif
-      endif
-c
-  301 continue
-  400 continue
-c
-c  ***search did not find circuit of order nc
-c
-      return
-c
-c  ***loop found
-c
-  900 find=.true.
-      call printj(name,msum)
-c
-      return
-c
-c  ***error printout
-c
-  800 print 1000,i,i1,i2,i3,npart,iparts,nc
-      stop
-c
-      end 
-c
-c
-c     *****************
-      subroutine setdim
-      implicit real*8(a-h,o-z)
-c     *****************
-c
-c  ***set dimensions of arrays.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/dim/j6cc,j7cc,j8cc,j9cc,jwcc,jdelc
-c
-c
-c
-      jwcc=jwc
-      jdelc=jdel
-      j6cc=j6c
-      j7cc=j7c
-      j8cc=j8c
-      j9cc=j9c
-c
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine settab(fail) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c  ***builds up the unstructured graph
-c  ***sets the array j23,containing the two lists of original triads
-c  ***j2 and j3,and the corresponding arrows on the angular momenta
-c  ***lines.also establishes the numerical and phase factors connecting
-c  ***recoupling coefficient and graphs,according to yutsis,levinson and
-c  ***vanagas.for this purpose determines the total j
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,tabs,free,sumvar
-c
-      integer arrow 
-c
-      character*6 name
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-      common/build/ial(m4trd),if1,if2,node
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'settab'/
-c
-c
-c
-c
-      ipr=n-1
-      nbtr=ipr+ipr
-c
-      do 4 i=1,ipr
-       do 5 j=1,2
-         j23(i,j)=j2(i,j)
-         arrow(i,j)=1
-    5  continue
-       tabs(i)=.false.
-       j23(i,3)=j2(i,3)
-       arrow(i,3)=-1
-    4 continue
-c
-      ipr1=ipr+1
-c
-      do 7 i=ipr1,nbtr
-        ii=i-ipr
-      do 6 j=1,2
-        j23(i,j)=j3(ii,j)
-        arrow(i,j)=-1
-    6 continue
-      tabs(i)=.false.
-      j23(i,3)=j3(ii,3)
-      arrow(i,3)=1
-    7 continue
-c
-      do 11 j=1,nbtr
-        j8(j)=j23(j,1)
-   11 continue
-c
-      j8c=nbtr+ipr
-      nb1=nbtr+1
-c
-      do 12 j=nb1,j8c
-        i=j-ipr
-        j8(j)=j23(i,3)
-   12 continue
-c
-      j6c=nbtr
-c
-      do 13 j=1,j6c 
-        j6(j)=j23(j,3)
-   13 continue
-c
-      do 10 i=1,m
-        sumvar(i)=.false.
-        ial(i)=1
-   10 continue
-c
-      do 9 i=1,nbtr 
-       do 8 j=1,3
-         ji=j23(i,j)
-         k=ial(ji)
-         line(ji,k)=i
-         lcol(ji,k)=j
-         ial(ji)=k+1
-    8  continue
-    9 continue
-c
-      it=0
-c
-      do 18 i=1,nbtr
-        jt=j23(i,3) 
-c
-        if(ial(jt).eq.3) then 
-          call otherj(i,jt,l,lc,k)
-          if(lc.eq.3)go to 19 
-          go to 18
-        endif
-c
-        if(it.eq.1) then
-          call delta(jt1,jt,fail)
-          if(fail)go to 20
-          k=line(jt,1)
-          kc=lcol(jt,1)
-          line(jt1,2)=k
-          lcol(jt1,2)=kc
-          line(jt,2)=line(jt1,1)
-          lcol(jt,2)=lcol(jt1,1)
-          j23(k,kc)=jt1
-          ial(jt)=1 
-          go to 19
-        endif
-c
-        jt1=jt
-        it=1
-c
-   18 continue
-c
-   19 j9(j9c+1)=jt
-      j9c=j9c+2
-      j9(j9c)=jt
-c
-   20 call printj(name,4)
-c
-      return
-      end 
-c
-c
-c     ********************
-      subroutine sprate(m)
-      implicit real*8(a-h,o-z)
-c     ********************
-c
-c  ***this subroutine prepares the information to be transfered to
-c  ***gensum for numerical evaluation.the common blocks /graph/ and
-c  ***/tree/ are used as working memory,and their previous content
-c  ***is destroyed. 
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sum6j,t6j,jt,js,sumvar,cut
-c
-      character*4 name
-c
-      common/graph/jtem4(mtriad,m6j),jtem5(mtriad,m6j),jtem6(mtriad), 
-     +  nsum6j(m6j),j6sum(m6j),idum1(44)
-c
-      common/tree/sum6j(m6j),t6j(m6j),jt(mtriad),js(mtriad),
-     +  inver(mangm),jnsum(mtriad),jinv(mtriad),n6jn(m6j),in6j(m6j),
-     +  jsumt(m6j,6),idum(101)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),jw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/cutdig/cut
-      common/dim/j6cc,j7cc,j8cc,j9cc,jwcc,jdelc
-c
-      common/sumarg/j6p(mangmp),j7p(mangmp),j8p(mangmp),j9p(mangmp),
-     + jword(6,m6j),nlsum,nbj(msum),nb6j(msum),k6cp(msum),
-     + k7cp(msum),k8cp(msum),k9cp(msum),jsum6(mtriad),
-     + jsum4(mtriad,m6j),jsum5(mtriad,m6j),inv6j(m6j)
-c
-c
-      data kflw,kfl6,kfl7,kfl8,kfl9/m6j,m3mngm,m3mngm,m3mngm,mangmp/
-      data kfls/mtriad/
-c
- 1000 format(2x,'dimension error for  ',a4,i5,' is out of allowed ', 
-     +'range',i3)
-c
-c
-c
-c  ***test that array dimensions have not been exceeded.
-c
-      if(jwc.gt.kflw)then
-        nmx=kflw
-        npx=jwc
-        name='kflw' 
-      else
-      if(j6c.gt.kfl6)then
-        nmx=kfl6
-        npx=j6c
-        name='kfl6' 
-      else
-      if(j7c.gt.kfl7)then
-        nmx=kfl7
-        npx=j7c
-        name='kfl7' 
-      else
-      if(j8c.gt.kfl8)then
-        nmx=kfl8
-        npx=j8c
-        name='kfl8' 
-      else
-      if(j9c.le.kfl9)go to 54 
-        nmx=kfl9
-        npx=j9c
-        name='kfl9' 
-      endif
-      endif
-      endif
-      endif
-c
-   60 print 1000,name,npx,nmx 
-      stop
-c
-c  ***determination of effective summation variables and their
-c  ***relationships with 6j coefficients.
-c
-c
-   54 do 2 i=1,jwc
-        inv6j(i)=0
-        sum6j(i)=.false.
-    2 continue
-c
-      nsum=0
-      nlsum=0
-      if(mp.eq.m)return
-      m1=m+1
-c
-      do 1 i=m1,mp
-        if(sumvar(i))then
-          nsum=nsum+1
-          jsum6(nsum)=0
-          inver(i)=nsum
-        endif
-    1 continue
-c
-      if(nsum.eq.0)return
-c
-      if(nsum.gt.kfls)then
-        nmx=kfls
-        npx=nsum
-        name='nsum' 
-        go to 60
-      endif
-c
-      kt=0
-c
-      do 4 i=1,jwc
-       do 5 j=1,6
-         ik=jw(j,i) 
-         if(.not.sumvar(ik))go to 5
-c
-         if(.not.sum6j(i))then
-           sum6j(i)=.true.
-           kt=kt+1
-           j6sum(kt)=0
-           nsum6j(kt)=i
-           inv6j(i)=kt
-         endif
-c
-         isk=inver(ik)
-         i2=jsum6(isk)+1
-         jsum6(isk)=i2
-         jsum4(isk,i2)=j
-         jsum5(isk,i2)=kt
-         i3=j6sum(kt)+1
-         j6sum(kt)=i3
-         jsumt(kt,i3)=isk
-    5 continue
-    4 continue
-c
-      call var(j6,j6p,j6c,j6cp,j6cc,sumvar,mp,m,inver)
-      call var(j7,j7p,j7c,j7cp,j7cc,sumvar,mp,m,inver)
-      call var(j8,j8p,j8c,j8cp,j8cc,sumvar,mp,m,inver)
-      call var(j9,j9p,j9c,j9cp,j9cc,sumvar,mp,m,inver)
-c
-      if(.not. cut)then
-        nlsum=1
-        nbj(1)=nsum 
-        nb6j(1)=kt
-        k6cp(1)=j6cp
-        k7cp(1)=j7cp
-        k8cp(1)=j8cp
-        k9cp(1)=j9cp
-c
-        do 21 i=1,kt
-          i1=nsum6j(i)
-        do 22 j=1,6 
-          jword(j,i)=jw(j,i1) 
-   22   continue
-   21   continue
-  
-        do 80 i=1,nsum
-          isu=jsum6(i)
-         do 81 j=1,isu
-           i1=jsum5(i,j)
-           j1=jsum4(i,j)
-           jword(j1,i1)=mp+i
-   81    continue
-   80   continue
-c
-       return
-      endif
-c
-c  ***separation of variables and sums in case a cut was detected.
-c
-      k6c=0
-      k7c=0
-      k8c=0
-      k9c=0
-      nj=0
-      n6j=0
-c
-      do 9 i=1,kt
-        t6j(i)=.false.
-    9 continue
-c
-      do 7 i=1,nsum 
-        jt(i)=.false.
-        js(i)=.false.
-    7 continue
-c
-      j=1 
-c
-   10 nj=nj+1
-      jnsum(nj)=j
-      jinv(j)=nj
-      jt(j)=.true.
-   18 js(j)=.true.
-      js6=jsum6(j)
-c
-      do 11 i=1,js6 
-        i6j=jsum5(j,i)
-c
-        if(.not.t6j(i6j))then 
-          t6j(i6j)=.true.
-          n6j=n6j+1 
-          n6jn(n6j)=nsum6j(i6j)
-          in6j(i6j)=n6j
-        endif
-c
-        j6j=j6sum(i6j)
-c
-      do 12 k=1,j6j 
-        jk=jsumt(i6j,k)
-        if(.not.jt(jk))then
-          nj=nj+1
-          jnsum(nj)=jk
-          jinv(jk)=nj
-          jt(jk)=.true.
-        endif
-   12 continue
-c
-   11 continue
-c
-      do 13 jj=1,nsum
-        j=jj
-        if(.not.js(jj) .and. jt(jj))go to 18
-   13 continue
-c
-      nlsum=nlsum+1 
-      nbj(nlsum)=nj 
-      nb6j(nlsum)=n6j
-c
-      if(j6cp.ne.0)call chvar(j6p,j6cp,k6c,jt,jinv,nsum)
-      k6cp(nlsum)=k6c
-      if(j7cp.ne.0)call chvar(j7p,j7cp,k7c,jt,jinv,nsum)
-      k7cp(nlsum)=k7c
-      if(j8cp.ne.0)call chvar(j8p,j8cp,k8c,jt,jinv,nsum)
-      k8cp(nlsum)=k8c
-      if(j9cp.ne.0)call chvar(j9p,j9cp,k9c,jt,jinv,nsum)
-      k9cp(nlsum)=k9c
-c
-      if(nj.ne.nsum)then
-        do 16 jj=1,nsum
-          j=jj
-          if(.not.jt(jj))go to 10
-   16   continue
-      endif
-c
-      do 26 i=1,kt
-        i1=n6jn(i)
-       do 27 j=1,6
-        jword(j,i)=jw(j,i1)
-   27  continue
-   26 continue
-c
-      do 28 i=1,nsum
-        ik=jnsum(i) 
-        i2=jsum6(ik)
-        jtem6(i)=i2 
-       do 29 j=1,i2 
-         jtem4(i,j)=jsum4(ik,j)
-         k=jsum5(ik,j)
-         jtem5(i,j)=in6j(k)
-   29  continue
-   28 continue
-c
-      do 40 i=1,nsum
-        i2=jtem6(i) 
-        jsum6(i)=i2 
-       do 41 j=1,i2 
-         i1=jtem5(i,j)
-         j1=jtem4(i,j)
-         jsum4(i,j)=j1
-         jsum5(i,j)=i1
-         jword(j1,i1)=i+mp
-   41  continue
-   40 continue
-c
-      return
-      end 
-c
-c
-c     *****************
-      subroutine square
-      implicit real*8(a-h,o-z)
-c     *****************
-c
-c  ***reduces a circuit of order 4 in the two cases which are left
-c  ***over by polygn,namely two disconnected groups of two points
-c  ***and one group of two points plus the two ends of the axis.in
-c  ***the latter, the end of the axis is transferred to the beginning.
-c  ***in this process,one summation variable and two 6j symbols are
-c  ***introduced.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar
-      integer arr,tab1
-      character*6 name,namsub 
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/nam/namsub
-c
-      data name/'square'/
-c
-c
-c
-      namsub=name
-      mp=mp+1
-      sumvar(mp)=.true.
-      k=1 
-      it1=npoint(1) 
-      it2=npoint(2) 
-c
-      if(icross.eq.1)then
-        it3=npoint(3)
-        it4=npoint(4)
-        k23=3
-        k32=2
-      else
-        it3=npoint(4)
-        it4=npoint(3)
-        k23=2
-        k32=3
-      endif
-c
-      l4=jdiag(it2,1)
-c
-      if(arr(it2,1).le.0)then 
-        call phase2(l4)
-        arr(it2,1)=1
-        arr(it3,1)=-1
-      endif
-c
-      l2=jdiag(it1,1)
-      if(arr(it1,1).gt.0)call phase2(l2)
-      jwc=jwc+1
-      kw(1,jwc)=l4
-      kw(2,jwc)=l2
-      kw(3,jwc)=jdiag(it2,2)
-      jj1=jdiag(it1,3)
-      kw(4,jwc)=jj1 
-      kw(5,jwc)=mp
-      kw(6,jwc)=jdiag(it1,2)
-      if(arr(it1,2).lt.0)call phase2(jdiag(it1,2))
-      jwc=jwc+1
-      kw(1,jwc)=l4
-      kw(2,jwc)=l2
-      jj3=jdiag(it3,k23)
-      jj2=jdiag(it4,k32)
-      kw(3,jwc)=jj3 
-      kw(4,jwc)=jj2 
-      kw(5,jwc)=mp
-      kw(6,jwc)=jdiag(it3,k32)
-      if(arr(it3,k32).lt.0)call phase2(jdiag(it3,k32))
-      j6(j6c+1)=mp
-      j6c=j6c+2
-      j6(j6c)=mp
-c
-      if(npart.eq.1) then
-        itmin=it2
-        itmax=it3
-        itl=max0(it3,it4)
-        ith=ilast
-      else
-        itmin=min0(it2,it3)
-        itmax=max0(it2,it3)
-        itmn=min0(it1,it4)
-        itmx=max0(it1,it4)
-        itl=max0(itmin,itmn)
-        ith=min0(itmax,itmx)
-      endif
-c
-      tab1(mp,1)=itmin
-      tab1(mp,2)=itmax
-      jdiag(it2,1)=mp
-      jdiag(it3,1)=mp
-      jdiag(it2,3)=jj1
-      arr(it2,3)=arr(it1,3)
-      jdiag(it3,k32)=jj2
-      arr(it3,k32)=arr(it4,k32)
-c
-      if(icross .eq. 1) then
-        j7(j7c+1)=l2
-        j7(j7c+2)=l4
-        call phase2(l4)
-        j7c=j7c+3
-        j7(j7c)=mp
-      else
-        call phase2(jj2)
-      endif
-c
-      itll=il(itl)
-      if(npart.eq.1.and.icross.eq.1)itll=itll+1
-      ithl=il(ith)
-      if(npart.eq.2.and.icross.ne.1)ithl=ithl-1
-c
-    5 do 6 i=itll,ithl
-        it=ih(i)
-        ilp=i-k
-        il(it)=ilp
-        ih(ilp)=it
-    6 continue
-c
-      if(ithl.ne.nbnode) then 
-        itll=ithl+2 
-        if(itll.le.nbnode) then
-          ithl=nbnode
-          k=2
-          go to 5
-        endif
-      endif
-c
-      if(npart.ne.2)then
-        tab1(jj1,1)=ih(1)
-        tab1(jj1,2)=ih(nbnode-2)
-      endif
-c
-      return
-      end 
-c
-c
-c     **************************************
-      subroutine trdel(jj1,jj2,jj3,nbn,fail)
-      implicit real*8(a-h,o-z)
-c     **************************************
-c
-c  ***test for triangular delta.if not satisfied fail=.true.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,sumvar,cut,free
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/cutdig/cut
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-c
-c
-c
-      if(sumvar(jj1).or.sumvar(jj2).or.sumvar(jj3))return
-      if(nbn.gt.4)cut=.true.
-      if(.not.free(jj1).and..not.free(jj2).and..not.free(jj3))then
-        i1=j1(jj1)
-        i2=j1(jj2)
-        i3=j1(jj3)
-        if(i1.lt.(iabs(i2-i3)+1).or.i1.gt.(i2+i3-1))fail=.true.
-      endif
-c
-      return
-      end 
-c
-c
-c     *********************** 
-      subroutine triang(fail) 
-      implicit real*8(a-h,o-z)
-c     *********************** 
-c
-c  ***reduces a triangle having one apex at either end of the axis of 
-c  ***the flat diagram.
-c  ***this introduces one 6j symbol and some phase factors .
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,sumvar
-      integer arr,tab1
-      character*6 name,namsub 
-c
-      common/graph/jdiag(m4trd,3),arr(m4trd,3),tab1(mangm,2),il(m4trd),
-     + ih(m4trd),npoint(m2trd),nbnode,ifirst,ilast,iparts,ipartl,npart,
-     + icross,nfree,itfree(m6j),nfin,nc,idummy(18)
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      common/nam/namsub
-c
-      data name/'triang'/
-c
-c
-c
-      namsub=name
-      it1=npoint(1) 
-      it2=npoint(2) 
-      it3=npoint(3) 
-      jwc=jwc+1
-      kw(1,jwc)=jdiag(it3,2)
-      kw(2,jwc)=jdiag(it2,3)
-      kw(3,jwc)=jdiag(it3,1)
-      if(arr(it3,1).gt.0)call phase2(kw(3,jwc))
-      kw(4,jwc)=jdiag(it2,1)
-      if(arr(it2,1).lt.0)call phase2(kw(4,jwc))
-      k23=3
-      if(it1.eq.ifirst)k23=2
-      kw(5,jwc)=jdiag(it1,k23)
-      kw(6,jwc)=jdiag(it3,3)
-      call trdel(kw(1,jwc),kw(2,jwc),kw(5,jwc),nbnode,fail) 
-      if(fail)go to 15
-      if(arr(it3,3).gt.0)call phase2(kw(6,jwc))
-      jt1=kw(5,jwc) 
-      jdiag(it3,1)=jt1
-      jdiag(it3,3)=kw(2,jwc)
-      arr(it3,1)=arr(it1,k23) 
-      arr(it3,3)=arr(it2,3)
-c
-      if(it1.ne.ifirst)then
-        tab1(jt1,1)=it3
-        tab1(jt1,2)=ih(nbnode-1)
-        k12=1
-      else
-        tab1(jt1,1)=ih(2)
-        tab1(jt1,2)=it3
-        k12=2
-      endif
-c
-      il3=il(it3)
-c
-      if(it1.ne.ilast)then
-        il2=il(it2)-1
-c
-        do 2 i=2,il2
-          it=ih(i)
-          ilp=i-1
-          il(it)=ilp
-          ih(ilp)=it
-    2   continue
-      endif
-c
-      do 1 i=il3,nbnode
-        it=ih(i)
-        ilp=i-k12
-        il(it)=ilp
-        ih(ilp)=it
-    1 continue
-c
-   15 return
-      end 
-c
-c
-c     ***************************************************** 
-      subroutine var(jn,jns,jnc,jnsc,jbc,sumvar,mp,m,inver) 
-      implicit real*8(a-h,o-z)
-c     ***************************************************** 
-c
-c  ***test for variable character and put in jns if yes,and jn now
-c  ***contains 0.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical sumvar(mp)
-      dimension jn(jnc),jns(mangmp),inver(mp)
-c
-c
-c
-      jnsc=0
-      if(jbc.ne.jnc)then
-        jbbc=jbc+1
-c
-        do 1 i=jbbc,jnc
-          i1=jn(i)
-          if(sumvar(i1))then
-            jnsc=jnsc+1
-            j=inver(i1)
-            jns(jnsc)=j
-            jn(i)=m 
-          endif
-    1 continue
-      endif
-c
-      return
-      end 
-c
-c
-c     ******************************
-      subroutine way(l,ka,kb,ich,nb)
-      implicit real*8(a-h,o-z)
-c     ******************************
-c
-c  ***tests one step forward  if the way is free.first and second
-c  ***arguments are interchanged or not according to ich=-1,or +1
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm)
-c
-      logical tabs
-      integer arrow 
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/build/ial(m4trd),if1,if2,node
-c
-c
-      k1=j23(l,ka)
-      k2=j23(l,kb)
-      nb=ial(k1)+ial(k2)-1
-      if(nb)3,2,8
-    2 nb1=ial(k1)-ial(k2)
-      if(nb1)9,8,8
-    3 call otherj(l,k1,l1,lc1,la)
-      call otherj(l,k2,l2,lc2,lb)
-      call neibor(lc1,i1,i2)
-      call neibor(lc2,i3,i4)
-      ji1=j23(l1,i1)
-      ji2=j23(l1,i2)
-      ji3=j23(l2,i3)
-      ji4=j23(l2,i4)
-      ia=ial(ji1)+ial(ji2)
-      ib=ial(ji3)+ial(ji4)
-      nbp=ib+ia+1
-      nbm=ib-ia
-      go to (8,4,5,4,6),nbp
-    4 if(nbm)9,8,8
-    5 if(nbm)9,6,8
-    6 if(ji3.eq.if1.or.ji3.eq.if2.or.ji4.eq.if1.or.ji4.eq.if2)go to 9 
-    8 ich=1
-      go to 10
-    9 ich=-1
-   10 return
-      end 
-c
-c
-c     **************************
-      subroutine zero(j,jz,fail)
-      implicit real*8(a-h,o-z)
-c     **************************
-c
-c  ***suppresses one line and two nodes of the unstructured graph
-c  ***introduces  zeros in the triads j23.as a consequence the other
-c  ***two arguments of the triad are put equal.if there was already
-c  ***a zero in the triad which is changed,it is a special case.
-c
-c
-      parameter(mangm=60,mtriad=12,m2trd=2*mtriad,m4trd=4*mtriad)
-      parameter(m6j=20,msum=10,m3mngm=3*mangm,mangmp=2*(mangm/3))
-c
-      logical fail,tabs,free,sumvar,cut,nocut
-c
-      integer arrow 
-c
-      character*6 name
-c
-      common/zer/nzero,jzero(m6j)
-      common/cutdig/cut
-      common/couple/m,n,j1(mangm),j2(mtriad,3),j3(mtriad,3),free(mangm)
-      common/keep/jkp(2,3),jarr(2,3),it2,it3,it5
-      common/build/ial(m4trd),if1,if2,node
-c
-      common/tree/j23(m2trd,3),arrow(m2trd,3),line(mangm,2),
-     +  lcol(mangm,2),tabs(m2trd),nbtr
-c
-      common/argu/j6c,j7c,j8c,j9c,jwc,j6(m3mngm),j7(m3mngm),j8(m3mngm),
-     + j9(mangmp),kw(6,m6j),jdel,ldel(m6j,2),sumvar(mangm),mp
-c
-      data name/'zero  '/
-c
-c
-c
-c
-c
-      nocut=.false. 
-      nzero=0
-c
-      if(j.ge.1)then
-       call otherj(0,jz,lin,lc,k1)
-        i=nzero
-        go to 8
-      endif
-c
-      do 11 i=1,m
-        if(j1(i).ne.1.or.free(i).or.ial(i).le.1)go to 11
-        nzero=nzero+1
-        jzero(nzero)=i
-   11 continue
-c
-      nocut=.true.
-      m=m+1
-      j1(m)=1
-      sumvar(m)=.false.
-      free(m)=.false.
-      if(nzero.eq.0)go to 7
-      call printj(name,1)
-      i=0 
-    1 i=i+1
-      jz=jzero(i)
-      j=0 
-   13 j=j+1
-      lin=line(jz,j)
-      if(tabs(lin))go to 2
-      lc=lcol(jz,j) 
-    8 call neibor(lc,l1,l2)
-      jj1=j23(lin,l1)
-      jj2=j23(lin,l2)
-c
-      if(jj1.eq.jj2)then
-        j6c=j6c+1
-        j6(j6c)=jj1 
-        go to 10
-      endif
-c
-      call delta(jj1,jj2,fail)
-      if(fail)go to 7
-c
-      if(j1(jj1).ne.1.and.j1(jj2).ne.1)go to 15
-      if(j1(jj1) .lt. j1(jj2))go to 15
-      if(j1(jj1) .gt. j1(jj2))go to 19
-c
-      if(nzero.ne.0)then
-        do 17 jjx=i,nzero
-          jjz=jzero(jjx)
-          if(jj1 .eq. jjz)go to 15
-   18     if(jj2 .eq. jjz)go to 19
-   17   continue
-      endif
-c
-      go to 15
-c
-   19 jjz=jj2
-      jj2=jj1
-      jj1=jjz
-c
-   15 call otherj(lin,jj1,lo1,lco1,k1)
-      call otherj(lin,jj2,lo2,lco2,k2)
-      j9c=j9c+1
-      j9(j9c)=jj1
-      j23(lo2,lco2)=jj1
-      line(jj1,k1)=lo2
-      lcol(jj1,k1)=lco2
-c
-   10 if(arrow(lin,l1) .lt. arrow(lin,l2)) then
-        call phase2(jj1)
-      else
-      if(arrow(lin,l1) .eq. arrow(lin,l2)) then
-        arrow(lo1,lco1)=1
-        arrow(lo2,lco2)=-1
-      endif
-      endif
-c
-      tabs(lin)=.true.
-      nbtr=nbtr-1
-      if(nbtr.eq.0)go to 7
-c      if(lo1.ne.lo2)go to 2
-c      l=6-lco1-lco2 
-c      jt=j23(lo1,l) 
-c      if(j1(jt).eq.1.and..not.free(jt))go to 2
-c      call delta(jt,m,fail)
-c      if(fail)go to 7
-c      call neibor(l,l1,l2)
-c      jtf=j23(lo1,l1)
-c      if(arrow(lo1,l1) .lt. arrow(lo1,l2))call phase2(jtf)
-c      j6c=j6c+1
-c      j6(j6c)=jtf
-c      nbtr=nbtr-1
-c      tabs(lo1)=.true.
-c      call otherj(lo1,jt,lin,lc,k)
-c      go to 8
-c     november 22 1989  
-      if(lo1.eq.lo2)then
-        l=6-lco1-lco2 
-        jt=j23(lo1,l) 
-        if(j1(jt).eq.1.and..not.free(jt))go to 2
-        call delta(jt,m,fail)
-        if(fail)go to 7
-        nzero=nzero+1
-        jzero(nzero)=jt
-      end if
-    2 if(j.eq.1)go to 13
-c
-      if (nbtr .ne. 0) then
-        if(i.lt.nzero) go to 1
-      endif
-c
-    7 call printj(name,4)
-      if(nocut)cut=.false.
-c
-      return
-      end 
+      SUBROUTINE NJGRAF(RECUP,FAIL)
+C***********************************************************************
+C
+C                   NJGRAF
+C
+C***********************************************************************
+C***********************************************************************
+C
+C     WRITTEN BY:
+C                     A. BAR-SHALOM AND M. KLAPISCH
+C                     RACAH INSTITUTE OF PHYSICS
+C                     HEBREW UNIVERSITY
+C                     91904 JERUSALEM
+C                     ISRAEL.
+C
+C***********************************************************************
+C
+C-----THIS IS THE MAIN PROGRAM.IT HANDLES  ALL THE ANALYSIS OF THE
+C     RECOUPLING COEFFICIENT WITHOUT REFERRING EXPLICITLY TO THE VALUES
+C     OF ANGULAR MOMENTA WHICH ARE IN J1(J),EXCEPT FOR ZERO IN CASE FREE
+C     =.FALSE. .LIKE NJSYM IT PREPARES ARRAYS OF ARGUMENTS FOR PHASE
+C     FACTORS,(2*J+1) FACTORS AND 6J COEFFICIENTS TO BE COMPUTED IN
+C     GENSUM,WHICH CAN ALSO BE CALLED SEPARATELY WHEN ONLY THE NUMERICAL
+C     VALUES OF ANGULAR MOMENTA CHANGE.THESE VARIABLE ANGULAR MOMENTA
+C     SHOULD BE DECLARED FREE(J)=.TRUE.,SO THAT THE FORMULA PREPARED FOR
+C     GENSUM SHOULD BE CORRECT WHEN  J1 IS NOT ZERO.
+C     FAIL WILL BE TRUE WHEN THE RECOUPLING COEFFICIENT IS ZERO BECAUSE
+C     OF UNSATISFIED DELTA OR OTHER SIMILAR CAUSES.
+C
+C***********************************************************************
+C
+C     THIS VERSION HAS BEEN MODIFIED TO HOLD THE ARRAY DIMENSIONS IN
+C     PARAMETER STATEMENTS. THE DIMENSIONS ARE LABELLED:
+C
+C     KFL1 - DIMENSION OF THE J1 AND FREE ARRAYS IN /COUPLE/, AND THE
+C            FIRST DIMENSION OF THE LINE AND LCOL ARRAYS IN /TREE/.
+C            ALSO THE DIMENSION OF THE SUMVAR ARRAY IN /ARGU/, AND
+C            OF THE INVER ARRAY IN ROUTINE SPRATE. IT IS TESTED FOR M
+C            ON ENTRY TO NJGRAF, AND FOR MP IN ROUTINE SPRATE.
+C
+C     KFL2 - DIMENSION OF THE J2 AND J3 ARRAYS IN /COUPLE/. THE
+C            DIMENSIONS OF THESE ARRAYS ARE CHECKED ON ENTRY TO NJGRAF.
+C
+C     KFL2A = (2*KFL2) - DIMENSION OF THE J23, ARROW AND TABS ARRAYS IN
+C                      /TREE/.
+C     KFL2B = (4*KFL2) - DIMENSION OF THE JDIAG,ARR,IL AND IH ARRAYS
+C                            IN /GRAPH/, AND OF THE IAL ARRAY IN /BUILD/
+C     KFL2C = (2*KFL2+2) - DIMENSION OF THE NPOINT ARRAY IN /GRAPH/.
+C
+C     KFL6 - DIMENSION OF THE J6 ARRAY IN /ARGU/. TESTED IN SPRATE.
+C
+C     KFL7 - DIMENSION OF THE J7 ARRAY IN /ARGU/. TESTED IN SPRATE.
+C
+C     KFL8 - DIMENSION OF THE J8 ARRAY IN /ARGU/. TESTED IN SPRATE.
+C
+C     KFL9 - DIMENSION OF THE J9 ARRAY IN /ARGU/. TESTED IN SPRATE.
+C
+C     KFLW - DIMENSION OF THE JW AND LDEL ARRAYS IN /ARGU/, AND
+C            OF THE JWORD AND INV6J ARRAYS IN /SUMARG/. ALSO THE SECOND
+C            DIMENSION OF THE JSUM4 AND JSUM5 ARRAYS IN /SUMARG/.
+C            IN ADDITION IT GIVES THE DIMENSIONS OF A NUMBER OF
+C            TEMPORARY WORKING ARRAYS IN ROUTINES SPRATE AND GENSUM.
+C            KFLW IS TESTED IN SPRATE.
+C
+C     KFLS - DIMENSION OF THE JSUM6 ARRAY AND FIRST DIMENSION OF THE
+C            JSUM4 AND JSUM5 ARRAYS IN /SUMARG/. ALSO GIVES THE
+C            DIMENSIONS OF SOME TEMPORARY WORKING ARRAYS IN SPRATE
+C            AND GENSUM. KFLS IS THE MAXIMUM NUMBER OF SUMMATION
+C            VARIABLES IN A PARTICULAR SUM, AND IS TESTED IN SPRATE.
+C
+C     KFLN - DIMENSION OF THE NBJ, NB6J, K6CP, K7CP, K8CP AND K9CP
+C            ARRAYS IN /SUMARG/. KFLN IS THE MAXIMUM NUMBER OF
+C            SUMS ALLOWED, AND IS TESTED IN ROUTINE SPRATE.
+C
+C     KFLV - DIMENSION OF THE J6P, J7P, J8P AND J9P ARRAYS IN
+C            /SUMARG/, AND OF THE JNS ARRAY IN ROUTINE VAR.
+C            KFLV IS TESTED IN VAR.
+C
+C     KFLZ - DIMENSION OF THE JZERO ARRAY IN /ZER/. KFLZ IS TESTED IN
+C            ROUTINE ZERO.
+C
+C******************************************************************
+C
+C     OTHER CHANGES:
+C
+C  (1) THIS VERSION HAS BEEN ALTERED TO USE THE RACAH
+C     COEFFICIENT ROUTINE WRITTEN BY STAN SCOTT AND ALAN HIBBERT
+C     (CPC 28 189-200 1982). SUBROUTINE FACTT MUST BE CALLED TO
+C     SET UP THE ARRAY GAM WHICH HOLDS LN(N!) BEFORE NJGRAF IS
+C     CALLED.
+C  (2) THE SUBROUTINES ORDER AND SETDIM HAVE BEEN RENAMED AS
+C     ORDTRI AND SETDM, TO AVOID CONFLICT IN THE QUB CODES.
+C  (3) COMMON BLOCKS /ARGU/ AND /SUMARG/ HAVE BEEN REMOVED FROM
+C     SUBROUTINE GENSUM, AND THEIR CONTENTS ARE TRANSFERRED VIA
+C     THE ARGUMENT LIST INSTEAD. /SUMARG/ HAS THUS BEEN INCLUDED
+C     IN SUBROUTINE NJGRAF TO ACHIEVE THIS.
+C  (4) THE TIMING ROUTINES HAVE BEEN REMOVED FROM THE NJGRAF
+C     PACKAGE AS THEY WERE CDC SPECIFIC AND SEEMED UNNECESSARY.
+C
+C****************************************************************
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20,KFLS=12,
+     A          KFLN=10,KFLV=40)
+C
+      LOGICAL FAIL,FIND
+C
+      INTEGER ARROW
+      LOGICAL TABS
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+      LOGICAL CUT
+      COMMON /CUTDIG/CUT
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      COMMON /SUMARG/J6P(KFLV),J7P(KFLV),J8P(KFLV),J9P(KFLV),
+     A       JWORD(6,KFLW),NLSUM,NBJ(KFLN),NB6J(KFLN),K6CP(KFLN),
+     B       K7CP(KFLN),K8CP(KFLN),K9CP(KFLN),JSUM6(KFLS),
+     C       JSUM4(KFLS,KFLW),JSUM5(KFLS,KFLW),INV6J(KFLW)
+C
+      CHARACTER*6 NAME,NAMSUB
+      COMMON /NAM/NAMSUB
+      DATA NAME/'NJGRAF'/
+C
+C     TEST THE DIMENSION OF THE J1 ARRAY
+C
+      IF (M+1.GT.KFL1) THEN
+        PRINT 3000,M + 1,KFL1
+        STOP
+C
+      ENDIF
+C
+C     TEST THE DIMENSIONS OF THE J2 AND J3 ARRAYS
+C
+      IF (N-1.GT.KFL2) THEN
+        PRINT 3010,N - 1,KFL2
+        STOP
+C
+      ENDIF
+C
+C    1.0
+C    BUILDING UP OF THE UNSTRUCTURED GRAPH
+C
+      FAIL = .FALSE.
+      J6C = 0
+      J7C = 0
+      J8C = 0
+      J9C = 0
+      JWC = 0
+      JDEL = 0
+      CALL SETDM
+      NFIN = 0
+      CUT = .FALSE.
+      CALL SETTAB(FAIL)
+      M = M + 1
+      IF (FAIL) GOTO 130
+      M = M - 1
+      JF = 0
+      JF1 = 0
+C
+C   1.1
+C      LOCATING AND HANDLING OF ZEROS
+C
+      CALL ZERO(JF1,JF,FAIL)
+      IF (FAIL) GOTO 130
+      MP = M
+      IF (NBTR.EQ.0) GOTO 140
+      JUMP = 1
+C
+C    2.
+C      BUILDING OF A FLAT DIAGRAM OUT OF THE UNSTRUCTURED GRAPH.
+C      THERE MAY BE SEVERAL FLAT DIAGRAMS OUT OF THE ORIGINAL
+C      GRAPH,IN CASE OF POSSIBLE CUTS.THEN THE FLAT DIAGRAMS
+C      WILL HAVE FREE ENDS.
+C
+   10 CONTINUE
+      CALL DIAGRM(JUMP)
+      NFIN = MAX(0,NFREE-2)
+      IF (NFIN.EQ.0) GOTO 20
+      JUMP = 3
+C
+C    2.1
+C     HANDLING OF FREE ENDS IF A CUT WAS FOUND
+C
+      CALL CUTNL(FAIL)
+      IF (FAIL) GOTO 130
+      GOTO 50
+C
+   20 CONTINUE
+      JUMP = 2
+      IF (NFREE-1) 50,30,40
+   30 CONTINUE
+      CALL CUT1L(FAIL)
+      IF (FAIL) GOTO 130
+      GOTO 50
+C
+   40 CONTINUE
+      CALL CUT2L(FAIL)
+      IF (FAIL) GOTO 130
+   50 CONTINUE
+      NBTR = NBTR + NFIN
+      IF (NBTR.NE.0) CUT = .TRUE.
+C
+C    3.
+C    ANALYSIS OF THE FLAT DIAGRAM.
+C     CLOSED CIRCUITS OF INCREASING ORDER NC ARE SEARCHED,ANALYSED,AND
+C     TAKEN OUT OF THE FLAT DIAGRAM,THUS REDUCING THE NUMBER OF NODES,
+C     NBNODE.
+C
+      NC = 0
+   60 CONTINUE
+      NC = NC + 1
+      CALL SEARCH(FIND)
+      IF (.NOT.FIND) GOTO 60
+      NCP = NC - 2
+      JPOL = 0
+      IF (M.EQ.MP .AND. NC.GT.3) CALL SETDM
+      IF (IPARTL.GT.2) CALL POLYGN(JPOL)
+      GOTO (70,80,90,100),NC
+C
+   70 CONTINUE
+      CALL LOLPOP(FAIL)
+      IF (FAIL) GOTO 130
+      GOTO 110
+C
+   80 CONTINUE
+      CALL BUBBLE(JPOL,FAIL)
+      IF (FAIL) GOTO 130
+      GOTO 110
+C
+   90 CONTINUE
+      CALL TRIANG(FAIL)
+      IF (FAIL) GOTO 130
+      GOTO 110
+C
+  100 CONTINUE
+      CALL SQUARE
+  110 CONTINUE
+      NBNODE = NBNODE - 2
+      IF (NBNODE.EQ.0) GOTO 120
+      IFIRST = IH(1)
+      ILAST = IH(NBNODE)
+C      PRINTJ IS AN ALL PURPOSE PRINTING SUBROUTINE CALLED FROM MANY PLA
+      CALL PRINTJ(NAMSUB,8)
+      IF (NBNODE.EQ.NFIN) GOTO 120
+      NC = NCP
+C
+C    PROCEED TO OTHER CIRCUITS OF ORDER NC-1
+C
+      GOTO 60
+C
+  120 CONTINUE
+      IF (NBTR.EQ.0) GOTO 140
+      IF (JUMP.EQ.3) CALL ORDTRI
+C
+C    AT THIS STAGE,THE FLAT DIAGRAM HAS BEEN REDUCED TO NODES
+C    INVOLVING FREE ENDS.PROCEED TO BUILD OTHER FLAT DIAGRAMS
+C    IF NECESSARY.
+C
+      GOTO 10
+C
+C   ALL PARTS OF THE ORIGINAL GRAPH HAVE BEEN REDUCED.
+C
+  130 CONTINUE
+      RECUP = 0.0D0
+      M = M - 1
+      RETURN
+C
+  140 CONTINUE
+      CALL PRINTJ(NAME,0)
+C
+C    4.PREPARATION OF THE RESULTS,AND SEPARATION IN SEVERAL SUMS
+C      IF CUTS HAVE BEEN DETECTED,ALSO IN THE FLAT DIAGRAM ITSELF
+C
+      CALL SPRATE(M)
+      M = M - 1
+C
+C    5. GENSUM COMPUTES THE NUMERICAL VALUE OF THE RECOUPLING COEFFICIEN
+C
+c      CALL GENSUM(J6C,J7C,J8C,J9C,JWC,J6,J7,J8,J9,JW,JDEL,LDEL,
+c     A            MP,J6P,J7P,J8P,J9P,JWORD,NLSUM,NBJ,NB6J,K6CP,K7CP,
+c     B            K8CP,K9CP,JSUM4,JSUM5,JSUM6,INV6J,RECUP)
+C
+ 3000 FORMAT (1X,'DIMENSION ERROR IN NJGRAF. M+1=',I5,' KFL1=',I5)
+ 3010 FORMAT (' DIMENSION ERROR IN NJGRAF. N-1=',I5,' KFL2=',I5)
+      END
+CEND********************************************************************
+      SUBROUTINE BUBBLE(JPOL,FAIL)
+C
+C    REDUCES A CIRCUIT OF ORDER 2,GIVING DELTA FUNCTION AND PHASE
+C    FACTORS.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      CHARACTER*6 NAME,NAMSUB
+      COMMON /NAM/NAMSUB
+      DATA NAME/'BUBBLE'/
+C
+      NAMSUB = NAME
+      K2 = 2
+      K23 = 3
+      I1 = 1
+      I2 = 1
+      IT1 = NPOINT(1)
+      IT2 = NPOINT(2)
+      IF (IT2.NE.ILAST) GOTO 20
+      IF (IT1.EQ.IFIRST) GOTO 10
+      IT2 = IT1
+      IT1 = ILAST
+   10 CONTINUE
+      I1 = -1
+      K23 = 2
+      I2 = 2
+C
+C    PHASE(IT1,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+   20 CONTINUE
+      J7(J7C+1) = JDIAG(IT1,1)
+      J7(J7C+2) = JDIAG(IT1,2)
+      J7C = J7C + 3
+      J7(J7C) = JDIAG(IT1,3)
+C
+      K = ABS((3*ARR(IT2,1)+2*ARR(IT2,2)+ARR(IT2,3))/2) + 1
+      IF (K.NE.4) THEN
+C
+C     PHASE2(JDIAG(IT2,K)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JDIAG(IT2,K)
+C
+      ENDIF
+C
+      IF (NBNODE.EQ.2) GOTO 80
+      IL1 = IL(IT2) + I1
+      IT = IH(IL1)
+      ARR(IT,K23) = ARR(IT1,K23)
+      L = JDIAG(IT1,K23)
+      L1 = JDIAG(IT,K23)
+      JDIAG(IT,K23) = L
+      IF (JPOL.NE.1) GOTO 30
+      MP = MP - 1
+      JW(2,JWC) = L
+      J6(J6C-1) = L
+      J6(J6C) = L
+      IF (K.EQ.2) J8(J8C) = L
+      GOTO 40
+C
+   30 CONTINUE
+      CALL DELTA(L,L1,FAIL)
+      IF (FAIL) GOTO 80
+   40 CONTINUE
+      TAB1(L,I2) = IT
+      IF (IT1.EQ.ILAST) GOTO 70
+      IF (IT2.NE.ILAST) GOTO 50
+      TAB1(L,1) = IH(2)
+      IL1 = 2
+      K2 = 1
+   50 CONTINUE
+      DO 60 I = IL1,NBNODE
+        IT = IH(I)
+        IL(IT) = I - K2
+        IH(I-K2) = IT
+   60 CONTINUE
+   70 CONTINUE
+      J9(J9C+1) = L
+      J9C = J9C + 2
+      J9(J9C) = L
+   80 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE CHANGE(L,K)
+C
+C     EXCHANGES THE FREE ENDS IN EITHER FIRST OR LAST TRIAD OF JDIAG.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4,KFL2A=2*KFL2,KFL2B=4*KFL2,
+     A          KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+C    PHASE(L,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+      J7(J7C+1) = JDIAG(L,1)
+      J7(J7C+2) = JDIAG(L,2)
+      J7C = J7C + 3
+      J7(J7C) = JDIAG(L,3)
+C
+      JP = JDIAG(L,K)
+      JDIAG(L,K) = JDIAG(L,1)
+      JDIAG(L,1) = JP
+      JAR = ARR(L,K)
+      ARR(L,K) = ARR(L,1)
+      ARR(L,1) = JAR
+C
+      END
+CEND********************************************************************
+      SUBROUTINE CHVAR(JP,NBC,KBC,JT,JINV,NSUM)
+C
+C     CHANGES THE ORDER OF SUMMATION VARIABLE TO BE ABLE TO PERFORM
+C     SEPARATELY THE SUMMATIONS IN GENSUM.
+C
+      LOGICAL JT(NSUM)
+      DIMENSION JP(NBC),JINV(NSUM)
+C
+      KB = KBC + 1
+      IF (KB.GT.NBC) GOTO 20
+      DO 10 I = KB,NBC
+        JK = JP(I)
+        IF (.NOT.JT(JK)) GOTO 10
+        KBC = KBC + 1
+        JP(I) = JP(KBC)
+        JP(KBC) = JINV(JK)
+   10 CONTINUE
+   20 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE CUT1L(FAIL)
+C
+C     CUT ON ONE LINE,THAT WAS LEFT AS A FREE END IN JDIAG.PUTS
+C     CORRESPONDING DELTA IN J23.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      CHARACTER*6 NAME
+      DATA NAME/'CUT1L '/
+C
+      IT = ITFREE(1)
+      J0 = JDIAG(IT,1)
+      CALL DELTA(J0,M,FAIL)
+      IF (FAIL) GOTO 50
+      CALL DELTA(JDIAG(IT,3),JDIAG(IT,2),FAIL)
+      IF (FAIL) GOTO 50
+      JDIAG(IT+1,3) = JDIAG(IT,3)
+      IF (ARR(IT,2)-ARR(IT,3)) 20,10,30
+   10 CONTINUE
+      ARR(IT+1,3) = 1
+      ARR(IT-1,2) = -1
+      GOTO 30
+C
+   20 CONTINUE
+      ARR(IT+1,3) = -1
+      ARR(IT-1,2) = 1
+   30 CONTINUE
+      J9C = J9C + 1
+      J9(J9C) = JDIAG(IT,3)
+      J = 2
+      CALL ZERO(J,J0,FAIL)
+      IF (FAIL) GOTO 50
+      IL1 = IL(IT+1)
+      DO 40 I = IL1,NBNODE
+        IT = IH(I)
+        ILP = I - 1
+        IL(IT) = ILP
+        IH(ILP) = IT
+   40 CONTINUE
+      NBNODE = NBNODE - 1
+   50 CONTINUE
+      CALL PRINTJ(NAME,12)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE CUT2L(FAIL)
+C
+C     CUT ON TWO LINES THAT WERE LEFT AS FREE ENDS IN JDIAG.PUTS
+C     CORRESPONDING DELTA IN J23.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      LOGICAL TABS
+      INTEGER ARROW
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      CHARACTER*6 NAME
+      DATA NAME/'CUT2L '/
+C
+      IT1 = ITFREE(1)
+      IT2 = ITFREE(2)
+      JT1 = JDIAG(IT1,1)
+      JT2 = JDIAG(IT2,1)
+      CALL DELTA(JT1,JT2,FAIL)
+      IF (FAIL) GOTO 10
+      IF (ARR(IT1,1).EQ.ARR(IT2,1)) THEN
+C
+C     PHASE2(JT1): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JT1
+C
+      ENDIF
+C
+      ARR(IT2,1) = -ARR(IT1,1)
+      JDIAG(IT2,1) = JT1
+      TAB1(JT1,2) = IT2
+      J9(J9C+1) = JT1
+      J9C = J9C + 2
+      J9(J9C) = JT1
+C
+C     OTHERJ(0,JT1,L1,LC1,K1):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      L1 = LINE(JT1,1)
+      IF (L1.EQ.0 .OR. TABS(L1)) THEN
+        K1 = 1
+        L1 = LINE(JT1,2)
+        LC1 = LCOL(JT1,2)
+C
+      ELSE
+        K1 = 2
+        LC1 = LCOL(JT1,1)
+      ENDIF
+C
+C     OTHERJ(0,JT2,L2,LC2,K2):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      L2 = LINE(JT2,1)
+      IF (L2.EQ.0 .OR. TABS(L2)) THEN
+        L2 = LINE(JT2,2)
+        LC2 = LCOL(JT2,2)
+C
+      ELSE
+        LC2 = LCOL(JT2,1)
+      ENDIF
+C
+      J23(L2,LC2) = JT1
+      LINE(JT1,K1) = L2
+      LCOL(JT1,K1) = LC2
+      ARROW(L2,LC2) = -ARROW(L1,LC1)
+   10 CONTINUE
+      CALL PRINTJ(NAME,12)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE CUTNL(FAIL)
+C
+C     THIS SUBROUTINE  EXAMINES THE CASE WHERE THERE ARE MORE THAN
+C     TWO FREE ENDS,BUT THEY ARE CONTIGUOUS,SO THAT THE GRAPH CAN
+C     BE CUT WITHOUT DESTROYING THE FLAT STRUCTURE.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      INTEGER ARROW
+      LOGICAL TABS
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      COMMON /KEEP/JKP(2,3),JARR(2,3),IT2,IT3,IT5
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      LOGICAL FAIL
+C
+      CHARACTER*6 NAME
+      DATA NAME/'CUTNL '/
+C
+      NTF = ITFREE(NFREE) - ITFREE(1)
+      IF (NTF.GT.NFREE) GOTO 90
+      IT2 = ITFREE(1)
+      IT3 = ITFREE(NFREE)
+      IT1 = IT2 - 1
+      IT4 = IT3 + 1
+      IF (NTF.EQ.NFREE) GOTO 20
+      JT = JDIAG(IT2,3)
+      CALL DELTA(JT,JDIAG(IT3,2),FAIL)
+      IF (FAIL) GOTO 80
+      IF (ARR(IT2,3).NE.ARR(IT3,2)) GOTO 10
+C
+C     PHASE2(JT): ADDS A PHASE FACTOR (-1)**2J
+C
+      J8C = J8C + 1
+      J8(J8C) = JT
+C
+      ARR(IT2,3) = -ARR(IT2,3)
+      ARR(IT1,2) = -ARR(IT1,2)
+   10 CONTINUE
+      JDIAG(IT3,2) = JT
+      JDIAG(IT4,3) = JT
+      J9(J9C+1) = JT
+      J9C = J9C + 2
+      J9(J9C) = JT
+      NBTR = NBTR + NFREE
+      IT5 = 0
+      GOTO 60
+C
+   20 CONTINUE
+      NFR = 0
+      DO 30 IT5 = IT2,IT3
+        NFR = NFR + 1
+        IF (ITFREE(NFR).GT.IT5) GOTO 40
+   30 CONTINUE
+   40 CONTINUE
+      JKP(1,1) = JDIAG(IT5,1)
+      JARR(1,1) = -ARR(IT5,1)
+      JKP(1,2) = JDIAG(IT2,3)
+      JARR(1,2) = -ARR(IT2,3)
+      JKP(1,3) = JDIAG(IT3,2)
+      JARR(1,3) = -ARR(IT3,2)
+      DO 50 J = 1,3
+        JKP(2,J) = JDIAG(IT5,J)
+        JARR(2,J) = ARR(IT5,J)
+   50 CONTINUE
+      JDIAG(IT5,2) = JDIAG(IT3,2)
+      ARR(IT5,2) = ARR(IT3,2)
+      JDIAG(IT5,3) = JDIAG(IT2,3)
+      ARR(IT5,3) = ARR(IT2,3)
+      ILP = IL(IT2)
+      IL(IT5) = ILP
+      IH(ILP) = IT5
+      NBTR = NBTR + NFREE + 2
+C
+C    PHASE(IT5,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+      J7(J7C+1) = JDIAG(IT5,1)
+      J7(J7C+2) = JDIAG(IT5,2)
+      J7C = J7C + 3
+      J7(J7C) = JDIAG(IT5,3)
+C
+      K = ABS((3*ARR(IT5,1)+2*ARR(IT5,2)+ARR(IT5,3))/2) + 1
+      IF (K.NE.4) THEN
+C
+C     PHASE2(JDIAG(IT5,K)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JDIAG(IT5,K)
+C
+      ENDIF
+C
+   60 CONTINUE
+      IL1 = IL(IT4)
+      DO 70 I = IL1,NBNODE
+        IT = IH(I)
+        ILP = I - NFREE
+        IL(IT) = ILP
+        IH(ILP) = IT
+   70 CONTINUE
+      NBNODE = NBNODE - NFREE
+      NFIN = 0
+      GOTO 90
+C
+   80 CONTINUE
+      FAIL = .TRUE.
+   90 CONTINUE
+      CALL PRINTJ(NAME,8)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE DELTA(JA,JB,FAIL)
+C
+C     TEST FOR DELTA(JA,JB).IF THEY ARE SUMMATION VARIABLES,THE SECOND
+C     IS CHANGED INTO THE FIRST EVERYWHERE.IF THEY ARE FIXED,THEIR
+C     VALUE IS CHECKED,AND FAIL PUT TO .TRUE. IF THEY DIFFER.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      LOGICAL CUT
+      COMMON /CUTDIG/CUT
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      COMMON /DEBUG/IBUG1,IBUG2,IBUG3,IBUG4,IBUG5,IBUG6,IBUG7,IBUG8,
+     A       IBUG9
+C
+      COMMON /DIM/J6CC,J7CC,J8CC,J9CC,JWCC,JDELC
+C
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      IF (IBUG3.EQ.1) PRINT 3000,JA,SUMVAR(JA),JB,SUMVAR(JB)
+      IF (SUMVAR(JA) .AND. SUMVAR(JB)) GOTO 20
+      IF (FREE(JA) .OR. FREE(JB)) THEN
+        JDEL = JDEL + 1
+        LDEL(JDEL,1) = JA
+        LDEL(JDEL,2) = JB
+        SUMVAR(JA) = .FALSE.
+        SUMVAR(JB) = .FALSE.
+        GOTO 160
+      ENDIF
+      IF (J1(JA).NE.J1(JB)) FAIL = .TRUE.
+      CUT = .TRUE.
+      GOTO 160
+C
+   20 CONTINUE
+      IF (J6C.NE.J6CC) THEN
+        DO 30 II = J6CC + 1,J6C
+          IF (J6(II).EQ.JB) J6(II) = JA
+   30   CONTINUE
+      ENDIF
+      IF (J7C.NE.J7CC) THEN
+        DO 50 II = J7CC + 1,J7C
+          IF (J7(II).EQ.JB) J7(II) = JA
+   50   CONTINUE
+      ENDIF
+      IF (J8C.NE.J8CC) THEN
+        DO 70 II = J8CC + 1,J8C
+          IF (J8(II).EQ.JB) J8(II) = JA
+   70   CONTINUE
+      ENDIF
+      IF (J9C.NE.J9CC) THEN
+        DO 90 II = J9CC + 1,J9C
+          IF (J9(II).EQ.JB) J9(II) = JA
+   90   CONTINUE
+      ENDIF
+      IF (JWC.NE.JWCC) THEN
+        DO 120 II = JWCC + 1,JWC
+          IF (JW(1,II).EQ.JB) JW(1,II) = JA
+          IF (JW(2,II).EQ.JB) JW(2,II) = JA
+          IF (JW(3,II).EQ.JB) JW(3,II) = JA
+          IF (JW(4,II).EQ.JB) JW(4,II) = JA
+          IF (JW(5,II).EQ.JB) JW(5,II) = JA
+          IF (JW(6,II).EQ.JB) JW(6,II) = JA
+  120   CONTINUE
+      ENDIF
+      IF (JDEL.NE.JDELC) THEN
+        DO 150 II = JDELC + 1,JDEL
+          IF (LDEL(II,1).EQ.JB) LDEL(II,1) = JA
+          IF (LDEL(II,2).EQ.JB) LDEL(II,2) = JA
+  150   CONTINUE
+        SUMVAR(JB) = .FALSE.
+      ENDIF
+  160 CONTINUE
+C
+ 3000 FORMAT (/'  FROM DELTA  JA=',I2,L2,5X,'JB=',I2,L2)
+      END
+CEND********************************************************************
+      SUBROUTINE DIAGRM(JUMP)
+C
+C    THIS SUBROUTINE BUILDS UP A FLAT DIAGRAM FROM THE TRIADS J23 AND
+C    PLACES THEM IN JDIAG.ARROWS ARE IN ARR (INTEGER).THE DIAGRAM IS
+C    BUILT SO AS TO MAXIMIZE THE NUMBER OF TRIADS INVOLVED,WITHIN  A
+C    ONE-STEP-FORWARD-CHECK PROCESS.IF THE DIAGRAM DOES NOT
+C    INCLUDE ALL THE NBTR TRIADS,IT WILL HAVE 'FREE ENDS'.JDIAG HAS
+C    DIMENSION DOUBLE THAT OF J23,BECAUSE THE PATH MAY PROCEED EITHER
+C     WAY.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      LOGICAL TABS
+      INTEGER ARROW
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+      CHARACTER*6 NAME
+C
+      SAVE NB
+C
+      DATA NAME/'DIAGRM'/
+C
+C        INITIALIZATION
+C
+      IF (JUMP-2) 10,20,50
+   10 CONTINUE
+      NB = 0
+   20 CONTINUE
+      NB = NB + 1
+      IF (TABS(NB)) GOTO 20
+      NODE = NBTR
+      ILAST = NBTR
+      DO 30 J = 1,3
+        JDIAG(NODE,J) = J23(NB,J)
+        ARR(NODE,J) = ARROW(NB,J)
+   30 CONTINUE
+      TABS(NB) = .TRUE.
+      DO 40 I = 1,MP
+        IAL(I) = 0
+   40 CONTINUE
+      IF1 = JDIAG(NODE,1)
+      IF2 = JDIAG(NODE,3)
+      IAL(IF1) = 1
+      IAL(IF2) = 1
+   50 CONTINUE
+      NTIME = 0
+      I1 = 1
+      K1 = 1
+      K2 = 2
+      K3 = 3
+   60 CONTINUE
+      JB = JDIAG(NODE,K2)
+C
+C     OTHERJ(0,JB,L,LC,KP):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      L = LINE(JB,1)
+      IF (L.EQ.0 .OR. TABS(L)) THEN
+        L = LINE(JB,2)
+        LC = LCOL(JB,2)
+C
+      ELSE
+        LC = LCOL(JB,1)
+      ENDIF
+C
+C    NEIBOR(LC,L1,L2):
+C    GIVES THE POSITIONS OF THE OTHER TWO ARGUMENTS IN THE TRIAD.
+C
+      IF (LC.LT.2) THEN
+        L1 = 2
+        L2 = 3
+C
+      ELSE IF (LC.EQ.2) THEN
+        L1 = 3
+        L2 = 1
+C
+      ELSE
+        L1 = 1
+        L2 = 2
+      ENDIF
+C
+      CALL WAY(L,L1,L2,ICH,ND)
+      NODE = NODE + I1
+      TABS(L) = .TRUE.
+      JDIAG(NODE,K3) = J23(L,LC)
+      ARR(NODE,K3) = ARROW(L,LC)
+      ICT = ICH*I1
+      IF (ICH) 70,70,80
+   70 CONTINUE
+      LP = L1
+      L1 = L2
+      L2 = LP
+   80 CONTINUE
+      IF (ICT.LE.0) THEN
+C
+C    PHASE(L,J23,KFL2A)
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+        J7(J7C+1) = J23(L,1)
+        J7(J7C+2) = J23(L,2)
+        J7C = J7C + 3
+        J7(J7C) = J23(L,3)
+C
+      ENDIF
+C
+      JDIAG(NODE,K1) = J23(L,L1)
+      ARR(NODE,K1) = ARROW(L,L1)
+      JDIAG(NODE,K2) = J23(L,L2)
+      ARR(NODE,K2) = ARROW(L,L2)
+      J = J23(L,L1)
+      IAL(J) = IAL(J) + 1
+      J = J23(L,L2)
+      IAL(J) = IAL(J) + 1
+      IF (ND.LT.1) GOTO 60
+      NTIME = NTIME + 1
+      ILAST = MAX(NODE,ILAST)
+      IFIRST = MIN(NODE,NBTR)
+      NBP = IAL(IF1) + IAL(IF2)
+      IF (NBP-3) 90,90,140
+   90 CONTINUE
+      IF (NTIME-1) 100,100,140
+  100 CONTINUE
+      IF (NBP-2) 130,130,110
+  110 CONTINUE
+      IF (IAL(IF1)-IAL(IF2)) 120,120,130
+  120 CONTINUE
+      JT = JDIAG(NBTR,1)
+      JAR = ARR(NBTR,1)
+      JDIAG(NBTR,1) = JDIAG(NBTR,3)
+      ARR(NBTR,1) = ARR(NBTR,3)
+      JDIAG(NBTR,3) = JT
+      ARR(NBTR,3) = JAR
+C
+C    PHASE(NBTR,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+      J7(J7C+1) = JDIAG(NBTR,1)
+      J7(J7C+2) = JDIAG(NBTR,2)
+      J7C = J7C + 3
+      J7(J7C) = JDIAG(NBTR,3)
+C
+  130 CONTINUE
+      NODE = NBTR
+      I1 = -1
+      K2 = 3
+      K3 = 2
+      GOTO 60
+C
+  140 CONTINUE
+      NBNODE = ILAST - IFIRST + 1
+      NBTR = NBTR - NBNODE
+C
+C     DEFINITION OF FREE ENDS AND OTHER QUANTITIES.
+C
+      CALL INTAB
+      CALL PRINTJ(NAME,12)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE DRACAH(I,J,K,L,M,N,RAC)
+C***********************************************************************
+C
+C                   DRACAH
+C
+C***********************************************************************
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+C
+C      SUBROUTINE TO CALCULATE RACAH COEFFICIENTS
+C      THE ARGUMENTS I,J,K,L,M,N SHOULD BE TWICE THEIR ACTUAL VALUE
+C      WORKS FOR INTEGER AND HALF-INTEGER VALUES OF ANGULAR MOMENTA.
+C      THE ROUTINE MAKES USE OF THE GAM ARRAY, THUS SUBROUTINE FACTT
+C      MUST BE CALLED BEFORE THIS ROUTINE IS USED.
+C      WRITTEN BY N S SCOTT; CHECK IF...PRINT6 ADDED WE'89JUN19TH
+C
+      PARAMETER (MXFCT=500)
+C
+      COMMON /FACTS/GAM(MXFCT)
+C
+      DATA ZERO,ONE,HALF/0.0D0,1.0D0,0.5D0/
+C
+      RAC = ZERO
+      J1 = I + J + M
+      J2 = K + L + M
+      J3 = I + K + N
+      J4 = J + L + N
+      IF (2*MAX(I,J,M).GT.J1 .OR. MOD(J1,2).NE.0) GOTO 30
+      IF (2*MAX(K,L,M).GT.J2 .OR. MOD(J2,2).NE.0) GOTO 30
+      IF (2*MAX(I,K,N).GT.J3 .OR. MOD(J3,2).NE.0) GOTO 30
+      IF (2*MAX(J,L,N).GT.J4 .OR. MOD(J4,2).NE.0) GOTO 30
+      J5 = (I+J+K+L)/2 + 2
+      J6 = (I+L+M+N)/2 + 2
+      J7 = (J+K+M+N)/2 + 2
+      NUMAX = MIN(J5,J6,J7) - 1
+      IF (NUMAX.GE.MXFCT) GOTO 40
+      RAC = ONE
+      J1 = J1/2
+      J2 = J2/2
+      J3 = J3/2
+      J4 = J4/2
+      NUMIN = MAX(J1,J2,J3,J4) + 1
+      IF (NUMIN.EQ.NUMAX) GOTO 20
+      KF = NUMIN + 1
+      DO 10 KI = NUMAX,KF,-1
+        RAC = - (KI* (J5-KI)* (J6-KI)* (J7-KI))*RAC/
+     A        ((KI-1-J1)* (KI-1-J2)* (KI-1-J3)* (KI-1-J4)) + ONE
+   10 CONTINUE
+   20 CONTINUE
+      RAC = (2*MOD(J5+NUMIN,2)-1)*EXP(GAM(NUMIN+1)-GAM(NUMIN-J1)-
+     A      GAM(NUMIN-J2)-GAM(NUMIN-J3)-GAM(NUMIN-J4)-GAM(J5-NUMIN)-
+     B      GAM(J6-NUMIN)-GAM(J7-NUMIN)+ (GAM(J1+1-I)+GAM(J1+1-J)+
+     C      GAM(J1+1-M)-GAM(J1+2)+GAM(J2+1-K)+GAM(J2+1-L)+GAM(J2+1-M)-
+     D      GAM(J2+2)+GAM(J3+1-I)+GAM(J3+1-K)+GAM(J3+1-N)-GAM(J3+2)+
+     E      GAM(J4+1-J)+GAM(J4+1-L)+GAM(J4+1-N)-GAM(J4+2))*HALF)*RAC
+   30 CONTINUE
+      RETURN
+C
+   40 CONTINUE
+      PRINT 3000,NUMAX
+      STOP
+C
+ 3000 FORMAT (' STOP IN DRACAH, L.8 >',I4,
+     A       ' NEEDED FOR FACTORIAL ARRAY.')
+      END
+CEND********************************************************************
+      SUBROUTINE FACTT
+C***********************************************************************
+C
+C                   FACTT
+C
+C***********************************************************************
+      IMPLICIT DOUBLE PRECISION (G,L,O,X)
+C
+C      CALCULATES THE LOGS OF FACTORIALS REQUIRED BY THE RACAH
+C      COEFFICIENT ROUTINE DRACAH
+C      WRITTEN BY N.S. SCOTT;  MXFCT CODE ADDED WE'89JUN19TH.
+C
+      PARAMETER (MZFAC=  32)
+      PARAMETER (MXFCT=500)
+C
+      COMMON /FACTS/GAM(MXFCT)
+C
+      ONE = 1.D0
+      GAM(1) = ONE
+      X = ONE
+      M = MIN(MXFCT,MZFAC)
+      DO 10 I = 2,M
+        GAM(I) = GAM(I-1)*X
+        X = X + ONE
+   10 CONTINUE
+      DO 20 I = 1,M
+        GAM(I) = LOG(GAM(I))
+   20 CONTINUE
+      M = M + 1
+      DO 30 I = M,MXFCT
+        GAM(I) = GAM(I-1) + LOG(X)
+        X = X + ONE
+   30 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE GENSUM(J6C,J7C,J8C,J9C,JWC,J6,J7,J8,J9,JW,JDEL,LDEL,
+     A                  MP,J6P,J7P,J8P,J9P,JWORD,NLSUM,NBJ,NB6J,
+     B                  K6CP,K7CP,K8CP,K9CP,JSUM4,JSUM5,JSUM6,INV6J,
+     C                  RECUP)
+C***********************************************************************
+C
+C                   GENSUM
+C
+C***********************************************************************
+C
+C  CARRIES OUT THE SUMMATION OVER COEFFICIENTS DEFINED BY THE ARRAYS
+C  J6,J7,J8,LDEL AND JW TO GIVE RECUP
+C  THE ENTRY IS EITHER MADE FROM NJGRAF OR DIRECTLY ASSUMING THAT THE
+C  ARRAYS J6,...,JW HAVE ALREADY BEEN DETERMINED BY A PREVIOUS
+C  ENTRY TO NJGRAF AND THAT THE SUMMATION IS REQUIRED FOR ANOTHER SET
+C  OF J VALUES DEFINED BY THE ARRAY J1. TIDIED UP MEUDON'89AOUT - WE.
+C
+C  RECUP IS THE RECOUPLING COEFFICIENT
+C
+C  SUBROUTINE CALLED: DRACAH
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+C
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20,KFLS=12,
+     A          KFLN=10,KFLV=40)
+C
+      DIMENSION J6(KFL6),J7(KFL7),J8(KFL8),J9(KFL9),JW(6,KFLW),
+     A          LDEL(KFLW,2)
+C
+      DIMENSION J6P(KFLV),J7P(KFLV),J8P(KFLV),J9P(KFLV),JWORD(6,KFLW),
+     A          NBJ(KFLN),NB6J(KFLN),K6CP(KFLN),K7CP(KFLN),K8CP(KFLN),
+     B          K9CP(KFLN),JSUM6(KFLS),JSUM4(KFLS,KFLW),
+     C          JSUM5(KFLS,KFLW),INV6J(KFLW)
+C
+      LOGICAL LDIAG,NOEL
+C
+      DIMENSION MAT(KFLS,KFLS),JMNP(5),JMXP(5),NOEL(KFLS),MAXLP(KFLS),
+     A          IST(6),JSUM2(KFLS),JSUM3(KFLS),JSUM(2,KFLW),
+     B          JWTEST(KFLW),WSTOR(KFLW),IPAIR(2,2),LDIAG(KFLS)
+      DIMENSION J12(4,KFLS,KFLS)
+      DIMENSION XJ1(KFL1)      
+C
+      LOGICAL FREE
+C
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+      COMMON /DEBUG/IBUG1,IBUG2,IBUG3,IBUG4,IBUG5,IBUG6,IBUG7,IBUG8,
+     A       IBUG9
+C
+      DATA ZERO,ONE/0.0D0,1.0D0/,
+     A EPSIL/1.D-10/,MXCSVR/4/
+      PARAMETER (KFLS4=4*KFLS*KFLS)
+      DATA J12/KFLS4*0/
+      DATA JSUM2/KFLS*0/      
+C
+C      1.
+C      EVALUATES ALL TERMS IN J6,J7,J8,J9,LDEL,AND JW WHICH DO NOT INVOL
+C      A SUMMATION.THE RESULT IS STORED IN RECUP AND IASTOR
+C
+      IF (IBUG3.NE.1) GOTO 20
+      DO 10 I = 1,M
+        XJ1(I) = (J1(I)-1)*0.5D0
+   10 CONTINUE
+      PRINT 3080, (XJ1(I),I=1,M)
+      PRINT 3040,NLSUM
+      PRINT 3090
+   20 CONTINUE
+      MM = M + 1
+      J1(MM) = 1
+C
+C     TEST DELTA FUNCTIONS
+C
+      J1(MM) = 1
+      IF (JDEL.LE.0) GOTO 50
+      DO 40 I = 1,JDEL
+        I1 = LDEL(I,1)
+        I2 = LDEL(I,2)
+        IF (I1.LE.MM .AND. I2.LE.MM) GOTO 30
+        IF (I1.GT.MM) J1(I1) = J1(I2)
+        IF (I2.GT.MM) J1(I2) = J1(I1)
+        GOTO 40
+C
+   30   CONTINUE
+        IF (J1(I1).EQ.J1(I2)) GOTO 40
+        RECUP = ZERO
+        GOTO 890
+C
+   40 CONTINUE
+   50 CONTINUE
+      RECUP = ONE
+      IF (JWC.EQ.0) GOTO 90
+C
+C      MULTIPLY RECUP BY ALL RACAH COEFFICIENTS WHICH DO NOT INVOLVE A
+C      SUMMATION
+C
+      IF (IBUG3.EQ.1) PRINT 3070
+      DO 80 I = 1,JWC
+        IF (INV6J(I).GT.0) GOTO 80
+        DO 70 J = 1,6
+          I1 = JW(J,I)          
+          IST(J) = J1(I1) - 1
+   70   CONTINUE
+        CALL DRACAH(IST(1),IST(2),IST(3),IST(4),IST(5),IST(6),X1)
+        IF (IBUG3.EQ.1) PRINT 3030, (XJ1(JW(K,I)),K=1,6),X1
+        RECUP = RECUP*X1
+   80 CONTINUE
+   90 CONTINUE
+      SQR = 1.0D0
+      IF (J6C.EQ.0) GOTO 120
+C
+      DO 110 I = 1,J6C
+        I1 = J6(I)
+        SQR = SQR*J1(I1)
+  110 CONTINUE
+  120 CONTINUE
+      SPR = 1.0D0
+      IF (J9C.EQ.0) GOTO 140
+      DO 130 I = 1,J9C
+        I1 = J9(I)
+        SPR = SPR*J1(I1)
+  130 CONTINUE
+  140 CONTINUE
+      RECUP = RECUP*SQRT(SQR/SPR)
+      IF (ABS(RECUP).LT.EPSIL) GOTO 900
+      IASTOR = 0
+      IF (J7C.EQ.0) GOTO 170
+C
+      DO 160 I = 1,J7C
+        I1 = J7(I)
+        IASTOR = IASTOR + J1(I1) - 1
+  160 CONTINUE
+  170 CONTINUE
+      IF (J8C.EQ.0) GOTO 200
+C
+      DO 190 I = 1,J8C
+        I1 = J8(I)
+        IASTOR = IASTOR + 2* (J1(I1)-1)
+  190 CONTINUE
+  200 CONTINUE
+      IF (NLSUM.GT.0) GOTO 210
+C
+      IASTOR = IASTOR/2
+C    NO SUMMATION INVOLVED. END OF COMPUTATION
+C
+      STOR1 = ONE
+      STOR = ONE
+      IF (MOD(IASTOR,2).EQ.1) RECUP = -RECUP
+      IF (IBUG3.EQ.1) PRINT 3010,RECUP
+      GOTO 890
+C
+C
+C
+C     2.
+C     EVALUATION OF THE PART INVOLVING SUMMATIONS.
+C
+C
+  210 CONTINUE
+      NFS = 0
+      JWR = 0
+      J6F = 0
+      J7F = 0
+      J8F = 0
+      J9F = 0
+      NPS = 0
+  220 CONTINUE
+      NPS = NPS + 1
+      IF (IBUG3.EQ.1) PRINT 3000,NPS
+C
+C   2.0 LOOP ON THE DISCONNECTED SUMMATIONS
+C
+C
+      IAS = 0
+      NSUM = NBJ(NPS) - NFS
+      JWRD = NB6J(NPS) - JWR
+      J6CP = K6CP(NPS)
+      J7CP = K7CP(NPS)
+      J8CP = K8CP(NPS)
+      J9CP = K9CP(NPS)
+C
+C    2.1 THE RANGE OF VALUES OF EACH SUMMATION VARIABLE IS
+C        DEFINED BY ESTABLISHING A MATRIX OF THE LINKS BETWEEN
+C        VARIABLES.MAT(I,J) CONTAINS:
+C       I=J ,NUMBER OF POSSIBLE VALUES OF I DUE TO TRIANGULAR
+C            RELATIONS WITH NON-VARIABLES,I.E. CONSTANTS.
+C       I.GT.J NUMBER OF LINKS BETWEEN I AND J THROUGH CONSTANTS
+C       I.LT.J VALUE OF THE CONSTANT,IF THE ABOVE IS 1.IF NOT,
+C              THESE VALUES ARE SRORED IN J12(L,I,J) WHERE THERE
+C              IS ROOM FOR MXCSVR SUCH VALUES (L.LE.4)
+C
+C
+      DO 240 I = 1,NSUM
+        DO 230 J = 1,NSUM
+          MAT(I,J) = 0
+  230   CONTINUE
+  240 CONTINUE
+      DO 420 I1 = 1,NSUM
+        I1T = I1 + NFS
+        I2 = JSUM6(I1T)
+        DO 410 I3 = 1,I2
+          I = JSUM5(I1T,I3)
+          J = JSUM4(I1T,I3)
+          GOTO (250,260,270,280,290,300),J
+C
+C      THE ROWS OF THE IPAIR ARRAYS GIVE LIMITS OF SUMMATION IMPOSED
+C      BY THE TRIANGULAR CONDITION
+C
+  250     CONTINUE
+          IPAIR(1,1) = JWORD(2,I)
+          IPAIR(1,2) = JWORD(5,I)
+          IPAIR(2,1) = JWORD(3,I)
+          IPAIR(2,2) = JWORD(6,I)
+          GOTO 310
+C
+  260     CONTINUE
+          IPAIR(1,1) = JWORD(1,I)
+          IPAIR(1,2) = JWORD(5,I)
+          IPAIR(2,1) = JWORD(4,I)
+          IPAIR(2,2) = JWORD(6,I)
+          GOTO 310
+C
+  270     CONTINUE
+          IPAIR(1,1) = JWORD(1,I)
+          IPAIR(1,2) = JWORD(6,I)
+          IPAIR(2,1) = JWORD(4,I)
+          IPAIR(2,2) = JWORD(5,I)
+          GOTO 310
+C
+  280     CONTINUE
+          IPAIR(1,1) = JWORD(2,I)
+          IPAIR(1,2) = JWORD(6,I)
+          IPAIR(2,1) = JWORD(3,I)
+          IPAIR(2,2) = JWORD(5,I)
+          GOTO 310
+C
+  290     CONTINUE
+          IPAIR(1,1) = JWORD(1,I)
+          IPAIR(1,2) = JWORD(2,I)
+          IPAIR(2,1) = JWORD(3,I)
+          IPAIR(2,2) = JWORD(4,I)
+          GOTO 310
+C
+  300     CONTINUE
+          IPAIR(1,1) = JWORD(1,I)
+          IPAIR(1,2) = JWORD(3,I)
+          IPAIR(2,1) = JWORD(2,I)
+          IPAIR(2,2) = JWORD(4,I)
+  310     CONTINUE
+          DO 400 I4 = 1,2
+            KM = 0
+            IF (IPAIR(I4,1).GT.MP) KM = KM + 1
+            IF (IPAIR(I4,2).GT.MP) KM = KM + 1
+            JJ1 = IPAIR(I4,1)
+            JJ2 = IPAIR(I4,2)
+            IF (KM-1) 330,370,400
+C
+C      ONE VARIABLE LINKED TO TWO CONSTANTS.FIX THE DIAGONAL MAT(I,I)
+C
+  330       CONTINUE
+            JT1 = J1(JJ1) - 1
+            JT2 = J1(JJ2) - 1
+            JMIN = ABS(JT1-JT2)
+            JMAX = JT1 + JT2
+            IF (MAT(I1,I1)-1) 340,400,350
+C
+C     FIRST TIME
+C
+  340       CONTINUE
+            MAT(I1,I1) = (JMAX-JMIN)/2 + 1
+            JSUM(1,I1) = JMIN
+            JSUM(2,I1) = JMAX
+            GOTO 400
+C
+C     IF THERE ARE SEVERAL COUPLES OF CONSTANTS, TAKE THE MORE
+C     STRINGENT COMBINATION
+C
+  350       CONTINUE
+            JMIN = MAX(JMIN,JSUM(1,I1))
+            JMAX = MIN(JMAX,JSUM(2,I1))
+            IF (JMAX.GE.JMIN) GOTO 360
+            RECUP = ZERO
+            GOTO 890
+C
+  360       CONTINUE
+            JSUM(1,I1) = JMIN
+            JSUM(2,I1) = JMAX
+            MAT(I1,I1) = (JMAX-JMIN)/2 + 1
+            GOTO 400
+C
+C     ONE VARIABLE LINKED TO ONE CONSTANT AND ONE VARIABLE  NON DIAGONAL
+C      ELEMENT
+C
+  370       CONTINUE
+            JT1 = MIN(JJ1,JJ2)
+            JT2 = MAX(JJ1,JJ2) - MP
+            IF (JT2.GT.I1) GOTO 400
+            JT4 = J1(JT1) - 1
+            K = MAT(I1,JT2)
+            IF (K.EQ.0) GOTO 390
+            DO 380 LL = 1,K
+              IF (JT4.EQ.J12(LL,JT2,I1)) GOTO 400
+  380       CONTINUE
+  390       CONTINUE
+            K = K + 1
+            IF (K.GT.MXCSVR) GOTO 400
+            MAT(I1,JT2) = K
+            J12(K,JT2,I1) = JT4
+  400     CONTINUE
+  410   CONTINUE
+  420 CONTINUE
+      
+C
+C     REDUCE THE DIAGONAL ELEMENTS BY TAKING INTO ACCOUNT THE NON
+C     DIAGONAL ELEMENTS, AND KEEP THE LATTER ONLY IF NEEDED
+C     LOOP STRUCTURE MODIFIED AVOIDING JUMPS BACK IN WE'89AOUT24
+C
+  430 CONTINUE
+      ICHAN = 0
+      DO 560 I = 1,NSUM
+        NOEL(I) = .TRUE.
+        I2 = 1
+        I1 = I - 1        
+        IF (I1.NE.0) GOTO 450
+  440   CONTINUE
+        IF (I.EQ.NSUM) GOTO 560
+        I1 = NSUM
+        I2 = I + 1
+  450   CONTINUE
+        DO 550 J = I2,I1
+          IF (MAT(J,J).EQ.0) GOTO 550
+c     the following line in the original was incorrect.
+c          IF (I.EQ.1) GOTO 460
+c     change to this.
+          IF (I.LT.J) GOTO 460
+          IF (MAT(I,J).EQ.0) GOTO 550
+          IK1 = I
+          IK2 = J
+          NOEL(I) = .FALSE.
+          GOTO 470
+C
+  460     CONTINUE
+          IF (MAT(J,I).EQ.0) GOTO 550
+          IK1 = J
+          IK2 = I
+C
+  470     CONTINUE
+          JMIN1 = 0
+          JMAX1 = 1000
+          K = MAT(IK1,IK2)
+          
+          DO 490 L1 = 1,K
+            L3 = MAT(J,J)
+            JJ1 = JSUM(1,J)
+            JND = J12(L1,IK2,IK1)
+            JMIN = 1000
+            JMAX = 0
+            JMNP(L1) = 0
+            JMXP(L1) = 1000
+            DO 480 L2 = 1,L3
+              JMN = ABS(JND-JJ1)
+              JMX = JND + JJ1
+              JMIN = MIN(JMN,JMIN)
+              JMAX = MAX(JMX,JMAX)
+              JMNP(L1) = MAX(JMN,JMNP(L1))
+              JMXP(L1) = MIN(JMX,JMXP(L1))
+              JJ1 = JJ1 + 2
+  480       CONTINUE
+            JMIN1 = MAX(JMIN1,JMIN)
+            JMAX1 = MIN(JMAX1,JMAX)
+  490     CONTINUE
+          IF (MAT(I,I).NE.0) GOTO 500
+          JSUM(1,I) = JMIN1
+          JSUM(2,I) = JMAX1
+          MAT(I,I) = (JMAX1-JMIN1)/2 + 1
+          ICHAN = ICHAN + 1
+          GOTO 520
+C
+  500     CONTINUE
 
+          IF (JSUM(1,I).GE.JMIN1) GOTO 510
+          JSUM(1,I) = JMIN1
+          ICHAN = ICHAN + 1
+  510     CONTINUE
+          IF (JSUM(2,I).LE.JMAX1) GOTO 520
+          JSUM(2,I) = JMAX1
+          ICHAN = ICHAN + 1
+  520     CONTINUE
+
+          K1 = 0
+          DO 530 L1 = 1,K
+            IF (JMNP(L1).LE.JSUM(1,I) .AND.
+     A          JMXP(L1).GE.JSUM(2,I)) GOTO 530
+            K1 = K1 + 1
+            J12(K1,IK2,IK1) = J12(L1,IK2,IK1)
+  530     CONTINUE
+          IF (K1.EQ.K) GOTO 540
+          MAT(IK1,IK2) = K1
+          ICHAN = ICHAN + 1
+  540     CONTINUE
+          MAT(IK2,IK1) = J12(1,IK2,IK1)
+C OUT GOTO JKM(171,172) -- SECTION REWRITTEN AT CECAM MEUDON 1989. W.E.
+C
+  550   CONTINUE
+        IF (I1.NE.NSUM) GOTO 440
+  560 CONTINUE
+      IF (ICHAN.NE.0) GOTO 430
+C
+C      2.3
+C
+C      CARRY OUT THE SUMMATIONS.
+C
+      DO 570 I = 1,NSUM
+        LDIAG(I) = MAT(I,I) .EQ. 1
+        JSUM3(I) = 1
+  570 CONTINUE
+      DO 580 I = 1,JWRD
+        JWTEST(I) = 1
+  580 CONTINUE
+      STOR = ZERO
+      STOR1 = ONE
+      NOLP = 0
+      IP = 1
+  590 CONTINUE
+      NOLP = NOLP + 1
+C     2.3.1
+C       FIND THE RANGE OF JSUM2(NOLP)
+C       NOLP IS THE INDEX  OF THE SUMMATION VARIABLE
+C
+      JMIN = JSUM(1,NOLP)
+      JMAX = JSUM(2,NOLP)
+      IF (NOEL(NOLP)) GOTO 640
+      NO1 = NOLP - 1
+      DO 630 NJ = 1,NO1
+        IF (MAT(NOLP,NJ)-1) 630,600,610
+  600   CONTINUE
+        JJ1 = MAT(NJ,NOLP)
+        JJ2 = JSUM2(NJ)
+        JMIN = MAX(JMIN,ABS(JJ2-JJ1))
+        JMAX = MIN(JMAX,JJ1+JJ2)
+        GOTO 630
+C
+  610   CONTINUE
+        K = MAT(NOLP,NJ)
+        JJ2 = JSUM2(NJ)
+        DO 620 I = 1,K
+          JJ1 = J12(I,NJ,NOLP)
+          JMIN = MAX(JMIN,ABS(JJ2-JJ1))
+          JMAX = MIN(JMAX,JJ1+JJ2)
+  620   CONTINUE
+  630 CONTINUE
+  640 CONTINUE
+      JSUM2(NOLP) = JMIN      
+      MAXLP(NOLP) = JMAX
+      IF (LDIAG(NOLP)) JSUM3(NOLP) = 0
+      IF (NOLP.LT.NSUM) GOTO 590
+      DO 850 JJ = JMIN,JMAX,2
+        JSUM2(NSUM) = JJ
+C
+C       2.3.2
+C       DETERMINE WHICH RACAH COEFFICIENTS NEED RE-EVALUATING AND
+C      SET JWTEST APPROPRIATELY
+C
+        DO 670 J = IP,NSUM
+          IF (JSUM3(J).LE.0) GOTO 670
+          I2 = JSUM6(J)
+          DO 660 I1 = 1,I2
+            I3 = JSUM5(J,I1)
+            JWTEST(I3) = 1
+  660     CONTINUE
+  670   CONTINUE
+        DO 700 J = 1,JWRD
+          IF (JWTEST(J).EQ.0) GOTO 700
+          JWJ = J + JWR
+          DO 680 I = 1,6
+            I1 = JWORD(I,JWJ)
+            IF (I1.LE.MP) THEN
+              IST(I) = J1(I1) - 1
+C
+            ELSE
+              I1 = I1 - MP - NFS
+              IST(I) = JSUM2(I1)
+            ENDIF
+C
+  680     CONTINUE
+          CALL DRACAH(IST(1),IST(2),IST(3),IST(4),IST(5),IST(6),X1)
+          WSTOR(J) = X1
+          IF (IBUG3.NE.1) GOTO 700
+          DO 690 I = 1,6
+            XJ1(I) = IST(I)*0.5D0
+  690     CONTINUE
+          PRINT 3030, (XJ1(I),I=1,6),X1
+  700   CONTINUE
+C
+C      2.3.3
+C      FORM PRODUCT OF RACAH COEFFICIENTS,(2J+1) FACTORS AND (-1)
+C      FACTORS IN STOR1
+C
+        DO 710 I = 1,JWRD
+          STOR1 = STOR1*WSTOR(I)
+  710   CONTINUE
+C
+C     IASTOR CONTAINS THE POWER OF (-1) WHICH IS COMMON TO ALL TERMS
+C
+        IX2 = 0
+        IJ6CP = 1
+        IF (J6CP.EQ.J6F) GOTO 740
+        JB = J6F + 1
+        DO 730 I = JB,J6CP
+          I1 = J6P(I) - NFS
+          IJ6CP = IJ6CP* (JSUM2(I1)+1)
+  730   CONTINUE
+  740   CONTINUE
+        IF (J9CP.EQ.J9F) GOTO 760
+        JB = J9F + 1
+        DO 750 I = JB,J9CP
+          I1 = J9P(I) - NFS
+          IJ6CP = IJ6CP/ (JSUM2(I1)+1)
+  750   CONTINUE
+  760   CONTINUE
+        STOR1 = STOR1*SQRT(DBLE(IJ6CP))
+        IF (J7CP.EQ.J7F) GOTO 790
+        JB = J7F + 1
+        DO 780 I = JB,J7CP
+          I1 = J7P(I) - NFS
+          IX2 = IX2 + JSUM2(I1)
+  780   CONTINUE
+  790   CONTINUE
+        IF (J8CP.EQ.J8F) GOTO 810
+        JB = J8F + 1
+        DO 800 I = JB,J8CP
+          I1 = J8P(I) - NFS
+          IX2 = IX2 + 2* (JSUM2(I1))
+  800   CONTINUE
+  810   CONTINUE
+        IF (MOD(IX2,2).NE.1) GOTO 820
+        IAS = -1
+        IX2 = IX2 + 1
+  820   CONTINUE
+        IX2 = IX2/2
+C
+C      2.3.4
+C      ADD TERM INTO STOR AND RESET STOR1 TO 1 READY FOR NEXT TERM
+C
+        IF (MOD(IX2,2).EQ.1) STOR1 = -STOR1
+        STOR = STOR + STOR1
+        STOR1 = ONE
+        NSUM1 = NSUM - 1
+        IF (NSUM1.EQ.0) GOTO 850
+        DO 830 IK = 1,NSUM1
+          JSUM3(IK) = 0
+  830   CONTINUE
+        DO 840 IK = 1,JWRD
+          JWTEST(IK) = 0
+  840   CONTINUE
+  850 CONTINUE
+  860 CONTINUE
+      NOLP = NOLP - 1
+      IF (NOLP.EQ.0) GOTO 870
+      IF (LDIAG(NOLP)) GOTO 860
+      JSUM3(NOLP) = 1
+      JSUM2(NOLP) = JSUM2(NOLP) + 2
+      IF (JSUM2(NOLP).GT.MAXLP(NOLP)) GOTO 860
+      IP = NOLP
+C
+CC      2.3.5 PROCEED TO NEXT VARIABLE
+C
+      GOTO 590
+C
+  870 CONTINUE
+      RECUP = RECUP*STOR
+      IF (IBUG3.EQ.1) PRINT 3050,NPS,STOR,RECUP
+      IF (ABS(RECUP).LT.EPSIL) GOTO 900
+      JWR = JWRD + JWR
+      NFS = NSUM + NFS
+      J6F = J6CP
+      J7F = J7CP
+      J8F = J8CP
+      J9F = J9CP
+      IASTOR = IASTOR + IAS
+C
+C     2.4 PROCEED TO NEXT SUM
+C
+      IF (NPS.LT.NLSUM) GOTO 220
+      IASTOR = IASTOR/2
+      IF (MOD(IASTOR,2).NE.0) RECUP = -RECUP
+      IF (IBUG3.EQ.1) PRINT 3020,RECUP
+  890 CONTINUE
+      RETURN
+C      NO SUMMATIONS. CHECK THAT THERE ARE NO INCONSISTENCIES. THEN
+C      MULTIPLY BY (-1) FACTOR AND EXIT
+C
+  900 CONTINUE
+      RECUP = ZERO
+      GOTO 890
+C
+ 3000 FORMAT ('   SUM NR.',I3)
+ 3010 FORMAT (' NO SUMMATION. RECOUPLING COEFFICIENT=',G15.8)
+ 3020 FORMAT (' RECOUPLING COEFFICIENT=',G15.8)
+ 3030 FORMAT (6F5.1,10X,G15.8)
+ 3040 FORMAT (' NUMBER OF INDEPENDENT SUMS:',I3)
+ 3050 FORMAT (' SUM NR.',I2,' SUM VALUE=',G15.8,' RECUP=',G15.8)
+ 3070 FORMAT ('   NOT INVOLVING SUMMATION VARIABLE')
+ 3080 FORMAT (/'0PRINTOUT FROM SUBROUTINE GENSUM'/
+     A       '0VALUES OF ANGULAR MOMENTA IN *REAL* FORMAT'/ (14F5.1))
+ 3090 FORMAT (/' RACAH W FUNCTIONS(6J)'/' ARGUMENTS IN *REAL* FORMAT',
+     A       18X,'VALUE')
+      END
+CEND********************************************************************
+      SUBROUTINE INTAB
+C
+C     THIS SUBROUTINE CALLED AT THE END OF DIAGRM,FIXES THE ARRAYS IH
+C     AND IL-SO TO SPEAK HARDWARE AND LOGICAL ADDRESSES OF TRIADS IN
+C     JDIAG.ALSO DETERMINES THE NUMBER OF FREE ENDS NFREE AND THEIR
+C     LOCATION ITFREE.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      DO 10 I = 1,M
+        IAL(I) = 1
+   10 CONTINUE
+      DO 20 I = IFIRST,ILAST
+        J = JDIAG(I,1)
+        K = IAL(J)
+        TAB1(J,K) = I
+        IAL(J) = K + 1
+   20 CONTINUE
+      IFR = IFIRST - 1
+      DO 30 I = IFIRST,ILAST
+        IT = I - IFR
+        IL(I) = IT
+        IH(IT) = I
+   30 CONTINUE
+      J = JDIAG(IFIRST,3)
+      K = IAL(J)
+      IF (K-1) 50,50,40
+   40 CONTINUE
+      TAB1(J,2) = TAB1(J,1)
+   50 CONTINUE
+      TAB1(J,1) = IFIRST
+      IAL(J) = 3
+      J = JDIAG(ILAST,2)
+      TAB1(J,2) = ILAST
+      IAL(J) = 3
+      NFREE = 0
+      DO 60 I = IFIRST,ILAST
+        J = JDIAG(I,1)
+        IF (IAL(J).EQ.3) GOTO 60
+        NFREE = NFREE + 1
+        ITT = ILAST + NFREE
+        TAB1(J,2) = ITT
+        IL(ITT) = NFREE*1000
+        ITFREE(NFREE) = I
+   60 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE LOLPOP(FAIL)
+C
+C    REDUCES A LOOP WITH ONE LINE AND ONE NODE IN THE FLAT GRAPH.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      DIMENSION KP(3),KS(3)
+C
+      CHARACTER*6 NAME,NAMSUB
+      COMMON /NAM/NAMSUB
+      DATA NAME/'LOLPOP'/
+C
+      DATA KP/2,3,1/
+      DATA KS/0,1,-1/
+C
+      NAMSUB = NAME
+      I1 = NPOINT(1)
+      K3 = 2
+      IF (I1.EQ.ILAST) K3 = 3
+      L = JDIAG(I1,K3)
+      CALL DELTA(L,M,FAIL)
+      IF (FAIL) GOTO 20
+      K = KP(K3)
+      IF (ARR(I1,K).LT.0) THEN
+C
+C     PHASE2(JDIAG(I1,K)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JDIAG(I1,K)
+C
+      ENDIF
+C
+      K1 = KS(K3)
+      IL1 = IL(I1) + K1
+      I2 = IH(IL1)
+      L1 = JDIAG(I2,1)
+      CALL DELTA(L1,JDIAG(I2,K3),FAIL)
+      IF (FAIL) GOTO 20
+      IF (ARR(I2,K3).EQ.K1) THEN
+C
+C     PHASE2(L1): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = L1
+C
+      ENDIF
+C
+      IL2 = IL(I2) + K1
+      I3 = IH(IL2)
+      K2 = K3 + K1
+      JDIAG(I3,K2) = L1
+      ARR(I3,K2) = ARR(I2,1)
+      J9C = J9C + 1
+      J9(J9C) = L1
+      J6C = J6C + 1
+      J6(J6C) = JDIAG(I1,1)
+      IF (K3.EQ.3) GOTO 20
+      DO 10 I = 3,NBNODE
+        IT = IH(I)
+        ILP = I - 2
+        IL(IT) = ILP
+        IH(ILP) = IT
+   10 CONTINUE
+   20 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE ORDTRI
+C
+C     THIS SUBROUTINE ORDERS THE TRIADS WHICH WERE LEFT WITH FREE ENDS
+C     AS CONSEQUENCE OF CUTTING,SO THAT THE NEW GRAPH WILL START THERE.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      INTEGER ARROW
+      LOGICAL TABS
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+C
+      COMMON /KEEP/JKP(2,3),JARR(2,3),IT2,IT3,IT5
+C
+      CHARACTER*6 NAME
+      DATA NAME/'ORDTRI'/
+C
+      DO 10 I = 1,MP
+        IAL(I) = 0
+   10 CONTINUE
+      IF (NFIN.NE.0) GOTO 70
+      NF = NBTR - ITFREE(1)
+      IF (IT5.NE.0) GOTO 20
+      NBT1 = NBTR - 1
+      N0 = 0
+      NFT = NFREE
+      ASSIGN 60 TO ISW
+      GOTO 160
+C
+   20 CONTINUE
+      NFT = IT5 - IT2
+      NM = NFT + NBTR + 1
+      NBT1 = NBTR
+      DO 30 J = 1,3
+        JDIAG(NBTR,J) = JKP(1,J)
+        ARR(NBTR,J) = JARR(1,J)
+        JDIAG(NM,J) = JKP(2,J)
+        ARR(NM,J) = JARR(2,J)
+   30 CONTINUE
+      N0 = 0
+      ASSIGN 40 TO ISW
+      GOTO 160
+C
+   40 CONTINUE
+      N0 = NFT
+      NBT1 = NBT1 + N0
+      NFT = IT3 - IT5
+      ASSIGN 50 TO ISW
+      GOTO 160
+C
+   50 CONTINUE
+      NFT = NFT + 1
+   60 CONTINUE
+      NODE = NBT1 + NFT
+      CALL CHANGE(NODE,2)
+      GOTO 130
+C
+   70 CONTINUE
+      NBT1 = NBTR - 1
+      NBT = NBT1 + NFIN
+      NBTT = NBT + 1
+      NB = 0
+   80 CONTINUE
+      DO 120 I = 1,NBNODE
+        I1 = IH(I)
+        IF (IL(I1).GT.ILAST) GOTO 120
+        I2 = NBT1 + I
+        IF (I1.GT.NBTT) GOTO 90
+        IF (I1.EQ.I2) GOTO 110
+        IF (IL(I2).LE.NBNODE) GOTO 120
+   90   CONTINUE
+        DO 100 J = 1,3
+          JDIAG(I2,J) = JDIAG(I1,J)
+          ARR(I2,J) = ARR(I1,J)
+  100   CONTINUE
+        IL(I1) = ILAST + I
+  110   CONTINUE
+        NB = NB + 1
+        IL(I2) = 0
+  120 CONTINUE
+      IF (NB.NE.NFIN) GOTO 80
+      NODE = NBT
+  130 CONTINUE
+      IF1 = JDIAG(NBTR,1)
+      IF2 = JDIAG(NBTR,3)
+      DO 150 I = NBTR,NODE
+        DO 140 K = 1,3
+          J = JDIAG(I,K)
+          IAL(J) = IAL(J) + 1
+  140   CONTINUE
+  150 CONTINUE
+      ILAST = NODE
+      CALL PRINTJ(NAME,8)
+      RETURN
+C
+  160 CONTINUE
+      IF (NF.GT.0) GOTO 170
+      NFR = N0
+      I1 = 1
+      GOTO 180
+C
+  170 CONTINUE
+      NFR = NFT + 1
+      I1 = -1
+  180 CONTINUE
+      DO 200 I = 1,NFT
+        IK = NFR + I1*I
+        IT = ITFREE(IK)
+        K = NBT1 + IK
+        DO 190 J = 1,3
+          JDIAG(K,J) = JDIAG(IT,J)
+          ARR(K,J) = ARR(IT,J)
+  190   CONTINUE
+  200 CONTINUE
+      GOTO ISW(40,60,50)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE POLYGN(JPOL)
+C
+C    THIS ROUTINE REDUCES A CIRCUIT OF ARBITRARY ORDER NC.IT EXCHANGES
+C    NODES ON THE FLAT DIAGRAM UNTIL THE DISTANCE ON THE AXIS BETWEEN
+C    NODES EQUEALS ONE.EACH EXCHANGE INTRODUCES A SUMMATION VARIABLE
+C    AND A 6J SYMBOL.THE CIRCUIT HAS A MAXIMUM OF NPART=2 DISCONNECTED
+C    PARTS ON THE AXIS.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      CHARACTER*6 NAME
+      DATA NAME/'POLYGN'/
+C
+      NC1 = NC + 1
+      NC2 = NC
+      NBC = IPARTL - 2
+   10 CONTINUE
+      DO 90 I = 1,NBC
+        IT2 = NPOINT(NC1-I)
+        IT1 = NPOINT(NC2-I)
+        JB = JDIAG(IT1,1)
+        JC = JDIAG(IT2,1)
+        JDIAG(IT1,1) = JC
+        JDIAG(IT2,1) = JB
+        JAR = ARR(IT1,1)
+        ARR(IT1,1) = ARR(IT2,1)
+        ARR(IT2,1) = JAR
+        JE = JDIAG(IT1,2)
+        MP = MP + 1
+        SUMVAR(MP) = .TRUE.
+        JDIAG(IT1,2) = MP
+        JDIAG(IT2,3) = MP
+        IF (TAB1(JB,1)-IT1) 30,20,30
+   20   CONTINUE
+        TAB1(JB,1) = IT2
+        GOTO 40
+C
+   30   CONTINUE
+        TAB1(JB,2) = IT2
+   40   CONTINUE
+        IF (TAB1(JC,1)-IT2) 60,50,60
+   50   CONTINUE
+        TAB1(JC,1) = IT1
+        GOTO 70
+C
+   60   CONTINUE
+        TAB1(JC,2) = IT1
+   70   CONTINUE
+        IF (ARR(IT1,2).GT.0) GOTO 80
+C
+C     PHASE2(JE): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JE
+C
+        ARR(IT1,2) = 1
+        ARR(IT2,3) = -1
+   80   CONTINUE
+        JWC = JWC + 1
+        JW(1,JWC) = JB
+        JW(2,JWC) = MP
+        JW(3,JWC) = JE
+        JW(4,JWC) = JC
+        JW(5,JWC) = JDIAG(IT2,2)
+        JW(6,JWC) = JDIAG(IT1,3)
+        J6(J6C+1) = MP
+        J6C = J6C + 2
+        J6(J6C) = MP
+   90 CONTINUE
+      NC = NC - NBC
+      IF (NC.LE.4) GOTO 100
+      NBC = IPARTS - 2
+      NC1 = IPARTS + 1
+      NC2 = IPARTS
+      GOTO 10
+C
+  100 CONTINUE
+      IF (NPART.EQ.1) GOTO 110
+      NPOINT(3) = NPOINT(NC1)
+      NPOINT(4) = NPOINT(NC1+1)
+  110 CONTINUE
+      IF (NC.EQ.2) JPOL = 1
+      CALL PRINTJ(NAME,10)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE PRINTJ(NAMES,JP)
+C
+C    THIS SUBROUTINE PRINTS INTERMEDIATE RESULTS IN STANDARD FORM FROM
+C    WHEREVER IT IS CALLED.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2,KFLZ=99)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      CHARACTER IM,IP,IS(3)
+      CHARACTER*4 I6,I7,I8,I9,IJ1
+      CHARACTER*6 NAMES,NSETTB
+      CHARACTER*8 IBLANK,IFREE,IFR
+C
+      DIMENSION IX(7),JTAB(KFL1,3)
+      INTEGER ARROW
+      LOGICAL TABS
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      INTEGER ARR,TAB1
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+C OUT COMMON/CONST/I6C,I7C,I8C,I9C,IDEL,IWC  -- OUT WE'90MAR16: EQUIV++
+      COMMON /ZER/NZERO,JZERO(KFLZ)
+      COMMON /DEBUG/IBUG1,IBUG2,IBUG3,IBUG4,IBUG5,IBUG6,IBUG7,IBUG8,
+     A       IBUG9
+C
+      EQUIVALENCE (I6C,IX(1)), (I7C,IX(2)), (I8C,IX(3)), (I9C,IX(4)),
+     A            (IDEL,IX(5)), (IWC,IX(6))
+C
+      DATA IBLANK,IFREE,IP,IM/'        ','FREE END','+','-'/
+      DATA NSETTB/'SETTAB'/
+      DATA I6,I7,I8,I9,IJ1/'I6= ','I7= ','I8= ','I9= ','J1= '/
+      DATA I6C,I7C,I8C,I9C,IDEL,IWC/6*1/
+C
+      IF (IBUG3.NE.1) RETURN
+      PRINT 3170,NAMES
+      JUMP = JP
+      IF (JUMP.NE.0) GOTO 20
+      DO 10 I = 1,7
+        IX(I) = 1
+   10 CONTINUE
+      PRINT 3120,IJ1, (J1(I),I=1,M)
+   20 CONTINUE
+      IF (JUMP.LT.8) GOTO 90
+      PRINT 3000,NBNODE,NBTR,NFIN,IFIRST,ILAST,NFREE
+      JUMP = JUMP - 8
+      PRINT 3010
+      K = 0
+      DO 50 I = 1,NBNODE
+        IT = IH(I)
+        IFR = IBLANK
+        JT = JDIAG(IT,1)
+        IF (TAB1(JT,2).EQ.IT .AND. JT.NE.JDIAG(IFIRST,3)) GOTO 30
+        K = K + 1
+        JTAB(K,1) = JT
+        JTAB(K,2) = TAB1(JT,1)
+        JTAB(K,3) = TAB1(JT,2)
+   30   CONTINUE
+        IF (TAB1(JT,2).GT.ILAST) IFR = IFREE
+        DO 40 J = 1,3
+          IS(J) = IP
+          IF (ARR(IT,J).LT.1) IS(J) = IM
+   40   CONTINUE
+        PRINT 3020, (IS(J),J=1,3)
+        PRINT 3030,IL(IT),IT,IFR, (JDIAG(IT,J),J=1,3)
+   50 CONTINUE
+      PRINT 3040
+      NTIME = 0
+      JT = JDIAG(IFIRST,3)
+      IF (JT.EQ.JDIAG(ILAST,2)) GOTO 60
+      IF (TAB1(JT,2).GE.1000) GOTO 60
+      GOTO 70
+C
+   60 CONTINUE
+      K = K + 1
+      JTAB(K,1) = JT
+      JTAB(K,2) = TAB1(JT,1)
+      JTAB(K,3) = TAB1(JT,2)
+   70 CONTINUE
+      NTIME = NTIME + 1
+      IF (NTIME.EQ.2) GOTO 80
+      JT = JDIAG(ILAST,2)
+      IF (TAB1(JT,2).EQ.1000) GOTO 60
+   80 CONTINUE
+      PRINT 3050, ((JTAB(I,J),J=1,3),I=1,K)
+      PRINT 3060, (I,SUMVAR(I),I=1,MP)
+   90 CONTINUE
+      IF (JUMP.LT.4) GOTO 120
+      JUMP = JUMP - 4
+      NBTR1 = 2*N - 2
+      PRINT 3070,NBTR1
+      K = 0
+      DO 110 I = 1,NBTR1
+        IF (TABS(I)) GOTO 110
+        K = K + 1
+        DO 100 J = 1,3
+          IS(J) = IP
+          IF (ARROW(I,J).LT.1) IS(J) = IM
+  100   CONTINUE
+        PRINT 3080, (IS(J),J=1,3)
+        PRINT 3090,K,I, (J23(I,J),J=1,3)
+  110 CONTINUE
+      PRINT 3100
+      MM = M
+      IF (NAMES.NE.NSETTB) MM = M - 1
+      PRINT 3110, (I, (LINE(I,J),LCOL(I,J),J=1,2),I=1,MM)
+  120 CONTINUE
+      IF (JUMP.LT.2) GOTO 130
+      JUMP = JUMP - 2
+      PRINT 3150,NC,NPART,IPARTL,IPARTS,ICROSS, (NPOINT(I),I=1,NC)
+  130 CONTINUE
+      IF (JUMP.LT.1) GOTO 140
+      PRINT 3160,NZERO, (I,JZERO(I),I=1,NZERO)
+  140 CONTINUE
+      IF (J6C.GE.I6C) PRINT 3120,I6, (J6(I),I=I6C,J6C)
+      IF (J7C.GE.I7C) PRINT 3120,I7, (J7(I),I=I7C,J7C)
+      IF (J8C.GE.I8C) PRINT 3120,I8, (J8(I),I=I8C,J8C)
+      IF (J9C.GE.I9C) PRINT 3120,I9, (J9(I),I=I9C,J9C)
+      IF (JDEL.GE.IDEL) PRINT 3130, ((LDEL(I,J),J=1,2),I=IDEL,JDEL)
+      IF (JWC.GE.IWC) PRINT 3140, ((JW(J,I),J=1,6),I=IWC,JWC)
+      I6C = J6C + 1
+      I7C = J7C + 1
+      I8C = J8C + 1
+      I9C = J9C + 1
+      IDEL = JDEL + 1
+      IWC = JWC + 1
+C
+ 3000 FORMAT (/10X,'NBNODE=',I3,10X,'NBTR=',I3,10X,'NFIN=',I3,/10X,
+     A       'IFIRST=',I3,10X,'ILAST=',I3,9X,'NFREE=',I3)
+ 3010 FORMAT (//7X,'IL',3X,'IH',14X,'JDIAG'//)
+ 3020 FORMAT (26X,3 (2X,A1))
+ 3030 FORMAT (7X,I2,3X,I2,2X,A8,2X,3I3/)
+ 3040 FORMAT (/5X,'TAB1'/)
+ 3050 FORMAT (4 (I3,')',2X,I3,I5,5X))
+ 3060 FORMAT (/2X,'SUMVAR=',15 (I3,L1))
+ 3070 FORMAT (//10X,'J23',10X,'NBTR1=',I3//)
+ 3080 FORMAT (16X,3 (2X,A1))
+ 3090 FORMAT (I9,I5,2X,3I3/)
+ 3100 FORMAT (/3X,'J  L1 K1  L2 K2')
+ 3110 FORMAT (4 (I4,')',I3,I3,I4,I3))
+ 3120 FORMAT (/3X,A4,3X,3 (20I3/))
+ 3130 FORMAT (/3X,'DELTA=',7 (I5,I3))
+ 3140 FORMAT (/3X,'JW(ARG. OF 6J)',6I3)
+ 3150 FORMAT (//'  NC=',I2,4X,'NPART=',I2,4X,'IPARTL=',I2,4X,'IPARTS=',
+     A       I2,4X,'ICROSS=',I2,4X,/2X,'NPOINT=',20I3)
+ 3160 FORMAT (//'  NZERO=',I2,5X,12 (I4,')',I3))
+ 3170 FORMAT (///3X,'PRINT OUT AFTER CALLING SUBROUTINE ',A7)
+      END
+CEND********************************************************************
+      SUBROUTINE SEARCH(FIND)
+C
+      LOGICAL FIND
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4,KFL2A=2*KFL2,KFL2B=4*KFL2,
+     A          KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+      COMMON /INFORM/IREAD,IWRITE,IPUNCH
+C
+      CHARACTER*6 NAME
+      DATA NAME/'SEARCH'/
+C
+C-----THIS SUBROUTINE LOCATES CIRCUITS OR LOOPS OF ORDER NC.NPOINT(NC)
+C     ARE THE INDICES OF THE POINTS(TRIADS) PERTAINING TO THE FIRST
+C     SUCH LOOP FOUND.
+C     NPART IS THE NUMBER OF SEPARATE PARTS(GROUPS OF CONTIGUOUS POINTS)
+C     ON THE AXIS OF THE FLAT GRAPH.IPARTS IS THE NUMBER OF POINTS IN
+C     THE SMALLEST PART.IPARTL IS THE NUMBER OF POINTS IN THE LARGEST
+C     PART.
+C     THIS SUBROUTINE FINDS ALL THE POSSIBLE LOOPS OF ORDER 3 AND 4.FOR
+C     NC.GE.5,IT LOOKS FOR ONLY THOSE WHO ARE PARTITIONNED IN NPART.LE.2
+C     , WHICH CAN EVENTUALLY
+C     REDUCE TO A LOOP OF ORDER 4 WITHOUT BREAKING THE BASIC STRUCTURE
+C     OF THE FLAT GRAPH.ICROSS=-1,IF LINES CROSS
+C--------------------------------------------------------------------
+C
+C   INITIALIZATION
+C
+      FIND = .FALSE.
+      NCM1 = NC - 1
+      NCM = NC - 2
+      ICROSS = 0
+C
+C   FIRST TREAT TWO CASES THAT DO NOT INVOLVE DO LOOPS:
+C
+C   1. ONE ISOLATED POINT,EITHER THE FIRST OR THE LAST
+C
+      NPART = 1
+      IPARTL = NC - 1
+      IPARTS = 1
+C
+C   A. FIRST
+C
+      I1 = IFIRST
+      K3 = 3
+      K2 = 2
+   10 CONTINUE
+      JA = JDIAG(I1,1)
+      JC = JDIAG(I1,K3)
+C
+      IF (JA.EQ.JC) THEN
+        IF (NC.GT.1) THEN
+          WRITE (IWRITE,3000) I1,K3,JA,JC,NC
+          STOP
+C
+        ENDIF
+C
+        NPOINT(1) = I1
+        GOTO 160
+C
+      ENDIF
+C
+      I2 = TAB1(JA,K2)
+      I3 = TAB1(JC,K2)
+C
+      IF (ABS(IL(I3)-IL(I2))-NCM.LT.0) THEN
+        WRITE (IWRITE,3010) I2,I3,JA,JC,K2,NC
+        STOP
+C
+      ENDIF
+C
+      IF (ABS(IL(I3)-IL(I2))-NCM.GT.0) THEN
+C
+C   B. LAST
+C
+        IF (I1.NE.IFIRST) GOTO 30
+        I1 = ILAST
+        K3 = 2
+        K2 = 1
+        GOTO 10
+C
+      ENDIF
+C
+      IC = 1
+      NPOINT(IC) = I1
+      I20 = MIN(I2,I3)
+      I21 = IL(I20)
+      I31 = I21 + NCM1
+C
+      DO 20 II = I21,I31
+        IC = IC + 1
+        NPOINT(IC) = IH(II)
+   20 CONTINUE
+C
+      IF (NC.LE.2) THEN
+        IF (JDIAG(IFIRST,1).NE.JDIAG(ILAST,1)) THEN
+C
+C    PHASE(I1,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+          J7(J7C+1) = JDIAG(I1,1)
+          J7(J7C+2) = JDIAG(I1,2)
+          J7C = J7C + 3
+          J7(J7C) = JDIAG(I1,3)
+C
+          GOTO 160
+C
+        ENDIF
+C
+      ENDIF
+C
+      IF (I1.NE.ILAST) THEN
+        IT = I2
+        JT = JDIAG(ILAST,2)
+        K4 = 2
+        I4 = ILAST
+C
+      ELSE
+        IT = I3
+        JT = JDIAG(IFIRST,3)
+        K4 = 3
+        I4 = IFIRST
+      ENDIF
+C
+      IF (IT.EQ.I20) THEN
+C
+C    PHASE (I1,JDIAG,KFL2B):
+C    PHASE FACTOR ARISING FROM NON-CYCLIC PERMUTATION OF ARGUMENTS IN
+C    TRIAD L.
+C
+        J7(J7C+1) = JDIAG(I1,1)
+        J7(J7C+2) = JDIAG(I1,2)
+        J7C = J7C + 3
+        J7(J7C) = JDIAG(I1,3)
+C
+      ENDIF
+C
+      IF ((JT.EQ.JA) .OR. (JT.EQ.JC)) CALL CHANGE(I4,K4)
+      GOTO 160
+C
+C   2. TWO ISOLATED POINTS,FIRST AND LAST
+C
+   30 CONTINUE
+      IF (NC.EQ.1) RETURN
+      IF (NC.LE.3) GOTO 50
+      IPARTL = NC - 2
+      IPARTS = 1
+      I1 = IFIRST
+      I2 = ILAST
+      JA = JDIAG(I1,1)
+      JB = JDIAG(I1,3)
+C
+      IF (TAB1(JA,2).NE.I2) THEN
+        JA = JDIAG(I1,3)
+        JB = JDIAG(I1,1)
+        IF (TAB1(JA,2).NE.I2) GOTO 50
+      ENDIF
+C
+      IF (JA.EQ.JDIAG(I2,1)) THEN
+        JC = JDIAG(I2,2)
+C
+      ELSE
+        JC = JDIAG(ILAST,1)
+      ENDIF
+C
+      I3 = TAB1(JB,2)
+      I4 = TAB1(JC,1)
+      IDIST = IL(I4) - IL(I3)
+C
+      IF (ABS(IDIST)- (NCM-1).LT.0) THEN
+        WRITE (IWRITE,3020) I3,I4,JB,JC,IDIST,NC
+        STOP
+C
+      ENDIF
+C
+      IF (ABS(IDIST)- (NCM-1).EQ.0) THEN
+        NPOINT(1) = ILAST
+        NPOINT(2) = IFIRST
+        ICROSS = SIGN(1,IDIST)
+        IC = 2
+        I20 = MIN(I3,I4)
+        I21 = IL(I20)
+        I31 = I21 + NCM
+C
+        DO 40 II = I21,I31
+          IC = IC + 1
+          NPOINT(IC) = IH(II)
+   40   CONTINUE
+C
+        IF (JA.EQ.JDIAG(IFIRST,1)) CALL CHANGE(IFIRST,3)
+        IF (JA.EQ.JDIAG(ILAST,1)) CALL CHANGE(ILAST,2)
+        GOTO 160
+C
+      ENDIF
+C
+C   FIRST GENERAL CASE: ALL POINTS IN ONE GROUP
+C
+   50 CONTINUE
+      NPART = 1
+      IPARTS = 0
+      IPARTL = NC
+      K3 = 1
+C
+      DO 80 IN = 1,NBNODE
+        I = IH(IN)
+   60   CONTINUE
+        JA = JDIAG(I,K3)
+        IF (I.NE.TAB1(JA,2)) THEN
+          I2 = TAB1(JA,2)
+C
+          IF (IL(I2)-IN-NCM1.LT.0) THEN
+            WRITE (IWRITE,3030) IN,I,I2,IL(I2),JA,NC
+            STOP
+C
+          ENDIF
+C
+          IF (IL(I2)-IN-NCM1.EQ.0) THEN
+            I21 = IL(I2)
+            IC = 0
+C
+            DO 70 II = IN,I21
+              IC = IC + 1
+              NPOINT(IC) = IH(II)
+   70       CONTINUE
+C
+            IF (JA.EQ.JDIAG(IFIRST,3)) CALL CHANGE(IFIRST,3)
+            IF (JA.EQ.JDIAG(ILAST,2)) CALL CHANGE(ILAST,2)
+            GOTO 160
+C
+          ENDIF
+C
+        ENDIF
+C
+        IF (IN.EQ.1) THEN
+          IF (K3.NE.3) THEN
+            K3 = 3
+            GOTO 60
+C
+          ELSE
+            K3 = 1
+          ENDIF
+C
+        ENDIF
+C
+   80 CONTINUE
+C
+C   SEARCH DID NOT FIND LOOP NC .LE. 3
+C
+      IF (NC.LE.3) RETURN
+C
+C   GENERAL CASE OF LOOP PARTITIONNED IN 2 GROUPS. DO LOOP
+C   ON IPARTS
+C
+      NPART = 2
+      NC2 = NC/2
+      K3 = 1
+      K2 = 1
+C
+      DO 150 IPS = 2,NC2
+        JPS = IPS - 1
+        NBN = NBNODE - JPS
+C
+        DO 140 I1 = 1,NBN
+          I = IH(I1)
+          I2 = IH(I1+JPS)
+   90     CONTINUE
+          JA = JDIAG(I,K3)
+          JD = JDIAG(I2,K2)
+C
+          IF (I.EQ.TAB1(JA,1)) THEN
+            II2 = TAB1(JD,2)
+            II1 = TAB1(JA,2)
+C
+          ELSE
+            II1 = TAB1(JA,1)
+            II2 = TAB1(JD,1)
+          ENDIF
+C
+          IDIST = IL(II1) - IL(II2)
+C
+          IF (ABS(IDIST)- (NCM-JPS).LT.0) THEN
+            WRITE (IWRITE,3040) JPS,I1,I,I2,JA,JD,II1,II2,IDIST,NC
+            STOP
+C
+          ENDIF
+C
+          IF (ABS(IDIST)- (NCM-JPS).GT.0) GOTO 130
+          ICROSS = SIGN(1,IDIST)
+          IC = 0
+          I21 = IL(I2)
+C
+          DO 110 II = I1,I21
+            IC = IC + 1
+            NPOINT(IC) = IH(II)
+  110     CONTINUE
+C
+          I20 = MIN(II1,II2)
+          I30 = MAX(II1,II2)
+          I21 = IL(I20)
+          I31 = IL(I30)
+C
+          DO 120 II = I21,I31
+            IC = IC + 1
+            NPOINT(IC) = IH(II)
+  120     CONTINUE
+C
+          IPARTS = IPS
+          IPARTL = NC - IPS
+          IF ((JDIAG(IFIRST,3).EQ.JA) .OR.
+     A        (JDIAG(IFIRST,3).EQ.JD)) CALL CHANGE(IFIRST,3)
+          IF ((JDIAG(ILAST,2).EQ.JA) .OR.
+     A        (JDIAG(ILAST,2).EQ.JD)) CALL CHANGE(ILAST,2)
+          GOTO 160
+C
+  130     CONTINUE
+          IF (I1.EQ.1) THEN
+            IF (K3.EQ.3) THEN
+              K3 = 1
+              GOTO 140
+C
+            ELSE
+              K3 = 3
+              GOTO 90
+C
+            ENDIF
+C
+          ENDIF
+C
+          IF (I2.EQ.ILAST) THEN
+            IF (K2.NE.2) THEN
+              K2 = 2
+              GOTO 90
+C
+            ENDIF
+C
+          ENDIF
+C
+  140   CONTINUE
+  150 CONTINUE
+C
+C   SEARCH DID NOT FIND CIRCUIT OF ORDER NC
+C
+      RETURN
+C
+C   LOOP FOUND
+C
+  160 CONTINUE
+      FIND = .TRUE.
+      CALL PRINTJ(NAME,10)
+C
+C   ERROR PRINTOUT
+C
+ 3000 FORMAT (' ERROR IN SEARCH. I1,K3,JA,JC,NC = ',5I5)
+ 3010 FORMAT (' ERROR IN SEARCH. I2,I3,JA,JC,K2,NC = ',6I5)
+ 3020 FORMAT (' ERROR IN SEARCH. I3,I4,JB,JC,IDIST,NC = ',6I5)
+ 3030 FORMAT (' ERROR IN SEARCH. IN,I,I2,IL(I2),JA,NC = ',6I5)
+ 3040 FORMAT (' ERROR IN SEARCH. JPS,I1,I,I2,JA,JD,II1,II2,IDIST,NC = ',
+     A       10I5)
+      END
+CEND********************************************************************
+      SUBROUTINE SETDM
+C
+C     SET DIMENSIONS OF ARRAYS.
+C
+      PARAMETER (KFL1=100)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      COMMON /DIM/J6CC,J7CC,J8CC,J9CC,JWCC,JDELC
+C
+      JWCC = JWC
+      JDELC = JDEL
+      J6CC = J6C
+      J7CC = J7C
+      J8CC = J8C
+      J9CC = J9C
+C
+      END
+CEND********************************************************************
+      SUBROUTINE SETTAB(FAIL)
+C
+C     BUILDS UP THE UNSTRUCTURED GRAPH
+C     SETS THE ARRAY J23,CONTAINING THE TWO LISTS OF ORIGINAL TRIADS
+C     J2 AND J3,AND THE CORRESPONDING ARROWS ON THE ANGULAR MOMENTA
+C     LINES.ALSO ESTABLISHES THE NUMERICAL AND PHASE FACTORS CONNECTING
+C     RECOUPLING COEFFICIENT AND GRAPHS,ACCORDING TO YUTSIS,LEVINSON AND
+C     VANAGAS.FOR THIS PURPOSE DETERMINES THE TOTAL J
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      LOGICAL TABS
+      INTEGER ARROW
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+C
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+      CHARACTER*6 NAME
+      DATA NAME/'SETTAB'/
+C
+      IPR = N - 1
+      NBTR = IPR + IPR
+      DO 20 I = 1,IPR
+        DO 10 J = 1,2
+          J23(I,J) = J2(I,J)
+          ARROW(I,J) = 1
+   10   CONTINUE
+        TABS(I) = .FALSE.
+        J23(I,3) = J2(I,3)
+        ARROW(I,3) = -1
+   20 CONTINUE
+      IPR1 = IPR + 1
+      DO 40 I = IPR1,NBTR
+        II = I - IPR
+        DO 30 J = 1,2
+          J23(I,J) = J3(II,J)
+          ARROW(I,J) = -1
+   30   CONTINUE
+        TABS(I) = .FALSE.
+        J23(I,3) = J3(II,3)
+        ARROW(I,3) = 1
+   40 CONTINUE
+      DO 50 J = 1,NBTR
+        J8(J) = J23(J,1)
+   50 CONTINUE
+      J8C = NBTR + IPR
+      NB1 = NBTR + 1
+      DO 60 J = NB1,J8C
+        I = J - IPR
+        J8(J) = J23(I,3)
+   60 CONTINUE
+      J6C = NBTR
+      DO 70 J = 1,J6C
+        J6(J) = J23(J,3)
+   70 CONTINUE
+      DO 80 I = 1,M
+        SUMVAR(I) = .FALSE.
+        IAL(I) = 1
+   80 CONTINUE
+      DO 100 I = 1,NBTR
+        DO 90 J = 1,3
+          JI = J23(I,J)
+          K = IAL(JI)
+          LINE(JI,K) = I
+          LCOL(JI,K) = J
+          IAL(JI) = K + 1
+   90   CONTINUE
+  100 CONTINUE
+      IT = 0
+      DO 130 I = 1,NBTR
+        JT = J23(I,3)
+        IF (IAL(JT).EQ.3) GOTO 120
+        IF (IT.EQ.1) GOTO 110
+        JT1 = JT
+        IT = 1
+        GOTO 130
+C
+  110   CONTINUE
+        CALL DELTA(JT1,JT,FAIL)
+        IF (FAIL) GOTO 150
+        K = LINE(JT,1)
+        KC = LCOL(JT,1)
+        LINE(JT1,2) = K
+        LCOL(JT1,2) = KC
+        J23(K,KC) = JT1
+        IAL(JT) = 1
+        GOTO 140
+C
+C     OTHERJ(I,JT,L,LC,K):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+  120   CONTINUE
+        L = LINE(JT,1)
+        IF (L.EQ.I .OR. TABS(L)) THEN
+          K = 1
+          L = LINE(JT,2)
+          LC = LCOL(JT,2)
+C
+        ELSE
+          K = 2
+          LC = LCOL(JT,1)
+        ENDIF
+C
+        IF (LC.EQ.3) GOTO 140
+  130 CONTINUE
+  140 CONTINUE
+      J9(J9C+1) = JT
+      J9C = J9C + 2
+      J9(J9C) = JT
+  150 CONTINUE
+      CALL PRINTJ(NAME,4)
+C
+      END
+CEND********************************************************************
+      SUBROUTINE SPRATE(M)
+C
+C    THIS SUBROUTINE PREPARES THE INFORMATION TO BE TRANSFERED TO
+C    GENSUM FOR NUMERICAL EVALUATION.
+C
+      PARAMETER (KFL1=100)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20,KFLS=12,
+     A          KFLN=10,KFLV=40)
+C
+      LOGICAL SUM6J,T6J,JT,JS
+      DIMENSION JTEM4(KFLS,KFLW),JTEM5(KFLS,KFLW),JTEM6(KFLS),
+     A          NSUM6J(KFLW),J6SUM(KFLW)
+      DIMENSION SUM6J(KFLW),T6J(KFLW),JT(KFLS),JS(KFLS),INVER(KFL1),
+     A          JNSUM(KFLS),JINV(KFLS),N6JN(KFLW),IN6J(KFLW),
+     B          JSUMT(KFLW,6)
+C
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      COMMON /DIM/J6CC,J7CC,J8CC,J9CC,JWCC,JDELC
+C
+      COMMON /SUMARG/J6P(KFLV),J7P(KFLV),J8P(KFLV),J9P(KFLV),
+     A       JWORD(6,KFLW),NLSUM,NBJ(KFLN),NB6J(KFLN),K6CP(KFLN),
+     B       K7CP(KFLN),K8CP(KFLN),K9CP(KFLN),JSUM6(KFLS),
+     C       JSUM4(KFLS,KFLW),JSUM5(KFLS,KFLW),INV6J(KFLW)
+C
+      LOGICAL CUT
+      COMMON /CUTDIG/CUT
+C
+      CHARACTER*4 NAME
+C
+C
+C    1. TEST THAT ARRAY DIMENSIONS HAVE NOT BEEN EXCEEDED.
+C
+      IF (MP.LE.KFL1) GOTO 10
+      NMX = KFL1
+      NPX = MP
+      NAME = 'KFL1'
+      GOTO 60
+C
+   10 CONTINUE
+      IF (JWC.LE.KFLW) GOTO 20
+      NMX = KFLW
+      NPX = JWC
+      NAME = 'KFLW'
+      GOTO 60
+C
+   20 CONTINUE
+      IF (J6C.LE.KFL6) GOTO 30
+      NMX = KFL6
+      NPX = J6C
+      NAME = 'KFL6'
+      GOTO 60
+C
+   30 CONTINUE
+      IF (J7C.LE.KFL7) GOTO 40
+      NMX = KFL7
+      NPX = J7C
+      NAME = 'KFL7'
+      GOTO 60
+C
+   40 CONTINUE
+      IF (J8C.LE.KFL8) GOTO 50
+      NMX = KFL8
+      NPX = J8C
+      NAME = 'KFL8'
+      GOTO 60
+C
+   50 CONTINUE
+      IF (J9C.LE.KFL9) GOTO 70
+      NMX = KFL9
+      NPX = J9C
+      NAME = 'KFL9'
+   60 CONTINUE
+      PRINT 3000,NAME,NPX,NMX
+      STOP
+C
+C     2. DETERMINATION OF EFFECTIVE SUMMATION VARIABLES AND THEIR
+C     RELATIONSHIPS WITH 6J COEFFICIENTS.
+C
+   70 CONTINUE
+      DO 80 I = 1,JWC
+        INV6J(I) = 0
+        SUM6J(I) = .FALSE.
+   80 CONTINUE
+      NSUM = 0
+      NLSUM = 0
+      IF (MP.EQ.M) RETURN
+      M1 = M + 1
+      DO 90 I = M1,MP
+        IF (.NOT.SUMVAR(I)) GOTO 90
+        NSUM = NSUM + 1
+        JSUM6(NSUM) = 0
+        INVER(I) = NSUM
+   90 CONTINUE
+      IF (NSUM.EQ.0) RETURN
+      IF (NSUM.LE.KFLS) GOTO 100
+      NMX = KFLS
+      NPX = NSUM
+      NAME = 'NSUM'
+      GOTO 60
+C
+  100 CONTINUE
+      KT = 0
+      DO 130 I = 1,JWC
+        DO 120 J = 1,6
+          IK = JW(J,I)
+          IF (.NOT.SUMVAR(IK)) GOTO 120
+          IF (SUM6J(I)) GOTO 110
+          SUM6J(I) = .TRUE.
+          KT = KT + 1
+          J6SUM(KT) = 0
+          NSUM6J(KT) = I
+          INV6J(I) = KT
+  110     CONTINUE
+          ISK = INVER(IK)
+          I2 = JSUM6(ISK) + 1
+          JSUM6(ISK) = I2
+          JSUM4(ISK,I2) = J
+          JSUM5(ISK,I2) = KT
+          I3 = J6SUM(KT) + 1
+          J6SUM(KT) = I3
+          JSUMT(KT,I3) = ISK
+  120   CONTINUE
+  130 CONTINUE
+      CALL VAR(J6,J6P,J6C,J6CP,J6CC,SUMVAR,MP,M,INVER)
+      CALL VAR(J7,J7P,J7C,J7CP,J7CC,SUMVAR,MP,M,INVER)
+      CALL VAR(J8,J8P,J8C,J8CP,J8CC,SUMVAR,MP,M,INVER)
+      CALL VAR(J9,J9P,J9C,J9CP,J9CC,SUMVAR,MP,M,INVER)
+      IF (CUT) GOTO 180
+      NLSUM = 1
+      NBJ(1) = NSUM
+      NB6J(1) = KT
+      K6CP(1) = J6CP
+      K7CP(1) = J7CP
+      K8CP(1) = J8CP
+      K9CP(1) = J9CP
+      DO 150 I = 1,KT
+        I1 = NSUM6J(I)
+        DO 140 J = 1,6
+          JWORD(J,I) = JW(J,I1)
+  140   CONTINUE
+  150 CONTINUE
+      DO 170 I = 1,NSUM
+        ISU = JSUM6(I)
+        DO 160 J = 1,ISU
+          I1 = JSUM5(I,J)
+          J1 = JSUM4(I,J)
+          JWORD(J1,I1) = MP + I
+  160   CONTINUE
+  170 CONTINUE
+      GOTO 410
+C
+C     3.SEPARATION OF VARIABLES AND SUMS IN CASE A CUT WAS DETECTED.
+C
+  180 CONTINUE
+      K6C = 0
+      K7C = 0
+      K8C = 0
+      K9C = 0
+      NJ = 0
+      N6J = 0
+      DO 190 I = 1,KT
+        T6J(I) = .FALSE.
+  190 CONTINUE
+      DO 200 I = 1,NSUM
+        JT(I) = .FALSE.
+        JS(I) = .FALSE.
+  200 CONTINUE
+      J = 1
+  210 CONTINUE
+      NJ = NJ + 1
+      JNSUM(NJ) = J
+      JINV(J) = NJ
+      JT(J) = .TRUE.
+  220 CONTINUE
+      JS(J) = .TRUE.
+      JS6 = JSUM6(J)
+      DO 250 I = 1,JS6
+        I6J = JSUM5(J,I)
+        IF (T6J(I6J)) GOTO 230
+        T6J(I6J) = .TRUE.
+        N6J = N6J + 1
+        N6JN(N6J) = NSUM6J(I6J)
+        IN6J(I6J) = N6J
+  230   CONTINUE
+        J6J = J6SUM(I6J)
+        DO 240 K = 1,J6J
+          JK = JSUMT(I6J,K)
+          IF (JT(JK)) GOTO 240
+          NJ = NJ + 1
+          JNSUM(NJ) = JK
+          JINV(JK) = NJ
+          JT(JK) = .TRUE.
+  240   CONTINUE
+  250 CONTINUE
+      DO 260 JJ = 1,NSUM
+        J = JJ
+        IF (JS(JJ) .OR. .NOT.JT(JJ)) GOTO 260
+        GOTO 220
+C
+  260 CONTINUE
+      NLSUM = NLSUM + 1
+      IF (NLSUM.LE.KFLN) GOTO 280
+      NMX = KFLN
+      NPX = NLSUM
+      NAME = 'KFLN'
+      GOTO 60
+C
+  280 CONTINUE
+      NBJ(NLSUM) = NJ
+      NB6J(NLSUM) = N6J
+      IF (J6CP.EQ.0) GOTO 290
+      CALL CHVAR(J6P,J6CP,K6C,JT,JINV,NSUM)
+  290 CONTINUE
+      K6CP(NLSUM) = K6C
+      IF (J7CP.EQ.0) GOTO 300
+      CALL CHVAR(J7P,J7CP,K7C,JT,JINV,NSUM)
+  300 CONTINUE
+      K7CP(NLSUM) = K7C
+      IF (J8CP.EQ.0) GOTO 310
+      CALL CHVAR(J8P,J8CP,K8C,JT,JINV,NSUM)
+  310 CONTINUE
+      K8CP(NLSUM) = K8C
+      IF (J9CP.EQ.0) GOTO 320
+      CALL CHVAR(J9P,J9CP,K9C,JT,JINV,NSUM)
+  320 CONTINUE
+      K9CP(NLSUM) = K9C
+      IF (NJ.EQ.NSUM) GOTO 340
+      DO 330 JJ = 1,NSUM
+        J = JJ
+        IF (.NOT.JT(JJ)) GOTO 210
+  330 CONTINUE
+  340 CONTINUE
+      DO 360 I = 1,KT
+        I1 = N6JN(I)
+        DO 350 J = 1,6
+          JWORD(J,I) = JW(J,I1)
+  350   CONTINUE
+  360 CONTINUE
+      DO 380 I = 1,NSUM
+        IK = JNSUM(I)
+        I2 = JSUM6(IK)
+        JTEM6(I) = I2
+        DO 370 J = 1,I2
+          JTEM4(I,J) = JSUM4(IK,J)
+          K = JSUM5(IK,J)
+          JTEM5(I,J) = IN6J(K)
+  370   CONTINUE
+  380 CONTINUE
+      DO 400 I = 1,NSUM
+        I2 = JTEM6(I)
+        JSUM6(I) = I2
+        DO 390 J = 1,I2
+          I1 = JTEM5(I,J)
+          J1 = JTEM4(I,J)
+          JSUM4(I,J) = J1
+          JSUM5(I,J) = I1
+          JWORD(J1,I1) = I + MP
+  390   CONTINUE
+  400 CONTINUE
+  410 CONTINUE
+C
+ 3000 FORMAT ('  DIMENSION ERROR FOR  ',A4,I5,
+     A       ' IS OUT OF ALLOWED RANGE',I3)
+      END
+CEND********************************************************************
+      SUBROUTINE SQUARE
+C
+C    REDUCES A CIRCUIT OF ORDER 4 IN THE TWO CASES WHICH ARE LEFT
+C    OVER BY POLYGN,NAMELY TWO DISCONNECTED GROUPS OF TWO POINTS
+C    AND ONE GROUP OF TWO POINTS PLUS THE TWO ENDS OF THE AXIS.IN
+C    THE LATTER, THE END OF THE AXIS IS TRANSFERRED TO THE BEGINNING.
+C    IN THIS PROCESS,ONE SUMMATION VARIABLE AND TWO 6J SYMBOLS ARE
+C    INTRODUCED.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      CHARACTER*6 NAME,NAMSUB
+      COMMON /NAM/NAMSUB
+      DATA NAME/'SQUARE'/
+C
+      NAMSUB = NAME
+      MP = MP + 1
+      SUMVAR(MP) = .TRUE.
+      IT1 = NPOINT(1)
+      IT2 = NPOINT(2)
+C
+      IF (ICROSS.EQ.1) THEN
+        IT3 = NPOINT(3)
+        IT4 = NPOINT(4)
+        K23 = 3
+        K32 = 2
+C
+      ELSE
+        IT3 = NPOINT(4)
+        IT4 = NPOINT(3)
+        K23 = 2
+        K32 = 3
+      ENDIF
+C
+      L4 = JDIAG(IT2,1)
+C
+      IF (ARR(IT2,1).LE.0) THEN
+C
+C     PHASE2 (L4): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = L4
+C
+        ARR(IT2,1) = 1
+        ARR(IT3,1) = -1
+      ENDIF
+C
+      L2 = JDIAG(IT1,1)
+      IF (ARR(IT1,1).GT.0) THEN
+C
+C     PHASE2(L2): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = L2
+C
+      ENDIF
+C
+      JWC = JWC + 1
+      JW(1,JWC) = L4
+      JW(2,JWC) = L2
+      JW(3,JWC) = JDIAG(IT2,2)
+      JJ1 = JDIAG(IT1,3)
+      JW(4,JWC) = JJ1
+      JW(5,JWC) = MP
+      JW(6,JWC) = JDIAG(IT1,2)
+      IF (ARR(IT1,2).LT.0) THEN
+C
+C     PHASE2 (JDIAG(IT1,2)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JDIAG(IT1,2)
+C
+      ENDIF
+C
+      JWC = JWC + 1
+      JW(1,JWC) = L4
+      JW(2,JWC) = L2
+      JJ3 = JDIAG(IT3,K23)
+      JJ2 = JDIAG(IT4,K32)
+      JW(3,JWC) = JJ3
+      JW(4,JWC) = JJ2
+      JW(5,JWC) = MP
+      JW(6,JWC) = JDIAG(IT3,K32)
+      IF (ARR(IT3,K32).LT.0) THEN
+C
+C     PHASE2 (JDIAG(IT3,K32)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JDIAG(IT3,K32)
+C
+      ENDIF
+C
+      J6(J6C+1) = MP
+      J6C = J6C + 2
+      J6(J6C) = MP
+C
+      IF (NPART.EQ.1) THEN
+        ITMIN = IT2
+        ITMAX = IT3
+C
+      ELSE
+        ITMIN = MIN(IT2,IT3)
+        ITMAX = MAX(IT2,IT3)
+      ENDIF
+C
+      ITMN = MIN(IT1,IT4)
+      ITMX = MAX(IT1,IT4)
+C
+      TAB1(MP,1) = ITMIN
+      TAB1(MP,2) = ITMAX
+      JDIAG(IT2,1) = MP
+      JDIAG(IT3,1) = MP
+      JDIAG(IT2,3) = JJ1
+      ARR(IT2,3) = ARR(IT1,3)
+      JDIAG(IT3,K32) = JJ2
+      ARR(IT3,K32) = ARR(IT4,K32)
+C
+      IF (ICROSS.EQ.1) THEN
+        J7(J7C+1) = L2
+        J7(J7C+2) = L4
+C
+C     PHASE2 (L4): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = L4
+C
+        J7C = J7C + 3
+        J7(J7C) = MP
+C
+      ELSE
+C
+C     PHASE2 (JJ2): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JJ2
+C
+      ENDIF
+C
+      ITLL = IL(ITMN)
+      ITHL = IL(ITMX)
+C
+      DO 10 I = ITLL + 1,ITHL - 1
+        IT = IH(I)
+        ILP = I - 1
+        IL(IT) = ILP
+        IH(ILP) = IT
+   10 CONTINUE
+      IF (ITHL.NE.NBNODE) THEN
+        DO 20 I = ITHL + 1,NBNODE
+          IT = IH(I)
+          ILP = I - 2
+          IL(IT) = ILP
+          IH(ILP) = IT
+   20   CONTINUE
+      ENDIF
+C
+      IF (NPART.NE.2) THEN
+        TAB1(JJ1,1) = IH(1)
+        TAB1(JJ1,2) = IH(NBNODE-2)
+      ENDIF
+C
+      END
+CEND********************************************************************
+      SUBROUTINE TRDEL(JJ1,JJ2,JJ3,NBN,FAIL)
+C
+C     TEST FOR TRIANGULAR DELTA.IF NOT SATISFIED FAIL=.TRUE.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      LOGICAL CUT
+      COMMON /CUTDIG/CUT
+      LOGICAL FREE
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+C
+      IF (SUMVAR(JJ1) .OR. SUMVAR(JJ2) .OR. SUMVAR(JJ3)) GOTO 10
+      IF (NBN.GT.4) CUT = .TRUE.
+      IF (FREE(JJ1) .OR. FREE(JJ2) .OR. FREE(JJ3)) GOTO 10
+      I1 = J1(JJ1)
+      I2 = J1(JJ2)
+      I3 = J1(JJ3)
+      IF (I1.GE. (ABS(I2-I3)+1) .AND. I1.LE. (I2+I3-1)) GOTO 10
+      FAIL = .TRUE.
+   10 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE TRIANG(FAIL)
+C
+C    REDUCES A TRIANGLE HAVING ONE APEX AT EITHER END OF THE AXIS OF
+C    THE FLAT DIAGRAM.
+C    THIS INTRODUCES ONE 6J SYMBOL AND SOME PHASE FACTORS .
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFL2C=2*KFL2+2)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+C
+      INTEGER ARR,TAB1
+      COMMON /GRAPH/JDIAG(KFL2B,3),ARR(KFL2B,3),TAB1(KFL1,2),IL(KFL2B),
+     A       IH(KFL2B),NPOINT(KFL2C),NBNODE,IFIRST,ILAST,IPARTS,IPARTL,
+     B       NPART,ICROSS,NFREE,ITFREE(KFL2A),NFIN,NC
+      LOGICAL SUMVAR
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+C
+      CHARACTER*6 NAME,NAMSUB
+      COMMON /NAM/NAMSUB
+      DATA NAME/'TRIANG'/
+C
+      NAMSUB = NAME
+      IT1 = NPOINT(1)
+      IT2 = NPOINT(2)
+      IT3 = NPOINT(3)
+      JWC = JWC + 1
+      JW(1,JWC) = JDIAG(IT3,2)
+      JW(2,JWC) = JDIAG(IT2,3)
+      JW(3,JWC) = JDIAG(IT3,1)
+      IF (ARR(IT3,1).GT.0) THEN
+C
+C     PHASE2(JW(3,JWC)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JW(3,JWC)
+C
+      ENDIF
+C
+      JW(4,JWC) = JDIAG(IT2,1)
+      IF (ARR(IT2,1).LT.0) THEN
+C
+C     PHASE2(JW(4,JWC)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JW(4,JWC)
+C
+      ENDIF
+C
+      K23 = 3
+      IF (IT1.EQ.IFIRST) K23 = 2
+      JW(5,JWC) = JDIAG(IT1,K23)
+      JW(6,JWC) = JDIAG(IT3,3)
+      CALL TRDEL(JW(1,JWC),JW(2,JWC),JW(5,JWC),NBNODE,FAIL)
+      IF (FAIL) GOTO 60
+      IF (ARR(IT3,3).GT.0) THEN
+C
+C     PHASE2(JW(6,JWC)): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JW(6,JWC)
+C
+      ENDIF
+C
+      JT1 = JW(5,JWC)
+      JDIAG(IT3,1) = JT1
+      JDIAG(IT3,3) = JW(2,JWC)
+      ARR(IT3,1) = ARR(IT1,K23)
+      ARR(IT3,3) = ARR(IT2,3)
+      IF (IT1.EQ.IFIRST) GOTO 10
+      TAB1(JT1,1) = IT3
+      TAB1(JT1,2) = IH(NBNODE-1)
+      K12 = 1
+      GOTO 20
+C
+   10 CONTINUE
+      TAB1(JT1,1) = IH(2)
+      TAB1(JT1,2) = IT3
+      K12 = 2
+   20 CONTINUE
+      IL3 = IL(IT3)
+      IF (IT1.EQ.ILAST) GOTO 40
+      IL2 = IL(IT2) - 1
+      DO 30 I = 2,IL2
+        IT = IH(I)
+        ILP = I - 1
+        IL(IT) = ILP
+        IH(ILP) = IT
+   30 CONTINUE
+   40 CONTINUE
+      DO 50 I = IL3,NBNODE
+        IT = IH(I)
+        ILP = I - K12
+        IL(IT) = ILP
+        IH(ILP) = IT
+   50 CONTINUE
+   60 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE VAR(JN,JNS,JNC,JNSC,JBC,SUMVAR,MP,M,INVER)
+C
+C    TEST FOR VARIABLE CHARACTER AND PUT IN JNS IF YES,AND JN NOW
+C    CONTAINS 0.
+C
+      PARAMETER (KFLV=40)
+C
+      LOGICAL SUMVAR(MP)
+      DIMENSION JN(JNC),JNS(KFLV),INVER(MP)
+C
+      JNSC = 0
+      IF (JBC.EQ.JNC) GOTO 20
+      JBBC = JBC + 1
+      DO 10 I = JBBC,JNC
+        I1 = JN(I)
+        IF (.NOT.SUMVAR(I1)) GOTO 10
+        JNSC = JNSC + 1
+        IF (JNSC.GT.KFLV) THEN
+          PRINT 3000,JNSC,KFLV
+          STOP
+C
+        ENDIF
+C
+        J = INVER(I1)
+        JNS(JNSC) = J
+        JN(I) = M
+   10 CONTINUE
+   20 CONTINUE
+C
+ 3000 FORMAT (' DIMENSION ERROR IN VAR. JNSC=',I5,' KFLV=',I5)
+      END
+CEND********************************************************************
+      SUBROUTINE WAY(L,KA,KB,ICH,NB)
+C
+C
+C     TESTS ONE STEP FORWARD  IF THE WAY IS FREE.FIRST AND SECOND
+C     ARGUMENTS ARE INTERCHANGED OR NOT ACCORDING TO ICH=-1,OR +1
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4,KFL2A=2*KFL2,KFL2B=4*KFL2)
+C
+      LOGICAL TABS
+      INTEGER ARROW
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+C
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+      K1 = J23(L,KA)
+      K2 = J23(L,KB)
+      NB = IAL(K1) + IAL(K2) - 1
+      IF (NB) 20,10,60
+   10 CONTINUE
+      NB1 = IAL(K1) - IAL(K2)
+      IF (NB1) 70,60,60
+C
+C     OTHERJ(L,K1,L1,LC1,LA)
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+   20 CONTINUE
+      L1 = LINE(K1,1)
+      IF (L1.EQ.L .OR. TABS(L1)) THEN
+        L1 = LINE(K1,2)
+        LC1 = LCOL(K1,2)
+      ELSE
+        LC1 = LCOL(K1,1)
+      ENDIF
+C
+C     OTHERJ(L,K2,L2,LC2,LB):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      L2 = LINE(K2,1)
+      IF (L2.EQ.L .OR. TABS(L2)) THEN
+        L2 = LINE(K2,2)
+        LC2 = LCOL(K2,2)
+      ELSE
+        LC2 = LCOL(K2,1)
+      ENDIF
+C
+C
+C    NEIBOR(LC1,I1,I2):
+C    GIVES THE POSITIONS OF THE OTHER TWO ARGUMENTS IN THE TRIAD.
+C
+      IF (LC1.LT.2) THEN
+        I1 = 2
+        I2 = 3
+C
+      ELSE IF (LC1.EQ.2) THEN
+        I1 = 3
+        I2 = 1
+C
+      ELSE
+        I1 = 1
+        I2 = 2
+      ENDIF
+C
+C    NEIBOR(LC2,I3,I4):
+C    GIVES THE POSITIONS OF THE OTHER TWO ARGUMENTS IN THE TRIAD.
+C
+      IF (LC2.LT.2) THEN
+        I3 = 2
+        I4 = 3
+C
+      ELSE IF (LC2.EQ.2) THEN
+        I3 = 3
+        I4 = 1
+C
+      ELSE
+        I3 = 1
+        I4 = 2
+      ENDIF
+C
+      JI1 = J23(L1,I1)
+      JI2 = J23(L1,I2)
+      JI3 = J23(L2,I3)
+      JI4 = J23(L2,I4)
+      IA = IAL(JI1) + IAL(JI2)
+      IB = IAL(JI3) + IAL(JI4)
+      NBP = IB + IA + 1
+      NBM = IB - IA
+      GOTO (60,30,40,30,50),NBP
+C
+   30 CONTINUE
+      IF (NBM) 70,60,60
+   40 CONTINUE
+      IF (NBM) 70,50,60
+   50 CONTINUE
+      IF (JI3.EQ.IF1 .OR. JI3.EQ.IF2 .OR. JI4.EQ.IF1 .OR.
+     A    JI4.EQ.IF2) GOTO 70
+   60 CONTINUE
+      ICH = 1
+      GOTO 80
+C
+   70 CONTINUE
+      ICH = -1
+   80 CONTINUE
+C
+      END
+CEND********************************************************************
+      SUBROUTINE ZERO(J,JZ,FAIL)
+C
+C     SUPPRESSES ONE LINE AND TWO NODES OF THE UNSTRUCTURED GRAPH
+C     INTRODUCES  ZEROS IN THE TRIADS J23.AS A CONSEQUENCE THE OTHER
+C     TWO ARGUMENTS OF THE TRIAD ARE PUT EQUAL.IF THERE WAS ALREADY
+C     A ZERO IN THE TRIAD WHICH IS CHANGED IT IS A SPECIAL CASE.
+C
+      PARAMETER (MZLR1=   5)
+      PARAMETER (MZNR1=   5)
+C
+      PARAMETER (MXORB=MZNR1*MZNR1/2+MZLR1)
+      PARAMETER (KFL1=100,KFL2=MXORB+4)
+      PARAMETER (KFL2A=2*KFL2,KFL2B=4*KFL2,KFLZ=99)
+      PARAMETER (KFL6=120,KFL7=150,KFL8=120,KFL9=40,KFLW=20)
+C
+      LOGICAL FAIL
+      COMMON /DEBUG/IBUG1,IBUG2,IBUG3,IBUG4,IBUG5,IBUG6,IBUG7,IBUG8,
+     A       IBUG9
+      COMMON /DIM/J6CC,J7CC,J8CC,J9CC,JWCC,JDELC
+      COMMON /ZER/NZERO,JZERO(KFLZ)
+      COMMON /BUILD/IAL(KFL2B),IF1,IF2,NODE
+C
+      LOGICAL TABS,FREE,SUMVAR,CUT,NOCUT
+      INTEGER ARROW
+      COMMON /TREE/J23(KFL2A,3),ARROW(KFL2A,3),LINE(KFL1,2),
+     A       LCOL(KFL1,2),TABS(KFL2A),NBTR
+      COMMON /COUPLE/M,N,J1(KFL1),J2(KFL2,3),J3(KFL2,3),FREE(KFL1)
+      COMMON /ARGU/J6C,J7C,J8C,J9C,JWC,J6(KFL6),J7(KFL7),J8(KFL8),
+     A       J9(KFL9),JW(6,KFLW),JDEL,LDEL(KFLW,2),SUMVAR(KFL1),MP
+      COMMON /CUTDIG/CUT
+C
+      CHARACTER*6 NAME
+      DATA NAME/'ZERO  '/
+C
+      NOCUT = .FALSE.
+      NZERO = 0
+      IF (J.LT.1) GOTO 10
+C
+C     OTHERJ(0,JZ,LIN,LC,K1):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      LIN = LINE(JZ,1)
+      IF (LIN.EQ.0 .OR. TABS(LIN)) THEN
+        K1 = 1
+        LIN = LINE(JZ,2)
+        LC = LCOL(JZ,2)
+C
+      ELSE
+        K1 = 2
+        LC = LCOL(JZ,1)
+      ENDIF
+C
+      I = NZERO
+      GOTO 50
+C
+   10 CONTINUE
+      DO 20 I = 1,M
+        IF (J1(I).NE.1 .OR. FREE(I) .OR. IAL(I).LE.1) GOTO 20
+        NZERO = NZERO + 1
+        IF (NZERO.GT.KFLZ) THEN
+          PRINT 3000,NZERO,KFLZ
+          STOP
+C
+        ENDIF
+C
+        JZERO(NZERO) = I
+   20 CONTINUE
+      NOCUT = .TRUE.
+      M = M + 1
+      J1(M) = 1
+      SUMVAR(M) = .FALSE.
+      FREE(M) = .FALSE.
+      IF (NZERO.EQ.0) GOTO 160
+      IF (IBUG3.EQ.1) CALL PRINTJ(NAME,1)
+      I = 0
+   30 CONTINUE
+      I = I + 1
+      JZ = JZERO(I)
+      J = 0
+   40 CONTINUE
+      J = J + 1
+      LIN = LINE(JZ,J)
+      IF (TABS(LIN)) GOTO 150
+      LC = LCOL(JZ,J)
+C
+C    NEIBOR(LC,L1,L2):
+C    GIVES THE POSITIONS OF THE OTHER TWO ARGUMENTS IN THE TRIAD.
+C
+   50 CONTINUE
+      IF (LC.LT.2) THEN
+        L1 = 2
+        L2 = 3
+C
+      ELSE IF (LC.EQ.2) THEN
+        L1 = 3
+        L2 = 1
+C
+      ELSE
+        L1 = 1
+        L2 = 2
+      ENDIF
+C
+      JJ1 = J23(LIN,L1)
+      JJ2 = J23(LIN,L2)
+      IF (JJ1.EQ.JJ2) THEN
+        J6C = J6C + 1
+        J6(J6C) = JJ1
+        GOTO 110
+      ENDIF
+C
+C     CALL DELTA(JJ1,JJ2,FAIL) - INLINED
+C
+C     TEST FOR DELTA(JJ1,JJ2).IF THEY ARE SUMMATION VARIABLES,THE SECOND
+C     IS CHANGED INTO THE FIRST EVERYWHERE.IF THEY ARE FIXED,THEIR
+C     VALUE IS CHECKED,AND FAIL PUT TO .TRUE. IF THEY DIFFER.
+C
+      IF (IBUG3.EQ.1) PRINT 3001,JJ1,SUMVAR(JJ1),JJ2,SUMVAR(JJ2)
+      IF (SUMVAR(JJ1) .AND. SUMVAR(JJ2)) GOTO 21
+      IF (FREE(JJ1) .OR. FREE(JJ2)) THEN
+        JDEL = JDEL + 1
+        LDEL(JDEL,1) = JJ1
+        LDEL(JDEL,2) = JJ2
+        SUMVAR(JJ1) = .FALSE.
+        SUMVAR(JJ2) = .FALSE.
+        GOTO 161
+      ENDIF
+      IF (J1(JJ1).NE.J1(JJ2)) FAIL = .TRUE.
+      CUT = .TRUE.
+      GOTO 161
+C
+   21 CONTINUE
+      IF (J6C.NE.J6CC) THEN
+        DO 31 II = J6CC + 1,J6C
+          IF (J6(II).EQ.JJ2) J6(II) = JJ1
+   31   CONTINUE
+      ENDIF
+      IF (J7C.NE.J7CC) THEN
+        DO 51 II = J7CC + 1,J7C
+          IF (J7(II).EQ.JJ2) J7(II) = JJ1
+   51   CONTINUE
+      ENDIF
+      IF (J8C.NE.J8CC) THEN
+        DO 71 II = J8CC + 1,J8C
+          IF (J8(II).EQ.JJ2) J8(II) = JJ1
+   71   CONTINUE
+      ENDIF
+      IF (J9C.NE.J9CC) THEN
+        DO 91 II = J9CC + 1,J9C
+          IF (J9(II).EQ.JJ2) J9(II) = JJ1
+   91   CONTINUE
+      ENDIF
+      IF (JWC.NE.JWCC) THEN
+        DO 121 II = JWCC + 1,JWC
+          IF (JW(1,II).EQ.JJ2) JW(1,II) = JJ1
+          IF (JW(2,II).EQ.JJ2) JW(2,II) = JJ1
+          IF (JW(3,II).EQ.JJ2) JW(3,II) = JJ1
+          IF (JW(4,II).EQ.JJ2) JW(4,II) = JJ1
+          IF (JW(5,II).EQ.JJ2) JW(5,II) = JJ1
+          IF (JW(6,II).EQ.JJ2) JW(6,II) = JJ1
+  121   CONTINUE
+      ENDIF
+      IF (JDEL.NE.JDELC) THEN
+        DO 151 II = JDELC + 1,JDEL
+          IF (LDEL(II,1).EQ.JJ2) LDEL(II,1) = JJ1
+          IF (LDEL(II,2).EQ.JJ2) LDEL(II,2) = JJ1
+  151   CONTINUE
+        SUMVAR(JJ2) = .FALSE.
+      ENDIF
+  161 CONTINUE
+      IF (FAIL) GOTO 160
+      IF ((J1(JJ1).NE.1 .AND. J1(JJ2).NE.1)
+     *   .OR. J1(JJ1).LT.J1(JJ2)) GOTO 100
+      IF (J1(JJ1).GT.J1(JJ2)) GOTO 90
+      IF (NZERO.EQ.0) GOTO 100
+      DO 80 JJX = I,NZERO
+        JJZ = JZERO(JJX)
+        IF (JJ1.EQ.JJZ) GOTO 100
+        IF (JJ2.EQ.JJZ) GOTO 90
+   80 CONTINUE
+      GOTO 100
+C
+   90 CONTINUE
+      JJZ = JJ2
+      JJ2 = JJ1
+      JJ1 = JJZ
+C
+C     OTHERJ(LIN,JJ1,LO1,LCO1,K1):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+  100 CONTINUE
+      LO1 = LINE(JJ1,1)
+      IF (LO1.EQ.LIN .OR. TABS(LO1)) THEN
+        K1 = 1
+        LO1 = LINE(JJ1,2)
+        LCO1 = LCOL(JJ1,2)
+C
+      ELSE
+        K1 = 2
+        LCO1 = LCOL(JJ1,1)
+      ENDIF
+C
+C     OTHERJ(LIN,JJ2,LO2,LCO2,K2):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      LO2 = LINE(JJ2,1)
+      IF (LO2.EQ.LIN .OR. TABS(LO2)) THEN
+        LO2 = LINE(JJ2,2)
+        LCO2 = LCOL(JJ2,2)
+C
+      ELSE
+        LCO2 = LCOL(JJ2,1)
+      ENDIF
+C
+      J9C = J9C + 1
+      J9(J9C) = JJ1
+      J23(LO2,LCO2) = JJ1
+      LINE(JJ1,K1) = LO2
+      LCOL(JJ1,K1) = LCO2
+  110 CONTINUE
+      IF (ARROW(LIN,L1).LT.ARROW(LIN,L2)) THEN
+C
+C     PHASE2(JJ1): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JJ1
+C
+      ELSE IF (ARROW(LIN,L1).EQ.ARROW(LIN,L2)) THEN
+        ARROW(LO1,LCO1) = 1
+        ARROW(LO2,LCO2) = -1
+      ENDIF
+      TABS(LIN) = .TRUE.
+      NBTR = NBTR - 1
+      IF (NBTR.EQ.0) GOTO 160
+      IF (LO1.NE.LO2) GOTO 150
+      L = 6 - LCO1 - LCO2
+      JT = J23(LO1,L)
+      IF (J1(JT).EQ.1 .AND. .NOT.FREE(JT)) GOTO 150
+C     CALL DELTA(JT,M,FAIL) - INLINED
+C
+C     TEST FOR DELTA(JT,M).IF THEY ARE SUMMATION VARIABLES,THE SECOND
+C     IS CHANGED INTO THE FIRST EVERYWHERE.IF THEY ARE FIXED,THEIR
+C     VALUE IS CHECKED,AND FAIL PUT TO .TRUE. IF THEY DIFFER.
+C
+      IF (IBUG3.EQ.1) PRINT 3001,JT,SUMVAR(JT),M,SUMVAR(M)
+      IF (SUMVAR(JT) .AND. SUMVAR(M)) GOTO 22
+      IF (FREE(JT) .OR. FREE(M)) THEN
+        JDEL = JDEL + 1
+        LDEL(JDEL,1) = JT
+        LDEL(JDEL,2) = M
+        SUMVAR(JT) = .FALSE.
+        SUMVAR(M) = .FALSE.
+        GOTO 162
+      ENDIF
+      IF (J1(JT).NE.J1(M)) FAIL = .TRUE.
+      CUT = .TRUE.
+      GOTO 162
+C
+   22 CONTINUE
+      IF (J6C.NE.J6CC) THEN
+        DO 32 II = J6CC + 1,J6C
+          IF (J6(II).EQ.M) J6(II) = JT
+   32   CONTINUE
+      ENDIF
+      IF (J7C.NE.J7CC) THEN
+        DO 52 II = J7CC + 1,J7C
+          IF (J7(II).EQ.M) J7(II) = JT
+   52   CONTINUE
+      ENDIF
+      IF (J8C.NE.J8CC) THEN
+        DO 72 II = J8CC + 1,J8C
+          IF (J8(II).EQ.M) J8(II) = JT
+   72   CONTINUE
+      ENDIF
+      IF (J9C.NE.J9CC) THEN
+        DO 92 II = J9CC + 1,J9C
+          IF (J9(II).EQ.M) J9(II) = JT
+   92   CONTINUE
+      ENDIF
+      IF (JWC.NE.JWCC) THEN
+        DO 122 II = JWCC + 1,JWC
+          IF (JW(1,II).EQ.M) JW(1,II) = JT
+          IF (JW(2,II).EQ.M) JW(2,II) = JT
+          IF (JW(3,II).EQ.M) JW(3,II) = JT
+          IF (JW(4,II).EQ.M) JW(4,II) = JT
+          IF (JW(5,II).EQ.M) JW(5,II) = JT
+          IF (JW(6,II).EQ.M) JW(6,II) = JT
+  122   CONTINUE
+      ENDIF
+      IF (JDEL.NE.JDELC) THEN
+        DO 152 II = JDELC + 1,JDEL
+          IF (LDEL(II,1).EQ.M) LDEL(II,1) = JT
+          IF (LDEL(II,2).EQ.M) LDEL(II,2) = JT
+  152   CONTINUE
+        SUMVAR(M) = .FALSE.
+      ENDIF
+  162 CONTINUE
+      IF (FAIL) GOTO 160
+C
+C    NEIBOR(L,L1,L2):
+C    GIVES THE POSITIONS OF THE OTHER TWO ARGUMENTS IN THE TRIAD.
+C
+      IF (L.LT.2) THEN
+        L1 = 2
+        L2 = 3
+C
+      ELSE IF (L.EQ.2) THEN
+        L1 = 3
+        L2 = 1
+C
+      ELSE
+        L1 = 1
+        L2 = 2
+      ENDIF
+C
+      JTF = J23(LO1,L1)
+      IF ((ARROW(LO1,L1)-ARROW(LO1,L2)).LT.0) THEN
+C
+C     PHASE2(JTF): ADDS A PHASE FACTOR (-1)**2J
+C
+        J8C = J8C + 1
+        J8(J8C) = JTF
+C
+      ENDIF
+C
+      J6C = J6C + 1
+      J6(J6C) = JTF
+      NBTR = NBTR - 1
+      TABS(LO1) = .TRUE.
+C
+C     OTHERJ(LO1,JT,LIN,LC,K):
+C     GIVES THE OTHER TRIAD WHERE A GIVEN J OCCURS AND ITS POSITION.
+C
+      LIN = LINE(JT,1)
+      IF (LIN.EQ.LO1 .OR. TABS(LIN)) THEN
+        LIN = LINE(JT,2)
+        LC = LCOL(JT,2)
+C
+      ELSE
+        LC = LCOL(JT,1)
+      ENDIF
+C
+      GOTO 50
+C
+  150 CONTINUE
+      IF (J.EQ.1) GOTO 40
+      IF (NBTR.EQ.0) GOTO 160
+      IF (I.LT.NZERO) GOTO 30
+  160 CONTINUE
+      IF (IBUG3.EQ.1) CALL PRINTJ(NAME,4)
+      IF (NOCUT) CUT = .FALSE.
+C
+ 3000 FORMAT (1X,'DIMENSION ERROR IN ZERO. NZERO=',I5,' KFLZ=',I5)
+ 3001 FORMAT (/'  FROM DELTA  JA=',I2,L2,5X,'JB=',I2,L2)
+      END

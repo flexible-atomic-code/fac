@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.104 2005/07/18 15:39:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.105 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1150,7 +1150,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   } else {
     ns = MAX_SYMMETRIES;
     for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
       if (k < 0) continue;
       if (DiagnolizeHamilton() < 0) {
 	onError("Diagnolizing Hamiltonian Error");
@@ -2477,7 +2477,7 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
       k[0] = i;
       k[1] = j;
       k[2] = 20;
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData);
+      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
       *b = 0.2;
       b = (double *) MultiGet(&ma, k);
     }
@@ -4372,6 +4372,23 @@ static PyObject *PJoinTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PLimitArray(PyObject *self, PyObject *args) {
+  int m;
+  double n;
+  
+  if (sfac_file) {
+    SFACStatement("LimitArray", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!PyArg_ParseTuple(args, "id", &m, &n)) return NULL;
+  if (m < 10) LimitArrayRadial(m, n);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
 static struct PyMethodDef fac_methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -4379,6 +4396,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS},
+  {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 

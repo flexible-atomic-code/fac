@@ -121,6 +121,7 @@ typedef struct _ARRAY_ {
 ** NOTE:        
 */
 typedef struct _MULTI_ {
+  int numelem, maxelem;
   unsigned short ndim;
   unsigned short isize;
   unsigned short esize;
@@ -144,7 +145,8 @@ int   ArrayFreeData(DATA *p, int esize, int block,
 int   SMultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *SMultiGet(MULTI *ma, int *k);
 void *SMultiSet(MULTI *ma, int *k, void *d, 
-	       void (*InitData)(void *, int));
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *));
 int   SMultiFree(MULTI *ma, void (*FreeElem)(void *));
 int   SMultiFreeDataOnly(ARRAY *a, int d, void (*FreeElem)(void *));
 int   SMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
@@ -156,7 +158,8 @@ int   SMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
 void *NMultiGet(MULTI *ma, int *k);
 void *NMultiSet(MULTI *ma, int *k, void *d, 
-		void (*InitData)(void *, int));
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *));
 int   NMultiFree(MULTI *ma, 
 		 void (*FreeElem)(void *));
 int   NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *));

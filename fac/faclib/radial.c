@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.114 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.115 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1373,7 +1373,7 @@ static double FKB(int ka, int kb, int k) {
 
   if (!Triangle(ia, k, ia) || !Triangle(ib, k, ib)) return 0.0;
   a = W3j(ja, k, ja, 1, 0, -1)*W3j(jb, k, jb, 1, 0, -1);
-  if (fabs(a) < EPS10) return 0.0; 
+  if (fabs(a) < EPS30) return 0.0; 
   Slater(&b, ka, kb, ka, kb, k/2, 0);
   
   b *= a*(ja+1.0)*(jb+1.0);
@@ -1391,7 +1391,7 @@ static double GKB(int ka, int kb, int k) {
   
   if (IsOdd((ia+k+ib)/2) || !Triangle(ia, k, ib)) return 0.0;
   a = W3j(ja, k, jb, 1, 0, -1);
-  if (fabs(a) < EPS10) return 0.0;
+  if (fabs(a) < EPS30) return 0.0;
   Slater(&b, ka, kb, kb, ka, k/2, 0);
   
   b *= a*a*(ja+1.0)*(jb+1.0);
@@ -1573,7 +1573,7 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     for (k = k0; k <= k1; k += 4) {
       for (kp = kp0; kp <= kp1; kp += 2) {
 	b = W6j(jb, ja, kp, ja, jb, k);
-	if (fabs(b) < EPS10) continue;
+	if (fabs(b) < EPS30) continue;
 	b *= 2.0*a;
 	if (IsOdd(kp/2)) b = -b;
 	c = FKB(ka, kb, k);
@@ -1610,7 +1610,7 @@ static double ConfigEnergyVarianceParts1(SHELL *bra, int i,
     k1 = Min(k, k1);
     for (k = k0; k <= k1; k += 4) {
       b = W6j(ja, ja, k, jb, jb, m2);
-      if (fabs(b) < EPS10) continue;
+      if (fabs(b) < EPS30) continue;
       b *= 2.0/((k+1.0)*(js+1.0));
       b *= FKB(ks, ka, k)*FKB(ks, kb, k);
       if (IsOdd((ja+jb)/2)) b = -b;
@@ -1645,7 +1645,7 @@ static double ConfigEnergyVarianceParts1(SHELL *bra, int i,
       for (kp = kp0; kp <= kp1; kp += 2) {
 	b = W6j(jb, jb, k, ja, ja, m2);
 	b *= W6j(jb, jb, k, js, js, kp);
-	if (fabs(b) < EPS10) continue;
+	if (fabs(b) < EPS30) continue;
 	b /= (js+1.0);
 	if (IsOdd((ja+jb+kp)/2)) b = -b;
 	b *= 2.0*FKB(ks, ka, k)*GKB(ks, kb, kp);
@@ -1805,7 +1805,7 @@ double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2) {
       k1 = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
       for (k = kmin; k <= kmax; k += 4) {
 	b = W6j(k, ja, ja, m2, jb, jb);	
-	if (fabs(b) > EPS10) {
+	if (fabs(b) > EPS30) {
 	  a -= b*FKB(k0, k1, k);
 	}
       }
@@ -1995,7 +1995,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(residual_array, index, NULL, InitDoubleData);
+  p = (double *) MultiSet(residual_array, index, NULL, InitDoubleData, NULL);
   if (p && *p) {
     *s = *p;
     return 0;
@@ -2095,7 +2095,7 @@ double RadialMoments(int m, int k1, int k2) {
     index[2] = k1;
   }
   
-  q = (double *) MultiSet(moments_array, index, NULL, InitDoubleData);
+  q = (double *) MultiSet(moments_array, index, NULL, InitDoubleData, NULL);
  
   if (*q) {
     return *q;
@@ -2268,7 +2268,8 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
     aw2 = aw*aw;
   }
 
-  p1 = (double **) MultiSet(multipole_array, index, NULL, InitPointerData);
+  p1 = (double **) MultiSet(multipole_array, index, NULL, 
+			    InitPointerData, FreeMultipole);
   if (*p1) {
     r = InterpolateMultipole(aw2, n_awgrid, aw2grid, *p1);
     if (s == 1 && IsOdd(am)) r = -r;
@@ -2386,7 +2387,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     orb2 = GetOrbitalSolved(k2);
   }
 
-  p = (double **) MultiSet(gos_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(gos_array, index, NULL, 
+			   InitPointerData, FreeMultipole);
   if (*p) {
     return *p;
   }
@@ -2629,7 +2631,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   
   for (t = tmin; t <= tmax; t += 2) {
     a = W6j(js[0], js[2], k, js[1], js[3], t);
-    if (fabs(a) > EPS10) {
+    if (fabs(a) > EPS30) {
       e = 0.0;
       if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
@@ -2720,7 +2722,7 @@ double QED1E(int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData);
+  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData, NULL);
   if (p && *p) {
     return *p;
   }
@@ -2780,7 +2782,7 @@ double Vinti(int k0, int k1) {
   index[0] = k0;
   index[1] = k1;
   
-  p = (double *) MultiSet(vinti_array, index, NULL, InitDoubleData);
+  p = (double *) MultiSet(vinti_array, index, NULL, InitDoubleData, NULL);
   if (p && *p) {
     return *p;
   }
@@ -2907,7 +2909,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   index[3] = k3;
   index[4] = k;
 
-  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData);
+  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
   if (p && *p) {
     r = *p;
   } else {
@@ -3010,7 +3012,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
 
   if (abs(mode) < 2) {
     SortSlaterKey(index);
-    p = (double *) MultiSet(slater_array, index, NULL, InitDoubleData);
+    p = (double *) MultiSet(slater_array, index, NULL, InitDoubleData, NULL);
   } else {
     p = NULL;
   }
@@ -3165,7 +3167,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	    index[3] = q;
 	    index[4] = k;
 	    index[5] = 0;
-	    dp = MultiSet(slater_array, index, NULL, InitDoubleData);
+	    dp = MultiSet(slater_array, index, NULL, InitDoubleData, NULL);
 	    c++;
 	    if (*dp == 0) {
 	      Integrate(_yk, orb1, orb3, 1, dp);
@@ -3195,7 +3197,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
   }
   index[2] = k;
 
-  syk = (SLATER_YK *) MultiSet(yk_array, index, NULL, InitYkData);
+  syk = (SLATER_YK *) MultiSet(yk_array, index, NULL, InitYkData, FreeYkData);
   if (syk->npts < 0) {
     for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
@@ -4193,6 +4195,38 @@ int IntegrateSinCos(int j, double *x, double *y,
     }
   }
   return 0;
+}
+
+void LimitArrayRadial(int m, double n) {
+  int k;
+
+  k = (int)(n*1000000);
+  switch (m) {
+  case 0:
+    yk_array->maxelem = k;
+    break;
+  case 1:
+    slater_array->maxelem = k;
+    break;
+  case 2:
+    breit_array->maxelem = k;
+    break;
+  case 3:
+    gos_array->maxelem = k;
+    break;
+  case 4:
+    moments_array->maxelem = k;
+    break;
+  case 5:
+    multipole_array->maxelem = k;
+    break;
+  case 6:
+    residual_array->maxelem = k;
+    break;
+  default:
+    printf("m > 6, nothing is done\n");
+    break;
+  }
 }
 
 int InitRadial(void) {

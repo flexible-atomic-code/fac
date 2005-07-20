@@ -131,7 +131,7 @@ int SaveContinua(double e, int mode);
 int FreeAllContinua(void);
 int FreeContinua(double e);
 int ClearOrbitalTable(int m);
-
+void LimitArrayRadial(int m, double n);
 int InitRadial(void);
 int ReinitRadial(int m);
 int TestIntegrate(void);

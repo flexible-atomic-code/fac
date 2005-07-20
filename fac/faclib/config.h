@@ -138,6 +138,7 @@ typedef struct _CONFIG_ {
   double energy;
   double delta;
   int *nrs;
+  int *symstate;
   SHELL *shells;
   SHELL_STATE *csfs; 
 } CONFIG;
@@ -237,6 +238,8 @@ void         UnpackShell(SHELL *s, int *n, int *kl, int *j, int *nq);
 void         PackShell(SHELL *s, int n, int kl, int j, int nq); 
 void         UnpackNRShell(int *s, int *n, int *kl, int *nq);
 void         PackNRShell(int *s, int n, int kl, int nq); 
+int          PackSymState(int s, int k);
+void         UnpackSymState(int st, int *s, int *k);
 int          GetJ(SHELL *shell);
 int          GetL(SHELL *shell);
 int          GetNq(SHELL *shell);
@@ -264,6 +267,7 @@ CONFIG_GROUP *GetGroup(int k);
 CONFIG_GROUP *GetNewGroup(void);
 int          GetNumGroups(void);
 int          GetNumConfigs(void);
+int          ConfigParity(CONFIG *c);
 CONFIG       *GetConfig(STATE *s);
 CONFIG       *GetConfigFromGroup(int kg, int kc);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 

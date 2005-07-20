@@ -55,11 +55,12 @@
 #define IsNan(a)  (!((a)>0) && !((a)<=0)) 
 
 /*
-** VARIABLE:    EPS1, ..., EPS16.
+** VARIABLE:    EPS1, ..., EPS30.
 ** TYPE:        macro constants.
 ** PURPOSE:     some small numbers.
 ** NOTE:        
 */
+#define EPS30 1E-30
 #define EPS16 1E-16
 #define EPS12 1E-12
 #define EPS10 1E-10

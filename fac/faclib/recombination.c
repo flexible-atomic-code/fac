@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.88 2005/03/09 18:39:48 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.89 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -59,6 +59,13 @@ double ai_cut = AICUT;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
+
+static void FreeRecPkData(void *p) {
+  double *dp;
+  dp = *((double **) p);
+  free(dp);
+  *((double **) p) = NULL;
+}
 
 int SetAICut(double c) {
   ai_cut = c;
@@ -270,7 +277,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
-    m = ConstructHamilton(i, k, k, kg, 0, NULL);
+    m = ConstructHamilton(i, k, k, kg, 0, NULL, 111);
     if (m < 0) continue;
     j = DiagnolizeHamilton();
     if (j < 0) return -1;
@@ -548,7 +555,8 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   }
 
   nqk = n_tegrid*n_egrid;
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeRecPkData);
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
@@ -642,7 +650,8 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   }
 
   nqk = n_tegrid*n_egrid;
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeRecPkData);
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
@@ -1161,7 +1170,7 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
 	  for (k = kmin; k <= kmax; k += 2) {
 	    if (!Triangle(jb, jf, k)) continue;
 	    b = W6j(j, jf, j0, k, j1, j1);
-	    if (fabs(b) < EPS10) continue;
+	    if (fabs(b) < EPS30) continue;
 	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k);
 	    if (n_egrid > 1) {
 	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
@@ -1394,7 +1403,8 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   index[3] = k1;
   index[4] = k/2;
 
-  p = (double **) MultiSet(pk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(pk_array, index, NULL, 
+			   InitPointerData, FreeRecPkData);
   if (*p) {
     *ai_pk = *p;
     return 0;
@@ -2337,13 +2347,6 @@ int DROpen(int n, int *nlev, int **ops) {
   }
 
   return j;
-}
-
-static void FreeRecPkData(void *p) {
-  double *dp;
-  dp = *((double **) p);
-  free(dp);
-  *((double **) p) = NULL;
 }
 
 int FreeRecPk(void) {
