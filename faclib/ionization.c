@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.55 2005/03/09 18:39:48 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.56 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -98,6 +98,14 @@ static struct {
 		IONLCB, IONTOL, 0, 0};
 
 static MULTI *qk_array;
+
+  
+void FreeIonizationQkData(void *p) {
+  double *dp;
+  dp = *((double **) p);
+  free(dp);
+  *((double **) p) = NULL;
+}
 
 int SetIEGrid(int n, double emin, double emax) {
   n_tegrid = SetTEGrid(tegrid, log_te, n, emin, emax);
@@ -573,7 +581,8 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   index[1] = kb;
   index[2] = kbp;
   
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeIonizationQkData);
   if (*p) {
     return (*p);
   } 
@@ -645,7 +654,8 @@ double *CIRadialQkTable(int kb, int kbp) {
   index[1] = kb;
   index[2] = kbp;
 
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeIonizationQkData);
   if (*p) {
     return (*p);
   }
@@ -1595,13 +1605,6 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
 
   ReinitIonization(1);
   return 0;
-}
-  
-void FreeIonizationQkData(void *p) {
-  double *dp;
-  dp = *((double **) p);
-  free(dp);
-  *((double **) p) = NULL;
 }
 
 int FreeIonizationQk(void) {

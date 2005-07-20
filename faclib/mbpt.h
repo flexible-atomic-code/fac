@@ -20,6 +20,13 @@ typedef struct _MBPT_HAM_ {
   double *hab, *hba;
 } MBPT_HAM;
 
+typedef struct _MBPT_EFF_ {
+  int nbasis, *basis;
+  double *h0, *heff;
+  double **hab1, **hba1;
+  double **hab, **hba;
+} MBPT_EFF;
+
 int StructureMBPT(char *fn, char *fn1, int n, int *s0, int kmax, 
 		  int n1, int *nm, int n2, int *nmp, int n0, char *gn0);
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 

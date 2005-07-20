@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.85 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.86 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1670,13 +1670,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ce, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&ce, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&cep, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&cep, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1691,13 +1691,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ce, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&ce, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&cep, index, NULL, InitDoubleData);
+	      d = (double *) MultiSet(&cep, index, NULL, InitDoubleData, NULL);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1722,13 +1722,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1743,13 +1743,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
+	      d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1774,13 +1774,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1804,13 +1804,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&rr, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&rr, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1825,13 +1825,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&rr, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&rr, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData);
+	      d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData, NULL);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1855,13 +1855,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ai, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&ai, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&aip, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&aip, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1876,13 +1876,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ai, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&ai, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&aip, index, NULL, InitDoubleData);
+	      d = (double *) MultiSet(&aip, index, NULL, InitDoubleData, NULL);
 	      *d += den * r->inv;
 	    }
 	  }
@@ -1907,13 +1907,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  } else {
 	    index[0] = 0;
 	  }
-	  d = (double *) MultiSet(&ci, index, NULL, InitDoubleData);
+	  d = (double *) MultiSet(&ci, index, NULL, InitDoubleData, NULL);
 	  *d += den * r->dir;
 	  if (ic[i]) {
 	    index[2] = j;
 	    index[1] = i;
 	    index[0] = ion->ilev[r->i];
-	    d = (double *) MultiSet(&cip, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&cip, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->dir;
 	  }
 	}
@@ -1928,13 +1928,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	    } else {
 	      index[0] = 0;
 	    }
-	    d = (double *) MultiSet(&ci, index, NULL, InitDoubleData);
+	    d = (double *) MultiSet(&ci, index, NULL, InitDoubleData, NULL);
 	    *d += den * r->inv;
 	    if (ic[j]) {
 	      index[2] = i;
 	      index[1] = j;
 	      index[0] = ion->ilev[r->f];
-	      d = (double *) MultiSet(&cip, index, NULL, InitDoubleData);
+	      d = (double *) MultiSet(&cip, index, NULL, InitDoubleData, NULL);
 	      *d += den * r->inv;
 	    }
 	  }

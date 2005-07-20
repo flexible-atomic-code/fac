@@ -1,7 +1,7 @@
 #include "recouple.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recouple.c,v 1.25 2005/07/18 15:39:44 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.26 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -227,7 +227,7 @@ double DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
 	       W9j(j1bra, j2bra, Jbra, 
 		   j1ket, j2ket, Jket,
 		   k1, k2, k));
-      if (fabs(coeff) < EPS10) return 0.0;
+      if (fabs(coeff) < EPS30) return 0.0;
       if (interact[0] < n_shells - 1) {
 	/* if the current shell is not an interacting one, the two shells
 	   in bra and ket state should be identical. and the reduced matrix
@@ -456,8 +456,7 @@ int AngularZ(double **coeff, int **kk, int nk,
   }
  
   for (k = 0; k < nk; k++) {
-    if (fabs((*coeff)[k]) > EPS10) 
-      (*coeff)[k] /= -sqrt((*kk)[k] + 1);
+    (*coeff)[k] /= -sqrt((*kk)[k] + 1);
 #if FAC_DEBUG    
     fprintf(debug_log, "AngularZ: %d %lf\n", (*kk)[k], (*coeff)[k]);
 #endif
@@ -1185,12 +1184,10 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
 
   /* adjust the prefactor */
   for (m = 0; m < nk; m++) {
-    if (fabs((*coeff)[m]) > EPS10) {
-      /* this factor arise from the definition of Z^k and the 
-	 scalar product. */
-      (*coeff)[m] /= sqrt((*kk)[m] + 1);
-      if (IsOdd((*kk)[m]/2)) (*coeff)[m] = -(*coeff)[m];
-    }
+    /* this factor arise from the definition of Z^k and the 
+       scalar product. */
+    (*coeff)[m] /= sqrt((*kk)[m] + 1);
+    if (IsOdd((*kk)[m]/2)) (*coeff)[m] = -(*coeff)[m];
   }
 
 #ifdef PERFORM_STATISTICS
@@ -1567,7 +1564,8 @@ int GetInteract(INTERACT_DATUM **idatum,
       index[2] = kci;
       index[3] = kcj;
       (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
-					      NULL, InitInteractDatum);
+					      NULL, InitInteractDatum, 
+					      FreeInteractDatum);
     }
     if ((*idatum)->n_shells < 0) return -1;
   } else {
@@ -1899,9 +1897,9 @@ void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
       rank[i] = js[irank[i]];
     }
     a1 = DecoupleShell(nshells, bra, ket, ninter, inter, rank);
-    if (fabs(a1) < EPS10) return;
+    if (fabs(a1) < EPS30) return;
     a2 = EvaluateFormula(fm);
-    if (fabs(a2) < EPS10) return;
+    if (fabs(a2) < EPS30) return;
     i0 = 1;
     a = 1.0;
     for (i = 0; i < ninter; i++) {
@@ -1949,7 +1947,7 @@ void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
 	b = ReducedOperator(&rcfp_bra, &rcfp_ket, &ops[m]);
 	break;
       }
-      if (fabs(b) < EPS10) return;
+      if (fabs(b) < EPS30) return;
       a *= b;
       i0 += nop - 1;
     }

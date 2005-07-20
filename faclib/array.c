@@ -1,6 +1,6 @@
 #include "array.h"
 
-static char *rcsid="$Id: array.c,v 1.16 2004/05/20 23:54:14 mfgu Exp $";
+static char *rcsid="$Id: array.c,v 1.17 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -358,6 +358,8 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
 */    
 int SMultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i;
+  ma->maxelem = -1;
+  ma->numelem = 0;
   ma->ndim = ndim;
   ma->esize = esize;
   ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
@@ -408,7 +410,8 @@ void *SMultiGet(MULTI *ma, int *k) {
 ** NOTE:        if d == NULL, returns an uninitialized element.
 */    
 void *SMultiSet(MULTI *ma, int *k, void *d, 
-	       void (*InitData)(void *, int)) {
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *)) {
   ARRAY *a;
   void *pt;
   int i, ndim1, ndim2;
@@ -569,6 +572,8 @@ static int Hash2(int *id, ub4 length, ub4 initval, int n) {
 int NMultiInit(MULTI *ma, int esize, int ndim, int *block) {
   int i, n;
 
+  ma->maxelem = -1;
+  ma->numelem = 0;
   ma->ndim = ndim;
   ma->isize = sizeof(int)*ndim;
   ma->esize = esize;
@@ -609,12 +614,17 @@ void *NMultiGet(MULTI *ma, int *k) {
 }
 
 void *NMultiSet(MULTI *ma, int *k, void *d, 
-		void (*InitData)(void *, int)) {
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *)) {
   int i, j, m, h;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
 
+  if (ma->maxelem > 0 && ma->numelem >= ma->maxelem) {
+    NMultiFreeData(ma, FreeElem);
+    ma->numelem = 0;
+  }
   h = Hash2(k, ma->ndim, 0, ma->ndim);
   a = &(ma->array[h]);
   if (a->dim == 0) {
@@ -651,6 +661,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d,
     }
   }
 
+  ma->numelem++;
   pt->index = malloc(ma->isize);
   memcpy(pt->index, k, ma->isize);
   pt->data = malloc(ma->esize);

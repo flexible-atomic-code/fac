@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.81 2005/07/18 15:39:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.82 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2528,7 +2528,7 @@ static int PStructure(int argc, char *argv[], int argt[],
   } else {
     ns = MAX_SYMMETRIES;  
     for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp);
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
       if (k < 0) continue;
       if (DiagnolizeHamilton() < 0) return -1;
       if (ng0 < ng) {
@@ -2640,7 +2640,7 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
       k[0] = i;
       k[1] = j;
       k[2] = 20;	
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData);
+      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
       *b = 0.2;
       b = (double *) MultiGet(&ma, k);
     }
@@ -3237,10 +3237,26 @@ static int PAppendTable(int argc, char *argv[], int argt[],
 }
 
 static int PJoinTable(int argc, char *argv[], int argt[], 
-			ARRAY *variables) {
+		      ARRAY *variables) {
   if (argc != 3) return -1;
   
   JoinTable(argv[0], argv[1], argv[2]);
+  
+  return 0;
+}
+
+static int PLimitArray(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int m;
+  double n;
+
+  if (argc != 2) return -1;
+  m = atoi(argv[0]);
+  n = atof(argv[1]);
+
+  if (m < 10) {
+    LimitArrayRadial(m, n);
+  }
   
   return 0;
 }
@@ -3252,6 +3268,7 @@ static METHOD methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS},
+  {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 

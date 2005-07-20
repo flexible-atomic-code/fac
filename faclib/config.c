@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.37 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.38 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -61,6 +61,7 @@ static void InitConfigData(void *p, int n) {
     d[i].n_csfs = 0;
     d[i].nnrs = 0;
     d[i].nrs = NULL;
+    d[i].symstate = NULL;
     d[i].shells = NULL;
     d[i].csfs = NULL;
   }
@@ -1555,7 +1556,9 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (m < cfg->n_shells) {
     cfg->nrs = ReallocNew(cfg->nrs, sizeof(int)*m);
   }
-
+  if (cfg->n_csfs > 0) {
+    cfg->symstate = malloc(sizeof(int)*cfg->n_csfs);
+  }
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
   if (cfg->n_csfs > 0) {
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
@@ -1599,6 +1602,28 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
   return 0;
 }
 
+int ConfigParity(CONFIG *cfg) {
+  int parity, i;
+
+  parity = 0;
+  for (i = 0; i < cfg->n_shells; i++) {
+    parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
+  }
+  parity /= 2;
+  parity = IsOdd(parity);
+
+  return parity;
+}
+
+int PackSymState(int s, int k) {
+  return s*100000 + k;
+}
+
+void UnpackSymState(int st, int *s, int *k) {
+  if (s) *s = st/100000;
+  if (k) *k = st%100000;
+}
+
 /* 
 ** FUNCTION:    AddConfigToSymmetry
 ** PURPOSE:     add all states of a configuration to the symmetry list.
@@ -1613,7 +1638,7 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
 */
 int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
   int parity;
-  int i, j, k;
+  int i, j, k, m;
   STATE s;
   ARRAY *st;
 
@@ -1622,17 +1647,18 @@ int AddConfigToSymmetry(int kg, int kc, CONFIG *cfg) {
     parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
   }
   parity /= 2;
-  for (i = 0; i < (cfg->n_csfs)*(cfg->n_shells); i += cfg->n_shells) {
+  for (m = 0; m < cfg->n_csfs; m++) {
+    i = m*cfg->n_shells;
     j = (cfg->csfs)[i].totalJ;
     k = IsEven(parity)? 2*j : (2*j+1);
     if (k >= MAX_SYMMETRIES) {
       printf("Maximum symmetry reached: %d %d\n", MAX_SYMMETRIES, k);
       exit(1);
     }
-
     s.kgroup = kg;
     s.kcfg = kc;
     s.kstate = i;
+    cfg->symstate[m] = PackSymState(k, symmetry_list[k].n_states);
     st = &(symmetry_list[k].states);
     if (ArrayAppend(st, &s, NULL) == NULL) return -1;
     symmetry_list[k].n_states++;
@@ -2012,6 +2038,7 @@ static void FreeConfigData(void *p) {
     c->n_shells = 0;
   }
   if (c->n_csfs > 0) {
+    free(c->symstate);
     free(c->csfs);
     c->n_csfs = 0;
   }

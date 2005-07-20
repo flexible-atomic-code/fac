@@ -1,7 +1,7 @@
 #include "angular.h"
 #include "rcfp.h"
 
-static char *rcsid="$Id: rcfp.c,v 1.8 2003/09/26 19:42:52 mfgu Exp $";
+static char *rcsid="$Id: rcfp.c,v 1.9 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -915,7 +915,7 @@ double CompleteReducedW(int no_bra, int no_ket, int k_q, int k_j) {
       }
     }
 
-    if (fabs(coeff) > EPS10) {
+    if (fabs(coeff) > EPS30) {
       coeff *= sqrt((kq2 + 1.0) * (kj2 + 1.0));
       phase = Qbra + Jbra + Qket + Jket + kq2 + kj2;
       if (IsOdd(phase/2)) coeff = -coeff;
@@ -1267,9 +1267,9 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
       if (!Triangle(Qket, 2, Qbra)) return coeff;
       coeff = ClebschGordanQuasispin(Qket, ket->subshellMQ, 2,
 				     q_m1+q_m2, Qbra, bra->subshellMQ);
-      if (fabs(coeff) < EPS10) return coeff;
+      if (fabs(coeff) < EPS30) return coeff;
       coeff = coeff * CompleteReducedW(bra->state, ket->state, 1, k_j);
-      if (fabs(coeff) < EPS10) return coeff;
+      if (fabs(coeff) < EPS30) return coeff;
       coeff = coeff / sqrt(Qbra + 1.0);
     } else {
       if (k_j == 0) {
@@ -1284,9 +1284,9 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
 	if (!Triangle(Qket, kq2, Qbra)) return coeff;
 	coeff = ClebschGordanQuasispin(Qket, ket->subshellMQ, kq2,
 				       q_m1 + q_m2, Qbra, bra->subshellMQ);
-	if (fabs(coeff) < EPS10) return coeff;
+	if (fabs(coeff) < EPS30) return coeff;
 	coeff *= CompleteReducedW(bra->state, ket->state, k_q, k_j);
-	if (fabs(coeff) < EPS10) return coeff;
+	if (fabs(coeff) < EPS30) return coeff;
 	coeff /= sqrt(2.0*(Qbra + 1.0));
 	if (q_m1 == -1 && IsOdd(k_j)) coeff = -coeff;
       }
@@ -1500,7 +1500,7 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
 	if ((w6j1 = W6j(jbra, kj2, kk_j2, Jket, Jbra, Jrun))) {
 	  coeff1 = ClebschGordanQuasispin(Qrun, run.subshellMQ, 1, 
 					  q_m1, Qbra, bra->subshellMQ);
-	  if (fabs(coeff1) > EPS10) {
+	  if (fabs(coeff1) > EPS30) {
 	    coeff1 *= ReducedCFP(bra->state, run.state) *
 	      ReducedW(&run, ket, k_j1, q_m2, q_m3) * w6j1;
 	    coeff += coeff1/sqrt(Qbra + 1.0);
@@ -1607,7 +1607,7 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
 	if ((w6j1 = W6j(kj2, jbra, kk_j2, Jket, Jbra, Jrun))) {
 	  coeff1 = ClebschGordanQuasispin(Qket, ket->subshellMQ, 1, 
 					  q_m3, Qrun, run.subshellMQ);
-	  if (fabs(coeff1) > EPS10) {
+	  if (fabs(coeff1) > EPS30) {
 	    coeff1 *= (ReducedCFP(run.state, ket->state) *
 		       ReducedW(bra, &run, k_j1, q_m1, q_m2)) * w6j1;
 	    coeff += coeff1/sqrt(Qrun + 1.0);
@@ -1697,7 +1697,7 @@ double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
 
     coeff = -ClebschGordanQuasispin(Qket, ket->subshellMQ, 1,
 				     q_m, Qbra, bra->subshellMQ); 
-    if (fabs(coeff) < EPS10) return coeff;
+    if (fabs(coeff) < EPS30) return coeff;
     coeff *= ReducedCFP(bra->state, ket->state);
     coeff /= sqrt(Qbra + 1.0);
   } else if (bra->state > 63 && ket->state > 63) {

@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.84 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.85 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -68,6 +68,27 @@ static void InitCEPK(void *p, int n) {
   for (i = 0; i < n; i++) {
     d[i].nkl = -1;
   }
+}
+
+void FreeExcitationPkData(void *p) {
+  CEPK *dp;
+  
+  dp = (CEPK *)p;
+  if (dp->nkl > 0) {
+    free(dp->kappa0);
+    free(dp->kappa1);
+    free(dp->pkd);
+    free(dp->pke);
+  }
+  dp->nkl = -1;
+}
+
+void FreeExcitationQkData(void *p) {
+  double *dp;
+
+  dp = *((double **) p);
+  free(dp);
+  *((double **) p) = NULL;
 }
 
 CEPW_SCRATCH *GetCEPWScratch(void) {
@@ -240,7 +261,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
     type = ko2;
   }
 
-  *pk = (CEPK *) MultiSet(pk_array, index, NULL, InitCEPK);
+  *pk = (CEPK *) MultiSet(pk_array, index, NULL, InitCEPK, FreeExcitationPkData);
   if ((*pk)->nkl >= 0) {
     return type;
   }
@@ -634,7 +655,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[2] = k1;
   index[3] = k2;
   index[4] = k3;
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeExcitationQkData);
   if (*p) {
     return *p;
   }   
@@ -839,7 +861,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   index[3] = k2;
   index[4] = k3;
 
-  p = (double **) MultiSet(qk_array, index, NULL, InitPointerData);
+  p = (double **) MultiSet(qk_array, index, NULL, 
+			   InitPointerData, FreeExcitationQkData);
   if (*p) {
     return *p;
   }
@@ -1480,7 +1503,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   for (i = 0; i < nz; i++) {
     for (j = i; j < nz; j++) {
       c = ang[i].coeff * ang[j].coeff;
-      if (fabs(c) < EPS10) continue;
+      if (fabs(c) < EPS30) continue;
       if (i != j) c *= 2.0;
       if (!msub) {
 	if (ang[i].k != ang[j].k) continue;
@@ -2111,27 +2134,6 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #endif /* PERFORM_STATISTICS */
 
   return 0;
-}
-
-void FreeExcitationPkData(void *p) {
-  CEPK *dp;
-  
-  dp = (CEPK *)p;
-  if (dp->nkl > 0) {
-    free(dp->kappa0);
-    free(dp->kappa1);
-    free(dp->pkd);
-    free(dp->pke);
-  }
-  dp->nkl = -1;
-}
-
-void FreeExcitationQkData(void *p) {
-  double *dp;
-
-  dp = *((double **) p);
-  free(dp);
-  *((double **) p) = NULL;
 }
 
 int FreeExcitationQk(void) {

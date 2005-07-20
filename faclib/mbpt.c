@@ -1,21 +1,21 @@
-
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.1 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.2 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
-static int mbpt_isym = -1;
+static int mbpt_pp = -1;
+static int mbpt_jj = -1;
 static int mbpt_ilev = -1;
 static double mbpt_mcut = EPS3;
 static int mbpt_n3 = 0;
 
 void SetOptMBPT(int n3, double c) {
-  mbpt_n3 = 0;
+  mbpt_n3 = n3;
   mbpt_mcut = c;
 }
 
@@ -24,8 +24,8 @@ void SetExtraMBPT(int m) {
 }
 
 void SetSymMBPT(int p, int j, int i) {
-  if (p < 0 || j < 0) mbpt_isym = -1;
-  else mbpt_isym = IsEven(p)?(2*j):(2*j+1);
+  mbpt_pp = p;
+  mbpt_jj = j;
   mbpt_ilev = i;
 }
 
@@ -629,7 +629,7 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
   s = s0;
   for (i = 0; i < base.dim; i++) {    
     mbp = ArrayGet(&base, i);
-    nk = ConstructHamilton(mbp->isym, n, n, s, 0, NULL);
+    nk = ConstructHamilton(mbp->isym, n, n, s, 0, NULL, 111);
     printf("RANK: %2d, dim: %3d %3d %6d\n", sr, i, mbp->isym, ha->dim);
     fflush(stdout);
     DiagnolizeHamilton();
@@ -956,20 +956,14 @@ int RadialBasisMBPT(int kmax, int n, int *ng, int **bas) {
   return nb;
 }
 
-int PadStates(SYMMETRY *sym, int si, int sj, SHELL **bra, SHELL **ket,
+int PadStates(CONFIG *c1, CONFIG *c2, SHELL **bra, SHELL **ket,
 	      SHELL_STATE **sbra, SHELL_STATE **sket) {
   int i, j, m, k, ns;
-  STATE *st1, *st2;
   SHELL *bra1, *ket1;
   SHELL_STATE *sbra1, *sket1, *s1, *s2;
-  CONFIG *c1, *c2;
 
-  st1 = ArrayGet(&(sym->states), si);
-  st2 = ArrayGet(&(sym->states), sj);
-  c1 = GetConfig(st1);
-  c2 = GetConfig(st2);
-  s1 = c1->csfs + st1->kstate;
-  s2 = c2->csfs + st2->kstate;
+  s1 = c1->csfs;
+  s2 = c2->csfs;
 
   ns = c1->n_shells + c2->n_shells + 2;
   *bra = malloc(sizeof(SHELL)*ns);
@@ -1106,6 +1100,11 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
    
   if (k > 0) {
     qsort(c->shells, k, sizeof(SHELL), CompareShellInvert);
+    if (c->shells[0].nq > 1) {
+      if (c->shells[0].n > cs[nc]->nnrs) -1;
+    } else if (c->n_shells > 1) {
+      if (c->shells[1].n > cs[nc]->nnrs) -1;
+    }
     for (i = 0; i < nc; i++) {
       if (k != cs[i]->n_shells) continue;
       m = memcmp(c->shells, cs[i]->shells, sizeof(SHELL)*k);
@@ -1119,7 +1118,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
   int i, k0, k1, nk;
   double r, a, b, c, d, e, f, g, h;
   double p1, p2, p3, q1, q2, q3;
-  
+
   r = 0.0;
   for (i = 0; i < n; i++) {
     r += z[i];
@@ -1151,7 +1150,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     t[i] = log(x[i]);
   }
   nk = n - k0;
-  for (i = k0; i < k1; i++) {
+  for (i = k0; i < k1; i++) {    
     for (a = x[i]+1; a < x[i+1]; a += 1.0) {      
       d = log(a);
       UVIP3P(3, nk, t+k0, z+k0, 1, &d, &b);
@@ -1163,7 +1162,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
   }
   nk = n - k1;
   for (i = k1+1; i < n; i++) {
-    for (a = x[i-1]+1; a < x[i]; a += 1.0) {
+    for (a = x[i-1]+1; a < x[i]; a += 1.0) {     
       d = log(a);
       UVIP3P(3, nk, t+k1, y+k1, 1, &d, &b);
       b = exp(b);
@@ -1264,13 +1263,35 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
 
 #define MKK 20
 
-double H22Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
-	       INTERACT_SHELL *s, int *ks1, int *ks2,
-	       FORMULA *fm, double *a, int md) {
+void FixTotalJ(int ns, SHELL_STATE *st, SHELL *s, CONFIG *c, int m) {
+  SHELL_STATE *st0;
+  int i, j;
+
+  st0 = c->csfs + m*c->n_shells;
+  i = 0;
+  j = 0;
+  while (i < ns && j < c->n_shells) {
+    st[i].totalJ = st0[j].totalJ;
+    if (s[i].nq > 0) j++;
+    i++;    
+  }
+  if (i < ns || j < c->n_shells) {
+    printf("Error in FixTotalJ, aborting\n");
+    exit(1);
+  }
+}
+
+void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
+	     int ns, SHELL *bra, SHELL *ket, 
+	     SHELL_STATE *sbra, SHELL_STATE *sket,
+	     int mst, int *bst, int *kst,
+	     INTERACT_SHELL *s, int ph, int *ks1, int *ks2,
+	     FORMULA *fm, double **a, int md, int i0) {
   int m, kk1, kk2, kmin1, kmin2, kmax1, kmax2;
-  int mkk1, mkk2, mkk;
+  int mkk1, mkk2, mkk, k, i1;
+  int q0, q1, m0, m1, ms0, ms1, s0, s1;
   double c, y, sd1, sd2, se1, se2;
-  double a1[MKK], a2[MKK];
+  double a1[MKK], a2[MKK], *h1, *h2, d1, d2;
 
   if (md <= 0) {
     TriadsZ(2, 2, fm);	      
@@ -1292,8 +1313,8 @@ double H22Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
   kk1 = 2*(MKK-1);
   kmax1 = Min(kmax1, kk1);
   kmax2 = Min(kmax2, kk1);
-  if (kmax1 < kmin1) return 0.0;
-  if (kmax2 < kmin2) return 0.0;
+  if (kmax1 < kmin1) return;
+  if (kmax2 < kmin2) return;
   if (md <= 1) {
     FixJsZ(s, fm);
     for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
@@ -1307,9 +1328,16 @@ double H22Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
 	fm->js[12] = kk2;
 	fm->js[13] = 0;
 	fm->js[14] = 0;
-	fm->js[15] = 0;
-	EvaluateTensor(ns, sbra, sket, s, 1, fm);
-	a[mkk+mkk2] = fm->coeff;
+	fm->js[15] = 0;	
+	for (k = 0; k < mst; k++) {
+	  q0 = bst[k];
+	  q1 = kst[k];
+	  FixTotalJ(ns, sbra, bra, c0, q0);
+	  FixTotalJ(ns, sket, ket, c1, q1);	
+	  EvaluateTensor(ns, sbra, sket, s, 1, fm);
+	  if (IsOdd(ph)) fm->coeff = -fm->coeff;
+	  a[mkk+mkk2][k] = fm->coeff;
+	}
       }
     }
   }
@@ -1318,69 +1346,108 @@ double H22Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
   ** so that the recouping coeff. are calculated the first
   ** time even these parity conditions are not satisfied.
   */
-  if (IsOdd((s[0].kl+s[1].kl+s[2].kl+s[3].kl)/2)) return 0.0;
-  if (IsOdd((s[4].kl+s[5].kl+s[6].kl+s[7].kl)/2)) return 0.0;
+  if (IsOdd((s[0].kl+s[1].kl+s[2].kl+s[3].kl)/2)) return;
+  if (IsOdd((s[4].kl+s[5].kl+s[6].kl+s[7].kl)/2)) return;
   for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
     m = 0;
     mkk1 = kk1/2;
     mkk = mkk1*MKK;
     for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
       mkk2 = kk2/2;
-      if (a[mkk+mkk2]) {
-	m = 1;
-	break;
+      for (k = 0; k < mst; k++) {
+	if (fabs(a[mkk+mkk2][k]) > EPS30) {
+	  m = 1;
+	  break;
+	}
       }
+      if (m == 1) break;
     }
-    m = 1;
     if (m) {
       SlaterTotal(&sd1, &se1, NULL, ks1, kk1, 0);
       a1[mkk1] = sd1 + se1;
+    } else {
+      a1[mkk1] = 0.0;
     }
   }
   for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
     m = 0;
     mkk2 = kk2/2;
-    for (kk1 = kmin1; kk1 <= kmin1; kk1 += 2) {
+    for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
       mkk1 = kk1/2;
       mkk = mkk1*MKK+mkk2;
-      if (a[mkk]) {
-	m = 1;
-	break;
-      }
+      for (k = 0; k < mst; k++) {
+	if (fabs(a[mkk][k]) > EPS30) {
+	  m = 1;
+	  break;
+	}
+      }      
+      if (m == 1) break;
     }
-    m = 1;
     if (m) {
       SlaterTotal(&sd2, &se2, NULL, ks2, kk2, 0);
       a2[mkk2] = sd2 + se2;
+    } else {
+      a2[mkk2] = 0.0;
     }
   }
-  c = 0.0;
-  for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
-    mkk1 = kk1/2;
-    mkk = mkk1*MKK;
-    for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
-      mkk2 = kk2/2;
-      y = a[mkk+mkk2];
-      if (fabs(y) < EPS10) continue;
-      y /= sqrt((kk1+1.0)*(kk2+1.0));
-      if (IsOdd((kk1+kk2)/2)) y = -y;      
-      c += y*a1[mkk1]*a2[mkk2];
+
+  d1 = GetOrbital(ks2[2])->energy + GetOrbital(ks2[3])->energy;
+  d1 -= GetOrbital(ks2[0])->energy + GetOrbital(ks2[1])->energy;
+  d2 = GetOrbital(ks1[0])->energy + GetOrbital(ks1[1])->energy;
+  d2 -= GetOrbital(ks1[2])->energy + GetOrbital(ks1[3])->energy;
+  for (k = 0; k < mst; k++) {
+    q0 = bst[k];
+    q1 = kst[k];
+    ms0 = c0->symstate[q0];
+    UnpackSymState(ms0, &s0, &m0);
+    ms1 = c1->symstate[q1];
+    UnpackSymState(ms1, &s1, &m1);
+   
+    c = 0.0;
+    for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
+      mkk1 = kk1/2;
+      mkk = mkk1*MKK;
+      for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
+	mkk2 = kk2/2;
+	y = a[mkk+mkk2][k];
+	if (fabs(y) < EPS30) continue;
+	if (fabs(a1[mkk1]) < EPS30) continue;
+	if (fabs(a2[mkk2]) < EPS30) continue;	  
+	y /= sqrt((kk1+1.0)*(kk2+1.0));
+	if (IsOdd((kk1+kk2)/2)) y = -y;      
+	c += y*a1[mkk1]*a2[mkk2];
+      }
     }
+    m = m1*(m1+1)/2 + m0;
+    if (i0 >= 0) {
+      h1 = meff[s0]->hab[m];
+      h2 = meff[s0]->hba[m];
+      i1 = i0;
+    } else {
+      h1 = meff[s0]->hab1[m];
+      h2 = meff[s0]->hba1[m];
+      i1 = -(i0+1);
+    }
+    h1[i1] += c/d1;
+    h2[i1] += c/d2;
   }
-  return c;
 }
 
-double H12Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
-	       INTERACT_SHELL *s, int *ks, int k0, int k1,
-	       FORMULA *fm, double *a, int md) {  
-  int kk, kmin, kmax;
-  double c, c1, y, sd, se;
+void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
+	     int ns, SHELL *bra, SHELL *ket, 
+	     SHELL_STATE *sbra, SHELL_STATE *sket,
+	     int mst, int *bst, int *kst,
+	     INTERACT_SHELL *s, int ph, int *ks, int k0, int k1,
+	     FORMULA *fm, double **a, int md, int i0) {  
+  int kk, kk2, kmin, kmax;
+  int q0, q1, k, m0, m1, s0, s1, m, ms0, ms1;  
+  double c, r1, y, sd, se, yk[MKK], *h1, *h2, d1, d2;
 
   if (md <= 0) {
     TriadsZ(1, 2, fm);
     RecoupleTensor(6, s, fm);
   }
-  if (s[0].j != s[1].j) return 0.0;
+  if (s[0].j != s[1].j) return;
   kmin = abs(s[2].j-s[3].j);
   kk = abs(s[4].j-s[5].j);
   kmin = Max(kmin, kk);
@@ -1389,94 +1456,168 @@ double H12Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket,
   kmax = Min(kmax, kk);
   kk = 2*(MKK-1);
   kmax = Min(kmax, kk);
-  if (kmax < kmin) return 0.0;
+  if (kmax < kmin) return;
   if (md <= 1) {
     FixJsZ(s, fm);
     for (kk = kmin; kk <= kmax; kk += 2) {
+      kk2 = kk/2;
       fm->js[7] = 0;
       fm->js[8] = kk;
       fm->js[9] = kk;
       fm->js[10] = 0;
       fm->js[11] = 0;
-      EvaluateTensor(ns, sbra, sket, s, 1, fm);
-      a[kk/2] = fm->coeff;
+      for (k = 0; k < mst; k++) {
+	q0 = bst[k];
+	q1 = kst[k];
+	FixTotalJ(ns, sbra, bra, c0, q0);
+	FixTotalJ(ns, sket, ket, c1, q1);
+	EvaluateTensor(ns, sbra, sket, s, 1, fm);
+	if (IsOdd(ph)) fm->coeff = -fm->coeff;
+	a[kk2][k] = fm->coeff;
+      }
     }
   }
-
   /* 
   ** these conditions must be placed after the above block,
   ** so that the recouping coeff. are calculated the first
   ** time even these parity conditions are not satisfied.
   */
-  if (IsOdd((s[0].kl+s[1].kl)/2)) return 0.0;
-  if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return 0.0;
-  c = 0.0;
-  for (kk = kmin; kk <= kmax; kk += 2) {
-    y = a[kk/2];
-    if (fabs(y) < EPS10) continue;
-    y /= sqrt(kk+1.0);
-    if (IsOdd(kk/2)) y = -y;
-    SlaterTotal(&sd, &se, NULL, ks, kk, 0);
-    c += y*(sd + se);
-  }
-  if (fabs(c) < EPS10) return 0.0;
-  ResidualPotential(&c1, k0, k1);
-  c1 += QED1E(k0, k1);
-  c1 *= sqrt(s[0].j+1.0);
-  c *= c1;
+  if (IsOdd((s[0].kl+s[1].kl)/2)) return;
+  if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
 
-  /* minus sign is from the definition of Z^k */
-  return -c;
+  d1 = GetOrbital(ks[2])->energy + GetOrbital(ks[3])->energy;
+  d1 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
+  d2 = GetOrbital(k0)->energy - GetOrbital(k1)->energy;
+  for (kk = kmin; kk <= kmax; kk += 2) {
+    kk2 = kk/2;
+    yk[kk2] = 0.0;
+    for (k = 0; k < mst; k++) {
+      if (a[kk2][k]) break;
+    }
+    if (k == mst) continue;
+    SlaterTotal(&sd, &se, NULL, ks, kk, 0);  
+    yk[kk2] = sd + se;
+    if (IsOdd(kk2)) yk[kk2] = -yk[kk2];
+  }
+  for (k = 0; k < mst; k++) {
+    q0 = bst[k];
+    q1 = kst[k];
+    ms0 = c0->symstate[q0];
+    UnpackSymState(ms0, &s0, &m0);
+    ms1 = c1->symstate[q1];
+    UnpackSymState(ms1, &s1, &m1);
+    c = 0.0;
+    for (kk = kmin; kk <= kmax; kk += 2) {
+      kk2 = kk/2;
+      if (a[kk2][k] == 0) continue;
+      if (yk[kk2] == 0) continue;
+      y = a[kk2][k];
+      y /= sqrt(kk+1.0);
+      c += y*yk[kk2];
+    }
+    if (fabs(c) < EPS30) continue;
+    ResidualPotential(&r1, k0, k1);
+    r1 += QED1E(k0, k1);
+    r1 *= sqrt(s[0].j+1.0);
+    c *= r1;
+    /* minus sign is from the definition of Z^k */
+    c = -c;    
+    if (m0 <= m1) {
+      m = m1*(m1+1)/2 + m0;
+      h1 = meff[s0]->hab1[m];
+      h2 = meff[s0]->hba1[m];
+    } else {
+      m = m0*(m0+1)/2 + m1;
+      h1 = meff[s0]->hba1[m];
+      h2 = meff[s0]->hab1[m];
+    }
+    h1[i0] += c/d1;
+    h2[i0] += c/d2;
+  }
 }
 
-double H11Term(int ns, SHELL_STATE *sbra, SHELL_STATE *sket, 
-	       INTERACT_SHELL *s, int k0, int k1, int k2, int k3,
-	       FORMULA *fm, int md) {
-  double y, c, c1, c2;
+void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, 
+	     int ns, SHELL *bra, SHELL *ket,
+	     SHELL_STATE *sbra, SHELL_STATE *sket, 
+	     int mst, int *bst, int *kst,
+	     INTERACT_SHELL *s, int ph, int k0, int k1, int k2, int k3,
+	     FORMULA *fm, double *a, int md, int i0) {
+  double y, d1, d2, r1, r2, *h1, *h2;
+  int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1;
 
   if (md <= 0) {
     TriadsZ(1, 1, fm);
     RecoupleTensor(4, s, fm);
   }
-  if (s[0].j != s[1].j) return 0.0;
-  if (s[2].j != s[3].j) return 0.0;
+  if (s[0].j != s[1].j) return;
+  if (s[2].j != s[3].j) return;
   if (md <= 1) {
     FixJsZ(s, fm);
     fm->js[5] = 0;
     fm->js[6] = 0;
     fm->js[7] = 0;
-    EvaluateTensor(ns, sbra, sket, s, 1, fm);
+    for (k = 0; k < mst; k++) {
+      q0 = bst[k];
+      q1 = kst[k];
+      FixTotalJ(ns, sbra, bra, c0, q0);
+      FixTotalJ(ns, sket, ket, c1, q1);	
+      EvaluateTensor(ns, sbra, sket, s, 1, fm);
+      a[k] = fm->coeff;
+      if (IsOdd(ph)) a[k] = -a[k];
+    }
   }
+  
   /* 
   ** these conditions must be placed after the above block,
   ** so that the recouping coeff. are calculated the first
   ** time even these parity conditions are not satisfied.
   */
-  if (IsOdd((s[0].kl+s[1].kl)/2)) return 0.0;
-  if (IsOdd((s[2].kl+s[3].kl)/2)) return 0.0;
+  if (IsOdd((s[0].kl+s[1].kl)/2)) return;
+  if (IsOdd((s[2].kl+s[3].kl)/2)) return;
 
-  y = fm->coeff;
-  if (fabs(y) < EPS10) return 0.0;
-  ResidualPotential(&c1, k0, k1);
-  c1 += QED1E(k0, k1);
-  c1 *= sqrt(s[0].j+1.0);
+  y = 0;
+  for (k = 0; k < mst; k++) {
+    if (a[k]) break;
+  }
+  if (k == mst) return;
+  
+  ResidualPotential(&r1, k0, k1);
+  r1 += QED1E(k0, k1);
+  r1 *= sqrt(s[0].j+1.0);
   if (k3 != k0 || k2 != k1) {
-    ResidualPotential(&c2, k2, k3);
-    c2 += QED1E(k2, k3);
-    c2 *= sqrt(s[3].j+1.0);
+    ResidualPotential(&r2, k2, k3);
+    r2 += QED1E(k2, k3);
+    r2 *= sqrt(s[3].j+1.0);
   } else {
-    c2 = c1;
-  }	  
-  c = y*c1*c2; 
-  return c;
+    r2 = r1;
+  }
+  
+  d1 = GetOrbital(k3)->energy - GetOrbital(k2)->energy;
+  d2 = GetOrbital(k0)->energy - GetOrbital(k1)->energy;
+  for (k = 0; k < mst; k++) {
+    q0 = bst[k];
+    q1 = kst[k];
+    ms0 = c0->symstate[q0];
+    UnpackSymState(ms0, &s0, &m0);
+    ms1 = c1->symstate[q1];
+    UnpackSymState(ms1, &s1, &m1);
+    if (a[k] == 0) continue;      
+    m = m1*(m1+1)/2 + m0;
+    h1 = meff[s0]->hab1[m];
+    h2 = meff[s0]->hba1[m];
+    y = r1*r2*a[k];
+    h1[i0] += y/d1;
+    h2[i0] += y/d2;
+  }
 }
 
-void DeltaH22M2Loop(double *h1, double *h2, int ns, 
+void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns, 
 		    SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		    int mst, int *bst, int *kst,
 		    int n0, int *b0, int n1, int *b1, int n, int *ng, 
 		    int n2, int *ng2, int ph,
 		    int ia, int ib, int ic, int id, int ik, int im,
-		    FORMULA *fm, double *a, int *j1, int *j2) {
+		    FORMULA *fm, double **a, int *j1, int *j2) {
   double c, d1, d2;
   int ip, iq;
   int ks1[4], ks2[4];
@@ -1541,33 +1682,29 @@ void DeltaH22M2Loop(double *h1, double *h2, int ns,
   } else {
     md = 2;
   }
-  c = H22Term(ns, sbra, sket, s, ks1, ks2, fm, a, md);
-  if (fabs(c) < EPS10) return;
-  if (IsOdd(ph)) c = -c;
-  d1 = o[5]->energy+o[7]->energy-o[4]->energy-o[6]->energy;
-  d2 = o[0]->energy+o[2]->energy-o[1]->energy-o[3]->energy;
   i = i1*n2 + i2;
-  h1[i] += c/d1;
-  h2[i] += c/d2;
-  /*
-  printf("22:2 %d %d %d %d %d %d %d %d %10.3E %10.3E %12.5E\n",
-	 ks1[0],ks1[1],ks1[2],ks1[3],
-	 ks2[0],ks2[1],ks2[2],ks2[3],d1,c,c/d1);
-  */
+  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
+	  s, ph, ks1, ks2, fm, a, md, i);
 }
 
-void DeltaH22M2(double *h1, double *h2, int ns,
+void DeltaH22M2(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst,
+		CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n1, int *b1, int n, int *ng, 
 		int n2, int *ng2, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, j1, j2;
   int m1, m2, nj, *jp, i, k;
   int op[4], om[4], ph;
-  double a[MKK*MKK];
+  double *a[MKK*MKK];
   ORBITAL *o;
   FORMULA fm;
 
   if (n1 <= 0) return;
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    a[i] = malloc(sizeof(double)*mst);
+  }
   jp = malloc(sizeof(int)*(n1+1));
   jp[0] = 0;
   nj = 1;
@@ -1619,7 +1756,8 @@ void DeltaH22M2(double *h1, double *h2, int ns,
 		k = CheckConfig(ns-1, ket+1, 2, op, 2, om, nc, cs);
 		if (k >= 0) continue;
 	      }
-	      DeltaH22M2Loop(h1, h2, ns, bra, ket, sbra, sket, 
+	      DeltaH22M2Loop(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			     mst, bst, kst,
 			     n0, b0, n1, b1, n, ng, n2, ng2, ph,
 			     ia, ib, ic, id, ik, im, &fm, a, &j1, &j2);
 	    }
@@ -1639,8 +1777,8 @@ void DeltaH22M2(double *h1, double *h2, int ns,
 		  ket[1].n = o->n;
 		  ket[1].kappa = o->kappa;
 		  ket[1].nq = 0;
-		  if (ket[0].n <= cs[nc]->n_csfs && 
-		      ket[1].n <= cs[nc]->n_csfs) {
+		  
+		  if (Max(ket[0].n, ket[1].n) <= cs[nc]->n_csfs) {
 		    om[0] = id+2;
 		    om[1] = ic+2;
 		    op[0] = 0;
@@ -1648,7 +1786,8 @@ void DeltaH22M2(double *h1, double *h2, int ns,
 		    k = CheckConfig(ns, ket, 2, op, 2, om, nc, cs);
 		    if (k >= 0) continue;
 		  }
-		  DeltaH22M2Loop(h1, h2, ns, bra, ket, sbra, sket, 
+		  DeltaH22M2Loop(meff, c0, c1, ns, bra, ket, sbra, sket, 
+				 mst, bst, kst,
 				 n0, b0, n1, b1, n, ng, n2, ng2, ph,
 				 ia, ib, ic, id, ik, im, &fm, a, &j1, &j2);
 		}
@@ -1660,22 +1799,31 @@ void DeltaH22M2(double *h1, double *h2, int ns,
     }
   }
   free(jp);
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    free(a[i]);
+  }
 }
 
-void DeltaH22M1(double *h1, double *h2, int ns,
+void DeltaH22M1(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n1, int *b1, int n, int *ng,
 		int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
   int i, m1, i1, j1, md;
-  double c, d1, d2, a[MKK*MKK];
+  double *a[MKK*MKK];
   INTERACT_SHELL s[8];
   ORBITAL *o[8];
   FORMULA fm;
 
   fm.js[0] = 0;
   if (n1 <= 0) return;
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    a[i] = malloc(sizeof(double)*mst);
+  }
   for (ia = 0; ia < n0; ia++) {
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < n0; ic++) {
@@ -1758,19 +1906,9 @@ void DeltaH22M1(double *h1, double *h2, int ns,
 		} else {
 		  md = 2;
 		}
-		c = H22Term(ns, sbra, sket, s, ks1, ks2, &fm, a, md);
-		if (fabs(c) < EPS10) continue;
-		if (IsOdd(ph)) c = -c;
-		
-		d1 = o[5]->energy+o[7]->energy-o[4]->energy-o[6]->energy;
-		d2 = o[0]->energy+o[2]->energy-o[1]->energy-o[3]->energy;
-		h1[i1] += c/d1;
-		h2[i1] += c/d2;
-		/*
-		printf("22:1 %d %d %d %d %d %d %d %d %10.3E %10.3E %12.5E\n", 
-		       ks1[0],ks1[1],ks1[2],ks1[3],
-		       ks2[0],ks2[1],ks2[2],ks2[3],d1,c,c/d1);
-		*/
+		H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			mst, bst, kst, s, ph, 
+			ks1, ks2, &fm, a, md, -(i1+1));
 	      }
 	    }
 	  }
@@ -1778,14 +1916,19 @@ void DeltaH22M1(double *h1, double *h2, int ns,
       }
     }
   }
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    free(a[i]);
+  }
 }
 		  
-void DeltaH22M0(double *h1, double *h2, int ns,
+void DeltaH22M0(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n, int *ng, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq, i, i1;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
-  double c, d1, d2, a[MKK*MKK];
+  double *a[MKK*MKK];
   INTERACT_SHELL s[8];
   ORBITAL *o[8];  
   FORMULA fm;
@@ -1793,6 +1936,10 @@ void DeltaH22M0(double *h1, double *h2, int ns,
   i1 = bra[0].n;
   i1 = IBisect(i1, n, ng);
   if (i1 < 0) return;
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    a[i] = malloc(sizeof(double)*mst);
+  }
   fm.js[0] = 0;
   for (ia = 0; ia < n0; ia++) {
     for (ib = 0; ib <= ia; ib++) {
@@ -1884,18 +2031,9 @@ void DeltaH22M0(double *h1, double *h2, int ns,
 		    s[i].nq_ket = ket[s[i].index].nq;
 		    s[i].index = ns-s[i].index-1;
 		  }
-		  c = H22Term(ns, sbra, sket, s, ks1, ks2, &fm, a, 0);
-		  if (fabs(c) < EPS10) continue;
-		  if (IsOdd(ph)) c = -c;
-		  d1 = o[5]->energy+o[7]->energy-o[4]->energy-o[6]->energy;
-		  d2 = o[0]->energy+o[2]->energy-o[1]->energy-o[3]->energy;
-		  h1[i1] += c/d1;
-		  h2[i1] += c/d2;
-		  /*
-		  printf("22:0 %d %d %d %d %d %d %d %d %10.3E %10.3E %12.5E\n", 
-			 ks1[0],ks1[1],ks1[2],ks1[3],
-			 ks2[0],ks2[1],ks2[2],ks2[3],d1,c,c/d1);
-		  */
+		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			  mst, bst, kst, s, ph,
+			  ks1, ks2, &fm, a, 0, -(i1+1));
 		}
 	      }
 	    }
@@ -1904,21 +2042,30 @@ void DeltaH22M0(double *h1, double *h2, int ns,
       }
     }
   }
+  k = MKK*MKK;
+  for (i = 0; i < k; i++) {
+    free(a[i]);
+  }
 }
 
-void DeltaH12M1(double *h1, double *h2, int ns,
+void DeltaH12M1(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n1, int *b1, int n, int *ng,
 		int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, j1, md;
   int m1, i1, k, i, op[3], om[3], ks[4], ph;
-  double c, d1, d2, a[MKK];
+  double *a[MKK];
   INTERACT_SHELL s[6];
   ORBITAL *o[6];
   FORMULA fm;
 
   fm.js[0] = 0;
   if (n1 <= 0) return;
+  k = MKK;
+  for (i = 0; i < k; i++) {
+    a[i] = malloc(sizeof(double)*mst);
+  }
   for (ia = 0; ia < n0; ia++) {
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < n0; ib++) {
@@ -1987,30 +2134,27 @@ void DeltaH12M1(double *h1, double *h2, int ns,
 	    } else {
 	      md = 2;
 	    }
-	    c = H12Term(ns, sbra, sket, s, ks, b0[ia], b1[ik], &fm, a, md);
-	    if (fabs(c) < EPS10) continue;
-	    if (IsOdd(ph)) c = -c;
-	    d1 = o[3]->energy + o[5]->energy - o[2]->energy - o[4]->energy;
-	    d2 = o[0]->energy - o[1]->energy;
-	    h1[i1] += c/d1;
-	    h2[i1] += c/d2;
-	    /*
-	    printf("12:1 %d %d %d %d %d %d %10.3E %10.3E %12.5E %10.3E %12.5E\n", 
-		   b0[ia],b1[ik],ks[0],ks[1],ks[2],ks[3],d1,c,c/d1,d2,c/d2);
-	    */
+	    H12Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+		    mst, bst, kst, s, ph, 
+		    ks, b0[ia], b1[ik], &fm, a, md, i1);
 	  }
 	}
       }
     }
   }
+  k = MKK;
+  for (i = 0; i < k; i++) {
+    free(a[i]);
+  }
 }
 
-void DeltaH12M0(double *h1, double *h2, int ns,
+void DeltaH12M0(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n, int *ng, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im;
   int i1, k, i, op[3], om[3], ks[4], ph;
-  double c, d1, d2, a[MKK];
+  double *a[MKK];
   INTERACT_SHELL s[6];
   ORBITAL *o[6];
   FORMULA fm;
@@ -2018,6 +2162,10 @@ void DeltaH12M0(double *h1, double *h2, int ns,
   i1 = bra[0].n;
   i1 = IBisect(i1, n, ng);
   if (i1 < 0) return;
+  k = MKK;
+  for (i = 0; i < k; i++) {
+    a[i] = malloc(sizeof(double)*mst);
+  }
   fm.js[0] = 0;
   for (ia = 0; ia < n0; ia++) {
     if (bra[ia].nq == 0) continue;
@@ -2085,124 +2233,36 @@ void DeltaH12M0(double *h1, double *h2, int ns,
 		s[i].nq_ket = ket[s[i].index].nq;
 		s[i].index = ns-s[i].index-1;
 	      }
-	      c = H12Term(ns, sbra, sket, s, ks, b0[ia], b0[ik], &fm, a, 0);
-	      if (fabs(c) < EPS10) continue;
-	      if (IsOdd(ph)) c = -c;
-	      d1 = o[3]->energy + o[5]->energy - o[2]->energy - o[4]->energy;
-	      d2 = o[0]->energy - o[1]->energy;
-	      h1[i1] += c/d1;
-	      h2[i1] += c/d2;
-	      /*
-	      printf("12:0 %d %d %d %d %d %d %10.3E %10.3E %12.5E %10.3E %12.5E\n", 
-		     b0[ia],b0[ik],ks[0],ks[1],ks[2],ks[3],d1,c,c/d1,d2,c/d2);
-	      */
+	      H12Term(meff, c0, c1, ns, bra, ket, sbra, sket,
+		      mst, bst, kst, s, ph,
+		      ks, b0[ia], b0[ik], &fm, a, 0, i1);
 	    }
 	  }
 	}
       }
     }
   }
-}
-
-void DeltaH11M0(double *h1, double *h2, int ns, 
-		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
-		int n0, int *b0, int n, int *ng,
-		int nc, CONFIG **cs) {
-  int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1;
-  int op[2], om[2], ph;
-  double y, d1, d2;
-  INTERACT_SHELL s[4];
-  ORBITAL *o0, *o1, *o2, *o3;
-  FORMULA fm;
-   
-  i1 = bra[0].n;
-  i1 = IBisect(i1, n, ng);
-  if (i1 < 0) return;
-  fm.js[0] = 0;
-  for (ia = 0; ia < n0; ia++) {
-    if (bra[ia].nq == 0) continue;
-    for (ib = 0; ib < n0; ib++) { 
-      if (ket[ib].nq == 0) continue;
-      for (ik = 0; ik < n0; ik++) {
-	for (im = 0; im < n0; im++) {
-	  if (ia == ik) {
-	    continue;
-	  }
-	  if (ib == im) {
-	    continue;
-	  }
-	  op[0] = ia;
-	  op[1] = im;
-	  om[0] = ib;
-	  om[1] = ik;
-	  ph = CheckInteraction(ns, bra, ket, 2, op, 2, om);
-	  if (ph < 0) continue;
-	  op[0] = im;
-	  om[0] = ib;
-	  k = CheckConfig(ns, ket, 1, op, 1, om, nc, cs);	  
-	  if (k >= 0) continue;
-	  op[0] = ik;
-	  om[0] = ia;
-	  k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
-	  if (k >= 0) continue;
-	  k0 = b0[ia];
-	  k1 = b0[ik];
-	  k2 = b0[im];
-	  k3 = b0[ib];
-	  s[0].index = ia;
-	  s[0].n = 1;
-	  s[1].index = ik;
-	  s[1].n = -1;
-	  s[2].index = im;
-	  s[2].n = 1;
-	  s[3].index = ib;
-	  s[3].n = -1;
-	  for (i = 0; i < 4; i++) {
-	    s[i].nq_bra = bra[s[i].index].nq;
-	    s[i].nq_ket = ket[s[i].index].nq;
-	  }
-	  o0 = GetOrbital(k0);
-	  o1 = GetOrbital(k1);
-	  o2 = GetOrbital(k2);
-	  o3 = GetOrbital(k3);
-	  s[0].kappa = o0->kappa;
-	  s[1].kappa = o1->kappa;
-	  s[2].kappa = o2->kappa;
-	  s[3].kappa = o3->kappa;
-	  for (i = 0; i < 4; i++) {
-	    GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
-	    s[i].index = ns-s[i].index-1;
-	  }
-	  y = H11Term(ns, sbra, sket, s, k0, k1, k2, k3, &fm, 0);
-	  if (fabs(y) < EPS10) continue;
-	  if (IsOdd(ph)) y = -y;
-	  d1 = o3->energy - o2->energy;
-	  d2 = o0->energy - o1->energy;
-	  h1[i1] += y/d1;
-	  h2[i1] += y/d2;
-	  /*
-	  printf("11:0 %d %d %d %d %10.3E %10.3E %12.5E\n", k0,k1,k2,k3,d1,y,y/d1);
-	  */
-	}
-      }
-    }
+  k = MKK;
+  for (i = 0; i < k; i++) {
+    free(a[i]);
   }
 }
-  
 
-void DeltaH11M1(double *h1, double *h2, int ns, 
+void DeltaH11M1(MBPT_EFF **meff, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
 		int n0, int *b0, int n1, int *b1, int n, int *ng,
 		int nc, CONFIG **cs) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1, m1;
   int op[2], om[2], ph, j1, md;
-  double y, d1, d2;
   INTERACT_SHELL s[4];
   ORBITAL *o0, *o1, *o2, *o3;
+  double *a;
   FORMULA fm;
 
   fm.js[0] = 0;
   if (n1 <= 0) return;
+  a = malloc(sizeof(double)*mst);
   for (ia = 0; ia < n0; ia++) {
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < n0; ib++) { 
@@ -2263,41 +2323,148 @@ void DeltaH11M1(double *h1, double *h2, int ns,
 	} else {
 	  md = 2;
 	}
-	y = H11Term(ns, sbra, sket, s, k0, k1, k2, k3, &fm, md);
-	if (fabs(y) < EPS10) continue;
-	if (IsOdd(ph)) y = -y;
-	d1 = o3->energy - o2->energy;
-	d2 = o0->energy - o1->energy;
-	h1[i1] += y/d1;
-	h2[i1] += y/d2;
-	/*
-	printf("11:1 %d %d %d %d %10.3E %10.3E %12.5E\n", k0,k1,k2,k3,d1,y,y/d1);
-	*/
+	H11Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst, 
+		s, ph, k0, k1, k2, k3, &fm, a, md, i1);
       }
     }
   }
+  free(a);
 }
   
+void DeltaH11M0(MBPT_EFF **meff, int ns, 
+		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		int mst, int *bst, int *kst,
+		CONFIG *c0, CONFIG *c1, int n0, int *b0, int n, int *ng,
+		int nc, CONFIG **cs) {
+  int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1;
+  int op[2], om[2], ph;
+  INTERACT_SHELL s[4];
+  ORBITAL *o0, *o1, *o2, *o3;
+  double *a;
+  FORMULA fm;
+   
+  i1 = bra[0].n;
+  i1 = IBisect(i1, n, ng);
+  if (i1 < 0) return;
+  a = malloc(sizeof(double)*mst);
+  fm.js[0] = 0;
+  for (ia = 0; ia < n0; ia++) {
+    if (bra[ia].nq == 0) continue;
+    for (ib = 0; ib < n0; ib++) { 
+      if (ket[ib].nq == 0) continue;
+      for (ik = 0; ik < n0; ik++) {
+	for (im = 0; im < n0; im++) {
+	  if (ia == ik) {
+	    continue;
+	  }
+	  if (ib == im) {
+	    continue;
+	  }
+	  op[0] = ia;
+	  op[1] = im;
+	  om[0] = ib;
+	  om[1] = ik;
+	  ph = CheckInteraction(ns, bra, ket, 2, op, 2, om);
+	  if (ph < 0) continue;
+	  op[0] = im;
+	  om[0] = ib;
+	  k = CheckConfig(ns, ket, 1, op, 1, om, nc, cs);	  
+	  if (k >= 0) continue;
+	  op[0] = ik;
+	  om[0] = ia;
+	  k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
+	  if (k >= 0) continue;
+	  k0 = b0[ia];
+	  k1 = b0[ik];
+	  k2 = b0[im];
+	  k3 = b0[ib];
+	  s[0].index = ia;
+	  s[0].n = 1;
+	  s[1].index = ik;
+	  s[1].n = -1;
+	  s[2].index = im;
+	  s[2].n = 1;
+	  s[3].index = ib;
+	  s[3].n = -1;
+	  for (i = 0; i < 4; i++) {
+	    s[i].nq_bra = bra[s[i].index].nq;
+	    s[i].nq_ket = ket[s[i].index].nq;
+	  }
+	  o0 = GetOrbital(k0);
+	  o1 = GetOrbital(k1);
+	  o2 = GetOrbital(k2);
+	  o3 = GetOrbital(k3);
+	  s[0].kappa = o0->kappa;
+	  s[1].kappa = o1->kappa;
+	  s[2].kappa = o2->kappa;
+	  s[3].kappa = o3->kappa;
+	  for (i = 0; i < 4; i++) {
+	    GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
+	    s[i].index = ns-s[i].index-1;
+	  }
+	  H11Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
+		  s, ph, k0, k1, k2, k3, &fm, a, 0, i1);
+	}
+      }
+    }
+  }
+  free(a);
+}
+  
+void FreeEffMBPT(MBPT_EFF **meff) {
+  int i, j, k, m;
+
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    if (meff[i] == NULL) continue;
+    if (meff[i]->nbasis > 0) {
+      k = meff[i]->nbasis;
+      k = k*(k+1)/2;
+      for (m = 0; m < k; m++) {
+	if (meff[i]->hab1[m]) {
+	  free(meff[i]->hab1[m]);
+	  free(meff[i]->hba1[m]);
+	  free(meff[i]->hab[m]);
+	  free(meff[i]->hba[m]);
+	}
+      }
+      free(meff[i]->hab1);
+      free(meff[i]->hba1);
+      free(meff[i]->hab);
+      free(meff[i]->hba);
+      free(meff[i]->h0);
+      free(meff[i]->heff);
+      free(meff[i]->basis);
+    }
+    free(meff[i]);
+  }
+}
+	    
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, 
 		   int kmax, int n, int *ng, int n2, int *ng2, int nkg0) {
   int *bas, *bas0, *bas1, *bas2, nlevels, nb, n3, q;
   int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m;
-  int pp, jj, nmax, na, *ga;
+  int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst;
+  int p0, p1, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
   SYMMETRY *sym;
   STATE *st;
   HAMILTON *h;
   SHELL *bra, *ket, *bra1, *ket1, *bra2, *ket2;
   SHELL_STATE *sbra, *sket, *sbra1, *sket1, *sbra2, *sket2;
-  CONFIG **cs, cfg;
+  CONFIG **cs, cfg, *c0, *c1, *ct0, *ct1;
   CONFIG_GROUP *g;
+  MBPT_EFF *meff[MAX_SYMMETRIES];
   double a, b, c, *mix, *hab, *hba;
-  double *h0, *heff, *hab1, *hba1, *dw;
+  double *h0, *heff, *hab1, *hba1, *dw, dt;
+  clock_t tt0, tt1, tbg;
   FILE *f;
 					  
   ierr = 0;
   n3 = mbpt_n3;
   if (nkg0 <= 0 || nkg0 > nkg) nkg0 = nkg;
 
+  tt0 = clock();
+  tbg = tt0;
+  printf("construct radial basis ...");
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
   na = n*n2+n;
@@ -2313,6 +2480,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   na = SortUnique(k, ga);
   nb = RadialBasisMBPT(kmax, na, ga, &bas);
   free(ga);
+  tt1 = clock();
+  dt = (tt1-tt0)/CLOCKS_PER_SEC;
+  tt0 = tt1;
+  printf("%12.5E\n", dt);
+  
   if (nb < 0) return -1;
 
   f = fopen(fn1, "w");
@@ -2337,6 +2509,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   bas1 = malloc(sizeof(int)*nb);
   bas2 = malloc(sizeof(int)*nb);
 
+  printf("construct effective Hamiltonian.\n");
   nc = 0;
   for (i = 0; i < nkg; i++) {
     g = GetGroup(kg[i]);
@@ -2346,96 +2519,57 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   k = 0;
   i1 = 0;
   nmax = 0;
+  nmax1 = 0;
   for (i = 0; i < nkg; i++) {
     g = GetGroup(kg[i]);    
     for (j = 0; j < g->n_cfgs; j++) {
       cs[k] = GetConfigFromGroup(i, j);
       if (cs[k]->n_shells > i1) i1 = cs[k]->n_shells;
       if (cs[k]->shells[0].n > nmax) nmax = cs[k]->shells[0].n;
+      if (cs[k]->shells[0].nq > 1) {
+	if (cs[k]->shells[0].n > nmax1) nmax1 = cs[k]->shells[0].n;
+      } else if (cs[k]->n_shells > 1) {
+	if (cs[k]->shells[1].n > nmax1) nmax1 = cs[k]->shells[1].n;
+      }
       k++;
     }
   }
   /* use cfg.n_csfs to store the maximum n-value of the configuration in kg */
   cfg.n_csfs = nmax;
+  cfg.nnrs = nmax1;
   cs[k] = &cfg;
   cs[k]->n_shells = i1;
   cs[k]->shells = malloc(sizeof(SHELL)*(i1+2));
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-    /*
-    if (isym == 5) {
-      STATE *st;
-      CONFIG *pcf;
-      double y1[10],y2[10],y3[10], d1, d2;
-      k = ConstructHamiltonDiagonal(isym, nkg, kg, 0);
-      h = GetHamilton();
-      sym = GetSymmetry(isym);
-      hab = malloc(sizeof(double)*h->dim);
-      hba = malloc(sizeof(double)*h->dim);
-      for (i = 2; i < sym->n_states; i++) {
-	HamiltonElement1E2E(isym, 0, i, &a, &b);
-	hab[i] = a+b;
-	HamiltonElement1E2E(isym, 1, i, &a, &b);
-	hba[i] = a+b;
-      }
-      for (i = 0; i < 10; i++) {
-	y1[i] = 0.0;
-	y2[i] = 0.0;
-	y3[i] = 0.0;
-      }
-      for (i = 2; i < sym->n_states; i++) {
-	st = ArrayGet(&(sym->states), i);
-	pcf = GetConfig(st);
-	k = pcf->shells[0].n;
-	d1 = hab[i]*hab[i];
-	d2 = hba[i]*hba[i];
-	a = hab[i]*hba[i];
-	b = h->hamilton[1] - h->hamilton[i];
-	c = h->hamilton[0] - h->hamilton[i];
-	printf("%3d %2d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %d %d %d\n", 
-	       i, k, d1, d2, a, c, b, d1/c, d2/b, a/b,
-	       st->kgroup,st->kcfg,st->kstate);
-	y1[k] += d1/c;
-	y2[k] += d2/b;
-	y3[k] += a/b;
-      }
-      for (i = 1; i < 10; i++) {
-	printf("n: %2d %15.8E %15.8E %15.8E\n", i, y1[i], y2[i], y3[i]);
-      }
-      goto ERROR;
-    } else {
-      continue;
-    }    
-    */
-    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL);
+    meff[isym] = NULL;
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
     if (k < 0) continue;
-    if (mbpt_isym >= 0 && mbpt_isym != isym) {
-      k = 0;
-      fwrite(&isym, sizeof(int), 1, f);
-      fwrite(&k, sizeof(int), 1, f);
+    DecodePJ(isym, &pp, &jj);
+    meff[isym] = malloc(sizeof(MBPT_EFF));
+    if ((mbpt_pp >= 0 && mbpt_pp != pp) ||
+	(mbpt_jj >= 0 && mbpt_jj != jj)) {
+      meff[isym]->nbasis = 0;
       continue;
     }
+    sym = GetSymmetry(isym);
     h = GetHamilton();
-    h0 = malloc(sizeof(double)*h->hsize);
-    memcpy(h0, h->hamilton, sizeof(double)*h->hsize);
+    meff[isym]->h0 = malloc(sizeof(double)*h->hsize);
+    memcpy(meff[isym]->h0, h->hamilton, sizeof(double)*h->hsize);
+    meff[isym]->basis = malloc(sizeof(int)*h->n_basis);
+    meff[isym]->nbasis = h->n_basis;
+    memcpy(meff[isym]->basis, h->basis, sizeof(int)*h->n_basis);
+    meff[isym]->heff = malloc(sizeof(double)*h->n_basis*h->n_basis);
+    meff[isym]->hab1 = malloc(sizeof(double *)*h->hsize);
+    meff[isym]->hba1 = malloc(sizeof(double *)*h->hsize);
+    meff[isym]->hab = malloc(sizeof(double *)*h->hsize);
+    meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
     if (DiagnolizeHamilton() < 0) {
       printf("Diagnolizing Hamiltonian Error\n");
-      ierr = -1;
-      goto ERROR;
-    }    
-    h->heff = malloc(sizeof(double)*h->dim*h->dim);    
-    heff = h->heff;
-    sym = GetSymmetry(isym);
-    DecodePJ(isym, &pp, &jj);
-    fwrite(&isym, sizeof(int), 1, f);
-    fwrite(&(h->dim), sizeof(int), 1, f);
-    fflush(f);
+      exit(1);
+    }
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
-	/*
-	if (isym != 2 || i != 1 || j != 6) continue;
-	printf("isym: %d %d %d %d %d\n", isym, i, j, h->basis[i], h->basis[j]);
-	*/
 	c = 0;
 	m = -1;
 	mix = h->mixing + h->dim;
@@ -2457,20 +2591,174 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	  if (a > c) c = a;
 	  mix += h->n_basis;
 	}
-	if (i == j) a = mbpt_mcut;
-	else a = 5.0*mbpt_mcut;
-	if (a > 0.1) a = 0.1;
-	printf("%3d %d %2d %3d %3d %3d %10.3E %10.3E\n", 
-	       isym, pp, jj, h->dim, i, j, c, a);
-	fflush(stdout);
-	if (c < a) {
-	  k = j*(j+1)/2 + i;
+	k = j*(j+1)/2 + i;
+	a = mbpt_mcut;
+	if (i == j) a *= 0.2;
+	if (c >= a) {
+	  meff[isym]->hab1[k] = malloc(sizeof(double)*n);
+	  meff[isym]->hba1[k] = malloc(sizeof(double)*n);
+	  i1 = n*n2;
+	  meff[isym]->hab[k] = malloc(sizeof(double)*i1);
+	  meff[isym]->hba[k] = malloc(sizeof(double)*i1);
+	  for (i0 = 0; i0 < n; i0++) {
+	    meff[isym]->hab1[k][i0] = 0.0;
+	    meff[isym]->hba1[k][i0] = 0.0;
+	  } 
+	  for (i0 = 0; i0 < i1; i0++) {
+	    meff[isym]->hab[k][i0] = 0.0;
+	    meff[isym]->hba[k][i0] = 0.0;
+	  }
+	} else {
+	  meff[isym]->hab1[k] = NULL;
+	}
+      }
+    }    
+  }
+  for (k0 = 0; k0 < nc; k0++) {
+    c0 = cs[k0];
+    p0 = ConfigParity(c0);
+    ms0 = c0->n_csfs * c0->n_shells;
+    for (k1 = k0; k1 < nc; k1++) {      
+      c1 = cs[k1];
+      p1 = ConfigParity(c1);
+      if (p0 != p1) continue;
+      m = 0;
+      bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+      kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+      for (m0 = 0; m0 < c0->n_csfs; m0++) {
+	ms0 = c0->symstate[m0];
+	UnpackSymState(ms0, &i0, &q0);
+	if (c0 == c1) q = m0;
+	else q = 0;
+	for (m1 = q; m1 < c1->n_csfs; m1++) {
+	  ms1 = c1->symstate[m1];
+	  UnpackSymState(ms1, &i1, &q1);
+	  if (i0 != i1) continue;
+	  if (q0 <= q1) {
+	    k = q1*(q1+1)/2 + q0;
+	  } else {
+	    k = q0*(q0+1)/2 + q1;
+	  }
+	  if (meff[i0] && meff[i0]->nbasis > 0 && meff[i0]->hab1[k]) {
+	    bst0[m] = m0;
+	    kst0[m] = m1;
+	    m++;
+	  }
+	}
+      }
+      if (m == 0) {
+	printf("%3d %3d %3d %3d %3d %3d\n", k0, k1, nc, m, 0, 0);
+	continue;
+      }
+      mst = m;
+      ms0 = c0->symstate[bst0[0]];
+      ms1 = c1->symstate[kst0[0]];
+      UnpackSymState(ms0, &i0, &q0);
+      UnpackSymState(ms1, &i1, &q1);
+      if (q0 <= q1) {
+	ct0 = c0;
+	ct1 = c1;
+	bst = bst0;
+	kst = kst0;
+      } else {
+	ct0 = c1;
+	ct1 = c0;
+	bst = kst0;
+	kst = bst0;
+      }
+      n0 = PadStates(ct0, ct1, &bra, &ket, &sbra, &sket);
+      bra1 = bra + 1;
+      ket1 = ket + 1;
+      bra2 = bra + 2;
+      ket2 = ket + 2;
+      sbra1 = sbra + 1;
+      sket1 = sket + 1;
+      sbra2 = sbra + 2;
+      sket2 = sket + 2;	
+      for (k = 0; k < n0; k++) {	  
+	bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
+	bas2[k] = bas0[k];
+      }
+      qsort(bas2, n0, sizeof(int), CompareInt);
+      n1 = 0;
+      for (m = 0; m < nb; m++) {
+	k = IBisect(bas[m], n0, bas2);
+	if (k >= 0) continue;
+	bas1[n1] = bas[m];
+	n1++;
+      }      
+      printf("%3d %3d %3d %3d %3d %3d ...", k0, k1, nc, mst, n0, n1);
+      fflush(stdout);
+      if (n3 != 2) {
+	DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n, ng, nc, cs);
+	DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);
+	
+	DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
+		   ct1, ct0, n0, bas0, n, ng, nc, cs);	  
+	DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
+		   ct1, ct0, n0, bas0, n1, bas1, n, ng, nc, cs);
+	
+	DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n, ng, nc, cs);	
+	DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
+		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);
+	DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n, ng, nc, cs);	
+	DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);
+      }      
+      if (n3 != 1) {
+	DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
+		   ct0, ct1, n0, bas0, n1, bas1, n, ng, n2, ng2, nc, cs);	
+      }
+      tt1 = clock();
+      dt = (tt1-tt0)/CLOCKS_PER_SEC;
+      tt0 = tt1;
+      printf("%12.5E\n", dt);
+      
+      free(bra);
+      free(ket);
+      free(sbra);
+      free(sket);
+      free(bst0);
+      free(kst0);
+    }
+  }
+  i1 = n*n2;
+  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+    if (meff[isym] == NULL) continue;
+    if (meff[isym]->nbasis == 0) {
+      k = 0;
+      fwrite(&isym, sizeof(int), 1, f);
+      fwrite(&k, sizeof(int), 1, f);
+      continue;
+    }
+    h = GetHamilton();
+    h0 = meff[isym]->h0;
+    heff = meff[isym]->heff;
+    h->pj = isym;
+    h->n_basis = meff[isym]->nbasis;
+    h->dim = h->n_basis;
+    memcpy(h->basis, meff[isym]->basis, sizeof(int)*h->n_basis);
+    h->hsize = h->dim*(h->dim+1)/2;
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 1);
+    h->heff = heff;
+    DecodePJ(isym, &pp, &jj);
+    fwrite(&isym, sizeof(int), 1, f);
+    fwrite(&(h->dim), sizeof(int), 1, f);
+    fflush(f);
+    for (j = 0; j < h->dim; j++) {
+      for (i = 0; i <= j; i++) {
+	k = j*(j+1)/2 + i;
+	if (meff[isym]->hab1[k] == NULL) {
 	  a = h0[k];
-	  k = j*h->dim + i;
-	  heff[k] = a;
+	  m = j*h->dim + i;
+	  heff[m] = a;
 	  if (i < j) {
-	    k = i*h->dim + j;
-	    heff[k] = a;
+	    m = i*h->dim + j;
+	    heff[m] = a;
 	  }
 	  b = 0.0;
 	  c = 0.0;
@@ -2483,70 +2771,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	  fwrite(&c, sizeof(double), 1, f);
 	  continue;
 	}
-	n0 = PadStates(sym, h->basis[i], h->basis[j], 
-		       &bra, &ket, &sbra, &sket);	
-	bra1 = bra + 1;
-	ket1 = ket + 1;
-	bra2 = bra + 2;
-	ket2 = ket + 2;
-	sbra1 = sbra + 1;
-	sket1 = sket + 1;
-	sbra2 = sbra + 2;
-	sket2 = sket + 2;	
-	for (k = 0; k < n0; k++) {	  
-	  bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
-	  bas2[k] = bas0[k];
-	}
-	qsort(bas2, n0, sizeof(int), CompareInt);
-	n1 = 0;
-	for (m = 0; m < nb; m++) {
-	  k = IBisect(bas[m], n0, bas2);
-	  if (k >= 0) continue;
-	  bas1[n1] = bas[m];
-	  n1++;
-	}
-	for (i0 = 0; i0 < n; i0++) {
-	  hab1[i0] = 0.0;
-	  hba1[i0] = 0.0;
-	}
-	i1 = n*n2;
-	for (i0 = 0; i0 < i1; i0++) {
-	  hab[i0] = 0.0;
-	  hba[i0] = 0.0;
-	}
-	if (n3 != 2) {
-	  /* make sure that DeltaH12## routines must be called first
-	     because of the factor of 2 multiplication */	
-	  DeltaH12M0(hab1, hba1, n0, bra2, ket2, sbra2, sket2,
-		     n0, bas0, n, ng, nc, cs);	
-	  DeltaH12M1(hab1, hba1, n0+1, bra1, ket1, sbra1, sket1,
-		     n0, bas0, n1, bas1, n, ng, nc, cs);	
-	  if (i < j) {
-	    DeltaH12M0(hba1, hab1, n0, ket2, bra2, sket2, sbra2,
-		       n0, bas0, n, ng, nc, cs);	  
-	    DeltaH12M1(hba1, hab1, n0+1, ket1, bra1, sket1, sbra1,
-		       n0, bas0, n1, bas1, n, ng, nc, cs);
-	  } else {
-	    for (i0 = 0; i0 < n; i0++) {
-	      hab1[i0] *= 2;
-	      hba1[i0] *= 2;
-	    }
-	  }	
-	  
-	  DeltaH11M0(hab1, hba1, n0, bra2, ket2, sbra2, sket2, 
-		     n0, bas0, n, ng, nc, cs);	
-	  DeltaH11M1(hab1, hba1, n0+1, bra1, ket1, sbra1, sket1, 
-		     n0, bas0, n1, bas1, n, ng, nc, cs);
-	  
-	  DeltaH22M0(hab1, hba1, n0, bra2, ket2, sbra2, sket2,
-		     n0, bas0, n, ng, nc, cs);	
-	  DeltaH22M1(hab1, hba1, n0+1, bra1, ket1, sbra1, sket1,
-		     n0, bas0, n1, bas1, n, ng, nc, cs);
-	}      
-	if (n3 != 1) {
-	  DeltaH22M2(hab, hba, n0+2, bra, ket, sbra, sket,
-		     n0, bas0, n1, bas1, n, ng, n2, ng2, nc, cs);	
-	}
+	hab1 = meff[isym]->hab1[k];
+	hba1 = meff[isym]->hba1[k];
+	hab = meff[isym]->hab[k];
+	hba = meff[isym]->hba[k];
 	a = sqrt(jj+1.0);
 	for (i0 = 0; i0 < n; i0++) {
 	  hab1[i0] /= a;
@@ -2556,15 +2784,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	  hab[i0] /= a;
 	  hba[i0] /= a;
 	}
-	k = j*(j+1)/2 + i;
 	a = h0[k];
-	k = j*h->dim + i;
+	m = j*h->dim + i;
 	b = SumInterpH(n, ng, n2, ng2, hab, hab1, dw);
-	heff[k] = a + b;
+	heff[m] = a+b;
 	if (i < j) {
-	  k = i*h->dim + j;
+	  m = i*h->dim + j;
 	  c = SumInterpH(n, ng, n2, ng2, hba, hba1, dw);
-	  heff[k] = a + c;
+	  heff[m] = a+c;
 	} else {
 	  c = b;
 	}
@@ -2586,10 +2813,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	  }
 	}
 	fflush(f);
-	free(bra);
-	free(ket);
-	free(sbra);
-	free(sket);
       }
     }
     if (DiagnolizeHamilton() < 0) {
@@ -2598,13 +2821,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       goto ERROR;
     }
     AddToLevels(nkg0, kg);
-    free(h->heff);
-    h->heff = NULL;
-    free(h0);
   }
 
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
+
+  tt1 = clock();
+  dt = (tt1 - tbg)/CLOCKS_PER_SEC;
+  printf("Total Time = %12.5E\n", dt);
 
  ERROR:
   fclose(f);
@@ -2615,10 +2839,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   free(cs[nc]->shells);
   free(cs);
   free(dw);
-  free(hab);
-  free(hba);
-  free(hab1);
-  free(hba1);
+  FreeEffMBPT(meff);
 
   return ierr;
 }
@@ -2733,7 +2954,7 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt, double *hab1, double *hba1,
 
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 		      int nkg, int *kg, int nkg0) {
-  int ierr, m, i, j, k, k0, k1, nlevels;
+  int ierr, m, i, j, k, k0, k1, nlevels, n2m;
   int isym, pp, jj, r, q, n, *ng, n0, *ng0, *n2, **ng2;
   double *dw, *z1, *z2, *x, *y, *z, *t, *heff, **hab, **hba;
   HAMILTON *h;
@@ -2789,6 +3010,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   if (j > 0) {
     n0 = SortUnique(j, ng0);  
   }
+  n2m = 0;
   if (n > 0) {
     n2 = malloc(sizeof(int)*n);
     ng2 = malloc(sizeof(int *)*n);    
@@ -2813,6 +3035,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	  n2[i] = SortUnique(j, ng2[i]);
 	}
       }
+      if (n2[i] > n2m) n2m = n2[i];
     }
     hab = malloc(sizeof(double *)*n);
     hba = malloc(sizeof(double *)*n);
@@ -2823,18 +3046,18 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       }
     }
   }
-  dw = malloc(sizeof(double)*(n0+n)*5);
+  n2m += n0;
+  dw = malloc(sizeof(double)*n2m*5);
   z1 = dw;
-  z2 = z1 + n+n0;
-  x = z2 + n+n0;
-  t = x + n+n0;
-  y = t + n+n0;
+  z2 = z1 + n2m;
+  x = z2 + n2m;
+  t = x + n2m;
+  y = t + n2m;
 
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-    k = ConstructHamiltonDiagonal(isym, nkg0, kg, -1);
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
     if (k < 0) continue;
-    k = ConstructHamiltonDiagonal(isym, nkg, kg, -1);
     h = GetHamilton();
     h->heff = malloc(sizeof(double)*h->dim*h->dim);
     heff = h->heff;
@@ -2846,7 +3069,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       goto ERROR;
     }
     if (mbpt[0].dim == 0) continue;
-    if (mbpt_isym >= 0 && mbpt_isym != isym) {
+    if ((mbpt_pp >= 0 && mbpt_pp != pp) ||
+	(mbpt_jj >= 0 && mbpt_jj != jj)) {
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {	  
 	  ierr = ReadMBPT(nf, f1, mbpt, 2);
@@ -2879,6 +3103,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 		    hab[r][q], hba[r][q]);
 	  }
 	}
+	fflush(f2);
 	if (n0 > 0) {
 	  for (q = 0; q < n0; q++) {
 	    x[q] = ng0[q];
@@ -2909,6 +3134,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	fprintf(f2, "# %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E\n",
 		isym, pp, jj, i, j,
 		heff[k0]-mbpt[0].a, heff[k1]-mbpt[0].a, mbpt[0].a);
+	fflush(f2);
       }
     }
     if (DiagnolizeHamilton() < 0) {
