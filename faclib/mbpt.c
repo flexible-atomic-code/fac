@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.2 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.3 2005/07/20 22:57:03 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2687,8 +2687,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	bas1[n1] = bas[m];
 	n1++;
       }      
-      printf("%3d %3d %3d %3d %3d %3d ...", k0, k1, nc, mst, n0, n1);
-      fflush(stdout);
       if (n3 != 2) {
 	DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		   ct0, ct1, n0, bas0, n, ng, nc, cs);
@@ -2716,7 +2714,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       tt1 = clock();
       dt = (tt1-tt0)/CLOCKS_PER_SEC;
       tt0 = tt1;
-      printf("%12.5E\n", dt);
+      printf("%3d %3d %3d %3d %3d %3d ... %12.5E\n", k0, k1, nc, mst, n0, n1, dt);
+      fflush(stdout);
       
       free(bra);
       free(ket);
