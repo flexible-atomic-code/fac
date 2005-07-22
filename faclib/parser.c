@@ -1,10 +1,19 @@
-static char *rcsid="$Id: parser.c,v 1.7 2003/04/18 17:33:42 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.8 2005/07/22 03:48:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 #include "parser.h"
+
+/*
+** I found the original version of this string parser (the Parse() function) 
+** on the internet.
+** I modified it so that it can handel quotes with different beginning and
+** ending tokens, and added some utility functions.
+** I have since lost the track of where this code came from, although I believe 
+** that it was in the public domain. Please let me know if anyone knows otherwise.
+*/
 
 #define IN_WHITE 0
 #define IN_TOKEN 1

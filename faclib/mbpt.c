@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.3 2005/07/20 22:57:03 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.4 2005/07/22 03:48:25 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1124,6 +1124,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     r += z[i];
   }
   if (!r) return 0.0;
+  if (n == 1) return r;
 
   for (k0 = 1; k0 < n; k0++) {
     if (x[k0]-x[k0-1] > 1) break;
@@ -1244,7 +1245,7 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
   for (i0 = 0; i0 < n; i0++) {
     x[i0] = ng[i0];
   }
-  r = SumInterp1D(n, h1, x, w, y);
+  r = SumInterp1D(n, h1, x, w, y); 
   p = h;
   for (i0 = 0; i0 < n; i0++) {
     for (i1 = 0; i1 < n2; i1++) {
@@ -1272,7 +1273,12 @@ void FixTotalJ(int ns, SHELL_STATE *st, SHELL *s, CONFIG *c, int m) {
   j = 0;
   while (i < ns && j < c->n_shells) {
     st[i].totalJ = st0[j].totalJ;
-    if (s[i].nq > 0) j++;
+    if (s[i].nq > 0) {
+      st[i].shellJ = st0[j].shellJ;
+      st[i].nu = st0[j].nu;
+      st[i].Nr = st0[j].Nr;
+      j++;
+    }
     i++;    
   }
   if (i < ns || j < c->n_shells) {
@@ -1333,7 +1339,11 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	  q0 = bst[k];
 	  q1 = kst[k];
 	  FixTotalJ(ns, sbra, bra, c0, q0);
-	  FixTotalJ(ns, sket, ket, c1, q1);	
+	  FixTotalJ(ns, sket, ket, c1, q1);
+	  ms0 = c0->symstate[q0];
+	  UnpackSymState(ms0, &s0, &m0);
+	  ms1 = c1->symstate[q1];
+	  UnpackSymState(ms1, &s1, &m1);	  
 	  EvaluateTensor(ns, sbra, sket, s, 1, fm);
 	  if (IsOdd(ph)) fm->coeff = -fm->coeff;
 	  a[mkk+mkk2][k] = fm->coeff;
@@ -2454,62 +2464,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   CONFIG_GROUP *g;
   MBPT_EFF *meff[MAX_SYMMETRIES];
   double a, b, c, *mix, *hab, *hba;
-  double *h0, *heff, *hab1, *hba1, *dw, dt;
+  double *h0, *heff, *hab1, *hba1, *dw, dt, dtt;
   clock_t tt0, tt1, tbg;
   FILE *f;
 					  
   ierr = 0;
   n3 = mbpt_n3;
   if (nkg0 <= 0 || nkg0 > nkg) nkg0 = nkg;
-
-  tt0 = clock();
-  tbg = tt0;
-  printf("construct radial basis ...");
-  n = ConstructNGrid(n, &ng);
-  n2 = ConstructNGrid(n2, &ng2);
-  na = n*n2+n;
-  ga = malloc(sizeof(int)*na);
-  k = 0;
-  for (i = 0; i < n; i++) {
-    ga[k++] = ng[i];
-    for (j = 0; j < n2; j++) {
-      if (ng2[j] == 0) continue;
-      ga[k++] = ng[i]+ng2[j];
-    }
-  }
-  na = SortUnique(k, ga);
-  nb = RadialBasisMBPT(kmax, na, ga, &bas);
-  free(ga);
-  tt1 = clock();
-  dt = (tt1-tt0)/CLOCKS_PER_SEC;
-  tt0 = tt1;
-  printf("%12.5E\n", dt);
-  
-  if (nb < 0) return -1;
-
-  f = fopen(fn1, "w");
-  if (f == NULL) {
-    printf("cannot open file %s\n", fn1);
-    free(bas);
-    return -1;
-  }
-  fwrite(&n, sizeof(int), 1, f);
-  fwrite(ng, sizeof(int), n, f);
-  fwrite(&n2, sizeof(int), 1, f);
-  fwrite(ng2, sizeof(int), n2, f);
-  fwrite(&n3, sizeof(int), 1, f);
-
-  dw = malloc(sizeof(double)*(n+n2)*4);
-  hab = malloc(sizeof(double)*n*n2);
-  hba = malloc(sizeof(double)*n*n2);
-  hab1 = malloc(sizeof(double)*n);
-  hba1 = malloc(sizeof(double)*n);
-
-  bas0 = malloc(sizeof(int)*nb);
-  bas1 = malloc(sizeof(int)*nb);
-  bas2 = malloc(sizeof(int)*nb);
-
-  printf("construct effective Hamiltonian.\n");
   nc = 0;
   for (i = 0; i < nkg; i++) {
     g = GetGroup(kg[i]);
@@ -2539,7 +2500,58 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   cfg.nnrs = nmax1;
   cs[k] = &cfg;
   cs[k]->n_shells = i1;
-  cs[k]->shells = malloc(sizeof(SHELL)*(i1+2));
+  cs[k]->shells = malloc(sizeof(SHELL)*(i1+2));  
+  
+  tt0 = clock();
+  tbg = tt0;
+  printf("construct radial basis ...");
+
+  n = ConstructNGrid(n, &ng);
+  n2 = ConstructNGrid(n2, &ng2);
+  na = n*n2+n+nmax;
+  ga = malloc(sizeof(int)*na);
+  k = 0;
+  for (i = 1; i <= nmax; i++) {
+    ga[k++] = i;
+  }
+  nb = RadialBasisMBPT(nmax-1, k, ga, &bas0);
+  bas2 = malloc(sizeof(int)*nb);
+  k = 0;
+  for (i = 0; i < n; i++) {
+    ga[k++] = ng[i];
+    for (j = 0; j < n2; j++) {
+      if (ng2[j] == 0) continue;
+      ga[k++] = ng[i]+ng2[j];
+    }
+  }
+  na = SortUnique(k, ga);
+  nb = RadialBasisMBPT(kmax, na, ga, &bas);
+  bas1 = malloc(sizeof(int)*nb);
+  free(ga);
+
+  tt1 = clock();
+  dt = (tt1-tt0)/CLOCKS_PER_SEC;
+  tt0 = tt1;
+  printf("%12.5E\n", dt);
+  
+  if (nb < 0) return -1;
+
+  f = fopen(fn1, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn1);
+    free(bas);
+    return -1;
+  }
+  fwrite(&n, sizeof(int), 1, f);
+  fwrite(ng, sizeof(int), n, f);
+  fwrite(&n2, sizeof(int), 1, f);
+  fwrite(ng2, sizeof(int), n2, f);
+  fwrite(&n3, sizeof(int), 1, f);
+
+  dw = malloc(sizeof(double)*(n+n2)*4);
+
+  printf("construct effective Hamiltonian.\n");
+
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     meff[isym] = NULL;
@@ -2614,6 +2626,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       }
     }    
   }
+  
   for (k0 = 0; k0 < nc; k0++) {
     c0 = cs[k0];
     p0 = ConfigParity(c0);
@@ -2647,7 +2660,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	}
       }
       if (m == 0) {
-	printf("%3d %3d %3d %3d %3d %3d\n", k0, k1, nc, m, 0, 0);
 	continue;
       }
       mst = m;
@@ -2686,7 +2698,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	if (k >= 0) continue;
 	bas1[n1] = bas[m];
 	n1++;
-      }      
+      }
       if (n3 != 2) {
 	DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		   ct0, ct1, n0, bas0, n, ng, nc, cs);
@@ -2697,15 +2709,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 		   ct1, ct0, n0, bas0, n, ng, nc, cs);	  
 	DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 		   ct1, ct0, n0, bas0, n1, bas1, n, ng, nc, cs);
-	
+		
 	DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		   ct0, ct1, n0, bas0, n, ng, nc, cs);	
 	DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);
+	
 	DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		   ct0, ct1, n0, bas0, n, ng, nc, cs);	
+		   ct0, ct1, n0, bas0, n, ng, nc, cs);
 	DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);
+		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);	
       }      
       if (n3 != 1) {
 	DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
@@ -2713,8 +2726,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       }
       tt1 = clock();
       dt = (tt1-tt0)/CLOCKS_PER_SEC;
+      dtt = (tt1-tbg)/CLOCKS_PER_SEC;
       tt0 = tt1;
-      printf("%3d %3d %3d %3d %3d %3d ... %12.5E\n", k0, k1, nc, mst, n0, n1, dt);
+      printf("%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
+	     k0, k1, nc, mst, n0, n1, dt, dtt);
       fflush(stdout);
       
       free(bra);
@@ -3067,8 +3082,15 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       printf("Error reading MBPT %d\n", isym);
       goto ERROR;
     }
-    if (mbpt[0].dim == 0) continue;
-    if ((mbpt_pp >= 0 && mbpt_pp != pp) ||
+    k = 1;
+    for (m = 0; m < nf; m++) {
+      if (mbpt[m].dim == 0) {
+	k = 0;
+	break;
+      }
+    }
+    if (k == 0 || 
+	(mbpt_pp >= 0 && mbpt_pp != pp) ||
 	(mbpt_jj >= 0 && mbpt_jj != jj)) {
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {	  
