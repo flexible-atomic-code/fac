@@ -222,7 +222,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
-void        *ReallocNew(void *p, int s);
+void         *ReallocNew(void *p, int s);
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
 int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
 int          GetConfigOrAverageFromString(CONFIG **cfg, 
@@ -273,7 +273,7 @@ CONFIG       *GetConfigFromGroup(int kg, int kc);
 int          AddStateToSymmetry(int kg, int kc, int kstate, 
 				int parity, int j);
 int          AddConfigToSymmetry(int kg, int kc, CONFIG *cfg);
-SYMMETRY    *GetSymmetry(int k);
+SYMMETRY     *GetSymmetry(int k);
 void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
 int          ConstructConfigName(char *s, int n, CONFIG *c);
