@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.4 2005/07/22 03:48:25 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.5 2005/07/22 18:42:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2505,7 +2505,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   tt0 = clock();
   tbg = tt0;
   printf("construct radial basis ...");
-
+  fflush(stdout);
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
   na = n*n2+n+nmax;
@@ -2533,7 +2533,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   dt = (tt1-tt0)/CLOCKS_PER_SEC;
   tt0 = tt1;
   printf("%12.5E\n", dt);
-  
+  fflush(stdout);
   if (nb < 0) return -1;
 
   f = fopen(fn1, "w");
@@ -2551,11 +2551,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   dw = malloc(sizeof(double)*(n+n2)*4);
 
   printf("construct effective Hamiltonian.\n");
-
+  fflush(stdout);
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     meff[isym] = NULL;
-    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 100);
     if (k < 0) continue;
     DecodePJ(isym, &pp, &jj);
     meff[isym] = malloc(sizeof(MBPT_EFF));
@@ -2564,6 +2564,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       meff[isym]->nbasis = 0;
       continue;
     }
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 10);
     sym = GetSymmetry(isym);
     h = GetHamilton();
     meff[isym]->h0 = malloc(sizeof(double)*h->hsize);

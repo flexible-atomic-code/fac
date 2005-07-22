@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.105 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.106 2005/07/22 18:42:12 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1429,6 +1429,11 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   }    
   if (n == 2) {
     if (!(PyArg_ParseTuple(args, "id", &n3, &c))) return NULL;
+    p = PyTuple_GetItem(args, 1);
+    if (PyInt_Check(p)) {
+      onError("2nd argument must be a floating point number");
+      return NULL;
+    }
     SetOptMBPT(n3, c);
     Py_INCREF(Py_None);
     return Py_None;
