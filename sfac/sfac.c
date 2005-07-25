@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.82 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.83 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -33,6 +33,29 @@ static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc > 0) printf("\n");
   fflush(stdout);
   return 0;
+}
+
+static int IntFromList(char *argv, int tp, ARRAY *variables, int **k) {
+  int i;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], n;
+  
+  if (tp == LIST) {
+    n = DecodeArgs(argv, v, t, variables);
+    if (n > 0) {
+      *k = malloc(sizeof(int)*n);
+      for (i = 0; i < n; i++) {
+	(*k)[i] = atoi(v[i]);
+	free(v[i]);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(int));
+    (*k)[0] = atoi(argv);
+  }
+  
+  return n;
 }
 
 static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
@@ -2388,9 +2411,15 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   double c;
 
   if (argc == 1) {
-    if (argt[0] != NUMBER) return -1;
-    i = atoi(argv[0]);
-    SetExtraMBPT(i);    
+    if (argt[0] != NUMBER && argt[0] != LIST) return -1;
+    if (argt[0] == NUMBER) {
+      i = atoi(argv[0]);
+      SetExtraMBPT(i);
+    } else {
+      n1 = IntFromList(argv[0], argt[0], variables, &ng1);
+      SetSymMBPT(n1, ng1);
+      free(ng1);
+    }
     return 0;
   }
   if (argc == 2) {
@@ -2399,16 +2428,6 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     n3 = atoi(argv[0]);
     c = atof(argv[1]);
     SetOptMBPT(n3, c);
-    return 0;
-  }
-  if (argc == 3) {
-    if (argt[0] != NUMBER) return -1;
-    if (argt[1] != NUMBER) return -1;
-    if (argt[2] != NUMBER) return -1;
-    i = atoi(argv[0]);
-    n1 = atoi(argv[1]);
-    n2 = atoi(argv[2]);
-    SetSymMBPT(i, n1, n2);    
     return 0;
   }
   if (argc == 4 || argc == 5) {
@@ -2436,7 +2455,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
 
-  if (argc < 6 || argc > 7) return -1;
+  if (argc < 6) return -1;
 
   if (argt[2] != LIST) return -1;
   n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
@@ -2448,32 +2467,36 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   
   if (argt[4] != LIST) return -1;
   if (argt[5] != LIST) return -1;
-  
-  n1 = DecodeArgs(argv[4], v, t, variables);
-  ng1 = malloc(sizeof(int)*n1);
-  for (i = 0; i < n1; i++) {
-    ng1[i] = atoi(v[i]);
-    free(v[i]);
-  }
 
-  n2 = DecodeArgs(argv[5], v, t, variables);
-  ng2 = malloc(sizeof(int)*n2);
-  for (i = 0; i < n2; i++) {
-    ng2[i] = atoi(v[i]);
-    free(v[i]);
-  }
-
+  n1 = IntFromList(argv[4], argt[4], variables, &ng1);
+  n2 = IntFromList(argv[5], argt[5], variables, &ng2);
+  printf("%d %d\n", n1, n2);
   gn = NULL;
   n3 = -1;
-  if (argc == 7) {
-    if (argt[6] == NUMBER) n3 = atoi(argv[6]);
-    else gn = argv[6];
+  c = 0;
+  if (argc > 6) {
+    if (argt[6] != NUMBER) return -1;
+    n3 = atoi(argv[6]);
+    if (argc > 7) {
+      if (argt[7] != STRING) return -1;
+      gn = argv[7];
+    }
   }
-  StructureMBPT(argv[0], argv[1], n, s, kmax, n1, ng1, n2, ng2, n3, gn);
+  if (gn == NULL) {
+    if (argt[1] != STRING) return -1;
+  } else {
+    if (argt[1] != NUMBER) return -1;
+    c = atof(argv[1]);
+  }
+  if (gn) {
+    StructureMBPT0(argv[0], c, n, s, kmax, n1, ng1, n2, ng2, n3, gn);
+  } else {
+    StructureMBPT1(argv[0], argv[1], n, s, kmax, n1, ng1, n2, ng2, n3);
+  }
 
   free(s);
-  free(ng1);
-  free(ng2);
+  if (n1 > 0) free(ng1);
+  if (n2 > 0) free(ng2);
 
   return 0;
 }
@@ -2491,6 +2514,16 @@ static int PStructure(int argc, char *argv[], int argt[],
   kgp = NULL;
   ip = 0;
 
+  if (argc < 1) return -1;
+
+  if (argt[0] == NUMBER) {
+    if (argc != 2) return -1;
+    ip = atoi(argv[0]);
+    i = IntFromList(argv[1], argt[1], variables, &kg);
+    SetSymmetry(ip, i, kg);
+    free(kg);
+    return 0;
+  }
   if (n == 1) {
     if (argt[0] != STRING) return -1;
     ng = DecodeGroupArgs(&kg, 0, NULL, NULL, variables);

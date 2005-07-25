@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.38 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.39 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1929,6 +1929,24 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 #undef M
 }
 
+int IBisect(int b, int n, int *a) {
+  int i, i0, i1;
+
+  if (n == 0) return -1;
+  i0 = 0;
+  i1 = n - 1;
+  while (i1 - i0 > 1) {
+    i = (i0 + i1)/2;
+    if (b == a[i]) return i;
+    else if (b < a[i]) i1 = i;
+    else i0 = i;
+  }
+  
+  if (b == a[i0]) return i0;
+  else if (b == a[i1]) return i1;
+  else return -1;
+}
+
 /* 
 ** FUNCTION:    InGroups
 ** PURPOSE:     determing if a group is within a list of groups.
@@ -1947,9 +1965,11 @@ int InGroups(int kg, int ng, int *kgroup) {
   if (ng < 0) {
     if (kg >= 0 && kg < n_groups) return 1;
   }
+
   for (i = 0; i < ng; i++) {
     if (kg == kgroup[i]) return 1;
   }
+
   return 0;
 }
 

@@ -27,12 +27,14 @@ typedef struct _MBPT_EFF_ {
   double **hab, **hba;
 } MBPT_EFF;
 
-int StructureMBPT(char *fn, char *fn1, int n, int *s0, int kmax, 
-		  int n1, int *nm, int n2, int *nmp, int n0, char *gn0);
+int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax, 
+		   int n1, int *nm, int n2, int *nmp, int n3, char *gn);
+int StructureMBPT1(char *fn, char *fn1, int n, int *s0, int kmax, 
+		   int n1, int *nm, int n2, int *nmp, int n0);
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 
 		      int nkg, int *kg, int nkg0);
 void SetExtraMBPT(int m);
 void SetOptMBPT(int n3, double c);
-void SetSymMBPT(int p, int j, int i);
+void SetSymMBPT(int nlev, int *ilev);
 
 #endif

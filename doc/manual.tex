@@ -2528,6 +2528,12 @@ parity. If \var{ilev}$<0$, it returns the index of the first level with number
 of electrons equal to $-ilev$.
 \end{fundesc}
 
+\begin{fundesc}{ListConfig}{\opt{fn, g}}
+Print the configurations in the list \var{g} to file \var{fn}. If \var{fn} is
+not given or if it is ``-'', the results are written to the stdout. If \var{g}
+is not given, then all configurations currently defined are printed.
+\end{fundesc}
+
 \begin{fundesc}{MemENTable}{fn}
 Build an energy level table in the memory for the \texttt{DB\_EN} type file
 \var{fn}. This function must be called before any calls to \key{PrintTable}
@@ -3219,6 +3225,17 @@ non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
 \end{fundesc}
 
+\begin{fundesc}{Structure}{p, j}
+This is the second form of the \key{Structure} function. It distinguishes
+itself from the first form because the first argument is an integer. It sets which
+$\pi J$ symmetry and/or which level to include in the structure calculation. By
+default, all symmetries are processed. But if this function is called with
+$p=0$, or 1; $j \ge 0$ or $j$ is a list of integers, then only the specified
+symmetry is processed. $j$ or integers in the list if $j$ is a list, is 
+twice the actual value of the total angular momentum. The symmetry
+restrictions specified here also applies to the \key{StructureMBPT} function.
+\end{fundesc}
+
 \begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2\opt{, n0}}
 There are five different forms of this function with different argument
 list. This is the primary form, and the rest are documented below. This
@@ -3236,8 +3253,19 @@ the \var{g} list to be included in the MBPT calculation, and the remaining are
 included for all-order perturbation treatment.
 \end{fundesc}
 
+\begin{fundesc}{StructureMBPT}{fn, eps, g, kmax, n1, n2, n0, gn}
+This is the second form of the \key{StructureMBPT} function. It examines the
+configurations by exciting the electrons in the \var{g} list to orbitals with
+principle quantum numbers in the \var{n1} and \var{n2} list. If its estimated
+CI mixing to the states in \var{g} is larger than \var{eps}, these
+configurations are put in to the group named \var{gn}. \var{n0} specifies the
+minimum $n$-values of the orbitals that are allowed to be excited. The final
+list of configurations are written to the file \var{fn}. \var{kmax} is the
+maximum orbital angular momentum of the excited electrons.
+\end{fundesc}
+
 \begin{fundesc}{StructureMBPT}{efn, hfn1, hfns, g}
-This is the second form of the \key{StructureMBPT} function. It reads the
+This is the third form of the \key{StructureMBPT} function. It reads the
 effective Hamiltonians in a list of files \var{hfns}, that are produced in
 previous \key{StructureMBPT} calls in the first form, and combines the
 contributions from different \var{n1} and \var{n2} values for the virtual
@@ -3249,20 +3277,13 @@ in generating the \var{hfns} files.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{m}
-This is the third form of the \key{StructureMBPT} function. It sets an option
+This is the fourth form of the \key{StructureMBPT} function. If $m$ is an
+integer, tt sets an option
 to indicate whether extrapolation beyond the maximum $n$-values in the
 \var{n1} and \var{n2} grid is carried out in forming the effective
 Hamiltonian. If $m=0$, no extrapolation, which is the default; if $m>0$, with
-extrapolation.
-\end{fundesc}
-
-\begin{fundesc}{StructureMBPT}{p, j, i}
-This is the fourth form of the \key{StructureMBPT} function. It sets which
-$\pi J$ symmetry and/or which level to include in the MBPT calculation. By
-default, all symmetries are processes. But if this function is called with
-$p=0$, or 1, $j \ge 0$, then only the specified symmetry is processes. $j$ is
-the twice of the actual value of the total angular momentum. If $i\ge 0$, then
-only the $i$-th level in the symmetry is included.
+extrapolation. $m$ may also be a list of integers, which means that only
+levels in this list for each symmetry is to be corrected with MBPT.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{m, c}
