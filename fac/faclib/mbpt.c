@@ -1,16 +1,15 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.5 2005/07/22 18:42:12 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.6 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
-static int mbpt_pp = -1;
-static int mbpt_jj = -1;
-static int mbpt_ilev = -1;
+static int mbpt_nlev = 0;
+static int *mbpt_ilev = NULL;
 static double mbpt_mcut = EPS3;
 static int mbpt_n3 = 0;
 
@@ -23,10 +22,15 @@ void SetExtraMBPT(int m) {
   mbpt_extra = m;
 }
 
-void SetSymMBPT(int p, int j, int i) {
-  mbpt_pp = p;
-  mbpt_jj = j;
-  mbpt_ilev = i;
+void SetSymMBPT(int nlev, int *ilev) {
+  if (mbpt_nlev > 0) free(mbpt_ilev);  
+  if (nlev > 0 && ilev[0] < 0) nlev = 0;
+  mbpt_nlev = nlev;
+  if (nlev > 0) {
+    mbpt_ilev = malloc(sizeof(int)*nlev);
+    memcpy(mbpt_ilev, ilev, sizeof(int)*nlev);
+    qsort(mbpt_ilev, nlev, sizeof(int), CompareInt);
+  }
 }
 
 int AddMBPTConfig(int kgp, CORR_CONFIG *ccp) {
@@ -185,8 +189,8 @@ void RemoveEmpty(CONFIG *c) {
   c->n_shells = n;
 }
 
-void BaseConfig(int n, int *kg, int *nbc, CONFIG **bc, 
-		int *nbc1, CONFIG **bc1, int *nb, int **bk, int sr) {
+void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc, 
+		int *nbc1, CONFIG **bc1, int *nb, int **bk, FILE *f) {
   int nmax, nsm, ncs, i, j, km, k, t, m, p, jp, nq;
   int mcs, m1e, m2e, mcs1, *ik, em[2], b1e, b2e;
   CONFIG *c, *c1, **c0;
@@ -255,7 +259,8 @@ void BaseConfig(int n, int *kg, int *nbc, CONFIG **bc,
       ik[t] = c0[i]->shells[j].nq;
     }
     for (j = 0; j < c0[i]->n_shells; j++) {
-      em[0] = ShellToInt(c0[i]->shells[j].n, c0[i]->shells[j].kappa);
+      if (c0[i]->shells[j].n < n3) continue;
+      em[0] = ShellToInt(c0[i]->shells[j].n, c0[i]->shells[j].kappa);      
       ConfigChangeNE(&m, c, k, ik, -1, em);      
     }
   }
@@ -271,6 +276,7 @@ void BaseConfig(int n, int *kg, int *nbc, CONFIG **bc,
       ik[t] = c0[i]->shells[j].nq;
     }
     for (j = 0; j < c0[i]->n_shells; j++) {
+      if (c0[i]->shells[j].n < n3) continue;
       em[0] = ShellToInt(c0[i]->shells[j].n, c0[i]->shells[j].kappa);
       for (jp = 0; jp <= j; jp++) {
 	em[1] = ShellToInt(c0[i]->shells[jp].n, c0[i]->shells[jp].kappa);
@@ -353,27 +359,31 @@ void BaseConfig(int n, int *kg, int *nbc, CONFIG **bc,
   free(ik);  
   free(c1);
 
-  if (sr == 0) {
+  if (f) {
     for (i = 0; i < ncs; i++) {
       ConstructConfigName(sc, 2000, c0[i]);
-      printf("0E: %4d   %s\n", i, sc);
+      fprintf(f, "0E: %4d   %s\n", i, sc);
     }
+    fprintf(f, "\n");
     c = *bc;
     for (i = 0; i < m1e; i++) {
       ConstructConfigName(sc, 2000, c+i);
-      printf("1E: %4d   %s\n", i, sc);
+      fprintf(f, "1E: %4d   %s\n", i, sc);
     }
+    fprintf(f, "\n");
     c += m1e;
     for (i = 0; i < m2e; i++) {
       ConstructConfigName(sc, 2000, c+i);
-      printf("2E: %4d   %s\n", i, sc);
+      fprintf(f, "2E: %4d   %s\n", i, sc);
     }
+    fprintf(f, "\n");
     c = *bc1;
     for (i = 0; i < *nbc1; i++) {
       ConstructConfigName(sc, 2000, c+i);
-      printf("EX: %4d   %s\n", i, sc);
+      fprintf(f, "EX: %4d   %s\n", i, sc);
     }
-    fflush(stdout);
+    fprintf(f, "\n");
+    fflush(f);
   }
   free(c0);
 }
@@ -381,6 +391,7 @@ void BaseConfig(int n, int *kg, int *nbc, CONFIG **bc,
 int ConstructNGrid(int n, int **g) {
   int i, *p, *q, n0, n1, nt, m, di, dm;
 
+  if (n <= 0) return n;
   p = *g;
   if (p[0] >= 0) {
     if (n > 1) {
@@ -419,43 +430,35 @@ int ConstructNGrid(int n, int **g) {
   return n;
 }
   
-int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
-		   int n1, int *nm, int n2, int *nmp, char *gn0) {
+int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
+		   int n1, int *nm, int n2, int *nmp, int n3, char *gn) {
   CONFIG_GROUP *g1, *g0;
   CONFIG *c1, *bc, *bc1;
   SYMMETRY *sym;
   STATE *st;
   LEVEL *lev;
   HAMILTON *ha;
-  char gn[GROUP_NAME_LEN] = "_@nb@_";
   int nbc, nbc1, k;
-  int nele0, nele1, nk;
+  int nele0, nele1, nk, m, t, r;
   int i, p, np, nq, inp, inq, k0, k1, q;
   int jp, jq, kap, kaq, kp, kq, kp2, kq2;
   int ic, kgp, nb, *bk;
   int ncc, ncc0, ncc1, ncc2;
   int *bs1, nbs1, *bs0, nbs0, *s;
-  double a1, a2, d, *e1;
+  double a1, a2, d, a, b, *e1, *ham;
   CORR_CONFIG cc, *ccp, *ccp1;
   ARRAY ccfg;
-  int *icg, ncg, icg0, icg1, rg, np0, ig0;
-  double a, b, xnq, ynq, *tq, tnq;
-  double **de, **deq;
-  double dnq[15];
-  double *ham, **dh1, **dh2, *mix;
-  int m, nlev, nlev1, ilev, t, kb, r, dim;  
+  int *icg, ncg, icg0, icg1, rg;
   typedef struct _MBPT_BASE_ {
     int isym;
     int nbasis, nb2, bmax;
     int *basis;
     double *ene;
-    double **dh1, **dh2;
-    double **dy1, **dy2;
   } MBPT_BASE;
   MBPT_BASE mb, *mbp;
   ARRAY base;
-  char fn2[256];
-  FILE *f, *fp;
+  char cname[2000];
+  FILE *f;
   double t0, t1, t2;
   int sr, nr;
 #ifdef USE_MPI
@@ -472,12 +475,20 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
   t0 = clock();
   t0 /= CLOCKS_PER_SEC;
 
-  if (gn0 == NULL) gn0 = gn;
+  f = NULL;
+  if (sr == 0) {
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return -1;
+    }
+  }
+
   n1 = ConstructNGrid(n1, &nm);
   n2 = ConstructNGrid(n2, &nmp);
 
   ha = GetHamilton();
-  BaseConfig(n, s0, &nbc, &bc, &nbc1, &bc1, &nb, &bk, sr);
+  BaseConfig(n, s0, n3, &nbc, &bc, &nbc1, &bc1, &nb, &bk, f);
 
   for (inp = 0; inp < n1; inp++) {
     np = nm[inp];
@@ -507,9 +518,9 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
   }
 
   ArrayInit(&ccfg, sizeof(CORR_CONFIG), 10000);
-  ArrayInit(&base, sizeof(MBPT_BASE), 256);
+  ArrayInit(&base, sizeof(MBPT_BASE), MAX_SYMMETRIES);
   k = nbc;
-  icg = malloc(sizeof(int)*(n1*n2*k+2));
+  icg = malloc(sizeof(int)*(n1*(1+n2)*k+2));
 
   icg[0] = 0;
   t = 1;
@@ -602,6 +613,7 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
     }
   }
 
+  if (ccut <= 0) goto ADDCFG;
   ncg = t-1;
   r = ncg/nr;
   icg0 = sr*r;
@@ -610,8 +622,9 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
   } else {
     icg1 = ncg;
   }
+  /*
   printf("RANK: %2d, %d %d %d %d\n", sr, ncg, icg0, icg1, n1*n2*k+1);
-
+  */
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     nk = ConstructHamiltonDiagonal(i, n, s0, 0);    
     if (nk < 0) continue;
@@ -625,58 +638,29 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
     ArrayAppend(&base, &mb, NULL);
   }
 
-  nlev = GetNumLevels();
-  s = s0;
-  for (i = 0; i < base.dim; i++) {    
-    mbp = ArrayGet(&base, i);
-    nk = ConstructHamilton(mbp->isym, n, n, s, 0, NULL, 111);
-    printf("RANK: %2d, dim: %3d %3d %6d\n", sr, i, mbp->isym, ha->dim);
-    fflush(stdout);
-    DiagnolizeHamilton();
-    mix = ha->mixing + ha->dim;
-    q = ha->n_basis;
-    nbs0 = q*q;	
-    mbp->dh1 = malloc(sizeof(double *)*nbs0);
-    mbp->dh2 = malloc(sizeof(double *)*nbs0);
-    for (t = 0; t < nbs0; t++) {
-      mbp->dh1[t] = malloc(sizeof(double)*n1);
-      mbp->dh2[t] = malloc(sizeof(double)*n1*n2);
-      for (r = 0; r < n1; r++) {
-	mbp->dh1[t][r] = 0.0;
-      } 
-      for (r = 0; r < n1*n2; r++) {
-	mbp->dh2[t][r] = 0.0;
-      }
-    }
-    AddToLevels(n, s);
-    mbp->nb2 = nbs0;
-  }
-
-  if (sr == 0) {
-    SaveLevels(fn, nlev, -1);
-    sprintf(fn2, "%s.basis", fn1);
-    GetBasisTable(fn2);
-  }
-
-  t1 = clock();
-  t1 /= CLOCKS_PER_SEC;
-  ncc2 = 0;
+  ncc1 = 0;  
   for (rg = icg0; rg < icg1; rg++) {
-    printf("RANK: %2d, %d %d\n", sr, rg, ncg);
-    fflush(stdout);
     ncc0 = icg[rg];
     ncc = 0;
+    ccp = ArrayGet(&ccfg, icg[rg]);
+    /*
+    printf("RANK: %2d, %d %d %d %d %d %d Complex: %d %d %d\n", 
+	   sr, rg, icg0, icg1, icg[rg], icg[rg+1], ccfg.dim, 
+	   ccp->ig, ccp->np, ccp->nq);
+    */
     for (p = icg[rg]; p < icg[rg+1]; p++) {
       ccp = ArrayGet(&ccfg, p);
-      kgp = GroupIndex(gn0);
+      kgp = GroupIndex(gn);
       AddMBPTConfig(kgp, ccp);
       ncc++;
       if (ncc == ccfg.block || p == icg[rg+1]-1) {
 	t2 = clock();
 	t2 /= CLOCKS_PER_SEC;
+	/*
 	printf("RANK: %2d, %5d %7d %7d %7d %10.3E %10.3E\n", sr, ncc, p+1, 
-	       icg[rg+1], ccfg.dim, t2-t1, t2-t0);
+	       icg[rg+1], ccfg.dim, t2-t1, t2-t0);	
 	fflush(stdout);
+	*/
 	t1 = t2;
 	for (i = 0; i < base.dim; i++) {
 	  mbp = ArrayGet(&base, i);
@@ -685,56 +669,45 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
 	  nbs1 = ha->dim;
 	  bs1 = ha->basis;
 	  e1 = ha->hamilton;	
+	  /*
 	  printf("RANK: %2d, sym: %3d %3d %3d %6d\n", 
 		 sr, i, mbp->isym, mbp->nbasis, nbs1);
 	  fflush(stdout);
+	  */
 	  sym = GetSymmetry(mbp->isym);
 	  nbs0 = mbp->nbasis;
 	  bs0 = mbp->basis;
 	  ham = malloc(sizeof(double)*nbs0*nbs1);
 	  m = 0;
 	  for (q = 0; q < nbs1; q++) {
-	    st = ArrayGet(&(sym->states), bs1[q]);
+	    k1 = bs1[q];
+	    st = ArrayGet(&(sym->states), k1);
 	    r = st->kcfg + ncc0;
 	    ccp1 = ArrayGet(&ccfg, r);
-	    k1 = bs1[q];
 	    for (t = 0; t < nbs0; t++) {
 	      k0 = bs0[t];
 	      ham[m] = HamiltonElement(mbp->isym, k0, k1);
 	      m++;
-	    }
+	    }	    
 	  }
 	  for (q = 0; q < nbs1; q++) {
 	    st = ArrayGet(&(sym->states), bs1[q]);
 	    r = st->kcfg + ncc0;
 	    ccp1 = ArrayGet(&ccfg, r);
-	    dh1 = mbp->dh1;
-	    dh2 = mbp->dh2;
+	    if (ccp1->ncs) continue;
 	    for (r = 0; r < nbs0; r++) {
 	      m = q*nbs0 + r;
 	      a1 = ham[m];
-	      if (1.0+a1 == 1.0) continue;
-	      for (t = 0; t <= r; t++) {
-		m = q*nbs0 + t;
-		a2 = ham[m];
-		if (1.0+a2 == 1.0) continue;
-		a = a1*a2;
-		d = a/(mbp->ene[t] - e1[q]);
-		ic = r*nbs0 + t;
-		if (ccp1->kq == 0) {
-		  dh1[ic][ccp1->inp] += d;
-		} else {
-		  dh2[ic][(ccp1->inq)*n1 + ccp1->inp] += d;
-		}
-		if (r != t) {
-		  d = a/(mbp->ene[r] - e1[q]);
-		  ic = t*nbs0 + r;
-		  if (ccp1->kq == 0) {
-		    dh1[ic][ccp1->inp] += d;
-		  } else {
-		    dh2[ic][(ccp1->inq)*n1 + ccp1->inp] += d;
-		  }
-		}
+	      b = a1/(mbp->ene[r] - e1[q]);
+	      b = b*b;
+	      if (b >= ccut) {
+		ccp1->ncs = 1;
+		ncc1++;		
+		/*
+		printf("RANK: %2d, %4d %4d %12.5E %12.5E %2d %2d\n",
+		       sr, bs0[r], bs1[q], a1, b, ccp1->inp, ccp1->inq);
+		*/
+		break;
 	      }
 	    }
 	  }
@@ -746,162 +719,58 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
 	ncc0 += ccfg.block;
       }
     }
-    ncc2 += icg[rg+1] - icg[rg];
-    if (ncc2 > 10*ccfg.dim) {
-      ReinitRadial(1);
-      ncc2 = 0;
+  }
+#ifdef USE_MPI
+  ncc1 = 0;
+  for (p = 0; p < ccfg.dim; p++) {
+    ccp = ArrayGet(&ccfg, p);
+    if (ccp->ncs) ncc1++;
+  }
+  MPI_Allreduce(&ncc1, &ncc0, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  if (ncc0 > 0) {
+    ics1 = malloc(sizeof(int)*ncs0);
+    ics0 = malloc(sizeof(int)*ncs0*nr);
+  }
+  for (i = 0; i < ncc0; i++) ics1[i] = -1;
+  i = 0;
+  for (p = 0; p < ccfg.dim; p++) {
+    ccp = ArrayGet(&ccfg, p);
+    if (ccp->ncs) ics1[i++] = p;
+  }
+  /*
+  printf("RANK: %2d, %d %d\n", sr, ncc1, ncc0);
+  */
+  MPI_Allgather(ics1, ncc0, MPI_INT, ics0, ncc0, MPI_INT, MPI_COMM_WORLD);
+  for (p = 0; p < ncc0*nr; p++) {
+    if (ics0[p] >= 0) {
+      ccp = ArrayGet(&ccfg, ics0[p]);
+      ccp->ncs = 1;
     }
   }
-
-#ifdef USE_MPI
-  for (i = 0; i < base.dim; i++) {
-    mbp = ArrayGet(&base, i);
-    m = mbp->nb2*(n1 + n1*n2);
-    de1 = malloc(sizeof(double)*m);
-    de0 = malloc(sizeof(double)*m);
-    p = 0;
-    for (t = 0; t < mbp.nb2; t++) {
-      for (inp = 0; inp < n1; inp++) {
-	de1[p++] = mbp->dh1[t][inp];
-	for (inq = 0; inq < n2; inq++) {
-	  de1[p++] = mbp->dh2[t][inq*n1 + inp];
-	}
-      }
-    }
-    MPI_Reduce(de1, de0, m, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    if (sr == 0) {
-      p = 0;
-      for (t = 0; t < mbp.nb2; t++) {
-	for (inp = 0; inp < n1; inp++) {
-	  mbp->dh1[t][inp] = de0[p++];
-	  for (inq = 0; inq < n2; inq++) {
-	    mbp->dh2[t][inq*n1 + inp] = de0[p++];
-	  }
-	}
-      }
-    }
-    free(de1);
-    free(de0);
+  if (ncc0) {
+    free(ics0);
+    free(ics1);
   }
 #endif
-     
+
+ ADDCFG:  
   if (sr == 0) {
-    nlev1 = GetNumLevels() - nlev;
-    de = malloc(sizeof(double *)*nlev1);
-    deq = malloc(sizeof(double *)*nlev1);
-    for (i = 0; i < nlev1; i++) {
-      de[i] = malloc(sizeof(double)*n1);
-      deq[i] = malloc(sizeof(double)*n1*n2);
-      for (t = 0; t < n1; t++) {
-	de[i][t] = 0;
+    kgp = GroupIndex(gn);
+    ncc = 0;
+    for (p = 0; p < ccfg.dim; p++) {
+      ccp = ArrayGet(&ccfg, p);
+      if (ccut <= 0 || ccp->ncs) {
+	AddMBPTConfig(kgp, ccp);
+	ncc++;
       }
-      for (t = 0; t < n1*n2; t++) {
-	deq[i][t] = 0;
-      }
-    }
-    for (i = 0; i < nlev1; i++) {    
-      ilev = i + nlev;
-      lev = GetLevel(ilev);
-      for (p = 0; p < base.dim; p++) {
-	mbp = ArrayGet(&base, p);
-	if (mbp->isym == lev->pj) break;
-      }
-      for (p = 0; p < lev->n_basis; p++) {
-	r = IBisect(lev->basis[p], mbp->nbasis, mbp->basis);
-	if (r < 0) continue;
-	a1 = lev->mixing[p];
-	for (q = 0; q < lev->n_basis; q++) {
-	  t = IBisect(lev->basis[q], mbp->nbasis, mbp->basis);
-	  if (t < 0) continue;
-	  a2 = lev->mixing[q];
-	  a = a1*a2;
-	  m = r*mbp->nbasis + t;
-	  for (inp = 0; inp < n1; inp++) {
-	    de[ilev][inp] += a*(mbp->dh1[m][inp]);
-	  }
-	  for (inp = 0; inp < n1*n2; inp++) {
-	    deq[ilev][inp] += a*(mbp->dh2[m][inp]);
-	  }
-	}
-      }
-    }
-
-    f = fopen(fn1, "w");
-    sprintf(fn2, "%s.detail", fn1);
-    fp = fopen(fn2, "w");
-
-    for (i = 0; i < nlev1; i++) {
-      ilev = nlev + i;
-      for (t = 0; t < n1; t++) {
-	de[i][t] *= HARTREE_EV;
-      }
-      for (t = 0; t < n1*n2; t++) {
-	deq[i][t] *= HARTREE_EV;
-      }
-
-      b = 0.0;
-      a1 = 0.0;
-      for (inp = 0; inp < n1; inp++) {	
-	np = nm[inp];
-	tq = deq[i] + inp*n2;
-	for (inq = 0; inq < n2; inq++) {
-	  nq = np + nmp[inq];
-	  dnq[inq] = nq;
-	  fprintf(fp, "%3d %3d %3d %12.5E %12.5E\n", 
-		  ilev, np, nq, tq[inq], de[i][inp]);
-	}
-	for (inq = 0; inq < n2; inq++) {
-	  if (tq[inq] < 0) break;
-	}
-	t = inq;
-	for (; inq < n2; inq++) {
-	  if (tq[inq] >= 0) break;
-	}
-	tnq = 0.0;
-	if (inq == n2 && n2-t > 2) {
-	  for (inq = 0; inq < t; inq++) {
-	    tnq += tq[inq];
-	  }
-	  for (inq = t; inq < n2; inq++) {
-	    tq[inq] = log(-tq[inq]);
-	    dnq[inq] = log(dnq[inq]);
-	  }
-	  for (nq = np+nmp[t]; nq <= np + nmp[n2-1]; nq++) {
-	    xnq = log(nq);
-	    UVIP3P(3, n2-t, dnq+t, tq+t, 1, &xnq, &ynq);
-	    tnq += -exp(ynq);
-	  }
-	  a = -(tq[n2-1] - tq[n2-2])/(dnq[n2-1]-dnq[n2-2]);
-	  if (a > 1.0) {
-	    tnq += -exp(tq[n2-1])*(np+nmp[n2-1])/(a-1.0);
-	  }
-	} else {
-	  tnq = tq[0];
-	  for (nq = np+1; nq <= np + nmp[n2-1]; nq++) {
-	    xnq = nq;
-	    UVIP3P(3, n2-1, dnq+1, tq+1, 1, &xnq, &ynq);
-	    tnq += ynq;
-	  }
-	}
-	de[i][inp] += tnq;
-	a = de[i][inp];
-	if (a) {
-	  b += a;
-	  fprintf(f, "%4d %5d %12.5E\n", np, ilev, a);
-	}
-      }
-      fprintf(f, "\n#SUM %5d %12.5E\n\n", ilev, b);
-      fprintf(fp, "\n");
+    }   
+    g1 = GetGroup(kgp);    
+    for (p = 0; p < g1->n_cfgs; p++) {
+      c1 = GetConfigFromGroup(kgp, p);
+      ConstructConfigName(cname, 2000, c1);
+      fprintf(f, "CC: %4d   %s\n", p, cname);
     }
     fclose(f);
-    fclose(fp);
-
-    for (i = 0; i < nlev1; i++) {    
-      free(de[i]);
-      free(deq[i]);
-    } 
-    free(de);
-    free(deq);
   }
 
  DONE:
@@ -914,18 +783,9 @@ int StructureMBPT0(char *fn, char *fn1, int n, int *s0, int kmax,
     mbp = ArrayGet(&base, i);
     free(mbp->basis);
     free(mbp->ene);
-    for (t = 0; t < mbp->nb2; t++) {
-      free(mbp->dh1[t]);
-      free(mbp->dh2[t]);
-    }
-    free(mbp->dh1);
-    free(mbp->dh2);
   }
   ArrayFree(&base, NULL);
 
-  t2 = clock();
-  t2 /= CLOCKS_PER_SEC;
-  printf("RANK: %2d, Total Time: %10.3E\n", sr, t2-t0);
   return 0;
 }
 
@@ -1123,7 +983,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
   for (i = 0; i < n; i++) {
     r += z[i];
   }
-  if (!r) return 0.0;
+  if (1+r == 1) return 0.0;
   if (n == 1) return r;
 
   for (k0 = 1; k0 < n; k0++) {
@@ -1428,6 +1288,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	c += y*a1[mkk1]*a2[mkk2];
       }
     }
+    if (fabs(c) < EPS30) continue;
     m = m1*(m1+1)/2 + m0;
     if (i0 >= 0) {
       h1 = meff[s0]->hab[m];
@@ -2452,7 +2313,7 @@ void FreeEffMBPT(MBPT_EFF **meff) {
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, 
 		   int kmax, int n, int *ng, int n2, int *ng2, int nkg0) {
   int *bas, *bas0, *bas1, *bas2, nlevels, nb, n3, q;
-  int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m;
+  int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m, mks, *ks;
   int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst;
   int p0, p1, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
   SYMMETRY *sym;
@@ -2504,7 +2365,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   
   tt0 = clock();
   tbg = tt0;
-  printf("construct radial basis ...");
+  printf("Construct Radial Basis.\n");
   fflush(stdout);
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
@@ -2532,7 +2393,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   tt1 = clock();
   dt = (tt1-tt0)/CLOCKS_PER_SEC;
   tt0 = tt1;
-  printf("%12.5E\n", dt);
+  printf("Time = %12.5E\n", dt);
   fflush(stdout);
   if (nb < 0) return -1;
 
@@ -2550,21 +2411,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 
   dw = malloc(sizeof(double)*(n+n2)*4);
 
-  printf("construct effective Hamiltonian.\n");
+  printf("CI Structure.\n");
   fflush(stdout);
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     meff[isym] = NULL;
-    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 100);
-    if (k < 0) continue;
-    DecodePJ(isym, &pp, &jj);
+    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
+    if (k == -1) continue;
     meff[isym] = malloc(sizeof(MBPT_EFF));
-    if ((mbpt_pp >= 0 && mbpt_pp != pp) ||
-	(mbpt_jj >= 0 && mbpt_jj != jj)) {
+    if (k < 0) {
       meff[isym]->nbasis = 0;
       continue;
     }
-    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 10);
     sym = GetSymmetry(isym);
     h = GetHamilton();
     meff[isym]->h0 = malloc(sizeof(double)*h->hsize);
@@ -2577,32 +2435,49 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
     meff[isym]->hba1 = malloc(sizeof(double *)*h->hsize);
     meff[isym]->hab = malloc(sizeof(double *)*h->hsize);
     meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
+    printf("sym: %3d %d\n", isym, h->dim);
+    fflush(stdout);    
     if (DiagnolizeHamilton() < 0) {
       printf("Diagnolizing Hamiltonian Error\n");
+      fflush(stdout);
       exit(1);
+    }    
+    tt1 = clock();
+    dt = (tt1-tt0)/CLOCKS_PER_SEC;
+    tt0 = tt1;
+    printf("Time = %12.5E\n", dt);   
+    ks = malloc(sizeof(int)*h->dim);
+    mks = 0;
+    m = 0;
+    mix = h->mixing + h->dim;
+    for (k = 0; k < h->dim; k++) {
+      if (nkg0 != nkg) {
+	q = GetPrincipleBasis(mix, h->dim, NULL);
+	st = (STATE *) ArrayGet(&(sym->states), h->basis[q]);
+	if (InGroups(st->kgroup, nkg0, kg)) {	  
+	  if (mbpt_nlev <= 0 || IBisect(m, mbpt_nlev, mbpt_ilev) >= 0) {
+	    ks[mks++] = k;
+	  }
+	  m++;
+	}
+      } else {
+	if (mbpt_nlev <= 0 || IBisect(m, mbpt_nlev, mbpt_ilev) >= 0) {
+	  ks[mks++] = k;
+	}
+	m++;
+      }
+      mix += h->dim;
     }
+    printf("Eliminate Negligible Elements\n");
+    fflush(stdout);
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
 	c = 0;
-	m = -1;
-	mix = h->mixing + h->dim;
-	for (k = 0; k < h->dim; k++) {
-	  if (nkg0 != nkg) {
-	    q = GetPrincipleBasis(mix, h->dim, NULL);
-	    st = (STATE *) ArrayGet(&(sym->states), h->basis[q]);
-	    if (!InGroups(st->kgroup, nkg0, kg)) {
-	      mix += h->n_basis;
-	      continue;
-	    }
-	  }
-	  m++;
-	  if (mbpt_ilev >= 0 && m != mbpt_ilev) {
-	    mix += h->n_basis;
-	    continue;
-	  }
+	for (m = 0; m < mks; m++) {
+	  k = ks[m];
+	  mix = h->mixing + h->dim*(k+1);
 	  a = fabs(mix[i]*mix[j]);
 	  if (a > c) c = a;
-	  mix += h->n_basis;
 	}
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
@@ -2625,14 +2500,20 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	  meff[isym]->hab1[k] = NULL;
 	}
       }
-    }    
+    }
+    free(ks);
   }
-  
+  tt1 = clock();
+  dt = (tt1-tt0)/CLOCKS_PER_SEC;
+  tt0 = tt1;
+  printf("Time = %12.5E\n", dt);
+
+  printf("Construct Effective Hamiltonian.\n");
+  fflush(stdout);
   for (k0 = 0; k0 < nc; k0++) {
     c0 = cs[k0];
     p0 = ConfigParity(c0);
-    ms0 = c0->n_csfs * c0->n_shells;
-    for (k1 = k0; k1 < nc; k1++) {      
+    for (k1 = k0; k1 < nc; k1++) {
       c1 = cs[k1];
       p1 = ConfigParity(c1);
       if (p0 != p1) continue;
@@ -2641,7 +2522,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
       for (m0 = 0; m0 < c0->n_csfs; m0++) {
 	ms0 = c0->symstate[m0];
-	UnpackSymState(ms0, &i0, &q0);
+	UnpackSymState(ms0, &i0, &q0);	
 	if (c0 == c1) q = m0;
 	else q = 0;
 	for (m1 = q; m1 < c1->n_csfs; m1++) {
@@ -2741,6 +2622,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       free(kst0);
     }
   }
+  printf("MBPT Structure.\n");
+  fflush(stdout);
   i1 = n*n2;
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     if (meff[isym] == NULL) continue;
@@ -2764,6 +2647,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
     fwrite(&isym, sizeof(int), 1, f);
     fwrite(&(h->dim), sizeof(int), 1, f);
     fflush(f);
+    printf("sym: %3d %d\n", isym, h->dim);
+    fflush(stdout);
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
 	k = j*(j+1)/2 + i;
@@ -2827,21 +2712,22 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
 	    fwrite(hba, sizeof(double), i1, f);
 	  }
 	}
-	fflush(f);
       }
     }
+    fflush(f);
     if (DiagnolizeHamilton() < 0) {
-      printf("Diagnolizing Hamiltonian Error\n");
+      printf("Diagnolizing Effective Hamiltonian Error\n");
       ierr = -1;
       goto ERROR;
     }
     AddToLevels(nkg0, kg);
   }
-
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
 
   tt1 = clock();
+  dt = (tt1-tt0)/CLOCKS_PER_SEC;
+  printf("Time = %12.5E\n", dt);
   dt = (tt1 - tbg)/CLOCKS_PER_SEC;
   printf("Total Time = %12.5E\n", dt);
 
@@ -3071,8 +2957,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-    k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
-    if (k < 0) continue;
+    k0 = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
+    if (k0 == -1) continue;
     h = GetHamilton();
     h->heff = malloc(sizeof(double)*h->dim*h->dim);
     heff = h->heff;
@@ -3080,7 +2966,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     DecodePJ(isym, &pp, &jj);
     ierr = ReadMBPT(nf, f1, mbpt, 1);
     if (ierr < 0) {
-      printf("Error reading MBPT %d\n", isym);
+      printf("Error reading MBPT 1: %d\n", isym);
       goto ERROR;
     }
     k = 1;
@@ -3090,9 +2976,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	break;
       }
     }
-    if (k == 0 || 
-	(mbpt_pp >= 0 && mbpt_pp != pp) ||
-	(mbpt_jj >= 0 && mbpt_jj != jj)) {
+    if (k0 == 0) printf("sym: %3d %d %2d %d %3d\n", isym, pp, jj, k, h->dim);
+    if (k == 0 || k0 < 0) {
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {	  
 	  ierr = ReadMBPT(nf, f1, mbpt, 2);
@@ -3107,7 +2992,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	k1 = i*h->dim + j;
 	ierr = ReadMBPT(nf, f1, mbpt, 2);
 	if (ierr < 0) {
-	  printf("Error reading MBPT %d %d %d\n", isym, i, j);
+	  printf("Error reading MBPT 2: %d %d %d\n", isym, i, j);
 	  goto ERROR;	
 	}
 	heff[k0] = mbpt[0].a;
@@ -3204,15 +3089,4 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   }
 
   return ierr;
-}
-  
-int StructureMBPT(char *fn, char *fn1, int n, int *s0, int kmax, 
-		  int n1, int *nm, int n2, int *nmp, int n0, char *gn0) {
-  if (gn0 == NULL) {
-    StructureMBPT1(fn, fn1, n, s0, kmax, n1, nm, n2, nmp, n0);
-  } else {
-    StructureMBPT0(fn, fn1, n, s0, kmax, n1, nm, n2, nmp, gn0);
-  }
-  
-  return 0;
 }

@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.106 2005/07/22 18:42:12 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.107 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -126,6 +126,27 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static int IntFromList(PyObject *p, int **k) {
+  int i, n;
+  PyObject *q;
+
+  if (PyList_Check(p)) {
+    n = PyList_Size(p);
+    if (n > 0) {
+      *k = malloc(sizeof(int)*n);
+      for (i = 0; i < n; i++) {
+	q = PyList_GetItem(p, i);
+	(*k)[i] = PyInt_AsLong(q);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(int));
+    (*k)[0] = PyInt_AsLong(p);
+  }
+  return n;
+}
 
 static int DecodeGroupArgs(PyObject *args, int **kg) {
   PyObject *p;
@@ -1096,7 +1117,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   int ngp;
   int *kg, *kgp;
   char *fn;
-  PyObject *p, *q;
+  PyObject *p, *q, *t;
 
   if (sfac_file) {
     SFACStatement("Structure", args, NULL);
@@ -1110,8 +1131,16 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   kgp = NULL;
   ip = 0;
   
-  if (!(PyArg_ParseTuple(args, "s|OOi", &fn, &p, &q, &ip))) return NULL;
-  
+  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;
+  if (PyInt_Check(t)) {
+    ip = PyInt_AsLong(t);
+    i = IntFromList(p, &kg);
+    SetSymmetry(ip, i, kg);
+    free(kg);
+    Py_INCREF(Py_None);
+    return Py_None;    
+  }
+  fn = PyString_AsString(t);
   if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {
       ng = DecodeGroupArgs(p, &kg);
@@ -1422,8 +1451,15 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   
   if (n == 1) {
-    if (!(PyArg_ParseTuple(args, "i", &i))) return NULL;
-    SetExtraMBPT(i);
+    if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
+    if (PyInt_Check(p)) {
+      i = PyInt_AsLong(p);
+      SetExtraMBPT(i);
+    } else {
+      n1 = IntFromList(p, &ng1);
+      SetSymMBPT(n1, ng1);
+      free(ng1);
+    }
     Py_INCREF(Py_None);
     return Py_None;
   }    
@@ -1438,13 +1474,6 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  if (n == 3) {
-    if (!(PyArg_ParseTuple(args, "iii", &i, &n1, &n2))) return NULL;
-    SetSymMBPT(i, n1, n2);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }    
-
   if (n == 4 || n == 5) {
     n3 = -1;
     if (!(PyArg_ParseTuple(args, "ssOO|i", &fn, &fn1, &q, &p, &n3)))
@@ -1467,44 +1496,39 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  fn1 = NULL;
   gn0 = NULL;
   n3 = -1;
+  c = 0.0;
   x = NULL;
-  if (!(PyArg_ParseTuple(args, "ssOiOO|O",
-			 &fn, &fn1, &p, &kmax, &q, &r, &x)))
+  if (!(PyArg_ParseTuple(args, "sOOiOO|is",
+			 &fn, &t, &p, &kmax, &q, &r, &n3, &gn0)))
     return NULL;
   if (!PyList_Check(q)) return NULL;
   if (!PyList_Check(r)) return NULL;
 
-  if (x) {
-    if (PyInt_Check(x)) {
-      n3 = PyInt_AsLong(x);
-    } else {
-      gn0 = PyString_AsString(x);
-    }
+  if (gn0 == NULL) {
+    if (!PyString_Check(t)) return NULL;
+    fn1 = PyString_AsString(t);
+  } else {
+    if (!PyFloat_Check(t)) return NULL;
+    c = PyFloat_AsDouble(t);
   }
   n = DecodeGroupArgs(p, &s);
   if (n <= 0) return NULL;
   
-  n1 = PyList_Size(q);
-  ng1 = malloc(sizeof(int)*n1);
-  for (i = 0; i < n1; i++) {
-    t = PyList_GetItem(q, i);
-    ng1[i] = PyInt_AsLong(t);
-  }
-
-  n2 = PyList_Size(r);
-  ng2 = malloc(sizeof(int)*n2);
-  for (i = 0; i < n2; i++) {
-    t = PyList_GetItem(r, i);
-    ng2[i] = PyInt_AsLong(t);
-  }
+  n1 = IntFromList(q, &ng1);
+  n2 = IntFromList(r, &ng2);
   
-  StructureMBPT(fn, fn1, n, s, kmax, n1, ng1, n2, ng2, n3, gn0);
+  if (gn0) {
+    StructureMBPT0(fn, c, n, s, kmax, n1, ng1, n2, ng2, n3, gn0);
+  } else {
+    StructureMBPT1(fn, fn1, n, s, kmax, n1, ng1, n2, ng2, n3);
+  }
 
   free(s);
-  free(ng1);
-  free(ng2);
+  if (n1 > 0) free(ng1);
+  if (n2 > 0) free(ng2);
 
   Py_INCREF(Py_None);
   return Py_None;

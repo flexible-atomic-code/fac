@@ -119,7 +119,6 @@ int GetStructTiming(STRUCT_TIMING *t);
 
 int SortUnique(int n, int *a);
 int CompareInt(const void *a1, const void *a2);
-int IBisect(int k, int n, int *a);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
@@ -192,6 +191,7 @@ int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
 int ShellDegeneracy(int g, int nq);
+void SetSymmetry(int p, int n, int *j);
 
 #endif
 

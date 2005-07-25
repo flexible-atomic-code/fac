@@ -1,7 +1,7 @@
 #include "recouple.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recouple.c,v 1.26 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.27 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1673,6 +1673,11 @@ int GenerateFormula(FORMULA *fm) {
       ij3[k] = fm->tr2[i][j];
       k++;
     }
+    /*
+    printf("%2d: %2d %2d %2d   %2d %2d %2d\n",
+	   i, fm->tr1[i][1], fm->tr1[i][2], fm->tr1[i][3], 
+	   fm->tr2[i][1], fm->tr2[i][2], fm->tr2[i][3]);
+    */
   }
   NJFORM(n, ns, ij2, ij3, fm->ifree+1);
   if (fm->js[0]) {
@@ -1768,13 +1773,15 @@ int CoupleSuccessive(int n, int *ik, int itr, TRIADS tr, int *i0) {
 
   tr[itr][1] = ik[0];
   tr[itr][2] = ik[1];
-  tr[itr][3] = (*i0)++;
+  tr[itr][3] = (*i0);
   itr++;
+  (*i0)++;
   for (i = 2; i < n; i++) {
     tr[itr][1] = tr[itr-1][3];
     tr[itr][2] = ik[i];
-    tr[itr][3] = (*i0)++;
+    tr[itr][3] = (*i0);
     itr++;
+    (*i0)++;
   }
 
   return itr;
@@ -1783,7 +1790,7 @@ int CoupleSuccessive(int n, int *ik, int itr, TRIADS tr, int *i0) {
 int RecoupleTensor(int ns, INTERACT_SHELL *s, FORMULA *fm) {
   int ninter, nop;
   int *inter, *interp, *irank, *order;
-  int i, j, ij, itr;
+  int i, j, ij, itr, m;
   int ik[MAXJ], fk[MAXJ];
 
   order = fm->order;
@@ -1796,6 +1803,8 @@ int RecoupleTensor(int ns, INTERACT_SHELL *s, FORMULA *fm) {
   ninter = 1;
   inter[0] = s[order[0]].index;
   interp[0] = 0;
+
+  i = 0;
   for (i = 1; i < ns; i++) {
     if (s[order[i]].index != s[order[i-1]].index) {
       inter[ninter] = s[order[i]].index;

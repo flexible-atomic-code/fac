@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.91 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.92 2005/07/25 01:36:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -45,6 +45,9 @@ static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 
+static int sym_pp = -1;
+static int sym_njj = 0;
+static int *sym_jj = NULL;
 
 #ifdef PERFORM_STATISTICS 
 static STRUCT_TIMING timing = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -53,6 +56,18 @@ int GetStructTiming(STRUCT_TIMING *t) {
   return 0;
 }
 #endif
+
+void SetSymmetry(int p, int nj, int *j) {
+  sym_pp = IsOdd(p);
+  if (sym_njj > 0) free(sym_jj);
+  if (nj > 0 && j[0] < 0) nj = 0;
+  sym_njj = nj;
+  if (nj > 0) {
+    sym_jj = malloc(sizeof(int)*nj);
+    memcpy(sym_jj, j, sizeof(int)*nj);
+    qsort(sym_jj, nj, sizeof(int), CompareInt);
+  }
+}
 
 static void InitLevelData(void *p, int n) {
   LEVEL *lev;
@@ -120,24 +135,6 @@ int SortUnique(int n, int *a) {
   return j;
 }
 
-int IBisect(int b, int n, int *a) {
-  int i, i0, i1;
-
-  if (n == 0) return -1;
-  i0 = 0;
-  i1 = n - 1;
-  while (i1 - i0 > 1) {
-    i = (i0 + i1)/2;
-    if (b == a[i]) return i;
-    else if (b < a[i]) i1 = i;
-    else i0 = i;
-  }
-  
-  if (b == a[i0]) return i0;
-  else if (b == a[i1]) return i1;
-  else return -1;
-}
-
 HAMILTON *GetHamilton(void) {
   return &_ham;
 }
@@ -157,7 +154,11 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   clock_t start, stop;
   start = clock();
 #endif
-  
+
+  DecodePJ(isym, &i, &j);
+  if (sym_pp >= 0 && i != sym_pp) return -2;
+  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
+
   if (k <= 0) return -1;
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
@@ -263,6 +264,14 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
   clock_t start, stop;
   start = clock();
 #endif
+
+  /* 
+  ** the return code -2, and -3, here distinguses it from the case where 
+  ** no basis exists later.
+  **/
+  DecodePJ(isym, &i, &j);
+  if (sym_pp >= 0 && i != sym_pp) return -2;
+  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
 
   m1 = md/100;
   t = md%100;
@@ -451,6 +460,10 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
   clock_t start, stop;
   start = clock();
 #endif
+
+  DecodePJ(isym, &i, &j);
+  if (sym_pp >= 0 && i != sym_pp) return -2;
+  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
 
   j = 0;
   ncs = 0;
