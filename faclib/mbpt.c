@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.6 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.7 2005/07/27 21:57:21 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2468,8 +2468,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       }
       mix += h->dim;
     }
-    printf("Eliminate Negligible Elements\n");
-    fflush(stdout);
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
 	c = 0;
@@ -2721,6 +2719,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       goto ERROR;
     }
     AddToLevels(nkg0, kg);
+    h->heff = NULL;
   }
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
@@ -2960,8 +2959,6 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     k0 = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
     if (k0 == -1) continue;
     h = GetHamilton();
-    h->heff = malloc(sizeof(double)*h->dim*h->dim);
-    heff = h->heff;
     sym = GetSymmetry(isym);
     DecodePJ(isym, &pp, &jj);
     ierr = ReadMBPT(nf, f1, mbpt, 1);
@@ -2985,6 +2982,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       }
       continue;
     }
+    heff = malloc(sizeof(double)*h->dim*h->dim);
+    h->heff = heff;
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
 	k = j*(j+1)/2 + i;
@@ -3050,7 +3049,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       goto ERROR;
     }
     AddToLevels(nkg0, kg);
-    free(h->heff);
+    free(heff);
     h->heff = NULL;
   }
   SortLevels(nlevels, -1);

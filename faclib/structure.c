@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.92 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.93 2005/07/27 21:57:22 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -58,7 +58,11 @@ int GetStructTiming(STRUCT_TIMING *t) {
 #endif
 
 void SetSymmetry(int p, int nj, int *j) {
-  sym_pp = IsOdd(p);
+  if (p >= 0) {
+    sym_pp = IsOdd(p);
+  } else {
+    sym_pp = -1;
+  }
   if (sym_njj > 0) free(sym_jj);
   if (nj > 0 && j[0] < 0) nj = 0;
   sym_njj = nj;
