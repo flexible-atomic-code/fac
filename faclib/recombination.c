@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.89 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.90 2005/08/01 02:32:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1248,9 +1248,16 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
       kb = ang[i].k1;
       k0 = ang[i].k2;
       k1 = ang[i].k3;
+      kappafp = GetOrbital(kb)->kappa;
+      klfp = GetLFromKappa(kappafp);
+      kappafp = GetOrbital(k0)->kappa;
+      klfp += GetLFromKappa(kappafp);
+      kappafp = GetOrbital(k1)->kappa;
+      klfp += GetLFromKappa(kappafp);      
       ij = (jf - jmin);
       for (ik = -1; ik <= 1; ik += 2) {
-	klf = jf + ik;  
+	klf = jf + ik;  	
+	if (IsOdd((klfp+klf)/2)) continue;
 	kappaf = GetKappaFromJL(jf, klf);
 	AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k);
 	if (n_egrid > 1) {
@@ -1264,31 +1271,28 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
     }    
     free(ang);
   }
-
+  
   nzfb = AngularZFreeBound(&zfb, f, rec);
   if (nzfb > 0) {
     for (i = 0; i < nzfb; i++) {
       kb = zfb[i].kb;
-      jf = GetOrbital(kb)->kappa;
-      jf = GetJFromKappa(jf);
+      kappaf = GetOrbital(kb)->kappa;
+      GetJLFromKappa(kappaf, &jf, &klf);
       ij = jf - jmin;
-      for (ik = -1; ik <= 1; ik += 2) {
-	klf = jf + ik;
-	kappaf = GetKappaFromJL(jf, klf);
-	AIRadial1E(ai_pk0, kb, kappaf);
-	if (n_egrid > 1) {
-	  UVIP3P(np, n_egrid, log_egrid, ai_pk0, nt, &log_e, &s);
-	} else {
-	  s = ai_pk0[0];
-	}
-	ip = (ik == -1)?ij:(ij+1);
-	if (j2 > j1) {
-	  if (IsEven(ij/2)) s = -s;
-	} else {
-	  if (IsOdd(ij/2)) s = -s;
-	}
-	p[ip] += s*zfb[i].coeff;
+      ik = klf - jf;
+      AIRadial1E(ai_pk0, kb, kappaf);
+      if (n_egrid > 1) {
+	UVIP3P(np, n_egrid, log_egrid, ai_pk0, nt, &log_e, &s);
+      } else {
+	s = ai_pk0[0];
       }
+      ip = (ik == -1)?ij:(ij+1);
+      if (j2 > j1) {
+	if (IsEven(ij/2)) s = -s;
+      } else {
+	if (IsOdd(ij/2)) s = -s;
+      }
+      p[ip] += s*zfb[i].coeff;
     }
     free(zfb);
   }

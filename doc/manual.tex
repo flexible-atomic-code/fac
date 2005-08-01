@@ -2441,6 +2441,12 @@ FAC. However, if \var{ilev}$<0$, then these corrections are also interpreted
 as shifts to be added to the energyies calculated by FAC.
 \end{fundesc}
 
+\begin{fundesc}{CutMixing}{g0, g1\opt{, c}}
+For each levels in the group list \var{g0}, eliminate all mixing components
+that are not in the group list \var{g1} or the mixing coefficients less than
+\var{c}. 
+\end{fundesc}
+
 \begin{fundesc}{DROpen}{g}
 Calculate the principle quantum numbers at which the dielectronic recombnation
 starts to open for the core excitations from the ground state to the states in
@@ -3253,13 +3259,14 @@ the \var{g} list to be included in the MBPT calculation, and the remaining are
 included for all-order perturbation treatment.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{fn, eps, g, kmax, n1, n2, n0, gn}
+\begin{fundesc}{StructureMBPT}{fn, de, eps, g, kmax, n1, n2, n3, n4, gn}
 This is the second form of the \key{StructureMBPT} function. It examines the
 configurations by exciting the electrons in the \var{g} list to orbitals with
-principle quantum numbers in the \var{n1} and \var{n2} list. If its estimated
-CI mixing to the states in \var{g} is larger than \var{eps}, these
-configurations are put in to the group named \var{gn}. \var{n0} specifies the
-minimum $n$-values of the orbitals that are allowed to be excited. The final
+principle quantum numbers in the \var{n1} and \var{n2} lists from those in the
+\var{n3} and \var{n4} lists. If its estimated
+CI mixing to the states in \var{g} is larger than \var{eps}, and the
+excitation energy is less than \var{de}, these
+configurations are put in to the group named \var{gn}. The final
 list of configurations are written to the file \var{fn}. \var{kmax} is the
 maximum orbital angular momentum of the excited electrons.
 \end{fundesc}

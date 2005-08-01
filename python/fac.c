@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.107 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.108 2005/08/01 02:32:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1110,7 +1110,7 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
   orb = GetOrbital(k);
   return Py_BuildValue("d", orb->energy);
 }
-
+  
 static PyObject *PStructure(PyObject *self, PyObject *args) {
   int i, k, ng0, ng, ns;
   int nlevels, ip;
@@ -1436,11 +1436,42 @@ static int SelectLevels(PyObject *p, int **t) {
   return 0;
 }
   
-static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
-  PyObject *p, *q, *t, *r, *x;
-  int i, n, n1, *ng1, n2, *ng2, *s, kmax, n3;
-  char *fn, *fn1, *gn0, **fn2;
+static PyObject *PCutMixing(PyObject *self, PyObject *args) {
+  int nlev, n, *ilev, *kg;
   double c;
+  PyObject *t, *p;
+
+  if (sfac_file) {
+    SFACStatement("CutMixing", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  nlev = 0;
+  n = 0;
+  c = 0.0;
+  if (!(PyArg_ParseTuple(args, "OO|d", &t, &p, &c))) return NULL;
+  nlev = SelectLevels(t, &ilev);
+  if (nlev <= 0) goto DONE;
+  n = DecodeGroupArgs(p, &kg);
+  if (n <= 0) goto DONE;
+  
+  CutMixing(nlev, ilev, n, kg, c);
+  
+ DONE:
+  if (nlev > 0) free(ilev);
+  if (n > 0) free(kg);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
+  PyObject *p, *q, *t, *r, *x, *y;
+  int i, n, n1, *ng1, n2, *ng2, *s, kmax;
+  int n3, *ng3, n4, *ng4;
+  char *fn, *fn1, *gn, **fn2;
+  double d, c;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
@@ -1495,43 +1526,54 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-
-  fn1 = NULL;
-  gn0 = NULL;
-  n3 = -1;
-  c = 0.0;
-  x = NULL;
-  if (!(PyArg_ParseTuple(args, "sOOiOO|is",
-			 &fn, &t, &p, &kmax, &q, &r, &n3, &gn0)))
-    return NULL;
-  if (!PyList_Check(q)) return NULL;
-  if (!PyList_Check(r)) return NULL;
-
-  if (gn0 == NULL) {
-    if (!PyString_Check(t)) return NULL;
-    fn1 = PyString_AsString(t);
-  } else {
-    if (!PyFloat_Check(t)) return NULL;
-    c = PyFloat_AsDouble(t);
-  }
-  n = DecodeGroupArgs(p, &s);
-  if (n <= 0) return NULL;
+  if (n == 6 || n == 7) {
+    n3 = -1;
+    if (!(PyArg_ParseTuple(args, "ssOiOO|i",
+			   &fn, &fn1, &p, &kmax, &q, &r, &n3)))
+      return NULL;
+    
+    n = DecodeGroupArgs(p, &s);
+    if (n <= 0) return NULL;
+    
+    n1 = IntFromList(q, &ng1);
+    n2 = IntFromList(r, &ng2);
   
-  n1 = IntFromList(q, &ng1);
-  n2 = IntFromList(r, &ng2);
-  
-  if (gn0) {
-    StructureMBPT0(fn, c, n, s, kmax, n1, ng1, n2, ng2, n3, gn0);
-  } else {
     StructureMBPT1(fn, fn1, n, s, kmax, n1, ng1, n2, ng2, n3);
+
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+
+    Py_INCREF(Py_None);
+    return Py_None;
   }
+  if (n == 10) { 
+    c = 0.0;
+    if (!(PyArg_ParseTuple(args, "sddOiOOOOs",
+			   &fn, &d, &c, &p, &kmax, &q, &r, &x, &y, &gn)))
+      return NULL;
+    
+    n = DecodeGroupArgs(p, &s);
+    if (n <= 0) return NULL;
+    
+    n1 = IntFromList(q, &ng1);
+    n2 = IntFromList(r, &ng2);
+    n3 = IntFromList(x, &ng3);
+    n4 = IntFromList(y, &ng4);
+    
+    StructureMBPT0(fn, d, c, n, s, kmax, n1, ng1, n2, ng2, n3, ng3, n4, ng4, gn);
+    
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+    if (n3 > 0) free(ng3);
+    if (n4 > 0) free(ng4);
 
-  free(s);
-  if (n1 > 0) free(ng1);
-  if (n2 > 0) free(ng2);
-
-  Py_INCREF(Py_None);
-  return Py_None;
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  return NULL;
 }  
 
 static PyObject *PPrepAngular(PyObject *self, PyObject *args) {
@@ -4445,6 +4487,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
+  {"CutMixing", PCutMixing, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},
   {"AIBranch", PAIBranch, METH_VARARGS},

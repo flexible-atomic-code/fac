@@ -27,8 +27,9 @@ typedef struct _MBPT_EFF_ {
   double **hab, **hba;
 } MBPT_EFF;
 
-int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax, 
-		   int n1, int *nm, int n2, int *nmp, int n3, char *gn);
+int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax, 
+		   int n1, int *nm, int n2, int *nmp, int n3, int *n3g,
+		   int n4, int *n4g, char *gn);
 int StructureMBPT1(char *fn, char *fn1, int n, int *s0, int kmax, 
 		   int n1, int *nm, int n2, int *nmp, int n0);
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 
