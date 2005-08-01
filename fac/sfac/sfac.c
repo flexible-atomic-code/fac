@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.83 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.84 2005/08/01 02:32:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2405,10 +2405,11 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PStructureMBPT(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int i, n, *s, n1, *ng1, n2, *ng2, kmax, n3;
+  int i, n, *s, n1, *ng1, n2, *ng2, kmax;
+  int n3, *ng3, n4, *ng4;
   char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
-  double c;
+  double d, c;
 
   if (argc == 1) {
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
@@ -2455,52 +2456,87 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
 
-  if (argc < 6) return -1;
-
-  if (argt[2] != LIST) return -1;
-  n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
-  if (n <= 0) {
-    printf("First configuration group does not exist\n");
-    return -1;
-  }
-  kmax = atoi(argv[3]);
-  
-  if (argt[4] != LIST) return -1;
-  if (argt[5] != LIST) return -1;
-
-  n1 = IntFromList(argv[4], argt[4], variables, &ng1);
-  n2 = IntFromList(argv[5], argt[5], variables, &ng2);
-  printf("%d %d\n", n1, n2);
-  gn = NULL;
-  n3 = -1;
-  c = 0;
-  if (argc > 6) {
-    if (argt[6] != NUMBER) return -1;
-    n3 = atoi(argv[6]);
-    if (argc > 7) {
-      if (argt[7] != STRING) return -1;
-      gn = argv[7];
+  if (argc == 6 || argc == 7) {
+    if (argt[2] != LIST) return -1;
+    n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
+    if (n <= 0) {
+      printf("First configuration group does not exist\n");
+      return -1;
     }
-  }
-  if (gn == NULL) {
-    if (argt[1] != STRING) return -1;
-  } else {
-    if (argt[1] != NUMBER) return -1;
-    c = atof(argv[1]);
-  }
-  if (gn) {
-    StructureMBPT0(argv[0], c, n, s, kmax, n1, ng1, n2, ng2, n3, gn);
-  } else {
+    kmax = atoi(argv[3]);
+  
+    n1 = IntFromList(argv[4], argt[4], variables, &ng1);
+    n2 = IntFromList(argv[5], argt[5], variables, &ng2);
+    
+    n3 = -1;
+    if (argc > 6) {
+      if (argt[6] != NUMBER) return -1;
+      n3 = atoi(argv[6]);
+    }
     StructureMBPT1(argv[0], argv[1], n, s, kmax, n1, ng1, n2, ng2, n3);
+
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+  } 
+  
+  if (argc == 10) {
+    if (argt[1] != NUMBER) return -1;
+    if (argt[2] != NUMBER) return -1;
+    if (argt[3] != LIST) return -1;
+    d = atof(argv[1]);
+    c = atof(argv[2]);
+    n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
+    if (n <= 0) {
+      printf("First configuration group does not exist\n");
+      return -1;
+    }
+    kmax = atoi(argv[4]);
+  
+    n1 = IntFromList(argv[5], argt[5], variables, &ng1);
+    n2 = IntFromList(argv[6], argt[6], variables, &ng2);
+    n3 = IntFromList(argv[7], argt[7], variables, &ng3);
+    n4 = IntFromList(argv[8], argt[8], variables, &ng4);
+    gn = argv[9];
+
+    StructureMBPT0(argv[0], d, c, n, s, kmax, 
+		   n1, ng1, n2, ng2, n3, ng3, n4, ng4, gn);
+    
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+    if (n3 > 0) free(ng3);
+    if (n4 > 0) free(ng4);
+
+    return 0;
   }
 
-  free(s);
-  if (n1 > 0) free(ng1);
-  if (n2 > 0) free(ng2);
-
-  return 0;
+  return -1;
 }
 
+static int PCutMixing(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int nlev, n, *ilev, *kg;
+  double c;
+  
+  nlev = 0;
+  n = 0;
+  if (argc < 2 || argc > 3) return -1;
+  nlev = SelectLevels(&ilev, argv[0], argt[0], variables);
+  if (nlev <= 0) goto DONE;
+  n = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
+  if (n <= 0) goto DONE;
+  if (argc == 3) c = atof(argv[2]);
+  else c = 0.0;
+
+  CutMixing(nlev, ilev, n, kg, c);
+
+ DONE:
+  if (nlev > 0) free(ilev);
+  if (n > 0) free(kg);
+
+  return 0;  
+}
 static int PStructure(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int i, k, ng0, ng, ngp, ns;
@@ -3330,6 +3366,7 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
+  {"CutMixing", PCutMixing, METH_VARARGS},
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},

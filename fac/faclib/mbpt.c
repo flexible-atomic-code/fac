@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.7 2005/07/27 21:57:21 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.8 2005/08/01 02:32:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -189,10 +189,11 @@ void RemoveEmpty(CONFIG *c) {
   c->n_shells = n;
 }
 
-void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc, 
+void BaseConfig(int n, int *kg, int n3, int *n3g, int n4, int *n4g,
+		int n1, int *n1g, int n2, int *n2g, int *nbc, CONFIG **bc, 
 		int *nbc1, CONFIG **bc1, int *nb, int **bk, FILE *f) {
   int nmax, nsm, ncs, i, j, km, k, t, m, p, jp, nq;
-  int mcs, m1e, m2e, mcs1, *ik, em[2], b1e, b2e;
+  int mcs, m1e, m2e, mpe, mcs1, *ik, em[2], t1, t2;
   CONFIG *c, *c1, **c0;
   CONFIG_GROUP *g;
   char sc[2000];
@@ -245,7 +246,7 @@ void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc,
   }
   qsort(*bk, *nb, sizeof(int), CompareInt);
 
-  mcs = ncs*nsm*(1+nsm);
+  mcs = ncs*nsm*(1+nsm+nsm*nsm);
   (*bc) = malloc(sizeof(CONFIG)*mcs);
   c = *bc;
 
@@ -259,7 +260,8 @@ void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc,
       ik[t] = c0[i]->shells[j].nq;
     }
     for (j = 0; j < c0[i]->n_shells; j++) {
-      if (c0[i]->shells[j].n < n3) continue;
+      t = IBisect(c0[i]->shells[j].n, n3, n3g);
+      if (t < 0) continue;
       em[0] = ShellToInt(c0[i]->shells[j].n, c0[i]->shells[j].kappa);      
       ConfigChangeNE(&m, c, k, ik, -1, em);      
     }
@@ -276,35 +278,71 @@ void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc,
       ik[t] = c0[i]->shells[j].nq;
     }
     for (j = 0; j < c0[i]->n_shells; j++) {
-      if (c0[i]->shells[j].n < n3) continue;
       em[0] = ShellToInt(c0[i]->shells[j].n, c0[i]->shells[j].kappa);
       for (jp = 0; jp <= j; jp++) {
+	t1 = IBisect(c0[i]->shells[j].n, n3, n3g);
+	t2 = IBisect(c0[i]->shells[jp].n, n4, n4g);
+	if (t1 < 0 || t2 < 0) {
+	  t2 = IBisect(c0[i]->shells[j].n, n3, n3g);
+	  t1 = IBisect(c0[i]->shells[jp].n, n4, n4g);
+	  if (t1 < 0 || t2 < 0) continue;
+	}
 	em[1] = ShellToInt(c0[i]->shells[jp].n, c0[i]->shells[jp].kappa);
 	ConfigChangeNE(&m, c, k, ik, -2, em);
       }
     }
   }
   m2e = m;
+  m = m1e+m2e; 
+  if (n2 > 1 || (n2 == 1 &&  n2g[0] > 0)) {
+    c1 = *bc + m1e;
+    c = *bc;
+    for (i = 0; i < m2e; i++) {
+      for (j = 0; j < k; j++) {
+	if (ik[j] >= 0) ik[j] = 0;
+      }
+      for (j = 0; j < c1[i].n_shells; j++) {
+	t = ShellToInt(c1[i].shells[j].n, c1[i].shells[j].kappa);
+	ik[t] = c1[i].shells[j].nq;
+      }
+      for (j = 0; j < c1[i].n_shells; j++) {
+	t = IBisect(c1[i].shells[j].n, n2, n2g);
+	if (t < 0) continue;
+	em[0] = ShellToInt(c1[i].shells[j].n, c1[i].shells[j].kappa);
+	ConfigChangeNE(&m, c, k, ik, 1, em);
+      }
+    }
+  }
+  mpe = m - m1e - m2e;
   
-  mcs1 = m1e*nsm + m2e*nsm*nsm;
+  mcs1 = (m1e+mpe)*nsm + m2e*nsm*nsm;
   *bc1 = malloc(sizeof(CONFIG)*mcs1);
   c1 = *bc1;
   m = 0;
   c = *bc;
-  for (i = 0; i < m1e; i++) {
-    for (j = 0; j < k; j++) {
-      if (ik[j] >= 0) ik[j] = 0;
-    }
-    for (j = 0; j < c[i].n_shells; j++) {
-      t = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
-      ik[t] = c[i].shells[j].nq;
-    }
-    for (j = 0; j < c[i].n_shells; j++) {
-      em[0] = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
-      ConfigChangeNE(&m, c1, k, ik, 1, em);
+  t = 0;
+  if (n2 > 0) {
+    t = IBisect(0, n2, n2g);
+  }
+  if (t >= 0) {
+    for (i = 0; i < m1e; i++) {
+      for (j = 0; j < k; j++) {
+	if (ik[j] >= 0) ik[j] = 0;
+      }
+      for (j = 0; j < c[i].n_shells; j++) {
+	t = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
+	ik[t] = c[i].shells[j].nq;
+      }
+      for (j = 0; j < c[i].n_shells; j++) {
+	t = IBisect(c[i].shells[j].n, n1, n1g);
+	if (t < 0) continue;
+	em[0] = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
+	ConfigChangeNE(&m, c1, k, ik, 1, em);
+      }
     }
   }
-  c = c + m1e;
+  c += m1e;
+  /*
   for (i = 0; i < m2e; i++) {
     for (j = 0; j < k; j++) {
       if (ik[j] >= 0) ik[j] = 0;
@@ -316,16 +354,41 @@ void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc,
     for (j = 0; j < c[i].n_shells; j++) {
       em[0] = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
       for (jp = 0; jp <= j; jp++) {
+	t1 = IBisect(c[i].shells[j].n, n1, n1g);
+	t2 = IBisect(c[i].shells[jp].n, n2, n2g);
+	if (t1 < 0 || t2 < 0) {
+	  t2 = IBisect(c[i].shells[j].n, n1, n2g);
+	  t1 = IBisect(c[i].shells[jp].n, n1, n2g);
+	  if (t1 < 0 || t2 < 0) continue;
+	}
 	em[1] = ShellToInt(c[i].shells[jp].n, c[i].shells[jp].kappa);
 	ConfigChangeNE(&m, c1, k, ik, 2, em);
       }
     }
   }
-  *nbc = m1e + m2e;  
+  */
+  c += m2e;
+  for (i = 0; i < mpe; i++) {
+    for (j = 0; j < k; j++) {
+      if (ik[j] >= 0) ik[j] = 0;
+    }
+    for (j = 0; j < c[i].n_shells; j++) {
+      t = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
+      ik[t] = c[i].shells[j].nq;
+    }
+    for (j = 0; j < c[i].n_shells; j++) {
+      t = IBisect(c[i].shells[j].n, n1, n1g);
+      if (t < 0) continue;
+      em[0] = ShellToInt(c[i].shells[j].n, c[i].shells[j].kappa);
+      ConfigChangeNE(&m, c1, k, ik, 1, em);
+    }
+  }
+
+  *nbc = m1e + m2e + mpe;  
   c = *bc;
   for (i = 0; i < *nbc; i++) {
     RemoveEmpty(c+i);
-    if (i < m1e) c[i].n_electrons = nq-1;
+    if (i < m1e || i >= m1e+m2e) c[i].n_electrons = nq-1;
     else c[i].n_electrons = nq-2;
   }
 
@@ -377,6 +440,12 @@ void BaseConfig(int n, int *kg, int n3, int *nbc, CONFIG **bc,
       fprintf(f, "2E: %4d   %s\n", i, sc);
     }
     fprintf(f, "\n");
+    c += m2e;
+    for (i = 0; i < mpe; i++) {
+      ConstructConfigName(sc, 2000, c+i);
+      fprintf(f, "2P: %4d   %s\n", i, sc);
+    }
+    fprintf(f, "\n");    
     c = *bc1;
     for (i = 0; i < *nbc1; i++) {
       ConstructConfigName(sc, 2000, c+i);
@@ -430,8 +499,40 @@ int ConstructNGrid(int n, int **g) {
   return n;
 }
   
-int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
-		   int n1, int *nm, int n2, int *nmp, int n3, char *gn) {
+int StrongInteractConfig(int ncc, double *e1, CORR_CONFIG *ccp, 
+			 int k1, double a, double de) {
+  int k0, m, q;
+  double b, d;
+
+  GetSymmetrySet(&k0, &m);
+  if (ccp->np > 0 && ccp->kp != 0) {
+    a += GetOrbital(OrbitalIndex(ccp->np, ccp->kp, 0))->energy;
+    k1 += GetLFromKappa(ccp->kp)/2;
+  }
+  if (ccp->nq > 0 && ccp->kq != 0) {
+    a += GetOrbital(OrbitalIndex(ccp->nq, ccp->kq, 0))->energy;
+    k1 += GetLFromKappa(ccp->kq)/2;
+  }
+  k1 = IsOdd(k1);
+  if (k0 >= 0 && k0 != k1) return 0;
+
+  if (de <= 0) return 1;  
+  b = 1e30;
+  for (q = 0; q < ncc; q++) {
+    d = fabs(e1[q] - a);
+    if (b > d) b = d;
+  }
+
+  if (b < de) {
+    return 1;
+  }
+
+  return 0;
+}
+  
+int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
+		   int n1, int *nm, int n2, int *nmp, 
+		   int n3, int *n3g, int n4, int *n4g, char *gn) {
   CONFIG_GROUP *g1, *g0;
   CONFIG *c1, *bc, *bc1;
   SYMMETRY *sym;
@@ -463,7 +564,6 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
   int sr, nr;
 #ifdef USE_MPI
   int *ics0, *ics1;
-  double *de0, *de1;
   MPI_Comm_rank(MPI_COMM_WORLD, &sr);
   MPI_Comm_size(MPI_COMM_WORLD, &nr);
   printf("RANK: %2d, TOTAL: %2d\n", sr, nr);
@@ -488,7 +588,8 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
   n2 = ConstructNGrid(n2, &nmp);
 
   ha = GetHamilton();
-  BaseConfig(n, s0, n3, &nbc, &bc, &nbc1, &bc1, &nb, &bk, f);
+  BaseConfig(n, s0, n3, n3g, n4, n4g, n1, nm, n2, nmp,
+	     &nbc, &bc, &nbc1, &bc1, &nb, &bk, f);
 
   for (inp = 0; inp < n1; inp++) {
     np = nm[inp];
@@ -501,7 +602,7 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 	i = OrbitalIndex(np, kap, 0.0);
 	if (i < 0) return -1;
 	for (inq = 0; inq < n2; inq++) {
-	  nq = np + nmp[inq];
+	  nq = nmp[inq];
 	  for (kq = 0; kq <= kmax; kq++) {
 	    if (kq >= nq) break;
 	    kq2 = 2*kq;
@@ -519,6 +620,9 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 
   ArrayInit(&ccfg, sizeof(CORR_CONFIG), 10000);
   ArrayInit(&base, sizeof(MBPT_BASE), MAX_SYMMETRIES);
+  ncc = ZerothEnergyConfigSym(n, s0, &e1);
+  if (ncc == 0) goto ADDCFG;
+  de /= HARTREE_EV;
   k = nbc;
   icg = malloc(sizeof(int)*(n1*(1+n2)*k+2));
 
@@ -538,11 +642,17 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
     cc.nq = 0;
     cc.kp = 0;
     cc.kq = 0;
-    ccp = ArrayAppend(&ccfg, &cc, NULL);
+    a = ZerothEnergyConfig(c1);
+    r = ConfigParity(c1);
+    if (StrongInteractConfig(ncc, e1, &cc, r, a, de)) {
+      ccp = ArrayAppend(&ccfg, &cc, NULL);
+    }
   } 
-  icg[t++] = ccfg.dim;      
+  icg[t++] = ccfg.dim;
   for (p = 0; p < nbc; p++) {
     c1 = bc + p;
+    a = ZerothEnergyConfig(c1);
+    r = ConfigParity(c1);
     nele1 = c1->n_electrons;
     if (nele1 == nele0-1) {
       for (inp = 0; inp < n1; inp++) {
@@ -564,7 +674,9 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 	    k1 = IBisect(k0, nb, bk);
 	    if (k1 >= 0) continue;
 	    cc.kq = 0;
-	    ccp = ArrayAppend(&ccfg, &cc, NULL);
+	    if (StrongInteractConfig(ncc, e1, &cc, r, a, de)) {
+	      ccp = ArrayAppend(&ccfg, &cc, NULL);
+	    }
 	  }
 	}
 	icg[t++] = ccfg.dim;
@@ -573,7 +685,7 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
       for (inp = 0; inp < n1; inp++) {
 	np = nm[inp];
 	for (inq = 0; inq < n2; inq++) {
-	  nq = np + nmp[inq];
+	  nq = nmp[inq];
 	  for (kp = 0; kp <= kmax; kp++) {
 	    if (kp >= np) break;
 	    kp2 = 2*kp;
@@ -581,8 +693,8 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 	      if (jp < 0) continue;
 	      kap = GetKappaFromJL(jp, kp2);
 	      k0 = OrbitalIndex(np, kap, 0);
-	      k1 = IBisect(k0, nb, bk);
-	      if (k1 >= 0) continue;
+	      k0 = IBisect(k0, nb, bk);
+	      if (k0 >= 0) continue;
 	      for (kq = 0; kq <= kmax; kq++) {
 		if (kq >= nq) break;
 		kq2 = 2*kq;
@@ -590,8 +702,8 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 		  if (jq < 0) continue;
 		  kaq = GetKappaFromJL(jq, kq2);
 		  if (np == nq && kaq > kap) continue;
-		  k0 = OrbitalIndex(nq, kaq, 0);
-		  k1 = IBisect(k0, nb, bk);
+		  k1 = OrbitalIndex(nq, kaq, 0);
+		  k1 = IBisect(k1, nb, bk);
 		  if (k1 >= 0) continue;
 		  cc.c = c1;
 		  cc.ncs = 0;
@@ -602,7 +714,9 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 		  cc.nq = nq;
 		  cc.kp = kap;
 		  cc.kq = kaq;
-		  ccp = ArrayAppend(&ccfg, &cc, NULL);
+		  if (StrongInteractConfig(ncc, e1, &cc, r, a, de)) {
+		    ccp = ArrayAppend(&ccfg, &cc, NULL);
+		  }
 		}
 	      }
 	    }
@@ -612,8 +726,9 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
       }
     }
   }
-
+  free(e1);
   if (ccut <= 0) goto ADDCFG;
+ 
   ncg = t-1;
   r = ncg/nr;
   icg0 = sr*r;
@@ -622,9 +737,7 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
   } else {
     icg1 = ncg;
   }
-  /*
-  printf("RANK: %2d, %d %d %d %d\n", sr, ncg, icg0, icg1, n1*n2*k+1);
-  */
+
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     nk = ConstructHamiltonDiagonal(i, n, s0, 0);    
     if (nk < 0) continue;
@@ -637,30 +750,17 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
     mb.bmax = mb.basis[mb.nbasis-1];
     ArrayAppend(&base, &mb, NULL);
   }
-
   ncc1 = 0;  
   for (rg = icg0; rg < icg1; rg++) {
     ncc0 = icg[rg];
     ncc = 0;
     ccp = ArrayGet(&ccfg, icg[rg]);
-    /*
-    printf("RANK: %2d, %d %d %d %d %d %d Complex: %d %d %d\n", 
-	   sr, rg, icg0, icg1, icg[rg], icg[rg+1], ccfg.dim, 
-	   ccp->ig, ccp->np, ccp->nq);
-    */
     for (p = icg[rg]; p < icg[rg+1]; p++) {
       ccp = ArrayGet(&ccfg, p);
       kgp = GroupIndex(gn);
       AddMBPTConfig(kgp, ccp);
       ncc++;
       if (ncc == ccfg.block || p == icg[rg+1]-1) {
-	t2 = clock();
-	t2 /= CLOCKS_PER_SEC;
-	/*
-	printf("RANK: %2d, %5d %7d %7d %7d %10.3E %10.3E\n", sr, ncc, p+1, 
-	       icg[rg+1], ccfg.dim, t2-t1, t2-t0);	
-	fflush(stdout);
-	*/
 	t1 = t2;
 	for (i = 0; i < base.dim; i++) {
 	  mbp = ArrayGet(&base, i);
@@ -669,15 +769,10 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 	  nbs1 = ha->dim;
 	  bs1 = ha->basis;
 	  e1 = ha->hamilton;	
-	  /*
-	  printf("RANK: %2d, sym: %3d %3d %3d %6d\n", 
-		 sr, i, mbp->isym, mbp->nbasis, nbs1);
-	  fflush(stdout);
-	  */
 	  sym = GetSymmetry(mbp->isym);
 	  nbs0 = mbp->nbasis;
 	  bs0 = mbp->basis;
-	  ham = malloc(sizeof(double)*nbs0*nbs1);
+	  ham = malloc(sizeof(double)*nbs0*nbs1);	  
 	  m = 0;
 	  for (q = 0; q < nbs1; q++) {
 	    k1 = bs1[q];
@@ -703,10 +798,6 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
 	      if (b >= ccut) {
 		ccp1->ncs = 1;
 		ncc1++;		
-		/*
-		printf("RANK: %2d, %4d %4d %12.5E %12.5E %2d %2d\n",
-		       sr, bs0[r], bs1[q], a1, b, ccp1->inp, ccp1->inq);
-		*/
 		break;
 	      }
 	    }
@@ -737,9 +828,6 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
     ccp = ArrayGet(&ccfg, p);
     if (ccp->ncs) ics1[i++] = p;
   }
-  /*
-  printf("RANK: %2d, %d %d\n", sr, ncc1, ncc0);
-  */
   MPI_Allgather(ics1, ncc0, MPI_INT, ics0, ncc0, MPI_INT, MPI_COMM_WORLD);
   for (p = 0; p < ncc0*nr; p++) {
     if (ics0[p] >= 0) {
@@ -774,6 +862,12 @@ int StructureMBPT0(char *fn, double ccut, int n, int *s0, int kmax,
   }
 
  DONE:
+  for (i = 0; i < nbc; i++) {
+    free(bc[i].shells);
+  }
+  for (i = 0; i < nbc1; i++) {
+    free(bc1[i].shells);
+  }
   free(bc);
   free(bc1);
   free(bk);

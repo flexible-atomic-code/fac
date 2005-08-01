@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.93 2005/07/27 21:57:22 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.94 2005/08/01 02:32:26 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -71,6 +71,12 @@ void SetSymmetry(int p, int nj, int *j) {
     memcpy(sym_jj, j, sizeof(int)*nj);
     qsort(sym_jj, nj, sizeof(int), CompareInt);
   }
+}
+
+int *GetSymmetrySet(int *p, int *nj) {
+  if (p) *p = sym_pp;
+  if (nj) *nj = sym_njj;
+  return sym_jj;
 }
 
 static void InitLevelData(void *p, int n) {
@@ -143,6 +149,44 @@ HAMILTON *GetHamilton(void) {
   return &_ham;
 }
 
+int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
+  CONFIG_GROUP *g0;
+  CONFIG *c1;
+  int i, q, ncc, p, j;
+
+  ncc = 0;
+  for (i = 0; i < n; i++) {
+    g0 = GetGroup(s0[i]);
+    ncc += g0->n_cfgs;
+  }    
+  if (ncc == 0) return 0;
+  *e1 = malloc(sizeof(double)*ncc);
+  ncc = 0;
+  for (i = 0; i < n; i++) {
+    g0 = GetGroup(s0[i]);
+    for (q = 0; q < g0->n_cfgs; q++) {
+      c1 = GetConfigFromGroup(i, q);
+      if (sym_pp >= 0) {
+	p = ConfigParity(c1);
+	if (p != sym_pp) continue;
+      }
+      if (sym_njj > 0) {
+	p = -1;
+	for (j = 0; j < c1->n_csfs; j++) {
+	  p = IBisect(c1->csfs[j*c1->n_shells].totalJ, sym_njj, sym_jj);
+	  if (p >= 0) {
+	    break;
+	  }
+	}
+	if (p < 0) continue;
+      } 
+      (*e1)[ncc++] = ZerothEnergyConfig(c1);
+    }
+  }
+  
+  return ncc;
+}
+  
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   int i, j, t;
   HAMILTON *h;
@@ -1424,6 +1468,36 @@ int AddToLevels(int ng, int *kg) {
   return 0;
 }
 
+void CutMixing(int nlev, int *ilev, int n, int *kg, double c) {
+  int i, m, t;
+  SYMMETRY *sym;
+  STATE *s;
+  LEVEL *lev;
+
+  for (i = 0; i < nlev; i++) {
+    lev = GetLevel(ilev[i]);
+    m = 0;
+    sym = GetSymmetry(lev->pj);
+    for (t = 0; t < lev->n_basis; t++) {
+      if (fabs(lev->mixing[t]) < c) continue;
+      s = (STATE *) ArrayGet(&(sym->states), lev->basis[t]);
+      if (n > 0 && !InGroups(s->kgroup, n, kg)) continue;
+      lev->ibasis[m] = lev->ibasis[t];
+      lev->basis[m] = lev->basis[t];
+      lev->mixing[m] = lev->mixing[t];
+      m++;
+    }
+    if (m < lev->n_basis) {
+      lev->n_basis = m;
+      lev->ibasis = (short *) ReallocNew(lev->ibasis, sizeof(short)*m);
+      lev->basis = (int *) ReallocNew(lev->basis, sizeof(int)*m);
+      lev->mixing = (double *) ReallocNew(lev->mixing, sizeof(double)*m);      
+      SortMixing(0, m, lev, sym);
+      GetPrincipleBasis(lev->mixing, m, lev->kpb);
+    }
+  }
+}
+  
 static int CompareBasis(double m1, double m2, SYMMETRY *sym) {
   STATE *s1, *s2;
   

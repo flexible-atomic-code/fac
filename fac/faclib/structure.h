@@ -174,7 +174,6 @@ int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
 int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
 		    int kb, double coeff);
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
-
 int GetBasisTable(char *fn);
 int ConstructLevelName(char *name, char *sname, char *nc, 
 		       int *vnl, STATE *basis);
@@ -192,6 +191,9 @@ int ReinitStructure(int m);
 int TestHamilton(void);
 int ShellDegeneracy(int g, int nq);
 void SetSymmetry(int p, int n, int *j);
+int *GetSymmetrySet(int *p, int *nj);
+int ZerothEnergyConfigSym(int n, int *s0, double **e);
+void CutMixing(int nlev, int *ilev, int n, int *kg, double c);
 
 #endif
 
