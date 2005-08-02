@@ -186,6 +186,7 @@
 #define ANGZ_BLOCK         1024
 #define ANGZCUT            1E-5
 #define MIXCUT             1E-5
+#define MIXCUT2            1.0
 #define NPRINCIPLE         2
 #define MAXDN              3
 

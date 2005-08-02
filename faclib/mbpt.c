@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.8 2005/08/01 02:32:26 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.9 2005/08/02 16:53:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -863,14 +863,20 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
 
  DONE:
   for (i = 0; i < nbc; i++) {
-    free(bc[i].shells);
+    if (bc[i].n_shells > 0) free(bc[i].shells);
   }
   for (i = 0; i < nbc1; i++) {
-    free(bc1[i].shells);
+    if (bc1[i].n_shells > 0) free(bc1[i].shells);
   }
-  free(bc);
-  free(bc1);
-  free(bk);
+  if (nbc > 0) {
+    free(bc);
+  }
+  if (nbc1 > 0) {
+    free(bc1);
+  }
+  if (nb > 0) {
+    free(bk);
+  }
   free(icg);
   ArrayFree(&ccfg, NULL);
   for (i = 0; i < base.dim; i++) {

@@ -181,7 +181,7 @@ int SaveLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetCILevel(int m);
-int SetMixCut(double c);
+int SetMixCut(double c, double c2);
 int FreeAngZArray(void);
 int InitAngZArray(void);
 void ClearRMatrixLevels(int n);

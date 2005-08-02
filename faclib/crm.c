@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.86 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.87 2005/08/02 16:53:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2865,11 +2865,13 @@ double BlockRelaxation(int iter) {
     }
     
     if (iter >= 0) {
-      if (blk1->iion < 0) a = ion0.nt;
-      else {
-	ion = (ION *) ArrayGet(ions, blk1->iion);
-	a = ion->nt;
-      }
+      if (iter > 0) {
+	if (blk1->iion < 0) a = ion0.nt;
+	else {
+	  ion = (ION *) ArrayGet(ions, blk1->iion);
+	  a = ion->nt;
+	}
+      } else a = 1.0;
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m]) {
 	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
@@ -2980,6 +2982,7 @@ double BlockRelaxation(int iter) {
       }
     }
   }
+  if (iter == 0) return 1.0;
   d /= td;
   return d;
 }
