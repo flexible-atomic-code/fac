@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.94 2005/08/01 02:32:26 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.95 2005/08/02 16:53:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -44,6 +44,7 @@ static int ci_level = 0;
 static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
+static double mix_cut2 = MIXCUT2;
 
 static int sym_pp = -1;
 static int sym_njj = 0;
@@ -94,12 +95,16 @@ int SetCILevel(m) {
 }
 
 int SetAngZCut(double cut) {
-  angz_cut = cut;
+  if (cut >= 0) angz_cut = cut;
+  else angz_cut = ANGZCUT;
   return 0;
 }
 
-int SetMixCut(double cut) {
-  mix_cut = cut;
+int SetMixCut(double cut, double cut2) {
+  if (cut >= 0) mix_cut = cut;
+  else cut = MIXCUT;
+  if (cut2 >= 0) mix_cut2 = cut2;
+  else cut2 = MIXCUT2;
   return 0;
 }
 
@@ -1363,7 +1368,7 @@ int AddToLevels(int ng, int *kg) {
   HAMILTON *h;
   LEVEL lev;
   SYMMETRY *sym;
-  STATE *s;
+  STATE *s, *s1;
   CONFIG *c;
   CONFIG_GROUP *g;
   int g0, p0;
@@ -1418,10 +1423,25 @@ int AddToLevels(int ng, int *kg) {
   for (i = 0; i < d; i++) {
     k = GetPrincipleBasis(mix, d, NULL);
     s = (STATE *) ArrayGet(&(sym->states), h->basis[k]);
-    if (ng > 0) {
+    if (ng > 0) {      
       if (!InGroups(s->kgroup, ng, kg)) {
-	mix += h->n_basis;
-	continue;
+	m = 0;
+	if (mix_cut2 < 1.0) {
+	  a = fabs(mix_cut2*mix[k]);
+	  for (t = 0; t < h->n_basis; t++) {
+	    if (fabs(mix[t]) >= a && t != k) {
+	      s1 = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
+	      if (InGroups(s1->kgroup, ng, kg)) {
+		m = 1;
+		break;
+	      }
+	    }
+	  }
+	}
+	if (m == 0) {
+	  mix += h->n_basis;
+	  continue;
+	}
       }
     }
     lev.energy = h->mixing[i];

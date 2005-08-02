@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.108 2005/08/01 02:32:26 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.109 2005/08/02 16:53:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -838,7 +838,7 @@ static PyObject *PSetAngZCut(PyObject *self, PyObject *args) {
 }
   
 static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
-  double c;
+  double c, c2;
 
   if (sfac_file) {
     SFACStatement("SetMixCut", args, NULL);
@@ -846,9 +846,10 @@ static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "d", &c))
+  c2 = -1.0;
+  if (!PyArg_ParseTuple(args, "d|d", &c, &c2))
     return NULL;
-  SetMixCut(c);
+  SetMixCut(c, c2);
   Py_INCREF(Py_None);
   return Py_None;
 }

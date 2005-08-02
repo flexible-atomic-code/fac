@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.84 2005/08/01 02:32:26 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.85 2005/08/02 16:53:46 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1305,11 +1305,17 @@ static int PSetAngZCut(int argc, char *argv[], int argt[],
 
 static int PSetMixCut(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  double c;
+  double c, c2;
   
-  if (argc != 1 || argt[0] != NUMBER) return -1;
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != NUMBER) return -1;
   c = atof(argv[0]);
-  SetMixCut(c);
+  c2 = -1.0;
+  if (argc > 1) {
+    if (argt[1] != NUMBER) return -1;
+    c2 = atof(argv[1]);
+  }
+  SetMixCut(c, c2);
   
   return 0;
 }
