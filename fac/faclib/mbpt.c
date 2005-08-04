@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.9 2005/08/02 16:53:46 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.10 2005/08/04 18:17:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2445,7 +2445,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   for (i = 0; i < nkg; i++) {
     g = GetGroup(kg[i]);    
     for (j = 0; j < g->n_cfgs; j++) {
-      cs[k] = GetConfigFromGroup(i, j);
+      cs[k] = GetConfigFromGroup(kg[i], j);
       if (cs[k]->n_shells > i1) i1 = cs[k]->n_shells;
       if (cs[k]->shells[0].n > nmax) nmax = cs[k]->shells[0].n;
       if (cs[k]->shells[0].nq > 1) {
@@ -2542,10 +2542,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       fflush(stdout);
       exit(1);
     }    
-    tt1 = clock();
-    dt = (tt1-tt0)/CLOCKS_PER_SEC;
-    tt0 = tt1;
-    printf("Time = %12.5E\n", dt);   
     ks = malloc(sizeof(int)*h->dim);
     mks = 0;
     m = 0;
@@ -2600,11 +2596,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       }
     }
     free(ks);
+    tt1 = clock();
+    dt = (tt1-tt0)/CLOCKS_PER_SEC;
+    tt0 = tt1;
+    printf("Time = %12.5E\n", dt);   
   }
-  tt1 = clock();
-  dt = (tt1-tt0)/CLOCKS_PER_SEC;
-  tt0 = tt1;
-  printf("Time = %12.5E\n", dt);
 
   printf("Construct Effective Hamiltonian.\n");
   fflush(stdout);
@@ -2820,13 +2816,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
     }
     AddToLevels(nkg0, kg);
     h->heff = NULL;
+    tt1 = clock();
+    dt = (tt1-tt0)/CLOCKS_PER_SEC;
+    tt0 = tt1;
+    printf("Time = %12.5E\n", dt);
+    fflush(stdout);
   }
   SortLevels(nlevels, -1);
   SaveLevels(fn, nlevels, -1);
 
   tt1 = clock();
-  dt = (tt1-tt0)/CLOCKS_PER_SEC;
-  printf("Time = %12.5E\n", dt);
   dt = (tt1 - tbg)/CLOCKS_PER_SEC;
   printf("Total Time = %12.5E\n", dt);
 
