@@ -1,7 +1,7 @@
 #include "angular.h"
 #include "rcfp.h"
 
-static char *rcsid="$Id: rcfp.c,v 1.9 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: rcfp.c,v 1.10 2005/08/20 21:26:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -834,7 +834,9 @@ double ReducedCFP(int no_bra, int no_ket) {
     break;
 
   default:
+    /*
     printf("improper input in ReducedCFP\n");
+    */
     return 0.0;
   }
 
@@ -1138,7 +1140,9 @@ double CompleteReducedW3(REDUCED_COEFF *w3_o, REDUCED_COEFF *w3_e,
     nom   = w3_e[i].nom;
     denom = w3_e[i].denom;
   } else {
+    /*
     printf("improper input in CompleteReducedW3\n");
+    */
     return 0.0;
   }
 
@@ -1167,7 +1171,9 @@ double CompleteReducedW5(REDUCED_COEFF *w5_o, REDUCED_COEFF *w5_e,
     nom   = w5_e[i].nom;
     denom = w5_e[i].denom;
   } else {
+    /*
     printf("improper input in CompleteReducedW5\n");
+    */
     return 0.0;
   }
 
@@ -1295,7 +1301,9 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
     UnpackRCFPState(bra->state, &jbra, &run_nu, &Jbra);
     UnpackRCFPState(ket->state, &jket, &run_nu, &Jket);
     if (ket->nq > 2 || bra->nq > 2) {
+      /*
       printf("1. improper input in ReducedW, \n");
+      */
       return 0.0;
     }
     if (q_m1 + q_m2 + ket->nq != bra->nq) return 0.0;
@@ -1333,7 +1341,9 @@ double ReducedW(RCFP_STATE *bra, RCFP_STATE *ket,
     coeff *= sqrt(kj2 + 1.0);
     if (IsOdd((Jbra + Jket + kj2)/2)) coeff = -coeff;
   } else {
+    /*
     printf("2. improper input in ReducedW\n");
+    */
     return 0.0;
   }
   return coeff;
@@ -1420,7 +1430,9 @@ double ReducedWxW0(RCFP_STATE *bra, RCFP_STATE *ket,
       max_run = 2*jbra - 2;
       break;
     default:
+      /*
       printf("improper input in ReducedWxW0\n");
+      */
       return 0.0;
     }
 
@@ -1528,7 +1540,9 @@ double ReducedAxW(RCFP_STATE *bra, RCFP_STATE *ket,
       max_run = 2*jbra - 2;
       break;
     default:
+      /*
       printf("improper input in ReducedAxW\n");
+      */
       return 0.0;
     }
 
@@ -1635,7 +1649,9 @@ double ReducedWxA(RCFP_STATE *bra, RCFP_STATE *ket,
       max_run = 2*jbra - 2;
       break;
     default:
+      /*
       printf("improper input in ReducedWxA\n");
+      */
       return 0.0;
     }
 
@@ -1711,8 +1727,9 @@ double ReducedA(RCFP_STATE *bra, RCFP_STATE *ket, int q_m) {
       if (IsOdd(bra->nq)) coeff = -coeff;
     }
   } else {
-    printf("%d %d\n", bra->state, ket->state);
+    /*
     printf("improper input in ReducedA\n");
+    */
     return 0.0;
   }
 
@@ -1942,7 +1959,9 @@ double ReducedOperator(RCFP_STATE *bra, RCFP_STATE *ket,
 	max_bra = 2*jbra - 2;
 	break;
       default:
+	/*
 	printf("improper input for ReducedOperator\n");
+	*/
 	return 0.0;
       }
       

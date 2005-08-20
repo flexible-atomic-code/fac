@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.10 2005/08/04 18:17:06 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.11 2005/08/20 21:26:19 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1089,25 +1089,34 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
   for (k0 = 1; k0 < n; k0++) {
     if (x[k0]-x[k0-1] > 1) break;
   }
-  if (k0 == n) goto END;
+  if (k0 == n) {
+    k1 = n-2;
+    if (k1 < 0) k1 = 0;
+    for (i = k1; i < n; i++) {
+      t[i] = log(x[i]);
+      y[i] = log(fabs(z[i]));
+    }
+    nk = 2;
+    goto END;
+  }
   k0--;
   
   for (k1 = n-1; k1 >= k0; k1--) {
     if (z[n-1] > 0) {
-      if (z[k1] <= 0) {
+      if (z[k1] <= 0 || 1+z[k1] == 1) {
 	k1++;
 	break;
       }
     } else {
-      if (z[k1] >= 0) {
+      if (z[k1] >= 0 || 1+z[k1] == 1) {
 	k1++;
 	break;
       }
     }
   }
-  if (k1 < 0) k1 = 0;
+  if (k1 < k0) k1 = k0;
 
-  for (i = Min(k0, k1); i < n; i++) {
+  for (i = k0; i < n; i++) {
     t[i] = log(x[i]);
   }
   nk = n - k0;
@@ -1131,7 +1140,6 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
       r += b;
     }
   }
-
  END:
   h = 0.0;
   a = 0.0;
