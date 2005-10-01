@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.90 2005/08/01 02:32:26 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.91 2005/10/01 05:42:55 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1157,6 +1157,8 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   } else {
     jm = 2*j1;
     r = 0.0;
+    np = 3;
+    nt = 1;
     for (j = 0; j <= jm; j += 4) {
       jmin = abs(j-j0);
       jmax = j+j0;
