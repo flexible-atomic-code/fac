@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.109 2005/08/02 16:53:46 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.110 2005/10/03 20:42:34 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1824,6 +1824,12 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
   double eb, x, x1;
   
+  if (sfac_file) {
+    SFACStatement("SetCEBorn", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   x1 = XBORN1;
   x = XBORN;
   if (!PyArg_ParseTuple(args, "d|dd", &eb, &x, &x1)) return NULL;
@@ -1837,6 +1843,12 @@ static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
   PyObject *p;
   int m;
   double tol;
+
+  if (sfac_file) {
+    SFACStatement("SetCEQkMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   m = QK_DEFAULT;
   tol = -1;

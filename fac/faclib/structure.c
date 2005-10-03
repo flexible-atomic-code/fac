@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.95 2005/08/02 16:53:46 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.96 2005/10/03 20:42:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1853,7 +1853,8 @@ int SaveLevels(char *fn, int m, int n) {
       r.ilev = i;      
       r.ibase = lev->ibase;
       r.p = lev->pj;
-      r.j = lev->ilev;
+      r.j = -1;
+      r.ibase = lev->ilev;
       r.energy = lev->energy;
 
       nele = ConstructLevelName(name, sname, nc, &vnl, &sp);

@@ -54,7 +54,7 @@ typedef struct _ION_ {
   int nlevels;
   LBLOCK **iblock;
   int *ilev;
-  short *j;
+  int *j;
   short *vnl;
   short *ibase;
   double *energy;

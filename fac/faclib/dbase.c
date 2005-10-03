@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.82 2005/04/08 01:56:55 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.83 2005/10/03 20:42:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -299,6 +299,8 @@ int SwapEndianSPRecord(SP_RECORD *r, SP_EXTRA *rx) {
   SwapEndian((char *) &(r->upper), sizeof(int));
   SwapEndian((char *) &(r->energy), sizeof(float));
   SwapEndian((char *) &(r->strength), sizeof(float));
+  SwapEndian((char *) &(r->rrate), sizeof(float));
+  SwapEndian((char *) &(r->trate), sizeof(float));
   if (iuta) {
     SwapEndian((char *) &(rx->sdev), sizeof(float));
   }
@@ -348,10 +350,10 @@ int SwapEndianDRHeader(DR_HEADER *h) {
 int SwapEndianDRRecord(DR_RECORD *r) {
   SwapEndian((char *) &(r->ilev), sizeof(int));
   SwapEndian((char *) &(r->flev), sizeof(int));
-  SwapEndian((char *) &(r->ibase), sizeof(short));
-  SwapEndian((char *) &(r->fbase), sizeof(short));
-  SwapEndian((char *) &(r->vl), sizeof(short));
-  SwapEndian((char *) &(r->j), sizeof(short));
+  SwapEndian((char *) &(r->ibase), sizeof(int));
+  SwapEndian((char *) &(r->fbase), sizeof(int));
+  SwapEndian((char *) &(r->vl), sizeof(int));
+  SwapEndian((char *) &(r->j), sizeof(int));
   SwapEndian((char *) &(r->energy), sizeof(float));
   SwapEndian((char *) &(r->etrans), sizeof(float));
   SwapEndian((char *) &(r->br), sizeof(float));
@@ -883,7 +885,7 @@ int ReadSPHeaderOld(FILE *f, SP_HEADER *h, int swp) {
 int ReadSPRecordOld(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
   int n;
 
-  n = fread(r, sizeof(SP_RECORD), 1, f);
+  n = fread(r, sizeof(SP_RECORD)-2*sizeof(float), 1, f);
   if (n != 1) return 0;
   if (iuta) {
     n = fread(rx, sizeof(SP_EXTRA), 1, f);
@@ -1392,7 +1394,8 @@ int WriteSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx) {
   WSF0(r->upper);
   WSF0(r->energy);
   WSF0(r->strength);
-  
+  WSF0(r->rrate);
+  WSF0(r->trate);
   if (iuta) {
     WSF0(rx->sdev);
   }
@@ -1946,7 +1949,8 @@ int ReadSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
   RSF0(r->upper);
   RSF0(r->energy);
   RSF0(r->strength);
-  
+  RSF0(r->rrate);
+  RSF0(r->trate);
   if (iuta) {
     RSF0(rx->sdev);
   }
@@ -2532,6 +2536,17 @@ EN_SRECORD *GetMemENTable(int *s) {
   return mem_en_table;
 }
 
+int JFromENRecord(EN_RECORD *r) {
+  if (r->j < 0) return r->ibase;
+  else return r->j;
+}
+
+int IBaseFromENRecord(EN_RECORD *r) {
+  if (r->j < 0) return -1;
+  else return r->ibase;
+}
+
+
 int MemENTable(char *fn) {
   F_HEADER fh;  
   EN_HEADER h;
@@ -2585,7 +2600,7 @@ int MemENTable(char *fn) {
       }
       mem_en_table[r.ilev].energy = r.energy;
       mem_en_table[r.ilev].p = r.p;
-      mem_en_table[r.ilev].j = r.j;
+      mem_en_table[r.ilev].j = JFromENRecord(&r);
     }
   }
 
@@ -2609,7 +2624,7 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   int n, i;
   int nb;
   double e;
-  int p, vnl;
+  int p, vnl, j, ibase;
 
   nb = 0;
   while (1) {
@@ -2634,8 +2649,10 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
 	p = 0;
 	vnl = r.p;
       }
+      j = JFromENRecord(&r);
+      ibase = IBaseFromENRecord(&r);
       fprintf(f2, "%6d %6d %15.8E %1d %5d %4d %-20s %-20s %-s\n",
-	      r.ilev, r.ibase, e, p, vnl, r.j, r.ncomplex, r.sname, r.name);
+	      r.ilev, ibase, e, p, vnl, j, r.ncomplex, r.sname, r.name);
     }
     nb += 1;
   }
@@ -3394,10 +3411,11 @@ int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
       if (v) e *= HARTREE_EV;
       a = r.strength;
       if (iuta) {
-	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E\n", 
-		r.upper, r.lower, e, rx.sdev*HARTREE_EV, a);
+	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E %11.4E\n", 
+		r.upper, r.lower, e, rx.sdev*HARTREE_EV, a, r.rrate, r.trate);
       } else {
-	fprintf(f2, "%6d %6d %13.6E %11.4E\n", r.upper, r.lower, e, a);
+	fprintf(f2, "%6d %6d %13.6E %11.4E\n", 
+		r.upper, r.lower, e, a, r.rrate, r.trate);
       }
     }
     nb += 1;

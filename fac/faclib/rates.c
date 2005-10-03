@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.40 2005/01/14 18:25:09 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.41 2005/10/03 20:42:33 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -353,6 +353,7 @@ int TRRate(double *dir, double *inv, int iinv,
   a *= strength;
   a *= RATE_AU;
   *dir = a/(j1 + 1.0);
+  if ((*dir) < 0) printf("%10.3E %10.3E %10.3E %10.3E\n", a, e, strength, j1+1.0);
   if (iinv) {
     e0 = e*HARTREE_EV;
     b = pho_dist[ipdist].dist(e0, pho_dist[ipdist].params);
@@ -951,7 +952,7 @@ static double MaxPower(double e, double *p) {
   c1 = maxwell_const/(1.0+y*g);
   c2 = y/(1.0+y*g);
 
-  if (e > p[5] && e < p[6]) {
+   if (e > p[5] && e < p[6]) {
     x = e/p[0];
     f = c1*sqrt(x)*exp(-x)/p[0];
   } else {
