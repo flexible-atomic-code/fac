@@ -1186,6 +1186,7 @@ typedef struct _RT_HEADER_ {
   double *p_pdist;
   float pden;
   float nb;
+  float stwt;
 } RT_HEADER;
 \end{verbatim}
 
@@ -1276,6 +1277,7 @@ unit of erg cm$^{-3}$. If the distribution is Black Body, this is the dilution
 factor.
 \item[\texttt{float nb}:] The concentration of the superlevel block to which
 the rates are tabulated.
+\item[\texttt{float stwt}:] The statistical weight of the superlevel block.
 \end{dbdesc}
 
 \subsection{\texttt{RT\_RECORD}}
@@ -2008,7 +2010,7 @@ FCOMP	= 1*2 2*7 4*1
 \subsection{\texttt{DB\_RT}}
 \index{DB\_RT}
 \begin{verbatim}
-FAC 0.7.3
+FAC 1.1.0
 Endian	= 0
 TSess	= 1021484432
 Type	= 8
@@ -2045,7 +2047,9 @@ NPPDIS	= 3
 	  1.00000000E+01
 	  1.00000000E+05
 # population of this block
-Dens	=  1.00000000E+00
+DENS	=  1.00000000E+00
+# statistical weight of this block
+STWT     =  4.00000000E+00
 # each line is contribution to this level or block by other blocks
          NB         TR         CE         RR         AI         CI
    1  2.9983E-10 6.1831E-06 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1*2 2*7 
