@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.83 2005/10/03 20:42:33 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.84 2005/10/03 23:53:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -321,6 +321,7 @@ int SwapEndianRTHeader(RT_HEADER *h) {
   SwapEndian((char *) &(h->np_pdist), sizeof(int));
   SwapEndian((char *) &(h->pden), sizeof(float));
   SwapEndian((char *) &(h->nb), sizeof(float));
+  SwapEndian((char *) &(h->stwt), sizeof(float));
   return 0;
 }
 
@@ -1175,6 +1176,7 @@ int WriteRTHeader(FILE *f, RT_HEADER *h) {
   WSF0(h->np_pdist);
   WSF0(h->pden);
   WSF0(h->nb);
+  WSF0(h->stwt);
   WSF1(h->p_edist, sizeof(double), h->np_edist);
   WSF1(h->p_pdist, sizeof(double), h->np_pdist);
   
@@ -1979,7 +1981,8 @@ int ReadRTHeader(FILE *f, RT_HEADER *h, int swp) {
   RSF0(h->np_pdist);
   RSF0(h->pden);
   RSF0(h->nb);
-  
+  RSF0(h->stwt);
+
   if (swp) SwapEndianRTHeader(h);
   
   h->p_edist = (double *) malloc(sizeof(double)*h->np_edist);
@@ -3518,6 +3521,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     free(h.p_pdist);
 
     fprintf(f2, "DENS\t= %15.8E\n", h.nb);
+    fprintf(f2, "STWT\t= %15.8E\n", h.stwt);
     fprintf(f2,"         NB         TR         CE");
     fprintf(f2, "         RR         AI         CI\n");
     for (i = 0; i < h.ntransitions; i++) {

@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.88 2005/10/03 20:42:33 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.89 2005/10/03 23:53:57 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1659,6 +1659,13 @@ int RateTable(char *fn, int nc, char *sc[]) {
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
+    /* store the statistical weight of each level in the LBLOCK array n0
+       n0 array used in the BlockRelaxation is no longer needed, overwriting. */
+    for (i = 0; i < ion->nlevels; i++) {
+      blk = ion->iblock[i];
+      q = ion->ilev[i];
+      blk->n0[q] = ion->j[i] + 1.0;
+    }
     for (q = 0; q < ion->ce_rates->dim; q++) {
       brts = (BLK_RATE *) ArrayGet(ion->ce_rates, q);
       for (m = 0; m < brts->rates->dim; m++) {
@@ -1993,6 +2000,7 @@ int RateTable(char *fn, int nc, char *sc[]) {
 	  rt_hdr.ilev = IonizedIndex(rt_hdr.ilev, 1);
 	  rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
 	}
+	rt_hdr.stwt = blk->n0[k];
 	rt1.tr = 0.0;
 	rt1.ce = 0.0;
 	rt1.rr = 0.0;
@@ -2165,6 +2173,10 @@ int RateTable(char *fn, int nc, char *sc[]) {
       if (blk->iion < 0 && ion0.nionized > 0) {
 	rt_hdr.ilev = IonizedIndex(rt_hdr.ilev, 1);
 	rt_hdr.ilev = ion0.ionized_map[0][rt_hdr.ilev];
+      }
+      rt_hdr.stwt = 0.0;
+      for (k = 0; k < blk->nlevels; k++) {
+	rt_hdr.stwt += blk->n0[k];
       }
       rt_hdr.ilev = -(rt_hdr.ilev+1);
       rt1.tr = 0.0;

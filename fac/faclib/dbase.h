@@ -262,6 +262,7 @@ typedef struct _RT_HEADER_ {
   double *p_pdist;
   float pden;
   float nb;
+  float stwt;
 } RT_HEADER;
 
 typedef struct _RT_RECORD_ {
@@ -331,7 +332,15 @@ int ReadRTRecord(FILE *f, RT_RECORD *r, int swp);
 int ReadDRHeader(FILE *f, DR_HEADER *h, int swp);
 int ReadDRRecord(FILE *f, DR_RECORD *r, int swp);
 
-/* these are the write functions, which shouldn't be off much interest.
+/* to accommadate for the possible larger statistical weight of UTA levels.
+ * the eqivalent 2j value for them are stored in r.ibase of the EN_RECORD for 
+ * UTA. The two functions here are wrappers to determine the 2j and ibase for 
+ * the level, depending on whether r.j < 0.
+ */
+int JFromENRecord(EN_RECORD *r);
+int IBaseFromENRecord(EN_RECORD *r);
+
+/* these are the write functions, which shouldn't be of much interest.
  * unless one needs to format the external data into FAC binary format.
  */
 int WriteFHeader(FILE *f, F_HEADER *fh);
@@ -349,8 +358,6 @@ int WriteDRHeader(FILE *f, DR_HEADER *h);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 
 int CheckEndian(F_HEADER *fh);
-int JFromENRecord(EN_RECORD *r);
-int IBaseFromENRecord(EN_RECORD *r);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
 int InitDBase(void);
