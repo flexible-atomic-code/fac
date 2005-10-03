@@ -510,7 +510,11 @@ configuration array.
 in version 0.7.6, and it becomes $\pm(100\times n + l)$, where $n$ and $l$ are
 the principle quantum number and orbital angular number of the valence
 electron, and the $\pm$ sign indicates an even ($+$) or odd ($-$) parity state.
-\item[\texttt{short j}:] 2 $\times$ the total angular momentum of the level.
+\item[\texttt{short j}:] 2 $\times$ the total angular momentum of the
+  level. In UTA mode, \texttt{j} is supposed to be the statistical weight
+  minus 1 of the UTA level. However, because a \texttt{short} variable is
+  sometimes insufficient to store that value, the code stores it in
+  \texttt{ibase} instead. In this case, \texttt{j} is always $-1$.
 \item[\texttt{int ilev}:] The index of the level.
 \item[\texttt{int ibase}:] The index of the base level. The base level
   obtained by peeling off the valence electron, and the resulting levels must
@@ -1103,7 +1107,9 @@ always 0. For the second part, the type is encoded as $10000\times n_0 +
 the electron making the transition, and $n_2$ is the final principle quantum
 number. If $n_0 \ne 0$, this transition is the so called dielectronic
 recombination satellite line, which have a spectator electron at the orbital
-with principle quantum number $n_0$.
+with principle quantum number $n_0$. If $n_0=n_1=0$, then the line is
+radiative recombination continuum onto the orbital with principal quantum
+number $n_2$. 
 \end{dbdesc}
 
 \subsection{\texttt{SP\_RECORD}}
@@ -1114,6 +1120,8 @@ typedef struct _SP_RECORD_ {
   int upper;
   float energy;
   float strength;
+  float rrate;
+  float trate;
 } SP_RECORD;
 \end{verbatim}
 
@@ -1130,6 +1138,9 @@ transition energy in eV.
 \item[\texttt{float strength}:] For the level population table, this is the
 concentration of the level. For the line emissivity, this is the line
 luminosity in photons/s. 
+\item[\texttt{float rrate}:] The radiative transition rate from \key{upper} to
+  \key{lower}. 
+\item[\texttt{float trate}:] The total decay rate of \key{upper}.
 \end{dbdesc}
 
 \subsection{\texttt{SP\_EXTRA}}
@@ -1364,10 +1375,10 @@ the rates are tabulated in this block.
 typedef struct _DR_RECORD_ {
   int ilev;
   int flev;
-  short ibase;
-  short fbase;
-  short vl;
-  short j;
+  int ibase;
+  int fbase;
+  int vl;
+  int j;
   float energy;
   float etrans;
   float br;
@@ -1382,13 +1393,13 @@ typedef struct _DR_RECORD_ {
 (either autoionization or radiative) of the autoionizing state. For the total
 DR strength, this variable is always -1, since the result is the sum of all
 radiative stabilazation routes.
-\item[\texttt{short ibase}:] The level index of the core for the resonance
+\item[\texttt{int ibase}:] The level index of the core for the resonance
 state. 
-\item[\texttt{short fbase}:] The level index of the core for the final
+\item[\texttt{int fbase}:] The level index of the core for the final
 state, if applicable.
-\item[\texttt{short vl}:] The orbital angular momentum of the captured
+\item[\texttt{int vl}:] The orbital angular momentum of the captured
 electron. 
-\item[\texttt{short j}:] The $2j$ value of the autoionizaing state.
+\item[\texttt{int j}:] The $2j$ value of the autoionizaing state.
 \item[\texttt{float energy}:] The energy of the autoionizing state relative to
 the recombining state, whose energy is given in the \texttt{DR\_HEADER}.
 \item[\texttt{float etrans}:] The transition energy from \texttt{ilev} to

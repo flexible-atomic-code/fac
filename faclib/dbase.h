@@ -56,8 +56,8 @@ typedef struct _EN_RECORD_ {
   (sizeof(short)*2+sizeof(int)*2+sizeof(double)+LNCOMPLEX+LSNAME+LNAME)
 
 typedef struct _EN_SRECORD_ {
-  short p;
-  short j;
+  int p;
+  int j;
   double energy;
 } EN_SRECORD;
 
@@ -236,8 +236,10 @@ typedef struct _SP_RECORD_ {
   int upper;
   float energy;
   float strength;
+  float rrate;
+  float trate;
 } SP_RECORD;
-#define SIZE_SP_RECORD (sizeof(int)+sizeof(int)+sizeof(float)+sizeof(float))
+#define SIZE_SP_RECORD (sizeof(int)+sizeof(int)+sizeof(float)*4)
 
 typedef struct _SP_EXTRA_ {
   float sdev;
@@ -287,10 +289,10 @@ typedef struct _DR_HEADER_ {
 typedef struct _DR_RECORD_ {
   int ilev;
   int flev;
-  short ibase;
-  short fbase;
-  short vl;
-  short j;
+  int ibase;
+  int fbase;
+  int vl;
+  int j;
   float energy;
   float etrans;
   float br;
@@ -347,6 +349,8 @@ int WriteDRHeader(FILE *f, DR_HEADER *h);
 int WriteENRecord(FILE *f, EN_RECORD *r);
 
 int CheckEndian(F_HEADER *fh);
+int JFromENRecord(EN_RECORD *r);
+int IBaseFromENRecord(EN_RECORD *r);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
 int InitDBase(void);
