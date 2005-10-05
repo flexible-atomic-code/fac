@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.84 2005/10/03 23:53:57 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.85 2005/10/05 18:52:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -310,22 +310,18 @@ int SwapEndianSPRecord(SP_RECORD *r, SP_EXTRA *rx) {
 int SwapEndianRTHeader(RT_HEADER *h) {
   SwapEndian((char *) &(h->position), sizeof(long int));
   SwapEndian((char *) &(h->length), sizeof(long int));
-  SwapEndian((char *) &(h->nele), sizeof(int));
   SwapEndian((char *) &(h->ntransitions), sizeof(int));
-  SwapEndian((char *) &(h->iblock), sizeof(int));
-  SwapEndian((char *) &(h->ilev), sizeof(int));
   SwapEndian((char *) &(h->iedist), sizeof(int));
   SwapEndian((char *) &(h->np_edist), sizeof(int));
   SwapEndian((char *) &(h->eden), sizeof(float));
   SwapEndian((char *) &(h->ipdist), sizeof(int));
   SwapEndian((char *) &(h->np_pdist), sizeof(int));
   SwapEndian((char *) &(h->pden), sizeof(float));
-  SwapEndian((char *) &(h->nb), sizeof(float));
-  SwapEndian((char *) &(h->stwt), sizeof(float));
   return 0;
 }
 
 int SwapEndianRTRecord(RT_RECORD *r) {
+  SwapEndian((char *) &(r->dir), sizeof(int));
   SwapEndian((char *) &(r->iblock), sizeof(int));
   SwapEndian((char *) &(r->nb), sizeof(float));
   SwapEndian((char *) &(r->tr), sizeof(float));
@@ -899,7 +895,7 @@ int ReadSPRecordOld(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
 int ReadRTHeaderOld(FILE *f, RT_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(RT_HEADER), 1, f);
+  n = fread(h, sizeof(RT_HEADER)-8, 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianRTHeader(h);
   m = sizeof(RT_HEADER);
@@ -936,7 +932,7 @@ int ReadRTHeaderOld(FILE *f, RT_HEADER *h, int swp) {
 int ReadRTRecordOld(FILE *f, RT_RECORD *r, int swp) {
   int n;
 
-  n = fread(r, sizeof(RT_RECORD), 1, f);
+  n = fread(r, sizeof(RT_RECORD)-4, 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianRTRecord(r);
   return sizeof(RT_RECORD);
@@ -1164,19 +1160,13 @@ int WriteRTHeader(FILE *f, RT_HEADER *h) {
          
   WSF0(h->position);
   WSF0(h->length);
-  WSF0(h->nele);
   WSF0(h->ntransitions);
-  WSF0(h->iblock);
-  WSF0(h->ilev);
-  WSF1(h->icomplex, sizeof(char), LNCOMPLEX);
   WSF0(h->iedist);
   WSF0(h->np_edist);
   WSF0(h->eden);
   WSF0(h->ipdist);
   WSF0(h->np_pdist);
   WSF0(h->pden);
-  WSF0(h->nb);
-  WSF0(h->stwt);
   WSF1(h->p_edist, sizeof(double), h->np_edist);
   WSF1(h->p_pdist, sizeof(double), h->np_pdist);
   
@@ -1415,6 +1405,7 @@ int WriteRTRecord(FILE *f, RT_RECORD *r) {
     WriteRTHeader(f, &rt_header);
   }
 
+  WSF0(r->dir);
   WSF0(r->iblock);
   WSF0(r->nb);
   WSF0(r->tr);
@@ -1969,19 +1960,13 @@ int ReadRTHeader(FILE *f, RT_HEADER *h, int swp) {
 
   RSF0(h->position);
   RSF0(h->length);
-  RSF0(h->nele);
   RSF0(h->ntransitions);
-  RSF0(h->iblock);
-  RSF0(h->ilev);
-  RSF1(h->icomplex, sizeof(char), LNCOMPLEX);
   RSF0(h->iedist);
   RSF0(h->np_edist);
   RSF0(h->eden);
   RSF0(h->ipdist);
   RSF0(h->np_pdist);
   RSF0(h->pden);
-  RSF0(h->nb);
-  RSF0(h->stwt);
 
   if (swp) SwapEndianRTHeader(h);
   
@@ -2008,6 +1993,7 @@ int ReadRTRecord(FILE *f, RT_RECORD *r, int swp) {
 
   if (version_read[DB_RT-1] < 109) return ReadRTRecordOld(f, r, swp);
 
+  RSF0(r->dir);
   RSF0(r->iblock);
   RSF0(r->nb);
   RSF0(r->tr);
@@ -3477,34 +3463,14 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   RT_RECORD r;
   int n, i;
   int nb, nele;
-  double dc, re, ea, ci, rr, pi;
 
   nb = 0;
   nele = -1;
   while (1) {
     n = ReadRTHeader(f1, &h, swp);
     if (n == 0) break;
-    if (h.nele != nele) {
-      if (nele != -1) {
-	fprintf(f2, "\n");
-	fprintf(f2, " SUM  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n",
-		rr, dc, re, pi, ea, ci, nele);
-	fprintf(f2, "\n");
-      }
-      nele = h.nele;
-      dc = 0.0;
-      re = 0.0;
-      ea = 0.0;
-      rr = 0.0;
-      pi = 0.0;
-      ci = 0.0;
-    }
     fprintf(f2, "\n");
-    fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
-    fprintf(f2, "IBLK\t= %d\n", h.iblock);
-    fprintf(f2, "ILEV\t= %d\n", h.ilev);
-    fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
     fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
     fprintf(f2, "EDIST\t= %d\n", h.iedist);
     fprintf(f2, "NPEDIS\t= %d\n", h.np_edist);
@@ -3520,30 +3486,20 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
     free(h.p_edist);
     free(h.p_pdist);
 
-    fprintf(f2, "DENS\t= %15.8E\n", h.nb);
-    fprintf(f2, "STWT\t= %15.8E\n", h.stwt);
-    fprintf(f2,"         NB         TR         CE");
-    fprintf(f2, "         RR         AI         CI\n");
+    fprintf(f2,"              NB          TR          CE");
+    fprintf(f2, "          RR          AI          CI\n");
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRTRecord(f1, &r, swp);
       if (n == 0) break;
-      fprintf(f2, "%4d  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %s\n",
-	      r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
-      if (r.iblock == -1) {
-	dc += r.ai;
-	rr += r.rr;
-      } else if (r.iblock == -2) {
-	re += r.ai;
-      } else if (r.iblock == -3) {
-	pi += r.rr;
-	ci += r.ci;
-	ea += r.ai;
+      if (r.ci < 0) {
+	r.ce *= HARTREE_EV;
       }
+      fprintf(f2, "%6d %4d  %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %s\n",
+	      r.dir, r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
     }
     nb += 1;
   }
-  fprintf(f2, "\n SUM  %10.4E %10.4E %10.4E %10.4E %10.4E %10.4E %3d\n\n",
-	  rr, dc, re, pi, ea, ci, nele);
+
   return nb;
 }
 

@@ -1172,11 +1172,7 @@ one superlevel depending on how the file is created.
 typedef struct _RT_HEADER_ { 
   long position;
   long length;
-  int nele;
   int ntransitions;
-  int iblock;
-  int ilev;
-  char icomplex[LNCOMPLEX];
   int iedist;
   int np_edist;
   double *p_edist;
@@ -1185,8 +1181,6 @@ typedef struct _RT_HEADER_ {
   int np_pdist;
   double *p_pdist;
   float pden;
-  float nb;
-  float stwt;
 } RT_HEADER;
 \end{verbatim}
 
@@ -1195,18 +1189,8 @@ typedef struct _RT_HEADER_ {
 file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
 length of the header.
-\item[\texttt{int nele}:] Number of electrons in the ion for this block.
 \item[\texttt{int ntransitions}:] The number of superlevel blocks from which
 the rates are tabulated in this block.
-\item[\texttt{int iblock}:] The index of the superlevel block to which the
-rates are tabulated.
-\item[\texttt{int ilev}:] If the superlevel to which the rates are tabulated
-in this block consists of only one atomic state, this is the index of that
-state within one ion given by the corresponding energy level file. If the
-superlevel contains more than one states, this number is the negative of the
-index of the first state in the superlevel block.
-\item[\texttt{char icomplex[LNCOMPLEX]}:] The configuration complex name for
-this superlevel block.
 \item[\texttt{int iedist}:] The type of electron energy distribution for the
 CRM model. At present, two types are supported. 0 for Maxwellian, and 1 for an
 Gaussian monoenergetic beam.
@@ -1275,15 +1259,13 @@ ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
 \item[\texttt{float pden}:] The photon energy density of the radiation field in
 unit of erg cm$^{-3}$. If the distribution is Black Body, this is the dilution
 factor.
-\item[\texttt{float nb}:] The concentration of the superlevel block to which
-the rates are tabulated.
-\item[\texttt{float stwt}:] The statistical weight of the superlevel block.
 \end{dbdesc}
 
 \subsection{\texttt{RT\_RECORD}}
 \index{RT\_RECORD}
 \begin{verbatim}
 typedef struct _RT_RECORD_ {
+  int dir;
   int iblock;
   float nb;
   float tr;
@@ -1296,6 +1278,9 @@ typedef struct _RT_RECORD_ {
 \end{verbatim}
 
 \begin{dbdesc}
+\item[\texttt{int dir}:] The direction of the transition. If \key{dir} is 0,
+  the rate is into this superlevel, if \key{dir} is 1, the rate is out of this
+  superlevel. 
 \item[\texttt{int iblock}:] The index of the superlevel block from which the
 rates originate.
 \item[\texttt{float nb}:] The concentration of the superlevel block from which
@@ -1310,35 +1295,6 @@ rates.
 \item[\texttt{char icomplex[LNCOMPLEX]}:] The configuration complex name of
 the superlevel block from which the rates originate.
 \end{dbdesc}
-
-\textbf{N.B.:} There are 3 records in each rate block that have negative first
-columns. The records before them and after them have different meanings. The
-\texttt{iblock} index of these 3 entries are $-1$, $-2$, $-3$ 
-respectively. Fot \texttt{iblock} = $-1$, \texttt{nb} is the total density of
-the ion which has one less electron than the one this superlevel block belongs
-to. \texttt{tr} is always 0.0. \texttt{ce} is always 0.0. \texttt{rr} is the
-the total radiative recombination rates to this superlevel block. \texttt{ai}
-is the total dielectronic capture rates to this superlevel
-block. \texttt{icomplex} is the number of electrons of the higher charge state
-converted to string. For \texttt{iblock} = $-2$, \texttt{nb} is the total
-density of the ion. \texttt{tr} is the total radiative transition rates to
-this superlevel block. \texttt{ce} is the total collisional excitation rates
-to this superlevel block. \texttt{rr} is always 0.0. \texttt{ai} is the part
-of total autoionization rates that originated from this ion, i.e., the
-resonant excitation rates. \texttt{icomplex} is the number of electrons of
-this ion converted to a string. For \texttt{iblock} = $-3$, \texttt{nb} is the
-total density of the ion with one more electron this one. \texttt{tr} is
-always 0.0. \texttt{ce} is always 0.0. \texttt{rr} is the total
-photoionization rates to this superlevel block. \texttt{ai} is the part of
-total autoionization rates that originated from the lower charge state, i.e.,
-the inner-shell excitation of the lower charge state which results in the
-autoionization, or excitation-autoionization.
-
-The records before these 3 records all have the level or block in the header
-as the final level of the transitions, while the records after these three all
-have the level or block in the header as the initial levels. The former is
-useful in determining the population of the levels by other levels, while the
-latter is useful in determining the branching routes of each level.
 
 \subsection{\texttt{DR\_HEADER}}
 \index{DR\_HEADER}

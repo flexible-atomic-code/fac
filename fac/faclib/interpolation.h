@@ -47,5 +47,6 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int n0, int n1, 
 		 int nmax, int imin, int imax);
+double voigt(double a, double v);
 
 #endif
