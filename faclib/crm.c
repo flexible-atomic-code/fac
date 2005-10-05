@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.90 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.91 2005/10/05 23:35:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2018,162 +2018,167 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	rt.ai = abt;
 	rt.ci = -1.0;
 	WriteRTRecord(f, &rt);
-	rt1.dir = 0;
-	rt2.dir = 0;
-	rt3.dir = 0;
-	rt1.tr = 0.0;
-	rt1.ce = 0.0;
-	rt1.rr = 0.0;
-	rt1.ai = 0.0;
-	rt1.ci = 0.0;
-	rt2.tr = 0.0;
-	rt2.ce = 0.0;
-	rt2.rr = 0.0;
-	rt2.ai = 0.0;
-	rt2.ci = 0.0;
-	rt3.tr = 0.0;
-	rt3.ce = 0.0;
-	rt3.rr = 0.0;
-	rt3.ai = 0.0;
-	rt3.ci = 0.0;
-	if (md < 0) {
+	if (md <= 0) {
 	  continue;
 	}	
-	index[0] = k;
-	for (j = 0; j < n; j++) {
-	  rt.iblock = j;
-	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
-	  if (abs(blk1->iion - blk->iion) > 1) continue;
-	  rt.nb = blk1->nb;
-	  index[2] = j;
-	  index[1] = i;
-	  rt.ce = 0.0;
-	  rt.tr = 0.0;
-	  rt.rr = 0.0;
-	  rt.ai = 0.0;
-	  rt.ci = 0.0;
-	  rt.dir = 0;
-	  if (blk1->iion == blk->iion) {
-	    d = (double *) MultiGet(&ce, index);
-	    if (d && *d) {
-	      rt.ce = *d;
-	    }
-	    d = (double *) MultiGet(&tr, index);
-	    if (d && *d) {
-	      rt.tr = *d;
-	    }
-	  } else {
-	    d = (double *) MultiGet(&rr, index);
-	    if (d && *d) {
-	      rt.rr = *d;
-	    }
-	    d = (double *) MultiGet(&ai, index);
-	    if (d && *d) {
-	      rt.ai = *d;
-	    }
-	    d = (double *) MultiGet(&ci, index);
-	    if (d && *d) {
-	      rt.ci = *d;
-	    }
-	  }
-	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
-	    if (md == 1) {
-	      StrNComplex(rt.icomplex, blk1->ncomplex);
-	      WriteRTRecord(f, &rt);
-            }
+	if (md & 1) {
+	  rt1.dir = 0;
+	  rt2.dir = 0;
+	  rt3.dir = 0;
+	  rt1.tr = 0.0;
+	  rt1.ce = 0.0;
+	  rt1.rr = 0.0;
+	  rt1.ai = 0.0;
+	  rt1.ci = 0.0;
+	  rt2.tr = 0.0;
+	  rt2.ce = 0.0;
+	  rt2.rr = 0.0;
+	  rt2.ai = 0.0;
+	  rt2.ci = 0.0;
+	  rt3.tr = 0.0;
+	  rt3.ce = 0.0;
+	  rt3.rr = 0.0;
+	  rt3.ai = 0.0;
+	  rt3.ci = 0.0;
+	  index[0] = k;
+	  for (j = 0; j < n; j++) {
+	    rt.iblock = j;
+	    blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	    if (abs(blk1->iion - blk->iion) > 1) continue;
+	    rt.nb = blk1->nb;
+	    index[2] = j;
+	    index[1] = i;
+	    rt.ce = 0.0;
+	    rt.tr = 0.0;
+	    rt.rr = 0.0;
+	    rt.ai = 0.0;
+	    rt.ci = 0.0;
+	    rt.dir = 0;
 	    if (blk1->iion == blk->iion) {
-	      rt2.tr += rt.tr;
-	      rt2.ce += rt.ce;
-	    } else if (blk1->iion == blk->iion-1) {
-	      rt1.rr += rt.rr;
-	      rt1.ai += rt.ai;
-	      rt1.ci += rt.ci;
-	    } else if (blk1->iion == blk->iion+1) {
-	      rt3.ci += rt.ci;
-	      rt3.rr += rt.rr;
-	      rt3.ai += rt.ai;
+	      d = (double *) MultiGet(&ce, index);
+	      if (d && *d) {
+		rt.ce = *d;
+	      }
+	      d = (double *) MultiGet(&tr, index);
+	      if (d && *d) {
+		rt.tr = *d;
+	      }
+	    } else {
+	      d = (double *) MultiGet(&rr, index);
+	      if (d && *d) {
+		rt.rr = *d;
+	      }
+	      d = (double *) MultiGet(&ai, index);
+	      if (d && *d) {
+		rt.ai = *d;
+	      }
+	      d = (double *) MultiGet(&ci, index);
+	      if (d && *d) {
+		rt.ci = *d;
+	      }
+	    }
+	    if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
+	      if (md & 4) {
+		StrNComplex(rt.icomplex, blk1->ncomplex);
+		WriteRTRecord(f, &rt);
+	      }
+	      if (blk1->iion == blk->iion) {
+		rt2.tr += rt.tr;
+		rt2.ce += rt.ce;
+	      } else if (blk1->iion == blk->iion-1) {
+		rt1.rr += rt.rr;
+		rt1.ai += rt.ai;
+		rt1.ci += rt.ci;
+	      } else if (blk1->iion == blk->iion+1) {
+		rt3.ci += rt.ci;
+		rt3.rr += rt.rr;
+		rt3.ai += rt.ai;
+	      }
 	    }
 	  }
+	  WriteRTRecord(f, &rt1);
+	  WriteRTRecord(f, &rt2);
+	  WriteRTRecord(f, &rt3);
 	}
-	WriteRTRecord(f, &rt1);
-	WriteRTRecord(f, &rt2);
-	WriteRTRecord(f, &rt3);
-	rt1.dir = 1;
-	rt2.dir = 1;
-	rt3.dir = 1;
-	rt1.tr = 0.0;
-	rt1.ce = 0.0;
-	rt1.rr = 0.0;
-	rt1.ai = 0.0;
-	rt1.ci = 0.0;
-	rt2.tr = 0.0;
-	rt2.ce = 0.0;
-	rt2.rr = 0.0;
-	rt2.ai = 0.0;
-	rt2.ci = 0.0;
-	rt3.tr = 0.0;
-	rt3.ce = 0.0;
-	rt3.rr = 0.0;
-	rt3.ai = 0.0;
-	rt3.ci = 0.0;
-	for (j = 0; j < n; j++) {
-	  rt.iblock = j;
-	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
-	  if (abs(blk1->iion - blk->iion) > 1) continue;
-	  rt.nb = blk1->nb;
-	  index[2] = j;
-	  index[1] = i;
-	  rt.ce = 0.0;
-	  rt.tr = 0.0;
-	  rt.rr = 0.0;
-	  rt.ai = 0.0;
-	  rt.ci = 0.0;
-	  rt.dir = 1;
-	  if (blk1->iion == blk->iion) {
-	    d = (double *) MultiGet(&cep, index);
-	    if (d && *d) {
-	      rt.ce = *d;
-	    }
-	    d = (double *) MultiGet(&trp, index);
-	    if (d && *d) {
-	      rt.tr = *d;
-	    }
-	  } else {
-	    d = (double *) MultiGet(&rrp, index);
-	    if (d && *d) {
-	      rt.rr = *d;
-	    }
-	    d = (double *) MultiGet(&aip, index);
-	    if (d && *d) {
-	      rt.ai = *d;
-	    }
-	    d = (double *) MultiGet(&cip, index);
-	    if (d && *d) {
-	      rt.ci = *d;
-	    }
-	  }
-	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
-	    if (md == 1) {
-	      StrNComplex(rt.icomplex, blk1->ncomplex);
-	      WriteRTRecord(f, &rt);
-	    }
+	if (md & 2) {
+	  rt1.dir = 1;
+	  rt2.dir = 1;
+	  rt3.dir = 1;
+	  rt1.tr = 0.0;
+	  rt1.ce = 0.0;
+	  rt1.rr = 0.0;
+	  rt1.ai = 0.0;
+	  rt1.ci = 0.0;
+	  rt2.tr = 0.0;
+	  rt2.ce = 0.0;
+	  rt2.rr = 0.0;
+	  rt2.ai = 0.0;
+	  rt2.ci = 0.0;
+	  rt3.tr = 0.0;
+	  rt3.ce = 0.0;
+	  rt3.rr = 0.0;
+	  rt3.ai = 0.0;
+	  rt3.ci = 0.0;
+	  index[0] = k;
+	  for (j = 0; j < n; j++) {
+	    rt.iblock = j;
+	    blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	    if (abs(blk1->iion - blk->iion) > 1) continue;
+	    rt.nb = blk1->nb;
+	    index[2] = j;
+	    index[1] = i;
+	    rt.ce = 0.0;
+	    rt.tr = 0.0;
+	    rt.rr = 0.0;
+	    rt.ai = 0.0;
+	    rt.ci = 0.0;
+	    rt.dir = 1;
 	    if (blk1->iion == blk->iion) {
-	      rt2.tr += rt.tr;
-	      rt2.ce += rt.ce;
-	    } else if (blk1->iion == blk->iion-1) {
-	      rt1.rr += rt.rr;
-	      rt1.ai += rt.ai;
-	      rt1.ci += rt.ci;
-	    } else if (blk1->iion == blk->iion+1) {
-	      rt3.ci += rt.ci;
-	      rt3.rr += rt.rr;
-	      rt3.ai += rt.ai;
+	      d = (double *) MultiGet(&cep, index);
+	      if (d && *d) {
+		rt.ce = *d;
+	      }
+	      d = (double *) MultiGet(&trp, index);
+	      if (d && *d) {
+		rt.tr = *d;
+	      }
+	    } else {
+	      d = (double *) MultiGet(&rrp, index);
+	      if (d && *d) {
+		rt.rr = *d;
+	      }
+	      d = (double *) MultiGet(&aip, index);
+	      if (d && *d) {
+		rt.ai = *d;
+	      }
+	      d = (double *) MultiGet(&cip, index);
+	      if (d && *d) {
+		rt.ci = *d;
+	      }
+	    }
+	    if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
+	      if (md & 4) {
+		StrNComplex(rt.icomplex, blk1->ncomplex);
+		WriteRTRecord(f, &rt);
+	      }
+	      if (blk1->iion == blk->iion) {
+		rt2.tr += rt.tr;
+		rt2.ce += rt.ce;
+	      } else if (blk1->iion == blk->iion-1) {
+		rt1.rr += rt.rr;
+		rt1.ai += rt.ai;
+		rt1.ci += rt.ci;
+	      } else if (blk1->iion == blk->iion+1) {
+		rt3.ci += rt.ci;
+		rt3.rr += rt.rr;
+		rt3.ai += rt.ai;
+	      }
 	    }
 	  }
+	  WriteRTRecord(f, &rt1);
+	  WriteRTRecord(f, &rt2);
+	  WriteRTRecord(f, &rt3);
 	}
-	WriteRTRecord(f, &rt1);
-	WriteRTRecord(f, &rt2);
-	WriteRTRecord(f, &rt3);
       }
     } else {
       index[0] = 0;
@@ -2197,161 +2202,165 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
       rt.ai = abt;
       rt.ci = -1.0;
       WriteRTRecord(f, &rt);
-      rt1.dir = 0;
-      rt2.dir = 0;
-      rt3.dir = 0;
-      rt1.tr = 0.0;
-      rt1.ce = 0.0;
-      rt1.rr = 0.0;
-      rt1.ai = 0.0;
-      rt1.ci = 0.0;
-      rt2.tr = 0.0;
-      rt2.ce = 0.0;
-      rt2.rr = 0.0;
-      rt2.ai = 0.0;
-      rt2.ci = 0.0;
-      rt3.tr = 0.0;
-      rt3.ce = 0.0;
-      rt3.rr = 0.0;
-      rt3.ai = 0.0;
-      rt3.ci = 0.0;
-      if (md < 0) {
+      if (md <= 0) {
 	continue;
       }
-      for (j = 0; j < n; j++) {
-	rt.iblock = j;
-	blk1 = (LBLOCK *) ArrayGet(blocks, j);
-	if (abs(blk1->iion - blk->iion) > 1) continue;
-	rt.nb = blk1->nb;
-	index[2] = j;
-	index[1] = i;
-	rt.ce = 0.0;
-	rt.tr = 0.0;
-	rt.rr = 0.0;
-	rt.ai = 0.0;
-	rt.ci = 0.0;
-	rt.dir = 0;
-	if (blk1->iion == blk->iion) {
-	  d = (double *) MultiGet(&ce, index);
-	  if (d && *d) {
-	    rt.ce = *d;
-	  } 
-	  d = (double *) MultiGet(&tr, index);
-	  if (d && *d) {
-	    rt.tr = *d;
-	  }
-	} else {
-	  d = (double *) MultiGet(&rr, index);
-	  if (d && *d) {
-	    rt.rr = *d;
-	  }
-	  d = (double *) MultiGet(&ai, index);
-	  if (d && *d) {
-  	    rt.ai = *d;
-  	  }
-	  d = (double *) MultiGet(&ci, index);
-	  if (d && *d) {
-	    rt.ci = *d;
-	  }
-	}
-	if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
-	  if (md == 1) {
-	    StrNComplex(rt.icomplex, blk1->ncomplex);
-	    WriteRTRecord(f, &rt);	
-	  }
+      if (md & 1) {
+	rt1.dir = 0;
+	rt2.dir = 0;
+	rt3.dir = 0;
+	rt1.tr = 0.0;
+	rt1.ce = 0.0;
+	rt1.rr = 0.0;
+	rt1.ai = 0.0;
+	rt1.ci = 0.0;
+	rt2.tr = 0.0;
+	rt2.ce = 0.0;
+	rt2.rr = 0.0;
+	rt2.ai = 0.0;
+	rt2.ci = 0.0;
+	rt3.tr = 0.0;
+	rt3.ce = 0.0;
+	rt3.rr = 0.0;
+	rt3.ai = 0.0;
+	rt3.ci = 0.0;      
+	for (j = 0; j < n; j++) {
+	  rt.iblock = j;
+	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	  if (abs(blk1->iion - blk->iion) > 1) continue;
+	  rt.nb = blk1->nb;
+	  index[2] = j;
+	  index[1] = i;
+	  rt.ce = 0.0;
+	  rt.tr = 0.0;
+	  rt.rr = 0.0;
+	  rt.ai = 0.0;
+	  rt.ci = 0.0;
+	  rt.dir = 0;
 	  if (blk1->iion == blk->iion) {
-	    rt2.tr += rt.tr;
-	    rt2.ce += rt.ce;
-	  } else if (blk1->iion == blk->iion-1) {
-	    rt1.rr += rt.rr;
-	    rt1.ai += rt.ai;
-	    rt1.ci += rt.ci;
-	  } else if (blk1->iion == blk->iion+1) {
-	    rt3.ci += rt.ci;
-	    rt3.rr += rt.rr;
-	    rt3.ai += rt.ai;
+	    d = (double *) MultiGet(&ce, index);
+	    if (d && *d) {
+	      rt.ce = *d;
+	    } 
+	    d = (double *) MultiGet(&tr, index);
+	    if (d && *d) {
+	      rt.tr = *d;
+	    }
+	  } else {
+	    d = (double *) MultiGet(&rr, index);
+	    if (d && *d) {
+	      rt.rr = *d;
+	    }
+	    d = (double *) MultiGet(&ai, index);
+	    if (d && *d) {
+	      rt.ai = *d;
+	    }
+	    d = (double *) MultiGet(&ci, index);
+	    if (d && *d) {
+	      rt.ci = *d;
+	    }
+	  }
+	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
+	    if (md & 4) {
+	      StrNComplex(rt.icomplex, blk1->ncomplex);
+	      WriteRTRecord(f, &rt);	
+	    }
+	    if (blk1->iion == blk->iion) {
+	      rt2.tr += rt.tr;
+	      rt2.ce += rt.ce;
+	    } else if (blk1->iion == blk->iion-1) {
+	      rt1.rr += rt.rr;
+	      rt1.ai += rt.ai;
+	      rt1.ci += rt.ci;
+	    } else if (blk1->iion == blk->iion+1) {
+	      rt3.ci += rt.ci;
+	      rt3.rr += rt.rr;
+	      rt3.ai += rt.ai;
+	    }
 	  }
 	}
+	WriteRTRecord(f, &rt1);
+	WriteRTRecord(f, &rt2);
+	WriteRTRecord(f, &rt3);
       }
-      WriteRTRecord(f, &rt1);
-      WriteRTRecord(f, &rt2);
-      WriteRTRecord(f, &rt3);
-      rt1.dir = 1;
-      rt2.dir = 1;
-      rt3.dir = 1;
-      rt1.tr = 0.0;
-      rt1.ce = 0.0;
-      rt1.rr = 0.0;
-      rt1.ai = 0.0;
-      rt1.ci = 0.0;
-      rt2.tr = 0.0;
-      rt2.ce = 0.0;
-      rt2.rr = 0.0;
-      rt2.ai = 0.0;
-      rt2.ci = 0.0;
-      rt3.tr = 0.0;
-      rt3.ce = 0.0;
-      rt3.rr = 0.0;
-      rt3.ai = 0.0;
-      rt3.ci = 0.0;
-      for (j = 0; j < n; j++) {
-	rt.iblock = j;
-	if (abs(blk1->iion - blk->iion) > 1) continue;
-	blk1 = (LBLOCK *) ArrayGet(blocks, j);
-	rt.nb = blk1->nb;
-	index[2] = i;
-	index[1] = j;
-	rt.ce = 0.0;
-	rt.tr = 0.0;
-	rt.rr = 0.0;
-	rt.ai = 0.0;
-	rt.ci = 0.0;
-	rt.dir = 1;
-	if (blk1->iion == blk->iion) {
-	  d = (double *) MultiGet(&ce, index);
-	  if (d && *d) {
-	    rt.ce = *d;
-	  } 
-	  d = (double *) MultiGet(&tr, index);
-	  if (d && *d) {
-	    rt.tr = *d;
-	  }
-	} else {
-	  d = (double *) MultiGet(&rr, index);
-	  if (d && *d) {
-	    rt.rr = *d;
-	  }
-	  d = (double *) MultiGet(&ai, index);
-	  if (d && *d) {
-	    rt.ai = *d;
-	  }
-	  d = (double *) MultiGet(&ci, index);
-	  if (d && *d) {
-	    rt.ci = *d;
-	  }
-	}
-	if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
-	  if (md == 1) {
-	    StrNComplex(rt.icomplex, blk1->ncomplex);
-	    WriteRTRecord(f, &rt);
-	  }
+      if (md & 2) {
+	rt1.dir = 1;
+	rt2.dir = 1;
+	rt3.dir = 1;
+	rt1.tr = 0.0;
+	rt1.ce = 0.0;
+	rt1.rr = 0.0;
+	rt1.ai = 0.0;
+	rt1.ci = 0.0;
+	rt2.tr = 0.0;
+	rt2.ce = 0.0;
+	rt2.rr = 0.0;
+	rt2.ai = 0.0;
+	rt2.ci = 0.0;
+	rt3.tr = 0.0;
+	rt3.ce = 0.0;
+	rt3.rr = 0.0;
+	rt3.ai = 0.0;
+	rt3.ci = 0.0;
+	for (j = 0; j < n; j++) {
+	  rt.iblock = j;
+	  if (abs(blk1->iion - blk->iion) > 1) continue;
+	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	  rt.nb = blk1->nb;
+	  index[2] = i;
+	  index[1] = j;
+	  rt.ce = 0.0;
+	  rt.tr = 0.0;
+	  rt.rr = 0.0;
+	  rt.ai = 0.0;
+	  rt.ci = 0.0;
+	  rt.dir = 1;
 	  if (blk1->iion == blk->iion) {
-	    rt2.tr += rt.tr;
-	    rt2.ce += rt.ce;
-	  } else if (blk1->iion == blk->iion-1) {
-	    rt1.rr += rt.rr;
-	    rt1.ai += rt.ai;
-	    rt1.ci += rt.ci;
-	  } else if (blk1->iion == blk->iion+1) {
-	    rt3.ci += rt.ci;
-	    rt3.rr += rt.rr;
-	    rt3.ai += rt.ai;
+	    d = (double *) MultiGet(&ce, index);
+	    if (d && *d) {
+	      rt.ce = *d;
+	    } 
+	    d = (double *) MultiGet(&tr, index);
+	    if (d && *d) {
+	      rt.tr = *d;
+	    }
+	  } else {
+	    d = (double *) MultiGet(&rr, index);
+	    if (d && *d) {
+	      rt.rr = *d;
+	    }
+	    d = (double *) MultiGet(&ai, index);
+	    if (d && *d) {
+	      rt.ai = *d;
+	    }
+	    d = (double *) MultiGet(&ci, index);
+	    if (d && *d) {
+	      rt.ci = *d;
+	    }
 	  }
-	}
-      }	
-      WriteRTRecord(f, &rt1);
-      WriteRTRecord(f, &rt2);
-      WriteRTRecord(f, &rt3);
+	  if (rt.ce || rt.tr ||rt.rr || rt.ai || rt.ci) {
+	    if (md & 4) {
+	      StrNComplex(rt.icomplex, blk1->ncomplex);
+	      WriteRTRecord(f, &rt);
+	    }
+	    if (blk1->iion == blk->iion) {
+	      rt2.tr += rt.tr;
+	      rt2.ce += rt.ce;
+	    } else if (blk1->iion == blk->iion-1) {
+	      rt1.rr += rt.rr;
+	      rt1.ai += rt.ai;
+	      rt1.ci += rt.ci;
+	    } else if (blk1->iion == blk->iion+1) {
+	      rt3.ci += rt.ci;
+	      rt3.rr += rt.rr;
+	      rt3.ai += rt.ai;
+	    }
+	  }
+	}	
+	WriteRTRecord(f, &rt1);
+	WriteRTRecord(f, &rt2);
+	WriteRTRecord(f, &rt3);
+      }
     }
   }
   DeinitFile(f, &fhdr);
@@ -4570,7 +4579,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   double ne, ni, gpbf, gcbf, gaut, gpbb, gcbb, rtot;
   double zbar, m2, m3, adx, *xg, *eg, *yg[3], tmp;
   int nmaxt, *nmax, i, j, t, k, z, n, *ilev;
-  int swp1, swp2, swp3, m, nx, nions;
+  int swp1, swp2, swp3, m, nx, nions, nlevs;
   NCOMPLEX cmpx[MAXNCOMPLEX];
   F_HEADER fh1, fh2, fh3;
   SP_HEADER h1;
@@ -4633,7 +4642,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 
   sprintf(buf, "%s.elev", fn);
   f = fopen(buf, "w");
-  fprintf(f, "energy_levels %d\n", fh2.nblocks);
+  fprintf(f, "energy_levels %12d\n", 0);
   for (j = 0; j < fh2.nblocks; j++) {
     n = ReadRTHeader(f2, &h2, swp2);
     if (n == 0) break;
@@ -4758,8 +4767,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     eint += r3.ce*r3.nb/abt;
     pfn += r3.tr * exp(-r3.ce/te);
   }
-  fclose(f);
-
+  fprintf(f, "\n");
   eint1 = 0.0;
   for (i = 0; i < fh3.nblocks; i++) {
     n = ReadRTHeader(f3, &h2, swp3);
@@ -4771,14 +4779,15 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 	eint1 += r2.ce*HARTREE_EV*r2.nb/abt;
       }
     }
-  }
-  
+  }  
   nions = 0;
+  nlevs = 0;
   nmaxt = 0;
   zbar = 0;
   for (i = 0; i <= z; i++) {
     if (ab[i] > 0) {
       nions++;
+      nlevs += ilev[i];
       if (nmax[i] > nmaxt) nmaxt = nmax[i];
       zbar += ab[i]*(z - i);
       if (stot[i] > 0) {
@@ -4801,6 +4810,10 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     m2 += ab[i]*pow((z-i - zbar),2);
     m3 += ab[i]*pow((z-i - zbar),3);
   }
+  fseek(f, 0, SEEK_SET);
+  fprintf(f, "energy_levels %12d\n", nlevs);
+  fclose(f);
+
   sprintf(buf, "%s.spec", fn);
   f = fopen(buf, "w");
   adx = fabs(dx);
@@ -4876,6 +4889,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     fprintf(f, "%12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    xg[i], yg[0][i], yg[1][i], yg[2][i], yg[0][i]+yg[1][i]+yg[2][i]);
   }
+  fprintf(f, "\n");
   fclose(f);
 
   sprintf(buf, "%s.ions", fn);
@@ -4909,6 +4923,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     fprintf(f, "%12.5E %12.5E %12.5E %12.5E\n", 
 	    atot[i], acol[i], apho[i], aaut[i]);
   }
+  fprintf(f, "\n");
   fclose(f);
 
   fclose(f1);
