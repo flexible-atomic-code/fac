@@ -3650,13 +3650,11 @@ verbose mode is carried out, one must call \key{MemENTable} first. This
 function also exists in the module \mod{fac}.
 \end{fundesc}
 
-\begin{fundesc}{RateTable}{fn\opt{, cfg}}
+\begin{fundesc}{RateTable}{fn\opt{, cfg\opt{, m}}}
 Output rates for all processes included in the spectral model to the
 \key{DB\_RT} database file \var{fn}. It may contain an additional argument,
-which is a list of complex names. All states in the specified complexes must
-have a single data block in the output file, even if these states are within
-some superlevel block. Otherwise, each superlevel block has a single data
-block in the \key{DB\_RT} file.
+which is a list of complex names. \var{m} controls the amount of information
+to be output.
 \end{fundesc}
 
 \begin{fundesc}{RBeli}{Z, n, T}
@@ -3847,7 +3845,8 @@ photo-excitation rates are also set.
 \begin{fundesc}{SpecTable}{fn\opt{, rrc}}
 Output the level populations and line emissivities to the \key{DB\_SP}
 database file \var{fn}. If \var{rrc}=1, the radiative recombination continuum
-strength should also be included.
+strength should also be included. If \var{rrc}=$-1$, only level populations are
+output.
 \end{fundesc}
 
 \begin{fundesc}{TwoPhoton}{z, t}
