@@ -1,7 +1,7 @@
 #include "interpolation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.15 2005/04/07 21:27:57 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.16 2005/10/05 18:52:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1237,4 +1237,80 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   }
 
   return nb;
+}
+
+double voigt(double alpha, double v) {
+  double a[8], b[8], c[8];
+  double v2, v3, fac1, fac2;
+  double p1,p2,p3,p4,p5,p6,p7;
+  double o1,o2,o3,o4,o5,o6,o7;
+  double q1,q2;
+  double r1,r2;
+  double H, n, w, vw, vb;
+  int i;
+
+  a[1]=122.607931777104326;
+  a[2]=214.382388694706425;
+  a[3]=181.928533092181549;
+  a[4]=93.155580458134410;
+  a[5]=30.180142196210589;
+  a[6]=5.912626209773153;
+  a[7]=0.564189583562615;
+
+  b[1]=122.607931773875350;
+  b[2]=352.730625110963558;
+  b[3]=457.334478783897737;
+  b[4]=348.703917719495792;
+  b[5]=170.354001821091472;
+  b[6]=53.992906912940207;
+  b[7]=10.479857114260399;
+
+  c[1]=0.5641641;
+  c[2]=0.8718681;
+  c[3]=1.474395;
+  c[4]=-19.57862;
+  c[5]=802.4513;
+  c[6]=-4850.316;
+  c[7]=8031.468;
+ 
+  if (alpha <= 1e-3 && fabs(v) > 2.5) {
+    v2 = v*v;
+    v3 = 1.0;
+    fac1 = c[1];
+    fac2 = c[1] * (v2 - 1.0);     
+    for (i=1; i<=7; i++) {
+      v3     = v3 * v2;
+      fac1 = fac1 + c[i] / v3;
+      fac2 = fac2 + c[i] / v3 * (v2 - i);
+    }
+    H = exp(-v2) * (1. + fac2*alpha*alpha * (1. - 2.*v2)) + fac1 * (alpha/v2);
+  } else {
+    p1 = alpha;
+    o1 = -v;  
+    p2 = (p1 * alpha + o1 * v);
+    o2 = (o1 * alpha - p1 * v);
+    p3 = (p2 * alpha + o2 * v);
+    o3 = (o2 * alpha - p2 * v);
+    p4 = (p3 * alpha + o3 * v);
+    o4 = (o3 * alpha - p3 * v);
+    p5 = (p4 * alpha + o4 * v);
+    o5 = (o4 * alpha - p4 * v);
+    p6 = (p5 * alpha + o5 * v);
+    o6 = (o5 * alpha - p5 * v);
+    p7 = (p6 * alpha + o6 * v);
+    o7 = (o6 * alpha - p6 * v);
+    
+    q1 = a[1] + p1 * a[2] + p2 * a[3] + p3 * a[4] +
+      p4 * a[5] + p5 * a[6] + p6 * a[7];
+    r1 =        o1 * a[2] + o2 * a[3] + o3 * a[4] +
+      o4 * a[5] + o5 * a[6] + o6 * a[7];
+    q2 = b[1] + p1 * b[2] + p2 * b[3] + p3 * b[4] +
+      p4 * b[5] + p5 * b[6] + p6 * b[7] + p7;
+    r2 =        o1 * b[2] + o2 * b[3] + o3 * b[4] +
+      o4 * b[5] + o5 * b[6] + o6 * b[7] + o7;
+
+    H = (q1 * q2 + r1 * r2) / (q2 * q2 + r2 * r2);
+  }
+
+  return H/sqrt(PI);
 }

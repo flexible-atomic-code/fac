@@ -56,6 +56,7 @@ double RRFit(int z, int nele, double t);
 double DRFit(int z, int nele, double t);
 double NRRFit(int z, int nele, double t);
 double NDRFit(int z, int nele, double t);
+double BremssNR(int z, double te, double e);
 double PhFit2(int z, int nele, int is, double e);
 double CBeli(int z, int nele, double ene, 
 	     double *a, double *dir, double *err);

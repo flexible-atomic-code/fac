@@ -4,7 +4,8 @@ Version 1.1.0, 10/03/2005
 	3. add memory limits for the arrays used in radial.c
 	4. correct an error in the 1-body contribution to autoionization.
 	5. avoid overflow of 2j in UTA mode in the EN_DB file.
-	6. store statistical weight in the DB_RT header.
+	6. change the format of DB_RT file.
+	7. add output for the 4th NLTE workshop submission.
 	
 Version 1.0.9, 04/04/2005
 	1. modify dbase.c so that it is platform independent.	

@@ -248,11 +248,7 @@ typedef struct _SP_EXTRA_ {
 typedef struct _RT_HEADER_ { 
   long int position;
   long int length;
-  int nele;
   int ntransitions;
-  int iblock;
-  int ilev;
-  char icomplex[LNCOMPLEX];
   int iedist;
   int np_edist;
   double *p_edist;
@@ -261,11 +257,10 @@ typedef struct _RT_HEADER_ {
   int np_pdist;
   double *p_pdist;
   float pden;
-  float nb;
-  float stwt;
 } RT_HEADER;
 
 typedef struct _RT_RECORD_ {
+  int dir;
   int iblock;
   float nb;
   float tr;

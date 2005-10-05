@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.40 2005/04/01 00:17:48 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.41 2005/10/05 18:52:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -474,6 +474,26 @@ static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTabNLTE(PyObject *self, PyObject *args) {
+  char *fn1, *fn2, *fn3, *fn;
+  double xmin, xmax, dx;
+
+  if (scrm_file) {
+    SCRMStatement("TabNLTE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "ssssddd", &fn1, &fn2, &fn3, &fn, 
+			&xmin, &xmax, &dx)) 
+    return NULL;
+
+  TabNLTE(fn1, fn2, fn3, fn, xmin, xmax, dx);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}    
+  
 static PyObject *PAddIon(PyObject *self, PyObject *args) {
   char *fn;
   int i;
@@ -627,7 +647,7 @@ static PyObject *PReinitCRM(PyObject *self, PyObject *args) {
  
 static PyObject *PRateTable(PyObject *self, PyObject *args) { 
   PyObject *p;
-  int i, nc;
+  int i, nc, md;
   char **sc;
   char *fn;
     
@@ -638,7 +658,8 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
   }
   
   p = NULL;
-  if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
+  md = 0;
+  if (!PyArg_ParseTuple(args, "s|Oi", &fn, &p, &md)) return NULL;
   
   nc = 0;
   sc = NULL;
@@ -653,7 +674,7 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
     }
   }
   
-  RateTable(fn, nc, sc);
+  RateTable(fn, nc, sc, md);
 
   if (nc > 0) {
     free(sc);
@@ -716,6 +737,18 @@ static int ShellIndexFromString(PyObject *s) {
   else if (strcmp(c, "4s") == 0) ks = 7;
   else ks = 0;
   return ks;
+}
+
+static PyObject *PBremss(PyObject *self, PyObject *args) {
+  int z;
+  double te, e, a;
+  
+  e = -1.0;
+  if (!PyArg_ParseTuple(args, "id|d", &z, &te, &e)) return NULL;
+  
+  a = BremssNR(z, te, e);
+  
+  return Py_BuildValue("d", a);
 }
 
 static PyObject *PEPhFit(PyObject *self, PyObject *args) {
@@ -1076,8 +1109,10 @@ static struct PyMethodDef crm_methods[] = {
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
+  {"TabNLTE", PTabNLTE, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
+  {"Bremss", PBremss, METH_VARARGS},
   {"PhFit", PPhFit, METH_VARARGS},
   {"EPhFit", PEPhFit, METH_VARARGS},
   {"RRFit", PRRFit, METH_VARARGS},

@@ -8,6 +8,8 @@
 #include "array.h"
 #include "dbase.h"
 #include "rates.h"
+#include "nucleus.h"
+#include "interpolation.h"
 
 #define RATES_BLOCK   1024
 #define ION_BLOCK     4
@@ -128,7 +130,7 @@ int SetCIRates(int inv);
 int SetRRRates(int inv);
 int SetAIRates(int inv);
 int SetAIRatesInner(char *fn);
-int RateTable(char *fn, int nc, char *sc[]);
+int RateTable(char *fn, int nc, char *sc[], int md);
 int BlockMatrix(void);
 int BlockPopulation(void);
 double BlockRelaxation(int iter);
@@ -144,6 +146,8 @@ int DRStrength(char *fn, int nele, int mode, int ilev0);
 int DumpRates(char *fn, int k, int m, int imax, int a);
 int SetInnerAuger(int i);
 int SetExtrapolate(int e);
+void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
+	     double xmin, double xmax, double dx);
 
 #endif
 
