@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.92 2005/10/07 01:01:50 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.93 2005/10/07 18:37:30 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1678,11 +1678,11 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	dci[i][j] = malloc(sizeof(double)*m);
 	dai[i][j] = malloc(sizeof(double)*m);
 	for (q = 0; q < m; q++) {
-	  dce[i][j][m] = 0.0;
-	  dtr[i][j][m] = 0.0;
-	  drr[i][j][m] = 0.0;
-	  dci[i][j][m] = 0.0;
-	  dai[i][j][m] = 0.0;
+	  dce[i][j][q] = 0.0;
+	  dtr[i][j][q] = 0.0;
+	  drr[i][j][q] = 0.0;
+	  dci[i][j][q] = 0.0;
+	  dai[i][j][q] = 0.0;
 	}
       }
     }
