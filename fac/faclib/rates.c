@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.42 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.43 2005/10/27 18:42:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1006,7 +1006,20 @@ static double Gaussian(double e, double *p) {
 
   return x;
 }
-  
+
+static double SMaxwell(double e, double *p) {
+  const double c = 0.282095;
+  double x, y, sx, sy;
+
+  if (e > p[3] || e < p[2]) return 0.0;
+  x = e/p[0];
+  y = p[1]/p[0];
+  sx = sqrt(x);
+  sy = sqrt(y);
+  x = c*(exp(-(sx-sy)*(sx-sy))-exp(-(sx+sy)*(sx+sy)))/(sy*p[0]);
+  return x;
+}
+
 static double Maxwell(double e, double *p) {
   double x;
   const double maxwell_const = 1.12837967;
@@ -1156,6 +1169,15 @@ int SetEleDist(int i, int np, double *p) {
       p[5] = 1E-20*p[0];
     }
     break;    
+  case 4:
+    /* shifted Maxwellian */
+    if (p[3] <= 0.0) {
+      p[3] = Max(p[0], p[1])*100.0;
+    }
+    if (p[2] <= 0.0) {
+      p[2] = 1E-20;
+    }
+    break;
   default:
     break;
   }
@@ -1276,6 +1298,15 @@ int InitRates(void) {
   ele_dist[i].params[1] = 1.0E3;
   ele_dist[i].params[2] = 1E7;
   ele_dist[i].dist = PowerLaw;
+
+  i++; /* shifted Maxwellian */
+  ele_dist[i].nparams = 4;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*4);
+  ele_dist[i].params[0] = 1e1;
+  ele_dist[i].params[1] = 1e3;
+  ele_dist[i].params[2] = 1e-20;
+  ele_dist[i].params[3] = 1e5;  
+  ele_dist[i].dist = SMaxwell;
 
   i++;
 

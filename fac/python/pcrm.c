@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.41 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.42 2005/10/27 18:42:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -484,8 +484,9 @@ static PyObject *PTabNLTE(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ssssddd", &fn1, &fn2, &fn3, &fn, 
-			&xmin, &xmax, &dx)) 
+  fn3 = NULL;
+  if (!PyArg_ParseTuple(args, "sssddd|s", &fn1, &fn2, &fn, 
+			&xmin, &xmax, &dx, &fn3)) 
     return NULL;
 
   TabNLTE(fn1, fn2, fn3, fn, xmin, xmax, dx);

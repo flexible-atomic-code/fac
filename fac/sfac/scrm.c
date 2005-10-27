@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.27 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.28 2005/10/27 18:42:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -450,6 +450,26 @@ static int PRateTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PTabNLTE(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  char *fn3;
+  double xmin, xmax, dx;
+
+  if (argc < 6 || argc > 7) return -1;
+  xmin = atof(argv[3]);
+  xmax = atof(argv[4]);
+  dx = atof(argv[5]);
+  if (argc == 7) {
+    fn3 = argv[6];
+  } else {
+    fn3 = NULL;
+  }
+  
+  TabNLTE(argv[0], argv[1], fn3, argv[2], xmin, xmax, dx);
+  
+  return 0;
+}
+
 static int PSetAbund(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
   int nele;
@@ -568,6 +588,7 @@ static METHOD methods[] = {
   {"Cascade", PCascade, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
+  {"TabNLTE", PTabNLTE, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"ReinitCRM", PReinitCRM, METH_VARARGS},

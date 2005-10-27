@@ -3842,6 +3842,23 @@ Set the radiative transition rates. If \var{inv}=1, the inverse process,
 photo-excitation rates are also set.
 \end{fundesc}
 
+\begin{fundesc}{SetUTA}{m\opt{, ci}}
+Set the flag for configuration average models. If $m=1$, all calculations are
+carried out in the configuration average approximation. The radiative
+transition rates output contains three additional fields, the transition
+energy including the UTA shift,
+the Gausian standard deviation, and the correction to the line strengths due to
+the configuration interaction within the same non-relativisitc
+configurations. If $m=0$, which is the default,
+the usual detailed term accounting method is used. This function should be
+called in the beginning of the script, before \key{Config} function, since it
+disables the angular momentum coupling performed by \key{Config}. The optional
+argument \var{ci} indicates whether the configuration interaction correction
+factors should be included when reading the \key{DB\_TR} files. These 
+correction factors are always calculated in \key{TransitionTable} irrespective
+of the value of \var{ci}.
+\end{fundesc}
+
 \begin{fundesc}{SpecTable}{fn\opt{, rrc}}
 Output the level populations and line emissivities to the \key{DB\_SP}
 database file \var{fn}. If \var{rrc}=1, the radiative recombination continuum
