@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.93 2005/10/07 18:37:30 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.94 2005/10/27 18:42:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2329,6 +2329,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
     } else {
       index[0] = 0;
       rt.nb = blk->nb;
+      rt.iblock = i;
       StrNComplex(rt.icomplex, blk->ncomplex);
       if (!(blk->nb)) continue;
       rt.dir = IonIndex(ion, i, 0);
@@ -2420,8 +2421,8 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
       if ((md & 4) && (md & 2)) {
 	for (j = 0; j < n; j++) {
 	  rt.iblock = j;
-	  if (abs(blk1->iion - blk->iion) > 1) continue;
 	  blk1 = (LBLOCK *) ArrayGet(blocks, j);
+	  if (abs(blk1->iion - blk->iion) > 1) continue;
 	  rt.nb = blk1->nb;
 	  index[2] = i;
 	  index[1] = j;
@@ -4729,11 +4730,17 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 
   f1 = fopen(fn1, "r");
   f2 = fopen(fn2, "r");
-  f3 = fopen(fn3, "r");
+  if (fn3) {
+    f3 = fopen(fn3, "r");
+  } else {
+    f3 = NULL;
+  }
  
   ReadFHeader(f1, &fh1, &swp1);
   ReadFHeader(f2, &fh2, &swp2);  
-  ReadFHeader(f3, &fh3, &swp3);
+  if (f3) {
+    ReadFHeader(f3, &fh3, &swp3);
+  }
  
   z = (int) fh2.atom;
   nmax = malloc(sizeof(int)*(z+1));
@@ -4908,18 +4915,23 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     pfn += r3.tr * exp(-r3.ce/te);
   }
   fprintf(f, "\n");
-  eint1 = 0.0;
-  for (i = 0; i < fh3.nblocks; i++) {
-    n = ReadRTHeader(f3, &h2, swp3);
-    if (n == 0) break;    
-    te1 = h2.p_edist[0];
-    for (t = 0; t < h2.ntransitions; t++) {
-      n = ReadRTRecord(f3, &r2, swp3);
-      if (r2.ci < 0) {	
-	eint1 += r2.ce*HARTREE_EV*r2.nb/abt;
+  if (f3) {
+    eint1 = 0.0;
+    for (i = 0; i < fh3.nblocks; i++) {
+      n = ReadRTHeader(f3, &h2, swp3);
+      if (n == 0) break;    
+      te1 = h2.p_edist[0];
+      for (t = 0; t < h2.ntransitions; t++) {
+	n = ReadRTRecord(f3, &r2, swp3);
+	if (r2.ci < 0) {	
+	  eint1 += r2.ce*HARTREE_EV*r2.nb/abt;
+	}
       }
-    }
-  }  
+    }  
+  } else {
+    te1 = te+1.0;
+    eint1 = eint;
+  }
   nions = 0;
   nlevs = 0;
   nmaxt = 0;
@@ -5068,7 +5080,9 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 
   fclose(f1);
   fclose(f2);
-  fclose(f3);
+  if (f3) {
+    fclose(f3);
+  }
   free(nmax);
   free(ilev);
   free(ab);

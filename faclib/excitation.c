@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.85 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.86 2005/10/27 18:42:24 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -783,27 +783,33 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  nklp = nkl-1;
 	  s = 0.0;	  
 	  if (type >= CBMULTIPOLES) {
-	    b = pw_scratch.kl[nklp]-pw_scratch.kl[nklp-2];
-	    b = pow(dqk[nklp]/dqk[nklp-2], 1.0/b);
-	    if (b < 0.0 || b >= 1.0 ||IsNan(b)) {
-	      b = GetCoulombBetheAsymptotic(te, e1);
-	    }
+	    b = GetCoulombBetheAsymptotic(te, e1);
+	    if (b > XBORN0) b = -1.0;
+	    else b = 0.0;
 	    xb = xborn;
 	  } else if (type >= 0) {
 	    b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
-	    if (b < 0 || IsNan(b)) b = GetCoulombBetheAsymptotic(te, e1);
+	    if (b < 0 || IsNan(b)) {
+	      b = GetCoulombBetheAsymptotic(te, e1);
+	      if (b > XBORN0) b = -1.0;
+	      else b = 0.0;
+	    }
 	    xb = xborn1;
 	  } else {
 	    b = 0.0;
 	    xb = xborn;
 	  }
-	  s = dqk[nklp]*b;	  
-	  if (ite == 0 &&
-	      ((xb < 0 && rd && -xb < s/rd) ||
-	       (xb > 0 && xb < e1/te0))) {
+	  if (b < 0) {
 	    ieb = 1;
-	  } else {
-	    rq[ite][ie] = r + s;
+ 	  } else {
+  	    s = dqk[nklp]*b;	  
+	    if (ite == 0 &&
+	        ((xb < 0 && rd && -xb < s/rd) ||
+	         (xb > 0 && xb < e1/te0))) {
+	      ieb = 1;
+	    } else {
+	      rq[ite][ie] = r + s;
+	    }
 	  }
 	}
 	if (ieb) {
@@ -1050,39 +1056,44 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	  else xb = xborn;
 	  for (iq = 0; iq < nq; iq++) {
 	    if (type1 >= CBMULTIPOLES) {
-	      b = pw_scratch.kl[i]-pw_scratch.kl[i-2];
-	      b = pow(dqk[iq][i]/dqk[iq][i-2], 1.0/b);
-	      if (b < 0.0 || b >= 1.0 ||IsNan(b)) {
-		b = GetCoulombBetheAsymptotic(te, e1);
-	      }
+	      b = GetCoulombBetheAsymptotic(te, e1);
+	      if (b > XBORN0) b = -1.0;
+	      else b = 0.0;
 	    } else if (type1 >= 0) {
 	      if (abs(q[iq]) == 2) {
 		b = (GetCoulombBethe(0, ite, ie, type1, 1))[i];
 	      } else if (q[iq] == 0) {
 		b = (GetCoulombBethe(0, ite, ie, type1, 2))[i];
 	      }
-	      if (b < 0 || IsNan(b)) b = GetCoulombBetheAsymptotic(te, e1);
+	      if (b < 0 || IsNan(b)) {
+		b = GetCoulombBetheAsymptotic(te, e1);
+		if (b > XBORN0) b = -1.0;
+		else b = 0.0;
+	      }
 	    } else {	  
 	      b = 0.0;
 	    }
-	    s = dqk[iq][i]*b;
-	    rqt[iq] = s;
-	    if (xb < 0 && drq[iq][ite][ie]) {
-	      s /= drq[iq][ite][ie];
-	      if (s > r) r = s;
+	    if (b < 0) {
+	      ieb = 1;
+	    } else {
+	      s = dqk[iq][i]*b;
+	      rqt[iq] = s;
+	      if (xb < 0 && drq[iq][ite][ie]) {
+	        s /= drq[iq][ite][ie];
+	        if (s > r) r = s;
+	      }
+	    }
+	    if (ite == 0 &&
+	        ((xb < 0 && -xb < r) ||
+	         (xb > 0 && xb < e1/te0))) {
+	      ieb = 1;
+	    } else {
+	      for (iq = 0; iq < nq; iq++) {
+	        rq[iq][ite][ie] += rqt[iq];
+	      }
 	    }
 	  }
-	  if (ite == 0 &&
-	      ((xb < 0 && -xb < r) ||
-	       (xb > 0 && xb < e1/te0))) {
-	    ieb = 1;
-	  } else {
-	    for (iq = 0; iq < nq; iq++) {
-	      rq[iq][ite][ie] += rqt[iq];
-	    }
-	  }
-	}
-      
+        } 
 	if (ieb) {
 	  type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
 				     nq, q, rqt, 0);
