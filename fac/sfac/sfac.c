@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.85 2005/08/02 16:53:46 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.86 2005/10/28 21:28:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3465,6 +3465,7 @@ static METHOD methods[] = {
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
+  {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},

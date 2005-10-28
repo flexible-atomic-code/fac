@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.110 2005/10/03 20:42:34 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.111 2005/10/28 21:28:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4615,6 +4615,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
+  {"TRTable", PTransitionTable, METH_VARARGS}, 
   {"TransitionTable", PTransitionTable, METH_VARARGS}, 
   {"TRBranch", PTRBranch, METH_VARARGS}, 
   {"TRRateH", PTRRateH, METH_VARARGS},  
