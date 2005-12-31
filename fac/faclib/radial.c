@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.115 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: radial.c,v 1.116 2005/12/31 04:50:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2688,7 +2688,7 @@ double SelfEnergyRatio(ORBITAL *orb) {
   }
   a = Simpson(p, 0, npts-1);
   b = Simpson(q, 0, npts-1);
-  
+
   return b/a;
 }
 

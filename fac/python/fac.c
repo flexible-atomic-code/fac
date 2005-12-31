@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.111 2005/10/28 21:28:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.112 2005/12/31 04:50:15 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3744,10 +3744,14 @@ static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
 
   ierr = 1;
   if (!PyArg_ParseTuple(args, "ddid|i", &z, &e, &k, &r, &ierr)) return NULL;
-  e /= HARTREE_EV;
-  DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
-  
-  return Py_BuildValue("(ddddi)", p, q, u, v, ierr);
+  if (ierr < 0) {
+    e = RadialDiracCoulomb(1, &p, &q, &r, z, (int)e, k);
+    return Py_BuildValue("(ddd)", p, q, e);
+  } else {
+    e /= HARTREE_EV;
+    DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
+    return Py_BuildValue("(ddddi)", p, q, u, v, ierr);
+  }
 }
   
 static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {

@@ -1,3 +1,7 @@
+Version 1.1.1, 12/30/2005
+	1. change the argument of coulcc to have a small imaginary part for
+	DCOUL function. so that the results are ok for bound state energies.
+	
 Version 1.1.0, 10/03/2005
 	1. reimplement the StructureMBPT function.
 	2. add interface to njsym, and use that for general recoupling.

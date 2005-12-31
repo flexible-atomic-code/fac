@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.96 2005/10/03 20:42:33 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.97 2005/12/31 04:50:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -766,13 +766,11 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
   j = si->kstate;
   if (si->kgroup == sj->kgroup) { 
     if (ji2 == jj2 && ki2 == kj2) {
-      ResidualPotential(&r0, si->kcfg, sj->kcfg);
-      r += r0;
-      a = r0;
+      ResidualPotential(&a, si->kcfg, sj->kcfg);
+      r += a;
       r0 = QED1E(si->kcfg, sj->kcfg);
       r += r0;
     } 
-  
     if (si->kcfg == sj->kcfg) {
       r += lev1->energy;
       r += orbi->energy;
@@ -802,7 +800,7 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     r0 *= ang[i].coeff*(sd+se);
     a += r0;
   }
-  
+
   if (IsOdd((ji2 + jj1 + j)/2)) a = -a;
   r += a;
 

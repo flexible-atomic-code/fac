@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.86 2005/10/27 18:42:24 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.87 2005/12/31 04:50:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -637,7 +637,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   CEPK *cepk, *cepkp, *tmp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p;
   double *pkd, *pke, *pkdp, *pkep;
-  double r, rd, s, b;
+  double r, rd, s, b, a;
   double qk[MAXNKL], dqk[MAXNKL];
   double rq[MAXNTE][MAXNE], e1, te, te0;
   double *rqc, **p, *ptr;
@@ -782,16 +782,17 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	if (ieb == 0) {
 	  nklp = nkl-1;
 	  s = 0.0;	  
+	  a = dqk[nklp]/rd;
 	  if (type >= CBMULTIPOLES) {
 	    b = GetCoulombBetheAsymptotic(te, e1);
-	    if (b > XBORN0) b = -1.0;
+	    if (b*a > XBORN0) b = -1.0;
 	    else b = 0.0;
 	    xb = xborn;
 	  } else if (type >= 0) {
 	    b = (GetCoulombBethe(0, ite, ie, type, 1))[nklp];
 	    if (b < 0 || IsNan(b)) {
 	      b = GetCoulombBetheAsymptotic(te, e1);
-	      if (b > XBORN0) b = -1.0;
+	      if (b*a > XBORN0) b = -1.0;
 	      else b = 0.0;
 	    }
 	    xb = xborn1;
