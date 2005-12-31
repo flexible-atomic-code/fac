@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.78 2005/07/18 15:39:43 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.79 2005/12/31 04:50:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -47,8 +47,8 @@ double EnergyH(double z, double n, int ka) {
     
 double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa) {
-  int i, iordr1, iordr2, k, nr, nrfac;
-  double a, alfa, an1, an2, argr, b, bn, bign, bignmk;
+  int i, iordr1, iordr2, k, nr;
+  double a, alfa, an1, an2, argr, b, bn, bign, bignmk, nrfac;
   double eps, fac, facn, fden, ff, fg, fk, f1, f2, gamma;
   double ovlfac, rgamm1, rgamm2, rho, rhon, twogp1, zalfa;
   double *ta, *tb;
@@ -69,19 +69,20 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 
   energy = -(1.0 - eps)/FINE_STRUCTURE_CONST2;
   
-  nrfac = 1;
-  for (i = 1; i <= nr; i++) nrfac = nrfac*i;
+  nrfac = 0.0;
+  for (i = 1; i <= nr; i++) nrfac += log(i);
   
   argr = twogp1 + nr;
   rgamm1 = DLOGAM(argr);
-  rgamm1 = exp(rgamm1);
   argr = twogp1;
   rgamm2 = DLOGAM(argr);
-  rgamm2 = exp(rgamm2);
 
+  /*
   fac = - sqrt(rgamm1) / (rgamm2*sqrt((double)nrfac)) *
     sqrt(z/(2.0*bign*bign*(bign-kappa)));
-  
+  */
+  fac = -exp(0.5*rgamm1 - rgamm2 - 0.5*nrfac)*sqrt(z/(2.0*bign*bign*(bign-kappa)));
+
   if (kappa > 0) fac = -fac;
 
   fg = fac*sqrt(1.0 + eps);
@@ -127,7 +128,7 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
   q[0] = 0.0;
   fac = 2.0*z/bign;
   bignmk = bign - kappa;
-  for (i = 1; i < npts; i++) {
+  for (i = 0; i < npts; i++) {
     rho = fac * r[i];
     rhon = rho;
     k = 0;

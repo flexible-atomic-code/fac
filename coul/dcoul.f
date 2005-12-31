@@ -35,7 +35,11 @@ C     ierr error code returned by coulcc
       x0 = ki*r      
       if (e .lt. 0) then
          x = dcmplx(0.0, x0)
-         eta = dcmplx(0.0, 0.5+y)
+         if (inorm .eq. 1) then
+            eta = dcmplx(1D-5*(0.5+y), 0.5+y)
+         else
+            eta = dcmplx(0.0, 0.5+y)
+         endif
          mu = dcmplx(k - z/ki, 0.0)
          nu = dcmplx(0.5+y-x0, 0.0)
       else
@@ -53,7 +57,7 @@ C     ierr error code returned by coulcc
      +     11, kfn, ierr)
       if (e .lt. 0) then
          omega = IONE*(HALFPI*(lambda - y - 0.5) - sig(1))
-         if (inorm .eq. 1 .and. z > 0) then
+         if (inorm .gt. 0 .and. z > 0) then
             np = y - gam
             b1 = sqrt(z*c*(z/ki-k))*ki/z
             lam0 = np+1.0

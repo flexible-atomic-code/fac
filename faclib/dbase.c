@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.85 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.86 2005/12/31 04:50:14 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2505,18 +2505,29 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     return 0;
   } else {
     k = -ilev;
-    if (k >= 1000) k = 0;
-    nlevels = 0;
-    for (i = 0; i < fh.nblocks; i++) {
-      n = ReadENHeader(f, &h, swp);
-      if (n == 0) break;
-      if (h.nele == k) break;
-      nlevels += h.nlevels;
-      fseek(f, h.length, SEEK_CUR);
+    if (k == 1000) k = 0;
+    if (k < 1000) {
+      nlevels = 0;
+      for (i = 0; i < fh.nblocks; i++) {
+	n = ReadENHeader(f, &h, swp);
+	if (n == 0) break;
+	if (h.nele == k) break;
+	nlevels += h.nlevels;
+	fseek(f, h.length, SEEK_CUR);
+      }
+      fclose(f);
+      if (i == fh.nblocks) return -1;
+      return nlevels;
+    } else {
+      nlevels = 0;
+      for (i = 0; i < fh.nblocks; i++) {
+	n = ReadENHeader(f, &h, swp);
+	if (n == 0) break;
+	nlevels += h.nlevels;
+	fseek(f, h.length, SEEK_CUR);
+      }
+      return nlevels;
     }
-    fclose(f);
-    if (i == fh.nblocks) return -1;
-    return nlevels;
   }  
 }
 

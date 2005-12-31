@@ -227,7 +227,7 @@
 #define EXCTOL             5E-2
 #define XBORN              (-0.5)
 #define XBORN1             (-1.0)
-#define XBORN0             (5.0)
+#define XBORN0             (0.25)
 #define EBORN              100.0
 
 /* ionization */
