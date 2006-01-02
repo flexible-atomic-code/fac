@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.31 2005/03/14 18:33:30 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.32 2006/01/02 06:54:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -274,9 +274,9 @@ static int CompareTRDatum(const void *p1, const void *p2) {
   }
 }
 
-int SaveTransition(int nlow, int *low, int nup, int *up, 
-		   char *fn, int m) {
-  int i, j, k, n, jup;
+int SaveTransition0(int nlow, int *low, int nup, int *up, 
+		    char *fn, int m) {
+  int i, j, k, jup;
   FILE *f;
   LEVEL *lev1, *lev2;
   TR_RECORD r;
@@ -285,7 +285,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   F_HEADER fhdr;
   double *s, *et, *a, trd, gf;
   double e0, emin, emax;
-  int *alev;
   int ic0, ic1, nic0, nic1, *nc0, *nc1, j0, j1, ntr;
   int imin, imax, jmin, jmax, nrs0, nrs1, ir, ir0;
   double ep, em, wp, wm, w0, de, cp, cm;
@@ -300,25 +299,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   RAD_TIMING radt;
 #endif
   
-  n = 0;
-  if (nlow == 0 || nup == 0) {
-    n = GetNumLevels();
-    if (n <= 0) return -1;
-    alev = malloc(sizeof(int)*n);
-    if (!alev) return -1;
-    
-    for (i = 0; i < n; i++) alev[i] = i;
-
-    if (nlow == 0) {
-      nlow = n; 
-      low = alev;
-    }
-    if (nup == 0) {
-      nup = n;
-      up = alev;
-    }
-  }
-  
+  if (nlow <= 0 || nup <= 0) return -1;
   if (m == 1 || transition_option.mode == M_FR) {
     k = 0;
     emin = 1E10;
@@ -351,8 +332,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
       SetAWGrid(3, emin, emax);
     }
   }
-    
-  if (nlow <= 0 || nup <= 0) return -1;
   
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -543,10 +522,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-  ReinitRadial(1);
-  if (n > 0) {
-    free(alev);
-  }
 
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
@@ -585,6 +560,97 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   fprintf(perform_log, "\n");
   fflush(perform_log);
 #endif /* PERFORM_STATISTICS */
+
+  return 0;
+}
+
+int OverlapLowUp(int nlow, int *low, int nup, int *up) {
+  int i, j, n;
+  int *lowinup, *upinlow, *icom;
+
+  lowinup = (int *) malloc(sizeof(int)*nlow);
+  upinlow = (int *) malloc(sizeof(int)*nup);
+
+  for (i = 0; i < nlow; i++) {
+    lowinup[i] = -1;
+  }
+  for (i = 0; i < nup; i++) {
+    upinlow[i] = -1;
+  }
+  qsort(low, nlow, sizeof(int), CompareInt);
+  if (up != low) {
+    qsort(up, nup, sizeof(int), CompareInt);
+  }
+  for (i = 0; i < nlow; i++) {
+    lowinup[i] = IBisect(low[i], nup, up);    
+    if (lowinup[i] >= 0) {
+      upinlow[lowinup[i]] = i;
+    }
+  }
+  icom = (int *) malloc(sizeof(int)*nlow);
+  n = 0;
+  for (i = 0; i < nlow; i++) {
+    if (lowinup[i] >= 0) icom[n++] = low[i];
+  }
+  j = 0;
+  for (i = 0; i < nlow; i++) {
+    if (lowinup[i] < 0) {
+      low[j++] = low[i];
+    }
+  }
+  for (i = 0; i < n; i++) {
+    low[j++] = icom[i];
+  }
+  j = 0;
+  for (i = 0; i < nup; i++) {
+    if (upinlow[i] < 0) {
+      up[j++] = up[i];
+    }
+  }
+  for (i = 0; i < n; i++) {
+    up[j++] = icom[i];
+  }
+  
+  free(lowinup);
+  free(upinlow);
+  free(icom);
+
+  return n;
+}
+  
+int SaveTransition(int nlow, int *low, int nup, int *up,
+		   char *fn, int m) {
+  int n, *alev, i, nc;
+  
+  n = 0;
+  if (nlow == 0 || nup == 0) {
+    n = GetNumLevels();
+    if (n <= 0) return -1;
+    alev = malloc(sizeof(int)*n);
+    if (!alev) return -1;
+    
+    for (i = 0; i < n; i++) alev[i] = i;
+
+    if (nlow == 0) {
+      nlow = n; 
+      low = alev;
+    }
+    if (nup == 0) {
+      nup = n;
+      up = alev;
+    }
+  }
+  if (nlow <= 0 || nup <= 0) return -1;
+
+  nc = OverlapLowUp(nlow, low, nup, up);
+  SaveTransition0(nc, low+nlow-nc, nc, up+nup-nc, fn, m);
+  SaveTransition0(nc, low+nlow-nc, nup-nc, up, fn, m);
+  SaveTransition0(nup-nc, up, nc, low+nlow-nc, fn, m);
+  SaveTransition0(nlow-nc, low, nup, up, fn, m);
+  SaveTransition0(nup, up, nlow-nc, low, fn, m);
+
+  if (n > 0) free(alev);
+  ReinitRadial(1);
 
   return 0;
 }

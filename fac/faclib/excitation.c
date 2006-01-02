@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.87 2005/12/31 04:50:14 mfgu Exp $";
+static char *rcsid="$Id: excitation.c,v 1.88 2006/01/02 06:54:06 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1785,6 +1785,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   double emin, emax, e, c;
   double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
+  int nc, ilow, iup;
 
   iuta = IsUTA();
   if (iuta && msub) {
@@ -1810,7 +1811,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       up = alev;
     }
   }
-  
+
+  nc = OverlapLowUp(nlow, low, nup, up);
+
   emin = 1E10;
   emax = 1E-10;
   m = 0;
@@ -1819,6 +1822,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
       e = lev2->energy - lev1->energy;
+      if (i < nlow-nc || j < nup-nc) e = fabs(e);
       if (e > 0) m++;
       if (e < emin && e > 0) emin = e;
       if (e > emax) emax = e;
@@ -1921,6 +1925,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	e = lev2->energy - lev1->energy;
+	if (i < nlow-nc || j < nup-nc) e = fabs(e);
 	if (e < e0 || e >= e1) continue;
 	if (e < emin) emin = e;
 	if (e > emax) emax = e;
@@ -2037,19 +2042,28 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
-	e = lev2->energy - lev1->energy;
+	e = lev2->energy - lev1->energy;	
+	ilow = low[i];
+	iup = up[j];
+	if (i < nlow-nc || j < nup-nc) {
+	  if (e < 0) {
+	    ilow = up[j];
+	    iup = low[i];
+	    e = -e;
+	  }
+	}	    
 	if (e < e0 || e >= e1) continue;
 	if (iuta) {
-	  k = CollisionStrengthUTA(qkc, params, &e, bethe, low[i], up[j]);
+	  k = CollisionStrengthUTA(qkc, params, &e, bethe, ilow, iup);
 	} else {
-	  k = CollisionStrength(qkc, params, &e, bethe, low[i], up[j], msub); 
+	  k = CollisionStrength(qkc, params, &e, bethe, ilow, iup, msub); 
 	}
 	if (k < 0) continue;
 	r.bethe = bethe[0];
 	r.born[0] = bethe[1];
 	r.born[1] = bethe[2];
-	r.lower = low[i];
-	r.upper = up[j];
+	r.lower = ilow;
+	r.upper = iup;
 	r.nsub = k;
 	if (r.nsub > nsub) {
 	  r.params = (float *) realloc(r.params, sizeof(float)*r.nsub);
