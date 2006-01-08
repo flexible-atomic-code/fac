@@ -13,9 +13,9 @@ SetAtom('O')
 Config('g0', '1s2')
 Config('g1', '1s1 2*1')
 Config('g2', '1s1 3*1')
-Config('g3', '1s2 2*1')
 
-# Correlation configurations.
+# Correlation configurations
+Config('g3', '1s2 2*1')
 Config('g3', '1s2 3*1')
 Config('g3', '1s1 2*2')
 Config('g3', '1s1 2*1 3*1')
