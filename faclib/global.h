@@ -27,14 +27,6 @@
 /* define constants */
 #include "consts.h"
 
-/* choose multi-array implementation */
-/*
-#define MultiInit     NMultiInit 
-#define MultiGet      NMultiGet 
-#define MultiSet      NMultiSet 
-#define MultiFree     NMultiFree 
-#define MultiFreeData NMultiFreeData
-*/
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG
