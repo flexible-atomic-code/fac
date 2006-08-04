@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.1.0}\xspace}
+\newcommand{\facversion}{{1.1.1}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -887,9 +887,7 @@ expansion. The result is in atomic unit Hartree$^{-1}$.
 atomic units. It is related to photoionization and radiative recombination as
 (in atomic units):
 \begin{eqnarray}
-\sigma_{PI} &=& 2\pi\alpha\frac{1+\alpha^2\varepsilon}
-      {1+\frac{1}{2}\alpha^2\varepsilon}
-                 \frac{d f}{d E} \nonumber\\
+\sigma_{PI} &=& 2\pi\alpha\frac{d f}{d E} \nonumber\\
             &=& \frac{2\pi\alpha}{g_i}
 		 \frac{1+\alpha^2\varepsilon}{1+\frac{1}{2}\alpha^2 \varepsilon} 
 		 \frac{d(gf)}{d E} \nonumber\\
@@ -2271,9 +2269,11 @@ function be called before \key{OptimizeRadial} and after
 \key{ConfigEnergy(0)}, if the later is used.
 \end{fundesc}
 
-\begin{fundesc}{BasisTable}{fn}
+\begin{fundesc}{BasisTable}{fn\opt{,m}}
 Print out a table of basis wavefunctions and mixing coefficients in the file
-\var{fn}.
+\var{fn}. If \var{m} is 0, then the basis table for the ordinary atom is
+given, otherwise, the basis table for atom in magnetic and electric fields are
+given.
 \end{fundesc}
 
 \begin{fundesc}{CECross}{ifn, ofn, low, up, e\opt{, m}}
@@ -2301,6 +2301,15 @@ consistent with \var{ifn}
 Calculate the collision strength for the excitation of states in the
 configuration group list \var{low} to those in the group list\var{up}. The
 results are saved in the file \var{fn}.
+\end{fundesc}
+
+\begin{fundesc}{CETableEB}{fn, low, up\opt{, m}}
+Calculate the collision strength for the excitation of states in the
+configuration group list \var{low} to those in the group list\var{up}, but for
+atoms in magnetic and electric fields. The
+results are saved in the file \var{fn}. If \var{m} is 0, then incident
+electron is assumed to be isotropic, otherwise, cross sections at different
+incident directions are calculated.
 \end{fundesc}
 
 \begin{fundesc}{CETableMSub}{fn, low, up}
@@ -2959,6 +2968,13 @@ be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
 \end{fundesc}
 
+\begin{fundesc}{SetFields}{b, e, a\opt{, m}}
+Set the magnetic and electric fiedls. \var{b} is the magnetic fields in Gauss,
+\var{e} is the electrific fields in Volts/cm. \var{a} is the angle between the
+magnetic and electric fields. If the optional \var{m} is 1, then the
+diamagnetic effects is ignored in the Hamiltonian.
+\end{fundesc}
+
 \begin{fundesc}{SetHydrogenicNL}{\opt{n,\opt{l}}}
 Set the principle quantum number \var{n} and the orbital angular momentum
 \var{l}, beyond which, the hydrogenic approximation for the E1 multipole
@@ -3044,13 +3060,14 @@ average threshold energy of the transition array being considered. The default
 is 0.05 and 8.0 if this routine is not called.
 \end{fundesc}
 
-\begin{fundesc}{SetRadialGrid}{n\opt{, r0\opt{,r1}}}
+\begin{fundesc}{SetRadialGrid}{n\opt{, r0\opt{,r1}\opt{,rmin}}}
 Set the radial grid properties. \var{n} is the number of radial grid
 points. It must be an even number and less than the macro
 \key{MAXRP}. \var{r0} specifies the ratio of successive radial points near 
 origin, which is approximately logarithmic. \var{r1} specifies the number of
 mesh-points per oscillation wavelength for very high-$n$ orbitals at large 
-radii.
+radii. \var{rmin} divided by the nuclear charge is the starting point of the
+radial mesh.
 \end{fundesc}
 
 \begin{fundesc}{SetRRTEGrid}{g $\mid$ n\opt{, e0, e1}}
@@ -3213,6 +3230,12 @@ twice the actual value of the total angular momentum. The symmetry
 restrictions specified here also applies to the \key{StructureMBPT} function.
 \end{fundesc}
 
+\begin{fundesc}{StructureEB}{fn, g}
+Calculate the atomic structure for atom in magnetic and electric fields. The
+levels belong to the configuration group \var{g} are allowed to mix in the
+external fields.
+\end{fundesc}
+
 \begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2\opt{, n0}}
 There are five different forms of this function with different argument
 list. This is the primary form, and the rest are documented below. This
@@ -3337,6 +3360,15 @@ saved to file \var{fn}.
 Looking up the radiative decay rate from \var{upper} to \var{lower} and the
 total decay rate of \var{upper} in the binary file \var{fn}. It returns a
 Tuple consisting of the transition energy, partial decay rate, and total decay rate.
+\end{fundesc}
+
+\begin{fundesc}{TRTable}{fn, low, up\opt{, m}}
+Same as \key{TransitionTable}
+\end{fundesc}
+
+\begin{fundesc}{TRTableEB}{fn, lo, up\opt{, m}}
+Calculate radiative transition rates between levels in external magnetic and
+electric fields.
 \end{fundesc}
 
 \begin{fundesc}{TRRateH}{z, n0, l0, n1, l1\opt{, m}}
@@ -3481,12 +3513,12 @@ specifies which rate is output.
 \begin{description}
 \item[$m=0$]
 Dump the level indexes, 2J values, energies, etc. 
-The record for each level contains 9 fields of the type: short, int, int,
-int, short, short, short, double, double, double. They are number of electrons
+The record for each level contains 11 fields of the type: short, int, int,
+int, short, short, short, double double, double, double. They are number of electrons
 of the ion, level index, block index of the level, level index within the
 block, 2J value of the level, base level of the level, valence $nl$ of the
-level, energy, total decay rate, and branching ratio computed in \key{DRBranch}
-respectively. 
+level, energy, population, total decay rate, and branching ratio computed in
+\key{DRBranch} (if that has been called) respectively. 
 \item[$m=1$]
 Dump the radiative transition rates. Each record contains 4 fields of type:
 int, int, double, double. They are upper level index, lower level index, decay

@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.12 2005/10/01 05:42:55 mfgu Exp $";
+static char *rcsid="$Id: mbpt.c,v 1.13 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1159,7 +1159,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
       c = (p3*q1 - q3*p1)/(q1*p2 - p1*q2);
       b = (p3 - c*p2)/p1;
       a = y[k0] - b*t[k0] - c*t[k0]*t[k0];      
-      if (c <= 0 && 2.0*log(x[i])*c+b < -1.1) {
+      if (c <= 0 && 2.0*log(x[i])*c+b < -1.2) {
 	g = 1.0;
 	d = x[i]+1.0;
 	while (g > EPS3) {
@@ -2497,7 +2497,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   nb = RadialBasisMBPT(kmax, na, ga, &bas);
   bas1 = malloc(sizeof(int)*nb);
   free(ga);
-
+  
   tt1 = clock();
   dt = (tt1-tt0)/CLOCKS_PER_SEC;
   tt0 = tt1;
@@ -2522,17 +2522,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
   printf("CI Structure.\n");
   fflush(stdout);
   nlevels = GetNumLevels();
+  h = GetHamilton();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     meff[isym] = NULL;
     k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
     if (k == -1) continue;
-    meff[isym] = malloc(sizeof(MBPT_EFF));
+    meff[isym] = (MBPT_EFF *) malloc(sizeof(MBPT_EFF));
     if (k < 0) {
       meff[isym]->nbasis = 0;
       continue;
     }
     sym = GetSymmetry(isym);
-    h = GetHamilton();
     meff[isym]->h0 = malloc(sizeof(double)*h->hsize);
     memcpy(meff[isym]->h0, h->hamilton, sizeof(double)*h->hsize);
     meff[isym]->basis = malloc(sizeof(int)*h->n_basis);
@@ -2735,6 +2735,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
       fwrite(&k, sizeof(int), 1, f);
       continue;
     }
+    AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);
     h = GetHamilton();
     h0 = meff[isym]->h0;
     heff = meff[isym]->heff;
@@ -2830,7 +2831,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg,
     printf("Time = %12.5E\n", dt);
     fflush(stdout);
   }
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(fn, nlevels, -1);
 
   tt1 = clock();
@@ -3140,6 +3141,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	    fprintf(f2, "  %3d %3d %3d %3d %3d %12.5E %12.5E\n",
 		    isym, i, j, -1, ng[q], z1[q], z2[q]);
 	  }
+	  fflush(f2);
 	  heff[k0] += SumInterp1D(n, z1, x, t, y);
 	  if (i < j) heff[k1] += SumInterp1D(n, z2, x, t, y);
 	}
@@ -3159,7 +3161,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     free(heff);
     h->heff = NULL;
   }
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(fn, nlevels, -1);
   
  ERROR:

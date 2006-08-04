@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.39 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.40 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -262,45 +262,16 @@ static int DistributeElectronsShellNR(CONFIG **cfg, int ns, SHELL *shell,
   return ncfg;
 }
 
-/* 
-** FUNCTION:    DistributeElectrons
-** PURPOSE:     Decode a single string shell, distribute electrons
-**              among all physical shells if the configurations 
-**              are not the average configurations, otherwise, the
-**              average configurations is constructed with all 
-**              shells present, and the number of electrons returned.
-** INPUT:       {CONFIG **cfg},
-**              pointer to a pointer to CONFIG, which holds the 
-**              resulting configurations or average configurations.
-**              {double *nq},
-**              pointer to double, which will hold the total number of 
-**              electrons for the average configuration. it should be 
-**              passed in as NULL if the actual configurations to be
-**              constructed. 
-**              {char *},
-**              a single string shell. 
-** RETURN:      {int},
-**              if actual configurations to be constructed (nq == NULL),
-**              return the number of configurations constructed.
-**              if average configuration is to be determined,
-**              return the number of shells in the average configuration.
-** SIDE EFFECT: 
-** NOTE:        
-*/    
-int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
-  SHELL *shell;
+int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
   char token[128];
   int r, brkpos, quotepos, next;
   int nn, nkl, nkappa;
   int n[16];
   int kl[512];
   int kappa[1024];
-  int ncfg;
-  double dnq;
-  int *maxq;
   int i, j, t, k, kl2, ns;
   char *s;
-  
+    
   SetParserQuote("[", "]");
   SetParserBreak(spec_symbols);
   SetParserWhite("");
@@ -355,8 +326,8 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
       }
     }
     if (scfg[next] == '+' || scfg[next] == '-') next++;
-    dnq = atof(&(scfg[next]));
-    if (dnq == 0) dnq = 1;
+    *dnq = atof(&(scfg[next]));
+    if (*dnq == 0 && !(isdigit(scfg[next]))) *dnq = 1;
   } else if (quotepos == 0) {
     nkl = StrSplit(token, ',');
     if (nkl > 512) {
@@ -378,69 +349,43 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
       while (*s) s++;
       s++;
     }
-    dnq = atof(&(scfg[next]));
-    if (dnq == 0) dnq = 1;
+    *dnq = atof(&(scfg[next]));
+    if (*dnq == 0 && !(isdigit(scfg[next]))) *dnq = 1;
   } else {
     return -1;
   }
 
-  shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
+  *shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
   t = 0;
   for (i = nn-1; i >= 0; i--) {
     for (k = nkappa-1; k >= 0; k--) {
       kl2 = GetLFromKappa(kappa[k]);
       if (kl2/2 >= n[i]) continue;
-      shell[t].n = n[i];
-      shell[t].kappa = kappa[k];
+      (*shell)[t].n = n[i];
+      (*shell)[t].kappa = kappa[k];
       t++;
     }
   }
   ns = t;
 
   if (ns == 0) {
-    free(shell);
+    free(*shell);
     return -1;
   }
-
-  if (nq) {
-    *nq = dnq;
-    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
-    (*cfg)->n_shells = ns;
-    (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL)*ns);
-    memcpy((*cfg)->shells, shell, sizeof(SHELL)*ns);
-    free(shell);
-    return ns;
-  }
-
-  maxq = (int *) malloc(sizeof(int)*ns);
-  maxq[ns-1] = 0;
-  for (i = ns-2; i >= 0; i--) {
-    j = GetJFromKappa(shell[i+1].kappa);
-    maxq[i] = maxq[i+1] + j+1;
-  }
-
-  ncfg = DistributeElectronsShell(cfg, ns, shell, (int)dnq, maxq);
-
-  free(shell);
-  free(maxq);
-
-  return ncfg;
+  
+  return ns;
 }
 
-int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
-  SHELL *shell;
+int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
   char token[128];
   int r, brkpos, quotepos, next;
   int nn, nkl, nkappa;
   int n[16];
   int kl[512];
   int kappa[1024];
-  int ncfg;
-  double dnq;
-  int *maxq;
   int i, j, t, k, kl2, ns;
   char *s;
-  
+      
   SetParserQuote("[", "]");
   SetParserBreak(spec_symbols);
   SetParserWhite("");
@@ -490,8 +435,8 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
       kappa[nkappa++] = kl2;
     }
     if (scfg[next] == '+' || scfg[next] == '-') next++;
-    dnq = atof(&(scfg[next]));
-    if (dnq == 0) dnq = 1;
+    *dnq = atof(&(scfg[next]));
+    if (*dnq == 0 && !(isdigit(scfg[next]))) *dnq = 1;
   } else if (quotepos == 0) {
     nkl = StrSplit(token, ',');
     if (nkl > 512) {
@@ -508,30 +453,227 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
       while (*s) s++;
       s++;
     }
-    dnq = atof(&(scfg[next]));
-    if (dnq == 0) dnq = 1;
+    *dnq = atof(&(scfg[next]));
+    if (*dnq == 0 && !(isdigit(scfg[next]))) *dnq = 1;
   } else {
     return -1;
   }
 
-  shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
+  *shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
   t = 0;
   for (i = nn-1; i >= 0; i--) {
     for (k = nkappa-1; k >= 0; k--) {
       kl2 = kappa[k];
       if (kl2/2 >= n[i]) continue;
-      shell[t].n = n[i];
-      shell[t].kappa = kappa[k];
+      (*shell)[t].n = n[i];
+      (*shell)[t].kappa = kappa[k];
       t++;
     }
   }
   ns = t;
   
   if (ns == 0) {
-    free(shell);
+    free(*shell);
     return -1;
   }
 
+  return ns;
+}
+
+int GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m) {
+  int nc, i;
+  double dnq;
+  char *s;
+
+  nc = StrSplit(scfg, ';');
+  nc--;
+
+  *sr = (SHELL_RESTRICTION *) malloc(sizeof(SHELL_RESTRICTION)*nc);
+ 
+  for (i = 0; i < nc; i++) {     
+    while (*scfg) scfg++;
+    scfg++;
+    s = scfg;
+    (*sr)[i].nq = -1;
+    while (*s) {
+      switch (*s) {
+      case '=':
+	(*sr)[i].op = 0;
+	*s = '\0';
+	(*sr)[i].nq = atoi(s+1);
+	break;
+      case '<':
+	(*sr)[i].op = -1;
+	*s = '\0';
+	(*sr)[i].nq = atoi(s+1);
+	break;
+      case '>':
+	(*sr)[i].op = 1;
+	*s = '\0';
+	(*sr)[i].nq = atoi(s+1);
+	break;
+      default:
+	break;
+      }
+      s++;
+    }
+    if (m == 0) {
+      (*sr)[i].ns = ShellsFromString(scfg, &dnq, &((*sr)[i].shells));
+    } else {
+      (*sr)[i].ns = ShellsFromStringNR(scfg, &dnq, &((*sr)[i].shells));
+    }
+    if ((*sr)[i].nq < 0) {
+      (*sr)[i].op = 0;
+      (*sr)[i].nq = dnq;
+    }
+    scfg = s;
+  }
+  
+  return nc;
+}
+
+int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
+  int i, j, k, t, nq, c;
+  
+  for (k = 0; k < nc; k++) {
+    for (i = 0; i < ncfg; i++) {
+      nq = 0;
+      for (j = 0; j < cfg[i].n_shells; j++) {
+	for (t = 0; t < sr[k].ns; t++) {
+	  if (cfg[i].shells[j].n == sr[k].shells[t].n &&
+	      cfg[i].shells[j].kappa == sr[k].shells[t].kappa) {
+	    nq += cfg[i].shells[j].nq;
+	  }
+	}
+      }
+      switch (sr[k].op) {
+      case -1:
+	c = (nq < sr[k].nq);
+	break;
+      case 0:
+	c = (nq == sr[k].nq);
+	break;
+      case 1:
+	c = (nq > sr[k].nq);
+	break;
+      default:
+	c = 0;
+	break;
+      }
+      if (c == 0) {
+	if (cfg[i].n_shells > 0) {
+	  cfg[i].n_shells = 0;
+	  free(cfg[i].shells);
+	  cfg[i].shells = NULL;
+	}
+      }
+    }
+  }
+  
+  i = 0;
+  j = 0;
+  while (i < ncfg) {
+    if (cfg[i].n_shells == 0) {
+      i++;
+    } else {
+      cfg[j].n_shells = cfg[i].n_shells;
+      cfg[j].shells = cfg[i].shells;
+      j++;
+      i++;
+    }
+  }
+
+  return j;
+}
+  
+/* 
+** FUNCTION:    DistributeElectrons
+** PURPOSE:     Decode a single string shell, distribute electrons
+**              among all physical shells if the configurations 
+**              are not the average configurations, otherwise, the
+**              average configurations is constructed with all 
+**              shells present, and the number of electrons returned.
+** INPUT:       {CONFIG **cfg},
+**              pointer to a pointer to CONFIG, which holds the 
+**              resulting configurations or average configurations.
+**              {double *nq},
+**              pointer to double, which will hold the total number of 
+**              electrons for the average configuration. it should be 
+**              passed in as NULL if the actual configurations to be
+**              constructed. 
+**              {char *},
+**              a single string shell. 
+** RETURN:      {int},
+**              if actual configurations to be constructed (nq == NULL),
+**              return the number of configurations constructed.
+**              if average configuration is to be determined,
+**              return the number of shells in the average configuration.
+** SIDE EFFECT: 
+** NOTE:        
+*/    
+int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
+  SHELL *shell;
+  int ncfg, *maxq, ns, nc, i, j;
+  double dnq;
+  SHELL_RESTRICTION *sr;
+
+  nc = GetRestriction(scfg, &sr, 0);
+  
+  ns = ShellsFromString(scfg, &dnq, &shell);
+
+  if (ns <= 0) {
+    if (nc > 0) {
+      for (i = 0; i < nc; i++) {
+	free(sr[i].shells);
+      }
+      free(sr);
+    }
+    return ns;
+  }
+
+  if (nq) {
+    *nq = dnq;
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    (*cfg)->n_shells = ns;
+    (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL)*ns);
+    memcpy((*cfg)->shells, shell, sizeof(SHELL)*ns);
+    free(shell);
+    return ns;
+  }
+
+  maxq = (int *) malloc(sizeof(int)*ns);
+  maxq[ns-1] = 0;
+  for (i = ns-2; i >= 0; i--) {
+    j = GetJFromKappa(shell[i+1].kappa);
+    maxq[i] = maxq[i+1] + j+1;
+  }
+
+  ncfg = DistributeElectronsShell(cfg, ns, shell, (int)dnq, maxq);
+  
+  free(shell);
+  free(maxq);
+
+  if (nc > 0) {
+    ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
+    for (i = 0; i < nc; i++) {
+      free(sr[i].shells);
+    }
+    free(sr);
+  }
+
+  return ncfg;
+}
+
+int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
+  SHELL *shell;
+  int ncfg, *maxq, ns, nc, i;
+  double dnq;
+  SHELL_RESTRICTION *sr;
+
+  nc = GetRestriction(scfg, &sr, 1);
+  
+  ns = ShellsFromStringNR(scfg, &dnq, &shell);
+  
   maxq = (int *) malloc(sizeof(int)*ns);
   maxq[ns-1] = 0;
   for (i = ns-2; i >= 0; i--) {
@@ -542,6 +684,14 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
 
   free(shell);
   free(maxq);
+
+  if (nc > 0) {
+    ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
+    for (i = 0; i < nc; i++) {
+      free(sr[i].shells);
+    }
+    free(sr);
+  }
 
   return ncfg;
 }
@@ -570,7 +720,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   CONFIG **dcfg, **p1;
   double *dnq, *p2, a, b;
   char *s;
-  int ncfg, *dnc;  
+  int *isp, ncfg, *dnc;  
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
@@ -594,18 +744,25 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   }
 
   s = scfg;
+  isp = (int *) malloc(sizeof(int)*ns);  
+  isp[0] = 0;
+  for (i = 1; i < ns; i++) {
+    isp[i] = isp[i-1];
+    while (s[isp[i]]) isp[i]++;
+    isp[i]++;
+  }
   p1 = dcfg;
   for (i = 0; i < ns; i++) {
+    s = scfg + isp[i];
     while (*s == ' ' || *s == '\t') s++;
     dnc[i] = DistributeElectrons(p1, p2, s);
     if (dnc[i] <= 0) {
       return -1;
     }
-    while (*s) s++;
-    s++;
     p1++;
     if (p2) p2++;
   }
+  free(isp);
 
   if (!nq) {
     ncfg = dnc[0];
@@ -687,7 +844,7 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
   CONFIG **dcfg, **p1;
   double *dnq;
   char *s;
-  int ncfg, *dnc;  
+  int *isp, ncfg, *dnc;  
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
@@ -706,17 +863,24 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
   dnq = NULL;
 
   s = scfg;
+  isp = (int *) malloc(sizeof(int)*ns);  
+  isp[0] = 0;
+  for (i = 1; i < ns; i++) {
+    isp[i] = isp[i-1];
+    while (s[isp[i]]) isp[i]++;
+    isp[i]++;
+  }
   p1 = dcfg;
   for (i = 0; i < ns; i++) {
+    s = scfg + isp[i];
     while (*s == ' ' || *s == '\t') s++;
     dnc[i] = DistributeElectronsNR(p1, s);
     if (dnc[i] <= 0) {
       return -1;
     }
-    while (*s) s++;
-    s++;
     p1++;
   }
+  free(isp);
 
   ncfg = dnc[0];
   for (i = 1; i < ns; i++) ncfg *= dnc[i];

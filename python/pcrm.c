@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.42 2005/10/27 18:42:24 mfgu Exp $";
+static char *rcsid="$Id: pcrm.c,v 1.43 2006/08/04 07:43:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -287,6 +287,22 @@ static PyObject *PSetInnerAuger(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "i", &n)) return NULL;
   SetInnerAuger(n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetEMinAI(PyObject *self, PyObject *args) {
+  double e;
+  
+  if (scrm_file) {
+    SCRMStatement("SetEMinAI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &e)) return NULL;
+  SetEMinAI(e);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1013,6 +1029,26 @@ static PyObject *PDRStrength(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRydBranch(PyObject *self, PyObject *args) {
+  char *fn, *ofn;
+  int n0, n1;
+
+  if (scrm_file) {
+    SCRMStatement("RydBranch", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  n1 = -1;
+  if (!PyArg_ParseTuple(args, "ssi|i", &fn, &ofn, &n0, &n1)) 
+    return NULL;
+  
+  RydBranch(fn, ofn, n0, n1);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PTwoPhoton(PyObject *self, PyObject *args) {
   int t;
   double z;
@@ -1075,12 +1111,32 @@ static PyObject *PSetUTA(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PDRSuppression(PyObject *self, PyObject *args) {
+  char *fn;
+  int nmax;
+  double z;
+
+  if (scrm_file) {
+    SCRMStatement("DRSuppression", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "sdi", &fn, &z, &nmax)) return NULL;
+  
+  DRSuppression(fn, z, nmax);
+      
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
+  {"DRSuppression", PDRSuppression, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
   {"IonDensity", PIonDensity, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
@@ -1088,6 +1144,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
+  {"SetEMinAI", PSetEMinAI, METH_VARARGS},
   {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
@@ -1135,6 +1192,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
+  {"RydBranch", PRydBranch, METH_VARARGS},
   {NULL, NULL}
 };
 

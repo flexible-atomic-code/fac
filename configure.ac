@@ -110,7 +110,7 @@ then
 fi
 if test -n "$G77"
 then
-  FFLAGS="$FFLAGS -fno-strength-reduce"
+  FFLAGS="$FFLAGS -ff2c -fno-strength-reduce"
   if test -n "$gcc_warnings"
   then
     FFLAGS="$FFLAGS -Wall"

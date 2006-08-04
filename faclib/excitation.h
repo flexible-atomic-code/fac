@@ -40,8 +40,10 @@ int InitExcitation(void);
 int ReinitExcitation(int m);
 int SetCETEGrid(int n, double emin, double emax);
 int SetCETEGridDetail(int n, double *x);
+int SetAngleGrid(int m, int n, double xmin, double xmax);
+int SetAngleGridDetail(int m, int n, double *xg);
 int SetCEPWFile(char *fn);
-int SetCEBorn(double e, double x, double x1);
+int SetCEBorn(double e, double x, double x1, double x0);
 void SetCELQR(int m);
 void SetCELMax(int m);
 void SetCELCB(int m);
@@ -74,8 +76,15 @@ int CERadialQkMSub(double *rq, double te, int k0, int k1,
 		   int k2, int k3, int k, int kp);
 void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 		       double *y, double *dy, int ndy, void *extra);
+int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
+			 int lower, int upper);
 int CollisionStrength(double *s, double *p, double *e, double *bethe,
 		      int lower, int upper, int msub);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
+int CollisionStrengthEB(double *s, double *e, double *bethe, int lower, int upper);
+int CollisionStrengthEBD(double *s, double *e, double *bethe, double *born,
+			 int lower, int upper);
+int SaveExcitationEB(int nlow, int *low, int nup, int *up, char *fn);
+int SaveExcitationEBD(int nlow, int *low, int nup, int *up, char *fn);
 
 #endif

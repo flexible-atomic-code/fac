@@ -10,6 +10,7 @@
 #include "rates.h"
 #include "nucleus.h"
 #include "interpolation.h"
+#include "coulomb.h"
 
 #define RATES_BLOCK   1024
 #define ION_BLOCK     4
@@ -148,6 +149,9 @@ int SetInnerAuger(int i);
 int SetExtrapolate(int e);
 void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 	     double xmin, double xmax, double dx);
+int SetEMinAI(double e);
+int DRSuppression(char *fn, double z, int nmax);
+int RydBranch(char *fn, char *ofn, int n0, int n1);
 
 #endif
 

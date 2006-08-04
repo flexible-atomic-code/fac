@@ -12,5 +12,6 @@ int SetTEGrid(double *te, double *logte, int n, double emin, double emax);
 int SetEGridDetail(double *e, double *log_e, int n, double *xg);
 int SetEGrid(double *e, double *log_e, 
 	     int n, double emin, double emax, double eth);
+int SetLinearGrid(double *x, int n, double xmin, double xmax);
 
 #endif

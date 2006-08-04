@@ -119,7 +119,7 @@ C
       COMPLEX*16 LOGAM, ZTMP
 
 C
-      COMMON       /STEED/ RERR,NFP,N11,NPQ(2),N20,KAS(2)
+      COMMON       /CSTEED/ RERR,NFP,N11,NPQ(2),N20,KAS(2)
 C***  common blocks are for information & storage only.
 C     (they are not essential to working of the code)
 C      COMMON /RCFCM1/ PK,EK,CLGAA,CLGAB,CLGBB,DSIG,TPK1,W,RL,FCL1,Q,GAM,

@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.92 2005/12/31 04:50:14 mfgu Exp $";
+static char *rcsid="$Id: recombination.c,v 1.93 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -285,7 +285,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(fn, nlevels, -1);
 
   return 0;
@@ -371,7 +371,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(fn, nlevels, -1);
 
   return 0;
@@ -1104,8 +1104,6 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
   
-  *e = lev1->energy - lev2->energy;
-  if (*e <= 0.0) return -1;
   log_e = log(*e);
   
   idatum = NULL;
@@ -1211,8 +1209,6 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
   
-  *e = lev1->energy - lev2->energy;
-  if (*e <= 0.0) return -1;
   log_e = log(*e);
 
   i = lev1->pb;
@@ -1861,7 +1857,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 }
       
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
-	   int channel, int msub) {
+	   double eref, int msub) {
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
   ANGULAR_TIMING angt;
@@ -1892,6 +1888,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 
   if (nup <= 0 || nlow <= 0) return -1;
 
+  eref /= HARTREE_EV;
   emin = 1E10;
   emax = 1E-10;
   k = 0;
@@ -1900,6 +1897,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
       a = lev1->energy - lev2->energy;
+      if (a < 0) a -= eref;
       if (a > 0) k++;
       if (a < emin && a > 0) emin = a;
       if (a > emax) emax = a;
@@ -1938,10 +1936,10 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   fhdr.atom = GetAtomicNumber();
   if (!msub) {
     ai_hdr.nele = GetNumElectrons(low[0]);
-    ai_hdr.channel = channel;
+    ai_hdr.emin = eref;
   } else {
     ai_hdr1.nele = GetNumElectrons(low[0]);
-    ai_hdr1.channel = channel;
+    ai_hdr1.emin = eref;
   }
   f = OpenFile(fn, &fhdr);
 
@@ -1957,6 +1955,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	a = lev1->energy - lev2->energy;
+	if (a < 0) a -= eref;
 	if (a < e0 || a >= e1) continue;
 	if (a < emin) emin = a;
 	if (a > emax) emax = a;
@@ -1999,6 +1998,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       for (j = 0; j < nup; j++) {
 	lev2 = GetLevel(up[j]);
 	e = lev1->energy - lev2->energy;
+	if (e < 0 && lev1->ibase != up[j]) e -= eref;
 	if (e < e0 || e >= e1) continue;
 	if (!msub) {
 	  if (iuta) {

@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.79 2005/12/31 04:50:14 mfgu Exp $";
+static char *rcsid="$Id: orbital.c,v 1.80 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1330,7 +1330,7 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
 int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   int i, kl, nodes;
   int i2, i2p, i2m, i2p2, i2m2;
-  double *p, po, qo, e;
+  double *p, po, qo, e, po1;
   double dfact, da, cs, si, phase0;
 
   e = orb->energy;
@@ -1365,6 +1365,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
 	+ 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
   qo *= dfact;
   po = p[i2];
+  po1 = p[i2p];
 
   da = Amplitude(p, e, orb->kappa, pot, i2);
   cs = p[i2] * qo - da*po;
@@ -1378,13 +1379,15 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
     phase0 = (phase0 < PI)?(phase0 + PI):(phase0-PI);
     dfact = -dfact;
   }
+  Phase(p, pot, i2, phase0);
   
-  for (i = 0; i < i2; i++) {
+  p[i2] = po;
+  p[i2p] = po1;
+  for (i = 0; i < i2p2; i++) {
     p[i] *= dfact;
   }
     
-  Phase(p, pot, i2, phase0);
-  orb->ilast = i2m;
+  orb->ilast = i2p;
   orb->wfun = p;
   orb->phase = NULL;
 
@@ -1889,8 +1892,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   if (pot->N > 0) z = (z - pot->N + 1);
   if (pot->flag == 0) pot->flag = -1; 
 
-  rmin = 1E-5;
-  rmin /= z0;
+  rmin = pot->rmin/z0;
 
   if (gasymp > 0 && gratio > 0) {
     a = gasymp*sqrt(2.0*z)/PI;

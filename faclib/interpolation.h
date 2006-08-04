@@ -7,6 +7,8 @@
 #include "global.h"
 #include "dbase.h"
 
+void spline_work(double *x, double *y, int n, 
+		 double yp1, double ypn, double *y2, double *work);
 void spline(double *x, double *y, int n, 
 	    double yp1, double ypn, double *y2);
 int splint(double *xa, double *ya, double *y2a, 
@@ -27,7 +29,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 		      double *, double *, int, void *), 
 	    void *extra);
 double Simpson(double *y, int ia, int ib);
-int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp);
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id);
 
 double RRCrossHn(double z, double e, int n);
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
@@ -40,6 +42,15 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	    int negy, double *egy, int mp);
 int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	      int nt, double *temp);
+void PrepCEFCrossHeader(CEF_HEADER *h, double *data);
+void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h,
+			double *data);
+double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
+			   double *data);
+int CEFCross(char *ifn, char *ofn, int i0, int i1, 
+	     int negy, double *egy, int mp);
+int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	       int nt, double *temp);
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax);
 int TotalPICross(char *ifn, char *ofn, int ilev, 

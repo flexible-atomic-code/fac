@@ -17,7 +17,11 @@
 #define DB_DR 9
 #define DB_AIM 10
 #define DB_CIM 11
-#define NDB   11
+#define DB_ENF 12
+#define DB_TRF 13
+#define DB_CEF 14
+#define DB_CEMF 15
+#define NDB   15
 
 #define LNCOMPLEX   32
 #define LSNAME      24
@@ -58,8 +62,25 @@ typedef struct _EN_RECORD_ {
 typedef struct _EN_SRECORD_ {
   int p;
   int j;
+  int ibase;
   double energy;
 } EN_SRECORD;
+
+typedef struct _ENF_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int nlevels;
+  double efield;
+  double bfield;
+  double fangle;
+} ENF_HEADER;
+
+typedef struct _ENF_RECORD_ {
+  int ilev;
+  double energy;
+  int pbasis;
+} ENF_RECORD;
 
 typedef struct _TR_HEADER_ {
   long int position;
@@ -70,6 +91,19 @@ typedef struct _TR_HEADER_ {
   int mode;
   int multipole;
 } TR_HEADER;
+
+typedef struct _TRF_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int gauge;
+  int mode;
+  int multipole;
+  double efield;
+  double bfield;
+  double fangle;
+} TRF_HEADER;
 
 typedef struct _TR_RECORD_ {
   int lower;
@@ -83,6 +117,12 @@ typedef struct _TR_EXTRA_ {
   float sdev;
   float sci;
 } TR_EXTRA;
+
+typedef struct _TRF_RECORD_ {
+  int lower;
+  int upper;
+  float *strength;
+} TRF_RECORD;
 
 typedef struct _CE_HEADER_ {
   long int position;
@@ -104,6 +144,21 @@ typedef struct _CE_HEADER_ {
   double *usr_egrid;
 } CE_HEADER;
 
+typedef struct _CEF_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int n_tegrid;
+  int n_egrid;
+  float te0;
+  double efield;
+  double bfield;
+  double fangle;
+  double *tegrid;
+  double *egrid;
+} CEF_HEADER;
+
 typedef struct _CE_RECORD_ {
   int lower;
   int upper;
@@ -113,6 +168,41 @@ typedef struct _CE_RECORD_ {
   float *params;
   float *strength;
 } CE_RECORD;
+
+typedef struct _CEF_RECORD_ {
+  int lower;
+  int upper;
+  float bethe;
+  float born[2];
+  float *strength;
+} CEF_RECORD;
+
+typedef struct _CEMF_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int n_tegrid;
+  int n_egrid;
+  int n_thetagrid;
+  int n_phigrid;
+  float te0;
+  double efield;
+  double bfield;
+  double fangle;
+  double *tegrid;
+  double *egrid;
+  double *thetagrid;
+  double *phigrid;
+} CEMF_HEADER;
+
+typedef struct _CEMF_RECORD_ {
+  int lower;
+  int upper;
+  float *bethe;
+  float *born;
+  float *strength;
+} CEMF_RECORD;
 
 typedef struct _RR_HEADER_ {
   long int position;
@@ -145,7 +235,7 @@ typedef struct _AI_HEADER_ {
   long int length;
   int nele;
   int ntransitions;
-  int channel;
+  float emin;
   int n_egrid;
   double *egrid;
 } AI_HEADER;
@@ -161,7 +251,7 @@ typedef struct _AIM_HEADER_ {
   long int length;
   int nele;
   int ntransitions;
-  int channel;
+  float emin;
   int n_egrid;
   double *egrid;
 } AIM_HEADER;
@@ -306,10 +396,18 @@ typedef struct _DR_RECORD_ {
 int ReadFHeader(FILE *f, F_HEADER *fh, int *swp);
 int ReadENHeader(FILE *f, EN_HEADER *h, int swp);
 int ReadENRecord(FILE *f, EN_RECORD *r, int swp);
+int ReadENFHeader(FILE *f, ENF_HEADER *h, int swp);
+int ReadENFRecord(FILE *f, ENF_RECORD *r, int swp);
 int ReadTRHeader(FILE *f, TR_HEADER *h, int swp);
 int ReadTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp);
+int ReadTRFHeader(FILE *f, TRF_HEADER *h, int swp);
+int ReadTRFRecord(FILE *f, TRF_RECORD *r, int swp, TRF_HEADER *h);
 int ReadCEHeader(FILE *f, CE_HEADER *h, int swp);
 int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h);
+int ReadCEFHeader(FILE *f, CEF_HEADER *h, int swp);
+int ReadCEFRecord(FILE *f, CEF_RECORD *r, int swp, CEF_HEADER *h);
+int ReadCEMFHeader(FILE *f, CEMF_HEADER *h, int swp);
+int ReadCEMFRecord(FILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h);
 int ReadRRHeader(FILE *f, RR_HEADER *h, int swp);
 int ReadRRRecord(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h);
 int ReadAIHeader(FILE *f, AI_HEADER *h, int swp);
@@ -327,6 +425,9 @@ int ReadRTRecord(FILE *f, RT_RECORD *r, int swp);
 int ReadDRHeader(FILE *f, DR_HEADER *h, int swp);
 int ReadDRRecord(FILE *f, DR_RECORD *r, int swp);
 
+void CEMF2CEFHeader(CEMF_HEADER *mh, CEF_HEADER *h);
+void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh, 
+		    int ith, int iph);
 /* to accommadate for the possible larger statistical weight of UTA levels.
  * the eqivalent 2j value for them are stored in r.ibase of the EN_RECORD for 
  * UTA. The two functions here are wrappers to determine the 2j and ibase for 
@@ -340,8 +441,12 @@ int IBaseFromENRecord(EN_RECORD *r);
  */
 int WriteFHeader(FILE *f, F_HEADER *fh);
 int WriteENHeader(FILE *f, EN_HEADER *h);
+int WriteENFHeader(FILE *f, ENF_HEADER *h);
 int WriteTRHeader(FILE *f, TR_HEADER *h);
+int WriteTRFHeader(FILE *f, TRF_HEADER *h);
 int WriteCEHeader(FILE *f, CE_HEADER *h);
+int WriteCEFHeader(FILE *f, CEF_HEADER *h);
+int WriteCEMFHeader(FILE *f, CEMF_HEADER *h);
 int WriteRRHeader(FILE *f, RR_HEADER *h);
 int WriteAIHeader(FILE *f, AI_HEADER *h);
 int WriteAIMHeader(FILE *f, AIM_HEADER *h);
@@ -350,7 +455,6 @@ int WriteCIMHeader(FILE *f, CIM_HEADER *h);
 int WriteSPHeader(FILE *f, SP_HEADER *h);
 int WriteRTHeader(FILE *f, RT_HEADER *h);
 int WriteDRHeader(FILE *f, DR_HEADER *h);
-int WriteENRecord(FILE *f, EN_RECORD *r);
 
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);
@@ -364,19 +468,38 @@ int DeinitFile(FILE *f, F_HEADER *fhdr);
 int PrintTable(char *ifn, char *ofn, int v);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
+int MemENFTable(char *fn);
 EN_SRECORD *GetMemENTable(int *s);
+EN_SRECORD *GetMemENFTable(int *s);
+int WriteENRecord(FILE *f, EN_RECORD *r);
+int WriteENFRecord(FILE *f, ENF_RECORD *r);
 int PrintENTable(FILE *f1, FILE *f2, int v, int swp);
+int PrintENFTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);
+int SwapEndianENFHeader(ENF_HEADER *h);
+int SwapEndianENFRecord(ENF_RECORD *r);
 int WriteTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx);
 double OscillatorStrength(int m, double e, double s, double *ga);
 int PrintTRTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianTRHeader(TR_HEADER *h);
 int SwapEndianTRRecord(TR_RECORD *r, TR_EXTRA *rx);
+int WriteTRFRecord(FILE *f, TRF_RECORD *r);
+int PrintTRFTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianTRFHeader(TRF_HEADER *h);
+int SwapEndianTRFRecord(TRF_RECORD *r);
 int WriteCERecord(FILE *f, CE_RECORD *r);
 int PrintCETable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
+int WriteCEFRecord(FILE *f, CEF_RECORD *r);
+int PrintCEFTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianCEFHeader(CEF_HEADER *h);
+int SwapEndianCEFRecord(CEF_RECORD *r);
+int WriteCEMFRecord(FILE *f, CEMF_RECORD *r);
+int PrintCEMFTable(FILE *f1, FILE *f2, int v, int swp);
+int SwapEndianCEMFHeader(CEMF_HEADER *h);
+int SwapEndianCEMFRecord(CEMF_RECORD *r);
 int WriteRRRecord(FILE *f, RR_RECORD *r);
 int PrintRRTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianRRHeader(RR_HEADER *h);
@@ -419,6 +542,9 @@ int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
 int AIBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
 int LevelInfor(char *fn, int ilev, EN_RECORD *r0);
 int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
+int AdjustEnergy(int nlevs, int *ilevs, double *e, 
+		 char *efn0, char *efn1, char *afn0, char *afn1);
+int ISearch(int i, int n, int *ia);
 
 #endif
 

@@ -509,10 +509,10 @@ s,@CPP@,gcc -E,;t t
 s,@EGREP@,grep -E,;t t
 s,@LIBOBJS@,,;t t
 s,@F77@,g77,;t t
-s,@FFLAGS@,-fPIC -fno-strength-reduce -fno-common -O2,;t t
+s,@FFLAGS@,-fPIC -ff2c -fno-strength-reduce -fno-common -O2,;t t
 s,@ac_ct_F77@,g77,;t t
 s,@FLIBS@,-L/sw/lib/gcc/powerpc-apple-darwin7.9.0/3.4.3 -L/sw/lib/gcc/powerpc-apple-darwin7.9.0/3.4.3/../../.. -lfrtbegin -lg2c -lSystem /usr/lib/gcc/darwin/3.3/libgcc.a,;t t
-s,@FFLAGSNO@,-fPIC -fno-strength-reduce -fno-common,;t t
+s,@FFLAGSNO@,-fPIC -ff2c -fno-strength-reduce -fno-common,;t t
 s,@LTLIBOBJS@,,;t t
 CEOF
 

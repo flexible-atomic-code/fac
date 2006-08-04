@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.112 2005/12/31 04:50:15 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.113 2006/08/04 07:43:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -654,7 +654,7 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
  
 
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
-  double rmax, rmin;
+  double ratio, asym, rmin;
   int maxrp;
 
   if (sfac_file) {
@@ -663,11 +663,9 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  rmin = 0.0;
-  rmax = 0.0;
-  if (!PyArg_ParseTuple(args, "i|dd", &maxrp, &rmin, &rmax))
+  if (!PyArg_ParseTuple(args, "iddd", &maxrp, &ratio, &asym, &rmin))
     return NULL;
-  if (-1 == SetRadialGrid(maxrp, rmin, rmax))
+  if (-1 == SetRadialGrid(maxrp, ratio, asym, rmin))
     return NULL;
   Py_INCREF(Py_None);
   return Py_None;
@@ -796,8 +794,8 @@ static PyObject *PSetAngZOptions(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  c = EPS3;
-  mc = EPS3;
+  c = ANGZCUT;
+  mc = MIXCUT;
   if (!PyArg_ParseTuple(args, "i|dd", &n, &mc, &c))
     return NULL;
   SetAngZOptions(n, mc, c);
@@ -1111,7 +1109,7 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
   orb = GetOrbital(k);
   return Py_BuildValue("d", orb->energy);
 }
-  
+
 static PyObject *PStructure(PyObject *self, PyObject *args) {
   int i, k, ng0, ng, ns;
   int nlevels, ip;
@@ -1194,7 +1192,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     }
   }
 
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(fn, nlevels, -1);
   if (ng > 0) free(kg);
   if (ngp > 0) free(kgp);
@@ -1283,7 +1281,7 @@ static PyObject *PSortLevels(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  SortLevels(0, 0);
+  SortLevels(0, 0, 0);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1612,6 +1610,108 @@ static PyObject *PPrepAngular(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PSetFields(PyObject *self, PyObject *args) {
+  int m;
+  double b, e, a;
+
+  if (sfac_file) {
+    SFACStatement("SetFields", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  m = 0;
+  if (!(PyArg_ParseTuple(args, "ddd|i", &b, &e, &a, &m))) 
+    return NULL;
+
+  SetFields(b, e, a, m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PStructureEB(PyObject *self, PyObject *args) {
+  PyObject *p;
+  int n, *ilev;
+  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("StructureEB", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!(PyArg_ParseTuple(args, "sO", &fn, &p))) return NULL;
+  
+  n = SelectLevels(p, &ilev);
+  if (n == 0) return NULL;
+  
+  StructureEB(fn, n, ilev);
+  free(ilev);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PTransitionTableEB(PyObject *self, PyObject *args) {
+  char *s;
+  int m, nlow, nup, *low, *up;
+  PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("TransitionTableEB", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  nlow = 0;
+  nup = 0;
+  low = NULL;
+  up = NULL;
+  m = -1;
+
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) 
+    return NULL;
+  nlow = SelectLevels(p, &low);
+  if (nlow <= 0) {
+    printf("cannot determine levels in lower\n");
+    return NULL;
+  }
+  nup = SelectLevels(q, &up);
+  if (nup <= 0) {
+    printf("cannot determine levels in upper\n");
+    return NULL;
+  }
+  
+  SaveTransitionEB(nlow, low, nup, up, s, m);
+  free(low);
+  free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPolarizeCoeff(PyObject *self, PyObject *args) {
+  char *fn1, *fn2;
+  int i0, i1;
+
+  if (sfac_file) {
+    SFACStatement("PolarizeCoeff", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  i0 = -1;
+  i1 = -1;
+
+  if (!PyArg_ParseTuple(args, "ss|ii", &fn1, &fn2, &i0, &i1)) return NULL;
+
+  PolarizeCoeff(fn1, fn2, i0, i1);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+  
 static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   char *s;
   int n, m;
@@ -1673,6 +1773,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
 
 static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
   char *s;
+  int m;
 
   if (sfac_file) {
     SFACStatement("BasisTable", args, NULL);
@@ -1680,8 +1781,39 @@ static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
-  GetBasisTable(s);
+  m = 0;
+  if (!PyArg_ParseTuple(args, "s|i", &s, &m)) return NULL;
+  GetBasisTable(s, m);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PCETableEB(PyObject *self, PyObject *args) {
+  char *s;
+  int nlow, nup, *low, *up, m;
+  PyObject *p, *q;
+
+  if (sfac_file) {
+    SFACStatement("CETableEB", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = 0;
+  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) return NULL;
+  nlow = SelectLevels(p, &low);
+  if (nlow <= 0) return NULL;
+  nup = SelectLevels(q, &up);
+  if (nup <= 0) return NULL;
+  if (m == 0) {
+    SaveExcitationEB(nlow, low, nup, up, s);
+  } else {
+    SaveExcitationEBD(nlow, low, nup, up, s);
+  }
+
+  free(low);
+  free(up);  
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1822,7 +1954,7 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 }
   
 static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
-  double eb, x, x1;
+  double eb, x, x1, x0;
   
   if (sfac_file) {
     SFACStatement("SetCEBorn", args, NULL);
@@ -1830,11 +1962,12 @@ static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  x0 = XBORN0;
   x1 = XBORN1;
   x = XBORN;
-  if (!PyArg_ParseTuple(args, "d|dd", &eb, &x, &x1)) return NULL;
+  if (!PyArg_ParseTuple(args, "d|ddd", &eb, &x, &x1, &x0)) return NULL;
 
-  SetCEBorn(eb, x, x1);
+  SetCEBorn(eb, x, x1, x0);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1952,8 +2085,60 @@ static PyObject *PSetCEGrid(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-}    
+} 
+   
+static PyObject *PSetAngleGrid(PyObject *self, PyObject *args) {
+  int n, ng, m, i, err;
+  double xg[MAXNPHI+MAXNTHETA];
+  double emin, emax;
+  PyObject *p, *pi;
 
+  if (sfac_file) {
+    SFACStatement("SetAngleGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  n = PyTuple_Size(args);
+  if (n == 2) {
+    if (!PyArg_ParseTuple(args, "iO", &m, &p)) return NULL;
+    if (PyInt_Check(p)) {
+      ng = PyInt_AsLong(p);
+      if (m == 0) {
+	emin = 0.0;
+	emax = PI;
+      } else {
+	emin = 0.0;
+	emax = TWO_PI;
+      }
+      err = SetAngleGrid(m, ng, emin, emax);
+    } else if (PyList_Check(p) || PyTuple_Check(p)) {
+      ng = PySequence_Length(p);      
+      for (i = 0; i < ng; i++) {
+	pi = PySequence_GetItem(p, i);
+	xg[i] = PyFloat_AsDouble(pi)*PI/180.0;
+	Py_DECREF(pi);
+      }
+      err = SetAngleGridDetail(m, ng, xg);
+    } else {
+      return NULL;
+    }
+  } else if (n == 4) {
+    if (!PyArg_ParseTuple(args, "iidd", &m, &ng, &emin, &emax)) 
+      return NULL;
+    emin *= PI/180.0;
+    emax *= PI/180.0;
+    err = SetAngleGrid(m, ng, emin, emax);
+  } else {
+    return NULL;
+  }
+
+  if (err < 0) return NULL;
+
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+  
 static PyObject *PSetUsrCEGridType(PyObject *self, PyObject *args) {
   int type;
   
@@ -2480,7 +2665,8 @@ static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {
 }    
 
 static PyObject *PAITable(PyObject *self, PyObject *args) { 
-  int nlow, *low, nup, *up, c;
+  int nlow, *low, nup, *up;
+  double emin;
   char *s;
   PyObject *p, *q;
 
@@ -2490,11 +2676,11 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  c = 0;
-  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
+  emin = 0;
+  if (!PyArg_ParseTuple(args, "sOO|d", &s, &p, &q, &emin)) return NULL;
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveAI(nlow, low, nup, up, s, c, 0);
+  SaveAI(nlow, low, nup, up, s, emin, 0);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -2503,7 +2689,8 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PAITableMSub(PyObject *self, PyObject *args) { 
-  int nlow, *low, nup, *up, c;
+  int nlow, *low, nup, *up;
+  double emin;
   char *s;
   PyObject *p, *q;
 
@@ -2513,11 +2700,11 @@ static PyObject *PAITableMSub(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  c = 0;
-  if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &c)) return NULL;
+  emin = 0;
+  if (!PyArg_ParseTuple(args, "sOO|d", &s, &p, &q, &emin)) return NULL;
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveAI(nlow, low, nup, up, s, c, 1);
+  SaveAI(nlow, low, nup, up, s, emin, 1);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -3103,6 +3290,79 @@ static PyObject *PCoulombBethe(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;  
+}
+
+static PyObject *PAdjustEnergy(PyObject *self, PyObject *args) {
+  char *s, *efn0, *efn1, *afn0, *afn1;  
+  PyObject *p, *q, *ip, *iq;
+  int i, n, k, nlevs, *ilevs;
+  double e, *elevs;
+  FILE *f;
+  
+  
+  if (sfac_file) {
+    SFACStatement("AdjustEnergy", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  n = PyTuple_Size(args);
+  if (n == 5) {
+    if (!PyArg_ParseTuple(args, "sssss", &s, &efn0, &efn1, &afn0, &afn1)) {
+      return NULL;
+    }
+    f = fopen(s, "r");    
+    i = 0;      
+    while (1) {
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      i++;
+    }
+    nlevs = i;
+    ilevs = (int *) malloc(sizeof(int)*nlevs);
+    elevs = (double *) malloc(sizeof(double)*nlevs);
+    fseek(f, 0, SEEK_SET);
+    i = 0;
+    while (1) {
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      e /= HARTREE_EV;
+      ilevs[i] = k;
+      elevs[i] = e;
+      i++;
+    }
+    fclose(f);
+  } else {
+    if (!PyArg_ParseTuple(args, "OOssss", 
+			  &p, &q, &efn0, &efn1, &afn0, &afn1)) 
+      return NULL;
+    if (!PyList_Check(p) || !PyList_Check(q)) {
+      return NULL;
+    }
+    nlevs = PyList_Size(p);
+    if (PyList_Size(q) != nlevs) {
+      printf("The energy list length not equal the index list length\n");
+      return NULL;
+    }
+    ilevs = (int *) malloc(sizeof(int)*nlevs);
+    elevs = (double *) malloc(sizeof(double)*nlevs);
+    for (i = 0; i < n; i++) {
+      ip = PyList_GetItem(p, i);
+      iq = PyList_GetItem(q, i);
+      k = PyInt_AsLong(ip);
+      e = PyFloat_AsDouble(iq);
+      e /= HARTREE_EV;
+      ilevs[i] = k;
+      elevs[i] = e;
+    }
+  }
+
+  AdjustEnergy(nlevs, ilevs, elevs, efn0, efn1, afn0, afn1);
+
+  if (nlevs > 0) {
+    free(ilevs);
+    free(elevs);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
   
@@ -4476,6 +4736,36 @@ static PyObject *PLimitArray(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PWignerDMatrix(PyObject *self, PyObject *args) {
+  int j2, m2, n2;
+  double a;
+
+  if (!PyArg_ParseTuple(args, "diii", &a, &j2, &m2, &n2)) return NULL;
+
+  a *= PI/180.0;
+  a = WignerDMatrix(a, j2, m2, n2);
+  
+  return Py_BuildValue("d", a);
+}
+
+static PyObject *PCoulMultip(PyObject *self, PyObject *args) {
+  double z, te, e1;
+  int k, q0, q1, m, ierr;
+  char *fn;
+
+  m = 1;
+  if (!PyArg_ParseTuple(args, "sdddiii|i", 
+			&fn, &z, &te, &e1, &k, &q0, &q1, &m))
+    return NULL;
+  
+  ierr = CoulombMultip(fn, z, te, e1, k, q0, q1, m);
+  if (ierr) {
+    return NULL;
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static struct PyMethodDef fac_methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
@@ -4514,6 +4804,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CECross", PCECross, METH_VARARGS},
   {"CERate", PCERate, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
+  {"CETableEB", PCETableEB, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"CITable", PCITable, METH_VARARGS},
@@ -4523,6 +4814,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
   {"CloseSFAC", PCloseSFAC, METH_VARARGS},
   {"ConvertToSFAC", PConvertToSFAC, METH_VARARGS},
+  {"AdjustEnergy", PAdjustEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"DROpen", PDROpen, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
@@ -4539,6 +4831,7 @@ static struct PyMethodDef fac_methods[] = {
   {"GetW6j", PGetW6j, METH_VARARGS},
   {"GetW9j", PGetW9j, METH_VARARGS},
   {"GetCG", PGetCG, METH_VARARGS},
+  {"WignerDMatrix", PWignerDMatrix, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
@@ -4574,6 +4867,7 @@ static struct PyMethodDef fac_methods[] = {
   {"GetBoundary", PGetBoundary, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
+  {"SetAngleGrid", PSetAngleGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
@@ -4620,7 +4914,9 @@ static struct PyMethodDef fac_methods[] = {
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},     
   {"TRTable", PTransitionTable, METH_VARARGS}, 
-  {"TransitionTable", PTransitionTable, METH_VARARGS}, 
+  {"TransitionTable", PTransitionTable, METH_VARARGS},     
+  {"TRTableEB", PTransitionTableEB, METH_VARARGS},    
+  {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
   {"TRBranch", PTRBranch, METH_VARARGS}, 
   {"TRRateH", PTRRateH, METH_VARARGS},  
   {"PICrossH", PPICrossH, METH_VARARGS},  
@@ -4646,10 +4942,13 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCILMaxEject", PSetCILMaxEject, METH_VARARGS},
   {"SetCILCB", PSetCILCB, METH_VARARGS},
   {"SetCITol", PSetCITol, METH_VARARGS},
+  {"SetFields", PSetFields, METH_VARARGS},
+  {"StructureEB", PStructureEB, METH_VARARGS},
   {"SetTransitionMode", PSetTransitionMode, METH_VARARGS},
   {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
   {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS},
+  {"CoulMultipole", PCoulMultip, METH_VARARGS},
   {NULL, NULL}
 };
 

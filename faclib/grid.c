@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.9 2003/08/15 16:17:29 mfgu Exp $";
+static char *rcsid="$Id: grid.c,v 1.10 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -191,5 +191,23 @@ int SetEGrid(double *e, double *log_e,
     }
   }
 
+  return n;
+}
+
+int SetLinearGrid(double *x, int n, double xmin, double xmax) {
+  int i;
+  double d;
+
+  if (n == 0) return 0;
+  if (n == 1) {
+    x[0] = 0.5*(xmin + xmax);
+    return 1;
+  }
+  d = (xmax - xmin)/(n-1);
+  x[0] = xmin;
+  for (i = 1; i < n; i++) {
+    x[i] = x[i-1] + d;
+  }
+  
   return n;
 }

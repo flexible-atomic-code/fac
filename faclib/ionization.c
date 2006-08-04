@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.56 2005/07/20 19:43:19 mfgu Exp $";
+static char *rcsid="$Id: ionization.c,v 1.57 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -221,7 +221,7 @@ int SetCIQkMode(int m, double tol) {
 }
 
 int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
-  double pk[MAXNTE][MAXNKL];
+  double pk[MAXNTE][MAXNKL], pkp[MAXNTE][MAXNKL];
   double e1, e2, e0, te;
   ORBITAL *orb;
   int kappab, jb, klb, i, j, t, kl, klp;
@@ -231,10 +231,9 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   int kl0, kl0p, kl1, kl1p;
   int j0, j1, j1min, j1max;
   double z, z2, r, rp, sd, se, s;
-  double qkjt, qkj, qklt, qkl, qkl0;
   double eps, a, b, h, jb1;
   int kl_max0, kl_max1, kl_max2, max0;
-  int type, last_kl0, second_last_kl0;
+  int type;
   int np = 3, one = 1;
   double logj;
 
@@ -245,7 +244,9 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
       pk[i][j] = 0.0;
     }
   }
-  for (i = 0; i < n_tegrid; i++) qk[i] = 0.0;
+  for (i = 0; i < n_tegrid; i++) {
+    qk[i] = 0.0;
+  }
   
   e1 = egrid[ie1];
   r = GetRMax();
@@ -269,10 +270,7 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
   jmax = k + jb;
   jb1 = jb + 1.0;
 
-  qkjt = 0.0;
   for (j = jmin; j <= jmax; j += 2) {
-    if (qkjt && fabs(qkj/qkjt) < eps) break;
-    qkj = 0.0;
     for (klp = j - 1; klp <= j + 1; klp += 2) {
       kappaf = GetKappaFromJL(j, klp);
       kl = klp/2;
@@ -291,59 +289,23 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
       kf = OrbitalIndex(0, kappaf, e2);	
       ks[2] = kf;  
 
-      if (type >= 0 && type < CBMULTIPOLES) {
+      if (type >= 0 && type < CBMULT) {
 	kl_max1 = pw_scratch.kl_cb;
       } else {
 	kl_max1 = kl_max0;
       }
-      eps = pw_scratch.tolerance;
-      if (type >= CBMULTIPOLES) {
-	z = GetCoulombBetheAsymptotic(tegrid[0]+e2, e1);
-      }
 
-      last_kl0 = 0;
-      second_last_kl0 = 0; 
-      qklt = 0.0;
+      for (i = 0; i < n_tegrid; i++) {
+	for (t = 0; t < pw_scratch.nkl0; t++) {
+	  pkp[i][t] = 0.0;
+	}
+      }
       for (t = 0; ; t++) {
-        if (second_last_kl0) {
-          last_kl0 = 1;
-        } else {
-	  kl0 = pw_scratch.kl[t];
-          if (kl0 > max0) {
-	    if (type < 0) {
-	      rp *= qkl;
-	      rp = rp/qklt;
-	      if (rp < eps) last_kl0 = 1;
-	    } else if (type >= CBMULTIPOLES) {
-	      h = z*qkl;
-	      h = h/(h+qklt);
-	      if (h < eps) last_kl0 = 1;
-	      else {
-		rp = fabs(1.0 - rp/z);
-		rp *= h;
-		if (rp < eps) last_kl0 = 1;
-	      }
-	    } else {
-	      z = (GetCoulombBethe(ie2, 0, ie1, type, 1))[t-1];
-	      h = z*qkl;
-	      h = h/(h+qklt);
-	      if (h < eps) last_kl0 = 1;
-	      else {
-		z = (GetCoulombBethe(ie2, 0, ie1, type, 0))[t-1];
-		z = z/(1.0-z);
-		rp = fabs(1.0 - rp/z);
-		rp *= h;
-		if (rp < eps) last_kl0 = 1;
-	      }
-	    }
-	    if (pw_scratch.kl[t+1] > kl_max1) {
-	      second_last_kl0 = 1;
-	    }  
-	  } 
+	kl0 = pw_scratch.kl[t];
+	if (kl0 > kl_max1) {
+	  break;
 	}	  
 	kl0p = 2*kl0;
-	qkl0 = qkl;
-        qkl = 0.0;
 	for (j0 = abs(kl0p - 1); j0 <= kl0p + 1; j0 += 2) {
 	  kappa0 = GetKappaFromJL(j0, kl0p);
 	  if (kl0 < pw_scratch.qr) {
@@ -398,56 +360,34 @@ int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k) {
 		  rp = r;
 		}
 		r = r*rp;
-		if (i == 0) qkl += r;
 		pk[i][t] += r;
+		pkp[i][t] += r;
 	      }
 	    }
 	  }
-	}
-        if (t == 0) {
-	  qklt += qkl;
-	} else if (!last_kl0 && !second_last_kl0) {
-	  if (qkl + 1.0 == 1.0) rp = 0.0;
-	  else rp = qkl / qkl0;
-	  h = kl0 - pw_scratch.kl[t-1];
-	  if (h > 1) {
-	    a = (1.0 - rp) * qkl0;
-	    rp = pow(rp, 1.0/h);
-	    rp = rp/(1.0 - rp);
-	    a *= rp;
-	    qklt += a;
-	  } else {
-	    qklt += qkl;
-	    rp = rp/(1.0 - rp);
-	  }
-	} else if (last_kl0) {
-	  if (type >= CBMULTIPOLES) {
-	    for (i = 0; i < n_tegrid; i++) {
-	      b = GetCoulombBetheAsymptotic(tegrid[i]+e2, e1);
-	      if (b < 10.0) {
-		r = qkl * b;
-	      } else {
-		r = qkl * 10.0;
-	      }
-	      qk[i] += r;  
-	    }
-	  } else if (type >= 0) {
-	    for (i = 0; i < n_tegrid; i++) {
-	      b = (GetCoulombBethe(ie2, i, ie1, type, 1))[t];
-	      if (b < 50.0) {
-		r = qkl*b;
-	      } else {
-		r = qkl*50.0;
-	      }
-	      qk[i] += r;
-	    }    
-          } 
-	  break;
 	}
       }
-      qkj += qklt;
+      if (type == 0 || type > CBMULT) {
+	for (i = 0; i < n_tegrid; i++) {
+	  h = pw_scratch.kl[t-1] - pw_scratch.kl[t-2];
+	  b = pkp[i][t-1]/pkp[i][t-2];
+	  if (b < 0 || b > 0.99) {
+	    b = GetCoulombBetheAsymptotic(tegrid[i]+e2, e1);
+	  } else {
+	    b = pow(b, 1.0/h);
+	    b = b/(1-b);
+	  }
+	  r = pkp[i][t-1] * b;
+	  qk[i] += r;  
+	}
+      } else if (type > 0) {
+	for (i = 0; i < n_tegrid; i++) {
+	  b = (GetCoulombBethe(ie2, i, ie1, ko2, 0))[t];
+	  r = pkp[i][t-1]*b;
+	  qk[i] += r;
+	}    
+      }
     }  
-    qkjt += qkj;
   }
   
   t = pw_scratch.nkl;
@@ -1198,10 +1138,12 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     if (pw_scratch.nkl == 0) {
       SetCIPWGrid(0, NULL, NULL);
     }
-  
-    e = GetResidualZ();
-    PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
-		     pw_scratch.nkl, pw_scratch.kl, egrid_type, pw_type, 0);  
+
+    if (qk_mode == QK_DW) {
+      e = GetResidualZ();
+      PrepCoulombBethe(n_egrid, n_tegrid, n_egrid, e, egrid, tegrid, egrid,
+		       pw_scratch.nkl, pw_scratch.kl, 0);
+    }
 
     r.strength = (float *) malloc(sizeof(float)*n_usr);
 

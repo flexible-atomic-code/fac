@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.86 2005/10/28 21:28:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.87 2006/08/04 07:43:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -526,15 +526,16 @@ static int PAddConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
 
 static int PAITable(int argc, char *argv[], int argt[], ARRAY *variables) {
-  int nlow, *low, nup, *up, c;
+  int nlow, *low, nup, *up;
+  double c;
 
   if (argc != 3 && argc != 4) return -1;
   if (argt[0] != STRING) return -1;
   
   if (argc == 4) {
     if (argt[3] != NUMBER) return -1;
-    c = atoi(argv[3]);
-  } else c = 0;
+    c = atof(argv[3]);
+  } else c = 0.0;
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -547,15 +548,16 @@ static int PAITable(int argc, char *argv[], int argt[], ARRAY *variables) {
 
 static int PAITableMSub(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  int nlow, *low, nup, *up, c;
+  int nlow, *low, nup, *up;
+  double c;
 
   if (argc != 3 && argc != 4) return -1;
   if (argt[0] != STRING) return -1;
   
   if (argc == 4) {
     if (argt[3] != NUMBER) return -1;
-    c = atoi(argv[3]);
-  } else c = 0;
+    c = atof(argv[3]);
+  } else c = 0.0;
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   nup = SelectLevels(&up, argv[2], argt[2], variables);
@@ -567,9 +569,14 @@ static int PAITableMSub(int argc, char *argv[], int argt[],
 }
 
 static int PBasisTable(int argc, char *argv[], int argt[], ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != STRING) return -1;
-  GetBasisTable(argv[0]);
+  int m;
+
+  if (argc == 0) return -1;
+  if (argc > 2 || argt[0] != STRING) return -1;
+  if (argc == 2) m = atoi(argv[1]);
+  else m = 0;
+
+  GetBasisTable(argv[0], m);
   
   return 0;
 }
@@ -696,6 +703,75 @@ static int PClearOrbitalTable(int argc, char *argv[], int argt[],
   }
 
   ClearOrbitalTable(m);
+  return 0;
+}
+
+static int PAdjustEnergy(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int nlevs, k, *ilevs;
+  double e, *elevs;
+  int i, ie, ii;
+  FILE *f;
+  char *iv[MAXNARGS], *ev[MAXNARGS];
+  int it[MAXNARGS], et[MAXNARGS];
+
+  ii = 0; 
+  ie = 0;
+  if (argc == 5) {
+    if (argt[0] != STRING) {
+      return -1;
+    }
+    f = fopen(argv[0], "r");
+    
+    i = 0;
+    while (1) {
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      i++;
+    }
+    nlevs = i;    
+    ilevs = (int *) malloc(sizeof(int)*nlevs);
+    elevs = (double *) malloc(sizeof(double)*nlevs);
+    fseek(f, 0, SEEK_SET);
+    i = 0;
+    while (1) {
+      if (fscanf(f, "%d%lf\n", &k, &e) == EOF) break;
+      e /= HARTREE_EV;
+      ilevs[i] = k;
+      elevs[i] = e;
+      i++;
+    }
+    fclose(f);
+    AdjustEnergy(nlevs, ilevs, elevs, argv[1], argv[2], argv[3], argv[4]);
+  } else {
+    if (argt[0] != LIST || argt[1] != LIST) {
+      printf("The last two of three arguments ");
+      printf("for CorrectEnergy must be two Lists\n");
+      return -1;
+    }
+    ii = DecodeArgs(argv[0], iv, it, variables);
+    ie = DecodeArgs(argv[1], ev, et, variables);
+    if (ii != ie) return -1;
+    nlevs = ii;
+    ilevs = (int *) malloc(sizeof(int)*nlevs);
+    elevs = (double *) malloc(sizeof(double)*nlevs);
+    for (i = 0; i < nlevs; i++) {
+      if (it[i] != NUMBER || et[i] != NUMBER) return -1;
+      k = atoi(iv[i]);
+      e = atof(ev[i]);
+      e /= HARTREE_EV;
+      ilevs[i] = k;
+      elevs[i] = e;
+    }
+    AdjustEnergy(nlevs, ilevs, elevs, argv[2], argv[3], argv[4], argv[5]);
+  }
+
+  for (i = 0; i < ii; i++) free(iv[i]);
+  for (i = 0; i < ie; i++) free(ev[i]);
+  if (nlevs > 0) {
+    free(ilevs);
+    free(elevs);
+  }
+  
   return 0;
 }
 
@@ -844,9 +920,12 @@ static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
 
 static int PMemENTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != STRING) return -1;
+
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+
   MemENTable(argv[0]);
+
   return 0;
 }
 
@@ -1426,6 +1505,55 @@ static int PSetCEGrid(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetAngleGrid(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int n, ng, i, err, m;
+  double xg[MAXNTHETA+MAXNPHI];
+  double emin, emax;
+  char *vg[MAXNARGS];
+  int ig[MAXNARGS];
+
+  n = argc;
+
+  if (n == 2) {
+    m = atoi(argv[0]);
+    if (argt[1] == NUMBER) {
+      ng = atoi(argv[1]);
+      if (m == 0) {
+	emin = 0.0;
+	emax = PI;
+      } else {
+	emin = 0.0;
+	emax = TWO_PI;
+      }
+      err = SetAngleGrid(m, ng, emin, emax);
+    } else if (argt[1] == LIST || argt[1] == TUPLE) {
+      ng = DecodeArgs(argv[0], vg, ig, variables);
+      for (i = 0; i < ng; i++) {
+	xg[i] = atof(vg[i]);
+	free(vg[i]);
+	xg[i] /= HARTREE_EV;
+      }
+      err = SetAngleGridDetail(m, ng, xg);
+    } else {
+      return -1;
+    }
+  } else if (n == 4) {
+    m = atoi(argv[0]);
+    ng = atoi(argv[1]);
+    emin = atof(argv[2]);
+    emax = atof(argv[3]);
+    emin *= PI/180.0;
+    emax *= PI/180.0;
+    err = SetAngleGrid(m, ng, emin, emax);
+  } else {
+    return -1;
+  }
+  
+  if (err < 0) return -1;
+  return 0;
+}
+
 static int PSetCEGridLimits(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   double emin, emax;
@@ -1573,25 +1701,28 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
 
 static int PSetCEBorn(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
-  double eb, x, x1;
+  double eb, x, x1, x0;
 
-  if (argc < 1 || argc > 3) return -1;
+  if (argc < 1 || argc > 4) return -1;
   if (argt[0] != NUMBER) return -1;
+  x0 = XBORN0;
+  x1 = XBORN1;
+  x = XBORN;
   if (argc > 1) {
     if (argt[1] != NUMBER) return -1;
     x = atof(argv[1]);
     if (argc > 2) {
       if (argt[2] != NUMBER) return -1;
       x1 = atof(argv[2]);
-    } else {
-      x1 = XBORN1;
+      if (argc > 3) {
+        if (argt[3] != NUMBER) return -1;
+        x0 = atof(argv[3]);
+      }
     }
-  } else {
-    x = XBORN;
-    x1 = XBORN1;
   }
+
   eb = atof(argv[0]);
-  SetCEBorn(eb, x, x1);
+  SetCEBorn(eb, x, x1, x0);
   
   return 0;
 }
@@ -2005,23 +2136,17 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
 
 static int PSetRadialGrid(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  double rmin, rmax;
+  double rmin, ratio, asym;
   int maxrp;
 
-  rmin = 0.0;
-  rmax = 0.0;
-  
-  if (argc < 1 || argc > 3) return -1;
+  if (argc != 4) return -1;
   
   maxrp = atoi(argv[0]);
-  if (argc > 1) {
-    rmin = atof(argv[1]);
-    if (argc > 2) {
-      rmax = atof(argv[2]);
-    }
-  }
+  ratio = atof(argv[1]);
+  asym = atof(argv[2]);
+  rmin = atof(argv[3]);
 
-  return SetRadialGrid(maxrp, rmin, rmax);
+  return SetRadialGrid(maxrp, ratio, asym, rmin);
 }
 
 static int PSetRecPWLimits(int argc, char *argv[], int argt[], 
@@ -2404,7 +2529,7 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 		       ARRAY *variables) {
   if (argc != 0) return -1;
 
-  SortLevels(0, 0);
+  SortLevels(0, 0, 0);
   
   return 0;
 }
@@ -2614,7 +2739,7 @@ static int PStructure(int argc, char *argv[], int argt[],
     }
   }
 
-  SortLevels(nlevels, -1);
+  SortLevels(nlevels, -1, 0);
   SaveLevels(argv[0], nlevels, -1);
 
   if (ng > 0) free(kg);
@@ -3336,6 +3461,133 @@ static int PLimitArray(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetFields(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int m;
+  double b, e, a;
+
+  if (argc < 3 || argc > 4) return -1;
+  m = 0;
+  b = atof(argv[0]);
+  e = atof(argv[1]);
+  a = atof(argv[2]);
+  if (argc > 3) {
+    m = atoi(argv[3]);
+  }
+
+  SetFields(b, e, a, m);
+  
+  return 0;
+}
+
+static int PStructureEB(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int n, *ilev;
+
+  if (argc != 2 || argt[0] != STRING || argt[1] != LIST) return -1;
+
+  n = SelectLevels(&ilev, argv[1], argt[1], variables);
+  if (n <= 0) return -1;
+  
+  StructureEB(argv[0], n, ilev);
+  free(ilev);
+
+  return 0;
+}
+
+static int PTransitionTableEB(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int m, nlow, *low, nup, *up;
+
+  if (argc < 3 || argc > 4) return -1;
+  
+  if (argc == 4) m = atoi(argv[3]);
+  else m = -1;
+  
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) {  
+    printf("cannot determine levels in lower\n");
+    return NULL;
+  }
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) {
+    printf("cannot determine levels in upper\n");
+    return NULL;
+  }
+  
+  SaveTransitionEB(nlow, low, nup, up, argv[0], m);
+  free(low);
+  free(up);
+
+  return 0;
+}
+
+static int PPolarizeCoeff(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int i0, i1;
+
+  if (argc < 2 || argc > 4) return -1;
+  i0 = -1;
+  i1 = -1;
+  if (argc > 2) {
+    i0 = atoi(argv[2]);
+    if (argc > 3) {
+      i1 = atoi(argv[3]);
+    }
+  }
+
+  PolarizeCoeff(argv[0], argv[1], i0, i1);
+
+  return 0;
+}
+
+static int PCETableEB(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int nlow, nup, *low, *up, m;
+
+  if (argc < 3 || argc > 4) return -1;
+  if (argc == 4) m = atoi(argv[3]);
+  else m = 0;
+  
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) return -1;
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) return -1;
+  
+  if (m == 0) {
+    SaveExcitationEB(nlow, low, nup, up, argv[0]);
+  } else {
+    SaveExcitationEBD(nlow, low, nup, up, argv[0]);
+  }
+  
+  free(low);
+  free(up);
+  
+  return 0;
+}
+
+static int PCoulMultip(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  double z, te, e1;
+  int k, q0, q1, m, ierr;
+  char *fn;
+
+  if (argc < 7 || argc > 8) return -1;
+  fn = argv[0];
+  z = atof(argv[1]);
+  te = atof(argv[2]);
+  e1 = atof(argv[3]);
+  k = atoi(argv[4]);
+  q0 = atoi(argv[5]);
+  q1 = atoi(argv[6]);
+  m = 1;
+  if (argc > 7) m = atoi(argv[7]);
+  
+  ierr = CoulombMultip(fn, z, te, e1, k, q0, q1, m);
+  
+  return ierr;
+}
+
 static METHOD methods[] = {
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -3377,6 +3629,7 @@ static METHOD methods[] = {
   {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
   {"ConfigEnergy", PConfigEnergy, METH_VARARGS},
+  {"AdjustEnergy", PAdjustEnergy, METH_VARARGS},
   {"CorrectEnergy", PCorrectEnergy, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
   {"FreeExcitationQk", PFreeExcitationQk, METH_VARARGS},
@@ -3420,6 +3673,7 @@ static METHOD methods[] = {
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
+  {"SetAngleGrid", PSetAngleGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
@@ -3484,6 +3738,12 @@ static METHOD methods[] = {
   {"SetTransitionGauge", PSetTransitionGauge, METH_VARARGS},
   {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS}, 
+  {"SetFields", PSetFields, METH_VARARGS},    
+  {"TRTableEB", PTransitionTableEB, METH_VARARGS}, 
+  {"CETableEB", PCETableEB, METH_VARARGS},
+  {"StructureEB", PStructureEB, METH_VARARGS},
+  {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
+  {"CoulMultipole", PCoulMultip, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

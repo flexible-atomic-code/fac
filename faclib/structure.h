@@ -21,6 +21,8 @@ typedef struct _HAMILTON_ {
   int n_basis0;
   int hsize0;
   int msize0;
+  int lwork;
+  int liwork;
   int *basis;
   double *hamilton;
   double *mixing;
@@ -33,6 +35,7 @@ typedef struct _SHAMILTON_ {
   int pj;
   int nbasis, nlevs;
   STATE **basis;
+  unsigned char closed[MBCLOSE];
 } SHAMILTON;
 
 typedef struct _LEVEL_ {
@@ -140,16 +143,18 @@ int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
 LEVEL *GetLevel(int k);
+LEVEL *GetEBLevel(int k);
 int LevelTotalJ(int k);
+int GetNumEBLevels(void);
 int GetNumLevels(void);
 int GetNumElectrons(int k);
 int SortMixing(int start, int n, LEVEL *lev, SYMMETRY *sym);
 int GetPrincipleBasis(double *mix, int d, int *kpb);
 int CompareLevels(LEVEL *lev1, LEVEL *lev2);
-int SortLevels(int start, int n);
+int SortLevels(int start, int n, int m);
 int GetBaseJ(STATE *s);
 void AngularFrozen(int nts, int *ts, int ncs, int *cs);
-void ClearAngularFrozeb(void);
+void ClearAngularFrozen(void);
 int PrepAngular(int n1, int *is1, int n2, int *is2);
 int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk);
 int CompareAngularZMix(const void *c1, const void *c2);
@@ -174,10 +179,11 @@ int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
 int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
 		    int kb, double coeff);
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
-int GetBasisTable(char *fn);
+int GetBasisTable(char *fn, int m);
 int ConstructLevelName(char *name, char *sname, char *nc, 
 		       int *vnl, STATE *basis);
 int SaveLevels(char *fn, int m, int n);
+int SaveEBLevels(char *fn, int m, int n);
 int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetCILevel(int m);
@@ -194,6 +200,16 @@ void SetSymmetry(int p, int n, int *j);
 int *GetSymmetrySet(int *p, int *nj);
 int ZerothEnergyConfigSym(int n, int *s0, double **e);
 void CutMixing(int nlev, int *ilev, int n, int *kg, double c);
+void FlagClosed(SHAMILTON *h);
+int IsClosedShell(int ih, int p);
+int AllocHamMem(int hdim, int nbasis);
+void SetFields(double b, double e, double a, int m);
+void GetFields(double *b, double *e, double *a);
+int CodeBasisEB(int s, int m);
+void DecodeBasisEB(int k, int *s, int *m);
+int ConstructHamiltonEB(int n, int *ilev);
+void StructureEB(char *fn, int n, int *ilev);
+double HamiltonElementEB(int i, int j);
 
 #endif
 

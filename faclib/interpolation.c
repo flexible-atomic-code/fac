@@ -1,7 +1,7 @@
 #include "interpolation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: interpolation.c,v 1.16 2005/10/05 18:52:28 mfgu Exp $";
+static char *rcsid="$Id: interpolation.c,v 1.17 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -31,6 +31,39 @@ static double _ONC[9][9] = {
    17568./945, -7632./945, 3680./945, 0}
 };
 
+static double gauss_xw[2][15] = {
+  {.933078120172818E-01,
+   .492691740301883E+00,
+   .121559541207095E+01,
+   .226994952620374E+01,
+   .366762272175144E+01,
+   .542533662741355E+01,
+   .756591622661307E+01,
+   .101202285680191E+02,
+   .131302824821757E+02,
+   .166544077083300E+02,
+   .207764788994488E+02,
+   .256238942267288E+02,
+   .314075191697539E+02,
+   .385306833064860E+02,
+   .480260855726858E+02},
+  {.218234885940086E+00,
+   .342210177922884E+00,
+   .263027577941681E+00,
+   .126425818105931E+00,
+   .402068649210010E-01,
+   .856387780361184E-02,
+   .121243614721425E-02,
+   .111674392344251E-03,
+   .645992676202287E-05,
+   .222631690709627E-06,
+   .422743038497938E-08,
+   .392189726704110E-10,
+   .145651526407313E-12,
+   .148302705111330E-15,
+   .160059490621113E-19}
+};
+
 static struct {
   double *x;
   double *logx;
@@ -41,8 +74,9 @@ static struct {
 		   double *, double *, int, void *);
 } minpack_params;
 
-void spline(double *x, double *y, int n, 
-	    double yp1, double ypn, double *y2) {
+
+void spline_work(double *x, double *y, int n, 
+		 double yp1, double ypn, double *y2, double *work) {
   int i, k;
   double p, qn, sig, un, *u;
 
@@ -52,7 +86,7 @@ void spline(double *x, double *y, int n,
     return;
   } 
 
-  u = malloc(sizeof(double)*n);
+  u = work;
 
   if (yp1 > 0.99E30) {
     y2[0] = 0.0;
@@ -82,9 +116,22 @@ void spline(double *x, double *y, int n,
   for (k = n-2; k >= 0; k--) {
     y2[k] = y2[k]*y2[k+1]+u[k];
   }
+}
+
+void spline(double *x, double *y, int n, 
+	    double yp1, double ypn, double *y2) {
+  double *u;
+
+  if (n == 2) {
+    y2[0] = 0.0;
+    y2[n-1] = 0.0;
+    return;
+  } 
+
+  u = malloc(sizeof(double)*n);
+  spline_work(x, y, n, yp1, ypn, y2, u);
 
   free(u);
-
 }
   
 int splint(double *xa, double *ya, double *y2a, 
@@ -112,10 +159,13 @@ int splint(double *xa, double *ya, double *y2a,
 void splie2(double *x1a, double *x2a, double **ya, 
 	    int m, int n, double **y2a) {
   int j;
+  double *u;
 
+  u = malloc(sizeof(double)*n);
   for (j = 0; j < m; j++) {
-    spline(x2a, ya[j], n, 1.0E30, 1.0E30, y2a[j]);
+    spline_work(x2a, ya[j], n, 1.0E30, 1.0E30, y2a[j], u);
   }
+  free(u);
 }
 
 void splin2(double *x1a, double *x2a, double **ya, double **y2a,
@@ -332,76 +382,123 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 }
 
 
-double Simpson(double *y, int ia, int ib) {
-  int i;
-  double a;
+double Simpson(double *x, int i0, int i1) {
+  int i, k;
+  double a, b;
 
+  b = x[i0];
   a = 0.0;
-  
-  for (i = ia; i < ib - 1; i += 2) {
-    a += y[i] + 4.0*y[i+1] + y[i+2];
+  for (i = i0+1; i < i1; i += 2) {
+    a += x[i];
   }
-  a /= 3.0;
-  if (i < ib) a += 0.5 * (y[i] + y[ib]);
+  b += 4.0*a;
+  a = 0.0;
+  k = i1-1;
+  for (i = i0+2; i < k; i += 2) {
+    a += x[i];
+  }
+  b += 2.0*a;
+  if (i == i1) {
+    b += x[i1];
+    b /= 3.0;
+  } else {
+    b += x[k];
+    b /= 3.0;
+    b += 0.5*(x[k] + x[i1]);
+  }
 
-  return a;
+  return b;
 }
 
 /* integration by newton-cotes formula */
-int NewtonCotes(double *r, double *x, int i0, int i1, int m, int maxrp) {
-  int i, j, n, k;
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
+  int i, k;
   double a;
 
-  for (i = i0; i <= i1-4; i += 4) {
-    a = 0.0;
-    for (j = 0, k = i; j <= 4; j++, k++) {
-      a += _CNC[4][j] * x[k];
-    }
-    r[i+4] = r[i] + a;
-  }
-  if (i1 < maxrp-1) {
-    if (i > i0) {
-      k = i - 3;
-      n = i1 - i + 5;
-    } else {
-      k = i + 1;
-      n = i1 - i + 1;
-    }
-    a = 0.0;
-    for (j = 1; j < n; j++, k++) {
-      a += _ONC[n][j] * x[k];
-    }
-    r[i1+1] = r[i1+1-n] + a;
-  }
-
-  if (m >= 0) {
-    n = i1 - i - 1;
-    if (n > 0) {
+  if (id >= 0) {
+    if (m >= 0) {
+      r[i1] = x[i0];
       a = 0.0;
-      for (j = 0, k = i; j <= n; j++, k++) {
-	a += _CNC[n][j] * x[k];
+      for (i = i0+1; i < i1; i += 2) {
+	a += x[i];
       }
-      r[i1-1] = r[i] + a;
+      r[i1] += 4.0*a;
+      a = 0.0;
+      k = i1-1;
+      for (i = i0+2; i < k; i += 2) {
+	a += x[i];
+      }
+      r[i1] += 2.0*a;
+      if (i == i1) {
+	r[i1] += x[i1];
+	r[i1] /= 3.0;
+      } else {
+	r[i1] += x[k];
+	r[i1] /= 3.0;
+	r[i1] += 0.5*(x[k] + x[i1]);
+      }
+      r[i1] += r[i0];
+    } else {
+      for (i = i0+2; i <= i1; i += 2) {
+	r[i] = r[i-2] + _CNC[2][0]*(x[i-2]+x[i]) + _CNC[2][1]*x[i-1];
+	r[i-1] = r[i-2] + 0.5*(x[i-2] + x[i-1]);
+      }
+      if (i == i1+1) {
+	k = i1-1;
+	r[i1] = r[k] + 0.5*(x[k]+x[i1]);
+      }
     }
-    n++;
-    a = 0.0;
-    for (j = 0, k = i; j <= n; j++, k++) {
-      a += _CNC[n][j] * x[k];
-    }
-    r[i1] = r[i] + a;
   } else {
-    for (i = i0; i <= i1; i += 4) {
-      for (n = 1; n <= Min(3, i1-i); n++) {
-	a = 0.0;
-	for (j = 0, k = i; j <= n; j++, k++) {
-	  a += _CNC[n][j] * x[k];
-	}
-	r[i+n] = r[i] + a;
+    if (m >= 0) {
+      r[i1] = x[i1];
+      a = 0.0;
+      for (i = i1-1; i > i0; i -= 2) {
+	a += x[i];
+      }
+      r[i1] += 4.0*a;
+      a = 0.0;
+      k = i0+1;
+      for (i = i1-2; i > k; i -= 2) {
+	a += x[i];
+      }
+      r[i1] += 2.0*a;
+      if (i == i0) {
+	r[i1] += x[i0];
+	r[i1] /= 3.0;
+      } else {
+	r[i1] += x[k];
+	r[i1] /= 3.0;
+	r[i1] += 0.5*(x[k] + x[i0]);
+      }
+      r[i1] += r[i0];
+    } else {
+      for (i = i1-2; i >= i0; i -= 2) {
+	r[i] = r[i+2] + _CNC[2][0]*(x[i+2]+x[i]) + _CNC[2][1]*x[i+1];
+	r[i+1] = r[i+2] + 0.5*(x[i+2] + x[i+1]);
+      }
+      if (i == i0-1) {
+	k = i0+1;
+	r[i0] = r[k] + 0.5*(x[k]+x[i0]);
       }
     }
   }
 
   return 0;
+}
+
+void PrepCEFCrossHeader(CEF_HEADER *h, double *data) {
+  double *eusr, *x;
+  int m, m1, j;
+
+  eusr = h->egrid;
+  m = h->n_egrid;
+  m1 = m + 1;
+  x = data+2+m1;
+  data[0] = h->te0*HARTREE_EV;
+  for (j = 0; j < m; j++) {
+    x[j] = log((h->te0 + eusr[j])/h->te0);
+  }
+  x[m] = eusr[m-1]/(h->te0+eusr[m-1]);
 }
 
 void PrepCECrossHeader(CE_HEADER *h, double *data) {
@@ -417,6 +514,29 @@ void PrepCECrossHeader(CE_HEADER *h, double *data) {
     x[j] = log((h->te0 + eusr[j])/h->te0);
   }
   x[m] = eusr[m-1]/(h->te0+eusr[m-1]);
+}
+
+void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
+  double *eusr, *y, e;
+  float *cs;
+  int m, m1, j;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+
+  eusr = h->egrid;
+  m = h->n_egrid;
+  m1 = m + 1;
+  y = data + 2;
+  e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
+  data[1] = r->bethe;
+  
+  cs = r->strength;
+  for (j = 0; j < m; j++) {	
+    y[j] = cs[j];
+  }
+  y[m] = r->born[0];
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, 
@@ -481,11 +601,77 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   }
 }
 
+double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h, 
+			   double *data) {
+  double *x, *y, *w;
+  int m, m1, n, one;
+  double a, b, x0, y0, eth, e0, c, d, b0, b1;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+
+  eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
+  eth = eth * HARTREE_EV;
+
+  a = 0.0;
+
+  if (e < 0.0) return a;
+
+  m = h->n_egrid;
+  m1 = m + 1;
+  x0 = log((data[0]+e)/data[0]);
+  y = data + 2;
+  x = y + m1;
+  w = x + m1;
+  
+  if (x0 < x[m-1]) {
+    n = 2;
+    one = 1;
+    UVIP3P(n, m, x, y, one, &x0, &a);
+  } else {
+    x0 = e/(data[0] + e);
+    y0 = y[m-1];
+    if (data[1] > 0) {
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);      
+      y0 -= data[1]*b;
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+      e0 = (e + eth)/HARTREE_EV;
+      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+      c = FINE_STRUCTURE_CONST2*d;
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      a += data[1]*b;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
+      a *= b0*b1;
+    } else if (data[1]+1.0 == 1.0) {      
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth)/HARTREE_EV;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
+      a *= b0*b1;
+    } else {
+      a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+    }
+  }
+
+  return a;
+}
+
 double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h, 
 			  double *data, double *ratio) {
   double *x, *y, *w;
   int m, m1, n, one;
-  double a, b, x0, y0, eth, e0, c, d;
+  double a, b, x0, y0, eth, e0, c, d, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -521,10 +707,12 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
     y0 = y[m-1];
     if (data[1] > 0) {
       e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-      y0 /= 1.0 + c;
       y0 -= data[1]*b;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
       e0 = (e + eth)/HARTREE_EV;
@@ -532,17 +720,18 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
       a += data[1]*b;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
+      a *= b0*b1;
     } else if (data[1]+1.0 == 1.0) {
       e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      y0 /= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      e0 = (e + eth)/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth)/HARTREE_EV;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
+      a *= b0*b1;
     } else {
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
     }
@@ -556,29 +745,182 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   return a;
 }
 
-int CECross(char *ifn, char *ofn, int i0, int i1, 
-	    int negy, double *egy, int mp) {
+int CEMFCross(char *ifn, char *ofn, int i0, int i1, 
+	      int negy, double *egy, int mp) {
   F_HEADER fh;
   FILE *f1, *f2;
   int n, swp;
-  CE_HEADER h;
-  CE_RECORD r;
-  int i, t, m, k;
-  double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
-  double eth, a1, cs1, k2, rp, e1, e0;
+  CEF_HEADER h;
+  CEF_RECORD r;
+  CEMF_HEADER mh;
+  CEMF_RECORD mr;
+  int i, t, m, ith, iph;
+  double data[2+(1+MAXNE)*3], e, cs, a;
+  double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+  f1 = fopen(ifn, "r");
+  f2 = NULL;
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }  
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  while (1) {
+    n = ReadCEMFHeader(f1, &mh, swp);
+    if (n == 0) break;
+    CEMF2CEFHeader(&mh, &h);
+    for (i = 0; i < mh.ntransitions; i++) {
+      n = ReadCEMFRecord(f1, &mr, swp, &mh);
+      if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {
+	PrepCEFCrossHeader(&h, data);	
+	eth = mem_en_table[mr.upper].energy - mem_en_table[mr.lower].energy;
+	e = eth*HARTREE_EV;
+	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
+		mr.lower, mem_en_table[mr.lower].p, mem_en_table[mr.lower].j,
+		mr.upper, mem_en_table[mr.upper].p, mem_en_table[mr.upper].j,
+		e, negy);
+	for (ith = 0; ith < mh.n_thetagrid; ith++) {
+	  for (iph = 0; iph < mh.n_phigrid; iph++) {
+	    fprintf(f2, "# %2d %2d %11.4E %11.4E\n",
+		    ith, iph, mh.thetagrid[ith]*180/PI, mh.phigrid[iph]*180/PI);
+	    CEMF2CEFRecord(&mr, &r, &mh, ith, iph);
+	    PrepCEFCrossRecord(&r, &h, data);
+	    for (t = 0; t < negy; t++) {
+	      if (mp == 0) {
+		e0 = egy[t];
+		e1 = e0 - e;
+	      } else {
+		e1 = egy[t];
+		e0 = e1 + e;
+	      }
+	      if (e1 > 0) {
+		cs = InterpolateCEFCross(e1, &r, &h, data);
+		a = e0/HARTREE_EV;
+		b0 = 1.0 + FINE_STRUCTURE_CONST2*a;
+		b1 = 1.0 + FINE_STRUCTURE_CONST2*(a-eth);
+		a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
+		a =  PI*AREA_AU20/(2.0*a);
+		a *= cs;
+		if (data[1] > 0.0) {	      
+		  cs1 = data[1]*log(e0/e) + r.born[0];
+		  k2 = e0/HARTREE_EV;
+		  k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+		  a1 = FINE_STRUCTURE_CONST2*k2;
+		  a1 = a1/(1.0+a1);
+		  a1 = data[1]*(log(0.5*k2/eth) - a1);
+		  a1 += r.born[0];
+		  a1 *= b0*b1;
+		  k2 = cs1/a1;
+		  rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*e0/HARTREE_EV);
+		  if (rp > 1.0) rp = 1.0;
+		  cs1 = cs*k2;
+		  a1 = a*rp;
+		} else {
+		  k2 = e0/HARTREE_EV;
+		  rp = 1.0+0.5*FINE_STRUCTURE_CONST2*k2;
+		  rp /= b0*b1;
+		  cs1 = cs/(b0*b1);
+		  if (rp > 1.0) rp = 1.0;
+		  a1 = a*rp;
+		}
+	      } else {
+		cs = 0.0;
+		a = 0.0;
+		cs1 = 0.0;
+		a1 = 0.0;
+	      }
+	      fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E\n",
+		      e0, cs, a, cs1, a1);
+	    }
+	    fprintf(f2, "\n\n");   
+	  }
+	}
+	     
+	if (i0 >= 0 && i1 >= 0) {
+	  free(mr.strength);
+	  free(mr.bethe);
+	  free(mr.born);
+	  free(mh.tegrid);
+	  free(mh.egrid);
+	  free(mh.thetagrid);
+	  free(mh.phigrid);
+	  goto DONE;
+	}
+      }
+      free(mr.strength);
+      free(mr.bethe);
+      free(mr.born);
+    }
+    free(mh.tegrid);
+    free(mh.egrid);
+    free(mh.thetagrid);
+    free(mh.phigrid);
+  }
+
+ DONE:
+  fclose(f1);
+
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
+  }
+  return 0;
+}
+
+int CEFCross(char *ifn, char *ofn, int i0, int i1, 
+	     int negy, double *egy, int mp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CEF_HEADER h;
+  CEF_RECORD r;
+  int i, t, m;
+  double data[2+(1+MAXNE)*3], e, cs, a;
+  double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
   
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+
+  f2 = NULL;
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }  
+
+  if (fh.type != DB_CEF || fh.nblocks == 0) {
+    printf("File %s is not of DB_CE type\n", ifn);
+    goto DONE;
+  }
+
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
@@ -592,17 +934,153 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     return -1;
   }
     
+  while (1) {
+    n = ReadCEFHeader(f1, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCEFRecord(f1, &r, swp, &h);
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
+	PrepCEFCrossHeader(&h, data);
+	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	e = eth*HARTREE_EV;
+	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
+		r.lower, mem_en_table[r.lower].p, mem_en_table[r.lower].j,
+		r.upper, mem_en_table[r.upper].p, mem_en_table[r.upper].j,
+		e, negy);
+	PrepCEFCrossRecord(&r, &h, data);
+	for (t = 0; t < negy; t++) {
+	  if (mp == 0) {
+	    e0 = egy[t];
+	    e1 = e0 - e;
+	  } else {
+	    e1 = egy[t];
+	    e0 = e1 + e;
+	  }
+	  if (e1 > 0) {
+	    cs = InterpolateCEFCross(e1, &r, &h, data);
+	    a = e0/HARTREE_EV;
+	    b0 = 1.0 + FINE_STRUCTURE_CONST2*a;
+	    b1 = 1.0 + FINE_STRUCTURE_CONST2*(a-eth);
+	    a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
+	    a = PI*AREA_AU20/(2.0*a);
+	    a *= cs;
+	    if (data[1] > 0.0) {	      
+	      cs1 = data[1]*log(e0/e) + r.born[0];
+	      k2 = e0/HARTREE_EV;
+	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
+	      a1 = FINE_STRUCTURE_CONST2*k2;
+	      a1 = a1/(1.0+a1);
+	      a1 = data[1]*(log(0.5*k2/eth) - a1);
+	      a1 += r.born[0];
+	      a1 *= b0*b1;
+	      k2 = cs1/a1;
+	      a1 = e0/HARTREE_EV;
+	      rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*a1);
+	      if (rp > 1.0) rp = 1.0;
+	      cs1 = cs*k2;
+	      a1 = a*rp;
+	    } else {
+	      k2 = e0/HARTREE_EV;
+	      rp = 1.0+0.5*FINE_STRUCTURE_CONST2*k2;
+	      rp /= b0*b1;
+	      cs1 = cs/(b0*b1);
+	      if (rp > 1.0) rp = 1.0;
+	      a1 = a*rp;
+	    }
+	  } else {
+	    cs = 0.0;
+	    a = 0.0;
+	    cs1 = 0.0;
+	    a1 = 0.0;
+	  }
+	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E\n",
+		  e0, cs, a, cs1, a1);
+	}
+	fprintf(f2, "\n\n");
+      
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  goto DONE;
+	}
+      }
+      free(r.strength);
+    }
+    free(h.tegrid);
+    free(h.egrid);
+  }
+
+ DONE:
+  fclose(f1);
+
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
+  }
+  return 0;
+}
+
+int CECross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy, int mp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CE_HEADER h;
+  CE_RECORD r;
+  int i, t, m, k;
+  double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
+  double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+  
+  f2 = NULL;
   n = ReadFHeader(f1, &fh, &swp);
   if (n == 0) {
     printf("File %s is not in FAC binary format\n", ifn);
     goto DONE;
-  }
+  }  
+
+  if (fh.type == DB_CEF) {
+    fclose(f1);
+    return CEFCross(ifn, ofn, i0, i1, negy, egy, mp);
+  } 
   
+  if (fh.type == DB_CEMF) {
+    fclose(f1);
+    return CEMFCross(ifn, ofn, i0, i1, negy, egy, mp);
+  } 
+
   if (fh.type != DB_CE || fh.nblocks == 0) {
     printf("File %s is not of DB_CE type\n", ifn);
     goto DONE;
   }
-   
+
+  mem_en_table = GetMemENTable(&mem_en_table_size);
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+    
   while (1) {
     n = ReadCEHeader(f1, &h, swp);
     if (n == 0) break;
@@ -612,7 +1090,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	PrepCECrossHeader(&h, data);
 	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e = eth*HARTREE_EV;
-	fprintf(f2, "#%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
+	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, negy, r.nsub);
@@ -629,6 +1107,8 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	    if (e1 > 0) {
 	      cs = InterpolateCECross(e1, &r, &h, data, &ratio);
 	      a = e0/HARTREE_EV;
+	      b0 = 1.0 + FINE_STRUCTURE_CONST2*a;
+	      b1 = 1.0 + FINE_STRUCTURE_CONST2*(a-eth);
 	      a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
 	      a = PI*AREA_AU20/(2.0*a);
 	      if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
@@ -641,21 +1121,20 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 		a1 = a1/(1.0+a1);
 		a1 = data[1]*(log(0.5*k2/eth) - a1);
 		a1 += r.born[0];
-		a1 *= 1.0 + FINE_STRUCTURE_CONST2*k2;
+		a1 *= b0*b1;
 		k2 = cs1/a1;
-		rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*e0/HARTREE_EV);
-		if (rp > 1.0) {
-		  k2 /= rp;
-		  rp = 1.0;
-		}
+		a1 = e0/HARTREE_EV;
+		rp = k2*(1.0+0.5*FINE_STRUCTURE_CONST2*a1);
+		if (rp > 1.0) rp = 1.0;
 		cs1 = cs*k2;
 		a1 = a*rp;
 	      } else {
-		k2 = (egy[t]+e)/HARTREE_EV;
-		k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-		k2 = 1.0 + FINE_STRUCTURE_CONST2*k2;
-		cs1 = cs/k2;
-		a1 = a*(1.0+0.5*FINE_STRUCTURE_CONST2*e0/HARTREE_EV)/k2;
+		k2 = e0/HARTREE_EV;
+		rp = 1.0+0.5*FINE_STRUCTURE_CONST2*k2;
+		rp /= (b0*b1);
+		cs1 = cs/(b0*b1);
+		if (rp > 1.0) rp = 1.0;
+		a1 = a*rp;
 	      }
 	    } else {
 	      cs = 0.0;
@@ -689,10 +1168,233 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
  DONE:
   fclose(f1);
 
-  if (f2 != stdout) {
-    fclose(f2);
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
+  }
+  return 0;
+}
+
+int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1, 
+		int nt, double *temp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CEF_HEADER h;
+  CEF_RECORD r;
+  CEMF_HEADER mh;
+  CEMF_RECORD mr;
+  int i, t, m, p, ith, iph;
+  double data[2+(1+MAXNE)*4], e, cs, a, b, c;
+  double *xg = gauss_xw[0];  
+  double *wg = gauss_xw[1];
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+  
+  f1 = fopen(ifn, "r");
+  f2 = NULL;
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }  
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
   } else {
-    fflush(f2);
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  while (1) {
+    n = ReadCEMFHeader(f1, &mh, swp);
+    if (n == 0) break;
+    CEMF2CEFHeader(&mh, &h);
+    for (i = 0; i < mh.ntransitions; i++) {
+      n = ReadCEMFRecord(f1, &mr, swp, &mh);
+      if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {	
+	PrepCEFCrossHeader(&h, data);
+	e = mem_en_table[mr.upper].energy - mem_en_table[mr.lower].energy;
+	e *= HARTREE_EV;
+	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
+		mr.lower, mem_en_table[mr.lower].p, mem_en_table[mr.lower].j,
+		mr.upper, mem_en_table[mr.upper].p, mem_en_table[mr.upper].j,
+		e, nt);
+	for (ith = 0; ith < mh.n_thetagrid; ith++) {
+	  for (iph = 0; iph < mh.n_phigrid; iph++) {
+	    fprintf(f2, "# %2d %2d %11.4E %11.4E\n",
+		    ith, iph, mh.thetagrid[ith]*180.0/PI, mh.phigrid[iph]*180.0/PI);
+	    CEMF2CEFRecord(&mr, &r, &mh, ith, iph);
+	    PrepCEFCrossRecord(&r, &h, data);
+	    for (t = 0; t < nt; t++) {
+	      cs = 0.0;
+	      for (p = 0; p < 15; p++) {
+		a = temp[t]*xg[p];
+		b = a/HARTREE_EV;
+		a = InterpolateCEFCross(a, &r, &h, data);
+		c = 2.0*b*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+		c = 1.0+FINE_STRUCTURE_CONST2*c;
+		c = c*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+		c = sqrt(c);
+		cs += wg[p]*a/c;
+	      }
+	      a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
+	      a *= cs*exp(-e/temp[t]);
+	      fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+		      temp[t], cs, a);
+	    }
+	    fprintf(f2, "\n\n");
+	  }
+	}
+	if (i0 >= 0 && i1 >= 0) {
+	  free(mr.strength);
+	  free(mr.bethe);
+	  free(mr.born);
+	  free(mh.tegrid);
+	  free(mh.egrid);
+	  free(mh.thetagrid);
+	  free(mh.phigrid);
+	  goto DONE;
+	}    
+      }
+      free(mr.strength);
+      free(mr.bethe);
+      free(mr.born);
+    }
+    free(mh.tegrid);
+    free(mh.egrid);
+    free(mh.thetagrid);
+    free(mh.phigrid);
+  }
+
+ DONE:
+  fclose(f1);
+
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
+  }
+
+  return 0;
+}
+
+int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	       int nt, double *temp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CEF_HEADER h;
+  CEF_RECORD r;
+  int i, t, m, p;
+  double data[2+(1+MAXNE)*4], e, cs, a, b, c;
+  double *xg = gauss_xw[0];  
+  double *wg = gauss_xw[1];
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+   
+  f2 = NULL;
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }
+
+  if (fh.type != DB_CEF || fh.nblocks == 0) {
+    printf("File %s is not of DB_CE type\n", ifn);
+    goto DONE;
+  }
+   
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  while (1) {
+    n = ReadCEFHeader(f1, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCEFRecord(f1, &r, swp, &h);
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {	
+	PrepCEFCrossHeader(&h, data);
+	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	e *= HARTREE_EV;
+	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
+		r.lower, mem_en_table[r.lower].p, mem_en_table[r.lower].j,
+		r.upper, mem_en_table[r.upper].p, mem_en_table[r.upper].j,
+		e, nt);
+	PrepCEFCrossRecord(&r, &h, data);
+	for (t = 0; t < nt; t++) {
+	  cs = 0.0;
+	  for (p = 0; p < 15; p++) {
+	    a = temp[t]*xg[p];
+	    b = a/HARTREE_EV;
+	    a = InterpolateCEFCross(a, &r, &h, data);
+	    c = 2.0*b*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+	    c = 1.0+FINE_STRUCTURE_CONST2*c;
+	    c = c*(1.0+0.5*FINE_STRUCTURE_CONST2*b);
+	    c = sqrt(c);
+	    cs += wg[p]*a/c;
+	  }
+	  a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
+	  a *= cs*exp(-e/temp[t]);
+	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+		  temp[t], cs, a);
+	}
+	fprintf(f2, "\n\n");
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  goto DONE;
+	}    
+      }
+      free(r.strength);
+    }
+    free(h.tegrid);
+    free(h.egrid);
+  }
+
+ DONE:
+  fclose(f1);
+
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
   }
 
   return 0;
@@ -707,49 +1409,43 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_RECORD r;
   int i, t, m, k, p;
   double data[2+(1+MAXNUSR)*4], e, cs, a, b, c, ratio;
-  double xg[15] = {.933078120172818E-01,
-		   .492691740301883E+00,
-		   .121559541207095E+01,
-		   .226994952620374E+01,
-		   .366762272175144E+01,
-		   .542533662741355E+01,
-		   .756591622661307E+01,
-		   .101202285680191E+02,
-		   .131302824821757E+02,
-		   .166544077083300E+02,
-		   .207764788994488E+02,
-		   .256238942267288E+02,
-		   .314075191697539E+02,
-		   .385306833064860E+02,
-		   .480260855726858E+02};
-  double wg[15] = {.218234885940086E+00,
-		   .342210177922884E+00,
-		   .263027577941681E+00,
-		   .126425818105931E+00,
-		   .402068649210010E-01,
-		   .856387780361184E-02,
-		   .121243614721425E-02,
-		   .111674392344251E-03,
-		   .645992676202287E-05,
-		   .222631690709627E-06,
-		   .422743038497938E-08,
-		   .392189726704110E-10,
-		   .145651526407313E-12,
-		   .148302705111330E-15,
-		   .160059490621113E-19};
+  double *xg = gauss_xw[0];  
+  double *wg = gauss_xw[1]; 
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-
-  mem_en_table = GetMemENTable(&mem_en_table_size);
-  
-  if (mem_en_table == NULL) {
-    printf("Energy table has not been built in memory.\n");
-    return -1;
-  }
   
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+   
+  f2 = NULL;
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }
+  
+  if (fh.type == DB_CEF) {
+    fclose(f1);
+    return CEFMaxwell(ifn, ofn, i0, i1, nt, temp);
+  }
+
+  if (fh.type == DB_CEMF) {
+    fclose(f1);
+    return CEMFMaxwell(ifn, ofn, i0, i1, nt, temp);
+  }
+        
+  if (fh.type != DB_CE || fh.nblocks == 0) {
+    printf("File %s is not of DB_CE type\n", ifn);
+    goto DONE;
+  }
+   
+  mem_en_table = GetMemENTable(&mem_en_table_size);
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
@@ -762,18 +1458,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ofn);
     return -1;
   }
-    
-  n = ReadFHeader(f1, &fh, &swp);
-  if (n == 0) {
-    printf("File %s is not in FAC binary format\n", ifn);
-    goto DONE;
-  }
-  
-  if (fh.type != DB_CE || fh.nblocks == 0) {
-    printf("File %s is not of DB_CE type\n", ifn);
-    goto DONE;
-  }
-   
+
   while (1) {
     n = ReadCEHeader(f1, &h, swp);
     if (n == 0) break;
@@ -783,7 +1468,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	PrepCECrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e *= HARTREE_EV;
-	fprintf(f2, "#%5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
+	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, nt, r.nsub);
@@ -829,12 +1514,13 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
  DONE:
   fclose(f1);
 
-  if (f2 != stdout) {
-    fclose(f2);
-  } else {
-    fflush(f2);
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
   }
-
   return 0;
 }
 
@@ -955,7 +1641,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   int i, t, nb, m;
   float e, eph, ee, phi;
   double *xusr, *dstrength, *c, tc, emax;
-  double x, y, a;
+  double x, y;
   int np=3, one=1, nele;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
@@ -1027,8 +1713,6 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	eph = egy[t];
 	ee = eph - e;
 	if (ee <= 0.0) continue;
-	a = FINE_STRUCTURE_CONST2*ee;
-	a = (1.0+a)/(1+0.5*a);
 	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
 	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
@@ -1044,7 +1728,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	    tc = 0.0;
 	  }
 	}
-	phi = a*2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;	
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;	
 	c[t] += phi/(mem_en_table[r.b].j + 1.0);
       }
       if (h.qk_mode == QK_FIT) free(r.params);
@@ -1103,7 +1787,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   int i, t, nb, m;
   float e, eph, ee, phi, rr;
   double *xusr, *dstrength, *c, tc, emax;
-  double x, y, a;
+  double x, y;
   int np=3, one=1, nele;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
@@ -1173,8 +1857,6 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       
       for (t = 0; t < negy; t++) {
 	ee = egy[t];
-	a = FINE_STRUCTURE_CONST2*ee;
-	a = (1.0+a)/(1+0.5*a);
 	eph = ee + e;
 	if (h.qk_mode != QK_FIT || ee <= emax) {
 	  x = log(eph/e);
@@ -1192,7 +1874,8 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	  }
 	}
 	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
-	rr = a * phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
+	ee *= 1.0 + 0.5*FINE_STRUCTURE_CONST2*ee;
+	rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	rr /= (mem_en_table[r.f].j + 1.0);
 	c[t] += rr;
       }

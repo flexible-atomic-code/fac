@@ -8,7 +8,7 @@
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
 
-static char *rcsid="$Id: coulomb.c,v 1.30 2005/04/05 19:13:52 mfgu Exp $";
+static char *rcsid="$Id: coulomb.c,v 1.31 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -20,14 +20,8 @@ static int n_hydrogenic_max;
 static int kl_hydrogenic_max;
 static ARRAY *dipole_array;
 
-static int _ncb = 0;
-static int _cbindex[CBMULTIPOLES];
+static int _cbindex[CBMULT][CBMULT+1];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
-static double *_dwork = NULL;
-static int _nm_min = 100;
-static int _nm_max = 10000;
-static int _nm_factor = 100;
-static int _nm = 0;
 
 void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
@@ -269,8 +263,8 @@ double CoulombPhaseShift(double z, double e, int kappa) {
   return phase;
 }
 
-double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k) {
-  return _cb[ie2][ite][ie1][_cbindex[m]+k];
+double *GetCoulombBethe(int ie2, int ite, int ie1, int t, int q) {
+  return _cb[ie2][ite][ie1][_cbindex[t-1][q]];
 }
 
 double GetCoulombBetheAsymptotic(double te, double e1) {
@@ -282,17 +276,16 @@ double GetCoulombBetheAsymptotic(double te, double e1) {
   return r;
 }
 
-int PrepCBIndex(int mode) {
-  int i;
-  _cbindex[0] = 0;
-  for (i = 1; i < CBMULTIPOLES; i++) {
-    if (mode) _cbindex[i] = _cbindex[i-1] + i+1;
-    else _cbindex[i] = _cbindex[i-1] + 2;
-  }
-  if (mode) _ncb = _cbindex[i-1] + i+1;
-  else _ncb = _cbindex[i-1] + 2;
+void PrepCBIndex(void) {
+  int t, q, i;
 
-  return 0;
+  i = 0;
+  for (t = 1; t <= CBMULT; t++) {
+    for (q = 0; q <= t; q++) {
+      _cbindex[t-1][q] = i;
+      i++;
+    }
+  }
 }
 
 /* calculates the Coulomb Bethe contributions from L to Inf. */
@@ -323,245 +316,282 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
   return 0;
 }
 
+double PartialOmegaMSub(int k1, double *r, int k, int m, double z, double e) {
+  int k0, k0p, m0, j0, j0p, j1, i, ip, k1m;
+  int km, m2, k0m, k0pm, kappa0, kappa0p;
+  double p0, p0p, a, w1, w2, w3, w4, w5, w6, x;
+
+  km = k*2;
+  m2 = m*2;
+  x = 0.0;
+  for (i = 0; i <= k; i++) {
+    k0 = k1 + 2*i - k;
+    k0m = k0*2;    
+    for (j0 = k0m - 1; j0 <= k0m + 1; j0 += 2) {
+      kappa0 = GetKappaFromJL(j0, k0m);
+      p0 = CoulombPhaseShift(z, e, kappa0);
+      for (ip = 0; ip <= k; ip++) {
+	k0p = k1 + 2*ip - k;
+	k0pm = k0p*2;
+	for (j0p = k0pm - 1; j0p <= k0pm + 1; j0p += 2) {
+	  kappa0p = GetKappaFromJL(j0p, k0pm);
+	  p0p = CoulombPhaseShift(z, e, kappa0p);	  
+	  a = sqrt((k0m+1.0)*(k0pm+1.0)*(j0+1.0)*(j0p+1.0))*cos(p0p-p0);
+	  k1m = k1*2;
+	  for (j1 = k1m - 1; j1 <= k1m + 1; j1 += 2) {
+	    w5 = ReducedCL(j0, km, j1);
+	    w6 = ReducedCL(j0p, km, j1);
+	    for (m0 = -1; m0 <= 1; m0 += 2) {
+	      w1 = W3j(j0, 1, k0m, -m0, m0, 0);
+	      w2 = W3j(j0p, 1, k0pm, -m0, m0, 0);
+	      w3 = W3j(j0, km, j1, -m0, -m2, m0+m2);
+	      w4 = W3j(j0p, km, j1, -m0, -m2, m0+m2);
+	      x += w1*w2*w3*w4*w5*w6*a*r[i]*r[ip];
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  return x;
+}
+
+double PartialOmega(int k0, double *r, int k) {
+  int i, k1, g, g2, i0, i1, i2, i3;
+  double a, b, c, x;
+
+  x = 0.0;
+  for (i = 0; i <= k; i++) {
+    k1 = k0 + i*2 - k;
+    a = 2.0*(2.0*k0+1.0)*(2.0*k1+1.0);
+    g2 = k0 + k1 + k;
+    g = g2/2;
+    i0 = g2 - 2*k0;
+    i1 = g2 - 2*k1;
+    i2 = g2 - 2*k;
+    if (i2 < 0) i2 = 0;
+    i3 = g2 + 1;
+    b = LnFactorial(i0)+LnFactorial(i1)+LnFactorial(i2)-LnFactorial(i3);
+    i0 = g - k0;
+    i1 = g - k1;
+    i2 = g - k;
+    if (i2 < 0) i2 = 0;
+    c = LnFactorial(g)-LnFactorial(i0)-LnFactorial(i1)-LnFactorial(i2);
+    b += 2.0*c;
+    b = exp(b);
+    x += a*b*r[i]*r[i];
+  }
+
+  return x;
+}
+
 int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 		     double *e2, double *te, double *e1,
-		     int nkl, double *kl, 
-		     int etype, int ltype, int mode) {
-  double ee0, ee1, z2, a, b, c, d0, d1, d2;
-  int i, k, n, ie1, ie2, ite, i1p, i1m, nm;
-  double *w0, *w1, *w2, *w3, *w4, *tcb, k0, k1, eta, eta2;
-
-  if (mode) ltype = 1;
-
+		     int nkl, double *kl, int mode) {
+  int i, ie1, ie2, ite, i1, k, m, ik, ierr, q0, q1;
+  int t1, ik2, mq;
+  double ee1, ee0, k0, k1, k0s, k1s, a, b, r0, r1;
+  double w2, w3, *wr, *ws, *wt, *w, *tcb, *r[CBMULT];
+  
   if (ne2 > MAXNE || ne1 > MAXNE || nte > MAXNTE) {
     printf("Array multipoles not large enough in CoulombMultipoles\n");
     exit(1);
   }
-  PrepCBIndex(mode);
-  _nm = _nm_factor*(e1[ne1-1]/(te[0]+e2[0]));
-  if (_nm > _nm_max) _nm = _nm_max;
-  _nm = Max(_nm, kl[nkl-1] + _nm_min);
-
-  free(_dwork);
-  _dwork = malloc(sizeof(double)*_nm*4);
+  
+  for (i = 0; i < CBMULT; i++) {
+    r[i] = malloc(sizeof(double)*(i+2)*(CBLMAX+1));
+  }
   for (ie2 = 0; ie2 < MAXNE; ie2++) {
     for (ite = 0; ite < MAXNTE; ite++) {
       for (ie1 = 0; ie1 < MAXNE; ie1++) {
-	for (i = 0; i < _ncb; i++) {
+	for (i = 0; i < MAXNCB; i++) {
 	  free(_cb[ie2][ite][ie1][i]);
-	  _cb[ie2][ite][ie1][i] = NULL;
+	  _cb[ie2][ite][ie1][i] = malloc(sizeof(double)*nkl);
 	}
       }
     }
   }
-
-  w0 = _dwork;
-  w1 = w0 + _nm;
-  w2 = w1 + _nm;
-  w3 = w2 + _nm;
-  nm = _nm;
-  n = nm - 1;
   
-  z2 = z*z;
-  if (etype == 0) {
-    w4 = w1;
-  } else {
-    w4 = w0;
-  }
+  w = malloc(sizeof(double)*(CBLMAX+1));
+  wt = malloc(sizeof(double)*(CBLMAX+1));
+  ws = malloc(sizeof(double)*(CBLMAX+1));
+  wr = malloc(sizeof(double)*nkl);
   for (ie1 = 0; ie1 < ne1; ie1++) {
-    if (etype == 0) {
-      ee0 = e1[ie1];
-      k0 = sqrt(2.0*ee0); 
-      for (i = 0; i < nm; i++) {
-	w0[i] = sqrt(z2 + k0*k0*i*i);
-      }
-    } else {
-      ee1 = e1[ie1];
-      k1 = sqrt(2.0*ee1); 
-      for (i = 0; i < nm; i++) {
-	w1[i] = sqrt(z2 + k1*k1*i*i);
-      }
-    }
+    ee1 = e1[ie1];
+    k1s = 2.0*ee1;
+    k1 = sqrt(k1s);
     for (ie2 = 0; ie2 < ne2; ie2++) {
       for (ite = 0; ite < nte; ite++) {
-	for (k = 0; k < _ncb; k++) {
-	  _cb[ie2][ite][ie1][k] = malloc(sizeof(double)*nkl);
-	}
-	if (etype == 0) {
-	  ee1 = ee0 - e2[ie2] - te[ite];  
-	  k1 = sqrt(2.0*ee1);
-	  for (i = 0; i < nm; i++) {
-	    w1[i] = sqrt(z2 + k1*k1*i*i);	  
-	  }
-	} else {
-	  ee0 = ee1 + e2[ie2] + te[ite];  
-	  k0 = sqrt(2.0*ee0);
-	  for (i = 0; i < nm; i++) {
-	    w0[i] = sqrt(z2 + k0*k0*i*i);	  
-	  }
-	}
-	/* monopole radial integrals using recursion */
-	i1p = n;
-	i = n-1;
-	i1m = n-2;
-	c = w0[i1p]*w1[i1p];
-	b = (1.0/(2*i) + 1.0) * 2.0 * (z2 + i*(i+1.0)*(ee0 + ee1));
-	a = (1.0 + 1.0/i) * w0[i]*w1[i];
-	d0 = 0.5*k0*k1/(ee0-ee1);
-	d1 = d0/(2.0*i+1.0);
-	d1 = (w1[i] - w0[i]*d1)/(w0[i] - w1[i]*d1);
-	d2 = d0/(2.0*i1p+1.0);
-	d2 = (w1[i1p] - w0[i1p]*d2)/(w0[i1p] - w1[i1p]*d2);
-	w2[i] = (b-sqrt(b*b-4.0*a*c*(d2/d1)))/(2.0*c);
-	
-	for (;;) {
-	  w2[i1m] = a/(b-c*w2[i]);
-	  if (i == 1) break;
-	  i1p = i;
-	  i = i1m;
-	  i1m--;	  
-	  c = w0[i1p]*w1[i1p];
-	  b = (1.0 + 1.0/(2*i)) * 2.0 * (z2 + i*(i+1.0)*(ee0 + ee1));
-	  a = (1.0 + 1.0/i) * w0[i]*w1[i];
-	}
-	
-	/* Coulomb Bethe contribution for monopole */
-	for (i = 0; i < n; i++) {
-	  w3[i] = w2[i]*w2[i] * (i+1.0)/i;
-	}
-	tcb = GetCoulombBethe(ie2, ite, ie1, 0, 0);
-	for (i = 1; i < nkl; i++) {
-	  k = kl[i];
-	  tcb[i] = w3[k];
-	}
-	tcb = GetCoulombBethe(ie2, ite, ie1, 0, 1);
-	CoulombBetheTail(n, w3, nkl, kl, tcb);
-
-	/* Coulomb Bethe for dipoles */
-	i1m = 0;
-	i = 1;
-	i1p = 2;
-	b = w2[0];
-	for (; i < n; ) {
-	  a = w2[i];
-	  d1 = ((double)i)/i1p;
-	  if (ltype == 0) {
-	    d2 = (w0[i1p] - w1[i1p]*a) / (w0[i]/b - w1[i]);
-	    w3[i] = d1 * d2;
-	    d2 = (w1[i1p] - w0[i1p]*a) / (w0[i]/b - w1[i]);
-	    w2[i] = d1 * d2;
-	  } else {
-	    d2 = (w1[i1p] - w0[i1p]*a) / (w1[i]/b - w0[i]);
-	    w3[i] = d1 * d2;
-	    d2 = (w0[i1p] - w1[i1p]*a) / (w1[i]/b - w0[i]);
-	    w2[i] = d1 * d2;
-	  }
-	  b = a;
-	  i1m = i;
-	  i = i1p;
-	  i1p++;
-	}		
-	for (i = 1; i < n-1; i++) {
-	  d1 = (i+1.0)/i;
-	  d2 = (i+2.0)/(i+1.0);
-	  d2 = (1.0 + d2*w2[i+1]*w2[i+1])/(1.0 + d1*w2[i]*w2[i]);
-	  w3[i] = d1*d2*w3[i]*w3[i];
-	}
-	w3[i] = w3[i-1];
-	tcb = GetCoulombBethe(ie2, ite, ie1, 1, 0); 
-	for (i = 1; i < nkl; i++) {
-	  k = kl[i];
-	  tcb[i] = w3[k];
-	} 
-	if (mode == 0) {
-	  tcb = GetCoulombBethe(ie2, ite, ie1, 1, 1);
-	  CoulombBetheTail(n, w3, nkl, kl, tcb);
-	} else {
-	  d2 = 0.0;
-	  c = 1.0;
-	  eta = z/k0;
-	  eta2 = eta*eta;
-	  for (i = 1; i < n; i++) {
-	    a = w2[i]*w2[i];
-	    b = 1.0 + 1.0/i;
-	    d1 = 1.0 + b*a;
-	    d0 = 1.0 + a;
-	    a = i*i + eta2;
-	    b = (i+1.0)*(i+1.0) + eta2;
-	    a = i*(i+1.0)/sqrt(a*b);
-	    b = 1.0 - eta2/(i*(i+1.0));
-	    d0 -= 2.0*w2[i]*a*b;
-	    w2[i] = d0/d1;
-	    if (fabs(1.0 - c/d2) > 1E-3) {
-	      d2 = c;
-	      k = 2*i;
-	      c = AngularMSub(k, k-2, k-2, -2);
-	      c = c/i;
-	    } else {
-	      d2 = c;
-	      c = 0.5 + (c-0.5)*(i/(i+1.0));
+	ee0 = ee1 + e2[ie2] + te[ite];
+	k0s = 2.0*ee0;
+	k0 = sqrt(k0s);
+	a = ee1/ee0;
+	b = -log(10.0)/log(a);
+	q0 = 3.0*b;
+	q1 = 7.0*b;
+	if (q0 > CBLMIN) q0 = CBLMIN;
+	if (q1 > CBLMAX) q1 = CBLMAX;
+	if (a < 0.6 || q1 <= q0) {
+	  a = a/(1-a);
+	  for (i = 0; i < MAXNCB; i++) {
+	    for (m = 0; m < nkl; m++) {
+	      _cb[ie2][ite][ie1][i][m] = a;
 	    }
-	    w2[i] *= c;
 	  }
-	  
-	  for (i = 1; i < n-1; i++) {
-	    w4[i] = w3[i] * w2[i+1]/w2[i];
-	  }
-	  tcb = GetCoulombBethe(ie2, ite, ie1, 1, 1);	
-	  CoulombBetheTail(n, w4, nkl, kl, tcb);	
-	  for (i = 1; i < n-1; i++) {
-	    w4[i] = w3[i] * (1.0-w2[i+1])/(1.0-w2[i]);
-	  }
-	  tcb = GetCoulombBethe(ie2, ite, ie1, 1, 2);	
-	  CoulombBetheTail(n, w4, nkl, kl, tcb);	
+	  continue;
 	}
+	if (q0 > 1) {
+	  r0 = 0.5*(sqrt(z*z+2.0*q0*(q0+1.0)*ee0)-z)/(2.0*ee0);
+	} else {
+	  r0 = 0.1/z;
+	}
+	r1 = -1.0;
+	for (i = 0; i < CBMULT; i++) {
+	  i1 = i + 1;
+	  if (mode == 0) {
+	    CMULTIP(r0, r1, z, k0, k1, i1, q0, q1, 
+		    r[i], 1, &ierr);
+	  } else {
+	    CMULTIP(r0, r1, z, k1, k0, i1, q0, q1, 
+		    r[i], 1, &ierr);
+	  }
+	  for (k = q0; k <= q1; k++) {
+	    ik = k - q0;
+	    ik2 = ik*(i+2);
+	    wt[k] = PartialOmega(k, r[i]+ik2, i1);
+	    if (k > q0) {
+	      w[k-1] = wt[k]/wt[k-1];
+	      if (wt[k]/wt[q0] < EPS6) {
+		k++;
+		break;
+	      }
+	    }
+	    if (i1 == 1) {
+	      if (r[i][ik2] < 0 || r[i][ik2+1] < 0) 
+		break;
+	    }
+	  }
+	  if (i1 == 1) {
+	    q1 = k-1;
+	    if (q1 <= q0) {
+	      a = ee1/(ee0 - ee1);
+	      for (i = 0; i < MAXNCB; i++) {
+		for (m = 0; m < nkl; m++) {
+		  _cb[ie2][ite][ie1][i][m] = a;
+		}
+	      }
+	      goto NEXTE;
+	    }
+	    for (k = q0; k < q1; k++) {
+	      ik = k - q0;
+	      ik2 = ik*2;
+	      w3 = r[i][ik2+2]/r[i][ik2];
+	      w2 = r[i][ik2+1]/r[i][ik2];
+	      w3 *= w3;
+	      w2 *= w2;
+	      if (mode == 0) {
+		a = z*z + (k+1.0)*(k+1.0)*k0s;
+		a *= w3-w2;
+	      } else {
+		a = z*z + (k+1.0)*(k+1.0)*k1s;
+		a *= w2 - w3;
+	      }
+	      b = k + (k+1.0)*w2;
+	      b *= (k+1.0)*2.0*(te[ite]+e2[ie2]);
+	      ws[k] = a/b;
+	    }
+	    if (mode == 0) {
+	      tcb = GetCoulombBethe(ie2, ite, ie1, i1, 0);
+	      for (m = 0; m < nkl; m++) {
+		k = (int) kl[m];
+		if (k >= q1) {
+		  tcb[m] = ws[q1-1];
+		} else if (k < q0) {
+		  tcb[m] = ws[q0];
+		} else {
+		  tcb[m] = ws[k];
+		}
+	      }
+	    }
+	    k = q1;
+	  }
+	  for (; k <= CBLMAX; k++) {
+	    w[k-1] = w[k-2];
+	  }
+	  w[k-1] = w[k-2];
+	  for (k = 0; k < q0; k++) {
+	    w[k] = w[q0];
+	  }
+	  if (mode == 0) {
+	    if (i1 > 1) {
+	      tcb = GetCoulombBethe(ie2, ite, ie1, i1, 0);
+	      CoulombBetheTail(CBLMAX+1, w, nkl, kl, tcb);
+	    }
+	  } else if (i1 == 1) {
+	    CoulombBetheTail(CBLMAX+1, w, nkl, kl, wr);
+	    for (m = 0; m < nkl; m++) {
+	      k = (int) kl[m];
+	      if (k < q0) {
+		wr[m] = ws[q0]/wr[m];
+	      } else if (k > q1) {
+		wr[m] = ws[q1-1]/wr[m];
+	      } else {
+		wr[m] = ws[k]/wr[m];
+	      }
+	    }
+	  }
+	}
+	if (mode) {
+	  for (t1 = 0; t1 < CBMULT; t1++) {
+	    for (mq = 0; mq <= t1+1; mq++) {
+	      for (k = q0; k <= q1; k++) {		  
+		ik = k - q0;
+		ik2 = ik*(t1+2);
+		wt[k] = PartialOmegaMSub(k, r[t1]+ik2, t1+1, mq, z, ee0);
+		if (k > q0) w[k-1] = wt[k]/wt[k-1];
+	      }		
+	      for (; k <= CBLMAX; k++) {
+		w[k-1] = w[k-2];
+	      }
+	      w[k-1] = w[k-2];
+	      for (k = 0; k < q0; k++) {
+		w[k] = w[q0];
+	      }
+	      tcb = GetCoulombBethe(ie2, ite, ie1, t1+1, mq);
+	      CoulombBetheTail(CBLMAX+1, w, nkl, kl, tcb);
+	      if (t1 == 0) {
+		for (m = 0; m < nkl; m++) {
+		  tcb[m] *= wr[m];
+		}
+	      }
+	    }
+	  }
+	}
+      NEXTE:
+	continue;
       }
     }
-  } 
-  return 0;
-}
- 
-double AngularMSub(int lf, int li1, int li2, int q) {
-  int mi, mf, ji1, ji2, jf;
-  double a, b, c, d, as, bs, cs, ds;
-
-  a = sqrt((li1+1.0)*(li2+1.0));
-  as = 0.0;
-  for (jf = lf - 1; jf <= lf + 1; jf += 2) {
-    bs = 0.0;
-    for (ji1 = li1 - 1; ji1 <= li1 + 1; ji1 += 2) {
-      b = sqrt(ji1+1.0);
-      b *= ReducedCL(ji1, 2, jf);
-      cs = 0.0;
-      for (ji2 = li2 - 1; ji2 <= li2 + 1; ji2 += 2) {
-	c = sqrt(ji2+1.0);
-	c *= ReducedCL(ji2, 2, jf);
-	ds = 0.0;
-	for (mi = -1; mi <= 1; mi += 2) {
-	  d = W3j(ji1, 1, li1, -mi, mi, 0);
-	  d *= W3j(ji2, 1, li2, -mi, mi, 0);
-	  mf = q + mi;
-	  d *= W3j(ji1, 2, jf, -mi, -q, mf);
-	  d *= W3j(ji2, 2, jf, -mi, -q, mf);
-	  ds += d;
-	}
-	cs += c*ds;
-      }
-      bs += b*cs;
-    }
-    as += bs;
   }
-  a *= as;
-  return a;
+	
+  for (i = 0; i < CBMULT; i++) {
+    free(r[i]);
+  }
+  free(w);
+  free(wt);
+  free(ws);
+  free(wr);
+
+  return 0;
 }
 
 int CoulombBethe(char *s, double z, double te, double e1) {
-#define M 80
+#define M 200
   double kl[M];
-  int i, j;
+  int i, j, k, m;
   FILE *f;
   int nte, ne1, ne2, ie1, ite;
-  double e2, a0, a1;
+  double e2, *tcb;
   
   ne2 = 1;
   ne1 = 1;
@@ -572,32 +602,62 @@ int CoulombBethe(char *s, double z, double te, double e1) {
 
   te /= HARTREE_EV;
   e1 /= HARTREE_EV;
-  for (i = 0; i < 50; i++) {
+  for (i = 0; i < M; i++) {
     kl[i] = i;
   }
-  j = 2;
-  for (i = 50; i < M; i++) {
-    kl[i] = kl[i-1] + j;
-    j += 1;
-  }
-  
-  PrepCoulombBethe(ne2, nte, ne1, z, &e2, &te, &e1, M, kl, 1, 0, 0);
-  a0 = 1.0;
-  a1 = 1.0;
+
+  PrepCoulombBethe(ne2, nte, ne1, z, &e2, &te, &e1, M, kl, 1);
   for (i = 1; i < M; i++) {
     fprintf(f, "%3d %3d ", i, (int)kl[i]);
-    for (j = 0; j < _ncb; j++) {
-      fprintf(f, "%12.5E ", _cb[0][0][0][j][i]);
-    }    
-    fprintf(f, "%12.5E %12.5E\n", a0, a1);
-    a0 *= _cb[0][0][0][0][i];
-    a1 *= _cb[0][0][0][2][i];
+    for (j = 0; j < CBMULT; j++) {
+      for (m = 0; m <= j+1; m++) {
+	tcb = GetCoulombBethe(0, 0, 0, j+1, m);
+	fprintf(f, "%12.5E ", tcb[i]);
+      }
+    }
+    fprintf(f, "\n");
   }
 
   fclose(f);
 
   return 0;
 #undef M
+}
+
+int CoulombMultip(char *fn, double z, double te, double e1,
+		   int k, int q0, int q1, int m) {
+  FILE *f;
+  double *r, r0, r1, k0, k1;
+  int i, j, ierr;
+
+  k1 = sqrt(2.0*e1/HARTREE_EV);
+  k0 = sqrt(2.0*(e1+te)/HARTREE_EV);
+
+  r0 = 0.1/z;
+  r1 = -1.0;
+  r = (double *) malloc(sizeof(double)*(k+1)*(q1-q0+1));
+  CMULTIP(r0, r1, z, k0, k1, k, q0, q1, r, m, &ierr);
+  if (ierr != 0) {
+    printf("error in CMULTIP: %d\n", ierr);
+    free(r);
+    return -1;
+  }
+  f = fopen(fn, "w");
+  fprintf(f, "# %10.3E %10.3E %10.3E %15.8E %15.8E %2d\n",
+	  z, te, e1, k0, k1, k);
+  j = 0;
+  for (m = q0; m <= q1; m++) {
+    fprintf(f, "%4d", m);
+    for (i = -k; i <= k; i += 2) {
+      fprintf(f, " %17.10E", r[j]);
+      j++;
+    }
+    fprintf(f, "\n");
+  }
+  fclose(f);
+  free(r);
+  
+  return 0;
 }
 
 int InitCoulomb(void) {
@@ -612,7 +672,7 @@ int InitCoulomb(void) {
       }
     }
   }
-
+  PrepCBIndex();
   SetHydrogenicNL(-1, -1, -1, -1);
 
   dipole_array = (ARRAY *) malloc(sizeof(ARRAY));
