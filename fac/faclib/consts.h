@@ -123,6 +123,14 @@
 #define RBOHR      0.529177249
 
 /*
+** VARIABLE:    MBOHR
+** TYPE:        macro constant.
+** PURPOSE:     Bohr magenton in eV/Gauss.
+** NOTE:        
+*/
+#define MBOHR      5.78838263E-9
+
+/*
 ** VARIABLE:    FINE_STRUCTURE_CONST, FINE_STRUCTURE_CONST2
 ** TYPE:        macro constants.
 ** PURPOSE:     fine structure constant and its square.
@@ -152,12 +160,13 @@
 #define MULTI_BLOCK6   10
 
 /* orbital */
-#define MAXRP      3000 /* maximum radial mesh */
-#define DMAXRP     1200 /* default radial mesh points */
-#define GRIDASYMP  36   /* no. points in one wavelength near infinity */
-#define GRIDRATIO  1.1  /* ratio of successive mesh near origin */
-#define ENERELERR  1E-4 /* relative energy error */
-#define ENEABSERR  1E-5 /* absolute energy error */
+#define MAXRP      3000  /* maximum radial mesh */
+#define DMAXRP     1200  /* default radial mesh points */
+#define GRIDASYMP  36    /* no. points in one wavelength near infinity */
+#define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
+#define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
+#define ENERELERR  1E-5  /* relative energy error */
+#define ENEABSERR  1E-8  /* absolute energy error */
 
 /* config */
 #define MAX_SPEC_SYMBOLS   21
@@ -184,11 +193,14 @@
 #define MAX_HAMS           2000
 #define LEVELS_BLOCK       1024
 #define ANGZ_BLOCK         1024
+#define ANGZxZ_BLOCK       8192
 #define ANGZCUT            1E-5
 #define MIXCUT             1E-5
 #define MIXCUT2            1.0
 #define NPRINCIPLE         2
 #define MAXDN              3
+#define MBCLOSE            8        
+#define MAXLEVEB           1000000
 
 /* transition */
 #define G_COULOMB          1
@@ -210,6 +222,10 @@
 #define NHYDROGENMAX       512
 #define LHYDROGENMAX       20
 #define DIPOLE_BLOCK       64
+#define CBMULT             2
+#define MAXNCB             ((CBMULT*(CBMULT+3))/2)
+#define CBLMIN             15
+#define CBLMAX             150
 
 /* grid */
 #define MAXNKL             50
@@ -217,6 +233,8 @@
 #define MAXNUSR            30
 #define MAXNE              20
 #define MAXNTE             6
+#define MAXNTHETA          30
+#define MAXNPHI            60
 #define TE_MIN_MAX         (1.0/5.0)
 
 /* excitation */

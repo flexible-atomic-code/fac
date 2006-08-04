@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.20 2005/01/13 04:27:41 mfgu Exp $";
+static char *rcsid="$Id: polarization.c,v 1.21 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -12,7 +12,7 @@ USE (rcsid);
 #include "rates.h"
 #include "cf77.h"
 
-#define NEINT 256
+#define NEINT 240
 
 static int nlevels=0;
 static MLEVEL *levels=NULL;
@@ -377,7 +377,7 @@ int SetMCERates(char *fn) {
   CE_RECORD r;
   FILE *f;
   int n, k, m, t, p, i, q;
-  int m1, m2, j1, j2;
+  int m1, m2, j1, j2, i0;
   int swp;
   double data[2+(1+MAXNUSR)*4];
   double cs1[128], cs2[128];
@@ -454,14 +454,23 @@ int SetMCERates(char *fn) {
       for (k = 0; k < r.nsub; k++) {
 	PrepCECrossRecord(k, &r, &h, data);
 	if (esigma > 0) {
+	  i0 = -1;
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q] - e;
-	    rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
-	    a = egrid[q]/HARTREE_EV;
-	    a = PI*AREA_AU20/(2.0*a);
-	    rint[q] *= a*fint[q];
+	    if (e2 >= 0) {
+	      rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
+	      a = egrid[q]/HARTREE_EV;
+	      a = PI*AREA_AU20/(2.0*a);
+	      rint[q] *= a*fint[q];
+	      if (i0 < 0) i0 = q;
+	    }
 	  }
-	  cs1[k] = Simpson(rint, 0, NEINT-1)*(egrid[1]-egrid[0]);	  
+	  if (i0 >= 0) {
+	    cs1[k] = Simpson(rint, i0, NEINT-1)*(egrid[1]-egrid[0]);
+	    cs1[k] += (egrid[i0]-e)*rint[i0];
+	  } else {
+	    cs1[k] = 0.0;
+	  }
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q];
 	    rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
@@ -586,6 +595,7 @@ int SetMAIRates(char *fn) {
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadAIMRecord(f, &r, swp);
       e = levels[r.b].energy - levels[r.f].energy;
+      if (e < 0) e -= h.emin;
       e *= HARTREE_EV;
       v = VelocityFromE(e)*AREA_AU20*HARTREE_EV;
       if (esigma > 0.0) {

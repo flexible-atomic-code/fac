@@ -1,4 +1,4 @@
-static char *rcsid="$Id: parser.c,v 1.8 2005/07/22 03:48:25 mfgu Exp $";
+static char *rcsid="$Id: parser.c,v 1.9 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -167,7 +167,6 @@ int StrSplit(char *s, char sep) {
       p++;
     }
   }
-  
   if (p == s) return 0;
   p--;
   while (*p) {

@@ -99,6 +99,12 @@ typedef struct _SHELL_STATE_{
   int Nr;
 } SHELL_STATE;
 
+typedef struct _SHELL_RESTRICTION_ {
+  int ns;
+  SHELL *shells;
+  int op, nq;
+} SHELL_RESTRICTION;
+
 /* 
 ** MACRO:       GetShellJ, GetTotalJ, GetNu, GetNr
 ** PURPOSE:     convenient macros to access the fields in a SHELL_STATE.
@@ -223,6 +229,10 @@ typedef struct _SYMMETRY_ {
 } SYMMETRY;
 
 void         *ReallocNew(void *p, int s);
+int          ShellsFromString(char *scfg, double *dnq, SHELL **shell);
+int          ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell);
+int          GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m);
+int          ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr);
 int          DistributeElectrons(CONFIG **cfg, double *nq, char *scfg);
 int          DistributeElectronsNR(CONFIG **cfg, char *scfg);
 int          GetConfigOrAverageFromString(CONFIG **cfg, 

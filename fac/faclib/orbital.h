@@ -10,7 +10,7 @@ typedef struct _POTENTIAL_ {
   int flag;
   int r_core;
   int maxrp;
-  double ratio, asymp;
+  double ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */

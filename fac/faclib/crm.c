@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.94 2005/10/27 18:42:24 mfgu Exp $";
+static char *rcsid="$Id: crm.c,v 1.95 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -30,6 +30,7 @@ static double photon_density = 0.0;
 static int ai_extra_nmax = 400;
 static int do_extrapolate = 100;
 static int inner_auger = 0;
+static double ai_emin = 0.0;
 
 int SetInnerAuger(int i) {
   inner_auger = i;
@@ -38,6 +39,11 @@ int SetInnerAuger(int i) {
 
 int SetExtrapolate(int e) {
   do_extrapolate = e;
+  return 0;
+}
+
+int SetEMinAI(double e) {
+  ai_emin = e;  
   return 0;
 }
 
@@ -85,6 +91,7 @@ int InitCRM(void) {
   
   InitDBase();
   InitRates();
+  InitCoulomb();
 
   return 0;
 }
@@ -2815,6 +2822,7 @@ int BlockPopulation(void) {
   ldb = n;
 
   DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
+
   if (info != 0) {
     printf("Error in solving BlockMatrix\n");
     exit(1);
@@ -3019,6 +3027,9 @@ double BlockRelaxation(int iter) {
       if (blk1->rec) continue;
     }
     
+    if (blk1->nlevels == 1) {
+      blk1->r[0] = 1.0;      
+    }
     if (iter < 0 || blk1->nlevels > 1) {
       a = 0.0;
       for (m = 0; m < blk1->nlevels; m++) {
@@ -3039,7 +3050,7 @@ double BlockRelaxation(int iter) {
 	  blk1->nb = a;
 	}
       }  
-      if (nlevels == 1) {
+      if (blk1->nlevels == 1) {
 	blk1->nb = blk1->n[0];
 	a = blk1->nb;
       }
@@ -3057,7 +3068,6 @@ double BlockRelaxation(int iter) {
       blk1->r[0] = 1.0;
       continue;
     }
-    
     if (iter >= 0) {
       if (iter > 0) {
 	if (blk1->iion < 0) a = ion0.nt;
@@ -3974,14 +3984,16 @@ int SetTRRates(int inv) {
 	j2 = ion->j[r.lower];
 	e = ion->energy[r.upper] - ion->energy[r.lower];
 	if (iuta) e = rx.energy;
-	gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
-	if (iuta) gf *= rx.sci;
-	TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	im = AddRate(ion, ion->tr_rates, &rt, m);
-	if (iuta && im == 0) {
-	  rt.dir = rx.energy;
-	  rt.inv = rx.sdev;
-	  AddRate(ion, ion->tr_sdev, &rt, 0);
+	if (e > 0) {
+	  gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
+	  if (iuta) gf *= rx.sci;
+	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
+	  im = AddRate(ion, ion->tr_rates, &rt, m);
+	  if (iuta && im == 0) {
+	    rt.dir = rx.energy;
+	    rt.inv = rx.sdev;
+	    AddRate(ion, ion->tr_sdev, &rt, 0);
+	  }
 	}
       }
     }
@@ -4054,14 +4066,16 @@ int SetTRRates(int inv) {
 	  j2 = ion->j[rt.f];
 	  e = ion0.energy[q] - ion0.energy[p];
 	  if (iuta) e = rx.energy;	    
-	  gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
-	  if (iuta) gf *= rx.sci;
-	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	  im = AddRate(ion, ion->tr_rates, &rt, m);
-	  if (iuta && im == 0) {
-	    rt.dir = rx.energy;
-	    rt.inv = rx.sdev;
-	    AddRate(ion, ion->tr_sdev, &rt, 0);
+	  if (e > 0) {
+	    gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
+	    if (iuta) gf *= rx.sci;
+	    TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
+	    im = AddRate(ion, ion->tr_rates, &rt, m);
+	    if (iuta && im == 0) {
+	      rt.dir = rx.energy;
+	      rt.inv = rx.sdev;
+	      AddRate(ion, ion->tr_sdev, &rt, 0);
+	    }
 	  }
 	}
       }
@@ -4342,8 +4356,11 @@ int SetAIRates(int inv) {
 	j1 = ion->j[r.b];
 	j2 = ion->j[r.f];
 	e = ion->energy[r.b] - ion->energy[r.f];
-	AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
-	AddRate(ion, ion->ai_rates, &rt, 0);
+	if (e < 0 && ion->ibase[r.b] != r.f) e -= ai_emin;
+	if (e > EPS16) {
+	  AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
+	  AddRate(ion, ion->ai_rates, &rt, 0);
+	}
       }
       free(h.egrid);
     }
@@ -4652,12 +4669,14 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    fwrite(&(ion->ibase[t]), sizeof(short), 1, f);
 	    fwrite(&(ion->vnl[t]), sizeof(short), 1, f);
 	    fwrite(&(ion->energy[t]), sizeof(double), 1, f);
+	    fwrite(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
 	  } else {
-	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.3E %10.3E\n", 
+	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.3E %10.3E %10.3E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
 		    ion->ibase[t], ion->vnl[t], ion->energy[t],
+		    ion->iblock[t]->n[q],
 		    ion->iblock[t]->total_rate[q],
 		    ion->iblock[t]->r[q]);
 	  }
@@ -5099,4 +5118,199 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   }
   free(xg);
   free(eg);
+}
+
+static double vanregemoter(double y) {
+  double yi[] = {0.005, 0.01, 0.02, 0.04, 0.1, 0.2, 0.4, 1.0, 2.0};
+  double gi[] = {1.301, 1.16, 0.977, 0.788, 0.554, 0.403, 0.29, 0.214, 0.201};
+  double g;
+
+  if (y < 0.005) {
+    return 0.2757*(-0.57722 - log(y));
+  } else if (y > 2.0) {
+    return 0.2;
+  } else {
+    UVIP3P(2, 9, yi, gi, 1, &y, &g);
+    return g;
+  }
+}
+
+int DRSuppression(char *fn, double z, int nmax) {
+  int n2, i, j, q, p, iedist, *ipiv, info;
+  double *a, *b, *c, yt, temp, r, y, gy, z2, z4, ni, nj, xi;
+  DISTRIBUTION *edist;
+  FILE *f;
+
+  n2 = nmax*nmax;
+  if (bmatrix) free(bmatrix);
+  bmatrix = (double *) malloc(sizeof(double)*n2*3);
+  ipiv = (int *) malloc(sizeof(int)*nmax);
+  a = bmatrix;
+  b = bmatrix + n2;
+  c = b + n2;
+  edist = GetEleDist(&iedist);
+  temp = edist->params[0];
+
+  for (i = 0; i < nmax; i++) {
+    for (j = 0; j < nmax; j++) {
+      q = i*nmax + j;
+      a[q] = 0.0;
+      b[q] = 0.0;
+    }
+  }
+  z2 = z*z;
+  z4 = z2*z2; 
+  yt = z2*HARTREE_EV/(2.0*temp);
+  for (i = 0; i < nmax; i++) {
+    ni = i + 1.0;
+    for (j = i+1; j < nmax; j++) {
+      /* radiative transition */
+      nj = j + 1.0;
+      xi = 1.0/(ni*ni) - 1.0/(nj*nj); 
+      r = 1.3E10*z4/(xi*ni*ni*ni)/(nj*nj*nj*nj*nj);
+      q = j*nmax + i;
+      a[q] += r;
+       
+      /* collisional excitation */
+      y = yt*xi;
+      gy = vanregemoter(y);
+      r = r*gy;
+      r = 1.45e-6*r/(z4*z2*xi*xi*xi*sqrt(temp));      
+      r = electron_density*r;
+      a[q] += r;
+      q = i*nmax + j;
+      a[q] += r*exp(-y)*nj*nj/(ni*ni);      
+    }
+  }
+  
+  memcpy(c, a, sizeof(double)*n2);
+
+  for (i = 0; i < nmax; i++) {
+    ni = i + 1.0;
+    q = i*nmax + i;
+    for (j = 0; j < nmax; j++) {
+      if (j == i) continue;
+      p = i*nmax + j;
+      a[q] -= a[p];
+    }
+    /* collisional ionization */
+    if (i > 0) {
+      y = yt/(ni*ni);
+      r = 3e4*(1.0/(temp*sqrt(temp)))*exp(-y)*FU(y)/y;
+      r = electron_density*r;
+      a[q] -= r;
+      b[q] = -1.0;
+    }
+  }
+  
+  /* ground state do not participate in the equation */
+  for (i = 0; i < nmax; i++) {
+    for (j = 1; j < nmax; j++) {
+      q = j*nmax;
+      a[q] = 0.0;
+    }
+    a[0] = 1E50;
+  }
+
+  /*
+  for (i = 0; i < nmax; i++) {
+    for (j = 0; j < nmax; j++) {
+      q = i*nmax + j;
+      printf("%5d %5d %10.3E %10.3E\n", i, j, a[q], b[q]);
+    }
+  }
+  */
+
+  DGESV(nmax, nmax, a, nmax, ipiv, b, nmax, &info);
+
+  if (info != 0) {
+    printf("Error in solving DGESV\n");
+    exit(1);
+  }
+  
+  a[0] = 1.0;
+  for (i = 1; i < nmax; i++) {
+    a[i] = 0.0;
+    for (j = 1; j < nmax; j++) {
+      q = i*nmax + j;
+      a[i] += b[q]*c[j*nmax];
+    }
+  }
+  
+  f = fopen(fn, "w");
+  fprintf(f, "# EDEN = %15.8E\n", electron_density);
+  fprintf(f, "# TEMP = %15.8E\n", temp);
+  fprintf(f, "# PDEN = %15.8E\n", photon_density);
+  for (i = 0; i < nmax; i++) {
+    fprintf(f, "%5d %12.5E\n", i+1, a[i]);
+  }
+  fclose(f);
+
+  /*
+  for (i = 0; i < nmax; i++) {
+    for (j = 0; j < nmax; j++) {
+      q = i*nmax + j;
+      printf("%5d %5d %10.3E\n", i, j, b[q]);
+    }
+  }
+  */
+
+  free(ipiv);
+  free(bmatrix);
+  bmatrix = NULL;
+
+  return 0;
+}
+  
+int RydBranch(char *fn, char *ofn, int n0, int n1) {
+  F_HEADER fh;
+  DR_HEADER h;
+  DR_RECORD r;
+  FILE *f, *f1;
+  int swp, i, j, n;
+  double z, ar, br;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return 0;
+  }
+  if (fh.type != DB_DR) {
+    printf("File type is not DB_DR\n");
+    fclose(f);
+    return -1;
+  }
+   
+  f1 = fopen(ofn, "w");
+  
+  for (i = 0; i < fh.nblocks; i++) {
+    n = ReadDRHeader(f, &h, swp);    
+    if (n == 0) break;
+    z = fh.atom - h.nele;
+    for (j = 0; j < h.ntransitions; j++) {
+      n = ReadDRRecord(f, &r, swp);
+      if (n == 0) break;
+      ar = 0.0;
+      for (n = n0; n < h.vn; n++) {
+	if (n1 >= n0 && n > n1) break;
+	if (r.vl-1 < n) {
+	  ar += TRRateHydrogenic(z, n, r.vl-1, h.vn, r.vl, 0);
+	} 
+	if (r.vl+1 < n) {
+	  ar += TRRateHydrogenic(z, n, r.vl+1, h.vn, r.vl, 0);
+	}
+      }
+      br = (r.total_rate*r.br+ar)/(r.total_rate+ar);
+      fprintf(f1, "%6d %12.5E %12.5E %12.5E\n", r.ilev, ar, br, r.br);
+    }
+  }
+  
+  fclose(f1);
+
+  return 0;
 }

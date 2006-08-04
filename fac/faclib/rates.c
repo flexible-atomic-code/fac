@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.43 2005/10/27 18:42:24 mfgu Exp $";
+static char *rcsid="$Id: rates.c,v 1.44 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -242,7 +242,7 @@ double CERate1E(double e, double eth, int np, void *p) {
   double *x, *y;
   int m1, n, one;
   double *dp, a, x0, y0;
-  double e0, d, c, b;
+  double e0, d, c, b, b0, b1;
 
   if (e < eth) return 0.0;
   dp = (double *) p;
@@ -260,10 +260,12 @@ double CERate1E(double e, double eth, int np, void *p) {
     y0 = y[np-1];
     if (dp[1] > 0) {
       e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-      y0 /= 1.0 + c;
       y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = e/HARTREE_EV;
@@ -271,17 +273,21 @@ double CERate1E(double e, double eth, int np, void *p) {
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
       a += dp[1]*b;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      a *= b0*b1;
     } else if (dp[1] + 1.0 == 1.0) {
       e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      y0 /= 1.0 + c;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = e/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      a *= b0*b1;
     } else {
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
     }
@@ -293,7 +299,7 @@ double CERate1E(double e, double eth, int np, void *p) {
   }
   
   e0 = e/HARTREE_EV;
-  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);  
   a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
   a *= VelocityFromE(e);
   return a;
@@ -303,7 +309,7 @@ double DERate1E(double e, double eth, int np, void *p) {
   double a, x0, y0, *x, *y;
   double *dp;
   int m1, n, one;
-  double e0, d, c, b;
+  double e0, d, c, b, b0, b1;
 
   dp = (double *) p;
   m1 = np + 1;
@@ -320,10 +326,12 @@ double DERate1E(double e, double eth, int np, void *p) {
     y0 = y[np-1];
     if (dp[1] > 0) {
       e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-      y0 /= 1.0 + c;
       y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = (e + eth)/HARTREE_EV;
@@ -331,17 +339,19 @@ double DERate1E(double e, double eth, int np, void *p) {
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
       a += dp[1]*b;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      a *= b0*b1;
     } else if (dp[1] + 1.0 == 1.0) {
       e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      y0 /= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      y0 /= b0*b1;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = (e + eth)/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      a *= 1.0 + c;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      a *= b0*b1;
     } else {
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
     }
@@ -577,6 +587,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
   a = FINE_STRUCTURE_CONST*(e+eth);
   a = a*a;
   a = a/(2.0*HARTREE_EV*e);
+  a /= 1.0 + 0.5*FINE_STRUCTURE_CONST2*e/HARTREE_EV;
   c *= a*VelocityFromE(e);
   
   return c;

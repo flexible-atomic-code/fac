@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.14 2003/09/26 19:42:52 mfgu Exp $";
+static char *rcsid="$Id: angular.c,v 1.15 2006/08/04 07:43:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -514,5 +514,34 @@ double ReducedCL(int ja, int k, int jb) {
   return r;
 }
 
+double WignerDMatrix(double a, int j2, int m2, int n2) {
+  double b, c, ca, sa, x;
+  int k, kmin, kmax;
 
+  a *= 0.5;
+  kmin = Max(0, (m2+n2)/2);
+  kmax = Min((j2+m2)/2, (j2+n2)/2);
+  ca = cos(a);
+  sa = sin(a);
+  x = 0.0;
+  for (k = kmin; k <= kmax; k++) {
+    b = pow(ca, (2*k-(m2+n2)/2));
+    b *= pow(sa, (j2+(m2+n2)/2-2*k));
+    c = LnFactorial(k);    
+    c += LnFactorial((j2+m2)/2-k);
+    c += LnFactorial((j2+n2)/2-k);
+    c += LnFactorial(k-(m2+n2)/2);
+    b /= exp(c);
+    if (IsOdd(k)) b = -b;
+    x += b;
+  }
+  c = LnFactorial((j2+m2)/2);
+  c += LnFactorial((j2-m2)/2);
+  c += LnFactorial((j2+n2)/2);
+  c += LnFactorial((j2-n2)/2);
+  c = exp(0.5*c);
+  if (IsOdd((j2+m2)/2)) c = -c;
+  x *= c;
 
+  return x;
+}

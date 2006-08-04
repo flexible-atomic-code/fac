@@ -1,7 +1,15 @@
-Version 1.1.1, 12/30/2005
+Version 1.1.1, 04/30/2006
 	1. change the argument of coulcc to have a small imaginary part for
-	DCOUL function. so that the results are ok for bound state energies.
-	2. make low and up indexes in TransitionTable and CETable interchangable.
+	   DCOUL function. so that the results are ok for bound state energies.
+	2. make low and up indexes in TransitionTable and CETable
+	   interchangable.
+	3. Add external magnetic and electric fields.
+	4. Incident angle dependent excitation for Stark-Zeeman levels.
+	5. Improve radial integrate involving continuum orbitals.
+	6. Improve the construction of Y^k(r) functions.
+	7. Use CPC routine for Coulomb multiple matrix elements for high
+	   partial wave extrapolation.
+	8. add modifiers to the configuration specification.
 	
 Version 1.1.0, 10/03/2005
 	1. reimplement the StructureMBPT function.

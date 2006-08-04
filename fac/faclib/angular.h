@@ -150,5 +150,6 @@ double WignerEckartFactor(int jf, int k, int ji,
 			  int mf, int q, int mi);
 double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf);
 double ReducedCL(int ja, int k, int jb);
+double WignerDMatrix(double a, int j2, int m2, int n2);
 
 #endif

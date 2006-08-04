@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.32 2006/01/02 06:54:06 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.33 2006/08/04 07:43:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -172,7 +172,6 @@ int TRMultipole(double *strength, double *energy,
   int nz, i;
   ANGULAR_ZMIX *ang;
 
-  *strength = 0.0;
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
   lev2 = GetLevel(upper);
@@ -214,6 +213,53 @@ int TRMultipole(double *strength, double *energy,
   free(ang);	  
   
   *strength = s;
+
+  return 0;
+}
+
+int TRMultipoleEB(double *strength, double *energy, int m, int lower, int upper) {
+  LEVEL *lev1, *lev2;
+  LEVEL *plev1, *plev2;
+  int i1, i2, j1, j2, p1, p2, k, m2;
+  int ilev1, ilev2, mlev1, mlev2, q;
+  double r, a, c;
+
+  lev1 = GetEBLevel(lower);
+  if (lev1 == NULL) return -1;
+  lev2 = GetEBLevel(upper);
+  if (lev2 == NULL) return -1;
+  
+  *energy = lev2->energy - lev1->energy;
+  if (*energy <= 0.0) return -1;
+  
+  m2 = 2*abs(m);
+
+  for (q = 0; q <= m2; q++) strength[q] = 0.0;
+  for (i1 = 0; i1 < lev1->n_basis; i1++) {
+    if (lev1->mixing[i1] == 0) continue;
+    DecodeBasisEB(lev1->basis[i1], &ilev1, &mlev1);
+    plev1 = GetLevel(ilev1);
+    DecodePJ(plev1->pj, &p1, &j1);
+    for (i2 = 0; i2 < lev2->n_basis; i2++) {
+      if (lev2->mixing[i2] == 0) continue;
+      c = lev1->mixing[i1]*lev2->mixing[i2];
+      DecodeBasisEB(lev2->basis[i2], &ilev2, &mlev2);
+      plev2 = GetLevel(ilev2);
+      DecodePJ(plev2->pj, &p2, &j2);
+      k = TRMultipole(&r, energy, m, ilev1, ilev2);
+      if (k != 0) continue;
+      a = W3j(j1, m2, j2, -mlev1, mlev1-mlev2, mlev2);
+      q = (mlev1-mlev2)/2+abs(m);
+      if (a == 0) continue;
+      if (IsOdd((j1-mlev1)/2)) a = -a;
+      strength[q] += c*r*a;
+      /*
+      printf("%d %d %d %d %2d %2d %2d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	     lower, upper, ilev1, ilev2, mlev1, mlev2, q-1,c, a, r, c*a*r, 
+	     strength[q]);
+      */
+    }
+  }
 
   return 0;
 }
@@ -274,6 +320,92 @@ static int CompareTRDatum(const void *p1, const void *p2) {
   }
 }
 
+int SaveTransitionEB0(int nlow, int *low, int nup, int *up, 
+		      char *fn, int m) {
+  int k, i, j, nq;
+  double emin, emax, e0, s[101], et;
+  F_HEADER fhdr;
+  TRF_HEADER tr_hdr;
+  TRF_RECORD r;
+  LEVEL *lev1, *lev2;
+  FILE *f;
+  
+  if (nlow <= 0 || nup <= 0) return -1;
+  if (m == 1 || transition_option.mode == M_FR) {
+    k = 0;
+    emin = 1E10;
+    emax = 1E-10;
+    for (i = 0; i < nlow; i++) {
+      lev1 = GetEBLevel(low[i]);
+      for (j = 0; j < nup; j++) {
+	lev2 = GetEBLevel(up[j]);
+	e0 = lev2->energy - lev1->energy;
+	if (e0 > 0) k++;
+	if (e0 < emin && e0 > 0) emin = e0;
+	if (e0 > emax) emax = e0;
+      }
+    }
+      
+    if (k == 0) {
+      return 0;
+    }
+    
+    emin *= FINE_STRUCTURE_CONST;
+    emax *= FINE_STRUCTURE_CONST;
+    e0 = 2.0*(emax-emin)/(emin+emax);
+    
+    FreeMultipoleArray();
+    if (e0 < 0.1) {
+      SetAWGrid(1, 0.5*(emin+emax), emax);
+    } else if (e0 < 1.0) {
+      SetAWGrid(2, emin, emax);
+    } else {
+      SetAWGrid(3, emin, emax);
+    }
+  }
+  fhdr.type = DB_TRF;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();  
+  lev1 = GetEBLevel(low[0]);
+  DecodeBasisEB(lev1->pb, &i, &j);  
+  tr_hdr.nele = GetNumElectrons(i);
+  tr_hdr.multipole = m;
+  tr_hdr.gauge = GetTransitionGauge();
+  if (m == 1) { /* always FR for M1 transitions */
+    tr_hdr.mode = M_FR;
+  } else {
+    tr_hdr.mode = GetTransitionMode();
+  }
+  nq = 2*abs(m) + 1;
+  r.strength = (float *) malloc(sizeof(float)*nq);
+  GetFields(&tr_hdr.bfield, &tr_hdr.efield, &tr_hdr.fangle);
+    
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &tr_hdr);
+
+  for (j = 0; j < nup; j++) {
+    for (i = 0; i < nlow; i++) {
+      k = TRMultipoleEB(s, &et, m, low[i], up[j]);
+      if (k != 0) continue;
+      e0 = 0.0;
+      for (k = 0; k < nq; k++) {
+	r.strength[k] = s[k];
+	if (s[k]) e0 = s[k];
+      }
+      if (e0 == 0.0) continue;
+      r.lower = low[i];
+      r.upper = up[j];
+      WriteTRFRecord(f, &r);
+    }
+  }
+  
+  DeinitFile(f, &fhdr);
+  CloseFile(f, &fhdr);
+  free(r.strength);
+
+  return 0;
+}
+      
 int SaveTransition0(int nlow, int *low, int nup, int *up, 
 		    char *fn, int m) {
   int i, j, k, jup;
@@ -654,3 +786,142 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 
   return 0;
 }
+  
+int GetLowUpEB(int *nlow, int **low, int *nup, int **up, 
+	       int nlow0, int *low0, int nup0, int *up0) {  
+  int i, j, ilev, mlev, n;
+  LEVEL *lev;
+ 
+  n = GetNumEBLevels();
+  if (n == 0) return -1;
+
+  *low = malloc(sizeof(int)*n);
+  *up = malloc(sizeof(int)*n);
+  *nlow = 0;
+  *nup = 0;
+  for (i = 0; i < n; i++) {
+    lev = GetEBLevel(i);
+    DecodeBasisEB(lev->pb, &ilev, &mlev);
+    for (j = 0; j < nlow0; j++) {
+      if (low0[j] == ilev) {
+	(*low)[(*nlow)++] = i;	
+	break;
+      }      
+    }
+    for (j = 0; j < nup0; j++) {
+      if (up0[j] == ilev) {
+	(*up)[(*nup)++] = i;	
+	break;
+      }
+    }
+  }
+
+  return 0;
+}
+
+int SaveTransitionEB(int nlow0, int *low0, int nup0, int *up0,
+		     char *fn, int m) {
+  int n, nlow, *low, nup, *up, nc;
+
+  n = GetLowUpEB(&nlow, &low, &nup, &up, nlow0, low0, nup0, up0);
+  if (n == -1) return 0;
+
+  nc = OverlapLowUp(nlow, low, nup, up);
+  SaveTransitionEB0(nc, low+nlow-nc, nc, up+nup-nc, fn, m);
+  SaveTransitionEB0(nc, low+nlow-nc, nup-nc, up, fn, m);
+  SaveTransitionEB0(nup-nc, up, nc, low+nlow-nc, fn, m);
+  SaveTransitionEB0(nlow-nc, low, nup, up, fn, m);
+  SaveTransitionEB0(nup, up, nlow-nc, low, fn, m);
+
+  free(low);
+  free(up);
+  ReinitRadial(1);
+
+  return 0;
+}
+
+int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
+  FILE *f1, *f2;
+  int n, i, t, tp, k, q, s, sp, m, mp, m2;
+  double a, c;
+  F_HEADER fh;
+  TRF_HEADER h;
+  TRF_RECORD r;
+  int swp;
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+  
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC Binary format\n", ifn);
+    goto DONE;
+  }
+  
+  if (fh.type != DB_TRF || fh.nblocks == 0) {
+    printf("File %s is not of DB_TRF type\n", ifn);
+    goto DONE;
+  }
+  
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    goto DONE;
+  }
+    
+  while (1) {
+    n = ReadTRFHeader(f1, &h, swp);
+    if (n == 0) break;
+    m2 = 2*abs(h.multipole);
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadTRFRecord(f1, &r, swp, &h);
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
+	for (t = -1; t <= 1; t += 2) {
+	  for (tp = -1; tp <= 1; tp += 2) {
+	    for (k = 0; k <= m2; k++) {
+	      for (q = -k; q <= k; q++) {
+		c = 0.0;
+		for (s = 0; s <= m2; s++) {
+		  m = s - m2/2;
+		  mp = m + q;
+		  sp = mp + m2/2;
+		  if (sp < 0 || sp > m2) continue;
+		  a = r.strength[s]*r.strength[sp];
+		  a *= W3j(m2, m2, 2*k, 2*m, -2*mp, 2*q);
+		  a *= W3j(m2, m2, 2*k, 2*t, -2*tp, 2*(tp-t));
+		  if (IsOdd(abs(mp-tp))) a = -a;
+		  c += a;
+		}
+		c *= 2.0*k + 1.0;
+		fprintf(f2, "%4d %4d %2d %2d %2d %2d %2d %15.8E\n",
+			r.lower, r.upper, t, tp, k, q, tp-t, c);
+	      }
+	    }
+	  }
+	}
+      }
+      free(r.strength);
+    }
+  }
+
+ DONE:
+  fclose(f1);
+  
+  if (f2) {
+    if (f2 != stdout) {
+      fclose(f2);
+    } else {
+      fflush(f2);
+    }
+  }
+
+  return 0;
+}
+  

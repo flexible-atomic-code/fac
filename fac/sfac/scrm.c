@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.28 2005/10/27 18:42:24 mfgu Exp $";
+static char *rcsid="$Id: scrm.c,v 1.29 2006/08/04 07:43:54 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -140,6 +140,16 @@ static int PSetExtrapolate(int argc, char *argv[], int argt[],
   if (argc != 1) return -1;
   n = atoi(argv[0]);
   SetExtrapolate(n);
+  return 0;
+}
+
+static int PSetEMinAI(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  double e;
+
+  if (argc != 1) return -1;
+  e = atof(argv[0]);
+  SetEMinAI(e);
   return 0;
 }
 
@@ -516,6 +526,21 @@ static int PDRStrength(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRydBranch(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int n0, n1;
+
+  if (argc == 3) n1 = -1;
+  else if (argc == 4) n1 = atoi(argv[3]);
+  else return -1;
+
+  n0 = atoi(argv[2]);
+  
+  RydBranch(argv[0], argv[1], n0, n1);
+  
+  return 0;
+}
+
 static int PDumpRates(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int k, m, imax, a;
@@ -556,17 +581,34 @@ static int PSetUTA(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PDRSuppression(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int nmax;
+  double z;
+  
+  if (argc != 3) return -1;
+
+  z = atof(argv[1]);
+  nmax = atoi(argv[2]);
+
+  DRSuppression(argv[0], z, nmax);
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"Exit", PExit, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
+  {"DRSuppression", PDRSuppression, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
+  {"SetEMinAI", PSetEMinAI, METH_VARARGS},
   {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
@@ -595,6 +637,7 @@ static METHOD methods[] = {
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
+  {"RydBranch", PRydBranch, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

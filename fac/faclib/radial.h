@@ -15,9 +15,9 @@
 #include "recouple.h"
 
 typedef struct _SLATER_YK_ {
-  short i0;
   short npts;
   float *yk;
+  float coeff[2];
 } SLATER_YK;
 
 #ifdef PERFORM_STATISTICS
@@ -42,7 +42,7 @@ void SetVP(int n);
 void SetBreit(int n);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
-int SetRadialGrid(int maxrp, double ratio, double asymp);
+int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
@@ -90,7 +90,7 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 /* routines for radial integral calculations */
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
 	  int k1, int k2, int type);
-int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, int type, double *r);
+int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, int type, double *r, int id);
 int IntegrateSubRegion(int i0, int i1, 
 		       double *f, ORBITAL *orb1, ORBITAL *orb2,
 		       int t, double *r, int m, double *ext);

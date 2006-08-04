@@ -53,9 +53,6 @@
 #include "angular.h"
 #include "grid.h"
 
-#define CBMULTIPOLES   2
-#define MAXNCB         (CBMULTIPOLES*(CBMULTIPOLES+3)/2)
-
 void    SetHydrogenicNL(int n, int kl, int nm, int klm);
 void    GetHydrogenicNL(int *n, int *kl, int *nm, int *klm);
 double  HydrogenicDipole(double z, int n0, int kl0, 
@@ -65,15 +62,15 @@ double HydrogenicSelfEnergy(double z, int n, int k);
 double  TRRateHydrogenic(double z, int n0, int kl0,
 			int n1, int kl1, int s);
 double  CoulombPhaseShift(double z, double e, int kappa);
-double  AngularMSub(int lf, int li1, int li2, int q);
-double *GetCoulombBethe(int ie2, int ite, int ie1, int m, int k);
+int CoulombMultip(char *fn, double z, double te, double e1,
+		  int k, int q0, int q1, int m);
+double *GetCoulombBethe(int ie2, int ite, int ie1, int t, int q);
 double  GetCoulombBetheAsymptotic(double te, double e1);
-int     PrepCBIndex(int mode);
+void    PrepCBIndex(void);
 int     CoulombBetheTail(int n, double *w, int nkl, double *kl, double *tcb);
 int     PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 			 double *e2, double *te, double *e1,
-			 int nkl, double *kl, 
-			 int etype, int ltype, int mode);
+			 int nkl, double *kl, int mode);
 int     CoulombBethe(char *s, double z, double te, double e1);
 int     InitCoulomb(void);
 
