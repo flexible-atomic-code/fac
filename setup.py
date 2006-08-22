@@ -37,7 +37,7 @@ for s in x:
                   else:
                         extralink.append(a)
       elif (s[0:6] == '-bsfac'):
-            bsfac = 'SFAC-%s.%s.tar.gz'%(version, get_platform())
+            bsfac = 'SFAC-%s.%s.tar'%(version, get_platform())
       elif (s[0:4] == '-mpy'):
             pyinc = get_config_var('INCLUDEPY')
             pylib = get_config_var('LIBPL')+'/'+get_config_var('LDLIBRARY')
@@ -47,7 +47,7 @@ for s in x:
             sys.argv.append(s)
 
 if (no_setup == 0):
-      setup(name = "FAC",
+      setup(name = "PFAC",
             version = version,
             package_dir = {'pfac': 'python'},
             py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
@@ -84,6 +84,11 @@ if (no_setup == 0):
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
       print 'Creating SFAC binary ...'
-      os.system('cd sfac; tar zcvf %s sfac scrm spol'%bsfac)
-      os.system('mv sfac/%s dist'%bsfac)
+      c = 'cd sfac; mkdir bin;'
+      c += 'cp sfac bin; cp scrm bin; cp spol bin;'
+      c += 'tar cvf %s ./bin;'%bsfac
+      c += 'gzip %s;'%bsfac
+      c += 'rm -rf bin;'
+      c += 'mv %s.gz ../dist/;'%bsfac
+      os.system(c)
       
