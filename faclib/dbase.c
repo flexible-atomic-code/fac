@@ -1,6 +1,6 @@
 #include "dbase.h"
 
-static char *rcsid="$Id: dbase.c,v 1.87 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id: dbase.c,v 1.88 2006/08/22 04:59:53 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4562,7 +4562,7 @@ int ISearch(int i, int n, int *ia) {
 
 int AdjustEnergy(int nlevs, int *ilevs, double *e, 
 		 char *efn0, char *efn1, char *afn0, char *afn1) {
-  int i, k, k0, k1, n, ig, swp;
+  int i, k, k0, k1, n, ig, swp, nb;
   double ae0, ae1, e0, e1;
   FILE *f0, *f1;
   F_HEADER efh, afh;
@@ -4588,7 +4588,10 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   if (f0 == NULL) return -1;
 
   n = ReadFHeader(f0, &efh, &swp);  
-  if (n == 0) return -1;
+  if (n == 0) {
+    fclose(f0);
+    return -1;
+  }
   
   f1 = OpenFile(efn1, &efh);
   
@@ -4619,13 +4622,21 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   if (f0 == NULL) return -1;
   
   n = ReadFHeader(f0, &afh, &swp);
-  if (n == 0) return -1;
+  if (n == 0) {
+    fclose(f0);
+    return -1;
+  }
   
   f1 = OpenFile(afn1, &afh);
-  
+
+  nb = 0;
   while (1) {
     n = ReadAIHeader(f0, &ah, swp);
     if (n == 0) break;
+    /*
+    if (nb == 0) printf("EMIN = %10.3E\n", ah.emin*HARTREE_EV);
+    nb++;
+    */
     InitFile(f1, &afh, &ah);
     for (i = 0; i < ah.ntransitions; i++) {
       n = ReadAIRecord(f0, &ar, swp);
