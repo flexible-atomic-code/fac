@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.37 2004/06/08 19:21:19 mfgu Exp $
+# rcsid = $Id: README,v 1.38 2006/08/22 04:59:53 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -29,8 +29,23 @@ INSTALL:
 There are two interfaces available to the FAC numerical lib. One makes use
 of the Python scripting language, implemented as a package "pfac".
 The other interface uses a simple command parser, compiled into executables. 
-The two interfaces are independent. Either one or both can be installed.
+The two interfaces are independent. Either one or both can be installed. 
+One can either install from precompiled binaries or from source files.
 
+INSTALL FROM BINARY PACKAGES:
+Download appropriate binary packages. The PFAC interface is named as
+FAC-version.platform.tar.gz, where version is the FAC version number
+and platform is the computer platform the binary was compiled for. 
+Unpacking the file at some direcoty /my/own/dir will create the python package
+as if python setup.py install --prefix=/my/own/dir is used. PYTHONPATH must 
+be set appropriately in order to use the python modeuls (see later on 
+installing from source).
+
+The SFAC interface is named as SFAC-version.platform.tar.gz. This simply 
+contains the 3 executables, sfac, scrm, and spol. Unpack it in a directory
+within your PATH, and you are good to go.
+
+INSTALL FROM SOURCE:
 STEPS:
 1) ./configure
 Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler 
