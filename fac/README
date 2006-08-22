@@ -1,4 +1,4 @@
-# rcsid = $Id: README,v 1.38 2006/08/22 04:59:53 mfgu Exp $
+# rcsid = $Id: README,v 1.39 2006/08/22 18:59:41 mfgu Exp $
 
 FAC is a software packge for the calculation of various atomic processes.
 
@@ -42,8 +42,8 @@ be set appropriately in order to use the python modeuls (see later on
 installing from source).
 
 The SFAC interface is named as SFAC-version.platform.tar.gz. This simply 
-contains the 3 executables, sfac, scrm, and spol. Unpack it in a directory
-within your PATH, and you are good to go.
+contains the 3 executables under the directory bin/, sfac, scrm, and spol. 
+Unpack it in a directory and add bin to your PATH.
 
 INSTALL FROM SOURCE:
 STEPS:
