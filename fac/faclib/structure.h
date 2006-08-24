@@ -210,6 +210,10 @@ void DecodeBasisEB(int k, int *s, int *m);
 int ConstructHamiltonEB(int n, int *ilev);
 void StructureEB(char *fn, int n, int *ilev);
 double HamiltonElementEB(int i, int j);
+int SlaterCoeff(char *fn, int nlevs, int *ilevs);
+void AddSlaterCoeff(double *c, double a, int n_shells, 
+		    SHELL_STATE *sbra, SHELL_STATE *sket, 
+		    INTERACT_SHELL *s);
 
 #endif
 

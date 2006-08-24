@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.98 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id: structure.c,v 1.99 2006/08/24 00:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1272,6 +1272,251 @@ void HamiltonElement1E2E(int isym, int isi, int isj, double *x1, double *x2) {
   free(sbra);
   free(sket);
 }
+
+int SlaterCoeff(char *fn, int nlevs, int *ilevs) {
+  FILE *f;
+  int m, i, j, i0, i1, k0, k1, q0, q1, p0, p1;
+  int nb, nb2, nb2s, n_shells, k, vnl;
+  double a, *coeff;
+  CONFIG *c0, *c1;
+  STATE *s0, *s1;
+  SYMMETRY *sym;
+  LEVEL *lev;
+  ORBITAL *orb0, *orb1;
+  SHELL_STATE *sbra, *sket;
+  SHELL *bra;
+  INTERACT_DATUM *idatum;
+  INTERACT_SHELL s[4];  
+  char name[LEVEL_NAME_LEN];
+  char sname[LEVEL_NAME_LEN];
+  char nc[LEVEL_NAME_LEN];
+  
+  f = fopen(fn, "w");
+  if (f == NULL) return -1;
+  
+  nb = GetNumBounds();
+  nb2 = nb*2;
+  nb2s = nb2*nb2;
+  coeff = (double *) malloc(sizeof(double)*nb2s*2);
+
+  for (m = 0;  m < nlevs; m++) {
+    for (i = 0; i < nb2s*2; i++) {
+      coeff[i] = 0.0;
+    }
+    lev = GetLevel(ilevs[m]);
+    sym = GetSymmetry(lev->pj);
+    for (i0 = 0; i0 < lev->n_basis; i0++) {
+      s0 = (STATE *) ArrayGet(&(sym->states), lev->ibasis[i0]);
+      c0 = GetConfig(s0);
+      k0 = s0->kstate;
+      for (i1 = 0; i1 < lev->n_basis; i1++) {
+	a = lev->mixing[i0] * lev->mixing[i1];
+	if (fabs(a) < angz_cut) continue;
+	s1 = (STATE *) ArrayGet(&(sym->states), lev->ibasis[i1]);
+	c1 = GetConfig(s1);
+	k1 = s1->kstate;
+	idatum = NULL;
+	n_shells = GetInteract(&idatum, &sbra, &sket, s0->kgroup, s1->kgroup, 
+			       s0->kcfg, s1->kcfg, k0, k1, 0);
+	if (n_shells <= 0) continue;
+	memcpy(s, idatum->s, sizeof(INTERACT_SHELL)*4);
+	bra = idatum->bra;
+	if (IsOdd(idatum->phase)) a = -a;
+	if (s[0].index >= 0 && s[3].index >= 0) {
+	  AddSlaterCoeff(coeff, a, n_shells, sbra, sket, s);
+	} else if (s[0].index >= 0) {
+	  for (i = 0; i < n_shells; i++) {
+	    s[2].index = n_shells - i - 1;
+	    s[3].index = s[2].index;
+	    s[2].n = bra[i].n;
+	    s[3].n = s[2].n;
+	    s[2].kappa = bra[i].kappa;
+	    s[3].kappa = s[2].kappa;
+	    s[2].j = GetJ(bra+i);
+	    s[3].j = s[2].j;
+	    s[2].kl = GetL(bra+i);
+	    s[3].kl = s[2].kl;
+	    s[2].nq_bra = GetNq(bra+i);
+	    if (s[2].index == s[0].index) {
+	      s[2].nq_ket = s[2].nq_bra - 1;
+	    } else if (s[2].index == s[1].index) {
+	      s[2].nq_ket = s[2].nq_bra + 1;
+	    } else {
+	      s[2].nq_ket = s[2].nq_bra;
+	    }
+	    if (s[2].nq_bra <= 0 || s[2].nq_ket <= 0 ||
+		s[2].nq_bra > s[2].j+1 || s[2].nq_ket > s[2].j+1) {
+	      continue;
+	    }
+	    s[3].nq_bra = s[2].nq_bra;
+	    s[3].nq_ket = s[2].nq_ket;
+	    AddSlaterCoeff(coeff, a, n_shells, sbra, sket, s);
+	  }
+	} else {
+	  for (i = 0; i < n_shells; i++) {
+	    s[0].index = n_shells - i - 1;
+	    s[1].index = s[0].index;
+	    s[0].n = bra[i].n;
+	    s[1].n = s[0].n;
+	    s[0].kappa = bra[i].kappa;
+	    s[1].kappa = s[0].kappa;
+	    s[0].j = GetJ(bra+i);
+	    s[1].j = s[0].j;
+	    s[0].kl = GetL(bra+i);
+	    s[1].kl = s[0].kl;
+	    s[0].nq_bra = GetNq(bra+i);
+	    s[0].nq_ket = s[0].nq_bra;
+	    s[1].nq_bra = s[0].nq_bra;
+	    s[1].nq_ket = s[1].nq_bra;      
+	    for (j = 0; j <= i; j++) {
+	      s[2].nq_bra = GetNq(bra+j);
+	      if (j == i && s[2].nq_bra < 2) continue;
+	      s[2].nq_ket = s[2].nq_bra;
+	      s[3].nq_bra = s[2].nq_bra;
+	      s[3].nq_ket = s[3].nq_bra;
+	      s[2].index = n_shells - j - 1;
+	      s[3].index = s[2].index;
+	      s[2].n = bra[j].n;
+	      s[3].n = s[2].n;
+	      s[2].kappa = bra[j].kappa;
+	      s[3].kappa = s[2].kappa;
+	      s[2].j = GetJ(bra+j);
+	      s[3].j = s[2].j;
+	      s[2].kl = GetL(bra+j);
+	      s[3].kl = s[2].kl;
+	      AddSlaterCoeff(coeff, a, n_shells, sbra, sket, s);
+	    }
+	  }
+	}
+	free(sbra);
+	free(sket);	
+      }
+    }
+    
+    DecodePJ(lev->pj, &i, &j);
+    a = sqrt(j+1.0);
+
+    s0 = (STATE *) ArrayGet(&(sym->states), lev->pb);
+    ConstructLevelName(name, sname, nc, &vnl, s0);
+    fprintf(f, "# %6d %1d %3d   %-s\n",
+	    ilevs[m], i, j, name);
+    for (i0 = 0; i0 < nb; i0++) {
+      orb0 = GetOrbital(i0);
+      k0 = GetLFromKappa(orb0->kappa)/2;
+      p0 = ShellToInt(orb0->n, orb0->kappa);
+      for (i1 = 0; i1 < nb; i1++) {
+	orb1 = GetOrbital(i1);
+	k1 = GetLFromKappa(orb1->kappa)/2;
+	p1 = ShellToInt(orb1->n, orb1->kappa);
+	for (q0 = 0; q0 < 2; q0++) {
+	  for (q1 = 0; q1 < 2; q1++) {
+	    i = (i0*2+q0)*nb2 + i1*2+q1;
+	    j = i + nb2s;
+	    if (coeff[i] == 0) {
+	      continue;
+	    }
+	    if (IsOdd(k0+k1)) k = 1;
+	    else k = 2;	    
+	    if (p1 > p0) {
+	      fprintf(f, "  %6d %d %2d %2d %2d %d %2d %2d %2d %d %12.5E %12.5E\n",
+		      ilevs[m], k, orb0->n, orb0->kappa, k0, q0,
+		      orb1->n, orb1->kappa, k1, q1,
+		      coeff[i]/a, coeff[j]);
+	    } else {
+	      fprintf(f, "  %6d %d %2d %2d %2d %d %2d %2d %2d %d %12.5E %12.5E\n",
+		      ilevs[m], k, orb1->n, orb1->kappa, k1, q1,
+		      orb0->n, orb0->kappa, k0, q0,
+		      coeff[i]/a, coeff[j]);
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  fclose(f);
+  
+  return 0;
+}
+	  
+void AddSlaterCoeff(double *coeff, double a, int n_shells, 
+		    SHELL_STATE *sbra, SHELL_STATE *sket, 
+		    INTERACT_SHELL *s) {
+  int t, tt, tmin, tmax, nk, *kk, j, i0, i1, i;
+  int k0, k1, k2, k3, js[4], nb, nb2, nb2s;
+  double c, e, *ang;
+  ORBITAL *orb0, *orb1, *orb2, *orb3;
+  int kl0, kl1, kl2, kl3;
+  
+  if (s[0].kl != s[1].kl) return;
+  if (s[2].kl != s[3].kl) return;
+  if (s[0].n != s[1].n) return;
+  if (s[2].n != s[3].n) return;
+
+  k0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+  k1 = OrbitalIndex(s[2].n, s[2].kappa, 0.0);
+  k2 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+  k3 = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
+  if (k0 == k1) return;
+  if (k2 == k3) return;
+  orb0 = GetOrbitalSolved(k0);
+  orb1 = GetOrbitalSolved(k1);
+  orb2 = GetOrbitalSolved(k2);
+  orb3 = GetOrbitalSolved(k3);
+  js[0] = GetJFromKappa(orb0->kappa);
+  js[1] = GetJFromKappa(orb1->kappa);
+  js[2] = GetJFromKappa(orb2->kappa);
+  js[3] = GetJFromKappa(orb3->kappa);  
+  kl0 = GetLFromKappa(orb0->kappa);
+  kl1 = GetLFromKappa(orb1->kappa);
+  kl2 = GetLFromKappa(orb2->kappa);
+  kl3 = GetLFromKappa(orb3->kappa);
+  i0 = k0*2;
+  if (k2 != k0) i0++;
+  i1 = k1*2;
+  if (k3 != k1) i1++;  
+  nb = GetNumBounds();
+  nb2 = nb*2;
+  nb2s = nb2*nb2;
+
+  nk = AngularZxZ0(&ang, &kk, 0, n_shells, sbra, sket, s);
+  for (i = 0; i < nk; i++) {
+    if (fabs(ang[i]) < EPS30) continue;
+    tmin = abs(js[0] - js[3]);
+    tt = abs(js[1] - js[2]);
+    tmin = Max(tt, tmin);
+    tmax = js[0] + js[3];
+    tt = js[1] + js[2];
+    tmax = Min(tt, tmax);
+    tmax = Min(tmax, GetMaxRank());
+    if (IsOdd(tmin)) tmin++;  
+    for (t = tmin; t <= tmax; t += 2) {
+      if (t < 2 || t > 4) continue;
+      j = i0*nb2 + i1;
+      e = 0.0;
+      c = 0.0;
+      if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
+	e = W6j(js[0], js[2], kk[i], js[1], js[3], t);
+	if (coeff[j] == 0) {
+	  Slater(&c, k0, k1, k3, k2, t/2, 0);
+	  coeff[j+nb2s] = c;
+	}
+	e *= ReducedCL(js[0], t, js[3]); 
+	e *= ReducedCL(js[1], t, js[2]);
+	e *= (kk[i] + 1.0);
+	if (IsOdd((t+kk[i])/2)) e = -e;
+      }
+      if (fabs(e) < EPS30) continue;
+      coeff[j] += a*ang[i]*e;
+    }
+  }
+
+  if (nk > 0) {
+    free(ang);
+    free(kk);
+  }
+}
+
 
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {

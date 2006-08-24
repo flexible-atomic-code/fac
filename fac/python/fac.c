@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.113 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.114 2006/08/24 00:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4767,7 +4767,30 @@ static PyObject *PCoulMultip(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
+  char *fn;
+  PyObject *p;
+  int nlev, *ilev;
+  
+  if (sfac_file) {
+    SFACStatement("SlaterCoeff", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!(PyArg_ParseTuple(args, "sO", &fn, &p))) return NULL;
+  nlev = SelectLevels(p, &ilev);
+  if (nlev >= 0) {
+    SlaterCoeff(fn, nlev, ilev);
+    free(ilev);
+  }
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
+  {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 

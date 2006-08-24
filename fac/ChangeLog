@@ -10,6 +10,8 @@ Version 1.1.1, 04/30/2006
 	7. Use CPC routine for Coulomb multiple matrix elements for high
 	   partial wave extrapolation.
 	8. add modifiers to the configuration specification.
+	9. add function to obtain expansion coefficients of G^k, useful for 
+	   transition rates from level to configurations.
 	
 Version 1.1.0, 10/03/2005
 	1. reimplement the StructureMBPT function.
