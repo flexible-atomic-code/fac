@@ -3209,6 +3209,31 @@ Hamiltonian. 0---disable, 1---only include 2nd order term, 2---include the 4th
 order term as well. Default is 2.
 \end{fundesc}
 
+\begin{fundesc}{SlaterCoeff}{fn, g}
+Calculate the expansion coefficients of the exchange radial integral
+in the Coulomb energy of each state in the
+configuration list 
+\var{g}. The Coulomb energy betwee electrons of a state can be expanded as
+\begin{equation}
+E = \sum g_kG^k(\alpha\alpha^\prime,\beta\beta^\prime) + \mbox{direct terms},
+\end{equation}
+where $\alpha$ and $\alpha^\prime$ are the interacting orbitals in the bra and
+ket state, which have the same $l$ values. Because we work in the
+$jj$-coupling basis, $\alpha$ and $\alpha^\prime$ may have different $j$
+values. The results are stored in the text file \var{fn}. These coefficents
+are useful in determining the radiative transition rates from level to average
+configurations. The format of the file is as follows. For each state, a line
+starts with ``#'' gives the level index, parity, $2J$-value, and the
+configuration label. It is followed by a block of lines. In this block, the first
+column is the level index. The second column is the rank of the exchange
+integral (either 1 or 2). The 3rd, 4th, and 5th columns are the $n$, $kappa$,
+$l$ values of the $\alpha$ orbital. The 6th column is either 0 or 1,
+indicating whether $\alpha$ and $\alpha^\prime$ have the same $j$ values. The
+7-10th  columns are the corresponding values for the $\beta$ orbital. The 11th
+column is the expansion coefficients $g_k$. The 12th column is the
+corresponding exchange slater integrals.
+\end{fundesc}
+
 \begin{fundesc}{Structure}{fn, g\opt{, p\opt{, ip}}}
 Diagonalize the Hamiltonian for configurations in the groups \var{g}. The
 configurations in the optional groups \var{p} are allowed to interact with

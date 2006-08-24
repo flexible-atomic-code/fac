@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.87 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.88 2006/08/24 00:39:44 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3567,7 +3567,7 @@ static int PCETableEB(int argc, char *argv[], int argt[],
 }
 
 static int PCoulMultip(int argc, char *argv[], int argt[], 
-		      ARRAY *variables) {
+		       ARRAY *variables) {
   double z, te, e1;
   int k, q0, q1, m, ierr;
   char *fn;
@@ -3588,7 +3588,24 @@ static int PCoulMultip(int argc, char *argv[], int argt[],
   return ierr;
 }
 
+static int PSlaterCoeff(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nlev, *ilev;
+  
+  if (argc != 2) return -1;
+  if (argt[1] != LIST) return -1;
+  
+  nlev = SelectLevels(&ilev, argv[1], argt[1], variables);
+  if (nlev > 0) {
+    SlaterCoeff(argv[0], nlev, ilev);
+    free(ilev);
+  }
+  
+  return 0;
+}
+
 static METHOD methods[] = {
+  {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 
