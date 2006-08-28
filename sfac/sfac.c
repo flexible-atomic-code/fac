@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.88 2006/08/24 00:39:44 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.89 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3590,15 +3590,45 @@ static int PCoulMultip(int argc, char *argv[], int argt[],
 
 static int PSlaterCoeff(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  int nlev, *ilev;
+  int nlev, *ilev, na, nb, i, *n, *kappa;
+  double *nq;
+  SHELL *sa, *sb;
   
-  if (argc != 2) return -1;
+  if (argc != 4) return -1;
   if (argt[1] != LIST) return -1;
-  
+  if (argt[2] != STRING) return -1;
+  if (argt[3] != STRING) return -1;
+    
   nlev = SelectLevels(&ilev, argv[1], argt[1], variables);
-  if (nlev > 0) {
-    SlaterCoeff(argv[0], nlev, ilev);
+  na = GetAverageConfigFromString(&n, &kappa, &nq, argv[2]);
+  sa = malloc(sizeof(SHELL)*na);
+  for (i = 0; i < na; i++) {
+    sa[i].n = n[i];
+    sa[i].kappa = kappa[i];
+  }
+  if (na > 0) {
+    free(n);
+    free(kappa);
+    free(nq);
+  }
+  nb = GetAverageConfigFromString(&n, &kappa, &nq, argv[3]);
+  sb = malloc(sizeof(SHELL)*nb);
+  for (i = 0; i < nb; i++) {
+    sb[i].n = n[i];
+    sb[i].kappa = kappa[i];
+  }
+  if (nb > 0) {
+    free(n);
+    free(kappa);
+    free(nq);
+  }
+
+
+  if (nlev > 0 && na > 0 && nb > 0) {
+    SlaterCoeff(argv[0], nlev, ilev, na, sa, nb, sb);
     free(ilev);
+    free(sa);
+    free(sb);
   }
   
   return 0;

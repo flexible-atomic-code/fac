@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.33 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id: transition.c,v 1.34 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -196,7 +196,6 @@ int TRMultipole(double *strength, double *energy,
   s = 0.0;
   
   nz = AngularZMix(&ang, lower, upper, m2, m2);
-    
   if (nz <= 0) return -1;
 
   for (i = 0; i < nz; i++) {

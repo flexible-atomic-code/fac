@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.114 2006/08/24 00:39:44 mfgu Exp $";
+static char *rcsid="$Id: fac.c,v 1.115 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4768,9 +4768,11 @@ static PyObject *PCoulMultip(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
-  char *fn;
-  PyObject *p;
-  int nlev, *ilev;
+  char *fn, *q1, *q2;
+  PyObject *p;  
+  int nlev, *ilev, na, nb, i, *n, *kappa;
+  double *nq;
+  SHELL *sa, *sb;
   
   if (sfac_file) {
     SFACStatement("SlaterCoeff", args, NULL);
@@ -4778,11 +4780,37 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  if (!(PyArg_ParseTuple(args, "sO", &fn, &p))) return NULL;
+  if (!(PyArg_ParseTuple(args, "sOss", &fn, &p, &q1, &q2))) return NULL;
+
   nlev = SelectLevels(p, &ilev);
-  if (nlev >= 0) {
-    SlaterCoeff(fn, nlev, ilev);
+  na = GetAverageConfigFromString(&n, &kappa, &nq, q1);
+  sa = malloc(sizeof(SHELL)*na);
+  for (i = 0; i < na; i++) {
+    sa[i].n = n[i];
+    sa[i].kappa = kappa[i];
+  }
+  if (na > 0) {
+    free(n);
+    free(kappa);
+    free(nq);
+  }
+  nb = GetAverageConfigFromString(&n, &kappa, &nq, q2);
+  sb = malloc(sizeof(SHELL)*nb);
+  for (i = 0; i < nb; i++) {
+    sb[i].n = n[i];
+    sb[i].kappa = kappa[i];
+  }
+  if (nb > 0) {
+    free(n);
+    free(kappa);
+    free(nq);
+  }
+
+  if (nlev > 0 && na > 0 && nb > 0) {
+    SlaterCoeff(fn, nlev, ilev, na, sa, nb, sb);
     free(ilev);
+    free(sa);
+    free(sb);
   }
 
   Py_INCREF(Py_None);
