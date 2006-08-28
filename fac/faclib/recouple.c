@@ -1,7 +1,7 @@
 #include "recouple.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recouple.c,v 1.27 2005/07/25 01:36:55 mfgu Exp $";
+static char *rcsid="$Id: recouple.c,v 1.28 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -420,7 +420,7 @@ int AngularZ(double **coeff, int **kk, int nk,
     for (m = 0; m < nk; m++) {
       rank[0] = (*kk)[m];
       (*coeff)[m] = DecoupleShell(n_shells, bra, ket, 
-				 n_interact, interact, rank);  
+				  n_interact, interact, rank);  
     }
  
     st1 = bra[n_shells - s1->index -1];
@@ -1640,7 +1640,10 @@ int GetInteract(INTERACT_DATUM **idatum,
     }
   }
 
-  if (n_shells < 0 && csf_i == NULL) free((*idatum));
+  if (n_shells < 0 && csf_i == NULL) {
+    free((*idatum));
+    idatum = NULL;
+  }
 
 #ifdef PERFORM_STATISTICS
   stop = clock();

@@ -262,6 +262,7 @@ int          CompareShell(const void *s1, const void *s2);
 int          CompareShellInvert(const void *s1, const void *s2);
 int          ShellClosed(SHELL *s);
 int          ShellToInt(int n, int k);
+int          ShellIndex(int n, int kappa, int ns, SHELL *s);
 void         IntToShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
 int          GetAverageConfig(int ng, int *kg, double *weight,

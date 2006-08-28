@@ -1,6 +1,6 @@
 #include "config.h"
 
-static char *rcsid="$Id: config.c,v 1.40 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id: config.c,v 1.41 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -111,6 +111,20 @@ static int DistributeElectronsShell(CONFIG **cfg, int ns, SHELL *shell,
     (*cfg)->n_shells = 0;
     return 1;
   } 
+
+  /*
+  if (nq == 0){
+    *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ns);
+    for (t = 0; t < ns; t++) {
+      (*cfg)[t].n_shells = 1;
+      (*cfg)[t].shells = (SHELL *) malloc(sizeof(SHELL));
+      (*cfg)[t].shells[0].n = shell[t].n;
+      (*cfg)[t].shells[0].kappa = shell[t].kappa;
+      (*cfg)[t].shells[0].nq = 0;
+    }
+    return ns;
+  }
+  */
 
   if (nq == 1){
     *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ns);
@@ -1724,7 +1738,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
     cfg->symstate = malloc(sizeof(int)*cfg->n_csfs);
   }
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
-  if (cfg->n_csfs > 0) {
+  if (cfg->n_csfs > 0) {    
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
   cfg_groups[k].n_cfgs++;
@@ -1859,6 +1873,15 @@ void DecodePJ(int i, int *p, int *j) {
 SYMMETRY *GetSymmetry(int k) {
   if (k < 0 || k >= MAX_SYMMETRIES) return NULL;
   return symmetry_list+k;
+}
+
+int ShellIndex(int n, int kappa, int ns, SHELL *s) {
+  int i;
+
+  for (i = 0; i < ns; i++) {
+    if (s[i].n == n && s[i].kappa == kappa) return i;
+  }
+  return -1;
 }
 
 int ShellToInt(int n, int kappa) {  
