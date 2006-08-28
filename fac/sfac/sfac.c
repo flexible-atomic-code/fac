@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.89 2006/08/28 23:44:17 mfgu Exp $";
+static char *rcsid="$Id: sfac.c,v 1.90 2006/08/28 23:54:28 mfgu Exp $";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3507,12 +3507,12 @@ static int PTransitionTableEB(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) {  
     printf("cannot determine levels in lower\n");
-    return NULL;
+    return -1;
   }
   nup = SelectLevels(&up, argv[2], argt[2], variables);
   if (nup <= 0) {
     printf("cannot determine levels in upper\n");
-    return NULL;
+    return -1;
   }
   
   SaveTransitionEB(nlow, low, nup, up, argv[0], m);
