@@ -58,6 +58,18 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 int TotalRRCross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int n0, int n1, 
 		 int nmax, int imin, int imax);
+int CICross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy, int mp);
+int CIMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	      int nt, double *temp);
+int RRCross(char *ifn, char *ofn, int i0, int i1, 
+	    int negy, double *egy, int mp);
+int RRMaxwell(char *ifn, char *ofn, int i0, int i1, 
+	      int nt, double *temp);
+int InterpCross(char *ifn, char *ofn, int i0, int i1, 
+		int negy, double *egy, int mp);
+int MaxwellRate(char *ifn, char *ofn, int i0, int i1, 
+		int nt, double *temp);
 double voigt(double a, double v);
 
 #endif

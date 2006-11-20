@@ -1,7 +1,7 @@
 #include "excitation.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: excitation.c,v 1.89 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -913,8 +913,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	nklp = nkl-1;
 	if (ieb[ite] == 0) {
 	  s = 0.0;	  
-	  a = dqk[nklp]/rd;
-	  if (1+a != 1) {
+	  if (1+dqk[nklp] != 1) {
+	    a = dqk[nklp]/rd;
 	    if (type == 0 || type > CBMULT) {
 	      c = dqk[nklp]/dqk[nklp-1];
 	      c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
@@ -1213,8 +1213,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	  if (type1 > 0 && type1 <= CBMULT) xb = xborn1;
 	  else xb = xborn;
 	  for (iq = 0; iq < nq; iq++) {
-	    a = dqk[iq][i]/rq[iq][ite][ie];
-	    if (a + 1 != 1) {
+	    if (1+dqk[iq][i] != 1) {
+	      a = dqk[iq][i]/rq[iq][ite][ie];
 	      if (k != kp || type1 == 0 || type1 > CBMULT) {
 		c = dqk[iq][i]/dqk[iq][i-1];
 		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
@@ -2336,7 +2336,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
     if (!te_set) {
       e = emax/emin;  
-      if (e < 1.1) {
+      if (e < 1.001) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
       } else if (e < 1.5) {
 	SetCETEGrid(2, emin, emax);
@@ -2691,7 +2691,7 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     }
     if (!te_set) {
       e = emax/emin;  
-      if (e < 1.1) {
+      if (e < 1.001) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
       } else if (e < 1.5) {
 	SetCETEGrid(2, emin, emax);
@@ -2943,7 +2943,7 @@ int SaveExcitationEBD(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     }
     if (!te_set) {
       e = emax/emin;  
-      if (e < 1.1) {
+      if (e < 1.001) {
 	SetCETEGrid(1, 0.5*(emax+emin), emax);
       } else if (e < 1.5) {
 	SetCETEGrid(2, emin, emax);
