@@ -2,7 +2,7 @@
 #include "time.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: recombination.c,v 1.93 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1757,7 +1757,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     if (m == 1 || GetTransitionMode() == M_FR) {
       e = (emax - emin)/(0.5*(emin+emax));
       if (!te_set) {
-	if (e < 0.1) {
+	if (e < EPS3) {
 	  SetRRTEGrid(1, 0.5*(emin+emax), emax);
 	} else if (e < 0.5) {
 	  SetRRTEGrid(2, emin, emax);
@@ -1968,7 +1968,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     }
     if (!e_set) {
       a = (emax-emin)/(0.5*(emax+emin));
-      if (a < 0.1) {
+      if (a < EPS3) {
 	a = 0.5*(emin+emax);
 	SetPEGrid(1, a, a, 0.0);
       } else if (a < 0.4) {
@@ -2226,7 +2226,13 @@ int SaveAsymmetry(char *fn, char *s, int mx) {
   
   p = s;
   f = fopen(fn, "a");
-  if (n_usr <= 0) n_usr = 6;
+  if (n_usr <= 0) {
+    if (n_egrid <= 0) {
+      n_usr = 6;
+    } else {
+      n_usr = n_egrid;
+    }
+  }
   b = malloc(sizeof(double *)*n_usr);
   for (i = 0; i < n_usr; i++) {
     b[i] = malloc(sizeof(double)*(2*m+1));

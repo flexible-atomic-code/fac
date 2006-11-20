@@ -2,7 +2,7 @@
 #include "grid.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: crm.c,v 1.95 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -4465,6 +4465,13 @@ int DRBranch(void) {
   return 0;
 }
 
+/*
+ * mode = 0, total DR strength.
+ * mode = 1, DR satellites.
+ * mode = 2, Resonance Excitation.
+ * mode = -1, total radiation branching for each level.
+ * mode = -2, total autoionization branching for each level.
+ */
 int DRStrength(char *fn, int nele, int mode, int ilev0) {
   ION *ion;
   RATE *r, *rp;
@@ -4486,96 +4493,134 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
   fhdr.atom = ion0.atom;
   strcpy(fhdr.symbol, ion0.symbol);
   f = OpenFile(fn, &fhdr);
-  
-  if (ilev0 >= 0) {
-    for (k = 0; k < ions->dim; k++) {
-      ion = (ION *) ArrayGet(ions, k);
-      if (ion->nele - 1 == nele) {
-	ilev0 += ion->iground;
-	break;
+
+  if (mode >= 0) {
+    if (ilev0 >= 0) {
+      for (k = 0; k < ions->dim; k++) {
+	ion = (ION *) ArrayGet(ions, k);
+	if (ion->nele - 1 == nele) {
+	  ilev0 += ion->iground;
+	  break;
+	}
       }
+    } else {
+      ilev0 = -ilev0;
     }
   } else {
-    ilev0 = -ilev0;
+    ilev0 = -1;
   }
-
+  printf("%d %d\n", mode, ilev0);
   hdr.ilev = ilev0;
   hdr.nele = nele;
   n = -1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (ion->nele - 1 == nele) {
-      hdr.energy = ion->energy[ilev0];
-      hdr.j = ion->j[ilev0];
-      for (t = 0; t < ion->ai_rates->dim; t++) {
-	brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
-	blk1 = brts->fblock;
-	if (ilev0 < blk1->imin || ilev0 >= blk1->imin+blk1->nlevels) {
-	  continue;
-	}
-	blk1 = brts->iblock;
-	for (m = 0; m < brts->rates->dim; m++) {
-	  r = (RATE *) ArrayGet(brts->rates, m);
-	  if (r->f != ilev0) continue;
-	  vnl = ion->vnl[r->i];
+      if (mode < 0) {
+	hdr.energy = ion->energy[ion->iground];
+	hdr.j = ion->j[ion->iground];
+	hdr.ilev = ion->iground;
+	for (t = 0; t < ion->nlevels; t++) {
+	  blk1 = ion->iblock[t];
+	  p = ion->ilev[t];
+	  r1.br = blk1->r[p];
+	  if (mode == -2) r1.br = 1.0 - r1.br;
+	  if (!(r1.br)) continue;
+	  vnl = ion->vnl[t];
 	  vn = vnl/100;
 	  vl = vnl - vn*100;
 	  if (vn != n) {
 	    if (n > 0) DeinitFile(f, &fhdr);
 	    hdr.vn = vn;
+	    printf("%d %d %d\n", hdr.ilev, hdr.j, hdr.vn);
 	    InitFile(f, &fhdr, &hdr);
 	    n = vn;
-	  }	
-	  p = ion->ilev[r->i];
-	  r1.ilev = r->i;
-	  r1.ibase = ion->ibase[r->i];
-	  r1.energy = ion->energy[r->i] - ion->energy[ilev0];
-	  r1.j = ion->j[r->i];
+	  }
+	  r1.ilev = t;
+	  r1.ibase = ion->ibase[t];
+	  r1.energy = ion->energy[t] - ion->energy[ion->iground];
+	  r1.j = ion->j[t];
 	  r1.vl = vl;
-	  r1.ai = r->dir;
+	  r1.ai = 0.0;
 	  r1.total_rate = blk1->total_rate[p];
-	  if (mode == 0) {
-	    r1.etrans = 0.0;
-	    r1.flev = -1;
-	    r1.fbase = -1;
-	    r1.br = blk1->r[p];
-	    if (!(blk1->r[p])) continue;
-	    WriteDRRecord(f, &r1);
-	  } else if (mode == 1) {
-	    for (tp = 0; tp < ion->tr_rates->dim; tp++) {
-	      brtsp = (BLK_RATE *) ArrayGet(ion->tr_rates, tp);
-	      blk2 = brtsp->iblock;
-	      if (r1.ilev < blk2->imin || 
-		  r1.ilev >= blk2->imin+blk2->nlevels) {
-		continue;
+	  r1.etrans = 0.0;
+	  r1.flev = -1;
+	  r1.fbase = -1;
+	  WriteDRRecord(f, &r1);	  
+	}
+      } else {
+	hdr.energy = ion->energy[ilev0];
+	hdr.j = ion->j[ilev0];
+	for (t = 0; t < ion->ai_rates->dim; t++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
+	  blk1 = brts->fblock;
+	  if (ilev0 < blk1->imin || ilev0 >= blk1->imin+blk1->nlevels) {
+	    continue;
+	  }
+	  blk1 = brts->iblock;
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    if (r->f != ilev0) continue;
+	    vnl = ion->vnl[r->i];
+	    vn = vnl/100;
+	    vl = vnl - vn*100;
+	    if (vn != n) {
+	      if (n > 0) DeinitFile(f, &fhdr);
+	      hdr.vn = vn;
+	      InitFile(f, &fhdr, &hdr);
+	      n = vn;
+	    }	
+	    p = ion->ilev[r->i];
+	    r1.ilev = r->i;
+	    r1.ibase = ion->ibase[r->i];
+	    r1.energy = ion->energy[r->i] - ion->energy[ilev0];
+	    r1.j = ion->j[r->i];
+	    r1.vl = vl;
+	    r1.ai = r->dir;
+	    r1.total_rate = blk1->total_rate[p];
+	    if (mode == 0) {
+	      r1.etrans = 0.0;
+	      r1.flev = -1;
+	      r1.fbase = -1;
+	      r1.br = blk1->r[p];
+	      if (!(blk1->r[p])) continue;
+	      WriteDRRecord(f, &r1);
+	    } else if (mode == 1) {
+	      for (tp = 0; tp < ion->tr_rates->dim; tp++) {
+		brtsp = (BLK_RATE *) ArrayGet(ion->tr_rates, tp);
+		blk2 = brtsp->iblock;
+		if (r1.ilev < blk2->imin || 
+		    r1.ilev >= blk2->imin+blk2->nlevels) {
+		  continue;
+		}
+		for (mp = 0; mp < brtsp->rates->dim; mp++) {
+		  rp = (RATE *) ArrayGet(brtsp->rates, mp);
+		  if (rp->i != r1.ilev) continue;
+		  r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
+		  r1.flev = rp->f;
+		  r1.fbase = ion->ibase[rp->f];
+		  r1.br = rp->dir/r1.total_rate;
+		  if (!(rp->dir)) continue;
+		  WriteDRRecord(f, &r1);
+		}
 	      }
-	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
-		rp = (RATE *) ArrayGet(brtsp->rates, mp);
-		if (rp->i != r1.ilev) continue;
-		r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
-		r1.flev = rp->f;
-		r1.fbase = ion->ibase[rp->f];
-		r1.br = rp->dir/r1.total_rate;
-		if (!(rp->dir)) continue;
-		WriteDRRecord(f, &r1);
-	      }
-	    }
-	  } else if (mode == 2) {
-	    for (tp = 0; tp < ion->ai_rates->dim; tp++) {
-	      brtsp = (BLK_RATE *) ArrayGet(ion->ai_rates, tp);
-	      blk2 = brtsp->iblock;
-	      if (r1.ilev < blk2->imin || 
-		  r1.ilev >= blk2->imin+blk2->nlevels) {
-		continue;
-	      }
-	      for (mp = 0; mp < brtsp->rates->dim; mp++) {
-		rp = (RATE *) ArrayGet(brtsp->rates, mp);
-		if (rp->i != r1.ilev || !(rp->dir)) continue;
-		r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
-		r1.flev = rp->f;
-		r1.fbase = ion->ibase[rp->f];
-		r1.br = rp->dir/r1.total_rate;
-		WriteDRRecord(f, &r1);
+	    } else if (mode == 2) {
+	      for (tp = 0; tp < ion->ai_rates->dim; tp++) {
+		brtsp = (BLK_RATE *) ArrayGet(ion->ai_rates, tp);
+		blk2 = brtsp->iblock;
+		if (r1.ilev < blk2->imin || 
+		    r1.ilev >= blk2->imin+blk2->nlevels) {
+		  continue;
+		}
+		for (mp = 0; mp < brtsp->rates->dim; mp++) {
+		  rp = (RATE *) ArrayGet(brtsp->rates, mp);
+		  if (rp->i != r1.ilev || !(rp->dir)) continue;
+		  r1.etrans = ion->energy[rp->i] - ion->energy[rp->f];
+		  r1.flev = rp->f;
+		  r1.fbase = ion->ibase[rp->f];
+		  r1.br = rp->dir/r1.total_rate;
+		  WriteDRRecord(f, &r1);
+		}
 	      }
 	    }
 	  }

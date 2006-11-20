@@ -1,7 +1,7 @@
 #include "rates.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: rates.c,v 1.44 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1062,7 +1062,7 @@ static double MaxPower(double e, double *p) {
   c1 = maxwell_const/(1.0+y*g);
   c2 = y/(1.0+y*g);
 
-   if (e > p[5] && e < p[6]) {
+  if (e > p[5] && e < p[6]) {
     x = e/p[0];
     f = c1*sqrt(x)*exp(-x)/p[0];
   } else {
@@ -1091,6 +1091,70 @@ static double PowerLaw(double e, double *p) {
   return x;
 }
 
+static double IncompleteGamma(double a, double x) {
+  double gold=0.0, fac=1.0, b1=1.0, b0=0.0, a0=1.0;
+  double a1, an, ana, anf, g, ap, del, sum, y;
+  int n;
+
+  if (x < 0.0 || a <= 0.0) return 0.0;
+  y = DLOGAM(a);
+  if (x < (a+1.0)) {
+    ap = a;
+    del = sum = 1.0/a;
+    for (n = 1; n <= 100; n++) {
+      ap += 1.0;
+      del *= x/ap;
+      sum += del;
+      if (fabs(del) < fabs(sum)*EPS6) {
+	break;
+      }      
+    }
+    y = sum*exp(-x+a*log(x));
+  } else {
+    a1 = x;
+    for (n = 1; n <= 100; n++) {
+      an = n;
+      ana = an-a;
+      a0 = (a1 + a0*ana)*fac;
+      b0 = (b1 + b0*ana)*fac;
+      anf = an*fac;
+      a1 = x*a0 + anf*a1;
+      b1 = x*b0 + anf*b1;
+      if (a1) {
+	fac = 1.0/a1;
+	g = b1*fac;
+	if (fabs((g-gold)/g) < EPS6) {
+	  break;
+	}
+	gold = g;
+      }
+    }
+    y = exp(y)-g*exp(-x+a*log(x));
+  }
+  return y;
+}
+  
+static double Hybrid(double e, double *p) {
+  double x, y, c;
+
+  if (e > p[4] || e < p[3]) return 0.0;
+  x = e/p[0];
+  c = IncompleteGamma(1.5, p[2]);
+  if (p[1] + 1.0 != 1.0) {
+    c += pow(p[2], 1.5)*exp(-p[2])*(1.0-pow(p[4]/p[2],1.0-p[1]))/(p[1]-1.0);
+  } else {
+    c += pow(p[2], 1.5)*exp(-p[2])*log(p[4]/p[2]);
+  }
+  c = 1.0/c;
+  if (x <= p[2]) {
+    y = c*sqrt(x)*exp(-x)/p[0];
+  } else {
+    y = c*sqrt(p[2])*exp(-p[2])*pow(x/p[2], -p[1])/p[0];
+  }
+
+  return y;
+}
+  
 static double BBody(double e, double *p) {
   double c = 21.0989; /* 8*PI*eV^4/(hc)^3 in erg/cm^3 */
   double x;
@@ -1187,6 +1251,15 @@ int SetEleDist(int i, int np, double *p) {
     }
     if (p[2] <= 0.0) {
       p[2] = 1E-20;
+    }
+    break;
+  case 5:
+    /* Hybrid Maxwell, powerlaw amd maxwell continuously matched. */
+    if (p[4] <= 0.0) {
+      p[4] = 1E3*p[0]*p[2];
+    }
+    if (p[3] <= 0.0) {
+      p[3] = 1E-20*p[0];
     }
     break;
   default:
@@ -1318,6 +1391,16 @@ int InitRates(void) {
   ele_dist[i].params[2] = 1e-20;
   ele_dist[i].params[3] = 1e5;  
   ele_dist[i].dist = SMaxwell;
+
+  i++; /* shifted Maxwellian */
+  ele_dist[i].nparams = 5;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*5);
+  ele_dist[i].params[0] = 1e2;
+  ele_dist[i].params[1] = 2.0;
+  ele_dist[i].params[2] = 3.0;
+  ele_dist[i].params[3] = 1E-20;
+  ele_dist[i].params[4] = 1E8;
+  ele_dist[i].dist = Hybrid;
 
   i++;
 

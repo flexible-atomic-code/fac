@@ -7,7 +7,7 @@
 
 #include "global.h"
 
-#define MAX_DIST  8
+#define MAX_DIST  32
 
 typedef struct _DISTRIBUTION_ {
   int nparams;

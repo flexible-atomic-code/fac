@@ -1,7 +1,7 @@
 #include "ionization.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: ionization.c,v 1.57 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1062,7 +1062,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       }
       if (!te_set) {
 	e = 2.0*(emax-emin)/(emax+emin);
-	if (e < 0.1) {
+	if (e < EPS3) {
 	  SetIEGrid(1, 0.5*(emin+emax), emax);
 	} else if (e < 0.5) {
 	  SetIEGrid(2, emin, emax);

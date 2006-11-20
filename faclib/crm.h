@@ -53,7 +53,7 @@ typedef struct _BLK_RATE_ {
 } BLK_RATE;
 
 typedef struct _ION_ {
-  int iground;
+  int iground; /* ionized ground state of this ion */
   int nlevels;
   LBLOCK **iblock;
   int *ilev;

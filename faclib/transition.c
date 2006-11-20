@@ -1,7 +1,7 @@
 #include "transition.h"
 #include <time.h>
 
-static char *rcsid="$Id: transition.c,v 1.34 2006/08/28 23:44:17 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -354,7 +354,7 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
     e0 = 2.0*(emax-emin)/(emin+emax);
     
     FreeMultipoleArray();
-    if (e0 < 0.1) {
+    if (e0 < EPS3) {
       SetAWGrid(1, 0.5*(emin+emax), emax);
     } else if (e0 < 1.0) {
       SetAWGrid(2, emin, emax);
@@ -455,7 +455,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     e0 = 2.0*(emax-emin)/(emin+emax);
     
     FreeMultipoleArray();
-    if (e0 < 0.1) {
+    if (e0 < EPS3) {
       SetAWGrid(1, 0.5*(emin+emax), emax);
     } else if (e0 < 1.0) {
       SetAWGrid(2, emin, emax);
