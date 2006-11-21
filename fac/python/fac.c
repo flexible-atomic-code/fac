@@ -5,7 +5,7 @@
 #include "init.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: fac.c,v 1.115 2006/08/28 23:44:17 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -3899,7 +3899,6 @@ static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
   for (i = 0; i < negy; i++) {
     q = PySequence_GetItem(p, i);
     egy[i] = PyFloat_AsDouble(q);
-    egy[i] /= HARTREE_EV;
     Py_DECREF(q);
   }
   
@@ -3935,7 +3934,6 @@ static PyObject *PTotalPICross(PyObject *self, PyObject *args) {
   for (i = 0; i < negy; i++) {
     q = PySequence_GetItem(p, i);
     egy[i] = PyFloat_AsDouble(q);
-    egy[i] /= HARTREE_EV;
     Py_DECREF(q);
   }
   
@@ -3971,7 +3969,6 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
   for (i = 0; i < negy; i++) {
     q = PySequence_GetItem(p, i);
     egy[i] = PyFloat_AsDouble(q);
-    egy[i] /= HARTREE_EV;
     Py_DECREF(q);
   }
   
@@ -4311,7 +4308,7 @@ static PyObject *PLevelInfor(PyObject *self, PyObject *args) {
   }
 }
 
-static PyObject *PCECross(PyObject *self, PyObject *args) { 
+static PyObject *PInterpCross(PyObject *self, PyObject *args) { 
   PyObject *p, *q;
   int i, negy, i0, i1, mp;
   double *egy;
@@ -4334,14 +4331,14 @@ static PyObject *PCECross(PyObject *self, PyObject *args) {
     Py_DECREF(q);
   }
   
-  CECross(ifn, ofn, i0, i1, negy, egy, mp);
+  InterpCross(ifn, ofn, i0, i1, negy, egy, mp);
   free(egy);
 
   Py_INCREF(Py_None);
   return Py_None;
 }
   
-static PyObject *PCERate(PyObject *self, PyObject *args) { 
+static PyObject *PMaxwellRate(PyObject *self, PyObject *args) { 
   PyObject *p, *q;
   int i, nt, i0, i1;
   double *temp;
@@ -4363,7 +4360,7 @@ static PyObject *PCERate(PyObject *self, PyObject *args) {
     Py_DECREF(q);
   }
   
-  CEMaxwell(ifn, ofn, i0, i1, nt, temp);
+  MaxwellRate(ifn, ofn, i0, i1, nt, temp);
   free(temp);
 
   Py_INCREF(Py_None);
@@ -4852,8 +4849,10 @@ static struct PyMethodDef fac_methods[] = {
   {"AITable", PAITable, METH_VARARGS},
   {"AITableMSub", PAITableMSub, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
-  {"CECross", PCECross, METH_VARARGS},
-  {"CERate", PCERate, METH_VARARGS},
+  {"CECross", PInterpCross, METH_VARARGS},
+  {"CERate", PMaxwellRate, METH_VARARGS},
+  {"InterpCross", PInterpCross, METH_VARARGS},
+  {"MaxwellRate", PMaxwellRate, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableEB", PCETableEB, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},

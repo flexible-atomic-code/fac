@@ -429,7 +429,7 @@ class ATOM:
         else:
             up = b
 
-        AITable(self.bfiles['ai'], low, up, k)
+        AITable(self.bfiles['ai'], low, up)
 
         Reinit(radial = 1, recombination = 1)
         
