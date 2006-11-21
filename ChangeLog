@@ -12,6 +12,7 @@ Version 1.1.1, 04/30/2006
 	8. add modifiers to the configuration specification.
 	9. add function to obtain expansion coefficients of G^k, useful for 
 	   transition rates from level to configurations.
+	10.add interpolation and maxwellian rate for CI and RR.
 	
 Version 1.1.0, 10/03/2005
 	1. reimplement the StructureMBPT function.
