@@ -31,6 +31,12 @@ static int ai_extra_nmax = 400;
 static int do_extrapolate = 100;
 static int inner_auger = 0;
 static double ai_emin = 0.0;
+static int norm_mode = 1;
+
+int NormalizeMode(int i) {
+  norm_mode = i;
+  return 0;
+}
 
 int SetInnerAuger(int i) {
   inner_auger = i;
@@ -2723,12 +2729,13 @@ int BlockMatrix(void) {
 	  x[k0] = den;
 	  p = k0;
 	  for (k = 0; k < n; k++) {
-	    /*
-	    if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-	    else bmatrix[p] = 0.0;
-	    */
-	    if (k == k0) bmatrix[p] = 1.0;
-	    else bmatrix[p] = 0.0;
+	    if (norm_mode != 0) {
+	      if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	      else bmatrix[p] = 0.0;
+	    } else {
+	      if (k == k0) bmatrix[p] = 1.0;
+	      else bmatrix[p] = 0.0;
+	    }
 	    p += n;
 	  }
 	} 
@@ -2746,12 +2753,13 @@ int BlockMatrix(void) {
     x[k0] = den;
     p = k0;
     for (k = 0; k < n; k++) {
-      /*
-      if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-      else bmatrix[p] = 0.0;
-      */
-      if (k == k0) bmatrix[p] = 1.0;
-      else bmatrix[p] = 0.0;
+      if (norm_mode != 0) {
+	if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	else bmatrix[p] = 0.0;
+      } else {
+	if (k == k0) bmatrix[p] = 1.0;
+	else bmatrix[p] = 0.0;
+      }
       p += n;
     }
   } 
@@ -2769,6 +2777,7 @@ int BlockPopulation(void) {
   int nrhs;
   int lda, ldb;
   int i, j, p, q;
+  double ta;
 
   n = blocks->dim;
   a = bmatrix + n*n;
@@ -2776,6 +2785,22 @@ int BlockPopulation(void) {
   ipiv = (int *) bmatrix;
   a = a + n;
   b = a + n*n;
+
+  ta = 0.0;
+  for (i = 0; i < n; i++) {
+    ta += x[i];
+  }
+  for (i = 0; i < n; i++) {
+    if (x[i] > 0) {
+      for (j = 0; j < n; j++) {
+	p = j*n + i;      
+	if (bmatrix[p]) {
+	  bmatrix[p] *= ta/x[i];
+	}
+      }
+      x[i] = ta;
+    }
+  }
 
   p = 0;
   q = 0;
@@ -2838,7 +2863,7 @@ int BlockPopulation(void) {
 	blk->n[j] = 0.0;
       }
     } else {
-      blk->nb = b[p++];
+      blk->nb = b[p++];      
     }
   }
 
@@ -3201,6 +3226,7 @@ int LevelPopulation(void) {
     BlockPopulation();
     d = BlockRelaxation(i);
     printf("%5d %11.4E\n", i, d);
+    fflush(stdout);
     if (d < iter_accuracy) break;
   }
  
@@ -3244,7 +3270,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
   FILE *f;
   double e, a, e0;
   int i, p, q, ib, iuta;
-  double smax, s;
+  double smax, s, b, c;
+  const double factor = 1.57882E-2;
 
   iuta = IsUTA();
   fhdr.type = DB_SP;
@@ -3330,17 +3357,31 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	  q = rt->f;
 	  e = ion->energy[p] - ion->energy[q];
 	}
-	j = ion->ilev[rt->i];
-	if (iblk->n[j] > 0.0) {
+	if (rrc/10 == 1) {
+	  j = ion->ilev[rt->f];
+	  c = fblk->n[j];
+	} else {
+	  j = ion->ilev[rt->i];
+	  c = iblk->n[j];
+	}
+	if (c > 0.0) {
 	  r.lower = q;
 	  r.upper = p;
-	  r.energy = e;
-	  r.strength = iblk->n[j] * rt->dir;
-	  if (rt->inv > 0.0 && photon_density > 0.0) {
-	    a = photon_density * rt->inv;
-	    a *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
-	    r.strength += iblk->n[j] * a;
+	  if (rrc/10 == 1) {
+	    r.energy = -e;
+	    a = rt->dir*(ion->j[rt->i]+1.0);
+	    e *= HARTREE_EV;
+	    a *= factor/(e*e*e*(ion->j[rt->f]+1.0));
+	  } else {
+	    r.energy = e;
+	    a = rt->dir;
+	    if (rt->inv > 0.0 && photon_density > 0.0) {
+	      b = photon_density * rt->inv;
+	      b *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
+	      a += b;
+	    }
 	  }
+	  r.strength = c * a;	    
 	  s = r.strength*e;
 	  if (s < strength_threshold*smax) continue;
 	  if (s > smax) smax = s;
@@ -3349,7 +3390,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    r.energy = dev->dir;
 	    rx.sdev = dev->inv;
 	  }
-	  r.rrate = rt->dir;
+	  r.rrate = a;
 	  r.trate = iblk->total_rate[j];
 	  WriteSPRecord(f, &r, &rx);
 	}
@@ -3357,7 +3398,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       DeinitFile(f, &fhdr);
     }
 
-    if (!rrc) continue;
+    if (!(rrc%10)) continue;
     for (i = 0; i < ion->rr_rates->dim; i++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, i);
       if (brts->rates->dim == 0) continue;
@@ -3444,7 +3485,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   t0 = t % 10000;
   t0 = t0/100; 
 
-  if (fmin < 0.0) {
+  if (fmin >= 1.0) {
     low = emin;
     up = emax;
   }
@@ -3478,13 +3519,22 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	  if (r0 < t0) goto LOOPEND;
 	}
       }
-    }    
+    } else {
+      if (fmin < 0) {
+	if (h.type != 0) goto LOOPEND;
+      } else {
+	if (h.type == 0) goto LOOPEND;
+      }
+    }
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
+      if (fmin >= 0) {
+	r.energy = fabs(r.energy);
+      }
       r.energy *= HARTREE_EV;
       rx.sdev *= HARTREE_EV;
-      if (fmin < 0.0) {
+      if (fmin >= 1.0) {
 	if (r.lower == low && r.upper == up) {
 	  ArrayAppend(&sp, &r, NULL);
 	  ArrayAppend(&spx, &rx, NULL);
@@ -3492,10 +3542,12 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	  break;
 	}
       } else {
-	if (r.energy < emin || r.energy > emax) continue;
-	a = r.energy * r.strength;
-	if (a < smax*fmin) continue;
-	if (a > smax) smax = a;
+	if (fmin >= 0) {
+	  if (r.energy < emin || r.energy > emax) continue;
+	  a = r.energy * r.strength;
+	  if (a < smax*fmin) continue;
+	  if (a > smax) smax = a;
+	}
 	ArrayAppend(&sp, &r, NULL);
 	ArrayAppend(&spx, &rx, NULL);
 	ArrayAppend(&linetype, &(h.type), NULL);
@@ -3507,7 +3559,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     fseek(f1, h.length, SEEK_CUR);
   }
 
-  if (fmin < 0.0) {
+  if (fmin >= 1.0) {
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
@@ -3517,13 +3569,17 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     }
   } else {
     if (sp.dim > 0) {
-      smax *= fmin;
+      if (fmin > 0) {
+	smax *= fmin;
+      } else {
+	smax = 0.0;
+      }
       for (i = 0; i < sp.dim; i++) {
 	rp = (SP_RECORD *) ArrayGet(&sp, i);
 	rpx = (SP_EXTRA *) ArrayGet(&spx, i);
 	tt = (int *) ArrayGet(&linetype, i);
 	e = rp->energy;
-	if (rp->strength*e > smax) {
+	if (fmin < 0 || rp->strength*e > smax) {
 	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %11.4E\n", 
 		  nele, rp->lower, rp->upper, *tt, e, rpx->sdev, rp->strength);
 	}
@@ -4509,7 +4565,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
   } else {
     ilev0 = -1;
   }
-  printf("%d %d\n", mode, ilev0);
+  /*printf("%d %d\n", mode, ilev0);*/
   hdr.ilev = ilev0;
   hdr.nele = nele;
   n = -1;
@@ -4532,7 +4588,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	  if (vn != n) {
 	    if (n > 0) DeinitFile(f, &fhdr);
 	    hdr.vn = vn;
-	    printf("%d %d %d\n", hdr.ilev, hdr.j, hdr.vn);
+	    /*printf("%d %d %d\n", hdr.ilev, hdr.j, hdr.vn);*/
 	    InitFile(f, &fhdr, &hdr);
 	    n = vn;
 	  }

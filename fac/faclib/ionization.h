@@ -10,6 +10,7 @@ int InitIonization(void);
 int ReinitIonization(int m);
 int SetIEGrid(int n, double emin, double emax);
 int SetIEGridDetail(int n, double *x);
+void SetCIBorn(int x);
 void SetCILQR(int m);
 void SetCILMax(int m);
 void SetCILMaxEject(int m);
@@ -27,7 +28,7 @@ int SetUsrCIEGrid(int n, double emin, double emax, double eth);
 int SetUsrCIEGridDetail(int n, double *x);
 int SetCIQkMode(int m, double tol);
 int SetCIMaxK(int k);
-int CIRadialQk(double *qk, int ie1, int ie2, int kb, int kbp, int k);
+int CIRadialQk(double *qk, double e1, double e2, int kb, int kbp, int k);
 int CIRadialQkIntegrated(double *qku, double te, int kb, int kbp);
 void CIRadialQkBasis(int npar, double *yb, double x, double logx);
 void CIRadialQkFromFit(int np, double *p, int n, 
@@ -35,7 +36,6 @@ void CIRadialQkFromFit(int np, double *p, int n,
 int CIRadialQkBED(double *dp, double *bethe, double *b0, int kl,
 		  double *logxe, double *q, double *p, double te);
 double *CIRadialQkIntegratedTable(int kb, int kbp);
-double *CIRadialQkTable(int kb, int kbp);
 int IonizeStrength(double *qku, double *p, double *e, int b, int f);
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn);
 double CIRadialQkMSub(int J0, int M0, int J1, int M1, int k0, int k1, 

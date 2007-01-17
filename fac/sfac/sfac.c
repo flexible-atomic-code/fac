@@ -1,4 +1,4 @@
-static char *rcsid="$Id: sfac.c,v 1.90 2006/08/28 23:54:28 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1723,6 +1723,48 @@ static int PSetCEBorn(int argc, char *argv[], int argt[],
 
   eb = atof(argv[0]);
   SetCEBorn(eb, x, x1, x0);
+  
+  return 0;
+}
+
+static int PSetCIBorn(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int x;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+
+  x = atoi(argv[0]);
+  SetCIBorn(x);
+  
+  return 0;
+}
+
+static int PSetBornFormFactor(int argc, char *argv[], int argt[],
+			      ARRAY *variables) {
+  double te;
+  char *fn;
+
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  te = atof(argv[0]);
+  if (argc == 2) fn = argv[1];
+  else fn = NULL;
+  
+  SetBornFormFactor(te, fn);
+  
+  return 0;
+}
+
+static int PSetBornMass(int argc, char *argv[], int argt[],
+			ARRAY *variables) {
+  double m;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+  m = atof(argv[0]);
+
+  SetBornMass(m);
   
   return 0;
 }
@@ -3634,7 +3676,25 @@ static int PSlaterCoeff(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PGeneralizedMoment(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int n0, k0, n1, k1, m;
+  double e1;
+  
+  m = atoi(argv[1]);
+  n0 = atoi(argv[2]);
+  k0 = atoi(argv[3]);
+  n1 = atoi(argv[4]);
+  k1 = atoi(argv[5]);
+  if (argc == 7) e1 = atof(argv[6]);
+  else e1 = 0.0;
+  PrintGeneralizedMoments(argv[0], m, n0, k0, n1, k1, e1);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
+  {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -3722,6 +3782,9 @@ static METHOD methods[] = {
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetAngleGrid", PSetAngleGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},
+  {"SetCIBorn", PSetCIBorn, METH_VARARGS},
+  {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
+  {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},

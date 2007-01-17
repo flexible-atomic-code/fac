@@ -152,6 +152,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 int SetEMinAI(double e);
 int DRSuppression(char *fn, double z, int nmax);
 int RydBranch(char *fn, char *ofn, int n0, int n1);
+int NormalizeMode(int m);
 
 #endif
 

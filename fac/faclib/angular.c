@@ -1,6 +1,6 @@
 #include "angular.h"
 
-static char *rcsid="$Id: angular.c,v 1.15 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -514,6 +514,10 @@ double ReducedCL(int ja, int k, int jb) {
   return r;
 }
 
+/*
+** Wigner d-matrix <jm|exp(-iJ_y*a)|jn>
+** j2 = j*2, m2 = m*2, n2 = n*2
+*/
 double WignerDMatrix(double a, int j2, int m2, int n2) {
   double b, c, ca, sa, x;
   int k, kmin, kmax;

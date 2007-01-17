@@ -238,7 +238,7 @@
 #define TE_MIN_MAX         (1.0/5.0)
 
 /* excitation */
-#define NGOSK              64
+#define NGOSK              256
 #define EXCLQR             0
 #define EXCLMAX            36
 #define EXCLCB             36
@@ -249,10 +249,10 @@
 #define EBORN              100.0
 
 /* ionization */
-#define IONMAXK            8
+#define IONMAXK            6
 #define IONLQR             0
 #define IONLMAX            36
-#define IONLEJEC           8
+#define IONLEJEC           4
 #define IONLCB             36
 #define IONTOL             5E-2
 
