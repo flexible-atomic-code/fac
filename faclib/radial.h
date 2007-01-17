@@ -123,6 +123,8 @@ double MultipoleRadialNR(int m, int k1, int k2, int guage);
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int guage);
 double InterpolateMultipole(double aw2, int n, double *x, double *y);
 double *GeneralizedMoments(int k0, int k1, int m);
+void PrintGeneralizedMoments(char *fn, int m, int n0, int k0, int n1, int k1, 
+			     double e1);
 int SaveOrbital(int i);
 int RestoreOrbital(int i); 
 int FreeOrbital(int i);

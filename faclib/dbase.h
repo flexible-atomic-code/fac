@@ -27,6 +27,12 @@
 #define LSNAME      24
 #define LNAME       56
 
+typedef struct _FORM_FACTOR_ {  
+  double te;
+  int nk;
+  double *k, *logk, *fk;
+} FORM_FACTOR;
+
 typedef struct _F_HEADER_ {
   long int tsession;
   int version;
@@ -545,6 +551,11 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr);
 int AdjustEnergy(int nlevs, int *ilevs, double *e, 
 		 char *efn0, char *efn1, char *afn0, char *afn1);
 int ISearch(int i, int n, int *ia);
+void SetBornFormFactor(double te, char *fn);
+int BornFormFactorTE(double *te);
+FORM_FACTOR *BornFormFactor(void);
+void SetBornMass(double m);
+double BornMass(void);
 
 #endif
 

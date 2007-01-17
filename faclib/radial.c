@@ -1,7 +1,7 @@
 #include "radial.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: radial.c,v 1.117 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -2401,7 +2401,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   *p = (double *) malloc(sizeof(double)*nk*2);
   kg = *p + nk;
 
-  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+  if (orb1->wfun == NULL || orb2->wfun == NULL || 
+      (orb1->n <= 0 && orb2->n <= 0)) {
     for (t = 0; t < nk*2; t++) {
       (*p)[t] = 0.0;
     }
@@ -2413,61 +2414,93 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   p2 = Large(orb2);
   q1 = Small(orb1);
   q2 = Small(orb2);
-  
-  for (i = 1; i <= orb1->ilast; i++) {
-    if (fabs(p1[i]) < fabs(p1[i-1])) break;
+
+  amin = sqrt(2.0*fabs(orb1->energy));
+  amax = sqrt(2.0*fabs(orb2->energy));
+  if (amin < amax) {
+    kmin = amin;
+    kmax = amax;
+  } else {
+    kmin = amax;
+    kmax = amin;
   }
-  amin = potential->rad[i];
-  for (i = 1; i <= orb2->ilast; i++) {
-    if (fabs(p2[i]) < fabs(p2[i-1])) break;
-  }
-  amax = potential->rad[i];
-  if (amin > amax) {
-    r = amin;
-    amin = amax;
-    amax = r;
-  }
-  kmin = log(0.01/amax);
-  kmax = log(25.0/amin);
+  kmin = log(0.05*kmin);
+  kmax = log(50.0*kmax);
   r = (kmax - kmin)/(nk-1.0);
   kg[0] = kmin;
   for (i = 1; i < nk; i++) {
     kg[i] = kg[i-1] + r;
   }
   
-  n1 = Min(orb1->ilast, orb2->ilast);
+  if (orb1->n > 0 && orb2->n > 0) {
+    n1 = Min(orb1->ilast, orb2->ilast);
   
-  for (i = 0; i <= n1; i++) {
-    _phase[i] = (p1[i]*p2[i] + q1[i]*q2[i])*potential->dr_drho[i];
-  }
+    for (i = 0; i <= n1; i++) {
+      _phase[i] = (p1[i]*p2[i] + q1[i]*q2[i])*potential->dr_drho[i];
+    }
     
-  if (m == 0) {
-    if (k1 == k2) r0 = 1.0;
-    else if (orb1->n != orb2->n) r0 = 0.0;
-    else {
-      if (orb1->kappa + orb2->kappa != -1) r0 = 0.0;
+    if (m == 0) {
+      if (k1 == k2) r0 = 1.0;
+      else if (orb1->n != orb2->n) r0 = 0.0;
       else {
-	r0 = Simpson(_phase, 0, n1);
+	if (orb1->kappa + orb2->kappa != -1) r0 = 0.0;
+	else {
+	  r0 = Simpson(_phase, 0, n1);
+	}
       }
+    } else {
+      r0 = 0.0;
+    }
+    
+    for (t = 0; t < nk; t++) {
+      k = exp(kg[t]);
+      for (i = 0; i <= n1; i++) {
+	x = k * potential->rad[i];
+	_dphase[i] = BESLJN(jy, m, x);
+	_dphase[i] *= _phase[i];
+      }
+      r = Simpson(_dphase, 0, n1);
+      
+      (*p)[t] = (r - r0)/k;
     }
   } else {
-    r0 = 0.0;
-  }
-  
-  for (t = 0; t < nk; t++) {
-    k = exp(kg[t]);
-    for (i = 0; i <= n1; i++) {
-      x = k * potential->rad[i];
-      _dphase[i] = BESLJN(jy, m, x);
-      _dphase[i] *= _phase[i];
+    if (orb1->n > 0) n1 = orb1->ilast;
+    else n1 = orb2->ilast;
+    for (t = 0; t < nk; t++) {
+      k = exp(kg[t]);      
+      for (i = 0; i <= n1; i++) {
+	x = k * potential->rad[i];
+	_yk[i] = BESLJN(jy, m, x);
+      }
+      Integrate(_yk, orb1, orb2, 1, &r, 0);
+      (*p)[t] = r/k;
     }
-    r = Simpson(_dphase, 0, n1);
-
-    (*p)[t] = (r - r0)/k;
   }
   return *p;
 }
-    
+
+void PrintGeneralizedMoments(char *fn, int m, int n0, int k0, 
+			     int n1, int k1, double e1) {
+  FILE *f;
+  int i0, i1, i;
+  double *g, *x;
+
+  i0 = OrbitalIndex(n0, k0, 0.0);
+  e1 /= HARTREE_EV;
+  i1 = OrbitalIndex(n1, k1, e1);
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return;
+  }
+  g = GeneralizedMoments(i0, i1, m);
+  x = g + NGOSK;
+  for (i = 0; i < NGOSK; i++) {
+    fprintf(f, "%15.8E %15.8E %15.8E\n", x[i], exp(x[i]), g[i]);
+  }
+  fclose(f);
+}
+  
 double InterpolateMultipole(double aw2, int n, double *x, double *y) {
   double r;
   int np, nd;
@@ -3379,6 +3412,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 /* type = 6:    P1*Q2 */
 /* if type is positive, only the end point is returned, */
 /* otherwise, the whole function is returned */
+/* id indicate whether integrate inward (-1) or outward (0) */
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, 
 	      int t, double *x, int id) {
   int i1, i2, ilast;

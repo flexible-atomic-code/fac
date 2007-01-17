@@ -1,4 +1,4 @@
-static char *rcsid="$Id: scrm.c,v 1.29 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -596,6 +596,15 @@ static int PDRSuppression(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PNormalizeMode(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+
+  if (argc != 1) return -1;
+  NormalizeMode(atoi(argv[0]));
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -638,6 +647,7 @@ static METHOD methods[] = {
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
+  {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

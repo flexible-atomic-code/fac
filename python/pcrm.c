@@ -1,5 +1,5 @@
 
-static char *rcsid="$Id: pcrm.c,v 1.43 2006/08/04 07:43:54 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1130,6 +1130,23 @@ static PyObject *PDRSuppression(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PNormalizeMode(PyObject *self, PyObject *args) {
+  int m;
+
+  if (scrm_file) {
+    SCRMStatement("NormalizeMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  
+  NormalizeMode(m);
+      
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1193,6 +1210,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
+  {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {NULL, NULL}
 };
 

@@ -40,7 +40,7 @@ static double thetagrid[MAXNTHETA];
 static int n_phigrid = 0;
 static double phigrid[MAXNPHI];
 
-#define NKINT 128
+#define NKINT 256
 static double kgrid[NKINT];
 static double log_kgrid[NKINT];
 static double kint[NKINT];
@@ -494,15 +494,41 @@ static void InterpolateGOS(int n, double *x, double *g,
   }
 }
 
+double BornFormFactorK(double q, FORM_FACTOR *bform) {
+  double a, r;
+
+  r = 1.0;
+  if (bform->nk == 0) {
+    a = 1.0/(1.0 + 0.25*q*q);
+    a *= a;
+    if (bform->te > 0) {
+      r = 1.0 - a*a;
+    } else {
+      r = (1-a) * (1-a);
+    }
+  } else if (bform->nk > 0) {
+    if (q <= bform->k[0]) r = bform->fk[0];
+    else if (q >= bform->k[bform->nk-1]) r = bform->fk[bform->nk-1];
+    else {   
+      q = log(q);
+      UVIP3P(3, bform->nk, bform->logk, bform->fk, 1, &q, &r);
+    }
+  }
+
+  return r;
+}
+
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
 		   double te, double e1, double *qk, int m) {
   int p0, p1, p2, p3;
   int m0, m1, m2, m3;
   int j0, j1, j2, j3;
-  int ko2, t, nk, ty;
+  int ko2, t, nk, ty, bnk;
   double r, c0, c1, dk;
   double x, b, d, c, a, g0, b0, b1;
   double *g1, *g2, *x1, *x2;
+  double bte, bms;
+  FORM_FACTOR *bform;
 
   ko2 = k/2;  
   ty = ko2;
@@ -536,7 +562,9 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   g2 = GeneralizedMoments(k2, k3, ko2);
   x2 = g2 + NGOSK;
 
-  c0 = te + e1;
+  bnk = BornFormFactorTE(&bte);
+  bms = BornMass();
+  c0 = e1 + (te + bte)/bms;
   if (m <= 0) {
     b0 = 1 + FINE_STRUCTURE_CONST2*c0;
     b1 = 1 + FINE_STRUCTURE_CONST2*e1;
@@ -547,15 +575,15 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
     c0 = 2.0*c0;
     c1 = 2.0*e1;
   }
-  c0 = sqrt(c0);
-  c1 = sqrt(c1);
+  c0 = bms * sqrt(c0);
+  c1 = bms * sqrt(c1);
   nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
   log_kint[nk] = log(kint[nk]);
-  c1 = Min(x1[NGOSK-1], x2[NGOSK-1]);
-  if (c1 < log_kint[nk]) {
+  c1 = Min(x1[NGOSK-1], x2[NGOSK-1]);  
+  if (c1 < log_kint[nk] && c1 > log_kint[0]) {
     log_kint[nk] = c1;
     kint[nk] = exp(c1);
   }
@@ -586,7 +614,6 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
 	gosint[t] *= d;
       }
     }    
-    *qk += dk*Simpson(gosint, 0, nk-1);
   } else if (m < 0) {
     for (t = 0; t < nk; t++) {
       gosint[t] = r*gos1[t]*gos2[t];
@@ -594,9 +621,17 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
       d = 2.0*(e1+te);
       gosint[t] *= (a*a)/(d*d);
     }
-    *qk += dk*Simpson(gosint, 0, nk-1);
   }
 
+  if (bnk >= 0) {
+    bform = BornFormFactor();
+    for (t = 0; t < nk; t++) {
+      a = BornFormFactorK(kint[t], bform);
+      gosint[t] *= a;
+    }
+  }
+
+  *qk += dk*Simpson(gosint, 0, nk-1);
   if (m <= 0) *qk *= b;
 
   return ty;
@@ -610,13 +645,14 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   int j0, j1, j2, j3;
   int ko2, ko2p, t, nk;
   int nudiff, mu1, mu2, ierr, ipqa[MAXMSUB];
-  int kkp, iq;
+  int kkp, iq, bnk;
   double xc, theta, dnu1, pqa[MAXMSUB];
   double r, c0, c1, c01, dk;
-  double x, b, d, c, a, g0, b0, b1;
+  double x, b, d, c, a, g0, b0, b1, bte, bms;  
   double *g1, *g2, *x1, *x2;
   double gosm1[MAXMSUB][NKINT];
   double gosm2[MAXMSUB][NKINT];
+  FORM_FACTOR *bform;
   
   for (iq = 0; iq < nq; iq++) {
     qk[iq] = 0.0;
@@ -650,7 +686,9 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   g2 = GeneralizedMoments(k2, k3, ko2p);
   x2 = g2 + NGOSK;
 
-  c0 = te + e1; 
+  bnk = BornFormFactorTE(&bte);
+  bms = BornMass();
+  c0 = e1 + (te + bte)/bms; 
   if (m <= 0) {
     b0 = 1 + FINE_STRUCTURE_CONST2*c0;
     b1 = 1 + FINE_STRUCTURE_CONST2*e1;
@@ -661,16 +699,16 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
     c0 = 2.0*c0;
     c1 = 2.0*e1;
   }
-  c01 = c0 - c1;
-  c0 = sqrt(c0);
-  c1 = sqrt(c1);
+  c01 = (c0 - c1)*bms;
+  c0 = bms * sqrt(c0);
+  c1 = bms * sqrt(c1);
   nk = NKINT-1;
   kint[0] = c0 - c1;
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
   log_kint[nk] = log(kint[nk]);
   c1 = Min(x1[NGOSK-1], x2[NGOSK-1]);
-  if (c1 < log_kint[nk]) {
+  if (c1 < log_kint[nk] && c1 > log_kint[0]) {
     log_kint[nk] = c1;
     kint[nk] = exp(c1);
   }
@@ -699,7 +737,15 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
       gosint[t] *= d;
     }
   }
-  
+
+  if (bnk >= 0) {
+    bform = BornFormFactor();
+    for (t = 0; t < nk; t++) {
+      a = BornFormFactorK(kint[t], bform);
+      gosint[t] *= a;
+    }
+  }
+
   nudiff = 0;
   mu1 = 0;
   mu2 = q[nq-1]/2;
@@ -2405,9 +2451,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
     e = 0.0;
     c = GetResidualZ();
-    PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
-		     pw_scratch.nkl, pw_scratch.kl, msub);
-
+    if (xborn+1.0 != 1.0) {
+      PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
+		       pw_scratch.nkl, pw_scratch.kl, msub);
+    }
     ce_hdr.nele = GetNumElectrons(low[0]);
     ce_hdr.qk_mode = qk_mode;
     if (qk_mode == QK_FIT) 
@@ -2737,9 +2784,10 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
 
     e = 0.0;
     c = GetResidualZ();
-    PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
-		     pw_scratch.nkl, pw_scratch.kl, 0);
-
+    if (xborn+1.0 != 1.0) {
+      PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
+		       pw_scratch.nkl, pw_scratch.kl, 0);
+    }
     ce_hdr.nele = GetNumElectrons(low0[0]);
     ce_hdr.n_tegrid = n_tegrid;
     ce_hdr.n_egrid = n_egrid;
@@ -2990,9 +3038,10 @@ int SaveExcitationEBD(int nlow0, int *low0, int nup0, int *up0, char *fn) {
 
     e = 0.0;
     c = GetResidualZ();
+    if (xborn+1.0 != 1.0) {
     PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
 		     pw_scratch.nkl, pw_scratch.kl, 1);
-
+    }
     ce_hdr.nele = GetNumElectrons(low0[0]);
     ce_hdr.n_tegrid = n_tegrid;
     ce_hdr.n_egrid = n_egrid;

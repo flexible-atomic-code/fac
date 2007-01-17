@@ -926,9 +926,9 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "iiiiii", &j1, &j2, &j3, &m1, &m2, &m3))
+  if (!PyArg_ParseTuple(args, "iiiiii", &j1, &m1, &j2, &m2, &j3, &m3))
     return NULL;
-  return Py_BuildValue("d", ClebschGordan(j1, j2, j3, m1, m2, m3));
+  return Py_BuildValue("d", ClebschGordan(j1, m1, j2, m2, j3, m3));
 }
 
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
@@ -1971,7 +1971,59 @@ static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static  PyObject *PSetCIBorn(PyObject *self, PyObject *args) {
+  int x;
   
+  if (sfac_file) {
+    SFACStatement("SetCIBorn", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &x)) return NULL;
+
+  SetCIBorn(x);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static  PyObject *PSetBornFormFactor(PyObject *self, PyObject *args) {
+  double te;
+  char *fn;
+
+  if (sfac_file) {
+    SFACStatement("SetBornFormFactor", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  fn = NULL;
+  if (!PyArg_ParseTuple(args, "d|s", &te, &fn)) return NULL;
+
+  SetBornFormFactor(te, fn);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+      
+static  PyObject *PSetBornMass(PyObject *self, PyObject *args) {
+  double m;
+
+  if (sfac_file) {
+    SFACStatement("SetBornMass", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+
+  SetBornMass(m);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
   PyObject *p;
   int m;
@@ -4814,7 +4866,29 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PGeneralizedMoment(PyObject *self, PyObject *args) {
+  char *fn;
+  int n0, k0, n1, k1, m;
+  double e1;  
+
+  if (sfac_file) {
+    SFACStatement("GeneralizedMoment", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  e1 = 0;
+  if (!(PyArg_ParseTuple(args, "siiiii|d", &fn, &m, &n0, &k0, &n1, &k1, &e1))) 
+    return NULL;
+  
+  PrintGeneralizedMoments(fn, m, n0, k0, n1, k1, e1);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
+  {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -4919,6 +4993,9 @@ static struct PyMethodDef fac_methods[] = {
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},
   {"SetAngleGrid", PSetAngleGrid, METH_VARARGS},
   {"SetCEBorn", PSetCEBorn, METH_VARARGS},
+  {"SetCIBorn", PSetCIBorn, METH_VARARGS},
+  {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
+  {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"SetCEPWOptions", PSetCEPWOptions, METH_VARARGS},
   {"SetCEPWGrid", PSetCEPWGrid, METH_VARARGS},
   {"SetCEQkMode", PSetCEQkMode, METH_VARARGS},

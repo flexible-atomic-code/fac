@@ -760,6 +760,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
   int i, t, m, ith, iph;
   double data[2+(1+MAXNE)*3], e, cs, a;
   double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
+  double bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -785,6 +786,8 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
     return -1;
   }
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   while (1) {
     n = ReadCEMFHeader(f1, &mh, swp);
     if (n == 0) break;
@@ -799,6 +802,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 		mr.lower, mem_en_table[mr.lower].p, mem_en_table[mr.lower].j,
 		mr.upper, mem_en_table[mr.upper].p, mem_en_table[mr.upper].j,
 		e, negy);
+	be = (e + bte*HARTREE_EV)/bms;
 	for (ith = 0; ith < mh.n_thetagrid; ith++) {
 	  for (iph = 0; iph < mh.n_phigrid; iph++) {
 	    fprintf(f2, "# %2d %2d %11.4E %11.4E\n",
@@ -808,10 +812,10 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 	    for (t = 0; t < negy; t++) {
 	      if (mp == 0) {
 		e0 = egy[t];
-		e1 = e0 - e;
+		e1 = e0 - be;
 	      } else {
 		e1 = egy[t];
-		e0 = e1 + e;
+		e0 = e1 + be;
 	      }
 	      if (e1 > 0) {
 		cs = InterpolateCEFCross(e1, &r, &h, data);
@@ -900,6 +904,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
   int i, t, m;
   double data[2+(1+MAXNE)*3], e, cs, a;
   double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
+  double bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
   
@@ -936,7 +941,9 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ofn);
     return -1;
   }
-    
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   while (1) {
     n = ReadCEFHeader(f1, &h, swp);
     if (n == 0) break;
@@ -950,14 +957,15 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 		r.lower, mem_en_table[r.lower].p, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].p, mem_en_table[r.upper].j,
 		e, negy);
+	be = (e + bte*HARTREE_EV)/bms;
 	PrepCEFCrossRecord(&r, &h, data);
 	for (t = 0; t < negy; t++) {
 	  if (mp == 0) {
 	    e0 = egy[t];
-	    e1 = e0 - e;
+	    e1 = e0 - be;
 	  } else {
 	    e1 = egy[t];
-	    e0 = e1 + e;
+	    e0 = e1 + be;
 	  }
 	  if (e1 > 0) {
 	    cs = InterpolateCEFCross(e1, &r, &h, data);
@@ -1037,6 +1045,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   int i, t, m, k;
   double data[2+(1+MAXNUSR)*3], e, cs, a, ratio;
   double eth, a1, cs1, k2, rp, e1, e0, b0, b1;
+  double bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
   
@@ -1074,6 +1083,8 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     return -1;
   }
     
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   while (1) {
     n = ReadCEHeader(f1, &h, swp);
     if (n == 0) break;
@@ -1087,15 +1098,16 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, negy, r.nsub);
+	be = (e + bte*HARTREE_EV)/bms;
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
 	    if (mp == 0) {
 	      e0 = egy[t];
-	      e1 = e0 - e;
+	      e1 = e0 - be;
 	    } else {
 	      e1 = egy[t];
-	      e0 = e1 + e;
+	      e0 = e1 + be;
 	    }
 	    if (e1 > 0) {
 	      cs = InterpolateCECross(e1, &r, &h, data, &ratio);
@@ -1181,7 +1193,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEMF_HEADER mh;
   CEMF_RECORD mr;
   int i, t, m, p, ith, iph;
-  double data[2+(1+MAXNE)*4], e, cs, a, b, c;
+  double data[2+(1+MAXNE)*4], e, cs, a, c;
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1234,7 +1246,6 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      cs = 0.0;
 	      for (p = 0; p < 15; p++) {
 		a = temp[t]*xg[p];
-		b = (a + e)/HARTREE_EV;
 		c = InterpolateCEFCross(a, &r, &h, data);
 		cs += wg[p]*c;
 	      }
@@ -1289,7 +1300,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEF_HEADER h;
   CEF_RECORD r;
   int i, t, m, p;
-  double data[2+(1+MAXNE)*4], e, cs, a, b, c;
+  double data[2+(1+MAXNE)*4], e, cs, a, c;
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1348,7 +1359,6 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  cs = 0.0;
 	  for (p = 0; p < 15; p++) {
 	    a = temp[t]*xg[p];
-	    b = (a + e)/HARTREE_EV;
 	    c = InterpolateCEFCross(a, &r, &h, data);
 	    cs += wg[p]*c;
 	  }
@@ -1393,7 +1403,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k, p;
-  double data[2+(1+MAXNUSR)*4], e, cs, a, b, c, ratio;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, c, ratio;
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1]; 
   EN_SRECORD *mem_en_table;
@@ -1453,7 +1463,6 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    cs = 0.0;
 	    for (p = 0; p < 15; p++) {
 	      a = temp[t]*xg[p];
-	      b = (a + e)/HARTREE_EV;
 	      c = InterpolateCECross(a, &r, &h, data, &ratio);
 	      cs += wg[p]*c;
 	    }
@@ -1495,6 +1504,27 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
+double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
+  double y[MAXNE], x, a, b, tc;
+  int i;
+
+  for (i = 0; i < h->n_usr; i++) {
+    y[i] = r->strength[i];
+  }
+  if (e1 < 0) return 0.0; 
+  if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
+    x = 1.0 + e1/eth;
+    a = 1.0/x;
+    b = 1.0 - a;
+    tc = r->params[0]*log(x) + r->params[1]*b*b;
+    tc += r->params[2]*a*b + r->params[3]*a*a*b;
+    return tc;
+  } else {
+    UVIP3P(3, h->n_usr, h->usr_egrid, y, 1, &e1, &tc);
+    return tc;
+  }
+}
+  
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax) {
   F_HEADER fh;
@@ -1503,7 +1533,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   CI_HEADER h;
   CI_RECORD r;
   int i, t, nb, m;
-  double *c, tc, a, b, x, e;
+  double *c, tc, a, e, bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -1552,6 +1582,8 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   if (imin < 0) imin = 0;
   if (imax < 0) imax = mem_en_table_size - 1;
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   while (1) {
     n = ReadCIHeader(f1, &h, swp);
     if (n == 0) break;
@@ -1561,14 +1593,10 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
       if (r.b != ilev) continue;
       if (r.f < imin || r.f > imax) continue;
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy; 
-      
+      be = (e + bte)/bms;
       for (t = 0; t < negy; t++) {
-	if (egy[t] < e) continue;
-	x = egy[t]/e;
-	a = 1.0/x;
-	b = 1.0 - a;
-	tc = r.params[0]*log(x) + r.params[1]*b*b;
-	tc += r.params[2]*a*b + r.params[3]*a*a*b;
+	if (egy[t] < be) continue;
+	tc = InterpolateCICross(egy[t]-be, e, &r, &h);
 	a = egy[t]*(1.0 + FINE_STRUCTURE_CONST2*egy[t]);
 	tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	c[t] += tc;
@@ -1611,7 +1639,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
   CI_HEADER h;
   CI_RECORD r;
   int i, t, nb, m;
-  double tc, a, b, x, e, e0;
+  double tc, a, b, e, e0, bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -1654,6 +1682,8 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   while (1) {
     n = ReadCIHeader(f1, &h, swp);
     if (n == 0) break;
@@ -1666,21 +1696,18 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, negy);
+	be = (e + bte)/bms;
 	for (t = 0; t < negy; t++) {
 	  if (mp == 0) {
 	    e0 = egy[t];
 	  } else {
-	    e0 = egy[t] + e;
+	    e0 = egy[t] + be;
 	  }
-	  if (e0 < e) {
+	  if (e0 < be) {
 	    tc = 0.0; 
 	    b = 0.0;
 	  } else {
-	    x = e0/e;
-	    a = 1.0/x;
-	    b = 1.0 - a;
-	    tc = r.params[0]*log(x) + r.params[1]*b*b;
-	    tc += r.params[2]*a*b + r.params[3]*a*a*b;
+	    tc = InterpolateCICross(e0-be, e, &r, &h);
 	    b = tc;
 	    a = e0*(1.0 + FINE_STRUCTURE_CONST2*e0);
 	    tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
@@ -1729,7 +1756,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
   CI_HEADER h;
   CI_RECORD r;
   int i, t, nb, m, p;
-  double tc, a, b, x, e, e0, cs;
+  double tc, e, e0, cs;
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1]; 
   EN_SRECORD *mem_en_table;
@@ -1789,12 +1816,8 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 	for (t = 0; t < negy; t++) {
 	  cs = 0.0;
 	  for (p = 0; p < 15; p++) {
-	    e0 = e + egy[t]*xg[p];
-	    x = e0/e;
-	    a = 1.0/x;
-	    b = 1.0 - a;
-	    tc = r.params[0]*log(x) + r.params[1]*b*b;
-	    tc += r.params[2]*a*b + r.params[3]*a*a*b;	    
+	    e0 =  egy[t]*xg[p];
+	    tc = InterpolateCICross(e0, e, &r, &h);
 	    cs += wg[p]*tc;
 	  }
 	  tc = (217.16/PI)*sqrt(1.0/(2.0*egy[t]));
