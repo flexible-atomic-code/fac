@@ -189,6 +189,11 @@ int SetUsrCIEGridType(int type) {
 }
 
 int SetCIEGrid(int n, double emin, double emax, double eth) {
+  double bms, bte;
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth = (eth + bte)/bms;
   n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
   return n_egrid;
 }
@@ -203,10 +208,15 @@ int SetUsrCIEGridDetail(int n, double *xg) {
 }
 
 int SetUsrCIEGrid(int n, double emin, double emax, double eth) {
+  double bms, bte;
+
   if (n > MAXNUSR) {
     printf("Max # of grid points reached \n");
     return -1;
   }
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth = (eth + bte)/bms;
   n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
   return n_usr;
 }

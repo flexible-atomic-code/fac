@@ -61,7 +61,6 @@ static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 #define RSF0(sv) _RSF0(sv, f)
 #define RSF1(sv, s, k) _RSF1(sv, s, k, f)
 
-
 void SetBornMass(double m) {
   if (m > 0) born_mass = m*AMU;
   else born_mass = 1.0;
@@ -4464,6 +4463,59 @@ double IonDensity(char *fn, int k) {
  
   fclose(f);
 
+  return d;
+}
+
+double IonRadiation(char *fn, int k, int m) {
+  F_HEADER fh;
+  SP_HEADER h;
+  SP_RECORD r;
+  SP_EXTRA rx;
+  int i;
+  FILE *f;
+  int n, swp;
+  double d;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1.0;
+  }
+  
+  n = ReadFHeader(f, &fh, &swp);
+  
+  if (fh.type != DB_SP) {
+    printf("file not of type DB_SP\n");
+    fclose(f);
+    return -1.0;
+  }
+
+  d = 0.0;
+  while (1) {
+    n = ReadSPHeader(f, &h, swp);
+    if (n == 0) break;
+    if (h.type == 0 || h.nele != k) {
+      fseek(f, h.length, SEEK_CUR);
+      continue;
+    }      
+    if (m == 1 && h.type < 100) {
+      fseek(f, h.length, SEEK_CUR);
+      continue;
+    }
+    if (m == 2 && h.type > 100) {
+      fseek(f, h.length, SEEK_CUR);
+      continue;
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadSPRecord(f, &r, &rx, swp);
+      if (n == 0) break;
+      d += r.strength*r.energy;
+    }
+  }
+ 
+  fclose(f);
+
+  d *= HARTREE_EV;
   return d;
 }
 		     

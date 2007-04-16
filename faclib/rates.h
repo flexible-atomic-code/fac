@@ -6,20 +6,24 @@
 #include <math.h>
 
 #include "global.h"
+#include "dbase.h"
 
 #define MAX_DIST  32
 
 typedef struct _DISTRIBUTION_ {
+  int xlog;
   int nparams;
   double *params;
   double (*dist)(double, double *);
 } DISTRIBUTION;
 
-double VelocityFromE(double e);
+double VelocityFromE(double e, double bms);
 int EleDist(char *fn, int n);
 int PhoDist(char *fn, int n);
 int SetEleDist(int i, int np, double *p);
 int SetPhoDist(int i, int np, double *p);
+int DistFromFile(char *fn, double **p);
+
 DISTRIBUTION *GetEleDist(int *i);
 DISTRIBUTION *GetPhoDist(int *i);
 int SetRateAccuracy(double epsrel, double epsabs);

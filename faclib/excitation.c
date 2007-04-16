@@ -173,6 +173,11 @@ int SetCEEGridDetail(int n, double *xg) {
 }
 
 int SetCEEGrid(int n, double emin, double emax, double eth) {
+  double bms, bte;
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth = (eth + bte)/bms;
   n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
   return n_egrid;
 }
@@ -187,10 +192,16 @@ int SetUsrCEEGridDetail(int n, double *xg) {
 }
  
 int SetUsrCEEGrid(int n, double emin, double emax, double eth) {
+  double bms, bte;
+
   if (n > MAXNUSR) {
     printf("Max # of grid points reached \n");
     return -1;
   }
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth = (eth + bte)/bms;
   n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
   return n_usr;
 }
@@ -630,8 +641,8 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
       gosint[t] *= a;
     }
   }
-
-  *qk += dk*Simpson(gosint, 0, nk-1);
+  a = dk*Simpson(gosint, 0, nk-1);
+  *qk += a;
   if (m <= 0) *qk *= b;
 
   return ty;

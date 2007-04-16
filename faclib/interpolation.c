@@ -608,6 +608,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   double a, b, x0, y0, eth, e0, c, d, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
+  double bte, bms, eth1;
 
   mem_en_table = GetMemENFTable(&mem_en_table_size);
 
@@ -630,12 +631,15 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
     one = 1;
     UVIP3P(n, m, x, y, one, &x0, &a);
   } else {
+    BornFormFactorTE(&bte);
+    bms = BornMass();
+    eth1 = (eth + bte*HARTREE_EV)/bms;
     x0 = e/(data[0] + e);
     y0 = y[m-1];
     if (data[1] > 0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
@@ -651,12 +655,12 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else if (data[1]+1.0 == 1.0) {      
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth1)/HARTREE_EV;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else {
@@ -674,6 +678,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   double a, b, x0, y0, eth, e0, c, d, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
+  double bte, bms, eth1;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
 
@@ -708,10 +713,13 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   } else {
     x0 = e/(data[0] + e);
     y0 = y[m-1];
+    BornFormFactorTE(&bte);
+    bms = BornMass();
+    eth1 = (eth + bte*HARTREE_EV)/bms;
     if (data[1] > 0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
@@ -727,12 +735,12 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else if (data[1]+1.0 == 1.0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth)/HARTREE_EV;
+      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth)/HARTREE_EV;
+      b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth1)/HARTREE_EV;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else {
@@ -1520,7 +1528,7 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
     tc += r->params[2]*a*b + r->params[3]*a*a*b;
     return tc;
   } else {
-    UVIP3P(3, h->n_usr, h->usr_egrid, y, 1, &e1, &tc);
+    UVIP3P(2, h->n_usr, h->usr_egrid, y, 1, &e1, &tc);
     return tc;
   }
 }
@@ -2601,3 +2609,8 @@ int MaxwellRate(char *ifn, char *ofn, int i0, int i1,
 
   return 0;
 }
+
+void F77Flush(void) {
+  fflush(stdout);
+}
+FCALLSCSUB0(F77Flush, F77FLUSH, f77flush);

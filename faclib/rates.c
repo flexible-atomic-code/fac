@@ -30,6 +30,7 @@ static struct {
   int i, f;
   int type;
   int iprint;
+  int xlog;
 } rate_args;
 
 #define NSEATON 19
@@ -45,7 +46,7 @@ static double seaton[6][NSEATON] = {
    0.0074, 0.0035, -0.0044, -0.0190, -0.0422, -0.0638,
    -0.0882, -0.1295, -0.1784, -0.2397, -0.3099, -0.3622, -0.4147},
   {-0.00120, -0.00175, -0.0025, -0.0038, -0.0056, -0.0074,
-   -0.0095, -0.0133, -0.0187, -0.0269, -0.0388, -0.0497,
+   -0.0095, -0.0133, -0.0187, -0.0269, -0.0388, -0.0497, 
    -0.0625, -0.0859, -0.1174, -0.1638, -0.228, -0.285, -0.350},
   {0.0877, 0.1199, 0.1627, 0.2247, 0.3090, 0.3815,
    0.4611, 0.5958, 0.7595, 0.9733, 1.231, 1.431, 
@@ -117,11 +118,22 @@ int SetRateAccuracy(double epsrel, double epsabs) {
 }
 
 static double RateIntegrand(double *e) {
-  double a, b;
+  double a, b, x;
 
-  a = rate_args.d->dist(*e, rate_args.d->params);
-  b = rate_args.Rate1E(*e, rate_args.eth, rate_args.np, rate_args.params);
-  return a*b;
+  if (rate_args.xlog) {
+    x = exp(*e);
+  } else {
+    x = *e;
+  }
+  a = rate_args.d->dist(x, rate_args.d->params);
+  b = rate_args.Rate1E(x, rate_args.eth, rate_args.np, rate_args.params);
+  if (rate_args.xlog) {
+    x = x*a*b;
+  } else {
+    x = a*b;
+  }
+
+  return x;
 }
 /* provide fortran access with cfortran.h */
 FCALLSCFUN1(DOUBLE, RateIntegrand, RATEINTEGRAND, rateintegrand, PDOUBLE)
@@ -131,9 +143,9 @@ double IntegrateRate(int idist, double eth, double bound,
 		     int np, void *params, int i0, int f0, int type, 
 		     double (*Rate1E)(double, double, int, void *)) { 
   double result;
-  int neval, ier, limit, lenw, last, n;
+  int neval, ier, limit, lenw, last, n, ix, iy;
   double epsabs, epsrel, abserr;
-  double a, b, a0, b0, r0;
+  double a, b, a0, b0, r0, *eg;
 
   ier = 0;
   epsabs = rate_args.epsabs;
@@ -151,21 +163,44 @@ double IntegrateRate(int idist, double eth, double bound,
   rate_args.i = i0;
   rate_args.f = f0;
   rate_args.type = type;
+  rate_args.xlog = rate_args.d->xlog;
   
-  n = rate_args.d->nparams;
-  b = rate_args.d->params[n-1];
-  a = rate_args.d->params[n-2];
+  if ((idist == 0 && iedist == MAX_DIST-1) ||
+      (idist == 1 && ipdist == MAX_DIST-1)) {
+    n = rate_args.d->params[0];
+    ix = rate_args.d->params[1];
+    iy = rate_args.d->params[2];
+    eg = &(rate_args.d->params[3]);
+    a = eg[0];
+    b = eg[n-1];
+    rate_args.xlog = ix;
+  } else {
+    n = rate_args.d->nparams;  
+    b = rate_args.d->params[n-1];
+    a = rate_args.d->params[n-2];
+    if (rate_args.xlog < 0) {
+      if (b/a > 10) {
+	rate_args.xlog = 1;
+	a = log(a);
+	b = log(b);
+      } else {
+	rate_args.xlog = 0;
+      }
+    }
+  }
+  if (rate_args.xlog) {
+    bound = log(bound);
+  }
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
-
-  if (idist == 0 && iedist == 0) {
+  if (idist == 0 && iedist == 0 && rate_args.xlog == 0) {
     a0 = rate_args.d->params[0];
     b0 = 5.0*a0;
     a0 = a;
     if (b < b0) b0 = b;
     r0 = 0.0;
     if (b0 > a0) {
-      DQAGS(C_FUNCTION(RATEIINTEGRAND, rateintegrand), 
+      DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
 	    a0, b0, epsabs, epsrel, &result, 
 	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
@@ -225,26 +260,42 @@ double IntegrateRate2(int idist, double e, int np,
   return a;
 }
 
-double VelocityFromE(double e) {
+double VelocityFromE(double e, double bms) {
   double k;
 
-  k = e/HARTREE_EV;
-  k = 2.0*k*(1.0 + 0.5*FINE_STRUCTURE_CONST2*k);
-  k = FINE_STRUCTURE_CONST2*k;
-  k = sqrt(k/(1.0+k));
-  k /= FINE_STRUCTURE_CONST;
-  k *= RBOHR*RATE_AU12*1E-6; /* in unit of 10^10 cm/s */
+  if (bms == 1.0 || bms == 0.0) {
+    k = e/HARTREE_EV;
+    k = 2.0*k*(1.0 + 0.5*FINE_STRUCTURE_CONST2*k);
+    k = FINE_STRUCTURE_CONST2*k;
+    k = sqrt(k/(1.0+k));
+    k /= FINE_STRUCTURE_CONST;
+    k *= RBOHR*RATE_AU12*1E-6; /* in unit of 10^10 cm/s */
+  } else {
+    k = e/HARTREE_EV;
+    k = 2.0*bms*k*(1.0 + 0.5*FINE_STRUCTURE_CONST2*k/bms);
+    k = FINE_STRUCTURE_CONST2*k;
+    k = sqrt(k/(bms*bms+k));
+    k /= FINE_STRUCTURE_CONST;
+    k *= RBOHR*RATE_AU12*1E-6; /* in unit of 10^10 cm/s */
+  }
   
   return k;
 }
 
-double CERate1E(double e, double eth, int np, void *p) {
+double CERate1E(double e1, double eth0, int np, void *p) {
   double *x, *y;
   int m1, n, one;
   double *dp, a, x0, y0;
   double e0, d, c, b, b0, b1;
+  double bte, bms, eth, e;
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();  
+  eth = (eth0 + bte*HARTREE_EV)/bms;
+  e = e1/bms;
 
   if (e < eth) return 0.0;
+
   dp = (double *) p;
   m1 = np + 1;
   y = dp+2;
@@ -254,7 +305,11 @@ double CERate1E(double e, double eth, int np, void *p) {
   if (x0 <= x[np-1]) {
     n = 2;
     one = 1;
-    UVIP3P(n, np, x, y, one, &x0, &a);
+    if (x0 >= x[0] || bms == 1.0) {
+      UVIP3P(n, np, x, y, one, &x0, &a);
+    } else {  
+      a = (y[0]/x[0])*x0;
+    }
   } else {
     x0 = (e-eth)/(dp[0]+e-eth);
     y0 = y[np-1];
@@ -271,7 +326,7 @@ double CERate1E(double e, double eth, int np, void *p) {
       e0 = e/HARTREE_EV;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
+      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
       a += dp[1]*b;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
@@ -301,15 +356,21 @@ double CERate1E(double e, double eth, int np, void *p) {
   e0 = e/HARTREE_EV;
   b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);  
   a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
-  a *= VelocityFromE(e);
+  a *= VelocityFromE(e1, bms);
   return a;
 }
 
-double DERate1E(double e, double eth, int np, void *p) {
+double DERate1E(double e1, double eth0, int np, void *p) {
   double a, x0, y0, *x, *y;
   double *dp;
   int m1, n, one;
   double e0, d, c, b, b0, b1;
+  double bte, bms, eth, e;
+
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth = (eth0 + bte*HARTREE_EV)/bms;
+  e = e1/bms;
 
   dp = (double *) p;
   m1 = np + 1;
@@ -337,7 +398,7 @@ double DERate1E(double e, double eth, int np, void *p) {
       e0 = (e + eth)/HARTREE_EV;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);  
+      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
       a += dp[1]*b;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
@@ -365,7 +426,7 @@ double DERate1E(double e, double eth, int np, void *p) {
   e0 = e/HARTREE_EV;
   b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
   a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
-  a *= VelocityFromE(e);
+  a *= VelocityFromE(e1, bms);
   return a;
 }
   
@@ -375,7 +436,7 @@ int CERate(double *dir, double *inv, int iinv,
   double a, e0;
 
   e0 = e*HARTREE_EV;	     
-  a = IntegrateRate(0, e0, e0, m, params, 
+  a = IntegrateRate(0, e0, e0/BornMass(), m, params, 
 		    i0, f0, RT_CE, CERate1E);
   *dir = a/(j1 + 1.0);
   if (iinv) {
@@ -390,7 +451,6 @@ int CERate(double *dir, double *inv, int iinv,
   } else {
     *inv = 0.0;
   }
-
   return 0;
 }
 
@@ -440,7 +500,7 @@ double CIRate1E(double e, double eth, int np, void *p) {
   f += dp[3]*a*c;
   
   c = AREA_AU20*HARTREE_EV*f/(2.0*e);
-  c *= VelocityFromE(e);
+  c *= VelocityFromE(e, 0.0);
 
   return c;
 }
@@ -588,7 +648,7 @@ double RRRate1E(double e, double eth, int np, void *p) {
   a = a*a;
   a = a/(2.0*HARTREE_EV*e);
   a /= 1.0 + 0.5*FINE_STRUCTURE_CONST2*e/HARTREE_EV;
-  c *= a*VelocityFromE(e);
+  c *= a*VelocityFromE(e, 0.0);
   
   return c;
 }
@@ -661,7 +721,7 @@ int AIRate(double *dir, double *inv, int iinv,
     if (a > 0.0) {
       a *= 0.5*(j1 + 1.0) * PI*PI*rate/(e*(j2+1.0));
       a *= AREA_AU20*HARTREE_EV;
-      a *= VelocityFromE(e0);
+      a *= VelocityFromE(e0, 0.0);
     } else {
       a = 0.0;
     }
@@ -1045,23 +1105,29 @@ static double MaxPower(double e, double *p) {
   double x, y, logy, py, g, g1, c1, c2, f;
   const double maxwell_const = 1.12837967;
 
-  y = p[4]/p[3];
-  logy = log(y);
-  py = pow(y, 1.0-p[1]);
-  if (p[1] == 1.0) {
-    g = logy;
-  } else {
-    g = (1.0 - py)/(p[1] - 1.0);
-  }
-  if (p[1] == 2.0) {
-    g1 = logy;
-  } else {
-    g1 = (1.0 - y*py)/(p[1] - 2.0);
-  }
-  y = 1.5*p[2]*p[0]/(p[3]*g1);
-  c1 = maxwell_const/(1.0+y*g);
-  c2 = y/(1.0+y*g);
-
+  if (e < 0.0) {
+    y = p[4]/p[3];
+    logy = log(y);
+    py = pow(y, 1.0-p[1]);
+    if (p[1] == 1.0) {
+      g = logy;
+    } else {
+      g = (1.0 - py)/(p[1] - 1.0);
+    }
+    if (p[1] == 2.0) {
+      g1 = logy;
+    } else {
+      g1 = (1.0 - y*py)/(p[1] - 2.0);
+    }
+    y = 1.5*p[2]*p[0]/(p[3]*g1);
+    c1 = maxwell_const/(1.0+y*g);
+    c2 = y/(1.0+y*g);
+    p[7] = c1;
+    p[8] = c2;
+    return 0.0;
+  } 
+  c1 = p[7];
+  c2 = p[8];
   if (e > p[5] && e < p[6]) {
     x = e/p[0];
     f = c1*sqrt(x)*exp(-x)/p[0];
@@ -1135,17 +1201,25 @@ static double IncompleteGamma(double a, double x) {
 }
   
 static double Hybrid(double e, double *p) {
-  double x, y, c;
+  double x, y, c, x3, x4;
 
-  if (e > p[4] || e < p[3]) return 0.0;
-  x = e/p[0];
-  c = IncompleteGamma(1.5, p[2]);
-  if (p[1] + 1.0 != 1.0) {
-    c += pow(p[2], 1.5)*exp(-p[2])*(1.0-pow(p[4]/p[2],1.0-p[1]))/(p[1]-1.0);
-  } else {
-    c += pow(p[2], 1.5)*exp(-p[2])*log(p[4]/p[2]);
+  if (e < 0.0) {
+    x4 = p[4]/p[0];
+    x3 = p[3]/p[0];
+    x = e/p[0];
+    c = IncompleteGamma(1.5, p[2]) - IncompleteGamma(1.5, x3);
+    if (p[1] + 1.0 != 1.0) {
+      c += pow(p[2], 1.5)*exp(-p[2])*(1.0-pow(x4/p[2],1.0-p[1]))/(p[1]-1.0);
+    } else {
+      c += pow(p[2], 1.5)*exp(-p[2])*log(x4/p[2]);
+    }
+    c = 1.0/c;
+    p[5] = c;
+    return 0.0;
   }
-  c = 1.0/c;
+  c = p[5];
+  x = e/p[0];
+  if (e > p[4] || e < p[3]) return 0.0;
   if (x <= p[2]) {
     y = c*sqrt(x)*exp(-x)/p[0];
   } else {
@@ -1171,6 +1245,54 @@ static double BBody(double e, double *p) {
   }
 }
 
+static double InterpDist(double e, double *p) {
+  int ng, ix, iy;
+  double *eg, *dg, r;
+
+  ng = p[0];
+  ix = p[1];
+  iy = p[2];
+  eg = &(p[3]);
+  dg = &(p[3+ng]);
+  if (ix) e = log(e);
+  if (e < eg[0] || e > eg[ng-1]) return 0.0;
+  UVIP3P(3, ng, eg, dg, 1, &e, &r);
+  if (iy) r = exp(r);
+  return r;
+}
+
+int DistFromFile(char *fn, double **p) {
+  int n, k, np, i, ix, iy;
+  FILE *f;
+  double *eg, *dg;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  np = -1;
+  k = fscanf(f, "%d %d %d\n", &n, &ix, &iy);
+  if (k != 3) goto ERROR;
+  *p = (double *) malloc(sizeof(double)*(2*n+3));
+  (*p)[0] = n;
+  (*p)[1] = ix;
+  (*p)[2] = iy;
+  eg = (*p)+3;
+  dg = (*p)+3+n;
+  for (i = 0; i < n; i++) {
+    k = fscanf(f, "%lf %lf\n", &(eg[i]), &(dg[i]));
+    if (k != 2) goto ERROR;
+  }
+  if (i != n) goto ERROR;
+
+  np = 2*n + 3;
+ ERROR:
+  fclose(f);
+  
+  return np;
+}
+
 int EleDist(char *fn, int n) {
   FILE *f;
   double y, e, de, emin, emax, *p;
@@ -1186,14 +1308,26 @@ int EleDist(char *fn, int n) {
   d = ele_dist+iedist;
   p = d->params;
   np = d->nparams;
-  emin = p[np-2];
-  emax = p[np-1];
+  if (iedist == MAX_DIST-1) {
+    np = (np-3)/2;
+    emin = p[3];
+    emax = p[3+np-1];
+    if (p[1] != 0) {
+      emin = exp(emin);
+      emax = exp(emax);
+    }
+  } else {
+    emin = p[np-2];
+    emax = p[np-1];  
+  }
   de = (log(emax) - log(emin))/(n-1);
   de = exp(de);
-  fprintf(f, "# dist=%d\n", iedist);
-  for (i = 0; i < np; i++) {
-    fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
-  } 
+  fprintf(f, "# electron dist=%d\n", iedist);
+  if (iedist != MAX_DIST-1) {
+    for (i = 0; i < np; i++) {
+      fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
+    } 
+  }
   e = emin;
   for (i = 0; i < n; i++) {
     y = d->dist(e, p);
@@ -1204,8 +1338,19 @@ int EleDist(char *fn, int n) {
   fclose(f);
 }
 
-int SetEleDist(int i, int np, double *p) {
+int SetEleDist(int i, int np, double *p0) {
   int k;
+  double *p;
+
+  if (i == -1) {
+    i = MAX_DIST-1;
+    ele_dist[i].nparams = np;
+    if (ele_dist[i].dist != NULL) {
+      free(ele_dist[i].params);
+    }
+    ele_dist[i].params = (double *) malloc(sizeof(double)*np);
+    ele_dist[i].dist = InterpDist;
+  }
 
   if (ele_dist[i].dist == NULL) {
     printf("Electron Dist. does not exist\n");
@@ -1215,6 +1360,13 @@ int SetEleDist(int i, int np, double *p) {
     printf("Num of Params for Electron Dist. %d does not match\n", i);
     return -1;
   }
+
+  ele_dist[i].xlog = -1;
+  iedist = i;
+  for (k = 0; k < np; k++) {
+    ele_dist[i].params[k] = p0[k];
+  }
+  p = ele_dist[i].params;
   switch (i) {
   case 0:
     /* Default parameters for Maxwellian */
@@ -1234,6 +1386,7 @@ int SetEleDist(int i, int np, double *p) {
       p[2] = p[0] - 10.0*p[1];
       if (p[2] < 0) p[2] = 0.0;
     }
+    ele_dist[i].xlog = 0;
     break;
   case 2:
     /* MaxPower */
@@ -1243,6 +1396,7 @@ int SetEleDist(int i, int np, double *p) {
     if (p[5] <= 0.0) {
       p[5] = 1E-20*p[0];
     }
+    MaxPower(-1.0, p);
     break;    
   case 4:
     /* shifted Maxwellian */
@@ -1261,14 +1415,10 @@ int SetEleDist(int i, int np, double *p) {
     if (p[3] <= 0.0) {
       p[3] = 1E-20*p[0];
     }
+    Hybrid(-1.0, p);
     break;
   default:
     break;
-  }
-
-  iedist = i;
-  for (k = 0; k < np; k++) {
-    ele_dist[i].params[k] = p[k];
   }
 
   return 0;
@@ -1289,14 +1439,26 @@ int PhoDist(char *fn, int n) {
   d = pho_dist+ipdist;
   p = d->params;
   np = d->nparams;
-  emin = p[np-2];
-  emax = p[np-1];
+  if (ipdist == MAX_DIST-1) {
+    np = (np-3)/2;
+    emin = p[3];
+    emax = p[3+np-1];
+    if (p[1] != 0) {
+      emin = exp(emin);
+      emax = exp(emax);
+    }
+  } else {
+    emin = p[np-2];
+    emax = p[np-1];
+  }
   de = (log(emax) - log(emin))/(n-1);
   de = exp(de);
-  fprintf(f, "# dist=%d\n", ipdist);
-  for (i = 0; i < np; i++) {
-    fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
-  } 
+  fprintf(f, "# photon dist=%d\n", ipdist);
+  if (ipdist != MAX_DIST-1) {
+    for (i = 0; i < np; i++) {
+      fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
+    } 
+  }
   e = emin;
   for (i = 0; i < n; i++) {
     y = d->dist(e, p);
@@ -1310,6 +1472,16 @@ int PhoDist(char *fn, int n) {
 int SetPhoDist(int i, int np, double *p) {
   int k;
 
+  if (i == -1) {
+    i = MAX_DIST-1;
+    pho_dist[i].nparams = np;
+    if (pho_dist[i].dist != NULL) {
+      free(pho_dist[i].params);
+    }
+    pho_dist[i].params = (double *) malloc(sizeof(double)*np);
+    pho_dist[i].dist = InterpDist;
+  }
+
   if (pho_dist[i].dist == NULL) {
     printf("Photon Dist. does not exist\n");
     return -1;
@@ -1320,6 +1492,7 @@ int SetPhoDist(int i, int np, double *p) {
     return -1;
   }
 
+  pho_dist[i].xlog = -1;
   switch (i) {
   case 0:
     /* Default parameters for BBody */
@@ -1365,7 +1538,7 @@ int InitRates(void) {
 
   i++; /* MaxPower */
   ele_dist[i].nparams = 7;
-  ele_dist[i].params = (double *) malloc(sizeof(double)*7);
+  ele_dist[i].params = (double *) malloc(sizeof(double)*(7+2));
   ele_dist[i].params[0] = 1.0E3;
   ele_dist[i].params[1] = 1.5;
   ele_dist[i].params[2] = 0.1;
@@ -1392,9 +1565,9 @@ int InitRates(void) {
   ele_dist[i].params[3] = 1e5;  
   ele_dist[i].dist = SMaxwell;
 
-  i++; /* shifted Maxwellian */
+  i++; /* Maxwellian with powerlaw tail, smooth match*/
   ele_dist[i].nparams = 5;
-  ele_dist[i].params = (double *) malloc(sizeof(double)*5);
+  ele_dist[i].params = (double *) malloc(sizeof(double)*(5+1));
   ele_dist[i].params[0] = 1e2;
   ele_dist[i].params[1] = 2.0;
   ele_dist[i].params[2] = 3.0;
@@ -1435,7 +1608,7 @@ int InitRates(void) {
   }
 
   rate_args.epsabs = EPS8;
-  rate_args.epsrel = EPS2;
+  rate_args.epsrel = EPS3;
   rate_args.iprint = 1;
 
   for (i = 0; i < NSEATON; i++) {
