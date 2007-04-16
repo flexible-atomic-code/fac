@@ -64,7 +64,6 @@ C Error check
       DO 11  ID=2,ND
         IF (XD(ID).LE.XD(ID-1))     GO TO 92
    11 CONTINUE
-
 C Branches off special cases.
 C Take calre of the linear case
       IF (ND .GE. 3 .AND. NP .EQ. 1) GOTO 30
@@ -128,13 +127,13 @@ C cf. Equation (8)
             IF (NP .EQ. 1) THEN
                A1 = Y1/X1
             ELSE IF (NP .EQ. 2) THEN
-               DLT = X1*X2*(X2-X1)
-               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT
+               XDLT = X1*X2*(X2-X1)
+               A1 = (X2*X2*Y1 - X1*X1*Y2)/XDLT
             ELSE
-               DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+               XDLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
                A1=(((X2*X3)**2)*(X3-X2)*Y1
      1              +((X3*X1)**2)*(X1-X3)*Y2
-     2              +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+     2              +((X1*X2)**2)*(X2-X1)*Y3)/XDLT
             ENDIF
          ENDIF
 C Evaluates the YI value.
@@ -164,13 +163,13 @@ C cf. Equation (8)
             IF (NP .EQ. 1) THEN
                A1 = Y1/X1             
             ELSE IF (NP .EQ. 2) THEN
-               DLT = X1*X2*(X2-X1)
-               A1 = (X2*X2*Y1 - X1*X1*Y2)/DLT  
+               XDLT = X1*X2*(X2-X1)
+               A1 = (X2*X2*Y1 - X1*X1*Y2)/XDLT  
             ELSE
-               DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+               XDLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
                A1=(((X2*X3)**2)*(X3-X2)*Y1
      1              +((X3*X1)**2)*(X1-X3)*Y2
-     2              +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+     2              +((X1*X2)**2)*(X2-X1)*Y3)/XDLT
             ENDIF
           END IF
 C Evaluates the YI value.
@@ -189,9 +188,9 @@ C WORKS IF ND >= 4
                     Y1 = YD(IINT+1)-Y0
                     X2 = XD(IINT+2)-X0
                     Y2 = YD(IINT+2)-Y0
-                    DLT = X1*X2*(X2-X1)
-                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
-                    A2=(X1*Y2-X2*Y1)/DLT
+                    XDLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/XDLT
+                    A2=(X1*Y2-X2*Y1)/XDLT
                  ELSE IF (IINT .EQ. ND-1) THEN
                     X0 = XD(IINT-1)
                     Y0 = YD(IINT-1)
@@ -199,9 +198,9 @@ C WORKS IF ND >= 4
                     Y1 = YD(IINT)-Y0
                     X2 = XD(IINT+1)-X0
                     Y2 = YD(IINT+1)-Y0
-                    DLT = X1*X2*(X2-X1)
-                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
-                    A2=(X1*Y2-X2*Y1)/DLT
+                    XDLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/XDLT
+                    A2=(X1*Y2-X2*Y1)/XDLT
                  ELSE
                     X0 = XD(IINT)
                     Y0 = YD(IINT)
@@ -209,18 +208,18 @@ C WORKS IF ND >= 4
                     Y1 = YD(IINT+1)-Y0
                     X2 = XD(IINT+2)-X0
                     Y2 = YD(IINT+2)-Y0
-                    DLT = X1*X2*(X2-X1)
-                    A1=(X2*X2*Y1-X1*X1*Y2)/DLT
-                    A2=(X1*Y2-X2*Y1)/DLT
+                    XDLT = X1*X2*(X2-X1)
+                    A1=(X2*X2*Y1-X1*X1*Y2)/XDLT
+                    A2=(X1*Y2-X2*Y1)/XDLT
                     X00 = XD(IINT-1)
                     Y00 = YD(IINT-1)
                     X11 = XD(IINT)-X00
                     Y11 = YD(IINT)-Y00
                     X22 = XD(IINT+1)-X00
                     Y22 = YD(IINT+1)-Y00
-                    DLT = X11*X22*(X22-X11)
-                    A11=(X22*X22*Y11-X11*X11*Y22)/DLT
-                    A22=(X11*Y22-X22*Y11)/DLT
+                    XDLT = X11*X22*(X22-X11)
+                    A11=(X22*X22*Y11-X11*X11*Y22)/XDLT
+                    A22=(X11*Y22-X22*Y11)/XDLT
                  ENDIF
               ENDIF
               XX = XI(II)-X0
@@ -298,10 +297,10 @@ C cf. Equation (8)
                 Y1=YD(ID1)-Y0
                 Y2=YD(ID2)-Y0
                 Y3=YD(ID3)-Y0
-                DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+                XDLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
                 PE=(((X2*X3)**2)*(X3-X2)*Y1
      1             +((X3*X1)**2)*(X1-X3)*Y2
-     2             +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+     2             +((X1*X2)**2)*(X2-X1)*Y3)/XDLT
 C Calculates the volatility factor, VOL, and distance factor,
 C SXX, for the primary estimate.  --  cf. Equations (9) and (11)
                 SX=X1+X2+X3
@@ -351,6 +350,7 @@ C - When infinite weights exist.
 C End of the calculation of the estimate of the first derivative
 C at an endpoint
    37       CONTINUE
+
 C End of the second DO-loop
             IF (NP0.LE.3)  THEN
 C Calculates the coefficients of the third-degree polynomial
@@ -419,9 +419,9 @@ C End of Special Case 1
       RETURN
 C Special Case 2  --  Three data points
 C (Quadratic interpolation and linear extrapolation)
- 70   DLT=X1*X2*(X2-X1)
-      A1=(X2*X2*Y1-X1*X1*Y2)/DLT
-      A2=(X1*Y2-X2*Y1)/DLT
+ 70   XDLT=X1*X2*(X2-X1)
+      A1=(X2*X2*Y1-X1*X1*Y2)/XDLT
+      A2=(X1*Y2-X2*Y1)/XDLT
       A12=2.0*A2*X2+A1
       DO 71  II=1,NI
          XX=XI(II)-X0
@@ -437,16 +437,16 @@ C End of Special Case 2
       RETURN
 C Special Case 3  --  Four data points
 C (Cubic interpolation and linear extrapolation)
-   80 DLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
+   80 XDLT=X1*X2*X3*(X2-X1)*(X3-X2)*(X3-X1)
       A1=(((X2*X3)**2)*(X3-X2)*Y1
      1   +((X3*X1)**2)*(X1-X3)*Y2
-     2   +((X1*X2)**2)*(X2-X1)*Y3)/DLT
+     2   +((X1*X2)**2)*(X2-X1)*Y3)/XDLT
       A2=(X2*X3*(X2*X2-X3*X3)*Y1
      1   +X3*X1*(X3*X3-X1*X1)*Y2
-     2   +X1*X2*(X1*X1-X2*X2)*Y3)/DLT
+     2   +X1*X2*(X1*X1-X2*X2)*Y3)/XDLT
       A3=(X2*X3*(X3-X2)*Y1
      1   +X3*X1*(X1-X3)*Y2
-     2   +X1*X2*(X2-X1)*Y3)/DLT
+     2   +X1*X2*(X2-X1)*Y3)/XDLT
       A13=(3.0*A3*X3+2.0*A2)*X3+A1
       DO 81  II=1,NI
         XX=XI(II)-X0

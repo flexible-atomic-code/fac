@@ -3271,7 +3271,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
   double e, a, e0;
   int i, p, q, ib, iuta;
   double smax, s, b, c;
-  const double factor = 1.57882E-2;
+  /* this is the factor in TRRate() *((ev/erg)/c)*1E20 */
+  const double factor = 2.52433977E-4;
 
   iuta = IsUTA();
   fhdr.type = DB_SP;
@@ -3371,7 +3372,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    r.energy = -e;
 	    a = rt->dir*(ion->j[rt->i]+1.0);
 	    e *= HARTREE_EV;
-	    a *= factor/(e*e*e*(ion->j[rt->f]+1.0));
+	    a *= factor/(e*e*(ion->j[rt->f]+1.0));
 	  } else {
 	    r.energy = e;
 	    a = rt->dir;

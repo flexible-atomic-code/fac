@@ -545,7 +545,8 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    rd[ir].r.strength = gf;
 	    rd[ir].rx.sci = 1.0;
 	    if (m == -1) {
-	      gf = OscillatorStrength(m, rd[ir].rx.energy, rd[ir].r.strength, NULL);
+	      gf = OscillatorStrength(m, rd[ir].rx.energy, 
+				      rd[ir].r.strength, NULL);
 	      j0 = rd[ir].ks[0]&mj;
 	      j1 = rd[ir].ks[1]&mj;
 	      if (j0==0 && j1==0) {
@@ -842,18 +843,25 @@ int SaveTransitionEB(int nlow0, int *low0, int nup0, int *up0,
 int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
   FILE *f1, *f2;
   int n, i, t, tp, k, q, s, sp, m, mp, m2;
-  double a, c;
+  double a, c, e;
   F_HEADER fh;
   TRF_HEADER h;
   TRF_RECORD r;
-  int swp;
+  EN_SRECORD *mem_en_table;
+  int swp, mem_en_table_size;
   
+  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
   f1 = fopen(ifn, "r");
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
-  }
-  
+  }  
+
   n = ReadFHeader(f1, &fh, &swp);
   if (n == 0) {
     printf("File %s is not in FAC Binary format\n", ifn);
@@ -882,6 +890,10 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadTRFRecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
+	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	e = FINE_STRUCTURE_CONST*e;
+	e = e*e*e;
+	e *= RATE_AU/(4.0*PI);
 	for (t = -1; t <= 1; t += 2) {
 	  for (tp = -1; tp <= 1; tp += 2) {
 	    for (k = 0; k <= m2; k++) {
@@ -899,6 +911,7 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
 		  c += a;
 		}
 		c *= 2.0*k + 1.0;
+		c *= e;
 		fprintf(f2, "%4d %4d %2d %2d %2d %2d %2d %15.8E\n",
 			r.lower, r.upper, t, tp, k, q, tp-t, c);
 	      }

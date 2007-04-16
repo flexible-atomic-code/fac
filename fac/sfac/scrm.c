@@ -83,10 +83,15 @@ static int PSetEleDist(int argc, char *argv[], int argt[],
   if (argc < 1) return -1;
 
   i = atoi(argv[0]);
-  np = argc - 1;
-  if (np > 0) p = (double *) malloc(sizeof(double)*np);
-  for (k = 1; k < argc; k++) {
-    p[k-1] = atof(argv[k]);
+  if (i == -1 ) {
+    np = DistFromFile(argv[1], &p);
+    if (np <= 0) return -1;
+  } else {
+    np = argc - 1;
+    if (np > 0) p = (double *) malloc(sizeof(double)*np);
+    for (k = 1; k < argc; k++) {
+      p[k-1] = atof(argv[k]);
+    }
   }
   if (SetEleDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
@@ -113,10 +118,15 @@ static int PSetPhoDist(int argc, char *argv[], int argt[],
   if (argc < 1) return -1;
 
   i = atoi(argv[0]);
-  np = argc - 1;
-  if (np > 0) p = (double *) malloc(sizeof(double)*np);
-  for (k = 1; k < argc; k++) {
-    p[k-1] = atof(argv[k]);
+  if (i == -1) {
+    np = DistFromFile(argv[1], &p);
+    if (np <= 0) return -1;
+  } else {
+    np = argc - 1;
+    if (np > 0) p = (double *) malloc(sizeof(double)*np);
+    for (k = 1; k < argc; k++) {
+      p[k-1] = atof(argv[k]);
+    }
   }
   if (SetPhoDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
@@ -605,6 +615,35 @@ static int PNormalizeMode(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetBornFormFactor(int argc, char *argv[], int argt[],
+			      ARRAY *variables) {
+  double te;
+  char *fn;
+
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  te = atof(argv[0]);
+  if (argc == 2) fn = argv[1];
+  else fn = NULL;
+  
+  SetBornFormFactor(te, fn);
+  
+  return 0;
+}
+
+static int PSetBornMass(int argc, char *argv[], int argt[],
+			ARRAY *variables) {
+  double m;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+  m = atof(argv[0]);
+
+  SetBornMass(m);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -648,6 +687,8 @@ static METHOD methods[] = {
   {"DumpRates", PDumpRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
+  {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
+  {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

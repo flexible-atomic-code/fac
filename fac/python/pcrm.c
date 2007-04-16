@@ -174,6 +174,7 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, n, k, np;
   double *par = NULL;
+  char *fn;
 
   if (scrm_file) {
     SCRMStatement("SetEleDist", args, NULL);
@@ -185,12 +186,20 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
   i = PyInt_AsLong(p);
-  np = n-1;
-  if (np > 0) 
-    par = (double *) malloc(sizeof(double)*np);
-  for (k = 1; k < n; k++) {
-    p = PyTuple_GetItem(args, k);
-    par[k-1] = PyFloat_AsDouble(p);
+  if (i == -1) {
+    p = PyTuple_GetItem(args, 1);
+    fn = PyString_AsString(p);
+    np = DistFromFile(fn, &par);
+    if (np <= 0) return NULL;
+  } else {
+    np = n-1;
+    if (np > 0) {
+      par = (double *) malloc(sizeof(double)*np);
+    }  
+    for (k = 1; k < n; k++) {
+      p = PyTuple_GetItem(args, k);
+      par[k-1] = PyFloat_AsDouble(p);
+    }
   }
   if (SetEleDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
@@ -220,6 +229,7 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, n, k, np;
   double *par = NULL;
+  char *fn;
 
   if (scrm_file) {
     SCRMStatement("SetPhoDist", args, NULL);
@@ -231,12 +241,20 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
   i = PyInt_AsLong(p);
-  np = n-1;
-  if (np > 0) 
-    par = (double *) malloc(sizeof(double)*np);
-  for (k = 1; k < n; k++) {
-    p = PyTuple_GetItem(args, k);
-    par[k-1] = PyFloat_AsDouble(p);
+  if (i == -1) {
+    p = PyTuple_GetItem(args, 1);
+    fn = PyString_AsString(p);
+    np = DistFromFile(fn, &par);
+    if (np <= 0) return NULL;
+  } else {
+    np = n-1;
+    if (np > 0) {
+      par = (double *) malloc(sizeof(double)*np);
+    }
+    for (k = 1; k < n; k++) {
+      p = PyTuple_GetItem(args, k);
+      par[k-1] = PyFloat_AsDouble(p);
+    }
   }
   if (SetPhoDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
@@ -1093,6 +1111,19 @@ static PyObject *PIonDensity(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", d);
 }
 
+static PyObject *PIonRadiation(PyObject *self, PyObject *args) {
+  char *fn;
+  double d;
+  int k, m;
+
+  m = 0;
+  if (!PyArg_ParseTuple(args, "si|i", &fn, &k, &m)) return NULL;
+  
+  d = IonRadiation(fn, k, m);
+  
+  return Py_BuildValue("d", d);
+}
+
 static PyObject *PSetUTA(PyObject *self, PyObject *args) {
   int m, mci;
 
@@ -1146,7 +1177,43 @@ static PyObject *PNormalizeMode(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static  PyObject *PSetBornFormFactor(PyObject *self, PyObject *args) {
+  double te;
+  char *fn;
+
+  if (scrm_file) {
+    SCRMStatement("SetBornFormFactor", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   
+  fn = NULL;
+  if (!PyArg_ParseTuple(args, "d|s", &te, &fn)) return NULL;
+
+  SetBornFormFactor(te, fn);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+      
+static  PyObject *PSetBornMass(PyObject *self, PyObject *args) {
+  double m;
+
+  if (scrm_file) {
+    SCRMStatement("SetBornMass", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+
+  SetBornMass(m);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1156,6 +1223,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DRSuppression", PDRSuppression, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
   {"IonDensity", PIonDensity, METH_VARARGS},
+  {"IonRadiation", PIonRadiation, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
@@ -1211,6 +1279,8 @@ static struct PyMethodDef crm_methods[] = {
   {"DumpRates", PDumpRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
+  {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
+  {"SetBornMass", PSetBornMass, METH_VARARGS},
   {NULL, NULL}
 };
 

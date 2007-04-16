@@ -1,7 +1,7 @@
 #include "orbital.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: orbital.c,v 1.80 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -294,7 +294,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   n = -orb->n;
   nr = n - kl - 1;
   if (kl < 0 || kl >= n) {
-    printf("Invalid orbital angular momentum, L=%d\n", kl);
+    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	   kl, orb->n, orb->kappa);
     return -1;
   }
   
@@ -491,7 +492,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   kl = (kl < 0)? (-kl-1):kl;
 
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d\n", kl);
+    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	   kl, orb->n, orb->kappa);
     return -1;
   }
   
@@ -870,7 +872,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   kl = (kl < 0)? (-kl-1):kl;
 
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d\n", kl);
+    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	   kl, orb->n, orb->kappa);
     return -1;
   }
   
@@ -1087,7 +1090,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d\n", kl);
+    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	   kl, orb->n, orb->kappa);
     return -1;
   }
   e = EnergyH(z, orb->n, orb->kappa);

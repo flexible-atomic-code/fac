@@ -1,4 +1,4 @@
-static char *rcsid="$Id: polarization.c,v 1.21 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -416,11 +416,11 @@ int SetMCERates(char *fn) {
     }
     for (i = 0; i < NEINT; i++) {
       a = (egrid[i] - energy)/esigma;
-      v = VelocityFromE(egrid[i]);
+      v = VelocityFromE(egrid[i], 0.0);
       fint[i] = (1.0/(sqrt(2.0*PI)*esigma))*exp(-0.5*a*a)*v;
     }
   } else {
-    v = VelocityFromE(e1);
+    v = VelocityFromE(e1, 0.0);
   }
 
   if (nce > 0) {
@@ -597,7 +597,7 @@ int SetMAIRates(char *fn) {
       e = levels[r.b].energy - levels[r.f].energy;
       if (e < 0) e -= h.emin;
       e *= HARTREE_EV;
-      v = VelocityFromE(e)*AREA_AU20*HARTREE_EV;
+      v = VelocityFromE(e, 0.0)*AREA_AU20*HARTREE_EV;
       if (esigma > 0.0) {
 	x = (e - energy)/esigma;
 	x = 0.5*x*x;

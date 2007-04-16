@@ -539,6 +539,7 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp);
 int SwapEndianDRHeader(DR_HEADER *h);
 int SwapEndianDRRecord(DR_RECORD *r);
 double IonDensity(char *fn, int k);
+double IonRadiation(char *fn, int k, int m);
 void SetUTA(int m, int mci);
 int IsUTA(void);
 void SetTRF(int m);

@@ -65,7 +65,7 @@
 \begin{document}
 
 \title{FAC \facversion Manual}
-\author{M. F. Gu\thanks{mfgu@stanford.edu}}
+\author{M. F. Gu\thanks{gu2@llnl.gov}}
 
 \date{}
 
@@ -3650,6 +3650,13 @@ fractional abundances of all ions with nuclear charge \var{Z} at the found
 temperature. 
 \end{fundesc}
 
+\begin{fundesc}{NormalizeMode}{m}
+Set the mode for normalizing the ion densities. If \var{m} is 0, the density
+of the ground state of each ion is fixed at the value given by
+\key{SetAbund}. If \var{m} is 1, the total density of the ion is fixed at that
+value. 
+\end{fundesc}
+
 \begin{fundesc}{NDRFit}{Z, n, Te}
 Calculate the dielectronic recombination rates using the data calculated with
 FAC for H-like through Ne-like ions of Mg, Si, S, Ar, Ca, Fe, and Ni. \var{Z}
@@ -3833,7 +3840,12 @@ Set the electron density in unit of $10^{10}$ cm$^{-3}$.
 Set the electron energy distribution. The first argument \var{i} specifies the
 type of distributions, and the remaining give the parameters of the
 distribution. The avaliable distributions and their parameters are listed in
-\S\ref{subsec:rt_header}. 
+\S\ref{subsec:rt_header}. In addition of these distributions, one can use a
+text file to define a distribution. It is specified with $i=-1$ and a file
+name as the parameters. The text file must contain three integers in the first
+line, specifying the number of energy points, $n$, the scale of energy and
+distribution (1 for log scale, 0 for linear scale). It is then followed by $n$
+lines giving energy in eV, and distribution function values.
 \end{fundesc}
 
 \begin{fundesc}{SetExtrapolate}{i}
@@ -3877,7 +3889,8 @@ Set the photon energy density in unit of erg cm$^{-3}$.
 Set the photon energy distribution. The first argument \var{i} specifies the
 type of distributions, and the remaining give the parameters of the
 distribution. The avaliable distributions and their parameters are listed in
-\S\ref{subsec:rt_header}. 
+\S\ref{subsec:rt_header}. A text file as described in \key{SetEleDist} can
+also be used to specify the distribution.
 \end{fundesc}
 
 \begin{fundesc}{SetRRRates}{inv}
@@ -4507,7 +4520,7 @@ treated in the screened hydrogenic approximation.}
 \faq{Why the transition rate between two specific states is not in the output
 file, although it should have been calculated}{
 Not every calculated transition rate are output. Some weak transitions are
-discarded to avoids very large files. A small number, which may be set by the
+discarded to avoid very large files. A small number, which may be set by the
 function \key{fac.SetTransitionCut}, controlls this behavior. If the
 transition rate of $2\to 1$ devided by the total decay rate of state 2 is less
 than this number, this rate is not output. The default for this number is
