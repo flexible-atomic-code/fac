@@ -1533,6 +1533,26 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
   }
 }
   
+double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
+			   int q) {
+  double y[MAXNE], z[MAXNE], x, tc;
+  int i, j;
+
+  for (i = 0; i < h->n_usr; i++) {
+    j = q*h->n_usr + i;
+    y[i] = r->strength[j];
+    z[i] = log(1.0 + h->usr_egrid[i]/eth);
+  }
+  if (e1 < 0) return 0.0; 
+  x = log(1.0 + e1/eth);
+  if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
+    UVIP3P(1, h->n_usr, z, y, 1, &x, &tc);
+  } else {
+    UVIP3P(2, h->n_usr, z, y, 1, &x, &tc);
+  }
+  return tc;
+}
+
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax) {
   F_HEADER fh;
@@ -1849,6 +1869,120 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
     }
 
     free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
+    
+    nb++;
+  }
+
+ DONE:
+  fclose(f1);
+
+  if (f2 != stdout) {
+    fclose(f2);
+  } else {
+    fflush(f2);
+  }
+
+  return nb;
+} 
+
+int CIMCross(char *ifn, char *ofn, int i0, int i1,
+	     int negy, double *egy, int mp) {
+  F_HEADER fh;
+  FILE *f1, *f2;
+  int n, swp;
+  CIM_HEADER h;
+  CIM_RECORD r;
+  int i, t, nb, m, k;
+  double tc, a, b, e, e0, bte, bms, be;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+
+  mem_en_table = GetMemENTable(&mem_en_table_size);
+  
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  nb = 0;
+  
+  f1 = fopen(ifn, "r");
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+  
+  n = ReadFHeader(f1, &fh, &swp);
+  if (n == 0) {
+    printf("File %s is not in FAC binary format\n", ifn);
+    goto DONE;
+  }
+
+  if (fh.type != DB_CIM || fh.nblocks == 0) {
+    printf("File %s is not of DB_CIM type\n", ifn);
+    goto DONE;
+  }
+  
+  for (i = 0; i < negy; i++) {
+    egy[i] /= HARTREE_EV;
+  }
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  while (1) {
+    n = ReadCIMHeader(f1, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCIMRecord(f1, &r, swp, &h);
+      if (n == 0) break;      
+      if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%2d\n",
+		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
+		e*HARTREE_EV, negy, r.nsub);
+	be = (e + bte)/bms;
+	for (k = 0; k < r.nsub; k++) {
+	  for (t = 0; t < negy; t++) {
+	    if (mp == 0) {
+	      e0 = egy[t];
+	    } else {
+	      e0 = egy[t] + be;
+	    }
+	    if (e0 < be) {
+	      tc = 0.0; 
+	      b = 0.0;
+	    } else {
+	      tc = InterpolateCIMCross(e0-be, e, &r, &h, k);
+	      b = tc;
+	      a = e0*(1.0 + FINE_STRUCTURE_CONST2*e0);
+	      tc *= AREA_AU20/(2.0*a);
+	    }
+	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
+		    e0*HARTREE_EV, b, tc);
+	  }
+	  fprintf(f2, "\n\n");
+	}
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.strength);
+	  free(h.egrid);
+	  free(h.usr_egrid);
+	  goto DONE;
+	}
+      }
+      free(r.strength);      
+    }
     free(h.egrid);
     free(h.usr_egrid);
     
@@ -2557,6 +2691,9 @@ int InterpCross(char *ifn, char *ofn, int i0, int i1,
     break;
   case DB_CI:
     CICross(ifn, ofn, i0, i1, negy, egy, mp);
+    break;
+  case DB_CIM:
+    CIMCross(ifn, ofn, i0, i1, negy, egy, mp);
     break;
   case DB_RR:
     RRCross(ifn, ofn, i0, i1, negy, egy, mp);
