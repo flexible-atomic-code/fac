@@ -1431,6 +1431,7 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
     }
   }
 
+
   nz = AngularZFreeBound(&ang, f, b);
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
@@ -1451,8 +1452,11 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
       }
     }
   }
-  free(ang);
+  if (nz <= 0) {
+    return -1;
+  }
 
+  free(ang);
   rqk = qkc;
   i = 0;
   for (m1 = -j1; m1 <= 0; m1 += 2) {

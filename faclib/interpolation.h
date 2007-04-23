@@ -52,6 +52,8 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	       int nt, double *temp);
 double InterpolateCICross(double e, double eth, CI_RECORD *r, CI_HEADER *h);
+double InterpolateCIMCross(double e, double eth, CIM_RECORD *r, CIM_HEADER *h, 
+			   int q);
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax);
 int TotalPICross(char *ifn, char *ofn, int ilev, 
@@ -61,6 +63,8 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 		 int nmax, int imin, int imax);
 int CICross(char *ifn, char *ofn, int i0, int i1, 
 	    int negy, double *egy, int mp);
+int CIMCross(char *ifn, char *ofn, int i0, int i1, 
+	     int negy, double *egy, int mp);
 int CIMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	      int nt, double *temp);
 int RRCross(char *ifn, char *ofn, int i0, int i1, 
