@@ -3,7 +3,7 @@
 #include "structure.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: structure.c,v 1.100 2006/08/28 23:44:17 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -68,6 +68,11 @@ void GetFields(double *b, double *e, double *a) {
   *a = AINP;
 }
 
+/* 
+** if the angle a > 0, the B is Z-axis, BxE is Y-axis. and E is in X-Z plane.
+** if the angle a < 0, the E is Z-axis, ExB is Y-axis, and B is in X-Z plane.
+** angle a is always measured from E->B, 
+*/
 void SetFields(double b, double e, double a, int m) {
   int i, q, i1, i2, q1, q2;
   double w, mass;
