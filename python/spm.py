@@ -698,6 +698,8 @@ def spectrum(neles, temp, den, population, pref,
                     print 'AI rates...'
                     SetAIRates(0)
                 SetAbund(k-1, p1)
+            else:
+                SetAbund(k-1, 0.0)
             SetAbund(k, p2)
             if (nion == 3):
                 SetAbund(k+1, p3)
