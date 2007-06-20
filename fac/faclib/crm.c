@@ -19,7 +19,7 @@ static int rec_cascade = 0;
 static double cas_accuracy = EPS4;
 static int max_iter = 256;
 static double iter_accuracy = EPS4;
-static double iter_stabilizer = 0.75;
+static double iter_stabilizer = 0.8;
 
 /* electron density in 10^10 cm-3 */
 static double electron_density = EPS3;
@@ -276,7 +276,9 @@ int ReinitCRM(int m) {
   ion0.atom = 0;
   ArrayFree(ions, FreeIonData);
   ArrayFree(blocks, FreeBlockData);
-  if (bmatrix) free(bmatrix);
+  if (bmatrix) {
+    free(bmatrix);
+  }
   bmatrix = NULL;
   
   return 0;
@@ -571,8 +573,7 @@ void ExtrapolateRR(ION *ion, int inv) {
   for (i = 0; i < ion->recombined->dim; i++) {
     if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
-    if (rec->n_ext == rec->n) {
-    }
+    if (rec->n_ext == rec->n) continue;
     j = rec->n - 1;
     imin = rec->imin[j];
     imax = rec->imax[j];
@@ -659,6 +660,7 @@ void ExtrapolateAI(ION *ion, int inv) {
   for (i = 0; i < ion->recombined->dim; i++) {
     if (i > do_extrapolate) break;
     rec = (RECOMBINED *) ArrayGet(ion->recombined, i);
+    if (rec->n_ext == rec->n) continue;
     j = rec->n - 1;
     imin = rec->imin[j];
     imax = rec->imax[j];
@@ -2536,20 +2538,87 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
   return 0;
 }
 
+void FixNorm(void) {
+  LBLOCK *blk1;
+  ION *ion;
+  int k0, k1, iion, k, p, i, n;
+  double den, *x;
+
+  n = blocks->dim;
+  x = bmatrix + n*n;
+  iion = -2;
+  k0 = 0;
+  k1 = 0;
+  for (i = 0; i < n; i++) x[i] = 0.0;
+  for (i = 0; i < n; i++) {    
+    blk1 = (LBLOCK *) ArrayGet(blocks, i);
+    if (blk1->iion != iion) {
+      if (iion != -2) {
+	k = iion;
+	if (k == -1) k = 0;
+	ion = (ION *) ArrayGet(ions, k);
+	if (iion == -1) den = ion0.n0;
+	else den = ion->n0;
+	if (den > 0.0) {
+	  x[k0] = den;
+	  p = k0;
+	  for (k = 0; k < n; k++) {
+	    /*
+	    if (norm_mode != 0) {
+	      if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	      else bmatrix[p] = 0.0;
+	    } else {
+	    */
+	    if (k == k0) bmatrix[p] = 1.0;
+	    else bmatrix[p] = 0.0;
+	    /*
+	    }
+	    */
+	    p += n;
+	  }
+	} 
+      }
+      iion = blk1->iion;
+      k0 = k1;
+    }
+    k1++;
+  }
+
+  k = iion;
+  ion = (ION *) ArrayGet(ions, k);
+  den = ion->n0;
+  if (den > 0.0) {
+    x[k0] = den;
+    p = k0;
+    for (k = 0; k < n; k++) {
+      /*
+      if (norm_mode != 0) {
+	if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	else bmatrix[p] = 0.0;
+      } else {
+      */
+      if (k == k0) bmatrix[p] = 1.0;
+      else bmatrix[p] = 0.0;
+      /*
+      }
+      */
+      p += n;
+    }
+  } 
+}
+
 int BlockMatrix(void) {
   ION *ion;
   RATE *r;
   LBLOCK *blk1, *blk2;
   BLK_RATE *brts;
-  int n, k, m, i, j, t;
-  int p, q, iion, k0, k1;
-  double *x, den, a;
+  int n, k, m, i, j, t, p, q;
+  double a, den;
   
   n = blocks->dim;
   for (i = 0; i < 2*n*(n+1); i++) {
     bmatrix[i] = 0.0;
   }
-  x = bmatrix + n*n;
 
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
@@ -2713,62 +2782,12 @@ int BlockMatrix(void) {
     bmatrix[q] = - bmatrix[q];
   }
 
-  iion = -2;
-  k0 = 0;
-  k1 = 0;
-  for (i = 0; i < n; i++) {
-    blk1 = (LBLOCK *) ArrayGet(blocks, i);
-    if (blk1->iion != iion) {
-      if (iion != -2) {
-	k = iion;
-	if (k == -1) k = 0;
-	ion = (ION *) ArrayGet(ions, k);
-	if (iion == -1) den = ion0.n0;
-	else den = ion->n0;
-	if (den > 0.0) {
-	  x[k0] = den;
-	  p = k0;
-	  for (k = 0; k < n; k++) {
-	    if (norm_mode != 0) {
-	      if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-	      else bmatrix[p] = 0.0;
-	    } else {
-	      if (k == k0) bmatrix[p] = 1.0;
-	      else bmatrix[p] = 0.0;
-	    }
-	    p += n;
-	  }
-	} 
-      }
-      iion = blk1->iion;
-      k0 = k1;
-    }
-    k1++;
-  }
-
-  k = iion;
-  ion = (ION *) ArrayGet(ions, k);
-  den = ion->n0;
-  if (den > 0.0) {
-    x[k0] = den;
-    p = k0;
-    for (k = 0; k < n; k++) {
-      if (norm_mode != 0) {
-	if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-	else bmatrix[p] = 0.0;
-      } else {
-	if (k == k0) bmatrix[p] = 1.0;
-	else bmatrix[p] = 0.0;
-      }
-      p += n;
-    }
-  } 
-
   return 0;
 }
 
-int BlockPopulation(void) {
+int BlockPopulation(int miter) {
   LBLOCK *blk;
+  ION *ion;
   double *b, *x;
   double *a;
   int *ipiv;
@@ -2776,95 +2795,140 @@ int BlockPopulation(void) {
   int n, m;
   int nrhs;
   int lda, ldb;
-  int i, j, p, q;
-  double ta;
+  int i, j, p, q, ntd, nb, niter;
+  double ta, tb, td;
 
   n = blocks->dim;
   a = bmatrix + n*n;
   x = a;
-  ipiv = (int *) bmatrix;
+  ipiv = (int *) x;
   a = a + n;
   b = a + n*n;
 
-  ta = 0.0;
-  for (i = 0; i < n; i++) {
-    ta += x[i];
-  }
-  for (i = 0; i < n; i++) {
-    if (x[i] > 0) {
-      for (j = 0; j < n; j++) {
-	p = j*n + i;      
-	if (bmatrix[p]) {
-	  bmatrix[p] *= ta/x[i];
+  if (norm_mode == 0) miter = 1;
+  for (niter = 0; niter < miter; niter++) {
+    FixNorm();
+    ta = 0.0;
+    for (i = 0; i < n; i++) {
+      ta += x[i];
+    }
+    for (i = 0; i < n; i++) {
+      if (x[i] > 0) {
+	for (j = 0; j < n; j++) {
+	  p = j*n + i;      
+	  if (bmatrix[p]) {
+	    bmatrix[p] *= ta/x[i];
+	  }
 	}
+	x[i] = ta;
       }
-      x[i] = ta;
     }
-  }
 
-  p = 0;
-  q = 0;
-  m = 0;
-  for (i = 0; i < n; i++) {
-    if (bmatrix[i+i*n] == 0) {
-      x[i] = -1.0;
+    p = 0;
+    q = 0;
+    m = 0;
+    for (i = 0; i < n; i++) {
+      if (bmatrix[i+i*n] == 0) {
+	x[i] = -1.0;
+	p += n;
+	continue;
+      }
+      for (j = 0; j < n; j++) {
+	a[q] = bmatrix[p];
+	p++;
+	q++;
+      }
+      b[i] = x[i];
+      m++;
+    }
+    
+    p = 0;
+    for (i = 0; i < m; i++) {
+      q = p;
+      for (j = 0; j < n; j++) {
+	if (x[j] < 0.0) {
+	  continue;
+	}
+	a[q] = a[p+j];
+	q++;
+      }
       p += n;
-      continue;
     }
-    for (j = 0; j < n; j++) {
-      a[q] = bmatrix[p];
-      p++;
-      q++;
-    }
-    b[i] = x[i];
-    m++;
-  }
-
-  p = 0;
-  for (i = 0; i < m; i++) {
-    q = p;
+    
+    q = 0;
     for (j = 0; j < n; j++) {
       if (x[j] < 0.0) {
 	continue;
       }
-      a[q] = a[p+j];
+      b[q] = b[j];
       q++;
-    }
-    p += n;
-  }
-
-  q = 0;
-  for (j = 0; j < n; j++) {
-    if (x[j] < 0.0) {
-      continue;
-    }
-    b[q] = b[j];
-    q++;
-  }  
-
-  nrhs = 1;
-  lda = n;
-  ldb = n;
-
-  DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
-
-  if (info != 0) {
-    printf("Error in solving BlockMatrix\n");
-    exit(1);
-  }
-  
-  p = 0;
-  for (i = 0; i < n; i++) {
-    blk = (LBLOCK *) ArrayGet(blocks, i);
-    if (rec_cascade && blk->rec) continue;
-    if (x[i] < 0.0) {
-      blk->nb = 0.0;
-      for (j = 0; j < blk->nlevels; j++) {
-	blk->n[j] = 0.0;
+    }  
+    
+    nrhs = 1;
+    lda = n;
+    ldb = n;
+    
+    /*
+      for (i = 0; i < m; i++) {
+      for (j = 0; j < m; j++) {
+      printf("%3d %3d %12.5E %12.5E\n", i, j, a[j*n+i], b[j]);
       }
-    } else {
-      blk->nb = b[p++];      
+      }
+    */
+    DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
+
+    if (info != 0) {
+      printf("Error in solving BlockMatrix\n");
+      exit(1);
     }
+  
+    p = 0;
+    q = -1;
+    tb = 0.0;
+    td = 0.0;
+    ntd = 0;
+    for (i = 0; i < n; i++) {
+      blk = (LBLOCK *) ArrayGet(blocks, i);
+      if (rec_cascade && blk->rec) continue;
+      if (x[i] < 0.0) {
+	blk->nb = 0.0;
+	for (j = 0; j < blk->nlevels; j++) {
+	  blk->n[j] = 0.0;
+	}
+      } else {
+	blk->nb = b[p++];
+      }
+      if (blk->iion != q) {
+	if (q == -1) {
+	  ion0.nt = tb;
+	  if (ion0.n > 0 && ion0.n0/ta > iter_accuracy && miter > 1) {
+	    ion0.n0 *= ion0.n/tb;
+	    td += fabs(tb - ion0.n)/ion0.n;
+	    ntd++;
+	  }
+	} else {
+	  ion = (ION *) ArrayGet(ions, q);
+	  ion->nt = tb;
+	  if (ion->n > 0 && ion->n0/ta > iter_accuracy && miter > 1) {
+	    ion->n0 *= ion->n/tb;
+	    td += fabs(tb - ion->n)/ion->n;
+	    ntd++;
+	  }
+	}
+	q = blk->iion;
+	tb = 0.0;
+      }
+      tb += blk->nb;
+    }
+    ion = (ION *) ArrayGet(ions, q);
+    ion->nt = tb;
+    if (ion->n > 0 && ion->n0/ta > iter_accuracy && miter > 1) {
+      td += fabs(tb - ion->n)/ion->n;
+      ion->n0 *= ion->n/tb;
+      ntd++;
+    }
+    td /= ntd;
+    if (td < iter_accuracy) break;
   }
 
   return 0;
@@ -3055,34 +3119,36 @@ double BlockRelaxation(int iter) {
     if (blk1->nlevels == 1) {
       blk1->r[0] = 1.0;      
     }
-    if (iter < 0 || blk1->nlevels > 1) {
-      a = 0.0;
-      for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->total_rate[m]) {
-	  blk1->n[m] /= blk1->total_rate[m];
-	  a += blk1->n[m];
-	} else {
-	  blk1->n[m] = 0.0;
-	}
+
+    a = 0.0;
+    for (m = 0; m < blk1->nlevels; m++) {
+      if (blk1->total_rate[m]) {
+	blk1->n[m] /= blk1->total_rate[m];
+	a += blk1->n[m];
+      } else {
+	blk1->n[m] = 0.0;
       }
-      if (a) {
-	if (iter >= 0) {
-	  a = blk1->nb/a;
-	  for (m = 0; m < blk1->nlevels; m++) {
-	    blk1->n[m] *= a;
-	  }
-	} else {
-	  blk1->nb = a;
+    }
+    if (a) {
+      if (iter >= 0 && blk1->nb > 0) {
+	a = blk1->nb/a;
+	for (m = 0; m < blk1->nlevels; m++) {
+	  blk1->n[m] *= a;
 	}
-      }  
-      if (blk1->nlevels == 1) {
+      } else {
+	blk1->nb = a;
+      }
+    }  
+    if (blk1->nlevels == 1) {
+      if (blk1->n[0] > 0 && (blk1->nb <= 0 || iter < 0)) {
 	blk1->nb = blk1->n[0];
 	a = blk1->nb;
+      } else if (blk1->nb > 0) {
+	a = blk1->nb;
+	blk1->n[0] = a;
       }
-    } else {
-      blk1->n[0] = blk1->nb;
-      a = blk1->nb;
     }
+   
 
     if (blk1->nb == 0.0) {
       for (m = 0; m < blk1->nlevels; m++) {
@@ -3104,8 +3170,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m]) {
 	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
-	  d += fabs((blk1->n[m]-blk1->n0[m])/blk1->n[m])*blk1->nb;
-	  td += blk1->nb;
+	  d += fabs(((blk1->n[m]-blk1->n0[m])/blk1->n[m])*blk1->nb);
+	  td += fabs(blk1->nb);
 	  nlevels += 1;
 	}    
 	if (iter >= 2) {
@@ -3148,13 +3214,15 @@ double BlockRelaxation(int iter) {
 	else ion->nt = a;
       }
       */
-      if (p == -1) ion0.nt = a;
-      else ion->nt = a;
+      if (p == -1) {
+	ion0.nt = a;
+      } else {
+	ion->nt = a;
+      }
       /*
-      if (h > 0.0) {
-	blk2 = (LBLOCK *) ArrayGet(blocks, q);
-	if (p == -1) ion0.n0 = blk2->nb*h/a;
-	else ion->n0 = blk2->nb*h/a;
+      if (h > 0.0 && norm_mode != 0) {
+	if (p == -1) ion0.n0 *= ion0.n/a;
+	else ion->n0 *= ion->n/a;
       }
       */
       p = blk1->iion;
@@ -3181,11 +3249,10 @@ double BlockRelaxation(int iter) {
     ion->nt = a;
   }
   */
-  ion->nt = a;
+  ion->nt = a;  
   /*
-  if (ion->n > 0.0) {
-    blk2 = ArrayGet(blocks, q);
-    ion->n0 = blk2->nb*ion->n/a;
+  if (ion->n > 0.0 && norm_mode != 0) {
+    ion->n0 *= ion->n/a;
   }
   */
   if (iter < 0) {
@@ -3199,8 +3266,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m] && blk1->rec == NULL) {
 	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
-	  d += fabs((blk1->n[m] - blk1->n0[m])/blk1->n[m])*blk1->nb;
-	  td += blk1->nb;
+	  d += fabs(((blk1->n[m] - blk1->n0[m])/blk1->n[m])*blk1->nb);
+	  td += fabs(blk1->nb);
 	  nlevels += 1;
 	}
 	if (iter <= -2) {
@@ -3217,13 +3284,23 @@ double BlockRelaxation(int iter) {
 }
 
 int LevelPopulation(void) {
-  int i;
-  double d;
+  int i, n;
+  double d, c;
 
   printf("Populate Iteration:\n");
+  d = 10.0;
+  c = 1.0;
   for (i = 0; i < max_iter; i++) {
     BlockMatrix();
-    BlockPopulation();
+    /*
+    if (d > c) {
+      n = 1;
+    } else {
+      n = max_iter;
+    }
+    */
+    n = max_iter;
+    BlockPopulation(n);
     d = BlockRelaxation(i);
     printf("%5d %11.4E\n", i, d);
     fflush(stdout);
@@ -3837,8 +3914,13 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
       if (i == brt->rates->dim) {
 	ArrayAppend(brt->rates, r, NULL);
       } else {
-	r0->dir += r->dir;
-	r0->inv += r->inv;
+	if (m == 1) {
+	  r0->dir += r->dir;
+	  r0->inv += r->inv;
+	} else {
+	  r0->dir = r->dir;
+	  r0->inv = r->inv;
+	}
 	return 1;
       }
     } else {
@@ -4690,6 +4772,73 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
   if (n >= 0) DeinitFile(f, &fhdr);  
   CloseFile(f, &fhdr);
 
+  return 0;
+}
+
+int ModifyRates(char *fn) {
+  FILE *f;
+  char buf[1024];
+  ION *ion;
+  ARRAY *rts;
+  RATE r;
+  int p, n, k, m, mode;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return 0;
+  }
+  k = -1;
+  while (1) {
+    if (NULL == fgets(buf, 1024, f)) break;
+    n = sscanf(buf, "%d %d", &k, &m, &mode);
+    if (n == 3) break;
+    k = -1;
+  }
+  if (k == -1) {
+    printf("No line for NELE, irts, and mode\n");
+    goto DONE;
+  }
+  for (p = 0; p < ions->dim; p++) {
+    ion = (ION *) ArrayGet(ions, p);
+    if (ion->nele == k) {
+      switch (m) {
+      case 1:
+	rts = ion->tr_rates;
+	break;
+      case 2:
+	rts = ion->tr2_rates;
+	break;
+      case 3:
+	rts = ion->ce_rates;
+	break;
+      case 4:
+	rts = ion->rr_rates;
+	break;
+      case 5:
+	rts = ion->ai_rates;
+	break;
+      case 6:
+	rts = ion->ci_rates;
+	break;
+      default:
+	printf("invalid mode %d\n", m);
+	goto DONE;
+      }
+      while (1) {
+	if (NULL == fgets(buf, 1024, f)) break;
+	n = sscanf(buf, "%d %d %lf %lf", &(r.i), &(r.f), &(r.dir), &(r.inv));
+	if (n != 4) continue;
+	AddRate(ion, rts, &r, mode);
+      }
+      break;
+    }
+  }
+  if (p == ions->dim) {
+    printf("NELE = %d does not exist\n", k);
+  }
+ DONE:
+  fclose(f);
   return 0;
 }
 

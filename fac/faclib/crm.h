@@ -133,7 +133,7 @@ int SetAIRates(int inv);
 int SetAIRatesInner(char *fn);
 int RateTable(char *fn, int nc, char *sc[], int md);
 int BlockMatrix(void);
-int BlockPopulation(void);
+int BlockPopulation(int n);
 double BlockRelaxation(int iter);
 int LevelPopulation(void);
 int Cascade(void);
@@ -145,6 +145,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 int DRBranch(void);
 int DRStrength(char *fn, int nele, int mode, int ilev0);
 int DumpRates(char *fn, int k, int m, int imax, int a);
+int ModifyRates(char *fn);
 int SetInnerAuger(int i);
 int SetExtrapolate(int e);
 void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
@@ -153,6 +154,7 @@ int SetEMinAI(double e);
 int DRSuppression(char *fn, double z, int nmax);
 int RydBranch(char *fn, char *ofn, int n0, int n1);
 int NormalizeMode(int m);
+void FixNorm(void);
 
 #endif
 
