@@ -658,10 +658,9 @@ double BEScale(int k, double e) {
   double z, a, b, c;
 
   z = GetAtomicNumber();
-  ResidualPotential(&a, k, k);
+  a = MeanPotential(k, k);
   b = RadialMoments(-1, k, k);
-  c = z + a/b;
-  a = -c*b;
+  c = -a/b;
   a = GetOrbital(k)->energy - a;
   if (c >= z) c = z;
   c = (z - c)/(z + c);

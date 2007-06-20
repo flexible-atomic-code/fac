@@ -1417,7 +1417,7 @@ int WriteCIMHeader(FILE *f, CIM_HEADER *h) {
 }
 
 int WriteSPHeader(FILE *f, SP_HEADER *h) {
-  int n, m = 0;
+  int i, n, m = 0;
      
   WSF0(h->position);
   WSF0(h->length);
@@ -1425,6 +1425,14 @@ int WriteSPHeader(FILE *f, SP_HEADER *h) {
   WSF0(h->ntransitions);
   WSF0(h->iblock);
   WSF0(h->fblock);
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (h->icomplex[i] == '\0') break;
+  } 
+  for (i++; i < LNCOMPLEX; i++) h->icomplex[i] = '\0';
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (h->fcomplex[i] == '\0') break;
+  } 
+  for (i++; i < LNCOMPLEX; i++) h->fcomplex[i] = '\0';      
   WSF1(h->icomplex, sizeof(char), LNCOMPLEX);
   WSF1(h->fcomplex, sizeof(char), LNCOMPLEX);  
   WSF0(h->type);
@@ -1466,7 +1474,7 @@ int WriteDRHeader(FILE *f, DR_HEADER *h) {
 }
 
 int WriteENRecord(FILE *f, EN_RECORD *r) {
-  int n, m = 0;
+  int i, n, m = 0;
 
   if (en_header.length == 0) {
     fheader[DB_EN-1].nblocks++;
@@ -1478,6 +1486,22 @@ int WriteENRecord(FILE *f, EN_RECORD *r) {
   WSF0(r->ilev);
   WSF0(r->ibase);
   WSF0(r->energy);
+  /* make sure the strings zeroes out after NULL */
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (r->ncomplex[i] == '\0') break;
+  }
+  for (i++; i < LNCOMPLEX; i++) r->ncomplex[i] = '\0';
+
+  for (i = 0; i < LSNAME; i++) {
+    if (r->sname[i] == '\0') break;
+  }
+  for (i++; i < LSNAME; i++) r->sname[i] = '\0';
+
+  for (i = 0; i < LNAME; i++) {
+    if (r->name[i] == '\0') break;
+  }
+  for (i++; i < LNAME; i++) r->name[i] = '\0';
+  
   WSF1(r->ncomplex, sizeof(char), LNCOMPLEX);
   WSF1(r->sname, sizeof(char), LSNAME);
   WSF1(r->name, sizeof(char), LNAME);
@@ -1759,7 +1783,7 @@ int WriteSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx) {
 }
 
 int WriteRTRecord(FILE *f, RT_RECORD *r) {
-  int n, m = 0;
+  int i, n, m = 0;
 
   if (rt_header.length == 0) {
     fheader[DB_RT-1].nblocks++;
@@ -1774,6 +1798,10 @@ int WriteRTRecord(FILE *f, RT_RECORD *r) {
   WSF0(r->rr);
   WSF0(r->ai);
   WSF0(r->ci);
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (r->icomplex[i] == '\0') break;
+  } 
+  for (i++; i < LNCOMPLEX; i++) r->icomplex[i] = '\0';
   WSF1(r->icomplex, sizeof(char), LNCOMPLEX);
 
   rt_header.ntransitions += 1;
@@ -2619,13 +2647,13 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
 
   ihdr = fhdr->type - 1;
 
-  f = fopen(fn, "r+");
+  f = fopen(fn, "r+b");
   if (f == NULL) {
     if (fheader[ihdr].nblocks > 0) {
       printf("A single file for one DB type must be used in one session.\n");
       exit(1);
     }
-    f = fopen(fn, "w");
+    f = fopen(fn, "wb");
     if (f == NULL) {
       printf("cannot open file %s\n", fn);
       exit(1);
@@ -2633,7 +2661,7 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
   } else {
     if (fheader[ihdr].nblocks == 0) {
       fclose(f);
-      f = fopen(fn, "w");
+      f = fopen(fn, "wb");
     }
   }
 

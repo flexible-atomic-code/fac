@@ -111,6 +111,7 @@ void SortSlaterKey(int *kd);
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 		int ib2, int iu2, int ib3, int iu3);
 int ResidualPotential(double *s, int k0, int k1);
+double MeanPotential(int k0, int k1);
 int FreeResidualArray(void);
 int FreeMultipoleArray(void);
 int FreeSlaterArray(void);

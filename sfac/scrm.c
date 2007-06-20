@@ -572,6 +572,14 @@ static int PDumpRates(int argc, char *argv[], int argt[],
   return 0;
 }
  
+static int PModifyRates(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  if (argc != 1) return -1;
+  ModifyRates(argv[0]);
+  
+  return 0;
+}
+ 
 static int PSetUTA(int argc, char *argv[], int argt[], 
 		   ARRAY *variables) {
   int m, mci;
@@ -685,6 +693,7 @@ static METHOD methods[] = {
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
+  {"ModifyRates", PModifyRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
