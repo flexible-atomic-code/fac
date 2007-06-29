@@ -1160,7 +1160,7 @@ int SetBlocks(double ni, char *ifn) {
   k = blocks->dim;
   if (bmatrix) free(bmatrix);
   if (k > 0) {
-    k = 2*k*(k+1);
+    k = 2*k*(k+1)+k;
     bmatrix = (double *) malloc(sizeof(double)*k);
   }
   
@@ -2801,9 +2801,9 @@ int BlockPopulation(int miter) {
   n = blocks->dim;
   a = bmatrix + n*n;
   x = a;
-  ipiv = (int *) x;
   a = a + n;
   b = a + n*n;
+  ipiv = (int *) (b+n);
 
   if (norm_mode == 0) miter = 1;
   for (niter = 0; niter < miter; niter++) {
@@ -2901,7 +2901,7 @@ int BlockPopulation(int miter) {
       if (blk->iion != q) {
 	if (q == -1) {
 	  ion0.nt = tb;
-	  if (ion0.n > 0 && ion0.n0/ta > iter_accuracy && miter > 1) {
+	  if (ion0.n > 0 && miter > 1) {
 	    ion0.n0 *= ion0.n/tb;
 	    td += fabs(tb - ion0.n)/ion0.n;
 	    ntd++;
@@ -2909,7 +2909,7 @@ int BlockPopulation(int miter) {
 	} else {
 	  ion = (ION *) ArrayGet(ions, q);
 	  ion->nt = tb;
-	  if (ion->n > 0 && ion->n0/ta > iter_accuracy && miter > 1) {
+	  if (ion->n > 0 && miter > 1) {
 	    ion->n0 *= ion->n/tb;
 	    td += fabs(tb - ion->n)/ion->n;
 	    ntd++;
@@ -2922,13 +2922,15 @@ int BlockPopulation(int miter) {
     }
     ion = (ION *) ArrayGet(ions, q);
     ion->nt = tb;
-    if (ion->n > 0 && ion->n0/ta > iter_accuracy && miter > 1) {
+    if (ion->n > 0 && miter > 1) {
       td += fabs(tb - ion->n)/ion->n;
       ion->n0 *= ion->n/tb;
       ntd++;
     }
-    td /= ntd;
-    if (td < iter_accuracy) break;
+    if (ntd > 0) {
+      td /= ntd;
+      if (td < iter_accuracy) break;
+    }
   }
 
   return 0;
