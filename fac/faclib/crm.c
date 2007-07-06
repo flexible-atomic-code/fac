@@ -1007,7 +1007,8 @@ int SetBlocks(double ni, char *ifn) {
       } else {
 	printf("ERROR: Ion charge state does not match %d %d %d %d\n",
 	       k, nb, h.nele, ion->nele);
-	exit(1);
+	fseek(f, h.length, SEEK_CUR);
+	continue;
       }
     }
 
@@ -4257,6 +4258,13 @@ int SetCIRates(int inv) {
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadCIHeader(f, &h, swp);
       m = h.nparams;
+      if (h.nele != ion->nele) {
+	fseek(f, h.length, SEEK_CUR);
+	free(h.tegrid);
+	free(h.egrid);
+	free(h.usr_egrid);
+	continue;
+      }
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCIRecord(f, &r, swp, &h);
 	rt.i = r.b;
@@ -4317,6 +4325,13 @@ int SetRRRates(int inv) {
 	printf("RR QkMode in %s must be in QK_FIT, nb=%d\n", 
 	       ion->dbfiles[DB_RR-1], nb);
 	exit(1);
+      }
+      if (h.nele != ion->nele) {
+	fseek(f, h.length, SEEK_CUR);
+	free(h.tegrid);
+	free(h.egrid);
+	free(h.usr_egrid);
+	continue;
       }
       eusr = h.usr_egrid;
       m = h.n_usr;
@@ -4462,6 +4477,11 @@ int SetAIRates(int inv) {
     n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadAIHeader(f, &h, swp);
+      if (h.nele != ion->nele) {
+	fseek(f, h.length, SEEK_CUR);
+	free(h.egrid);
+	continue;
+      }
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadAIRecord(f, &r, swp);
 	if (inner_auger == 1) {
@@ -4491,7 +4511,6 @@ int SetAIRates(int inv) {
 	    }
 	  }
 	}
-	if (h.nele == ion->nele - 1) continue;
 	rt.i = r.b;
 	rt.f = r.f;
 	j1 = ion->j[r.b];
