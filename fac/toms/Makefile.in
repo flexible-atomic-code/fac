@@ -1,0 +1,21 @@
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+FC = @F77@
+FFLAGS = @FFLAGS@
+
+TOPDIR = @TOPDIR@
+
+SRC = uvip3p.f uvip3c.f tripack.f rgbi3p.f sdbi3p.f tn.f calcc.f dist.f evalf.f fstats.f newpt.f order.f partx.f setstp.f simplx.f sortd.f start.f subopt.f subplx.f
+
+OBJS = ${SRC:.f=.o}
+
+.f.o:
+	${FC} -c ${FFLAGS} $<
+
+toms: ${OBJS}
+	ar r ${TOPDIR}/libfac.a ${OBJS}
+
+clean:
+	rm -f *.o *.a *~

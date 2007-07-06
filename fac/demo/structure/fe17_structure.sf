@@ -1,0 +1,27 @@
+
+# calculation of the energy levels. and radiative transition rates
+
+SetAtom('Fe')
+# 1s shell is closed
+Closed('1s')
+Config('2*8', group = 'n2')
+# instead of a keyword, the group name can also
+# be given as the first argument.
+Config('n3', '2*7 3*1')
+
+# Self-consistent iteration for optimized central potential
+ConfigEnergy(0)
+# the configurations passed to OptimizeRadial should always
+# be one or two of the lowest lying ones. and it is often best
+# to just use the ground configurations. If you need more highly
+# excited levels, such as n=4, 5, 6, ..., do not put them
+# in the OptimizeRadial. 
+OptimizeRadial(['n2'])
+ConfigEnergy(1)
+Structure('ne.lev.b', ['n2', 'n3'])
+MemENTable('ne.lev.b')
+PrintTable('ne.lev.b', 'ne.lev', 1)
+
+TransitionTable('ne.tr.b', ['n2'], ['n3'], -1)
+PrintTable('ne.tr.b', 'ne.tr', 1)
+

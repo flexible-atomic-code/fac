@@ -1,0 +1,21 @@
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+FC = @F77@
+FFLAGS = @FFLAGS@
+
+SRC = mpfun.f dxadd.f dxadj.f dxlegf.f dxpmu.f dxpmup.f dxpnrm.f dxpqnu.f dxpsi.f dxqmu.f dxqnu.f dxred.f dxset.f fdump.f i1mach.f j4save.f xercnt.f xerhlt.f xermsg.f xerprn.f xersve.f xgetua.f
+
+TOPDIR = @TOPDIR@
+
+OBJS = ${SRC:.f=.o}
+
+.f.o:
+	${FC} -c ${FFLAGS} $<
+
+mpfun: ${OBJS}
+	ar r ${TOPDIR}/libfac.a ${OBJS}
+
+clean:
+	rm -f *.o *.a *~

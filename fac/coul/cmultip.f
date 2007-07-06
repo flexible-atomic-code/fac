@@ -1,0 +1,3064 @@
+cAALFRECREM.  RECURRENCE RELATIONS FOR COULOMB EXCITATION ELECTRIC
+c1   MULTIPOLE RADIAL MATRIX ELEMENTS.  L.D. TOLSMA.
+cREF. IN COMP. PHYS. COMMUN. 41 (1986) 41
+C ***** CALCULATION OF ELECTRIC MULTIPOLE RADIAL MATRIX ELEMENTS *******
+      SUBROUTINE CMULTIP(DRM1, DRM2, DZ, DWNI, DWNF, LAMB, LMIN, LMAX,
+     1     DRST, MODE, IERR)
+      IMPLICIT DOUBLE PRECISION (D,F,G)
+      PARAMETER (NPMAX=2000, NLMAX=1200, NLMAX1=NLMAX+10)
+      DIMENSION      FC(NLMAX),FDC(NLMAX),GC(NLMAX),GDC(NLMAX)
+     1              ,SIGMA(NLMAX),IEXP(NLMAX)
+      DIMENSION      FFINT(NLMAX,6),FGINT(NLMAX,6)
+     2              ,GFINT(NLMAX,6),GGINT(NLMAX,6)
+     6              ,DMINT(NLMAX,4),DSINT(NLMAX,4)
+     7              ,DA(5,NPMAX),DB(NPMAX,8),DAL(2,NPMAX)
+      DIMENSION      DFI1(NLMAX1),DGI1(NLMAX1),DFF1(NLMAX1),DGF1(NLMAX1)
+     1              ,DFI2(NLMAX1),DGI2(NLMAX1),DFF2(NLMAX1),DGF2(NLMAX1)
+      DIMENSION      DRST(*)
+      COMMON /PRINT/ KTINPL,KTMISI,KTFCGC,MTINPL,MTMISI,MTFCGC
+      DATA           KTINPL,KTMISI,KTFCGC,MTINPL,MTMISI,MTFCGC
+     1               /    0,     0,     0,     0,     0,     0/
+C
+      IERR = 0
+      IF (LMAX+1 .GE. NLMAX) THEN
+         IERR = -NLMAX
+         RETURN
+      ENDIF
+      LXMLP = LMAX-LMIN+1
+      LXMLN = NLMAX
+      LXMCN = NLMAX1
+      IACC = MODE/100
+      MODE0 = MOD(MODE, 100)
+      LINQ = MODE0/10
+      MODE0 = MOD(MODE0, 10)
+
+      IF (MODE0 .LT. 1 .OR. MODE0 .GT. 4) THEN
+         IERR = 1
+         RETURN
+      ENDIF
+
+      IF (LAMB .LT. 1 .OR. LAMB .GT. 6) THEN
+         IERR = 2
+         RETURN
+      ENDIF
+
+      DETI = DZ/DWNI
+      DETF = DZ/DWNF
+
+      LMDL = 1
+      LAP1   = LAMB+1
+      LMNTEM = LMIN
+      LMIN   = LMNTEM-LAMB
+      IF(LMIN.LT.0) LMIN=0
+      LXLN   = LMAX-LMIN+1+MOD(LAMB,2)+LAMB/2
+      LXCN   = LMAX-LMIN+1+LAMB
+      LXLNM2 = (LXLN-2)*2
+
+      CALL RECMUD(DRM1 ,DRM2 ,DETI ,DWNI ,DETF ,DWNF ,LAMB  ,
+     1            LMIN ,LMAX ,IACC ,LINQ ,
+     2            DMINT,DSINT,DA   ,DB   ,DAL  ,LXMLN,LXLNM2,
+     3            FC   ,FDC  ,GC   ,GDC  ,SIGMA,IEXP ,
+     4            DFI1 ,DGI1 ,DFF1 ,DGF1 ,
+     5            DFI2 ,DGI2 ,DFF2 ,DGF2 ,LXCN              )
+      CALL RECLIP(DRM1 ,DRM2 ,DETI ,DWNI ,DETF ,DWNF ,LAMB  ,
+     1            LMIN ,LMAX ,LXMLN,LAP1 ,
+     2            FFINT,FGINT,GFINT,GGINT,DMINT,DSINT,
+     3            DFI1 ,DGI1 ,DFF1 ,DGF1 ,
+     4            DFI2 ,DGI2 ,DFF2 ,DGF2 ,LXCN              )
+C
+      ETI = SNGL(DETI)
+      WNI = SNGL(DWNI)
+      RM1 = SNGL(DRM1)
+      ETF = SNGL(DETF)
+      WNF = SNGL(DWNF)
+      RM2 = SNGL(DRM2)
+      IMIN = 1+(LMNTEM-LMIN)
+      LMIN = LMNTEM
+      IMAX = IMIN+(LMAX-LMIN)
+      INDX = 0
+      DO 200 IM=IMIN,IMAX,LMDL
+      DO 200 ML=1,LAP1
+         INDX = INDX+1
+         IF (MODE0 .EQ. 1) THEN 
+            DRST(INDX) = FFINT(IM,ML)
+         ELSEIF (MODE0 .EQ. 2) THEN
+            DRST(INDX) = GFINT(IM,ML)
+         ELSEIF (MODE0 .EQ. 3) THEN
+            DRST(INDX) = FGINT(IM,ML)
+         ELSEIF (MODE0 .EQ. 4) THEN
+            DRST(INDX) = GGINT(IM,ML)
+         ENDIF
+  200 CONTINUE
+
+      END
+
+      SUBROUTINE RECMUD(DRM1  ,DRM2  ,DETI  ,DWNI  ,DETF  ,DWNF  ,LAMB ,
+     1                  LMIN  ,LMAX  ,IACC  ,LINQ  ,
+     2                  DMINT ,DSINT ,DA    ,DB    ,DAL   ,LXLN ,LXLNM2,
+     3                  FC    ,FDC   ,GC    ,GDC   ,SIGMA ,IEXP  ,
+     4                  DFI1  ,DGI1  ,DFF1  ,DGF1  ,
+     5                  DFI2  ,DGI2  ,DFF2  ,DGF2  ,LXCN               )
+      IMPLICIT DOUBLE PRECISION (A,D,F,G)
+      DIMENSION         DMINT(LXLN,  4),DSINT(LXLN,  4),
+     1                  DA  (5, LXLNM2),DB  (LXLNM2, 8),DAL  (2,LXLNM2),
+     2                  FC  (1),FDC (1),GC  (1),GDC (1),SIGMA(1),IEXP(1)
+      DIMENSION         DFI1(LXCN),DGI1(LXCN),DFF1(LXCN),DGF1(LXCN),
+     1                  DFI2(LXCN),DGI2(LXCN),DFF2(LXCN),DGF2(LXCN)
+      DIMENSION         DMJ1(4),DMJ2(4),DSJ1(4),DSJ2(4),DCLM(4),
+     1                  ALF1(4),ALF2(4),ALF3(4),ALF4(4)
+      LOGICAL           CONV
+      COMMON /PRINT/    KTINPL,KTMISI,KTFCGC,MTINPL,MTMISI,MTFCGC
+C
+      MOL2 = MOD(LAMB,2)
+      LMXX = LMAX+MOL2+LAMB/2
+      LMCN = LMIN
+      LMCX = LMAX+LAMB
+      LAP1 = LAMB+1
+      IFIN = 0
+      IF(DRM2.GT.DRM1) IFIN = 1
+      LTMX = LMCX-LMCN+1
+      DRI1 = DWNI*DRM1
+      CALL DCOULM(DRI1,DETI,LMCN,LMCX,FC ,FDC,GC ,GDC,IEXP,SIGMA)
+      DO 205 LT=1,LTMX
+      DFI1(LT) = FC(LMCN+LT)
+      DGI1(LT) = GC(LMCN+LT)
+      IF(KTFCGC.EQ.0) GO TO 205
+      IF(LT.EQ.1) WRITE(6,1200) DETI,DWNI,DRI1
+      LPLT   = LMCN+LT
+      LPLTM1 = LPLT-1
+      IF(LT.GT.2 .AND. MOD(LPLTM1,MTFCGC).NE.0)  GO TO  205
+      DWRSP1 = FC(LPLT)*GDC(LPLT)-GC(LPLT)*FDC(LPLT) + 1.D0
+      WRITE(6,1225) LPLTM1,FC(LPLT),FDC(LPLT),GC(LPLT),GDC(LPLT),
+     *              DWRSP1,        IEXP(LPLT),       SIGMA(LPLT)
+  205 CONTINUE
+      DRF1 = DWNF*DRM1
+      CALL DCOULM(DRF1,DETF,LMCN,LMCX,FC ,FDC,GC ,GDC,IEXP,SIGMA)
+      DO 210 LT=1,LTMX
+      DFF1(LT) = FC(LMCN+LT)
+      DGF1(LT) = GC(LMCN+LT)
+      IF(KTFCGC.EQ.0) GO TO 210
+      IF(LT.EQ.1) WRITE(6,1210) DETF,DWNF,DRF1
+      LPLT   = LMCN+LT
+      LPLTM1 = LPLT-1
+      IF(LT.GT.2 .AND. MOD(LPLTM1,MTFCGC).NE.0)  GO TO  210
+      DWRSP1 = FC(LPLT)*GDC(LPLT)-GC(LPLT)*FDC(LPLT) + 1.D0
+      WRITE(6,1225) LPLTM1,FC(LPLT),FDC(LPLT),GC(LPLT),GDC(LPLT),
+     *              DWRSP1,        IEXP(LPLT),       SIGMA(LPLT)
+  210 CONTINUE
+      DRL1 = 1.0D0/(DRM1**LAP1)
+      IF(IFIN.EQ.0) GO TO 225
+      DRI2 = DWNI*DRM2
+      CALL DCOULM(DRI2,DETI,LMCN,LMCX,FC ,FDC,GC ,GDC,IEXP,SIGMA)
+      DO 215 LT=1,LTMX
+      DFI2(LT) = FC(LMCN+LT)
+      DGI2(LT) = GC(LMCN+LT)
+      IF(KTFCGC.EQ.0) GO TO 215
+      IF(LT.EQ.1) WRITE(6,1200) DETI,DWNI,DRI2
+      LPLT   = LMCN+LT
+      LPLTM1 = LPLT-1
+      IF(LT.GT.2 .AND. MOD(LPLTM1,MTFCGC).NE.0)  GO TO  215
+      DWRSP1 = FC(LPLT)*GDC(LPLT)-GC(LPLT)*FDC(LPLT) + 1.D0
+      WRITE(6,1225) LPLTM1,FC(LPLT),FDC(LPLT),GC(LPLT),GDC(LPLT),
+     *              DWRSP1,        IEXP(LPLT),       SIGMA(LPLT)
+  215 CONTINUE
+      DRF2 = DWNF*DRM2
+      CALL DCOULM(DRF2,DETF,LMCN,LMCX,FC ,FDC,GC ,GDC,IEXP,SIGMA)
+      DO 220 LT=1,LTMX
+      DFF2(LT) = FC(LMCN+LT)
+      DGF2(LT) = GC(LMCN+LT)
+      IF(KTFCGC.EQ.0) GO TO 220
+      IF(LT.EQ.1) WRITE(6,1210) DETF,DWNF,DRF2
+      LPLT   = LMCN+LT
+      LPLTM1 = LPLT-1
+      IF(LT.GT.2 .AND. MOD(LPLTM1,MTFCGC).NE.0)  GO TO  220
+      DWRSP1 = FC(LPLT)*GDC(LPLT)-GC(LPLT)*FDC(LPLT) + 1.D0
+      WRITE(6,1225) LPLTM1,FC(LPLT),FDC(LPLT),GC(LPLT),GDC(LPLT),
+     *              DWRSP1,        IEXP(LPLT),       SIGMA(LPLT)
+  220 CONTINUE
+      DRL2 = 1.0D0/(DRM2**LAP1)
+  225 CONTINUE
+C
+      DEI2  = DETI**2
+      DEF2  = DETF**2
+      DEIDF = DETI/DETF
+      DEFDI = DETF/DETI
+      DEITF = DETI*DETF
+      DEIKI = DETI*DWNI
+      IF(KTMISI.NE.0 .AND. LINQ.EQ.0) WRITE(6,1010) LAMB
+      IF(KTMISI.NE.0 .AND. LINQ.NE.0) WRITE(6,1015) LAMB
+      LLMN = LMIN+3
+      LLMX = LMXX+1
+      IF(LINQ.EQ.1) GO TO 229
+      IF(LINQ.EQ.2) GO TO 228
+      LLM1 = LMIN+1
+      LLM2 = LMIN+2
+      LLDL = 1
+      GO TO 230
+  228 TLISQ= (DRM1*DWNI-DETI)**2-DEI2
+      TLFSQ= (DRM1*DWNF-DETF)**2-DEF2
+      TLILF= AMIN1(TLISQ,TLFSQ)
+      LILF = SQRT(TLILF)-3
+      LILF = MAX0(LILF,LMIN+1)
+      LILF = MIN0(LILF,LMXX-1)
+      LLM1 = LMIN+1
+      LLM2 = LILF+1
+      LLDL = LLM2-LLM1
+      GO TO 230
+  229 LLM1 = LMIN+1
+      LLM2 = LMXX+1
+      LLDL = LLM2-LLM1
+  230 INOR = 1-LLDL
+      DO 240 LL=LLM1,LLM2,LLDL
+      INOR = INOR+LLDL
+      CALL CLMINT(DRM1,DRM2,DETI,DWNI,LL-1,
+     *                      DETF,DWNF,LL-1,LAMB,DCLM,CONV,IACC)
+      IF(.NOT.CONV) GO TO 9980
+      DMINT(INOR,1) = DCLM(1)
+      DMINT(INOR,2) = DCLM(2)
+      DMINT(INOR,3) = DCLM(4)
+      DMINT(INOR,4) = DCLM(3)
+      CALL CLMINT(DRM1,DRM2,DETI,DWNI,LL-1,
+     *                      DETF,DWNF,LL  ,LAMB,DCLM,CONV,IACC)
+      IF(.NOT.CONV) GO TO 9980
+      DSINT(INOR,1) = DCLM(1)
+      DSINT(INOR,2) = DCLM(2)
+      DSINT(INOR,3) = DCLM(4)
+      DSINT(INOR,4) = DCLM(3)
+      IF(KTMISI.EQ.0) GO TO 240
+      LLM1 = LL-1
+      WRITE(6,1050) INOR,LLM1,LLM1,DMINT(INOR,1),DMINT(INOR,2),
+     *                             DMINT(INOR,3),DMINT(INOR,4)
+      WRITE(6,1050) INOR,LLM1,LL  ,DSINT(INOR,1),DSINT(INOR,2),
+     *                             DSINT(INOR,3),DSINT(INOR,4)
+  240 CONTINUE
+C
+      DLAMB = LAMB
+      DLAP1 = DLAMB+1.D0
+      DLAM1 = DLAMB-1.D0
+      DLL   = LLMN-2
+      DLP1  = DLL+1.D0
+      DC2   = DSQRT(DLL **2+DEI2)
+      DD2   = DSQRT(DLL **2+DEF2)
+      DD3   = DSQRT(DLP1**2+DEF2)
+      INDX  = 2
+      IDM1  = INDX-1
+      DRLA1 = 1.D0/(DRM1**(LAMB+1))
+      DSJ2(1) =           DFI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(2) =           DFI1(IDM1)*DGF1(INDX)*DRLA1
+      DSJ2(3) =           DGI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(4) =           DGI1(IDM1)*DGF1(INDX)*DRLA1
+      DMJ2(1) =           DFI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(2) =           DFI1(INDX)*DGF1(INDX)*DRLA1
+      DMJ2(3) =           DGI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(4) =           DGI1(INDX)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 245
+      DRLA2 = 1.D0/(DRM2**(LAMB+1))
+      DSJ2(1) = DSJ2(1) - DFI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(2) = DSJ2(2) - DFI2(IDM1)*DGF2(INDX)*DRLA2
+      DSJ2(3) = DSJ2(3) - DGI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(4) = DSJ2(4) - DGI2(IDM1)*DGF2(INDX)*DRLA2
+      DMJ2(1) = DMJ2(1) - DFI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(2) = DMJ2(2) - DFI2(INDX)*DGF2(INDX)*DRLA2
+      DMJ2(3) = DMJ2(3) - DGI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(4) = DMJ2(4) - DGI2(INDX)*DGF2(INDX)*DRLA2
+  245 CONTINUE
+C
+  250 IF(LINQ.NE.0) GO TO 300
+C
+C *****************************************************************
+C             RECURRENCE BY MEANS OF UPWARD RECURSION
+C *****************************************************************
+C
+      DO 275 LL=LLMN,LLMX
+      INDX  = INDX+1
+      IDM1  = INDX-1
+      IDM2  = INDX-2
+      DLL   = LL-2
+      D2L   = 2.D0*DLL
+      DLLS  = DLL**2
+      DLP1  = DLL+1.D0
+      DLP1S = DLP1**2
+      D2LP1 = D2L+1.D0
+      D2LP2 = D2L+2.D0
+      D2LP3 = D2L+3.D0
+      D2LP4 = D2L+4.D0
+      DC1   = DC2
+      DD1   = DD2
+      DD2   = DD3
+      DC2   = DSQRT( DLP1S        +DEI2)
+      DD3   = DSQRT((DLP1+1.D0)**2+DEF2)
+C RECURRENCE RELATION FOR I(L,LA,L) ACCORDING TO EQUATION (2.3A)
+      DM1   =-(D2L-DLAMB)*DLP1S*DC1*DD1/D2LP1
+      DM2   = (DEITF*(DLLS+DLP1S)+DLLS*DLP1S*(DEIDF+DEFDI))
+      DM3   = (D2LP2+DLAMB)*DLLS*DC2*DD2/D2LP1
+      DS4   =-DLAP1*DETF*DLP1*DC1
+      DS5   = DLAP1*DETI*DLL *DD2
+      DJ1   =-DLL*DLP1S*DC1/DWNF
+      DJ2   =-DLLS*DLP1*DD2/DWNI
+      DO 254 I=1,4
+  254 DSJ1(I) = DSJ2(I)
+      DSJ2(1) =           DFI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(2) =           DFI1(IDM1)*DGF1(INDX)*DRLA1
+      DSJ2(3) =           DGI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(4) =           DGI1(IDM1)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 255
+      DSJ2(1) = DSJ2(1) - DFI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(2) = DSJ2(2) - DFI2(IDM1)*DGF2(INDX)*DRLA2
+      DSJ2(3) = DSJ2(3) - DGI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(4) = DSJ2(4) - DGI2(IDM1)*DGF2(INDX)*DRLA2
+  255 CONTINUE
+      DO 260 I=1,4
+      DMINT(INDX,I) = (DM1*DMINT(IDM2,I) + DS4*DSINT(IDM2,I)
+     1                +DM2*DMINT(IDM1,I) + DS5*DSINT(IDM1,I)
+     2                +DJ1*DSJ1      (I) - DJ2*DSJ2      (I))/DM3
+  260 CONTINUE
+C RECURRENCE RELATION FOR I(L,LA,L+1) ACCORDING TO EQUATION (2.3B)
+      DS1   =-(D2LP1-DLAMB)*DC1*DD2/D2L
+      DS2   = (2.D0*DEITF+DLP1*((DLL+0.5D0)*DEIDF+(DLL+1.5D0)*DEFDI))
+      DS3   = (D2LP3+DLAMB)*DC2*DD3/D2LP4
+      DM4   =-DLAM1*DETI*D2LP1*DD2/(D2L*DLP1)
+      DM5   = DLAM1*DETF*D2LP3*DC2/(DLP1*D2LP4)
+      DJ1   =-(DLL+0.5D0)*DD2/DWNI
+      DJ2   =-(DLL+1.5D0)*DC2/DWNF
+      DO 264 I=1,4
+  264 DMJ1(I) = DMJ2(I)
+      DMJ2(1) =           DFI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(2) =           DFI1(INDX)*DGF1(INDX)*DRLA1
+      DMJ2(3) =           DGI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(4) =           DGI1(INDX)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 265
+      DMJ2(1) = DMJ2(1) - DFI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(2) = DMJ2(2) - DFI2(INDX)*DGF2(INDX)*DRLA2
+      DMJ2(3) = DMJ2(3) - DGI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(4) = DMJ2(4) - DGI2(INDX)*DGF2(INDX)*DRLA2
+  265 CONTINUE
+      DO 270 I=1,4
+      DSINT(INDX,I) = (DS1*DSINT(IDM2,I) + DM4*DMINT(IDM1,I)
+     1                +DS2*DSINT(IDM1,I) + DM5*DMINT(INDX,I)
+     2                +DJ1*DMJ1      (I) - DJ2*DMJ2      (I))/DS3
+  270 CONTINUE
+  275 CONTINUE
+C
+      IF(KTMISI.EQ.0) GO TO 295
+      INMX = LMXX-LMIN+1
+      WRITE(6,1020) LAMB
+      LLM1 = LMIN-1
+      DO 285 INDX=1,INMX
+      LLM1 = LLM1+1
+      IF(INDX.GT.2  .AND. MOD(LLM1,MTMISI).NE.0) GO TO 285
+      WRITE(6,1050) INDX,LLM1,LLM1,DMINT(INDX,1),DMINT(INDX,2),
+     *                             DMINT(INDX,3),DMINT(INDX,4)
+  285 CONTINUE
+      WRITE(6,1025) LAMB
+      LLM1 = LMIN-1
+      DO 290 INDX=1,INMX
+      LLM1 = LLM1+1
+      LL   = LLM1+1
+      IF(INDX.GT.2  .AND. MOD(LLM1,MTMISI).NE.0) GO TO 290
+      WRITE(6,1050) INDX,LLM1,LL  ,DSINT(INDX,1),DSINT(INDX,2),
+     *                             DSINT(INDX,3),DSINT(INDX,4)
+  290 CONTINUE
+  295 RETURN
+C
+C *****************************************************************
+C   RECURRENCE BY MEANS OF SOLVING A SET OF BAND LINEAR EQUATIONS
+C *****************************************************************
+C
+  300 N = 2*(LMXX-LMIN-1)
+      IF(LINQ.EQ.1) GO TO 302
+      DO 301 IN=1,N
+      DB(IN,5) = 0.D0
+      DB(IN,6) = 0.D0
+      DB(IN,7) = 0.D0
+  301 DB(IN,8) = 0.D0
+  302 INDX  = 2
+      DO 320 LL=LLMN,LLMX
+      INDX  = INDX+1
+      IDM1  = INDX-1
+      IDM2  = INDX-2
+      IND2  = IDM2*2
+      IND1  = IND2-1
+      DLL   = LL-2
+      D2L   = 2.D0*DLL
+      DLLS  = DLL**2
+      DLP1  = DLL+1.D0
+      DLP1S = DLP1**2
+      D2LP1 = D2L+1.D0
+      D2LP2 = D2L+2.D0
+      D2LP3 = D2L+3.D0
+      D2LP4 = D2L+4.D0
+      DC1   = DC2
+      DD1   = DD2
+      DD2   = DD3
+      DC2   = DSQRT( DLP1S        +DEI2)
+      DD3   = DSQRT((DLP1+1.D0)**2+DEF2)
+C USING THE RECURRENCE RELATION FOR I(L,LA,L) ACCORDING TO EQ.(2.3A)
+      DM1   = (D2L-DLAMB)*DLP1S*DC1*DD1/D2LP1
+      DM2   =-(DEITF*(DLLS+DLP1S)+DLLS*DLP1S*(DEIDF+DEFDI))
+      DM3   = (D2LP2+DLAMB)*DLLS*DC2*DD2/D2LP1
+      DS4   = DLAP1*DETF*DLP1*DC1
+      DS5   =-DLAP1*DETI*DLL *DD2
+      DJ1   =-DLL*DLP1S*DC1/DWNF
+      DJ2   =-DLLS*DLP1*DD2/DWNI
+      DO 304 I=1,4
+  304 DSJ1(I) = DSJ2(I)
+      DSJ2(1) =           DFI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(2) =           DFI1(IDM1)*DGF1(INDX)*DRLA1
+      DSJ2(3) =           DGI1(IDM1)*DFF1(INDX)*DRLA1
+      DSJ2(4) =           DGI1(IDM1)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 305
+      DSJ2(1) = DSJ2(1) - DFI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(2) = DSJ2(2) - DFI2(IDM1)*DGF2(INDX)*DRLA2
+      DSJ2(3) = DSJ2(3) - DGI2(IDM1)*DFF2(INDX)*DRLA2
+      DSJ2(4) = DSJ2(4) - DGI2(IDM1)*DGF2(INDX)*DRLA2
+  305 CONTINUE
+C USING THE RECURRENCE RELATION FOR I(L,LA,L+1) ACCORDING TO EQ.(2.3B)
+      DS1   = (D2LP1-DLAMB)*DC1*DD2/D2L
+      DS2   =-(2.D0*DEITF+DLP1*((DLL+0.5D0)*DEIDF+(DLL+1.5D0)*DEFDI))
+      DS3   = (D2LP3+DLAMB)*DC2*DD3/D2LP4
+      DM4   = DLAM1*DETI*D2LP1*DD2/(D2L*DLP1)
+      DM5   =-DLAM1*DETF*D2LP3*DC2/(DLP1*D2LP4)
+      DJ3   =-(DLL+0.5D0)*DD2/DWNI
+      DJ4   =-(DLL+1.5D0)*DC2/DWNF
+      DO 309 I=1,4
+  309 DMJ1(I) = DMJ2(I)
+      DMJ2(1) =           DFI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(2) =           DFI1(INDX)*DGF1(INDX)*DRLA1
+      DMJ2(3) =           DGI1(INDX)*DFF1(INDX)*DRLA1
+      DMJ2(4) =           DGI1(INDX)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 310
+      DMJ2(1) = DMJ2(1) - DFI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(2) = DMJ2(2) - DFI2(INDX)*DGF2(INDX)*DRLA2
+      DMJ2(3) = DMJ2(3) - DGI2(INDX)*DFF2(INDX)*DRLA2
+      DMJ2(4) = DMJ2(4) - DGI2(INDX)*DGF2(INDX)*DRLA2
+  310 CONTINUE
+      DA(1,IND1) = DM1
+      DA(2,IND1) = DS4
+      DA(3,IND1) = DM2
+      DA(4,IND1) = DS5
+      DA(5,IND1) = DM3
+      DA(1,IND2) = DS1
+      DA(2,IND2) = DM4
+      DA(3,IND2) = DS2
+      DA(4,IND2) = DM5
+      DA(5,IND2) = DS3
+      DO 312 I=1,4
+      DB(IND1,I) = DJ1*DSJ1(I)-DJ2*DSJ2(I)
+  312 DB(IND2,I) = DJ3*DMJ1(I)-DJ4*DMJ2(I)
+      IF(LL.NE.LLMN) GO TO 315
+      DA(1,IND1) = DM2
+      DA(2,IND1) = DS5
+      DA(3,IND1) = DM3
+      DA(4,IND1) = 0.D0
+      DA(5,IND1) = 0.D0
+      DA(1,IND2) = DM4
+      DA(2,IND2) = DS2
+      DA(3,IND2) = DM5
+      DA(4,IND2) = DS3
+      DA(5,IND2) = 0.D0
+      IF(LINQ.EQ.1) GO TO 313
+      DB(IND1,5) =-DM1
+      DB(IND1,6) =-DS4
+      DB(IND2,6) =-DS1
+      GO TO 320
+  313 DO 314 I=1,4
+      DB(IND1,I) = DB(IND1,I) - DM1*DMINT(IDM2,I)-DS4*DSINT(IDM2,I)
+  314 DB(IND2,I) = DB(IND2,I) -                   DS1*DSINT(IDM2,I)
+      GO TO 320
+  315 IF(LL.NE.LLMX) GO TO 320
+      DA(1,IND1) = DM1
+      DA(2,IND1) = DS4
+      DA(3,IND1) = DM2
+      DA(4,IND1) = DS5
+      DA(5,IND1) = 0.D0
+      DA(1,IND2) = DS1
+      DA(2,IND2) = DM4
+      DA(3,IND2) = DS2
+      DA(4,IND2) = 0.D0
+      DA(5,IND2) = 0.D0
+      IF(LINQ.EQ.1) GO TO 317
+      DB(IND1,7) =-DM3
+      DB(IND2,7) =-DM5
+      DB(IND2,8) =-DS3
+      GO TO 320
+  317 DO 318 I=1,4
+      DB(IND1,I) = DB(IND1,I) - DM3*DMINT(INDX,I)
+  318 DB(IND2,I) = DB(IND2,I) - DM5*DMINT(INDX,I)-DS3*DSINT(INDX,I)
+  320 CONTINUE
+C
+      IFAIL = 1
+      IF(LINQ.EQ.1) IR = 4
+      IF(LINQ.EQ.2) IR = 8
+      IF(KTMISI.GT.1) GO TO 323
+  321 M     = 2
+      IA    = 5
+      IL    = M
+      CALL F01LBF(N,M,M,   DA,IA,DAL,IL,IEXP,   IV,IFAIL)
+      IF(IFAIL.EQ.0) GO TO 322
+      WRITE(6,9991) IFAIL
+      STOP
+  322 IFAIL = 1
+      CALL F04LDF(N,M,M,IR,DA,IA,DAL,IL,IEXP,DB, N,IFAIL)
+      IF(IFAIL.EQ.0) GO TO 323
+      WRITE(6,9992) IFAIL
+      STOP
+  323 CONTINUE
+      IF(KTMISI.LE.1) GO TO 330
+      WRITE(6,1300)
+      IF(LINQ.EQ.1) WRITE(6,1305)
+      DO 324 IN=1,N
+      IF((IN.GT.4 .AND. IN.LT.N-3) .AND. MOD(IN,MTMISI).NE.0) GO TO 324
+      WRITE(6,1320)            IN,(DA(IA,IN), IA=1, 5)
+      IF(LINQ.EQ.1) WRITE(6,1325) (DB(IN,IB), IB=1,IR)
+  324 CONTINUE
+      IF(LINQ.EQ.1) GO TO 326
+      WRITE(6,1310)
+      DO 325 IN=1,N
+      IF((IN.GT.4 .AND. IN.LT.N-3) .AND. MOD(IN,MTMISI).NE.0) GO TO 325
+      WRITE(6,1330) IN,(DB(IN,IB), IB=1,IR)
+  325 CONTINUE
+  326 IF(IFAIL.EQ.1) GO TO 321
+C
+  330 N = N/2
+      IF(LINQ.EQ.1) GO TO 340
+      IND2 = 2*(INOR-1)
+      IND1 = IND2-1
+      DO 332 I=1,4
+      ALF1(I) = DMINT(1,I)
+      ALF2(I) = DSINT(1,I)
+      DINH1   = DMINT(INOR,I)-(DB(IND1,I)+ALF1(I)*DB(IND1,5)
+     *                                   +ALF2(I)*DB(IND1,6))
+      DINH2   = DSINT(INOR,I)-(DB(IND2,I)+ALF1(I)*DB(IND2,5)
+     *                                   +ALF2(I)*DB(IND2,6))
+      DENOM   = DB(IND1,7)*DB(IND2,8)-DB(IND2,7)*DB(IND1,8)
+      ALF3(I) = (DINH1 *DB(IND2,8)-DINH2 *DB(IND1,8))/DENOM
+      ALF4(I) =-(DINH1 *DB(IND2,7)-DINH2 *DB(IND1,7))/DENOM
+      IF(KTMISI.LE.1) GO TO 332
+      IF( I.EQ.1) WRITE(6,1315)
+      WRITE(6,1335) I,ALF1( I),ALF2 (  I),ALF3(I),ALF4(I),
+     *              DMINT(INOR,I),DSINT(INOR,I),DINH1,DINH2,DENOM,INOR
+  332 CONTINUE
+      DO 334 IN=1,N
+      IND2 = 2*IN
+      IND1 = IND2-1
+      INP1 = IN+1
+      DO 333 I =1,4
+      DMINT(INP1,I) = DB(IND1,I)+ALF1(I)*DB(IND1,5)+ALF2(I)*DB(IND1,6)
+     *                          +ALF3(I)*DB(IND1,7)+ALF4(I)*DB(IND1,8)
+  333 DSINT(INP1,I) = DB(IND2,I)+ALF1(I)*DB(IND2,5)+ALF2(I)*DB(IND2,6)
+     *                          +ALF3(I)*DB(IND2,7)+ALF4(I)*DB(IND2,8)
+  334 CONTINUE
+      INP1 = N+2
+      DO 335 I=1,4
+      DMINT(INP1,I) = ALF3(I)
+  335 DSINT(INP1,I) = ALF4(I)
+      GO TO 350
+  340 DO 345 IN=1,N
+      IND2 = 2*IN
+      IND1 = IND2-1
+      INP1 = IN+1
+      DO 344 I =1,4
+      DMINT(INP1,I) = DB(IND1,I)
+  344 DSINT(INP1,I) = DB(IND2,I)
+  345 CONTINUE
+C
+  350 IF(KTMISI.EQ.0) GO TO 375
+      INMX = LMXX-LMIN+1
+      WRITE(6,1020) LAMB
+      LLM1 = LMIN-1
+      DO 355 INDX=1,INMX
+      LLM1 = LLM1+1
+      IF(INDX.GT.2 .AND. MOD(LLM1,MTMISI).NE.0) GO TO 355
+      WRITE(6,1050) INDX,LLM1,LLM1,(DMINT(INDX,I), I=1,4)
+  355 CONTINUE
+      WRITE(6,1025) LAMB
+      LLM1 = LMIN-1
+      DO 360 INDX=1,INMX
+      LLM1 = LLM1+1
+      LL   = LLM1+1
+      IF(INDX.GT.2 .AND. MOD(LLM1,MTMISI).NE.0) GO TO 360
+      WRITE(6,1050) INDX,LLM1,LL  ,(DSINT(INDX,I), I=1,4)
+  360 CONTINUE
+  375 CONTINUE
+C
+      RETURN
+ 9980 WRITE(6,9981)
+ 9981 FORMAT(18H0NO CONV IN CLMINT///)
+ 9991 FORMAT(40H0ERROR FOR THE RECURRENCE OF I(L,LA,L+1) ,
+     1       20HIN F01LBF;   IFAIL =,I2)
+ 9992 FORMAT(40H0ERROR FOR THE RECURRENCE OF I(L,LA,L+1) ,
+     1       20HIN F04LDF;   IFAIL =,I2)
+ 9993 FORMAT(40H0ERROR FOR THE RECURRENCE OF I(L,LA,L)   ,
+     1       20HIN F01LBF;   IFAIL =,I2)
+ 9994 FORMAT(40H0ERROR FOR THE RECURRENCE OF I(L,LA,L)   ,
+     1       20HIN F04LDF;   IFAIL =,I2)
+      STOP
+C
+C **********************************************************************
+C
+ 1010 FORMAT(1H0,35(1H*),3X,38HSTARTING VALUES RADIAL MATRIX ELEMENTS,
+     1      13H FOR LAMBDA =,I2,3X,36(1H*) / 16H  INDX   LI   LF,
+     2      48H       FFMINT(INDX)            FGMINT(INDX)     ,
+     3      48H       GFMINT(INDX)            GGMINT(INDX)           )
+ 1015 FORMAT(1H0,35(1H*),3X,38HBOUNDARY VALUES RADIAL MATRIX ELEMENTS,
+     1      13H FOR LAMBDA =,I2,3X,36(1H*) / 16H  INDX   LI   LF,
+     2      48H       FFSINT(INDX)            FGSINT(INDX)     ,
+     3      48H       GFSINT(INDX)            GGSINT(INDX)           )
+ 1020 FORMAT(1H0,34(1H*),3X,38H    DIAGONAL    RADIAL MATRIX ELEMENTS,
+     1      13H FOR LAMBDA =,I2,6X,34(1H*) / 16H  INDX   LI   LF,
+     2      48H       FFMINT(INDX)            FGMINT(INDX)     ,
+     3      48H       GFMINT(INDX)            GGMINT(INDX)           )
+ 1025 FORMAT(1H0,35(1H*),3X,38H UPPER-DIAGONAL RADIAL MATRIX ELEMENTS,
+     1      13H FOR LAMBDA =,I2,3X,36(1H*) / 16H  INDX   LI   LF,
+     2      48H       FFSINT(INDX)            FGSINT(INDX)     ,
+     3      48H       GFSINT(INDX)            GGSINT(INDX)           )
+ 1050 FORMAT(1H ,3I5,4D24.15)
+ 1200 FORMAT(55H0COULOMB WAVEFUNCTIONS FOR INCOMING CHANNEL WITH ETAI =,
+     1       D16.10, 8H;   KI =,D16.10,10H;   RHOI =,D16.10/
+     2       55H     L     F(ETAI;RHOI)          FP(ETAI;RHOI)         ,
+     3       55HG(ETAI;RHOI)          GP(ETAI;RHOI)       WRONS+1   IEX,
+     4       20HP     SIGMA(ETAI)                                      )
+ 1210 FORMAT(55H0COULOMB WAVEFUNCTIONS FOR OUTGOING CHANNEL WITH ETAF =,
+     1       D16.10, 8H;   KF =,D16.10,10H;   RHOF =,D16.10/
+     2       55H     L     F(ETAF;RHOF)          FP(ETAF;RHOF)         ,
+     3       55HG(ETAF;RHOF)          GP(ETAF;RHOF)       WRONS+1   IEX,
+     4       20HP     SIGMA(ETAF)                                      )
+ 1225 FORMAT(1H ,I5,1P4D22.14,D12.4,I4,1X,D20.12)
+ 1300 FORMAT(1H1,17H  IN    DA(1,IN) ,
+     1      52H    DA(2,IN)     DA(3,IN)     DA(4,IN)     DA(5,IN) )
+ 1305 FORMAT(1H+,69X,
+     1      52H    DB(IN,1)     DB(IN,2)     DB(IN,3)     DB(IN,4) )
+ 1310 FORMAT(1H0, 4H  IN,
+     1      52H    DB(IN,1)     DB(IN,2)     DB(IN,3)     DB(IN,4) ,
+     2      52H    DB(IN,5)     DB(IN,6)     DB(IN,7)     DB(IN,8) )
+ 1315 FORMAT(1H0, 4H   I,
+     1      52H    ALF1(I)      ALF2(I)      ALF3(I)      ALF4(I)  ,
+     2      52H DMINT(INOR,I)DSINT(INOR,I)   DINH1(I)     DINH2(I) ,
+     3      20H    DENOM(I)   INOR )
+ 1320 FORMAT(1H ,I4 ,5D13.6)
+ 1325 FORMAT(1H+,69X,4D13.6)
+ 1330 FORMAT(1H ,I4 ,8D13.6)
+ 1335 FORMAT(1H ,I4 ,9D13.6,I6)
+      END
+      SUBROUTINE RECLIP(DRM1  ,DRM2  ,DETI  ,DWNI  ,DETF  ,DWNF  ,LAMB ,
+     1                  LMIN  ,LMAX  ,LXLN  ,LAP1  ,
+     2                  FFINT ,FGINT ,GFINT ,GGINT ,DMINT ,DSINT ,
+     3                  DFI1  ,DGI1  ,DFF1  ,DGF1  ,
+     4                  DFI2  ,DGI2  ,DFF2  ,DGF2  ,LXCN               )
+      IMPLICIT DOUBLE PRECISION (D,F,G)
+      DIMENSION        FFINT(LXLN,LAP1),GFINT(LXLN,LAP1),
+     1                 FGINT(LXLN,LAP1),GGINT(LXLN,LAP1),
+     2                 DMINT(LXLN,   4),DSINT(LXLN,   4)
+      DIMENSION        DFI1(LXCN),DGI1(LXCN),DFF1(LXCN),DGF1(LXCN),
+     1                 DFI2(LXCN),DGI2(LXCN),DFF2(LXCN),DGF2(LXCN)
+C     LOCAL ARRAYS HAVE BEEN DIMENSIONED FOR A MAXIMUM LAMBDA VALUE = 10
+      DIMENSION        DSQC (12),DSQD (12),DLAIN(4 , 12, 12),
+     1                 DMAJ1( 4),DMAJ2( 4),DSBLJ(4),DSPLJ(4)
+      COMMON /PRINT/   KTINPL,KTMISI,KTFCGC,MTINPL,MTMISI,MTFCGC
+C
+      MOL2 = MOD(LAMB,2)
+      LAMH = LAMB/2
+      LAMF = LAMH+MOL2+2
+      LFM1 = LAMF-1
+      LLMN = LMIN+3
+      LLMX = LMAX+LAMF
+      IDMX = LAMF+LAMH
+      DLAM = LAMB
+      DLAH = LAMH
+      IFIN = 0
+      IF(DRM2.GT.DRM1) IFIN = 1
+      DO 200 INDX=1,LAMB
+      DO 200 ML  =1,LAP1
+      FFINT(INDX,ML) = 0.D0
+      FGINT(INDX,ML) = 0.D0
+      GFINT(INDX,ML) = 0.D0
+  200 GGINT(INDX,ML) = 0.D0
+C ----------------------------------------------------------------------
+      IF(KTINPL.NE.0) WRITE(6,1000)
+      DRLA1 = 1.D0/(DRM1**(LAMB+1))
+      DRLA2 = 1.D0/(DRM2**(LAMB+1))
+      DEI2  = DETI**2
+      DEF2  = DETF**2
+      DEIKI = DETI*DWNI
+      LL    = LMIN-1
+      DO 206 ID=1,IDMX
+      LL    = LL+1
+      DLLSQ = LL**2
+      DSQC(ID) = DSQRT(DLLSQ+DEI2)
+  206 DSQD(ID) = DSQRT(DLLSQ+DEF2)
+      IDMX  = IDMX-1
+      INDX  = 1
+C
+C **********************************************************************
+C            RECURRENCE BY MEANS OF LAMBDA-INPLANE RECURSION
+C **********************************************************************
+C
+      DO 300 LL=LLMN,LLMX
+      INDX  = INDX+1
+      IDM1  = INDX-1
+      IDM2  = INDX-2
+      MIND  = INDX
+      IF(INDX.GE.LAMF) MIND = LAMF
+      ID    = MIND
+      DO 210 I =1,4
+  210 DMAJ1(I) = DMAJ2(I)
+      DMAJ2(1) =            DFI1(INDX)*DFF1(INDX)*DRLA1
+      DMAJ2(2) =            DFI1(INDX)*DGF1(INDX)*DRLA1
+      DMAJ2(3) =            DGI1(INDX)*DFF1(INDX)*DRLA1
+      DMAJ2(4) =            DGI1(INDX)*DGF1(INDX)*DRLA1
+      IF(IFIN.EQ.0) GO TO 215
+      DMAJ2(1) = DMAJ2(1) - DFI2(INDX)*DFF2(INDX)*DRLA2
+      DMAJ2(2) = DMAJ2(2) - DFI2(INDX)*DGF2(INDX)*DRLA2
+      DMAJ2(3) = DMAJ2(3) - DGI2(INDX)*DFF2(INDX)*DRLA2
+      DMAJ2(4) = DMAJ2(4) - DGI2(INDX)*DGF2(INDX)*DRLA2
+  215 CONTINUE
+C
+      LLM2  = LL-2
+      DLL   = LLM2
+      DLP1  = DLL+1.D0
+      DLM1  = DLL-1.D0
+      D2LP1 = 2.D0*DLL+1.D0
+      D2LM1 = D2LP1   -2.D0
+      DO 220 I=1,4
+      DLAIN(I,ID-1,ID-1) = DMINT(IDM1,I)
+      DLAIN(I,ID  ,ID  ) = DMINT(INDX,I)
+  220 DLAIN(I,ID-1,ID  ) = DSINT(IDM1,I)
+      IF(LL.NE.LLMN) GO TO 225
+C LAMBDA-INPLANE RECURRENCE ACCORDING TO EQUATION (2.4A)
+      DSB1  = DWNF*DSQD(ID  )*DLAM/(DLL*D2LP1)
+      DSB2  = DEIKI*((DLL+DLAM)/DLP1-1.D0)/DLL
+      DSB3  = DWNI*DSQC(ID  )/ DLL
+      DSB4  =-DWNF*DSQD(ID+1)*(D2LP1+DLAM)/(D2LP1*DLP1)
+      DO 222 I=1,4
+  222 DLAIN(I,ID  ,ID-1) = (DSB2*DMINT(INDX,I)+DSB3*DSINT(IDM1,I)
+     *                     +DSB4*DSINT(INDX,I)+    DMAJ2(I))/DSB1
+      GO TO 230
+C LAMBDA-INPLANE RECURRENCE ACCORDING TO EQUATION (2.4B)
+  225 DSB1  = DWNI*DSQC(ID  )*DLAM/(DLL*D2LM1)
+      DSB2  =-DEIKI*((DLL-DLAM)/DLM1-1.D0)/DLL
+      DSB3  = DWNI*DSQC(ID-1)*(D2LM1-DLAM)/(D2LM1*DLM1)
+      DSB4  =-DWNF*DSQD(ID  )/DLL
+      DO 227 I=1,4
+  227 DLAIN(I,ID  ,ID-1) = (DSB2*DMINT(IDM1,I)+DSB3*DSINT(IDM2,I)
+     *                     +DSB4*DSINT(IDM1,I)+    DMAJ1(I))/DSB1
+  230 CONTINUE
+      IF(KTINPL.EQ.0) GO TO 240
+      IF(IDM1.GT.2 .AND. MOD(LLM2,MTINPL).NE.0) GO TO 240
+      WRITE(6,1010)
+      WRITE(6,1015) LL,INDX,IDM1,  ID,LLM2,
+     1              LAMB,LLM2  ,LLM2-1,(DLAIN(I,ID  ,ID-1),I=1,4)
+      IF(KTINPL.LE.1) GO TO 235
+      WRITE(6,1016)      LLM2-1,LLM2  ,(DLAIN(I,ID-1,ID  ),I=1,4),
+     1                   LLM2  ,LLM2  ,(DLAIN(I,ID  ,ID  ),I=1,4)
+  235 IF(LAMB.NE.1) WRITE(6,1020)
+  240 CONTINUE
+C
+C LAMBDA-INPLANE RECURRENCE ACCORDING TO EQUATION (2.5)
+C
+  250 IF(LAMB.EQ.1) GO TO 280
+      DO 275 L1=1,LAMH
+      L1M1  = L1-1
+      II    = MIND+L1M1
+      JI    = INDX+L1M1
+      LI    = LLM2+L1M1
+      DLI   = LI
+      DLIP1 = DLI+1.D0
+      D2LIP1= 2.D0*DLI+1.D0
+      DO 274 L2=1,2
+      L2M2  = L2-2-L1
+      IF    = MIND+L2M2
+      IF((IF.LE.0) .OR. (II-IF.GE.LAMB)) GO TO 274
+      JF    = INDX+L2M2
+      LF    = LLM2+L2M2
+      DLF   = LF
+      DLFP1 = DLF+1.D0
+      DSB1  = DWNI*(DLI-DLF+DLAM)*DSQC(II+1)/(D2LIP1*DLIP1)
+      DSB2  =-DEIKI*((DLFP1-DLAM)/(DLI*DLIP1) - 1.D0/DLFP1)
+      DSB3  = DWNI*(DLI+DLFP1-DLAM)*DSQC(II)/(D2LIP1*DLI  )
+      DSB4  =-DWNF*DSQD(IF+1)/DLFP1
+      DSP1  = DWNF*(DLI-DLF+DLAM)*DSQD(II+1)/(D2LIP1*DLIP1)
+      DSP2  = DSB2
+      DSP3  = DWNF*(DLI+DLFP1-DLAM)*DSQD(II)/(D2LIP1*DLI  )
+      DSP4  =-DWNI*DSQC(IF+1)/DLFP1
+      DSBLJ(1) =            DFI1(JI)*DFF1(JF)*DRLA1
+      DSBLJ(2) =            DFI1(JI)*DGF1(JF)*DRLA1
+      DSBLJ(3) =            DGI1(JI)*DFF1(JF)*DRLA1
+      DSBLJ(4) =            DGI1(JI)*DGF1(JF)*DRLA1
+      DSPLJ(1) =            DFI1(JF)*DFF1(JI)*DRLA1
+      DSPLJ(2) =            DFI1(JF)*DGF1(JI)*DRLA1
+      DSPLJ(3) =            DGI1(JF)*DFF1(JI)*DRLA1
+      DSPLJ(4) =            DGI1(JF)*DGF1(JI)*DRLA1
+      IF(IFIN.EQ.0) GO TO 265
+      DSBLJ(1) = DSBLJ(1) - DFI2(JI)*DFF2(JF)*DRLA2
+      DSBLJ(2) = DSBLJ(2) - DFI2(JI)*DGF2(JF)*DRLA2
+      DSBLJ(3) = DSBLJ(3) - DGI2(JI)*DFF2(JF)*DRLA2
+      DSBLJ(4) = DSBLJ(4) - DGI2(JI)*DGF2(JF)*DRLA2
+      DSPLJ(1) = DSPLJ(1) - DFI2(JF)*DFF2(JI)*DRLA2
+      DSPLJ(2) = DSPLJ(2) - DFI2(JF)*DGF2(JI)*DRLA2
+      DSPLJ(3) = DSPLJ(3) - DGI2(JF)*DFF2(JI)*DRLA2
+      DSPLJ(4) = DSPLJ(4) - DGI2(JF)*DGF2(JI)*DRLA2
+  265 CONTINUE
+      DO 270 I=1,4
+      DLAIN(I,II+1,IF) = (DSB2*DLAIN(I,II,IF  )+DSB3*DLAIN(I,II-1,IF)
+     *                   +DSB4*DLAIN(I,II,IF+1)+     DSBLJ(I)  )/DSB1
+      DLAIN(I,IF,II+1) = (DSP2*DLAIN(I,IF,II  )+DSP3*DLAIN(I,IF,II-1)
+     *                   +DSP4*DLAIN(I,IF+1,II)+     DSPLJ(I)  )/DSP1
+  270 CONTINUE
+      IF(KTINPL.EQ.0) GO TO 274
+      IF(IDM1.GT.2 .AND. MOD(LLM2,MTINPL).NE.0) GO TO 274
+      WRITE(6,1025) L1,L2,II,IF,JI,JF,LAMB,
+     1              LI+1,LF,(DLAIN(I,II+1,IF),I=1,4),
+     2              LF,LI+1,(DLAIN(I,IF,II+1),I=1,4)
+  274 CONTINUE
+  275 CONTINUE
+C
+  280 IF(INDX.LT.LFM1) GO TO 300
+      IX   = 1
+      IF(INDX.EQ.LFM1) IX = 0
+      DO 285 ML=1,LAP1
+      MLM1 = ML-1
+      IN   = INDX+LAMH-MLM1
+      II   = LAP1-MLM1+IX
+      IF   = ML+IX
+      FFINT(IN,ML) = DLAIN(1,II,IF)
+      FGINT(IN,ML) = DLAIN(2,II,IF)
+      GFINT(IN,ML) = DLAIN(3,II,IF)
+  285 GGINT(IN,ML) = DLAIN(4,II,IF)
+      IF(INDX.EQ.LFM1)    GO TO 300
+      DO 290 ID=1,IDMX
+      DSQC(ID) = DSQC(ID+1)
+  290 DSQD(ID) = DSQD(ID+1)
+      ID = IDMX+1
+      DLLSQ = (DLL+1.D0+DLAH)**2
+      DSQC(ID) = DSQRT(DLLSQ+DEI2)
+      DSQD(ID) = DSQRT(DLLSQ+DEF2)
+      IF(LAMB.EQ.1) GO TO 300
+      DO 292 ML=1,LAMB
+      II = MOL2+LAMB-(ML-1)
+      IF = MOL2+ML
+      DO 292 I=1,4
+  292 DLAIN(I,II,IF) = DLAIN(I,II+1,IF+1)
+      DO 294 ML=1,LAP1
+      II = LAP1-(ML-1)
+      DO 294 I=1,4
+  294 DLAIN(I,II,ML) = DLAIN(I,II+1,ML+1)
+  300 CONTINUE
+C
+      RETURN
+C
+C **********************************************************************
+C
+ 1000 FORMAT(1H1)
+ 1010 FORMAT(39H0  LL INDX IDM1   ID LLM2  LA  LI  LF  ,
+     1       46H      DLAIN(1,LI,LF)         DLAIN(2,LI,LF)   ,
+     2       46H      DLAIN(3,LI,LF)         DLAIN(4,LI,LF)   )
+ 1015 FORMAT(1H ,I4,4I5,3I4,2X,4D23.15                     )
+ 1016 FORMAT(1H ,28X,   2I4,2X,4D23.15/(29X,2I4,2X,4D23.15))
+ 1017 FORMAT(1H0,3I4,2D13.6,   4D23.15/(39X,       4D23.15))
+ 1020 FORMAT(39H   L1  L2  II  IF  JI  JF  LA  LI  LF  ,
+     1       46H      DLAIN(1,LI,LF)         DLAIN(2,LI,LF)   ,
+     2       46H      DLAIN(3,LI,LF)         DLAIN(4,LI,LF)   )
+ 1025 FORMAT(1H ,9I4,2X,4D23.15/(29X,2I4,2X,4D23.15))
+      END
+
+      SUBROUTINE DCOULM (RO1,ETA1,MINL,MAXL,F ,FP,G ,GP,IEXP,LSIGMA)
+C
+C     COULOMB FUNCTION SUBROUTINE IN DOUBLE PRECISION
+C     DCOULM CALLS DRICAT FOR L=0 AND CALCULATES L>1 BY RECURSION RELAT.
+C     UP TO AND INCLUDING MAXL
+C     DCOULM CALLS DRCWFF FOR  MINL .LE. L .LE. MAXL
+CC    SELECTS TWO DIFFERENT METHODS OF COMPUTATION DEPENDING ON THE
+CC    VALUE OF ETA AND RO
+CC    THE METHOD OF COMPUTATION IS GIVEN BY THE FOLLOWING
+CC           RICATI EXPANSION AT ORIGIN FOR THE DOMAIN (NN=2)
+CC              ETA > +30 AND RO < 2*ETA-6.75*ETA**0.4 AND RO*ETA > 12
+CC           ASYMTOTIC RICATI EXPANSION FOR THE DOMAIN (NN=1)
+CC              ETA > +30 AND RO > 2*ETA+20*ETA**0.25   AND FOR
+CC              ETA < - 8 AND RO*ETA > -30
+CC           CONTINUED-FRACTION METHOD OF STEED FOR REST OF ETA-RO PLANE
+CC              EXCEPT FOR RO < 0.2*RO-TURNINGPOINT
+C
+C     PARAMETER LIST :
+C        RO1     : REAL, RADIUS*WAVENUMBER
+C        ETA1    : REAL, COULOMB PARAMETER
+C        MINL,MAXL INTEGER, CALC. COULOMB FUNCTIONS UP TO MAX ORDER MAXL
+C        F,FP    : REAL ARRAY, DIM. ]LL+1, REGULAR SOLUTION AND DERIVAT.
+C        G,GP    : REAL ARRAY, DIM. ]LL+1, IRREGUL.SOLUTION AND DERIVAT.
+C        IEXP    : INTEGER ARRAY, DIM ]LL+1, EXPONENT FOR MODULO
+C        SIGMA   : REAL ARRAY, DIM. ]LL+1, COULOMB PHASE SHIFT
+C
+      IMPLICIT REAL*8 (A-H, O-Z)
+      REAL     LSIGMA,LLOGR,LLOGI
+      DIMENSION F(1),FP(1),G(1),GP(1),LSIGMA(1),IEXP(1)
+      COMMON  /METHOD/NRI,NSELC
+      COMMON  /PARAM/ FO,FPO,GO,GPO,SIGMAO,ETA,ETA2,ETAC,ABETA,
+     *        RO,RO2,ROC,ETARO,ROI,ALORO,ETLORO,ETASRO,IEXPO,NN,
+     *        ALOGR,ALOGI,PSIR,PSII,ROX
+      COMMON  /CONST/ PI,DEPI,PI2,PI4,GA,ALO2,ALO2PI,ALMOD,TMOD,ACCY
+      PI    =3.141 592 653 589 793
+      DEPI  =6.283 185 307 179 586
+      PI2   =1.570 796 326 794 897
+      PI4   =0.785 398 163 397 448
+      GA    =0.577 215 664 901 533
+      ALO2  =0.693 147 180 559 945
+      ALO2PI=1.837 877 066 409 345
+      ALMOD =138.155 105 579 642 8
+      TMOD  =1.D60
+      ACCY  =1.D-14
+C
+      RO=RO1
+      ETA=ETA1
+      LL =MAXL
+      ETA2=ETA+ETA
+      ETAC=ETA*ETA
+      ABETA=DABS(ETA)
+      RO2=RO+RO
+      ROC=RO*RO
+      ETARO=ETA*RO
+      IF (RO.LE.0.D0) GO TO 6
+    4 ALORO=DLOG(RO)
+      ETLORO=ETA*ALORO
+      ETASRO=ETA/RO
+    6 ROX=RO
+      IEXPO=0
+      CALL GAMMA (2,1.,SNGL(ETA),LLOGR,LLOGI)
+      ALOGR = LLOGR
+      ALOGI = LLOGI
+      SIGMAO= ALOGI
+C
+      IF (RO)  11,60,14
+   11 WRITE (6,12)
+   12 FORMAT (18H0RO LESS THAN ZERO,/)
+      GO TO 60
+   14 CONTINUE
+   15 IF (NSELC.GT.0)  GO TO 17
+      IF(ETA  .LE.  30D0 .AND. ETA.GE.-8.D0) GO TO 40
+      IF(ABETA.LE.1000D0                   ) GO TO 20
+      WRITE (6,16)
+   16 FORMAT (22H0ABS(ETA) EXCEEDS 1000,/)
+      RETURN
+   17 GO TO (30,35,50), NRI
+C
+C *** ETA>+30 OR  ETA<-8
+   20 IF(ETA  .GT.  0D0) GO TO 22
+      IF(ETARO.LE.-30D0) GO TO 30
+      GO TO 50
+   22 ROMET2=RO-ETA2
+      IF(ROMET2.GE. 20.0D0*ETA**0.25) GO TO 30
+      IF(ROMET2.LE.-6.75D0*ETA**0.40) GO TO 26
+      GO TO 50
+   26 IF(ETARO.GT.+12D0) GO TO 35
+      GO TO 50
+   30 NN=1
+C *** ASYMTOTIC RICATI EXPANSION ***
+      GO TO 36
+   35 NN=2
+C *** RICATI EXPANSION AT ORIGIN ***
+   36 CALL DRICAT
+      GO TO 60
+C *** ETA<+30 AND ETA>-8
+   40 CONTINUE
+   50 CALL DRCWFF(RO1,ETA1,MINL,MAXL,F ,G ,FP,GP,1.D-14,999.D0,3)
+      LSIGMA(1) = SIGMAO
+      IEXP  (1) = IEXPO
+      IF (LL.EQ.0)  RETURN
+      RO       = 0.0D0
+      GO TO 90
+C
+   60 CONTINUE
+      F(1)=FO
+      FP(1)=FPO
+      G(1)=GO
+      GP(1)=GPO
+      LSIGMA(1)=SIGMAO
+      IEXP  (1)=IEXPO
+      IF (LL.EQ.0)  RETURN
+      IF (RO.GT.0.D0) GO TO 90
+      L1=LL+1
+      DO 80 L=2,L1
+      FP(L)=0.
+      F(L)=FP(L)
+      G(L) =1.D90
+      GP(L)=-G(L)
+   80 IEXP(L)=0
+C
+   90 SUMP=0.D0
+      SUM=SUMP
+      LF=0
+      L=LF
+      LMAX=LL+500
+      ROL=ETA+DSQRT(ETAC+LL*(LL+1))
+      IROL=0
+      IF (ROL.GT.RO)  IROL=1
+  100 IF (LF.GE.LL)  RETURN
+      L=L+1
+      L1=L+1
+      ZL=L
+      IF (RO.EQ.0.D0) GO TO 170
+      Z1=DSQRT(ETAC+ZL*ZL)/ZL
+      Z2=ETA/ZL+ZL/RO
+      GN=(Z2*GO-GPO)/Z1
+      GPN=Z1*GO-Z2*GN
+      IF (L.GT.LL)  GO TO 200
+      IMOD=0
+      IF (GN.LE.TMOD .AND. GPN.LE.TMOD)  GO TO 130
+      IMOD=1
+      GN=GN/TMOD
+      GPN=GPN/TMOD
+  130 GO=GN
+      G(L1)=GO
+      GPO=GPN
+      GP(L1)=GPO
+      IEXPO=IEXPO+IMOD*60
+      IEXP(L1)=IEXPO
+      IF (IROL.GT.0)  GO TO 180
+      FN=(Z2*FO-FPO)/Z1
+      FPN=Z1*FO-Z2*FN
+      IF (IMOD.EQ.0)  GO TO 160
+      FN=FN*TMOD
+      FPN=FPN*TMOD
+  160 FO=FN
+      F(L1)=FO
+      FPO=FPN
+      FP(L1)=FPO
+  170 LF=L
+  180 SIG=SIGMAO+DATAN(ETA/ZL)
+      ISIG=IDINT(SIG/DEPI+DSIGN(0.5D0,SIG))
+      SIGMAO=SIG-ISIG*DEPI
+      LSIGMA(L1)=SIGMAO
+      GO TO 100
+C
+  200 S   =1.D0/(Z1*GN*GO)
+      SP  =(Z1*Z1-Z2*Z2)/(Z1*GPN*GPO)
+      SUM=SUM+S
+      SUMP=SUMP+SP
+      GO=GN
+      GPO=GPN
+      IF(DABS(S/SUM).LT.ACCY .AND. DABS(SP/SUMP).LT.ACCY) GO TO 300
+      IF (L.LT.LMAX)  GO TO 100
+      WRITE (6,250) L,GO,GPO,S,SP,SUM,SUMP
+  250 FORMAT (18H NO CONV IN DCOULM,I5,2D18.11,4D17.10)
+C
+  300 GO=FO
+      GPO=FPO
+      L=LL
+      L1=L+1
+      FO=G(L1)*SUM
+      F(L1)=FO
+      FPO=GP(L1)*SUMP
+      FP(L1)=FPO
+  320 L=L-1
+      L1=L+1
+      ZL=L1
+      Z1=DSQRT(ETAC+ZL*ZL)/ZL
+      Z2=ETA/ZL+ZL/RO
+      FN=(Z2*FO+FPO)/Z1
+      FPN=Z2*FN-Z1*FO
+      IF (IEXP(L1).EQ.IEXPO)  GO TO 350
+      IEXPO=IEXP(L1)
+      FN=FN/TMOD
+      FPN=FPN/TMOD
+  350 FO=FN
+      F(L1)=FO
+      FPO=FPN
+      FP(L1)=FPO
+      IF (L.GT.LF+1)  GO TO 320
+  380 RETURN
+      END
+      SUBROUTINE DRCWFF(RHO,ETA,MINL,MAXL,FC,GC,FCP,GCP,ACCUR,STEP,NUMB)
+      IMPLICIT REAL*8 (A-H, O-Z)
+      REAL*8 K,K1,K2,K3,K4,M1,M2,M3,M4
+      DIMENSION FC(1),FCP(1),GC(1),GCP(1)
+C *** COULOMB WAVEFUNCTIONS CALCULATED AT R = RHO BY THE
+C *** CONTINUED-FRACTION METHOD OF STEED   MINL,MAXL ARE ACTUAL L-VALUES
+C *** SEE BARNETT FENG STEED AND GOLDFARB COMPUTER PHYSICS COMMUN 1974
+C *** CPC 8 (1974) 377-395
+C *** IF NUMB  = 1 FC(MAXL) TO FC(MINL) ARE RETURNED  ARB MARCH 1975
+C *** IF NUMB  = 2 FC AND GC ARRAYS ARE RETURNED
+C *** IF NUMB  = 3 FC,GC,FCP,GCP ARRAYS ARE RETURNED
+      NUM = 1
+      IF(NUMB.GE.1 .AND. NUMB.LE.3) NUM = NUMB
+      PACE = STEP
+      ACC  = ACCUR
+      IF(PACE.LT.100.0D0) PACE = 100.0D0
+      IF(ACC.LT.1.0D-15.OR.ACC.GT.1.0D-6) ACC = 1.0D-6
+      R    = RHO
+      KTR  = 1
+      LMAX = MAXL
+      LMIN1= MINL + 1
+      XLL1 = DFLOAT(MINL*LMIN1)
+      ETA2 = ETA*ETA
+      TURN = ETA + DSQRT(ETA2 + XLL1)
+      IF(R.LT.TURN.AND.DABS(ETA).GE.1.0D-6) KTR = -1
+      KTRP = KTR
+      GO TO 2
+1     R    = TURN
+      TF   = F
+      TFP  = FP
+      LMAX = MINL
+      KTRP = 1
+2     ETAR = ETA*R
+      RHO2 =   R*R
+      PL   = DFLOAT(LMAX + 1)
+      PMX  = PL + 0.5D0
+C *** CONTINUED FRACTION FOR FP(MAXL)/F(MAXL)  XL IS F  XLPRIME IS FP **
+      FP  = ETA/PL + PL/R
+      DK  = ETAR*2.0D0
+      DEL = 0.0D0
+      D   = 0.0D0
+      F   = 1.0D0
+      K   = (PL*PL - PL + ETAR)*(2.0D0*PL - 1.0D0)
+      IF(PL*PL+PL+ETAR.NE.0.0D0) GO TO 3
+      R   = R + 1.0D-6
+      GO TO 2
+3     H   = (PL*PL + ETA2)*(1.0D0 - PL*PL)*RHO2
+      K   = K + DK + PL*PL*6.0D0
+      D   =  1.0D0/(D*H + K)
+      DEL =  DEL*(D*K - 1.0D0)
+      IF(PL.LT.PMX) DEL = -R*(PL*PL + ETA2)*(PL + 1.0D0)*D/PL
+      PL  = PL + 1.0D0
+      FP  = FP + DEL
+      IF(D.LT.0.0D0) F = -F
+      IF(PL.GT.200000D0) GO TO 11
+      IF(DABS(DEL).GE.DABS(FP)*ACC) GO TO 3
+      FP  = F*FP
+      IF( LMAX.EQ.MINL) GO TO 5
+      FC (LMAX+1) = F
+      FPL          = FP
+      IF(NUM.EQ.3) FCP(LMAX+1) = FP
+C *** DOWNWARD RECURSION TO MINL FOR F AND FP, ARRAYS GC,GCP ARE STORAGE
+      L  = LMAX
+      RI = 1.0D0/R
+      DO 4 LP  = LMIN1,LMAX
+      PL = DFLOAT(L)
+      SL = ETA/PL + PL*RI
+      RL = DSQRT(1.0D0 + ETA2/(PL*PL))
+      FC(L) = (SL*FC(L+1) + FPL)/RL
+      FPL1  =  SL*FC(L) - RL*FC(L+1)
+      FPL   = FPL1
+      IF(NUM.EQ.1) GO TO 4
+      GC (L+1) = RL
+      IF(NUM.LE.2) GO TO 4
+      GCP(L+1) = SL
+      FCP(L)   = FPL1
+4     L  = L - 1
+      F  = FC (LMIN1)
+      FP = FPL1
+5     IF(KTRP.EQ.-1) GO TO 1
+C *** REPEAT FOR R = TURN IF RHO LT TURN
+C *** NOW OBTAIN P + I.Q FOR MINL FROM CONTINUED FRACTION (32)
+C *** REAL ARITHMETIC TO FACILITATE CONVERSION TO IBM USING REAL*8
+      P  = 0.0D0
+      Q  = R - ETA
+      PL = 0.0D0
+      AR = -(ETA2 + XLL1)
+      AI =   ETA
+      BR = 2.0D0*Q
+      BI = 2.0D0
+      WI = 2.0D0*ETA
+      DR =   BR/(BR*BR + BI*BI)
+      DI =  -BI/(BR*BR + BI*BI)
+      DP = -(AR*DI + AI*DR)
+      DQ =  (AR*DR - AI*DI)
+6     P  =  P + DP
+      Q  =  Q + DQ
+      PL = PL + 2.0D0
+      AR = AR + PL
+      AI = AI + WI
+      BI = BI + 2.0D0
+      D  = AR*DR - AI*DI + BR
+      DI = AI*DR + AR*DI + BI
+      T  = 1.0D0/(D*D + DI*DI)
+      DR =  T*D
+      DI = -T*DI
+      H  = BR*DR - BI*DI - 1.0D0
+      K  = BI*DR + BR*DI
+      T  = DP*H  - DQ*K
+      DQ = DP*K  + DQ*H
+      DP = T
+      IF(PL.GT.460000D0) GO TO 11
+      IF(DABS(DP)+DABS(DQ).GE.(DABS(P)+DABS(Q))*ACC) GO TO 6
+      P  = P/R
+      Q  = Q/R
+C *** SOLVE FOR FP,G,GP AND NORMALISE F  AT L=MINL
+      G  = (FP - P*F)/Q
+      GP = P*G - Q*F
+      W  = 1.0D0/DSQRT(FP*G - F*GP)
+      G  = W*G
+      GP = W*GP
+      IF(KTR.EQ.1) GO TO 8
+      F  = TF
+      FP = TFP
+      LMAX = MAXL
+C *** RUNGE-KUTTA INTEGRATION OF G(MINL) AND GP(MINL) INWARDS FROM TURN
+C ***             SEE FOX AND MAYERS 1968 PG 202
+      IF(RHO.LT.0.2D0*TURN) PACE = 999.0D0
+      R3 = 1.0D0/3.0D0
+      H  = (RHO - TURN)/(PACE + 1.0D0)
+      H2 = 0.5D0*H
+      I2 = IDINT(PACE + 0.001D0)
+      ETAH = ETA*H
+      H2LL = H2*XLL1
+      S  = (ETAH + H2LL/R  )/R   - H2
+7     RH2= R + H2
+      T  = (ETAH + H2LL/RH2)/RH2 - H2
+      K1 = H2*GP
+      M1 =  S*G
+      K2 = H2*(GP + M1)
+      M2 =  T*(G  + K1)
+      K3 =  H*(GP + M2)
+      M3 =  T*(G  + K2)
+      M3 =     M3 + M3
+      K4 = H2*(GP + M3)
+      RH = R + H
+      S  = (ETAH + H2LL/RH )/RH  - H2
+      M4 =  S*(G + K3)
+      G  = G  + (K1 + K2 + K2 + K3 + K4)*R3
+      GP = GP + (M1 + M2 + M2 + M3 + M4)*R3
+      R  = RH
+      I2 = I2 - 1
+      IF(DABS(GP).GT.D1MACH(2)) GO TO 11
+      IF(I2.GE.0) GO TO 7
+      W  = 1.0D0/(FP*G - F*GP)
+C *** UPWARD RECURSION FROM GC(MINL) AND GCP(MINL),STORED VALUES ARE R,S
+C *** RENORMALISE FC,FCP FOR EACH L-VALUE
+8     IF(NUM.GE.2) GC (LMIN1) = G
+      IF(NUM.EQ.3) GCP(LMIN1) = GP
+      IF(NUM.EQ.3) FCP(LMIN1) = FP*W
+      FC(LMIN1) = F*W
+      IF(LMAX.EQ.MINL) RETURN
+      GPL = GP
+      DO  9  L = LMIN1,LMAX
+      IF(NUM.EQ.1) GO TO 9
+      IF(NUM.EQ.2) SL = ETA/DFLOAT(L) + DFLOAT(L)*RI
+      IF(NUM.EQ.3) SL = GCP(L+1)
+      RL = GC(L+1)
+      GC(L+1) = (SL*GC(L) - GPL)/RL
+      GPL1    =  RL*GC(L) - SL*GC(L+1)
+      GPL     =  GPL1
+      IF(NUM.LT.3) GO TO 9
+      GCP(L+1) = GPL1
+      FCP(L+1) = FCP(L+1)*W
+9     FC (L+1) = FC(L+1)*W
+      RETURN
+11    W  = 0.0D0
+      G  = 0.0D0
+      GP = 0.0D0
+      GO TO 8
+      END
+      SUBROUTINE DRICAT
+C
+C     RICCATI EXPANSION (AT THE ORIGIN AND ASYMPTOTICALLY), CALLED FOR:
+C     NR=NI=7       30<ETA[500    12/ETA<RO[2*ETA-6.75*ETA**(2/5)
+C     NR=NI=8     -500[ETA<-8     ETA*RO[-14.0625
+C                   30<ETA[500    RO]2*ETA+20*ETA**(1/4)
+C
+      IMPLICIT REAL*8 (A-H, O-Z)
+      COMMON  /PARAM/ FO,FPO,GO,GPO,SIGMAO,ETA,ETA2,ETAC,ABETA,
+     *        RO,RO2,ROC,ETARO,ROI,ALORO,ETLORO,ETASRO,IEXPO,NN,
+     *        ALOGR,ALOGI,PSIR,PSII,ROX
+      COMMON  /CONST/ PI,DEPI,PI2,PI4,GA,ALO2,ALO2PI,ALMOD,TMOD,ACCY
+      DIMENSION G(15,8),GP(8,8),TR(8),TRP(8)
+C
+CC    RICCATI COEFFICIENTS
+      DATA  G            / 15*0.D0,
+     * -1.8750000000000000D-01, -1.2500000000000000D-01,
+     * -1.0416666666666667D-01,  12*0.D0,
+     *  4.6875000000000000D-02,  6.2500000000000000D-02,
+     * -9.3750000000000000D-02, -1.8750000000000000D-01,
+     * -7.8125000000000000D-02,  10*0.D0,
+     *  2.0507812500000000D-02,  4.1015625000000000D-02,
+     *  3.0273437500000000D-02,  2.6692708333333333D-01,
+     *  5.4667968750000000D-01,  4.3164062500000000D-01,
+     *  1.1990017361111111D-01,  8*0.D0,
+     * -1.3183593750000000D-02, -3.5156250000000000D-02,
+     * -3.3203125000000000D-02,  1.7578125000000000D-01,
+     *  1.0693359375000000D+00,  2.3476562500000000D+00,
+     *  2.5136718750000000D+00,  1.3242187500000000D+00,
+     *  2.7587890625000000D-01,  6*0.D0,
+     2 -0.1159057617187498D-01, -0.3863525390624998D-01,
+     3 -0.4660034179687498D-01, -0.4858398437499998D-01,
+     4 -0.1156514485677080D 01, -0.5687475585937496D 01,
+     5 -0.1323888288225445D 02, -0.1713083224826384D 02,
+     6 -0.1269003295898436D 02, -0.5055236816406248D 01,
+     7 -0.8425394694010415D 00,  4*0.D0,
+     *  1.3183593750000000D-02,  5.2734375000000000D-02,
+     *  7.9101562500000000D-02,  6.5755208333333333D-02,
+     * -7.3388671875000000D-01, -8.5195312500000000D+00,
+     * -3.7994140625000000D+01, -9.2425781250000000D+01,
+     * -1.3647802734375000D+02, -1.2628320312500000D+02,
+     * -7.1850585937500000D+01, -2.3056640625000000D+01,
+     * -3.2023111979166667D+00,  2*0.D0,
+     2  0.1851092066083633D-01,  0.8638429641723630D-01,
+     3  0.1564757823944092D 00,  0.1430139541625977D 00,
+     4  0.1924622058868408D 00,  0.8500803152720129D 01,
+     5  0.7265429720878595D 02,  0.3057942376817972D 03,
+     6  0.7699689544836672D 03,  0.1254157054424285D 04,
+     7  0.1361719536066055D 04,  0.9831831171035763D 03,
+     8  0.4547869927883148D 03,  0.1222640538215636D 03,
+     9  0.1455524450256709D 02/
+      DATA GP/8*0.D0,
+     *  9.3750000000000000D-02, -2.5000000000000000D-01,  6*0.D0,
+     *  4.6875000000000000D-02, -1.8750000000000000D-01,
+     *  3.7500000000000000D-01,  5*0.D0,
+     * -3.0761718750000000D-02,  1.6406250000000000D-01,
+     * -3.4375000000000000D-01,  7.5000000000000000D-01,  4*0.D0,
+     *  2.6367187500000000D-02, -1.7578125000000000D-01,
+     *  4.9218750000000000D-01, -5.6250000000000000D-01,
+     *  1.8750000000000000D+00,  3*0.D0,
+     2  0.2897644042968748D-01, -0.2318115234375000D 00,
+     3  0.8056640625000000D 00, -0.1601562499999998D 01,
+     4  0.3046875000000000D 00, -0.5624999999999998D 01, 2*0.D0,
+     * -3.9550781250000000D-02,  3.6914062500000000D-01,
+     * -1.5292968750000000D+00,  3.6914062500000000D+00,
+     * -6.4687500000000000D+00, -5.1562500000000000D+00,
+     * -1.9687500000000000D+01,  0.D0,
+     1 -0.6478822231292720D-01,  0.6910743713378906D 00,
+     2 -0.3322952270507811D 01,  0.9483032226562498D 01,
+     3 -0.1769653320312499D 02,  0.3478710937499998D 02,
+     4  0.5020312499999999D 02,  0.7874999999999999D 02/
+C
+      IF (NN.EQ.1)  GO TO 100
+C
+C     RICCATI  (RO < 2*ETA)
+      X=RO /ETA2
+      U=(1.D0-X)/X
+      X2=X*X
+      RU=DSQRT(U)
+      TR3=1.D0/(U*RU*ETA2)
+      TRD=TR3*TR3
+      TR1=TRD
+      TR4=TR3/(X2*X2*U)
+      TRC=TRD/(X2*X2)
+      TR2=TRC
+      PSI=(DSQRT((1.D0-X)*X)+DATAN(1.D0/RU)-PI2)*ETA2
+      FI =-0.25D0*DLOG(U)
+      PSIP=RU*ETA2
+      FIP=0.25D0
+      GO TO 101
+C
+C     RICCATI (FOR RO>2*ETA)
+  100 X=ETASRO+ETASRO
+      X2=X*X
+      U=1.D0-X
+      RU=DSQRT(U)
+      U3=U*U*U
+      TRD=1.D0/(U3*ETA2*ETA2)
+      TRC=X2*TRD
+      TR3=1.D0/(U*RU*ETA2)
+      TR1=TRD
+      TR2=TRC/U
+      TR4=TR3*X/U
+      FI =-0.25D0*DLOG(U)
+      FIP=0.25D0/U
+      PSIP=-RU*ETA2/X2
+      PSI=(0.5D0*DLOG(DABS((RU-1.D0)/(RU+1.D0)))+RU/X)*ETA2+PI4
+      U=-U
+C
+  101 DO 102 IGI=2,8
+      NGMX=2*IGI-1
+      TRA=(G(1,IGI)*U+G(2,IGI))
+      TRA1=0.D0
+      DO 103 N=3,NGMX
+  103 TRA=TRA*U+G(N,IGI)
+      DO 104 N1=1,IGI
+      N=N1
+      IF (NN.EQ.2)  N=IGI-N1+1
+  104 TRA1=TRA1*X+GP(N,IGI)
+      TR(IGI)=TRA
+  102 TRP(IGI)=TRA1
+      IF (NN.EQ.1)  GO TO 106
+      TR(3)=-TR(3)
+      TR(4)=-TR(4)
+      TR(7)=-TR(7)
+      TRP(4)=-TRP(4)
+      TRP(7)=-TRP(7)
+      TRP(8)=-TRP(8)
+  106 SFP=0.D0
+      SF=SFP
+      SP=TR(8)
+      SPP=TRP(8)
+      DO 105 N1=2,6,2
+      N=6-N1+2
+      SF=SF*TRD+TR(N+1)
+      SFP=SFP*TRC+TRP(N+1)
+      SP=SP*TRD+TR(N)
+  105 SPP=SPP*TRC+TRP(N)
+      FI=FI+TR1*SF
+      FIP=FIP+TR2*SFP
+      PSI=PSI+TR3*SP
+      PSIP=PSIP+TR4*SPP
+C
+      IF (NN.NE.1)  GO TO 110
+      TRA=DEXP(FI)
+      FO=TRA*DSIN(PSI)
+      GO=TRA*DCOS(PSI)
+      IF (ETA.GT.0.D0) GO TO 109
+      TRA=FO
+      FO=-GO
+      GO=TRA
+  109 TRA=-ETA2/ROC
+      FPO=(FIP*FO+PSIP*GO)*TRA
+      GPO=(FIP*GO-PSIP*FO)*TRA
+      RETURN
+C
+  110 TRA=FI
+      FI=FI+PSI
+      PSI=-PSI+TRA
+      FIP=FIP/(X2*U)
+      TRA=FIP
+      FIP=FIP+PSIP
+      PSIP=-PSIP+TRA
+      INDG=IDINT(PSI/ALMOD)
+      IEXPO=60*INDG
+      IF(INDG.EQ.0) GOTO 115
+      PSI=PSI-ALMOD*INDG
+      FI=FI+ALMOD*INDG
+  115 FO=0.5D0*DEXP(FI)
+      GO=DEXP(PSI)
+      FPO=FO*FIP/ETA2
+      GPO=GO*PSIP/ETA2
+      RETURN
+      END
+      SUBROUTINE  G A M M A  (N,X,Y,GR,GI)
+C
+C     GAMMA FUNCTION AND RELATED FUNCTIONS FOR COMPLEX ARGUMENT
+C
+C     PARAMETER LIST :
+C        N = 1 : GAMMA FUNCTION
+C          = 2 : LOGARITHM OF GAMMA FUNCTION
+C          = 3 : LOGARITHMIC DERIVATIVE OF GAMMA FUNCTION
+C        X,Y   : REAL, IMAGINARY PART OF ARGUMENT
+C        GR,GI : REAL, IMAGINARY PART OF RESULT
+C
+      COMPLEX Z,CZI,CZ2I,CU,CH,G,C1,C2,C3,CPIZ,CSINZ
+      DIMENSION B(6),TEST(7)
+      DATA TEST/2.9152E+7,2.2958E+3,1.4124E+2,3.9522E+1,19.6611,12.79,
+     *        -10./
+      DATA B/8.333333333333333E-2,-2.777777777777777E-3,7.936507936507
+     1        937E-4,-5.952380952380952E-4,8.417508417508418E-4,
+     *        -1.917526917526918E-3/
+      DATA    PI,TPI,ALSQ2P,CU,CH/3.141592653589793, 6.283185307179586,
+     *    0.918938533204672,(1.,0.),(0.5,0.)/,ALOPI/1.1447298858494002/
+C
+      NN=N-2
+   10 ABX=ABS(X)
+      ABY=ABS(Y)
+      Z=CMPLX(ABX,ABY)
+      ZMOD=ABX+ABY
+      I=10.99-ABX
+      IF (I.GT.0)  Z=Z+I
+C
+   20 C3=CLOG(Z)
+      CZI=CU/Z
+      CZ2I=CZI*CZI
+      K=0
+      IF (NN)  22,22,24
+   22 G=(Z-CH)*C3-Z+ALSQ2P
+      C1=Z
+      GO TO 30
+   24 G=C3-CH*CZI
+      C1=CU
+      C3=CZI
+   30 K=K+1
+      IF (ZMOD-TEST(K))  32,32,40
+   32 C1=C1*CZ2I
+      C2=B(K)*C1
+      IF (NN)  34,34,36
+   34 G=G+C2
+      GO TO 30
+   36 G=G-C2*(K+K-1)
+      GO TO 30
+C
+   40 I=I-1
+      IF (I)  50,42,42
+   42 Z=Z-CU
+      IF (NN)  44,44,46
+   44 C3=CLOG(Z)
+      GO TO 48
+   46 C3=CU/Z
+   48 G=G-C3
+      GO TO 40
+C
+   50 IF (X)  52,62,62
+   52 CPIZ=PI*Z
+      CSINZ=CSIN(CPIZ)
+      IF (NN)  54,54,56
+   54 G=-G-C3-CLOG(CSINZ)+ALOPI+CMPLX(0.,PI)
+      GO TO 60
+   56 G=G+C3+PI*CCOS(CPIZ)/CSINZ
+C
+   60 IF (Y)  70,70,64
+   62 IF (Y)  64,70,70
+   64 G=CONJG(G)
+   70 GI=AIMAG(G)
+      ISIG=GI/TPI+SIGN(0.5,GI)
+      G=G-CMPLX(0.,TPI*ISIG)
+      IF (NN)  72,74,74
+   72 G=CEXP(G)
+   74 GR=REAL(G)
+      GI=AIMAG(G)
+      RETURN
+      END
+      SUBROUTINE CLMINT(DR1,DR2,DDETA1,DDK1,LL1,DDETA2,DDK2,LL2,
+     *                  LAM,DCLM,CONV,IIACC)
+      IMPLICIT DOUBLE PRECISION(D)
+      COMMON/B1/DETA1,DK1,DETA2,DK2,DT1,DT2,DT3,DT4,
+     *          L1,L2,LAMBDA,IACC,IWKB1,IWKB2
+      COMMON/B2/D1,D2,D3,D4,D5,D6,D7,D8,D9,D10,D11,D12,D13,
+     *          D14,D15,D16,D17,D18,D19,D20,D21,D22,D23,D24,D25,D26
+      DIMENSION DCLM(4)
+      LOGICAL CONV
+C
+C     DECLARATIONS AND SOME CONSTANTS
+C
+      DIMENSION DG1(4),DG2(4),DI(4)
+      LOGICAL B1(2),B2(2),CONV1
+      DATA DA1,DA2,DA3/.2083333333333333333333333D0,
+     *                 .833333333333333333333333D-1,
+     *                 1.570796326794896619231322/
+C
+C     CALCULATION OF COULOMBINTEGRALS BY ASYMPTOTIC EXPANSION,
+C     GAUSSIAN QUADRATURE AND WKB-APPROXIMATION
+C
+C     AUTHOR : H.F.ARNOLDUS
+C     EINDHOVEN UNIVERSITY OF TECHNOLOGY
+C     FEBRUARI 1982
+C
+C     NEEDED SUBROUTINES : BELLIN  (B1)
+C                          GAUSS
+C                          INTEGR  (B1)
+C                          COULOM
+C                          STEED
+C                          RICCAT
+C                          WKB     (B1,B2)
+C                          DPHASE
+C
+C     IF DR2 LESS THEN DR1 THE UPPER LIMIT WILL BE INFINIT
+C     IF IIACC=0 THE ACCURACY WILL BE ABOUT 8 FIGURES
+C     IF IIACC=1 THE ACCURACY WILL BE BETTER
+C     IF CONV=.FALSE. AFTER RETURN THERE MIGHT BE AN INVALID PARAMETER
+C     OR SOMETHING WENT WRONG
+C     THE INTEGRALS ARE RETURNED IN ARRAY DCLM(4)
+C     AT INTEGRATION BELOW THE TURNING POINTS,ONLY DCLM(1) WILL BE
+C     RELIABLE
+C
+C     ******************************************************************
+C
+C     RENAME FOR COMMON STORAGE
+C
+      DETA1=DDETA1
+      DK1=DDK1
+      L1=LL1
+      DETA2=DDETA2
+      DK2=DDK2
+      L2=LL2
+      LAMBDA=LAM
+      IACC=IIACC
+C
+C     PARAMETERCHECK
+C
+      CONV=.FALSE.
+      DO 1 I=1,4
+    1 DCLM(I)=0D0
+      IF(DR1.LT.0D0)RETURN
+      IF(DETA1.LE.0D0)RETURN
+      IF(DETA2.LE.0D0)RETURN
+      IF(DK1.LE.0D0)RETURN
+      IF(DK2.LE.0D0)RETURN
+      IF(DABS(DETA1*DK1/(DETA2*DK2)-1D0).GT.1D-15)RETURN
+      IF(L1.LT.0.OR.L1.GT.10000)RETURN
+      IF(L2.LT.0.OR.L2.GT.10000)RETURN
+      IF(LAMBDA.LT.1)RETURN
+      IF(IACC.NE.0.AND.IACC.NE.1)RETURN
+      IF(DR1.EQ.DR2)CONV=.TRUE.
+      IF(CONV)RETURN
+
+      D1=DETA1+DETA1
+      D14=DETA2+DETA2
+      D2=DETA1/2D0
+      D15=DETA2/2D0
+      D13=DETA1*DETA1
+      D26=DETA2*DETA2
+      D3=.625D0*D13
+      D16=.625D0*D26
+      D4=DETA1+DPHASE(L1,DETA1)
+      D17=DETA2+DPHASE(L2,DETA2)
+      D5=DETA1*DA1
+      D18=DETA2*DA1
+      D6=DA2/DETA1
+      D19=DA2/DETA2
+      DTURN1=D1
+      DTURN2=D14
+      IF(L1.EQ.0)GOTO 2
+      D8=L1*(L1+1)
+      D6=.75D0*D8
+      D7=D8/DETA1
+      D9=DSQRT(D8)
+      D10=D9+.125D0/D9
+      D11=DETA1/D9
+      D12=D10*DATAN(D11)
+      D13=D13+D8
+      DTURN1=DETA1+DSQRT(D13)
+      D13=DETA1/(24D0*D13)
+      D4=D4-D13-DA3*DFLOAT(L1)
+    2 IF(L2.EQ.0)GOTO 3
+      D21=L2*(L2+1)
+      D19=.75D0*D21
+      D20=D21/DETA2
+      D22=DSQRT(D21)
+      D23=D22+.125D0/D22
+      D24=DETA2/D22
+      D25=D23*DATAN(D24)
+      D26=D26+D21
+      DTURN2=DETA2+DSQRT(D26)
+      D26=DETA2/(24D0*D26)
+      D17=D17-D26-DA3*DFLOAT(L2)
+    3 DTURN1=DTURN1/DK1
+      DTURN2=DTURN2/DK2
+      DT1=1.5D0*DTURN1
+      DT2=1.5D0*DTURN2
+      DT3=DTURN1+160D0*DTURN1/DETA1
+      DT4=DTURN2+160D0*DTURN2/DETA2
+      DT5=DTURN1
+      IF(DTURN2.LT.DTURN1)DT5=DTURN2
+      DT6=DTURN2
+      IF(DTURN1.GT.DTURN2)DT6=DTURN1
+      DWAVE1=6.28D0/DK1
+      IF(DTURN2.LT.DTURN1)DWAVE1=6.28D0/DK2
+      DWAVE2=6.28D0/DABS(DK1+DK2)
+      DWAVE3=D1MACH(2)
+      DH1=DABS(DK1-DK2)
+      IF(DH1.GT.D1MACH(1))DWAVE3=6.28D0/DH1
+      INF=0
+      IF(DR2.LT.DR1)INF=1
+C
+C     INTEGRATION BELOW TURNING POINTS
+C
+      DH2=DR1
+      IF(DR1.GT.DT6+DWAVE2)GOTO 10
+      IF(DR1.GT.DT6)GOTO 8
+      DR3=DR2
+      IF(INF.EQ.1)DR3=DT6+DWAVE2
+      IF(DR1.GE.DT5)GOTO 5
+      DH2=DR3
+      IF(DR3.GT.DT5)DH2=DT5
+      CALL GAUSS(DR1,DH2,DI,1,20,CONV1)
+      IF(.NOT.CONV1)GOTO 25
+      DO 4 I=1,4
+    4 DCLM(I)=DI(I)
+      IF(DR3.LE.DT5)CONV=.TRUE.
+      IF(CONV)RETURN
+      DH1=DT5
+    5 IF(DR1.GE.DT5)DH1=DR1
+    6 DH2=DH1+DWAVE1
+      IF(DH2.GT.DT6)DH2=DT6
+      IF(DR3.LE.DH2)CONV=.TRUE.
+      IF(CONV)DH2=DR3
+      CALL GAUSS(DH1,DH2,DI,1,20,CONV1)
+      IF(.NOT.CONV1)GOTO 25
+      DO 7 I=1,4
+    7 DCLM(I)=DCLM(I)+DI(I)
+      IF(CONV)RETURN
+      IF(DH2-DH1.LT.DWAVE1)GOTO 8
+      DH1=DH2
+      GOTO 6
+C
+C     INTEGRATION ABOVE TURNING POINTS BY ASYMPTOTIC EXPANSION
+C
+    8 DH1=DT6
+      IF(DR1.GT.DT6)DH1=DR1
+      DH2=DH1+DWAVE2
+      IF(DH2.GE.DR2.AND.INF.NE.1)CONV=.TRUE.
+      IF(CONV)DH2=DR2
+      CALL GAUSS(DH1,DH2,DI,1,20,CONV1)
+      IF(.NOT.CONV1)GOTO 25
+      DO 9 I=1,4
+    9 DCLM(I)=DCLM(I)+DI(I)
+      IF(CONV)RETURN
+   10 DH1=DH2
+      IWKB1=0
+      IWKB2=0
+      DO 11 I=1,4
+   11 DG2(I)=0D0
+      B2(2)=.TRUE.
+   12 IF(IACC.EQ.1)GOTO 14
+      IF(IWKB1.EQ.1)GOTO 13
+      IF(DH1.GT.DT1.AND.DH1.GT.DT3)IWKB1=1
+   13 IF(IWKB2.EQ.1)GOTO 14
+      IF(DH1.GT.DT2.AND.DH1.GT.DT4)IWKB2=1
+   14 CALL BELLIN(DH1,DG1,B1)
+      IF(B1(1))GOTO 16
+      DH2=DH1+DWAVE2
+      IF(DR2.LE.DH2.AND.INF.NE.1)CONV=.TRUE.
+      IF(CONV)DH2=DR2
+      CALL GAUSS(DH1,DH2,DI,0,20,CONV1)
+      IF(.NOT.CONV1)GOTO 25
+      DO 15 I=1,4
+   15 DCLM(I)=DCLM(I)+DI(I)
+      IF(CONV)RETURN
+      DH1=DH2
+      GOTO 12
+   16 IF(INF.EQ.1)GOTO 18
+      IWKB3=IWKB1
+      IWKB4=IWKB2
+      IF(IACC.EQ.1)GOTO 17
+      IF(DR2.GT.DT1.AND.DR2.GT.DT3)IWKB1=1
+      IF(DR2.GT.DT2.AND.DR2.GT.DT4)IWKB2=1
+   17 CALL BELLIN(DR2,DG2,B2)
+      IWKB1=IWKB3
+      IWKB2=IWKB4
+      IF(.NOT.B2(1))GOTO 25
+   18 DG1(1)=DG1(1)-DG2(1)
+      DG1(3)=DG1(3)-DG2(3)
+      IF(.NOT.B1(2).OR..NOT.B2(2))GOTO 19
+      DG1(2)=DG1(2)-DG2(2)
+      DG1(4)=DG1(4)-DG2(4)
+      GOTO 24
+C
+C     THETA-MIN INTEGRALS BY GAUSSIAN QAUDRATURE
+C
+   19 DG1(2)=0D0
+      DG1(4)=0D0
+      DG2(4)=0D0
+      DAC=1D-8
+      IF(IACC.EQ.1)DAC=1D-15
+      DP=DAC
+      ILAM=LAMBDA-1
+      DO 20 I=1,41
+      ILAM=ILAM+1
+   20 DP=DP/DFLOAT(ILAM)
+      DP=56.4D0*(DP**.0243902439D0)
+      ILAM=LAMBDA+1
+      DR3=0D0
+      IF(INF.NE.1)DR3=1D0/(DR2**LAMBDA)
+      DLAM=LAMBDA
+      DP1=DP
+      DAC=1D0/DAC
+      DIST=DCLM(1)+DCLM(1)-DG1(3)
+   21 DH3=1D0/(DH1**LAMBDA)-DR3
+      DIST=DIST+DG2(4)
+      DH3=DABS(DIST)*DLAM/DH3
+      IF(DH3.GT.DAC)GOTO 24
+      IF(DH3.GT.1D3)DP1=DP*(DH3**.0243902439D0)
+      DH2=DH1*(DP1+1D0)
+      IF(DH2-DH1.GE.DWAVE3)GOTO 22
+      IF(DH2.GE.DR2.AND.INF.NE.1)CONV=.TRUE.
+      IF(CONV)DH2=DR2
+      CALL GAUSS(DH1,DH2,DG2,2,20,CONV1)
+      DG1(2)=DG1(2)+DG2(2)
+      DG1(4)=DG1(4)+DG2(4)
+      IF(CONV)GOTO 24
+      DH1=DH2
+      GOTO 21
+   22 DAC=DAC*1D2
+      DGAM3=DAC*DWAVE3
+      DGAM10=DGAM3*5.273D-15
+      DGAM5=DGAM3*3.783D-5
+      DGAM3=DGAM3*3.052D-2
+      K=20
+   23 DH2=DH1+DWAVE3
+      IF(DH2.GE.DR2.AND.INF.NE.1)CONV=.TRUE.
+      IF(CONV)DH2=DR2
+      CALL GAUSS(DH1,DH2,DG2,2,K,CONV1)
+      IF(.NOT.CONV1)GOTO 25
+      DG1(2)=DG1(2)+DG2(2)
+      DG1(4)=DG1(4)+DG2(4)
+      IF(CONV)GOTO 24
+      DH1=DH2
+      DIST=DIST+DG2(4)
+      DH3=DABS(DIST/DG2(4))
+      IF(DH3.GT.DAC)GOTO 24
+      IF(K.EQ.3)GOTO 23
+      DH3=DABS(DIST)*(DH1**ILAM)
+      IF(DGAM10.LT.DH3)K=10
+      IF(DGAM5.LT.DH3)K=5
+      IF(DGAM3.LT.DH3)K=3
+      GOTO 23
+C
+C     COMPOSITION OF THE INTEGRALS
+C
+   24 CONV=.TRUE.
+      DCLM(1)=(DG1(4)-DG1(3))*.5D0+DCLM(1)
+      DCLM(2)=(DG1(1)+DG1(2))*.5D0+DCLM(2)
+      DCLM(3)=(DG1(4)+DG1(3))*.5D0+DCLM(3)
+      DCLM(4)=(DG1(1)-DG1(2))*.5D0+DCLM(4)
+      RETURN
+   25 CONV=.FALSE.
+      DO 26 I=1,4
+   26 DCLM(I)=0D0
+      RETURN
+      END
+      SUBROUTINE BELLIN(D,DGI,B)
+      IMPLICIT DOUBLE PRECISION(D)
+      COMMON/B1/DETA1,DK1,DETA2,DK2,DT1,DT2,DT3,DT4,
+     *          L1,L2,LAMBDA,IACC,IWKB1,IWKB2
+      DIMENSION DGI(4)
+      LOGICAL B(2)
+C
+C     ASYMPTOTIC EXPANSION OF COULOMBINTEGRALS
+C
+      DIMENSION DPR(2),DQR(2),DA(3),DB(3,2),DTPM(2,2),
+     *          DCLM(16),DCH(2,2),DCHI(2)
+      LOGICAL CONV
+      B(1)=.FALSE.
+      B(2)=.FALSE.
+      DO 1 I=1,4
+    1 DGI(I)=0
+      NN=2
+      MN=0
+      IF(DK1.EQ.DK2)NN=1
+      IF(NN.EQ.1.AND.L1.EQ.L2)MN=1
+C
+C     PHASES,AMPLITUDES AND DERIVATIVES OF COULOMBFUNCTIONS
+C
+      DRHO=DK1*D
+      CALL COULOM(DRHO,DETA1,L1,DF,DFP,DG,DGP,CONV)
+      IF(.NOT.CONV)RETURN
+      DCLM(1)=DF
+      DCLM(5)=DG
+      DCLM(2)=DK1*DFP
+      DCLM(6)=DK1*DGP
+      DH1=L1*(L1+1)
+      DH1=DH1/(D*D)
+      DH2=DETA1*DK1/D
+      DH3=(DH1+DH2)/D
+      DH3=-DH3-DH3
+      DH1=DH1+DH2+DH2-DK1*DK1
+      DCLM(3)=DH1*DCLM(1)
+      DCLM(7)=DH1*DCLM(5)
+      DCLM(4)=DH3*DCLM(1)+DH1*DCLM(2)
+      DCLM(8)=DH3*DCLM(5)+DH1*DCLM(6)
+      DX1=1D0/(DCLM(1)*DCLM(1)+DCLM(5)*DCLM(5))
+      IF(MN)2,2,3
+    2 DRHO=DK2*D
+      CALL COULOM(DRHO,DETA2,L2,DF,DFP,DG,DGP,CONV)
+      IF(.NOT.CONV)RETURN
+      DCLM(9)=DF
+      DCLM(13)=DG
+      DCLM(10)=DK2*DFP
+      DCLM(14)=DK2*DGP
+      DH1=L2*(L2+1)
+      DH1=DH1/(D*D)
+      DH3=(DH1+DH2)/D
+      DH3=-DH3-DH3
+      DH1=DH1+DH2+DH2-DK2*DK2
+      DCLM(11)=DH1*DCLM(9)
+      DCLM(15)=DH1*DCLM(13)
+      DCLM(12)=DH3*DCLM(9)+DH1*DCLM(10)
+      DCLM(16)=DH3*DCLM(13)+DH1*DCLM(14)
+      DX2=1D0/(DCLM(9)*DCLM(9)+DCLM(13)*DCLM(13))
+      DH1=DK1*DX1
+      DH2=DK2*DX2
+      DCHI(1)=DH1+DH2
+      DCHI(2)=DH1-DH2
+      DH5=DSQRT(DX1*DX2)
+      DFR=D**(-1-LAMBDA)/DH5
+      IF(DABS(DCHI(2)).LT.1D-30)NN=1
+      DH1=DCLM(1)*DCLM(13)*DH5
+      DH2=DCLM(5)*DCLM(9)*DH5
+      DH3=DCLM(5)*DCLM(13)*DH5
+      DH4=DCLM(1)*DCLM(9)*DH5
+      DTPM(1,1)=DH1+DH2
+      DTPM(1,2)=DH1-DH2
+      DTPM(2,1)=DH3-DH4
+      DTPM(2,2)=DH3+DH4
+      GOTO 4
+    3 DFR=D**(-1-LAMBDA)/DX1
+      DH1=DK1*DX1
+      DCHI(1)=DH1+DH1
+      DTPM(1,1)=DCLM(1)*DCLM(5)*DX1
+      DTPM(1,1)=DTPM(1,1)+DTPM(1,1)
+      DTPM(2,1)=(DCLM(5)*DCLM(5)-DCLM(1)*DCLM(1))*DX1
+    4 DO 5 I=1,NN
+      DCHI(I)=1D0/DCHI(I)
+      DCH(1,I)=-DFR*DCHI(I)
+    5 DCH(2,I)=DCHI(I)/D
+C
+C     FUNCTION PSM AND DERIVATIVES
+C
+      IF(MN)6,6,9
+C
+C     MN=0
+C
+C     ARRAY DA(3)
+    6 DH1=DX1*(DCLM(1)*DCLM(2)+DCLM(5)*DCLM(6))
+      DH2=DX2*(DCLM(9)*DCLM(10)+DCLM(13)*DCLM(14))
+      DA(1)=DFLOAT(LAMBDA)-D*(DH1+DH2)
+      DHL1=-DH1-DH1
+      DHL2=-DH2-DH2
+      DH5=DHL1*DHL1
+      DH6=DHL2*DHL2
+      DH1=DCLM(1)*DCLM(3)+DCLM(2)*DCLM(2)
+      DH2=DCLM(5)*DCLM(7)+DCLM(6)*DCLM(6)
+      DH3=DCLM(9)*DCLM(11)+DCLM(10)*DCLM(10)
+      DH4=DCLM(13)*DCLM(15)+DCLM(14)*DCLM(14)
+      DCL1=DX1*(DH5-DX1*(DH1+DH2))
+      DCL2=DX2*(DH6-DX2*(DH3+DH4))
+      DCL1=DCL1+DCL1
+      DCL2=DCL2+DCL2
+      DDL1=DCL1/DX1-DH5
+      DDL2=DCL2/DX2-DH6
+      DA(2)=.5D0*(DHL1+DHL2+D*(DDL1+DDL2))
+      DBL1=DX1*DHL1
+      DBL2=DX2*DHL2
+      DJL1=(DH1+DH2)*DBL1
+      DJL2=(DH3+DH4)*DBL2
+      DH5=DHL1*DDL1
+      DH6=DHL2*DDL2
+      DH1=DCLM(2)*DCLM(3)
+      DH2=DCLM(6)*DCLM(7)
+      DH3=DCLM(10)*DCLM(11)
+      DH4=DCLM(14)*DCLM(15)
+      DH1=DH1+DH1+DH1
+      DH2=DH2+DH2+DH2
+      DH3=DH3+DH3+DH3
+      DH4=DH4+DH4+DH4
+      DH1=DH1+DCLM(1)*DCLM(4)
+      DH2=DH2+DCLM(5)*DCLM(8)
+      DH3=DH3+DCLM(9)*DCLM(12)
+      DH4=DH4+DCLM(13)*DCLM(16)
+      DJL1=DH5+DH5-DJL1-DX1*(DH1+DH2)
+      DJL2=DH6+DH6-DJL2-DX2*(DH3+DH4)
+      DJL1=DJL1*DX1
+      DJL2=DJL2*DX2
+      DH1=DCL1*DHL1
+      DH2=DCL2*DHL2
+      DJL1=DJL1+DJL1+DH1
+      DJL2=DJL2+DJL2+DH2
+      DH1=(DJL1-DH1)/(DX1+DX1)
+      DH2=(DJL2-DH2)/(DX2+DX2)
+      DA(3)=DDL1+DDL2+D*(DH1+DH2-DH5-DH6)
+C
+C     ARRAY DB(3,2)
+      IF(NN-1)7,7,8
+    7 DH1=DK1*DCHI(1)
+      DAP=DH1*(DBL1+DBL2)
+      DIP=DH1*(DCL1+DCL2)
+      DKP=DH1*(DJL1+DJL2)
+      DH1=D*DAP
+      DB(1,1)=1D0+DH1
+      DH2=DIP-DAP*DAP
+      DB(2,1)=DAP+D*DH2
+      DH1=DH2*(1D0-DH1)
+      DB(3,1)=DH1+DH1+D*(DKP-DAP*DIP)
+      GOTO 10
+    8 DH1=DK1*DBL1
+      DH2=DK2*DBL2
+      DAP=(DH1+DH2)*DCHI(1)
+      DAM=(DH1-DH2)*DCHI(2)
+      DH1=DK1*DCL1
+      DH2=DK2*DCL2
+      DIP=(DH1+DH2)*DCHI(1)
+      DIM=(DH1-DH2)*DCHI(2)
+      DH1=DK1*DJL1
+      DH2=DK2*DJL2
+      DKP=(DH1+DH2)*DCHI(1)
+      DKM=(DH1-DH2)*DCHI(2)
+      DH3=D*DAP
+      DH4=D*DAM
+      DB(1,1)=1D0+DH3
+      DB(1,2)=1D0+DH4
+      DH1=DIP-DAP*DAP
+      DH2=DIM-DAM*DAM
+      DB(2,1)=DAP+D*DH1
+      DB(2,2)=DAM+D*DH2
+      DH3=DH1*(1D0-DH3)
+      DH4=DH2*(1D0-DH4)
+      DB(3,1)=DH3+DH3+D*(DKP-DAP*DIP)
+      DB(3,2)=DH4+DH4+D*(DKM-DAM*DIM)
+      GOTO 10
+C
+C     MN=1
+C
+C     ARRAY DA(3)
+    9 DH1=DX1*(DCLM(1)*DCLM(2)+DCLM(5)*DCLM(6))
+      DHL1=-DH1-DH1
+      DA(1)=DFLOAT(LAMBDA)+D*DHL1
+      DH5=DHL1*DHL1
+      DH1=DCLM(1)*DCLM(3)+DCLM(2)*DCLM(2)
+      DH2=DCLM(5)*DCLM(7)+DCLM(6)*DCLM(6)
+      DCL1=DX1*(DH5-DX1*(DH1+DH2))
+      DCL1=DCL1+DCL1
+      DDL1=DCL1/DX1-DH5
+      DA(2)=DHL1+D*DDL1
+      DBL1=DX1*DHL1
+      DJL1=(DH1+DH2)*DBL1
+      DH5=DHL1*DDL1
+      DH1=DCLM(2)*DCLM(3)
+      DH2=DCLM(6)*DCLM(7)
+      DH1=DH1+DH1+DH1+DCLM(1)*DCLM(4)
+      DH2=DH2+DH2+DH2+DCLM(5)*DCLM(8)
+      DJL1=DH5+DH5-DJL1-DX1*(DH1+DH2)
+      DJL1=DJL1*DX1
+      DH1=DCL1*DHL1
+      DJL1=DJL1+DJL1+DH1
+      DH1=(DJL1-DH1)/DX1-DH5-DH5
+      DA(3)=DDL1+DDL1+D*DH1
+C
+C     ARRAY DB(3,2)
+      DH1=DK1*DCHI(1)
+      DH1=DH1+DH1
+      DAP=DH1*DBL1
+      DIP=DH1*DCL1
+      DKP=DH1*DJL1
+      DH1=D*DAP
+      DB(1,1)=1D0+DH1
+      DH2=DIP-DAP*DAP
+      DB(2,1)=DAP+D*DH2
+      DH1=DH2*(1D0-DH1)
+      DB(3,1)=DH1+DH1+D*(DKP-DAP*DIP)
+C
+C     CALCULATION OF P(R) AND Q(R) SERIES
+C
+   10 DO 15 I=1,NN
+      DH=DB(1,I)
+      DI=DB(2,I)
+      DJ=DB(3,I)
+      DK=DCH(1,I)
+      DL=DCH(2,I)
+      DS1=DA(1)
+      DS2=DS1+DH
+      DS3=DS2+DH
+      DS4=DS3+DH
+      DS5=DA(2)+DI
+      DS6=DS5+DI
+      DS7=DA(3)+DJ
+      DP1=1
+      DP2=-DS5
+      DP3=-DS2
+      DP4=-DS7
+      DP5=DS5+D*DS7-DS3*DS5-DS2*DS6
+      D7=D*DS5-DS2*DS3
+      DP6=D*DP5-DS4*D7
+      DT=DL*DK
+      DQR(I)=DP3*DT
+      DT=DT*DL
+      DPR(I)=DK+D7*DT
+      DT=DT*DL
+      DQR(I)=DQR(I)+DP6*DT
+      J=-1
+C
+      DO 14 M=4,120
+      DS1=DS1+DH
+      DS2=DS2+DH
+      DS3=DS3+DH
+      DS4=DS4+DH
+      DS5=DS5+DI
+      DS6=DS6+DI
+      DS7=DS7+DJ
+      DN1=-DS1*DP1
+      DN2=DS2*DP2+DS5*DN1
+      DN3=DS2*DP3-D*DP2
+      DN4=DS2*DP4+DS7*DN1+DS5*(DP2+DP2)
+      DN5=DN2+D*DN4-DS3*DP5-DS6*DN3
+      DN6=DS4*DP6-D*DN5
+      DT=DT*DL
+      DU=DT*DN6
+      J=-J
+      IF(J)12,11,11
+   11 DPR(I)=DPR(I)+DU
+      DX=DABS(DU/DPR(I))
+      IF(DX.GT.5D-1)GOTO 15
+      IF(DX.GT.1D-17)GOTO 13
+      B(I)=.TRUE.
+      GOTO 15
+   12 DN1=-DN1
+      DN2=-DN2
+      DN3=-DN3
+      DN4=-DN4
+      DN5=-DN5
+      DN6=-DN6
+      DQR(I)=DQR(I)-DU
+   13 DP1=DN1
+      DP2=DN2
+      DP3=DN3
+      DP4=DN4
+      DP5=DN5
+   14 DP6=DN6
+   15 CONTINUE
+C
+C
+      DO 16 I=1,2
+      IF(.NOT.B(I))GOTO 16
+      DGI(I)=DQR(I)*DTPM(1,I)-DPR(I)*DTPM(2,I)
+      DGI(I+2)=DPR(I)*DTPM(1,I)+DQR(I)*DTPM(2,I)
+   16 CONTINUE
+      RETURN
+      END
+      SUBROUTINE COULOM(RO,ETA,LL,DF,DFP,DG,DGP,CONV)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL CONV
+C
+C     COULOMBFUNCTIONS BY RICATTI EXPANSION OR CONTINUED FRACTION
+C
+      REAL ET,R,ETR,RMET
+      CONV=.TRUE.
+      ET=ETA
+      IF(ET.LE.30..AND.ET.GE.-8.)GOTO 6
+      R=RO
+      ETR=ET*R
+      IF(ET.GT.0.)GOTO 1
+      IF(ETR.LE.-30.)GOTO 3
+      GOTO 6
+    1 RMET=R-ET-ET
+      IF(RMET.GE.20.*ET**.25)GOTO 3
+      IF(RMET.LE.-6.75*ET**.4)GOTO 2
+      GOTO 6
+    2 IF(ETR.GT.12.)GOTO 4
+      GOTO 6
+    3 NN=1
+      GOTO 5
+    4 NN=2
+    5 CALL RICCAT(RO,ETA,FO,GO,FPO,GPO,NN)
+      GOTO 7
+    6 CALL STEED(RO,ETA,FO,GO,FPO,GPO,CONV)
+      IF(.NOT.CONV)GOTO 11
+C
+    7 DF=FO
+      DFP=FPO
+      DG=GO
+      DGP=GPO
+      IF(LL.EQ.0)RETURN
+C
+      ETAC=ETA*ETA
+      SUMP=0D0
+      SUM=0D0
+      LF=0
+      L=0
+      LMAX=LL+500
+      DL=LL
+      ROL=ETA+DSQRT(ETAC+DL*(DL+1D0))
+      IROL=0
+      IF(ROL.GT.RO)IROL=1
+    8 IF(LF.GE.LL)RETURN
+      L=L+1
+      ZL=L
+      Z1=DSQRT(ETAC+ZL*ZL)/ZL
+      Z2=ETA/ZL+ZL/RO
+      GN=(Z2*GO-GPO)/Z1
+      GPN=Z1*GO-Z2*GN
+      IF(L.GT.LL)GOTO 9
+      GO=GN
+      DG=GN
+      GPO=GPN
+      DGP=GPN
+      IF(IROL.GT.0)GOTO 8
+      FN=(Z2*DF-DFP)/Z1
+      FPN=Z1*DF-Z2*FN
+      DF=FN
+      DFP=FPN
+      LF=L
+      GOTO 8
+C
+    9 S=1./(Z1*GN*GO)
+      SP=(Z1*Z1-Z2*Z2)/(Z1*GPN*GPO)
+      SUM=SUM+S
+      SUMP=SUMP+SP
+      GO=GN
+      GPO=GPN
+      IF(DABS(S/SUM).LT.1D-14.AND.DABS(SP/SUMP).LT.1D-14)GOTO 10
+      IF(L.LT.LMAX)GOTO 8
+      CONV=.FALSE.
+      GOTO 11
+C
+   10 DF=DG*SUM
+      DFP=DGP*SUMP
+      RETURN
+   11 DF=0D0
+      DFP=0D0
+      DG=0D0
+      DGP=0D0
+      RETURN
+      END
+      DOUBLE PRECISION FUNCTION DPHASE(L,DETA)
+      DOUBLE PRECISION DETA
+C
+C     COULOMBPHASESHIFT
+C
+      COMPLEX Z,CZ2I,CU,CH,G,C1
+      DIMENSION B(6),TEST(7)
+      DATA TEST/2.9152E+7,2.2958E+3,1.4124E+2,3.9522E+1,19.6611,12.79,
+     *          -10./
+      DATA B/8.333333333333333E-2,-2.777777777777777E-3,7.936507936507
+     *        937E-4,-5.952380952380952E-4,8.417508417508418E-4,
+     *        -1.917526917526918E-3/
+      DATA TPI,ALSQ2P,CU,CH/6.283185307179586,
+     *     0.918938533204672,(1.,0.),(.5,0.)/
+C
+      ABX=L+1
+      ETA=DETA
+      Z=CMPLX(ABX,ETA)
+      ZMOD=ABX+ETA
+      I=10.99-ABX
+      IF(I.GT.0)Z=Z+CMPLX(FLOAT(I),0.)
+      CZ2I=CU/Z
+      CZ2I=CZ2I*CZ2I
+      K=0
+      G=(Z-CH)*CLOG(Z)-Z+ALSQ2P
+      C1=Z
+    1 K=K+1
+      IF(ZMOD-TEST(K))2,2,3
+    2 C1=C1*CZ2I
+      G=G+C1*CMPLX(B(K),0.)
+      GOTO 1
+C
+    3 I=I-1
+      IF(I)5,4,4
+    4 Z=Z-CU
+      G=G-CLOG(Z)
+      GOTO 3
+C
+    5 GI=AIMAG(G)
+      ISIG=GI/TPI+SIGN(0.5,GI)
+      DPHASE=GI-TPI*FLOAT(ISIG)
+      RETURN
+      END
+      SUBROUTINE GAUSS(DR1,DR2,DI,MODE,K,CONV)
+      IMPLICIT DOUBLE PRECISION(D)
+      LOGICAL CONV
+C
+C     INTEGRALS BY A K-POINT GAUSSIAN QUADRATURE (K = 3,5,10,20)
+C
+      DIMENSION DW(20),DX(20),DV(10),DZ(10),DP(5),DQ(5),DR(3),DS(3),
+     *          DI(4),DJ(4)
+      DATA DW/.01761 40071 39152 118312,
+     *        .04060 14298 00386 941331,
+     *        .06267 20483 34109 063570,
+     *        .08327 67415 76704 748725,
+     *        .10193 01198 17240 435037,
+     *        .11819 45319 61518 417312,
+     *        .13168 86384 49176 626898,
+     *        .14209 61093 18382 051329,
+     *        .14917 29864 72603 746788,
+     *        .15275 33871 30725 850698,
+     *        .15275 33871 30725 850698,
+     *        .14917 29864 72603 746788,
+     *        .14209 61093 18382 051329,
+     *        .13168 86384 49176 626898,
+     *        .11819 45319 61518 417312,
+     *        .10193 01198 17240 435037,
+     *        .08327 67415 76704 748725,
+     *        .06267 20483 34109 063570,
+     *        .04060 14298 00386 941331,
+     *        .01761 40071 39152 118312/
+      DATA DX/-.99312 85991 85094 924786,
+     *        -.96397 19272 77913 791268,
+     *        -.91223 44282 51325 905868,
+     *        -.83911 69718 22218 823395,
+     *        -.74633 19064 60150 792614,
+     *        -.63605 36807 26515 025453,
+     *        -.51086 70019 50827 098004,
+     *        -.37370 60887 15419 560673,
+     *        -.22778 58511 41645 078080,
+     *        -.07652 65211 33497 333755,
+     *        +.07652 65211 33497 333755,
+     *        +.22778 58511 41645 078080,
+     *        +.37370 60887 15419 560673,
+     *        +.51086 70019 50827 098004,
+     *        +.63605 36807 26515 025453,
+     *        +.74633 19064 60150 792614,
+     *        +.83911 69718 22218 823395,
+     *        +.91223 44282 51325 905868,
+     *        +.96397 19272 77913 791268,
+     *        +.99312 85991 85094 924786/
+      DATA DV/.06667 13443 08688,
+     *        .14945 13491 50581,
+     *        .21908 63625 15982,
+     *        .26926 67193 09996,
+     *        .29552 42247 14753,
+     *        .29552 42247 14753,
+     *        .26926 67193 09996,
+     *        .21908 63625 15982,
+     *        .14945 13491 50581,
+     *        .06667 13443 08688/
+      DATA DZ/-.97390 65285 17172,
+     *        -.86506 33666 88985,
+     *        -.67940 95682 99024,
+     *        -.43339 53941 29247,
+     *        -.14887 43389 81631,
+     *        +.14887 43389 81631,
+     *        +.43339 53941 29247,
+     *        +.67940 95682 99024,
+     *        +.86506 33666 88985,
+     *        +.97390 65285 17172/
+      DATA DP/.23692 68850 56189,
+     *        .47862 86704 99366,
+     *        .56888 88888 88889,
+     *        .47862 86704 99366,
+     *        .23692 68850 56189/
+      DATA DQ/-.90617 98459 38664,
+     *        -.53846 93101 05683,
+     *        +.00000 00000 00000,
+     *        +.53846 93101 05683,
+     *        +.90617 98459 38664/
+      DATA DR/.55555 55555 55556,
+     *        .88888 88888 88889,
+     *        .55555 55555 55556/
+      DATA DS/-.77459 66692 41483,
+     *        +.00000 00000 00000,
+     *        +.77459 66692 41483/
+C
+      CONV=.TRUE.
+      DA=(DR2-DR1)*.5D0
+      DB=DA+DR1
+      DO 1 I=1,4
+    1 DI(I)=0
+      IF(K.EQ.10)GOTO 3
+      IF(K.EQ.5)GOTO 5
+      IF(K.EQ.3)GOTO 7
+      DO 2 I=1,20
+      DY=DA*DX(I)+DB
+      CALL INTEGR(DY,DJ,MODE,CONV)
+      IF(.NOT.CONV)GOTO 11
+      DO 2 J=1,4
+    2 DI(J)=DI(J)+DJ(J)*DW(I)
+      GOTO 9
+    3 DO 4 I=1,10
+      DY=DA*DZ(I)+DB
+      CALL INTEGR(DY,DJ,MODE,CONV)
+      IF(.NOT.CONV)GOTO 11
+      DO 4 J=1,4
+    4 DI(J)=DI(J)+DJ(J)*DV(I)
+      GOTO 9
+    5 DO 6 I=1,5
+      DY=DA*DQ(I)+DB
+      CALL INTEGR(DY,DJ,MODE,CONV)
+      IF(.NOT.CONV)GOTO 11
+      DO 6 J=1,4
+    6 DI(J)=DI(J)+DJ(J)*DP(I)
+      GOTO 9
+    7 DO 8 I=1,3
+      DY=DA*DS(I)+DB
+      CALL INTEGR(DY,DJ,MODE,CONV)
+      IF(.NOT.CONV)GOTO 11
+      DO 8 J=1,4
+    8 DI(J)=DI(J)+DJ(J)*DR(I)
+    9 DO 10 I=1,4
+   10 DI(I)=DA*DI(I)
+      RETURN
+   11 DO 12 I=1,4
+   12 DI(I)=0D0
+      RETURN
+      END
+      SUBROUTINE INTEGR(D,DI,MODE,CONV)
+      IMPLICIT DOUBLE PRECISION(D)
+      COMMON/B1/DETA1,DK1,DETA2,DK2,DT1,DT2,DT3,DT4,
+     *          L1,L2,LAMBDA,IACC,IWKB1,IWKB2
+      DIMENSION DI(4)
+      LOGICAL CONV
+C
+C     INTEGRAND WITH WKB-FUNCTIONS IF POSSIBLE (MODE =0 OR 2)
+C     IF MODE = 2 THE INTEGRAND CONSISTS OF THETA-PLUS AND THETA-MIN
+C     FUNCTIONS
+C
+      CONV=.TRUE.
+      IF(MODE.EQ.1)GOTO 12
+      DH3=D**(LAMBDA+1)
+      DRHO=D*DK1
+      IF(IACC.EQ.1)GOTO 1
+      IF(IWKB1.EQ.1)GOTO 3
+      IF(D.GT.DT1.AND.D.GT.DT3)GOTO 2
+    1 CALL COULOM(DRHO,DETA1,L1,DF1,DH1,DG1,DH2,CONV)
+      IF(.NOT.CONV)GOTO 14
+      GOTO 4
+    2 IWKB1=1
+    3 CALL WKB(DRHO,1,DF1,DG1)
+    4 IF(DK1.EQ.DK2.AND.L1.EQ.L2)GOTO 10
+      DRHO=D*DK2
+      IF(IACC.EQ.1)GOTO 5
+      IF(IWKB2.EQ.1)GOTO 7
+      IF(D.GT.DT2.AND.D.GT.DT4)GOTO 6
+    5 CALL COULOM(DRHO,DETA2,L2,DF2,DH1,DG2,DH2,CONV)
+      IF(.NOT.CONV)GOTO 14
+      GOTO 8
+    6 IWKB2=1
+    7 CALL WKB(DRHO,2,DF2,DG2)
+    8 IF(MODE.EQ.2)GOTO 9
+      DI(1)=DF1*DF2/DH3
+      DI(2)=DF1*DG2/DH3
+      DI(3)=DG1*DG2/DH3
+      DI(4)=DG1*DF2/DH3
+      RETURN
+    9 DI(1)=(DF1*DG2+DG1*DF2)/DH3
+      DI(2)=(DF1*DG2-DG1*DF2)/DH3
+      DI(3)=(DG1*DG2-DF1*DF2)/DH3
+      DI(4)=(DF1*DF2+DG1*DG2)/DH3
+      RETURN
+   10 IF(MODE.EQ.2)GOTO 11
+      DI(1)=DF1*DF1/DH3
+      DI(2)=DF1*DG1/DH3
+      DI(3)=DG1*DG1/DH3
+      DI(4)=DI(2)
+      RETURN
+   11 DI(1)=DF1*DG1*2D0/DH3
+      DI(2)=0D0
+      DI(3)=(DG1*DG1-DF1*DF1)/DH3
+      DI(4)=(DF1*DF1+DG1*DG1)/DH3
+      RETURN
+C
+C     INTEGRAND WITH COULOMBFUNCTIONS (MODE = 1)
+C
+   12 DH3=D**(LAMBDA+1)
+      DRHO=D*DK1
+      CALL COULOM(DRHO,DETA1,L1,DF1,DH1,DG1,DH2,CONV)
+      IF(.NOT.CONV)GOTO 14
+      IF(DK1.EQ.DK2.AND.L1.EQ.L2)GOTO 13
+      DRHO=D*DK2
+      CALL COULOM(DRHO,DETA2,L2,DF2,DH1,DG2,DH2,CONV)
+      IF(.NOT.CONV)GOTO 14
+      DI(1)=DF1*DF2/DH3
+      DI(2)=DF1*DG2/DH3
+      DI(3)=DG1*DG2/DH3
+      DI(4)=DG1*DF2/DH3
+      RETURN
+   13 DI(1)=DF1*DF1/DH3
+      DI(2)=DF1*DG1/DH3
+      DI(3)=DG1*DG1/DH3
+      DI(4)=DI(2)
+      RETURN
+   14 DO 15 I=1,4
+   15 DI(I)=0D0
+      RETURN
+      END
+      SUBROUTINE RICCAT(RO,ETA,FO,GO,FPO,GPO,NN)
+C
+C     RICCATI EXPANSION (AT THE ORIGIN AND ASYMPTOTICALLY)
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION G(15,8),GP(8,8),TR(8),TRP(8)
+C
+C     RICCATI COEFFICIENTS
+C
+      DATA G/15*0D0,
+     * -1.8750000000000000D-01, -1.2500000000000000D-01,
+     * -1.0416666666666667D-01,  12*0.D0,
+     *  4.6875000000000000D-02,  6.2500000000000000D-02,
+     * -9.3750000000000000D-02, -1.8750000000000000D-01,
+     * -7.8125000000000000D-02,  10*0.D0,
+     *  2.0507812500000000D-02,  4.1015625000000000D-02,
+     *  3.0273437500000000D-02,  2.6692708333333333D-01,
+     *  5.4667968750000000D-01,  4.3164062500000000D-01,
+     *  1.1990017361111111D-01,  8*0.D0,
+     * -1.3183593750000000D-02, -3.5156250000000000D-02,
+     * -3.3203125000000000D-02,  1.7578125000000000D-01,
+     *  1.0693359375000000D+00,  2.3476562500000000D+00,
+     *  2.5136718750000000D+00,  1.3242187500000000D+00,
+     *  2.7587890625000000D-01,  6*0.D0,
+     2 -0.1159057617187498D-01, -0.3863525390624998D-01,
+     3 -0.4660034179687498D-01, -0.4858398437499998D-01,
+     4 -0.1156514485677080D 01, -0.5687475585937496D 01,
+     5 -0.1323888288225445D 02, -0.1713083224826384D 02,
+     6 -0.1269003295898436D 02, -0.5055236816406248D 01,
+     7 -0.8425394694010415D 00,  4*0.D0,
+     *  1.3183593750000000D-02,  5.2734375000000000D-02,
+     *  7.9101562500000000D-02,  6.5755208333333333D-02,
+     * -7.3388671875000000D-01, -8.5195312500000000D+00,
+     * -3.7994140625000000D+01, -9.2425781250000000D+01,
+     * -1.3647802734375000D+02, -1.2628320312500000D+02,
+     * -7.1850585937500000D+01, -2.3056640625000000D+01,
+     * -3.2023111979166667D+00,  2*0.D0,
+     2  0.1851092066083633D-01,  0.8638429641723630D-01,
+     3  0.1564757823944092D 00,  0.1430139541625977D 00,
+     4  0.1924622058868408D 00,  0.8500803152720129D 01,
+     5  0.7265429720878595D 02,  0.3057942376817972D 03,
+     6  0.7699689544836672D 03,  0.1254157054424285D 04,
+     7  0.1361719536066055D 04,  0.9831831171035763D 03,
+     8  0.4547869927883148D 03,  0.1222640538215636D 03,
+     9  0.1455524450256709D 02/
+      DATA GP/8*0.D0,
+     *  9.3750000000000000D-02, -2.5000000000000000D-01,  6*0.D0,
+     *  4.6875000000000000D-02, -1.8750000000000000D-01,
+     *  3.7500000000000000D-01,  5*0.D0,
+     * -3.0761718750000000D-02,  1.6406250000000000D-01,
+     * -3.4375000000000000D-01,  7.5000000000000000D-01,  4*0.D0,
+     *  2.6367187500000000D-02, -1.7578125000000000D-01,
+     *  4.9218750000000000D-01, -5.6250000000000000D-01,
+     *  1.8750000000000000D+00,  3*0.D0,
+     2  0.2897644042968748D-01, -0.2318115234375000D 00,
+     3  0.8056640625000000D 00, -0.1601562499999998D 01,
+     4  0.3046875000000000D 00, -0.5624999999999998D 01, 2*0.D0,
+     * -3.9550781250000000D-02,  3.6914062500000000D-01,
+     * -1.5292968750000000D+00,  3.6914062500000000D+00,
+     * -6.4687500000000000D+00, -5.1562500000000000D+00,
+     * -1.9687500000000000D+01,  0.D0,
+     1 -0.6478822231292720D-01,  0.6910743713378906D 00,
+     2 -0.3322952270507811D 01,  0.9483032226562498D 01,
+     3 -0.1769653320312499D 02,  0.3478710937499998D 02,
+     4  0.5020312499999999D 02,  0.7874999999999999D 02/
+      DATA PI2,PI4/1.570 796 326 794 897,
+     *             0.785 398 163 397 448/
+C
+      ETA2=ETA+ETA
+      ETASRO=ETA/RO
+      IF(NN.EQ.1)GOTO 1
+C
+C     RICCATI  (RO < 2*ETA)
+      X=RO/ETA2
+      U=(1.D0-X)/X
+      X2=X*X
+      RU=DSQRT(U)
+      TR3=1.D0/(U*RU*ETA2)
+      TRD=TR3*TR3
+      TR1=TRD
+      TR4=TR3/(X2*X2*U)
+      TRC=TRD/(X2*X2)
+      TR2=TRC
+      PSI=(DSQRT((1.D0-X)*X)+DATAN(1.D0/RU)-PI2)*ETA2
+      FI=-.25D0*DLOG(U)
+      PSIP=RU*ETA2
+      FIP=.25D0
+      GOTO 2
+C
+C     RICCATI (FOR RO>2*ETA)
+    1 X=ETASRO+ETASRO
+      X2=X*X
+      U=1D0-X
+      RU=DSQRT(U)
+      U3=U*U*U
+      TRD=1.D0/(U3*ETA2*ETA2)
+      TRC=X2*TRD
+      TR3=1.D0/(U*RU*ETA2)
+      TR1=TRD
+      TR2=TRC/U
+      TR4=TR3*X/U
+      FI=-.25D0*DLOG(U)
+      FIP=.25D0/U
+      PSIP=-RU*ETA2/X2
+      PSI=(0.5D0*DLOG(DABS((RU-1.D0)/(RU+1.D0)))+RU/X)*ETA2+PI4
+      U=-U
+C
+    2 DO 5 IGI=2,8
+      NGMX=IGI+IGI-1
+      TRA=(G(1,IGI)*U+G(2,IGI))
+      TRA1=0.D0
+      DO 3 N=3,NGMX
+    3 TRA=TRA*U+G(N,IGI)
+      DO 4 N1=1,IGI
+      N=N1
+      IF(NN.EQ.2)N=IGI-N1+1
+    4 TRA1=TRA1*X+GP(N,IGI)
+      TR(IGI)=TRA
+    5 TRP(IGI)=TRA1
+      IF(NN.EQ.1)GOTO 6
+      TR(3)=-TR(3)
+      TR(4)=-TR(4)
+      TR(7)=-TR(7)
+      TRP(4)=-TRP(4)
+      TRP(7)=-TRP(7)
+      TRP(8)=-TRP(8)
+    6 SFP=0D0
+      SF=SFP
+      SP=TR(8)
+      SPP=TRP(8)
+      DO 7 N1=2,6,2
+      N=8-N1
+      SF=SF*TRD+TR(N+1)
+      SFP=SFP*TRC+TRP(N+1)
+      SP=SP*TRD+TR(N)
+    7 SPP=SPP*TRC+TRP(N)
+      FI=FI+TR1*SF
+      FIP=FIP+TR2*SFP
+      PSI=PSI+TR3*SP
+      PSIP=PSIP+TR4*SPP
+C
+      IF(NN.NE.1)GOTO 9
+      TRA=DEXP(FI)
+      FO=TRA*DSIN(PSI)
+      GO=TRA*DCOS(PSI)
+      IF(ETA.GT.0D0)GOTO 8
+      TRA=FO
+      FO=-GO
+      GO=TRA
+    8 TRA=-ETA2/(RO*RO)
+      FPO=(FIP*FO+PSIP*GO)*TRA
+      GPO=(FIP*GO-PSIP*FO)*TRA
+      RETURN
+C
+    9 TRA=FI
+      FI=FI+PSI
+      PSI=-PSI+TRA
+      FIP=FIP/(X2*U)
+      TRA=FIP
+      FIP=FIP+PSIP
+      PSIP=-PSIP+TRA
+      FO=0.5D0*DEXP(FI)
+      GO=DEXP(PSI)
+      FPO=FO*FIP/ETA2
+      GPO=GO*PSIP/ETA2
+      RETURN
+      END
+      SUBROUTINE STEED(RHO,ETA,FO,GO,FPO,GPO,CONV)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL CONV
+C
+C     COULOMB WAVEFUNCTIONS CALCULATED AT R = RHO BY THE
+C     CONTINUED-FRACTION METHOD OF STEED AT L=0
+C     SEE BARNETT FENG STEED AND GOLDFARB COMPUTER PHYSICS COMMUN 1974
+C     CPC 8 (1974) 377-395
+C
+      DOUBLE PRECISION K,K1,K2,K3,K4,M1,M2,M3,M4
+      CONV=.TRUE.
+      ACC=1D-15
+      R=RHO
+      KTR=1
+      ETA2=ETA*ETA
+      TURN=ETA+ETA
+      IF(R.LT.TURN.AND.DABS(ETA).GE.1D-6)KTR=-1
+      KTRP=KTR
+      GOTO 2
+    1 R=TURN
+      TF=F
+      TFP=FP
+      KTRP=1
+    2 ETAR=ETA*R
+      RHO2=R*R
+      PL=1D0
+C
+C     CONTINUED FRACTION FOR FPO/FO
+C
+      FP=ETA+1D0/R
+      DK=ETAR+ETAR
+      DEL=0D0
+      D=0D0
+      F=1D0
+      K=ETAR
+      IF(ETAR.NE.-2D0)GOTO 3
+      R=R+1D-6
+      GOTO 2
+    3 H=(PL*PL+ETA2)*(1D0-PL*PL)*RHO2
+      K=K+DK+PL*PL*6D0
+      D=1D0/(D*H+K)
+      DEL=DEL*(D*K-1D0)
+      IF(PL.LT.1.5D0)DEL=-(R+R)*(1D0+ETA2)*D
+      PL=PL+1D0
+      FP=FP+DEL
+      IF(D.LT.0D0)F=-F
+      IF(PL.GT.2D5)GOTO 7
+      IF(DABS(DEL).GE.DABS(FP)*ACC)GOTO 3
+      FP=F*FP
+      IF(KTRP.EQ.-1)GOTO 1
+C
+C     REPEAT FOR R = TURN IF RHO LT TURN
+C     NOW OBTAIN P + I.Q FROM CONTINUED FRACTION (32)
+C
+      P=0D0
+      Q=R-ETA
+      PL=0D0
+      AR=-ETA2
+      AI=ETA
+      BR=Q+Q
+      BI=2D0
+      WI=TURN
+      DR=BR/(BR*BR+BI*BI)
+      DI=-BI/(BR*BR+BI*BI)
+      DP=-AR*DI-AI*DR
+      DQ=AR*DR-AI*DI
+    4 P=P+DP
+      Q=Q+DQ
+      PL=PL+2D0
+      AR=AR+PL
+      AI=AI+WI
+      BI=BI+2D0
+      D=AR*DR-AI*DI+BR
+      DI=AI*DR+AR*DI+BI
+      T=1D0/(D*D+DI*DI)
+      DR=T*D
+      DI=-T*DI
+      H=BR*DR-BI*DI-1D0
+      K=BI*DR+BR*DI
+      T=DP*H-DQ*K
+      DQ=DP*K+DQ*H
+      DP=T
+      IF(PL.GT.46D4)GOTO 7
+      IF(DABS(DP)+DABS(DQ).GE.(DABS(P)+DABS(Q))*ACC)GOTO 4
+      P=P/R
+      Q=Q/R
+C
+C     SOLVE FOR FP,G,GP AND NORMALISE F
+C
+      G=(FP-P*F)/Q
+      GP=P*G-Q*F
+      W=1D0/DSQRT(FP*G-F*GP)
+      G=W*G
+      GP=W*GP
+      IF(KTR.EQ.1)GOTO 6
+      F=TF
+      FP=TFP
+C
+C     RUNGE-KUTTA INTEGRATION OF GO AND GPO INWARDS FROM TURN
+C     SEE FOX AND MAYERS 1968 PG 202
+C
+      R3=.333333333333333333333333333D0
+      H2=(RHO-TURN)/2D3
+      H=H2+H2
+      I2=999
+      ETAH=ETA*H
+      S=ETAH/R-H2
+    5 RH2=R+H2
+      T=ETAH/RH2-H2
+      K1=H2*GP
+      M1=S*G
+      K2=H2*(GP+M1)
+      M2=T*(G+K1)
+      K3=H*(GP+M2)
+      M3=(T+T)*(G+K2)
+      K4=H2*(GP+M3)
+      RH=R+H
+      S=ETAH/RH-H2
+      M4=S*(G+K3)
+      G=G+(K1+K2+K2+K3+K4)*R3
+      GP=GP+(M1+M2+M2+M3+M4)*R3
+      R=RH
+      I2=I2-1
+      IF(DABS(GP).GT.D1MACH(2))GOTO 7
+      IF(I2.GE.0)GOTO 5
+      W=1D0/(FP*G-F*GP)
+C
+C     RENORMALISE FO,FPO
+C
+    6 GO=G
+      GPO=GP
+      FPO=FP*W
+      FO=F*W
+      RETURN
+    7 CONV=.FALSE.
+      FO=0D0
+      FPO=0D0
+      GO=0D0
+      GPO=0D0
+      RETURN
+      END
+      SUBROUTINE WKB(DRHO,NPAR,DF,DG)
+      IMPLICIT DOUBLE PRECISION(D)
+      COMMON/B1/DETA1,DK1,DETA2,DK2,DT1,DT2,DT3,DT4,
+     *          L1,L2,LAMBDA,IACC,IWKB1,IWKB2
+      COMMON/B2/D1,D2,D3,D4,D5,D6,D7,D8,D9,D10,D11,D12,D13,
+     *          D14,D15,D16,D17,D18,D19,D20,D21,D22,D23,D24,D25,D26
+C
+C     WKB APPROXIMATION OF COULOMBFUNCTIONS
+C
+      DATA DA1,DA2/.83333333333333333333333D-1,
+     *             .16666666666666666666666D0/
+      IF(NPAR.EQ.2)GOTO 2
+      IF(L1.EQ.0)GOTO 1
+      DR=DRHO*(DRHO-D1)-D8
+      DRS=DSQRT(DR)
+      DRSR=DR*DRS
+      DX=DRHO+D7
+      DX=D2+(D6+D3*DX*DX/DR)/DRHO
+      DX=DX/DRSR+DRS/DRHO
+      DFIE=(D5-DR*D13)*(DRHO+D7)/DRSR
+      DFIE=DFIE+D12-D10*DATAN((DRHO*D11+D9)/DRS)
+      DFIE=DRS-DFIE+D4-DA2/DRS-DETA1*DLOG(DRHO-DETA1+DRS)
+      GOTO 4
+    1 DRSR=DRHO-D1
+      DR=DRHO*DRSR
+      DRS=DSQRT(DR)
+      DX=(D2+D3/DRSR)/(DR*DRS)+DRS/DRHO
+      DFIE=DA1+D6*(DRS-DRHO)-D5/DRSR
+      DFIE=DRS+D4+DFIE/DRS-DETA1*DLOG(DRHO-DETA1+DRS)
+      GOTO 4
+    2 IF(L2.EQ.0)GOTO 3
+      DR=DRHO*(DRHO-D14)-D21
+      DRS=DSQRT(DR)
+      DRSR=DR*DRS
+      DX=DRHO+D20
+      DX=D15+(D19+D16*DX*DX/DR)/DRHO
+      DX=DX/DRSR+DRS/DRHO
+      DFIE=(D18-DR*D26)*(DRHO+D20)/DRSR
+      DFIE=DFIE+D25-D23*DATAN((DRHO*D24+D22)/DRS)
+      DFIE=DRS-DFIE+D17-DA2/DRS-DETA2*DLOG(DRHO-DETA2+DRS)
+      GOTO 4
+    3 DRSR=DRHO-D14
+      DR=DRHO*DRSR
+      DRS=DSQRT(DR)
+      DX=(D15+D16/DRSR)/(DR*DRS)+DRS/DRHO
+      DFIE=DA1+D19*(DRS-DRHO)-D18/DRSR
+      DFIE=DRS+D17+DFIE/DRS-DETA2*DLOG(DRHO-DETA2+DRS)
+C
+    4 DX=DSQRT(DX)
+      DF=DSIN(DFIE)/DX
+      DG=DCOS(DFIE)/DX
+      RETURN
+      END
+      SUBROUTINE F01LBF(N, M1, M2, A, IA, AL, IL, IN, IV, IFAIL)
+C     MARK 8 RELEASE. NAG COPYRIGHT 1979.
+C
+C     PDK, DNAC, NPL, TEDDINGTON. JUNE 1976.
+C     NPL DNAC LIBRARY SUBROUTINE BANDLU.
+C     REVISED BY N.A.G. CENTRAL OFFICE, 1979.
+C
+C     LU DECOMPOSITION OF A BAND MATRIX A WITH M1 SUB AND M2 SUPER-
+C     DIAGONALS. THE MATRIX A IS PRESENTED AS AN IW*N ARRAY
+C     WITH EACH ROW TOP JUSTIFIED, WHERE IW=MIN(N,M1+M2+1).
+C     L AND U ARE FOUND USING GAUSSIAN
+C     ELIMINATION WITH PARTIAL PIVOTING. U IS OVERWRITTEN ON A, THE
+C     DIAGONAL ELEMENTS BEING STORED AS THEIR RECIPROCALS AND L IS
+C     STORED AS A SEPARATE N*M1 MATRIX AL. THE ARRAY AL MUST
+C     HAVE DIMENSIONS AT LEAST N*1 IN THE CALLING PROGRAM
+C     IF M1 IS ZERO. DETAILS OF THE PIVOTING ARE
+C     STORED IN THE VECTOR IN WHICH IS SUCH THAT IN(I)=K IF ROWS I
+C     AND K WERE INTERCHENGED AT THE ITH MAJOR STEP.
+C     IA AND IL ARE THE ROW DIMENSIONS OF A AND AL IN THE
+C     CALLING PROGRAM.
+C
+C     .. SCALAR ARGUMENTS ..
+      INTEGER IA, IFAIL, IL, IV, M1, M2, N
+C     .. ARRAY ARGUMENTS ..
+      DOUBLE PRECISION A(IA,N), AL(IL,N)
+      INTEGER IN(N)
+C     ..
+C     .. LOCAL SCALARS ..
+      DOUBLE PRECISION SRNAME
+      DOUBLE PRECISION EPS, ONE, X, Y, ZERO
+      INTEGER I, IK, IR, ISAVE, IW, IWW, J, JR, K, M
+C     .. FUNCTION REFERENCES ..
+      DOUBLE PRECISION X02AAF
+      INTEGER P01AAF
+C     ..
+      DATA SRNAME /8H F01LBF /, ZERO /0.D0/, ONE /1.D0/
+      ISAVE = IFAIL
+      IFAIL = 1
+      IV = 0
+      EPS = X02AAF(0.D0)
+      IW = MIN0(M1+M2+1,N)
+      IF (N.LT.1 .OR. M1.LT.0 .OR. M1.GT.N-1 .OR. M2.LT.0 .OR.
+     * M2.GT.N-1 .OR. IA.LT.IW .OR. IL.LT.1 .OR. IL.LT.M1) GO TO 380
+      IFAIL = 2
+      M = M2 + 1
+      K = IW - M2 - 1
+      IF (K.LE.0) GO TO 60
+      DO 40 I=1,K
+         M = M + 1
+         DO 20 J=M,IW
+            A(J,I) = ZERO
+   20    CONTINUE
+   40 CONTINUE
+   60 M = N - IW + M1 + 2
+      J = IW + 1
+      IF (M.GT.N) GO TO 120
+      DO 100 I=M,N
+         J = J - 1
+         DO 80 K=J,IW
+            A(K,I) = ZERO
+   80    CONTINUE
+  100 CONTINUE
+C
+C     ZEROS INSERTED.
+C
+  120 DO 180 I=1,N
+         X = ZERO
+         DO 140 J=1,IW
+            X = X + DABS(A(J,I))
+  140    CONTINUE
+         IF (X.GT.ZERO) GO TO 160
+         IR = I
+         GO TO 360
+  160    AL(1,I) = ONE/X
+  180 CONTINUE
+C
+C     ROW NORMS OF A CALCULATED AND THEIR RECIPROCALS
+C     STORED IN FIRST COLUMN OF AL.
+C
+      IFAIL = 3
+      DO 340 IR=1,N
+         X = ZERO
+         M = MIN0(N,IR+M1)
+         IWW = MIN0(IW,N-IR+1)
+         DO 200 I=IR,M
+            Y = DABS(A(1,I))*AL(1,I)
+            IF (Y.LE.X) GO TO 200
+            X = Y
+            J = I
+  200    CONTINUE
+         IF (X.LT.EPS) GO TO 360
+         IN(IR) = J
+C
+C     (IR)TH PIVOT ELEMENT SELECTED.
+C
+         IF (J.EQ.IR) GO TO 240
+         DO 220 I=1,IWW
+            X = A(I,IR)
+            A(I,IR) = A(I,J)
+            A(I,J) = X
+  220    CONTINUE
+         AL(1,J) = AL(1,IR)
+C
+C     ROWS IR AND J INTERCHANGED.
+C
+  240    JR = IR + 1
+         Y = ONE/A(1,IR)
+         IF (JR.GT.M) GO TO 320
+         DO 300 I=JR,M
+            X = A(1,I)*Y
+            IF (IWW.LT.2) GO TO 280
+            DO 260 J=2,IWW
+               A(J-1,I) = A(J,I) - X*A(J,IR)
+  260       CONTINUE
+  280       IK = I - IR
+            AL(IK,IR) = X
+            A(IWW,I) = ZERO
+  300    CONTINUE
+  320    A(1,IR) = Y
+  340 CONTINUE
+C
+C     ELIMINATION COMPLETED.
+C
+      IFAIL = 0
+      RETURN
+  360 A(1,IR) = ZERO
+      IV = IR
+  380 IFAIL = P01AAF(ISAVE,IFAIL,SRNAME)
+      RETURN
+      END
+      SUBROUTINE F04LDF(N, M1, M2, IR, A, IA, AL, IL, IN, B, IB,
+     * IFAIL)
+C     MARK 8 RELEASE. NAG COPYRIGHT 1979.
+C
+C     PDK, DNAC, NPL, TEDDINGTON. JUNE 1976.
+C     NPL DNAC LIBRARY SUBROUTINE BANSOL.
+C     REVISED BY N.A.G. CENTRAL OFFICE, 1979.
+C
+C     SOLUTION OF THE BAND EQUATIONS AX=B WHERE A,AL AND IN
+C     ARE AS SUPPLIED BY SUBROUTINE F01LBF AND B IS AN N*IR MATRIX.
+C     ALTHOUGH B MUST BE A TWO-DIMENSIONAL MATRIX IT IS PERMISSIBLE
+C     TO PUT IR=1. IA,IL AND IB ARE THE ROW DIMENSIONS OF A, AL AND
+C     B IN THE CALLING PROGRAM. X IS OVERWRITTEN ON B.
+C
+C     .. SCALAR ARGUMENTS ..
+      INTEGER IA, IB, IFAIL, IL, IR, M1, M2, N
+C     .. ARRAY ARGUMENTS ..
+      DOUBLE PRECISION A(IA,N), AL(IL,N), B(IB,IR)
+      INTEGER IN(N)
+C     ..
+C     .. LOCAL SCALARS ..
+      DOUBLE PRECISION SRNAME
+      DOUBLE PRECISION X, Y
+      INTEGER I, II, IK, IW, J, JJ, K, KK, M
+C     .. FUNCTION REFERENCES ..
+      INTEGER P01AAF
+C     ..
+      DATA SRNAME /8H F04LDF /
+      IW = MIN0(M1+M2+1,N)
+      IF (N.LT.1 .OR. M1.LT.0 .OR. M1.GT.N-1 .OR. M2.LT.0 .OR.
+     * M2.GT.N-1 .OR. IA.LT.IW .OR. IL.LT.1 .OR. IL.LT.M1 .OR.
+     * IB.LT.N) GO TO 160
+      M = M1
+      DO 60 K=1,N
+         IK = K + 1
+         M = MIN0(N,M+1)
+         J = IN(K)
+         DO 40 JJ=1,IR
+            X = B(J,JJ)
+            B(J,JJ) = B(K,JJ)
+            B(K,JJ) = X
+            IF (IK.GT.M) GO TO 40
+            DO 20 I=IK,M
+               II = I - K
+               B(I,JJ) = B(I,JJ) - X*AL(II,K)
+   20       CONTINUE
+   40    CONTINUE
+   60 CONTINUE
+C
+C     FORWARD SUBSTITUTION COMPLETED.
+C
+      DO 140 K=1,N
+         M = MIN0(IW,K)
+         I = N + 1 - K
+         II = I - 1
+         Y = A(1,I)
+         DO 120 JJ=1,IR
+            X = B(I,JJ)
+            IF (M.EQ.1) GO TO 100
+            DO 80 J=2,M
+               KK = J + II
+               X = X - A(J,I)*B(KK,JJ)
+   80       CONTINUE
+  100       B(I,JJ) = X*Y
+  120    CONTINUE
+  140 CONTINUE
+C
+C     BACKWARD SUBSTITUTION COMPLETED.
+C
+      IFAIL = 0
+      RETURN
+  160 IFAIL = P01AAF(IFAIL,1,SRNAME)
+      RETURN
+      END
+      INTEGER FUNCTION P01AAF(IFAIL, ERROR, SRNAME)
+C     MARK 1 RELEASE.  NAG COPYRIGHT 1971
+C     MARK 3 REVISED
+C     MARK 4A REVISED, IER-45
+C     MARK 4.5 REVISED
+C     MARK 7 REVISED (DEC 1978)
+C     RETURNS THE VALUE OF ERROR OR TERMINATES THE PROGRAM.
+      INTEGER ERROR, IFAIL, NOUT
+      DOUBLE PRECISION SRNAME
+C     TEST IF NO ERROR DETECTED
+      IF (ERROR.EQ.0) GO TO 20
+C     DETERMINE OUTPUT UNIT FOR MESSAGE
+      CALL X04AAF (0,NOUT)
+C     TEST FOR SOFT FAILURE
+      IF (MOD(IFAIL,10).EQ.1) GO TO 10
+C     HARD FAILURE
+      IF (NOUT) 30,30,40
+30    WRITE(6,99999) SRNAME,ERROR
+      STOP
+40    WRITE (NOUT,99999) SRNAME, ERROR
+C      LOCK NOUT
+      STOP
+C     SOFT FAIL
+C     TEST IF ERROR MESSAGES SUPPRESSED
+   10 IF (MOD(IFAIL/10,10).EQ.0) GO TO 20
+      IF (NOUT) 50,50,60
+50    WRITE(6,99999) SRNAME,ERROR
+C     STOP
+      GO TO 20
+60    WRITE (NOUT,99999) SRNAME, ERROR
+C     LOCK NOUT
+   20 P01AAF = ERROR
+      RETURN
+99999 FORMAT (1H0, 38HERROR DETECTED BY NAG LIBRARY ROUTINE , A8,
+     * 11H - IFAIL = , I5//)
+      END
+      DOUBLE PRECISION FUNCTION X02AAF(X)
+C     NAG COPYRIGHT 1975
+C     MARK 4.5 RELEASE
+      DOUBLE PRECISION X
+C     * EPS *
+C     RETURNS THE VALUE EPS WHERE EPS IS THE SMALLEST
+C     POSITIVE
+C     NUMBER SUCH THAT 1.0 + EPS > 1.0
+C     THE X PARAMETER IS NOT USED
+C     FOR B 7700 SP      FOR CDC SP         FOR IBM DP
+C     X02AAF=2.0**(-37); X02AAF=2.0**(-56); X02AAF=2.0**(-56)
+      X02AAF=2.0**(-56)
+      RETURN
+      END
+      SUBROUTINE X04AAF(I,NERR)
+C     MARK 7 RELEASE. NAG COPYRIGHT 1978
+C      MARK 7C REVISED IER-190 (MAY 1979)
+C     IF I = 0, SETS NERR TO CURRENT ERROR MESSAGE UNIT NUMBER
+C     (STORED IN NERR1).
+C     IF I = 1, CHANGES CURRENT ERROR MESSAGE UNIT NUMBER TO
+C     VALUE SPECIFIED BY NERR.
+C
+C     *** NOTE ***
+C     THIS ROUTINE ASSUMES THAT THE VALUE OF NERR1 IS SAVED
+C     BETWEEN CALLS.  IN SOME IMPLEMENTATIONS IT MAY BE
+C     NECESSARY TO STORE NERR1 IN A LABELLED COMMON
+C     BLOCK /AX04AA/ TO ACHIEVE THIS.
+C
+C     .. SCALAR ARGUMENTS ..
+      INTEGER I, NERR
+C     ..
+C     .. LOCAL SCALARS ..
+      INTEGER NERR1
+C     ..
+      COMMON  /AX04AA/ NERR1
+      IF (NERR1.LE.0) NERR1 = 6
+      IF (I.EQ.0) NERR = NERR1
+      IF (I.EQ.1) NERR1 = NERR
+      RETURN
+      END

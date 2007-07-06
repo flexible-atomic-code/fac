@@ -1,0 +1,39 @@
+
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+INSTALL = @INSTALL@
+
+BINDIR = @prefix@/bin
+
+TOPDIR = @TOPDIR@
+
+CC = @CC@
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@ @FLIBS@
+
+ALL_CFLAGS = ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${LIBS}
+
+all: sfac scrm spol
+
+sfac: 	sfac.c stoken.c ${TOPDIR}/libfac.a
+	${CC} -o sfac sfac.c stoken.c ${ALL_CFLAGS}
+scrm: 	scrm.c stoken.c ${TOPDIR}/libfac.a
+	$(CC) -o scrm scrm.c stoken.c ${ALL_CFLAGS}
+spol: 	spol.c stoken.c ${TOPDIR}/libfac.a
+	$(CC) -o spol spol.c stoken.c ${ALL_CFLAGS}
+
+install:
+	${INSTALL} -d ${BINDIR}
+	${INSTALL} sfac ${BINDIR}
+	${INSTALL} scrm ${BINDIR}
+	${INSTALL} spol ${BINDIR}
+
+clean:
+	rm -rf *.o *~ sfac scrm spol
+
+
+

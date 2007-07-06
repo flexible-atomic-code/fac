@@ -1,0 +1,21 @@
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+FC = @F77@
+FFLAGS = @FFLAGS@
+
+TOPDIR = @TOPDIR@
+
+SRC = intexp.f ionis.f recomb.f recomb_Fe.f cfit.f colfit.f phfit2.f rrfit.f drfit.f nrrfit.f ndrfit.f beli.f
+
+OBJS = ${SRC:.f=.o}
+
+.f.o: 
+	$(FC) -c ${FFLAGS} $<
+
+ionis: $(OBJS)
+	ar r ${TOPDIR}/libfac.a $(OBJS)
+
+clean:
+	rm -f *.o *.a *~

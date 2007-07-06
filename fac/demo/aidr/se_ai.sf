@@ -1,0 +1,22 @@
+# calculate the autoionization rates for Ne-like Se.
+
+SetAtom('Se')
+
+# configurations for the F-like ion
+Closed('1s')
+Closed('2s')
+Config('2p5', group = 'n2')
+
+# configurations of doubly excited Ne-like ion
+Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
+
+ConfigEnergy(0)
+OptimizeRadial('n33')
+ConfigEnergy(1)
+Structure('se.lev.b', ['n2'])
+Structure('se.lev.b', ['n33'])
+MemENTable('se.lev.b')
+PrintTable('se.lev.b', 'se.lev', 1)
+
+AITable('se.ai.b', ['n33'], ['n2'])
+PrintTable('se.ai.b', 'se.ai', 1)

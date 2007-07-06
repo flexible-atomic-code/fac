@@ -1,0 +1,21 @@
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+FC = @F77@
+FFLAGS = @FFLAGS@
+
+TOPDIR = @TOPDIR@
+
+SRC = dqpsrt.f dqk15i.f dqelg.f dqagie.f dqagi.f dqags.f dqagse.f dqk21.f dqng.f
+
+OBJS = ${SRC:.f=.o}
+
+.f.o: 
+	$(FC) -c ${FFLAGS} $<
+
+quadpack: $(OBJS)
+	ar r ${TOPDIR}/libfac.a $(OBJS)
+
+clean:
+	rm -f *.o *.a *~
