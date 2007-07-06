@@ -654,6 +654,20 @@ int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
   return 0;
 }
  
+double BEScale(int k, double e) {
+  double z, a, b, c;
+
+  z = GetAtomicNumber();
+  a = MeanPotential(k, k);
+  b = RadialMoments(-1, k, k);
+  c = -a/b;
+  a = GetOrbital(k)->energy - a;
+  if (c >= z) c = z;
+  c = (z - c)/(z + c);
+  c *= (1.0 + a/e);
+  return c;
+}
+
 int IonizeStrengthUTA(double *qku, double *qkc, double *te, 
 		      int b, int f) {
   INTERACT_DATUM *idatum;
@@ -662,12 +676,7 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
   double bethe, b0, c, cmax, qke[MAXNUSR], sigma[MAXNUSR];
   int ns, nqk, ip, i, j;
   double tol, x[MAXNE], logx[MAXNE], es;
-  
-  
-  c = GetResidualZ()-1.0;
-  es = GetAtomicNumber();
-  es = (es - c)/(es + c);
-
+    
   lev1 = GetLevel(b);
   lev2 = GetLevel(f);
   *te = lev2->energy - lev1->energy;
@@ -717,6 +726,8 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
     }
     CIRadialQkBED(qku, &bethe, &b0, klb, logx, qke, qkc, *te);
     if (qk_mode == QK_BED) {
+      kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+      es = BEScale(kb, *te);
       b0 = ((4.0*PI)/(*te))*qb*(lev1->ilev+1.0) - b0;      
       for (j = 0; j < n_egrid; j++) {
 	qku[j] = qku[j]*logx[j] + 
@@ -792,14 +803,12 @@ int IonizeStrength(double *qku, double *qkc, double *te,
   LEVEL *lev1, *lev2;
   ORBITAL *orb;
   ANGULAR_ZFB *ang;
-  double bethe, b0, c, cmax, qke[MAXNUSR], sigma[MAXNUSR];
-  int nz, j0, j0p, kl0, kl, kb, kbp, nq, nqk;
+  double bethe, b0, c, c0, cmax, qke[MAXNUSR], sigma[MAXNUSR];
+  int nz, j0, j0p, kl0, kl, kb, kbp, nq, nqk, kb0;
   double tol, x[MAXNE], logx[MAXNE], es;
 
-  c = GetResidualZ()-1.0;
-  es = GetAtomicNumber();
-  es = (es - c)/(es + c);
   cmax = 0.0;
+  c0 = 0.0;
   if (qk_mode == QK_CB) {
     nqk = NPARAMS;
     lev1 = GetLevel(b);
@@ -849,6 +858,7 @@ int IonizeStrength(double *qku, double *qkc, double *te,
     }
     CIRadialQkBED(qku, &bethe, &b0, kl0, logx, qke, qkc, *te);
     if (qk_mode == QK_BED) {
+      kb0 = -1;
       for (i = 0; i < nz; i++) {
 	kb = ang[i].kb;
 	j0 =GetOrbital(kb)->kappa;
@@ -861,10 +871,14 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 	  c = ang[i].coeff*ang[ip].coeff;
 	  if (ip != i) {
 	    c *= 2.0;
+	  } else if (c > c0) {
+	    c0 = c;
+	    kb0 = kb;
 	  }
 	  cmax += c;
 	}
       }
+      es = BEScale(kb0, *te);
       b0 = ((4.0*PI)/(*te))*cmax - b0;
       for (j = 0; j < n_egrid; j++) {
 	c = b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
@@ -1431,6 +1445,7 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
     }
   }
 
+
   nz = AngularZFreeBound(&ang, f, b);
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
@@ -1451,8 +1466,11 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
       }
     }
   }
-  free(ang);
+  if (nz <= 0) {
+    return -1;
+  }
 
+  free(ang);
   rqk = qkc;
   i = 0;
   for (m1 = -j1; m1 <= 0; m1 += 2) {

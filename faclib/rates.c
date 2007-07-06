@@ -132,7 +132,6 @@ static double RateIntegrand(double *e) {
   } else {
     x = a*b;
   }
-
   return x;
 }
 /* provide fortran access with cfortran.h */

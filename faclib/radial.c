@@ -940,6 +940,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
+  fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   if (n != 0) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
@@ -2030,6 +2031,43 @@ int ResidualPotential(double *s, int k0, int k1) {
   }
   *p = *s;
   return 0;
+}
+
+double MeanPotential(int k0, int k1) {
+  int i;
+  ORBITAL *orb1, *orb2;
+  double z, *p1, *p2, *q1, *q2;
+
+  orb1 = GetOrbitalSolved(k0);
+  orb2 = GetOrbitalSolved(k1);
+  if (!orb1 || !orb2) return -1;
+  if (orb1->wfun == NULL || orb2->wfun == NULL) {
+    return 0.0;
+  }
+
+  if (orb1->n < 0 || orb2->n < 0) {
+    p1 = Large(orb1);
+    p2 = Large(orb2);
+    q1 = Small(orb1);
+    q2 = Small(orb2);
+    for (i = potential->ib; i <= potential->ib1; i++) {
+      z = potential->U[i];
+      z += potential->Vc[i];
+      _yk[i] = z;
+      _yk[i] *= potential->dr_drho[i];
+      _yk[i] *= p1[i]*p2[i] + q1[i]*q2[i];
+    }
+    z = Simpson(_yk, potential->ib, potential->ib1);
+  } else {
+    for (i = 0; i < potential->maxrp; i++) {
+      z = potential->U[i];
+      z += potential->Vc[i];
+      _yk[i] = z;
+    }
+    Integrate(_yk, orb1, orb2, 1, &z, -1);
+  }
+
+  return z;
 }
 
 double RadialMoments(int m, int k1, int k2) {

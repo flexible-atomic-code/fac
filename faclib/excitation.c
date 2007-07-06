@@ -564,7 +564,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   if (IsOdd((m2+m3+k)/2)) {
     ty = -1;
   }
-  if (m == 0 && ty < 0) return -1;
+  if (m >= 0 && ty < 0) return -1;
 
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
   r *= (k+1.0)*(k+1.0);

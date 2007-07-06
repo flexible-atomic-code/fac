@@ -1099,6 +1099,23 @@ static PyObject *PDumpRates(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PModifyRates(PyObject *self, PyObject *args) {
+  char *fn;
+
+  if (scrm_file) {
+    SCRMStatement("ModifyRates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  
+  ModifyRates(fn);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
+
 static PyObject *PIonDensity(PyObject *self, PyObject *args) {
   char *fn;
   double d;
@@ -1277,6 +1294,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DRBranch", PDRBranch, METH_VARARGS},
   {"DRStrength", PDRStrength, METH_VARARGS},
   {"DumpRates", PDumpRates, METH_VARARGS},
+  {"ModifyRates", PModifyRates, METH_VARARGS},
   {"RydBranch", PRydBranch, METH_VARARGS},
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},

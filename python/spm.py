@@ -627,8 +627,17 @@ def get_complexes(nelectrons):
 def spectrum(neles, temp, den, population, pref,
              suf='b', osuf='', dir0 = '', dir1= '', nion = 3,
              dist = 0, params=[-1,-1], cascade = 0, rrc = 0, ion0 = 1, 
-             abund0 = 1.0, abundm = -1, abundp = -1,
-             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = []):
+             abund0 = 1.0, abundm = -1, abundp = -1, iprint=1,
+             ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = [],
+             t0=-1, t1=-1, d0=-1, d1=-1):
+    if t0 < 0:
+        t0 = 0
+    if t1 < 0:
+        t1 = len(temp)-1
+    if d0 < 0:
+        d0 = 0
+    if d1 < 0:
+        d1 = len(den)-1
     for k in neles:
         rate = get_complexes(k)
         if (nion > 1):
@@ -654,7 +663,7 @@ def spectrum(neles, temp, den, population, pref,
 
         print 'TR rates...'
         SetTRRates(0)
-        for i in range(len(temp)):
+        for i in range(t0, t1+1):
             if (abundm <= 0 or abundp <= 0):
                 p1 = population[i][k-1]
                 p2 = population[i][k]
@@ -698,11 +707,13 @@ def spectrum(neles, temp, den, population, pref,
                     print 'AI rates...'
                     SetAIRates(0)
                 SetAbund(k-1, p1)
+            else:
+                SetAbund(k-1, 0.0)
             SetAbund(k, p2)
             if (nion == 3):
                 SetAbund(k+1, p3)
                 
-            for d in range(len(den)):
+            for d in range(d0, d1+1):
                 print 'Density = %10.3E'%den[d]
                 SetEleDensity(den[d])
                 SetIteration(eps)
@@ -724,8 +735,9 @@ def spectrum(neles, temp, den, population, pref,
 
                 RateTable(rt_file, rate)
                 SpecTable(sp_file, rrc)
-                PrintTable(rt_file, rt_afile, 1)
-                PrintTable(sp_file, sp_afile, 1)
+                if iprint:
+                    PrintTable(rt_file, rt_afile, 1)
+                    PrintTable(sp_file, sp_afile, 1)
                 sys.stdout.flush()
                 ReinitCRM(3)
             ReinitCRM(2)
