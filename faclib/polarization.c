@@ -1038,11 +1038,11 @@ int PopulationTable(char *fn) {
     if (c < iter_accuracy) break;
   }
 
-  fprintf(f, "FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
-  fprintf(f, "Energy  = %-12.5E\n", params.energy);
-  fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
-  fprintf(f, "Density = %-12.5E\n", params.density);
-  fprintf(f, "IDR     = %-3d\n", params.idr);
+  fprintf(f, "# FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
+  fprintf(f, "# Energy  = %-12.5E\n", params.energy);
+  fprintf(f, "# ESigma  = %-12.5E\n", params.esigma);
+  fprintf(f, "# Density = %-12.5E\n", params.density);
+  fprintf(f, "# IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
@@ -1123,12 +1123,12 @@ int Orientation(char *fn, double etrans) {
   }    
 
   if (f) {
-    fprintf(f, "FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
-    fprintf(f, "Energy  = %-12.5E\n", params.energy);
-    fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
-    fprintf(f, "ETrans  = %-12.5E\n", params.etrans);
-    fprintf(f, "Density = %-12.5E\n", params.density);
-    fprintf(f, "IDR     = %-3d\n", params.idr);
+    fprintf(f, "# FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
+    fprintf(f, "# Energy  = %-12.5E\n", params.energy);
+    fprintf(f, "# ESigma  = %-12.5E\n", params.esigma);
+    fprintf(f, "# ETrans  = %-12.5E\n", params.etrans);
+    fprintf(f, "# Density = %-12.5E\n", params.density);
+    fprintf(f, "# IDR     = %-3d\n", params.idr);
     fprintf(f, "\n");
     for (i = 0; i < nlevels; i++) {
       fprintf(f, "%5d ", i);
@@ -1285,12 +1285,12 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
     return -1;
   }
   
-  fprintf(f, "FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
-  fprintf(f, "Energy  = %-12.5E\n", params.energy);
-  fprintf(f, "ESigma  = %-12.5E\n", params.esigma);
-  fprintf(f, "ETrans  = %-12.5E\n", params.etrans);
-  fprintf(f, "Density = %-12.5E\n", params.density);
-  fprintf(f, "IDR     = %-3d\n", params.idr);
+  fprintf(f, "# FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
+  fprintf(f, "# Energy  = %-12.5E\n", params.energy);
+  fprintf(f, "# ESigma  = %-12.5E\n", params.esigma);
+  fprintf(f, "# ETrans  = %-12.5E\n", params.etrans);
+  fprintf(f, "# Density = %-12.5E\n", params.density);
+  fprintf(f, "# IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
   for (i = 0; i < ntr; i++) {
     i1 = tr_rates[i].upper;

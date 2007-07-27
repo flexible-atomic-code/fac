@@ -367,7 +367,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
       if (noex[i] == 0) {
 	if (1+tex[i] != 1) {
 	  a = fabs(1.0 - tdi[i]/tex[i]);
-	  if (a < pw_scratch.tolerance) noex[i] = 1;
+	  if (a < EPS10) noex[i] = 1;
 	}
       }
       if (noex[i] == 0) {
@@ -1218,7 +1218,6 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	      s *= r;
 	      sd *= r;
 	    }
-	
 	    for (iq = 0; iq < nq; iq++) { 
 	      rqt[iq] = 0.0; 
 	    }
@@ -1249,7 +1248,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
 	    r += qk[iq][i]; 
 	    rd += qk[iq][i];
 	    kl0 = pw_scratch.kl[i-1]; 
-	    kl1 = pw_scratch.kl[i];        
+	    kl1 = pw_scratch.kl[i]; 
 	    for (j = kl0+1; j < kl1; j++) {       
 	      logj = LnInteger(j);
 	      UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
