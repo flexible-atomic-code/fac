@@ -1744,14 +1744,15 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
 		  e0*HARTREE_EV, b, tc);
 	}
 	fprintf(f2, "\n\n");
-      }
-      if (i0 >= 0 && i1 >= 0) {
-	free(r.params);
-	free(r.strength);
-	free(h.tegrid);
-	free(h.egrid);
-	free(h.usr_egrid);
-	goto DONE;
+      
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.params);
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);
+	  goto DONE;
+	}
       }
       free(r.params);
       free(r.strength);
@@ -1855,14 +1856,15 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 		  egy[t]*HARTREE_EV, cs, tc);
 	}
 	fprintf(f2, "\n\n");
-      }
-      if (i0 >= 0 && i1 >= 0) {
-	free(r.params);
-	free(r.strength);
-	free(h.tegrid);
-	free(h.egrid);
-	free(h.usr_egrid);
-	goto DONE;
+      
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.params);
+	  free(r.strength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);
+	  goto DONE;
+	}
       }
       free(r.params);
       free(r.strength);

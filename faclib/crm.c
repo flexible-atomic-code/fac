@@ -3645,7 +3645,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (int *) ArrayGet(&linetype, 0);
-      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %11.4E\n", 
+      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E\n", 
 	      nele, rp->lower, rp->upper, *tt, rp->energy, rpx->sdev, rp->strength);
     }
   } else {
@@ -3661,7 +3661,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	tt = (int *) ArrayGet(&linetype, i);
 	e = rp->energy;
 	if (fmin < 0 || rp->strength*e > smax) {
-	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %11.4E\n", 
+	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E\n", 
 		  nele, rp->lower, rp->upper, *tt, e, rpx->sdev, rp->strength);
 	}
       }
