@@ -2361,14 +2361,16 @@ form, the first argument must be a group name instead of a configuration. It
 takes one or more strings for the configuration specification. A configuration
 \var{c} is a string comprised of one or more non-relativistic or relativistic
 shells in spectroscopic notation separated by white spaces. e.g.,
-\key{2p+3} is a $2p_{3/2}$ shell with 3 electrons. If a \key{*} is given
+\key{2[p+]3} is a $2p_{3/2}$ shell with 3 electrons. If a \key{*} is given
 instead of the orbital angular momentum symbol, configurations with all
 legitimate values are generated. It is also possible to use \key{[s,p,d]} to
 indicate that the orbital angular momentum may take $s$, $p$, or $d$
 values. For $l > 20$, no spectroscopic symbol is available, it is specified as
 [$l$] such as [21,22] for $l$ = 21 and 22 shells. This numerical notation also
 works for $l \le 20$ shells, for which spectroscopic symbols \key{s, p, d, f,
-g, h, i, k, l, m, n, o, q, r, t, u, v, w, x, y, z} are available. 
+g, h, i, k, l, m, n, o, q, r, t, u, v, w, x, y, z} are available. The bracket
+for the orbital angular momentum can be omitted if it comprises of a single
+character. Otherwise, the bracket must be present.
 \end{fundesc}
 
 \begin{fundesc}{ConfigEnergy}{m\opt{, n\opt{, g, ...}}}

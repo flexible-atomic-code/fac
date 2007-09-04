@@ -1,7 +1,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 
-static char *rcsid="$Id: mbpt.c,v 1.13 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -1247,9 +1247,15 @@ void FixTotalJ(int ns, SHELL_STATE *st, SHELL *s, CONFIG *c, int m) {
       st[i].Nr = st0[j].Nr;
       j++;
     }
-    i++;    
+    i++;
   }
-  if (i < ns || j < c->n_shells) {
+  for (; i < ns; i++) {
+    st[i].shellJ = 0;
+    st[i].nu = 0;
+    st[i].Nr = 0;
+    st[i].totalJ = 0;
+  }
+  if (j < c->n_shells) {
     printf("Error in FixTotalJ, aborting\n");
     exit(1);
   }

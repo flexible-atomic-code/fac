@@ -3,7 +3,7 @@ from pfac.pol import *
 # setup the magnetic sublevel table and transition rates.
 SetMLevels('tb.en', 'tb.tr')
 # setup the magnetic sublevel excitation rates at E=12.24 keV (900 Ryd)
-SetEnergy(1.224E4, 0.0)
+SetEnergy(8E3, 12.0)
 SetMCERates('tb.ce')
 # calculates the magnetic sublevel populations.
 # results are output in pop.txt.
