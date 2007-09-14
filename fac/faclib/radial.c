@@ -654,7 +654,7 @@ int GetPotential(char *s) {
     norbs++;
   }
   for (; jmax >= 10; jmax--) {
-    if (fabs(w[jm]) > EPS6) break;
+    if (fabs(w[jmax]) > EPS6) break;
   }      
   for (i = 0; i < acfg->n_shells; i++) {
     k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
