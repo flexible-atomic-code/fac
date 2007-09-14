@@ -1465,11 +1465,27 @@ static PyObject *PCutMixing(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
+  int m, n;
+
+  if (sfac_file) {
+    SFACStatement("TransitionMBPT", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  n = -1;
+  if (!(PyArg_ParseTuple(args, "ii", &m, &n))) return NULL;
+  
+  TransitionMBPT(m, n);
+  return Py_None;
+}
+
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   PyObject *p, *q, *t, *r, *x, *y;
-  int i, n, n1, *ng1, n2, *ng2, *s, kmax;
+  int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
-  char *fn, *fn1, *gn, **fn2;
+  char *fn, *fn1, *tfn, *gn, **fn2;
   double d, c;
 
   if (sfac_file) {
@@ -1493,59 +1509,18 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }    
-  if (n == 2) {
-    if (!(PyArg_ParseTuple(args, "id", &n3, &c))) return NULL;
-    p = PyTuple_GetItem(args, 1);
+  if (n == 3) {
+    if (!(PyArg_ParseTuple(args, "iid", &i, &n3, &c))) return NULL;
+    p = PyTuple_GetItem(args, 2);
     if (PyInt_Check(p)) {
       onError("2nd argument must be a floating point number");
       return NULL;
     }
-    SetOptMBPT(n3, c);
+    SetOptMBPT(i, n3, c);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  if (n == 4 || n == 5) {
-    n3 = -1;
-    if (!(PyArg_ParseTuple(args, "ssOO|i", &fn, &fn1, &q, &p, &n3)))
-      return NULL;
-    n = DecodeGroupArgs(p, &s);
-    if (n <= 0) return NULL;
-    n1 = PyList_Size(q);
-    if (n1 <= 0) return NULL;
-    fn2 = malloc(sizeof(char *)*n1);
-    for (i = 0; i < n1; i++) {
-      t = PyList_GetItem(q, i);
-      if (!PyString_Check(t)) return NULL;
-      fn2[i] = PyString_AsString(t);
-    }
-    StructureReadMBPT(fn, fn1, n1, fn2, n, s, n3);
-    free(s);
-    free(fn2);
-
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-  if (n == 6 || n == 7) {
-    n3 = -1;
-    if (!(PyArg_ParseTuple(args, "ssOiOO|i",
-			   &fn, &fn1, &p, &kmax, &q, &r, &n3)))
-      return NULL;
-    
-    n = DecodeGroupArgs(p, &s);
-    if (n <= 0) return NULL;
-    
-    n1 = IntFromList(q, &ng1);
-    n2 = IntFromList(r, &ng2);
   
-    StructureMBPT1(fn, fn1, n, s, kmax, n1, ng1, n2, ng2, n3);
-
-    free(s);
-    if (n1 > 0) free(ng1);
-    if (n2 > 0) free(ng2);
-
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
   if (n == 10) { 
     c = 0.0;
     if (!(PyArg_ParseTuple(args, "sddOiOOOOs",
@@ -1572,6 +1547,56 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
+  t = PyTuple_GetItem(args, 2);
+  if (PyString_Check(t)) {
+    if (!(PyArg_ParseTuple(args, "sssOOi", &fn, &tfn, &fn1, &q, &p, &n3)))
+      return NULL;
+    n = DecodeGroupArgs(p, &s);
+    if (n <= 0) return NULL;
+    n1 = PyList_Size(q);
+    if (n1 <= 0) return NULL;
+    fn2 = malloc(sizeof(char *)*n1);
+    for (i = 0; i < n1; i++) {
+      t = PyList_GetItem(q, i);
+      if (!PyString_Check(t)) return NULL;
+      fn2[i] = PyString_AsString(t);
+    }
+    StructureReadMBPT(fn, tfn, fn1, n1, fn2, n, s, n3);
+    free(s);
+    free(fn2);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+  } else {
+    if (!(PyArg_ParseTuple(args, "ssOOOOi",
+			   &fn, &fn1, &p, &t, &q, &r, &n3)))
+      return NULL;
+    
+    n = DecodeGroupArgs(p, &s);
+    if (n <= 0) return NULL;
+    
+    n1 = IntFromList(q, &ng1);
+    n2 = IntFromList(r, &ng2);
+    if (PyList_Check(t)) {
+      nk = IntFromList(t, &nkm);
+    } else if (PyInt_Check(t)) {
+      nk = PyInt_AsLong(t)+1;
+      nkm = NULL;
+    } else {
+      return NULL;
+    }
+  
+    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3);
+
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+    if (nkm) free(nkm);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   return NULL;
 }  
 
@@ -4959,6 +4984,7 @@ static struct PyMethodDef fac_methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
+  {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"LevelInfo", PLevelInfor, METH_VARARGS},

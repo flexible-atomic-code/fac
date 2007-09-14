@@ -42,6 +42,7 @@ void SetVP(int n);
 void SetBreit(int n);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
+int GetAWGrid(double **a);
 int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 POTENTIAL *RadialPotential(void);
@@ -84,8 +85,10 @@ double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2);
 int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
 double ZerothEnergyConfig(CONFIG *cfg);
+double ZerothResidualConfig(CONFIG *cfg);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
+void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1);
 
 /* routines for radial integral calculations */
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
@@ -121,6 +124,7 @@ int FreeGOSArray(void);
 
 double RadialMoments(int m, int k1, int k2);
 double MultipoleRadialNR(int m, int k1, int k2, int guage);
+int MultipoleRadialFRGrid(double **p, int m, int k1, int k2, int guage);
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int guage);
 double InterpolateMultipole(double aw2, int n, double *x, double *y);
 double *GeneralizedMoments(int k0, int k1, int m);

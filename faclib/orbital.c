@@ -911,8 +911,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     e *= 0.5;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound %d %d\n",
-	   nodes, nr);
+    printf("Max iteration before finding correct nodes in RadialBound %d %d %d\n",
+	   nodes, nr, i2);
     free(p);
     return -2;
   }

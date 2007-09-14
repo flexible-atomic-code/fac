@@ -2576,9 +2576,27 @@ static int PSortLevels(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PTransitionMBPT(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  int m, n;
+
+  if (argc == 1) {
+    m = atoi(argv[0]);
+    n = -1;
+  } else if (argc == 2) {
+    m = atoi(argv[0]);
+    n = atoi(argv[1]);
+    TransitionMBPT(m, n);
+  } else {
+    return -1;
+  }
+
+  return 0;
+}
+
 static int PStructureMBPT(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int i, n, *s, n1, *ng1, n2, *ng2, kmax;
+  int i, n, *s, n1, *ng1, n2, *ng2, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
   char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
@@ -2596,63 +2614,16 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     }
     return 0;
   }
-  if (argc == 2) {
+  if (argc == 3) {
     if (argt[0] != NUMBER) return -1;
     if (argt[1] != NUMBER) return -1;
-    n3 = atoi(argv[0]);
-    c = atof(argv[1]);
-    SetOptMBPT(n3, c);
+    if (argt[2] != NUMBER) return -1;
+    i = atoi(argv[0]);
+    n3 = atoi(argv[1]);
+    c = atof(argv[2]);
+    SetOptMBPT(i, n3, c);
     return 0;
   }
-  if (argc == 4 || argc == 5) {
-    if (argt[3] != LIST) return -1;
-    n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
-    if (n <= 0) return -1;
-    if (argt[2] != LIST) return -1;
-    n1 = DecodeArgs(argv[2], v, t, variables);
-    for (i = 0; i < n1; i++) {
-      if (t[i] != STRING) return -1;
-    }
-    if (n1 <= 0) return -1;
-    if (argc == 5) {
-      n3 = atoi(argv[4]);
-    } else {
-      n3 = -1;
-    }
-    StructureReadMBPT(argv[0], argv[1], n1, v, n, s, n3);
-    
-    free(s);
-    for (i = 0; i < n1; i++) {
-      free(v[i]);
-    }
-    
-    return 0;
-  }
-
-  if (argc == 6 || argc == 7) {
-    if (argt[2] != LIST) return -1;
-    n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
-    if (n <= 0) {
-      printf("First configuration group does not exist\n");
-      return -1;
-    }
-    kmax = atoi(argv[3]);
-  
-    n1 = IntFromList(argv[4], argt[4], variables, &ng1);
-    n2 = IntFromList(argv[5], argt[5], variables, &ng2);
-    
-    n3 = -1;
-    if (argc > 6) {
-      if (argt[6] != NUMBER) return -1;
-      n3 = atoi(argv[6]);
-    }
-    StructureMBPT1(argv[0], argv[1], n, s, kmax, n1, ng1, n2, ng2, n3);
-
-    free(s);
-    if (n1 > 0) free(ng1);
-    if (n2 > 0) free(ng2);
-  } 
-  
   if (argc == 10) {
     if (argt[1] != NUMBER) return -1;
     if (argt[2] != NUMBER) return -1;
@@ -2684,6 +2655,54 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
 
+  if (argt[2] == STRING) {
+    if (argt[4] != LIST) return -1;
+    n = DecodeGroupArgs(&s, 1, &(argv[4]), &(argt[4]), variables);
+    if (n <= 0) return -1;
+    if (argt[3] != LIST) return -1;
+    n1 = DecodeArgs(argv[3], v, t, variables);
+    for (i = 0; i < n1; i++) {
+      if (t[i] != STRING) return -1;
+    }
+    if (n1 <= 0) return -1;
+    n3 = atoi(argv[5]);
+    StructureReadMBPT(argv[0], argv[1], argv[2], n1, v, n, s, n3);
+    
+    free(s);
+    for (i = 0; i < n1; i++) {
+      free(v[i]);
+    }
+    
+    return 0;
+  } else {
+    if (argt[2] != LIST) return -1;
+    n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
+    if (n <= 0) {
+      printf("First configuration group does not exist\n");
+      return -1;
+    }
+    n1 = IntFromList(argv[4], argt[4], variables, &ng1);
+    n2 = IntFromList(argv[5], argt[5], variables, &ng2);
+    if (argt[3] == LIST) {
+      nk = IntFromList(argv[3], argt[3], variables, &nkm);
+    } else if (argt[3] == NUMBER) {
+      nk = atoi(argv[3]) + 1;
+      nkm = NULL;
+    } else {
+      return -1;
+    }
+    if (argt[6] != NUMBER) return -1;
+    n3 = atoi(argv[6]);
+
+    StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3);
+
+    free(s);
+    if (n1 > 0) free(ng1);
+    if (n2 > 0) free(ng2);
+    if (nkm) free(nkm);
+    return 0;
+  } 
+  
   return -1;
 }
 
@@ -3751,6 +3770,7 @@ static METHOD methods[] = {
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
+  {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
