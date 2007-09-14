@@ -3141,13 +3141,15 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       } else {
 	a[iz1] = ang;
 	pnz[iz1] = n;
-	if (n > 0) {
-	  ang = malloc(sizeof(ANGULAR_ZMIX)*n);
-	  memcpy(ang, a[iz1], sizeof(ANGULAR_ZMIX)*n);
-	  AngZSwapBraKet(n, ang, 0);
+	if (iz2 != iz1) {
+	  if (n > 0) {
+	    ang = malloc(sizeof(ANGULAR_ZMIX)*n);
+	    memcpy(ang, a[iz1], sizeof(ANGULAR_ZMIX)*n);
+	    AngZSwapBraKet(n, ang, 0);
+	  }
+	  a[iz2] = ang;
+	  pnz[iz2] = n;
 	}
-	a[iz2] = ang;
-	pnz[iz2] = n;
       }
     }
   }
@@ -3172,7 +3174,7 @@ int AngZSwapBraKet(int nz, ANGULAR_ZMIX *ang, int p) {
     k1 = GetOrbital(k1)->kappa;
     k0 = GetJFromKappa(k0);
     k1 = GetJFromKappa(k1);
-    if (IsOdd((k1-k0+p)/2)) ang[i].coeff = - ang[i].coeff;
+    if (IsOdd(abs(k1-k0+p)/2)) ang[i].coeff = - ang[i].coeff;
   }
   return 0;
 }
