@@ -2176,6 +2176,21 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetPotentialMode(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int m;
+  double h;
+
+  h = 1E31;
+  m = atoi(argv[0]);
+  if (argc > 1) {
+    h = atof(argv[1]);
+  }
+  SetPotentialMode(m, h);
+
+  return 0;
+}
+
 static int PSetRadialGrid(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   double rmin, ratio, asym;
@@ -3820,6 +3835,7 @@ static METHOD methods[] = {
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
   {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
+  {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecQkMode", PSetRecQkMode, METH_VARARGS},

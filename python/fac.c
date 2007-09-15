@@ -652,6 +652,25 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
   return NULL;
 }
  
+static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
+  int m;
+  double h;
+
+  if (sfac_file) {
+    SFACStatement("SetPotentialMode", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  h = 1E31;
+  if (!PyArg_ParseTuple(args, "i|d", &m, &h))
+    return NULL;
+
+  SetPotentialMode(m, h);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   double ratio, asym, rmin;
@@ -5037,6 +5056,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
   {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
+  {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecQkMode", PSetRecQkMode, METH_VARARGS},
