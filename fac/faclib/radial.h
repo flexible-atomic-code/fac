@@ -37,6 +37,7 @@ int GetBoundary(double *rb, double *b, int *nmax, double *dr);
 int SetBoundary(int nmax, double p, double bqp);
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
+void SetPotentialMode(int m, double h);
 void SetSE(int n);
 void SetVP(int n);
 void SetBreit(int n);

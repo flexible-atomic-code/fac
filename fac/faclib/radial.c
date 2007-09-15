@@ -46,6 +46,7 @@ static struct {
   int iset;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
 		      1.0, 1, 0, NULL, OPTPRINT, 0};
+
 static struct {
   int kl0;
   int kl1;
@@ -176,6 +177,19 @@ void SetSlaterCut(int k0, int k1) {
     slater_cut.kl1 = 2*k1;
   } else {
     slater_cut.kl1 = 1000000;
+  }
+}
+
+void SetPotentialMode(int m, double h) {
+  potential->mode = m;
+  if (h > 1e10) {
+    if ((m % 10) == 0) {
+      potential->hxs = 0.0;
+    } else {
+      potential->hxs = 0.65;
+    }
+  } else {
+    potential->hxs = h;
   }
 }
 
@@ -413,131 +427,101 @@ void AdjustScreeningParams(double *u) {
   }
   potential->lambda = log(2.0)/potential->rad[i];
 }
-   
-double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
-  int i, j, k1, k2, k, t, m, j1, j2, kl1, kl2;
-  ORBITAL *orb1, *orb2;
-  double large1, small1, large2, small2;
-  int norbs, kmin, kmax, jmax, jm;
-  double *u, *w, *v, w3j, a, b, c, r, d0, d1, d;
 
-  u = potential->U;
-  w = potential->W;
-  v = _dwork2;
+int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
+  int i, j, k1, j1, kl1, jmax, m, jm, md;
+  ORBITAL *orb1;
+  double large, small, a, b, c, d0, d1, d;
+  
+  if (potential->N < 1+EPS3) return -1;
+  md = potential->mode % 10;
 
-  for (j = 0; j < potential->maxrp; j++) {
-    w[j] = 0.0;
+  for (m = 0; m < potential->maxrp; m++) {
+    u[m] = 0.0;
+    w[m] = 0.0;
+    if (v) {
+      v[m] = 0.0;
+    }
   }
-
-  norbs = 0;
-  jmax = 0;
+  jmax = -1;
   for (i = 0; i < acfg->n_shells; i++) {
     k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
     if (k1 < 0) continue;
     orb1 = GetOrbital(k1);
     if (orb1->wfun == NULL) continue;
-    for (j = 0; j <= orb1->ilast; j++) {
-      large1 = Large(orb1)[j];
-      small1 = Small(orb1)[j];
-      w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
+    for (m = 0; m <= orb1->ilast; m++) {
+      large = Large(orb1)[m];
+      small = Small(orb1)[m];
+      w[m] += acfg->nq[i]*(large*large + small*small);
     }
-    if (jmax < orb1->ilast) jmax = orb1->ilast;
-    norbs++;
+    if (jmax < orb1->ilast) jmax = orb1->ilast;    
+  }
+  if (jmax < 0) return jmax;
+
+  for (i = 0; i < acfg->n_shells; i++) {
+    k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
+    if (k1 < 0) continue;
+    orb1 = GetOrbital(k1);
+    GetYk(0, _yk, orb1, orb1, k1, k1, -1);
+    for (m = 0; m <= jmax; m++) {    
+      u[m] += acfg->nq[i] * _yk[m];
+      if (w[m] && md == 0) {
+	large = Large(orb1)[m];
+	small = Small(orb1)[m];  
+	b = large*large + small*small;
+	a = _yk[m] * acfg->nq[i] * b/w[m];
+	u[m] -= a;
+      }
+    }
   }
 
-  for (j = 0; j < potential->maxrp; j++) {
-    u[j] = 0.0;
+  if (potential->hxs + 1.0 != 1.0) {
+    for (m = 0; m <= jmax; m++) {
+      a = w[m]*potential->rad[m];
+      a = -(potential->hxs * 0.64 * pow(a, 1.0/3.0));
+      u[m] += a;
+      if (v) v[m] += a;
+    }
   }
-  if (norbs && potential->N > 1+EPS3) {
-    for (i = 0; i < acfg->n_shells; i++) {
-      k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
-      if (k1 < 0) continue;
-      orb1 = GetOrbital(k1);
-      if (orb1->wfun == NULL) continue;
-      GetJLFromKappa(acfg->kappa[i], &j1, &kl1);
-      kmin = 0;
-      kmax = 2*j1;
-      for (k = kmin; k <= kmax; k += 2) {
-	t = k/2;
-	if (IsOdd(t)) continue;
-	GetYk(t, _yk, orb1, orb1, k1, k1, -1);
-	if (t > 0) {
-	  w3j = W3j(j1, k, j1, -1, 0, 1);
-	  w3j *= w3j*(j1+1.0)/j1;
-	} else {
-	  w3j = 0.0;
-	}
-	for (m = 1; m <= jmax; m++) {
-	  large1 = Large(orb1)[m];
-	  small1 = Small(orb1)[m];
-	  b = large1*large1 + small1*small1;
-	  if (t == 0) {	  
-	    u[m] += acfg->nq[i]*_yk[m];
-	    a = _yk[m]*b*acfg->nq[i];
-	    a /= w[m];
-	    u[m] -= a;
-	  } else {
-	    if (w3j+1.0 == 1.0) break;
-	    a = acfg->nq[i]*(acfg->nq[i]-1.0);
-	    a *= w3j*_yk[m]*b;
-	    a /= w[m];
-	    u[m] -= a;
-	  }
-	}
-      }
-      for (j = 0; j < i; j++) {
-	k2 = OrbitalExists(acfg->n[j], acfg->kappa[j], 0.0);
-	if (k2 < 0) continue;
-	orb2 = GetOrbital(k2);
-	if (orb2->wfun == NULL) continue;
-	GetJLFromKappa(acfg->kappa[j], &j2, &kl2);
-	kmin = abs(j1 - j2);
-	kmax = j1 + j2;
-	if (IsOdd(kmin)) kmin++;
-	for (k = kmin; k <= kmax; k += 2) {
-	  if (IsOdd((k+kl1+kl2)/2)) continue;
-	  t = k/2;
-	  GetYk(t, _yk, orb1, orb2, k1, k2, -1);
-	  w3j = W3j(j1, k, j2, -1, 0, 1);
-	  w3j *= w3j;
-	  if (w3j+1.0 == 1.0) continue;
-	  for (m = 1; m <= jmax; m++) {
-	    large1 = Large(orb1)[m];
-	    large2 = Large(orb2)[m];
-	    small1 = Small(orb1)[m];
-	    small2 = Small(orb2)[m];
-	    a = acfg->nq[i]*acfg->nq[j];
-	    a *= w3j*_yk[m]*(large1*large2+small1*small2);
-	    a /= w[m];
-	    u[m] -= a;
-	  }
-	}
-      }
+
+  if (md == 0) c = potential->N-1.0;
+  else c = potential->N;
+  for (jm = jmax; jm >= 10; jm--) {
+    if (fabs(w[jm]) > EPS6 && 
+	c > u[jm] &&
+	u[jm] > u[jm-1]) {
+      break;
     }
-    
-    u[0] = u[1];
-    for (jm = jmax; jm >= 10; jm--) {
-      if (fabs(w[jm]) > EPS6 && 
-	  potential->N-1.0 > u[jm] &&
-	  u[jm] > u[jm-1]) {
-	break;
-      }
-    }
-    d0 = log(potential->rad[jm-1]);
-    d1 = log(potential->rad[jm]);
-    a = log(potential->N-1.0 - u[jm-1]);
-    b = log(potential->N-1.0 - u[jm]);
-    d = (b-a)/(d1-d0);    
-    for (j = jm+1; j < potential->maxrp; j++) {
-      u[j] = d*(log(potential->rad[j]/potential->rad[jm])) + b;
-      u[j] = potential->N-1.0 - exp(u[j]);
-    }
-    if (potential->N > 1) {
-      for (j = jmax; j > 0; j--) {
-	if (fabs(u[j]-potential->N + 1.0) > EPS10) break;
-      }
-      potential->r_core = j+1;
-    }
+  }
+  d0 = log(potential->rad[jm-1]);
+  d1 = log(potential->rad[jm]);
+  a = log(c - u[jm-1]);
+  b = log(c - u[jm]);
+  d = (b-a)/(d1-d0);    
+  for (j = jm+1; j < potential->maxrp; j++) {
+    u[j] = d*(log(potential->rad[j]/potential->rad[jm])) + b;
+    u[j] = c - exp(u[j]);
+  }
+
+  for (m = jmax; m > 50; m--) {
+    if (fabs(u[m]-c) > EPS6) break;
+  }
+  potential->r_core = m+1;
+
+  return jmax;
+}
+
+double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
+  int jmax, i, j, k;
+  double *u, *w, *v, a, b, c, r;
+
+  u = potential->U;
+  w = potential->W;
+  v = _dwork2;
+
+  jmax = PotentialHX(acfg, u, NULL, w);
+
+  if (jmax > 0) {
     if (iter < 3) {
       r = 1.0;
       for (j = 0; j < potential->maxrp; j++) {
@@ -604,16 +588,11 @@ int GetPotential(char *s) {
   double large1, small1, large2, small2;
   int norbs, jmax, kmin, kmax;  
   FILE *f;
-  int i, j, k, k1, k2, t, m, j1, j2, kl1, kl2;
-  double *w, *v, *ve0, *ve1, w3j, a;
+  int i, j;
+  double *u, *v, *w;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
-
-  w = potential->W;
-  v = potential->dW;
-  ve0 = _dphase;
-  ve1 = _dphasep;
 
   f = fopen(s, "w");
   if (!f) return -1;
@@ -626,78 +605,13 @@ int GetPotential(char *s) {
   fprintf(f, "#    rb1 = %10.3E\n", potential->rad[potential->ib1]);
   fprintf(f, "#    bqp = %10.3E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
-  
-  for (j = 0; j < potential->maxrp; j++) {
-    w[j] = 0.0;
-    v[j] = -potential->Z[j]/potential->rad[j];
-    ve0[j] = 0.0;
-    ve1[j] = 0.0;
-  }
+  fprintf(f, "#   mode = %d\n", potential->mode);
+  fprintf(f, "#    HXS = %10.3E\n", potential->hxs);
 
-  norbs = 0;
-  jmax = 0;
-  for (i = 0; i < acfg->n_shells; i++) {
-    k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
-    if (k1 < 0) continue;
-    orb1 = GetOrbital(k1);
-    if (orb1->wfun == NULL) SolveDirac(orb1);
-    for (j = 0; j <= orb1->ilast; j++) {
-      large1 = Large(orb1)[j];
-      small1 = Small(orb1)[j];
-      w[j] += (large1*large1 + small1*small1)*acfg->nq[i];
-    }
-    GetYk(0, _yk, orb1, orb1, k1, k1, -1);
-    for (k = 0; k < potential->maxrp; k++) {
-      v[k] += _yk[k]*acfg->nq[i]/potential->rad[k];
-    }
-    if (jmax < orb1->ilast) jmax = orb1->ilast;
-    norbs++;
-  }
-  for (; jmax >= 10; jmax--) {
-    if (fabs(w[jmax]) > EPS6) break;
-  }      
-  for (i = 0; i < acfg->n_shells; i++) {
-    k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
-    if (k1 < 0) continue;
-    orb1 = GetOrbital(k1);
-    if (orb1->wfun == NULL) continue;
-    GetJLFromKappa(acfg->kappa[i], &j1, &kl1);
-    for (j = 0; j < i; j++) {
-      k2 = OrbitalExists(acfg->n[j], acfg->kappa[j], 0.0);
-      if (k2 < 0) continue;
-      orb2 = GetOrbital(k2);
-      if (orb2->wfun == NULL) continue;
-      GetJLFromKappa(acfg->kappa[j], &j2, &kl2);
-      kmin = abs(j1 - j2);
-      kmax = j1 + j2;
-      if (IsOdd(kmin)) kmin++;
-      for (k = kmin; k <= kmax; k += 2) {
-	if (IsOdd((k+kl1+kl2)/2)) continue;
-	t = k/2;
-	GetYk(t, _yk, orb1, orb2, k1, k2, -1);
-	w3j = W3j(j1, k, j2, -1, 0, 1);
-	w3j *= w3j;
-	if (w3j+1.0 == 1.0) continue;
-	for (m = 1; m <= jmax; m++) {
-	  large1 = Large(orb1)[m];
-	  large2 = Large(orb2)[m];
-	  small1 = Small(orb1)[m];
-	  small2 = Small(orb2)[m];
-	  a = acfg->nq[i]*acfg->nq[j];
-	  a *= w3j*_yk[m]*(large1*large2+small1*small2);
-	  a /= w[m];
-	  ve0[m] -= a;
-	}
-      }
-    }
-  }
-  ve0[0] = ve0[1];
-  for (k = 0; k < potential->maxrp; k++) {
-    w[k] = w[k]/(potential->rad[k]*potential->rad[k]);
-    w[k] = - pow(w[k], 1.0/3);
-    ve1[k] = w[k]*0.4235655;
-    ve0[k] /= potential->rad[k];
-  }
+  u = _zk;
+  w = potential->W;
+  v = potential->dW;
+  PotentialHX(acfg, u, v, w);
 
   fprintf(f, "# Mean configuration:\n");
   for (i = 0; i < acfg->n_shells; i++) {
@@ -705,10 +619,9 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
-	    potential->Vc[i]+potential->U[i], v[i]+ve1[i], 
-	    ve0[i], ve1[i], potential->uehling[i]);
+	    potential->Vc[i], potential->U[i], u[i], v[i]);
   }
 
   fclose(f);  
@@ -751,15 +664,70 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
   average_config.n_cfgs = 1;
   return 0;
 }
-    
+
+int OptimizeLoop(AVERAGE_CONFIG *acfg) {
+  double tol, a, b;
+  ORBITAL orb_old, *orb;
+  int i, k, iter, no_old;
+  
+  no_old = 0;
+  iter = 0;
+  tol = 1.0; 
+  while (tol > optimize_control.tolerance) {
+    if (iter > optimize_control.maxiter) break;
+    a = SetPotential(acfg, iter);
+    FreeYkArray();
+    tol = 0.0;
+    for (i = 0; i < acfg->n_shells; i++) {
+      k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
+      if (k < 0) {
+	orb_old.energy = 0.0;
+	orb = GetNewOrbital();
+	orb->kappa = acfg->kappa[i];
+	orb->n = acfg->n[i];
+	orb->energy = 1.0;
+	no_old = 1;	
+      } else {
+	orb = GetOrbital(k);
+	if (orb->wfun == NULL) {
+	  orb_old.energy = 0.0;
+	  orb->energy = 1.0;
+	  orb->kappa = acfg->kappa[i];
+	  orb->n = acfg->n[i];
+	  no_old = 1;	
+	} else {
+	  orb_old.energy = orb->energy; 
+	  if (orb->wfun) free(orb->wfun);
+	  no_old = 0;
+	}
+      }
+
+      if (SolveDirac(orb) < 0) {
+	return -1;
+      }
+      
+      if (no_old) { 
+	tol = 1.0;
+	continue;
+      } 
+      b = fabs(1.0 - orb_old.energy/orb->energy);
+      if (tol < b) tol = b;
+    }
+    if (optimize_control.iprint) {
+      printf("%4d %13.5E %13.5E\n", iter, tol, a);
+    }
+    if (tol < a) tol = a;
+    iter++;
+  }
+
+  return iter;
+}
+
+#define NXS 5
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
-  double tol;
-  ORBITAL orb_old, *orb;
-  int i, k, no_old;
-  double a, b, z;
-  int iter;
-  int *frozen;
+  double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS];
+  int iter, i, j, im, md;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -793,8 +761,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       return -1;
     }
   }
-
-  a = 0;
+  
+  a = 0.0;
   for (i = 0; i < acfg->n_shells; i++) {
     if (optimize_control.iprint) 
       printf("%d %d %f\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
@@ -805,6 +773,9 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
+    im = 0;
+  } else {
+    im = 1;
   }
 
   SetPotentialZ(potential, 0.0);
@@ -822,78 +793,82 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[potential->maxrp-1]);
   }
 
-  frozen = (int *) malloc(acfg->n_shells*sizeof(int));
-  for (i = 0; i < acfg->n_shells; i++) {
-    frozen[i] = 0;
-  }
-
-  no_old = 0;
-  iter = 0;
-  SetPotentialZ(potential, 0.0);
-  tol = 1.0; 
-  while (tol > optimize_control.tolerance) {
-    if (iter > optimize_control.maxiter) break;
-    a = SetPotential(acfg, iter);
-    FreeYkArray();
-    tol = 0.0;
-    for (i = 0; i < acfg->n_shells; i++) {
-      k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
-      if (k < 0) {
-	frozen[i] = 0;
-	orb_old.energy = 0.0;
-	orb = GetNewOrbital();
-	orb->kappa = acfg->kappa[i];
-	orb->n = acfg->n[i];
-	orb->energy = 1.0;
-	no_old = 1;	
-      } else {
-	orb = GetOrbital(k);
-	if (orb->wfun == NULL) {
-	  frozen[i] = 0;
-	  orb_old.energy = 0.0;
-	  orb->energy = 1.0;
-	  orb->kappa = acfg->kappa[i];
-	  orb->n = acfg->n[i];
-	  no_old = 1;	
-	} else {
-	  if (!frozen[i]) {
-	    orb_old.energy = orb->energy; 
-	    if (orb->wfun) free(orb->wfun);
-	    no_old = 0;
-	  } else {
-	    continue;
+  if (potential->mode/10 == 1) {
+    md = potential->mode % 10;
+    if (im == 0) {
+      a = 1.5/(NXS-1.0);
+      hxs[0] = potential->hxs - 0.75;
+      for (i = 1; i < NXS; i++) {
+	hxs[i] = hxs[i-1] + a;
+      }      
+      for (i = 0; i < NXS; i++) {
+	ReinitRadial(1);
+	potential->hxs = hxs[i];
+	iter = OptimizeLoop(acfg);
+	if (iter > optimize_control.maxiter) {
+	  printf("Maximum iteration reached in OptimizeRadial %d %d\n", i, iter);
+	  return -1;
+	}
+	if (ng > 0) {
+	  ehx[i] = 0.0;
+	  for (j = 0; j < ng; j++) {
+	    ehx[i] += TotalEnergyGroup(kg[j]);
 	  }
+	} else {
+	  ehx[i] = AverageEnergyAvgConfig(acfg);
+	}
+      }    
+    } else {
+      a = 0.5/(NXS-1.0);
+      b = potential->hxs;
+      hxs[0] = b - 0.25;
+      for (i = 1; i < NXS; i++) {
+	hxs[i] = hxs[i-1] + a;
+      }
+      iter = OptimizeLoop(acfg);
+      for (i = 0; i < NXS; i++) {
+	potential->hxs = hxs[i];
+	SetPotential(acfg, iter);
+	ReinitRadial(1);
+	ClearOrbitalTable(0);
+	if (ng > 0) {
+	  ehx[i] = 0.0;
+	  for (j = 0; j < ng; j++) {
+	    ehx[i] += TotalEnergyGroup(kg[j]);
+	  }
+	} else {
+	  ehx[i] = AverageEnergyAvgConfig(acfg);
 	}
       }
-      if (SolveDirac(orb) < 0) {
-	return -1;
+    }
+    
+    b = 0.001;
+    a = hxs[0];
+    emin = 1e10;
+    smin = 0.0;
+    while (a <= hxs[NXS-1]) {
+      UVIP3P(2, NXS, hxs, ehx, 1, &a, &c);
+      if (c < emin) {
+	emin = c;
+	smin = a;
       }
-      
-      if (no_old) { 
-	tol = 1.0;
-	continue;
-      } 
-      b = fabs(1.0 - orb_old.energy/orb->energy);
-      if (tol < b) tol = b;
+      a += b;
     }
-    if (optimize_control.iprint) {
-      printf("%4d %13.5E %13.5E\n", iter, tol, a);
-    }
-    if (tol < a) tol = a;
-    iter++;
+    
+    ReinitRadial(1);
+    potential->hxs = smin;
+    iter = OptimizeLoop(acfg);
+  } else {
+    iter = OptimizeLoop(acfg);
   }
-  
-  free(frozen);
+
   if (potential->uehling[0] == 0.0) {
     SetPotentialUehling(potential, qed.vp);
   }
-  if (iter > optimize_control.maxiter) {
-    printf("Maximum iteration reached in OptimizeRadial\n");
-    return 1;
-  }
 
-  return 0;
+  return iter;
 }      
+#undef NXS
 
 static double EnergyFunc(int *n, double *x) {
   double a;
@@ -2039,8 +2014,10 @@ void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1) {
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
   int i, j, n, kappa, np, kappap;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
-  double x, y, t, q, a, b, r, nq, nqp;
+  double x, y, t, q, a, b, r, nq, nqp, r0, r1;
  
+  r0 = 0.0;
+  r1 = 0.0;
   x = 0.0;
   for (i = 0; i < cfg->n_shells; i++) {
     n = cfg->n[i];
@@ -2098,9 +2075,12 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
     ResidualPotential(&y, k, k);
     a = GetOrbital(k)->energy;
     r = nq * (b + t + a + y);
+    r0 += nq*y;
+    r1 += nq*(b+t);
     x += r;
   }
 
+  /*printf("%12.5E %12.5E %15.8E\n", r0, r1, x);*/
   return x;
 }
 
@@ -4838,6 +4818,8 @@ int InitRadial(void) {
 		   MULTI_BLOCK6,MULTI_BLOCK6};
 
   potential = malloc(sizeof(POTENTIAL));
+  potential->mode = 0;
+  potential->hxs = 0.0;
   potential->flag = 0;
   potential->uehling[0] = 0.0;
   SetBoundary(0, 1.0, -1.0);

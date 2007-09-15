@@ -7,10 +7,11 @@
 #include "interpolation.h"
 
 typedef struct _POTENTIAL_ {
+  int mode;
   int flag;
   int r_core;
   int maxrp;
-  double ratio, asymp, rmin;
+  double hxs, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
