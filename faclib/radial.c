@@ -1874,6 +1874,100 @@ double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2) {
   return e;
 }
 
+/*
+** when enabled, qr_norm stores the shift of orbital energies for MBPT
+*/
+void ShiftOrbitalEnergy(CONFIG *cfg) {
+  int i, j;
+  ORBITAL *orb;
+  CONFIG c;
+  double e0, e1;
+
+  c.n_shells = cfg->n_shells+1;
+  c.shells = malloc(sizeof(SHELL)*c.n_shells);
+  memcpy(c.shells+1, cfg->shells, sizeof(SHELL)*cfg->n_shells);
+  c.shells[0].nq = 1;
+  c.shells[1].nq -= 1;
+  for (i = 0; i < n_orbitals; i++) {
+    orb = GetOrbital(i);
+    orb->qr_norm = 0.0;
+    /* this disables the shift */
+    continue;
+    for (j = 0; j < cfg->n_shells; j++) {
+      if (cfg->shells[j].n == orb->n && cfg->shells[j].kappa == orb->kappa) {
+	break;
+      }
+    }
+    ResidualPotential(&e0, i, i);
+    if (j < cfg->n_shells) {
+      e1 = CoulombEnergyShell(cfg, j);
+    } else {
+      c.shells[0].n = orb->n;
+      c.shells[0].kappa = orb->kappa;
+      e1 = CoulombEnergyShell(&c, 0);
+    }
+    orb->qr_norm = 2*e1 + e0;
+    printf("%d %d %d %12.5E %12.5E %12.5E\n", i, orb->n, orb->kappa, 
+	   orb->energy, e0, e1);
+  }
+  free(c.shells);
+}
+    
+double CoulombEnergyShell(CONFIG *cfg, int i) {
+  int n, kappa, kl, j2, nq, k, np, kappap, klp, j2p;
+  int nqp, kp, kk, j, kkmin, kkmax;
+  double y, t, q, b, a, r;
+
+  n = (cfg->shells[i]).n;
+  kappa = (cfg->shells[i]).kappa;
+  kl = GetLFromKappa(kappa);
+  j2 = GetJFromKappa(kappa);
+  nq = (cfg->shells[i]).nq;
+  k = OrbitalIndex(n, kappa, 0.0);
+    
+  if (nq > 1) {
+    t = 0.0;
+    for (kk = 2; kk <= j2; kk += 2) {
+      Slater(&y, k, k, k, k, kk, 0);
+      q = W3j(j2, 2*kk, j2, -1, 0, 1);
+      t += y * q * q ;
+    }
+    Slater(&y, k, k, k, k, 0, 0);
+    b = (nq-1.0) * (y - (1.0 + 1.0/j2)*t);
+
+  } else {
+    b = 0.0;
+  }
+
+  t = 0.0;
+  for (j = 0; j < cfg->n_shells; j++) {
+    if (j == i) continue;
+    nqp = (cfg->shells[j]).nq;
+    if (nqp == 0) continue;
+    np = (cfg->shells[j]).n;
+    kappap = (cfg->shells[j]).kappa;
+    klp = GetLFromKappa(kappap);
+    j2p = GetJFromKappa(kappap);
+    kp = OrbitalIndex(np, kappap, 0.0);
+    
+    kkmin = abs(j2 - j2p);
+    kkmax = (j2 + j2p);
+    if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
+    a = 0.0;
+    for (kk = kkmin; kk <= kkmax; kk += 4) {
+      Slater(&y, k, kp, kp, k, kk/2, 0);
+      q = W3j(j2, kk, j2p, -1, 0, 1);
+      a += y * q * q;
+    }
+    Slater(&y, k, kp, k, kp, 0, 0);
+    t += nqp * (y - a);
+  }
+  
+  r = 0.5*(b + t);
+  
+  return r;
+}
+  
 /* calculate the average energy of a configuration */
 double AverageEnergyConfig(CONFIG *cfg) {
   int i, j, n, kappa, nq, np, kappap, nqp;
@@ -2361,6 +2455,8 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
     index[0] = -2*m-1;
     am = -m;
   }
+  index[1] = k1;
+  index[2] = k2;
 
   p1 = (double **) MultiSet(multipole_array, index, NULL, 
 			    InitPointerData, FreeMultipole);
@@ -2372,8 +2468,6 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   orb1 = GetOrbitalSolved(k1);
   orb2 = GetOrbitalSolved(k2);
   
-  index[1] = k1;
-  index[2] = k2;
   kappa1 = orb1->kappa;
   kappa2 = orb2->kappa;
   rcl = ReducedCL(GetJFromKappa(kappa1), abs(2*m), 

@@ -2593,17 +2593,18 @@ static int PSortLevels(int argc, char *argv[], int argt[],
 
 static int PTransitionMBPT(int argc, char *argv[], int argt[], 
 			   ARRAY *variables) {
-  int m, n;
+  int m, n, nlow, *low, nup, *up;
 
-  if (argc == 1) {
-    m = atoi(argv[0]);
-    n = -1;
-  } else if (argc == 2) {
+  if (argc == 2) {
     m = atoi(argv[0]);
     n = atoi(argv[1]);
     TransitionMBPT(m, n);
-  } else {
-    return -1;
+  } else if (argc == 3) {
+    nlow = DecodeGroupArgs(&low, 1, &(argv[1]), &(argt[1]), variables);
+    nup = DecodeGroupArgs(&up, 1, &(argv[2]), &(argt[2]), variables);
+    TRTableMBPT(argv[0], nlow, low, nup, up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   }
 
   return 0;
@@ -2670,18 +2671,18 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
 
-  if (argt[2] == STRING) {
+  if (argc == 5) {
     if (argt[4] != LIST) return -1;
-    n = DecodeGroupArgs(&s, 1, &(argv[4]), &(argt[4]), variables);
+    n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
     if (n <= 0) return -1;
-    if (argt[3] != LIST) return -1;
-    n1 = DecodeArgs(argv[3], v, t, variables);
+    if (argt[2] != LIST) return -1;
+    n1 = DecodeArgs(argv[2], v, t, variables);
     for (i = 0; i < n1; i++) {
       if (t[i] != STRING) return -1;
     }
     if (n1 <= 0) return -1;
-    n3 = atoi(argv[5]);
-    StructureReadMBPT(argv[0], argv[1], argv[2], n1, v, n, s, n3);
+    n3 = atoi(argv[4]);
+    StructureReadMBPT(argv[0], argv[1], n1, v, n, s, n3);
     
     free(s);
     for (i = 0; i < n1; i++) {
@@ -2689,7 +2690,9 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     }
     
     return 0;
-  } else {
+  }
+  
+  if (argc == 7) {
     if (argt[2] != LIST) return -1;
     n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
     if (n <= 0) {
