@@ -1485,7 +1485,9 @@ static PyObject *PCutMixing(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
-  int m, n;
+  int m, n, nlow, *low, nup, *up;
+  char *fn;
+  PyObject *p, *q;
 
   if (sfac_file) {
     SFACStatement("TransitionMBPT", args, NULL);
@@ -1493,10 +1495,20 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  n = -1;
-  if (!(PyArg_ParseTuple(args, "ii", &m, &n))) return NULL;
-  
-  TransitionMBPT(m, n);
+  n = PyTuple_Size(args);
+  if (n == 2) {
+    if (!(PyArg_ParseTuple(args, "ii", &m, &n))) return NULL;
+    TransitionMBPT(m, n);
+  } else if (n == 3) {
+    if (!(PyArg_ParseTuple(args, "sOO", &fn, &p, &q))) return NULL;
+    nlow = DecodeGroupArgs(p, &low);
+    nup = DecodeGroupArgs(q, &up);
+    TRTableMBPT(fn, nlow, low, nup, up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
+  }
+
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
@@ -1504,7 +1516,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   PyObject *p, *q, *t, *r, *x, *y;
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
-  char *fn, *fn1, *tfn, *gn, **fn2;
+  char *fn, *fn1, *gn, **fn2;
   double d, c;
 
   if (sfac_file) {
@@ -1527,7 +1539,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     }
     Py_INCREF(Py_None);
     return Py_None;
-  }    
+  }
+  
   if (n == 3) {
     if (!(PyArg_ParseTuple(args, "iid", &i, &n3, &c))) return NULL;
     p = PyTuple_GetItem(args, 2);
@@ -1566,9 +1579,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  t = PyTuple_GetItem(args, 2);
-  if (PyString_Check(t)) {
-    if (!(PyArg_ParseTuple(args, "sssOOi", &fn, &tfn, &fn1, &q, &p, &n3)))
+  if (n == 5) {
+    if (!(PyArg_ParseTuple(args, "ssOOi", &fn, &fn1, &q, &p, &n3)))
       return NULL;
     n = DecodeGroupArgs(p, &s);
     if (n <= 0) return NULL;
@@ -1580,13 +1592,15 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
       if (!PyString_Check(t)) return NULL;
       fn2[i] = PyString_AsString(t);
     }
-    StructureReadMBPT(fn, tfn, fn1, n1, fn2, n, s, n3);
+    StructureReadMBPT(fn, fn1, n1, fn2, n, s, n3);
     free(s);
     free(fn2);
 
     Py_INCREF(Py_None);
     return Py_None;
-  } else {
+  } 
+
+  if (n == 7) {
     if (!(PyArg_ParseTuple(args, "ssOOOOi",
 			   &fn, &fn1, &p, &t, &q, &r, &n3)))
       return NULL;

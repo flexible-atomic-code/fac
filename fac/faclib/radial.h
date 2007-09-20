@@ -66,6 +66,8 @@ int GetNumBounds(void);
 int GetNumOrbitals(void);
 int GetNumContinua(void);
 
+double CoulombEnergyShell(CONFIG *cfg, int i);
+void ShiftOrbitalEnergy(CONFIG *cfg);
 double GetPhaseShift(int k);
 
 /* radial optimization */

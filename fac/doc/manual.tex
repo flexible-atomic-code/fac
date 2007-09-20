@@ -3261,7 +3261,7 @@ levels belong to the configuration group \var{g} are allowed to mix in the
 external fields.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2\opt{, n0}}
+\begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2, n0}
 There are five different forms of this function with different argument
 list. This is the primary form, and the rest are documented below. This
 function calculates the level energies of the states belonging to the
@@ -3272,14 +3272,15 @@ Hamiltonian of the second order MBPT is stored in the file
 virtual states. \var{n1} and \var{n2} are two lists for the grid of principle
 qunatum numbers of the virtual states. The \var{n1} grid is used for one
 electron excitations, and the first electron of the double excitations. The
-\var{n2} grid is for the second electron of the double excitation. The
-optional $n0$ is an integer specifying the number of configuration groups in
+\var{n2} grid is for the second electron of the double excitation. \var{n0} is
+an integer specifying the number of configuration groups in 
 the \var{g} list to be included in the MBPT calculation, and the remaining are
 included for all-order perturbation treatment.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{fn, de, eps, g, kmax, n1, n2, n3, n4, gn}
-This is the second form of the \key{StructureMBPT} function. It examines the
+This is the second form of the \key{StructureMBPT} function. This function is
+depricated. It examines the
 configurations by exciting the electrons in the \var{g} list to orbitals with
 principle quantum numbers in the \var{n1} and \var{n2} lists from those in the
 \var{n3} and \var{n4} lists. If its estimated
@@ -3290,7 +3291,7 @@ list of configurations are written to the file \var{fn}. \var{kmax} is the
 maximum orbital angular momentum of the excited electrons.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{efn, hfn1, hfns, g}
+\begin{fundesc}{StructureMBPT}{efn, hfn1, hfns, g, n0}
 This is the third form of the \key{StructureMBPT} function. It reads the
 effective Hamiltonians in a list of files \var{hfns}, that are produced in
 previous \key{StructureMBPT} calls in the first form, and combines the
@@ -3298,13 +3299,13 @@ contributions from different \var{n1} and \var{n2} values for the virtual
 state and sum them up to form the total effective Hamiltonian, which is saved
 to the text file \var{hfn1}. It then diagonalizes the effective Hamiltonian to
 obtain the energy values, which are stored in \var{efn} the same way as in
-\key{Structure}. The configuration list \var{g} must be the same as those used
-in generating the \var{hfns} files.
+\key{Structure}. The configuration list \var{g} and \var{n0} must be the same
+as those used in generating the \var{hfns} files.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{m}
 This is the fourth form of the \key{StructureMBPT} function. If $m$ is an
-integer, tt sets an option
+integer, it sets an option
 to indicate whether extrapolation beyond the maximum $n$-values in the
 \var{n1} and \var{n2} grid is carried out in forming the effective
 Hamiltonian. If $m=0$, no extrapolation, which is the default; if $m>0$, with
@@ -3312,10 +3313,12 @@ extrapolation. $m$ may also be a list of integers, which means that only
 levels in this list for each symmetry is to be corrected with MBPT.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{m, c}
-This is the fifth form of the \key{StructureMBPT} function. It sets two
-options. \var{m} indicates whether only single excitation or double excitation
-should be included. If $m=0$, both single and double excitations are included;
+\begin{fundesc}{StructureMBPT}{i, m, c}
+This is the fifth form of the \key{StructureMBPT} function. It sets three
+options. \var{i} indicates inclusion of some part of 3rd order
+corrections. \var{m} indicates whether only single excitation or double
+excitation should be included. If $m=0$, both single and double excitations
+are included; 
 if $m=1$, only single excitations are included, and if $m=2$, only double
 excitations are included. $c$ is the cutof of the mixing coeffients. The
 effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
@@ -3372,6 +3375,20 @@ assumed to be 0, and if \var{imax}$<$0, it is assumed to be the largest index
 in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
 all recombined states. Before calling this function, \key{MemENTable()} must
 be called.
+\end{fundesc}
+
+\begin{fundesc}{TransitionMBPT}{m, n}
+\var{m} specifies the maximum multipole for radiative transitions calculated
+with MBPT. \var{n} specifies the number transition energy points used in the
+relativistic radial multipole integrals.
+\end{fundesc}
+
+\begin{fundesc}{TransitionMBPT}{fn, low, up}
+This function specify the transitions between \var{low} and \var{up}
+configuration groups to be calcualted with MBPT, with transition rates saved
+in the file \var{fn}. This function must be issued before the 3rd form of
+\key{StructureMBPT}, as the actual calculations are carried out in that
+function. 
 \end{fundesc}
 
 \begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}
