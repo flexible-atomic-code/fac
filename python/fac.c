@@ -341,12 +341,12 @@ static int ConfigPythonToC(PyObject *python_cfg, CONFIG **cfg) {
   return -1;
 }
 
-static char _closed_shells[128] = "";
+static char _closed_shells[MCHSHELL] = "";
 static PyObject *PClosed(PyObject *self, PyObject *args) {
   CONFIG *cfg;
   PyObject *q;
-  int i, j, kappa, jj, kl, n, nq, ncfg;
-  char js, *p, argv[512];
+  int i, j, kl, n, nq, ncfg;
+  char *p, argv[512];
   char s[16], st[16];
   int ns, k;
   int argc;
@@ -368,18 +368,15 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
     p = argv;
     for (k = 0; k < ns; k++) {
       while (*p == ' ') p++;
-      ncfg = GetConfigFromString(&cfg, p);
+      ncfg = GetConfigFromStringNR(&cfg, p);
       for (j = ncfg-1; j >= 0; j--) {
 	if (cfg[j].n_shells != 1) return NULL;	
 	n = (cfg[j].shells)[0].n;
-	kappa = (cfg[j].shells)[0].kappa;
-	GetJLFromKappa(kappa, &jj, &kl);
-	nq = jj + 1;
-	if (jj > kl) js = '+';
-	else js = '-';
+	kl = (cfg[j].shells)[0].kappa;
+	nq = 2*(kl + 1);
 	kl = kl/2;
 	SpecSymbol(s, kl);
-	sprintf(st, "%d%s%c%d ", n, s, js, nq);
+	sprintf(st, "%d%s%d ", n, s, nq);
 	strcat(_closed_shells, st);
 	free(cfg[j].shells);
       }
@@ -397,7 +394,7 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   CONFIG *cfg;
   PyObject *q, *r;
   int i, j, t, ncfg;
-  char scfg[1280], *p, s[16];
+  char scfg[MCHSHELL], *p, s[16];
   int argc;
 
   r = Py_BuildValue("[]");
@@ -406,8 +403,8 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
     q = PyTuple_GetItem(args, i);
     if (!PyString_Check(q)) return NULL;
     p = PyString_AsString(q);
-    strncpy(scfg, _closed_shells, 128);
-    strncat(scfg, p, 1280);
+    strncpy(scfg, _closed_shells, MCHSHELL);
+    strncat(scfg, p, MCHSHELL);
     ncfg = GetConfigFromStringNR(&cfg, scfg);
     for (j = 0; j < ncfg; j++) {
       scfg[0] = '\0';
@@ -436,7 +433,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   PyObject *q;
   static char gname[GROUP_NAME_LEN] = "_all_";
   int i, j, t, ncfg;
-  char scfg[1280], *p;
+  char scfg[MCHSHELL], *p;
   int argc;
 
   if (sfac_file) {
@@ -469,8 +466,8 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     q = PyTuple_GetItem(args, i);
     if (!PyString_Check(q)) return NULL;
     p = PyString_AsString(q);
-    strncpy(scfg, _closed_shells, 128);
-    strncat(scfg, p, 1280);
+    strncpy(scfg, _closed_shells, MCHSHELL);
+    strncat(scfg, p, MCHSHELL);
     ncfg = GetConfigFromString(&cfg, scfg);
 
     for (j = 0; j < ncfg; j++) {
@@ -691,7 +688,7 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
-  double c;
+  double c0, c;
 
   if (sfac_file) {
     SFACStatement("SetTransitionCut", args, NULL);
@@ -699,9 +696,10 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "d", &c))
+  c = -1.0;
+  if (!PyArg_ParseTuple(args, "d|d", &c0, &c))
     return NULL;
-  SetTransitionCut(c);
+  SetTransitionCut(c0, c);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1786,7 +1784,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   nup = 0;
   low = NULL;
   up = NULL;
-  m = -1;
+  m = 0;
 
   n = PyTuple_Size(args); 
   if (n == 1) {
@@ -4827,6 +4825,23 @@ static PyObject *PJoinTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PModifyTable(PyObject *self, PyObject *args) {
+  char *fn, *fn1, *fn2, *fnm; 
+  
+  if (sfac_file) {
+    SFACStatement("ModifyTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  fnm = NULL;
+  if (!PyArg_ParseTuple(args, "sss|s", &fn, &fn1, &fn2, &fnm)) return NULL;
+  ModifyTable(fn, fn1, fn2, fnm);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PLimitArray(PyObject *self, PyObject *args) {
   int m;
   double n;
@@ -4953,7 +4968,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
-  {"JoinTable", PJoinTable, METH_VARARGS},
+  {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 

@@ -2128,6 +2128,7 @@ int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   }  else if (h->qk_mode == QK_FIT) {
     m0 = h->nparams * r->nsub;
   } else m0 = 0;
+  r->params = NULL;
   if (m0) {
     r->params = (float *) malloc(sizeof(float)*m0);
     RSF1(r->params, sizeof(float), m0);
@@ -3436,7 +3437,7 @@ double OscillatorStrength(int m, double e, double s, double *ga) {
   double aw, x;
 
   aw = FINE_STRUCTURE_CONST * e;
-  if (itrf == 0) {
+  if (itrf == 0 && m != 0) {
     m2 = 2*abs(m);
     x = s*s/(m2+1.0);
     x *= e;
@@ -3721,8 +3722,8 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	  if (v) {
 	    a = h.usr_egrid[t];
 	    if (h.usr_egrid_type == 1) a += be;
-	    a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2 * a);
-	    a = PI * AREA_AU20/(2.0*a);
+	    a *= 2.0*(1.0 + 0.5*FINE_STRUCTURE_CONST2 * a);
+	    a = PI * AREA_AU20/a;
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= r.strength[p2];
 	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
@@ -3815,8 +3816,8 @@ int PrintCEFTable(FILE *f1, FILE *f2, int v, int swp) {
 	if (v) {
 	  a = h.egrid[t];
 	  a += be;
-	  a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2 * a;
-	  a = PI * AREA_AU20/(2.0*a);
+	  a *= 2.0*(1.0 + 0.5*FINE_STRUCTURE_CONST2 * a);
+	  a = PI * AREA_AU20/a;
 	  a *= r.strength[t];
 	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
 		    h.egrid[t]*HARTREE_EV,
@@ -3914,8 +3915,8 @@ int PrintCEMFTable(FILE *f1, FILE *f2, int v, int swp) {
 	    if (v) {
 	      a = h.egrid[t];
 	      a += be;
-	      a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2 * a;
-	      a = PI * AREA_AU20/(2.0*a);
+	      a *= 2.0*(1.0 + 0.5*FINE_STRUCTURE_CONST2 * a);
+	      a = PI * AREA_AU20/a;
 	      a *= r.strength[t+h.n_egrid*k];
 	      fprintf(f2, "%11.4E %11.4E %11.4E\n",
 		      h.egrid[t]*HARTREE_EV,

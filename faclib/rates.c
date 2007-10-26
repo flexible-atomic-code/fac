@@ -304,10 +304,11 @@ double CERate1E(double e1, double eth0, int np, void *p) {
   if (x0 <= x[np-1]) {
     n = 2;
     one = 1;
-    if (x0 >= x[0] || bms == 1.0) {
+    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
       UVIP3P(n, np, x, y, one, &x0, &a);
-    } else {  
-      a = (y[0]/x[0])*x0;
+      if (a < 0.0) a = 0.0;
+    } else {
+      a = y[0] * pow(exp(x0-x[0]), 2.5);
     }
   } else {
     x0 = (e-eth)/(dp[0]+e-eth);
@@ -319,7 +320,7 @@ double CERate1E(double e1, double eth0, int np, void *p) {
       y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
       y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = e/HARTREE_EV;
@@ -353,8 +354,8 @@ double CERate1E(double e1, double eth0, int np, void *p) {
   }
   
   e0 = e/HARTREE_EV;
-  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);  
-  a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
+  b = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);  
+  a *= PI*AREA_AU20/b;
   a *= VelocityFromE(e1, bms);
   return a;
 }
@@ -380,10 +381,15 @@ double DERate1E(double e1, double eth0, int np, void *p) {
   if (x0 <= x[np-1]) {
     n = 2;
     one = 1;
-    UVIP3P(n, np, x, y, one, &x0, &a);
+    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
+      UVIP3P(n, np, x, y, one, &x0, &a);
+      if (a < 0.0) a = 0.0;
+    } else {
+      a = y[0] * pow(exp(x0-x[0]), 2.5);
+    }
   } else {
     x0 = e/(dp[0]+e);
-    y0 = y[np-1];
+    y0 = y[np-1]; 
     if (dp[1] > 0) {
       e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
@@ -391,7 +397,7 @@ double DERate1E(double e1, double eth0, int np, void *p) {
       y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
       y0 -= dp[1]*b;
       a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       e0 = (e + eth)/HARTREE_EV;
@@ -423,8 +429,8 @@ double DERate1E(double e1, double eth0, int np, void *p) {
   }
 
   e0 = e/HARTREE_EV;
-  b = e*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-  a *= PI*AREA_AU20*HARTREE_EV/(2.0*b);
+  b = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  a *= PI*AREA_AU20/b;
   a *= VelocityFromE(e1, bms);
   return a;
 }

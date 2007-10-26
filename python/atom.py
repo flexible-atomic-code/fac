@@ -770,7 +770,7 @@ class ATOM:
                 else:
                     b = (b, c[j].nrec)
                     a2 = g[:1]
-                if (i == 0 and (self.nele <= 2 or j == 0)):
+                if (i == 0 and (self.nele <= 2 or self.nele == 10 or j == 0)):
                     tr = [-1, 1, -2, 2]
                 else:
                     tr = [-1]
@@ -826,8 +826,8 @@ class ATOM:
                         nmax = c[m].complex[-1][0]
                     tr = []
                     if (i == 0 and nmax <= self.n_decay[0]):
-                        if (j == 0):
-                            tr = [-1, 1]
+                        if (j == 0 or self.nele == 10):
+                            tr = [-1, 1, -2, 2]
                         else:
                             tr = [-1]
                     if (c[m].nrec > 0):

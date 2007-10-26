@@ -629,7 +629,8 @@ def spectrum(neles, temp, den, population, pref,
              dist = 0, params=[-1,-1], cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1, iprint=1,
              ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = [],
-             t0=-1, t1=-1, d0=-1, d1=-1):
+             t0=-1, t1=-1, d0=-1, d1=-1,
+             mtr='', mce='', mci='', mai='', mrr=''):
     if t0 < 0:
         t0 = 0
     if t1 < 0:
@@ -663,6 +664,8 @@ def spectrum(neles, temp, den, population, pref,
 
         print 'TR rates...'
         SetTRRates(0)
+        if mtr != '':
+            ModifyRates(mtr)
         for i in range(t0, t1+1):
             if (abundm <= 0 or abundp <= 0):
                 p1 = population[i][k-1]
@@ -690,22 +693,34 @@ def spectrum(neles, temp, den, population, pref,
             if (ce > 0):
                 print 'CE rates...'
                 SetCERates(1)
+                if (mce != ''):
+                    ModifyRates(mce+'.t%02d'%i)
             if (nion > 1):
                 if (rr > 0):
                     print 'RR rates...'
                     SetRRRates(0)
+                    if (mrr != ''):
+                        ModifyRates(mrr+'.t%02d'%i)
                 if (ci > 0):
                     print 'CI rates...'
                     SetCIRates(1)
+                    if (mci != ''):
+                        ModifyRates(mci+'.t%02d'%i)
                 elif (ci < 0):
                     print 'CI rates...'
-                    SetCIRates(0)                    
+                    SetCIRates(0)        
+                    if (mci != ''):
+                        ModifyRates(mci+'.t%02d'%i)            
                 if (ai > 0):
                     print 'AI rates...'
                     SetAIRates(1)
+                    if (mai != ''):
+                        ModifyRates(mai+'.t%02d'%i)
                 elif (ai < 0):
                     print 'AI rates...'
                     SetAIRates(0)
+                    if (mai != ''):
+                        ModifyRates(mai+'.t%02d'%i)
                 SetAbund(k-1, p1)
             else:
                 SetAbund(k-1, 0.0)

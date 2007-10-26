@@ -60,6 +60,7 @@ typedef struct _ANGZ_DATUM_ {
   int ns;
   int *nz;
   void **angz;
+  double **mk;
 } ANGZ_DATUM;
 
 typedef struct _ANGULAR_ZMIX_ {
@@ -120,6 +121,8 @@ typedef struct _STRUCT_TIMING_ {
 int GetStructTiming(STRUCT_TIMING *t);
 #endif
 
+void SetMaxKMBPT(int m);
+int GetMaxKMBPT(void);
 int SortUnique(int n, int *a);
 int CompareInt(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
@@ -139,6 +142,7 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra,
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 HAMILTON *GetHamilton(void);
+SHAMILTON *GetSHamilton(int *n);
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
@@ -156,7 +160,8 @@ int GetBaseJ(STATE *s);
 void AngularFrozen(int nts, int *ts, int ncs, int *cs);
 void ClearAngularFrozen(void);
 int PrepAngular(int n1, int *is1, int n2, int *is2);
-int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk);
+int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
+		int *nmk, double **mbk);
 int CompareAngularZMix(const void *c1, const void *c2);
 int CompareAngularZxZMix(const void *c1, const void *c2);
 int CompareAngularZFB(const void *c1, const void *c2);

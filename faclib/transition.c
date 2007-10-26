@@ -22,8 +22,9 @@ static struct {
   int mode;
   int max_e;
   int max_m;
+  double eps0;
   double eps;
-} transition_option = {DGAUGE, DMODE, ERANK, MRANK, TRCUT};
+} transition_option = {DGAUGE, DMODE, ERANK, MRANK, TRCUT0, TRCUT};
 
 typedef struct {
   TR_RECORD r;
@@ -31,8 +32,17 @@ typedef struct {
   int ks[2];
 } TR_DATUM;
 
-int SetTransitionCut(double c) {
-  transition_option.eps = c;
+int SetTransitionCut(double c0, double c) {
+  if (c0 >= 0) {
+    transition_option.eps0 = c0;
+  } else {
+    transition_option.eps0 = TRCUT0;
+  }
+  if (c >= 0) {
+    transition_option.eps = c;
+  } else {
+    transition_option.eps = TRCUT;
+  }
   return 0;
 }
 
@@ -165,11 +175,11 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
 
 int TRMultipole(double *strength, double *energy,
 		int m, int lower, int upper) {
-  int m2;
+  int m0, m1, m2;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
-  double s, r, aw;
-  int nz, i;
+  double s, r, a, aw, *mbk, tr;
+  int nz, i, nmk;
   ANGULAR_ZMIX *ang;
 
   lev1 = GetLevel(lower);
@@ -180,39 +190,104 @@ int TRMultipole(double *strength, double *energy,
     *energy = lev2->energy - lev1->energy;
   }
   if (*energy <= 0.0) return -1;
-
-  DecodePJ(lev1->pj, &p1, &j1);
-  DecodePJ(lev2->pj, &p2, &j2);
-
-  m2 = 2*abs(m);
-
-  if (!Triangle(j1, j2, m2)) return -1;
-  if (m > 0 && IsEven(p1+p2+m)) return -1;
-  if (m < 0 && IsOdd(p1+p2-m)) return -1;
-
   aw = FINE_STRUCTURE_CONST * (*energy);
   if (aw < 0.0) return -1;
 
-  s = 0.0;
-  
-  nz = AngularZMix(&ang, lower, upper, m2, m2);
-  if (nz <= 0) return -1;
+  DecodePJ(lev1->pj, &p1, &j1);
+  DecodePJ(lev2->pj, &p2, &j2);
+  if (j1 == 0 && j2 == 0) return -1;
 
-  for (i = 0; i < nz; i++) {
-    if (ang[i].k != m2) continue;
-    if (transition_option.mode == M_NR && m != 1) {
-      r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
-			    transition_option.gauge);
-    } else {
-      r = MultipoleRadialFR(aw, m, ang[i].k0, ang[i].k1,
-			    transition_option.gauge);
+  if (m != 0) {
+    m2 = 2*abs(m);    
+    if (!Triangle(j1, j2, m2)) return -1;
+    if (m > 0 && IsEven(p1+p2+m)) return -1;
+    if (m < 0 && IsOdd(p1+p2-m)) return -1;    
+    
+    s = 0.0;
+    
+    nz = AngularZMix(&ang, lower, upper, m2, m2, &nmk, &mbk);
+    if (nz <= 0 && nmk < m2/2) {
+      if (nmk > 0) free(mbk);
+      return -1;
     }
-    s += r * ang[i].coeff;
-  }
-  free(ang);	  
-  
-  *strength = s;
+    
+    for (i = 0; i < nz; i++) {
+      if (ang[i].k != m2) continue;
+      if (transition_option.mode == M_NR && m != 1) {
+	r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1, 
+			      transition_option.gauge);
+      } else {
+	r = MultipoleRadialFR(aw, m, ang[i].k0, ang[i].k1,
+			      transition_option.gauge);
+      }
+      s += r * ang[i].coeff;
+    }
+    if (nmk >= m2/2) {
+      r = mbk[m2/2-1];
+      if (transition_option.gauge == G_COULOMB && m < 0) {
+	r /= aw;
+      }
+      a = r/s;
+      a *= a;
+      if (a < 0.75) {
+	s += r;
+      }
+    }
+    if (nz > 0) {
+      free(ang);	
+    }  
+    if (nmk > 0) {
+      free(mbk);
+    }
 
+    *strength = s;
+  } else {
+    m0 = abs(j1-j2);
+    if (m0 == 0) m0 += 2;
+    m1 = (j1+j2);
+    if (m0 > transition_option.max_m && m0 > transition_option.max_e) {
+      return -1;
+    }
+    tr = 0.0;
+    nz = AngularZMix(&ang, lower, upper, m0, m1, &nmk, &mbk);
+    for (m2 = m0; m2 <= m1; m2 += 2) {      
+      m = m2/2;
+      if (IsEven(p1+p2+m)) m = -m;
+      s = 0.0;
+      for (i = 0; i < nz; i++) {
+	if (ang[i].k != m2) continue;
+	if (transition_option.mode == M_NR && m != 1) {
+	  r = MultipoleRadialNR(m, ang[i].k0, ang[i].k1,
+				transition_option.gauge);
+	} else {
+	  r = MultipoleRadialFR(aw, m, ang[i].k0, ang[i].k1,
+				transition_option.gauge);
+	}
+	s += r * ang[i].coeff;
+      }
+      if (nmk >= m2/2) {
+	r = mbk[m2/2-1];
+	if (transition_option.gauge == G_COULOMB && m < 0) {
+	  r /= aw;
+	}
+	a = r/s;
+	a *= a;
+	if (a < 0.75) {
+	  s += r;
+	}
+      }
+      r = OscillatorStrength(m, *energy, s, &a);
+      tr += r;
+      if (tr > 0 && r/tr < transition_option.eps0) break;
+    }
+    if (nz > 0) {
+      free(ang);
+    }
+    if (nmk > 0) {
+      free(mbk);
+    }
+    *strength = tr;
+  }
   return 0;
 }
 
@@ -261,22 +336,6 @@ int TRMultipoleEB(double *strength, double *energy, int m, int lower, int upper)
   }
 
   return 0;
-}
-
-int GetLowestMultipole(int p1, int j1, int p2, int j2) {
-  int m;
-
-  if (j1 == 0 && j2 == 0) return 0;
-
-  m = abs(j1-j2);
-  if (IsOdd(m)) return 0;
-  m = m/2;
-
-  if (m == 0) m = 1;
-  
-  if (IsEven(p1+m+p2)) m = -m;
-
-  return m;
 }
 
 static int CompareNRConfig(const void *p1, const void *p2) {
@@ -431,37 +490,35 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 #endif
   
   if (nlow <= 0 || nup <= 0) return -1;
-  if (m == 1 || transition_option.mode == M_FR) {
-    k = 0;
-    emin = 1E10;
-    emax = 1E-10;
-    for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
-      for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
-	e0 = lev2->energy - lev1->energy;
-	if (e0 > 0) k++;
-	if (e0 < emin && e0 > 0) emin = e0;
-	if (e0 > emax) emax = e0;
-      }
+  k = 0;
+  emin = 1E10;
+  emax = 1E-10;
+  for (i = 0; i < nlow; i++) {
+    lev1 = GetLevel(low[i]);
+    for (j = 0; j < nup; j++) {
+      lev2 = GetLevel(up[j]);
+      e0 = lev2->energy - lev1->energy;
+      if (e0 > 0) k++;
+      if (e0 < emin && e0 > 0) emin = e0;
+      if (e0 > emax) emax = e0;
     }
-      
-    if (k == 0) {
-      return 0;
-    }
+  }
+  
+  if (k == 0) {
+    return 0;
+  }
     
-    emin *= FINE_STRUCTURE_CONST;
-    emax *= FINE_STRUCTURE_CONST;
-    e0 = 2.0*(emax-emin)/(emin+emax);
+  emin *= FINE_STRUCTURE_CONST;
+  emax *= FINE_STRUCTURE_CONST;
+  e0 = 2.0*(emax-emin)/(emin+emax);
     
-    FreeMultipoleArray();
-    if (e0 < EPS3) {
-      SetAWGrid(1, 0.5*(emin+emax), emax);
-    } else if (e0 < 1.0) {
-      SetAWGrid(2, emin, emax);
-    } else {
-      SetAWGrid(3, emin, emax);
-    }
+  FreeMultipoleArray();
+  if (e0 < EPS3) {
+    SetAWGrid(1, 0.5*(emin+emax), emax);
+  } else if (e0 < 1.0) {
+    SetAWGrid(2, emin, emax);
+  } else {
+    SetAWGrid(3, emin, emax);
   }
   
   fhdr.type = DB_TR;

@@ -487,37 +487,41 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
 }
 
 void PrepCEFCrossHeader(CEF_HEADER *h, double *data) {
-  double *eusr, *x;
+  double *eusr, *x, bte, bms;
   int m, m1, j;
 
   eusr = h->egrid;
   m = h->n_egrid;
   m1 = m + 1;
   x = data+2+m1;
-  data[0] = h->te0*HARTREE_EV;
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  data[0] = (h->te0*HARTREE_EV+bte)/bms;
   for (j = 0; j < m; j++) {
-    x[j] = log((h->te0 + eusr[j])/h->te0);
+    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
   }
-  x[m] = eusr[m-1]/(h->te0+eusr[m-1]);
+  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 }
 
 void PrepCECrossHeader(CE_HEADER *h, double *data) {
-  double *eusr, *x;
+  double *eusr, *x, bte, bms;
   int m, m1, j;
-
+  
   eusr = h->usr_egrid;
   m = h->n_usr;
   m1 = m + 1;
   x = data+2+m1;
-  data[0] = h->te0*HARTREE_EV;
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  data[0] = (h->te0*HARTREE_EV+bte)/bms;
   for (j = 0; j < m; j++) {
-    x[j] = log((h->te0 + eusr[j])/h->te0);
+    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
   }
-  x[m] = eusr[m-1]/(h->te0+eusr[m-1]);
+  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 }
 
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
-  double *eusr, *y, e;
+  double *eusr, *x, *y, e;
   float *cs;
   int m, m1, j;
   EN_SRECORD *mem_en_table;
@@ -529,6 +533,7 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
   m = h->n_egrid;
   m1 = m + 1;
   y = data + 2;
+  x = y + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
   
@@ -626,13 +631,18 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   x = y + m1;
   w = x + m1;
   
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   if (x0 < x[m-1]) {
     n = 2;
     one = 1;
-    UVIP3P(n, m, x, y, one, &x0, &a);
+    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
+      UVIP3P(n, m, x, y, one, &x0, &a);
+      if (a < 0.0) a = 0.0;    
+    } else {
+      a = y[0] * pow(exp(x0-x[0]), 2.5);
+    }
   } else {
-    BornFormFactorTE(&bte);
-    bms = BornMass();
     eth1 = (eth + bte*HARTREE_EV)/bms;
     x0 = e/(data[0] + e);
     y0 = y[m-1];
@@ -643,10 +653,10 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       y0 /= b0*b1;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);      
+      b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
       y0 -= data[1]*b;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      e0 = (e + eth)/HARTREE_EV;
+      e0 = (e + eth1)/HARTREE_EV;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
@@ -680,7 +690,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   int mem_en_table_size;
   double bte, bms, eth1;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetMemENTable(&mem_en_table_size);  
 
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   eth = eth * HARTREE_EV;
@@ -697,12 +707,16 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   x = y + m1;
   w = x + m1;
   
+  BornFormFactorTE(&bte);
+  bms = BornMass();
   if (x0 < x[m-1]) {
     n = 2;
     one = 1;
-    UVIP3P(n, m, x, y, one, &x0, &a);
-    if (a <= 0.0) {
-      UVIP3P(1, m, x, y, one, &x0, &a);
+    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
+      UVIP3P(n, m, x, y, one, &x0, &a);
+      if (a < 0.0) a = 0.0;
+    } else {
+      a = y[0] * pow(exp(x0-x[0]), 2.5);
     }
     if (h->msub) {
       UVIP3P(n, m, x, w, one, &x0, &b);
@@ -713,8 +727,6 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   } else {
     x0 = e/(data[0] + e);
     y0 = y[m-1];
-    BornFormFactorTE(&bte);
-    bms = BornMass();
     eth1 = (eth + bte*HARTREE_EV)/bms;
     if (data[1] > 0) {
       e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
@@ -726,7 +738,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
       y0 -= data[1]*b;
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
-      e0 = (e + eth)/HARTREE_EV;
+      e0 = (e + eth1)/HARTREE_EV;
       d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
       c = FINE_STRUCTURE_CONST2*d;
       b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
@@ -803,7 +815,6 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
     for (i = 0; i < mh.ntransitions; i++) {
       n = ReadCEMFRecord(f1, &mr, swp, &mh);
       if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {
-	PrepCEFCrossHeader(&h, data);	
 	eth = mem_en_table[mr.upper].energy - mem_en_table[mr.lower].energy;
 	e = eth*HARTREE_EV;
 	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
@@ -811,6 +822,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 		mr.upper, mem_en_table[mr.upper].p, mem_en_table[mr.upper].j,
 		e, negy);
 	be = (e + bte*HARTREE_EV)/bms;
+	PrepCEFCrossHeader(&h, data);
 	for (ith = 0; ith < mh.n_thetagrid; ith++) {
 	  for (iph = 0; iph < mh.n_phigrid; iph++) {
 	    fprintf(f2, "# %2d %2d %11.4E %11.4E\n",
@@ -975,7 +987,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	    e1 = egy[t];
 	    e0 = e1 + be;
 	  }
-	  if (e1 > 0) {
+	  if (e1 > 0) {	
 	    cs = InterpolateCEFCross(e1, &r, &h, data);
 	    a = e0/HARTREE_EV;
 	    b0 = 1.0 + FINE_STRUCTURE_CONST2*a;
@@ -1099,14 +1111,14 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
-	PrepCECrossHeader(&h, data);
 	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e = eth*HARTREE_EV;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, negy, r.nsub);
-	be = (e + bte*HARTREE_EV)/bms;
+	be = (e + bte*HARTREE_EV)/bms;	
+	PrepCECrossHeader(&h, data);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
@@ -1458,13 +1470,13 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
-	PrepCECrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e *= HARTREE_EV;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, nt, r.nsub);
+	PrepCECrossHeader(&h, data);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < nt; t++) {
@@ -2747,6 +2759,631 @@ int MaxwellRate(char *ifn, char *ofn, int i0, int i1,
   }
 
   return 0;
+}
+
+double ModifyEntry(double r, MOD_RECORD *m) {
+  switch (m->op) {
+  case 0:
+    return m->c;
+  case 1:
+    return r + m->c;
+  case 2:
+    return r*m->c;
+  default:
+    return r;
+  }
+}
+
+int CompareModRecord(const void *p1, const void *p2) {
+  MOD_RECORD *m1, *m2;
+  
+  m1 = (MOD_RECORD *) p1;
+  m2 = (MOD_RECORD *) p2;
+  
+  if (m1->m < m2->m) return -1;
+  else if (m1->m > m2->m) return 1;
+  else {
+    if (m1->i0 < m2->i0) return -1;
+    else if (m1->i0 > m2->i0) return 1;
+    else {
+      if (m1->i1 < m2->i1) return -1;
+      else if (m1->i1 > m2->i1) return 1;
+      else return 0;
+    }
+  }
+}
+
+int CompareModRecordI0(const void *p1, const void *p2) {
+  MOD_RECORD *m1, *m2;
+  
+  m1 = (MOD_RECORD *) p1;
+  m2 = (MOD_RECORD *) p2;
+  
+  if (m1->i0 < m2->i0) return -1;
+  else if (m1->i0 > m2->i0) return 1;
+  else return 0;
+}
+
+int CompareModRecordI1(const void *p1, const void *p2) {
+  MOD_RECORD *m1, *m2;
+  
+  m1 = (MOD_RECORD *) p1;
+  m2 = (MOD_RECORD *) p2;
+  
+  if (m1->i1 < m2->i1) return -1;
+  else if (m1->i1 > m2->i1) return 1;
+  else return 0;
+}
+	
+void ModifyEN(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+	      FILE *f0, FILE *f1, F_HEADER *fh, int swp) {
+  int n, i, k;
+  double e0, e1;
+  EN_HEADER h;
+  EN_RECORD r;
+  MOD_RECORD mr0;
+  
+  if (nr > 0) {
+    e1 = 1e30;
+    for (i = 0; i < nr; i++) {
+      if (e1 > pr->c) e1 = pr->c;
+    }
+  } else {
+    e1 = 0.0;
+  }
+  e0 = 1E30;
+  while (1) {
+    n = ReadENHeader(f0, &h, swp);
+    if (n == 0) break;
+    InitFile(f1, fh, &h);
+    for (i = 0; i < h.nlevels; i++) {
+      n = ReadENRecord(f0, &r, swp);
+      if (e0 > 0) e0 = r.energy;
+      if (n == 0) break;
+      mr0.m = 0;
+      mr0.i0 = 0;
+      mr0.i1 = r.ilev;
+      if (nr == 0) {
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	if (k >= 0) {
+	  r.energy = ModifyEntry(r.energy, mr+k);
+	}
+      } else {
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	if (k >= 0) {
+	  mr0.i0 = 0;
+	  mr0.i1 = mr[k].i0;
+	  k = Bisect(&mr0, nr, sizeof(MOD_RECORD), pr, CompareModRecordI1);
+	  if (k >= 0) {
+	    r.energy = e0 + pr[k].c-e1;
+	  }
+	}
+      }
+      WriteENRecord(f1, &r);
+    }
+    DeinitFile(f1, fh);
+  }
+}
+
+void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+	      FILE *f0, FILE *f1, F_HEADER *fh, int swp) {
+  int n, i, k;
+  TR_HEADER h;
+  TR_RECORD r, *r0;
+  TR_EXTRA rx;
+  MOD_RECORD mr0;
+  double a;
+  
+  while (1) {
+    n = ReadTRHeader(f0, &h, swp);
+    if (n == 0) break;
+    InitFile(f1, fh, &h);
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadTRRecord(f0, &r, &rx, swp);
+      if (n == 0) break;
+      if (nr == 0) {
+	mr0.m = h.multipole;
+	mr0.i0 = r.lower;
+	mr0.i1 = r.upper;
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecord);
+	if (k >= 0) {
+	  a = r.strength;
+	  r.strength = ModifyEntry(a, mr+k);
+	}
+      } else {
+	mr0.i1 = r.lower;
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	if (k >= 0) {
+	  mr0.i0 = mr[k].i0;
+	  mr0.i1 = r.upper;
+	  k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	  if (k >= 0) {
+	    mr0.i1 = mr[k].i0;
+	    mr0.m = h.multipole;
+	    k = Bisect(&mr0, nr, sizeof(MOD_RECORD), pr, CompareModRecord);
+	    if (k >= 0) {
+	      r0 = (TR_RECORD *) pr[k].r;
+	      r.strength = r0->strength;
+	    }
+	  }
+	}
+      }
+      WriteTRRecord(f1, &r, &rx);
+    }
+    DeinitFile(f1, fh);
+  }
+}
+
+void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+	      FILE *f0, FILE *f1, F_HEADER *fh, int swp) {
+  int n, i, k, j, t, p;
+  CE_HEADER h, *h0;
+  CE_RECORD r, *r0;  
+  MOD_RECORD mr0;
+  double a, data[2+(1+MAXNUSR)*3];
+
+  if (GetMemENTable(&n) == NULL) {
+    printf("must build the in-memory enegy table for CE modification\n");
+    return;
+  }
+
+  while (1) {
+    n = ReadCEHeader(f0, &h, swp);
+    if (n == 0) break;
+    InitFile(f1, fh, &h);
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCERecord(f0, &r, swp, &h);
+      if (n == 0) break;
+      if (nr == 0) {
+	if (r.bethe > 0) {
+	  mr0.m = -1;
+	} else if (r.bethe + 1.0 == 1.0) {
+	  mr0.m = -2;
+	}
+	mr0.i0 = r.lower;
+	mr0.i1 = r.upper;
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecord);
+	if (k >= 0) {
+	  if (r.bethe > 0) {
+	    a = r.bethe;
+	    r.bethe = ModifyEntry(a, mr+k);
+	  }
+	  a = r.born[0];
+	  r.born[0] = ModifyEntry(a, mr+k);
+	  p = 0;
+	  for (j = 0; j < r.nsub; j++) {
+	    if (h.msub) {
+	      a = r.params[j];
+	      r.params[j] = ModifyEntry(a, mr+k);
+	    }
+	    for (t = 0; t < h.n_usr; t++) {
+	      a = r.strength[p];
+	      r.strength[p] = ModifyEntry(a, mr+k);
+	      p++;
+	    }
+	  }
+	}
+      } else {
+	mr0.i1 = r.lower;
+	k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	if (k >= 0) {
+	  mr0.i0 = mr[k].i0;
+	  mr0.i1 = r.upper;
+	  k = Bisect(&mr0, nc, sizeof(MOD_RECORD), mr, CompareModRecordI1);
+	  if (k >= 0) {
+	    mr0.i1 = mr[k].i0;
+	    mr0.m = 0;
+	    k = Bisect(&mr0, nr, sizeof(MOD_RECORD), pr, CompareModRecord);
+	    if (k >= 0) {
+	      r0 = (CE_RECORD *) pr[k].r;
+	      h0 = (CE_HEADER *) pr[k].h;
+	      r.bethe = r0->bethe;
+	      r.born[0] = r0->born[0];
+	      r.born[1] = r0->born[1];
+	      p = 0;
+	      PrepCECrossHeader(h0, data);	      
+	      for (j = 0; j < r.nsub; j++) {
+		if (h.msub) {
+		  r.params[j] = r0->params[j];
+		}
+		PrepCECrossRecord(j, r0, h0, data);
+		for (t = 0; t < h.n_usr; t++) {
+		  r.strength[p] = InterpolateCECross(h.usr_egrid[t]*HARTREE_EV,
+						     r0, h0, data, &a);
+		  p++;
+		}
+	      }
+	    }
+	  }
+	}
+      }
+      WriteCERecord(f1, &r);
+      if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
+    }
+    DeinitFile(f1, fh);
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
+  }
+}
+
+int ReadModRecord(char *fn, MOD_RECORD **mr, int nr) {
+  FILE *f;
+#define NBUF 512
+  char buf[NBUF];
+  int nc, n, m, i0, i1, op;
+  double c;
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf ("cannot open file %s", fn);
+    return 0;
+  }
+  
+  nc = 0;
+  while (1) {
+    if (NULL == fgets(buf, NBUF, f)) break;
+    if (nr > 0) {
+      n = sscanf(buf, "%d %d", &i0, &i1);
+      if (n != 2) continue;
+    } else {
+      n = sscanf(buf, "%d %d %d %lf %d", &m, &i0, &i1, &c, &op);
+      if (n != 5) continue;
+    }
+    nc++;
+  }
+
+  if (nc == 0) {
+    fclose(f);
+    return 0;
+  }
+
+  (*mr) = malloc(sizeof(MOD_RECORD)*nc);
+  fseek(f, 0, SEEK_SET);
+  nc = 0;
+  while (1) {
+    if (NULL == fgets(buf, NBUF, f)) break;
+    if (nr > 0) {
+      n = sscanf(buf, "%d %d", &i0, &i1);
+      if (n != 2) continue;
+      (*mr)[nc].m = 0;
+      (*mr)[nc].i0 = i0;
+      (*mr)[nc].i1 = i1;
+      (*mr)[nc].c = 0.0;
+      (*mr)[nc].op = 0;
+    } else {
+      n = sscanf(buf, "%d %d %d %lf %d", &m, &i0, &i1, &c, &op);
+      if (n != 5) continue;
+      (*mr)[nc].m = m;
+      (*mr)[nc].i0 = i0;
+      (*mr)[nc].i1 = i1;
+      (*mr)[nc].c = c;
+      (*mr)[nc].op = op;
+    }
+    nc++;
+  }
+  
+  fclose(f);
+
+  if (nr == 0) {
+    qsort(*mr, nc, sizeof(MOD_RECORD), CompareModRecord);
+  } else {
+    qsort(*mr, nc, sizeof(MOD_RECORD), CompareModRecordI1);
+  }
+
+  return nc;
+#undef NBUF
+}
+	
+int ReadENTable(char *fn, int *nh, EN_HEADER **h, 
+		int *nr, EN_RECORD **r, MOD_RECORD **mr) {
+  F_HEADER fh;
+  EN_HEADER h0;
+  int n, swp, i, j, m;
+  FILE *f;
+
+  f = fopen(fn, "r");
+  if (f == NULL) return -1;
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return -1;
+  }
+
+  if (fh.type != DB_EN) {
+    fclose(f);
+    return -1;
+  }
+  
+  *nh = fh.nblocks;
+  *nr = 0;
+  while (1) {
+    n = ReadENHeader(f, &h0, swp);
+    if (n == 0) break;
+    *nr += h0.nlevels;
+    fseek(f, h0.length, SEEK_CUR);
+  }
+  if (*nh == 0 || *nr == 0) {
+    fclose(f);
+    return -1;
+  }
+  *h = malloc(sizeof(EN_HEADER)*(*nh));
+  *r = malloc(sizeof(EN_RECORD)*(*nr));
+  if (mr) {
+    *mr = malloc(sizeof(MOD_RECORD)*(*nr));
+  }
+  fseek(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+  i = 0;
+  j = 0;
+  while (1) {
+    n = ReadENHeader(f, (*h)+i, swp);
+    if (n == 0) break;
+    for (m = 0; m < (*h)[i].nlevels; m++) {
+      n = ReadENRecord(f, (*r)+j, swp);      
+      if (n == 0) break;
+      if (mr) (*mr)[j].h = (*h) + i;
+      j++;
+    }
+    i++;
+  }
+  
+  if (mr) {
+    for (i = 0; i < (*nr); i++) {
+      (*mr)[i].m = 0;
+      (*mr)[i].i0 = 0;
+      (*mr)[i].i1 = (*r)[i].ilev;
+      (*mr)[i].c = (*r)[i].energy;
+      (*mr)[i].r = (*r) + i;
+    }
+  }
+
+  fclose(f);
+  return 0;
+}
+	
+int ReadTRTable(char *fn, int *nh, TR_HEADER **h, 
+		int *nr, TR_RECORD **r, MOD_RECORD **mr) {
+  F_HEADER fh;
+  TR_HEADER h0;
+  TR_EXTRA rx;
+  int n, swp, i, j, m;
+  FILE *f;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) return -1;
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return -1;
+  }
+
+  if (fh.type != DB_TR) {
+    fclose(f);
+    return -1;
+  }
+  
+  *nh = fh.nblocks;
+  *nr = 0;
+  while (1) {
+    n = ReadTRHeader(f, &h0, swp);
+    if (n == 0) break;
+    *nr += h0.ntransitions;
+    fseek(f, h0.length, SEEK_CUR);
+  }
+  if (*nh == 0 || *nr == 0) {
+    fclose(f);
+    return -1;
+  }
+  *h = malloc(sizeof(TR_HEADER)*(*nh));
+  *r = malloc(sizeof(TR_RECORD)*(*nr));
+  if (mr) {
+    *mr = malloc(sizeof(MOD_RECORD)*(*nr));
+  }
+  fseek(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+  i = 0;
+  j = 0;
+  while (1) {
+    n = ReadTRHeader(f, (*h)+i, swp);
+    if (n == 0) break;
+    for (m = 0; m < (*h)[i].ntransitions; m++) {
+      n = ReadTRRecord(f, (*r)+j, &rx, swp);
+      if (n == 0) break;
+      if (mr) {
+	(*mr)[j].m = (*h)[i].multipole;
+	(*mr)[j].h = (*h) + i;
+      }
+      j++;
+    }
+    i++;
+  }
+  
+  if (mr) {
+    for (i = 0; i < (*nr); i++) {
+      (*mr)[i].i0 = (*r)[i].lower;
+      (*mr)[i].i1 = (*r)[i].upper;
+      (*mr)[i].r = (*r) + i;
+    }
+  }
+
+  fclose(f);
+  return 0;
+}
+	
+int ReadCETable(char *fn, int *nh, CE_HEADER **h, 
+		int *nr, CE_RECORD **r, MOD_RECORD **mr) {
+  F_HEADER fh;
+  CE_HEADER h0;
+  int n, swp, i, j, m;
+  FILE *f;
+
+  f = fopen(fn, "r");
+  if (f == NULL) return -1;
+  n = ReadFHeader(f, &fh, &swp);
+  if (n == 0) {
+    fclose(f);
+    return -1;
+  }
+
+  if (fh.type != DB_CE) {
+    fclose(f);
+    return -1;
+  }
+  
+  *nh = fh.nblocks;
+  *nr = 0;
+  while (1) {
+    n = ReadCEHeader(f, &h0, swp);
+    if (n == 0) break;
+    *nr += h0.ntransitions;
+    free(h0.tegrid);
+    free(h0.egrid);
+    free(h0.usr_egrid);
+    fseek(f, h0.length, SEEK_CUR);
+  }
+  if (*nh == 0 || *nr == 0) {
+    fclose(f);
+    return -1;
+  }
+  *h = malloc(sizeof(CE_HEADER)*(*nh));
+  *r = malloc(sizeof(CE_RECORD)*(*nr));
+  if (mr) {
+    *mr = malloc(sizeof(MOD_RECORD)*(*nr));
+  }
+  fseek(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+  i = 0;
+  j = 0;
+  while (1) {
+    n = ReadCEHeader(f, (*h)+i, swp);
+    if (n == 0) break;
+    for (m = 0; m < (*h)[i].ntransitions; m++) {
+      n = ReadCERecord(f, (*r)+j, swp, (*h)+i);      
+      if (n == 0) break;
+      if (mr) (*mr)[j].h = (*h)+i;
+      j++;
+    }
+    i++;
+  }
+  
+  if (mr) {
+    for (i = 0; i < (*nr); i++) {
+      (*mr)[i].m = 0;
+      (*mr)[i].i0 = (*r)[i].lower;
+      (*mr)[i].i1 = (*r)[i].upper;
+      (*mr)[i].r = (*r) + i;
+    }
+  }
+
+  fclose(f);
+  return 0;
+}
+
+void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
+  int nc, swp, n, nr, nh, i;
+  FILE *f0, *f1;
+  MOD_RECORD *mr, *mr0;
+  F_HEADER fh;  
+  EN_HEADER *eh;
+  EN_RECORD *er;
+  TR_HEADER *th;
+  TR_RECORD *tr;
+  CE_HEADER *ch;  
+  CE_RECORD *cr;
+  void *hp, *rp;
+  
+  f0 = fopen(fn0, "r");
+  if (f0 == NULL) {
+    printf("cannot open file %s\n", fn0);
+    return;
+  }
+
+  n = ReadFHeader(f0, &fh, &swp);
+  if (n == 0) {
+    printf("cannot read file %s\n", fn0);
+    fclose(f0);
+    return;
+  }
+  
+  if (fnm) {
+    switch (fh.type) {
+    case DB_EN:
+      n = ReadENTable(fnm, &nh, &eh, &nr, &er, &mr0);
+      hp = eh;
+      rp = er;
+      break;
+    case DB_TR:
+      n = ReadTRTable(fnm, &nh, &th, &nr, &tr, &mr0);
+      hp = th;
+      rp = tr;
+      break;
+    case DB_CE:
+      n = ReadCETable(fnm, &nh, &ch, &nr, &cr, &mr0);
+      hp = ch;
+      rp = cr;
+      break;
+    default:
+      printf("file %s not of right type %d\n", fnm, fh.type);
+      fclose(f0);
+      return;
+      break;
+    }
+    qsort(mr0, nr, sizeof(MOD_RECORD), CompareModRecord);
+  } else {
+    nr = 0; 
+    nh = 0;
+  }
+
+  nc = ReadModRecord(fn, &mr, nr);
+  if (nc <= 0) {
+    printf("no records in file %s\n", fn);
+    fclose(f0);
+    return;
+  }
+  
+  f1 = OpenFile(fn1, &fh);
+  
+  switch (fh.type) {
+  case DB_EN:
+    if (nr == 0) {
+      for (n = 0; n < nc; n++) {
+	mr[n].c /= HARTREE_EV;
+      }
+    }
+    ModifyEN(nc, mr, nr, mr0, f0, f1, &fh, swp);
+    break;
+  case DB_TR:
+    ModifyTR(nc, mr, nr, mr0, f0, f1, &fh, swp);
+    break;
+  case DB_CE:
+    ModifyCE(nc, mr, nr, mr0, f0, f1, &fh, swp);
+    for (i = 0; i < nh; i++) {
+      free(ch[i].tegrid);
+      free(ch[i].egrid);
+      free(ch[i].usr_egrid);
+    }
+    for (i = 0; i < nr; i++) {
+      if (cr[i].params) free(cr[i].params);
+      free(cr[i].strength);
+    }
+    break;
+  default:
+    printf("cannot modify table type %d\n", fh.type);
+    break;
+  }
+    
+  if (nh) {
+    free(hp);
+  }
+  if (nr) {
+    free(rp);
+    free(mr0);
+  }
+  free(mr);
+  CloseFile(f1, &fh);
+  fclose(f0);
 }
 
 void F77Flush(void) {

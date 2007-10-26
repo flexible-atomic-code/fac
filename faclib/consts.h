@@ -169,6 +169,7 @@
 #define ENEABSERR  1E-8  /* absolute energy error */
 
 /* config */
+#define MCHSHELL           2048
 #define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     128
 #define GROUP_NAME_LEN     64
@@ -211,6 +212,7 @@
 #define DMODE              M_NR
 #define ERANK              4
 #define MRANK              4
+#define TRCUT0             1E-4
 #define TRCUT              1E-4
 
 /* recouple */

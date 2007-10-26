@@ -142,7 +142,7 @@ int SetMLevels(char *fn, char *tfn) {
   TR_RECORD r1;
   TR_EXTRA r1x;
   FILE *f;  
-  int n, k, m, t, t0, p;
+  int n, k, m, t, t0, p, k0;
   int m1, m2, j1, j2;
   int swp;
   double a, b, z, e;
@@ -215,6 +215,7 @@ int SetMLevels(char *fn, char *tfn) {
       if (n == 0) break;
       levels[t].nele = h.nele;
       levels[t].j = r.j;
+      levels[t].p = r.p;
       levels[t].energy = r.energy;
       m = r.j/2 + 1;
       levels[t].rtotal = malloc(sizeof(double)*m);
@@ -291,7 +292,7 @@ int SetMLevels(char *fn, char *tfn) {
   t0 = 0;
   if (h.nele == 1) {
     k = FindLevelByName(fn, 1, "1*1", "1s1", "1s+1(1)1");
-    t = FindLevelByName(fn, 1, "2*1", "2s1", "1s+1(1)1");
+    t = FindLevelByName(fn, 1, "2*1", "2s1", "2s+1(1)1");
     if (k >= 0 && t >= 0) {
       ntr += 1;
       tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
@@ -332,15 +333,26 @@ int SetMLevels(char *fn, char *tfn) {
   while (1) {
     n = ReadTRHeader(f, &h1, swp);
     if (n == 0) break;
-    k = abs(h1.multipole)*2;
+    k0 = abs(h1.multipole)*2;
     for (t = 0; t < h1.ntransitions; t++) {
       n = ReadTRRecord(f, &r1, &r1x, swp);
       if (n == 0) break;
-      tr_rates[t0].multipole = h1.multipole;
-      tr_rates[t0].lower = r1.lower;
-      tr_rates[t0].upper = r1.upper;
       j1 = levels[r1.lower].j;
       j2 = levels[r1.upper].j;
+      if (k0 != 0) {
+	k = k0;
+	tr_rates[t0].multipole = h1.multipole;
+      } else {
+	k = abs(j1-j2);
+	if (k == 0) k = 2;
+	if (IsOdd(levels[r1.lower].p+levels[r1.upper].p+k/2)) {
+	  tr_rates[t0].multipole = k/2;
+	} else {
+	  tr_rates[t0].multipole = -k/2;
+	}
+      }
+      tr_rates[t0].lower = r1.lower;
+      tr_rates[t0].upper = r1.upper;
       e = levels[r1.upper].energy-levels[r1.lower].energy;
       b = OscillatorStrength(h1.multipole, e, r1.strength, &a);
       a *= RATE_AU;
@@ -460,6 +472,7 @@ int SetMCERates(char *fn) {
 	    if (e2 >= 0) {
 	      rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
 	      a = egrid[q]/HARTREE_EV;
+	      a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
 	      a = PI*AREA_AU20/(2.0*a);
 	      rint[q] *= a*fint[q];
 	      if (i0 < 0) i0 = q;
@@ -475,6 +488,7 @@ int SetMCERates(char *fn) {
 	    e2 = egrid[q];
 	    rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
 	    a = e2/HARTREE_EV;
+	    a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
 	    a = PI*AREA_AU20/(2.0*a);
 	    rint[q] *= a*fint[q];
 	  }
@@ -483,11 +497,13 @@ int SetMCERates(char *fn) {
 	  e2 = e1 - e;
 	  cs1[k] = InterpolateCECross(e2, &r, &h, data, &ratio);
 	  a = e1/HARTREE_EV;
+	  a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
 	  a = PI*AREA_AU20/(2.0*a);
 	  cs1[k] *= a*v;
 	  e2 = e1;
 	  cs2[k] = InterpolateCECross(e2, &r, &h, data, &ratio);
 	  a = e2/HARTREE_EV;
+	  a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
 	  a = PI*AREA_AU20/(2.0*a);
 	  cs2[k] *= a*v;
 	}

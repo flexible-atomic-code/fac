@@ -4,6 +4,7 @@
 typedef struct _MLEVEL_ {
   short nele;
   short j;
+  short p;
   double energy;
   double dtotal;
   double *rtotal;

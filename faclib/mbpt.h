@@ -8,6 +8,7 @@
 typedef struct _TR_OPT_{
   int mktr;
   int naw;
+  double *awgrid;
   char tfn[1024];
   int nlow, nup;
   int *low, *up;
@@ -63,5 +64,6 @@ void SetOptMBPT(int i3rd, int n3, double c);
 void SetSymMBPT(int nlev, int *ilev);
 void TransitionMBPT(int mk, int naw);
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up);
+int GetAWGridMBPT(double **awgrid);
 
 #endif

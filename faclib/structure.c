@@ -33,6 +33,7 @@ static int n_levels = 0;
 static ARRAY *eblevels;
 static int n_eblevels;
 
+static int mbpt_mk = 0;
 static int angz_dim, angz_dim2;
 static ANGZ_DATUM *angz_array;
 static ANGZ_DATUM *angzxz_array;
@@ -61,6 +62,16 @@ int GetStructTiming(STRUCT_TIMING *t) {
   return 0;
 }
 #endif
+
+extern int GetAWGridMBPT(double **);
+
+void SetMaxKMBPT(int m) {
+  mbpt_mk = m;
+}
+
+int GetMaxKMBPT(void) {
+  return mbpt_mk;
+}
 
 void GetFields(double *b, double *e, double *a) {
   *b = BINP;
@@ -243,6 +254,11 @@ int SortUnique(int n, int *a) {
 
 HAMILTON *GetHamilton(void) {
   return &_ham;
+}
+
+SHAMILTON *GetSHamilton(int *n) {
+  if (n) *n = nhams;
+  return hams;
 }
 
 int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
@@ -596,12 +612,12 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
     }
   }
   if (m3) {
-    hs = hams + nhams;
-    nhams++;
-    if (nhams > MAX_HAMS) {
+    if (nhams >= MAX_HAMS) {
       printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
       exit(1);
     }
+    hs = hams + nhams;
+    nhams++;
     hs->pj = h->pj;
     hs->nlevs = h->dim;
     hs->nbasis = h->n_basis;
@@ -791,7 +807,7 @@ void AngularFrozen(int nts, int *ts, int ncs, int *cs) {
     for (j = 0; j < nts; j++) {
       kz = j*nts + i;
       ang_frozen.nz[kz] = AngularZMix(&(ang_frozen.z[kz]), 
-				      ts[i], ts[j], -1, -1);
+				      ts[i], ts[j], -1, -1, NULL, NULL);
     }
   }
   if (ncs > 0) {
@@ -1047,7 +1063,7 @@ double HamiltonElementFrozen(int isym, int isi, int isj) {
     nz = ang_frozen.nz[kz];
     ang = ang_frozen.z[kz];
   } else {
-    nz = AngularZMix(&ang, ti, tj, -1, -1);
+    nz = AngularZMix(&ang, ti, tj, -1, -1, NULL, NULL);
   }
   a = 0.0;
   for (i = 0; i < nz; i++) {
@@ -1097,7 +1113,7 @@ double MultipoleCoeff(int isym, int ilev1, int ka1,
     nz = ang_frozen.nz[kz];
     ang = ang_frozen.z[kz];
   } else {
-    nz = AngularZMix(&ang, ilev1, ilev2, k2, k2);
+    nz = AngularZMix(&ang, ilev1, ilev2, k2, k2, NULL, NULL);
   }
   
   a = 0.0;
@@ -3489,6 +3505,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     }
     for (i = 0; i < angz_dim2; i++) {
       angmz_array[i].ns = 0;
+      angmz_array[i].mk = NULL;
     }
   }
 
@@ -3548,10 +3565,10 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       if (ne1 == ne2) {
 	if (ih1 > ih2) {
 	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
-			   is2[i2], is1[i1], -1, -1);
+			   is2[i2], is1[i1], -1, -1, NULL, NULL);
 	} else {
 	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
-			   is1[i1], is2[i2], -1, -1);
+			   is1[i1], is2[i2], -1, -1, NULL, NULL);
 	}
       } else {
 	if (ne1 > ne2) {
@@ -3690,13 +3707,14 @@ int GetBaseJ(STATE *s) {
   return ih;
 }
 
-int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
+int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
+		int *nmk, double **mbk) {
   int i, j, j1, j2, jb1, jb2;
   int kg1, kg2, kc1, kc2;
   int ih1, ih2, isz0, isz;
   int jlow, jup, kb1, kb2;
-  int nz, n, ns, im;
-  double r0;
+  int nz, n, ns, im, nk, naw;
+  double r0, *awgrid, *rg, aw;
   int ik, kmin, kmax, m, nmax;
   int nz_sub, nfb;
   STATE *slow, *sup;
@@ -3716,7 +3734,10 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 
   lev1 = GetLevel(lower);
   lev2 = GetLevel(upper);
-  
+  if (nmk) {
+    *nmk = 0;
+    *mbk = NULL;
+  }
   if (angmz_array) {
     ih1 = lev1->iham;
     ih2 = lev2->iham;
@@ -3842,7 +3863,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 	  }
 	}
 	if (kb1 == kb2){	  
-	  nz_sub = AngularZMix(&ang_sub, kg1, kg2, kmin, kmax);
+	  nz_sub = AngularZMix(&ang_sub, kg1, kg2, kmin, kmax, NULL, NULL);
 	  if (nz_sub <= 0) {
 	    continue;
 	  }
@@ -3924,6 +3945,21 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
       lev = NULL;
     }
     ns = AngularZMixStates(&ad, lev1->iham, lev2->iham);
+    if (nmk) {
+      if (mbpt_mk > 0) {
+	*nmk = mbpt_mk;
+	nk = mbpt_mk*2;
+	*mbk = malloc(sizeof(double)*nk);
+	for (i = 0; i < nk; i++) {
+	  (*mbk)[i] = 0.0;
+	}
+	aw = fabs(lev1->energy - lev2->energy)*FINE_STRUCTURE_CONST;
+	naw = GetAWGridMBPT(&awgrid);
+      } else {
+	*nmk = 0;
+	*mbk = NULL;
+      }
+    }
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
       if (fabs(mix1) < angz_cut) continue;
@@ -3947,11 +3983,33 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk) {
 				  ang_sub[m].k0, ang_sub[m].k1, r0);
 	  }
 	}
+	if (mbk && (*mbk)) {
+	  for (ik = 0; ik < mbpt_mk; ik++) {
+	    im = ik*naw;
+	    if (lev) {
+	      rg = &(ad->mk[isz+ns][im]);
+	    } else {
+	      rg = &(ad->mk[isz][im]);
+	    }
+	    r0 = InterpolateMultipole(aw, naw, awgrid, rg);
+	    (*mbk)[ik] += a*r0;
+	  }
+	}
       }
     }
     PackAngularZMix(&n, ang, nz);
+
     if (lev) {
       AngZSwapBraKet(n, *ang, j1-j2);
+    }
+
+    if (mbk && *mbk) {
+      for (i = 0; i < n; i++) {
+	ik = (*ang)[i].k/2-1;
+	if (ik >= 0 && ik < mbpt_mk) {
+	  (*mbk)[mbpt_mk+ik] += fabs((*ang)[i].coeff);
+	}
+      }
     }
     /*
     for (i = 0; i < n; i++) {
@@ -4018,7 +4076,7 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
       jup = GetBaseJ(sup);
       kg = sup->kgroup;
       kg = -kg-1;
-      nz_sub = AngularZMix(&ang_z, lower, kg, -1, -1);
+      nz_sub = AngularZMix(&ang_z, lower, kg, -1, -1, NULL, NULL);
       if (nz_sub <= 0) {
 	continue;
       }
@@ -4361,6 +4419,12 @@ void FreeAngZDatum(ANGZ_DATUM *ap) {
   if (ap->ns > 0) {
     free(ap->angz);
     free(ap->nz);
+    if (ap->mk) {
+      for (i = 0; i < ap->ns*2; i++) {
+	free(ap->mk[i]);
+      }
+      free(ap->mk);
+    }
   }
   ap->ns = 0;
 }
@@ -4384,6 +4448,8 @@ int InitAngZArray(void) {
   for (i = 0; i < angz_dim2; i++) {
     angz_array[i].ns = 0;
     angzxz_array[i].ns = 0;
+    angz_array[i].mk = NULL;
+    angzxz_array[i].mk = NULL;
   }
   
   return 0;

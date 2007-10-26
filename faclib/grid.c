@@ -1,6 +1,6 @@
 #include "grid.h"
 
-static char *rcsid="$Id: grid.c,v 1.10 2006/08/04 07:43:53 mfgu Exp $";
+static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
@@ -130,9 +130,28 @@ int SetEGridDetail(double *e, double *log_e, int n, double *xg) {
   return n;
 }
 
+double EFromX(double x, double b) {
+  double x0, e, a, d;
+  int i;
+
+  x0 = 2.0*log(1.0/FINE_STRUCTURE_CONST2);
+  if (x > x0) e = x/b;
+  else e = exp(x);
+
+  for (i = 0; i < 100; i++) {
+    d = log(e) + b*e - x;
+    if (fabs(d/x) < EPS5) return e;
+    a = 1.0/e + b;
+    e = e - d/a;
+  }
+  printf("Newton iteration failed to converge in EFromX, %10.3E %10.3E %10.3E\n", 
+	 x, e, d);
+  return e;
+}
+
 int SetEGrid(double *e, double *log_e, 
 	     int n, double emin, double emax, double eth) {
-  double del, et;
+  double del, et, b;
   int i;
 
   if (n < 1) {
@@ -154,19 +173,19 @@ int SetEGrid(double *e, double *log_e,
     emin += et;
     emax += et;
   
+    b = 0.2/FINE_STRUCTURE_CONST2;
+    b = log(b)/b;
     e[0] = emin;
-    log_e[0] = log(emin);
+    log_e[0] = log(emin) + b*emin;
     if (n == 1) goto DONE1;
     e[n-1] = emax;
-    log_e[n-1] = log(emax);
+    log_e[n-1] = log(emax) + b*emax;
     if (n == 2) goto DONE1;
     del = (log_e[n-1] - log_e[0])/(n-1.0);
-    del = exp(del);
     for (i = 1; i < n-1; i++) {
-      e[i] = e[i-1]*del;
-      log_e[i] = log(e[i]);
+      log_e[i] = log_e[i-1]+del;
+      e[i] = EFromX(log_e[i], b);
     }
-    
   DONE1:
     if (et > 0.0) {
       for (i = 0; i < n; i++) {
