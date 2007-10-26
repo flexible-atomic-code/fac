@@ -7,6 +7,15 @@
 #include "global.h"
 #include "dbase.h"
 
+typedef struct _MOD_RECORD_ {
+  int m;
+  int i0;
+  int i1;
+  int op;
+  double c;
+  void *r, *h;
+} MOD_RECORD;
+
 void spline_work(double *x, double *y, int n, 
 		 double yp1, double ypn, double *y2, double *work);
 void spline(double *x, double *y, int n, 
@@ -76,5 +85,6 @@ int InterpCross(char *ifn, char *ofn, int i0, int i1,
 int MaxwellRate(char *ifn, char *ofn, int i0, int i1, 
 		int nt, double *temp);
 double voigt(double a, double v);
+void ModifyTable(char *fh, char *fn0, char *fn1, char *fnm);
 
 #endif

@@ -7,7 +7,7 @@
 #include "config.h"
 #include "structure.h"
 
-int SetTransitionCut(double c);
+int SetTransitionCut(double c0, double c);
 double GetTransitionCut(void);
 void SetTransitionMode(int m);
 void SetTransitionGauge(int m);
@@ -23,7 +23,6 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
 		   char *fn, int multipole);
 int SaveTransitionEB(int nlow, int *low, int nup, int *up,
 		     char *fn, int multipole);
-int GetLowestMultipole(int p1, int j1, int p2, int j2);
 int GetLowUpEB(int *nlow, int **low, int *nup, int **up, 
 	       int nlow0, int *low0, int nup0, int *up0);
 int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1);

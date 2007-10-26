@@ -328,6 +328,10 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
       kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
     }
     *dnq = atof(&(scfg[next]));
+    if (*dnq < 0) {
+      printf("negative occupation number, use brackets to indicate j-1/2 shell\n");
+      exit(1);
+    }
     if (*dnq == 0 && !(isdigit(scfg[next]))) *dnq = 1;
   } else if (quotepos == 0) {
     nkl = StrSplit(token, ',');
@@ -726,6 +730,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
+  StrTrim(scfg, '\0');
   ns = QuotedStrSplit(scfg, ' ', '[', ']');
   if (ns == 0) {
     *cfg = (CONFIG *) malloc(sizeof(CONFIG));
@@ -870,6 +875,7 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
+  StrTrim(scfg, '\0');
   ns = QuotedStrSplit(scfg, ' ', '[', ']');
   if (ns == 0) {
     *cfg = (CONFIG *) malloc(sizeof(CONFIG));
@@ -2145,6 +2151,29 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 #undef M
 }
 
+int Bisect(void *p0, int n, int m, void *p,
+	   int (*comp)(const void *, const void *)) {
+  int i, i0, i1, k;
+
+  if (n == 0) return -1;
+  i0 = 0;
+  i1 = n-1;
+  while (i1-i0 > 1) {
+    i = (i0+i1)/2;
+    k = comp(p0, p+m*i);
+    if (k == 0) return i;
+    else if (k < 0) i1 = i;
+    else i0 = i;
+  }
+  
+  k = comp(p0, p);
+  if (k == 0) return i0;
+  k = comp(p0, p+(n-1)*m);
+  if (k == 0) return i1;
+  
+  return -1;
+}
+  
 int IBisect(int b, int n, int *a) {
   int i, i0, i1;
 

@@ -392,7 +392,6 @@ typedef struct _DR_RECORD_ {
   float total_rate;
 } DR_RECORD;  
 
-
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
  * files directly. to do so, copy consts.h, dbase.h, and dbase.c

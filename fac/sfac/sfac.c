@@ -319,11 +319,11 @@ static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }  
 
-static char _closed_shells[128] = "";
+static char _closed_shells[MCHSHELL] = "";
 static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
-  int i, j, kappa, jj, kl, n, nq, ncfg;
-  char js, *p;
+  int i, j, kl, n, nq, ncfg;
+  char *p;
   char s[16], st[16];
   int ns, k;
 
@@ -334,18 +334,15 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
     p = argv[i];
     for (k = 0; k < ns; k++) {
       while (*p == ' ') p++;
-      ncfg = GetConfigFromString(&cfg, p);
+      ncfg = GetConfigFromStringNR(&cfg, p);
       for (j = ncfg-1; j >= 0; j--) {
 	if (cfg[j].n_shells != 1) return -1;
 	n = (cfg[j].shells)[0].n;
-	kappa = (cfg[j].shells)[0].kappa;
-	GetJLFromKappa(kappa, &jj, &kl);
-	nq = jj + 1;
-	if (jj > kl) js = '+';
-	else js = '-';
+	kl = (cfg[j].shells)[0].kappa;
+	nq = 2*(kl + 1);
 	kl = kl/2;
 	SpecSymbol(s, kl);
-	sprintf(st, "%d%s%c%d ", n, s, js, nq);
+	sprintf(st, "%d%s%d ", n, s, nq);
 	strcat(_closed_shells, st);
 	free(cfg[j].shells);
       }
@@ -354,19 +351,18 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
       p++;
     }
   }
-  
   return 0;
 }
 
 static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   int i, j, k, t, ncfg;
-  char scfg[1280], s[16];
+  char scfg[MCHSHELL], s[16];
   
   for (i = 0; i < argc; i++) {
     if (argt[i] != STRING) return -1;
-    strncpy(scfg, _closed_shells, 128);
-    strncat(scfg, argv[i], 1280);
+    strncpy(scfg, _closed_shells, MCHSHELL);
+    strncat(scfg, argv[i], MCHSHELL);
     ncfg = GetConfigFromStringNR(&cfg, scfg);
     for (j = 0; j < ncfg; j++) {
       scfg[0] = '\0';
@@ -394,7 +390,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   static char gname[GROUP_NAME_LEN] = "_all_";
   int i, j, k, t, ncfg;
-  char scfg[1280];
+  char scfg[MCHSHELL];
   
   k = -2;
   for (i = 0; i < argc; i++) {
@@ -422,8 +418,8 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
     if (argt[i] != STRING) return -1;
-    strncpy(scfg, _closed_shells, 128);
-    strncat(scfg, argv[i], 1280);
+    strncpy(scfg, _closed_shells, MCHSHELL);
+    strncat(scfg, argv[i], MCHSHELL);
     ncfg = GetConfigFromString(&cfg, scfg);
     for (j = 0; j < ncfg; j++) {
       if (Couple(cfg+j) < 0) return -1;
@@ -2377,8 +2373,16 @@ static int PSetScreening(int argc, char *argv[], int argt[],
 
 static int PSetTransitionCut(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
-  if (argc != 1 || argt[0] != NUMBER) return -1;
-  SetTransitionCut(atof(argv[0]));
+  int c0, c;
+
+  if (argc < 1) return -1;
+  c = -1;
+  c0 = atof(argv[0]);
+  if (argc > 1) {
+    c = atof(argv[1]);
+  }
+
+  SetTransitionCut(c0, c);
 						  
   return 0;
 }
@@ -2968,7 +2972,7 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
   nup = 0;
   low = NULL;
   up = NULL;
-  m = -1;
+  m = 0;
 
   n = argc;
 
@@ -3524,6 +3528,20 @@ static int PJoinTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PModifyTable(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  
+  if (argc == 3) {  
+    ModifyTable(argv[0], argv[1], argv[2], NULL);
+  } else if (argc == 4) {
+    ModifyTable(argv[0], argv[1], argv[2], argv[3]);
+  } else {
+    return -1;
+  }
+  
+  return 0;
+}
+
 static int PLimitArray(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int m;
@@ -3738,7 +3756,8 @@ static METHOD methods[] = {
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
-  {"JoinTable", PJoinTable, METH_VARARGS},
+  {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
   {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 

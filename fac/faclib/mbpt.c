@@ -18,7 +18,8 @@ static TR_OPT mbpt_tr;
 
 void InitMBPT(void) {
   mbpt_tr.mktr = 0;
-  mbpt_tr.naw = 3;
+  mbpt_tr.naw = 0;
+  mbpt_tr.awgrid = NULL;
   mbpt_tr.nlow = 0;
   mbpt_tr.nup = 0;
   mbpt_tr.low = NULL;
@@ -26,10 +27,33 @@ void InitMBPT(void) {
 }
   
 void TransitionMBPT(int mk, int n) {  
-  if (mk < 0) mbpt_tr.mktr = 0;
-  else mbpt_tr.mktr = mk;
-  if (n < 0) mbpt_tr.naw = 3;
-  else mbpt_tr.naw = n;
+  if (mk < 0) mk = 0;
+  if (n < 0) {
+    if (mk > 0) n = 3;
+    else n = 0;
+  }
+  if (n > 0 && n != mbpt_tr.naw) {
+    if (mbpt_tr.naw > 0) free(mbpt_tr.awgrid);
+    mbpt_tr.awgrid = malloc(sizeof(double)*n);
+  }
+  mbpt_tr.mktr = mk;
+  mbpt_tr.naw = n;
+}
+
+int GetAWGridMBPT(double **awgrid) {
+  if (awgrid) *awgrid = mbpt_tr.awgrid;
+  return mbpt_tr.naw;
+}
+
+void SetAWGridMBPT(double emin, double emax) {
+  int i;
+  double *a;
+
+  SetAWGrid(mbpt_tr.naw, emin, emax);
+  GetAWGrid(&a);
+  for (i = 0; i < mbpt_tr.naw; i++) {
+    mbpt_tr.awgrid[i] = a[i];
+  }
 }
 
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
@@ -3220,7 +3244,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     emin = 0.1;
     emax *= FINE_STRUCTURE_CONST;
     emin *= FINE_STRUCTURE_CONST;
-    SetAWGrid(mbpt_tr.naw, emin, emax);
+    SetAWGridMBPT(emin, emax);
     InitTransitionMBPT(&mtr, n);
   }
 
@@ -3719,7 +3743,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
 	}
       }
     }    
-    SetAWGrid(mbpt_tr.naw, emin, emax);
+    SetAWGridMBPT(emin, emax);
     return 0;
   }
 
@@ -3791,6 +3815,67 @@ void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr, int n, int *ng)
   }
 }
 
+void AdjustAngularZ(MBPT_TR *mtr) {
+  SHAMILTON *h;
+  ANGZ_DATUM *ad;
+  ANGULAR_ZMIX **a;
+  int nh, i0, i1, m0, m1, k0, k1;
+  int i, k, iz, n, ns, p, q, p0, p1, j0, j1;
+
+  SetMaxKMBPT(mbpt_tr.mktr);
+  h = GetSHamilton(&nh);
+  for (i0 = 0; i0 < nh; i0++) {
+    DecodePJ(h[i0].pj, &p0, &j0);
+    for (i1 = i0; i1 < nh; i1++) {
+      DecodePJ(h[i1].pj, &p1, &j1);
+      ns = AngularZMixStates(&ad, i0, i1);
+      a = (ANGULAR_ZMIX **) ad->angz;
+      ad->mk = malloc(sizeof(double *)*ns*2);
+      n = mbpt_tr.mktr * mbpt_tr.naw;
+      for (i = 0; i < 2*ns; i++) {
+	ad->mk[i] = malloc(sizeof(double)*n);
+	for (k = 0; k < n; k++) {
+	  ad->mk[i][k] = 0.0;
+	}
+      }
+      for (m0 = 0; m0 < h[i0].nbasis; m0++) {
+	for (m1 = 0; m1 < h[i1].nbasis; m1++) {
+	  iz = m0*h[i1].nbasis + m1;
+	  for (k = 0; k < mbpt_tr.mktr; k++) {
+	    n = mbpt_tr.naw * k;
+	    k0 = h[i0].pj*2*mbpt_tr.mktr + 2*k;
+	    if (IsEven(p0+p1+k)) k0++;
+	    k1 = IBisect(h[i1].pj, mtr[k0].nsym1, mtr[k0].isym1);
+	    if (k1 >= 0) {
+	      p = m0*mtr[k0].sym1[k1]->n_states + m1;
+	      p *= mbpt_tr.naw;
+	      for (q = 0; q < mbpt_tr.naw; q++) {
+		ad->mk[iz][n+q] += mtr[k0].tma[k1][p+q];
+		if (i0 != i1) {
+		  ad->mk[iz+ns][n+q] += mtr[k0].rma[k1][p+q];
+		}
+	      }
+	    }
+	    k0 = h[i1].pj*2*mbpt_tr.mktr + 2*k;
+	    if (IsEven(p0+p1+k)) k0++;
+	    k1 = IBisect(h[i0].pj, mtr[k0].nsym1, mtr[k0].isym1);
+	    if (k1 >= 0) {
+	      p = m1*mtr[k0].sym1[k1]->n_states + m0;
+	      p *= mbpt_tr.naw;
+	      for (q = 0; q < mbpt_tr.naw; q++) {
+		ad->mk[iz][n+q] += mtr[k0].rma[k1][p+q];
+		if (i0 != i1) {
+		  ad->mk[iz+ns][n+q] += mtr[k0].tma[k1][p+q];
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+}
+
 void SaveTransitionMBPT(MBPT_TR *mtr) {
   char *fn;
   FILE *f;
@@ -3806,12 +3891,11 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
   
   fn = mbpt_tr.tfn;
   if (fn == NULL || mbpt_tr.nlow <= 0 || mbpt_tr.nup <= 0) return;  
-  mbpt_tr.naw = GetAWGrid(&awgrid);
+  awgrid = mbpt_tr.awgrid;
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   tr_hdr.nele = GetNumElectrons(0);
-  SetTransitionMode(0);
   n = GetNumLevels();
   f = OpenFile(fn, &fhdr);
   for (t = 1; t <= mbpt_tr.mktr; t++) {
@@ -3837,8 +3921,8 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  st = (STATE *) ArrayGet(&(sym->states), k);
 	  k = InGroups(st->kgroup, mbpt_tr.nlow, mbpt_tr.low);
 	  if (k == 0) continue;
-	  e = 0.0;
 	  DecodePJ(lev1->pj, &p1, &j1);
+	  e = 0.0;
 	  k = TRMultipole(&s0, &e, m, i, j);
 	  e *= FINE_STRUCTURE_CONST;
 	  if (k != 0) continue;
@@ -4176,7 +4260,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     fclose(f1[m]);    
   }
 
-  if (mbpt_tr.mktr == 0 || mbpt_tr.nlow <= 0 || mbpt_tr.nup <= 0) goto ERROR;
+  if (mbpt_tr.mktr == 0) goto ERROR;
   for (m = 0; m < nf; m++) {
     sprintf(tfn1, "%s.tr", fn1[m]);
     f1[m] = fopen(tfn1, "r");
@@ -4219,11 +4303,16 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     }
   }
   fclose(f2);
+
+  SetTransitionMode(0);
   SaveTransitionMBPT(mtr);
+  AdjustAngularZ(mtr);
+
   for (m = 0; m < nf; m++) {
     FreeTransitionMBPT(mbpt[m].mtr);
   }
   FreeTransitionMBPT(mtr);
+
   for (m = 0; m < nf; m++) {
     fclose(f1[m]);
   }

@@ -3171,12 +3171,12 @@ double BlockRelaxation(int iter) {
 	}
       } else a = 1.0;
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m]) {
+	if (blk1->n[m]) {	  
 	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
-	  d += fabs(((blk1->n[m]-blk1->n0[m])/blk1->n[m])*blk1->nb);
-	  td += fabs(blk1->nb);
+	  d += fabs((blk1->n[m]-blk1->n0[m])*blk1->total_rate[m]);
+	  td += fabs(blk1->total_rate[m]*blk1->n[m]);
 	  nlevels += 1;
-	}    
+	}
 	if (iter >= 2) {
 	  blk1->n[m] = b*blk1->n0[m] + c*blk1->n[m];
 	}
@@ -3912,7 +3912,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
     if (m) {
       for (i = 0; i < brt->rates->dim; i++) {
 	r0 = (RATE *) ArrayGet(brt->rates, i);
-	if (r0->i == r->i && r0->f == r0->f) break;
+	if (r0->i == r->i && r0->f == r->f) break;
       }
       if (i == brt->rates->dim) {
 	ArrayAppend(brt->rates, r, NULL);
@@ -3944,13 +3944,15 @@ int SetCERates(int inv) {
   CE_HEADER h;
   CE_RECORD r;
   FILE *f;
-  double e;
+  double e, bte, bms;
   float *cs;
   double data[2+(1+MAXNUSR)*2];
   double *y, *x;
   double *eusr;
   int swp;
   
+  BornFormFactorTE(&bte);
+  bms = BornMass(); 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
@@ -3977,11 +3979,11 @@ int SetCERates(int inv) {
       m = h.n_usr;
       m1 = m + 1;
       x = y + m1;
-      x[m] = eusr[m-1]/(h.te0+eusr[m-1]);
-      data[0] = h.te0*HARTREE_EV;
+      data[0] = (h.te0*HARTREE_EV + bte)/bms;
       for (j = 0; j < m; j++) {
-	x[j] = log((h.te0 + eusr[j])/h.te0);
+	x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
       }
+      x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCERecord(f, &r, swp, &h);
 	rt.i = r.lower;
@@ -4024,11 +4026,11 @@ int SetCERates(int inv) {
 	m = h.n_usr;
 	m1 = m + 1;
 	x = y + m1;
-	x[m] = eusr[m-1]/(h.te0+eusr[m-1]);
-	data[0] = h.te0*HARTREE_EV;
+	data[0] = (h.te0*HARTREE_EV + bte)/bms;
         for (j = 0; j < m; j++) {
-	  x[j] = log((h.te0 + eusr[j])/h.te0);
+	  x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
         }
+	x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = ReadCERecord(f, &r, swp, &h);
 	  p = IonizedIndex(r.lower, 0);
@@ -4109,7 +4111,7 @@ int SetTRRates(int inv) {
 	  continue;
 	}
       }
-      if (abs(h.multipole) == 1) m = 0;
+      if (abs(h.multipole) <= 1) m = 0;
       else m = 1;
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadTRRecord(f, &r, &rx, swp);
@@ -4812,7 +4814,7 @@ int ModifyRates(char *fn) {
   k = -1;
   while (1) {
     if (NULL == fgets(buf, 1024, f)) break;
-    n = sscanf(buf, "%d %d", &k, &m, &mode);
+    n = sscanf(buf, "%d %d %d", &k, &m, &mode);
     if (n == 3) break;
     k = -1;
   }

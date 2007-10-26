@@ -536,7 +536,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   int j0, j1, j2, j3;
   int ko2, t, nk, ty, bnk;
   double r, c0, c1, dk;
-  double x, b, d, c, a, g0, b0, b1;
+  double x, b, d, c, a, h, g0, b0, b1, a0, a1;
   double *g1, *g2, *x1, *x2;
   double bte, bms;
   FORM_FACTOR *bform;
@@ -564,7 +564,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   if (IsOdd((m2+m3+k)/2)) {
     ty = -1;
   }
-  if (m >= 0 && ty < 0) return -1;
+  if (ty < 0) return -1;
 
   r = ReducedCL(j0, k, j1) * ReducedCL(j2, k, j3);
   r *= (k+1.0)*(k+1.0);
@@ -577,11 +577,14 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   bms = BornMass();
   c0 = e1 + (te + bte)/bms;
   if (m <= 0) {
-    b0 = 1 + FINE_STRUCTURE_CONST2*c0;
-    b1 = 1 + FINE_STRUCTURE_CONST2*e1;
-    c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
-    c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
-    b = 1.0+FINE_STRUCTURE_CONST2*c0;
+    a0 = FINE_STRUCTURE_CONST2*c0;
+    a1 = FINE_STRUCTURE_CONST2*e1;
+    b0 = 1 + a0;
+    b1 = 1 + a1;
+    a0 = 1.0 + 0.5*a0;
+    a1 = 1.0 + 0.5*a1;
+    c0 = 2.0*c0*a0;
+    c1 = 2.0*e1*a1;
   } else {
     c0 = 2.0*c0;
     c1 = 2.0*e1;
@@ -593,10 +596,10 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
   log_kint[nk] = log(kint[nk]);
-  c1 = Min(x1[NGOSK-1], x2[NGOSK-1]);  
-  if (c1 < log_kint[nk] && c1 > log_kint[0]) {
-    log_kint[nk] = c1;
-    kint[nk] = exp(c1);
+  x = Min(x1[NGOSK-1], x2[NGOSK-1]);  
+  if (x < log_kint[nk] && x > log_kint[0]) {
+    log_kint[nk] = x;
+    kint[nk] = exp(x);
   }
   dk = (log_kint[nk] - log_kint[0])/nk;
   for (t = 1; t < nk; t++) {
@@ -608,32 +611,25 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
   
-  if (ty >= 0) {
-    g0 = g1[0]*g2[0]*r;
+  for (t = 0; t < nk; t++) {
+    gosint[t] = r*gos1[t]*gos2[t];
+  }
+  if (m <= 0) {
+    a = a0*a1;
+    d = 0.25*FINE_STRUCTURE_CONST2/a;
     for (t = 0; t < nk; t++) {
-      gosint[t] = r*gos1[t]*gos2[t];
-      if (m <= 0) {
-	if (kint[t] < 0.1 && gosint[t]+1 != 1 ) {
-	  d = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
-	  d *= g0/(gosint[t]*b);
-	  gosint[t] *= 1-d;
-
-	}
-	d = kint[t]*kint[t];
-	d = d/(d - FINE_STRUCTURE_CONST2*te*te);
-	d = d*d*b0*b1;
-	gosint[t] *= d;
-      }
-    }    
-  } else if (m < 0) {
-    for (t = 0; t < nk; t++) {
-      gosint[t] = r*gos1[t]*gos2[t];
-      a = kint[t]*kint[t];
-      d = 2.0*(e1+te);
-      gosint[t] *= (a*a)/(d*d);
+      c = 0.5*(c0*c0 + c1*c1 - kint[t]*kint[t]);
+      h = c/(c0*c1);
+      c /= bms*bms;
+      c = 1 + d*c;
+      c *= c;
+      h = 1.0 - h;
+      x = (c0/bms)*(c1/bms);
+      h *= x*x;
+      h *= d*d;
+      gosint[t] *= a*(c + h);
     }
   }
-
   if (bnk >= 0) {
     bform = BornFormFactor();
     for (t = 0; t < nk; t++) {
@@ -643,8 +639,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   }
   a = dk*Simpson(gosint, 0, nk-1);
   *qk += a;
-  if (m <= 0) *qk *= b;
-
+    
   return ty;
 }
   
@@ -658,8 +653,8 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   int nudiff, mu1, mu2, ierr, ipqa[MAXMSUB];
   int kkp, iq, bnk;
   double xc, theta, dnu1, pqa[MAXMSUB];
-  double r, c0, c1, c01, dk;
-  double x, b, d, c, a, g0, b0, b1, bte, bms;  
+  double r, c0, c1, c01, dk, a0, a1;
+  double x, b, d, c, a, h, g0, b0, b1, bte, bms;  
   double *g1, *g2, *x1, *x2;
   double gosm1[MAXMSUB][NKINT];
   double gosm2[MAXMSUB][NKINT];
@@ -698,14 +693,17 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   x2 = g2 + NGOSK;
 
   bnk = BornFormFactorTE(&bte);
-  bms = BornMass();
+  bms = BornMass();  
   c0 = e1 + (te + bte)/bms; 
   if (m <= 0) {
-    b0 = 1 + FINE_STRUCTURE_CONST2*c0;
-    b1 = 1 + FINE_STRUCTURE_CONST2*e1;
-    c0 = 2.0*c0*(1.0 + 0.5*FINE_STRUCTURE_CONST2*c0);
-    c1 = 2.0*e1*(1.0 + 0.5*FINE_STRUCTURE_CONST2*e1);
-    b = 1.0+FINE_STRUCTURE_CONST2*c0;
+    a0 = FINE_STRUCTURE_CONST2*c0;
+    a1 = FINE_STRUCTURE_CONST2*e1;
+    b0 = 1 + a0;
+    b1 = 1 + a1;
+    a0 = 1.0 + 0.5*a0;
+    a1 = 1.0 + 0.5*a1;
+    c0 = 2.0*c0*a0;
+    c1 = 2.0*e1*a1;
   } else {
     c0 = 2.0*c0;
     c1 = 2.0*e1;
@@ -718,10 +716,10 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   kint[nk] = c0 + c1;
   log_kint[0] = log(kint[0]);
   log_kint[nk] = log(kint[nk]);
-  c1 = Min(x1[NGOSK-1], x2[NGOSK-1]);
-  if (c1 < log_kint[nk] && c1 > log_kint[0]) {
-    log_kint[nk] = c1;
-    kint[nk] = exp(c1);
+  x = Min(x1[NGOSK-1], x2[NGOSK-1]);
+  if (x < log_kint[nk] && x > log_kint[0]) {
+    log_kint[nk] = x;
+    kint[nk] = exp(x);
   }
   dk = (log_kint[nk] - log_kint[0])/nk;
   for (t = 1; t < nk; t++) {
@@ -733,19 +731,23 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   InterpolateGOS(NGOSK, x1, g1, nk, log_kint, gos1);
   InterpolateGOS(NGOSK, x2, g2, nk, log_kint, gos2);
 
-  g0 = g1[0]*g2[0]*r;
   for (t = 0; t < nk; t++) {
     gost[t] = r*gos1[t]*gos2[t];
-    if (m <= 0) {
-      if (kint[t] < 0.1 && gosint[t]+1 != 1 ) {
-	d = FINE_STRUCTURE_CONST2*te*te/(kint[t]*kint[t]);
-	d *= g0/(gosint[t]*b);
-	gosint[t] *= 1-d;
-      }
-      d = kint[t]*kint[t];
-      d = d/(d - FINE_STRUCTURE_CONST2*te*te);
-      d = d*d*b0*b1;
-      gosint[t] *= d;
+  }
+  if (m <= 0) {
+    a = a0*a1;
+    d = 0.25*FINE_STRUCTURE_CONST2/a;
+    for (t = 0; t < nk; t++) {
+      c = 0.5*(c0*c0 + c1*c1 - kint[t]*kint[t]);
+      h = c/(c0*c1);
+      c /= bms*bms;
+      c = 1 + d*c;
+      c *= c;
+      h = 1.0 - h;
+      x = (c0/bms)*(c1/bms);
+      h *= x*x;
+      h *= d*d;
+      gost[t] *= a*(c + h);
     }
   }
 
@@ -753,7 +755,7 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
     bform = BornFormFactor();
     for (t = 0; t < nk; t++) {
       a = BornFormFactorK(kint[t], bform);
-      gosint[t] *= a;
+      gost[t] *= a;
     }
   }
 
@@ -792,7 +794,6 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
       if (IsOdd(ko2p+kkp/2)) gosint[t] = -gosint[t];
     }
     qk[iq] = dk*Simpson(gosint, 0, nk-1);
-    if (m <= 0) qk[iq] *= b;
   }  
   
   return Max(ko2, ko2p);
@@ -807,8 +808,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   double r, rd, s, b, a, c;
   double qk[MAXNKL], dqk[MAXNKL];
   double rq[MAXNTE][MAXNE+1], e1, te, te0;
-  double *rqc, **p, *ptr;
-  int index[5], mb;
+  double drq[MAXNTE][MAXNE+1], *rqc, **p, *ptr;
+  int index[5], mb, mk;
   int np = 3, one = 1, ieb[MAXNTE];
   double logj, xb;
 
@@ -827,10 +828,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   if (*p) {
     return *p;
   }   
-  
-  nqk = n_tegrid*n_egrid1;
-  *p = (double *) malloc(sizeof(double)*(nqk+1));
-  rqc = *p;
+
   if (xborn == 0 || xborn < -1E30) {
     for (ie = 0; ie < n_egrid1; ie++) {
       if (ie == n_egrid) mb = 1;
@@ -846,6 +844,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]), mb);
+	drq[ite][ie] = rq[ite][ie];
       }
     }
   } else {
@@ -863,6 +862,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]), 1);
+	drq[ite][ie] = rq[ite][ie];
       }    
     }
     for (ite = 0; ite < n_tegrid; ite++) {
@@ -876,6 +876,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	  te = tegrid[ite];
 	  type = CERadialQkBorn(k0, k1, k2, k3, k,
 				te, e1, &(rq[ite][ie]), 0);
+	  drq[ite][ie] = rq[ite][ie];
 	} else {
 	  t = 1;
 	}
@@ -1015,12 +1016,14 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	      ieb[ite] = 1;
 	    } else {
 	      rq[ite][ie] = r + s;
+	      drq[ite][ie] = rd + s;
 	    }
 	  }
 	}
 	if (ieb[ite]) {
 	  type = CERadialQkBorn(k0, k1, k2, k3, k,
 				te, e1, &(rq[ite][ie]), 0);
+	  drq[ite][ie] = rq[ite][ie];
 	  rq[ite][ie] += r-rd;
 	  if (rq[ite][ie]) {
 	    if (fabs((r-rd)/rq[ite][ie]) < 0.05) ieb[ite] = 2;
@@ -1028,7 +1031,17 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
 	}
       }
     }
+  }  
+
+  nqk = n_tegrid*n_egrid1;
+  t = nqk + 1;
+  if (type >= 0 && k > 0) {
+    mk = GetMaxKMBPT();
+    if (k/2 <= mk) t = nqk*2 + 1;
   }
+  *p = (double *) malloc(sizeof(double)*t);
+  rqc = *p;
+
   ptr = rqc;
   for (ite = 0; ite < n_tegrid; ite++) {
     for (ie = 0; ie < n_egrid1; ie++) {
@@ -1037,12 +1050,23 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
     ptr += n_egrid1;
   }
   rqc[nqk] = type;
+  
+  if (t > nqk+1) {
+    ptr = &(rqc[nqk+1]);
+    for (ite = 0; ite < n_tegrid; ite++) {
+      for (ie = 0; ie < n_egrid1; ie++) {
+	ptr[ie] = drq[ite][ie];
+      }
+      ptr += n_egrid1;
+    }
+  }
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-  return rqc;
+
+  return *p;
 }
 
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
@@ -1093,7 +1117,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   if (xborn == 0) {
     for (ie = 0; ie < n_egrid1; ie++) {
       e1 = egrid[ie];
-      if (ie < n_egrid) mb = 0;
+      if (ie == n_egrid) mb = 1;
       else {
 	if (xborn == 0) {
 	  mb = 0;
@@ -1356,10 +1380,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   
 int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
   int i, np, nd, type;
-  int j, m;
+  int j, m, mk;
   double *rqe, rq[MAXNTE];
   double *xte, x0;
-
+  
   rqe = CERadialQkTable(k0, k1, k2, k3, k);
   if (n_tegrid == 1) {
     for (i = 0; i < n_egrid1; i++) {
@@ -1387,6 +1411,37 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3, int k) {
     }
   }
 
+  if (type >= 0 && k > 0) {
+    mk = GetMaxKMBPT();
+    if (k/2 <= mk) {
+      rqe += n_tegrid*n_egrid1+1;
+      rqc += n_egrid1;
+      if (n_tegrid == 1) {
+	for (i = 0; i < n_egrid1; i++) {
+	  rqc[i] = rqe[i];
+	}
+      } else {
+	np = 3;
+	nd = 1;
+	if (type == 0 || type == 1) {
+	  xte = log_te;
+	  x0 = log(te);
+	} else {
+	  xte = tegrid;
+	  x0 = te;
+	}
+	for (i = 0; i < n_egrid1; i++) {
+	  j = i;
+	  for (m = 0; m < n_tegrid; m++) {
+	    rq[m] = rqe[j];
+	    j += n_egrid1;
+	  }
+	  UVIP3P(np, n_tegrid, xte, rq, nd, &x0, &rqc[i]);
+	}
+      }
+    }
+  }
+ 
   return type;
 }
 
@@ -1525,6 +1580,32 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
     }
   }
 }
+ 
+void RelativisticCorrection(int m, double *s, double *p, double te, double b) {
+  int i, j, k;
+  double a, c, b1, b0;
+
+  if (b <= 0.0) return;
+  for (j = 0; j < n_usr; j++) {
+    a = usr_egrid[j];
+    c = FINE_STRUCTURE_CONST2*a;
+    b1 = 1.0 + c;
+    a = usr_egrid[j] + te;
+    c = FINE_STRUCTURE_CONST2*a;
+    b0 = 1.0 + c;
+    a = 2.0*a*(1.0 + 0.5*c)*FINE_STRUCTURE_CONST2;
+    c = a/(1.0+a);
+    c = -b0*b1*b*(log(1.0-c) + c);
+    if (m <= 0) {
+      s[j] += c;
+    } else {
+      for (i = 0; i < m; i++) {
+	k = i*n_usr + j;
+	s[k] += c*s[k]/p[i];
+      }
+    }
+  }
+}
 
 int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
 			 int lower, int upper) {  
@@ -1539,6 +1620,8 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
   double wa[5*NPARAMS+MAXNE];
   double fvec[MAXNE], fjac[MAXNE*NPARAMS];
   double born_egrid, born_cross, c, d, r;
+  double bte, bms;
+  FORM_FACTOR *bform;
   
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -1577,7 +1660,7 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
     q1 = idatum->s[1].nq_bra;
     q2 = idatum->s[0].nq_bra;
     k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+     k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   }
     
   type = -1;
@@ -1595,6 +1678,7 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
   for (ie = 0; ie < n_egrid1; ie++) {
     qkc[ie] *= d;
   }
+  bte = te;
   if (type >= 0) {
     r = 0.0;
     if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
@@ -1603,13 +1687,17 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
     if (fabs(r) > 0.0) {
       r = OscillatorStrength(-1, te, r, NULL);
       bethe[0] = d*2.0*r/te;
+      BornFormFactorTE(&bte);
+      bms = BornMass();
+      bte = (te + bte)/bms;
     } else {
       bethe[0] = 0.0;
     }
     ie = n_egrid;
     born_cross = qkc[ie]*8.0;
     if (born_cross > 0) {
-      born_egrid = 1.0+(egrid[ie]/te);
+      c = egrid[ie]+bte;
+      born_egrid = c/te;
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
       bethe[2] = egrid[ie]; 
@@ -1686,6 +1774,7 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
       qkt[ie] = 8.0*qkc[ie];
     }
   }
+  RelativisticCorrection(0, qkt, params, bte, bethe[0]);
   free(idatum->bra);
   free(idatum);
   return 1;
@@ -1696,12 +1785,14 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
   LEVEL *lev1, *lev2, *plev1, *plev1p, *plev2, *plev2p;
   double te, a, ap, c, cp, r, s[3];
   double rq[MAXNE+1], qkc[MAXNE+1];
-  double born_egrid, born_cross;
+  double born_egrid, born_cross, *mbk;
   int ie, i1, i2, i1p, i2p, p1, p2, p1p, p2p;
   int j1, j2, j1p, j2p, mlev1, mlev2, mlev1p, mlev2p;
-  int ilev1, ilev2, ilev1p, ilev2p, i, ip, nz, nzp, k;
+  int ilev1, ilev2, ilev1p, ilev2p, i, ip, nz, nzp, k, nmk;
   ANGULAR_ZMIX *ang, *angp;
-      
+  double bte, bms;
+  FORM_FACTOR *bform;
+        
   lev1 = GetEBLevel(lower);
   if (lev1 == NULL) return -1;
   lev2 = GetEBLevel(upper);
@@ -1724,7 +1815,7 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
       DecodePJ(plev2->pj, &p2, &j2);
       c = lev1->mixing[i1]*lev2->mixing[i2];      
       if (fabs(c) < EPS10) continue;
-      nz = AngularZMix(&ang, ilev1, ilev2, -1, -1);
+      nz = AngularZMix(&ang, ilev1, ilev2, -1, -1, &nmk, &mbk);
       for (i = 0; i < nz; i++) {
 	a = W3j(j1, ang[i].k, j2, -mlev1, mlev1-mlev2, mlev2);
 	if (IsOdd((j1-mlev1)/2)) a = -a;
@@ -1741,7 +1832,7 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
 	    DecodePJ(plev2p->pj, &p2p, &j2p);
 	    cp = lev1->mixing[i1p]*lev2->mixing[i2p];
 	    if (fabs(cp) < EPS10) continue;
-	    nzp = AngularZMix(&angp, ilev1p, ilev2p, -1, -1);
+	    nzp = AngularZMix(&angp, ilev1p, ilev2p, -1, -1, &nmk, &mbk);
 	    for (ip = 0; ip < nzp; ip++) {
 	      if (angp[ip].k != ang[i].k) continue;
 	      ap = W3j(j1p, angp[ip].k, j2p, -mlev1p, mlev1p-mlev2p, mlev2p);
@@ -1767,6 +1858,9 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
     }
   }
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  bte = (te + bte)/bms;
   SetTransitionMode(M_NR);
   SetTransitionGauge(G_BABUSHKIN);
   k = TRMultipoleEB(s, &te, -1, lower, upper);
@@ -1781,7 +1875,8 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
   ie = n_egrid;
   born_cross = qkc[ie]*8.0;
   if (born_cross > 0) {
-    born_egrid = 1.0 + (egrid[ie]/te);
+    c = egrid[ie] + bte;
+    born_egrid = c/te;
     if (bethe[0] > 0) bethe[1] = born_cross-bethe[0]*log(born_egrid);
     else bethe[1] = born_cross;
     bethe[2] = egrid[ie];
@@ -1795,6 +1890,8 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
     qkt[ie] = 8.0*qkc[ie];
   }
 
+  RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
+
   return 1;
 }
 
@@ -1804,12 +1901,14 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
   double te, a, ap, c, cp, r, s[3];
   double rq[(MAXNE+2)*MAXMSUB];
   double d, d1, d2, rs;
-  int q, nq, kkp, qb, qbp, ith, iph, m, ka;
-  double born_egrid, born_cross;
+  int q, nq, kkp, qb, qbp, ith, iph, m, ka, nmk;
+  double born_egrid, born_cross, *mbk;
   int ie, i1, i2, i1p, i2p, p1, p2, p1p, p2p;
   int j1, j2, j1p, j2p, mlev1, mlev2, mlev1p, mlev2p;
   int ilev1, ilev2, ilev1p, ilev2p, i, ip, nz, nzp, k;
   ANGULAR_ZMIX *ang, *angp;
+  double bte, bms;
+  FORM_FACTOR *bform;
       
   lev1 = GetEBLevel(lower);
   if (lev1 == NULL) return -1;
@@ -1834,7 +1933,7 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
       DecodePJ(plev2->pj, &p2, &j2);
       c = lev1->mixing[i1]*lev2->mixing[i2];      
       if (fabs(c) < EPS10) continue;
-      nz = AngularZMix(&ang, ilev1, ilev2, -1, -1);
+      nz = AngularZMix(&ang, ilev1, ilev2, -1, -1, &nmk, &mbk);
       for (i = 0; i < nz; i++) {
 	a = W3j(j1, ang[i].k, j2, -mlev1, mlev1-mlev2, mlev2);
 	if (IsOdd((j1-mlev1)/2)) a = -a;
@@ -1851,7 +1950,7 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
 	    DecodePJ(plev2p->pj, &p2p, &j2p);
 	    cp = lev1->mixing[i1p]*lev2->mixing[i2p];
 	    if (fabs(cp) < EPS10) continue;
-	    nzp = AngularZMix(&angp, ilev1p, ilev2p, -1, -1);
+	    nzp = AngularZMix(&angp, ilev1p, ilev2p, -1, -1, &nmk, &mbk);
 	    for (ip = 0; ip < nzp; ip++) {	      
 	      ap = W3j(j1p, angp[ip].k, j2p, -mlev1p, mlev1p-mlev2p, mlev2p);
 	      if (IsOdd((j1p-mlev1p)/2)) ap = -ap;
@@ -1891,6 +1990,9 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
     }
   }
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  bte = (te + bte)/bms;
   m = n_egrid1*n_thetagrid*n_phigrid;
   for (ie = 0; ie < m; ie++) {
     qkt[ie] *= 8.0;
@@ -1900,12 +2002,14 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
   for (i = 0; i < m; i++) {
     born_cross = qkt[ie + i*n_egrid1];
     d = qkt[ie-1 + i*n_egrid1];
-    born_egrid = 1.0 + egrid[ie]/te;
+    c = egrid[ie] + bte;
+    born_egrid = c/te;
     d1 = log(born_egrid);
-    d2 = log(1.0 + egrid[ie-1]/te);
+    c = egrid[ie-1] + bte;
+    d2 = log(c/te);
     if (born_cross > d) {
       bethe[i] = (born_cross-d)/(d1-d2);
-      born[i] = born_cross - bethe[i]*log(born_egrid);
+      born[i] = born_cross - bethe[i]*d1;
     } else {
       bethe[i] = 0.0;
       born[i] = born_cross;
@@ -1913,23 +2017,41 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
   }
   born[m] = egrid[ie];
 
+  RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
   return 1;
+}
+
+double AngZCorrection(int nmk, double *mbk, ANGULAR_ZMIX *ang, int t) {
+  double r;
+
+  if (nmk < t) return 0.0;
+  if (t <= 0) return 0.0;
+  r = mbk[t-1];
+  if (1.0 + r == 1.0) return 0.0;
+  r /= MultipoleRadialNR(-t, ang->k0, ang->k1, G_BABUSHKIN);
+  if (ang->coeff < 0) r = -r;
+  r /= mbk[nmk+t-1];
+
+  return r;
 }
 
 int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 		      int lower, int upper, int msub) {
-  int i, j, t, h, p, m, type, ty, p1, p2;  
+  int i, j, t, h, p, m, type, ty, p1, p2, gauge;  
   LEVEL *lev1, *lev2;
-  double te, c, r, s3j;
+  double te, c, r, s3j, c1, c2, *mbk, aw;
   ANGULAR_ZMIX *ang;
-  int nz, j1, j2, ie, nk, np, nq, kkp;
-  double rq[MAXMSUB*(MAXNE+1)], qkc[MAXMSUB*(MAXNE+1)];
-  double *rqk, tol;
+  int nz, j1, j2, ie, nk, np, nq, kkp, nmk;
+  double rq[MAXMSUB*(MAXNE+1)];
+  double qkc[MAXMSUB*(MAXNE+1)];
+  double *rqk, *rqkt, tol;
   int ierr, ipvt[NPARAMS];
   int lwa=5*NPARAMS+MAXNE;
   double wa[5*NPARAMS+MAXNE];
   double fvec[MAXNE], fjac[MAXNE*NPARAMS];
-  double born_egrid, born_cross, bt;
+  double born_egrid, born_cross, bt, ubt[MAXNUSR];
+  double bte, bms;
+  FORM_FACTOR *bform;
 
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -1938,6 +2060,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   te = lev2->energy - lev1->energy;
   if (te <= 0) return -1;
   *e = te;
+  aw = te*FINE_STRUCTURE_CONST;
 
   j1 = lev1->pj;
   j2 = lev2->pj;
@@ -1956,14 +2079,18 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       }
     }
   } else {
-    rqk = qkc;
     for (ie = 0; ie < n_egrid1; ie++) {
-      rqk[ie] = 0.0;
-    }
+      qkc[ie] = 0.0;
+      qkc[ie+n_egrid1] = 0.0;
+    }    
   }
- 
-  nz = AngularZMix(&ang, lower, upper, -1, -1);
-  if (nz <= 0) return -1;
+  gauge = GetTransitionGauge();
+  nz = AngularZMix(&ang, lower, upper, -1, -1, &nmk, &mbk);
+  if (nz <= 0) {
+    if (nmk > 0) free(mbk);
+    return -1;
+  }
+
   type = -1;
   for (i = 0; i < nz; i++) {
     for (j = i; j < nz; j++) {
@@ -1979,12 +2106,35 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	}
 	ty = CERadialQk(rq, te, ang[i].k0, ang[i].k1,
 			ang[j].k0, ang[j].k1, ang[i].k);
+	t = ang[i].k/2;
+	if (ty >= 0 && t > 0 && t <= nmk) {
+	  c1 = AngZCorrection(nmk, mbk, ang+i, t);
+	  if (i == j) c2 = c1;
+	  else {
+	    c2 = AngZCorrection(nmk, mbk, ang+j, t);
+	  }
+	  if (gauge == G_COULOMB) {
+	    c1 /= aw;
+	    c2 /= aw;
+	  }
+	  c1 = c*(1.0+c1)*(1.0+c2);
+	} else {
+	  c1 = c;
+	}
 	if (fpw) {
 	  fprintf(fpw, "\n\n");
 	}
 	if (ty > type) type = ty;	  
-	for (ie = 0; ie < n_egrid1; ie++) {
-	  qkc[ie] += c*rq[ie];
+	if (ty >= 0 && t > 0 && t <= nmk) {
+	  for (ie = 0; ie < n_egrid1; ie++) {
+	    qkc[ie] += c1*(rq[ie+n_egrid1]) + c*(rq[ie]-rq[ie+n_egrid1]);
+	    qkc[ie+n_egrid1] += c*rq[ie];
+	  }
+	} else {
+	  for (ie = 0; ie < n_egrid1; ie++) {
+	    qkc[ie] += c*rq[ie];
+	    qkc[ie+n_egrid1] += c*rq[ie];
+	  }
 	}
       } else {
 	ty = CERadialQkMSub(rq, te, ang[i].k0, ang[i].k1,
@@ -2016,6 +2166,10 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
   }
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  bte = (te + bte)/bms;
+
   if (msub) {
     for (t = 0; t < MAXMSUB; t++) {
       params[t] = 0.0;
@@ -2023,12 +2177,34 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   }
 
   if (type >= 0) {
+    t = 0;
+    if (!msub) {
+      for (ie = 0; ie < n_egrid1; ie++) {
+	if (qkc[ie] <= 0 || fabs(qkc[ie]/qkc[ie+n_egrid1]-1.0) >= 0.75) {
+	  t = 1;
+	  break;
+	}
+      }
+      if (t) {
+	for (ie = 0; ie < n_egrid1; ie++) {
+	  qkc[ie] = qkc[ie+n_egrid1];
+	}
+      }
+    }
     r = 0.0;
     if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
       for (i = 0; i < nz; i++) {
 	if (ang[i].k != 2) continue;
 	c = MultipoleRadialNR(-1, ang[i].k0, ang[i].k1, G_BABUSHKIN);
-	r += ang[i].coeff*c;
+	c1 = ang[i].coeff;
+	r += c1*c;
+      }
+      if (nmk >= 1 && t == 0) {
+	c1 = mbk[0];
+	if (c1 + 1.0 != 1.0) {
+	  if (gauge == G_COULOMB) c1 /= aw;
+	  r += c1;
+	}
       }
     }    
     if (fabs(r) > 0.0) {
@@ -2064,7 +2240,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       born_cross = bt*8.0;      
     }
     if (born_cross > 0) {
-      born_egrid = 1.0+(egrid[ie]/te);
+      c = egrid[ie] + bte;
+      born_egrid = c/te;
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
       bethe[2] = egrid[ie]; 
@@ -2080,6 +2257,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
   }
 
   free(ang);
+  if (nmk > 0) free(mbk);
   
   /* there is a factor of 4 coming from normalization and the 2 
      from the formula */
@@ -2147,22 +2325,24 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	qkt[ie] = 8.0*qkc[ie];
       }
     }
+    RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
     return 1;
   } else {
     rqk = qkc;
+    rqkt = qkt;
     p = 0;
     if (qk_mode == QK_FIT) {
       for (t = -j1; t <= 0; t += 2) {
 	for (h = -j2; h <= j2; h += 2) {
 	  for (ie = 0; ie < n_egrid; ie++) {
-	    qkt[ie] = 8.0*rqk[ie];
+	    rqkt[ie] = 8.0*rqk[ie];
 	  }	
-	  if (qkt[0] < EPS10 && qkt[n_egrid-1] < EPS10) {
+	  if (rqkt[0] < EPS10 && rqkt[n_egrid-1] < EPS10) {
 	    continue;
 	  }
 	  p++;
 	  rqk += n_egrid1;
-	  qkt += n_usr;
+	  rqkt += n_usr;
 	}
       }
     } else if (qk_mode == QK_INTERPOLATE) {
@@ -2174,13 +2354,13 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	      rqk[ie] *= 8.0;
 	      rqk[ie] = log(rqk[ie]);
 	    }
-	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, qkt);
+	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, rqkt);
 	    for (ie = 0; ie < n_usr; ie++) {
-	      qkt[ie] = exp(qkt[ie]);
+	      rqkt[ie] = exp(rqkt[ie]);
 	    }
 	    p++;
 	    rqk += n_egrid1;
-	    qkt += n_usr;
+	    rqkt += n_usr;
 	  }
 	} 
       } else {
@@ -2189,10 +2369,10 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    for (ie = 0; ie < n_egrid; ie++) {
 	      rqk[ie] *= 8.0;
 	    }
-	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, qkt);
+	    UVIP3P(np, n_egrid, log_egrid, rqk, n_usr, log_usr, rqkt);
 	    p++;
 	    rqk += n_egrid1;
-	    qkt += n_usr;
+	    rqkt += n_usr;
 	  }
 	}
       }
@@ -2200,18 +2380,31 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       for (t = -j1; t <= 0; t += 2) {
 	for (h = -j2; h <= j2; h += 2) {	
 	  for (ie = 0; ie < n_egrid; ie++) {
-	    qkt[ie] = 8.0*rqk[ie];
+	    rqkt[ie] = 8.0*rqk[ie];
 	  }
 	  p++;
 	  rqk += n_egrid1;
-	  qkt += n_usr;
+	  rqkt += n_usr;
 	}
       }
     }  
+    for (ie = 0; ie < n_usr; ie++) {
+      ubt[ie] = 0.0;
+    }
+    rqkt = qkt;
+    for (t = -j1; t <= 0; t += 2) {
+      for (h = -j2; h <= j2; h += 2) {
+	for (ie = 0; ie < n_egrid; ie++) {
+	  ubt[ie] += rqkt[ie];
+	  if (t != 0) ubt[ie] += rqkt[ie];
+	}
+	rqkt += n_usr;
+      }
+    }
+    RelativisticCorrection(p, qkt, ubt, bte, bethe[0]);
     return p;
   }
 }
-
 
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #ifdef PERFORM_STATISTICS
