@@ -10,6 +10,10 @@
 
 #define MAX_DIST  32
 
+#define RT_CE 1
+#define RT_CI 2
+#define RT_RR 3
+
 typedef struct _DISTRIBUTION_ {
   int xlog;
   int nparams;
@@ -51,6 +55,7 @@ int CIRate(double *dir, double *inv, int iinv,
 double RRRateHydrogenic(double t, double z, int n, double *top);
 double RRRate1E(double e, double eth, int np, void *p);
 double PIRate1E(double e, double eth, int np, void *p);
+double PIRateKramers(double e, double eth, int np, void *p);
 int RRRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, double *params, int i0, int f0);

@@ -22,7 +22,7 @@ static double iter_accuracy = EPS4;
 static double iter_stabilizer = 0.8;
 
 /* electron density in 10^10 cm-3 */
-static double electron_density = EPS3;
+static double electron_density = 0.0;
 /* photon energy density in erg cm-3 */
 /* if the distribution is blackbody, then the normalization constant
  * is the dilution factor, (r0/r)^2 */
@@ -5410,9 +5410,10 @@ static double vanregemoter(double y) {
 }
 
 int DRSuppression(char *fn, double z, int nmax) {
-  int n2, i, j, q, p, iedist, *ipiv, info;
-  double *a, *b, *c, yt, temp, r, y, gy, z2, z4, ni, nj, xi;
-  DISTRIBUTION *edist;
+  int n2, i, j, q, p, iedist, ipdist, *ipiv, info;
+  double *a, *b, *c, yt, temp, trad, r, y, gy, z2, z4, ni, nj, xi, e;
+  const double factor = 4.73313707E-2;
+  DISTRIBUTION *edist, *pdist;
   FILE *f;
 
   n2 = nmax*nmax;
@@ -5423,7 +5424,9 @@ int DRSuppression(char *fn, double z, int nmax) {
   b = bmatrix + n2;
   c = b + n2;
   edist = GetEleDist(&iedist);
+  pdist = GetPhoDist(&ipdist);
   temp = edist->params[0];
+  trad = pdist->params[0];
 
   for (i = 0; i < nmax; i++) {
     for (j = 0; j < nmax; j++) {
@@ -5443,17 +5446,25 @@ int DRSuppression(char *fn, double z, int nmax) {
       xi = 1.0/(ni*ni) - 1.0/(nj*nj); 
       r = 1.3E10*z4/(xi*ni*ni*ni)/(nj*nj*nj*nj*nj);
       q = j*nmax + i;
+      p = i*nmax + j;
       a[q] += r;
-       
+      /* photo excitation */       
+      if (photon_density > 0) {
+	e = xi*z2*HARTREE_EV/2.0;
+	y = pdist->dist(e, pdist->params)*photon_density;
+	y = factor*y*r*nj*nj/(e*e*e*ni*ni);
+	a[p] += y;
+      }
       /* collisional excitation */
-      y = yt*xi;
-      gy = vanregemoter(y);
-      r = r*gy;
-      r = 1.45e-6*r/(z4*z2*xi*xi*xi*sqrt(temp));      
-      r = electron_density*r;
-      a[q] += r;
-      q = i*nmax + j;
-      a[q] += r*exp(-y)*nj*nj/(ni*ni);      
+      if (electron_density > 0) {
+	y = yt*xi;
+	gy = vanregemoter(y);
+	r = r*gy;
+	r = 1.45e-6*r/(z4*z2*xi*xi*xi*sqrt(temp));      
+	r = electron_density*r;
+	a[q] += r;
+	a[p] += r*exp(-y)*nj*nj/(ni*ni);
+      }
     }
   }
   
@@ -5467,13 +5478,22 @@ int DRSuppression(char *fn, double z, int nmax) {
       p = i*nmax + j;
       a[q] -= a[p];
     }
-    /* collisional ionization */
-    if (i > 0) {
+    b[q] = -1.0;
+    /* collisional ionization with lotz formula */
+    if (i > 0 && electron_density > 0) {
       y = yt/(ni*ni);
       r = 3e4*(1.0/(temp*sqrt(temp)))*exp(-y)*FU(y)/y;
       r = electron_density*r;
       a[q] -= r;
-      b[q] = -1.0;
+    }
+    /* photoionization with Kramer's formula */
+    if (i > 0 && photon_density > 0) {
+      e = z2*HARTREE_EV/(2.0*ni*ni);
+      r = IntegrateRate(1, e, e, 1, &z, 0, ni, -RT_RR, PIRateKramers);
+      r *= photon_density;
+      p = i*nmax;
+      /*printf("%f %10.3E %10.3E\n", ni, r, a[p]);*/
+      a[q] -= r;
     }
   }
   
@@ -5508,13 +5528,26 @@ int DRSuppression(char *fn, double z, int nmax) {
     for (j = 1; j < nmax; j++) {
       q = i*nmax + j;
       a[i] += b[q]*c[j*nmax];
+      /*
+      printf("%3d %3d %10.3E %10.3E\n", i, j, b[q], c[j*nmax]*b[q]);
+      */
     }
   }
   
   f = fopen(fn, "w");
-  fprintf(f, "# EDEN = %15.8E\n", electron_density);
-  fprintf(f, "# TEMP = %15.8E\n", temp);
-  fprintf(f, "# PDEN = %15.8E\n", photon_density);
+  fprintf(f, "#EDEN\t= %15.8E\n", electron_density);
+  fprintf(f, "#EDIST\t= %d\n", iedist);
+  fprintf(f, "#NPEDIS\t= %d\n", edist->nparams);
+  for (i = 0; i < edist->nparams; i++) {    
+    fprintf(f, "#\t %15.8E\n", edist->params[i]);
+  }
+  fprintf(f, "#PDEN\t= %15.8E\n", photon_density);
+  fprintf(f, "#PDIST\t= %d\n", ipdist);
+  fprintf(f, "#NPPDIS\t= %d\n", pdist->nparams);
+  for (i = 0; i < pdist->nparams; i++) {
+    fprintf(f, "#\t %15.8E\n", pdist->params[i]);
+  }
+  fprintf(f, "#Z\t = %3d\n", (int)z);
   for (i = 0; i < nmax; i++) {
     fprintf(f, "%5d %12.5E\n", i+1, a[i]);
   }

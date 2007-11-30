@@ -16,9 +16,6 @@ static DISTRIBUTION pho_dist[MAX_DIST];
 static int _iwork[QUAD_LIMIT];
 static double _dwork[4*QUAD_LIMIT];
 
-#define RT_CE 1
-#define RT_CI 2
-#define RT_RR 3
 static struct {
   DISTRIBUTION *d;
   double (*Rate1E)(double, double, int, void *);
@@ -108,7 +105,7 @@ DISTRIBUTION *GetEleDist(int *i) {
 
 DISTRIBUTION *GetPhoDist(int *i) {
   if (i) *i = ipdist;
-  return pho_dist+iedist;
+  return pho_dist+ipdist;
 }
 
 int SetRateAccuracy(double epsrel, double epsabs) {
@@ -246,6 +243,7 @@ double IntegrateRate(int idist, double eth, double bound,
       }
     }
     if (r0 < 0.0) r0 = 0.0;
+
     return r0;
   }
 }
@@ -473,7 +471,7 @@ int TRRate(double *dir, double *inv, int iinv,
   if (iinv) {
     e0 = e*HARTREE_EV;
     b = pho_dist[ipdist].dist(e0, pho_dist[ipdist].params);
-    if (b > EPS10) {
+    if (b > 0) {
       *inv = factor*b*a/(e0*e0*e0*(j2+1.0));
     } else {
       *inv = 0.0;
@@ -696,6 +694,24 @@ double PIRate1E(double e, double eth, int np, void *p) {
   return c;
 }
 
+double PIRateKramers(double e, double eth, int np, void *p) {
+  double c, z;
+  double *dp;
+
+  dp = (double *) p;
+  z = dp[0];  
+  /* 
+  ** the normalization of the photon distr is erg/cm3, 
+  ** divide an additional e here, and convert erg to eV by 1e12/1.6
+  ** cross section is in units 1E-20, with 1e10 from s.o.l, which 
+  ** gives 1E2/1.6 factor.
+  */
+  c = 7.91E2*(sqrt(0.5*HARTREE_EV/eth)/z)*pow((eth/e), 3.0)/e;
+  c *= 3.0*1E2/1.6;
+
+  return c;
+}
+ 
 int RRRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, double *params, int i0, int f0) {
@@ -1527,7 +1543,7 @@ int InitRates(void) {
   i = 0; /* Maxwellian */
   ele_dist[i].nparams = 3;
   ele_dist[i].params = (double *) malloc(sizeof(double)*3);
-  ele_dist[i].params[0] = 1.0E3;
+  ele_dist[i].params[0] = 1E3;
   ele_dist[i].params[1] = 1E-10;
   ele_dist[i].params[2] = 1E10;
   ele_dist[i].dist = Maxwell;
