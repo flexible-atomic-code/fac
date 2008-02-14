@@ -1601,7 +1601,7 @@ void RelativisticCorrection(int m, double *s, double *p, double te, double b) {
     } else {
       for (i = 0; i < m; i++) {
 	k = i*n_usr + j;
-	s[k] += c*s[k]/p[i];
+	s[k] += c*s[k]/p[j];
       }
     }
   }

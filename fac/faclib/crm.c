@@ -5617,6 +5617,7 @@ int RydBranch(char *fn, char *ofn, int n0, int n1) {
     }
   }
   
+  fclose(f);
   fclose(f1);
 
   return 0;
