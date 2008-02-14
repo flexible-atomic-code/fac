@@ -229,7 +229,7 @@ case "$host_os" in
   *darwin*)
     if test -n "$GCC"
     then 
-      CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
+      CFLAGS="$CFLAGS -fno-common"
     fi
     if test -n "$G77"
     then 

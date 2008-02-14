@@ -7,12 +7,12 @@ INSTALL = /usr/bin/install -c
 
 BINDIR = /usr/local/bin
 
-TOPDIR = /Users/mfgu/src/fac
+TOPDIR = /disks/d4a/home/mfgu/src/fac
 
 CC = gcc
-CFLAGS = -O2 -fPIC -fno-strength-reduce -no-cpp-precomp -fno-common
-CPPFLAGS =  -I/Users/mfgu/src/fac -I/Users/mfgu/src/fac/faclib -I${PYINC}
-LDFLAGS =  -L/Users/mfgu/src/fac
+CFLAGS = -O2 -fPIC -fno-strength-reduce -fno-common
+CPPFLAGS =  -I/disks/d4a/home/mfgu/src/fac -I/disks/d4a/home/mfgu/src/fac/faclib -I${PYINC}
+LDFLAGS =  -L/disks/d4a/home/mfgu/src/fac
 LIBS =  -lfac -lm -L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0 -L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0/../../.. -lgfortranbegin -lgfortran -lgcc_s.10.4 -lSystem ${PYLIB}
 
 all: mpy

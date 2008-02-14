@@ -3191,12 +3191,27 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
       return nlevels;
     } else {
       nlevels = 0;
-      for (i = 0; i < fh.nblocks; i++) {
-	n = ReadENHeader(f, &h, swp);
-	if (n == 0) break;
-	nlevels += h.nlevels;
-	fseek(f, h.length, SEEK_CUR);
+      k -= 1000;
+      if (k == 1) {
+	for (i = 0; i < fh.nblocks; i++) {
+	  n = ReadENHeader(f, &h, swp);
+	  if (n == 0) break;
+	  nlevels += h.nlevels;
+	  fseek(f, h.length, SEEK_CUR);
+	}
+      } else if (k == 2) {
+	nlevels = fh.nblocks;
+      } else if (k >= 1000) {
+	k -= 1000;
+	for (i = 0; i < fh.nblocks; i++) {
+	  if (i >= k) break;
+	  n = ReadENHeader(f, &h, swp);
+	  if (n == 0) break;
+	  nlevels += h.nlevels;
+	  fseek(f, h.length, SEEK_CUR);
+	}
       }
+      fclose(f);
       return nlevels;
     }
   }  

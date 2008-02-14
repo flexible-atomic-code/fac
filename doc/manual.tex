@@ -2507,8 +2507,13 @@ third is the 2J value, the fourth is the complex name, the fifth is the
 non-relativsitic configuration, and the sixth is the relativistic
 configuration and the coupling. The parity and the $nl$ values are encoded
 as $\pm n*100+l$, where $+$ sign is for even parity and $-$ sign is for odd
-parity. If \var{ilev}$<0$, it returns the index of the first level with number
-of electrons equal to $-ilev$.
+parity. If \var{ilev}$<0$, and its absolute value is less than 1000, it returns
+the index of the first level with number of electrons equal to $-ilev$. If
+\var{ilev}$=-1000$, it returns the index of the first level of the bare
+ion. If \var{ilev}$=-1001$, it returns the total number of levels in the
+file. If \var{ilev}$=-1002$, it returns the total number of level blocks in
+the file. If \var{ilev}$\le-2000$, it returns the index of the first level of
+the block $-ilev-2000$.
 \end{fundesc}
 
 \begin{fundesc}{ListConfig}{\opt{fn, g}}
