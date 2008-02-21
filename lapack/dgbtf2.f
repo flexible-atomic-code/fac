@@ -182,10 +182,11 @@
 *
 *              Update trailing submatrix within the band.
 *
-               IF( JU.GT.J )
-     $            CALL DGER( KM, JU-J, -ONE, AB( KV+2, J ), 1,
-     $                       AB( KV, J+1 ), LDAB-1, AB( KV+1, J+1 ),
-     $                       LDAB-1 )
+               IF( JU.GT.J ) THEN
+                  CALL DGER( KM, JU-J, -ONE, AB( KV+2, J ), 1,
+     $                 AB( KV, J+1 ), LDAB-1, AB( KV+1, J+1 ),
+     $                 LDAB-1 )                  
+               END IF
             END IF
          ELSE
 *

@@ -129,7 +129,11 @@
 *     Compute the LU factorization of the band matrix A.
 *
       CALL DGBTRF( N, N, KL, KU, AB, LDAB, IPIV, INFO )
-      IF( INFO.EQ.0 ) THEN
+
+*     it was INFO.EQ.0 originally, but it seems that 
+*     on Linux X86-64, it can give INFO>0, but still ok.
+*     changed it to INFO.GE.0 --- mfgu.
+      IF( INFO.GE.0 ) THEN
 *
 *        Solve the system A*X = B, overwriting B with X.
 *
