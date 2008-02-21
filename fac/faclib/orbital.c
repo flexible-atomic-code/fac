@@ -152,7 +152,7 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 
   return energy;
 }
-  
+
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
   int ierr;
   int nm, km, k;

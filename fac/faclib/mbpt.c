@@ -4243,10 +4243,11 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       fprintf(f2, "#NORM %3d %5d %12.5E %12.5E\n", isym, i, a, b);
       fflush(f2);
       for (j = 0; j < h->dim; j++) {
-	y[i] /= b;
+	y[j] /= b;
       }
       y += h->n_basis;
     }
+    
     AddToLevels(nkg0, kg);
     free(heff);
     free(neff);
