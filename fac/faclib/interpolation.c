@@ -2213,7 +2213,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
-      if ((r.b == i0 || i0 < 0) || (r.f == i1 || i1 < 0)) {
+      if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
 		r.b, mem_en_table[r.b].j,
@@ -2254,6 +2254,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	    rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	    rr /= (mem_en_table[r.f].j + 1.0);	
+	    phi /= (mem_en_table[r.b].j + 1.0);
 	  }
 	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E\n",
 		  ee*HARTREE_EV, eph*HARTREE_EV, tc, rr, phi);
@@ -2361,7 +2362,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
-      if ((r.b == i0 || i0 < 0) || (r.f == i1 || i1 < 0)) {
+      if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
 		r.b, mem_en_table[r.b].j,

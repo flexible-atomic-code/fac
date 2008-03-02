@@ -656,16 +656,19 @@ int CIRadialQkIntegrated(double *qke, double te, int kb, int kbp) {
  
 double BEScale(int k, double e) {
   double z, a, b, c;
+  ORBITAL *orb;
 
   z = GetAtomicNumber();
   a = MeanPotential(k, k);
   b = RadialMoments(-1, k, k);
   c = -a/b;
-  a = GetOrbital(k)->energy - a;
-  if (c >= z) c = z;
-  c = (z - c)/(z + c);
-  c *= (1.0 + a/e);
-  return c;
+  orb = GetOrbital(k);
+  a = orb->energy - a;
+  if (c >= z) c = z;  
+  b = (1.0 + a/e);
+  if (orb->n > 2) b /= orb->n;
+  b *= 1 - 0.75*c/z;
+  return b;
 }
 
 int IonizeStrengthUTA(double *qku, double *qkc, double *te, 
