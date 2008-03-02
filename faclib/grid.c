@@ -187,10 +187,9 @@ int SetEGrid(double *e, double *log_e,
       e[i] = EFromX(log_e[i], b);
     }
   DONE1:
-    if (et > 0.0) {
-      for (i = 0; i < n; i++) {
-	e[i] -= eth;
-      }
+    for (i = 0; i < n; i++) {
+      e[i] -= eth;
+      log_e[i] = log(e[i]);
     }
   } else if (eth < 0.0) {
     et = -eth;
