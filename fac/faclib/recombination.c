@@ -1463,6 +1463,11 @@ int PrepRREGrids(double e, double emax0) {
   }
 
   if (qk_mode == QK_INTERPOLATE) {
+    for (j = 0; j < n_egrid; j++) {
+      log_egrid[j] = egrid[j];
+      if (egrid_type == 1) log_egrid[j] += e;
+      log_egrid[j] = log(log_egrid[j]);
+    }
     for (j = 0; j < n_usr; j++) {
       log_usr[j] = usr_egrid[j];
       if (usr_egrid_type == 1) log_usr[j] += e;

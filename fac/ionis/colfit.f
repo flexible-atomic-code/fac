@@ -168,6 +168,95 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
       return
       end
+
+      subroutine ccolfit(iz,in,is,t,ca,c)
+* This calculates the cross section.
+* Version 4.
+* January 8, 1997. Minor modification (exp are calculated with
+* double precision) which improves accuracy of very low rates 
+* (less than 10**(-20)) to avoid negative Na+ rates at logT < 4.2
+* November 12, 1996. Improved presentation for the first exponential integral
+******************************************************************************
+*** This subroutine calculates partial or total rates of direct collisional
+*** ionization, including excitation-autoionization contribution, for all 
+*** ionization stages of all elements from H to Zn (Z=30)
+*** in the range 10^4 - 10^9 K by use of the fits from
+*** M. Arnaud and J. Raymond, 1992, ApJ 398, 394 for Fe, from 
+*** M. Arnaud and R. Rothenflug, 1985, A&AS 60, 425 for H, He, C, N, O, Ne,
+*** Na, Mg, Al, Si, S, Ar, Ca, Ni (with some corrections described in
+*** Verner & Yakovlev, 1990, ApSS, 165, 27), and from 
+*** interpolation/extrapolation for other elements.
+*** Input parameters:  iz - atomic number 
+***                    in - number of electrons from 1 to iz 
+***                    is - shell number 
+***                    t  - temperature, K
+*** Output parameter:  c  - rate coefficient, cm^3 s^(-1)
+*** If the input parameter is=0, the subroutine calculates total rate,
+*** otherwise the subroutine calculates partial rate for the corresponding
+*** shell: 1 - 1s, 2 - 2s, 3 - 2p, 4 - 3s, 5 - 3p, 6 - 3d, 7 - 4s.
+*** Autoionization contribution is added to the rate for the outermost shell.
+*** Fits are available for 3 (or less) outer shells. In other cases, 
+*** the subroutine returns c=0. 
+******************************************************************************
+      common/clion/clion(5,30,30,7)
+      common/eafe/eafe(6,26)
+      real*8 x,y,fcl1,fcl2, t, c, ca
+      integer iz, in, is
+      c=0.0
+      ca = 0.0
+
+      if(iz.lt.1.or.iz.gt.30)return
+      if(in.lt.1.or.in.gt.iz)return
+      if(in.lt.5)ismin=1
+      if(in.gt.4.and.in.lt.13)ismin=2
+      if(in.gt.12.and.in.lt.29)ismin=4
+      if(in.gt.28.or.(iz.eq.in.and.iz.gt.20).or.((iz-in).eq.1.and.
+     &(iz.eq.22.or.iz.eq.25.or.iz.eq.26)))ismin=5
+      ismax=ismin+2
+      if(in.lt.3)ismax=1
+      if((in.gt.2.and.in.lt.11).or.(in.gt.12.and.in.lt.19))
+     &ismax=ismin+1
+      if((in.eq.19.and.iz.gt.18.and.iz.lt.21).or.(in.eq.20.
+     &and.iz.eq.20))ismax=ismin+3
+      imin=ismin
+      imax=ismax
+      if(is.ne.0) then
+         if(is.lt.imin.or.is.gt.imax) then
+            return
+         else
+            imin=is
+            imax=is
+         endif
+      endif
+
+      tk = t
+      do i=imin,imax
+         x=tk/clion(1,iz,in,i)
+         if (x .ge. 1.0) then
+            y = clion(2,iz,in,i)*(1-1/x) +
+     &           clion(3,iz,in,i)*(1-1/x)**2 +
+     &           (clion(4,iz,in,i)+clion(5,iz,in,i)/x)*dlog(x)
+            y = y * 1e6 / (x*clion(1,iz,in,i)**2)
+            c = c + y
+         endif
+      enddo
+
+      if(is.ne.0.and.is.lt.ismax)return
+*** autoionization cross section, for iron only
+      if(iz.eq.26)then
+         if((in.gt.10.and.in.lt.25).or.in.eq.3)then
+            x = tk/eafe(1,in)
+            if (x .ge. 1.0) then
+               y = eafe(2,in) + eafe(3,in)*(1-1/x) +
+     &              eafe(4,in)*(1-1/x**2) +
+     &              eafe(5,in)*(1-1/x**3) + eafe(6,in)*dlog(x)
+               ca = y * 1e4 / (x*eafe(1,in))
+            endif
+         endif
+      endif
+      
+      return
+      end
       double precision function fcl1(x)
       real*8 x
       dimension a(6),b(8)

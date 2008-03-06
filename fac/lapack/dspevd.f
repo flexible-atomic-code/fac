@@ -197,6 +197,7 @@
       BIGNUM = ONE / SMLNUM
       RMIN = SQRT( SMLNUM )
       RMAX = SQRT( BIGNUM )
+
 *
 *     Scale matrix to allowable range, if necessary.
 *

@@ -75,6 +75,7 @@ double EPhFit2(int z, int nele, int is);
 double RBeli(int z, int nele, double t, double *a, double *dir);
 double CFit(int z, int nele, double t, double *a, double *dir);
 double ColFit(int z, int nele, int is, double t, double *a, double *dir);
+double CColFit(int z, int nele, int is, double t, double *a, double *dir);
 double Ionis(int z, int nele, double t, double *a, double *dir, int m);
 double Recomb(int z, int nele, double t, double *rr, double *dr, int m);
 int FracAbund(int z, double t, double *a, int im, int rm);

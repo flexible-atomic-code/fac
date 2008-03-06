@@ -1806,11 +1806,12 @@ int DiagnolizeHamilton(void) {
   z = mixing + n;
   if (h->heff == NULL) {
     ap = h->hamilton;
+    /* the dspevd sometimes fails. use dspev instead 
     DSPEVD(jobz, uplo, n, ap, w, z, ldz, h->work, lwork,
-	   h->iwork, liwork, &info);
-    
+	  h->iwork, liwork, &info);    
+    */
+    DSPEV(jobz, uplo, n, ap, w, z, ldz, h->work, &info);
     if (info) {
-      printf("dspevd Error: %d\n", info);
       goto ERROR;
     }
   } else {
@@ -1819,7 +1820,7 @@ int DiagnolizeHamilton(void) {
     DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n, 
 	  h->work, lwork, &info);
     if (info) {
-      printf("dgeev Error: %d\n", info);
+      printf("dgeev Error: %d\n", info);	
       goto ERROR;
     }
   }
