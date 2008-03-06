@@ -666,7 +666,7 @@ double BEScale(int k, double e) {
   a = orb->energy - a;
   if (c >= z) c = z;  
   b = (1.0 + a/e);
-  if (orb->n > 2) b /= orb->n;
+  b /= orb->n;
   b *= 1 - 0.75*c/z;
   return b;
 }

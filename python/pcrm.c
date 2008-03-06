@@ -906,6 +906,27 @@ static PyObject *PColFit(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddd)", r, a, d);
 }
 
+static PyObject *PCColFit(PyObject *self, PyObject *args) {
+  PyObject *s;
+  int z, nele, ks;
+  double t, r, a, d;
+  
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
+  if (s == NULL) {
+    ks = 0;
+  } else if (PyString_Check(s)) {
+    ks = ShellIndexFromString(s);
+  } else if (PyInt_Check(s)) {
+    ks = PyInt_AsLong(s);
+  } else {
+    return NULL;
+  }
+  if (ks < 0) return NULL;
+  r = CColFit(z, nele, ks, t, &a, &d);
+  return Py_BuildValue("(ddd)", r, a, d);
+}
+
 static PyObject *PEColFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
@@ -1282,6 +1303,7 @@ static struct PyMethodDef crm_methods[] = {
   {"CBeli", PCBeli, METH_VARARGS},
   {"CFit", PCFit, METH_VARARGS},
   {"ColFit", PColFit, METH_VARARGS},
+  {"CColFit", PCColFit, METH_VARARGS},
   {"EColFit", PEColFit, METH_VARARGS},
   {"Ionis", PIonis, METH_VARARGS},
   {"RBeli", PRBeli, METH_VARARGS},

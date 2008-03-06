@@ -901,6 +901,17 @@ double ColFit(int z, int nele, int is, double t, double *a, double *dir) {
   return total;
 }
 
+double CColFit(int z, int nele, int is, double t, double *a, double *dir) {
+  double total, aa, dd;
+  
+  CCOLFIT(z, nele, is, t, &aa, &dd);
+  total = aa + dd;
+  if (a) *a = aa;
+  if (dir) *dir = dd;
+  
+  return total;
+}
+
 double EColFit(int z, int nele, int is) {
   double e;
   ECOLFIT(z, nele, is, &e);
