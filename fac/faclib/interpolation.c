@@ -2260,16 +2260,17 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 		  ee*HARTREE_EV, eph*HARTREE_EV, tc, rr, phi);
 	}
 	fprintf(f2, "\n\n");
-      }
-      if (i0 >= 0 && i1 >= 0) {
-	if (h.qk_mode == QK_FIT) free(r.params);
-	free(r.strength);
-	free(dstrength);
-	free(h.tegrid);
-	free(h.egrid);
-	free(h.usr_egrid);      
-	free(xusr);
-	goto DONE;
+
+	if (i0 >= 0 && i1 >= 0) {
+	  if (h.qk_mode == QK_FIT) free(r.params);
+	  free(r.strength);
+	  free(dstrength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);      
+	  free(xusr);
+	  goto DONE;
+	}
       }
       if (h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
@@ -2403,16 +2404,17 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 		  egy[t]*HARTREE_EV, tc, rr);
 	}
 	fprintf(f2, "\n\n");
-      }
-      if (i0 >= 0 && i1 >= 0) {
-	if (h.qk_mode == QK_FIT) free(r.params);
-	free(r.strength);
-	free(dstrength);
-	free(h.tegrid);
-	free(h.egrid);
-	free(h.usr_egrid);      
-	free(xusr);
-	goto DONE;
+      
+	if (i0 >= 0 && i1 >= 0) {
+	  if (h.qk_mode == QK_FIT) free(r.params);
+	  free(r.strength);
+	  free(dstrength);
+	  free(h.tegrid);
+	  free(h.egrid);
+	  free(h.usr_egrid);      
+	  free(xusr);
+	  goto DONE;
+	}
       }
       if (h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
