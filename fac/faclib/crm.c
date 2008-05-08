@@ -922,14 +922,18 @@ int SetBlocks(double ni, char *ifn) {
 	  blkp = NULL;
 	  for (i = 0; i < h.nlevels; i++) {
 	    GetNComplex(ncomplex, r0[i].ncomplex);
-	    if (nb0 == 0 && i <= n_single_blocks) {
+	    if (n_single_blocks == 0 || 
+		(n_single_blocks < 0 && nb0 < -n_single_blocks) ||
+		(nb0 == 0 && i <= n_single_blocks)) {
 	      nlevels = 0;
 	      blk.ib = blocks->dim;
 	      blk.iion = -1;
 	      blk.irec = -1;
 	      blk.ionized = 1;
 	      blk.rec = NULL;
-	      if (i < n_single_blocks) {
+	      if (n_single_blocks == 0 ||
+		  (n_single_blocks < 0 && nb0 < -n_single_blocks)
+		  || i < n_single_blocks) {
 		blk.nlevels = 1;
 	      } else {
 		blk.nlevels = h.nlevels - n_single_blocks;
@@ -1025,14 +1029,18 @@ int SetBlocks(double ni, char *ifn) {
       for (i = 0; i < h.nlevels; i++) {
 	n = ReadENRecord(f, &r, swp);
 	GetNComplex(ncomplex, r.ncomplex);
-	if (nb == 0 && i <= n_single_blocks) {
+	if (n_single_blocks == 0 || 
+	    (n_single_blocks < 0 && nb < -n_single_blocks) ||
+	    (nb == 0 && i <= n_single_blocks)) {
 	  nlevels = 0;
 	  blk.ib = blocks->dim;
 	  blk.iion = k;
 	  blk.irec = -1;
 	  blk.ionized = 0;
 	  blk.rec = NULL;
-	  if (i < n_single_blocks) {
+	  if (n_single_blocks == 0 ||
+	      (n_single_blocks < 0 && nb < -n_single_blocks)
+	      || i < n_single_blocks) {
 	    blk.nlevels = 1;
 	  } else {
 	    blk.nlevels = h.nlevels - n_single_blocks;
@@ -2547,65 +2555,74 @@ void FixNorm(void) {
 
   n = blocks->dim;
   x = bmatrix + n*n;
-  iion = -2;
-  k0 = 0;
-  k1 = 0;
   for (i = 0; i < n; i++) x[i] = 0.0;
-  for (i = 0; i < n; i++) {    
-    blk1 = (LBLOCK *) ArrayGet(blocks, i);
-    if (blk1->iion != iion) {
-      if (iion != -2) {
-	k = iion;
-	if (k == -1) k = 0;
-	ion = (ION *) ArrayGet(ions, k);
-	if (iion == -1) den = ion0.n0;
-	else den = ion->n0;
-	if (den > 0.0) {
-	  x[k0] = den;
-	  p = k0;
-	  for (k = 0; k < n; k++) {
-	    /*
-	    if (norm_mode != 0) {
-	      if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-	      else bmatrix[p] = 0.0;
-	    } else {
-	    */
-	    if (k == k0) bmatrix[p] = 1.0;
-	    else bmatrix[p] = 0.0;
-	    /*
-	    }
-	    */
-	    p += n;
-	  }
-	} 
+  if (norm_mode == 2) {
+    den = 0.0;
+    if (ion0.n0 > 0) den += ion0.n0;
+    for (i = 0; i < ions->dim; i++) {
+      ion = (ION *) ArrayGet(ions, i);
+      if (ion->n0 > 0) {
+	den += ion->n0;
       }
-      iion = blk1->iion;
-      k0 = k1;
     }
-    k1++;
-  }
-
-  k = iion;
-  ion = (ION *) ArrayGet(ions, k);
-  den = ion->n0;
-  if (den > 0.0) {
-    x[k0] = den;
-    p = k0;
+    x[0] = den;
+    p = 0;
     for (k = 0; k < n; k++) {
-      /*
-      if (norm_mode != 0) {
-	if (k < k1 && k >= k0) bmatrix[p] = 1.0;
-	else bmatrix[p] = 0.0;
-      } else {
-      */
-      if (k == k0) bmatrix[p] = 1.0;
-      else bmatrix[p] = 0.0;
-      /*
-      }
-      */
+      bmatrix[p] = 1.0;
       p += n;
     }
-  } 
+  } else {  
+    iion = -2;
+    k0 = 0;
+    k1 = 0;
+    for (i = 0; i < n; i++) {    
+      blk1 = (LBLOCK *) ArrayGet(blocks, i);
+      if (blk1->iion != iion) {
+	if (iion != -2) {
+	  k = iion;
+	  if (k == -1) k = 0;
+	  ion = (ION *) ArrayGet(ions, k);
+	  if (iion == -1) den = ion0.n0;
+	  else den = ion->n0;
+	  if (den > 0.0) {
+	    x[k0] = den;
+	    p = k0;
+	    for (k = 0; k < n; k++) {
+	      if (norm_mode == 1) {
+		if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+		else bmatrix[p] = 0.0;
+	      } else {
+		if (k == k0) bmatrix[p] = 1.0;
+		else bmatrix[p] = 0.0;
+	      }
+	      p += n;
+	    }
+	  } 
+	}
+	iion = blk1->iion;
+	k0 = k1;
+      }
+      k1++;
+    }
+    
+    k = iion;
+    ion = (ION *) ArrayGet(ions, k);
+    den = ion->n0;
+    if (den > 0.0) {
+      x[k0] = den;
+      p = k0;
+      for (k = 0; k < n; k++) {
+	if (norm_mode == 1) {
+	  if (k < k1 && k >= k0) bmatrix[p] = 1.0;
+	  else bmatrix[p] = 0.0;
+	} else {       
+	  if (k == k0) bmatrix[p] = 1.0;
+	  else bmatrix[p] = 0.0;
+	}
+	p += n;
+      }
+    } 
+  }
 }
 
 int BlockMatrix(void) {
@@ -2806,7 +2823,8 @@ int BlockPopulation(int miter) {
   b = a + n*n;
   ipiv = (int *) (b+n);
 
-  if (norm_mode == 0) miter = 1;
+  /*if (norm_mode == 0) miter = 1; use iteration to enforec normalization*/  
+  miter = 1; /*disable iteration, use FixNorm to enforce normalization*/
   for (niter = 0; niter < miter; niter++) {
     FixNorm();
     ta = 0.0;
@@ -3403,7 +3421,6 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
     }
     if (ib >= 0) DeinitFile(f, &fhdr);
     if (rrc < 0) continue;
-
     for (i = 0; i < ion->tr_rates->dim; i++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, i);
       if (brts->rates->dim == 0) continue;

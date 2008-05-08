@@ -326,7 +326,7 @@ gives unlimited permission to copy, distribute and modify it."
 
 ac_pwd='/disks/d4a/home/mfgu/src/fac'
 srcdir='.'
-INSTALL='/usr/bin/install -c'
+INSTALL='/sw/bin/ginstall -c'
 # If no file are specified by the user, then we need to provide default
 # value.  By we need to know if files were specified by the user.
 ac_need_defaults=:
@@ -548,7 +548,7 @@ s,@LIBOBJS@,|#_!!_#|,g
 s,@F77@,|#_!!_#|gfortran,g
 s,@FFLAGS@,|#_!!_#|-fPIC -ff2c -fno-strength-reduce -fno-common -O2,g
 s,@ac_ct_F77@,|#_!!_#|gfortran,g
-s,@FLIBS@,|#_!!_#|-L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0 -L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0/../../.. -lgfortranbegin -lgfortran -lgcc_s.10.4 -lSystem,g
+s,@FLIBS@,|#_!!_#|-L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3 -L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3/../../.. -lgfortranbegin -lgfortran -lgcc_s.10.4 -lSystem,g
 s,@FFLAGSNO@,|#_!!_#|-fPIC -ff2c -fno-strength-reduce -fno-common,g
 s,@LTLIBOBJS@,|#_!!_#|,g
 :end

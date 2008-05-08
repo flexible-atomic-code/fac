@@ -3701,7 +3701,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
       }
     }
-
+    
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
       if (n == 0) break;
@@ -3753,6 +3753,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
 	  fprintf(f2, "--------------------------------------------\n");
 	}
       }      
+      fflush(f2);
       if (h.msub || h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
     }
