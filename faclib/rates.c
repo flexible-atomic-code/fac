@@ -24,6 +24,7 @@ static struct {
   void *params;
   double epsabs;
   double epsrel;
+  double e0, emin, emax;
   int i, f;
   int type;
   int iprint;
@@ -113,16 +114,58 @@ int SetRateAccuracy(double epsrel, double epsabs) {
   if (epsabs > 0.0) rate_args.epsabs = epsabs;
   return 0.0;
 }
+     
+static double DistIntegrand(double *e) {
+  double a, b, x;
+
+  x = *e;
+  a = rate_args.d->dist(x, rate_args.d->params);
+  if (a > 0) {
+    a /= sqrt(x);
+  }
+  x = rate_args.e0 - rate_args.eth - *e;
+  b = rate_args.d->dist(x, rate_args.d->params);
+  if (b > 0) {
+    b /= sqrt(x);
+  }
+  return a*b;
+}
+
+/* provide fortran access with cfortran.h */
+FCALLSCFUN1(DOUBLE, DistIntegrand, DISTINTEGRAND, distintegrand, PDOUBLE)
 
 static double RateIntegrand(double *e) {
   double a, b, x;
+  double p = 1.46366E-12; /* (h^2/2m)^1.5/(4*pi) cm^3*eV^1.5 */
+  int neval, ier, limit, lenw, last;
+  double abserr, x0, x1;
 
   if (rate_args.xlog) {
     x = exp(*e);
   } else {
     x = *e;
   }
-  a = rate_args.d->dist(x, rate_args.d->params);
+
+  if (rate_args.type != -RT_CI) {
+    a = rate_args.d->dist(x, rate_args.d->params);
+  } else {
+    x0 = 0.0;
+    if (x0 < rate_args.emin) x0 = rate_args.emin;
+    x1 = x - rate_args.eth;
+    if (x1 > rate_args.emax) x1 = rate_args.emax;
+    if (x1 > x0) {
+      rate_args.e0 = x;
+      ier = 0;
+      limit = QUAD_LIMIT;
+      lenw = 4*limit;
+      DQAGS(C_FUNCTION(DISTINTEGRAND, distintegrand),
+	    x0, x1, rate_args.epsabs, rate_args.epsrel, &a, 
+	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
+      a *= p*sqrt(x)/(x-rate_args.eth);
+    } else {
+      a = 0.0;
+    }
+  }
   b = rate_args.Rate1E(x, rate_args.eth, rate_args.np, rate_args.params);
   if (rate_args.xlog) {
     x = x*a*b;
@@ -131,10 +174,10 @@ static double RateIntegrand(double *e) {
   }
   return x;
 }
+
 /* provide fortran access with cfortran.h */
 FCALLSCFUN1(DOUBLE, RateIntegrand, RATEINTEGRAND, rateintegrand, PDOUBLE)
 	    
-
 double IntegrateRate(int idist, double eth, double bound, 
 		     int np, void *params, int i0, int f0, int type, 
 		     double (*Rate1E)(double, double, int, void *)) { 
@@ -184,8 +227,12 @@ double IntegrateRate(int idist, double eth, double bound,
       }
     }
   }
+  rate_args.emin = a;
+  rate_args.emax = b;
   if (rate_args.xlog) {
     bound = log(bound);
+    rate_args.emin = exp(rate_args.emin);
+    rate_args.emax = exp(rate_args.emax);
   }
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
@@ -508,11 +555,6 @@ double CIRate1E(double e, double eth, int np, void *p) {
   return c;
 }
 
-double R3BRate1E(double e1, double e2, double eth, 
-		 int np, void *p) {
-  return 0.0;
-}
-
 int CIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, float *params, int i0, int f0) {
@@ -529,7 +571,9 @@ int CIRate(double *dir, double *inv, int iinv,
       *inv = p*pow(ele_dist[0].params[0], -1.5)*a;
       *inv /= (j2 + 1.0); 
     } else {
-      *inv = 0.0;
+      a = IntegrateRate(0, e0, e0, m, params, i0, f0,
+			-RT_CI, CIRate1E);
+      *inv = a/(j2+1.0);
     }
   } else {
     *inv = 0.0;

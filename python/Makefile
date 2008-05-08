@@ -3,7 +3,7 @@
 
 SHELL = /bin/sh
 
-INSTALL = /usr/bin/install -c
+INSTALL = /sw/bin/ginstall -c
 
 BINDIR = /usr/local/bin
 
@@ -13,7 +13,7 @@ CC = gcc
 CFLAGS = -O2 -fPIC -fno-strength-reduce -fno-common
 CPPFLAGS =  -I/disks/d4a/home/mfgu/src/fac -I/disks/d4a/home/mfgu/src/fac/faclib -I${PYINC}
 LDFLAGS =  -L/disks/d4a/home/mfgu/src/fac
-LIBS =  -lfac -lm -L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0 -L/sw/lib/gcc4/lib/gcc/i386-apple-darwin8/4.2.0/../../.. -lgfortranbegin -lgfortran -lgcc_s.10.4 -lSystem ${PYLIB}
+LIBS =  -lfac -lm -L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3 -L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3/../../.. -lgfortranbegin -lgfortran -lgcc_s.10.4 -lSystem ${PYLIB}
 
 all: mpy
 

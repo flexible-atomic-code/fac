@@ -48,7 +48,6 @@ int TRRate(double *dir, double *inv, int iinv,
 	   int j1, int j2, double e, float strength);
 
 double CIRate1E(double e, double eth, int np, void *p);
-double R3BRate1E(double e1, double e2, double eth, int np, void *p);
 int CIRate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, float *params, int i0, int f0);

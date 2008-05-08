@@ -858,6 +858,10 @@ class ATOM:
                 if (i == 0 and n2 <= self.n_decay[i]):
                     continue
                 for m in range(len(d)):
+                    if (self.nele <= 2 and i == 1 and m == 0):
+                        ce1 = 1
+                    else:
+                        ce1 = 0
                     a = d[m].name
                     na = len(a)
                     if (na == 0):
@@ -884,7 +888,7 @@ class ATOM:
                                 n3 = 0
                         if (n3 != n1 or n2 > self.n_decay[i]):
                             continue
-                    self.run_tr_ce(a, b, a, b, tr=[-1], ce=0)
+                    self.run_tr_ce(a, b, a, b, tr=[-1], ce=ce1)
                         
         return
 
