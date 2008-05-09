@@ -1,4 +1,5 @@
 #include "rates.h"
+#include "interpolation.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -16,6 +17,7 @@ static DISTRIBUTION pho_dist[MAX_DIST];
 static int _iwork[QUAD_LIMIT];
 static double _dwork[4*QUAD_LIMIT];
 
+#define N3BRI 2000
 static struct {
   DISTRIBUTION *d;
   double (*Rate1E)(double, double, int, void *);
@@ -24,11 +26,11 @@ static struct {
   void *params;
   double epsabs;
   double epsrel;
-  double e0, emin, emax;
   int i, f;
   int type;
   int iprint;
-  int xlog;
+  int xlog, elog;
+  double eg[N3BRI], fg[N3BRI];
 } rate_args;
 
 #define NSEATON 19
@@ -113,32 +115,64 @@ int SetRateAccuracy(double epsrel, double epsabs) {
   if (epsrel > 0.0) rate_args.epsrel = epsrel;
   if (epsabs > 0.0) rate_args.epsabs = epsabs;
   return 0.0;
-}
-     
-static double DistIntegrand(double *e) {
-  double a, b, x;
+}    
 
-  x = *e;
-  a = rate_args.d->dist(x, rate_args.d->params);
-  if (a > 0) {
-    a /= sqrt(x);
+static void ThreeBodyDist(void) {
+  int i, j, n;
+  DISTRIBUTION *d;
+  double emin, emax, de, y[N3BRI], x, t, *eg;
+  
+  d = ele_dist + iedist;
+  if (iedist == MAX_DIST-1) {
+    n = d->params[0];
+    i = d->params[1];
+    eg = &(d->params[3]);
+    emin = eg[0];
+    emax = eg[n-1];
+    if (i == 1) {
+      emin = exp(emin);
+      emax = exp(emax);
+    }
+  } else {
+    n = d->nparams;
+    emin = d->params[n-2];
+    emax = d->params[n-1];
   }
-  x = rate_args.e0 - rate_args.eth - *e;
-  b = rate_args.d->dist(x, rate_args.d->params);
-  if (b > 0) {
-    b /= sqrt(x);
+  if (emax/emin > 10.0) {
+    emin = log(emin);
+    emax = log(0.5*emax);
+    rate_args.elog = 1;
+  } else {
+    emax = 0.5*emax;
+    rate_args.elog = 0;
   }
-  return a*b;
+  
+  de = (emax - emin)/(N3BRI-1);
+  rate_args.eg[0] = emin;
+  rate_args.fg[0] = 0.0;
+  for (i = 1; i < N3BRI; i++) {
+    rate_args.eg[i] = rate_args.eg[i-1] + de;
+  }
+  y[0] = 0.0;
+  
+  for (i = 1; i < N3BRI; i++) {
+    x = rate_args.eg[i];
+    if (rate_args.elog) x = exp(x);
+    for (j = 1; j <= i; j++) {
+      t = rate_args.eg[j];
+      if (rate_args.elog) t = exp(t);
+      y[j] = d->dist(t, d->params)/sqrt(t);
+      if (rate_args.elog) y[j] *= t;
+      t = 2*x - t;
+      y[j] *= d->dist(t, d->params)/sqrt(t);
+    }
+    rate_args.fg[i] = Simpson(y, 0, i)*de;
+  }  
 }
-
-/* provide fortran access with cfortran.h */
-FCALLSCFUN1(DOUBLE, DistIntegrand, DISTINTEGRAND, distintegrand, PDOUBLE)
 
 static double RateIntegrand(double *e) {
   double a, b, x;
   double p = 1.46366E-12; /* (h^2/2m)^1.5/(4*pi) cm^3*eV^1.5 */
-  int neval, ier, limit, lenw, last;
-  double abserr, x0, x1;
 
   if (rate_args.xlog) {
     x = exp(*e);
@@ -149,19 +183,15 @@ static double RateIntegrand(double *e) {
   if (rate_args.type != -RT_CI) {
     a = rate_args.d->dist(x, rate_args.d->params);
   } else {
-    x0 = 0.0;
-    if (x0 < rate_args.emin) x0 = rate_args.emin;
-    x1 = x - rate_args.eth;
-    if (x1 > rate_args.emax) x1 = rate_args.emax;
-    if (x1 > x0) {
-      rate_args.e0 = x;
-      ier = 0;
-      limit = QUAD_LIMIT;
-      lenw = 4*limit;
-      DQAGS(C_FUNCTION(DISTINTEGRAND, distintegrand),
-	    x0, x1, rate_args.epsabs, rate_args.epsrel, &a, 
-	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
-      a *= p*sqrt(x)/(x-rate_args.eth);
+    if (x > rate_args.eth) {
+      b = 0.5*(x - rate_args.eth);
+      if (rate_args.elog) b = log(b);
+      if (b < rate_args.eg[0]) a = rate_args.fg[0];
+      else if (b > rate_args.eg[N3BRI-1]) a = rate_args.fg[N3BRI-1];
+      else {
+	UVIP3P(3, N3BRI, rate_args.eg, rate_args.fg, 1, &b, &a);
+	a *= 2.0*p*sqrt(x)/(x-rate_args.eth);
+      }
     } else {
       a = 0.0;
     }
@@ -216,7 +246,7 @@ double IntegrateRate(int idist, double eth, double bound,
   } else {
     n = rate_args.d->nparams;  
     b = rate_args.d->params[n-1];
-    a = rate_args.d->params[n-2];
+    a = rate_args.d->params[n-2];    
     if (rate_args.xlog < 0) {
       if (b/a > 10) {
 	rate_args.xlog = 1;
@@ -227,12 +257,9 @@ double IntegrateRate(int idist, double eth, double bound,
       }
     }
   }
-  rate_args.emin = a;
-  rate_args.emax = b;
+  
   if (rate_args.xlog) {
     bound = log(bound);
-    rate_args.emin = exp(rate_args.emin);
-    rate_args.emax = exp(rate_args.emax);
   }
   if (bound > a) a = bound;
   if (b <= a) return 0.0;
@@ -1496,6 +1523,8 @@ int SetEleDist(int i, int np, double *p0) {
   default:
     break;
   }
+
+  ThreeBodyDist();
 
   return 0;
 }
