@@ -652,6 +652,19 @@ static int PSetBornMass(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetGamma3B(int argc, char *argv[], int argt[],
+		       ARRAY *variables) {
+  double m;
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER) return -1;
+  m = atof(argv[0]);
+
+  SetGamma3B(m);
+  
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -698,6 +711,7 @@ static METHOD methods[] = {
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
   {"SetBornMass", PSetBornMass, METH_VARARGS},
+  {"SetGamma3B", PSetGamma3B, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
