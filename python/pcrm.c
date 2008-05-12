@@ -1252,6 +1252,23 @@ static  PyObject *PSetBornMass(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static  PyObject *PSetGamma3B(PyObject *self, PyObject *args) {
+  double m;
+
+  if (scrm_file) {
+    SCRMStatement("SetGamma3B", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
+
+  SetGamma3B(m);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1321,6 +1338,7 @@ static struct PyMethodDef crm_methods[] = {
   {"NormalizeMode", PNormalizeMode, METH_VARARGS},
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
   {"SetBornMass", PSetBornMass, METH_VARARGS},
+  {"SetGamma3B", PSetGamma3B, METH_VARARGS},
   {NULL, NULL}
 };
 

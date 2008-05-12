@@ -18,6 +18,8 @@ static int _iwork[QUAD_LIMIT];
 static double _dwork[4*QUAD_LIMIT];
 
 #define N3BRI 2000
+static double gamma3b = 1.0;
+
 static struct {
   DISTRIBUTION *d;
   double (*Rate1E)(double, double, int, void *);
@@ -117,10 +119,14 @@ int SetRateAccuracy(double epsrel, double epsabs) {
   return 0.0;
 }    
 
+void SetGamma3B(double g) {
+  gamma3b = g;
+}
+
 static void ThreeBodyDist(void) {
   int i, j, n;
   DISTRIBUTION *d;
-  double emin, emax, de, y[N3BRI], x, t, *eg;
+  double emin, emax, de, y[N3BRI], x, t, *eg, c;
   
   d = ele_dist + iedist;
   if (iedist == MAX_DIST-1) {
@@ -155,6 +161,8 @@ static void ThreeBodyDist(void) {
   }
   y[0] = 0.0;
   
+  c = DLOGAM(2.0*(gamma3b+1.0)) - 2.0*DLOGAM(gamma3b+1.0);
+  c = exp(c);
   for (i = 1; i < N3BRI; i++) {
     x = rate_args.eg[i];
     if (rate_args.elog) x = exp(x);
@@ -165,6 +173,8 @@ static void ThreeBodyDist(void) {
       if (rate_args.elog) y[j] *= t;
       t = 2*x - t;
       y[j] *= d->dist(t, d->params)/sqrt(t);
+      t /= 2*x;
+      y[j] *= c*pow(t*(1.0-t), gamma3b);
     }
     rate_args.fg[i] = Simpson(y, 0, i)*de;
   }  
@@ -191,6 +201,7 @@ static double RateIntegrand(double *e) {
       else {
 	UVIP3P(3, N3BRI, rate_args.eg, rate_args.fg, 1, &b, &a);
 	a *= 2.0*p*sqrt(x)/(x-rate_args.eth);
+	a *= VelocityFromE(x, -1.0)/VelocityFromE(x, 1.0);
       }
     } else {
       a = 0.0;
@@ -334,7 +345,9 @@ double IntegrateRate2(int idist, double e, int np,
 double VelocityFromE(double e, double bms) {
   double k;
 
-  if (bms == 1.0 || bms == 0.0) {
+  if (bms < 0) {
+    k = sqrt(e/fabs(bms))*5.92928E-3;
+  } else if (bms == 1.0 || bms == 0.0) {
     k = e/HARTREE_EV;
     k = 2.0*k*(1.0 + 0.5*FINE_STRUCTURE_CONST2*k);
     k = FINE_STRUCTURE_CONST2*k;
@@ -1204,6 +1217,18 @@ static double Maxwell(double e, double *p) {
   return x;
 }
 
+static double DoubleMaxwell(double e, double *p) {
+  double x0, x1, x;
+  const double maxwell_const = 1.12837967;
+  
+  if (e > p[4] || e < p[3]) return 0.0;
+  x0 = e/p[0];
+  x1 = e/p[1];
+  x = ((1-p[2])*sqrt(x0)*exp(-x0)/p[0] + p[2]*sqrt(x1)*exp(-x1)/p[1]);
+  x *= maxwell_const;
+  return x;
+}
+  
 static double MaxPower(double e, double *p) {
   double x, y, logy, py, g, g1, c1, c2, f;
   const double maxwell_const = 1.12837967;
@@ -1443,7 +1468,7 @@ int EleDist(char *fn, int n) {
 
 int SetEleDist(int i, int np, double *p0) {
   int k;
-  double *p;
+  double *p, c1, c2;
 
   if (i == -1) {
     i = MAX_DIST-1;
@@ -1520,6 +1545,31 @@ int SetEleDist(int i, int np, double *p0) {
     }
     Hybrid(-1.0, p);
     break;
+  case 6:
+    /* double Maxwellian */
+    if (p[0] < p[1]) {
+      c1 = p[0];
+      c2 = p[1];
+    } else {
+      c1 = p[1];
+      c2 = p[0];
+    }
+    if (p[2]+1.0 == 1.0) {
+      c1 = p[0];
+      c2 = p[0];
+    }
+    if (p[2] == 1.0) {
+      c1 = p[1];
+      c2 = p[1];
+    }
+    if (p[4] <= 0.0) {
+      p[4] = 1E2*c2;
+    }
+    if (p[3] <= 0.0) {
+      p[3] = 1E-20*c1;
+    }
+    break;
+    
   default:
     break;
   }
@@ -1679,6 +1729,16 @@ int InitRates(void) {
   ele_dist[i].params[3] = 1E-20;
   ele_dist[i].params[4] = 1E8;
   ele_dist[i].dist = Hybrid;
+
+  i++; /* double Maxwellian */
+  ele_dist[i].nparams = 5;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*5);
+  ele_dist[i].params[0] = 1e2;
+  ele_dist[i].params[1] = 1e4;
+  ele_dist[i].params[2] = 0.1;
+  ele_dist[i].params[3] = 1E-10;
+  ele_dist[i].params[4] = 1E10;
+  ele_dist[i].dist = DoubleMaxwell;
 
   i++;
 
