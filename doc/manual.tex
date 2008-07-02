@@ -2371,7 +2371,11 @@ works for $l \le 20$ shells, for which spectroscopic symbols \key{s, p, d, f,
 g, h, i, k, l, m, n, o, q, r, t, u, v, w, x, y, z} are available. The bracket
 for the orbital angular momentum can be omitted if it comprises of a single
 character. Otherwise, the bracket must be present. For example, $2p-2$ is
-illegal, but $2[p-]2$ is.
+illegal, but $2[p-]2$ is. Each shell may be followed by multiple conditions on
+the occupation number, separated by ``;'', e.g., $3*10;3s>0;3p>5$ generate
+configuarations that have at least 1 electron in the $3s$ and 6 electrons in
+the $3p$ shells. The logical relations allowed in conditions include $=$, $>$,
+and $<$. 
 \end{fundesc}
 
 \begin{fundesc}{ConfigEnergy}{m\opt{, n\opt{, g, ...}}}
