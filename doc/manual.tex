@@ -2496,6 +2496,16 @@ Print out the version information of FAC and contact information of the
 author. 
 \end{fundesc}
 
+\begin{fundesc}{InterpCross}{ifn, ofn, low, up, e, m}
+Interpolate cross sections in the binary file \var{ifn}, and save outputs in
+\var{ofn}.
+\var{low} and \var{up} are lower and upper indices of the transitions. If
+either one is $-1$, then loop over all indices for that level. \var{e} is a
+list of energies where the cross sections are needed. If \var{m} is 0, then
+\var{e} is interpreted as the incident energy, if \var{m} is 1, then \var{e}
+is interpreted as the incident energy minus transition energy.
+\end{fundesc}
+
 \begin{fundesc}{JoinTable}{fn1, fn2, fn}
 Join two binary files \var{fn1} and \var{fn2} to produce a single file
 \var{fn}. \var{fn1} and \var{fn2} must have been produced on the same
@@ -2524,6 +2534,15 @@ the block $-ilev-2000$.
 Print the configurations in the list \var{g} to file \var{fn}. If \var{fn} is
 not given or if it is ``-'', the results are written to the stdout. If \var{g}
 is not given, then all configurations currently defined are printed.
+\end{fundesc}
+
+\begin{fundesc}{MaxwellRate}{ifn, ofn, low, up, t}
+Calculate the Maxwellian rate coefficients for collision processes with cross
+section data given by the binary file \var{ifn}, the results are saved in
+\var{ofn}. \var{low} and \var{up} are lower and upper indices of the
+transitions. If 
+either one is $-1$, then loop over all indices for that level. \var{t} is a
+list of temperatures where the rate coefficients are needed.
 \end{fundesc}
 
 \begin{fundesc}{MemENTable}{fn}
@@ -3840,9 +3859,10 @@ Set the abundance of the ion with number of electrons \var{n} to
 Read the energy levels and setup the superlevel blocks for the spectral
 model. The optional \var{den} is the abundance of the ion with one less
 electron than the lowest charge state included in the model, and \var{pref} is
-the base file name for that ion. If it is not specified, the transitions in
-that ion are not included in the model, which may cause convergence problems
-in some cases.
+the base file name for that ion. If \var{den} is $< 0$, only processes
+connects the levels within the same ion are included. If \var{pref} is not
+specified, the transitions in that ion are not included in the model, which
+may cause convergence problems in some cases.
 \end{fundesc}
 
 \begin{fundesc}{SetCERates}{inv}
