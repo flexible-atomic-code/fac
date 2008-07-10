@@ -4219,7 +4219,7 @@ int SetTRRates(int inv) {
 	}
       }
     }
-    if (ion0.n < 0.0) continue;
+    if (ion0.n < 0) continue;
     ExtrapolateTR(ion, inv);
     if (k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_TR-1], "r");

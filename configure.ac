@@ -230,16 +230,16 @@ case "$host_os" in
     if test -n "$GCC"
     then 
       CFLAGS="$CFLAGS -fno-common"
+# darwin needs cc_dynamic lib. if gcc version 3 is used.
+      gccv=[`gcc --version | grep "(GCC)" | sed -n -e "s/.* (GCC) *\([0-9]\).*/\1/p"`]
+      if test "$gccv" != "4"
+    then
+      LIBS="$LIBS -lcc_dynamic"
+    fi
     fi
     if test -n "$G77"
     then 
       FFLAGS="$FFLAGS -fno-common"
-    fi
-# darwin needs cc_dynamic lib. if gcc version 3 is used.
-    gccv=[`gcc_select | sed -n -e "s/.*version \([0-9]\)\..*/\1/p"`]
-    if test "$gccv" != "4"
-    then
-      LIBS="$LIBS -lcc_dynamic"
     fi
   ;;
   *)

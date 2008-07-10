@@ -99,6 +99,13 @@ in this case, PYTHONPATH should be set to "/my/own/dir/lib/python. There
 are some other ways to specify where you want the python modules go. Check
 the python distutil documentation for details.
 
+4) A binary distribution can be made by
+   python setup bdist -bsfac
+it will create two gzipped tar file under dist/ directory. Unpack the PFAC and 
+SFAC files under appropriate directories will install both sfac and pfac binary 
+files. Check the contents of PFAC and SFAC tar file first to determine the 
+directories under which they must be unpacked.
+
 Usage:
 The modules can be called just like any python modules, either from the
 interpreter interactively, or pass the script to python. 
