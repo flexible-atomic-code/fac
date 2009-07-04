@@ -542,6 +542,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   emax = e;
 
   if (kl == 0) {
+    double emin0 = 5*EnergyH(z0, orb->n, orb->kappa);
     e = emin;      
     while (niter < max_iteration) {
       niter++;
@@ -555,6 +556,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       }
       if (nodes < nr) break;
       e = e*2.0;
+      if (nr == 0 && e < emin0) break;
     }
     emin = e;
     if (niter == max_iteration) {
@@ -920,6 +922,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 
   niter = 0;
   if (kl == 0) {
+    double emin0 = 1.2*EnergyH(z0, orb->n, orb->kappa);
     e = emin;   
     while (niter < max_iteration) {
       niter++;
@@ -933,6 +936,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       }
       if (nodes < nr) break;
       e = e*2.0;
+      if (nr == 0 && e < emin0) break;
     }
     emin = e;
     if (niter == max_iteration) {
