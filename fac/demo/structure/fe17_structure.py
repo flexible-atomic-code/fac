@@ -20,6 +20,7 @@ fac.ConfigEnergy(0)
 # in the OptimizeRadial. 
 fac.OptimizeRadial(['n2'])
 fac.ConfigEnergy(1)
+fac.GetPotential('ne.pot')
 fac.Structure('ne.lev.b', ['n2', 'n3'])
 fac.MemENTable('ne.lev.b')
 fac.PrintTable('ne.lev.b', 'ne.lev', 1)
