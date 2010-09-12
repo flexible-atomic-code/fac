@@ -4661,7 +4661,7 @@ int AppendTable(char *fn) {
   if (f == NULL) return -1;
   n = ReadFHeader(f, &fh, &swp);
   if (swp) {
-    printf("File %s is in different byte-order\n");
+    printf("File %s is in different byte-order\n", fn);
     fclose(f);
     return -1;
   }

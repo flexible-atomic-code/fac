@@ -697,7 +697,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       if (trd < 1E-30) continue;
       r.upper = up[j];
       for (i = 0; i < nlow; i++) {
-	if (a[i] < (transition_option.eps * trd)) continue;
+	if (a[i] <= 0 || a[i] < (transition_option.eps * trd)) continue;
 	r.lower = low[i];
 	r.strength = s[i];
 	WriteTRRecord(f, &r, NULL);
