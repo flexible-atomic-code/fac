@@ -5,3 +5,5 @@ lapack
 minpack
 quadpack
 mpfun
+ode
+toms
