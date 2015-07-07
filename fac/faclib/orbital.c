@@ -1237,11 +1237,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       delta = qo-qi;
       dq[j] = delta;
     }
-    for (j = 0; j < ME; j++) {
+    for (j = 0; j < ME-1; j++) {
       if (dq[j] > 0 && dq[j+1] < dq[j]) break;
     }
     i = j;
-    for (; j < ME; j++) {
+    for (; j < ME-1; j++) {
       if (dq[j+1] >= dq[j]) break;
     }
     nme = j - i + 1;
