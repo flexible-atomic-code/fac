@@ -5,7 +5,8 @@ FAC is a software packge for the calculation of various atomic processes.
 Contents of the package:
 
 1. Third party content that cannot be distributed under GPL. 
-   These files are bundled in fac_util.tar.gz
+   These directories are bundled in fac_util.tar.gz, 
+   and are listed in the UtilList file.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
 ionis/,      ionization balance calculation of Arnaud&Raymond, 
