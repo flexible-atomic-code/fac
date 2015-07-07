@@ -87,6 +87,8 @@ typedef struct _ENF_RECORD_ {
   double energy;
   int pbasis;
 } ENF_RECORD;
+#define SIZE_ENF_RECORD \
+  (sizeof(int)*2 + sizeof(double))
 
 typedef struct _TR_HEADER_ {
   long int position;

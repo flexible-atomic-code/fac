@@ -3335,7 +3335,7 @@ int MemENFTable(char *fn) {
   n = ReadFHeader(f, &fh, &swp);  
   if (n == 0) return 0;
 
-  sr = sizeof(ENF_RECORD);
+  sr = SIZE_ENF_RECORD;
 
   if (mem_enf_table) free(mem_enf_table);
 
@@ -4661,7 +4661,7 @@ int AppendTable(char *fn) {
   if (f == NULL) return -1;
   n = ReadFHeader(f, &fh, &swp);
   if (swp) {
-    printf("File %s is in different byte-order\n", fn);
+    printf("File %s is in different byte-order\n");
     fclose(f);
     return -1;
   }

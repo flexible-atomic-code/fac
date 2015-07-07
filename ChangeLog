@@ -1,3 +1,11 @@
+Version 1.1.2, 07/07/2015
+	1. incorporate a few bug fixes from Evgeny, most notably
+	   concerning the Zeemann splitting.
+	2. separate the source files into fac_util and fac_core, the
+	   former contains third party uitlities that cannot be
+	   distributed under GPL, while the latter contains the fac core
+	   that are distrubted under GPL from this version on.
+	
 Version 1.1.1, 04/30/2006
 	1. change the argument of coulcc to have a small imaginary part for
 	   DCOUL function. so that the results are ok for bound state energies.

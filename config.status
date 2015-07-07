@@ -561,7 +561,7 @@ s,@LIBOBJS@,|#_!!_#|,g
 s,@F77@,|#_!!_#|gfortran,g
 s,@FFLAGS@,|#_!!_#|-fPIC -ff2c -fno-strength-reduce -fno-common -O2,g
 s,@ac_ct_F77@,|#_!!_#|gfortran,g
-s,@FLIBS@,|#_!!_#|-L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3 -L/sw/lib/gcc4.2/lib/gcc/i686-apple-darwin8/4.2.3/../../.. -lgfortranbegin -lgfortran,g
+s,@FLIBS@,|#_!!_#|-L/sw/lib/gcc4.3/lib/gcc/i686-apple-darwin8/4.3.1 -L/sw/lib/gcc4.3/lib/gcc/i686-apple-darwin8/4.3.1/../../.. -lgfortranbegin -lgfortran,g
 s,@FFLAGSNO@,|#_!!_#|-fPIC -ff2c -fno-strength-reduce -fno-common,g
 s,@LTLIBOBJS@,|#_!!_#|,g
 :end

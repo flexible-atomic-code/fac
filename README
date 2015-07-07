@@ -3,14 +3,11 @@
 FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
-README,      this file.
-ChangeLog,   changes.
+
+1. Third party content that cannot be distributed under GPL. 
+   These files are bundled in fac_util.tar.gz
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
-demo/,       some demo scripts.
-doc/,        reference guide for FAC
-doc/papers/, papers describe the theoretical backgrounds.
-faclib/,     core numerical library.
 ionis/,      ionization balance calculation of Arnaud&Raymond, 
 	     and that of Mazzotta et al. Rates fitted by Verner et al.
 lapack/,     fortran routines from LAPACK.
@@ -21,9 +18,22 @@ mpfun/,      it used to be the multi-precision floating point arithmetic
 	     implementation of quad-precision arithmetics. The associated
 	     Legendre functions are also put into this directory.
 ode/,	     Livermore Solver for odinary differential equations.
+toms/,       some numerical routines from TOMS.
+
+2. Everything below are distributed under GPL.
+   These files are bundled in fac_core.tar.gz
+README,      this file.
+ChangeLog,   changes.
+configure.ac,AutoConf input file
+configure,   configure script after parsing configure.ac
+setup.py,    python setup script for building the pfac interface
+demo/,       some demo scripts.
+doc/,        reference guide for FAC
+doc/papers/, papers describe the theoretical backgrounds.
+faclib/,     core numerical library.
 python/,     python interface.
 sfac/,       non-python interface.
-toms/,       some numerical routines from TOMS.
+
 
 INSTALL:
 There are two interfaces available to the FAC numerical lib. One makes use
@@ -47,6 +57,9 @@ Unpack it in a directory and add bin to your PATH.
 
 INSTALL FROM SOURCE:
 STEPS:
+0) download the two source packages, fac_util.tar.gz and fac_core.tar.gz, 
+   and gunzip, extract under the same directory.
+
 1) ./configure
 Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler 
         is not g77 or sun's f77. see faclib/cfortran.doc for supported F77 

@@ -853,23 +853,37 @@ double HamiltonElementEB(int ib, int jb) {
   nz = ang_frozen.nz[kz];
   for (i = 0; i < nz; i++) {
     if (B1[0] || B1[1] || B1[2]) {
-      if (ang[i].k == 2 && ang[i].k0 == ang[i].k1) {
+      if (ang[i].k == 2) {
 	orb0 = GetOrbital(ang[i].k0);
 	GetJLFromKappa(orb0->kappa, &jorb0, &korb0);
-	for (m = 0; m < 3; m++) {
-	  if (B1[m] == 0) continue;
-	  q = m-1;
-	  q2 = 2*q;	
-	  a = W3j(ji, 2, jj, -mi, -q2, mj);
-	  if (a == 0.0) continue;
-	  a *= B1[m]*ang[i].coeff;
-	  if (IsOdd(abs(ji-mi+q2)/2)) a = -a;
-	  b = sqrt(0.25*jorb0*(jorb0+2.0)*(jorb0+1.0));
-	  c = 1.0023192*(jorb0+1.0)*W6j(korb0, 1, jorb0, 2, jorb0, 1)*sqrt(1.5);
-	  if (IsEven((korb0+jorb0+1)/2)) c = -c;
-	  r += a*(b + c);
+	if (ang[i].k1 == ang[i].k0) {
+	  orb1 = orb0;
+	  jorb1 = jorb0;
+	  korb1 = korb0;
+	} else {
+	  orb1 = GetOrbital(ang[i].k1);
+	  GetJLFromKappa(orb1->kappa, &jorb1, &korb1);
 	}
-      }      
+	if (orb0->n == orb1->n && korb0 == korb1){
+	  for (m = 0; m < 3; m++) {
+	    if (B1[m] == 0) continue;
+	    q = m-1;
+	    q2 = 2*q;	
+	    a = W3j(ji, 2, jj, -mi, -q2, mj);
+	    if (a == 0.0) continue;
+	    a *= B1[m]*ang[i].coeff;
+	    if (IsOdd(abs(ji-mi+q2)/2)) a = -a;
+	    if (jorb0 == jorb1) {
+	      b = sqrt(0.25*jorb0*(jorb0+2.0)*(jorb0+1.0));
+	    } else {
+	      b = 0.0;
+	    }
+	    c = 1.0023192*sqrt((jorb0+1.0)*(jorb1+1.0))*W6j(korb0, 1, jorb0, 2, jorb1, 1)*sqrt(1.5);
+	    if (IsEven((korb0+jorb0+1)/2)) c = -c;
+	    r += a*(b + c);
+	  }
+	}      
+      }
     }
     if (E1[0] || E1[1] || E1[2]) {
       if (ang[i].k == 2) {
