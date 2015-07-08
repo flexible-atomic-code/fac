@@ -15,7 +15,7 @@
 */
 #define VERSION        1
 #define SUBVERSION     1
-#define SUBSUBVERSION  1
+#define SUBSUBVERSION  2
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))
