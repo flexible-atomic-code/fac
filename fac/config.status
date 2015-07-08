@@ -337,7 +337,7 @@ Copyright (C) 2006 Free Software Foundation, Inc.
 This config.status script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it."
 
-ac_pwd='/disks/d4a/home/mfgu/src/fac'
+ac_pwd='/disks/d4a/home/mfgu/src/fac/fac'
 srcdir='.'
 INSTALL='/sw/bin/ginstall -c'
 # If no file are specified by the user, then we need to provide default
@@ -532,7 +532,7 @@ s,@LIBS@,|#_!!_#| -lfac -lm,g
 s,@build_alias@,|#_!!_#|,g
 s,@host_alias@,|#_!!_#|,g
 s,@target_alias@,|#_!!_#|,g
-s,@TOPDIR@,|#_!!_#|/disks/d4a/home/mfgu/src/fac,g
+s,@TOPDIR@,|#_!!_#|/disks/d4a/home/mfgu/src/fac/fac,g
 s,@build@,|#_!!_#|i386-apple-darwin8.11.1,g
 s,@build_cpu@,|#_!!_#|i386,g
 s,@build_vendor@,|#_!!_#|apple,g
@@ -543,8 +543,8 @@ s,@host_vendor@,|#_!!_#|apple,g
 s,@host_os@,|#_!!_#|darwin8.11.1,g
 s,@CC@,|#_!!_#|gcc,g
 s,@CFLAGS@,|#_!!_#|-O2 -fPIC -fno-strength-reduce -fno-common,g
-s,@LDFLAGS@,|#_!!_#| -L/disks/d4a/home/mfgu/src/fac,g
-s,@CPPFLAGS@,|#_!!_#| -I/disks/d4a/home/mfgu/src/fac -I/disks/d4a/home/mfgu/src/fac/faclib,g
+s,@LDFLAGS@,|#_!!_#| -L/disks/d4a/home/mfgu/src/fac/fac,g
+s,@CPPFLAGS@,|#_!!_#| -I/disks/d4a/home/mfgu/src/fac/fac -I/disks/d4a/home/mfgu/src/fac/fac/faclib,g
 s,@ac_ct_CC@,|#_!!_#|gcc,g
 s,@EXEEXT@,|#_!!_#|,g
 s,@OBJEXT@,|#_!!_#|o,g

@@ -1784,7 +1784,8 @@ C
       DCLM(3)=(DG1(4)+DG1(3))*.5D0+DCLM(3)
       DCLM(4)=(DG1(1)-DG1(2))*.5D0+DCLM(4)
       RETURN
-   25 CONV=.FALSE.
+C     return 0 but set conv=true to avoid exiting
+   25 CONV=.TRUE.
       DO 26 I=1,4
    26 DCLM(I)=0D0
       RETURN
