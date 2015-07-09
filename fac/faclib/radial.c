@@ -2357,7 +2357,8 @@ double RadialMoments(int m, int k1, int k2) {
     for (i = i0; i <= npts; i++) {
       r = p1[i]*p2[i] + q1[i]*q2[i];
       r *= potential->dr_drho[i];
-      _yk[i] = pow(potential->rad[i], m)*r;
+      _yk[i] = r;
+      if (m != 0) _yk[i] *= pow(potential->rad[i], m);
     }
     r = Simpson(_yk, i0, npts);
     *q = r;
@@ -2365,9 +2366,14 @@ double RadialMoments(int m, int k1, int k2) {
     npts = potential->maxrp-1;
     if (n1 != 0) npts = Min(npts, orb1->ilast);
     if (n2 != 0) npts = Min(npts, orb2->ilast);
-
-    for (i = 0; i <= npts; i++) {
-      _yk[i] = pow(potential->rad[i], m);
+    if (m == 0) {
+      for (i = 0; i <= npts; i++) {
+	_yk[i] = 1.0;
+      }
+    } else {
+      for (i = 0; i <= npts; i++) {
+	_yk[i] = pow(potential->rad[i], m);
+      }
     }
     r = 0.0;
     Integrate(_yk, orb1, orb2, 1, &r, m);

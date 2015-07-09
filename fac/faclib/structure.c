@@ -871,6 +871,9 @@ double HamiltonElementEB(int ib, int jb) {
 	    q2 = 2*q;	
 	    a = W3j(ji, 2, jj, -mi, -q2, mj);
 	    if (a == 0.0) continue;
+	    if (ang[i].k0 != ang[i].k1) {
+	      a *= RadialMoments(0, ang[i].k0, ang[i].k1);
+	    }
 	    a *= B1[m]*ang[i].coeff;
 	    if (IsOdd(abs(ji-mi+q2)/2)) a = -a;
 	    if (jorb0 == jorb1) {
