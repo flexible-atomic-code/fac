@@ -1,0 +1,30 @@
+# Ignore objects and archives, anywhere in the tree.
+*.[oa]
+
+# Ignore generated Makefiles
+Makefile
+blas/Makefile
+coul/Makefile
+faclib/Makefile
+ionis/Makefile
+lapack/Makefile
+minpack/Makefile
+mpfun/Makefile
+toms/Makefile
+ode/Makefile
+quadpack/Makefile
+sfac/Makefile
+
+# Ignore binaries
+sfac/scrm
+sfac/sfac
+sfac/spol
+
+# configure-generated
+sysdef.h
+config.log
+config.status
+
+# Python build dirs
+build/
+
