@@ -1539,7 +1539,7 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
     for (k = k0; k <= k1; k += 4) {
       for (kp = k0; kp <= k1; kp += 4) {
 	b = 0.0;
-	if (k = kp) b += 1.0/((k+1.0)*(jb+1.0));
+	if (k == kp) b += 1.0/((k+1.0)*(jb+1.0));
 	b -= W9j(ja, ja, k, ja, m2, jb, kp, jb, jb);
 	b -= W6j(ja, jb, m2, jb, ja, k)*W6j(ja, jb, m2, jb, ja, kp)/ja;
 	b /= ja;
