@@ -1991,8 +1991,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
   double x, y, t, q, a, b, r, e;
  
   x = 0.0;
-  double x1 = 0;
-  double x2 = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     n = (cfg->shells[i]).n;
     kappa = (cfg->shells[i]).kappa;
@@ -2072,8 +2070,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
     e += QED1E(k, k);
     r = nq * (b + t + e + y);        
     x += r;
-    x1 += nq*(e+y);
-    x2 += nq*(b + t);
   }
   return x;
 }
