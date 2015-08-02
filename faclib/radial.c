@@ -2037,8 +2037,8 @@ double AverageEnergyConfig(CONFIG *cfg) {
       for (kk = kkmin; kk <= kkmax; kk += 4) {
 	Slater(&y, k, kp, kp, k, kk/2, 0);
 	if (kk == 2 && qed.sms) {
-	  double v = Vinti(k, kp);
-	  y -= v*v/am;
+	  double v = Vinti(k, kp)*Vinti(kp, k);
+	  y -= v/am;
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
 	  y += Breit(k, kp, kp, k, kk/2, kl, klp, klp, kl);
