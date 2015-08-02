@@ -1179,7 +1179,6 @@ double HamiltonElement(int isym, int isi, int isj) {
   double r1, r2;
   
   HamiltonElement1E2E(isym, isi, isj, &r1, &r2);
-  
   return r1 + r2;
 }
 

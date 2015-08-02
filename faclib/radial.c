@@ -1925,8 +1925,6 @@ void ShiftOrbitalEnergy(CONFIG *cfg) {
       e1 = CoulombEnergyShell(&c, 0);
     }
     orb->qr_norm = 2*e1 + e0;
-    printf("%d %d %d %12.5E %12.5E %12.5E\n", i, orb->n, orb->kappa, 
-	   orb->energy, e0, e1);
   }
   free(c.shells);
 }
@@ -1993,6 +1991,8 @@ double AverageEnergyConfig(CONFIG *cfg) {
   double x, y, t, q, a, b, r, e;
  
   x = 0.0;
+  double x1 = 0;
+  double x2 = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     n = (cfg->shells[i]).n;
     kappa = (cfg->shells[i]).kappa;
@@ -2006,18 +2006,21 @@ double AverageEnergyConfig(CONFIG *cfg) {
       for (kk = 2; kk <= j2; kk += 2) {
 	Slater(&y, k, k, k, k, kk, 0);
 	q = W3j(j2, 2*kk, j2, -1, 0, 1);
+	if (qed.br < 0 || n <= qed.br) {
+	  y += Breit(k, k, k, k, kk, kl, kl, kl, kl);
+	}
 	t += y * q * q ;
       }
       Slater(&y, k, k, k, k, 0, 0);
+      if (qed.br < 0 || (n > 0 && n <= qed.br)) {
+	y += Breit(k, k, k, k, 0, kl, kl, kl, kl);
+      }
       b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
-#if FAC_DEBUG
-      fprintf(debug_log, "\nAverage Radial: %lf\n", y);
-#endif
-
     } else {
       b = 0.0;
     }
 
+    double am = AMU * GetAtomicMass();
     t = 0.0;
     for (j = 0; j < i; j++) {
       np = (cfg->shells[j]).n;
@@ -2026,35 +2029,35 @@ double AverageEnergyConfig(CONFIG *cfg) {
       j2p = GetJFromKappa(kappap);
       nqp = (cfg->shells[j]).nq;
       kp = OrbitalIndex(np, kappap, 0.0);
-
       kkmin = abs(j2 - j2p);
       kkmax = (j2 + j2p);
+      int maxn = Max(n, np);
       if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
       a = 0.0;
       for (kk = kkmin; kk <= kkmax; kk += 4) {
 	Slater(&y, k, kp, kp, k, kk/2, 0);
+	if (kk == 2 && qed.sms) {
+	  double v = Vinti(k, kp);
+	  y -= v*v/am;
+	}
+	if (qed.br < 0 || maxn <= qed.br) {
+	  y += Breit(k, kp, kp, k, kk/2, kl, klp, klp, kl);
+	}
 	q = W3j(j2, kk, j2p, -1, 0, 1);
 	a += y * q * q;
-#if FAC_DEBUG
-	fprintf(debug_log, "exchange rank: %d, q*q: %lf, Radial: %lf\n", 
-		kk/2, q*q, y);
-#endif
-
       }
       Slater(&y, k, kp, k, kp, 0, 0);
-#if FAC_DEBUG
-      fprintf(debug_log, "direct: %lf\n", y);
-#endif
-
       t += nqp * (y - a);
     }
 
     ResidualPotential(&y, k, k);
     e = GetOrbital(k)->energy;
-    r = nq * (b + t + e + y);
+    e += QED1E(k, k);
+    r = nq * (b + t + e + y);        
     x += r;
+    x1 += nq*(e+y);
+    x2 += nq*(b + t);
   }
-
   return x;
 }
 
@@ -3046,23 +3049,17 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	a2 = Vinti(k1, k3);
 	d -= a1 * a2 / am;
       }
-      a1 = ReducedCL(js[0], k, js[2]);
-      a2 = ReducedCL(js[1], k, js[3]); 
-      d *= a1*a2;
-      if (k0 == k1 && k2 == k3) d *= 0.5;
-    }
-    *sd = d;
-    d = 0.0;
-    if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
-      if (Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
-	d = Breit(k0, k1, k2, k3, kk, kl0, kl1, kl2, kl3);
+      if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
+	d += Breit(k0, k1, k2, k3, kk, kl0, kl1, kl2, kl3);
+      }
+      if (d) {
 	a1 = ReducedCL(js[0], k, js[2]);
-	a2 = ReducedCL(js[1], k, js[3]);
-	d *= a1*a2;
+	a2 = ReducedCL(js[1], k, js[3]); 
+	d *= a1*a2;      
 	if (k0 == k1 && k2 == k3) d *= 0.5;
       }
     }
-    *sd += d;
+    *sd = d;
   }
   
   if (!se) goto EXIT;
@@ -3091,10 +3088,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
 	if (t == 2 && qed.sms && maxn > 0) {
 	  e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
+	}      
+	if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
+	  e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
 	}
-      }
-      if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
-	e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
       }
       if (e) {
 	e *= ReducedCL(js[0], t, js[3]); 
