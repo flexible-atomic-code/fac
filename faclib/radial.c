@@ -2003,13 +2003,18 @@ double AverageEnergyConfig(CONFIG *cfg) {
     
     if (nq > 1) {
       t = 0.0;
-      for (kk = 2; kk <= j2; kk += 2) {
-	Slater(&y, k, k, k, k, kk, 0);
-	q = W3j(j2, 2*kk, j2, -1, 0, 1);
+      for (kk = 1; kk <= j2; kk += 1) {
+	y = 0;
+	if (IsEven(kk)) {
+	  Slater(&y, k, k, k, k, kk, 0);
+	}
 	if (qed.br < 0 || n <= qed.br) {
 	  y += Breit(k, k, k, k, kk, kl, kl, kl, kl);
 	}
-	t += y * q * q ;
+	if (y) {
+	  q = W3j(j2, 2*kk, j2, -1, 0, 1);
+	  t += y * q * q ;
+	}
       }
       Slater(&y, k, k, k, k, 0, 0);
       if (qed.br < 0 || (n > 0 && n <= qed.br)) {
@@ -2032,21 +2037,33 @@ double AverageEnergyConfig(CONFIG *cfg) {
       kkmin = abs(j2 - j2p);
       kkmax = (j2 + j2p);
       int maxn = Max(n, np);
-      if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
+      //if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
       a = 0.0;
-      for (kk = kkmin; kk <= kkmax; kk += 4) {
-	Slater(&y, k, kp, kp, k, kk/2, 0);
-	if (kk == 2 && qed.sms) {
-	  double v = Vinti(k, kp)*Vinti(kp, k);
-	  y -= v/am;
+      for (kk = kkmin; kk <= kkmax; kk += 2) {
+	y = 0;
+	int kk2 = kk/2;
+	if (IsEven((kl+klp+kk)/2)) {
+	  Slater(&y, k, kp, kp, k, kk2, 0);
+	  if (kk == 2 && qed.sms) {
+	    double v = Vinti(k, kp)*Vinti(kp, k);
+	    y -= v/am;
+	  }
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
-	  y += Breit(k, kp, kp, k, kk/2, kl, klp, klp, kl);
+	  y += Breit(k, kp, kp, k, kk2, kl, klp, klp, kl);
 	}
-	q = W3j(j2, kk, j2p, -1, 0, 1);
-	a += y * q * q;
+	if (y) {
+	  q = W3j(j2, kk, j2p, -1, 0, 1);
+	  a += y * q * q;
+	}
       }
+      y = 0;
       Slater(&y, k, kp, k, kp, 0, 0);
+      double bi = 0;
+      if (qed.br < 0 || maxn <= qed.br) {
+	bi = Breit(k, kp, k, kp, 0, kl, klp, kl, klp);
+	y += bi;
+      }      
       t += nqp * (y - a);
     }
 
@@ -3041,13 +3058,14 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   am = AMU * GetAtomicMass();
   if (sd) {
     d = 0.0;
-    if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk) &&
-	Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
-      err = Slater(&d, k0, k1, k2, k3, kk, mode);
-      if (kk == 1 && qed.sms && maxn > 0) {
-	a1 = Vinti(k0, k2);
-	a2 = Vinti(k1, k3);
-	d -= a1 * a2 / am;
+    if (Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
+      if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk)) {	
+	err = Slater(&d, k0, k1, k2, k3, kk, mode);
+	if (kk == 1 && qed.sms && maxn > 0) {
+	  a1 = Vinti(k0, k2);
+	  a2 = Vinti(k1, k3);
+	  d -= a1 * a2 / am;
+	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	d += Breit(k0, k1, k2, k3, kk, kl0, kl1, kl2, kl3);
@@ -3088,10 +3106,10 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
 	if (t == 2 && qed.sms && maxn > 0) {
 	  e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
-	}      
-	if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
-	  e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
 	}
+      }
+      if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
+	e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
       }
       if (e) {
 	e *= ReducedCL(js[0], t, js[3]); 
