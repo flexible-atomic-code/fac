@@ -1,0 +1,183 @@
+\documentclass[12pt,preprint]{aastex}
+\setlength{\oddsidemargin}{0in}
+\setlength{\topmargin}{12pt}
+\setlength{\textwidth}{6.5in}
+\setlength{\textheight}{9.0in}
+
+
+\newcommand{\threej}[6]{\ensuremath{\left({#1\atop #4}{#2\atop #5}
+{#3\atop #6}\right)}}
+\newcommand{\sixj}[6]{\ensuremath{\left\{{#1\atop #4}{#2\atop #5}
+{#3\atop #6}\right\}}}
+
+\begin{document}
+
+\pagestyle{plain}
+\setcounter{page}{1}
+\pagenumbering{roman}
+
+\section{Atomic Theory in External Electric and Magnetic Fields}
+\label{sec:theory}
+The magnetic fields we are concerned with, $10^5$--$10^8$~G, and the associated
+electric fields either intrinsic to mCVs or the motion-induced 
+Lorentz fields, are
+considered to be in the weak-field regime, in the sense that the 
+Zeeman and Stark energy splitting of atomic
+ions is much smaller than the Coulomb interaction between the electrons and the
+nucleus. However, the magnitude of electron-electron correlation energies may
+be comparable or even smaller than the interaction with the external
+fields. Therefore, the two effects must be taken into account in the
+theoretical treatment with the same
+level of detail. The natural method of solving this problem
+is the configuration
+interaction approximation, where the effects of both electron correlation and
+interaction with the external fields are included in all order within a limited
+configuration space.
+
+For atomic ions in a field-free environment, the total angular 
+momentum, $J$, and
+parity, $\pi$, are good quantum numbers. Therefore, the total 
+Hamiltonian is block
+diagonal when basis states of definite $J\pi$ symmetries are used. The
+magnetic field
+breaks the spherical symmetry, although $\pi$ and the angular momentum
+projection on the field direction are still conserved. The electric field in
+a direction different from that of the magnetic field
+further destroys the cylindrical and mirror symmetries, and no quantum number
+other than the energy can be considered conserved. The Hamiltonian matrix in
+the external fields is therefore typically much larger than in the zero-field
+case.
+
+Relativistic effects can be important for highly charged ions of
+interest in this study, and we will start from the Dirac Hamiltonian to solve
+the atomic structure
+\begin{equation}
+H = H_0 + H_B^{(1)} + H_B^{(2)} + H_E, 
+\end{equation}
+where
+\begin{eqnarray}
+H_B^{(1)} &=& \sum_i \mu_B\left(2\vec{S}_i + \vec{L}_i\right)\cdot\vec{B}
+\nonumber\\
+H_B^{(2)} &=& \sum_i \frac{1}{2}\mu_B^2\left|\vec{B}\times\vec{r}_i\right|^2
+\nonumber\\
+H_E &=& \sum_i \vec{E}\cdot\vec{r}_i.
+\end{eqnarray}
+The summation in the above equations is over all electrons, $H_0$ is the field-free
+Hamiltonian, $H_B^{(1)}$ is the linear Zeeman term, $H_B^{(2)}$ is the
+diamagnetic Zeeman term, $H_E$ is the interaction with the electric field,
+$\vec{S}_i$, $\vec{L}_i$, $\vec{r}_i$, are the spin angular momentum, orbital
+angular momentum, and position operators of the $i$-th electron, $\mu_B =
+5.788\times 10^{-5}$~eV/T is the Bohr magneton, and $\vec{E}$ and $\vec{B}$ are the
+electric and magnetic field vectors.
+
+In the configuration interaction approximation, the wavefunction of the system
+is assumed to be $\psi = \sum_i b_i \phi_i$, where $\phi_i$ is the
+antisymmetrized product of single-electron Dirac wavefunctions for any given
+electronic configuration. These single-electron wavefunctions are normally
+derived from self-consistent Dirac-Fock calculations without consideration of
+external fields. The mixing coefficients, $b_i$, and the energy value
+associated with the total wavefunction $\psi$ are the eigenvalue solution of
+the Hamiltonian matrix in the representation of $\phi_i$ basis. The matrix
+elements of the Hamiltonian are given by $H_{ij} = <\phi_i|H|\phi_j>$.
+
+The first step in solving the atomic structure is therefore to construct the
+Hamiltonian matrix with a suitable set of basis wavefunctions. Because we are
+only concerned with the weak-field regime in this project, the basis
+wavefunctions are derived using the same method used as in the zero-field
+approximation. In particular, we will make use of the existing 
+Flexible Atomic Code (FAC, see \S\ref{sec:implementation} for more details)
+as a general framework, within which the new atomic theory will be
+implemented. The calculation of Hamiltonian matrix elements of $H_0$ is also
+the same as in the zero-field case. Therefore, we will only need to develop
+new codes to obtain matrix elements of $H_B^{(1)}$, $H_B^{(2)}$, and $H_E$.
+These matrix elements are more easily calculated by converting the vector
+products into spherical tensor form, and separating the radial and angular
+integrations using the angular momentum theory.
+
+Using the spherical tensor components of a vector
+\begin{eqnarray}
+T_1 &=& -\frac{1}{\sqrt{2}}\left(V_x+iV_y\right) \nonumber\\
+T_0 &=& V_z \nonumber\\
+T_{-1} &=& \frac{1}{\sqrt{2}}\left(V_x-iV_y\right).
+\end{eqnarray}
+The $H_E$ term is rewritten as
+\begin{eqnarray}
+\label{eq:he}
+H_E &=& \sum_q (-1)^q E_q r_iC^1_{-q}(i) \nonumber\\
+     &=& \sum_q (-1)^q E_q \sum_{\alpha\beta}
+     Z^1_{-q}(\alpha\beta)<\alpha||C^1||\beta>r,
+\end{eqnarray}
+where $q=-1$,0, or 1, $C^k_q$ is the normalized spherical harmonics defined as
+\begin{equation}
+C^k_q = \left(\frac{4\pi}{2k+1}\right)^{1/2}Y_{kq}(\theta,\phi),
+\end{equation}
+and $Z^k_q(\alpha\beta)$ is the second quantized form of the angular
+operator, and $\alpha$ and $\beta$ are the single-electron Dirac 
+orbitals present
+in the basis states. The reduced matrix elements of $C^k$ are given by
+\begin{equation}
+<\alpha||C^k||\beta> =
+(-1)^{j_\alpha+1/2}\left[(2j_\alpha+1)(2j_\beta+1)\right]^{1/2}
+\threej{j_\alpha}{k}{j_\beta}{\frac{1}{2}}{0}{-\frac{1}{2}},
+\end{equation}
+where \threej{a}{b}{c}{d}{e}{f} represents the Wigner $3j$ symbol.
+This standard way of separating radial and angular
+integration is used throughout FAC to compute matrix elements of
+various operators, including, but not limited to, the Hamiltonian.
+
+After some algebraic manipulation, the angular reduction of the $H_B^{(1)}$
+term results in
+\begin{eqnarray}
+\label{eq:hb1}
+H_B^{(1)} &=& \mu_B\sum_q (-1)^q B_q\sum_{\alpha\beta}
+Z^1_{-q}(\alpha\beta)<\alpha||J^1 + S^1||\beta> \nonumber\\
+&=& \mu_B\sum_q (-1)^q B_q\sum_{\alpha\beta}Z^1_{-q}(\alpha\beta)
+\Bigg\{\delta_{j_\alpha
+   j_\beta}\left[j_\alpha(j_\alpha+1)(2j_\alpha+1)\right]^{1/2} \nonumber\\
+&+&
+(-1)^{j_\alpha+l_\alpha-1/2}\left(\frac{3}{2}\right)^{1/2}\left[(2j_\alpha+1)(2j_\beta+1)\right]^{1/2}\sixj{l_\alpha}{\frac{1}{2}}{j_\alpha}{1}{j_\beta}{\frac{1}{2}}\Bigg\},
+\end{eqnarray}
+where $l_\alpha$, $j_\alpha$ are the orbital and total angular momentum of
+the Dirac orbital $\alpha$, and \sixj{a}{b}{c}{d}{e}{f} represents the Wigner
+$6j$ symbol, which comes as part of the reduced matrix elements of the spin
+operator.
+
+The reduction of the $H_{B}^{(2)}$ term is more complicated, as it involves
+the cross product, and the quadratic term causes a rank-2 tensor to
+appear in the expression. It can be shown that
+\begin{eqnarray}
+\label{eq:hb2}
+H_B^{(2)} &=& \sqrt{3}\mu_B^2r^2\sum_{q_1p_1}
+\threej{1}{1}{0}{q_1}{p_1}{0}B_{q_1}B_{p_1}\sixj{1}{1}{0}{1}{1}{1}\sum_{\alpha\beta}Z^0_0(\alpha\beta)<\alpha||C^0||\beta>
+\nonumber \\
+&-&\sqrt{30}\mu_B^2r^2\sum_{qq_1p1}\threej{1}{1}{2}{q_1}{p_1}{q}B_{q_1}B_{p_1}
+\sixj{1}{1}{2}{1}{1}{1}
+  \sum_{\alpha\beta}Z^2_q(\alpha\beta)<\alpha||C^2||\beta>.
+\end{eqnarray}
+
+Using Equations~\ref{eq:he}, \ref{eq:hb1} and \ref{eq:hb2}, the construction
+of the Hamiltonian matrix becomes a simple matter of evaluating the angular
+coefficients $<\phi_i|Z^k(\alpha\beta)|\phi_j>$ and the average values of the
+radial operators $r$ and $r^2$. These quantities are already calculated in FAC
+in the zero-field atomic structure theory, and existing code can be used.
+
+After the Hamiltonian matrix is constructed, a standard linear 
+algebra algorithm
+is used to solve the eigenvalue problem to obtain the field-modified energy
+levels and mixing coefficients, $b_i$, of the wavefunctions.
+
+The calculation of radiative transition rates proceeds as in the zero-field
+theory, except that the
+wavefunctions now do not have a definite total angular momentum and
+parity. For example, the line strength of E1 transitions can be calculated as
+\begin{equation}
+S_{fi} = \sum_M\left|\sum_{\mu\nu}b_{f\mu}b_{i\nu}\sum_{\alpha\beta}
+<\phi_\mu||Z^1_M(\alpha,\beta)||\phi_\nu><\alpha||C^1||\beta>
+M^1_{\alpha\beta}\right|^2 ,
+\end{equation}
+where $M^1_{\alpha\beta}$ is the radial part of the relativistic
+single-electron E1 transition operator, as defined by \citet{grant74}. The
+oscillator strength and transition rates are proportional to the line 
+strengths.
+
+\end{document}
