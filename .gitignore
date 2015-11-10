@@ -24,6 +24,7 @@ sfac/spol
 sysdef.h
 config.log
 config.status
+autom4te.cache/
 
 # Python build dirs
 build/
