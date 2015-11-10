@@ -1,3 +1,9 @@
+Version 1.1.3, 11/10/2015
+	1. fix QED corrections for UTA energies.
+	2. fix UTA width and shift calculations for magnetic and even-order
+	   electric mutipoles (patch by M. Krief & A. Feigel).
+	3. fix configure script for modern Darwin GCC compiler (based on LLVM).
+	
 Version 1.1.2, 07/07/2015
 	1. incorporate a few bug fixes from Evgeny, most notably
 	   concerning the Zeemann splitting.
