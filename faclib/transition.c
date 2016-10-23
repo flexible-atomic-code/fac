@@ -165,12 +165,10 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   }
 
   rx->energy = (lev2->energy - lev1->energy);
-  if (m < 0) {
-    rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
-    rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
-  } else {
-    rx->sdev = 0.0;
-  }
+
+  rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
+  rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
+
   aw = FINE_STRUCTURE_CONST * rx->energy;
   if (aw < 0.0) {
     free(idatum->bra);
