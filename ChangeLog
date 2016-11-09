@@ -1,3 +1,6 @@
+Version 1.1.4, 11/09/2016
+        1. output UTA stdev and shift for magnetic mutipole transitions as well.
+
 Version 1.1.3, 11/10/2015
 	1. fix QED corrections for UTA energies.
 	2. fix UTA width and shift calculations for magnetic and even-order
