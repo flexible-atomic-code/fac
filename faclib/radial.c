@@ -72,11 +72,12 @@ static struct {
 
 static struct {
   int se;
+  int mse;
   int vp;
   int nms;
   int sms;
   int br;
-} qed = {QEDSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT};
+} qed = {QEDSE, QEDMSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
@@ -342,8 +343,9 @@ int RadialOverlaps(char *fn, int kappa) {
   return 0;
 }
   
-void SetSE(int n) {
+void SetSE(int n, int m) {
   qed.se = n;
+  if (m >= 0) qed.mse = m;
 }
 
 void SetVP(int n) {
@@ -3130,6 +3132,41 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   return 0;
 }
 
+//self energy screening using the welton concept,
+//Lowe et al, Radiation Physics and Chemistry 85, 2013, 118
+double SelfEnergyRatioWelton(ORBITAL *orb) {
+  int i, npts;
+  double *p, *q, e, z;
+  double *large, *small;
+  double a, b, r;
+  
+  if (orb->wfun == NULL) return 1.0;
+
+  for (i = 0; i < potential->maxrp; i++) {
+    r = potential->rad[i];
+    _yk[i] = potential->dVc2[i] + 2*potential->dVc[i]/r;
+  }
+  npts = potential->maxrp;  
+  p = _xk;
+  q = _zk;
+  z = potential->Z[potential->maxrp-1];
+  e = RadialDiracCoulomb(npts, p, q, potential->rad, z, 
+			 orb->n, orb->kappa);
+  large = Large(orb);
+  small = Small(orb);  
+  for (i = 0; i < npts; i++) {
+    p[i] = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
+    p[i] *= _yk[i];
+    q[i] = (large[i]*large[i] + small[i]*small[i])*potential->dr_drho[i];
+    q[i] *= _yk[i];
+  }
+  a = Simpson(p, 0, npts-1);
+  b = Simpson(q, 0, npts-1);
+
+  return b/a;
+}
+
+//self energy screening using the uehling potential expection value
 double SelfEnergyRatio(ORBITAL *orb) {
   int i, npts;
   double *p, *q, e, z;
@@ -3166,7 +3203,7 @@ double QED1E(int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
   int index[2];
-  double *p, r, a;
+  double *p, r, a, c;
 
   if (qed.nms == 0 && qed.vp == 0) {
     if (qed.se == 0 || k0 != k1) {
@@ -3229,8 +3266,12 @@ double QED1E(int k0, int k1) {
       a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
 			       orb1->n, orb1->kappa);
       if (a) {
-	a *= SelfEnergyRatio(orb1);
-	r += a;
+	if (qed.mse == 0) {
+	  c = SelfEnergyRatio(orb1);
+	} else {
+	  c = SelfEnergyRatioWelton(orb1);
+	}
+	r += c*a;
       }
     }
   }

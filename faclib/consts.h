@@ -203,6 +203,7 @@
 #define OPTNITER           128
 #define OPTPRINT           0
 #define QEDSE              5
+#define QEDMSE             1
 #define QEDVP              2
 #define QEDNMS             1
 #define QEDSMS             1
