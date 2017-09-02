@@ -895,8 +895,8 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   }
   MPI_Allreduce(&ncc1, &ncc0, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
   if (ncc0 > 0) {
-    ics1 = malloc(sizeof(int)*ncs0);
-    ics0 = malloc(sizeof(int)*ncs0*nr);
+    ics1 = malloc(sizeof(int)*ncc0);
+    ics0 = malloc(sizeof(int)*ncc0*nr);
   }
   for (i = 0; i < ncc0; i++) ics1[i] = -1;
   i = 0;

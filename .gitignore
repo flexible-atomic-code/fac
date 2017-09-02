@@ -1,5 +1,9 @@
 # Ignore objects and archives, anywhere in the tree.
 *.[oa]
+*~
+*.aux
+*.log
+*.dvi
 
 # Ignore generated Makefiles
 Makefile
