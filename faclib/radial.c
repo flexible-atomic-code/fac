@@ -366,7 +366,6 @@ void SetVP(int n) {
 void SetBreit(int n, int m) {
   qed.br = n;
   if (m >= 0) qed.mbr = m;
-  printf("Breit Opt: %d %d\n", qed.br, qed.mbr);
 }
 
 void SetMS(int nms, int sms) {

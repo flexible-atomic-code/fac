@@ -2867,11 +2867,14 @@ previous call to \key{SetBoundary}. This mode is used to set the R-matrix
 boundary conditions in the propagation zones.
 \end{fundesc}
 
-\begin{fundesc}{SetBreit}{n}
-Set the maximum principle quantum number of the orbitals for which the
-Breit interaction should be included in the Hamiltonian. If \var{n} $<$ 0,
-then the Breit interaction involving all bound and continuum states is
-included. Default is 5.
+\begin{fundesc}{SetBreit}{n\opt{,m}}
+Set the calculaiton mode and maximum principle quantum number of the orbitals
+for which the Breit interaction should be included in the Hamiltonian. If
+\var{n} $<$ 0, then the Breit interaction involving all bound and continuum
+states is included. Default is 5. \var{m} is the calculation mode. \var{m=0}
+uses a simplified zero-energy approximaiton for the Breit term. \var{m=1} uses
+the full frequency dependent Breit interaction. \var{m=2} uses the same
+\var{m=1} logic, but set the energy of the exchanged photon to 0.
 \end{fundesc}
 
 \begin{fundesc}{SetCEBorn}{e\opt{,x\opt{, x1}}}
@@ -3143,9 +3146,13 @@ the optimal central potential. It is quite experimental, and therefore not
 recommended for general use.
 \end{fundesc}
 
-\begin{fundesc}{SetSE}{n}
-Set the maximum principle quantum number of the orbitals for which the
-self-energy correction should be included in the Hamiltonian. Default is 5.
+\begin{fundesc}{SetSE}{n\opt{,m}}
+Set the mode of calculatin and maximum principle quantum number of the
+orbitals for which the self-energy correction should be included in the
+Hamiltonian. Default is 5. \var{n} is the maximum quantum number, \var{m} is
+the mode. \var{m=0} use the hydrogenic screening based on the expectation value
+of the Uheling potential. \var{m=1} use the screening based on the expection
+value of the 2nd derivative of the central potential. 
 \end{fundesc}
 
 \begin{fundesc}{SetSlaterCut}{k1, k2}

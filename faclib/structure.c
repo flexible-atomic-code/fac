@@ -212,6 +212,7 @@ static void InitLevelData(void *p, int n) {
 
 int SetCILevel(m) {
   ci_level = m;
+  return 0;
 }
 
 int SetAngZCut(double cut) {

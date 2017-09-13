@@ -1142,9 +1142,9 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
   if (k > 0) {
     qsort(c->shells, k, sizeof(SHELL), CompareShellInvert);
     if (c->shells[0].nq > 1) {
-      if (c->shells[0].n > cs[nc]->nnrs) -1;
+      if (c->shells[0].n > cs[nc]->nnrs) return -1;
     } else if (c->n_shells > 1) {
-      if (c->shells[1].n > cs[nc]->nnrs) -1;
+      if (c->shells[1].n > cs[nc]->nnrs) return -1;
     }
     for (i = 0; i < nc; i++) {
       if (k != cs[i]->n_shells) continue;

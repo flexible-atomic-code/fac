@@ -1482,6 +1482,7 @@ int EleDist(char *fn, int n) {
   }
   
   fclose(f);
+  return 0;
 }
 
 int SetEleDist(int i, int np, double *p0) {
@@ -1640,6 +1641,7 @@ int PhoDist(char *fn, int n) {
   }
   
   fclose(f);
+  return 0;
 }
 
 int SetPhoDist(int i, int np, double *p) {

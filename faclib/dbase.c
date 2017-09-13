@@ -79,6 +79,16 @@ static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 #define RSF0(sv) _RSF0(sv, f)
 #define RSF1(sv, s, k) _RSF1(sv, s, k, f)
 
+void *ReallocNew(void *p, int s) {
+  void *q;
+
+  q = malloc(s);
+  memcpy(q, p, s);
+  free(p);
+  
+  return q;
+}
+
 void SetBornMass(double m) {
   if (m > 0) born_mass = m*AMU;
   else born_mass = 1.0;
@@ -4679,7 +4689,7 @@ int AppendTable(char *fn) {
   if (f == NULL) return -1;
   n = ReadFHeader(f, &fh, &swp);
   if (swp) {
-    printf("File %s is in different byte-order\n");
+    printf("File %s is in different byte-order\n", fn);
     fclose(f);
     return -1;
   }

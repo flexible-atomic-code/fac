@@ -2333,6 +2333,7 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
     fclose(f1);
     return 0;
   }
+  return 0;
 }
 
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {

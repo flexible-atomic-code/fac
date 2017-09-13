@@ -418,6 +418,7 @@ typedef struct _DR_RECORD_ {
  * into a working directory, and compile and link dbase.c against the
  * custom code using these functions.
  */
+void         *ReallocNew(void *p, int s);
 int ReadFHeader(FILE *f, F_HEADER *fh, int *swp);
 int ReadENHeader(FILE *f, EN_HEADER *h, int swp);
 int ReadENRecord(FILE *f, EN_RECORD *r, int swp);

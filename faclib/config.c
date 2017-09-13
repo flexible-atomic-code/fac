@@ -84,16 +84,6 @@ static void InitConfigData(void *p, int n) {
     d[i].csfs = NULL;
   }
 }
-
-void *ReallocNew(void *p, int s) {
-  void *q;
-
-  q = malloc(s);
-  memcpy(q, p, s);
-  free(p);
-  
-  return q;
-}
   
 /* 
 ** FUNCTION:    DistributeElectronsShell

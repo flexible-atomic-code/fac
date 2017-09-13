@@ -76,8 +76,9 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
   tb = _dwork2;
   
   alfa = FINE_STRUCTURE_CONST;
-  nr = n - abs(kappa);
-  fk = fabs(kappa);
+  k = abs(kappa);
+  nr = n - k;
+  fk = (double) k;
   zalfa = z*alfa;
   gamma = sqrt(fk*fk - zalfa*zalfa);
   twogp1 = gamma*2.0 + 1.0;
@@ -552,8 +553,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     e = e*2.0;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBasis %d %d\n",
-	   nodes, nr);
+    printf("Max iteration before finding correct nodes in RadialBasis %d %d %d %d %g %g\n",
+	   nodes, nr, orb->n, kl, e, emin);
     free(p);
     return -2;
   }
@@ -1936,17 +1937,24 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     }
   } else if (gratio > 0) {
     rmax = -gasymp;
+    i = pot->ib;
+    if (i > 0) {
+      rmax = pot->rad[i] + pot->rad[i]-pot->rad[i-1];
+    }
     c = 1.0/log(gratio);
     a = pot->maxrp-15.0 + c*(log(rmin)-log(rmax));
     a /= sqrt(rmax) - sqrt(rmin);
   } else if (gasymp > 0) {
     rmax = -gratio;
+    i = pot->ib;
+    if (i > 0) {
+      rmax = pot->rad[i] + pot->rad[i]-pot->rad[i-1];
+    }
     a = gasymp*sqrt(2.0*z)/PI;
     c = pot->maxrp-15.0 + a*(sqrt(rmin)-sqrt(rmax));
     c /= log(rmax) - log(rmin);
   }     
   nmax = sqrt(rmax*z)/2.0;
-
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
   b = (pot->maxrp - 1.0 - (a*d2))/d1;

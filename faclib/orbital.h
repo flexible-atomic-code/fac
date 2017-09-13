@@ -22,6 +22,7 @@
 #include "global.h"
 #include "nucleus.h"
 #include "coulomb.h"
+#include "config.h"
 #include "interpolation.h"
 
 typedef struct _POTENTIAL_ {
@@ -67,7 +68,7 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot);
 int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
-int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
+int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot);
 int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot);
