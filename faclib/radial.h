@@ -53,12 +53,13 @@ double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
 int SetBoundary(int nmax, double p, double bqp);
+void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
 void SetPotentialMode(int m, double h);
 void SetSE(int n, int m);
 void SetVP(int n);
-void SetBreit(int n);
+void SetBreit(int n, int m);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
@@ -126,10 +127,12 @@ double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
 double SelfEnergyRatio(ORBITAL *orb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
+void BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e, double *r);
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
 double BreitS(int k0, int k1, int k2, int k3, int k);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);
 double Breit(int k0, int k1, int k2, int k3, int k,
+	     int kp0, int kp1, int kp2, int kp3,
 	     int kl0, int kl1, int kl2, int kl3);
 void SortSlaterKey(int *kd);
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,

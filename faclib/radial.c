@@ -45,6 +45,8 @@ static double _dwork8[MAXRP];
 static double _dwork9[MAXRP];
 static double _dwork10[MAXRP];
 static double _dwork11[MAXRP];
+static double _dwork12[MAXRP];
+static double _dwork13[MAXRP];
 static double _phase[MAXRP];
 static double _dphase[MAXRP];
 static double _dphasep[MAXRP];
@@ -77,11 +79,13 @@ static struct {
   int nms;
   int sms;
   int br;
-} qed = {QEDSE, QEDMSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT};
+  int mbr;
+} qed = {QEDSE, QEDMSE, QEDVP, QEDNMS, QEDSMS, QEDBREIT, QEDMBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL};
  
 static MULTI *slater_array;
+static MULTI *wbreit_array;
 static MULTI *breit_array;
 static MULTI *vinti_array;
 static MULTI *qed1e_array;
@@ -210,6 +214,13 @@ void SetPotentialMode(int m, double h) {
   } else {
     potential->hxs = h;
   }
+}
+
+void PrintQED() {
+  printf("SE: %d %d\n", qed.se, qed.mse);
+  printf("VP: %d\n", qed.vp);
+  printf("MS: %d %d\n", qed.nms, qed.sms);
+  printf("BR: %d %d\n", qed.br, qed.mbr);
 }
 
 int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
@@ -352,8 +363,10 @@ void SetVP(int n) {
   qed.vp = n;
 }
 
-void SetBreit(int n) {
+void SetBreit(int n, int m) {
   qed.br = n;
+  if (m >= 0) qed.mbr = m;
+  printf("Breit Opt: %d %d\n", qed.br, qed.mbr);
 }
 
 void SetMS(int nms, int sms) {
@@ -2014,7 +2027,8 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	  Slater(&y, k, k, k, k, kk, 0);
 	}
 	if (qed.br < 0 || n <= qed.br) {
-	  y += Breit(k, k, k, k, kk, kl, kl, kl, kl);
+	  y += Breit(k, k, k, k, kk, kappa, kappa, kappa, kappa,
+		     kl, kl, kl, kl);
 	}
 	if (y) {
 	  q = W3j(j2, 2*kk, j2, -1, 0, 1);
@@ -2023,7 +2037,7 @@ double AverageEnergyConfig(CONFIG *cfg) {
       }
       Slater(&y, k, k, k, k, 0, 0);
       if (qed.br < 0 || (n > 0 && n <= qed.br)) {
-	y += Breit(k, k, k, k, 0, kl, kl, kl, kl);
+	y += Breit(k, k, k, k, 0, kappa, kappa, kappa, kappa, kl, kl, kl, kl);
       }
       b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
     } else {
@@ -2055,7 +2069,8 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	  }
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
-	  y += Breit(k, kp, kp, k, kk2, kl, klp, klp, kl);
+	  y += Breit(k, kp, kp, k, kk2, kappa, kappap, kappa, kappap,
+		     kl, klp, klp, kl);
 	}
 	if (y) {
 	  q = W3j(j2, kk, j2p, -1, 0, 1);
@@ -2066,7 +2081,8 @@ double AverageEnergyConfig(CONFIG *cfg) {
       Slater(&y, k, kp, k, kp, 0, 0);
       double bi = 0;
       if (qed.br < 0 || maxn <= qed.br) {
-	bi = Breit(k, kp, k, kp, 0, kl, klp, kl, klp);
+	bi = Breit(k, kp, k, kp, 0, kappa, kappap, kappa, kappap,
+		   kl, klp, kl, klp);
 	y += bi;
       }      
       t += nqp * (y - a);
@@ -3071,7 +3087,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
-	d += Breit(k0, k1, k2, k3, kk, kl0, kl1, kl2, kl3);
+	d += Breit(k0, k1, k2, k3, kk,
+		   orb0->kappa, orb1->kappa, orb2->kappa, orb3->kappa,
+		   kl0, kl1, kl2, kl3);
       }
       if (d) {
 	a1 = ReducedCL(js[0], k, js[2]);
@@ -3112,7 +3130,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
-	e += Breit(k0, k1, k3, k2, t/2, kl0, kl1, kl3, kl2);
+	e += Breit(k0, k1, k3, k2, t/2,
+		   orb0->kappa, orb1->kappa, orb3->kappa, orb2->kappa,
+		   kl0, kl1, kl3, kl2);
       }
       if (e) {
 	e *= ReducedCL(js[0], t, js[3]); 
@@ -3489,8 +3509,370 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m) {
   return r;
 }
 
-double Breit(int k0, int k1, int k2, int k3, int k,
-	     int kl0, int kl1, int kl2, int kl3) {
+void BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e, double *y) {
+  int i;
+  double kf = 1.0;
+  double x, r, b;
+  int k2 = 2*k;
+  int jy, k1;
+
+  if (y == NULL) y = _zk;
+  for (i = 1; i < k2; i += 2) {
+    kf *= i;
+  }
+  if (e < 0) e = fabs(orb0->energy-orb1->energy);
+  double ef = FINE_STRUCTURE_CONST*e;
+  double efk = pow(ef, k);
+
+  for (i = 0; i < potential->maxrp; i++) {
+    if (e > 0) {
+      x = FINE_STRUCTURE_CONST*e*potential->rad[i];
+      _dwork1[i] = x;
+    } else {
+      x = 0;
+      _dwork1[i] = 0;
+    }
+    _dwork2[i] = pow(potential->rad[i], k);
+    switch (m) {
+    case 0:
+      if (x < 1e-5) {       
+	_dwork[i] = (1 - 0.5*x*x/(k2+3.0))*_dwork2[i];
+      } else {
+	jy = 1;
+	_dwork[i] = BESLJN(jy, k, x);
+	_dwork[i] *= kf*(k2+1.0)/efk;	 
+      }
+      break;
+    case 1:
+      _dwork[i] = _dwork2[i]/potential->rad[i];
+      break;
+    case 2:
+      if (x < 1e-5) {
+	_dwork[i] = 0.5/(1.0+k2);
+      } else {
+	jy = 3;
+	k1 = k - 1;
+	_dwork[i] = BESLJN(jy, k1, x);	
+      }
+      b = _dwork2[i]*potential->rad[i];
+      _dwork[i] *= b;
+      break;
+    case 3:
+      if (x < 1e-5) {
+	_dwork[i] = (1 - 0.5*x*x/(5+k2))*_dwork2[i]*potential->rad[i];
+      } else {
+	jy = 1;
+	k1 = k + 1;
+	_dwork[i] = BESLJN(jy, k1, x);
+	_dwork[i] *= kf*(k2+1.0)*(k2+3.0)/(efk*ef);
+      }
+      break;
+    default:
+      _dwork[i] = 0;
+      break;
+    }
+  }
+
+  Integrate(_dwork, orb0, orb1, -6, y, 0);
+  switch (m) {
+  case 0:
+    for (i = 0; i < potential->maxrp; i++) {
+      y[i] /= _dwork2[i]*potential->rad[i];
+    }
+    break;
+  case 1:
+    for (i = 0; i < potential->maxrp; i++) {
+      y[i] /= _dwork2[i];
+    }
+    break;
+  case 2:
+  case 3:
+    for (i = 0; i < potential->maxrp; i++) {
+      y[i] /= _dwork2[i]*potential->rad[i]*potential->rad[i];
+    }
+    break;
+  }
+}
+
+double BreitRW(int k0, int k1, int k2, int k3, int k, int w) {
+  double e, x, r, b, kf;
+  ORBITAL *orb0, *orb1, *orb2, *orb3;
+  int maxrp, i, jy, kd;
+  
+  orb0 = GetOrbital(k0);
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+  orb3 = GetOrbital(k3);
+  if (qed.mbr == 2) {
+    e = 0;
+  } else {
+    if (w == 0) {
+      e = fabs(orb0->energy - orb2->energy);
+    } else {
+      e = fabs(orb1->energy - orb3->energy);
+    }
+  }
+  double ef = FINE_STRUCTURE_CONST*e;
+  double efk = pow(ef, k);
+  kf = 1;
+  kd = 2*k;
+  for (i = 1; i < kd; i += 2) {
+    kf *= i;
+  }
+  BreitX(orb0, orb2, k, 0, e, _xk);
+  for (i = 0; i < potential->maxrp; i++) {
+    x = _dwork1[i];
+    if (x < 1e-5) {
+      b = 1 - 0.5*x*x/(1.0-kd);
+    } else {
+      jy = 2;
+      b = -BESLJN(jy, k, x)*(_dwork2[i]*potential->rad[i]*efk*ef)/kf;
+    }
+    _xk[i] *= b;
+  }
+  Integrate(_xk, orb1, orb3, 6, &r, 0);
+  return r;
+}
+
+double BreitRK(int k0, int k1, int k2, int k3, int k) {
+  double r1, r2, r3, r4;
+  r1 = BreitRW(k0, k1, k2, k3, k, 0);
+  if ((k0 == k1 && k2 == k3) || (k0 == k3 && k2 == k1)) {
+    r2 = r1;
+  } else {
+    r2 = BreitRW(k0, k1, k2, k3, k, 1);
+  }
+  if (k0 == k1 && k2 == k3) {
+    r3 = r1;
+  } else {
+    r3 = BreitRW(k1, k0, k3, k2, k, 0);
+  }
+  if ((k0 == k1 && k2 == k3) || (k0 == k3 && k2 == k1)) {
+    r4 = r3;
+  } else {
+    r4 = BreitRW(k1, k0, k3, k2, k, 1);
+  }
+  return 0.5*(r1+r2+r3+r4);
+}
+
+double BreitSW(int k0, int k1, int k2, int k3, int k, int w) {  
+  double e, x, xk, r, b, kf, s1, s2;
+  ORBITAL *orb0, *orb1, *orb2, *orb3;
+  int i, jy, kd, kj;
+  
+  orb0 = GetOrbital(k0);
+  orb1 = GetOrbital(k1);
+  orb2 = GetOrbital(k2);
+  orb3 = GetOrbital(k3);
+  if (qed.mbr == 2) {
+    e = 0.0;
+  } else {
+    if (w == 0) {
+      e = fabs(orb0->energy - orb2->energy);
+    } else {
+      e = fabs(orb1->energy - orb3->energy);
+    }
+  }
+  double ef = FINE_STRUCTURE_CONST*e;
+  double efk = pow(ef, k);
+  kf = 1;
+  kd = 2*k;
+  for (i = 1; i < kd; i += 2) {
+    kf *= i;
+  }
+
+  BreitX(orb0, orb2, k, 1, e, _dwork12);
+  BreitX(orb0, orb2, k, 2, e, _dwork13);
+  for (i = 0; i < potential->maxrp; i++) {
+    x = _dwork1[i];
+    xk = _dwork2[i]*efk;
+    if (x < 1e-5) {
+      b = -0.5/(1+kd);
+    } else {
+      jy = 4;
+      kj = k + 1;
+      b = BESLJN(jy, kj, x);
+    }
+    _dwork12[i] *= b;
+    _dwork13[i] *= 1-x*x*b;
+    _yk[i] = _dwork12[i] + _dwork13[i];
+    b = (kd+1);
+    _yk[i] *= b*b;
+  }
+  Integrate(_yk, orb1, orb3, 6, &s1, 0);
+  if (k >= 0) {
+    BreitX(orb1, orb3, k, 3, e, _dwork12);
+    for (i = 0; i < potential->maxrp; i++) {
+      x = _dwork1[i];
+      if (x < 1e-5) {
+	b = 1 - 0.5*x*x/(3.0-kd);
+      } else {
+	jy = 2;
+	kj = k-1;
+	xk = _dwork2[i]*efk;
+	b = -BESLJN(jy, kj, x)*xk*(kd-1.0)/kf;
+      }
+      _dwork12[i] *= b;    
+      b = x*x/((kd-1.0)*(kd+3));
+      _dwork12[i] *= b;
+    }
+    Integrate(_dwork12, orb0, orb2, 6, &s2, 0);
+  } else {
+    s2 = 0;
+  }  
+  r = s1 - s2;
+  return r;
+}
+
+double BreitSK(int k0, int k1, int k2, int k3, int k) {
+  double r1, r2;
+  r1 = BreitSW(k0, k1, k2, k3, k, 0);
+  if ((k0 == k1 && k2 == k3) || (k0 == k3 && k1 == k2)) {
+    r2 = r1;
+  } else {      
+    r2 = BreitSW(k0, k1, k2, k3, k, 1);
+  }
+  return 0.5*(r1+r2);
+}
+
+double BreitWW(int k0, int k1, int k2, int k3, int k,
+	       int kp0, int kp1, int kp2, int kp3,
+	       int kl0, int kl1, int kl2, int kl3) {
+  int m, m0, m1, n, ka, kap, kd;
+  double a, b, c, r, c1, c2, c3, c4;
+
+  if (k <= 0) return 0;
+
+  int index[5];
+  double *p;
+  index[0] = k0;
+  index[1] = k1;
+  index[2] = k2;
+  index[3] = k3;
+  index[4] = k;
+  p = (double *) MultiSet(wbreit_array, index, NULL, InitDoubleData, NULL);
+  if (p && *p) {
+    r = *p;
+    return r;
+  }
+  
+  m0 = k - 1;
+  if (m0 < 0) m0 = 0;
+  m1 = k + 1;
+  kd = 2*k;
+  ka = kp2 - kp0;
+  kap = kp3 - kp1;
+  r = 0.0;  
+  for (m = m0; m <= m1; m++) {
+    if (IsEven((kl0+kl2)/2 + m) || IsEven((kl1+kl3)/2 + m)) continue;
+    if (m < k) {
+      a = (k+1.0)/(k*(kd-1.0)*(kd+1.0));
+      c1 = a*(ka+k)*(kap+k);
+      c2 = a*(ka-k)*(kap-k);
+      c3 = a*(ka+k)*(kap-k);
+      c4 = a*(ka-k)*(kap+k);
+    } else if (m == k) {
+      a = -(kp0 + kp2)*(kp1 + kp3)/(k*(k+1.0));
+      c1 = c2 = c3 = c4 = a;
+    } else {
+      a = k/((k+1.0)*(kd+1.0)*(kd+3.0));
+      c1 = a*(ka-k-1)*(kap-k-1);
+      c2 = a*(ka+k+1)*(kap+k+1);
+      c3 = a*(ka-k-1)*(kap+k+1);
+      c4 = a*(ka+k+1)*(kap-k-1);
+    }
+
+    if (fabs(c1) > 1e-30) {
+      a = BreitRK(k0, k1, k2, k3, m);
+      r += a*c1;
+      //printf("rk1: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c1, r);
+    }
+
+    if (fabs(c2) > 1e-30) {
+      a = BreitRK(k2, k3, k0, k1, m);
+      r += a*c2;
+      //printf("rk2: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c2, r);
+    }
+
+    if (fabs(c3) > 1e-30) {
+      a = BreitRK(k0, k3, k2, k1, m);
+      r += a*c3;
+      //printf("rk3: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c3, r);
+    }
+
+    if (fabs(c4) > 1e-3) {
+      a = BreitRK(k2, k1, k0, k3, m);
+      r += a*c4;
+      //printf("rk4: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c4, r);
+    }
+  }
+  
+  if (k >= 0 && IsEven((kl0+kl2)/2+k) && IsEven((kl1+kl3)/2+k)) {
+    b = 1.0/((kd+1.0)*(kd+1.0));
+    c = b*(ka+k)*(kap-k-1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k0, k1, k2, k3, k);      
+      r += a*c;
+      //printf("sk1: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(kap+k)*(ka-k-1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k1, k0, k3, k2, k);
+      r += a*c;
+      //printf("sk2: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(ka-k)*(kap+k+1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k2, k3, k0, k1, k);
+      r += a*c;
+      //printf("sk3: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(kap-k)*(ka+k+1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k3, k2, k1, k0, k);
+      r += a*c;
+      //printf("sk4: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(ka+k)*(kap+k+1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k0, k3, k2, k1, k);
+      r += a*c;
+      //printf("sk5: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(kap-k)*(kap-k-1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k3, k0, k1, k2, k);
+      r += a*c;
+      //printf("sk6: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(ka-k)*(kap-k-1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k2, k1, k0, k3, k);
+      r += a*c;
+      //printf("sk7: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+    
+    c = b*(kap+k)*(ka+k+1.0);
+    if (fabs(c) > 1e-30) {
+      a = BreitSK(k1, k2, k3, k0, k);
+      r += a*c;
+      //printf("sk8: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
+    }
+  }  
+
+  if (!r) r = 1e-100;
+  *p = r;  
+  return r;
+}
+
+double BreitNW(int k0, int k1, int k2, int k3, int k,
+	       int kl0, int kl1, int kl2, int kl3) {
   int m, m0, m1, n;
   double a, c, r;
   
@@ -3507,6 +3889,19 @@ double Breit(int k0, int k1, int k2, int k3, int k,
     }
   }
 
+  return r;
+}
+
+double Breit(int k0, int k1, int k2, int k3, int k,
+	     int kp0, int kp1, int kp2, int kp3,
+	     int kl0, int kl1, int kl2, int kl3) {
+  double r;
+  if (qed.mbr == 0) {
+    r = BreitNW(k0, k1, k2, k3, k, kl0, kl1, kl2, kl3);
+  } else {
+    r = BreitWW(k0, k1, k2, k3, k, kp0, kp1, kp2, kp3, kl0, kl1, kl2, kl3);
+  }
+  //printf("bri: %d %d %d %d %d %g\n", k0, k1, k2, k3, k, r);
   return r;
 }
 
@@ -4968,6 +5363,7 @@ void LimitArrayRadial(int m, double n) {
     break;
   case 2:
     breit_array->maxelem = k;
+    wbreit_array->maxelem = k;
     break;
   case 3:
     gos_array->maxelem = k;
@@ -4991,7 +5387,13 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-
+  /*
+  int jy = 2;
+  int jk = 2;
+  double x = 1.1e-9;
+  double y = BESLJN(jy, jk, x);
+  printf("test besljn: %d %d %g %g\n", jy, jk, x, y);
+  */
   potential = malloc(sizeof(POTENTIAL));
   potential->mode = 0;
   potential->hxs = 0.0;
@@ -5014,6 +5416,8 @@ int InitRadial(void) {
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(breit_array, sizeof(double), ndim, blocks);
+  wbreit_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(wbreit_array, sizeof(double), ndim, blocks);
   
   ndim = 2;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK2;
@@ -5056,6 +5460,7 @@ int ReinitRadial(int m) {
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
   FreeSimpleArray(breit_array);
+  FreeSimpleArray(wbreit_array);
   FreeSimpleArray(residual_array);
   FreeSimpleArray(qed1e_array);
   FreeSimpleArray(vinti_array);

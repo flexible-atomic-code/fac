@@ -756,7 +756,7 @@ static PyObject *PSetVP(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetBreit(PyObject *self, PyObject *args) {
-  int c;
+  int c, m;
 
   if (sfac_file) {
     SFACStatement("SetBreit", args, NULL);
@@ -764,9 +764,10 @@ static PyObject *PSetBreit(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "i", &c))
+  m = -1;
+  if (!PyArg_ParseTuple(args, "i|i", &c, &m))
     return NULL;
-  SetBreit(c);
+  SetBreit(c, m);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4978,7 +4979,43 @@ static PyObject *PGeneralizedMoment(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PPrintQED(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("GeneralizedMoment", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   
+  PrintQED();
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static PyObject *PBreitX(PyObject *self, PyObject *args) {
+  double e;
+  int k0, k1, k, m;
+  
+  if (sfac_file) {
+    SFACStatement("BreitX", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  e = -1.0;
+  if (!(PyArg_ParseTuple(args, "iiii|d", &k0, &k1, &k, &m, &e)))
+    return NULL;
+
+  ORBITAL *orb0 = GetOrbital(k0);
+  ORBITAL *orb1 = GetOrbital(k1);
+  if (orb0 != NULL && orb1 != NULL) {
+    BreitX(orb0, orb1, k, m, e, NULL);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5171,6 +5208,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetTransitionMaxE", PSetTransitionMaxE, METH_VARARGS},
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS},
   {"CoulMultipole", PCoulMultip, METH_VARARGS},
+  {"BreitX", PBreitX, METH_VARARGS},
+  {"PrintQED", PPrintQED, METH_VARARGS},
   {NULL, NULL}
 };
 

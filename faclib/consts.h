@@ -208,6 +208,7 @@
 #define QEDNMS             1
 #define QEDSMS             1
 #define QEDBREIT           5
+#define QEDMBREIT          1
 
 /* structure */
 #define MAX_HAMS           2000
