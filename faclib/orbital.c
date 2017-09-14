@@ -1937,18 +1937,16 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     }
   } else if (gratio > 0) {
     rmax = -gasymp;
-    i = pot->ib;
-    if (i > 0) {
-      rmax = pot->rad[i] + pot->rad[i]-pot->rad[i-1];
+    if (rmax > 1e10 && pot->rb > rmin) {
+      rmax = pot->rb*1.001;
     }
     c = 1.0/log(gratio);
     a = pot->maxrp-15.0 + c*(log(rmin)-log(rmax));
     a /= sqrt(rmax) - sqrt(rmin);
   } else if (gasymp > 0) {
     rmax = -gratio;
-    i = pot->ib;
-    if (i > 0) {
-      rmax = pot->rad[i] + pot->rad[i]-pot->rad[i-1];
+    if (rmax > 1e10 && pot->rb > rmin) {
+      rmax = pot->rb*1.001;
     }
     a = gasymp*sqrt(2.0*z)/PI;
     c = pot->maxrp-15.0 + a*(sqrt(rmin)-sqrt(rmax));

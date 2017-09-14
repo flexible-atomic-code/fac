@@ -324,6 +324,9 @@ int SetBoundary(int nmax, double p, double bqp) {
     }
   }
   potential->ib1 = potential->ib;
+  if (potential->ib > 0 && potential->ib < potential->maxrp) {
+    potential->rb = potential->rad[potential->ib];
+  }
   return 0;
 }
 
@@ -5398,6 +5401,7 @@ int InitRadial(void) {
   potential->hxs = 0.0;
   potential->flag = 0;
   potential->uehling[0] = 0.0;
+  potential->rb = 0;
   SetBoundary(0, 1.0, -1.0);
 
   n_orbitals = 0;
@@ -5482,8 +5486,33 @@ int ReinitRadial(int m) {
   }
   return 0;
 }
- 
+
 int TestIntegrate(void) {
+  int k[10];
+  int n, m;
+  ORBITAL *orb1, *orb2;
+  double r;
+  
+  for (n = 1; n <= 10; n++) {
+    k[n-1] = OrbitalIndex(n, -1, 0);
+  }
+
+  for (n = 0; n < potential->maxrp; n++) {
+    _xk[n] = 1.0;
+  }
+  for (n = 1; n <= 10; n++) {
+    orb1 = GetOrbital(k[n-1]);
+    for (m = n; m <= 10; m++) {
+      orb2 = GetOrbital(k[m-1]);
+      Integrate(_xk, orb1, orb2, 1, &r, 0);
+      printf("%d %d %d %d %g\n", n, m, k[n-1], k[m-1], r);
+    }
+  }
+
+  return 0;
+}
+
+int TestIntegrate0(void) {
   ORBITAL *orb1, *orb2, *orb3, *orb4;
   int k1, k2, k3, k4, k, i, i0=1500;
   double r, a, s[6];

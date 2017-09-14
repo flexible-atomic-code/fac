@@ -35,8 +35,8 @@ typedef struct _POTENTIAL_ {
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
   double ar, br; /* parameter for the transformation */
-  int ib, nb, ib1; 
-  double bqp; /* boundary condition */
+  int ib, nb, ib1;
+  double bqp, rb; /* boundary condition */
   double rad[MAXRP];
   double dr_drho[MAXRP];
   double dr_drho2[MAXRP];
