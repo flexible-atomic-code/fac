@@ -155,7 +155,11 @@ static void FreeYkData(void *p) {
   SLATER_YK *dp;
   
   dp = (SLATER_YK *) p;
-  if (dp->npts > 0) free(dp->yk);
+  if (dp->npts >= 0) {
+    free(dp->yk);
+    dp->yk = NULL;
+    dp->npts = -1;
+  }
 }
 
 int FreeMultipoleArray(void) {
@@ -1000,6 +1004,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
+  fprintf(f, "#    idx = %d\n", k);
   if (n != 0) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
@@ -1360,6 +1365,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = AverageEnergyConfig(cfg);
+	  //printf("c0: %d %d %d %g\n", m, k, i, cfg->energy);
 	}
 	ReinitRadial(1);
 	ClearOrbitalTable(0);
@@ -1373,6 +1379,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  if (cfg->energy == 0) {
 	    cfg->energy = AverageEnergyConfig(cfg);
+	    //printf("c1: %d %d %d %g\n", m, k, i, cfg->energy);
 	  }
 	}
       }
@@ -1386,7 +1393,9 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       for (i = 0; i < g->n_cfgs; i++) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	if (cfg->energy != 0) {
-	  cfg->delta = cfg->energy - AverageEnergyConfig(cfg);
+	  double e = AverageEnergyConfig(cfg);
+	  cfg->delta = cfg->energy - e;
+	  //printf("c0: %d %d %d %g %g\n", m, k, i, e, cfg->delta);
 	}
       }
     }
@@ -2038,9 +2047,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	}
       }
       Slater(&y, k, k, k, k, 0, 0);
-      if (qed.br < 0 || (n > 0 && n <= qed.br)) {
-	y += Breit(k, k, k, k, 0, kappa, kappa, kappa, kappa, kl, kl, kl, kl);
-      }
       b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
     } else {
       b = 0.0;
@@ -2071,7 +2077,7 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	  }
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
-	  y += Breit(k, kp, kp, k, kk2, kappa, kappap, kappa, kappap,
+	  y += Breit(k, kp, kp, k, kk2, kappa, kappap, kappap, kappa,
 		     kl, klp, klp, kl);
 	}
 	if (y) {
@@ -2081,12 +2087,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
       }
       y = 0;
       Slater(&y, k, kp, k, kp, 0, 0);
-      double bi = 0;
-      if (qed.br < 0 || maxn <= qed.br) {
-	bi = Breit(k, kp, k, kp, 0, kappa, kappap, kappa, kappap,
-		   kl, klp, kl, klp);
-	y += bi;
-      }      
       t += nqp * (y - a);
     }
 
@@ -3787,7 +3787,7 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
     if (fabs(c1) > 1e-30) {
       a = BreitRK(k0, k1, k2, k3, m);
       r += a*c1;
-      //printf("rk1: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c1, r);
+      //printf("rk1: %d %d %d %d %d %d %g %g %g %d %d %d %d %d %d %d %d %d %d %d\n", k0, k1, k2, k3, k, m, a, c1, r, kl0, kl1, kl2, kl3, kp0, kp1, kp2, kp3, ka, kap, kd);
     }
 
     if (fabs(c2) > 1e-30) {
@@ -3802,7 +3802,7 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
       //printf("rk3: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c3, r);
     }
 
-    if (fabs(c4) > 1e-3) {
+    if (fabs(c4) > 1e-30) {
       a = BreitRK(k2, k1, k0, k3, m);
       r += a*c4;
       //printf("rk4: %d %d %d %d %d %d %g %g %g\n", k0, k1, k2, k3, k, m, a, c4, r);
@@ -3846,7 +3846,7 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
       //printf("sk5: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
     }
     
-    c = b*(kap-k)*(kap-k-1.0);
+    c = b*(kap-k)*(ka-k-1.0);
     if (fabs(c) > 1e-30) {
       a = BreitSK(k3, k0, k1, k2, k);
       r += a*c;
@@ -3888,6 +3888,8 @@ double BreitNW(int k0, int k1, int k2, int k3, int k,
       c = BreitC(n, m, k, k0, k1, k2, k3);
       a = BreitI(n, k0, k1, k2, k3, m);
       r += a*c;
+      //printf("bnw: %d %d %d %d %d %d %d %g %g %g\n",
+      //k0, k1, k2, k3, k, m, n, a, c, r);
     }
   }
 
@@ -3898,12 +3900,13 @@ double Breit(int k0, int k1, int k2, int k3, int k,
 	     int kp0, int kp1, int kp2, int kp3,
 	     int kl0, int kl1, int kl2, int kl3) {
   double r;
+  if (k <= 0) return 0;
   if (qed.mbr == 0) {
     r = BreitNW(k0, k1, k2, k3, k, kl0, kl1, kl2, kl3);
   } else {
     r = BreitWW(k0, k1, k2, k3, k, kp0, kp1, kp2, kp3, kl0, kl1, kl2, kl3);
   }
-  //printf("bri: %d %d %d %d %d %g\n", k0, k1, k2, k3, k, r);
+  //printf("bri: %d %d %d %d %d %g %d %d %d %d\n", k0, k1, k2, k3, k, r, kp0, kp1, kp2, kp3);
   return r;
 }
 

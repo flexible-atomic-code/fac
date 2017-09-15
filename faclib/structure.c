@@ -1324,7 +1324,6 @@ void HamiltonElement1E2E(int isym, int isi, int isj, double *x1, double *x2) {
   if (isi == isj) {
     *x1 += ci->delta;
   }
-
   free(sbra);
   free(sket);
 }
