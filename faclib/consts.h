@@ -202,12 +202,14 @@
 #define OPTTOL             1E-6
 #define OPTNITER           128
 #define OPTPRINT           0
+#define POTMODE            0
+#define POTHXS             0.65
 #define QEDSE              5
 #define QEDMSE             1
 #define QEDVP              2
 #define QEDNMS             1
 #define QEDSMS             1
-#define QEDBREIT           5
+#define QEDBREIT           -1
 #define QEDMBREIT          1
 
 /* structure */

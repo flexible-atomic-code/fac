@@ -4637,6 +4637,8 @@ static PyObject *PRMatrixTargets(PyObject *self, PyObject *args) {
   nt = 0;
   nc = 0;
   q = NULL;
+  kc = NULL;
+  kt = NULL;
   if (!PyArg_ParseTuple(args, "O|O", &p, &q)) return NULL;
   
   if (PyTuple_Check(p) || PyList_Check(p)) {

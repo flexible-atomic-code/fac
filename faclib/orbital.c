@@ -2324,7 +2324,7 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
       _dwork[i1] *= rn*d;
       _dwork[j] /= pot->dr_drho[j];
       c = 0.5*(_dwork[j] + _dwork[i1])*(rn - pot->rad[j]);
-      v += c/pot->rad[i];
+      v += c/pot->rad[i];      
       if (fabs(1.0 - v/pot->uehling[i]) < EPS3) break;
       pot->uehling[i] = v;
     }

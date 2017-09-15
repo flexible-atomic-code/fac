@@ -213,7 +213,7 @@ void SetPotentialMode(int m, double h) {
     if ((m % 10) == 0) {
       potential->hxs = 0.0;
     } else {
-      potential->hxs = 0.65;
+      potential->hxs = POTHXS;
     }
   } else {
     potential->hxs = h;
@@ -762,11 +762,11 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   return iter;
 }
 
-#define NXS 5
+#define NXS 7
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS];
-  int iter, i, j, im, md;
+  int iter, i, j, im;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -833,7 +833,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   if (potential->mode/10 == 1) {
-    md = potential->mode % 10;
     if (im == 0) {
       a = 1.5/(NXS-1.0);
       hxs[0] = potential->hxs - 0.75;
@@ -855,6 +854,9 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	  }
 	} else {
 	  ehx[i] = AverageEnergyAvgConfig(acfg);
+	}
+	if (optimize_control.iprint) {
+	  printf("hxs iter: %d %d %d %g %g\n", im, ng, i, hxs[i], ehx[i]);
 	}
       }    
     } else {
@@ -878,6 +880,9 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
 	} else {
 	  ehx[i] = AverageEnergyAvgConfig(acfg);
 	}
+	if (optimize_control.iprint) {
+	  printf("hxs iter: %d %d %d %g %g\n", im, ng, i, hxs[i], ehx[i]);
+	}
       }
     }
     
@@ -896,6 +901,10 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     
     ReinitRadial(1);
     potential->hxs = smin;
+    
+    if (optimize_control.iprint) {
+      printf("hxs: %g %g\n", smin, emin);
+    }
     iter = OptimizeLoop(acfg);
   } else {
     iter = OptimizeLoop(acfg);
@@ -1262,7 +1271,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
-    SetBoundary(0, 1.0, 0.0);
+    //SetBoundary(0, 1.0, 0.0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -2092,9 +2101,9 @@ double AverageEnergyConfig(CONFIG *cfg) {
 
     ResidualPotential(&y, k, k);
     e = GetOrbital(k)->energy;
-    e += QED1E(k, k);
+    a = QED1E(k, k);
     r = nq * (b + t + e + y);        
-    x += r;
+    x += r;         
   }
   return x;
 }
@@ -3197,10 +3206,11 @@ double SelfEnergyRatio(ORBITAL *orb) {
   
   if (orb->wfun == NULL) return 1.0;
 
-  for (i = 0; i < potential->maxrp; i++) {
+  for (i = 0; i < potential->maxrp; i++) {    
     if (potential->uehling[i] > -EPS4) break;
   }
   npts = i;
+  if (npts < 10) return SelfEnergyRatioWelton(orb);
   
   p = _xk;
   q = _zk;
@@ -3217,7 +3227,6 @@ double SelfEnergyRatio(ORBITAL *orb) {
   }
   a = Simpson(p, 0, npts-1);
   b = Simpson(q, 0, npts-1);
-
   return b/a;
 }
 
@@ -3251,7 +3260,7 @@ double QED1E(int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData, NULL);
+  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData, NULL);  
   if (p && *p) {
     return *p;
   }
@@ -3298,6 +3307,7 @@ double QED1E(int k0, int k1) {
     }
   }
   *p = r;
+  
   return r;
 }
   
@@ -5400,8 +5410,12 @@ int InitRadial(void) {
   printf("test besljn: %d %d %g %g\n", jy, jk, x, y);
   */
   potential = malloc(sizeof(POTENTIAL));
-  potential->mode = 0;
-  potential->hxs = 0.0;
+  potential->mode = POTMODE;
+  if (potential->mode%10 > 0) {
+    potential->hxs = POTHXS;
+  } else {
+    potential->hxs = 0.0;
+  }
   potential->flag = 0;
   potential->uehling[0] = 0.0;
   potential->rb = 0;
