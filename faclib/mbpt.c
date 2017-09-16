@@ -892,32 +892,35 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
     }
   }
 #ifdef USE_MPI
-  ncc1 = 0;
-  for (p = 0; p < ccfg.dim; p++) {
-    ccp = ArrayGet(&ccfg, p);
-    if (ccp->ncs) ncc1++;
-  }
-  MPI_Allreduce(&ncc1, &ncc0, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-  if (ncc0 > 0) {
-    ics1 = malloc(sizeof(int)*ncc0);
-    ics0 = malloc(sizeof(int)*ncc0*nr);
-  }
-  for (i = 0; i < ncc0; i++) ics1[i] = -1;
-  i = 0;
-  for (p = 0; p < ccfg.dim; p++) {
-    ccp = ArrayGet(&ccfg, p);
-    if (ccp->ncs) ics1[i++] = p;
-  }
-  MPI_Allgather(ics1, ncc0, MPI_INT, ics0, ncc0, MPI_INT, MPI_COMM_WORLD);
-  for (p = 0; p < ncc0*nr; p++) {
-    if (ics0[p] >= 0) {
-      ccp = ArrayGet(&ccfg, ics0[p]);
-      ccp->ncs = 1;
+  if (mpi.nproc > 1) {
+    ncc1 = 0;
+    for (p = 0; p < ccfg.dim; p++) {
+      ccp = ArrayGet(&ccfg, p);
+      if (ccp->ncs) ncc1++;
     }
-  }
-  if (ncc0) {
-    free(ics0);
-    free(ics1);
+    MPI_Allreduce(&ncc1, &ncc0, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    int *ics0, *ics1;
+    if (ncc0 > 0) {
+      ics1 = malloc(sizeof(int)*ncc0);
+      ics0 = malloc(sizeof(int)*ncc0*nr);
+    }
+    for (i = 0; i < ncc0; i++) ics1[i] = -1;
+    i = 0;
+    for (p = 0; p < ccfg.dim; p++) {
+      ccp = ArrayGet(&ccfg, p);
+      if (ccp->ncs) ics1[i++] = p;
+    }
+    MPI_Allgather(ics1, ncc0, MPI_INT, ics0, ncc0, MPI_INT, MPI_COMM_WORLD);
+    for (p = 0; p < ncc0*nr; p++) {
+      if (ics0[p] >= 0) {
+	ccp = ArrayGet(&ccfg, ics0[p]);
+	ccp->ncs = 1;
+      }
+    }
+    if (ncc0) {
+      free(ics0);
+      free(ics1);
+    }
   }
 #endif
 
@@ -3448,9 +3451,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
       heff = meff[isym]->heff;      
 #ifdef USE_MPI
-      int nbs = meff[isym]->nbasis*meff[isym]->nbasis;
-      MPI_Allreduce(MPI_IN_PLACE, heff, nbs, MPI_DOUBLE,
-		    MPI_SUM, MPI_COMM_WORLD);
+      if (mpi.nproc > 1) {
+	for (i = 0; i < h->hsize; i++) {
+	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab, nhab, MPI_DOUBLE,
+			MPI_SUM, MPI_COMM_WORLD);
+	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba, nhab, MPI_DOUBLE,
+			MPI_SUM, MPI_COMM_WORLD);
+	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab1, nhab1, MPI_DOUBLE,
+			MPI_SUM, MPI_COMM_WORLD);
+	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba1, nhab1, MPI_DOUBLE,
+			MPI_SUM, MPI_COMM_WORLD);
+	}
+      }
 #endif
       if (mpi.myrank != 0) continue;
       AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);
@@ -3668,10 +3680,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	mst *= n * mbpt_tr.naw;	
 	if (mst > 0) {
 #ifdef USE_MPI
-	  MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma, mst,
-			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-	  MPI_Allreduce(MPI_IN_PLACE, mtr[j].rma, mst,
-			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	  if (mpi.nproc > 1) {
+	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma, mst,
+			  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].rma, mst,
+			  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	  }
 #endif
 	  if (mpi.myrank == 0) {
 	    fwrite(mtr[j].tma[m], sizeof(double), mst, f);

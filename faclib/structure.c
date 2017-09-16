@@ -210,7 +210,7 @@ static void InitLevelData(void *p, int n) {
   }
 }
 
-int SetCILevel(m) {
+int SetCILevel(int m) {
   ci_level = m;
   return 0;
 }

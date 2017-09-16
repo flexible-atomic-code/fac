@@ -355,7 +355,7 @@ static int ConfigPythonToC(PyObject *python_cfg, CONFIG **cfg) {
  ERROR:
   onError("error in conversion");
   if (shells) free(shells);
-  if (cfg) free(cfg);
+  //if (cfg) free(cfg);
   return -1;
 }
 

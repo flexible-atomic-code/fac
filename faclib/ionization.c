@@ -533,7 +533,7 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     j = n-1;
     t[j] = 1.0;
     y[j--] = 0.0;
-    for (i = NINT-1; i > 0; i -= 2, j--) {
+    for (i = NINT-1; i > 1; i -= 2, j--) {
       y[j] = Simpson(integrand, i-2, i);
       y[j] *= d;
       y[j] += y[j+1];
