@@ -100,7 +100,6 @@ AC_ARG_ENABLE(warnings,
 	[gcc_warnings=$enableval])
 if test -n "$GCC"
 then
-  CFLAGS="$CFLAGS -fno-strength-reduce"
   if test -n "$gcc_warnings"
   then
     CFLAGS="$CFLAGS -Wall -W -pedantic -Winline -Wmissing-prototypes \
@@ -110,7 +109,6 @@ then
 fi
 if test -n "$G77"
 then
-  FFLAGS="$FFLAGS -ff2c -fno-strength-reduce"
   if test -n "$gcc_warnings"
   then
     FFLAGS="$FFLAGS -Wall"

@@ -32,8 +32,14 @@ static double mbpt_mcut = EPS4;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 
+static struct {
+  int myrank;
+  int nproc;
+  int wid;
+} mpi = {0, 1, 0};
+  
 static TR_OPT mbpt_tr;
-
+  
 void InitMBPT(void) {
   mbpt_tr.mktr = 0;
   mbpt_tr.naw = 0;
@@ -42,6 +48,10 @@ void InitMBPT(void) {
   mbpt_tr.nup = 0;
   mbpt_tr.low = NULL;
   mbpt_tr.up = NULL;
+#ifdef USE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
+#endif
 }
   
 void TransitionMBPT(int mk, int n) {  
@@ -638,15 +648,9 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   FILE *f;
   double t0, t1, t2;
   int sr, nr;
-#ifdef USE_MPI
-  int *ics0, *ics1;
-  MPI_Comm_rank(MPI_COMM_WORLD, &sr);
-  MPI_Comm_size(MPI_COMM_WORLD, &nr);
-  printf("RANK: %2d, TOTAL: %2d\n", sr, nr);
-#else
-  sr = 0;
-  nr = 1;
-#endif
+  
+  sr = mpi.myrank;
+  nr = mpi.nproc;
   
   t0 = clock();
   t0 /= CLOCKS_PER_SEC;
@@ -2145,8 +2149,11 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
     md = 2;
   }
   i = i1*n2 + i2;
-  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
-	  s, ph, ks1, ks2, fm, a, md, i);
+  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+    H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
+	    s, ph, ks1, ks2, fm, a, md, i);
+  }
+  mpi.wid++;
 }
 
 void DeltaH22M2(MBPT_EFF **meff, int ns,
@@ -2368,9 +2375,12 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		} else {
 		  md = 2;
 		}
-		H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
-			mst, bst, kst, s, ph, 
-			ks1, ks2, &fm, a, md, -(i1+1));
+		if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			  mst, bst, kst, s, ph, 
+			  ks1, ks2, &fm, a, md, -(i1+1));
+		}
+		mpi.wid++;
 	      }
 	    }
 	  }
@@ -2493,9 +2503,12 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].nq_ket = ket[s[i].index].nq;
 		    s[i].index = ns-s[i].index-1;
 		  }
-		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
-			  mst, bst, kst, s, ph,
-			  ks1, ks2, &fm, a, 0, -(i1+1));
+		  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+		    H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			    mst, bst, kst, s, ph,
+			    ks1, ks2, &fm, a, 0, -(i1+1));
+		  }
+		  mpi.wid++;
 		}
 	      }
 	    }
@@ -2600,15 +2613,18 @@ void DeltaH12M1(void *mptr, int ns,
 	    } else {
 	      md = 2;
 	    }
-	    if (mode == 0) {
-	      H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket, 
-		      mst, bst, kst, s, ph, 
-		      ks, b0[ia], b1[ik], &fm, a, md, i1);
-	    } else {
-	      TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket, 
-		       mst, bst, kst, s, ph, 
-		       ks, b0[ia], b1[ik], &fm, a, md, i1, n);
+	    if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+	      if (mode == 0) {
+		H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket, 
+			mst, bst, kst, s, ph, 
+			ks, b0[ia], b1[ik], &fm, a, md, i1);
+	      } else {
+		TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket, 
+			 mst, bst, kst, s, ph, 
+			 ks, b0[ia], b1[ik], &fm, a, md, i1, n);
+	      }
 	    }
+	    mpi.wid++;
 	  }
 	}
       }
@@ -2710,15 +2726,18 @@ void DeltaH12M0(void *mptr, int ns,
 		s[i].nq_ket = ket[s[i].index].nq;
 		s[i].index = ns-s[i].index-1;
 	      }
-	      if (mode == 0) {
-		H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket,
-			mst, bst, kst, s, ph,
-			ks, b0[ia], b0[ik], &fm, a, 0, i1);
-	      } else {
-		TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket,
-			 mst, bst, kst, s, ph,
-			 ks, b0[ia], b0[ik], &fm, a, 0, i1, n);
+	      if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+		if (mode == 0) {
+		  H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket,
+			  mst, bst, kst, s, ph,
+			  ks, b0[ia], b0[ik], &fm, a, 0, i1);
+		} else {
+		  TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket,
+			   mst, bst, kst, s, ph,
+			   ks, b0[ia], b0[ik], &fm, a, 0, i1, n);
+		}
 	      }
+	      mpi.wid++;
 	    }
 	  }
 	}
@@ -2812,15 +2831,18 @@ void DeltaH11M1(void *mptr, int ns,
 	} else {
 	  md = 2;
 	}
-	if (mode == 0) {
-	  H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
-		  sbra, sket, mst, bst, kst, 
-		  s, ph, k0, k1, k2, k3, &fm, a, md, i1);
-	} else {
-	  TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
-		   sbra, sket, mst, bst, kst, 
-		   s, ph, k0, k1, k2, k3, &fm, a, md, i1, n);
+	if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+	  if (mode == 0) {
+	    H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
+		    sbra, sket, mst, bst, kst, 
+		    s, ph, k0, k1, k2, k3, &fm, a, md, i1);
+	  } else {
+	    TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
+		     sbra, sket, mst, bst, kst, 
+		     s, ph, k0, k1, k2, k3, &fm, a, md, i1, n);
+	  }
 	}
+	mpi.wid++;
       }
     }
   }
@@ -2908,15 +2930,18 @@ void DeltaH11M0(void *mptr, int ns,
 	    GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
 	    s[i].index = ns-s[i].index-1;
 	  }
-	  if (mode == 0) {
-	    H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
-		    sbra, sket, mst, bst, kst,
-		    s, ph, k0, k1, k2, k3, &fm, a, 0, i1);
-	  } else {
-	    TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
-		     sbra, sket, mst, bst, kst,
-		     s, ph, k0, k1, k2, k3, &fm, a, 0, i1, n);
+	  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
+	    if (mode == 0) {
+	      H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
+		      sbra, sket, mst, bst, kst,
+		      s, ph, k0, k1, k2, k3, &fm, a, 0, i1);
+	    } else {
+	      TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
+		       sbra, sket, mst, bst, kst,
+		       s, ph, k0, k1, k2, k3, &fm, a, 0, i1, n);
+	    }
 	  }
+	  mpi.wid++;
 	}
       }
     }
@@ -3153,6 +3178,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   dw = malloc(sizeof(double)*(n+n2)*4);
 
   printf("CI Structure.\n");
+  mpi.wid = 0;
   fflush(stdout);
   nlevels = GetNumLevels();
   h = GetHamilton();
@@ -3420,10 +3446,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	fwrite(&k, sizeof(int), 1, f);
 	continue;
       }
+      heff = meff[isym]->heff;      
+#ifdef USE_MPI
+      int nbs = meff[isym]->nbasis*meff[isym]->nbasis;
+      MPI_Allreduce(MPI_IN_PLACE, heff, nbs, MPI_DOUBLE,
+		    MPI_SUM, MPI_COMM_WORLD);
+#endif
+      if (mpi.myrank != 0) continue;
       AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);
       h = GetHamilton();
       h0 = meff[isym]->h0;
-      heff = meff[isym]->heff;
       h->pj = isym;
       h->n_basis = meff[isym]->nbasis;
       h->dim = h->n_basis;
@@ -3529,9 +3561,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 
   if (mbpt_tr.mktr > 0) {
     printf("MBPT Transition.\n");
+    mpi.wid = 0;
     fflush(stdout);
     sprintf(tfn, "%s.tr", fn1);
-    f = fopen(tfn, "w");
+    if (mpi.myrank == 0) f = fopen(tfn, "w");
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
       for (k1 = 0; k1 < nc; k1++) {
@@ -3621,19 +3654,29 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
 
-    fwrite(&mbpt_tr.mktr, sizeof(int), 1, f);
-    fwrite(&mbpt_tr.naw, sizeof(int), 1, f);
-    fwrite(&emin, sizeof(double), 1, f);
-    fwrite(&emax, sizeof(double), 1, f);
+    if (mpi.myrank == 0) {
+      fwrite(&mbpt_tr.mktr, sizeof(int), 1, f);
+      fwrite(&mbpt_tr.naw, sizeof(int), 1, f);
+      fwrite(&emin, sizeof(double), 1, f);
+      fwrite(&emax, sizeof(double), 1, f);
+    }
     k = 2*mbpt_tr.mktr*MAX_SYMMETRIES;
     for (j = 0; j < k; j++) {
       if (mtr[j].nsym1 == 0) continue;
       for (m = 0; m < mtr[j].nsym1; m++) {
 	mst = mtr[j].sym0->n_states * mtr[j].sym1[m]->n_states;
-	mst *= n * mbpt_tr.naw;
+	mst *= n * mbpt_tr.naw;	
 	if (mst > 0) {
-	  fwrite(mtr[j].tma[m], sizeof(double), mst, f);
-	  fwrite(mtr[j].rma[m], sizeof(double), mst, f);
+#ifdef USE_MPI
+	  MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma, mst,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	  MPI_Allreduce(MPI_IN_PLACE, mtr[j].rma, mst,
+			MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+#endif
+	  if (mpi.myrank == 0) {
+	    fwrite(mtr[j].tma[m], sizeof(double), mst, f);
+	    fwrite(mtr[j].rma[m], sizeof(double), mst, f);
+	  }
 	}
       }
     }		
@@ -3643,7 +3686,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt0 = tt1;
     printf("Total Time Transition = %12.5E\n", dt);
     fflush(stdout);
-    fclose(f);
+    if (mpi.myrank == 0) fclose(f);
   }
   
  ERROR:
