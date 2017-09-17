@@ -18,6 +18,7 @@
 
 #include "mbpt.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -3130,7 +3131,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   
   tt0 = clock();
   tbg = tt0;
-  printf("Construct Radial Basis.\n");
+  MPrintf(-1, "Construct Radial Basis.\n");
   fflush(stdout);
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
@@ -3160,14 +3161,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   tt1 = clock();
   dt = (tt1-tt0)/CLOCKS_PER_SEC;
   tt0 = tt1;
-  printf("Time = %12.5E\n", dt);
+  MPrintf(-1, "Time = %12.5E\n", dt);
   fflush(stdout);
   if (nb < 0) return -1;
 
   if (n3 >= 0) {
     f = fopen(fn1, "w");
     if (f == NULL) {
-      printf("cannot open file %s\n", fn1);
+      MPrintf(-1, "cannot open file %s\n", fn1);
       free(bas);
       return -1;
     }
@@ -3180,7 +3181,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 
   dw = malloc(sizeof(double)*(n+n2)*4);
 
-  printf("CI Structure.\n");
+  MPrintf(-1, "CI Structure.\n");
   mpi.wid = 0;
   fflush(stdout);
   nlevels = GetNumLevels();
@@ -3213,10 +3214,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
     meff[isym]->n = n;
     meff[isym]->n2 = n2;
-    printf("sym: %3d %d\n", isym, h->dim);
+    MPrintf(-1, "sym: %3d %d\n", isym, h->dim);
     fflush(stdout);    
     if (DiagnolizeHamilton() < 0) {
-      printf("Diagnolizing Hamiltonian Error\n");
+      MPrintf(-1, "Diagnolizing Hamiltonian Error\n");
       fflush(stdout);
       exit(1);
     }    
@@ -3283,7 +3284,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt1 = clock();
     dt = (tt1-tt0)/CLOCKS_PER_SEC;
     tt0 = tt1;
-    printf("Time = %12.5E\n", dt);   
+    MPrintf(-1, "Time = %12.5E\n", dt);   
   }
 
   if (mbpt_tr.mktr > 0) {
@@ -3296,7 +3297,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 
   if (n3 >= 0) {
-    printf("Construct Effective Hamiltonian.\n");
+    MPrintf(-1, "Construct Effective Hamiltonian.\n");
     fflush(stdout);
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
@@ -3426,7 +3427,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	dt = (tt1-tt0)/CLOCKS_PER_SEC;
 	dtt = (tt1-tbg)/CLOCKS_PER_SEC;
 	tt0 = tt1;
-	printf("%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
+	MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 	       k0, k1, nc, mst, n0, n1, dt, dtt);
 	fflush(stdout);
 	
@@ -3439,7 +3440,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
 
-    printf("MBPT Structure.\n");
+    MPrintf(-1, "MBPT Structure.\n");
     fflush(stdout);
     for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
       if (meff[isym] == NULL) continue;
@@ -3479,7 +3480,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       fwrite(&isym, sizeof(int), 1, f);
       fwrite(&(h->dim), sizeof(int), 1, f);
       fflush(f);
-      printf("sym: %3d %d\n", isym, h->dim);
+      MPrintf(-1, "sym: %3d %d\n", isym, h->dim);
       fflush(stdout);
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {
@@ -3548,7 +3549,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
       fflush(f);
       if (DiagnolizeHamilton() < 0) {
-	printf("Diagnolizing Effective Hamiltonian Error\n");
+	MPrintf(-1, "Diagnolizing Effective Hamiltonian Error\n");
 	ierr = -1;
 	goto ERROR;
       }
@@ -3557,7 +3558,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       tt1 = clock();
       dt = (tt1-tt0)/CLOCKS_PER_SEC;
       tt0 = tt1;
-      printf("Time = %12.5E\n", dt);
+      MPrintf(-1, "Time = %12.5E\n", dt);
       fflush(stdout);
     }
     SortLevels(nlevels, -1, 0);
@@ -3567,15 +3568,15 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt1 = clock();
     dt = (tt1 - tbg)/CLOCKS_PER_SEC;
     tt0 = tt1;
-    printf("Total Time Structure= %12.5E\n", dt);
+    MPrintf(-1, "Total Time Structure= %12.5E\n", dt);
     fflush(stdout);
   }
 
   if (mbpt_tr.mktr > 0) {
-    printf("MBPT Transition.\n");
+    MPrintf(-1, "MBPT Transition.\n");
     mpi.wid = 0;
     fflush(stdout);
-    sprintf(tfn, "%s.tr", fn1);
+    MPrintf(-1, tfn, "%s.tr", fn1);
     if (mpi.myrank == 0) f = fopen(tfn, "w");
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
@@ -3653,7 +3654,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	dt = (tt1-tt0)/CLOCKS_PER_SEC;
 	dtt = (tt1-tbg)/CLOCKS_PER_SEC;
 	tt0 = tt1;
-	printf("%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
+	MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 	       k0, k1, nc, mst, n0, n1, dt, dtt);
 	fflush(stdout);
 	
@@ -3698,7 +3699,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt1 = clock();
     dt = (tt1 - tbg)/CLOCKS_PER_SEC;
     tt0 = tt1;
-    printf("Total Time Transition = %12.5E\n", dt);
+    MPrintf(-1, "Total Time Transition = %12.5E\n", dt);
     fflush(stdout);
     if (mpi.myrank == 0) fclose(f);
   }
