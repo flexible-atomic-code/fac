@@ -3164,7 +3164,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   fflush(stdout);
   if (nb < 0) return -1;
 
-  if (n3 >= 0) {
+  if (n3 >= 0 && mpi.myrank == 0) {
     f = fopen(fn1, "w");
     if (f == NULL) {
       printf("cannot open file %s\n", fn1);
@@ -3445,8 +3445,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       if (meff[isym] == NULL) continue;
       if (meff[isym]->nbasis == 0) {
 	k = 0;
-	fwrite(&isym, sizeof(int), 1, f);
-	fwrite(&k, sizeof(int), 1, f);
+	if (mpi.myrank == 0) {
+	  fwrite(&isym, sizeof(int), 1, f);
+	  fwrite(&k, sizeof(int), 1, f);
+	}
 	continue;
       }
       heff = meff[isym]->heff;      

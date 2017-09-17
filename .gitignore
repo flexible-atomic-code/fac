@@ -23,6 +23,7 @@ sfac/Makefile
 sfac/scrm
 sfac/sfac
 sfac/spol
+python/mpy
 
 # configure-generated
 sysdef.h

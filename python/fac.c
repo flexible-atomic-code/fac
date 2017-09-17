@@ -1638,7 +1638,6 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     }
   
     StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3);
-
     free(s);
     if (n1 > 0) free(ng1);
     if (n2 > 0) free(ng2);
