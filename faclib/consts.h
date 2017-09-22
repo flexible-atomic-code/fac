@@ -202,7 +202,7 @@
 #define OPTTOL             1E-6
 #define OPTNITER           128
 #define OPTPRINT           0
-#define POTMODE            0
+#define POTMODE            10
 #define POTHXS             0.65
 #define QEDSE              5
 #define QEDMSE             1

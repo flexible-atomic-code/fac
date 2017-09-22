@@ -36,8 +36,8 @@ static int mbpt_3rd = 0;
 static struct {
   int myrank;
   int nproc;
-  int wid;
-} mpi = {0, 1, 0};
+  IDXARY *ibs;
+} mpi = {0, 1, NULL};
   
 static TR_OPT mbpt_tr;
   
@@ -979,20 +979,18 @@ int RadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
   nb = n*nk*2;
   (*bas) = malloc(sizeof(int)*nb);
   m = 0;
-  for (k = 0; k < nk; k++) {
-    k2 = 2*k;
-    for (j = k2-1; j <= k2+1; j += 2) {
-      if (j < 0) continue;
-      ka = GetKappaFromJL(j, k2);
-      for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
+    for (k = 0; k < nk; k++) {
+      k2 = 2*k;
+      for (j = k2-1; j <= k2+1; j += 2) {
+	if (j < 0) continue;
+	ka = GetKappaFromJL(j, k2);
 	if (ng[i] <= k) continue;
 	if (nkm && nkm[k] > 0) {
 	  if (ng[i] > nkm[k]) continue;
 	}
-	(*bas)[m] = OrbitalIndex(ng[i], ka, 0);
-	/*
-	printf("%2d %2d %2d %2d\n", (*bas)[m], ng[i], k, j);
-	*/
+	(*bas)[m] = OrbitalIndex(ng[i], ka, 0);	
+	//MPrintf(-1, "%2d %2d %2d %2d\n", (*bas)[m], ng[i], k, j);
 	m++;
       }
     }
@@ -1404,7 +1402,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     SHELL_STATE *sbra, SHELL_STATE *sket,
 	     int mst, int *bst, int *kst,
 	     INTERACT_SHELL *s, int ph, int *ks1, int *ks2,
-	     FORMULA *fm, double **a, int md, int i0) {
+	     FORMULA *fm, double **a, int i0) {
   int m, kk1, kk2, kmin1, kmin2, kmax1, kmax2;
   int mkk1, mkk2, mkk, k, i1, ng;
   int q0, q1, m0, m1, ms0, ms1, s0, s1;
@@ -1412,10 +1410,22 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   double a1[MKK], a2[MKK], *h1, *h2, d1, d2;
   ORBITAL *orb;
 
-  if (md <= 0) {
+  int md;
+  if (fm->j1 < 0 || fm->j2 < 0) {
+    md = 0;
+    fm->j1 = s[1].j;
+    fm->j2 = s[3].j;
+  } else if (s[1].j != fm->j1 || s[3].j != fm->j2) {
+    md = 1;
+    fm->j1 = s[1].j;
+    fm->j2 = s[3].j;
+  } else {
+    md = 2;
+  }
+  if (md == 0) {
     TriadsZ(2, 2, fm);	      
     RecoupleTensor(8, s, fm);
-  }
+  }  
   kmin1 = abs(s[0].j-s[1].j);
   kk1 = abs(s[2].j-s[3].j);
   kmin1 = Max(kmin1, kk1);
@@ -1593,13 +1603,23 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     SHELL_STATE *sbra, SHELL_STATE *sket,
 	     int mst, int *bst, int *kst,
 	     INTERACT_SHELL *s, int ph, int *ks, int k0, int k1,
-	     FORMULA *fm, double **a, int md, int i0) {  
+	     FORMULA *fm, double **a, int i0) {  
   int kk, kk2, kmin, kmax, ng;
   int q0, q1, k, m0, m1, s0, s1, m, ms0, ms1;  
   double c, r1, y, sd, se, yk[MKK], *h1, *h2, d1, d2;
   ORBITAL *orb;
 
-  if (md <= 0) {
+  int md;
+  if (fm->j1 < 0) {
+    md = 0;
+    fm->j1 = s[1].j;
+  } else if (s[1].j != fm->j1) {
+    md = 1;
+    fm->j1 = s[1].j;
+  } else {
+    md = 2;
+  }
+  if (md == 0) {
     TriadsZ(1, 2, fm);
     RecoupleTensor(6, s, fm);
   }
@@ -1721,13 +1741,23 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	      SHELL_STATE *sbra, SHELL_STATE *sket,
 	      int mst, int *bst, int *kst,
 	      INTERACT_SHELL *s, int ph, int *ks, int k0, int k1,
-	      FORMULA *fm, double **a, int md, int i0, int ng) {  
+	      FORMULA *fm, double **a, int i0, int ng) {  
   int kk, kk2, kmin, kmax, gauge, n, p1, j0, j1;
   int q0, q1, k, m0, m1, s0, s1, m, ms0, ms1, is0, is1, p, p0;  
   double c, *r1, sd, se, yk[MKK], d2;
   ORBITAL *orb;  
 
-  if (md <= 0) {
+  int md;
+  if (fm->j1 < 0) {
+    md = 0;
+    fm->j1 = s[1].j;
+  } else if (fm->j1 != s[1].j) {
+    md = 1;
+    fm->j1 = s[1].j;
+  } else {
+    md = 2;
+  }
+  if (md == 0) {
     TriadsZ(1, 2, fm);
     RecoupleTensor(6, s, fm);
   }
@@ -1878,19 +1908,30 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     SHELL_STATE *sbra, SHELL_STATE *sket, 
 	     int mst, int *bst, int *kst,
 	     INTERACT_SHELL *s, int ph, int k0, int k1, int k2, int k3,
-	     FORMULA *fm, double *a, int md, int i0) {
+	     FORMULA *fm, double *a, int i0) {
   double y, d1, d2, r1, r2, *h1, *h2;
   int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, ng;
   ORBITAL *orb;
 
   /* setup recouple tensor */
-  if (md <= 0) {
+  int md; 
+  if (fm->j1 < 0) {
+    md = 0;
+    fm->j1 = s[1].j;
+  } else if (fm->j1 != s[1].j) {
+    md = 1;
+    fm->j1 = s[1].j;
+  } else {
+    md = 2;
+  }
+  if (md == 0) {
     TriadsZ(1, 1, fm);
     RecoupleTensor(4, s, fm);
   }
   if (s[0].j != s[1].j) return;
   if (s[2].j != s[3].j) return;
   if (md <= 1) {
+    fm->j1 = s[1].j;
     FixJsZ(s, fm);
     fm->js[5] = 0;
     fm->js[6] = 0;
@@ -1973,14 +2014,24 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	      SHELL_STATE *sbra, SHELL_STATE *sket, 
 	      int mst, int *bst, int *kst,
 	      INTERACT_SHELL *s, int ph, int k0, int k1, int k2, int k3,
-	      FORMULA *fm, double *a, int md, int i0, int ng) {
+	      FORMULA *fm, double *a, int i0, int ng) {
   double d2, *r1, r2, c, d;
   int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, p, p0, n, is0, is1;
   int gauge, p1, j0, j1;
   ORBITAL *orb;
 
   /* setup recouple tensor */
-  if (md <= 0) {
+  int md;  
+  if (fm->j1 < 0) {
+    md = 0;
+    fm->j1 = s[1].j;
+  } else if (fm->j1 != s[1].j) {
+    md = 1;
+    fm->j1 = s[1].j;
+  } else {
+    md = 2;
+  }
+  if (md == 0) {
     TriadsZ(1, 1, fm);
     RecoupleTensor(4, s, fm);
   }
@@ -2082,29 +2133,30 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 }
 
 void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns, 
-		    SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
+		    SHELL *bra, SHELL *ket,
+		    SHELL_STATE *sbra, SHELL_STATE *sket,
 		    int mst, int *bst, int *kst,
-		    int n0, int *b0, int n1, int *b1, int n, int *ng, 
-		    int n2, int *ng2, int ph,
+		    IDXARY *ib0, IDXARY *ib1, IDXARY *ing, 
+		    IDXARY *ing2, int ph,
 		    int ia, int ib, int ic, int id, int ik, int im,
-		    FORMULA *fm, double **a, int *j1, int *j2) {
+		    FORMULA *fm, double **a) {
   double c, d1, d2;
   int ip, iq;
   int ks1[4], ks2[4];
-  int i, i1, i2, md, m1, m2;
+  int i, i1, i2, m1, m2;
   INTERACT_SHELL s[8];
   ORBITAL *o[8];
   
   ip = im;
   iq = ik;
-  ks1[0] = b0[ia];
-  ks1[1] = b0[ib];
-  ks1[2] = b1[ik];
-  ks1[3] = b1[im];
-  ks2[0] = b1[iq];
-  ks2[1] = b1[ip];
-  ks2[2] = b0[ic];
-  ks2[3] = b0[id];
+  ks1[0] = ib0->d[ia];
+  ks1[1] = ib0->d[ib];
+  ks1[2] = ib1->d[ik];
+  ks1[3] = ib1->d[im];
+  ks2[0] = ib1->d[iq];
+  ks2[1] = ib1->d[ip];
+  ks2[2] = ib0->d[ic];
+  ks2[3] = ib0->d[id];
   s[0].index = ia+2;
   s[1].index = 0;
   s[2].index = ib+2;
@@ -2119,11 +2171,11 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
   }
   for (i = 0; i < 8; i++) {
     if (i == 1 || i == 4) {
-      o[i] = GetOrbital(b1[ik]);
+      o[i] = GetOrbital(ib1->d[ik]);
     } else if (i == 3 || i == 6) {
-      o[i] = GetOrbital(b1[im]);
+      o[i] = GetOrbital(ib1->d[im]);
     } else {
-      o[i] = GetOrbital(b0[s[i].index-2]);
+      o[i] = GetOrbital(ib0->d[s[i].index-2]);
     }
     if (IsEven(i)) s[i].n = 1;
     else s[i].n = -1;
@@ -2136,55 +2188,51 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
   
   m1 = o[1]->n;
   m2 = o[3]->n;
+  int vk = ik;
   if (m1 > m2) {
     i = m1;
     m1 = m2;
     m2 = i;
-  }  
-  i1 = IBisect(m1, n, ng);
+    vk = im;
+  }
+#ifdef USE_MPI
+  if (IdxGet(mpi.ibs, ib1->d[vk]) < 0) return;
+#endif
+  i1 = IdxGet(ing, m1);
   if (i1 < 0) return;
-  i2 = IBisect(m2-m1, n2, ng2);
+  i2 = IdxGet(ing2, m2-m1);
   if (i2 < 0) return;
-  if (s[1].j != *j1 || s[3].j != *j2) {
-    md = (*j1 < 0 || *j2 < 0)?0:1;
-    *j1 = s[1].j;
-    *j2 = s[3].j;
-  } else {
-    md = 2;
-  }
-  i = i1*n2 + i2;
-  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-    H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
-	    s, ph, ks1, ks2, fm, a, md, i);
-  }
-  mpi.wid++;
+  i = i1*ing2->n + i2;
+  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
+	  s, ph, ks1, ks2, fm, a, i);
 }
 
 void DeltaH22M2(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst,
 		CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n1, int *b1, int n, int *ng, 
-		int n2, int *ng2, int nc, CONFIG **cs) {
-  int ia, ib, ic, id, ik, im, j1, j2;
-  int m1, m2, nj, *jp, i, k;
+		IDXARY *ib0, IDXARY *ib1, IDXARY *ing, 
+		IDXARY *ing2, int nc, CONFIG **cs) {
+  int ia, ib, ic, id, ik, im;
+  int m1, m2, nj, *jp, i, k, j1, j2;
   int op[4], om[4], ph;
   double *a[MKK*MKK];
   ORBITAL *o;
   FORMULA fm;
 
-  if (n1 <= 0) return;
+  fm.ns = -1;
+  if (ib1->n <= 0) return;
   k = MKK*MKK;
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
-  jp = malloc(sizeof(int)*(n1+1));
+  jp = malloc(sizeof(int)*(ib1->n+1));
   jp[0] = 0;
   nj = 1;
-  o = GetOrbital(b1[0]);
+  o = GetOrbital(ib1->d[0]);
   j1 = GetJFromKappa(o->kappa);
-  for (i = 1; i < n1; i++) {
-    o = GetOrbital(b1[i]);
+  for (i = 1; i < ib1->n; i++) {
+    o = GetOrbital(ib1->d[i]);
     j2 = GetJFromKappa(o->kappa);
     if (j2 != j1) {
       jp[nj] = i;
@@ -2192,11 +2240,11 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
       j1 = j2;
     }
   }
-  jp[nj] = n1;
+  jp[nj] = ib1->n;
   fm.js[0] = 0;
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
-      for (ic = 0; ic < n0; ic++) {
+      for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
 	  om[0] = id;
 	  om[1] = ic;
@@ -2212,12 +2260,12 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	  om[1] = id;
 	  ph = CheckInteraction(ns-2, bra+2, ket+2, 2, op, 2, om);
 	  if (ph < 0) continue;
-	  if (ng2[0] == 0) {
-	    j1 = -1;
-	    j2 = -1;
-	    for (im = 0; im < n1; im++) {
+	  if (ing2->d[0] == 0) {
+	    fm.j1 = -1;
+	    fm.j2 = -1;
+	    for (im = 0; im < ib1->n; im++) {
 	      ik = im;
-	      o = GetOrbital(b1[im]);
+	      o = GetOrbital(ib1->d[im]);
 	      ket[1].n = o->n;
 	      ket[1].kappa = o->kappa;
 	      ket[1].nq = 0;
@@ -2231,22 +2279,22 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	      }
 	      DeltaH22M2Loop(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			     mst, bst, kst,
-			     n0, b0, n1, b1, n, ng, n2, ng2, ph,
-			     ia, ib, ic, id, ik, im, &fm, a, &j1, &j2);
+			     ib0, ib1, ing, ing2, ph,
+			     ia, ib, ic, id, ik, im, &fm, a);
 	    }
 	  }
-	  j1 = -1;
-	  j2 = -1;
+	  fm.j1 = -1;
+	  fm.j2 = -1;
 	  for (m1 = 0; m1 < nj; m1++) {
 	    for (m2 = 0; m2 <= m1; m2++) {
 	      for (im = jp[m1]; im < jp[m1+1]; im++) {
-		o = GetOrbital(b1[im]);
+		o = GetOrbital(ib1->d[im]);
 		ket[0].n = o->n;
 		ket[0].kappa = o->kappa;
 		ket[0].nq = 0;
 		for (ik = jp[m2]; ik < jp[m2+1]; ik++) {
 		  if (im <= ik) continue;
-		  o = GetOrbital(b1[ik]);
+		  o = GetOrbital(ib1->d[ik]);
 		  ket[1].n = o->n;
 		  ket[1].kappa = o->kappa;
 		  ket[1].nq = 0;
@@ -2261,8 +2309,8 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 		  }
 		  DeltaH22M2Loop(meff, c0, c1, ns, bra, ket, sbra, sket, 
 				 mst, bst, kst,
-				 n0, b0, n1, b1, n, ng, n2, ng2, ph,
-				 ia, ib, ic, id, ik, im, &fm, a, &j1, &j2);
+				 ib0, ib1, ing, ing2, ph,
+				 ia, ib, ic, id, ik, im, &fm, a);
 		}
 	      }
 	    }
@@ -2281,28 +2329,29 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 void DeltaH22M1(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n1, int *b1, int n, int *ng,
+		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
-  int i, m1, i1, j1, md;
+  int i, m1, i1;
   double *a[MKK*MKK];
   INTERACT_SHELL s[8];
   ORBITAL *o[8];
   FORMULA fm;
 
+  fm.ns = -1;
   fm.js[0] = 0;
-  if (n1 <= 0) return;
+  if (ib1->n <= 0) return;
   k = MKK*MKK;
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
-      for (ic = 0; ic < n0; ic++) {
+      for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
-	  for (ik = 0; ik < n0; ik++) {
-	    for (iq = 0; iq < n0; iq++) {
+	  for (ik = 0; ik < ib0->n; ik++) {
+	    for (iq = 0; iq < ib0->n; iq++) {
 	      op[0] = iq;
 	      om[0] = id;
 	      om[1] = ic;
@@ -2321,9 +2370,12 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	      om[2] = ik;	      
 	      ph = CheckInteraction(ns-1, bra+1, ket+1, 3, op, 3, om);
 	      if (ph < 0) continue;
-	      j1 = -1;
-	      for (ip = 0; ip < n1; ip++) {
-		o[1] = GetOrbital(b1[ip]);
+	      fm.j1 = -1;
+	      for (ip = 0; ip < ib1->n; ip++) {
+#ifdef USE_MPI
+		if (IdxGet(mpi.ibs, ib1->d[ip]) < 0) continue;
+#endif
+		o[1] = GetOrbital(ib1->d[ip]);
 		ket[0].n = o[1]->n;
 		ket[0].kappa = o[1]->kappa;
 		ket[0].nq = 0;
@@ -2336,14 +2388,14 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		  if (k >= 0) continue;
 		}
 		im = ip;
-		ks1[0] = b0[ia];
-		ks1[1] = b0[ib];
-		ks1[2] = b1[im];
-		ks1[3] = b0[ik];
-		ks2[0] = b0[iq];
-		ks2[1] = b1[ip];
-		ks2[2] = b0[ic];
-		ks2[3] = b0[id];
+		ks1[0] = ib0->d[ia];
+		ks1[1] = ib0->d[ib];
+		ks1[2] = ib1->d[im];
+		ks1[3] = ib0->d[ik];
+		ks2[0] = ib0->d[iq];
+		ks2[1] = ib1->d[ip];
+		ks2[2] = ib0->d[ic];
+		ks2[3] = ib0->d[id];
 		s[0].index = ia+1;
 		s[1].index = 0;
 		s[2].index = ib+1;
@@ -2355,14 +2407,15 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		i1 = 0;
 		for (i = 0; i < 8; i++) {
 		  if (i == 1 || i == 6) {
-		    o[i] = GetOrbital(b1[ip]);
+		    o[i] = GetOrbital(ib1->d[ip]);
 		    if (i == 1) {
 		      m1 = o[1]->n;
-		      i1 = IBisect(m1, n, ng);	    
+		      //i1 = IBisect(m1, n, ng);
+		      i1 = IdxGet(ing, m1);
 		      if (i1 < 0) break;
 		    }
 		  } else {
-		    o[i] = GetOrbital(b0[s[i].index-1]);
+		    o[i] = GetOrbital(ib0->d[s[i].index-1]);
 		  }		  
 		  if (IsEven(i)) s[i].n = 1;
 		  else s[i].n = -1;
@@ -2373,18 +2426,9 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		  s[i].index = ns-s[i].index-1;
 		}
 		if (i1 < 0) continue;
-		if (s[1].j != j1) {
-		  md = j1<0?0:1;
-		  j1 = s[1].j;
-		} else {
-		  md = 2;
-		}
-		if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
-			  mst, bst, kst, s, ph, 
-			  ks1, ks2, &fm, a, md, -(i1+1));
-		}
-		mpi.wid++;
+		H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			mst, bst, kst, s, ph, 
+			ks1, ks2, &fm, a, -(i1+1));
 	      }
 	    }
 	  }
@@ -2401,7 +2445,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 void DeltaH22M0(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n, int *ng, int nc, CONFIG **cs) {
+		IDXARY *ib0, IDXARY *ing, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq, i, i1;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
   double *a[MKK*MKK];
@@ -2409,21 +2453,25 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
   ORBITAL *o[8];  
   FORMULA fm;
 
+  fm.ns = -1;
+#ifdef USE_MPI
+  if (IdxGet(mpi.ibs, ib0->d[0]) < 0) return;
+#endif
   i1 = bra[0].n;
-  i1 = IBisect(i1, n, ng);
+  i1 = IdxGet(ing, i1);
   if (i1 < 0) return;
   k = MKK*MKK;
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
   fm.js[0] = 0;
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
-      for (ic = 0; ic < n0; ic++) {
+      for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
-	  for (ik = 0; ik < n0; ik++) {
+	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= ik; im++) {
-	      for (ip = 0; ip < n0; ip++) {
+	      for (ip = 0; ip < ib0->n; ip++) {
 		for (iq = 0; iq <= ip; iq++) {
 		  op[0] = ip;
 		  op[1] = iq;
@@ -2447,14 +2495,14 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		  om[3] = im;
 		  ph = CheckInteraction(ns, bra, ket, 4, op, 4, om);
 		  if (ph < 0) continue;
-		  ks1[0] = b0[ia];
-		  ks1[1] = b0[ib];
-		  ks1[2] = b0[ik];
-		  ks1[3] = b0[im];
-		  ks2[0] = b0[ip];
-		  ks2[1] = b0[iq];
-		  ks2[2] = b0[ic];
-		  ks2[3] = b0[id];
+		  ks1[0] = ib0->d[ia];
+		  ks1[1] = ib0->d[ib];
+		  ks1[2] = ib0->d[ik];
+		  ks1[3] = ib0->d[im];
+		  ks2[0] = ib0->d[ip];
+		  ks2[1] = ib0->d[iq];
+		  ks2[2] = ib0->d[ic];
+		  ks2[3] = ib0->d[id];
 		  s[0].index = ia;
 		  s[1].index = ik;
 		  s[2].index = ib;
@@ -2498,7 +2546,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    }
 		  }
 		  for (i = 0; i < 8; i++) {
-		    o[i] = GetOrbital(b0[s[i].index]);
+		    o[i] = GetOrbital(ib0->d[s[i].index]);
 		    if (IsEven(i)) s[i].n = 1;
 		    else s[i].n = -1;
 		    s[i].kappa = o[i]->kappa;
@@ -2507,12 +2555,10 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].nq_ket = ket[s[i].index].nq;
 		    s[i].index = ns-s[i].index-1;
 		  }
-		  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-		    H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
-			    mst, bst, kst, s, ph,
-			    ks1, ks2, &fm, a, 0, -(i1+1));
-		  }
-		  mpi.wid++;
+		  fm.j1 = -1;
+		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
+			  mst, bst, kst, s, ph,
+			  ks1, ks2, &fm, a, -(i1+1));
 		}
 	      }
 	    }
@@ -2530,17 +2576,18 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 void DeltaH12M1(void *mptr, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n1, int *b1, int n, int *ng,
+		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
-  int ia, ib, ic, id, ik, im, j1, md;
+  int ia, ib, ic, id, ik, im;
   int m1, i1, k, i, op[3], om[3], ks[4], ph;
   double *a[MKK];
   INTERACT_SHELL s[6];
   ORBITAL *o[6];
   FORMULA fm;
 
+  fm.ns = -1;
   fm.js[0] = 0;
-  if (n1 <= 0) return;
+  if (ib1->n <= 0) return;
   k = MKK;
   for (i = 0; i < k; i++) {
     if (mode == 0) {
@@ -2549,11 +2596,11 @@ void DeltaH12M1(void *mptr, int ns,
       a[i] = malloc(sizeof(double)*mst*mbpt_tr.mktr);
     }
   }
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia+1].nq == 0) continue;
-    for (ib = 0; ib < n0; ib++) {
+    for (ib = 0; ib < ib0->n; ib++) {
       for (ic = 0; ic <= ib; ic++) {
-	for (id = 0; id < n0; id++) {	  
+	for (id = 0; id < ib0->n; id++) {	  
 	  op[0] = id;
 	  om[0] = ic;
 	  om[1] = ib;
@@ -2565,9 +2612,12 @@ void DeltaH12M1(void *mptr, int ns,
 	  om[1] = ib;
 	  ph = CheckInteraction(ns-1, bra+1, ket+1, 2, op, 2, om);
 	  if (ph < 0) continue;
-	  j1 = -1;
-	  for (ik = 0; ik < n1; ik++) {
-	    o[1] = GetOrbital(b1[ik]);
+	  fm.j1 = -1;
+	  for (ik = 0; ik < ib1->n; ik++) {
+#ifdef USE_MPI
+	    if (IdxGet(mpi.ibs, ib1->d[ik]) < 0) continue;
+#endif
+	    o[1] = GetOrbital(ib1->d[ik]);
 	    ket[0].n = o[1]->n;
 	    ket[0].kappa = o[1]->kappa;
 	    ket[0].nq = 0;
@@ -2580,10 +2630,10 @@ void DeltaH12M1(void *mptr, int ns,
 	      if (k >= 0) continue;
 	    }
 	    im = ik;
-	    ks[0] = b0[id];
-	    ks[1] = b1[im];
-	    ks[2] = b0[ib];
-	    ks[3] = b0[ic];
+	    ks[0] = ib0->d[id];
+	    ks[1] = ib1->d[im];
+	    ks[2] = ib0->d[ib];
+	    ks[3] = ib0->d[ic];
 	    s[0].index = ia+1;
 	    s[1].index = 0;
 	    s[2].index = id+1;
@@ -2593,14 +2643,14 @@ void DeltaH12M1(void *mptr, int ns,
 	    i1 = 0;
 	    for (i = 0; i < 6; i++) {
 	      if (i == 1 || i == 4) {		
-		o[i] = GetOrbital(b1[ik]);
+		o[i] = GetOrbital(ib1->d[ik]);
 		if (i == 1) {
 		  m1 = o[1]->n;
-		  i1 = IBisect(m1, n, ng);	    
+		  i1 = IdxGet(ing, m1);
 		  if (i1 < 0) break;
 		}
 	      } else {
-		o[i] = GetOrbital(b0[s[i].index-1]);
+		o[i] = GetOrbital(ib0->d[s[i].index-1]);
 	      }
 	      if (IsEven(i)) s[i].n = 1;
 	      else s[i].n = -1;
@@ -2611,24 +2661,15 @@ void DeltaH12M1(void *mptr, int ns,
 	      s[i].index = ns-s[i].index-1;
 	    }
 	    if (i1 < 0) continue;
-	    if (s[1].j != j1) {
-	      md = j1<0?0:1;
-	      j1 = s[1].j;
+	    if (mode == 0) {
+	      H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket, 
+		      mst, bst, kst, s, ph, 
+		      ks, ib0->d[ia], ib1->d[ik], &fm, a, i1);
 	    } else {
-	      md = 2;
+	      TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket, 
+		       mst, bst, kst, s, ph, 
+		       ks, ib0->d[ia], ib1->d[ik], &fm, a, i1, ing->n);
 	    }
-	    if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-	      if (mode == 0) {
-		H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket, 
-			mst, bst, kst, s, ph, 
-			ks, b0[ia], b1[ik], &fm, a, md, i1);
-	      } else {
-		TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket, 
-			 mst, bst, kst, s, ph, 
-			 ks, b0[ia], b1[ik], &fm, a, md, i1, n);
-	      }
-	    }
-	    mpi.wid++;
 	  }
 	}
       }
@@ -2643,16 +2684,20 @@ void DeltaH12M1(void *mptr, int ns,
 void DeltaH12M0(void *mptr, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n, int *ng, int nc, CONFIG **cs, int mode) {
+		IDXARY *ib0, IDXARY *ing, int nc, CONFIG **cs, int mode) {
   int ia, ib, ic, id, ik, im;
   int i1, k, i, op[3], om[3], ks[4], ph;
   double *a[MKK];
   INTERACT_SHELL s[6];
   ORBITAL *o[6];
   FORMULA fm;
-  
+
+  fm.ns = -1;
+#ifdef USE_MPI
+  if (IdxGet(mpi.ibs, ib0->d[0]) < 0) return;
+#endif
   i1 = bra[0].n;
-  i1 = IBisect(i1, n, ng);
+  i1 = IdxGet(ing, i1);
   if (i1 < 0) return;
   k = MKK;
   for (i = 0; i < k; i++) {
@@ -2663,15 +2708,15 @@ void DeltaH12M0(void *mptr, int ns,
     }
   }
   fm.js[0] = 0;
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia].nq == 0) continue;
-    for (ib = 0; ib < n0; ib++) {
+    for (ib = 0; ib < ib0->n; ib++) {
       if (ket[ib].nq == 0) continue;
       for (ic = 0; ic <= ib; ic++) {
 	if (ket[ic].nq == 0) continue;
 	if (ic == ib && ket[ic].nq == 1) continue;
-	for (id = 0; id < n0; id++) {
-	  for (ik = 0; ik < n0; ik++) {
+	for (id = 0; id < ib0->n; id++) {
+	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= id; im++) {
 	      if (ik == ia) continue;	      
 	      op[0] = ia;
@@ -2692,10 +2737,10 @@ void DeltaH12M0(void *mptr, int ns,
 	      om[0] = ia;
 	      k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
 	      if (k >= 0) continue;
-	      ks[0] = b0[id];
-	      ks[1] = b0[im];
-	      ks[2] = b0[ib];
-	      ks[3] = b0[ic];
+	      ks[0] = ib0->d[id];
+	      ks[1] = ib0->d[im];
+	      ks[2] = ib0->d[ib];
+	      ks[3] = ib0->d[ic];
 	      s[0].index = ia;
 	      s[1].index = ik;
 	      s[2].index = id;
@@ -2721,7 +2766,7 @@ void DeltaH12M0(void *mptr, int ns,
 		}
 	      }
 	      for (i = 0; i < 6; i++) {
-		o[i] = GetOrbital(b0[s[i].index]);
+		o[i] = GetOrbital(ib0->d[s[i].index]);
 		if (IsEven(i)) s[i].n = 1;
 		else s[i].n = -1;
 		s[i].kappa = o[i]->kappa;
@@ -2730,18 +2775,16 @@ void DeltaH12M0(void *mptr, int ns,
 		s[i].nq_ket = ket[s[i].index].nq;
 		s[i].index = ns-s[i].index-1;
 	      }
-	      if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-		if (mode == 0) {
-		  H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket,
-			  mst, bst, kst, s, ph,
-			  ks, b0[ia], b0[ik], &fm, a, 0, i1);
-		} else {
-		  TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket,
-			   mst, bst, kst, s, ph,
-			   ks, b0[ia], b0[ik], &fm, a, 0, i1, n);
-		}
+	      fm.j1 = -1;
+	      if (mode == 0) {
+		H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket,
+			mst, bst, kst, s, ph,
+			ks, ib0->d[ia], ib0->d[ik], &fm, a, i1);
+	      } else {
+		TR12Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket, sbra, sket,
+			 mst, bst, kst, s, ph,
+			 ks, ib0->d[ia], ib0->d[ik], &fm, a, i1, ing->n);
 	      }
-	      mpi.wid++;
 	    }
 	  }
 	}
@@ -2757,34 +2800,35 @@ void DeltaH12M0(void *mptr, int ns,
 void DeltaH11M1(void *mptr, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		int n0, int *b0, int n1, int *b1, int n, int *ng,
+		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1, m1;
-  int op[2], om[2], ph, j1, md;
+  int op[2], om[2], ph;
   INTERACT_SHELL s[4];
   ORBITAL *o0, *o1, *o2, *o3;
   double *a;
   FORMULA fm;
 
+  fm.ns = -1;
   fm.js[0] = 0;
-  if (n1 <= 0) return;
+  if (ib1->n <= 0) return;
   if (mode == 0) {
     a = malloc(sizeof(double)*mst);
   } else {
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia+1].nq == 0) continue;
-    for (ib = 0; ib < n0; ib++) { 
+    for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib+1].nq == 0) continue;
       op[0] = ia;
       om[0] = ib;
       /* check if bra and ket can interact with 1 virtual orb */
       ph = CheckInteraction(ns-1, bra+1, ket+1, 1, op, 1, om);
       if (ph < 0) continue;
-      j1 = -1;
-      for (ik = 0; ik < n1; ik++) {
-	o1 = GetOrbital(b1[ik]);
+      fm.j1 = -1;
+      for (ik = 0; ik < ib1->n; ik++) {
+	o1 = GetOrbital(ib1->d[ik]);
 	ket[0].n = o1->n;
 	ket[0].kappa = o1->kappa;
 	ket[0].nq = 0;
@@ -2796,10 +2840,13 @@ void DeltaH11M1(void *mptr, int ns,
 	  if (k >= 0) continue;
 	}
 	im = ik;
-	k0 = b0[ia];
-	k1 = b1[ik];
-	k2 = b1[im];
-	k3 = b0[ib];
+	k0 = ib0->d[ia];
+	k1 = ib1->d[ik];
+#ifdef USE_MPI
+	if (IdxGet(mpi.ibs, k1) < 0) continue;
+#endif
+	k2 = ib1->d[im];
+	k3 = ib0->d[ib];
 	s[0].index = ia+1;
 	s[0].n = 1;
 	s[1].index = 0;
@@ -2817,7 +2864,7 @@ void DeltaH11M1(void *mptr, int ns,
 	o0 = GetOrbital(k0);
 	o1 = GetOrbital(k1);
 	m1 = o1->n;	
-	i1 = IBisect(m1, n, ng);
+	i1 = IdxGet(ing, m1);
 	if (i1 < 0) continue;
 	o2 = GetOrbital(k2);
 	o3 = GetOrbital(k3);
@@ -2829,24 +2876,15 @@ void DeltaH11M1(void *mptr, int ns,
 	  GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
 	  s[i].index = ns-s[i].index-1;
 	}
-	if (s[1].j != j1) {
-	  md = j1<0?0:1;
-	  j1 = s[1].j;
+	if (mode == 0) {
+	  H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
+		  sbra, sket, mst, bst, kst, 
+		  s, ph, k0, k1, k2, k3, &fm, a, i1);
 	} else {
-	  md = 2;
+	  TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
+		   sbra, sket, mst, bst, kst, 
+		   s, ph, k0, k1, k2, k3, &fm, a, i1, ing->n);
 	}
-	if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-	  if (mode == 0) {
-	    H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
-		    sbra, sket, mst, bst, kst, 
-		    s, ph, k0, k1, k2, k3, &fm, a, md, i1);
-	  } else {
-	    TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
-		     sbra, sket, mst, bst, kst, 
-		     s, ph, k0, k1, k2, k3, &fm, a, md, i1, n);
-	  }
-	}
-	mpi.wid++;
       }
     }
   }
@@ -2856,7 +2894,7 @@ void DeltaH11M1(void *mptr, int ns,
 void DeltaH11M0(void *mptr, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst,
-		CONFIG *c0, CONFIG *c1, int n0, int *b0, int n, int *ng,
+		CONFIG *c0, CONFIG *c1, IDXARY *ib0, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1;
   int op[2], om[2], ph;
@@ -2864,9 +2902,13 @@ void DeltaH11M0(void *mptr, int ns,
   ORBITAL *o0, *o1, *o2, *o3;
   double *a;
   FORMULA fm;
-   
+
+  fm.ns = -1;
+#ifdef USE_MPI
+  if (IdxGet(mpi.ibs, ib0->d[0]) < 0) return;
+#endif
   i1 = bra[0].n;
-  i1 = IBisect(i1, n, ng);
+  i1 = IdxGet(ing, i1);
   if (i1 < 0) return;
   if (mode == 0) {
     a = malloc(sizeof(double)*mst);
@@ -2874,12 +2916,12 @@ void DeltaH11M0(void *mptr, int ns,
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
   fm.js[0] = 0;
-  for (ia = 0; ia < n0; ia++) {
+  for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia].nq == 0) continue;
-    for (ib = 0; ib < n0; ib++) { 
+    for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib].nq == 0) continue;
-      for (ik = 0; ik < n0; ik++) {
-	for (im = 0; im < n0; im++) {
+      for (ik = 0; ik < ib0->n; ik++) {
+	for (im = 0; im < ib0->n; im++) {
 	  if (ia == ik) {
 	    continue;
 	  }
@@ -2906,10 +2948,10 @@ void DeltaH11M0(void *mptr, int ns,
 	  /* check if bra(ia->ik) is within the model space */
 	  k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
 	  if (k >= 0) continue;
-	  k0 = b0[ia];
-	  k1 = b0[ik];
-	  k2 = b0[im];
-	  k3 = b0[ib];
+	  k0 = ib0->d[ia];
+	  k1 = ib0->d[ik];
+	  k2 = ib0->d[im];
+	  k3 = ib0->d[ib];
 	  s[0].index = ia;
 	  s[0].n = 1;
 	  s[1].index = ik;
@@ -2934,18 +2976,16 @@ void DeltaH11M0(void *mptr, int ns,
 	    GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
 	    s[i].index = ns-s[i].index-1;
 	  }
-	  if (mpi.nproc <= 1 || mpi.wid%mpi.nproc == mpi.myrank) {
-	    if (mode == 0) {
-	      H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
-		      sbra, sket, mst, bst, kst,
-		      s, ph, k0, k1, k2, k3, &fm, a, 0, i1);
-	    } else {
-	      TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
-		       sbra, sket, mst, bst, kst,
-		       s, ph, k0, k1, k2, k3, &fm, a, 0, i1, n);
-	    }
+	  fm.j1 = -1;
+	  if (mode == 0) {
+	    H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
+		    sbra, sket, mst, bst, kst,
+		    s, ph, k0, k1, k2, k3, &fm, a, i1);
+	  } else {
+	    TR11Term((MBPT_TR *) mptr, c0, c1, ns, bra, ket,
+		     sbra, sket, mst, bst, kst,
+		     s, ph, k0, k1, k2, k3, &fm, a, i1, ing->n);
 	  }
-	  mpi.wid++;
 	}
       }
     }
@@ -3074,7 +3114,7 @@ void FreeTransitionMBPT(MBPT_TR *mtr) {
 */
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm, 
 		   int n, int *ng, int n2, int *ng2, int nkg0) {
-  int *bas, *bas0, *bas1, *bas2, nlevels, nb, n3, q, nhab, nhab1;
+  int *bas, *bas0, *bas1, nlevels, nb, n3, q, nhab, nhab1;
   int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m, mks, *ks;
   int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst;
   int p0, p1, j0, j1, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
@@ -3092,7 +3132,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   double *h0, *heff, *hab1, *hba1, *dw, dt, dtt;
   clock_t tt0, tt1, tbg;
   FILE *f;
-					  
+  IDXARY ing, ing2, ibas0, ibas1, ibs;
+
+  ing.n = ing.m = 0;
+  ing2.n = ing2.m = 0;
+  ibas0.n = ibas0.m = 0;
+  ibas1.n = ibas1.m = 0;
+  ibs.n = ibs.m = 0;
+  mpi.ibs = &ibs;
   ierr = 0;
   n3 = mbpt_n3;
   if (nkg0 <= 0 || nkg0 > nkg) nkg0 = nkg;
@@ -3135,6 +3182,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   fflush(stdout);
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
+  InitIdxAry(&ing, n, ng);
+  InitIdxAry(&ing2, n2, ng2);
+  nhab1 = n*2;
+  nhab = n*n2*2;
   na = n*n2+n+nmax;
   ga = malloc(sizeof(int)*na);
   k = 0;
@@ -3142,17 +3193,25 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     ga[k++] = i;
   }
   nb = RadialBasisMBPT(nmax, NULL, k, ga, &bas0);
-  bas2 = malloc(sizeof(int)*nb);
   k = 0;
   for (i = 0; i < n; i++) {
     ga[k++] = ng[i];
     for (j = 0; j < n2; j++) {
       if (ng2[j] == 0) continue;
-      ga[k++] = ng[i]+ng2[j];
+      ga[k++] = ng[i]+ng2[j];      
     }
   }
   na = SortUnique(k, ga);
   nb = RadialBasisMBPT(nk, nkm, na, ga, &bas);
+  InitIdxAry(mpi.ibs, nb, bas);
+#ifdef USE_MPI
+  for (i = 0; i < ibs.m; i++) {    
+    if (ibs.i[i] >= 0 &&
+	ibs.i[i]%mpi.nproc != mpi.myrank) {
+      ibs.i[i] = -2;
+    }
+  }
+#endif
   bas1 = malloc(sizeof(int)*nb);
   free(ga);
   
@@ -3169,7 +3228,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     f = fopen(fn1, "w");
     if (f == NULL) {
       MPrintf(-1, "cannot open file %s\n", fn1);
-      free(bas);
+      FreeIdxAry(mpi.ibs, 0);
+      FreeIdxAry(&ing, 2);
+      FreeIdxAry(&ing2, 2);
       return -1;
     }
     fwrite(&n, sizeof(int), 1, f);
@@ -3182,7 +3243,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   dw = malloc(sizeof(double)*(n+n2)*4);
 
   MPrintf(-1, "CI Structure.\n");
-  mpi.wid = 0;
   fflush(stdout);
   nlevels = GetNumLevels();
   h = GetHamilton();
@@ -3206,6 +3266,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     memcpy(meff[isym]->h0, h->hamilton, sizeof(double)*h->hsize);
     meff[isym]->basis = malloc(sizeof(int)*h->n_basis);
     meff[isym]->nbasis = h->n_basis;
+    meff[isym]->hsize = h->hsize;
     memcpy(meff[isym]->basis, h->basis, sizeof(int)*h->n_basis);
     meff[isym]->heff = malloc(sizeof(double)*h->n_basis*h->n_basis);
     meff[isym]->hab1 = malloc(sizeof(double *)*h->hsize);
@@ -3225,8 +3286,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     mks = 0;
     m = 0;
     mix = h->mixing + h->dim;
-    nhab1 = n*2;
-    nhab = n*n2*2;
     for (k = 0; k < h->dim; k++) {
       /* determine the states that need MBPT correction */
       if (nkg0 != nkg) {
@@ -3379,49 +3438,51 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	/* determine all real orbs */
 	for (k = 0; k < n0; k++) {	  
 	  bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
-	  bas2[k] = bas0[k];
 	}
-	qsort(bas2, n0, sizeof(int), CompareInt);
+	FreeIdxAry(&ibas0, 2);
+	InitIdxAry(&ibas0, n0, bas0);
 	/* determine all virtual orbs */
 	n1 = 0;
 	for (m = 0; m < nb; m++) {
-	  k = IBisect(bas[m], n0, bas2);
+	  k = IdxGet(&ibas0, bas[m]);
 	  if (k >= 0) continue;
 	  bas1[n1] = bas[m];
 	  n1++;
 	}
+	FreeIdxAry(&ibas1, 2);
+	InitIdxAry(&ibas1, n1, bas1);
 	if (n3 != 2) {
 	  /* 1-b 2-b term no virtual orb */
 	  DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n, ng, nc, cs, 0);
+		     ct0, ct1, &ibas0, &ing, nc, cs, 0);
 	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs, 0);
+		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  /* 2-b 1-b term no virtual orb */
 	  DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
-		     ct1, ct0, n0, bas0, n, ng, nc, cs, 0);	
+		     ct1, ct0, &ibas0, &ing, nc, cs, 0);	
 	  /* 2-b 1-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
-		   ct1, ct0, n0, bas0, n1, bas1, n, ng, nc, cs, 0);
+		   ct1, ct0, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  
 	  /* 1-b 1-b term no virtual orb */
 	  DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n, ng, nc, cs, 0);
+		     ct0, ct1, &ibas0, &ing, nc, cs, 0);
 	  /* 1-b 1-b term 1 virtual orb */
 	  DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		     ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs, 0);
+		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  
 	  /* 2-b 2-b term no virtual */
 	  DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n, ng, nc, cs);
+		     ct0, ct1, &ibas0, &ing, nc, cs);
 	  /* 2-b 2-b term 1 virtual */
 	  DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs);	
+		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs);	
 	}      
 	if (n3 != 1) {
 	  /* 2-b 2-b term 2 virtual */
 	  DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
-		     ct0, ct1, n0, bas0, n1, bas1, n, ng, n2, ng2, nc, cs);	
+		     ct0, ct1, &ibas0, &ibas1, &ing, &ing2, nc, cs);	
 	}
 	tt1 = clock();
 	dt = (tt1-tt0)/CLOCKS_PER_SEC;
@@ -3455,15 +3516,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       heff = meff[isym]->heff;      
 #ifdef USE_MPI
       if (mpi.nproc > 1) {
-	for (i = 0; i < h->hsize; i++) {
-	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab, nhab, MPI_DOUBLE,
-			MPI_SUM, MPI_COMM_WORLD);
-	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba, nhab, MPI_DOUBLE,
-			MPI_SUM, MPI_COMM_WORLD);
-	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab1, nhab1, MPI_DOUBLE,
-			MPI_SUM, MPI_COMM_WORLD);
-	  MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba1, nhab1, MPI_DOUBLE,
-			MPI_SUM, MPI_COMM_WORLD);
+	for (i = 0; i < meff[isym]->hsize; i++) {
+	  if (meff[isym]->hab1[i] != NULL) {
+	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab[i], nhab, MPI_DOUBLE,
+			  MPI_SUM, MPI_COMM_WORLD);
+	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba[i], nhab, MPI_DOUBLE,
+			  MPI_SUM, MPI_COMM_WORLD);
+	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab1[i], nhab1, MPI_DOUBLE,
+			  MPI_SUM, MPI_COMM_WORLD);
+	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba1[i], nhab1, MPI_DOUBLE,
+			  MPI_SUM, MPI_COMM_WORLD);
+	  }
 	}
       }
 #endif
@@ -3482,7 +3545,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       fwrite(&isym, sizeof(int), 1, f);
       fwrite(&(h->dim), sizeof(int), 1, f);
       fflush(f);
-      MPrintf(-1, "sym: %3d %d\n", isym, h->dim);
       fflush(stdout);
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {
@@ -3505,11 +3567,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    fwrite(&b, sizeof(double), 1, f);
 	    fwrite(&c, sizeof(double), 1, f);
 	    continue;
-	  }
+	  }  
 	  hab1 = meff[isym]->hab1[k];
 	  hba1 = meff[isym]->hba1[k];
 	  hab = meff[isym]->hab[k];
-	  hba = meff[isym]->hba[k];
+	  hba = meff[isym]->hba[k];	
 	  a = sqrt(jj+1.0);
 	  for (i0 = 0; i0 < nhab1; i0++) {
 	    hab1[i0] /= a;
@@ -3563,23 +3625,26 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       MPrintf(-1, "Time = %12.5E\n", dt);
       fflush(stdout);
     }
-    SortLevels(nlevels, -1, 0);
-    SaveLevels(fn, nlevels, -1);
-    fclose(f);
-
-    tt1 = clock();
-    dt = (tt1 - tbg)/CLOCKS_PER_SEC;
-    tt0 = tt1;
-    MPrintf(-1, "Total Time Structure= %12.5E\n", dt);
-    fflush(stdout);
+    if (mpi.myrank == 0) {
+      SortLevels(nlevels, -1, 0);
+      SaveLevels(fn, nlevels, -1);
+      fclose(f);
+      
+      tt1 = clock();
+      dt = (tt1 - tbg)/CLOCKS_PER_SEC;
+      tt0 = tt1;
+      MPrintf(-1, "Total Time Structure= %12.5E\n", dt);
+      fflush(stdout);
+    }
   }
-
+  MPI_Barrier(MPI_COMM_WORLD);
   if (mbpt_tr.mktr > 0) {
     MPrintf(-1, "MBPT Transition.\n");
-    mpi.wid = 0;
     fflush(stdout);
-    MPrintf(-1, tfn, "%s.tr", fn1);
-    if (mpi.myrank == 0) f = fopen(tfn, "w");
+    if (mpi.myrank == 0) {
+      sprintf(tfn, "%s.tr", fn1);
+      f = fopen(tfn, "w");
+    }
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
       for (k1 = 0; k1 < nc; k1++) {
@@ -3628,29 +3693,31 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	/* determine all real orbs */
 	for (k = 0; k < n0; k++) {	  
 	  bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
-	  bas2[k] = bas0[k];
 	}
-	qsort(bas2, n0, sizeof(int), CompareInt);
+	FreeIdxAry(&ibas0, 2);
+	InitIdxAry(&ibas0, n0, bas0);
 	/* determine all virtual orbs */
 	n1 = 0;
 	for (m = 0; m < nb; m++) {
-	  k = IBisect(bas[m], n0, bas2);
+	  k = IdxGet(&ibas0, bas[m]);
 	  if (k >= 0) continue;
 	  bas1[n1] = bas[m];
 	  n1++;
 	}
+	FreeIdxAry(&ibas1, 2);
+	InitIdxAry(&ibas1, n1, bas1);
 	/* 1-b 2-b term no virtual orb */
 	DeltaH12M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		   ct0, ct1, n0, bas0, n, ng, nc, cs, 1);
+		   ct0, ct1, &ibas0, &ing, nc, cs, 1);
 	/* 1-b 2-b term 1 virtual orb */
 	DeltaH12M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs, 1);
+		   ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 1);
 	/* 1-b 1-b term no virtual orb */
 	DeltaH11M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		   ct0, ct1, n0, bas0, n, ng, nc, cs, 1);
+		   ct0, ct1, &ibas0, &ing, nc, cs, 1);
 	/* 1-b 1-b term 1 virtual orb */
 	DeltaH11M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		   ct0, ct1, n0, bas0, n1, bas1, n, ng, nc, cs, 1);
+		   ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 1);
 	
 	tt1 = clock();
 	dt = (tt1-tt0)/CLOCKS_PER_SEC;
@@ -3684,9 +3751,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	if (mst > 0) {
 #ifdef USE_MPI
 	  if (mpi.nproc > 1) {
-	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma, mst,
+	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma[m], mst,
 			  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].rma, mst,
+	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].rma[m], mst,
 			  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 	  }
 #endif
@@ -3708,9 +3775,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   
  ERROR:
   free(bas);
-  free(bas0);
-  free(bas1);
-  free(bas2);
+  //free(bas0);
+  FreeIdxAry(&ibas0, 0);
+  //free(bas1);
+  FreeIdxAry(&ibas1, 0);
+  FreeIdxAry(&ing, 2);
+  FreeIdxAry(&ing2, 2);
   free(cs[nc]->shells);
   free(cs);
   free(dw);

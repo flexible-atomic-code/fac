@@ -2037,7 +2037,7 @@ int SetPotentialVc(POTENTIAL *pot) {
       x = 1.0 + r*pot->a;
       a = exp(-pot->lambda * r);
       v = v0 * (1.0 - a/x);
-      pot->Vc[i] += v;      
+      pot->Vc[i] += v;
       b = (pot->lambda + pot->a/x);
       y = -v/r + (v0 - v)*b;
       pot->dVc[i] += y;

@@ -187,6 +187,9 @@ typedef struct _AVERAGE_CONFIG_ {
   int *n;
   int *kappa;
   double *nq;
+  int ng;
+  int *kg;
+  double *weight;
 } AVERAGE_CONFIG;
 
 /*

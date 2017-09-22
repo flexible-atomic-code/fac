@@ -61,7 +61,7 @@ typedef struct _MBPT_HAM_ {
 
 typedef struct _MBPT_EFF_ {
   int n, n2;
-  int nbasis, *basis;
+  int hsize, nbasis, *basis;
   double *h0, *e0, *heff;
   /* effective hamilton elements for 1-virtual */
   double **hab1, **hba1;

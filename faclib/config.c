@@ -2032,28 +2032,30 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   int i, j, k, n, kappa, t;
   ARRAY *c;
   CONFIG *cfg;
-  int weight_allocated = 0;
   double a;
 
   if (ng <= 0) return -1;
   for(i = 0; i < M; i++) tnq[i] = 0.0;
 
-  if (weight == NULL) {
-    weight = malloc(sizeof(double)*ng);
-    if (!weight) return -1;
-    for (i = 0; i < ng; i++) {
-      weight[i] = 1.0;
+  acfg->ng = ng;
+  acfg->kg = malloc(sizeof(int)*ng);
+  acfg->weight = malloc(sizeof(double)*ng);
+  for (i = 0; i < ng; i++) {
+    acfg->kg[i] = kg[i];
+    if (weight != NULL) {
+      acfg->weight[i] = weight[i];
+    } else {
+      acfg->weight[i] = 1.0;
     }
-    weight_allocated = 1;
   }
 
   /* normalize the weight */
   a = 0.0;
   for (i = 0; i < ng; i++) {
-    a += weight[i];
+    a += acfg->weight[i];
   }
   for (i = 0; i < ng; i++) {
-    weight[i] /= a;
+    acfg->weight[i] /= a;
   }
 
   for (i = 0; i < ng; i++) {
@@ -2066,7 +2068,7 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 	kappa = cfg->shells[j].kappa;
 	k = ShellToInt(n, kappa);
 	if (k >= M) k = M-1;
-	tnq[k] += (((double)(cfg->shells[j].nq)) * weight[i]*a);
+	tnq[k] += (((double)(cfg->shells[j].nq)) * acfg->weight[i]*a);
       }
     }
     acfg->n_cfgs += cfg_groups[kg[i]].n_cfgs;
@@ -2142,18 +2144,14 @@ int GetAverageConfig(int ng, int *kg, double *weight,
     }
   }
 	  
-  if (weight_allocated) {
-    free(weight);
-    weight = NULL;
-  }
-
   return j;
 
  ERROR:
   if (acfg->n) free(acfg->n);
   if (acfg->nq) free(acfg->nq);
   if (acfg->kappa) free(acfg->kappa);
-  if (weight_allocated) free(weight);
+  free(acfg->kg);
+  free(acfg->weight);
   return -1;
 
 #undef M

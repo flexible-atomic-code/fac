@@ -748,3 +748,50 @@ int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   ma->ndim = 0;
   return 0;
 }
+
+void InitIdxAry(IDXARY *ia, int n, int *d) {
+  int k;
+  ia->n = n;
+  ia->d = d;
+  ia->m0 = ia->d[0];
+  ia->m1 = ia->d[0];
+  for (k = 1; k < ia->n; k++) {
+    if (ia->m0 > ia->d[k]) ia->m0 = ia->d[k];
+    if (ia->m1 < ia->d[k]) ia->m1 = ia->d[k];
+  }
+
+  ia->m = 1+ia->m1-ia->m0;
+  ia->i = malloc(sizeof(int)*ia->m);
+  for (k = 0; k < ia->m; k++) {
+    ia->i[k] = -1;
+  }
+  for (k = 0; k < ia->n; k++) {
+    ia->i[ia->d[k]-ia->m0] = k;
+  }
+}
+
+int IdxGet(IDXARY *ia, int d) {
+  if (d < ia->m0) return -1;
+  if (d > ia->m1) return -2;
+  return ia->i[d - ia->m0];
+}
+
+void FreeIdxAry(IDXARY *ia, int md) {
+  if (md == 0) {
+    if (ia->n > 0) free(ia->d);
+    if (ia->m > 0) free(ia->i);
+    ia->n = 0;
+    ia->m = 0;
+    return;
+  }
+  if (md == 1) {
+    if (ia->n > 0) free(ia->d);
+    ia->n = 0;
+    return;
+  }
+  if (md == 2) {
+    if (ia->m > 0) free(ia->i);
+    ia->m = 0;
+    return;
+  }  
+}

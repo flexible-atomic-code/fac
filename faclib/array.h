@@ -147,6 +147,11 @@ typedef struct _MULTI_ {
   ARRAY *array;
 } MULTI;
 
+typedef struct _IDXARY_ {
+  int n, m, m0, m1;
+  int *d, *i;
+} IDXARY;
+  
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d, 
@@ -188,5 +193,9 @@ void  InitDoubleData(void *p, int n);
 void  InitPointerData(void *p, int n);
 void  InitArrayData(void *p, int n);
 void  InitMDataData(void *p, int n);
+
+void InitIdxAry(IDXARY *ia, int n, int *d);
+void FreeIdxAry(IDXARY *ia, int md);
+int IdxGet(IDXARY *ia, int d);
 
 #endif
