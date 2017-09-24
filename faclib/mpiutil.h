@@ -27,8 +27,6 @@
 
 #include "global.h"
 
-#ifdef USE_MPI
-
 #ifndef RBUFL
 #define RBUFL 1280000
 #endif
@@ -52,5 +50,4 @@ int BFileClose(BFILE *f);
 void BFileRewind(BFILE *f);
 char *BFileGetLine(char *s, int size, BFILE *f);
 
-#endif
 #endif

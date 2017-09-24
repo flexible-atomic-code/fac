@@ -1886,7 +1886,7 @@ void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
   RCFP_STATE rcfp_bra, rcfp_ket;
   RCFP_OPERATOR ops[2*MAXJ];
   int rank[2*MAXJ];
-  
+
   r = &(fm->coeff);
   order = fm->order;
   ninter = fm->ninter;
