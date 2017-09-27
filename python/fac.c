@@ -5016,7 +5016,71 @@ static PyObject *PBreitX(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+ 
+static PyObject *PSavePotential(PyObject *self, PyObject *args) {
+  char *fn;
+  POTENTIAL *p;
+   
+  if (sfac_file) {
+    SFACStatement("SavePotential", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!(PyArg_ParseTuple(args, "s", &fn))) {
+    return NULL;
+  }
 
+  p = RadialPotential();
+  SavePotential(fn, p);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+ 
+static PyObject *PRestorePotential(PyObject *self, PyObject *args) {
+  char *fn;
+  POTENTIAL *p;
+   
+  if (sfac_file) {
+    SFACStatement("RestorePotential", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!(PyArg_ParseTuple(args, "s", &fn))) {
+    return NULL;
+  }
+
+  p = RadialPotential();
+  RestorePotential(fn, p);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+ 
+ 
+static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
+  char *fn;
+  POTENTIAL *p;
+   
+  if (sfac_file) {
+    SFACStatement("ModifyPotential", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!(PyArg_ParseTuple(args, "s", &fn))) {
+    return NULL;
+  }
+
+  p = RadialPotential();
+  ModifyPotential(fn, p);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+	
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5211,6 +5275,9 @@ static struct PyMethodDef fac_methods[] = {
   {"CoulMultipole", PCoulMultip, METH_VARARGS},
   {"BreitX", PBreitX, METH_VARARGS},
   {"PrintQED", PPrintQED, METH_VARARGS},
+  {"SavePotential", PSavePotential, METH_VARARGS},
+  {"RestorePotential", PRestorePotential, METH_VARARGS},
+  {"ModifyPotential", PModifyPotential, METH_VARARGS},
   {NULL, NULL}
 };
 

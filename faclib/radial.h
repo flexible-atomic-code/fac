@@ -166,6 +166,9 @@ void LimitArrayRadial(int m, double n);
 int InitRadial(void);
 int ReinitRadial(int m);
 int TestIntegrate(void);
+int RestorePotential(char *fn, POTENTIAL *p);
+int SavePotential(char *fn, POTENTIAL *p);
+int ModifyPotential(char *fn, POTENTIAL *p);
 
 #endif
 

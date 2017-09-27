@@ -3842,7 +3842,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
     kb1 = slow->kcfg;
     n = GetOrbital(kb1)->n;
     if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd = 1;
-    nmax = GetNMax();
+    nmax = RadialPotential()->nmax;
     if (n >= nmax && kg2 < 0) {
       kb2 = sup->kcfg;
       m = GetOrbital(kb2)->n;

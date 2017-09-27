@@ -31,6 +31,8 @@
 #define RBUFL 1280000
 #endif
 
+#define BUFLN 1024
+
 typedef struct _BFILE_ {
   char *fn;
   FILE *f;

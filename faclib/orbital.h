@@ -30,6 +30,7 @@ typedef struct _POTENTIAL_ {
   int flag;
   int r_core;
   int maxrp;
+  int nmax;
   double hxs, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double N; /*number of electrons*/
@@ -62,7 +63,6 @@ typedef struct _ORBITAL_ {
   int ilast;
 } ORBITAL;
 
-int GetNMax(void);
 double *GetVEffective(void);
 double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);

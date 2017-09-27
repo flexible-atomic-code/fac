@@ -17,6 +17,7 @@
  */
 
 #include "radial.h"
+#include "mpiutil.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -24,6 +25,12 @@ static char *rcsid="$Id$";
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+static struct {
+  int myrank;
+  int nproc;
+  int wid;
+} mpi = {0, 0, 0};
 
 static POTENTIAL *potential;
 #define Large(orb) ((orb)->wfun)
@@ -107,6 +114,164 @@ int GetRadTiming(RAD_TIMING *t) {
   return 0;
 }
 #endif
+
+int RestorePotential(char *fn, POTENTIAL *p) {
+  BFILE *f;
+  int n, i;
+
+  f = BFileOpen(fn, "r", -1);
+  if (f == NULL) {
+    MPrintf(0, "cannot open potential file: %s\n", fn);
+    return -1;
+  }
+
+  n = BFileRead(&p->mode, sizeof(int), 1, f);
+  n = BFileRead(&p->flag, sizeof(int), 1, f);
+  n = BFileRead(&p->r_core, sizeof(int), 1, f);
+  n = BFileRead(&p->nmax, sizeof(int), 1, f);
+  n = BFileRead(&p->maxrp, sizeof(int), 1, f);
+  n = BFileRead(&p->hxs, sizeof(double), 1, f);
+  n = BFileRead(&p->ratio, sizeof(double), 1, f);
+  n = BFileRead(&p->asymp, sizeof(double), 1, f);
+  n = BFileRead(&p->rmin, sizeof(double), 1, f);
+  n = BFileRead(&p->N, sizeof(double), 1, f);
+  n = BFileRead(&p->lambda, sizeof(double), 1, f);
+  n = BFileRead(&p->a, sizeof(double), 1, f);
+  n = BFileRead(&p->ar, sizeof(double), 1, f);
+  n = BFileRead(&p->br, sizeof(double), 1, f);
+  n = BFileRead(&p->ib, sizeof(int), 1, f);
+  n = BFileRead(&p->nb, sizeof(int), 1, f);
+  n = BFileRead(&p->ib1, sizeof(int), 1, f);
+  n = BFileRead(&p->bqp, sizeof(double), 1, f);
+  n = BFileRead(&p->rb, sizeof(double), 1, f);
+  n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->rad, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->Vc, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dVc, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dVc2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->U, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dU, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dU2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->W, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->uehling, sizeof(double), p->maxrp, f);
+  for (i = p->maxrp; i < MAXRP; i++) {
+    p->Z[i] = 0;
+    p->rad[i] = 0;
+    p->dr_drho[i] = 0;
+    p->dr_drho2[i] = 0;
+    p->Vc[i] = 0;
+    p->dVc[i] = 0;
+    p->U[i] = 0;
+    p->dU[i] = 0;
+    p->dU2[i] = 0;
+    p->W[i] = 0;
+    p->dW[i] = 0;
+    p->dW2[i] = 0;
+    p->uehling[i] = 0;
+  }
+  BFileClose(f);
+  ReinitRadial(1);
+  return 0;
+}
+
+int SavePotential(char *fn, POTENTIAL *p) {
+  FILE *f;
+  int n;
+
+  if (mpi.myrank != 0) return 0;
+  
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    MPrintf(0, "cannot open potential file: %s\n", fn);
+    return -1;
+  }
+
+  n = fwrite(&p->mode, sizeof(int), 1, f);
+  n = fwrite(&p->flag, sizeof(int), 1, f);
+  n = fwrite(&p->r_core, sizeof(int), 1, f);
+  n = fwrite(&p->nmax, sizeof(int), 1, f);
+  n = fwrite(&p->maxrp, sizeof(int), 1, f);
+  n = fwrite(&p->hxs, sizeof(double), 1, f);
+  n = fwrite(&p->ratio, sizeof(double), 1, f);
+  n = fwrite(&p->asymp, sizeof(double), 1, f);
+  n = fwrite(&p->rmin, sizeof(double), 1, f);
+  n = fwrite(&p->N, sizeof(double), 1, f);
+  n = fwrite(&p->lambda, sizeof(double), 1, f);
+  n = fwrite(&p->a, sizeof(double), 1, f);
+  n = fwrite(&p->ar, sizeof(double), 1, f);
+  n = fwrite(&p->br, sizeof(double), 1, f);
+  n = fwrite(&p->ib, sizeof(int), 1, f);
+  n = fwrite(&p->nb, sizeof(int), 1, f);
+  n = fwrite(&p->ib1, sizeof(int), 1, f);
+  n = fwrite(&p->bqp, sizeof(double), 1, f);
+  n = fwrite(&p->rb, sizeof(double), 1, f);
+  n = fwrite(p->Z, sizeof(double), p->maxrp, f);
+  n = fwrite(p->rad, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->Vc, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dVc, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dVc2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->U, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dU, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dU2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->W, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dW, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dW2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->uehling, sizeof(double), p->maxrp, f);
+  fclose(f);
+  return 0;
+}
+
+int ModifyPotential(char *fn, POTENTIAL *p) {
+  BFILE *f;
+  int n, i, k, np;
+  char buf[BUFLN];
+  char *c;
+
+  f = BFileOpen(fn, "r", -1);
+  if (f == NULL) {
+    MPrintf(0, "cannot open potential file: %s\n", fn);
+    return -1;
+  }
+  i = 0;
+  while (1) {
+    if (NULL == BFileGetLine(buf, BUFLN, f)) break;
+    buf[BUFLN-1] = '\0';
+    c = buf;
+    while (*c && (*c == ' ' || *c == '\t')) c++;
+    if (*c == '\0' || *c == '#') continue;
+    if (i >= p->maxrp) {
+      MPrintf(0, "potential file exceeds max grid points: %d %d\n",
+	      i, p->maxrp);
+      break;
+    }
+    k = sscanf(buf, "%lg %lg", _dwork12+i, _dwork13+i);
+    if (k != 2) continue;    
+    i++;
+  }
+  BFileClose(f);
+  n = i;  
+  for (i = 0; i < n; i++) {
+    _dwork13[i] *= _dwork12[i];
+    _dwork12[i] = log(_dwork12[i]);
+  }
+  for (i = 0; i < p->maxrp; i++) {
+    p->W[i] = log(p->rad[i]);
+  }
+  np = 3;
+  UVIP3P(np, n, _dwork12, _dwork13, p->maxrp, p->W, p->dW);
+  for (i = 0; i < p->maxrp; i++) {
+    p->U[i] = p->dW[i]/p->rad[i] - p->Vc[i];
+  }
+  SetPotentialU(p, p->maxrp, NULL);
+  ReinitRadial(1);
+  return 0;
+}
 
 static void InitOrbitalData(void *p, int n) {
   ORBITAL *d;
@@ -477,7 +642,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
   SHELL *s1, *s2;
   double *w0;
   
-  if (potential->N < 1+EPS3) return -1;
+  if (potential->N < 1+EPS3) return -1;  
   md = potential->mode % 10;
 
   w0 = _dwork13;
@@ -489,6 +654,8 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
       v[m] = 0.0;
     }
   }
+  if (acfg->n_shells <= 0) return 0;
+  
   jmax = -1;
   if (md < 2 || acfg->ng == 0) {
     for (i = 0; i < acfg->n_shells; i++) {
@@ -732,7 +899,7 @@ int GetPotential(char *s) {
   int norbs, jmax, kmin, kmax;  
   FILE *f;
   int i, j;
-  double *u, *v, *w, rb, rb1;
+  double *u, *v, rb, rb1, rc;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -744,6 +911,8 @@ int GetPotential(char *s) {
   fprintf(f, "#      A = %10.3E\n", potential->a);
   fprintf(f, "#     ar = %10.3E\n", potential->ar);
   fprintf(f, "#     br = %10.3E\n", potential->br);
+  rc = potential->r_core > 0?potential->rad[potential->r_core]:0;
+  fprintf(f, "#     rc = %10.3E\n", rc);
   rb = potential->ib>0?potential->rad[potential->ib]:0;
   rb1 = potential->ib1>0?potential->rad[potential->ib1]:0;
   fprintf(f, "#     rb = %10.3E\n", rb);
@@ -752,13 +921,12 @@ int GetPotential(char *s) {
   fprintf(f, "#     nb = %d\n", potential->nb);
   fprintf(f, "#   mode = %d\n", potential->mode);
   fprintf(f, "#    HXS = %10.3E\n", potential->hxs);
+  fprintf(f, "#   nmax = %d\n", potential->nmax);
+  fprintf(f, "#  maxrp = %d\n", potential->maxrp);
+  u = potential->dVc;
+  v = potential->dU;
 
-  u = _dwork12;
-  w = potential->W;
-  v = potential->dW;
-  PotentialHX(acfg, u, v, w);
-
-  fprintf(f, "# Mean configuration:\n");
+  fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
   for (i = 0; i < acfg->n_shells; i++) {
     fprintf(f, "# %2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
@@ -1132,6 +1300,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
+  fprintf(f, "#  ilast = %4d\n", orb->ilast);
   fprintf(f, "#    idx = %d\n", k);
   if (n != 0) {
     fprintf(f, "\n\n");
@@ -2507,7 +2676,7 @@ double RadialMoments(int m, int k1, int k2) {
     }
   }
 
-  if (potential->ib <= 0 && n1 == n2 && m > 0 && n1 > GetNMax()) {
+  if (potential->ib <= 0 && n1 == n2 && m > 0 && n1 > potential->nmax) {
     return 0.0;
   }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
@@ -5521,13 +5690,11 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-  /*
-  int jy = 2;
-  int jk = 2;
-  double x = 1.1e-9;
-  double y = BESLJN(jy, jk, x);
-  printf("test besljn: %d %d %g %g\n", jy, jk, x, y);
-  */
+#ifdef USE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
+#endif
+
   potential = malloc(sizeof(POTENTIAL));
   potential->mode = POTMODE;
   if ((potential->mode%10)%2 > 0) {

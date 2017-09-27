@@ -3773,6 +3773,48 @@ static int PPrintQED(int argc, char *argv[], int argt[],
   PrintQED();
   return 0;
 }
+ 
+static int PSavePotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  SavePotential(fn, p);
+
+  return 0;
+}
+ 
+static int PRestorePotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  RestorePotential(fn, p);
+
+  return 0;
+} 
+ 
+static int PModifyPotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  ModifyPotential(fn, p);
+
+  return 0;
+}
 
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
@@ -3939,6 +3981,9 @@ static METHOD methods[] = {
   {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
   {"CoulMultipole", PCoulMultip, METH_VARARGS}, 
   {"PrintQED", PPrintQED, METH_VARARGS},
+  {"SavePotential", PSavePotential, METH_VARARGS},
+  {"RestorePotential", PRestorePotential, METH_VARARGS},
+  {"ModifyPotential", PModifyPotential, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

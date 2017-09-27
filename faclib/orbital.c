@@ -33,7 +33,6 @@ static double _dwork1[MAXRP];
 static double _dwork2[MAXRP];
  
 static int max_iteration = 512;
-static int nmax = 0;
 static double wave_zero = 1E-10;
 
 static int SetVEffective(int kl, POTENTIAL *pot);
@@ -44,10 +43,6 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
 static int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2);
-
-int GetNMax(void) {
-  return nmax;
-}
  
 double EnergyH(double z, double n, int ka) {
   double a, np;
@@ -195,7 +190,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	  orb->wfun = NULL;
 	  return 0;
 	}
-	if (orb->n < nmax) {
+	if (orb->n < pot->nmax) {
 	  ierr = RadialBound(orb, pot);
 	} else {
 	  ierr = RadialRydberg(orb, pot);
@@ -1061,7 +1056,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     if (fabs(p[i]) > ep) break;
   }
   if (IsEven(i)) i++;
-  orb->ilast = i;       
+  orb->ilast = i;
   for (i = 0; i < pot->maxrp; i++) {    
     p[i] *= fact;
   }
@@ -1952,7 +1947,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     c = pot->maxrp-15.0 + a*(sqrt(rmin)-sqrt(rmax));
     c /= log(rmax) - log(rmin);
   }     
-  nmax = sqrt(rmax*z)/2.0;
+  pot->nmax = sqrt(rmax*z)/2.0;
   d1 = log(rmax/rmin);
   d2 = sqrt(rmax) - sqrt(rmin);
   b = (pot->maxrp - 1.0 - (a*d2))/d1;
