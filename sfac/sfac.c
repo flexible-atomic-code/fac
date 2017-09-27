@@ -3049,6 +3049,19 @@ static int PWaveFuncTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetDisableConfigEnergy(int argc, char *argv[], int argt[], 
+				   ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argt[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetDisableConfigEnergy(m);
+  return 0;
+}
+
 static int PSetOptimizeMaxIter(int argc, char *argv[], int argt[], 
 			       ARRAY *variables) {
   int m;
@@ -3957,6 +3970,7 @@ static METHOD methods[] = {
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
+  {"SetDisableConfigEnergy", PSetDisableConfigEnergy, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},

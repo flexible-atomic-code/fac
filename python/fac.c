@@ -4153,6 +4153,21 @@ static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", p);
 }
 
+static PyObject *PSetDisableConfigEnergy(PyObject *self, PyObject *args) {
+  int m;
+
+  if (sfac_file) {
+    SFACStatement("SetDisableConfigEnergy", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetDisableConfigEnergy(m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetOptimizeMaxIter(PyObject *self, PyObject *args) {
   int m;
 
@@ -4983,7 +4998,7 @@ static PyObject *PGeneralizedMoment(PyObject *self, PyObject *args) {
 
 static PyObject *PPrintQED(PyObject *self, PyObject *args) {
   if (sfac_file) {
-    SFACStatement("GeneralizedMoment", args, NULL);
+    SFACStatement("PrintQED", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -5253,6 +5268,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Y5N", PY5N, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
   {"CoulombPhase", PCoulombPhase, METH_VARARGS},
+  {"SetDisableConfigEnergy", PSetDisableConfigEnergy, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},

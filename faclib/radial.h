@@ -91,6 +91,7 @@ double GetPhaseShift(int k);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
+void SetDisableConfigEnergy(int m);
 void SetOptimizeMaxIter(int m);
 void SetOptimizeStabilizer(double m);
 void SetOptimizeTolerance(double c);

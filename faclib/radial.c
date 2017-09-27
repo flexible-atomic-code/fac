@@ -71,8 +71,9 @@ static struct {
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
   int iset;
+  int disable_config_energy;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
-		      1.0, 1, 0, NULL, OPTPRINT, 0};
+		      1.0, 1, 0, NULL, OPTPRINT, 0, 1};
 
 static struct {
   int kl0;
@@ -580,6 +581,10 @@ void SetOptimizeTolerance(double c) {
 
 void SetOptimizePrint(int m) {
   optimize_control.iprint = m;
+}
+
+void SetDisableConfigEnergy(int m) {
+  optimize_control.disable_config_energy = m;
 }
 
 void SetOptimizeControl(double tolerance, double stabilizer, 
@@ -1652,6 +1657,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG *cfg;
   int k, i;
 
+  if (optimize_control.disable_config_energy) return 0;
   if (m == 0) {
     if (ng == 0) {
       ng = GetNumGroups();

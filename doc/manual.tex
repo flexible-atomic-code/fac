@@ -9,7 +9,7 @@
 
 \settextfraction{1.0}
 
-\newcommand{\facversion}{{1.1.1}\xspace}
+\newcommand{\facversion}{{1.1.4}\xspace}
 \newcommand{\opt}[1]{
   {\textnormal{[}}{#1}\hspace{0.5mm}{\textnormal{]}}}
 \newcommand{\var}[1]{\textit{#1}}
@@ -65,7 +65,7 @@
 \begin{document}
 
 \title{FAC \facversion Manual}
-\author{M. F. Gu\thanks{gu2@llnl.gov}}
+\author{M. F. Gu\thanks{mfgu@ssl.berkeley.edu}}
 
 \date{}
 
@@ -2603,6 +2603,10 @@ mode, otherwise it is done in simple mode. Note that before conversion in
 verbose mode is carried out, one must call \key{MemENTable} first.
 \end{fundesc}
 
+\begin{fundesc}{PrintQED}{}
+Print the QED correction options currently being used.
+\end{fundesc}
+
 \begin{fundesc}{PropogateDirection}{m}
 \var{m} specifies the direction in which the R-matrix solution in the outer
 region is propogated. $m\ge 0$ indicates that the R-matrix in the first zone
@@ -3014,6 +3018,13 @@ ionization.
 Set the computation mode for the ionization radial integrals. \var{mode} may
 be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
+\end{fundesc}
+
+\begin{fundesc}{SetDisableConfigEnergy}{m}
+if \var{m} is 1, the \key{ConfigEnergy} function calls are disabled even if
+they are invoked explicitly in the script. The energy corrections introduced
+by these calls are not always desirable. They are disabled by default since
+FAC version 1.1.4. 
 \end{fundesc}
 
 \begin{fundesc}{SetFields}{b, e, a\opt{, m}}
