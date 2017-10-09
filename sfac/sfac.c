@@ -1415,24 +1415,27 @@ static int PSetMixCut(int argc, char *argv[], int argt[],
 
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
-  double z, mass, rn;
+  double z, mass, rn, a;
 
   mass = 0.0;
   z = 0.0;
   rn = -1.0;
-
-  if (argc < 1 || argt[0] != STRING || argc > 4) return -1;
+  a = -1.0;
+  if (argc < 1 || argt[0] != STRING || argc > 5) return -1;
   if (argc > 1) {
     z = atof(argv[1]);
     if (argc > 2) {
       mass = atof(argv[2]);
       if (argc > 3) {
 	rn = atof(argv[3]);
+	if (argc > 4) {
+	  a = atof(argv[4]);
+	}
       }
     }
   }
   
-  if (SetAtom(argv[0], z, mass, rn) < 0) return -1;
+  if (SetAtom(argv[0], z, mass, rn, a) < 0) return -1;
   
   return 0;
 }
@@ -2773,8 +2776,8 @@ static int PCutMixing(int argc, char *argv[], int argt[],
 }
 static int PStructure(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  int i, k, ng0, ng, ngp, ns;
-  int ip, nlevels;
+  int ng, ngp;
+  int ip, i;
   int *kg, *kgp;
   int n;
 
@@ -2810,45 +2813,8 @@ static int PStructure(int argc, char *argv[], int argt[],
       ngp = DecodeGroupArgs(&kgp, 1, &(argv[2]), &(argt[2]), variables);
     }
   }
-  
-  if (ngp < 0) return -1;
-  
-  ng0 = ng;
-  if (!ip) {
-    if (ngp) {
-      ng += ngp;
-      kg = (int *) realloc(kg, sizeof(int)*ng);
-      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-      free(kgp);
-      kgp = NULL;
-      ngp = 0;
-    }
-  }
 
-  nlevels = GetNumLevels();
-  if (IsUTA()) {
-    AddToLevels(ng0, kg);
-  } else {
-    ns = MAX_SYMMETRIES;  
-    for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
-      if (k < 0) continue;
-      if (DiagnolizeHamilton() < 0) return -1;
-      if (ng0 < ng) {
-	AddToLevels(ng0, kg);
-      } else {
-	AddToLevels(0, kg);
-      }
-    }
-  }
-
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(argv[0], nlevels, -1);
-
-  if (ng > 0) free(kg);
-  if (ngp > 0) free(kgp);
-  
-  return 0;
+  return SolveStructure(argv[0], ng, kg, ngp, kgp, ip);
 }
 
 static int PSetUTA(int argc, char *argv[], int argt[], 
@@ -4005,7 +3971,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Init(&argc, &argv);
 #endif
 
@@ -4037,7 +4003,7 @@ int main(int argc, char *argv[]) {
   pmalloc_check();
 #endif
 
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Finalize();
 #endif
 

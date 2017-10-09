@@ -160,6 +160,8 @@
 
 /* nucleus */
 #define N_ELEMENTS 109
+#define NISO 58
+#define NFERMI 5001
 
 /* radial QK modes */
 #define QK_DEFAULT    -1
@@ -183,6 +185,8 @@
 #define GRIDASYMP  36    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
 #define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
+#define GRIDRMINN0  1E-4  /* starting point relative to nucleus radius */
+#define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
 #define ENERELERR  1E-5  /* relative energy error */
 #define ENEABSERR  1E-8  /* absolute energy error */
 
@@ -206,7 +210,7 @@
 #define POTHXS             0.65
 #define QEDSE              5
 #define QEDMSE             1
-#define QEDVP              2
+#define QEDVP              3
 #define QEDNMS             1
 #define QEDSMS             1
 #define QEDBREIT           -1

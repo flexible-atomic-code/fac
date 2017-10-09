@@ -146,12 +146,16 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
   n = BFileRead(&p->rb, sizeof(double), 1, f);
   n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->rad, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->Vc, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dVc, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dVc2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dVE, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dVE2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->U, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dU, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dU2, sizeof(double), p->maxrp, f);
@@ -161,11 +165,16 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->uehling, sizeof(double), p->maxrp, f);
   for (i = p->maxrp; i < MAXRP; i++) {
     p->Z[i] = 0;
+    p->dZ[i] = 0;
+    p->dZ2[i] = 0;
     p->rad[i] = 0;
     p->dr_drho[i] = 0;
     p->dr_drho2[i] = 0;
     p->Vc[i] = 0;
     p->dVc[i] = 0;
+    p->dVc2[i] = 0;
+    p->dVE[i] = 0;
+    p->dVE2[i] = 0;
     p->U[i] = 0;
     p->dU[i] = 0;
     p->dU2[i] = 0;
@@ -174,6 +183,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
     p->dW2[i] = 0;
     p->uehling[i] = 0;
   }
+  p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
   return 0;
@@ -211,12 +221,16 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->bqp, sizeof(double), 1, f);
   n = fwrite(&p->rb, sizeof(double), 1, f);
   n = fwrite(p->Z, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZ, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZ2, sizeof(double), p->maxrp, f);
   n = fwrite(p->rad, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
   n = fwrite(p->Vc, sizeof(double), p->maxrp, f);
   n = fwrite(p->dVc, sizeof(double), p->maxrp, f);
   n = fwrite(p->dVc2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dVE, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dVE2, sizeof(double), p->maxrp, f);
   n = fwrite(p->U, sizeof(double), p->maxrp, f);
   n = fwrite(p->dU, sizeof(double), p->maxrp, f);
   n = fwrite(p->dU2, sizeof(double), p->maxrp, f);
@@ -649,7 +663,6 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
   
   if (potential->N < 1+EPS3) return -1;  
   md = potential->mode % 10;
-
   w0 = _dwork13;
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = 0.0;
@@ -790,12 +803,24 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
     }
   }
 
+  double rn = GetAtomicR();
   if (potential->hxs + 1.0 != 1.0) {
     for (m = 0; m <= jmax; m++) {
       a = w[m]*potential->rad[m];
+      if (potential->rad[m] < 10*rn) {
+	a *= 1 - exp(-potential->rad[m]/rn);
+      }
       a = -(potential->hxs * 0.64 * pow(a, 1.0/3.0));
       u[m] += a;
       if (v) v[m] += a;
+    }
+  }
+  
+  jm = 0;
+  for (j = 0; j < potential->maxrp; j++) {
+    if (u[j] > potential->Z[j]) {
+      u[j] = potential->Z[j];
+      jm = j;
     }
   }
 
@@ -828,14 +853,14 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
 
 double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   int jmax, i, j, k;
-  double *u, *w, *v, a, b, c, r;
+  double *u, *w, *v, a, b, c, r, rn;
 
   u = potential->U;
   w = potential->W;
   v = _dwork2;
 
   jmax = PotentialHX(acfg, u, NULL, w);
-
+  rn = GetAtomicR()*2;
   if (jmax > 0) {
     if (iter < 3) {
       r = 1.0;
@@ -848,7 +873,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       a = optimize_control.stabilizer;
       b = 1.0 - a;
       for (j = 0; j < potential->maxrp; j++) {
-	if (u[j] + 1.0 != 1.0) {
+	if (u[j] + 1.0 != 1.0 && potential->rad[j] > rn) {
 	  r += fabs(1.0 - v[j]/u[j]);
 	  k++;
 	}
@@ -879,7 +904,11 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       c = acfg->n[i];
       c = r/(c*c);
       for (j = 0; j < potential->maxrp; j++) {
-	u[j] += a*b*(1.0 - exp(-c*potential->rad[j]));
+	if (potential->rad[j] < 0.1*potential->atom->rn) {
+	  u[j] = 0.0;
+	} else {
+	  u[j] += a*b*(1.0 - exp(-c*potential->rad[j]));
+	}
       }
     }
     AdjustScreeningParams(u);
@@ -1032,7 +1061,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       if (tol < b) tol = b;
     }
     if (optimize_control.iprint) {
-      printf("%4d %13.5E %13.5E\n", iter, tol, a);
+      printf("optimize loop: %4d %13.5E %13.5E\n", iter, tol, a);
     }
     if (tol < a) tol = a;
     iter++;
@@ -1103,7 +1132,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     im = 1;
   }
 
-  SetPotentialZ(potential, 0.0);
+  SetPotentialZ(potential, qed.vp);
   z = potential->Z[potential->maxrp-1];
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
@@ -1196,10 +1225,11 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     iter = OptimizeLoop(acfg);
   }
 
+  /*
   if (potential->uehling[0] == 0.0) {
     SetPotentialUehling(potential, qed.vp);
   }
-
+  */
   return iter;
 }      
 #undef NXS
@@ -3469,7 +3499,7 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
 
   for (i = 0; i < potential->maxrp; i++) {
     r = potential->rad[i];
-    _yk[i] = potential->dVc2[i] + 2*potential->dVc[i]/r;
+    _yk[i] = potential->dVE2[i] + 2*potential->dVE[i]/r;
   }
   npts = potential->maxrp;  
   p = _xk;
@@ -3478,16 +3508,21 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
   e = RadialDiracCoulomb(npts, p, q, potential->rad, z, 
 			 orb->n, orb->kappa);
   large = Large(orb);
-  small = Small(orb);  
+  small = Small(orb);
+  r = 3*potential->atom->rn;
   for (i = 0; i < npts; i++) {
-    p[i] = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
-    p[i] *= _yk[i];
-    q[i] = (large[i]*large[i] + small[i]*small[i])*potential->dr_drho[i];
-    q[i] *= _yk[i];
+    _dwork11[i] = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
+    _dwork11[i] *= _yk[i];
+    if (potential->rad[i] < r) {
+      _dwork12[i] = _dwork11[i];
+    } else {
+      _dwork12[i] = (large[i]*large[i] + small[i]*small[i]);
+      _dwork12[i] *= _yk[i]*potential->dr_drho[i];
+    }
   }
-  a = Simpson(p, 0, npts-1);
-  b = Simpson(q, 0, npts-1);
-
+  a = Simpson(_dwork11, 0, npts-1);
+  b = Simpson(_dwork12, 0, npts-1);
+  if (fabs(a) < 1e-30) return 1.0;
   return b/a;
 }
 
@@ -3496,7 +3531,7 @@ double SelfEnergyRatio(ORBITAL *orb) {
   int i, npts;
   double *p, *q, e, z;
   double *large, *small;
-  double a, b;
+  double a, b, r;
   
   if (orb->wfun == NULL) return 1.0;
 
@@ -3513,14 +3548,20 @@ double SelfEnergyRatio(ORBITAL *orb) {
 			 orb->n, orb->kappa);
   large = Large(orb);
   small = Small(orb);  
-  for (i = 0; i < npts; i++) {
+  r = 3*potential->atom->rn;
+  for (i = 0; i < npts; i++) {    
     p[i] = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
     p[i] *= potential->uehling[i];
-    q[i] = (large[i]*large[i] + small[i]*small[i])*potential->dr_drho[i];
-    q[i] *= potential->uehling[i];
+    if (potential->rad[i] < r) {
+      q[i] = p[i];
+    } else {
+      q[i] = (large[i]*large[i] + small[i]*small[i])*potential->dr_drho[i];
+      q[i] *= potential->uehling[i];
+    }
   }
   a = Simpson(p, 0, npts-1);
   b = Simpson(q, 0, npts-1);
+  if (fabs(a) < 1e-30) return 1.0;
   return b/a;
 }
 
@@ -3580,11 +3621,13 @@ double QED1E(int k0, int k1) {
     r += a;
   }
 
+  /*
   if (qed.vp > 0) {
     a = 0.0;
     Integrate(potential->uehling, orb1, orb2, 1, &a, 0);
     r += a;
   }
+  */
 
   if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
     if (potential->ib <= 0 || orb1->n <= potential->nb) {
@@ -5696,7 +5739,7 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
 #endif
@@ -5711,6 +5754,7 @@ int InitRadial(void) {
   potential->flag = 0;
   potential->uehling[0] = 0.0;
   potential->rb = 0;
+  potential->atom = GetAtomicNucleus();
   SetBoundary(0, 1.0, -1.0);
 
   n_orbitals = 0;

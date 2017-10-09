@@ -41,6 +41,7 @@ typedef struct _BFILE_ {
   int nr, mr, eof;
 } BFILE;
 
+int SkipMPI(int *wid, int myrank, int nproc);
 void MPISeqBeg();
 void MPISeqEnd();
 void MPrintf(int ir, char *format, ...);

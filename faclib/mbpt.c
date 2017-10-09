@@ -54,7 +54,7 @@ void InitMBPT(void) {
   mbpt_tr.nup = 0;
   mbpt_tr.low = NULL;
   mbpt_tr.up = NULL;
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
 #endif
@@ -897,7 +897,7 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
       }
     }
   }
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (mpi.nproc > 1) {
     ncc1 = 0;
     for (p = 0; p < ccfg.dim; p++) {
@@ -2208,18 +2208,6 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
   H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
 	  s, ph, ks1, ks2, fm, a, i);
 }
-
-int CheckSkipMPI() {
-  int r = 0;
-  if (mpi.nproc > 1) {
-    if (mpi.wid != mpi.myrank) {
-      r = 1;
-    }
-    mpi.wid++;
-    if (mpi.wid >= mpi.nproc) mpi.wid = 0;
-  }
-  return r;
-}   
     
 void DeltaH22M2(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
@@ -2264,7 +2252,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	    fm.j1 = -1;
 	    fm.j2 = -1;
 	    for (m1 = 0; m1 < mpi.nj; m1++) {
-	      if (CheckSkipMPI()) continue;
+	      if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	      for (im = mpi.jp[m1]; im < mpi.jp[m1+1]; im++) {
 		ik = im;
 		o = GetOrbital(ib1->d[im]);
@@ -2290,7 +2278,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	  fm.j2 = -1;
 	  for (m1 = 0; m1 < mpi.nj; m1++) {
 	    for (m2 = 0; m2 <= m1; m2++) {
-	      if (CheckSkipMPI()) continue;
+	      if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	      for (im = mpi.jp[m1]; im < mpi.jp[m1+1]; im++) {
 		o = GetOrbital(ib1->d[im]);
 		ket[0].n = o->n;
@@ -2375,7 +2363,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	      if (ph < 0) continue;
 	      fm.j1 = -1;
 	      for (ij = 0; ij < mpi.nj; ij++) {
-		if (CheckSkipMPI()) continue;
+		if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 		for (ip = mpi.jp[ij]; ip < mpi.jp[ij+1]; ip++) {
 		  o[1] = GetOrbital(ib1->d[ip]);
 		  ket[0].n = o[1]->n;
@@ -2615,7 +2603,7 @@ void DeltaH12M1(void *mptr, int ns,
 	  if (ph < 0) continue;
 	  fm.j1 = -1;
 	  for (ij = 0; ij < mpi.nj; ij++) {
-	    if (CheckSkipMPI()) continue;
+	    if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	    for (ik = mpi.jp[ij]; ik < mpi.jp[ij+1]; ik++) {
 	      o[1] = GetOrbital(ib1->d[ik]);
 	      ket[0].n = o[1]->n;
@@ -2828,7 +2816,7 @@ void DeltaH11M1(void *mptr, int ns,
       if (ph < 0) continue;
       fm.j1 = -1;
       for (ij = 0; ij < mpi.nj; ij++) {
-	if (CheckSkipMPI()) continue;
+	if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	for (ik = mpi.jp[ij]; ik < mpi.jp[ij+1]; ik++) {
 	  o1 = GetOrbital(ib1->d[ik]);
 	  ket[0].n = o1->n;
@@ -3532,7 +3520,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	continue;
       }
       heff = meff[isym]->heff;      
-#ifdef USE_MPI
+#if USE_MPI == 1
       if (mpi.nproc > 1) {
 	for (i = 0; i < meff[isym]->hsize; i++) {
 	  if (meff[isym]->hab1[i] != NULL) {
@@ -3655,7 +3643,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       fflush(stdout);
     }
   }
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
   if (mbpt_tr.mktr > 0) {
@@ -3771,7 +3759,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	mst = mtr[j].sym0->n_states * mtr[j].sym1[m]->n_states;
 	mst *= n * mbpt_tr.naw;	
 	if (mst > 0) {
-#ifdef USE_MPI
+#if USE_MPI == 1
 	  if (mpi.nproc > 1) {
 	    MPI_Allreduce(MPI_IN_PLACE, mtr[j].tma[m], mst,
 			  MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

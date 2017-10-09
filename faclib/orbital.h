@@ -33,6 +33,7 @@ typedef struct _POTENTIAL_ {
   int nmax;
   double hxs, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
+  double dZ[MAXRP], dZ2[MAXRP];
   double N; /*number of electrons*/
   double lambda, a; /* parameter for the Vc */
   double ar, br; /* parameter for the transformation */
@@ -44,6 +45,8 @@ typedef struct _POTENTIAL_ {
   double Vc[MAXRP];
   double dVc[MAXRP];
   double dVc2[MAXRP];
+  double dVE[MAXRP];
+  double dVE2[MAXRP];
   double U[MAXRP];
   double dU[MAXRP];
   double dU2[MAXRP];
@@ -51,6 +54,7 @@ typedef struct _POTENTIAL_ {
   double dW[MAXRP];
   double dW2[MAXRP];
   double uehling[MAXRP];
+  NUCLEUS *atom;
 } POTENTIAL;
 
 typedef struct _ORBITAL_ {
@@ -78,7 +82,7 @@ double InnerProduct(int i1, int n,
 void Differential(double *p, double *dp, int i1, int i2);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double r0);
-int SetPotentialZ(POTENTIAL *pot, double c);
+int SetPotentialZ(POTENTIAL *pot, int vp);
 int SetPotentialUehling(POTENTIAL *pot, int vp);
 int SetPotentialVc(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);

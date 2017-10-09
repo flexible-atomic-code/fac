@@ -19,8 +19,24 @@
 #include "mpiutil.h"
 #include "stdarg.h"
 
-void MPISeqBeg() {
+int SkipMPI(int *wid, int myrank, int nproc) {
 #ifdef USE_MPI
+  int r = 0;
+  if (nproc > 1) {
+    if (*wid != myrank) {
+      r = 1;
+    }
+    *wid = *wid + 1;
+    if (*wid >= nproc) *wid = 0;
+  }
+  return r;
+#else
+  return 0;
+#endif
+}
+  
+void MPISeqBeg() {
+#if USE_MPI == 1
   if (MPIReady()) {
     int myrank;
     int k;
@@ -39,7 +55,7 @@ void MPISeqBeg() {
 }
 
 void MPISeqEnd() {
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (MPIReady()) {
     int myrank;
     int nproc;
@@ -57,7 +73,7 @@ void MPrintf(int ir, char *format, ...) {
   va_list args;
 
   va_start(args, format);
-#ifdef USE_MPI  
+#if USE_MPI == 1
   if (MPIReady()) {
     int myrank;
     int nproc;
@@ -85,7 +101,7 @@ void MPrintf(int ir, char *format, ...) {
 
 int MPIRank(int *np) {
   int k;
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (MPIReady()) {
     MPI_Comm_rank(MPI_COMM_WORLD, &k);
     if (np) {
@@ -95,16 +111,18 @@ int MPIRank(int *np) {
     k = 0;
     if (np) *np = 1;
   }
+#elif USE_MPI == 2
+  k = omp_get_thread_num();
+  if (np) *np = omp_get_num_threads();
 #else
   k = 0;
   if (np) *np = 1;
 #endif
-
   return k;
 }
 
 int MPIReady() {
-#ifdef USE_MPI
+#if USE_MPI == 1
   int k;
   MPI_Initialized(&k);
   return k;
@@ -114,7 +132,7 @@ int MPIReady() {
 }
 
 void Abort(int r) {
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Abort(MPI_COMM_WORLD, r);
 #else
   exit(r);
@@ -139,7 +157,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
     }
     return bf;
   }
-#ifdef USE_MPI
+#if USE_MPI == 1
   bf->mr = MPIRank(&bf->nr);
   if (bf->mr == 0) {
     bf->f = fopen(fn, md);
@@ -176,7 +194,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
 
 int BFileClose(BFILE *bf) {
   int r = 0;
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (bf == NULL) return 0;
   if (bf->nr <= 1) {
     r = fclose(bf->f);
@@ -195,7 +213,7 @@ int BFileClose(BFILE *bf) {
 }
 
 size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (bf->nr <= 1) {
     return fread(ptr, size, nmemb, bf->f);
   }
@@ -254,7 +272,7 @@ size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
 }
 
 char *BFileGetLine(char *s, int size1, BFILE *bf) {
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (bf->nr <= 1) {
     return fgets(s, size1, bf->f);
   }
@@ -289,7 +307,7 @@ char *BFileGetLine(char *s, int size1, BFILE *bf) {
 }
 
 void BFileRewind(BFILE *bf) {
-#ifdef USE_MPI
+#if USE_MPI == 1
   if (bf->nr <= 1) {
     rewind(bf->f);
     return;

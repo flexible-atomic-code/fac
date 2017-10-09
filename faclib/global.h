@@ -38,8 +38,10 @@
 
 #include "sysdef.h"
 
-#ifdef USE_MPI
+#if USE_MPI == 1
 #include <mpi.h>
+#elif USE_MPI == 2
+#include <omp.h>
 #endif
 
 /* define constants */

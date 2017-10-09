@@ -22,6 +22,7 @@
 
 #include "init.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -970,7 +971,7 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
-  double z, mass, rn;
+  double z, mass, rn, a;
 
   if (sfac_file) {
     SFACStatement("SetAtom", args, NULL);
@@ -981,8 +982,9 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   mass = 0.0;
   z = 0.0;
   rn = -1.0;
-  if (!PyArg_ParseTuple(args, "s|ddd", &s, &z, &mass, &rn)) return NULL;
-  if (SetAtom(s, z, mass, rn) < 0) return NULL;
+  a = -1.0;
+  if (!PyArg_ParseTuple(args, "s|dddd", &s, &z, &mass, &rn, &a)) return NULL;
+  if (SetAtom(s, z, mass, rn, a) < 0) return NULL;
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1148,8 +1150,8 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PStructure(PyObject *self, PyObject *args) {
-  int i, k, ng0, ng, ns;
-  int nlevels, ip;
+  int ng0, ng, i;
+  int ip;
   int ngp;
   int *kg, *kgp;
   char *fn;
@@ -1195,44 +1197,11 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     if (ng < 0) return NULL;
   }
 
-  if (ngp < 0) return NULL;
-  
-  ng0 = ng;
-  if (!ip) {
-    if (ngp) {
-      ng += ngp;
-      kg = (int *) realloc(kg, sizeof(int)*ng);
-      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-      free(kgp);
-      kgp = NULL;
-      ngp = 0;
-    }
-  }
-  
-  nlevels = GetNumLevels();
-  if (IsUTA()) {
-    AddToLevels(ng0, kg);
-  } else {
-    ns = MAX_SYMMETRIES;
-    for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
-      if (k < 0) continue;
-      if (DiagnolizeHamilton() < 0) {
-	onError("Diagnolizing Hamiltonian Error");
-	return NULL;
-      }
-      if (ng0 < ng) {
-	AddToLevels(ng0, kg);
-      } else {
-	AddToLevels(0, kg);
-      }
-    }
+  if (SolveStructure(fn, ng, kg, ngp, kgp, ip) < 0) {
+    onError("Diagnolizing Hamiltonian Error");
+    return NULL;
   }
 
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(fn, nlevels, -1);
-  if (ng > 0) free(kg);
-  if (ngp > 0) free(kgp);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4130,7 +4099,7 @@ static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "ddid|i", &z, &e, &k, &r, &ierr)) return NULL;
   if (ierr < 0) {
     e = RadialDiracCoulomb(1, &p, &q, &r, z, (int)e, k);
-    return Py_BuildValue("(ddd)", p, q, e);
+    return Py_BuildValue("(ddd)", p, q, e*HARTREE_EV);
   } else {
     e /= HARTREE_EV;
     DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
@@ -5008,6 +4977,19 @@ static PyObject *PPrintQED(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PPrintNucleus(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrintNucleus", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  PrintNucleus();
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
   
 static PyObject *PBreitX(PyObject *self, PyObject *args) {
   double e;
@@ -5291,6 +5273,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CoulMultipole", PCoulMultip, METH_VARARGS},
   {"BreitX", PBreitX, METH_VARARGS},
   {"PrintQED", PPrintQED, METH_VARARGS},
+  {"PrintNucleus", PPrintNucleus, METH_VARARGS},
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
@@ -5304,7 +5287,7 @@ void initfac(void) {
   char sp[2];
   char *ename;
   double *emass;
-  int i;
+  int i, myrank, nproc;
 
   m = Py_InitModule("fac", fac_methods);
   
@@ -5363,6 +5346,10 @@ void initfac(void) {
   PyDict_SetItemString(d, "ATOMICMASS", ATOMICMASS);
   PyDict_SetItemString(d, "QKMODE", QKMODE);
 
+  myrank = MPIRank(&nproc);
+  PyDict_SetItemString(d, "MPIRANK", Py_BuildValue("i", myrank));
+  PyDict_SetItemString(d, "MPISIZE", Py_BuildValue("i", nproc));
+  
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");
 }

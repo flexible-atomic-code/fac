@@ -59,6 +59,7 @@ int InitFac(void) {
     return ierr;
   }
 
+  InitNucleus();
   InitCoulomb();
   InitAngular();
   InitRecouple();

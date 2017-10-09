@@ -17,6 +17,7 @@
  */
 
 #include "coulomb.h"
+#include "interpolation.h"
 #include "cf77.h"
 
 /*************************************************************
@@ -252,7 +253,6 @@ double HydrogenicSelfEnergy(double z, int n, int k) {
   c = c*c*c*c;
   c /= PI*n*n*n*FINE_STRUCTURE_CONST;
   r *= c;
-  
   return r;
 }
 

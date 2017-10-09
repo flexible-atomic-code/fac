@@ -1444,6 +1444,7 @@ int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc) {
   } else {
     return k1*100+k2;
   }
+  return 0;
 }
 
 int SetAbund(int nele, double abund) {

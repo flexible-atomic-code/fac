@@ -20,12 +20,19 @@
 
 #include "structure.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+static struct {
+  int myrank;
+  int nproc;
+  int wid;
+} mpi = {0, 1, 0};
 
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 #define debug_integral(s, ne, r) \
@@ -528,7 +535,7 @@ int ConstructHamiltonEB(int n, int *ilev) {
 }
 
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md) {
-  int i, j, j0, t, jp, m1, m2, m3;
+  int i, j, j0, t, ti, jp, m1, m2, m3;
   HAMILTON *h;
   SHAMILTON *hs;
   ARRAY *st;
@@ -604,18 +611,30 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
     }
   }
   if (m2) {
-    for (j = 0; j < h->dim; j++) {
-      t = j*(j+1)/2;
-      for (i = 0; i <= j; i++) {
-	r = HamiltonElement(isym, h->basis[i], h->basis[j]);
-	h->hamilton[i+t] = r;
+    for (j = 0; j < h->hsize; j++) {
+      h->hamilton[j] = 0;
+    }
+#pragma omp parallel default(shared) private(mpi)
+    {
+      mpi.myrank = MPIRank(&mpi.nproc);
+      mpi.wid = 0;
+      for (j = 0; j < h->dim; j++) {
+	t = j*(j+1)/2;
+	for (i = 0; i <= j; i++) {
+	  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
+	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	  h->hamilton[i+t] = r;
+	}
       }
-    } 
-    
+    }
     if (jp > 0) {
       t = ((h->dim+1)*(h->dim))/2;
       for (i = 0; i < h->dim; i++) {
 	for (j = h->dim; j < h->n_basis; j++) {
+	  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) {
+	    t++;
+	    continue;
+	  }
 	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  h->hamilton[t++] = r;
 	}
@@ -623,12 +642,20 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
 	ReinitRadial(1);
       }
       for (j = h->dim; j < h->n_basis; j++) {
+	if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) {
+	  t++;
+	  continue;
+	}
 	r = HamiltonElement(isym, h->basis[j], h->basis[j]);
 	h->hamilton[t++] = r;
       }
       ReinitRecouple(0);
       ReinitRadial(1);
     }
+#if USE_MPI == 1
+    MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
+		  MPI_SUM, MPI_COMM_WORLD);    
+#endif
   }
   if (m3) {
     if (nhams >= MAX_HAMS) {
@@ -1809,6 +1836,7 @@ int DiagnolizeHamilton(void) {
   start = clock();
 #endif
 
+  if (mpi.myrank != 0) return 0;
   h = &_ham;
   n = h->dim;
   m = h->n_basis;
@@ -1930,7 +1958,8 @@ int AddToLevels(int ng, int *kg) {
   CONFIG_GROUP *g;
   int g0, p0;
   double *mix, a;
-  
+
+  if (mpi.myrank != 0) return 0;
   if (IsUTA()) {
     m = n_levels;
     lev.n_basis = 0;
@@ -2335,6 +2364,7 @@ int SortLevels(int start, int n, int m) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
 
+  if (mpi.myrank != 0) return 0;
   if (m == 0) {
     if (n < 0) n = n_levels-start;
   } else {
@@ -2404,6 +2434,48 @@ int SortLevels(int start, int n, int m) {
       n = j0;
     }
   }
+  return 0;
+}
+
+int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
+  int ng0, nlevels, ns, k, i;
+  
+  if (ngp < 0) return 0;  
+  ng0 = ng;
+  if (!ip) {
+    if (ngp) {
+      ng += ngp;
+      kg = (int *) realloc(kg, sizeof(int)*ng);
+      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+      free(kgp);
+      kgp = NULL;
+      ngp = 0;
+    }
+  }
+
+  nlevels = GetNumLevels();
+  if (IsUTA()) {
+    AddToLevels(ng0, kg);
+  } else {
+    ns = MAX_SYMMETRIES;
+    for (i = 0; i < ns; i++) {
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
+      if (k < 0) continue;
+      if (DiagnolizeHamilton() < 0) {
+	return -1;
+      }
+      if (ng0 < ng) {
+	AddToLevels(ng0, kg);
+      } else {
+	AddToLevels(0, kg);
+      }
+    }
+  }
+
+  SortLevels(nlevels, -1, 0);
+  SaveLevels(fn, nlevels, -1);
+  if (ng > 0) free(kg);
+  if (ngp > 0) free(kgp);
   return 0;
 }
 
@@ -2497,6 +2569,7 @@ int SaveLevels(char *fn, int m, int n) {
   RAD_TIMING radt;
 #endif
 
+  if (mpi.myrank != 0) return 0;
   f = NULL;
   nele0 = -1;
   n0 = m;
@@ -4718,6 +4791,11 @@ int InitStructure(void) {
   ncorrections = 0;
 
   AllocHamMem(1000, 1000);
+  
+#if USE_MPI == 1
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
+#endif
   return 0;
 }
 

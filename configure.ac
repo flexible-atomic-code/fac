@@ -178,37 +178,38 @@ fi
 
 if test "x$use_mpi" != "x"
 then
-  AC_DEFINE_UNQUOTED([USE_MPI])
-  if test "x$mpicompile" = "x"
-  then 
-    case "$use_mpi" in
-      lam*)
+  case "$use_mpi" in
+    *mpi|1)
+      if test "x$mpicompile" = "x"
+      then 
         mpicompile=`mpicc -showme`
-	mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
+        mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
 	mpicompile=[`echo $mpicompile | sed 's/^[^ ]* *//'`]
 	mpicompile=[`echo $mpicompile | sed 's/-[Ll][^ ]*//g'`]
 	mpicompile=[`echo $mpicompile | sed 's/ *$//'`]
-      ;;
-      *)
-	echo "Supply MPI compile flags using --with-mpicompile"
-      ;;
-    esac
-  fi
-  if test "x$mpilink" = "x"
-  then 
-    case "$use_mpi" in
-      lam*)
+      fi
+      if test "x$mpilink" = "x"
+      then
         mpilink=`mpicc -showme`
 	mpilink=[`echo $mpilink | sed 's/^ *//'`]
 	mpilink=[`echo $mpilink | sed 's/^[^ ]* *//'`]
 	mpilink=[`echo $mpilink | sed 's/-[^Ll][^ ]*//g'`]
 	mpilink=[`echo $mpilink | sed 's/ *$//'`]
-      ;;
-      *)
-	echo "Supply MPI link flags using --with-mpilink"
-      ;;
-    esac
-  fi
+      fi
+      AC_DEFINE_UNQUOTED([USE_MPI])
+    ;;
+    omp|2)
+      if test "x$mpicompile" = "x"
+      then 
+  	mpicompile=-fopenmp
+      fi
+      AC_DEFINE_UNQUOTED([USE_MPI], [2])
+    ;;
+    *)
+      AC_DEFINE_UNQUOTED([USE_MPI])
+    ;;
+  esac
+  
   CPPFLAGS="$CPPFLAGS $mpicompile"
   LIBS="$LIBS $mpilink"
 fi
