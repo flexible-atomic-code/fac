@@ -92,7 +92,8 @@ static struct {
   int br;
   int mbr;
   int nbr;
-} qed = {QEDSE, QEDMSE, 0, QEDVP, QEDNMS, QEDSMS, QEDBREIT, QEDMBREIT, -1};
+} qed = {QEDSE, QEDMSE, 0, QEDVP, QEDNMS, QEDSMS,
+	 QEDBREIT, QEDMBREIT, QEDNBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
  
@@ -3473,7 +3474,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
-	if (qed.nbr > 0 && maxn > qed.nbr) mbr = 0;
+	if (qed.nbr > 0 && (maxn <= 0 || maxn > qed.nbr)) mbr = 0;
 	d += Breit(k0, k1, k2, k3, kk,
 		   orb0->kappa, orb1->kappa, orb2->kappa, orb3->kappa,
 		   kl0, kl1, kl2, kl3, mbr);
@@ -3518,7 +3519,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
-	if (qed.nbr > 0 && maxn > qed.nbr) mbr = 0;
+	if (qed.nbr > 0 && (maxn <= 0 || maxn > qed.nbr)) mbr = 0;
 	e += Breit(k0, k1, k3, k2, t/2,
 		   orb0->kappa, orb1->kappa, orb3->kappa, orb2->kappa,
 		   kl0, kl1, kl3, kl2, mbr);

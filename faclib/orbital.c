@@ -31,6 +31,7 @@ static double ABAND[4*MAXRP];
 static double _dwork[MAXRP];
 static double _dwork1[MAXRP];
 static double _dwork2[MAXRP];
+static double _dwork3[MAXRP];
  
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
@@ -524,7 +525,7 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
 
 int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   double z, z0, e, de, ep, delta, emin, emax;
-  double *p, norm2, fact, p1, p2, qo, qi, bqp;
+  double *p, norm2, fact, p1, p2, qo, qi, bqp, bqp0;
   int i, k, kl, nr, nodes, niter;
   int i2, i2m1, i2m2, i2p1, i2p2, i1;
   
@@ -675,7 +676,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 	i2m2 = i2 - 2;
 	i2p1 = i2 + 1;
 	i2p2 = i2 + 2;      
-	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+	bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+	nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
 	for (k = i2m2-1; k <= i2p2; k++) {
 	  p[k] *= pot->dr_drho2[k];
 	  p1 = e - pot->Vc[k] - pot->U[k];
@@ -715,8 +717,9 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 	p1 = 0.5*(pot->dr_drho2[i1+1] - pot->dr_drho2[i1-1]);
 	p1 /= pot->dr_drho2[i1];
 	p2 -= p1;
-	i2p2 = i2 + 2;
-	nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+	i2p2 = i2 + 2;      
+	bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+	nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
 	for (i = 0; i <= i2p2; i++) {
 	  p[i] *= pot->dr_drho2[i];
 	}
@@ -759,8 +762,9 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       return -7;
     }
 
-    if (i2 == pot->ib) {
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+    if (i2 == pot->ib) {      
+      bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
       for (i = 0; i <= i2p2; i++) {
 	p[i] = p[i] * pot->dr_drho2[i];
       }      
@@ -790,8 +794,9 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
       i2 = TurningPoints(orb->n, e, pot);
-      i2p2 = i2 + 2;
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+      i2p2 = i2 + 2;      
+      bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
       for (i = 0; i <= i2p2; i++) {
 	p[i] = p[i] * pot->dr_drho2[i];
       }
@@ -854,8 +859,9 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     p2 = 0.0;
     while (niter < max_iteration) {
       SetPotentialW(pot, e, orb->kappa);
-      SetVEffective(kl, pot);
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
+      SetVEffective(kl, pot);      
+      bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2, 1.0, 2);
       for (i = 0; i <= i2; i++) {
 	p[i] = p[i] * pot->dr_drho2[i];
       }
@@ -874,8 +880,9 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot);
     i2 = pot->ib;
-    i2p2 = i2 + 2;
-    IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+    i2p2 = i2 + 2;      
+    bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+    IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
@@ -993,8 +1000,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     if (i2 < 0) {
       nodes = -1;
     } else {
-      //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
-      nodes = IntegrateRadial(p, e, pot, 0, 0, i2, 1.0, 0);
+      bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp, i2, 1.0, 2);
     }
     if (nodes == nr) break;
     else if (nodes > nr) {
@@ -1020,8 +1027,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
       i2 = TurningPoints(orb->n, e, pot);
-      //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
-      nodes = IntegrateRadial(p, e, pot, 0, 0, i2, 1.0, 0);
+      bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp, i2, 1.0, 2);
     }
     e -= de;
     nodes = nr;
@@ -1035,8 +1042,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     SetVEffective(kl, pot);
     i2 = TurningPoints(orb->n, e, pot);
     i2p2 = i2 + 2;
-    //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
-    nodes = IntegrateRadial(p, e, pot, 0, 0, i2p2, 1.0, 0); 
+    bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+    nodes = IntegrateRadial(p, e, pot, 0, bqp, i2p2, 1.0, 2); 
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
@@ -1128,7 +1135,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   double x0, pp, qq, ppi, qqi;
   int i2, i2p, i2m, i2p2, i2m2, nodes, nr;
   double qo, qi, norm2, delta, zp, *p;
-  double ep, p1, p2, fact;
+  double ep, p1, p2, fact, bqp;
   double en[ME], dq[ME], dn, zero=0.0;
   int j, np, nme, one=1;
 
@@ -1161,7 +1168,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 	return -2;
       }
       i2p2 = i2 + 2;
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+      nodes = IntegrateRadial(p, e, pot, 0, 0, i2p2, 1.0, 0);
       if (nodes != nr) {
 	e += 0.5*(nr-nodes)*dn;
       } else {
@@ -1192,7 +1199,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 	return -2;
       }
       i2p2 = i2 + 2;
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+      bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp, i2p2, 1.0, 2);
       for (i = 0; i <= i2p2; i++) {
 	p[i] = p[i] * pot->dr_drho2[i];
       }
@@ -1265,7 +1273,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       en[j] = e;
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+      bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, bqp, i2p2, 1.0, 2);
       p2 = p[i2];
       qo = (-4.0*p[i2m2-1] + 30.0*p[i2m2] - 120.0*p[i2m]
 	    + 40.0*p[i2] + 60.0*p[i2p] - 6.0*p[i2p2])/120.0;
@@ -1293,7 +1302,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     np = 3;
     UVIP3P(np, nme, &(dq[i]), &(en[i]), one, &zero, &e);
     i2p2 = pot->maxrp-1;
-    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+    bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+    nodes = IntegrateRadial(p, e, pot, 0, bqp, i2p2, 1.0, 2);
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
@@ -1338,7 +1348,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
   int i, kl, nodes;
   int i2;
-  double *p, e;
+  double *p, e, bqp0;
 
   e = orb->energy;
   kl = orb->kappa;
@@ -1357,8 +1367,9 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
   SetVEffective(kl, pot);
 
   i2 = pot->ib1;
-  i2 = Max(i2,pot->ib) + 2;
-  nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
+  i2 = Max(i2,pot->ib) + 2;      
+  bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+  nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2, 1.0, 2);
   for (i = i2; i >= 0; i--) {
     p[i] *= pot->dr_drho2[i];
   }
@@ -1380,7 +1391,7 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
 int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   int i, kl, nodes;
   int i2, i2p, i2m, i2p2, i2m2;
-  double *p, po, qo, e, po1;
+  double *p, po, qo, e, po1, bqp0;
   double dfact, da, cs, si, phase0;
 
   e = orb->energy;
@@ -1404,8 +1415,9 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   i2p = i2 + 1;
   i2m2 = i2 - 2;
   i2p2 = i2 + 2;
-
-  nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+      
+  bqp0 = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+  nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
 
   for (i = i2p2; i >= 0; i--) {
     p[i] *= pot->dr_drho2[i];
@@ -1499,14 +1511,12 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
 	xi = e - pot->Vc[i] - pot->U[i];
 	xi = xi*FINE_STRUCTURE_CONST2*0.5;
 	_dwork[i] = 1.0 + xi;
-	_dwork1[i] = sqrt(_dwork[i])*p[i];    
+	p[i] = sqrt(_dwork[i])*p[i];	
+	_dwork3[i] = pow(pot->rad[i], kappa);
+	_dwork1[i] = p[i]*_dwork3[i];
 	_dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
       }
       for (i = i0; i < i1; i++) {
-	if (fabs(_dwork1[i]) < 1E-16) {
-	  p[i+pot->maxrp] = 0.0;
-	  continue;
-	} 
 	if (i == i0) {
 	  b = -50.0*_dwork1[i0];
 	  b += 96.0*_dwork1[i0+1];
@@ -1538,16 +1548,13 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
 	  b += 16.0*(_dwork1[i+1] - _dwork1[i-1]);
 	}
 	b *= _dwork2[i];
-	b += _dwork1[i]*kappa/pot->rad[i];
 	b /= (2.0*_dwork[i]);
-	p[i] = _dwork1[i];
-	p[i+pot->maxrp] = b*FINE_STRUCTURE_CONST;
+	b /= _dwork3[i];
+	q[i] = b*FINE_STRUCTURE_CONST;
       }
     }
   }
   if (orb->n != 0) {
-    p[i0] = p[i0+1]*p[i0+1]/p[i0+2];
-    q[i0] = q[i0+1]*q[i0+1]/q[i0+2];
     for (i = i1; i < pot->maxrp; i++) {
       p[i] = 0;
       p[i+pot->maxrp] = 0.0;
@@ -1598,8 +1605,8 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
     b += _dwork1[i]*kappa/pot->rad[i];
     a = _dwork1[i]/(p[i]*p[i]);
     p[i] = _dwork1[i];
-    p[i+pot->maxrp] = FINE_STRUCTURE_CONST*a/(2.0*_dwork[i]); 
-    p[i+1+pot->maxrp] = FINE_STRUCTURE_CONST*b/(2.0*_dwork[i]);
+    q[i] = FINE_STRUCTURE_CONST*a/(2.0*_dwork[i]);
+    q[i+1] = FINE_STRUCTURE_CONST*b/(2.0*_dwork[i]);
   }
 
   b = FINE_STRUCTURE_CONST2*orb->energy;
@@ -2406,6 +2413,7 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
       pot->ZVP[i] = v;
     }
   }
+  /*
   if (vp > 2) {
     c = 2*z0*z0*z0*pow(FINE_STRUCTURE_CONST, 7)/(225*PI);
     for (i = 0; i < pot->maxrp; i++) {
@@ -2414,6 +2422,7 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
       pot->ZVP[i] += c/(r*rp*rp);
     }
   }
+  */
   for (i = 0; i < pot->maxrp; i++) {
     pot->ZVP[i] = -pot->rad[i]*pot->ZVP[i];
   }
