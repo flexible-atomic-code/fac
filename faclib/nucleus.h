@@ -26,7 +26,7 @@ typedef struct _NUCLEUS_ {
   char symbol[5];
   double atomic_number;
   double mass;
-  double rn, z1;
+  double rn, z1, rms, rms0;
   double a, b, c;
   double rfermi[5];
 } NUCLEUS;
@@ -40,6 +40,7 @@ double GetAtomicMass(void);
 double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
+double GetAtomicChargeDist(double r);
 NUCLEUS *GetAtomicNucleus(void);
 
 #endif

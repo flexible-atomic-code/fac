@@ -1075,17 +1075,21 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
   if (mass > 0.0) {
     atom.mass = mass;
   }
+  atom.rms0 = 1e-5*(0.570 + 0.836*pow(atom.mass,0.3333333333))/RBOHR;
   if (rn < 0.0) {
     int iz = (int)(atom.atomic_number-1);
     int ia = 1 + ((int)(atom.mass)) - 2*(iz+1);
     if (ia >= 0 && ia < NISO) {
       atom.rn = _errms[iz][ia]*1e-5/RBOHR;
+      atom.rms = atom.rn;
     }
     if (atom.rn <= 0) {
       atom.rn = 1e-5*(0.570 + 0.836*pow(atom.mass,0.3333333333))/RBOHR;
+      atom.rms = atom.rn;
     }
   } else {
     atom.rn = rn;
+    atom.rms = rn;
   }
   if (a >= 0) {
     atom.a = a;
@@ -1164,6 +1168,26 @@ double GetAtomicNumber(void) {
 
 char *GetAtomicSymbol(void) {
   return atom.symbol;
+}
+
+double GetAtomicChargeDist(double r) {
+  double x;
+  double r3;
+  
+  if (atom.rn <= 0) return 0.0;
+  if (atom.a <= 0) {
+    if (r > atom.rn) return 0.0;
+    r3 = atom.rn;
+    r3 = r3*r3*r3;
+    return 3*atom.atomic_number/r3;
+  }
+
+  x = (r-atom.c)/atom.a;
+  if (x < -10) r3 = atom.b;
+  else if (x > 10) r3 = atom.b*exp(-x);
+  else r3 = atom.b/(1+exp(x));
+  r3 /= atom.a;
+  return r3;
 }
 
 double GetAtomicEffectiveZ(double r) {

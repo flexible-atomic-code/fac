@@ -45,15 +45,16 @@ typedef struct _POTENTIAL_ {
   double Vc[MAXRP];
   double dVc[MAXRP];
   double dVc2[MAXRP];
-  double dVE[MAXRP];
-  double dVE2[MAXRP];
+  double qdist[MAXRP];
   double U[MAXRP];
   double dU[MAXRP];
   double dU2[MAXRP];
   double W[MAXRP];
   double dW[MAXRP];
   double dW2[MAXRP];
-  double uehling[MAXRP];
+  double ZVP[MAXRP];
+  double dZVP[MAXRP];
+  double dZVP2[MAXRP];
   NUCLEUS *atom;
 } POTENTIAL;
 
@@ -64,7 +65,9 @@ typedef struct _ORBITAL_ {
   double qr_norm;
   double *phase;
   double *wfun;
-  int ilast;
+  double bqp0, bqp1;
+  int ilast, im;
+  struct _ORBITAL_ *horb;
 } ORBITAL;
 
 double *GetVEffective(void);

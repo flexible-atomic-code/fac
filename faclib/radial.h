@@ -57,14 +57,15 @@ void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
 void SetPotentialMode(int m, double h);
-void SetSE(int n, int m);
+void SetSE(int n, int m, int p);
 void SetVP(int n);
-void SetBreit(int n, int m);
+void SetBreit(int n, int m, int n0);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
 int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
+void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
 double GetResidualZ(void);
@@ -134,7 +135,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);
 double Breit(int k0, int k1, int k2, int k3, int k,
 	     int kp0, int kp1, int kp2, int kp3,
-	     int kl0, int kl1, int kl2, int kl3);
+	     int kl0, int kl1, int kl2, int kl3, int mbr);
 void SortSlaterKey(int *kd);
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 		int ib2, int iu2, int ib3, int iu3);

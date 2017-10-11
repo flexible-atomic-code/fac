@@ -724,7 +724,7 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetSE(PyObject *self, PyObject *args) {
-  int c, m;
+  int c, m, p;
 
   if (sfac_file) {
     SFACStatement("SetSE", args, NULL);
@@ -733,9 +733,10 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
   }
 
   m = -1;
-  if (!PyArg_ParseTuple(args, "i|i", &c, &m))
+  p = -1;
+  if (!PyArg_ParseTuple(args, "i|ii", &c, &m, &p))
     return NULL;
-  SetSE(c, m);
+  SetSE(c, m, p);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -757,7 +758,7 @@ static PyObject *PSetVP(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetBreit(PyObject *self, PyObject *args) {
-  int c, m;
+  int c, m, n;
 
   if (sfac_file) {
     SFACStatement("SetBreit", args, NULL);
@@ -766,9 +767,10 @@ static PyObject *PSetBreit(PyObject *self, PyObject *args) {
   }
 
   m = -1;
-  if (!PyArg_ParseTuple(args, "i|i", &c, &m))
+  n = -1;
+  if (!PyArg_ParseTuple(args, "i|ii", &c, &m, &n))
     return NULL;
-  SetBreit(c, m);
+  SetBreit(c, m, n);
   Py_INCREF(Py_None);
   return Py_None;
 }

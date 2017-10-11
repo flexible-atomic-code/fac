@@ -21,6 +21,14 @@
 
 #include "cfortran.h"
 
+     PROTOCCALLSFSUB5(MOHRFIN, mohrfin, INT, INT, DOUBLE, DOUBLE, DOUBLEV)
+#define MOHRFIN(A1,A2,A3,A4,A5)\
+     CCALLSFSUB5(MOHRFIN, mohrfin, INT, INT, DOUBLE, DOUBLE, DOUBLEV,\
+		 A1,A2,A3,A4,A5)
+		      
+     /* interpolation from TOMS */
+     PROTOCCALLSFSUB7(UVIP3P, uvip3p, INT, INT, DOUBLEV, DOUBLEV,\
+		      INT, DOUBLEV, DOUBLEV)
      /* interpolation from TOMS */
      PROTOCCALLSFSUB7(UVIP3P, uvip3p, INT, INT, DOUBLEV, DOUBLEV,\
 		      INT, DOUBLEV, DOUBLEV)

@@ -269,57 +269,56 @@ void Differential(double *p, double *dp, int i1, int i2) {
   }
 }    
 
-double StartQPRatio(POTENTIAL *p, int kappa, int kl, double e) {
-  double r, z1;
+double DpDr(int kappa, int i, double e, POTENTIAL *pot,
+	    double b, int m, double *bqp) {
+  double x2, dx, dr, pr, z0, kl;
 
-  z1 = p->atom->z1;
-  if (z1 > 0) {
-    if (kappa < 0) {
-      r = (e - 1.0/FINE_STRUCTURE_CONST2 + z1)/(2*kl+3.0);
-      r *= FINE_STRUCTURE_CONST;
-      r *= p->rad[0];
-    } else {
-      r = -(e-1.0/FINE_STRUCTURE_CONST2 + z1)/(2*kl+1.0);
-      r *= FINE_STRUCTURE_CONST;
-      r *= p->rad[0];
-      r = 1.0/r;      
-    }
-  } else {
-    double z0 = p->atom->atomic_number;
-    double k2 = kappa*kappa;
-    double z2 = z0*z0;
-    double g = sqrt(k2 - z2*FINE_STRUCTURE_CONST2);
-    r = z0*FINE_STRUCTURE_CONST/(kappa-g);
-  }
-  return r;
-}
-
-double DpDr(int kappa, int i1, double e, POTENTIAL *pot, double b, int m) {
-  double *p, bqp, p1, p2;
-  int k;
-  
-  p = _dwork;
+  x2 = 1 + 0.5*FINE_STRUCTURE_CONST2*(e - pot->U[i] - pot->Vc[i]);
   if (m == 0) {
-    bqp = (b + kappa)*FINE_STRUCTURE_CONST;
-    bqp /= (2.0*pot->rad[i1]);
-  }
-  for (k = i1-1; k <= i1+1; k++) {
-    p[k] = 0.5*FINE_STRUCTURE_CONST2*(e - (pot->U[k]+pot->Vc[k]));
-    p[k] += 1.0;
-    if (k == i1) {
-      p2 = 2.0*p[k]*bqp/FINE_STRUCTURE_CONST;
-      p2 -= kappa/pot->rad[i1];
-      p2 *= pot->dr_drho[i1];
+    b = (b + kappa)*FINE_STRUCTURE_CONST;
+    b /= (2.0*pot->rad[i]);
+    if (bqp) *bqp = b;
+    b = 2*x2*b/FINE_STRUCTURE_CONST - kappa/pot->rad[i];
+  } else if (m == 1) {
+    if (bqp) *bqp = b;
+    b = 2*x2*b/FINE_STRUCTURE_CONST - kappa/pot->rad[i];
+  } else if (m == -1) {
+    if (pot->atom->z1 > 0) {
+      z0 = pot->atom->z1;
+      kl = GetLFromKappa(kappa);
+      b = (e - 1.0/FINE_STRUCTURE_CONST2 + z0)*FINE_STRUCTURE_CONST;
+      if (kappa < 0) {
+	b *= pot->rad[i]/(kl+3.0);
+      } else {
+	b *= -pot->rad[i]/(kl+1.0);
+	b = 1.0/b;
+      }   
+      if (bqp) {
+	*bqp = b;
+      }
+      b = (1 + kl/2)/pot->rad[i];
+    } else {
+      z0 = pot->Z[pot->maxrp-1];
+      double g = sqrt(kappa*kappa - z0*z0*FINE_STRUCTURE_CONST2);
+      b = z0*FINE_STRUCTURE_CONST/(kappa - g);   
+      if (bqp) {
+	*bqp = b;
+      }
+      b = g/pot->rad[i];
+    } 
+  } else if (m == -2) {
+    b = -sqrt(1.0/FINE_STRUCTURE_CONST2 - e*e*FINE_STRUCTURE_CONST2);
+    if (bqp) {
+      *bqp = (b + kappa/pot->rad[i])*FINE_STRUCTURE_CONST/(2*x2);
     }
-    p[k] = sqrt(p[k]);
   }
-  p1 = 0.5*(p[i1+1] - p[i1-1])/p[i1];
-  p2 -= p1;
-  p1 = 0.5*(pot->dr_drho2[i1+1] - pot->dr_drho2[i1-1]);
-  p1 /= pot->dr_drho2[i1];
-  bqp = p2 - p1;
-  
-  return bqp;
+  b *= pot->dr_drho[i];
+  dx = -0.25*FINE_STRUCTURE_CONST2*(pot->dU[i]+pot->dVc[i])/x2;
+  dx *= pot->dr_drho[i];
+  dr = 0.5*pot->dr_drho[i]/pot->rad[i];
+  dr *= (1-0.25*pot->dr_drho[i]*pot->ar/sqrt(pot->rad[i]));
+  pr = b - dx - dr;
+  return pr;
 }
   
 int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {  
@@ -363,8 +362,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     niter++;
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot);
-    bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0);
-    bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0);
+    bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0, NULL);
+    bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0, NULL);
     i2 = TurningPoints(orb->n, e, pot);
     nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
     if (nodes > 1) {
@@ -399,8 +398,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
       e += de;
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
-      bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0);
-      bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0);
+      bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0, NULL);
+      bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0, NULL);
       i2 = TurningPoints(orb->n, e, pot);
       nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
       if (nodes > 1) {
@@ -431,8 +430,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
 	e -= de;
 	SetPotentialW(pot, e, orb->kappa);
 	SetVEffective(kl, pot);
-	bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0);
-	bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0);
+	bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0, NULL);
+	bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0, NULL);
 	i2 = TurningPoints(orb->n, e, pot);
 	nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2, 1.0, 2);
 	if (nodes > 1) {
@@ -458,8 +457,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     niter++;
     SetPotentialW(pot, e, orb->kappa);
     SetVEffective(kl, pot); 
-    bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0);
-    bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0);
+    bqp = DpDr(orb->kappa, pot->ib, e, pot, pot->bqp, 0, NULL);
+    bqp1 = DpDr(orb->kappa, pot->ib1, e, pot, pot->bqp, 0, NULL);
     i2 = TurningPoints(orb->n, e, pot);
     i2p2 = i2 + 2;
     nodes = IntegrateRadial(p, e, pot, ib0, bqp, i2p2, 1.0, 2);
@@ -827,7 +826,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     i = pot->ib-1;
     p1 = p[i];
     for (; i > 0; i--) {
-      if (pot->rad[i] < pot->atom->rn) break;
+      if (pot->rad[i] < pot->atom->rms0) break;
       p2 = fabs(p[i]);
       if (p2 > wave_zero) {
 	if ((p1 > 0 && p[i] < 0) ||
@@ -994,9 +993,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     if (i2 < 0) {
       nodes = -1;
     } else {
-      //bqp = StartQPRatio(pot, orb->kappa, kl, e);
-      //bqp = DpDr(orb->kappa, 1, e, pot, bqp, 1);
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
+      //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, 0, i2, 1.0, 0);
     }
     if (nodes == nr) break;
     else if (nodes > nr) {
@@ -1022,9 +1020,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       SetPotentialW(pot, e, orb->kappa);
       SetVEffective(kl, pot);
       i2 = TurningPoints(orb->n, e, pot);
-      //bqp = StartQPRatio(pot, orb->kappa, kl, e);
-      //bqp = DpDr(orb->kappa, 1, e, pot, bqp, 1);
-      nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
+      //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+      nodes = IntegrateRadial(p, e, pot, 0, 0, i2, 1.0, 0);
     }
     e -= de;
     nodes = nr;
@@ -1038,13 +1035,13 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     SetVEffective(kl, pot);
     i2 = TurningPoints(orb->n, e, pot);
     i2p2 = i2 + 2;
-    //bqp = StartQPRatio(pot, orb->kappa, kl, e);
-    //bqp = DpDr(orb->kappa, 1, e, pot, bqp, 1);
-    nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
+    //bqp = DpDr(orb->kappa, 0, e, pot, 0, -1, &orb->bqp0);
+    nodes = IntegrateRadial(p, e, pot, 0, 0, i2p2, 1.0, 0); 
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
     i2 = LastMaximum(p, 0, i2);
+    //orb->im = i2;
     i2m1 = i2 - 1;
     i2m2 = i2 - 2;
     i2p1 = i2 + 1;
@@ -1055,7 +1052,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 	  + 40.0*p[i2] + 60.0*p[i2p1] - 6.0*p[i2p2])/120.0;
     qo /= p2*pot->dr_drho[i2];
     norm2 = InnerProduct(0, i2, p, p, pot);
-    IntegrateRadial(p, e, pot, i2m2, p1, pot->maxrp-1, 0.0, 0);
+    //bqp = DpDr(orb->kappa, pot->maxrp-1, e, pot, 0, -2, &orb->bqp1);
+    IntegrateRadial(p, e, pot, i2m2, p1, pot->maxrp-1, 0, 0);
     for (i = i2m2; i < pot->maxrp; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
     }
@@ -1081,7 +1079,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   if (IsOdd(nodes)) {
     fact = -fact;
   }
- 
   ep *= wave_zero;     
   for (i = pot->maxrp-1; i >= 0; i--) {
     if (fabs(p[i]) > ep) break;
@@ -1098,7 +1095,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   }
   p1 = p[i];
   for (; i > 0; i--) {
-    if (pot->rad[i] < pot->atom->rn) break;
+    if (pot->rad[i] < pot->atom->rms0) break;
     p2 = fabs(p[i]);
     if (p2 > wave_zero) {
       if ((p1 > 0 && p[i] < 0) ||
@@ -1117,7 +1114,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   orb->energy = e;
   orb->wfun = p;
   orb->qr_norm = 1.0;
-
   if (pot->flag == -1) {
     DiracSmall(orb, pot, -1);
   }
@@ -1279,7 +1275,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       ierr = 1;
       DCOUL(z, e, orb->kappa, x0, &pp, &qq, &ppi, &qqi, &ierr);
       p1 = qq/pp;
-      qi = DpDr(orb->kappa, i2, e, pot, p1, 1);
+      qi = DpDr(orb->kappa, i2, e, pot, p1, 1, NULL);
       delta = qo-qi;
       dq[j] = delta;
     }
@@ -1462,69 +1458,96 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
 ** and Q[i] = small[i]*cos(large[i+1])+small[i+1]*sin(large[i+1])
 */
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2) {
-  int i, i0, i1, kappa;
-  double xi, e, *p, a, b;
+  int i, i0, i1, im, kappa;
+  double xi, e, *p, *q, a, b;
 
   if (orb->n >= 0) i0 = 0;
   else i0 = pot->ib-1;
   e = orb->energy;
   kappa = orb->kappa;
   p = orb->wfun;
+  q = p + pot->maxrp;
   if (i2 < 0) i2 = orb->ilast;
   i1 = orb->ilast+1;
 
-  for (i = i0; i <= i2; i++) {
-    xi = e - pot->Vc[i] - pot->U[i];
-    xi = xi*FINE_STRUCTURE_CONST2*0.5;
-    _dwork[i] = 1.0 + xi;
-    _dwork1[i] = sqrt(_dwork[i])*p[i];    
-    _dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
-  }
-  for (i = i0; i < i1; i++) {
-    if (fabs(_dwork1[i]) < 1E-16) {
-      p[i+pot->maxrp] = 0.0;
-      continue;
-    } 
-    if (i == i0) {
-      b = -50.0*_dwork1[i0];
-      b += 96.0*_dwork1[i0+1];
-      b -= 72.0*_dwork1[i0+2];
-      b += 32.0*_dwork1[i0+3];
-      b -= 6.0 *_dwork1[i0+4];
-    } else if (i == i0+1) {
-      b = -6.0*_dwork1[i0];
-      b -= 20.0*_dwork1[i0+1];
-      b += 36.0*_dwork1[i0+2];
-      b -= 12.0*_dwork1[i0+3];
-      b += 2.0 *_dwork1[i0+4];
-    } else if (i == i2) {
-      b = -50.0*_dwork1[i];
-      b += 96.0*_dwork1[i-1];
-      b -= 72.0*_dwork1[i-2];
-      b += 32.0*_dwork1[i-3];
-      b -= 6.0 *_dwork1[i-4];
-      b = -b; 
-    } else if (i == i2-1) {
-      b = -6.0*_dwork1[i+1];
-      b -= 20.0*_dwork1[i];
-      b += 36.0*_dwork1[i-1];
-      b -= 12.0*_dwork1[i-2];
-      b += 2.0 *_dwork1[i-3];
-      b = -b;
+  if (i2 > i0) {
+    if (orb->im > i0) {
+      for (i = i0; i <= i2; i++) {
+	xi = e - pot->Vc[i] - pot->U[i];
+	xi = xi*FINE_STRUCTURE_CONST2*0.5;
+	_dwork[i] = 1.0 + xi;
+	p[i] = sqrt(_dwork[i])*p[i];
+	_dwork1[i] = pow(pot->rad[i], kappa);
+	_dwork2[i] = -p[i]*xi/_dwork1[i];
+	_dwork2[i] *= 2.0/FINE_STRUCTURE_CONST;
+	_dwork2[i] *= pot->dr_drho[i];
+      }
+      q[i0] = p[i0] * orb->bqp0 * _dwork1[i0];
+      q[i2] = p[i2] * orb->bqp1 * _dwork1[i2];
+      im = orb->im;
+      if (im > i0) {
+	NewtonCotes(q, _dwork2, i0, im, -1, 0);
+      }
+      if (i2 > im) {
+	NewtonCotes(q, _dwork2, im, i2, -1, -1);
+      }
+      for (i = i0; i <= i2; i++) {
+	q[i] /= _dwork1[i];
+      }
     } else {
-      b = 2.0*(_dwork1[i-2] - _dwork1[i+2]);
-      b += 16.0*(_dwork1[i+1] - _dwork1[i-1]);
+      for (i = i0; i <= i2; i++) {
+	xi = e - pot->Vc[i] - pot->U[i];
+	xi = xi*FINE_STRUCTURE_CONST2*0.5;
+	_dwork[i] = 1.0 + xi;
+	_dwork1[i] = sqrt(_dwork[i])*p[i];    
+	_dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
+      }
+      for (i = i0; i < i1; i++) {
+	if (fabs(_dwork1[i]) < 1E-16) {
+	  p[i+pot->maxrp] = 0.0;
+	  continue;
+	} 
+	if (i == i0) {
+	  b = -50.0*_dwork1[i0];
+	  b += 96.0*_dwork1[i0+1];
+	  b -= 72.0*_dwork1[i0+2];
+	  b += 32.0*_dwork1[i0+3];
+	  b -= 6.0 *_dwork1[i0+4];
+	} else if (i == i0+1) {
+	  b = -6.0*_dwork1[i0];
+	  b -= 20.0*_dwork1[i0+1];
+	  b += 36.0*_dwork1[i0+2];
+	  b -= 12.0*_dwork1[i0+3];
+	  b += 2.0 *_dwork1[i0+4];
+	} else if (i == i2) {
+	  b = -50.0*_dwork1[i];
+	  b += 96.0*_dwork1[i-1];
+	  b -= 72.0*_dwork1[i-2];
+	  b += 32.0*_dwork1[i-3];
+	  b -= 6.0 *_dwork1[i-4];
+	  b = -b; 
+	} else if (i == i2-1) {
+	  b = -6.0*_dwork1[i+1];
+	  b -= 20.0*_dwork1[i];
+	  b += 36.0*_dwork1[i-1];
+	  b -= 12.0*_dwork1[i-2];
+	  b += 2.0 *_dwork1[i-3];
+	  b = -b;
+	} else {
+	  b = 2.0*(_dwork1[i-2] - _dwork1[i+2]);
+	  b += 16.0*(_dwork1[i+1] - _dwork1[i-1]);
+	}
+	b *= _dwork2[i];
+	b += _dwork1[i]*kappa/pot->rad[i];
+	b /= (2.0*_dwork[i]);
+	p[i] = _dwork1[i];
+	p[i+pot->maxrp] = b*FINE_STRUCTURE_CONST;
+      }
     }
-    double b0 = b;
-    b *= _dwork2[i];
-    b += _dwork1[i]*kappa/pot->rad[i];
-    b /= (2.0*_dwork[i]);
-    p[i] = _dwork1[i];
-    p[i+pot->maxrp] = b*FINE_STRUCTURE_CONST;
   }
-  p[pot->maxrp] = p[pot->maxrp+1];
-
   if (orb->n != 0) {
+    p[i0] = p[i0+1]*p[i0+1]/p[i0+2];
+    q[i0] = q[i0+1]*q[i0+1]/q[i0+2];
     for (i = i1; i < pot->maxrp; i++) {
       p[i] = 0;
       p[i+pot->maxrp] = 0.0;
@@ -1907,7 +1930,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   i = i2;
   p0 = p[i];
   for (; i >= i1; i--) {
-    if (pot->rad[i] < pot->atom->rn) break;
+    if (pot->rad[i] < pot->atom->rms0) break;
     a = fabs(p[i]);
     if (a > wave_zero) {
       if ((p0 > 0 && p[i] < 0) ||
@@ -2041,13 +2064,7 @@ int SetPotentialZ(POTENTIAL *pot, int vp) {
   for (i = 0; i < pot->maxrp; i++) {
     pot->Z[i] = GetAtomicEffectiveZ(pot->rad[i]);
   }
-  if (vp > 0) {
-    SetPotentialUehling(pot, vp);
-    for (i = 0; i < pot->maxrp; i++) {
-      pot->Z[i] -= pot->rad[i]*pot->uehling[i];
-    }
-  }
-  if (pot->atom->rn > 0 || vp > 0) {
+  if (pot->atom->rn > 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1);
     for (i = 0; i < pot->maxrp; i++) {
       pot->dZ[i] /= pot->dr_drho[i];
@@ -2062,23 +2079,26 @@ int SetPotentialZ(POTENTIAL *pot, int vp) {
       pot->dZ2[i] = 0;
     }
   }
+  SetPotentialUehling(pot, vp);
   return 0;
 }
 
 int SetPotentialVc(POTENTIAL *pot) {
   int i;
-  double n, r, r2, v, x, y, a, b, v0;
+  double n, r, r2, v, x, y, y2, a, b, v0;
 
   for (i = 0; i < pot->maxrp; i++) {
     r = pot->rad[i];
-    pot->Vc[i] = - (pot->Z[i] / r);
+    a = pot->Z[i];
+    b = pot->dZ[i];
+    y = pot->dZ2[i];
+    pot->Vc[i] = - (a / r);
     r2 = r*r;
-    pot->dVc[i] = pot->Z[i]/r2 - pot->dZ[i]/r;
-    pot->dVc2[i] = 2.0*(-pot->Z[i]/r + pot->dZ[i])/r2 - pot->dZ2[i]/r;
-    pot->dVE[i] = -pot->dZ[i]/r;
-    pot->dVE2[i] = 2*pot->dZ[i]/r2 - pot->dZ2[i]/r;
+    pot->dVc[i] = a/r2 - b/r;
+    pot->dVc2[i] = 2.0*(-a/r + b)/r2 - y/r;
+    pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
   }
-
+  
   n = pot->N - 1;
   if (n > 0 && (pot->a > 0 || pot->lambda > 0)) {
     for (i = 0; i < pot->maxrp; i++) {
@@ -2092,10 +2112,9 @@ int SetPotentialVc(POTENTIAL *pot) {
       b = (pot->lambda + pot->a/x);
       y = -v/r + (v0 - v)*b;
       pot->dVc[i] += y;
-      pot->dVE[i] += y;
-      y = -y/r + v/r2 - (v0/r+y)*b - (v0-v)*(pot->a*pot->a)/(x*x);      
-      pot->dVc2[i] += y;
-      pot->dVE2[i] += y;
+      y2 = -y/r + v/r2 - (v0/r+y)*b - (v0-v)*(pot->a*pot->a)/(x*x);      
+      pot->dVc2[i] += y2;
+      pot->qdist[i] -= y2 + 2*y/r;
     }
   }
   return 0;
@@ -2323,7 +2342,14 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
   double a, b, r0, r, rm, rp, rn;
   double v, d, c, z0;
 
-  if (vp <= 0) return 0;
+  if (vp <= 0) {
+    for (i = 0; i < pot->maxrp-1; i++) {
+      pot->ZVP[i] = 0;
+      pot->dZVP[i] = 0;
+      pot->dZVP2[i] = 0;
+    }
+    return 0;
+  }
 
   r0 = 3.86159E-3/RBOHR;
   z0 = pot->Z[pot->maxrp-1];
@@ -2332,11 +2358,11 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
   
   for (i = 0; i < pot->maxrp-1; i++) {
     r = pot->rad[i]*2.0/r0;
-    pot->uehling[i] = a*UehlingK1(r);
+    pot->ZVP[i] = a*UehlingK1(r);
     if (vp > 1) {
-      pot->uehling[i] += b*UehlingL1(r);
+      pot->ZVP[i] += b*UehlingL1(r);
     }
-    pot->uehling[i] /= pot->rad[i];
+    pot->ZVP[i] /= pot->rad[i];
   }
   
   rn = pot->atom->rn;
@@ -2376,8 +2402,8 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
       _dwork[j] /= pot->dr_drho[j];
       c = 0.5*(_dwork[j] + _dwork[i1])*(rn - pot->rad[j]);
       v += c/pot->rad[i];      
-      if (fabs(1.0 - v/pot->uehling[i]) < EPS3) break;
-      pot->uehling[i] = v;
+      if (fabs(1.0 - v/pot->ZVP[i]) < EPS3) break;
+      pot->ZVP[i] = v;
     }
   }
   if (vp > 2) {
@@ -2385,8 +2411,24 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
     for (i = 0; i < pot->maxrp; i++) {
       r = pot->rad[i];
       rp = r*r + FINE_STRUCTURE_CONST2;
-      pot->uehling[i] += c/(r*rp*rp);
+      pot->ZVP[i] += c/(r*rp*rp);
     }
+  }
+  for (i = 0; i < pot->maxrp; i++) {
+    pot->ZVP[i] = -pot->rad[i]*pot->ZVP[i];
+  }
+  Differential(pot->ZVP, pot->dZVP, 0, pot->maxrp-1);
+  for (i = 0; i < pot->maxrp; i++) {
+    pot->dZVP[i] /= pot->dr_drho[i];
+  }
+  Differential(pot->dZVP, pot->dZVP2, 0, pot->maxrp-1);
+  for (i = 0; i < pot->maxrp; i++) {
+    pot->dZVP2[i] /= pot->dr_drho[i];
+  }
+  for (i = 0; i < pot->maxrp-1; i++) {
+    pot->Z[i] += pot->ZVP[i];
+    pot->dZ[i] += pot->dZVP[i];
+    pot->dZ2[i] += pot->dZVP2[i];
   }
   return 0;
 }
