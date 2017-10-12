@@ -3571,7 +3571,7 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
   r1 = r*10;
   npts = potential->maxrp;
   for (i = 0; i < npts; i++) {
-    if (potential->atom->rn <= 0 || qed.mse == 2) {
+    if (potential->atom->rn <= 0 || qed.mse%10 == 2) {
       a = potential->rad[i] <= r ? 1.0 : 0.0;
     } else {
       a = potential->qdist[i];
@@ -3696,9 +3696,10 @@ double QED1E(int k0, int k1) {
   if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
     if (potential->ib <= 0 || orb1->n <= potential->nb) {
       a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
-			       orb1->n, orb1->kappa, potential->atom->rms);
+			       orb1->n, orb1->kappa,
+			       potential->atom->rms, qed.mse);
       if (a) {
-	if (qed.mse == 0) {
+	if (qed.mse%10 == 0) {
 	  c = SelfEnergyRatio(orb1);
 	} else {
 	  c = SelfEnergyRatioWelton(orb1);

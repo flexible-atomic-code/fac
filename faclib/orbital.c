@@ -2213,7 +2213,7 @@ int SetPotentialVc(POTENTIAL *pot) {
       pot->dVc[i] += y;
       y2 = -y/r + v/r2 - (v0/r+y)*b - (v0-v)*(pot->a*pot->a)/(x*x);      
       pot->dVc2[i] += y2;
-      pot->qdist[i] -= y2 + 2*y/r;
+      //pot->qdist[i] -= y2 + 2*y/r;
     }
   }
   return 0;

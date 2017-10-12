@@ -1,6 +1,6 @@
 ************************************************************************
 *                                                                      *
-      SUBROUTINE MOHRFIN (N,KAPPA,Z,R,DELTAFZ)
+      SUBROUTINE MOHRFIN (N,KAPPA,Z,R,DELTAFZ,para,parb,parc,parp)
 *                                                                      *
 *   The  function  F (Z*alpha)  for the  1s  2s  2p-  symmetries   *
 *   is computed here.    A value is obtained by interpolating in, or   *
@@ -1651,39 +1651,46 @@
 *----------------------------------------------------------------------*
 
 *
-*   Interpolate or issue error message as appropriate
+*     Interpolate or issue error message as appropriate
       IF (Z .LT. 26) THEN
-          VALUE = 0.0D0
-       ELSE
-          CALL UVIP3P(3,NUMVPARA,ARGPARA,VALPARA,1,Z,PARA)
-          CALL UVIP3P(3,NUMVPARB,ARGPARB,VALPARB,1,Z,PARB)
-          CALL UVIP3P(3,NUMVPARC,ARGPARC,VALPARC,1,Z,PARC)
-          CALL UVIP3P(3,NUMVPARP,ARGPARP,VALPARP,1,Z,PARP)
-          CALL UVIP3P(3,NUMVRREF,ARGRREF,VALRREF,1,Z,RREF)
-
-          IF ((N .EQ. 1) .AND. (KAPPA .EQ. -1)) THEN
-             CALL UVIP3P(3,NUMVFIN1S,ARGFIN1S,VALFIN1S,1,Z,FIN1S)
-             VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
-     :            - PARA * (RREF ** PARP) *
-     :            (1 + PARB * RREF + PARC * RREF * RREF)
-     :            + FIN1S
-          ELSEIF ((N .EQ. 2) .AND. (KAPPA .EQ. -1)) THEN
-             CALL UVIP3P(3,NUMVFIN2S,ARGFIN2S,VALFIN2S,1,Z,FIN2S)
-             VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
-     :            - PARA * (RREF ** PARP) *
-     :            (1 + PARB * RREF + PARC * RREF * RREF)
-     :            + FIN2S
-          ELSEIF ((N .EQ. 2) .AND. (KAPPA .EQ. 1)) THEN
-             CALL UVIP3P(3,NUMVFIN2P1,ARGFIN2P1,VALFIN2P1,1,Z,FIN2P1)
-             VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
-     :            - PARA * (RREF ** PARP) *
-     :            (1 + PARB * RREF + PARC * RREF * RREF)
-     :            + FIN2P1
-          ELSE
-             VALUE = 0.0D0
-          ENDIF
+         VALUE = 0.0D0
+         para = 0d0
+         parb = 0d0
+         parc = 0d0
+         parp = 1d0
+         return
+      ELSE
+         CALL UVIP3P(3,NUMVPARA,ARGPARA,VALPARA,1,Z,PARA)
+         CALL UVIP3P(3,NUMVPARB,ARGPARB,VALPARB,1,Z,PARB)
+         CALL UVIP3P(3,NUMVPARC,ARGPARC,VALPARC,1,Z,PARC)
+         CALL UVIP3P(3,NUMVPARP,ARGPARP,VALPARP,1,Z,PARP)
+         if (n .lt. 0) then
+            return
+         endif
+         CALL UVIP3P(3,NUMVRREF,ARGRREF,VALRREF,1,Z,RREF)         
+         IF ((N .EQ. 1) .AND. (KAPPA .EQ. -1)) THEN
+            CALL UVIP3P(3,NUMVFIN1S,ARGFIN1S,VALFIN1S,1,Z,FIN1S)
+            VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
+     :           - PARA * (RREF ** PARP) *
+     :           (1 + PARB * RREF + PARC * RREF * RREF)
+     :           + FIN1S
+         ELSEIF ((N .EQ. 2) .AND. (KAPPA .EQ. -1)) THEN
+            CALL UVIP3P(3,NUMVFIN2S,ARGFIN2S,VALFIN2S,1,Z,FIN2S)
+            VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
+     :           - PARA * (RREF ** PARP) *
+     :           (1 + PARB * RREF + PARC * RREF * RREF)
+     :           + FIN2S
+         ELSEIF ((N .EQ. 2) .AND. (KAPPA .EQ. 1)) THEN
+            CALL UVIP3P(3,NUMVFIN2P1,ARGFIN2P1,VALFIN2P1,1,Z,FIN2P1)
+            VALUE = PARA * (R ** PARP) * (1 + PARB * R + PARC * R * R)
+     :           - PARA * (RREF ** PARP) *
+     :           (1 + PARB * RREF + PARC * RREF * RREF)
+     :           + FIN2P1
+         ELSE
+            VALUE = 0.0D0
+         ENDIF
       ENDIF
-
+      
 *
       DELTAFZ = VALUE
 *
