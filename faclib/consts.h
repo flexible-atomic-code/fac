@@ -210,7 +210,7 @@
 #define POTHXS             0.65
 #define QEDSE              5
 #define QEDMSE             1
-#define QEDVP              2
+#define QEDVP              3
 #define QEDNMS             1
 #define QEDSMS             1
 #define QEDBREIT           10

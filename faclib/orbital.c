@@ -36,6 +36,98 @@ static double _dwork3[MAXRP];
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
 
+static double _wk_q[16] = {2.09400223235,
+			   1.42425723499,
+			   0.76419630941,
+			   0.36124746165,
+			   0.15118743043,
+			   0.05247168246,
+			   0.01797758276,
+			   -0.04761316284,
+			   0.19713924639,
+			   -0.62421312791,
+			   1.29259217859,
+			   -1.89507086023,
+			   1.89089237003,
+			   -1.24611625668,
+			   0.48793792307,
+			   -0.08858438257};
+static double _wk_p[36] = {2.094001968517539e-2,
+			   -6.328682056509706e-2,
+			   1.656675047469226e-1,
+			   6.218254052794603e-2,
+			   8.561450880149488e-1,
+			   -1.324099530525646,
+			   1.022894990055742e-1,
+			   1.818708880809046e-1,
+			   5.002561255243687e-4,
+			   2.167778174657628e-1,
+			   5.453835857080859e-1,
+			   3.137663571113079e-1,
+			   -1.619774880547481e-1,
+			   -6.749903602516955e-2,
+			   -2.935144138820853e-4,
+			   9.755800734714044e-2,
+			   -1.994016822313688e-1,
+			   -4.777623414220549e-2,
+			   7.503472520308676e-3,
+			   3.440742164594281e-5,
+			   2.8294209897e-3,
+			   1.4195518237e-4,
+			   1.3489833978e-5,
+			   2.0134008556e-7,
+			   8.6029184536e-6,
+			   -1.7870165724e-5,
+			   2.3269607856e-5,
+			   -1.7798463760e-5,
+			   8.7274744996e-6,
+			   -2.9235606710e-6,
+			   6.8929360802e-7,
+			   -1.1491699126e-7,
+			   1.3302835807e-8,
+			   -1.0190988753e-9,
+			   4.6508041566e-11,
+			   -9.5785924366e-13};
+static int _wk_s[4][4] = {{1, 1, 0, 0},
+			  {0, -3, 0, 10},
+			  {-1, 2, 0, 10},
+			  {-13, -6, 10, 10}};
+static double _wk_a[4][4][8] =
+  {{{2.9675,-4.4288,5.9339e1,-5.682e2,4.6131e3,-2.6282e4,8.9448e4,-1.3412e5},
+    {7.8894e-1,-2.9946e1,8.4881e2,-1.4888e4,1.6003e5,-1.0259e6,3.5980e6,-5.3067e6},
+    {-3.0201e-4,-9.0441e-1,5.8388e1,-1.5899e3,2.880e4,-1.8036e5,7.3716e5,-1.2228e6},
+    {4.9725e-4,2.4826,-1.0745e2,2.7128e3,-3.8249e4,3.01e5,-1.2368e6,2.0678e6}},
+   {{-6.64673e-1,5.70540e-1,-9.43955e-1,1.18405,-8.91689e-1,3.64707e-1,-6.17902e-2,0.0},
+    {4.68647e-5,-9.83836e-4,8.28746e-3,5.94372e-2,-5.31431e-2,7.52653e-3,-4.54081e-4,0.0},
+    {2.56839e-2,-3.21021e-3,1.01163e-2,-1.62093e-2,1.17762e-2,-4.69814e-3,7.76469e-4,0.0},
+    {0,0,0,0,0,0,0,0}},
+   {{1.93743e-2,-6.43399e-1,2.56565e-1,-1.09235e-1,4.14226e-2,-7.28744e-3,4.54914e-4,0.0},
+    {1.64381e-1,-3.05149e-1,2.31560e-1,-9.49948e-2,2.22450e-2,-2.80168e-3,1.47382e-4,0.0},
+    {2.53250e-2,3.56651e-3,-8.14980e-3,6.21168e-3,-3.29527e-3,7.60885e-4,-6.03993e-5,0.0},
+    {0,0,0,0,0,0,0,0}},
+   {{-2.4734758e9,3.2270784e9,-1.7207915e9,4.7635740e8,-7.1414759e7,5.4305859e6,-1.6479928e5,0.0},
+    {-1.5115262e4,1.4945586e4,-5.8361389e3,1.1476935e3,-1.2098290e2,6.5439613,-1.4296421e-1,0.0},
+    {0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0}}};
+static double _wk_fd[5] = {225.0, 1323.0, 4725.0, 190575.0, 12297285.0};
+static double _wk_f[16][5] =
+  {{2.0, 0, 0, 0, 0},
+   {59.0, 0, 0, 0, 0},
+   {1977.0, 20, 0, 0, 0},
+   {1258680.0, 34144, 0, 0, 0},
+   {1960420032.0, 93618070.0, 96096.0, 0, 0},
+   {0.3812769,0.0266795,0.000086,0,0},
+   {0.4946161,0.0458093,0.0002918,6e-8,0},
+   {0.6150374,0.0707397,0.0007216,5e-7,0},
+   {0.7412290,0.1014082,0.0014705,23e-7,1e-10},
+   {0.8721898,0.1376368,0.0026288,69e-7,2e-9},
+   {1.0071432,0.1791838,0.0042776,167e-7,8e-9},
+   {1.1454776,0.2257770,0.0064866,346e-7,3e-8},
+   {1.2867042,0.2771342,0.0093134,643e-7,9e-8},
+   {1.4304276,0.3329753,0.0128043,1097e-7,2e-7},
+   {1.5763244,0.3930296,0.0169953,1750e-7,5e-7},
+   {1.7241274,0.4570401,0.0219132,2644e-7,9e-7}};
+    
 static int SetVEffective(int kl, POTENTIAL *pot);
 static int TurningPoints(int n, double e, POTENTIAL *pot);
 static int CountNodes(double *p, int i1, int i2);
@@ -2070,6 +2162,7 @@ int SetPotentialZ(POTENTIAL *pot, int vp) {
 
   for (i = 0; i < pot->maxrp; i++) {
     pot->Z[i] = GetAtomicEffectiveZ(pot->rad[i]);
+    pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
   }
   if (pot->atom->rn > 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1);
@@ -2103,7 +2196,6 @@ int SetPotentialVc(POTENTIAL *pot) {
     r2 = r*r;
     pot->dVc[i] = a/r2 - b/r;
     pot->dVc2[i] = 2.0*(-a/r + b)/r2 - y/r;
-    pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
   }
   
   n = pot->N - 1;
@@ -2345,10 +2437,12 @@ double UehlingL1(double x) {
 }
 
 int SetPotentialUehling(POTENTIAL *pot, int vp) {
-  int i, j, i1;
-  double a, b, r0, r, rm, rp, rn;
-  double v, d, c, z0;
-
+  int i, j, k, p, m, n, mvp;
+  double a, b, z0, r0, r;
+  double v3, za, za2, za3, a2, lam, r2, r3, r5, x, y, f0, fs, fm;
+  
+  mvp = vp/10;
+  vp = vp%10;  
   if (vp <= 0) {
     for (i = 0; i < pot->maxrp-1; i++) {
       pot->ZVP[i] = 0;
@@ -2357,84 +2451,172 @@ int SetPotentialUehling(POTENTIAL *pot, int vp) {
     }
     return 0;
   }
-
+  pot->ZVP[pot->maxrp-1] = 0;
+  pot->dZVP[pot->maxrp-1] = 0;
+  pot->dZVP2[pot->maxrp-1] = 0;
+    
   r0 = 3.86159E-3/RBOHR;
   z0 = pot->Z[pot->maxrp-1];
   a = -2.0*z0*FINE_STRUCTURE_CONST/(3.0*PI);
-  b = -z0*FINE_STRUCTURE_CONST2/(PI*PI);
-  
+  b = -z0*FINE_STRUCTURE_CONST2/(PI*PI);  
   for (i = 0; i < pot->maxrp-1; i++) {
     r = pot->rad[i]*2.0/r0;
-    pot->ZVP[i] = a*UehlingK1(r);
-    if (vp > 1) {
-      pot->ZVP[i] += b*UehlingL1(r);
+    pot->ZVP[i] = -a*UehlingK1(r);
+  }
+  if (vp > 1) {
+    for (i = 0; i < pot->maxrp-1; i++) {
+      pot->ZVP[i] -= b*UehlingL1(r);
     }
-    pot->ZVP[i] /= pot->rad[i];
+  }
+  if (vp > 2) {
+    za = z0*FINE_STRUCTURE_CONST;
+    za2 = za*za;
+    za3 = za2*za;
+    a = FINE_STRUCTURE_CONST;
+    a2 = FINE_STRUCTURE_CONST2;
+    lam = 1-sqrt(1-za2);
+    for (i = 0; i < pot->maxrp-1; i++) {
+      r = pot->rad[i]/a;
+      v3 = 0.0;
+      r2 = r*r;
+      r3 = r2*r;
+      r5 = r2*r3;
+      if (r >= 10) {
+	y = 1.0/r5;
+	fm = 1.0;
+	for (m = 0; m < 16; m++) {
+	  x = 1.0;
+	  f0 = 0.0;
+	  for (n = 0; n < 5; n++) {
+	    f0 += _wk_f[m][n]*x;
+	    x *= za2;
+	  }
+	  if (m < 5) {
+	    f0 /= _wk_fd[m];
+	  } else {
+	    f0 *= fm*fm;
+	  }
+	  v3 += f0*y;
+	  y /= r2;
+	  fm *= m+1.0;
+	}
+	v3 /= PI;
+      } else {
+	if (r < 4.25) {
+	  x = 1.0/r;
+	  y = log(r);
+	  for (n = 0; n < 9; n++) {
+	    v3 += _wk_p[n]*x;
+	    x *= r;
+	  }
+	  x = r*r*y;
+	  for (n = 0; n < 6; n++) {
+	    v3 += _wk_p[n+9]*x;
+	    x *= r;
+	  }
+	  x = r3*y*y;
+	  for (n = 0; n < 5; n++) {
+	    v3 += _wk_p[n+15]*x;
+	    x *= r;
+	  }
+	} else {
+	  v3 = 0.0;
+	  y = 100/r2;
+	  x = 1.0;
+	  for (n = 0; n < 16; n++) {
+	    v3 += _wk_p[n+20]*x;
+	    x *= y;
+	  }
+	  v3 /= r5;
+	}
+	if (r < 0.15) {
+	  k = 0;
+	  x = lam/r;
+	  for (n = 1; n < 16; n++) {
+	    v3 += 1e-2*_wk_q[n]*x;
+	    x *= lam;
+	  }
+	} else if (r >= 0.15 && r < 1.5) {
+	  k = 1;
+	} else if (r >= 1.5 && r < 4) {
+	  k = 2;
+	} else if (r >= 4) {
+	  k = 3;
+	}
+	y = lam;
+	fs = 0;
+	for (n = 0; n < 4; n++) {
+	  if (_wk_s[k][n] == 10) continue;
+	  x = pow(r, _wk_s[k][n]);
+	  f0 = 0;
+	  for (m = 0; m < 8; m++) {
+	    f0 += _wk_a[k][n][m]*x;
+	    x *= r;
+	  }
+	  fs += f0*y;
+	  y *= lam;
+	}
+	v3 /= (1+fs);
+      }
+      pot->ZVP[i] -= (za3*v3/a)*pot->rad[i];
+    }
   }
   
-  rn = pot->atom->rn;
-  if (rn > 0) {
-    a = -2.0*r0*FINE_STRUCTURE_CONST/3.0;
-    b = -r0*FINE_STRUCTURE_CONST2/PI;
-    v = 4.0*PI*rn*rn*rn/3.0;
-    d = z0/v;
-    for (i = 0; i < pot->maxrp-1; i++) {
-      if (pot->rad[i] > rn) break;
-    }
-    i1 = i;
-    for (i = 0; i < pot->maxrp-1; i++) {
+  m = pot->maxrp-1;
+  if (pot->atom->rn > 0 && mvp == 0) {
+    r5 = pot->atom->rn*5.0;
+    r3 = r5*3;
+    for (i = 0; i < m; i++) {
+      _dwork[i] = pot->ZVP[i]*pot->dr_drho[i];
       r = pot->rad[i];
-      for (j = 0; j < i1; j++) {
-	rp = r + pot->rad[j];
-	rp = 2.0*rp/r0;
-	rm = fabs(r - pot->rad[j]);
-	rm = 2.0*rm/r0;
-	_dwork[j] = a*(UehlingK0(rm) - UehlingK0(rp));
-	if (vp > 1) {
-	  _dwork[j] += b*(UehlingL0(rm) - UehlingL0(rp));
-	}
-	_dwork[j] *= pot->rad[j]*pot->dr_drho[j]*d;
+      _dwork1[i] = pot->ar*sqrt(r) + pot->br*log(r);      
+    }
+    _dwork2[m-1] = 0;
+    NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
+    n = 3;
+    for (k = 0; k < m; k++) {
+      if (pot->qdist[k] < 1e-15*pot->qdist[0]) break;
+    }
+    for (i = 0; i < m; i++) {
+      for (j = 0; j < k; j++) {
+	r = fabs(pot->rad[i] - pot->rad[j]);
+	if (r < pot->rad[0]) r = pot->rad[0];
+	pot->dZVP[j] = pot->ar*sqrt(r) + pot->br*log(r);
       }
-      j = i1 - 1;
-      v = Simpson(_dwork, 0, j) / pot->rad[i];
-      rp = r + rn;
-      rp = 2.0*rp/r0;
-      rm = fabs(r - rn);
-      rm = 2.0*rm/r0;
-      _dwork[i1] = a*(UehlingK0(rm) - UehlingK0(rp));
-      if (vp > 1) {
-	_dwork[i1] += b*(UehlingL0(rm) - UehlingL0(rp));
+      UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZVP, _dwork3);
+      for (j = 0; j < k; j++) {	
+	r = pot->rad[i] + pot->rad[j];
+	pot->dZVP[j] = pot->ar*sqrt(r) + pot->br*log(r);
       }
-      _dwork[i1] *= rn*d;
-      _dwork[j] /= pot->dr_drho[j];
-      c = 0.5*(_dwork[j] + _dwork[i1])*(rn - pot->rad[j]);
-      v += c/pot->rad[i];      
-      if (fabs(1.0 - v/pot->ZVP[i]) < EPS3) break;
-      pot->ZVP[i] = v;
+      UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZVP, pot->dZVP2);
+      for (j = 0; j < k; j++) {
+	_dwork3[j] -= pot->dZVP2[j];
+	_dwork3[j] *= pot->qdist[j]*pot->rad[j];
+	_dwork3[j] *= pot->dr_drho[j];
+      }
+      pot->dW2[i] = Simpson(_dwork3, 0, k-1)/(2*pot->atom->atomic_number);
+      if (pot->rad[i] > r5 &&
+	  fabs(pot->dW2[i]-pot->ZVP[i]) <= 1e-5*fabs(pot->ZVP[i])) {
+	break;
+      }
+      if (pot->rad[i] > r3) {
+	break;
+      }
+    }
+    p = i;
+    for (i = 0; i < p; i++) {
+      pot->ZVP[i] = pot->dW2[i];
     }
   }
-  /*
-  if (vp > 2) {
-    c = 2*z0*z0*z0*pow(FINE_STRUCTURE_CONST, 7)/(225*PI);
-    for (i = 0; i < pot->maxrp; i++) {
-      r = pot->rad[i];
-      rp = r*r + FINE_STRUCTURE_CONST2;
-      pot->ZVP[i] += c/(r*rp*rp);
-    }
-  }
-  */
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->ZVP[i] = -pot->rad[i]*pot->ZVP[i];
-  }
-  Differential(pot->ZVP, pot->dZVP, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
+  Differential(pot->ZVP, pot->dZVP, 0, m-1);
+  for (i = 0; i < m; i++) {
     pot->dZVP[i] /= pot->dr_drho[i];
   }
-  Differential(pot->dZVP, pot->dZVP2, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
+  Differential(pot->dZVP, pot->dZVP2, 0, m-1);
+  for (i = 0; i < m; i++) {
     pot->dZVP2[i] /= pot->dr_drho[i];
   }
-  for (i = 0; i < pot->maxrp-1; i++) {
+  for (i = 0; i < m; i++) {
     pot->Z[i] += pot->ZVP[i];
     pot->dZ[i] += pot->dZVP[i];
     pot->dZ2[i] += pot->dZVP2[i];

@@ -217,7 +217,7 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
     h->dW2[i] = 0;
     h->ZVP[i] = 0;
     h->dZVP[i] = 0;
-    h->dZVP2[i] = 0;    
+    h->dZVP2[i] = 0;
   }
   SetPotentialVc(h);
 }
@@ -3561,7 +3561,8 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
     horb = (ORBITAL *) malloc(sizeof(ORBITAL));
     InitOrbitalData(horb, 1); 
     horb->n = orb->n;
-    horb->kappa = orb->kappa;   
+    horb->kappa = orb->kappa;
+    orb->horb = horb;
     if (RadialBound(horb, hpotential) < 0) return 1.0;
   }
   p = Large(horb);
@@ -3607,6 +3608,7 @@ double SelfEnergyRatio(ORBITAL *orb) {
     InitOrbitalData(horb, 1);
     horb->n = orb->n;
     horb->kappa = orb->kappa;
+    orb->horb = horb;
     if (RadialBound(horb, hpotential) < 0) return 1.0;
   }
   p = Large(horb);
@@ -3684,7 +3686,13 @@ double QED1E(int k0, int k1) {
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
   }
-
+  /*
+  if (qed.vp > 2) {
+    a = 0.0;
+    Integrate(potential->VWK, orb1, orb2, 1, &a, 0);
+    r += a;
+  }
+  */
   if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
     if (potential->ib <= 0 || orb1->n <= potential->nb) {
       a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
