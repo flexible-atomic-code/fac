@@ -301,7 +301,7 @@ double HydrogenicSelfEnergy(double z, int n, int k, double rms, int md) {
 	  r = _qed_se0[m][id] + _qed_se1[m][id];
 	  r0 = _qed_rrms[id];
 	  if (z >= 26 && fabs(rms-r0) > 0.01) {
-	    MOHRFIN(n, k, z, rms, &c2, &a, &b, &c, &p);
+	    MOHRFIN(-n, k, z, rms, &c2, &a, &b, &c, &p);
 	    c = a*(pow(rms,p)*(1+b*rms+c*rms*rms)-pow(r0,p)*(1+b*r0+c*r0*r0));
 	    r += c;
 	  }
