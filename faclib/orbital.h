@@ -66,7 +66,7 @@ typedef struct _ORBITAL_ {
   double *phase;
   double *wfun;
   double bqp0, bqp1;
-  int ilast, im;
+  int ilast, im, idx;
   struct _ORBITAL_ *horb;
 } ORBITAL;
 

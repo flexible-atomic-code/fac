@@ -5010,7 +5010,7 @@ static PyObject *PBreitX(PyObject *self, PyObject *args) {
   ORBITAL *orb0 = GetOrbital(k0);
   ORBITAL *orb1 = GetOrbital(k1);
   if (orb0 != NULL && orb1 != NULL) {
-    BreitX(orb0, orb1, k, m, e, NULL);
+    BreitX(orb0, orb1, k, m, e);
   }
   Py_INCREF(Py_None);
   return Py_None;

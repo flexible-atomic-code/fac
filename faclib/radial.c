@@ -96,8 +96,9 @@ static struct {
 	 QEDBREIT, QEDMBREIT, QEDNBREIT};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
- 
+
 static MULTI *slater_array;
+static MULTI *xbreit_array[5];
 static MULTI *wbreit_array;
 static MULTI *breit_array;
 static MULTI *vinti_array;
@@ -189,7 +190,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
     p->dW2[i] = 0;
     p->ZVP[i] = 0;
     p->dZVP[i] = 0;
-    p->dZVP[i] = 0;
+    p->dZVP2[i] = 0;
   }
   p->atom = GetAtomicNucleus();
   BFileClose(f);
@@ -355,7 +356,8 @@ int FreeSimpleArray(MULTI *ma) {
 }
 
 int FreeSlaterArray(void) {
-  return FreeSimpleArray(slater_array);
+  FreeSimpleArray(slater_array);
+  return 0;
 }
 
 int FreeResidualArray(void) {
@@ -392,6 +394,17 @@ int FreeMomentsArray(void) {
 
 int FreeGOSArray(void) {
   MultiFreeData(gos_array, FreeMultipole);
+  return 0;
+}
+
+int FreeBreitArray(void) {
+  FreeSimpleArray(breit_array);
+  FreeSimpleArray(wbreit_array);
+  MultiFreeData(xbreit_array[0], FreeMultipole);
+  MultiFreeData(xbreit_array[1], FreeMultipole);
+  MultiFreeData(xbreit_array[2], FreeMultipole);
+  MultiFreeData(xbreit_array[3], FreeMultipole);
+  MultiFreeData(xbreit_array[4], FreeMultipole);
   return 0;
 }
 
@@ -1573,7 +1586,7 @@ int AddOrbital(ORBITAL *orb) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
   }
-
+  orb->idx = n_orbitals;
   if (orb->n == 0) {
     n_continua++;
   }
@@ -1608,7 +1621,7 @@ ORBITAL *GetNewOrbital(void) {
     printf("Not enough memory for orbitals array\n");
     exit(1);
   }
-
+  orb->idx = n_orbitals;
   n_orbitals++;
   return orb;
 }
@@ -3385,21 +3398,21 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     maxn = -1;
   } else if (orb0->n > maxn) {
     maxn = orb0->n;
-    if (orb1->n <= 0) {
-      maxn = -1;
-    } else if (orb1->n > maxn) {
-      maxn = orb1->n;
-      if (orb2->n <= 0) {
-	maxn = -1;
-      } else if (orb2->n > maxn) {
-	maxn = orb2->n;
-	if (orb3->n <= 0) {
-	  maxn = -1;
-	} else if (orb3->n > maxn) {
-	  maxn = orb3->n;
-	}
-      }
-    }
+  }
+  if (orb1->n <= 0) {
+    maxn = -1;
+  } else if (orb1->n > maxn) {
+    maxn = orb1->n;
+  }
+  if (orb2->n <= 0) {
+    maxn = -1;
+  } else if (orb2->n > maxn) {
+    maxn = orb2->n;
+  }
+  if (orb3->n <= 0) {
+    maxn = -1;
+  } else if (orb3->n > maxn) {
+    maxn = orb3->n;
   }
 
   if (orb0->wfun == NULL || orb1->wfun == NULL ||
@@ -3851,38 +3864,35 @@ double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3) {
 
 double BreitS(int k0, int k1, int k2, int k3, int k) {
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  int index[5], i;
-  double *p, r;
+  int index[3], i;
+  double **p, *z, r;
   
   index[0] = k0;
   index[1] = k1;
-  index[2] = k2;
-  index[3] = k3;
-  index[4] = k;
+  index[2] = k;
 
-  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
-  if (p && *p) {
-    r = *p;
-  } else {
+  p = (double **) MultiSet(xbreit_array[4], index, NULL,
+			   InitPointerData, FreeMultipole);
+  if (*p == NULL) {
     orb0 = GetOrbitalSolved(k0);
     orb1 = GetOrbitalSolved(k1);
-    orb2 = GetOrbitalSolved(k2);
-    orb3 = GetOrbitalSolved(k3);
-    if (!orb0 || !orb1 || !orb2 || !orb3) return 0.0;
-    
+    if (!orb0 || !orb1) return 0.0;
+    *p = (double *) malloc(sizeof(double)*potential->maxrp);
+    z = *p;
     for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
-    }
-    
-    Integrate(_dwork1, orb0, orb1, -6, _zk, 0);
-    
+    }    
+    Integrate(_dwork1, orb0, orb1, -6, z, 0);    
     for (i = 0; i < potential->maxrp; i++) {
-      _zk[i] /= _dwork1[i]*potential->rad[i];
+      z[i] /= _dwork1[i]*potential->rad[i];
     }
-
-    Integrate(_zk, orb2, orb3, 6, &r, 0);
-    *p = r;
-  }
+  } else {
+    z = *p;
+  } 
+  orb2 = GetOrbitalSolved(k2);
+  orb3 = GetOrbitalSolved(k3);
+  if (!orb2 || !orb3) return 0.0;      
+  Integrate(z, orb2, orb3, 6, &r, 0);
 
   return r;
 }
@@ -3922,18 +3932,40 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m) {
   return r;
 }
 
-void BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e, double *y) {
+double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e) {
   int i;
   double kf = 1.0;
-  double x, r, b;
+  double x, r, b, **p, *y;
   int k2 = 2*k;
   int jy, k1;
+  int index[3];
 
-  if (y == NULL) y = _zk;
+  if (m < 0 || m > 3) return NULL;
+  index[0] = orb0->idx;
+  index[1] = orb1->idx;
+  index[2] = k;
+  if (e < 0) e = fabs(orb0->energy-orb1->energy);
+  p = (double **) MultiSet(xbreit_array[m], index, NULL,
+			   InitPointerData, FreeMultipole);
+  if (*p == NULL) {
+    *p = (double *) malloc(sizeof(double)*potential->maxrp);
+  } else {
+    for (i = 0; i < potential->maxrp; i++) {
+      if (e > 0) {
+	x = FINE_STRUCTURE_CONST*e*potential->rad[i];
+	_dwork1[i] = x;
+      } else {
+	x = 0;
+	_dwork1[i] = 0;
+      }
+      _dwork2[i] = pow(potential->rad[i], k);
+    }
+    return *p;    
+  }
+  y = *p;
   for (i = 1; i < k2; i += 2) {
     kf *= i;
   }
-  if (e < 0) e = fabs(orb0->energy-orb1->energy);
   double ef = FINE_STRUCTURE_CONST*e;
   double efk = pow(ef, k);
 
@@ -4005,6 +4037,7 @@ void BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e, double *y) {
     }
     break;
   }
+  return y;
 }
 
 double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
@@ -4032,7 +4065,7 @@ double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
   for (i = 1; i < kd; i += 2) {
     kf *= i;
   }
-  BreitX(orb0, orb2, k, 0, e, _xk);
+  double *xk = BreitX(orb0, orb2, k, 0, e);
   for (i = 0; i < potential->maxrp; i++) {
     x = _dwork1[i];
     if (x < 1e-5) {
@@ -4041,7 +4074,7 @@ double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
       jy = 2;
       b = -BESLJN(jy, k, x)*(_dwork2[i]*potential->rad[i]*efk*ef)/kf;
     }
-    _xk[i] *= b;
+    _xk[i] = xk[i] * b;
   }
   Integrate(_xk, orb1, orb3, 6, &r, 0);
   return r;
@@ -4094,8 +4127,8 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
     kf *= i;
   }
 
-  BreitX(orb0, orb2, k, 1, e, _dwork12);
-  BreitX(orb0, orb2, k, 2, e, _dwork13);
+  double *dwork12 = BreitX(orb0, orb2, k, 1, e);
+  double *dwork13 = BreitX(orb0, orb2, k, 2, e);
   for (i = 0; i < potential->maxrp; i++) {
     x = _dwork1[i];
     xk = _dwork2[i]*efk;
@@ -4106,15 +4139,15 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
       kj = k + 1;
       b = BESLJN(jy, kj, x);
     }
-    _dwork12[i] *= b;
-    _dwork13[i] *= 1-x*x*b;
+    _dwork12[i] = dwork12[i]*b;
+    _dwork13[i] = dwork13[i]*(1-x*x*b);
     _yk[i] = _dwork12[i] + _dwork13[i];
     b = (kd+1);
     _yk[i] *= b*b;
   }
   Integrate(_yk, orb1, orb3, 6, &s1, 0);
   if (k >= 0) {
-    BreitX(orb1, orb3, k, 3, e, _dwork12);
+    dwork12 = BreitX(orb1, orb3, k, 3, e);
     for (i = 0; i < potential->maxrp; i++) {
       x = _dwork1[i];
       if (x < 1e-5) {
@@ -4125,7 +4158,7 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
 	xk = _dwork2[i]*efk;
 	b = -BESLJN(jy, kj, x)*xk*(kd-1.0)/kf;
       }
-      _dwork12[i] *= b;    
+      _dwork12[i] = dwork12[i]*b;    
       b = x*x/((kd-1.0)*(kd+3));
       _dwork12[i] *= b;
     }
@@ -4289,6 +4322,18 @@ double BreitNW(int k0, int k1, int k2, int k3, int k,
   int m, m0, m1, n;
   double a, c, r;
   
+  int index[5];
+  double *p;
+  index[0] = k0;
+  index[1] = k1;
+  index[2] = k2;
+  index[3] = k3;
+  index[4] = k;
+  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
+  if (p && *p) {
+    r = *p;
+    return r;
+  }  
   m0 = k - 1;
   if (m0 < 0) m0 = 0;
   m1 = k + 1;
@@ -4304,6 +4349,8 @@ double BreitNW(int k0, int k1, int k2, int k3, int k,
     }
   }
 
+  if (!r) r = 1e-100;
+  *p = r;  
   return r;
 }
 
@@ -5780,6 +5827,11 @@ void LimitArrayRadial(int m, double n) {
   case 2:
     breit_array->maxelem = k;
     wbreit_array->maxelem = k;
+    xbreit_array[0]->maxelem = k;
+    xbreit_array[1]->maxelem = k;
+    xbreit_array[2]->maxelem = k;
+    xbreit_array[3]->maxelem = k;
+    xbreit_array[4]->maxelem = k;
     break;
   case 3:
     gos_array->maxelem = k;
@@ -5835,9 +5887,16 @@ int InitRadial(void) {
   ndim = 5;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(breit_array, sizeof(double), ndim, blocks);
+  MultiInit(breit_array, sizeof(double *), ndim, blocks);
   wbreit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(wbreit_array, sizeof(double), ndim, blocks);
+
+  ndim = 3;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
+  for (i = 0; i < 5; i++) {
+    xbreit_array[i] = (MULTI *) malloc(sizeof(MULTI));
+    MultiInit(xbreit_array[i], sizeof(double *), ndim, blocks);
+  }
   
   ndim = 2;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK2;
@@ -5851,7 +5910,7 @@ int InitRadial(void) {
   MultiInit(qed1e_array, sizeof(double), ndim, blocks);
   
   ndim = 3;
-  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK4;
+  for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double *), ndim, blocks);
 
@@ -5879,8 +5938,7 @@ int ReinitRadial(int m) {
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
-  FreeSimpleArray(breit_array);
-  FreeSimpleArray(wbreit_array);
+  FreeBreitArray();
   FreeSimpleArray(residual_array);
   FreeSimpleArray(qed1e_array);
   FreeSimpleArray(vinti_array);

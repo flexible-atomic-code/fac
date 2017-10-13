@@ -129,7 +129,7 @@ double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
 double SelfEnergyRatio(ORBITAL *orb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
-void BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e, double *r);
+double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e);
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
 double BreitS(int k0, int k1, int k2, int k3, int k);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);
