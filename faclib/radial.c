@@ -843,13 +843,9 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
     }
   }
 
-  double rn = GetAtomicR();
   if (potential->hxs + 1.0 != 1.0) {
     for (m = 0; m <= jmax; m++) {
       a = w[m]*potential->rad[m];
-      if (potential->rad[m] < 10*rn) {
-	a *= 1 - exp(-potential->rad[m]/rn);
-      }
       a = -(potential->hxs * 0.64 * pow(a, 1.0/3.0));
       u[m] += a;
       if (v) v[m] += a;
