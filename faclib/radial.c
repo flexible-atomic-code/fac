@@ -92,8 +92,9 @@ static struct {
   int br;
   int mbr;
   int nbr;
+  double xbr;
 } qed = {QEDSE, QEDMSE, 0, QEDVP, QEDNMS, QEDSMS,
-	 QEDBREIT, QEDMBREIT, QEDNBREIT};
+	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.05};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
@@ -400,11 +401,9 @@ int FreeGOSArray(void) {
 int FreeBreitArray(void) {
   FreeSimpleArray(breit_array);
   FreeSimpleArray(wbreit_array);
-  MultiFreeData(xbreit_array[0], FreeMultipole);
-  MultiFreeData(xbreit_array[1], FreeMultipole);
-  MultiFreeData(xbreit_array[2], FreeMultipole);
-  MultiFreeData(xbreit_array[3], FreeMultipole);
-  MultiFreeData(xbreit_array[4], FreeMultipole);
+  for (int i = 0; i < 5; i++) {
+    MultiFreeData(xbreit_array[i], FreeMultipole);
+  }
   return 0;
 }
 
@@ -455,7 +454,7 @@ void PrintQED() {
   printf("SE: %d %d %d\n", qed.se, qed.mse, qed.pse);
   printf("VP: %d\n", qed.vp);
   printf("MS: %d %d\n", qed.nms, qed.sms);
-  printf("BR: %d %d %d\n", qed.br, qed.mbr, qed.nbr);
+  printf("BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
 }
 
 int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
@@ -602,10 +601,11 @@ void SetVP(int n) {
   qed.vp = n;
 }
 
-void SetBreit(int n, int m, int n0) {
+void SetBreit(int n, int m, int n0, double x0) {
   qed.br = n;
   if (m >= 0) qed.mbr = m;
   if (n0 >= 0) qed.nbr = n0;
+  if (x0 > 0) qed.xbr = x0;
 }
 
 void SetMS(int nms, int sms) {
@@ -3864,21 +3864,39 @@ double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3) {
 
 double BreitS(int k0, int k1, int k2, int k3, int k) {
   ORBITAL *orb0, *orb1, *orb2, *orb3;
-  int index[3], i;
-  double **p, *z, r;
+  int index[5], i;
+  double **p, *p0, *z, r;
   
   index[0] = k0;
   index[1] = k1;
-  index[2] = k;
-
-  p = (double **) MultiSet(xbreit_array[4], index, NULL,
-			   InitPointerData, FreeMultipole);
-  if (*p == NULL) {
+  index[2] = k2;
+  index[3] = k3;
+  index[4] = k;
+  p0 = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
+  if (p0 && *p0) {
+    r = *p0;
+    return r;
+  }  
+  
+  p = NULL;
+  if (xbreit_array[4]->maxelem != 0) {
+    index[0] = k0;
+    index[1] = k1;
+    index[2] = k;
+    p = (double **) MultiSet(xbreit_array[4], index, NULL,
+			     InitPointerData, FreeMultipole);
+    z = *p;
+  } else {
+    z = _zk;
+  }
+  if (z == NULL || p == NULL) {    
     orb0 = GetOrbitalSolved(k0);
     orb1 = GetOrbitalSolved(k1);
     if (!orb0 || !orb1) return 0.0;
-    *p = (double *) malloc(sizeof(double)*potential->maxrp);
-    z = *p;
+    if (p != NULL) {
+      *p = (double *) malloc(sizeof(double)*potential->maxrp);
+      z = *p;
+    }
     for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
     }    
@@ -3886,14 +3904,15 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     for (i = 0; i < potential->maxrp; i++) {
       z[i] /= _dwork1[i]*potential->rad[i];
     }
-  } else {
-    z = *p;
-  } 
+  }
+
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
   if (!orb2 || !orb3) return 0.0;      
   Integrate(z, orb2, orb3, 6, &r, 0);
 
+  if (!r) r = 1e-100;
+  *p0 = r;
   return r;
 }
 
@@ -3932,37 +3951,41 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m) {
   return r;
 }
 
-double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e) {
+double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
+	       double e, double *y) {
   int i;
   double kf = 1.0;
-  double x, r, b, **p, *y;
+  double x, r, b, **p;
   int k2 = 2*k;
   int jy, k1;
   int index[3];
 
-  if (m < 0 || m > 3) return NULL;
   index[0] = orb0->idx;
   index[1] = orb1->idx;
   index[2] = k;
+
   if (e < 0) e = fabs(orb0->energy-orb1->energy);
-  p = (double **) MultiSet(xbreit_array[m], index, NULL,
-			   InitPointerData, FreeMultipole);
-  if (*p == NULL) {
-    *p = (double *) malloc(sizeof(double)*potential->maxrp);
-  } else {
-    for (i = 0; i < potential->maxrp; i++) {
-      if (e > 0) {
-	x = FINE_STRUCTURE_CONST*e*potential->rad[i];
-	_dwork1[i] = x;
-      } else {
-	x = 0;
-	_dwork1[i] = 0;
+  if ((mbr == 2 || (m < 3 && w == 0) || (m == 3 && w == 1))
+      && xbreit_array[m]->maxelem != 0) {
+    p = (double **) MultiSet(xbreit_array[m], index, NULL,
+			     InitPointerData, FreeMultipole);
+    if (*p == NULL) {
+      *p = (double *) malloc(sizeof(double)*potential->maxrp);
+    } else {
+      for (i = 0; i < potential->maxrp; i++) {
+	if (e > 0) {
+	  _dwork1[i] = FINE_STRUCTURE_CONST*e*potential->rad[i];
+	} else {
+	  _dwork1[i] = 0;
+	}
+	_dwork2[i] = pow(potential->rad[i], k);
       }
-      _dwork2[i] = pow(potential->rad[i], k);
-    }
-    return *p;    
+      return *p;    
+    }  
+    y = *p;
+  } else {
+    if (y == NULL) y = _xk;
   }
-  y = *p;
   for (i = 1; i < k2; i += 2) {
     kf *= i;
   }
@@ -3980,7 +4003,7 @@ double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e) {
     _dwork2[i] = pow(potential->rad[i], k);
     switch (m) {
     case 0:
-      if (x < 1e-5) {       
+      if (x < qed.xbr) {
 	_dwork[i] = (1 - 0.5*x*x/(k2+3.0))*_dwork2[i];
       } else {
 	jy = 1;
@@ -3992,7 +4015,7 @@ double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e) {
       _dwork[i] = _dwork2[i]/potential->rad[i];
       break;
     case 2:
-      if (x < 1e-5) {
+      if (x < qed.xbr) {
 	_dwork[i] = 0.5/(1.0+k2);
       } else {
 	jy = 3;
@@ -4003,7 +4026,7 @@ double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e) {
       _dwork[i] *= b;
       break;
     case 3:
-      if (x < 1e-5) {
+      if (x < qed.xbr) {
 	_dwork[i] = (1 - 0.5*x*x/(5+k2))*_dwork2[i]*potential->rad[i];
       } else {
 	jy = 1;
@@ -4065,10 +4088,10 @@ double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
   for (i = 1; i < kd; i += 2) {
     kf *= i;
   }
-  double *xk = BreitX(orb0, orb2, k, 0, e);
+  double *xk = BreitX(orb0, orb2, k, 0, w, mbr, e, _xk);
   for (i = 0; i < potential->maxrp; i++) {
     x = _dwork1[i];
-    if (x < 1e-5) {
+    if (x < qed.xbr) {
       b = 1 - 0.5*x*x/(1.0-kd);
     } else {
       jy = 2;
@@ -4127,12 +4150,12 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
     kf *= i;
   }
 
-  double *dwork12 = BreitX(orb0, orb2, k, 1, e);
-  double *dwork13 = BreitX(orb0, orb2, k, 2, e);
+  double *dwork12 = BreitX(orb0, orb2, k, 1, w, mbr, e, _dwork12);
+  double *dwork13 = BreitX(orb0, orb2, k, 2, w, mbr, e, _dwork13);
   for (i = 0; i < potential->maxrp; i++) {
     x = _dwork1[i];
     xk = _dwork2[i]*efk;
-    if (x < 1e-5) {
+    if (x < qed.xbr) {
       b = -0.5/(1+kd);
     } else {
       jy = 4;
@@ -4147,10 +4170,10 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
   }
   Integrate(_yk, orb1, orb3, 6, &s1, 0);
   if (k >= 0) {
-    dwork12 = BreitX(orb1, orb3, k, 3, e);
+    dwork12 = BreitX(orb1, orb3, k, 3, w, mbr, e, _dwork12);
     for (i = 0; i < potential->maxrp; i++) {
       x = _dwork1[i];
-      if (x < 1e-5) {
+      if (x < qed.xbr) {
 	b = 1 - 0.5*x*x/(3.0-kd);
       } else {
 	jy = 2;
@@ -4321,19 +4344,7 @@ double BreitNW(int k0, int k1, int k2, int k3, int k,
 	       int kl0, int kl1, int kl2, int kl3) {
   int m, m0, m1, n;
   double a, c, r;
-  
-  int index[5];
-  double *p;
-  index[0] = k0;
-  index[1] = k1;
-  index[2] = k2;
-  index[3] = k3;
-  index[4] = k;
-  p = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
-  if (p && *p) {
-    r = *p;
-    return r;
-  }  
+
   m0 = k - 1;
   if (m0 < 0) m0 = 0;
   m1 = k + 1;
@@ -4342,15 +4353,13 @@ double BreitNW(int k0, int k1, int k2, int k3, int k,
     if (IsEven((kl0+kl2)/2 + m) || IsEven((kl1+kl3)/2 + m)) continue;
     for (n = 0; n < 8; n++) {
       c = BreitC(n, m, k, k0, k1, k2, k3);
-      a = BreitI(n, k0, k1, k2, k3, m);
-      r += a*c;
-      //printf("bnw: %d %d %d %d %d %d %d %g %g %g\n",
-      //k0, k1, k2, k3, k, m, n, a, c, r);
+      if (c) {
+	a = BreitI(n, k0, k1, k2, k3, m);
+	r += a*c;
+      }
     }
   }
 
-  if (!r) r = 1e-100;
-  *p = r;  
   return r;
 }
 
@@ -5816,7 +5825,7 @@ int IntegrateSinCos(int j, double *x, double *y,
 void LimitArrayRadial(int m, double n) {
   int k;
 
-  k = (int)(n*1000000);
+  k = (int)(0.5+n*1000000);
   switch (m) {
   case 0:
     yk_array->maxelem = k;
@@ -5827,11 +5836,6 @@ void LimitArrayRadial(int m, double n) {
   case 2:
     breit_array->maxelem = k;
     wbreit_array->maxelem = k;
-    xbreit_array[0]->maxelem = k;
-    xbreit_array[1]->maxelem = k;
-    xbreit_array[2]->maxelem = k;
-    xbreit_array[3]->maxelem = k;
-    xbreit_array[4]->maxelem = k;
     break;
   case 3:
     gos_array->maxelem = k;
@@ -5845,8 +5849,13 @@ void LimitArrayRadial(int m, double n) {
   case 6:
     residual_array->maxelem = k;
     break;
+  case 7:
+    for (int i = 0; i < 5; i++) {
+      xbreit_array[i]->maxelem = k;
+    }
+    break;
   default:
-    printf("m > 6, nothing is done\n");
+    printf("nothing is done\n");
     break;
   }
 }

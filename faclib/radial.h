@@ -59,7 +59,7 @@ void SetSlaterCut(int k0, int k1);
 void SetPotentialMode(int m, double h);
 void SetSE(int n, int m, int p);
 void SetVP(int n);
-void SetBreit(int n, int m, int n0);
+void SetBreit(int n, int m, int n0, double x0);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
@@ -129,7 +129,8 @@ double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
 double SelfEnergyRatio(ORBITAL *orb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
-double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, double e);
+double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
+	       double e, double *y);
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
 double BreitS(int k0, int k1, int k2, int k3, int k);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);

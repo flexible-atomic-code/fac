@@ -759,6 +759,7 @@ static PyObject *PSetVP(PyObject *self, PyObject *args) {
 
 static PyObject *PSetBreit(PyObject *self, PyObject *args) {
   int c, m, n;
+  double x;
 
   if (sfac_file) {
     SFACStatement("SetBreit", args, NULL);
@@ -768,9 +769,10 @@ static PyObject *PSetBreit(PyObject *self, PyObject *args) {
 
   m = -1;
   n = -1;
-  if (!PyArg_ParseTuple(args, "i|ii", &c, &m, &n))
+  x = -1.0;
+  if (!PyArg_ParseTuple(args, "i|iid", &c, &m, &n, &x))
     return NULL;
-  SetBreit(c, m, n);
+  SetBreit(c, m, n, x);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4859,7 +4861,7 @@ static PyObject *PLimitArray(PyObject *self, PyObject *args) {
     return Py_None;
   }
   if (!PyArg_ParseTuple(args, "id", &m, &n)) return NULL;
-  if (m < 10) LimitArrayRadial(m, n);
+  LimitArrayRadial(m, n);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -5010,7 +5012,7 @@ static PyObject *PBreitX(PyObject *self, PyObject *args) {
   ORBITAL *orb0 = GetOrbital(k0);
   ORBITAL *orb1 = GetOrbital(k1);
   if (orb0 != NULL && orb1 != NULL) {
-    BreitX(orb0, orb1, k, m, e);
+    BreitX(orb0, orb1, k, m, 0, 1, e, NULL);
   }
   Py_INCREF(Py_None);
   return Py_None;

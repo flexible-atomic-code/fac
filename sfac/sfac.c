@@ -2342,18 +2342,23 @@ static int PSetVP(int argc, char *argv[], int argt[],
 static int PSetBreit(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
   int c, m, n;
+  double x;
 
-  if (argc < 1 || argc > 3) return -1;
+  if (argc < 1 || argc > 4) return -1;
   c = atoi(argv[0]);
   m = -1;
   n = -1;
+  x = -1;
   if (argc > 1) {
     m = atoi(argv[1]);
     if (argc > 2) {
       n = atoi(argv[2]);
+      if (argc > 3) {
+	x = atof(argv[3]);
+      }
     }
   }
-  SetBreit(c, m, n);
+  SetBreit(c, m, n, x);
   
   return 0;
 }
