@@ -2435,6 +2435,11 @@ starts to open for the core excitations from the ground state to the states in
 the configuration group list \var{g}. It returns a list of integers.
 \end{fundesc}
 
+\begin{fundesc}{FinalizeMPI}{}
+If FAC is compiled with MPI support, this invokes MPI finalize method before
+exiting. This function should be called as the last line of the script.
+\end{fundesc}
+
 \begin{fundesc}{GetCFPOld}{j, q, dj, dw, pj, pw}
 Return the coefficient of fractional parentage
 $(j^{q-1},pj,pw|\}j^{q},dj,dw)$, where $j$ is the angular momentum of the
@@ -3690,11 +3695,6 @@ Calculate the ionization threshold of ion with nuclear charge \var{Z} and
 number of electrons \var{n} for shell \var{s}. \var{s} has the same meaning as
 in \key{PhFit}. It returns a double in eV. Data are from subroutine
 \key{PhFit}. 
-\end{fundesc}
-
-\begin{fundesc}{FinalizeMPI}{}
-If FAC is compiled with MPI support, this invokes MPI finalize method before
-exiting. This function should be called as the last line of the script.
 \end{fundesc}
 
 \begin{fundesc}{FracAbund}{Z, Te\opt{im, rm}}
