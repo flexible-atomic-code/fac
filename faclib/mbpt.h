@@ -69,6 +69,7 @@ typedef struct _MBPT_EFF_ {
   double **hab, **hba;
 } MBPT_EFF;
 
+void SetMPIRankMBPT();
 void InitMBPT(void);
 int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax, 
 		   int n1, int *nm, int n2, int *nmp, int n3, int *n3g,

@@ -652,9 +652,11 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
       ReinitRecouple(0);
       ReinitRadial(1);
     }
-#if USE_MPI == 1
-    MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
-		  MPI_SUM, MPI_COMM_WORLD);    
+#if USE_MPI == 1    
+    if (mpi.nproc > 1) {
+      MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
+		    MPI_SUM, MPI_COMM_WORLD);
+    }    
 #endif
   }
   if (m3) {
@@ -1836,7 +1838,6 @@ int DiagnolizeHamilton(void) {
   start = clock();
 #endif
 
-  if (mpi.myrank != 0) return 0;
   h = &_ham;
   n = h->dim;
   m = h->n_basis;
@@ -4792,15 +4793,17 @@ int InitStructure(void) {
 
   AllocHamMem(1000, 1000);
   
+  return 0;
+}
+
+void SetMPIRankStructure() {
 #if USE_MPI == 1
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
 #endif
-  return 0;
 }
-
+  
 int ReinitStructure(int m) {
-
   if (m < 0) {
     return 0;
   } else {

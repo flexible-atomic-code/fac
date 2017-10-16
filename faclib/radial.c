@@ -451,10 +451,10 @@ void SetPotentialMode(int m, double h) {
 }
 
 void PrintQED() {
-  printf("SE: %d %d %d\n", qed.se, qed.mse, qed.pse);
-  printf("VP: %d\n", qed.vp);
-  printf("MS: %d %d\n", qed.nms, qed.sms);
-  printf("BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
+  MPrintf(0, "SE: %d %d %d\n", qed.se, qed.mse, qed.pse);
+  MPrintf(0, "VP: %d\n", qed.vp);
+  MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
+  MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
 }
 
 int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
@@ -5864,11 +5864,6 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-#if USE_MPI == 1
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
-#endif
-
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
   potential->mode = POTMODE;
@@ -5940,6 +5935,13 @@ int InitRadial(void) {
   SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
   return 0;
+}
+
+void SetMPIRankRadial() {
+#if USE_MPI == 1
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
+#endif
 }
 
 int ReinitRadial(int m) {

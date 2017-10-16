@@ -54,6 +54,9 @@ void InitMBPT(void) {
   mbpt_tr.nup = 0;
   mbpt_tr.low = NULL;
   mbpt_tr.up = NULL;
+}
+
+void SetMPIRankMBPT() {
 #if USE_MPI == 1
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
@@ -2431,7 +2434,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
     free(a[i]);
   }
 }
-		  
+
 void DeltaH22M0(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
@@ -2442,7 +2445,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
   INTERACT_SHELL s[8];
   ORBITAL *o[8];  
   FORMULA fm;
-
+  
   fm.ns = -1;
   i1 = bra[0].n;
   i1 = IdxGet(ing, i1);
@@ -2544,6 +2547,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].index = ns-s[i].index-1;
 		  }
 		  fm.j1 = -1;
+		  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			  mst, bst, kst, s, ph,
 			  ks1, ks2, &fm, a, -(i1+1));
@@ -2705,7 +2709,8 @@ void DeltaH12M0(void *mptr, int ns,
 	for (id = 0; id < ib0->n; id++) {
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= id; im++) {
-	      if (ik == ia) continue;	      
+	      if (ik == ia) continue;
+	      if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	      op[0] = ia;
 	      op[1] = im;
 	      op[2] = id;
@@ -2914,6 +2919,7 @@ void DeltaH11M0(void *mptr, int ns,
 	  if (ib == im) {
 	    continue;
 	  }
+	  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
 	  /* op contains the index for the creation operators */
 	  op[0] = ia;
 	  op[1] = im;
@@ -3186,7 +3192,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   
   tt0 = clock();
   tbg = tt0;
-  MPrintf(-1, "Construct Radial Basis.\n");
+  MPrintf(-1, "Construct Radial Basis, %d/%d.\n", mpi.myrank, mpi.nproc);
   fflush(stdout);
   n = ConstructNGrid(n, &ng);
   n2 = ConstructNGrid(n2, &ng2);
@@ -3360,7 +3366,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 
   if (n3 >= 0) {
-    MPrintf(-1, "Construct Effective Hamiltonian.\n");
+    MPrintf(-1, "Construct Effective Hamiltonian %d\n", nc);
     fflush(stdout);
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
@@ -3459,28 +3465,28 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	mpi.nj = GetJpList(n1, bas1, mpi.jp);
 	if (n3 != 2) {
 	  /* 1-b 2-b term no virtual orb */
-	  DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ing, nc, cs, 0);
+	  //DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  //	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  
 	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
-	  /* 2-b 1-b term no virtual orb */
-	  DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
-		     ct1, ct0, &ibas0, &ing, nc, cs, 0);	
+	  /* 2-b 1-b term no virtual orb */	  
+	  //DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
+	  //	     ct1, ct0, &ibas0, &ing, nc, cs, 0);	  	  
 	  /* 2-b 1-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 		   ct1, ct0, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  
-	  /* 1-b 1-b term no virtual orb */
-	  DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ing, nc, cs, 0);
+	  /* 1-b 1-b term no virtual orb */	  
+	  //DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  //	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  	  
 	  /* 1-b 1-b term 1 virtual orb */
 	  DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  
-	  /* 2-b 2-b term no virtual */
+	  /* 2-b 2-b term no virtual */	  
 	  DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ing, nc, cs);
+	  	     ct0, ct1, &ibas0, &ing, nc, cs);	  	  
 	  /* 2-b 2-b term 1 virtual */
 	  DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs);	
@@ -3536,7 +3542,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
 #endif
-      if (mpi.myrank != 0) continue;
       AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);
       h = GetHamilton();
       h0 = meff[isym]->h0;
@@ -3548,6 +3553,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 1);
       h->heff = heff;
       DecodePJ(isym, &pp, &jj);
+      if (mpi.myrank != 0) continue;   
       fwrite(&isym, sizeof(int), 1, f);
       fwrite(&(h->dim), sizeof(int), 1, f);
       fflush(f);

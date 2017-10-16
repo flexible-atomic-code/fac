@@ -37,6 +37,9 @@ static PyObject *ATOMICSYMBOL;
 static PyObject *ATOMICMASS;
 static PyObject *QKMODE;
 
+static PyObject *_thismodule;
+static PyObject *_thisdict;
+
 static FILE *sfac_file = NULL;
 
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
@@ -5081,7 +5084,52 @@ static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 } 
-	
+
+static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("InitializeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#if USE_MPI == 1
+  char *opt = NULL;
+  if (!(PyArg_ParseTuple(args, "|s", &opt))) {
+    return NULL;
+  }
+  InitializeMPI(opt);
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PMPIRank(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("MPIRank", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int n, k;
+  k = MPIRank(&n);
+  return Py_BuildValue("[ii]", k, n);
+}
+
+static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("FinalizeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5281,6 +5329,9 @@ static struct PyMethodDef fac_methods[] = {
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {NULL, NULL}
 };
 
@@ -5293,9 +5344,11 @@ void initfac(void) {
   double *emass;
   int i, myrank, nproc;
 
-  m = Py_InitModule("fac", fac_methods);
-  
+  m = Py_InitModule("fac", fac_methods);  
   d = PyModule_GetDict(m);
+  _thismodule = m;
+  _thisdict = d;
+  
   ErrorObject = Py_BuildValue("s", "fac.error");
   PyDict_SetItemString(d, "error", ErrorObject);
 
@@ -5349,10 +5402,6 @@ void initfac(void) {
   PyDict_SetItemString(d, "ATOMICSYMBOL", ATOMICSYMBOL);
   PyDict_SetItemString(d, "ATOMICMASS", ATOMICMASS);
   PyDict_SetItemString(d, "QKMODE", QKMODE);
-
-  myrank = MPIRank(&nproc);
-  PyDict_SetItemString(d, "MPIRANK", Py_BuildValue("i", myrank));
-  PyDict_SetItemString(d, "MPISIZE", Py_BuildValue("i", nproc));
   
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");

@@ -52,5 +52,7 @@ size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *f);
 int BFileClose(BFILE *f);
 void BFileRewind(BFILE *f);
 char *BFileGetLine(char *s, int size, BFILE *f);
+void InitializeMPI(char *s);
+void FinalizeMPI();
 
 #endif

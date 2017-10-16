@@ -24,6 +24,7 @@ USE (rcsid);
 
 #include "init.h"
 #include "stoken.h"
+#include "mpiutil.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;
@@ -3812,6 +3813,34 @@ static int PModifyPotential(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PInitializeMPI(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+#if USE_MPI == 1
+  if (argc == 0) {
+    InitializeMPI(NULL);
+  } else {
+    InitializeMPI(argv[0]);
+  }
+#endif
+  return 0;
+}
+
+static int PMPIRank(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n, k;
+  k = MPIRank(&n);
+  MPrintf(-1, "%d of %d\n", k, n);
+  return 0;
+}
+
+static int PFinalizeMPI(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -3981,16 +4010,15 @@ static METHOD methods[] = {
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
 int main(int argc, char *argv[]) {
   int i;
   FILE *f;
-
-#if USE_MPI == 1
-  MPI_Init(&argc, &argv);
-#endif
 
 #ifdef PMALLOC_CHECK
   pmalloc_open();
@@ -4018,10 +4046,6 @@ int main(int argc, char *argv[]) {
 
 #ifdef PMALLOC_CHECK
   pmalloc_check();
-#endif
-
-#if USE_MPI == 1
-  MPI_Finalize();
 #endif
 
   return 0;

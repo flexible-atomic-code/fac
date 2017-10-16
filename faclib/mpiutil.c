@@ -17,7 +17,9 @@
  */
 
 #include "mpiutil.h"
+#include "parser.h"
 #include "stdarg.h"
+#include "init.h"
 
 int SkipMPI(int *wid, int myrank, int nproc) {
 #ifdef USE_MPI
@@ -26,6 +28,7 @@ int SkipMPI(int *wid, int myrank, int nproc) {
     if (*wid != myrank) {
       r = 1;
     }
+    //MPrintf(-1, "SkipMPI: %d %d %d %d\n", *wid, myrank, nproc, r);
     *wid = *wid + 1;
     if (*wid >= nproc) *wid = 0;
   }
@@ -128,6 +131,43 @@ int MPIReady() {
   return k;
 #else
   return 0;
+#endif
+}
+
+void InitializeMPI(char *s) {
+#if USE_MPI == 1
+  int argc, i, n;
+  char **argv, *p;
+  if (s == NULL) {
+    argc = 1;
+  } else {
+    argc = 1 + StrSplit(s, ' ');
+  }
+  argv = malloc(sizeof(char *)*argc);
+  argv[0] = malloc(sizeof(char));
+  argv[0][0] = '\0';
+  p = s;
+  for (i = 1; i < argc; i++) {
+    n = strlen(p);
+    argv[i] = malloc(sizeof(char)*(n+1));
+    strcpy(argv[i], p);
+    printf("%d %s %s\n", i, p, argv[i]);
+    p += n+1;
+  }
+  MPI_Init(&argc, &argv);
+  for (i = 0; i < argc; i++) {
+    free(argv[i]);
+  }
+  free(argv);
+  SetMPIRankMBPT();
+  SetMPIRankRadial();
+  SetMPIRankStructure();
+#endif
+}
+
+void FinalizeMPI() {
+#if USE_MPI == 1
+  MPI_Finalize();
 #endif
 }
 

@@ -51,6 +51,7 @@ int GetRadTiming(RAD_TIMING *t);
 
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
+void SetMPIRankRadial();
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
 int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
