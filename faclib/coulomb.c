@@ -335,6 +335,7 @@ double HydrogenicSelfEnergy(double z, int n, int k, double rms, int md) {
       id = -1;
     }
     if (id >= 0) {
+      m = 1;
       UVIP3P(np, nx, _zd, _sd[id], m, &z, &r);
     } else {
       r = Klamaq(n, k);

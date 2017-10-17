@@ -185,7 +185,7 @@ then
         mpicompile=`mpicc -showme`
         mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
 	mpicompile=[`echo $mpicompile | sed 's/^[^ ]* *//'`]
-	mpicompile=[`echo $mpicompile | sed 's/-[Ll][^ ]*//g'`]
+	mpicompile=[`echo $mpicompile | sed 's/ -[Ll][^ ]*//g'`]
 	mpicompile=[`echo $mpicompile | sed 's/ *$//'`]
       fi
       if test "x$mpilink" = "x"
@@ -193,7 +193,7 @@ then
         mpilink=`mpicc -showme`
 	mpilink=[`echo $mpilink | sed 's/^ *//'`]
 	mpilink=[`echo $mpilink | sed 's/^[^ ]* *//'`]
-	mpilink=[`echo $mpilink | sed 's/-[^Ll][^ ]*//g'`]
+	mpilink=[`echo $mpilink | sed 's/ -[^Ll][^ ]*//g'`]
 	mpilink=[`echo $mpilink | sed 's/ *$//'`]
       fi
       AC_DEFINE_UNQUOTED([USE_MPI])
