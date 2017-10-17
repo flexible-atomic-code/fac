@@ -1007,7 +1007,7 @@ int GetPotential(char *s) {
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   u = potential->dVc;
-  v = potential->dU;
+  v = potential->ZVP;
 
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
   for (i = 0; i < acfg->n_shells; i++) {

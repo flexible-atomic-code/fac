@@ -3465,21 +3465,21 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	mpi.nj = GetJpList(n1, bas1, mpi.jp);
 	if (n3 != 2) {
 	  /* 1-b 2-b term no virtual orb */
-	  //DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-	  //	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  
+	  DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  
 	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  /* 2-b 1-b term no virtual orb */	  
-	  //DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
-	  //	     ct1, ct0, &ibas0, &ing, nc, cs, 0);	  	  
+	  DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
+	  	     ct1, ct0, &ibas0, &ing, nc, cs, 0);	  	  
 	  /* 2-b 1-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 		   ct1, ct0, &ibas0, &ibas1, &ing, nc, cs, 0);
 	  
 	  /* 1-b 1-b term no virtual orb */	  
-	  //DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-	  //	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  	  
+	  DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  	     ct0, ct1, &ibas0, &ing, nc, cs, 0);	  	  
 	  /* 1-b 1-b term 1 virtual orb */
 	  DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);
