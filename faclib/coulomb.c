@@ -288,7 +288,7 @@ double HydrogenicSelfEnergy(double z, int n, int k, double rms, int md) {
     if (md == 1 && z >= 26 && k != -2) {
       MOHRFIN(n, k, z, rms, &r, &a, &b, &c, &p);
     }
-    if (r <= 0) {
+    if (!r) {
       id = ((int)(0.5+z))-1;
       if (id >= 0 && id < 110) {
 	if (n == 1) m = 0;
@@ -309,7 +309,7 @@ double HydrogenicSelfEnergy(double z, int n, int k, double rms, int md) {
       }
     }
   }
-  if (r <= 0) {
+  if (!r) {
     if (n <= 5) {
       id = _nd[n-1];
       switch (k) {

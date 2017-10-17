@@ -1632,7 +1632,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {
   int nk0, k;
   int *k0;
-  double *x, z0, r0;
+  double *x, z0, r0, e0;
   int k1, k2;
 
   if (s[0].j != s[1].j ||
@@ -1646,7 +1646,11 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   k1 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
   k2 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
   ResidualPotential(&r0, k1, k2);
-  if (k1 == k2) r0 += (GetOrbital(k1))->energy;
+  e0 = 0.0;
+  if (k1 == k2) {
+    e0 = (GetOrbital(k1))->energy;  
+    r0 += e0;
+  }
   r0 += QED1E(k1, k2);
   z0 *= sqrt(s[0].j + 1.0);
 

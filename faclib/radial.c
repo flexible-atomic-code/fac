@@ -3695,23 +3695,19 @@ double QED1E(int k0, int k1) {
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
   }
-  /*
-  if (qed.vp > 2) {
-    a = 0.0;
-    Integrate(potential->VWK, orb1, orb2, 1, &a, 0);
-    r += a;
-  }
-  */
   if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
     if (potential->ib <= 0 || orb1->n <= potential->nb) {
       a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
 			       orb1->n, orb1->kappa,
 			       potential->atom->rms, qed.mse);
       if (a) {
-	if (qed.mse%10 == 0) {
+	int msc = qed.mse%10;
+	if (msc == 0) {
 	  c = SelfEnergyRatio(orb1);
-	} else {
+	} else if (msc < 3) {
 	  c = SelfEnergyRatioWelton(orb1);
+	} else {
+	  c = 1.0;
 	}
 	r += c*a;
 	if (qed.pse) {
@@ -3721,7 +3717,6 @@ double QED1E(int k0, int k1) {
     }
   }
   *p = r;
-  
   return r;
 }
   
