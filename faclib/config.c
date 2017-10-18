@@ -1754,8 +1754,10 @@ int AddConfigToList(int k, CONFIG *cfg) {
   nq0 = 0;
   m = 0;
   cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
+  cfg->sweight = 1.0;
   for (i = 0; i < cfg->n_shells; i++) {
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
+    cfg->sweight *= ShellDegeneracy(j+1, nq);
     if (n == n0 && kl == kl0) {
       nq0 += nq;
     } else {

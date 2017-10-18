@@ -75,7 +75,7 @@ static struct {
   int iset;
   int disable_config_energy;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
-		      1.0, 1, 0, NULL, OPTPRINT, 0, 1};
+		      1.0, 1, 0, NULL, OPTPRINT, 0, 0};
 
 static struct {
   int kl0;
@@ -1123,7 +1123,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS], mse;
-  int iter, i, j, im;
+  int iter, i, j;
 
   mse = qed.se;
   qed.se = 0;
@@ -1179,9 +1179,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
-    im = 0;
-  } else {
-    im = 1;
   }
   SetPotentialZ(potential, qed.vp);
   SetHydrogenicPotential(hpotential, potential);
@@ -1200,56 +1197,29 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   if (potential->mode/10 == 1) {
-    if (im == 0) {
-      a = 1.5/(NXS-1.0);
-      hxs[0] = potential->hxs - 0.75;
-      for (i = 1; i < NXS; i++) {
-	hxs[i] = hxs[i-1] + a;
-      }      
-      for (i = 0; i < NXS; i++) {
-	ReinitRadial(1);
-	potential->hxs = hxs[i];
-	iter = OptimizeLoop(acfg);
-	if (iter > optimize_control.maxiter) {
-	  printf("Maximum iteration reached in OptimizeRadial %d %d\n", i, iter);
-	  return -1;
-	}
-	if (ng > 0) {
-	  ehx[i] = 0.0;
-	  for (j = 0; j < ng; j++) {
-	    ehx[i] += TotalEnergyGroup(kg[j]);
-	  }
-	} else {
-	  ehx[i] = AverageEnergyAvgConfig(acfg);
-	}
-	if (optimize_control.iprint) {
-	  printf("hxs iter: %d %d %d %g %g\n", im, ng, i, hxs[i], ehx[i]);
-	}
-      }    
-    } else {
-      a = 0.5/(NXS-1.0);
-      b = potential->hxs;
-      hxs[0] = b - 0.25;
-      for (i = 1; i < NXS; i++) {
-	hxs[i] = hxs[i-1] + a;
-      }
+    a = 1.5/(NXS-1.0);
+    hxs[0] = potential->hxs - 0.75;
+    for (i = 1; i < NXS; i++) {
+      hxs[i] = hxs[i-1] + a;
+    }      
+    for (i = 0; i < NXS; i++) {
+      ReinitRadial(1);
+      potential->hxs = hxs[i];
       iter = OptimizeLoop(acfg);
-      for (i = 0; i < NXS; i++) {
-	potential->hxs = hxs[i];
-	SetPotential(acfg, iter);
-	ReinitRadial(1);
-	ClearOrbitalTable(0);
-	if (ng > 0) {
-	  ehx[i] = 0.0;
-	  for (j = 0; j < ng; j++) {
-	    ehx[i] += TotalEnergyGroup(kg[j]);
-	  }
-	} else {
-	  ehx[i] = AverageEnergyAvgConfig(acfg);
+      if (iter > optimize_control.maxiter) {
+	printf("Maximum iteration reached in OptimizeRadial %d %d\n", i, iter);
+	return -1;
+      }
+      if (ng > 0) {
+	ehx[i] = 0.0;
+	for (j = 0; j < ng; j++) {
+	  ehx[i] += TotalEnergyGroup(kg[j]);
 	}
-	if (optimize_control.iprint) {
-	  printf("hxs iter: %d %d %d %g %g\n", im, ng, i, hxs[i], ehx[i]);
-	}
+      } else {
+	ehx[i] = AverageEnergyAvgConfig(acfg);
+      }
+      if (optimize_control.iprint) {
+	printf("hxs iter: %d %d %g %g\n", ng, i, hxs[i], ehx[i]);
       }
     }
     
@@ -1742,6 +1712,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
   int k, i;
+  double e0;
 
   if (optimize_control.disable_config_energy) return 0;
   if (m == 0) {
@@ -1751,10 +1722,10 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	OptimizeRadial(1, &k, NULL);
 	if (mr > 0) RefineRadial(mr, 0);
 	g = GetGroup(k);
+	e0 = TotalEnergyGroup(k);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	  cfg->energy = AverageEnergyConfig(cfg);
-	  //printf("c0: %d %d %d %g\n", m, k, i, cfg->energy);
+	  cfg->energy = e0;
 	}
 	ReinitRadial(1);
 	ClearOrbitalTable(0);
@@ -1764,11 +1735,11 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (mr) RefineRadial(mr, 0);
       for (k = 0; k < ng; k++) {
 	g = GetGroup(kg[k]);
+	e0 = TotalEnergyGroup(kg[k]);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  if (cfg->energy == 0) {
-	    cfg->energy = AverageEnergyConfig(cfg);
-	    //printf("c1: %d %d %d %g\n", m, k, i, cfg->energy);
+	    cfg->energy = e0;
 	  }
 	}
       }
@@ -1779,12 +1750,11 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
     ng = GetNumGroups();
     for (k = 0; k < ng; k++) {
       g = GetGroup(k);
+      e0 = TotalEnergyGroup(k);
       for (i = 0; i < g->n_cfgs; i++) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	if (cfg->energy != 0) {
-	  double e = AverageEnergyConfig(cfg);
-	  cfg->delta = cfg->energy - e;
-	  //printf("c0: %d %d %d %g %g\n", m, k, i, e, cfg->delta);
+	  cfg->delta = cfg->energy - e0;
 	}
       }
     }
@@ -1798,16 +1768,20 @@ double TotalEnergyGroup(int kg) {
   ARRAY *c;
   CONFIG *cfg;
   int t;
-  double total_energy;
+  double total_energy, a;
 
   g = GetGroup(kg);
   c = &(g->cfg_list);
   
   total_energy = 0.0;
+  g->sweight = 0.0;
   for (t = 0; t < g->n_cfgs; t++) {
     cfg = (CONFIG *) ArrayGet(c, t);
-    total_energy += AverageEnergyConfig(cfg);
+    a = AverageEnergyConfig(cfg);
+    total_energy += a*cfg->sweight;
+    g->sweight += cfg->sweight;
   }
+  total_energy /= g->sweight;
   return total_energy;
 }
 

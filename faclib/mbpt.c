@@ -4051,7 +4051,8 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
   double *awgrid, *rg, a, x, e, s, s0;
   int n, i, j, k, m, t, q, m1, m2, p;
   int i0, i1, p1, p2, j1, j2;
-  
+
+  if (mpi.myrank != 0) return;
   fn = mbpt_tr.tfn;
   if (fn == NULL || mbpt_tr.nlow <= 0 || mbpt_tr.nup <= 0) return;  
   awgrid = mbpt_tr.awgrid;
@@ -4161,7 +4162,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   MBPT_TR *mtr;
   char tfn1[1024];
   FILE **f1, *f2;
-  
+
+  if (mpi.myrank != 0) return 0;
   ierr = 0;
   if (nkg0 <= 0 || nkg0 > nkg) nkg0 = nkg;
   mbpt = malloc(sizeof(MBPT_HAM)*nf);

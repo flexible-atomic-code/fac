@@ -159,6 +159,7 @@ typedef struct _CONFIG_ {
   int n_shells;
   int n_csfs;
   int nnrs;
+  double sweight;
   double energy;
   double delta;
   int *nrs;
@@ -210,6 +211,7 @@ typedef struct _CONFIG_GROUP_ {
   int n_cfgs;
   int n_electrons;
   ARRAY cfg_list;
+  double sweight;
   char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
 
