@@ -3248,6 +3248,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   cs = csm;
   tt0 = WallTime();
   tbg = WallTime();
+
   MPrintf(-1, "Construct Radial Basis, %d/%d.\n", MyRankMPI(), NProcMPI());
   fflush(stdout);
   n = ConstructNGrid(n, &ng);
@@ -3489,8 +3490,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  bst = kst0;
 	  kst = bst0;
 	}
-#pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs) firstprivate(tt0,tt1,tbg,dt,dtt)
+#pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt)
 	{
+	  double ptt0, ptt1;
+	  ptt0 = tt0;
 	  cs = mbpt_cs;
 	  /* make sure ct0 and ct1 have the same set of shells */
 	  n0 = PadStates(ct0, ct1, &bra, &ket, &sbra, &sket);
@@ -3559,19 +3562,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  
 	  if (n3 != 1) {
 	    /* 2-b 2-b term 2 virtual */
-	    /*
 	    DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
 		       ct0, ct1, &ibas0, &ibas1, &ing, &ing2, nc, cs);
-	    */
 	  }
 	  free(bra);
 	  free(ket);
 	  free(sbra);
 	  free(sket);
-	  tt1 = WallTime();
-	  dt = tt1-tt0;
-	  dtt = tt1-tbg;
-	  tt0 = tt1;
+	  ptt1 = WallTime();
+	  dt = ptt1-ptt0;
+	  dtt = ptt1-tbg;
+	  tt0 = ptt1;
 	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);
 #pragma omp barrier
@@ -3761,8 +3762,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	ct1 = c1;
 	bst = bst0;
 	kst = kst0;	
-#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs) firstprivate(tt0,tt1,tbg,dt,dtt)
+#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt)	
 	{
+	  double ptt0, ptt1;
+	  ptt0 = tt0;
 	  cs = mbpt_cs;
 	  /* make sure ct0 and ct1 have the same set of shells */
 	  n0 = PadStates(ct0, ct1, &bra, &ket, &sbra, &sket);
@@ -3815,10 +3818,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  free(ket);
 	  free(sbra);
 	  free(sket);
-	  tt1 = WallTime();
-	  dt = tt1-tt0;
-	  dtt = tt1-tbg;
-	  tt0 = tt1;
+	  ptt1 = WallTime();
+	  dt = ptt1-ptt0;
+	  dtt = ptt1-tbg;
+	  tt0 = ptt1;
 	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);
 	}
