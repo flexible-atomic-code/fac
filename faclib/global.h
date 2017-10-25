@@ -31,6 +31,11 @@
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
+#include <sys/mman.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <pthread.h>
 
 #ifdef PMALLOC_CHECK
 #include "pmalloc.h"
@@ -47,6 +52,11 @@
 /* define constants */
 #include "consts.h"
 
+#define LOCK pthread_mutex_t
+#define InitLock(x) pthread_mutex_init((x), NULL)
+#define SetLock(x) pthread_mutex_lock((x))
+#define ReleaseLock(x) pthread_mutex_unlock((x))
+#define DestroyLock(x) pthread_mutex_destroy((x))
 
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG

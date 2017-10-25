@@ -979,6 +979,7 @@ c-----------------------------------------------------------------------
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
 c
       data  mord(1),mord(2)/12,5/, mxstp0/5000/, mxhnl0/10/
+!$OMP THREADPRIVATE(/ls0001/)
 c-----------------------------------------------------------------------
 c block a.
 c this code block is executed on every call.

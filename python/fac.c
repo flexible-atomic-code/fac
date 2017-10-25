@@ -2851,9 +2851,9 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
       k[0] = i;
       k[1] = j;
       k[2] = 20;
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
       *b = 0.2;
-      b = (double *) MultiGet(&ma, k);
+      b = (double *) MultiGet(&ma, k, NULL);
     }
   }
   printf("set\n"); 
@@ -5092,12 +5092,12 @@ static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-#if USE_MPI == 1
-  char *opt = NULL;
-  if (!(PyArg_ParseTuple(args, "|s", &opt))) {
+#ifdef USE_MPI
+  int n = -1;
+  if (!(PyArg_ParseTuple(args, "|i", &n))) {
     return NULL;
   }
-  InitializeMPI(opt);
+  InitializeMPI(n);
 #endif
   
   Py_INCREF(Py_None);

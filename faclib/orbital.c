@@ -18,6 +18,7 @@
 
 #include "orbital.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -32,7 +33,9 @@ static double _dwork[MAXRP];
 static double _dwork1[MAXRP];
 static double _dwork2[MAXRP];
 static double _dwork3[MAXRP];
- 
+
+#pragma omp threadprivate(_veff, ABAND, _dwork, _dwork1, _dwork2, _dwork3)
+
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
 
@@ -631,7 +634,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   }
   
   p = malloc(sizeof(double)*2*pot->maxrp);
-  if (!p) return -1;
+  if (!p) {
+    MPrintf(-1, "cannot alloc memory RadialBasis: %d %d\n", orb->n, orb->kappa);
+    return -1;
+  }
 
   nr = orb->n - kl - 1;
 

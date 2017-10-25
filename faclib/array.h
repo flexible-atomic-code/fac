@@ -68,26 +68,39 @@
 ** NOTE:        
 */
 
+#include <sys/mman.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
 #include <time.h>
 
+#include "global.h"
+
 #define USE_NMULTI 1
+
 /* choose MULTI implementation */
-#ifdef USE_NMULTI
+#if USE_NMULTI == 1
 #define MultiInit NMultiInit
 #define MultiGet NMultiGet
 #define MultiSet NMultiSet
 #define MultiFreeData NMultiFreeData
 #define MultiFree NMultiFree
-#else
+#elif USE_NMULTI == 0
 #define MultiInit SMultiInit
 #define MultiGet SMultiGet
 #define MultiSet SMultiSet
 #define MultiFreeData SMultiFreeData
 #define MultiFree SMultiFree
+#else
+#define MultiInit MMultiInit
+#define MultiGet MMultiGet
+#define MultiSet MMultiSet
+#define MultiFreeData MMultiFreeData
+#define MultiFree MMultiFree
 #endif /*USE_NMULTI*/
 
 
@@ -117,11 +130,12 @@ typedef struct _DATA_ {
 ** NOTE:        
 */
 typedef struct _ARRAY_ {
-  unsigned short esize;
-  unsigned short block;
+  int esize;
+  int block;
   int bsize;
   int dim;
   DATA  *data;
+  LOCK *lock;
 } ARRAY;
 
 /*
@@ -140,11 +154,15 @@ typedef struct _ARRAY_ {
 */
 typedef struct _MULTI_ {
   int numelem, maxelem;
-  unsigned short ndim;
+  unsigned short ndim, ndim1;
   unsigned short isize;
   unsigned short esize;
-  unsigned short *block;
+  unsigned short *block, *sidx, *ridx;
+  int *iidx, *iblock;
+  int isf, hsize, hmask, aidx;
   ARRAY *array;
+  ARRAY *ia, *da;
+  LOCK *lock;
 } MULTI;
 
 typedef struct _IDXARY_ {
@@ -166,8 +184,8 @@ int   ArrayFreeData(DATA *p, int esize, int block,
 		    void (*FreeElem)(void *));
 
 int   SMultiInit(MULTI *ma, int esize, int ndim, int *block);
-void *SMultiGet(MULTI *ma, int *k);
-void *SMultiSet(MULTI *ma, int *k, void *d, 
+void *SMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *SMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *));
 int   SMultiFree(MULTI *ma, void (*FreeElem)(void *));
@@ -179,14 +197,26 @@ int   SMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 ** for the MULTI array,
 */
 int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
-void *NMultiGet(MULTI *ma, int *k);
-void *NMultiSet(MULTI *ma, int *k, void *d, 
+void *NMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *));
 int   NMultiFree(MULTI *ma, 
 		 void (*FreeElem)(void *));
 int   NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *));
 int   NMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
+
+/*
+** yet another implementation of MULTI array
+*/
+int   MMultiInit(MULTI *ma, int esize, int ndim, int *block);
+void *MMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *MMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *));
+int   MMultiFree(MULTI *ma, 
+		 void (*FreeElem)(void *));
+int   MMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 
 void  InitIntData(void *p, int n);
 void  InitDoubleData(void *p, int n);

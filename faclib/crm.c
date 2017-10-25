@@ -1770,8 +1770,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&ce, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&ce, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dce[0][j][index[0]] += rtmp;
@@ -1784,8 +1788,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&cep, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&cep, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dce[1][i][index[0]] += rtmp;
@@ -1804,8 +1812,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if (md & 4) {
-	      d = (double *) MultiSet(&ce, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&ce, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dce[2][i][index[0]] += rtmp;
@@ -1818,8 +1830,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if ((md & 4) && ic[j]) {
-	      d = (double *) MultiSet(&cep, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&cep, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dce[3][j][index[0]] += rtmp;
@@ -1848,8 +1864,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&tr, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dtr[0][j][index[0]] += rtmp;
@@ -1862,8 +1882,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&trp, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dtr[1][i][index[0]] += rtmp;
@@ -1882,8 +1906,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if (md & 4) {
-	      d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&tr, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dtr[2][i][index[0]] += rtmp;
@@ -1896,8 +1924,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if ((md & 4) && ic[j]) {
-	      d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&trp, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dtr[3][j][index[0]] += rtmp;
@@ -1926,8 +1958,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&tr, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&tr, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dtr[0][j][index[0]] += rtmp;
@@ -1940,8 +1976,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&trp, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&trp, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dtr[1][i][index[0]] += rtmp;
@@ -1969,8 +2009,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&rr, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&rr, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  } 
 	  if (md & 3) {
 	    drr[0][j][index[0]] += rtmp;
@@ -1983,8 +2027,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&rrp, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    drr[1][i][index[0]] += rtmp;
@@ -2003,8 +2051,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if (md & 4) {
-	      d = (double *) MultiSet(&rr, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&rr, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      drr[2][i][index[0]] += rtmp;
@@ -2017,8 +2069,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if ((md & 4) && ic[j]) {
-	      d = (double *) MultiSet(&rrp, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&rrp, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dtr[3][j][index[0]] += rtmp;
@@ -2046,8 +2102,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&ai, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&ai, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  } 
 	  if (md & 3) {
 	    dai[0][j][index[0]] += rtmp;
@@ -2060,8 +2120,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&aip, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&aip, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dai[1][i][index[0]] += rtmp;
@@ -2080,8 +2144,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if (md & 4) {
-	      d = (double *) MultiSet(&ai, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&ai, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dai[2][i][index[0]] += rtmp;
@@ -2094,8 +2162,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if ((md & 4) && ic[j]) {
-	      d = (double *) MultiSet(&aip, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&aip, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dai[3][j][index[0]] += rtmp;
@@ -2124,8 +2196,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if (md & 4) {
-	    d = (double *) MultiSet(&ci, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&ci, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  } 
 	  if (md & 3) {
 	    dci[0][j][index[0]] += rtmp;
@@ -2138,8 +2214,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    index[0] = 0;
 	  }
 	  if ((md & 4) && ic[i]) {
-	    d = (double *) MultiSet(&cip, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    d = (double *) MultiSet(&cip, index, NULL, &lock,
+				    InitDoubleData, NULL);
+	    if (lock) SetLock(lock);
 	    *d += rtmp;
+	    if (lock) ReleaseLock(lock);
 	  }
 	  if (md & 3) {
 	    dci[1][i][index[0]] += rtmp;
@@ -2158,8 +2238,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if (md & 4) {
-	      d = (double *) MultiSet(&ci, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&ci, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dci[2][i][index[0]] += rtmp;
@@ -2172,8 +2256,12 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	      index[0] = 0;
 	    }
 	    if ((md & 4) && ic[j]) {
-	      d = (double *) MultiSet(&cip, index, NULL, InitDoubleData, NULL);
+	      LOCK *lock = NULL;
+	      d = (double *) MultiSet(&cip, index, NULL, &lock,
+				      InitDoubleData, NULL);
+	      if (lock) SetLock(lock);
 	      *d += rtmp;
+	      if (lock) ReleaseLock(lock);
 	    }
 	    if (md & 3) {
 	      dci[3][j][index[0]] += rtmp;
@@ -2250,24 +2338,24 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    rt.ci = 0.0;
 	    rt.dir = 0;
 	    if (blk1->iion == blk->iion) {
-	      d = (double *) MultiGet(&ce, index);
+	      d = (double *) MultiGet(&ce, index, NULL);
 	      if (d && *d) {
 		rt.ce = *d;
 	      }
-	      d = (double *) MultiGet(&tr, index);
+	      d = (double *) MultiGet(&tr, index, NULL);
 	      if (d && *d) {
 		rt.tr = *d;
 	      }
 	    } else {
-	      d = (double *) MultiGet(&rr, index);
+	      d = (double *) MultiGet(&rr, index, NULL);
 	      if (d && *d) {
 		rt.rr = *d;
 	      }
-	      d = (double *) MultiGet(&ai, index);
+	      d = (double *) MultiGet(&ai, index, NULL);
 	      if (d && *d) {
 		rt.ai = *d;
 	      }
-	      d = (double *) MultiGet(&ci, index);
+	      d = (double *) MultiGet(&ci, index, NULL);
 	      if (d && *d) {
 		rt.ci = *d;
 	      }
@@ -2317,24 +2405,24 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	    rt.ci = 0.0;
 	    rt.dir = 1;
 	    if (blk1->iion == blk->iion) {
-	      d = (double *) MultiGet(&cep, index);
+	      d = (double *) MultiGet(&cep, index, NULL);
 	      if (d && *d) {
 		rt.ce = *d;
 	      }
-	      d = (double *) MultiGet(&trp, index);
+	      d = (double *) MultiGet(&trp, index, NULL);
 	      if (d && *d) {
 		rt.tr = *d;
 	      }
 	    } else {
-	      d = (double *) MultiGet(&rrp, index);
+	      d = (double *) MultiGet(&rrp, index, NULL);
 	      if (d && *d) {
 		rt.rr = *d;
 	      }
-	      d = (double *) MultiGet(&aip, index);
+	      d = (double *) MultiGet(&aip, index, NULL);
 	      if (d && *d) {
 		rt.ai = *d;
 	      }
-	      d = (double *) MultiGet(&cip, index);
+	      d = (double *) MultiGet(&cip, index, NULL);
 	      if (d && *d) {
 		rt.ci = *d;
 	      }
@@ -2410,24 +2498,24 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	  rt.ci = 0.0;
 	  rt.dir = 0;
 	  if (blk1->iion == blk->iion) {
-	    d = (double *) MultiGet(&ce, index);
+	    d = (double *) MultiGet(&ce, index, NULL);
 	    if (d && *d) {
 	      rt.ce = *d;
 	    } 
-	    d = (double *) MultiGet(&tr, index);
+	    d = (double *) MultiGet(&tr, index, NULL);
 	    if (d && *d) {
 	      rt.tr = *d;
 	    }
 	  } else {
-	    d = (double *) MultiGet(&rr, index);
+	    d = (double *) MultiGet(&rr, index, NULL);
 	    if (d && *d) {
 	      rt.rr = *d;
 	    }
-	    d = (double *) MultiGet(&ai, index);
+	    d = (double *) MultiGet(&ai, index, NULL);
 	    if (d && *d) {
 	      rt.ai = *d;
 	    }
-	    d = (double *) MultiGet(&ci, index);
+	    d = (double *) MultiGet(&ci, index, NULL);
 	    if (d && *d) {
 	      rt.ci = *d;
 	    }
@@ -2476,24 +2564,24 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	  rt.ci = 0.0;
 	  rt.dir = 1;
 	  if (blk1->iion == blk->iion) {
-	    d = (double *) MultiGet(&ce, index);
+	    d = (double *) MultiGet(&ce, index, NULL);
 	    if (d && *d) {
 	      rt.ce = *d;
 	    } 
-	    d = (double *) MultiGet(&tr, index);
+	    d = (double *) MultiGet(&tr, index, NULL);
 	    if (d && *d) {
 	      rt.tr = *d;
 	    }
 	  } else {
-	    d = (double *) MultiGet(&rr, index);
+	    d = (double *) MultiGet(&rr, index, NULL);
 	    if (d && *d) {
 	      rt.rr = *d;
 	    }
-	    d = (double *) MultiGet(&ai, index);
+	    d = (double *) MultiGet(&ai, index, NULL);
 	    if (d && *d) {
 	      rt.ai = *d;
 	    }
-	    d = (double *) MultiGet(&ci, index);
+	    d = (double *) MultiGet(&ci, index, NULL);
 	    if (d && *d) {
 	      rt.ci = *d;
 	    }

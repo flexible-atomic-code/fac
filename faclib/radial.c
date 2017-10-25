@@ -19,6 +19,7 @@
 #include "radial.h"
 #include "mpiutil.h"
 #include "cf77.h"
+#include <errno.h>
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -26,11 +27,10 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
-static struct {
-  int myrank;
-  int nproc;
-  int wid;
-} mpi = {0, 0, 0};
+typedef struct _FLTARY_ {
+  short npts;
+  float *yk;
+} FLTARY;
 
 static POTENTIAL *potential;
 static POTENTIAL *hpotential;
@@ -62,6 +62,8 @@ static double _dphasep[MAXRP];
 static double _yk[MAXRP];
 static double _zk[MAXRP];
 static double _xk[MAXRP];
+
+#pragma omp threadprivate(potential,hpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -228,7 +230,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   FILE *f;
   int n;
 
-  if (mpi.myrank != 0) return 0;
+  if (MyRankMPI() != 0) return 0;
   
   f = fopen(fn, "w");
   if (f == NULL) {
@@ -340,11 +342,11 @@ static void InitOrbitalData(void *p, int n) {
   }
 }
 
-static void InitYkData(void *p, int n) {
-  SLATER_YK *d;
+static void InitFltAryData(void *p, int n) {
+  FLTARY *d;
   int i;
 
-  d = (SLATER_YK *) p;
+  d = (FLTARY *) p;
   for (i = 0; i < n; i++) {
     d[i].npts = -1;
     d[i].yk = NULL;
@@ -372,12 +374,12 @@ static void FreeMultipole(void *p) {
   *((double **) p) = NULL;
 }
 
-static void FreeYkData(void *p) {
-  SLATER_YK *dp;
+static void FreeFltAryData(void *p) {
+  FLTARY *dp;
   
-  dp = (SLATER_YK *) p;
-  if (dp->npts >= 0) {
-    free(dp->yk);
+  dp = (FLTARY *) p;
+  if (dp->npts > 0) {
+    free(dp->yk);    
     dp->yk = NULL;
     dp->npts = -1;
   }
@@ -402,13 +404,13 @@ int FreeBreitArray(void) {
   FreeSimpleArray(breit_array);
   FreeSimpleArray(wbreit_array);
   for (int i = 0; i < 5; i++) {
-    MultiFreeData(xbreit_array[i], FreeMultipole);
+    MultiFreeData(xbreit_array[i], FreeFltAryData);
   }
   return 0;
 }
 
 int FreeYkArray(void) {
-  MultiFreeData(yk_array, FreeYkData);
+  MultiFreeData(yk_array, FreeFltAryData);
   return 0;
 }
   
@@ -498,6 +500,7 @@ int SetBoundary(int nmax, double p, double bqp) {
 	potential->ib = i;
       }
     }
+    CopyPotentialOMP();
     return 0;
   }
   potential->nb = abs(nmax);
@@ -561,6 +564,7 @@ int SetBoundary(int nmax, double p, double bqp) {
   if (potential->ib > 0 && potential->ib < potential->maxrp) {
     potential->rb = potential->rad[potential->ib];
   }
+  CopyPotentialOMP();
   return 0;
 }
 
@@ -690,7 +694,7 @@ int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin) {
   if (asymp == 0) potential->asymp = GRIDASYMP;
   else potential->asymp = asymp;
   potential->flag = 0;
-  return 0;
+  return 0;  
 }
 
 void AdjustScreeningParams(double *u) {
@@ -1119,6 +1123,22 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   return iter;
 }
 
+void CopyPotentialOMP() {
+#if USE_MPI == 2
+  POTENTIAL pot;
+  memcpy(&pot, potential, sizeof(POTENTIAL));
+#pragma omp parallel shared(pot)
+  {
+    memcpy(potential, &pot, sizeof(POTENTIAL));    
+  }
+  memcpy(&pot, hpotential, sizeof(POTENTIAL));
+#pragma omp parallel shared(pot)
+  {
+    memcpy(hpotential, &pot, sizeof(POTENTIAL));    
+  }
+#endif
+}
+
 #define NXS 7
 int OptimizeRadial(int ng, int *kg, double *weight) {
   AVERAGE_CONFIG *acfg;
@@ -1248,6 +1268,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   qed.se = mse;
+  CopyPotentialOMP();
   return iter;
 }      
 #undef NXS
@@ -1478,7 +1499,7 @@ int GetNumContinua(void) {
   return n_continua;
 }
 
-int OrbitalIndex(int n, int kappa, double energy) {
+int OrbitalIndexNoLock(int n, int kappa, double energy) {
   int i, j;
   ORBITAL *orb;
   int resolve_dirac;
@@ -1492,54 +1513,55 @@ int OrbitalIndex(int n, int kappa, double energy) {
 	  orb->energy > 0.0 &&
 	  fabs(orb->energy - energy) < EPS10) {
 	if (orb->wfun == NULL) {
-	  if (RestoreOrbital(i) == 0) return i;
-	  else {
-	    resolve_dirac = 1;
-	    break;
-	  }
+	  resolve_dirac = 1;
+	  break;
 	}
 	return i;
       }
     } else if (orb->n == n && orb->kappa == kappa) {
       if (orb->wfun == NULL) {
-	if (RestoreOrbital(i) == 0) return i;
-	else {
-	  resolve_dirac = 1;
-	  break;
-	}
+	resolve_dirac = 1;
+	break;
       }
       return i;
     }
-  }
-  
+  }    
   if (!resolve_dirac) {
-    orb = GetNewOrbital();
+    orb = GetNewOrbitalNoLock();
   } 
-
   orb->n = n;
   orb->kappa = kappa;
   orb->energy = energy;
   j = SolveDirac(orb);
   if (j < 0) {
-    printf("Error occured in solving Dirac eq. err = %d\n", j);
-    exit(1);
+    MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", j);
+    Abort(1);
   }
-  
   if (n == 0 && !resolve_dirac) {
     n_continua++;
   }
+#pragma omp flush
   return i;
 }
 
-int OrbitalExists(int n, int kappa, double energy) {
+int OrbitalIndex(int n, int kappa, double energy) {
+  int i;
+  if (orbitals->lock) SetLock(orbitals->lock);
+  i = OrbitalIndexNoLock(n, kappa, energy);
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
+  return i;
+}
+
+int OrbitalExistsNoLock(int n, int kappa, double energy) {
   int i;
   ORBITAL *orb;
   for (i = 0; i < n_orbitals; i++) {
     orb = GetOrbital(i);
     if (n == 0) {
       if (orb->kappa == kappa &&
-	  fabs(orb->energy - energy) < EPS10) 
+	  fabs(orb->energy - energy) < EPS10) {
 	return i;
+      }
     } else if (orb->n == n && orb->kappa == kappa) {
       return i;
     }
@@ -1547,20 +1569,30 @@ int OrbitalExists(int n, int kappa, double energy) {
   return -1;
 }
 
+int OrbitalExists(int n, int kappa, double energy) {
+  int i;
+  if (orbitals->lock) SetLock(orbitals->lock);
+  i = OrbitalExistsNoLock(n, kappa, energy);
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
+  return i;
+}
+
 int AddOrbital(ORBITAL *orb) {
 
   if (orb == NULL) return -1;
-
+  if (orbitals->lock) SetLock(orbitals->lock);
   orb = (ORBITAL *) ArrayAppend(orbitals, orb, InitOrbitalData);
   if (!orb) {
     printf("Not enough memory for orbitals array\n");
-    exit(1);
+    Abort(1);
   }
   orb->idx = n_orbitals;
   if (orb->n == 0) {
     n_continua++;
   }
   n_orbitals++;
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
+#pragma omp flush
   return n_orbitals - 1;
 }
 
@@ -1572,27 +1604,41 @@ ORBITAL *GetOrbitalSolved(int k) {
   ORBITAL *orb;
   int i;
   
+  if (orbitals->lock) SetLock(orbitals->lock);
   orb = (ORBITAL *) ArrayGet(orbitals, k);
   if (orb->wfun == NULL) {
     i = SolveDirac(orb);
     if (i < 0) {
       printf("Error occured in solving Dirac eq. err = %d\n", i);
-      exit(1);
+      Abort(1);
     }
+#pragma omp flush
   }
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
+  return orb;
+}
+
+ORBITAL *GetNewOrbitalNoLock(void) {
+  ORBITAL *orb;
+
+  orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
+  if (!orb) {
+    printf("Not enough memory for orbitals array\n");
+    Abort(1);
+  }
+  InitOrbitalData(orb, 1);
+  orb->idx = n_orbitals;
+  n_orbitals++;
+#pragma omp flush
   return orb;
 }
 
 ORBITAL *GetNewOrbital(void) {
   ORBITAL *orb;
 
-  orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
-  if (!orb) {
-    printf("Not enough memory for orbitals array\n");
-    exit(1);
-  }
-  orb->idx = n_orbitals;
-  n_orbitals++;
+  if (orbitals->lock) SetLock(orbitals->lock);
+  orb = GetNewOrbitalNoLock();
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
   return orb;
 }
 
@@ -1616,11 +1662,11 @@ int ClearOrbitalTable(int m) {
   ORBITAL *orb;
   int i;
 
+  if (orbitals->lock) SetLock(orbitals->lock);
   if (m == 0) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
-    //SetBoundary(0, 1.0, 0.0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -1634,6 +1680,7 @@ int ClearOrbitalTable(int m) {
       }
     }
   }
+  if (orbitals->lock) ReleaseLock(orbitals->lock);
   return 0;
 }
 
@@ -2612,6 +2659,7 @@ int ResidualPotential(double *s, int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
   int index[2];
+  LOCK *lock = NULL;
   double *p, z, *p1, *p2, *q1, *q2;
 
   orb1 = GetOrbitalSolved(k0);
@@ -2630,14 +2678,20 @@ int ResidualPotential(double *s, int k0, int k1) {
     index[1] = k1;
   }
   
-  p = (double *) MultiSet(residual_array, index, NULL, InitDoubleData, NULL);
+  p = (double *) MultiSet(residual_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(p && *p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (p && *p) {
     *s = *p;
+    if (locked) ReleaseLock(lock);
     return 0;
   } 
 
   *s = 0.0;
- 
   if (orb1->n < 0 || orb2->n < 0) {
     p1 = Large(orb1);
     p2 = Large(orb2);
@@ -2660,6 +2714,8 @@ int ResidualPotential(double *s, int k0, int k1) {
     Integrate(_yk, orb1, orb2, 1, s, -1);
   }
   *p = *s;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return 0;
 }
 
@@ -2702,6 +2758,7 @@ double MeanPotential(int k0, int k1) {
 
 double RadialMoments(int m, int k1, int k2) {
   int index[3];
+  LOCK *lock = NULL;
   int npts, i0, i;
   ORBITAL *orb1, *orb2;
   double *q, r, z, *p1, *p2, *q1, *q2;
@@ -2767,12 +2824,17 @@ double RadialMoments(int m, int k1, int k2) {
     index[2] = k1;
   }
   
-  q = (double *) MultiSet(moments_array, index, NULL, InitDoubleData, NULL);
- 
+  q = (double *) MultiSet(moments_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(*q)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*q) {
+    if (locked) ReleaseLock(lock);
     return *q;
   } 
-
   if (n1 < 0 || n2 < 0) {
     i0 = potential->ib;
     npts = potential->ib1;
@@ -2805,6 +2867,8 @@ double RadialMoments(int m, int k1, int k2) {
     Integrate(_yk, orb1, orb2, 1, &r, m);
     *q = r;
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
 
@@ -2889,11 +2953,17 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   }
   index[1] = k1;
   index[2] = k2;
-
-  p1 = (double **) MultiSet(multipole_array, index, NULL, 
+  LOCK *lock = NULL;
+  p1 = (double **) MultiSet(multipole_array, index, NULL, &lock,
 			    InitPointerData, FreeMultipole);
+  int locked = 0;
+  if (lock && !(*p1)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p1) {
     *p0 = *p1;
+    if (locked) ReleaseLock(lock);
     return n_awgrid;
   }
 
@@ -3001,6 +3071,8 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 #endif
 
   *p0 = *p1;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return n_awgrid;
 }
 
@@ -3092,15 +3164,21 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   if (n_awgrid > 1) {
     if (ef > 0) aw += ef;
   }
-
-  p1 = (double **) MultiSet(multipole_array, index, NULL, 
+  LOCK *lock = NULL;
+  p1 = (double **) MultiSet(multipole_array, index, NULL, &lock,
 			    InitPointerData, FreeMultipole);
+  int locked = 0;
+  if (lock && !(*p1)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p1) {
     r = InterpolateMultipole(aw, n_awgrid, awgrid, *p1);
     if (gauge == G_COULOMB && m < 0) r /= aw;
     r *= rcl;
+    if (locked) ReleaseLock(lock);
     return r;
-  }  
+  }
   *p1 = (double *) malloc(sizeof(double)*n_awgrid);
   
   npts = potential->maxrp-1;
@@ -3191,6 +3269,8 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   stop = clock();
   rad_timing.radial_1e += stop - start;
 #endif
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
 
@@ -3215,10 +3295,16 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     orb1 = GetOrbitalSolved(k1);
     orb2 = GetOrbitalSolved(k2);
   }
-
-  p = (double **) MultiSet(gos_array, index, NULL, 
+  LOCK *lock = NULL;
+  p = (double **) MultiSet(gos_array, index, NULL, &lock,
 			   InitPointerData, FreeMultipole);
+  int locked = 0;
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }
 
@@ -3231,6 +3317,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     for (t = 0; t < nk*2; t++) {
       (*p)[t] = 0.0;
     }
+    if (locked) ReleaseLock(lock);
+#pragma omp flush
     return *p;
   }
   
@@ -3301,6 +3389,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
       (*p)[t] = r/k;
     }
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return *p;
 }
 
@@ -3508,9 +3598,9 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 		   kl0, kl1, kl3, kl2, mbr);
       }
       if (e) {
-	e *= ReducedCL(js[0], t, js[3]); 
-	e *= ReducedCL(js[1], t, js[2]);
-	e *= a * (k + 1.0);
+	a1 = ReducedCL(js[0], t, js[3]); 
+	a2 = ReducedCL(js[1], t, js[2]);
+	e *= a * (k + 1.0) * a1 * a2;
 	if (IsOdd(t/2 + kk)) e = -e;
 	*se += e;
       }
@@ -3545,8 +3635,16 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
     InitOrbitalData(horb, 1); 
     horb->n = orb->n;
     horb->kappa = orb->kappa;
+    if (RadialBound(horb, hpotential) < 0) {
+      MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
+	      horb->n, horb->kappa);      
+    }
     orb->horb = horb;
-    if (RadialBound(horb, hpotential) < 0) return 1.0;
+  }
+  if (horb->wfun == NULL) {
+    MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
+	    horb->n, horb->kappa);
+    return 1.0;
   }
   p = Large(horb);
   q = Small(horb);
@@ -3592,7 +3690,16 @@ double SelfEnergyRatio(ORBITAL *orb) {
     horb->n = orb->n;
     horb->kappa = orb->kappa;
     orb->horb = horb;
-    if (RadialBound(horb, hpotential) < 0) return 1.0;
+    if (RadialBound(horb, hpotential) < 0) {
+      MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
+	      horb->n, horb->kappa);
+      return 1.0;
+    }
+  }
+  if (horb->wfun == NULL) {
+    MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
+	    horb->n, horb->kappa);
+    return 1.0;
   }
   p = Large(horb);
   q = Small(horb);
@@ -3643,14 +3750,19 @@ double QED1E(int k0, int k1) {
     index[0] = k0;
     index[1] = k1;
   }
-  
-  p = (double *) MultiSet(qed1e_array, index, NULL, InitDoubleData, NULL);  
+  LOCK *lock = NULL;
+  p = (double *) MultiSet(qed1e_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(p && *p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (p && *p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }
-
-  r = 0.0;
-  
+  r = 0.0;  
   if (qed.nms > 0) {
     for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = potential->U[i] + potential->Vc[i];
@@ -3685,15 +3797,17 @@ double QED1E(int k0, int k1) {
 	}
 	r += c*a;
 	if (qed.pse) {
-	  printf("SE: z=%g, n=%d, kappa=%2d, md=%d, H-Like=%11.4E, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, a, c, a*c);
+	  MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, md=%d, H-Like=%11.4E, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, a, c, a*c);
 	}
       }
     }
   }
   *p = r;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
-  
+
 double Vinti(int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
@@ -3714,9 +3828,16 @@ double Vinti(int k0, int k1) {
   
   index[0] = k0;
   index[1] = k1;
-  
-  p = (double *) MultiSet(vinti_array, index, NULL, InitDoubleData, NULL);
+  LOCK *lock = NULL;
+  p = (double *) MultiSet(vinti_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(p && *p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (p && *p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }
 
@@ -3746,6 +3867,8 @@ double Vinti(int k0, int k1) {
   
   *p = r;
 
+  if(locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
 
@@ -3834,54 +3957,75 @@ double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3) {
 double BreitS(int k0, int k1, int k2, int k3, int k) {
   ORBITAL *orb0, *orb1, *orb2, *orb3;
   int index[5], i;
-  double **p, *p0, *z, r;
+  double *p0, *z, r;
+  FLTARY *byk;
   
   index[0] = k0;
   index[1] = k1;
   index[2] = k2;
   index[3] = k3;
   index[4] = k;
-  p0 = (double *) MultiSet(breit_array, index, NULL, InitDoubleData, NULL);
+  LOCK *lock = NULL;
+  p0 = (double *) MultiSet(breit_array, index, NULL, &lock,
+			   InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(p0 && *p0)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (p0 && *p0) {
     r = *p0;
+    if (locked) ReleaseLock(lock);
     return r;
   }  
-  
-  p = NULL;
+  byk = NULL;
+  z = _zk;
+  LOCK *xlock = NULL;
   if (xbreit_array[4]->maxelem != 0) {
     index[0] = k0;
     index[1] = k1;
     index[2] = k;
-    p = (double **) MultiSet(xbreit_array[4], index, NULL,
-			     InitPointerData, FreeMultipole);
-    z = *p;
-  } else {
-    z = _zk;
+    byk = (FLTARY *) MultiSet(xbreit_array[4], index, NULL, &xlock,
+			      InitFltAryData, FreeFltAryData);
+    if (xlock) SetLock(xlock);
+    if (byk->npts > 0) {
+      for (i = 0; i < byk->npts; i++) {
+	z[i] = byk->yk[i];
+      }
+    }
   }
-  if (z == NULL || p == NULL) {    
+  int npts;
+  if (byk == NULL || byk->npts < 0) {
     orb0 = GetOrbitalSolved(k0);
     orb1 = GetOrbitalSolved(k1);
-    if (!orb0 || !orb1) return 0.0;
-    if (p != NULL) {
-      *p = (double *) malloc(sizeof(double)*potential->maxrp);
-      z = *p;
-    }
     for (i = 0; i < potential->maxrp; i++) {
       _dwork1[i] = pow(potential->rad[i], k);
     }    
     Integrate(_dwork1, orb0, orb1, -6, z, 0);    
     for (i = 0; i < potential->maxrp; i++) {
-      z[i] /= _dwork1[i]*potential->rad[i];
+      if (z[i]) z[i] /= _dwork1[i]*potential->rad[i];
+    }
+    for (i = potential->maxrp-1; i >= 0; i--) {
+      if (z[i]) break;
+    }
+    npts = i+1;
+    if (byk != NULL) {
+      byk->yk = malloc(sizeof(float)*npts);
+      for (i = 0; i < npts; i++) {
+	byk->yk[i] = z[i];
+      }
+      byk->npts = npts;
     }
   }
-
+  if (xlock) ReleaseLock(xlock);
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
-  if (!orb2 || !orb3) return 0.0;      
   Integrate(z, orb2, orb3, 6, &r, 0);
 
   if (!r) r = 1e-100;
   *p0 = r;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
 
@@ -3920,48 +4064,54 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m) {
   return r;
 }
 
-double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
-	       double e, double *y) {
+int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
+	   double e, double *y) {
   int i;
   double kf = 1.0;
-  double x, r, b, **p;
+  double x, r, b;
   int k2 = 2*k;
-  int jy, k1;
-  int index[3];
+  int jy, k1, fd, rs;
+  int index[3];  
+  FLTARY *byk;
 
-  index[0] = orb0->idx;
-  index[1] = orb1->idx;
-  index[2] = k;
-
+  if (y == NULL) y = _xk;
   if (e < 0) e = fabs(orb0->energy-orb1->energy);
+  byk = NULL;
+  LOCK *lock = NULL;
+  int locked = 0;
   if ((mbr == 2 || (m < 3 && w == 0) || (m == 3 && w == 1))
       && xbreit_array[m]->maxelem != 0) {
-    p = (double **) MultiSet(xbreit_array[m], index, NULL,
-			     InitPointerData, FreeMultipole);
-    if (*p == NULL) {
-      *p = (double *) malloc(sizeof(double)*potential->maxrp);
-    } else {
-      for (i = 0; i < potential->maxrp; i++) {
+    index[0] = orb0->idx;
+    index[1] = orb1->idx;
+    index[2] = k;
+    byk = (FLTARY *) MultiSet(xbreit_array[m], index, NULL, &lock,
+			      InitFltAryData, FreeFltAryData);
+    if (lock && byk->npts <= 0) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if (byk->npts > 0) {
+      for (i = 0; i < byk->npts; i++) {
 	if (e > 0) {
 	  _dwork1[i] = FINE_STRUCTURE_CONST*e*potential->rad[i];
 	} else {
 	  _dwork1[i] = 0;
 	}
 	_dwork2[i] = pow(potential->rad[i], k);
+	y[i] = byk->yk[i];
       }
-      return *p;    
-    }  
-    y = *p;
-  } else {
-    if (y == NULL) y = _xk;
+      if (locked) ReleaseLock(lock);
+      return byk->npts;
+    }     
   }
+
   for (i = 1; i < k2; i += 2) {
     kf *= i;
   }
   double ef = FINE_STRUCTURE_CONST*e;
   double efk = pow(ef, k);
 
-  for (i = 0; i < potential->maxrp; i++) {
+  for (i = 0; i < potential->maxrp; i++) {    
     if (e > 0) {
       x = FINE_STRUCTURE_CONST*e*potential->rad[i];
       _dwork1[i] = x;
@@ -4029,7 +4179,21 @@ double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
     }
     break;
   }
-  return y;
+  int npts;
+  for (i = potential->maxrp-1; i >= 0; i--) {
+    if (y[i]) break;
+  }
+  npts = i+1;
+  if (byk) {
+    byk->npts = npts;    
+    byk->yk = malloc(sizeof(float)*npts);
+    for (i = 0; i < npts; i++) {
+      byk->yk[i] = y[i];
+    }
+  }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
+  return npts;
 }
 
 double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
@@ -4057,8 +4221,8 @@ double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
   for (i = 1; i < kd; i += 2) {
     kf *= i;
   }
-  double *xk = BreitX(orb0, orb2, k, 0, w, mbr, e, _xk);
-  for (i = 0; i < potential->maxrp; i++) {
+  int npts = BreitX(orb0, orb2, k, 0, w, mbr, e, _xk);
+  for (i = 0; i < npts; i++) {
     x = _dwork1[i];
     if (x < qed.xbr) {
       b = 1 - 0.5*x*x/(1.0-kd);
@@ -4066,8 +4230,9 @@ double BreitRW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
       jy = 2;
       b = -BESLJN(jy, k, x)*(_dwork2[i]*potential->rad[i]*efk*ef)/kf;
     }
-    _xk[i] = xk[i] * b;
+    _xk[i] *= b;
   }
+  for (; i < potential->maxrp; i++) _xk[i] = 0.0;
   Integrate(_xk, orb1, orb3, 6, &r, 0);
   return r;
 }
@@ -4119,9 +4284,10 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
     kf *= i;
   }
 
-  double *dwork12 = BreitX(orb0, orb2, k, 1, w, mbr, e, _dwork12);
-  double *dwork13 = BreitX(orb0, orb2, k, 2, w, mbr, e, _dwork13);
-  for (i = 0; i < potential->maxrp; i++) {
+  int npts1 = BreitX(orb0, orb2, k, 1, w, mbr, e, _dwork12);
+  int npts2 = BreitX(orb0, orb2, k, 2, w, mbr, e, _dwork13);
+  int npts = Min(npts1, npts2);
+  for (i = 0; i < npts; i++) {
     x = _dwork1[i];
     xk = _dwork2[i]*efk;
     if (x < qed.xbr) {
@@ -4131,16 +4297,17 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
       kj = k + 1;
       b = BESLJN(jy, kj, x);
     }
-    _dwork12[i] = dwork12[i]*b;
-    _dwork13[i] = dwork13[i]*(1-x*x*b);
+    _dwork12[i] = _dwork12[i]*b;
+    _dwork13[i] = _dwork13[i]*(1-x*x*b);
     _yk[i] = _dwork12[i] + _dwork13[i];
     b = (kd+1);
     _yk[i] *= b*b;
   }
+  for (; i < potential->maxrp; i++) _yk[i] = 0.0;
   Integrate(_yk, orb1, orb3, 6, &s1, 0);
   if (k >= 0) {
-    dwork12 = BreitX(orb1, orb3, k, 3, w, mbr, e, _dwork12);
-    for (i = 0; i < potential->maxrp; i++) {
+    npts = BreitX(orb1, orb3, k, 3, w, mbr, e, _dwork12);
+    for (i = 0; i < npts; i++) {
       x = _dwork1[i];
       if (x < qed.xbr) {
 	b = 1 - 0.5*x*x/(3.0-kd);
@@ -4150,10 +4317,11 @@ double BreitSW(int k0, int k1, int k2, int k3, int k, int w, int mbr) {
 	xk = _dwork2[i]*efk;
 	b = -BESLJN(jy, kj, x)*xk*(kd-1.0)/kf;
       }
-      _dwork12[i] = dwork12[i]*b;    
+      _dwork12[i] *= b;    
       b = x*x/((kd-1.0)*(kd+3));
       _dwork12[i] *= b;
     }
+    for (; i < potential->maxrp; i++) _dwork12[i] = 0;
     Integrate(_dwork12, orb0, orb2, 6, &s2, 0);
   } else {
     s2 = 0;
@@ -4188,12 +4356,19 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
   index[2] = k2;
   index[3] = k3;
   index[4] = k;
-  p = (double *) MultiSet(wbreit_array, index, NULL, InitDoubleData, NULL);
+  LOCK *lock = NULL;
+  p = (double *) MultiSet(wbreit_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
+  int locked = 0;
+  if (lock && !(p && *p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (p && *p) {
     r = *p;
+    if (locked) ReleaseLock(lock);
     return r;
   }
-  
   m0 = k - 1;
   if (m0 < 0) m0 = 0;
   m1 = k + 1;
@@ -4305,7 +4480,9 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
   }  
 
   if (!r) r = 1e-100;
-  *p = r;  
+  *p = r;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return r;
 }
 
@@ -4364,9 +4541,16 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
   index[3] = k3;
   index[4] = k;  
 
+  LOCK *lock = NULL;
+  int locked = 0;
   if (abs(mode) < 2) {
     SortSlaterKey(index);
-    p = (double *) MultiSet(slater_array, index, NULL, InitDoubleData, NULL);
+    p = (double *) MultiSet(slater_array, index, NULL, &lock,
+			    InitDoubleData, NULL);
+    if (lock && !(p && *p)) {
+      SetLock(lock);
+      locked = 1;
+    }
   } else {
     p = NULL;
   }
@@ -4377,9 +4561,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     orb1 = GetOrbitalSolved(k1);
     orb2 = GetOrbitalSolved(k2);
     orb3 = GetOrbitalSolved(k3);
-    *s = 0.0;
-    if (!orb0 || !orb1 || !orb2 || !orb3) return -1;  
-
+    *s = 0.0; 
     npts = potential->maxrp;
     switch (mode) {
     case 0: /* fall through to case 1 */
@@ -4433,16 +4615,16 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     default:
       break;
     }      
-
     if (p) *p = *s;
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
 #ifdef PERFORM_STATISTICS 
     stop = clock();
     rad_timing.radial_2e += stop - start;
 #endif
   return 0;
 }
-
 
 /* reorder the orbital index appears in the slater integral, so that it is
    in a form: a <= b <= d, a <= c, and if (a == b), c <= d. */ 
@@ -4521,11 +4703,15 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	    index[3] = q;
 	    index[4] = k;
 	    index[5] = 0;
-	    dp = MultiSet(slater_array, index, NULL, InitDoubleData, NULL);
+	    LOCK *lock = NULL;
+	    dp = MultiSet(slater_array, index, NULL, &lock,
+			  InitDoubleData, NULL);
 	    c++;
+	    if (lock) SetLock(lock);
 	    if (*dp == 0) {
 	      Integrate(_yk, orb1, orb3, 1, dp, 0);
 	    }
+	    if (lock) ReleaseLock(lock);
 	  }
 	}
       }
@@ -4608,22 +4794,55 @@ int GetYk1(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
       
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 
 	  int k1, int k2, int type) {
-  int i, i0, i1, n;
+  int i, i0, i1, n, npts, ic0, ic1;
   double a, b, a2, b2, max, max1;
   int index[3];
-  SLATER_YK *syk;
+  FLTARY *syk;
 
-  if (k1 <= k2) {
-    index[0] = k1;
-    index[1] = k2;
-  } else {
-    index[0] = k2;
-    index[1] = k1;
+  syk = NULL;
+  LOCK *lock = NULL;
+  int locked = 0;
+  if (yk_array->maxelem != 0) {
+    if (k1 <= k2) {
+      index[0] = k1;
+      index[1] = k2;
+    } else {
+      index[0] = k2;
+      index[1] = k1;
+    }
+    index[2] = k;
+    syk = (FLTARY *) MultiSet(yk_array, index, NULL, &lock,
+			      InitFltAryData, FreeFltAryData);
+    if (lock && syk->npts <= 0) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if (syk->npts > 0) {
+      npts = syk->npts-2;
+      for (i = npts-1; i < potential->maxrp; i++) {
+	_dwork1[i] = pow(potential->rad[i], k);
+      }
+      for (i = 0; i < npts; i++) {
+	yk[i] = syk->yk[i];
+      }
+      ic0 = npts;
+      ic1 = npts+1;
+      i0 = npts-1;
+      a = syk->yk[i0]*_dwork1[i0];
+      for (i = npts; i < potential->maxrp; i++) {
+	b = potential->rad[i] - potential->rad[i0];
+	b = syk->yk[ic1]*b;
+	if (b < -20) {
+	  yk[i] = syk->yk[ic0];
+	} else {
+	  yk[i] = (a - syk->yk[ic0])*exp(b);
+	  yk[i] += syk->yk[ic0];
+	}
+	yk[i] /= _dwork1[i];
+      }    
+    }
   }
-  index[2] = k;
-
-  syk = (SLATER_YK *) MultiSet(yk_array, index, NULL, InitYkData, FreeYkData);
-  if (syk->npts < 0) {
+  if (syk == NULL || syk->npts <= 0) {
     GetYk1(k, yk, orb1, orb2, type);
     max = 0;
     for (i = 0; i < potential->maxrp; i++) {
@@ -4633,6 +4852,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
     }
     max1 = max*EPS5;
     max = max*EPS4;
+    int maxrp = potential->maxrp;
     a = _zk[potential->maxrp-1];
     for (i = potential->maxrp-2; i >= 0; i--) {
       if (fabs(_zk[i] - a) > max1) {
@@ -4652,29 +4872,21 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       i0--;
       b = fabs(a - _zk[i0]);
       _zk[i0] = log(b);
-    }
-    syk->coeff[0] = a;    
-    syk->npts = i0+1;
-    syk->yk = malloc(sizeof(float)*(syk->npts));
-    for (i = 0; i < syk->npts ; i++) {
-      syk->yk[i] = yk[i];
-    }
-    n = i1 - i0 + 1;
-    a = 0.0;
-    b = 0.0;
-    a2 = 0.0;
-    b2 = 0.0;
-    for (i = i0; i <= i1; i++) {      
-      max = (potential->rad[i]-potential->rad[i0]);
-      a += max;
-      b += _zk[i];
-      a2 += max*max;
-      b2 += _zk[i]*max;
-    }
-    syk->coeff[1] = (a*b - n*b2)/(a*a - n*a2);       
-    if (syk->coeff[1] >= 0) {
-      i1 = i0 + (i1-i0)*0.3;
-      if (i1 == i0) i1 = i0 + 1;
+    } 
+    npts = i0+1;
+    ic0 = npts;
+    ic1 = npts+1;
+    if (syk != NULL) {
+      syk->yk = malloc(sizeof(float)*(npts+2));
+      for (i = 0; i < npts ; i++) {
+	syk->yk[i] = yk[i];
+      }
+      syk->yk[ic0] = a;
+      n = i1 - i0 + 1;
+      a = 0.0;
+      b = 0.0;
+      a2 = 0.0;
+      b2 = 0.0;
       for (i = i0; i <= i1; i++) {      
 	max = (potential->rad[i]-potential->rad[i0]);
 	a += max;
@@ -4682,33 +4894,27 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 	a2 += max*max;
 	b2 += _zk[i]*max;
       }
-      syk->coeff[1] = (a*b - n*b2)/(a*a - n*a2);  
-    }
-    if (syk->coeff[1] >= 0) {
-      syk->coeff[1] = -10.0/(potential->rad[i1]-potential->rad[i0]);
-    } 
-  } else {
-    for (i = syk->npts-1; i < potential->maxrp; i++) {
-      _dwork1[i] = pow(potential->rad[i], k);
-    }
-    for (i = 0; i < syk->npts; i++) {
-      yk[i] = syk->yk[i];
-    }
-    i0 = syk->npts-1;
-    a = syk->yk[i0]*_dwork1[i0];
-    for (i = syk->npts; i < potential->maxrp; i++) {
-      b = potential->rad[i] - potential->rad[i0];
-      b = syk->coeff[1]*b;
-      if (b < -20) {
-	yk[i] = syk->coeff[0];
-      } else {
-	yk[i] = (a - syk->coeff[0])*exp(b);
-	yk[i] += syk->coeff[0];
+      syk->yk[ic1] = (a*b - n*b2)/(a*a - n*a2);       
+      if (syk->yk[ic1] >= 0) {
+	i1 = i0 + (i1-i0)*0.3;
+	if (i1 == i0) i1 = i0 + 1;
+	for (i = i0; i <= i1; i++) {      
+	  max = (potential->rad[i]-potential->rad[i0]);
+	  a += max;
+	  b += _zk[i];
+	  a2 += max*max;
+	  b2 += _zk[i]*max;
+	}
+	syk->yk[ic1] = (a*b - n*b2)/(a*a - n*a2);
       }
-      yk[i] /= _dwork1[i];
-    }    
+      if (syk->yk[ic1] >= 0) {
+	syk->yk[ic1] = -10.0/(potential->rad[i1]-potential->rad[i0]);
+      }
+      syk->npts = npts+2;
+    }
   }
-      
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return 0;
 }  
 
@@ -5833,19 +6039,21 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-  potential = malloc(sizeof(POTENTIAL));
-  hpotential = malloc(sizeof(POTENTIAL));
-  potential->mode = POTMODE;
-  if ((potential->mode%10)%2 > 0) {
-    potential->hxs = POTHXS;
-  } else {
-    potential->hxs = 0.0;
+  #pragma omp parallel
+  {
+    potential = malloc(sizeof(POTENTIAL));
+    hpotential = malloc(sizeof(POTENTIAL));
+    potential->mode = POTMODE;
+    if ((potential->mode%10)%2 > 0) {
+      potential->hxs = POTHXS;
+    } else {
+      potential->hxs = 0.0;
+    }
+    potential->flag = 0;
+    potential->rb = 0;
+    potential->atom = GetAtomicNucleus();
   }
-  potential->flag = 0;
-  potential->rb = 0;
-  potential->atom = GetAtomicNucleus();
   SetBoundary(0, 1.0, -1.0);
-
   n_orbitals = 0;
   n_continua = 0;
   
@@ -5868,7 +6076,7 @@ int InitRadial(void) {
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   for (i = 0; i < 5; i++) {
     xbreit_array[i] = (MULTI *) malloc(sizeof(MULTI));
-    MultiInit(xbreit_array[i], sizeof(double *), ndim, blocks);
+    MultiInit(xbreit_array[i], sizeof(FLTARY), ndim, blocks);
   }
   
   ndim = 2;
@@ -5896,7 +6104,7 @@ int InitRadial(void) {
   MultiInit(gos_array, sizeof(double *), ndim, blocks);
 
   yk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(yk_array, sizeof(SLATER_YK), ndim, blocks);
+  MultiInit(yk_array, sizeof(FLTARY), ndim, blocks);
 
   n_awgrid = 1;
   awgrid[0]= EPS3;
@@ -5906,15 +6114,10 @@ int InitRadial(void) {
   return 0;
 }
 
-void SetMPIRankRadial() {
-#if USE_MPI == 1
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
-#endif
-}
-
 int ReinitRadial(int m) {
   if (m < 0) return 0;
+#pragma omp barrier
+#pragma omp master
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
@@ -5938,6 +6141,7 @@ int ReinitRadial(int m) {
       SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
     }
   }
+#pragma omp barrier
   return 0;
 }
 

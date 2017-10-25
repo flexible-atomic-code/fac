@@ -173,11 +173,12 @@
 #define QK_BED         5
 
 /* blocks for multi arrays */
-#define MULTI_BLOCK2   128
+#define MULTI_BLOCK2   512
 #define MULTI_BLOCK3   64
-#define MULTI_BLOCK4   25
-#define MULTI_BLOCK5   15
+#define MULTI_BLOCK4   32
+#define MULTI_BLOCK5   4
 #define MULTI_BLOCK6   10
+#define SHMKS 32
 
 /* orbital */
 #define MAXRP      3000  /* maximum radial mesh */

@@ -562,10 +562,16 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
 
   index[0] = kb;
   index[1] = kbp;
-  
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeIonizationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return (*p);
   } 
 
@@ -638,7 +644,8 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       qkc[i] = 16.0*y;
     }
   }
-
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   ReinitRadial(1);
   return (*p);
 }

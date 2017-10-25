@@ -32,12 +32,6 @@
 #include "angular.h"
 #include "recouple.h"
 
-typedef struct _SLATER_YK_ {
-  short npts;
-  float *yk;
-  float coeff[2];
-} SLATER_YK;
-
 #ifdef PERFORM_STATISTICS
 typedef struct _RAD_TIMING_ {
   double radial_1e;
@@ -51,7 +45,6 @@ int GetRadTiming(RAD_TIMING *t);
 
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
-void SetMPIRankRadial();
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
 int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
@@ -69,6 +62,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
+void CopyPotentialOMP(void);
 double GetResidualZ(void);
 double GetRMax(void);
 
@@ -77,11 +71,14 @@ int SolveDirac(ORBITAL *orb);
 int WaveFuncTable(char *s, int n, int kappa, double e);
 
 /* get the index of the given orbital in the table */
+int OrbitalIndexNoLock(int n, int kappa, double energy);
 int OrbitalIndex(int n, int kappa, double energy);
+int OrbitalExistsNoLock(int n, int kappa, double energy);
 int OrbitalExists(int n, int kappa, double energy);
 int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
 ORBITAL *GetOrbitalSolved(int k);
+ORBITAL *GetNewOrbitalNoLock(void);
 ORBITAL *GetNewOrbital(void);
 int GetNumBounds(void);
 int GetNumOrbitals(void);
@@ -130,8 +127,8 @@ double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
 double SelfEnergyRatio(ORBITAL *orb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
-double *BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
-	       double e, double *y);
+int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
+	   double e, double *y);
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
 double BreitS(int k0, int k1, int k2, int k3, int k);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);

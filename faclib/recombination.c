@@ -573,15 +573,22 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   }
 
   nqk = n_tegrid*n_egrid;
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
     }
+    if (locked) ReleaseLock(lock);
     return 0;
   }
-  
+
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
@@ -608,6 +615,8 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   for (i = 0; i < nqk; i++) {
     qr[i] = (*p)[i];
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return 0;
 }
     
@@ -666,14 +675,17 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   } else {
     index[2] = k-1;
   }
-
+  LOCK *lock = NULL;
+  int locked = 0;
   nqk = n_tegrid*n_egrid;
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
+  if (lock && !(*p)) SetLock(lock);
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
     }
+    if (locked) ReleaseLock(lock);
     return 0;
   }
 
@@ -734,6 +746,8 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   for (i = 0; i < nqk; i++) {
     qr[i] = (*p)[i];
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return 0;
 }
   
@@ -1421,14 +1435,19 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   index[2] = k0;
   index[3] = k1;
   index[4] = k/2;
-
-  p = (double **) MultiSet(pk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(pk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
     *ai_pk = *p;
+    if (locked) ReleaseLock(lock);
     return 0;
   } 
- 
   (*p) = (double *) malloc(sizeof(double)*n_egrid);
   *ai_pk = *p;
   for (i = 0; i < n_egrid; i++) {
@@ -1441,7 +1460,8 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
     (*ai_pk)[i] = sd+se;
   }
-
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return 0;
 }
 

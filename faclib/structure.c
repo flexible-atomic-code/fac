@@ -28,12 +28,6 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
-static struct {
-  int myrank;
-  int nproc;
-  int wid;
-} mpi = {0, 1, 0};
-
 #if (FAC_DEBUG >= DEBUG_STRUCTURE)
 #define debug_integral(s, ne, r) \
         {int ks; \
@@ -534,7 +528,8 @@ int ConstructHamiltonEB(int n, int *ilev) {
   return -1;
 }
 
-int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md) {
+int ConstructHamilton(int isym, int k0, int k, int *kg,
+		      int kp, int *kgp, int md) {
   int i, j, j0, t, ti, jp, m1, m2, m3;
   HAMILTON *h;
   SHAMILTON *hs;
@@ -614,51 +609,55 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
     for (j = 0; j < h->hsize; j++) {
       h->hamilton[j] = 0;
     }
-#pragma omp parallel default(shared) private(mpi)
+#pragma omp parallel default(shared) private(i,j,t,r)
     {
-      mpi.myrank = MPIRank(&mpi.nproc);
-      mpi.wid = 0;
       for (j = 0; j < h->dim; j++) {
 	t = j*(j+1)/2;
 	for (i = 0; i <= j; i++) {
-	  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) continue;
+	  int skip;
+	  skip = SkipMPI();
+	  if (skip) continue;
 	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  h->hamilton[i+t] = r;
 	}
       }
-    }
-    if (jp > 0) {
-      t = ((h->dim+1)*(h->dim))/2;
-      for (i = 0; i < h->dim; i++) {
+      if (jp > 0) {
+	t = ((h->dim+1)*(h->dim))/2;
+	for (i = 0; i < h->dim; i++) {
+	  for (j = h->dim; j < h->n_basis; j++) {
+	    if (SkipMPI()) {
+	      t++;
+	      continue;
+	    }
+	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	    h->hamilton[t++] = r;
+	  }
+	  ReinitRecouple(0);
+	  ReinitRadial(1);
+	}
 	for (j = h->dim; j < h->n_basis; j++) {
-	  if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) {
+	  if (SkipMPI()) {
 	    t++;
 	    continue;
 	  }
-	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	  r = HamiltonElement(isym, h->basis[j], h->basis[j]);
 	  h->hamilton[t++] = r;
 	}
 	ReinitRecouple(0);
 	ReinitRadial(1);
       }
-      for (j = h->dim; j < h->n_basis; j++) {
-	if (SkipMPI(&mpi.wid, mpi.myrank, mpi.nproc)) {
-	  t++;
-	  continue;
-	}
-	r = HamiltonElement(isym, h->basis[j], h->basis[j]);
-	h->hamilton[t++] = r;
-      }
-      ReinitRecouple(0);
-      ReinitRadial(1);
     }
 #if USE_MPI == 1    
-    if (mpi.nproc > 1) {
+    if (NProcMPI() > 1) {
       MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
 		    MPI_SUM, MPI_COMM_WORLD);
-    }    
+    }
+#elif USE_MPI == 2
+#pragma omp barrier
+#pragma omp flush
 #endif
-  }
+  }  
+      
   if (m3) {
     if (nhams >= MAX_HAMS) {
       printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
@@ -1632,7 +1631,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {
   int nk0, k;
   int *k0;
-  double *x, z0, r0, e0;
+  double *x, z0, r0, e0, qed;
   int k1, k2;
 
   if (s[0].j != s[1].j ||
@@ -1651,9 +1650,9 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     e0 = (GetOrbital(k1))->energy;  
     r0 += e0;
   }
-  r0 += QED1E(k1, k2);
+  qed = QED1E(k1, k2);
+  r0 += qed;
   z0 *= sqrt(s[0].j + 1.0);
-
   r0 *= z0;
   return r0;
 }
@@ -1793,7 +1792,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     free(ang);
     free(kk);
   }
-
   return x;
 }
 
@@ -1964,7 +1962,7 @@ int AddToLevels(int ng, int *kg) {
   int g0, p0;
   double *mix, a;
 
-  if (mpi.myrank != 0) return 0;
+  if (MyRankMPI() != 0) return 0;
   if (IsUTA()) {
     m = n_levels;
     lev.n_basis = 0;
@@ -2369,7 +2367,7 @@ int SortLevels(int start, int n, int m) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
 
-  if (mpi.myrank != 0) return 0;
+  if (MyRankMPI() != 0) return 0;
   if (m == 0) {
     if (n < 0) n = n_levels-start;
   } else {
@@ -2574,7 +2572,7 @@ int SaveLevels(char *fn, int m, int n) {
   RAD_TIMING radt;
 #endif
 
-  if (mpi.myrank != 0) return 0;
+  if (MyRankMPI() != 0) return 0;
   f = NULL;
   nele0 = -1;
   n0 = m;
@@ -4799,23 +4797,19 @@ int InitStructure(void) {
   
   return 0;
 }
-
-void SetMPIRankStructure() {
-#if USE_MPI == 1
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
-#endif
-}
   
 int ReinitStructure(int m) {
   if (m < 0) {
     return 0;
   } else {
+#pragma omp barrier
+#pragma omp master
     FreeHamsArray();
     FreeAngZArray();
     ClearLevelTable();
     InitAngZArray();
     _ham.heff = NULL;
+#pragma omp barrier
   }
   return 0;
 }

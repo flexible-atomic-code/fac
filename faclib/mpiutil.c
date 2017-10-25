@@ -21,16 +21,23 @@
 #include "stdarg.h"
 #include "init.h"
 
-int SkipMPI(int *wid, int myrank, int nproc) {
+static int _initialized = 0;
+static LOCK *_plock = NULL;
+static MPID mpi = {0, 1, 0};
+#pragma omp threadprivate(mpi)
+
+int SkipMPI() {
 #ifdef USE_MPI
   int r = 0;
-  if (nproc > 1) {
-    if (*wid != myrank) {
-      r = 1;
+#pragma omp critical
+  {
+    if (mpi.nproc > 1) {
+      if (mpi.wid != mpi.myrank) {
+	r = 1;
+      }
+      mpi.wid = mpi.wid + 1;
+      if (mpi.wid >= mpi.nproc) mpi.wid = 0;
     }
-    //MPrintf(-1, "SkipMPI: %d %d %d %d\n", *wid, myrank, nproc, r);
-    *wid = *wid + 1;
-    if (*wid >= nproc) *wid = 0;
   }
   return r;
 #else
@@ -76,22 +83,25 @@ void MPrintf(int ir, char *format, ...) {
   va_list args;
 
   va_start(args, format);
-#if USE_MPI == 1
+#ifdef USE_MPI
   if (MPIReady()) {
     int myrank;
     int nproc;
     myrank = MPIRank(&nproc);
+    if (_plock) SetLock(_plock);
     if (ir < 0) {
       printf("Rank=%d, ", myrank);
       vprintf(format, args);
     } else {
       if (myrank == ir%nproc) {
+	
 	if (ir >= nproc) {
 	  printf("Rank=%d, ", myrank);
 	}
 	vprintf(format, args);
       }
     }
+    if (_plock) ReleaseLock(_plock);
   } else {
     vprintf(format, args);
   }
@@ -103,65 +113,68 @@ void MPrintf(int ir, char *format, ...) {
 }
 
 int MPIRank(int *np) {
-  int k;
-#if USE_MPI == 1
-  if (MPIReady()) {
-    MPI_Comm_rank(MPI_COMM_WORLD, &k);
-    if (np) {
-      MPI_Comm_size(MPI_COMM_WORLD, np);
-    }
-  } else {
-    k = 0;
-    if (np) *np = 1;
-  }
-#elif USE_MPI == 2
-  k = omp_get_thread_num();
-  if (np) *np = omp_get_num_threads();
-#else
-  k = 0;
-  if (np) *np = 1;
-#endif
-  return k;
+  if (np) *np = mpi.nproc;
+  return mpi.myrank;
+}
+
+int MyRankMPI() {
+  return mpi.myrank;
+}
+
+int NProcMPI() {
+  return mpi.nproc;
+}
+
+int WidMPI() {
+  return mpi.wid;
+}
+
+void SetWidMPI(int w) {
+  mpi.wid = w;
+}
+
+MPID *DataMPI() {
+  return &mpi;
 }
 
 int MPIReady() {
-#if USE_MPI == 1
-  int k;
-  MPI_Initialized(&k);
-  return k;
-#else
-  return 0;
-#endif
+  return _initialized;
 }
 
-void InitializeMPI(char *s) {
+void InitializeMPI(int n) {
+#ifdef USE_MPI
+  if (_initialized) {
+    printf("MPI system already initialized\n");
+    return;
+  }
 #if USE_MPI == 1
-  int argc, i, n;
-  char **argv, *p;
-  if (s == NULL) {
-    argc = 1;
-  } else {
-    argc = 1 + StrSplit(s, ' ');
+  MPI_Init(NULL, NULL);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi.myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi.nproc);
+  MPI_Initialized(&_initialized);
+  if (!_initialized) {
+    printf("cannot initialize MPI\n");
+    exit(1);
   }
-  argv = malloc(sizeof(char *)*argc);
-  argv[0] = malloc(sizeof(char));
-  argv[0][0] = '\0';
-  p = s;
-  for (i = 1; i < argc; i++) {
-    n = strlen(p);
-    argv[i] = malloc(sizeof(char)*(n+1));
-    strcpy(argv[i], p);
-    printf("%d %s %s\n", i, p, argv[i]);
-    p += n+1;
+#elif USE_MPI == 2
+  if (n > 0) {
+    omp_set_num_threads(n);
+  } else if (n == 0) {
+    omp_set_num_threads(1);
   }
-  MPI_Init(&argc, &argv);
-  for (i = 0; i < argc; i++) {
-    free(argv[i]);
+#pragma omp parallel
+  {
+    mpi.myrank = omp_get_thread_num();
+    mpi.nproc = omp_get_num_threads();
   }
-  free(argv);
-  SetMPIRankMBPT();
-  SetMPIRankRadial();
-  SetMPIRankStructure();
+  _initialized = 1;
+#endif
+  _plock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(_plock)) {
+    printf("cannot initialize lock in InitializeMPI\n");
+    free(_plock);
+    _plock = NULL;
+  }
 #endif
 }
 
@@ -169,6 +182,11 @@ void FinalizeMPI() {
 #if USE_MPI == 1
   MPI_Finalize();
 #endif
+  if (_plock) {
+    DestroyLock(_plock);
+    free(_plock);
+    _plock = NULL;
+  }
 }
 
 void Abort(int r) {
@@ -176,6 +194,14 @@ void Abort(int r) {
   MPI_Abort(MPI_COMM_WORLD, r);
 #else
   exit(r);
+#endif
+}
+
+double WallTime() {
+#if USE_MPI == 2
+  return omp_get_wtime();
+#else
+  return ((double)clock())/CLOCKS_PER_SEC;
 #endif
 }
 

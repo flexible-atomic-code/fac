@@ -234,7 +234,6 @@ void DecodeBasisEB(int k, int *s, int *m);
 int ConstructHamiltonEB(int n, int *ilev);
 void StructureEB(char *fn, int n, int *ilev);
 double HamiltonElementEB(int i, int j);
-void SetMPIRankStructure();
 int SlaterCoeff(char *fn, int nlevs, int *ilevs, int na, SHELL *sa, 
 		int nb, SHELL *sb);
 void AddSlaterCoeff(double *c, double a, int n_shells, 

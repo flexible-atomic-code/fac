@@ -130,7 +130,8 @@ C
      X     HALF, CI / 0.5D+0, (0D+0, 1D+0) /,
      X     FPMAX,FPMIN,FPLMAX,FPLMIN / 1D+60,1D-60 ,140D+0, -140D+0 /,
      X     R20,ASYM,XNEAR,NDROP / 3., 3., .5, 5 /,
-     X     ACCUR, ACC8, ACC16 / 1D-14, 2D-16, 3D-33 /
+     X     ACCUR, ACC8, ACC16 / 1D-14, 2D-16, 3D-33 /      
+!$OMP THREADPRIVATE(/CSTEED/)
       NINTC(W) = NINT(REAL(REAL(W)))
       ABSC(W) = ABS(DBLE(W)) + ABS(IMAG(W))
       NPINT(W,ACCB) = ABSC(NINTC(W)-W).LT.ACCB .AND. DBLE(W).LT.HALF
@@ -1187,7 +1188,8 @@ C
       DIMENSION A(100),B(100),XX(2,100)
       LOGICAL EVEN
       REAL*8 EPS
-      COMMON /RCFCM2/ X1,M2M1,MP12,EVEN,M
+      COMMON /RCFCM2/ X1,M2M1,MP12,EVEN,M      
+!$OMP THREADPRIVATE(/RCFCM2/)
 C     ibn = ibeg + inum - 1
       IBN = INUM
 C                             B(IBN) is last value set on this call

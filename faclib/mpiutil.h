@@ -33,6 +33,12 @@
 
 #define BUFLN 1024
 
+typedef struct _MPID_ {
+  int myrank;
+  int nproc;
+  int wid;
+} MPID;
+
 typedef struct _BFILE_ {
   char *fn;
   FILE *f;
@@ -41,18 +47,25 @@ typedef struct _BFILE_ {
   int nr, mr, eof;
 } BFILE;
 
-int SkipMPI(int *wid, int myrank, int nproc);
+int SkipMPI();
 void MPISeqBeg();
 void MPISeqEnd();
 void MPrintf(int ir, char *format, ...);
 int MPIRank(int *np);
+int MyRankMPI();
+int NProcMPI();
+int WidMPI();
+double WallTime();
+void SetWidMPI(int w);
+MPID *DataMPI();
 int MPIReady();
+void Abort(int r);
 BFILE *BFileOpen(char *fn, char *md, int nb);
 size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *f);
 int BFileClose(BFILE *f);
 void BFileRewind(BFILE *f);
 char *BFileGetLine(char *s, int size, BFILE *f);
-void InitializeMPI(char *s);
+void InitializeMPI(int n);
 void FinalizeMPI();
 
 #endif

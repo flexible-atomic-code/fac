@@ -161,6 +161,9 @@ AC_ARG_WITH(mpicompile,
 AC_ARG_WITH(mpilink,
 	[ --with-mpilink	MPI link flags],
 	[mpilink=$withval])
+AC_ARG_WITH(mpifflag,
+	[ --with-mpifflag	MPI f77 flags],
+	[mpifflag=$withval])
 AC_ARG_WITH(extrainc,
 	[ --with-extrainc	Extra compile flags],
 	[extrainc=$withval])
@@ -169,7 +172,7 @@ AC_ARG_WITH(extralib,
 	[extralib=$withval])
 
 # setup libs 
-LIBS="$LIBS -lfac"
+LIBS="$LIBS -lfac -lpthread"
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"
 then
@@ -202,6 +205,11 @@ then
       if test "x$mpicompile" = "x"
       then 
   	mpicompile=-fopenmp
+	mpilink="-fopenmp -lgcc_eh"
+      fi
+      if test "x$mpifflag" = "x"
+      then
+        mpifflag=-fopenmp
       fi
       AC_DEFINE_UNQUOTED([USE_MPI], [2])
     ;;
@@ -212,6 +220,7 @@ then
   
   CPPFLAGS="$CPPFLAGS $mpicompile"
   LIBS="$LIBS $mpilink"
+  FFLAGS="$FFLAGS $mpifflag"
 fi
 
 if test "x$extrainc" != "x"

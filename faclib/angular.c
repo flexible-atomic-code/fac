@@ -118,6 +118,8 @@ int Triangle(int j1, int j2, int j3) {
 */
 #define MAXTERM 512
 static double _sumk[MAXTERM];
+#pragma omp threadprivate(_sumk)
+
 /* 
 ** FUNCTION:    W3j.
 ** PURPOSE:     calculate the Wigner 3j symbol.

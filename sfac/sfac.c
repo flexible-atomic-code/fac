@@ -2897,9 +2897,10 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   double *b;
   MULTI ma;
   int k[3] = {101, 2550, 333};
-  int block[3] = {10, 20, 50};
+  int block[3] = {10, 20, 5};
   int i, j, m;
- 
+
+  /*
   ArrayInit(&a, sizeof(double), 100);
   d = 0.1;
   m = 100000;
@@ -2919,26 +2920,40 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   ArrayFree(&a, 0);
   printf("> ");
   scanf("%d", &i);
-
+  */
   MultiInit(&ma, sizeof(double), 3, block);
   printf("%d %d\n", ma.esize, ma.ndim);
   for (i = 9; i < 15; i++) {
-    for (j = 0; j < m; j++) {
+    for (j = 0; j < 30; j++) {
       k[0] = i;
       k[1] = j;
-      k[2] = 20;	
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
+      k[2] = 20;
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
       *b = 0.2;
-      b = (double *) MultiGet(&ma, k);
+      double *b1 = (double *) MultiSet(&ma, k, NULL, NULL,
+				       InitDoubleData, NULL);
     }
   }
 
-  printf("> ");
-  scanf("%d", &i);
+  MultiFreeData(&ma, NULL);
+  for (i = 9; i < 15; i++) {
+    for (j = 0; j < 30; j++) {
+      k[0] = i;
+      k[1] = j;
+      k[2] = 20;
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
+      *b = 0.2;
+      double *b1 = (double *) MultiSet(&ma, k, NULL, NULL,
+				       InitDoubleData, NULL);
+    }
+  }
+  
+  //printf("> ");
+  //scanf("%d", &i);
   MultiFree(&ma, NULL);
 
-  printf("> ");
-  scanf("%d", &i);
+  //printf("> ");
+  //scanf("%d", &i);
 
   return 0;
 }
@@ -3815,12 +3830,12 @@ static int PModifyPotential(int argc, char *argv[], int argt[],
 
 static int PInitializeMPI(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-#if USE_MPI == 1
-  if (argc == 0) {
-    InitializeMPI(NULL);
-  } else {
-    InitializeMPI(argv[0]);
+#ifdef USE_MPI
+  int n = -1;
+  if (argc > 0) {
+    n = atoi(argv[0]);
   }
+  InitializeMPI(n);
 #endif
   return 0;
 }

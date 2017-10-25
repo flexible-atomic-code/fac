@@ -1553,6 +1553,8 @@ int GetInteract(INTERACT_DATUM **idatum,
   INTERACT_SHELL *s;
   int n_shells;
   int index[4];
+  LOCK *lock = NULL;
+  int locked = 0;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;  
@@ -1582,14 +1584,21 @@ int GetInteract(INTERACT_DATUM **idatum,
       index[2] = kci;
       index[3] = kcj;
       (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
-					      NULL, InitInteractDatum, 
+					      NULL, &lock, InitInteractDatum, 
 					      FreeInteractDatum);
     }
-    if ((*idatum)->n_shells < 0) return -1;
+    if (lock && (*idatum)->n_shells == 0) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if ((*idatum)->n_shells < 0) {
+      if (locked) ReleaseLock(lock);
+      return -1;
+    }
   } else {
     (*idatum) = malloc(sizeof(INTERACT_DATUM));
     (*idatum)->n_shells = 0;
-  }
+  }  
   if ((*idatum)->n_shells > 0) {
     n_shells = (*idatum)->n_shells;
     bra = (*idatum)->bra;
@@ -1667,10 +1676,12 @@ int GetInteract(INTERACT_DATUM **idatum,
   stop = clock();
   timing.interact += stop -start;
 #endif
-
+  
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return n_shells;
 }
-
+    
 double EvaluateFormula(FORMULA *fm) {
   double r;
 
@@ -2437,7 +2448,10 @@ int InitRecouple(void) {
 */
 int ReinitRecouple(int m) {
   if (m < 0) return 0;
+#pragma omp barrier
+#pragma omp master
   MultiFreeData(interact_shells, FreeInteractDatum);  
+#pragma omp barrier
   return 0;
 }
   

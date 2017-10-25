@@ -338,9 +338,16 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   if (IsEven(kl0 + kl1 + ko2) && Triangle(j0, j1, k)) {
     type = ko2;
   }
-
-  *pk = (CEPK *) MultiSet(pk_array, index, NULL, InitCEPK, FreeExcitationPkData);
+  LOCK *lock = NULL;
+  int locked = 0;
+  *pk = (CEPK *) MultiSet(pk_array, index, NULL, &lock,
+			  InitCEPK, FreeExcitationPkData);
+  if (lock && (*pk)->nkl < 0) {
+    SetLock(lock);
+    locked = 1;
+  }
   if ((*pk)->nkl >= 0) {
+    if (locked) ReleaseLock(lock);
     return type;
   }
 
@@ -493,7 +500,9 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   }
   (*pk)->pkd = ReallocNew(pkd, sizeof(double)*q);
   (*pk)->pke = ReallocNew(pke, sizeof(double)*q);  
-    
+
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -841,9 +850,16 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[2] = k1;
   index[3] = k2;
   index[4] = k3;
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }   
 
@@ -1083,7 +1099,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return *p;
 }
 
@@ -1117,10 +1134,16 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   index[2] = k1;
   index[3] = k2;
   index[4] = k3;
-
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }
 
@@ -1392,7 +1415,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-  
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return rqc;
 } 	
   
