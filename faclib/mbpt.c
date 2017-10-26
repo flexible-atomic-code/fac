@@ -34,8 +34,8 @@ static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static CONFIG **mbpt_cs = NULL;
 static CONFIG mbpt_cfg;
-#pragma omp threadprivate(mbpt_cs, mbpt_cfg)
-
+static int *mbpt_bas0, *mbpt_bas1;
+static IDXARY mbpt_ibas0, mbpt_ibas1;
 static struct {
   int nj0;
   int *jp0;
@@ -43,6 +43,8 @@ static struct {
   int *jp;
   IDXARY *ibs;
 } mbptjp = {0, NULL, 0, NULL, NULL};
+
+#pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
   
 static TR_OPT mbpt_tr;
   
@@ -3169,7 +3171,7 @@ int GetJpList(int n, int *bas, int *jp) {
 */
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm, 
 		   int n, int *ng, int n2, int *ng2, int nkg0) {
-  int *bas, *bas0, *bas1, nlevels, nb, n3, q, nhab, nhab1;
+  int *bas, *bas0, *bas1, nlevels, nb0, nb, n3, q, nhab, nhab1;
   int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m, mks, *ks;
   int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst;
   int p0, p1, j0, j1, j2, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
@@ -3186,13 +3188,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   double a, b, c, *mix, *hab, *hba, emin, emax;
   double *h0, *heff, *hab1, *hba1, *dw, tt0, tt1, tbg, dt, dtt;
   FILE *f;
-  IDXARY ing, ing2, ibas0, ibas1, ibs;
+  IDXARY ing, ing2, ibs;
   ORBITAL *orb;
 
   ing.n = ing.m = 0;
   ing2.n = ing2.m = 0;
-  ibas0.n = ibas0.m = 0;
-  ibas1.n = ibas1.m = 0;
   ibs.n = ibs.m = 0;
   mbptjp.ibs = &ibs;
   ierr = 0;
@@ -3264,7 +3264,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     ga[k++] = i;
   }
   nb = RadialBasisMBPT(nmax, NULL, k, ga, &bas0);
-  mbptjp.jp0 = malloc(sizeof(int)*(nb+1));
+  nb0 = nb;
   k = 0;
   for (i = 0; i < n; i++) {
     ga[k++] = ng[i];
@@ -3276,8 +3276,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   na = SortUnique(k, ga);
   nb = RadialBasisMBPT(nk, nkm, na, ga, &bas);
   InitIdxAry(mbptjp.ibs, nb, bas);
-  mbptjp.jp = malloc(sizeof(int)*(nb+1));
-  bas1 = malloc(sizeof(int)*nb);
+#pragma omp parallel default(shared)
+  {
+    mbpt_bas0 = malloc(sizeof(int)*nb0);    
+    mbptjp.jp0 = malloc(sizeof(int)*(nb0+1));
+    mbpt_bas1 = malloc(sizeof(int)*nb);
+    mbptjp.jp = malloc(sizeof(int)*(nb+1));
+  }
+  free(bas0);
   free(ga);
   
   ShiftOrbitalEnergy(cs[0]);
@@ -3294,10 +3300,15 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     if (f == NULL) {
       MPrintf(-1, "cannot open file %s\n", fn1);
       FreeIdxAry(&ibs, 0);
-      free(mbptjp.jp0);
-      free(mbptjp.jp);
       FreeIdxAry(&ing, 2);
       FreeIdxAry(&ing2, 2);
+#pragma omp parallel
+      {
+	free(mbptjp.jp0);
+	free(mbptjp.jp);
+	free(mbpt_bas0);
+	free(mbpt_bas1);
+      }
       return -1;
     }
     fwrite(&n, sizeof(int), 1, f);
@@ -3308,7 +3319,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 
   dw = malloc(sizeof(double)*(n+n2)*4);
-
   MPrintf(-1, "CI Structure.\n");
   fflush(stdout);
   nlevels = GetNumLevels();
@@ -3437,64 +3447,68 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
     }
-    for (k0 = 0; k0 < nc; k0++) {
-      c0 = cs[k0];      
-      p0 = ConfigParity(c0);
-      for (k1 = k0; k1 < nc; k1++) {
-	c1 = cs[k1];
-	p1 = ConfigParity(c1);
-	if (p0 != p1) continue;
-	/* pair of bra and ket states */
-	m = 0;      
-	bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
-	kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
-	for (m0 = 0; m0 < c0->n_csfs; m0++) {
-	  ms0 = c0->symstate[m0];
-	  UnpackSymState(ms0, &i0, &q0);	
-	  if (c0 == c1) q = m0;
-	  else q = 0;
-	  for (m1 = q; m1 < c1->n_csfs; m1++) {
-	    ms1 = c1->symstate[m1];
-	    UnpackSymState(ms1, &i1, &q1);
-	    if (i0 != i1) continue;
-	    if (q0 <= q1) {
-	      k = q1*(q1+1)/2 + q0;
-	    } else {
-	      k = q0*(q0+1)/2 + q1;
-	    }
-	    if (meff[i0] && meff[i0]->nbasis > 0 && meff[i0]->hab1[k]) {
-	      bst0[m] = m0;
-	      kst0[m] = m1;
-	      m++;
+#pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
+    {
+      double ptt0, ptt1;
+      ptt0 = tt0;
+      cs = mbpt_cs;
+      bas0 = mbpt_bas0;
+      bas1 = mbpt_bas1;
+      mbpt_ibas0.n = mbpt_ibas0.m = 0;
+      mbpt_ibas1.n = mbpt_ibas1.m = 0;
+      for (k0 = 0; k0 < nc; k0++) {
+	c0 = cs[k0];      
+	p0 = ConfigParity(c0);
+	for (k1 = k0; k1 < nc; k1++) {
+	  c1 = cs[k1];
+	  p1 = ConfigParity(c1);
+	  if (p0 != p1) continue;
+	  /* pair of bra and ket states */
+	  m = 0;      
+	  bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+	  kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+	  for (m0 = 0; m0 < c0->n_csfs; m0++) {
+	    ms0 = c0->symstate[m0];
+	    UnpackSymState(ms0, &i0, &q0);	
+	    if (c0 == c1) q = m0;
+	    else q = 0;
+	    for (m1 = q; m1 < c1->n_csfs; m1++) {
+	      ms1 = c1->symstate[m1];
+	      UnpackSymState(ms1, &i1, &q1);
+	      if (i0 != i1) continue;
+	      if (q0 <= q1) {
+		k = q1*(q1+1)/2 + q0;
+	      } else {
+		k = q0*(q0+1)/2 + q1;
+	      }
+	      if (meff[i0] && meff[i0]->nbasis > 0 && meff[i0]->hab1[k]) {
+		bst0[m] = m0;
+		kst0[m] = m1;
+		m++;
+	      }
 	    }
 	  }
-	}
-	if (m == 0) {
-	  continue;
-	}
-	/* mst pairs */
-	mst = m;
-	/* if q0 <= q1 for the 1st pair, so are for the rest pairs */
-	ms0 = c0->symstate[bst0[0]];
-	ms1 = c1->symstate[kst0[0]];
-	UnpackSymState(ms0, &i0, &q0);
-	UnpackSymState(ms1, &i1, &q1);
-	if (q0 <= q1) {
-	  ct0 = c0;
-	  ct1 = c1;
-	  bst = bst0;
-	  kst = kst0;
-	} else {
-	  ct0 = c1;
-	  ct1 = c0;
-	  bst = kst0;
-	  kst = bst0;
-	}
-#pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt)
-	{
-	  double ptt0, ptt1;
-	  ptt0 = tt0;
-	  cs = mbpt_cs;
+	  if (m == 0) {
+	    continue;
+	  }
+	  /* mst pairs */
+	  mst = m;
+	  /* if q0 <= q1 for the 1st pair, so are for the rest pairs */
+	  ms0 = c0->symstate[bst0[0]];
+	  ms1 = c1->symstate[kst0[0]];
+	  UnpackSymState(ms0, &i0, &q0);
+	  UnpackSymState(ms1, &i1, &q1);
+	  if (q0 <= q1) {
+	    ct0 = c0;
+	    ct1 = c1;
+	    bst = bst0;
+	    kst = kst0;
+	  } else {
+	    ct0 = c1;
+	    ct1 = c0;
+	    bst = kst0;
+	    kst = bst0;
+	  }
 	  /* make sure ct0 and ct1 have the same set of shells */
 	  n0 = PadStates(ct0, ct1, &bra, &ket, &sbra, &sket);
 	  /* pointers 1 starts from 2nd virtual orb. */
@@ -3507,79 +3521,73 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  sket1 = sket + 1;
 	  sbra2 = sbra + 2;
 	  sket2 = sket + 2;
-#pragma omp master
-	  {
-	    /* determine all real orbs */
-	    for (k = 0; k < n0; k++) {	  
-	      bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
-	    }	    
-	    FreeIdxAry(&ibas0, 2);
-	    InitIdxAry(&ibas0, n0, bas0);
-	    mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
-	    /* determine all virtual orbs */
-	    n1 = 0;
-	    for (m = 0; m < nb; m++) {
-	      k = IdxGet(&ibas0, bas[m]);
-	      if (k >= 0) continue;
-	      bas1[n1] = bas[m];
-	      n1++;
-	    }
-	    FreeIdxAry(&ibas1, 2);
-	    InitIdxAry(&ibas1, n1, bas1);
-	    mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
-#pragma omp flush
+	  /* determine all real orbs */
+	  for (k = 0; k < n0; k++) {	  
+	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
+	  }	    
+	  FreeIdxAry(&mbpt_ibas0, 2);
+	  InitIdxAry(&mbpt_ibas0, n0, bas0);
+	  mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
+	  /* determine all virtual orbs */
+	  n1 = 0;
+	  for (m = 0; m < nb; m++) {
+	    k = IdxGet(&mbpt_ibas0, bas[m]);
+	    if (k >= 0) continue;
+	    bas1[n1] = bas[m];
+	    n1++;
 	  }
-#pragma omp barrier
+	  FreeIdxAry(&mbpt_ibas1, 2);
+	  InitIdxAry(&mbpt_ibas1, n1, bas1);
+	  mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
 	  if (n3 != 2) {
 	    /* 1-b 2-b term no virtual orb */
 	    DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ing, nc, cs, 0);	  
+		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);	  
 	    /* 1-b 2-b term 1 virtual orb */
 	    DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);	  
+		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    /* 2-b 1-b term no virtual orb */	
 	    DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
-		       ct1, ct0, &ibas0, &ing, nc, cs, 0);	  
+		       ct1, ct0, &mbpt_ibas0, &ing, nc, cs, 0);	  
 	    /* 2-b 1-b term 1 virtual orb */
 	    DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
-		       ct1, ct0, &ibas0, &ibas1, &ing, nc, cs, 0);	  
+		       ct1, ct0, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    
 	    /* 1-b 1-b term no virtual orb */
 	    DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ing, nc, cs, 0);		  
+		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);		  
 	    /* 1-b 1-b term 1 virtual orb */
 	    DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		       ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 0);	  
+		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    
 	    /* 2-b 2-b term no virtual */
 	    DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ing, nc, cs);
+		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs);
 	    
 	    /* 2-b 2-b term 1 virtual */
 	    DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ibas1, &ing, nc, cs);	
+		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs);	
 	  }
 	  
 	  if (n3 != 1) {
 	    /* 2-b 2-b term 2 virtual */
 	    DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
-		       ct0, ct1, &ibas0, &ibas1, &ing, &ing2, nc, cs);
+		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, &ing2, nc, cs);
 	  }
 	  free(bra);
 	  free(ket);
 	  free(sbra);
 	  free(sket);
+	  free(bst0);
+	  free(kst0);
 	  ptt1 = WallTime();
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
 	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt);
-#pragma omp barrier
+		  k0, k1, nc, mst, n0, n1, dt, dtt);	  
+	  fflush(stdout);
 	}
-	fflush(stdout);
-	free(bst0);
-	free(kst0);
       }
     }
 
@@ -3729,44 +3737,45 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     if (MyRankMPI() == 0) {
       sprintf(tfn, "%s.tr", fn1);
       f = fopen(tfn, "w");
-    }
-    cs = csm;
-    for (k0 = 0; k0 < nc; k0++) {
-      c0 = cs[k0];
-      for (k1 = 0; k1 < nc; k1++) {
-	c1 = cs[k1];
-	m = 0;      
-	bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
-	kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
-	for (m0 = 0; m0 < c0->n_csfs; m0++) {
-	  ms0 = c0->symstate[m0];
-	  UnpackSymState(ms0, &i0, &q0);	
-	  DecodePJ(i0, &p0, &j0);
-	  for (m1 = 0; m1 < c1->n_csfs; m1++) {
-	    ms1 = c1->symstate[m1];
-	    UnpackSymState(ms1, &i1, &q1);
-	    DecodePJ(i1, &p1, &j1);
-	    if (abs(j0 - j1) > 2*mbpt_tr.mktr) continue;
-	    bst0[m] = m0;
-	    kst0[m] = m1;
-	    m++;
+    }	
+#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
+    {
+      double ptt0, ptt1;
+      ptt0 = tt0;
+      cs = mbpt_cs;
+      bas0 = mbpt_bas0;
+      bas1 = mbpt_bas1;
+      for (k0 = 0; k0 < nc; k0++) {
+	c0 = cs[k0];
+	for (k1 = 0; k1 < nc; k1++) {
+	  c1 = cs[k1];
+	  m = 0;      
+	  bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+	  kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
+	  for (m0 = 0; m0 < c0->n_csfs; m0++) {
+	    ms0 = c0->symstate[m0];
+	    UnpackSymState(ms0, &i0, &q0);	
+	    DecodePJ(i0, &p0, &j0);
+	    for (m1 = 0; m1 < c1->n_csfs; m1++) {
+	      ms1 = c1->symstate[m1];
+	      UnpackSymState(ms1, &i1, &q1);
+	      DecodePJ(i1, &p1, &j1);
+	      if (abs(j0 - j1) > 2*mbpt_tr.mktr) continue;
+	      bst0[m] = m0;
+	      kst0[m] = m1;
+	      m++;
+	    }
 	  }
-	}
-	
-	if (m == 0) {
-	  continue;
-	}
-	/* mst pairs */
-	mst = m;
-	ct0 = c0;
-	ct1 = c1;
-	bst = bst0;
-	kst = kst0;	
-#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt)	
-	{
-	  double ptt0, ptt1;
-	  ptt0 = tt0;
-	  cs = mbpt_cs;
+	  
+	  if (m == 0) {
+	    continue;
+	  }
+	  /* mst pairs */
+	  mst = m;
+	  ct0 = c0;
+	  ct1 = c1;
+	  bst = bst0;
+	  kst = kst0;
 	  /* make sure ct0 and ct1 have the same set of shells */
 	  n0 = PadStates(ct0, ct1, &bra, &ket, &sbra, &sket);
 	  /* pointers 1 starts from 2nd virtual orb. */
@@ -3779,55 +3788,50 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  sket1 = sket + 1;
 	  sbra2 = sbra + 2;
 	  sket2 = sket + 2;	
-#pragma omp master
-	  {
-	    /* determine all real orbs */
-	    for (k = 0; k < n0; k++) {	  
-	      bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
-	    }
-	    FreeIdxAry(&ibas0, 2);
-	    InitIdxAry(&ibas0, n0, bas0);
-	    mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
-	    /* determine all virtual orbs */
-	    n1 = 0;
-	    for (m = 0; m < nb; m++) {
-	      k = IdxGet(&ibas0, bas[m]);
-	      if (k >= 0) continue;
-	      bas1[n1] = bas[m];
-	      n1++;
-	    }
-	    FreeIdxAry(&ibas1, 2);
-	    InitIdxAry(&ibas1, n1, bas1);
-	    mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
-#pragma omp flush
+	  /* determine all real orbs */
+	  for (k = 0; k < n0; k++) {	  
+	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
 	  }
-#pragma omp barrier
+	  FreeIdxAry(&mbpt_ibas0, 2);
+	  InitIdxAry(&mbpt_ibas0, n0, bas0);
+	  mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
+	  /* determine all virtual orbs */
+	  n1 = 0;
+	  for (m = 0; m < nb; m++) {
+	    k = IdxGet(&mbpt_ibas0, bas[m]);
+	    if (k >= 0) continue;
+	    bas1[n1] = bas[m];
+	    n1++;
+	  }
+	  FreeIdxAry(&mbpt_ibas1, 2);
+	  InitIdxAry(&mbpt_ibas1, n1, bas1);
+	  mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
 	  /* 1-b 2-b term no virtual orb */
 	  DeltaH12M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
 	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);
 	  /* 1-b 1-b term no virtual orb */
 	  DeltaH11M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &ibas0, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
 	  /* 1-b 1-b term 1 virtual orb */
 	  DeltaH11M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		     ct0, ct1, &ibas0, &ibas1, &ing, nc, cs, 1);	
+		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);	
 	  free(bra);
 	  free(ket);
 	  free(sbra);
 	  free(sket);
+	  free(bst0);
+	  free(kst0);
 	  ptt1 = WallTime();
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
 	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);
+	  fflush(stdout);
 	}
-	fflush(stdout);
-	free(bst0);
-	free(kst0);
       }
     }
 
@@ -3870,10 +3874,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   
  ERROR:
   FreeIdxAry(&ibs, 0);
-  free(mbptjp.jp0);
-  free(mbptjp.jp);
-  FreeIdxAry(&ibas0, 0);
-  FreeIdxAry(&ibas1, 0);
+  FreeIdxAry(&mbpt_ibas0, 2);
+  FreeIdxAry(&mbpt_ibas1, 2);
   FreeIdxAry(&ing, 2);
   FreeIdxAry(&ing2, 2);
 #pragma omp parallel default(shared) private(cs)
@@ -3881,6 +3883,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     cs = mbpt_cs;
     free(cs[nc]->shells);
     free(cs);
+    free(mbpt_bas0);
+    free(mbpt_bas1);
+    free(mbptjp.jp0);
+    free(mbptjp.jp);
   }
   free(dw);
   FreeEffMBPT(meff);
