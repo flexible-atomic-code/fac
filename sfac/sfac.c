@@ -2921,7 +2921,7 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   printf("> ");
   scanf("%d", &i);
   */
-  MultiInit(&ma, sizeof(double), 3, block);
+  MultiInit(&ma, sizeof(double), 3, block, "test_ma");
   printf("%d %d\n", ma.esize, ma.ndim);
   for (i = 9; i < 15; i++) {
     for (j = 0; j < 30; j++) {
@@ -3583,9 +3583,7 @@ static int PLimitArray(int argc, char *argv[], int argt[],
   m = atoi(argv[0]);
   n = atof(argv[1]);
 
-  if (m < 10) {
-    LimitArrayRadial(m, n);
-  }
+  LimitArrayRadial(m, n);
   
   return 0;
 }

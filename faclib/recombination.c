@@ -2422,7 +2422,7 @@ int InitRecombination(void) {
   ndim = 5;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(pk_array, sizeof(double *), ndim, blocks);
+  MultiInit(pk_array, sizeof(double *), ndim, blocks, "rpk_array");
   
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
@@ -2430,7 +2430,7 @@ int InitRecombination(void) {
   blocks[0] = 10;
   blocks[1] = 10;
   blocks[2] = 4;
-  MultiInit(qk_array, sizeof(double *), ndim, blocks);  
+  MultiInit(qk_array, sizeof(double *), ndim, blocks, "rqk_array");  
   
   hyd_qk_array = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(hyd_qk_array, sizeof(double *), 32);

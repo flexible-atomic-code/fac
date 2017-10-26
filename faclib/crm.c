@@ -1662,16 +1662,16 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
   n = blocks->dim;
   ic = (int *) malloc(sizeof(int)*n);
   if (md & 4) {
-    MultiInit(&ce, sizeof(double), 3, ablks);
-    MultiInit(&tr, sizeof(double), 3, ablks);
-    MultiInit(&ci, sizeof(double), 3, ablks);
-    MultiInit(&rr, sizeof(double), 3, ablks);
-    MultiInit(&ai, sizeof(double), 3, ablks);
-    MultiInit(&cep, sizeof(double), 3, ablks);
-    MultiInit(&trp, sizeof(double), 3, ablks);
-    MultiInit(&cip, sizeof(double), 3, ablks);
-    MultiInit(&rrp, sizeof(double), 3, ablks);
-    MultiInit(&aip, sizeof(double), 3, ablks);
+    MultiInit(&ce, sizeof(double), 3, ablks, "crm_ce");
+    MultiInit(&tr, sizeof(double), 3, ablks, "crm_tr");
+    MultiInit(&ci, sizeof(double), 3, ablks, "crm_ci");
+    MultiInit(&rr, sizeof(double), 3, ablks, "crm_rr");
+    MultiInit(&ai, sizeof(double), 3, ablks, "crm_ai");
+    MultiInit(&cep, sizeof(double), 3, ablks, "crm_cep");
+    MultiInit(&trp, sizeof(double), 3, ablks, "crm_trp");
+    MultiInit(&cip, sizeof(double), 3, ablks, "crm_cip");
+    MultiInit(&rrp, sizeof(double), 3, ablks, "crm_rrp");
+    MultiInit(&aip, sizeof(double), 3, ablks, "crm_aip");
   }
   if (nc > 0) {
     c = (NCOMPLEX *) malloc(sizeof(NCOMPLEX)*MAXNCOMPLEX*nc);

@@ -17,6 +17,7 @@
  */
 
 #include "array.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id: array.c,v 1.17 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2
@@ -32,6 +33,10 @@ USE (rcsid);
 
   Author: M. F. Gu, mfgu@stanford.edu
 **************************************************************/
+
+static double _maxsize = -1;
+static double _totalsize = 0;
+static double _overheadsize = 0;
 
 void InitIntData(void *p, int n) {
   int *d;
@@ -386,10 +391,12 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */    
-int SMultiInit(MULTI *ma, int esize, int ndim, int *block) {
+int SMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i;
-  ma->maxelem = -1;
-  ma->numelem = 0;
+  strncpy(ma->id, id, MULTI_IDLEN-1);
+  ma->maxsize = -1;
+  ma->totalsize = 0;
+  ma->clean_mode = -1;
   ma->ndim = ndim;
   ma->esize = esize;
   ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
@@ -602,19 +609,39 @@ static int Hash2(int *id, ub4 length, ub4 initval, int n, int m) {
   return (int) (c & m);
 }
 
-int NMultiInit(MULTI *ma, int esize, int ndim, int *block) {
-  int i, n;
+void AddMultiSize(MULTI *ma, int size) {
+  ma->totalsize += size;
+  _totalsize += size;
+}
 
-  ma->maxelem = -1;
-  ma->numelem = 0;
+void LimitMultiSize(MULTI *ma, double r) {
+  if (ma == NULL) {
+    _maxsize = r;
+  } else {
+    ma->maxsize = r;
+  }
+}
+  
+int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
+  int i, n, s;
+  strncpy(ma->id, id, MULTI_IDLEN-1);
+  ma->maxsize = -1;
+  ma->totalsize = 0;
+  ma->clean_mode = -1;
   ma->ndim = ndim;
   ma->isize = sizeof(int)*ndim;
   ma->esize = esize;
-  ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
+  s = sizeof(unsigned short)*ndim;
+  ma->block = (unsigned short *) malloc(s);
+  ma->overheadsize += s;
+  _overheadsize += s;
   n = HashSize(ma->ndim);
   ma->hsize = n;
   ma->hmask = ma->hsize-1;
-  ma->array = (ARRAY *) malloc(sizeof(ARRAY)*n);
+  s = sizeof(ARRAY)*n;
+  ma->array = (ARRAY *) malloc(s);
+  ma->overheadsize += s;
+  _overheadsize += s;
   for (i = 0; i < n; i++) {
     ArrayInit(&(ma->array[i]), sizeof(MDATA), 8);
   }
@@ -656,21 +683,32 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *)) {
-  int i, j, m, h;
+  int i, j, m, h, size;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
-  
-  if (ma->maxelem > 0 && ma->numelem >= ma->maxelem) {
-    NMultiFreeData(ma, FreeElem);
-    ma->numelem = 0;
+#pragma omp critical
+  {
+    if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
+      ma->clean_mode = 0;
+      NMultiFreeData(ma, FreeElem);
+    } else if (_maxsize > 0 &&
+	       _totalsize >= _maxsize &&
+	       ma->totalsize > 0.1*_totalsize) {
+      ma->clean_mode = 1;
+      NMultiFreeData(ma, FreeElem);
+    }
   }
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
   if (a->lock) SetLock(a->lock);
   if (a->dim == 0) {
-    a->data = (DATA *) malloc(sizeof(DATA));
+    size = sizeof(DATA);
+    a->data = (DATA *) malloc(size);
     a->data->dptr = malloc(a->bsize);
+    size += a->bsize;
+    ma->totalsize += size;
+    _totalsize += size;
     InitMDataData(a->data->dptr, a->block);
     a->data->next = NULL;
     pt = (MDATA *) a->data->dptr;
@@ -695,17 +733,21 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
       p = p->next;
     }  
     if (m == a->block) {
-      p0->next = (DATA *) malloc(sizeof(DATA));
+      size = sizeof(DATA);
+      p0->next = (DATA *) malloc(size);
       p = p0->next;
       p->dptr = malloc(a->bsize);
+      size += a->bsize;
+      ma->totalsize += size;
+      _totalsize += size;
       InitMDataData(p->dptr, a->block);
       p->next = NULL;
       pt = (MDATA *) p->dptr;
     }
   }
-  
-  ma->numelem++;
+
   pt->index = (int *) malloc(ma->isize);
+  size = sizeof(LOCK);
   pt->lock = (LOCK *) malloc(sizeof(LOCK));
   if (0 != InitLock(pt->lock)) {
     free(pt->lock);
@@ -713,6 +755,9 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   } 
   memcpy(pt->index, k, ma->isize);
   pt->data = malloc(ma->esize);
+  size += ma->esize + ma->isize;
+  ma->totalsize += size;
+  _totalsize += size;
   if (InitData) InitData(pt->data, 1);
   if (d) memcpy(pt->data, d, ma->esize);
   (a->dim)++;
@@ -746,11 +791,12 @@ static int NMultiArrayFreeData(DATA *p, int esize, int block,
       pt++;
     }
     free(p->dptr);
+    p->dptr = NULL;
   }
   if (p) {
     free(p);
+    p = NULL;
   }
-  p = NULL;
   return 0;
 }
     
@@ -766,11 +812,41 @@ int NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *)) {
 int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
   ARRAY *a;
   int i;
+#pragma omp flush
   if (ma->lock) SetLock(ma->lock);
-  for (i = 0; i < ma->hsize; i++) {
-    a = &(ma->array[i]);
-    NMultiFreeDataOnly(a, FreeElem);
+  int clean = 1;
+  if (ma->clean_mode == 0) {
+    if (ma->totalsize < ma->maxsize) clean = 0;
+    if (clean) {
+      MPrintf(-1,
+	      "clean0 %s t=%g o=%s m=%g tt=%g to=%g tm=%g\n",
+	      ma->id, ma->totalsize, ma->overheadsize, ma->maxsize,	    
+	      _totalsize, _overheadsize, _maxsize);
+    }
+  } else if (ma->clean_mode == 1) {
+    if (_totalsize < _maxsize && ma->totalsize <= 0.1*_totalsize) clean = 0;
+    if (clean) {
+      MPrintf(-1,
+	      "clean1: %s t=%g o=%g m=%g tt=%g to=%g tm=%g\n",
+	      ma->id, ma->totalsize, ma->overheadsize, ma->maxsize,
+	      _totalsize, _overheadsize, _maxsize);
+    }
+  } else {
+    if (ma->totalsize <= 0) clean = 0;
   }
+  if (clean) {
+    ma->clean_thread = MyRankMPI();
+    for (i = 0; i < ma->hsize; i++) {
+      a = &(ma->array[i]);
+      if (a->lock) SetLock(a->lock);
+      NMultiFreeDataOnly(a, FreeElem);
+      if (a->lock) ReleaseLock(a->lock);
+    }
+    _totalsize -= ma->totalsize;
+    ma->totalsize = 0;
+  }
+  ma->clean_mode = -1;
+#pragma omp flush
   if (ma->lock) ReleaseLock(ma->lock);
   return 0;
 }
@@ -792,11 +868,13 @@ int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   return 0;
 }
 
-int MMultiInit(MULTI *ma, int esize, int ndim, int *block) {
+int MMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i, n;
 
-  ma->maxelem = -1;
-  ma->numelem = 0;
+  strncpy(ma->id, id, MULTI_IDLEN-1);
+  ma->maxsize = -1;
+  ma->totalsize = 0;
+  ma->clean_mode = -1;
   ma->ndim = ndim;
   ma->ndim1 = ndim-1;
   ma->isize = sizeof(unsigned short)*ndim;
@@ -888,11 +966,6 @@ void *MMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   char *pt;
   DATA *p, *p0;
 
-  if (ma->maxelem > 0 && ma->numelem >= ma->maxelem) {
-    MMultiFreeData(ma, FreeElem);
-    ma->numelem = 0;
-  }
-
   MMultiIndex(ma, k);
   if (ma->isf) {
     return ArraySet(ma->array, ma->aidx, d, InitData);
@@ -940,7 +1013,6 @@ void *MMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
     }
   }
 
-  ma->numelem++;
   memcpy(pt, ma->sidx, ma->isize);
   j = ma->aidx + a->dim*ma->iblock[ma->ndim1];
   a->dim++;

@@ -199,6 +199,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   BFileClose(f);
   ReinitRadial(1);
   SetHydrogenicPotential(hpotential, p);
+  CopyPotentialOMP(0);
   return 0;
 }
 
@@ -1129,6 +1130,10 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 
 void CopyPotentialOMP(int init) {
 #if USE_MPI == 2
+  if (!MPIReady()) {
+    InitializeMPI(0);
+    return;
+  }
   POTENTIAL pot;
   memcpy(&pot, potential, sizeof(POTENTIAL));
 #pragma omp parallel shared(pot)
@@ -3991,7 +3996,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   byk = NULL;
   z = _zk;
   LOCK *xlock = NULL;
-  if (xbreit_array[4]->maxelem != 0) {
+  if (xbreit_array[4]->maxsize != 0) {
     index[0] = k0;
     index[1] = k1;
     index[2] = k;
@@ -4020,7 +4025,9 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     }
     npts = i+1;
     if (byk != NULL) {
-      byk->yk = malloc(sizeof(float)*npts);
+      int size = sizeof(float)*npts;
+      byk->yk = malloc(size);
+      AddMultiSize(xbreit_array[4], size);
       for (i = 0; i < npts; i++) {
 	byk->yk[i] = z[i];
       }
@@ -4090,7 +4097,7 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
   LOCK *lock = NULL;
   int locked = 0;
   if ((mbr == 2 || (m < 3 && w == 0) || (m == 3 && w == 1))
-      && xbreit_array[m]->maxelem != 0) {
+      && xbreit_array[m]->maxsize != 0) {
     index[0] = orb0->idx;
     index[1] = orb1->idx;
     index[2] = k;
@@ -4195,8 +4202,10 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
   }
   npts = i+1;
   if (byk) {
-    byk->npts = npts;    
-    byk->yk = malloc(sizeof(float)*npts);
+    byk->npts = npts;
+    int size = sizeof(float)*npts;
+    byk->yk = malloc(size);
+    AddMultiSize(xbreit_array[m], size);
     for (i = 0; i < npts; i++) {
       byk->yk[i] = y[i];
     }
@@ -4812,7 +4821,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
   syk = NULL;
   LOCK *lock = NULL;
   int locked = 0;
-  if (yk_array->maxelem != 0) {
+  if (yk_array->maxsize != 0) {
     if (k1 <= k2) {
       index[0] = k1;
       index[1] = k2;
@@ -4887,7 +4896,9 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
     ic0 = npts;
     ic1 = npts+1;
     if (syk != NULL) {
-      syk->yk = malloc(sizeof(float)*(npts+2));
+      int size = sizeof(float)*(npts+2);
+      syk->yk = malloc(size);
+      AddMultiSize(yk_array, size);
       for (i = 0; i < npts ; i++) {
 	syk->yk[i] = yk[i];
       }
@@ -6008,36 +6019,41 @@ int IntegrateSinCos(int j, double *x, double *y,
 }
 
 void LimitArrayRadial(int m, double n) {
-  int k;
-
-  k = (int)(0.5+n*1000000);
+  n *= 1e6;
   switch (m) {
+  case -1:
+    LimitMultiSize(NULL, n);
+    break;
   case 0:
-    yk_array->maxelem = k;
+    LimitMultiSize(yk_array, n);
     break;
   case 1:
-    slater_array->maxelem = k;
+    LimitMultiSize(slater_array, n);
     break;
   case 2:
-    breit_array->maxelem = k;
-    wbreit_array->maxelem = k;
+    LimitMultiSize(breit_array, n);
+    LimitMultiSize(wbreit_array, n);
     break;
   case 3:
-    gos_array->maxelem = k;
+    LimitMultiSize(gos_array, n);
     break;
   case 4:
-    moments_array->maxelem = k;
+    LimitMultiSize(moments_array, n);
     break;
   case 5:
-    multipole_array->maxelem = k;
+    LimitMultiSize(multipole_array, n);
     break;
   case 6:
-    residual_array->maxelem = k;
+    LimitMultiSize(residual_array, n);
     break;
   case 7:
     for (int i = 0; i < 5; i++) {
-      xbreit_array[i]->maxelem = k;
+      LimitMultiSize(xbreit_array[i], n);
     }
+    break;
+  case 8:
+    LimitMultiSize(vinti_array, n);
+    LimitMultiSize(qed1e_array, n);
     break;
   default:
     printf("nothing is done\n");
@@ -6070,48 +6086,50 @@ int InitRadial(void) {
 
   ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(slater_array, sizeof(double), ndim, blocks);
+  MultiInit(slater_array, sizeof(double), ndim, blocks, "slater_array");
 
   ndim = 5;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(breit_array, sizeof(double *), ndim, blocks);
+  MultiInit(breit_array, sizeof(double *), ndim, blocks, "breit_array");
   wbreit_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(wbreit_array, sizeof(double), ndim, blocks);
+  MultiInit(wbreit_array, sizeof(double), ndim, blocks, "wbreit_array");
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   for (i = 0; i < 5; i++) {
     xbreit_array[i] = (MULTI *) malloc(sizeof(MULTI));
-    MultiInit(xbreit_array[i], sizeof(FLTARY), ndim, blocks);
+    char id[MULTI_IDLEN];
+    sprintf(id, "xbreit_array%d", i);
+    MultiInit(xbreit_array[i], sizeof(FLTARY), ndim, blocks, id);
   }
   
   ndim = 2;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK2;
   residual_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(residual_array, sizeof(double), ndim, blocks);
+  MultiInit(residual_array, sizeof(double), ndim, blocks, "residual_array");
 
   vinti_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(vinti_array, sizeof(double), ndim, blocks);
+  MultiInit(vinti_array, sizeof(double), ndim, blocks, "vinti_array");
 
   qed1e_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(qed1e_array, sizeof(double), ndim, blocks);
+  MultiInit(qed1e_array, sizeof(double), ndim, blocks, "qed1e_array");
   
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(multipole_array, sizeof(double *), ndim, blocks);
+  MultiInit(multipole_array, sizeof(double *), ndim, blocks, "multipole_array");
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   moments_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(moments_array, sizeof(double), ndim, blocks);
+  MultiInit(moments_array, sizeof(double), ndim, blocks, "moments_array");
 
   gos_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(gos_array, sizeof(double *), ndim, blocks);
+  MultiInit(gos_array, sizeof(double *), ndim, blocks, "gos_array");
 
   yk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(yk_array, sizeof(FLTARY), ndim, blocks);
+  MultiInit(yk_array, sizeof(FLTARY), ndim, blocks, "yk_array");
 
   n_awgrid = 1;
   awgrid[0]= EPS3;

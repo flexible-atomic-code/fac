@@ -3384,11 +3384,11 @@ int InitExcitation(void) {
 
   ndim = 3;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(pk_array, sizeof(CEPK), ndim, blocks1);
+  MultiInit(pk_array, sizeof(CEPK), ndim, blocks1, "pk_array");
 
   ndim = 5;
   qk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(qk_array, sizeof(double *), ndim, blocks2);
+  MultiInit(qk_array, sizeof(double *), ndim, blocks2, "qk_array");
 
   if (fpw) {
     fclose(fpw);

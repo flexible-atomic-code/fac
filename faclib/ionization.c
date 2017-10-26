@@ -1643,7 +1643,7 @@ int InitIonization(void) {
   int ndim = 2;
   
   qk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(qk_array, sizeof(double *), ndim, blocks);
+  MultiInit(qk_array, sizeof(double *), ndim, blocks, "iqk_array");
   
   SetCIMaxK(IONMAXK);
   n_egrid = 0;

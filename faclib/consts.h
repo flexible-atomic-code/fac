@@ -178,7 +178,7 @@
 #define MULTI_BLOCK4   32
 #define MULTI_BLOCK5   4
 #define MULTI_BLOCK6   10
-#define SHMKS 32
+#define MULTI_IDLEN 64
 
 /* orbital */
 #define MAXRP      3000  /* maximum radial mesh */

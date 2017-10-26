@@ -2845,7 +2845,7 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   ArrayFree(&a, 0);
   printf("array freed\n");
 
-  MultiInit(&ma, sizeof(double), 3, block);
+  MultiInit(&ma, sizeof(double), 3, block, "test_ma");
   for (i = 0; i < 500; i++) {
     for (j = 100; j < 4000; j++) {
       k[0] = i;

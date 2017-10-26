@@ -2433,7 +2433,8 @@ int InitRecouple(void) {
   
   FACTT();
   interact_shells = (MULTI *) malloc(sizeof(MULTI));
-  return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
+  return MultiInit(interact_shells, sizeof(INTERACT_DATUM),
+		   ndim, blocks, "interact_shells");
 }
 
 /* 
