@@ -3207,7 +3207,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
   int nmaxm, nmaxm1;
   CONFIG **csm;
-#pragma omp parallel default(shared) private(k, i1, cs, i, j, nmax, nmax1)
+#pragma omp parallel default(shared) private(k, i1, cs, i, j, nmax, nmax1, g)
   {
     cs = malloc(sizeof(CONFIG *)*(nc+2));
     k = 0;

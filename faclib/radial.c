@@ -474,7 +474,7 @@ int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
   return potential->ib;
 }
 
-int SetBoundary(int nmax, double p, double bqp) {
+int SetBoundaryMaster(int nmax, double p, double bqp) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
@@ -500,7 +500,6 @@ int SetBoundary(int nmax, double p, double bqp) {
 	potential->ib = i;
       }
     }
-    CopyPotentialOMP();
     return 0;
   }
   potential->nb = abs(nmax);
@@ -564,8 +563,13 @@ int SetBoundary(int nmax, double p, double bqp) {
   if (potential->ib > 0 && potential->ib < potential->maxrp) {
     potential->rb = potential->rad[potential->ib];
   }
-  CopyPotentialOMP();
   return 0;
+}
+
+int SetBoundary(int nmax, double p, double bqp) {
+  int r = SetBoundaryMaster(nmax, p, bqp);
+  CopyPotentialOMP(0);
+  return r;
 }
 
 int RadialOverlaps(char *fn, int kappa) {
@@ -1123,17 +1127,23 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   return iter;
 }
 
-void CopyPotentialOMP() {
+void CopyPotentialOMP(int init) {
 #if USE_MPI == 2
   POTENTIAL pot;
   memcpy(&pot, potential, sizeof(POTENTIAL));
 #pragma omp parallel shared(pot)
   {
+    if (init && MyRankMPI() != 0) {
+      potential = malloc(sizeof(POTENTIAL));
+    }
     memcpy(potential, &pot, sizeof(POTENTIAL));    
   }
   memcpy(&pot, hpotential, sizeof(POTENTIAL));
 #pragma omp parallel shared(pot)
   {
+    if (init && MyRankMPI() != 0) {
+      hpotential = malloc(sizeof(POTENTIAL));
+    }
     memcpy(hpotential, &pot, sizeof(POTENTIAL));    
   }
 #endif
@@ -1268,7 +1278,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   }
 
   qed.se = mse;
-  CopyPotentialOMP();
+  CopyPotentialOMP(0);
   return iter;
 }      
 #undef NXS
@@ -6039,21 +6049,18 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
-  #pragma omp parallel
-  {
-    potential = malloc(sizeof(POTENTIAL));
-    hpotential = malloc(sizeof(POTENTIAL));
-    potential->mode = POTMODE;
-    if ((potential->mode%10)%2 > 0) {
-      potential->hxs = POTHXS;
-    } else {
-      potential->hxs = 0.0;
-    }
-    potential->flag = 0;
-    potential->rb = 0;
-    potential->atom = GetAtomicNucleus();
+  potential = malloc(sizeof(POTENTIAL));
+  hpotential = malloc(sizeof(POTENTIAL));
+  potential->mode = POTMODE;
+  if ((potential->mode%10)%2 > 0) {
+    potential->hxs = POTHXS;
+  } else {
+    potential->hxs = 0.0;
   }
-  SetBoundary(0, 1.0, -1.0);
+  potential->flag = 0;
+  potential->rb = 0;
+  potential->atom = GetAtomicNucleus();
+  SetBoundaryMaster(0, 1.0, -1.0);
   n_orbitals = 0;
   n_continua = 0;
   

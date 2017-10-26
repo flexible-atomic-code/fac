@@ -46,6 +46,7 @@ int GetRadTiming(RAD_TIMING *t);
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
+int SetBoundaryMaster(int nmax, double p, double bqp);
 int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
@@ -62,7 +63,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter);
 void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
-void CopyPotentialOMP(void);
+void CopyPotentialOMP(int i);
 double GetResidualZ(void);
 double GetRMax(void);
 

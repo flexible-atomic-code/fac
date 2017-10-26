@@ -20,6 +20,7 @@
 #include "parser.h"
 #include "stdarg.h"
 #include "init.h"
+#include "radial.h"
 
 static int _initialized = 0;
 static LOCK *_plock = NULL;
@@ -158,10 +159,15 @@ void InitializeMPI(int n) {
   }
 #elif USE_MPI == 2
   if (n > 0) {
+    int nm = omp_get_thread_limit();
+    if (n > nm) {
+      printf("OMP thread number exceeds limit: %d > %d\n", n, nm);
+      n = nm;
+    }
     omp_set_num_threads(n);
   } else if (n == 0) {
     omp_set_num_threads(1);
-  }
+  }  
 #pragma omp parallel
   {
     mpi.myrank = omp_get_thread_num();
@@ -175,6 +181,9 @@ void InitializeMPI(int n) {
     free(_plock);
     _plock = NULL;
   }
+#if USE_MPI == 2
+  CopyPotentialOMP(1);
+#endif
 #endif
 }
 
