@@ -4202,13 +4202,13 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
   }
   npts = i+1;
   if (byk) {
-    byk->npts = npts;
     int size = sizeof(float)*npts;
     byk->yk = malloc(size);
     AddMultiSize(xbreit_array[m], size);
     for (i = 0; i < npts; i++) {
       byk->yk[i] = y[i];
     }
+    byk->npts = npts;
   }
   if (locked) ReleaseLock(lock);
 #pragma omp flush

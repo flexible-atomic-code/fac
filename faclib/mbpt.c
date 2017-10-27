@@ -3450,7 +3450,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 #pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       double ptt0, ptt1;
-      ptt0 = tt0;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
@@ -3491,6 +3490,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  if (m == 0) {
 	    continue;
 	  }
+	  ptt0 = tt0;
 	  /* mst pairs */
 	  mst = m;
 	  /* if q0 <= q1 for the 1st pair, so are for the rest pairs */
@@ -3584,7 +3584,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
-	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
+	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);	  
 	  fflush(stdout);
 	}
@@ -3649,7 +3649,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    }
 	    b = 0.0;
 	    c = 0.0;
-	    MPrintf(-1, "heff0: %d %d %d %g %g %g %g\n", i, j, m, a, b, c, heff[m]);
 	    q = -i-1;
 	    k = -j-1;
 	    fwrite(&q, sizeof(int), 1, f);
@@ -3741,7 +3740,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       double ptt0, ptt1;
-      ptt0 = tt0;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
@@ -3770,6 +3768,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  if (m == 0) {
 	    continue;
 	  }
+	  ptt0 = tt0;
 	  /* mst pairs */
 	  mst = m;
 	  ct0 = c0;
@@ -3828,7 +3827,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
-	  MPrintf(-1, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
+	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);
 	  fflush(stdout);
 	}
