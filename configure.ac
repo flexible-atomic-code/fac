@@ -57,7 +57,7 @@ if test -n "$GCC"
 then
   if test -z "$copt"
   then 
-    copt="-O2"
+    copt="-Ofast"
   fi
   if test -z "$cpic"
   then 
@@ -68,7 +68,7 @@ if test -n "$G77"
 then
   if test -z "$fopt"
   then 
-    fopt="-O2"
+    fopt="-Ofast"
   fi
   if test -z "$fpic"
   then
