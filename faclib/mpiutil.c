@@ -24,20 +24,27 @@
 
 static int _initialized = 0;
 static LOCK *_plock = NULL;
+static volatile long long _cwid = 0;
 static MPID mpi = {0, 1, 0};
 #pragma omp threadprivate(mpi)
 
 int SkipMPI() {
-#ifdef USE_MPI
   int r = 0;
-#pragma omp critical
+#if USE_MPI == 1
+  if (mpi.nproc > 1) {
+    if (mpi.wid%mpi.myrank != 0) {
+      r = 1;
+    } 
+    mpi.wid++;
+  }
+  return r;
+#elif USE_MPI == 2
+#pragma omp critical  
   {
     if (mpi.nproc > 1) {
-      if (mpi.wid != mpi.myrank) {
-	r = 1;
-      }
-      mpi.wid = mpi.wid + 1;
-      if (mpi.wid >= mpi.nproc) mpi.wid = 0;
+      mpi.wid++;      
+      if (mpi.wid <= _cwid) r = 1;
+      else _cwid = mpi.wid;
     }
   }
   return r;
@@ -129,12 +136,8 @@ int NProcMPI() {
   return mpi.nproc;
 }
 
-int WidMPI() {
+long long WidMPI() {
   return mpi.wid;
-}
-
-void SetWidMPI(int w) {
-  mpi.wid = w;
 }
 
 MPID *DataMPI() {
@@ -173,6 +176,7 @@ void InitializeMPI(int n) {
   }  
 #pragma omp parallel
   {
+    mpi.wid = 0;
     mpi.myrank = omp_get_thread_num();
     mpi.nproc = omp_get_num_threads();
   }

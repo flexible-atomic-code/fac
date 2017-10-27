@@ -36,7 +36,7 @@
 typedef struct _MPID_ {
   int myrank;
   int nproc;
-  int wid;
+  long long wid;
 } MPID;
 
 typedef struct _BFILE_ {
@@ -54,9 +54,8 @@ void MPrintf(int ir, char *format, ...);
 int MPIRank(int *np);
 int MyRankMPI();
 int NProcMPI();
-int WidMPI();
+long long WidMPI();
 double WallTime();
-void SetWidMPI(int w);
 MPID *DataMPI();
 int MPIReady();
 void Abort(int r);

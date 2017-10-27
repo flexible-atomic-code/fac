@@ -1006,7 +1006,6 @@ int RadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 #pragma omp parallel default(shared) private(k, i, j, k2, ka, m)
   {
     double wt0 = WallTime();
-    SetWidMPI(0);
     m = 0;
     for (k = 0; k < nk; k++) {
       k2 = 2*k;
@@ -2276,7 +2275,6 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
     a[i] = malloc(sizeof(double)*mst);
   }
   fm.js[0] = 0;
-  SetWidMPI(0);
   for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
@@ -2383,7 +2381,6 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
-  SetWidMPI(0);
   for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
@@ -2495,7 +2492,6 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
   i1 = IdxGet(ing, i1);
   if (i1 < 0) return;
   k = MKK*MKK;
-  SetWidMPI(0);
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
@@ -2625,7 +2621,6 @@ void DeltaH12M1(void *mptr, int ns,
   fm.js[0] = 0;
   if (ib1->n <= 0) return;
   k = MKK;
-  SetWidMPI(0);
   for (i = 0; i < k; i++) {
     if (mode == 0) {
       a[i] = malloc(sizeof(double)*mst);
@@ -2734,7 +2729,6 @@ void DeltaH12M0(void *mptr, int ns,
   i1 = IdxGet(ing, i1);
   if (i1 < 0) return;
   k = MKK;
-  SetWidMPI(0);
   for (i = 0; i < k; i++) {
     if (mode == 0) {
       a[i] = malloc(sizeof(double)*mst);
@@ -2853,7 +2847,6 @@ void DeltaH11M1(void *mptr, int ns,
   } else {
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
-  SetWidMPI(0);
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
@@ -2950,7 +2943,6 @@ void DeltaH11M0(void *mptr, int ns,
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
   fm.js[0] = 0;
-  SetWidMPI(0);
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
