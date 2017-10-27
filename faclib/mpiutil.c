@@ -89,20 +89,23 @@ void MPrintf(int ir, char *format, ...) {
     int myrank;
     int nproc;
     myrank = MPIRank(&nproc);
-    if (_plock) SetLock(_plock);
     if (ir < 0) {
+      if (_plock) SetLock(_plock);
       printf("Rank=%d, ", myrank);
       vprintf(format, args);
+      if (_plock) ReleaseLock(_plock);
     } else {
-      if (myrank == ir%nproc) {
-	
+      if (myrank == ir%nproc) {	
 	if (ir >= nproc) {
+	  if (_plock) SetLock(_plock);
 	  printf("Rank=%d, ", myrank);
+	  vprintf(format, args);
+	  if (_plock) SetLock(_plock);
+	} else {
+	  vprintf(format, args);
 	}
-	vprintf(format, args);
       }
     }
-    if (_plock) ReleaseLock(_plock);
   } else {
     vprintf(format, args);
   }
