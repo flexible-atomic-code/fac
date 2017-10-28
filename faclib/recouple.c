@@ -1507,7 +1507,6 @@ int InteractingShells(INTERACT_DATUM **idatum,
 
  END:
   if (n_shells == 0) n_shells = -1;
-  (*idatum)->n_shells = n_shells;
   if (n_shells > 0) {
     (*idatum)->bra = (SHELL *) ReallocNew(bra, sizeof(SHELL)*n_shells);
     /* adjust the index so that it counts from inner shells */
@@ -1599,8 +1598,8 @@ int GetInteract(INTERACT_DATUM **idatum,
     (*idatum) = malloc(sizeof(INTERACT_DATUM));
     (*idatum)->n_shells = 0;
   }  
-  if ((*idatum)->n_shells > 0) {
-    n_shells = (*idatum)->n_shells;
+  n_shells = (*idatum)->n_shells;
+  if (n_shells > 0) {
     bra = (*idatum)->bra;
     s = (*idatum)->s;
     i = 0;
@@ -1670,15 +1669,16 @@ int GetInteract(INTERACT_DATUM **idatum,
   if (n_shells < 0 && csf_i == NULL) {
     free((*idatum));
     idatum = NULL;
+  } else {  
+    (*idatum)->n_shells = n_shells;
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.interact += stop -start;
 #endif
-  
-  if (locked) ReleaseLock(lock);
-#pragma omp flush
   return n_shells;
 }
     
