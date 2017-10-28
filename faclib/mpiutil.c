@@ -24,7 +24,7 @@
 
 static int _initialized = 0;
 static LOCK *_plock = NULL;
-static volatile long long _cwid = 0;
+static volatile long long _cwid = -1;
 static MPID mpi = {0, 1, 0};
 #pragma omp threadprivate(mpi)
 
