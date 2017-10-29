@@ -36,13 +36,15 @@ static CONFIG **mbpt_cs = NULL;
 static CONFIG mbpt_cfg;
 static int *mbpt_bas0, *mbpt_bas1;
 static IDXARY mbpt_ibas0, mbpt_ibas1;
+static int **mbpt_rij = NULL;
+static int mbpt_nsplit = 0;
 static struct {
   int nj0;
   int *jp0;
   int nj;
   int *jp;
-  IDXARY *ibs;
-} mbptjp = {0, NULL, 0, NULL, NULL};
+  IDXARY ibs;
+} mbptjp = {0, NULL, 0, NULL};
 
 #pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
   
@@ -976,10 +978,12 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   return 0;
 }
 
-int RadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
+int PrepRadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
   int nb, k, j, k2, i, m, ka;
   ORBITAL *orb;
-  
+
+  nb = 2*nk*n;
+  *bas = malloc(sizeof(int)*nb);
   m = 0;
   for (k = 0; k < nk; k++) {
     k2 = 2*k;
@@ -996,42 +1000,52 @@ int RadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 	  orb = GetNewOrbitalNoLock();
 	  orb->n = ng[i];
 	  orb->kappa = ka;
+	  ix = orb->idx;
 	}
+	(*bas)[m] = ix;
 	m++;
       }
     }
   }
   nb = m;
-  (*bas) = malloc(sizeof(int)*nb);
-#pragma omp parallel default(shared) private(k, i, j, k2, ka, m)
+  *bas = realloc(*bas, sizeof(int)*nb);
+  return nb;
+}
+
+void SolveRadialBasisMBPT(int nmax) {
+  int n;
+  
+  n = GetNumOrbitals();      
+#pragma omp parallel default(shared)
   {
+    int i, ib, nb;
     double wt0 = WallTime();
-    m = 0;
-    for (k = 0; k < nk; k++) {
-      k2 = 2*k;
-      for (j = k2-1; j <= k2+1; j += 2) {
-	if (j < 0) continue;
-	ka = GetKappaFromJL(j, k2);
-	for (i = 0; i < n; i++) {
-	  if (ng[i] <= k) continue;
-	  if (nkm && nkm[k] > 0) {
-	    if (ng[i] > nkm[k]) continue;
-	  }
-	  int skip = SkipMPI();
-	  if (skip) {
-	    m++;
-	    continue;
-	  }
-	  (*bas)[m] = OrbitalIndex(ng[i], ka, 0);
-	  m++;
+    ORBITAL *orb;
+    nb = 0;
+    for (i = 0; i < n; i++) {
+#if USE_MPI == 1
+      if (mbpt_nsplit) {
+	orb = GetOrbital(i);
+	if (orb->wfun != NULL) {
+	  continue;
 	}
-      }
+	if (orb->n <= nmax) {
+	  orb = GetOrbitalSolved(i);
+	  nb++;
+	  continue;
+	}	
+	ib = IdxGet(&mbptjp.ibs, i);
+	if (ib < 0) continue;
+      }	
+#elif USE_MPI == 2
+      if (SkipMPI()) continue;
+#endif
+      orb = GetOrbitalSolved(i);
+      nb++;
     }
     double wt1 = WallTime();
-    MPrintf(-1, "RadialBasis Time=%11.4E nbas=%d\n", wt1-wt0, nb);
+    MPrintf(-1, "RadialBasis Time=%11.4E nb=%d\n", wt1-wt0, nb);
   }
-  
-  return nb;
 }
 
 /* pad the shells in c1 and c2, so that the shell structures are the same */
@@ -3175,18 +3189,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   SHELL_STATE *sbra, *sket, *sbra1, *sket1, *sbra2, *sket2;
   CONFIG **cs, *c0, *c1, *ct0, *ct1;
   CONFIG_GROUP *g;
+  ORBITAL *orb0, *orb1;
   MBPT_EFF *meff[MAX_SYMMETRIES];
   MBPT_TR *mtr;
   double a, b, c, *mix, *hab, *hba, emin, emax;
   double *h0, *heff, *hab1, *hba1, *dw, tt0, tt1, tbg, dt, dtt;
   FILE *f;
-  IDXARY ing, ing2, ibs;
+  IDXARY ing, ing2;
   ORBITAL *orb;
 
   ing.n = ing.m = 0;
   ing2.n = ing2.m = 0;
-  ibs.n = ibs.m = 0;
-  mbptjp.ibs = &ibs;
   ierr = 0;
   n3 = mbpt_n3;
   if (nkg0 <= 0 || nkg0 > nkg) nkg0 = nkg;
@@ -3255,7 +3268,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   for (i = 1; i <= nmax; i++) {
     ga[k++] = i;
   }
-  nb = RadialBasisMBPT(nmax, NULL, k, ga, &bas0);
+  nb = PrepRadialBasisMBPT(nmax, NULL, k, ga, &bas0);
   nb0 = nb;
   k = 0;
   for (i = 0; i < n; i++) {
@@ -3266,17 +3279,57 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }
   }
   na = SortUnique(k, ga);
-  nb = RadialBasisMBPT(nk, nkm, na, ga, &bas);
-  InitIdxAry(mbptjp.ibs, nb, bas);
-#pragma omp parallel default(shared)
+  nb = PrepRadialBasisMBPT(nk, nkm, na, ga, &bas);
+  if (mbpt_nsplit) {
+    mbpt_rij = malloc(sizeof(int *)*nb);
+    m = 0;
+    for (i = 0; i < nb; i++) {
+      mbpt_rij[i] = malloc(sizeof(int)*nb);
+      orb0 = GetOrbital(i);
+      i0 = IdxGet(&ing, orb0->n);      
+      for (j = 0; j < nb; j++) {
+	orb1 = GetOrbital(j);
+	j0 = IdxGet(&ing2, orb1->n-orb0->n);
+	if (i0 < 0 || j0 < 0) {
+	  mbpt_rij[i][j] = -1;
+	  continue;
+	}
+	mbpt_rij[i][j] = m;
+	m++;
+	if (m == NProcMPI()) m = 0;
+      }
+    }
+  }
+#pragma omp parallel default(shared) private(i,j,i0,j0)
   {
     mbpt_bas0 = malloc(sizeof(int)*nb0);    
     mbptjp.jp0 = malloc(sizeof(int)*(nb0+1));
     mbpt_bas1 = malloc(sizeof(int)*nb);
     mbptjp.jp = malloc(sizeof(int)*(nb+1));
+    if (mbpt_nsplit) {
+      InitIdxAry(&mbptjp.ibs, nb, bas);
+      for (i = 0; i < mbptjp.ibs.m; i++) {
+	mbptjp.ibs.i[i] = -1-mbptjp.ibs.i[i];
+      }
+      for (i = 0; i < nb; i++) {
+	i0 = bas[i] - mbptjp.ibs.m0;	
+	for (j = 0; j < nb; j++) {
+	  j0 = bas[j] - mbptjp.ibs.m0;
+	  if (mbpt_rij[i][j] == MyRankMPI()) {
+	    if (mbptjp.ibs.i[i0] < 0) {
+	      mbptjp.ibs.i[i0] = -1-mbptjp.ibs.i[i0];
+	    }
+	    if (mbptjp.ibs.i[j0] < 0) {
+	      mbptjp.ibs.i[j0] = -1-mbptjp.ibs.i[j0];
+	    }
+	  }
+	}
+      }
+    }
   }
   free(bas0);
   free(ga);
+  SolveRadialBasisMBPT(nmax);
   
   ShiftOrbitalEnergy(cs[0]);
 
@@ -3291,7 +3344,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     f = fopen(fn1, "w");
     if (f == NULL) {
       MPrintf(-1, "cannot open file %s\n", fn1);
-      FreeIdxAry(&ibs, 0);
       FreeIdxAry(&ing, 2);
       FreeIdxAry(&ing2, 2);
 #pragma omp parallel
@@ -3300,6 +3352,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	free(mbptjp.jp);
 	free(mbpt_bas0);
 	free(mbpt_bas1);
+	if (mbpt_nsplit) {
+	  FreeIdxAry(&mbptjp.ibs, 2);
+	}
+      }
+      free(bas);
+      if (mbpt_nsplit) {
+	for (i = 0; i < nb; i++) {
+	  free(mbpt_rij[i]);
+	}
+	free(mbpt_rij);
       }
       return -1;
     }
@@ -3864,7 +3926,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
   
  ERROR:
-  FreeIdxAry(&ibs, 0);
   FreeIdxAry(&mbpt_ibas0, 2);
   FreeIdxAry(&mbpt_ibas1, 2);
   FreeIdxAry(&ing, 2);
@@ -3878,8 +3939,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     free(mbpt_bas1);
     free(mbptjp.jp0);
     free(mbptjp.jp);
+    if (mbpt_nsplit) {
+      FreeIdxAry(&mbptjp.ibs, 2);
+    }
   }
+  free(bas);
   free(dw);
+  if (mbpt_nsplit) {
+    for (i = 0; i < nb; i++) {
+      free(mbpt_rij[i]);
+    }
+    free(mbpt_rij);
+  }
   FreeEffMBPT(meff);
   FreeTransitionMBPT(mtr);
   return ierr;
