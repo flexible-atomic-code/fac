@@ -39,9 +39,9 @@ int SkipMPI() {
   }
   return r;
 #elif USE_MPI == 2
+  if (mpi.nproc > 1) {
 #pragma omp critical  
-  {
-    if (mpi.nproc > 1) {
+    {
       mpi.wid++;      
       if (mpi.wid <= _cwid) r = 1;
       else _cwid = mpi.wid;
