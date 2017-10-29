@@ -1425,7 +1425,6 @@ void H3rd0(MBPT_EFF *meff, int ia, int ib, double de, double h, int i0, int md) 
       }
       a = h0[j];
       c = h*a/(de*(de+e0[i]-e0[ib]));
-#pragma omp atomic
       hba[m][i0] -= c;
     }
   }
@@ -1440,7 +1439,6 @@ void H3rd0(MBPT_EFF *meff, int ia, int ib, double de, double h, int i0, int md) 
       }
       a = h0[j];
       c = h*a/(de*(de+e0[i]-e0[ib]));
-#pragma omp atomic
       hab[m][i0] -= c;
     }
   }
@@ -1639,14 +1637,10 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	H3rd0(meff[s0], m1, m0, d2, c, i1, 1);
       }
     }
-#pragma omp atomic
     h1[i1] += c/d1;
-#pragma omp atomic
     h2[i1] += c/d2;
     c /= d1*d2;
-#pragma omp atomic
     h1[i1+ng] += c;
-#pragma omp atomic
     h2[i1+ng] += c;
   }
 }
@@ -1781,14 +1775,10 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       H3rd0(meff[s0], m0, m1, d1, c, i0, 1);
       H3rd0(meff[s0], m1, m0, d2, c, i0, 1);
     }
-#pragma omp atomic
     h1[i0] += c/d1;
-#pragma omp atomic
     h2[i0] += c/d2;
     c /= d1*d2;
-#pragma omp atomic
     h1[i0+ng] += c;
-#pragma omp atomic
     h2[i0+ng] += c;
   }
 }
@@ -1906,7 +1896,6 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       }
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
-#pragma omp atomic
 	mtr[is0].tma[is1][q1] += c*r1[p1]/d2;
       }
     }
@@ -1955,7 +1944,6 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       }
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
-#pragma omp atomic
 	mtr[is0].rma[is1][q1] += c*r1[p1]/d2;
       }
     }
@@ -2056,18 +2044,14 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     h2 = meff[s0]->hba1[m];
     ng = meff[s0]->n;
     y = r1*r2*a[k];
-#pragma omp atomic
     h1[i0] += y/d1;
-#pragma omp atomic
     h2[i0] += y/d2;
     H3rd0(meff[s0], m0, m1, d1, y, i0, 1);
     if (m0 != m1) {
       H3rd0(meff[s0], m1, m0, d2, y, i0, 1);
     }
     y /= d1*d2;
-#pragma omp atomic	
     h1[i0+ng] += y;
-#pragma omp atomic
     h2[i0+ng] += y;
   }
 }
@@ -2162,7 +2146,6 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
 	d = a[q0]*r1[p1]*r2/d2;
-#pragma omp atomic
 	mtr[is0].tma[is1][q1] += d;
       }
     }
@@ -2190,7 +2173,6 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;	
 	d = a[q0]*r1[p1]*c/d2;
-#pragma omp atomic
 	mtr[is0].rma[is1][q1] += d;
       }
     }
@@ -2293,6 +2275,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
+	  if (SkipMPI()) continue;
 	  om[0] = id;
 	  om[1] = ic;
 	  k = CheckConfig(ns-2, ket+2, 0, op, 2, om, 0, NULL);
@@ -2311,7 +2294,6 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	    fm.j1 = -1;
 	    fm.j2 = -1;
 	    for (m1 = 0; m1 < mbptjp.nj; m1++) {
-	      if (SkipMPI()) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		ik = im;
 		o = GetOrbital(ib1->d[im]);
@@ -2337,7 +2319,6 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	  fm.j2 = -1;
 	  for (m1 = 0; m1 < mbptjp.nj; m1++) {
 	    for (m2 = 0; m2 <= m1; m2++) {
-	      if (SkipMPI()) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		o = GetOrbital(ib1->d[im]);
 		ket[0].n = o->n;
@@ -2401,6 +2382,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	for (id = 0; id <= ic; id++) {
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (iq = 0; iq < ib0->n; iq++) {
+	      if (SkipMPI()) continue;
 	      op[0] = iq;
 	      om[0] = id;
 	      om[1] = ic;
@@ -2421,7 +2403,6 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	      if (ph < 0) continue;
 	      fm.j1 = -1;
 	      for (ij = 0; ij < mbptjp.nj; ij++) {
-		if (SkipMPI()) continue;
 		for (ip = mbptjp.jp[ij]; ip < mbptjp.jp[ij+1]; ip++) {
 		  o[1] = GetOrbital(ib1->d[ip]);
 		  ket[0].n = o[1]->n;
@@ -2514,6 +2495,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
+	  if (SkipMPI()) continue;
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= ik; im++) {
 	      for (ip = 0; ip < ib0->n; ip++) {
@@ -2601,7 +2583,6 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].index = ns-s[i].index-1;
 		  }
 		  fm.j1 = -1;
-		  if (SkipMPI()) continue;
 		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			  mst, bst, kst, s, ph,
 			  ks1, ks2, &fm, a, -(i1+1));
@@ -2647,6 +2628,7 @@ void DeltaH12M1(void *mptr, int ns,
     for (ib = 0; ib < ib0->n; ib++) {
       for (ic = 0; ic <= ib; ic++) {
 	for (id = 0; id < ib0->n; id++) {	  
+	  if (SkipMPI()) continue;
 	  op[0] = id;
 	  om[0] = ic;
 	  om[1] = ib;
@@ -2660,7 +2642,6 @@ void DeltaH12M1(void *mptr, int ns,
 	  if (ph < 0) continue;
 	  fm.j1 = -1;
 	  for (ij = 0; ij < mbptjp.nj; ij++) {
-	    if (SkipMPI()) continue;
 	    for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	      o[1] = GetOrbital(ib1->d[ik]);
 	      ket[0].n = o[1]->n;
@@ -2865,6 +2846,7 @@ void DeltaH11M1(void *mptr, int ns,
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib+1].nq == 0) continue;
+      if (SkipMPI()) continue;
       op[0] = ia;
       om[0] = ib;
       /* check if bra and ket can interact with 1 virtual orb */
@@ -2872,7 +2854,6 @@ void DeltaH11M1(void *mptr, int ns,
       if (ph < 0) continue;
       fm.j1 = -1;
       for (ij = 0; ij < mbptjp.nj; ij++) {
-	if (SkipMPI()) continue;
 	for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	  o1 = GetOrbital(ib1->d[ik]);
 	  ket[0].n = o1->n;
@@ -3501,8 +3482,52 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
     }
-#pragma omp parallel default(shared) private(n0, bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
+#pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
+      MBPT_EFF *imeff[MAX_SYMMETRIES];
+      int cpmeff = 0;
+#if USE_MPI == 2
+      if (NProcMPI() > 1) {
+	cpmeff = 1;
+      }
+#endif
+      if (cpmeff) {
+	for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+	  if (meff[isym] == NULL) {
+	    imeff[isym] = NULL;
+	    continue;
+	  }
+	  imeff[isym] = malloc(sizeof(MBPT_EFF));
+	  memcpy(imeff[isym], meff[isym], sizeof(MBPT_EFF));
+	  q = meff[isym]->hsize;
+	  imeff[isym]->hab1 = malloc(sizeof(double *)*q);
+	  imeff[isym]->hba1 = malloc(sizeof(double *)*q);
+	  imeff[isym]->hab = malloc(sizeof(double *)*q);
+	  imeff[isym]->hba = malloc(sizeof(double *)*q);
+	  for (k = 0; k < q; k++) {
+	    if (meff[isym]->hab1[k] == NULL) {
+	      imeff[isym]->hab1[k] = NULL;
+	    } else {
+	      imeff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
+	      imeff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
+	      imeff[isym]->hab[k] = malloc(sizeof(double)*nhab);
+	      imeff[isym]->hba[k] = malloc(sizeof(double)*nhab);
+	      for (i0 = 0; i0 < nhab1; i0++) {
+		imeff[isym]->hab1[k][i0] = 0.0;
+		imeff[isym]->hba1[k][i0] = 0.0;
+	      }	  
+	      for (i0 = 0; i0 < nhab; i0++) {
+		imeff[isym]->hab[k][i0] = 0.0;
+		imeff[isym]->hba[k][i0] = 0.0;
+	      }
+	    }
+	  }
+	}
+      } else {
+	for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+	  imeff[isym] = meff[isym];
+	}
+      }
       double ptt0, ptt1;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
@@ -3595,37 +3620,37 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
 	  if (n3 != 2) {
 	    /* 1-b 2-b term no virtual orb */
-	    DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	    DeltaH12M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);	  
 	    /* 1-b 2-b term 1 virtual orb */
-	    DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
+	    DeltaH12M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    /* 2-b 1-b term no virtual orb */	
-	    DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
+	    DeltaH12M0(imeff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
 		       ct1, ct0, &mbpt_ibas0, &ing, nc, cs, 0);	  
 	    /* 2-b 1-b term 1 virtual orb */
-	    DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
+	    DeltaH12M1(imeff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 		       ct1, ct0, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    
 	    /* 1-b 1-b term no virtual orb */
-	    DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	    DeltaH11M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);		  
 	    /* 1-b 1-b term 1 virtual orb */
-	    DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
+	    DeltaH11M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    
 	    /* 2-b 2-b term no virtual */
-	    DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	    DeltaH22M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs);
 	    
 	    /* 2-b 2-b term 1 virtual */
-	    DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
+	    DeltaH22M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs);	
 	  }
 	  
 	  if (n3 != 1) {
 	    /* 2-b 2-b term 2 virtual */
-	    DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
+	    DeltaH22M2(imeff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, &ing2, nc, cs);
 	  }
 	  free(bra);
@@ -3642,6 +3667,35 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 		  k0, k1, nc, mst, n0, n1, dt, dtt);	  
 	  fflush(stdout);
 	}
+      }
+      if (cpmeff) {
+#pragma omp critical
+	{
+	  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+	    if (meff[isym] == NULL) continue;
+	    q = meff[isym]->hsize;
+	    for (k = 0; k < q; k++) {
+	      if (meff[isym]->hab1[k] == NULL) continue;
+	      for (i0 = 0; i0 < nhab1; i0++) {
+		meff[isym]->hab1[k][i0] += imeff[isym]->hab1[k][i0];
+		meff[isym]->hba1[k][i0] += imeff[isym]->hba1[k][i0];
+	      }
+	      for (i0 = 0; i0 < nhab; i0++) {
+		meff[isym]->hab[k][i0] += imeff[isym]->hab[k][i0];
+		meff[isym]->hba[k][i0] += imeff[isym]->hba[k][i0];
+	      }
+	      free(imeff[isym]->hab[k]);
+	      free(imeff[isym]->hba[k]);
+	      free(imeff[isym]->hab1[k]);
+	      free(imeff[isym]->hba1[k]);	      
+	    }
+	    free(imeff[isym]->hab);
+	    free(imeff[isym]->hba);
+	    free(imeff[isym]->hab1);
+	    free(imeff[isym]->hba1);
+	    free(imeff[isym]);
+	  }
+	}	    
       }
     }
 
@@ -3793,6 +3847,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }	
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
+      MBPT_TR *imtr;
+      int cpmtr = 0;
+#if USE_MPI == 2
+      if (NProcMPI() > 1) {
+	cpmtr = 1;
+      }
+#endif
+      if (!cpmtr) imtr = mtr;
+      else {
+	InitTransitionMBPT(&imtr, n);
+      }
       double ptt0, ptt1;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
@@ -3860,16 +3925,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  InitIdxAry(&mbpt_ibas1, n1, bas1);
 	  mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
 	  /* 1-b 2-b term no virtual orb */
-	  DeltaH12M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  DeltaH12M0(imtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
 	  /* 1-b 2-b term 1 virtual orb */
-	  DeltaH12M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
+	  DeltaH12M1(imtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);
 	  /* 1-b 1-b term no virtual orb */
-	  DeltaH11M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
+	  DeltaH11M0(imtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
 	  /* 1-b 1-b term 1 virtual orb */
-	  DeltaH11M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
+	  DeltaH11M1(imtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);	
 	  free(bra);
 	  free(ket);
@@ -3884,6 +3949,26 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt);
 	  fflush(stdout);
+	}
+      }
+      if (cpmtr) {
+#pragma omp critical
+	{
+	  k = 2*mbpt_tr.mktr*MAX_SYMMETRIES;
+	  for (j = 0; j < k; j++) {
+	    if (mtr[j].nsym1 == 0) continue;
+	    for (m = 0; m < mtr[j].nsym1; m++) {
+	      mst = mtr[j].sym0->n_states*mtr[j].sym1[m]->n_states;
+	      mst *= n*mbpt_tr.naw;
+	      if (mst > 0) {
+		for (q = 0; q < mst; q++) {
+		  mtr[j].tma[m][q] += imtr[j].tma[m][q];
+		  mtr[j].rma[m][q] += imtr[j].rma[m][q];
+		}
+	      }
+	    }
+	  }
+	  FreeTransitionMBPT(imtr);
 	}
       }
     }

@@ -31,6 +31,7 @@ typedef struct _NUCLEUS_ {
   double rfermi[5];
 } NUCLEUS;
 
+void PrintNucleus();
 int InitNucleus();
 int SetAtom(char *s, double z, double mass, double rn, double a);
 char *GetAtomicSymbolTable(void);
