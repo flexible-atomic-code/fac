@@ -33,7 +33,7 @@ int SkipMPI() {
   int r = 0;
 #if USE_MPI == 1
   if (mpi.nproc > 1) {
-    if (mpi.wid%mpi.myproc != 0) {
+    if (mpi.wid%mpi.nproc != 0) {
       r = 1;
     } 
     mpi.wid++;
