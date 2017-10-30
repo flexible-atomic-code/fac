@@ -2275,7 +2275,6 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
-	  if (SkipMPI()) continue;
 	  om[0] = id;
 	  om[1] = ic;
 	  k = CheckConfig(ns-2, ket+2, 0, op, 2, om, 0, NULL);
@@ -2294,6 +2293,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	    fm.j1 = -1;
 	    fm.j2 = -1;
 	    for (m1 = 0; m1 < mbptjp.nj; m1++) {
+	      if (SkipMPI()) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		ik = im;
 		o = GetOrbital(ib1->d[im]);
@@ -2319,6 +2319,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	  fm.j2 = -1;
 	  for (m1 = 0; m1 < mbptjp.nj; m1++) {
 	    for (m2 = 0; m2 <= m1; m2++) {
+	      if (SkipMPI()) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		o = GetOrbital(ib1->d[im]);
 		ket[0].n = o->n;
@@ -2382,7 +2383,6 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	for (id = 0; id <= ic; id++) {
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (iq = 0; iq < ib0->n; iq++) {
-	      if (SkipMPI()) continue;
 	      op[0] = iq;
 	      om[0] = id;
 	      om[1] = ic;
@@ -2403,6 +2403,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	      if (ph < 0) continue;
 	      fm.j1 = -1;
 	      for (ij = 0; ij < mbptjp.nj; ij++) {
+		if (SkipMPI()) continue;
 		for (ip = mbptjp.jp[ij]; ip < mbptjp.jp[ij+1]; ip++) {
 		  o[1] = GetOrbital(ib1->d[ip]);
 		  ket[0].n = o[1]->n;
@@ -2495,7 +2496,6 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
-	  if (SkipMPI()) continue;
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= ik; im++) {
 	      for (ip = 0; ip < ib0->n; ip++) {
@@ -2583,6 +2583,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].index = ns-s[i].index-1;
 		  }
 		  fm.j1 = -1;
+		  if (SkipMPI()) continue;
 		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			  mst, bst, kst, s, ph,
 			  ks1, ks2, &fm, a, -(i1+1));
@@ -2627,8 +2628,7 @@ void DeltaH12M1(void *mptr, int ns,
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) {
       for (ic = 0; ic <= ib; ic++) {
-	for (id = 0; id < ib0->n; id++) {	  
-	  if (SkipMPI()) continue;
+	for (id = 0; id < ib0->n; id++) {
 	  op[0] = id;
 	  om[0] = ic;
 	  om[1] = ib;
@@ -2641,7 +2641,8 @@ void DeltaH12M1(void *mptr, int ns,
 	  ph = CheckInteraction(ns-1, bra+1, ket+1, 2, op, 2, om);
 	  if (ph < 0) continue;
 	  fm.j1 = -1;
-	  for (ij = 0; ij < mbptjp.nj; ij++) {
+	  for (ij = 0; ij < mbptjp.nj; ij++) {	  
+	    if (SkipMPI()) continue;
 	    for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	      o[1] = GetOrbital(ib1->d[ik]);
 	      ket[0].n = o[1]->n;
@@ -2846,7 +2847,6 @@ void DeltaH11M1(void *mptr, int ns,
     if (bra[ia+1].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib+1].nq == 0) continue;
-      if (SkipMPI()) continue;
       op[0] = ia;
       om[0] = ib;
       /* check if bra and ket can interact with 1 virtual orb */
@@ -2854,6 +2854,7 @@ void DeltaH11M1(void *mptr, int ns,
       if (ph < 0) continue;
       fm.j1 = -1;
       for (ij = 0; ij < mbptjp.nj; ij++) {
+	if (SkipMPI()) continue;
 	for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	  o1 = GetOrbital(ib1->d[ik]);
 	  ket[0].n = o1->n;
@@ -3483,6 +3484,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
     double ttskip = 0, ttlock=0;
+    long long tnlock = 0;
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_EFF *imeff[MAX_SYMMETRIES];
@@ -3530,6 +3532,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
       double ptt0, ptt1, tskip, tlock;
+      long long nlock;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
@@ -3666,8 +3669,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  tt0 = ptt1;
 	  tskip = TimeSkip();
 	  tlock = TimeLock();
-	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt, tskip, tlock);
+	  nlock = NumLock();
+	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %ld\n", 
+		  k0, k1, nc, mst, n0, n1, dt, dtt, tskip, tlock, nlock);
 	  fflush(stdout);
 	}
       }
@@ -3676,7 +3680,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	{
 	  ttskip += tskip;
 	  ttlock += tlock;
-	  MPrintf(-1, "Time Skip/Lock: %12.5E %12.5E %12.5E %12.5E\n", tskip, tlock, ttskip, ttlock);
+	  tnlock += nlock;
+	  MPrintf(-1, "Time Skip/Lock: %12.5E %12.5E %12.5E %12.5E %ld\n", tskip, tlock, ttskip, ttlock, tnlock);
 	  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
 	    if (meff[isym] == NULL) continue;
 	    q = meff[isym]->hsize;
@@ -3702,6 +3707,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    free(imeff[isym]);
 	  }
 	}	    
+      } else {
+	ttskip = tskip;
+	ttlock = tlock;
+	tnlock = nlock;
       }
     }
 
@@ -3843,7 +3852,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       tt1 = WallTime();
       dt = tt1 - tbg;
       tt0 = tt1;
-      MPrintf(-1, "Total Time Structure= %12.5E %12.5E %12.5E\n", dt, ttskip, ttlock);
+      MPrintf(-1, "Total Time Structure= %12.5E %12.5E %12.5E %ld\n", dt, ttskip, ttlock, tnlock);
       fflush(stdout);
     }
   }

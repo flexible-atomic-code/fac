@@ -715,38 +715,90 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   }
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
-  if (a->lock) SetLock(a->lock);
+  int locked = 0;
   if (a->dim == 0) {
-    size = sizeof(DATA);
-    a->data = (DATA *) malloc(size);
-    a->data->dptr = malloc(a->bsize);
-    size += a->bsize;
-    ma->totalsize += size;
-    _totalsize += size;
-    InitMDataData(a->data->dptr, a->block);
-    a->data->next = NULL;
-    pt = (MDATA *) a->data->dptr;
-  } else {
+    if (a->lock) {
+      SetLock(a->lock);
+      locked = 1;
+    }
+    if (a->dim == 0) {
+      size = sizeof(DATA);
+      a->data = (DATA *) malloc(size);
+      a->data->dptr = malloc(a->bsize);
+      size += a->bsize;
+      ma->totalsize += size;
+      _totalsize += size;
+      InitMDataData(a->data->dptr, a->block);
+      a->data->next = NULL;
+      pt = (MDATA *) a->data->dptr;
+    }
+  } 
+  if (a->dim > 0) {
     p = a->data;
     i = a->dim;
     j = 0;
-    while (p) {
-      pt = (MDATA *) p->dptr;
+    p0 = p;
+    pt = (MDATA *) p->dptr;
+    while (p && j < i) {
       for (m = 0; m < a->block && j < i; j++, m++) {
 	if (memcmp(pt->index, k, ma->isize) == 0) {
 	  if (d) {
 	    memcpy(pt->data, d, ma->esize);
 	  }
 	  if (lock) *lock = pt->lock;
-	  if (a->lock) ReleaseLock(a->lock);
+	  if (locked) {
+	    ReleaseLock(a->lock);
+	  }
 	  return pt->data;
 	}
 	pt++;
       }
-      p0 = p;
-      p = p->next;
+      if (m == a->block) {
+	p0 = p;
+	p = p->next;
+	if (p) {
+	  pt = (MDATA *) p->dptr;
+	} else {
+	  break;
+	}
+      }
     }  
-    if (m == a->block) {
+    if (!locked && a->lock) {
+      SetLock(a->lock);
+      locked = 1;
+    }
+    if (a->dim > i) {
+      if (m == a->block) {
+	p = p0->next;
+	pt = (MDATA *) p->dptr;
+	m = 0;
+      }
+      while (p && j < a->dim) {
+	for (; m < a->block && j < a->dim; j++, m++) {
+	  if (memcmp(pt->index, k, ma->isize) == 0) {
+	    if (d) {
+	      memcpy(pt->data, d, ma->esize);
+	    }
+	    if (lock) *lock = pt->lock;
+	    if (locked) {
+	      ReleaseLock(a->lock);
+	    }
+	    return pt->data;
+	  }
+	  pt++;
+	}
+	if (m == a->block) {
+	  p0 = p;
+	  p = p->next;
+	  if (p) {
+	    pt = (MDATA *) p->dptr;
+	  } else {
+	    break;
+	  }
+	}
+      }  
+    }
+    if (m == a->block) {	
       size = sizeof(DATA);
       p0->next = (DATA *) malloc(size);
       p = p0->next;
@@ -760,7 +812,6 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
     }
   }
 
-  pt->index = (int *) malloc(ma->isize);
   size = sizeof(LOCK);
 #if USE_MPI == 2
   if (NProcMPI() > 1) {
@@ -775,16 +826,20 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 #else
   pt->lock = NULL;
 #endif
-  memcpy(pt->index, k, ma->isize);
   pt->data = malloc(ma->esize);
   size += ma->esize + ma->isize;
   ma->totalsize += size;
   _totalsize += size;
   if (InitData) InitData(pt->data, 1);
   if (d) memcpy(pt->data, d, ma->esize);
-  (a->dim)++;
-  if (lock) *lock = pt->lock;
-  if (a->lock) ReleaseLock(a->lock);
+  if (lock) *lock = pt->lock;  
+  int *idx = (int *) malloc(ma->isize);
+  memcpy(idx, k, ma->isize);
+  pt->index = idx;
+  (a->dim)++;  
+  if (locked) {
+    ReleaseLock(a->lock);
+  }
   return pt->data;
 }
 

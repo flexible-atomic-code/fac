@@ -134,7 +134,7 @@ typedef struct _ARRAY_ {
   int esize;
   int block;
   int bsize;
-  int dim;
+  volatile int dim;
   DATA  *data;
   LOCK *lock;
 } ARRAY;
