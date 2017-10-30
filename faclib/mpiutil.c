@@ -26,8 +26,9 @@ static int _initialized = 0;
 static LOCK *_plock = NULL;
 static volatile long long _cwid = -1;
 static MPID mpi = {0, 1, 0};
-static double _tlock, _tskip;
-#pragma omp threadprivate(mpi,_tlock,_tskip)
+static double _tlock = 0, _tskip = 0;
+static long long _nlock = 0;
+#pragma omp threadprivate(mpi,_tlock,_tskip, _nlock)
 
 int SkipMPI() {
   int r = 0;
@@ -101,17 +102,17 @@ void MPrintf(int ir, char *format, ...) {
     int nproc;
     myrank = MPIRank(&nproc);
     if (ir < 0) {
-      if (_plock) SetLock(_plock);
+      if (_plock) SetLockNT(_plock);
       printf("Rank=%d, ", myrank);
       vprintf(format, args);
       if (_plock) ReleaseLock(_plock);
     } else {
       if (myrank == ir%nproc) {	
 	if (ir >= nproc) {
-	  if (_plock) SetLock(_plock);
+	  if (_plock) SetLockNT(_plock);
 	  printf("Rank=%d, ", myrank);
 	  vprintf(format, args);
-	  if (_plock) SetLock(_plock);
+	  if (_plock) SetLockNT(_plock);
 	} else {
 	  vprintf(format, args);
 	}
@@ -205,6 +206,7 @@ void SetLockWT(LOCK *x) {
   SetLockNT(x);
   double t1 = WallTime();
   _tlock += t1-t0;
+  _nlock++;
 }
 
 double TimeSkip() {
@@ -213,6 +215,10 @@ double TimeSkip() {
 
 double TimeLock() {
   return _tlock;
+}
+
+long long NumLock() {
+  return _nlock;
 }
 
 void FinalizeMPI() {

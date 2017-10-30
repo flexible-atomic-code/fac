@@ -59,6 +59,7 @@ double WallTime();
 MPID *DataMPI();
 double TimeSkip();
 double TimeLock();
+long long NumLock();
 void SetLockWT(LOCK *x);
 int MPIReady();
 void Abort(int r);
