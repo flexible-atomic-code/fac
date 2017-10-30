@@ -2890,6 +2890,12 @@ static int PTestIntegrate(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PReportMultiStats(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  ReportMultiStats();
+  return 0;
+}
+
 static int PTestMyArray(int argc, char *argv[], int argt[], 
 			ARRAY *variables) { 
   ARRAY a;
@@ -3992,6 +3998,7 @@ static METHOD methods[] = {
   {"TestAngular", PTestAngular, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},

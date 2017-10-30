@@ -37,6 +37,26 @@ USE (rcsid);
 static double _maxsize = -1;
 static double _totalsize = 0;
 static double _overheadsize = 0;
+static ARRAY *_multistats = NULL;
+
+void InitMultiStats(void) {
+  if (_multistats == NULL) {
+    _multistats = malloc(sizeof(ARRAY));
+    ArrayInit(_multistats, sizeof(MULTI *), 256);
+  }
+}
+
+void ReportMultiStats(void) {
+  if (_multistats == NULL) return;
+  if (MyRankMPI() != 0) return;
+  for (int i = 0; i < _multistats->dim; i++) {
+    MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
+    MULTI *ma = *pma;
+    if (ma->numelem > 0) {
+      MPrintf(0, "idx=%d, id=%s, nd=%d, hs=%d, ne=%d, me=%d, ts=%g, os=%g, ms=%g, isize=%d, esize=%d, lock=%x\n", i, ma->id, ma->ndim, ma->hsize, ma->numelem, ma->maxelem, ma->totalsize, ma->overheadsize, ma->maxsize, ma->isize, ma->esize, ma->lock);
+    }
+  }
+}
 
 void InitIntData(void *p, int n) {
   int *d;
@@ -665,6 +685,9 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
 #else
   ma->lock = NULL;
 #endif
+  if (_multistats != NULL) {
+    ArrayAppend(_multistats, &ma, InitPointerData);    
+  }
   return 0;
 }
 
@@ -829,6 +852,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   pt->data = malloc(ma->esize);
   size += ma->esize + ma->isize;
   ma->totalsize += size;
+  ma->numelem++;
   _totalsize += size;
   if (InitData) InitData(pt->data, 1);
   if (d) memcpy(pt->data, d, ma->esize);
@@ -921,6 +945,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
     }
     _totalsize -= ma->totalsize;
     ma->totalsize = 0;
+    ma->numelem = 0;
   }
   ma->clean_mode = -1;
 #pragma omp flush

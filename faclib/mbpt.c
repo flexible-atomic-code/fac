@@ -3670,8 +3670,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  tskip = TimeSkip();
 	  tlock = TimeLock();
 	  nlock = NumLock();
-	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %ld\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt, tskip, tlock, nlock);
+	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
+		  k0, k1, nc, mst, n0, n1, dt, dtt,
+		  tskip, tlock, nlock, WidMPI());
 	  fflush(stdout);
 	}
       }

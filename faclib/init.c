@@ -61,6 +61,7 @@ int InitFac(void) {
     return ierr;
   }
 
+  InitMultiStats();
   InitNucleus();
   InitCoulomb();
   InitAngular();

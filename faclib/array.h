@@ -173,7 +173,9 @@ typedef struct _IDXARY_ {
   int n, m, m0, m1;
   int *d, *i;
 } IDXARY;
-  
+
+void InitMultiStats(void);
+void ReportMultiStats(void);
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d, 

@@ -2815,6 +2815,18 @@ static PyObject *PAITableMSub(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PReportMultiStats(PyObject *self, PyObject *args) {  
+  if (sfac_file) {
+    SFACStatement("ReportMultiStats", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  ReportMultiStats();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+    
 static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   ARRAY a;
   double d;
@@ -5285,7 +5297,8 @@ static struct PyMethodDef fac_methods[] = {
   {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
-  {"TestMyArray", PTestMyArray, METH_VARARGS},     
+  {"TestMyArray", PTestMyArray, METH_VARARGS},        
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},     
   {"TRTable", PTransitionTable, METH_VARARGS}, 
   {"TransitionTable", PTransitionTable, METH_VARARGS},     
   {"TRTableEB", PTransitionTableEB, METH_VARARGS},    

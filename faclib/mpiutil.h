@@ -55,6 +55,7 @@ int MPIRank(int *np);
 int MyRankMPI();
 int NProcMPI();
 long long WidMPI();
+void SetWidMPI(long long w);
 double WallTime();
 MPID *DataMPI();
 double TimeSkip();
