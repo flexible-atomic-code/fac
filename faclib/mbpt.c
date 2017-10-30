@@ -3732,6 +3732,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 			  MPI_SUM, MPI_COMM_WORLD);
 	  }
 	}
+	ttskip = TimeSkip();
+	ttlock = TimeLock();
+	MPI_Allreduce(MPI_IN_PLACE, &ttskip, 1, MPI_DOUBLE,
+		      MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(MPI_IN_PLACE, &ttlock, 1, MPI_DOUBLE,
+		      MPI_SUM, MPI_COMM_WORLD);
       }
 #endif
       AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);

@@ -99,12 +99,19 @@ int ArrayInit(ARRAY *a, int esize, int block) {
   a->bsize = ((int)esize)*((int)block);
   a->dim = 0;
   a->data = NULL;
-  a->lock = (LOCK *) malloc(sizeof(LOCK));
-  if (0 != InitLock(a->lock)) {
-    free(a->lock);
+#if USE_MPI == 2
+  if (NProcMPI() > 1) {
+    a->lock = (LOCK *) malloc(sizeof(LOCK));
+    if (0 != InitLock(a->lock)) {
+      free(a->lock);
+      a->lock = NULL;
+    }
+  } else {
     a->lock = NULL;
   }
-
+#else  
+  a->lock = NULL;
+#endif
   return 0;
 }
 
@@ -645,12 +652,19 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   for (i = 0; i < n; i++) {
     ArrayInit(&(ma->array[i]), sizeof(MDATA), 8);
   }
-  ma->lock = (LOCK *) malloc(sizeof(LOCK));
-  if (0 != InitLock(ma->lock)) {
-    free(ma->lock);
+#if USE_MPI == 2
+  if (NProcMPI() > 1) {
+    ma->lock = (LOCK *) malloc(sizeof(LOCK));
+    if (0 != InitLock(ma->lock)) {
+      free(ma->lock);
+      ma->lock = NULL;
+    }
+  } else {
     ma->lock = NULL;
   }
-  
+#else
+  ma->lock = NULL;
+#endif
   return 0;
 }
 
@@ -748,11 +762,19 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 
   pt->index = (int *) malloc(ma->isize);
   size = sizeof(LOCK);
-  pt->lock = (LOCK *) malloc(sizeof(LOCK));
-  if (0 != InitLock(pt->lock)) {
-    free(pt->lock);
+#if USE_MPI == 2
+  if (NProcMPI() > 1) {
+    pt->lock = (LOCK *) malloc(sizeof(LOCK));
+    if (0 != InitLock(pt->lock)) {
+      free(pt->lock);
+      pt->lock = NULL;
+    }
+  } else {
     pt->lock = NULL;
-  } 
+  }
+#else
+  pt->lock = NULL;
+#endif
   memcpy(pt->index, k, ma->isize);
   pt->data = malloc(ma->esize);
   size += ma->esize + ma->isize;
