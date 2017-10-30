@@ -51,13 +51,39 @@ void ReportMultiStats(void) {
   if (MyRankMPI() != 0) return;
   for (int i = 0; i < _multistats->dim; i++) {
     MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
+    if (pma == NULL) continue;
     MULTI *ma = *pma;
+    if (ma == NULL) continue;
     if (ma->numelem > 0) {
       MPrintf(0, "idx=%d, id=%s, nd=%d, hs=%d, ne=%d, me=%d, ts=%g, os=%g, ms=%g, isize=%d, esize=%d, lock=%x\n", i, ma->id, ma->ndim, ma->hsize, ma->numelem, ma->maxelem, ma->totalsize, ma->overheadsize, ma->maxsize, ma->isize, ma->esize, ma->lock);
     }
   }
 }
 
+void RemoveMultiLocks(void) {
+  if (_multistats == NULL) return;
+  if (MyRankMPI() != 0) return;
+  for (int i = 0; i < _multistats->dim; i++) {
+    MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
+    if (pma == NULL) continue;
+    MULTI *ma = *pma;
+    if (ma == NULL) continue;
+    if (ma->lock) {
+      DestroyLock(ma->lock);
+      free(ma->lock);
+      ma->lock = NULL;
+    }
+    for (int j = 0; j < ma->hsize; j++) {
+      ARRAY *a = &ma->array[j];
+      if (a->lock) {
+	DestroyLock(a->lock);
+	free(a->lock);
+	a->lock = NULL;
+      }
+    }
+  }
+}
+      
 void InitIntData(void *p, int n) {
   int *d;
   int i;
@@ -120,13 +146,9 @@ int ArrayInit(ARRAY *a, int esize, int block) {
   a->dim = 0;
   a->data = NULL;
 #if USE_MPI == 2
-  if (NProcMPI() > 1) {
-    a->lock = (LOCK *) malloc(sizeof(LOCK));
-    if (0 != InitLock(a->lock)) {
-      free(a->lock);
-      a->lock = NULL;
-    }
-  } else {
+  a->lock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(a->lock)) {
+    free(a->lock);
     a->lock = NULL;
   }
 #else  
@@ -673,13 +695,9 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
     ArrayInit(&(ma->array[i]), sizeof(MDATA), 8);
   }
 #if USE_MPI == 2
-  if (NProcMPI() > 1) {
-    ma->lock = (LOCK *) malloc(sizeof(LOCK));
-    if (0 != InitLock(ma->lock)) {
-      free(ma->lock);
-      ma->lock = NULL;
-    }
-  } else {
+  ma->lock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(ma->lock)) {
+    free(ma->lock);
     ma->lock = NULL;
   }
 #else
@@ -837,13 +855,9 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 
   size = sizeof(LOCK);
 #if USE_MPI == 2
-  if (NProcMPI() > 1) {
-    pt->lock = (LOCK *) malloc(sizeof(LOCK));
-    if (0 != InitLock(pt->lock)) {
-      free(pt->lock);
-      pt->lock = NULL;
-    }
-  } else {
+  pt->lock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(pt->lock)) {
+    free(pt->lock);
     pt->lock = NULL;
   }
 #else

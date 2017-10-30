@@ -192,6 +192,9 @@ void InitializeMPI(int n) {
     _tskip = 0;
   }
   _initialized = 1;
+  if (mpi.nproc == 1) {
+    RemoveMultiLocks();
+  }
 #endif
   _plock = (LOCK *) malloc(sizeof(LOCK));
   if (0 != InitLock(_plock)) {
