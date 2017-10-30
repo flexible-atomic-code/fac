@@ -26,13 +26,14 @@ static int _initialized = 0;
 static LOCK *_plock = NULL;
 static volatile long long _cwid = -1;
 static MPID mpi = {0, 1, 0};
-#pragma omp threadprivate(mpi)
+static double _tlock, _tskip;
+#pragma omp threadprivate(mpi,_tlock,_tskip)
 
 int SkipMPI() {
   int r = 0;
 #if USE_MPI == 1
   if (mpi.nproc > 1) {
-    if (mpi.wid%mpi.myrank != 0) {
+    if (mpi.wid%mpi.myproc != 0) {
       r = 1;
     } 
     mpi.wid++;
@@ -40,12 +41,15 @@ int SkipMPI() {
   return r;
 #elif USE_MPI == 2
   if (mpi.nproc > 1) {
+    double t0 = WallTime();
 #pragma omp critical  
     {
       mpi.wid++;      
       if (mpi.wid <= _cwid) r = 1;
       else _cwid = mpi.wid;
     }
+    double t1 = WallTime();
+    _tskip += t1-t0;
   }
   return r;
 #else
@@ -179,6 +183,8 @@ void InitializeMPI(int n) {
     mpi.wid = 0;
     mpi.myrank = omp_get_thread_num();
     mpi.nproc = omp_get_num_threads();
+    _tlock = 0;
+    _tskip = 0;
   }
   _initialized = 1;
 #endif
@@ -192,6 +198,21 @@ void InitializeMPI(int n) {
   CopyPotentialOMP(1);
 #endif
 #endif
+}
+
+void SetLockWT(LOCK *x) {
+  double t0 = WallTime();
+  SetLockNT(x);
+  double t1 = WallTime();
+  _tlock += t1-t0;
+}
+
+double TimeSkip() {
+  return _tskip;
+}
+
+double TimeLock() {
+  return _tlock;
 }
 
 void FinalizeMPI() {
