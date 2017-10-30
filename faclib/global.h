@@ -54,7 +54,9 @@
 
 #define LOCK pthread_mutex_t
 #define InitLock(x) pthread_mutex_init((x), NULL)
-#define SetLock(x) pthread_mutex_lock((x))
+#define SetLockNT(x) pthread_mutex_lock((x))
+//#define SetLock(x) pthread_mutex_lock((x))
+#define SetLock(x) SetLockWT((x))
 #define ReleaseLock(x) pthread_mutex_unlock((x))
 #define DestroyLock(x) pthread_mutex_destroy((x))
 

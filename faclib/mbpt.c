@@ -3420,6 +3420,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
     }
+    double ttskip = 0, ttlock=0;
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_EFF *imeff[MAX_SYMMETRIES];
@@ -3466,7 +3467,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  imeff[isym] = meff[isym];
 	}
       }
-      double ptt0, ptt1;
+      double ptt0, ptt1, tskip, tlock;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
@@ -3601,14 +3602,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
-	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt);	  
+	  tskip = TimeSkip();
+	  tlock = TimeLock();
+	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E\n", 
+		  k0, k1, nc, mst, n0, n1, dt, dtt, tskip, tlock);
 	  fflush(stdout);
 	}
       }
       if (cpmeff) {
 #pragma omp critical
 	{
+	  ttskip += tskip;
+	  ttlock += tlock;
+	  MPrintf(-1, "Time Skip/Lock: %12.5E %12.5E %12.5E %12.5E\n", tskip, tlock, ttskip, ttlock);
 	  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
 	    if (meff[isym] == NULL) continue;
 	    q = meff[isym]->hsize;
@@ -3769,7 +3775,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       tt1 = WallTime();
       dt = tt1 - tbg;
       tt0 = tt1;
-      MPrintf(-1, "Total Time Structure= %12.5E\n", dt);
+      MPrintf(-1, "Total Time Structure= %12.5E %12.5E %12.5E\n", dt, ttskip, ttlock);
       fflush(stdout);
     }
   }
