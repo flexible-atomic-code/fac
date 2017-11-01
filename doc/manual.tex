@@ -3340,7 +3340,7 @@ external fields.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2, n0}
-There are five different forms of this function with different argument
+There are six different forms of this function with different argument
 list. This is the primary form, and the rest are documented below. This
 function calculates the level energies of the states belonging to the
 configuration groups in the \var{g} list. The energy values are stored in the
@@ -3401,6 +3401,13 @@ if $m=1$, only single excitations are included, and if $m=2$, only double
 excitations are included. $c$ is the cutof of the mixing coeffients. The
 effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
 $max(|b_{ki}b_{kj}|) < c$. The default is $c=10^{-4}$.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{d,s}
+  This is the sixth form of the \key{StructureMBPT} function. \var{d} and
+  \var{s} specify the maximum principle quantum numbers of double and single
+  excitation of various n-shells. Both \var{d} and \var{s} are lists. where
+  the i-th number of the list is the limit of the excitation for $n=i+1$.
 \end{fundesc}
 
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}

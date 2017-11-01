@@ -2675,6 +2675,14 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     }
     return 0;
   }
+  if (argc == 2) {
+    if (argt[0] != LIST) return -1;
+    if (argt[1] != LIST) return -1;
+    n2 = IntFromList(argv[0], argt[0], variables, &ng2);
+    n1 = IntFromList(argv[1], argt[1], variables, &ng1);
+    SetExcMBPT(n1, ng1, n2, ng2);
+    return 0;
+  }
   if (argc == 3) {
     if (argt[0] != NUMBER) return -1;
     if (argt[1] != NUMBER) return -1;

@@ -32,21 +32,23 @@ static int *mbpt_ilev = NULL;
 static double mbpt_mcut = EPS4;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
+static int mbpt_nsplit = 0;
+static int mbpt_nse = 0;
+static int *mbpt_se = NULL;
+static int mbpt_nde = 0;
+static int *mbpt_de = NULL;
 static CONFIG **mbpt_cs = NULL;
 static CONFIG mbpt_cfg;
-static int *mbpt_bas0, *mbpt_bas1;
+static int *mbpt_bas0, *mbpt_bas0s, *mbpt_bas0d, *mbpt_bas1;
 static IDXARY mbpt_ibas0, mbpt_ibas1;
 static int **mbpt_rij = NULL;
-static int mbpt_nsplit = 0;
 static struct {
-  int nj0;
-  int *jp0;
   int nj;
   int *jp;
   IDXARY ibs;
-} mbptjp = {0, NULL, 0, NULL};
+} mbptjp = {0, NULL};
 
-#pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
+#pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas0s, mbpt_bas0d, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
   
 static TR_OPT mbpt_tr;
   
@@ -122,6 +124,27 @@ void SetSymMBPT(int nlev, int *ilev) {
     mbpt_ilev = malloc(sizeof(int)*nlev);
     memcpy(mbpt_ilev, ilev, sizeof(int)*nlev);
     qsort(mbpt_ilev, nlev, sizeof(int), CompareInt);
+  }
+}
+
+void SetExcMBPT(int ns, int *se, int nd, int *de) {
+  if (mbpt_nse > 0) {
+    free(mbpt_se);
+    mbpt_se = NULL;
+    mbpt_nse = 0;
+  }
+  if (mbpt_nde > 0) {
+    free(mbpt_de);
+    mbpt_de = NULL;
+    mbpt_nde = 0;
+  }
+  if (ns > 0) {
+    mbpt_nse = ns;
+    mbpt_se = se;
+  }
+  if (nd > 0) {
+    mbpt_nde = nd;
+    mbpt_de = de;
   }
 }
 
@@ -2255,7 +2278,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst,
 		CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ib1, IDXARY *ing, 
+		IDXARY *ib0, int *ib0s, int *ib0d, IDXARY *ib1, IDXARY *ing, 
 		IDXARY *ing2, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im;
   int m1, m2, i, k, j1, j2;
@@ -2271,10 +2294,23 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
     a[i] = malloc(sizeof(double)*mst);
   }
   fm.js[0] = 0;
-  for (ia = 0; ia < ib0->n; ia++) {
+  int nmb, nmk;
+  for (ia = 0; ia < ib0->n; ia++) {    
     for (ib = 0; ib <= ia; ib++) {
+      if (ia == ib) {
+	nmb = ib0d[ia];
+      } else {
+	nmb = Min(ib0s[ia], ib0s[ib]);
+      }
+      if (nmb <= 0) continue;
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
+	  if (ic == id) {
+	    nmk = ib0d[ic];
+	  } else {
+	    nmk = Min(ib0s[ic], ib0s[id]);
+	  }
+	  if (nmk <= 0) continue;
 	  om[0] = id;
 	  om[1] = ic;
 	  k = CheckConfig(ns-2, ket+2, 0, op, 2, om, 0, NULL);
@@ -2297,6 +2333,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		ik = im;
 		o = GetOrbital(ib1->d[im]);
+		if (o->n > nmb || o->n > nmk) continue;
 		ket[1].n = o->n;
 		ket[1].kappa = o->kappa;
 		ket[1].nq = 0;
@@ -2322,7 +2359,8 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	      if (SkipMPI()) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		o = GetOrbital(ib1->d[im]);
-		ket[0].n = o->n;
+		if (o->n > nmb || o->n > nmk) continue;
+		ket[0].n = o->n;		
 		ket[0].kappa = o->kappa;
 		ket[0].nq = 0;
 		for (ik = mbptjp.jp[m2]; ik < mbptjp.jp[m2+1]; ik++) {
@@ -2360,7 +2398,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 void DeltaH22M1(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
+		IDXARY *ib0, int *ib0s, int *ib0d, IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
@@ -2377,12 +2415,45 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
   for (i = 0; i < k; i++) {
     a[i] = malloc(sizeof(double)*mst);
   }
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
 	  for (ik = 0; ik < ib0->n; ik++) {
+	    if (ia == ib) {
+	      if (ik == ia) {
+		nmb = ib0s[ia];
+	      } else {
+		nmb = ib0d[ia];
+	      }
+	    } else {
+	      if (ik == ia) {
+		nmb = ib0s[ib];
+	      } else if (ik == ib) {
+		nmb = ib0s[ia];
+	      } else {
+		nmb = Min(ib0s[ia], ib0s[ib]);
+	      } 
+	    }
+	    if (nmb <= 0) continue;	      
 	    for (iq = 0; iq < ib0->n; iq++) {
+	      if (ic == id) {
+		if (iq == ic) {
+		  nmk = ib0s[ic];
+		} else {
+		  nmk = ib0d[ic];
+		}
+	      } else {
+		if (iq == ic) {
+		  nmk = ib0s[id];
+		} else if (iq == id) {
+		  nmk = ib0s[ic];
+		} else {
+		  nmk = Min(ib0s[ic], ib0s[id]);
+		} 
+	      }
+	      if (nmk <= 0) continue;
 	      op[0] = iq;
 	      om[0] = id;
 	      om[1] = ic;
@@ -2406,6 +2477,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		if (SkipMPI()) continue;
 		for (ip = mbptjp.jp[ij]; ip < mbptjp.jp[ij+1]; ip++) {
 		  o[1] = GetOrbital(ib1->d[ip]);
+		  if (o[1]->n > nmb || o[1]->n > nmk) continue;
 		  ket[0].n = o[1]->n;
 		  ket[0].kappa = o[1]->kappa;
 		  ket[0].nq = 0;
@@ -2475,7 +2547,8 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 void DeltaH22M0(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ing, int nc, CONFIG **cs) {
+		IDXARY *ib0, int *ib0s, int *ib0d,
+		IDXARY *ing, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq, i, i1;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
   double *a[MKK*MKK];
@@ -2492,14 +2565,47 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
     a[i] = malloc(sizeof(double)*mst);
   }
   fm.js[0] = 0;
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     for (ib = 0; ib <= ia; ib++) {
       for (ic = 0; ic < ib0->n; ic++) {
 	for (id = 0; id <= ic; id++) {
 	  for (ik = 0; ik < ib0->n; ik++) {
 	    for (im = 0; im <= ik; im++) {
+	      if (ia == ib) {
+		if (ik == ia || im == ia) {
+		  nmb = ib0s[ia];
+		} else {
+		  nmb = ib0d[ia];
+		}
+	      } else {
+		if (ik == ia || im == ia) {
+		  nmb = ib0s[ib];
+		} else if (ik == ib || im == ib) {
+		  nmb = ib0s[ia];
+		} else {
+		  nmb = Min(ib0s[ia], ib0s[ib]);
+		}
+	      }
+	      if (nmb <= 0) continue;
 	      for (ip = 0; ip < ib0->n; ip++) {
 		for (iq = 0; iq <= ip; iq++) {
+		  if (ic == id) {
+		    if (ip == ic || iq == ic) {
+		      nmk = ib0s[ic];
+		    } else {
+		      nmk = ib0d[ic];
+		    }
+		  } else {
+		    if (ip == ic || iq == ic) {
+		      nmk = ib0s[id];
+		    } else if (ip == id || iq == id) {
+		      nmk = ib0s[ic];
+		    } else {
+		      nmk = Min(ib0s[ic], ib0s[id]);
+		    }
+		  }
+		  if (nmk <= 0) continue;
 		  op[0] = ip;
 		  op[1] = iq;
 		  om[0] = ic;
@@ -2604,7 +2710,8 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 void DeltaH12M1(void *mptr, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
+		IDXARY *ib0, int *ib0s, int *ib0d,
+		IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ic, id, ik, im, ij;
   int m1, i1, k, i, op[3], om[3], ks[4], ph;
@@ -2624,11 +2731,30 @@ void DeltaH12M1(void *mptr, int ns,
       a[i] = malloc(sizeof(double)*mst*mbpt_tr.mktr);
     }
   }
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia+1].nq == 0) continue;
+    nmb = ib0s[ia];
+    if (nmb <= 0) continue;
     for (ib = 0; ib < ib0->n; ib++) {
       for (ic = 0; ic <= ib; ic++) {
 	for (id = 0; id < ib0->n; id++) {
+	  if (ib == ic) {
+	    if (id == ib) {
+	      nmk = ib0s[ib];
+	    } else {
+	      nmk = ib0d[ib];
+	    }
+	  } else {
+	    if (id == ib) {
+	      nmk = ib0s[ic];
+	    } else if (id == ic) {
+	      nmk = ib0s[ib];
+	    } else {
+	      nmk = Min(ib0s[ib], ib0s[ic]);
+	    }
+	  }
+	  if (nmk <= 0) continue;
 	  op[0] = id;
 	  om[0] = ic;
 	  om[1] = ib;
@@ -2645,6 +2771,7 @@ void DeltaH12M1(void *mptr, int ns,
 	    if (SkipMPI()) continue;
 	    for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	      o[1] = GetOrbital(ib1->d[ik]);
+	      if (o[1]->n > nmb || o[1]->n > nmk) continue;
 	      ket[0].n = o[1]->n;
 	      ket[0].kappa = o[1]->kappa;
 	      ket[0].nq = 0;
@@ -2712,7 +2839,8 @@ void DeltaH12M1(void *mptr, int ns,
 void DeltaH12M0(void *mptr, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ing, int nc, CONFIG **cs, int mode) {
+		IDXARY *ib0, int *ib0s, int *ib0d,
+		IDXARY *ing, int nc, CONFIG **cs, int mode) {
   int ia, ib, ic, id, ik, im;
   int i1, k, i, op[3], om[3], ks[4], ph;
   double *a[MKK];
@@ -2733,17 +2861,35 @@ void DeltaH12M0(void *mptr, int ns,
     }
   }
   fm.js[0] = 0;
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia].nq == 0) continue;
     for (ib = 0; ib < ib0->n; ib++) {
-      if (ket[ib].nq == 0) continue;
+      if (ket[ib].nq == 0) continue;      
       for (ic = 0; ic <= ib; ic++) {
 	if (ket[ic].nq == 0) continue;
-	if (ic == ib && ket[ic].nq == 1) continue;
-	for (id = 0; id < ib0->n; id++) {
-	  for (ik = 0; ik < ib0->n; ik++) {
+	for (ik = 0; ik < ib0->n; ik++) {
+	  if (ik == ia) continue;
+	  nmb = ib0s[ia];
+	  if (nmb <= 0) continue;
+	  for (id = 0; id < ib0->n; id++) {
 	    for (im = 0; im <= id; im++) {
-	      if (ik == ia) continue;
+	      if (ib == ic) {
+		if (id == ib || im == ib) {
+		  nmk = ib0s[ib];
+		} else {
+		  nmk = ib0d[ib];
+		}
+	      } else {
+		if (id == ib || im == ib) {
+		  nmk = ib0s[ic];
+		} else if (id == ic || im == ic) {
+		  nmk = ib0s[ib];
+		} else {
+		  nmk = Min(ib0s[ib], ib0s[ic]);
+		}
+	      }
+	      if (nmk <= 0) continue;
 	      if (SkipMPI()) continue;
 	      op[0] = ia;
 	      op[1] = im;
@@ -2826,7 +2972,7 @@ void DeltaH12M0(void *mptr, int ns,
 void DeltaH11M1(void *mptr, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, IDXARY *ib1, IDXARY *ing,
+		IDXARY *ib0, int *ib0s, IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1, m1, ij;
   int op[2], om[2], ph;
@@ -2843,10 +2989,15 @@ void DeltaH11M1(void *mptr, int ns,
   } else {
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia+1].nq == 0) continue;
+    nmb = ib0s[ia];
+    if (nmb <= 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib+1].nq == 0) continue;
+      nmk = ib0s[ib];
+      if (nmk <= 0) continue;
       op[0] = ia;
       om[0] = ib;
       /* check if bra and ket can interact with 1 virtual orb */
@@ -2857,6 +3008,7 @@ void DeltaH11M1(void *mptr, int ns,
 	if (SkipMPI()) continue;
 	for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	  o1 = GetOrbital(ib1->d[ik]);
+	  if (o1->n > nmb || o1->n > nmk) continue;
 	  ket[0].n = o1->n;
 	  ket[0].kappa = o1->kappa;
 	  ket[0].nq = 0;
@@ -2920,7 +3072,8 @@ void DeltaH11M1(void *mptr, int ns,
 void DeltaH11M0(void *mptr, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst,
-		CONFIG *c0, CONFIG *c1, IDXARY *ib0, IDXARY *ing,
+		CONFIG *c0, CONFIG *c1,
+		IDXARY *ib0, int *ib0s, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1;
   int op[2], om[2], ph;
@@ -2939,11 +3092,20 @@ void DeltaH11M0(void *mptr, int ns,
     a = malloc(sizeof(double)*mst*mbpt_tr.mktr);
   }
   fm.js[0] = 0;
+  int nmb, nmk;
   for (ia = 0; ia < ib0->n; ia++) {
     if (bra[ia].nq == 0) continue;
+    if (ib0s[ia] <= 0) continue;
     for (ib = 0; ib < ib0->n; ib++) { 
       if (ket[ib].nq == 0) continue;
+      if (ib0s[ib] <= 0) continue;
       for (ik = 0; ik < ib0->n; ik++) {
+	if (ik == ia) {
+	  nmb = 1000000;
+	} else {
+	  nmb = ib0s[ia];
+	}
+	if (nmb <= 0) continue;
 	for (im = 0; im < ib0->n; im++) {
 	  if (ia == ik) {
 	    continue;
@@ -2951,6 +3113,8 @@ void DeltaH11M0(void *mptr, int ns,
 	  if (ib == im) {
 	    continue;
 	  }
+	  nmk = ib0s[ib];
+	  if (nmk <= 0) continue;
 	  if (SkipMPI()) continue;
 	  /* op contains the index for the creation operators */
 	  op[0] = ia;
@@ -3284,8 +3448,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 #pragma omp parallel default(shared) private(i,j,i0,j0)
   {
-    mbpt_bas0 = malloc(sizeof(int)*nb0);    
-    mbptjp.jp0 = malloc(sizeof(int)*(nb0+1));
+    mbpt_bas0 = malloc(sizeof(int)*nb0);  
+    mbpt_bas0s = malloc(sizeof(int)*nb0);
+    mbpt_bas0d = malloc(sizeof(int)*nb0);  
     mbpt_bas1 = malloc(sizeof(int)*nb);
     mbptjp.jp = malloc(sizeof(int)*(nb+1));
     if (mbpt_nsplit) {
@@ -3330,9 +3495,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       FreeIdxAry(&ing2, 2);
 #pragma omp parallel
       {
-	free(mbptjp.jp0);
 	free(mbptjp.jp);
 	free(mbpt_bas0);
+	free(mbpt_bas0s);
+	free(mbpt_bas0d);
 	free(mbpt_bas1);
 	if (mbpt_nsplit) {
 	  FreeIdxAry(&mbptjp.ibs, 2);
@@ -3607,10 +3773,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  /* determine all real orbs */
 	  for (k = 0; k < n0; k++) {	  
 	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
+	    mbpt_bas0s[k] = 1000000;
+	    mbpt_bas0d[k] = 1000000;
+	    if(bra2[k].n <= mbpt_nse) {
+	      mbpt_bas0s[k] = mbpt_se[bra2[k].n-1];
+	      if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;	      
+	    }
+	    if (bra2[k].n <= mbpt_nde) {
+	      mbpt_bas0d[k] = mbpt_de[bra2[k].n-1];
+	      if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
+	    }
 	  }	    
 	  FreeIdxAry(&mbpt_ibas0, 2);
 	  InitIdxAry(&mbpt_ibas0, n0, bas0);
-	  mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
 	  /* determine all virtual orbs */
 	  n1 = 0;
 	  for (m = 0; m < nb; m++) {
@@ -3625,37 +3800,43 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  if (n3 != 2) {
 	    /* 1-b 2-b term no virtual orb */
 	    DeltaH12M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);	  
+	    	       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+	    	       &ing, nc, cs, 0);	      
 	    /* 1-b 2-b term 1 virtual orb */
 	    DeltaH12M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
+	    	       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+	    	       &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    /* 2-b 1-b term no virtual orb */	
 	    DeltaH12M0(imeff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
-		       ct1, ct0, &mbpt_ibas0, &ing, nc, cs, 0);	  
+	    	       ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+	    	       &ing, nc, cs, 0);
+	    
 	    /* 2-b 1-b term 1 virtual orb */
 	    DeltaH12M1(imeff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
-		       ct1, ct0, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
-	    
+	    	       ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+	    	       &mbpt_ibas1, &ing, nc, cs, 0);	  
 	    /* 1-b 1-b term no virtual orb */
 	    DeltaH11M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 0);		  
+		       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 0);  
 	    /* 1-b 1-b term 1 virtual orb */
 	    DeltaH11M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 0);	  
-	    
+		       ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
+		       &mbpt_ibas1, &ing, nc, cs, 0);
 	    /* 2-b 2-b term no virtual */
 	    DeltaH22M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &ing, nc, cs);
-	    
+	    	       ct0, ct1, &mbpt_ibas0,
+		       mbpt_bas0s, mbpt_bas0d, &ing, nc, cs);
 	    /* 2-b 2-b term 1 virtual */
 	    DeltaH22M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs);	
+	    	       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+	    	       &mbpt_ibas1, &ing, nc, cs);
 	  }
 	  
 	  if (n3 != 1) {
 	    /* 2-b 2-b term 2 virtual */
 	    DeltaH22M2(imeff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
-		       ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, &ing2, nc, cs);
+		       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+		       &mbpt_ibas1, &ing, &ing2, nc, cs);
 	  }
 	  free(bra);
 	  free(ket);
@@ -3929,12 +4110,23 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  sbra2 = sbra + 2;
 	  sket2 = sket + 2;	
 	  /* determine all real orbs */
+	  int ks = 0;
+	  int kd = 0;
 	  for (k = 0; k < n0; k++) {	  
 	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
+	    mbpt_bas0s[k] = 1000000;
+	    mbpt_bas0d[k] = 1000000;
+	    if(bra2[k].n <= mbpt_nse) {
+	      mbpt_bas0s[k] = mbpt_se[bra2[k].n-1];
+	      if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;
+	    }
+	    if (bra2[k].n <= mbpt_nde) {
+	      mbpt_bas0d[k] = mbpt_de[bra2[k].n-1];
+	      if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
+	    }
 	  }
 	  FreeIdxAry(&mbpt_ibas0, 2);
 	  InitIdxAry(&mbpt_ibas0, n0, bas0);
-	  mbptjp.nj0 = GetJpList(n0, bas0, mbptjp.jp0);
 	  /* determine all virtual orbs */
 	  n1 = 0;
 	  for (m = 0; m < nb; m++) {
@@ -3948,16 +4140,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  mbptjp.nj = GetJpList(n1, bas1, mbptjp.jp);
 	  /* 1-b 2-b term no virtual orb */
 	  DeltaH12M0(imtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+		     &ing, nc, cs, 1);	    
 	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(imtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
-		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+		     &mbpt_ibas1, &ing, nc, cs, 1);
 	  /* 1-b 1-b term no virtual orb */
 	  DeltaH11M0(imtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &mbpt_ibas0, &ing, nc, cs, 1);
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 1);
 	  /* 1-b 1-b term 1 virtual orb */
 	  DeltaH11M1(imtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
-		     ct0, ct1, &mbpt_ibas0, &mbpt_ibas1, &ing, nc, cs, 1);	
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
+		     &mbpt_ibas1, &ing, nc, cs, 1);
 	  free(bra);
 	  free(ket);
 	  free(sbra);
@@ -4043,8 +4238,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     free(cs[nc]->shells);
     free(cs);
     free(mbpt_bas0);
+    free(mbpt_bas0s);
+    free(mbpt_bas0d);
     free(mbpt_bas1);
-    free(mbptjp.jp0);
     free(mbptjp.jp);
     if (mbpt_nsplit) {
       FreeIdxAry(&mbptjp.ibs, 2);

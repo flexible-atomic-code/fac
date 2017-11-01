@@ -60,6 +60,7 @@
 #define ReleaseLock(x) pthread_mutex_unlock((x))
 #define DestroyLock(x) pthread_mutex_destroy((x))
 
+#include "mpiutil.h"
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG
 ** TYPE:        macro constants

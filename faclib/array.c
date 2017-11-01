@@ -1181,6 +1181,14 @@ int MMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 void InitIdxAry(IDXARY *ia, int n, int *d) {
   int k;
   ia->n = n;
+  if (n == 0) {
+    ia->d = NULL;
+    ia->m0 = 0;
+    ia->m1 = 0;
+    ia->m = 0;
+    ia->i = NULL;
+    return;
+  }
   ia->d = d;
   ia->m0 = ia->d[0];
   ia->m1 = ia->d[0];
