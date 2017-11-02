@@ -33,9 +33,8 @@ static double mbpt_mcut = EPS4;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static int mbpt_nsplit = 0;
-static int mbpt_nse = 0;
+static int mbpt_ne = 0;
 static int *mbpt_se = NULL;
-static int mbpt_nde = 0;
 static int *mbpt_de = NULL;
 static CONFIG **mbpt_cs = NULL;
 static CONFIG mbpt_cfg;
@@ -60,8 +59,21 @@ void InitMBPT(void) {
   mbpt_tr.nup = 0;
   mbpt_tr.low = NULL;
   mbpt_tr.up = NULL;
+  mbpt_ne = 10;
+  int n = mbpt_ne*mbpt_ne;
+  mbpt_se = (int *) malloc(sizeof(int)*n);
+  mbpt_de = (int *) malloc(sizeof(int)*n);
+  for (int i = 0; i < n; i++) {
+    mbpt_se[i] = -1;
+    mbpt_de[i] = -1;
+  }
 }
-  
+
+int IdxSD(int n, int k) {
+  int kl = GetLFromKappa(k);
+  return (n-1)*(n-1) + (kl-1) + (k<0);
+}
+
 void TransitionMBPT(int mk, int n) {  
   if (mk < 0) mk = 0;
   if (n < 0) {
@@ -127,24 +139,42 @@ void SetSymMBPT(int nlev, int *ilev) {
   }
 }
 
-void SetExcMBPT(int ns, int *se, int nd, int *de) {
-  if (mbpt_nse > 0) {
-    free(mbpt_se);
-    mbpt_se = NULL;
-    mbpt_nse = 0;
+void SetExcMBPT(int nd, int ns, char *s) {
+  int i, j, k, n, nc;
+  char *p;
+  char s0[512];
+  CONFIG *cfg;
+  
+  strncpy(s0, s, 511);
+  s = s0;
+  while (*s == ' ') s++;
+  if (*s == '\0') {
+    n = mbpt_ne*mbpt_ne;    
+    for (k = 0; k < n; k++) {
+      mbpt_se[i] = nd;
+      mbpt_de[k] = ns;
+    }
+    return;
   }
-  if (mbpt_nde > 0) {
-    free(mbpt_de);
-    mbpt_de = NULL;
-    mbpt_nde = 0;
-  }
-  if (ns > 0) {
-    mbpt_nse = ns;
-    mbpt_se = se;
-  }
-  if (nd > 0) {
-    mbpt_nde = nd;
-    mbpt_de = de;
+  n = StrSplit(s, ' ');
+  p = s;
+  for (i = 0; i < n; i++) {
+    while (*p == ' ') p++;
+    nc = GetConfigFromString(&cfg, p);
+    for (j = 0; j < nc; j++) {
+      if (cfg[j].n_shells != 1) {
+	printf("incorrect mbpt excitation limit spec: %d %s\n", i, p);
+	continue;
+      }
+      k = IdxSD((cfg[j].shells)[0].n, (cfg[j].shells)[0].kappa);
+      if (k >= 0) {
+	mbpt_se[k] = ns;
+	mbpt_de[k] = nd;
+      }
+    }
+    if (nc > 0) free(cfg);
+    while (*p) p++;
+    p++;
   }
 }
 
@@ -3775,12 +3805,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
 	    mbpt_bas0s[k] = 1000000;
 	    mbpt_bas0d[k] = 1000000;
-	    if(bra2[k].n <= mbpt_nse) {
-	      mbpt_bas0s[k] = mbpt_se[bra2[k].n-1];
-	      if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;	      
-	    }
-	    if (bra2[k].n <= mbpt_nde) {
-	      mbpt_bas0d[k] = mbpt_de[bra2[k].n-1];
+	    if(bra2[k].n <= mbpt_ne) {
+	      int idx = IdxSD(bra2[k].n, bra2[k].kappa);
+	      mbpt_bas0s[k] = mbpt_se[idx];
+	      mbpt_bas0d[k] = mbpt_de[idx];
+	      if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;
 	      if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
 	    }
 	  }	    
@@ -4116,12 +4145,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    bas0[k] = OrbitalIndex(bra2[k].n, bra2[k].kappa, 0.0);
 	    mbpt_bas0s[k] = 1000000;
 	    mbpt_bas0d[k] = 1000000;
-	    if(bra2[k].n <= mbpt_nse) {
-	      mbpt_bas0s[k] = mbpt_se[bra2[k].n-1];
+	    if(bra2[k].n <= mbpt_ne) {
+	      int idx = IdxSD(bra2[k].n, bra2[k].kappa);
+	      mbpt_bas0s[k] = mbpt_se[idx];
+	      mbpt_bas0d[k] = mbpt_de[idx];
 	      if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;
-	    }
-	    if (bra2[k].n <= mbpt_nde) {
-	      mbpt_bas0d[k] = mbpt_de[bra2[k].n-1];
 	      if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
 	    }
 	  }

@@ -646,6 +646,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   z0 = pot->Z[pot->maxrp-1];
   z = (z0 - pot->N + 1.0);
 
+  double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {
     SetPotentialW(pot, 0.0, orb->kappa);
     SetVEffective(kl, pot);
@@ -654,6 +655,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       if (_veff[i] < emin) emin = _veff[i];
     }
     emin += ENEABSERR;
+    if (emin < emin0) emin = emin0;
   } else {
     emin = EnergyH(z, orb->n, orb->kappa);
   }
@@ -681,7 +683,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   emax = e;
 
   if (kl == 0) {
-    double emin0 = 5*EnergyH(z0, orb->n, orb->kappa);
     e = emin;      
     while (niter < max_iteration) {
       niter++;
@@ -1031,15 +1032,16 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   nr = orb->n - kl - 1;
   z0 = pot->Z[pot->maxrp-1];
   z = (z0 - pot->N + 1.0);
-
-  if (kl > 0) {
-    SetPotentialW(pot, 0.0, orb->kappa);
+  double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
+  if (kl > 0) {   
+    SetPotentialW(pot, 0, orb->kappa);
     SetVEffective(kl, pot);
     emin = 1E30;
     for (i = 0; i < pot->maxrp; i++) {
       if (_veff[i] < emin) emin = _veff[i];
     }
     emin += ENEABSERR;
+    if (emin < emin0) emin = emin0;
   } else {
     emin = EnergyH(z, orb->n, orb->kappa);
   }
@@ -1066,7 +1068,6 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   emax = e;
   niter = 0;
   if (kl == 0) {
-    double emin0 = 1.1*EnergyH(z0, orb->n, orb->kappa);
     e = emin;   
     while (niter < max_iteration) {
       niter++;

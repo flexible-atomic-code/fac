@@ -1536,10 +1536,25 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   }
 
   if (n == 2) {
-    if (!(PyArg_ParseTuple(args, "OO", &q, &p))) return NULL;
-    n1 = IntFromList(p, &ng1);
-    n2 = IntFromList(q, &ng2);
-    SetExcMBPT(n1, ng1, n2, ng2);
+    if (!(PyArg_ParseTuple(args, "sO", &gn, &p))) return NULL;
+    if (PyInt_Check(p)) {
+      n2 = PyInt_AsLong(p);
+      n1 = n2;
+    } else {
+      n3 = IntFromList(p, &ng3);
+      if (n3 == 0) {
+	n2 = -1;
+	n1 = -1;
+      } else if (n3 == 1) {
+	n2 = ng3[0];
+	n1 = n2;
+      } else {
+	n2 = ng3[0];
+	n1 = ng3[1];
+      }
+      if (n3 > 0) free(ng3);
+    }
+    SetExcMBPT(n2, n1, gn);
     Py_INCREF(Py_None);
     return Py_None;
   }

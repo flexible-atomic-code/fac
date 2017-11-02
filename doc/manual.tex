@@ -3403,11 +3403,15 @@ effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
 $max(|b_{ki}b_{kj}|) < c$. The default is $c=10^{-4}$.
 \end{fundesc}
 
-\begin{fundesc}{StructureMBPT}{d,s}
-  This is the sixth form of the \key{StructureMBPT} function. \var{d} and
-  \var{s} specify the maximum principle quantum numbers of double and single
-  excitation of various n-shells. Both \var{d} and \var{s} are lists. where
-  the i-th number of the list is the limit of the excitation for $n=i+1$.
+\begin{fundesc}{StructureMBPT}{o,n}
+  This is the sixth form of the \key{StructureMBPT} function. \var{o} is a
+  string specifying the orbitals from which single or double excitations to be
+  limited in the MBPT calculation. It can be given in either relativistic or
+  non-relativistic notation. \var{n} is either an integer or a 2 element
+  integer list. It specifies the maximum principle quantum number of the
+  single or double excitations. If it is an integer, both single and double
+  excitations impose the same limit. If it is a 2 element list, the first
+  number is for double excitation, and 2nd number is for single excitation.
 \end{fundesc}
 
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}

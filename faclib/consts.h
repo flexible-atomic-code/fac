@@ -159,7 +159,7 @@
 #define AMU  1836.153
 
 /* nucleus */
-#define N_ELEMENTS 109
+#define N_ELEMENTS 118
 #define NISO 58
 #define NFERMI 5001
 
@@ -189,7 +189,7 @@
 #define GRIDRMINN0  1E-4  /* starting point relative to nucleus radius */
 #define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
 #define ENERELERR  1E-5  /* relative energy error */
-#define ENEABSERR  1E-8  /* absolute energy error */
+#define ENEABSERR  1E-5  /* absolute energy error */
 
 /* config */
 #define MCHSHELL           2048

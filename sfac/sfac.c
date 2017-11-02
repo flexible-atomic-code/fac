@@ -2676,11 +2676,25 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
   if (argc == 2) {
-    if (argt[0] != LIST) return -1;
-    if (argt[1] != LIST) return -1;
-    n2 = IntFromList(argv[0], argt[0], variables, &ng2);
-    n1 = IntFromList(argv[1], argt[1], variables, &ng1);
-    SetExcMBPT(n1, ng1, n2, ng2);
+    if (argt[0] != STRING) return -1;
+    if (argt[1] == NUMBER) {
+      n2 = atoi(argv[1]);
+      n1 = n2;
+    } else if (argt[1] == LIST) {
+      n3 = IntFromList(argv[1], argt[1], variables, &ng3);
+      if (n3 == 0) {
+	n2 = -1;
+	n1 = -1;	
+      } else if (n3 == 1) {
+	n2 = ng3[0];
+	n1 = n2;
+      } else {
+	n2 = ng3[0];
+	n1 = ng3[1];
+      }
+      if (n3 > 0) free(ng3);
+    }
+    SetExcMBPT(n2, n1, argv[0]);
     return 0;
   }
   if (argc == 3) {
