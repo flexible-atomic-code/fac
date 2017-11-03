@@ -139,7 +139,17 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
 static int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2);
- 
+
+double EneTol(double e) {
+  e = fabs(e);
+  double d0 = e*ENERELERR;
+  if (d0 > ENEABSERR) {
+    d0 = e*ENERELERR1;
+    d0 = Max(ENEABSERR, d0);
+  }
+  return d0;
+}
+
 double EnergyH(double z, double n, int ka) {
   double a, np;
 
@@ -922,8 +932,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       
       delta = 0.5*p2*p2*(qo - qi)/norm2;
       e = e + delta;
-      ep = fabs(e)*ENERELERR;
-      if (ep > ENEABSERR) ep = ENEABSERR;
+      ep = EneTol(e);
       if (fabs(delta) < ep) break;
     }
     nodes = 0;
@@ -1171,8 +1180,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 
     delta = 0.5*p2*p2*(qo - qi)/norm2;
     e = e + delta;
-    ep = fabs(e)*ENERELERR;
-    if (ep > ENEABSERR) ep = ENEABSERR;
+    ep = EneTol(e);
     if (fabs(delta) < ep) break;
   }
   if (niter == max_iteration) {
@@ -1327,8 +1335,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       
       delta = 0.5*p2*p2*(qo - qi)/norm2;
       e = e + delta;
-      ep = fabs(e)*ENERELERR;
-      if (ep > ENEABSERR) ep = ENEABSERR;
+      ep = EneTol(e);
       if (fabs(delta) < ep) {
 	fact = 1.0/sqrt(norm2);
 	if (IsOdd(nodes)) fact = -fact;

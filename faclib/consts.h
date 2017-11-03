@@ -190,6 +190,7 @@
 #define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
 #define ENERELERR  1E-5  /* relative energy error */
 #define ENEABSERR  1E-5  /* absolute energy error */
+#define ENERELERR1 1E-12
 
 /* config */
 #define MCHSHELL           2048
