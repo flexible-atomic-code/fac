@@ -3731,12 +3731,12 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   int msc = qed.mse%10;
   int ksc = qed.mse/10;
   
+  if (qed.se == -1000000) return 0.0;
   if (orb1 != orb2) {
     if (ksc != 6) return 0.0;
     a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, orb2);
     return a;
   }  
-  if (qed.se == -1000000) return 0.0;
   if (orb1->se < 0.999e31) return orb1->se;
   if (orb1->n == 0) {
     orb1->se = 0.0;
