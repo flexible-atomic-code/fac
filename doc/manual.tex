@@ -3192,8 +3192,15 @@ Set the mode of calculatin and maximum principle quantum number of the
 orbitals for which the self-energy correction should be included in the
 Hamiltonian. Default is 5. \var{n} is the maximum quantum number, \var{m} is
 the mode. \var{m=0} use the hydrogenic screening based on the expectation value
-of the Uheling potential. \var{m=1} use the screening based on the expection
-value of the 2nd derivative of the central potential. 
+of the Uheling potential. \var{m=1} use the screening based on the fermi nuclear
+charge distribution (Welton concept). \var{m=2} use the uniform nuclear charge
+distribution. \var{m} may contain a 2nd digit, with \var{k=m/10}. \var{k=1}
+use the GRASP self energy table for hydrogenic values. \var{k=3} excludes two
+loop correction. \var{k=4} use the model qed potential of Shabaev et al. (CPC
+189, p175). \var{k=5} same as 4 but excluding the two loop
+corrections. \var{k=6} includes the off diagonal matrix element of the self
+energy operator in the CI calculation. \var{k=7} same as 6 by excluding the
+two loop corrections.
 \end{fundesc}
 
 \begin{fundesc}{SetSlaterCut}{k1, k2}
