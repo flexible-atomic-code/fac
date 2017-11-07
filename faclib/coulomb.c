@@ -279,22 +279,42 @@ double Klamaq(int n, int k){
   return r;
 }
 
-double HydrogenicSelfEnergy(int md0, int pse,
-			    POTENTIAL *pot, ORBITAL *orb, double scl) {
+double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
+			    ORBITAL *orb, ORBITAL *orbp) {
   int id, np = 3, nx = 12, m = 1, t, n, k, md;
   double r, r0, a, b, c, c2, p, rms, z, cr, ch, rr;
 
   n= orb->n;
   k = orb->kappa;
-  rms = pot->atom->rms*RBOHR*1e5;
   z = pot->Z[pot->maxrp-1];
+  if (orbp == NULL) {
+    orbp = orb;
+  } else if (orbp->kappa != k) {
+    return 0.0;
+  }
+  md = md0/10;
+  if (orbp->n != n) {
+    if (md == 6 && z >= 10 && z <= 120) {
+      GENQED(n, orbp->n, k, pot->maxrp, pot->mqrho,
+	     orb->wfun, orb->wfun+pot->maxrp,
+	     orbp->wfun, orbp->wfun+pot->maxrp, &r);
+      if(pse) {
+	MPrintf(-1, "SE: %g %d %d %2d %2d %11.4E\n",
+		z, n, orbp->n, k, md0, r);
+      }
+      return r;
+    }
+    return 0.0;
+  }
+  rms = pot->atom->rms*RBOHR*1e5;
   cr = 0;
   ch = 0;
-  md = md0/10;
   r = 0;
   rr = 0;
-  if (md == 4 && z >= 10 && z <= 120) {
-    GENQED(n, k, orb->ilast+1, pot->rad, orb->wfun, orb->wfun+pot->maxrp, &r);
+  if (md >= 4 && z >= 10 && z <= 120) {
+    GENQED(n, n, k, pot->maxrp, pot->mqrho,
+	   orb->wfun, orb->wfun+pot->maxrp,
+	   orb->wfun, orb->wfun+pot->maxrp, &r);
     if (r) {
       r /= scl;
       if (n <= 2 && z >= 26) {
@@ -389,7 +409,7 @@ double HydrogenicSelfEnergy(int md0, int pse,
     }
   }
 
-  if (n <= 2 && md != 3 && md != 5) {
+  if (n <= 2 && md != 3 && md != 5 && md != 7) {
     id = ((int)(z+0.5))-1;
     if (id >= 0 && id < 110 && fabs(z-id-1) < 1e-5) {
       if (n == 1) ch = _qed_ex[0][id];

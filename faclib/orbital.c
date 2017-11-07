@@ -2148,6 +2148,11 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     pot->dr_drho2[i] = sqrt(pot->dr_drho[i]);
   }
 
+  RGMQED(&a, &b);
+  for (i = 0; i < pot->maxrp; i++) {
+    pot->mqrho[i] = b*log(pot->rad[i]) + a*pot->rad[i];
+  }
+  
   return 0;
 }
 

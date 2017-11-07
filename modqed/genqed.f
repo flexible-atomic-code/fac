@@ -7,7 +7,7 @@ c the matrix elements of the model QED operator with the hydrogenic (Dirac)
 c wave functions for the point or the extended nucleus. 
 c
 c=======================================================================
-        subroutine genqed(n, kappa, nr, r0, p0, q0, dse)
+        subroutine genqed(n0,n1,ka,nr,r0,p0,q0,p1,q1,dse)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         implicit real*8 (a-h,o-z)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -21,7 +21,7 @@ c        character*72 data_filename
 
         common /z/z     ! nuclear charge
         common /knucl/knucl  ! nuclear model (0,1)
-        common /r/r(maxii)  ! radial grid
+        common /r/r(maxii)/rho/rho(maxii)  ! radial grid
         common /ii/ii/h/h/r1/r1/r2/r2/al/al/bt/bt
         common /v/v(maxii) ! weights of Simpson quadrature formula on radial grid
         common /uehl/uehl(maxii) ! Uehling potential on radial grid
@@ -71,28 +71,35 @@ c      Dirac wave functions
 c--
         alz=z/cl
 
-        l=(iabs(2*kappa+1)-1)/2
+        l=(iabs(2*ka+1)-1)/2
 
-        call uvip3p(3, nr, r0, p0, ii, r, p)
-        call uvip3p(3, nr, r0, q0, ii, r, q)
+        call uvip3p(3, nr, r0, p0, ii, rho, p)
+        call uvip3p(3, nr, r0, q0, ii, rho, q)
         do i=1,ii
            q(i)=-q(i)
         enddo
 ! the result of the SE operator acting on the Dirac wave function
 ! is calculated and stored on a grid
-        call se_pot_wav(n,kappa,r,p,q,cp,cq)
+        call se_pot_wav(n0,ka,r,p,q,cp,cq)
         
-! matrix element of the SE operator                    
+!     matrix element of the SE operator
+        if (n0 .ne. n1) then
+           call uvip3p(3, nr, r0, p1, ii, rho, p)
+           call uvip3p(3, nr, r0, q1, ii, rho, q)
+           do i=1,ii
+              q(i) = -q(i)
+           enddo
+        endif
         dse=tint(0,p,q,cp,cq,r,v)
 ! matrix element of the Ueling potential
 c        due=sint(uehl,p,q,p,q,r,v)
         
 ! matrix element of the Wichmann-Kroll potential
 c        dwk=sint(v_wk,p,q,p,q,r,v)*cl**2
-        
-        coef = cl/pi*alz**4/n**3
-        dse = dse/coef
-        
+        if (n0 .eq. n1) then
+           coef = cl/pi*alz**4/n0**3
+           dse = dse/coef
+        endif
 c        write( *,65) GetState(n,kappa)
 c     &       ,due/coef,dwk/coef,dse/coef
 c     &       ,(due+dwk+dse)/coef

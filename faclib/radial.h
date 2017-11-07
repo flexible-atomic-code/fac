@@ -126,7 +126,7 @@ int IntegrateSinCos(int j, double *x, double *y,
 int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
 double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
-double SelfEnergy(ORBITAL *orb);
+double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2);
 double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb);
 double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);

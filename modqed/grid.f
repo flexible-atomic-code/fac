@@ -32,7 +32,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         common /z/z
         common /ii/ii/r1/r1/r2/r2/h/h/al/al/bt/bt
-        common /r/r(maxii)/v/v(maxii)
+        common /r/r(maxii)/v/v(maxii)/rho/rho(maxii)
         common /knucl/knucl/inucl/inucl/rnucl/rnucl
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         r1=dexp(-6.d0)*(256.d0/maxii)**2/5.d0

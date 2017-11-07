@@ -32,7 +32,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         common /z/z
         common /ii/ii/r1/r1/r2/r2/h/h/al/al/bt/bt
-        common /r/r(maxii)/v/v(maxii)
+        common /r/r(maxii)/v/v(maxii)/rho/rho(maxii)
         common /knucl/knucl/inucl/inucl/rnucl/rnucl
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         r1=dexp(-6.d0)*(256.d0/maxii)**2/5.d0
@@ -91,6 +91,9 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         enddo
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         call tbr(ii,r1,h,al,bt,r,v)
+        do i=1,ii
+           rho(i) = al*r(i) + bt*dlog(r(i))
+        enddo
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c        write( *,5) ii,r1,r2
 c        write(11,5) ii,r1,r2
@@ -100,6 +103,16 @@ c     2  /2x,'rmax    =',e13.4)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 1000    return
         end
+
+        subroutine rgmqed(a, b)
+        implicit real*8 (a-h,o-z)
+        common /ii/ii/r1/r1/r2/r2/h/h/al/al/bt/bt
+
+        a = al
+        b = bt
+        return
+        end
+      
 c       =================================================
         subroutine tbr(ii,r1,h,al,bt,r,v)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -39,6 +39,7 @@ typedef struct _POTENTIAL_ {
   int ib, nb, ib1;
   double bqp, rb; /* boundary condition */
   double rad[MAXRP];
+  double mqrho[MAXRP];
   double dr_drho[MAXRP];
   double dr_drho2[MAXRP];
   double Vc[MAXRP];

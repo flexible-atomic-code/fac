@@ -159,6 +159,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->rad, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->mqrho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->Vc, sizeof(double), p->maxrp, f);
@@ -263,6 +264,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(p->dZ, sizeof(double), p->maxrp, f);
   n = fwrite(p->dZ2, sizeof(double), p->maxrp, f);
   n = fwrite(p->rad, sizeof(double), p->maxrp, f);
+  n = fwrite(p->mqrho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
   n = fwrite(p->Vc, sizeof(double), p->maxrp, f);
@@ -3724,7 +3726,16 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   return b/a;
 }
 
-double SelfEnergy(ORBITAL *orb1) {
+double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
+  double a, c;
+  int msc = qed.mse%10;
+  int ksc = qed.mse/10;
+  
+  if (orb1 != orb2) {
+    if (ksc != 6) return 0.0;
+    a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, orb2);
+    return a;
+  }  
   if (qed.se == -1000000) return 0.0;
   if (orb1->se < 0.999e31) return orb1->se;
   if (orb1->n == 0) {
@@ -3739,15 +3750,13 @@ double SelfEnergy(ORBITAL *orb1) {
     orb1->se = 0.0;
     return 0;
   }
-  double a, c;
   ORBITAL *horb;
-  int msc = qed.mse%10;
   if (qed.sse > 0 && orb1->n > qed.sse) {
     int k = GetLFromKappa(orb1->kappa)/2;
     if (k < orb1->n-1) {
       int idx = OrbitalIndex(k+1, orb1->kappa, 0);
       ORBITAL *orb = GetOrbitalSolved(idx);
-      a = SelfEnergy(orb);
+      a = SelfEnergy(orb, orb);
       if (msc == 0) {
 	c = SelfEnergyRatio(orb1, orb);
       } else {
@@ -3760,7 +3769,6 @@ double SelfEnergy(ORBITAL *orb1) {
       return orb1->se;
     }
   }
-  int ksc = qed.mse/10;
   if (msc == 9 || potential->N == 1) {
     c = 1.0;
   } else {
@@ -3787,7 +3795,7 @@ double SelfEnergy(ORBITAL *orb1) {
       c = SelfEnergyRatioWelton(orb1, horb);
     }
   }
-  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, potential, orb1, c);
+  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, NULL);
   return orb1->se;
 }
 
@@ -3797,10 +3805,8 @@ double QED1E(int k0, int k1) {
   int index[2];
   double *p, r, a, c;
 
-  if (qed.nms == 0 && qed.vp == 0) {
-    if (qed.se == 0 || k0 != k1) {
+  if (qed.nms == 0 && qed.se == 0) {
       return 0.0;
-    }
   }
 
   orb1 = GetOrbitalSolved(k0);
@@ -3851,10 +3857,8 @@ double QED1E(int k0, int k1) {
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
   }
-  if (k0 == k1) {
-    a = SelfEnergy(orb1);
-    r += a;
-  }    
+  a = SelfEnergy(orb1, orb2);
+  r += a;
   *p = r;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
