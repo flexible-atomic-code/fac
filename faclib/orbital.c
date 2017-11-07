@@ -17,6 +17,7 @@
  */
 
 #include "orbital.h"
+#include "coulomb.h"
 #include "cf77.h"
 #include "mpiutil.h"
 

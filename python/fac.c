@@ -727,7 +727,7 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetSE(PyObject *self, PyObject *args) {
-  int c, m, p;
+  int c, m, s, p;
 
   if (sfac_file) {
     SFACStatement("SetSE", args, NULL);
@@ -1158,7 +1158,7 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PStructure(PyObject *self, PyObject *args) {
-  int ng0, ng, i;
+  int ng, i;
   int ip;
   int ngp;
   int *kg, *kgp;
@@ -5380,7 +5380,7 @@ void initfac(void) {
   char sp[2];
   char *ename;
   double *emass;
-  int i, myrank, nproc;
+  int i;
 
   m = Py_InitModule("fac", fac_methods);  
   d = PyModule_GetDict(m);

@@ -21,7 +21,6 @@
 
 #include "global.h"
 #include "nucleus.h"
-#include "coulomb.h"
 #include "config.h"
 #include "interpolation.h"
 
