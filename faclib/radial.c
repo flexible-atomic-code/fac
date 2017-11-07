@@ -87,6 +87,7 @@ static struct {
 static struct {
   int se;
   int mse;
+  int sse;
   int pse;
   int vp;
   int nms;
@@ -95,7 +96,7 @@ static struct {
   int mbr;
   int nbr;
   double xbr;
-} qed = {QEDSE, QEDMSE, 0, QEDVP, QEDNMS, QEDSMS,
+} qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.05};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
@@ -339,6 +340,7 @@ static void InitOrbitalData(void *p, int n) {
     d[i].im = -1;
     d[i].bqp0 = 0;
     d[i].bqp1 = 0;
+    d[i].se = 1e31;
     d[i].horb = NULL;
   }
 }
@@ -454,7 +456,7 @@ void SetPotentialMode(int m, double h) {
 }
 
 void PrintQED() {
-  MPrintf(0, "SE: %d %d %d\n", qed.se, qed.mse, qed.pse);
+  MPrintf(0, "SE: %d %d %d %d\n", qed.se, qed.mse, qed.sse, qed.pse);
   MPrintf(0, "VP: %d\n", qed.vp);
   MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
   MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
@@ -600,9 +602,10 @@ int RadialOverlaps(char *fn, int kappa) {
   return 0;
 }
   
-void SetSE(int n, int m, int p) {
+void SetSE(int n, int m, int s, int p) {
   qed.se = n;
   if (m >= 0) qed.mse = m;
+  if (s >= 0) qed.sse = s;
   if (p >= 0) qed.pse = p;
 }
 
@@ -1161,7 +1164,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   int iter, i, j;
 
   mse = qed.se;
-  qed.se = 0;
+  qed.se = -1000000;
   /* get the average configuration for the groups */
   acfg = &(average_config);
   if (ng > 0) {
@@ -1388,22 +1391,29 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
+  fprintf(f, "#SelfEne = %15.8E\n", orb->se);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
   fprintf(f, "#     im = %4d\n", orb->im);
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
   fprintf(f, "#    idx = %d\n", k);
+  ORBITAL *horb = orb->horb;
   if (n != 0) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
     else k = 0;
     for (i = k; i <= orb->ilast; i++) {
-      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E", 
 	      i, potential->rad[i], 
 	      (potential->Vc[i])*potential->rad[i],
 	      potential->U[i] * potential->rad[i],
 	      Large(orb)[i], Small(orb)[i]); 
+      if (horb != NULL && horb->wfun != NULL) {
+	fprintf(f, " %13.6E %13.6E\n", Large(horb)[i], Small(horb)[i]);
+      } else {
+	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
+      }
     }
   } else {
     a = GetPhaseShift(k);
@@ -1417,11 +1427,16 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
     ke = sqrt(2.0*e*(1.0+0.5*a));
     y = (1.0+a)*z/ke; 
     for (i = 0; i <= orb->ilast; i++) {
-      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n", 
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E", 
 	      i, potential->rad[i],
 	      (potential->Vc[i])*potential->rad[i],
 	      potential->U[i] * potential->rad[i],
-	      Large(orb)[i], Small(orb)[i]); 
+	      Large(orb)[i], Small(orb)[i]);
+      if (horb != NULL && horb->wfun != NULL) {
+	fprintf(f, " %13.6E %13.6E\n", Large(horb)[i], Small(horb)[i]);
+      } else {
+	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
+      }
     }
     for (; i < potential->maxrp; i += 2) {
       a = ke * potential->rad[i];
@@ -1429,10 +1444,10 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
       a = Large(orb)[i+1] - a;
       a = a - ((int)(a/(TWO_PI)))*TWO_PI;
       if (a < 0) a += TWO_PI;
-      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E\n",
+      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E %13.6E %13.6E\n",
 	      i, potential->rad[i],
 	      Large(orb)[i], Large(orb)[i+1], 
-	      Small(orb)[i], a);
+	      Small(orb)[i], a, 0.0, 0.0);
     }
   }
 
@@ -3632,8 +3647,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 
 //self energy screening using the welton concept,
 //Lowe et al, Radiation Physics and Chemistry 85, 2013, 118
-double SelfEnergyRatioWelton(ORBITAL *orb) {
-  ORBITAL *horb;
+double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb) {
   int i, npts;
   double *p, *q, e, z;
   double *large, *small;
@@ -3644,51 +3658,43 @@ double SelfEnergyRatioWelton(ORBITAL *orb) {
 
   large = Large(orb);
   small = Small(orb);
-  horb = orb->horb;
-  if (horb == NULL) {
-    horb = (ORBITAL *) malloc(sizeof(ORBITAL));
-    InitOrbitalData(horb, 1); 
-    horb->n = orb->n;
-    horb->kappa = orb->kappa;
-    if (RadialBound(horb, hpotential) < 0) {
-      MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
-	      horb->n, horb->kappa);      
-    }
-    orb->horb = horb;
-  }
-  if (horb->wfun == NULL) {
-    MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
-	    horb->n, horb->kappa);
-    return 1.0;
-  }
   p = Large(horb);
   q = Small(horb);
   r = potential->atom->rms0;
   r1 = r*10;
   npts = potential->maxrp;
+  int m = qed.mse%10;
   for (i = 0; i < npts; i++) {
-    if (potential->atom->rn <= 0 || qed.mse%10 == 2) {
+    if (potential->atom->rn <= 0 || m == 2 || m == 4) {
       a = potential->rad[i] <= r ? 1.0 : 0.0;
     } else {
       a = potential->qdist[i];
     }
     if (potential->rad[i] > r1) break;
     _dwork11[i] = (p[i]*p[i] + q[i]*q[i]);
-    _dwork11[i] *= a*potential->dr_drho[i];      
-    _dwork12[i] = (large[i]*large[i] + small[i]*small[i]);
-    _dwork12[i] *= a*potential->dr_drho[i];
+    _dwork11[i] *= a*potential->dr_drho[i]; 
+    if (m == 1 || m == 2) {     
+      _dwork12[i] = (large[i]*large[i] + small[i]*small[i]);
+      _dwork12[i] *= a*potential->dr_drho[i];
+    } else if (m == 3 || m == 4) {
+      _dwork12[i] = (large[i]*p[i] + small[i]*q[i]);
+      _dwork12[i] *= a*potential->dr_drho[i];
+    }
   }
 
   if (i < 10) return 1.0;
   a = Simpson(_dwork11, 0, i-1);
   b = Simpson(_dwork12, 0, i-1);
+  if (m == 3 || m == 4) {
+    b *= b;
+    a *= a;
+  }
   if (1+a == 1) return 1.0;
   return b/a;
 }
 
 //self energy screening using the uehling potential expection value
-double SelfEnergyRatio(ORBITAL *orb) {
-  ORBITAL *horb;
+double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   int i, npts;
   double *p, *q, e, z;
   double *large, *small;
@@ -3696,26 +3702,8 @@ double SelfEnergyRatio(ORBITAL *orb) {
   
   if (orb->wfun == NULL) return 1.0;
   if (fabs(1-potential->N) < 1e-5) return 1.0;
-  if (qed.vp <= 0) return SelfEnergyRatioWelton(orb);
+  if (qed.vp <= 0) return SelfEnergyRatioWelton(orb, horb);
   npts = potential->maxrp;
-  horb = orb->horb;
-  if (horb == NULL) {
-    horb = (ORBITAL *) malloc(sizeof(ORBITAL));
-    InitOrbitalData(horb, 1);
-    horb->n = orb->n;
-    horb->kappa = orb->kappa;
-    orb->horb = horb;
-    if (RadialBound(horb, hpotential) < 0) {
-      MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
-	      horb->n, horb->kappa);
-      return 1.0;
-    }
-  }
-  if (horb->wfun == NULL) {
-    MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
-	    horb->n, horb->kappa);
-    return 1.0;
-  }
   p = Large(horb);
   q = Small(horb);
   large = Large(orb);
@@ -3734,6 +3722,73 @@ double SelfEnergyRatio(ORBITAL *orb) {
   b = Simpson(_dwork12, 0, i-1);
   if (1+a == 1) return 1.0;
   return b/a;
+}
+
+double SelfEnergy(ORBITAL *orb1) {
+  if (qed.se == -1000000) return 0.0;
+  if (orb1->se < 0.999e31) return orb1->se;
+  if (orb1->n == 0) {
+    orb1->se = 0.0;
+    return 0.0;
+  }
+  if (!(qed.se < 0 || orb1->n <= qed.se)) {
+    orb1->se = 0.0;
+    return 0.0;
+  }
+  if (!(potential->ib <= 0 || orb1->n <= potential->nb)) {
+    orb1->se = 0.0;
+    return 0;
+  }
+  double a, c;
+  ORBITAL *horb;
+  int msc = qed.mse%10;
+  if (qed.sse > 0 && orb1->n > qed.sse) {
+    int k = GetLFromKappa(orb1->kappa)/2;
+    if (k < orb1->n-1) {
+      int idx = OrbitalIndex(k+1, orb1->kappa, 0);
+      ORBITAL *orb = GetOrbitalSolved(idx);
+      a = SelfEnergy(orb);
+      if (msc == 0) {
+	c = SelfEnergyRatio(orb1, orb);
+      } else {
+	c = SelfEnergyRatioWelton(orb1, orb);
+      }
+      orb1->se = a*c;
+      if (qed.pse) {
+	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, md=%d, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, c, orb1->se);
+      }
+      return orb1->se;
+    }
+  }
+  int ksc = qed.mse/10;
+  if (msc == 9 || potential->N == 1) {
+    c = 1.0;
+  } else {
+    horb = orb1->horb;
+    if (horb == NULL) {
+      horb = (ORBITAL *) malloc(sizeof(ORBITAL));
+      InitOrbitalData(horb, 1); 
+      horb->n = orb1->n;
+      horb->kappa = orb1->kappa;
+      if (RadialBound(horb, hpotential) < 0) {
+	MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
+		horb->n, horb->kappa);      
+      }
+      orb1->horb = horb;
+    }
+    if (horb->wfun == NULL) {
+      MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
+	      horb->n, horb->kappa);
+      c = 1.0;
+    }
+    if (msc == 0) {
+      c = SelfEnergyRatio(orb1, horb);
+    } else {
+      c = SelfEnergyRatioWelton(orb1, horb);
+    }
+  }
+  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, potential, orb1, c);
+  return orb1->se;
 }
 
 double QED1E(int k0, int k1) {
@@ -3796,27 +3851,10 @@ double QED1E(int k0, int k1) {
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
   }
-  if (k0 == k1 && (qed.se < 0 || orb1->n <= qed.se)) {
-    if (potential->ib <= 0 || orb1->n <= potential->nb) {
-      a = HydrogenicSelfEnergy(potential->Z[potential->maxrp-1], 
-			       orb1->n, orb1->kappa,
-			       potential->atom->rms, qed.mse);
-      if (a) {
-	int msc = qed.mse%10;
-	if (msc == 0) {
-	  c = SelfEnergyRatio(orb1);
-	} else if (msc < 3) {
-	  c = SelfEnergyRatioWelton(orb1);
-	} else {
-	  c = 1.0;
-	}
-	r += c*a;
-	if (qed.pse) {
-	  MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, md=%d, H-Like=%11.4E, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, a, c, a*c);
-	}
-      }
-    }
-  }
+  if (k0 == k1) {
+    a = SelfEnergy(orb1);
+    r += a;
+  }    
   *p = r;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -6136,6 +6174,7 @@ int InitRadial(void) {
   
   SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
+  
   return 0;
 }
 

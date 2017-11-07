@@ -736,10 +736,11 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
   }
 
   m = -1;
+  s = -1;
   p = -1;
-  if (!PyArg_ParseTuple(args, "i|ii", &c, &m, &p))
+  if (!PyArg_ParseTuple(args, "i|iii", &c, &m, &s, &p))
     return NULL;
-  SetSE(c, m, p);
+  SetSE(c, m, s, p);
   Py_INCREF(Py_None);
   return Py_None;
 }

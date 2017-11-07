@@ -61,7 +61,7 @@ typedef struct _POTENTIAL_ {
 typedef struct _ORBITAL_ {
   int n;
   int kappa;
-  double energy;
+  double energy, se;
   double qr_norm;
   double *phase;
   double *wfun;

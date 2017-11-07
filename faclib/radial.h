@@ -52,7 +52,7 @@ void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
 void SetPotentialMode(int m, double h);
-void SetSE(int n, int m, int p);
+void SetSE(int n, int m, int s, int p);
 void SetVP(int n);
 void SetBreit(int n, int m, int n0, double x0);
 void SetMS(int nms, int sms);
@@ -126,7 +126,9 @@ int IntegrateSinCos(int j, double *x, double *y,
 int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
 double Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
-double SelfEnergyRatio(ORBITAL *orb);
+double SelfEnergy(ORBITAL *orb);
+double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb);
+double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb);
 int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode);
 int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
 	   double e, double *y);

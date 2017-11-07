@@ -1146,7 +1146,9 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     atom.z1 += atom.a*(_rfermi[1][NFERMI-1] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
-  
+  if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
+    INIQED(atom.atomic_number, 9, atom.rn>0);
+  }
   return 0;
 }
 
