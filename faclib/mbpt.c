@@ -2077,13 +2077,9 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   orb = GetOrbital(k2);
   d1 -= orb->energy + orb->qr_norm;
   orb = GetOrbital(k0);
-  d2 += orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qr_norm;
   orb = GetOrbital(k1);
   d2 -= orb->energy + orb->qr_norm;
-  /*
-  d1 = GetOrbital(k3)->energy - GetOrbital(k2)->energy;
-  d2 = GetOrbital(k0)->energy - GetOrbital(k1)->energy;
-  */
   for (k = 0; k < mst; k++) {
     q0 = bst[k];
     q1 = kst[k];
@@ -3835,11 +3831,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    DeltaH12M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 	    	       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 	    	       &mbpt_ibas1, &ing, nc, cs, 0);	  
-	    /* 2-b 1-b term no virtual orb */	
+	    /* 2-b 1-b term no virtual orb */
 	    DeltaH12M0(imeff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
 	    	       ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 	    	       &ing, nc, cs, 0);
-	    
 	    /* 2-b 1-b term 1 virtual orb */
 	    DeltaH12M1(imeff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 	    	       ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
@@ -3847,7 +3842,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    /* 1-b 1-b term no virtual orb */
 	    DeltaH11M0(imeff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		       ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 0);  
-	    /* 1-b 1-b term 1 virtual orb */
+	    /* 1-b 1-b term 1 virtual orb */	    
 	    DeltaH11M1(imeff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		       ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
 		       &mbpt_ibas1, &ing, nc, cs, 0);

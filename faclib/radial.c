@@ -1316,10 +1316,12 @@ static double EnergyFunc(int *n, double *x) {
 }
 
 int RefineRadial(int maxfun, int msglvl) {
-  int n, ierr, mode, nfe, lw[4];
+  int n, ierr, mode, nfe, lw[4], se;
   double xtol, scale[2];
   double f0, f, x[2];
-  
+
+  se = qed.se;
+  qed.se = -1000000;
   if (maxfun <= 0) maxfun = 250;
   xtol = EPS3;
   n = 2;
@@ -1349,7 +1351,7 @@ int RefineRadial(int maxfun, int msglvl) {
       printf("Warning in RefineRadial: %d\n", ierr);
     }
   }
-  
+  qed.se = se;
   return 0;
 }
 
@@ -3807,6 +3809,7 @@ double QED1E(int k0, int k1) {
   int index[2];
   double *p, r, a, c;
 
+  if (qed.se == -1000000) return 0.0;  
   if (qed.nms == 0 && qed.se == 0) {
       return 0.0;
   }
@@ -3875,6 +3878,7 @@ double Vinti(int k0, int k1) {
   int ka0, ka1;
   double a, b, r;
 
+  if (qed.se == -1000000) return 0.0;  
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
 
