@@ -72,7 +72,10 @@ c--
         alz=z/cl
 
         l=(iabs(2*ka+1)-1)/2
-
+        if (l .gt. 2) then
+           dse = 0d0
+           return
+        endif
         call uvip3p(3, nr, r0, p0, ii, rho, p)
         call uvip3p(3, nr, r0, q0, ii, rho, q)
         do i=1,ii

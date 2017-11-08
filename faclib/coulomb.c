@@ -281,11 +281,11 @@ double Klamaq(int n, int k){
 
 double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 			    ORBITAL *orb, ORBITAL *orbp) {
-  int id, np = 3, nx = 12, m = 1, t, n, k, md;
+  int id, np = 3, nx = 12, m = 1, t, n, k, kl, md;
   double r, r0, a, b, c, c2, p, rms, z, cr, ch, rr;
 
   n= orb->n;
-  k = orb->kappa;
+  k = orb->kappa;  
   z = pot->Z[pot->maxrp-1];
   if (orbp == NULL) {
     orbp = orb;
@@ -294,7 +294,8 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   }
   md = md0/10;
   if (orbp->n != n) {
-    if (md == 6 && z >= 10 && z <= 120) {
+    kl = GetLFromKappa(k)/2;
+    if (md == 6 && z >= 10 && z <= 120 && kl <= 2) {
       GENQED(n, orbp->n, k, pot->maxrp, pot->mqrho,
 	     orb->wfun, orb->wfun+pot->maxrp,
 	     orbp->wfun, orbp->wfun+pot->maxrp, &r);
