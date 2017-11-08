@@ -293,8 +293,8 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
     return 0.0;
   }
   md = md0/10;
+  kl = GetLFromKappa(k)/2;
   if (orbp->n != n) {
-    kl = GetLFromKappa(k)/2;
     if (md == 6 && z >= 10 && z <= 120 && kl <= 2) {
       GENQED(n, orbp->n, k, pot->maxrp, pot->mqrho,
 	     orb->wfun, orb->wfun+pot->maxrp,
@@ -312,7 +312,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   ch = 0;
   r = 0;
   rr = 0;
-  if (md >= 4 && z >= 10 && z <= 120) {
+  if (md >= 4 && z >= 10 && z <= 120 && kl <= 2) {
     GENQED(n, n, k, pot->maxrp, pot->mqrho,
 	   orb->wfun, orb->wfun+pot->maxrp,
 	   orb->wfun, orb->wfun+pot->maxrp, &r);
