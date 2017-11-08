@@ -212,6 +212,9 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
   h->a = 0;
   h->lambda = 0;
   for (i = 0; i < p->maxrp; i++) {
+    h->Z[i] -= h->ZVP[i];
+    h->dZ[i] -= h->dZVP[i];
+    h->dZ2[i] -= h->dZVP2[i];
     h->Vc[i] = 0;
     h->dVc[i] = 0;
     h->dVc2[i] = 0;
@@ -3735,7 +3738,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   
   if (qed.se == -1000000) return 0.0;
   if (orb1 != orb2) {
-    if (ksc != 6) return 0.0;
+    if (ksc != 6 && ksc != 7) return 0.0;
     if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
     if (qed.se >= 0 && (orb1->n > qed.se || orb2->n > qed.se)) return 0.0;
     a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, orb2);
