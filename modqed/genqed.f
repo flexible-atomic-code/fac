@@ -7,7 +7,7 @@ c the matrix elements of the model QED operator with the hydrogenic (Dirac)
 c wave functions for the point or the extended nucleus. 
 c
 c=======================================================================
-        subroutine genqed(n0,n1,ka,nr,r0,p0,q0,p1,q1,dse)
+        subroutine genqed(n0,n1,ka,iw,nr,r0,p0,q0,p1,q1,dse)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         implicit real*8 (a-h,o-z)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -83,7 +83,7 @@ c--
         enddo
 ! the result of the SE operator acting on the Dirac wave function
 ! is calculated and stored on a grid
-        call se_pot_wav(n0,ka,r,p,q,cp,cq)
+        call se_pot_wav(n0,ka,iw,r,p,q,cp,cq)
         
 !     matrix element of the SE operator
         if (n0 .ne. n1) then

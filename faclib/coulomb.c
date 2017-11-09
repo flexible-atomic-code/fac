@@ -281,7 +281,7 @@ double Klamaq(int n, int k){
 
 double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 			    ORBITAL *orb, ORBITAL *orbp) {
-  int id, np = 3, nx = 12, m = 1, t, n, k, kl, md;
+  int id, np = 3, nx = 12, m = 1, t, n, k, kl, md, mp;
   double r, r0, a, b, c, c2, p, rms, z, cr, ch, rr;
 
   n= orb->n;
@@ -292,16 +292,17 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   } else if (orbp->kappa != k) {
     return 0.0;
   }
+  mp = pot->pse;
   md = md0/10;
   kl = GetLFromKappa(k)/2;
   if (orbp->n != n) {
     if (md >= 6 && z >= 10 && z <= 120 && kl <= 2) {
-      GENQED(n, orbp->n, k, pot->maxrp, pot->mqrho,
+      GENQED(n, orbp->n, k, mp, pot->maxrp, pot->mqrho,
 	     orb->wfun, orb->wfun+pot->maxrp,
 	     orbp->wfun, orbp->wfun+pot->maxrp, &r);
       if(pse) {
-	MPrintf(-1, "SE: %g %d %d %2d %2d %11.4E\n",
-		z, n, orbp->n, k, md0, r);
+	MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E\n",
+		z, n, orbp->n, k, md0, mp, r);
       }
       return r;
     }
@@ -313,7 +314,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   r = 0;
   rr = 0;
   if (md >= 4 && z >= 10 && z <= 120 && kl <= 2) {
-    GENQED(n, n, k, pot->maxrp, pot->mqrho,
+    GENQED(n, n, k, mp, pot->maxrp, pot->mqrho,
 	   orb->wfun, orb->wfun+pot->maxrp,
 	   orb->wfun, orb->wfun+pot->maxrp, &r);
     if (r) {
@@ -334,8 +335,10 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	}
       }
     }
+  } else {
+    mp = 0;
   }
-  if (!r && n <= 2) {
+  if (!r && n <= 2 && mp == 0) {
     if (md == 1 && z >= 26 && k != -2) {
       MOHRFIN(n, k, z, rms, &r, &a, &b, &c, &p);
     }
@@ -376,7 +379,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
       }
     }
   }
-  if (!r) {
+  if (!r && mp == 0) {
     if (n <= 5) {
       id = _nd[n-1];
       switch (k) {
@@ -443,7 +446,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   r0 = r*c;
   a = r0*scl;
   if (pse) {
-    MPrintf(-1, "SE: %g %d %2d %2d %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, md0, rr, rms, scl, r, cr, ch, c, r0, a);
+    MPrintf(-1, "SE: %g %d %2d %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
   }
   return a;
 }

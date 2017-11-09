@@ -3815,6 +3815,12 @@ static int PPrintQED(int argc, char *argv[], int argt[],
   PrintQED();
   return 0;
 }
+
+static int PPrintNucleus(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  PrintNucleus();
+  return 0;
+} 
  
 static int PSavePotential(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
@@ -4053,6 +4059,7 @@ static METHOD methods[] = {
   {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
   {"CoulMultipole", PCoulMultip, METH_VARARGS}, 
   {"PrintQED", PPrintQED, METH_VARARGS},
+  {"PrintNucleus", PPrintNucleus, METH_VARARGS},
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},

@@ -34,14 +34,22 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
           d=dabs(p(i))+dabs(q(i))+dabs(a(i))+dabs(b(i))
           if (d.gt.1.d-20) goto 200
           imax=i
-        enddo
+       enddo
+       if (imax .lt. 3) then
+          tint = 0d0
+          return
+       endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       Integration from 0 to r1
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 200     f1=(p(1)*a(1)+q(1)*b(1))*r(1)**k
         f5=(p(5)*a(5)+q(5)*b(5))*r(5)**k
-        g=dlog(f5/f1)/dlog(r(5)/r(1))
-        t0=r(1)*f1/(g+1)
+        if (f1 .gt. 1d-20) then
+           g=dlog(f5/f1)/dlog(r(5)/r(1))
+           t0=r(1)*f1/(g+1)
+        else
+           t0=0d0
+        endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         ds=0.d0
         i1=1
@@ -123,14 +131,22 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
           d=dabs(p(i))+dabs(q(i))+dabs(a(i))+dabs(b(i))+dabs(c(i))
           if (d.gt.1.d-20) goto 200
           imax=i-1
-        enddo
+       enddo
+       if (imax .lt. 3) then
+          sint = 0d0
+          return
+       endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       Integration from 0 to r1
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 200     f1=c(1)*(p(1)*a(1)+q(1)*b(1))/r(1)
         f5=c(5)*(p(5)*a(5)+q(5)*b(5))/r(5)
-        g=dlog(f5/f1)/dlog(r(5)/r(1))
-        t0=r(1)*f1/(g+1)
+        if (f1 .gt. 1d-20) then
+           g=dlog(f5/f1)/dlog(r(5)/r(1))
+           t0=r(1)*f1/(g+1)
+        else
+           t0=0d0
+        endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         sint=0.d0
         i1=1

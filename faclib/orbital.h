@@ -30,6 +30,7 @@ typedef struct _POTENTIAL_ {
   int r_core;
   int maxrp;
   int nmax;
+  int mse, pse, mvp, pvp;
   double hxs, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double dZ[MAXRP], dZ2[MAXRP];
@@ -55,12 +56,18 @@ typedef struct _POTENTIAL_ {
   double ZVP[MAXRP];
   double dZVP[MAXRP];
   double dZVP2[MAXRP];
+  double ZSE[NKSEP][MAXRP];
+  double dZSE[NKSEP][MAXRP];
+  double dZSE2[NKSEP][MAXRP];
+  double VT[NKSEP+1][MAXRP];
+  double dVT[NKSEP+1][MAXRP];
+  double dVT2[NKSEP+1][MAXRP];
   NUCLEUS *atom;
 } POTENTIAL;
 
 typedef struct _ORBITAL_ {
   int n;
-  int kappa;
+  int kappa, kv;
   double energy, se;
   double qr_norm;
   double *phase;
@@ -85,11 +92,14 @@ double InnerProduct(int i1, int n,
 void Differential(double *p, double *dp, int i1, int i2);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double r0);
-int SetPotentialZ(POTENTIAL *pot, int vp);
-int SetPotentialUehling(POTENTIAL *pot, int vp);
+int SetPotentialZ(POTENTIAL *pot);
+int SetPotentialVP(POTENTIAL *pot);
+int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialVc(POTENTIAL *pot);
+int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
-int SetPotentialW (POTENTIAL *pot, double e, int kappa);
+int SetPotentialW (POTENTIAL *pot, double e, int kappa, int kv);
+int IdxVT(int kappa);
 
 #endif
 

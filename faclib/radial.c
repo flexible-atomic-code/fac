@@ -128,7 +128,7 @@ int GetRadTiming(RAD_TIMING *t) {
 
 int RestorePotential(char *fn, POTENTIAL *p) {
   BFILE *f;
-  int n, i;
+  int n, i, k;
 
   f = BFileOpen(fn, "r", -1);
   if (f == NULL) {
@@ -172,9 +172,6 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->W, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->ZVP, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZVP, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZVP2, sizeof(double), p->maxrp, f);
   for (i = p->maxrp; i < MAXRP; i++) {
     p->Z[i] = 0;
     p->dZ[i] = 0;
@@ -196,6 +193,11 @@ int RestorePotential(char *fn, POTENTIAL *p) {
     p->ZVP[i] = 0;
     p->dZVP[i] = 0;
     p->dZVP2[i] = 0;
+    for (k = 0; k < NKSEP; k++) {
+      p->ZSE[k][i] = 0;
+      p->dZSE[k][i] = 0;
+      p->dZSE2[k][i] = 0;
+    }
   }
   p->atom = GetAtomicNucleus();
   BFileClose(f);
@@ -206,15 +208,16 @@ int RestorePotential(char *fn, POTENTIAL *p) {
 }
 
 void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
-  int i;
+  int i, k;
   memcpy(h, p, sizeof(POTENTIAL));
   h->N = 1;
   h->a = 0;
   h->lambda = 0;
+  h->mse = 0;
+  h->pse = 0;
+  h->mvp = 0;
+  h->pvp = 0;
   for (i = 0; i < p->maxrp; i++) {
-    h->Z[i] -= h->ZVP[i];
-    h->dZ[i] -= h->dZVP[i];
-    h->dZ2[i] -= h->dZVP2[i];
     h->Vc[i] = 0;
     h->dVc[i] = 0;
     h->dVc2[i] = 0;
@@ -228,13 +231,19 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
     h->ZVP[i] = 0;
     h->dZVP[i] = 0;
     h->dZVP2[i] = 0;
+    for (k = 0; k < NKSEP; k++) {
+      h->ZSE[k][i] = 0;
+      h->dZSE[k][i] = 0;
+      h->dZSE2[k][i] = 0;
+    }
   }
   SetPotentialVc(h);
+  SetPotentialVT(h);
 }
 
 int SavePotential(char *fn, POTENTIAL *p) {
   FILE *f;
-  int n;
+  int n, i;
 
   if (MyRankMPI() != 0) return 0;
   
@@ -280,9 +289,6 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(p->W, sizeof(double), p->maxrp, f);
   n = fwrite(p->dW, sizeof(double), p->maxrp, f);
   n = fwrite(p->dW2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->ZVP, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZVP, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZVP2, sizeof(double), p->maxrp, f);
   fclose(f);
   return 0;
 }
@@ -346,6 +352,7 @@ static void InitOrbitalData(void *p, int n) {
     d[i].bqp0 = 0;
     d[i].bqp1 = 0;
     d[i].se = 1e31;
+    d[i].kv = -1000000000;
     d[i].horb = NULL;
   }
 }
@@ -609,13 +616,21 @@ int RadialOverlaps(char *fn, int kappa) {
   
 void SetSE(int n, int m, int s, int p) {
   qed.se = n;
-  if (m >= 0) qed.mse = m;
+  if (m >= 0) qed.mse = m%100;
   if (s >= 0) qed.sse = s;
   if (p >= 0) qed.pse = p;
+  if (m > 100 && qed.mse >= 4) {
+    potential->pse = 1;
+  } else {
+    potential->pse = 0;
+  }
+  potential->mse = qed.mse;
 }
 
 void SetVP(int n) {
   qed.vp = n;
+  potential->mvp = qed.vp;
+  potential->pvp = qed.vp < 100;
 }
 
 void SetBreit(int n, int m, int n0, double x0) {
@@ -957,10 +972,12 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       u[j] /= potential->rad[j];
     }
     SetPotentialU(potential, 0, NULL);
+    SetPotentialVT(potential);
   } else {
     if (potential->N < 1.0+EPS3) {
       SetPotentialVc(potential);
       SetPotentialU(potential, -1, NULL);
+      SetPotentialVT(potential);
       return 0.0;
     }
     r = potential->Z[potential->maxrp-1];
@@ -986,6 +1003,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       u[j] /= potential->rad[j];
     }
     SetPotentialU(potential, 0, NULL);
+    SetPotentialVT(potential);
     r = 1.0;
   }
   
@@ -999,7 +1017,7 @@ int GetPotential(char *s) {
   int norbs, jmax, kmin, kmax;  
   FILE *f;
   int i, j;
-  double *u, *v, rb, rb1, rc;
+  double rb, rb1, rc;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -1023,18 +1041,22 @@ int GetPotential(char *s) {
   fprintf(f, "#    HXS = %10.3E\n", potential->hxs);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
-  u = potential->dVc;
-  v = potential->ZVP;
-
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
   for (i = 0; i < acfg->n_shells; i++) {
     fprintf(f, "# %2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
-	    potential->Vc[i], potential->U[i], u[i], v[i]);
+	    potential->Vc[i]*potential->rad[i],
+	    potential->U[i]*potential->rad[i],
+	    potential->ZSE[0][i],
+	    potential->ZSE[1][i],
+	    potential->ZSE[2][i],
+	    potential->ZSE[3][i],
+	    potential->ZSE[4][i],
+	    potential->ZVP[i]);
   }
 
   fclose(f);  
@@ -1223,7 +1245,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
   }
-  SetPotentialZ(potential, qed.vp);
+  SetPotentialZ(potential);
   SetHydrogenicPotential(hpotential, potential);
   z = potential->Z[potential->maxrp-1];
   if (a > 0.0) z = z - a + 1;
@@ -1305,6 +1327,7 @@ static double EnergyFunc(int *n, double *x) {
   potential->lambda = x[0];
   potential->a = x[1];
   SetPotentialVc(potential);
+  SetPotentialVT(potential);
   ReinitRadial(1);
   ClearOrbitalTable(0);
   if (average_config.ng > 0) {
@@ -2735,8 +2758,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     q1 = Small(orb1);
     q2 = Small(orb2);
     for (i = potential->ib; i <= potential->ib1; i++) {
-      z = potential->U[i];
-      z += potential->Vc[i];
+      z = potential->Vc[i] + potential->U[i];
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
       _yk[i] *= potential->dr_drho[i];
       _yk[i] *= p1[i]*p2[i] + q1[i]*q2[i];
@@ -2744,8 +2766,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     *s = Simpson(_yk, potential->ib, potential->ib1);
   } else {
     for (i = 0; i < potential->maxrp; i++) {
-      z = potential->U[i];
-      z += potential->Vc[i];
+      z = potential->Vc[i] + potential->U[i];
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
     }
     Integrate(_yk, orb1, orb2, 1, s, -1);
@@ -3738,7 +3759,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   
   if (qed.se == -1000000) return 0.0;
   if (orb1 != orb2) {
-    if (ksc != 6 && ksc != 7) return 0.0;
+    if (ksc < 6) return 0.0;
     if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
     if (qed.se >= 0 && (orb1->n > qed.se || orb2->n > qed.se)) return 0.0;
     a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, orb2);
@@ -3807,19 +3828,26 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 }
 
 double QED1E(int k0, int k1) {
-  int i;
+  int i, kv;
   ORBITAL *orb1, *orb2;
   int index[2];
   double *p, r, a, c;
 
   if (qed.se == -1000000) return 0.0;  
-  if (qed.nms == 0 && qed.se == 0) {
+  if (qed.nms == 0 && qed.se == 0 && qed.vp%100 == 0) {
       return 0.0;
   }
 
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
 
+  kv = orb1->kv;
+  if (kv < 0 || kv > NKSEP) {
+    MPrintf(-1, "invalid orbital kv: %d %d %d\n",
+	    orb1->n, orb1->kappa, orb1->kv);
+    return 0.0;
+  }
+  
   if (orb1->n <= 0 || orb2->n <= 0) {
     return 0.0;
   }
@@ -3846,10 +3874,13 @@ double QED1E(int k0, int k1) {
     if (locked) ReleaseLock(lock);
     return *p;
   }
-  r = 0.0;  
+  r = 0.0;
+  if (orb1->kappa != orb2->kappa) {
+    printf("dk: %d %d %d %d\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa);
+  }
   if (qed.nms > 0) {
     for (i = 0; i < potential->maxrp; i++) {
-      _yk[i] = potential->U[i] + potential->Vc[i];
+      _yk[i] = potential->VT[kv][i];
     }
     a = 0.0;
     Integrate(_yk, orb1, orb2, 1, &a, -1);
@@ -3858,12 +3889,19 @@ double QED1E(int k0, int k1) {
     a /= (AMU * GetAtomicMass());
     r += a;
     for (i = 0; i < potential->maxrp; i++) {
-      _yk[i] = orb1->energy - (potential->U[i] + potential->Vc[i]);
-      _yk[i] *= orb2->energy - (potential->U[i] + potential->Vc[i]);
+      _yk[i] = orb1->energy - potential->VT[kv][i];
+      _yk[i] *= orb2->energy - potential->VT[kv][i];
     }
     Integrate(_yk, orb1, orb2, 1, &a, -1);
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
+  }
+  if (qed.vp > 100) {
+    for (i = 0; i < potential->maxrp; i++) {
+      _yk[i] = -potential->ZVP[i]/potential->rad[i];
+    }
+    Integrate(_yk, orb1, orb2, 1, &a, 0);
+    r += a;      
   }
   a = SelfEnergy(orb1, orb2);
   r += a;
@@ -5106,7 +5144,9 @@ int IntegrateSubRegion(int i0, int i1,
   double *large1, *large2, *small1, *small2;
   double *x, *y, *r1, *x1, *x2, *y1, *y2;
   double a, b, e1, e2, a2, r0;
-
+  int kv1 = orb1->kv;
+  int kv2 = orb2->kv;
+  
   if (i1 <= i0) return 0;
   type = abs(t);
 
@@ -5422,8 +5462,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*e2-potential->VT[kv2][i])/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5437,8 +5476,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5460,8 +5498,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] = small1[i] * large2[i];
 	x[j] *= f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;	
       }
       if (i < potential->maxrp) {
@@ -5473,8 +5510,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] = b * large2[i];
 	  x[j] *= f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5507,8 +5543,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5523,8 +5558,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = b * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5539,8 +5573,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] = large1[i] * large2[i];
 	x[j] *= f[i]; 
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5551,8 +5584,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] = a * large2[i];
 	  x[j] *= f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5568,8 +5600,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5582,8 +5613,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = b * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5600,8 +5630,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5616,8 +5645,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5638,8 +5666,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -5654,8 +5681,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	    /(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -5702,10 +5728,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -5732,10 +5756,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y2[j] *= 0.5*f[i];
 	y[j] = y2[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -5764,10 +5786,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -5799,10 +5819,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];	
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -5833,10 +5851,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -5865,10 +5881,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1.0 + a2*(e1-potential->U[i]-potential->Vc[i]))
-	  /(large1[i]*large1[i]);
-	b = (1.0 + a2*(e2-potential->U[i]-potential->Vc[i]))
-	  /(large2[i]*large2[i]);
+	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -6124,6 +6138,10 @@ int InitRadial(void) {
   } else {
     potential->hxs = 0.0;
   }
+  potential->mse = qed.mse;
+  potential->pse = 0;
+  potential->mvp = qed.vp;
+  potential->pvp = qed.vp < 100;
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();

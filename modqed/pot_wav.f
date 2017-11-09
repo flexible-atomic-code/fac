@@ -1,5 +1,28 @@
-c       =================================================
-        subroutine se_pot_wav(n,kappa,r,pp,qq,cp,cq)
+      subroutine locsep(i,nr,ur,vr)
+      implicit real*8 (a-h,o-z)
+      include 'qedmod.inc'
+      common /ii/ii
+      real*8 ur(nr), vr(nr), vt(maxii)
+      common /kk_se/kk_se(6)
+      common /r/r(maxii)/v/v(maxii)/rho/rho(maxii)
+      common /ns_proj/ns_proj/num_kappa/num_kappa
+      common /vsemi_loc/vsemi_loc(maxii,5)
+
+      il = i+1
+      if (il .gt. 0 .and. il .le. num_kappa) then
+         do i=1,ii
+            vt(i)=vsemi_loc(i,il)
+         enddo
+         call uvip3p(3, ii, rho, vt, nr, ur, vr)
+      else
+         do i=1,nr
+            vr(i)=0d0
+         enddo
+      endif
+      end
+      
+c     =================================================
+        subroutine se_pot_wav(n,kappa,iw,r,pp,qq,cp,cq)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       This subroutine computes the functions cp(i),cq(i),
 c       which are the result of model potentail acting on
@@ -33,20 +56,21 @@ c       Local potential
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         il=0
         do i=1,num_kappa
-          if (kappa.eq.kk_se(i)) then
-            il=i
-          endif
+           if (kappa.eq.kk_se(i)) then
+              il=i
+           endif
         enddo
-        if (il.gt.0) then
-          do i=1,ii
-            cp(i)=vsemi_loc(i,il)*pp(i)/r(i)
-            cq(i)=vsemi_loc(i,il)*qq(i)/r(i)
-          enddo
+       
+        if (il.gt.0 .and. iw .eq. 0) then
+           do i=1,ii
+              cp(i)=vsemi_loc(i,il)*pp(i)/r(i)
+              cq(i)=vsemi_loc(i,il)*qq(i)/r(i)
+           enddo
         else
-          do i=1,maxii
-            cp(i)=0.d0
-            cq(i)=0.d0
-          enddo
+           do i=1,maxii
+              cp(i)=0.d0
+              cq(i)=0.d0
+           enddo
         endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       non-local
@@ -71,8 +95,10 @@ c
 c
         cp(ii+3)=ii
         cq(ii+3)=ii
-        cp(ii+4)=vsemi_loc(ii+4,il)+gam
-        cq(ii+4)=vsemi_loc(ii+4,il)+gam
+        if (il .gt. 0) then
+           cp(ii+4)=vsemi_loc(ii+4,il)+gam
+           cq(ii+4)=vsemi_loc(ii+4,il)+gam
+        endif
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         return
         end
