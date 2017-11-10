@@ -3896,7 +3896,7 @@ numbers $>$\var{n}.
 Print the selected lines from the \key{DB\_SP} database file \var{ifn} to the
 file \var{ofn}. \var{n} is the number of electrons of the ion. \var{e0} and
 \var{e1} are the energy range in units of eV. \var{s} is the cutoff threshold
-for the lines. If \var{s}$<$0, then \var{e0} and \var{e1} are interpreted as
+for the lines. If \var{s}$>=$1, then \var{e0} and \var{e1} are interpreted as
 the lower and upper level indexes for the line selected. In this case a single
 line will be output, and \var{t} is ignored. Otherwise, \var{t} is the type of
 the lines to be selected. If \var{t} is 0, then all transition types are
