@@ -3810,9 +3810,11 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	tt = (int *) ArrayGet(&linetype, i);
 	e = rp->energy;
 	if (fmin < 0 || rp->strength*e > smax) {
+         if (emin == rp->lower && emax == rp->upper){
 	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
 		  nele, rp->lower, rp->upper, *tt, e, rpx->sdev, 
 		  rp->strength, rp->rrate, rp->trate);
+         }
 	}
       }
     }
