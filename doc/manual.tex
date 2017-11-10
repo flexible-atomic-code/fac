@@ -3200,7 +3200,10 @@ loop correction. \var{k=4} use the model qed potential of Shabaev et al. (CPC
 189, p175). \var{k=5} same as 4 but excluding the two loop
 corrections. \var{k=6} includes the off diagonal matrix element of the self
 energy operator in the CI calculation. \var{k=7} same as 6 by excluding the
-two loop corrections.
+two loop corrections. If \var{k>4} and \var{m} also has a 3rd digit, then the
+local part of the self energy potential is included in the radial Dirac
+equation, and only the non-local part is evaluated and added in the
+Hamiltonian.
 \end{fundesc}
 
 \begin{fundesc}{SetSlaterCut}{k1, k2}
@@ -3287,7 +3290,11 @@ of the value of \var{ci}.
 \begin{fundesc}{SetVP}{vp}
 Set the flag for vacuum polarization correction to the
 Hamiltonian. 0---disable, 1---only include 2nd order term, 2---include the 4th
-order term as well. Default is 2.
+order term as well. 3---also include WK term. Default is 3. If the 2nd digit
+is 1, then the finite nucleus size is not taken into account in the vacuum
+polarizaiton potential. If the 3rd digit is not 0, then the vacuum
+polarizaiton potential is included in the radial Dirac equation, instead of
+evaluating its expectation values.
 \end{fundesc}
 
 \begin{fundesc}{SlaterCoeff}{fn, g, a, b}

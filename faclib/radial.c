@@ -213,10 +213,12 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
   h->N = 1;
   h->a = 0;
   h->lambda = 0;
+  /*
   h->mse = 0;
   h->pse = 0;
   h->mvp = 0;
   h->pvp = 0;
+  */
   for (i = 0; i < p->maxrp; i++) {
     h->Vc[i] = 0;
     h->dVc[i] = 0;
@@ -228,6 +230,7 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
     h->W[i] = 0;
     h->dW[i] = 0;
     h->dW2[i] = 0;
+    /*
     h->ZVP[i] = 0;
     h->dZVP[i] = 0;
     h->dZVP2[i] = 0;
@@ -236,6 +239,7 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
       h->dZSE[k][i] = 0;
       h->dZSE2[k][i] = 0;
     }
+    */
   }
   SetPotentialVc(h);
   SetPotentialVT(h);
@@ -468,8 +472,9 @@ void SetPotentialMode(int m, double h) {
 }
 
 void PrintQED() {
-  MPrintf(0, "SE: %d %d %d %d\n", qed.se, qed.mse, qed.sse, qed.pse);
-  MPrintf(0, "VP: %d\n", qed.vp);
+  MPrintf(0, "SE: %d %d %d %d %d\n", qed.se, qed.mse,
+	  potential->pse, qed.sse, qed.pse);
+  MPrintf(0, "VP: %d %d\n", qed.vp, potential->pvp);
   MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
   MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
 }
@@ -619,7 +624,7 @@ void SetSE(int n, int m, int s, int p) {
   if (m >= 0) qed.mse = m%100;
   if (s >= 0) qed.sse = s;
   if (p >= 0) qed.pse = p;
-  if (m > 100 && qed.mse >= 4) {
+  if (m >= 140) {
     potential->pse = 1;
   } else {
     potential->pse = 0;
@@ -630,7 +635,7 @@ void SetSE(int n, int m, int s, int p) {
 void SetVP(int n) {
   qed.vp = n;
   potential->mvp = qed.vp;
-  potential->pvp = qed.vp < 100;
+  potential->pvp = qed.vp > 100;
 }
 
 void SetBreit(int n, int m, int n0, double x0) {
@@ -1421,7 +1426,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
-  fprintf(f, "#SelfEne = %15.8E\n", orb->se);
+  fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
   fprintf(f, "#     im = %4d\n", orb->im);
@@ -3682,8 +3687,7 @@ double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb) {
   double a, b, r, r1;
   
   if (orb->wfun == NULL) return 1.0;
-  if (fabs(1-potential->N) < 1e-5) return 1.0;
-
+  //if (fabs(1-potential->N) < 1e-5) return 1.0;
   large = Large(orb);
   small = Small(orb);
   p = Large(horb);
@@ -3729,8 +3733,8 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   double a, b, r, r1;
   
   if (orb->wfun == NULL) return 1.0;
-  if (fabs(1-potential->N) < 1e-5) return 1.0;
-  if (qed.vp <= 0) return SelfEnergyRatioWelton(orb, horb);
+  //if (fabs(1-potential->N) < 1e-5) return 1.0;
+  //if (qed.vp <= 0) return SelfEnergyRatioWelton(orb, horb);
   npts = potential->maxrp;
   p = Large(horb);
   q = Small(horb);
@@ -3797,7 +3801,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       return orb1->se;
     }
   }
-  if (msc == 9 || potential->N == 1) {
+  if (msc == 9 || fabs(potential->N-1)<1e-5) {
     c = 1.0;
   } else {
     horb = orb1->horb;
@@ -3896,7 +3900,7 @@ double QED1E(int k0, int k1) {
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
     r += a;
   }
-  if (qed.vp > 100) {
+  if (!potential->pvp) {
     for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = -potential->ZVP[i]/potential->rad[i];
     }
@@ -6139,9 +6143,10 @@ int InitRadial(void) {
     potential->hxs = 0.0;
   }
   potential->mse = qed.mse;
-  potential->pse = 0;
+  potential->pse = qed.mse >= 140;
+  qed.mse = qed.mse%100;
   potential->mvp = qed.vp;
-  potential->pvp = qed.vp < 100;
+  potential->pvp = qed.vp > 100;
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();
