@@ -1133,8 +1133,8 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     }
     atom.c = c;
     if (i == 500) {
-      printf("max iteration reached in determining fermi c param: %g %g %g %g %g %g %g %g %g %g\n",
-	     atom.rn, atom.a, c1, c0, fabs(c1/c0-1), y0, y1, y2, y3, y4);
+      printf("max iteration reached in determining fermi c param: %g %g %g %g %g %g %g %g %g %g %g\n",
+	     atom.rms*1e5*RBOHR, atom.rn*1e5*RBOHR, atom.a, c1, c0, fabs(c1/c0-1), y0, y1, y2, y3, y4);
     }
 
     IntegrateFermi(3, atom.rfermi, -atom.c/atom.a);    
@@ -1158,7 +1158,7 @@ NUCLEUS *GetAtomicNucleus() {
 
 void PrintNucleus() {
   printf("%s z=%g m=%g r=%g z1=%g a=%g b=%g c=%g\n",
-	 atom.symbol, atom.atomic_number, atom.mass, atom.rn, atom.z1,
+	 atom.symbol, atom.atomic_number, atom.mass, atom.rn*1e5*RBOHR, atom.z1,
 	 atom.a, atom.b, atom.c);
 }
 

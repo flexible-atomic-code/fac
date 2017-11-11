@@ -3898,6 +3898,9 @@ double QED1E(int k0, int k1) {
     }
     Integrate(_yk, orb1, orb2, 1, &a, -1);
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
+    if (qed.pse) {
+      MPrintf(-1, "NMS: %d %d %d %d %18.10E\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa, a);
+    }
     r += a;
   }
   if (!potential->pvp) {
@@ -3905,6 +3908,9 @@ double QED1E(int k0, int k1) {
       _yk[i] = -potential->ZVP[i]/potential->rad[i];
     }
     Integrate(_yk, orb1, orb2, 1, &a, 0);
+    if (qed.pse) {
+      MPrintf(-1, "VP: %d %d %d %d %18.10E\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa, a);
+    }
     r += a;      
   }
   a = SelfEnergy(orb1, orb2);
