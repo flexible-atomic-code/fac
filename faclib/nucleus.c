@@ -1114,6 +1114,7 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     atom.rn *= 1e-5/RBOHR;
     atom.rms = atom.rn;
   } else {
+    rn *= 1e-5/RBOHR;
     atom.rn = rn;
     atom.rms = rn;
   }

@@ -980,20 +980,37 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
   double z, mass, rn, a;
-
+  PyObject *t;
+  
   if (sfac_file) {
     SFACStatement("SetAtom", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
-  mass = 0.0;
-  z = 0.0;
+  mass = -1.0;
+  z = -1.0;
   rn = -1.0;
   a = -1.0;
-  if (!PyArg_ParseTuple(args, "s|dddd", &s, &z, &mass, &rn, &a)) return NULL;
-  if (SetAtom(s, z, mass, rn, a) < 0) return NULL;
-
+  if (PyArg_ParseTuple(args, "O|dddd", &t, &z, &mass, &rn, &a) == NULL) {
+    return -1;
+  }
+  if (PyString_Check(t)) {
+    s = PyString_AsString(t);
+    if (SetAtom(s, z, mass, rn, a) < 0) return NULL;
+  } else if (PyFloat_Check(t)) {
+    mass = z;
+    rn = mass;
+    a = rn;
+    z = PyFloat_AsDouble(t);
+    if (SetAtom(NULL, z, mass, rn, a) < 0) return NULL;
+  } else if (PyInt_Check(t)) {
+    mass = z;
+    rn = mass;
+    a = rn;
+    z = (double) PyInt_AsLong(t);
+    if (SetAtom(NULL, z, mass, rn, a) < 0) return NULL;
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }
