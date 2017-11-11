@@ -213,12 +213,12 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
   h->N = 1;
   h->a = 0;
   h->lambda = 0;
-  /*
-  h->mse = 0;
-  h->pse = 0;
-  h->mvp = 0;
-  h->pvp = 0;
-  */
+  if (!p->hpvs) {
+    h->mse = 0;
+    h->pse = 0;
+    h->mvp = 0;
+    h->pvp = 0;
+  }
   for (i = 0; i < p->maxrp; i++) {
     h->Vc[i] = 0;
     h->dVc[i] = 0;
@@ -230,16 +230,16 @@ void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
     h->W[i] = 0;
     h->dW[i] = 0;
     h->dW2[i] = 0;
-    /*
-    h->ZVP[i] = 0;
-    h->dZVP[i] = 0;
-    h->dZVP2[i] = 0;
-    for (k = 0; k < NKSEP; k++) {
-      h->ZSE[k][i] = 0;
-      h->dZSE[k][i] = 0;
-      h->dZSE2[k][i] = 0;
+    if (!p->hpvs) {
+      h->ZVP[i] = 0;
+      h->dZVP[i] = 0;
+      h->dZVP2[i] = 0;
+      for (k = 0; k < NKSEP; k++) {
+	h->ZSE[k][i] = 0;
+	h->dZSE[k][i] = 0;
+	h->dZSE2[k][i] = 0;
+      }
     }
-    */
   }
   SetPotentialVc(h);
   SetPotentialVT(h);
@@ -624,6 +624,12 @@ void SetSE(int n, int m, int s, int p) {
   if (m >= 0) qed.mse = m%100;
   if (s >= 0) qed.sse = s;
   if (p >= 0) qed.pse = p;
+  if (m >= 1000) {
+    potential->hpvs = 1;
+    m = m%1000;
+  } else {
+    potential->hpvs = 0;
+  }
   if (m >= 140) {
     potential->pse = 1;
   } else {
@@ -3678,78 +3684,37 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   return 0;
 }
 
-//self energy screening using the welton concept,
-//Lowe et al, Radiation Physics and Chemistry 85, 2013, 118
-double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb) {
-  int i, npts;
-  double *p, *q, e, z;
-  double *large, *small;
-  double a, b, r, r1;
-  
-  if (orb->wfun == NULL) return 1.0;
-  //if (fabs(1-potential->N) < 1e-5) return 1.0;
-  large = Large(orb);
-  small = Small(orb);
-  p = Large(horb);
-  q = Small(horb);
-  r = potential->atom->rms0;
-  r1 = r*10;
-  npts = potential->maxrp;
-  int m = qed.mse%10;
-  for (i = 0; i < npts; i++) {
-    if (potential->atom->rn <= 0 || m == 2 || m == 4) {
-      a = potential->rad[i] <= r ? 1.0 : 0.0;
-    } else {
-      a = potential->qdist[i];
-    }
-    if (potential->rad[i] > r1) break;
-    _dwork11[i] = (p[i]*p[i] + q[i]*q[i]);
-    _dwork11[i] *= a*potential->dr_drho[i]; 
-    if (m == 1 || m == 2) {     
-      _dwork12[i] = (large[i]*large[i] + small[i]*small[i]);
-      _dwork12[i] *= a*potential->dr_drho[i];
-    } else if (m == 3 || m == 4) {
-      _dwork12[i] = (large[i]*p[i] + small[i]*q[i]);
-      _dwork12[i] *= a*potential->dr_drho[i];
-    }
-  }
-
-  if (i < 10) return 1.0;
-  a = Simpson(_dwork11, 0, i-1);
-  b = Simpson(_dwork12, 0, i-1);
-  if (m == 3 || m == 4) {
-    b *= b;
-    a *= a;
-  }
-  if (1+a == 1) return 1.0;
-  return b/a;
-}
-
-//self energy screening using the uehling potential expection value
 double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
-  int i, npts;
+  int i, k, m, npts;
   double *p, *q, e, z;
   double *large, *small;
-  double a, b, r, r1;
+  double a, b;
   
   if (orb->wfun == NULL) return 1.0;
-  //if (fabs(1-potential->N) < 1e-5) return 1.0;
-  //if (qed.vp <= 0) return SelfEnergyRatioWelton(orb, horb);
   npts = potential->maxrp;
   p = Large(horb);
   q = Small(horb);
   large = Large(orb);
   small = Small(orb);
-  r = potential->atom->rms0;
-  r1 = r*10;
+  m = qed.mse%10;
+  k = orb->kv-1;
+  if (k < 0) k = NKSEP-1;
   for (i = 0; i < npts; i++) {
-    if (potential->rad[i] >= r1) break;
-    _dwork11[i] = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
-    _dwork11[i] *= potential->ZVP[i]/potential->rad[i];
-    _dwork12[i] = (large[i]*large[i] + small[i]*small[i])*potential->dr_drho[i];
-    _dwork12[i] *= potential->ZVP[i]/potential->rad[i];
+    if (m == 0) {
+      //uehling potential
+      a = potential->ZVP[i]/potential->rad[i];
+    } else if (m == 1) {
+      //welton scaling
+      a = potential->qdist[i];
+    } else if (m == 2) {
+      //local se potential
+      a = potential->ZSE[k][i]/potential->rad[i];
+    }
+    a *= potential->dr_drho[i];
+    _dwork11[i] = (p[i]*p[i] + q[i]*q[i])*a;
+    _dwork12[i] = (large[i]*large[i] + small[i]*small[i])*a;
   }
-  if (i < 10) return 1.0;
+  if (i < 5) return 1.0;
   a = Simpson(_dwork11, 0, i-1);
   b = Simpson(_dwork12, 0, i-1);
   if (1+a == 1) return 1.0;
@@ -3789,11 +3754,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       int idx = OrbitalIndex(k+1, orb1->kappa, 0);
       ORBITAL *orb = GetOrbitalSolved(idx);
       a = SelfEnergy(orb, orb);
-      if (msc == 0) {
-	c = SelfEnergyRatio(orb1, orb);
-      } else {
-	c = SelfEnergyRatioWelton(orb1, orb);
-      }
+      c = SelfEnergyRatio(orb1, orb);
       orb1->se = a*c;
       if (qed.pse) {
 	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, md=%d, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, c, orb1->se);
@@ -3821,11 +3782,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 	      horb->n, horb->kappa);
       c = 1.0;
     }
-    if (msc == 0) {
-      c = SelfEnergyRatio(orb1, horb);
-    } else {
-      c = SelfEnergyRatioWelton(orb1, horb);
-    }
+    c = SelfEnergyRatio(orb1, horb);
   }
   orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, NULL);
   return orb1->se;
@@ -3898,7 +3855,7 @@ double QED1E(int k0, int k1) {
     }
     Integrate(_yk, orb1, orb2, 1, &a, -1);
     a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
-    if (qed.pse) {
+    if (qed.pse > 1) {
       MPrintf(-1, "NMS: %d %d %d %d %18.10E\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa, a);
     }
     r += a;
@@ -3908,7 +3865,7 @@ double QED1E(int k0, int k1) {
       _yk[i] = -potential->ZVP[i]/potential->rad[i];
     }
     Integrate(_yk, orb1, orb2, 1, &a, 0);
-    if (qed.pse) {
+    if (qed.pse > 2) {
       MPrintf(-1, "VP: %d %d %d %d %18.10E\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa, a);
     }
     r += a;      
@@ -6149,10 +6106,16 @@ int InitRadial(void) {
     potential->hxs = 0.0;
   }
   potential->mse = qed.mse;
+  if (qed.mse >= 1000) {
+    potential->hpvs = 1;
+    qed.mse = qed.mse%1000;
+  } else {
+    potential->hpvs = 0;
+  }
   potential->pse = qed.mse >= 140;
   qed.mse = qed.mse%100;
   potential->mvp = qed.vp;
-  potential->pvp = qed.vp > 100;
+  potential->pvp = qed.vp > 100;  
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();

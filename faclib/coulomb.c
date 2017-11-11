@@ -279,6 +279,22 @@ double Klamaq(int n, int k){
   return r;
 }
 
+double NucleusRMS(double z) {
+  int id, t, np, nx;
+  double rr;
+  
+  id = ((int)(0.5+z))-1;
+  if (id >= 0 && id < 110 && fabs(z-id-1)<1e-5) {
+    rr = _qed_rrms[id];
+  } else {
+    t = 1;
+    np = 3;
+    nx = 112;
+    UVIP3P(np, nx, _qed_za, _qed_rrms, t, &z, &rr);
+  }
+  return rr;
+}
+
 double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 			    ORBITAL *orb, ORBITAL *orbp) {
   int id, np = 3, nx = 12, m = 1, t, n, k, kl, md, mp;

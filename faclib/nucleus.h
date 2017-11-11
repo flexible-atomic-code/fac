@@ -24,8 +24,8 @@
 
 typedef struct _NUCLEUS_ {
   char symbol[5];
-  double atomic_number;
-  double mass;
+  double z0, atomic_number;
+  double m0, mass;
   double rn, z1, rms, rms0;
   double a, b, c;
   double rfermi[5];

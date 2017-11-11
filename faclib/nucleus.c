@@ -18,6 +18,7 @@
 
 #include "nucleus.h"
 #include "cf77.h"
+#include "coulomb.h"
 
 static char *rcsid="$Id: nucleus.c,v 1.14 2005/01/17 05:39:41 mfgu Exp $";
 #if __GNUC__ == 2
@@ -1051,26 +1052,38 @@ double DiffRRMS(double c, double a, double a2, double a3, double a4, double r2,
 
 int SetAtom(char *s, double z, double mass, double rn, double a) {
   int i;
-
-  if (s == NULL) return -1;
-  if (strlen(s) == 0) {
+  char un[3] = "Xx";
+  if (s == NULL || strlen(s) == 0) {
     if (z <= 0) {
       printf("atomic symbol and z cannot be both unset\n");
     }
     s = _ename[(int)(z-0.8)];
-  }
-  strncpy(atom.symbol, s, 2); 
-  if (z <= 0 || mass <= 0) {
-    for (i = 0; i < N_ELEMENTS; i++) {
-      if (strncasecmp(_ename[i], s, 2) == 0) {
-	if (z <= 0) atom.atomic_number = i+1;
-	if (mass <= 0) atom.mass = _emass[i];
-	break;
+  } else {
+    int iz = atoi(s);
+    if (iz > 0) {      
+      z = (double)iz;
+      if (iz <= N_ELEMENTS) {
+	s = _ename[iz-1];
+      } else {
+	s = un;
       }
     }
+  }
+  strncpy(atom.symbol, s, 2);
+  atom.z0 = 0;
+  atom.m0 = 0;
+  for (i = 0; i < N_ELEMENTS; i++) {
+    if (strncasecmp(_ename[i], s, 2) == 0) {
+      atom.z0 = i+1;
+      if (z <= 0) atom.atomic_number = i+1;
+      atom.m0 = _emass[i];
+      if (mass <= 0) atom.mass = _emass[i];
+      break;
+    }
+  }
+  if (z <= 0 || mass <= 0) {
     if (i == N_ELEMENTS) return -1;
   }
-
   if (z > 0) {
     atom.atomic_number = z;
   } 
@@ -1079,16 +1092,27 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
   }
   atom.rms0 = 1e-5*(0.570 + 0.836*pow(atom.mass,0.3333333333))/RBOHR;
   if (rn < 0.0) {
-    int iz = (int)(atom.atomic_number-1);
-    int ia = 1 + ((int)(atom.mass)) - 2*(iz+1);
-    if (ia >= 0 && ia < NISO) {
-      atom.rn = _errms[iz][ia]*1e-5/RBOHR;
-      atom.rms = atom.rn;
+    if (rn > -1.5) {
+      atom.rn = NucleusRMS(atom.atomic_number);
+    } else {
+      int iz = (int)(atom.atomic_number-1);
+      int ia = 1 + ((int)(atom.mass)) - 2*(iz+1);
+      if (ia >= 0 && ia < NISO) {
+	atom.rn = _errms[iz][ia];
+      }
+      if (atom.rn <= 0) {
+	if (rn > -2.5) {
+	  atom.rn = NucleusRMS(atom.atomic_number);
+	} else {
+	  atom.rn = 0.570 + 0.836*pow(atom.mass,0.3333333333);
+	}
+      }
     }
-    if (atom.rn <= 0) {
-      atom.rn = 1e-5*(0.570 + 0.836*pow(atom.mass,0.3333333333))/RBOHR;
-      atom.rms = atom.rn;
+    if (atom.mass != atom.m0 && atom.m0 > 0) {
+      atom.rn += 0.836*(pow(atom.mass,0.3333333)-pow(atom.m0,0.3333333));
     }
+    atom.rn *= 1e-5/RBOHR;
+    atom.rms = atom.rn;
   } else {
     atom.rn = rn;
     atom.rms = rn;
@@ -1157,8 +1181,9 @@ NUCLEUS *GetAtomicNucleus() {
 }
 
 void PrintNucleus() {
-  printf("%s z=%g m=%g r=%g z1=%g a=%g b=%g c=%g\n",
-	 atom.symbol, atom.atomic_number, atom.mass, atom.rn*1e5*RBOHR, atom.z1,
+  printf("%s z=%g m=%g r=%g/%g z1=%g a=%g b=%g c=%g\n",
+	 atom.symbol, atom.atomic_number, atom.mass,
+	 atom.rn, atom.rn*1e5*RBOHR, atom.z1,
 	 atom.a, atom.b, atom.c);
 }
 
