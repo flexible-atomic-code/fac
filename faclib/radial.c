@@ -3776,9 +3776,17 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   
   if (qed.se == -1000000) return 0.0;
   if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
+  if (orb1->energy < 0 && orb2->energy > 0) {
+    if (orb2->energy > -orb1->energy) return 0.0;
+  } else if (orb1->energy > 0 && orb2->energy < 0) {
+    if (orb1->energy > -orb2->energy) return 0.0;
+  } else if (orb1->energy > 0 && orb2->energy > 0) {
+    return 0.0;
+  }
+  //if (orb1->energy > 0 || orb2->energy > 0) return 0.0;
   if (potential->ib > 0 &&
       (orb1->n > potential->nb || orb2->n > potential->nb)) {
-    return 0.0;
+    if (ksc < 4) return 0;
   }
   if (orb1 != orb2) {
     if (ksc < 6) return 0.0;
@@ -3812,7 +3820,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       c = SelfEnergyRatio(orb1, orb);
       orb1->se = a*c;
       if (qed.pse) {
-	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, md=%d, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, qed.mse, c, orb1->se);
+	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, e0=%11.4E, md=%d, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, orb1->energy, qed.mse, c, orb1->se);
       }
       return orb1->se;
     }
@@ -3861,10 +3869,15 @@ double QED1E(int k0, int k1) {
   if (orb1->n <= 0 || orb2->n <= 0) {
     return 0.0;
   }
+  /*  
+  if (k0 != k1) {
+    a = QED1E(k0, k0);
+    c = QED1E(k1, k1);
+  } 
+  */
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     return 0.0;
-  }
-  
+  }  
   if (k0 > k1) {
     index[0] = k1;
     index[1] = k0;

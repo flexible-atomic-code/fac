@@ -317,8 +317,8 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	     orb->wfun, orb->wfun+pot->maxrp,
 	     orbp->wfun, orbp->wfun+pot->maxrp, &r);
       if(pse) {
-	MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E\n",
-		z, n, orbp->n, k, md0, mp, r);
+	MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E %11.4E %11.4E\n",
+		z, n, orbp->n, k, md0, mp, orb->energy, orbp->energy, r);
       }
       return r;
     }
@@ -462,7 +462,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   r0 = r*c;
   a = r0*scl;
   if (pse) {
-    MPrintf(-1, "SE: %g %d %2d %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
+    MPrintf(-1, "SE: %g %d %2d %11.4E %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, orb->energy, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
   }
   return a;
 }
