@@ -156,7 +156,7 @@
 */
 #define FINE_STRUCTURE_CONST  7.29735308E-3
 #define FINE_STRUCTURE_CONST2 5.32513620E-5
-#define AMU  1836.153
+#define AMU  1822.888486
 
 /* nucleus */
 #define N_ELEMENTS 118

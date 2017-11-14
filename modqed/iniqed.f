@@ -175,6 +175,7 @@ c          write( *,25) ni,n,let(l),jj_proj(ni),e,niter
 c          write(11,25) ni,n,let(l),jj_proj(ni),e,niter
 c25        format (i3,i4,a1,i2,'/2',f16.8,i9)
           call write_func(ni,p,q,2)
+c          write(*,*) r(1),p(1),q(1),r(50),p(50),q(50)
         enddo
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c        write( *,35)

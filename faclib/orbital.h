@@ -30,7 +30,7 @@ typedef struct _POTENTIAL_ {
   int r_core;
   int maxrp;
   int nmax;
-  int mse, pse, mvp, pvp, hpvs;
+  int nse, mse, pse, mvp, pvp, hpvs, hlike;
   double hxs, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double dZ[MAXRP], dZ2[MAXRP];
@@ -68,13 +68,14 @@ typedef struct _POTENTIAL_ {
 typedef struct _ORBITAL_ {
   int n;
   int kappa, kv;
-  double energy, se;
+  double energy, se, qed;
   double qr_norm;
   double *phase;
   double *wfun;
   double bqp0, bqp1;
   int ilast, im, idx;
   struct _ORBITAL_ *horb;
+  struct _ORBITAL_ *rorb;
 } ORBITAL;
 
 double *GetVEffective(void);

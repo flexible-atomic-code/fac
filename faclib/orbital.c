@@ -2266,7 +2266,7 @@ int SetPotentialVT(POTENTIAL *pot) {
     pot->dVT[0][i] = pot->dVc[i] + pot->dU[i];
     pot->dVT2[0][i] = pot->dVc2[i] + pot->dU2[i];
   }
-  if (pot->pvp) {
+  if (pot->pvp && pot->mvp) {
     for (i = 0; i < pot->maxrp; i++) {
       r = pot->rad[i];
       r2 = r*r;
@@ -2279,7 +2279,7 @@ int SetPotentialVT(POTENTIAL *pot) {
     }
   }
   
-  if (pot->pse) {
+  if (pot->pse && pot->nse) {
     for (k = 0; k < NKSEP; k++) {
       k1 = k+1;
       for (i = 0; i < pot->maxrp; i++) {

@@ -92,7 +92,7 @@ c--
            do i=1,ii
               q(i) = -q(i)
            enddo
-        endif
+        endif        
         dse=tint(0,p,q,cp,cq,r,v)
 ! matrix element of the Ueling potential
 c        due=sint(uehl,p,q,p,q,r,v)

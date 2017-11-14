@@ -60,7 +60,7 @@ int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
 int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
-void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p);
+void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
 void CopyPotentialOMP(int i);
@@ -68,6 +68,7 @@ double GetResidualZ(void);
 double GetRMax(void);
 
 /* solve the dirac equation for the given orbital */
+ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p);
 int SolveDirac(ORBITAL *orb);
 int WaveFuncTable(char *s, int n, int kappa, double e);
 

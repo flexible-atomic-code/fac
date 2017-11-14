@@ -2878,8 +2878,17 @@ included. The default is $10^{-6}$ if this routine is not called.
 \begin{fundesc}{SetAtom}{asym\opt{, z\opt{, m\opt{,r}}}}
 This function set the atomic element to \var{asym}, where \var{asym} is the
 standard elemental symbol. The nuclear charge \var{z}, atomic mass \var{m},
-and the nucleus radius of the element can be set optionally. If they are not
+and the nucleus radius of the element can be set optionally. The radius should
+be given in fm. If they are not
 set, the standard values are used.
+\end{fundesc}
+
+\begin{fundesc}{SetAtom}{z\opt{, m\opt{,r}}}
+This function set the nuclear charge \var{z}. The atomic symbol is looked up
+in the internal table. if \var{z} falls outside the valid range of 1 to 120,
+the atomic symbol is set to Xx. The tomic mass \var{m},
+and the nucleus radius of the element can be set optionally. The radius should
+be given in fm. If they are not set, the standard values are used.
 \end{fundesc}
 
 \begin{fundesc}{SetBoundary}{n\opt{, p, b}}

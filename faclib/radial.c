@@ -34,6 +34,7 @@ typedef struct _FLTARY_ {
 
 static POTENTIAL *potential;
 static POTENTIAL *hpotential;
+static POTENTIAL *rpotential;
 
 #define Large(orb) ((orb)->wfun)
 #define Small(orb) ((orb)->wfun + potential->maxrp)
@@ -63,7 +64,7 @@ static double _yk[MAXRP];
 static double _zk[MAXRP];
 static double _xk[MAXRP];
 
-#pragma omp threadprivate(potential,hpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+#pragma omp threadprivate(potential,hpotential,rpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -202,46 +203,53 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
-  SetHydrogenicPotential(hpotential, p);
+  SetReferencePotential(hpotential, p, 1);
+  SetReferencePotential(rpotential, p, 0);
   CopyPotentialOMP(0);
   return 0;
 }
 
-void SetHydrogenicPotential(POTENTIAL *h, POTENTIAL *p) {
+void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   int i, k;
-  memcpy(h, p, sizeof(POTENTIAL));
-  h->N = 1;
-  h->a = 0;
-  h->lambda = 0;
-  if (!p->hpvs) {
-    h->mse = 0;
-    h->pse = 0;
-    h->mvp = 0;
-    h->pvp = 0;
+  memcpy(h, p, sizeof(POTENTIAL));  
+  if (hlike) {
+    h->N = 1;
+    h->a = 0;
+    h->lambda = 0;
+    h->hlike = 1;
+  } else {
+    h->hlike = 0;
   }
+  h->nse = 0;
+  h->mse = 0;
+  h->pse = 0;
+  h->mvp = 0;
+  h->pvp = 0;
   for (i = 0; i < p->maxrp; i++) {
-    h->Vc[i] = 0;
-    h->dVc[i] = 0;
-    h->dVc2[i] = 0;
-    h->qdist[i] = 0;
-    h->U[i] = 0;
-    h->dU[i] = 0;
-    h->dU2[i] = 0;
-    h->W[i] = 0;
-    h->dW[i] = 0;
-    h->dW2[i] = 0;
-    if (!p->hpvs) {
-      h->ZVP[i] = 0;
-      h->dZVP[i] = 0;
-      h->dZVP2[i] = 0;
-      for (k = 0; k < NKSEP; k++) {
-	h->ZSE[k][i] = 0;
-	h->dZSE[k][i] = 0;
-	h->dZSE2[k][i] = 0;
-      }
+    if (hlike) {
+      h->Vc[i] = 0;
+      h->dVc[i] = 0;
+      h->dVc2[i] = 0;
+      h->qdist[i] = 0;
+      h->U[i] = 0;
+      h->dU[i] = 0;
+      h->dU2[i] = 0;
+      h->W[i] = 0;
+      h->dW[i] = 0;
+      h->dW2[i] = 0;
+    }
+    h->ZVP[i] = 0;
+    h->dZVP[i] = 0;
+    h->dZVP2[i] = 0;
+    for (k = 0; k < NKSEP; k++) {
+      h->ZSE[k][i] = 0;
+      h->dZSE[k][i] = 0;
+      h->dZSE2[k][i] = 0;
     }
   }
-  SetPotentialVc(h);
+  if (hlike) {
+    SetPotentialVc(h);
+  }
   SetPotentialVT(h);
 }
 
@@ -356,8 +364,10 @@ static void InitOrbitalData(void *p, int n) {
     d[i].bqp0 = 0;
     d[i].bqp1 = 0;
     d[i].se = 1e31;
+    d[i].qed = 0.0;
     d[i].kv = -1000000000;
     d[i].horb = NULL;
+    d[i].rorb = NULL;
   }
 }
 
@@ -636,11 +646,12 @@ void SetSE(int n, int m, int s, int p) {
     potential->pse = 0;
   }
   potential->mse = qed.mse;
+  potential->nse = qed.se;
 }
 
 void SetVP(int n) {
   qed.vp = n;
-  potential->mvp = qed.vp;
+  potential->mvp = qed.vp%100;
   potential->pvp = qed.vp > 100;
 }
 
@@ -1170,6 +1181,8 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 }
 
 void CopyPotentialOMP(int init) {
+  SetReferencePotential(hpotential, potential, 1);
+  SetReferencePotential(rpotential, potential, 0);
 #if USE_MPI == 2
   if (!MPIReady()) {
     InitializeMPI(0);
@@ -1191,6 +1204,14 @@ void CopyPotentialOMP(int init) {
       hpotential = malloc(sizeof(POTENTIAL));
     }
     memcpy(hpotential, &pot, sizeof(POTENTIAL));    
+  }
+  memcpy(&pot, rpotential, sizeof(POTENTIAL));
+#pragma omp parallel shared(pot)
+  {
+    if (init && MyRankMPI() != 0) {
+      rpotential = malloc(sizeof(POTENTIAL));
+    }
+    memcpy(rpotential, &pot, sizeof(POTENTIAL));    
   }
 #endif
 }
@@ -1257,7 +1278,8 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     SetOrbitalRGrid(potential);
   }
   SetPotentialZ(potential);
-  SetHydrogenicPotential(hpotential, potential);
+  SetReferencePotential(hpotential, potential, 1);
+  SetReferencePotential(rpotential, potential, 0);
   z = potential->Z[potential->maxrp-1];
   if (a > 0.0) z = z - a + 1;
   potential->a = 0.0;
@@ -1440,6 +1462,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
   fprintf(f, "#    idx = %d\n", k);
   ORBITAL *horb = orb->horb;
+  ORBITAL *rorb = orb->rorb;
   if (n != 0) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
@@ -1450,6 +1473,11 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
 	      (potential->Vc[i])*potential->rad[i],
 	      potential->U[i] * potential->rad[i],
 	      Large(orb)[i], Small(orb)[i]); 
+      if (rorb != NULL && rorb->wfun != NULL) {
+	fprintf(f, " %13.6E %13.6E", Large(rorb)[i], Small(rorb)[i]);
+      } else {
+	fprintf(f, " %13.6E %13.6E", 0.0, 0.0);
+      }
       if (horb != NULL && horb->wfun != NULL) {
 	fprintf(f, " %13.6E %13.6E\n", Large(horb)[i], Small(horb)[i]);
       } else {
@@ -3721,17 +3749,49 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   return b/a;
 }
 
+ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
+  ORBITAL *norb;
+  int ierr;
+
+  if (!p->hlike && !p->hpvs) {
+    return orb;
+  }
+  norb = (ORBITAL *) malloc(sizeof(ORBITAL));
+  InitOrbitalData(norb, 1);
+  norb->n = orb->n;
+  norb->kappa = orb->kappa;
+  p->flag = -1;
+  ierr = RadialSolver(norb, p);
+  if (ierr < 0) {
+    MPrintf(-1, "error in SolveAltOrbital: %d %d %d\n",
+	    ierr, norb->n, norb->kappa);
+  }
+  return norb;
+}
+
 double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   double a, c;
   int msc = qed.mse%10;
   int ksc = qed.mse/10;
   
   if (qed.se == -1000000) return 0.0;
+  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
+  if (potential->ib > 0 &&
+      (orb1->n > potential->nb || orb2->n > potential->nb)) {
+    return 0.0;
+  }
   if (orb1 != orb2) {
     if (ksc < 6) return 0.0;
     if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
     if (qed.se >= 0 && (orb1->n > qed.se || orb2->n > qed.se)) return 0.0;
-    a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, orb2);
+    if (orb1->rorb == NULL) {
+      orb1->rorb = SolveAltOrbital(orb1, rpotential);
+    }
+    if (orb2->rorb == NULL) {
+      orb2->rorb = SolveAltOrbital(orb2, rpotential);
+    }
+    a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential,
+			     orb1->rorb, orb2->rorb);
     return a;
   }  
   if (orb1->se < 0.999e31) return orb1->se;
@@ -3743,11 +3803,6 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
     orb1->se = 0.0;
     return 0.0;
   }
-  if (!(potential->ib <= 0 || orb1->n <= potential->nb)) {
-    orb1->se = 0.0;
-    return 0;
-  }
-  ORBITAL *horb;
   if (qed.sse > 0 && orb1->n > qed.sse) {
     int k = GetLFromKappa(orb1->kappa)/2;
     if (k < orb1->n-1) {
@@ -3762,29 +3817,23 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       return orb1->se;
     }
   }
+  if (orb1->rorb == NULL) {
+    orb1->rorb = SolveAltOrbital(orb1, rpotential);
+  }
   if (msc == 9 || fabs(potential->N-1)<1e-5) {
     c = 1.0;
   } else {
-    horb = orb1->horb;
-    if (horb == NULL) {
-      horb = (ORBITAL *) malloc(sizeof(ORBITAL));
-      InitOrbitalData(horb, 1); 
-      horb->n = orb1->n;
-      horb->kappa = orb1->kappa;
-      if (RadialBound(horb, hpotential) < 0) {
-	MPrintf(-1, "cannot solve hlike orbital for SE screening: %d %d\n",
-		horb->n, horb->kappa);      
-      }
-      orb1->horb = horb;
+    if (orb1->horb == NULL) {
+      orb1->horb = SolveAltOrbital(orb1, hpotential);
     }
-    if (horb->wfun == NULL) {
+    if (orb1->horb->wfun == NULL) {
       MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
-	      horb->n, horb->kappa);
+	      orb1->horb->n, orb1->horb->kappa);
       c = 1.0;
     }
-    c = SelfEnergyRatio(orb1, horb);
-  }
-  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1, NULL);
+    c = SelfEnergyRatio(orb1->rorb, orb1->horb);
+  }  
+  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1->rorb, NULL);
   return orb1->se;
 }
 
@@ -3801,7 +3850,7 @@ double QED1E(int k0, int k1) {
 
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
-
+  
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
     MPrintf(-1, "invalid orbital kv: %d %d %d\n",
@@ -3860,7 +3909,7 @@ double QED1E(int k0, int k1) {
     }
     r += a;
   }
-  if (!potential->pvp) {
+  if (!potential->pvp && potential->mvp) {
     for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = -potential->ZVP[i]/potential->rad[i];
     }
@@ -3872,6 +3921,7 @@ double QED1E(int k0, int k1) {
   }
   a = SelfEnergy(orb1, orb2);
   r += a;
+  orb1->qed = r;
   *p = r;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -6099,13 +6149,15 @@ int InitRadial(void) {
 		   MULTI_BLOCK6,MULTI_BLOCK6};
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
+  rpotential = malloc(sizeof(POTENTIAL));
   potential->mode = POTMODE;
   if ((potential->mode%10)%2 > 0) {
     potential->hxs = POTHXS;
   } else {
     potential->hxs = 0.0;
   }
-  potential->mse = qed.mse;
+  potential->hlike = 0;
+  potential->nse = qed.se;
   if (qed.mse >= 1000) {
     potential->hpvs = 1;
     qed.mse = qed.mse%1000;
@@ -6114,7 +6166,8 @@ int InitRadial(void) {
   }
   potential->pse = qed.mse >= 140;
   qed.mse = qed.mse%100;
-  potential->mvp = qed.vp;
+  potential->mse = qed.mse;
+  potential->mvp = qed.vp%100;
   potential->pvp = qed.vp > 100;  
   potential->flag = 0;
   potential->rb = 0;

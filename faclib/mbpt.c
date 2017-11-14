@@ -1625,21 +1625,21 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   }
 
   orb = GetOrbital(ks2[2]);
-  d1 = orb->energy + orb->qr_norm;
+  d1 = orb->energy + orb->qed;
   orb = GetOrbital(ks2[3]);
-  d1 += orb->energy + orb->qr_norm;
+  d1 += orb->energy + orb->qed;
   orb = GetOrbital(ks2[0]);
-  d1 -= orb->energy + orb->qr_norm;
+  d1 -= orb->energy + orb->qed;
   orb = GetOrbital(ks2[1]);
-  d1 -= orb->energy + orb->qr_norm;
+  d1 -= orb->energy + orb->qed;
   orb = GetOrbital(ks1[0]);
-  d2 = orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qed;
   orb = GetOrbital(ks1[1]);
-  d2 += orb->energy + orb->qr_norm;
+  d2 += orb->energy + orb->qed;
   orb = GetOrbital(ks1[2]);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   orb = GetOrbital(ks1[3]);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   /*
   d1 = GetOrbital(ks2[2])->energy + GetOrbital(ks2[3])->energy;
   d1 -= GetOrbital(ks2[0])->energy + GetOrbital(ks2[1])->energy;
@@ -1762,17 +1762,17 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
 
   orb = GetOrbital(ks[2]);
-  d1 = orb->energy + orb->qr_norm;
+  d1 = orb->energy + orb->qed;
   orb = GetOrbital(ks[3]);
-  d1 += orb->energy + orb->qr_norm;
+  d1 += orb->energy + orb->qed;
   orb = GetOrbital(ks[0]);
-  d1 -= orb->energy + orb->qr_norm;
+  d1 -= orb->energy + orb->qed;
   orb = GetOrbital(ks[1]);
-  d1 -= orb->energy + orb->qr_norm;
+  d1 -= orb->energy + orb->qed;
   orb = GetOrbital(k0);
-  d2 = orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qed;
   orb = GetOrbital(k1);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   /*
   d1 = GetOrbital(ks[2])->energy + GetOrbital(ks[3])->energy;
   d1 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
@@ -1904,13 +1904,13 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
 
   orb = GetOrbital(ks[2]);
-  d2 = orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qed;
   orb = GetOrbital(ks[3]);
-  d2 += orb->energy + orb->qr_norm;
+  d2 += orb->energy + orb->qed;
   orb = GetOrbital(ks[0]);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   orb = GetOrbital(ks[1]);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   /*
   d2 = GetOrbital(ks[2])->energy + GetOrbital(ks[3])->energy;
   d2 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
@@ -2073,13 +2073,13 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   }
 
   orb = GetOrbital(k3);
-  d1 = orb->energy + orb->qr_norm;
+  d1 = orb->energy + orb->qed;
   orb = GetOrbital(k2);
-  d1 -= orb->energy + orb->qr_norm;
+  d1 -= orb->energy + orb->qed;
   orb = GetOrbital(k0);
-  d2 = orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qed;
   orb = GetOrbital(k1);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   for (k = 0; k < mst; k++) {
     q0 = bst[k];
     q1 = kst[k];
@@ -2165,9 +2165,9 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   r2 *= sqrt(s[3].j+1.0);
 
   orb = GetOrbital(k3);
-  d2 = orb->energy + orb->qr_norm;
+  d2 = orb->energy + orb->qed;
   orb = GetOrbital(k2);
-  d2 -= orb->energy + orb->qr_norm;
+  d2 -= orb->energy + orb->qed;
   /*
   d2 = GetOrbital(k3)->energy - GetOrbital(k2)->energy;
   */
