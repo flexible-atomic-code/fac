@@ -3815,12 +3815,12 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
     int kv = IdxVT(orb2->kappa);
     if (kv <= 0) return 0;
     if (orb2->rfn < potential->rfn[kv-1] &&
-	orb2->energy > orb1->energy) return 0.0;
+	orb2->energy > -orb1->energy) return 0.0;
   } else if (orb1->energy > 0 && orb2->energy < 0) {
     int kv = IdxVT(orb1->kappa);
     if (kv <= 0) return 0.0;
     if (orb1->rfn < potential->rfn[kv-1] &&
-	orb1->energy > orb2->energy) return 0.0;
+	orb1->energy > -orb2->energy) return 0.0;
   } else if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   }
