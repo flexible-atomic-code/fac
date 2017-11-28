@@ -1458,6 +1458,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
   fprintf(f, "#     im = %4d\n", orb->im);
+  fprintf(f, "#    rfn = %15.8E\n", orb->rfn);
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
   fprintf(f, "#    idx = %d\n", k);
@@ -2528,7 +2529,7 @@ double CoulombEnergyShell(CONFIG *cfg, int i) {
 double AverageEnergyConfig(CONFIG *cfg) {
   int i, j, n, kappa, nq, np, kappap, nqp;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
-  double x, y, t, q, a, b, r, e;
+  double x, y, t, q, a, b, r, e, *v1, *v2;
  
   x = 0.0;
   for (i = 0; i < cfg->n_shells; i++) {
@@ -2537,14 +2538,22 @@ double AverageEnergyConfig(CONFIG *cfg) {
     kl = GetLFromKappa(kappa);
     j2 = GetJFromKappa(kappa);
     nq = (cfg->shells[i]).nq;
-    k = OrbitalIndex(n, kappa, 0.0);
-    
+    k = OrbitalIndex(n, kappa, 0.0);    
+    double am = AMU * GetAtomicMass();
     if (nq > 1) {
       t = 0.0;
       for (kk = 1; kk <= j2; kk += 1) {
 	y = 0;
+	if (kk == 1 && qed.sms) {
+	  v1 = Vinti(k, k);
+	} else {
+	  v1 = NULL;
+	}
 	if (IsEven(kk)) {
 	  Slater(&y, k, k, k, k, kk, 0);
+	}
+	if (v1) {
+	  y -= v1[1]*v1[0]/am;
 	}
 	if (qed.br < 0 || n <= qed.br) {
 	  int mbr = qed.mbr;
@@ -2563,7 +2572,6 @@ double AverageEnergyConfig(CONFIG *cfg) {
       b = 0.0;
     }
 
-    double am = AMU * GetAtomicMass();
     t = 0.0;
     for (j = 0; j < i; j++) {
       np = (cfg->shells[j]).n;
@@ -2580,12 +2588,21 @@ double AverageEnergyConfig(CONFIG *cfg) {
       for (kk = kkmin; kk <= kkmax; kk += 2) {
 	y = 0;
 	int kk2 = kk/2;
+	if (kk == 2 && qed.sms) {
+	  v1 = Vinti(k, kp);
+	  v2 = Vinti(kp, k);
+	} else {
+	  v1 = NULL;
+	  v2 = NULL;
+	}
 	if (IsEven((kl+klp+kk)/2)) {
 	  Slater(&y, k, kp, kp, k, kk2, 0);
-	  if (kk == 2 && qed.sms) {
-	    double v = Vinti(k, kp)*Vinti(kp, k);
-	    y -= v/am;
+	  if (v1 && v2) {
+	    y -= (v1[0]+v1[2])*v2[0]/am;
 	  }
+	}
+	if (v1 && v2) {
+	  y -= v1[1]*v2[0]/am;
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
 	  int mbr = qed.mbr;
@@ -3531,7 +3548,7 @@ double InterpolateMultipole(double aw, int n, double *x, double *y) {
 int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int t, kk, tt, maxn;
   int tmin, tmax;
-  double e, a, d, a1, a2, am;
+  double e, a, d, a1, a2, am, *v1, *v2;
   int err;
   int kl0, kl1, kl2, kl3;
   int k0, k1, k2, k3;
@@ -3630,17 +3647,25 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   if (js[2] <= 0) js[2] = GetJFromKappa(orb2->kappa);
   if (js[3] <= 0) js[3] = GetJFromKappa(orb3->kappa);  
 
-  am = AMU * GetAtomicMass();
+  am = AMU * potential->atom->mass;
   if (sd) {
     d = 0.0;
+    if (kk == 1 && qed.sms && maxn > 0) {
+      v1 = Vinti(k0, k2);
+      v2 = Vinti(k1, k3);
+    } else {
+      v1 = NULL;
+      v2 = NULL;
+    }
     if (Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
       if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk)) {	
 	err = Slater(&d, k0, k1, k2, k3, kk, mode);
-	if (kk == 1 && qed.sms && maxn > 0) {
-	  a1 = Vinti(k0, k2);
-	  a2 = Vinti(k1, k3);
-	  d -= a1 * a2 / am;
+	if (v1 && v2) {
+	  d -= (v1[0] + v1[2]) * v2[0]/am;
 	}
+      }
+      if (v1 && v2) {
+	d -= v1[1]*v2[0]/am;
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
@@ -3681,11 +3706,21 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     a = W6j(js[0], js[2], k, js[1], js[3], t);
     if (fabs(a) > EPS30) {
       e = 0.0;
+      if (t == 2 && qed.sms && maxn > 0) {
+	v1 = Vinti(k0, k3);
+	v2 = Vinti(k1, k2);
+      } else {
+	v1 = NULL;
+	v2 = NULL;
+      }
       if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
-	if (t == 2 && qed.sms && maxn > 0) {
-	  e -= Vinti(k0, k3) * Vinti(k1, k2) / am;
+	if (v1 && v2) {
+	  e -= (v1[0]+v1[2])*v2[0]/am;
 	}
+      }
+      if (v1 && v2) {
+	e -= v1[2]*v2[0]/am;
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
@@ -3775,15 +3810,20 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   int ksc = qed.mse/10;
   
   if (qed.se == -1000000) return 0.0;
-  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
+  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;  
   if (orb1->energy < 0 && orb2->energy > 0) {
-    if (orb2->energy > -orb1->energy) return 0.0;
+    int kv = IdxVT(orb2->kappa);
+    if (kv <= 0) return 0;
+    if (orb2->rfn < potential->rfn[kv-1] &&
+	orb2->energy > orb1->energy) return 0.0;
   } else if (orb1->energy > 0 && orb2->energy < 0) {
-    if (orb1->energy > -orb2->energy) return 0.0;
+    int kv = IdxVT(orb1->kappa);
+    if (kv <= 0) return 0.0;
+    if (orb1->rfn < potential->rfn[kv-1] &&
+	orb1->energy > orb2->energy) return 0.0;
   } else if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   }
-  //if (orb1->energy > 0 || orb2->energy > 0) return 0.0;
   if (potential->ib > 0 &&
       (orb1->n > potential->nb || orb2->n > potential->nb)) {
     if (ksc < 4) return 0;
@@ -3845,6 +3885,74 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   return orb1->se;
 }
 
+double RadialNMS(ORBITAL *orb1, ORBITAL *orb2, int kv) {
+  int i, k0, k1;
+  double a, r, r2, mass;
+  
+  if (qed.se == -1000000) return 0.0;  
+  if (qed.nms <= 0) return 0.0;
+  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
+  
+  mass = AMU*potential->atom->mass;
+  r = 0.0;
+  
+  if (qed.nms == 1) {
+    k0 = orb1->idx;
+    k1 = orb2->idx;
+    for (i = 0; i < potential->maxrp; i++) {
+      _yk[i] = potential->VT[kv][i];
+    }
+    a = 0.0;
+    Integrate(_yk, orb1, orb2, 1, &a, -1);
+    a = -a;
+    if (k0 == k1) a += orb1->energy;
+    a /= mass;
+    r = a;
+    for (i = 0; i < potential->maxrp; i++) {
+      _yk[i] = orb1->energy - potential->VT[kv][i];
+      _yk[i] *= orb2->energy - potential->VT[kv][i];
+    }
+    Integrate(_yk, orb1, orb2, 1, &a, -1);
+    a *= FINE_STRUCTURE_CONST2/(2.0 * mass);
+    r += a;
+  } else {
+    double *p1, *p2, *q1, *q2, az;
+    int m1, j2, k, kt;
+    m1 = Min(orb1->ilast, orb2->ilast);
+    p1 = Large(orb1);
+    p2 = Large(orb2);
+    q1 = Small(orb1);
+    q2 = Small(orb2);
+    GetJLFromKappa(orb1->kappa, &j2, &k);
+    k /= 2;
+    kt = j2-k;
+    DrLargeSmall(orb1, potential, _dwork1, _dwork3);
+    DrLargeSmall(orb2, potential, _dwork2, _dwork4);
+    for (i = 0; i <= m1; i++) {
+      _dwork[i] = _dwork1[i]*_dwork2[i];
+      _dwork[i] += _dwork3[i]*_dwork4[i];
+      r2 = potential->rad[i];
+      r2 *= r2;
+      a = p1[i]*p2[i]*k*(k+1.0) + q1[i]*q2[i]*kt*(kt+1.0);
+      _dwork[i] += a/r2;
+      if (qed.nms > 2) {
+	az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
+	a = 2*az*(q1[i]*_dwork2[i]+q2[i]*_dwork1[i]);
+	_dwork[i] += a;
+	a = az*(orb1->kappa-1)*(q1[i]*p2[i]+q2[i]*p1[i]);
+	_dwork[i] += a/potential->rad[i];
+      }
+      _dwork[i] *= potential->dr_drho[i];
+    }
+    r = Simpson(_dwork, 0, m1);
+    r /= 2*mass;
+  }  
+  if (qed.pse > 1) {
+    MPrintf(-1, "NMS: %d %d %d %d %d %18.10E %18.10E\n", qed.nms, orb1->n, orb1->kappa, orb2->n, orb2->kappa, mass, r);
+  }
+  return r;
+}
+
 double QED1E(int k0, int k1) {
   int i, kv;
   ORBITAL *orb1, *orb2;
@@ -3861,7 +3969,7 @@ double QED1E(int k0, int k1) {
   
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
-    MPrintf(-1, "invalid orbital kv: %d %d %d\n",
+    MPrintf(-1, "invalid orbital kv in RadialNMS: %d %d %d\n",
 	    orb1->n, orb1->kappa, orb1->kv);
     return 0.0;
   }
@@ -3869,12 +3977,6 @@ double QED1E(int k0, int k1) {
   if (orb1->n <= 0 || orb2->n <= 0) {
     return 0.0;
   }
-  /*  
-  if (k0 != k1) {
-    a = QED1E(k0, k0);
-    c = QED1E(k1, k1);
-  } 
-  */
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     return 0.0;
   }  
@@ -3901,27 +4003,8 @@ double QED1E(int k0, int k1) {
   if (orb1->kappa != orb2->kappa) {
     printf("dk: %d %d %d %d\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa);
   }
-  if (qed.nms > 0) {
-    for (i = 0; i < potential->maxrp; i++) {
-      _yk[i] = potential->VT[kv][i];
-    }
-    a = 0.0;
-    Integrate(_yk, orb1, orb2, 1, &a, -1);
-    a = -a;
-    if (k0 == k1) a += orb1->energy;
-    a /= (AMU * GetAtomicMass());
-    r += a;
-    for (i = 0; i < potential->maxrp; i++) {
-      _yk[i] = orb1->energy - potential->VT[kv][i];
-      _yk[i] *= orb2->energy - potential->VT[kv][i];
-    }
-    Integrate(_yk, orb1, orb2, 1, &a, -1);
-    a *= FINE_STRUCTURE_CONST2/(2.0 * AMU * GetAtomicMass());
-    if (qed.pse > 1) {
-      MPrintf(-1, "NMS: %d %d %d %d %18.10E\n", orb1->n, orb1->kappa, orb2->n, orb2->kappa, a);
-    }
-    r += a;
-  }
+  a = RadialNMS(orb1, orb2, kv);
+  r += a;
   if (!potential->pvp && potential->mvp) {
     for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = -potential->ZVP[i]/potential->rad[i];
@@ -3941,30 +4024,33 @@ double QED1E(int k0, int k1) {
   return r;
 }
 
-double Vinti(int k0, int k1) {
+double *Vinti(int k0, int k1) {
   int i;
   ORBITAL *orb1, *orb2;
   int index[2];
-  double *p, *large0, *small0, *large1, *small1;
-  int ka0, ka1;
-  double a, b, r;
+  double **p, *large0, *small0, *large1, *small1;
+  int ka0, ka1, m1;
+  double a, b;
 
-  if (qed.se == -1000000) return 0.0;  
+  if (qed.se == -1000000) {    
+    return NULL;
+  }
+
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
 
   if (orb1->n <= 0 || orb2->n <= 0) {
-    return 0.0;
+    return NULL;
   }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
-    return 0.0;
+    return NULL;
   }
   
   index[0] = k0;
   index[1] = k1;
   LOCK *lock = NULL;
-  p = (double *) MultiSet(vinti_array, index, NULL, &lock,
-			  InitDoubleData, NULL);
+  p = (double **) MultiSet(vinti_array, index, NULL, &lock,
+			   InitPointerData, NULL);
   int locked = 0;
   if (lock && !(p && *p)) {
     SetLock(lock);
@@ -3975,6 +4061,9 @@ double Vinti(int k0, int k1) {
     return *p;
   }
 
+  *p = (double *) malloc(sizeof(double)*3);
+  double *r = *p;
+  m1 = Min(orb1->ilast, orb2->ilast);
   ka0 = orb1->kappa;
   ka1 = orb2->kappa;
   large0 = Large(orb1);
@@ -3983,27 +4072,70 @@ double Vinti(int k0, int k1) {
   small1 = Small(orb2);
   a = 0.5*(ka0*(ka0+1.0) - ka1*(ka1+1.0));
   b = 0.5*(-ka0*(-ka0+1.0) + ka1*(-ka1+1.0));
-  r = 0.0;
+  DrLargeSmall(orb2, potential, _dwork1, _dwork2);  
+  for (i = 0; i <= m1; i++) {
+    _yk[i] = large0[i]*_dwork1[i] - a*large0[i]*large1[i]/potential->rad[i];
+    _yk[i] += small0[i]*_dwork2[i] - b*small0[i]*small1[i]/potential->rad[i];
+    _yk[i] *= potential->dr_drho[i];
+  }
+  r[0] = Simpson(_yk, 0, m1);
+  r[1] = r[2] = 0;  
+  if (qed.sms == 1) {
+    if (locked) ReleaseLock(lock);
+    return *p;
+  }
 
-  Differential(large1, _zk, 0, potential->maxrp-1);
-  for (i = 0; i < potential->maxrp; i++) {
-    _yk[i] = large0[i]*_zk[i] - a*large0[i]*large1[i]/potential->rad[i];
-    _yk[i] *= potential->dr_drho[i];
+  int j0, j1, kl0, kl1, kt0, kt1, kv;
+  double sd, sd1, sd2, az;
+  kv = orb1->kv;
+  if (kv < 0 || kv > NKSEP) {
+    MPrintf(-1, "invalid orbital kv in Vinti: %d %d %d\n",
+	    orb1->n, orb1->kappa, orb1->kv);
+    kv = 0;
   }
-  r += Simpson(_yk, 0, potential->maxrp-1);
-  
-  Differential(small1, _zk, 0, potential->maxrp-1);
-  for (i = 0; i < potential->maxrp; i++) {
-    _yk[i] = small0[i]*_zk[i] - b*small0[i]*small1[i]/potential->rad[i];
-    _yk[i] *= potential->dr_drho[i];
+  GetJLFromKappa(orb1->kappa, &j0, &kl0);
+  GetJLFromKappa(orb2->kappa, &j1, &kl1);
+  kt0 = 2*j0-kl0;
+  kt1 = 2*j1-kl1;
+  r[1] = 0;
+  if (kt0 == kl1 || kl0 == kt1) {
+    for (i = 0; i < potential->maxrp; i++) {
+      _yk[i] = 0;
+    }
+    sd = sqrt(6*(j0+1.0)*(j1+1.0));
+    if (kt0 == kl1) {
+      sd1 = sd*W6j(1, j0, kt0, j1, 1, 2);
+      if (IsEven((kt0+1+j0)/2)) sd1 = -sd1;
+      for (i = 0; i < potential->maxrp; i++) {
+	_yk[i] -= small0[i]*large1[i]*sd1;
+      }
+    }
+    if (kl0 == kt1) {
+      sd2 = sd*W6j(1, j0, kl0, j1, 1, 2);
+      if (IsEven((kl0+1+j0)/2)) sd2 = -sd2;
+      for (i = 0; i <= m1; i++) {
+	_yk[i] += small1[i]*large0[i]*sd2;
+      }
+    }
+    
+    for (i = 0; i <= m1; i++) {
+      az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
+      _yk[i] *= az*potential->dr_drho[i];
+    }
+    r[1] = -Simpson(_yk, 0, m1);
+    r[1] /= ReducedCL(j0, 2, j1);
   }
-  r += Simpson(_yk, 0, potential->maxrp-1);
   
-  *p = r;
+  for (i = 0; i <= m1; i++) {
+    _yk[i] = small0[i]*large1[i] - small1[i]*large0[i];
+    az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
+    _yk[i] *= az*potential->dr_drho[i];
+  }
+  r[2] = -Simpson(_yk, 0, m1);
 
   if(locked) ReleaseLock(lock);
 #pragma omp flush
-  return r;
+  return *p;
 }
 
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3) {
@@ -6219,7 +6351,7 @@ int InitRadial(void) {
   MultiInit(residual_array, sizeof(double), ndim, blocks, "residual_array");
 
   vinti_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(vinti_array, sizeof(double), ndim, blocks, "vinti_array");
+  MultiInit(vinti_array, sizeof(double *), ndim, blocks, "vinti_array");
 
   qed1e_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qed1e_array, sizeof(double), ndim, blocks, "qed1e_array");
@@ -6259,7 +6391,7 @@ int ReinitRadial(int m) {
   FreeBreitArray();
   FreeSimpleArray(residual_array);
   FreeSimpleArray(qed1e_array);
-  FreeSimpleArray(vinti_array);
+  MultiFreeData(vinti_array, NULL);
   FreeMultipoleArray();
   FreeMomentsArray();
   FreeYkArray();

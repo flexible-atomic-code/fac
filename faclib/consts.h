@@ -214,8 +214,8 @@
 #define QEDSE              5
 #define QEDMSE             1
 #define QEDVP              3
-#define QEDNMS             1
-#define QEDSMS             1
+#define QEDNMS             3
+#define QEDSMS             3
 #define QEDBREIT           10
 #define QEDMBREIT          1
 #define QEDNBREIT          5

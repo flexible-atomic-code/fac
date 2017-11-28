@@ -56,6 +56,7 @@ typedef struct _POTENTIAL_ {
   double ZVP[MAXRP];
   double dZVP[MAXRP];
   double dZVP2[MAXRP];
+  double rfn[NKSEP];
   double ZSE[NKSEP][MAXRP];
   double dZSE[NKSEP][MAXRP];
   double dZSE2[NKSEP][MAXRP];
@@ -74,6 +75,7 @@ typedef struct _ORBITAL_ {
   double *wfun;
   double bqp0, bqp1;
   int ilast, im, idx;
+  double rfn;
   struct _ORBITAL_ *horb;
   struct _ORBITAL_ *rorb;
 } ORBITAL;
@@ -90,7 +92,8 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);
-void Differential(double *p, double *dp, int i1, int i2);
+void Differential(double *p, double *dp, int i1, int i2, double *drdrho);
+void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double r0);
 int SetPotentialZ(POTENTIAL *pot);

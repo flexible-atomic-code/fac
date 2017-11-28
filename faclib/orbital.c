@@ -278,7 +278,8 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
   int ierr;
   int nm, km, k;
   double z;
-
+  
+  orb->rfn = 0;
   if (orb->n > 0) {
     if (orb->n == 1000000) {
       ierr = RadialFreeInner(orb, pot);
@@ -302,6 +303,16 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	} else {
 	  ierr = RadialRydberg(orb, pot);
 	}
+      }
+      for (k = 0; k < pot->maxrp; k++) {
+	if (pot->rad[k] > pot->atom->rms0) break;
+      }
+      for (; k < pot->maxrp; k++) {
+	if (orb->wfun[k] > 0 && orb->wfun[k+1] <= 0) break;
+	if (orb->wfun[k] < 0 && orb->wfun[k+1] >= 0) break;
+      }
+      if (k > 0) {
+	orb->rfn = pot->rad[k-1];
       }
     }
   } else if (orb->n == 0) {
@@ -336,7 +347,31 @@ int LastMaximum(double *p, int i1, int i2) {
   return i;
 } 
 
-void Differential(double *p, double *dp, int i1, int i2) {
+void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr) {
+  int i, kv;
+  double a = FINE_STRUCTURE_CONST;
+  double *p = orb->wfun;
+  double *q = orb->wfun+pot->maxrp;
+  double b, c;
+  
+  kv = orb->kv;
+  if (kv < 0 || kv > NKSEP) kv = 0;
+
+  for (i = 0; i <= orb->ilast; i++) {
+    b = a*(orb->energy - pot->VT[kv][i]);
+    c = orb->kappa/pot->rad[i];
+    pr[i] = (b+2.0/a)*q[i];
+    pr[i] -= p[i]*c;
+    qr[i] = -b*p[i];
+    qr[i] += q[i]*c;
+  }
+  for (i = orb->ilast+1; i < pot->maxrp; i++) {
+    pr[i] = 0;
+    qr[i] = 0;
+  }
+}
+
+void Differential(double *p, double *dp, int i1, int i2, double *drdrho) {
   double c = 1.0/24.0;
   double b;
   int i;
@@ -373,6 +408,9 @@ void Differential(double *p, double *dp, int i1, int i2) {
     b = 2.0*(p[i-2] - p[i+2]);
     b += 16.0*(p[i+1] - p[i-1]);
     dp[i] = b*c;
+  }
+  for (i = i1; i <= i2; i++) {
+    dp[i] /= drdrho[i];
   }
 }    
 
@@ -2203,14 +2241,8 @@ int SetPotentialZ(POTENTIAL *pot) {
     pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
   }
   if (pot->atom->rn > 0) {
-    Differential(pot->Z, pot->dZ, 0, pot->maxrp-1);
-    for (i = 0; i < pot->maxrp; i++) {
-      pot->dZ[i] /= pot->dr_drho[i];
-    }
-    Differential(pot->dZ, pot->dZ2, 0, pot->maxrp-1);
-    for (i = 0; i < pot->maxrp; i++) {
-      pot->dZ2[i] /= pot->dr_drho[i];
-    }
+    Differential(pot->Z, pot->dZ, 0, pot->maxrp-1, pot->dr_drho);
+    Differential(pot->dZ, pot->dZ2, 0, pot->maxrp-1, pot->dr_drho);
   } else {
     for (i = 0; i < pot->maxrp; i++) {
       pot->dZ[i] = 0;
@@ -2324,14 +2356,8 @@ int SetPotentialU(POTENTIAL *pot, int n, double *u) {
     }
   }
 
-  Differential(pot->U, pot->dU, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->dU[i] /= pot->dr_drho[i];
-  }
-  Differential(pot->dU, pot->dU2, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->dU2[i] /= pot->dr_drho[i];
-  }
+  Differential(pot->U, pot->dU, 0, pot->maxrp-1, pot->dr_drho);
+  Differential(pot->dU, pot->dU2, 0, pot->maxrp-1, pot->dr_drho);
   return 0;
 }
 
@@ -2361,14 +2387,8 @@ int SetPotentialW(POTENTIAL *pot, double e, int kappa, int k) {
     pot->W[i] = -pot->W[i];
   }
 
-  Differential(pot->W, pot->dW, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->dW[i] /= pot->dr_drho[i];
-  }
-  Differential(pot->dW, pot->dW2, 0, pot->maxrp-1);
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->dW2[i] /= pot->dr_drho[i];
-  }
+  Differential(pot->W, pot->dW, 0, pot->maxrp-1, pot->dr_drho);
+  Differential(pot->dW, pot->dW2, 0, pot->maxrp-1, pot->dr_drho);
   return 0;
 }
 
@@ -2533,17 +2553,14 @@ int SetPotentialSE(POTENTIAL *pot) {
   int i, j;
   for (i = 0; i < NKSEP; i++) {
     LOCSEP(i, pot->maxrp, pot->mqrho, pot->ZSE[i]);
-    Differential(pot->ZSE[i], pot->dZSE[i], 0, pot->maxrp-1);
+    Differential(pot->ZSE[i], pot->dZSE[i], 0, pot->maxrp-1, pot->dr_drho);
+    Differential(pot->dZSE[i], pot->dZSE2[i], 0, pot->maxrp-1, pot->dr_drho);
     for (j = 0; j < pot->maxrp; j++) {
-      pot->dZSE[i][j] /= pot->dr_drho[j];
-    }
-    Differential(pot->dZSE[i], pot->dZSE2[i], 0, pot->maxrp-1);
-    for (j = 0; j < pot->maxrp; j++) {
-      pot->dZSE2[i][j] /= pot->dr_drho[j];
       pot->ZSE[i][j] = -pot->ZSE[i][j];
       pot->dZSE[i][j] = -pot->dZSE[i][j];
       pot->dZSE2[i][j] = -pot->dZSE2[i][j];
-    }    
+    }
+    RADFND(i, &pot->rfn[i]);
   }
   return 0;
 }
@@ -2709,14 +2726,8 @@ int SetPotentialVP(POTENTIAL *pot) {
       pot->ZVP[i] = pot->dW2[i];
     }
   }
-  Differential(pot->ZVP, pot->dZVP, 0, m-1);
-  for (i = 0; i < m; i++) {
-    pot->dZVP[i] /= pot->dr_drho[i];
-  }
-  Differential(pot->dZVP, pot->dZVP2, 0, m-1);
-  for (i = 0; i < m; i++) {
-    pot->dZVP2[i] /= pot->dr_drho[i];
-  }
+  Differential(pot->ZVP, pot->dZVP, 0, m-1, pot->dr_drho);
+  Differential(pot->dZVP, pot->dZVP2, 0, m-1, pot->dr_drho);
   return 0;
 }
       

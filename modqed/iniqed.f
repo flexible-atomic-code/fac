@@ -117,6 +117,9 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
      &  /jj_proj/jj_proj(maxns)/kk_proj/kk_proj(maxns)
         common /de_qed0/de_qed0(maxns)
         common /qed_matrix/qed_matrix(maxns,maxns)
+        common /num_kappa/num_kappa
+        common /kk_se/kk_se(6)
+        common /rfn/rfn(6)
         character*16 output_filename
         character*1 let(11)
         data
@@ -129,6 +132,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         nmax=nmax0
         z = z0
         knucl = knucl0
+        nnm = 5
 c        write(*,*) nmax, z, knucl, nmax0, z0, knucl0
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c        print *,"input the nuclear charge Z"
@@ -152,6 +156,18 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         call segrid
         call nucl(maxii,r,unuc)
         call init_se
+        do ik = 1,num_kappa
+           kappa = kk_se(ik)
+           if (kappa .ne. 0) then
+              call dirac(nnm, kappa, p, q)
+              do ir=1,ii
+                 if (p(ir) .gt. 0 .and. p(ir+1) .le. 0) goto 10
+                 if (p(ir) .lt. 0 .and. p(ir+1) .ge. 0) goto 10
+              enddo
+ 10           rfn(ik) = r(ir-1)
+c              write(*,*) kappa, ik, ir, rfn(ik)
+           endif
+        enddo
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       Hydrogen like wave functions
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -259,6 +275,23 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 1000    return
         end
+      
+      subroutine radfnd(ik, rn)
+        implicit real*8 (a-h,o-z)
+c       - - - - - - - - - - - - - - - - - - - - - - - - -
+        include 'qedmod.inc'
+        common /num_kappa/num_kappa
+        common /kk_se/kk_se(6)
+        common /rfn/rfn(6)
+        rn = 0d0
+        il = ik+1
+        if (il .gt. 0 .and. il .le. num_kappa) then
+           rn = rfn(il)
+           return
+        endif        
+        return
+        end
+      
 c       =================================================
         subroutine write_func(ni,v1,v2,nrec)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
