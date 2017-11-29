@@ -3810,19 +3810,23 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   int ksc = qed.mse/10;
   
   if (qed.se == -1000000) return 0.0;
-  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;  
-  if (orb1->energy < 0 && orb2->energy > 0) {
-    int kv = IdxVT(orb2->kappa);
-    if (kv <= 0) return 0;
-    if (orb2->rfn < potential->rfn[kv-1] &&
-	orb2->energy > -orb1->energy) return 0.0;
-  } else if (orb1->energy > 0 && orb2->energy < 0) {
-    int kv = IdxVT(orb1->kappa);
-    if (kv <= 0) return 0.0;
-    if (orb1->rfn < potential->rfn[kv-1] &&
-	orb1->energy > -orb2->energy) return 0.0;
-  } else if (orb1->energy > 0 && orb2->energy > 0) {
+  if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
+  if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
+  } else {
+    if (orb1->energy < 0 && orb2->energy > 0) {
+      int kv = IdxVT(orb2->kappa);
+      if (kv <= 0) return 0;
+      double ae = 1.5/pow(kv*orb1->n,0.25);
+      if (orb2->rfn < potential->rfn[kv-1] &&
+	  orb2->energy > -ae*orb1->energy) return 0.0;
+    } else if (orb1->energy > 0 && orb2->energy < 0) {
+      int kv = IdxVT(orb1->kappa);
+      if (kv <= 0) return 0.0;
+      double ae = 1.5/pow(kv*orb2->n,0.25);
+      if (orb1->rfn < potential->rfn[kv-1] &&
+	  orb1->energy > -ae*orb2->energy) return 0.0;
+    }
   }
   if (potential->ib > 0 &&
       (orb1->n > potential->nb || orb2->n > potential->nb)) {

@@ -17,6 +17,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         character*7 GetState
 c        character*72 data_filename
         real*8 p(maxii),q(maxii) 
+        real*8 pd(maxii),qd(maxii) 
         real*8 cp(maxii),cq(maxii) 
 
         common /z/z     ! nuclear charge
@@ -27,6 +28,9 @@ c        character*72 data_filename
         common /uehl/uehl(maxii) ! Uehling potential on radial grid
         common /v_wk/v_wk(maxii) ! WK potential on radial grid
         common /cl/cl            ! speed of light
+        common /ns_proj/ns_proj
+        common /nn_proj/nn_proj(maxns)/ll_proj/ll_proj(maxns)
+     &  /jj_proj/jj_proj(maxns)/kk_proj/kk_proj(maxns)
 c
 c-
 c     Some constants
@@ -92,17 +96,29 @@ c--
            do i=1,ii
               q(i) = -q(i)
            enddo
-        endif        
-        dse=tint(0,p,q,cp,cq,r,v)
+c           do ni=1,ns_proj
+c              ki=kk_proj(ni)
+c              if (ki .eq. ka) then
+c                 call read_func(ni,pd,qd,2)
+c                 wi=tint(0,p,q,pd,qd,r,v)
+c                 dse=dse+wi*tint(0,pd,qd,cp,cq,r,v)
+c              endif
+c           enddo
+           dse=tint(0,p,q,cp,cq,r,v)
+        else     
+           dse=tint(0,p,q,cp,cq,r,v)
+           coef = cl/pi*alz**4/n0**3
+           dse = dse/coef
+        endif
 ! matrix element of the Ueling potential
 c        due=sint(uehl,p,q,p,q,r,v)
         
 ! matrix element of the Wichmann-Kroll potential
 c        dwk=sint(v_wk,p,q,p,q,r,v)*cl**2
-        if (n0 .eq. n1) then
-           coef = cl/pi*alz**4/n0**3
-           dse = dse/coef
-        endif
+c        if (n0 .eq. n1) then
+c           coef = cl/pi*alz**4/n0**3
+c           dse = dse/coef
+c        endif
 c        write( *,65) GetState(n,kappa)
 c     &       ,due/coef,dwk/coef,dse/coef
 c     &       ,(due+dwk+dse)/coef
