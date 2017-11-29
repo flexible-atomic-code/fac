@@ -3884,8 +3884,8 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       c = 1.0;
     }
     c = SelfEnergyRatio(orb1->rorb, orb1->horb);
-  }  
-  orb1->se = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential, orb1->rorb, NULL);
+  }
+  orb1->se = HydrogenicSelfEnergy(qed.nms*100+qed.mse, qed.pse, c, potential, orb1->rorb, NULL);
   return orb1->se;
 }
 
