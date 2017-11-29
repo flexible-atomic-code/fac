@@ -2552,8 +2552,12 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	if (IsEven(kk)) {
 	  Slater(&y, k, k, k, k, kk, 0);
 	}
-	if (v1) {
-	  y -= v1[1]*v1[0]/am;
+	if (v1 && qed.sms == 3) {
+	  double a1 = ReducedCL(j2, 2*kk, j2);
+	  if (fabs(a1) > 1e-10) {
+	    y += 0.25*v1[2]*v1[2]/(am*a1*a1);
+	  }	  
+	  y += 0.25*v1[1]*v1[1]/am;
 	}
 	if (qed.br < 0 || n <= qed.br) {
 	  int mbr = qed.mbr;
@@ -2597,12 +2601,26 @@ double AverageEnergyConfig(CONFIG *cfg) {
 	}
 	if (IsEven((kl+klp+kk)/2)) {
 	  Slater(&y, k, kp, kp, k, kk2, 0);
-	  if (v1 && v2) {
+	  if (v1 && v2) {	    
 	    y -= (v1[0]+v1[2])*v2[0]/am;
 	  }
 	}
 	if (v1 && v2) {
-	  y -= v1[1]*v2[0]/am;
+	  double a1 = ReducedCL(j2, kk, j2p);
+	  double a2 = ReducedCL(j2p, kk, j2);
+	  if (IsEven((kl+klp+kk)/2)) {
+	    y -= v1[1]*v2[0]/am;
+	    if (qed.sms == 3 && fabs(a1) > 1e-10) {
+	      y += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
+	    }
+	  } else {
+	    if (qed.sms == 3 && fabs(a1) > 1e-10) {
+	      y += 0.25*v1[2]*v2[2]/(am*a1*a2);
+	    }
+	  }
+	  if (qed.sms == 3) {
+	    y += 0.25*v1[1]*v2[1]/am;
+	  }
 	}
 	if (qed.br < 0 || maxn <= qed.br) {
 	  int mbr = qed.mbr;
@@ -3664,8 +3682,22 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	  d -= (v1[0] + v1[2]) * v2[0]/am;
 	}
       }
+      a1 = ReducedCL(js[0], k, js[2]);
+      a2 = ReducedCL(js[1], k, js[3]); 
       if (v1 && v2) {
-	d -= v1[1]*v2[0]/am;
+	if (IsEven((kl1+kl3)/2+kk)) {
+	  d -= v1[1]*v2[0]/am;
+	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
+	    d += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
+	  }
+	} else {
+	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
+	    d += 0.25*v1[2]*v2[2]/(am*a1*a2);
+	  }
+	}
+	if (qed.sms == 3) {
+	  d += 0.25*v1[1]*v2[1]/am;
+	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
@@ -3675,8 +3707,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 		   kl0, kl1, kl2, kl3, mbr);
       }
       if (d) {
-	a1 = ReducedCL(js[0], k, js[2]);
-	a2 = ReducedCL(js[1], k, js[3]); 
 	d *= a1*a2;      
 	if (k0 == k1 && k2 == k3) d *= 0.5;
       }
@@ -3719,8 +3749,22 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	  e -= (v1[0]+v1[2])*v2[0]/am;
 	}
       }
+      a1 = ReducedCL(js[0], t, js[3]); 
+      a2 = ReducedCL(js[1], t, js[2]);
       if (v1 && v2) {
-	e -= v1[2]*v2[0]/am;
+	if (IsEven((kl1+kl2+t)/2)) {
+	  e -= v1[2]*v2[0]/am;
+	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
+	    e += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
+	  } else {
+	    if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
+	      e += 0.25*v1[2]*v2[2]/(am*a1*a2);
+	    }
+	  }
+	  if (qed.sms == 3) {
+	    e += 0.25*v1[1]*v2[1]/am;
+	  }
+	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
 	int mbr = qed.mbr;
@@ -3730,8 +3774,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 		   kl0, kl1, kl3, kl2, mbr);
       }
       if (e) {
-	a1 = ReducedCL(js[0], t, js[3]); 
-	a2 = ReducedCL(js[1], t, js[2]);
 	e *= a * (k + 1.0) * a1 * a2;
 	if (IsOdd(t/2 + kk)) e = -e;
 	*se += e;
@@ -3814,16 +3856,24 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   } else {
+    double ae0, ae1, ae;
+    double ap = 1.5;
+    double a0 = 0.25;
+    double a1 = 0.5;
     if (orb1->energy < 0 && orb2->energy > 0) {
       int kv = IdxVT(orb2->kappa);
       if (kv <= 0) return 0;
-      double ae = 1.5/pow(kv*orb1->n,0.25);
+      ae0 = pow(kv, a0);
+      ae1 = pow(orb1->n, a1);
+      ae = ap/(ae0*ae1);
       if (orb2->rfn < potential->rfn[kv-1] &&
 	  orb2->energy > -ae*orb1->energy) return 0.0;
     } else if (orb1->energy > 0 && orb2->energy < 0) {
       int kv = IdxVT(orb1->kappa);
       if (kv <= 0) return 0.0;
-      double ae = 1.5/pow(kv*orb2->n,0.25);
+      ae0 = pow(kv, a0);
+      ae1 = pow(orb2->n, a1);
+      ae = ap/(ae0*ae1);
       if (orb1->rfn < potential->rfn[kv-1] &&
 	  orb1->energy > -ae*orb2->energy) return 0.0;
     }
@@ -3983,7 +4033,8 @@ double QED1E(int k0, int k1) {
   }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     return 0.0;
-  }  
+  }
+  
   if (k0 > k1) {
     index[0] = k1;
     index[1] = k0;
@@ -3991,6 +4042,7 @@ double QED1E(int k0, int k1) {
     index[0] = k0;
     index[1] = k1;
   }
+  
   LOCK *lock = NULL;
   p = (double *) MultiSet(qed1e_array, index, NULL, &lock,
 			  InitDoubleData, NULL);
@@ -4021,7 +4073,9 @@ double QED1E(int k0, int k1) {
   }
   a = SelfEnergy(orb1, orb2);
   r += a;
-  orb1->qed = r;
+  if (k0 == k1) {
+    orb1->qed = r;
+  }
   *p = r;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -4090,7 +4144,7 @@ double *Vinti(int k0, int k1) {
   }
 
   int j0, j1, kl0, kl1, kt0, kt1, kv;
-  double sd, sd1, sd2, az;
+  double sd, sd1, sd2, az, ac;
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
     MPrintf(-1, "invalid orbital kv in Vinti: %d %d %d\n",
@@ -4103,31 +4157,33 @@ double *Vinti(int k0, int k1) {
   kt1 = 2*j1-kl1;
   r[1] = 0;
   if (kt0 == kl1 || kl0 == kt1) {
-    for (i = 0; i < potential->maxrp; i++) {
-      _yk[i] = 0;
-    }
-    sd = sqrt(6*(j0+1.0)*(j1+1.0));
-    if (kt0 == kl1) {
-      sd1 = sd*W6j(1, j0, kt0, j1, 1, 2);
-      if (IsEven((kt0+1+j0)/2)) sd1 = -sd1;
+    ac = ReducedCL(j0, 2, j1);
+    if (fabs(ac) > 1e-10) {
       for (i = 0; i < potential->maxrp; i++) {
-	_yk[i] -= small0[i]*large1[i]*sd1;
+	_yk[i] = 0;
       }
-    }
-    if (kl0 == kt1) {
-      sd2 = sd*W6j(1, j0, kl0, j1, 1, 2);
-      if (IsEven((kl0+1+j0)/2)) sd2 = -sd2;
+      sd = sqrt(6*(j0+1.0)*(j1+1.0));
+      if (kt0 == kl1) {
+	sd1 = sd*W6j(1, j0, kt0, j1, 1, 2);
+	if (IsEven((kt0+1+j0)/2)) sd1 = -sd1;
+	for (i = 0; i < potential->maxrp; i++) {
+	  _yk[i] -= small0[i]*large1[i]*sd1;
+	}
+      }
+      if (kl0 == kt1) {
+	sd2 = sd*W6j(1, j0, kl0, j1, 1, 2);
+	if (IsEven((kl0+1+j0)/2)) sd2 = -sd2;
+	for (i = 0; i <= m1; i++) {
+	  _yk[i] += small1[i]*large0[i]*sd2;
+	}
+      }    
       for (i = 0; i <= m1; i++) {
-	_yk[i] += small1[i]*large0[i]*sd2;
+	az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
+	_yk[i] *= az*potential->dr_drho[i];
       }
+      r[1] = -Simpson(_yk, 0, m1);
+      r[1] /= ac;
     }
-    
-    for (i = 0; i <= m1; i++) {
-      az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
-      _yk[i] *= az*potential->dr_drho[i];
-    }
-    r[1] = -Simpson(_yk, 0, m1);
-    r[1] /= ReducedCL(j0, 2, j1);
   }
   
   for (i = 0; i <= m1; i++) {
