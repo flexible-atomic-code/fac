@@ -322,8 +322,8 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	       orbp->wfun, orbp->wfun+pot->maxrp, &r);
       }
       if(pse) {
-	MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E %11.4E %11.4E\n",
-		z, n, orbp->n, k, md0, mp, orb->energy, orbp->energy, r);
+	MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E\n",
+		z, n, orbp->n, k, md0, mp, orb->energy, orbp->energy, orb->qed, orbp->qed, r);
       }
       return r;
     }

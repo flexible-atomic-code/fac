@@ -3668,14 +3668,14 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   am = AMU * potential->atom->mass;
   if (sd) {
     d = 0.0;
-    if (kk == 1 && qed.sms && maxn > 0) {
-      v1 = Vinti(k0, k2);
-      v2 = Vinti(k1, k3);
-    } else {
-      v1 = NULL;
-      v2 = NULL;
-    }
     if (Triangle(js[0], js[2], k) && Triangle(js[1], js[3], k)) {
+      if (kk == 1 && qed.sms && maxn > 0) {
+	v1 = Vinti(k0, k2);
+	v2 = Vinti(k1, k3);
+      } else {
+	v1 = NULL;
+	v2 = NULL;
+      }
       if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk)) {	
 	err = Slater(&d, k0, k1, k2, k3, kk, mode);
 	if (v1 && v2) {
@@ -3687,11 +3687,19 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       if (v1 && v2) {
 	if (IsEven((kl1+kl3)/2+kk)) {
 	  d -= v1[1]*v2[0]/am;
-	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
-	    d += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
+	  if (qed.sms == 3 &&
+	      fabs(a1)>1e-10 &&
+	      fabs(a2)>1e-10 &&
+	      kl0 == kl2 && js[0] == js[2]) {
+	    d += ((0.25*(kl1==kl3 && js[1]==js[3]))+0.5*a2) *
+	      v1[2]*v2[2]/(am*a1*a2);
 	  }
 	} else {
-	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
+	  if (qed.sms == 3 &&
+	      fabs(a1)>1e-10 &&
+	      fabs(a2)>1e-10 &&
+	      kl0 == kl2 && js[0] == js[2] &&
+	      kl1 == kl3 && js[1] == js[3]) {
 	    d += 0.25*v1[2]*v2[2]/(am*a1*a2);
 	  }
 	}
@@ -3754,16 +3762,24 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       if (v1 && v2) {
 	if (IsEven((kl1+kl2+t)/2)) {
 	  e -= v1[2]*v2[0]/am;
-	  if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
-	    e += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
-	  } else {
-	    if (qed.sms == 3 && fabs(a1)>1e-10 && fabs(a2)>1e-10) {
-	      e += 0.25*v1[2]*v2[2]/(am*a1*a2);
-	    }
+	  if (qed.sms == 3 &&
+	      fabs(a1)>1e-10 &&
+	      fabs(a2)>1e-10 &&
+	      kl0 == kl3 && js[0] == js[3]) {
+	    e += ((0.25*(kl1==kl2&&js[1]==js[2]))+0.5*a2) *
+	      v1[2]*v2[2]/(am*a1*a2);
 	  }
-	  if (qed.sms == 3) {
-	    e += 0.25*v1[1]*v2[1]/am;
+	} else {
+	  if (qed.sms == 3 &&
+	      fabs(a1)>1e-10 &&
+	      fabs(a2)>1e-10 &&
+	      kl0 == kl3 && js[0] == js[3] &&
+	      kl1 == kl2 && js[1] == js[2]) {
+	    e += 0.25*v1[2]*v2[2]/(am*a1*a2);
 	  }
+	}
+	if (qed.sms == 3) {
+	  e += 0.25*v1[1]*v2[1]/am;
 	}
       }
       if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
