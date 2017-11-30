@@ -728,7 +728,8 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 
 static PyObject *PSetSE(PyObject *self, PyObject *args) {
   int c, m, s, p;
-
+  double o;
+  
   if (sfac_file) {
     SFACStatement("SetSE", args, NULL);
     Py_INCREF(Py_None);
@@ -736,11 +737,12 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
   }
 
   m = -1;
+  o = -1;
   s = -1;
   p = -1;
-  if (!PyArg_ParseTuple(args, "i|iii", &c, &m, &s, &p))
+  if (!PyArg_ParseTuple(args, "i|idii", &c, &m, &o, &s, &p))
     return NULL;
-  SetSE(c, m, s, p);
+  SetSE(c, m, o, s, p);
   Py_INCREF(Py_None);
   return Py_None;
 }

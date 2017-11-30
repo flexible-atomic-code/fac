@@ -57,6 +57,7 @@ typedef struct _POTENTIAL_ {
   double dZVP[MAXRP];
   double dZVP2[MAXRP];
   double rfn[NKSEP];
+  int nfn[NKSEP];
   double ZSE[NKSEP][MAXRP];
   double dZSE[NKSEP][MAXRP];
   double dZSE2[NKSEP][MAXRP];
@@ -69,7 +70,7 @@ typedef struct _POTENTIAL_ {
 typedef struct _ORBITAL_ {
   int n;
   int kappa, kv;
-  double energy, se, qed;
+  double energy, se, ose, qed;
   double qr_norm;
   double *phase;
   double *wfun;

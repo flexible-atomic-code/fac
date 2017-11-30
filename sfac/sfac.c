@@ -2327,22 +2327,27 @@ static int PSetRRTEGrid(int argc, char *argv[], int argt[],
 static int PSetSE(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
   int c, m, s, p;
+  double o;
 
-  if (argc < 1 || argc > 4) return -1;
+  if (argc < 1 || argc > 5) return -1;
   c = atoi(argv[0]);
   m = -1;
+  o = -1;
   s = -1;
   p = -1;
   if (argc > 1) {
     m = atoi(argv[1]);
     if (argc > 2) {
-      s = atoi(argv[2]);
+      o = atof(argv[2]);
       if (argc > 3) {
-	p = atoi(argv[3]);
+	s = atoi(argv[3]);
+	if (argc > 4) {
+	  p = atoi(argv[4]);
+	}
       }
     }
   }
-  SetSE(c, m, s, p);
+  SetSE(c, m, o, s, p);
   
   return 0;
 }
