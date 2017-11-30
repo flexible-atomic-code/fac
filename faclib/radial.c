@@ -429,6 +429,11 @@ int FreeGOSArray(void) {
   return 0;
 }
 
+int FreeVintiArray(void) {
+  MultiFreeData(vinti_array, FreeMultipole);
+  return 0;
+}
+
 int FreeBreitArray(void) {
   FreeSimpleArray(breit_array);
   FreeSimpleArray(wbreit_array);
@@ -3114,7 +3119,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
     ef = 0.0;
   }
 
-  *p1 = (double *) malloc(sizeof(double)*n_awgrid);
+  double *pt = (double *) malloc(sizeof(double)*n_awgrid);
   
   npts = potential->maxrp-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
@@ -3125,7 +3130,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   for (i = 0; i < n_awgrid; i++) {
     r = 0.0;
     a = awgrid[i];
-    (*p1)[i] = 0.0;
+    pt[i] = 0.0;
     if (ef > 0.0) a += ef;
     if (m > 0) {
       t = kappa1 + kappa2;
@@ -3139,7 +3144,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	r *= t;
 	r *= (2*m + 1.0)/sqrt(m*(m+1.0));
 	r /= pow(a, m);
-	(*p1)[i] = r*rcl;
+	pt[i] = r*rcl;
       }
     } else {
       if (gauge == G_COULOMB) {
@@ -3166,7 +3171,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	}
 	r += rp;
 	if (am > 1) r /= pow(a, am-1);
-	(*p1)[i] = r*rcl;
+	pt[i] = r*rcl;
       } else if (gauge == G_BABUSHKIN) {
 	t = kappa1 - kappa2;
 	for (j = 0; j < npts; j++) {
@@ -3191,7 +3196,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	q /= pow(a, am);
 	r *= q;
 	rp *= q;
-	(*p1)[i] = (r+rp)*rcl;
+	pt[i] = (r+rp)*rcl;
       }
     }
   }
@@ -3202,7 +3207,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   rad_timing.radial_1e += stop - start;
 #endif
 
-  *p0 = *p1;
+  *p0 = *p1 = pt;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return n_awgrid;
@@ -3311,8 +3316,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
     if (locked) ReleaseLock(lock);
     return r;
   }
-  *p1 = (double *) malloc(sizeof(double)*n_awgrid);
-  
+  double *pt = (double *) malloc(sizeof(double)*n_awgrid);  
   npts = potential->maxrp-1;
   if (orb1->n > 0) npts = Min(npts, orb1->ilast);
   if (orb2->n > 0) npts = Min(npts, orb2->ilast);
@@ -3322,7 +3326,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   for (i = 0; i < n_awgrid; i++) {
     r = 0.0;
     a = awgrid[i];
-    (*p1)[i] = 0.0;
+    pt[i] = 0.0;
     if (ef > 0.0) a += ef;
     if (m > 0) {
       t = kappa1 + kappa2;
@@ -3336,7 +3340,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 	r *= t;
 	r *= (2*m + 1.0)/sqrt(m*(m+1.0));
 	r /= pow(a, m);
-	(*p1)[i] = r;
+	pt[i] = r;
       }
     } else {
       if (gauge == G_COULOMB) {
@@ -3363,7 +3367,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 	}
 	r += rp;
 	if (am > 1) r /= pow(a, am-1);
-	(*p1)[i] = r;
+	pt[i] = r;
       } else if (gauge == G_BABUSHKIN) {
 	t = kappa1 - kappa2;
 	for (j = 0; j < npts; j++) {
@@ -3388,12 +3392,12 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 	q /= pow(a, am);
 	r *= q;
 	rp *= q;
-	(*p1)[i] = r+rp;
+	pt[i] = r+rp;
       }
     }
   }
 
-  r = InterpolateMultipole(aw, n_awgrid, awgrid, *p1);
+  r = InterpolateMultipole(aw, n_awgrid, awgrid, pt);
   if (gauge == G_COULOMB && m < 0) r /= aw;
   r *= rcl;
 
@@ -3401,6 +3405,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   stop = clock();
   rad_timing.radial_1e += stop - start;
 #endif
+  *p1 = pt;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return r;
@@ -3441,14 +3446,15 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   }
 
   nk = NGOSK;
-  *p = (double *) malloc(sizeof(double)*nk*2);
-  kg = *p + nk;
+  double *pt = (double *) malloc(sizeof(double)*nk*2);
+  kg = pt + nk;
 
   if (orb1->wfun == NULL || orb2->wfun == NULL || 
       (orb1->n <= 0 && orb2->n <= 0)) {
     for (t = 0; t < nk*2; t++) {
-      (*p)[t] = 0.0;
+      pt[t] = 0.0;
     }
+    *p = pt;
     if (locked) ReleaseLock(lock);
 #pragma omp flush
     return *p;
@@ -3506,7 +3512,7 @@ double *GeneralizedMoments(int k1, int k2, int m) {
       }
       r = Simpson(_dphase, 0, n1);
       
-      (*p)[t] = (r - r0)/k;
+      pt[t] = (r - r0)/k;
     }
   } else {
     if (orb1->n > 0) n1 = orb1->ilast;
@@ -3518,9 +3524,10 @@ double *GeneralizedMoments(int k1, int k2, int m) {
 	_yk[i] = BESLJN(jy, m, x);
       }
       Integrate(_yk, orb1, orb2, 1, &r, 0);
-      (*p)[t] = r/k;
+      pt[t] = r/k;
     }
   }
+  *p = pt;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return *p;
@@ -4124,19 +4131,19 @@ double *Vinti(int k0, int k1) {
   index[1] = k1;
   LOCK *lock = NULL;
   p = (double **) MultiSet(vinti_array, index, NULL, &lock,
-			   InitPointerData, NULL);
+			   InitPointerData, FreeMultipole);
   int locked = 0;
-  if (lock && !(p && *p)) {
+  if (lock && !(*p)) {
     SetLock(lock);
     locked = 1;
   }
-  if (p && *p) {
+  if (*p) {
     if (locked) ReleaseLock(lock);
     return *p;
   }
 
-  *p = (double *) malloc(sizeof(double)*3);
-  double *r = *p;
+  double *r;
+  r = (double *) malloc(sizeof(double)*3);
   m1 = Min(orb1->ilast, orb2->ilast);
   ka0 = orb1->kappa;
   ka1 = orb2->kappa;
@@ -4155,8 +4162,9 @@ double *Vinti(int k0, int k1) {
   r[0] = Simpson(_yk, 0, m1);
   r[1] = r[2] = 0;  
   if (qed.sms == 1) {
+    *p = r;
     if (locked) ReleaseLock(lock);
-    return *p;
+    return r;
   }
 
   int j0, j1, kl0, kl1, kt0, kt1, kv;
@@ -4208,7 +4216,7 @@ double *Vinti(int k0, int k1) {
     _yk[i] *= az*potential->dr_drho[i];
   }
   r[2] = -Simpson(_yk, 0, m1);
-
+  *p = r;
   if(locked) ReleaseLock(lock);
 #pragma omp flush
   return *p;
@@ -6467,9 +6475,9 @@ int ReinitRadial(int m) {
   FreeBreitArray();
   FreeSimpleArray(residual_array);
   FreeSimpleArray(qed1e_array);
-  MultiFreeData(vinti_array, NULL);
   FreeMultipoleArray();
   FreeMomentsArray();
+  FreeVintiArray();
   FreeYkArray();
   if (m < 2) {
     FreeGOSArray();
