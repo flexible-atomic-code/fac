@@ -746,7 +746,7 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetModSE(PyObject *self, PyObject *args) {
-  double o0, o1, a0, a1
+  double o0, o1, a0, a1;
   
   if (sfac_file) {
     SFACStatement("SetModSE", args, NULL);
