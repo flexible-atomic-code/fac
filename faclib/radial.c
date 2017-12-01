@@ -88,7 +88,6 @@ static struct {
 static struct {
   int se;
   int mse;
-  double ose;
   int sse;
   int pse;
   int vp;
@@ -98,8 +97,9 @@ static struct {
   int mbr;
   int nbr;
   double xbr;
-} qed = {QEDSE, QEDMSE, 0.5, 0, 0, QEDVP, QEDNMS, QEDSMS,
-	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.05};
+  double ose0, ose1, ase0, ase1;
+} qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
+	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.05, 0.25, 3.0, 0, 0.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
@@ -489,8 +489,9 @@ void SetPotentialMode(int m, double h) {
 }
 
 void PrintQED() {
-  MPrintf(0, "SE: %d %d %g %d %d %d\n", qed.se, qed.mse, qed.ose,
+  MPrintf(0, "SE: %d %d %d %d %d\n", qed.se, qed.mse,
 	  potential->pse, qed.sse, qed.pse);
+  MPrintf(0, "MSE: %g %g %g %g\n", qed.ose0, qed.ose1, qed.ase0, qed.ase1);
   MPrintf(0, "VP: %d %d\n", qed.vp, potential->pvp);
   MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
   MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
@@ -636,10 +637,9 @@ int RadialOverlaps(char *fn, int kappa) {
   return 0;
 }
   
-void SetSE(int n, int m, double o, int s, int p) {
+void SetSE(int n, int m, int s, int p) {
   qed.se = n;
   if (m >= 0) qed.mse = m%100;
-  if (o > -1) qed.ose = o;
   if (s >= 0) qed.sse = s;
   if (p >= 0) qed.pse = p;
   if (m >= 1000) {
@@ -655,6 +655,23 @@ void SetSE(int n, int m, double o, int s, int p) {
   }
   potential->mse = qed.mse;
   potential->nse = qed.se;
+}
+
+void SetModSE(double ose0, double ose1, double ase0, double ase1) {
+  qed.ose0 = ose0;
+  qed.ose1 = ose1;
+  if (ase0 >= 0) {
+    qed.ase0 = ase0;
+  } else {
+    if (qed.ose1 >= qed.ose0 && qed.ose0 >= 0) qed.ase0 = 0.0;
+    else qed.ase0 = 0.25;
+  }
+  if (ase1 >= 0) {    
+    qed.ase1 = ase1;
+  } else {
+    if (qed.ose1 >= qed.ose0 && qed.ose0 >= 0) qed.ase1 = 0.5;
+    else qed.ase1 = 0.5;
+  }
 }
 
 void SetVP(int n) {
@@ -3884,11 +3901,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   } else {
-    double ae0, ae1, ae;
-    double ap = 1.5;
-    double a0 = 0.25;
-    double a1 = 0.5;
-    double ose = -1.0;
+    double ae0, ae1, ae, a0, a1, ose;
     int nb0 = potential->nb+1;
     int kv = IdxVT(orb1->kappa);
     if (kv <= 0) return 0;
@@ -3906,19 +3919,20 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
     } else if (nb0 < potential->nfn[kv-1]) {
       nb0 = potential->nfn[kv-1];
     }
-    if (qed.ose >= 0) {
-      a0 = 0.05;
-      a1 = 0.5;
-      ae0 = pow(kv, a0);
-      ae1 = pow(nm, a1);
+    if (qed.ose0 >= 0 && qed.ose1 > qed.ose0) {
+      a0 = qed.ase0;
+      a1 = qed.ase1;
+      ae0 = a0>0?pow(kv, a0):1.0;
+      ae1 = a1>0?pow(nm, a1):1.0;
       ae = pow(NKSEP,a0)*pow(nb0,a1);
-      ose = Min(3.0, qed.ose);
-      ose += (3.0-ose)*(ae0*ae1-1.0)/(ae-1.0);
+      ose = qed.ose0 + (qed.ose1-qed.ose0)*(ae0*ae1-1.0)/(ae-1.0);
     } else {
+      a0 = qed.ase0;
+      a1 = qed.ase1;
       ose = -1.0;
-      ae0 = pow(kv, a0);
-      ae1 = pow(nm, a1);
-      ae = ap/(ae0*ae1); 
+      ae0 = a0>0?pow(kv, a0):1.0;
+      ae1 = a1>0?pow(nm, a1):1.0;
+      ae = fabs(qed.ose0)/(ae0*ae1); 
     }
     orb0 = NULL;
     if (orb1->n < nb0 && orb2->n >= nb0) {
@@ -3931,7 +3945,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 	}
       } else {
 	if (orb2->rfn < potential->rfn[kv-1] &&
-	    orb2->energy > -(ap/ae)*orb1->energy) return 0.0;
+	    orb2->energy > -ae*orb1->energy) return 0.0;
       }
     } else if (orb1->n >= nb0 && orb2->energy < nb0) {
       if (ose >= 0) {
@@ -3943,7 +3957,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 	}	
       } else {
 	if (orb1->rfn < potential->rfn[kv-1] &&
-	    orb1->energy > -(ap/ae)*orb2->energy) return 0.0;
+	    orb1->energy > -ae*orb2->energy) return 0.0;
       }
     }
   }

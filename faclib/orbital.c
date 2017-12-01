@@ -2561,6 +2561,7 @@ int SetPotentialSE(POTENTIAL *pot) {
       pot->dZSE2[i][j] = -pot->dZSE2[i][j];
     }
     RADFND(i, &pot->rfn[i]);
+    pot->nfn[i] = 0;
   }
   return 0;
 }

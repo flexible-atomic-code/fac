@@ -728,7 +728,6 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 
 static PyObject *PSetSE(PyObject *self, PyObject *args) {
   int c, m, s, p;
-  double o;
   
   if (sfac_file) {
     SFACStatement("SetSE", args, NULL);
@@ -737,12 +736,29 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
   }
 
   m = -1;
-  o = -1;
   s = -1;
   p = -1;
-  if (!PyArg_ParseTuple(args, "i|idii", &c, &m, &o, &s, &p))
+  if (!PyArg_ParseTuple(args, "i|iii", &c, &m, &s, &p))
     return NULL;
-  SetSE(c, m, o, s, p);
+  SetSE(c, m, s, p);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetModSE(PyObject *self, PyObject *args) {
+  double o0, o1, a0, a1
+  
+  if (sfac_file) {
+    SFACStatement("SetModSE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  a0 = -1;
+  a1 = -1;
+  if (!PyArg_ParseTuple(args, "dd|dd", &o0, &o1, &a0, &a1))
+    return NULL;
+  SetModSE(o0, o1, a0, a1);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -5320,6 +5336,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
+  {"SetModSE", PSetModSE, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},

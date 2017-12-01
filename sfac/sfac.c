@@ -2327,27 +2327,42 @@ static int PSetRRTEGrid(int argc, char *argv[], int argt[],
 static int PSetSE(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
   int c, m, s, p;
-  double o;
 
-  if (argc < 1 || argc > 5) return -1;
+  if (argc < 1 || argc > 4) return -1;
   c = atoi(argv[0]);
   m = -1;
-  o = -1;
   s = -1;
   p = -1;
   if (argc > 1) {
     m = atoi(argv[1]);
     if (argc > 2) {
-      o = atof(argv[2]);
+      s = atoi(argv[2]);
       if (argc > 3) {
-	s = atoi(argv[3]);
-	if (argc > 4) {
-	  p = atoi(argv[4]);
-	}
+	p = atoi(argv[3]);
       }
     }
   }
-  SetSE(c, m, o, s, p);
+  SetSE(c, m, s, p);
+  
+  return 0;
+}
+
+static int PSetModSE(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  double o0, o1, a0, a1;
+
+  if (argc < 2 || argc > 4) return -1;
+  o0 = atof(argv[0]);
+  o1 = atof(argv[1]);
+  a0 = -1;
+  a1 = -1;
+  if (argc > 2) {
+    a0 = atof(argv[1]);
+    if (argc > 2) {
+      a1 = atof(argv[3]);
+    }
+  }
+  SetModSE(o0, o1, a0, a1);
   
   return 0;
 }
@@ -4029,6 +4044,7 @@ static METHOD methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
+  {"SetModSE", PSetModSE, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
