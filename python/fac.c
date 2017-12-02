@@ -746,7 +746,7 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetModSE(PyObject *self, PyObject *args) {
-  double o0, o1, a0, a1;
+  double o0, o1, a0, a1, c0, c1, c;
   
   if (sfac_file) {
     SFACStatement("SetModSE", args, NULL);
@@ -756,9 +756,12 @@ static PyObject *PSetModSE(PyObject *self, PyObject *args) {
 
   a0 = -1;
   a1 = -1;
-  if (!PyArg_ParseTuple(args, "dd|dd", &o0, &o1, &a0, &a1))
+  c0 = -1;
+  c1 = -1;
+  c = -1;
+  if (!PyArg_ParseTuple(args, "dd|dddd", &o0, &o1, &a0, &a1, &c0, &c1, &c))
     return NULL;
-  SetModSE(o0, o1, a0, a1);
+  SetModSE(o0, o1, a0, a1, c0, c1, c);
   Py_INCREF(Py_None);
   return Py_None;
 }
