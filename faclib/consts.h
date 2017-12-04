@@ -112,7 +112,8 @@
 ** PURPOSE:     1 Hartree in eV.
 ** NOTE:        
 */
-#define HARTREE_EV 27.2113962 
+#define HARTREE_EV 27.211386018
+#define RYDBERG_EV 13.605693009
 
 /*
 ** VARIABLE:    RATE_AU, RATE_AU10, RATE_AU12
