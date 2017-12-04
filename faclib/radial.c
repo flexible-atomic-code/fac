@@ -100,7 +100,7 @@ static struct {
   double ose0, ose1, ase0, ase1, cse0, cse1, ise;
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
-	 0.5, 0.5, 0.25, 0.5, 0.06, 0.06, 1.25};
+	 0.5, 0.75, 0.0, 0.0, 0.06, 0.06, 1.25};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
@@ -3910,58 +3910,62 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   } else {
-    double ae0, ae1, ae, a0, a1, ose;
+    double ae0, ae1, ae, a0, a1, ose, eb0;
+    int idx, nb0;
     int kv = IdxVT(orb1->kappa);
     if (kv <= 0) return 0;
-    double eb0 = fabs(Min(orb1->energy, orb2->energy));
-    a0 = qed.ase0;
-    a1 = qed.ase1;
-    ae0 = a0>0?pow(kv, a0):1.0;
-    ae1 = a1>0?pow(nm, a1):1.0;
-    ae = qed.ose1/(ae0*ae1);
-    eb0 *= ae;
-    ose = qed.ose0;
-    int idx;
-    int nb0 = potential->nb+1;
-    if (potential->nfn[kv-1] <= 0) {
-      for (;;nb0++) {
-	idx = OrbitalIndex(nb0, orb1->kappa, 0);
-	orb0 = GetOrbitalSolved(idx);
-	if (orb0->energy > eb0) break;
-	if (orb0->rfn < potential->rfn[kv-1]) break;
-      }
-      potential->nfn[kv-1] = nb0;
-    } else if (nb0 < potential->nfn[kv-1]) {
-      nb0 = potential->nfn[kv-1];
-    }
-    orb0 = NULL;
-    if (orb1->n < nb0 && orb2->n >= nb0) {
-      if (ose >= 0) {
-	an = eb0/orb2->energy;
-	an = Min(1.0, an);
-	an = ose>0?pow(an, ose):1.0;
-	if (orb2->n > nb0) {
-	  int idx = OrbitalIndex(nb0, orb2->kappa, 0);
-	  orb2 = GetOrbitalSolved(idx);
+    if (potential->ib > 0 && potential->nb > 0) {
+      eb0 = fabs(Min(orb1->energy, orb2->energy));
+      a0 = qed.ase0;
+      a1 = qed.ase1;
+      ae0 = a0>0?pow(kv, a0):1.0;
+      ae1 = a1>0?pow(nm, a1):1.0;
+      ae = qed.ose1/(ae0*ae1);
+      eb0 *= ae;
+      ose = qed.ose0;
+      nb0 = potential->nb+1;
+      int nk = 1+GetLFromKappa(orb1->kappa)/2;
+      if (nb0 < nk) nb0 = nk;
+      if (potential->nfn[kv-1] <= 0) {
+	for (;;nb0++) {
+	  idx = OrbitalIndex(nb0, orb1->kappa, 0);
+	  orb0 = GetOrbitalSolved(idx);
+	  if (orb0->energy > eb0) break;
+	  if (orb0->rfn < potential->rfn[kv-1]) break;
 	}
-	orb0 = orb1;
-      } else {
-	if (orb2->rfn < potential->rfn[kv-1] &&
-	    orb2->energy > eb0) return 0.0;
+	potential->nfn[kv-1] = nb0;
+      } else if (nb0 < potential->nfn[kv-1]) {
+	nb0 = potential->nfn[kv-1];
       }
-    } else if (orb1->n >= nb0 && orb2->n < nb0) {
-      if (ose >= 0) {
-	an = eb0/orb1->energy;
-	an = Min(1.0, an);
-	an = ose>0?pow(an, ose):1.0;
-	if (orb1->n > nb0) {
-	  int idx = OrbitalIndex(nb0, orb1->kappa, 0);
-	  orb1 = GetOrbitalSolved(idx);
+      orb0 = NULL;
+      if (orb1->n < nb0 && orb2->n >= nb0) {
+	if (ose >= 0) {
+	  an = eb0/orb2->energy;
+	  an = Min(1.0, an);
+	  an = ose>0?pow(an, ose):1.0;
+	  if (orb2->n > nb0) {
+	    int idx = OrbitalIndex(nb0, orb2->kappa, 0);
+	    orb2 = GetOrbitalSolved(idx);
+	  }
+	  orb0 = orb1;
+	} else {
+	  if (orb2->rfn < potential->rfn[kv-1] &&
+	      orb2->energy > eb0) return 0.0;
 	}
-	orb0 = orb2;
-      } else {
-	if (orb1->rfn < potential->rfn[kv-1] &&
-	    orb1->energy > eb0) return 0.0;
+      } else if (orb1->n >= nb0 && orb2->n < nb0) {
+	if (ose >= 0) {
+	  an = eb0/orb1->energy;
+	  an = Min(1.0, an);
+	  an = ose>0?pow(an, ose):1.0;
+	  if (orb1->n > nb0) {
+	    int idx = OrbitalIndex(nb0, orb1->kappa, 0);
+	    orb1 = GetOrbitalSolved(idx);
+	  }
+	  orb0 = orb2;
+	} else {
+	  if (orb1->rfn < potential->rfn[kv-1] &&
+	      orb1->energy > eb0) return 0.0;
+	}
       }
     }
   }
