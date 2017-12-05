@@ -97,10 +97,12 @@ static struct {
   int mbr;
   int nbr;
   double xbr;
-  double ose0, ose1, ase0, ase1, cse0, cse1, ise;
+  double ose0, ose1;
+  double cse0, cse1, ise;
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
-	 0.5, 0.75, 0.0, 0.0, 0.06, 0.06, 1.25};
+	 0.75, 1.0,
+	 0.05, 0.05, 1.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
@@ -492,9 +494,8 @@ void SetPotentialMode(int m, double h) {
 void PrintQED() {
   MPrintf(0, "SE: %d %d %d %d %d\n", qed.se, qed.mse,
 	  potential->pse, qed.sse, qed.pse);
-  MPrintf(0, "MSE: %g %g %g %g %g %g %g\n",
-	  qed.ose0, qed.ose1, qed.ase0, qed.ase1,
-	  qed.cse0, qed.cse1, qed.ise);
+  MPrintf(0, "MSE: %g %g %g %g %g\n",
+	  qed.ose0, qed.ose1, qed.cse0, qed.cse1, qed.ise);
   MPrintf(0, "VP: %d %d\n", qed.vp, potential->pvp);
   MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
   MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
@@ -661,16 +662,9 @@ void SetSE(int n, int m, int s, int p) {
 }
 
 void SetModSE(double ose0, double ose1,
-	      double ase0, double ase1,
 	      double cse0, double cse1, double ise) {
   qed.ose0 = ose0;
   qed.ose1 = ose1;
-  if (ase0 >= 0) {
-    qed.ase0 = ase0;
-  }
-  if (ase1 >= 0) {    
-    qed.ase1 = ase1;
-  }
   if (cse0 > 0) {
     qed.cse0 = cse0;
   }
@@ -3910,32 +3904,29 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   } else {
-    double ae0, ae1, ae, a0, a1, ose, eb0;
+    double ae, ose, eb0;
     int idx, nb0;
     int kv = IdxVT(orb1->kappa);
     if (kv <= 0) return 0;
+    int kv1 = kv-1;
     if (potential->ib > 0 && potential->nb > 0) {
       eb0 = fabs(Min(orb1->energy, orb2->energy));
-      a0 = qed.ase0;
-      a1 = qed.ase1;
-      ae0 = a0>0?pow(kv, a0):1.0;
-      ae1 = a1>0?pow(nm, a1):1.0;
-      ae = qed.ose1/(ae0*ae1);
+      ae = qed.ose1;
       eb0 *= ae;
       ose = qed.ose0;
       nb0 = potential->nb+1;
       int nk = 1+GetLFromKappa(orb1->kappa)/2;
       if (nb0 < nk) nb0 = nk;
-      if (potential->nfn[kv-1] <= 0) {
+      if (potential->nfn[kv1] <= 0) {
 	for (;;nb0++) {
 	  idx = OrbitalIndex(nb0, orb1->kappa, 0);
 	  orb0 = GetOrbitalSolved(idx);
 	  if (orb0->energy > eb0) break;
-	  if (orb0->rfn < potential->rfn[kv-1]) break;
+	  if (orb0->rfn < potential->rfn[kv1]) break;
 	}
-	potential->nfn[kv-1] = nb0;
-      } else if (nb0 < potential->nfn[kv-1]) {
-	nb0 = potential->nfn[kv-1];
+	potential->nfn[kv1] = nb0;
+      } else if (nb0 < potential->nfn[kv1]) {
+	nb0 = potential->nfn[kv1];
       }
       orb0 = NULL;
       if (orb1->n < nb0 && orb2->n >= nb0) {
@@ -3949,7 +3940,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 	  }
 	  orb0 = orb1;
 	} else {
-	  if (orb2->rfn < potential->rfn[kv-1] &&
+	  if (orb2->rfn < potential->rfn[kv1] &&
 	      orb2->energy > eb0) return 0.0;
 	}
       } else if (orb1->n >= nb0 && orb2->n < nb0) {
@@ -3963,7 +3954,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
 	  }
 	  orb0 = orb2;
 	} else {
-	  if (orb1->rfn < potential->rfn[kv-1] &&
+	  if (orb1->rfn < potential->rfn[kv1] &&
 	      orb1->energy > eb0) return 0.0;
 	}
       }
