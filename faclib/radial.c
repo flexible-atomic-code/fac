@@ -101,7 +101,7 @@ static struct {
   double cse0, cse1, ise;
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
-	 1.0, 1.0, 1.0,
+	 1.0, 1.0, 1.5,
 	 0.05, 0.05, 1.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
@@ -1889,7 +1889,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   int k, i, md;
   double e0;
 
-  if (optimize_control.disable_config_energy > 1) return 0;
+  if (optimize_control.disable_config_energy == 1) return 0;
   md = optimize_control.disable_config_energy;
   if (m == 0) {
     if (ng == 0) {
@@ -2680,7 +2680,8 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
       a = QED1E(k, k);
       r = nq * (b + t + e + a + y);      
     } else {
-      a = QED1E(k, k);
+      ORBITAL *orb = GetOrbitalSolved(k);
+      a = SelfEnergy(orb, orb);
       r = nq * a;
     }
     x += r;         

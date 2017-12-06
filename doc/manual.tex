@@ -3042,9 +3042,8 @@ variable \key{QKMODE}.
 
 \begin{fundesc}{SetDisableConfigEnergy}{m}
 if \var{m} is 1, the \key{ConfigEnergy} function calls are disabled even if
-they are invoked explicitly in the script. The energy corrections introduced
-by these calls are not always desirable. They are disabled by default since
-FAC version 1.1.4. 
+they are invoked explicitly in the script. If 2, the energy shift only
+includes that of the self energy correction.
 \end{fundesc}
 
 \begin{fundesc}{SetFields}{b, e, a\opt{, m}}
