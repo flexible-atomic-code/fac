@@ -310,6 +310,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   mm = md0/100;
   md0 = md0%100;
   md = md0/10;
+  r = 0.0;
   rr = 0.0;
   rms = 0.0;
   if (md != 2) {
