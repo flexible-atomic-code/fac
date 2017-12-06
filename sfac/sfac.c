@@ -2349,25 +2349,26 @@ static int PSetSE(int argc, char *argv[], int argt[],
 
 static int PSetModSE(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
-  double o0, o1, c0, c1, c;
+  double o0, o1, a, c0, c1, c;
 
-  if (argc < 2 || argc > 5) return -1;
+  if (argc < 3 || argc > 6) return -1;
   o0 = atof(argv[0]);
   o1 = atof(argv[1]);
+  a = atof(argv[2]);
   c0 = -1;
   c1 = -1;
   c = -1;
-  if (argc > 2) {
-    c0 = atof(argv[2]);
-    if (argc > 3) {
-      c1 = atof(argv[3]);
-      if (argc > 4) {
-	c = atof(argv[4]);
+  if (argc > 3) {
+    c0 = atof(argv[3]);
+    if (argc > 4) {
+      c1 = atof(argv[4]);
+      if (argc > 5) {
+	c = atof(argv[5]);
       }
     }
   }
 
-  SetModSE(o0, o1, c0, c1, c);
+  SetModSE(o0, o1, a, c0, c1, c);
   
   return 0;
 }

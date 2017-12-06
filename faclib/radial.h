@@ -53,7 +53,7 @@ int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
 void SetPotentialMode(int m, double h);
 void SetSE(int n, int m, int s, int p);
-void SetModSE(double ose0, double ose1, 
+void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
 void SetVP(int n);
 void SetBreit(int n, int m, int n0, double x0);
@@ -110,9 +110,11 @@ double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);
 double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2);
 int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
+double TotalEnergyGroupMode(int kg, int md);
 double ZerothEnergyConfig(CONFIG *cfg);
 double ZerothResidualConfig(CONFIG *cfg);
 double AverageEnergyConfig(CONFIG *cfg);
+double AverageEnergyConfigMode(CONFIG *cfg, int md);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1);
 

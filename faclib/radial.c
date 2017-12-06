@@ -97,11 +97,11 @@ static struct {
   int mbr;
   int nbr;
   double xbr;
-  double ose0, ose1;
+  double ose0, ose1, ase;
   double cse0, cse1, ise;
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
-	 0.75, 1.0,
+	 1.0, 1.0, 1.0,
 	 0.05, 0.05, 1.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
@@ -494,8 +494,8 @@ void SetPotentialMode(int m, double h) {
 void PrintQED() {
   MPrintf(0, "SE: %d %d %d %d %d\n", qed.se, qed.mse,
 	  potential->pse, qed.sse, qed.pse);
-  MPrintf(0, "MSE: %g %g %g %g %g\n",
-	  qed.ose0, qed.ose1, qed.cse0, qed.cse1, qed.ise);
+  MPrintf(0, "MSE: %g %g %g %g %g %g\n",
+	  qed.ose0, qed.ose1, qed.ase, qed.cse0, qed.cse1, qed.ise);
   MPrintf(0, "VP: %d %d\n", qed.vp, potential->pvp);
   MPrintf(0, "MS: %d %d\n", qed.nms, qed.sms);
   MPrintf(0, "BR: %d %d %d %g\n", qed.br, qed.mbr, qed.nbr, qed.xbr);
@@ -661,10 +661,11 @@ void SetSE(int n, int m, int s, int p) {
   potential->nse = qed.se;
 }
 
-void SetModSE(double ose0, double ose1,
+void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise) {
   qed.ose0 = ose0;
   qed.ose1 = ose1;
+  qed.ase = ase;
   if (cse0 > 0) {
     qed.cse0 = cse0;
   }
@@ -1885,10 +1886,11 @@ int FreeContinua(double e) {
 int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
-  int k, i;
+  int k, i, md;
   double e0;
 
-  if (optimize_control.disable_config_energy) return 0;
+  if (optimize_control.disable_config_energy > 1) return 0;
+  md = optimize_control.disable_config_energy;
   if (m == 0) {
     if (ng == 0) {
       ng = GetNumGroups();
@@ -1896,7 +1898,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	OptimizeRadial(1, &k, NULL);
 	if (mr > 0) RefineRadial(mr, 0);
 	g = GetGroup(k);
-	e0 = TotalEnergyGroup(k);
+	e0 = TotalEnergyGroupMode(k, md);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = e0;
@@ -1909,7 +1911,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (mr) RefineRadial(mr, 0);
       for (k = 0; k < ng; k++) {
 	g = GetGroup(kg[k]);
-	e0 = TotalEnergyGroup(kg[k]);
+	e0 = TotalEnergyGroupMode(kg[k], md);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  if (cfg->energy == 0) {
@@ -1924,7 +1926,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
     ng = GetNumGroups();
     for (k = 0; k < ng; k++) {
       g = GetGroup(k);
-      e0 = TotalEnergyGroup(k);
+      e0 = TotalEnergyGroupMode(k, md);
       for (i = 0; i < g->n_cfgs; i++) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	if (cfg->energy != 0) {
@@ -1936,8 +1938,12 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   return 0;
 }
 
-/* calculate the total configuration average energy of a group. */
 double TotalEnergyGroup(int kg) {
+  return TotalEnergyGroupMode(kg, 0);
+}
+
+/* calculate the total configuration average energy of a group. */
+double TotalEnergyGroupMode(int kg, int md) {
   CONFIG_GROUP *g;
   ARRAY *c;
   CONFIG *cfg;
@@ -1951,7 +1957,7 @@ double TotalEnergyGroup(int kg) {
   g->sweight = 0.0;
   for (t = 0; t < g->n_cfgs; t++) {
     cfg = (CONFIG *) ArrayGet(c, t);
-    a = AverageEnergyConfig(cfg);
+    a = AverageEnergyConfigMode(cfg, md);
     total_energy += a*cfg->sweight;
     g->sweight += cfg->sweight;
   }
@@ -2551,9 +2557,13 @@ double CoulombEnergyShell(CONFIG *cfg, int i) {
   
   return r;
 }
-  
-/* calculate the average energy of a configuration */
+
 double AverageEnergyConfig(CONFIG *cfg) {
+  return AverageEnergyConfigMode(cfg, 0);
+}
+
+/* calculate the average energy of a configuration */
+double AverageEnergyConfigMode(CONFIG *cfg, int md) {
   int i, j, n, kappa, nq, np, kappap, nqp;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
   double x, y, t, q, a, b, r, e, *v1, *v2;
@@ -2565,110 +2575,114 @@ double AverageEnergyConfig(CONFIG *cfg) {
     kl = GetLFromKappa(kappa);
     j2 = GetJFromKappa(kappa);
     nq = (cfg->shells[i]).nq;
-    k = OrbitalIndex(n, kappa, 0.0);    
-    double am = AMU * GetAtomicMass();
-    if (nq > 1) {
-      t = 0.0;
-      for (kk = 1; kk <= j2; kk += 1) {
-	y = 0;
-	if (kk == 1 && qed.sms) {
-	  v1 = Vinti(k, k);
-	} else {
-	  v1 = NULL;
-	}
-	if (IsEven(kk)) {
-	  Slater(&y, k, k, k, k, kk, 0);
-	}
-	if (v1 && qed.sms == 3) {
-	  double a1 = ReducedCL(j2, 2*kk, j2);
-	  if (fabs(a1) > 1e-10) {
-	    y += 0.25*v1[2]*v1[2]/(am*a1*a1);
-	  }	  
-	  y += 0.25*v1[1]*v1[1]/am;
-	}
-	if (qed.br < 0 || n <= qed.br) {
-	  int mbr = qed.mbr;
-	  if (qed.nbr > 0 && n > qed.nbr) mbr = 0;
-	  y += Breit(k, k, k, k, kk, kappa, kappa, kappa, kappa,
-		     kl, kl, kl, kl, mbr);
-	}
-	if (y) {
-	  q = W3j(j2, 2*kk, j2, -1, 0, 1);
-	  t += y * q * q ;
-	}
-      }
-      Slater(&y, k, k, k, k, 0, 0);
-      b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
-    } else {
-      b = 0.0;
-    }
-
-    t = 0.0;
-    for (j = 0; j < i; j++) {
-      np = (cfg->shells[j]).n;
-      kappap = (cfg->shells[j]).kappa;
-      klp = GetLFromKappa(kappap);
-      j2p = GetJFromKappa(kappap);
-      nqp = (cfg->shells[j]).nq;
-      kp = OrbitalIndex(np, kappap, 0.0);
-      kkmin = abs(j2 - j2p);
-      kkmax = (j2 + j2p);
-      int maxn = Max(n, np);
-      //if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
-      a = 0.0;
-      for (kk = kkmin; kk <= kkmax; kk += 2) {
-	y = 0;
-	int kk2 = kk/2;
-	if (kk == 2 && qed.sms) {
-	  v1 = Vinti(k, kp);
-	  v2 = Vinti(kp, k);
-	} else {
-	  v1 = NULL;
-	  v2 = NULL;
-	}
-	if (IsEven((kl+klp+kk)/2)) {
-	  Slater(&y, k, kp, kp, k, kk2, 0);
-	  if (v1 && v2) {	    
-	    y -= (v1[0]+v1[2])*v2[0]/am;
-	  }
-	}
-	if (v1 && v2) {
-	  double a1 = ReducedCL(j2, kk, j2p);
-	  double a2 = ReducedCL(j2p, kk, j2);
-	  if (IsEven((kl+klp+kk)/2)) {
-	    y -= v1[1]*v2[0]/am;
-	    if (qed.sms == 3 && fabs(a1) > 1e-10) {
-	      y += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
-	    }
+    k = OrbitalIndex(n, kappa, 0.0);
+    if (md == 0) {
+      double am = AMU * GetAtomicMass();
+      if (nq > 1) {
+	t = 0.0;
+	for (kk = 1; kk <= j2; kk += 1) {
+	  y = 0;
+	  if (kk == 1 && qed.sms) {
+	    v1 = Vinti(k, k);
 	  } else {
-	    if (qed.sms == 3 && fabs(a1) > 1e-10) {
-	      y += 0.25*v1[2]*v2[2]/(am*a1*a2);
+	    v1 = NULL;
+	  }
+	  if (IsEven(kk)) {
+	    Slater(&y, k, k, k, k, kk, 0);
+	  }
+	  if (v1 && qed.sms == 3) {
+	    double a1 = ReducedCL(j2, 2*kk, j2);
+	    if (fabs(a1) > 1e-10) {
+	      y += 0.25*v1[2]*v1[2]/(am*a1*a1);
+	    }	  
+	    y += 0.25*v1[1]*v1[1]/am;
+	  }
+	  if (qed.br < 0 || n <= qed.br) {
+	    int mbr = qed.mbr;
+	    if (qed.nbr > 0 && n > qed.nbr) mbr = 0;
+	    y += Breit(k, k, k, k, kk, kappa, kappa, kappa, kappa,
+		       kl, kl, kl, kl, mbr);
+	  }
+	  if (y) {
+	    q = W3j(j2, 2*kk, j2, -1, 0, 1);
+	    t += y * q * q ;
+	  }
+	}
+	Slater(&y, k, k, k, k, 0, 0);
+	b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
+      } else {
+	b = 0.0;
+      }
+      
+      t = 0.0;
+      for (j = 0; j < i; j++) {
+	np = (cfg->shells[j]).n;
+	kappap = (cfg->shells[j]).kappa;
+	klp = GetLFromKappa(kappap);
+	j2p = GetJFromKappa(kappap);
+	nqp = (cfg->shells[j]).nq;
+	kp = OrbitalIndex(np, kappap, 0.0);
+	kkmin = abs(j2 - j2p);
+	kkmax = (j2 + j2p);
+	int maxn = Max(n, np);
+	//if (IsOdd((kkmin + kl + klp)/2)) kkmin += 2;
+	a = 0.0;
+	for (kk = kkmin; kk <= kkmax; kk += 2) {
+	  y = 0;
+	  int kk2 = kk/2;
+	  if (kk == 2 && qed.sms) {
+	    v1 = Vinti(k, kp);
+	    v2 = Vinti(kp, k);
+	  } else {
+	    v1 = NULL;
+	    v2 = NULL;
+	  }
+	  if (IsEven((kl+klp+kk)/2)) {
+	    Slater(&y, k, kp, kp, k, kk2, 0);
+	    if (v1 && v2) {	    
+	      y -= (v1[0]+v1[2])*v2[0]/am;
 	    }
 	  }
-	  if (qed.sms == 3) {
-	    y += 0.25*v1[1]*v2[1]/am;
+	  if (v1 && v2) {
+	    double a1 = ReducedCL(j2, kk, j2p);
+	    double a2 = ReducedCL(j2p, kk, j2);
+	    if (IsEven((kl+klp+kk)/2)) {
+	      y -= v1[1]*v2[0]/am;
+	      if (qed.sms == 3 && fabs(a1) > 1e-10) {
+		y += 0.5*(0.5+a2)*v1[2]*v2[2]/(am*a1*a2);
+	      }
+	    } else {
+	      if (qed.sms == 3 && fabs(a1) > 1e-10) {
+		y += 0.25*v1[2]*v2[2]/(am*a1*a2);
+	      }
+	    }
+	    if (qed.sms == 3) {
+	      y += 0.25*v1[1]*v2[1]/am;
+	    }
+	  }
+	  if (qed.br < 0 || maxn <= qed.br) {
+	    int mbr = qed.mbr;
+	    if (qed.nbr > 0 && maxn > qed.nbr) mbr = 0;
+	    y += Breit(k, kp, kp, k, kk2, kappa, kappap, kappap, kappa,
+		       kl, klp, klp, kl, mbr);
+	  }
+	  if (y) {
+	    q = W3j(j2, kk, j2p, -1, 0, 1);
+	    a += y * q * q;
 	  }
 	}
-	if (qed.br < 0 || maxn <= qed.br) {
-	  int mbr = qed.mbr;
-	  if (qed.nbr > 0 && maxn > qed.nbr) mbr = 0;
-	  y += Breit(k, kp, kp, k, kk2, kappa, kappap, kappap, kappa,
-		     kl, klp, klp, kl, mbr);
-	}
-	if (y) {
-	  q = W3j(j2, kk, j2p, -1, 0, 1);
-	  a += y * q * q;
-	}
-      }
-      y = 0;
-      Slater(&y, k, kp, k, kp, 0, 0);
-      t += nqp * (y - a);
+	y = 0;
+	Slater(&y, k, kp, k, kp, 0, 0);
+	t += nqp * (y - a);
+      }    
+      ResidualPotential(&y, k, k);
+      e = GetOrbital(k)->energy;
+      a = QED1E(k, k);
+      r = nq * (b + t + e + a + y);      
+    } else {
+      a = QED1E(k, k);
+      r = nq * a;
     }
-
-    ResidualPotential(&y, k, k);
-    e = GetOrbital(k)->energy;
-    a = QED1E(k, k);
-    r = nq * (b + t + e + y);        
     x += r;         
   }
   return x;
@@ -3914,6 +3928,9 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       ae = qed.ose1;
       eb0 *= ae;
       ose = qed.ose0;
+      if (qed.ase) {
+	ose /= pow(nm, qed.ase);
+      }
       nb0 = potential->nb+1;
       int nk = 1+GetLFromKappa(orb1->kappa)/2;
       if (nb0 < nk) nb0 = nk;
