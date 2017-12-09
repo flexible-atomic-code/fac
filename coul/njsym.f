@@ -847,6 +847,9 @@ C      THE SAME NOTATION AS IN JW LIST
 C
    13 NSUM=0
       MAXSUM=MAXJWE-M
+      IF (MAXSUM .GT. 12) THEN
+         MAXSUM = 12
+      ENDIF
       DO 24 I=1,MAXSUM
       JSUM6(I)=0
       JSUM7(I)=0
