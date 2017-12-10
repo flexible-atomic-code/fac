@@ -206,10 +206,10 @@
 /* radial */
 #define ORBITALS_BLOCK     1024
 #define OPTSTABLE          0.5
-#define OPTTOL             1E-6
+#define OPTTOL             10.0
 #define OPTNITER           128
 #define OPTPRINT           0
-#define POTMODE            10
+#define POTMODE            2
 #define POTHXS             0.65
 #define NKSEP              5
 #define QEDSE              5

@@ -1021,15 +1021,15 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
     s = PyString_AsString(t);
     if (SetAtom(s, z, mass, rn, a) < 0) return NULL;
   } else if (PyFloat_Check(t)) {
-    mass = z;
-    rn = mass;
     a = rn;
+    rn = mass;
+    mass = z;
     z = PyFloat_AsDouble(t);
     if (SetAtom(NULL, z, mass, rn, a) < 0) return NULL;
   } else if (PyInt_Check(t)) {
-    mass = z;
-    rn = mass;
     a = rn;
+    rn = mass;    
+    mass = z;
     z = (double) PyInt_AsLong(t);
     if (SetAtom(NULL, z, mass, rn, a) < 0) return NULL;
   }
