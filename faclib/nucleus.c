@@ -1178,7 +1178,7 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     atom.z1 *= atom.b;
   }
   if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
-    INIQED(atom.atomic_number, 9, atom.rn>0);
+    INIQED(atom.atomic_number, 9, atom.rn>0, atom.rms*1e5*RBOHR);
   }
   return 0;
 }

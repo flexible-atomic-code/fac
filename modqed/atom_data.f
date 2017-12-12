@@ -23,7 +23,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         common /name/name
         common /knucl/knucl/rnucl/rnucl
         character*1 let(11)
-        common /Rrms/Rrms(120)/name_at/name_at(120)
+        common /Rrms/Rrms(120)/name_at/name_at(120)/rms0/rms0
         character*2 name,name_at
         data
      1  let /'s','p','d','f','g','h','i','k','l','m','n'/
@@ -32,6 +32,8 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         iz=z+0.5d0
         rms=Rrms(iz)
+        if (rms0 .gt. 1d-10) rms = rms0
+        rms=ZInterp(iz,Rrms,1)
         name=name_at(iz)
 c        write( *,15) z
 c        write(11,15) z
@@ -397,7 +399,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         Rrms  ( 40) =         4.2694 d0 !#       A=90
         Rrms  ( 41) =         4.3240 d0 !#       A=93
         Rrms  ( 42) =         4.3151 d0 !#       A=92
-c       Rrms  ( 43) =         0.0000 d0 !#       A=97
+        Rrms  ( 43) =         4.4240 d0 !#       A=97
         Rrms  ( 44) =         4.5098 d0 !#       A=104
         Rrms  ( 45) =         4.4945 d0 !#       A=103
         Rrms  ( 46) =         4.5563 d0 !#       A=108
@@ -415,7 +417,7 @@ c       Rrms  ( 43) =         0.0000 d0 !#       A=97
         Rrms  ( 58) =         4.8771 d0 !#       A=140
         Rrms  ( 59) =         4.8919 d0 !#       A=141
         Rrms  ( 60) =         4.9123 d0 !#       A=142
-c       Rrms  ( 61) =         0.0000 d0 !#       A=145
+        Rrms  ( 61) =         4.9620 d0 !#       A=145
         Rrms  ( 62) =         4.9524 d0 !#       A=144
         Rrms  ( 63) =         4.9663 d0 !#       A=145
         Rrms  ( 64) =         5.1734 d0 !#       A=160
@@ -439,15 +441,15 @@ c       Rrms  ( 61) =         0.0000 d0 !#       A=145
         Rrms  ( 82) =         5.5012 d0 !#       A=208
         Rrms  ( 83) =         5.5211 d0 !#       A=209
         Rrms  ( 84) =         5.5584 d0 !#       A=208
-c       Rrms  ( 85) =         0.0000 d0 !#       A=210
+        Rrms  ( 85) =         5.5390 d0 !#       A=210
         Rrms  ( 86) =         5.5915 d0 !#       A=212
         Rrms  ( 87) =         5.5915 d0 !#       A=212
         Rrms  ( 88) =         5.6079 d0 !#       A=214
-c       Rrms  ( 89) =         0.0000 d0 !#       A=227
+        Rrms  ( 89) =         5.6700 d0 !#       A=227
         Rrms  ( 90) =         5.7848 d0 !#       A=232
-c       Rrms  ( 91) =         0.0000 d0 !#
+        Rrms  ( 91) =         5.7000 d0 !#
         Rrms  ( 92) =         5.8571 d0 !#       A=238
-c       Rrms  ( 93) =         0.00000d0 !#
+        Rrms  ( 93) =         5.7440 d0 !#
         Rrms  ( 94) =         5.8601 d0 !#       A=239
         Rrms  ( 95) =         5.9048 d0 !#       A=243
         Rrms  ( 96) =         5.8420 d0 !#       A=244

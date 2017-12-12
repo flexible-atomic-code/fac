@@ -52,15 +52,15 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         return
         end
 
-      real*8 function ZInterp(iz, Func)
+      real*8 function ZInterp(iz, Func, np)
       implicit real*8 (a-h, o-z)
       real*8 Func(120), ZZ(120), YY(120)
       parameter (TINY = 1.d-16)
 
-      if (dabs(Func(iz)).gt.TINY) then
-         ZInterp = Func(iz)
-         return
-      endif
+c      if (dabs(Func(iz)).gt.TINY) then
+c         ZInterp = Func(iz)
+c         return
+c      endif
       ii = 1
       do jj=10,120,5
          zz(ii) = jj*1D0
@@ -69,7 +69,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
       enddo
       ni = ii-1
       dz = iz*1d0
-      call uvip3p(3, ni, zz, yy, 1,  dz, dy)
+      call uvip3p(np, ni, zz, yy, 1,  dz, dy)
       ZInterp = dy
       return
       end
@@ -86,7 +86,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         integer indx(120)
         parameter (TINY = 1.d-16)
 
-        DInterpolation = ZInterp(iz, Func)
+        DInterpolation = ZInterp(iz, Func, 3)
         return
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         if (dabs(Func(iz)).gt.TINY) then
