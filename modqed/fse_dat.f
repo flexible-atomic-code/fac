@@ -32,25 +32,48 @@ c
         Func = 0.d0
         do i = 1,120
           Func(i) = FSE(i,KA,N1,N2)
-          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then
-            Func(i) = Func(i) - 4.d0/3.d0*(-2)*log(i/acl)
-          end if
+c          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then
+c            Func(i) = Func(i) - 4.d0/3.d0*(-2)*log(i/acl)
+c          end if
         enddo
         SE_pnt = DInterpolation(iz,Func)
-        if (KA.eq.-1) SE_pnt = SE_pnt + 4.d0/3.d0*(-2)*log(iz/acl)
+c        if (KA.eq.-1) SE_pnt = SE_pnt + 4.d0/3.d0*(-2)*log(iz/acl)
 c
         Func = 0.d0
         do i = 1,120
           Func(i) = FSE(i,KA,N1,N2) + FSEfns(i,KA,N1,N2)
-          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then
-            Func(i) = Func(i) - 4.d0/3.d0*(-2)*log(i/acl)
-          end if
+c          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then
+c            Func(i) = Func(i) - 4.d0/3.d0*(-2)*log(i/acl)
+c          end if
         enddo
         SE_ext = DInterpolation(iz,Func)
-        if (KA.eq.-1) SE_ext = SE_ext + 4.d0/3.d0*(-2)*log(iz/acl)
+c        if (KA.eq.-1) SE_ext = SE_ext + 4.d0/3.d0*(-2)*log(iz/acl)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         return
         end
+
+      real*8 function ZInterp(iz, Func)
+      implicit real*8 (a-h, o-z)
+      real*8 Func(120), ZZ(120), YY(120)
+      parameter (TINY = 1.d-16)
+
+      if (dabs(Func(iz)).gt.TINY) then
+         ZInterp = Func(iz)
+         return
+      endif
+      ii = 1
+      do jj=10,120,5
+         zz(ii) = jj*1D0
+         yy(ii) = Func(jj)
+         ii = ii+1
+      enddo
+      ni = ii-1
+      dz = iz*1d0
+      call uvip3p(3, ni, zz, yy, 1,  dz, dy)
+      ZInterp = dy
+      return
+      end
+      
 c       =================================================
         real*8 function DInterpolation(iz,Func)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -62,6 +85,9 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         real*8 Func(120),F(0:10)
         integer indx(120)
         parameter (TINY = 1.d-16)
+
+        DInterpolation = ZInterp(iz, Func)
+        return
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         if (dabs(Func(iz)).gt.TINY) then
           DInterpolation = Func(iz)
