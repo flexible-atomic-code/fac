@@ -57,6 +57,9 @@ static double _dwork10[MAXRP];
 static double _dwork11[MAXRP];
 static double _dwork12[MAXRP];
 static double _dwork13[MAXRP];
+static double _dwork14[MAXRP];
+static double _dwork15[MAXRP];
+static double _dwork16[MAXRP];
 static double _phase[MAXRP];
 static double _dphase[MAXRP];
 static double _dphasep[MAXRP];
@@ -64,7 +67,7 @@ static double _yk[MAXRP];
 static double _zk[MAXRP];
 static double _xk[MAXRP];
 
-#pragma omp threadprivate(potential,hpotential,rpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+#pragma omp threadprivate(potential,hpotential,rpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -102,7 +105,7 @@ static struct {
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
 	 1.0, 1.0, 1.5,
-	 0.05, 0.05, 1.5};
+	 0.04, 0.04, 1.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
@@ -147,6 +150,10 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->nmax, sizeof(int), 1, f);
   n = BFileRead(&p->maxrp, sizeof(int), 1, f);
   n = BFileRead(&p->hxs, sizeof(double), 1, f);
+  n = BFileRead(&p->ahx, sizeof(double), 1, f);
+  n = BFileRead(&p->ihx, sizeof(double), 1, f);
+  n = BFileRead(&p->rhx, sizeof(double), 1, f);
+  n = BFileRead(&p->dhx, sizeof(double), 1, f);
   n = BFileRead(&p->ratio, sizeof(double), 1, f);
   n = BFileRead(&p->asymp, sizeof(double), 1, f);
   n = BFileRead(&p->rmin, sizeof(double), 1, f);
@@ -275,6 +282,10 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->nmax, sizeof(int), 1, f);
   n = fwrite(&p->maxrp, sizeof(int), 1, f);
   n = fwrite(&p->hxs, sizeof(double), 1, f);
+  n = fwrite(&p->ahx, sizeof(double), 1, f);
+  n = fwrite(&p->ihx, sizeof(double), 1, f);
+  n = fwrite(&p->rhx, sizeof(double), 1, f);
+  n = fwrite(&p->dhx, sizeof(double), 1, f);
   n = fwrite(&p->ratio, sizeof(double), 1, f);
   n = fwrite(&p->asymp, sizeof(double), 1, f);
   n = fwrite(&p->rmin, sizeof(double), 1, f);
@@ -478,16 +489,17 @@ void SetSlaterCut(int k0, int k1) {
   }
 }
 
-void SetPotentialMode(int m, double h) {
+void SetPotentialMode(int m, double h, double ih) {
   potential->mode = m;
   if (h > 1e10) {
-    if ((m % 10)%2 == 0) {
-      potential->hxs = 0.0;
-    } else {
-      potential->hxs = POTHXS;
-    }
+    potential->hxs = POTHXS;
   } else {
     potential->hxs = h;
+  }
+  if (ih > 1e10) {
+    potential->ihx = POTIHX;
+  } else {
+    potential->ihx = ih;
   }
 }
 
@@ -786,7 +798,7 @@ void AdjustScreeningParams(double *u) {
   potential->lambda = log(2.0)/potential->rad[i];
 }
 
-int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
+int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *w) {
   int i, j, k, kk, kk0, kk1, k1, k2, j1, j2;
   int ic, jmax, jmaxk, m, jm, md, km1, km2;
   ORBITAL *orb1, *orb2;
@@ -794,18 +806,21 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
   CONFIG_GROUP *gc;
   CONFIG *cfg;
   SHELL *s1, *s2;
-  double *w0;
+  double *w0, *ue0, *ue1, *ue;
   
   if (potential->N < 1+EPS3) return -1;  
   md = potential->mode % 10;
-  w0 = _dwork13;
+  w0 = potential->dW2;
+  ue0 = _dwork13;
+  ue1 = _dwork14;
+  ue = _dwork15;
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = 0.0;
     w[m] = 0.0;
     w0[m] = 0.0;
-    if (v) {
-      v[m] = 0.0;
-    }
+    ue0[m] = 0.0;
+    ue1[m] = 0.0;
+    ue[m] = 0.0;
   }
   if (acfg->n_shells <= 0) return 0;
   
@@ -831,13 +846,13 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
       GetYk(0, _yk, orb1, orb1, k1, k1, -1);      
       for (m = 0; m <= jmax; m++) {    
 	u[m] += acfg->nq[i] * _yk[m];
-	if (w[m] && md%2 == 0) {
+	if (w[m]>1e-10) {
 	  large = Large(orb1)[m];
 	  small = Small(orb1)[m];  
 	  b = large*large + small*small;
 	  a = _yk[m] * acfg->nq[i] * b/w[m];
-	  u[m] -= a;
-	}
+	  ue0[m] = a;
+	}	  
       }
     }
   } else {
@@ -878,13 +893,12 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
 	  for (m = 0; m < jmaxk; m++) {
 	    u[m] += s1->nq*_yk[m]*d;
 	  }
-	  if (md > 2) continue;
 	  for (m = 0; m < jmaxk; m++) {
 	    if (w0[m]) {
 	      large = Large(orb1)[m];
 	      small = Small(orb1)[m];	    
 	      b = s1->nq*_yk[m]*(large*large + small*small)/w0[m];
-	      u[m] -= b*d;
+	      ue0[m] = b*d;
 	    }
 	  }	  
 	  if (s1->nq > 1) {
@@ -899,7 +913,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
 		    large = Large(orb1)[m];
 		    small = Small(orb1)[m];	    
 		    b = a*_yk[m]*(large*large+small*small)/w0[m];
-		    u[m] += b*d;
+		    ue0[m] -= b*d;
 		  }
 		}
 	      }
@@ -927,7 +941,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
 		    large = (Large(orb1)[m])*(Large(orb2)[m]);
 		    small = (Small(orb1)[m])*(Small(orb2)[m]);
 		    a *= large + small;
-		    u[m] += d*a/w0[m];
+		    ue0[m] -= d*a/w0[m];
 		  }
 		}
 	      }
@@ -937,16 +951,77 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
       }
     }
   }
-
+  for (m = jmax; m > 0; m--) {
+    if (ue0[m]) break;
+    if (!ue0[m]) ue0[m] = 1.0;
+  }
+  potential->rhx = 0;
+  potential->dhx = 0;
+  potential->ahx = 0;
+  double n1 = potential->N-1;
   if (potential->hxs + 1.0 != 1.0) {
+    potential->rhx = 0;
+    j = -1;
+    c = potential->Z[potential->maxrp-1];
+    c = 0.4 + 0.1*(c-potential->N)/c;
+    potential->ahx = potential->hxs*c;
     for (m = 0; m <= jmax; m++) {
       a = w[m]*potential->rad[m];
-      a = -(potential->hxs * 0.64 * pow(a, 1.0/3.0));
-      u[m] += a;
-      if (v) v[m] += a;
+      ue1[m] = potential->ahx * pow(a, 1.0/3.0);
+      if (j < 0 && m > 0 && ue1[m-1] > 0 && u[m] - ue1[m] > n1) {
+	potential->rhx = potential->rad[m];
+	j = m;
+      }
+    }
+    potential->dhx = potential->rad[j];
+    for (m = j; m > 0; m--) {
+      if (ue1[m-1] < ue1[m]) break;
+    }
+    potential->rhx = potential->rad[m];
+    a = potential->dhx - potential->rhx;
+    c = 0.25*potential->dhx;
+    if (a < c) {
+      potential->rhx = potential->dhx - c;
+      potential->dhx = c;
+    } else {
+      potential->dhx = a;
+    }      
+    c = 1.0 - n1/potential->N;
+    a = fabs(potential->ihx);
+    if (a > 0.01) {
+      for (m = 0; m <= jmax; m++) {
+	d = (potential->rad[m]-potential->rhx)*a/potential->dhx;
+	d = 1.0/(1.0 + exp(-d));
+	if (potential->ihx < 0) {
+	  d0 = u[m]*c;
+	} else {
+	  d0 = ue0[m];
+	}
+	d1 = ue1[m];
+	ue[m] = d0*d + d1*(1-d);
+	if (d > 0.5 && u[m]-ue[m] > n1) {
+	  ue[m] = u[m]-n1;
+	}
+      }
+    } else {
+      for (m = 0; m <= jmax; m++) {
+	ue[m] = ue1[m];
+      }
+    }
+  } else {
+    c = 1.0 - n1/potential->N;
+    for (j = 0; j <= jmax; j++) {
+      if (potential->ihx < 0) {
+	ue[j] = u[m]*c;
+      } else {
+	ue[j] = ue0[j];
+      }
     }
   }
-  
+  for (j = 0; j <= jmax; j++) {
+    _dwork16[j] = u[j];
+    u[j] -= ue[j];    
+  }
   jm = 0;
   for (j = 0; j < potential->maxrp; j++) {
     if (u[j] > potential->Z[j]) {
@@ -955,27 +1030,25 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, double *v, double *w) {
     }
   }
 
-  if (md != 1) c = potential->N-1.0;
-  else c = potential->N;
   for (jm = jmax; jm >= 10; jm--) {
     if (fabs(w[jm]) > EPS6 && 
-	c > u[jm] &&
+	n1 > u[jm] &&
 	u[jm] > u[jm-1]) {
       break;
     }
   }
   d0 = log(potential->rad[jm-1]);
   d1 = log(potential->rad[jm]);
-  a = log(c - u[jm-1]);
-  b = log(c - u[jm]);
+  a = log(n1 - u[jm-1]);
+  b = log(n1 - u[jm]);
   d = (b-a)/(d1-d0);    
   for (j = jm+1; j < potential->maxrp; j++) {
     u[j] = d*(log(potential->rad[j]/potential->rad[jm])) + b;
-    u[j] = c - exp(u[j]);
+    u[j] = n1 - exp(u[j]);
   }
 
   for (m = jmax; m > 50; m--) {
-    if (fabs(u[m]-c) > EPS6) break;
+    if (fabs(u[m]-n1) > EPS6) break;
   }
   potential->r_core = m+1;
 
@@ -990,7 +1063,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   w = potential->W;
   v = _dwork2;
 
-  jmax = PotentialHX(acfg, u, NULL, w);
+  jmax = PotentialHX(acfg, u, w);
   rn = GetAtomicR()*2;
   if (jmax > 0) {
     if (iter < 3) {
@@ -1089,6 +1162,10 @@ int GetPotential(char *s) {
   fprintf(f, "#     nb = %d\n", potential->nb);
   fprintf(f, "#   mode = %d\n", potential->mode);
   fprintf(f, "#    HXS = %10.3E\n", potential->hxs);
+  fprintf(f, "#    AHX = %10.3E\n", potential->ahx);
+  fprintf(f, "#    IHX = %10.3E\n", potential->ihx);
+  fprintf(f, "#    RHX = %10.3E\n", potential->rhx);
+  fprintf(f, "#    DHX = %10.3E\n", potential->dhx);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
@@ -1097,10 +1174,11 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i], 
 	    potential->Vc[i]*potential->rad[i],
 	    potential->U[i]*potential->rad[i],
+	    _dwork13[i], _dwork14[i], _dwork15[i], _dwork16[i],
 	    potential->ZSE[0][i],
 	    potential->ZSE[1][i],
 	    potential->ZSE[2][i],
@@ -1151,7 +1229,7 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
 }
 
 int OptimizeLoop(AVERAGE_CONFIG *acfg) {
-  double tol, atol, tol0, atol0, tol1, atol1, a, b;
+  double tol, atol, tol0, atol0, tol1, a, b;
   ORBITAL orb_old, *orb;
   int i, k, iter, no_old;
   
@@ -1206,10 +1284,10 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       b = fabs(orb_old.energy - orb->energy);
       if (atol < b) atol = b;
     }
-    if (optimize_control.iprint) {
-      printf("optimize loop: %4d %13.5E %13.5E %13.5E\n", iter, tol, atol, a);
-    }
     if (tol > a) tol = a;
+    if (optimize_control.iprint) {
+      printf("optimize loop: %4d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E\n", iter, tol, atol, a, tol0, tol1, atol0);
+    }
     iter++;
   }
 
@@ -1330,9 +1408,9 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
     optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[potential->maxrp-1]);
   }
 
-  if (potential->mode/10 == 1) {
-    a = 1.5/(NXS-1.0);
-    hxs[0] = potential->hxs - 0.75;
+  if (potential->mode/10 == 2) {
+    a = 0.4/(NXS-1.0);
+    hxs[0] = 0.8;
     for (i = 1; i < NXS; i++) {
       hxs[i] = hxs[i-1] + a;
     }      
@@ -6482,11 +6560,8 @@ int InitRadial(void) {
   hpotential = malloc(sizeof(POTENTIAL));
   rpotential = malloc(sizeof(POTENTIAL));
   potential->mode = POTMODE;
-  if ((potential->mode%10)%2 > 0) {
-    potential->hxs = POTHXS;
-  } else {
-    potential->hxs = 0.0;
-  }
+  potential->hxs = POTHXS;
+  potential->ihx = POTIHX;
   potential->hlike = 0;
   potential->nse = qed.se;
   if (qed.mse >= 1000) {

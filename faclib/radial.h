@@ -51,7 +51,7 @@ int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
-void SetPotentialMode(int m, double h);
+void SetPotentialMode(int m, double h, double ihx);
 void SetSE(int n, int m, int s, int p);
 void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);

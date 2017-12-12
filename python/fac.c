@@ -673,7 +673,7 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
  
 static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   int m;
-  double h;
+  double h, ih;
 
   if (sfac_file) {
     SFACStatement("SetPotentialMode", args, NULL);
@@ -682,10 +682,11 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   }
 
   h = 1E31;
-  if (!PyArg_ParseTuple(args, "i|d", &m, &h))
+  ih = 1E31;
+  if (!PyArg_ParseTuple(args, "i|dd", &m, &h, &ih))
     return NULL;
 
-  SetPotentialMode(m, h);
+  SetPotentialMode(m, h, ih);
 
   Py_INCREF(Py_None);
   return Py_None;
