@@ -104,7 +104,7 @@ static struct {
   double cse0, cse1, ise;
 } qed = {QEDSE, QEDMSE, 0, 0, QEDVP, QEDNMS, QEDSMS,
 	 QEDBREIT, QEDMBREIT, QEDNBREIT, 0.01,
-	 1.0, 1.0, 1.5,
+	 1.0, 1.0, 3.0,
 	 0.04, 0.04, 1.5};
 
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
