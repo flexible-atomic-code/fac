@@ -23,6 +23,9 @@
 #include "structure.h"
 #include "transition.h"
 
+#define CPMEFF 0
+#define CPMTR 0
+
 typedef struct _TR_OPT_{
   int mktr;
   int naw;

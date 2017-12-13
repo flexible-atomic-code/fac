@@ -1844,7 +1844,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	      FORMULA *fm, double **a, int i0, int ng) {  
   int kk, kk2, kmin, kmax, gauge, n, p1, j0, j1;
   int q0, q1, k, m0, m1, s0, s1, m, ms0, ms1, is0, is1, p, p0;  
-  double c, *r1, sd, se, yk[MKK], d2;
+  double c, *r1, sd, se, yk[MKK], d2, rt;
   ORBITAL *orb;  
 
   int md;
@@ -1902,7 +1902,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   ** time even these parity conditions are not satisfied.
   */
   if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
-
+  
   orb = GetOrbital(ks[2]);
   d2 = orb->energy + orb->qed;
   orb = GetOrbital(ks[3]);
@@ -1911,10 +1911,6 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   d2 -= orb->energy + orb->qed;
   orb = GetOrbital(ks[1]);
   d2 -= orb->energy + orb->qed;
-  /*
-  d2 = GetOrbital(ks[2])->energy + GetOrbital(ks[3])->energy;
-  d2 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
-  */
   gauge = GetTransitionGauge();
 
   for (kk = kmin; kk <= kmax; kk += 2) {
@@ -1949,11 +1945,15 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       }
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
-	mtr[is0].tma[is1][q1] += c*r1[p1]/d2;
+	rt = c*r1[p1]/d2;
+#if CPMTR == 0
+#pragma omp atomic
+#endif
+	mtr[is0].tma[is1][q1] += rt;
       }
     }
   }
-
+	
   kk = ks[0];
   ks[0] = ks[3];
   ks[3] = kk;
@@ -1997,7 +1997,11 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       }
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
-	mtr[is0].rma[is1][q1] += c*r1[p1]/d2;
+	rt = c*r1[p1]/d2;
+#if CPMTR == 0
+#pragma omp atomic
+#endif
+	mtr[is0].rma[is1][q1] += rt;
       }
     }
   }
@@ -2115,7 +2119,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, p, p0, n, is0, is1;
   int gauge, p1, j0, j1;
   ORBITAL *orb;
-
+  
   /* setup recouple tensor */
   int md;  
   if (fm->j1 < 0) {
@@ -2195,6 +2199,9 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;
 	d = a[q0]*r1[p1]*r2/d2;
+#if CPMTR == 0
+#pragma omp atomic
+#endif
 	mtr[is0].tma[is1][q1] += d;
       }
     }
@@ -2222,6 +2229,9 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       for (p1 = 0; p1 < n; p1++) {
 	q1 = ((m0*mtr[is0].sym1[is1]->n_states + m1)*n + p1)*ng + i0;	
 	d = a[q0]*r1[p1]*c/d2;
+#if CPMTR == 0
+#pragma omp atomic
+#endif
 	mtr[is0].rma[is1][q1] += d;
       }
     }
@@ -4068,18 +4078,21 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   if (mbpt_tr.mktr > 0) {
     MPrintf(-1, "MBPT Transition.\n");
     fflush(stdout);
+    ReinitRadial(2);
     if (MyRankMPI() == 0) {
       sprintf(tfn, "%s.tr", fn1);
       f = fopen(tfn, "w");
-    }	
+    }    
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_TR *imtr;
       int cpmtr = 0;
+#if CPMTR == 1
 #if USE_MPI == 2
-      if (NProcMPI() > 1) {
+      if (mbpt_cpmtr && NProcMPI() > 1) {
 	cpmtr = 1;
       }
+#endif
 #endif
       if (!cpmtr) imtr = mtr;
       else {
