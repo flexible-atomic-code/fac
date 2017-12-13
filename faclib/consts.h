@@ -212,6 +212,8 @@
 #define POTMODE            0
 #define POTHXS             1.0
 #define POTIHX             -2.0
+#define POTHX0             0.427
+#define POTHX1             0.07
 #define NKSEP              5
 #define QEDSE              5
 #define QEDMSE             1

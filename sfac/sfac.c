@@ -2212,18 +2212,26 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
 static int PSetPotentialMode(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int m;
-  double h, ih;
+  double h, ih, h0, h1;
 
   h = 1E31;
   ih = 1E31;
+  h0 = -1;
+  h1 = -1;
   m = atoi(argv[0]);
   if (argc > 1) {
     h = atof(argv[1]);
     if (argc > 2) {
       ih = atof(argv[2]);
+      if (argc > 3) {
+	h0 = atof(argv[3]);
+	if (argc > 4) {
+	  h1 = atof(argv[4]);
+	}
+      }
     }
   }
-  SetPotentialMode(m, h, ih);
+  SetPotentialMode(m, h, ih, h0, h1);
 
   return 0;
 }

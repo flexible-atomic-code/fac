@@ -21,17 +21,19 @@ Config('g3', '1s1 2*2')
 Config('g3', '1s1 2*1 3*1')
 Config('g3', '1s1 3*2')
 
+# disable Breit interaction, and nuclear recoil effects.
+SetBreit(0)
+SetMS(0,0)
+SetSE(0)
+SetVP(0)
+
 # use maximum number of grid points, important.
-SetRadialGrid(3000,1.4,300)
+SetRadialGrid(3000,1.4,300,0)
 
 OptimizeRadial('g0')
 
 Structure('tb.en', ['g0','g1','g2'])
 Structure('tb.en', ['g3'])
-
-# disable Breit interaction, and nuclear recoil effects.
-SetBreit(0)
-SetMS(0,0)
 
 MemENTable('tb.en')
 PrintTable('tb.en', 'ta.en')

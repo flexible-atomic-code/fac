@@ -51,7 +51,7 @@ int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
-void SetPotentialMode(int m, double h, double ihx);
+void SetPotentialMode(int m, double h, double ihx, double hx0, double hx1);
 void SetSE(int n, int m, int s, int p);
 void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
@@ -117,6 +117,7 @@ double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyConfigMode(CONFIG *cfg, int md);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
 void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1);
+void DiExConfig(CONFIG *cfg, double *d0, double *d1);
 
 /* routines for radial integral calculations */
 int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, 

@@ -31,6 +31,7 @@ typedef struct _POTENTIAL_ {
   int maxrp;
   int nmax;
   int nse, mse, pse, mvp, pvp, hpvs, hlike;
+  double hx0, hx1, chx;
   double hxs, ahx, ihx, rhx, dhx, ratio, asymp, rmin;
   double Z[MAXRP]; /*effective atomic number*/
   double dZ[MAXRP], dZ2[MAXRP];
