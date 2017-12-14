@@ -1407,8 +1407,6 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   
   a = 0.0;
   for (i = 0; i < acfg->n_shells; i++) {
-    if (optimize_control.iprint) 
-      printf("%d %d %f\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
     a += acfg->nq[i];
   }
   potential->N = a;  
@@ -2043,6 +2041,10 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	if (cfg->energy != 0) {
 	  cfg->delta = cfg->energy - e0;
+	}
+	if (optimize_control.iprint) {
+	  MPrintf(-1, "ConfigEnergy: %d %d %d %g %g %g\n", 
+		  md, k, i, cfg->energy, e0, cfg->delta);
 	}
       }
     }

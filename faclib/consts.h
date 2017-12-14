@@ -216,12 +216,12 @@
 #define POTHX1             0.07
 #define NKSEP              5
 #define QEDSE              5
-#define QEDMSE             1
-#define QEDVP              3
+#define QEDMSE             41
+#define QEDVP              103
 #define QEDNMS             3
 #define QEDSMS             3
 #define QEDBREIT           10
-#define QEDMBREIT          1
+#define QEDMBREIT          0
 #define QEDNBREIT          5
 
 /* structure */
