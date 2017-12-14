@@ -217,7 +217,7 @@
 #define NKSEP              5
 #define QEDSE              5
 #define QEDMSE             41
-#define QEDVP              103
+#define QEDVP              3
 #define QEDNMS             3
 #define QEDSMS             3
 #define QEDBREIT           10
