@@ -2042,6 +2042,7 @@ int AddToLevels(int ng, int *kg) {
     return 0;
   }
 
+  int mce = ConfigEnergyMode();
   j = n_levels;
   sym = GetSymmetry(h->pj);  
   for (i = 0; i < d; i++) {
@@ -2077,12 +2078,21 @@ int AddToLevels(int ng, int *kg) {
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
     lev.mixing = (double *) malloc(sizeof(double)*h->n_basis);
     a = fabs(mix_cut * mix[k]);
+    double se = 0.0;
     for (t = 0, m = 0; t < h->n_basis; t++) {
       if (fabs(mix[t]) < a) continue;
       lev.ibasis[m] = t;
       lev.basis[m] = h->basis[t];
       lev.mixing[m] = mix[t];
+      if (mce >= 20) {
+	s1 = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
+	c = GetConfig(s1);	
+	se += mix[t]*mix[t]*c->energy;
+      }
       m++;
+    }
+    if (se) {
+      lev.energy += se;
     }
     lev.n_basis = m;
     if (m < t) {

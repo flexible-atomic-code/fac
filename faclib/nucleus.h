@@ -33,6 +33,7 @@ typedef struct _NUCLEUS_ {
 
 void PrintNucleus();
 int InitNucleus();
+double GraspRMS(double z, double m);
 int SetAtom(char *s, double z, double mass, double rn, double a);
 char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);

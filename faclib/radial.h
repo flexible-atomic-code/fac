@@ -94,7 +94,8 @@ double GetPhaseShift(int k);
 
 /* radial optimization */
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
-void SetDisableConfigEnergy(int m);
+void SetConfigEnergyMode(int m);
+int ConfigEnergyMode(void);
 void SetOptimizeMaxIter(int m);
 void SetOptimizeStabilizer(double m);
 void SetOptimizeTolerance(double c);
@@ -103,7 +104,7 @@ void SetOptimizeControl(double tolerence, double stablizer,
 			int maxiter, int iprint);
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
-int OptimizeRadial(int ng, int *kg, double *weight);
+int OptimizeRadial(int ng, int *kg, int ic, double *weight);
 int RefineRadial(int maxfun, int msglvl);
 double ConfigEnergyShiftCI(int nrs0, int nrs1);
 double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);

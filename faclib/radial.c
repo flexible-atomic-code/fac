@@ -79,8 +79,7 @@ static struct {
   int *screened_n;
   int iprint; /* printing infomation in each iteration. */
   int iset;
-  int disable_config_energy;
-  double hx0, hx1;
+  int mce;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
 		      1.0, 1, 0, NULL, OPTPRINT, 0, 0};
 
@@ -761,8 +760,12 @@ void SetOptimizePrint(int m) {
   optimize_control.iprint = m;
 }
 
-void SetDisableConfigEnergy(int m) {
-  optimize_control.disable_config_energy = m;
+void SetConfigEnergyMode(int m) {
+  optimize_control.mce = m;
+}
+
+int ConfigEnergyMode() {
+  return optimize_control.mce;
 }
 
 void SetOptimizeControl(double tolerance, double stabilizer, 
@@ -1357,7 +1360,7 @@ void CopyPotentialOMP(int init) {
 }
 
 #define NXS 7
-int OptimizeRadial(int ng, int *kg, double *weight) {
+int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS], mse;
   int iter, i, j;
@@ -1390,7 +1393,7 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
       acfg->kg = NULL;
       acfg->weight = NULL;
     }
-    GetAverageConfig(ng, kg, weight, 
+    GetAverageConfig(ng, kg, ic, weight, 
 		     optimize_control.n_screen,
 		     optimize_control.screened_n,
 		     optimize_control.screened_charge,
@@ -1407,6 +1410,10 @@ int OptimizeRadial(int ng, int *kg, double *weight) {
   
   a = 0.0;
   for (i = 0; i < acfg->n_shells; i++) {
+    if (optimize_control.iprint) {
+      MPrintf(-1, "avgcfg: %d %d %d %g\n",
+	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+    }
     a += acfg->nq[i];
   }
   potential->N = a;  
@@ -1996,55 +2003,52 @@ int FreeContinua(double e) {
 int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
-  int k, i, md;
+  int k, kk, i, md, md1, ic;
   double e0;
 
-  if (optimize_control.disable_config_energy == 1) return 0;
-  md = 10*optimize_control.disable_config_energy;
+  if (optimize_control.mce < 0) return 0;
+  if (kg == NULL) ng = 0;
+  else if (ng <= 0) kg = NULL;
+  if (ng == 0) {
+    ng = GetNumGroups();
+  }  
+  md = optimize_control.mce%10;  
+  md1 = 10*(optimize_control.mce/10);
   if (m == 0) {
-    if (ng == 0) {
-      ng = GetNumGroups();
-      for (k = 0; k < ng; k++) {
-	OptimizeRadial(1, &k, NULL);
+    for (k = 0; k < ng; k++) {
+      if (kg != NULL) kk = kg[k];
+      else kk = k;
+      if (md == 0) {
+	OptimizeRadial(1, &kk, -1, NULL);
 	if (mr > 0) RefineRadial(mr, 0);
-	g = GetGroup(k);
-	e0 = TotalEnergyGroupMode(k, md);
-	for (i = 0; i < g->n_cfgs; i++) {
-	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	  cfg->energy = e0;
+      }
+      g = GetGroup(kk);
+      for (i = 0; i < g->n_cfgs; i++) {
+	if (md > 0) {
+	  OptimizeRadial(1, &kk, i, NULL);
+	  if (mr > 0) RefineRadial(mr, 0);
 	}
+	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	e0 = AverageEnergyConfigMode(cfg, md1);
+	cfg->energy = e0;
 	ReinitRadial(1);
 	ClearOrbitalTable(0);
       }
-    } else {
-      OptimizeRadial(ng, kg, NULL);
-      if (mr) RefineRadial(mr, 0);
-      for (k = 0; k < ng; k++) {
-	g = GetGroup(kg[k]);
-	e0 = TotalEnergyGroupMode(kg[k], md);
-	for (i = 0; i < g->n_cfgs; i++) {
-	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	  if (cfg->energy == 0) {
-	    cfg->energy = e0;
-	  }
-	}
-      }
-      ReinitRadial(1);
-      ClearOrbitalTable(0);
     }
-  } else {
-    ng = GetNumGroups();
+  } else if (md1 < 20) {
     for (k = 0; k < ng; k++) {
-      g = GetGroup(k);
-      e0 = TotalEnergyGroupMode(k, md);
+      if (kg != NULL) kk = kg[k];
+      else kk = k;
+      g = GetGroup(kk);
       for (i = 0; i < g->n_cfgs; i++) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	e0 = AverageEnergyConfigMode(cfg, md1);
 	if (cfg->energy != 0) {
 	  cfg->delta = cfg->energy - e0;
 	}
 	if (optimize_control.iprint) {
-	  MPrintf(-1, "ConfigEnergy: %d %d %d %g %g %g\n", 
-		  md, k, i, cfg->energy, e0, cfg->delta);
+	  MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
+		  md, md1, kk, i, cfg->energy, e0, cfg->delta);
 	}
       }
     }
@@ -2798,7 +2802,7 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
       a = SelfEnergy(orb, orb);
       r = nq * a;
     }
-    x += r;         
+    x += r;
   }
   return x;
 }
@@ -4367,10 +4371,12 @@ double QED1E(int k0, int k1) {
     }
     r += a;      
   }
-  a = SelfEnergy(orb1, orb2);
-  r += a;
-  if (k0 == k1) {
-    orb1->qed = r;
+  if (optimize_control.mce < 20) {
+    a = SelfEnergy(orb1, orb2);
+    r += a;
+    if (k0 == k1) {
+      orb1->qed = r;
+    }
   }
   *p = r;
   if (locked) ReleaseLock(lock);

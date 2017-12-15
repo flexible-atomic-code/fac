@@ -1001,7 +1001,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   }
 
  END:
-  if (OptimizeRadial(ng, kg, weight) < 0) {
+  if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);
     return -1;
@@ -3133,8 +3133,8 @@ static int PWaveFuncTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PSetDisableConfigEnergy(int argc, char *argv[], int argt[], 
-				   ARRAY *variables) {
+static int PSetConfigEnergyMode(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
   int m;
   
   if (argc != 1 || argt[0] != NUMBER) {
@@ -3142,7 +3142,7 @@ static int PSetDisableConfigEnergy(int argc, char *argv[], int argt[],
   }
 
   m = atoi(argv[0]);
-  SetDisableConfigEnergy(m);
+  SetConfigEnergyMode(m);
   return 0;
 }
 
@@ -4088,7 +4088,7 @@ static METHOD methods[] = {
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
-  {"SetDisableConfigEnergy", PSetDisableConfigEnergy, METH_VARARGS},
+  {"SetConfigEnergyMode", PSetConfigEnergyMode, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},

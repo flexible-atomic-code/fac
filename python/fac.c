@@ -1129,7 +1129,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   }
 
  END:
-  if (OptimizeRadial(ng, kg, weight) < 0) {
+  if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);
     onError("error occured in OptimizeRadial");
@@ -4208,17 +4208,17 @@ static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", p);
 }
 
-static PyObject *PSetDisableConfigEnergy(PyObject *self, PyObject *args) {
+static PyObject *PSetConfigEnergyMode(PyObject *self, PyObject *args) {
   int m;
 
   if (sfac_file) {
-    SFACStatement("SetDisableConfigEnergy", args, NULL);
+    SFACStatement("SetConfigEnergyMode", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetDisableConfigEnergy(m);
+  SetConfigEnergyMode(m);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -5383,7 +5383,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Y5N", PY5N, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
   {"CoulombPhase", PCoulombPhase, METH_VARARGS},
-  {"SetDisableConfigEnergy", PSetDisableConfigEnergy, METH_VARARGS},
+  {"SetConfigEnergyMode", PSetConfigEnergyMode, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},

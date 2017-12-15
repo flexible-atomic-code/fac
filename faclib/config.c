@@ -2025,7 +2025,7 @@ void ListConfig(char *fn, int n, int *kg) {
 **              with M = 2500, the limit is about 70, which should be 
 **              more than enough.
 */
-int GetAverageConfig(int ng, int *kg, double *weight,
+int GetAverageConfig(int ng, int *kg, int ic, double *weight,
 		     int n_screen, int *screened_n, double screened_charge,
 		     int screened_kl, AVERAGE_CONFIG *acfg) {
 #define M 2500 /* max # of shells may be present in an average config */
@@ -2062,8 +2062,13 @@ int GetAverageConfig(int ng, int *kg, double *weight,
 
   for (i = 0; i < ng; i++) {
     c = &(cfg_groups[kg[i]].cfg_list);
-    a = 1.0/cfg_groups[kg[i]].n_cfgs;
+    if (ic < 0) {
+      a = 1.0/cfg_groups[kg[i]].n_cfgs;
+    } else {
+      a = 1.0;
+    }
     for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
+      if (ic >= 0 && t != ic) continue;
       cfg = (CONFIG *) ArrayGet(c, t);
       for (j = 0; j < cfg->n_shells; j++) {
 	n = cfg->shells[j].n;

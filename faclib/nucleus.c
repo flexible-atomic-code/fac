@@ -51,7 +51,7 @@ static double _emass[N_ELEMENTS] =
  106.4, 107.9, 112.4, 114.8, 118.7, 121.8, 127.6, 126.9,
  131.3, 132.9, 137.3, 138.9, 140.1, 140.9, 144.2, 145.0,
  150.4, 152.0, 157.2, 158.9, 162.5, 164.9, 167.3,
- 168.9, 173.0, 175.0, 178.5, 180.0, 183.9, 186.2, 190.2,
+ 168.9, 173.0, 175.0, 178.5, 180.9, 183.9, 186.2, 190.2,
  192.2, 195.1, 197.0, 200.5, 204.38, 207.2, 209.0, 
  209.0, 210.0, 222.0, 223.0, 226.0, 227.0, 232.0,
  231.0, 238.0, 237.0, 244.0, 243.0, 247.0, 247.0, 251.0, 
@@ -1056,6 +1056,36 @@ double DiffRRMS(double c, double a, double a2, double a3, double a4, double r2,
   return r1/r0 - r2;
 }
 
+double GraspRMS(double z, double m) {
+  int iz, ia, i, k;
+  double r0;
+  iz = (int)(z-1);
+  ia = (int)(1.5 + m - 2*(iz+1));
+  if (ia >= 0 && ia < NISO) {
+    r0 = _errms[iz][ia];
+    if (r0 > 0) return r0;
+  }
+  for (i = 1; i < 10; i++) {
+    k = ia-i;
+    if (k >= 0 && k < NISO) {
+      r0 = _errms[iz][k];
+      if (r0 > 0) {
+	r0 += 0.836*(pow(m,0.333)-pow(m-i,0.333));
+	return r0;
+      }
+    }
+    k = ia+i;
+    if (k >= 0 && k < NISO) {
+      r0 = _errms[iz][k];
+      if (r0 > 0) {
+	r0 += 0.836*(pow(m,0.333)-pow(m+i,0.333));
+	return r0;
+      }
+    }
+  }
+  return 0.0;
+}
+
 int SetAtom(char *s, double z, double mass, double rn, double a) {
   int i;
   char un[3] = "Xx";
@@ -1101,10 +1131,10 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     if (rn > -1.5) {
       atom.rn = NucleusRMS(atom.atomic_number);
     } else {
-      int iz = (int)(atom.atomic_number-1);
-      int ia = 1 + ((int)(atom.mass)) - 2*(iz+1);
-      if (ia >= 0 && ia < NISO) {
-	atom.rn = _errms[iz][ia];
+      if (atom.m0 > 0) {
+	atom.rn = GraspRMS(atom.atomic_number, atom.m0);
+      } else {
+	atom.rn = GraspRMS(atom.atomic_number, atom.mass);
       }
       if (atom.rn <= 0) {
 	if (rn > -2.5) {
