@@ -58,6 +58,20 @@ static double _emass[N_ELEMENTS] =
  252.0, 257.0, 258.0, 259.0, 262.0, 267.0, 268.0, 269.0, 270.0,
  277.0, 278., 281.0, 282.0, 285.0, 286.0, 289.0, 289.0, 293.0, 294.0, 294.0};
 
+static double _arrms[N_ELEMENTS] =
+  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+   3.057, 3.061, 3.122, 3.189, 3.261, 3.365, 3.427, 3.435,
+   3.476, 3.544, 3.591, 3.599, 3.642, 3.706, 3.737, 3.788,
+   3.775, 3.882, 3.929, 3.997, 4.074, 4.097, 4.140, 4.163,
+   4.188, 4.203, 4.220, 4.242, 4.270, 4.324, 4.409, 4.424,
+   4.482, 4.494, 4.532, 4.544, 4.614, 4.617, 4.654, 4.680,
+   4.743, 4.750, 4.787, 4.804, 4.839, 4.855, 4.877, 4.892,
+   4.912, 4.962, 5.084, 5.113, 5.162, 5.060, 5.221, 5.202,
+   5.251, 5.226, 5.312, 5.370, 5.342, 5.351, 5.367, 5.339,
+   5.413, 5.402, 5.428, 5.436, 5.463, 5.476, 5.501, 5.521,
+   5.526, 5.539, 5.655, 5.658, 5.684, 5.670, 5.710, 5.700,
+   5.851, 5.744, 5.864, 5.905, 5.815, 5.815, 5.843, 5.850, 5.857};
+    
 static double _errms[N_ELEMENTS][NISO];
 
 static double _xfermi[NFERMI];
@@ -1056,7 +1070,7 @@ double DiffRRMS(double c, double a, double a2, double a3, double a4, double r2,
   return r1/r0 - r2;
 }
 
-double GraspRMS(double z, double m) {
+double GraspRRMS(double z, double m) {
   int iz, ia, i, k;
   double r0;
   iz = (int)(z-1);
@@ -1129,20 +1143,31 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
   atom.rms0 = 1e-5*(0.570 + 0.836*pow(atom.mass,0.3333333333))/RBOHR;
   if (rn < 0.0) {
     if (rn > -1.5) {
-      atom.rn = NucleusRMS(atom.atomic_number);
-    } else {
+      atom.rn = NucleusRRMS(atom.atomic_number);
+    } else if (rn > -3.5) {
       if (atom.m0 > 0) {
-	atom.rn = GraspRMS(atom.atomic_number, atom.m0);
+	atom.rn = GraspRRMS(atom.atomic_number, atom.m0);
       } else {
-	atom.rn = GraspRMS(atom.atomic_number, atom.mass);
+	atom.rn = GraspRRMS(atom.atomic_number, atom.mass);
       }
       if (atom.rn <= 0) {
 	if (rn > -2.5) {
-	  atom.rn = NucleusRMS(atom.atomic_number);
+	  atom.rn = NucleusRRMS(atom.atomic_number);
 	} else {
 	  atom.rn = 0.570 + 0.836*pow(atom.mass,0.3333333333);
 	}
       }
+    } else {
+      int iz = (int)(atom.atomic_number-0.5);
+      if (iz >= 0 && iz < N_ELEMENTS) {
+	atom.rn = _arrms[iz];
+      }
+      if (atom.rn <= 0) {
+	atom.rn = NucleusRRMS(atom.atomic_number);
+      }
+    }
+    if (atom.rn <= 0) {
+      atom.rn = 0.570 + 0.836*pow(atom.mass,0.3333333333);
     }
     if (atom.mass != atom.m0 && atom.m0 > 0) {
       atom.rn += 0.836*(pow(atom.mass,0.3333333)-pow(atom.m0,0.3333333));

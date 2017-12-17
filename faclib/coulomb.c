@@ -277,7 +277,7 @@ double Klamaq(int n, int k){
   return r;
 }
 
-double NucleusRMS(double z) {
+double NucleusRRMS(double z) {
   int id, t, np, nx;
   double rr;
   

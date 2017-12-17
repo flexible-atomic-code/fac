@@ -73,7 +73,7 @@
 #include "orbital.h"
 #include "radial.h"
 
-double NucleusRMS(double z);
+double NucleusRRMS(double z);
 void    SetHydrogenicNL(int n, int kl, int nm, int klm);
 void    GetHydrogenicNL(int *n, int *kl, int *nm, int *klm);
 double  HydrogenicDipole(double z, int n0, int kl0, 
