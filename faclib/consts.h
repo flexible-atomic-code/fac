@@ -139,7 +139,7 @@
 ** PURPOSE:     Bohr radius in Angstrom.
 ** NOTE:        
 */
-#define RBOHR      0.529177249
+#define RBOHR      0.52917721067
 
 /*
 ** VARIABLE:    MBOHR
@@ -147,7 +147,7 @@
 ** PURPOSE:     Bohr magenton in eV/Gauss.
 ** NOTE:        
 */
-#define MBOHR      5.78838263E-9
+#define MBOHR      5.7883818012E-9
 
 /*
 ** VARIABLE:    FINE_STRUCTURE_CONST, FINE_STRUCTURE_CONST2
@@ -155,8 +155,8 @@
 ** PURPOSE:     fine structure constant and its square.
 ** NOTE:        
 */
-#define FINE_STRUCTURE_CONST  7.29735308E-3
-#define FINE_STRUCTURE_CONST2 5.32513620E-5
+#define FINE_STRUCTURE_CONST  7.2973525664E-3
+#define FINE_STRUCTURE_CONST2 5.325135447834E-5
 #define AMU  1822.888486
 
 /* nucleus */
