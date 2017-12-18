@@ -1416,15 +1416,16 @@ static int PSetMixCut(int argc, char *argv[], int argt[],
 
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
-  double z, mass, rn, a;
+  double z, mass, rn, a, npr;
 
   mass = -1.0;
   z = -1.0;
   rn = -1.0;
   a = -1.0;
+  npr = -1.0;
   if (argc < 1) return -1;
   if (argt[0] == STRING) {
-    if (argc > 5) return -1;
+    if (argc > 6) return -1;
     if (argc > 1) {
       z = atof(argv[1]);
       if (argc > 2) {
@@ -1433,13 +1434,16 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 	  rn = atof(argv[3]);
 	  if (argc > 4) {
 	    a = atof(argv[4]);
+	    if (argc > 5) {
+	      npr = atoi(argv[5]);
+	    }
 	  }
 	}
       }
     }
-    if (SetAtom(argv[0], z, mass, rn, a) < 0) return -1;
+    if (SetAtom(argv[0], z, mass, rn, a, npr) < 0) return -1;
   } else if (argt[0] == NUMBER) {
-    if (argc > 4) return -1;
+    if (argc > 5) return -1;
     z = atof(argv[0]);
     if (argc > 1) {
       mass = atof(argv[1]);
@@ -1447,10 +1451,13 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 	rn = atof(argv[2]);
 	if (argc > 3) {
 	  a = atof(argv[3]);
+	  if (argc > 4) {
+	    npr = atof(argv[4]);
+	  }
 	}
       }
     }
-    if (SetAtom(NULL, z, mass, rn, a) < 0) return -1;
+    if (SetAtom(NULL, z, mass, rn, a, (int)npr) < 0) return -1;
   }
   
   return 0;

@@ -1,5 +1,5 @@
 c =================================================
-        subroutine iniqed(z0, nmax0, knucl0, rms)
+        subroutine iniqed(z0, nmax0, knucl0, nprms0)
 c - - - - - - - - - - - - - - - - - - - - - - - - -
 c
 c  This is the main part of the potgen routine. potgen
@@ -120,7 +120,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         common /num_kappa/num_kappa
         common /kk_se/kk_se(6)
         common /rfn/rfn(6)
-        common /Rrms/Rrms(120)/name_at/name_at(120)/rms0/rms0
+        common /Rrms/Rrms(120)/name_at/name_at(120)/nprms/nprms
         character*16 output_filename
         character*1 let(11)
         data
@@ -133,7 +133,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         nmax=nmax0
         z = z0
         knucl = knucl0
-        rms0 = rms
+        nprms = nprms0
         nnm = 5
 c        write(*,*) nmax, z, knucl, nmax0, z0, knucl0
 c       - - - - - - - - - - - - - - - - - - - - - - - - -

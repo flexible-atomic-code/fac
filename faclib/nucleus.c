@@ -1100,7 +1100,7 @@ double GraspRRMS(double z, double m) {
   return 0.0;
 }
 
-int SetAtom(char *s, double z, double mass, double rn, double a) {
+int SetAtom(char *s, double z, double mass, double rn, double a, int npr) {
   int i;
   char un[3] = "Xx";
   if (s == NULL || strlen(s) == 0) {
@@ -1232,8 +1232,9 @@ int SetAtom(char *s, double z, double mass, double rn, double a) {
     atom.z1 += atom.a*(_rfermi[1][NFERMI-1] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
+  atom.npr = npr;
   if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
-    INIQED(atom.atomic_number, 9, atom.rn>0, atom.rms*1e5*RBOHR);
+    INIQED(atom.atomic_number, 9, atom.rn>0, npr);
   }
   return 0;
 }
@@ -1243,10 +1244,10 @@ NUCLEUS *GetAtomicNucleus() {
 }
 
 void PrintNucleus() {
-  printf("%s z=%g m=%g r=%g/%.4f z1=%g a=%g b=%g c=%g\n",
+  printf("%s z=%g m=%g r=%g/%.4f z1=%g a=%g b=%g c=%g np=%d\n",
 	 atom.symbol, atom.atomic_number, atom.mass,
 	 atom.rn, atom.rn*1e5*RBOHR, atom.z1,
-	 atom.a, atom.b, atom.c);
+	 atom.a, atom.b, atom.c, atom.npr);
 }
 
 double GetAtomicMass(void) {
