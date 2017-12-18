@@ -33,7 +33,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         iz=z+0.5d0
         rms=Rrms(iz)
         if (rms0 .gt. 1d-10) rms = rms0
-        rms=ZInterp(iz,Rrms,1)
+        rms=ZInterp(iz,Rrms,3)
         name=name_at(iz)
 c        write( *,15) z
 c        write(11,15) z
