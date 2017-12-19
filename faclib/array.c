@@ -833,6 +833,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	  p = p->next;
 	  if (p) {
 	    pt = (MDATA *) p->dptr;
+	    m = 0;
 	  } else {
 	    break;
 	  }
