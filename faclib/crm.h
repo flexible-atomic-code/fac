@@ -96,6 +96,7 @@ typedef struct _ION_ {
   int KLN_amin, KLN_amax;
   double *KLN_ai;
   int *KLN_nai;
+  double ace, atr, aci, arr, aai;
 } ION;
 
 typedef struct _IONIZED_ {
@@ -108,6 +109,7 @@ typedef struct _IONIZED_ {
   int imin[2], imax[2];
   double *energy;
   double n, nt, n0;
+  double ace, atr, aci, arr, aai;
 } IONIZED;
 
 typedef struct _RATE_ {
@@ -136,13 +138,14 @@ int StrNComplex(char *s, NCOMPLEX *c);
 int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc);
 void ExtrapolateEN(int i, ION *ion);
 int FindFinalTR(ION *ion, int f, int n1, int n0);
-void ExtrapolateTR(ION *ion, int inv);
-void ExtrapolateRR(ION *ion, int inv);
-void ExtrapolateAI(ION *ion, int inv);
+void ExtrapolateTR(ION *ion, int inv, int **irb);
+void ExtrapolateRR(ION *ion, int inv, int **irb);
+void ExtrapolateAI(ION *ion, int inv, int **irb);
 int SetBlocks(double ni, char *ifn);
+void SetRateMultiplier(int nele, int t, double a);
 int SetAbund(int nele, double abund);
 int InitBlocks(void);
-int AddRate(ION *ion, ARRAY *rts, RATE *r, int m);
+int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb);
 int SetCERates(int inv);
 int SetTRRates(int inv);
 int SetCIRates(int inv);

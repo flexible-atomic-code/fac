@@ -1435,7 +1435,7 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 	  if (argc > 4) {
 	    a = atof(argv[4]);
 	    if (argc > 5) {
-	      npr = atoi(argv[5]);
+	      npr = atof(argv[5]);
 	    }
 	  }
 	}
@@ -1457,7 +1457,7 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 	}
       }
     }
-    if (SetAtom(NULL, z, mass, rn, a, (int)npr) < 0) return -1;
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return -1;
   }
   
   return 0;
@@ -2363,6 +2363,22 @@ static int PSetSE(int argc, char *argv[], int argt[],
   }
   SetSE(c, m, s, p);
   
+  return 0;
+}
+
+static int POptimizeModSE(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  double dr;
+  int n, ka, ni;
+
+  if (argc < 3 || argc > 4) return -1;
+  n = atoi(argv[0]);
+  ka = atoi(argv[1]);
+  dr = atof(argv[2]);
+  if (argc > 3) {
+    ni = atoi(argv[3]);
+  }
+  OptimizeModSE(n, ka, dr, ni);
   return 0;
 }
 
@@ -4070,6 +4086,7 @@ static METHOD methods[] = {
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
   {"SetModSE", PSetModSE, METH_VARARGS},
+  {"OptimizeModSE", PSetModSE, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},

@@ -160,7 +160,7 @@
 #define AMU  1822.888486
 
 /* nucleus */
-#define N_ELEMENTS 118
+#define N_ELEMENTS 120
 #define NISO 58
 #define NFERMI 5001
 

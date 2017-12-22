@@ -363,13 +363,13 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	  if (rms <= 0) {
 	    r = _qed_se0[m][id];
 	  } else {
-	    r = _qed_se0[m][id] + _qed_se1[m][id];
+	    r = _qed_se0[m][id] + _qed_se1[m][id];	    
 	    rr = _qed_rrms[id];
-	    if (z >= 26 && fabs(rms-rr) > 0.025*rr) {
+	    if (z >= 26 && fabs(rms-rr) > 1e-6*rr) {
 	      MOHRFIN(-n, k, z, rms, &c2, &a, &b, &c, &p);
 	      cr = a*(pow(rms,p)*(1+b*rms+c*rms*rms)-pow(rr,p)*(1+b*rr+c*rr*rr));
 	      r += cr;
-	    }
+	    }	    
 	  }
 	} else {
 	  t = 1;
@@ -379,13 +379,13 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	  } else {
 	    UVIP3P(np, nx, _qed_za, _qed_se0[m], t, &z, &r);
 	    UVIP3P(np, nx, _qed_za, _qed_se1[m], t, &z, &r0);
-	    r += r0;
+	    r += r0;	    
 	    UVIP3P(np, nx, _qed_za, _qed_rrms, t, &z, &rr);
-	    if (z >= 26 && fabs(rms-rr) > 0.025*rr) {
+	    if (z >= 26 && fabs(rms-rr) > 1e-6*rr) {
 	      MOHRFIN(-n, k, z, rms, &c2, &a, &b, &c, &p);
 	      cr = a*(pow(rms,p)*(1+b*rms+c*rms*rms)-pow(rr,p)*(1+b*rr+c*rr*rr));
 	      r += cr;
-	    }
+	    }	    
 	  }
 	}
       }

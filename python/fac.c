@@ -1023,25 +1023,42 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   }
   if (PyString_Check(t)) {
     s = PyString_AsString(t);
-    if (SetAtom(s, z, mass, rn, a, (int)npr) < 0) return NULL;
+    if (SetAtom(s, z, mass, rn, a, npr) < 0) return NULL;
   } else if (PyFloat_Check(t)) {
     npr = a;
     a = rn;
     rn = mass;
     mass = z;
     z = PyFloat_AsDouble(t);
-    if (SetAtom(NULL, z, mass, rn, a, (int)npr) < 0) return NULL;
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
   } else if (PyInt_Check(t)) {
     npr = a;
     a = rn;
     rn = mass;    
     mass = z;
     z = (double) PyInt_AsLong(t);
-    if (SetAtom(NULL, z, mass, rn, a, (int)npr) < 0) return NULL;
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
   }
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *POptimizeModSE(PyObject *self, PyObject *args) {
+  int n, ka, ni;
+  double dr;
+
+  if (sfac_file) {
+    SFACStatement("OptimizeModSE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  ni = 1000000;
+  if (!PyArg_ParseTuple(args, "iid|i", &n, &ka, &dr, &ni)) return NULL;
+  OptimizeModSE(n, ka, dr, ni);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}  
 
 static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
   int n, k, nm, km;
@@ -5347,6 +5364,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
   {"SetModSE", PSetModSE, METH_VARARGS},
+  {"OptimizeModSE", POptimizeModSE, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},

@@ -106,6 +106,7 @@ int InitCRM(void) {
   ion0.nionized = 0;
   ion0.energy = NULL;
   ion0.atom = 0;
+  ion0.atr = ion0.ace = ion0.aci = ion0.arr = ion0.aai = -1;
 
   ions = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ions, sizeof(ION), ION_BLOCK);
@@ -134,9 +135,11 @@ static void FreeBlkRateData(void *p) {
   BLK_RATE *r;
 
   r = (BLK_RATE *) p;
-  ArrayFree(r->rates, NULL);
-  if (r->rates) free(r->rates);
-  r->rates = NULL;
+  if (r->rates) {
+    ArrayFree(r->rates, NULL);
+    free(r->rates);
+    r->rates = NULL;
+  }
 }
 
 static void InitIonData(void *p, int n) {
@@ -152,6 +155,11 @@ static void InitIonData(void *p, int n) {
     ion->KLN_bmax = -1;
     ion->KLN_amin = 0;
     ion->KLN_amax = -1;
+    ion->ace = -1;
+    ion->atr = -1;
+    ion->aci = -1;
+    ion->arr = -1;
+    ion->aai = -1;
     ion->nlevels = 0;
     ion->iblock = NULL;
     ion->ilev = NULL;
@@ -196,6 +204,7 @@ static void FreeIonData(void *p) {
     ion->KLN_amin = 0;
     ion->KLN_amax = -1;
     ion->nlevels = 0;
+    ion->ace = ion->atr = ion->aci = ion->arr = ion->aai = -1;
   }
   for (i = 0; i < NDB; i++) {
     if (ion->dbfiles[i]) free(ion->dbfiles[i]);
@@ -329,6 +338,7 @@ int AddIon(int nele, double n, char *pref) {
   ion.KLN_bmax = -1;
   ion.KLN_amin = 0;
   ion.KLN_amax = -1;
+  ion.ace = ion.atr = ion.aci = ion.arr = ion.aai = -1;
   ion.KLN_ai = NULL;
   ion.KLN_nai = NULL;
 
@@ -473,7 +483,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->nlevels = nlev;
 }
   
-void ExtrapolateTR(ION *ion, int inv) {
+void ExtrapolateTR(ION *ion, int inv, int **irb) {
   RECOMBINED *rec;
   RATE *r, *rp, r0;
   ARRAY *rates, *rates0;
@@ -541,11 +551,11 @@ void ExtrapolateTR(ION *ion, int inv) {
 	    b *= h + (n0-n)*(1.0-h)/(n1-n);
 	    r0.dir = b*r->dir;
 	    r0.inv = b*r->inv;
-	    AddRate(ion, ion->tr_rates, &r0, 0);
+	    AddRate(ion, ion->tr_rates, &r0, 0, irb);
 	    if (iuta) {
 	      r0.dir = ion->energy[r0.i] - ion->energy[r0.f];
 	      r0.inv = 0.0;
-	      AddRate(ion, ion->tr_sdev, &r0, 0);
+	      AddRate(ion, ion->tr_sdev, &r0, 0, irb);
 	    }
 	  } else {
 	    for (s = 0; s < blk->rec->n_ext; s++) {
@@ -554,11 +564,11 @@ void ExtrapolateTR(ION *ion, int inv) {
 		if (r0.f > blk->rec->imax[s]) break;
 		r0.dir = r->dir;
 		r0.inv = r->inv;
-		AddRate(ion, ion->tr_rates, &r0, 0);
+		AddRate(ion, ion->tr_rates, &r0, 0, irb);
 		if (iuta) {
 		  r0.dir = ion->energy[r0.i] - ion->energy[r0.f];
 		  r0.inv = 0.0;
-		  AddRate(ion, ion->tr_sdev, &r0, 0);
+		  AddRate(ion, ion->tr_sdev, &r0, 0, irb);
 		}
 		break;
 	      }
@@ -570,7 +580,7 @@ void ExtrapolateTR(ION *ion, int inv) {
   }
 }
 
-void ExtrapolateRR(ION *ion, int inv) {
+void ExtrapolateRR(ION *ion, int inv, int **irb) {
   RECOMBINED *rec;
   RATE *r, *rp, r0;
   ARRAY *rates, *rates0;
@@ -654,7 +664,7 @@ void ExtrapolateRR(ION *ion, int inv) {
 	  b *= h + d*(1.0-h);
 	  r0.dir = b*r->dir;
 	  r0.inv = 0.0;
-	  AddRate(ion, ion->rr_rates, &r0, 0);
+	  AddRate(ion, ion->rr_rates, &r0, 0, irb);
 	}
 	r->dir *= a;
       }
@@ -662,7 +672,7 @@ void ExtrapolateRR(ION *ion, int inv) {
   }
 }
 
-void ExtrapolateAI(ION *ion, int inv) {
+void ExtrapolateAI(ION *ion, int inv, int **irb) {
   RECOMBINED *rec;
   RATE *r, r0;
   LBLOCK *blk0;
@@ -719,7 +729,7 @@ void ExtrapolateAI(ION *ion, int inv) {
 	  r0.dir = b*r->dir;
 	  AIRate(&(r0.dir), &(r0.inv), inv, ion->j[r->i], ion->j[r->f],
 		 e, r0.dir/RATE_AU);
-	  AddRate(ion, ion->ai_rates, &r0, 0);
+	  AddRate(ion, ion->ai_rates, &r0, 0, irb);
 	}
 	r->inv *= a;
 	r->dir *= c;
@@ -1194,6 +1204,20 @@ int SetBlocks(double ni, char *ifn) {
   return 0;
 }
 
+static int CompareENRecordEnergy(const void *p0, const void *p1) {
+  EN_RECORD *r0, *r1;
+  
+  r0 = (EN_RECORD *) p0;
+  r1 = (EN_RECORD *) p1;
+  if (r0->ilev < r1->ilev) {
+    return -1;
+  } else if (r0->ilev > r1->ilev) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 static int CompareENRecord(const void *p0, const void *p1) {
   EN_RECORD *r0, *r1;
   
@@ -1290,6 +1314,20 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   }
 
   fclose(f);
+
+  EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
+  j = 0;
+  for (i = 0; i < n; i++, j+=2) {
+    r2[j] = r0[i];
+    r2[j+1] = r1[i];
+  }
+  qsort(r2, n, 2*sizeof(EN_RECORD), CompareENRecordEnergy);
+  j = 0;
+  for (i = 0; i < n; i++, j+=2) {
+    r0[i] = r2[j];
+    r1[i] = r2[j+1];
+  }
+  free(r2);
   return n;
 }
 
@@ -1445,6 +1483,62 @@ int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc) {
     return k1*100+k2;
   }
   return 0;
+}
+
+void SetRateMultiplier(int nele, int t, double a) {
+  ION *ion;
+  int i;
+  
+  for (i = 0; i < ions->dim; i++) {
+    ion = (ION *) ArrayGet(ions, i);
+    if (i == 0 && nele < ion->nele) {
+      if (ion0.nele == nele) {
+	switch (t) {
+	case 0:
+	  ion0.ace = a;
+	  break;
+	case 1:
+	  ion0.atr = a;
+	  break;
+	case 2:
+	  ion0.aci = a;
+	  break;
+	case 3:
+	  ion0.arr = a;
+	  break;
+	case 4:
+	  ion0.aai = a;
+	  break;
+	default:
+	  break;
+	}
+	break;
+      }
+      break;
+    }
+    if (ion->nele == nele) {
+      switch (t) {
+      case 0:
+	ion->ace = a;
+	break;
+      case 1:
+	ion->atr = a;
+	break;
+      case 2:
+	ion->aci = a;
+	break;
+      case 3:
+	ion->arr = a;
+	break;
+      case 4:
+	ion->aai = a;
+	break;
+      default:
+	break;
+      }
+      break;
+    }
+  }
 }
 
 int SetAbund(int nele, double abund) {
@@ -2952,22 +3046,6 @@ int BlockPopulation(int miter) {
   for (niter = 0; niter < miter; niter++) {
     FixNorm(niter);
     ta = 0.0;
-    /*
-    for (i = 0; i < n; i++) {
-      ta += x[i];
-    }
-    for (i = 0; i < n; i++) {
-      if (x[i] > 0) {
-	for (j = 0; j < n; j++) {
-	  p = j*n + i;      
-	  if (bmatrix[p]) {
-	    bmatrix[p] *= ta/x[i];
-	  }
-	}
-	x[i] = ta;
-      }
-    }
-    */
     p = 0;
     q = 0;
     m = 0;
@@ -3012,22 +3090,8 @@ int BlockPopulation(int miter) {
     lda = n;
     ldb = n;
     
-    /*
-      for (i = 0; i < m; i++) {
-      for (j = 0; j < m; j++) {
-      printf("%3d %3d %12.5E %12.5E\n", i, j, a[j*n+i], b[j]);
-      }
-      }
-    */
     DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
 
-    /*
-    ta = 0.0;
-    for (i = 0; i < m; i++) {
-      ta += b[i];
-      printf("%3d %12.5E %12.5E\n", i, b[i], ta);
-    }
-    */
     if (info != 0) {
       printf("Error in solving BlockMatrix\n");
       exit(1);
@@ -3445,13 +3509,6 @@ int LevelPopulation(void) {
   c = 1.0;
   for (i = 0; i < max_iter; i++) {
     BlockMatrix();
-    /*
-    if (d > c) {
-      n = 1;
-    } else {
-      n = max_iter;
-    }
-    */
     n = max_iter;
     BlockPopulation(n);
     d = BlockRelaxation(i);
@@ -4037,7 +4094,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   return 0;
 }
 
-int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
+int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   LBLOCK *ib, *fb;
   BLK_RATE *brt, brt0;
   RATE *r0;
@@ -4045,19 +4102,34 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
   
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
-  for (i = 0; i < rts->dim; i++) {
-    brt = (BLK_RATE *) ArrayGet(rts, i);
-    if (brt->iblock == ib && brt->fblock == fb) {
-      break;
+  if (irb == NULL) {
+    for (i = 0; i < rts->dim; i++) {
+      brt = (BLK_RATE *) ArrayGet(rts, i);
+      if (brt->iblock == ib && brt->fblock == fb) {
+	break;
+      }
+    }
+    if (i == rts->dim) {
+      brt = NULL;
+    }
+  } else {
+    i = irb[ib->ib][fb->ib];
+    if (i > 0 && i < rts->dim) {
+      brt = (BLK_RATE *) ArrayGet(rts, i);
+    } else {
+      brt = NULL;
     }
   }
-  if (i == rts->dim) {
+  if (brt == NULL) {
     brt0.iblock = ib;
     brt0.fblock = fb;
+    if (irb[ib->ib][fb->ib] < 0) {
+      irb[ib->ib][fb->ib] = rts->dim;
+    }
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
     ArrayInit(brt0.rates, sizeof(RATE), RATES_BLOCK);
     ArrayAppend(brt0.rates, r, NULL);
-    ArrayAppend(rts, &brt0, InitBlkRateData);
+    ArrayAppend(rts, &brt0, InitBlkRateData);    
   } else {
     if (m) {
       for (i = 0; i < brt->rates->dim; i++) {
@@ -4067,6 +4139,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
       if (i == brt->rates->dim) {
 	ArrayAppend(brt->rates, r, NULL);
       } else {
+	r0 = (RATE *) ArrayGet(brt->rates, i);
 	if (m == 1) {
 	  r0->dir += r->dir;
 	  r0->inv += r->inv;
@@ -4082,7 +4155,37 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m) {
   }
   return 0;
 }
+
+int **IdxRateBlock(int nb) {
+  int **irb, i, j;
+  irb = (int **) malloc(sizeof(int *)*nb);
+  for (i = 0; i < nb; i++) {
+    irb[i] = (int *) malloc(sizeof(int)*nb);
+    for (j = 0; j < nb; j++) {
+      irb[i][j] = -1;
+    }
+  }
+  return irb;
+}
+
+void FillIdxRateBlock(int **irb, ARRAY *rts) {
+  int i;
+  BLK_RATE *brt;
   
+  for (i = 0; i < rts->dim; i++) {
+    brt = (BLK_RATE *) ArrayGet(rts, i);
+    irb[brt->iblock->ib][brt->fblock->ib] = i;
+  }
+}
+
+void FreeIdxRateBlock(int nb, int **irb) {
+  int i;
+  for (i = 0; i < nb; i++) {
+    free(irb[i]);
+  }
+  free(irb);
+}
+
 int SetCERates(int inv) {
   int nb, i, j;
   int n, m, m1, k;
@@ -4100,13 +4203,15 @@ int SetCERates(int inv) {
   double *y, *x;
   double *eusr;
   int swp;
-  
+  int **irb;
+
   BornFormFactorTE(&bte);
   bms = BornMass(); 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  irb = IdxRateBlock(blocks->dim);
   y = data + 2;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
@@ -4149,7 +4254,11 @@ int SetCERates(int inv) {
 	}
 	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 	       data, rt.i, rt.f);
-	AddRate(ion, ion->ce_rates, &rt, 0);
+	if (ion->ace > 0) {
+	  rt.dir *= ion->ace;
+	  rt.inv *= ion->ace;
+	}
+	AddRate(ion, ion->ce_rates, &rt, 0, irb);
 	if (h.qk_mode == QK_FIT) free(r.params);
 	free(r.strength);
       }
@@ -4208,7 +4317,11 @@ int SetCERates(int inv) {
 	  }
 	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
 		 data, rt.i, rt.f);
-	  AddRate(ion, ion->ce_rates, &rt, 0);
+	  if (ion0.ace > 0) {
+	    rt.dir *= ion0.ace;
+	    rt.inv *= ion0.ace;
+	  }
+	  AddRate(ion, ion->ce_rates, &rt, 0, irb);
 	  if (h.qk_mode == QK_FIT) free(r.params);
 	  free(r.strength);
 	}
@@ -4220,6 +4333,7 @@ int SetCERates(int inv) {
     }
   }
 
+  FreeIdxRateBlock(blocks->dim, irb);
   return 0;
 }
 
@@ -4238,11 +4352,14 @@ int SetTRRates(int inv) {
   double e, gf;
   FILE *f;  
   int swp, iuta, im;
+  int **irb, **irb2;
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  irb = IdxRateBlock(blocks->dim);
+  irb2 = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->tr_rates, FreeBlkRateData);
@@ -4282,11 +4399,15 @@ int SetTRRates(int inv) {
 	  gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
 	  if (iuta) gf *= rx.sci;
 	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	  im = AddRate(ion, ion->tr_rates, &rt, m);
+	  if (ion->atr > 0) {
+	    rt.dir *= ion->atr;
+	    rt.inv *= ion->atr;
+	  }
+	  im = AddRate(ion, ion->tr_rates, &rt, m, irb);
 	  if (iuta && im == 0) {
 	    rt.dir = rx.energy;
 	    rt.inv = rx.sdev;
-	    AddRate(ion, ion->tr_sdev, &rt, 0);
+	    AddRate(ion, ion->tr_sdev, &rt, 0, irb);
 	  }
 	}
       }
@@ -4301,7 +4422,11 @@ int SetTRRates(int inv) {
       if (rt.i >= 0 && rt.f >= 0) {
 	rt.dir = TwoPhotonRate(ion0.atom, 0);
 	rt.inv = 0.0;
-	AddRate(ion, ion->tr2_rates, &rt, 0);
+	if (ion->atr > 0) {
+	  rt.dir *= ion->atr;
+	  rt.inv *= ion->atr;
+	}
+	AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
       }
     } else if (ion->nele == 2) {
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
@@ -4312,7 +4437,11 @@ int SetTRRates(int inv) {
       if (rt.i >= 0 && rt.f >= 0) {
 	rt.dir = TwoPhotonRate(ion0.atom, 1);
 	rt.inv = 0.0;
-	AddRate(ion, ion->tr2_rates, &rt, 0);
+	if (ion->atr > 0) {
+	  rt.dir *= ion->atr;
+	  rt.inv *= ion->atr;
+	}
+	AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
       }
       if (k == 0 && ion0.nionized > 0.0) {
 	rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
@@ -4322,12 +4451,16 @@ int SetTRRates(int inv) {
 	if (rt.i >= 0 && rt.f >= 0) {
 	  rt.dir = TwoPhotonRate(ion0.atom, 0);
 	  rt.inv = 0.0;
-	  AddRate(ion, ion->tr2_rates, &rt, 0);
+	  if (ion->atr > 0) {
+	    rt.dir *= ion->atr;
+	    rt.inv *= ion->atr;
+	  }
+	  AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
 	}
       }
     }
     if (ion0.n < 0) continue;
-    ExtrapolateTR(ion, inv);
+    ExtrapolateTR(ion, inv, irb);
     if (k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_TR-1], "r");
       if (f == NULL) {
@@ -4364,11 +4497,15 @@ int SetTRRates(int inv) {
 	    gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
 	    if (iuta) gf *= rx.sci;
 	    TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	    im = AddRate(ion, ion->tr_rates, &rt, m);
+	    if (ion0.atr > 0) {
+	      rt.dir *= ion0.atr;
+	      rt.inv *= ion0.atr;
+	    }
+	    im = AddRate(ion, ion->tr_rates, &rt, m, irb);
 	    if (iuta && im == 0) {
 	      rt.dir = rx.energy;
 	      rt.inv = rx.sdev;
-	      AddRate(ion, ion->tr_sdev, &rt, 0);
+	      AddRate(ion, ion->tr_sdev, &rt, 0, irb);
 	    }
 	  }
 	}
@@ -4376,6 +4513,8 @@ int SetTRRates(int inv) {
       fclose(f);
     }
   }
+  FreeIdxRateBlock(blocks->dim, irb);
+  FreeIdxRateBlock(blocks->dim, irb2);
   return 0;
 }
 
@@ -4391,13 +4530,16 @@ int SetCIRates(int inv) {
   double e;
   FILE *f;  
   int swp;
-
+  int **irb;
+  
   if (ion0.n < 0.0) return 0;
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+
+  irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ci_rates, FreeBlkRateData);
@@ -4426,7 +4568,11 @@ int SetCIRates(int inv) {
 	e = ion->energy[r.f] - ion->energy[r.b];
 	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, r.params,
 	       rt.i, rt.f);
-	AddRate(ion, ion->ci_rates, &rt, 0);
+	if (ion->aci > 0) {
+	  rt.dir *= ion->aci;
+	  rt.inv *= ion->aci;
+	}
+	AddRate(ion, ion->ci_rates, &rt, 0, irb);
 	free(r.params);
 	free(r.strength);
       }
@@ -4436,6 +4582,7 @@ int SetCIRates(int inv) {
     }
     fclose(f);
   }
+  FreeIdxRateBlock(blocks->dim, irb);
   return 0;
 }
 
@@ -4455,12 +4602,14 @@ int SetRRRates(int inv) {
   double data[1+MAXNUSR*4];
   double *eusr;
   double *x, *logx, *y, *p;
+  int **irb;
 
   if (ion0.n < 0.0) return 0;
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  irb = IdxRateBlock(blocks->dim);
   y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
@@ -4515,7 +4664,11 @@ int SetRRRates(int inv) {
 	p[h.nparams-1] *= HARTREE_EV;
 	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, data,
 	       rt.i, rt.f);
-	AddRate(ion, ion->rr_rates, &rt, 0);
+	if (ion->arr > 0) {
+	  rt.dir *= ion->arr;
+	  rt.inv *= ion->arr;
+	}
+	AddRate(ion, ion->rr_rates, &rt, 0, irb);
 	free(r.params);
 	free(r.strength);
       }
@@ -4524,8 +4677,10 @@ int SetRRRates(int inv) {
       free(h.usr_egrid);
     }
     fclose(f);
-    ExtrapolateRR(ion, inv);
+    ExtrapolateRR(ion, inv, irb);
   }
+
+  FreeIdxRateBlock(blocks->dim, irb);
   return 0;
 }
 
@@ -4608,6 +4763,7 @@ int SetAIRates(int inv) {
   FILE *f;  
   int swp;
   int ibase;
+  int **irb;
 
   if (ion0.n < 0.0) return 0;
 
@@ -4615,6 +4771,7 @@ int SetAIRates(int inv) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+  irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
     if (k == 0) ion = (ION *) ArrayGet(ions, k);
     else ion = ion1;
@@ -4671,7 +4828,11 @@ int SetAIRates(int inv) {
 	if (e < 0 && ion->ibase[r.b] != r.f) e -= ai_emin;
 	if (e > EPS16) {
 	  AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
-	  AddRate(ion, ion->ai_rates, &rt, 0);
+	  if (ion->aai > 0) {
+	    rt.dir *= ion->aai;
+	    rt.inv *= ion->aai;
+	  }
+	  AddRate(ion, ion->ai_rates, &rt, 0, irb);
 	}
       }
       free(h.egrid);
@@ -4685,7 +4846,7 @@ int SetAIRates(int inv) {
       }
     }
     fclose(f);
-    ExtrapolateAI(ion, inv);
+    ExtrapolateAI(ion, inv, irb);
     
     if (inner_auger == 4 && k == 0 && ion0.nionized > 0) {
       f = fopen(ion0.dbfiles[DB_AI-1], "r");
@@ -4711,6 +4872,8 @@ int SetAIRates(int inv) {
       fclose(f);
     }
   }
+
+  FreeIdxRateBlock(blocks->dim, irb);
   return 0;
 }
 
@@ -5002,7 +5165,7 @@ int ModifyRates(char *fn) {
 	if (NULL == fgets(buf, 1024, f)) break;
 	n = sscanf(buf, "%d %d %lf %lf", &(r.i), &(r.f), &(r.dir), &(r.inv));
 	if (n != 4) continue;
-	AddRate(ion, rts, &r, mode);
+	AddRate(ion, rts, &r, mode, NULL);
       }
       break;
     }

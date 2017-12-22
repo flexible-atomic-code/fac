@@ -646,6 +646,7 @@ def spectrum(neles, temp, den, population, pref,
              suf='b', osuf='', dir0 = '', dir1= '', nion = 3,
              dist = 0, params=[-1,-1], cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1, iprint=1,
+             frr0 = -1, fci0 = -1, frrp = -1, fcip = -1,
              ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = [],
              t0=-1, t1=-1, d0=-1, d1=-1,
              mtr='', mce='', mci='', mai='', mrr=''):
@@ -669,10 +670,18 @@ def spectrum(neles, temp, den, population, pref,
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)
         f3 = '%s%02d%s'%(pref, k+1, suf)
-        AddIon(k, 0.0, dir0+f2) 
+        AddIon(k, 0.0, dir0+f2)
+        if (frr0 > 0):
+            SetRateMultiplier(k, 3, frr0)
+        if (fci0 > 0):
+            SetRateMultiplier(k, 2, fci0)
         if (nion == 3):
             AddIon(k+1, 0.0, dir0+f3)
-        if (nion > 1):
+            if (frrp > 0):
+                SetRateMultiplier(k+1, 3, frrp)
+            if (fcip > 0):
+                SetRateMultiplier(k+1, 2, fcip)
+        if (nion > 1 and abundm > -10):
             if (k > 1 and ion0 > 0):
                 SetBlocks(0.0, dir0+f1)
             else:
@@ -685,18 +694,18 @@ def spectrum(neles, temp, den, population, pref,
         if mtr != '':
             ModifyRates(mtr)
         for i in range(t0, t1+1):
-            if (abundm <= 0 or abundp <= 0):
+            if (abundm < 0 or abundp < 0):
                 p1 = population[i][k-1]
                 p2 = population[i][k]
                 try:
                     p3 = population[i][k+1]
                 except:
                     p3 = p2
-            if (abundm <= 0):
+            if (abundm < 0):
                 p1 = abund0*(p1/p2)
             else:
                 p1 = abundm
-            if (abundp <= 0):
+            if (abundp < 0):
                 p3 = abund0*(p3/p2)
             else:
                 p3 = abundp

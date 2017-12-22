@@ -23,7 +23,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         common /name/name
         common /knucl/knucl/rnucl/rnucl
         character*1 let(11)
-        common /Rrms/Rrms(120)/name_at/name_at(120)/nprms/nprms
+        common /Rrms/Rrms(120)/name_at/name_at(120)/nprms/rms0
         character*2 name,name_at
         data
      1  let /'s','p','d','f','g','h','i','k','l','m','n'/
@@ -31,10 +31,8 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         call init_atom_data
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         iz=z+0.5d0
-c     rms=Rrms(iz)
-        if (nprms .lt. 1) nprms = 1
-        if (nprms .gt. 3) nprms = 3
-        rms=ZInterp(iz,Rrms,nprms)
+        rms=Rrms(iz)
+        if (rms0 .gt. 0) rms = rms0
         name=name_at(iz)
 c        write( *,15) z
 c        write(11,15) z

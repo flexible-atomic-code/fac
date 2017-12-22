@@ -40,7 +40,7 @@ static char _ename[N_ELEMENTS][3] =
  "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
  "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es",
  "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs",
- "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og"};
+ "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc", "Lv", "Ts", "Og", "Ux", "Uy"};
 
 static double _emass[N_ELEMENTS] = 
 {1.008, 4.003, 6.94, 9.012, 10.81, 12.01, 14.01, 16.00, 19.00,
@@ -56,7 +56,7 @@ static double _emass[N_ELEMENTS] =
  209.0, 210.0, 222.0, 223.0, 226.0, 227.0, 232.0,
  231.0, 238.0, 237.0, 244.0, 243.0, 247.0, 247.0, 251.0, 
  252.0, 257.0, 258.0, 259.0, 262.0, 267.0, 268.0, 269.0, 270.0,
- 277.0, 278., 281.0, 282.0, 285.0, 286.0, 289.0, 289.0, 293.0, 294.0, 294.0};
+ 277.0, 278., 281.0, 282.0, 285.0, 286.0, 289.0, 289.0, 293.0, 294.0, 294.0, 296.0, 296.0};
 
 static double _arrms[N_ELEMENTS] =
   {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -71,7 +71,33 @@ static double _arrms[N_ELEMENTS] =
    5.413, 5.402, 5.428, 5.436, 5.463, 5.476, 5.501, 5.521,
    5.526, 5.539, 5.655, 5.658, 5.684, 5.670, 5.710, 5.700,
    5.851, 5.744, 5.864, 5.905, 5.815, 5.815, 5.843, 5.850, 5.857};
-    
+
+static double _mserms[N_ELEMENTS] = {
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  3.0055    ,  2.9936    ,  3.057     ,  3.061     ,  3.1224    ,
+  3.1889    ,  3.2611    ,  3.365     ,  3.4274    ,  3.4349    ,
+  3.4776    ,  3.5459    ,  3.5921    ,  3.6002    ,  3.6452    ,
+  3.7057    ,  3.7377    ,  3.7875    ,  3.7757    ,  3.8823    ,
+  3.9283    ,  3.9973    ,  4.0742    ,  4.0968    ,  4.14      ,
+  4.1629    ,  4.1884    ,  4.2036    ,  4.224     ,  4.243     ,
+  4.2694    ,  4.324     ,  4.4091    ,  4.424     ,  4.4809    ,
+  4.4945    ,  4.5318    ,  4.5454    ,  4.5944    ,  4.6156    ,
+  4.6519    ,  4.6802    ,  4.7423    ,  4.75      ,  4.7859    ,
+  4.8041    ,  4.8378    ,  4.855     ,  4.8771    ,  4.8919    ,
+  4.9123    ,  4.91548125,  4.85956687,  4.88787188,  4.93128563,
+  5.07265   ,  5.0898425 ,  5.17599   ,  5.238471  ,  5.303984  ,
+  5.3108    ,  5.302875  ,  5.31358125,  5.31725813,  5.31381881,
+  5.3230125 ,  5.331411  ,  5.37975   ,  5.41033488,  5.44389637,
+  5.4648    ,  5.48103366,  5.49260437,  5.49895157,  5.51991148,
+  5.53461255,  5.51322061,  5.54938223,  5.5893442 ,  5.65759688,
+  5.6849025 ,  5.78639063,  5.8118025 ,  5.89141438,  5.88691415,
+  5.90087899,  5.91494926,  5.91168879,  5.88264623,  5.86691016,
+  5.85471211,  5.84942109,  5.86143996,  5.87414508,  5.89325189,
+  5.919     ,  5.92795102,  5.94922305,  5.95825928,  5.97967266,
+  5.99007373,  5.97927161,  5.97652411,  5.98987011,  6.02529002,
+  6.08752438,  6.13926806,  6.15654237,  6.15927535,  6.16201645,
+  6.17454773};
+ 
 static double _errms[N_ELEMENTS][NISO];
 
 static double _xfermi[NFERMI];
@@ -1100,14 +1126,20 @@ double GraspRRMS(double z, double m) {
   return 0.0;
 }
 
-int SetAtom(char *s, double z, double mass, double rn, double a, int npr) {
+int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
   int i;
   char un[3] = "Xx";
   if (s == NULL || strlen(s) == 0) {
     if (z <= 0) {
       printf("atomic symbol and z cannot be both unset\n");
+      return -1;
     }
-    s = _ename[(int)(z-0.8)];
+    int iz = (int)z;
+    if (iz <= N_ELEMENTS) {
+      s = _ename[iz-1];
+    } else {
+      s = un;
+    }
   } else {
     int iz = atoi(s);
     if (iz > 0) {      
@@ -1132,7 +1164,10 @@ int SetAtom(char *s, double z, double mass, double rn, double a, int npr) {
     }
   }
   if (z <= 0 || mass <= 0) {
-    if (i == N_ELEMENTS) return -1;
+    if (i == N_ELEMENTS) {
+      printf("unknown element must have z and mass set\n");
+      return -1;
+    }
   }
   if (z > 0) {
     atom.atomic_number = z;
@@ -1232,9 +1267,21 @@ int SetAtom(char *s, double z, double mass, double rn, double a, int npr) {
     atom.z1 += atom.a*(_rfermi[1][NFERMI-1] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
-  atom.npr = npr;
+  if (rmse < 0) {
+    int iz = (int)z;
+    if (rmse < 0) {
+      rmse = _mserms[iz-1];    
+      if (rmse <= 0) {
+	atom.rmse = atom.rms*1e5*RBOHR;
+      } else {
+	atom.rmse = rmse;
+      }
+    }
+  } else {
+    atom.rmse = rmse;
+  }
   if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
-    INIQED(atom.atomic_number, 9, atom.rn>0, npr);
+    INIQED(atom.atomic_number, 9, atom.rn>0, atom.rmse);
   }
   return 0;
 }
@@ -1244,10 +1291,10 @@ NUCLEUS *GetAtomicNucleus() {
 }
 
 void PrintNucleus() {
-  printf("%s z=%g m=%g r=%g/%.4f z1=%g a=%g b=%g c=%g np=%d\n",
+  printf("%s z=%g m=%g r=%g/%.4f/%.4f z1=%g a=%g b=%g c=%g\n",
 	 atom.symbol, atom.atomic_number, atom.mass,
-	 atom.rn, atom.rn*1e5*RBOHR, atom.z1,
-	 atom.a, atom.b, atom.c, atom.npr);
+	 atom.rn, atom.rms*1e5*RBOHR, atom.rmse, atom.z1,
+	 atom.a, atom.b, atom.c);
 }
 
 double GetAtomicMass(void) {

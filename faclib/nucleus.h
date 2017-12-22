@@ -26,16 +26,15 @@ typedef struct _NUCLEUS_ {
   char symbol[5];
   double z0, atomic_number;
   double m0, mass;
-  double rn, z1, rms, rms0;
+  double rn, z1, rms, rms0, rmse;
   double a, b, c;
-  int npr;
   double rfermi[5];
 } NUCLEUS;
 
 void PrintNucleus();
 int InitNucleus();
 double GraspRRMS(double z, double m);
-int SetAtom(char *s, double z, double mass, double rn, double a, int npr);
+int SetAtom(char *s, double z, double mass, double rn, double a, double rse);
 char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);
 double GetAtomicNumber(void);

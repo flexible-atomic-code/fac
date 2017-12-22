@@ -180,6 +180,7 @@ int TestIntegrate(void);
 int RestorePotential(char *fn, POTENTIAL *p);
 int SavePotential(char *fn, POTENTIAL *p);
 int ModifyPotential(char *fn, POTENTIAL *p);
+void OptimizeModSE(int n, int ka, double dr, int ni);
 
 #endif
 

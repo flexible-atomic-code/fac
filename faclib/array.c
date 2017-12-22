@@ -442,7 +442,11 @@ int ArrayTrim(ARRAY *a, int n, void (*FreeElem)(void *)) {
 */    
 int SMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i;
-  strncpy(ma->id, id, MULTI_IDLEN-1);
+  if (id != NULL) {
+    strncpy(ma->id, id, MULTI_IDLEN-1);
+  } else {
+    ma->id[0] = '\0';
+  }
   ma->maxsize = -1;
   ma->totalsize = 0;
   ma->clean_mode = -1;
@@ -673,7 +677,11 @@ void LimitMultiSize(MULTI *ma, double r) {
   
 int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i, n, s;
-  strncpy(ma->id, id, MULTI_IDLEN-1);
+  if (id != NULL) {
+    strncpy(ma->id, id, MULTI_IDLEN-1);
+  } else {
+    ma->id[0] = '\0';
+  }
   ma->maxsize = -1;
   ma->totalsize = 0;
   ma->clean_mode = -1;
@@ -703,7 +711,7 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
 #else
   ma->lock = NULL;
 #endif
-  if (_multistats != NULL) {
+  if (_multistats != NULL && ma->id[0]) {
     ArrayAppend(_multistats, &ma, InitPointerData);    
   }
   return 0;
@@ -987,8 +995,11 @@ int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 
 int MMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i, n;
-
-  strncpy(ma->id, id, MULTI_IDLEN-1);
+  if (id == NULL) {
+    strncpy(ma->id, id, MULTI_IDLEN-1);
+  } else {
+    ma->id[0] = '\0';
+  }
   ma->maxsize = -1;
   ma->totalsize = 0;
   ma->clean_mode = -1;

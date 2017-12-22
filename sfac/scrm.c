@@ -523,6 +523,22 @@ static int PSetAbund(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetRateMultiplier(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int nele, t;
+  double a;
+  
+  if (argc != 3) return -1;
+  
+  nele = atoi(argv[0]);
+  t = atoi(argv[1]);
+  a = atof(argv[2]);
+  
+  SetRateMultiplier(nele, t, a);
+  
+  return 0;
+}
+
 static int PDRBranch(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
   
@@ -712,6 +728,7 @@ static METHOD methods[] = {
   {"SetAIRates", PSetAIRates, METH_VARARGS},
   {"SetAIRatesInner", PSetAIRates, METH_VARARGS},
   {"SetAbund", PSetAbund, METH_VARARGS},
+  {"SetRateMultiplier", PSetRateMultiplier, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
   {"Cascade", PCascade, METH_VARARGS},

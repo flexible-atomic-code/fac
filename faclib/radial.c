@@ -6833,3 +6833,84 @@ int TestIntegrate0(void) {
   
   return 0;
 }
+
+void OptimizeModSE(int n, int ka, double dr, int ni) {
+  double e0, eps, e, r0, r1, r, z, rs, rms;
+  ORBITAL *orb;
+  int k, i;
+
+  z = potential->atom->atomic_number;
+  if (z < 60) eps = 1e-4;
+  else eps = 1e-5;
+  r = potential->atom->rmse;
+  rms = potential->atom->rms*1e5*RBOHR;
+  if (r <= 0) {
+    r = rms;
+  }
+  dr = r*dr;
+  k = OrbitalIndex(n, ka, 0);
+  orb = GetOrbitalSolved(k);
+  e0 = HydrogenicSelfEnergy(31, 0, 1.0, potential, orb, orb);
+  if (potential->N > 1) {
+    if (orb->rorb == NULL) {
+      orb->rorb = SolveAltOrbital(orb, rpotential);
+    }
+    if (orb->horb == NULL) {
+      orb->horb = SolveAltOrbital(orb, hpotential);
+    }
+    rs = SelfEnergyRatio(orb->rorb, orb->horb);
+    e0 *= rs;
+  } else {
+    rs = 1.0;
+  }
+  INIQED(z, 9, 1, r);
+  e = HydrogenicSelfEnergy(51, 0, 1.0, potential, orb, orb);
+  if (ni > 0 && fabs(e0-e) > eps) {
+    i = 0;
+    if (e < e0) {
+      r0 = r;
+      r1 = r0;
+      while (i < ni && e < e0) {
+	r1 = r1 + dr;
+	INIQED(z, 9, 1, r1);
+	e = HydrogenicSelfEnergy(51, 0, 1.0, potential, orb, orb);
+	if (fabs(e0-e) < eps) {
+	  r = r1;
+	  break;
+	}
+	i++;
+      }
+    } else {
+      r1 = r;
+      r0 = r1;
+      while (i < ni && e > e0) {
+	r0 = r0 - dr;
+	INIQED(z, 9, 1, r0);
+	e = HydrogenicSelfEnergy(51, 0, 1.0, potential, orb, orb);
+	if (fabs(e0-e) < eps) {
+	  r = r0;
+	  break;
+	}
+	i++;
+      }
+    }
+    i = 0;
+    while(i < ni) {
+      r = 0.5*(r0 + r1);
+      INIQED(z, 9, 1, r);
+      e = HydrogenicSelfEnergy(51, 0, 1.0, potential, orb, orb);
+      if (fabs(e-e0) < eps) break;
+      if (r1-r0 < 1e-5) break;
+      if (e < e0) {
+	r0 = r;
+      } else if (e > e0) {
+	r1 = r;
+      }
+      i++;
+    }
+  }
+  
+  printf("modqed rms: %3.0f %18.10E %18.10E %18.10E %18.10E %18.10E %18.10E\n",
+	 z, rms, r, rs, e, e0, e-e0);
+}
+
