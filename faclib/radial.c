@@ -1258,7 +1258,7 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
 }
 
 int OptimizeLoop(AVERAGE_CONFIG *acfg) {
-  double tol, atol, tol0, atol0, tol1, a, b;
+  double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0;
   ORBITAL orb_old, *orb;
   int i, k, iter, no_old;
   
@@ -1269,8 +1269,15 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   tol0 = optimize_control.tolerance*ENERELERR;
   tol1 = optimize_control.tolerance*ENERELERR1;
   atol0 = optimize_control.tolerance*ENEABSERR;
-  while ((tol > tol0 || atol > atol0) && (tol > tol1)) {
+  ahx = 1.0;
+  hxs0 = potential->hxs;
+  if (fabs(hxs0)<1e-5) ahx = 0.0;
+  while ((tol > tol0 || atol > atol0) && (tol > tol1) && ahx > 1e-5) {
     if (iter > optimize_control.maxiter) break;
+    if (fabs(hxs0) > 1e-5) {
+      ahx = iter>15?0.0:exp(-(1+iter)*0.35);
+      potential->hxs = hxs0*(1-ahx);
+    }
     a = SetPotential(acfg, iter);
     FreeYkArray();
     tol = 0.0;
@@ -1313,9 +1320,9 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       b = fabs(orb_old.energy - orb->energy);
       if (atol < b) atol = b;
     }
-    if (tol > a) tol = a;
+    if (tol < a) tol = a;
     if (optimize_control.iprint) {
-      printf("optimize loop: %4d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E\n", iter, tol, atol, a, tol0, tol1, atol0);
+      printf("optimize loop: %4d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E\n", iter, tol, atol, a, tol0, tol1, atol0, ahx);
     }
     iter++;
   }
@@ -1436,7 +1443,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   }
 
   if (optimize_control.iset == 0) {
-    optimize_control.stabilizer = 0.25 + 0.75*(z/potential->Z[potential->maxrp-1]);
+    optimize_control.stabilizer = 0.25 + 0.65*(z/potential->Z[potential->maxrp-1]);
   }
 
   if (potential->mode/10 == 2) {

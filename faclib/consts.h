@@ -191,7 +191,7 @@
 #define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
 #define ENERELERR  1E-5  /* relative energy error */
 #define ENEABSERR  1E-5  /* absolute energy error */
-#define ENERELERR1 1E-12
+#define ENERELERR1 1E-8
 
 /* config */
 #define MCHSHELL           2048
@@ -207,7 +207,7 @@
 #define ORBITALS_BLOCK     1024
 #define OPTSTABLE          0.5
 #define OPTTOL             10.0
-#define OPTNITER           128
+#define OPTNITER           256
 #define OPTPRINT           0
 #define POTMODE            0
 #define POTHXS             1.0
