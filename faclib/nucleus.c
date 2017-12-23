@@ -1267,8 +1267,9 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
     atom.z1 += atom.a*(_rfermi[1][NFERMI-1] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
+
   if (rmse < 0) {
-    int iz = (int)z;
+    int iz = (int)atom.atomic_number;
     if (rmse < 0) {
       rmse = _mserms[iz-1];    
       if (rmse <= 0) {
@@ -1280,6 +1281,7 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
   } else {
     atom.rmse = rmse;
   }
+
   if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
     INIQED(atom.atomic_number, 9, atom.rn>0, atom.rmse);
   }
