@@ -1272,10 +1272,11 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   ahx = 1.0;
   hxs0 = potential->hxs;
   if (fabs(hxs0)<1e-5) ahx = 0.0;
-  while ((tol > tol0 || atol > atol0) && (tol > tol1) && ahx > 1e-5) {
+  while (((tol > tol0 || atol > atol0) && (tol > tol1)) || ahx > 1e-5) {
     if (iter > optimize_control.maxiter) break;
     if (fabs(hxs0) > 1e-5) {
-      ahx = iter>15?0.0:exp(-(1+iter)*0.35);
+      ahx = iter>5?0.0:exp(-(1+iter)*0.75);
+      if (ahx < 0.01) ahx = 0.0;
       potential->hxs = hxs0*(1-ahx);
     }
     a = SetPotential(acfg, iter);
@@ -1447,8 +1448,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   }
 
   if (potential->mode/10 == 2) {
-    a = 0.4/(NXS-1.0);
-    hxs[0] = 0.8;
+    a = 0.7/(NXS-1.0);
+    hxs[0] = 0.5;
     for (i = 1; i < NXS; i++) {
       hxs[i] = hxs[i-1] + a;
     }      
@@ -1469,7 +1470,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
 	ehx[i] = AverageEnergyAvgConfig(acfg);
       }
       if (optimize_control.iprint) {
-	printf("hxs iter: %d %d %g %g\n", ng, i, hxs[i], ehx[i]);
+	printf("hxs iter: %d %d %g %g %g\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
     }
     
