@@ -1270,7 +1270,7 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
 
   if (rmse < 0) {
     int iz = (int)atom.atomic_number;
-    if (rmse < 0) {
+    if (rmse < 0 && iz <= N_ELEMENTS) {
       rmse = _mserms[iz-1];    
       if (rmse <= 0) {
 	atom.rmse = atom.rms*1e5*RBOHR;
