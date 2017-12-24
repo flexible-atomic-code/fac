@@ -189,8 +189,8 @@
 #define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
 #define GRIDRMINN0  1E-4  /* starting point relative to nucleus radius */
 #define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
-#define ENERELERR  1E-5  /* relative energy error */
-#define ENEABSERR  1E-5  /* absolute energy error */
+#define ENERELERR  1E-6  /* relative energy error */
+#define ENEABSERR  1E-4  /* absolute energy error */
 #define ENERELERR1 1E-8
 
 /* config */
@@ -206,14 +206,14 @@
 /* radial */
 #define ORBITALS_BLOCK     1024
 #define OPTSTABLE          0.5
-#define OPTTOL             10.0
-#define OPTNITER           256
+#define OPTTOL             3.0
+#define OPTNITER           512
 #define OPTPRINT           0
 #define POTMODE            0
 #define POTHXS             1.0
 #define POTIHX             -2.0
 #define POTHX0             0.427
-#define POTHX1             0.07
+#define POTHX1             0.075
 #define NKSEP              5
 #define QEDSE              5
 #define QEDMSE             41

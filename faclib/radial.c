@@ -1101,6 +1101,10 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       r = 0.0;
       k = 0;
       a = optimize_control.stabilizer;
+      b = fabs(potential->hxs);
+      if (b > 0.75) {
+	a *= pow(0.75/b,2);
+      }
       b = 1.0 - a;
       for (j = 0; j < potential->maxrp; j++) {
 	if (u[j] + 1.0 != 1.0 && potential->rad[j] > rn) {
@@ -1444,7 +1448,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   }
 
   if (optimize_control.iset == 0) {
-    optimize_control.stabilizer = 0.25 + 0.65*(z/potential->Z[potential->maxrp-1]);
+    optimize_control.stabilizer = 0.25 + 0.5*(z/potential->Z[potential->maxrp-1]);
   }
 
   if (potential->mode/10 == 2) {
