@@ -104,7 +104,8 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
         implicit real*8 (a-h,o-z)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
         include 'qedmod.inc'
-c       - - - - - - - - - - - - - - - - - - - - - - - - -
+c     - - - - - - - - - - - - - - - - - - - - - - - - -
+        real*8 cp(maxii),cq(maxii)
         common /cl/cl/z/z
         common /ii/ii/h/h/r1/r1/r2/r2/al/al/bt/bt
         common /p/p(maxii)/q/q(maxii)/r/r(maxii)/v/v(maxii)
@@ -210,45 +211,50 @@ c     &  "Calculating local part of self-energy potential..."
 c	write( *,'(2x,a)') 
 c     & "Calculating nonlocal part of self-energy potential..."     
         call nonlocal_se_pot
+        idebug = 0
+        if (idebug .gt. 0) then
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
-c        write( *,45)
-c        write(11,45)
-c45      format(/2x,'Control check of matrix elements with the ',
-c     & 'hydrogenic wave functions: ')
-c        write( *,55)
-c        write(11,55)
-c55      format(9x,'State',10x,'Uehl',12x,'WK',12x,'SE',
-c     &  8x,'SE(table data)')
-c       - - - - - - - - - - - - - - - - - - - - - - - - -
-c        pi=3.1415926535897932385d0
-c        alpha=1.d0/cl
-c        alz=z/cl
-c        do ni=1,ns_proj
-c          n=nn_proj(ni)
-c          kappa=kk_proj(ni)
-c          j=2*iabs(kappa)-1
-c          l=(iabs(2*kappa+1)-1)/2
-c          coef=alpha/pi*alz**4/n**3*cl**2
-c          call read_func(ni,p,q,2)
-c          de=sint(uehl,p,q,p,q,r,v)
-c          dw=sint(v_wk,p,q,p,q,r,v)
-c          falz_ue=de/coef
-c          falz_wk=dw*cl/(1.d0/pi/n**3 *alz**4)
-c          falz_se=de_qed0(ni)/coef
-c          fse_int=qed_matrix(ni,ni)/coef
-c          write( *,65) ni,n,let(l+1),j,falz_ue,falz_wk,
-c     &    falz_se,fse_int
-c          write(11,65) ni,n,let(l+1),j,falz_ue,falz_wk,
-c     &    falz_se,fse_int
-c65        format(2x,i3,i5,a1,i2,'/2',4f15.6)
-c        enddo
-c       - - - - - - - - - - - - - - - - - - - - - - - - -
-c        write( *,75) output_filename
-c        write(11,75) output_filename
-c 75     format(/2x, 'Writing model QED potential into the file: ',a)
-c        call write_pot(output_filename)
-c       - - - - - - - - - - - - - - - - - - - - - - - - -
-c        stop
+           write( *,45)
+c     write(11,45)
+ 45        format(/2x,'Control check of matrix elements with the ',
+     &          'hydrogenic wave functions: ')
+           write( *,55)
+c     write(11,55)
+ 55        format(9x,'State',10x,'Uehl',12x,'WK',12x,'SE',
+     &          8x,'SE(table data)')
+c     - - - - - - - - - - - - - - - - - - - - - - - - -
+           pi=3.1415926535897932385d0
+           alpha=1.d0/cl
+           alz=z/cl
+           do ni=1,ns_proj
+              n=nn_proj(ni)
+              kappa=kk_proj(ni)
+              j=2*iabs(kappa)-1
+              l=(iabs(2*kappa+1)-1)/2
+              coef=alpha/pi*alz**4/n**3*cl**2
+              call read_func(ni,p,q,2)
+c     de=sint(uehl,p,q,p,q,r,v)
+c     dw=sint(v_wk,p,q,p,q,r,v)
+c     falz_ue=de/coef
+c     falz_wk=dw*cl/(1.d0/pi/n**3 *alz**4)
+              call se_pot_wav(n,kappa,0,r,p,q,cp,cq)
+              dse0 = tint(0,p,q,cp,cq,r,v)/coef
+              falz_se=de_qed0(ni)/coef
+              fse_int=qed_matrix(ni,ni)/coef
+              write( *,65) ni,n,let(l+1),j,falz_ue,falz_wk,
+     &             falz_se,fse_int,dse0,dse0*coef
+c     write(11,65) ni,n,let(l+1),j,falz_ue,falz_wk,
+c     &    falz_se,fse_int,dse0
+ 65           format(2x,i3,i5,a1,i2,'/2',6f15.6)
+           enddo
+c     - - - - - - - - - - - - - - - - - - - - - - - - -
+c     write( *,75) output_filename
+c     write(11,75) output_filename
+c     75     format(/2x, 'Writing model QED potential into the file: ',a)
+c     call write_pot(output_filename)
+c     - - - - - - - - - - - - - - - - - - - - - - - - -
+c     stop
+        endif
         end
 c       =================================================
         subroutine read_func(ni,v1,v2,nrec)

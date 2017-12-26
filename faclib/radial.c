@@ -4051,14 +4051,24 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   double a, b;
   
   if (orb->wfun == NULL) return 1.0;
+  m = qed.mse%10;
+  if (m >= 2) {
+    //modqed
+    k = IdxVT(orb->kappa)-1;
+    z = potential->atom->atomic_number;
+    if (z < 10 || z > 120 || k < 0 || k >= NKSEP) {
+      m = 1;
+    } else {
+      b = HydrogenicSelfEnergy(51, qed.pse, 1.0, potential, orb, orb);
+      a = HydrogenicSelfEnergy(51, qed.pse, 1.0, potential, horb, horb);
+      return b/a;
+    }
+  }
   npts = potential->maxrp;
   p = Large(horb);
   q = Small(horb);
   large = Large(orb);
   small = Small(orb);
-  m = qed.mse%10;
-  k = orb->kv-1;
-  if (k < 0) k = NKSEP-1;
   for (i = 0; i < npts; i++) {
     if (m == 0) {
       //uehling potential
@@ -4066,9 +4076,8 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
     } else if (m == 1) {
       //welton scaling
       a = potential->qdist[i];
-    } else if (m == 2) {
-      //local se potential
-      a = potential->ZSE[k][i]/potential->rad[i];
+    } else {
+      a = 1.0;
     }
     a *= potential->dr_drho[i];
     _dwork11[i] = (p[i]*p[i] + q[i]*q[i])*a;
@@ -6702,13 +6711,17 @@ int InitRadial(void) {
   ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(slater_array, sizeof(double), ndim, blocks, "slater_array");
-
+  slater_array->cth = 0.1;
+  
   ndim = 5;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(breit_array, sizeof(double *), ndim, blocks, "breit_array");
+  breit_array->cth = 0.1;
+  
   wbreit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(wbreit_array, sizeof(double), ndim, blocks, "wbreit_array");
+  wbreit_array->cth = 0.1;
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
@@ -6717,6 +6730,7 @@ int InitRadial(void) {
     char id[MULTI_IDLEN];
     sprintf(id, "xbreit_array%d", i);
     MultiInit(xbreit_array[i], sizeof(FLTARY), ndim, blocks, id);
+    xbreit_array[i]->cth = 1e-6;
   }
   
   ndim = 2;
@@ -6734,17 +6748,20 @@ int InitRadial(void) {
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double *), ndim, blocks, "multipole_array");
+  multipole_array->cth = 1e-5;
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   moments_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(moments_array, sizeof(double), ndim, blocks, "moments_array");
+  MultiInit(moments_array, sizeof(double), ndim, blocks, "moments_array"); 
 
   gos_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(gos_array, sizeof(double *), ndim, blocks, "gos_array");
+  gos_array->cth = 1e-5;
 
   yk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(yk_array, sizeof(FLTARY), ndim, blocks, "yk_array");
+  yk_array->cth = 1e-6;
 
   n_awgrid = 1;
   awgrid[0]= EPS3;
@@ -6753,6 +6770,16 @@ int InitRadial(void) {
   SetSlaterCut(-1, -1);
   
   return 0;
+}
+
+void SetRadialCleanFlags(void) {
+  SetMultiCleanFlag(slater_array);
+  SetMultiCleanFlag(yk_array);
+  SetMultiCleanFlag(breit_array);
+  for (int i = 0; i < 5; i++) {
+    SetMultiCleanFlag(xbreit_array[i]);
+  }
+  SetMultiCleanFlag(wbreit_array);
 }
 
 int ReinitRadial(int m) {

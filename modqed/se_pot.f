@@ -114,7 +114,7 @@ c       - - - - - - - - - - - - - - - - - - - - - - - - -
           nn2=nn_proj(nj)
           if (kk_proj(nj).eq.kappa) then
             iz=z+0.5d0
-            call FSE_dat(kappa,nn1,nn2,iz,FSE_pnt,FSE_ext)
+            call FSEdat(kappa,nn1,nn2,iz,FSE_pnt,FSE_ext)
             dn1=nn1
             dn2=nn2
             dn=dsqrt(dn1*dn2)

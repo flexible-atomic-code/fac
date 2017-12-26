@@ -37,8 +37,14 @@
 #include <sys/stat.h>
 #include <pthread.h>
 
-#ifdef PMALLOC_CHECK
+#define PMALLOC_CHECK 2
+
+#if PMALLOC_CHECK == 1
 #include "pmalloc.h"
+#elif PMALLOC_CHECK == 2
+#include "mmalloc.h"
+#else
+#include "omalloc.h"
 #endif
 
 #include "sysdef.h"

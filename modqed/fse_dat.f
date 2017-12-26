@@ -1,5 +1,5 @@
 c       =================================================
-        subroutine FSE_dat(ka,n1,n2,iz,SE_pnt,SE_ext)
+        subroutine FSEdat(ka,n1,n2,iz,SE_pnt,SE_ext)
 c       - - - - - - - - - - - - - - - - - - - - - - - - -
 c       This subroutine obtaines the diagonal and non-diagonal
 c       self-energy (SE) matrix elements

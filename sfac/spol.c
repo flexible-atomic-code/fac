@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_open();
 #endif
 
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_check();
 #endif
 

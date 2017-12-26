@@ -25,6 +25,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "global.h"
+
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.

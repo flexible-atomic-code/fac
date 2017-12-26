@@ -295,7 +295,7 @@ double NucleusRRMS(double z) {
 
 double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 			    ORBITAL *orb, ORBITAL *orbp) {
-  int id, np = 3, nx = 12, m = 1, t, n, k, kl, md, mp, mm;
+  int id, np = 3, nx = 12, m = 1, t, n, k, kl, md, mp, mm, md1;
   double r, r0, a, b, c, c2, p, rms, z, cr, ch, rr;
 
   n= orb->n;
@@ -310,6 +310,14 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   mm = md0/100;
   md0 = md0%100;
   md = md0/10;
+  md1 = md0%10;
+  if (md1 == 2 && orbp->n == n) {
+    if (md == 4 || md == 6) {
+      md = 0;
+    } else if (md == 5 || md == 7) {
+      md = 3;
+    }
+  }
   r = 0.0;
   rr = 0.0;
   rms = 0.0;
@@ -422,6 +430,15 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
       } else {
 	r = Klamaq(n, k);
       }
+      if (rms > 0 && z >= 10 && z <= 120 && kl <= 2 && n > 2) {
+	m = (int)z;
+	a = 0;
+	b = 0;
+	FSEDAT(k, n, n, z, &a, &b);
+	if (a && b) {
+	  r += b-a;
+	}
+      }
     }
   }
   
@@ -476,7 +493,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   r0 = r*c;
   a = r0*scl;
   if (pse) {
-    MPrintf(-1, "SE: %g %d %2d %11.4E %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, orb->energy, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
+    MPrintf(-1, "SE: %g %d %2d %11.4E %2d %d %.4f %.4f %.6f %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, orb->energy, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
   }
   return a;
 }

@@ -156,8 +156,8 @@ typedef struct _ARRAY_ {
 typedef struct _MULTI_ {
   char id[MULTI_IDLEN];
   int numelem, maxelem;
-  double totalsize, overheadsize, maxsize;
-  int clean_mode, clean_thread;
+  double totalsize, overheadsize, maxsize, cth;
+  int clean_mode, clean_thread, clean_flag;
   unsigned short ndim, ndim1;
   unsigned short isize;
   unsigned short esize;
@@ -236,5 +236,6 @@ void  InitMDataData(void *p, int n);
 void InitIdxAry(IDXARY *ia, int n, int *d);
 void FreeIdxAry(IDXARY *ia, int md);
 int IdxGet(IDXARY *ia, int d);
+void SetMultiCleanFlag(MULTI *ma);
 
 #endif

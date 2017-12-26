@@ -449,7 +449,9 @@ int SMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   }
   ma->maxsize = -1;
   ma->totalsize = 0;
+  ma->cth = 0;
   ma->clean_mode = -1;
+  ma->clean_flag = 0;
   ma->ndim = ndim;
   ma->esize = esize;
   ma->block = (unsigned short *) malloc(sizeof(unsigned short)*ndim);
@@ -674,6 +676,14 @@ void LimitMultiSize(MULTI *ma, double r) {
     ma->maxsize = r;
   }
 }
+
+double TotalSize() {
+#if PMALLOC_CHECK == 2
+  return (double) msize();
+#else
+  return _totalsize;
+#endif
+}
   
 int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i, n, s;
@@ -684,7 +694,9 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   }
   ma->maxsize = -1;
   ma->totalsize = 0;
+  ma->cth = 0;
   ma->clean_mode = -1;
+  ma->clean_flag = 0;
   ma->ndim = ndim;
   ma->isize = sizeof(int)*ndim;
   ma->esize = esize;
@@ -755,11 +767,15 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
     if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
       ma->clean_mode = 0;
       NMultiFreeData(ma, FreeElem);
-    } else if (_maxsize > 0 &&
-	       _totalsize >= _maxsize &&
-	       ma->totalsize > 0.1*_totalsize) {
-      ma->clean_mode = 1;
+    } else if (ma->clean_flag > 0) {
+      ma->clean_mode = 0;
       NMultiFreeData(ma, FreeElem);
+    } else if (_maxsize > 0 && ma->cth > 0) {
+      double ts = TotalSize();
+      if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
+	ma->clean_mode = 1;
+	NMultiFreeData(ma, FreeElem);
+      }
     }
   }
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
@@ -923,7 +939,20 @@ static int NMultiArrayFreeData(DATA *p, int esize, int block,
   }
   return 0;
 }
-    
+
+void SetMultiCleanFlag(MULTI *ma) {
+  if (ma->lock) {
+    SetLock(ma->lock);
+  }
+  //MPrintf(-1, "SMC: %s %d\n", ma->id, ma->clean_flag);
+  if (ma->clean_flag <= 0) {
+    ma->clean_flag = 1;
+  }
+  if (ma->lock) {
+    ReleaseLock(ma->lock);
+  }
+}
+
 int NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *)) {
   if (!a) return 0;
   if (a->dim == 0) return 0;
@@ -940,15 +969,16 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
   if (ma->lock) SetLock(ma->lock);
   int clean = 1;
   if (ma->clean_mode == 0) {
-    if (ma->totalsize < ma->maxsize) clean = 0;
+    if (ma->totalsize < ma->maxsize && ma->clean_flag <= 0) clean = 0;
     if (clean) {
       MPrintf(-1,
-	      "clean0 %s t=%g o=%s m=%g tt=%g to=%g tm=%g\n",
+	      "clean0 %s t=%g o=%g m=%g tt=%g to=%g tm=%g c=%d\n",
 	      ma->id, ma->totalsize, ma->overheadsize, ma->maxsize,	    
-	      _totalsize, _overheadsize, _maxsize);
+	      _totalsize, _overheadsize, _maxsize, ma->clean_flag);
     }
   } else if (ma->clean_mode == 1) {
-    if (_totalsize < _maxsize && ma->totalsize <= 0.1*_totalsize) clean = 0;
+    double ts = TotalSize();
+    if (ts < _maxsize || ma->totalsize <= ma->cth*ts) clean = 0;
     if (clean) {
       MPrintf(-1,
 	      "clean1: %s t=%g o=%g m=%g tt=%g to=%g tm=%g\n",
@@ -956,7 +986,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
 	      _totalsize, _overheadsize, _maxsize);
     }
   } else {
-    if (ma->totalsize <= 0) clean = 0;
+    if (ma->totalsize <= 0 && ma->clean_flag <= 0) clean = 0;
   }
   if (clean) {
     ma->clean_thread = MyRankMPI();
@@ -969,6 +999,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
     _totalsize -= ma->totalsize;
     ma->totalsize = 0;
     ma->numelem = 0;
+    ma->clean_flag = 0;
   }
   ma->clean_mode = -1;
 #pragma omp flush
@@ -1002,7 +1033,9 @@ int MMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   }
   ma->maxsize = -1;
   ma->totalsize = 0;
+  ma->cth = 0;
   ma->clean_mode = -1;
+  ma->clean_flag = 0;
   ma->ndim = ndim;
   ma->ndim1 = ndim-1;
   ma->isize = sizeof(unsigned short)*ndim;

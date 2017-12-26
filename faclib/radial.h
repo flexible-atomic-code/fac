@@ -176,6 +176,7 @@ int ClearOrbitalTable(int m);
 void LimitArrayRadial(int m, double n);
 int InitRadial(void);
 int ReinitRadial(int m);
+void SetRadialCleanFlags(void);
 int TestIntegrate(void);
 int RestorePotential(char *fn, POTENTIAL *p);
 int SavePotential(char *fn, POTENTIAL *p);

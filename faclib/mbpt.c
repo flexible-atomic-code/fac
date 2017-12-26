@@ -27,6 +27,7 @@ USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
+static int mbpt_reinit = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
 static double mbpt_mcut = EPS4;
@@ -125,7 +126,8 @@ void SetOptMBPT(int i3rd, int n3, double c) {
 }
 
 void SetExtraMBPT(int m) {
-  mbpt_extra = m;
+  mbpt_extra = m%10;
+  mbpt_reinit = m/10;
 }
 
 void SetSymMBPT(int nlev, int *ilev) {
@@ -3361,7 +3363,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 		   int n, int *ng, int n2, int *ng2, int nkg0) {
   int *bas, *bas0, *bas1, nlevels, nb0, nb, n3, q, nhab, nhab1;
   int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m, mks, *ks;
-  int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst;
+  int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst, ncps;
   int p0, p1, j0, j1, j2, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
   char tfn[1024];
   SYMMETRY *sym;
@@ -3687,6 +3689,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }
     double ttskip = 0, ttlock=0;
     long long tnlock = 0;
+    ncps = 0;
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_EFF *imeff[MAX_SYMMETRIES];
@@ -3888,7 +3891,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt,
 		  tskip, tlock, nlock, WidMPI());
-	  fflush(stdout);
+	  fflush(stdout);	  
+#pragma omp critical
+	  {
+	    ncps++;
+	  }
+#pragma omp master
+	  {
+	    if (mbpt_reinit > 0 && ncps >= mbpt_reinit) {
+	      SetRadialCleanFlags();
+	      ncps = 0;
+	    }
+	  }  
 	}
       }
       if (cpmeff) {
