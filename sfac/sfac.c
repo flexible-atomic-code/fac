@@ -3960,6 +3960,12 @@ static int PMPIRank(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PMemUsed(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  MPrintf(-1, "mem used %g\n", msize());
+  return 0;
+}
+
 static int PFinalizeMPI(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
 #if USE_MPI == 1
@@ -4143,6 +4149,7 @@ static METHOD methods[] = {
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
   {"InitializeMPI", PInitializeMPI, METH_VARARGS},
   {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };

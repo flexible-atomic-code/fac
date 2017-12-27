@@ -5214,6 +5214,16 @@ static PyObject *PMPIRank(PyObject *self, PyObject *args) {
   return Py_BuildValue("[ii]", k, n);
 }
 
+static PyObject *PMemUsed(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("MemUsed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double m = msize();
+  return Py_BuildValue("d", m);
+}
+
 static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("FinalizeMPI", args, NULL);
@@ -5433,6 +5443,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
   {"InitializeMPI", PInitializeMPI, METH_VARARGS},
   {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {NULL, NULL}
 };

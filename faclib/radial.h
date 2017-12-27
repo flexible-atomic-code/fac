@@ -62,6 +62,8 @@ int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
 int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin);
 double SetPotential(AVERAGE_CONFIG *acfg, int iter);
+int PotentialHX(AVERAGE_CONFIG *acfg, double *u);
+int PotentialHX1(AVERAGE_CONFIG *acfg, int ik);
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s);
