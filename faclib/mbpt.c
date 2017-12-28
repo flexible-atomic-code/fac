@@ -27,7 +27,8 @@ USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
-static int mbpt_reinit = 0;
+static int mbpt_reinit_ncps = 0;
+static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
 static double mbpt_mcut = EPS4;
@@ -126,8 +127,18 @@ void SetOptMBPT(int i3rd, int n3, double c) {
 }
 
 void SetExtraMBPT(int m) {
-  mbpt_extra = m%10;
-  mbpt_reinit = m/10;
+  int am = abs(m);
+  mbpt_extra = am%10;
+  if (am < 10) {
+    mbpt_reinit_ncps = 0;
+    mbpt_reinit_mem = 0;
+  } else if (m < 0) {
+    mbpt_reinit_mem = 0;
+    mbpt_reinit_ncps = am/10;
+  } else {
+    mbpt_reinit_ncps = 0;
+    mbpt_reinit_mem = 1e9*(am/10);
+  }
 }
 
 void SetSymMBPT(int nlev, int *ilev) {
@@ -3899,11 +3910,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }
 #pragma omp master
 	  {
-	    if (mbpt_reinit > 0 && ncps >= mbpt_reinit) {
+	    if ((mbpt_reinit_ncps > 0 && ncps >= mbpt_reinit_ncps) ||
+		(mbpt_reinit_mem > 0 && tmem >= mbpt_reinit_mem)) {
 	      SetRadialCleanFlags();
 	      ncps = 0;
 	    }
-	  }  
+	  }
 	}
       }
       if (cpmeff) {
@@ -4097,7 +4109,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     if (MyRankMPI() == 0) {
       sprintf(tfn, "%s.tr", fn1);
       f = fopen(tfn, "w");
-    }    
+    }
+    ncps = 0;
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_TR *imtr;
@@ -4217,7 +4230,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  size_t tmem = msize();
 	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
 		  k0, k1, nc, mst, n0, n1, dt, dtt, (double)tmem);
-	  fflush(stdout);
+	  fflush(stdout);	  
+#pragma omp critical
+	  {
+	    ncps++;
+	  }
+#pragma omp master
+	  {
+	    if ((mbpt_reinit_ncps > 0 && ncps >= mbpt_reinit_ncps) ||
+		(mbpt_reinit_mem > 0 && tmem >= mbpt_reinit_mem)) {
+	      SetRadialCleanFlags();
+	      ncps = 0;
+	    }
+	  }
 	}
       }
       if (cpmtr) {
