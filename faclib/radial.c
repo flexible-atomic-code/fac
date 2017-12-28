@@ -1018,8 +1018,9 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
 
   for (m = jmax+1; m < potential->maxrp; m++) {
     u[m] = u[jmax];
-    ue[m] = ue[jmax];
-    ue1[m] = ue1[jmax];
+    ue1[m] = 0.0;
+    if (ue[jmax] > ue1[jmax]) ue[m] = 1.0;
+    else ue[m] = 0.0;
   }
   return jmax;
 }

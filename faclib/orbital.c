@@ -2340,6 +2340,7 @@ int SetPotentialVT(POTENTIAL *pot) {
 
 int SetPotentialU(POTENTIAL *pot, int n, double *u) {
   int i;
+  double a;
   
   if (n < 0) {
     for (i = 0; i < pot->maxrp; i++) { 
@@ -2356,6 +2357,12 @@ int SetPotentialU(POTENTIAL *pot, int n, double *u) {
     }
   }
 
+  for (i = pot->maxrp-1; i >= 0; i--) {
+    a = pot->rad[i]*pot->U[i];
+    if (fabs(a) > EPS10) break;
+    else pot->U[i] = 0.0;
+  }
+  
   Differential(pot->U, pot->dU, 0, pot->maxrp-1, pot->dr_drho);
   Differential(pot->dU, pot->dU2, 0, pot->maxrp-1, pot->dr_drho);
   return 0;
