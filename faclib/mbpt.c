@@ -1491,6 +1491,9 @@ void H3rd0(MBPT_EFF *meff, int ia, int ib, double de, double h, int i0, int md) 
       }
       a = h0[j];
       c = h*a/(de*(de+e0[i]-e0[ib]));
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
       hba[m][i0] -= c;
     }
   }
@@ -1505,6 +1508,9 @@ void H3rd0(MBPT_EFF *meff, int ia, int ib, double de, double h, int i0, int md) 
       }
       a = h0[j];
       c = h*a/(de*(de+e0[i]-e0[ib]));
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
       hab[m][i0] -= c;
     }
   }
@@ -1517,7 +1523,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     INTERACT_SHELL *s, int ph, int *ks1, int *ks2,
 	     FORMULA *fm, double **a, int i0) {
   int m, kk1, kk2, kmin1, kmin2, kmax1, kmax2;
-  int mkk1, mkk2, mkk, k, i1, ng;
+  int mkk1, mkk2, mkk, k, i1, ng, i1g;
   int q0, q1, m0, m1, ms0, ms1, s0, s1;
   double c, y, sd1, sd2, se1, se2;
   double a1[MKK], a2[MKK], *h1, *h2, d1, d2;
@@ -1703,11 +1709,26 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	H3rd0(meff[s0], m1, m0, d2, c, i1, 1);
       }
     }
-    h1[i1] += c/d1;
-    h2[i1] += c/d2;
+    sd1 = c/d1;
+    sd2 = c/d2;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i1] += sd1;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i1] += sd2;
     c /= d1*d2;
-    h1[i1+ng] += c;
-    h2[i1+ng] += c;
+    i1g = i1+ng;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i1g] += c;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i1g] += c;
   }
 }
 
@@ -1717,7 +1738,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     int mst, int *bst, int *kst,
 	     INTERACT_SHELL *s, int ph, int *ks, int k0, int k1,
 	     FORMULA *fm, double **a, int i0) {  
-  int kk, kk2, kmin, kmax, ng;
+  int kk, kk2, kmin, kmax, ng, i0g;
   int q0, q1, k, m0, m1, s0, s1, m, ms0, ms1;  
   double c, r1, y, sd, se, yk[MKK], *h1, *h2, d1, d2;
   ORBITAL *orb;
@@ -1841,11 +1862,26 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       H3rd0(meff[s0], m0, m1, d1, c, i0, 1);
       H3rd0(meff[s0], m1, m0, d2, c, i0, 1);
     }
-    h1[i0] += c/d1;
-    h2[i0] += c/d2;
+    sd = c/d1;
+    se = c/d2;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i0] += sd;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i0] += se;
     c /= d1*d2;
-    h1[i0+ng] += c;
-    h2[i0+ng] += c;
+    i0g = i0 + ng;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i0g] += c;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i0g] += c;
   }
 }
 
@@ -2026,8 +2062,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	     int mst, int *bst, int *kst,
 	     INTERACT_SHELL *s, int ph, int k0, int k1, int k2, int k3,
 	     FORMULA *fm, double *a, int i0) {
-  double y, d1, d2, r1, r2, *h1, *h2;
-  int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, ng;
+  double y, d1, d2, r1, r2, *h1, *h2, cd1, cd2;
+  int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, ng, i0g;
   ORBITAL *orb;
 
   /* setup recouple tensor */
@@ -2110,15 +2146,30 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     h2 = meff[s0]->hba1[m];
     ng = meff[s0]->n;
     y = r1*r2*a[k];
-    h1[i0] += y/d1;
-    h2[i0] += y/d2;
+    cd1 = y/d1;
+    cd2 = y/d2;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i0] += cd1;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i0] += cd2;
     H3rd0(meff[s0], m0, m1, d1, y, i0, 1);
     if (m0 != m1) {
       H3rd0(meff[s0], m1, m0, d2, y, i0, 1);
     }
     y /= d1*d2;
-    h1[i0+ng] += y;
-    h2[i0+ng] += y;
+    i0g = i0 + ng;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i0g] += y;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i0g] += y;
   }
 }
 
@@ -3588,6 +3639,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       meff[isym]->nbasis = 0;
       continue;
     }
+    double mem0=TotalSize();
+    MPrintf(-1, "sym: %3d %d %g\n", isym, h->dim, mem0);
+    fflush(stdout);    
     sym = GetSymmetry(isym);
     meff[isym]->h0 = malloc(sizeof(double)*h->hsize);
     meff[isym]->e0 = malloc(sizeof(double)*h->n_basis);
@@ -3603,8 +3657,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
     meff[isym]->n = n;
     meff[isym]->n2 = n2;
-    MPrintf(-1, "sym: %3d %d\n", isym, h->dim);
-    fflush(stdout);    
     if (DiagnolizeHamilton() < 0) {
       MPrintf(-1, "Diagnolizing Hamiltonian Error\n");
       fflush(stdout);
@@ -3637,6 +3689,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
       mix += h->dim;
     }
+    int ki=0, ke=0;
     for (j = 0; j < h->dim; j++) {
       for (i = 0; i <= j; i++) {
 	c = 0;
@@ -3662,8 +3715,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	    meff[isym]->hab[k][i0] = 0.0;
 	    meff[isym]->hba[k][i0] = 0.0;
 	  }
+	  ki++;
 	} else {
 	  meff[isym]->hab1[k] = NULL;
+	  ke++;
 	}
       }
     }
@@ -3671,16 +3726,20 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt1 = WallTime();
     dt = tt1-tt0;
     tt0 = tt1;
-    MPrintf(-1, "Time = %12.5E\n", dt);
+    double mem1=TotalSize();
+    MPrintf(-1, "Time = %12.5E %g %g %d %d\n",
+	    dt, mem1, mem1-mem0, ki, ke);
   }
-
   if (mbpt_tr.mktr > 0) {
+    double mem0 = TotalSize();
     emax = (emax-emin);
     emin = 0.1;
     emax *= FINE_STRUCTURE_CONST;
     emin *= FINE_STRUCTURE_CONST;
     SetAWGridMBPT(emin, emax);
     InitTransitionMBPT(&mtr, n);
+    double mem1 = TotalSize();
+    MPrintf(-1, "TR Mem = %g %g %g\n", mem0, mem1, mem1-mem0);
   }
 
   if (n3 >= 0) {
@@ -3705,10 +3764,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     {
       MBPT_EFF *imeff[MAX_SYMMETRIES];
       int cpmeff = 0;
+#if CPMEFF == 1      
 #if USE_MPI == 2
       if (NProcMPI() > 1) {
 	cpmeff = 1;
       }
+#endif
 #endif
       if (cpmeff) {
 	for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
@@ -3899,15 +3960,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  tskip = TimeSkip();
 	  tlock = TimeLock();
 	  nlock = NumLock();
-	  size_t tmem = msize();
+	  double tmem = TotalSize();
 	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt, (double)tmem,
+		  k0, k1, nc, mst, n0, n1, dt, dtt, tmem,
 		  tskip, tlock, nlock, WidMPI());
 	  fflush(stdout);	  
-#pragma omp critical
-	  {
+#pragma omp atomic
 	    ncps++;
-	  }
 #pragma omp master
 	  {
 	    if ((mbpt_reinit_ncps > 0 && ncps >= mbpt_reinit_ncps) ||
@@ -4227,14 +4286,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  dt = ptt1-ptt0;
 	  dtt = ptt1-tbg;
 	  tt0 = ptt1;
-	  size_t tmem = msize();
+	  double tmem = TotalSize();
 	  MPrintf(0, "%3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
-		  k0, k1, nc, mst, n0, n1, dt, dtt, (double)tmem);
+		  k0, k1, nc, mst, n0, n1, dt, dtt, tmem);
 	  fflush(stdout);	  
-#pragma omp critical
-	  {
-	    ncps++;
-	  }
+#pragma omp atomic
+	  ncps++;
 #pragma omp master
 	  {
 	    if ((mbpt_reinit_ncps > 0 && ncps >= mbpt_reinit_ncps) ||

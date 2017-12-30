@@ -4592,25 +4592,27 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   int index[5], i;
   double *p0, *z, r;
   FLTARY *byk;
-  
-  index[0] = k0;
-  index[1] = k1;
-  index[2] = k2;
-  index[3] = k3;
-  index[4] = k;
   LOCK *lock = NULL;
-  p0 = (double *) MultiSet(breit_array, index, NULL, &lock,
-			   InitDoubleData, NULL);
   int locked = 0;
-  if (lock && !(p0 && *p0)) {
-    SetLock(lock);
-    locked = 1;
+
+  if (breit_array->maxsize != 0) {
+    index[0] = k0;
+    index[1] = k1;
+    index[2] = k2;
+    index[3] = k3;
+    index[4] = k;
+    p0 = (double *) MultiSet(breit_array, index, NULL, &lock,
+			     InitDoubleData, NULL);
+    if (lock && !(p0 && *p0)) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if (p0 && *p0) {
+      r = *p0;
+      if (locked) ReleaseLock(lock);
+      return r;
+    }
   }
-  if (p0 && *p0) {
-    r = *p0;
-    if (locked) ReleaseLock(lock);
-    return r;
-  }  
   byk = NULL;
   z = _zk;
   LOCK *xlock = NULL;
@@ -4656,10 +4658,11 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
   Integrate(z, orb2, orb3, 6, &r, 0);
-
-  if (!r) r = 1e-100;
-  *p0 = r;
-  if (locked) ReleaseLock(lock);
+  if (breit_array->maxsize != 0) {
+    if (!r) r = 1e-100;
+    *p0 = r;
+    if (locked) ReleaseLock(lock);
+  }
 #pragma omp flush
   return r;
 }
@@ -4988,23 +4991,25 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
 
   int index[5];
   double *p;
-  index[0] = k0;
-  index[1] = k1;
-  index[2] = k2;
-  index[3] = k3;
-  index[4] = k;
   LOCK *lock = NULL;
-  p = (double *) MultiSet(wbreit_array, index, NULL, &lock,
-			  InitDoubleData, NULL);
   int locked = 0;
-  if (lock && !(p && *p)) {
-    SetLock(lock);
-    locked = 1;
-  }
-  if (p && *p) {
-    r = *p;
-    if (locked) ReleaseLock(lock);
-    return r;
+  if (wbreit_array->maxsize != 0) {
+    index[0] = k0;
+    index[1] = k1;
+    index[2] = k2;
+    index[3] = k3;
+    index[4] = k;
+    p = (double *) MultiSet(wbreit_array, index, NULL, &lock,
+			    InitDoubleData, NULL);
+    if (lock && !(p && *p)) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if (p && *p) {
+      r = *p;
+      if (locked) ReleaseLock(lock);
+      return r;
+    }
   }
   m0 = k - 1;
   if (m0 < 0) m0 = 0;
@@ -5115,10 +5120,11 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
       //printf("sk8: %d %d %d %d %d %g %g %g %g\n", k0, k1, k2, k3, k, b, a, c, r);
     }
   }  
-
-  if (!r) r = 1e-100;
-  *p = r;
-  if (locked) ReleaseLock(lock);
+  if (wbreit_array->maxsize != 0) {
+    if (!r) r = 1e-100;
+    *p = r;
+    if (locked) ReleaseLock(lock);
+  }
 #pragma omp flush
   return r;
 }
@@ -6613,7 +6619,11 @@ int IntegrateSinCos(int j, double *x, double *y,
 }
 
 void LimitArrayRadial(int m, double n) {
-  n *= 1e6;
+  int i;
+  
+  if (m < 100) {
+    n *= 1e6;
+  }
   switch (m) {
   case -1:
     LimitMultiSize(NULL, n);
@@ -6621,33 +6631,76 @@ void LimitArrayRadial(int m, double n) {
   case 0:
     LimitMultiSize(yk_array, n);
     break;
+  case 100:
+    yk_array->cth = n;
+    break;
   case 1:
     LimitMultiSize(slater_array, n);
     break;
+  case 101:
+    slater_array->cth = n;
+    break;
   case 2:
     LimitMultiSize(breit_array, n);
-    LimitMultiSize(wbreit_array, n);
+    break;
+  case 102:
+    breit_array->cth = n;
     break;
   case 3:
-    LimitMultiSize(gos_array, n);
+    LimitMultiSize(wbreit_array, n);
+    break;
+  case 103:
+    wbreit_array->cth = n;
     break;
   case 4:
-    LimitMultiSize(moments_array, n);
+    LimitMultiSize(gos_array, n);
+    break;
+  case 104:
+    gos_array->cth = n;
     break;
   case 5:
-    LimitMultiSize(multipole_array, n);
+    LimitMultiSize(moments_array, n);
+    break;
+  case 105:
+    moments_array->cth = n;
     break;
   case 6:
-    LimitMultiSize(residual_array, n);
+    LimitMultiSize(multipole_array, n);
+    break;
+  case 106:
+    multipole_array->cth = n;
     break;
   case 7:
-    for (int i = 0; i < 5; i++) {
-      LimitMultiSize(xbreit_array[i], n);
-    }
+    LimitMultiSize(residual_array, n);
+    break;
+  case 107:
+    residual_array->cth = n;
     break;
   case 8:
     LimitMultiSize(vinti_array, n);
+    break;
+  case 108:
+    vinti_array->cth = n;
+    break;
+  case 9:
     LimitMultiSize(qed1e_array, n);
+    break;
+  case 109:
+    qed1e_array->cth = n;
+    break;
+  case 20:
+  case 21:
+  case 22:
+  case 23:
+  case 24:
+    LimitMultiSize(xbreit_array[m-20], n);    
+    break;
+  case 120:
+  case 121:
+  case 122:
+  case 123:
+  case 124:
+    xbreit_array[m-120]->cth = n;    
     break;
   default:
     printf("nothing is done\n");
@@ -6686,7 +6739,8 @@ int InitRadial(void) {
   SetBoundaryMaster(0, 1.0, -1.0);
   n_orbitals = 0;
   n_continua = 0;
-  
+
+  double cth = 0.01;
   orbitals = malloc(sizeof(ARRAY));
   if (!orbitals) return -1;
   if (ArrayInit(orbitals, sizeof(ORBITAL), ORBITALS_BLOCK) < 0) return -1;
@@ -6694,17 +6748,17 @@ int InitRadial(void) {
   ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(slater_array, sizeof(double), ndim, blocks, "slater_array");
-  slater_array->cth = 0.1;
+  slater_array->cth = cth;
   
   ndim = 5;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK5;
   breit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(breit_array, sizeof(double *), ndim, blocks, "breit_array");
-  breit_array->cth = 0.1;
+  breit_array->cth = cth;
   
   wbreit_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(wbreit_array, sizeof(double), ndim, blocks, "wbreit_array");
-  wbreit_array->cth = 0.1;
+  wbreit_array->cth = cth;
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
@@ -6713,7 +6767,7 @@ int InitRadial(void) {
     char id[MULTI_IDLEN];
     sprintf(id, "xbreit_array%d", i);
     MultiInit(xbreit_array[i], sizeof(FLTARY), ndim, blocks, id);
-    xbreit_array[i]->cth = 1e-6;
+    xbreit_array[i]->cth = cth;
   }
   
   ndim = 2;
@@ -6731,7 +6785,7 @@ int InitRadial(void) {
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
   multipole_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(multipole_array, sizeof(double *), ndim, blocks, "multipole_array");
-  multipole_array->cth = 1e-5;
+  multipole_array->cth = cth;
 
   ndim = 3;
   for (i = 0; i < ndim; i++) blocks[i] = MULTI_BLOCK3;
@@ -6740,11 +6794,11 @@ int InitRadial(void) {
 
   gos_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(gos_array, sizeof(double *), ndim, blocks, "gos_array");
-  gos_array->cth = 1e-5;
+  gos_array->cth = cth;
 
   yk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(yk_array, sizeof(FLTARY), ndim, blocks, "yk_array");
-  yk_array->cth = 1e-6;
+  yk_array->cth = cth;
 
   n_awgrid = 1;
   awgrid[0]= EPS3;
@@ -6755,7 +6809,7 @@ int InitRadial(void) {
   return 0;
 }
 
-void SetRadialCleanFlags(void) {
+void SetRadialCleanFlags(void) {  
   SetMultiCleanFlag(slater_array);
   SetMultiCleanFlag(yk_array);
   SetMultiCleanFlag(breit_array);
@@ -6763,6 +6817,7 @@ void SetRadialCleanFlags(void) {
     SetMultiCleanFlag(xbreit_array[i]);
   }
   SetMultiCleanFlag(wbreit_array);
+  ReportMultiStats();
 }
 
 int ReinitRadial(int m) {

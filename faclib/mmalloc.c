@@ -29,6 +29,7 @@ void *mmalloc(size_t size) {
 
   p = (size_t *) malloc(size+sizeof(size_t));
   *p = size;
+#pragma omp atomic
   _tsize += size;
   return &p[1];
 }
@@ -39,6 +40,7 @@ void *mcalloc(size_t n, size_t size) {
 
   p = (size_t *) calloc(ns+sizeof(size_t), 1);
   *p = ns;
+#pragma omp atomic
   _tsize += ns;
   return &p[1];
 }
@@ -49,10 +51,12 @@ void *mrealloc(void *p, size_t size) {
   if (p) {
     ps = (size_t *) p;
     ps--;
+#pragma omp atomic
     _tsize -= ps[0];
   }
   ps = (size_t *) realloc(ps, size+sizeof(size_t));
   *ps = size;
+#pragma omp atomic
   _tsize += size;
   return &ps[1];
 }
@@ -63,6 +67,7 @@ void mfree(void *p) {
   if (!p) return;
   ps = (size_t *) p;
   ps--;
+#pragma omp atomic
   _tsize -= ps[0];
   free(ps);
 }

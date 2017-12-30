@@ -237,5 +237,5 @@ void InitIdxAry(IDXARY *ia, int n, int *d);
 void FreeIdxAry(IDXARY *ia, int md);
 int IdxGet(IDXARY *ia, int d);
 void SetMultiCleanFlag(MULTI *ma);
-
+double TotalSize(void);
 #endif

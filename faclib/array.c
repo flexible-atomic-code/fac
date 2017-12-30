@@ -48,14 +48,14 @@ void InitMultiStats(void) {
 
 void ReportMultiStats(void) {
   if (_multistats == NULL) return;
-  if (MyRankMPI() != 0) return;
+  //if (MyRankMPI() != 0) return;
   for (int i = 0; i < _multistats->dim; i++) {
     MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
     if (pma == NULL) continue;
     MULTI *ma = *pma;
     if (ma == NULL) continue;
     if (ma->numelem > 0) {
-      MPrintf(0, "idx=%d, id=%s, nd=%d, hs=%d, ne=%d, me=%d, ts=%g, os=%g, ms=%g, isize=%d, esize=%d, lock=%x\n", i, ma->id, ma->ndim, ma->hsize, ma->numelem, ma->maxelem, ma->totalsize, ma->overheadsize, ma->maxsize, ma->isize, ma->esize, ma->lock);
+      MPrintf(-1, "idx=%d, id=%s, nd=%d, hs=%d, ne=%d, me=%d, ts=%g, os=%g, ms=%g, c=%d, ch=%g, isize=%d, esize=%d, lock=%x\n", i, ma->id, ma->ndim, ma->hsize, ma->numelem, ma->maxelem, ma->totalsize, ma->overheadsize, ma->maxsize, ma->clean_flag, ma->cth, ma->isize, ma->esize, ma->lock);
     }
   }
 }
@@ -945,7 +945,9 @@ void SetMultiCleanFlag(MULTI *ma) {
     SetLock(ma->lock);
   }
   //MPrintf(-1, "SMC: %s %d\n", ma->id, ma->clean_flag);
-  if (ma->clean_flag <= 0) {
+  if (ma->clean_flag <= 0 &&
+      ma->cth > 0 &&
+      ma->totalsize > ma->cth*TotalSize()) {
     ma->clean_flag = 1;
   }
   if (ma->lock) {
@@ -972,18 +974,18 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
     if (ma->totalsize < ma->maxsize && ma->clean_flag <= 0) clean = 0;
     if (clean) {
       MPrintf(-1,
-	      "clean0 %s t=%g o=%g m=%g tt=%g to=%g tm=%g c=%d\n",
+	      "clean0 %s t=%g o=%g m=%g tt=%g to=%g tm=%g c=%d ch=%g\n",
 	      ma->id, ma->totalsize, ma->overheadsize, ma->maxsize,	    
-	      _totalsize, _overheadsize, _maxsize, ma->clean_flag);
+	      _totalsize, _overheadsize, _maxsize, ma->clean_flag, ma->cth);
     }
   } else if (ma->clean_mode == 1) {
     double ts = TotalSize();
     if (ts < _maxsize || ma->totalsize <= ma->cth*ts) clean = 0;
     if (clean) {
       MPrintf(-1,
-	      "clean1: %s t=%g o=%g m=%g tt=%g to=%g tm=%g\n",
+	      "clean1: %s t=%g o=%g m=%g tt=%g to=%g tm=%g c=%d ch=%g\n",
 	      ma->id, ma->totalsize, ma->overheadsize, ma->maxsize,
-	      _totalsize, _overheadsize, _maxsize);
+	      _totalsize, _overheadsize, _maxsize, ma->clean_flag, ma->cth);
     }
   } else {
     if (ma->totalsize <= 0 && ma->clean_flag <= 0) clean = 0;
