@@ -577,6 +577,8 @@ int BornFormFactorTE(double *te);
 FORM_FACTOR *BornFormFactor(void);
 void SetBornMass(double m);
 double BornMass(void);
+int CodeBasisEB(int s, int m);
+void DecodeBasisEB(int k, int *s, int *m);
 
 #endif
 

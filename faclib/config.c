@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "angular.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -85,6 +86,16 @@ static void InitConfigData(void *p, int n) {
   }
 }
   
+int ShellDegeneracy(int g, int nq) {
+  if (nq == 1) {
+    return g;
+  } else if (nq == g) {
+    return 1;
+  } else {
+    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
+  }
+}
+
 /* 
 ** FUNCTION:    DistributeElectronsShell
 ** PURPOSE:     distribute nq electrons among the specified shells
@@ -574,8 +585,8 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 	break;
       }
       if (c == 0) {
-	if (cfg[i].n_shells > 0) {
-	  cfg[i].n_shells = 0;
+	if (cfg[i].n_shells >= 0) {
+	  cfg[i].n_shells = -1;
 	  free(cfg[i].shells);
 	  cfg[i].shells = NULL;
 	}
@@ -586,7 +597,7 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
   i = 0;
   j = 0;
   while (i < ncfg) {
-    if (cfg[i].n_shells == 0) {
+    if (cfg[i].n_shells < 0) {
       i++;
     } else {
       cfg[j].n_shells = cfg[i].n_shells;
@@ -665,7 +676,6 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
 
   free(shell);
   free(maxq);
-
   if (nc > 0) {
     ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
     for (i = 0; i < nc; i++) {
@@ -673,7 +683,6 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     }
     free(sr);
   }
-
   return ncfg;
 }
 

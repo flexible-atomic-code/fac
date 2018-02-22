@@ -685,7 +685,7 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   ih = 1E31;
   h0 = -1;
   h1 = -1;
-  if (!PyArg_ParseTuple(args, "i|dd", &m, &h, &ih, &h0, &h1))
+  if (!PyArg_ParseTuple(args, "i|dddd", &m, &h, &ih, &h0, &h1))
     return NULL;
 
   SetPotentialMode(m, h, ih, h0, h1);

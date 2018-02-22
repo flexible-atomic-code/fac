@@ -3440,6 +3440,21 @@ int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
+int CodeBasisEB(int s, int m) {
+  int k;
+  
+  k = s + MAXLEVEB*abs(m);
+  if (m < 0) k = -k;
+
+  return k;
+}
+
+void DecodeBasisEB(int k, int *s, int *m) {
+  *m = abs(k)/MAXLEVEB;
+  *s = abs(k)%MAXLEVEB;
+  if (k < 0) *m = -(*m);
+}
+
 int PrintENFTable(FILE *f1, FILE *f2, int v, int swp) {
   ENF_HEADER h;
   ENF_RECORD r;

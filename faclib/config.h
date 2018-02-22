@@ -251,6 +251,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
+int ShellDegeneracy(int g, int nq);
 int          ShellsFromString(char *scfg, double *dnq, SHELL **shell);
 int          ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell);
 int          GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m);

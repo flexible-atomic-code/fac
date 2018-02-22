@@ -237,16 +237,6 @@ int SetAngZOptions(int n, double mix, double cut) {
   return 0;
 }
 
-int ShellDegeneracy(int g, int nq) {
-  if (nq == 1) {
-    return g;
-  } else if (nq == g) {
-    return 1;
-  } else {
-    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
-  }
-}
-
 int CompareInt(const void *a1, const void *a2) {
   int *i1, *i2;
   
@@ -463,21 +453,6 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
 #endif
   printf("ConstructHamiltonDiagonal Error\n");
   return -1;
-}
-
-int CodeBasisEB(int s, int m) {
-  int k;
-  
-  k = s + MAXLEVEB*abs(m);
-  if (m < 0) k = -k;
-
-  return k;
-}
-
-void DecodeBasisEB(int k, int *s, int *m) {
-  *m = abs(k)/MAXLEVEB;
-  *s = abs(k)%MAXLEVEB;
-  if (k < 0) *m = -(*m);
 }
 
 int ConstructHamiltonEB(int n, int *ilev) {
