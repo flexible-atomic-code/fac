@@ -610,6 +610,7 @@ void PrintWallTime(char *s, int m) {
   long long nlock = NumLock();
   printf("WallTime%d: %11.4E %11.4E %11.4E %10lld ... %s\n",
 	  m, t, tskip, tlock, nlock, s);
+  fflush(stdout);
 }
 
 int InitDBase(void) {
