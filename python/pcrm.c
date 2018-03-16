@@ -110,7 +110,7 @@ static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
@@ -123,12 +123,11 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   fn = NULL;
   if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
   if (fn) {
-    f = fopen(fn, "rb");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);
@@ -1307,7 +1306,7 @@ static  PyObject *PSetGamma3B(PyObject *self, PyObject *args) {
 
 static PyObject *PWallTime(PyObject *self, PyObject *args) {
   if (scrm_file) {
-    SCRMtatement("WallTime", args, NULL);
+    SCRMStatement("WallTime", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }

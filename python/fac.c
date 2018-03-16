@@ -120,7 +120,7 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
@@ -133,12 +133,11 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   fn = NULL;
   if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
   if (fn) {
-    f = fopen(fn, "rb");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);
@@ -1018,7 +1017,7 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   rn = -1.0;
   a = -1.0;
   npr = -1;
-  if (PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr) == NULL) {
+  if (!PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr)) {
     return -1;
   }
   if (PyString_Check(t)) {
