@@ -587,7 +587,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       nc1 = nc0;
       nic1 = nic0;
     }
-#pragma omp parallel default(shared) private(imin, imax, jmin, jmax, lev1, lev2, c0, c1, ir, ntr, rd, ep, em, e0, wp, wm, w0, ir0, i, j, ic0, ic1, k, ir0, gf, j0, j1, nrs0, nrs1, de, cm, cp)
+#pragma omp parallel default(shared) private(imin, imax, jmin, jmax, lev1, lev2, c0, c1, ir, ntr, rd, ep, em, e0, wp, wm, w0, i, j, ic0, ic1, k, ir0, gf, j0, j1, nrs0, nrs1, de, cm, cp)
     {
     imin = 0;
     for (ic0 = 0; ic0 < nic0; ic0++) {
