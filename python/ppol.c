@@ -385,7 +385,7 @@ static PyObject *PWallTime(PyObject *self, PyObject *args) {
   }
   int m = 0;
   char *s;
-  if (!(PyArg_ParseTyple(args, "s|i", &s, &m))) return NULL;
+  if (!(PyArg_ParseTuple(args, "s|i", &s, &m))) return NULL;
   PrintWallTime(s, m);
   Py_INCREF(Py_None);
   return Py_None;
