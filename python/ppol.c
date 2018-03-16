@@ -377,6 +377,20 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTyple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
@@ -391,7 +405,8 @@ static struct PyMethodDef pol_methods[] = {
   {"SetMCERates", PSetMCERates, METH_VARARGS},
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
-  {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
+  {"PolarizationTable", PPolarizationTable, METH_VARARGS}, 
+  {"WallTime", PWallTime, METH_VARARGS}, 
   {NULL, NULL, METH_VARARGS}
 };
 

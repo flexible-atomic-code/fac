@@ -316,21 +316,21 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
 
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
   if (argc == 0) {
     i = CheckEndian(NULL);
   } else {
-    f = fopen(argv[0], "rb");
+    f = FOPEN(argv[0], "rb");
     if (f == NULL) {
       printf("Cannot open file %s\n", argv[0]);
       return -1;
     }
     ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
-    fclose(f);
+    FCLOSE(f);
   }
 
   printf("Endian: %d\n", i);
@@ -3940,6 +3940,17 @@ static int PModifyPotential(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PWallTime(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m = 0;
+  if (argc < 1) return -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+  }
+  PrintWallTime(argv[0], m);
+  return 0;
+}
+
 static int PInitializeMPI(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
 #ifdef USE_MPI
@@ -4147,6 +4158,7 @@ static METHOD methods[] = {
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {"InitializeMPI", PInitializeMPI, METH_VARARGS},
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},

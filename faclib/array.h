@@ -68,8 +68,6 @@
 ** NOTE:        
 */
 
-#include <sys/mman.h>
-#include <semaphore.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <stdlib.h>

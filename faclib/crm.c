@@ -749,7 +749,7 @@ int SetBlocks(double ni, char *ifn) {
   NCOMPLEX ncomplex[MAXNCOMPLEX];
   int bmin, bmax, imin, imax, t, nrec;
   int ibase, tbase;
-  FILE *f;
+  TFILE *f;
   int n, i, k, nb, nb0, nlevels;
   char *fn;
   int p, q = -1;
@@ -807,12 +807,11 @@ int SetBlocks(double ni, char *ifn) {
     }
 
     fn = ion->dbfiles[DB_EN-1];
-    f = fopen(fn, "r");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist\n", fn);
       return -1;
     }
-    n = ReadFHeader(f, &fh, &swp);
     if (VersionLE((&fh), 1, 0, 8)) sfh = sizeof(F_HEADER);
     else sfh = SIZE_F_HEADER;
 
@@ -829,7 +828,7 @@ int SetBlocks(double ni, char *ifn) {
       if (h.nele == ion->nele-1) {
 	nionized += h.nlevels;
       }
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
     }
     ion->nlevels = nlevels;
     ion->iblock = (LBLOCK **) malloc(sizeof(LBLOCK *)*nlevels);
@@ -847,7 +846,7 @@ int SetBlocks(double ni, char *ifn) {
       ion0.energy = (double *) malloc(sizeof(double)*nionized);
     }
     
-    fseek(f, sfh, SEEK_SET);
+    FSEEK(f, sfh, SEEK_SET);
     n0 = 0;
     nb0 = 0;
     r0 = rionized;
@@ -860,7 +859,7 @@ int SetBlocks(double ni, char *ifn) {
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele == ion->nele) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	continue;
       } else if (h.nele == ion->nele-1) {
 	for (i = 0; i < h.nlevels; i++) {
@@ -1034,21 +1033,21 @@ int SetBlocks(double ni, char *ifn) {
 	nb0++;
 	r0 += h.nlevels;
       } else if (h.nele == ion->nele-2) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	continue;	
       } else {
 	printf("ERROR: Ion charge state does not match %d %d %d %d\n",
 	       k, nb, h.nele, ion->nele);
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	continue;
       }
     }
 
-    fseek(f, sfh, SEEK_SET);
+    FSEEK(f, sfh, SEEK_SET);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele != ion->nele) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	continue;
       }	
       blk.ncomplex[0].n = 0;
@@ -1181,7 +1180,7 @@ int SetBlocks(double ni, char *ifn) {
     }
     ion1 = ion;
     free(rionized);
-    fclose(f);
+    FCLOSE(f);
     
     /* determine the minimum ilev in each block */
     blkp = NULL;
@@ -1250,17 +1249,16 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   F_HEADER fh;
   EN_HEADER h;
   EN_RECORD g;
-  FILE *f;
+  TFILE *f;
   int i, k, j, nr, nb;
   int swp, sfh;
 
-  f = fopen(ifn, "r");
+  f = OpenFileRO(ifn, &fh, &swp);
   if (f == NULL) {
     printf("File %s does not exist\n", ifn);
     return -1;
   }
-  
-  nr = ReadFHeader(f, &fh, &swp);
+
   if (VersionLE((&fh), 1, 0, 8)) sfh = sizeof(F_HEADER);
   else sfh = SIZE_F_HEADER;
 
@@ -1268,7 +1266,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   for (nb = 0; nb < fh.nblocks; nb++) {
     nr = ReadENHeader(f, &h, swp);
     if (h.nele != nele) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
     for (i = 0; i < h.nlevels; i++) {
@@ -1282,7 +1280,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   }
 
   if (k < n) {
-    fseek(f, sfh, SEEK_SET);
+    FSEEK(f, sfh, SEEK_SET);
     nr = ReadENHeader(f, &h, swp);
     j = h.nlevels;
     for (i = 0; i < h.nlevels; i++) {
@@ -1313,7 +1311,7 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
     }
   }
 
-  fclose(f);
+  FCLOSE(f);
 
   EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
   j = 0;
@@ -1735,7 +1733,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
   NCOMPLEX *c, *cp;
   double *d, rtmp,  e0, abt;
   double **dce[4], **dtr[4], **drr[4], **dci[4], **dai[4];
-  FILE *f;
+  TFILE *f;
 
   edist = GetEleDist(&i);
   pdist = GetPhoDist(&j);
@@ -3554,7 +3552,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
   LBLOCK *blk, *iblk, *fblk;
   BLK_RATE *brts, *brdev;
   int k, m, j;
-  FILE *f;
+  TFILE *f;
   double e, a, e0;
   int i, p, q, ib, iuta;
   double smax, s, b, c;
@@ -3744,7 +3742,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   ARRAY sp, spx;
   ARRAY linetype;
   int *tt;
-  FILE *f1, *f2;
+  TFILE *f1;
+  FILE *f2;
   int n, nb, i;
   int t, t0, t1, t2;
   int r0, r1;
@@ -3754,7 +3753,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   
   rx.sdev = 0.0;
 
-  f1 = fopen(ifn, "r");
+  f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
     return -1;
@@ -3776,8 +3775,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     low = emin;
     up = emax;
   }
-  n = ReadFHeader(f1, &fh, &swp);
-  if (n == 0) return -1;
 
   ArrayInit(&sp, sizeof(SP_RECORD), 512);
   ArrayInit(&spx, sizeof(SP_EXTRA), 512);
@@ -3843,7 +3840,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     continue;
 
   LOOPEND:
-    fseek(f1, h.length, SEEK_CUR);
+    FSEEK(f1, h.length, SEEK_CUR);
   }
 
   if (fmin >= 1.0) {
@@ -3878,7 +3875,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   ArrayFree(&spx, NULL);
   ArrayFree(&linetype, NULL);
 
-  fclose(f1);
+  FCLOSE(f1);
   fclose(f2);
   
   return 0;
@@ -3891,7 +3888,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   SP_RECORD r;
   SP_EXTRA rx;
   DISTRIBUTION *dist;
-  FILE *f1, *f2;
+  TFILE *f1;
+  FILE *f2;
   int n, nb, i;
   int t, t0, t1, t2;
   int r0, r1;
@@ -3905,7 +3903,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   int swp;
   int idist;
 
-  f1 = fopen(ifn, "r");
+  f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
     return -1;
@@ -3950,9 +3948,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     sp[i] = 0.0;
     xsp[i] = xsp[i-1] + de01;
   }
-
-  n = ReadFHeader(f1, &fh, &swp);
-  if (n == 0) return -1;
 
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
@@ -4021,7 +4016,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     }
     continue;
   LOOPEND:
-    fseek(f1, h.length, SEEK_CUR);
+    FSEEK(f1, h.length, SEEK_CUR);
   }
 
   if (type != 0 && t < 100 && de0 > 0) {
@@ -4088,7 +4083,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   free(tsp);
   free(kernel);
 
-  fclose(f1);
+  FCLOSE(f1);
   fclose(f2);
 
   return 0;
@@ -4196,7 +4191,7 @@ int SetCERates(int inv) {
   F_HEADER fh;
   CE_HEADER h;
   CE_RECORD r;
-  FILE *f;
+  TFILE *f;
   double e, bte, bms;
   float *cs;
   double data[2+(1+MAXNUSR)*2];
@@ -4216,18 +4211,17 @@ int SetCERates(int inv) {
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ce_rates, FreeBlkRateData);
-    f = fopen(ion->dbfiles[DB_CE-1], "r");
+    f = OpenFileRO(ion->dbfiles[DB_CE-1], &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CE-1]);
-      continue;
+      continue; 
     }
-    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadCEHeader(f, &h, swp);
       eusr = h.usr_egrid;
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
 	}
       }
@@ -4266,20 +4260,19 @@ int SetCERates(int inv) {
       free(h.egrid);
       free(h.usr_egrid);
     }
-    fclose(f);
+    FCLOSE(f);
     
     if (k == 0 && ion0.nionized > 0) {
-      f = fopen(ion0.dbfiles[DB_CE-1], "r");
+      f = OpenFileRO(ion0.dbfiles[DB_CE-1], &fh, &swp);
       if (f == NULL) {
 	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_CE-1]);
 	continue;
       }
-      n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadCEHeader(f, &h, swp);
 	eusr = h.usr_egrid;
 	if (h.nele != ion0.nele) {
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
 	}
 	m = h.n_usr;
@@ -4329,7 +4322,7 @@ int SetCERates(int inv) {
 	free(h.egrid);
 	free(h.usr_egrid);
       }
-      fclose(f);
+      FCLOSE(f);
     }
   }
 
@@ -4350,7 +4343,7 @@ int SetTRRates(int inv) {
   TR_EXTRA rx;
   LBLOCK *ib;
   double e, gf;
-  FILE *f;  
+  TFILE *f;  
   int swp, iuta, im;
   int **irb, **irb2;
 
@@ -4363,18 +4356,17 @@ int SetTRRates(int inv) {
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->tr_rates, FreeBlkRateData);
-    f = fopen(ion->dbfiles[DB_TR-1], "r");
+    f = OpenFileRO(ion->dbfiles[DB_TR-1], &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_TR-1]);
       continue;
     }
-    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadTRHeader(f, &h, swp);
       iuta = IsUTA();
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
 	}
       }
@@ -4412,7 +4404,7 @@ int SetTRRates(int inv) {
 	}
       }
     }
-    fclose(f);
+    FCLOSE(f);
     if (ion->nele == 1) {
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
       rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
@@ -4462,17 +4454,16 @@ int SetTRRates(int inv) {
     if (ion0.n < 0) continue;
     ExtrapolateTR(ion, inv, irb);
     if (k == 0 && ion0.nionized > 0) {
-      f = fopen(ion0.dbfiles[DB_TR-1], "r");
+      f = OpenFileRO(ion0.dbfiles[DB_TR-1], &fh, &swp);
       if (f == NULL) {
 	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_TR-1]);
 	continue;
       }
-      n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadTRHeader(f, &h, swp);
 	iuta = IsUTA();
 	if (h.nele != ion0.nele) {
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
 	}  
 	if (abs(h.multipole) == 1) m = 0;
@@ -4510,7 +4501,7 @@ int SetTRRates(int inv) {
 	  }
 	}
       }
-      fclose(f);
+      FCLOSE(f);
     }
   }
   FreeIdxRateBlock(blocks->dim, irb);
@@ -4528,7 +4519,7 @@ int SetCIRates(int inv) {
   CI_HEADER h;
   CI_RECORD r;
   double e;
-  FILE *f;  
+  TFILE *f;  
   int swp;
   int **irb;
   
@@ -4543,17 +4534,16 @@ int SetCIRates(int inv) {
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ci_rates, FreeBlkRateData);
-    f = fopen(ion->dbfiles[DB_CI-1], "r");
+    f = OpenFileRO(ion->dbfiles[DB_CI-1], &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CI-1]);
       continue;
     }
-    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadCIHeader(f, &h, swp);
       m = h.nparams;
       if (h.nele != ion->nele) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	free(h.tegrid);
 	free(h.egrid);
 	free(h.usr_egrid);
@@ -4580,7 +4570,7 @@ int SetCIRates(int inv) {
       free(h.egrid);
       free(h.usr_egrid);
     }
-    fclose(f);
+    FCLOSE(f);
   }
   FreeIdxRateBlock(blocks->dim, irb);
   return 0;
@@ -4596,7 +4586,7 @@ int SetRRRates(int inv) {
   RR_HEADER h;
   RR_RECORD r;
   double e;
-  FILE *f;  
+  TFILE *f;  
   int swp;
   float *cs;
   double data[1+MAXNUSR*4];
@@ -4614,12 +4604,11 @@ int SetRRRates(int inv) {
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->rr_rates, FreeBlkRateData);
-    f = fopen(ion->dbfiles[DB_RR-1], "r");
+    f = OpenFileRO(ion->dbfiles[DB_RR-1], &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_RR-1]);
       continue;
     }
-    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadRRHeader(f, &h, swp);
       if (h.nparams <= 0) {
@@ -4628,7 +4617,7 @@ int SetRRRates(int inv) {
 	exit(1);
       }
       if (h.nele != ion->nele) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	free(h.tegrid);
 	free(h.egrid);
 	free(h.usr_egrid);
@@ -4676,7 +4665,7 @@ int SetRRRates(int inv) {
       free(h.egrid);
       free(h.usr_egrid);
     }
-    fclose(f);
+    FCLOSE(f);
     ExtrapolateRR(ion, inv, irb);
   }
 
@@ -4690,7 +4679,7 @@ int SetAIRatesInner(char *fn) {
   F_HEADER fh;
   AI_HEADER h;
   AI_RECORD r;
-  FILE *f;  
+  TFILE *f;  
   int swp;
   int ibase;
 
@@ -4704,13 +4693,12 @@ int SetAIRatesInner(char *fn) {
     exit(1);
   }
   
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("File %s does not exist, skipping.\n", fn);
     return 0;
   }
 
-  n = ReadFHeader(f, &fh, &swp);
   b0 = -1;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadAIHeader(f, &h, swp);
@@ -4721,7 +4709,7 @@ int SetAIRatesInner(char *fn) {
     free(h.egrid);
   }
 
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadAIHeader(f, &h, swp);
@@ -4740,12 +4728,12 @@ int SetAIRatesInner(char *fn) {
 	}
       }    
     } else {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
     }
     free(h.egrid);
   }
 
-  fclose(f);
+  FCLOSE(f);
 
   return 0;
 }
@@ -4760,7 +4748,7 @@ int SetAIRates(int inv) {
   AI_HEADER h;
   AI_RECORD r;
   double e;
-  FILE *f;  
+  TFILE *f;  
   int swp;
   int ibase;
   int **irb;
@@ -4778,16 +4766,15 @@ int SetAIRates(int inv) {
     if (k < ions->dim - 1) ion1 = (ION *) ArrayGet(ions, k+1);
     else ion1 = NULL;
     ArrayFree(ion->ai_rates, FreeBlkRateData);
-    f = fopen(ion->dbfiles[DB_AI-1], "r");
+    f = OpenFileRO(ion->dbfiles[DB_AI-1], &fh, &swp);
     if (f == NULL) {
       printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_AI-1]);
       continue;
     }
-    n = ReadFHeader(f, &fh, &swp);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadAIHeader(f, &h, swp);
       if (h.nele != ion->nele) {
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
 	free(h.egrid);
 	continue;
       }
@@ -4845,16 +4832,15 @@ int SetAIRates(int inv) {
 	}
       }
     }
-    fclose(f);
+    FCLOSE(f);
     ExtrapolateAI(ion, inv, irb);
     
     if (inner_auger == 4 && k == 0 && ion0.nionized > 0) {
-      f = fopen(ion0.dbfiles[DB_AI-1], "r");
+      f = OpenFileRO(ion0.dbfiles[DB_AI-1], &fh, &swp);
       if (f == NULL) {
 	printf("File %s does not exist, skipping.\n", ion0.dbfiles[DB_AI-1]);
 	continue;
       }
-      n = ReadFHeader(f, &fh, &swp);
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadAIHeader(f, &h, swp);
 	for (i = 0; i < h.ntransitions; i++) {
@@ -4869,7 +4855,7 @@ int SetAIRates(int inv) {
 	  }
 	}
       }
-      fclose(f);
+      FCLOSE(f);
     }
   }
 
@@ -4957,7 +4943,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
   F_HEADER fhdr;
   int k, m, t, p, n, vnl, vn, vl;
   int mp, tp;
-  FILE *f;
+  TFILE *f;
   
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -5333,7 +5319,8 @@ static void AddSpecFF(int nx, double *xg, double *yg,
 
 void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
 	     double xmin, double xmax, double dx) {
-  FILE *f1, *f2, *f3, *f;
+  TFILE *f1, *f2, *f3;
+  FILE *f;
   char buf[1000];
   double *ab, *stot, *scol, *spho, *saut;
   double abt, *atot, *acol, *apho, *aaut;
@@ -5351,20 +5338,14 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   RT_RECORD r2, r3;
   double dv, emin, emax, a, alpha = 0.5;
 
-  f1 = fopen(fn1, "r");
-  f2 = fopen(fn2, "r");
+  f1 = OpenFileRO(fn1, &fh1, &swp1);
+  f2 = OpenFileRO(fn2, &fh2, &swp2);
   if (fn3) {
-    f3 = fopen(fn3, "r");
+    f3 = OpenFileRO(fn3, &fh3, &swp3);
   } else {
     f3 = NULL;
   }
- 
-  ReadFHeader(f1, &fh1, &swp1);
-  ReadFHeader(f2, &fh2, &swp2);  
-  if (f3) {
-    ReadFHeader(f3, &fh3, &swp3);
-  }
- 
+  
   z = (int) fh2.atom;
   nmax = malloc(sizeof(int)*(z+1));
   ilev = malloc(sizeof(int)*(z+1));
@@ -5405,7 +5386,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
     abt = r2.ai;
     break;
   }
-  fseek(f2, 0, SEEK_SET);
+  FSEEK(f2, 0, SEEK_SET);
   ReadFHeader(f2, &fh2, &swp2);
 
   sprintf(buf, "%s.elev", fn);
@@ -5701,10 +5682,10 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   fprintf(f, "\n");
   fclose(f);
 
-  fclose(f1);
-  fclose(f2);
+  FCLOSE(f1);
+  FCLOSE(f2);
   if (f3) {
-    fclose(f3);
+    FCLOSE(f3);
   }
   free(nmax);
   free(ilev);
@@ -5903,23 +5884,20 @@ int RydBranch(char *fn, char *ofn, int n0, int n1) {
   F_HEADER fh;
   DR_HEADER h;
   DR_RECORD r;
-  FILE *f, *f1;
+  TFILE *f;
+  FILE *f1;
   int swp, i, j, n;
   double z, ar, br;
 
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    fclose(f);
-    return 0;
-  }
+
   if (fh.type != DB_DR) {
     printf("File type is not DB_DR\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
    
@@ -5947,7 +5925,7 @@ int RydBranch(char *fn, char *ofn, int n0, int n1) {
     }
   }
   
-  fclose(f);
+  FCLOSE(f);
   fclose(f1);
 
   return 0;

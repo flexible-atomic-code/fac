@@ -1305,6 +1305,20 @@ static  PyObject *PSetGamma3B(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMtatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTyple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1376,6 +1390,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
   {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"SetGamma3B", PSetGamma3B, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {NULL, NULL}
 };
 

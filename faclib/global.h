@@ -31,8 +31,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
-#include <sys/mman.h>
-#include <semaphore.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <pthread.h>
@@ -67,6 +65,32 @@
 #define DestroyLock(x) pthread_mutex_destroy((x))
 
 #include "mpiutil.h"
+
+#define USEBF 1
+#ifdef USEBF
+#define TFILE BFILE
+#define FOPEN(fn,m) BFileOpen((fn),(m),(-1))
+#define FGETS BFileGetLine
+#define FCLOSE BFileClose
+#define FREWIND BFileRewind
+#define FREAD BFileRead
+#define FWRITE BFileWrite
+#define FSEEK BFileSeek
+#define FTELL BFileTell
+#define FFLUSH BFileFlush
+#else
+#define TFILE FILE
+#define FOPEN(fn, m) fopen((fn),(m))
+#define FGETS fgets
+#define FCLOSE fclose
+#define FREWID rewind
+#define FREAD fread
+#define FWRITE fwrite
+#define FSEEK fseek
+#define FTELL ftell
+#define FFLUSH fflush
+#endif
+      
 /*
 ** VARIABLE:    DEBUG_RECOUPLE, DEBUG_STRUCTURE, FAC_DEBUG
 ** TYPE:        macro constants

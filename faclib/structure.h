@@ -75,6 +75,7 @@ typedef struct _LEVEL_ION_ {
 } LEVEL_ION;
 
 typedef struct _ANGZ_DATUM_ {
+  LOCK lock;
   int ns;
   int *nz;
   void **angz;
@@ -162,6 +163,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 HAMILTON *GetHamilton(void);
 SHAMILTON *GetSHamilton(int *n);
+int NHams(void);
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);

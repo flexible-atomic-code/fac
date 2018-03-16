@@ -59,21 +59,21 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
 
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
   if (argc == 0) {
     i = CheckEndian(NULL);
   } else {
-    f = fopen(argv[0], "rb");
+    f = FOPEN(argv[0], "rb");
     if (f == NULL) {
       printf("Cannot open file %s\n", argv[0]);
       return -1;
     }
     ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
-    fclose(f);
+    FCLOSE(f);
   }
 
   printf("Endian: %d\n", i);
@@ -699,6 +699,17 @@ static int PSetGamma3B(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PWallTime(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m = 0;
+  if (argc < 1) return -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+  }
+  PrintWallTime(argv[0], m);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -747,6 +758,7 @@ static METHOD methods[] = {
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
   {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"SetGamma3B", PSetGamma3B, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

@@ -5184,6 +5184,20 @@ static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTyple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("InitializeMPI", args, NULL);
@@ -5441,6 +5455,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {"InitializeMPI", PInitializeMPI, METH_VARARGS},
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},

@@ -4629,7 +4629,7 @@ void AdjustAngularZ(MBPT_TR *mtr) {
 
 void SaveTransitionMBPT(MBPT_TR *mtr) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   LEVEL *lev1, *lev2;
   SYMMETRY *sym;
   STATE *st;
@@ -4658,6 +4658,8 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
       tr_hdr.gauge = GetTransitionGauge();
       tr_hdr.mode = 0;
       InitFile(f, &fhdr, &tr_hdr);
+#pragma omp parallel default(shared) private(i, j, k, sym, st, lev1, lev2, e, p1, j1, p2, j2, s0, i0, i1, m1, m2, a, p, rg, x, s, r)
+      {
       for (j = 1; j < n; j++) {
 	lev2 = GetLevel(j);
 	k = lev2->pb;
@@ -4673,6 +4675,8 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  st = (STATE *) ArrayGet(&(sym->states), k);
 	  k = InGroups(st->kgroup, mbpt_tr.nlow, mbpt_tr.low);
 	  if (k == 0) continue;
+	  int skip = SkipMPI();
+	  if (skip) continue;
 	  DecodePJ(lev1->pj, &p1, &j1);
 	  e = 0.0;
 	  k = TRMultipole(&s0, &e, m, i, j);
@@ -4720,6 +4724,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  r.strength = s0+s;
 	  WriteTRRecord(f, &r, NULL);
 	}
+      }
       }
       DeinitFile(f, &fhdr);
     }

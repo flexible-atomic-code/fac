@@ -159,7 +159,7 @@ int SetMLevels(char *fn, char *tfn) {
   TR_HEADER h1;
   TR_RECORD r1;
   TR_EXTRA r1x;
-  FILE *f;  
+  TFILE *f;  
   int n, k, m, t, t0, p, k0;
   int m1, m2, j1, j2;
   int swp;
@@ -167,21 +167,15 @@ int SetMLevels(char *fn, char *tfn) {
 
   MemENTable(fn);
 
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    fclose(f);
-    return 0;
-  }
 
   if (fh.type != DB_EN) {
     printf("File type is not DB_EN\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
 
@@ -209,15 +203,15 @@ int SetMLevels(char *fn, char *tfn) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
     nlevels += h.nlevels;
-    fseek(f, h.length, SEEK_CUR);
+    FSEEK(f, h.length, SEEK_CUR);
   }
   
   if (nlevels == 0) {
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
 
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
 
   for (k = 0; k <= MAXPOL; k++) {
@@ -248,7 +242,7 @@ int SetMLevels(char *fn, char *tfn) {
       t++;
     }
   }
-  fclose(f);
+  FCLOSE(f);
 
   if (t != nlevels) {
     printf("Energy file %s corrupted\n", fn);
@@ -273,21 +267,15 @@ int SetMLevels(char *fn, char *tfn) {
   }
   rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
 
-  f = fopen(tfn, "r");
+  f = OpenFileRO(tfn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    fclose(f);
-    return 0;
-  }
 
   if (fh.type != DB_TR) {
     printf("File type is not DB_TR\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
   
@@ -295,15 +283,15 @@ int SetMLevels(char *fn, char *tfn) {
     n = ReadTRHeader(f, &h1, swp);
     if (n == 0) break;
     ntr += h1.ntransitions;
-    fseek(f, h1.length, SEEK_CUR);
+    FSEEK(f, h1.length, SEEK_CUR);
   }
 
   if (ntr == 0) {
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
 
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
 
   z = fh.atom;
@@ -396,7 +384,7 @@ int SetMLevels(char *fn, char *tfn) {
   }
   if (t0 < ntr) ntr = t0;
 
-  fclose(f);
+  FCLOSE(f);
 
   return 0;
 }  
@@ -405,7 +393,7 @@ int SetMCERates(char *fn) {
   F_HEADER fh;  
   CE_HEADER h;
   CE_RECORD r;
-  FILE *f;
+  TFILE *f;
   int n, k, m, t, p, i, q;
   int m1, m2, j1, j2, i0;
   int swp;
@@ -415,21 +403,15 @@ int SetMCERates(char *fn) {
   double esigma, energy;
   double egrid[NEINT], rint[NEINT], fint[NEINT];
   
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    fclose(f);
-    return 0;
-  }
 
   if (fh.type != DB_CE) {
     printf("File type is not DB_CE\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
 
@@ -465,9 +447,9 @@ int SetMCERates(char *fn) {
     n = ReadCEHeader(f, &h, swp);
     if (n == 0) break;
     nce += h.ntransitions;
-    fseek(f, h.length, SEEK_CUR);
+    FSEEK(f, h.length, SEEK_CUR);
   }
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
 
   ce_rates = (MCE *) malloc(sizeof(MCE)*nce);
@@ -561,7 +543,7 @@ int SetMCERates(char *fn) {
     free(h.egrid);
     free(h.usr_egrid);
   }
-  fclose(f);
+  FCLOSE(f);
 
   if (t < nce) nce = t;
   
@@ -572,28 +554,22 @@ int SetMAIRates(char *fn) {
   F_HEADER fh;
   AIM_HEADER h;
   AIM_RECORD r;
-  FILE *f;
+  TFILE *f;
   int n, k, m, t, p, i;
   int m1, m2, j1, j2;
   int swp;
   double e, v, x, pf=1.0;
   double esigma, energy;
     
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
-  
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    fclose(f);
-    return 0;
-  }
 
   if (fh.type != DB_AIM) {
     printf("File type is not DB_AIM\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
   
@@ -615,9 +591,9 @@ int SetMAIRates(char *fn) {
     n = ReadAIMHeader(f, &h, swp);
     if (n == 0) break;
     nai += h.ntransitions;
-    fseek(f, h.length, SEEK_CUR);
+    FSEEK(f, h.length, SEEK_CUR);
   }
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET);
   n = ReadFHeader(f, &fh, &swp);
   
   ai_rates = (MAI *) malloc(sizeof(MAI)*nai);
@@ -672,7 +648,7 @@ int SetMAIRates(char *fn) {
     free(h.egrid);
   }
 
-  fclose(f);
+  FCLOSE(f);
   
   if (t < nai) nai = t;
   
