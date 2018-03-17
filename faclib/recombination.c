@@ -1456,8 +1456,8 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
     if (locked) ReleaseLock(lock);
     return 0;
   } 
-  (*p) = (double *) malloc(sizeof(double)*n_egrid);
-  *ai_pk = *p;
+  double *pd = (double *) malloc(sizeof(double)*n_egrid);
+  *ai_pk = pd;
   for (i = 0; i < n_egrid; i++) {
     e = egrid[i];
     kf = OrbitalIndex(0, kappaf, e);
@@ -1468,6 +1468,7 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
     (*ai_pk)[i] = sd+se;
   }
+  *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return 0;
