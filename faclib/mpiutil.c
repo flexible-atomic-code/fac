@@ -269,7 +269,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   BFILE *bf;  
   bf = malloc(sizeof(BFILE));  
   bf->p = 0;
-  bf->w = 0;
+  bf->w = NULL;
   bf->n = 0;
   bf->eof = 0;
   bf->nbuf = nb>=0?nb:RBUFL;
@@ -305,6 +305,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   } else {
     bf->buf = NULL;
   }
+  bf->w = NULL;
 #elif USE_MPI == 2
   bf->mr = MPIRank(&bf->nr);
   bf->f = fopen(fn, md);
@@ -315,20 +316,20 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   bf->p = 0;
   bf->n = 0;
   if (bf->nbuf > 0) {
-    bf->buf = malloc(bf->nbuf);
+    bf->buf = malloc(bf->nbuf*bf->nr);
+    bf->w = malloc(bf->nr);
+    int i;
+    for (i = 0; i < bf->nr; i++) bf->w[i] = 0;
+    InitLock(&bf->lock);
   } else {
     bf->buf = NULL;
-  }
-  if (bf->nr > 1) {
-    bf->lock = (LOCK *) malloc(sizeof(LOCK));
-    InitLock(bf->lock);
-  } else {
-    bf->lock = NULL;
+    bf->w = NULL;
   }
 #else
   bf->nr = 1;
   bf->mr = 0;
   bf->buf = NULL;
+  bf->w = NULL;
   bf->f = fopen(fn, md);
   if (bf->f == NULL) {
     free(bf);
@@ -360,16 +361,13 @@ int BFileClose(BFILE *bf) {
   if (bf->nr <= 1) {
     r = fclose(bf->f);
   } else {
-    if (bf->mr == 0) {
-      r = fclose(bf->f);
-      if (bf->lock) {
-	DestroyLock(bf->lock);
-	free(bf->lock);
-      }
-    }
+    r = fclose(bf->f);
     if (bf->nbuf > 0) {
       free(bf->buf);
       bf->buf = NULL;
+      free(bf->w);
+      bf->w = NULL;
+      DestroyLock(&bf->lock);
     }
   }
 #else
@@ -493,24 +491,26 @@ void BFileRewind(BFILE *bf) {
 }
 
 size_t BFileWrite(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
-  //if (bf->nr > 1) SetLockNT(bf->lock);
-  int n, m, k;
-  bf->w = 1;
+  int n, m, k, mr;
+  char *buf;
+  mr = MPIRank(NULL);
+  buf = bf->buf + bf->nbuf*mr;
   m = size*nmemb;
-  k = bf->nbuf - bf->p;
+  k = bf->nbuf - bf->w[mr];
   n = 0;
   if (m >= k) {
-    if (bf->p > 0) {
-      n = fwrite(bf->buf, 1, bf->p, bf->f);
-      bf->p = 0;
+    SetLock(&bf->lock);
+    if (bf->w[mr] > 0) {
+      n = fwrite(buf, 1, bf->w[mr], bf->f);
+      bf->w[mr] = 0;
     }
     n = fwrite(ptr, size, nmemb, bf->f);
+    ReleaseLock(&bf->lock);
   } else {
-    memcpy(bf->buf+bf->p, ptr, m);
-    bf->p += m;
+    memcpy(buf+bf->w[mr], ptr, m);
+    bf->w[mr] += m;
     n = nmemb;
   }
-  //if (bf->nr > 1) ReleaseLock(bf->lock);
   return n;
 }
 
@@ -524,10 +524,13 @@ long BFileTell(BFILE *bf) {
   return ftell(bf->f);
 }
 
-int BFileFlush(BFILE *bf) {  
-  if (bf->p > 0) {
-    fwrite(bf->buf, 1, bf->p, bf->f);
-    bf->p = 0;
+int BFileFlush(BFILE *bf) {
+  int i;
+  for (i = 0; i < bf->nr; i++) {
+    if (bf->w[i] > 0) {
+      fwrite(bf->buf+i*bf->nbuf, 1, bf->w[i], bf->f);
+      bf->w[i] = 0;
+    }
   }
   return fflush(bf->f);
 }

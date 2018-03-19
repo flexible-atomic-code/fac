@@ -1234,13 +1234,12 @@ int WriteFHeader(TFILE *f, F_HEADER *fh) {
   WSF0(fh->atom);
   WSF1(fh->symbol, sizeof(char), 4);
   WSF0(fh->nblocks);
-    
+  
   return m;
 }
 
 int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   int n, m = 0;
-
   RSF0(fh->tsession);
   RSF0(fh->version);
   RSF0(fh->sversion);
@@ -1420,7 +1419,6 @@ int WriteAIHeader(TFILE *f, AI_HEADER *h) {
   WSF0(h->emin);
   WSF0(h->n_egrid);
   WSF1(h->egrid, sizeof(double), h->n_egrid);
-  
   return m;
 }
 
@@ -1536,12 +1534,15 @@ int WriteDRHeader(TFILE *f, DR_HEADER *h) {
 
 int WriteENRecord(TFILE *f, EN_RECORD *r) {
   int i, n, m = 0;
-    
+
 #pragma omp critical
   {
-  if (en_header.length == 0) {
+  if (en_header.nlevels == 0) {
     fheader[DB_EN-1].nblocks++;
     n = WriteENHeader(f, &en_header);
+    FFLUSH(f);
+  }
+  en_header.nlevels += 1;
   }
   
   WSF0(r->p);
@@ -1569,9 +1570,9 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
   WSF1(r->sname, sizeof(char), LSNAME);
   WSF1(r->name, sizeof(char), LNAME);
 
-  en_header.nlevels += 1;
+#pragma omp atomic
   en_header.length += m;
-  }
+
   return m;
 }
 
@@ -1580,18 +1581,20 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
 
 #pragma omp critical
   {
-  if (enf_header.length == 0) {
+  if (enf_header.nlevels == 0) {
     fheader[DB_ENF-1].nblocks++;
     n = WriteENFHeader(f, &enf_header);
+    FFLUSH(f);
   }
-  
+  enf_header.nlevels += 1;
+  }
   WSF0(r->ilev);
   WSF0(r->energy);
   WSF0(r->pbasis);
   
-  enf_header.nlevels += 1;
+#pragma omp atomic
   enf_header.length += m;
-  }
+
   return m;
 }
 
@@ -1600,11 +1603,13 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
 
 #pragma omp critical
   {
-  if (tr_header.length == 0) {
+  if (tr_header.ntransitions == 0) {
     fheader[DB_TR-1].nblocks++;
     n = WriteTRHeader(f, &tr_header);
+    FFLUSH(f);
   }
-
+  tr_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->strength);
@@ -1615,9 +1620,9 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
     WSF0(rx->sci);
   }
 
-  tr_header.ntransitions += 1;
+#pragma omp atomic
   tr_header.length += m;
-  }
+
   return m;
 }
 
@@ -1626,18 +1631,20 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
 
 #pragma omp critical
   {
-  if (trf_header.length == 0) {
+  if (trf_header.ntransitions == 0) {
     fheader[DB_TRF-1].nblocks++;
     n = WriteTRFHeader(f, &trf_header);
+    FFLUSH(f);
   }
-  
+  trf_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF1(r->strength, sizeof(float), 2*abs(trf_header.multipole)+1);
 
-  trf_header.ntransitions += 1;
+#pragma omp atomic
   trf_header.length += m;
-  }
+
   return m;
 }
 
@@ -1645,13 +1652,15 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
   int n;
   int m0, m = 0;
 
-#pragma omp critical
+  #pragma omp critical
   {
-  if (ce_header.length == 0) {
+  if (ce_header.ntransitions == 0) {
     fheader[DB_CE-1].nblocks++;
     n = WriteCEHeader(f, &ce_header);
+    FFLUSH(f);
   }
-  
+  ce_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->nsub);
@@ -1669,9 +1678,9 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
   m0 = ce_header.n_usr * r->nsub;
   WSF1(r->strength, sizeof(float), m0);
 
-  ce_header.ntransitions += 1;
+#pragma omp atomic
   ce_header.length += m;
-  }
+
   return m;
 }
 
@@ -1681,11 +1690,13 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
 
 #pragma omp critical
   {
-  if (cef_header.length == 0) {
+  if (cef_header.ntransitions == 0) {
     fheader[DB_CEF-1].nblocks++;
     n = WriteCEFHeader(f, &cef_header);
+    FFLUSH(f);
   }
-  
+  cef_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->bethe);
@@ -1694,9 +1705,9 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
   m0 = cef_header.n_egrid;
   WSF1(r->strength, sizeof(float), m0);
   
-  cef_header.ntransitions += 1;
+#pragma omp atomic
   cef_header.length += m;
-  }
+
   return m;
 }
 
@@ -1706,11 +1717,13 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
 
 #pragma omp critical
   {
-  if (cemf_header.length == 0) {
+  if (cemf_header.ntransitions == 0) {
     fheader[DB_CEMF-1].nblocks++;
     n = WriteCEMFHeader(f, &cemf_header);
+    FFLUSH(f);
   }
-  
+  cemf_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   
@@ -1721,9 +1734,9 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
   m0 = cemf_header.n_egrid * m0;
   WSF1(r->strength, sizeof(float), m0);
   
-  cemf_header.ntransitions += 1;
+#pragma omp atomic
   cemf_header.length += m;
-  }
+
   return m;
 }
 
@@ -1733,11 +1746,13 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
 
 #pragma omp critical
   {
-  if (rr_header.length == 0) {
+  if (rr_header.ntransitions == 0) {
     fheader[DB_RR-1].nblocks++;
     n = WriteRRHeader(f, &rr_header);
+    FFLUSH(f);
   }
-
+  rr_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -1749,9 +1764,9 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
   m0 = rr_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
 
-  rr_header.ntransitions += 1;
+#pragma omp atomic
   rr_header.length += m;
-  }
+
   return m;
 }
 
@@ -1760,18 +1775,20 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
 
 #pragma omp critical
   {
-  if (ai_header.length == 0) {
+  if (ai_header.ntransitions == 0) {
     fheader[DB_AI-1].nblocks++;
     WriteAIHeader(f, &ai_header);
+    FFLUSH(f);
   }
-  
+  ai_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->rate);
 
-  ai_header.ntransitions += 1;
+#pragma omp atomic
   ai_header.length += m;
-  }
+
   return m;
 }
 
@@ -1780,19 +1797,21 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
 
 #pragma omp critical
   {
-  if (aim_header.length == 0) {
+  if (aim_header.ntransitions == 0) {
     fheader[DB_AIM-1].nblocks++;
     WriteAIMHeader(f, &aim_header);
+    FFLUSH(f);
   }
-
+  aim_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
   WSF1(r->rate, sizeof(float), r->nsub);
   
-  aim_header.ntransitions += 1;
+#pragma omp atomic
   aim_header.length += m;
-  }
+
   return m;
 }
 
@@ -1802,11 +1821,13 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
 
 #pragma omp critical
   {
-  if (ci_header.length == 0) {
+  if (ci_header.ntransitions == 0) {
     fheader[DB_CI-1].nblocks++;
     WriteCIHeader(f, &ci_header);
+    FFLUSH(f);
   }
-
+  ci_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -1815,9 +1836,9 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
   m0 = ci_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
 
-  ci_header.ntransitions += 1;
+#pragma omp atomic
   ci_header.length += m;
-  }
+
   return m;
 }
 
@@ -1827,20 +1848,22 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
 
 #pragma omp critical
   {
-  if (cim_header.length == 0) {
+  if (cim_header.ntransitions == 0) {
     fheader[DB_CIM-1].nblocks++;
     WriteCIMHeader(f, &cim_header);
+    FFLUSH(f);
   }
-
+  cim_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
   m0 = r->nsub*cim_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
   
-  cim_header.ntransitions += 1;
+#pragma omp atomic
   cim_header.length += m;
-  }
+
   return m;
 }
 
@@ -1849,11 +1872,13 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
 
 #pragma omp critical
   {
-  if (sp_header.length == 0) {
+  if (sp_header.ntransitions == 0) {
     fheader[DB_SP-1].nblocks++;
     WriteSPHeader(f, &sp_header);
+    FFLUSH(f);
   }
-  
+  sp_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->energy);
@@ -1864,9 +1889,9 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
     WSF0(rx->sdev);
   }
 
-  sp_header.ntransitions += 1;
+#pragma omp atomic
   sp_header.length += m;
-  }
+
   return m;
 }
 
@@ -1875,11 +1900,13 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
 
 #pragma omp critical
   {
-  if (rt_header.length == 0) {
+  if (rt_header.ntransitions == 0) {
     fheader[DB_RT-1].nblocks++;
     WriteRTHeader(f, &rt_header);
+    FFLUSH(f);
   }
-
+  rt_header.ntransitions += 1;
+  }
   WSF0(r->dir);
   WSF0(r->iblock);
   WSF0(r->nb);
@@ -1894,9 +1921,9 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
   for (i++; i < LNCOMPLEX; i++) r->icomplex[i] = '\0';
   WSF1(r->icomplex, sizeof(char), LNCOMPLEX);
 
-  rt_header.ntransitions += 1;
+#pragma omp atomic
   rt_header.length += m;
-  }
+
   return m;
 }
 
@@ -1905,11 +1932,13 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
 
 #pragma omp critical
   {
-  if (dr_header.length == 0) {
+  if (dr_header.ntransitions == 0) {
     fheader[DB_DR-1].nblocks++;
     WriteDRHeader(f, &dr_header);
+    FFLUSH(f);
   }
-
+  dr_header.ntransitions += 1;
+  }
   WSF0(r->ilev);
   WSF0(r->flev);
   WSF0(r->ibase);
@@ -1922,9 +1951,9 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
   WSF0(r->ai);
   WSF0(r->total_rate);
 
-  dr_header.ntransitions += 1;
+#pragma omp atomic
   dr_header.length += m;
-  }  
+
   return m;
 }
 
@@ -2819,7 +2848,6 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   ihdr = fhdr->type - 1;
   FSEEK(f, 0, SEEK_END);
   p = FTELL(f);
-
   switch (fhdr->type) {
   case DB_EN:
     en_hdr = (EN_HEADER *) rhdr;
@@ -3352,17 +3380,15 @@ int MemENTable(char *fn) {
   float e0;
   int swp, sr;
 
-  f = FOPEN(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) return -1;
 
-  n = ReadFHeader(f, &fh, &swp);  
-  if (n == 0) return 0;
   if (fh.type == DB_ENF) {
     FCLOSE(f);
     return MemENFTable(fn);
   }
   if (fh.type != DB_EN) {
-    printf("File type is not DB_EN\n");
+    printf("File type is not DB_EN: %d\n", fh.type);
     FCLOSE(f);
     return -1;
   }

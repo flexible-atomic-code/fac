@@ -42,10 +42,10 @@ typedef struct _MPID_ {
 typedef struct _BFILE_ {
   char *fn;
   FILE *f;
-  void *buf;
-  int w, p, n, nbuf;
+  char *buf;
+  int *w, p, n, nbuf;
   int nr, mr, eof;
-  LOCK *lock;
+  LOCK lock;
 } BFILE;
 
 int SkipWMPI(int w);

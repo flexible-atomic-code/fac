@@ -1275,7 +1275,6 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   nkappaf = njf*2;
   p = malloc(sizeof(double)*nkappaf);
   for (ip = 0; ip < nkappaf; ip++) p[ip] = 0.0;
-
   nz = AngularZxZFreeBound(&ang, f, rec);
   np = 3;
   nt = 1;
@@ -2101,7 +2100,6 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
-
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
