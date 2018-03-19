@@ -25,14 +25,17 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
-  - ./configure --prefix=$pwd$+bin_$CONDA_ENV
+  - ./configure --prefix=$pwd$
   - make clean
   - make
   - make install
   - make pfac
   - make install-pfac
+  # make sure the temporary file is not shared
+  - mkdir test_$CONDA_ENV
+  - cd test_$CONDA_ENV
 
 script:
   - python -OO -c "from pfac import fac"
-  - pytest tests
+  - pytest ../tests
 after_success:
