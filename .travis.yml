@@ -25,7 +25,7 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
-  - ./configure --prefix=$pwd$+bin
+  - ./configure --prefix=$pwd$+bin_$CONDA_ENV
   - make clean
   - make
   - make install
