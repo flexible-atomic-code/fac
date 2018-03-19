@@ -6,6 +6,8 @@ matrix:
   include:
   - python: 3.6
     env: CONDA_ENV=py36
+  - python: 2.7
+    env: CONDA_ENV=py27
 
 before_install:
   - sudo apt-get update
