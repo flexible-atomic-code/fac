@@ -31,5 +31,5 @@ install:
   - make install-pfac
 
 script:
-
+  - python -O0 -c "from pfac import fac"
 after_success:
