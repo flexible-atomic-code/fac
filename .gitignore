@@ -33,6 +33,10 @@ autom4te.cache/
 
 # Python build dirs
 build/
+dist/
 
 # binary files
 bin/
+
+# python cache directory
+__pycache__
