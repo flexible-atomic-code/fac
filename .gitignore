@@ -34,3 +34,5 @@ autom4te.cache/
 # Python build dirs
 build/
 
+# binary files
+bin/

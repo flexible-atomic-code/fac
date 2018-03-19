@@ -1,17 +1,17 @@
 /*
  *   FAC - Flexible Atomic Code
  *   Copyright (C) 2001-2015 Ming Feng Gu
- * 
+ *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *   GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -19,7 +19,7 @@
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
-#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var)
 USE (rcsid);
 #endif
 
@@ -28,6 +28,11 @@ USE (rcsid);
 #include <string.h>
 
 #include "crm.h"
+
+#if PY_MAJOR_VERSION <= 2
+  #define PyLong_AsLong PyInt_AsLong
+  #define PyLong_Check PyInt_Check
+#endif
 
 static PyObject *ErrorObject;
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
@@ -41,11 +46,11 @@ static void SCRMStatement(char *func, PyObject *args, PyObject *kargs) {
   PyObject *kvar;
   PyObject *p, *q;
   char *s1, *s2;
-  
+
   fprintf(scrm_file, "%s", func);
   nargs = PyTuple_Size(args);
   sargs = PyObject_Str(args);
-  s1 = PyString_AsString(sargs);
+  s1 = PyUnicode_AsString(sargs);
   n = strlen(s1);
   if (nargs == 1) {
     n = n-2;
@@ -62,12 +67,12 @@ static void SCRMStatement(char *func, PyObject *args, PyObject *kargs) {
       if (nargs > 0 || i > 0) fprintf(scrm_file, ", ");
       p = PyList_GetItem(klist, i);
       q = PyTuple_GetItem(p, 0);
-      s2 = PyString_AsString(q);
+      s2 = PyUnicode_AsString(q);
       fprintf(scrm_file, "%s=", s2);
       q = PyTuple_GetItem(p, 1);
       kvar = PyObject_Str(q);
-      s2 = PyString_AsString(kvar);
-      if (PyString_Check(q)) {
+      s2 = PyUnicode_AsString(kvar);
+      if (PyUnicode_Check(q)) {
 	fprintf(scrm_file, "'%s'", s2);
       } else {
 	fprintf(scrm_file, "%s", s2);
@@ -78,7 +83,7 @@ static void SCRMStatement(char *func, PyObject *args, PyObject *kargs) {
   }
 
   fprintf(scrm_file, ")\n");
-    
+
   Py_XDECREF(sargs);
 
   return;
@@ -97,8 +102,8 @@ static PyObject *PConvertToSCRM(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-}    
-  
+}
+
 static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
 
   fclose(scrm_file);
@@ -106,7 +111,7 @@ static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-}  
+}
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
@@ -155,38 +160,38 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   for (i = 0; i < n; i++) {
     p = PyTuple_GetItem(args, i);
     q = PyObject_Str(p);
-    s = PyString_AsString(q);
+    s = PyUnicode_AsString(q);
     printf("%s", s);
     if (i != n-1) {
       printf(", ");
     }
     Py_XDECREF(q);
   }
-  
+
   if (n > 0) printf("\n");
 
   fflush(stdout);
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PEleDist(PyObject *self, PyObject *args) {
   int n;
   char *fn;
-  
+
   if (scrm_file) {
     SCRMStatement("EleDist", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "si", &fn, &n)) return NULL;
   EleDist(fn, n);
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   PyObject *p;
@@ -203,17 +208,17 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
-  i = PyInt_AsLong(p);
+  i = PyLong_AsLong(p);
   if (i == -1) {
     p = PyTuple_GetItem(args, 1);
-    fn = PyString_AsString(p);
+    fn = PyUnicode_AsString(p);
     np = DistFromFile(fn, &par);
     if (np <= 0) return NULL;
   } else {
     np = n-1;
     if (np > 0) {
       par = (double *) malloc(sizeof(double)*np);
-    }  
+    }
     for (k = 1; k < n; k++) {
       p = PyTuple_GetItem(args, k);
       par[k-1] = PyFloat_AsDouble(p);
@@ -221,27 +226,27 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   }
   if (SetEleDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
- 
+
   Py_INCREF(Py_None);
   return Py_None;
-} 
- 
+}
+
 static PyObject *PPhoDist(PyObject *self, PyObject *args) {
   int n;
   char *fn;
-  
+
   if (scrm_file) {
     SCRMStatement("PhoDist", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "si", &fn, &n)) return NULL;
   PhoDist(fn, n);
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   PyObject *p;
@@ -258,10 +263,10 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
-  i = PyInt_AsLong(p);
+  i = PyLong_AsLong(p);
   if (i == -1) {
     p = PyTuple_GetItem(args, 1);
-    fn = PyString_AsString(p);
+    fn = PyUnicode_AsString(p);
     np = DistFromFile(fn, &par);
     if (np <= 0) return NULL;
   } else {
@@ -276,14 +281,14 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   }
   if (SetPhoDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
- 
+
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetNumSingleBlocks(PyObject *self, PyObject *args) {
   int n;
-  
+
   if (scrm_file) {
     SCRMStatement("SetNumSingleBlocks", args, NULL);
     Py_INCREF(Py_None);
@@ -294,11 +299,11 @@ static PyObject *PSetNumSingleBlocks(PyObject *self, PyObject *args) {
   SetNumSingleBlocks(n);
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetExtrapolate(PyObject *self, PyObject *args) {
   int n;
-  
+
   if (scrm_file) {
     SCRMStatement("SetExtrapolate", args, NULL);
     Py_INCREF(Py_None);
@@ -310,11 +315,11 @@ static PyObject *PSetExtrapolate(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetInnerAuger(PyObject *self, PyObject *args) {
   int n;
-  
+
   if (scrm_file) {
     SCRMStatement("SetInnerAuger", args, NULL);
     Py_INCREF(Py_None);
@@ -326,11 +331,11 @@ static PyObject *PSetInnerAuger(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetEMinAI(PyObject *self, PyObject *args) {
   double e;
-  
+
   if (scrm_file) {
     SCRMStatement("SetEMinAI", args, NULL);
     Py_INCREF(Py_None);
@@ -342,11 +347,11 @@ static PyObject *PSetEMinAI(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetEleDensity(PyObject *self, PyObject *args) {
   double den;
-  
+
   if (scrm_file) {
     SCRMStatement("SetEleDensity", args, NULL);
     Py_INCREF(Py_None);
@@ -357,11 +362,11 @@ static PyObject *PSetEleDensity(PyObject *self, PyObject *args) {
   SetEleDensity(den);
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetPhoDensity(PyObject *self, PyObject *args) {
   double den;
-  
+
   if (scrm_file) {
     SCRMStatement("SetPhoDensity", args, NULL);
     Py_INCREF(Py_None);
@@ -372,7 +377,7 @@ static PyObject *PSetPhoDensity(PyObject *self, PyObject *args) {
   SetPhoDensity(den);
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetRateAccuracy(PyObject *self, PyObject *args) {
   double epsrel, epsabs;
@@ -382,19 +387,19 @@ static PyObject *PSetRateAccuracy(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   epsabs = -1.0;
   if (!PyArg_ParseTuple(args, "d|d", &epsrel, &epsabs)) return NULL;
   SetRateAccuracy(epsrel, epsabs);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
-}  
-    
+}
+
 static PyObject *PSetCascade(PyObject *self, PyObject *args) {
   int c;
   double a;
-  
+
   if (scrm_file) {
     SCRMStatement("SetCascade", args, NULL);
     Py_INCREF(Py_None);
@@ -407,12 +412,12 @@ static PyObject *PSetCascade(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetIteration(PyObject *self, PyObject *args) {
   int maxiter;
   double a, s;
-  
+
   if (scrm_file) {
     SCRMStatement("SetIteration", args, NULL);
     Py_INCREF(Py_None);
@@ -425,7 +430,7 @@ static PyObject *PSetIteration(PyObject *self, PyObject *args) {
   SetIteration(a, s, maxiter);
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSetBlocks(PyObject *self, PyObject *args) {
   char *ifn;
@@ -444,10 +449,10 @@ static PyObject *PSetBlocks(PyObject *self, PyObject *args) {
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PInitBlocks(PyObject *self, PyObject *args) {
-  
+
   if (scrm_file) {
     SCRMStatement("InitBlocks", args, NULL);
     Py_INCREF(Py_None);
@@ -457,10 +462,10 @@ static PyObject *PInitBlocks(PyObject *self, PyObject *args) {
   InitBlocks();
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PLevelPopulation(PyObject *self, PyObject *args) {
-  
+
   if (scrm_file) {
     SCRMStatement("LevelPopulation", args, NULL);
     Py_INCREF(Py_None);
@@ -470,10 +475,10 @@ static PyObject *PLevelPopulation(PyObject *self, PyObject *args) {
   LevelPopulation();
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PCascade(PyObject *self, PyObject *args) {
-  
+
   if (scrm_file) {
     SCRMStatement("Cascade", args, NULL);
     Py_INCREF(Py_None);
@@ -483,7 +488,7 @@ static PyObject *PCascade(PyObject *self, PyObject *args) {
   Cascade();
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   char *fn;
@@ -499,11 +504,11 @@ static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   smin = EPS10;
   rrc = 0;
   if (!PyArg_ParseTuple(args, "s|id", &fn, &rrc, &smin)) return NULL;
-  
+
   SpecTable(fn, rrc, smin);
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   char *fn1, *fn2;
@@ -517,10 +522,10 @@ static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   }
 
   smin = EPS6;
-  if (!PyArg_ParseTuple(args, "ssiiddd|d", 
+  if (!PyArg_ParseTuple(args, "ssiiddd|d",
 			&fn1, &fn2, &nele, &type, &emin, &emax, &de, &smin))
     return NULL;
-      
+
   PlotSpec(fn1, fn2, nele, type, emin, emax, de, smin);
   Py_INCREF(Py_None);
   return Py_None;
@@ -537,16 +542,16 @@ static PyObject *PTabNLTE(PyObject *self, PyObject *args) {
   }
 
   fn3 = NULL;
-  if (!PyArg_ParseTuple(args, "sssddd|s", &fn1, &fn2, &fn, 
-			&xmin, &xmax, &dx, &fn3)) 
+  if (!PyArg_ParseTuple(args, "sssddd|s", &fn1, &fn2, &fn,
+			&xmin, &xmax, &dx, &fn3))
     return NULL;
 
   TabNLTE(fn1, fn2, fn3, fn, xmin, xmax, dx);
 
   Py_INCREF(Py_None);
   return Py_None;
-}    
-  
+}
+
 static PyObject *PAddIon(PyObject *self, PyObject *args) {
   char *fn;
   int i;
@@ -560,7 +565,7 @@ static PyObject *PAddIon(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "ids", &i, &n, &fn))
     return NULL;
-      
+
   AddIon(i, n, fn);
 
   Py_INCREF(Py_None);
@@ -617,7 +622,7 @@ static PyObject *PSetCIRates(PyObject *self, PyObject *args) {
 
 static PyObject *PSetRRRates(PyObject *self, PyObject *args) {
   int inv;
-  
+
   if (scrm_file) {
     SCRMStatement("SetRRRates", args, NULL);
     Py_INCREF(Py_None);
@@ -633,7 +638,7 @@ static PyObject *PSetRRRates(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAIRates(PyObject *self, PyObject *args) {
   int inv;
-  
+
   if (scrm_file) {
     SCRMStatement("SetAIRates", args, NULL);
     Py_INCREF(Py_None);
@@ -663,10 +668,10 @@ static PyObject *PSetAIRatesInner(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PPrintTable(PyObject *self, PyObject *args) { 
+static PyObject *PPrintTable(PyObject *self, PyObject *args) {
   char *fn1, *fn2;
   int v;
-  
+
   if (scrm_file) {
     SCRMStatement("PrintTable", args, NULL);
     Py_INCREF(Py_None);
@@ -681,7 +686,7 @@ static PyObject *PPrintTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PReinitCRM(PyObject *self, PyObject *args) { 
+static PyObject *PReinitCRM(PyObject *self, PyObject *args) {
   int m;
 
   if (scrm_file) {
@@ -693,27 +698,27 @@ static PyObject *PReinitCRM(PyObject *self, PyObject *args) {
   m = 0;
   if (!PyArg_ParseTuple(args, "|i", &m)) return NULL;
   ReinitCRM(m);
- 
+
   Py_INCREF(Py_None);
   return Py_None;
 }
- 
-static PyObject *PRateTable(PyObject *self, PyObject *args) { 
+
+static PyObject *PRateTable(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, nc, md;
   char **sc;
   char *fn;
-    
+
   if (scrm_file) {
     SCRMStatement("RateTable", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   p = NULL;
   md = 0;
   if (!PyArg_ParseTuple(args, "s|Oi", &fn, &p, &md)) return NULL;
-  
+
   nc = 0;
   sc = NULL;
   if (p) {
@@ -722,11 +727,11 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
     if (nc > 0) {
       sc = (char **) malloc(sizeof(char *)*nc);
       for (i = 0; i < nc; i++) {
-	sc[i] = PyString_AsString(PyList_GetItem(p, i));
+	sc[i] = PyUnicode_AsString(PyList_GetItem(p, i));
       }
     }
   }
-  
+
   RateTable(fn, nc, sc, md);
 
   if (nc > 0) {
@@ -736,11 +741,11 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
- 
-static PyObject *PSetAbund(PyObject *self, PyObject *args) { 
+
+static PyObject *PSetAbund(PyObject *self, PyObject *args) {
   int nele;
   double a;
-    
+
   if (scrm_file) {
     SCRMStatement("SetAbund", args, NULL);
     Py_INCREF(Py_None);
@@ -749,7 +754,7 @@ static PyObject *PSetAbund(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "id", &nele, &a)) return NULL;
   SetAbund(nele, a);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -766,21 +771,21 @@ static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   }
 
   fmin = 0.0;
-  if (!PyArg_ParseTuple(args, "ssiidd|d", 
-			&ifn, &ofn, &nele, &type, &emin, &emax, &fmin)) 
+  if (!PyArg_ParseTuple(args, "ssiidd|d",
+			&ifn, &ofn, &nele, &type, &emin, &emax, &fmin))
     return NULL;
-  
+
   SelectLines(ifn, ofn, nele, type, emin, emax, fmin);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
-}  
+}
 
 static int ShellIndexFromString(PyObject *s) {
   int ks;
   char *c;
 
-  c = PyString_AsString(s);
+  c = PyUnicode_AsString(s);
   if (strcmp(c, "1s") == 0) ks = 1;
   else if (strcmp(c, "2s") == 0) ks = 2;
   else if (strcmp(c, "2p") == 0) ks = 3;
@@ -795,12 +800,12 @@ static int ShellIndexFromString(PyObject *s) {
 static PyObject *PBremss(PyObject *self, PyObject *args) {
   int z;
   double te, e, a;
-  
+
   e = -1.0;
   if (!PyArg_ParseTuple(args, "id|d", &z, &te, &e)) return NULL;
-  
+
   a = BremssNR(z, te, e);
-  
+
   return Py_BuildValue("d", a);
 }
 
@@ -808,13 +813,13 @@ static PyObject *PEPhFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
   double e;
-  
+
   if (!PyArg_ParseTuple(args, "iiO", &z, &nele, &s)) return NULL;
   ks = -1;
-  if (PyString_Check(s)) {
+  if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   }
   if (ks < 1) return NULL;
 
@@ -826,13 +831,13 @@ static PyObject *PPhFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
   double e, r;
-  
+
   if (!PyArg_ParseTuple(args, "iidO", &z, &nele, &e, &s)) return NULL;
   ks = -1;
-  if (PyString_Check(s)) {
+  if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   }
   if (ks < 1) return NULL;
 
@@ -843,7 +848,7 @@ static PyObject *PPhFit(PyObject *self, PyObject *args) {
 static PyObject *PNRRFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r;
-  
+
   if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   r = NRRFit(z, nele, t);
   return Py_BuildValue("d", r);
@@ -852,7 +857,7 @@ static PyObject *PNRRFit(PyObject *self, PyObject *args) {
 static PyObject *PNDRFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r;
-  
+
   if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   r = NDRFit(z, nele, t);
   return Py_BuildValue("d", r);
@@ -861,7 +866,7 @@ static PyObject *PNDRFit(PyObject *self, PyObject *args) {
 static PyObject *PRRFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r;
-  
+
   if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   r = RRFit(z, nele, t);
   return Py_BuildValue("d", r);
@@ -870,7 +875,7 @@ static PyObject *PRRFit(PyObject *self, PyObject *args) {
 static PyObject *PDRFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r;
-  
+
   if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   r = DRFit(z, nele, t);
   return Py_BuildValue("d", r);
@@ -897,7 +902,7 @@ static PyObject *PCBeli(PyObject *self, PyObject *args) {
 static PyObject *PCFit(PyObject *self, PyObject *args) {
   int z, nele;
   double t, r, a, d;
-  
+
   if (!PyArg_ParseTuple(args, "iid", &z, &nele, &t)) return NULL;
   r = CFit(z, nele, t, &a, &d);
   return Py_BuildValue("(ddd)", r, a, d);
@@ -907,15 +912,15 @@ static PyObject *PColFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
   double t, r, a, d;
-  
+
   s = NULL;
   if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -928,15 +933,15 @@ static PyObject *PCColFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
   double t, r, a, d;
-  
+
   s = NULL;
   if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -949,15 +954,15 @@ static PyObject *PEColFit(PyObject *self, PyObject *args) {
   PyObject *s;
   int z, nele, ks;
   double e;
-  
+
   s = NULL;
   if (!PyArg_ParseTuple(args, "ii|O", &z, &nele, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -969,7 +974,7 @@ static PyObject *PEColFit(PyObject *self, PyObject *args) {
 static PyObject *PEBeli(PyObject *self, PyObject *args) {
   int z, nele;
   double e;
-  
+
   if (!PyArg_ParseTuple(args, "ii", &z, &nele)) return NULL;
   e = EBeli(z, nele);
   return Py_BuildValue("d", e);
@@ -981,9 +986,9 @@ static PyObject *PIonis(PyObject *self, PyObject *args) {
 
   m = 1;
   if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &m)) return NULL;
-  
+
   total = Ionis(z, nele, t, &a, &d, m);
-  
+
   return Py_BuildValue("(ddd)", total, a, d);
 }
 
@@ -992,9 +997,9 @@ static PyObject *PRRRateH(PyObject *self, PyObject *args) {
   double z, t, r, top;
 
   if (!PyArg_ParseTuple(args, "did", &z, &n, &t)) return NULL;
-  
+
   r = RRRateHydrogenic(t, z, n, &top);
-  
+
   return Py_BuildValue("(dd)", r, top);
 }
 
@@ -1004,9 +1009,9 @@ static PyObject *PRecomb(PyObject *self, PyObject *args) {
 
   m = 1;
   if (!PyArg_ParseTuple(args, "iid|i", &z, &nele, &t, &m)) return NULL;
-  
+
   total = Recomb(z, nele, t, &r, &d, m);
-  
+
   return Py_BuildValue("(ddd)", total, r, d);
 }
 
@@ -1018,7 +1023,7 @@ static PyObject *PFracAbund(PyObject *self, PyObject *args) {
   im = 1;
   rm = 1;
   if (!PyArg_ParseTuple(args, "id|ii", &z, &t, &im, &rm)) return NULL;
-  
+
   a = (double *) malloc(sizeof(double)*(z+1));
   FracAbund(z, t, a, im, rm);
   pa = Py_BuildValue("[]");
@@ -1038,9 +1043,9 @@ static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
   im = 1;
   rm = 1;
   eps = 1E-4;
-  if (!PyArg_ParseTuple(args, "ii|iid", &z, &nele, &im, &rm, &eps)) 
+  if (!PyArg_ParseTuple(args, "ii|iid", &z, &nele, &im, &rm, &eps))
     return NULL;
-  
+
   a = (double *) malloc(sizeof(double)*(z+1));
   tmax = MaxAbund(z, nele, a, eps, im, rm);
   pa = Py_BuildValue("[]");
@@ -1049,10 +1054,10 @@ static PyObject *PMaxAbund(PyObject *self, PyObject *args) {
   }
   free(a);
   return Py_BuildValue("(dO)", tmax, pa);
-}  
+}
 
 static PyObject *PDRBranch(PyObject *self, PyObject *args) {
-  
+
   if (scrm_file) {
     SCRMStatement("DRBranch", args, NULL);
     Py_INCREF(Py_None);
@@ -1061,14 +1066,14 @@ static PyObject *PDRBranch(PyObject *self, PyObject *args) {
 
   DRBranch();
 
-  Py_INCREF(Py_None);  
+  Py_INCREF(Py_None);
   return Py_None;
 }
 
 static PyObject *PDRStrength(PyObject *self, PyObject *args) {
   int n, i, m;
   char *s;
-  
+
   if (scrm_file) {
     SCRMStatement("DRStrength", args, NULL);
     Py_INCREF(Py_None);
@@ -1077,11 +1082,11 @@ static PyObject *PDRStrength(PyObject *self, PyObject *args) {
 
   i = 0;
   m = 0;
-  if (!PyArg_ParseTuple(args, "si|ii", &s, &n, &m, &i)) 
+  if (!PyArg_ParseTuple(args, "si|ii", &s, &n, &m, &i))
     return NULL;
 
   DRStrength(s, n, m, i);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1095,26 +1100,26 @@ static PyObject *PRydBranch(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   n1 = -1;
-  if (!PyArg_ParseTuple(args, "ssi|i", &fn, &ofn, &n0, &n1)) 
+  if (!PyArg_ParseTuple(args, "ssi|i", &fn, &ofn, &n0, &n1))
     return NULL;
-  
+
   RydBranch(fn, ofn, n0, n1);
 
   Py_INCREF(Py_None);
   return Py_None;
-} 
+}
 
 static PyObject *PTwoPhoton(PyObject *self, PyObject *args) {
   int t;
   double z;
-  
+
   if (!PyArg_ParseTuple(args, "di", &z, &t))
     return NULL;
 
   z = TwoPhotonRate(z, t);
-  
+
   return Py_BuildValue("d", z);
 }
 
@@ -1127,16 +1132,16 @@ static PyObject *PDumpRates(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   imax = -1;
   a = 0;
   if (!PyArg_ParseTuple(args, "sii|ii", &fn, &k, &m, &imax, &a)) return NULL;
-  
+
   DumpRates(fn, k, m, imax, a);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
-}  
+}
 
 static PyObject *PModifyRates(PyObject *self, PyObject *args) {
   char *fn;
@@ -1146,14 +1151,14 @@ static PyObject *PModifyRates(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
-  
+
   ModifyRates(fn);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
-}  
+}
 
 static PyObject *PIonDensity(PyObject *self, PyObject *args) {
   char *fn;
@@ -1161,9 +1166,9 @@ static PyObject *PIonDensity(PyObject *self, PyObject *args) {
   int k;
 
   if (!PyArg_ParseTuple(args, "si", &fn, &k)) return NULL;
-  
+
   d = IonDensity(fn, k);
-  
+
   return Py_BuildValue("d", d);
 }
 
@@ -1174,9 +1179,9 @@ static PyObject *PIonRadiation(PyObject *self, PyObject *args) {
 
   m = 0;
   if (!PyArg_ParseTuple(args, "si|i", &fn, &k, &m)) return NULL;
-  
+
   d = IonRadiation(fn, k, m);
-  
+
   return Py_BuildValue("d", d);
 }
 
@@ -1188,16 +1193,16 @@ static PyObject *PSetUTA(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   mci = 1;
   if (!PyArg_ParseTuple(args, "i|i", &m, &mci)) return NULL;
-  
+
   SetUTA(m, mci);
 
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
+
 static PyObject *PDRSuppression(PyObject *self, PyObject *args) {
   char *fn;
   int nmax;
@@ -1208,15 +1213,15 @@ static PyObject *PDRSuppression(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "sdi", &fn, &z, &nmax)) return NULL;
-  
+
   DRSuppression(fn, z, nmax);
-      
+
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
+
 static PyObject *PNormalizeMode(PyObject *self, PyObject *args) {
   int m;
 
@@ -1225,11 +1230,11 @@ static PyObject *PNormalizeMode(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  
+
   NormalizeMode(m);
-      
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1243,16 +1248,16 @@ static  PyObject *PSetBornFormFactor(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   fn = NULL;
   if (!PyArg_ParseTuple(args, "d|s", &te, &fn)) return NULL;
 
   SetBornFormFactor(te, fn);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
-      
+
 static  PyObject *PSetBornMass(PyObject *self, PyObject *args) {
   double m;
 
@@ -1261,11 +1266,11 @@ static  PyObject *PSetBornMass(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
 
   SetBornMass(m);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1278,18 +1283,18 @@ static  PyObject *PSetGamma3B(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+
   if (!PyArg_ParseTuple(args, "d", &m)) return NULL;
 
   SetGamma3B(m);
-  
+
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 static struct PyMethodDef crm_methods[] = {
-  {"Print", PPrint, METH_VARARGS}, 
-  {"SetUTA", PSetUTA, METH_VARARGS}, 
+  {"Print", PPrint, METH_VARARGS},
+  {"SetUTA", PSetUTA, METH_VARARGS},
   {"CloseSCRM", PCloseSCRM, METH_VARARGS},
   {"ConvertToSCRM", PConvertToSCRM, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
@@ -1326,7 +1331,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
   {"TabNLTE", PTabNLTE, METH_VARARGS},
-  {"PrintTable", PPrintTable, METH_VARARGS}, 
+  {"PrintTable", PPrintTable, METH_VARARGS},
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
   {"Bremss", PBremss, METH_VARARGS},
   {"PhFit", PPhFit, METH_VARARGS},
@@ -1362,12 +1367,12 @@ static struct PyMethodDef crm_methods[] = {
 
 void initcrm(void) {
   PyObject *m, *d;
-  
-  m = Py_InitModule("crm", crm_methods);  
+
+  m = Py_InitModule("crm", crm_methods);
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "crm.error");
   PyDict_SetItemString(d, "error", ErrorObject);
   InitCRM();
-  if (PyErr_Occurred()) 
+  if (PyErr_Occurred())
     Py_FatalError("can't initialize module crm");
 }
