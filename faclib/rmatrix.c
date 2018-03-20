@@ -444,7 +444,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	orbf.n = 1000000;
 	orbf.kappa = kappa;
 	orbf.energy = rbasis.ebuttle[t][i];
-	RadialFreeInner(&orbf, pot);
+	RadialSolver(&orbf, pot);
 	r0 = 0.0;
 	r1 = 0.0;
 	r2 = 0.0;
