@@ -311,7 +311,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   bf->f = fopen(fn, md);
   if (bf->f == NULL) {
     free(bf);
-    printf("cannot open file: %s\n", fn);
+    //printf("cannot open file: %s\n", fn);
     return NULL;
   }
   bf->p = 0;

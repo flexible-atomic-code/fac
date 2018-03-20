@@ -590,6 +590,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     }
 #pragma omp parallel default(shared) private(i,j,t,r)
     {
+      int mr = MPIRank(NULL);
       for (j = 0; j < h->dim; j++) {
 	t = j*(j+1)/2;
 	for (i = 0; i <= j; i++) {
@@ -1719,7 +1720,7 @@ double Hamilton2E2(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 
   return x;
 }
-  
+
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket, 
 		  INTERACT_SHELL *s) {
   int nk0, nk, *kk, k, *kk0, i;
@@ -1728,6 +1729,7 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   double z0, *y;
   int ks[4], js[4];
 
+  int mr = MPIRank(NULL);
   js[0] = 0;
   js[1] = 0;
   js[2] = 0;
@@ -1766,7 +1768,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     }
     if (nk0 > 0) x -= z0 * sd;
   }
-
   if (nk > 0) {
     free(ang);
     free(kk);

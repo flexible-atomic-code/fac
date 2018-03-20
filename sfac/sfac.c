@@ -3985,6 +3985,25 @@ static int PFinalizeMPI(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetOrbMap(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int k = 0, n0 = 0, n1 = 0, n2 = 0;
+  if (argc > 0) {
+    k = atoi(argv[0]);
+    if (argc > 1) {
+      n0 = atoi(argv[1]);
+      if (argc > 2) {
+	n1 = atoi(argv[2]);
+	if (argc > 3) {
+	  n2 = atoi(argv[3]);
+	}
+      }
+    }
+  }
+  SetOrbMap(k, n0, n1, n2);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -4163,6 +4182,7 @@ static METHOD methods[] = {
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

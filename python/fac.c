@@ -5237,6 +5237,22 @@ static PyObject *PMemUsed(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", m);
 }
 
+static PyObject *PSetOrbMap(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetOrbMap", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int k=0, n0=0, n1=0, n2=0;
+  
+  if (!(PyArg_ParseTuple(args, "|iiii", &k, &n0, &n1, &n2))) return NULL;
+  SetOrbMap(k, n0, n1, n2);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("FinalizeMPI", args, NULL);
@@ -5376,7 +5392,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
-  {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
+  {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},  
+  {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
