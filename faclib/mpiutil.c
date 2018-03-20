@@ -311,13 +311,14 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   bf->f = fopen(fn, md);
   if (bf->f == NULL) {
     free(bf);
+    printf("cannot open file: %s\n", fn);
     return NULL;
   }
   bf->p = 0;
   bf->n = 0;
   if (bf->nbuf > 0) {
     bf->buf = malloc(bf->nbuf*bf->nr);
-    bf->w = malloc(bf->nr);
+    bf->w = malloc(bf->nr*sizeof(int));
     int i;
     for (i = 0; i < bf->nr; i++) bf->w[i] = 0;
     InitLock(&bf->lock);
