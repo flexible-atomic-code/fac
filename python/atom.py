@@ -1,23 +1,22 @@
 #
 #   FAC - Flexible Atomic Code
 #   Copyright (C) 2001-2015 Ming Feng Gu
-# 
+#
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
 #   (at your option) any later version.
-# 
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #   GNU General Public License for more details.
-# 
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-from fac import *
-from types import *
+from pfac.fac import *
 import time
 
 # reinitialize FAC
@@ -27,13 +26,13 @@ def reinit(m = 0):
     return
 
 # the index of n-th shell in a complex
-def get_index(n, complex):
-    for i in range(len(complex)):
-        if (complex[i][0] == n):
+def get_index(n, complex_):
+    for i in range(len(complex_)):
+        if (complex_[i][0] == n):
             return i
-        elif (complex[i][0] > n):
+        elif (complex_[i][0] > n):
             return -i-1
-        
+
     return -i-2
 
 def get_terms(n, nq):
@@ -74,7 +73,7 @@ def get_terms(n, nq):
 
     return t
 
-    
+
 # a configuration complex
 class COMPLEX:
     def __init__(self, bname, nele = 0):
@@ -87,7 +86,7 @@ class COMPLEX:
 
         if (nele > 0):
             self.set_ground(nele)
-            
+
         return
 
     def set_terms(self):
@@ -105,14 +104,14 @@ class COMPLEX:
                     c.append(i+' '+j)
             a = c
         self.terms = a
-                       
+
         return
 
     def set_name(self, name = []):
         if (len(name) > 0):
             self.name = name
             return
-        
+
         a = []
         for i in range(len(self.terms)):
             a.append('%s%d'%(self.bname, i))
@@ -136,8 +135,8 @@ class COMPLEX:
         self.complex = g
         self.set_terms()
         self.set_name()
-        
-        return 
+
+        return
 
     def set_excited(self, i0, i1, cbase):
         base = cbase.complex
@@ -163,7 +162,7 @@ class COMPLEX:
             ex.remove(ex[i])
         else:
             ex[i] = (i0, nq0-1)
-    
+
         self.complex = ex
         self.set_terms()
         self.set_name()
@@ -185,16 +184,16 @@ class COMPLEX:
         self.complex = ion
         self.set_terms()
         self.set_name()
-        
+
         return 0
 
     def set_recombined(self, i0, bname):
         self.set_name(bname)
         self.nrec = i0
         self.complex = (bname, i0)
-        
+
         return 0
-    
+
 
 # a group of complexes
 class CGROUP:
@@ -211,22 +210,18 @@ class CGROUP:
 
 
 # a generic atomic ion
-class ATOM:    
+class ATOM:
     def __init__(self, nele, asym=0, dir=''):
         if (nele <= 0):
             raise 'NELE must > 0'
-        
-	self.process = {'ce': 1, 
-		        'tr': 1, 
-			'rr': 1, 
-			'ci': 1,
-			'ai': 1}
+
+        self.process = {'ce': 1, 'tr': 1, 'rr': 1, 'ci': 1, 'ai': 1}
 
         self.ecorrections = 1
         self.nele = nele
         self.nele_max = [0, 2, 10, 28]
         self.nele_sim = [6,7,8,9]
-        
+
         self.grd_complex = COMPLEX('grd.', nele)
         self.exc_complex = []
         self.ion_complex = CGROUP('ion')
@@ -265,13 +260,13 @@ class ATOM:
             self.n_decay = [10, 4, 4, 4, 4]
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
-            
-        if (type(asym) == StringType):
+
+        if (type(asym) == str):
             self.set_atom(asym, dir=dir)
-            
+
         return
 
-    
+
     def set_atom(self, asym, dir=''):
         self.asym = asym
         self.bfiles = {'en': dir+'%s%02db.en'%(asym, self.nele),
@@ -280,7 +275,7 @@ class ATOM:
                        'rr': dir+'%s%02db.rr'%(asym, self.nele),
                        'ai': dir+'%s%02db.ai'%(asym, self.nele),
                        'ci': dir+'%s%02db.ci'%(asym, self.nele)}
-        
+
         self.afiles = {'en': dir+'%s%02da.en'%(asym, self.nele),
                        'tr': dir+'%s%02da.tr'%(asym, self.nele),
                        'ce': dir+'%s%02da.ce'%(asym, self.nele),
@@ -296,9 +291,9 @@ class ATOM:
             base = self.grd_complex
         else:
             base = self.exc_complex[0].cgroup[ibase]
-            
+
         n1.sort()
-        
+
         cg = CGROUP('exc')
         k = len(self.exc_complex)
         bn = 'exc.%d'%(k)
@@ -316,9 +311,9 @@ class ATOM:
                 cg.add_complex(ex)
 
         self.exc_complex.append(cg)
-        
+
         return
-    
+
 
     def add_ionized(self, n0, ibase):
         if (ibase == -1):
@@ -355,32 +350,32 @@ class ATOM:
             rec = COMPLEX('rec')
             if (rec.set_recombined(i0, bname) == 0):
                 cg.add_complex(rec)
-                
+
         return
 
 
     def run_tr_ce(self, a, b, c, d, tr = [-1], ce = 1):
-        if (type(a) == StringType or type(a) == IntType):
+        if (type(a) == str or type(a) == int):
             low = [a]
         else:
             low = a
-        if (type(b) == StringType or type(b) == IntType):
+        if (type(b) == str or type(b) == int):
             up = [b]
         else:
             up = b
 
-	if (self.process['tr'] != 0):
+        if (self.process['tr'] != 0):
             for m in tr:
                 s = 'TR: %s -> %s %d'%(str(a), str(b), m)
                 Print(s)
                 TransitionTable(self.bfiles['tr'], low, up, m)
 
         if (ce != 0 and self.process['ce'] != 0):
-            if (type(c) == StringType or type(c) == IntType):
+            if (type(c) == str or type(c) == int):
                 low = [c]
             else:
                 low = c
-            if (type(d) == StringType or type(d) == IntType):
+            if (type(d) == str or type(d) == int):
                 up = [d]
             else:
                 up = d
@@ -389,35 +384,35 @@ class ATOM:
             CETable(self.bfiles['ce'], low, up)
 
         Reinit(radial = 1, excitation = 1)
-        
+
         return
 
 
     def run_ci_rr(self, a, b, c, d, ci = 1, rr = 1):
         if (rr != 0 and self.process['rr'] != 0):
-            if (type(c) == StringType or type(c) == IntType):
+            if (type(c) == str or type(c) == int):
                 low = [c]
             else:
                 low = c
-            if (type(d) == StringType or type(d) == IntType):
+            if (type(d) == str or type(d) == int):
                 up = [d]
             else:
                 up = d
             s = 'RR: %s -> %s'%(c, d)
             Print(s)
-            
+
             RRTable(self.bfiles['rr'], low, up)
-            
+
             SetPEGrid(0)
             SetUsrPEGrid(0)
             SetRRTEGrid(0)
-            
+
         if (ci != 0 and self.process['ci'] != 0):
-            if (type(a) == StringType or type(a) == IntType):
+            if (type(a) == str or type(a) == int):
                 low = [a]
             else:
                 low = a
-            if (type(b) == StringType or type(b) == IntType):
+            if (type(b) == str or type(b) == int):
                 up = [b]
             else:
                 up = b
@@ -428,21 +423,21 @@ class ATOM:
 
         if (ci != 0 or rr != 0):
             Reinit(radial = 1, recombination = 1, ionization = 1)
-        
+
         return
 
 
     def run_ai(self, a, b, k):
-	if (self.process['ai'] == 0):
-	    return
+        if (self.process['ai'] == 0):
+            return
 
         s = 'AI: %s -> %s %d'%(a, b, k)
         Print(s)
-        if (type(a) == StringType or type(a) == IntType):
+        if (type(a) == str or type(a) == int):
             low = [a]
         else:
             low = a
-        if (type(b) == StringType or type(b) == IntType):
+        if (type(b) == str or type(b) == int):
             up = [b]
         else:
             up = b
@@ -450,16 +445,16 @@ class ATOM:
         AITable(self.bfiles['ai'], low, up)
 
         Reinit(radial = 1, recombination = 1)
-        
+
         return
-    
+
 
     def energy_corrections(self):
         e = []
         ec = []
         nmin = self.nexc_max[0] + 1
         if (self.nele == 2):
-            iec = range(0, -7, -1)
+            iec = list(range(0, -7, -1))
             if (self.asym == 'C'):
                 etable = [-1.25,-0.098,-0.537,-0.537,-0.537,-0.537, -1.059]
                 e3 = -0.339
@@ -502,7 +497,7 @@ class ATOM:
             else:
                 etable = [-1.25,-0.12,-0.54,-0.54,-0.54,-0.54,-1.05]
                 e3 = -0.335
-                
+
             for i in range(-16,-26,-1):
                 iec.append(i)
                 etable.append(e3)
@@ -696,18 +691,18 @@ class ATOM:
                           [0.0,11.50,15.905,26.315,50.43,129.35,
                            139.6,147.92,178.09,297.99],
                           [0.0,17.8486,149.06]]
-                
+
             i = self.nele - 4
             if (len(etable[i])):
-                iec = range(ie0[i], ie0[i]+len(etable[i]))
+                iec = list(range(ie0[i], ie0[i]+len(etable[i])))
                 ec.append((iec, etable[i]))
 
-        return (ec, nmin)  
-    
-        
-    def run_en(self):        
+        return (ec, nmin)
+
+
+    def run_en(self):
         SetAtom(self.asym)
-        
+
         g = self.grd_complex.name
         c = self.exc_complex[0].cgroup[0].name
 
@@ -726,7 +721,7 @@ class ATOM:
         Print('Structure: ground complex')
         Structure(self.bfiles['en'], g+c)
         PrepAngular(g+c)
-        
+
         Print('Structure: ionized complexes')
         c = self.ion_complex.cgroup
         for a in c:
@@ -907,10 +902,10 @@ class ATOM:
                         if (n3 != n1 or n2 > self.n_decay[i]):
                             continue
                     self.run_tr_ce(a, b, a, b, tr=[-1], ce=ce1)
-                        
+
         return
 
-    
+
     def run_ci_rr_all(self):
         g = self.grd_complex.name
         for i in range(self.n_shells):
@@ -936,10 +931,10 @@ class ATOM:
                     cp = [c]
                 for d in b[0:na]:
                     self.run_ci_rr(cp, [d], cp, [d], ci=1, rr=1)
-             
+
         return
 
-    
+
     def run_ai_all(self):
         for i in range(len(self.exc_complex)):
             c = self.exc_complex[i].cgroup
@@ -989,7 +984,7 @@ class ATOM:
                             nmax1 = c[j].complex[-1][0]
                             if (nmax1 != nmax):
                                 continue
-                        
+
                     if (n > self.nrec_max[i] and
                         c[j].nrec_ext == 0):
                         continue
@@ -1012,31 +1007,30 @@ class ATOM:
                                     self.run_ai([c1], [c2], m)
                     else:
                         self.run_ai(a, b1, m)
-                    
+
         return
-    
-    
+
+
     def print_table(self, type = [], v = 0):
         if (v != 0):
             MemENTable(self.bfiles['en'])
 
         for t in type:
             PrintTable(self.bfiles[t], self.afiles[t], v)
-            
+
         return
-  
+
 
     def set_configs(self):
-        n = range(1, self.n_shells+1)
-        n.reverse()
+        n = list(range(1, self.n_shells+1))[::-1]
         nexc = self.nexc_max
         nrec = self.nrec_max
-        
+
         for i in n:
             j = self.n_shells - i
-            self.add_excited(i, range(nexc[j]+1), -1)
+            self.add_excited(i, list(range(nexc[j]+1)), -1)
             self.add_ionized(i, -1)
-            r = range(nexc[j]+1, nrec[j]+1)
+            r = list(range(nexc[j]+1, nrec[j]+1))
             if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
@@ -1049,17 +1043,17 @@ class ATOM:
         if (self.nele == self.nele_max[self.n_shells-1]+1):
             i = self.n_shells-1
             mrec = nrec[j+1]
-            r = range(nexc[j]+1, mrec+1)
+            r = list(range(nexc[j]+1, mrec+1))
             if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         else:
             i = self.n_shells
             mrec = nrec[j]
-            r = range(nexc[j]+1, mrec+1)
+            r = list(range(nexc[j]+1, mrec+1))
             if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         if (i > 0):
-            self.add_excited(i, range(j+1, nexc[j]+1), 0)
+            self.add_excited(i, list(range(j+1, nexc[j]+1)), 0)
             self.add_ionized(i, 0)
             self.add_recombined(r, j)
             try:
@@ -1070,9 +1064,9 @@ class ATOM:
         if (self.nele > self.nele_max[self.n_shells-1]+1):
             i = self.n_shells
             j = self.n_shells+1
-            self.add_excited(i, range(j+1, nexc[j]+1), 1)
+            self.add_excited(i, list(range(j+1, nexc[j]+1)), 1)
             self.add_ionized(i, 1)
-            r = range(nexc[j]+1, nrec[j]+1)
+            r = list(range(nexc[j]+1, nrec[j]+1))
             if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
@@ -1080,7 +1074,7 @@ class ATOM:
                 self.exc_complex[j].cgroup[-1].nrec_ext = nrec[j]+1
             except:
                 pass
-            
+
         # set up configurations
         c = self.grd_complex.name
         t = self.grd_complex.terms
@@ -1088,7 +1082,7 @@ class ATOM:
         Print(s)
         for i in range(len(t)):
             Config(t[i], group = c[i])
-            
+
         for cg in self.exc_complex:
             for i in range(len(cg.cgroup)):
                 if (cg.cgroup[i].nrec > 0):
@@ -1112,7 +1106,7 @@ class ATOM:
             Print(s)
             for j in range(len(t)):
                 Config(t[j], group = c[j])
- 
+
         return
 
 
@@ -1123,19 +1117,19 @@ class ATOM:
         # solve the structure
         s = 'EN...'
         Print(s)
-        self.run_en()        
+        self.run_en()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         # transition rates and collisional excitation
-        start = stop  
+        start = stop
         s = 'TR and/or CE...'
-        Print(s)  
-        self.run_tr_ce_all() 
+        Print(s)
+        self.run_tr_ce_all()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         # CI and/or RR
         start = stop
@@ -1144,26 +1138,26 @@ class ATOM:
         self.run_ci_rr_all()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s 
+        print(s)
 
-        start = stop 
+        start = stop
         s = 'AI...'
         Print(s)
         self.run_ai_all()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         s = 'Total Time: %10.3E s'%(stop-start0)
-        print s
+        print(s)
 
         return
 
 
 def atomic_data(nele, asym, iprint=1, dir='', **kw):
-    if (type(nele) == IntType):
+    if (type(nele) == int):
         n = [nele]
-        if (kw.has_key('ecorrections')):
+        if 'ecorrections' in kw:
             kw['ecorrections'] = [kw['ecorrections']]
     else:
         n = nele
@@ -1172,33 +1166,33 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
     for im in range(len(n)):
         m = n[im]
         atom = ATOM(m)
-	if (kw.has_key('no_ce')):
-	    atom.process['ce'] = not kw['no_ce']
-	if (kw.has_key('no_tr')):
-	    atom.process['tr'] = not kw['no_tr']
-	if (kw.has_key('no_rr')):
-	    atom.process['rr'] = not kw['no_rr']
-	if (kw.has_key('no_ci')):
-	    atom.process['ci'] = not kw['no_ci']
-	if (kw.has_key('no_ai')):
-	    atom.process['ai'] = not kw['no_ai']
-        if (kw.has_key('nexc_max')):
+        if 'no_ce' in kw:
+            atom.process['ce'] = not kw['no_ce']
+        if 'no_tr' in kw:
+            atom.process['tr'] = not kw['no_tr']
+        if 'no_rr' in kw:
+            atom.process['rr'] = not kw['no_rr']
+        if 'no_ci' in kw:
+            atom.process['ci'] = not kw['no_ci']
+        if 'no_ai' in kw:
+            atom.process['ai'] = not kw['no_ai']
+        if 'nexc_max' in kw:
             atom.nexc_max = kw['nexc_max']
-        if (kw.has_key('nterms')):
+        if 'nterms' in kw:
             atom.nterms = kw['nterms']
-        if (kw.has_key('nfrozen')):
+        if 'nfrozen' in kw:
             atom.nfrozen = kw['nfrozen']
-        if (kw.has_key('nrec_max')):
+        if 'nrec_max' in kw:
             atom.nrec_max = kw['nrec_max']
-        if (kw.has_key('nrec_ext')):
+        if 'nrec_ext' in kw:
             atom.nrec_ext = kw['nrec_ext']
-        if (kw.has_key('nexc_rec')):
+        if 'nexc_rec' in kw:
             atom.nexc_rec = kw['nexc_rec']
-        if (kw.has_key('n_decay')):
+        if 'n_decay' in kw:
             atom.n_decay = kw['n_decay']
-        if (kw.has_key('rec_pw_max')):
+        if 'rec_pw_max' in kw:
             atom.rec_pw_max = kw['rec_pw_max']
-        if (kw.has_key('ecorrections')):
+        if 'ecorrections' in kw:
             atom.ecorrections = kw['ecorrections'][im]
 
         atom.set_configs()
@@ -1212,18 +1206,18 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         atom.run_fac()
         if (iprint >= 0):
             t = ['en']
-            if (atom.process['tr']):
+            if atom.process['tr']:
                 t.append('tr')
-            if (atom.process['ce']):
+            if atom.process['ce']:
                 t.append('ce')
-            if (atom.process['rr']):
+            if atom.process['rr']:
                 t.append('rr')
-            if (atom.process['ai']):
+            if atom.process['ai']:
                 t.append('ai')
-            if (atom.process['ci']):
+            if atom.process['ci']:
                 t.append('ci')
             atom.print_table(t, iprint)
-                
+
         Reinit(0)
 
     return

@@ -97,9 +97,9 @@ for k in range(3,11):
         p.add(c)
         c.label = 'Roszman87b'
         b.append(c)
-        
+
     p.add(biggles.PlotKey(0.3, 0.2, b))
-    
+
     p.write_eps('trates%02d.eps'%(k))
-        
+
 tbl.close()

@@ -1,17 +1,17 @@
 #
 #   FAC - Flexible Atomic Code
 #   Copyright (C) 2001-2015 Ming Feng Gu
-# 
+#
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
 #   (at your option) any later version.
-# 
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #   GNU General Public License for more details.
-# 
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
@@ -98,10 +98,10 @@ if (no_setup == 0):
                                      libraries = libs,
                                      extra_compile_args = extracomp,
                                      extra_link_args = extralink)
-                           ]) 
+                           ])
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
-      print 'Creating SFAC binary ...'
+      print('Creating SFAC binary ...')
       c = 'cd sfac; mkdir bin;'
       c += 'cp sfac bin; cp scrm bin; cp spol bin;'
       c += 'tar cvf %s ./bin;'%bsfac
@@ -109,4 +109,3 @@ if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
       c += 'rm -rf bin;'
       c += 'mv %s.gz ../dist/;'%bsfac
       os.system(c)
-      

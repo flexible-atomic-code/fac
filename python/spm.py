@@ -1,17 +1,17 @@
 #
 #   FAC - Flexible Atomic Code
 #   Copyright (C) 2001-2015 Ming Feng Gu
-# 
+#
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
 #   (at your option) any later version.
-# 
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #   GNU General Public License for more details.
-# 
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
@@ -19,13 +19,17 @@
 from pfac.crm import *
 from pfac.table import *
 from pfac import const
-from math import *
+import numpy as np
 import sys
 import time
 import copy
 import string
-import cPickle
-import pprint        
+import pprint
+try:
+    import cPickle
+except ImportError:  # Python3 does not have cPickle
+    import _pickle as cPickle
+
 
 def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
@@ -85,7 +89,7 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
         tdr = rates3['tdr'][2][1]
         trr = rates3['trr'][2][1]
         tci = rates2['tci'][0][1]
-        tea = rates2['tea'][0][1]     
+        tea = rates2['tea'][0][1]
         for i in range(nt):
             b = (10**logt[i])*const.kb
             (a0, a1, a2) = Recomb(z, k, b)
@@ -107,9 +111,9 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
                               0.0, a1,
                               tci[i], b2,
                               tea[i], b1)
-                
-    tbl.close()    
-    
+
+    tbl.close()
+
 def tabulate_rates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
                 title='Line Formation Rate Coefficients',
@@ -137,7 +141,7 @@ def tabulate_rates(dfile, neles, z=26, pref='Fe'):
                    description = d,
                    format = 'E8.2')
     unit = '10^-10^cm^3^/s'
-    d = 'Collisional Excitation' 
+    d = 'Collisional Excitation'
     tbl.add_column(label='CE',
                    unit=unit,
                    description=d,
@@ -266,10 +270,10 @@ def tabulate_rates(dfile, neles, z=26, pref='Fe'):
                     col.append(c[j][m][i])
                 col = tuple(col)
                 tbl.write_row(*col)
-        
+
     tbl.close()
-    
-        
+
+
 def write_trates(f, r, header, nele):
     s = '# %s\n'%(header)
     f.write(s)
@@ -296,7 +300,7 @@ def write_rates(f, r, header, nele):
             s = s[:-1] + '\n'
             f.write(s)
     f.write('\n')
-    
+
 
 def save_rates(rates, sfile, dfile, **kwd):
     rates.update(kwd)
@@ -310,19 +314,19 @@ def save_rates(rates, sfile, dfile, **kwd):
     f.close()
 
     f = open(dfile, 'w')
-    if (rates.has_key('temp')):
+    if 'temp' in rates:
         temp = rates['temp']
     else:
         temp = []
-    if (rates.has_key('logt')):
+    if 'logt' in rates:
         logt = rates['logt']
     else:
         logt = []
-    if (rates.has_key('abund')):
+    if 'abund' in rates:
         abund = rates['abund']
     else:
         abund = []
-        
+
     neles = map(lambda x:x[0], rates['tdc'])
     nt = len(temp)
     s = '#   LogT(K)  Temp(eV)   '
@@ -341,44 +345,44 @@ def save_rates(rates, sfile, dfile, **kwd):
         s = s[:-1]+'\n'
         f.write(s)
     f.write('\n')
-    
-    if (rates.has_key('tdc')):
+
+    if 'tdc' in rates:
         write_trates(f, rates['tdc'],
                      'Total Dielectronic Capture', neles[0])
-    if (rates.has_key('tdr')):
+    if 'tdr' in rates:
         write_trates(f, rates['tdr'],
                      'Total Dielectronic Recombination', neles[0])
-    if (rates.has_key('trr')):
+    if 'trr' in rates:
         write_trates(f, rates['trr'],
                      'Total Radiative Recombination', neles[0])
-    if (rates.has_key('tea')):
+    if 'tea' in rates:
         write_trates(f, rates['tea'],
                      'Total Excitation Autoionization', neles[-1])
-    if (rates.has_key('tci')):
+    if 'tci' in rates:
         write_trates(f, rates['tci'],
                      'Total Direct Ionization', neles[-1])
-    if (rates.has_key('rt')):
+    if 'rt' in rates:
         write_rates(f, rates['rt'],
                     'Total Depletion Rate', -1)
-    if (rates.has_key('cs')):
+    if 'cs' in rates:
         write_rates(f, rates['cs'],
                     'Radiative Cascades', -1)
-    if (rates.has_key('ce')):
+    if 'ce' in rates:
         write_rates(f, rates['ce'],
                     'Direct Excitation', -1)
-    if (rates.has_key('re')):
+    if 're' in rates:
         write_rates(f, rates['re'],
                     'Resonance Excitation', neles[-1])
-    if (rates.has_key('ci')):
+    if 'ci' in rates:
         write_rates(f, rates['ci'],
                     'Direct Ionization', neles[-1])
-    if (rates.has_key('rr')):
+    if 'rr' in rates:
         write_rates(f, rates['rr'],
                     'Radiative Recombination', neles[0])
 
     f.close()
-    
-    
+
+
 def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
     c = get_complexes(nele)
     complexes = [c[1]]
@@ -547,8 +551,8 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
                                 b = float(a[2])
                                 if (b > 0):
                                     r3 = r3 + b
-                                
-                            
+
+
     def compare(x, y):
         if (x[0] < y[0]):
             return -1
@@ -580,14 +584,14 @@ def read_rates(nt, nd, nele, pref='Fe', dir='', nion=2, only_total=0):
             're':  re,
             'ci':  ci}
 
-                    
+
 def get_tgrid(z, nele, dt = 0.15, amin = 1E-2, limits=[]):
     if (len(limits) == 0):
         limits = [5.0, 8.0]
-        
+
     (tmax,a) = MaxAbund(z, nele)
     amax = a[nele-1:nele+1]
-    logtm = log10(tmax/const.kb)
+    logtm = np.log10(tmax/const.kb)
     logtm = limits[0]+int((logtm-limits[0])/dt)*dt
     a0 = 1.0
     logt = [logtm]
@@ -602,7 +606,7 @@ def get_tgrid(z, nele, dt = 0.15, amin = 1E-2, limits=[]):
         a = FracAbund(z, t0)
         ab.append(a)
         a0 = max(map(lambda x,y:x/y, a[nele-1:nele+1], amax))
-        
+
     a0 = 1.0
     while (a0 > amin and logt[0] > limits[0]):
         logt0 = logt[0] - dt
@@ -612,10 +616,10 @@ def get_tgrid(z, nele, dt = 0.15, amin = 1E-2, limits=[]):
         a = FracAbund(z, t0)
         ab.insert(0, a)
         a0 = max(map(lambda x,y:x/y, a[nele-1:nele+1], amax))
-        
+
     return (t, logt, ab)
 
-    
+
 def get_complexes(nelectrons):
     n = 1
     nele = nelectrons
@@ -646,7 +650,6 @@ def spectrum(neles, temp, den, population, pref,
              suf='b', osuf='', dir0 = '', dir1= '', nion = 3,
              dist = 0, params=[-1,-1], cascade = 0, rrc = 0, ion0 = 1, 
              abund0 = 1.0, abundm = -1, abundp = -1, iprint=1,
-             frr0 = -1, fci0 = -1, frrp = -1, fcip = -1,
              ai = 1, ci = 1, rr = 1, ce = 1, eps = 1E-4, rcomp = [],
              t0=-1, t1=-1, d0=-1, d1=-1,
              mtr='', mce='', mci='', mai='', mrr=''):
@@ -666,7 +669,7 @@ def spectrum(neles, temp, den, population, pref,
                 rate = rate + get_complexes(k+1)
         if (len(rcomp) > 0):
             rate = rate + rcomp
-        print 'NELE = %d'%k
+        print('NELE = %d'%k)
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)
         f3 = '%s%02d%s'%(pref, k+1, suf)
@@ -689,7 +692,7 @@ def spectrum(neles, temp, den, population, pref,
         else:
             SetBlocks(-1.0)
 
-        print 'TR rates...'
+        print('TR rates...')
         SetTRRates(0)
         if mtr != '':
             ModifyRates(mtr)
@@ -710,41 +713,41 @@ def spectrum(neles, temp, den, population, pref,
             else:
                 p3 = abundp
             p2 = abund0
-            print 'Temp = %10.3E'%(temp[i])
-            print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
+            print('Temp = %10.3E'%(temp[i]))
+            print('Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3))
 
             dp = [dist, temp[i]]
             dp[2:] = params
             SetEleDist(*dp)
-            
+
             if (ce > 0):
-                print 'CE rates...'
+                print('CE rates...')
                 SetCERates(1)
                 if (mce != ''):
                     ModifyRates(mce+'.t%02d'%i)
             if (nion > 1):
                 if (rr > 0):
-                    print 'RR rates...'
+                    print('RR rates...')
                     SetRRRates(0)
                     if (mrr != ''):
                         ModifyRates(mrr+'.t%02d'%i)
                 if (ci > 0):
-                    print 'CI rates...'
+                    print('CI rates...')
                     SetCIRates(1)
                     if (mci != ''):
                         ModifyRates(mci+'.t%02d'%i)
                 elif (ci < 0):
-                    print 'CI rates...'
-                    SetCIRates(0)        
+                    print('CI rates...')
+                    SetCIRates(0)
                     if (mci != ''):
-                        ModifyRates(mci+'.t%02d'%i)            
+                        ModifyRates(mci+'.t%02d'%i)
                 if (ai > 0):
-                    print 'AI rates...'
+                    print('AI rates...')
                     SetAIRates(1)
                     if (mai != ''):
                         ModifyRates(mai+'.t%02d'%i)
                 elif (ai < 0):
-                    print 'AI rates...'
+                    print('AI rates...')
                     SetAIRates(0)
                     if (mai != ''):
                         ModifyRates(mai+'.t%02d'%i)
@@ -754,13 +757,13 @@ def spectrum(neles, temp, den, population, pref,
             SetAbund(k, p2)
             if (nion == 3):
                 SetAbund(k+1, p3)
-                
+
             for d in range(d0, d1+1):
-                print 'Density = %10.3E'%den[d]
+                print('Density = %10.3E'%den[d])
                 SetEleDensity(den[d])
                 SetIteration(eps)
                 SetCascade(cascade, eps)
-                print 'Init blocks...'
+                print('Init blocks...')
                 InitBlocks()
                 s = 't%02dd%di%d%s'%(i, d, nion, osuf)
                 if (abundm > 0):
@@ -788,6 +791,5 @@ def spectrum(neles, temp, den, population, pref,
 
 def maxwell(e, t):
     x = e/t
-    x = 1.12837967*sqrt(x)*exp(-x)/t
+    x = 1.12837967*np.sqrt(x)*np.exp(-x)/t
     return x
-

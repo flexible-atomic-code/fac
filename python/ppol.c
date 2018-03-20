@@ -42,7 +42,7 @@ static void SPOLStatement(char *func, PyObject *args, PyObject *kargs) {
   fprintf(spol_file, "%s", func);
   nargs = PyTuple_Size(args);
   sargs = PyObject_Str(args);
-  s1 = PyString_AsString(sargs);
+  s1 = PyUnicode_AsString(sargs);
   n = strlen(s1);
   if (nargs == 1) {
     n = n-2;
@@ -59,12 +59,12 @@ static void SPOLStatement(char *func, PyObject *args, PyObject *kargs) {
       if (nargs > 0 || i > 0) fprintf(spol_file, ", ");
       p = PyList_GetItem(klist, i);
       q = PyTuple_GetItem(p, 0);
-      s2 = PyString_AsString(q);
+      s2 = PyUnicode_AsString(q);
       fprintf(spol_file, "%s=", s2);
       q = PyTuple_GetItem(p, 1);
       kvar = PyObject_Str(q);
-      s2 = PyString_AsString(kvar);
-      if (PyString_Check(q)) {
+      s2 = PyUnicode_AsString(kvar);
+      if (PyUnicode_Check(q)) {
 	fprintf(spol_file, "'%s'", s2);
       } else {
 	fprintf(spol_file, "%s", s2);
@@ -121,7 +121,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   for (i = 0; i < n; i++) {
     p = PyTuple_GetItem(args, i);
     q = PyObject_Str(p);
-    s = PyString_AsString(q);
+    s = PyUnicode_AsString(q);
     printf("%s", s);
     if (i != n-1) {
       printf(", ");
@@ -349,19 +349,19 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   n = 0;
   sc = NULL;
   if (p) {
-    if (PyString_Check(p)) {
-      ifn = PyString_AsString(p);
+    if (PyUnicode_Check(p)) {
+      ifn = PyUnicode_AsString(p);
     } else if (PyList_Check(p)) {
       n = PyList_Size(p);
       if (n > 0) {
 	sc = malloc(sizeof(char *)*n);
 	for (i = 0; i < n; i++) {
 	  q = PyList_GetItem(p, i);
-	  if (!PyString_Check(q)) {
+	  if (!PyUnicode_Check(q)) {
 	    free(sc);
 	    return NULL;
 	  }
-	  sc[i] = PyString_AsString(q);
+	  sc[i] = PyUnicode_AsString(q);
 	}
       }
     }
