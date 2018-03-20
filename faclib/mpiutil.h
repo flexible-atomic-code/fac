@@ -28,28 +28,54 @@
 #include "global.h"
 
 #ifndef RBUFL
-#define RBUFL 1280000
+#define RBUFL 32000000
 #endif
 
 #define BUFLN 1024
 
+typedef struct _MPID_ {
+  int myrank;
+  int nproc;
+  long long wid;
+} MPID;
+
 typedef struct _BFILE_ {
   char *fn;
   FILE *f;
-  void *buf;
-  int p, n, nbuf;
+  char *buf;
+  int *w, p, n, nbuf;
   int nr, mr, eof;
+  LOCK lock;
 } BFILE;
 
+int SkipWMPI(int w);
+int SkipMPI();
 void MPISeqBeg();
 void MPISeqEnd();
 void MPrintf(int ir, char *format, ...);
 int MPIRank(int *np);
+int MyRankMPI();
+int NProcMPI();
+long long WidMPI();
+void SetWidMPI(long long w);
+double WallTime();
+MPID *DataMPI();
+double TimeSkip();
+double TimeLock();
+long long NumLock();
+void SetLockWT(LOCK *x);
 int MPIReady();
+void Abort(int r);
 BFILE *BFileOpen(char *fn, char *md, int nb);
 size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *f);
 int BFileClose(BFILE *f);
 void BFileRewind(BFILE *f);
+size_t BFileWrite(void *ptr, size_t size, size_t nmemb, BFILE *bf);
 char *BFileGetLine(char *s, int size, BFILE *f);
+int BFileSeek(BFILE *bf, long offset, int whence);
+long BFileTell(BFILE *bf);
+int BFileFlush(BFILE *bf);
+void InitializeMPI(int n);
+void FinalizeMPI();
 
 #endif

@@ -22,6 +22,7 @@
 
 #include "init.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -57,6 +58,9 @@ static PyObject *SPECSYMBOL;
 static PyObject *ATOMICSYMBOL;
 static PyObject *ATOMICMASS;
 static PyObject *QKMODE;
+
+static PyObject *_thismodule;
+static PyObject *_thisdict;
 
 static FILE *sfac_file = NULL;
 
@@ -138,7 +142,7 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
@@ -151,12 +155,11 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   fn = NULL;
   if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
   if (fn) {
-    f = fopen(fn, "rb");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);
@@ -691,7 +694,7 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
 
 static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   int m;
-  double h;
+  double h, ih, h0, h1;
 
   if (sfac_file) {
     SFACStatement("SetPotentialMode", args, NULL);
@@ -700,10 +703,13 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   }
 
   h = 1E31;
-  if (!PyArg_ParseTuple(args, "i|d", &m, &h))
+  ih = 1E31;
+  h0 = -1;
+  h1 = -1;
+  if (!PyArg_ParseTuple(args, "i|dddd", &m, &h, &ih, &h0, &h1))
     return NULL;
 
-  SetPotentialMode(m, h);
+  SetPotentialMode(m, h, ih, h0, h1);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -745,7 +751,7 @@ static PyObject *PSetTransitionCut(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetSE(PyObject *self, PyObject *args) {
-  int c, m;
+  int c, m, s, p;
 
   if (sfac_file) {
     SFACStatement("SetSE", args, NULL);
@@ -754,9 +760,33 @@ static PyObject *PSetSE(PyObject *self, PyObject *args) {
   }
 
   m = -1;
-  if (!PyArg_ParseTuple(args, "i|i", &c, &m))
+  s = -1;
+  p = -1;
+  if (!PyArg_ParseTuple(args, "i|iii", &c, &m, &s, &p))
     return NULL;
-  SetSE(c, m);
+  SetSE(c, m, s, p);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetModSE(PyObject *self, PyObject *args) {
+  double o0, o1, a, c0, c1, c;
+
+  if (sfac_file) {
+    SFACStatement("SetModSE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  o0 = -1;
+  o1 = -1;
+  a = -1;
+  c0 = -1;
+  c1 = -1;
+  c = -1;
+  if (!PyArg_ParseTuple(args, "ddd|ddd", &o0, &o1, &a, &c0, &c1, &c))
+    return NULL;
+  SetModSE(o0, o1, a, c0, c1, c);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -778,7 +808,8 @@ static PyObject *PSetVP(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetBreit(PyObject *self, PyObject *args) {
-  int c, m;
+  int c, m, n;
+  double x;
 
   if (sfac_file) {
     SFACStatement("SetBreit", args, NULL);
@@ -787,9 +818,11 @@ static PyObject *PSetBreit(PyObject *self, PyObject *args) {
   }
 
   m = -1;
-  if (!PyArg_ParseTuple(args, "i|i", &c, &m))
+  n = -1;
+  x = -1.0;
+  if (!PyArg_ParseTuple(args, "i|iid", &c, &m, &n, &x))
     return NULL;
-  SetBreit(c, m);
+  SetBreit(c, m, n, x);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -992,7 +1025,8 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
 
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
-  double z, mass, rn;
+  double z, mass, rn, a, npr;
+  PyObject *t;
 
   if (sfac_file) {
     SFACStatement("SetAtom", args, NULL);
@@ -1000,11 +1034,48 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  mass = 0.0;
-  z = 0.0;
+  mass = -1.0;
+  z = -1.0;
   rn = -1.0;
-  if (!PyArg_ParseTuple(args, "s|ddd", &s, &z, &mass, &rn)) return NULL;
-  if (SetAtom(s, z, mass, rn) < 0) return NULL;
+  a = -1.0;
+  npr = -1;
+  if (!PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr)) {
+    return -1;
+  }
+  if (PyUnicode_Check(t)) {
+    s = PyUnicode_AsString(t);
+    if (SetAtom(s, z, mass, rn, a, npr) < 0) return NULL;
+  } else if (PyFloat_Check(t)) {
+    npr = a;
+    a = rn;
+    rn = mass;
+    mass = z;
+    z = PyFloat_AsDouble(t);
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
+  } else if (PyLong_Check(t)) {
+    npr = a;
+    a = rn;
+    rn = mass;
+    mass = z;
+    z = (double) PyLong_AsLong(t);
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *POptimizeModSE(PyObject *self, PyObject *args) {
+  int n, ka, ni;
+  double dr;
+
+  if (sfac_file) {
+    SFACStatement("OptimizeModSE", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  ni = 1000000;
+  if (!PyArg_ParseTuple(args, "iid|i", &n, &ka, &dr, &ni)) return NULL;
+  OptimizeModSE(n, ka, dr, ni);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1099,7 +1170,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   }
 
  END:
-  if (OptimizeRadial(ng, kg, weight) < 0) {
+  if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);
     onError("error occured in OptimizeRadial");
@@ -1170,8 +1241,8 @@ static PyObject *PSolveBound(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PStructure(PyObject *self, PyObject *args) {
-  int i, k, ng0, ng, ns;
-  int nlevels, ip;
+  int ng, i;
+  int ip;
   int ngp;
   int *kg, *kgp;
   char *fn;
@@ -1217,44 +1288,11 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     if (ng < 0) return NULL;
   }
 
-  if (ngp < 0) return NULL;
-
-  ng0 = ng;
-  if (!ip) {
-    if (ngp) {
-      ng += ngp;
-      kg = (int *) realloc(kg, sizeof(int)*ng);
-      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-      free(kgp);
-      kgp = NULL;
-      ngp = 0;
-    }
+  if (SolveStructure(fn, ng, kg, ngp, kgp, ip) < 0) {
+    onError("Diagnolizing Hamiltonian Error");
+    return NULL;
   }
 
-  nlevels = GetNumLevels();
-  if (IsUTA()) {
-    AddToLevels(ng0, kg);
-  } else {
-    ns = MAX_SYMMETRIES;
-    for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
-      if (k < 0) continue;
-      if (DiagnolizeHamilton() < 0) {
-	onError("Diagnolizing Hamiltonian Error");
-	return NULL;
-      }
-      if (ng0 < ng) {
-	AddToLevels(ng0, kg);
-      } else {
-	AddToLevels(0, kg);
-      }
-    }
-  }
-
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(fn, nlevels, -1);
-  if (ng > 0) free(kg);
-  if (ngp > 0) free(kgp);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1577,6 +1615,30 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
       SetSymMBPT(n1, ng1);
       free(ng1);
     }
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (n == 2) {
+    if (!(PyArg_ParseTuple(args, "sO", &gn, &p))) return NULL;
+    if (PyLong_Check(p)) {
+      n2 = PyLong_AsLong(p);
+      n1 = n2;
+    } else {
+      n3 = IntFromList(p, &ng3);
+      if (n3 == 0) {
+	n2 = -1;
+	n1 = -1;
+      } else if (n3 == 1) {
+	n2 = ng3[0];
+	n1 = n2;
+      } else {
+	n2 = ng3[0];
+	n1 = ng3[1];
+      }
+      if (n3 > 0) free(ng3);
+    }
+    SetExcMBPT(n2, n1, gn);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -2861,6 +2923,18 @@ static PyObject *PAITableMSub(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PReportMultiStats(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("ReportMultiStats", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  ReportMultiStats();
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   ARRAY a;
   double d;
@@ -2891,15 +2965,15 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   ArrayFree(&a, 0);
   printf("array freed\n");
 
-  MultiInit(&ma, sizeof(double), 3, block);
+  MultiInit(&ma, sizeof(double), 3, block, "test_ma");
   for (i = 0; i < 500; i++) {
     for (j = 100; j < 4000; j++) {
       k[0] = i;
       k[1] = j;
       k[2] = 20;
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
       *b = 0.2;
-      b = (double *) MultiGet(&ma, k);
+      b = (double *) MultiGet(&ma, k, NULL);
     }
   }
   printf("set\n");
@@ -4152,7 +4226,7 @@ static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "ddid|i", &z, &e, &k, &r, &ierr)) return NULL;
   if (ierr < 0) {
     e = RadialDiracCoulomb(1, &p, &q, &r, z, (int)e, k);
-    return Py_BuildValue("(ddd)", p, q, e);
+    return Py_BuildValue("(ddd)", p, q, e*HARTREE_EV);
   } else {
     e /= HARTREE_EV;
     DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
@@ -4175,17 +4249,17 @@ static PyObject *PCoulombPhase(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", p);
 }
 
-static PyObject *PSetDisableConfigEnergy(PyObject *self, PyObject *args) {
+static PyObject *PSetConfigEnergyMode(PyObject *self, PyObject *args) {
   int m;
 
   if (sfac_file) {
-    SFACStatement("SetDisableConfigEnergy", args, NULL);
+    SFACStatement("SetConfigEnergyMode", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
   if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetDisableConfigEnergy(m);
+  SetConfigEnergyMode(m);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -4910,7 +4984,7 @@ static PyObject *PLimitArray(PyObject *self, PyObject *args) {
     return Py_None;
   }
   if (!PyArg_ParseTuple(args, "id", &m, &n)) return NULL;
-  if (m < 10) LimitArrayRadial(m, n);
+  LimitArrayRadial(m, n);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -5031,6 +5105,19 @@ static PyObject *PPrintQED(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PPrintNucleus(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrintNucleus", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  PrintNucleus();
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PBreitX(PyObject *self, PyObject *args) {
   double e;
   int k0, k1, k, m;
@@ -5048,7 +5135,7 @@ static PyObject *PBreitX(PyObject *self, PyObject *args) {
   ORBITAL *orb0 = GetOrbital(k0);
   ORBITAL *orb1 = GetOrbital(k1);
   if (orb0 != NULL && orb1 != NULL) {
-    BreitX(orb0, orb1, k, m, e, NULL);
+    BreitX(orb0, orb1, k, m, 0, 1, e, NULL);
   }
   Py_INCREF(Py_None);
   return Py_None;
@@ -5113,6 +5200,75 @@ static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
 
   p = RadialPotential();
   ModifyPotential(fn, p);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTuple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("InitializeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#ifdef USE_MPI
+  int n = -1;
+  if (!(PyArg_ParseTuple(args, "|i", &n))) {
+    return NULL;
+  }
+  InitializeMPI(n);
+#endif
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PMPIRank(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("MPIRank", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int n, k;
+  k = MPIRank(&n);
+  return Py_BuildValue("[ii]", k, n);
+}
+
+static PyObject *PMemUsed(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("MemUsed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double m = msize();
+  return Py_BuildValue("d", m);
+}
+
+static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("FinalizeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -5252,6 +5408,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
+  {"SetModSE", PSetModSE, METH_VARARGS},
+  {"OptimizeModSE", POptimizeModSE, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
@@ -5274,6 +5432,7 @@ static struct PyMethodDef fac_methods[] = {
   {"TestHamilton", PTestHamilton, METH_VARARGS},
   {"TestIntegrate", PTestIntegrate, METH_VARARGS},
   {"TestMyArray", PTestMyArray, METH_VARARGS},
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},
   {"TRTable", PTransitionTable, METH_VARARGS},
   {"TransitionTable", PTransitionTable, METH_VARARGS},
   {"TRTableEB", PTransitionTableEB, METH_VARARGS},
@@ -5290,7 +5449,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Y5N", PY5N, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
   {"CoulombPhase", PCoulombPhase, METH_VARARGS},
-  {"SetDisableConfigEnergy", PSetDisableConfigEnergy, METH_VARARGS},
+  {"SetConfigEnergyMode", PSetConfigEnergyMode, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},
@@ -5313,9 +5472,15 @@ static struct PyMethodDef fac_methods[] = {
   {"CoulMultipole", PCoulMultip, METH_VARARGS},
   {"BreitX", PBreitX, METH_VARARGS},
   {"PrintQED", PPrintQED, METH_VARARGS},
+  {"PrintNucleus", PPrintNucleus, METH_VARARGS},
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {NULL, NULL}
 };
 
@@ -5353,6 +5518,9 @@ initfac(void){
   #endif
 
   d = PyModule_GetDict(m);
+  _thismodule = m;
+  _thisdict = d;
+
   ErrorObject = Py_BuildValue("s", "fac.error");
   PyDict_SetItemString(d, "error", ErrorObject);
 

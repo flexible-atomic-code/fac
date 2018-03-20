@@ -29,6 +29,7 @@ lib:
 	cd minpack;  make
 	cd quadpack; make
 	cd ionis;    make
+	cd modqed;   make
 	cd faclib;   make
 	${RANLIB} libfac.a
 
@@ -67,6 +68,7 @@ clean:
 	cd minpack;  make clean
 	cd quadpack; make clean
 	cd ionis;    make clean
+	cd modqed;   make clean
 	cd faclib;   make clean
 	cd sfac;     make clean
 

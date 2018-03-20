@@ -117,7 +117,7 @@ static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
@@ -130,12 +130,11 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   fn = NULL;
   if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
   if (fn) {
-    f = fopen(fn, "rb");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);
@@ -761,6 +760,24 @@ static PyObject *PSetAbund(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetRateMultiplier(PyObject *self, PyObject *args) { 
+  int nele;
+  int t;
+  double a;
+    
+  if (scrm_file) {
+    SCRMStatement("SetRateMultiplier", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "iid", &nele, &t, &a)) return NULL;
+  SetRateMultiplier(nele, t, a);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSelectLines(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   double emin, emax, fmin;
@@ -1294,6 +1311,20 @@ static  PyObject *PSetGamma3B(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTuple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS},
@@ -1326,6 +1357,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetAIRates", PSetAIRates, METH_VARARGS},
   {"SetAIRatesInner", PSetAIRatesInner, METH_VARARGS},
   {"SetAbund", PSetAbund, METH_VARARGS},
+  {"SetRateMultiplier", PSetRateMultiplier, METH_VARARGS},
   {"InitBlocks", PInitBlocks, METH_VARARGS},
   {"LevelPopulation", PLevelPopulation, METH_VARARGS},
   {"Cascade", PCascade, METH_VARARGS},
@@ -1364,6 +1396,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetBornFormFactor", PSetBornFormFactor, METH_VARARGS},
   {"SetBornMass", PSetBornMass, METH_VARARGS},
   {"SetGamma3B", PSetGamma3B, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {NULL, NULL}
 };
 

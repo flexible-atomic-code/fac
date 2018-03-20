@@ -23,6 +23,9 @@
 #include "structure.h"
 #include "transition.h"
 
+#define CPMEFF 0
+#define CPMTR 0
+
 typedef struct _TR_OPT_{
   int mktr;
   int naw;
@@ -78,6 +81,7 @@ int StructureMBPT1(char *fn, char *fn1, int n, int *s0, int nk, int *nkm,
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 
 		      int nkg, int *kg, int nkg0);
 void SetExtraMBPT(int m);
+void SetExcMBPT(int nd, int ns, char *s);
 void SetOptMBPT(int i3rd, int n3, double c);
 void SetSymMBPT(int nlev, int *ilev);
 void TransitionMBPT(int mk, int naw);

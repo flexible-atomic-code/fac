@@ -2435,6 +2435,11 @@ starts to open for the core excitations from the ground state to the states in
 the configuration group list \var{g}. It returns a list of integers.
 \end{fundesc}
 
+\begin{fundesc}{FinalizeMPI}{}
+If FAC is compiled with MPI support, this invokes MPI finalize method before
+exiting. This function should be called as the last line of the script.
+\end{fundesc}
+
 \begin{fundesc}{GetCFPOld}{j, q, dj, dw, pj, pw}
 Return the coefficient of fractional parentage
 $(j^{q-1},pj,pw|\}j^{q},dj,dw)$, where $j$ is the angular momentum of the
@@ -2495,6 +2500,12 @@ here are twice of their actual values.
 \begin{fundesc}{Info}{}
 Print out the version information of FAC and contact information of the
 author. 
+\end{fundesc}
+
+\begin{fundesc}{InitializeMPI}{\opt{opt}}
+If FAC is compiled with MPI support, this function initializes the MPI
+system. \var{opt} specifies the command line options processed by the MPI init
+function. This function should be invoked as the first line.
 \end{fundesc}
 
 \begin{fundesc}{InterpCross}{ifn, ofn, low, up, e, m}
@@ -2867,8 +2878,17 @@ included. The default is $10^{-6}$ if this routine is not called.
 \begin{fundesc}{SetAtom}{asym\opt{, z\opt{, m\opt{,r}}}}
 This function set the atomic element to \var{asym}, where \var{asym} is the
 standard elemental symbol. The nuclear charge \var{z}, atomic mass \var{m},
-and the nucleus radius of the element can be set optionally. If they are not
+and the nucleus radius of the element can be set optionally. The radius should
+be given in fm. If they are not
 set, the standard values are used.
+\end{fundesc}
+
+\begin{fundesc}{SetAtom}{z\opt{, m\opt{,r}}}
+This function set the nuclear charge \var{z}. The atomic symbol is looked up
+in the internal table. if \var{z} falls outside the valid range of 1 to 120,
+the atomic symbol is set to Xx. The tomic mass \var{m},
+and the nucleus radius of the element can be set optionally. The radius should
+be given in fm. If they are not set, the standard values are used.
 \end{fundesc}
 
 \begin{fundesc}{SetBoundary}{n\opt{, p, b}}
@@ -3022,9 +3042,8 @@ variable \key{QKMODE}.
 
 \begin{fundesc}{SetDisableConfigEnergy}{m}
 if \var{m} is 1, the \key{ConfigEnergy} function calls are disabled even if
-they are invoked explicitly in the script. The energy corrections introduced
-by these calls are not always desirable. They are disabled by default since
-FAC version 1.1.4. 
+they are invoked explicitly in the script. If 2, the energy shift only
+includes that of the self energy correction.
 \end{fundesc}
 
 \begin{fundesc}{SetFields}{b, e, a\opt{, m}}
@@ -3181,8 +3200,18 @@ Set the mode of calculatin and maximum principle quantum number of the
 orbitals for which the self-energy correction should be included in the
 Hamiltonian. Default is 5. \var{n} is the maximum quantum number, \var{m} is
 the mode. \var{m=0} use the hydrogenic screening based on the expectation value
-of the Uheling potential. \var{m=1} use the screening based on the expection
-value of the 2nd derivative of the central potential. 
+of the Uheling potential. \var{m=1} use the screening based on the fermi nuclear
+charge distribution (Welton concept). \var{m=2} use the uniform nuclear charge
+distribution. \var{m} may contain a 2nd digit, with \var{k=m/10}. \var{k=1}
+use the GRASP self energy table for hydrogenic values. \var{k=3} excludes two
+loop correction. \var{k=4} use the model qed potential of Shabaev et al. (CPC
+189, p175). \var{k=5} same as 4 but excluding the two loop
+corrections. \var{k=6} includes the off diagonal matrix element of the self
+energy operator in the CI calculation. \var{k=7} same as 6 by excluding the
+two loop corrections. If \var{k>4} and \var{m} also has a 3rd digit, then the
+local part of the self energy potential is included in the radial Dirac
+equation, and only the non-local part is evaluated and added in the
+Hamiltonian.
 \end{fundesc}
 
 \begin{fundesc}{SetSlaterCut}{k1, k2}
@@ -3269,7 +3298,11 @@ of the value of \var{ci}.
 \begin{fundesc}{SetVP}{vp}
 Set the flag for vacuum polarization correction to the
 Hamiltonian. 0---disable, 1---only include 2nd order term, 2---include the 4th
-order term as well. Default is 2.
+order term as well. 3---also include WK term. Default is 3. If the 2nd digit
+is 1, then the finite nucleus size is not taken into account in the vacuum
+polarizaiton potential. If the 3rd digit is not 0, then the vacuum
+polarizaiton potential is included in the radial Dirac equation, instead of
+evaluating its expectation values.
 \end{fundesc}
 
 \begin{fundesc}{SlaterCoeff}{fn, g, a, b}
@@ -3329,7 +3362,7 @@ external fields.
 \end{fundesc}
 
 \begin{fundesc}{StructureMBPT}{efn, hfn, g, kmax, n1, n2, n0}
-There are five different forms of this function with different argument
+There are six different forms of this function with different argument
 list. This is the primary form, and the rest are documented below. This
 function calculates the level energies of the states belonging to the
 configuration groups in the \var{g} list. The energy values are stored in the
@@ -3390,6 +3423,17 @@ if $m=1$, only single excitations are included, and if $m=2$, only double
 excitations are included. $c$ is the cutof of the mixing coeffients. The
 effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
 $max(|b_{ki}b_{kj}|) < c$. The default is $c=10^{-4}$.
+\end{fundesc}
+
+\begin{fundesc}{StructureMBPT}{o,n}
+  This is the sixth form of the \key{StructureMBPT} function. \var{o} is a
+  string specifying the orbitals from which single or double excitations to be
+  limited in the MBPT calculation. It can be given in either relativistic or
+  non-relativistic notation. \var{n} is either an integer or a 2 element
+  integer list. It specifies the maximum principle quantum number of the
+  single or double excitations. If it is an integer, both single and double
+  excitations impose the same limit. If it is a 2 element list, the first
+  number is for double excitation, and 2nd number is for single excitation.
 \end{fundesc}
 
 \begin{fundesc}{TotalCICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
@@ -3860,7 +3904,7 @@ numbers $>$\var{n}.
 Print the selected lines from the \key{DB\_SP} database file \var{ifn} to the
 file \var{ofn}. \var{n} is the number of electrons of the ion. \var{e0} and
 \var{e1} are the energy range in units of eV. \var{s} is the cutoff threshold
-for the lines. If \var{s}$<$0, then \var{e0} and \var{e1} are interpreted as
+for the lines. If \var{s}$>=$1, then \var{e0} and \var{e1} are interpreted as
 the lower and upper level indexes for the line selected. In this case a single
 line will be output, and \var{t} is ignored. Otherwise, \var{t} is the type of
 the lines to be selected. If \var{t} is 0, then all transition types are

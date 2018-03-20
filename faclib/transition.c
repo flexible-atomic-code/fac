@@ -402,7 +402,7 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
   TRF_HEADER tr_hdr;
   TRF_RECORD r;
   LEVEL *lev1, *lev2;
-  FILE *f;
+  TFILE *f;
   
   if (nlow <= 0 || nup <= 0) return -1;
   if (m == 1 || transition_option.mode == M_FR) {
@@ -451,14 +451,18 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
     tr_hdr.mode = GetTransitionMode();
   }
   nq = 2*abs(m) + 1;
-  r.strength = (float *) malloc(sizeof(float)*nq);
   GetFields(&tr_hdr.bfield, &tr_hdr.efield, &tr_hdr.fangle);
     
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &tr_hdr);
 
+#pragma omp parallel default(shared) private(i, j, k, e0, r, s, et)
+  {
+  r.strength = (float *) malloc(sizeof(float)*nq);
   for (j = 0; j < nup; j++) {
     for (i = 0; i < nlow; i++) {
+      int skip = SkipMPI();
+      if (skip) continue;
       k = TRMultipoleEB(s, &et, m, low[i], up[j]);
       if (k != 0) continue;
       e0 = 0.0;
@@ -472,10 +476,10 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
       WriteTRFRecord(f, &r);
     }
   }
-  
+  free(r.strength);
+  }
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-  free(r.strength);
 
   return 0;
 }
@@ -483,7 +487,7 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
 int SaveTransition0(int nlow, int *low, int nup, int *up, 
 		    char *fn, int m) {
   int i, j, k, jup;
-  FILE *f;
+  TFILE *f;
   LEVEL *lev1, *lev2;
   TR_RECORD r;
   TR_EXTRA rx;
@@ -583,6 +587,8 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       nc1 = nc0;
       nic1 = nic0;
     }
+#pragma omp parallel default(shared) private(imin, imax, jmin, jmax, lev1, lev2, c0, c1, ir, ntr, rd, ep, em, e0, wp, wm, w0, i, j, ic0, ic1, k, ir0, gf, j0, j1, nrs0, nrs1, de, cm, cp)
+    {
     imin = 0;
     for (ic0 = 0; ic0 < nic0; ic0++) {
       imax = nc0[ic0];
@@ -590,6 +596,8 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       lev1 = GetLevel(low[imin]);
       c0 = GetConfigFromGroup(lev1->iham, lev1->pb);
       for (ic1 = 0; ic1 < nic1; ic1++) {
+	int skip = SkipMPI();
+	if (skip) continue;
 	jmax = nc1[ic1];
 	lev2 = GetLevel(up[jmin]);
 	c1 = GetConfigFromGroup(lev2->iham, lev2->pb);
@@ -694,37 +702,44 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     }    
     free(nc0);
     if (up != low) free(nc1);
-  } else {
-    a = malloc(sizeof(double)*nlow);
-    s = malloc(sizeof(double)*nlow);
-    et = malloc(sizeof(double)*nlow);
-    for (j = 0; j < nup; j++) {
-      jup = LevelTotalJ(up[j]);
-      trd = 0.0;
-      for (i = 0; i < nlow; i++) {
-	a[i] = 0.0;
-	et[i] = 0.0;
-	k = TRMultipole(s+i, et+i, m, low[i], up[j]);
-	if (k != 0) continue;
-	gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
-	a[i] /= jup+1.0;
-	trd += a[i];
-      } 
-      if (trd < 1E-30) continue;
-      r.upper = up[j];
-      for (i = 0; i < nlow; i++) {
-	if (a[i] <= 0 || a[i] < (transition_option.eps * trd)) continue;
-	r.lower = low[i];
-	r.strength = s[i];
-	WriteTRRecord(f, &r, NULL);
-      }
     }
-    
-    free(a);
-    free(s);
-    free(et);
+  } else {
+#pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
+    {
+      a = malloc(sizeof(double)*nlow);
+      s = malloc(sizeof(double)*nlow);
+      et = malloc(sizeof(double)*nlow);
+      for (j = 0; j < nup; j++) {
+	int skip = SkipMPI();
+	//MPrintf(-1, "skip %d %d\n", j, skip);
+	if (skip) continue;
+	jup = LevelTotalJ(up[j]);
+	trd = 0.0;
+	for (i = 0; i < nlow; i++) {
+	  a[i] = 0.0;
+	  et[i] = 0.0;
+	  k = TRMultipole(s+i, et+i, m, low[i], up[j]);
+	  if (k != 0) continue;
+	  gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
+	  a[i] /= jup+1.0;
+	  trd += a[i];
+	} 
+	if (trd < 1E-30) continue;
+	r.upper = up[j];
+	for (i = 0; i < nlow; i++) {
+	  if (a[i] <= 0 || a[i] < (transition_option.eps * trd)) continue;
+	  r.lower = low[i];
+	  r.strength = s[i];
+	  //MPrintf(-1, "wtr: %d %d %d %d %g\n", j, i, r.lower, r.upper, r.strength);
+	  WriteTRRecord(f, &r, NULL);
+	}
+      }
+      
+      free(a);
+      free(s);
+      free(et);
+    }
   }
-
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
@@ -914,7 +929,8 @@ int SaveTransitionEB(int nlow0, int *low0, int nup0, int *up0,
 }
 
 int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
-  FILE *f1, *f2;
+  TFILE *f1;
+  FILE *f2;
   int n, i, t, tp, k, q, s, sp, m, mp, m2;
   double a, c, e;
   F_HEADER fh;
@@ -929,18 +945,12 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
     return -1;
   }
 
-  f1 = fopen(ifn, "r");
+  f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
   }  
 
-  n = ReadFHeader(f1, &fh, &swp);
-  if (n == 0) {
-    printf("File %s is not in FAC Binary format\n", ifn);
-    goto DONE;
-  }
-  
   if (fh.type != DB_TRF || fh.nblocks == 0) {
     printf("File %s is not of DB_TRF type\n", ifn);
     goto DONE;
@@ -997,7 +1007,7 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
   }
 
  DONE:
-  fclose(f1);
+  FCLOSE(f1);
   
   if (f2) {
     if (f2 != stdout) {

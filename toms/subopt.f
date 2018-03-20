@@ -29,6 +29,7 @@ c subroutines and functions
 c
 c   fortran
       intrinsic min
+!$OMP THREADPRIVATE(/usubc/)
 c
 c-----------------------------------------------------------
 c

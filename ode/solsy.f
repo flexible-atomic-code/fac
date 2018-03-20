@@ -15,6 +15,7 @@ clll. optimize
      3   iownd(14), iowns(6),
      4   icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
+!$OMP THREADPRIVATE(/ls0001/)
 c-----------------------------------------------------------------------
 c this routine manages the solution of the linear system arising from
 c a chord iteration.  it is called if miter .ne. 0.

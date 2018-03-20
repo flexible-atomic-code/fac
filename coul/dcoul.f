@@ -130,7 +130,8 @@ C
       PARAMETER (PI=3.1415926535897933D0,PIH=0.5D0*PI,TPI=PI+PI,        
      1  SL=137.036D0,SL2=SL*SL,TSL2=SL2+SL2,ALPHA=1.0D0/SL)             
       COMMON/OFCOUL/DELTA0                                              
-      COMMON/OCOUL/WAVNUM,ETA,DELTA                                     
+      COMMON/OCOUL/WAVNUM,ETA,DELTA      
+!$OMP THREADPRIVATE(/OFCOUL/,/OCOUL/)
 C               
       Z = -Z1
       IERR = 0
@@ -276,7 +277,8 @@ C
       IMPLICIT DOUBLE PRECISION (A-B,D-H,O-Z), COMPLEX*16 (C)           
       PARAMETER (PI=3.1415926535897932D0,PIH=0.5D0*PI,TPI=PI+PI,        
      1  EPS=1.0D-16,TOP=1.0D5,NTERM=1000)                               
-      COMMON/OFCOUL/DELTA                                               
+      COMMON/OFCOUL/DELTA       
+!$OMP THREADPRIVATE(/OFCOUL/)                                              
 C                                                                       
       IF(RLAMB.LT.-0.999D0) THEN                                        
         WRITE(6,'(1X,''*** ERROR IN RCOUL: RLAMB.LT.-0.999'')')         

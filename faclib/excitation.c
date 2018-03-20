@@ -17,6 +17,7 @@
  */
 
 #include "excitation.h"
+#include "transition.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -71,6 +72,7 @@ static double xborn = XBORN;
 static double xborn0 = XBORN0;
 static double xborn1 = XBORN1;
 static double eborn = EBORN;
+#pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost, gosint)
 
 static FILE *fpw=NULL;
 
@@ -338,9 +340,16 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   if (IsEven(kl0 + kl1 + ko2) && Triangle(j0, j1, k)) {
     type = ko2;
   }
-
-  *pk = (CEPK *) MultiSet(pk_array, index, NULL, InitCEPK, FreeExcitationPkData);
+  LOCK *lock = NULL;
+  int locked = 0;
+  *pk = (CEPK *) MultiSet(pk_array, index, NULL, &lock,
+			  InitCEPK, FreeExcitationPkData);
+  if (lock && (*pk)->nkl < 0) {
+    SetLock(lock);
+    locked = 1;
+  }
   if ((*pk)->nkl >= 0) {
+    if (locked) ReleaseLock(lock);
     return type;
   }
 
@@ -482,7 +491,6 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
     }
   }
 
-  (*pk)->nkl = t;
   (*pk)->nkappa = m;
   if (pw_type == 0) {
     (*pk)->kappa0 = ReallocNew(kappa0, sizeof(short)*m);
@@ -493,7 +501,10 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k) {
   }
   (*pk)->pkd = ReallocNew(pkd, sizeof(double)*q);
   (*pk)->pke = ReallocNew(pke, sizeof(double)*q);  
-    
+  (*pk)->nkl = t;
+  
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -841,9 +852,16 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   index[2] = k1;
   index[3] = k2;
   index[4] = k3;
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }   
 
@@ -1057,8 +1075,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
     mk = GetMaxKMBPT();
     if (k/2 <= mk) t = nqk*2 + 1;
   }
-  *p = (double *) malloc(sizeof(double)*t);
-  rqc = *p;
+  double *pd = (double *) malloc(sizeof(double)*t);
+  rqc = pd;
 
   ptr = rqc;
   for (ite = 0; ite < n_tegrid; ite++) {
@@ -1083,7 +1101,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k) {
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-
+  *p = pd;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return *p;
 }
 
@@ -1117,10 +1137,16 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   index[2] = k1;
   index[3] = k2;
   index[4] = k3;
-
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return *p;
   }
 
@@ -1130,8 +1156,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
     q[iq] = q[iq-1] + 2;
   }  
   nqk = nq*n_tegrid*n_egrid1;
-  *p = (double *) malloc(sizeof(double)*(nqk+1));
-  rqc = *p;
+  double *pd = (double *) malloc(sizeof(double)*(nqk+1));
+  rqc = pd;
   if (xborn == 0) {
     for (ie = 0; ie < n_egrid1; ie++) {
       e1 = egrid[ie];
@@ -1392,7 +1418,9 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp) {
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-  
+  *p = pd;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   return rqc;
 } 	
   
@@ -2435,7 +2463,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   STATE *st;
   CONFIG *cfg;
   int i, j, k, n, m, ie, ip;
-  FILE *f;
+  TFILE *f;
   double qkc[MAXMSUB*MAXNUSR];
   double params[MAXMSUB*NPARAMS];
   int *alev;
@@ -2693,7 +2721,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ce_hdr.egrid = egrid;
     ce_hdr.usr_egrid = usr_egrid;
 
-    InitFile(f, &fhdr, &ce_hdr);  
+    InitFile(f, &fhdr, &ce_hdr);
+    
+#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, ilow, iup, k, qkc, r, m, ip, nsub, ie, iempty)
+    {
     nsub = 1;
     if (msub) {
       r.params = (float *) malloc(sizeof(float)*nsub);
@@ -2707,7 +2738,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
+	lev2 = GetLevel(up[j]);	
 	e = lev2->energy - lev1->energy;	
 	ilow = low[i];
 	iup = up[j];
@@ -2719,6 +2750,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  }
 	}	    
 	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	if (iuta) {
 	  k = CollisionStrengthUTA(qkc, params, &e, bethe, ilow, iup);
 	} else {
@@ -2768,6 +2801,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
     if (msub || qk_mode == QK_FIT) free(r.params);
     free(r.strength);
+    }
     DeinitFile(f, &fhdr);
     e0 = e1;
     FreeExcitationQk();
@@ -2845,7 +2879,7 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
   double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
   int nc, ilow, iup;
-  FILE *f;
+  TFILE *f;
   double qkc[MAXNE+1];
  
   if (GetLowUpEB(&nlow, &low, &nup, &up, nlow0, low0, nup0, up0) == -1)
@@ -3017,8 +3051,10 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     GetFields(&ce_hdr.bfield, &ce_hdr.efield, &ce_hdr.fangle);
     InitFile(f, &fhdr, &ce_hdr);  
     m = ce_hdr.n_egrid;
-    r.strength = (float *) malloc(sizeof(float)*m);
     
+#pragma omp parallel default(shared) private(i, j, r, lev1, lev2, e, ilow, iup, k, iempty, ie)
+    {
+    r.strength = (float *) malloc(sizeof(float)*m);    
     for (i = 0; i < nlow; i++) {
       lev1 = GetEBLevel(low[i]);
       for (j = 0; j < nup; j++) {
@@ -3034,6 +3070,8 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
 	  }
 	}	    
 	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	k = CollisionStrengthEB(qkc, &e, bethe, ilow, iup); 
 	if (k < 0) continue;
 
@@ -3054,6 +3092,7 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
       }
     }
     free(r.strength);
+    }
     DeinitFile(f, &fhdr);
     e0 = e1;
     FreeExcitationQk();
@@ -3093,7 +3132,7 @@ int SaveExcitationEBD(int nlow0, int *low0, int nup0, int *up0, char *fn) {
   double e0, e1, te0, ei;
   double rmin, rmax;
   int nc, ilow, iup;
-  FILE *f;
+  TFILE *f;
   double *qkc;
   double *bethe, *born;
  
@@ -3360,11 +3399,11 @@ int InitExcitation(void) {
 
   ndim = 3;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(pk_array, sizeof(CEPK), ndim, blocks1);
+  MultiInit(pk_array, sizeof(CEPK), ndim, blocks1, "pk_array");
 
   ndim = 5;
   qk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(qk_array, sizeof(double *), ndim, blocks2);
+  MultiInit(qk_array, sizeof(double *), ndim, blocks2, "qk_array");
 
   if (fpw) {
     fclose(fpw);

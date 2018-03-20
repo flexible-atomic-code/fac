@@ -67,7 +67,7 @@
 *** the subroutine returns s=0.
 ******************************************************************************
       integer nz,ne,is
-      real*8 e,s
+      real*8 e,s,e0,s1,s2
       common/l/l(7)
       common/ninn/ninn(30)
       common/ntot/ntot(30)
@@ -93,22 +93,92 @@
             einn=ph1(1,nz,ne,nint)
          endif
       endif
-      if(is.lt.nout.and.is.gt.nint.and.e.lt.einn)return
-      if(is.le.nint.or.e.ge.einn)then
-         p1=-ph1(5,nz,ne,is)
-         y=e/ph1(2,nz,ne,is)
-         q=-0.5*p1-l(is)-5.5
-         a=ph1(3,nz,ne,is)*((y-1.0)**2+ph1(6,nz,ne,is)**2)
-         b=sqrt(y/ph1(4,nz,ne,is))+1.0
-         s=a*y**q*b**p1
+      e0=ph1(1,nz,ne,is)
+c      if(is.lt.nout.and.is.gt.nint.and.e.lt.einn)return
+      if (e .lt. e0) return
+      s1 = 0
+      s2 = 0
+c      if(is.le.nint.or.e.ge.einn)then
+c      if (is .lt. nout) then
+      p1=-ph1(5,nz,ne,is)
+      y=e/ph1(2,nz,ne,is)
+      q=-0.5*p1-l(is)-5.5
+      a=ph1(3,nz,ne,is)*((y-1.0)**2+ph1(6,nz,ne,is)**2)
+      b=sqrt(y/ph1(4,nz,ne,is))+1.0
+      s1=a*y**q*b**p1
+      s = s1
+      if (is .lt. nout) then
+         if (is .lt. nout-1) return
+         if (ne .lt. 5) return
+         if (ne .gt. 10 .and. ne .lt. 13) return
+         if (ne .gt. 18) return
+      endif
+      
+      if (ph2(1,nz,ne) .lt. 1e-30) return
+
+      p1=-ph2(4,nz,ne)
+      q=-0.5*p1-5.5
+      x=e/ph2(1,nz,ne)-ph2(6,nz,ne)
+      z=sqrt(x*x+ph2(7,nz,ne)**2)
+      a=ph2(2,nz,ne)*((x-1.0)**2+ph2(5,nz,ne)**2)
+      b=1.0+sqrt(z/ph2(3,nz,ne))
+      s=log(a)+q*log(z)+p1*log(b)
+      if (s .lt. -100) then
+         s = 0.0
       else
-         p1=-ph2(4,nz,ne)
-         q=-0.5*p1-5.5
-         x=e/ph2(1,nz,ne)-ph2(6,nz,ne)
-         z=sqrt(x*x+ph2(7,nz,ne)**2)
-         a=ph2(2,nz,ne)*((x-1.0)**2+ph2(5,nz,ne)**2)
-         b=1.0+sqrt(z/ph2(3,nz,ne))
-         s=a*z**q*b**p1
+         s = exp(s)
+      endif
+      if (ne .ge. 5 .and. ne .le. 10) then
+         if (is .eq. 2) then
+            e0 = ph1(1,nz,ne,3)
+            if (e .ge. e0) then
+               p1=-ph1(5,nz,ne,3)
+               y=e/ph1(2,nz,ne,3)
+               q=-0.5*p1-l(3)-5.5
+               a=ph1(3,nz,ne,3)*((y-1.0)**2+ph1(6,nz,ne,3)**2)
+               b=sqrt(y/ph1(4,nz,ne,3))+1.0
+               s2=a*y**q*b**p1
+            endif
+         endif
+         if (is .eq. 3) then
+            e0 = ph1(1,nz,ne,2)
+            if (e .ge. e0) then
+               p1=-ph1(5,nz,ne,2)
+               y=e/ph1(2,nz,ne,2)
+               q=-0.5*p1-l(2)-5.5
+               a=ph1(3,nz,ne,2)*((y-1.0)**2+ph1(6,nz,ne,2)**2)
+               b=sqrt(y/ph1(4,nz,ne,2))+1.0
+               s2=a*y**q*b**p1
+            endif
+         endif
+         s = s*s1/(s1+s2)
+         return
+      endif
+      if (ne .ge. 13 .and. ne .le. 18) then
+         if (is .eq. 4) then
+            e0 = ph1(1,nz,ne,5)
+            if (e .ge. e0) then
+               p1=-ph1(5,nz,ne,5)
+               y=e/ph1(2,nz,ne,5)
+               q=-0.5*p1-l(5)-5.5
+               a=ph1(3,nz,ne,5)*((y-1.0)**2+ph1(6,nz,ne,5)**2)
+               b=sqrt(y/ph1(4,nz,ne,5))+1.0
+               s2=a*y**q*b**p1
+            endif
+         endif
+         if (is .eq. 5) then
+            e0 = ph1(1,nz,ne,4)
+            if (e .ge. e0) then 
+               p1=-ph1(5,nz,ne,4)
+               y=e/ph1(2,nz,ne,4)
+               q=-0.5*p1-l(4)-5.5
+               a=ph1(3,nz,ne,4)*((y-1.0)**2+ph1(6,nz,ne,4)**2)
+               b=sqrt(y/ph1(4,nz,ne,4))+1.0
+               s2=a*y**q*b**p1
+            endif
+         endif
+         s = s*s1/(s1+s2)
+         return
       endif
       return
       end

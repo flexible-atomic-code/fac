@@ -9,7 +9,7 @@ CPPFLAGS = @CPPFLAGS@
 
 TOPDIR = @TOPDIR@
 
-SRC = pmalloc.c parser.c array.c interpolation.c grid.c coulomb.c config.c cfp.c angular.c rcfp.c recouple.c orbital.c radial.c dbase.c nucleus.c structure.c mbpt.c transition.c excitation.c recombination.c ionization.c rmatrix.c init.c rates.c crm.c polarization.c mpiutil.c
+SRC = pmalloc.c mmalloc.c omalloc.c parser.c array.c interpolation.c grid.c coulomb.c config.c cfp.c angular.c rcfp.c recouple.c orbital.c radial.c dbase.c nucleus.c structure.c mbpt.c transition.c excitation.c recombination.c ionization.c rmatrix.c init.c rates.c crm.c polarization.c mpiutil.c
 
 OBJS = ${SRC:.c=.o}
 

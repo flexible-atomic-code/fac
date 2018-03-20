@@ -23,12 +23,13 @@
 #define calloc(n, x)   pcalloc((n), (x), __FILE__, __LINE__)
 #define realloc(p, n)  prealloc((p), (n), __FILE__, __LINE__)
 #define free(p)        pfree((p), __FILE__, __LINE__)
+#define msize()        pmsize()
 
 void *pmalloc(size_t size, char *f, int nline);
 void *pcalloc(size_t n, size_t size, char *f, int nline);
 void *prealloc(void *p, size_t size, char *f, int nline);
 void pfree(void *p, char *f, int nline);
-
+size_t pmsize(void);
 void pmalloc_check(void);
 
 #endif

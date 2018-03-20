@@ -31,9 +31,14 @@ typedef struct _MEM_INFO_ {
   
 static int n_alloc = 0;
 static int n_free = 0;
+static size_t _tsize = 0;
 static MEM_INFO mem_alloc[MAXNALLOC];
 static MEM_INFO mem_free[MAXNALLOC];
 static FILE *pmalloc_log;
+
+size_t pmsize(void) {
+  return _tsize;
+}
 
 void *pmalloc(size_t size, char *f, int nline) {
   void *p;

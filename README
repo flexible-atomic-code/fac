@@ -78,9 +78,6 @@ Note 4: some of the functions have a parallel version using MPI. You can build
 	implementation installed on your machine. It has been tested with lammpi.
 	If a different version of MPI is used, you have to supply the compile and
 	link flags to the C compiler with --with-mpicompile and --with-mpilink.
-	A modified python interpretor will be built in the python/ dir, which is
-	called mpy. This interpretor should be used instead of the standard Python
-	when using the parallel version.
 
 2) make; make install
 This installs the SFAC interface.

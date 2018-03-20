@@ -25,6 +25,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "global.h"
+
 /*
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.
@@ -98,6 +100,8 @@
 */
 #define PI         3.14159265359
 #define TWO_PI     6.28318530718
+#define FOUR_PI     12.56637061436
+#define ONETHIRD   0.33333333333
 /*
 ** VARIABLE:    SQRT2
 ** TYPE:        macro constant, double
@@ -112,7 +116,8 @@
 ** PURPOSE:     1 Hartree in eV.
 ** NOTE:        
 */
-#define HARTREE_EV 27.2113962 
+#define HARTREE_EV 27.211386018
+#define RYDBERG_EV 13.605693009
 
 /*
 ** VARIABLE:    RATE_AU, RATE_AU10, RATE_AU12
@@ -138,7 +143,7 @@
 ** PURPOSE:     Bohr radius in Angstrom.
 ** NOTE:        
 */
-#define RBOHR      0.529177249
+#define RBOHR      0.52917721067
 
 /*
 ** VARIABLE:    MBOHR
@@ -146,7 +151,7 @@
 ** PURPOSE:     Bohr magenton in eV/Gauss.
 ** NOTE:        
 */
-#define MBOHR      5.78838263E-9
+#define MBOHR      5.7883818012E-9
 
 /*
 ** VARIABLE:    FINE_STRUCTURE_CONST, FINE_STRUCTURE_CONST2
@@ -154,12 +159,14 @@
 ** PURPOSE:     fine structure constant and its square.
 ** NOTE:        
 */
-#define FINE_STRUCTURE_CONST  7.29735308E-3
-#define FINE_STRUCTURE_CONST2 5.32513620E-5
-#define AMU  1836.153
+#define FINE_STRUCTURE_CONST  7.2973525664E-3
+#define FINE_STRUCTURE_CONST2 5.325135447834E-5
+#define AMU  1822.888486
 
 /* nucleus */
-#define N_ELEMENTS 109
+#define N_ELEMENTS 120
+#define NISO 58
+#define NFERMI 5001
 
 /* radial QK modes */
 #define QK_DEFAULT    -1
@@ -171,11 +178,12 @@
 #define QK_BED         5
 
 /* blocks for multi arrays */
-#define MULTI_BLOCK2   128
+#define MULTI_BLOCK2   512
 #define MULTI_BLOCK3   64
-#define MULTI_BLOCK4   25
-#define MULTI_BLOCK5   15
+#define MULTI_BLOCK4   32
+#define MULTI_BLOCK5   4
 #define MULTI_BLOCK6   10
+#define MULTI_IDLEN 64
 
 /* orbital */
 #define MAXRP      3000  /* maximum radial mesh */
@@ -183,8 +191,11 @@
 #define GRIDASYMP  36    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
 #define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
-#define ENERELERR  1E-5  /* relative energy error */
-#define ENEABSERR  1E-8  /* absolute energy error */
+#define GRIDRMINN0  1E-4  /* starting point relative to nucleus radius */
+#define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
+#define ENERELERR  1E-6  /* relative energy error */
+#define ENEABSERR  1E-4  /* absolute energy error */
+#define ENERELERR1 1E-8
 
 /* config */
 #define MCHSHELL           2048
@@ -199,18 +210,23 @@
 /* radial */
 #define ORBITALS_BLOCK     1024
 #define OPTSTABLE          0.5
-#define OPTTOL             1E-6
-#define OPTNITER           128
+#define OPTTOL             3.0
+#define OPTNITER           512
 #define OPTPRINT           0
-#define POTMODE            10
-#define POTHXS             0.65
+#define POTMODE            0
+#define POTHXS             1.0
+#define POTIHX             -2.0
+#define POTHX0             0.427
+#define POTHX1             0.075
+#define NKSEP              5
 #define QEDSE              5
-#define QEDMSE             1
-#define QEDVP              2
-#define QEDNMS             1
-#define QEDSMS             1
-#define QEDBREIT           -1
-#define QEDMBREIT          1
+#define QEDMSE             41
+#define QEDVP              3
+#define QEDNMS             3
+#define QEDSMS             3
+#define QEDBREIT           10
+#define QEDMBREIT          0
+#define QEDNBREIT          5
 
 /* structure */
 #define MAX_HAMS           2000

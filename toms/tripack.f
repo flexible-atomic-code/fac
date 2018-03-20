@@ -3718,6 +3718,7 @@ C***********************************************************
 C
       DOUBLE PRECISION Y
       COMMON/STCOM/Y
+!$OMP THREADPRIVATE(/STCOM/)
 C
       Y = X
       STORE = Y
@@ -3880,6 +3881,7 @@ C
 C Tolerance stored by TRMESH or TRMSHR.
 C
       COMMON/SWPCOM/SWTOL
+!$OMP THREADPRIVATE(/SWPCOM/)
 C
 C Local parameters:
 C
@@ -4889,6 +4891,7 @@ C
       INTEGER K, KM1, LCC(1), NCC, NN
       DOUBLE PRECISION  EPS, SWTOL
       COMMON/SWPCOM/SWTOL
+!$OMP THREADPRIVATE(/SWPCOM/)
 C
       NN = N
       IF (NN .LT. 3) THEN
@@ -5105,6 +5108,7 @@ C
       LOGICAL TST
       DOUBLE PRECISION  EPS, SWTOL
       COMMON/SWPCOM/SWTOL
+!$OMP THREADPRIVATE(/SWPCOM/)
 C
 C Store local variables and test for errors in input
 C   parameters.

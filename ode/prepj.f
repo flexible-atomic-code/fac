@@ -20,6 +20,7 @@ clll. optimize
      3   iownd(14), iowns(6),
      4   icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
+!$OMP THREADPRIVATE(/ls0001/)
 c-----------------------------------------------------------------------
 c prepj is called by stode to compute and process the matrix
 c p = i - h*el(1)*j , where j is an approximation to the jacobian.
