@@ -6,13 +6,12 @@ matrix:
   include:
   - python: 3.6
     env: CONDA_ENV=py36
-  # - python: 2.7
-  #  env: CONDA_ENV=py27
+  - python: 2.7
+    env: CONDA_ENV=py27
 
 before_install:
   - sudo apt-get update
   - sudo apt-get install build-essential -y
-  - sudo apt-get install gfortran -y
 
   - wget http://repo.continuum.io/miniconda/Miniconda3-3.16.0-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
