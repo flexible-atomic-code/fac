@@ -24,9 +24,6 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
-  - conda install gfortran_linux-64
-  - source deactivate
-  - source activate test_env
   - ./configure --prefix=$pwd$
   - make clean
   - make

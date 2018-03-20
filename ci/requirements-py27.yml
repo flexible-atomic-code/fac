@@ -5,3 +5,5 @@ dependencies:
   - python=2.7
   - pytest
   - numpy
+  - gfortran_linux-64
+  - libgcc
