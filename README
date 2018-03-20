@@ -4,17 +4,17 @@ FAC is a software packge for the calculation of various atomic processes.
 
 Contents of the package:
 
-1. Third party content that cannot be distributed under GPL. 
-   These directories are bundled in fac_util.tar.gz, 
+1. Third party content that cannot be distributed under GPL.
+   These directories are bundled in fac_util.tar.gz,
    and are listed in the UtilList file.
 blas/,       BLAS routines in fortran.
 coul/,       fortran routines related to coulomb functions.
-ionis/,      ionization balance calculation of Arnaud&Raymond, 
+ionis/,      ionization balance calculation of Arnaud&Raymond,
 	     and that of Mazzotta et al. Rates fitted by Verner et al.
 lapack/,     fortran routines from LAPACK.
 minpack/,    minpack optimization package.
 quadpack/,   some routines from quadpack for quadrature.
-mpfun/,      it used to be the multi-precision floating point arithmetic 
+mpfun/,      it used to be the multi-precision floating point arithmetic
              package by Beiley. Since v0.8.6, it was replaced by my own
 	     implementation of quad-precision arithmetics. The associated
 	     Legendre functions are also put into this directory.
@@ -39,31 +39,31 @@ sfac/,       non-python interface.
 INSTALL:
 There are two interfaces available to the FAC numerical lib. One makes use
 of the Python scripting language, implemented as a package "pfac".
-The other interface uses a simple command parser, compiled into executables. 
-The two interfaces are independent. Either one or both can be installed. 
+The other interface uses a simple command parser, compiled into executables.
+The two interfaces are independent. Either one or both can be installed.
 One can either install from precompiled binaries or from source files.
 
 INSTALL FROM BINARY PACKAGES:
 Download appropriate binary packages. The PFAC interface is named as
 FAC-version.platform.tar.gz, where version is the FAC version number
-and platform is the computer platform the binary was compiled for. 
+and platform is the computer platform the binary was compiled for.
 Unpacking the file at some direcoty /my/own/dir will create the python package
-as if python setup.py install --prefix=/my/own/dir is used. PYTHONPATH must 
-be set appropriately in order to use the python modeuls (see later on 
+as if python setup.py install --prefix=/my/own/dir is used. PYTHONPATH must
+be set appropriately in order to use the python modeuls (see later on
 installing from source).
 
-The SFAC interface is named as SFAC-version.platform.tar.gz. This simply 
-contains the 3 executables under the directory bin/, sfac, scrm, and spol. 
+The SFAC interface is named as SFAC-version.platform.tar.gz. This simply
+contains the 3 executables under the directory bin/, sfac, scrm, and spol.
 Unpack it in a directory and add bin to your PATH.
 
 INSTALL FROM SOURCE:
 STEPS:
-0) download the two source packages, fac_util.tar.gz and fac_core.tar.gz, 
+0) download the two source packages, fac_util.tar.gz and fac_core.tar.gz,
    and gunzip, extract under the same directory.
 
 1) ./configure
-Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler 
-        is not g77 or sun's f77. see faclib/cfortran.doc for supported F77 
+Note 1: Specify the option --with-cfortran=xxFortran, if you F77 compiler
+        is not g77 or sun's f77. see faclib/cfortran.doc for supported F77
 	compilers.
 Note 2: If your C compiler is not gcc, then you need to supply the PIC
 	(position independent code) option with --enable-cpic=***
@@ -71,14 +71,14 @@ Note 2: If your C compiler is not gcc, then you need to supply the PIC
 	option with --enable-fpic=***
 	Supply the optimization option for C and F77 compilers with
 	--enable-copt=*** and --enable-fopt=*** respectively if desired.
-Note 3: specify --prefix=my/dir, if the default /usr/local is not what you 
+Note 3: specify --prefix=my/dir, if the default /usr/local is not what you
 	want. This dir only affects the installation of SFAC executables.
-Note 4: some of the functions have a parallel version using MPI. You can build 
+Note 4: some of the functions have a parallel version using MPI. You can build
         with MPI enabled using the option --with-mpi=***, where *** is the MPI
 	implementation installed on your machine. It has been tested with lammpi.
 	If a different version of MPI is used, you have to supply the compile and
 	link flags to the C compiler with --with-mpicompile and --with-mpilink.
-	A modified python interpretor will be built in the python/ dir, which is 
+	A modified python interpretor will be built in the python/ dir, which is
 	called mpy. This interpretor should be used instead of the standard Python
 	when using the parallel version.
 
@@ -94,14 +94,14 @@ running "make install-pfac", try:
 
    python setup.py install --prefix=/my/own/dir
 
-In order for python to find the installed "pfac" modules, one would have to 
-define an environment variable PYTHONPATH to point to the directory 
+In order for python to find the installed "pfac" modules, one would have to
+define an environment variable PYTHONPATH to point to the directory
 "/my/own/dir/lib/python#.#/site-packages", where "#.#" is the Python version.
-In csh, this requires 
+In csh, this requires
 
-    setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages 
+    setenv PYTHONPATH /my/own/dir/lib/python#.#/site-packages
 
-or in bash, 
+or in bash,
 
     PYTHONPATH=/my/own/dir/lib/python#.#/site-packages;export PYTHONPATH
 
@@ -115,23 +115,37 @@ the python distutil documentation for details.
 
 4) A binary distribution can be made by
    python setup bdist -bsfac
-it will create two gzipped tar file under dist/ directory. Unpack the PFAC and 
-SFAC files under appropriate directories will install both sfac and pfac binary 
-files. Check the contents of PFAC and SFAC tar file first to determine the 
+it will create two gzipped tar file under dist/ directory. Unpack the PFAC and
+SFAC files under appropriate directories will install both sfac and pfac binary
+files. Check the contents of PFAC and SFAC tar file first to determine the
 directories under which they must be unpacked.
 
 Usage:
 The modules can be called just like any python modules, either from the
-interpreter interactively, or pass the script to python. 
+interpreter interactively, or pass the script to python.
 e.g., python fe24_level.py.
 
-The non-python interface produces 3 executables, "sfac", "scrm" and 
-"spol", accepting input files as arguments. The syntax of the input file 
+Requirements:
+The following python packages are required to run pfac.
++ numpy
++ matplotlib
++ cPickle
+Also, the recent gfortran requires additional packages,
++ gfortran_linux-64 (for a linux machine)
+
+If you are using Anaconda distribution, run
+```bash
+conda install numpy, matplotlib, cPickle, gfortran_linux-64
+```
+
+
+The non-python interface produces 3 executables, "sfac", "scrm" and
+"spol", accepting input files as arguments. The syntax of the input file
 for both programs is identical, and is very similar to the Python syntax,
 except for the missing of flow constrols.
 
-For more details, please read the manual, and be sure to read the FAQ 
-section of the manual. 
+For more details, please read the manual, and be sure to read the FAQ
+section of the manual.
 
 Contact:
 Bugs, and suggestions, please report to:
@@ -139,4 +153,3 @@ Bugs, and suggestions, please report to:
 	Ming Feng Gu.
 	Space Science Laboratory
 	University of California Berkeley
-

@@ -19,13 +19,17 @@
 from pfac.crm import *
 from pfac.table import *
 from pfac import const
-from math import *
+import numpy as np
 import sys
 import time
 import copy
 import string
-import cPickle
 import pprint
+try:
+    import cPickle
+except ImportError:  # Python3 does not have cPickle
+    import _pickle as cPickle
+
 
 def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
@@ -310,15 +314,15 @@ def save_rates(rates, sfile, dfile, **kwd):
     f.close()
 
     f = open(dfile, 'w')
-    if (rates.has_key('temp')):
+    if 'temp' in rates:
         temp = rates['temp']
     else:
         temp = []
-    if (rates.has_key('logt')):
+    if 'logt' in rates:
         logt = rates['logt']
     else:
         logt = []
-    if (rates.has_key('abund')):
+    if 'abund' in rates:
         abund = rates['abund']
     else:
         abund = []
@@ -342,37 +346,37 @@ def save_rates(rates, sfile, dfile, **kwd):
         f.write(s)
     f.write('\n')
 
-    if (rates.has_key('tdc')):
+    if 'tdc' in rates:
         write_trates(f, rates['tdc'],
                      'Total Dielectronic Capture', neles[0])
-    if (rates.has_key('tdr')):
+    if 'tdr' in rates:
         write_trates(f, rates['tdr'],
                      'Total Dielectronic Recombination', neles[0])
-    if (rates.has_key('trr')):
+    if 'trr' in rates:
         write_trates(f, rates['trr'],
                      'Total Radiative Recombination', neles[0])
-    if (rates.has_key('tea')):
+    if 'tea' in rates:
         write_trates(f, rates['tea'],
                      'Total Excitation Autoionization', neles[-1])
-    if (rates.has_key('tci')):
+    if 'tci' in rates:
         write_trates(f, rates['tci'],
                      'Total Direct Ionization', neles[-1])
-    if (rates.has_key('rt')):
+    if 'rt' in rates:
         write_rates(f, rates['rt'],
                     'Total Depletion Rate', -1)
-    if (rates.has_key('cs')):
+    if 'cs' in rates:
         write_rates(f, rates['cs'],
                     'Radiative Cascades', -1)
-    if (rates.has_key('ce')):
+    if 'ce' in rates:
         write_rates(f, rates['ce'],
                     'Direct Excitation', -1)
-    if (rates.has_key('re')):
+    if 're' in rates:
         write_rates(f, rates['re'],
                     'Resonance Excitation', neles[-1])
-    if (rates.has_key('ci')):
+    if 'ci' in rates:
         write_rates(f, rates['ci'],
                     'Direct Ionization', neles[-1])
-    if (rates.has_key('rr')):
+    if 'rr' in rates:
         write_rates(f, rates['rr'],
                     'Radiative Recombination', neles[0])
 
@@ -587,7 +591,7 @@ def get_tgrid(z, nele, dt = 0.15, amin = 1E-2, limits=[]):
 
     (tmax,a) = MaxAbund(z, nele)
     amax = a[nele-1:nele+1]
-    logtm = log10(tmax/const.kb)
+    logtm = np.log10(tmax/const.kb)
     logtm = limits[0]+int((logtm-limits[0])/dt)*dt
     a0 = 1.0
     logt = [logtm]
@@ -779,5 +783,5 @@ def spectrum(neles, temp, den, population, pref,
 
 def maxwell(e, t):
     x = e/t
-    x = 1.12837967*sqrt(x)*exp(-x)/t
+    x = 1.12837967*np.sqrt(x)*np.exp(-x)/t
     return x

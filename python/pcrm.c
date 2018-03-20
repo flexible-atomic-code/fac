@@ -29,7 +29,9 @@ USE (rcsid);
 
 #include "crm.h"
 
-#if PY_MAJOR_VERSION <= 2
+#if PY_MAJOR_VERSION >= 3
+  #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
+#else
   #define PyLong_AsLong PyInt_AsLong
   #define PyLong_Check PyInt_Check
 #endif
@@ -1365,14 +1367,47 @@ static struct PyMethodDef crm_methods[] = {
   {NULL, NULL}
 };
 
-void initcrm(void) {
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "crm",
+  NULL,
+  -1,
+  crm_methods,
+};
+#define INITERROR return NULL
+
+PyMODINIT_FUNC
+PyInit_crm(void){
+
+#else
+#define INITERROR return
+
+void
+initcrm(void) {
+#endif
+
   PyObject *m, *d;
 
+  #if PY_MAJOR_VERSION >= 3
+  m = PyModule_Create(&moduledef);
+  #else
   m = Py_InitModule("crm", crm_methods);
+  #endif
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "crm.error");
   PyDict_SetItemString(d, "error", ErrorObject);
   InitCRM();
   if (PyErr_Occurred())
     Py_FatalError("can't initialize module crm");
+
+  #if PY_MAJOR_VERSION >= 3
+  return m;
+  #endif
+  return;
+
+  #if PY_MAJOR_VERSION >= 3
+    return m;
+  #endif
 }

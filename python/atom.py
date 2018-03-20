@@ -1206,15 +1206,15 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
         atom.run_fac()
         if (iprint >= 0):
             t = ['en']
-            if (atom.process['tr']):
+            if atom.process['tr']:
                 t.append('tr')
-            if (atom.process['ce']):
+            if atom.process['ce']:
                 t.append('ce')
-            if (atom.process['rr']):
+            if atom.process['rr']:
                 t.append('rr')
-            if (atom.process['ai']):
+            if atom.process['ai']:
                 t.append('ai')
-            if (atom.process['ci']):
+            if atom.process['ci']:
                 t.append('ci')
             atom.print_table(t, iprint)
 

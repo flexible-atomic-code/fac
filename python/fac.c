@@ -5321,16 +5321,6 @@ static struct PyMethodDef fac_methods[] = {
 
 
 #if PY_MAJOR_VERSION >= 3
-static int fac_traverse(PyObject *m, visitproc visit, void *arg) {
-  Py_VISIT(GETSTATE(m)->error);
-  return 0;
-}
-
-static int fac_clear(PyObject *m){
-  Py_CLEAR(GETSTATE(m)->error);
-  return 0;
-}
-
 static struct PyModuleDef moduledef = {
   PyModuleDef_HEAD_INIT,
   "fac",
