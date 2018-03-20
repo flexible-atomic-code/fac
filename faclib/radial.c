@@ -1958,31 +1958,22 @@ void AddOrbMap(ORBITAL *orb) {
   }
 }
 
-void RemoveOrbMap(ORBITAL *orb) {
-  int k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
-  if (k >= _korbmap) {
-    return;
-  }
-  ORBMAP *om = &_orbmap[k];
-  if (orb->n > 0) {
-    k = orb->n-1;
-    if (k >= _norbmap0) return;
-    om->opn[k] = NULL;
-  } else if (orb->n < 0) {
-    k = -orb->n-1;
-    if (k >= _norbmap1) return;
-    om->onn[k] = NULL;
-  } else {
-    int i, j;
-    for (i = 0; i < om->nzn; i++) {
-      if (fabs(orb->energy-om->ozn[i]->energy) < EPS10) {
-	for (j = i+1; j < om->nzn; j++) {
-	  om->ozn[j-1] = om->ozn[j];
-	}
-	om->nzn--;
-	break;
+void RemoveOrbMap(int m) {
+  int k, i;
+  for (k = 0; k < _korbmap; k++) {
+    ORBMAP *om = &_orbmap[k];
+    if (m == 0) {
+      for (i = 0; i < _norbmap0; i++) {
+	om->opn[i] = NULL;
+      }
+      for (i = 0; i < _norbmap1; i++) {
+	om->onn[i] = NULL;
       }
     }
+    for (i = 0; i < om->nzn; i++) {
+      om->ozn[i] = NULL;
+    }
+    om->nzn = 0;
   }
 }
 
@@ -2066,7 +2057,7 @@ void FreeOrbitalData(void *p) {
   ORBITAL *orb;
 
   orb = (ORBITAL *) p;
-  RemoveOrbMap(orb);
+  //RemoveOrbMap(orb);
   if (orb->wfun) free(orb->wfun);
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
@@ -2088,6 +2079,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
+    RemoveOrbMap(0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -2097,82 +2089,12 @@ int ClearOrbitalTable(int m) {
       if (orb->n > 0) {
 	n_orbitals = i+1;
 	ArrayTrim(orbitals, i+1, FreeOrbitalData);
+	RemoveOrbMap(1);
 	break;
       }
     }
   }
   if (orbitals->lock) ReleaseLock(orbitals->lock);
-  return 0;
-}
-
-int SaveOrbital(int i) {
-  return 0;
-}
-
-int RestoreOrbital(int i) {
-  return -1;
-}
-
-int FreeOrbital(int i) {
-  ORBITAL *orb;
-  orb = GetOrbital(i);
-  FreeOrbitalData((void *)orb);
-  return 0;
-}
-
-int SaveAllContinua(int mode) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && orb->wfun != NULL) {
-      if (SaveOrbital(i) < 0) return -1;
-      if (mode) {
-	FreeOrbital(i);
-      }
-    }
-  }
-  return 0;
-}
-
-int SaveContinua(double e, int mode) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && 
-	orb->wfun != NULL &&
-	fabs(orb->energy - e) < EPS3) {
-      if (SaveOrbital(i) < 0) return -1;
-      if (mode) FreeOrbital(i);
-    }
-  }
-  return 0;
-}
-
-int FreeAllContinua(void) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && orb->wfun != NULL) {
-      FreeOrbital(i);
-    }
-  }
-  return 0;
-}
-
-int FreeContinua(double e) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && 
-	orb->wfun != NULL &&
-	fabs(orb->energy - e) < EPS3) {
-      FreeOrbital(i);
-    }
-  }
   return 0;
 }
 
