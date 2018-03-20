@@ -424,6 +424,7 @@ static void InitOrbitalData(void *p, int n) {
     d[i].kv = -1000000000;
     d[i].horb = NULL;
     d[i].rorb = NULL;
+    d[i].isol = 0;
   }
 }
 
@@ -1281,7 +1282,11 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 	  no_old = 1;	
 	} else {
 	  orb_old.energy = orb->energy; 
-	  if (orb->wfun) free(orb->wfun);
+	  if (orb->wfun) {
+	    free(orb->wfun);
+	    orb->wfun = NULL;
+	    orb->isol = 0;
+	  }
 	  no_old = 0;
 	}
       }
@@ -1804,7 +1809,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
       Abort(1);
     }    
     if (orbitals->lock) ReleaseLock(orbitals->lock);
-  } else if (orb->wfun == NULL) {
+  } else if (orb->isol == 0) {
     if (orbitals->lock) SetLock(orbitals->lock);
     k = SolveDirac(orb);
     if (k < 0) {
@@ -1829,14 +1834,14 @@ int OrbitalIndexNoLock0(int n, int kappa, double energy) {
 	  orb->kappa == kappa && 
 	  orb->energy > 0.0 &&
 	  fabs(orb->energy - energy) < EPS10) {
-	if (orb->wfun == NULL) {
+	if (orb->isol == 0) {
 	  resolve_dirac = 1;
 	  break;
 	}
 	return i;
       }
     } else if (orb->n == n && orb->kappa == kappa) {
-      if (orb->wfun == NULL) {
+      if (orb->isol == 0) {
 	resolve_dirac = 1;
 	break;
       }
@@ -2010,11 +2015,11 @@ ORBITAL *GetOrbitalSolved(int k) {
   int i;
   
   orb = (ORBITAL *) ArrayGet(orbitals, k);
-  if (orb != NULL && orb->wfun != NULL) return orb;
+  if (orb != NULL && orb->isol) return orb;
   
   if (orbitals->lock) SetLock(orbitals->lock);
   orb = (ORBITAL *) ArrayGet(orbitals, k);
-  if (orb->wfun == NULL) {
+  if (orb->isol == 0) {
     i = SolveDirac(orb);
     if (i < 0) {
       printf("Error occured in solving Dirac eq. err = %d\n", i);
