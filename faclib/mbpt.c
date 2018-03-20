@@ -1063,9 +1063,7 @@ int PrepRadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 	}
 	int ix = OrbitalExistsNoLock(ng[i], ka, 0);
 	if (ix < 0) {
-	  orb = GetNewOrbitalNoLock();
-	  orb->n = ng[i];
-	  orb->kappa = ka;
+	  orb = GetNewOrbitalNoLock(ng[i], ka, 0);
 	  ix = orb->idx;
 	}
 	(*bas)[m] = ix;
