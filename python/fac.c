@@ -2961,79 +2961,6 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
-static PyObject *PSaveOrbitals(PyObject *self, PyObject *args) {  
-  int n, i, norbs;
-  double e;
-  PyObject *p;
-
-  if (sfac_file) {
-    SFACStatement("SaveOrbitals", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  norbs = GetNumOrbitals();
-  if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-  if (PyInt_Check(p)) {
-    n = PyInt_AsLong(p);
-    if (n <= 0) {
-      if (SaveAllContinua(1) < 0) return NULL;
-    } else {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n == n) {
-	  if (SaveOrbital(i) < 0) return NULL;
-	  FreeOrbital(i);
-	}
-      }
-    }
-  } else if (PyFloat_Check(p)) {
-    e = PyFloat_AsDouble(p)/HARTREE_EV;
-    if (SaveContinua(e, 1) < 0) return NULL;
-  } else {
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PFreeOrbitals(PyObject *self, PyObject *args) {  
-  int n, i, norbs;
-  double e;
-  PyObject *p;
-
-  if (sfac_file) {
-    SFACStatement("FreeOrbitals", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  norbs = GetNumOrbitals();
-  if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-  if (PyInt_Check(p)) {
-    n = PyInt_AsLong(p);
-    if (n <= 0) {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n <= 0) {
-	  FreeOrbital(i);
-	}
-      }
-    } else {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n == n) {
-	  FreeOrbital(i);
-	}
-      }
-    }
-  } else if (PyFloat_Check(p)) {
-    e = PyFloat_AsDouble(p)/HARTREE_EV;
-    if (FreeContinua(e) < 0) return NULL;
-  } else {
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
 static PyObject *PDROpen(PyObject *self, PyObject *args) {
   int i, n, *nlev, *n0, nop;
   PyObject *p;
@@ -5327,7 +5254,6 @@ static struct PyMethodDef fac_methods[] = {
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"FreeMultipole", PFreeMultipole, METH_VARARGS},
-  {"FreeOrbitals", PFreeOrbitals, METH_VARARGS},
   {"FreeSlater", PFreeSlater, METH_VARARGS},
   {"FreeResidual", PFreeResidual, METH_VARARGS},
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
@@ -5362,7 +5288,6 @@ static struct PyMethodDef fac_methods[] = {
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
-  {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
