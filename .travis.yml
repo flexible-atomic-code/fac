@@ -1,0 +1,37 @@
+# Based on http://conda.pydata.org/docs/travis.html
+
+language: python
+matrix:
+  fast_finish: true
+  include:
+  #- python: 3.6
+  #  env: CONDA_ENV=py36
+  - python: 2.7
+    env: CONDA_ENV=py27
+
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install build-essential -y
+  - sudo apt-get install gfortran -y
+  - wget http://repo.continuum.io/miniconda/Miniconda3-3.16.0-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no --set show_channel_urls true
+  - conda update -q conda
+  - conda info -a
+
+install:
+  - conda env create --file ci/requirements-$CONDA_ENV.yml
+  - source activate test_env
+  - ./configure --prefix=$pwd$
+  - make clean
+  - make
+  - make install
+  - make pfac
+  - make install-pfac
+
+script:
+  - python -OO -c "from pfac import fac"
+  - pytest -v tests --boxed
+after_success:

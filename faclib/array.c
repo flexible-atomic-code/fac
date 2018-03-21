@@ -47,9 +47,10 @@ void InitMultiStats(void) {
 }
 
 void ReportMultiStats(void) {
+  int i;
   if (_multistats == NULL) return;
   //if (MyRankMPI() != 0) return;
-  for (int i = 0; i < _multistats->dim; i++) {
+  for (i = 0; i < _multistats->dim; i++) {
     MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
     if (pma == NULL) continue;
     MULTI *ma = *pma;
@@ -61,9 +62,10 @@ void ReportMultiStats(void) {
 }
 
 void RemoveMultiLocks(void) {
+  int i, j;
   if (_multistats == NULL) return;
   if (MyRankMPI() != 0) return;
-  for (int i = 0; i < _multistats->dim; i++) {
+  for (i = 0; i < _multistats->dim; i++) {
     MULTI **pma = (MULTI **) ArrayGet(_multistats, i);
     if (pma == NULL) continue;
     MULTI *ma = *pma;
@@ -73,7 +75,7 @@ void RemoveMultiLocks(void) {
       free(ma->lock);
       ma->lock = NULL;
     }
-    for (int j = 0; j < ma->hsize; j++) {
+    for (j = 0; j < ma->hsize; j++) {
       ARRAY *a = &ma->array[j];
       if (a->lock) {
 	DestroyLock(a->lock);
