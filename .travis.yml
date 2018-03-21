@@ -30,6 +30,8 @@ install:
   - make install
   - make pfac
   - make install-pfac
+  # Prepare output directories.
+  - mkdir tests/data
 
 script:
   - python -OO -c "from pfac import fac"

@@ -25,7 +25,7 @@ def test_se_ai():
     fac.Structure(output_dir + 'se.lev.b', ['n2'])
     fac.Structure(output_dir + 'se.lev.b', ['n33'])
     fac.MemENTable(output_dir + 'se.lev.b')
-    fac.PrintTable(output_dir + 'se.lev.b', 'se.lev', 1)
+    fac.PrintTable(output_dir + 'se.lev.b', output_dir + 'se.lev', 1)
 
     fac.AITable(output_dir + 'se.ai.b', ['n33'], ['n2'])
-    fac.PrintTable(output_dir + 'se.ai.b', 'se.ai', 1)
+    fac.PrintTable(output_dir + 'se.ai.b', output_dir + 'se.ai', 1)
