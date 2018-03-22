@@ -1706,7 +1706,7 @@ int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
     q1 = idatum->s[1].nq_bra;
     q2 = idatum->s[0].nq_bra;
     k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-     k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   }
     
   type = -1;

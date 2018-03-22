@@ -52,15 +52,19 @@ int SkipMPI() {
   return r;
 #elif USE_MPI == 2
   if (mpi.nproc > 1) {
+#ifdef OMP_STAT
     double t0 = WallTime();
+#endif
 #pragma omp critical  
     {
       mpi.wid++;      
       if (mpi.wid <= _cwid) r = 1;
       else _cwid = mpi.wid;
     }
+#ifdef OMP_STAT
     double t1 = WallTime();
     _tskip += t1-t0;
+#endif
   }
   return r;
 #else

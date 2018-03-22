@@ -605,22 +605,25 @@ double ClockNow(int m) {
 
 void PrintWallTime(char *s, int m) {
   double t = ClockNow(m);
-  double ttskip = 0, ttlock = 0;
-  long long tnlock = 0;
+  double ttskip = 0, ttlock = 0, mtskip = 0, mtlock = 0;
+  long long tnlock = 0, mnlock = 0;
 #pragma omp parallel default(shared)
   {
     double tskip = TimeSkip();
     double tlock = TimeLock();
     long long nlock = NumLock();
-#pragma omp atomic
-    ttskip += tskip;
-#pragma omp atomic
-    ttlock += tlock;
-#pragma omp atomic
-    tnlock += nlock;
+#pragma omp critical
+    {
+      ttskip += tskip;
+      ttlock += tlock;
+      tnlock += nlock;
+      if (tskip > mtskip) mtskip = tskip;
+      if (tlock > mtlock) mtlock = tlock;
+      if (nlock > mnlock) mnlock = nlock;
+    }
   }
-  printf("WallTime%d: %11.4E %11.4E %11.4E %10lld ... %s\n",
-	  m, t, ttskip, ttlock, tnlock, s);
+  printf("WallTime%d: %9.3E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
+	 m, t, ttskip, mtskip, ttlock, mtlock, tnlock, mnlock, s);
   fflush(stdout);
 }
 

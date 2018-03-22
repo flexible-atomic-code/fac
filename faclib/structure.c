@@ -3652,7 +3652,10 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     n2 = n1;
     is2 = is1;
   }
-  
+
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
+  {
   for (i1 = 0; i1 < n1; i1++) {
     lev1 = GetLevel(is1[i1]);
     ih1 = lev1->iham;
@@ -3669,6 +3672,8 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       if (s2->kgroup < 0) continue;
       ne2 = GetGroup(s2->kgroup)->n_electrons;
       if (abs(ne2-ne1) > 1) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
       ns2 = hams[ih2].nlevs;
       ns = ns1*ns2;
       if (ne1 == ne2) {
@@ -3722,7 +3727,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       (ad->nz)[is] = nz;
     }
   }
-
+  }
   return ns;
 }
 
