@@ -605,11 +605,22 @@ double ClockNow(int m) {
 
 void PrintWallTime(char *s, int m) {
   double t = ClockNow(m);
-  double tskip = TimeSkip();
-  double tlock = TimeLock();
-  long long nlock = NumLock();
+  double ttskip = 0, ttlock = 0;
+  long long tnlock = 0;
+#pragma omp parallel default(shared)
+  {
+    double tskip = TimeSkip();
+    double tlock = TimeLock();
+    long long nlock = NumLock();
+#pragma omp atomic
+    ttskip += tskip;
+#pragma omp atomic
+    ttlock += tlock;
+#pragma omp atomic
+    tnlock += nlock;
+  }
   printf("WallTime%d: %11.4E %11.4E %11.4E %10lld ... %s\n",
-	  m, t, tskip, tlock, nlock, s);
+	  m, t, ttskip, ttlock, tnlock, s);
   fflush(stdout);
 }
 
