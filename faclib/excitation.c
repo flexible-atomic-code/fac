@@ -2722,7 +2722,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ce_hdr.usr_egrid = usr_egrid;
 
     InitFile(f, &fhdr, &ce_hdr);
-    
+
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, ilow, iup, k, qkc, r, m, ip, nsub, ie, iempty)
     {
     nsub = 1;
@@ -3051,7 +3052,8 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     GetFields(&ce_hdr.bfield, &ce_hdr.efield, &ce_hdr.fangle);
     InitFile(f, &fhdr, &ce_hdr);  
     m = ce_hdr.n_egrid;
-    
+
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, r, lev1, lev2, e, ilow, iup, k, iempty, ie)
     {
     r.strength = (float *) malloc(sizeof(float)*m);    

@@ -33,6 +33,11 @@
 
 #define BUFLN 1024
 
+typedef struct _RANDIDX_ {
+  int i;
+  double r;
+} RANDIDX;
+
 typedef struct _MPID_ {
   int myrank;
   int nproc;
@@ -57,14 +62,16 @@ int MPIRank(int *np);
 int MyRankMPI();
 int NProcMPI();
 long long WidMPI();
+long long CWidMPI();
 void SetWidMPI(long long w);
+void ResetWidMPI(void);
 double WallTime();
 MPID *DataMPI();
 double TimeSkip();
 double TimeLock();
 long long NumLock();
 void SetLockWT(LOCK *x);
-int MPIReady();
+int MPIReady(void);
 void Abort(int r);
 BFILE *BFileOpen(char *fn, char *md, int nb);
 size_t BFileRead(void *ptr, size_t size, size_t nmemb, BFILE *f);
@@ -76,6 +83,8 @@ int BFileSeek(BFILE *bf, long offset, int whence);
 long BFileTell(BFILE *bf);
 int BFileFlush(BFILE *bf);
 void InitializeMPI(int n);
-void FinalizeMPI();
+void FinalizeMPI(void);
+RANDIDX *RandList(int n);
+void RandIntList(int n, int *k);
 
 #endif

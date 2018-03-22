@@ -1018,7 +1018,7 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   a = -1.0;
   npr = -1;
   if (!PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr)) {
-    return -1;
+    return NULL;
   }
   if (PyString_Check(t)) {
     s = PyString_AsString(t);
@@ -4511,27 +4511,27 @@ static PyObject *PMaxwellRate(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PTRBranch(PyObject *self, PyObject *args) { 
-  int i, j;
+  int i, j, nt;
   char *fn;
   double te, pa, ta;
 
   if (!PyArg_ParseTuple(args, "sii", &fn, &i, &j)) return NULL;
-  
-  if (TRBranch(fn, i, j, &te, &pa, &ta) < 0) return NULL;
+  nt = TRBranch(fn, i, j, &te, &pa, &ta);
+  if (nt < 0) return NULL;
 
-  return Py_BuildValue("(ddd)", te, pa, ta);
+  return Py_BuildValue("(dddi)", te, pa, ta, nt);
 }
   
 static PyObject *PAIBranch(PyObject *self, PyObject *args) { 
-  int i, j;
+  int i, j, nt;
   char *fn;
   double te, pa, ta;
 
   if (!PyArg_ParseTuple(args, "sii", &fn, &i, &j)) return NULL;
-  
-  if (AIBranch(fn, i, j, &te, &pa, &ta) < 0) return NULL;
+  nt = AIBranch(fn, i, j, &te, &pa, &ta);
+  if ( nt < 0) return NULL;
 
-  return Py_BuildValue("(ddd)", te, pa, ta);
+  return Py_BuildValue("(dddi)", te, pa, ta, nt);
 }
 
 static PyObject *PRadialOverlaps(PyObject *self, PyObject *args) {

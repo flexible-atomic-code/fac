@@ -1079,7 +1079,8 @@ int PrepRadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 void SolveRadialBasisMBPT(int nmax) {
   int n;
   
-  n = GetNumOrbitals();      
+  n = GetNumOrbitals();
+  ResetWidMPI();
 #pragma omp parallel default(shared)
   {
     int i, ib, nb;
@@ -3456,6 +3457,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
   int nmaxm, nmaxm1;
   CONFIG **csm;
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(k, i1, cs, i, j, nmax, nmax1, g)
   {
     cs = malloc(sizeof(CONFIG *)*(nc+2));
@@ -3544,6 +3546,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
   }
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(i,j,i0,j0)
   {
     mbpt_bas0 = malloc(sizeof(int)*nb0);  
@@ -3591,6 +3594,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       MPrintf(-1, "cannot open file %s\n", fn1);
       FreeIdxAry(&ing, 2);
       FreeIdxAry(&ing2, 2);
+      ResetWidMPI();
 #pragma omp parallel
       {
 	free(mbptjp.jp);
@@ -3758,6 +3762,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     double ttskip = 0, ttlock=0;
     long long tnlock = 0;
     ncps = 0;
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_EFF *imeff[MAX_SYMMETRIES];
@@ -4168,6 +4173,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       f = fopen(tfn, "w");
     }
     ncps = 0;
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1)
     {
       MBPT_TR *imtr;
@@ -4364,6 +4370,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   FreeIdxAry(&mbpt_ibas1, 2);
   FreeIdxAry(&ing, 2);
   FreeIdxAry(&ing2, 2);
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(cs)
   {
     cs = mbpt_cs;
@@ -4656,6 +4663,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
       tr_hdr.gauge = GetTransitionGauge();
       tr_hdr.mode = 0;
       InitFile(f, &fhdr, &tr_hdr);
+      ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, k, sym, st, lev1, lev2, e, p1, j1, p2, j2, s0, i0, i1, m1, m2, a, p, rg, x, s, r)
       {
       for (j = 1; j < n; j++) {

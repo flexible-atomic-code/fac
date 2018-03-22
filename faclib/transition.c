@@ -404,7 +404,8 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
   LEVEL *lev1, *lev2;
   TFILE *f;
   
-  if (nlow <= 0 || nup <= 0) return -1;
+  if (nlow <= 0 || nup <= 0) return -1;  
+  
   if (m == 1 || transition_option.mode == M_FR) {
     k = 0;
     emin = 1E10;
@@ -456,6 +457,7 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &tr_hdr);
 
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, k, e0, r, s, et)
   {
   r.strength = (float *) malloc(sizeof(float)*nq);
@@ -510,6 +512,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 #endif
   
   if (nlow <= 0 || nup <= 0) return -1;
+  
   k = 0;
   emin = 1E10;
   emax = 1E-10;
@@ -587,6 +590,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       nc1 = nc0;
       nic1 = nic0;
     }
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(imin, imax, jmin, jmax, lev1, lev2, c0, c1, ir, ntr, rd, ep, em, e0, wp, wm, w0, i, j, ic0, ic1, k, ir0, gf, j0, j1, nrs0, nrs1, de, cm, cp)
     {
     imin = 0;
@@ -704,6 +708,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     if (up != low) free(nc1);
     }
   } else {
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
     {
       a = malloc(sizeof(double)*nlow);
@@ -834,6 +839,19 @@ int OverlapLowUp(int nlow, int *low, int nup, int *up) {
   free(lowinup);
   free(upinlow);
   free(icom);
+
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nup-n, up);
+    RandIntList(nlow-n, low);
+    if (n > 1) {
+      RandIntList(n, up+nup-n);
+      RandIntList(n, low+nlow-n);
+    }
+  }
+#endif
 
   return n;
 }

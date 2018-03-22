@@ -1729,6 +1729,15 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     return 0;
   }
   
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nup, up);
+    RandIntList(nlow, low);
+  }
+#endif
+  
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1851,6 +1860,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     rr_hdr.usr_egrid_type = usr_egrid_type;
         
     InitFile(f, &fhdr, &rr_hdr);
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(r, i, j, lev1, lev2, e, nq, ip, ie, rqu, qc, eb)
     {
     if (qk_mode == QK_FIT) {
@@ -1960,6 +1970,15 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     return 0;
   }
 
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nup, up);
+    RandIntList(nlow, low);
+  }
+#endif
+
   if (egrid[0] < 0) {
     e_set = 0;
   } else {
@@ -2046,31 +2065,34 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t)
     {
     for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
+      int ilow = low[i];
+      lev1 = GetLevel(ilow);
       for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
+	int iup = up[j];
+	lev2 = GetLevel(iup);	
 	e = lev1->energy - lev2->energy;
-	if (e < 0 && lev1->ibase != up[j]) e -= eref;
+	if (e < 0 && lev1->ibase != iup) e -= eref;
 	if (e < e0 || e >= e1) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
 	if (!msub) {
 	  if (iuta) {
-	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
+	    k = AutoionizeRateUTA(&s, &e, ilow, iup);
 	  } else {
-	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	    k = AutoionizeRate(&s, &e, ilow, iup, msub);
 	  }
 	  if (k < 0) continue;
 	  if (s < ai_cut) continue;
-	  r.b = low[i];
-	  r.f = up[j];
+	  r.b = ilow;
+	  r.f = iup;
 	  r.rate = s;
 	  WriteAIRecord(f, &r);
 	} else {
-	  k = AutoionizeRate(s1, &e, low[i], up[j], msub);
+	  k = AutoionizeRate(s1, &e, ilow, iup, msub);
 	  if (k < 0) continue;
 	  r1.rate = rt;
 	  s = 0;
@@ -2079,8 +2101,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    s += s1[t];
 	  }
 	  if (s < ai_cut) continue;
-	  r1.b = low[i];
-	  r1.f = up[j];
+	  r1.b = ilow;
+	  r1.f = iup;
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
@@ -2097,7 +2119,6 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
 
   ReinitRecombination(1);
-  
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
 #ifdef PERFORM_STATISTICS

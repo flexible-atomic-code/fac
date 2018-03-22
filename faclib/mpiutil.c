@@ -155,6 +155,16 @@ long long WidMPI() {
   return mpi.wid;
 }
 
+long long CWidMPI() {
+  return _cwid;
+}
+
+void ResetWidMPI(void) {
+  _cwid = -1;  
+#pragma omp parallel
+  mpi.wid = 0;
+}
+
 void SetWidMPI(long long w) {
   mpi.wid = w;
 }
@@ -534,4 +544,37 @@ int BFileFlush(BFILE *bf) {
     }
   }
   return fflush(bf->f);
+}
+
+int CompareRandIdx(const void *p1, const void *p2) {
+  RANDIDX *r1, *r2;
+  r1 = (RANDIDX *) p1;
+  r2 = (RANDIDX *) p2;
+  if (r1->r < r2->r) return -1;
+  else if (r1->r > r2->r) return 1;
+  return 0;
+}
+
+RANDIDX *RandList(int n) {
+  int i;
+  RANDIDX *w;
+  w = (RANDIDX *) malloc(sizeof(RANDIDX)*n);
+  for (i = 0; i < n; i++) {
+    w[i].r = drand48();
+    w[i].i = i;
+  }
+  qsort(w, n, sizeof(RANDIDX), CompareRandIdx);
+  return w;
+}
+
+void RandIntList(int n, int *k) {
+  RANDIDX *w = RandList(n);
+  int i;
+  for (i = 0; i < n; i++) {
+    w[i].i = k[w[i].i];
+  }
+  for (i = 0; i < n; i++) {
+    k[i] = w[i].i;    
+  }
+  free(w);
 }

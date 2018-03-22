@@ -588,27 +588,32 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     for (j = 0; j < h->hsize; j++) {
       h->hamilton[j] = 0;
     }
+    RANDIDX *rid = RandList(h->dim);
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i,j,t,r)
     {
+      int jr;
       int mr = MPIRank(NULL);
-      for (j = 0; j < h->dim; j++) {
+      for (jr = 0; jr < h->dim; jr++) {
+	int skip;
+	skip = SkipMPI();
+	if (skip) continue;
+	j = rid[jr].i;
 	t = j*(j+1)/2;
 	for (i = 0; i <= j; i++) {
-	  int skip;
-	  skip = SkipMPI();
-	  if (skip) continue;
 	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  h->hamilton[i+t] = r;
 	}
       }
       if (jp > 0) {
 	t = ((h->dim+1)*(h->dim))/2;
-	for (i = 0; i < h->dim; i++) {
+	for (jr = 0; jr < h->dim; jr++) {
+	  if (SkipMPI()) {
+	    t += h->n_basis-h->dim;
+	    continue;
+	  }
+	  i = rid[jr].i;
 	  for (j = h->dim; j < h->n_basis; j++) {
-	    if (SkipMPI()) {
-	      t++;
-	      continue;
-	    }
 	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	    h->hamilton[t++] = r;
 	  }
@@ -627,6 +632,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	ReinitRadial(1);
       }
     }
+    free(rid);
 #if USE_MPI == 1    
     if (NProcMPI() > 1) {
       MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,

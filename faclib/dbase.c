@@ -3745,15 +3745,9 @@ int TRBranch(char *fn, int upper, int lower,
     return -1;
   }
 
-  f = FOPEN(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
-    printf("cannot open file %s\n", fn);
     return -1;
-  }
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    FCLOSE(f);
-    return 0;
   }
   if (fh.type != DB_TR) {
     printf("File type is not DB_TR\n");
@@ -3763,6 +3757,7 @@ int TRBranch(char *fn, int upper, int lower,
   
   a = 0.0;
   c = 0.0;
+  int nt = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadTRHeader(f, &h, swp);
     if (n == 0) break;
@@ -3778,6 +3773,7 @@ int TRBranch(char *fn, int upper, int lower,
 	if (r.lower == lower) {
 	  c += b;
 	}
+	nt++;
       }
     }
   }
@@ -3793,7 +3789,7 @@ int TRBranch(char *fn, int upper, int lower,
 
   FCLOSE(f);
 
-  return 0;
+  return nt;
 }
   
 int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
@@ -4268,7 +4264,7 @@ int AIBranch(char *fn, int ib, int ia,
   AI_HEADER h;
   AI_RECORD r;
   TFILE *f;
-  int n, i, k;
+  int n, i, k, nt;
   double a, b, c, e;
   int swp;
     
@@ -4277,15 +4273,10 @@ int AIBranch(char *fn, int ib, int ia,
     return -1;
   }
 
-  f = FOPEN(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
-  }
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    FCLOSE(f);
-    return 0;
   }
   if (fh.type != DB_AI) {
     printf("File type is not DB_AI\n");
@@ -4295,6 +4286,7 @@ int AIBranch(char *fn, int ib, int ia,
    
   a = 0.0;
   c = 0.0;
+  nt = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadAIHeader(f, &h, swp);
     if (n == 0) break;
@@ -4308,6 +4300,7 @@ int AIBranch(char *fn, int ib, int ia,
 	if (r.f == ia) {
 	  c += b;
 	}
+	nt++;
       }
     }    
     free(h.egrid);
@@ -4324,7 +4317,7 @@ int AIBranch(char *fn, int ib, int ia,
 
   FCLOSE(f);
   
-  return 0;
+  return nt;
 }
       
 int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {
