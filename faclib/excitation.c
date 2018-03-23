@@ -2167,9 +2167,9 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       ia[i][j] = 0;
     }
   }
-  int iter = 0;
+  //int iter = 0;
   while (1) {
-    iter++;
+    //iter++;
     int nleft = 0;
     for (i = 0; i < nz; i++) {
       for (j = i; j < nz; j++) {
@@ -2263,7 +2263,10 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
     }
     if (nleft == 0) break;
   }
-
+  for (i = 0; i < nz; i++) {
+    free(ia[i]);
+  }
+  free(ia);
   BornFormFactorTE(&bte);
   bms = BornMass();
   bte = (te + bte)/bms;
