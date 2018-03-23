@@ -1027,7 +1027,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
 #if USE_MPI == 2
   int mr, nr;
   mr = MPIRank(&nr);
@@ -1036,7 +1036,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     RandIntList(nf, f);
   }
 #endif
-  
+  */
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1558,7 +1558,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
 #if USE_MPI == 2
   int mr, nr;
   mr = MPIRank(&nr);
@@ -1567,7 +1567,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
     RandIntList(nf, f);
   }
 #endif
-  
+  */
   if (egrid_limits_type == 0) {
     emax0 = 0.5*(emin + emax)*egrid_max;
   } else {

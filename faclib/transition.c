@@ -839,7 +839,7 @@ int OverlapLowUp(int nlow, int *low, int nup, int *up) {
   free(lowinup);
   free(upinlow);
   free(icom);
-
+  /*
 #if USE_MPI == 2
   int mr, nr;
   mr = MPIRank(&nr);
@@ -852,7 +852,7 @@ int OverlapLowUp(int nlow, int *low, int nup, int *up) {
     }
   }
 #endif
-
+  */
   return n;
 }
   

@@ -1768,7 +1768,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (k == 0) {
     return 0;
   }
-  
+  /*
 #if USE_MPI == 2
   int mr, nr;
   mr = MPIRank(&nr);
@@ -1777,7 +1777,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     RandIntList(nlow, low);
   }
 #endif
-  
+  */
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -2009,7 +2009,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   if (k == 0) {
     return 0;
   }
-
+  /*
 #if USE_MPI == 2
   int mr, nr;
   mr = MPIRank(&nr);
@@ -2018,7 +2018,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     RandIntList(nlow, low);
   }
 #endif
-
+  */
   if (egrid[0] < 0) {
     e_set = 0;
   } else {
