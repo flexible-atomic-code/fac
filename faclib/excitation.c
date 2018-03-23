@@ -2262,7 +2262,6 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       }
     }
     if (nleft == 0) break;
-    printf("nleft: %d %d %d\n", iter, nleft, nz);
   }
 
   BornFormFactorTE(&bte);
