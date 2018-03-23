@@ -67,6 +67,7 @@
 #else
 #define SetLock(x) pthread_mutex_lock((x))
 #endif
+#define TryLock(x) pthread_mutex_trylock((x))
 #define ReleaseLock(x) pthread_mutex_unlock((x))
 #define DestroyLock(x) pthread_mutex_destroy((x))
 

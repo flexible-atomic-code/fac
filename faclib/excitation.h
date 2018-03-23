@@ -86,12 +86,13 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 		       double te, double e1, 
 		       int nq, int *q, double *qk, int m);
-double *CERadialQkTable(int k0, int k1, int k2, int k3, int k);
-double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp);
+double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock);
+double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
+			    int trylock);
 int CERadialQk(double *r, double te, 
-	       int k0, int k1, int k2, int k3, int k);
+	       int k0, int k1, int k2, int k3, int k, int trylock);
 int CERadialQkMSub(double *rq, double te, int k0, int k1,
-		   int k2, int k3, int k, int kp);
+		   int k2, int k3, int k, int kp, int trylock);
 void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 		       double *y, double *dy, int ndy, void *extra);
 int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
