@@ -56,11 +56,18 @@
 /* define constants */
 #include "consts.h"
 
+//#define OMP_STAT 1
+
 #define LOCK pthread_mutex_t
 #define InitLock(x) pthread_mutex_init((x), NULL)
 #define SetLockNT(x) pthread_mutex_lock((x))
-//#define SetLock(x) pthread_mutex_lock((x))
+
+#ifdef OMP_STAT
 #define SetLock(x) SetLockWT((x))
+#else
+#define SetLock(x) pthread_mutex_lock((x))
+#endif
+#define TryLock(x) pthread_mutex_trylock((x))
 #define ReleaseLock(x) pthread_mutex_unlock((x))
 #define DestroyLock(x) pthread_mutex_destroy((x))
 

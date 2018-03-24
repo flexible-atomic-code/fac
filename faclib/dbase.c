@@ -605,11 +605,25 @@ double ClockNow(int m) {
 
 void PrintWallTime(char *s, int m) {
   double t = ClockNow(m);
-  double tskip = TimeSkip();
-  double tlock = TimeLock();
-  long long nlock = NumLock();
-  printf("WallTime%d: %11.4E %11.4E %11.4E %10lld ... %s\n",
-	  m, t, tskip, tlock, nlock, s);
+  double ttskip = 0, ttlock = 0, mtskip = 0, mtlock = 0;
+  long long tnlock = 0, mnlock = 0;
+#pragma omp parallel default(shared)
+  {
+    double tskip = TimeSkip();
+    double tlock = TimeLock();
+    long long nlock = NumLock();
+#pragma omp critical
+    {
+      ttskip += tskip;
+      ttlock += tlock;
+      tnlock += nlock;
+      if (tskip > mtskip) mtskip = tskip;
+      if (tlock > mtlock) mtlock = tlock;
+      if (nlock > mnlock) mnlock = nlock;
+    }
+  }
+  printf("WallTime%d: %9.3E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
+	 m, t, ttskip, mtskip, ttlock, mtlock, tnlock, mnlock, s);
   fflush(stdout);
 }
 
@@ -3745,15 +3759,9 @@ int TRBranch(char *fn, int upper, int lower,
     return -1;
   }
 
-  f = FOPEN(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
-    printf("cannot open file %s\n", fn);
     return -1;
-  }
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    FCLOSE(f);
-    return 0;
   }
   if (fh.type != DB_TR) {
     printf("File type is not DB_TR\n");
@@ -3763,6 +3771,7 @@ int TRBranch(char *fn, int upper, int lower,
   
   a = 0.0;
   c = 0.0;
+  int nt = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadTRHeader(f, &h, swp);
     if (n == 0) break;
@@ -3778,6 +3787,7 @@ int TRBranch(char *fn, int upper, int lower,
 	if (r.lower == lower) {
 	  c += b;
 	}
+	nt++;
       }
     }
   }
@@ -3793,7 +3803,7 @@ int TRBranch(char *fn, int upper, int lower,
 
   FCLOSE(f);
 
-  return 0;
+  return nt;
 }
   
 int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
@@ -4268,7 +4278,7 @@ int AIBranch(char *fn, int ib, int ia,
   AI_HEADER h;
   AI_RECORD r;
   TFILE *f;
-  int n, i, k;
+  int n, i, k, nt;
   double a, b, c, e;
   int swp;
     
@@ -4277,15 +4287,10 @@ int AIBranch(char *fn, int ib, int ia,
     return -1;
   }
 
-  f = FOPEN(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
-  }
-  n = ReadFHeader(f, &fh, &swp);
-  if (n == 0) {
-    FCLOSE(f);
-    return 0;
   }
   if (fh.type != DB_AI) {
     printf("File type is not DB_AI\n");
@@ -4295,6 +4300,7 @@ int AIBranch(char *fn, int ib, int ia,
    
   a = 0.0;
   c = 0.0;
+  nt = 0;
   for (i = 0; i < fh.nblocks; i++) {
     n = ReadAIHeader(f, &h, swp);
     if (n == 0) break;
@@ -4308,6 +4314,7 @@ int AIBranch(char *fn, int ib, int ia,
 	if (r.f == ia) {
 	  c += b;
 	}
+	nt++;
       }
     }    
     free(h.egrid);
@@ -4324,7 +4331,7 @@ int AIBranch(char *fn, int ib, int ia,
 
   FCLOSE(f);
   
-  return 0;
+  return nt;
 }
       
 int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {

@@ -1180,7 +1180,7 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
 	kappaf = GetKappaFromJL(jf, klf);
 	for (k = kmin; k <= kmax; k += 2) {
 	  if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
-	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k);
+	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
 	  if (n_egrid > 1) {
 	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	  } else {
@@ -1211,7 +1211,7 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
 	    if (!Triangle(jb, jf, k)) continue;
 	    b = W6j(j, jf, j0, k, j1, j1);
 	    if (fabs(b) < EPS30) continue;
-	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k);
+	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
 	    if (n_egrid > 1) {
 	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	    } else {
@@ -1279,33 +1279,64 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   np = 3;
   nt = 1;
   if (nz > 0) {
+    //int iter = 0;
+    short *ia;
+    ia = malloc(sizeof(short)*nz);
     for (i = 0; i < nz; i++) {
-      jf = ang[i].k0;
-      kb = ang[i].k1;
-      k0 = ang[i].k2;
-      k1 = ang[i].k3;
-      kappafp = GetOrbital(kb)->kappa;
-      klfp = GetLFromKappa(kappafp);
-      kappafp = GetOrbital(k0)->kappa;
-      klfp += GetLFromKappa(kappafp);
-      kappafp = GetOrbital(k1)->kappa;
-      klfp += GetLFromKappa(kappafp);      
-      ij = (jf - jmin);
-      for (ik = -1; ik <= 1; ik += 2) {
-	klf = jf + ik;  	
-	if (IsOdd((klfp+klf)/2)) continue;
-	kappaf = GetKappaFromJL(jf, klf);
-	AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k);
-	if (n_egrid > 1) {
-	  UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
-	} else {
-	  s = ai_pk[0];
+      ia[i] = 0;
+    }
+    while (1) {
+      //iter++;
+      int nleft = 0;      
+      for (i = 0; i < nz; i++) {
+	if (ia[i] == 3) continue;
+	jf = ang[i].k0;
+	kb = ang[i].k1;
+	k0 = ang[i].k2;
+	k1 = ang[i].k3;
+	kappafp = GetOrbital(kb)->kappa;
+	klfp = GetLFromKappa(kappafp);
+	kappafp = GetOrbital(k0)->kappa;
+	klfp += GetLFromKappa(kappafp);
+	kappafp = GetOrbital(k1)->kappa;
+	klfp += GetLFromKappa(kappafp);      
+	ij = (jf - jmin);
+	for (ik = -1; ik <= 1; ik += 2) {
+	  if (ik == -1) {
+	    if (ia[i] == 1) continue;
+	  } else {
+	    if (ia[i] == 2) continue;
+	  }
+	  klf = jf + ik;  	
+	  if (IsOdd((klfp+klf)/2)) {
+	    if (ik == -1) ia[i] |= 1;
+	    else ia[i] |= 2;
+	    continue;
+	  }
+	  kappaf = GetKappaFromJL(jf, klf);
+	  int type = AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k, 1);
+	  if (type == -9999) {
+	    nleft++;
+	    continue;
+	  }
+	  if (ik == -1) {
+	    ia[i] |= 1;
+	  } else {
+	    ia[i] |= 2;
+	  }
+	  if (n_egrid > 1) {
+	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	  } else {
+	    s = ai_pk[0];
+	  }
+	  ip = (ik == -1)? ij:(ij+1);
+	  p[ip] += s*ang[i].coeff;
 	}
-	ip = (ik == -1)? ij:(ij+1);
-	p[ip] += s*ang[i].coeff;
       }
-    }    
+      if (nleft == 0) break;
+    }
     free(ang);
+    free(ia);
   }
   
   nzfb = AngularZFreeBound(&zfb, f, rec);
@@ -1426,7 +1457,8 @@ int AIRadial1E(double *ai_pk, int kb, int kappaf) {
   return 0;
 }  
 
-int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
+int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
+	       int k, int trylock) {
   int i, kf;
   int ks[4];
   double e, sd, se;
@@ -1447,8 +1479,16 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
   p = (double **) MultiSet(pk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
   if (lock && !(*p)) {
-    SetLock(lock);
-    locked = 1;
+    if (trylock) {
+      if (0 == TryLock(lock)) {
+	locked = 1;
+      } else {
+	return -9999;
+      }
+    } else {
+      SetLock(lock);
+      locked = 1;
+    }
   }
   if (*p) {
     *ai_pk = *p;
@@ -1728,7 +1768,16 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   if (k == 0) {
     return 0;
   }
-  
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nup, up);
+    RandIntList(nlow, low);
+  }
+#endif
+  */
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1851,6 +1900,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     rr_hdr.usr_egrid_type = usr_egrid_type;
         
     InitFile(f, &fhdr, &rr_hdr);
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(r, i, j, lev1, lev2, e, nq, ip, ie, rqu, qc, eb)
     {
     if (qk_mode == QK_FIT) {
@@ -1959,7 +2009,16 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   if (k == 0) {
     return 0;
   }
-
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nup, up);
+    RandIntList(nlow, low);
+  }
+#endif
+  */
   if (egrid[0] < 0) {
     e_set = 0;
   } else {
@@ -2046,31 +2105,34 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t)
     {
     for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
+      int ilow = low[i];
+      lev1 = GetLevel(ilow);
       for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
+	int iup = up[j];
+	lev2 = GetLevel(iup);	
 	e = lev1->energy - lev2->energy;
-	if (e < 0 && lev1->ibase != up[j]) e -= eref;
+	if (e < 0 && lev1->ibase != iup) e -= eref;
 	if (e < e0 || e >= e1) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
 	if (!msub) {
 	  if (iuta) {
-	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
+	    k = AutoionizeRateUTA(&s, &e, ilow, iup);
 	  } else {
-	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	    k = AutoionizeRate(&s, &e, ilow, iup, msub);
 	  }
 	  if (k < 0) continue;
 	  if (s < ai_cut) continue;
-	  r.b = low[i];
-	  r.f = up[j];
+	  r.b = ilow;
+	  r.f = iup;
 	  r.rate = s;
 	  WriteAIRecord(f, &r);
 	} else {
-	  k = AutoionizeRate(s1, &e, low[i], up[j], msub);
+	  k = AutoionizeRate(s1, &e, ilow, iup, msub);
 	  if (k < 0) continue;
 	  r1.rate = rt;
 	  s = 0;
@@ -2079,8 +2141,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    s += s1[t];
 	  }
 	  if (s < ai_cut) continue;
-	  r1.b = low[i];
-	  r1.f = up[j];
+	  r1.b = ilow;
+	  r1.f = iup;
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
@@ -2097,7 +2159,6 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
 
   ReinitRecombination(1);
-  
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
 #ifdef PERFORM_STATISTICS

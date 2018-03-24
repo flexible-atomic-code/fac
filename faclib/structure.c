@@ -588,15 +588,16 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     for (j = 0; j < h->hsize; j++) {
       h->hamilton[j] = 0;
     }
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i,j,t,r)
     {
       int mr = MPIRank(NULL);
       for (j = 0; j < h->dim; j++) {
+	int skip;
+	skip = SkipMPI();
+	if (skip) continue;
 	t = j*(j+1)/2;
 	for (i = 0; i <= j; i++) {
-	  int skip;
-	  skip = SkipMPI();
-	  if (skip) continue;
 	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  h->hamilton[i+t] = r;
 	}
@@ -604,11 +605,11 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
       if (jp > 0) {
 	t = ((h->dim+1)*(h->dim))/2;
 	for (i = 0; i < h->dim; i++) {
+	  if (SkipMPI()) {
+	    t += h->n_basis-h->dim;
+	    continue;
+	  }
 	  for (j = h->dim; j < h->n_basis; j++) {
-	    if (SkipMPI()) {
-	      t++;
-	      continue;
-	    }
 	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	    h->hamilton[t++] = r;
 	  }
@@ -3646,7 +3647,10 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     n2 = n1;
     is2 = is1;
   }
-  
+
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
+  {
   for (i1 = 0; i1 < n1; i1++) {
     lev1 = GetLevel(is1[i1]);
     ih1 = lev1->iham;
@@ -3663,6 +3667,8 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       if (s2->kgroup < 0) continue;
       ne2 = GetGroup(s2->kgroup)->n_electrons;
       if (abs(ne2-ne1) > 1) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
       ns2 = hams[ih2].nlevs;
       ns = ns1*ns2;
       if (ne1 == ne2) {
@@ -3716,7 +3722,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       (ad->nz)[is] = nz;
     }
   }
-
+  }
   return ns;
 }
 

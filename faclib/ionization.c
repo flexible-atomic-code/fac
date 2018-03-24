@@ -1027,7 +1027,16 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nb, b);
+    RandIntList(nf, f);
+  }
+#endif
+  */
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1196,6 +1205,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     ci_hdr.egrid = egrid;
     ci_hdr.usr_egrid = usr_egrid;
     InitFile(file, &fhdr, &ci_hdr);
+    ResetWidMPI();
 #pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, r, ip, ie)
     {
     r.strength = (float *) malloc(sizeof(float)*n_usr);
@@ -1548,7 +1558,16 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nb, b);
+    RandIntList(nf, f);
+  }
+#endif
+  */
   if (egrid_limits_type == 0) {
     emax0 = 0.5*(emin + emax)*egrid_max;
   } else {
@@ -1609,6 +1628,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.egrid = egrid;
   ci_hdr.usr_egrid = usr_egrid;
   InitFile(file, &fhdr, &ci_hdr);
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, nq, r, qku, ie)
   {
   for (i = 0; i < nb; i++) {

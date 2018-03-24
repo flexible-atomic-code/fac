@@ -145,7 +145,7 @@ void SetOrbMap(int k, int n0, int n1, int n2) {
   if (n0 <= 0) n0 = NORBMAP0;
   if (n1 <= 0) n1 = NORBMAP1;
   if (n2 <= 0) n2 = NORBMAP2;
-  int i;
+  int i, j;
   if (_orbmap != NULL) {
     for (i = 0; i < _korbmap; i++) {
       free(_orbmap[i].opn);
@@ -165,6 +165,15 @@ void SetOrbMap(int k, int n0, int n1, int n2) {
     _orbmap[i].opn = malloc(sizeof(ORBITAL *)*_norbmap0);
     _orbmap[i].onn = malloc(sizeof(ORBITAL *)*_norbmap1);
     _orbmap[i].ozn = malloc(sizeof(ORBITAL *)*_norbmap2);
+    for (j = 0; j < _norbmap0; j++) {
+      _orbmap[i].opn[j] = NULL;
+    }
+    for (j = 0; j < _norbmap1; j++) {
+      _orbmap[i].onn[j] = NULL;
+    }
+    for (j = 0; j < _norbmap2; j++) {
+      _orbmap[i].ozn[j] = NULL;
+    }
   }
 }
 

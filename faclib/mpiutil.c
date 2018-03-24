@@ -52,15 +52,19 @@ int SkipMPI() {
   return r;
 #elif USE_MPI == 2
   if (mpi.nproc > 1) {
+#ifdef OMP_STAT
     double t0 = WallTime();
+#endif
 #pragma omp critical  
     {
       mpi.wid++;      
       if (mpi.wid <= _cwid) r = 1;
       else _cwid = mpi.wid;
     }
+#ifdef OMP_STAT
     double t1 = WallTime();
     _tskip += t1-t0;
+#endif
   }
   return r;
 #else
@@ -153,6 +157,16 @@ int NProcMPI() {
 
 long long WidMPI() {
   return mpi.wid;
+}
+
+long long CWidMPI() {
+  return _cwid;
+}
+
+void ResetWidMPI(void) {
+  _cwid = -1;  
+#pragma omp parallel
+  mpi.wid = 0;
 }
 
 void SetWidMPI(long long w) {
@@ -269,7 +283,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   BFILE *bf;  
   bf = malloc(sizeof(BFILE));  
   bf->p = 0;
-  bf->w = NULL;
+  bf->w = &bf->p;
   bf->n = 0;
   bf->eof = 0;
   bf->nbuf = nb>=0?nb:RBUFL;
@@ -300,12 +314,11 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
     free(bf);
     return NULL;
   }
-  if (bf->nr > 1) {
+  if (bf->nbuf > 0) {
     bf->buf = malloc(bf->nbuf);
   } else {
     bf->buf = NULL;
   }
-  bf->w = NULL;
 #elif USE_MPI == 2
   bf->mr = MPIRank(&bf->nr);
   bf->f = fopen(fn, md);
@@ -324,13 +337,15 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
     InitLock(&bf->lock);
   } else {
     bf->buf = NULL;
-    bf->w = NULL;
   }
 #else
   bf->nr = 1;
   bf->mr = 0;
-  bf->buf = NULL;
-  bf->w = NULL;
+  if (bf->nbuf > 0) {
+    bf->buf = malloc(bf->nbuf);
+  } else {
+    bf->buf = NULL;
+  }
   bf->f = fopen(fn, md);
   if (bf->f == NULL) {
     free(bf);
@@ -373,9 +388,14 @@ int BFileClose(BFILE *bf) {
   }
 #else
   if (bf == NULL) return 0;
+  BFileFlush(bf);
+  if (bf->nbuf > 0) {
+    free(bf->buf);
+    bf->buf = NULL;
+  }
   r = fclose(bf->f);
 #endif
-
+  
   free(bf->fn);
   free(bf);
 
@@ -494,19 +514,35 @@ void BFileRewind(BFILE *bf) {
 size_t BFileWrite(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
   int n, m, k, mr;
   char *buf;
+  
+  if (bf->buf == NULL) {
+    n = fwrite(ptr, size, nmemb, bf->f);
+    return n;
+  }
+  
+#if USE_MPI == 2
   mr = MPIRank(NULL);
+#else
+  mr = 0;
+#endif
+
   buf = bf->buf + bf->nbuf*mr;
   m = size*nmemb;
   k = bf->nbuf - bf->w[mr];
   n = 0;
+  
   if (m >= k) {
-    SetLock(&bf->lock);
+#if USE_MPI == 2
+    if (bf->nr > 1) SetLock(&bf->lock);
+#endif
     if (bf->w[mr] > 0) {
       n = fwrite(buf, 1, bf->w[mr], bf->f);
       bf->w[mr] = 0;
     }
     n = fwrite(ptr, size, nmemb, bf->f);
-    ReleaseLock(&bf->lock);
+#if USE_MPI == 2
+    if (bf->nr > 1) ReleaseLock(&bf->lock);
+#endif
   } else {
     memcpy(buf+bf->w[mr], ptr, m);
     bf->w[mr] += m;
@@ -527,11 +563,46 @@ long BFileTell(BFILE *bf) {
 
 int BFileFlush(BFILE *bf) {
   int i;
-  for (i = 0; i < bf->nr; i++) {
-    if (bf->w[i] > 0) {
-      fwrite(bf->buf+i*bf->nbuf, 1, bf->w[i], bf->f);
-      bf->w[i] = 0;
+  if (bf->buf != NULL) {
+    for (i = 0; i < bf->nr; i++) {
+      if (bf->w[i] > 0) {
+	fwrite(bf->buf+i*bf->nbuf, 1, bf->w[i], bf->f);
+	bf->w[i] = 0;
+      }
     }
   }
   return fflush(bf->f);
+}
+
+int CompareRandIdx(const void *p1, const void *p2) {
+  RANDIDX *r1, *r2;
+  r1 = (RANDIDX *) p1;
+  r2 = (RANDIDX *) p2;
+  if (r1->r < r2->r) return -1;
+  else if (r1->r > r2->r) return 1;
+  return 0;
+}
+
+RANDIDX *RandList(int n) {
+  int i;
+  RANDIDX *w;
+  w = (RANDIDX *) malloc(sizeof(RANDIDX)*n);
+  for (i = 0; i < n; i++) {
+    w[i].r = drand48();
+    w[i].i = i;
+  }
+  qsort(w, n, sizeof(RANDIDX), CompareRandIdx);
+  return w;
+}
+
+void RandIntList(int n, int *k) {
+  RANDIDX *w = RandList(n);
+  int i;
+  for (i = 0; i < n; i++) {
+    w[i].i = k[w[i].i];
+  }
+  for (i = 0; i < n; i++) {
+    k[i] = w[i].i;    
+  }
+  free(w);
 }
