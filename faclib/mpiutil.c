@@ -30,6 +30,16 @@ static double _tlock = 0, _tskip = 0;
 static long long _nlock = 0;
 #pragma omp threadprivate(mpi,_tlock,_tskip, _nlock)
 
+int SkipWMPI(int w) {
+  int r = 0;
+#ifdef USE_MPI
+  if (mpi.nproc > 1) {
+    r = w%mpi.nproc != mpi.myrank;
+  }
+#endif
+  return r;
+}
+  
 int SkipMPI() {
   int r = 0;
 #if USE_MPI == 1
@@ -259,6 +269,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   BFILE *bf;  
   bf = malloc(sizeof(BFILE));  
   bf->p = 0;
+  bf->w = NULL;
   bf->n = 0;
   bf->eof = 0;
   bf->nbuf = nb>=0?nb:RBUFL;
@@ -271,6 +282,7 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
       free(bf);
       return NULL;
     }
+    bf->fn = NULL;
     return bf;
   }
 #if USE_MPI == 1
@@ -293,18 +305,42 @@ BFILE *BFileOpen(char *fn, char *md, int nb) {
   } else {
     bf->buf = NULL;
   }
+  bf->w = NULL;
+#elif USE_MPI == 2
+  bf->mr = MPIRank(&bf->nr);
+  bf->f = fopen(fn, md);
+  if (bf->f == NULL) {
+    free(bf);
+    //printf("cannot open file: %s\n", fn);
+    return NULL;
+  }
+  bf->p = 0;
+  bf->n = 0;
+  if (bf->nbuf > 0) {
+    bf->buf = malloc(bf->nbuf*bf->nr);
+    bf->w = malloc(bf->nr*sizeof(int));
+    int i;
+    for (i = 0; i < bf->nr; i++) bf->w[i] = 0;
+    InitLock(&bf->lock);
+  } else {
+    bf->buf = NULL;
+    bf->w = NULL;
+  }
 #else
   bf->nr = 1;
   bf->mr = 0;
   bf->buf = NULL;
+  bf->w = NULL;
   bf->f = fopen(fn, md);
   if (bf->f == NULL) {
     free(bf);
     return NULL;
   }
 #endif
+
   bf->fn = malloc(strlen(fn)+1);
   strcpy(bf->fn, fn);
+
   return bf;
 }
 
@@ -320,11 +356,29 @@ int BFileClose(BFILE *bf) {
     }  
     free(bf->buf);
   }
+#elif USE_MPI == 2
+  if (bf == NULL) return 0;
+  BFileFlush(bf);
+  if (bf->nr <= 1) {
+    r = fclose(bf->f);
+  } else {
+    r = fclose(bf->f);
+    if (bf->nbuf > 0) {
+      free(bf->buf);
+      bf->buf = NULL;
+      free(bf->w);
+      bf->w = NULL;
+      DestroyLock(&bf->lock);
+    }
+  }
 #else
+  if (bf == NULL) return 0;
   r = fclose(bf->f);
 #endif
+
   free(bf->fn);
   free(bf);
+
   return r;
 }
 
@@ -435,4 +489,49 @@ void BFileRewind(BFILE *bf) {
 #else
   rewind(bf->f);
 #endif
+}
+
+size_t BFileWrite(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
+  int n, m, k, mr;
+  char *buf;
+  mr = MPIRank(NULL);
+  buf = bf->buf + bf->nbuf*mr;
+  m = size*nmemb;
+  k = bf->nbuf - bf->w[mr];
+  n = 0;
+  if (m >= k) {
+    SetLock(&bf->lock);
+    if (bf->w[mr] > 0) {
+      n = fwrite(buf, 1, bf->w[mr], bf->f);
+      bf->w[mr] = 0;
+    }
+    n = fwrite(ptr, size, nmemb, bf->f);
+    ReleaseLock(&bf->lock);
+  } else {
+    memcpy(buf+bf->w[mr], ptr, m);
+    bf->w[mr] += m;
+    n = nmemb;
+  }
+  return n;
+}
+
+int BFileSeek(BFILE *bf, long offset, int w) {
+  BFileFlush(bf);
+  return fseek(bf->f, offset, w);
+}
+
+long BFileTell(BFILE *bf) {
+  BFileFlush(bf);
+  return ftell(bf->f);
+}
+
+int BFileFlush(BFILE *bf) {
+  int i;
+  for (i = 0; i < bf->nr; i++) {
+    if (bf->w[i] > 0) {
+      fwrite(bf->buf+i*bf->nbuf, 1, bf->w[i], bf->f);
+      bf->w[i] = 0;
+    }
+  }
+  return fflush(bf->f);
 }

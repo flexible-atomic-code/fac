@@ -271,6 +271,10 @@ SHAMILTON *GetSHamilton(int *n) {
   return hams;
 }
 
+int NHams(void) {
+  return nhams;
+}
+
 int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
   CONFIG_GROUP *g0;
   CONFIG *c1;
@@ -586,6 +590,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     }
 #pragma omp parallel default(shared) private(i,j,t,r)
     {
+      int mr = MPIRank(NULL);
       for (j = 0; j < h->dim; j++) {
 	t = j*(j+1)/2;
 	for (i = 0; i <= j; i++) {
@@ -1715,7 +1720,7 @@ double Hamilton2E2(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 
   return x;
 }
-  
+
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket, 
 		  INTERACT_SHELL *s) {
   int nk0, nk, *kk, k, *kk0, i;
@@ -1724,6 +1729,7 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   double z0, *y;
   int ks[4], js[4];
 
+  int mr = MPIRank(NULL);
   js[0] = 0;
   js[1] = 0;
   js[2] = 0;
@@ -1762,7 +1768,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     }
     if (nk0 > 0) x -= z0 * sd;
   }
-
   if (nk > 0) {
     free(ang);
     free(kk);
@@ -2494,7 +2499,7 @@ int GetNumElectrons(int k) {
 
 int SaveEBLevels(char *fn, int m, int n) {
   int n0, k, i, ilev, mlev, nele;
-  FILE *f;
+  TFILE *f;
   LEVEL *lev;
   F_HEADER fhdr;
   ENF_HEADER enf_hdr;
@@ -2545,7 +2550,7 @@ int SaveLevels(char *fn, int m, int n) {
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
-  FILE *f;
+  TFILE *f;
   int i, k, p, j0;
   int nele, nele0, vnl, ib, dn, ik;
   int si, ms, mst, t, q, nk, n0;
@@ -3127,10 +3132,19 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
     return ns;
   }
 
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }  
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }  
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1*ns2;
-  ns = (*ad)->ns;
+  ns = ns1*ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   iz = 0;
@@ -3271,6 +3285,8 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   timing.n_angz_states++;
 #endif
 
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -3333,11 +3349,19 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
 #endif
     return ns;
   }
-
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1 * ns2;
-  ns = (*ad)->ns;
+  ns = ns1 * ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   
@@ -3427,6 +3451,8 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -3475,11 +3501,21 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
 #endif
     return ns;
   }
+
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }  
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }
   
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1*ns2;
-  ns = (*ad)->ns;
+  ns = ns1*ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZxZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   
@@ -3582,7 +3618,8 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
-
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -4526,11 +4563,10 @@ void FreeAngZDatum(ANGZ_DATUM *ap) {
 }
 
 int InitAngZArray(void) {
-  int i;
-
   angz_dim = MAX_HAMS;
   angz_dim2 = angz_dim*angz_dim;
-  
+
+  int i;
   angz_array = malloc(sizeof(ANGZ_DATUM)*angz_dim2);
   if (!angz_array) {
     printf("cannot allocate memory for angz_array %d\n", angz_dim2);
@@ -4546,8 +4582,10 @@ int InitAngZArray(void) {
     angzxz_array[i].ns = 0;
     angz_array[i].mk = NULL;
     angzxz_array[i].mk = NULL;
+    InitLock(&angz_array[i].lock);
+    InitLock(&angzxz_array[i].lock);
   }
-  
+
   return 0;
 }
   
@@ -4556,6 +4594,8 @@ int FreeAngZArray(void) {
   
   if (angz_dim2 > 0) {
     for (i = 0; i < angz_dim2; i++) {
+      DestroyLock(&angz_array[i].lock);
+      DestroyLock(&angzxz_array[i].lock);
       FreeAngZDatum(&(angz_array[i]));
       FreeAngZDatum(&(angzxz_array[i]));
     }

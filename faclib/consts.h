@@ -168,6 +168,11 @@
 #define NISO 58
 #define NFERMI 5001
 
+#define NORBMAP0 500
+#define NORBMAP1 1000
+#define NORBMAP2 5000
+#define KORBMAP 500
+
 /* radial QK modes */
 #define QK_DEFAULT    -1
 #define QK_EXACT       0

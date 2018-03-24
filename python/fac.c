@@ -120,7 +120,7 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
@@ -133,12 +133,11 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   fn = NULL;
   if (!PyArg_ParseTuple(args, "|s", &fn)) return NULL;
   if (fn) {
-    f = fopen(fn, "rb");
+    f = OpenFileRO(fn, &fh, &swp);
     if (f == NULL) {
       printf("Cannot open file %s\n", fn);
       return NULL;
     }
-    ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
   } else {
     i = CheckEndian(NULL);
@@ -1018,7 +1017,7 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   rn = -1.0;
   a = -1.0;
   npr = -1;
-  if (PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr) == NULL) {
+  if (!PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr)) {
     return -1;
   }
   if (PyString_Check(t)) {
@@ -2961,79 +2960,6 @@ static PyObject *PTestMyArray(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
-
-static PyObject *PSaveOrbitals(PyObject *self, PyObject *args) {  
-  int n, i, norbs;
-  double e;
-  PyObject *p;
-
-  if (sfac_file) {
-    SFACStatement("SaveOrbitals", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  norbs = GetNumOrbitals();
-  if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-  if (PyInt_Check(p)) {
-    n = PyInt_AsLong(p);
-    if (n <= 0) {
-      if (SaveAllContinua(1) < 0) return NULL;
-    } else {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n == n) {
-	  if (SaveOrbital(i) < 0) return NULL;
-	  FreeOrbital(i);
-	}
-      }
-    }
-  } else if (PyFloat_Check(p)) {
-    e = PyFloat_AsDouble(p)/HARTREE_EV;
-    if (SaveContinua(e, 1) < 0) return NULL;
-  } else {
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-static PyObject *PFreeOrbitals(PyObject *self, PyObject *args) {  
-  int n, i, norbs;
-  double e;
-  PyObject *p;
-
-  if (sfac_file) {
-    SFACStatement("FreeOrbitals", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  norbs = GetNumOrbitals();
-  if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-  if (PyInt_Check(p)) {
-    n = PyInt_AsLong(p);
-    if (n <= 0) {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n <= 0) {
-	  FreeOrbital(i);
-	}
-      }
-    } else {
-      for (i = 0; i < norbs; i++) {
-	if (GetOrbital(i)->n == n) {
-	  FreeOrbital(i);
-	}
-      }
-    }
-  } else if (PyFloat_Check(p)) {
-    e = PyFloat_AsDouble(p)/HARTREE_EV;
-    if (FreeContinua(e) < 0) return NULL;
-  } else {
-    return NULL;
-  }
-  Py_INCREF(Py_None);
-  return Py_None;
-}
 
 static PyObject *PDROpen(PyObject *self, PyObject *args) {
   int i, n, *nlev, *n0, nop;
@@ -5184,6 +5110,20 @@ static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PWallTime(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("WallTime", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int m = 0;
+  char *s;
+  if (!(PyArg_ParseTuple(args, "s|i", &s, &m))) return NULL;
+  PrintWallTime(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("InitializeMPI", args, NULL);
@@ -5222,6 +5162,22 @@ static PyObject *PMemUsed(PyObject *self, PyObject *args) {
   }
   double m = msize();
   return Py_BuildValue("d", m);
+}
+
+static PyObject *PSetOrbMap(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetOrbMap", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int k=0, n0=0, n1=0, n2=0;
+  
+  if (!(PyArg_ParseTuple(args, "|iiii", &k, &n0, &n1, &n2))) return NULL;
+  SetOrbMap(k, n0, n1, n2);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
@@ -5298,7 +5254,6 @@ static struct PyMethodDef fac_methods[] = {
   {"FreeIonizationQk", PFreeIonizationQk, METH_VARARGS},
   {"FreeMemENTable", PFreeMemENTable, METH_VARARGS},
   {"FreeMultipole", PFreeMultipole, METH_VARARGS},
-  {"FreeOrbitals", PFreeOrbitals, METH_VARARGS},
   {"FreeSlater", PFreeSlater, METH_VARARGS},
   {"FreeResidual", PFreeResidual, METH_VARARGS},
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
@@ -5333,7 +5288,6 @@ static struct PyMethodDef fac_methods[] = {
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
-  {"SaveOrbitals", PSaveOrbitals, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
@@ -5363,7 +5317,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetMaxRank", PSetMaxRank, METH_VARARGS},
   {"SetOptimizeControl", PSetOptimizeControl, METH_VARARGS},
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
-  {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
+  {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},  
+  {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
@@ -5441,6 +5396,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
   {"InitializeMPI", PInitializeMPI, METH_VARARGS},
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},

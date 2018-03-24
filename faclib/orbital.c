@@ -320,6 +320,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
   } else {
     ierr = RadialBasisOuter(orb, pot);
   }
+  if (orb->wfun != NULL && orb->ilast > 0) orb->isol = 1;
   return ierr;
 }
 

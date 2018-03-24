@@ -413,7 +413,8 @@ void RRRadialQkHydrogenicParams(int np, double *p,
   double fvec[NNE], fjac[NNE*NPARAMS];
   double tol;
   int i, j, k, ne;
-
+#pragma omp critical
+  {
   qk = (double **) ArraySet(hyd_qk_array, n, NULL, InitPointerData);
   if (*qk == NULL) {
     tol = 1E-4;
@@ -463,6 +464,7 @@ void RRRadialQkHydrogenicParams(int np, double *p,
   p[0] = t[0]/(z0*z0);
   for (i = 1; i < np; i++) {
     p[i] = t[i];
+  }
   }
 #undef NNE
 }  
@@ -592,9 +594,9 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
-  *p = (double *) malloc(sizeof(double)*nqk);
+  double *pd = (double *) malloc(sizeof(double)*nqk);
   
-  qk = *p;
+  qk = pd;
   /* the factor 2 comes from the conitinuum norm */
   pref = sqrt(2.0);  
   for (ite = 0; ite < n_tegrid; ite++) {
@@ -613,8 +615,9 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   }
   
   for (i = 0; i < nqk; i++) {
-    qr[i] = (*p)[i];
+    qr[i] = pd[i];
   }
+  *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return 0;
@@ -648,7 +651,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   GetHydrogenicNL(&nh, &klh, NULL, NULL);
   if (m == -1) {
     r0 = GetResidualZ();
-    RRRadialQkHydrogenicParams(NPARAMS, hparams, r0, orb->n, klb0);
+    RRRadialQkHydrogenicParams(NPARAMS, hparams, r0, orb->n, klb0);    
     RRRadialQkFromFit(NPARAMS, hparams, n_egrid, 
 		      xegrid, log_xegrid, tq0, NULL, 0, &klb0);
     if (klb0 > klh || orb->n > nh) {
@@ -680,21 +683,26 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   nqk = n_tegrid*n_egrid;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
-  if (lock && !(*p)) SetLock(lock);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
     }
-    if (locked) ReleaseLock(lock);
+    if (locked) {      
+      ReleaseLock(lock);
+    }
     return 0;
   }
 
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
 
-  *p = (double *) malloc(sizeof(double)*nqk);
+  double *pd = (double *) malloc(sizeof(double)*nqk);
   
-  qk = *p;
+  qk = pd;
   /* the factor 2 comes from the conitinuum norm */
   pref = 2.0/((k+1.0)*(jb0+1.0));
   
@@ -744,8 +752,9 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   }
   
   for (i = 0; i < nqk; i++) {
-    qr[i] = (*p)[i];
+    qr[i] = pd[i];
   }
+  *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return 0;
@@ -1020,7 +1029,6 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 
   *eb = (lev2->energy - lev1->energy);
   if (*eb <= 0.0) return -1;
-
   nz = AngularZFreeBound(&ang, f, rec);
   if (nz <= 0) return -1;
 
@@ -1267,7 +1275,6 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   nkappaf = njf*2;
   p = malloc(sizeof(double)*nkappaf);
   for (ip = 0; ip < nkappaf; ip++) p[ip] = 0.0;
-
   nz = AngularZxZFreeBound(&ang, f, rec);
   np = 3;
   nt = 1;
@@ -1448,8 +1455,8 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
     if (locked) ReleaseLock(lock);
     return 0;
   } 
-  (*p) = (double *) malloc(sizeof(double)*n_egrid);
-  *ai_pk = *p;
+  double *pd = (double *) malloc(sizeof(double)*n_egrid);
+  *ai_pk = pd;
   for (i = 0; i < n_egrid; i++) {
     e = egrid[i];
     kf = OrbitalIndex(0, kappaf, e);
@@ -1460,6 +1467,7 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf, int k) {
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
     (*ai_pk)[i] = sd+se;
   }
+  *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return 0;
@@ -1681,7 +1689,7 @@ int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
   int i, j, k, ie, ip;
-  FILE *f;
+  TFILE *f;
   double rqu[MAXNUSR], qc[NPARAMS+1];
   double eb;
   LEVEL *lev1, *lev2;
@@ -1759,11 +1767,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 
   if (qk_mode == QK_FIT) {
     nqk = NPARAMS+1;
-    r.params = (float *) malloc(sizeof(float)*nqk);
   } else {
     nqk = 0;
   }
-
   fhdr.type = DB_RR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
@@ -1843,17 +1849,22 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     rr_hdr.usr_egrid = usr_egrid;
     rr_hdr.egrid_type = egrid_type;
     rr_hdr.usr_egrid_type = usr_egrid_type;
-    
-    r.strength = (float *) malloc(sizeof(float)*n_usr);
-    
+        
     InitFile(f, &fhdr, &rr_hdr);
-    
+#pragma omp parallel default(shared) private(r, i, j, lev1, lev2, e, nq, ip, ie, rqu, qc, eb)
+    {
+    if (qk_mode == QK_FIT) {
+      r.params = (float *) malloc(sizeof(float)*nqk);
+    }
+    r.strength = (float *) malloc(sizeof(float)*n_usr);
     for (i = 0; i < nup; i++) {
       lev1 = GetLevel(up[i]);
       for (j = 0; j < nlow; j++) {
 	lev2 = GetLevel(low[j]);
 	e = lev1->energy - lev2->energy;
 	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	if (iuta) {
 	  nq = BoundFreeOSUTA(rqu, qc, &eb, low[j], up[i], m);
 	} else {
@@ -1875,20 +1886,19 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	}
 	WriteRRRecord(f, &r);
       }
-    }      
-
-    DeinitFile(f, &fhdr);
-    
+    }
+    if (qk_mode == QK_FIT) {
+      free(r.params);
+    }
     free(r.strength);
+    }
+    
+    DeinitFile(f, &fhdr);    
     ReinitRadial(1);
     FreeRecQk();
     FreeRecPk();
     
     e0 = e1;
-  }
-
-  if (qk_mode == QK_FIT) {
-    free(r.params);
   }
       
   ReinitRecombination(1);
@@ -1917,7 +1927,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   double emin, emax;
   double e, s, tai, a, s1[MAXAIM];
   float rt[MAXAIM];
-  FILE *f;
+  TFILE *f;
   ARRAY subte;
   double c, e0, e1, b;
   int isub, n_egrid0;
@@ -2036,6 +2046,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
+#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t)
+    {
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
@@ -2043,6 +2055,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	e = lev1->energy - lev2->energy;
 	if (e < 0 && lev1->ibase != up[j]) e -= eref;
 	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	if (!msub) {
 	  if (iuta) {
 	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
@@ -2072,7 +2086,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	}
       }
     }
-
+    }
     DeinitFile(f, &fhdr);
 
     ReinitRadial(1);
@@ -2086,7 +2100,6 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
-
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",

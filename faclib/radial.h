@@ -43,6 +43,13 @@ typedef struct _RAD_TIMING_ {
 int GetRadTiming(RAD_TIMING *t);
 #endif
 
+typedef struct _orbmap_ {
+  ORBITAL **opn;
+  ORBITAL **onn;
+  int nzn;
+  ORBITAL **ozn;
+} ORBMAP;
+
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
@@ -77,15 +84,18 @@ int SolveDirac(ORBITAL *orb);
 int WaveFuncTable(char *s, int n, int kappa, double e);
 
 /* get the index of the given orbital in the table */
-int OrbitalIndexNoLock(int n, int kappa, double energy);
+//int OrbitalIndexNoLock(int n, int kappa, double energy);
 int OrbitalIndex(int n, int kappa, double energy);
 int OrbitalExistsNoLock(int n, int kappa, double energy);
 int OrbitalExists(int n, int kappa, double energy);
 int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
 ORBITAL *GetOrbitalSolved(int k);
-ORBITAL *GetNewOrbitalNoLock(void);
-ORBITAL *GetNewOrbital(void);
+void SetOrbMap(int k, int n0, int n1, int n2);
+void AddOrbMap(ORBITAL *orb);
+void RemoveOrbMap(int m);
+ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e);
+ORBITAL *GetNewOrbital(int n, int kappa, double e);
 int GetNumBounds(void);
 int GetNumOrbitals(void);
 int GetNumContinua(void);
@@ -167,13 +177,6 @@ double InterpolateMultipole(double aw2, int n, double *x, double *y);
 double *GeneralizedMoments(int k0, int k1, int m);
 void PrintGeneralizedMoments(char *fn, int m, int n0, int k0, int n1, int k1, 
 			     double e1);
-int SaveOrbital(int i);
-int RestoreOrbital(int i); 
-int FreeOrbital(int i);
-int SaveAllContinua(int mode); 
-int SaveContinua(double e, int mode);
-int FreeAllContinua(void);
-int FreeContinua(double e);
 int ClearOrbitalTable(int m);
 void LimitArrayRadial(int m, double n);
 int InitRadial(void);

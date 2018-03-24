@@ -70,6 +70,8 @@ double RRCrossH(double z, int n0, int kl0, double e);
 int BoundFreeMultipole(FILE *fp, int rec, int f, int m);
 int BoundFreeOS(double *rqu, double *p, 
 		double *eb, int rec, int f, int m);
+int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
+		   int rec, int f, int m);
 int PrepRREGrids(double eth, double emax0);
 int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);

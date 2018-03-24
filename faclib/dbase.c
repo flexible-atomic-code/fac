@@ -50,27 +50,26 @@ static int iground;
 static int iuta = 0;
 static int utaci = 1;
 static int itrf = 0;
+static double clock_start=0, clock_last=0;
 
 static double born_mass = 1.0;
 static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 
-#define _WSF0(sv, f) {					\
-    n = fwrite(&(sv), sizeof(sv), 1, f);		\
-    if (n != 1) return 0;				\
+#define _WSF0(sv, f) do{				\
+    n = FWRITE(&(sv), sizeof(sv), 1, f);		\
     m += sizeof(sv);					\
   }while(0)
-#define _RSF0(sv, f) {					\
-    n = fread(&(sv), sizeof(sv), 1, f);			\
-    if (n != 1) return 0;				\
+#define _RSF0(sv, f) do{			       	\
+    n = FREAD(&(sv), sizeof(sv), 1, f);			\
+    if (n != 1) return 0;                               \
     m += sizeof(sv);					\
   }while(0)
-#define _WSF1(sv, s, k, f) {				\
-    n = fwrite(sv, s, k, f);				\
-    if ((n) != (k)) return 0;				\
+#define _WSF1(sv, s, k, f) do{				\
+    n = FWRITE(sv, s, k, f);				\
     m += (s)*(k);					\
   }while(0)
-#define _RSF1(sv, s, k, f) {				\
-    n = fread(sv, s, k, f);				\
+#define _RSF1(sv, s, k, f) do{				\
+    n = FREAD(sv, s, k, f);				\
     if ((n) != (k)) return 0;				\
     m += (s)*(k);					\
   }while(0)
@@ -120,7 +119,7 @@ void SetBornFormFactor(double te, char *fn) {
     if (fn == NULL) {
       bform.nk = 0;
     } else {
-      f = fopen(fn, "w");
+      f = fopen(fn, "r");
       if (f == NULL) {
 	printf("cannot open file %s\n", fn);
 	exit(1);
@@ -553,6 +552,7 @@ int SwapEndianDRRecord(DR_RECORD *r) {
   SwapEndian((char *) &(r->br), sizeof(float));
   SwapEndian((char *) &(r->ai), sizeof(float));
   SwapEndian((char *) &(r->total_rate), sizeof(float));
+  return 0;
 }
 
 void CEMF2CEFHeader(CEMF_HEADER *mh, CEF_HEADER *h) {
@@ -583,8 +583,41 @@ void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh,
   r->strength = &(mr->strength[k*mh->n_egrid]);
 }
 
+double ClockStart(void) {
+  return clock_start;
+}
+
+double ClockLast(void) {
+  return clock_last;
+}
+
+double ClockNow(int m) {
+  double t = WallTime();
+  double dt;
+  if (m%2 == 0) {
+    dt = t-clock_start;
+  } else {
+    dt = t-clock_last;
+  }
+  if (m < 2) clock_last = t;
+  return dt;
+}
+
+void PrintWallTime(char *s, int m) {
+  double t = ClockNow(m);
+  double tskip = TimeSkip();
+  double tlock = TimeLock();
+  long long nlock = NumLock();
+  printf("WallTime%d: %11.4E %11.4E %11.4E %10lld ... %s\n",
+	  m, t, tskip, tlock, nlock, s);
+  fflush(stdout);
+}
+
 int InitDBase(void) {
   int i;
+
+  clock_start = WallTime();
+  clock_last = clock_start;
   for (i = 0; i < NDB; i++) {
     fheader[i].tsession = (long int) time(0);
     fheader[i].version = VERSION;
@@ -640,30 +673,30 @@ int ReinitDBase(int m) {
 }
 
 
-int ReadENHeaderOld(FILE *f, EN_HEADER *h, int swp) {
+int ReadENHeaderOld(TFILE *f, EN_HEADER *h, int swp) {
   int n;
 
-  n = fread(h, sizeof(EN_HEADER), 1, f);
+  n = FREAD(h, sizeof(EN_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianENHeader(h);
   
   return sizeof(EN_HEADER);
 }
   
-int ReadENRecordOld(FILE *f, EN_RECORD *r, int swp) {
+int ReadENRecordOld(TFILE *f, EN_RECORD *r, int swp) {
   int n;
 
-  n = fread(r, sizeof(EN_RECORD), 1, f);
+  n = FREAD(r, sizeof(EN_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianENRecord(r);
   
   return sizeof(EN_RECORD);
 }
 
-int ReadTRHeaderOld(FILE *f, TR_HEADER *h, int swp) {
+int ReadTRHeaderOld(TFILE *f, TR_HEADER *h, int swp) {
   int n;
 
-  n = fread(h, sizeof(TR_HEADER), 1, f);
+  n = FREAD(h, sizeof(TR_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianTRHeader(h);
   if (h->length/h->ntransitions > sizeof(TR_RECORD)) iuta = 1;
@@ -671,13 +704,13 @@ int ReadTRHeaderOld(FILE *f, TR_HEADER *h, int swp) {
   return sizeof(TR_HEADER);
 }
 
-int ReadTRRecordOld(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
+int ReadTRRecordOld(TFILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
   int n;
   
-  n = fread(r, sizeof(TR_RECORD), 1, f);
+  n = FREAD(r, sizeof(TR_RECORD), 1, f);
   if (n != 1) return 0;
   if (iuta) {
-    n = fread(rx, sizeof(TR_EXTRA), 1, f);
+    n = FREAD(rx, sizeof(TR_EXTRA), 1, f);
     if (n != 1) return 0;
   }
   if (swp) SwapEndianTRRecord(r, rx);
@@ -685,23 +718,23 @@ int ReadTRRecordOld(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
   return sizeof(TR_RECORD);
 }
 
-int ReadCEHeaderOld(FILE *f, CE_HEADER *h, int swp) {
+int ReadCEHeaderOld(TFILE *f, CE_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(CE_HEADER), 1, f);
+  n = FREAD(h, sizeof(CE_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianCEHeader(h);
   m = sizeof(CE_HEADER);
 
   h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
-  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  n = FREAD(h->tegrid, sizeof(double), h->n_tegrid, f);
   if (n != h->n_tegrid) {
     free(h->tegrid);
     return 0;
   }
   m += sizeof(double)*h->n_tegrid;
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->tegrid);
     free(h->egrid);
@@ -709,7 +742,7 @@ int ReadCEHeaderOld(FILE *f, CE_HEADER *h, int swp) {
   }
   m += sizeof(double)*h->n_egrid;
   h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
-  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  n = FREAD(h->usr_egrid, sizeof(double), h->n_usr, f);
   if (n != h->n_usr) {
     free(h->tegrid);
     free(h->egrid);
@@ -732,10 +765,10 @@ int ReadCEHeaderOld(FILE *f, CE_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCERecordOld(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
+int ReadCERecordOld(TFILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   int i, n, m, m0;
 
-  n = fread(r, sizeof(CE_RECORD), 1, f);
+  n = FREAD(r, sizeof(CE_RECORD), 1, f);
   if (n != 1) return 0;
   m0 = sizeof(CE_RECORD);
   if (swp) SwapEndianCERecord(r);
@@ -743,7 +776,7 @@ int ReadCERecordOld(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   if (h->msub) {
     m = r->nsub;
     r->params = (float *) malloc(sizeof(float)*m);
-    n = fread(r->params, sizeof(float), m, f);
+    n = FREAD(r->params, sizeof(float), m, f);
     if (n != m) {
       free(r->params);
       return 0;
@@ -757,7 +790,7 @@ int ReadCERecordOld(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   } else if (h->qk_mode == QK_FIT) {
     m = h->nparams * r->nsub;
     r->params = (float *) malloc(sizeof(float)*m);
-    n = fread(r->params, sizeof(float), m, f);
+    n = FREAD(r->params, sizeof(float), m, f);
     if (n != m) {
       free(r->params);
       return 0;
@@ -772,7 +805,7 @@ int ReadCERecordOld(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   
   m = h->n_usr * r->nsub;
   r->strength = (float *) malloc(sizeof(float)*m);
-  n = fread(r->strength, sizeof(float), m, f);
+  n = FREAD(r->strength, sizeof(float), m, f);
   if (n != m) {
     if (h->qk_mode) free(r->params);
     free(r->strength);
@@ -788,23 +821,23 @@ int ReadCERecordOld(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   return m0;
 }
 
-int ReadRRHeaderOld(FILE *f, RR_HEADER *h, int swp) {
+int ReadRRHeaderOld(TFILE *f, RR_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(RR_HEADER), 1, f);
+  n = FREAD(h, sizeof(RR_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianRRHeader(h);
   m = sizeof(RR_HEADER);
 
   h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
-  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  n = FREAD(h->tegrid, sizeof(double), h->n_tegrid, f);
   if (n != h->n_tegrid) {
     free(h->tegrid);
     return 0;
   }
   m += sizeof(double)*h->n_tegrid;
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->tegrid);
     free(h->egrid);
@@ -812,7 +845,7 @@ int ReadRRHeaderOld(FILE *f, RR_HEADER *h, int swp) {
   }
   m += sizeof(double)*h->n_egrid;
   h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
-  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  n = FREAD(h->usr_egrid, sizeof(double), h->n_usr, f);
   if (n != h->n_usr) {
     free(h->tegrid);
     free(h->egrid);
@@ -835,10 +868,10 @@ int ReadRRHeaderOld(FILE *f, RR_HEADER *h, int swp) {
   return m;
 }
 
-int ReadRRRecordOld(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
+int ReadRRRecordOld(TFILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   int i, n, m, m0;
   
-  n = fread(r, sizeof(RR_RECORD), 1, f);
+  n = FREAD(r, sizeof(RR_RECORD), 1, f);
   if (n != 1) return 0;
   m0 = sizeof(RR_RECORD);
   if (swp) SwapEndianRRRecord(r);
@@ -846,7 +879,7 @@ int ReadRRRecordOld(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   if (h->qk_mode == QK_FIT) {
     m = h->nparams;
     r->params = (float *) malloc(sizeof(float)*m);
-    n = fread(r->params, sizeof(float), m, f);
+    n = FREAD(r->params, sizeof(float), m, f);
     if (n != m) {
       free(r->params);
       return 0;
@@ -860,7 +893,7 @@ int ReadRRRecordOld(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   }
   m = h->n_usr;
   r->strength = (float *) malloc(sizeof(float)*m);
-  n = fread(r->strength, sizeof(float), m, f);
+  n = FREAD(r->strength, sizeof(float), m, f);
   if (n != m) {
     if (h->qk_mode) free(r->params);
     free(r->strength);
@@ -876,16 +909,16 @@ int ReadRRRecordOld(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   return m0;
 }
 
-int ReadAIHeaderOld(FILE *f, AI_HEADER *h, int swp) {
+int ReadAIHeaderOld(TFILE *f, AI_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(AI_HEADER), 1, f);
+  n = FREAD(h, sizeof(AI_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianAIHeader(h);
   m = sizeof(AI_HEADER);
   
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->egrid);
     return 0;
@@ -900,16 +933,16 @@ int ReadAIHeaderOld(FILE *f, AI_HEADER *h, int swp) {
   return m;
 }
 
-int ReadAIMHeaderOld(FILE *f, AIM_HEADER *h, int swp) {
+int ReadAIMHeaderOld(TFILE *f, AIM_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(AIM_HEADER), 1, f);
+  n = FREAD(h, sizeof(AIM_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianAIMHeader(h);
   m = sizeof(AIM_HEADER);
   
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->egrid);
     return 0;
@@ -924,26 +957,26 @@ int ReadAIMHeaderOld(FILE *f, AIM_HEADER *h, int swp) {
   return m;
 }
 
-int ReadAIRecordOld(FILE *f, AI_RECORD *r, int swp) {
+int ReadAIRecordOld(TFILE *f, AI_RECORD *r, int swp) {
   int n;
 
-  n = fread(r, sizeof(AI_RECORD), 1, f);
+  n = FREAD(r, sizeof(AI_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianAIRecord(r);
   
   return sizeof(AI_RECORD);
 }
 
-int ReadAIMRecordOld(FILE *f, AIM_RECORD *r, int swp) {
+int ReadAIMRecordOld(TFILE *f, AIM_RECORD *r, int swp) {
   int n, i;
 
-  n = fread(r, sizeof(AIM_RECORD), 1, f);
+  n = FREAD(r, sizeof(AIM_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) {
     SwapEndianAIMRecord(r);
   }
   r->rate = (float *) malloc(sizeof(float)*r->nsub);
-  n = fread(r->rate, sizeof(float), r->nsub, f);
+  n = FREAD(r->rate, sizeof(float), r->nsub, f);
   if (n != r->nsub) return 0;
   if (swp) {
     for (i = 0; i < r->nsub; i++) {
@@ -953,23 +986,23 @@ int ReadAIMRecordOld(FILE *f, AIM_RECORD *r, int swp) {
   return sizeof(AIM_RECORD);
 }
 
-int ReadCIHeaderOld(FILE *f, CI_HEADER *h, int swp) {
+int ReadCIHeaderOld(TFILE *f, CI_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(CI_HEADER), 1, f);
+  n = FREAD(h, sizeof(CI_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianCIHeader(h);
   m = sizeof(CI_HEADER);
   
   h->tegrid = (double *) malloc(sizeof(double)*h->n_tegrid);
-  n = fread(h->tegrid, sizeof(double), h->n_tegrid, f);
+  n = FREAD(h->tegrid, sizeof(double), h->n_tegrid, f);
   if (n != h->n_tegrid) {
     free(h->tegrid);
     return 0;
   }
   m += sizeof(double)*h->n_tegrid;
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->tegrid);
     free(h->egrid);
@@ -977,7 +1010,7 @@ int ReadCIHeaderOld(FILE *f, CI_HEADER *h, int swp) {
   }
   m += sizeof(double)*h->n_egrid;
   h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
-  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  n = FREAD(h->usr_egrid, sizeof(double), h->n_usr, f);
   if (n != h->n_usr) {
     free(h->tegrid);
     free(h->egrid);
@@ -1000,17 +1033,17 @@ int ReadCIHeaderOld(FILE *f, CI_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCIRecordOld(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
+int ReadCIRecordOld(TFILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
   int i, n, m, m0;
 
-  n = fread(r, sizeof(CI_RECORD), 1, f);
+  n = FREAD(r, sizeof(CI_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianCIRecord(r);
   m0 = sizeof(CI_RECORD);
 
   m = h->nparams;
   r->params = (float *) malloc(sizeof(float)*m);
-  n = fread(r->params, sizeof(float), m, f);
+  n = FREAD(r->params, sizeof(float), m, f);
   if (n != m) {
     free(r->params);
     return 0;
@@ -1024,7 +1057,7 @@ int ReadCIRecordOld(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
 
   m = h->n_usr;
   r->strength = (float *) malloc(sizeof(float)*m);
-  n = fread(r->strength, sizeof(float), m, f);
+  n = FREAD(r->strength, sizeof(float), m, f);
   if (n != m) {
     free(r->params);
     free(r->strength);
@@ -1040,23 +1073,23 @@ int ReadCIRecordOld(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
   return m0;
 }
 
-int ReadCIMHeaderOld(FILE *f, CIM_HEADER *h, int swp) {
+int ReadCIMHeaderOld(TFILE *f, CIM_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(CIM_HEADER), 1, f);
+  n = FREAD(h, sizeof(CIM_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianCIMHeader(h);
   m = sizeof(CIM_HEADER);
   
   h->egrid = (double *) malloc(sizeof(double)*h->n_egrid);
-  n = fread(h->egrid, sizeof(double), h->n_egrid, f);
+  n = FREAD(h->egrid, sizeof(double), h->n_egrid, f);
   if (n != h->n_egrid) {
     free(h->egrid);
     return 0;
   }
   m += sizeof(double)*h->n_egrid;
   h->usr_egrid = (double *) malloc(sizeof(double)*h->n_usr);
-  n = fread(h->usr_egrid, sizeof(double), h->n_usr, f);
+  n = FREAD(h->usr_egrid, sizeof(double), h->n_usr, f);
   if (n != h->n_usr) {
     free(h->egrid);
     free(h->usr_egrid);
@@ -1075,17 +1108,17 @@ int ReadCIMHeaderOld(FILE *f, CIM_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCIMRecordOld(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
+int ReadCIMRecordOld(TFILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
   int i, n, m, m0;
 
-  n = fread(r, sizeof(CIM_RECORD), 1, f);
+  n = FREAD(r, sizeof(CIM_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianCIMRecord(r);
   m0 = sizeof(CIM_RECORD);
 
   m = h->n_usr*r->nsub;
   r->strength = (float *) malloc(sizeof(float)*m);
-  n = fread(r->strength, sizeof(float), m, f);
+  n = FREAD(r->strength, sizeof(float), m, f);
   if (n != m) {
     free(r->strength);
     return 0;
@@ -1100,10 +1133,10 @@ int ReadCIMRecordOld(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
   return m0;
 } 
 
-int ReadSPHeaderOld(FILE *f, SP_HEADER *h, int swp) {
+int ReadSPHeaderOld(TFILE *f, SP_HEADER *h, int swp) {
   int n;
 
-  n = fread(h, sizeof(SP_HEADER), 1, f);
+  n = FREAD(h, sizeof(SP_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianSPHeader(h);
   if (h->length/h->ntransitions > sizeof(SP_RECORD)) iuta = 1;
@@ -1111,29 +1144,29 @@ int ReadSPHeaderOld(FILE *f, SP_HEADER *h, int swp) {
   return sizeof(SP_HEADER);
 }
 
-int ReadSPRecordOld(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
+int ReadSPRecordOld(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
   int n;
 
-  n = fread(r, sizeof(SP_RECORD)-2*sizeof(float), 1, f);
+  n = FREAD(r, sizeof(SP_RECORD)-2*sizeof(float), 1, f);
   if (n != 1) return 0;
   if (iuta) {
-    n = fread(rx, sizeof(SP_EXTRA), 1, f);
+    n = FREAD(rx, sizeof(SP_EXTRA), 1, f);
     if (n != 1) return 0;
   }
   if (swp) SwapEndianSPRecord(r, rx);
   return sizeof(SP_RECORD);
 }
 
-int ReadRTHeaderOld(FILE *f, RT_HEADER *h, int swp) {
+int ReadRTHeaderOld(TFILE *f, RT_HEADER *h, int swp) {
   int i, n, m;
 
-  n = fread(h, sizeof(RT_HEADER)-8, 1, f);
+  n = FREAD(h, sizeof(RT_HEADER)-8, 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianRTHeader(h);
   m = sizeof(RT_HEADER);
   
   h->p_edist = (double *) malloc(sizeof(double)*h->np_edist);
-  n = fread(h->p_edist, sizeof(double), h->np_edist, f);
+  n = FREAD(h->p_edist, sizeof(double), h->np_edist, f);
   if (n != h->np_edist) {
     free(h->p_edist);
     return 0;
@@ -1141,7 +1174,7 @@ int ReadRTHeaderOld(FILE *f, RT_HEADER *h, int swp) {
   m += sizeof(double)*h->np_edist;
 
   h->p_pdist = (double *) malloc(sizeof(double)*h->np_pdist);
-  n = fread(h->p_pdist, sizeof(double), h->np_pdist, f);
+  n = FREAD(h->p_pdist, sizeof(double), h->np_pdist, f);
   if (n != h->np_pdist) {
     free(h->p_edist);
     free(h->p_pdist);
@@ -1161,36 +1194,36 @@ int ReadRTHeaderOld(FILE *f, RT_HEADER *h, int swp) {
   return m;
 }
 
-int ReadRTRecordOld(FILE *f, RT_RECORD *r, int swp) {
+int ReadRTRecordOld(TFILE *f, RT_RECORD *r, int swp) {
   int n;
 
-  n = fread(r, sizeof(RT_RECORD)-4, 1, f);
+  n = FREAD(r, sizeof(RT_RECORD)-4, 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianRTRecord(r);
   return sizeof(RT_RECORD);
 }
 
-int ReadDRHeaderOld(FILE *f, DR_HEADER *h, int swp) {
+int ReadDRHeaderOld(TFILE *f, DR_HEADER *h, int swp) {
   int n;
   
-  n = fread(h, sizeof(DR_HEADER), 1, f);
+  n = FREAD(h, sizeof(DR_HEADER), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianDRHeader(h);
   
   return sizeof(DR_HEADER);
 }
 
-int ReadDRRecordOld(FILE *f, DR_RECORD *r, int swp) {
+int ReadDRRecordOld(TFILE *f, DR_RECORD *r, int swp) {
   int n;
 
-  n = fread(r, sizeof(DR_RECORD), 1, f);
+  n = FREAD(r, sizeof(DR_RECORD), 1, f);
   if (n != 1) return 0;
   if (swp) SwapEndianDRRecord(r);
   
   return sizeof(DR_RECORD);
 }   
 
-int WriteFHeader(FILE *f, F_HEADER *fh) {
+int WriteFHeader(TFILE *f, F_HEADER *fh) {
   int n, m = 0;
 
   WSF0(fh->tsession);
@@ -1201,13 +1234,12 @@ int WriteFHeader(FILE *f, F_HEADER *fh) {
   WSF0(fh->atom);
   WSF1(fh->symbol, sizeof(char), 4);
   WSF0(fh->nblocks);
-
+  
   return m;
 }
 
-int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
+int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   int n, m = 0;
-
   RSF0(fh->tsession);
   RSF0(fh->version);
   RSF0(fh->sversion);
@@ -1233,7 +1265,7 @@ int ReadFHeader(FILE *f, F_HEADER *fh, int *swp) {
   return m;
 }
 
-int WriteENHeader(FILE *f, EN_HEADER *h) {
+int WriteENHeader(TFILE *f, EN_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1244,7 +1276,7 @@ int WriteENHeader(FILE *f, EN_HEADER *h) {
   return m;
 }
 
-int WriteENFHeader(FILE *f, ENF_HEADER *h) {
+int WriteENFHeader(TFILE *f, ENF_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1258,7 +1290,7 @@ int WriteENFHeader(FILE *f, ENF_HEADER *h) {
   return m;
 }
 
-int WriteTRHeader(FILE *f, TR_HEADER *h) {
+int WriteTRHeader(TFILE *f, TR_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1272,7 +1304,7 @@ int WriteTRHeader(FILE *f, TR_HEADER *h) {
   return m;
 }
 
-int WriteTRFHeader(FILE *f, TRF_HEADER *h) {
+int WriteTRFHeader(TFILE *f, TRF_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1289,7 +1321,7 @@ int WriteTRFHeader(FILE *f, TRF_HEADER *h) {
   return m;
 }
 
-int WriteCEHeader(FILE *f, CE_HEADER *h) {
+int WriteCEHeader(TFILE *f, CE_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1313,7 +1345,7 @@ int WriteCEHeader(FILE *f, CE_HEADER *h) {
   return m;
 }
 
-int WriteCEFHeader(FILE *f, CEF_HEADER *h) {
+int WriteCEFHeader(TFILE *f, CEF_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1332,7 +1364,7 @@ int WriteCEFHeader(FILE *f, CEF_HEADER *h) {
   return m;
 }
 
-int WriteCEMFHeader(FILE *f, CEMF_HEADER *h) {
+int WriteCEMFHeader(TFILE *f, CEMF_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1355,7 +1387,7 @@ int WriteCEMFHeader(FILE *f, CEMF_HEADER *h) {
   return m;
 }
 
-int WriteRRHeader(FILE *f, RR_HEADER *h) {
+int WriteRRHeader(TFILE *f, RR_HEADER *h) {
   int n, m = 0;
   
   WSF0(h->position);
@@ -1377,7 +1409,7 @@ int WriteRRHeader(FILE *f, RR_HEADER *h) {
   return m;
 }
 
-int WriteAIHeader(FILE *f, AI_HEADER *h) {
+int WriteAIHeader(TFILE *f, AI_HEADER *h) {
   int n, m = 0;
  
   WSF0(h->position);
@@ -1387,11 +1419,10 @@ int WriteAIHeader(FILE *f, AI_HEADER *h) {
   WSF0(h->emin);
   WSF0(h->n_egrid);
   WSF1(h->egrid, sizeof(double), h->n_egrid);
-  
   return m;
 }
 
-int WriteAIMHeader(FILE *f, AIM_HEADER *h) {
+int WriteAIMHeader(TFILE *f, AIM_HEADER *h) {
   int n, m = 0;
     
   WSF0(h->position);
@@ -1405,7 +1436,7 @@ int WriteAIMHeader(FILE *f, AIM_HEADER *h) {
   return m;
 }
 
-int WriteCIHeader(FILE *f, CI_HEADER *h) {
+int WriteCIHeader(TFILE *f, CI_HEADER *h) {
   int n, m = 0;
 
   WSF0(h->position);
@@ -1427,7 +1458,7 @@ int WriteCIHeader(FILE *f, CI_HEADER *h) {
   return m;
 }
 
-int WriteCIMHeader(FILE *f, CIM_HEADER *h) {
+int WriteCIMHeader(TFILE *f, CIM_HEADER *h) {
   int n, m = 0;
     
   WSF0(h->position);
@@ -1444,7 +1475,7 @@ int WriteCIMHeader(FILE *f, CIM_HEADER *h) {
   return m;
 }
 
-int WriteSPHeader(FILE *f, SP_HEADER *h) {
+int WriteSPHeader(TFILE *f, SP_HEADER *h) {
   int i, n, m = 0;
      
   WSF0(h->position);
@@ -1462,13 +1493,13 @@ int WriteSPHeader(FILE *f, SP_HEADER *h) {
   } 
   for (i++; i < LNCOMPLEX; i++) h->fcomplex[i] = '\0';      
   WSF1(h->icomplex, sizeof(char), LNCOMPLEX);
-  WSF1(h->fcomplex, sizeof(char), LNCOMPLEX);  
+  WSF1(h->fcomplex, sizeof(char), LNCOMPLEX);
   WSF0(h->type);
 
   return m;
 }
 
-int WriteRTHeader(FILE *f, RT_HEADER *h) {
+int WriteRTHeader(TFILE *f, RT_HEADER *h) {
   int n, m = 0;
          
   WSF0(h->position);
@@ -1486,7 +1517,7 @@ int WriteRTHeader(FILE *f, RT_HEADER *h) {
   return m;
 }
 
-int WriteDRHeader(FILE *f, DR_HEADER *h) {
+int WriteDRHeader(TFILE *f, DR_HEADER *h) {
   int n, m = 0;
          
   WSF0(h->position);
@@ -1501,12 +1532,17 @@ int WriteDRHeader(FILE *f, DR_HEADER *h) {
   return m;
 }
 
-int WriteENRecord(FILE *f, EN_RECORD *r) {
+int WriteENRecord(TFILE *f, EN_RECORD *r) {
   int i, n, m = 0;
 
-  if (en_header.length == 0) {
+#pragma omp critical
+  {
+  if (en_header.nlevels == 0) {
     fheader[DB_EN-1].nblocks++;
     n = WriteENHeader(f, &en_header);
+    FFLUSH(f);
+  }
+  en_header.nlevels += 1;
   }
   
   WSF0(r->p);
@@ -1534,38 +1570,46 @@ int WriteENRecord(FILE *f, EN_RECORD *r) {
   WSF1(r->sname, sizeof(char), LSNAME);
   WSF1(r->name, sizeof(char), LNAME);
 
-  en_header.nlevels += 1;
+#pragma omp atomic
   en_header.length += m;
 
   return m;
 }
 
-int WriteENFRecord(FILE *f, ENF_RECORD *r) {
+int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
   int n, m = 0;
 
-  if (enf_header.length == 0) {
+#pragma omp critical
+  {
+  if (enf_header.nlevels == 0) {
     fheader[DB_ENF-1].nblocks++;
     n = WriteENFHeader(f, &enf_header);
+    FFLUSH(f);
   }
-  
+  enf_header.nlevels += 1;
+  }
   WSF0(r->ilev);
   WSF0(r->energy);
   WSF0(r->pbasis);
   
-  enf_header.nlevels += 1;
+#pragma omp atomic
   enf_header.length += m;
 
   return m;
 }
 
-int WriteTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx) {
+int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
   int n, m = 0;
 
-  if (tr_header.length == 0) {
+#pragma omp critical
+  {
+  if (tr_header.ntransitions == 0) {
     fheader[DB_TR-1].nblocks++;
     n = WriteTRHeader(f, &tr_header);
+    FFLUSH(f);
   }
-  
+  tr_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->strength);
@@ -1576,39 +1620,47 @@ int WriteTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx) {
     WSF0(rx->sci);
   }
 
-  tr_header.ntransitions += 1;
+#pragma omp atomic
   tr_header.length += m;
 
   return m;
 }
 
-int WriteTRFRecord(FILE *f, TRF_RECORD *r) {
+int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
   int n, m = 0;
 
-  if (trf_header.length == 0) {
+#pragma omp critical
+  {
+  if (trf_header.ntransitions == 0) {
     fheader[DB_TRF-1].nblocks++;
     n = WriteTRFHeader(f, &trf_header);
+    FFLUSH(f);
   }
-  
+  trf_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF1(r->strength, sizeof(float), 2*abs(trf_header.multipole)+1);
 
-  trf_header.ntransitions += 1;
+#pragma omp atomic
   trf_header.length += m;
 
   return m;
 }
 
-int WriteCERecord(FILE *f, CE_RECORD *r) {
+int WriteCERecord(TFILE *f, CE_RECORD *r) {
   int n;
   int m0, m = 0;
 
-  if (ce_header.length == 0) {
+  #pragma omp critical
+  {
+  if (ce_header.ntransitions == 0) {
     fheader[DB_CE-1].nblocks++;
     n = WriteCEHeader(f, &ce_header);
+    FFLUSH(f);
   }
-  
+  ce_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->nsub);
@@ -1626,21 +1678,25 @@ int WriteCERecord(FILE *f, CE_RECORD *r) {
   m0 = ce_header.n_usr * r->nsub;
   WSF1(r->strength, sizeof(float), m0);
 
-  ce_header.ntransitions += 1;
+#pragma omp atomic
   ce_header.length += m;
 
   return m;
 }
 
-int WriteCEFRecord(FILE *f, CEF_RECORD *r) {
+int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
   int n;
   int m0, m = 0;
 
-  if (cef_header.length == 0) {
+#pragma omp critical
+  {
+  if (cef_header.ntransitions == 0) {
     fheader[DB_CEF-1].nblocks++;
     n = WriteCEFHeader(f, &cef_header);
+    FFLUSH(f);
   }
-  
+  cef_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->bethe);
@@ -1649,46 +1705,54 @@ int WriteCEFRecord(FILE *f, CEF_RECORD *r) {
   m0 = cef_header.n_egrid;
   WSF1(r->strength, sizeof(float), m0);
   
-  cef_header.ntransitions += 1;
+#pragma omp atomic
   cef_header.length += m;
 
   return m;
 }
 
-int WriteCEMFRecord(FILE *f, CEMF_RECORD *r) {
+int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
   int n;
   int m0, m = 0;
 
-  if (cemf_header.length == 0) {
+#pragma omp critical
+  {
+  if (cemf_header.ntransitions == 0) {
     fheader[DB_CEMF-1].nblocks++;
     n = WriteCEMFHeader(f, &cemf_header);
+    FFLUSH(f);
   }
-  
+  cemf_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   
   m0 = cemf_header.n_thetagrid * cemf_header.n_phigrid;
-  WSF1(r->bethe, sizeof(float), m0);  
+  WSF1(r->bethe, sizeof(float), m0);
   WSF1(r->born, sizeof(float), m0+1);
 
   m0 = cemf_header.n_egrid * m0;
   WSF1(r->strength, sizeof(float), m0);
   
-  cemf_header.ntransitions += 1;
+#pragma omp atomic
   cemf_header.length += m;
 
   return m;
 }
 
-int WriteRRRecord(FILE *f, RR_RECORD *r) {
+int WriteRRRecord(TFILE *f, RR_RECORD *r) {
   int n;
   int m = 0, m0;
 
-  if (rr_header.length == 0) {
+#pragma omp critical
+  {
+  if (rr_header.ntransitions == 0) {
     fheader[DB_RR-1].nblocks++;
     n = WriteRRHeader(f, &rr_header);
+    FFLUSH(f);
   }
-
+  rr_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -1700,58 +1764,70 @@ int WriteRRRecord(FILE *f, RR_RECORD *r) {
   m0 = rr_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
 
-  rr_header.ntransitions += 1;
+#pragma omp atomic
   rr_header.length += m;
 
   return m;
 }
 
-int WriteAIRecord(FILE *f, AI_RECORD *r) {
+int WriteAIRecord(TFILE *f, AI_RECORD *r) {
   int n, m = 0;
 
-  if (ai_header.length == 0) {
+#pragma omp critical
+  {
+  if (ai_header.ntransitions == 0) {
     fheader[DB_AI-1].nblocks++;
     WriteAIHeader(f, &ai_header);
+    FFLUSH(f);
   }
-  
+  ai_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->rate);
 
-  ai_header.ntransitions += 1;
+#pragma omp atomic
   ai_header.length += m;
 
   return m;
 }
 
-int WriteAIMRecord(FILE *f, AIM_RECORD *r) {
+int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
   int n, m = 0;
 
-  if (aim_header.length == 0) {
+#pragma omp critical
+  {
+  if (aim_header.ntransitions == 0) {
     fheader[DB_AIM-1].nblocks++;
     WriteAIMHeader(f, &aim_header);
+    FFLUSH(f);
   }
-
+  aim_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
   WSF1(r->rate, sizeof(float), r->nsub);
   
-  aim_header.ntransitions += 1;
+#pragma omp atomic
   aim_header.length += m;
 
   return m;
 }
 
-int WriteCIRecord(FILE *f, CI_RECORD *r) {
+int WriteCIRecord(TFILE *f, CI_RECORD *r) {
   int n;
   int m = 0, m0;
 
-  if (ci_header.length == 0) {
+#pragma omp critical
+  {
+  if (ci_header.ntransitions == 0) {
     fheader[DB_CI-1].nblocks++;
     WriteCIHeader(f, &ci_header);
+    FFLUSH(f);
   }
-
+  ci_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -1760,41 +1836,49 @@ int WriteCIRecord(FILE *f, CI_RECORD *r) {
   m0 = ci_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
 
-  ci_header.ntransitions += 1;
+#pragma omp atomic
   ci_header.length += m;
 
   return m;
 }
 
-int WriteCIMRecord(FILE *f, CIM_RECORD *r) {
+int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
   int n;
   int m = 0, m0;
 
-  if (cim_header.length == 0) {
+#pragma omp critical
+  {
+  if (cim_header.ntransitions == 0) {
     fheader[DB_CIM-1].nblocks++;
     WriteCIMHeader(f, &cim_header);
+    FFLUSH(f);
   }
-
+  cim_header.ntransitions += 1;
+  }
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
   m0 = r->nsub*cim_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
   
-  cim_header.ntransitions += 1;
+#pragma omp atomic
   cim_header.length += m;
 
   return m;
 }
 
-int WriteSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx) {
+int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
   int n, m = 0;
 
-  if (sp_header.length == 0) {
+#pragma omp critical
+  {
+  if (sp_header.ntransitions == 0) {
     fheader[DB_SP-1].nblocks++;
     WriteSPHeader(f, &sp_header);
+    FFLUSH(f);
   }
-  
+  sp_header.ntransitions += 1;
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->energy);
@@ -1805,19 +1889,24 @@ int WriteSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx) {
     WSF0(rx->sdev);
   }
 
-  sp_header.ntransitions += 1;
+#pragma omp atomic
   sp_header.length += m;
+
   return m;
 }
 
-int WriteRTRecord(FILE *f, RT_RECORD *r) {
+int WriteRTRecord(TFILE *f, RT_RECORD *r) {
   int i, n, m = 0;
 
-  if (rt_header.length == 0) {
+#pragma omp critical
+  {
+  if (rt_header.ntransitions == 0) {
     fheader[DB_RT-1].nblocks++;
     WriteRTHeader(f, &rt_header);
+    FFLUSH(f);
   }
-
+  rt_header.ntransitions += 1;
+  }
   WSF0(r->dir);
   WSF0(r->iblock);
   WSF0(r->nb);
@@ -1832,20 +1921,24 @@ int WriteRTRecord(FILE *f, RT_RECORD *r) {
   for (i++; i < LNCOMPLEX; i++) r->icomplex[i] = '\0';
   WSF1(r->icomplex, sizeof(char), LNCOMPLEX);
 
-  rt_header.ntransitions += 1;
+#pragma omp atomic
   rt_header.length += m;
 
   return m;
 }
 
-int WriteDRRecord(FILE *f, DR_RECORD *r) {
+int WriteDRRecord(TFILE *f, DR_RECORD *r) {
   int n, m = 0;
 
-  if (dr_header.length == 0) {
+#pragma omp critical
+  {
+  if (dr_header.ntransitions == 0) {
     fheader[DB_DR-1].nblocks++;
     WriteDRHeader(f, &dr_header);
+    FFLUSH(f);
   }
-
+  dr_header.ntransitions += 1;
+  }
   WSF0(r->ilev);
   WSF0(r->flev);
   WSF0(r->ibase);
@@ -1858,13 +1951,13 @@ int WriteDRRecord(FILE *f, DR_RECORD *r) {
   WSF0(r->ai);
   WSF0(r->total_rate);
 
-  dr_header.ntransitions += 1;
+#pragma omp atomic
   dr_header.length += m;
-  
+
   return m;
 }
 
-int ReadENHeader(FILE *f, EN_HEADER *h, int swp) {
+int ReadENHeader(TFILE *f, EN_HEADER *h, int swp) {
   int n, m = 0;
   
   if (version_read[DB_EN-1] < 109) return ReadENHeaderOld(f, h, swp);
@@ -1879,7 +1972,7 @@ int ReadENHeader(FILE *f, EN_HEADER *h, int swp) {
   return m;
 }
  
-int ReadENFHeader(FILE *f, ENF_HEADER *h, int swp) {
+int ReadENFHeader(TFILE *f, ENF_HEADER *h, int swp) {
   int n, m = 0;
 
   RSF0(h->position);
@@ -1895,7 +1988,7 @@ int ReadENFHeader(FILE *f, ENF_HEADER *h, int swp) {
   return m;
 }
 
-int ReadENRecord(FILE *f, EN_RECORD *r, int swp) {
+int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   int n, m = 0;
 
   if (version_read[DB_EN-1] < 109) return ReadENRecordOld(f, r, swp);
@@ -1914,7 +2007,7 @@ int ReadENRecord(FILE *f, EN_RECORD *r, int swp) {
   return m;
 }
 
-int ReadENFRecord(FILE *f, ENF_RECORD *r, int swp) {
+int ReadENFRecord(TFILE *f, ENF_RECORD *r, int swp) {
   int n, m = 0;
 
   RSF0(r->ilev);
@@ -1926,7 +2019,7 @@ int ReadENFRecord(FILE *f, ENF_RECORD *r, int swp) {
   return m;
 }
 
-int ReadTRHeader(FILE *f, TR_HEADER *h, int swp) {
+int ReadTRHeader(TFILE *f, TR_HEADER *h, int swp) {
   int n, m = 0;
   
   if (version_read[DB_TR-1] < 109) return ReadTRHeaderOld(f, h, swp);
@@ -1947,7 +2040,7 @@ int ReadTRHeader(FILE *f, TR_HEADER *h, int swp) {
   return m;
 }
 
-int ReadTRFHeader(FILE *f, TRF_HEADER *h, int swp) {
+int ReadTRFHeader(TFILE *f, TRF_HEADER *h, int swp) {
   int n, m = 0;
   
   RSF0(h->position);
@@ -1967,7 +2060,7 @@ int ReadTRFHeader(FILE *f, TRF_HEADER *h, int swp) {
   return m;
 }
 
-int ReadTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
+int ReadTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
   int n, m = 0;
     
   if (version_read[DB_TR-1] < 109) return ReadTRRecordOld(f, r, rx, swp);
@@ -1991,7 +2084,7 @@ int ReadTRRecord(FILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
   return m;
 }
 
-int ReadTRFRecord(FILE *f, TRF_RECORD *r, int swp, TRF_HEADER *h) {
+int ReadTRFRecord(TFILE *f, TRF_RECORD *r, int swp, TRF_HEADER *h) {
   int n, m = 0, i, nq;
     
   RSF0(r->lower);
@@ -2010,7 +2103,7 @@ int ReadTRFRecord(FILE *f, TRF_RECORD *r, int swp, TRF_HEADER *h) {
   return m;
 }
 
-int ReadCEHeader(FILE *f, CE_HEADER *h, int swp) {
+int ReadCEHeader(TFILE *f, CE_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_CE-1] < 109) return ReadCEHeaderOld(f, h, swp);
@@ -2056,7 +2149,7 @@ int ReadCEHeader(FILE *f, CE_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCEFHeader(FILE *f, CEF_HEADER *h, int swp) {
+int ReadCEFHeader(TFILE *f, CEF_HEADER *h, int swp) {
   int i, n, m = 0;
 
   RSF0(h->position);
@@ -2065,7 +2158,7 @@ int ReadCEFHeader(FILE *f, CEF_HEADER *h, int swp) {
   RSF0(h->ntransitions);
   RSF0(h->n_tegrid);
   RSF0(h->n_egrid);
-  RSF0(h->te0);  
+  RSF0(h->te0);
   RSF0(h->efield);
   RSF0(h->bfield);
   RSF0(h->fangle);
@@ -2090,7 +2183,7 @@ int ReadCEFHeader(FILE *f, CEF_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCEMFHeader(FILE *f, CEMF_HEADER *h, int swp) {
+int ReadCEMFHeader(TFILE *f, CEMF_HEADER *h, int swp) {
   int i, n, m = 0;
 
   RSF0(h->position);
@@ -2101,7 +2194,7 @@ int ReadCEMFHeader(FILE *f, CEMF_HEADER *h, int swp) {
   RSF0(h->n_egrid);
   RSF0(h->n_thetagrid);
   RSF0(h->n_phigrid);
-  RSF0(h->te0);  
+  RSF0(h->te0);
   RSF0(h->efield);
   RSF0(h->bfield);
   RSF0(h->fangle);
@@ -2138,7 +2231,7 @@ int ReadCEMFHeader(FILE *f, CEMF_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
+int ReadCERecord(TFILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   int i, n, m = 0, m0;
   
   if (version_read[DB_CE-1] < 109) return ReadCERecordOld(f, r, swp, h);
@@ -2179,7 +2272,7 @@ int ReadCERecord(FILE *f, CE_RECORD *r, int swp, CE_HEADER *h) {
   return m;
 }
 
-int ReadCEFRecord(FILE *f, CEF_RECORD *r, int swp, CEF_HEADER *h) {
+int ReadCEFRecord(TFILE *f, CEF_RECORD *r, int swp, CEF_HEADER *h) {
   int i, n, m = 0, m0;
   
   RSF0(r->lower);
@@ -2201,7 +2294,7 @@ int ReadCEFRecord(FILE *f, CEF_RECORD *r, int swp, CEF_HEADER *h) {
   return m;
 }
 
-int ReadCEMFRecord(FILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h) {
+int ReadCEMFRecord(TFILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h) {
   int i, n, m = 0, m0;
   
   RSF0(r->lower);
@@ -2233,7 +2326,7 @@ int ReadCEMFRecord(FILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h) {
   return m;
 }
 
-int ReadRRHeader(FILE *f, RR_HEADER *h, int swp) {
+int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
   int i, n, m = 0;
   
   if (version_read[DB_RR-1] < 109) return ReadRRHeaderOld(f, h, swp);
@@ -2277,7 +2370,7 @@ int ReadRRHeader(FILE *f, RR_HEADER *h, int swp) {
   return m;
 }
 
-int ReadRRRecord(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
+int ReadRRRecord(TFILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   int i, n, m = 0, m0;
   
   if (version_read[DB_RR-1] < 109) return ReadRRRecordOld(f, r, swp, h);
@@ -2310,7 +2403,7 @@ int ReadRRRecord(FILE *f, RR_RECORD *r, int swp, RR_HEADER *h) {
   return m;
 }
 
-int ReadAIHeader(FILE *f, AI_HEADER *h, int swp) {
+int ReadAIHeader(TFILE *f, AI_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_AI-1] < 109) return ReadAIHeaderOld(f, h, swp);
@@ -2336,7 +2429,7 @@ int ReadAIHeader(FILE *f, AI_HEADER *h, int swp) {
   return m;
 }
 
-int ReadAIMHeader(FILE *f, AIM_HEADER *h, int swp) {
+int ReadAIMHeader(TFILE *f, AIM_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_AIM-1] < 109) return ReadAIMHeaderOld(f, h, swp);
@@ -2362,7 +2455,7 @@ int ReadAIMHeader(FILE *f, AIM_HEADER *h, int swp) {
   return m;
 }
 
-int ReadAIRecord(FILE *f, AI_RECORD *r, int swp) {
+int ReadAIRecord(TFILE *f, AI_RECORD *r, int swp) {
   int n, m = 0;
 
   if (version_read[DB_AI-1] < 109) return ReadAIRecordOld(f, r, swp);
@@ -2376,7 +2469,7 @@ int ReadAIRecord(FILE *f, AI_RECORD *r, int swp) {
   return m;
 }
 
-int ReadAIMRecord(FILE *f, AIM_RECORD *r, int swp) {
+int ReadAIMRecord(TFILE *f, AIM_RECORD *r, int swp) {
   int n, i, m = 0;
 
   if (version_read[DB_AIM-1] < 109) return ReadAIMRecordOld(f, r, swp);
@@ -2398,7 +2491,7 @@ int ReadAIMRecord(FILE *f, AIM_RECORD *r, int swp) {
   return m;
 }
 
-int ReadCIHeader(FILE *f, CI_HEADER *h, int swp) {
+int ReadCIHeader(TFILE *f, CI_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_CI-1] < 109) return ReadCIHeaderOld(f, h, swp);
@@ -2442,7 +2535,7 @@ int ReadCIHeader(FILE *f, CI_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
+int ReadCIRecord(TFILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
   int i, n, m = 0, m0;
   
   if (version_read[DB_CI-1] < 109) return ReadCIRecordOld(f, r, swp, h);
@@ -2474,7 +2567,7 @@ int ReadCIRecord(FILE *f, CI_RECORD *r, int swp, CI_HEADER *h) {
   return m;
 }
 
-int ReadCIMHeader(FILE *f, CIM_HEADER *h, int swp) {
+int ReadCIMHeader(TFILE *f, CIM_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_CIM-1] < 109) return ReadCIMHeaderOld(f, h, swp);
@@ -2508,7 +2601,7 @@ int ReadCIMHeader(FILE *f, CIM_HEADER *h, int swp) {
   return m;
 }
 
-int ReadCIMRecord(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
+int ReadCIMRecord(TFILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
   int i, n, m = 0, m0;
 
   if (version_read[DB_CIM-1] < 109) return ReadCIMRecordOld(f, r, swp, h);
@@ -2531,7 +2624,7 @@ int ReadCIMRecord(FILE *f, CIM_RECORD *r, int swp, CIM_HEADER *h) {
   return m;
 } 
 
-int ReadSPHeader(FILE *f, SP_HEADER *h, int swp) {
+int ReadSPHeader(TFILE *f, SP_HEADER *h, int swp) {
   int n, m = 0;
      
   if (version_read[DB_SP-1] < 109) return ReadSPHeaderOld(f, h, swp);
@@ -2543,7 +2636,7 @@ int ReadSPHeader(FILE *f, SP_HEADER *h, int swp) {
   RSF0(h->iblock);
   RSF0(h->fblock);
   RSF1(h->icomplex, sizeof(char), LNCOMPLEX);
-  RSF1(h->fcomplex, sizeof(char), LNCOMPLEX);  
+  RSF1(h->fcomplex, sizeof(char), LNCOMPLEX);
   RSF0(h->type);
 
   if (swp) SwapEndianSPHeader(h);
@@ -2554,7 +2647,7 @@ int ReadSPHeader(FILE *f, SP_HEADER *h, int swp) {
   return m;
 }
 
-int ReadSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
+int ReadSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
   int n, m = 0;
 
   if (version_read[DB_SP-1] < 109) return ReadSPRecordOld(f, r, rx, swp);
@@ -2574,7 +2667,7 @@ int ReadSPRecord(FILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp) {
   return m;
 }
 
-int ReadRTHeader(FILE *f, RT_HEADER *h, int swp) {
+int ReadRTHeader(TFILE *f, RT_HEADER *h, int swp) {
   int i, n, m = 0;
 
   if (version_read[DB_RT-1] < 109) return ReadRTHeaderOld(f, h, swp);
@@ -2609,7 +2702,7 @@ int ReadRTHeader(FILE *f, RT_HEADER *h, int swp) {
   return m;
 }
 
-int ReadRTRecord(FILE *f, RT_RECORD *r, int swp) {
+int ReadRTRecord(TFILE *f, RT_RECORD *r, int swp) {
   int n, m = 0;
 
   if (version_read[DB_RT-1] < 109) return ReadRTRecordOld(f, r, swp);
@@ -2629,7 +2722,7 @@ int ReadRTRecord(FILE *f, RT_RECORD *r, int swp) {
   return m;
 }
 
-int ReadDRHeader(FILE *f, DR_HEADER *h, int swp) {
+int ReadDRHeader(TFILE *f, DR_HEADER *h, int swp) {
   int n, m = 0;
            
   if (version_read[DB_DR-1] < 109) return ReadDRHeaderOld(f, h, swp);
@@ -2648,7 +2741,7 @@ int ReadDRHeader(FILE *f, DR_HEADER *h, int swp) {
   return m;
 }
 
-int ReadDRRecord(FILE *f, DR_RECORD *r, int swp) {
+int ReadDRRecord(TFILE *f, DR_RECORD *r, int swp) {
   int n, m = 0;
 
   if (version_read[DB_DR-1] < 109) return ReadDRRecordOld(f, r, swp);
@@ -2669,28 +2762,42 @@ int ReadDRRecord(FILE *f, DR_RECORD *r, int swp) {
   
   return m;
 } 
+
+TFILE *OpenFileRO(char *fn, F_HEADER *fhdr, int *swp) {
+  TFILE *f;
+  int n;
   
-FILE *OpenFile(char *fn, F_HEADER *fhdr) {
+  f = FOPEN(fn, "r");
+  if (f == NULL) return f;
+  n = ReadFHeader(f, fhdr, swp);
+  if (n == 0) {
+    FCLOSE(f);
+    return NULL;
+  }
+  return f;
+}
+
+TFILE *OpenFile(char *fn, F_HEADER *fhdr) {
   int ihdr;
-  FILE *f;
+  TFILE *f;
 
   ihdr = fhdr->type - 1;
 
-  f = fopen(fn, "r+b");
+  f = FOPEN(fn, "r+b");
   if (f == NULL) {
     if (fheader[ihdr].nblocks > 0) {
       printf("A single file for one DB type must be used in one session.\n");
       exit(1);
     }
-    f = fopen(fn, "wb");
+    f = FOPEN(fn, "wb");
     if (f == NULL) {
       printf("cannot open file %s\n", fn);
       exit(1);
     }
   } else {
     if (fheader[ihdr].nblocks == 0) {
-      fclose(f);
-      f = fopen(fn, "wb");
+      FCLOSE(f);
+      f = FOPEN(fn, "wb");
     }
   }
 
@@ -2703,23 +2810,21 @@ FILE *OpenFile(char *fn, F_HEADER *fhdr) {
   strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
   WriteFHeader(f, &(fheader[ihdr]));
-
   return f;
 }
 
-int CloseFile(FILE *f, F_HEADER *fhdr) {
+int CloseFile(TFILE *f, F_HEADER *fhdr) {
   int ihdr;
  
   ihdr = fhdr->type-1;
-  fseek(f, 0, SEEK_SET);
+  FSEEK(f, 0, SEEK_SET); 
   fheader[ihdr].type = fhdr->type;
   WriteFHeader(f, &(fheader[ihdr]));
-  
-  fclose(f);
+  FCLOSE(f);
   return 0;
 }
 
-int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
+int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   EN_HEADER *en_hdr;
   ENF_HEADER *enf_hdr;
   TR_HEADER *tr_hdr;
@@ -2741,9 +2846,8 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   if (f == NULL) return 0;
   
   ihdr = fhdr->type - 1;
-  fseek(f, 0, SEEK_END);
-  p = ftell(f);
-
+  FSEEK(f, 0, SEEK_END);
+  p = FTELL(f);
   switch (fhdr->type) {
   case DB_EN:
     en_hdr = (EN_HEADER *) rhdr;
@@ -2858,98 +2962,98 @@ int InitFile(FILE *f, F_HEADER *fhdr, void *rhdr) {
   return 0;
 }
 
-int DeinitFile(FILE *f, F_HEADER *fhdr) {
+int DeinitFile(TFILE *f, F_HEADER *fhdr) {
   int n;
 
   if (f == NULL || fhdr->type <= 0) return 0;
 
   switch (fhdr->type) {
   case DB_EN:
-    fseek(f, en_header.position, SEEK_SET);
+    FSEEK(f, en_header.position, SEEK_SET);
     if (en_header.length > 0) {
       n = WriteENHeader(f, &en_header);
     }
     break;
   case DB_TR:
-    fseek(f, tr_header.position, SEEK_SET);
+    FSEEK(f, tr_header.position, SEEK_SET);
     if (tr_header.length > 0) {
       n = WriteTRHeader(f, &tr_header);
     }
     break;
   case DB_CE:
-    fseek(f, ce_header.position, SEEK_SET);
+    FSEEK(f, ce_header.position, SEEK_SET);
     if (ce_header.length > 0) {
       n = WriteCEHeader(f, &ce_header);
     }
     break;
   case DB_RR:
-    fseek(f, rr_header.position, SEEK_SET);
+    FSEEK(f, rr_header.position, SEEK_SET);
     if (rr_header.length > 0) {
       n = WriteRRHeader(f, &rr_header);
     }
     break;
   case DB_AI:
-    fseek(f, ai_header.position, SEEK_SET);
+    FSEEK(f, ai_header.position, SEEK_SET);
     if (ai_header.length > 0) {
       n = WriteAIHeader(f, &ai_header);
     }
     break;
   case DB_CI:
-    fseek(f, ci_header.position, SEEK_SET);
+    FSEEK(f, ci_header.position, SEEK_SET);
     if (ci_header.length > 0) {
       n = WriteCIHeader(f, &ci_header);
     }
     break;
   case DB_SP:
-    fseek(f, sp_header.position, SEEK_SET);
+    FSEEK(f, sp_header.position, SEEK_SET);
     if (sp_header.length > 0) {
       n = WriteSPHeader(f, &sp_header);
     }
     break;
   case DB_RT:
-    fseek(f, rt_header.position, SEEK_SET);
+    FSEEK(f, rt_header.position, SEEK_SET);
     if (rt_header.length > 0) {
       n = WriteRTHeader(f, &rt_header);
     }
     break;
   case DB_DR:
-    fseek(f, dr_header.position, SEEK_SET);
+    FSEEK(f, dr_header.position, SEEK_SET);
     if (dr_header.length > 0) {
       n = WriteDRHeader(f, &dr_header);
     }
     break;
   case DB_AIM:
-    fseek(f, aim_header.position, SEEK_SET);
+    FSEEK(f, aim_header.position, SEEK_SET);
     if (aim_header.length > 0) {
       n = WriteAIMHeader(f, &aim_header);
     }
     break;
   case DB_CIM:
-    fseek(f, cim_header.position, SEEK_SET);
+    FSEEK(f, cim_header.position, SEEK_SET);
     if (cim_header.length > 0) {
       n = WriteCIMHeader(f, &cim_header);
     }
     break;
   case DB_ENF:
-    fseek(f, enf_header.position, SEEK_SET);
+    FSEEK(f, enf_header.position, SEEK_SET);
     if (enf_header.length > 0) {
       n = WriteENFHeader(f, &enf_header);
     }
     break;
   case DB_TRF:
-    fseek(f, trf_header.position, SEEK_SET);
+    FSEEK(f, trf_header.position, SEEK_SET);
     if (trf_header.length > 0) {
       n = WriteTRFHeader(f, &trf_header);
     }
     break;
   case DB_CEF:
-    fseek(f, cef_header.position, SEEK_SET);
+    FSEEK(f, cef_header.position, SEEK_SET);
     if (cef_header.length > 0) {
       n = WriteCEFHeader(f, &cef_header);
     }
     break;
   case DB_CEMF:
-    fseek(f, cemf_header.position, SEEK_SET);
+    FSEEK(f, cemf_header.position, SEEK_SET);
     if (cemf_header.length > 0) {
       n = WriteCEMFHeader(f, &cemf_header);
     }
@@ -2962,10 +3066,11 @@ int DeinitFile(FILE *f, F_HEADER *fhdr) {
 
 int PrintTable(char *ifn, char *ofn, int v) {
   F_HEADER fh;
-  FILE *f1, *f2;
+  TFILE *f1;
+  FILE *f2;
   int n, swp;
 
-  f1 = fopen(ifn, "r");
+  f1 = FOPEN(ifn, "r");
   if (f1 == NULL) return -1;
 
   if (strcmp(ofn, "-") == 0) {
@@ -3057,7 +3162,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
   }
 
  DONE:
-  fclose(f1);
+  FCLOSE(f1);
   if (f2 != stdout) fclose(f2);
   else fflush(f2);
 
@@ -3108,24 +3213,24 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   F_HEADER fh;  
   EN_HEADER h;
   EN_RECORD r;
-  FILE *f;
+  TFILE *f;
   int n, k;
   int swp;
   
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
   n = ReadFHeader(f, &fh, &swp);
   if (n == 0) {
-    fclose(f);
+    FCLOSE(f);
     return 0;
   }
 
   if (fh.type != DB_EN) {
     printf("File type is not DB_EN\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
 
@@ -3133,7 +3238,7 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
     if (h.nele != nele) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
     for (k = 0; k < h.nlevels; k++) {
@@ -3141,13 +3246,13 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
       if (StrTrimCmp(r.ncomplex, nc) == 0 &&
 	  StrTrimCmp(r.sname, cnr) == 0 &&
 	  StrTrimCmp(r.name, cr) == 0) {
-	fclose(f);
+	FCLOSE(f);
 	return r.ilev;
       }
     }
   }
   
-  fclose(f);
+  FCLOSE(f);
   return -1;
 }
       
@@ -3155,23 +3260,23 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   F_HEADER fh;  
   EN_HEADER h;
   EN_RECORD r;
-  FILE *f;
+  TFILE *f;
   int n, i, k, nlevels;
   int swp, sr;
   
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
   n = ReadFHeader(f, &fh, &swp);
   if (n == 0) {
-    fclose(f);
+    FCLOSE(f);
     return 0;
   }
   if (fh.type != DB_EN) {
     printf("File type is not DB_EN\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
   if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
@@ -3185,21 +3290,21 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
       if (n == 0) break;
       nlevels += h.nlevels;
       if (k < h.nlevels) {
-	if (k > 0) fseek(f, sr*k, SEEK_CUR);
+	if (k > 0) FSEEK(f, sr*k, SEEK_CUR);
 	n = ReadENRecord(f, &r, swp);
 	if (n == 0) break;
 	if (r.ilev != ilev) {
-	  fclose(f);
+	  FCLOSE(f);
 	  return -1;
 	}
 	memcpy(r0, &r, sizeof(EN_RECORD));
 	break;
       } else {
 	k -= h.nlevels;
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
       }
     }
-    fclose(f);
+    FCLOSE(f);
     if (i == fh.nblocks) return -1;
     return 0;
   } else {
@@ -3212,9 +3317,9 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
 	if (n == 0) break;
 	if (h.nele == k) break;
 	nlevels += h.nlevels;
-	fseek(f, h.length, SEEK_CUR);
+	FSEEK(f, h.length, SEEK_CUR);
       }
-      fclose(f);
+      FCLOSE(f);
       if (i == fh.nblocks) return -1;
       return nlevels;
     } else {
@@ -3225,7 +3330,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
 	  n = ReadENHeader(f, &h, swp);
 	  if (n == 0) break;
 	  nlevels += h.nlevels;
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	}
       } else if (k == 2) {
 	nlevels = fh.nblocks;
@@ -3236,10 +3341,10 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
 	  n = ReadENHeader(f, &h, swp);
 	  if (n == 0) break;
 	  nlevels += h.nlevels;
-	  fseek(f, h.length, SEEK_CUR);
+	  FSEEK(f, h.length, SEEK_CUR);
 	}
       }
-      fclose(f);
+      FCLOSE(f);
       return nlevels;
     }
   }  
@@ -3269,24 +3374,22 @@ int MemENTable(char *fn) {
   F_HEADER fh;  
   EN_HEADER h;
   EN_RECORD r;
-  FILE *f;
+  TFILE *f;
   char *s;
   int n, i, nlevels;
   float e0;
   int swp, sr;
 
-  f = fopen(fn, "r");
+  f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) return -1;
 
-  n = ReadFHeader(f, &fh, &swp);  
-  if (n == 0) return 0;
   if (fh.type == DB_ENF) {
-    fclose(f);
+    FCLOSE(f);
     return MemENFTable(fn);
   }
   if (fh.type != DB_EN) {
-    printf("File type is not DB_EN\n");
-    fclose(f);
+    printf("File type is not DB_EN: %d\n", fh.type);
+    FCLOSE(f);
     return -1;
   }
   if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
@@ -3299,7 +3402,7 @@ int MemENTable(char *fn) {
     n = ReadENHeader(f, &h, swp);
     if (n == 0) break;
     if (h.length > sr) {
-      fseek(f, h.length-sr, SEEK_CUR);
+      FSEEK(f, h.length-sr, SEEK_CUR);
     }
     n = ReadENRecord(f, &r, swp);
     if (r.ilev >= nlevels) nlevels = r.ilev+1;
@@ -3310,9 +3413,9 @@ int MemENTable(char *fn) {
 
   e0 = 0.0;
   if (version_read[DB_EN-1] < 109) {
-    fseek(f, sizeof(F_HEADER), SEEK_SET);
+    FSEEK(f, sizeof(F_HEADER), SEEK_SET);
   } else {
-    fseek(f, SIZE_F_HEADER, SEEK_SET);
+    FSEEK(f, SIZE_F_HEADER, SEEK_SET);
   }
   while (1) {
     n = ReadENHeader(f, &h, swp);
@@ -3343,7 +3446,7 @@ int MemENTable(char *fn) {
     }
   }
 
-  fclose(f);
+  FCLOSE(f);
   return 0;
 }    
 
@@ -3351,13 +3454,13 @@ int MemENFTable(char *fn) {
   F_HEADER fh;  
   ENF_HEADER h;
   ENF_RECORD r;
-  FILE *f;
+  TFILE *f;
   char *s;
   int n, i, nlevels;
   float e0;
   int swp, sr;
 
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) return -1;
 
   n = ReadFHeader(f, &fh, &swp);  
@@ -3372,7 +3475,7 @@ int MemENFTable(char *fn) {
     n = ReadENFHeader(f, &h, swp);
     if (n == 0) break;
     if (h.length > sr) {
-      fseek(f, h.length-sr, SEEK_CUR);
+      FSEEK(f, h.length-sr, SEEK_CUR);
     }
     n = ReadENFRecord(f, &r, swp);
     if (r.ilev >= nlevels) nlevels = r.ilev+1;
@@ -3381,7 +3484,7 @@ int MemENFTable(char *fn) {
   mem_enf_table = (EN_SRECORD *) malloc(sizeof(EN_SRECORD)*nlevels);
   mem_enf_table_size = nlevels;
 
-  fseek(f, SIZE_F_HEADER, SEEK_SET);
+  FSEEK(f, SIZE_F_HEADER, SEEK_SET);
   while (1) {
     n = ReadENFHeader(f, &h, swp);
     if (n == 0) break;
@@ -3393,12 +3496,12 @@ int MemENFTable(char *fn) {
     }
   }
 
-  fclose(f);
+  FCLOSE(f);
 
   return 0;
 }    
 
-int PrintENTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintENTable(TFILE *f1, FILE *f2, int v, int swp) {
   EN_HEADER h;
   EN_RECORD r;
   int n, i;
@@ -3455,7 +3558,7 @@ void DecodeBasisEB(int k, int *s, int *m) {
   if (k < 0) *m = -(*m);
 }
 
-int PrintENFTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintENFTable(TFILE *f1, FILE *f2, int v, int swp) {
   ENF_HEADER h;
   ENF_RECORD r;
   int n, i;
@@ -3513,7 +3616,7 @@ double OscillatorStrength(int m, double e, double s, double *ga) {
   return x;
 }  
 
-int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintTRTable(TFILE *f1, FILE *f2, int v, int swp) {
   TR_HEADER h;
   TR_RECORD r;
   TR_EXTRA rx;
@@ -3575,7 +3678,7 @@ int PrintTRTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintTRFTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintTRFTable(TFILE *f1, FILE *f2, int v, int swp) {
   TRF_HEADER h;
   TRF_RECORD r;
   int n, i, j;
@@ -3632,7 +3735,7 @@ int TRBranch(char *fn, int upper, int lower,
   TR_HEADER h;
   TR_RECORD r;
   TR_EXTRA rx;
-  FILE *f;
+  TFILE *f;
   int n, i, k;
   double a, b, c, e;
   int swp;
@@ -3642,19 +3745,19 @@ int TRBranch(char *fn, int upper, int lower,
     return -1;
   }
 
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
   n = ReadFHeader(f, &fh, &swp);
   if (n == 0) {
-    fclose(f);
+    FCLOSE(f);
     return 0;
   }
   if (fh.type != DB_TR) {
     printf("File type is not DB_TR\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
   
@@ -3688,12 +3791,12 @@ int TRBranch(char *fn, int upper, int lower,
     *te = 0.0;
   }
 
-  fclose(f);
+  FCLOSE(f);
 
   return 0;
 }
   
-int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
   CE_HEADER h;
   CE_RECORD r;
   int n, i, t;
@@ -3809,7 +3912,7 @@ int PrintCETable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
   
-int PrintCEFTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp) {
   CEF_HEADER h;
   CEF_RECORD r;
   int n, i, t;
@@ -3895,7 +3998,7 @@ int PrintCEFTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
   
-int PrintCEMFTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp) {
   CEMF_HEADER h;
   CEMF_RECORD r;
   int n, i, t;
@@ -4001,7 +4104,7 @@ int PrintCEMFTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintRRTable(TFILE *f1, FILE *f2, int v, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
@@ -4107,7 +4210,7 @@ int PrintRRTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintAITable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintAITable(TFILE *f1, FILE *f2, int v, int swp) {
   AI_HEADER h;
   AI_RECORD r;
   int n, i;
@@ -4164,7 +4267,7 @@ int AIBranch(char *fn, int ib, int ia,
   F_HEADER fh;
   AI_HEADER h;
   AI_RECORD r;
-  FILE *f;
+  TFILE *f;
   int n, i, k;
   double a, b, c, e;
   int swp;
@@ -4174,19 +4277,19 @@ int AIBranch(char *fn, int ib, int ia,
     return -1;
   }
 
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
   n = ReadFHeader(f, &fh, &swp);
   if (n == 0) {
-    fclose(f);
+    FCLOSE(f);
     return 0;
   }
   if (fh.type != DB_AI) {
     printf("File type is not DB_AI\n");
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
    
@@ -4219,12 +4322,12 @@ int AIBranch(char *fn, int ib, int ia,
     *te = 0.0;
   }
 
-  fclose(f);
+  FCLOSE(f);
   
   return 0;
 }
       
-int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {
   AIM_HEADER h;
   AIM_RECORD r;
   int n, i, m;
@@ -4280,7 +4383,7 @@ int PrintAIMTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintCITable(TFILE *f1, FILE *f2, int v, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
@@ -4375,7 +4478,7 @@ int PrintCITable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintCIMTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp) {
   CIM_HEADER h;
   CIM_RECORD r;
   int n, i, t, q;
@@ -4466,7 +4569,7 @@ int PrintCIMTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintSPTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintSPTable(TFILE *f1, FILE *f2, int v, int swp) {
   SP_HEADER h;
   SP_RECORD r;
   SP_EXTRA rx;
@@ -4515,11 +4618,11 @@ double IonDensity(char *fn, int k) {
   SP_RECORD r;
   SP_EXTRA rx;
   int i;
-  FILE *f;
+  TFILE *f;
   int n, swp;
   double d;
 
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1.0;
@@ -4529,7 +4632,7 @@ double IonDensity(char *fn, int k) {
   
   if (fh.type != DB_SP) {
     printf("file not of type DB_SP\n");
-    fclose(f);
+    FCLOSE(f);
     return -1.0;
   }
 
@@ -4538,7 +4641,7 @@ double IonDensity(char *fn, int k) {
     n = ReadSPHeader(f, &h, swp);
     if (n == 0) break;
     if (h.type != 0 || h.nele != k) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
     
@@ -4549,7 +4652,7 @@ double IonDensity(char *fn, int k) {
     }
   }
  
-  fclose(f);
+  FCLOSE(f);
 
   return d;
 }
@@ -4560,11 +4663,11 @@ double IonRadiation(char *fn, int k, int m) {
   SP_RECORD r;
   SP_EXTRA rx;
   int i;
-  FILE *f;
+  TFILE *f;
   int n, swp;
   double d;
 
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1.0;
@@ -4574,7 +4677,7 @@ double IonRadiation(char *fn, int k, int m) {
   
   if (fh.type != DB_SP) {
     printf("file not of type DB_SP\n");
-    fclose(f);
+    FCLOSE(f);
     return -1.0;
   }
 
@@ -4583,15 +4686,15 @@ double IonRadiation(char *fn, int k, int m) {
     n = ReadSPHeader(f, &h, swp);
     if (n == 0) break;
     if (h.type == 0 || h.nele != k) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }      
     if (m == 1 && h.type < 100) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
     if (m == 2 && h.type > 100) {
-      fseek(f, h.length, SEEK_CUR);
+      FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
     for (i = 0; i < h.ntransitions; i++) {
@@ -4601,13 +4704,13 @@ double IonRadiation(char *fn, int k, int m) {
     }
   }
  
-  fclose(f);
+  FCLOSE(f);
 
   d *= HARTREE_EV;
   return d;
 }
 		     
-int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintRTTable(TFILE *f1, FILE *f2, int v, int swp) {
   RT_HEADER h;
   RT_RECORD r;
   int n, i;
@@ -4652,7 +4755,7 @@ int PrintRTTable(FILE *f1, FILE *f2, int v, int swp) {
   return nb;
 }
 
-int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
+int PrintDRTable(TFILE *f1, FILE *f2, int v, int swp) {
   DR_HEADER h;
   DR_RECORD r;
   int n, i;
@@ -4697,45 +4800,45 @@ int PrintDRTable(FILE *f1, FILE *f2, int v, int swp) {
 
 int AppendTable(char *fn) {
   F_HEADER fh;
-  FILE *f;
+  TFILE *f;
   int n, swp;
     
-  f = fopen(fn, "r");
+  f = FOPEN(fn, "r");
   if (f == NULL) return -1;
   n = ReadFHeader(f, &fh, &swp);
   if (swp) {
     printf("File %s is in different byte-order\n", fn);
-    fclose(f);
+    FCLOSE(f);
     return -1;
   }
   memcpy(&(fheader[fh.type-1]), &fh, sizeof(F_HEADER));
-  fclose(f);
+  FCLOSE(f);
   
   return 0;
 }
   
 int JoinTable(char *fn1, char *fn2, char *fn) {
   F_HEADER fh1, fh2;
-  FILE *f1, *f2, *f;
+  TFILE *f1, *f2, *f;
   int n, swp1, swp2;
 #define NBUF 8192
   char buf[NBUF];
 
-  f1 = fopen(fn1, "r");
+  f1 = FOPEN(fn1, "r");
   if (f1 == NULL) return -1;
-  f2 = fopen(fn2, "r");
+  f2 = FOPEN(fn2, "r");
   if (f2 == NULL) return -1;
 
   n = ReadFHeader(f1, &fh1, &swp1);
   if (n == 0) {
-    fclose(f1);
-    fclose(f2);
+    FCLOSE(f1);
+    FCLOSE(f2);
     return 0;
   }
   n = ReadFHeader(f2, &fh2, &swp2);
   if (n == 0) {
-    fclose(f1);
-    fclose(f2);
+    FCLOSE(f1);
+    FCLOSE(f2);
     return 0;
   }
   if (swp1 != swp2) {
@@ -4751,15 +4854,15 @@ int JoinTable(char *fn1, char *fn2, char *fn) {
     return -1;
   }
 
-  f = fopen(fn, "w");
+  f = FOPEN(fn, "w");
   if (f == NULL) return -1;
   fh1.nblocks += fh2.nblocks;
   
   WriteFHeader(f, &fh1);
   while (1) {
-    n = fread(buf, 1, NBUF, f1);
+    n = FREAD(buf, 1, NBUF, f1);
     if (n > 0) {
-      if (n > fwrite(buf, 1, n, f)) {
+      if (n > FWRITE(buf, 1, n, f)) {
 	printf("write error\n");
 	return -1;
       }
@@ -4767,9 +4870,9 @@ int JoinTable(char *fn1, char *fn2, char *fn) {
     if (n < NBUF) break;
   }
   while (1) {
-    n = fread(buf, 1, NBUF, f2);
+    n = FREAD(buf, 1, NBUF, f2);
     if (n > 0) {
-      if (n > fwrite(buf, 1, n, f)) {
+      if (n > FWRITE(buf, 1, n, f)) {
 	printf("write error\n");
 	return -1;
       }
@@ -4777,9 +4880,9 @@ int JoinTable(char *fn1, char *fn2, char *fn) {
     if (n < NBUF) break;
   }
 
-  fclose(f1);
-  fclose(f2);
-  fclose(f);
+  FCLOSE(f1);
+  FCLOSE(f2);
+  FCLOSE(f);
   
   return 0;
 #undef NBUF
@@ -4801,7 +4904,7 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
 		 char *efn0, char *efn1, char *afn0, char *afn1) {
   int i, k, k0, k1, n, ig, swp, nb;
   double ae0, ae1, e0, e1;
-  FILE *f0, *f1;
+  TFILE *f0, *f1;
   F_HEADER efh, afh;
   AI_HEADER ah;
   AI_RECORD ar;
@@ -4821,12 +4924,12 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
     e[i] = e[i] - (mem_en_table[ilevs[i]].energy - mem_en_table[ilevs[ig]].energy);
   }
   
-  f0 = fopen(efn0, "r");
+  f0 = FOPEN(efn0, "r");
   if (f0 == NULL) return -1;
 
   n = ReadFHeader(f0, &efh, &swp);  
   if (n == 0) {
-    fclose(f0);
+    FCLOSE(f0);
     return -1;
   }
   
@@ -4853,14 +4956,14 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   }
 
   CloseFile(f1, &efh);
-  fclose(f0);
+  FCLOSE(f0);
 
-  f0 = fopen(afn0, "r");
+  f0 = FOPEN(afn0, "r");
   if (f0 == NULL) return -1;
   
   n = ReadFHeader(f0, &afh, &swp);
   if (n == 0) {
-    fclose(f0);
+    FCLOSE(f0);
     return -1;
   }
   
@@ -4907,7 +5010,7 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   }
 
   CloseFile(f1, &afh);
-  fclose(f0);
+  FCLOSE(f0);
 
   ReinitDBase(0);
 

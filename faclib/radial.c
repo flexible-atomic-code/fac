@@ -107,6 +107,12 @@ static struct {
 	 1.0, 1.0, 3.0,
 	 0.07, 0.05, 1.5};
 
+static int _korbmap = KORBMAP;
+static int _norbmap0 = NORBMAP0;
+static int _norbmap1 = NORBMAP1;
+static int _norbmap2 = NORBMAP2;
+static ORBMAP *_orbmap = NULL;
+
 static AVERAGE_CONFIG average_config = {0, 0, NULL, NULL, NULL, 0, NULL, NULL};
 
 static MULTI *slater_array;
@@ -133,6 +139,34 @@ int GetRadTiming(RAD_TIMING *t) {
   return 0;
 }
 #endif
+
+void SetOrbMap(int k, int n0, int n1, int n2) {
+  if (k <= 0) k = KORBMAP;
+  if (n0 <= 0) n0 = NORBMAP0;
+  if (n1 <= 0) n1 = NORBMAP1;
+  if (n2 <= 0) n2 = NORBMAP2;
+  int i;
+  if (_orbmap != NULL) {
+    for (i = 0; i < _korbmap; i++) {
+      free(_orbmap[i].opn);
+      free(_orbmap[i].onn);
+      free(_orbmap[i].ozn);
+    }
+    free(_orbmap);
+  }
+
+  _korbmap = k;
+  _norbmap0 = n0;
+  _norbmap1 = n1;
+  _norbmap2 = n2;  
+  _orbmap = malloc(sizeof(ORBMAP)*_korbmap);  
+  for (i = 0; i < _korbmap; i++) {
+    _orbmap[i].nzn = 0;
+    _orbmap[i].opn = malloc(sizeof(ORBITAL *)*_norbmap0);
+    _orbmap[i].onn = malloc(sizeof(ORBITAL *)*_norbmap1);
+    _orbmap[i].ozn = malloc(sizeof(ORBITAL *)*_norbmap2);
+  }
+}
 
 int RestorePotential(char *fn, POTENTIAL *p) {
   BFILE *f;
@@ -390,6 +424,7 @@ static void InitOrbitalData(void *p, int n) {
     d[i].kv = -1000000000;
     d[i].horb = NULL;
     d[i].rorb = NULL;
+    d[i].isol = 0;
   }
 }
 
@@ -1235,9 +1270,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
 	orb_old.energy = 0.0;
-	orb = GetNewOrbital();
-	orb->kappa = acfg->kappa[i];
-	orb->n = acfg->n[i];
+	orb = GetNewOrbital(acfg->n[i], acfg->kappa[i], 1.0);
 	orb->energy = 1.0;
 	no_old = 1;	
       } else {
@@ -1250,7 +1283,11 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 	  no_old = 1;	
 	} else {
 	  orb_old.energy = orb->energy; 
-	  if (orb->wfun) free(orb->wfun);
+	  if (orb->wfun) {
+	    free(orb->wfun);
+	    orb->wfun = NULL;
+	    orb->isol = 0;
+	  }
 	  no_old = 0;
 	}
       }
@@ -1740,7 +1777,52 @@ int GetNumContinua(void) {
   return n_continua;
 }
 
-int OrbitalIndexNoLock(int n, int kappa, double energy) {
+int OrbitalIndex(int n, int kappa, double energy) {
+  ORBITAL *orb = NULL;
+  int k = ((abs(kappa)-1)*2)+(kappa>0);
+  if (k >= _korbmap) {
+    printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	   k, _korbmap);
+    Abort(1);
+  }
+  ORBMAP *om = &_orbmap[k];
+  if (n > 0) {
+    k = n-1;
+    orb = om->opn[k];
+  } else if (n < 0) {
+    k = -n-1;
+    orb = om->onn[k];
+  } else {
+    int i;
+    for (i = 0; i < om->nzn; i++) {
+      if (fabs(energy-om->ozn[i]->energy) < EPS10) {
+	orb = om->ozn[i];
+	break;
+      }
+    }
+  }
+  if (orb == NULL) {
+    if (orbitals->lock) SetLock(orbitals->lock);
+    orb = GetNewOrbitalNoLock(n, kappa, energy);
+    k = SolveDirac(orb);
+    if (k < 0) {
+      MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
+      Abort(1);
+    }    
+    if (orbitals->lock) ReleaseLock(orbitals->lock);
+  } else if (orb->isol == 0) {
+    if (orbitals->lock) SetLock(orbitals->lock);
+    k = SolveDirac(orb);
+    if (k < 0) {
+      MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
+      Abort(1);
+    }    
+    if (orbitals->lock) ReleaseLock(orbitals->lock);
+  }
+  return orb->idx;
+}
+
+int OrbitalIndexNoLock0(int n, int kappa, double energy) {
   int i, j;
   ORBITAL *orb;
   int resolve_dirac;
@@ -1753,14 +1835,14 @@ int OrbitalIndexNoLock(int n, int kappa, double energy) {
 	  orb->kappa == kappa && 
 	  orb->energy > 0.0 &&
 	  fabs(orb->energy - energy) < EPS10) {
-	if (orb->wfun == NULL) {
+	if (orb->isol == 0) {
 	  resolve_dirac = 1;
 	  break;
 	}
 	return i;
       }
     } else if (orb->n == n && orb->kappa == kappa) {
-      if (orb->wfun == NULL) {
+      if (orb->isol == 0) {
 	resolve_dirac = 1;
 	break;
       }
@@ -1768,32 +1850,54 @@ int OrbitalIndexNoLock(int n, int kappa, double energy) {
     }
   }    
   if (!resolve_dirac) {
-    orb = GetNewOrbitalNoLock();
+    orb = GetNewOrbitalNoLock(n, kappa, energy);
   } 
-  orb->n = n;
-  orb->kappa = kappa;
-  orb->energy = energy;
   j = SolveDirac(orb);
   if (j < 0) {
     MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", j);
     Abort(1);
   }
-  if (n == 0 && !resolve_dirac) {
-    n_continua++;
-  }
 #pragma omp flush
   return i;
 }
 
-int OrbitalIndex(int n, int kappa, double energy) {
+int OrbitalIndex0(int n, int kappa, double energy) {
   int i;
   if (orbitals->lock) SetLock(orbitals->lock);
-  i = OrbitalIndexNoLock(n, kappa, energy);
+  i = OrbitalIndexNoLock0(n, kappa, energy);
   if (orbitals->lock) ReleaseLock(orbitals->lock);
   return i;
 }
 
 int OrbitalExistsNoLock(int n, int kappa, double energy) {
+  ORBITAL *orb = NULL;
+  int k = ((abs(kappa)-1)<<1)+(kappa>0);
+  if (k >= _korbmap) {
+    printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	   k, _korbmap);
+    Abort(1);
+  }
+  ORBMAP *om = &_orbmap[k];
+  if (n > 0) {
+    k = n-1;
+    orb = om->opn[k];
+  } else if (n < 0) {
+    k = -n-1;
+    orb = om->onn[k];
+  } else {
+    int i;
+    for (i = 0; i < om->nzn; i++) {
+      if (fabs(energy-om->ozn[i]->energy) < EPS10) {
+	orb = om->ozn[i];
+	break;
+      }
+    }
+  }
+  if (orb != NULL) return orb->idx;  
+  return -1;
+}
+
+int OrbitalExistsNoLock0(int n, int kappa, double energy) {
   int i;
   ORBITAL *orb;
   for (i = 0; i < n_orbitals; i++) {
@@ -1812,10 +1916,66 @@ int OrbitalExistsNoLock(int n, int kappa, double energy) {
 
 int OrbitalExists(int n, int kappa, double energy) {
   int i;
+  i = OrbitalExistsNoLock(n, kappa, energy);
+  if (i >= 0) return i;
   if (orbitals->lock) SetLock(orbitals->lock);
   i = OrbitalExistsNoLock(n, kappa, energy);
   if (orbitals->lock) ReleaseLock(orbitals->lock);
   return i;
+}
+
+void AddOrbMap(ORBITAL *orb) {
+  int k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
+  if (k >= _korbmap) {
+    printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	   k, _korbmap);
+    Abort(1);
+  }
+  ORBMAP *om = &_orbmap[k];  
+  if (orb->n > 0) {
+    k = orb->n-1;
+    if (k >= _norbmap0) {
+      printf("too many bound orbitals, enlarge norbmap0: %d >= %d\n",
+	     k, _norbmap0);
+      Abort(1);
+    }
+    om->opn[k] = orb;
+  } else if (orb->n < 0) {
+    k = -orb->n-1;
+    if (k >= _norbmap1) {
+      printf("too many basis orbitals, enlarge norbmap1: %d >= %d\n",
+	     k, _norbmap1);
+      Abort(1);
+    }
+    om->onn[k] = orb;
+  } else {
+    if (om->nzn >= _norbmap2) {
+      printf("too many free orbitals, enlarge norbmap2: %d >= %d\n",
+	     om->nzn, _norbmap2);
+      Abort(1);
+    }
+    om->ozn[om->nzn] = orb;
+    om->nzn++;
+  }
+}
+
+void RemoveOrbMap(int m) {
+  int k, i;
+  for (k = 0; k < _korbmap; k++) {
+    ORBMAP *om = &_orbmap[k];
+    if (m == 0) {
+      for (i = 0; i < _norbmap0; i++) {
+	om->opn[i] = NULL;
+      }
+      for (i = 0; i < _norbmap1; i++) {
+	om->onn[i] = NULL;
+      }
+    }
+    for (i = 0; i < om->nzn; i++) {
+      om->ozn[i] = NULL;
+    }
+    om->nzn = 0;
+  }
 }
 
 int AddOrbital(ORBITAL *orb) {
@@ -1832,6 +1992,7 @@ int AddOrbital(ORBITAL *orb) {
     n_continua++;
   }
   n_orbitals++;
+  AddOrbMap(orb);
   if (orbitals->lock) ReleaseLock(orbitals->lock);
 #pragma omp flush
   return n_orbitals - 1;
@@ -1845,9 +2006,12 @@ ORBITAL *GetOrbitalSolved(int k) {
   ORBITAL *orb;
   int i;
   
+  orb = (ORBITAL *) ArrayGet(orbitals, k);
+  if (orb != NULL && orb->isol) return orb;
+  
   if (orbitals->lock) SetLock(orbitals->lock);
   orb = (ORBITAL *) ArrayGet(orbitals, k);
-  if (orb->wfun == NULL) {
+  if (orb->isol == 0) {
     i = SolveDirac(orb);
     if (i < 0) {
       printf("Error occured in solving Dirac eq. err = %d\n", i);
@@ -1859,7 +2023,7 @@ ORBITAL *GetOrbitalSolved(int k) {
   return orb;
 }
 
-ORBITAL *GetNewOrbitalNoLock(void) {
+ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e) {
   ORBITAL *orb;
 
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
@@ -1869,16 +2033,23 @@ ORBITAL *GetNewOrbitalNoLock(void) {
   }
   InitOrbitalData(orb, 1);
   orb->idx = n_orbitals;
+  orb->n = n;
+  orb->kappa = kappa;
+  orb->energy = e;
   n_orbitals++;
+  if (n == 0) {
+    n_continua++;
+  }
+  AddOrbMap(orb);
 #pragma omp flush
   return orb;
 }
 
-ORBITAL *GetNewOrbital(void) {
+ORBITAL *GetNewOrbital(int n, int kappa, double e) {
   ORBITAL *orb;
 
   if (orbitals->lock) SetLock(orbitals->lock);
-  orb = GetNewOrbitalNoLock();
+  orb = GetNewOrbitalNoLock(n, kappa, e);
   if (orbitals->lock) ReleaseLock(orbitals->lock);
   return orb;
 }
@@ -1887,6 +2058,7 @@ void FreeOrbitalData(void *p) {
   ORBITAL *orb;
 
   orb = (ORBITAL *) p;
+  //RemoveOrbMap(orb);
   if (orb->wfun) free(orb->wfun);
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
@@ -1908,6 +2080,7 @@ int ClearOrbitalTable(int m) {
     n_orbitals = 0;
     n_continua = 0;
     ArrayFree(orbitals, FreeOrbitalData);
+    RemoveOrbMap(0);
   } else {
     for (i = n_orbitals-1; i >= 0; i--) {
       orb = GetOrbital(i);
@@ -1917,82 +2090,12 @@ int ClearOrbitalTable(int m) {
       if (orb->n > 0) {
 	n_orbitals = i+1;
 	ArrayTrim(orbitals, i+1, FreeOrbitalData);
+	RemoveOrbMap(1);
 	break;
       }
     }
   }
   if (orbitals->lock) ReleaseLock(orbitals->lock);
-  return 0;
-}
-
-int SaveOrbital(int i) {
-  return 0;
-}
-
-int RestoreOrbital(int i) {
-  return -1;
-}
-
-int FreeOrbital(int i) {
-  ORBITAL *orb;
-  orb = GetOrbital(i);
-  FreeOrbitalData((void *)orb);
-  return 0;
-}
-
-int SaveAllContinua(int mode) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && orb->wfun != NULL) {
-      if (SaveOrbital(i) < 0) return -1;
-      if (mode) {
-	FreeOrbital(i);
-      }
-    }
-  }
-  return 0;
-}
-
-int SaveContinua(double e, int mode) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && 
-	orb->wfun != NULL &&
-	fabs(orb->energy - e) < EPS3) {
-      if (SaveOrbital(i) < 0) return -1;
-      if (mode) FreeOrbital(i);
-    }
-  }
-  return 0;
-}
-
-int FreeAllContinua(void) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && orb->wfun != NULL) {
-      FreeOrbital(i);
-    }
-  }
-  return 0;
-}
-
-int FreeContinua(double e) {
-  int i;
-  ORBITAL *orb;
-  for (i = 0; i < n_orbitals; i++) {
-    orb = GetOrbital(i);
-    if (orb->n == 0 && 
-	orb->wfun != NULL &&
-	fabs(orb->energy - e) < EPS3) {
-      FreeOrbital(i);
-    }
-  }
   return 0;
 }
 
@@ -6806,7 +6909,9 @@ int InitRadial(void) {
   
   SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
-  
+
+  SetOrbMap(0, 0, 0, 0);
+
   return 0;
 }
 
