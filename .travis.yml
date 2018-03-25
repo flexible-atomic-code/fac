@@ -35,5 +35,5 @@ install:
 
 script:
   - python -OO -c "from pfac import fac"
-  - ./tests/run_pytest.sh
+  - bash tests/run_pytest.sh
 after_success:
