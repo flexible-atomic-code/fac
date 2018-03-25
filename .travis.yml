@@ -34,6 +34,12 @@ install:
   - mkdir tests/data
 
 script:
+  # c test
+  - bash tests/install_googletest.sh
+  - cd tests
+  - make; make test
+  - cd ../
+  # python test
   - python -OO -c "from pfac import fac"
   - bash tests/run_pytest.sh
 after_success:

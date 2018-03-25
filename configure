@@ -4920,7 +4920,7 @@ CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
 
-ac_config_files="$ac_config_files Makefile sfac/Makefile python/Makefile faclib/Makefile blas/Makefile coul/Makefile ionis/Makefile lapack/Makefile minpack/Makefile mpfun/Makefile ode/Makefile toms/Makefile modqed/Makefile quadpack/Makefile"
+ac_config_files="$ac_config_files Makefile sfac/Makefile python/Makefile faclib/Makefile blas/Makefile coul/Makefile ionis/Makefile lapack/Makefile minpack/Makefile mpfun/Makefile ode/Makefile toms/Makefile modqed/Makefile quadpack/Makefile tests/Makefile"
 
 
 if test -z "$PYTHON"
@@ -5636,6 +5636,7 @@ do
     "toms/Makefile") CONFIG_FILES="$CONFIG_FILES toms/Makefile" ;;
     "modqed/Makefile") CONFIG_FILES="$CONFIG_FILES modqed/Makefile" ;;
     "quadpack/Makefile") CONFIG_FILES="$CONFIG_FILES quadpack/Makefile" ;;
+    "tests/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
