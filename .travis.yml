@@ -35,5 +35,5 @@ install:
 
 script:
   - python -OO -c "from pfac import fac"
-  - pytest -v tests --boxed
+  - ./tests/run_pytest.sh
 after_success:
