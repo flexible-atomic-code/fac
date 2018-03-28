@@ -41,3 +41,4 @@ bin/
 # python cache directory
 __pycache__
 .pytest_cache
+*.pyc
