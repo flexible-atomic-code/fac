@@ -220,13 +220,11 @@ int TRMultipole(double *strength, double *energy,
     if (m < 0 && IsOdd(p1+p2-m)) return -1;    
     
     s = 0.0;
-    
     nz = AngularZMix(&ang, lower, upper, m2, m2, &nmk, &mbk);
     if (nz <= 0 && nmk < m2/2) {
       if (nmk > 0) free(mbk);
       return -1;
     }
-    
     for (i = 0; i < nz; i++) {
       if (ang[i].k != m2) continue;
       if (transition_option.mode == M_NR && m != 1) {
@@ -708,6 +706,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     if (up != low) free(nc1);
     }
   } else {
+    PrepAngZStates(nlow, low, nup, up);
     ResetWidMPI();
 #pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
     {
@@ -716,7 +715,6 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       et = malloc(sizeof(double)*nlow);
       for (j = 0; j < nup; j++) {
 	int skip = SkipMPI();
-	//MPrintf(-1, "skip %d %d\n", j, skip);
 	if (skip) continue;
 	jup = LevelTotalJ(up[j]);
 	trd = 0.0;
@@ -735,11 +733,9 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  if (a[i] <= 0 || a[i] < (transition_option.eps * trd)) continue;
 	  r.lower = low[i];
 	  r.strength = s[i];
-	  //MPrintf(-1, "wtr: %d %d %d %d %g\n", j, i, r.lower, r.upper, r.strength);
 	  WriteTRRecord(f, &r, NULL);
 	}
-      }
-      
+      }      
       free(a);
       free(s);
       free(et);

@@ -44,6 +44,32 @@ typedef struct _CEPK_ {
   double *pke;
 } CEPK;
 
+typedef struct _CEPKK_ {
+  short kmin, kmax;
+  CEPK **pk;
+} CEPKK;
+
+typedef struct _CEQKK_ {
+  short kmin, kmax;
+  short kminp, kmaxp;
+  double **qk;
+} CEQKK;
+
+typedef struct _CECACHE_ {
+  int m;
+  int nc;
+  int *low;
+  int *up;
+  int *nz;
+  ANGULAR_ZMIX **az;
+  int *nmk;
+  double **mbk;
+  IDXARY *ks, *kd0, *kd1;
+  int msub;
+  CEPKK *pk;
+  CEQKK *qk;
+} CECACHE;
+
 #ifdef PERFORM_STATISTICS
 typedef struct _EXCIT_TIMING_ {
   double rad_pk;
@@ -53,6 +79,11 @@ typedef struct _EXCIT_TIMING_ {
 #endif
 
 CEPW_SCRATCH *GetCEPWScratch(void);
+void SetMaxCECache(int n);
+void AllocCECache(int msub);
+void FreeCECache(int m);
+void FreeCEQKK(CEQKK *qk, int m);
+void FreeCEPKK(CEPKK *pk);
 int FreeExcitationQk(void);
 int InitExcitation(void);
 int ReinitExcitation(int m);
@@ -80,7 +111,7 @@ int SetCEEGrid(int n, double emin, double emax, double eth);
 int SetUsrCEEGridDetail(int n, double *x);
 int SetUsrCEEGrid(int n, double emin, double emax, double eth);
 
-int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k);
+int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock);
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
 		   double te, double e1, double *qk, int m);
 int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
@@ -98,7 +129,8 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
 			 int lower, int upper);
 int CollisionStrength(double *s, double *p, double *e, double *bethe,
-		      int lower, int upper, int msub);
+		      int lower, int upper, int msub, int ic);
+void ProcessCECache(int msub, int iuta, TFILE *f);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 int CollisionStrengthEB(double *s, double *e, double *bethe, int lower, int upper);
 int CollisionStrengthEBD(double *s, double *e, double *bethe, double *born,
