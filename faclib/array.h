@@ -164,8 +164,7 @@ typedef struct _MULTI_ {
   int isf, hsize, hmask, aidx;
   ARRAY *array;
   ARRAY *ia, *da;
-  LOCK *lock;
-  double wt;
+  LOCK *lock, *clean_lock;
 } MULTI;
 
 typedef struct _IDXARY_ {

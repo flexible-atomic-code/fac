@@ -706,7 +706,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     if (up != low) free(nc1);
     }
   } else {
-    PrepAngZStates(nlow, low, nup, up);
+    //PrepAngZStates(nlow, low, nup, up);
     ResetWidMPI();
 #pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
     {

@@ -24,6 +24,7 @@
 
 static int _initialized = 0;
 static LOCK *_plock = NULL;
+static LOCK *_mpilock = NULL;
 static volatile long long _cwid = -1;
 static MPID mpi = {0, 1, 0};
 static double _tlock = 0, _tskip = 0;
@@ -54,13 +55,12 @@ int SkipMPI() {
   if (mpi.nproc > 1) {
 #ifdef OMP_STAT
     double t0 = WallTime();
-#endif
-#pragma omp critical  
-    {
-      mpi.wid++;      
-      if (mpi.wid <= _cwid) r = 1;
-      else _cwid = mpi.wid;
-    }
+#endif    
+    SetLockNT(_mpilock);
+    mpi.wid++;      
+    if (mpi.wid <= _cwid) r = 1;
+    else _cwid = mpi.wid;
+    ReleaseLock(_mpilock);
 #ifdef OMP_STAT
     double t1 = WallTime();
     _tskip += t1-t0;
@@ -181,6 +181,18 @@ int MPIReady() {
   return _initialized;
 }
 
+void SetLockMPI() {
+  if (_mpilock) {
+    SetLock(_mpilock);
+  }
+}
+
+void ReleaseLockMPI() {
+  if (_mpilock) {
+    ReleaseLock(_mpilock);
+  }
+}
+
 void InitializeMPI(int n) {
 #ifdef USE_MPI
   if (_initialized) {
@@ -204,6 +216,13 @@ void InitializeMPI(int n) {
       n = nm;
     }
     omp_set_num_threads(n);
+    _mpilock = (LOCK *) malloc(sizeof(LOCK));
+    if (0 != InitLock(_mpilock)) {
+      printf("cannot initialize mpilock in InitializeMPI\n");
+      free(_mpilock);
+      _mpilock = NULL;
+      Abort(1);
+    }    
   } else if (n == 0) {
     omp_set_num_threads(1);
   }  
@@ -260,6 +279,11 @@ void FinalizeMPI() {
     DestroyLock(_plock);
     free(_plock);
     _plock = NULL;
+  }
+  if (_mpilock) {
+    DestroyLock(_mpilock);
+    free(_mpilock);
+    _mpilock = NULL;
   }
 }
 

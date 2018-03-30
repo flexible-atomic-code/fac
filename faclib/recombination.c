@@ -1523,8 +1523,7 @@ int AIRadial1E(double *ai_pk, int kb, int kappaf) {
   }
   return 0;
 }  
-static double tpk0=0, tpk1=0;
-#pragma omp threadprivate(tpk0, tpk1)
+
 int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
 	       int k, int trylock) {
   int i, kf;
@@ -1533,8 +1532,6 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
   double **p;
   int index[5];
 
-  double wt0, wt1;
-  wt0=WallTime();
   if (kappaf > 0) {
     index[0] = 2*kappaf-1;
   } else {
@@ -1562,8 +1559,6 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
   }
   if (*p) {
     *ai_pk = *p;
-    wt1=WallTime();
-    tpk0+=wt1-wt0;
     if (locked) ReleaseLock(lock);
     return 0;
   } 
@@ -1581,16 +1576,13 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
   }
   *p = pd;
   if (locked) ReleaseLock(lock);
-  wt1=WallTime();
-  tpk1+=wt1-wt0;
 #pragma omp flush
   return 0;
 }
 
 void ProcessAICache(int msub, int iuta, TFILE *f) {
   int ic, iz, ilow, iup, skip;
-  double wt0, wt1;
-  wt0 = WallTime();
+
   if (!iuta) {
     ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, ilow, iup, skip)
@@ -1604,9 +1596,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	aicache.nzf[ic] = AngularZFreeBound(&aicache.azf[ic], iup, ilow);
       }
     }
-    wt1 = WallTime();
-    printf("aia: %g\n", wt1-wt0);
-    wt0=wt1;
+    /*
     ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, iz, skip)
     {
@@ -1665,6 +1655,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
     }
     wt1 = WallTime();
     printf("aie: %g\n", wt1-wt0);
+    */
   }    
   ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, ilow, iup, skip)
@@ -1706,10 +1697,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	WriteAIMRecord(f, &r1);
       }
     }
-    MPrintf(-1, "tpk1: %g %g\n", tpk0, tpk1);
   }
-  wt1=WallTime();
-  printf("aif: %g %g %g %g\n", wt1-wt0, tpk0, tpk1, pk_array->wt);  
 }
 
 int PrepRREGrids(double e, double emax0) { 

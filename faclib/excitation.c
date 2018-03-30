@@ -2744,8 +2744,6 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
   else
     nparams = 0;
 
-  double wt0, wt1;
-  wt0=WallTime();
   if (!iuta) {
     /*
     int nb = GetNumBounds();
@@ -2777,9 +2775,6 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
 	*/
       }
     }
-    wt1 = WallTime();
-    printf("cea: %g\n", wt1-wt0);
-    wt0=wt1;
     /*
     int nks, nkd0, nkd1;
     nks = 0;
@@ -2914,7 +2909,7 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
 	}
       }
     }
-    */
+
     ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, skip, iz, ie)
     {
@@ -2932,10 +2927,7 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
 	}
       }
     }
-  
-    wt1 = WallTime();
-    printf("cep: %g\n", wt1-wt0);
-    wt0=wt1;
+
     ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, iz, jz, skip)
     {
@@ -2964,13 +2956,10 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
 	  }
 	}
       }
-    }
-    
-    wt1 = WallTime();
-    printf("ceq: %g\n", wt1-wt0);
-    wt0=wt1;
+    }    
+    */
   }
-  
+
   ResetWidMPI();
 #pragma omp parallel default(shared) private(ic, ilow, iup, skip, ie)
   {
@@ -3042,9 +3031,6 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
     if (msub || qk_mode == QK_FIT) free(r.params);
     free(r.strength);
   }
-  wt1 = WallTime();
-  printf("cef: %g\n", wt1-wt0);
-  wt0=wt1;
 }
 
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
@@ -3118,7 +3104,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   if (!iuta) {
     AllocCECache(msub);
-    PrepAngZStates(nlow, low, nup, up);
+    //PrepAngZStates(nlow, low, nup, up);
   }
   
   ei = 1E31;

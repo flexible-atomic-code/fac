@@ -39,6 +39,8 @@ static double _totalsize = 0;
 static double _overheadsize = 0;
 static ARRAY *_multistats = NULL;
 
+//#undef SetLock
+//#define SetLock(x) SetLockWT((x))
 void InitMultiStats(void) {
   if (_multistats == NULL) {
     _multistats = malloc(sizeof(ARRAY));
@@ -753,7 +755,6 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   } else {
     ma->id[0] = '\0';
   }
-  ma->wt = 0;
   ma->maxsize = -1;
   ma->totalsize = 0;
   ma->cth = 0;
@@ -782,8 +783,15 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
     free(ma->lock);
     ma->lock = NULL;
   }
+
+  ma->clean_lock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(ma->clean_lock)) {
+    free(ma->clean_lock);
+    ma->clean_lock = NULL;
+  }
 #else
   ma->lock = NULL;
+  ma->clean_lock = NULL;
 #endif
   if (_multistats != NULL && ma->id[0]) {
     ArrayAppend(_multistats, &ma, InitPointerData);    
@@ -820,29 +828,49 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *)) {
-  int i, j, m, h, size;
+  int i, j, m, h, size, locked = 0;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
-#pragma omp critical
-  {
-    if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
-      ma->clean_mode = 0;
-      NMultiFreeData(ma, FreeElem);
-    } else if (ma->clean_flag > 0) {
-      ma->clean_mode = 0;
-      NMultiFreeData(ma, FreeElem);
-    } else if (_maxsize > 0 && ma->cth > 0) {
-      double ts = TotalSize();
+
+  if (_maxsize > 0 && ma->cth > 0) {
+    double ts = TotalSize();
+    if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
+      if (ma->clean_lock) {
+	SetLock(ma->clean_lock);
+	locked = 1;
+      }
       if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
 	ma->clean_mode = 1;
 	NMultiFreeData(ma, FreeElem);
       }
+      if (locked) ReleaseLock(ma->clean_lock);
     }
+  } else if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
+    if (ma->clean_lock) {
+      SetLock(ma->clean_lock);
+      locked = 1;
+    }
+    if (ma->totalsize >= ma->maxsize) {
+      ma->clean_mode = 0;
+      NMultiFreeData(ma, FreeElem);
+    }
+    if (locked) ReleaseLock(ma->clean_lock);
+  } else if (ma->clean_flag > 0) {
+    if (ma->clean_lock) {
+      SetLock(ma->clean_lock);
+      locked = 1;
+    }
+    if (ma->clean_flag > 0) {
+      ma->clean_mode = 0;
+      NMultiFreeData(ma, FreeElem);
+    }
+    if (locked) ReleaseLock(ma->clean_lock);
   }
+
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
-  int locked = 0;
+  locked = 0;
   if (a->dim == 0) {
     if (a->lock) {
       SetLock(a->lock);
