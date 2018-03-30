@@ -96,7 +96,7 @@ int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf,
 	       int k, int trylock);
 int AutoionizeRateUTA(double *rate, double *e, int rec, int f);
-int AutoionizeRate(double *rate, double *e, int rec, int f, int msub, int ic);
+int AutoionizeRate(double *rate, double *e, int rec, int f, int msub);
 void ProcessAICache(int msub, int iuta, TFILE *f);
 int DROpen(int n, int *nlev, int **ops);
  

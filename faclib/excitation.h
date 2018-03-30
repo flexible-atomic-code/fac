@@ -129,7 +129,7 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
 int CollisionStrengthUTA(double *qkt, double *params, double *e, double *bethe,
 			 int lower, int upper);
 int CollisionStrength(double *s, double *p, double *e, double *bethe,
-		      int lower, int upper, int msub, int ic);
+		      int lower, int upper, int msub);
 void ProcessCECache(int msub, int iuta, TFILE *f);
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn);
 int CollisionStrengthEB(double *s, double *e, double *bethe, int lower, int upper);
