@@ -4820,7 +4820,7 @@ if test "x$lapacklib" == "x"
 then
   LAPACKLIB="-lmlapack"
 fi
-LIBS="$LIBS $BLASLIB $LAPACKLIB -lfac -lpthread"
+LIBS="$LIBS -lfac $LAPACKLIB $BLASLIB -lpthread"
 
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"
