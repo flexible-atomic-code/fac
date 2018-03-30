@@ -216,13 +216,17 @@ void InitializeMPI(int n) {
       n = nm;
     }
     omp_set_num_threads(n);
-    _mpilock = (LOCK *) malloc(sizeof(LOCK));
-    if (0 != InitLock(_mpilock)) {
-      printf("cannot initialize mpilock in InitializeMPI\n");
-      free(_mpilock);
+    if (n > 1) {
+      _mpilock = (LOCK *) malloc(sizeof(LOCK));
+      if (0 != InitLock(_mpilock)) {
+	printf("cannot initialize mpilock in InitializeMPI\n");
+	free(_mpilock);
+	_mpilock = NULL;
+	Abort(1);
+      }
+    } else {
       _mpilock = NULL;
-      Abort(1);
-    }    
+    }
   } else if (n == 0) {
     omp_set_num_threads(1);
   }  
