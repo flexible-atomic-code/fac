@@ -71,6 +71,8 @@ double TimeSkip();
 double TimeLock();
 long long NumLock();
 void SetLockWT(LOCK *x);
+void SetLockMPI(void);
+void ReleaseLockMPI(void);
 int MPIReady(void);
 void Abort(int r);
 BFILE *BFileOpen(char *fn, char *md, int nb);

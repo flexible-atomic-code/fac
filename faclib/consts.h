@@ -292,6 +292,7 @@
 #define XBORN1             (-1.0)
 #define XBORN0             (0.25)
 #define EBORN              100.0
+#define MAXCECACHE         1000000
 
 /* ionization */
 #define IONMAXK            6
@@ -307,6 +308,7 @@
 #define RECNFROZEN         8
 #define RECLMAX            12
 #define AICUT              0.0
+#define MAXAICACHE         1000000
 
 /* polarization */
 #define MAXPOL             4 /* maximum multipol for polarization */

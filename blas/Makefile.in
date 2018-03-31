@@ -16,8 +16,7 @@ OBJS = ${SRC:.f=.o}
 	$(FC) -c ${FFLAGS} $<
 
 blas: $(OBJS)
-	$(FC) -c ${FFLAGSNO} d1mach.f
-	ar r ${TOPDIR}/libfac.a $(OBJS) d1mach.o
+	ar r ${TOPDIR}/libmblas.a $(OBJS)
 
 clean:
 	rm -f *.o *.a *~

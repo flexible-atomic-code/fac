@@ -39,6 +39,8 @@ static double _totalsize = 0;
 static double _overheadsize = 0;
 static ARRAY *_multistats = NULL;
 
+//#undef SetLock
+//#define SetLock(x) SetLockWT((x))
 void InitMultiStats(void) {
   if (_multistats == NULL) {
     _multistats = malloc(sizeof(ARRAY));
@@ -618,6 +620,30 @@ void InitMDataData(void *p, int n) {
 
 #define HashSize(n) ((ub4)1<<(((n)/2)+16))
 #define HashMask(n) (HashSize(n)-1)
+
+#define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
+
+#define mix(a,b,c) \
+{ \
+  a -= c;  a ^= rot(c, 4);  c += b; \
+  b -= a;  b ^= rot(a, 6);  a += c; \
+  c -= b;  c ^= rot(b, 8);  b += a; \
+  a -= c;  a ^= rot(c,16);  c += b; \
+  b -= a;  b ^= rot(a,19);  a += c; \
+  c -= b;  c ^= rot(b, 4);  b += a; \
+}
+
+#define final(a,b,c) \
+{ \
+  c ^= b; c -= rot(b,14); \
+  a ^= c; a -= rot(c,11); \
+  b ^= a; b -= rot(a,25); \
+  c ^= b; c -= rot(b,16); \
+  a ^= c; a -= rot(c,4);  \
+  b ^= a; b -= rot(a,14); \
+  c ^= b; c -= rot(b,24); \
+}
+
 #define Mix(a, b, c) \
 { \
   a -= b; a -= c; a ^= (c>>13); \
@@ -631,13 +657,12 @@ void InitMDataData(void *p, int n) {
   c -= a; c -= b; c ^= (b>>15); \
 }
   
-static int Hash2(int *id, ub4 length, ub4 initval, int n, int m) {
-  ub4 a, b, c, len, *k;
-  ub4 kd[32], i;
+static inline int Hash2a(int *id, ub4 length, ub4 initval, int n, int m) {
+  ub4 a, b, c, len, i, *k, kd[32];
 
   k = kd;
   for (i = 0; i < length; i++) k[i] = id[i];
-
+  
   len = length;
   a = b = 0x9e3779b9;  /* the golden ratio; an arbitrary value */
   c = initval;           /* the previous hash value */
@@ -664,6 +689,36 @@ static int Hash2(int *id, ub4 length, ub4 initval, int n, int m) {
   return (int) (c & m);
 }
 
+static inline int Hash2(int *k, ub4 length, ub4 initval, int n, int m) {
+  ub4 a,b,c;
+  
+  /* Set up the internal state */
+  a = b = c = 0xdeadbeef + (((ub4)length)<<2) + initval;
+  
+  /*------------------------------------------------- handle most of the key */
+  while (length > 3) {
+    a += k[0];
+    b += k[1];
+    c += k[2];
+    mix(a,b,c);
+    length -= 3;
+    k += 3;
+  }
+  
+  /*------------------------------------------- handle the last 3 uint32_t's */
+  switch(length)                     /* all the case statements fall through */
+    { 
+    case 3 : c+=k[2];
+    case 2 : b+=k[1];
+    case 1 : a+=k[0];
+      final(a,b,c);
+    case 0:     /* case 0: nothing left to add */
+      break;
+    }
+  /*------------------------------------------------------ report the result */
+  return c&m;
+}
+
 void AddMultiSize(MULTI *ma, int size) {
   ma->totalsize += size;
   _totalsize += size;
@@ -684,7 +739,15 @@ double TotalSize() {
   return _totalsize;
 #endif
 }
-  
+
+inline int IdxCmp(int *i0, int *i1, int n) {
+  int i;
+  for (i = 0; i < n; i++) {
+    if (i0[i] != i1[i]) return 1;
+  }
+  return 0;
+}
+
 int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   int i, n, s;
   if (id != NULL) {
@@ -720,8 +783,15 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
     free(ma->lock);
     ma->lock = NULL;
   }
+
+  ma->clean_lock = (LOCK *) malloc(sizeof(LOCK));
+  if (0 != InitLock(ma->clean_lock)) {
+    free(ma->clean_lock);
+    ma->clean_lock = NULL;
+  }
 #else
   ma->lock = NULL;
+  ma->clean_lock = NULL;
 #endif
   if (_multistats != NULL && ma->id[0]) {
     ArrayAppend(_multistats, &ma, InitPointerData);    
@@ -743,7 +813,7 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
   while (p) {
     pt = (MDATA *) p->dptr;
     for (m = 0; m < a->block && j < i; j++, m++) {
-      if (memcmp(pt->index, k, ma->isize) == 0) {
+      if (IdxCmp(pt->index, k, ma->ndim) == 0) {
 	if (lock) *lock = pt->lock;
 	return pt->data;
       }
@@ -758,29 +828,49 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *)) {
-  int i, j, m, h, size;
+  int i, j, m, h, size, locked = 0;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
-#pragma omp critical
-  {
-    if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
-      ma->clean_mode = 0;
-      NMultiFreeData(ma, FreeElem);
-    } else if (ma->clean_flag > 0) {
-      ma->clean_mode = 0;
-      NMultiFreeData(ma, FreeElem);
-    } else if (_maxsize > 0 && ma->cth > 0) {
-      double ts = TotalSize();
+
+  if (_maxsize > 0 && ma->cth > 0) {
+    double ts = TotalSize();
+    if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
+      if (ma->clean_lock) {
+	SetLock(ma->clean_lock);
+	locked = 1;
+      }
       if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
 	ma->clean_mode = 1;
 	NMultiFreeData(ma, FreeElem);
       }
+      if (locked) ReleaseLock(ma->clean_lock);
     }
+  } else if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
+    if (ma->clean_lock) {
+      SetLock(ma->clean_lock);
+      locked = 1;
+    }
+    if (ma->totalsize >= ma->maxsize) {
+      ma->clean_mode = 0;
+      NMultiFreeData(ma, FreeElem);
+    }
+    if (locked) ReleaseLock(ma->clean_lock);
+  } else if (ma->clean_flag > 0) {
+    if (ma->clean_lock) {
+      SetLock(ma->clean_lock);
+      locked = 1;
+    }
+    if (ma->clean_flag > 0) {
+      ma->clean_mode = 0;
+      NMultiFreeData(ma, FreeElem);
+    }
+    if (locked) ReleaseLock(ma->clean_lock);
   }
+
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
-  int locked = 0;
+  locked = 0;
   if (a->dim == 0) {
     if (a->lock) {
       SetLock(a->lock);
@@ -806,14 +896,14 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
     pt = (MDATA *) p->dptr;
     while (p && j < i) {
       for (m = 0; m < a->block && j < i; j++, m++) {
-	if (memcmp(pt->index, k, ma->isize) == 0) {
+	if (IdxCmp(pt->index, k, ma->ndim) == 0) {
 	  if (d) {
 	    memcpy(pt->data, d, ma->esize);
 	  }
 	  if (lock) *lock = pt->lock;
 	  if (locked) {
 	    ReleaseLock(a->lock);
-	  }
+	  }	  
 	  return pt->data;
 	}
 	pt++;
@@ -840,7 +930,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
       }
       while (p && j < a->dim) {
 	for (; m < a->block && j < a->dim; j++, m++) {
-	  if (memcmp(pt->index, k, ma->isize) == 0) {
+	  if (IdxCmp(pt->index, k, ma->ndim) == 0) {
 	    if (d) {
 	      memcpy(pt->data, d, ma->esize);
 	    }
@@ -1110,7 +1200,7 @@ void *MMultiGet(MULTI *ma, int *k, LOCK **lock) {
   while (p) {
     pt = (char *) p->dptr;
     for (m = 0; m < a->block && j < i; j++, m++) {
-      if (memcmp(pt, ma->sidx, ma->isize) == 0) {
+      if (bcmp(pt, ma->sidx, ma->isize) == 0) {
 	h = ma->aidx + j*ma->iblock[ma->ndim1];
 	return ArrayGet(da, h);
       }
@@ -1153,7 +1243,7 @@ void *MMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
     while (p) {
       pt = (char *) p->dptr;
       for (m = 0; m < a->block && j < i; j++, m++) {
-	if (memcmp(pt, ma->sidx, ma->isize) == 0) {
+	if (bcmp(pt, ma->sidx, ma->isize) == 0) {
 	  h = ma->aidx + j*ma->iblock[ma->ndim1];
 	  return ArraySet(da, h, d, InitData);
 	}      

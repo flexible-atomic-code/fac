@@ -164,7 +164,7 @@ typedef struct _MULTI_ {
   int isf, hsize, hmask, aidx;
   ARRAY *array;
   ARRAY *ia, *da;
-  LOCK *lock;
+  LOCK *lock, *clean_lock;
 } MULTI;
 
 typedef struct _IDXARY_ {
@@ -172,6 +172,7 @@ typedef struct _IDXARY_ {
   int *d, *i;
 } IDXARY;
 
+int IdxCmp(int *i0, int *i1, int n);
 void InitMultiStats(void);
 void ReportMultiStats(void);
 void RemoveMultiLocks(void);
