@@ -1,5 +1,5 @@
-This directory contains example scripts and the resulting outputs 
-discussed in the papers submitted to CPC. Two versions of the scripts 
+This directory contains example scripts and the resulting outputs
+discussed in the papers submitted to CPC. Two versions of the scripts
 are present, one is for Python interface (*.py), and the other is for
 SFAC interface (*.sf).
 
@@ -9,9 +9,15 @@ pirr/,       photoionzation and radiative recombination for Li-like Fe.
 aidr/,       autoionization example for Ne-like Se.
 ionization/, electron impact ionization example for Ne-like Fe.
 FeL/,        a general application to the calculation of Fe-L shell
-	     spectrum of collisionally ionized plasma. It includes 
+	     spectrum of collisionally ionized plasma. It includes
 	     the recombination, and ionization processes in the
 	     line formation.
+LiII/.       a collisional-radiative model example for LiII.
 polariz/,    use of pfac.pol module to calculate the polarizations of
 	     He-like Fe lines.
 rmatrix/,    collisional excitation with the Dirac R-matrix method.
+
+
+These scripts are also used to check the healty state of the code.
+`ref` in each example contains the reference results by FAC=1.1.4.
+In order to test FAC in your environment, execute `make check`.
