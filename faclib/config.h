@@ -159,6 +159,7 @@ typedef struct _CONFIG_ {
   int n_shells;
   int n_csfs;
   int nnrs;
+  double sweight;
   double energy;
   double delta;
   int *nrs;
@@ -187,6 +188,9 @@ typedef struct _AVERAGE_CONFIG_ {
   int *n;
   int *kappa;
   double *nq;
+  int ng;
+  int *kg;
+  double *weight;
 } AVERAGE_CONFIG;
 
 /*
@@ -207,6 +211,7 @@ typedef struct _CONFIG_GROUP_ {
   int n_cfgs;
   int n_electrons;
   ARRAY cfg_list;
+  double sweight;
   char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
 
@@ -246,7 +251,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
-void         *ReallocNew(void *p, int s);
+int ShellDegeneracy(int g, int nq);
 int          ShellsFromString(char *scfg, double *dnq, SHELL **shell);
 int          ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell);
 int          GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m);
@@ -283,7 +288,7 @@ int          ShellToInt(int n, int k);
 int          ShellIndex(int n, int kappa, int ns, SHELL *s);
 void         IntToShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
-int          GetAverageConfig(int ng, int *kg, double *weight,
+int          GetAverageConfig(int ng, int *kg, int ic, double *weight,
 			      int n_screen, int *screened_n, 
 			      double screened_charge,
 			      int screened_kl, AVERAGE_CONFIG *acfg);

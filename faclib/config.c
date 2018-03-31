@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "angular.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -84,17 +85,17 @@ static void InitConfigData(void *p, int n) {
     d[i].csfs = NULL;
   }
 }
-
-void *ReallocNew(void *p, int s) {
-  void *q;
-
-  q = malloc(s);
-  memcpy(q, p, s);
-  free(p);
   
-  return q;
+int ShellDegeneracy(int g, int nq) {
+  if (nq == 1) {
+    return g;
+  } else if (nq == g) {
+    return 1;
+  } else {
+    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
+  }
 }
-  
+
 /* 
 ** FUNCTION:    DistributeElectronsShell
 ** PURPOSE:     distribute nq electrons among the specified shells
@@ -584,8 +585,8 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 	break;
       }
       if (c == 0) {
-	if (cfg[i].n_shells > 0) {
-	  cfg[i].n_shells = 0;
+	if (cfg[i].n_shells >= 0) {
+	  cfg[i].n_shells = -1;
 	  free(cfg[i].shells);
 	  cfg[i].shells = NULL;
 	}
@@ -596,7 +597,7 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
   i = 0;
   j = 0;
   while (i < ncfg) {
-    if (cfg[i].n_shells == 0) {
+    if (cfg[i].n_shells < 0) {
       i++;
     } else {
       cfg[j].n_shells = cfg[i].n_shells;
@@ -675,7 +676,6 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
 
   free(shell);
   free(maxq);
-
   if (nc > 0) {
     ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
     for (i = 0; i < nc; i++) {
@@ -683,7 +683,6 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
     }
     free(sr);
   }
-
   return ncfg;
 }
 
@@ -1764,8 +1763,10 @@ int AddConfigToList(int k, CONFIG *cfg) {
   nq0 = 0;
   m = 0;
   cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
+  cfg->sweight = 1.0;
   for (i = 0; i < cfg->n_shells; i++) {
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
+    cfg->sweight *= ShellDegeneracy(j+1, nq);
     if (n == n0 && kl == kl0) {
       nq0 += nq;
     } else {
@@ -2033,7 +2034,7 @@ void ListConfig(char *fn, int n, int *kg) {
 **              with M = 2500, the limit is about 70, which should be 
 **              more than enough.
 */
-int GetAverageConfig(int ng, int *kg, double *weight,
+int GetAverageConfig(int ng, int *kg, int ic, double *weight,
 		     int n_screen, int *screened_n, double screened_charge,
 		     int screened_kl, AVERAGE_CONFIG *acfg) {
 #define M 2500 /* max # of shells may be present in an average config */
@@ -2042,41 +2043,48 @@ int GetAverageConfig(int ng, int *kg, double *weight,
   int i, j, k, n, kappa, t;
   ARRAY *c;
   CONFIG *cfg;
-  int weight_allocated = 0;
   double a;
 
   if (ng <= 0) return -1;
   for(i = 0; i < M; i++) tnq[i] = 0.0;
 
-  if (weight == NULL) {
-    weight = malloc(sizeof(double)*ng);
-    if (!weight) return -1;
-    for (i = 0; i < ng; i++) {
-      weight[i] = 1.0;
+  acfg->ng = ng;
+  acfg->kg = malloc(sizeof(int)*ng);
+  acfg->weight = malloc(sizeof(double)*ng);
+  for (i = 0; i < ng; i++) {
+    acfg->kg[i] = kg[i];
+    if (weight != NULL) {
+      acfg->weight[i] = weight[i];
+    } else {
+      acfg->weight[i] = 1.0;
     }
-    weight_allocated = 1;
   }
 
   /* normalize the weight */
   a = 0.0;
   for (i = 0; i < ng; i++) {
-    a += weight[i];
+    a += acfg->weight[i];
   }
   for (i = 0; i < ng; i++) {
-    weight[i] /= a;
+    acfg->weight[i] /= a;
   }
 
   for (i = 0; i < ng; i++) {
     c = &(cfg_groups[kg[i]].cfg_list);
-    a = 1.0/cfg_groups[kg[i]].n_cfgs;
+    if (ic < 0) {
+      a = 1.0/cfg_groups[kg[i]].n_cfgs;
+    } else {
+      a = 1.0;
+    }
     for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
+      if (ic >= 0 && t != ic) continue;
       cfg = (CONFIG *) ArrayGet(c, t);
       for (j = 0; j < cfg->n_shells; j++) {
 	n = cfg->shells[j].n;
 	kappa = cfg->shells[j].kappa;
 	k = ShellToInt(n, kappa);
 	if (k >= M) k = M-1;
-	tnq[k] += (((double)(cfg->shells[j].nq)) * weight[i]*a);
+	tnq[k] += (((double)(cfg->shells[j].nq)) * acfg->weight[i]*a);
       }
     }
     acfg->n_cfgs += cfg_groups[kg[i]].n_cfgs;
@@ -2152,18 +2160,14 @@ int GetAverageConfig(int ng, int *kg, double *weight,
     }
   }
 	  
-  if (weight_allocated) {
-    free(weight);
-    weight = NULL;
-  }
-
   return j;
 
  ERROR:
   if (acfg->n) free(acfg->n);
   if (acfg->nq) free(acfg->nq);
   if (acfg->kappa) free(acfg->kappa);
-  if (weight_allocated) free(weight);
+  free(acfg->kg);
+  free(acfg->weight);
   return -1;
 
 #undef M

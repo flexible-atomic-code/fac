@@ -1507,7 +1507,6 @@ int InteractingShells(INTERACT_DATUM **idatum,
 
  END:
   if (n_shells == 0) n_shells = -1;
-  (*idatum)->n_shells = n_shells;
   if (n_shells > 0) {
     (*idatum)->bra = (SHELL *) ReallocNew(bra, sizeof(SHELL)*n_shells);
     /* adjust the index so that it counts from inner shells */
@@ -1553,6 +1552,8 @@ int GetInteract(INTERACT_DATUM **idatum,
   INTERACT_SHELL *s;
   int n_shells;
   int index[4];
+  LOCK *lock = NULL;
+  int locked = 0;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;  
@@ -1582,16 +1583,23 @@ int GetInteract(INTERACT_DATUM **idatum,
       index[2] = kci;
       index[3] = kcj;
       (*idatum) = (INTERACT_DATUM *) MultiSet(interact_shells, index, 
-					      NULL, InitInteractDatum, 
+					      NULL, &lock, InitInteractDatum, 
 					      FreeInteractDatum);
     }
-    if ((*idatum)->n_shells < 0) return -1;
+    if (lock && (*idatum)->n_shells == 0) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if ((*idatum)->n_shells < 0) {
+      if (locked) ReleaseLock(lock);
+      return -1;
+    }
   } else {
     (*idatum) = malloc(sizeof(INTERACT_DATUM));
     (*idatum)->n_shells = 0;
-  }
-  if ((*idatum)->n_shells > 0) {
-    n_shells = (*idatum)->n_shells;
+  }  
+  n_shells = (*idatum)->n_shells;
+  if (n_shells > 0) {
     bra = (*idatum)->bra;
     s = (*idatum)->s;
     i = 0;
@@ -1661,16 +1669,19 @@ int GetInteract(INTERACT_DATUM **idatum,
   if (n_shells < 0 && csf_i == NULL) {
     free((*idatum));
     idatum = NULL;
+  } else {  
+    (*idatum)->n_shells = n_shells;
   }
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
 
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.interact += stop -start;
 #endif
-
   return n_shells;
 }
-
+    
 double EvaluateFormula(FORMULA *fm) {
   double r;
 
@@ -1886,7 +1897,7 @@ void EvaluateTensor(int nshells, SHELL_STATE *bra, SHELL_STATE *ket,
   RCFP_STATE rcfp_bra, rcfp_ket;
   RCFP_OPERATOR ops[2*MAXJ];
   int rank[2*MAXJ];
-  
+
   r = &(fm->coeff);
   order = fm->order;
   ninter = fm->ninter;
@@ -2422,7 +2433,8 @@ int InitRecouple(void) {
   
   FACTT();
   interact_shells = (MULTI *) malloc(sizeof(MULTI));
-  return MultiInit(interact_shells, sizeof(INTERACT_DATUM), ndim, blocks);
+  return MultiInit(interact_shells, sizeof(INTERACT_DATUM),
+		   ndim, blocks, "interact_shells");
 }
 
 /* 
@@ -2437,7 +2449,10 @@ int InitRecouple(void) {
 */
 int ReinitRecouple(int m) {
   if (m < 0) return 0;
+#pragma omp barrier
+#pragma omp master
   MultiFreeData(interact_shells, FreeInteractDatum);  
+#pragma omp barrier
   return 0;
 }
   

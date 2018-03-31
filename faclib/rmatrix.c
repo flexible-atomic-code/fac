@@ -444,7 +444,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	orbf.n = 1000000;
 	orbf.kappa = kappa;
 	orbf.energy = rbasis.ebuttle[t][i];
-	RadialFreeInner(&orbf, pot);
+	RadialSolver(&orbf, pot);
 	r0 = 0.0;
 	r1 = 0.0;
 	r2 = 0.0;
@@ -2333,6 +2333,7 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
     fclose(f1);
     return 0;
   }
+  return 0;
 }
 
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {

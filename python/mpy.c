@@ -28,7 +28,7 @@
 extern DL_EXPORT(int) Py_Main();
 
 int main(int argc, char *argv[]) {
-#ifdef USE_MPI
+#if USE_MPI == 1
   int rc;
   
   rc = MPI_Init(&argc, &argv);
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 
   Py_Main(argc, argv);
   
-#ifdef USE_MPI
+#if USE_MPI == 1
   MPI_Finalize();
 #endif
   

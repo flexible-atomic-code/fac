@@ -1,5 +1,9 @@
 # Ignore objects and archives, anywhere in the tree.
 *.[oa]
+*~
+*.aux
+*.log
+*.dvi
 
 # Ignore generated Makefiles
 /Makefile
@@ -20,6 +24,7 @@ python/Makefile
 sfac/scrm
 sfac/sfac
 sfac/spol
+python/mpy
 
 # configure-generated
 sysdef.h

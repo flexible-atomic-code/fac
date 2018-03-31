@@ -1,0 +1,21 @@
+@SET_MAKE@
+
+SHELL = /bin/sh
+
+FC = @F77@
+FFLAGS = @FFLAGS@
+
+TOPDIR = @TOPDIR@
+
+SRC = iniqed.f genqed.f atom_data.f segrid.f pot_wav.f se_pot.f dirac.f integr.f uehling.f fse_dat.f nucl.f wk.f
+
+OBJS = ${SRC:.f=.o}
+
+.f.o:
+	${FC} -c ${FFLAGS} $<
+
+modqed: ${OBJS}
+	ar r ${TOPDIR}/libfac.a ${OBJS}
+
+clean:
+	rm -f *.o *.a *~

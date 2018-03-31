@@ -70,13 +70,17 @@
 #include "array.h"
 #include "angular.h"
 #include "grid.h"
+#include "orbital.h"
+#include "radial.h"
 
+double NucleusRRMS(double z);
 void    SetHydrogenicNL(int n, int kl, int nm, int klm);
 void    GetHydrogenicNL(int *n, int *kl, int *nm, int *klm);
 double  HydrogenicDipole(double z, int n0, int kl0, 
 			int n1, int kl1);
 double HydrogenicExpectation(double z, int m, int n, int kl);
-double HydrogenicSelfEnergy(double z, int n, int k);
+double HydrogenicSelfEnergy(int md, int pse, double scl,
+			    POTENTIAL *pot, ORBITAL *orb, ORBITAL *orbp);
 double  TRRateHydrogenic(double z, int n0, int kl0,
 			int n1, int kl1, int s);
 double  CoulombPhaseShift(double z, double e, int kappa);

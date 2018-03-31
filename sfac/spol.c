@@ -256,6 +256,17 @@ static int PPopulationTable(int argc, char *argv[], int argt[],
   return i;
 }
 
+static int PWallTime(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m = 0;
+  if (argc < 1) return -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+  }
+  PrintWallTime(argv[0], m);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -270,6 +281,7 @@ static METHOD methods[] = {
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
+  {"WallTime", PWallTime, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
@@ -278,7 +290,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_open();
 #endif
 
@@ -299,7 +311,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_check();
 #endif
 

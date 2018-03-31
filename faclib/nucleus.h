@@ -20,16 +20,21 @@
 #define _NUCLEUS_H_
 
 #include "global.h"
+#include "interpolation.h"
 
 typedef struct _NUCLEUS_ {
   char symbol[5];
-  double atomic_number;
-  double mass;
-  double rn;
+  double z0, atomic_number;
+  double m0, mass;
+  double rn, z1, rms, rms0, rmse;
+  double a, b, c;
+  double rfermi[5];
 } NUCLEUS;
 
-
-int SetAtom(char *s, double z, double mass, double rn);
+void PrintNucleus();
+int InitNucleus();
+double GraspRRMS(double z, double m);
+int SetAtom(char *s, double z, double mass, double rn, double a, double rse);
 char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);
 double GetAtomicNumber(void);
@@ -37,6 +42,8 @@ double GetAtomicMass(void);
 double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
+double GetAtomicChargeDist(double r);
+NUCLEUS *GetAtomicNucleus(void);
 
 #endif
 

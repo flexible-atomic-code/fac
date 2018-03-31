@@ -17,6 +17,7 @@
  */
 
 #include "ionization.h"
+#include "recombination.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -533,7 +534,7 @@ int CIRadialQkBED(double *dp, double *bethe, double *b, int kl,
     j = n-1;
     t[j] = 1.0;
     y[j--] = 0.0;
-    for (i = NINT-1; i > 0; i -= 2, j--) {
+    for (i = NINT-1; i > 1; i -= 2, j--) {
       y[j] = Simpson(integrand, i-2, i);
       y[j] *= d;
       y[j] += y[j+1];
@@ -562,16 +563,22 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
 
   index[0] = kb;
   index[1] = kbp;
-  
-  p = (double **) MultiSet(qk_array, index, NULL, 
+  LOCK *lock = NULL;
+  int locked = 0;
+  p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeIonizationQkData);
+  if (lock && !(*p)) {
+    SetLock(lock);
+    locked = 1;
+  }
   if (*p) {
+    if (locked) ReleaseLock(lock);
     return (*p);
   } 
 
   nqk = n_tegrid*n_egrid;
-  *p = (double *) malloc(sizeof(double)*nqk);
-  qkc = *p;
+  double *pd = (double *) malloc(sizeof(double)*nqk);
+  qkc = pd;
   
   bms = BornMass();
   BornFormFactorTE(&bte);
@@ -638,7 +645,9 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       qkc[i] = 16.0*y;
     }
   }
-
+  *p = pd;
+  if (locked) ReleaseLock(lock);
+#pragma omp flush
   ReinitRadial(1);
   return (*p);
 }
@@ -987,7 +996,7 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int i, j, k;
   int ie, ip;
-  FILE *file;
+  TFILE *file;
   LEVEL *lev1, *lev2;
   CI_RECORD r;
   CI_HEADER ci_hdr;
@@ -1018,7 +1027,16 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nb, b);
+    RandIntList(nf, f);
+  }
+#endif
+  */
   if (tegrid[0] < 0) {
     te_set = 0;
   } else {
@@ -1060,7 +1078,6 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   pw_type = 0;
   if (usr_egrid_type < 0) usr_egrid_type = 1;
   nqk = NPARAMS;
-  r.params = (float *) malloc(sizeof(float)*nqk);
     
   fhdr.type = DB_CI;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -1181,8 +1198,6 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       SetCIPWGrid(0, NULL, NULL);
     }
 
-    r.strength = (float *) malloc(sizeof(float)*n_usr);
-
     ci_hdr.n_tegrid = n_tegrid;
     ci_hdr.n_egrid = n_egrid;
     ci_hdr.n_usr = n_usr;
@@ -1190,13 +1205,19 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     ci_hdr.egrid = egrid;
     ci_hdr.usr_egrid = usr_egrid;
     InitFile(file, &fhdr, &ci_hdr);
-
+    ResetWidMPI();
+#pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, r, ip, ie)
+    {
+    r.strength = (float *) malloc(sizeof(float)*n_usr);
+    r.params = (float *) malloc(sizeof(float)*nqk);
     for (i = 0; i < nb; i++) {
       lev1 = GetLevel(b[i]);
       for (j = 0; j < nf; j++) {
 	lev2 = GetLevel(f[j]);
 	e = lev2->energy - lev1->energy;
 	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	if (iuta) {
 	  nq = IonizeStrengthUTA(qku, qk, &e, b[i], f[j]);
 	} else {
@@ -1218,10 +1239,11 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	WriteCIRecord(file, &r);
       }
     }
-
+    free(r.params);
+    free(r.strength);
+    }
     DeinitFile(file, &fhdr);
 
-    free(r.strength);
     ReinitRadial(1);
     FreeRecQk();
     FreeRecPk();
@@ -1229,8 +1251,6 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     
     e0 = e1;
   }
-
-  free(r.params);
 
   ReinitRecombination(1);
   ReinitIonization(1);
@@ -1513,7 +1533,7 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
 }
 
 int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
-  FILE *file;
+  TFILE *file;
   LEVEL *lev1, *lev2;
   CIM_RECORD r;
   CIM_HEADER ci_hdr;
@@ -1538,7 +1558,16 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   if (k == 0) {
     return 0;
   }
-
+  /*
+#if USE_MPI == 2
+  int mr, nr;
+  mr = MPIRank(&nr);
+  if (nr > 1) {
+    RandIntList(nb, b);
+    RandIntList(nf, f);
+  }
+#endif
+  */
   if (egrid_limits_type == 0) {
     emax0 = 0.5*(emin + emax)*egrid_max;
   } else {
@@ -1599,10 +1628,14 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.egrid = egrid;
   ci_hdr.usr_egrid = usr_egrid;
   InitFile(file, &fhdr, &ci_hdr);
-  
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, nq, r, qku, ie)
+  {
   for (i = 0; i < nb; i++) {
     lev1 = GetLevel(b[i]);
     for (j = 0; j < nf; j++) {
+      int skip = SkipMPI();
+      if (skip) continue;
       lev2 = GetLevel(f[j]);
       e = lev2->energy - lev1->energy;
       nq = IonizeStrengthMSub(qku, &e, b[i], f[j]);
@@ -1618,7 +1651,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
       free(r.strength);
     }
   }
-    
+  }
   DeinitFile(file, &fhdr);
   CloseFile(file, &fhdr);
 
@@ -1636,7 +1669,7 @@ int InitIonization(void) {
   int ndim = 2;
   
   qk_array = (MULTI *) malloc(sizeof(MULTI));
-  MultiInit(qk_array, sizeof(double *), ndim, blocks);
+  MultiInit(qk_array, sizeof(double *), ndim, blocks, "iqk_array");
   
   SetCIMaxK(IONMAXK);
   n_egrid = 0;

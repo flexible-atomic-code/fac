@@ -68,26 +68,37 @@
 ** NOTE:        
 */
 
+#include <unistd.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
 #include <time.h>
 
+#include "global.h"
+
 #define USE_NMULTI 1
+
 /* choose MULTI implementation */
-#ifdef USE_NMULTI
+#if USE_NMULTI == 1
 #define MultiInit NMultiInit
 #define MultiGet NMultiGet
 #define MultiSet NMultiSet
 #define MultiFreeData NMultiFreeData
 #define MultiFree NMultiFree
-#else
+#elif USE_NMULTI == 0
 #define MultiInit SMultiInit
 #define MultiGet SMultiGet
 #define MultiSet SMultiSet
 #define MultiFreeData SMultiFreeData
 #define MultiFree SMultiFree
+#else
+#define MultiInit MMultiInit
+#define MultiGet MMultiGet
+#define MultiSet MMultiSet
+#define MultiFreeData MMultiFreeData
+#define MultiFree MMultiFree
 #endif /*USE_NMULTI*/
 
 
@@ -117,11 +128,13 @@ typedef struct _DATA_ {
 ** NOTE:        
 */
 typedef struct _ARRAY_ {
-  unsigned short esize;
-  unsigned short block;
+  char id[MULTI_IDLEN];
+  int esize;
+  int block;
   int bsize;
-  int dim;
+  volatile int dim;
   DATA  *data;
+  LOCK *lock;
 } ARRAY;
 
 /*
@@ -139,14 +152,29 @@ typedef struct _ARRAY_ {
 ** NOTE:        
 */
 typedef struct _MULTI_ {
+  char id[MULTI_IDLEN];
   int numelem, maxelem;
-  unsigned short ndim;
+  double totalsize, overheadsize, maxsize, cth;
+  int clean_mode, clean_thread, clean_flag;
+  unsigned short ndim, ndim1;
   unsigned short isize;
   unsigned short esize;
-  unsigned short *block;
+  unsigned short *block, *sidx, *ridx;
+  int *iidx, *iblock;
+  int isf, hsize, hmask, aidx;
   ARRAY *array;
+  ARRAY *ia, *da;
+  LOCK *lock;
 } MULTI;
 
+typedef struct _IDXARY_ {
+  int n, m, m0, m1;
+  int *d, *i;
+} IDXARY;
+
+void InitMultiStats(void);
+void ReportMultiStats(void);
+void RemoveMultiLocks(void);
 int   ArrayInit(ARRAY *a, int esize, int block);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d, 
@@ -160,9 +188,9 @@ int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
 int   ArrayFreeData(DATA *p, int esize, int block, 
 		    void (*FreeElem)(void *));
 
-int   SMultiInit(MULTI *ma, int esize, int ndim, int *block);
-void *SMultiGet(MULTI *ma, int *k);
-void *SMultiSet(MULTI *ma, int *k, void *d, 
+int   SMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id);
+void *SMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *SMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *));
 int   SMultiFree(MULTI *ma, void (*FreeElem)(void *));
@@ -173,9 +201,9 @@ int   SMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 ** the following set of funcitons are a different implementation
 ** for the MULTI array,
 */
-int   NMultiInit(MULTI *ma, int esize, int ndim, int *block);
-void *NMultiGet(MULTI *ma, int *k);
-void *NMultiSet(MULTI *ma, int *k, void *d, 
+int   NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id);
+void *NMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *));
 int   NMultiFree(MULTI *ma, 
@@ -183,10 +211,29 @@ int   NMultiFree(MULTI *ma,
 int   NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *));
 int   NMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 
+/*
+** yet another implementation of MULTI array
+*/
+int   MMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id);
+void *MMultiGet(MULTI *ma, int *k, LOCK **lock);
+void *MMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
+		void (*InitData)(void *, int),
+		void (*FreeElem)(void *));
+int   MMultiFree(MULTI *ma, 
+		 void (*FreeElem)(void *));
+int   MMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
+void AddMultiSize(MULTI *ma, int size);
+void LimitMultiSize(MULTI *ma, double d);
+
 void  InitIntData(void *p, int n);
 void  InitDoubleData(void *p, int n);
 void  InitPointerData(void *p, int n);
 void  InitArrayData(void *p, int n);
 void  InitMDataData(void *p, int n);
 
+void InitIdxAry(IDXARY *ia, int n, int *d);
+void FreeIdxAry(IDXARY *ia, int md);
+int IdxGet(IDXARY *ia, int d);
+void SetMultiCleanFlag(MULTI *ma);
+double TotalSize(void);
 #endif

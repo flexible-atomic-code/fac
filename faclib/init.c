@@ -23,6 +23,7 @@ USE (rcsid);
 #endif
 
 #include "init.h"
+#include "mpiutil.h"
 
 #if FAC_DEBUG
   FILE *debug_log = NULL;
@@ -44,7 +45,7 @@ int Info(void) {
 
 int InitFac(void) {
   int ierr;
-
+  
 #if FAC_DEBUG
   debug_log = fopen("debug.log", "w");
 #endif
@@ -53,12 +54,15 @@ int InitFac(void) {
   perform_log = fopen("perform.log", "w");
 #endif
 
+  //InitializeMPI(0);
   ierr = InitConfig();
   if ( ierr < 0) {
     printf("initialize failed in InitConfig\n");
     return ierr;
   }
 
+  InitMultiStats();
+  InitNucleus();
   InitCoulomb();
   InitAngular();
   InitRecouple();

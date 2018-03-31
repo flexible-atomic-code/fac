@@ -20,6 +20,7 @@
 
 #include "structure.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -210,8 +211,9 @@ static void InitLevelData(void *p, int n) {
   }
 }
 
-int SetCILevel(m) {
+int SetCILevel(int m) {
   ci_level = m;
+  return 0;
 }
 
 int SetAngZCut(double cut) {
@@ -233,16 +235,6 @@ int SetAngZOptions(int n, double mix, double cut) {
   mix_cut = mix;
   angz_cut = cut;
   return 0;
-}
-
-int ShellDegeneracy(int g, int nq) {
-  if (nq == 1) {
-    return g;
-  } else if (nq == g) {
-    return 1;
-  } else {
-    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
-  }
 }
 
 int CompareInt(const void *a1, const void *a2) {
@@ -277,6 +269,10 @@ HAMILTON *GetHamilton(void) {
 SHAMILTON *GetSHamilton(int *n) {
   if (n) *n = nhams;
   return hams;
+}
+
+int NHams(void) {
+  return nhams;
 }
 
 int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
@@ -463,21 +459,6 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   return -1;
 }
 
-int CodeBasisEB(int s, int m) {
-  int k;
-  
-  k = s + MAXLEVEB*abs(m);
-  if (m < 0) k = -k;
-
-  return k;
-}
-
-void DecodeBasisEB(int k, int *s, int *m) {
-  *m = abs(k)/MAXLEVEB;
-  *s = abs(k)%MAXLEVEB;
-  if (k < 0) *m = -(*m);
-}
-
 int ConstructHamiltonEB(int n, int *ilev) {
   int i, j, p, k, t, m;
   double r;
@@ -526,8 +507,9 @@ int ConstructHamiltonEB(int n, int *ilev) {
   return -1;
 }
 
-int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md) {
-  int i, j, j0, t, jp, m1, m2, m3;
+int ConstructHamilton(int isym, int k0, int k, int *kg,
+		      int kp, int *kgp, int md) {
+  int i, j, j0, t, ti, jp, m1, m2, m3;
   HAMILTON *h;
   SHAMILTON *hs;
   ARRAY *st;
@@ -603,32 +585,60 @@ int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md
     }
   }
   if (m2) {
-    for (j = 0; j < h->dim; j++) {
-      t = j*(j+1)/2;
-      for (i = 0; i <= j; i++) {
-	r = HamiltonElement(isym, h->basis[i], h->basis[j]);
-	h->hamilton[i+t] = r;
-      }
-    } 
-    
-    if (jp > 0) {
-      t = ((h->dim+1)*(h->dim))/2;
-      for (i = 0; i < h->dim; i++) {
-	for (j = h->dim; j < h->n_basis; j++) {
+    for (j = 0; j < h->hsize; j++) {
+      h->hamilton[j] = 0;
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i,j,t,r)
+    {
+      int mr = MPIRank(NULL);
+      for (j = 0; j < h->dim; j++) {
+	int skip;
+	skip = SkipMPI();
+	if (skip) continue;
+	t = j*(j+1)/2;
+	for (i = 0; i <= j; i++) {
 	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	  h->hamilton[i+t] = r;
+	}
+      }
+      if (jp > 0) {
+	t = ((h->dim+1)*(h->dim))/2;
+	for (i = 0; i < h->dim; i++) {
+	  if (SkipMPI()) {
+	    t += h->n_basis-h->dim;
+	    continue;
+	  }
+	  for (j = h->dim; j < h->n_basis; j++) {
+	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	    h->hamilton[t++] = r;
+	  }
+	  ReinitRecouple(0);
+	  ReinitRadial(1);
+	}
+	for (j = h->dim; j < h->n_basis; j++) {
+	  if (SkipMPI()) {
+	    t++;
+	    continue;
+	  }
+	  r = HamiltonElement(isym, h->basis[j], h->basis[j]);
 	  h->hamilton[t++] = r;
 	}
 	ReinitRecouple(0);
 	ReinitRadial(1);
       }
-      for (j = h->dim; j < h->n_basis; j++) {
-	r = HamiltonElement(isym, h->basis[j], h->basis[j]);
-	h->hamilton[t++] = r;
-      }
-      ReinitRecouple(0);
-      ReinitRadial(1);
     }
-  }
+#if USE_MPI == 1    
+    if (NProcMPI() > 1) {
+      MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
+		    MPI_SUM, MPI_COMM_WORLD);
+    }
+#elif USE_MPI == 2
+#pragma omp barrier
+#pragma omp flush
+#endif
+  }  
+      
   if (m3) {
     if (nhams >= MAX_HAMS) {
       printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
@@ -1323,7 +1333,6 @@ void HamiltonElement1E2E(int isym, int isi, int isj, double *x1, double *x2) {
   if (isi == isj) {
     *x1 += ci->delta;
   }
-
   free(sbra);
   free(sket);
 }
@@ -1603,7 +1612,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {
   int nk0, k;
   int *k0;
-  double *x, z0, r0;
+  double *x, z0, r0, e0, qed;
   int k1, k2;
 
   if (s[0].j != s[1].j ||
@@ -1617,10 +1626,14 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   k1 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
   k2 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
   ResidualPotential(&r0, k1, k2);
-  if (k1 == k2) r0 += (GetOrbital(k1))->energy;
-  r0 += QED1E(k1, k2);
+  e0 = 0.0;
+  if (k1 == k2) {
+    e0 = (GetOrbital(k1))->energy;  
+    r0 += e0;
+  }
+  qed = QED1E(k1, k2);
+  r0 += qed;
   z0 *= sqrt(s[0].j + 1.0);
-
   r0 *= z0;
   return r0;
 }
@@ -1708,7 +1721,7 @@ double Hamilton2E2(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 
   return x;
 }
-  
+
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket, 
 		  INTERACT_SHELL *s) {
   int nk0, nk, *kk, k, *kk0, i;
@@ -1717,6 +1730,7 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   double z0, *y;
   int ks[4], js[4];
 
+  int mr = MPIRank(NULL);
   js[0] = 0;
   js[1] = 0;
   js[2] = 0;
@@ -1755,12 +1769,10 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     }
     if (nk0 > 0) x -= z0 * sd;
   }
-
   if (nk > 0) {
     free(ang);
     free(kk);
   }
-
   return x;
 }
 
@@ -1930,7 +1942,8 @@ int AddToLevels(int ng, int *kg) {
   CONFIG_GROUP *g;
   int g0, p0;
   double *mix, a;
-  
+
+  if (MyRankMPI() != 0) return 0;
   if (IsUTA()) {
     m = n_levels;
     lev.n_basis = 0;
@@ -2010,6 +2023,7 @@ int AddToLevels(int ng, int *kg) {
     return 0;
   }
 
+  int mce = ConfigEnergyMode();
   j = n_levels;
   sym = GetSymmetry(h->pj);  
   for (i = 0; i < d; i++) {
@@ -2045,12 +2059,21 @@ int AddToLevels(int ng, int *kg) {
     lev.basis = (int *) malloc(sizeof(int)*h->n_basis);
     lev.mixing = (double *) malloc(sizeof(double)*h->n_basis);
     a = fabs(mix_cut * mix[k]);
+    double se = 0.0;
     for (t = 0, m = 0; t < h->n_basis; t++) {
       if (fabs(mix[t]) < a) continue;
       lev.ibasis[m] = t;
       lev.basis[m] = h->basis[t];
       lev.mixing[m] = mix[t];
+      if (mce >= 20) {
+	s1 = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
+	c = GetConfig(s1);	
+	se += mix[t]*mix[t]*c->energy;
+      }
       m++;
+    }
+    if (se) {
+      lev.energy += se;
     }
     lev.n_basis = m;
     if (m < t) {
@@ -2335,6 +2358,7 @@ int SortLevels(int start, int n, int m) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
 
+  if (MyRankMPI() != 0) return 0;
   if (m == 0) {
     if (n < 0) n = n_levels-start;
   } else {
@@ -2407,6 +2431,48 @@ int SortLevels(int start, int n, int m) {
   return 0;
 }
 
+int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
+  int ng0, nlevels, ns, k, i;
+  
+  if (ngp < 0) return 0;  
+  ng0 = ng;
+  if (!ip) {
+    if (ngp) {
+      ng += ngp;
+      kg = (int *) realloc(kg, sizeof(int)*ng);
+      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+      free(kgp);
+      kgp = NULL;
+      ngp = 0;
+    }
+  }
+
+  nlevels = GetNumLevels();
+  if (IsUTA()) {
+    AddToLevels(ng0, kg);
+  } else {
+    ns = MAX_SYMMETRIES;
+    for (i = 0; i < ns; i++) {
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
+      if (k < 0) continue;
+      if (DiagnolizeHamilton() < 0) {
+	return -1;
+      }
+      if (ng0 < ng) {
+	AddToLevels(ng0, kg);
+      } else {
+	AddToLevels(0, kg);
+      }
+    }
+  }
+
+  SortLevels(nlevels, -1, 0);
+  SaveLevels(fn, nlevels, -1);
+  if (ng > 0) free(kg);
+  if (ngp > 0) free(kgp);
+  return 0;
+}
+
 int GetNumElectrons(int k) {
   LEVEL *lev;
   SYMMETRY *sym;
@@ -2434,7 +2500,7 @@ int GetNumElectrons(int k) {
 
 int SaveEBLevels(char *fn, int m, int n) {
   int n0, k, i, ilev, mlev, nele;
-  FILE *f;
+  TFILE *f;
   LEVEL *lev;
   F_HEADER fhdr;
   ENF_HEADER enf_hdr;
@@ -2485,7 +2551,7 @@ int SaveLevels(char *fn, int m, int n) {
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
   char nc[LEVEL_NAME_LEN];
-  FILE *f;
+  TFILE *f;
   int i, k, p, j0;
   int nele, nele0, vnl, ib, dn, ik;
   int si, ms, mst, t, q, nk, n0;
@@ -2497,6 +2563,7 @@ int SaveLevels(char *fn, int m, int n) {
   RAD_TIMING radt;
 #endif
 
+  if (MyRankMPI() != 0) return 0;
   f = NULL;
   nele0 = -1;
   n0 = m;
@@ -3066,10 +3133,19 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
     return ns;
   }
 
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }  
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }  
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1*ns2;
-  ns = (*ad)->ns;
+  ns = ns1*ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   iz = 0;
@@ -3210,6 +3286,8 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   timing.n_angz_states++;
 #endif
 
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -3272,11 +3350,19 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
 #endif
     return ns;
   }
-
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1 * ns2;
-  ns = (*ad)->ns;
+  ns = ns1 * ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   
@@ -3366,6 +3452,8 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -3414,11 +3502,21 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
 #endif
     return ns;
   }
+
+  SetLock(&(*ad)->lock);
+  ns = (*ad)->ns;
+  if (ns < 0) {
+    ReleaseLock(&(*ad)->lock);
+    return -1;
+  }  
+  if (ns > 0) {
+    ReleaseLock(&(*ad)->lock);
+    return ns;
+  }
   
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
-  (*ad)->ns = ns1*ns2;
-  ns = (*ad)->ns;
+  ns = ns1*ns2;
   (*ad)->angz = malloc(sizeof(ANGULAR_ZxZMIX *)*ns);
   (*ad)->nz = (int *) malloc(sizeof(int)*ns);
   
@@ -3521,7 +3619,8 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   stop = clock();
   timing.angzfb_states += stop-start;
 #endif
-
+  (*ad)->ns = ns;
+  ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
 
@@ -3548,7 +3647,10 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     n2 = n1;
     is2 = is1;
   }
-  
+
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
+  {
   for (i1 = 0; i1 < n1; i1++) {
     lev1 = GetLevel(is1[i1]);
     ih1 = lev1->iham;
@@ -3565,6 +3667,8 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       if (s2->kgroup < 0) continue;
       ne2 = GetGroup(s2->kgroup)->n_electrons;
       if (abs(ne2-ne1) > 1) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
       ns2 = hams[ih2].nlevs;
       ns = ns1*ns2;
       if (ne1 == ne2) {
@@ -3618,7 +3722,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       (ad->nz)[is] = nz;
     }
   }
-
+  }
   return ns;
 }
 
@@ -3842,7 +3946,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
     kb1 = slow->kcfg;
     n = GetOrbital(kb1)->n;
     if (rydberg_ignored > 0 && rydberg_ignored < n) ignore_ryd = 1;
-    nmax = GetNMax();
+    nmax = RadialPotential()->nmax;
     if (n >= nmax && kg2 < 0) {
       kb2 = sup->kcfg;
       m = GetOrbital(kb2)->n;
@@ -4465,11 +4569,10 @@ void FreeAngZDatum(ANGZ_DATUM *ap) {
 }
 
 int InitAngZArray(void) {
-  int i;
-
   angz_dim = MAX_HAMS;
   angz_dim2 = angz_dim*angz_dim;
-  
+
+  int i;
   angz_array = malloc(sizeof(ANGZ_DATUM)*angz_dim2);
   if (!angz_array) {
     printf("cannot allocate memory for angz_array %d\n", angz_dim2);
@@ -4485,8 +4588,10 @@ int InitAngZArray(void) {
     angzxz_array[i].ns = 0;
     angz_array[i].mk = NULL;
     angzxz_array[i].mk = NULL;
+    InitLock(&angz_array[i].lock);
+    InitLock(&angzxz_array[i].lock);
   }
-  
+
   return 0;
 }
   
@@ -4495,6 +4600,8 @@ int FreeAngZArray(void) {
   
   if (angz_dim2 > 0) {
     for (i = 0; i < angz_dim2; i++) {
+      DestroyLock(&angz_array[i].lock);
+      DestroyLock(&angzxz_array[i].lock);
       FreeAngZDatum(&(angz_array[i]));
       FreeAngZDatum(&(angzxz_array[i]));
     }
@@ -4718,19 +4825,22 @@ int InitStructure(void) {
   ncorrections = 0;
 
   AllocHamMem(1000, 1000);
+  
   return 0;
 }
-
+  
 int ReinitStructure(int m) {
-
   if (m < 0) {
     return 0;
   } else {
+#pragma omp barrier
+#pragma omp master
     FreeHamsArray();
     FreeAngZArray();
     ClearLevelTable();
     InitAngZArray();
     _ham.heff = NULL;
+#pragma omp barrier
   }
   return 0;
 }

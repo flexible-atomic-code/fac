@@ -99,6 +99,7 @@ c
      *        istep,istptr,ns,nsubs
       double precision bnsfac(3,2),dum,scl,sfx,xpscl
       logical cmode
+!$OMP THREADPRIVATE(/usubc/,/isubc/)
 c
       save
 c

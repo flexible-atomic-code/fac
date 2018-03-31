@@ -75,6 +75,7 @@ typedef struct _LEVEL_ION_ {
 } LEVEL_ION;
 
 typedef struct _ANGZ_DATUM_ {
+  LOCK lock;
   int ns;
   int *nz;
   void **angz;
@@ -146,6 +147,7 @@ int CompareInt(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
+int SolveStructure(char *fn, int ng, int *kg, int npg, int *kgp, int ip);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
 void HamiltonElement1E2E(int isym, int isi, int isj, double *r1, double *r2);
 double HamiltonElement(int isym, int isi, int isj);
@@ -161,6 +163,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra,
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 HAMILTON *GetHamilton(void);
 SHAMILTON *GetSHamilton(int *n);
+int NHams(void);
 int DiagnolizeHamilton(void);
 int AddToLevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
@@ -218,7 +221,6 @@ int ClearLevelTable(void);
 int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
-int ShellDegeneracy(int g, int nq);
 void SetSymmetry(int p, int n, int *j);
 int *GetSymmetrySet(int *p, int *nj);
 int ZerothEnergyConfigSym(int n, int *s0, double **e);
@@ -228,12 +230,9 @@ int IsClosedShell(int ih, int p);
 int AllocHamMem(int hdim, int nbasis);
 void SetFields(double b, double e, double a, int m);
 void GetFields(double *b, double *e, double *a);
-int CodeBasisEB(int s, int m);
-void DecodeBasisEB(int k, int *s, int *m);
 int ConstructHamiltonEB(int n, int *ilev);
 void StructureEB(char *fn, int n, int *ilev);
 double HamiltonElementEB(int i, int j);
-
 int SlaterCoeff(char *fn, int nlevs, int *ilevs, int na, SHELL *sa, 
 		int nb, SHELL *sb);
 void AddSlaterCoeff(double *c, double a, int n_shells, 

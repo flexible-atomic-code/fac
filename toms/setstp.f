@@ -35,6 +35,7 @@ c
       common /usubc/ alpha,beta,gamma,delta,psi,omega,nsmin,
      *               nsmax,irepl,ifxsw,bonus,fstop,nfstop,
      *               nfxe,fxstat(4),ftest,minf,initx,newx
+!$OMP THREADPRIVATE(/usubc/)
 c
 c local variables
 c

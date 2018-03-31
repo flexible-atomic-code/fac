@@ -57,6 +57,7 @@ c for a different run-abort command, change the statement following
 c statement 100 at the end.
 c-----------------------------------------------------------------------
       common /eh0001/ mesflg, lunit
+!$OMP THREADPRIVATE(/eh0001/)
 c-----------------------------------------------------------------------
 c the following data-loaded value of ncpw is valid for the cdc-6600
 c and cdc-7600 computers.

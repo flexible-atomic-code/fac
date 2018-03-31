@@ -74,6 +74,7 @@ c
       logical new
 c
       common /isubc/ fbonus,sfstop,sfbest,new
+!$OMP THREADPRIVATE(/usubc/,/isubc/)
 c
 c local variables
 c

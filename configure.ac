@@ -57,7 +57,7 @@ if test -n "$GCC"
 then
   if test -z "$copt"
   then 
-    copt="-O2"
+    copt="-Ofast"
   fi
   if test -z "$cpic"
   then 
@@ -68,7 +68,7 @@ if test -n "$G77"
 then
   if test -z "$fopt"
   then 
-    fopt="-O2"
+    fopt="-Ofast"
   fi
   if test -z "$fpic"
   then
@@ -100,7 +100,6 @@ AC_ARG_ENABLE(warnings,
 	[gcc_warnings=$enableval])
 if test -n "$GCC"
 then
-  CFLAGS="$CFLAGS -fno-strength-reduce"
   if test -n "$gcc_warnings"
   then
     CFLAGS="$CFLAGS -Wall -W -pedantic -Winline -Wmissing-prototypes \
@@ -110,7 +109,6 @@ then
 fi
 if test -n "$G77"
 then
-  FFLAGS="$FFLAGS -ff2c -fno-strength-reduce"
   if test -n "$gcc_warnings"
   then
     FFLAGS="$FFLAGS -Wall"
@@ -163,6 +161,9 @@ AC_ARG_WITH(mpicompile,
 AC_ARG_WITH(mpilink,
 	[ --with-mpilink	MPI link flags],
 	[mpilink=$withval])
+AC_ARG_WITH(mpifflag,
+	[ --with-mpifflag	MPI f77 flags],
+	[mpifflag=$withval])
 AC_ARG_WITH(extrainc,
 	[ --with-extrainc	Extra compile flags],
 	[extrainc=$withval])
@@ -171,7 +172,7 @@ AC_ARG_WITH(extralib,
 	[extralib=$withval])
 
 # setup libs 
-LIBS="$LIBS -lfac"
+LIBS="$LIBS -lfac -lpthread"
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"
 then
@@ -180,39 +181,46 @@ fi
 
 if test "x$use_mpi" != "x"
 then
-  AC_DEFINE_UNQUOTED([USE_MPI])
-  if test "x$mpicompile" = "x"
-  then 
-    case "$use_mpi" in
-      lam*)
+  case "$use_mpi" in
+    *mpi|1)
+      if test "x$mpicompile" = "x"
+      then 
         mpicompile=`mpicc -showme`
-	mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
+        mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
 	mpicompile=[`echo $mpicompile | sed 's/^[^ ]* *//'`]
-	mpicompile=[`echo $mpicompile | sed 's/-[Ll][^ ]*//g'`]
+	mpicompile=[`echo $mpicompile | sed 's/ -[Ll][^ ]*//g'`]
 	mpicompile=[`echo $mpicompile | sed 's/ *$//'`]
-      ;;
-      *)
-	echo "Supply MPI compile flags using --with-mpicompile"
-      ;;
-    esac
-  fi
-  if test "x$mpilink" = "x"
-  then 
-    case "$use_mpi" in
-      lam*)
+      fi
+      if test "x$mpilink" = "x"
+      then
         mpilink=`mpicc -showme`
 	mpilink=[`echo $mpilink | sed 's/^ *//'`]
 	mpilink=[`echo $mpilink | sed 's/^[^ ]* *//'`]
-	mpilink=[`echo $mpilink | sed 's/-[^Ll][^ ]*//g'`]
+	mpilink=[`echo $mpilink | sed 's/ -[^Ll][^ ]*//g'`]
 	mpilink=[`echo $mpilink | sed 's/ *$//'`]
-      ;;
-      *)
-	echo "Supply MPI link flags using --with-mpilink"
-      ;;
-    esac
-  fi
+      fi
+      AC_DEFINE_UNQUOTED([USE_MPI])
+    ;;
+    omp|2)
+      if test "x$mpicompile" = "x"
+      then 
+  	mpicompile=-fopenmp
+	mpilink="-fopenmp -lgcc_eh"
+      fi
+      if test "x$mpifflag" = "x"
+      then
+        mpifflag=-fopenmp
+      fi
+      AC_DEFINE_UNQUOTED([USE_MPI], [2])
+    ;;
+    *)
+      AC_DEFINE_UNQUOTED([USE_MPI])
+    ;;
+  esac
+  
   CPPFLAGS="$CPPFLAGS $mpicompile"
   LIBS="$LIBS $mpilink"
+  FFLAGS="$FFLAGS $mpifflag"
 fi
 
 if test "x$extrainc" != "x"
@@ -258,6 +266,7 @@ AC_CONFIG_FILES([Makefile
 		 mpfun/Makefile
 		 ode/Makefile
 		 toms/Makefile
+		 modqed/Makefile
 		 quadpack/Makefile])
 
 if test -z "$PYTHON"

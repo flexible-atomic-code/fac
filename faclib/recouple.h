@@ -127,7 +127,7 @@ typedef struct _INTERACT_DATUM_ {
 typedef int TRIADS[MAXJ][4];
 typedef struct _FORMULA_ {
   int njgdata[MAXNJGD];
-  int ifree[MAXJ], js[MAXJ], ns, ninter;
+  int ifree[MAXJ], js[MAXJ], ns, ninter, j1, j2;
   int order[MAXJ], inter[MAXJ], interp[MAXJ], irank[MAXJ];
   TRIADS tr1, tr2;  
   double coeff;

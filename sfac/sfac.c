@@ -24,6 +24,7 @@ USE (rcsid);
 
 #include "init.h"
 #include "stoken.h"
+#include "mpiutil.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;
@@ -315,21 +316,21 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
 
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
-  FILE *f;
+  TFILE *f;
   F_HEADER fh;
   int i, swp;
 
   if (argc == 0) {
     i = CheckEndian(NULL);
   } else {
-    f = fopen(argv[0], "rb");
+    f = FOPEN(argv[0], "rb");
     if (f == NULL) {
       printf("Cannot open file %s\n", argv[0]);
       return -1;
     }
     ReadFHeader(f, &fh, &swp);
     i = CheckEndian(&fh);
-    fclose(f);
+    FCLOSE(f);
   }
 
   printf("Endian: %d\n", i);
@@ -1000,7 +1001,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   }
 
  END:
-  if (OptimizeRadial(ng, kg, weight) < 0) {
+  if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);
     return -1;
@@ -1415,24 +1416,49 @@ static int PSetMixCut(int argc, char *argv[], int argt[],
 
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
-  double z, mass, rn;
+  double z, mass, rn, a, npr;
 
-  mass = 0.0;
-  z = 0.0;
+  mass = -1.0;
+  z = -1.0;
   rn = -1.0;
-
-  if (argc < 1 || argt[0] != STRING || argc > 4) return -1;
-  if (argc > 1) {
-    z = atof(argv[1]);
-    if (argc > 2) {
-      mass = atof(argv[2]);
-      if (argc > 3) {
-	rn = atof(argv[3]);
+  a = -1.0;
+  npr = -1.0;
+  if (argc < 1) return -1;
+  if (argt[0] == STRING) {
+    if (argc > 6) return -1;
+    if (argc > 1) {
+      z = atof(argv[1]);
+      if (argc > 2) {
+	mass = atof(argv[2]);
+	if (argc > 3) {
+	  rn = atof(argv[3]);
+	  if (argc > 4) {
+	    a = atof(argv[4]);
+	    if (argc > 5) {
+	      npr = atof(argv[5]);
+	    }
+	  }
+	}
       }
     }
+    if (SetAtom(argv[0], z, mass, rn, a, npr) < 0) return -1;
+  } else if (argt[0] == NUMBER) {
+    if (argc > 5) return -1;
+    z = atof(argv[0]);
+    if (argc > 1) {
+      mass = atof(argv[1]);
+      if (argc > 2) {
+	rn = atof(argv[2]);
+	if (argc > 3) {
+	  a = atof(argv[3]);
+	  if (argc > 4) {
+	    npr = atof(argv[4]);
+	  }
+	}
+      }
+    }
+    if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return -1;
   }
-  
-  if (SetAtom(argv[0], z, mass, rn) < 0) return -1;
   
   return 0;
 }
@@ -2193,14 +2219,26 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
 static int PSetPotentialMode(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int m;
-  double h;
+  double h, ih, h0, h1;
 
   h = 1E31;
+  ih = 1E31;
+  h0 = -1;
+  h1 = -1;
   m = atoi(argv[0]);
   if (argc > 1) {
     h = atof(argv[1]);
+    if (argc > 2) {
+      ih = atof(argv[2]);
+      if (argc > 3) {
+	h0 = atof(argv[3]);
+	if (argc > 4) {
+	  h1 = atof(argv[4]);
+	}
+      }
+    }
   }
-  SetPotentialMode(m, h);
+  SetPotentialMode(m, h, ih, h0, h1);
 
   return 0;
 }
@@ -2307,12 +2345,65 @@ static int PSetRRTEGrid(int argc, char *argv[], int argt[],
 
 static int PSetSE(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
-  int c;
+  int c, m, s, p;
 
-  if (argc != 1) return -1;
+  if (argc < 1 || argc > 4) return -1;
   c = atoi(argv[0]);
+  m = -1;
+  s = -1;
+  p = -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+    if (argc > 2) {
+      s = atoi(argv[2]);
+      if (argc > 3) {
+	p = atoi(argv[3]);
+      }
+    }
+  }
+  SetSE(c, m, s, p);
+  
+  return 0;
+}
 
-  SetSE(c);
+static int POptimizeModSE(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  double dr;
+  int n, ka, ni;
+
+  if (argc < 3 || argc > 4) return -1;
+  n = atoi(argv[0]);
+  ka = atoi(argv[1]);
+  dr = atof(argv[2]);
+  if (argc > 3) {
+    ni = atoi(argv[3]);
+  }
+  OptimizeModSE(n, ka, dr, ni);
+  return 0;
+}
+
+static int PSetModSE(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  double o0, o1, a, c0, c1, c;
+
+  if (argc < 3 || argc > 6) return -1;
+  o0 = atof(argv[0]);
+  o1 = atof(argv[1]);
+  a = atof(argv[2]);
+  c0 = -1;
+  c1 = -1;
+  c = -1;
+  if (argc > 3) {
+    c0 = atof(argv[3]);
+    if (argc > 4) {
+      c1 = atof(argv[4]);
+      if (argc > 5) {
+	c = atof(argv[5]);
+      }
+    }
+  }
+
+  SetModSE(o0, o1, a, c0, c1, c);
   
   return 0;
 }
@@ -2331,12 +2422,24 @@ static int PSetVP(int argc, char *argv[], int argt[],
 
 static int PSetBreit(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
-  int c;
+  int c, m, n;
+  double x;
 
-  if (argc != 1) return -1;
+  if (argc < 1 || argc > 4) return -1;
   c = atoi(argv[0]);
-
-  SetBreit(c);
+  m = -1;
+  n = -1;
+  x = -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+    if (argc > 2) {
+      n = atoi(argv[2]);
+      if (argc > 3) {
+	x = atof(argv[3]);
+      }
+    }
+  }
+  SetBreit(c, m, n, x);
   
   return 0;
 }
@@ -2652,6 +2755,28 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     }
     return 0;
   }
+  if (argc == 2) {
+    if (argt[0] != STRING) return -1;
+    if (argt[1] == NUMBER) {
+      n2 = atoi(argv[1]);
+      n1 = n2;
+    } else if (argt[1] == LIST) {
+      n3 = IntFromList(argv[1], argt[1], variables, &ng3);
+      if (n3 == 0) {
+	n2 = -1;
+	n1 = -1;	
+      } else if (n3 == 1) {
+	n2 = ng3[0];
+	n1 = n2;
+      } else {
+	n2 = ng3[0];
+	n1 = ng3[1];
+      }
+      if (n3 > 0) free(ng3);
+    }
+    SetExcMBPT(n2, n1, argv[0]);
+    return 0;
+  }
   if (argc == 3) {
     if (argt[0] != NUMBER) return -1;
     if (argt[1] != NUMBER) return -1;
@@ -2771,8 +2896,8 @@ static int PCutMixing(int argc, char *argv[], int argt[],
 }
 static int PStructure(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  int i, k, ng0, ng, ngp, ns;
-  int ip, nlevels;
+  int ng, ngp;
+  int ip, i;
   int *kg, *kgp;
   int n;
 
@@ -2808,45 +2933,8 @@ static int PStructure(int argc, char *argv[], int argt[],
       ngp = DecodeGroupArgs(&kgp, 1, &(argv[2]), &(argt[2]), variables);
     }
   }
-  
-  if (ngp < 0) return -1;
-  
-  ng0 = ng;
-  if (!ip) {
-    if (ngp) {
-      ng += ngp;
-      kg = (int *) realloc(kg, sizeof(int)*ng);
-      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-      free(kgp);
-      kgp = NULL;
-      ngp = 0;
-    }
-  }
 
-  nlevels = GetNumLevels();
-  if (IsUTA()) {
-    AddToLevels(ng0, kg);
-  } else {
-    ns = MAX_SYMMETRIES;  
-    for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
-      if (k < 0) continue;
-      if (DiagnolizeHamilton() < 0) return -1;
-      if (ng0 < ng) {
-	AddToLevels(ng0, kg);
-      } else {
-	AddToLevels(0, kg);
-      }
-    }
-  }
-
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(argv[0], nlevels, -1);
-
-  if (ng > 0) free(kg);
-  if (ngp > 0) free(kgp);
-  
-  return 0;
+  return SolveStructure(argv[0], ng, kg, ngp, kgp, ip);
 }
 
 static int PSetUTA(int argc, char *argv[], int argt[], 
@@ -2904,6 +2992,12 @@ static int PTestIntegrate(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PReportMultiStats(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  ReportMultiStats();
+  return 0;
+}
+
 static int PTestMyArray(int argc, char *argv[], int argt[], 
 			ARRAY *variables) { 
   ARRAY a;
@@ -2911,9 +3005,10 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   double *b;
   MULTI ma;
   int k[3] = {101, 2550, 333};
-  int block[3] = {10, 20, 50};
+  int block[3] = {10, 20, 5};
   int i, j, m;
- 
+
+  /*
   ArrayInit(&a, sizeof(double), 100);
   d = 0.1;
   m = 100000;
@@ -2933,26 +3028,40 @@ static int PTestMyArray(int argc, char *argv[], int argt[],
   ArrayFree(&a, 0);
   printf("> ");
   scanf("%d", &i);
-
-  MultiInit(&ma, sizeof(double), 3, block);
+  */
+  MultiInit(&ma, sizeof(double), 3, block, "test_ma");
   printf("%d %d\n", ma.esize, ma.ndim);
   for (i = 9; i < 15; i++) {
-    for (j = 0; j < m; j++) {
+    for (j = 0; j < 30; j++) {
       k[0] = i;
       k[1] = j;
-      k[2] = 20;	
-      b = (double *) MultiSet(&ma, k, NULL, InitDoubleData, NULL);
+      k[2] = 20;
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
       *b = 0.2;
-      b = (double *) MultiGet(&ma, k);
+      double *b1 = (double *) MultiSet(&ma, k, NULL, NULL,
+				       InitDoubleData, NULL);
     }
   }
 
-  printf("> ");
-  scanf("%d", &i);
+  MultiFreeData(&ma, NULL);
+  for (i = 9; i < 15; i++) {
+    for (j = 0; j < 30; j++) {
+      k[0] = i;
+      k[1] = j;
+      k[2] = 20;
+      b = (double *) MultiSet(&ma, k, NULL, NULL, InitDoubleData, NULL);
+      *b = 0.2;
+      double *b1 = (double *) MultiSet(&ma, k, NULL, NULL,
+				       InitDoubleData, NULL);
+    }
+  }
+  
+  //printf("> ");
+  //scanf("%d", &i);
   MultiFree(&ma, NULL);
 
-  printf("> ");
-  scanf("%d", &i);
+  //printf("> ");
+  //scanf("%d", &i);
 
   return 0;
 }
@@ -3044,6 +3153,19 @@ static int PWaveFuncTable(int argc, char *argv[], int argt[],
 
   WaveFuncTable(argv[0], n, k, e);
 
+  return 0;
+}
+
+static int PSetConfigEnergyMode(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  int m;
+  
+  if (argc != 1 || argt[0] != NUMBER) {
+    return -1;
+  }
+
+  m = atoi(argv[0]);
+  SetConfigEnergyMode(m);
   return 0;
 }
 
@@ -3569,9 +3691,7 @@ static int PLimitArray(int argc, char *argv[], int argt[],
   m = atoi(argv[0]);
   n = atof(argv[1]);
 
-  if (m < 10) {
-    LimitArrayRadial(m, n);
-  }
+  LimitArrayRadial(m, n);
   
   return 0;
 }
@@ -3766,6 +3886,124 @@ static int PGeneralizedMoment(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrintQED(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  PrintQED();
+  return 0;
+}
+
+static int PPrintNucleus(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  PrintNucleus();
+  return 0;
+} 
+ 
+static int PSavePotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  SavePotential(fn, p);
+
+  return 0;
+}
+ 
+static int PRestorePotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  RestorePotential(fn, p);
+
+  return 0;
+} 
+ 
+static int PModifyPotential(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  POTENTIAL *p;
+
+  if (argc != 1) return -1;
+  fn = argv[0];
+  
+  p = RadialPotential();
+  ModifyPotential(fn, p);
+
+  return 0;
+}
+
+static int PWallTime(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int m = 0;
+  if (argc < 1) return -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+  }
+  PrintWallTime(argv[0], m);
+  return 0;
+}
+
+static int PInitializeMPI(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+#ifdef USE_MPI
+  int n = -1;
+  if (argc > 0) {
+    n = atoi(argv[0]);
+  }
+  InitializeMPI(n);
+#endif
+  return 0;
+}
+
+static int PMPIRank(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n, k;
+  k = MPIRank(&n);
+  MPrintf(-1, "%d of %d\n", k, n);
+  return 0;
+}
+
+static int PMemUsed(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  MPrintf(-1, "mem used %g\n", msize());
+  return 0;
+}
+
+static int PFinalizeMPI(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  return 0;
+}
+
+static int PSetOrbMap(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int k = 0, n0 = 0, n1 = 0, n2 = 0;
+  if (argc > 0) {
+    k = atoi(argv[0]);
+    if (argc > 1) {
+      n0 = atoi(argv[1]);
+      if (argc > 2) {
+	n1 = atoi(argv[2]);
+	if (argc > 3) {
+	  n2 = atoi(argv[3]);
+	}
+      }
+    }
+  }
+  SetOrbMap(k, n0, n1, n2);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -3883,6 +4121,8 @@ static METHOD methods[] = {
   {"SetRRTEGrid", PSetRRTEGrid, METH_VARARGS},
   {"SetScreening", PSetScreening, METH_VARARGS},
   {"SetSE", PSetSE, METH_VARARGS},
+  {"SetModSE", PSetModSE, METH_VARARGS},
+  {"OptimizeModSE", PSetModSE, METH_VARARGS},
   {"SetMS", PSetMS, METH_VARARGS},
   {"SetVP", PSetVP, METH_VARARGS},
   {"SetBreit", PSetBreit, METH_VARARGS},
@@ -3904,9 +4144,11 @@ static METHOD methods[] = {
   {"TestAngular", PTestAngular, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},   
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
+  {"SetConfigEnergyMode", PSetConfigEnergyMode, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},
   {"SetOptimizeStabilizer", PSetOptimizeStabilizer, METH_VARARGS},
   {"SetOptimizePrint", PSetOptimizePrint, METH_VARARGS},
@@ -3929,7 +4171,18 @@ static METHOD methods[] = {
   {"CETableEB", PCETableEB, METH_VARARGS},
   {"StructureEB", PStructureEB, METH_VARARGS},
   {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
-  {"CoulMultipole", PCoulMultip, METH_VARARGS},
+  {"CoulMultipole", PCoulMultip, METH_VARARGS}, 
+  {"PrintQED", PPrintQED, METH_VARARGS},
+  {"PrintNucleus", PPrintNucleus, METH_VARARGS},
+  {"SavePotential", PSavePotential, METH_VARARGS},
+  {"RestorePotential", PRestorePotential, METH_VARARGS},
+  {"ModifyPotential", PModifyPotential, METH_VARARGS},
+  {"WallTime", PWallTime, METH_VARARGS},
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
@@ -3937,11 +4190,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#ifdef USE_MPI
-  MPI_Init(&argc, &argv);
-#endif
-
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_open();
 #endif
   
@@ -3965,12 +4214,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-#ifdef PMALLOC_CHECK
+#if PMALLOC_CHECK == 1
   pmalloc_check();
-#endif
-
-#ifdef USE_MPI
-  MPI_Finalize();
 #endif
 
   return 0;

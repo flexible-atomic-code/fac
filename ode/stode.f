@@ -20,6 +20,7 @@ clll. optimize
      3   ialth, ipup, lmax, meo, nqnyh, nslp,
      4   icf, ierpj, iersl, jcur, jstart, kflag, l, meth, miter,
      5   maxord, maxcor, msbp, mxncf, n, nq, nst, nfe, nje, nqu
+!$OMP THREADPRIVATE(/ls0001/)
 c-----------------------------------------------------------------------
 c stode performs one step of the integration of an initial value
 c problem for a system of ordinary differential equations.

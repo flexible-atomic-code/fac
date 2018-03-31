@@ -19,6 +19,8 @@
 #ifndef _POLARIZATION_H_
 #define _POLARIZATION_H_
 
+#include "dbase.h"
+
 typedef struct _MLEVEL_ {
   short nele;
   short j;
