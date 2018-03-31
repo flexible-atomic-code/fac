@@ -180,6 +180,7 @@ int SortLevels(int start, int n, int m);
 int GetBaseJ(STATE *s);
 void AngularFrozen(int nts, int *ts, int ncs, int *cs);
 void ClearAngularFrozen(void);
+void PrepAngZStates(int n0, int *s0, int n1, int *s1);
 int PrepAngular(int n1, int *is1, int n2, int *is2);
 int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 		int *nmk, double **mbk);
