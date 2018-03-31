@@ -1,4 +1,4 @@
-RESULTS = ne.lev ne.pot ne.tr
+RESULTS = ne.lev ne.tr
 
 
 all:

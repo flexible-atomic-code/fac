@@ -1,7 +1,7 @@
-RESULTS = ta.ce ta.en ta.tr
+RESULTS = ta.ce ta.en ta.tr pol.txt pop.txt
 
 
-all: 
+all:
 	python data.py
 	python pol.py
 
