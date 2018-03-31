@@ -17,7 +17,7 @@ OBJS = ${SRC:.f=.o}
 
 lapack: $(OBJS)
 	$(FC) -c ${FFLAGSNO} dlamch.f
-	ar r ${TOPDIR}/libfac.a $(OBJS) dlamch.o
+	ar r ${TOPDIR}/libmlapack.a $(OBJS) dlamch.o
 
 clean:
 	rm -f *.o *.a *~

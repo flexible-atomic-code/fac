@@ -4,6 +4,7 @@ SHELL = /bin/sh
 
 FC = @F77@
 FFLAGS = @FFLAGS@
+FFLAGSNO = @FFLAGSNO@
 
 TOPDIR = @TOPDIR@
 
@@ -15,7 +16,8 @@ OBJS = ${SRC:.f=.o}
 	${FC} -c ${FFLAGS} $<
 
 coul: ${OBJS}
-	ar r ${TOPDIR}/libfac.a ${OBJS}
+	$(FC) -c ${FFLAGSNO} d1mach.f
+	ar r ${TOPDIR}/libfac.a ${OBJS} d1mach.o
 
 clean:
 	rm -f *.o *.a *~

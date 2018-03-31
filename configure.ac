@@ -170,9 +170,24 @@ AC_ARG_WITH(extrainc,
 AC_ARG_WITH(extralib,
 	[ --with-extralib	Extra Libs],
 	[extralib=$withval])
+AC_ARG_WITH(blaslib,
+	[ --with-blaslib	BLAS Libs],
+	[blaslib=$withval])
+AC_ARG_WITH(lapacklib,
+	[ --with-lapacklib	LAPACK Libs],
+	[lapacklib=$withval])
 
-# setup libs 
-LIBS="$LIBS -lfac -lpthread"
+# setup libs
+if test "x$blaslib" == "x"
+then
+  BLASLIB="-lmblas"
+fi
+if test "x$lapacklib" == "x"
+then
+  LAPACKLIB="-lmlapack"
+fi
+LIBS="$LIBS -lfac $LAPACKLIB $BLASLIB -lpthread"
+
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"
 then

@@ -78,6 +78,63 @@ double ai_cut = AICUT;
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
 
+static int maxaicache = MAXAICACHE;
+static AICACHE aicache = {0, 0};
+
+void SetMaxAICache(int n) {
+  if (n > 0) {
+    maxaicache = n;
+  } else {
+    maxaicache = MAXAICACHE;
+  }
+  FreeAICache(0);
+}
+
+void AllocAICache(void) {
+  aicache.low = malloc(sizeof(int)*maxaicache);
+  aicache.up = malloc(sizeof(int)*maxaicache);
+  aicache.e = malloc(sizeof(double)*maxaicache);
+  aicache.nz = malloc(sizeof(int)*maxaicache);
+  aicache.nzf = malloc(sizeof(int)*maxaicache);
+  aicache.az = malloc(sizeof(ANGULAR_ZxZMIX *)*maxaicache);
+  aicache.azf = malloc(sizeof(ANGULAR_ZFB *)*maxaicache);
+  int i;
+  for (i = 0; i < maxaicache; i++) {
+    aicache.low[i] = -1;
+    aicache.up[i] = -1;
+    aicache.e[i] = 0;
+    aicache.nz[i] = 0;
+    aicache.nzf[i] = 0;
+    aicache.az[i] = NULL;
+    aicache.azf[i] = NULL;
+  }
+}
+
+void FreeAICache(int m) {
+  int i;
+  for (i = 0; i < aicache.nc; i++) {
+    if (aicache.nz[i] > 0) {
+      free(aicache.az[i]);
+      aicache.az[i] = NULL;
+      aicache.nz[i] = 0;
+    }
+    if (aicache.nzf[i] > 0) {
+      free(aicache.azf[i]);
+      aicache.azf[i] = NULL;
+      aicache.nzf[i] = 0;
+    }
+  }
+  if (m == 0) {
+    free(aicache.low);
+    free(aicache.up);
+    free(aicache.e);
+    free(aicache.nz);
+    free(aicache.nzf);
+    free(aicache.az);
+    free(aicache.azf);
+  }
+}
+
 static void FreeRecPkData(void *p) {
   double *dp;
   dp = *((double **) p);
@@ -1245,6 +1302,13 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   int np, nt, m1, m2, m;
   int kappafp, jfp, klfp, dkl;
 
+  /*
+  nz = aicache.nz[ic];
+  nzfb = aicache.nzf[ic];
+  ang = aicache.az[ic];
+  zfb = aicache.azf[ic];
+  if (nz <= 0 && nzfb <= 0) return -1;
+  */
   *rate = 0.0;
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -1336,6 +1400,8 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
       if (nleft == 0) break;
     }
     free(ang);
+    //aicache.az[ic] = NULL;
+    //aicache.nz[ic] = 0;
     free(ia);
   }
   
@@ -1362,8 +1428,9 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
       p[ip] += s*zfb[i].coeff;
     }
     free(zfb);
+    //aicache.azf[ic] = NULL;
+    //aicache.nzf[ic] = 0;
   }
-  if (nz <= 0 && nzfb <= 0) return -1;
 
   if (!msub) {
     r = 0.0;
@@ -1511,6 +1578,126 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return 0;
+}
+
+void ProcessAICache(int msub, int iuta, TFILE *f) {
+  int ic, iz, ilow, iup, skip;
+
+  if (!iuta) {
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(ic, ilow, iup, skip)
+    {
+      for (ic = 0; ic < aicache.nc; ic++) {
+	ilow = aicache.low[ic];
+	iup = aicache.up[ic];
+	skip = SkipMPI();
+	if (skip) continue;
+	aicache.nz[ic] = AngularZxZFreeBound(&aicache.az[ic], iup, ilow);
+	aicache.nzf[ic] = AngularZFreeBound(&aicache.azf[ic], iup, ilow);
+      }
+    }
+    /*
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(ic, iz, skip)
+    {
+      int jf, kb, k0, k1, kappafp, klfp, ij, ik, type, kappaf, klf;
+      double *ai_pk;
+      for (ic = 0; ic < aicache.nc; ic++) {
+	skip = SkipMPI();
+	if (skip) continue;
+	LEVEL *lev1 = GetLevel(aicache.low[ic]);
+	LEVEL *lev2 = GetLevel(aicache.up[ic]);
+	int j1 = lev1->pj;
+	int j2 = lev2->pj;
+	DecodePJ(j1, NULL, &j1);
+	DecodePJ(j2, NULL, &j2);
+	int jmin = abs(j1-j2);
+	for (iz = 0; iz < aicache.nz[ic]; iz++) {
+	  jf = aicache.az[ic][iz].k0;
+	  kb = aicache.az[ic][iz].k1;
+	  k0 = aicache.az[ic][iz].k2;
+	  k1 = aicache.az[ic][iz].k3;
+	  kappafp = GetOrbital(kb)->kappa;
+	  klfp = GetLFromKappa(kappafp);
+	  kappafp = GetOrbital(k0)->kappa;
+	  klfp += GetLFromKappa(kappafp);
+	  kappafp = GetOrbital(k1)->kappa;
+	  klfp += GetLFromKappa(kappafp);
+	  ij = jf-jmin;
+	  for (ik = -1; ik <= 1; ik += 2) {
+	    klf = jf + ik;
+	    if (IsOdd((klfp+klf)/2)) continue;
+	    kappaf = GetKappaFromJL(jf, klf);
+	    type = AIRadialPk(&ai_pk, k0, k1, kb, kappaf,
+			      aicache.az[ic][iz].k, 1);
+	  }
+	}
+      }
+      MPrintf(-1, "tpk0: %g %g\n", tpk0, tpk1);
+    }
+    wt1=WallTime();
+    printf("aip: %g %g %g\n", wt1-wt0, tpk0, tpk1);
+    wt0=wt1;
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(ic, iz, skip)
+    {
+      double ai_pk0[MAXNE];
+      int kb, kappaf;
+      for (ic = 0; ic < aicache.nc; ic++) {
+	skip = SkipMPI();
+	if (skip) continue;
+	for (iz = 0; iz < aicache.nzf[ic]; iz++) {
+	  kb = aicache.azf[ic][iz].kb;
+	  kappaf = GetOrbital(kb)->kappa;
+	  AIRadial1E(ai_pk0, kb, kappaf);
+	}
+      }
+    }
+    wt1 = WallTime();
+    printf("aie: %g\n", wt1-wt0);
+    */
+  }    
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(ic, ilow, iup, skip)
+  {
+    float rt[MAXAIM];
+    double e, s[MAXAIM], s1;
+    int k, t;
+    AI_RECORD r;
+    AIM_RECORD r1;
+    for (ic = 0; ic < aicache.nc; ic++) {
+      skip = SkipMPI();
+      if (skip) continue;
+      ilow = aicache.low[ic];
+      iup = aicache.up[ic];
+      e = aicache.e[ic];
+      if (iuta) {
+	k = AutoionizeRateUTA(s, &e, ilow, iup);
+      } else {
+	k = AutoionizeRate(s, &e, ilow, iup, msub);
+      }
+      if (k < 0) continue;
+      if (!msub) {
+	if (s[0] < ai_cut) continue;
+	r.b = ilow;
+	r.f = iup;
+	r.rate = s[0];
+	WriteAIRecord(f, &r);
+      } else {
+	r1.rate = rt;
+	s1 = 0;
+	for (t = 0; t < k; t++) {
+	  r1.rate[t] = s[t];
+	  s1 += s[t];
+	}
+	if (s1 < ai_cut) continue;
+	r1.b = ilow;
+	r1.f = iup;
+	r1.nsub = k;
+	WriteAIMRecord(f, &r1);
+      }
+    }
+  }
 }
 
 int PrepRREGrids(double e, double emax0) { 
@@ -1974,8 +2161,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   AI_HEADER ai_hdr;
   AIM_HEADER ai_hdr1;
   F_HEADER fhdr;
-  double emin, emax;
-  double e, s, tai, a, s1[MAXAIM];
+  double emin, emax, e, a, s, s1[MAXAIM];
   float rt[MAXAIM];
   TFILE *f;
   ARRAY subte;
@@ -2010,14 +2196,9 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     return 0;
   }
   /*
-#if USE_MPI == 2
-  int mr, nr;
-  mr = MPIRank(&nr);
-  if (nr > 1) {
-    RandIntList(nup, up);
-    RandIntList(nlow, low);
+  if (!iuta) {
+    AllocAICache();
   }
-#endif
   */
   if (egrid[0] < 0) {
     e_set = 0;
@@ -2105,7 +2286,6 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
-    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t)
     {
     for (i = 0; i < nlow; i++) {
@@ -2117,22 +2297,23 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	e = lev1->energy - lev2->energy;
 	if (e < 0 && lev1->ibase != iup) e -= eref;
 	if (e < e0 || e >= e1) continue;
+	
 	int skip = SkipMPI();
 	if (skip) continue;
 	if (!msub) {
 	  if (iuta) {
-	    k = AutoionizeRateUTA(&s, &e, ilow, iup);
+	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
 	  } else {
-	    k = AutoionizeRate(&s, &e, ilow, iup, msub);
+	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
 	  }
 	  if (k < 0) continue;
 	  if (s < ai_cut) continue;
-	  r.b = ilow;
-	  r.f = iup;
+	  r.b = low[i];
+	  r.f = up[j];
 	  r.rate = s;
 	  WriteAIRecord(f, &r);
 	} else {
-	  k = AutoionizeRate(s1, &e, ilow, iup, msub);
+	  k = AutoionizeRate(s1, &e, low[i], up[j], msub);
 	  if (k < 0) continue;
 	  r1.rate = rt;
 	  s = 0;
@@ -2141,16 +2322,32 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    s += s1[t];
 	  }
 	  if (s < ai_cut) continue;
-	  r1.b = ilow;
-	  r1.f = iup;
+	  r1.b = low[i];
+	  r1.f = up[j];
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
       }
     }
     }
+    /*
+      aicache.low[ic] = ilow;
+      aicache.up[ic] = iup;
+      aicache.e[ic] = e;
+      ic++;
+      if (ic == maxaicache) {
+      aicache.nc = ic;
+      ic = 0;
+      ProcessAICache(msub, iuta, f);
+      }
+      }
+      }
+      if (ic > 0) {
+      aicache.nc = ic;
+      ProcessAICache(msub, iuta, f);
+      }
+    */
     DeinitFile(f, &fhdr);
-
     ReinitRadial(1);
     FreeRecQk();
     FreeRecPk();
@@ -2159,6 +2356,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
 
   ReinitRecombination(1);
+  //FreeAICache(0);
   ArrayFree(&subte, NULL);
   CloseFile(f, &fhdr);
 #ifdef PERFORM_STATISTICS
@@ -2525,6 +2723,8 @@ int InitRecombination(void) {
 
   SetRecQkMode(QK_DEFAULT, 0.1);
   SetRecPWOptions(RECLMAX, RECLMAX);
+
+  SetMaxAICache(-1);
   return 0;
 }
 

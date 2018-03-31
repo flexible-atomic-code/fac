@@ -633,11 +633,8 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
       MPI_Allreduce(MPI_IN_PLACE, h->hamilton, h->hsize, MPI_DOUBLE,
 		    MPI_SUM, MPI_COMM_WORLD);
     }
-#elif USE_MPI == 2
-#pragma omp barrier
-#pragma omp flush
 #endif
-  }  
+  }
       
   if (m3) {
     if (nhams >= MAX_HAMS) {
@@ -1820,7 +1817,6 @@ int DiagnolizeHamilton(void) {
   clock_t start, stop;
   start = clock();
 #endif
-
   h = &_ham;
   n = h->dim;
   m = h->n_basis;
@@ -3726,6 +3722,65 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
   return ns;
 }
 
+void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
+  int ih0[MAX_HAMS], ih1[MAX_HAMS];
+  int i, j, ne0, ne1, ns;
+  LEVEL *lev;
+  SYMMETRY *sym;
+  STATE *st, *st0, *st1;
+  ANGZ_DATUM *ad;
+  for (i = 0; i < MAX_HAMS; i++) {
+    ih0[i] = 0;
+    ih1[i] = 0;
+  }
+  for (i = 0; i < n0; i++) {
+    lev = GetLevel(s0[i]);
+    sym = GetSymmetry(lev->pj);
+    st = (STATE *) ArrayGet(&(sym->states), lev->pb);
+    if (st->kgroup < 0) {
+      lev = GetLevel(-st->kgroup-1);
+    }
+    ih0[lev->iham] = 1;
+  }
+  for (i = 0; i < n1; i++) {
+    lev = GetLevel(s1[i]);
+    sym = GetSymmetry(lev->pj);
+    st = (STATE *) ArrayGet(&(sym->states), lev->pb);
+    if (st->kgroup < 0) {
+      lev = GetLevel(-st->kgroup-1);
+    }
+    ih1[lev->iham] = 1;
+  }
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j, st0, st1, ne0, ne1, ns, ad)
+  {
+  for (i = 0; i < MAX_HAMS; i++) {
+    if (ih0[i] == 0) continue;
+    st0 = hams[i].basis[0];
+    ne0 = GetGroup(st0->kgroup)->n_electrons;
+    for (j = 0; j < MAX_HAMS; j++) {
+      if (ih1[j] == 0) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
+      st1 = hams[j].basis[0];
+      ne1 = GetGroup(st1->kgroup)->n_electrons;
+      if (abs(ne0-ne1) > 1) continue;
+      if (ne0 == ne1) {
+	if (i < j) {
+	  ns = AngularZMixStates(&ad, i, j);
+	} else {
+	  ns = AngularZMixStates(&ad, j, i);
+	}
+      } else if (ne0 < ne1) {
+	ns = AngularZFreeBoundStates(&ad, i, j);
+      } else {
+	ns = AngularZFreeBoundStates(&ad, j, i);	
+      }
+    }
+  }
+  }
+}
+
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
   int i, j, m; 
   int nz, n;
@@ -4150,12 +4205,6 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 	}
       }
     }
-    /*
-    for (i = 0; i < n; i++) {
-      printf("%2d %3d %2d %2d %2d %10.3E\n", lower, upper, 
-	     (*ang)[i].k, (*ang)[i].k0, (*ang)[i].k1, (*ang)[i].coeff);
-    }
-    */
   }
 
 #ifdef PERFORM_STATISTICS
