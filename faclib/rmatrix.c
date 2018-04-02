@@ -358,6 +358,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   ORBITAL *orb, orbf;
   POTENTIAL *pot;
 
+  double wt0 = WallTime();
   ClearRMatrixBasis(&rbasis);
   pot = RadialPotential();
   nmax = pot->nb;
@@ -397,10 +398,10 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     rbasis.w1[i] = malloc(sizeof(double)*rbasis.nbk);
     rbasis.ek[i] = malloc(sizeof(double)*rbasis.nbk);
   }
-
-  nkb0 = GetNumOrbitals();
-  e1 = 0.0;
-  e0 = 0.0;
+  double wt1 = WallTime();
+  nkb0 = GetNumOrbitals();  
+#pragma omp parallel default(shared) private(k, k2, t, j, in, n, n0, kappa)
+  {
   for (k = 0; k <= kmax; k++) {
     n0 = k+1;
     if (rbasis.ib0 == 0 && n0 <= nmax) n0 = nmax + 1;
@@ -408,8 +409,10 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     t = k2 - 1;
     for (j = k2-1; j <= k2+1; j += 2, t++) {     
       if (j < 0) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
       kappa = GetKappaFromJL(j, k2);
-      printf("Basis: %3d\n", kappa);
+      MPrintf(-1, "Basis: %3d\n", kappa);
       fflush(stdout);
       for (in = 0; in < nb; in++) {
 	if (rbasis.ib0 == 0) {
@@ -418,8 +421,20 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	  n = -(in + n0);
 	}
 	rbasis.basis[t][in] = OrbitalIndex(n, kappa, 0.0);
-	rbasis.bnode[t][in] = n;
+      }
+    }
+  }
+  }
+  e1 = 0.0;
+  e0 = 0.0;
+  for (k = 0; k <= kmax; k++) {
+    k2 = 2*k;
+    t = k2 - 1;
+    for (j = k2-1; j <= k2+1; j += 2, t++) {     
+      if (j < 0) continue;
+      for (in = 0; in < nb; in++) {
 	orb = GetOrbital(rbasis.basis[t][in]);
+	rbasis.bnode[t][in] = orb->n;
 	rbasis.ek[t][in] = orb->energy;
 	rbasis.w1[t][in] = WLarge(orb)[ib1];
 	rbasis.w0[t][in] = WLarge(orb)[ib0];
@@ -436,11 +451,23 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	  }
 	}
       }
-
+    }
+  }
+#pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r01, r10, c0, c1)
+  {
+  for (k = 0; k <= kmax; k++) {
+    k2 = 2*k;
+    t = k2 - 1;
+    for (j = k2-1; j <= k2+1; j += 2, t++) {     
+      if (j < 0) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
+      kappa = GetKappaFromJL(j, k2);
       ExtrapolateButtle(&rbasis, t, rbasis.nbuttle, rbasis.ebuttle[t], 
 			rbasis.cbuttle[3][t], rbasis.cbuttle[2][t],
 			rbasis.cbuttle[4][t]);
       for (i = 0; i < rbasis.nbuttle; i++) {
+	InitOrbitalData(&orbf, 1);
 	orbf.n = 1000000;
 	orbf.kappa = kappa;
 	orbf.energy = rbasis.ebuttle[t][i];
@@ -486,7 +513,10 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       }
     }
   }
+  }
   WriteRMatrixBasis(fn, fmode);
+  double wt2 = WallTime();
+  MPrintf(-1, "rmx bas: %g %g\n", wt1-wt0, wt2-wt1);
   if (nts > 0 && rbasis.ib0 == 0) {
     nkb1 = GetNumOrbitals();
     PrepSlater(0, nkb0-1, nkb0, nkb1-1, 0, nkb0-1, nkb0, nkb1-1);
@@ -1129,7 +1159,6 @@ int RMatrixSurface(char *fn) {
   WriteRMatrixSurface(f, NULL, NULL, 0, fmode, NULL, NULL);
 
   nchan = nts*rbasis.nkappa;
-  printf("%d %d %d %d\n", nchan, nts, rbasis.nkappa, ncs);
   wik0 = malloc(sizeof(double *)*nchan);
   wik1 = malloc(sizeof(double *)*nchan);
   for (t = 0; t < nchan; t++) {
@@ -1139,19 +1168,42 @@ int RMatrixSurface(char *fn) {
   nsym = 0;
   nchm = 0;
   for (i = 0; i < MAX_SYMMETRIES; i++) {
+    double wt0 = WallTime();
     h = GetHamilton(i);
     if (rbasis.ib0 == 0) {
       k = ConstructHamiltonFrozen(i, ntg, tg, 0, ncg, cg);
     } else {
       k = ConstructHamiltonFrozen(i, ntg, tg, -1, 0, NULL);
     }
-    if (k < 0) continue;
+    if (k < 0) {
+      AllocHamMem(h, -1, -1);
+      AllocHamMem(h, 0, 0);
+      continue;
+    }
+    double wt1= WallTime();
+    MPrintf(-1, "construct hamilton: %d %d %g\n", i, h->dim, wt1-wt0);
+    fflush(stdout);
+  }
+#pragma omp parallel default(shared) private(i, h)
+  {
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    double wt0 = WallTime();
+    h = GetHamilton(i);
+    if (h->dim <= 0) continue;
+    int skip = SkipMPI();
+    if (skip) continue;
     DiagnolizeHamilton(h);
+    double wt1 = WallTime();
+    MPrintf(-1, "diagonalize hamilton: %d %d %g\n", i, h->dim, wt1-wt0);
+    fflush(stdout);
+  }
+  }
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    double wt0 = WallTime();
+    h = GetHamilton(i);
     ek = h->mixing;
     mix = h->mixing+h->dim;
     sym = GetSymmetry(i);
-    printf("sym: %d %d\n", i, h->dim);
-    fflush(stdout);
     for (t = 0; t < h->dim; t++) {
       for (q = 0; q < h->dim; q++) {
 	k = h->basis[q];
@@ -1184,6 +1236,11 @@ int RMatrixSurface(char *fn) {
     nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1, fmode, NULL, h);
     if (nchan0 > nchm) nchm = nchan0;
     nsym++;
+    AllocHamMem(h, -1, -1);
+    AllocHamMem(h, 0, 0);
+    double wt1 = WallTime();
+    printf("rmx sym: %d %d %g\n", i, h->dim, wt1-wt0);
+    fflush(stdout);
   }
   
   fseek(f, 0, SEEK_SET);

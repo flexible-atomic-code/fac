@@ -33,7 +33,7 @@ def _get_header(lines):
 
 
 def read_lev(filename):
-    """ read *a.lev file. """
+    """ read *a.lev / *a.en file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -80,7 +80,7 @@ def read_lev(filename):
 
 
 def read_tr(filename):
-    """ read *a.lev file. """
+    """ read *a.tr file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -125,7 +125,7 @@ def read_tr(filename):
 
 
 def read_ai(filename):
-    """ read *a.lev file. """
+    """ read *a.ai file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -148,7 +148,9 @@ def read_ai(filename):
         block['bound_2J'] = np.zeros(ntrans, dtype=int)
         block['free_index'] = np.zeros(ntrans, dtype=int)
         block['free_2J'] = np.zeros(ntrans, dtype=int)
-        block['rate'] = np.zeros((ntrans, negrid), dtype=float)
+        block['Delta E'] = np.zeros(ntrans, dtype=float)
+        block['AI rate'] = np.zeros(ntrans, dtype=float)
+        block['DC strength'] = np.zeros(ntrans, dtype=float)
         
         for i, line in enumerate(lines):
             if line.strip() == '':  # if empty
@@ -158,7 +160,9 @@ def read_ai(filename):
             block['bound_2J'][i] = int(line[8:10])
             block['free_index'][i] = int(line[14:17])
             block['free_2J'][i] = int(line[18:20])
-            block['rate'][i] = [float(l) for l in line[21:].split()]
+            block['Delta E'][i] = float(line[21:32])
+            block['AI rate'][i] = float(line[33:44])
+            block['DC strength'][i] = float(line[45:56])
   
         return (block, )
 
@@ -166,7 +170,7 @@ def read_ai(filename):
     
 
 def read_ce(filename):
-    """ read *a.en file. """
+    """ read *a.ce file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -277,7 +281,7 @@ def read_ce(filename):
 
 
 def read_ci(filename):
-    """ read *a.lev file. """
+    """ read *a.ci file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -350,7 +354,7 @@ def read_ci(filename):
 
 
 def read_rr(filename):
-    """ read *a.lev file. """
+    """ read *a.rr file. """
     with open(filename, 'r') as f:
         lines = f.readlines()
 
@@ -420,6 +424,119 @@ def read_rr(filename):
                 return (block, ) + blocks
 
         raise ValueError('Bad file format.')
+
+    return header, read_blocks(lines)
+
+
+def read_sp(filename):
+    """ read *a.sp file. """
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+
+    # header
+    header, lines = _get_header(lines)
+    header['Nblocks'] = _read_value(lines, int)
+    lines = lines[1:]
+
+    def read_blocks(lines):
+        block = {}
+        block['NELE'], lines = _read_value(lines, int)
+        ntrans, lines = _read_value(lines, int)
+        block['TYPE'], lines = _read_value(lines, str)
+        block['IBLK'], lines = _read_value(lines, int)
+        block['ICOMP'], lines = _read_value(lines, str)
+        block['FBLK'], lines = _read_value(lines, int)
+        block['FCOMP'], lines = _read_value(lines, str)
+
+        # read the values
+        block['block'] = np.zeros(ntrans, dtype=int)
+        block['level'] = np.zeros(ntrans, dtype=int)
+        block['abs. energy'] = np.zeros(ntrans, dtype=float)
+        block['population'] = np.zeros(ntrans, dtype=float)
+        block['Delta E'] = np.zeros(ntrans, dtype=float)
+        block['emissivity'] = np.zeros(ntrans, dtype=float)
+        
+        for tr in range(ntrans):
+            line = lines[0]
+            lines = lines[1:]
+
+            if line.strip() == '':  # if empty
+                blocks = read_blocks(lines[i+1:])
+                return (block, ) + blocks
+
+            block['block'][tr] = int(line[:7])
+            block['level'][tr] = int(line[8:14])
+            block['abs. energy'][tr] = float(line[15:28])
+            block['population'][tr] = float(line[29:40])
+            block['Delta E'][tr] = float(line[15:28])
+            block['emissivity'][tr] = float(line[29:40])
+              
+        return (block, )
+
+    return header, read_blocks(lines)
+
+
+def read_rt(filename):
+    """ read *a.rt file. """
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+
+    # header
+    header, lines = _get_header(lines)
+    header['Nblocks'] = _read_value(lines, int)
+    lines = lines[1:]
+
+    def read_blocks(lines):
+        block = {}
+        ntrans, lines = _read_value(lines, int)
+        block['EDEN'], lines = _read_value(lines, float)
+        block['EDIST'], lines = _read_value(lines, int)
+        npedis, lines = _read_value(lines, int)
+        block['EDIS'] = np.zeros(npedis, float)
+        for i in range(npedis):
+            line = lines[0]
+            lines = lines[1:]
+            block['EDIS'][i] = float(line)
+        block['PDEN'], lines = _read_value(lines, float)
+        block['PDIST'], lines = _read_value(lines, int)
+        nppdis, lines = _read_value(lines, int)
+        block['PPDIS'] = np.zeros(nppdis, float)
+        for i in range(npedis):
+            line = lines[0]
+            lines = lines[1:]
+            block['PPDIS'][i] = float(line)
+        lines = lines[1:] # skip header
+
+        # read the values
+        block['block'] = np.zeros(ntrans, dtype=int)
+        block['level'] = np.zeros(ntrans, dtype=int)
+        block['NB'] = np.zeros(ntrans, dtype=int)
+        block['TR'] = np.zeros(ntrans, dtype=int)
+        block['CE'] = np.zeros(ntrans, dtype=int)
+        block['RR'] = np.zeros(ntrans, dtype=int)
+        block['AI'] = np.zeros(ntrans, dtype=int)
+        block['CI'] = np.zeros(ntrans, dtype=int)
+        block['ncomplex'] = np.chararray(ntrans, itemsize=20)
+        
+        for tr in range(ntrans):
+            line = lines[0]
+            lines = lines[1:]
+
+            if line.strip() == '':  # if empty
+                blocks = read_blocks(lines[i+1:])
+                return (block, ) + blocks
+
+            block['block'][tr] = int(line[:7])
+            block['level'][tr] = int(line[8:12])
+            block['NB'][tr] = float(line[13:25])
+            block['TR'][tr] = float(line[26:37])
+            block['CE'][tr] = float(line[38:49])
+            block['RR'][tr] = float(line[50:61])
+            block['AI'][tr] = float(line[62:73])
+            block['CI'][tr] = float(line[74:85])
+            block['ncomplex'][tr] = line[86:].strip()
+              
+        return (block, )
 
     return header, read_blocks(lines)
 
@@ -564,6 +681,24 @@ def check_rr(actual_file, expected_file):
                         'RR crosssection': 0.01, 'PI crosssection': 0.01,
                         'TEGRID': 0.01, 'EGRID': 0.01, 'USR': 0.01, 
                         'TE0': 0.01, 'parameters': 0.01, 'gf': 0.01})
+                        
+
+def check_sp(actual_file, expected_file):
+    actual_header, actual_blocks = read_sp(actual_file)
+    expected_header, expected_blocks = read_sp(expected_file)
+    
+    _check_header(actual_header, expected_header)
+    _check_block(actual_blocks, expected_blocks, 
+                 atols={'Delta E': 1.0e0, 'emissivity': 1.0e-10},
+                 rtols={'Delta E': 0.01, 'emissivity': 0.01})
+
+
+def check_rt(actual_file, expected_file):
+    actual_header, actual_blocks = read_rt(actual_file)
+    expected_header, expected_blocks = read_rt(expected_file)
+    
+    _check_header(actual_header, expected_header)
+    _check_block(actual_blocks, expected_blocks)
 
 
 def check(actual_file, expected_file):
@@ -584,6 +719,12 @@ def check(actual_file, expected_file):
     
     elif actual_file[-3:] == '.rr':
         check_rr(actual_file, expected_file)
+    
+    elif actual_file[-3:] == '.sp':
+        check_sp(actual_file, expected_file)
+    
+    elif actual_file[-3:] == '.rt':
+        check_rt(actual_file, expected_file)
     
     else:
         raise TypeError('Unknown file extension: {}'.format(actual_file))

@@ -274,6 +274,28 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
   return energy;
 }
 
+void InitOrbitalData(void *p, int n) {
+  ORBITAL *d;
+  int i;
+  
+  d = (ORBITAL *) p;
+  for (i = 0; i < n; i++) {
+    d[i].wfun = NULL;
+    d[i].phase = NULL;
+    d[i].ilast = -1;
+    d[i].im = -1;
+    d[i].bqp0 = 0;
+    d[i].bqp1 = 0;
+    d[i].se = 1e31;
+    d[i].ose = 1e31;
+    d[i].qed = 0.0;
+    d[i].kv = -1000000000;
+    d[i].horb = NULL;
+    d[i].rorb = NULL;
+    d[i].isol = 0;
+  }
+}
+
 int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
   int ierr;
   int nm, km, k;
