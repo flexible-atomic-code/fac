@@ -19,6 +19,7 @@ toms/Makefile
 ode/Makefile
 quadpack/Makefile
 sfac/Makefile
+tests/Makefile
 python/Makefile
 
 # Ignore binaries
