@@ -1,13 +1,13 @@
-@SET_MAKE@
+
 
 SHELL = /bin/sh
 
 TARGET=a.out
-CC = @CC@
-CFLAGS = @CFLAGS@
-TOPDIR = @TOPDIR@
-CPPFLAGS = @CPPFLAGS@
-LIBS = @LDFLAGS@ @LIBS@ @FLIBS@
+CC = gcc
+CFLAGS = -Ofast -fPIC
+TOPDIR = /home/keisukefujii/Dropbox/projects/fac
+CPPFLAGS =  -I/home/keisukefujii/Dropbox/projects/fac -I/home/keisukefujii/Dropbox/projects/fac/faclib
+LIBS =  -L/home/keisukefujii/Dropbox/projects/fac  -lfac -lmlapack -lmblas -lpthread -L/usr/lib/gcc/x86_64-linux-gnu/5 -L/usr/lib/gcc/x86_64-linux-gnu/5/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/5/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/5/../../.. -lgfortran -lm -lquadmath
 # Points to the root of Google Test, relative to where this file is.
 # Remember to tweak this if you move this file.
 GTEST_DIR = googletest/googletest

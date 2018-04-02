@@ -10,8 +10,8 @@ namespace {
 class CrmTest : public ::testing::Test {
 protected:
   virtual void SetUp() {
-    char filename[] = "reference_data/Li01b";
-    int nele = 1;
+    char filename[] = "c/examples/Li02b";
+    int nele = 2;
     double n = 1.0;
     InitCRM();
     AddIon(nele, n, filename);
@@ -29,7 +29,7 @@ protected:
     ion = (ION *) ArrayGet(ions, 0);
     blk_rate = (BLK_RATE *)ArrayGet(ion->tr_rates, 0);
     rate = (RATE*) ArrayGet(blk_rate->rates, 0);
-    printf("%f", rate->dir);
+    EXPECT_NE(rate->dir, 5829.239544);
     // Test SetTRRate works fine
     //EXPECT_NE(j, 3);  // you can also write assertion here
   };

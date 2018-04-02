@@ -7,7 +7,7 @@ extern "C"{
 namespace {
 
 TEST(FindLevelByName, First) {
-  char filename[] = "reference_data/li.lev.b";
+  char filename[] = "c/examples/li.lev.b";
   int nele = 3;
   int i;
 
