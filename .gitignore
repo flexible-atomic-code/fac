@@ -6,7 +6,7 @@
 *.dvi
 
 # Ignore generated Makefiles
-Makefile
+/Makefile
 blas/Makefile
 coul/Makefile
 faclib/Makefile
@@ -18,6 +18,7 @@ toms/Makefile
 ode/Makefile
 quadpack/Makefile
 sfac/Makefile
+python/Makefile
 
 # Ignore binaries
 sfac/scrm
@@ -34,3 +35,26 @@ autom4te.cache/
 # Python build dirs
 build/
 
+# demos
+demo/*/*.b
+demo/*/*.ai
+demo/*/*.ce
+demo/*/*.ceM
+demo/*/*.ci
+demo/*/*.en
+demo/*/*.rr
+demo/*/*.lev
+demo/*/*.pot
+demo/*/*.tr
+demo/*/*.txt
+demo/*/data
+demo/*/*01
+demo/*/*02
+demo/*/*03
+demo/*/*04
+demo/*/*05
+demo/*/*06
+demo/*/*07
+demo/*/*08
+demo/*/*09
+demo/*/*10
