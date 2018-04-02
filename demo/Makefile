@@ -1,7 +1,19 @@
-all: 
-	cd structure; make
-	cd excitation; make
-	cd pirr; make
-	cd aidr; make
-	cd ionization; make
+DIRS = structure excitation pirr aidr ionization polariz
+# Note: FeL needs a lot of calculation time, so we skip this for the daily
+# testing.
 
+
+all:
+	@for i in $(DIRS); do cd $$i; make || exit 1; cd ../; done;
+
+check:
+	@for i in $(DIRS); do cd $$i; make check || exit 1; cd ../; done;
+
+clean:
+	@for i in $(DIRS); do cd $$i; make clean || exit 1; cd ../; done;
+
+ref:
+	@for i in $(DIRS); do cd $$i; make ref || exit 1; cd ../; done;
+
+
+.PHONY: all check clean ref

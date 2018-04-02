@@ -30,10 +30,12 @@ install:
   - make install
   - make pfac
   - make install-pfac
-  # Prepare output directories.
-  - mkdir tests/data
 
 script:
+  # validation
+  - cd demo
+  - make check
+  - cd ../
   # c test
   - bash tests/install_googletest.sh
   - cd tests
@@ -41,5 +43,4 @@ script:
   - cd ../
   # python test
   - python -OO -c "from pfac import fac"
-  - bash tests/run_pytest.sh
 after_success:

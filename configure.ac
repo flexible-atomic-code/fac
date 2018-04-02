@@ -180,13 +180,13 @@ AC_ARG_WITH(lapacklib,
 # setup libs
 if test "x$blaslib" == "x"
 then
-  BLASLIB="-lmblas"
+  blaslib="-lmblas"
 fi
 if test "x$lapacklib" == "x"
 then
-  LAPACKLIB="-lmlapack"
+  lapacklib="-lmlapack"
 fi
-LIBS="$LIBS -lfac $LAPACKLIB $BLASLIB -lpthread"
+LIBS="$LIBS -lfac $lapacklib $blaslib -lpthread"
 
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"

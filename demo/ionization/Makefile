@@ -1,2 +1,8 @@
-all: fe17_ionization.py
+RESULTS = ne_f.lev ne.ci
+
+
+all:
 	python fe17_ionization.py
+
+
+include ../Make.common
