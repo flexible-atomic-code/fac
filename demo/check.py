@@ -1,4 +1,4 @@
-# Simple functions to read ascii files.
+import sys
 import numpy as np
 from collections import OrderedDict
 
@@ -30,56 +30,6 @@ def _get_header(lines):
     header[key], lines = _read_value(lines, float)
     header['NBlocks'], lines = _read_value(lines, int)
     return header, lines
-
-
-def lev(filename):
-    """ read *.lev file """
-    
-'''
-def en(filename):
-    """ read *a.en file. """
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-
-    # header
-    header, lines = _get_header(lines)
-    ind, e0 = lines[0].split(',')
-    header['E0_index'] = int(ind)
-    header['E0'] = float(e0)
-    lines = lines[1:]
-
-    def read_blocks(lines):
-        block = {}
-        block['NELE'], lines = _read_value(lines, int)
-        ntrans, lines = _read_value(lines, int)
-        block['TYPE'], lines = _read_value(lines, str)
-        block['IBLK'], lines = _read_value(lines, int)
-        block['ICOMP'], lines = _read_value(lines, str)
-        block['FBLK'], lines = _read_value(lines, int)
-        block['FCOMP'], lines = _read_value(lines, str)
-        # convert to array
-        block = {key: np.full(ntrans, val) for key, val in block.items()}
-
-        # read the values
-        block['upper'] = np.zeros(ntrans, dtype=int)
-        block['lower'] = np.zeros(ntrans, dtype=int)
-        block['Delta E'] = np.zeros(ntrans, dtype=float)
-        block['emissivity'] = np.zeros(ntrans, dtype=float)
-
-        for i, line in enumerate(lines):
-            if line.strip() == '':  # if empty
-                blocks = read_blocks(lines[i+1:].strip())
-                return (block, ) + blocks
-            block['upper'][i] = int(line[:7])
-            block['lower'][i] = int(line[8:14])
-            block['Delta E'][i] = float(line[15:27])
-            block['emissivity'][i] = float(line[28:40])
-
-        return (block, )
-
-    return header, read_blocks(lines)
-
-'''
 
 
 def lev(filename):
@@ -365,3 +315,77 @@ def ci(filename):
         raise ValueError('Bad file format.')
 
     return header, read_blocks(lines)
+
+
+def check(actual_file, expected_file):
+    if actual_file[-3:] in ['.en', 'lev']:
+        check_en(actual_file, expected_file)
+
+    if actual_file[-3:] == '.ai':
+        check_ai(actual_file, expected_file)
+
+
+def _check_header(actual, expected):
+    if 'E0' in actual:
+        assert np.allclose(actual['E0'], expected['E0'], rtol=0.01)
+    if 'NBlocks' in actual:
+        assert actual['NBlocks'] == expected['NBlocks']
+    
+
+def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
+    """ Compare blocks.
+    atol: mapping from key to corresponding maximum absolute errors.
+    rtol: mapping from key to corresponding maximum relative errors.
+    """
+    def _raise(id, key, actual, expected):
+        raise ValuError('Large difference is found in block {} key {}'.format(
+            id, key))
+                
+    for i, (actual_bl, expected_bl) in  enumerate(
+            zip(actual_blocks, expected_blocks)):
+        for key in actual_bl:
+            assert key in expected_bl
+            actual = actual_bl[key]
+            expected = expected_bl[key]
+
+            if isinstance(actual, np.ndarray) :
+                if actual.dtype.kind in 'ifc':
+                    if not np.allclose(actual_bl[key], expected_bl[key],
+                                       atol=getattr(atols, key, 1.0e-8),
+                                       rtol=getattr(rtols, key, 1.0e-5)):
+                        _raise(i, key, actual, expected)
+                else:  # string array
+                    if not (actual == expected).all():
+                        _raise(i, key, actual, expected)
+            else:
+                if not actual == expected:
+                    _raise(i, key, actual, expected)
+
+    
+
+def check_en(actual_file, expected_file):
+    actual_header, actual_blocks = lev(actual_file)
+    expected_header, expected_blocks = lev(expected_file)
+    
+    _check_header(actual_header, expected_header)
+    _check_block(actual_blocks, expected_blocks, 
+                 atols={'ENERGY': 1.0e1},
+                 rtols={'ENERGY': 0.01})
+
+
+def check_ai(actual_file, expected_file):
+    actual_header, actual_blocks = ai(actual_file)
+    expected_header, expected_blocks = ai(expected_file)
+    
+    _check_header(actual_header, expected_header)
+    _check_block(actual_blocks, expected_blocks, 
+                 atols={'rate': 1.0e1},
+                 rtols={'rate': 0.01})
+    
+
+if __name__ == '__main__':
+    args = sys.argv
+    if len(args) != 3:
+        raise ValueError('Usage: python check.py file1 file2')
+
+    check(args[1], args[2])
