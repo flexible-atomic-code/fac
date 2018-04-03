@@ -68,6 +68,7 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. /
+!$OMP THREADPRIVATE(FIRST,EPS,SFMIN,BASE,T,RND,EMIN,RMIN,EMAX,RMAX,PREC)
 *     ..
 *     .. Executable Statements ..
 *
@@ -194,6 +195,8 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. /
+!$OMP THREADPRIVATE(FIRST,LIEEE1, LBETA, LRND, LT)
+
 *     ..
 *     .. Executable Statements ..
 *
@@ -403,6 +406,7 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. / , IWARN / .FALSE. /
+!$OMP THREADPRIVATE(FIRST,IWARN,LBETA,LEMAX,LEMIN,LEPS,LRMAX)
 *     ..
 *     .. Executable Statements ..
 *
