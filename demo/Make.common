@@ -1,0 +1,17 @@
+DIFF = diff -q --strip-trailing-cr -I TSess -I FAC
+
+check: $(RESULTS)
+	@for i in $(RESULTS); do $(DIFF) $$i ref || exit 1; done; \
+            echo " Tests passed!"
+
+
+ref:
+	make
+	@for i in $(RESULTS); do mv $$i ref/ || exit 1; done;
+
+
+clean:
+	rm -f $(RESULTS) *.b
+
+
+.PHONY: ref
