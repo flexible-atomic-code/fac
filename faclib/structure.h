@@ -30,7 +30,7 @@
 #include <time.h>
 
 typedef struct _HAMILTON_ {
-  int pj;
+  int pj, iham;
   int dim;
   int n_basis;
   int hsize;
@@ -161,11 +161,11 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra,
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton1E(int n_shells, SHELL_STATE *sbra, 
 		  SHELL_STATE *sket,INTERACT_SHELL *s);
-HAMILTON *GetHamilton(void);
+HAMILTON *GetHamilton(int isym);
 SHAMILTON *GetSHamilton(int *n);
 int NHams(void);
-int DiagnolizeHamilton(void);
-int AddToLevels(int ng, int *kg);
+int DiagnolizeHamilton(HAMILTON *h);
+int AddToLevels(HAMILTON *h, int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
 LEVEL *GetLevel(int k);
 LEVEL *GetEBLevel(int k);
@@ -228,7 +228,7 @@ int ZerothEnergyConfigSym(int n, int *s0, double **e);
 void CutMixing(int nlev, int *ilev, int n, int *kg, double c);
 void FlagClosed(SHAMILTON *h);
 int IsClosedShell(int ih, int p);
-int AllocHamMem(int hdim, int nbasis);
+int AllocHamMem(HAMILTON *h, int hdim, int nbasis);
 void SetFields(double b, double e, double a, int m);
 void GetFields(double *b, double *e, double *a);
 int ConstructHamiltonEB(int n, int *ilev);

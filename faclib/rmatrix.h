@@ -74,7 +74,7 @@ void RMatrixNMultipoles(int n);
 void ClearRMatrixSurface(RMATRIX *rmx);
 int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt);
 int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m, 
-			int fmt, RMATRIX *rmx);
+			int fmt, RMATRIX *rmx, HAMILTON *h);
 int RMatrixSurface(char *fn);
 int RMatrix(double e, RMATRIX *rmx, RBASIS *rbs, int m);
 int RMatrixPropogate(double *r0, double *r1, RMATRIX *rmx1);

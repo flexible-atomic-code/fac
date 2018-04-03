@@ -352,11 +352,12 @@ int RecStates(int n, int k, int *kg, char *fn) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
+    HAMILTON *h = GetHamilton(i);
     m = ConstructHamilton(i, k, k, kg, 0, NULL, 111);
     if (m < 0) continue;
-    j = DiagnolizeHamilton();
+    j = DiagnolizeHamilton(h);
     if (j < 0) return -1;
-    AddToLevels(0, NULL);
+    AddToLevels(h, 0, NULL);
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
@@ -420,6 +421,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
   for (i = 0; i < nsym; i++) {
+    HAMILTON *h = GetHamilton(i);
     if (n >= pw_scratch.n_frozen) {
       i0 = 0;
       for (t = 0; t < nt; t++) {
@@ -432,16 +434,16 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	  if (!InGroups(s->kgroup, k, kg)) continue;
 	  m = ConstructHamiltonFrozen(i, j, NULL, n, 0, NULL);
 	  if (m < 0) continue;
-	  if (DiagnolizeHamilton() < 0) return -2;
-	  AddToLevels(0, NULL);
+	  if (DiagnolizeHamilton(h) < 0) return -2;
+	  AddToLevels(h, 0, NULL);
 	}
 	i0 = rec_complex[t].s1+1;
       }
     } else {
       m = ConstructHamiltonFrozen(i, k, kg, n, 0, NULL);
       if (m < 0) continue;
-      if (DiagnolizeHamilton() < 0) return -2;
-      AddToLevels(0, NULL);
+      if (DiagnolizeHamilton(h) < 0) return -2;
+      AddToLevels(h, 0, NULL);
     }
   }
   rec_complex[n_complex].s1 = GetNumLevels()-1;

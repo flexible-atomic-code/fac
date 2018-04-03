@@ -824,8 +824,7 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
 }  
 
 int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
-			int fmt, RMATRIX *rmx) {
-  HAMILTON *h;
+			int fmt, RMATRIX *rmx, HAMILTON *h) {
   int nchan, t, ic, nchan0, i, k, ilev, ka;
   int p, j, jc, i1, k1, ilev1, ka1, ilam, nr;
   double z, a;
@@ -916,7 +915,6 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
   }
 
   if (rmx == NULL) {
-    h = GetHamilton();
     DecodePJ(h->pj, &p, &j);
     nchan = rbasis.nkappa * nts;
     nchan0 = 0;
@@ -1128,7 +1126,7 @@ int RMatrixSurface(char *fn) {
     }
   }
 
-  WriteRMatrixSurface(f, NULL, NULL, 0, fmode, NULL);
+  WriteRMatrixSurface(f, NULL, NULL, 0, fmode, NULL, NULL);
 
   nchan = nts*rbasis.nkappa;
   printf("%d %d %d %d\n", nchan, nts, rbasis.nkappa, ncs);
@@ -1141,14 +1139,14 @@ int RMatrixSurface(char *fn) {
   nsym = 0;
   nchm = 0;
   for (i = 0; i < MAX_SYMMETRIES; i++) {
+    h = GetHamilton(i);
     if (rbasis.ib0 == 0) {
       k = ConstructHamiltonFrozen(i, ntg, tg, 0, ncg, cg);
     } else {
       k = ConstructHamiltonFrozen(i, ntg, tg, -1, 0, NULL);
     }
     if (k < 0) continue;
-    DiagnolizeHamilton();
-    h = GetHamilton();
+    DiagnolizeHamilton(h);
     ek = h->mixing;
     mix = h->mixing+h->dim;
     sym = GetSymmetry(i);
@@ -1183,7 +1181,7 @@ int RMatrixSurface(char *fn) {
       }
       mix += h->dim;
     }
-    nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1, fmode, NULL);
+    nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1, fmode, NULL, h);
     if (nchan0 > nchm) nchm = nchan0;
     nsym++;
   }
@@ -2299,11 +2297,11 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
       return -1;
     }
     ReadRMatrixSurface(f0, &rmx, 0, 0);
-    WriteRMatrixSurface(f1, NULL, NULL, 0, 1, &rmx);
+    WriteRMatrixSurface(f1, NULL, NULL, 0, 1, &rmx, NULL);
     for (i = 0; i < rmx.nsym; i++) {
       printf("sym: %3d\n", i);
       ReadRMatrixSurface(f0, &rmx, 1, 0);
-      WriteRMatrixSurface(f1, NULL, NULL, 1, 1, &rmx);
+      WriteRMatrixSurface(f1, NULL, NULL, 1, 1, &rmx, NULL);
     }
     ClearRMatrixSurface(&rmx);
     fclose(f0);
@@ -2322,11 +2320,11 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
       return -1;
     }
     ReadRMatrixSurface(f0, &rmx, 0, 1);
-    WriteRMatrixSurface(f1, NULL, NULL, 0, 0, &rmx);
+    WriteRMatrixSurface(f1, NULL, NULL, 0, 0, &rmx, NULL);
     for (i = 0; i < rmx.nsym; i++) {
       printf("sym: %3d\n", i);
       ReadRMatrixSurface(f0, &rmx, 1, 1);
-      WriteRMatrixSurface(f1, NULL, NULL, 1, 0, &rmx);
+      WriteRMatrixSurface(f1, NULL, NULL, 1, 0, &rmx, NULL);
     }
     ClearRMatrixSurface(&rmx);
     fclose(f0);

@@ -42,15 +42,13 @@ USE (rcsid);
 
 static int nhams = 0;
 static SHAMILTON hams[MAX_HAMS];
-
-static HAMILTON _ham = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			NULL, NULL, NULL, NULL, NULL, NULL};
+static HAMILTON _allhams[MAX_SYMMETRIES];
 
 static ARRAY levels_per_ion[N_ELEMENTS+1];
 static ARRAY *levels;
 static int n_levels = 0;
 static ARRAY *eblevels;
-static int n_eblevels;
+static int n_eblevels = 0;
 
 static int mbpt_mk = 0;
 static int angz_dim, angz_dim2;
@@ -262,8 +260,8 @@ int SortUnique(int n, int *a) {
   return j;
 }
 
-HAMILTON *GetHamilton(void) {
-  return &_ham;
+HAMILTON *GetHamilton(int isym) {
+  return &_allhams[isym];
 }
 
 SHAMILTON *GetSHamilton(int *n) {
@@ -379,7 +377,7 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   }
   if (j == 0) return -1;
 
-  h = &_ham;
+  h = &_allhams[isym];
   h->pj = isym;
 
   h->dim = j;
@@ -427,6 +425,7 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
 
   if (m > 0) {
     hs = hams + nhams;
+    h->iham = nhams;
     nhams++;
     if (nhams > MAX_HAMS) {
       printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
@@ -465,7 +464,7 @@ int ConstructHamiltonEB(int n, int *ilev) {
   LEVEL *lev;
   HAMILTON *h;
 
-  h = &_ham;
+  h = &_allhams[MAX_SYMMETRIES];
   h->pj = -1;
   ClearAngularFrozen();
   AngularFrozen(n, ilev, 0, NULL);
@@ -478,7 +477,7 @@ int ConstructHamiltonEB(int n, int *ilev) {
   }
 
   h->dim = h->n_basis;
-  if (AllocHamMem(h->dim, h->n_basis) == -1) goto ERROR;
+  if (AllocHamMem(h, h->dim, h->n_basis) == -1) goto ERROR;
   k = 0;
   for (i = 0; i < n; i++) {
     lev = GetLevel(ilev[i]);
@@ -538,7 +537,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
   m3 = t%10;
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
-  h = &_ham;
+  h = &_allhams[isym];
   h->pj = isym;
 
   if (m1) {
@@ -564,7 +563,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
       }
     }    
 
-    if (AllocHamMem(j, jp+j) == -1) goto ERROR;
+    if (AllocHamMem(h, j, jp+j) == -1) goto ERROR;
     
     j = 0;  
     for (t = 0; t < sym->n_states; t++) {
@@ -642,6 +641,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
       exit(1);
     }
     hs = hams + nhams;
+    h->iham = nhams;
     nhams++;
     hs->pj = h->pj;
     hs->nlevs = h->dim;
@@ -745,10 +745,10 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
   
   if (j == ncs) return -1;
 
-  h = &_ham;
+  h = &_allhams[isym];
   h->pj = isym;
 
-  if (AllocHamMem(j, j) == -1) goto ERROR;
+  if (AllocHamMem(h, j, j) == -1) goto ERROR;
       
   j = 0;
   if (ncs > 0) {
@@ -1727,7 +1727,6 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   double z0, *y;
   int ks[4], js[4];
 
-  int mr = MPIRank(NULL);
   js[0] = 0;
   js[1] = 0;
   js[2] = 0;
@@ -1797,7 +1796,7 @@ int TestHamilton(void) {
 ** be careful that the h->hamilton or h->heff is overwritten
 ** after the DiagnolizeHamilton call
 */
-int DiagnolizeHamilton(void) {
+int DiagnolizeHamilton(HAMILTON *h) {
   double *ap;
   double *w, *wi;
   double *z, *x, *y, *b, *d, *ep;
@@ -1810,14 +1809,13 @@ int DiagnolizeHamilton(void) {
   int lwork;
   int liwork;
   int info;
-  HAMILTON *h;
   int i, j, t, t0, k, one;
   double d_one, d_zero, a;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
 #endif
-  h = &_ham;
+
   n = h->dim;
   m = h->n_basis;
   ldz = n;
@@ -1928,9 +1926,8 @@ int DiagnolizeHamilton(void) {
   return -1;
 }
 
-int AddToLevels(int ng, int *kg) {
+int AddToLevels(HAMILTON *h, int ng, int *kg) {
   int i, d, j, k, t, m;
-  HAMILTON *h;
   LEVEL lev;
   SYMMETRY *sym;
   STATE *s, *s1;
@@ -1939,7 +1936,6 @@ int AddToLevels(int ng, int *kg) {
   int g0, p0;
   double *mix, a;
 
-  if (MyRankMPI() != 0) return 0;
   if (IsUTA()) {
     m = n_levels;
     lev.n_basis = 0;
@@ -1978,7 +1974,6 @@ int AddToLevels(int ng, int *kg) {
     return 0;
   }
 
-  h = &_ham;
   if (h->basis == NULL ||
       h->mixing == NULL) return -1;
   d = h->dim;
@@ -2004,12 +1999,8 @@ int AddToLevels(int ng, int *kg) {
       }
       m = h->n_basis;
       SortMixing(0, m, &lev, NULL);
-      GetPrincipleBasis(lev.mixing, m, lev.kpb);      
-    
-      if (ArrayAppend(eblevels, &lev, InitLevelData) == NULL) {
-	printf("Not enough memory for levels array\n");
-	exit(1);
-      }
+      GetPrincipleBasis(lev.mixing, m, lev.kpb);
+      ArrayAppend(eblevels, &lev, InitLevelData);
       j++;
       mix += h->n_basis;
     }
@@ -2020,7 +2011,6 @@ int AddToLevels(int ng, int *kg) {
   }
 
   int mce = ConfigEnergyMode();
-  j = n_levels;
   sym = GetSymmetry(h->pj);  
   for (i = 0; i < d; i++) {
     k = GetPrincipleBasis(mix, d, NULL);
@@ -2048,7 +2038,7 @@ int AddToLevels(int ng, int *kg) {
     }
     lev.energy = h->mixing[i];
     lev.pj = h->pj;
-    lev.iham = nhams-1;
+    lev.iham = h->iham;
     lev.ilev = i;
     lev.pb = h->basis[k];
     lev.ibasis = (short *) malloc(sizeof(short)*h->n_basis);
@@ -2084,16 +2074,15 @@ int AddToLevels(int ng, int *kg) {
       lev.ibase = -(s->kgroup + 1);
       lev.iham = -1;
     }
-
-    if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
-      printf("Not enough memory for levels array\n");
-      exit(1);
+    if (levels->lock) {
+      SetLock(levels->lock);
+      ArrayAppend(levels, &lev, InitLevelData);
+      ReleaseLock(levels->lock);
     }
-    j++;
     mix += h->n_basis;
   }
-
-  n_levels = j;
+#pragma omp atomic
+  n_levels += i;
   if (i < d-1) return -2;
 
   return 0;
@@ -2354,7 +2343,6 @@ int SortLevels(int start, int n, int m) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
 
-  if (MyRankMPI() != 0) return 0;
   if (m == 0) {
     if (n < 0) n = n_levels-start;
   } else {
@@ -2445,19 +2433,29 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 
   nlevels = GetNumLevels();
   if (IsUTA()) {
-    AddToLevels(ng0, kg);
+    AddToLevels(NULL, ng0, kg);
   } else {
     ns = MAX_SYMMETRIES;
     for (i = 0; i < ns; i++) {
       k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
-      if (k < 0) continue;
-      if (DiagnolizeHamilton() < 0) {
-	return -1;
+      if (k < 0) {
+	_allhams[i].dim = 0;
       }
-      if (ng0 < ng) {
-	AddToLevels(ng0, kg);
-      } else {
-	AddToLevels(0, kg);
+    }
+#pragma omp parallel default(shared) private(i)
+    {
+      for (i = 0; i < ns; i++) {
+	if (_allhams[i].dim <= 0) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
+	if (DiagnolizeHamilton(&_allhams[i]) < 0) {
+	  continue;
+	}
+	if (ng0 < ng) {
+	  AddToLevels(&_allhams[i], ng0, kg);
+	} else {
+	  AddToLevels(&_allhams[i], 0, kg);
+	}
       }
     }
   }
@@ -3073,14 +3071,14 @@ void StructureEB(char *fn, int n, int *ilev) {
   int i, j, k, t;
   HAMILTON *h;
   
-  h = &_ham;
+  h = &_allhams[MAX_SYMMETRIES];
 
   ConstructHamiltonEB(n, ilev);
 
-  DiagnolizeHamilton();
+  DiagnolizeHamilton(h);
   
   k = n_eblevels;
-  AddToLevels(0, NULL);
+  AddToLevels(h, 0, NULL);
   SortLevels(k, -1, 1);
   SaveEBLevels(fn, k, -1);
 }
@@ -4779,13 +4777,34 @@ void ClearRMatrixLevels(int n) {
   }
 }
 
-int AllocHamMem(int hdim, int nbasis) {
+int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   int jp, t;
-  HAMILTON *h;
 
-  h = &_ham;
+  if (hdim == 0) {
+    h->pj = 0;
+    h->iham = -1;
+    h->dim = 0;
+    h->n_basis = 0;
+    h->hsize = 0;
+    h->msize = 0;
+    h->dim0 = 0;
+    h->n_basis0 = 0;
+    h->hsize0 = 0;
+    h->msize0 = 0;
+    h->lwork = 0;
+    h->liwork = 0;
+    h->basis = NULL;
+    h->hamilton = NULL;
+    h->mixing = NULL;
+    h->work = NULL;
+    h->iwork = NULL;
+    h->heff = NULL;
+    return 0;
+  }
+
   jp = nbasis - hdim;
   h->dim = hdim;
+  h->iham = nhams;
   h->n_basis = nbasis;
   t = hdim*(hdim+1)/2;
   h->hsize = t + hdim*jp + jp;
@@ -4873,8 +4892,9 @@ int InitStructure(void) {
   ArrayInit(ecorrections, sizeof(ECORRECTION), 512);
   ncorrections = 0;
 
-  AllocHamMem(1000, 1000);
-  
+  for (i = 0; i <= MAX_SYMMETRIES; i++) {
+    AllocHamMem(&_allhams[i], 0, 0);
+  }
   return 0;
 }
   
@@ -4888,7 +4908,10 @@ int ReinitStructure(int m) {
     FreeAngZArray();
     ClearLevelTable();
     InitAngZArray();
-    _ham.heff = NULL;
+    int i;
+    for (i = 0; i < MAX_SYMMETRIES; i++) {
+      _allhams[i].heff = NULL;
+    }
 #pragma omp barrier
   }
   return 0;

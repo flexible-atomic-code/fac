@@ -739,7 +739,6 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   n1 = ConstructNGrid(n1, &nm);
   n2 = ConstructNGrid(n2, &nmp);
 
-  ha = GetHamilton();
   BaseConfig(n, s0, n3, n3g, n4, n4g, n1, nm, n2, nmp,
 	     &nbc, &bc, &nbc1, &bc1, &nb, &bk, f);
 
@@ -891,6 +890,7 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   }
 
   for (i = 0; i < MAX_SYMMETRIES; i++) {
+    ha = GetHamilton(i);
     nk = ConstructHamiltonDiagonal(i, n, s0, 0);    
     if (nk < 0) continue;
     mb.nbasis = ha->dim;
@@ -3626,7 +3626,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   MPrintf(-1, "CI Structure.\n");
   fflush(stdout);
   nlevels = GetNumLevels();
-  h = GetHamilton();
   emax = -1E31;
   emin = 1E31;
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
@@ -3634,6 +3633,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     /* the construction is such that h->dim = h->n_basis
     ** one also makes sure that all the states in one symmetry forms a
     ** single hamiltonian matrix */
+    h = GetHamilton(i);
     k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
     if (k == -1) continue;
     meff[isym] = (MBPT_EFF *) malloc(sizeof(MBPT_EFF));
@@ -3659,7 +3659,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
     meff[isym]->n = n;
     meff[isym]->n2 = n2;
-    if (DiagnolizeHamilton() < 0) {
+    if (DiagnolizeHamilton(h) < 0) {
       MPrintf(-1, "Diagnolizing Hamiltonian Error\n");
       fflush(stdout);
       Abort(1);
@@ -4054,8 +4054,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 		      MPI_SUM, MPI_COMM_WORLD);
       }
 #endif
-      AllocHamMem(meff[isym]->nbasis, meff[isym]->nbasis);
-      h = GetHamilton();
+      h = GetHamilton(isym);
+      AllocHamMem(h, meff[isym]->nbasis, meff[isym]->nbasis);
       h0 = meff[isym]->h0;
       h->pj = isym;
       h->n_basis = meff[isym]->nbasis;
@@ -4136,12 +4136,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
       fflush(f);
-      if (DiagnolizeHamilton() < 0) {
+      if (DiagnolizeHamilton(h) < 0) {
 	MPrintf(-1, "Diagnolizing Effective Hamiltonian Error\n");
 	ierr = -1;
 	goto ERROR;
       }
-      AddToLevels(nkg0, kg);
+      AddToLevels(h, nkg0, kg);
       h->heff = NULL;
       tt1 = WallTime();
       dt = tt1-tt0;
@@ -4870,7 +4870,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     k0 = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
     if (k0 == -1) continue;
-    h = GetHamilton();
+    h = GetHamilton(isym);
     sym = GetSymmetry(isym);
     DecodePJ(isym, &pp, &jj);
     ierr = ReadMBPT(nf, f1, mbpt, 1);
@@ -4987,7 +4987,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	fflush(f2);
       }
     }
-    if (DiagnolizeHamilton() < 0) {
+    if (DiagnolizeHamilton(h) < 0) {
       printf("Diagnolizing Hamiltonian Error\n");
       ierr = -1;
       goto ERROR;
@@ -5012,7 +5012,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       y += h->n_basis;
     }
     
-    AddToLevels(nkg0, kg);
+    AddToLevels(h, nkg0, kg);
     free(heff);
     free(neff);
     h->heff = NULL;
