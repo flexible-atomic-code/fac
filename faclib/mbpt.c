@@ -1106,7 +1106,7 @@ void SolveRadialBasisMBPT(int nmax) {
 #elif USE_MPI == 2
       if (SkipMPI()) continue;
 #endif
-      orb = GetOrbitalSolved(i);
+      orb = GetOrbitalSolvedNoLock(i);
       nb++;
     }
     double wt1 = WallTime();

@@ -86,6 +86,7 @@
 *     ..
 *     .. Data statement ..
       DATA               G / ZERO /
+!$OMP THREADPRIVATE(G)
 *     ..
 *     .. Executable Statements ..
 *

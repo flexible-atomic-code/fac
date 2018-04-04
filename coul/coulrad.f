@@ -57,6 +57,7 @@
 *              Save arrays of factorials and exponentials
 *
       SAVE FAL,ALO
+!$OMP THREADPRIVATE(FAL,ALO)
 *
 *              Initialise arrays of factorials and exponentials
 *
@@ -245,6 +246,7 @@
 *            Save factorials and exponentials
 *
       SAVE FAL,ALO
+!$OMP THREADPRIVATE(FAL,ALO)
 *
 *            Initialise arrays of factorials and exponentials
 *

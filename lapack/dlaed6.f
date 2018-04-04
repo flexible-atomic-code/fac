@@ -102,6 +102,7 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. /
+!$OMP THREADPRIVATE(FIRST, SMALL1, SMINV1, SMALL2, SMINV2, EPS)
 *     ..
 *     .. Executable Statements ..
 *
