@@ -772,11 +772,11 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
 #pragma omp parallel default(shared) private(i,j,t,r, delta)
   {
   for (j = ncs; j < h->dim; j++) {
-    int skip;
-    skip = SkipMPI();
-    if (skip) continue;
     t = j*(j+1)/2;
     for (i = ncs; i <= j; i++) {
+      int skip;
+      skip = SkipMPI();
+      if (skip) continue;
       r = HamiltonElementFrozen(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
     }
@@ -2432,7 +2432,8 @@ int SortLevels(int start, int n, int m) {
 
 int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
   int ng0, nlevels, ns, k, i;
-  
+  HAMILTON *h;
+
   if (ngp < 0) return 0;  
   ng0 = ng;
   if (!ip) {
@@ -2452,25 +2453,28 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
     AddToLevels(NULL, ng0, kg);
   } else {
     for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);      
       if (k < 0) {
-	AllocHamMem(&_allhams[i], -1, -1);
-	AllocHamMem(&_allhams[i], 0, 0);
+	h = GetHamilton(i);
+	AllocHamMem(h, -1, -1);
+	AllocHamMem(h, 0, 0);
       }
     }
-#pragma omp parallel default(shared) private(i)
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, h)
     {
       for (i = 0; i < ns; i++) {
-	if (_allhams[i].dim <= 0) continue;
+	h = GetHamilton(i);
+	if (h->dim <= 0) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
-	if (DiagnolizeHamilton(&_allhams[i]) < 0) {
+	if (DiagnolizeHamilton(h) < 0) {
 	  continue;
 	}
 	if (ng0 < ng) {
-	  AddToLevels(&_allhams[i], ng0, kg);
+	  AddToLevels(h, ng0, kg);
 	} else {
-	  AddToLevels(&_allhams[i], 0, kg);
+	  AddToLevels(h, 0, kg);
 	}
       }
     }

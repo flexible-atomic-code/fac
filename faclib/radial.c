@@ -2010,6 +2010,24 @@ ORBITAL *GetOrbitalSolved(int k) {
   return orb;
 }
 
+ORBITAL *GetOrbitalSolvedNoLock(int k) {
+  ORBITAL *orb;
+  int i;
+  
+  orb = (ORBITAL *) ArrayGet(orbitals, k);
+  if (orb != NULL && orb->isol) return orb;
+  
+  orb = (ORBITAL *) ArrayGet(orbitals, k);
+  if (orb->isol == 0) {
+    i = SolveDirac(orb);
+    if (i < 0) {
+      printf("Error occured in solving Dirac eq. err = %d\n", i);
+      Abort(1);
+    }
+  }
+  return orb;
+}
+
 ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e) {
   ORBITAL *orb;
 
@@ -5416,8 +5434,6 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	orb2 = GetOrbital(p);
 	GetJLFromKappa(orb2->kappa, &j2, &k2);
 	if (k0 > slater_cut.kl0 || k2 > slater_cut.kl0) continue;
-	int skip = SkipMPI();
-	if (skip) continue;
 	GetYk(k, _yk, orb0, orb2, i, p, -1);
 	ilast = potential->maxrp-1;
 	for (m = 0; m <= ilast; m++) {
@@ -5435,7 +5451,9 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	    if (IsOdd((k0+k2)/2+k) || 
 		IsOdd((k1+k3)/2+k) ||
 		!Triangle(j0, j2, kk) ||
-		!Triangle(j1, j3, kk)) continue;	     
+		!Triangle(j1, j3, kk)) continue;
+	    int skip = SkipMPI();
+	    if (skip) continue;	     
 	    index[0] = i;
 	    index[1] = j;
 	    index[2] = p;
@@ -5446,11 +5464,11 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	    dp = MultiSet(slater_array, index, NULL, &lock,
 			  InitDoubleData, NULL);
 	    c++;
-	    if (lock) SetLock(lock);
+	    //if (lock) SetLock(lock);
 	    if (*dp == 0) {
 	      Integrate(_yk, orb1, orb3, 1, dp, 0);
 	    }
-	    if (lock) ReleaseLock(lock);
+	    //if (lock) ReleaseLock(lock);
 	  }
 	}
       }

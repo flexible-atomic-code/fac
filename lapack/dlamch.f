@@ -406,7 +406,7 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. / , IWARN / .FALSE. /
-!$OMP THREADPRIVATE(FIRST,IWARN,LBETA,LEMAX,LEMIN,LEPS,LRMAX)
+!$OMP THREADPRIVATE(FIRST,IWARN,LBETA,LEMAX,LEMIN,LEPS,LRMAX,LRMIN,LT)
 *     ..
 *     .. Executable Statements ..
 *
