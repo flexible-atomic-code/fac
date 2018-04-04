@@ -772,11 +772,11 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
 #pragma omp parallel default(shared) private(i,j,t,r, delta)
   {
   for (j = ncs; j < h->dim; j++) {
-    int skip;
-    skip = SkipMPI();
-    if (skip) continue;
     t = j*(j+1)/2;
     for (i = ncs; i <= j; i++) {
+      int skip;
+      skip = SkipMPI();
+      if (skip) continue;
       r = HamiltonElementFrozen(isym, h->basis[i], h->basis[j]);
       h->hamilton[i+t] = r;
     }
