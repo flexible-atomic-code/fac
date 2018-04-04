@@ -82,6 +82,7 @@ typedef struct _ORBITAL_ {
   struct _ORBITAL_ *rorb;
 } ORBITAL;
 
+void InitOrbitalData(void *p, int n);
 double *GetVEffective(void);
 double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
