@@ -24,8 +24,8 @@ import sys
 import time
 import copy
 import string
-import cPickle
-import pprint        
+import pickle
+import pprint
 
 def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl = TABLE(fname=dfile,
@@ -66,8 +66,10 @@ def tabulate_trates(dfile, neles, z=26, pref='Fe'):
     tbl.write_header()
     for k in neles:
         dir0 = '%s%02d/'%(pref, k)
-        rates2 = cPickle.load(open(dir0+'rates2.sav', 'r'))
-        rates3 = cPickle.load(open(dir0+'rates3.sav', 'r'))
+        with open(dir0+'rates2.sav', 'r') as f:
+            rates2 = pickle.load(f)
+        with open(dir0+'rates3.sav', 'r') as f:
+            rates3 = pickle.load(f)
         logt = rates2['logt']
         nt = len(logt)
         if (k == neles[0]):
@@ -187,9 +189,12 @@ def tabulate_rates(dfile, neles, z=26, pref='Fe'):
     tbl.write_header()
     for k in neles:
         dir0 = '%s%02d/'%(pref, k)
-        rates3 = cPickle.load(open(dir0+'rates3.sav', 'r'))
-        rates2 = cPickle.load(open(dir0+'rates2.sav', 'r'))
-        rates1 = cPickle.load(open(dir0+'rates1.sav', 'r'))
+        with open(dir0+'rates3.sav', 'r') as f:
+            rates3 = pickle.load(f)
+        with open(dir0+'rates2.sav', 'r') as f:
+            rates2 = pickle.load(f)
+        with open(dir0+'rates1.sav', 'r') as f:
+            rates1 = pickle.load(f)
         logt = rates2['logt']
         nt = len(logt)
         rt1 = rates1['rt']
@@ -305,9 +310,8 @@ def save_rates(rates, sfile, dfile, **kwd):
         rates['tdr'][i][1] = map(lambda x,y: x-y,
                                  rates['tdc'][i][1],
                                  rates['tre'][i-1][1])
-    f = open(sfile, 'w')
-    cPickle.dump(rates, f)
-    f.close()
+    with open(sfile, 'w') as f:
+        pickle.dump(rates, f)
 
     f = open(dfile, 'w')
     if (rates.has_key('temp')):

@@ -4,5 +4,4 @@ channels:
 dependencies:
   - python=2.7
   - numpy
-  - pytest
-  - pytest-xdist
+  - gcc
