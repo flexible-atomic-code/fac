@@ -453,7 +453,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       }
     }
   }
-#pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r0, r01, r10, c0, c1)
+#pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r01, r10, c0, c1)
   {
   for (k = 0; k <= kmax; k++) {
     k2 = 2*k;
