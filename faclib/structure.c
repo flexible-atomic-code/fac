@@ -768,7 +768,13 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
     }
   }
 
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i,j,t,r, delta)
+  {
   for (j = ncs; j < h->dim; j++) {
+    int skip;
+    skip = SkipMPI();
+    if (skip) continue;
     t = j*(j+1)/2;
     for (i = ncs; i <= j; i++) {
       r = HamiltonElementFrozen(isym, h->basis[i], h->basis[j]);
@@ -779,7 +785,7 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
       if (delta < EPS16) h->hamilton[i+t] = 0.0;
     }
   }
-  
+  }
   for (j = 0; j < ncs; j++) {
     t = j*(j+1)/2;
     for (i = 0; i < j; i++) {
@@ -789,12 +795,18 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc) {
     lev = GetLevel(-(s->kgroup+1));
     h->hamilton[j+t] = lev->energy;
   }
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i,j,t,r)
+  {
   for (i = 0; i < ncs; i++) {
     for (j = ncs; j < h->dim; j++) {
+      int skip = SkipMPI();
+      if (skip) continue;
       t = j*(j+1)/2 + i;
       r = HamiltonElementFB(isym, h->basis[j], h->basis[i]);
       h->hamilton[t] = r;
     }
+  }
   }
 
 #ifdef PERFORM_STATISTICS
@@ -2279,6 +2291,7 @@ int GetPrincipleBasis(double *mix, int d, int *kpb) {
     k = kpb[0];
   } else {
     c = 0.0;
+    k = -1;
     for (i = 0; i < d; i++) {
       fm = fabs(mix[i]);
       if (fm > c) {
@@ -2432,14 +2445,15 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
   }
 
   nlevels = GetNumLevels();
+  ns = MAX_SYMMETRIES;
   if (IsUTA()) {
     AddToLevels(NULL, ng0, kg);
   } else {
-    ns = MAX_SYMMETRIES;
     for (i = 0; i < ns; i++) {
       k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
       if (k < 0) {
-	_allhams[i].dim = 0;
+	AllocHamMem(&_allhams[i], -1, -1);
+	AllocHamMem(&_allhams[i], 0, 0);
       }
     }
 #pragma omp parallel default(shared) private(i)
@@ -2464,6 +2478,12 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
   SaveLevels(fn, nlevels, -1);
   if (ng > 0) free(kg);
   if (ngp > 0) free(kgp);
+  if (!IsUTA()) {
+    for (i = 0; i < ns; i++) {
+      AllocHamMem(&_allhams[i], -1, -1);
+      AllocHamMem(&_allhams[i], 0, 0);
+    }
+  }
   return 0;
 }
 
@@ -4801,7 +4821,24 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
     h->heff = NULL;
     return 0;
   }
-
+  if (hdim < 0) {
+    if (h->n_basis0 > 0) {
+      free(h->basis);
+    }
+    if (h->hsize0 > 0) {
+      free(h->hamilton);
+    }
+    if (h->lwork > 0) {
+      free(h->work);
+    }
+    if (h->liwork > 0) {
+      free(h->iwork);
+    }
+    if (h->msize0 > 0) {
+      free(h->mixing);
+    }
+    return 0;
+  }
   jp = nbasis - hdim;
   h->dim = hdim;
   h->iham = nhams;

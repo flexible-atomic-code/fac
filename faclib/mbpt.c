@@ -3633,7 +3633,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     /* the construction is such that h->dim = h->n_basis
     ** one also makes sure that all the states in one symmetry forms a
     ** single hamiltonian matrix */
-    h = GetHamilton(i);
+    h = GetHamilton(isym);
     k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
     if (k == -1) continue;
     meff[isym] = (MBPT_EFF *) malloc(sizeof(MBPT_EFF));

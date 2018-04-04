@@ -415,28 +415,6 @@ int ModifyPotential(char *fn, POTENTIAL *p) {
   return 0;
 }
 
-static void InitOrbitalData(void *p, int n) {
-  ORBITAL *d;
-  int i;
-  
-  d = (ORBITAL *) p;
-  for (i = 0; i < n; i++) {
-    d[i].wfun = NULL;
-    d[i].phase = NULL;
-    d[i].ilast = -1;
-    d[i].im = -1;
-    d[i].bqp0 = 0;
-    d[i].bqp1 = 0;
-    d[i].se = 1e31;
-    d[i].ose = 1e31;
-    d[i].qed = 0.0;
-    d[i].kv = -1000000000;
-    d[i].horb = NULL;
-    d[i].rorb = NULL;
-    d[i].isol = 0;
-  }
-}
-
 static void InitFltAryData(void *p, int n) {
   FLTARY *d;
   int i;
@@ -5416,6 +5394,8 @@ void SortSlaterKey(int *kd) {
 
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 		int ib2, int iu2, int ib3, int iu3) {
+#pragma omp parallel default(shared)
+  {
   int k, kmax, kk, i, j, p, q, m, ilast;
   int j0, j1, j2, j3, k0, k1, k2, k3;
   int index[6];
@@ -5423,6 +5403,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
   ORBITAL *orb0, *orb1, *orb2, *orb3;
   int c = 0;
 
+  double wt0 = WallTime();
   kmax = GetMaxRank();
   for (kk = 0; kk <= kmax; kk += 2) {
     k = kk/2;
@@ -5434,6 +5415,8 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	orb2 = GetOrbital(p);
 	GetJLFromKappa(orb2->kappa, &j2, &k2);
 	if (k0 > slater_cut.kl0 || k2 > slater_cut.kl0) continue;
+	int skip = SkipMPI();
+	if (skip) continue;
 	GetYk(k, _yk, orb0, orb2, i, p, -1);
 	ilast = potential->maxrp-1;
 	for (m = 0; m <= ilast; m++) {
@@ -5472,7 +5455,9 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
       }
     }
   }
-  printf("PrepSlater: %d\n", c);
+  double wt1 = WallTime();
+  MPrintf(-1, "PrepSlater: %d %g\n", c, wt1-wt0);
+  }
 }
       
 int GetYk0(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2, int type) {
