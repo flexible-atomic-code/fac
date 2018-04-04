@@ -400,6 +400,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   }
   double wt1 = WallTime();
   nkb0 = GetNumOrbitals();  
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(k, k2, t, j, in, n, n0, kappa)
   {
   for (k = 0; k <= kmax; k++) {
@@ -453,6 +454,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       }
     }
   }
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r01, r10, c0, c1)
   {
   for (k = 0; k <= kmax; k++) {
@@ -1184,6 +1186,7 @@ int RMatrixSurface(char *fn) {
     MPrintf(-1, "construct hamilton: %d %d %g\n", i, h->dim, wt1-wt0);
     fflush(stdout);
   }
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(i, h)
   {
   for (i = 0; i < MAX_SYMMETRIES; i++) {

@@ -96,6 +96,7 @@
       DATA               TTYPE / 0 /
       DATA               DMIN1 / ZERO /, DMIN2 / ZERO /, DN / ZERO /,
      $                   DN1 / ZERO /, DN2 / ZERO /, TAU / ZERO /
+!$OMP THREADPRIVATE(TTYPE, DMIN1, DMIN2, DN, DN1, DN2, TAU)
 *     ..
 *     .. Executable Statements ..
 *

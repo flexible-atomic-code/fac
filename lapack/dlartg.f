@@ -72,6 +72,7 @@
 *     ..
 *     .. Data statements ..
       DATA               FIRST / .TRUE. /
+!$OMP THREADPRIVATE(FIRST, SAFMX2, SAFMIN, SAFMN2)
 *     ..
 *     .. Executable Statements ..
 *
