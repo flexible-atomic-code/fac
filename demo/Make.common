@@ -1,7 +1,5 @@
-DIFF = diff -q --strip-trailing-cr -I TSess -I FAC
-
 check: $(RESULTS)
-	@for i in $(RESULTS); do $(DIFF) $$i ref || exit 1; done; \
+	@for i in $(RESULTS); do python ../check.py $$i ref/$$i || exit 1; done; \
             echo " Tests passed!"
 
 

@@ -479,9 +479,10 @@ int FreeVintiArray(void) {
 }
 
 int FreeBreitArray(void) {
+  int i;
   FreeSimpleArray(breit_array);
   FreeSimpleArray(wbreit_array);
-  for (int i = 0; i < 5; i++) {
+  for (i = 0; i < 5; i++) {
     MultiFreeData(xbreit_array[i], FreeFltAryData);
   }
   return 0;
@@ -1495,7 +1496,7 @@ static double EnergyFunc(int *n, double *x) {
   ClearOrbitalTable(0);
   if (average_config.ng > 0) {
     a = 0.0;
-    for (int k = 0; k < average_config.ng; k++) {
+    for (k = 0; k < average_config.ng; k++) {
       a += TotalEnergyGroup(average_config.kg[k])*average_config.weight[k];
     }
   } else {
@@ -6909,10 +6910,11 @@ int InitRadial(void) {
 }
 
 void SetRadialCleanFlags(void) {  
+  int i;
   SetMultiCleanFlag(slater_array);
   SetMultiCleanFlag(yk_array);
   SetMultiCleanFlag(breit_array);
-  for (int i = 0; i < 5; i++) {
+  for (i = 0; i < 5; i++) {
     SetMultiCleanFlag(xbreit_array[i]);
   }
   SetMultiCleanFlag(wbreit_array);

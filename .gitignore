@@ -14,10 +14,12 @@ ionis/Makefile
 lapack/Makefile
 minpack/Makefile
 mpfun/Makefile
+modqed/Makefile
 toms/Makefile
 ode/Makefile
 quadpack/Makefile
 sfac/Makefile
+tests/Makefile
 python/Makefile
 
 # Ignore binaries
@@ -34,6 +36,10 @@ autom4te.cache/
 
 # Python build dirs
 build/
+dist/
+__pycache__
+.pytest_cache
+*.pyc
 
 # demos
 demo/*/*.b

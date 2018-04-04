@@ -177,5 +177,6 @@ int RydBranch(char *fn, char *ofn, int n0, int n1);
 int NormalizeMode(int m);
 void FixNorm(int m);
 
+ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 
