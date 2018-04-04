@@ -666,7 +666,7 @@ def spectrum(neles, temp, den, population, pref,
                 rate = rate + get_complexes(k+1)
         if (len(rcomp) > 0):
             rate = rate + rcomp
-        print 'NELE = %d'%k
+        print('NELE = %d'%k)
         f1 = '%s%02d%s'%(pref, k-1, suf)
         f2 = '%s%02d%s'%(pref, k, suf)
         f3 = '%s%02d%s'%(pref, k+1, suf)
@@ -689,7 +689,7 @@ def spectrum(neles, temp, den, population, pref,
         else:
             SetBlocks(-1.0)
 
-        print 'TR rates...'
+        print('TR rates...')
         SetTRRates(0)
         if mtr != '':
             ModifyRates(mtr)
@@ -710,41 +710,41 @@ def spectrum(neles, temp, den, population, pref,
             else:
                 p3 = abundp
             p2 = abund0
-            print 'Temp = %10.3E'%(temp[i])
-            print 'Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3)
+            print('Temp = %10.3E'%(temp[i]))
+            print('Abund: %10.3E %10.3E %10.3E'%(p1, p2, p3))
 
             dp = [dist, temp[i]]
             dp[2:] = params
             SetEleDist(*dp)
             
             if (ce > 0):
-                print 'CE rates...'
+                print('CE rates...')
                 SetCERates(1)
                 if (mce != ''):
                     ModifyRates(mce+'.t%02d'%i)
             if (nion > 1):
                 if (rr > 0):
-                    print 'RR rates...'
+                    print('RR rates...')
                     SetRRRates(0)
                     if (mrr != ''):
                         ModifyRates(mrr+'.t%02d'%i)
                 if (ci > 0):
-                    print 'CI rates...'
+                    print('CI rates...')
                     SetCIRates(1)
                     if (mci != ''):
                         ModifyRates(mci+'.t%02d'%i)
                 elif (ci < 0):
-                    print 'CI rates...'
+                    print('CI rates...')
                     SetCIRates(0)        
                     if (mci != ''):
                         ModifyRates(mci+'.t%02d'%i)            
                 if (ai > 0):
-                    print 'AI rates...'
+                    print('AI rates...')
                     SetAIRates(1)
                     if (mai != ''):
                         ModifyRates(mai+'.t%02d'%i)
                 elif (ai < 0):
-                    print 'AI rates...'
+                    print('AI rates...')
                     SetAIRates(0)
                     if (mai != ''):
                         ModifyRates(mai+'.t%02d'%i)
@@ -756,11 +756,11 @@ def spectrum(neles, temp, den, population, pref,
                 SetAbund(k+1, p3)
                 
             for d in range(d0, d1+1):
-                print 'Density = %10.3E'%den[d]
+                print('Density = %10.3E'%den[d])
                 SetEleDensity(den[d])
                 SetIteration(eps)
                 SetCascade(cascade, eps)
-                print 'Init blocks...'
+                print('Init blocks...')
                 InitBlocks()
                 s = 't%02dd%di%d%s'%(i, d, nion, osuf)
                 if (abundm > 0):

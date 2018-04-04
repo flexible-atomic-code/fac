@@ -29,6 +29,13 @@ USE (rcsid);
 
 #include "crm.h"
 
+#if PY_MAJOR_VERSION >= 3
+  #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
+#else
+  #define PyLong_AsLong PyInt_AsLong
+  #define PyLong_Check PyInt_Check
+#endif
+
 static PyObject *ErrorObject;
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
 
@@ -45,7 +52,7 @@ static void SCRMStatement(char *func, PyObject *args, PyObject *kargs) {
   fprintf(scrm_file, "%s", func);
   nargs = PyTuple_Size(args);
   sargs = PyObject_Str(args);
-  s1 = PyString_AsString(sargs);
+  s1 = PyUnicode_AsString(sargs);
   n = strlen(s1);
   if (nargs == 1) {
     n = n-2;
@@ -62,12 +69,12 @@ static void SCRMStatement(char *func, PyObject *args, PyObject *kargs) {
       if (nargs > 0 || i > 0) fprintf(scrm_file, ", ");
       p = PyList_GetItem(klist, i);
       q = PyTuple_GetItem(p, 0);
-      s2 = PyString_AsString(q);
+      s2 = PyUnicode_AsString(q);
       fprintf(scrm_file, "%s=", s2);
       q = PyTuple_GetItem(p, 1);
       kvar = PyObject_Str(q);
-      s2 = PyString_AsString(kvar);
-      if (PyString_Check(q)) {
+      s2 = PyUnicode_AsString(kvar);
+      if (PyUnicode_Check(q)) {
 	fprintf(scrm_file, "'%s'", s2);
       } else {
 	fprintf(scrm_file, "%s", s2);
@@ -154,7 +161,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   for (i = 0; i < n; i++) {
     p = PyTuple_GetItem(args, i);
     q = PyObject_Str(p);
-    s = PyString_AsString(q);
+    s = PyUnicode_AsString(q);
     printf("%s", s);
     if (i != n-1) {
       printf(", ");
@@ -202,10 +209,10 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
-  i = PyInt_AsLong(p);
+  i = PyLong_AsLong(p);
   if (i == -1) {
     p = PyTuple_GetItem(args, 1);
-    fn = PyString_AsString(p);
+    fn = PyUnicode_AsString(p);
     np = DistFromFile(fn, &par);
     if (np <= 0) return NULL;
   } else {
@@ -257,10 +264,10 @@ static PyObject *PSetPhoDist(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n < 1) return NULL;
   p = PyTuple_GetItem(args, 0);
-  i = PyInt_AsLong(p);
+  i = PyLong_AsLong(p);
   if (i == -1) {
     p = PyTuple_GetItem(args, 1);
-    fn = PyString_AsString(p);
+    fn = PyUnicode_AsString(p);
     np = DistFromFile(fn, &par);
     if (np <= 0) return NULL;
   } else {
@@ -721,7 +728,7 @@ static PyObject *PRateTable(PyObject *self, PyObject *args) {
     if (nc > 0) {
       sc = (char **) malloc(sizeof(char *)*nc);
       for (i = 0; i < nc; i++) {
-	sc[i] = PyString_AsString(PyList_GetItem(p, i));
+	sc[i] = PyUnicode_AsString(PyList_GetItem(p, i));
       }
     }
   }
@@ -797,7 +804,7 @@ static int ShellIndexFromString(PyObject *s) {
   int ks;
   char *c;
 
-  c = PyString_AsString(s);
+  c = PyUnicode_AsString(s);
   if (strcmp(c, "1s") == 0) ks = 1;
   else if (strcmp(c, "2s") == 0) ks = 2;
   else if (strcmp(c, "2p") == 0) ks = 3;
@@ -828,10 +835,10 @@ static PyObject *PEPhFit(PyObject *self, PyObject *args) {
   
   if (!PyArg_ParseTuple(args, "iiO", &z, &nele, &s)) return NULL;
   ks = -1;
-  if (PyString_Check(s)) {
+  if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   }
   if (ks < 1) return NULL;
 
@@ -846,10 +853,10 @@ static PyObject *PPhFit(PyObject *self, PyObject *args) {
   
   if (!PyArg_ParseTuple(args, "iidO", &z, &nele, &e, &s)) return NULL;
   ks = -1;
-  if (PyString_Check(s)) {
+  if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   }
   if (ks < 1) return NULL;
 
@@ -929,10 +936,10 @@ static PyObject *PColFit(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -950,10 +957,10 @@ static PyObject *PCColFit(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "iid|O", &z, &nele, &t, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -971,10 +978,10 @@ static PyObject *PEColFit(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "ii|O", &z, &nele, &s)) return NULL;
   if (s == NULL) {
     ks = 0;
-  } else if (PyString_Check(s)) {
+  } else if (PyUnicode_Check(s)) {
     ks = ShellIndexFromString(s);
-  } else if (PyInt_Check(s)) {
-    ks = PyInt_AsLong(s);
+  } else if (PyLong_Check(s)) {
+    ks = PyLong_AsLong(s);
   } else {
     return NULL;
   }
@@ -1393,14 +1400,47 @@ static struct PyMethodDef crm_methods[] = {
   {NULL, NULL}
 };
 
-void initcrm(void) {
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "crm",
+  NULL,
+  -1,
+  crm_methods,
+};
+#define INITERROR return NULL
+
+PyMODINIT_FUNC
+PyInit_crm(void){
+
+#else
+#define INITERROR return
+
+void
+initcrm(void) {
+#endif
+
   PyObject *m, *d;
-  
-  m = Py_InitModule("crm", crm_methods);  
+
+  #if PY_MAJOR_VERSION >= 3
+  m = PyModule_Create(&moduledef);
+  #else
+  m = Py_InitModule("crm", crm_methods);
+  #endif
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "crm.error");
   PyDict_SetItemString(d, "error", ErrorObject);
   InitCRM();
-  if (PyErr_Occurred()) 
+  if (PyErr_Occurred())
     Py_FatalError("can't initialize module crm");
+
+  #if PY_MAJOR_VERSION >= 3
+  return m;
+  #endif
+  return;
+
+  #if PY_MAJOR_VERSION >= 3
+    return m;
+  #endif
 }
