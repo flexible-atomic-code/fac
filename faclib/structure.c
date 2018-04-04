@@ -2088,7 +2088,9 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     }
     if (levels->lock) {
       SetLock(levels->lock);
-      ArrayAppend(levels, &lev, InitLevelData);
+    }
+    ArrayAppend(levels, &lev, InitLevelData);
+    if (levels->lock) {
       ReleaseLock(levels->lock);
     }
     mix += h->n_basis;
