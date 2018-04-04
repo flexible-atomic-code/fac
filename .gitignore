@@ -53,14 +53,5 @@ demo/*/*.lev
 demo/*/*.pot
 demo/*/*.tr
 demo/*/*.txt
-demo/*/data
-demo/*/*01
-demo/*/*02
-demo/*/*03
-demo/*/*04
-demo/*/*05
-demo/*/*06
-demo/*/*07
-demo/*/*08
-demo/*/*09
-demo/*/*10
+demo/*/*.sp
+demo/*/*.rt
