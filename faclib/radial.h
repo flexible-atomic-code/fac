@@ -91,6 +91,7 @@ int OrbitalExists(int n, int kappa, double energy);
 int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
 ORBITAL *GetOrbitalSolved(int k);
+ORBITAL *GetOrbitalSolvedNoLock(int k);
 void SetOrbMap(int k, int n0, int n1, int n2);
 void AddOrbMap(ORBITAL *orb);
 void RemoveOrbMap(int m);
