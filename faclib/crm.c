@@ -5930,3 +5930,11 @@ int RydBranch(char *fn, char *ofn, int n0, int n1) {
 
   return 0;
 }
+
+
+ARRAY* _GetIons(){
+/*
+ * Return a reference to ions for testing purpose
+ */
+  return ions;
+}

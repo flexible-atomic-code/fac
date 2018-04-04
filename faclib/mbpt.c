@@ -63,9 +63,10 @@ void InitMBPT(void) {
   mbpt_tr.up = NULL;
   mbpt_ne = 10;
   int n = mbpt_ne*mbpt_ne;
+  int i;
   mbpt_se = (int *) malloc(sizeof(int)*n);
   mbpt_de = (int *) malloc(sizeof(int)*n);
-  for (int i = 0; i < n; i++) {
+  for (i = 0; i < n; i++) {
     mbpt_se[i] = -1;
     mbpt_de[i] = -1;
   }

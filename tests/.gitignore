@@ -1,0 +1,6 @@
+# google test relevant
+googletest
+
+# executable of each test
+dbase_unittest
+crm_unittest
