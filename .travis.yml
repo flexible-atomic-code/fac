@@ -4,8 +4,8 @@ language: python
 matrix:
   fast_finish: true
   include:
-  #- python: 3.6
-  #  env: CONDA_ENV=py36
+  - python: 3.6
+    env: CONDA_ENV=py36
   - python: 2.7
     env: CONDA_ENV=py27
 

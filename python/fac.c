@@ -30,6 +30,28 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
  
+#if PY_MAJOR_VERSION >= 3
+  #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
+#else
+  #define PyLong_AsLong PyInt_AsLong
+  #define PyLong_AS_LONG PyInt_AS_LONG
+  #define PyLong_Check PyInt_Check
+  #define PyUnicode_FromString PyString_FromString
+  #define PyUnicode_AsString PyString_AsString
+  #define PyUnicode_Check PyString_Check
+#endif
+
+#if PY_MAJOR_VERSION >= 3
+  #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+  #define GETSTATE(m) (&_state)
+  static struct module_state _state;
+#endif
+
+struct module_state {
+    PyObject *error;
+};
+
 static PyObject *ErrorObject;
 static PyObject *PFACVERSION;
 static PyObject *SPECSYMBOL;
@@ -55,7 +77,7 @@ static void SFACStatement(char *func, PyObject *args, PyObject *kargs) {
   fprintf(sfac_file, "%s", func);
   nargs = PyTuple_Size(args);
   sargs = PyObject_Str(args);
-  s1 = PyString_AsString(sargs);
+  s1 = PyUnicode_AsString(sargs);
   n = strlen(s1);
   if (nargs == 1) {
     n = n-2;
@@ -72,12 +94,12 @@ static void SFACStatement(char *func, PyObject *args, PyObject *kargs) {
       if (nargs > 0 || i > 0) fprintf(sfac_file, ", ");
       p = PyList_GetItem(klist, i);
       q = PyTuple_GetItem(p, 0);
-      s2 = PyString_AsString(q);
+      s2 = PyUnicode_AsString(q);
       fprintf(sfac_file, "%s=", s2);
       q = PyTuple_GetItem(p, 1);
       kvar = PyObject_Str(q);
-      s2 = PyString_AsString(kvar);
-      if (PyString_Check(q)) {
+      s2 = PyUnicode_AsString(kvar);
+      if (PyUnicode_Check(q)) {
 	fprintf(sfac_file, "'%s'", s2);
       } else {
 	fprintf(sfac_file, "%s", s2);
@@ -158,13 +180,13 @@ static int IntFromList(PyObject *p, int **k) {
       *k = malloc(sizeof(int)*n);
       for (i = 0; i < n; i++) {
 	q = PyList_GetItem(p, i);
-	(*k)[i] = PyInt_AsLong(q);
+	(*k)[i] = PyLong_AsLong(q);
       }
     }
   } else {
     n = 1;
     *k = malloc(sizeof(int));
-    (*k)[0] = PyInt_AsLong(p);
+    (*k)[0] = PyLong_AsLong(p);
   }
   return n;
 }
@@ -198,12 +220,12 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
     }
     for (i = 0; i < ng; i++) {
       p = PySequence_GetItem(args, i);
-      if (!PyString_Check(p)) {
+      if (!PyUnicode_Check(p)) {
 	free((*kg));
 	onError("argument must be a group name");
 	return -1;
       }
-      s = PyString_AsString(p);
+      s = PyUnicode_AsString(p);
       k = GroupExists(s);
       Py_DECREF(p);
       
@@ -305,13 +327,13 @@ static PyObject *PSetScreening(PyObject *self, PyObject *args) {
   screened_n = malloc(sizeof(int)*n_screen);
   for (i = 0; i < n_screen; i++) {
     q = PySequence_GetItem(p, i);
-    if (!PyInt_Check(q)) {
+    if (!PyLong_Check(q)) {
       printf("Screened n must be integers\n");
       free(screened_n);
       Py_DECREF(q);
       return NULL;
     }
-    screened_n[i] = PyInt_AsLong(q);
+    screened_n[i] = PyLong_AsLong(q);
     Py_DECREF(q);
   }
   
@@ -345,12 +367,12 @@ static int ConfigPythonToC(PyObject *python_cfg, CONFIG **cfg) {
     if (!PyTuple_Check(python_shell)) goto ERROR;
     if (PyTuple_Size(python_shell) != 4) goto ERROR;
     
-    shells[m].n = PyInt_AsLong(PyTuple_GetItem(python_shell, 0));
-    k = PyInt_AsLong(PyTuple_GetItem(python_shell, 1));
-    j = PyInt_AsLong(PyTuple_GetItem(python_shell, 2));
+    shells[m].n = PyLong_AsLong(PyTuple_GetItem(python_shell, 0));
+    k = PyLong_AsLong(PyTuple_GetItem(python_shell, 1));
+    j = PyLong_AsLong(PyTuple_GetItem(python_shell, 2));
     if (j > 0) k = -(k+1);
     shells[m].kappa = k;
-    shells[m].nq = PyInt_AsLong(PyTuple_GetItem(python_shell, 3));
+    shells[m].nq = PyLong_AsLong(PyTuple_GetItem(python_shell, 3));
   }
 
   return 0;
@@ -382,8 +404,8 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   if (argc == 0) _closed_shells[0] = '\0';
   for (i = 0; i < argc; i++) {
     q = PyTuple_GetItem(args, i);
-    if (!PyString_Check(q)) return NULL;
-    p = PyString_AsString(q);
+    if (!PyUnicode_Check(q)) return NULL;
+    p = PyUnicode_AsString(q);
     strncpy(argv, p, 512);
     ns = StrSplit(argv, ' ');
     p = argv;
@@ -422,8 +444,8 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   argc = PyTuple_Size(args);
   for (i = 0; i < argc; i++) {
     q = PyTuple_GetItem(args, i);
-    if (!PyString_Check(q)) return NULL;
-    p = PyString_AsString(q);
+    if (!PyUnicode_Check(q)) return NULL;
+    p = PyUnicode_AsString(q);
     strncpy(scfg, _closed_shells, MCHSHELL);
     strncat(scfg, p, MCHSHELL);
     ncfg = GetConfigFromStringNR(&cfg, scfg);
@@ -468,25 +490,25 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 
   if (keywds) {
     q = PyDict_GetItemString(keywds, "group");
-    if (!q || !PyString_Check(q)) {
+    if (!q || !PyUnicode_Check(q)) {
       printf("The keyword must be group=gname\n");
       return NULL;
     }
-    p = PyString_AsString(q);
+    p = PyUnicode_AsString(q);
     strncpy(gname, p, GROUP_NAME_LEN);
   } else {
     if (argc == 0) return NULL;
     q = PyTuple_GetItem(args, i);
     i++;
-    if (!PyString_Check(q)) return NULL;
-    p = PyString_AsString(q);
+    if (!PyUnicode_Check(q)) return NULL;
+    p = PyUnicode_AsString(q);
     strncpy(gname, p, GROUP_NAME_LEN);
   }
   
   for (; i < argc; i++) {   
     q = PyTuple_GetItem(args, i);
-    if (!PyString_Check(q)) return NULL;
-    p = PyString_AsString(q);
+    if (!PyUnicode_Check(q)) return NULL;
+    p = PyUnicode_AsString(q);
     strncpy(scfg, _closed_shells, MCHSHELL);
     strncat(scfg, p, MCHSHELL);
     ncfg = GetConfigFromString(&cfg, scfg);
@@ -517,7 +539,7 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
   ng = PyTuple_Size(args);
   if (ng <= 0) return NULL;
   p = PyTuple_GET_ITEM(args, 0);
-  if (PyString_Check(p)) {
+  if (PyUnicode_Check(p)) {
     ng = DecodeGroupArgs(args, &kg);
   } else {
     ng = DecodeGroupArgs(p, &kg);
@@ -1020,8 +1042,8 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "O|ddddd", &t, &z, &mass, &rn, &a, &npr)) {
     return NULL;
   }
-  if (PyString_Check(t)) {
-    s = PyString_AsString(t);
+  if (PyUnicode_Check(t)) {
+    s = PyUnicode_AsString(t);
     if (SetAtom(s, z, mass, rn, a, npr) < 0) return NULL;
   } else if (PyFloat_Check(t)) {
     npr = a;
@@ -1030,12 +1052,12 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
     mass = z;
     z = PyFloat_AsDouble(t);
     if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
-  } else if (PyInt_Check(t)) {
+  } else if (PyLong_Check(t)) {
     npr = a;
     a = rn;
     rn = mass;    
     mass = z;
-    z = (double) PyInt_AsLong(t);
+    z = (double) PyLong_AsLong(t);
     if (SetAtom(NULL, z, mass, rn, a, npr) < 0) return NULL;
   }
   Py_INCREF(Py_None);
@@ -1101,7 +1123,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   } 
 
   p = PyTuple_GET_ITEM(args, 0);
-  if (PyString_Check(p)) {
+  if (PyUnicode_Check(p)) {
     weight = NULL;
     ng = DecodeGroupArgs(args, &kg);
     if (ng < 0) {
@@ -1239,15 +1261,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   ip = 0;
   
   if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;
-  if (PyInt_Check(t)) {
-    ip = PyInt_AsLong(t);
+  if (PyLong_Check(t)) {
+    ip = PyLong_AsLong(t);
     i = IntFromList(p, &kg);
     SetSymmetry(ip, i, kg);
     free(kg);
     Py_INCREF(Py_None);
     return Py_None;    
   }
-  fn = PyString_AsString(t);
+  fn = PyUnicode_AsString(t);
   if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {
       ng = DecodeGroupArgs(p, &kg);
@@ -1408,7 +1430,7 @@ static int SelectLevels(PyObject *p, int **t) {
   n = PySequence_Length(p);
   if (n > 0) {
     q = PySequence_GetItem(p, 0);
-    if (PyString_Check(q)) {
+    if (PyUnicode_Check(q)) {
       ng = DecodeGroupArgs(p, &kg);
       if (ng <= 0) {
 	return 0;
@@ -1449,7 +1471,7 @@ static int SelectLevels(PyObject *p, int **t) {
 	p = q;
 	m0 = 0;
 	n = PySequence_Length(q);
-      } else if (PyInt_Check(q)) {
+      } else if (PyLong_Check(q)) {
 	m0 = 1;
       } else {
 	printf("Level specification unrecoganized\n");
@@ -1464,7 +1486,7 @@ static int SelectLevels(PyObject *p, int **t) {
       Py_DECREF(q);
       for (m = m0; m < n; m++) {
 	q = PySequence_GetItem(p, m);
-	nrec = PyInt_AS_LONG(q);
+	nrec = PyLong_AS_LONG(q);
 	Py_DECREF(q);
 	for (i = 0; i < nrg; i++) {
 	  ConstructRecGroupName(rgn, GetGroup(kg[i])->name, nrec);
@@ -1497,12 +1519,12 @@ static int SelectLevels(PyObject *p, int **t) {
       if (!(*t)) return 0;      
       for (i = 0; i < n; i++) {
 	q = PySequence_GetItem(p, i);
-	if (!PyInt_Check(q)) {
+	if (!PyLong_Check(q)) {
 	  free(*t);
 	  return 0;
 	}
 	Py_DECREF(q);
-	(*t)[i] = PyInt_AS_LONG(q);
+	(*t)[i] = PyLong_AS_LONG(q);
       }
       return n;
     }
@@ -1585,8 +1607,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
   if (n == 1) {
     if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
-    if (PyInt_Check(p)) {
-      i = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      i = PyLong_AsLong(p);
       SetExtraMBPT(i);
     } else {
       n1 = IntFromList(p, &ng1);
@@ -1599,8 +1621,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 
   if (n == 2) {
     if (!(PyArg_ParseTuple(args, "sO", &gn, &p))) return NULL;
-    if (PyInt_Check(p)) {
-      n2 = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      n2 = PyLong_AsLong(p);
       n1 = n2;
     } else {
       n3 = IntFromList(p, &ng3);
@@ -1624,7 +1646,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   if (n == 3) {
     if (!(PyArg_ParseTuple(args, "iid", &i, &n3, &c))) return NULL;
     p = PyTuple_GetItem(args, 2);
-    if (PyInt_Check(p)) {
+    if (PyLong_Check(p)) {
       onError("2nd argument must be a floating point number");
       return NULL;
     }
@@ -1669,8 +1691,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     fn2 = malloc(sizeof(char *)*n1);
     for (i = 0; i < n1; i++) {
       t = PyList_GetItem(q, i);
-      if (!PyString_Check(t)) return NULL;
-      fn2[i] = PyString_AsString(t);
+      if (!PyUnicode_Check(t)) return NULL;
+      fn2[i] = PyUnicode_AsString(t);
     }
     StructureReadMBPT(fn, fn1, n1, fn2, n, s, n3);
     free(s);
@@ -1692,8 +1714,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     n2 = IntFromList(r, &ng2);
     if (PyList_Check(t)) {
       nk = IntFromList(t, &nkm);
-    } else if (PyInt_Check(t)) {
-      nk = PyInt_AsLong(t)+1;
+    } else if (PyLong_Check(t)) {
+      nk = PyLong_AsLong(t)+1;
       nkm = NULL;
     } else {
       return NULL;
@@ -2060,8 +2082,8 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetCETEGrid(ng, -1.0, 0.0);
     } else if (!PyList_Check(p) && !PyTuple_Check(p)) {
       return NULL;
@@ -2175,11 +2197,11 @@ static  PyObject *PSetCEQkMode(PyObject *self, PyObject *args) {
   m = QK_DEFAULT;
   tol = -1;
   if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
-  if (PyString_Check(p)) {
+  if (PyUnicode_Check(p)) {
     p = PyDict_GetItem(QKMODE, p);
   } 
-  if (PyInt_Check(p)) {
-    m = PyInt_AsLong(p);
+  if (PyLong_Check(p)) {
+    m = PyLong_AsLong(p);
   } else {
     return NULL;
   }
@@ -2245,8 +2267,8 @@ static PyObject *PSetCEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetCEEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -2291,8 +2313,8 @@ static PyObject *PSetAngleGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 2) {
     if (!PyArg_ParseTuple(args, "iO", &m, &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       if (m == 0) {
 	emin = 0.0;
 	emax = PI;
@@ -2361,8 +2383,8 @@ static PyObject *PSetUsrCEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetUsrCEEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -2455,8 +2477,8 @@ static  PyObject *PSetCEPWGrid(PyObject *self, PyObject *args) {
     m = (int *) malloc(ns*sizeof(int));
     step = (int *) malloc(ns*sizeof(int));
     for (i = 0; i < ns; i++) {
-      m[i] = PyInt_AsLong(PyList_GetItem(p, i));
-      step[i] = PyInt_AsLong(PyList_GetItem(q, i));
+      m[i] = PyLong_AsLong(PyList_GetItem(p, i));
+      step[i] = PyLong_AsLong(PyList_GetItem(q, i));
     }
     SetCEPWGrid(ns, m, step);
     free(m);
@@ -2499,11 +2521,11 @@ static  PyObject *PSetRecQkMode(PyObject *self, PyObject *args) {
   m = QK_DEFAULT;
   tol = -1;
   if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
-  if (PyString_Check(p)) {
+  if (PyUnicode_Check(p)) {
     p = PyDict_GetItem(QKMODE, p);
   }
-  if (PyInt_Check(p)) {
-    m = PyInt_AsLong(p);
+  if (PyLong_Check(p)) {
+    m = PyLong_AsLong(p);
   } else {
     return NULL;
   }
@@ -2708,8 +2730,8 @@ static PyObject *PSetUsrPEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetUsrPEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -2755,8 +2777,8 @@ static PyObject *PSetRRTEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetRRTEGrid(ng, -1.0, 0.0);
     } else if (!PyList_Check(p) && !PyTuple_Check(p)) {
       return NULL;
@@ -2822,8 +2844,8 @@ static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetPEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -3082,8 +3104,8 @@ static PyObject *PSetIEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetIEGrid(ng, -1.0, 0.0);
     } else if (!PyList_Check(p) && !PyTuple_Check(p)) {
       return NULL;
@@ -3120,11 +3142,11 @@ static  PyObject *PSetCIQkMode(PyObject *self, PyObject *args) {
   m = QK_DEFAULT;
   tol = -1.0;
   if (!PyArg_ParseTuple(args, "|Od", &p, &tol)) return NULL;
-  if (PyString_Check(p)) {
+  if (PyUnicode_Check(p)) {
     p = PyDict_GetItem(QKMODE, p);
   }
-  if (PyInt_Check(p)) {
-    m = PyInt_AsLong(p);
+  if (PyLong_Check(p)) {
+    m = PyLong_AsLong(p);
   } else {
     return NULL;
   }
@@ -3174,8 +3196,8 @@ static PyObject *PSetCIEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetCIEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -3239,8 +3261,8 @@ static PyObject *PSetUsrCIEGrid(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 1) {
     if (!PyArg_ParseTuple(args, "O", &p)) return NULL;
-    if (PyInt_Check(p)) {
-      ng = PyInt_AsLong(p);
+    if (PyLong_Check(p)) {
+      ng = PyLong_AsLong(p);
       err = SetUsrCIEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
       ng = PySequence_Length(p);      
@@ -3324,8 +3346,8 @@ static  PyObject *PSetCIPWGrid(PyObject *self, PyObject *args) {
     m = (int *) malloc(ns*sizeof(int));
     step = (int *) malloc(ns*sizeof(int));
     for (i = 0; i < ns; i++) {
-      m[i] = PyInt_AsLong(PyList_GetItem(p, i));
-      step[i] = PyInt_AsLong(PyList_GetItem(q, i));
+      m[i] = PyLong_AsLong(PyList_GetItem(p, i));
+      step[i] = PyLong_AsLong(PyList_GetItem(q, i));
     }
     SetCIPWGrid(ns, m, step);
     free(m);
@@ -3475,7 +3497,7 @@ static PyObject *PAdjustEnergy(PyObject *self, PyObject *args) {
     for (i = 0; i < n; i++) {
       ip = PyList_GetItem(p, i);
       iq = PyList_GetItem(q, i);
-      k = PyInt_AsLong(ip);
+      k = PyLong_AsLong(ip);
       e = PyFloat_AsDouble(iq);
       e /= HARTREE_EV;
       ilevs[i] = k;
@@ -3542,7 +3564,7 @@ static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
     for (i = 0; i < n; i++) {
       ip = PyList_GetItem(p, i);
       iq = PyList_GetItem(q, i);
-      k = PyInt_AsLong(ip);
+      k = PyLong_AsLong(ip);
       e = PyFloat_AsDouble(iq);
       e /= HARTREE_EV;
       if (k < 0) {
@@ -3813,43 +3835,43 @@ static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
   } else {
     q = PyDict_GetItemString(keywds, "config");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_config = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_config = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "recouple");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_recouple = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_recouple = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "dbase");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_dbase = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_dbase = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "structure");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_structure = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_structure = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "excitation");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_excitation = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_excitation = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "radial");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_radial = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_radial = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "recombination");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_recombination = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_recombination = PyLong_AsLong(q);
     }
     q = PyDict_GetItemString(keywds, "ionization");
     if (q) {
-      if (!PyInt_Check(q)) return NULL;
-      m_ionization = PyInt_AsLong(q);
+      if (!PyLong_Check(q)) return NULL;
+      m_ionization = PyLong_AsLong(q);
     }
   }
 
@@ -3877,7 +3899,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   for (i = 0; i < n; i++) {
     p = PyTuple_GetItem(args, i);
     q = PyObject_Str(p);
-    s = PyString_AsString(q);
+    s = PyUnicode_AsString(q);
     printf("%s", s);
     if (i != n-1) {
       printf(", ");
@@ -3908,12 +3930,12 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
   if (n == 0) return NULL;
 
   p = PyTuple_GetItem(args, 0);
-  m = PyInt_AsLong(p);
+  m = PyLong_AsLong(p);
   if (n == 1 || m != 0) {
     ConfigEnergy(m, 0, 0, NULL);
   } else {
     p = PyTuple_GetItem(args, 1);
-    mr = PyInt_AsLong(p);
+    mr = PyLong_AsLong(p);
     if (n == 2) {
       ConfigEnergy(m, mr, 0, NULL);
     } else {
@@ -4803,8 +4825,8 @@ static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
   f1 = malloc(sizeof(char *)*np);
   f2 = malloc(sizeof(char *)*np);
   for (i = 0; i < np; i++) {
-    f1[i] = PyString_AsString(PyList_GetItem(p, i));
-    f2[i] = PyString_AsString(PyList_GetItem(q, i));
+    f1[i] = PyUnicode_AsString(PyList_GetItem(p, i));
+    f2[i] = PyUnicode_AsString(PyList_GetItem(q, i));
   }
   RMatrixCE(fn, np, f1, f2, emin, emax, de, m, mb);
   
@@ -5405,7 +5427,25 @@ static struct PyMethodDef fac_methods[] = {
 };
 
 
-void initfac(void) {
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "fac",
+  NULL,
+  -1,
+  fac_methods,
+};
+#define INITERROR return NULL
+
+PyMODINIT_FUNC
+PyInit_fac(void){
+
+#else
+#define INITERROR return
+
+void
+initfac(void){
+#endif
   PyObject *m, *d;
   char v[10];
   char sp[2];
@@ -5413,16 +5453,24 @@ void initfac(void) {
   double *emass;
   int i;
 
-  m = Py_InitModule("fac", fac_methods);  
+  #if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&moduledef);
+  #else
+    m = Py_InitModule("fac", fac_methods);
+  #endif
+
   d = PyModule_GetDict(m);
-  _thismodule = m;
-  _thisdict = d;
-  
   ErrorObject = Py_BuildValue("s", "fac.error");
   PyDict_SetItemString(d, "error", ErrorObject);
 
+  if(m == NULL) INITERROR;
+
   if (InitFac() < 0) {
     onError("initilization failed\n");
+
+    #if PY_MAJOR_VERSION >= 3
+    return m;
+    #endif
     return;
   }
 
@@ -5434,7 +5482,7 @@ void initfac(void) {
   }
 
   sprintf(v, "%d.%d.%d", VERSION, SUBVERSION, SUBSUBVERSION);
-  PFACVERSION = PyString_FromString(v);
+  PFACVERSION = PyUnicode_FromString(v);
 
   ename = GetAtomicSymbolTable();
   emass = GetAtomicMassTable();
@@ -5474,5 +5522,9 @@ void initfac(void) {
   
   if (PyErr_Occurred()) 
     Py_FatalError("can't initialize module fac");
+
+#if PY_MAJOR_VERSION >= 3
+  return m;
+#endif
 }
 
