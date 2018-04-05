@@ -101,7 +101,7 @@ if (no_setup == 0):
                            ]) 
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
-      print 'Creating SFAC binary ...'
+      print('Creating SFAC binary ...')
       c = 'cd sfac; mkdir bin;'
       c += 'cp sfac bin; cp scrm bin; cp spol bin;'
       c += 'tar cvf %s ./bin;'%bsfac
