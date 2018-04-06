@@ -399,7 +399,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     rbasis.ek[i] = malloc(sizeof(double)*rbasis.nbk);
   }
   double wt1 = WallTime();
-  nkb0 = GetNumOrbitals();  
+  nkb0 = GetNumOrbitals();
   for (k = 0; k <= kmax; k++) {
     n0 = k+1;
     if (rbasis.ib0 == 0 && n0 <= nmax) n0 = nmax + 1;
@@ -536,13 +536,15 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   }
   }
   WriteRMatrixBasis(fn, fmode);
+  nkb1 = GetNumOrbitals();
   double wt3 = WallTime();
-  MPrintf(-1, "rmx bas: %g %g %g\n", wt1-wt0, wt2-wt1, wt3-wt2);
+  MPrintf(-1, "rmx bas: %d %d %g %g %g\n",
+	  nkb0, nkb1, wt1-wt0, wt2-wt1, wt3-wt2);
   if (nts > 0 && rbasis.ib0 == 0) {
-    nkb1 = GetNumOrbitals();
     PrepSlater(0, nkb0-1, nkb0, nkb1-1, 0, nkb0-1, nkb0, nkb1-1);
     PrepSlater(0, nkb0-1, 0, nkb0-1, nkb0, nkb1-1, nkb0, nkb1-1);
   }
+
   return 0;
 }
 
