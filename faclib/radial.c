@@ -1780,30 +1780,46 @@ int OrbitalIndex(int n, int kappa, double energy) {
     k = -n-1;
     orb = om->onn[k];
   } else {
-    int i;
-    for (i = 0; i < om->nzn; i++) {
-      if (fabs(energy-om->ozn[i]->energy) < EPS10) {
-	orb = om->ozn[i];
+    for (k = 0; k < om->nzn; k++) {
+      if (fabs(energy-om->ozn[k]->energy) < EPS10) {
+	orb = om->ozn[k];
 	break;
       }
     }
   }
   if (orb == NULL) {
-    if (orbitals->lock) SetLock(orbitals->lock);
-    orb = GetNewOrbitalNoLock(n, kappa, energy);
-    k = SolveDirac(orb);
-    if (k < 0) {
-      MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
-      Abort(1);
-    }    
+    if (orbitals->lock) {
+      SetLock(orbitals->lock);
+      if (n > 0) {
+	orb = om->opn[k];
+      } else if (n < 0) {
+	orb = om->onn[k];
+      } else {
+	for (; k < om->nzn; k++) {
+	  if (fabs(energy-om->ozn[k]->energy) < EPS10) {
+	    orb = om->ozn[k];
+	  }
+	}
+      }
+    }
+    if (orb == NULL) {
+      orb = GetNewOrbitalNoLock(n, kappa, energy);
+      k = SolveDirac(orb);
+      if (k < 0) {
+	MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
+	Abort(1);
+      }
+    }
     if (orbitals->lock) ReleaseLock(orbitals->lock);
   } else if (orb->isol == 0) {
     if (orbitals->lock) SetLock(orbitals->lock);
-    k = SolveDirac(orb);
-    if (k < 0) {
-      MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
-      Abort(1);
-    }    
+    if (orb->isol == 0) {
+      k = SolveDirac(orb);
+      if (k < 0) {
+	MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
+	Abort(1);
+      }
+    }
     if (orbitals->lock) ReleaseLock(orbitals->lock);
   }
   return orb->idx;
@@ -1905,9 +1921,11 @@ int OrbitalExists(int n, int kappa, double energy) {
   int i;
   i = OrbitalExistsNoLock(n, kappa, energy);
   if (i >= 0) return i;
-  if (orbitals->lock) SetLock(orbitals->lock);
-  i = OrbitalExistsNoLock(n, kappa, energy);
-  if (orbitals->lock) ReleaseLock(orbitals->lock);
+  if (orbitals->lock) {
+    SetLock(orbitals->lock);
+    i = OrbitalExistsNoLock(n, kappa, energy);
+    ReleaseLock(orbitals->lock);
+  }
   return i;
 }
 
@@ -1994,11 +2012,13 @@ ORBITAL *GetOrbitalSolved(int k) {
   int i;
   
   orb = (ORBITAL *) ArrayGet(orbitals, k);
-  if (orb != NULL && orb->isol) return orb;
-  
-  if (orbitals->lock) SetLock(orbitals->lock);
-  orb = (ORBITAL *) ArrayGet(orbitals, k);
+  if (orb != NULL && orb->isol) return orb;  
+  if (orbitals->lock) {
+    SetLock(orbitals->lock);
+    orb = (ORBITAL *) ArrayGet(orbitals, k);
+  }
   if (orb->isol == 0) {
+    MPrintf(-1, "isol: %d %d %d\n", k, orb->n, orb->kappa);
     i = SolveDirac(orb);
     if (i < 0) {
       printf("Error occured in solving Dirac eq. err = %d\n", i);
@@ -6993,6 +7013,14 @@ int TestIntegrate(void) {
   }
 
   return 0;
+}
+
+void RemoveOrbitalLock(void) {
+  if (orbitals->lock) {
+    DestroyLock(orbitals->lock);
+    free(orbitals->lock);
+    orbitals->lock = NULL;
+  }
 }
 
 int TestIntegrate0(void) {
