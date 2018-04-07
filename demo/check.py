@@ -112,7 +112,7 @@ def read_tr(filename):
                 return (block, ) + blocks
             block['upper_index'][i] = int(line[:7])
             block['upper_2J'][i] = int(line[8:10])
-            block['lower_index'][i] = int(line[14:17])
+            block['lower_index'][i] = int(line[11:17])
             block['lower_2J'][i] = int(line[18:20])
             block['Delta E'][i] = float(line[21:34])
             block['gf'][i] = float(line[35:48])
@@ -158,7 +158,7 @@ def read_ai(filename):
                 return (block, ) + blocks
             block['bound_index'][i] = int(line[:7])
             block['bound_2J'][i] = int(line[8:10])
-            block['free_index'][i] = int(line[14:17])
+            block['free_index'][i] = int(line[11:17])
             block['free_2J'][i] = int(line[18:20])
             block['Delta E'][i] = float(line[21:32])
             block['AI rate'][i] = float(line[33:44])
@@ -229,7 +229,7 @@ def read_ce(filename):
             lines = lines[1:]
             block['lower_index'][tr] = int(line[:7].strip())
             block['lower_2J'][tr] = int(line[8:10].strip())
-            block['upper_index'][tr] = int(line[15:17].strip())
+            block['upper_index'][tr] = int(line[11:17].strip())
             block['upper_2J'][tr] = int(line[18:20].strip())
             block['Delta E'][tr] = float(line[21:31].strip())
             nsub = int(line[32:])
@@ -328,7 +328,7 @@ def read_ci(filename):
             lines = lines[1:]
             block['bound_index'][tr] = int(line[:7])
             block['bound_2J'][tr] = int(line[8:10])
-            block['free_index'][tr] = int(line[14:17])
+            block['free_index'][tr] = int(line[11:17])
             block['free_2J'][tr] = int(line[18:20])
             block['Delta E'][tr] = float(line[21:32])
             block['Delta L'][tr] = int(line[33:])
@@ -402,7 +402,7 @@ def read_rr(filename):
             lines = lines[1:]
             block['bound_index'][tr] = int(line[:7])
             block['bound_2J'][tr] = int(line[8:10])
-            block['free_index'][tr] = int(line[14:17])
+            block['free_index'][tr] = int(line[11:17])
             block['free_2J'][tr] = int(line[18:20])
             block['Delta E'][tr] = float(line[21:32])
             block['Delta L'][tr] = int(line[33:])
@@ -604,6 +604,31 @@ def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
                     _raise(i, key, actual, expected)
 
 
+def _sort_array(arrays, ref_arrays, *keys):
+    """ Sort arrays so that arrays[key] == ref_arrays[key] """
+    size = len(ref_arrays[keys[0]])
+
+    new_indexes = np.zeros(size, dtype=int)
+    for j in range(size):
+        for i in range(size):
+            if all(ref_arrays[k][i] == arrays[k][j] for k in keys):
+                new_indexes[i] = j
+                break
+
+    new_arrays = OrderedDict()
+    for k, v in arrays.items():
+        if isinstance(v, np.ndarray) and len(v) == size:
+            new_arrays[k] = v[new_indexes]
+        elif isinstance(v, list) and len(v) == size:
+            new_arrays[k] = []
+            for ind in new_indexes:
+                new_arrays[k].append(v[ind])
+        else:
+            new_arrays[k] = v
+
+    return new_arrays
+
+
 def check_en(actual_file, expected_file):
     actual_header, actual_blocks = read_lev(actual_file)
     expected_header, expected_blocks = read_lev(expected_file)
@@ -618,6 +643,10 @@ def check_ai(actual_file, expected_file):
     actual_header, actual_blocks = read_ai(actual_file)
     expected_header, expected_blocks = read_ai(expected_file)
 
+    # we need to sort arrays, because with openmp, the order may differ
+    actual_blocks = [_sort_array(ac, ex, 'bound_index', 'free_index')
+                     for ac, ex in zip (actual_blocks, expected_blocks)]
+
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
                  atols={'rate': 1.0e1},
@@ -628,6 +657,10 @@ def check_ai(actual_file, expected_file):
 def check_tr(actual_file, expected_file):
     actual_header, actual_blocks = read_tr(actual_file)
     expected_header, expected_blocks = read_tr(expected_file)
+
+    # we need to sort arrays, because with openmp, the order may differ
+    actual_blocks = [_sort_array(ac, ex, 'lower_index', 'upper_index')
+                     for ac, ex in zip (actual_blocks, expected_blocks)]
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
@@ -640,6 +673,10 @@ def check_tr(actual_file, expected_file):
 def check_ce(actual_file, expected_file):
     actual_header, actual_blocks = read_ce(actual_file)
     expected_header, expected_blocks = read_ce(expected_file)
+
+    # we need to sort arrays, because with openmp, the order may differ
+    actual_blocks = [_sort_array(ac, ex, 'lower_index', 'upper_index')
+                     for ac, ex in zip (actual_blocks, expected_blocks)]
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
@@ -657,6 +694,10 @@ def check_ci(actual_file, expected_file):
     actual_header, actual_blocks = read_ci(actual_file)
     expected_header, expected_blocks = read_ci(expected_file)
 
+    # we need to sort arrays, because with openmp, the order may differ
+    actual_blocks = [_sort_array(ac, ex, 'bound_index', 'free_index')
+                     for ac, ex in zip (actual_blocks, expected_blocks)]
+
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
                  atols={'Delta E': 1.0e0, 'bethe': 1.0e0, 'born': 1.0,
@@ -672,6 +713,10 @@ def check_ci(actual_file, expected_file):
 def check_rr(actual_file, expected_file):
     actual_header, actual_blocks = read_rr(actual_file)
     expected_header, expected_blocks = read_rr(expected_file)
+
+    # we need to sort arrays, because with openmp, the order may differ
+    actual_blocks = [_sort_array(ac, ex, 'bound_index', 'free_index')
+                     for ac, ex in zip (actual_blocks, expected_blocks)]
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
