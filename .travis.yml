@@ -6,8 +6,6 @@ matrix:
   include:
   - python: 3.6
     env: CONDA_ENV=py36
-  - python: 3.6
-    env: CONDA_ENV=py36-openmp
   - python: 2.7
     env: CONDA_ENV=py27
 
@@ -26,11 +24,7 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
-  - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
-      ./configure --prefix=$pwd$ --with-mpi=omp;
-    else
-      ./configure --prefix=$pwd$;
-    fi
+  - ./configure --prefix=$pwd$
   - make clean
   - make
   - make install
@@ -40,11 +34,7 @@ install:
 script:
   # validation
   - cd demo
-  - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
-      make openmp;
-    else
-      make;
-    fi
+  - make
   - make check
   - cd ../
   # c test
