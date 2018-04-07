@@ -1,5 +1,5 @@
 Version 1.1.5, Unreleased
-        1. Python 3 support
+        1. Python 3 support. 
 
 Version 1.1.4, 11/09/2016
         1. output UTA stdev and shift for magnetic mutipole transitions as well.
