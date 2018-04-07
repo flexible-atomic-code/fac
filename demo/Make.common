@@ -1,3 +1,11 @@
+all : $(SCRIPTS)
+	@for s in $(SCRIPTS); do python $$s || exit 1; done; \
+
+
+openmp : $(SCRIPTS)
+	@for s in $(SCRIPTS); do python $$s openmp || exit 1; done; \
+
+
 check: $(RESULTS)
 	@for i in $(RESULTS); do python ../check.py $$i ref/$$i || exit 1; done; \
             echo " Tests passed!"
