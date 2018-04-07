@@ -6,6 +6,9 @@ DIRS = structure excitation pirr aidr ionization polariz NeL
 all:
 	@for i in $(DIRS); do cd $$i; make || exit 1; cd ../; done;
 
+openmp:
+	@for i in $(DIRS); do cd $$i; make openmp || exit 1; cd ../; done;
+
 check:
 	@for i in $(DIRS); do cd $$i; make check || exit 1; cd ../; done;
 
