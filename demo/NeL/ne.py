@@ -3,24 +3,17 @@ This script generates atomic data for Z=10 neon, number of electrons =3,
 maximum n=5 for excitation.
 https://www-amdis.iaea.org/FAC/
 """
-import sys
 from pfac.fac import *
 
-use_openmp = False
-if len(sys.argv) == 2 and sys.argv[1] == 'openmp':
-    use_openmp = True
-
-
-if use_openmp:
-    # enable openmp with 2 cores
-    InitializeMPI(2)
-
-# atomic number, number of electrons, number of excitation levels
+# atomic number
 z = 10
+# number of electrons
 nele = 3
+# number of excitation levels to be considered
 nmax = 5
 
-a = ATOMICSYMBOL[z]  # atomic symbol (Ne)
+# a is the atomic symbol corresponding to z, i.e. 'Ne'
+a = ATOMICSYMBOL[z]
 p = '%s%02d'%(a, nele)
 
 SetAtom(a)
@@ -33,6 +26,9 @@ for n in range(3, nmax+1):
 ConfigEnergy(0)
 OptimizeRadial('g2')
 ConfigEnergy(1)
+
+# modify the energy levels slightly
+##CorrectEnergy([0,1,2,3,4],[0.0,722.8,724.8,735.4,753.1],1)
 
 # atomic structure
 Structure(p+'b.en', ['g2', 'g3'])
@@ -58,6 +54,3 @@ for n in range(2, nmax+1):
         Print('CE: g%d -> g%d'%(n, m))
         CETable(p+'b.ce', ['g%d'%n], ['g%d'%m])
 PrintTable(p+'b.ce', p+'a.ce')
-
-if use_openmp:
-    FinalizeMPI()
