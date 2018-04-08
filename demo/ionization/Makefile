@@ -1,8 +1,4 @@
 RESULTS = ne_f.lev ne.ci
-
-
-all:
-	python fe17_ionization.py
-
+SCRIPTS = fe17_ionization.py
 
 include ../Make.common
