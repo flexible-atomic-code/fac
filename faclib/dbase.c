@@ -1288,7 +1288,6 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   }
 
   fh->nthreads = (fh->version&0xFFFF0000)>>16;
-  if (fh->nthreads < 1) fh->nthreads = 1;
   fh->version &= 0xFFFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
   if (fh->type == DB_TR && itrf >= 0) {
@@ -2904,8 +2903,10 @@ TFILE *OpenFile(char *fn, F_HEADER *fhdr) {
   fheader[ihdr].type = fhdr->type;
   strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
-  int nr, mr;
+  int nr = 0, mr = 0;
+#ifdef USE_MPI
   mr = MPIRank(&nr);
+#endif
   fhdr->nthreads = nr;
   fheader[ihdr].nthreads = nr;
   WriteFHeader(f, &(fheader[ihdr]));
@@ -3206,8 +3207,13 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     }
   }
 
-  fprintf(f2, "FAC %d.%d.%d[%d]\n",
-	  fh.version, fh.sversion, fh.ssversion, fh.nthreads);
+  if (fh.nthreads > 0) {
+    fprintf(f2, "FAC %d.%d.%d[%d]\n",
+	    fh.version, fh.sversion, fh.ssversion, fh.nthreads);
+  } else {
+    fprintf(f2, "FAC %d.%d.%d\n",
+	    fh.version, fh.sversion, fh.ssversion);
+  }   
   fprintf(f2, "Endian\t= %d\n", (int) CheckEndian(&fh));
   fprintf(f2, "TSess\t= %lu\n", fh.tsession);
   fprintf(f2, "Type\t= %d\n", fh.type);
@@ -3745,7 +3751,7 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "MODE\t= %d\n", (int)h.mode);
 
     IDX_RECORD *idx = NULL;
-    if (vs && h.ntransitions > 0) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -3831,7 +3837,7 @@ int PrintTRFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
     nq = 2*abs(h.multipole)+1;
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -3996,7 +4002,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       }
     }
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4126,7 +4132,7 @@ int PrintCEFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4245,7 +4251,7 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4367,7 +4373,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     }
     
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4476,7 +4482,7 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     }
        
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4614,7 +4620,7 @@ int PrintAIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     }
     
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4715,7 +4721,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     }
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4821,7 +4827,7 @@ int PrintCIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     }
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -4920,7 +4926,7 @@ int PrintSPTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "FCOMP\t= %s\n", h.fcomplex);
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -5093,7 +5099,7 @@ int PrintRTTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "          RR          AI          CI\n");
 
     IDX_RECORD *idx = NULL;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
@@ -5153,7 +5159,7 @@ int PrintDRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 
     IDX_RECORD *idx = NULL;
     int hp = 0;
-    if (vs) {
+    if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {

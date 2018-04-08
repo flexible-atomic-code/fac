@@ -756,7 +756,7 @@ static double Population(int iter) {
   }
   
   if (params.idr >= 0 && idr < 0) {
-    printf("idr=%d is not a DR target level\n", params.idr);
+    printf("idr=%d/%d is not a DR target level\n", params.idr, idr);
     return -1;
   }
   

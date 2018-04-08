@@ -449,7 +449,8 @@ initpol(void) {
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "pol.error");
   PyDict_SetItemString(d, "error", ErrorObject);
-  InitCRM();
+  InitPolarization();
+
   if (PyErr_Occurred())
     Py_FatalError("can't initialize module pol");
 
