@@ -51,6 +51,12 @@ typedef struct _FORM_FACTOR_ {
   double *k, *logk, *fk;
 } FORM_FACTOR;
 
+typedef struct _IDX_RECORD_ {
+  int i0;
+  int i1;
+  long int position;
+} IDX_RECORD;
+  
 typedef struct _F_HEADER_ {
   long int tsession;
   int version;
@@ -60,6 +66,7 @@ typedef struct _F_HEADER_ {
   float atom;
   char symbol[4];
   int nblocks;
+  int nthreads;
 } F_HEADER;
 #define SIZE_F_HEADER (sizeof(long int)+5*sizeof(int)+sizeof(float)+4)
 
@@ -419,6 +426,7 @@ typedef struct _DR_RECORD_ {
  * custom code using these functions.
  */
 void         *ReallocNew(void *p, int s);
+int CompIdxRecord(const void *r1, const void *r2);
 int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp);
 int ReadENHeader(TFILE *f, EN_HEADER *h, int swp);
 int ReadENRecord(TFILE *f, EN_RECORD *r, int swp);
@@ -500,63 +508,63 @@ EN_SRECORD *GetMemENTable(int *s);
 EN_SRECORD *GetMemENFTable(int *s);
 int WriteENRecord(TFILE *f, EN_RECORD *r);
 int WriteENFRecord(TFILE *f, ENF_RECORD *r);
-int PrintENTable(TFILE *f1, FILE *f2, int v, int swp);
-int PrintENFTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
+int PrintENFTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianENHeader(EN_HEADER *h);
 int SwapEndianENRecord(EN_RECORD *r);
 int SwapEndianENFHeader(ENF_HEADER *h);
 int SwapEndianENFRecord(ENF_RECORD *r);
 int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx);
 double OscillatorStrength(int m, double e, double s, double *ga);
-int PrintTRTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianTRHeader(TR_HEADER *h);
 int SwapEndianTRRecord(TR_RECORD *r, TR_EXTRA *rx);
 int WriteTRFRecord(TFILE *f, TRF_RECORD *r);
-int PrintTRFTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintTRFTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianTRFHeader(TRF_HEADER *h);
 int SwapEndianTRFRecord(TRF_RECORD *r);
 int WriteCERecord(TFILE *f, CE_RECORD *r);
-int PrintCETable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianCEHeader(CE_HEADER *h);
 int SwapEndianCERecord(CE_RECORD *r);
 int WriteCEFRecord(TFILE *f, CEF_RECORD *r);
-int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintCEFTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianCEFHeader(CEF_HEADER *h);
 int SwapEndianCEFRecord(CEF_RECORD *r);
 int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r);
-int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianCEMFHeader(CEMF_HEADER *h);
 int SwapEndianCEMFRecord(CEMF_RECORD *r);
 int WriteRRRecord(TFILE *f, RR_RECORD *r);
-int PrintRRTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianRRHeader(RR_HEADER *h);
 int SwapEndianRRRecord(RR_RECORD *r);
 int WriteAIRecord(TFILE *f, AI_RECORD *r);
-int PrintAITable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianAIHeader(AI_HEADER *h);
 int SwapEndianAIRecord(AI_RECORD *r);
 int WriteAIMRecord(TFILE *f, AIM_RECORD *r);
-int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintAIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianAIMHeader(AIM_HEADER *h);
 int SwapEndianAIMRecord(AIM_RECORD *r);
 int WriteCIRecord(TFILE *f, CI_RECORD *r);
-int PrintCITable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianCIHeader(CI_HEADER *h);
 int SwapEndianCIRecord(CI_RECORD *r);
 int WriteCIMRecord(TFILE *f, CIM_RECORD *r);
-int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintCIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianCIMHeader(CIM_HEADER *h);
 int SwapEndianCIMRecord(CIM_RECORD *r);
 int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx);
-int PrintSPTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintSPTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianSPHeader(SP_HEADER *h);
 int SwapEndianSPRecord(SP_RECORD *r, SP_EXTRA *rx);
 int WriteRTRecord(TFILE *f, RT_RECORD *r);
-int PrintRTTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintRTTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianRTHeader(RT_HEADER *h);
 int SwapEndianRTRecord(RT_RECORD *r);
 int WriteDRRecord(TFILE *f, DR_RECORD *r);
-int PrintDRTable(TFILE *f1, FILE *f2, int v, int swp);
+int PrintDRTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianDRHeader(DR_HEADER *h);
 int SwapEndianDRRecord(DR_RECORD *r);
 double IonDensity(char *fn, int k);
