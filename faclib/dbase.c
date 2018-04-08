@@ -88,6 +88,19 @@ void *ReallocNew(void *p, int s) {
   return q;
 }
 
+int CompIdxRecord(const void *r1, const void *r2) {
+  IDX_RECORD *i1, *i2;
+  i1 = (IDX_RECORD *) r1;
+  i2 = (IDX_RECORD *) r2;
+  if (i1->i0 < i2->i0) return -1;
+  else if (i1->i0 > i2->i0) return 1;
+  else {
+    if (i1->i1 < i2->i1) return -1;
+    else if (i1->i1 > i2->i1) return 1;
+    return 0;
+  }
+}
+
 void SetBornMass(double m) {
   if (m > 0) born_mass = m*AMU;
   else born_mass = 1.0;
@@ -1239,9 +1252,13 @@ int ReadDRRecordOld(TFILE *f, DR_RECORD *r, int swp) {
 
 int WriteFHeader(TFILE *f, F_HEADER *fh) {
   int n, m = 0;
+  int v = fh->version;
 
+  if (fh->nthreads > 1) {
+    v |= fh->nthreads<<16;
+  }
   WSF0(fh->tsession);
-  WSF0(fh->version);
+  WSF0(v);
   WSF0(fh->sversion);
   WSF0(fh->ssversion);
   WSF0(fh->type);
@@ -1270,6 +1287,8 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
     SwapEndianFHeader(fh);
   }
 
+  fh->nthreads = (fh->version&0xFFFF0000)>>16;
+  fh->version &= 0xFFFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
   if (fh->type == DB_TR && itrf >= 0) {
     if (VersionLE(fh, 1, 0, 6)) itrf = 1;
@@ -2884,6 +2903,10 @@ TFILE *OpenFile(char *fn, F_HEADER *fhdr) {
   fheader[ihdr].type = fhdr->type;
   strncpy(fheader[ihdr].symbol, fhdr->symbol, 2);
   fheader[ihdr].atom = fhdr->atom;
+  int nr, mr;
+  mr = MPIRank(&nr);
+  fhdr->nthreads = nr;
+  fheader[ihdr].nthreads = nr;
   WriteFHeader(f, &(fheader[ihdr]));
   return f;
 }
@@ -3139,11 +3162,11 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
   return 0;
 }
 
-int PrintTable(char *ifn, char *ofn, int v) {
+int PrintTable(char *ifn, char *ofn, int v0) {
   F_HEADER fh;
   TFILE *f1;
   FILE *f2;
-  int n, swp;
+  int n, swp, v, vs;
 
   f1 = FOPEN(ifn, "r");
   if (f1 == NULL) return -1;
@@ -3159,7 +3182,15 @@ int PrintTable(char *ifn, char *ofn, int v) {
   if (n == 0) {
     goto DONE;
   }
-
+  v = v0%2;
+  v0 /= 2;
+  if (v0 == 0) {
+    vs = fh.nthreads>1;
+  } else if (v0 == 1) {
+    vs = 0;
+  } else {
+    vs = 1;
+  }
   if (v && (fh.type < DB_SP || fh.type > DB_DR)) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
@@ -3181,6 +3212,7 @@ int PrintTable(char *ifn, char *ofn, int v) {
   fprintf(f2, "Verbose\t= %d\n", v);
   fprintf(f2, "%s Z\t= %5.1f\n", fh.symbol, fh.atom);
   fprintf(f2, "NBlocks\t= %d\n", fh.nblocks);
+  fprintf(f2, "NThread\t= %d\n", fh.nthreads);
   fflush(f2);
   switch (fh.type) {
   case DB_EN:
@@ -3188,49 +3220,49 @@ int PrintTable(char *ifn, char *ofn, int v) {
       fprintf(f2, "E0\t= %-d, %15.8E\n", 
 	      iground, (mem_en_table[iground].energy * HARTREE_EV));
     }
-    n = PrintENTable(f1, f2, v, swp);
+    n = PrintENTable(f1, f2, v, 0, swp);
     break;
   case DB_TR:
-    n = PrintTRTable(f1, f2, v, swp);
+    n = PrintTRTable(f1, f2, v, vs, swp);
     break;
   case DB_CE:
-    n = PrintCETable(f1, f2, v, swp);
+    n = PrintCETable(f1, f2, v, vs, swp);
     break;
   case DB_RR:
-    n = PrintRRTable(f1, f2, v, swp);
+    n = PrintRRTable(f1, f2, v, vs, swp);
     break;
   case DB_AI:
-    n = PrintAITable(f1, f2, v, swp);
+    n = PrintAITable(f1, f2, v, vs, swp);
     break;
   case DB_CI:
-    n = PrintCITable(f1, f2, v, swp);
+    n = PrintCITable(f1, f2, v, vs, swp);
     break;
   case DB_SP:
-    n = PrintSPTable(f1, f2, v, swp);
+    n = PrintSPTable(f1, f2, v, vs, swp);
     break;
   case DB_RT:
-    n = PrintRTTable(f1, f2, v, swp);
+    n = PrintRTTable(f1, f2, v, vs, swp);
     break;
   case DB_DR:
-    n = PrintDRTable(f1, f2, v, swp);
+    n = PrintDRTable(f1, f2, v, vs, swp);
     break;
   case DB_AIM:
-    n = PrintAIMTable(f1, f2, v, swp);
+    n = PrintAIMTable(f1, f2, v, vs, swp);
     break;
   case DB_CIM:
-    n = PrintCIMTable(f1, f2, v, swp);
+    n = PrintCIMTable(f1, f2, v, vs, swp);
     break;
   case DB_ENF:
-    n = PrintENFTable(f1, f2, v, swp);
+    n = PrintENFTable(f1, f2, v, vs, swp);
     break;
   case DB_TRF:
-    n = PrintTRFTable(f1, f2, v, swp);
+    n = PrintTRFTable(f1, f2, v, vs, swp);
     break;
   case DB_CEF:
-    n = PrintCEFTable(f1, f2, v, swp);
+    n = PrintCEFTable(f1, f2, v, vs, swp);
     break;
   case DB_CEMF:
-    n = PrintCEMFTable(f1, f2, v, swp);
+    n = PrintCEMFTable(f1, f2, v, vs, swp);
     break;
   default:
     break;
@@ -3576,7 +3608,7 @@ int MemENFTable(char *fn) {
   return 0;
 }    
 
-int PrintENTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   EN_HEADER h;
   EN_RECORD r;
   int n, i;
@@ -3633,7 +3665,7 @@ void DecodeBasisEB(int k, int *s, int *m) {
   if (k < 0) *m = -(*m);
 }
 
-int PrintENFTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintENFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   ENF_HEADER h;
   ENF_RECORD r;
   int n, i;
@@ -3691,20 +3723,19 @@ double OscillatorStrength(int m, double e, double s, double *ga) {
   return x;
 }  
 
-int PrintTRTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   TR_HEADER h;
   TR_RECORD r;
   TR_EXTRA rx;
   int n, i;
-  int nb;
+  int nb, nh;
   double e, a, gf;
 
   nb = 0;
   
   while (1) {
-    n = ReadTRHeader(f1, &h, swp);
-    if (n == 0) break;
-    
+    nh = ReadTRHeader(f1, &h, swp);
+    if (nh == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
@@ -3712,7 +3743,26 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "GAUGE\t= %d\n", (int)h.gauge);
     fprintf(f2, "MODE\t= %d\n", (int)h.mode);
 
+    IDX_RECORD *idx = NULL;
+    if (vs && h.ntransitions > 0) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadTRRecord(f1, &r, &rx, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.upper;
+	idx[i].i1 = r.lower;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadTRRecord(f1, &r, &rx, swp);
       if (n == 0) break;
       if (iuta) {
@@ -3747,24 +3797,28 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int swp) {
 	}
       }
     }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb += 1;
   }
 
   return nb;
 }
 
-int PrintTRFTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintTRFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   TRF_HEADER h;
   TRF_RECORD r;
-  int n, i, j;
+  int n, nh, i, j;
   int nb, nq;
   double e, a, gf, ta;
 
   nb = 0;
   
   while (1) {
-    n = ReadTRFHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadTRFHeader(f1, &h, swp);
+    if (nh == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
@@ -3775,7 +3829,26 @@ int PrintTRFTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "BFIELD\t= %15.8E\n", h.bfield);
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
     nq = 2*abs(h.multipole)+1;
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadTRFRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.upper;
+	idx[i].i1 = r.lower;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadTRFRecord(f1, &r, swp, &h);
       if (n == 0) break;
       if (v) {
@@ -3797,6 +3870,10 @@ int PrintTRFTable(TFILE *f1, FILE *f2, int v, int swp) {
 	}
       }
       free(r.strength);
+    }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
     }
     nb += 1;
   }
@@ -3867,11 +3944,10 @@ int TRBranch(char *fn, int upper, int lower,
   return nt;
 }
   
-int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CE_HEADER h;
   CE_RECORD r;
-  int n, i, t;
-  int nb;
+  int n, i, t, nb, nh;
   int m, k, p1, p2;
   float a, e;
   double bte, bms, be;
@@ -3880,8 +3956,8 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
   BornFormFactorTE(&bte);
   bms = BornMass();  
   while (1) {
-    n = ReadCEHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadCEHeader(f1, &h, swp);
+    if (nh == 0) break;
 
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -3918,8 +3994,26 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
       }
     }
-    
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCERecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.lower;
+	idx[i].i1 = r.upper;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadCERecord(f1, &r, swp, &h);
       if (n == 0) break;
       if (v) {
@@ -3977,17 +4071,21 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int swp) {
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb += 1;
   }
 
   return nb;
 }
   
-int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintCEFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CEF_HEADER h;
   CEF_RECORD r;
   int n, i, t;
-  int nb;
+  int nb, nh;
   int m;
   float a, e;
   double bte, bms, be;
@@ -3997,8 +4095,8 @@ int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp) {
   BornFormFactorTE(&bte);
   bms = BornMass();  
   while (1) {
-    n = ReadCEFHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadCEFHeader(f1, &h, swp);
+    if (nh == 0) break;
 
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4026,7 +4124,27 @@ int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "BFIELD\t= %15.8E\n", h.bfield);
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
 
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCEFRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.lower;
+	idx[i].i1 = r.upper;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
+    
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadCEFRecord(f1, &r, swp, &h);
       if (n == 0) break;
       if (v) {
@@ -4063,17 +4181,21 @@ int PrintCEFTable(TFILE *f1, FILE *f2, int v, int swp) {
     }
     free(h.tegrid);
     free(h.egrid);
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb += 1;
   }
 
   return nb;
 }
   
-int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CEMF_HEADER h;
   CEMF_RECORD r;
   int n, i, t;
-  int nb;
+  int nb, nh;
   int m, k, na, ith, iph;
   float a, e;
   double bte, bms, be;
@@ -4083,8 +4205,8 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp) {
   BornFormFactorTE(&bte);
   bms = BornMass(); 
   while (1) {
-    n = ReadCEMFHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadCEMFHeader(f1, &h, swp);
+    if (nh == 0) break;
 
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4121,8 +4243,27 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "BFIELD\t= %15.8E\n", h.bfield);
     fprintf(f2, "FANGLE\t= %15.8E\n", h.fangle);
 
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCEMFRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.lower;
+	idx[i].i1 = r.upper;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     na = h.n_thetagrid * h.n_phigrid;
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadCEMFRecord(f1, &r, swp, &h);
       if (n == 0) break;
       k = 0;
@@ -4169,23 +4310,27 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int swp) {
     free(h.egrid);
     free(h.thetagrid);
     free(h.phigrid);
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb += 1;
   }
 
   return nb;
 }
 
-int PrintRRTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   RR_HEADER h;
   RR_RECORD r;
   int n, i, t;
-  int nb, k, m;
+  int nb, nh, k, m;
   float e, eph, ee, phi, rr;
 
   nb = 0;
   while (1) {
-    n = ReadRRHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadRRHeader(f1, &h, swp);
+    if (nh == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4220,7 +4365,26 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int swp) {
       }
     }
     
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadRRRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.f;
+	idx[i].i1 = r.b;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
 
@@ -4274,25 +4438,28 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int swp) {
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb++;
   }
 
   return nb;
 }
 
-int PrintAITable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   AI_HEADER h;
   AI_RECORD r;
   int n, i;
-  int nb;
+  int nb, nh;
   float e, sdr, er;
   
   nb = 0;
   
   while (1) {
-    n = ReadAIHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadAIHeader(f1, &h, swp);
+    if (nh == 0) break;
  
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4307,7 +4474,26 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int swp) {
       }
     }
        
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadAIRecord(f1, &r, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.b;
+	idx[i].i1 = r.f;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadAIRecord(f1, &r, swp);
       if (n == 0) break;
       if (v) {
@@ -4327,6 +4513,10 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int swp) {
     }
     
     free(h.egrid);
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb++;
   }
 
@@ -4395,18 +4585,18 @@ int AIBranch(char *fn, int ib, int ia,
   return nt;
 }
       
-int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintAIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   AIM_HEADER h;
   AIM_RECORD r;
   int n, i, m;
-  int nb;
+  int nb, nh;
   float e;
   double u = AREA_AU20*HARTREE_EV;
   
   nb = 0;
   while (1) {
-    n = ReadAIMHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadAIMHeader(f1, &h, swp);
+    if (nh == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4422,7 +4612,26 @@ int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {
       }
     }
     
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadAIMRecord(f1, &r, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.b;
+	idx[i].i1 = r.f;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadAIMRecord(f1, &r, swp);
       if (n == 0) break;
       if (v) {
@@ -4445,17 +4654,21 @@ int PrintAIMTable(TFILE *f1, FILE *f2, int v, int swp) {
     }
 
     free(h.egrid);
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb++;
   }
 
   return nb;
 }
 
-int PrintCITable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CI_HEADER h;
   CI_RECORD r;
   int n, i, t;
-  int nb, m;
+  int nb, nh, m;
   float e, a;
   double bte, bms, be;
 
@@ -4464,8 +4677,8 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int swp) {
   BornFormFactorTE(&bte);
   bms = BornMass(); 
   while (1) {
-    n = ReadCIHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadCIHeader(f1, &h, swp);
+    if (nh == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4500,7 +4713,26 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int swp) {
       }
     }
 
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCIRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.b;
+	idx[i].i1 = r.f;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadCIRecord(f1, &r, swp, &h);
       if (n == 0) break;
       
@@ -4539,18 +4771,21 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int swp) {
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb++;
   }
 
   return nb;
 }
 
-int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintCIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CIM_HEADER h;
   CIM_RECORD r;
   int n, i, t, q;
-  int nb, m, k;
+  int nb, nh, m, k;
   float e, a;
   double bte, bms, be;
 
@@ -4559,8 +4794,8 @@ int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp) {
   BornFormFactorTE(&bte);
   bms = BornMass(); 
   while (1) {
-    n = ReadCIMHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadCIMHeader(f1, &h, swp);
+    if (nh == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4584,7 +4819,27 @@ int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp) {
       }
     }
 
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCIMRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.b;
+	idx[i].i1 = r.f;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
+
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadCIMRecord(f1, &r, swp, &h);
       if (n == 0) break;
       
@@ -4630,26 +4885,29 @@ int PrintCIMTable(TFILE *f1, FILE *f2, int v, int swp) {
     
     free(h.egrid);
     free(h.usr_egrid);
-    
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb++;
   }
 
   return nb;
 }
 
-int PrintSPTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintSPTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   SP_HEADER h;
   SP_RECORD r;
   SP_EXTRA rx;
   int n, i;
-  int nb;
+  int nb, nh;
   float e, a;
 
   nb = 0;
   
   while (1) {
-    n = ReadSPHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadSPHeader(f1, &h, swp);
+    if (nh == 0) break;
     
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
@@ -4659,8 +4917,28 @@ int PrintSPTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "ICOMP\t= %s\n", h.icomplex);
     fprintf(f2, "FBLK\t= %d\n", h.fblock);
     fprintf(f2, "FCOMP\t= %s\n", h.fcomplex);
+
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadSPRecord(f1, &r, &rx, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.upper;
+	idx[i].i1 = r.lower;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
       e = r.energy;
@@ -4673,6 +4951,10 @@ int PrintSPTable(TFILE *f1, FILE *f2, int v, int swp) {
 	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E\n", 
 		r.upper, r.lower, e, a, r.rrate, r.trate);
       }
+    }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
     }
     nb += 1;
   }
@@ -4778,17 +5060,17 @@ double IonRadiation(char *fn, int k, int m) {
   return d;
 }
 		     
-int PrintRTTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintRTTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   RT_HEADER h;
   RT_RECORD r;
   int n, i;
-  int nb, nele;
+  int nb, nh, nele;
 
   nb = 0;
   nele = -1;
   while (1) {
-    n = ReadRTHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadRTHeader(f1, &h, swp);
+    if (nh == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
     fprintf(f2, "EDEN\t= %15.8E\n", h.eden);
@@ -4808,7 +5090,27 @@ int PrintRTTable(TFILE *f1, FILE *f2, int v, int swp) {
 
     fprintf(f2,"              NB          TR          CE");
     fprintf(f2, "          RR          AI          CI\n");
+
+    IDX_RECORD *idx = NULL;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadRTRecord(f1, &r, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.dir;
+	idx[i].i1 = r.iblock;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadRTRecord(f1, &r, swp);
       if (n == 0) break;
       if (r.ci < 0) {
@@ -4817,23 +5119,27 @@ int PrintRTTable(TFILE *f1, FILE *f2, int v, int swp) {
       fprintf(f2, "%6d %4d  %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %s\n",
 	      r.dir, r.iblock, r.nb, r.tr, r.ce, r.rr, r.ai, r.ci, r.icomplex);
     }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
     nb += 1;
   }
 
   return nb;
 }
 
-int PrintDRTable(TFILE *f1, FILE *f2, int v, int swp) {
+int PrintDRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   DR_HEADER h;
   DR_RECORD r;
   int n, i;
-  int nb;
+  int nb, nh;
   double e, e1;
   
   nb = 0;
   while (1) {
-    n = ReadDRHeader(f1, &h, swp);
-    if (n == 0) break;
+    nh = ReadDRHeader(f1, &h, swp);
+    if (nh == 0) break;
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
@@ -4843,7 +5149,28 @@ int PrintDRTable(TFILE *f1, FILE *f2, int v, int swp) {
     fprintf(f2, "E\t= %15.8E\n", e);
     fprintf(f2, "JLEV\t= %d\n", h.j);
     fprintf(f2, "NREC\t= %d\n", h.vn);
+
+    IDX_RECORD *idx = NULL;
+    int hp = 0;
+    if (vs) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadDRRecord(f1, &r, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.ilev;
+	idx[i].i1 = r.ibase;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
     for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
       n = ReadDRRecord(f1, &r, swp);
       if (n == 0) break;
       e = r.energy;
@@ -4859,6 +5186,10 @@ int PrintDRTable(TFILE *f1, FILE *f2, int v, int swp) {
 		r.ilev, r.j, r.ibase, r.flev, r.fbase, r.vl, 
 		e, e1, r.ai, r.total_rate, r.br);
       }
+    }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
     }
     nb++;
   }
