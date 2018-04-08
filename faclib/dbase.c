@@ -1288,6 +1288,7 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   }
 
   fh->nthreads = (fh->version&0xFFFF0000)>>16;
+  if (fh->nthreads < 1) fh->nthreads = 1;
   fh->version &= 0xFFFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
   if (fh->type == DB_TR && itrf >= 0) {
@@ -3205,14 +3206,14 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     }
   }
 
-  fprintf(f2, "FAC %d.%d.%d\n", fh.version, fh.sversion, fh.ssversion);
+  fprintf(f2, "FAC %d.%d.%d[%d]\n",
+	  fh.version, fh.sversion, fh.ssversion, fh.nthreads);
   fprintf(f2, "Endian\t= %d\n", (int) CheckEndian(&fh));
   fprintf(f2, "TSess\t= %lu\n", fh.tsession);
   fprintf(f2, "Type\t= %d\n", fh.type);
   fprintf(f2, "Verbose\t= %d\n", v);
   fprintf(f2, "%s Z\t= %5.1f\n", fh.symbol, fh.atom);
   fprintf(f2, "NBlocks\t= %d\n", fh.nblocks);
-  fprintf(f2, "NThread\t= %d\n", fh.nthreads);
   fflush(f2);
   switch (fh.type) {
   case DB_EN:
