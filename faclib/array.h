@@ -186,6 +186,7 @@ void *ArrayAppend(ARRAY *a, void *d,
 int   ArrayTrim(ARRAY *a, int n, 
 		void(*FreeElem)(void *));
 int   ArrayFree(ARRAY *a, void (*FreeElem)(void *));
+int   ArrayFreeLock(ARRAY *a, void (*FreeElem)(void *));
 int   ArrayFreeData(DATA *p, int esize, int block, 
 		    void (*FreeElem)(void *));
 
@@ -209,6 +210,8 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*FreeElem)(void *));
 int   NMultiFree(MULTI *ma, 
 		 void (*FreeElem)(void *));
+int   MultiFreeLock(MULTI *ma, 
+		    void (*FreeElem)(void *));
 int   NMultiFreeDataOnly(ARRAY *a, void (*FreeElem)(void *));
 int   NMultiFreeData(MULTI *ma, void (*FreeElem)(void *));
 

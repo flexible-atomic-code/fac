@@ -2025,7 +2025,8 @@ ORBITAL *GetOrbitalSolved(int k) {
     orb = (ORBITAL *) ArrayGet(orbitals, k);
   }
   if (orb->isol == 0) {
-    MPrintf(-1, "isol0b: %d %d %d %g\n", k, orb->n, orb->kappa, orb->energy);
+    MPrintf(-1, "isol0b: %d %d %d %d %g %x\n",
+	    k, orbitals->dim, orb->n, orb->kappa, orb->energy, orbitals->lock);
     Abort(1);
     i = SolveDirac(orb);
     if (i < 0) {
@@ -6887,7 +6888,6 @@ int InitRadial(void) {
   orbitals = malloc(sizeof(ARRAY));
   if (!orbitals) return -1;
   if (ArrayInit(orbitals, sizeof(ORBITAL), ORBITALS_BLOCK) < 0) return -1;
-
   ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(slater_array, sizeof(double), ndim, blocks, "slater_array");

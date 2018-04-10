@@ -136,7 +136,7 @@ static void FreeBlkRateData(void *p) {
 
   r = (BLK_RATE *) p;
   if (r->rates) {
-    ArrayFree(r->rates, NULL);
+    ArrayFreeLock(r->rates, NULL);
     free(r->rates);
     r->rates = NULL;
   }
@@ -210,27 +210,27 @@ static void FreeIonData(void *p) {
     if (ion->dbfiles[i]) free(ion->dbfiles[i]);
     ion->dbfiles[i] = NULL;
   }
-  ArrayFree(ion->ce_rates, FreeBlkRateData);
+  ArrayFreeLock(ion->ce_rates, FreeBlkRateData);
   free(ion->ce_rates);
   ion->ce_rates = NULL;
-  ArrayFree(ion->tr_rates, FreeBlkRateData);
+  ArrayFreeLock(ion->tr_rates, FreeBlkRateData);
   free(ion->tr_rates);
   ion->tr_rates = NULL;
-  ArrayFree(ion->tr_sdev, FreeBlkRateData);
+  ArrayFreeLock(ion->tr_sdev, FreeBlkRateData);
   free(ion->tr_sdev);
   ion->tr_sdev = NULL;
   free(ion->tr2_rates);
   ion->tr2_rates = NULL;
-  ArrayFree(ion->ci_rates, FreeBlkRateData);
+  ArrayFreeLock(ion->ci_rates, FreeBlkRateData);
   free(ion->ci_rates);
   ion->ci_rates = NULL;
-  ArrayFree(ion->rr_rates, FreeBlkRateData);
+  ArrayFreeLock(ion->rr_rates, FreeBlkRateData);
   free(ion->rr_rates);
   ion->rr_rates = NULL;
-  ArrayFree(ion->ai_rates, FreeBlkRateData);
+  ArrayFreeLock(ion->ai_rates, FreeBlkRateData);
   free(ion->ai_rates);
   ion->ai_rates = NULL;
-  ArrayFree(ion->recombined, NULL);
+  ArrayFreeLock(ion->recombined, NULL);
   free(ion->recombined);
   ion->recombined = NULL;
 }
@@ -2715,16 +2715,16 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
   free(ic);
   if (c) free(c);
   if (md & 4) {
-    MultiFree(&ce, NULL);
-    MultiFree(&tr, NULL);
-    MultiFree(&ci, NULL);
-    MultiFree(&rr, NULL);
-    MultiFree(&ai, NULL);
-    MultiFree(&cep, NULL);
-    MultiFree(&trp, NULL);
-    MultiFree(&cip, NULL);
-    MultiFree(&rrp, NULL);
-    MultiFree(&aip, NULL);
+    MultiFreeLock(&ce, NULL);
+    MultiFreeLock(&tr, NULL);
+    MultiFreeLock(&ci, NULL);
+    MultiFreeLock(&rr, NULL);
+    MultiFreeLock(&ai, NULL);
+    MultiFreeLock(&cep, NULL);
+    MultiFreeLock(&trp, NULL);
+    MultiFreeLock(&cip, NULL);
+    MultiFreeLock(&rrp, NULL);
+    MultiFreeLock(&aip, NULL);
   }
   if (md & 3) {
     for (i = 0; i < 4; i++) {
@@ -3871,9 +3871,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       }
     }
   }	
-  ArrayFree(&sp, NULL);
-  ArrayFree(&spx, NULL);
-  ArrayFree(&linetype, NULL);
+  ArrayFreeLock(&sp, NULL);
+  ArrayFreeLock(&spx, NULL);
+  ArrayFreeLock(&linetype, NULL);
 
   FCLOSE(f1);
   fclose(f2);

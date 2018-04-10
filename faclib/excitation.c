@@ -3328,7 +3328,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   
   ReinitExcitation(1);
   //FreeCECache(0);
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   if (alev) free(alev);
   CloseFile(f, &fhdr);
 
@@ -3620,7 +3620,7 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
 
   ReinitExcitation(1);
 
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   free(low);
   free(up);
 

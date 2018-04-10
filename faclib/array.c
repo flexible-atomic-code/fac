@@ -152,8 +152,10 @@ int ArrayInit(ARRAY *a, int esize, int block) {
 #if USE_MPI == 2
   a->lock = (LOCK *) malloc(sizeof(LOCK));
   if (0 != InitLock(a->lock)) {
+    printf("cannot InitLock in ArrayInit\n");
     free(a->lock);
     a->lock = NULL;
+    Abort(1);
   }
 #else  
   a->lock = NULL;
@@ -345,6 +347,16 @@ int ArrayFreeData(DATA *p, int esize, int block,
   return 0;
 }
 
+int ArrayFreeLock(ARRAY *a, void (*FreeElem)(void *)) {
+  ArrayFree(a, FreeElem);
+  if (a->lock) {
+    DestroyLock(a->lock);
+    free(a->lock);
+    a->lock = NULL;
+  }
+  return 0;
+}
+
 /* 
 ** FUNCTION:    ArrayFree
 ** PURPOSE:     deinitialize the array.
@@ -363,11 +375,6 @@ int ArrayFree(ARRAY *a, void (*FreeElem)(void *)) {
   ArrayFreeData(a->data, a->esize, a->block, FreeElem);
   a->dim = 0;
   a->data = NULL;
-  if (a->lock) {
-    DestroyLock(a->lock);
-    free(a->lock);
-    a->lock = NULL;
-  }
   return 0;
 }
 
@@ -782,14 +789,18 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
 #if USE_MPI == 2
   ma->lock = (LOCK *) malloc(sizeof(LOCK));
   if (0 != InitLock(ma->lock)) {
+    printf("cannot InitLock0 in NMultiInit: %s\n", ma->id);
     free(ma->lock);
     ma->lock = NULL;
+    Abort(1);
   }
 
   ma->clean_lock = (LOCK *) malloc(sizeof(LOCK));
   if (0 != InitLock(ma->clean_lock)) {
+    printf("cannot InitLock1 in NMultiInit: %s\n", ma->id);
     free(ma->clean_lock);
     ma->clean_lock = NULL;
+    Abort(1);
   }
 #else
   ma->lock = NULL;
@@ -1109,12 +1120,22 @@ int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   ma->array = NULL;
   free(ma->block);
   ma->block = NULL;
+  ma->ndim = 0;
+  return 0;
+}
+
+int MultiFreeLock(MULTI *ma, void (*FreeElem)(void *)) {
+  MultiFree(ma, FreeElem);
   if (ma->lock) {
     DestroyLock(ma->lock);
-    free(ma->lock);  
+    free(ma->lock);
     ma->lock = NULL;
   }
-  ma->ndim = 0;
+  if (ma->clean_lock) {
+    DestroyLock(ma->clean_lock);
+    free(ma->clean_lock);
+    ma->clean_lock = NULL;
+  }
   return 0;
 }
 

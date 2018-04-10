@@ -1047,13 +1047,13 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
     free(bk);
   }
   free(icg);
-  ArrayFree(&ccfg, NULL);
+  ArrayFreeLock(&ccfg, NULL);
   for (i = 0; i < base.dim; i++) {
     mbp = ArrayGet(&base, i);
     free(mbp->basis);
     free(mbp->ene);
   }
-  ArrayFree(&base, NULL);
+  ArrayFreeLock(&base, NULL);
 
   return 0;
 }
