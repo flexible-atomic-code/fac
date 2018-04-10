@@ -1255,7 +1255,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ReinitRecombination(1);
   ReinitIonization(1);
 
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   CloseFile(file, &fhdr);
 
   return 0;

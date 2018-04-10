@@ -1909,7 +1909,7 @@ int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
   }
   
   fclose(f);
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   ReinitRecombination(1);
 
   return 0;
@@ -2142,7 +2142,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       
   ReinitRecombination(1);
 
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   CloseFile(f, &fhdr);
 
   return 0;
@@ -2359,7 +2359,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 
   ReinitRecombination(1);
   //FreeAICache(0);
-  ArrayFree(&subte, NULL);
+  ArrayFreeLock(&subte, NULL);
   CloseFile(f, &fhdr);
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
