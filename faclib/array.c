@@ -1371,3 +1371,44 @@ void FreeIdxAry(IDXARY *ia, int md) {
     return;
   }  
 }
+int Bisect(void *p0, int n, int m, void *p,
+	   int (*comp)(const void *, const void *)) {
+  int i, i0, i1, k;
+
+  if (n == 0) return -1;
+  i0 = 0;
+  i1 = n-1;
+  while (i1-i0 > 1) {
+    i = (i0+i1)/2;
+    k = comp(p0, p+m*i);
+    if (k == 0) return i;
+    else if (k < 0) i1 = i;
+    else i0 = i;
+  }
+  
+  k = comp(p0, p);
+  if (k == 0) return i0;
+  k = comp(p0, p+(n-1)*m);
+  if (k == 0) return i1;
+  
+  return -1;
+}
+  
+int IBisect(int b, int n, int *a) {
+  int i, i0, i1;
+
+  if (n == 0) return -1;
+  i0 = 0;
+  i1 = n - 1;
+  while (i1 - i0 > 1) {
+    i = (i0 + i1)/2;
+    if (b == a[i]) return i;
+    else if (b < a[i]) i1 = i;
+    else i0 = i;
+  }
+  
+  if (b == a[i0]) return i0;
+  else if (b == a[i1]) return i1;
+  else return -1;
+}
+

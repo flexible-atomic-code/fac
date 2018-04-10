@@ -1798,6 +1798,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
 	for (; k < om->nzn; k++) {
 	  if (fabs(energy-om->ozn[k]->energy) < EPS10) {
 	    orb = om->ozn[k];
+	    break;
 	  }
 	}
       }
@@ -1821,6 +1822,10 @@ int OrbitalIndex(int n, int kappa, double energy) {
       }
     }
     if (orbitals->lock) ReleaseLock(orbitals->lock);
+  }
+  if (!orb->isol) {
+    printf("isol0a: %d %d %d %g\n", orb->idx, orb->n, orb->kappa, orb->energy);
+    Abort(1);
   }
   return orb->idx;
 }
@@ -1983,6 +1988,7 @@ void RemoveOrbMap(int m) {
   }
 }
 
+/*
 int AddOrbital(ORBITAL *orb) {
 
   if (orb == NULL) return -1;
@@ -2002,6 +2008,7 @@ int AddOrbital(ORBITAL *orb) {
 #pragma omp flush
   return n_orbitals - 1;
 }
+*/
 
 ORBITAL *GetOrbital(int k) {
   return (ORBITAL *) ArrayGet(orbitals, k);
@@ -2018,13 +2025,13 @@ ORBITAL *GetOrbitalSolved(int k) {
     orb = (ORBITAL *) ArrayGet(orbitals, k);
   }
   if (orb->isol == 0) {
-    MPrintf(-1, "isol: %d %d %d\n", k, orb->n, orb->kappa);
+    MPrintf(-1, "isol0b: %d %d %d %g\n", k, orb->n, orb->kappa, orb->energy);
+    Abort(1);
     i = SolveDirac(orb);
     if (i < 0) {
       printf("Error occured in solving Dirac eq. err = %d\n", i);
       Abort(1);
     }
-#pragma omp flush
   }
   if (orbitals->lock) ReleaseLock(orbitals->lock);
   return orb;
@@ -2056,7 +2063,6 @@ ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e) {
     printf("Not enough memory for orbitals array\n");
     Abort(1);
   }
-  InitOrbitalData(orb, 1);
   orb->idx = n_orbitals;
   orb->n = n;
   orb->kappa = kappa;
@@ -2088,6 +2094,7 @@ void FreeOrbitalData(void *p) {
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
   orb->phase = NULL;
+  orb->isol = 0;
   orb->ilast = -1;
   orb->im = -1;
   if (orb->horb) {

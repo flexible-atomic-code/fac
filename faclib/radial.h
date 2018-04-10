@@ -88,7 +88,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e);
 int OrbitalIndex(int n, int kappa, double energy);
 int OrbitalExistsNoLock(int n, int kappa, double energy);
 int OrbitalExists(int n, int kappa, double energy);
-int AddOrbital(ORBITAL *orb);
+//int AddOrbital(ORBITAL *orb);
 ORBITAL *GetOrbital(int k);
 ORBITAL *GetOrbitalSolved(int k);
 ORBITAL *GetOrbitalSolvedNoLock(int k);
