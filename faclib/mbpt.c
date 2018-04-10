@@ -893,7 +893,11 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     ha = GetHamilton(i);
     nk = ConstructHamiltonDiagonal(i, n, s0, 0);    
-    if (nk < 0) continue;
+    if (nk < 0) {      
+      AllocHamMem(ha, -1, -1);
+      AllocHamMem(ha, 0, 0);
+      continue;
+    }
     mb.nbasis = ha->dim;
     mb.isym = i;
     mb.basis = malloc(sizeof(int)*mb.nbasis);
@@ -902,6 +906,8 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
     memcpy(mb.ene, ha->hamilton, sizeof(double)*mb.nbasis);
     mb.bmax = mb.basis[mb.nbasis-1];
     ArrayAppend(&base, &mb, NULL);
+    AllocHamMem(ha, -1, -1);
+    AllocHamMem(ha, 0, 0);
   }
   ncc1 = 0;  
   for (rg = icg0; rg < icg1; rg++) {
@@ -917,8 +923,13 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
 	t1 = t2;
 	for (i = 0; i < base.dim; i++) {
 	  mbp = ArrayGet(&base, i);
+	  ha = GetHamilton(i);
 	  nk = ConstructHamiltonDiagonal(mbp->isym, 1, &kgp, 0);
-	  if (nk < 0) continue;
+	  if (nk < 0) {
+	    AllocHamMem(ha, -1, -1);
+	    AllocHamMem(ha, 0, 0);
+	    continue;
+	  }
 	  nbs1 = ha->dim;
 	  bs1 = ha->basis;
 	  e1 = ha->hamilton;	
@@ -956,6 +967,8 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
 	    }
 	  }
 	  free(ham);
+	  AllocHamMem(ha, -1, -1);
+	  AllocHamMem(ha, 0, 0);
 	}
 	RemoveGroup(kgp);
 	ReinitRecouple(0);
@@ -3636,7 +3649,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     ** single hamiltonian matrix */
     h = GetHamilton(isym);
     k = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 110);
-    if (k == -1) continue;
+    if (k == -1) {
+      AllocHamMem(h, -1, -1);
+      AllocHamMem(h, 0, 0);
+      continue;
+    }
     meff[isym] = (MBPT_EFF *) malloc(sizeof(MBPT_EFF));
     if (k < 0) {
       meff[isym]->nbasis = 0;
@@ -3726,6 +3743,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
     free(ks);
+    AllocHamMem(h, -1, -1);
+    AllocHamMem(h, 0, 0);
     tt1 = WallTime();
     dt = tt1-tt0;
     tt0 = tt1;
@@ -4144,6 +4163,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
       AddToLevels(h, nkg0, kg);
       h->heff = NULL;
+      AllocHamMem(h, -1, -1);
+      AllocHamMem(h, 0, 0);
       tt1 = WallTime();
       dt = tt1-tt0;
       tt0 = tt1;
@@ -4754,7 +4775,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   int ierr, m, i, j, k, k0, k1, nlevels, n2m;
   int isym, pp, jj, r, q, n, *ng, n0, *ng0, *n2, **ng2;
   double *dw, *z1, *z2, *x, *y, *z, *t, *heff, **hab, **hba;
-  double **nab, **nba, *nab1, *nba1, *neff;
+  double **nab, **nba, *nab1, *nba1, *neff, *ym;
   double a, b, na, nb;
   HAMILTON *h;
   SYMMETRY *sym;
@@ -4869,9 +4890,13 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   fflush(stdout);
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-    k0 = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
-    if (k0 == -1) continue;
     h = GetHamilton(isym);
+    k0 = ConstructHamilton(isym, nkg0, nkg, kg, 0, NULL, 101);
+    if (k0 == -1) {
+      AllocHamMem(h, -1, -1);
+      AllocHamMem(h, 0, 0);
+      continue;
+    }
     sym = GetSymmetry(isym);
     DecodePJ(isym, &pp, &jj);
     ierr = ReadMBPT(nf, f1, mbpt, 1);
@@ -4995,28 +5020,30 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     }
     
     /* correct the normalization */
-    y = h->mixing + h->dim;
+    ym = h->mixing + h->dim;
     for (i = 0; i < h->dim; i++) {
       a = 0.0;
       for (j = 0; j < h->dim; j++) {
 	for (k = 0; k < h->dim; k++) {
 	  k0 = j*h->dim + k;
-	  a += neff[k0] * y[j] * y[k];
+	  a += neff[k0] * ym[j] * ym[k];
 	}
       }      
       b = sqrt(1.0 + a);
       fprintf(f2, "#NORM %3d %5d %12.5E %12.5E\n", isym, i, a, b);
       fflush(f2);
       for (j = 0; j < h->dim; j++) {
-	y[j] /= b;
+	ym[j] /= b;
       }
-      y += h->n_basis;
+      ym += h->n_basis;
     }
     
     AddToLevels(h, nkg0, kg);
     free(heff);
     free(neff);
     h->heff = NULL;
+    AllocHamMem(h, -1, -1);
+    AllocHamMem(h, 0, 0);
   }
 
   SortLevels(nlevels, -1, 0);

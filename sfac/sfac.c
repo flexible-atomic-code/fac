@@ -2819,7 +2819,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   }
 
   if (argc == 5) {
-    if (argt[4] != LIST) return -1;
+    if (argt[3] != LIST) return -1;
     n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
     if (n <= 0) return -1;
     if (argt[2] != LIST) return -1;
