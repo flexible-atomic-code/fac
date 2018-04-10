@@ -235,6 +235,9 @@ void  InitMDataData(void *p, int n);
 void InitIdxAry(IDXARY *ia, int n, int *d);
 void FreeIdxAry(IDXARY *ia, int md);
 int IdxGet(IDXARY *ia, int d);
+int          IBisect(int k, int n, int *a);
+int          Bisect(void *p0, int n, int m, void *p,
+		    int (*comp)(const void *, const void *));
 void SetMultiCleanFlag(MULTI *ma);
 double TotalSize(void);
 #endif
