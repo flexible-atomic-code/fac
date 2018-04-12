@@ -43,8 +43,8 @@ typedef struct _RMATRIX_ {
   int nsym, isym, p, j;
   double **aij;
   double et0, *et, *ec, *ek, **w0, **w1;
-  double *rmatrix[3];
-  double z, energy;
+  double **rmatrix[3];
+  double z;
 } RMATRIX;
 
 typedef struct _DCFG_ {
@@ -57,6 +57,8 @@ typedef struct _DCFG_ {
   double rgailitis, degenerate, accuracy;
   int lrw, liw;
   RMATRIX *rmx;
+  int nr, mr;
+  double energy;
 } DCFG;
 
 int InitRMatrix(void);

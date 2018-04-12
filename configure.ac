@@ -68,7 +68,7 @@ if test -n "$G77"
 then
   if test -z "$fopt"
   then 
-    fopt="-Ofast"
+    fopt="-O2"
   fi
   if test -z "$fpic"
   then
