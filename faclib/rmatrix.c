@@ -307,6 +307,14 @@ void ExtrapolateButtle(RBASIS *rbs, int t, int m, double *e,
   double a0, a1, b, ep;
   
   nb = rbs->nbk;
+  if (nb <= NBFIT) {
+    for (k = 0; k < m; k++) {
+      r0[k] = 0.0;
+      r1[k] = 0.0;
+      r2[k] = 0.0;
+    }
+    return;
+  }
   for (i = 0; i < NBFIT; i++) {
     n = nb - NBFIT + i;
     xb1[i] = n;
@@ -2205,7 +2213,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 
   if (!MPIReady()) InitializeMPI(0);
   dcfg.mr = MPIRank(&dcfg.nr);
-  printf("%d %d\n", dcfg.mr, dcfg.nr);
+
   emin /= HARTREE_EV;
   emax /= HARTREE_EV;
   de /= HARTREE_EV;
