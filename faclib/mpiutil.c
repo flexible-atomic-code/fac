@@ -164,9 +164,17 @@ long long CWidMPI() {
 }
 
 void ResetWidMPI(void) {
+#if USE_MPI == 2
+  if (!MPIReady()) {
+    printf("openmp not initialized\n");
+    Abort(1);
+  }
+#endif
   _cwid = -1;  
 #pragma omp parallel
+  {
   mpi.wid = 0;
+  }
 }
 
 void SetWidMPI(long long w) {

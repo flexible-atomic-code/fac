@@ -32,6 +32,8 @@ static DCFG dcfg;
 static int nbatch;
 static int fmode;
 
+#pragma omp threadprivate(dcfg)
+
 void RMatrixNBatch(int n) {
   if (n > 0) {
     nbatch = n; 
@@ -608,7 +610,7 @@ void RMatrixTargets(int nt, int *kt, int nc, int *kc) {
 }
 
 void ClearRMatrixSurface(RMATRIX *rmx) {
-  int i;
+  int i, j;
 
   if (rmx->nts > 0) {
     free(rmx->et);
@@ -631,6 +633,9 @@ void ClearRMatrixSurface(RMATRIX *rmx) {
       free(rmx->aij[i]);
     }
     for (i = 0; i < 3; i++) {
+      for (j = 0; j < dcfg.nr; j++) {
+	free(rmx->rmatrix[i][j]);
+      }
       free(rmx->rmatrix[i]);
     }
   }
@@ -704,7 +709,10 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
       free(rmx->chans);
       free(rmx->ilev);
       free(rmx->kappa);
-      for (i = 0; i < 3; i++) {
+      for (i = 0; i < 3; i++) {	
+	for (j = 0; j < dcfg.nr; j++) {
+	  free(rmx->rmatrix[i][j]);
+	}
 	free(rmx->rmatrix[i]);
       }
       for (i = 0; i < rmx->nlam; i++) {
@@ -727,7 +735,10 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
     rmx->kappa = malloc(sizeof(int)*nchan0);
     rmx->ilev = malloc(sizeof(int)*nchan0);
     for (i = 0; i < 3; i++) {
-      rmx->rmatrix[i] = malloc(sizeof(double)*nchan0*nchan0);
+      rmx->rmatrix[i] = malloc(sizeof(double *)*dcfg.nr);
+      for (k = 0; k < dcfg.nr; k++) {
+	rmx->rmatrix[i][k] = malloc(sizeof(double)*nchan0*nchan0);
+      }
     }
     for (i = 0; i < rmx->nlam; i++) {
       rmx->aij[i] = malloc(sizeof(double)*nchan0*nchan0);
@@ -815,6 +826,9 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
       free(rmx->ilev);
       free(rmx->kappa);
       for (i = 0; i < 3; i++) {
+	for (k = 0; k < dcfg.nr; k++) {
+	  free(rmx->rmatrix[i][k]);
+	}
 	free(rmx->rmatrix[i]);
       }
       for (i = 0; i < rmx->nlam; i++) {
@@ -836,7 +850,10 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
     rmx->kappa = malloc(sizeof(int)*nchan0);
     rmx->ilev = malloc(sizeof(int)*nchan0);
     for (i = 0; i < 3; i++) {
-      rmx->rmatrix[i] = malloc(sizeof(double)*nchan0*nchan0);
+      rmx->rmatrix[i] = malloc(sizeof(double *)*dcfg.nr);
+      for (k = 0; k < dcfg.nr; k++) {
+	rmx->rmatrix[i][k] = malloc(sizeof(double)*nchan0*nchan0);
+      }
     }
     for (i = 0; i < rmx->nlam; i++) {
       rmx->aij[i] = malloc(sizeof(double)*nchan0*nchan0);
@@ -1225,6 +1242,7 @@ int RMatrixSurface(char *fn) {
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     double wt0 = WallTime();
     h = GetHamilton(i);
+    if (h->dim <= 0) continue;
     ek = h->mixing;
     mix = h->mixing+h->dim;
     sym = GetSymmetry(i);
@@ -1314,14 +1332,14 @@ int RMatrix(double e, RMATRIX *rmx, RBASIS *rbs, int m) {
 	a01 *= 0.5;
 	a10 *= 0.5;
       }
-      rmx->rmatrix[0][p] = a11;
-      rmx->rmatrix[1][p] = a00;
-      rmx->rmatrix[2][p] = a01;
+      rmx->rmatrix[0][dcfg.mr][p] = a11;
+      rmx->rmatrix[1][dcfg.mr][p] = a00;
+      rmx->rmatrix[2][dcfg.mr][p] = a01;
       if (i != j) {	
 	p = j*rmx->nchan0 + i;
-	rmx->rmatrix[0][p] = a11;
-	rmx->rmatrix[1][p] = a00;
-	rmx->rmatrix[2][p] = a10;
+	rmx->rmatrix[0][dcfg.mr][p] = a11;
+	rmx->rmatrix[1][dcfg.mr][p] = a00;
+	rmx->rmatrix[2][dcfg.mr][p] = a10;
       } else if (m >= 0) {
 	q = rmx->chans[i]/rbs->nkappa;
 	k = rmx->chans[i]%rbs->nkappa;
@@ -1338,26 +1356,29 @@ int RMatrix(double e, RMATRIX *rmx, RBASIS *rbs, int m) {
 	if (de <= x[nb-1]) {
 	  y2 = rbs->cbuttle[4][k];
 	  UVIP3P(3, nb, x, y0, 1, &de, &b);
-	  rmx->rmatrix[0][p] += b;	
+	  rmx->rmatrix[0][dcfg.mr][p] += b;	
 	  if (rbs->ib0 > 0) {
 	    UVIP3P(3, nb, x, y1, 1, &de, &b);
-	    rmx->rmatrix[1][p] += b;
+	    rmx->rmatrix[1][dcfg.mr][p] += b;
 	    UVIP3P(3, nb, x, y2, 1, &de, &b);
-	    rmx->rmatrix[2][p] += b;
+	    rmx->rmatrix[2][dcfg.mr][p] += b;
 	  }
 	} else {
 	  ExtrapolateButtle(rbs, k, 1, &de, &a00, &a01, &a11);
-	  rmx->rmatrix[0][p] += a01;
+	  rmx->rmatrix[0][dcfg.mr][p] += a01;
 	  if (rbs->ib0 > 0) {
-	    rmx->rmatrix[1][p] += a00;
-	    rmx->rmatrix[2][p] += a11;
+	    rmx->rmatrix[1][dcfg.mr][p] += a00;
+	    rmx->rmatrix[2][dcfg.mr][p] += a11;
 	  }
 	}
+      }
+      if (isnan(rmx->rmatrix[0][dcfg.mr][p])||isnan(rmx->rmatrix[1][dcfg.mr][p])||isnan(rmx->rmatrix[2][dcfg.mr][p])) {
+	printf("%d %g %g %g\n", p, rmx->rmatrix[0][dcfg.mr][p],rmx->rmatrix[1][dcfg.mr][p],rmx->rmatrix[2][dcfg.mr][p]);
+	Abort(1);
       }
     }
   }
 
-  rmx->energy = e;
   return 0;
 }    
 
@@ -1369,10 +1390,10 @@ int RMatrixPropogate(double *r0, double *r1, RMATRIX *rmx1) {
   for (i = 0; i < rmx1->nchan0; i++) {
     for (j = 0; j <= i; j++) {
       p = i*rmx1->nchan0 + j;
-      r0[p] += rmx1->rmatrix[1][p];
+      r0[p] += rmx1->rmatrix[1][dcfg.mr][p];
       if (i != j) {
 	q = j*rmx1->nchan0 + i;
-	r0[q] += rmx1->rmatrix[1][q];
+	r0[q] += rmx1->rmatrix[1][dcfg.mr][q];
 	r1[q] = 0.0;
 	r1[p] = 0.0;
       } else {
@@ -1392,12 +1413,12 @@ int RMatrixPropogate(double *r0, double *r1, RMATRIX *rmx1) {
 	  q = m*rmx1->nchan0 + i;
 	  r = m*rmx1->nchan0 + k;
 	  b = r0[r];
-	  b *= rmx1->rmatrix[2][q]*rmx1->rmatrix[2][p];
+	  b *= rmx1->rmatrix[2][dcfg.mr][q]*rmx1->rmatrix[2][dcfg.mr][p];
 	  a += b;
 	}
       }
       p = i*rmx1->nchan0 + j;
-      r1[p] = rmx1->rmatrix[0][p] - a;
+      r1[p] = rmx1->rmatrix[0][dcfg.mr][p] - a;
       if (i != j) {
 	q = j*rmx1->nchan0 + i;
 	r1[q] = r1[p];
@@ -1417,8 +1438,8 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0) {
   int *iwork;
   
   iwork = dcfg.iwork;
-  a = rmx0->rmatrix[1];
-  b = rmx0->rmatrix[2];
+  a = rmx0->rmatrix[1][dcfg.mr];
+  b = rmx0->rmatrix[2][dcfg.mr];
   nop = dcfg.nop;
   if (dcfg.diag) {
     fs = dcfg.fs0;
@@ -1444,7 +1465,11 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0) {
 	  b[k] = (r0[k]*x)*fs[j] - 2.0*r0[k]*gs[j]/FINE_STRUCTURE_CONST;
 	  if (i == j) b[k] += fs[j];
 	  b[k] = -b[k];
-	}
+	}	
+	if (isnan(b[k])||isnan(a[k])) {
+	  printf("%d %d %d %d %d %d %g %g %g %g %g\n", i, j, dcfg.ngailitis, dcfg.diag, dcfg.pdirection, k, r0[k], fc[j], gc[j], fs[j], gs[j]);
+	  Abort(1);
+	}	
       }
     }
   } else {
@@ -1466,11 +1491,14 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0) {
 	  if (j < nop) {
 	    b[ij] -= (r0[im]*x)*fs[mj] - 2.0*r0[im]*gs[mj]/FINE_STRUCTURE_CONST;
 	  }
+	  if (isnan(b[ij])||isnan(a[ij])) {
+	    printf("%d %g %g\n", ij, a[ij], b[ij]);
+	    Abort(1);
+	  }
 	}
       }
     }
   }
-
   DGESV(nch, nop, a, nch, iwork, b, nch, &ierr);
 
   return ierr;
@@ -1482,9 +1510,9 @@ int SMatrix(RMATRIX *rmx0) {
   int nop, nch, ierr;
   int *iwork = dcfg.iwork;
   
-  c = rmx0->rmatrix[2];
-  a = rmx0->rmatrix[0];
-  b = rmx0->rmatrix[1];
+  c = rmx0->rmatrix[2][dcfg.mr];
+  a = rmx0->rmatrix[0][dcfg.mr];
+  b = rmx0->rmatrix[1][dcfg.mr];
   nch = rmx0->nchan0;
   nop = dcfg.nop;
 
@@ -1495,6 +1523,10 @@ int SMatrix(RMATRIX *rmx0) {
 	p = k*nch + i;
 	q = j*nch + k;
 	x += c[p]*c[q];
+	if (isnan(x)) {
+	  printf("%d %d %d %d %d %g %g\n", i, j, k, p, q, c[p],c[q]);
+	  Abort(1);
+	}
       }
       p = j*nch + i;
       b[p] = -2.0*c[p];
@@ -1503,12 +1535,15 @@ int SMatrix(RMATRIX *rmx0) {
 	q = i*nch + j;
 	a[q] = x;
 	b[q] = -2.0*c[q];
+	if (isnan(a[q])) {
+	  printf("a0: %d %g %g %g\n", q, a[q], b[q], c[q]);
+	  Abort(1);
+	}
       } else {
 	a[p] += 1.0;
       }
     }
   }
-
   DGESV(nop, nop, a, nch, iwork, b, nch, &ierr);
   for (i = 0; i < nop; i++) {
     for (j = 0; j <= i; j++) {
@@ -1520,9 +1555,17 @@ int SMatrix(RMATRIX *rmx0) {
       }
       p = j*nch + i;
       a[p] = x;
+      if (isnan(a[p])) {
+	printf("a1: %d %g\n", p, a[p]);
+	Abort(1);
+      }
       if (j != i) {
 	q = i*nch + j;
 	a[q] = x;
+	if (isnan(a[q])) {
+	  printf("a2: %d %g\n", q, a[q]);
+	  Abort(1);
+	}
       }
     }
   }
@@ -1693,7 +1736,7 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
   a = dcfg.rwork;
   x = dcfg.rwork + nch2;
   y = dcfg.p;
-  memcpy(a, rmx->rmatrix[2], sizeof(double)*nch2);
+  memcpy(a, rmx->rmatrix[2][dcfg.mr], sizeof(double)*nch2);
   for (i = 0; i < nch; i++) {
     for (j = 0; j < nch; j++) {
       ji = j*nch + i;
@@ -1712,7 +1755,7 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
       for (m = 0; m < nch; m++) {
 	jm = m*nch + j;
 	mi = i*nch + m;
-	b += rmx->rmatrix[0][jm]*dcfg.gs[mi];
+	b += rmx->rmatrix[0][dcfg.mr][jm]*dcfg.gs[mi];
       }
       b -= dcfg.fs[ji];
       a[ji] = b;
@@ -1735,8 +1778,8 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
       for (m = 0; m < nch; m++) {
 	jm = j*nch + m;
 	mi = i*nch + m;
-	b += rmx->rmatrix[2][jm]*dcfg.gs[mi];
-	b -= rmx->rmatrix[1][jm]*y[m];
+	b += rmx->rmatrix[2][dcfg.mr][jm]*dcfg.gs[mi];
+	b -= rmx->rmatrix[1][dcfg.mr][jm]*y[m];
       }
       dcfg.fs[ji] = b;
     }
@@ -1752,7 +1795,7 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
       for (m = 0; m < nch; m++) {
 	jm = m*nch + j;
 	mi = i*nch + m;
-	b += rmx->rmatrix[0][jm]*dcfg.gc[mi];
+	b += rmx->rmatrix[0][dcfg.mr][jm]*dcfg.gc[mi];
       }
       b -= dcfg.fc[ji];
       a[ji] = b;
@@ -1775,8 +1818,8 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
       for (m = 0; m < nch; m++) {
 	jm = j*nch + m;
 	mi = i*nch + m;
-	b += rmx->rmatrix[2][jm]*dcfg.gc[mi];
-	b -= rmx->rmatrix[1][jm]*y[m];
+	b += rmx->rmatrix[2][dcfg.mr][jm]*dcfg.gc[mi];
+	b -= rmx->rmatrix[1][dcfg.mr][jm]*y[m];
       }
       dcfg.fc[ji] = b;
     }
@@ -1813,7 +1856,7 @@ int GailitisExp(RMATRIX *rmx, double r) {
 
   nop = 0;
   for (i = 0; i < rmx->nchan0; i++) {
-    e[i] = rmx->energy - (rmx->et[rmx->ilev[i]] - rmx->et0);    
+    e[i] = dcfg.energy - (rmx->et[rmx->ilev[i]] - rmx->et0);
     if (nlam > 0 && dcfg.ngailitis > 1) { 
       p2[i] = 2.0*e[i]*(1.0+0.5*FINE_STRUCTURE_CONST2*e[i]);
       p[i] = sqrt(fabs(p2[i]));
@@ -1831,6 +1874,10 @@ int GailitisExp(RMATRIX *rmx, double r) {
       dcfg.gs0[i] = 0.0;
       dcfg.fc0[i] = t1;
       dcfg.gc0[i] = c1;
+    }
+    if (isnan(dcfg.fs0[i])) {
+      printf("%d %d %d %g %g %g %g %g %d %d %g %g\n", i, nlam, dcfg.ngailitis, e[i], t1, c1, t2, c2, rmx->kappa[i], ierr, r, rmx->z);
+      Abort(1);
     }
     for (j = 0; j < rmx->nchan0; j++) {
       ij = j*rmx->nchan0 + i;
@@ -2105,6 +2152,8 @@ int GailitisExp(RMATRIX *rmx, double r) {
 }
 
 static void InitDCFG(int nw) {
+#pragma omp parallel default(shared)
+  {
   int nw2, ns, n;
 
   nw2 = nw*nw;
@@ -2132,11 +2181,16 @@ static void InitDCFG(int nw) {
   dcfg.rm = dcfg.d + ns;
   dcfg.rwork = dcfg.rm + dcfg.ngailitis;
   dcfg.iwork = malloc(sizeof(int)*dcfg.liw);
+  dcfg.mr = MPIRank(&dcfg.nr);
+  }
 }
 
 static void ClearDCFG(void) {
+#pragma omp parallel default(shared)
+  {
   free(dcfg.dwork);
   free(dcfg.iwork);
+  }
 }
 
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[], 
@@ -2149,6 +2203,9 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   int pp, jj, its0, its1, st0, ka0, ka1, mka0, mka1, npw;
   int nke, npe;
 
+  if (!MPIReady()) InitializeMPI(0);
+  dcfg.mr = MPIRank(&dcfg.nr);
+  printf("%d %d\n", dcfg.mr, dcfg.nr);
   emin /= HARTREE_EV;
   emax /= HARTREE_EV;
   de /= HARTREE_EV;
@@ -2189,6 +2246,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 
   e = e0;
   npe = 0;
+  double wt00 = WallTime();
   while (npe < n) {
     if (npe + nbatch > n) {
       nke = n - npe;
@@ -2225,19 +2283,25 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     fprintf(f1, "### %6d %6d %4d %12.5E %12.5E\n", 
 	    n, npe, nke, e[0]*HARTREE_EV, e[nke-1]*HARTREE_EV);
     fflush(f1);
+    
     for (i = 0; i < rmx[0].nsym;  i++) {
+      double wt0 = WallTime();
       for (j = 0; j < np; j++) {
 	ReadRMatrixSurface(f[j], &(rmx[j]), 1, fmode);
       }
       DecodePJ(rmx[0].isym, &pp, &jj);
-      printf("sym: %d %d %d\n", rmx[0].isym, pp, jj);
-      fflush(stdout);
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(k, j, r0, r1, p, its1, st0, ka1, mka1, q, h, x, its0, ka0, mka0, et)
+      {
+      int w = 0;
       for (k = 0; k < nke; k++) {
+	if (SkipWMPI(w++)) continue;
+	dcfg.energy = e[k];
 	for (j = 0; j < np; j++) {
 	  RMatrix(e[k], &(rmx[j]), &(rbs[j]), mb);
 	}
-	r0 = rmx[0].rmatrix[0];
-	r1 = rmx[0].rmatrix[1];
+	r0 = rmx[0].rmatrix[0][dcfg.mr];
+	r1 = rmx[0].rmatrix[1][dcfg.mr];
 	if (dcfg.rgailitis > rbs[np-1].rb1) {
 	  GailitisExp(&(rmx[0]), dcfg.rgailitis);
 	  IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, dcfg.rgailitis);
@@ -2266,6 +2330,11 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 	    h = q*rmx[0].nchan0 + p;
 	    x = r0[h]*r0[h] + r1[h]*r1[h];
 	    x *= 0.5*(jj+1.0);
+	    if (isnan(x)) {
+	      printf("%d %d %g %g %g\n", p, q, r0[h], r1[h], x);
+	      Abort(1);
+	    }
+	      
 	    its0 = rmx[0].ilev[q];
 	    ka0 = rmx[0].kappa[q];
 	    mka0 = GetLFromKappa(ka0);
@@ -2280,13 +2349,18 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 		      "%3d %4d %4d %4d %4d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 		      rmx[0].isym, its0, ka0, its1, ka1, et, 
 		      r0[h], r1[h], 
-		      x, rmx[0].rmatrix[2][h]);
+		      x, rmx[0].rmatrix[2][dcfg.mr][h]);
 	    }
 	  }
 	}
       }
+      }
+      double wt1 = WallTime();
+      MPrintf(-1, "sym: %3d %1d %3d %10.3E %10.3E\n",
+	      rmx[0].isym, pp, jj, wt1-wt0, wt1-wt00);
+      fflush(stdout);
     }
-
+  
     if (m & 2) {
       fprintf(f1, "\n\n");
     }
@@ -2495,7 +2569,8 @@ void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {
 	}
 	fprintf(f1, "%3d %2d %2d %15.8E %15.8E %15.8E %15.8E %15.8E\n",
 		rmx.isym, i, j, a1, a2,
-		rmx.rmatrix[0][p], rmx.rmatrix[1][p], rmx.rmatrix[2][p]);
+		rmx.rmatrix[0][dcfg.mr][p], 
+		rmx.rmatrix[1][dcfg.mr][p], rmx.rmatrix[2][dcfg.mr][p]);
       }
     }
     fprintf(f1, "\n\n");
