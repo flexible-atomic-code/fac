@@ -28,7 +28,7 @@ for k in range(3, 11):
             spf = '%sb_t%02dd0i%d.sp'%(pref, t, j)
             for i in range(len(de)):
                 pltf = '%sa_t%02di%dw%d.plt'%(pref, t, j, i)
-		print 'NELE=%02d T=%d NION=%d DE=%d %s'%(k,t,j,i,pltf)
+		print('NELE=%02d T=%d NION=%d DE=%d %s'%(k,t,j,i,pltf))
                 PlotSpec(spf, pltf, k, type, emin, emax, de[i])
                 if (k == 10 and j == 3):
                     pltf = pltf+'+1'

@@ -8,9 +8,9 @@ import os
 
 asym = 'Fe'
 
-# generate atomic data for H-like to Na-like ions.
+# generate atomic data for O-like to Ne-like ions.
 os.system('mkdir data')
-nele = range(8, 11)
+nele = list(range(8, 11))
 atomic_data(nele, asym, iprint=1, dir='data/')
 
 #fac.CloseSFAC()

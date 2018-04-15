@@ -16,7 +16,7 @@
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-from fac import *
+from pfac.fac import *
 from types import *
 import time
 
@@ -216,11 +216,11 @@ class ATOM:
         if (nele <= 0):
             raise 'NELE must > 0'
         
-	self.process = {'ce': 1, 
-		        'tr': 1, 
-			'rr': 1, 
-			'ci': 1,
-			'ai': 1}
+        self.process = {'ce': 1, 
+                        'tr': 1, 
+                        'rr': 1, 
+                        'ci': 1,
+                        'ai': 1}
 
         self.ecorrections = 1
         self.nele = nele
@@ -266,7 +266,7 @@ class ATOM:
         else:
             raise 'ion with NELE >= %d not supported'%(self.nele_max[3])
             
-        if (type(asym) == StringType):
+        if isinstance(asym, str):
             self.set_atom(asym, dir=dir)
             
         return
@@ -360,27 +360,27 @@ class ATOM:
 
 
     def run_tr_ce(self, a, b, c, d, tr = [-1], ce = 1):
-        if (type(a) == StringType or type(a) == IntType):
+        if isinstance(a, (str, int)):
             low = [a]
         else:
             low = a
-        if (type(b) == StringType or type(b) == IntType):
+        if isinstance(b, (str, int)):
             up = [b]
         else:
             up = b
 
-	if (self.process['tr'] != 0):
+        if (self.process['tr'] != 0):
             for m in tr:
                 s = 'TR: %s -> %s %d'%(str(a), str(b), m)
                 Print(s)
                 TransitionTable(self.bfiles['tr'], low, up, m)
 
         if (ce != 0 and self.process['ce'] != 0):
-            if (type(c) == StringType or type(c) == IntType):
+            if isinstance(c, (str, int)):
                 low = [c]
             else:
                 low = c
-            if (type(d) == StringType or type(d) == IntType):
+            if isinstance(d, (str, int)):
                 up = [d]
             else:
                 up = d
@@ -395,11 +395,11 @@ class ATOM:
 
     def run_ci_rr(self, a, b, c, d, ci = 1, rr = 1):
         if (rr != 0 and self.process['rr'] != 0):
-            if (type(c) == StringType or type(c) == IntType):
+            if isinstance(c, (str, int)):
                 low = [c]
             else:
                 low = c
-            if (type(d) == StringType or type(d) == IntType):
+            if isinstance(d, (str, int)):
                 up = [d]
             else:
                 up = d
@@ -413,11 +413,11 @@ class ATOM:
             SetRRTEGrid(0)
             
         if (ci != 0 and self.process['ci'] != 0):
-            if (type(a) == StringType or type(a) == IntType):
+            if isinstance(a, (str, int)):
                 low = [a]
             else:
                 low = a
-            if (type(b) == StringType or type(b) == IntType):
+            if isinstance(b, (str, int)):
                 up = [b]
             else:
                 up = b
@@ -433,16 +433,16 @@ class ATOM:
 
 
     def run_ai(self, a, b, k):
-	if (self.process['ai'] == 0):
-	    return
+        if (self.process['ai'] == 0):
+            return
 
         s = 'AI: %s -> %s %d'%(a, b, k)
         Print(s)
-        if (type(a) == StringType or type(a) == IntType):
+        if isinstance(a, (str, int)):
             low = [a]
         else:
             low = a
-        if (type(b) == StringType or type(b) == IntType):
+        if isinstance(b, (str, int)):
             up = [b]
         else:
             up = b
@@ -699,7 +699,7 @@ class ATOM:
                 
             i = self.nele - 4
             if (len(etable[i])):
-                iec = range(ie0[i], ie0[i]+len(etable[i]))
+                iec = list(range(ie0[i], ie0[i]+len(etable[i])))
                 ec.append((iec, etable[i]))
 
         return (ec, nmin)  
@@ -1027,16 +1027,15 @@ class ATOM:
   
 
     def set_configs(self):
-        n = range(1, self.n_shells+1)
-        n.reverse()
+        n = list(range(self.n_shells, 0, -1))
         nexc = self.nexc_max
         nrec = self.nrec_max
         
         for i in n:
             j = self.n_shells - i
-            self.add_excited(i, range(nexc[j]+1), -1)
+            self.add_excited(i, list(range(nexc[j]+1)), -1)
             self.add_ionized(i, -1)
-            r = range(nexc[j]+1, nrec[j]+1)
+            r = list(range(nexc[j]+1, nrec[j]+1))
             if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
@@ -1049,17 +1048,17 @@ class ATOM:
         if (self.nele == self.nele_max[self.n_shells-1]+1):
             i = self.n_shells-1
             mrec = nrec[j+1]
-            r = range(nexc[j]+1, mrec+1)
+            r = list(range(nexc[j]+1, mrec+1))
             if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         else:
             i = self.n_shells
             mrec = nrec[j]
-            r = range(nexc[j]+1, mrec+1)
+            r = list(range(nexc[j]+1, mrec+1))
             if (self.nrec_ext > mrec and len(r) > 0):
                 r.append(self.nrec_ext)
         if (i > 0):
-            self.add_excited(i, range(j+1, nexc[j]+1), 0)
+            self.add_excited(i, list(range(j+1, nexc[j]+1)), 0)
             self.add_ionized(i, 0)
             self.add_recombined(r, j)
             try:
@@ -1070,9 +1069,9 @@ class ATOM:
         if (self.nele > self.nele_max[self.n_shells-1]+1):
             i = self.n_shells
             j = self.n_shells+1
-            self.add_excited(i, range(j+1, nexc[j]+1), 1)
+            self.add_excited(i, list(range(j+1, nexc[j]+1)), 1)
             self.add_ionized(i, 1)
-            r = range(nexc[j]+1, nrec[j]+1)
+            r = list(range(nexc[j]+1, nrec[j]+1))
             if (self.nrec_ext > nrec[j] and len(r) > 0):
                 r.append(self.nrec_ext)
             self.add_recombined(r, j)
@@ -1126,7 +1125,7 @@ class ATOM:
         self.run_en()        
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         # transition rates and collisional excitation
         start = stop  
@@ -1135,7 +1134,7 @@ class ATOM:
         self.run_tr_ce_all() 
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         # CI and/or RR
         start = stop
@@ -1144,7 +1143,7 @@ class ATOM:
         self.run_ci_rr_all()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s 
+        print(s) 
 
         start = stop 
         s = 'AI...'
@@ -1152,18 +1151,18 @@ class ATOM:
         self.run_ai_all()
         stop = time.time()
         s = 'Done %10.3E s'%(stop-start)
-        print s
+        print(s)
 
         s = 'Total Time: %10.3E s'%(stop-start0)
-        print s
+        print(s)
 
         return
 
 
 def atomic_data(nele, asym, iprint=1, dir='', **kw):
-    if (type(nele) == IntType):
+    if isinstance(nele, int):
         n = [nele]
-        if (kw.has_key('ecorrections')):
+        if 'ecorrections' in kw:
             kw['ecorrections'] = [kw['ecorrections']]
     else:
         n = nele
@@ -1172,33 +1171,33 @@ def atomic_data(nele, asym, iprint=1, dir='', **kw):
     for im in range(len(n)):
         m = n[im]
         atom = ATOM(m)
-	if (kw.has_key('no_ce')):
-	    atom.process['ce'] = not kw['no_ce']
-	if (kw.has_key('no_tr')):
-	    atom.process['tr'] = not kw['no_tr']
-	if (kw.has_key('no_rr')):
-	    atom.process['rr'] = not kw['no_rr']
-	if (kw.has_key('no_ci')):
-	    atom.process['ci'] = not kw['no_ci']
-	if (kw.has_key('no_ai')):
-	    atom.process['ai'] = not kw['no_ai']
-        if (kw.has_key('nexc_max')):
+        if 'no_ce' in kw:
+            atom.process['ce'] = not kw['no_ce']
+        if 'no_tr' in kw:
+            atom.process['tr'] = not kw['no_tr']
+        if 'no_rr' in kw:
+            atom.process['rr'] = not kw['no_rr']
+        if 'no_ci' in kw:
+            atom.process['ci'] = not kw['no_ci']
+        if 'no_ai' in kw:
+            atom.process['ai'] = not kw['no_ai']
+        if 'nexc_max' in kw:
             atom.nexc_max = kw['nexc_max']
-        if (kw.has_key('nterms')):
+        if 'nterms' in kw:
             atom.nterms = kw['nterms']
-        if (kw.has_key('nfrozen')):
+        if 'nfrozen' in kw:
             atom.nfrozen = kw['nfrozen']
-        if (kw.has_key('nrec_max')):
+        if 'nrec_max' in kw:
             atom.nrec_max = kw['nrec_max']
-        if (kw.has_key('nrec_ext')):
+        if 'nrec_ext' in kw:
             atom.nrec_ext = kw['nrec_ext']
-        if (kw.has_key('nexc_rec')):
+        if 'nexc_rec' in kw:
             atom.nexc_rec = kw['nexc_rec']
-        if (kw.has_key('n_decay')):
+        if 'n_decay' in kw:
             atom.n_decay = kw['n_decay']
-        if (kw.has_key('rec_pw_max')):
+        if 'rec_pw_max' in kw:
             atom.rec_pw_max = kw['rec_pw_max']
-        if (kw.has_key('ecorrections')):
+        if 'ecorrections' in kw:
             atom.ecorrections = kw['ecorrections'][im]
 
         atom.set_configs()
