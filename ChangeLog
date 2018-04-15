@@ -1,3 +1,6 @@
+Version 1.1.5, Unreleased
+        1. Python 3 support. 
+
 Version 1.1.4, 11/09/2016
         1. output UTA stdev and shift for magnetic mutipole transitions as well.
 
@@ -6,7 +9,7 @@ Version 1.1.3, 11/10/2015
 	2. fix UTA width and shift calculations for magnetic and even-order
 	   electric mutipoles (patch by M. Krief & A. Feigel).
 	3. fix configure script for modern Darwin GCC compiler (based on LLVM).
-	
+
 Version 1.1.2, 07/07/2015
 	1. incorporate a few bug fixes from Evgeny, most notably
 	   concerning the Zeemann splitting.
@@ -14,7 +17,7 @@ Version 1.1.2, 07/07/2015
 	   former contains third party uitlities that cannot be
 	   distributed under GPL, while the latter contains the fac core
 	   that are distrubted under GPL from this version on.
-	
+
 Version 1.1.1, 04/30/2006
 	1. change the argument of coulcc to have a small imaginary part for
 	   DCOUL function. so that the results are ok for bound state energies.
@@ -27,10 +30,10 @@ Version 1.1.1, 04/30/2006
 	7. Use CPC routine for Coulomb multiple matrix elements for high
 	   partial wave extrapolation.
 	8. add modifiers to the configuration specification.
-	9. add function to obtain expansion coefficients of G^k, useful for 
+	9. add function to obtain expansion coefficients of G^k, useful for
 	   transition rates from level to configurations.
 	10.add interpolation and maxwellian rate for CI and RR.
-	
+
 Version 1.1.0, 10/03/2005
 	1. reimplement the StructureMBPT function.
 	2. add interface to njsym, and use that for general recoupling.
@@ -39,12 +42,12 @@ Version 1.1.0, 10/03/2005
 	5. avoid overflow of 2j in UTA mode in the EN_DB file.
 	6. change the format of DB_RT file.
 	7. add output for the 4th NLTE workshop submission.
-	
+
 Version 1.0.9, 04/04/2005
-	1. modify dbase.c so that it is platform independent.	
+	1. modify dbase.c so that it is platform independent.
 	2. split the functionality of dbase.c so that it is isolated from
 	   other files. It now only depends on dbase.h, and consts.h.
-	
+
 Version 1.0.8, 01/01/2005
 	1. implement configuration average radiative transitions. including
 	   energy shift and width of the UTAs.
@@ -55,7 +58,7 @@ Version 1.0.8, 01/01/2005
 	6. add JoinTable function.
 	7. it seems that g77 3.4 generate incorrect code for dlamch.f with
 	   -O2, now disable optimization for dlamch.f always.
-	
+
 Version 1.0.7, 11/10/2004
 	1. add DR satellite energy to the DB_DR file.
 	2. add the RRMultipole function for bound-free multipole matrix
@@ -65,7 +68,7 @@ Version 1.0.7, 11/10/2004
 	   values. The ASCII mode text file also has an additional column
 	   giving the matrix elements.
 	5. Binary output for rmatrix module.
-	
+
 Version 1.0.6, 09/05/2004
 	1. parallelize StructureMBPT
 	2. use subplx in RefineRadial.
@@ -75,7 +78,7 @@ Version 1.0.6, 09/05/2004
 	6. improve RadialRydberg, use Dirac Coulomb for asymptotic.
 	7. add an option to printout partial-wave collision strength.
 	8. implement a Dirac R-matrix method.
-	
+
 Version 1.0.5, 05/30/2004
 	1. implement magnetic sublevel ionization
 	2. fix bugs in radial integration.
@@ -84,7 +87,7 @@ Version 1.0.5, 05/30/2004
 	5. fix the problem in Uheling potential.
 	6. StructureMBPT, better implementation of MBPT
 	7. allow the number of grid points to be changed.
-	
+
 Version 1.0.4, 02/10/2004
 	1. make DRStrength a bit more efficient.
 	2. enable the LMn inner-shell Auger extrapolation.
@@ -96,7 +99,7 @@ Version 1.0.4, 02/10/2004
 	8. reimplementation of MULTI array.
 	9. ensure that the wavefunction nodes are correct for high-n states.
        10. implement photoionization asymmetry parameters.
-	
+
 Version 1.0.3, 12/01/2003
 	1. change contact information to my new address.
 	2. add --enable-cpic and --enable-fpic options to configure.
@@ -106,26 +109,26 @@ Version 1.0.3, 12/01/2003
 	6. fix the method table bug in ppol.c
 	7. bug fix in IntegrateRadial function.
 	8. array out-of-bound bug fix in orbital.c.
-	
+
 Version 1.0.2, 08/15/2003
 	1. add iterative method in pfac.pol.
-	2. add an optional input file in PolarizationTable to specify 
+	2. add an optional input file in PolarizationTable to specify
 	   the transitions whose polarization to be calculated.
 	3. add Orientation function, which may include depolarization.
 	4. fix seg. fault bug related to AvgConfig.
 	5. add TRBranch and AIBranch in pfac.fac.
-	
+
 Version 1.0.1, 07/31/2003
 	1. autoionization and capture rates between magnetic sublevels
 	2. add autoionization in pfac.pol for DR satellites.
 	3. change the way electron energy and density are set in pfac.pol
 	4. allow calculations of DRS specifically from certain target level.
-	
+
 version 1.0.0, 07/15/2003
 	1. add pol module for constructing magnetic sublevel population
 	   models with collisional excitation.
 	2. make -m and m magnetic sublevels the same in pol module.
-	
+
 version 0.9.9, 07/10/2003
 	1. add interpolating routine for CECross.
 	2. add plane-wave Born approximation for magnetic sublevel
@@ -133,10 +136,10 @@ version 0.9.9, 07/10/2003
 	3. change the parameter born[1] to the energy where it is
 	   calculated.
 	4. add the quadratic and linear interpolation feature in UVIP3P.
-	
+
 version 0.9.8, 06/18/2003
 	1. bug fix on CETableMSub.
-	
+
 version 0.9.7, 06/06/2003
 	1. move LevelInfor from crm to fac. remove MemENTable from crm.
 	2. do not write the data block header if the block is empty.
@@ -144,21 +147,21 @@ version 0.9.7, 06/06/2003
 	   whith these corrections, the output would give He-lines and
 	   edge to within 1mA. The Delta N=0 DR resonance energy
 	   corrections for several L-shell ions are also put in atom.py.
-	4. allow a negative index in CorrectEnergy(), which means the 
-	   correction is a shift, instead of the energy value relative 
+	4. allow a negative index in CorrectEnergy(), which means the
+	   correction is a shift, instead of the energy value relative
 	   to the reference level.
-	
+
 version 0.9.6, 05/23/2003
 	1. bug fix on partial-wave summation.
 	2. refactor dbase.c functions.
 	3. adjust the AI_CUT parameter in atom.py
-	
+
 version 0.9.5, 05/13/2003
 	1. fix a bug introduced in 0.9.4, caused seg. fault.
 	2. slightly relax the energy accuracy of the radial solver.
-	
+
 version 0.9.4, 04/29/2003
-	1. drop the assumption that calloced pointers and doubles will 
+	1. drop the assumption that calloced pointers and doubles will
 	   have NULL and 0.0 initial values, which is not portable.
 	2. add various Set... routines for convenience.
 
@@ -167,7 +170,7 @@ version 0.9.3, 04/18/2003
 	2. break up transition arrays for RR, AI, and CI, as for CE.
 	3. add function GetConfigNR().
 	4. improve efficiency on angular reduction.
-	
+
 version 0.9.2, 04/10/2003
 	1. add routines returning ionization thresholds in CRM.
 	2. correct a bug that causes incorrect M1 transition rates
@@ -177,16 +180,16 @@ version 0.9.2, 04/10/2003
 	   procedure, so that it is no longer necessary to call it
 	   manually.
 	4. add EPhFit() for the ionization thresholds used in PhFit.
-	
+
 version 0.9.1, 03/27/2003
 	1. correct manual on GetPotential.
 	2. correct an error in Uehling potential.
 	3. add the ionization cross sections from aladdin database.
-	
+
 Version 0.9.0, 03/17/2003
 	1. RadialRyd match point needs to be further reduced for Intel
 	   machines. the match point is now z*r=10^2.
-	2. number of points in half wavelength for high n states reduced 
+	2. number of points in half wavelength for high n states reduced
 	   to 14 from the original 16. this is dense enough and allow a
 	   slightly larger coverage of the radial grid.
 	3. add the function Y5N (i.e., the Wittaker function) to pfac.
@@ -202,7 +205,7 @@ Version 0.8.9, 03/11/2003
 	   sections.
 	6. add TotalPICross and TotalCICross functions.
 	7. the scaling factor in BED CI cross sections is modified.
-	
+
 Version 0.8.8, 03/04/2003
 	1. add my new RR and DR rates to CRM.
 	2. improve FracAbund for very low temperatures.
@@ -216,19 +219,19 @@ Version 0.8.7, 01/06/2003
 	3. add extrapolate for long range free-free radial integral.
 	4. determine the rmax from the number of mesh points.
 	5. use cfortran.h for c-fortran interfacing.
-	
+
 Version 0.8.6, 12/04/2002
 	1. implement DRBranch and DRStrength.
 	2. radial solver for Rydberg states has been improved.
 	3. implement TotalRRCross function.
 	4. Change the default AngZCut and MixCut to smaller values.
 	5. made the transition of RR and PI from low to high energy more
-	   smooth. 
+	   smooth.
 	6. add DRS and RE calculation in DRStrength.
 	7. add KLnl->Knl Auger damping.
 	8. adjust various n limits in atom.py
 	9. allow energy correction for non-RecStates levels.
-	
+
 Version 0.8.5, 11/07/2002
 	1. reinitializing GOS Array in the end of CETable call.
 	2. fix the bug in GeneralizedMoments.
@@ -236,70 +239,70 @@ Version 0.8.5, 11/07/2002
 	4. correct the spelling in table.write_row (was raw)
 
 Version 0.8.4, 09/26/2002
-	1. the type of EN_RECORD.energy is changed to double, 
-	   to avoid cancellations. this makes the data file incompartible 
+	1. the type of EN_RECORD.energy is changed to double,
+	   to avoid cancellations. this makes the data file incompartible
 	   with earlier version.
-	2. change the lib. name of lapack, blas, minpack, quadpack, ode, 
+	2. change the lib. name of lapack, blas, minpack, quadpack, ode,
 	   mpfun, to avoid possible clash with system installations.
-	   
+
 
 Version 0.8.3, 09/25/2002
 	1. implement Breit interaction in the 0 energy limit of the
 	   exchanged photon.
 	2. Vacuum polarization using Fullerton & Rinker's formula.
 	3. Self-energy correction using Mohr and Mohr & Kim's table.
-	4. Normal and specific mass shift. The square of kinetic energy 
+	4. Normal and specific mass shift. The square of kinetic energy
 	   terms is ignored.
 	5. fix a bug in ConfigEnergy.
-	
+
 Version 0.8.2, 09/20/2002
 	1. ConfigEnergy correction based on configurations.
 	2. add RefineRadial function, maybe usefule for neutrals.
 	3. fix a bug in RadialBound.
 	4. fix a bug for lsode.
-	
+
 Version 0.8.1, 09/03/2002
 	1. fix the unit bug for PhFit.
 	2. add PICrossH and RRCrossH functions.
 	3. add H approximation for very high n states, where the
 	   wavefunction calculation is avoided completely. At present,
-	   it only works for energy levels, E1 transitions and RR & PI 
+	   it only works for energy levels, E1 transitions and RR & PI
 	   cross sections.
 	4. add the Mixing coefficients output to the BasisTable function.
-	
+
 Version 0.8.0, 08/30/2002
 	1. add the ionization and recombinaiton fitting formula from
 	   Verner and Mazzotta.
-	
+
 Version 0.7.9, 08/27/2002
 	1. implement the generalized oscillator strength. and the first
 	   Born approximaiton for excitation based on that. the
 	   coefficients are output in the DB_CE file.
 	2. fix a bug on the initialization of wavefunc.
 	3. add the source rate blocks in the DB_RT file.
-	
+
 Version 0.7.8, 08/17/2002
 	1. change the block size of various arrays, which fixes the malloc
 	   bomb on Mac OS X.
-	
+
 Version 0.7.7, 08/14/2002
 	1. fix a bug that causes the OptimizeRadial fails on neutral atoms.
 	2. rewrite ConfigEnergy so that the average energy of
-	   configuration groups instead of configurations are used 
+	   configuration groups instead of configurations are used
 	   for energy adjustments. It can now be called more than once
 	   with the argument 0, and can have additional arguments, which
 	   are lists of configuration groups. They are used for radial
-	   optimization. 
+	   optimization.
 
 Version 0.7.6, 08/10/2002
 	1. add Makefiles to the demo dir.
-	2. add the NL values for the valence electron in the 
+	2. add the NL values for the valence electron in the
 	   structure output file.
-	3. in atom.py, use only the ground configuration for 
+	3. in atom.py, use only the ground configuration for
 	   the potential optimization for He-like ions.
 	4. fix a bug in config.c, so that space in the brackets for
 	   the configuration specification is allowed.
-	
+
 Version 0.7.5, 08/02/2002
 	1. break down the long DATA statements in ionis.f
 	2. fix the beam energy distribution in spm.py
@@ -307,14 +310,14 @@ Version 0.7.5, 08/02/2002
 	4. fix the magnetic sublevel collisional excitation problem.
 	5. rewrite the Dirac eq. solver for more robustness.
 	6. add a function for relativistic H energy in const.py
-	
+
 Version 0.7.4, 07/10/2002
 	1. write FAQ chapter of the manual.
 	2. fix a bug introduced in atom.py
 	3. improve CorrectEnergy.
 	4. renormalization of superblock density removed.
 	5. allow only AI and without DR.
-	
+
 Version 0.7.3, 05/15/2002
 	1. improving the manual
 	2. Use hydrogenic approximation for radiative transition rates
@@ -327,7 +330,7 @@ Version 0.7.2, 05/08/2002
 	3. the r_core for H-like ions changed to 0.75*MAX_POINTS.
 	4. update Makefile and setup.py for Mac OS X.
 	5. separate TABLE class into pfac.table module.
-	6. better initial estimate of binding energies for improved 
+	6. better initial estimate of binding energies for improved
 	   convergence.
 	7. separate interpolation functions in pfac.util extension.
 	8. making the fitting formula of RR and CI simpler. Do not fit
@@ -335,10 +338,10 @@ Version 0.7.2, 05/08/2002
 	   neutral ions.
 	9. add 2-photon decay rates for 2s S_1/2 of H-like ions and
 	   1s 2s S_0 of He-like ions in CRM.
-	10.wrote draft version of the manual. change some of the 
+	10.wrote draft version of the manual. change some of the
 	   internal structure of database files. the changes are not
-	   compartible with earlier versions. 
-	
+	   compartible with earlier versions.
+
 Version 0.7.1, 03/11/2002
 	1. add pfac.spm module for processing spectral data
 	2. LevelName function added
@@ -360,7 +363,7 @@ Version 0.7.1, 03/11/2002
 	14.fix a bug for H-like ions which gave wrong results for n>=11.
 	15.put make macros in setup.py
 	16.fix a bug on RR at Ne != 1E10.
-	
+
 Version 0.7.0, 02/06/2002
 	1. add endian swapping in dbase.c and crm.c
 	2. implement extrapolation on recombined states.
@@ -371,19 +374,19 @@ Version 0.7.0, 02/06/2002
 
 Version 0.6.9, 01/20/2002
 	1. improve the atom module.
-	2. updated demo scripts for the new version. added the FeL 
+	2. updated demo scripts for the new version. added the FeL
 	   demo scripts to calculate the FeL spectrum.
 	3. changed the default QkMode for excitation to EXACT.
 	4. added SetAbund routine to CRM.
 
 Version 0.6.8, 01/14/2002
-	1. use setup.py script to install the python interface. 
+	1. use setup.py script to install the python interface.
 	   successfully built under Windows with Cygwin installed.
 	2. implement binary output, and its conversion to ASCII format.
 	3. changed the argument order of *Table routines, and the routine
-	   Structure. The first argument of these routines are now always 
-	   the output file name. The routine "LevelTable" is removed. 
-	   The file name for the energy levels are now supplied to the 
+	   Structure. The first argument of these routines are now always
+	   the output file name. The routine "LevelTable" is removed.
+	   The file name for the energy levels are now supplied to the
 	   routine "Structure" as the first argument. Several "Structure"
 	   calls may share the same output file.
 	4. implement ATOM class in "pfac.atom" module. wrote the function
@@ -392,7 +395,7 @@ Version 0.6.8, 01/14/2002
 	5. fix a bug in RR, which produced nonsence for n > 10, when
 	   hydrogenic approximation is used for them.
 	6. implement a collisional radiative model for the construction
-	   of spectra. It is implemented in a separate python module 
+	   of spectra. It is implemented in a separate python module
 	   "pfac.crm", and the corresponding simple interface "scrm".
 	7. improved the fitting formula for collisonal excitation.
 	   the original one fails in some cases. the current one seems
@@ -403,13 +406,13 @@ Version 0.6.7, 12/01/2001
 
 Version 0.6.6, 11/06/2001
 	1. Implement the non-python interface "sfac". Its input file
-	   closely resembles the python scripts, without the flow 
-	   control constructs. 
-	2. the module "config" is now depricated. "config.config()" 
+	   closely resembles the python scripts, without the flow
+	   control constructs.
+	2. the module "config" is now depricated. "config.config()"
 	   should be replaced with "fac.Config()". "config.closed()"
-	   with "fac.Closed()", and "config.avgconfig()" with 
-	   "fac.AvgConfig()". 
-	
+	   with "fac.Closed()", and "config.avgconfig()" with
+	   "fac.AvgConfig()".
+
 Version 0.6.5, 11/04/2001
 	1. Implement the Binary-Encouter-Dipole model for ionization.
 	2. Separate contributions from individual shells in the output
@@ -420,35 +423,35 @@ Version 0.6.5, 11/04/2001
 Version 0.6.4, 10/25/2001
 	1. adding minpack routines. use an improved version of fitting
 	   formula for PI cross sections.
-	2. Increased the default radial grid points from 420 to 500. 
+	2. Increased the default radial grid points from 420 to 500.
 	   the original grid wasn't quite enough for RR onto high orbital
 	   angular momentum states.
 	3. implement hydrogenic approximtion of RR and PI cross sections
 	   for high-n and high-L states. By default, states with n >= 6
 	   are calculated in hydrogenic approximation. this can be changed
-	   by SetHydrogenicNL(). 
-	
+	   by SetHydrogenicNL().
+
 Version 0.6.3, 10/22/2001
 	1. allow the use of CBO approximation in the collisional
-	   ionization calculation. 
+	   ionization calculation.
 	2. allow the specification of energy grid limits for automatic
 	   construction via SetPEGridLimits(min, max) etc.
 	3. fitting of EIE collision strength is abandoned, in favor of
-	   interpolation, which is more reliable. 
-	
+	   interpolation, which is more reliable.
+
 Version 0.6.2, 10/19/2001
-	1. the fitting of RR cross sections doesn't work quite well, 
+	1. the fitting of RR cross sections doesn't work quite well,
 	   changed back to interpolation.
 	2. added routine to prepare and load ionization Qk tables.
-	
+
 Version 0.6.1, 10/13/2001
 	1. change the default angz_cut t0 1E-3, which seem to be adequate
-	   and makes the calculation much more efficient for large scale 
+	   and makes the calculation much more efficient for large scale
 	   problems. added SetAngZCut and SetMixCut routines.
-	2. allow multipole closed shells to be specified on one call to 
+	2. allow multipole closed shells to be specified on one call to
 	   config.closed().
 	3. add Makefile to python/
-	
+
 Version 0.6.0, 10/12/2001
 	1. fix a bug in the construction of central potential, which
 	   caused the potential at very large distances incorrect, this
@@ -458,7 +461,7 @@ Version 0.6.0, 10/12/2001
 	   RR cross sections and ionization cross sections.
 
 Version 0.5.9, 10/05/2001
-	1. reimplemented the transition radial integrals to better 
+	1. reimplemented the transition radial integrals to better
 	   distinguish relativistic and non-relativistic approx.
 	2. the relativistic multipole integrals are now interpolated
 	   from a range of transition energies, in stead of using the
@@ -466,23 +469,22 @@ Version 0.5.9, 10/05/2001
 
 Version 0.5.8, 10/04/2001
 	1. really fixed the occasionall failur of radial solver.
-	2. the output level names are simplified by 
+	2. the output level names are simplified by
 	   dropping the closed shells.
-	3. fix the M1 transition rates. which should almost always 
-	   use the relativistic expression. 
-	
+	3. fix the M1 transition rates. which should almost always
+	   use the relativistic expression.
+
 Version 0.5.7, 10/03/2001
 	1. fix a bug in solving the radial orbital for the energy
 	   initialization.
-	2. added the [s,p,d] notation in the configuration 
-	   specification. ie., 3[s,p] means a shell of either 
+	2. added the [s,p,d] notation in the configuration
+	   specification. ie., 3[s,p] means a shell of either
 	   3s or 3p, so is 3[0,1].
-	
+
 Version 0.5.6, 10/01/2001
 	1. fix the bug on the interpolation of PI and RR radial integrals
-	2. change the implementation of ionization, so that it is 
+	2. change the implementation of ionization, so that it is
     	   possible to use precomputed tables.
-	
+
 Version	0.5.5, 9/24/2001,
 	1. Create the Package "pfac". Start Logging
-
