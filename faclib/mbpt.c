@@ -4767,7 +4767,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
   for (t = 1; t <= mbpt_tr.mktr; t++) {
     for (q = -1; q <= 1; q += 2) {      
       m = t*q;
-      printf("Multipole %2d %g\n", m, WallTime()-wt0);
+      printf("multipole: %2d %10.3E %10.3E\n", m, WallTime()-wt0, TotalSize());
       tr_hdr.multipole = m;
       tr_hdr.gauge = GetTransitionGauge();
       tr_hdr.mode = 0;
@@ -4994,6 +4994,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     }
     sym = GetSymmetry(isym);
     DecodePJ(isym, &pp, &jj);
+    double wtc = WallTime();
     ierr = ReadMBPT(nf, f1, mbpt, 1);
     if (ierr < 0) {
       printf("Error reading MBPT 1: %d\n", isym);
@@ -5007,8 +5008,6 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       }
     }
     wt1 = WallTime();
-    if (k0 == 0) printf("sym: %3d %d %2d %d %3d %g\n",
-			isym, pp, jj, k, h->dim, wt1-wt0);
     if (k == 0 || k0 < 0) {
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {	  
@@ -5127,6 +5126,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	}
       }
     }
+    double wt2 = WallTime();
     if (DiagnolizeHamilton(h) < 0) {
       printf("Diagnolizing Hamiltonian Error\n");
       ierr = -1;
@@ -5157,6 +5157,11 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     AddToLevels(h, nkg0, kg);
     free(heff);
     free(neff);
+    double wt3 = WallTime();
+    double ts = TotalSize();
+    printf("sym: %3d %d %2d %d %3d %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	   isym, pp, jj, k, h->dim, wtc-wt0, wt1-wt0, wt2-wt0, wt3-wt0, ts);
+    fflush(stdout);
     h->heff = NULL;
     AllocHamMem(h, -1, -1);
     AllocHamMem(h, 0, 0);

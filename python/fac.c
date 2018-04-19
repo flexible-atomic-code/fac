@@ -4801,6 +4801,25 @@ static PyObject *PPropogateDirection(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRMatrixRefine(PyObject *self, PyObject *args) {
+  int n, m;
+  double r;
+  
+  if (sfac_file) {
+    SFACStatement("RMatrixRefine", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = -1;
+  r = -1.0;
+  if (!PyArg_ParseTuple(args, "i|id", &n, &m, &r)) return NULL;
+  RMatrixRefine(n, m, r);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   char **f1, **f2, *fn;
@@ -5233,6 +5252,7 @@ static struct PyMethodDef fac_methods[] = {
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
   {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
+  {"RMatrixRefine", PRMatrixRefine, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
   {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
