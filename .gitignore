@@ -55,3 +55,14 @@ demo/*/*.tr
 demo/*/*.txt
 demo/*/*.sp
 demo/*/*.rt
+
+# latex binaries in docs
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.out
+*.toc
