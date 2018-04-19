@@ -3596,6 +3596,25 @@ static int PTestRMatrix(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRMatrixRefine(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int n, m;
+  double r;
+
+  if (argc < 1 || argc > 3) return -1;
+  n = atoi(argv[0]);
+  m = -1;
+  r = -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+    if (argc > 2) {
+      r = atof(argv[2]);
+    }
+  }
+  RMatrixRefine(n, m, r);
+  return 0;
+}
+
 static int PRMatrixCE(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   double emin, emax, de;
@@ -4016,11 +4035,12 @@ static METHOD methods[] = {
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
-  {"RMatrixNBatch", PRMatrixNMultipoles, METH_VARARGS}, 
+  {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
   {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
   {"TestRMatrix", PTestRMatrix, METH_VARARGS}, 
+  {"RMatrixRefine", PRMatrixRefine, METH_VARARGS}, 
   {"RMatrixCE", PRMatrixCE, METH_VARARGS}, 
   {"SetSlaterCut", PSetSlaterCut, METH_VARARGS}, 
   {"RMatrixBoundary", PRMatrixBoundary, METH_VARARGS}, 

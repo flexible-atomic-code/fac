@@ -17,7 +17,7 @@ r = ['rmx.d0', 'rmx.d1']
 
 # call RMatrixCE, calculate collsion strength at E=750--1.5E3 eV,
 # in 100 eV step. Results are in r1.d
-RMatrixCE('r1.d', b, r, 750.0, 1.51e3, 100.0)
+RMatrixCE('r1.d', b, r, 563, 583, 2.0)
 
 t1 = time.time()
 print 'Time = %12.5E'%(t1-t0)

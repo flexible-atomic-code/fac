@@ -90,8 +90,16 @@ void PropogateDirection(int m);
 int PropogateExternal(RMATRIX *rmx, RBASIS *rbs);
 void RMatrixNBatch(int n);
 void RMatrixFMode(int m);
-int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[], 
+void RMatrixRefine(int n, int m, double r);
+int RefineRMatrixEGrid(int nke, double *e, int *ir, double **er, int **ipr,
+		       double de, int nde, double minde,
+		       double emin, double emax);
+int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],	      
 	      double emin, double emax, double de, int m, int mb);
+int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx, FILE **f, FILE *f1,
+	       int nke, double *e, int *ip, double **s, double **s0,
+	       int m, int mb, double de, int nde, double minde,
+	       double emin, double emax, int idep);
 int RMatrixConvert(char *ifn, char *ofn, int m);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
 
