@@ -36,7 +36,8 @@ typedef struct _POTENTIAL_ {
   double Z[MAXRP]; /*effective atomic number*/
   double dZ[MAXRP], dZ2[MAXRP];
   double N; /*number of electrons*/
-  double lambda, a; /* parameter for the Vc */
+  double lambda; /* parameter for the Vc */
+  double a; /* previously used to parameterize the Vc, but now always 0.0*/
   double ar, br; /* parameter for the transformation */
   int ib, nb, ib1;
   double bqp, rb; /* boundary condition */

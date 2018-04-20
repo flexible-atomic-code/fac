@@ -2463,11 +2463,10 @@ non-relativistic configurations of \key{1*2 2*2 3*1}.
 
 \begin{fundesc}{GetPotential}{fn}
 Print the radial potential obtained by \key{OptimizeRadial} to the file
-\var{fn}. The file starts with the parameters for the analytic fit the to
-potential, $\lambda$ and $a$, in the formula
+\var{fn}. The file starts with the parameter for the analytic fit the to
+potential, $\lambda$, in the formula
 \begin{equation}
-V_0(r) = -\frac{Z}{r} + \frac{N-1}{r}\left(1-\frac{\exp(-\lambda
-r)}{1+ar}\right). 
+V_0(r) = -\frac{Z}{r} + \frac{N-1}{r}\left(1-\exp(-\lambda r)\right). 
 \end{equation}
 After that, the mean configuration used to generate the potential is printed
 in 3 columns representing the principle quantum number, the relativistic
