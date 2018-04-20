@@ -252,14 +252,15 @@ last argument to \verb|PrintTable| indicates it be done in verbose mode). For
 the conversion in simple mode (the last argument is 0), the in-memory table is
 not needed, and Line 12 may be omitted. For the difference between the verbose
 and simple ASCII files, see Chapter \ref{cha:format}. Line 14 calculates the
-E1 oscillator strength and transition rates between cofiguration groups
+oscillator strength and transition rates between cofiguration groups
 \verb|n2| and \verb|n3|, and saves the results in the binary file
 \verb|ne.tr.b|. The function \verb|TransitionTable| accepts an optional 4th
 integer argument specifying the transition type. A negative integer means
-electric multipol and a positive integer for magnetic multipole. The absolute
+electric multipole and a positive integer for magnetic multipole. The absolute
 value of the integer indicates the rank of the multipole. Therefore, $-1$ would
-be E1, $+1$ would be M1, etc. Without this argument, the default is E1, as is
-done here. Line 15 converts the binary output to an ASCII file in verbose
+be E1, $+1$ would be M1, etc. Without this argument, the default is 0, where 
+we sum up all the multipoles for the rate, as is done here. 
+Line 15 converts the binary output to an ASCII file in verbose
 mode. The exact formats of binary and ASCII files are explained in Chapter
 \ref{cha:format}. Here we list the two ASCII files \verb|ne.lev| and
 \verb|ne.tr| resulted from this calculation. 
@@ -599,7 +600,11 @@ gA = 2\alpha^3 \omega^2 gf,
 where $\alpha$ is the fine structure constant, and $\omega$ is transition
 energy in Hartree atomic units. 
 
-In version 1.0.7 or newer, this stores the multipole matrix elements $M$
+In version 1.0.7 or newer, the stored value depends on the multipole values
+when \key{TransitionTable} is called.
+If default \var{m} is used (or \var{m} = 0 is specified),
+this stores the oscillator strength $gf$.
+If \var{m} is specified, this stores the multipole matrix elements $M$
 instead. It is related to the $gf$ value as
 \begin{equation}
 gf =
@@ -3504,8 +3509,8 @@ function.
 \begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}
 Calculate the weighted oscillator strength and radiative transition rates from
 states in \var{up} groups to states in \var{low} groups with multipole type
-\var{m}. The default for \var{m} is -1, i.e., E1 transitions. The results are
-saved to file \var{fn}.
+\var{m}. The default for \var{m} is 0, where we sum up all the multipoles for 
+the rate. The results are saved to file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{TRBranch}{fn, upper, lower}
