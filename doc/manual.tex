@@ -601,16 +601,16 @@ where $\alpha$ is the fine structure constant, and $\omega$ is transition
 energy in Hartree atomic units. 
 
 In version 1.0.7 or newer, the stored value depends on the multipole values
-when \key{TransitionTable} is called.
-If default \var{m} is used (or \var{m} = 0 is specified),
-this stores the oscillator strength $gf$.
-If \var{m} is specified, this stores the multipole matrix elements $M$
-instead. It is related to the $gf$ value as
+used in \key{TransitionTable}.
+By default (\var{m} = 0), this stores the total oscillator strengths $gf$ for 
+all the multipoles.
+If other value is used for \var{m}, this stores the multipole matrix elements 
+$M$ instead. It is related to the $gf$ value as
 \begin{equation}
 gf =
 \left(2L+1\right)^{-1}\omega\left(\alpha\omega\right)^{2L-2}\left|M\right|^2,
 \end{equation}
-where $L$ is the multipole rank.
+where $L = |m|$ is the multipole rank.
 \end{dbdesc}
 
 \subsection{\texttt{TR\_EXTRA}}
@@ -4519,8 +4519,8 @@ interested has to read the source code directly.
 \faq{Where can I obtain FAC}{
 FAC is free software. It can be used, modified and redistributed
 without restriction. Currently, it can be obtained from anonymous
-\textbf{ftp://space.mit.edu/pub/mfgu/fac/}, or one may request to
-\textbf{mfgu@space.mit.edu} for a copy through email.}
+\textbf{https://github.com/flexible-atomic-code/fac}, or one may request to
+\textbf{mfgu@ssl.berkeley.edu} for a copy through email.}
 
 \faq{What operating systems does FAC run on}{
 FAC is written in a mixture of ANSI C, Fortran 77, and Python, all of them are
@@ -4594,8 +4594,9 @@ soon. The first paper that used results of FAC is Gu, M.F., 2003, ApJ, 582,
 
 \faq{How do I report bugs, make suggestions and get updated about new
 versions}{
-Please contact the author at \textbf{mfgu@space.mit.edu} for bugs and
-suggestions. I maintain a small email address list of people who expressed
+Please raise an issue on \textbf{https://github.com/flexible-atomic-code/fac}
+for bugs and suggestions.
+I maintain a small email address list of people who expressed
 interest in FAC and send release anouncements to them. Let me know if you want
 to be added to this list. If the list ever grows to the point when I can no
 longer put it under my personal address book, we may have to create a
