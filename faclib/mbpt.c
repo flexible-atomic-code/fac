@@ -3538,7 +3538,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   nmax1 = nmaxm1;
   cs = csm;
   tt0 = WallTime();
-  tbg = WallTime();
+  tbg = tt0;
 
   MPrintf(-1, "Construct Radial Basis, %d/%d.\n", MyRankMPI(), NProcMPI());
   fflush(stdout);
@@ -3663,7 +3663,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 
   dw = malloc(sizeof(double)*(n+n2)*4);
-  MPrintf(-1, "CI Structure.\n");
+  MPrintf(-1, "CI Structure...%10.4E %10.4E\n", WallTime()-tbg, TotalSize());
   fflush(stdout);
   nlevels = GetNumLevels();
   emax = -1E31;
@@ -3736,18 +3736,35 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       mix += h->dim;
     }
     int ki=0, ke=0;
+    int jig, iig;
     for (j = 0; j < h->dim; j++) {
+      if (nkg0 != nkg) {
+	st = (STATE *) ArrayGet(&(sym->states), h->basis[j]);
+	jig = InGroups(st->kgroup, nkg0, kg);
+      } else {
+	jig = 1;
+      }
       for (i = 0; i <= j; i++) {
-	c = 0;
-	for (m = 0; m < mks; m++) {
-	  k = ks[m];
-	  mix = h->mixing + h->dim*(k+1);
-	  a = fabs(mix[i]*mix[j]);
-	  if (a > c) c = a;
+	if (nkg0 != nkg) {
+	  st = (STATE *) ArrayGet(&(sym->states), h->basis[i]);
+	  iig = InGroups(st->kgroup, nkg0, kg);
+	} else {
+	  iig = 1;
+	}
+	if (iig && jig) c = 1e30;
+	else {
+	  c = 0;	
+	  for (m = 0; m < mks; m++) {
+	    k = ks[m];
+	    mix = h->mixing + h->dim*(k+1);
+	    a = fabs(mix[i]*mix[j]);
+	    if (a > c) c = a;
+	  }
 	}
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
-	if (i == j) a *= 0.2;
+	if (iig || jig) a *= 0.5;
+	if (i == j) a *= 0.25;
 	if (c >= a) {
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
@@ -3768,13 +3785,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
     }
+    double mem1=TotalSize();
     free(ks);
     AllocHamMem(h, -1, -1);
     AllocHamMem(h, 0, 0);
     tt1 = WallTime();
     dt = tt1-tt0;
     tt0 = tt1;
-    double mem1=TotalSize();
     MPrintf(-1, "Time = %12.5E %g %g %d %d\n",
 	    dt, mem1, mem1-mem0, ki, ke);
   }

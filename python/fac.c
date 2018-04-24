@@ -1182,6 +1182,21 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PFreezeOrbital(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("FreezeOrbital", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  char *s;
+  int m = -1;
+  if (!PyArg_ParseTuple(args, "s|i", &s, &m)) return NULL;
+  FreezeOrbital(s, m);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
   int maxfun, msglvl;
 
@@ -5316,6 +5331,7 @@ static struct PyMethodDef fac_methods[] = {
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
+  {"FreezeOrbital", PFreezeOrbital, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
   {"RecStates", PRecStates, METH_VARARGS},

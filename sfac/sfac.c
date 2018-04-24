@@ -3417,6 +3417,15 @@ static int PRadialOverlaps(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PFreezeOrbital(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  if (argc < 1 || argc > 2 || argt[0] != STRING) return -1;
+  int m = -1;
+  if (argc > 1) m = atoi(argv[1]);
+  FreezeOrbital(argv[0], m);
+  return 0;
+}
+
 static int PSetBoundary(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int nmax;
@@ -4088,6 +4097,7 @@ static METHOD methods[] = {
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
+  {"FreezeOrbital", PFreezeOrbital, METH_VARARGS},
   {"RefineRadial", PRefineRadial, METH_VARARGS},
   {"PrintMemInfo", PPrintMemInfo, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},

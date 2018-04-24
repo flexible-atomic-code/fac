@@ -2095,8 +2095,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     }
     mix += h->n_basis;
   }
-#pragma omp atomic
-  n_levels += i;
+  n_levels = levels->dim;
   if (i < d-1) return -2;
 
   return 0;

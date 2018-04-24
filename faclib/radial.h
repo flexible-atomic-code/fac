@@ -80,6 +80,7 @@ double GetRMax(void);
 
 /* solve the dirac equation for the given orbital */
 ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p);
+void Orthogonalize(ORBITAL *orb);
 int SolveDirac(ORBITAL *orb);
 int WaveFuncTable(char *s, int n, int kappa, double e);
 
@@ -161,6 +162,7 @@ double Breit(int k0, int k1, int k2, int k3, int k,
 void SortSlaterKey(int *kd);
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 		int ib2, int iu2, int ib3, int iu3);
+double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1);
 int ResidualPotential(double *s, int k0, int k1);
 double MeanPotential(int k0, int k1);
 int FreeResidualArray(void);
@@ -169,7 +171,7 @@ int FreeSlaterArray(void);
 int FreeSimpleArray(MULTI *ma);
 int FreeMomentsArray(void);
 int FreeGOSArray(void);
-
+void FreezeOrbital(char *s, int m);
 double RadialMoments(int m, int k1, int k2);
 double MultipoleRadialNR(int m, int k1, int k2, int guage);
 int MultipoleRadialFRGrid(double **p, int m, int k1, int k2, int guage);

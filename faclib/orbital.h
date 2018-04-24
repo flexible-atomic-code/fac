@@ -25,6 +25,7 @@
 #include "interpolation.h"
 
 typedef struct _POTENTIAL_ {
+  int nfrozen;
   int mode;
   int flag;
   int r_core;
