@@ -107,6 +107,7 @@ static struct {
 	 1.0, 1.0, 3.0,
 	 0.07, 0.05, 1.5};
 
+static int _orthogonalize_mode = 1;
 static int _korbmap = KORBMAP;
 static int _norbmap0 = NORBMAP0;
 static int _norbmap1 = NORBMAP1;
@@ -668,23 +669,24 @@ int SetBoundary(int nmax, double p, double bqp) {
 int RadialOverlaps(char *fn, int kappa) {
   ORBITAL *orb1, *orb2;
   int i, j, k;
-  double r;
+  double r, b;
   FILE *f;
 
   f = fopen(fn, "w");
   for (k = 0; k < potential->maxrp; k++) {
-    _yk[k] = 1.0;
+    _dwork10[k] = 1.0;
   }
   for (i = 0; i < n_orbitals; i++) {
     orb1 = GetOrbital(i);
     if (orb1->kappa != kappa) continue;
-    for (j = 0; j <= i; j++) {
+    for (j = 0; j < n_orbitals; j++) {
       orb2 = GetOrbital(j);
       if (orb2->kappa != kappa) continue;
-      Integrate(_yk, orb1, orb2, 1, &r, 0);
-      fprintf(f, "%2d %2d %10.3E  %2d %2d %10.3E  %12.5E\n", 
+      Integrate(_dwork10, orb1, orb2, 1, &r, 0);
+      b = ZerothHamilton(orb1, orb2);
+      fprintf(f, "%2d %2d %12.5E  %2d %2d %12.5E %12.5E %12.5E\n",
 	      orb1->n, orb1->kappa, orb1->energy, 
-	      orb2->n, orb2->kappa, orb2->energy, r);
+	      orb2->n, orb2->kappa, orb2->energy, r, b);
     }
   }
   fclose(f);
@@ -1227,6 +1229,41 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
   return 0;
 }
 
+void FreezeOrbital(char *s, int m) {
+  char s0[1024], *p;
+  int i, j, k, n, nc;
+  CONFIG *cfg;
+  ORBITAL *orb;
+
+  if (m >= 0) _orthogonalize_mode = m;
+  strncpy(s0, s, 1023);
+  s = s0;
+  while (*s == ' ') s++;
+  if (*s == '\0') return;
+  n = StrSplit(s, ' ');
+  p = s;
+  for (i = 0; i < n; i++) {
+    while (*p == ' ') p++;
+    nc = GetConfigFromString(&cfg, p);
+    for (j = 0; j < nc; j++) {
+      if (cfg[j].n_shells != 1) {
+	printf("incorrect freeze orbital format: %d %s\n", i, p);
+	continue;
+      }
+      k = OrbitalExists((cfg[j].shells)[0].n, (cfg[j].shells)[0].kappa, 0);
+      if (k < 0) continue;
+      orb = GetOrbital(k);
+      if (orb->isol == 1) {
+	orb->isol = 2;
+	potential->nfrozen++;
+      }
+    }
+    if (nc > 0) free(cfg);
+    while (*p) p++;
+    p++;
+  }
+}
+
 int OptimizeLoop(AVERAGE_CONFIG *acfg) {
   double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0;
   ORBITAL orb_old, *orb;
@@ -1262,20 +1299,20 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
 	no_old = 1;	
       } else {
 	orb = GetOrbital(k);
-	if (orb->wfun == NULL) {
+	if (orb->isol == 0 || orb->wfun == NULL) {
 	  orb_old.energy = 0.0;
 	  orb->energy = 1.0;
 	  orb->kappa = acfg->kappa[i];
 	  orb->n = acfg->n[i];
 	  no_old = 1;	
-	} else {
+	} else if (orb->isol == 1) {
 	  orb_old.energy = orb->energy; 
-	  if (orb->wfun) {
-	    free(orb->wfun);
-	    orb->wfun = NULL;
-	    orb->isol = 0;
-	  }
+	  free(orb->wfun);
+	  orb->wfun = NULL;
+	  orb->isol = 0;
 	  no_old = 0;
+	} else {
+	  continue;
 	}
       }
 
@@ -1579,6 +1616,39 @@ int RefineRadial(int maxfun, int msglvl) {
   return 0;
 }
 
+void Orthogonalize(ORBITAL *orb) {
+  int i, k;
+
+  for (i = 0; i < potential->maxrp; i++) {
+    _yk[i] = 1;
+  }
+  k = ((abs(orb->kappa)-1)*2)+(orb->kappa>0);
+  ORBMAP *om = &_orbmap[k];  
+  ORBITAL *orb0;
+  double a, b, *p, *q, *p0, *q0;
+  p = Large(orb);
+  q = Small(orb);
+  b = 1.0;
+  for (k = 0; k < _norbmap0; k++) {
+    orb0 = om->opn[k];
+    if (orb0 == NULL || orb->n == orb0->n) continue;
+    if (_orthogonalize_mode > 1 && orb0->isol == 2) continue;
+    Integrate(_yk, orb, orb0, 1, &a, 0);
+    p0 = Large(orb0);
+    q0 = Small(orb0);
+    for (i = 0; i <= orb->ilast; i++) {
+      p[i] -= p0[i]*a;
+      q[i] -= q0[i]*a;
+    }
+    b -= a*a;
+  }
+  b = 1.0/sqrt(b);
+  for (i = 0; i <= orb->ilast; i++) {
+    p[i] *= b;
+    q[i] *= b;
+  }
+}
+
 int SolveDirac(ORBITAL *orb) {
   int err;
 #ifdef PERFORM_STATISTICS
@@ -1593,6 +1663,9 @@ int SolveDirac(ORBITAL *orb) {
     printf("Error ocuured in RadialSolver, %d\n", err);
     printf("%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
     exit(1);
+  }
+  if (potential->nfrozen > 0 && orb->n > 0 && _orthogonalize_mode > 0) {
+    Orthogonalize(orb);
   }
 #ifdef PERFORM_STATISTICS
   stop = clock();
@@ -3142,6 +3215,35 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
   return x;
 }
 
+double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1) {
+  double *p0, *p1, *q0, *q1;
+  if (orb0->kappa != orb1->kappa) return 0.0;
+  
+  p0 = Large(orb0);
+  p1 = Large(orb1);
+  q0 = Small(orb0);
+  q1 = Small(orb1);
+  int ilast = Min(orb0->ilast, orb1->ilast);
+  int i;
+  double v, a, a2, b;
+  Differential(p1, _xk, 0, ilast, potential->dr_drho);
+  Differential(q1, _zk, 0, ilast, potential->dr_drho);
+  a = 1/FINE_STRUCTURE_CONST;
+  a2 = 1/FINE_STRUCTURE_CONST2;
+  for (i = 0; i <= ilast; i++) {
+    v = potential->Vc[i] + potential->U[i];
+    b = orb1->kappa/potential->rad[i];
+    _yk[i] = p0[i]*p1[i]*(v) + a*p0[i]*(-_zk[i]+q1[i]*b);
+    _yk[i] += q0[i]*q1[i]*(v-2*a2) + a*q0[i]*(_xk[i]+p1[i]*b);
+    _yk[i] *= potential->dr_drho[i];
+  }
+  _xk[0] = 0;
+  NewtonCotes(_xk, _yk, 0, ilast, 1, 0);
+  b = _xk[ilast];
+  //b = Simpson(_yk, 0, ilast);
+  return b;
+}
+
 /* calculate the expectation value of the residual potential:
    -Z/r - v0(r), where v0(r) is central potential used to solve 
    dirac equations. the orbital index must be valid, i.e., their 
@@ -3201,6 +3303,10 @@ int ResidualPotential(double *s, int k0, int k1) {
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
     }
     Integrate(_yk, orb1, orb2, 1, s, -1);
+    if (potential->nfrozen) {
+      *s += ZerothHamilton(orb1, orb2);
+      if (orb1->n == orb2->n) *s -= orb1->energy;
+    }
   }
   *p = *s;
   if (locked) ReleaseLock(lock);
@@ -6859,6 +6965,7 @@ int InitRadial(void) {
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
   rpotential = malloc(sizeof(POTENTIAL));
+  potential->nfrozen = 0;
   potential->mode = POTMODE;
   potential->hxs = POTHXS;
   potential->ihx = POTIHX;

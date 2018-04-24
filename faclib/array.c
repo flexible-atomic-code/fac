@@ -841,46 +841,38 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *)) {
-  int i, j, m, h, size, locked = 0;
+  int i, j, m, h, size, locked = 0, clocked = 0;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
 
-  if (_maxsize > 0 && ma->cth > 0) {
-    double ts = TotalSize();
-    if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
-      if (ma->clean_lock) {
-	SetLock(ma->clean_lock);
-	locked = 1;
-      }
+  if (ma->clean_lock) {
+    if (0 == TryLock(ma->clean_lock)) {
+      clocked = 1;
+    }
+  } else {
+    clocked = 2;
+  }
+  if (clocked) {
+    if (_maxsize > 0 && ma->cth > 0) {
+      double ts = TotalSize();
       if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
 	ma->clean_mode = 1;
 	NMultiFreeData(ma, FreeElem);
       }
-      if (locked) ReleaseLock(ma->clean_lock);
-    }
-  } else if (ma->maxsize > 0 && ma->totalsize >= ma->maxsize) {
-    if (ma->clean_lock) {
-      SetLock(ma->clean_lock);
-      locked = 1;
-    }
-    if (ma->totalsize >= ma->maxsize) {
+    } else if (ma->maxsize > 0) {
+      if (ma->totalsize >= ma->maxsize) {
+	ma->clean_mode = 0;
+	NMultiFreeData(ma, FreeElem);
+      }
+    } else if (ma->clean_flag > 0) {
       ma->clean_mode = 0;
       NMultiFreeData(ma, FreeElem);
     }
-    if (locked) ReleaseLock(ma->clean_lock);
-  } else if (ma->clean_flag > 0) {
-    if (ma->clean_lock) {
-      SetLock(ma->clean_lock);
-      locked = 1;
-    }
-    if (ma->clean_flag > 0) {
-      ma->clean_mode = 0;
-      NMultiFreeData(ma, FreeElem);
-    }
-    if (locked) ReleaseLock(ma->clean_lock);
+  } else if (ma->clean_mode >= 0) {
+    SetLock(ma->clean_lock);
+    clocked = 1;
   }
-
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
   locked = 0;
@@ -917,6 +909,9 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	  if (locked) {
 	    ReleaseLock(a->lock);
 	  }	  
+	  if (clocked == 1) {
+	    ReleaseLock(ma->clean_lock);
+	  }
 	  return pt->data;
 	}
 	pt++;
@@ -950,6 +945,9 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	    if (lock) *lock = pt->lock;
 	    if (locked) {
 	      ReleaseLock(a->lock);
+	    }
+	    if (clocked == 1) {
+	      ReleaseLock(ma->clean_lock);
 	    }
 	    return pt->data;
 	  }
@@ -1005,6 +1003,9 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   (a->dim)++;  
   if (locked) {
     ReleaseLock(a->lock);
+  }
+  if (clocked == 1) {
+    ReleaseLock(ma->clean_lock);
   }
   return pt->data;
 }

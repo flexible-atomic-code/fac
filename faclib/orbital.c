@@ -965,6 +965,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     return 0;
   }
 
+  niter = 0;
   if (i2 < pot->ib) {
     while (niter < max_iteration) {
       niter++;
@@ -999,9 +1000,15 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       norm2 += fact*fact*InnerProduct(i2, pot->ib, p, p, pot);
       
       delta = 0.5*p2*p2*(qo - qi)/norm2;
+      double e0 = e;
       e = e + delta;
       ep = EneTol(e);
       if (fabs(delta) < ep) break;
+      if (niter > 20) {
+	ep = niter-20;
+	ep = 1.0 - 0.75*Min(100,ep)/100;
+	e = e*ep + e0*(1-ep);
+      }
     }
     nodes = 0;
     i = pot->ib-1;
@@ -1034,6 +1041,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     de *= 0.05;
     p2 = 0.0;
     while (niter < max_iteration) {
+      niter++;
       SetPotentialW(pot, e, orb->kappa, kv);
       SetVEffective(kl, kv, pot);      
       bqp0 = DpDr(orb->kappa, kv, 0, e, pot, 0, -1, &orb->bqp0);
@@ -1250,14 +1258,19 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     norm2 += fact*fact*InnerProduct(i2, pot->maxrp-1, p, p, pot);
 
     delta = 0.5*p2*p2*(qo - qi)/norm2;
+    double e0 = e;
     e = e + delta;
     ep = EneTol(e);
     if (fabs(delta) < ep) break;
+    if (niter > 20) {
+      ep = niter-20;
+      ep = 1.0 - 0.75*Min(100,ep)/100;
+      e = e*ep + e0*(1-ep);
+    }
   }
   if (niter == max_iteration) {
-    printf("Max iteration reached in RadialBound\n");
-    free(p);
-    return -5;
+    printf("Max iteration reached in RadialBound: %d %d\n", orb->n, orb->kappa);
+    Abort(1);
   }
   ep = sqrt(norm2);
   fact = 1.0/ep;
@@ -1408,6 +1421,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       norm2 += fact*fact*InnerProduct(i2, pot->maxrp-1, p, p, pot);
       
       delta = 0.5*p2*p2*(qo - qi)/norm2;
+      e0 = e;
       e = e + delta;
       ep = EneTol(e);
       if (fabs(delta) < ep) {
@@ -1417,6 +1431,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 	  p[i] *= fact;
 	}
 	break;
+      }
+      if (niter > 20) {
+	ep = niter-20;
+	ep = 1.0 - 0.75*Min(100,ep)/100;
+	e = e*ep + e0*(1-ep);
       }
     }
     if (niter == max_iteration) {
