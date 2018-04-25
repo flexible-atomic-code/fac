@@ -1632,7 +1632,8 @@ void Orthogonalize(ORBITAL *orb) {
   for (k = 0; k < _norbmap0; k++) {
     orb0 = om->opn[k];
     if (orb0 == NULL || orb->n == orb0->n) continue;
-    if (_orthogonalize_mode > 1 && orb0->isol == 2) continue;
+    if (orb0->isol <= 0) continue;
+    if (_orthogonalize_mode > 1 && orb0->isol != 2) continue;
     Integrate(_yk, orb, orb0, 1, &a, 0);
     p0 = Large(orb0);
     q0 = Small(orb0);
@@ -7250,5 +7251,160 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
   
   printf("modqed rms: %3.0f %18.10E %18.10E %18.10E %18.10E %18.10E %18.10E\n",
 	 z, rms, r, rs, e, e0, e-e0);
+}
+
+int AddNewConfigToList(int k, CONFIG *cfg, double sth,
+		       int i0, int i1, int i2, int i3) {
+  if (ConfigExists(cfg)) return -1;
+  if (sth > 0) {
+    int n0, k0, n1, k1, n2, k2, n3, k3;
+    IntToShell(i0, &n0, &k0);
+    IntToShell(i1, &n1, &k1);
+    if (i2 >= 0) {
+      IntToShell(i2, &n2, &k2);
+    } else if (cfg->n_shells > 1) {
+      n2 = cfg->shells[1].n;
+      k2 = cfg->shells[1].kappa;
+    }
+    if (i3 >= 0) {
+      IntToShell(i3, &n3, &k3);
+    } else if (cfg->n_shells > 1) {
+      n3 = cfg->shells[1].n;
+      k3 = cfg->shells[1].kappa;
+    }
+    int ko0, ko1, ko2, ko3;
+    ORBITAL *o0, *o1, *o2, *o3;
+    ko0 = OrbitalIndex(n0, k0, 0);
+    ko1 = OrbitalIndex(n1, k1, 0);
+    ko2 = OrbitalIndex(n2, k2, 0);
+    ko3 = OrbitalIndex(n3, k3, 0);
+    int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
+    GetJLFromKappa(k0, &j0, &kl0);
+    GetJLFromKappa(k1, &j1, &kl1);
+    GetJLFromKappa(k2, &j2, &kl2);
+    GetJLFromKappa(k3, &j3, &kl3);
+    int kk0, kk1;
+    kk0 = abs(j0-j1);
+    if (IsOdd((kk0+kl0+kl1)/2)) kk0 += 2;
+    kk1 = abs(j2-j3);
+    if (IsOdd((kk1+kl2+kl3)/2)) kk1 += 2;
+    int kk = Min(kk0, kk1)/2;
+    o0 = GetOrbital(ko0);
+    o1 = GetOrbital(ko1);
+    o2 = GetOrbital(ko2);
+    o3 = GetOrbital(ko3);
+    double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+    double s;
+    Slater(&s, ko0, ko2, ko1, ko3, kk, 0);
+    if (fabs(s) < sth*de) return -2;
+  }
+  if (Couple(cfg) < 0) return -1;
+  return AddConfigToList(k, cfg);
+}
+
+int ConfigSD(int m, int ng, int *kg, char *s, char *gn, 
+	     int n0, int n1, int n0d, int n1d, int k0, int k1, double sth) {
+  int ni, nr, *kc, i, j, k, ir, ns, ks, ks2, ka, is, js;
+  int t, ird, nd, kd, kd2, jd, id, ig;
+  CONFIG_GROUP *g;
+  CONFIG *c, *cr, *cs;
+
+  if (n0d <= 0) n0d = n0;
+  if (n1d <= 0) n1d = n1;
+  if (k0 < 0) k0 = 0;
+  if (k1 < 0) k1 = Max(n1,n1d)-1;
+  if (m < 1 || m > 3) {
+    printf("invalid mode: %d\n", m);
+    return -1;
+  }
+  nr = GetConfigFromString(&cr, s);
+  if (nr <= 0) {
+    printf("invalid reference shell spec in ConfigSD: %s\n", s);
+    return -1;
+  }
+  for (i = 0; i < nr; i++) {
+    if (cr[i].n_shells > 1) {
+      printf("invalid reference shell spec in ConfigSD: %s %d %d\n",
+	     s, i, cr[i].n_shells);
+      return -1;
+    }
+  }
+  ig = GroupIndex(gn);
+  if (ig < 0) {
+    printf("invalid config group name: %s\n", gn);
+    return -1;
+  }
+  ni = Max(n1, n1d);
+  for (i = 0; i < ng; i++) {
+    g = GetGroup(kg[i]);
+    if (ni < g->nmax) ni = g->nmax;
+  }  
+  ni = ni*ni;
+  kc = malloc(sizeof(int)*ni);
+  for (i = 0; i < ng; i++) {
+    g = GetGroup(kg[i]);
+    for (j = 0; j < g->n_cfgs; j++) {
+      c = GetConfigFromGroup(kg[i], j);
+      ConfigToIList(c, ni, kc);
+      for (k = 0; k < nr; k++) {
+	ir = ShellToInt(cr[k].shells[0].n, cr[k].shells[0].kappa);
+	if (kc[ir] <= 0) continue;
+	for (ns = n0; ns <= n1; ns++) {
+	  for (ks = k0; ks <= k1; ks++) {
+	    if (ks >= ns) break;
+	    ks2 = 2*ks;
+	    for (js = ks2-1; js <= ks2+1; js += 2) {
+	      if (js < 0) continue;
+	      ka = GetKappaFromJL(js, ks2);
+	      is = ShellToInt(ns, ka);
+	      kc[ir]--;
+	      kc[is]++;
+	      if (m != 2) {
+		cs = ConfigFromIList(ni, kc);
+		AddNewConfigToList(ig, cs, sth, ir, is, -1, -1);
+		free(cs);
+	      }
+	      if (m == 1) {
+		kc[ir]++;
+		kc[is]--;
+		continue;
+	      }
+	      for (t = 0; t < nr; t++) {
+		ird = ShellToInt(cr[t].shells[0].n, cr[t].shells[0].kappa);
+		if (kc[ird] <= 0) continue;
+		for (nd = ns; nd <= n1d; nd++) {
+		  if (nd < n0d) continue;
+		  for (kd = k0; kd <= k1; kd++) {
+		    if (kd >= nd) break;
+		    kd2 = 2*kd;
+		    for (jd = kd2-1; jd <= kd2+1; jd += 2) {
+		      if (jd < 0) continue;
+		      ka = GetKappaFromJL(jd, kd2);
+		      id = ShellToInt(nd, ka);
+		      kc[ird]--;
+		      kc[id]++;
+		      cs = ConfigFromIList(ni, kc);
+		      AddNewConfigToList(ig, cs, sth, ir, is, ird, id);
+		      free(cs);
+		      kc[ird]++;
+		      kc[id]--;
+		    }
+		  }
+		}
+	      }
+	      kc[ir]++;
+	      kc[is]--;
+	    }
+	  }
+	}
+      }
+    }
+  }
+  for (i = 0; i < nr; i++) {
+    free(cr[i].shells);
+  }
+  free(cr);  
+  free(kc);
+  return 0;
 }
 

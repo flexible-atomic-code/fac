@@ -485,6 +485,24 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     return Py_None;
   }
 
+  q = PyTuple_GET_ITEM(args, 0);
+  if (PyLong_Check(q)) {
+    int m, ng, *kg, n0, n1, k0, k1, n0d, n1d;
+    double sth;
+    char *gn, *s;
+    n0d = 0;
+    n1d = 0;
+    sth = 0;
+    if (!(PyArg_ParseTuple(args, "isOsiiii|iid",
+			   &m, &gn, &q, &s, &n0, &n1, &k0, &k1,
+			   &n0d, &n1d, &sth))) return NULL;
+    ng = DecodeGroupArgs(q, &kg);
+    if (ConfigSD(m, ng, kg, s, gn, n0, n1, n0d, n1d, k0, k1, sth) < 0) {
+      return NULL;
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   argc = PyTuple_Size(args);
   i = 0;
 
