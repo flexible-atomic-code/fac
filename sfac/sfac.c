@@ -410,6 +410,35 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   static char gname[GROUP_NAME_LEN] = "_all_";
   int i, j, k, t, ncfg;
   char scfg[MCHSHELL];
+
+  if (argc >= 8 && argt[0] == NUMBER) {
+    int ng, *kg, n0, n1, k0, k1, m, n0d, n1d;
+    double sth;
+    if (argt[1] != STRING) return -1;
+    if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+    if (argt[3] != STRING) return -1;
+    if (argt[4] != NUMBER) return -1;
+    if (argt[5] != NUMBER) return -1;
+    ng = DecodeGroupArgs(&kg, 1, &argv[2], &argt[2], variables);
+    m = atoi(argv[0]);
+    n0 = atoi(argv[4]);
+    n1 = atoi(argv[5]);
+    k0 = atoi(argv[6]);
+    k1 = atoi(argv[7]);
+    sth = 0;
+    n0d = n0;
+    n1d = n1;
+    if (argc > 8) {
+      n0d = atoi(argv[8]);
+      if (argc > 9) {
+	n1d = atoi(argv[9]);
+	if (argc > 10) {
+	  sth = atof(argv[10]);
+	}
+      }
+    }
+    return ConfigSD(m, ng, kg, argv[3], argv[1], n0, n1, n0d, n1d, k0, k1, sth);
+  }
   
   k = -2;
   for (i = 0; i < argc; i++) {
