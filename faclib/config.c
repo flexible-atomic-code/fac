@@ -1653,6 +1653,7 @@ int AddGroup(char *name) {
     exit(1);
   }
   strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN);
+  cfg_groups[n_groups].nmax = 0;
   n_groups++;
   return n_groups-1;
 }
@@ -1727,6 +1728,63 @@ CONFIG *GetConfigFromGroup(int kg, int kc) {
   return (CONFIG *) ArrayGet(&(cfg_groups[kg].cfg_list), kc);
 }
 
+int ConfigToIList(CONFIG *c, int n, int *s) {
+  int i, j;
+  for (i = 0; i < n; i++) s[i] = 0;
+  for (i = 0; i < c->n_shells; i++) {
+    j = ShellToInt(c->shells[i].n, c->shells[i].kappa);
+    if (j >= n) {
+      printf("ConfigToIList error: %d %d\n", j, n);
+      return -1;
+    }
+    s[j] = c->shells[i].nq;
+  }
+  return 0;
+}
+
+CONFIG *ConfigFromIList(int n, int *s) {
+  CONFIG *c;
+  int i, j;
+  c = malloc(sizeof(CONFIG));
+  InitConfigData(c, 1);
+  for (i = 0; i < n; i++) {
+    if (s[i]) c->n_shells++;
+  }
+  c->shells = malloc(sizeof(SHELL)*c->n_shells);
+  j = 0;
+  for (i = n-1; i >= 0; i--) {
+    if (s[i]) {
+      IntToShell(i, &c->shells[j].n, &c->shells[j].kappa);
+      c->shells[j].nq = s[i];
+      j++;      
+    }
+  }
+  return c;
+}
+
+int ConfigExists(CONFIG *cfg) {
+  int i, j, t, n;
+  CONFIG *c;
+  CONFIG_GROUP *g;
+  
+  n = cfg->shells[0].n;
+  for (i = 0; i < n_groups; i++) {
+    g = GetGroup(i);
+    if (n > g->nmax) continue;
+    for (j = 0; j < g->n_cfgs; j++) {
+      c = GetConfigFromGroup(i, j);
+      if (cfg->n_shells != c->n_shells) continue;
+      for (t = 0; t < c->n_shells; t++) {
+	if (cfg->shells[t].n != c->shells[t].n) break;
+	if (cfg->shells[t].kappa != c->shells[t].kappa) break;
+	if (cfg->shells[t].nq != c->shells[t].nq) break;
+      }
+      if (t == c->n_shells) return 1;
+    }
+  }
+  return 0;
+}
+
 /* 
 ** FUNCTION:    AddConfigToList
 ** PURPOSE:     add a configuration to the specified group,
@@ -1796,7 +1854,9 @@ int AddConfigToList(int k, CONFIG *cfg) {
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
   cfg_groups[k].n_cfgs++;
-
+  if (cfg->shells[0].n > cfg_groups[k].nmax) {
+    cfg_groups[k].nmax = cfg->shells[0].n;
+  }
   return 0;
 }
 

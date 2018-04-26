@@ -210,6 +210,7 @@ typedef struct _AVERAGE_CONFIG_ {
 typedef struct _CONFIG_GROUP_ { 
   int n_cfgs;
   int n_electrons;
+  int nmax;
   ARRAY cfg_list;
   double sweight;
   char name[GROUP_NAME_LEN]; 
@@ -316,5 +317,8 @@ int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
 int          ReinitConfig(int m);
 int          SetNCG(void);
+int ConfigToIList(CONFIG *c, int n, int *s);
+CONFIG *ConfigFromIList(int n, int *s);
+int ConfigExists(CONFIG *c);
 
 #endif

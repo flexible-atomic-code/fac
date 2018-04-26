@@ -3226,7 +3226,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ce_hdr.usr_egrid = usr_egrid;
     InitFile(f, &fhdr, &ce_hdr);
     ResetWidMPI();
-#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, ilow, iup, k, qkc, r, m, ip, nsub, ie, iempty)
+#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, ilow, iup, k, qkc, params, bethe, r, m, ip, nsub, ie, iempty)
     {
     nsub = 1;
     if (msub) {
@@ -3252,7 +3252,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	    e = -e;
 	  }
 	}	    
-	if (e < e0 || e >= e1) continue;	int skip = SkipMPI();
+	if (e < e0 || e >= e1) continue;
+	int skip = SkipMPI();
 	if (skip) continue;
 	if (iuta) {
 	  k = CollisionStrengthUTA(qkc, params, &e, bethe, ilow, iup);
@@ -3571,7 +3572,7 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     m = ce_hdr.n_egrid;
 
     ResetWidMPI();
-#pragma omp parallel default(shared) private(i, j, r, lev1, lev2, e, ilow, iup, k, iempty, ie)
+#pragma omp parallel default(shared) private(i, j, r, lev1, lev2, e, ilow, iup, k, iempty, ie, qkc, bethe)
     {
     r.strength = (float *) malloc(sizeof(float)*m);    
     for (i = 0; i < nlow; i++) {
