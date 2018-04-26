@@ -1206,7 +1206,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     ci_hdr.usr_egrid = usr_egrid;
     InitFile(file, &fhdr, &ci_hdr);
     ResetWidMPI();
-#pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, r, ip, ie)
+#pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, qk, r, ip, ie)
     {
     r.strength = (float *) malloc(sizeof(float)*n_usr);
     r.params = (float *) malloc(sizeof(float)*nqk);
