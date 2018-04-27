@@ -7402,6 +7402,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	      if (mar != 1) {
 		ka = GetKappaFromJL(js, ks2);
 		is = ShellToInt(ns, ka);
+		if (kc[is] == js+1) continue;
 	      } else {
 		is = -1;
 	      }
@@ -7434,6 +7435,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		      if (mar != 1) {
 			ka = GetKappaFromJL(jd, kd2);
 			id = ShellToInt(nd, ka);
+			if (kc[id] == jd+1) continue;
 		      } else {
 			id = -1;
 		      }
