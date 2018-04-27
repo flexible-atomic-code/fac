@@ -7302,36 +7302,61 @@ int AddNewConfigToList(int k, CONFIG *cfg, double sth,
   return AddConfigToList(k, cfg);
 }
 
-int ConfigSD(int m, int ng, int *kg, char *s, char *gn, 
+int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1, double sth) {
   int ni, nr, *kc, i, j, k, ir, ns, ks, ks2, ka, is, js;
-  int t, ird, nd, kd, kd2, jd, id, ig;
+  int t, ird, nd, kd, kd2, jd, id, ig1, ig2;
   CONFIG_GROUP *g;
   CONFIG *c, *cr, *cs;
-
+  int m, mar;
+  
   if (n0d <= 0) n0d = n0;
   if (n1d <= 0) n1d = n1;
   if (k0 < 0) k0 = 0;
   if (k1 < 0) k1 = Max(n1,n1d)-1;
-  if (m < 1 || m > 3) {
-    printf("invalid mode: %d\n", m);
+  if (gn2 == NULL || strlen(gn2) == 0) gn2 = gn1;
+  m = m0%10;
+  mar = m0/10;
+  if (m < 1 || m > 3 || mar > 2) {
+    printf("invalid mode: %d %d %d\n", m0, m, mar);
     return -1;
   }
-  nr = GetConfigFromString(&cr, s);
+  if (mar > 0) sth = 0;
+  if (mar == 2) {
+    nr = 1;
+    cr = NULL;
+  } else {
+    nr = GetConfigFromString(&cr, s);
+  }
+  if (mar == 1) {
+    n0 = 1;
+    n1 = 1;
+    k0 = 0;
+    k1 = 0;
+    n0d = 1;
+    n1d = 1;    
+  }
   if (nr <= 0) {
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
     return -1;
   }
-  for (i = 0; i < nr; i++) {
-    if (cr[i].n_shells > 1) {
-      printf("invalid reference shell spec in ConfigSD: %s %d %d\n",
-	     s, i, cr[i].n_shells);
-      return -1;
+  if (cr) {
+    for (i = 0; i < nr; i++) {
+      if (cr[i].n_shells > 1) {
+	printf("invalid reference shell spec in ConfigSD: %s %d %d\n",
+	       s, i, cr[i].n_shells);
+	return -1;
+      }
     }
   }
-  ig = GroupIndex(gn);
-  if (ig < 0) {
-    printf("invalid config group name: %s\n", gn);
+  ig1 = GroupIndex(gn1);
+  if (ig1 < 0) {
+    printf("invalid config group name: %s\n", gn1);
+    return -1;
+  }
+  ig2 = GroupIndex(gn2);
+  if (ig2 < 0) {
+    printf("invalid config group name: %s\n", gn2);
     return -1;
   }
   ni = Max(n1, n1d);
@@ -7347,31 +7372,43 @@ int ConfigSD(int m, int ng, int *kg, char *s, char *gn,
       c = GetConfigFromGroup(kg[i], j);
       ConfigToIList(c, ni, kc);
       for (k = 0; k < nr; k++) {
-	ir = ShellToInt(cr[k].shells[0].n, cr[k].shells[0].kappa);
-	if (kc[ir] <= 0) continue;
+	if (cr) {
+	  ir = ShellToInt(cr[k].shells[0].n, cr[k].shells[0].kappa);
+	  if (kc[ir] <= 0) continue;
+	} else {
+	  ir = -1;
+	}
 	for (ns = n0; ns <= n1; ns++) {
 	  for (ks = k0; ks <= k1; ks++) {
 	    if (ks >= ns) break;
 	    ks2 = 2*ks;
 	    for (js = ks2-1; js <= ks2+1; js += 2) {
 	      if (js < 0) continue;
-	      ka = GetKappaFromJL(js, ks2);
-	      is = ShellToInt(ns, ka);
-	      kc[ir]--;
-	      kc[is]++;
+	      if (mar != 1) {
+		ka = GetKappaFromJL(js, ks2);
+		is = ShellToInt(ns, ka);
+	      } else {
+		is = -1;
+	      }
+	      if (ir >= 0) kc[ir]--;
+	      if (is >= 0) kc[is]++;
 	      if (m != 2) {
 		cs = ConfigFromIList(ni, kc);
-		AddNewConfigToList(ig, cs, sth, ir, is, -1, -1);
+		AddNewConfigToList(ig1, cs, sth, ir, is, -1, -1);
 		free(cs);
 	      }
 	      if (m == 1) {
-		kc[ir]++;
-		kc[is]--;
+		if (ir >= 0) kc[ir]++;
+		if (is >= 0) kc[is]--;
 		continue;
 	      }
 	      for (t = 0; t < nr; t++) {
-		ird = ShellToInt(cr[t].shells[0].n, cr[t].shells[0].kappa);
-		if (kc[ird] <= 0) continue;
+		if (cr) {
+		  ird = ShellToInt(cr[t].shells[0].n, cr[t].shells[0].kappa);
+		  if (kc[ird] <= 0) continue;
+		} else {
+		  ird = -1;
+		}
 		for (nd = ns; nd <= n1d; nd++) {
 		  if (nd < n0d) continue;
 		  for (kd = k0; kd <= k1; kd++) {
@@ -7379,31 +7416,37 @@ int ConfigSD(int m, int ng, int *kg, char *s, char *gn,
 		    kd2 = 2*kd;
 		    for (jd = kd2-1; jd <= kd2+1; jd += 2) {
 		      if (jd < 0) continue;
-		      ka = GetKappaFromJL(jd, kd2);
-		      id = ShellToInt(nd, ka);
-		      kc[ird]--;
-		      kc[id]++;
+		      if (mar != 1) {
+			ka = GetKappaFromJL(jd, kd2);
+			id = ShellToInt(nd, ka);
+		      } else {
+			id = -1;
+		      }
+		      if (ird >= 0) kc[ird]--;
+		      if (id >= 0) kc[id]++;
 		      cs = ConfigFromIList(ni, kc);
-		      AddNewConfigToList(ig, cs, sth, ir, is, ird, id);
+		      AddNewConfigToList(ig2, cs, sth, ir, is, ird, id);
 		      free(cs);
-		      kc[ird]++;
-		      kc[id]--;
+		      if (ird >= 0) kc[ird]++;
+		      if (id >= 0) kc[id]--;
 		    }
 		  }
 		}
 	      }
-	      kc[ir]++;
-	      kc[is]--;
+	      if (ir >= 0) kc[ir]++;
+	      if (is >= 0) kc[is]--;
 	    }
 	  }
 	}
       }
     }
   }
-  for (i = 0; i < nr; i++) {
-    free(cr[i].shells);
+  if (cr) {
+    for (i = 0; i < nr; i++) {
+      free(cr[i].shells);
+    }  
+    free(cr);
   }
-  free(cr);  
   free(kc);
   return 0;
 }

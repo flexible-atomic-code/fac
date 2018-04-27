@@ -1763,13 +1763,18 @@ CONFIG *ConfigFromIList(int n, int *s) {
 }
 
 int ConfigExists(CONFIG *cfg) {
-  int i, j, t, n;
+  int i, j, t, n, nele;
   CONFIG *c;
   CONFIG_GROUP *g;
   
   n = cfg->shells[0].n;
+  nele = 0;
+  for (i = 0; i < cfg->n_shells; i++) {
+    nele += cfg->shells[i].nq;
+  }
   for (i = 0; i < n_groups; i++) {
     g = GetGroup(i);
+    if (nele != g->n_electrons) continue;
     if (n > g->nmax) continue;
     for (j = 0; j < g->n_cfgs; j++) {
       c = GetConfigFromGroup(i, j);
