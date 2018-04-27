@@ -193,7 +193,7 @@ void OptimizeModSE(int n, int ka, double dr, int ni);
 void RemoveOrbitalLock(void);
 int AddNewConfigToList(int k, CONFIG *c, double sth,
 		       int i0, int i1, int i2, int i3);
-int ConfigSD(int m, int ng, int *kg, char *s, char *gn,
+int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1, double sth);
 
 #endif
