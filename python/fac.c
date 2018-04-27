@@ -517,6 +517,8 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     } else if (PyUnicode_Check(q1)) {
       gn1 = PyUnicode_AsString(q1);
       gn2 = NULL;
+    } else {
+      return NULL;
     }
     ng = DecodeGroupArgs(q, &kg);
     if (ConfigSD(m, ng, kg, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1, sth) < 0) {
