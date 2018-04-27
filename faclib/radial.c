@@ -7308,7 +7308,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
   int t, ird, nd, kd, kd2, jd, id, ig1, ig2;
   CONFIG_GROUP *g;
   CONFIG *c, *cr, *cs;
-  int m, mar;
+  int m, mar, *kcr;
   
   if (n0d <= 0) n0d = n0;
   if (n1d <= 0) n1d = n1;
@@ -7340,12 +7340,34 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
     return -1;
   }
+  ni = Max(n1, n1d);
+  for (i = 0; i < ng; i++) {
+    g = GetGroup(kg[i]);
+    if (ni < g->nmax) ni = g->nmax;
+  }  
+  ni = ni*ni;
+  kc = malloc(sizeof(int)*ni);
+  kcr = NULL;  
   if (cr) {
+    for (i = 0; i < ni; i++) kc[i] = 0;
     for (i = 0; i < nr; i++) {
-      if (cr[i].n_shells > 1) {
-	printf("invalid reference shell spec in ConfigSD: %s %d %d\n",
-	       s, i, cr[i].n_shells);
-	return -1;
+      for (j = 0; j < cr[i].n_shells; j++) {
+	k = ShellToInt(cr[i].shells[j].n, cr[i].shells[j].kappa);
+	if (k >= 0) kc[k] = 1;
+      }
+      free(cr[i].shells);
+    }  
+    free(cr);
+    nr = 0;
+    for (i = 0; i < ni; i++) {
+      if (kc[i]) nr++;
+    }
+    kcr = malloc(sizeof(int)*nr);
+    j = 0;
+    for (i = 0; i < ni; i++) {
+      if (kc[i]) {
+	kcr[j] = i;
+	j++;
       }
     }
   }
@@ -7359,21 +7381,14 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid config group name: %s\n", gn2);
     return -1;
   }
-  ni = Max(n1, n1d);
-  for (i = 0; i < ng; i++) {
-    g = GetGroup(kg[i]);
-    if (ni < g->nmax) ni = g->nmax;
-  }  
-  ni = ni*ni;
-  kc = malloc(sizeof(int)*ni);
   for (i = 0; i < ng; i++) {
     g = GetGroup(kg[i]);
     for (j = 0; j < g->n_cfgs; j++) {
       c = GetConfigFromGroup(kg[i], j);
       ConfigToIList(c, ni, kc);
       for (k = 0; k < nr; k++) {
-	if (cr) {
-	  ir = ShellToInt(cr[k].shells[0].n, cr[k].shells[0].kappa);
+	if (kcr) {
+	  ir = kcr[k];
 	  if (kc[ir] <= 0) continue;
 	} else {
 	  ir = -1;
@@ -7387,6 +7402,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	      if (mar != 1) {
 		ka = GetKappaFromJL(js, ks2);
 		is = ShellToInt(ns, ka);
+		if (kc[is] == js+1) continue;
 	      } else {
 		is = -1;
 	      }
@@ -7403,8 +7419,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		continue;
 	      }
 	      for (t = 0; t < nr; t++) {
-		if (cr) {
-		  ird = ShellToInt(cr[t].shells[0].n, cr[t].shells[0].kappa);
+		if (kcr) {
+		  ird = kcr[t];
 		  if (kc[ird] <= 0) continue;
 		} else {
 		  ird = -1;
@@ -7419,6 +7435,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		      if (mar != 1) {
 			ka = GetKappaFromJL(jd, kd2);
 			id = ShellToInt(nd, ka);
+			if (kc[id] == jd+1) continue;
 		      } else {
 			id = -1;
 		      }
@@ -7441,13 +7458,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
       }
     }
   }
-  if (cr) {
-    for (i = 0; i < nr; i++) {
-      free(cr[i].shells);
-    }  
-    free(cr);
-  }
   free(kc);
+  if (kcr) free(kcr);
   return 0;
 }
 
