@@ -243,4 +243,5 @@ int          Bisect(void *p0, int n, int m, void *p,
 		    int (*comp)(const void *, const void *));
 void SetMultiCleanFlag(MULTI *ma);
 double TotalSize(void);
+double TotalArraySize(void);
 #endif

@@ -749,6 +749,10 @@ double TotalSize() {
 #endif
 }
 
+double TotalArraySize() {
+  return _totalsize;
+}
+
 inline int IdxCmp(int *i0, int *i1, int n) {
   int i;
   for (i = 0; i < n; i++) {
@@ -856,7 +860,8 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   if (clocked) {
     if (_maxsize > 0 && ma->cth > 0) {
       double ts = TotalSize();
-      if (ts >= _maxsize && ma->totalsize > ma->cth*ts) {
+      double ats = TotalArraySize();
+      if (ts >= _maxsize && ma->totalsize > ma->cth*ats) {
 	ma->clean_mode = 1;
 	NMultiFreeData(ma, FreeElem);
       }
@@ -1051,7 +1056,7 @@ void SetMultiCleanFlag(MULTI *ma) {
   //MPrintf(-1, "SMC: %s %d\n", ma->id, ma->clean_flag);
   if (ma->clean_flag <= 0 &&
       ma->cth > 0 &&
-      ma->totalsize > ma->cth*TotalSize()) {
+      ma->totalsize > ma->cth*TotalArraySize()) {
     ma->clean_flag = 1;
   }
   if (ma->lock) {
@@ -1084,7 +1089,8 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
     }
   } else if (ma->clean_mode == 1) {
     double ts = TotalSize();
-    if (ts < _maxsize || ma->totalsize <= ma->cth*ts) clean = 0;
+    double ats = TotalArraySize();
+    if (ts < _maxsize || ma->totalsize <= ma->cth*ats) clean = 0;
     if (clean) {
       MPrintf(-1,
 	      "clean1: %s t=%g o=%g m=%g tt=%g to=%g tm=%g c=%d ch=%g\n",
