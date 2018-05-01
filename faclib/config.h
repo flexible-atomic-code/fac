@@ -159,6 +159,7 @@ typedef struct _CONFIG_ {
   int n_shells;
   int n_csfs;
   int nnrs;
+  int igroup;
   double sweight;
   double energy;
   double delta;

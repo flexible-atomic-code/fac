@@ -1766,9 +1766,19 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     
     n = DecodeGroupArgs(p, &s);
     if (n <= 0) return NULL;
-    
-    n1 = IntFromList(q, &ng1);
-    n2 = IntFromList(r, &ng2);
+
+    if (PyList_Check(q)) {
+      n1 = IntFromList(q, &ng1);
+    } else {
+      n1 = PyLong_AsLong(q);
+      ng1 = NULL;
+    }
+    if (PyList_Check(r)) {      
+      n2 = IntFromList(r, &ng2);
+    } else {
+      n2 = PyLong_AsLong(r);
+      ng2 = NULL;
+    }
     if (PyList_Check(t)) {
       nk = IntFromList(t, &nkm);
     } else if (PyLong_Check(t)) {
@@ -1780,8 +1790,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
     StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3);
     free(s);
-    if (n1 > 0) free(ng1);
-    if (n2 > 0) free(ng2);
+    //if (n1 > 0) free(ng1);
+    //if (n2 > 0) free(ng2);
     if (nkm) free(nkm);
 
     Py_INCREF(Py_None);

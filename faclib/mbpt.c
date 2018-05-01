@@ -27,6 +27,9 @@ USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
+static int mbpt_maxn = 0;
+static int mbpt_minn = 0;
+static int mbpt_mini = 0;
 static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
@@ -130,15 +133,18 @@ void SetOptMBPT(int i3rd, int n3, double c) {
 void SetExtraMBPT(int m) {
   int am = abs(m);
   mbpt_extra = am%10;
-  if (am < 10) {
+  am /= 10;
+  mbpt_minn = am%1000;
+  am /= 1000;
+  if (am == 0) {
     mbpt_reinit_ncps = 0;
     mbpt_reinit_mem = 0;
   } else if (m < 0) {
     mbpt_reinit_mem = 0;
-    mbpt_reinit_ncps = am/10;
+    mbpt_reinit_ncps = am;
   } else {
     mbpt_reinit_ncps = 0;
-    mbpt_reinit_mem = 1e9*(am/10);
+    mbpt_reinit_mem = 1e9*am;
   }
 }
 
@@ -1075,6 +1081,7 @@ int PrepRadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 	if (nkm && nkm[k] > 0) {
 	  if (ng[i] > nkm[k]) continue;
 	}
+	if (mbpt_maxn > 0 && ng[i] > mbpt_maxn) continue;
 	int ix = OrbitalExistsNoLock(ng[i], ka, 0);
 	if (ix < 0) {
 	  orb = GetNewOrbitalNoLock(ng[i], ka, 0);
@@ -1297,7 +1304,13 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     r += z[i];
   }
   if (1+r == 1) return 0.0;
-  if (n == 1) return r;
+  if (n == 1) {
+    if (isnan(r) || isinf(r)) {
+      MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
+      Abort(1);
+    }
+    return r;
+  }
 
   for (k0 = 1; k0 < n; k0++) {
     if (x[k0]-x[k0-1] > 1) break;
@@ -1437,6 +1450,10 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     }
     r += h;
   }
+  if (isnan(r) || isinf(r)) {
+    MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
+    Abort(1);
+  }
   return r;
 }
 
@@ -1444,28 +1461,33 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
 		  double *h, double *h1, double *w) {
   double r, *p, *x, *y, *z;
   int m, i0, i1;
-  
-  i0 = n+n2;
-  x = w + i0;
-  y = x + i0;
-  z = y + i0;
-  for (i0 = 0; i0 < n; i0++) {
-    x[i0] = ng[i0];
-  }
-  r = SumInterp1D(n, h1, x, w, y); 
-  p = h;
-  for (i0 = 0; i0 < n; i0++) {
-    for (i1 = 0; i1 < n2; i1++) {
-      x[i1] = ng2[i1] + ng[i0];
+
+  if (n == 1) {
+    r = h1[0];
+  } else {
+    i0 = n+n2;
+    x = w + i0;
+    y = x + i0;
+    for (i0 = 0; i0 < n; i0++) {
+      x[i0] = ng[i0];
     }
-    z[i0] = SumInterp1D(n2, p, x, w, y);
-    p += n2;
+    r = SumInterp1D(n, h1, x, w, y);
   }
-  for (i0 = 0; i0 < n; i0++) {
-    x[i0] = ng[i0];
+  if (h) {
+    z = y + i0;
+    p = h;
+    for (i0 = 0; i0 < n; i0++) {
+      for (i1 = 0; i1 < n2; i1++) {
+	x[i1] = ng2[i1] + ng[i0];
+      }
+      z[i0] = SumInterp1D(n2, p, x, w, y);
+      p += n2;
+    }  
+    for (i0 = 0; i0 < n; i0++) {
+      x[i0] = ng[i0];
+    }
+    r += SumInterp1D(n, z, x, w, y);
   }
-  r += SumInterp1D(n, z, x, w, y);
-  
   return r;
 }
 
@@ -2000,7 +2022,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   orb = GetOrbital(ks[1]);
   d2 -= orb->energy + orb->qed;
   gauge = GetTransitionGauge();
-
+  ng -= mbpt_mini;
   for (kk = kmin; kk <= kmax; kk += 2) {
     kk2 = kk/2;
     SlaterTotal(&sd, &se, NULL, ks, kk, 0);  
@@ -2278,6 +2300,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   /*
   d2 = GetOrbital(k3)->energy - GetOrbital(k2)->energy;
   */
+  ng -= mbpt_mini;
   gauge = GetTransitionGauge();
   for (p = 1; p <= mbpt_tr.mktr; p++) {
     if (abs(s[0].j - s[1].j) > 2*p) continue;
@@ -2339,6 +2362,15 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       }
     }
   }
+}
+
+int IdxGetN1(IDXARY *ing, int m) {
+  int i = IdxGet(ing, m);
+  if (i < 0) return i;
+  if (mbpt_mini <= 0) return i;
+  i -= mbpt_mini;
+  if (i < 0) i = 0;
+  return i;
 }
 
 void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns, 
@@ -2404,11 +2436,15 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
     m2 = i;
     vk = im;
   }
-  i1 = IdxGet(ing, m1);
+  i1 = IdxGetN1(ing, m1);
   if (i1 < 0) return;
-  i2 = IdxGet(ing2, m2-m1);
-  if (i2 < 0) return;
-  i = i1*ing2->n + i2;
+  if (mbpt_maxn <= 0) {
+    i2 = IdxGet(ing2, m2-m1);
+    if (i2 < 0) return;
+    i = i1*ing2->n + i2;
+  } else {
+    i = -(i1+1);
+  }
   H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, mst, bst, kst,
 	  s, ph, ks1, ks2, fm, a, i);
 }
@@ -2651,7 +2687,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 		      o[i] = GetOrbital(ib1->d[ip]);
 		    if (i == 1) {
 		      m1 = o[1]->n;
-		      i1 = IdxGet(ing, m1);
+		      i1 = IdxGetN1(ing, m1);
 		      if (i1 < 0) break;
 		    }
 		    } else {
@@ -2697,7 +2733,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 
   fm.ns = -1;
   i1 = bra[0].n;
-  i1 = IdxGet(ing, i1);
+  i1 = IdxGetN1(ing, i1);
   if (i1 < 0) return;
   k = MKK*MKK;
   for (i = 0; i < k; i++) {
@@ -2939,7 +2975,7 @@ void DeltaH12M1(void *mptr, int ns,
 		  o[i] = GetOrbital(ib1->d[ik]);
 		  if (i == 1) {
 		    m1 = o[1]->n;
-		    i1 = IdxGet(ing, m1);
+		    i1 = IdxGetN1(ing, m1);
 		    if (i1 < 0) break;
 		  }
 		} else {
@@ -2989,7 +3025,7 @@ void DeltaH12M0(void *mptr, int ns,
 
   fm.ns = -1;
   i1 = bra[0].n;
-  i1 = IdxGet(ing, i1);
+  i1 = IdxGetN1(ing, i1);
   if (i1 < 0) return;
   k = MKK;
   for (i = 0; i < k; i++) {
@@ -3180,7 +3216,7 @@ void DeltaH11M1(void *mptr, int ns,
 	  o0 = GetOrbital(k0);
 	  o1 = GetOrbital(k1);
 	  m1 = o1->n;	
-	  i1 = IdxGet(ing, m1);
+	  i1 = IdxGetN1(ing, m1);
 	  if (i1 < 0) continue;
 	  o2 = GetOrbital(k2);
 	  o3 = GetOrbital(k3);
@@ -3223,7 +3259,7 @@ void DeltaH11M0(void *mptr, int ns,
 
   fm.ns = -1;
   i1 = bra[0].n;
-  i1 = IdxGet(ing, i1);
+  i1 = IdxGetN1(ing, i1);
   if (i1 < 0) return;
   if (mode == 0) {
     a = malloc(sizeof(double)*mst);
@@ -3332,14 +3368,18 @@ void FreeEffMBPT(MBPT_EFF **meff) {
 	if (meff[i]->hab1[m]) {
 	  free(meff[i]->hab1[m]);
 	  free(meff[i]->hba1[m]);
-	  free(meff[i]->hab[m]);
-	  free(meff[i]->hba[m]);
+	  if (meff[i]->n2 > 0) {
+	    free(meff[i]->hab[m]);
+	    free(meff[i]->hba[m]);
+	  }
 	}
       }
       free(meff[i]->hab1);
       free(meff[i]->hba1);
-      free(meff[i]->hab);
-      free(meff[i]->hba);
+      if (meff[i]->n2 > 0) {
+	free(meff[i]->hab);
+	free(meff[i]->hba);
+      }
       free(meff[i]->h0);
       free(meff[i]->e0);
       free(meff[i]->heff);
@@ -3463,7 +3503,7 @@ int GetJpList(int n, int *bas, int *jp) {
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm, 
 		   int n, int *ng, int n2, int *ng2, int nkg0) {
   int *bas, *bas0, *bas1, nlevels, nb0, nb, n3, q, nhab, nhab1;
-  int i, j, k, i0, i1, n0, n1, isym, ierr, nc, m, mks, *ks;
+  int i, j, k, i0, i1, n0, n1, nr, *ngr, isym, ierr, nc, m, mks, *ks;
   int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst, ncps;
   int p0, p1, j0, j1, j2, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
   char tfn[1024];
@@ -3543,12 +3583,57 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   MPrintf(-1, "Construct Radial Basis, %d/%d...%11.4E %11.4E\n",
 	  MyRankMPI(), NProcMPI(), TotalSize(), TotalArraySize());
   fflush(stdout);
-  n = ConstructNGrid(n, &ng);
-  n2 = ConstructNGrid(n2, &ng2);
+  if (ng == NULL) {
+    int n1min = n/1000;
+    int n1max = n%1000;
+    if (n1min < 1) n1min = 1;
+    n = n1max-n1min+1;
+    ng = malloc(sizeof(int)*n);
+    for (i = 0; i < n; i++) {
+      ng[i] = i+n1min;
+    }
+  } else {
+    n = ConstructNGrid(n, &ng);
+  }
+  if (ng2 == NULL) {
+    mbpt_maxn = n2;
+    n2 = mbpt_maxn - ng[0] + 1;
+    ng2 = malloc(sizeof(int)*n2);
+    for (i = 0; i < n2; i++) {
+      ng2[i] = i;
+    }
+  } else {
+    n2 = ConstructNGrid(n2, &ng2);
+    mbpt_maxn = 0;
+  }
   InitIdxAry(&ing, n, ng);
   InitIdxAry(&ing2, n2, ng2);
-  nhab1 = n*2;
-  nhab = n*n2*2;
+  if (mbpt_minn > 0) {
+    mbpt_mini = IdxGet(&ing, mbpt_minn);
+    if (mbpt_mini == -1) {
+      mbpt_minn = 0;
+      mbpt_mini = 0;
+    } else if (mbpt_mini == -2) {      
+      mbpt_mini = n-1;
+    }
+    nr = n - mbpt_mini;
+    if (mbpt_mini > 0) {
+      ngr = malloc(sizeof(int)*nr);
+      for (i = 0; i < nr; i++) {
+	ngr[i] = ng[i+mbpt_mini];
+	if (ngr[i] < mbpt_minn) ngr[i] = mbpt_minn;
+      }
+    }
+  } else {
+    nr = n;
+    ngr = ng;
+  }
+  nhab1 = nr*2;
+  if (mbpt_maxn > 0) {
+    nhab = 0;
+  } else {
+    nhab = n*n2*2;
+  }
   na = n*n2+n+nmax;
   ga = malloc(sizeof(int)*na);
   k = 0;
@@ -3625,7 +3710,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   tt1 = WallTime();
   dt = tt1-tt0;
   tt0 = tt1;
-  MPrintf(-1, "Time = %12.5E\n", dt);
+  MPrintf(-1, "Time = %12.5E %3d %3d %3d %3d %3d %3d\n",
+	  dt, n, nr, n2, mbpt_maxn, mbpt_minn, mbpt_mini);
   fflush(stdout);
   if (nb < 0) return -1;
 
@@ -3654,12 +3740,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
 	free(mbpt_rij);
       }
+      free(ng);
+      if (mbpt_mini > 0) free(ngr);
+      free(ng2);
       return -1;
     }
-    fwrite(&n, sizeof(int), 1, f);
-    fwrite(ng, sizeof(int), n, f);
-    fwrite(&n2, sizeof(int), 1, f);
-    fwrite(ng2, sizeof(int), n2, f);
+    fwrite(&nr, sizeof(int), 1, f);
+    fwrite(ngr, sizeof(int), nr, f);
+    if (nhab > 0) {
+      fwrite(&n2, sizeof(int), 1, f);
+      fwrite(ng2, sizeof(int), n2, f);
+    } else {
+      fwrite(&nhab, sizeof(int), 1, f);
+    }
     fwrite(&n3, sizeof(int), 1, f);
   }
 
@@ -3705,10 +3798,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     meff[isym]->heff = malloc(sizeof(double)*h->n_basis*h->n_basis);
     meff[isym]->hab1 = malloc(sizeof(double *)*h->hsize);
     meff[isym]->hba1 = malloc(sizeof(double *)*h->hsize);
-    meff[isym]->hab = malloc(sizeof(double *)*h->hsize);
-    meff[isym]->hba = malloc(sizeof(double *)*h->hsize);  
-    meff[isym]->n = n;
-    meff[isym]->n2 = n2;
+    meff[isym]->n = nr;
+    if (nhab > 0) {
+      meff[isym]->hab = malloc(sizeof(double *)*h->hsize);
+      meff[isym]->hba = malloc(sizeof(double *)*h->hsize);
+      meff[isym]->n2 = n2;
+    } else {
+      meff[isym]->hab = NULL;
+      meff[isym]->hba = NULL;
+      meff[isym]->n2 = 0;
+    }
     double memd0 = TotalSize();
     double amemd0 = TotalArraySize();
     if (DiagnolizeHamilton(h) < 0) {
@@ -3778,8 +3877,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	if (c >= a) {
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
-	  meff[isym]->hab[k] = malloc(sizeof(double)*nhab);
-	  meff[isym]->hba[k] = malloc(sizeof(double)*nhab);
+	  if (nhab > 0) {
+	    meff[isym]->hab[k] = malloc(sizeof(double)*nhab);
+	    meff[isym]->hba[k] = malloc(sizeof(double)*nhab);
+	  }
 	  for (i0 = 0; i0 < nhab1; i0++) {
 	    meff[isym]->hab1[k][i0] = 0.0;
 	    meff[isym]->hba1[k][i0] = 0.0;
@@ -3814,7 +3915,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     emax *= FINE_STRUCTURE_CONST;
     emin *= FINE_STRUCTURE_CONST;
     SetAWGridMBPT(emin, emax);
-    InitTransitionMBPT(&mtr, n);
+    InitTransitionMBPT(&mtr, nr);
     double mem1 = TotalSize();
     MPrintf(-1, "TR Mem = %g %g %g %g\n",
 	    mem0, mem1, mem1-mem0, TotalArraySize());
@@ -3863,23 +3964,30 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  q = meff[isym]->hsize;
 	  imeff[isym]->hab1 = malloc(sizeof(double *)*q);
 	  imeff[isym]->hba1 = malloc(sizeof(double *)*q);
-	  imeff[isym]->hab = malloc(sizeof(double *)*q);
-	  imeff[isym]->hba = malloc(sizeof(double *)*q);
+	  if (nhab > 0) {
+	    imeff[isym]->hab = malloc(sizeof(double *)*q);
+	    imeff[isym]->hba = malloc(sizeof(double *)*q);
+	  } else {
+	    imeff[isym]->hab = NULL;
+	    imeff[isym]->hba = NULL;
+	  }
 	  for (k = 0; k < q; k++) {
 	    if (meff[isym]->hab1[k] == NULL) {
 	      imeff[isym]->hab1[k] = NULL;
 	    } else {
 	      imeff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	      imeff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
-	      imeff[isym]->hab[k] = malloc(sizeof(double)*nhab);
-	      imeff[isym]->hba[k] = malloc(sizeof(double)*nhab);
 	      for (i0 = 0; i0 < nhab1; i0++) {
 		imeff[isym]->hab1[k][i0] = 0.0;
 		imeff[isym]->hba1[k][i0] = 0.0;
-	      }	  
-	      for (i0 = 0; i0 < nhab; i0++) {
-		imeff[isym]->hab[k][i0] = 0.0;
-		imeff[isym]->hba[k][i0] = 0.0;
+	      }
+	      if (nhab > 0) {
+		imeff[isym]->hab[k] = malloc(sizeof(double)*nhab);
+		imeff[isym]->hba[k] = malloc(sizeof(double)*nhab);
+		for (i0 = 0; i0 < nhab; i0++) {
+		  imeff[isym]->hab[k][i0] = 0.0;
+		  imeff[isym]->hba[k][i0] = 0.0;
+		}
 	      }
 	    }
 	  }
@@ -4083,17 +4191,21 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 		meff[isym]->hab1[k][i0] += imeff[isym]->hab1[k][i0];
 		meff[isym]->hba1[k][i0] += imeff[isym]->hba1[k][i0];
 	      }
-	      for (i0 = 0; i0 < nhab; i0++) {
-		meff[isym]->hab[k][i0] += imeff[isym]->hab[k][i0];
-		meff[isym]->hba[k][i0] += imeff[isym]->hba[k][i0];
-	      }
-	      free(imeff[isym]->hab[k]);
-	      free(imeff[isym]->hba[k]);
 	      free(imeff[isym]->hab1[k]);
-	      free(imeff[isym]->hba1[k]);	      
+	      free(imeff[isym]->hba1[k]);
+	      if (nhab > 0) {
+		for (i0 = 0; i0 < nhab; i0++) {
+		  meff[isym]->hab[k][i0] += imeff[isym]->hab[k][i0];
+		  meff[isym]->hba[k][i0] += imeff[isym]->hba[k][i0];
+		}
+		free(imeff[isym]->hab[k]);
+		free(imeff[isym]->hba[k]);
+	      }
 	    }
-	    free(imeff[isym]->hab);
-	    free(imeff[isym]->hba);
+	    if (nhab > 0) {
+	      free(imeff[isym]->hab);
+	      free(imeff[isym]->hba);
+	    }
 	    free(imeff[isym]->hab1);
 	    free(imeff[isym]->hba1);
 	    free(imeff[isym]);
@@ -4124,10 +4236,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       if (NProcMPI() > 1) {
 	for (i = 0; i < meff[isym]->hsize; i++) {
 	  if (meff[isym]->hab1[i] != NULL) {
-	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab[i], nhab, MPI_DOUBLE,
-			  MPI_SUM, MPI_COMM_WORLD);
-	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba[i], nhab, MPI_DOUBLE,
-			  MPI_SUM, MPI_COMM_WORLD);
+	    if (nhab > 0) {
+	      MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab[i], nhab, MPI_DOUBLE,
+			    MPI_SUM, MPI_COMM_WORLD);
+	      MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba[i], nhab, MPI_DOUBLE,
+			    MPI_SUM, MPI_COMM_WORLD);
+	    }
 	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hab1[i], nhab1, MPI_DOUBLE,
 			  MPI_SUM, MPI_COMM_WORLD);
 	    MPI_Allreduce(MPI_IN_PLACE, meff[isym]->hba1[i], nhab1, MPI_DOUBLE,
@@ -4182,8 +4296,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }  
 	  hab1 = meff[isym]->hab1[k];
 	  hba1 = meff[isym]->hba1[k];
-	  hab = meff[isym]->hab[k];
-	  hba = meff[isym]->hba[k];	
+	  if (nhab > 0) {
+	    hab = meff[isym]->hab[k];
+	    hba = meff[isym]->hba[k];
+	  } else {
+	    hab = NULL;
+	    hba = NULL;
+	  }
 	  a = sqrt(jj+1.0);
 	  for (i0 = 0; i0 < nhab1; i0++) {
 	    hab1[i0] /= a;
@@ -4195,11 +4314,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }
 	  a = h0[k];
 	  m = j*h->dim + i;
-	  b = SumInterpH(n, ng, n2, ng2, hab, hab1, dw);
+	  b = SumInterpH(nr, ngr, n2, ng2, hab, hab1, dw);
 	  heff[m] = a+b;
 	  if (i < j) {
 	    m = i*h->dim + j;
-	    c = SumInterpH(n, ng, n2, ng2, hba, hba1, dw);
+	    c = SumInterpH(nr, ngr, n2, ng2, hba, hba1, dw);
 	    heff[m] = a+c;
 	  } else {
 	    c = b;
@@ -4215,7 +4334,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	      fwrite(hba1, sizeof(double), nhab1, f);
 	    }
 	  }
-	  if (n3 != 1) {
+	  if (n3 != 1 && nhab > 0) {
 	    fwrite(hab, sizeof(double), nhab, f);
 	    if (i != j) {
 	      fwrite(hba, sizeof(double), nhab, f);
@@ -4278,7 +4397,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 #endif
       if (!cpmtr) imtr = mtr;
       else {
-	InitTransitionMBPT(&imtr, n);
+	InitTransitionMBPT(&imtr, nr);
       }
       double ptt0, ptt1;
       cs = mbpt_cs;
@@ -4286,8 +4405,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       bas1 = mbpt_bas1;
       for (k0 = 0; k0 < nc; k0++) {
 	c0 = cs[k0];
+	int iig0 = 1;
+	if (nkg0 != nkg) iig0 = InGroups(c0->igroup, nkg0, kg);
 	for (k1 = 0; k1 < nc; k1++) {
 	  c1 = cs[k1];
+	  int iig1 = 1;
+	  if (nkg0 != nkg) iig1 = InGroups(c1->igroup, nkg0, kg);
+	  if (!iig0 && !iig1) continue;
 	  m = 0;      
 	  bst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
 	  kst0 = malloc(sizeof(int)*c0->n_csfs*c1->n_csfs);
@@ -4432,7 +4556,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       if (mtr[j].nsym1 == 0) continue;
       for (m = 0; m < mtr[j].nsym1; m++) {
 	mst = mtr[j].sym0->n_states * mtr[j].sym1[m]->n_states;
-	mst *= n * mbpt_tr.naw;	
+	mst *= nr * mbpt_tr.naw;	
 	if (mst > 0) {
 #if USE_MPI == 1
 	  if (NProcMPI() > 1) {
@@ -4489,6 +4613,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
   FreeEffMBPT(meff);
   FreeTransitionMBPT(mtr);
+  free(ng);
+  if (mbpt_mini > 0) free(ngr);
+  free(ng2);
   return ierr;
 }
 
@@ -4500,21 +4627,20 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
   if (m == 0) {
     for (i = 0; i < nf; i++) {
       nb = fread(&(mbpt[i].n), sizeof(int), 1, f[i]);
-      //if (nb != 1) return -1;
       mbpt[i].ng = malloc(sizeof(int)*mbpt[i].n);
       nb = fread(mbpt[i].ng, sizeof(int), mbpt[i].n, f[i]);
-      //if (nb != mbpt[i].n) return -1;      
       nb = fread(&(mbpt[i].n2), sizeof(int), 1, f[i]);
-      //if (nb != 1) return -1;
-      mbpt[i].ng2 = malloc(sizeof(int)*mbpt[i].n2);
-      nb = fread(mbpt[i].ng2, sizeof(int), mbpt[i].n2, f[i]);
-      //if (nb != mbpt[i].n2) return -1;
+      if (mbpt[i].n2 > 0) {
+	mbpt[i].ng2 = malloc(sizeof(int)*mbpt[i].n2);
+	nb = fread(mbpt[i].ng2, sizeof(int), mbpt[i].n2, f[i]);
+      }
       nb = fread(&(mbpt[i].n3), sizeof(int), 1, f[i]);
-      //if (nb != 1) return -1;
       mbpt[i].hab1 = malloc(sizeof(double)*mbpt[i].n*2);
       mbpt[i].hba1 = malloc(sizeof(double)*mbpt[i].n*2);
-      mbpt[i].hab = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
-      mbpt[i].hba = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
+      if (mbpt[i].n2 > 0) {
+	mbpt[i].hab = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
+	mbpt[i].hba = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
+      }
     }
     return 0;
   }
@@ -4553,7 +4679,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
 	  memcpy(mbpt[i].hba1, mbpt[i].hab1, sizeof(double)*mbpt[i].n*2);
 	}
       } 
-      if (mbpt[i].n3 != 1) {
+      if (mbpt[i].n3 != 1 && mbpt[i].n2 > 0) {
 	nn2 = 2*mbpt[i].n*mbpt[i].n2;
 	nb = fread(mbpt[i].hab, sizeof(double), nn2, f[i]);
 	//if (nb != nn2) return -1;
@@ -4653,9 +4779,26 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
 		 double *nab1, double *nba1,
 		 double **nab, double **nba,
 		 IDXARY *ing0, IDXARY *ing, IDXARY *ing2) {
-#pragma omp parallel default(shared)
-  {
   int m, i, j, k, q, r, nn2;
+  m = 0;
+  for (i = 0; i < ing0->n; i++) {
+    hab1[i] = 0;
+    hba1[i] = 0;
+    nab1[i] = 0;
+    nba1[i] = 0;
+  }
+  if (mbpt[m].n3 != 1 && mbpt[m].n2 > 0) {
+    for (i = 0; i < ing->n; i++) {
+      for (j = 0; j < ing2[i].n; j++) {
+	hab[i][j] = 0;
+	hba[i][j] = 0;
+	nab[i][j] = 0;
+	nba[i][j] = 0;
+      }
+    }
+  }
+#pragma omp parallel default(shared) private(m,i,j,k,q,r,nn2)
+  {
   int w = 0;
   for (m = 0; m < nf; m++) {
     if (SkipWMPI(w++)) continue;
@@ -4665,13 +4808,13 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
 	k = IdxGet(ing0, mbpt[m].ng[i]);
 	//k = IBisect(mbpt[m].ng[i], n0, ng0);
 	if (k < 0) continue;
-	hab1[k] = mbpt[m].hab1[i];
-	hba1[k] = mbpt[m].hba1[i];
-	nab1[k] = mbpt[m].hab1[i+mbpt[m].n];
-	nba1[k] = mbpt[m].hba1[i+mbpt[m].n];
+	hab1[k] += mbpt[m].hab1[i];
+	hba1[k] += mbpt[m].hba1[i];
+	nab1[k] += mbpt[m].hab1[i+mbpt[m].n];
+	nba1[k] += mbpt[m].hba1[i+mbpt[m].n];
       }
     }
-    if (mbpt[m].n3 != 1) {
+    if (mbpt[m].n3 != 1 && mbpt[m].n2 > 0) {
       nn2 = mbpt[m].n * mbpt[m].n2;
       for (i = 0; i < mbpt[m].n; i++) {
 	k = IdxGet(ing, mbpt[m].ng[i]);
@@ -4682,10 +4825,10 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
 	  q = IdxGet(&ing2[k], mbpt[m].ng2[j]);
 	  //q = IBisect(mbpt[m].ng2[j], n2[k], ng2[k]);
 	  if (q < 0) continue;
-	  hab[k][q] = mbpt[m].hab[r+j];
-	  hba[k][q] = mbpt[m].hba[r+j];
-	  nab[k][q] = mbpt[m].hab[r+j + nn2];
-	  nba[k][q] = mbpt[m].hba[r+j + nn2];
+	  hab[k][q] += mbpt[m].hab[r+j];
+	  hba[k][q] += mbpt[m].hba[r+j];
+	  nab[k][q] += mbpt[m].hab[r+j + nn2];
+	  nba[k][q] += mbpt[m].hba[r+j + nn2];
 	}
       }
     }
@@ -4694,9 +4837,30 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
 }
 
 void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr, IDXARY *ing) {
-#pragma omp parallel default(shared)
-  {
   int m, k, j, i, t, q, r, p, is0, is1, n;
+  k = 2*mbpt_tr.mktr*MAX_SYMMETRIES;
+  m = 0;
+  n = ing->n;
+  for (j = 0; j < k; j++) {
+    if (mtr[j].nsym1 == 0) continue;
+    for (q = 0; q < mtr[j].nsym1; q++) {
+      for (is0 = 0; is0 < mtr[j].sym0->n_states; is0++) {
+	for (is1 = 0; is1 < mtr[j].sym1[q]->n_states; is1++) {
+	  for (p = 0; p < mbpt_tr.naw; p++) {
+	    t = (is0*mtr[j].sym1[q]->n_states+is1)*mbpt_tr.naw + p;
+	    for (i = 0; i < mbpt[m].n; i++) {
+	      r = IdxGet(ing, mbpt[m].ng[i]);
+	      if (r < 0) continue;
+	      mtr[j].tma[q][t*n+r] = 0;
+	      mtr[j].rma[q][t*n+r] = 0;
+	    }
+	  }
+	}
+      }
+    }
+  }
+#pragma omp parallel default(shared) private(m,k,j,i,t,q,r,p,is0,is1,n)
+  {
   n = ing->n;
   int w = 0;
   for (m = 0; m < nf; m++) {
@@ -4713,8 +4877,8 @@ void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr, IDXARY *ing) {
 		r = IdxGet(ing, mbpt[m].ng[i]);
 		//r = IBisect(mbpt[m].ng[i], n, ng);
 		if (r < 0) continue;
-		mtr[j].tma[q][t*n+r] = mbpt[m].mtr[j].tma[q][t*mbpt[m].n+i];
-		mtr[j].rma[q][t*n+r] = mbpt[m].mtr[j].rma[q][t*mbpt[m].n+i];
+		mtr[j].tma[q][t*n+r] += mbpt[m].mtr[j].tma[q][t*mbpt[m].n+i];
+		mtr[j].rma[q][t*n+r] += mbpt[m].mtr[j].rma[q][t*mbpt[m].n+i];
 	      }
 	    }
 	  }
@@ -4974,7 +5138,12 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     n0 = SortUnique(j, ng0);  
   }
   n2m = 0;
-  if (n > 0) {
+  n2 = NULL;
+  ng2 = NULL;
+  ing2 = NULL;
+  hab = NULL;
+  hba = NULL;
+  if (n > 0 && mbpt[0].n2 > 0) {
     n2 = malloc(sizeof(int)*n);
     ng2 = malloc(sizeof(int *)*n);
     ing2 = malloc(sizeof(IDXARY)*n);
@@ -5027,7 +5196,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   nab1 = y + n2m;
   nba1 = nab1 + n2m;
   double wt1 = WallTime();
-  printf("MBPT Structure ... %g\n", wt1-wt0);
+  printf("MBPT Structure ... %g %d %d %d\n", wt1-wt0, n0, n, n2m);
   fflush(stdout);
   nlevels = GetNumLevels();
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
@@ -5091,12 +5260,14 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	    fprintf(f2, "  %3d %3d %3d %3d %3d %12.5E %12.5E %12.5E %12.5E\n", 
 		    isym, i, j, 0, ng0[q], z1[q], z2[q], nab1[q], nba1[q]);
 	  }
-	  for (r = 0; r < n; r++) {
-	    for (q = 0; q < n2[r]; q++) {
-	      fprintf(f2,
-		      "  %3d %3d %3d %3d %3d %12.5E %12.5E %12.5E %12.5E\n", 
-		      isym, i, j, ng[r], ng[r]+ng2[r][q], 
-		      hab[r][q], hba[r][q], nab[r][q], nba[r][q]);
+	  if (hab) {
+	    for (r = 0; r < n; r++) {
+	      for (q = 0; q < n2[r]; q++) {
+		fprintf(f2,
+			"  %3d %3d %3d %3d %3d %12.5E %12.5E %12.5E %12.5E\n", 
+			isym, i, j, ng[r], ng[r]+ng2[r][q], 
+			hab[r][q], hba[r][q], nab[r][q], nba[r][q]);
+	      }
 	    }
 	  }
 	  fflush(f2);
@@ -5122,7 +5293,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 		  isym, pp, jj, i, j, a, b, mbpt[0].a, na, nb);
 	  }
 	}
-	if (n > 0) {
+	if (n > 0 && hab) {
 	  for (r = 0; r < n; r++) {
 	    if (n2[r] > 0) {
 	      for (q = 0; q < n2[r]; q++) {
@@ -5297,11 +5468,13 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
  ERROR:
   for (m = 0; m < nf; m++) {
     free(mbpt[m].ng);
-    free(mbpt[m].ng2);
     free(mbpt[m].hab1);
     free(mbpt[m].hba1);
-    free(mbpt[m].hab);
-    free(mbpt[m].hba);
+    if (mbpt[m].n2 > 0) {
+      free(mbpt[m].ng2);
+      free(mbpt[m].hab);
+      free(mbpt[m].hba);
+    }
   }
   free(f1);
   free(mbpt);
@@ -5309,23 +5482,25 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   if (n > 0) {
     free(ng);
     FreeIdxAry(&ing, 2);
-    for (i = 0; i < n; i++) {
-      if (n2[i] > 0) {
-	free(ng2[i]);
-	free(hab[i]);
-	free(hba[i]);
-	free(nab[i]);
-	free(nba[i]);
-	FreeIdxAry(&ing2[i], 2);
+    if (n2) {
+      for (i = 0; i < n; i++) {      
+	if (n2[i] > 0) {
+	  free(ng2[i]);
+	  free(hab[i]);
+	  free(hba[i]);
+	  free(nab[i]);
+	  free(nba[i]);
+	  FreeIdxAry(&ing2[i], 2);
+	}
       }
+      free(ng2);
+      free(hab);
+      free(hba);
+      free(nab);
+      free(nba);
+      free(n2);
+      free(ing2);
     }
-    free(ng2);
-    free(hab);
-    free(hba);
-    free(nab);
-    free(nba);
-    free(n2);
-    free(ing2);
   }
   if (n0 > 0) {
     free(ng0);  

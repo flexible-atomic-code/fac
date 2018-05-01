@@ -1379,7 +1379,7 @@ int IdxGet(IDXARY *ia, int d) {
   if (d > ia->m1) return -2;
   return ia->i[d - ia->m0];
 }
-
+  
 void FreeIdxAry(IDXARY *ia, int md) {
   if (md == 0) {
     if (ia->n > 0) free(ia->d);
