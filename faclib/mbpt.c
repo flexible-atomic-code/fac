@@ -3860,20 +3860,17 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	} else {
 	  iig = 1;
 	}
-	if (iig && jig) c = 1e30;
-	else {
-	  c = 0;	
-	  for (m = 0; m < mks; m++) {
-	    k = ks[m];
-	    mix = h->mixing + h->dim*(k+1);
-	    a = fabs(mix[i]*mix[j]);
-	    if (a > c) c = a;
-	  }
-	}
+	c = 0;	
+	for (m = 0; m < mks; m++) {
+	  k = ks[m];
+	  mix = h->mixing + h->dim*(k+1);
+	  a = fabs(mix[i]*mix[j]);
+	  if (a > c) c = a;
+	}	
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
-	if (iig || jig) a *= 0.5;
-	if (i == j) a *= 0.25;
+	if (iig && jig) a *= 0.1;
+	else if (i == j) a *= 0.25;
 	if (c >= a) {
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
