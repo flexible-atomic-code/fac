@@ -7294,9 +7294,14 @@ int AddNewConfigToList(int k, CONFIG *cfg, double sth,
     o2 = GetOrbital(ko2);
     o3 = GetOrbital(ko3);
     double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
-    double s;
+    double s, s1;
     Slater(&s, ko0, ko2, ko1, ko3, kk, 0);
-    if (fabs(s) < sth*de) return -2;
+    s = fabs(s);
+    if (i2 < 0 && i3 < 0) {
+      ResidualPotential(&s1, ko0, ko1);
+      s += fabs(s1);
+    }
+    if (s < sth*de) return -2;
   }
   if (Couple(cfg) < 0) return -1;
   return AddConfigToList(k, cfg);

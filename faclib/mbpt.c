@@ -1451,7 +1451,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     r += h;
   }
   if (isnan(r) || isinf(r)) {
-    MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
+    MPrintf(-1, "invalid value SumInterp1D b: %g\n", r);
     Abort(1);
   }
   return r;
@@ -1462,19 +1462,20 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
   double r, *p, *x, *y, *z;
   int m, i0, i1;
 
+  i0 = n+n2;
+  x = w + i0;
+  y = x + i0;
+  z = y + i0;
   if (n == 1) {
     r = h1[0];
   } else {
     i0 = n+n2;
-    x = w + i0;
-    y = x + i0;
     for (i0 = 0; i0 < n; i0++) {
       x[i0] = ng[i0];
     }
     r = SumInterp1D(n, h1, x, w, y);
   }
   if (h) {
-    z = y + i0;
     p = h;
     for (i0 = 0; i0 < n; i0++) {
       for (i1 = 0; i1 < n2; i1++) {
@@ -3860,20 +3861,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	} else {
 	  iig = 1;
 	}
-	if (iig && jig) c = 1e30;
-	else {
-	  c = 0;	
-	  for (m = 0; m < mks; m++) {
-	    k = ks[m];
-	    mix = h->mixing + h->dim*(k+1);
-	    a = fabs(mix[i]*mix[j]);
-	    if (a > c) c = a;
-	  }
+
+	c = 0;	
+	for (m = 0; m < mks; m++) {
+	  k = ks[m];
+	  mix = h->mixing + h->dim*(k+1);
+	  a = fabs(mix[i]*mix[j]);
+	  if (a > c) c = a;
 	}
+	
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
-	if (iig || jig) a *= 0.5;
-	if (i == j) a *= 0.25;
+	if (i == j && iig && jig) a *= 0.25;
 	if (c >= a) {
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
