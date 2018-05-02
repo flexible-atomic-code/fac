@@ -3624,6 +3624,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	ngr[i] = ng[i+mbpt_mini];
 	if (ngr[i] < mbpt_minn) ngr[i] = mbpt_minn;
       }
+    } else {
+      ngr = ng;
     }
   } else {
     nr = n;
