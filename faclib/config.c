@@ -1858,6 +1858,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (cfg->n_csfs > 0) {    
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
+  cfg->igroup = k;
   cfg_groups[k].n_cfgs++;
   if (cfg->shells[0].n > cfg_groups[k].nmax) {
     cfg_groups[k].nmax = cfg->shells[0].n;

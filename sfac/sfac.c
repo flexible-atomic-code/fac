@@ -2912,8 +2912,18 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       printf("First configuration group does not exist\n");
       return -1;
     }
-    n1 = IntFromList(argv[4], argt[4], variables, &ng1);
-    n2 = IntFromList(argv[5], argt[5], variables, &ng2);
+    if (argt[4] == LIST) {
+      n1 = IntFromList(argv[4], argt[4], variables, &ng1);
+    } else {
+      n1 = atoi(argv[4]);
+      ng1 = NULL;
+    }
+    if (argt[5] == LIST) {      
+      n2 = IntFromList(argv[5], argt[5], variables, &ng2);
+    } else {
+      n2 = atoi(argv[5]);
+      ng2 = NULL;
+    }
     if (argt[3] == LIST) {
       nk = IntFromList(argv[3], argt[3], variables, &nkm);
     } else if (argt[3] == NUMBER) {
@@ -2928,8 +2938,8 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3);
 
     free(s);
-    if (n1 > 0) free(ng1);
-    if (n2 > 0) free(ng2);
+    //if (n1 > 0) free(ng1);
+    //if (n2 > 0) free(ng2);
     if (nkm) free(nkm);
     return 0;
   } 
