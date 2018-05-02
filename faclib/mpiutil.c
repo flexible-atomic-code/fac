@@ -303,7 +303,7 @@ void FinalizeMPI() {
 void Abort(int r) {
 #if USE_MPI == 1
   MPI_Abort(MPI_COMM_WORLD, r);
-#else
+#else  
   exit(r);
 #endif
 }
