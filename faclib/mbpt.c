@@ -28,6 +28,7 @@ USE (rcsid);
 
 static int mbpt_extra = 0;
 static int mbpt_maxn = 0;
+static int mbpt_maxm = 0;
 static int mbpt_minn = 0;
 static int mbpt_mini = 0;
 static int mbpt_reinit_ncps = 0;
@@ -1081,7 +1082,7 @@ int PrepRadialBasisMBPT(int nk, int *nkm, int n, int *ng, int **bas) {
 	if (nkm && nkm[k] > 0) {
 	  if (ng[i] > nkm[k]) continue;
 	}
-	if (mbpt_maxn > 0 && ng[i] > mbpt_maxn) continue;
+	if (mbpt_maxm > 0 && mbpt_maxn > 0 && ng[i] > mbpt_maxn) continue;
 	int ix = OrbitalExistsNoLock(ng[i], ka, 0);
 	if (ix < 0) {
 	  orb = GetNewOrbitalNoLock(ng[i], ka, 0);
@@ -3597,8 +3598,13 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     n = ConstructNGrid(n, &ng);
   }
   if (ng2 == NULL) {
-    mbpt_maxn = n2;
-    n2 = mbpt_maxn - ng[0] + 1;
+    mbpt_maxn = n2%1000;
+    mbpt_maxm = n2/1000;
+    if (mbpt_maxm > 0) {
+      n2 = mbpt_maxn - ng[0] + 1;
+    } else {
+      n2 = mbpt_maxn;
+    }
     ng2 = malloc(sizeof(int)*n2);
     for (i = 0; i < n2; i++) {
       ng2[i] = i;
@@ -3606,6 +3612,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   } else {
     n2 = ConstructNGrid(n2, &ng2);
     mbpt_maxn = 0;
+    mbpt_maxm = 0;
   }
   InitIdxAry(&ing, n, ng);
   InitIdxAry(&ing2, n2, ng2);
@@ -3713,8 +3720,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   tt1 = WallTime();
   dt = tt1-tt0;
   tt0 = tt1;
-  MPrintf(-1, "Time = %12.5E %3d %3d %3d %3d %3d %3d\n",
-	  dt, n, nr, n2, mbpt_maxn, mbpt_minn, mbpt_mini);
+  MPrintf(-1, "Time = %12.5E %3d %3d %3d %3d %3d %3d %3d\n",
+	  dt, n, nr, n2, mbpt_maxm, mbpt_maxn, mbpt_minn, mbpt_mini);
   fflush(stdout);
   if (nb < 0) return -1;
 

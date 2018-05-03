@@ -813,6 +813,7 @@ int NMultiInit(MULTI *ma, int esize, int ndim, int *block, char *id) {
   if (_multistats != NULL && ma->id[0]) {
     ArrayAppend(_multistats, &ma, InitPointerData);    
   }
+  ma->iset = 0;
   return 0;
 }
 
@@ -845,19 +846,16 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 		void (*InitData)(void *, int),
 		void (*FreeElem)(void *)) {
-  int i, j, m, h, size, locked = 0, clocked = 0;
+  int i, j, m, h, size, locked = 0;
   MDATA *pt;
   ARRAY *a;
   DATA *p, *p0;
-
+  int myrank = MyRankMPI()+1;
+  
   if (ma->clean_lock) {
-    if (0 == TryLock(ma->clean_lock)) {
-      clocked = 1;
-    }
-  } else {
-    clocked = 2;
+    SetLock(ma->clean_lock);
   }
-  if (clocked) {
+  if (ma->iset == 0) {
     if (_maxsize > 0 && ma->cth > 0) {
       double ts = TotalSize();
       double ats = TotalArraySize();
@@ -874,10 +872,14 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
       ma->clean_mode = 0;
       NMultiFreeData(ma, FreeElem);
     }
-  } else if (ma->clean_mode >= 0) {
-    SetLock(ma->clean_lock);
-    clocked = 1;
   }
+  
+#pragma omp atomic
+  ma->iset += myrank;
+  if (ma->clean_lock) {
+    ReleaseLock(ma->clean_lock);
+  }
+
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
   locked = 0;
@@ -914,9 +916,6 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	  if (locked) {
 	    ReleaseLock(a->lock);
 	  }	  
-	  if (clocked == 1) {
-	    ReleaseLock(ma->clean_lock);
-	  }
 	  return pt->data;
 	}
 	pt++;
@@ -950,9 +949,6 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	    if (lock) *lock = pt->lock;
 	    if (locked) {
 	      ReleaseLock(a->lock);
-	    }
-	    if (clocked == 1) {
-	      ReleaseLock(ma->clean_lock);
 	    }
 	    return pt->data;
 	  }
@@ -1008,9 +1004,6 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   (a->dim)++;  
   if (locked) {
     ReleaseLock(a->lock);
-  }
-  if (clocked == 1) {
-    ReleaseLock(ma->clean_lock);
   }
   return pt->data;
 }
@@ -1102,6 +1095,11 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
   }
   if (clean) {
     ma->clean_thread = MyRankMPI();
+    if (ma->iset > 0 && ma->clean_mode >= 0) {
+      printf("invalid clean with iset: %s: %d %lud\n",
+	     ma->id, ma->clean_thread, ma->iset);
+      Abort(1);
+    }
     for (i = 0; i < ma->hsize; i++) {
       a = &(ma->array[i]);
       if (a->lock) SetLock(a->lock);
@@ -1128,6 +1126,7 @@ int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   free(ma->block);
   ma->block = NULL;
   ma->ndim = 0;
+  ma->iset = 0;
   return 0;
 }
 
