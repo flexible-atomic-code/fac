@@ -3271,7 +3271,7 @@ int ResidualPotential(double *s, int k0, int k1) {
     index[0] = k0;
     index[1] = k1;
   }
-  
+  int myrank = MyRankMPI()+1;
   p = (double *) MultiSet(residual_array, index, NULL, &lock,
 			  InitDoubleData, NULL);
   int locked = 0;
@@ -3282,6 +3282,9 @@ int ResidualPotential(double *s, int k0, int k1) {
   if (p && *p) {
     *s = *p;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    residual_array->iset -= myrank;
+#pragma omp flush
     return 0;
   } 
 
@@ -3311,6 +3314,8 @@ int ResidualPotential(double *s, int k0, int k1) {
   }
   *p = *s;
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+  residual_array->iset -= myrank;
 #pragma omp flush
   return 0;
 }
@@ -3419,7 +3424,7 @@ double RadialMoments(int m, int k1, int k2) {
     index[1] = k2;
     index[2] = k1;
   }
-  
+  int myrank = MyRankMPI()+1;
   q = (double *) MultiSet(moments_array, index, NULL, &lock,
 			  InitDoubleData, NULL);
   int locked = 0;
@@ -3429,6 +3434,9 @@ double RadialMoments(int m, int k1, int k2) {
   }
   if (*q) {
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    moments_array->iset -= myrank;
+#pragma omp flush
     return *q;
   } 
   if (n1 < 0 || n2 < 0) {
@@ -3464,6 +3472,8 @@ double RadialMoments(int m, int k1, int k2) {
     *q = r;
   }
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    moments_array->iset -= myrank;
 #pragma omp flush
   return r;
 }
@@ -3550,6 +3560,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   index[1] = k1;
   index[2] = k2;
   LOCK *lock = NULL;
+  int myrank = MyRankMPI()+1;
   p1 = (double **) MultiSet(multipole_array, index, NULL, &lock,
 			    InitPointerData, FreeMultipole);
   int locked = 0;
@@ -3560,6 +3571,9 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   if (*p1) {
     *p0 = *p1;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    multipole_array->iset -= myrank;
+#pragma omp flush
     return n_awgrid;
   }
 
@@ -3660,7 +3674,6 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
     }
   }
 
-
 #ifdef PERFORM_STATISTICS 
   stop = clock();
   rad_timing.radial_1e += stop - start;
@@ -3668,6 +3681,8 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 
   *p0 = *p1 = pt;
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    multipole_array->iset -= myrank;
 #pragma omp flush
   return n_awgrid;
 }
@@ -3761,6 +3776,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
     if (ef > 0) aw += ef;
   }
   LOCK *lock = NULL;
+  int myrank = MyRankMPI()+1;
   p1 = (double **) MultiSet(multipole_array, index, NULL, &lock,
 			    InitPointerData, FreeMultipole);
   int locked = 0;
@@ -3773,6 +3789,9 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
     if (gauge == G_COULOMB && m < 0) r /= aw;
     r *= rcl;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    multipole_array->iset -= myrank;
+#pragma omp flush
     return r;
   }
   double *pt = (double *) malloc(sizeof(double)*n_awgrid);  
@@ -3866,6 +3885,8 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 #endif
   *p1 = pt;
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    multipole_array->iset -= myrank;
 #pragma omp flush
   return r;
 }
@@ -3892,6 +3913,7 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     orb2 = GetOrbitalSolved(k2);
   }
   LOCK *lock = NULL;
+  int myrank = MyRankMPI()+1;
   p = (double **) MultiSet(gos_array, index, NULL, &lock,
 			   InitPointerData, FreeMultipole);
   int locked = 0;
@@ -3901,6 +3923,9 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   }
   if (*p) {
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    gos_array->iset -= myrank;
+#pragma omp flush
     return *p;
   }
 
@@ -3915,6 +3940,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     }
     *p = pt;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    gos_array->iset -= myrank;
 #pragma omp flush
     return *p;
   }
@@ -3988,6 +4015,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   }
   *p = pt;
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+  gos_array->iset -= myrank;
 #pragma omp flush
   return *p;
 }
@@ -4592,6 +4621,7 @@ double QED1E(int k0, int k1) {
   }
   
   LOCK *lock = NULL;
+  int myrank = MyRankMPI()+1;
   p = (double *) MultiSet(qed1e_array, index, NULL, &lock,
 			  InitDoubleData, NULL);
   int locked = 0;
@@ -4601,6 +4631,9 @@ double QED1E(int k0, int k1) {
   }
   if (p && *p) {
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    qed1e_array->iset -= myrank;
+#pragma omp flush
     return *p;
   }
   r = 0.0;
@@ -4628,6 +4661,8 @@ double QED1E(int k0, int k1) {
   }
   *p = r;
   if (locked) ReleaseLock(lock);
+#pragma omp atomic
+  qed1e_array->iset -= myrank;
 #pragma omp flush
   return r;
 }
@@ -4657,6 +4692,7 @@ double *Vinti(int k0, int k1) {
   index[0] = k0;
   index[1] = k1;
   LOCK *lock = NULL;
+  int myrank = MyRankMPI()+1;
   p = (double **) MultiSet(vinti_array, index, NULL, &lock,
 			   InitPointerData, FreeMultipole);
   int locked = 0;
@@ -4666,6 +4702,9 @@ double *Vinti(int k0, int k1) {
   }
   if (*p) {
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    vinti_array->iset -= myrank;
+#pragma omp flush
     return *p;
   }
 
@@ -4691,6 +4730,9 @@ double *Vinti(int k0, int k1) {
   if (qed.sms == 1) {
     *p = r;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    vinti_array->iset -= myrank;
+#pragma omp flush
     return r;
   }
 
@@ -4745,6 +4787,8 @@ double *Vinti(int k0, int k1) {
   r[2] = -Simpson(_yk, 0, m1);
   *p = r;
   if(locked) ReleaseLock(lock);
+#pragma omp atomic
+  vinti_array->iset -= myrank;
 #pragma omp flush
   return *p;
 }
@@ -4838,7 +4882,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
   FLTARY *byk;
   LOCK *lock = NULL;
   int locked = 0;
-
+  int myrank = MyRankMPI()+1;
   if (breit_array->maxsize != 0) {
     index[0] = k0;
     index[1] = k1;
@@ -4854,6 +4898,9 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     if (p0 && *p0) {
       r = *p0;
       if (locked) ReleaseLock(lock);
+#pragma omp atomic
+      breit_array->iset -= myrank;
+#pragma omp flush
       return r;
     }
   }
@@ -4906,6 +4953,12 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     if (!r) r = 1e-100;
     *p0 = r;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    breit_array->iset -= myrank;
+  }
+  if (xbreit_array[4]->maxsize != 0) {
+#pragma omp atomic
+    xbreit_array[4]->iset -= myrank;
   }
 #pragma omp flush
   return r;
@@ -4961,6 +5014,7 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
   byk = NULL;
   LOCK *lock = NULL;
   int locked = 0;
+  int myrank = MyRankMPI()+1;
   if ((mbr == 2 || (m < 3 && w == 0) || (m == 3 && w == 1))
       && xbreit_array[m]->maxsize != 0) {
     index[0] = orb0->idx;
@@ -4983,6 +5037,9 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
 	y[i] = byk->yk[i];
       }
       if (locked) ReleaseLock(lock);
+#pragma omp atomic
+      xbreit_array[m]->iset -= myrank;
+#pragma omp flush
       return byk->npts;
     }     
   }
@@ -5074,6 +5131,8 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
       byk->yk[i] = y[i];
     }
     byk->npts = npts;
+#pragma omp atomic
+    xbreit_array[m]->iset -= myrank;
   }
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -5237,6 +5296,7 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
   double *p;
   LOCK *lock = NULL;
   int locked = 0;
+  int myrank = MyRankMPI()+1;
   if (wbreit_array->maxsize != 0) {
     index[0] = k0;
     index[1] = k1;
@@ -5252,6 +5312,9 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
     if (p && *p) {
       r = *p;
       if (locked) ReleaseLock(lock);
+#pragma omp atomic
+      wbreit_array->iset -= myrank;
+#pragma omp flush
       return r;
     }
   }
@@ -5368,6 +5431,8 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
     if (!r) r = 1e-100;
     *p = r;
     if (locked) ReleaseLock(lock);
+#pragma omp atomic
+    wbreit_array->iset -= myrank;
   }
 #pragma omp flush
   return r;
@@ -5430,6 +5495,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
 
   LOCK *lock = NULL;
   int locked = 0;
+  int myrank = MyRankMPI()+1;
   if (abs(mode) < 2) {
     SortSlaterKey(index);
     p = (double *) MultiSet(slater_array, index, NULL, &lock,
@@ -5505,6 +5571,10 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     if (p) *p = *s;
   }
   if (locked) ReleaseLock(lock);
+  if (p) {
+#pragma omp atomic
+    slater_array->iset -= myrank;
+  }
 #pragma omp flush
 #ifdef PERFORM_STATISTICS 
     stop = clock();
@@ -5557,6 +5627,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
   ORBITAL *orb0, *orb1, *orb2, *orb3;
   int c = 0;
 
+  int myrank = MyRankMPI()+1;
   double wt0 = WallTime();
   kmax = GetMaxRank();
   for (kk = 0; kk <= kmax; kk += 2) {
@@ -5604,6 +5675,7 @@ void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 	      Integrate(_yk, orb1, orb3, 1, dp, 0);
 	    }
 	    //if (lock) ReleaseLock(lock);
+	    slater_array->iset -= myrank;
 	  }
 	}
       }
@@ -5696,6 +5768,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
   syk = NULL;
   LOCK *lock = NULL;
   int locked = 0;
+  int myrank = MyRankMPI()+1;
   if (yk_array->maxsize != 0) {
     if (k1 <= k2) {
       index[0] = k1;
@@ -5809,7 +5882,11 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       syk->npts = npts+2;
     }
   }
-  if (locked) ReleaseLock(lock);
+  if (locked) ReleaseLock(lock);  
+  if (yk_array->maxsize != 0) {
+#pragma omp atomic
+    yk_array->iset -= myrank;
+  }
 #pragma omp flush
   return 0;
 }  

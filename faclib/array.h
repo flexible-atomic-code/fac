@@ -156,6 +156,7 @@ typedef struct _MULTI_ {
   int numelem, maxelem;
   double totalsize, overheadsize, maxsize, cth;
   int clean_mode, clean_thread, clean_flag;
+  unsigned long iset;
   unsigned short ndim, ndim1;
   unsigned short isize;
   unsigned short esize;

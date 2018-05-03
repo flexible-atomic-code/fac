@@ -25,7 +25,7 @@
 static size_t _tsize = 0;
 
 void *mmalloc(size_t size) {
-  size_t *p;
+  size_t *p = NULL;
 
   p = (size_t *) malloc(size+sizeof(size_t));
   *p = size;
