@@ -189,6 +189,7 @@
 #define MULTI_BLOCK5   4
 #define MULTI_BLOCK6   10
 #define MULTI_IDLEN 64
+#define ARYCTH 0.05
 
 /* orbital */
 #define MAXRP      3000  /* maximum radial mesh */

@@ -46,7 +46,7 @@ static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
       printf("%s = ", argv[i]);
     }
     if (i != argc-1 && argt[i] != KEYWORD) {
-      printf(", ");
+      printf(" ");
     }
   }
   if (argc > 0) printf("\n");
