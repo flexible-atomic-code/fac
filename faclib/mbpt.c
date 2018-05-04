@@ -3625,14 +3625,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       mbpt_mini = n-1;
     }
     nr = n - mbpt_mini;
-    if (mbpt_mini > 0) {
-      ngr = malloc(sizeof(int)*nr);
-      for (i = 0; i < nr; i++) {
-	ngr[i] = ng[i+mbpt_mini];
-	if (ngr[i] < mbpt_minn) ngr[i] = mbpt_minn;
-      }
-    } else {
-      ngr = ng;
+    ngr = malloc(sizeof(int)*nr);
+    for (i = 0; i < nr; i++) {
+      ngr[i] = ng[i+mbpt_mini];
+      if (ngr[i] < mbpt_minn) ngr[i] = mbpt_minn;
     }
   } else {
     nr = n;
@@ -3750,8 +3746,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
 	free(mbpt_rij);
       }
+      if (ngr != ng) free(ngr);
       free(ng);
-      if (mbpt_mini > 0) free(ngr);
       free(ng2);
       return -1;
     }
@@ -3776,6 +3772,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     double mem0 = TotalSize();
     double amem0 = TotalArraySize();
+    double wt0 = WallTime();
     meff[isym] = NULL;
     /* the construction is such that h->dim = h->n_basis
     ** one also makes sure that all the states in one symmetry forms a
@@ -3794,6 +3791,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }
     double meme = TotalSize();
     double ameme = TotalArraySize();
+    double wt1 = WallTime();
     MPrintf(-1, "sym: %3d %d %d %d %g %g %g %g\n",
 	    isym, h->dim, h->hsize, h->n_basis, mem0, amem0, meme, ameme);
     fflush(stdout);    
@@ -3827,6 +3825,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }
     double memd1 = TotalSize();
     double amemd1 = TotalArraySize();
+    double wt2 = WallTime();
     ks = malloc(sizeof(int)*h->dim);
     mks = 0;
     m = 0;
@@ -3912,8 +3911,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     tt1 = WallTime();
     dt = tt1-tt0;
     tt0 = tt1;
-    MPrintf(-1, "Time = %12.5E %g %g %g %g %g %g %d %d %d %d\n",
-	    dt, mem1, amem1, mem1-mem0, amem1-amem0, mem1-meme, amem1-ameme,
+    MPrintf(-1, "Time= %10.4E %10.4E %10.4E %10.4E %10.4E %g %g %g %g %g %g %d %d %d %d\n",
+	    dt, wt1-wt0, wt2-wt1, tt1-wt2, tt1-tbg,
+	    mem1, amem1, mem1-mem0, amem1-amem0, mem1-meme, amem1-ameme,
 	    ki, ke, nhab, nhab1);
   }
   if (mbpt_tr.mktr > 0) {
@@ -3930,7 +3930,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
 
   if (n3 >= 0) {
-    MPrintf(-1, "Construct Effective Hamiltonian %d\n", nc);
+    MPrintf(-1, "Construct Effective Hamiltonian %d %10.4E\n",
+	    nc, WallTime()-tbg);
     fflush(stdout);
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
@@ -4226,10 +4227,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
 
-    MPrintf(-1, "MBPT Structure ... %12.5E %12.5E\n",
+    MPrintf(-1, "MBPT Structure ...%12.5E %12.5E\n",
 	    TotalSize(), TotalArraySize());
     fflush(stdout);
-    for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+    for (isym = 0; isym < MAX_SYMMETRIES; isym++) {      
       if (meff[isym] == NULL) continue;
       if (meff[isym]->nbasis == 0) {
 	k = 0;
@@ -4239,6 +4240,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
 	continue;
       }
+      double wt0 = WallTime();
       heff = meff[isym]->heff;      
 #if USE_MPI == 1
       if (NProcMPI() > 1) {
@@ -4351,21 +4353,23 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	}
       }
       fflush(f);
+      double wt1 = WallTime();
       if (DiagnolizeHamilton(h) < 0) {
 	MPrintf(-1, "Diagnolizing Effective Hamiltonian Error\n");
 	ierr = -1;
 	goto ERROR;
       }
       AddToLevels(h, nkg0, kg);
-      h->heff = NULL;
-      AllocHamMem(h, -1, -1);
-      AllocHamMem(h, 0, 0);
       tt1 = WallTime();
       dt = tt1-tt0;
       tt0 = tt1;
-      MPrintf(-1, "Time = %12.5E, isym=%d ... %11.4E %11.4E\n",
-	      dt, isym, TotalSize(), TotalArraySize());
+      MPrintf(-1, "Time= %10.4E %10.4E %10.4E, isym=%d ... %d %11.4E %11.4E\n",
+	      dt, wt1-wt0, tt1-wt1,
+	      isym, h->dim, TotalSize(), TotalArraySize());
       fflush(stdout);
+      h->heff = NULL;
+      AllocHamMem(h, -1, -1);
+      AllocHamMem(h, 0, 0);
     }
     if (MyRankMPI() == 0) {
       SortLevels(nlevels, -1, 0);
@@ -4621,8 +4625,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   }
   FreeEffMBPT(meff);
   FreeTransitionMBPT(mtr);
+  if (ngr != ng) free(ngr);
   free(ng);
-  if (mbpt_mini > 0) free(ngr);
   free(ng2);
   return ierr;
 }
@@ -4649,6 +4653,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
 	mbpt[i].hab = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
 	mbpt[i].hba = malloc(sizeof(double)*mbpt[i].n*mbpt[i].n2*2);
       }
+      //printf("r0: %d %d %d %d %d\n", i, mbpt[i].n, mbpt[i].n2, mbpt[i].n3, mbpt[i].ng[0]);
     }
     return 0;
   }
@@ -4659,6 +4664,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
       //if (nb != 1) return -1;
       nb = fread(&(mbpt[i].dim), sizeof(int), 1, f[i]);
       //if (nb != 1) return -1;
+      //printf("r1: %d %d %d\n", i, mbpt[i].isym, mbpt[i].dim);
     }
     return 0;
   }
@@ -4676,6 +4682,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
       //if (nb != 1) return -1;
       nb = fread(&(mbpt[i].c), sizeof(double), 1, f[i]);
       //if (nb != 1) return -1;
+      //printf("r1: %d %d %d %g %g %g\n", i, mbpt[i].ibra, mbpt[i].iket, mbpt[i].a, mbpt[i].b, mbpt[i].c);
       if (mbpt[i].ibra < 0 || mbpt[i].iket < 0) continue;
       if (mbpt[i].n3 != 2) {
 	nb = fread(mbpt[i].hab1, sizeof(double), mbpt[i].n*2, f[i]);
@@ -4686,6 +4693,7 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
 	} else {
 	  memcpy(mbpt[i].hba1, mbpt[i].hab1, sizeof(double)*mbpt[i].n*2);
 	}
+	//printf("r2: %d %g %g %g %g\n", i, mbpt[i].hab1[0], mbpt[i].hba1[0], mbpt[i].hab1[1], mbpt[i].hba1[1]);
       } 
       if (mbpt[i].n3 != 1 && mbpt[i].n2 > 0) {
 	nn2 = 2*mbpt[i].n*mbpt[i].n2;

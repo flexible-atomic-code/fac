@@ -851,7 +851,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   ARRAY *a;
   DATA *p, *p0;
   int myrank = MyRankMPI()+1;
-  
+
   if (ma->clean_lock) {
     SetLock(ma->clean_lock);
   }
@@ -879,7 +879,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   if (ma->clean_lock) {
     ReleaseLock(ma->clean_lock);
   }
-
+  
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
   locked = 0;
