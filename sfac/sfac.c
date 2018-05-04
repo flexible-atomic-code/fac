@@ -2848,14 +2848,19 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     SetExcMBPT(n2, n1, argv[0]);
     return 0;
   }
-  if (argc == 3) {
+  if (argc == 3 || argc == 4) {
     if (argt[0] != NUMBER) return -1;
     if (argt[1] != NUMBER) return -1;
     if (argt[2] != NUMBER) return -1;
     i = atoi(argv[0]);
     n3 = atoi(argv[1]);
     c = atof(argv[2]);
-    SetOptMBPT(i, n3, c);
+    d = -1;
+    if (argc == 4) {
+      if (argt[3] != NUMBER) return -1;
+      d = atof(argv[3]);
+    }
+    SetOptMBPT(i, n3, c, d);
     return 0;
   }
   if (argc == 10) {

@@ -82,7 +82,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 		      int nkg, int *kg, int nkg0);
 void SetExtraMBPT(int m);
 void SetExcMBPT(int nd, int ns, char *s);
-void SetOptMBPT(int i3rd, int n3, double c);
+void SetOptMBPT(int i3rd, int n3, double c, double d);
 void SetSymMBPT(int nlev, int *ilev);
 void TransitionMBPT(int mk, int naw);
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up);
