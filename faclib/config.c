@@ -2066,6 +2066,58 @@ void ListConfig(char *fn, int n, int *kg) {
   if (f != stdout) fclose(f);
 }
 
+int ReadConfig(char *fn) {
+  FILE *f;
+  char buf[1024];
+  char cbuf[1024];
+  CONFIG *cfg;
+  int t, j, ncfg;
+  
+  if (fn == NULL) return -1;
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  while (1) {
+    char *p = fgets(buf, 1024, f);
+    if (p == NULL) break;
+    p[10] = '\0';
+    char *s = p;
+    while(s && *s == ' ') s++;
+    if (s) {
+      int t = GroupIndex(s);
+      if (t < 0) return -1;
+      char *c = &p[20];
+      int i = 0;      
+      while (c) {
+	if (*c == '\n') {
+	  break;
+	}
+	cbuf[i++] = *c;
+	if (c[1] && c[2] && isalpha(c[1]) && (c[2] == '+' || c[2] == '-')) {
+	  cbuf[i++] = '[';
+	  cbuf[i++] = c[1];
+	  cbuf[i++] = c[2];
+	  cbuf[i++] = ']';
+	  c += 2;
+	}
+	c++;
+      }
+      cbuf[i] = '\0';
+      
+      ncfg = GetConfigFromString(&cfg, cbuf);
+      for (j = 0; j < ncfg; j++) {
+	if (Couple(cfg+j) < 0) return -1;
+	if (AddConfigToList(t, cfg+j) < 0) return -1;
+      }
+      if (ncfg > 0) free(cfg);
+    }
+  }
+  fclose(f);
+  return 0;
+}
+
 /* 
 ** FUNCTION:    GetAverageConfig
 ** PURPOSE:     determine the average configuration based on given

@@ -405,6 +405,11 @@ static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
   
+static int PReadConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 1 || argt[0] != STRING) return -1;
+  return ReadConfig(argv[0]);
+}
+
 static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   static char gname[GROUP_NAME_LEN] = "_all_";
@@ -4148,6 +4153,7 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
+  {"ReadConfig", PReadConfig, METH_VARARGS},
   {"CutMixing", PCutMixing, METH_VARARGS},
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"ListConfig", PListConfig, METH_VARARGS},

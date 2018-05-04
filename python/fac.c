@@ -471,6 +471,21 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   return r;
 }
 
+static PyObject *PReadConfig(PyObject *self, PyObject *args, PyObject *keywds) {
+  char *s;
+  
+  if (sfac_file) {
+    SFACStatement("ReadConfig", args, keywds);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!(PyArg_ParseTuple(args, "s", &s))) return NULL;
+  if (ReadConfig(s) < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   CONFIG *cfg;
   PyObject *q, *q1;
@@ -5329,6 +5344,7 @@ static struct PyMethodDef fac_methods[] = {
   {"RMatrixSurface", PRMatrixSurface, METH_VARARGS}, 
   {"Print", PPrint, METH_VARARGS},
   {"Asymmetry", PAsymmetry, METH_VARARGS},
+  {"ReadConfig", PReadConfig, METH_VARARGS},
   {"Config", (PyCFunction) PConfig, METH_VARARGS|METH_KEYWORDS},
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"ListConfig", PListConfig, METH_VARARGS},
