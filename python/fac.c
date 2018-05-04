@@ -1715,14 +1715,15 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   }
   
-  if (n == 3) {
-    if (!(PyArg_ParseTuple(args, "iid", &i, &n3, &c))) return NULL;
+  if (n == 3 || n == 4) {
+    d = -1;
+    if (!(PyArg_ParseTuple(args, "iid|d", &i, &n3, &c, &d))) return NULL;
     p = PyTuple_GetItem(args, 2);
     if (PyLong_Check(p)) {
       onError("2nd argument must be a floating point number");
       return NULL;
     }
-    SetOptMBPT(i, n3, c);
+    SetOptMBPT(i, n3, c, d);
     Py_INCREF(Py_None);
     return Py_None;
   }
