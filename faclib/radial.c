@@ -6953,6 +6953,21 @@ void LimitArrayRadial(int m, double n) {
     n *= 1e6;
   }
   switch (m) {
+  case -100:
+    if (n < 0) n = ARYCTH;
+    yk_array->cth = n;
+    slater_array->cth = n;
+    breit_array->cth = n;
+    wbreit_array->cth = n;
+    gos_array->cth = n;
+    moments_array->cth = n;
+    multipole_array->cth = n;
+    residual_array->cth = n;
+    vinti_array->cth = n;
+    for (i = 0; i <= 4; i++) {
+      xbreit_array[i]->cth = n;
+    }
+    break;
   case -1:
     LimitMultiSize(NULL, n);
     break;
@@ -7069,7 +7084,7 @@ int InitRadial(void) {
   n_orbitals = 0;
   n_continua = 0;
 
-  double cth = 0.01;
+  double cth = ARYCTH;
   orbitals = malloc(sizeof(ARRAY));
   if (!orbitals) return -1;
   if (ArrayInit(orbitals, sizeof(ORBITAL), ORBITALS_BLOCK) < 0) return -1;
