@@ -420,68 +420,103 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   int vt[MAXNARGS];
 
   if (argt[0] == NUMBER) {
-    int ng, *kg, n0, n1, k0, k1, m, n0d, n1d;
+    int ng, *kg, ngb, *kgb, n0, n1, k0, k1, m, n0d, n1d;
     double sth;
-    if (argt[1] != STRING && argt[1] != LIST) return -1;
-    if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-    ng = DecodeGroupArgs(&kg, 1, &argv[2], &argt[2], variables);
-    if (argt[1] == STRING) {
-      gn1 = argv[1];
-      gn2 = NULL;
-      nf = 0;
-    } else {
-      nf = DecodeArgs(argv[1], v, vt, variables);
-      if (nf < 1 || nf > 2) return -1;
-      if (vt[0] != STRING) return -1;
-      gn1 = v[0];
-      gn2 = NULL;
-      if (nf > 1) {
-	if (vt[1] != STRING) return -1;
-	gn2 = v[1];
-      }
-    }
+    
     m = atoi(argv[0]);
-    n0 = 1;
-    n1 = 1;
-    k0 = 0;
-    k1 = -1;
-    s = NULL;
-    if (argc > 3) {
-      s = argv[3];
-    }
-    if (argc > 4) {
-      n0 = atoi(argv[4]);
-    }
-    if (argc > 5) {
-      n1 = atoi(argv[5]);
-    }
-    if (argc > 6) {
-      k0 = atoi(argv[6]);
-    }
-    if (argc > 7) {
-      k1 = atoi(argv[7]);
-    }
-    sth = 0;
-    n0d = n0;
-    n1d = n1;
-    if (argc > 8) {
-      n0d = atoi(argv[8]);
-      if (argc > 9) {
-	n1d = atoi(argv[9]);
-	if (argc > 10) {
-	  sth = atof(argv[10]);
+    if (m == 0) {
+      if (argt[1] != STRING) return -1;
+      if (argt[2] != STRING) return -1;
+      sth = 0;
+      ngb = 0;
+      kgb = NULL;
+      if (argc > 3) {
+	sth = atof(argv[3]);
+	if (argc > 4) {
+	  ngb = DecodeGroupArgs(&kgb, 1, &argv[4], &argt[4], variables);
 	}
       }
-    }
-    t = ConfigSD(m, ng, kg, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1, sth);
-    if (nf > 0) {
-      for (i = 0; i < nf; i++) {
-	free(v[i]);
+      gn1 = argv[1];
+      gn2 = NULL;
+      s = argv[2];
+      n0 = 0;
+      n1 = 0;
+      n0d = 0;
+      n1d = 0;
+      k0 = 0;
+      k1 = 0;
+      t = ConfigSD(m, 0, NULL, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1,
+		   ngb, kgb, sth);
+      if (ngb > 0) free(kgb);
+      return t;
+    } else {
+      if (argt[1] != STRING && argt[1] != LIST) return -1;
+      if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+      ng = DecodeGroupArgs(&kg, 1, &argv[2], &argt[2], variables);
+      if (argt[1] == STRING) {
+	gn1 = argv[1];
+	gn2 = NULL;
+	nf = 0;
+      } else {
+	nf = DecodeArgs(argv[1], v, vt, variables);
+	if (nf < 1 || nf > 2) return -1;
+	if (vt[0] != STRING) return -1;
+	gn1 = v[0];
+	gn2 = NULL;
+	if (nf > 1) {
+	  if (vt[1] != STRING) return -1;
+	  gn2 = v[1];
+	}
       }
+      n0 = 1;
+      n1 = 1;
+      k0 = 0;
+      k1 = -1;
+      s = NULL;
+      if (argc > 3) {
+	s = argv[3];
+      }
+      if (argc > 4) {
+	n0 = atoi(argv[4]);
+      }
+      if (argc > 5) {
+	n1 = atoi(argv[5]);
+      }
+      if (argc > 6) {
+	k0 = atoi(argv[6]);
+      }
+      if (argc > 7) {
+	k1 = atoi(argv[7]);
+      }
+      sth = 0;
+      n0d = n0;
+      n1d = n1;
+      ngb = ng;
+      kgb = kg;
+      if (argc > 8) {
+	n0d = atoi(argv[8]);
+	if (argc > 9) {
+	  n1d = atoi(argv[9]);
+	  if (argc > 10) {
+	    sth = atof(argv[10]);
+	    if (argc > 11) {	      
+	      ngb = DecodeGroupArgs(&kgb, 1, &argv[11], &argt[11], variables);
+	    }
+	  }
+	}
+      }
+      t = ConfigSD(m, ng, kg, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1,
+		   ngb, kgb, sth);
+      if (nf > 0) {
+	for (i = 0; i < nf; i++) {
+	  free(v[i]);
+	}
+      }
+      if (ng > 0) free(kg);
+      if (ngb > 0 && kgb != kg) free(kgb);
+      return t;
     }
-    return t;
   }
-  
   k = -2;
   for (i = 0; i < argc; i++) {
     if (argt[i] == KEYWORD) {
