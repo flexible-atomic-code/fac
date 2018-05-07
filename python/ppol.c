@@ -132,7 +132,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
     s = PyUnicode_AsString(q);
     printf("%s", s);
     if (i != n-1) {
-      printf(", ");
+      printf(" ");
     }
     Py_XDECREF(q);
   }

@@ -7345,67 +7345,168 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
 	 z, rms, r, rs, e, e0, e-e0);
 }
 
-int AddNewConfigToList(int k, CONFIG *cfg, double sth,
-		       int i0, int i1, int i2, int i3) {
+int AddNewConfigToList(int k, int ni, int *kc,
+		       double sth, int nb, int **kcb,
+		       int nc, SHELL_RESTRICTION *sr) {
+  CONFIG *cfg = ConfigFromIList(ni, kc);
+  int r;
+  if (nc > 0) {
+    r = ApplyRestriction(1, cfg, nc, sr);  
+    if (r <= 0) return -1;
+  }
   if (ConfigExists(cfg)) return -1;
   if (sth > 0) {
+    int i0, i1, i2, i3;
     int n0, k0, n1, k1, n2, k2, n3, k3;
-    IntToShell(i0, &n0, &k0);
-    IntToShell(i1, &n1, &k1);
-    if (i2 >= 0) {
-      IntToShell(i2, &n2, &k2);
-    } else if (cfg->n_shells > 1) {
-      n2 = cfg->shells[1].n;
-      k2 = cfg->shells[1].kappa;
-    }
-    if (i3 >= 0) {
+    int i, j;
+    double s = 0;
+    for (i = 0; i < nb; i++) {
+      i0 = -1;
+      i1 = -1;
+      i2 = -1;
+      i3 = -1;
+      for (j = 0; j < ni; j++) {
+	if (kc[j] == kcb[i][j]+2) {
+	  if (i1 >= 0 || i3 >= 0) break;	  
+	  i1 = j;
+	  i3 = j;
+	} else if (kc[j] == kcb[i][j]-2) {
+	  if (i0 >= 0 || i2 >= 0) break;
+	  i0 = j;
+	  i2 = j;
+	} else if (kc[j] == kcb[i][j]+1) {
+	  if (i1 < 0) i1 = j;
+	  else if (i3 < 0) i3 = j;
+	  else break;
+	} else if (kc[j] == kcb[i][j]-1) {
+	  if (i0 < 0) i0 = j;
+	  else if (i2 < 0) i2 = j;
+	  else break;
+	}	
+      }
+      if (j < ni) continue;
+      
+      IntToShell(i0, &n0, &k0);
+      IntToShell(i1, &n1, &k1);
+      if (i2 >= 0) {
+	IntToShell(i2, &n2, &k2);
+      } else {
+	n2 = cfg->shells[0].n;
+	k2 = cfg->shells[0].kappa;
+      }
+      if (i3 >= 0) {
       IntToShell(i3, &n3, &k3);
-    } else if (cfg->n_shells > 1) {
-      n3 = cfg->shells[1].n;
-      k3 = cfg->shells[1].kappa;
+      } else {
+	n3 = cfg->shells[0].n;
+	k3 = cfg->shells[0].kappa;
+      }
+      int ko0, ko1, ko2, ko3;
+      ORBITAL *o0, *o1, *o2, *o3;
+      ko0 = OrbitalIndex(n0, k0, 0);
+      ko1 = OrbitalIndex(n1, k1, 0);
+      ko2 = OrbitalIndex(n2, k2, 0);
+      ko3 = OrbitalIndex(n3, k3, 0);
+      int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
+      GetJLFromKappa(k0, &j0, &kl0);
+      GetJLFromKappa(k1, &j1, &kl1);
+      GetJLFromKappa(k2, &j2, &kl2);
+      GetJLFromKappa(k3, &j3, &kl3);
+      int kk0, kk1;
+      kk0 = abs(j0-j1);
+      if (IsOdd((kk0+kl0+kl1)/2)) kk0 += 2;
+      kk1 = abs(j2-j3);
+      if (IsOdd((kk1+kl2+kl3)/2)) kk1 += 2;
+      int kk = Min(kk0, kk1)/2;
+      o0 = GetOrbital(ko0);
+      o1 = GetOrbital(ko1);
+      o2 = GetOrbital(ko2);
+      o3 = GetOrbital(ko3);
+      double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+      if (de < EPS10) {
+	s = 1e10;
+	break;
+      } else {
+	double s2, s1;
+	Slater(&s2, ko0, ko2, ko1, ko3, kk, 0);
+	s2 = fabs(s2);
+	if (i2 < 0 && i3 < 0) {
+	  ResidualPotential(&s1, ko0, ko1);
+	  s2 += fabs(s1);
+	}
+	s2 /= de;
+	if (s < s2) s = s2;
+      }
     }
-    int ko0, ko1, ko2, ko3;
-    ORBITAL *o0, *o1, *o2, *o3;
-    ko0 = OrbitalIndex(n0, k0, 0);
-    ko1 = OrbitalIndex(n1, k1, 0);
-    ko2 = OrbitalIndex(n2, k2, 0);
-    ko3 = OrbitalIndex(n3, k3, 0);
-    int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
-    GetJLFromKappa(k0, &j0, &kl0);
-    GetJLFromKappa(k1, &j1, &kl1);
-    GetJLFromKappa(k2, &j2, &kl2);
-    GetJLFromKappa(k3, &j3, &kl3);
-    int kk0, kk1;
-    kk0 = abs(j0-j1);
-    if (IsOdd((kk0+kl0+kl1)/2)) kk0 += 2;
-    kk1 = abs(j2-j3);
-    if (IsOdd((kk1+kl2+kl3)/2)) kk1 += 2;
-    int kk = Min(kk0, kk1)/2;
-    o0 = GetOrbital(ko0);
-    o1 = GetOrbital(ko1);
-    o2 = GetOrbital(ko2);
-    o3 = GetOrbital(ko3);
-    double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
-    double s, s1;
-    Slater(&s, ko0, ko2, ko1, ko3, kk, 0);
-    s = fabs(s);
-    if (i2 < 0 && i3 < 0) {
-      ResidualPotential(&s1, ko0, ko1);
-      s += fabs(s1);
-    }
-    if (s < sth*de) return -2;
+    if (s < sth) return -2;
   }
   if (Couple(cfg) < 0) return -1;
-  return AddConfigToList(k, cfg);
+  r = AddConfigToList(k, cfg);
+  free(cfg);
+  return r;
 }
 
 int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
-	     int n0, int n1, int n0d, int n1d, int k0, int k1, double sth) {
-  int ni, nr, *kc, i, j, k, ir, ns, ks, ks2, ka, is, js;
+	     int n0, int n1, int n0d, int n1d, int k0, int k1,
+	     int ngb, int *kgb, double sth) {
+  int ni, nr, *kc, nb, **kcb, i, j, k, ir, ns, ks, ks2, ka, is, js;
   int t, ird, nd, kd, kd2, jd, id, ig1, ig2;
   CONFIG_GROUP *g;
-  CONFIG *c, *cr, *cs;
-  int m, mar, *kcr;
+  CONFIG *c, *cr;
+  SHELL_RESTRICTION *sr;
+  int m, mar, *kcr, nc;
+
+  if (m0 == 0) {
+    ig1 = GroupIndex(gn1);
+    if (ig1 < 0) {
+      printf("invalid config group name: %s\n", gn1);
+      return -1;
+    }
+    nr = GetConfigFromString(&cr, s);
+    if (nr <= 0) return 0;
+    ni = 0;
+    for (i = 0; i < nr; i++) {
+      if (ni < cr[i].shells[0].n) ni = cr[i].shells[0].n;
+    }
+    for (i = 0; i < ng; i++) {
+      g = GetGroup(kg[i]);
+      if (ni < g->nmax) ni = g->nmax;
+    }
+    ni = ni*ni;
+    kc = malloc(sizeof(int)*ni);
+    nb = 0;
+    for (i = 0; i < ngb; i++) {
+      g = GetGroup(kgb[i]);
+      nb += g->n_cfgs;
+    }
+    kcb = NULL;
+    if (nb > 0) {
+      kcb = malloc(sizeof(int *)*nb);
+      for (i = 0; i < nb; i++) {
+	kcb[i] = malloc(sizeof(int)*ni);
+      }
+    }
+    k = 0;
+    for (i = 0; i < ngb; i++) {
+      g = GetGroup(kgb[i]);
+      for (j = 0; j < g->n_cfgs; j++, k++) {
+	c = GetConfigFromGroup(kgb[i], j);
+	ConfigToIList(c, ni, kcb[k]);
+      }
+    }
+    for (i = 0; i < nr; i++) {
+      ConfigToIList(&cr[i], ni, kc);
+      AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, 0, NULL);
+    }
+    
+    free(kc);
+    if (nb > 0) {
+      for (i = 0; i < nb; i++) {
+	free(kcb[i]);
+      }
+      free(kcb);
+    }
+    return 0;
+  }
   
   if (n0d <= 0) n0d = n0;
   if (n1d <= 0) n1d = n1;
@@ -7437,11 +7538,18 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
     return -1;
   }
+  nc = GetRestriction(s, &sr, 0);
   ni = Max(n1, n1d);
   for (i = 0; i < ng; i++) {
     g = GetGroup(kg[i]);
     if (ni < g->nmax) ni = g->nmax;
-  }  
+  }
+  if (kgb != kg) {
+    for (i = 0; i < ngb; i++) {
+      g = GetGroup(kgb[i]);
+      if (ni < g->nmax) ni = g->nmax;
+    }
+  }
   ni = ni*ni;
   kc = malloc(sizeof(int)*ni);
   kcr = NULL;  
@@ -7478,6 +7586,25 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid config group name: %s\n", gn2);
     return -1;
   }
+  nb = 0;
+  for (i = 0; i < ngb; i++) {
+    g = GetGroup(kgb[i]);
+    nb += g->n_cfgs;
+  }
+  if (nb > 0) {
+    kcb = malloc(sizeof(int *)*nb);
+    for (i = 0; i < nb; i++) {
+      kcb[i] = malloc(sizeof(int)*ni);
+    }
+  }
+  k = 0;
+  for (i = 0; i < ngb; i++) {
+    g = GetGroup(kgb[i]);
+    for (j = 0; j < g->n_cfgs; j++, k++) {
+      c = GetConfigFromGroup(kgb[i], j);
+      ConfigToIList(c, ni, kcb[k]);
+    }
+  }
   for (i = 0; i < ng; i++) {
     g = GetGroup(kg[i]);
     for (j = 0; j < g->n_cfgs; j++) {
@@ -7506,9 +7633,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	      if (ir >= 0) kc[ir]--;
 	      if (is >= 0) kc[is]++;
 	      if (m != 2) {
-		cs = ConfigFromIList(ni, kc);
-		AddNewConfigToList(ig1, cs, sth, ir, is, -1, -1);
-		free(cs);
+		AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, nc, sr);
 	      }
 	      if (m == 1) {
 		if (ir >= 0) kc[ir]++;
@@ -7538,9 +7663,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		      }
 		      if (ird >= 0) kc[ird]--;
 		      if (id >= 0) kc[id]++;
-		      cs = ConfigFromIList(ni, kc);
-		      AddNewConfigToList(ig2, cs, sth, ir, is, ird, id);
-		      free(cs);
+		      AddNewConfigToList(ig2, ni, kc, sth, nb, kcb, nc, sr);
 		      if (ird >= 0) kc[ird]++;
 		      if (id >= 0) kc[id]--;
 		    }
@@ -7557,6 +7680,18 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
   }
   free(kc);
   if (kcr) free(kcr);
+  if (nc > 0) {
+    for (i = 0; i < nc; i++) {
+      free(sr[i].shells);
+    }
+    free(sr);
+  }
+  if (nb > 0) {
+    for (i = 0; i < nb; i++) {
+      free(kcb[i]);
+    }
+    free(kcb);
+  }
   return 0;
 }
 

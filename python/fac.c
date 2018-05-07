@@ -488,7 +488,7 @@ static PyObject *PReadConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   
 static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   CONFIG *cfg;
-  PyObject *q, *q1;
+  PyObject *q, *q1, *qb;
   static char gname[GROUP_NAME_LEN] = "_all_";
   int i, j, t, ncfg;
   char scfg[MCHSHELL], *p;
@@ -502,41 +502,69 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 
   q = PyTuple_GET_ITEM(args, 0);
   if (PyLong_Check(q)) {
-    int m, ng, *kg, n0, n1, k0, k1, n0d, n1d;
+    int m, r, ng, *kg, ngb, *kgb, n0, n1, k0, k1, n0d, n1d;
     double sth;
     char *gn1, *gn2, *s;
-    s = NULL;
-    n0 = 1;
-    n1 = 1;
-    k0 = 0;
-    k1 = -1;
-    n0d = 0;
-    n1d = 0;
-    sth = 0;
-    if (!(PyArg_ParseTuple(args, "iOO|siiiiiid",
-			   &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
-			   &n0d, &n1d, &sth))) return NULL;
-    if (PyList_Check(q1)) {
-      int nq1 = PyList_Size(q1);
-      if (nq1 < 1 || nq1 > 2) return NULL;
-      PyObject *q2 = PyList_GetItem(q1, 0);
-      if (!PyUnicode_Check(q2)) return NULL;
-      gn1 = PyUnicode_AsString(q2);
-      if (nq1 > 1) {
-	q2 = PyList_GetItem(q1, 1);
-	if (!PyUnicode_Check(q2)) return NULL;
-	gn2 = PyUnicode_AsString(q2);
-      } else {
-	gn2 = NULL;
+    m = PyLong_AsLong(q);
+    if (m == 0) {
+      sth = 0.0;
+      qb = NULL;
+      ngb = 0;
+      kgb = NULL;
+      if (!(PyArg_ParseTuple(args, "iss|dO", &m, &gn1, &s, &sth, &qb))) {
+	return NULL;
       }
-    } else if (PyUnicode_Check(q1)) {
-      gn1 = PyUnicode_AsString(q1);
-      gn2 = NULL;
+      if (qb == NULL) sth = 0.0;
+      else {
+	ngb = DecodeGroupArgs(qb, &kgb);
+      }
+      r = ConfigSD(m, ng, kg, s, gn1, gn2,
+		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
+      if (ngb > 0) free(kgb);
     } else {
-      return NULL;
+      s = NULL;
+      n0 = 1;
+      n1 = 1;
+      k0 = 0;
+      k1 = -1;
+      n0d = 0;
+      n1d = 0;
+      sth = 0;
+      qb = NULL;
+      if (!(PyArg_ParseTuple(args, "iOO|siiiiiidO",
+			     &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
+			     &n0d, &n1d, &sth, &qb))) return NULL;
+      if (PyList_Check(q1)) {
+	int nq1 = PyList_Size(q1);
+	if (nq1 < 1 || nq1 > 2) return NULL;
+	PyObject *q2 = PyList_GetItem(q1, 0);
+	if (!PyUnicode_Check(q2)) return NULL;
+	gn1 = PyUnicode_AsString(q2);
+	if (nq1 > 1) {
+	  q2 = PyList_GetItem(q1, 1);
+	  if (!PyUnicode_Check(q2)) return NULL;
+	  gn2 = PyUnicode_AsString(q2);
+	} else {
+	  gn2 = NULL;
+	}
+      } else if (PyUnicode_Check(q1)) {
+	gn1 = PyUnicode_AsString(q1);
+	gn2 = NULL;
+      } else {
+	return NULL;
+      }
+      ng = DecodeGroupArgs(q, &kg);
+      ngb = ng;
+      kgb = kg;
+      if (qb != NULL) {
+	ngb = DecodeGroupArgs(qb, &kgb);
+      }
+      r = ConfigSD(m, ng, kg, s, gn1, gn2,
+		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
+      if (ngb > 0 && kgb != kg) free(kgb);
+      if (ng > 0) free(kg);
     }
-    ng = DecodeGroupArgs(q, &kg);
-    if (ConfigSD(m, ng, kg, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1, sth) < 0) {
+    if (r < 0) {
       return NULL;
     }
     Py_INCREF(Py_None);
