@@ -518,7 +518,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       else {
 	ngb = DecodeGroupArgs(qb, &kgb);
       }
-      r = ConfigSD(m, ng, kg, s, gn1, gn2,
+      r = ConfigSD(m, ng, kg, s, gn1, NULL,
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
       if (ngb > 0) free(kgb);
     } else {
