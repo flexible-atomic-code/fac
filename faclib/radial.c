@@ -221,6 +221,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->mqrho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->vtr, sizeof(double), p->maxrp, f);
   n = BFileRead(p->Vc, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dVc, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dVc2, sizeof(double), p->maxrp, f);
@@ -356,6 +357,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(p->mqrho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->vtr, sizeof(double), p->maxrp, f);
   n = fwrite(p->Vc, sizeof(double), p->maxrp, f);
   n = fwrite(p->dVc, sizeof(double), p->maxrp, f);
   n = fwrite(p->dVc2, sizeof(double), p->maxrp, f);
@@ -810,7 +812,8 @@ void SetScreening(int n_screen, int *screened_n,
   optimize_control.screened_kl = kl;
 }
 
-int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin) {
+int SetRadialGrid(int maxrp, double ratio, double asymp,
+		  double rmin, double qr) {
   if (maxrp > MAXRP) {
     printf("MAXRP must be <= %d\n", MAXRP);
     printf("to enlarge the limit, change MAXRP in global.h\n");
@@ -828,6 +831,8 @@ int SetRadialGrid(int maxrp, double ratio, double asymp, double rmin) {
   else potential->ratio = ratio;
   if (asymp == 0) potential->asymp = GRIDASYMP;
   else potential->asymp = asymp;
+  if (qr <= 0) potential->qr = GRIDQR;
+  else potential->qr = qr;
   potential->flag = 0;
   return 0;  
 }
@@ -7146,7 +7151,7 @@ int InitRadial(void) {
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
-  SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
+  SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
 
   SetOrbMap(0, 0, 0, 0);
@@ -7190,7 +7195,7 @@ int ReinitRadial(int m) {
       potential->flag = 0;
       n_awgrid = 1;
       awgrid[0] = EPS3;
-      SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0);
+      SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
     }
   }
 #pragma omp barrier

@@ -649,9 +649,9 @@ def check_ai(actual_file, expected_file):
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks,
-                 atols={'rate': 1.0e1},
+                 atols={'rate': 1.0e1, 'Delta E': 0.5},
                  rtols={'rate': 0.01, 'DC strength': 0.01,
-                        'AI rate': 0.01})
+                        'AI rate': 0.01, 'Delta E': 0.01})
 
 
 def check_tr(actual_file, expected_file):

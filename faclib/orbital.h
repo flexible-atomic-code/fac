@@ -39,13 +39,14 @@ typedef struct _POTENTIAL_ {
   double N; /*number of electrons*/
   double lambda; /* parameter for the Vc */
   double a; /* previously used to parameterize the Vc, but now always 0.0*/
-  double ar, br; /* parameter for the transformation */
+  double ar, br, qr; /* parameter for the transformation */
   int ib, nb, ib1;
   double bqp, rb; /* boundary condition */
   double rad[MAXRP];
   double mqrho[MAXRP];
   double dr_drho[MAXRP];
   double dr_drho2[MAXRP];
+  double vtr[MAXRP];
   double Vc[MAXRP];
   double dVc[MAXRP];
   double dVc2[MAXRP];
@@ -100,7 +101,7 @@ double InnerProduct(int i1, int n,
 void Differential(double *p, double *dp, int i1, int i2, double *drdrho);
 void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr);
 int SetOrbitalRGrid(POTENTIAL *pot);
-double GetRFromRho(double rho, double a, double b, double r0);
+double GetRFromRho(double rho, double a, double b, double q, double r0);
 int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);

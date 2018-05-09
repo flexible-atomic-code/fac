@@ -518,7 +518,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       else {
 	ngb = DecodeGroupArgs(qb, &kgb);
       }
-      r = ConfigSD(m, ng, kg, s, gn1, gn2,
+      r = ConfigSD(m, ng, kg, s, gn1, NULL,
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
       if (ngb > 0) free(kgb);
     } else {
@@ -801,7 +801,7 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
-  double ratio, asym, rmin;
+  double ratio, asym, rmin, qr;
   int maxrp;
 
   if (sfac_file) {
@@ -810,9 +810,10 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "iddd", &maxrp, &ratio, &asym, &rmin))
+  qr = -1;
+  if (!PyArg_ParseTuple(args, "iddd|d", &maxrp, &ratio, &asym, &rmin, &qr))
     return NULL;
-  if (-1 == SetRadialGrid(maxrp, ratio, asym, rmin))
+  if (-1 == SetRadialGrid(maxrp, ratio, asym, rmin, qr))
     return NULL;
   Py_INCREF(Py_None);
   return Py_None;
@@ -1695,7 +1696,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
   char *fn, *fn1, *gn, **fn2;
-  double d, c;
+  double d, c, e;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
@@ -1742,20 +1743,18 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
-  if (n == 3 || n == 4) {
-    d = -1;
-    if (!(PyArg_ParseTuple(args, "iid|d", &i, &n3, &c, &d))) return NULL;
-    p = PyTuple_GetItem(args, 2);
-    if (PyLong_Check(p)) {
-      onError("2nd argument must be a floating point number");
-      return NULL;
+
+  p = PyTuple_GET_ITEM(args, 0);
+  if (PyLong_Check(p)) {
+    if (n == 3 || n == 4 || n == 5) {
+      d = -1.0;
+      e = -1.0;
+      if (!(PyArg_ParseTuple(args, "iid|dd", &i, &n3, &c, &d, &e))) return NULL;
+      SetOptMBPT(i, n3, c, d, e);
+      Py_INCREF(Py_None);
+      return Py_None;
     }
-    SetOptMBPT(i, n3, c, d);
-    Py_INCREF(Py_None);
-    return Py_None;
   }
-  
   if (n == 10) { 
     c = 0.0;
     if (!(PyArg_ParseTuple(args, "sddOiOOOOs",

@@ -37,6 +37,7 @@ static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
 static double mbpt_mcut = EPS4;
 static double mbpt_mcut2 = 0.1;
+static double mbpt_mcut3 = 0.25;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static int mbpt_nsplit = 0;
@@ -126,11 +127,14 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
   memcpy(mbpt_tr.up, up, sizeof(int)*nup);
 }
 
-void SetOptMBPT(int i3rd, int n3, double c, double d) {
+void SetOptMBPT(int i3rd, int n3, double c, double d, double e) {
   mbpt_3rd = i3rd;
   mbpt_n3 = n3;
   mbpt_mcut = c;
   if (d > 0) mbpt_mcut2 = d;
+  else mbpt_mcut2 = 0.1;
+  if (e > 0) mbpt_mcut3 = e;
+  else mbpt_mcut3 = 0.1;
 }
 
 void SetExtraMBPT(int m) {
@@ -3882,7 +3886,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
-	if (i == j || iig || jig) a *= mbpt_mcut2;
+	if (iig || jig) a *= mbpt_mcut2;
+	if (i == j) a *= mbpt_mcut3;
 	if (c >= a) {
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
