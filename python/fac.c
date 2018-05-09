@@ -505,12 +505,23 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     int m, r, ng, *kg, ngb, *kgb, n0, n1, k0, k1, n0d, n1d;
     double sth;
     char *gn1, *gn2, *s;
+    s = NULL;
+    n0 = 1;
+    n1 = 1;
+    k0 = 0;
+    k1 = -1;
+    n0d = 0;
+    n1d = 0;
+    sth = 0;
+    qb = NULL;
+    ng = 0;
+    kg = NULL;
+    ngb = 0;
+    kgb = NULL;
+    gn1 = NULL;
+    gn2 = NULL;
     m = PyLong_AsLong(q);
     if (m == 0) {
-      sth = 0.0;
-      qb = NULL;
-      ngb = 0;
-      kgb = NULL;
       if (!(PyArg_ParseTuple(args, "iss|dO", &m, &gn1, &s, &sth, &qb))) {
 	return NULL;
       }
@@ -522,15 +533,6 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
       if (ngb > 0) free(kgb);
     } else {
-      s = NULL;
-      n0 = 1;
-      n1 = 1;
-      k0 = 0;
-      k1 = -1;
-      n0d = 0;
-      n1d = 0;
-      sth = 0;
-      qb = NULL;
       if (!(PyArg_ParseTuple(args, "iOO|siiiiiidO",
 			     &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
 			     &n0d, &n1d, &sth, &qb))) return NULL;
