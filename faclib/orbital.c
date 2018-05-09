@@ -2061,6 +2061,9 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   n = 2*kl + ku + 1;
   k = kl + ku;
   for (i = i1+1; i < i2; i++, j++, k += n) {
+    y = pot->dr_drho[i]*pot->dr_drho[i];
+    x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
+    /*
     r = pot->rad[i];
     x = 2.0*(_veff[i] - e);
     x *= 4.0*r*r;
@@ -2072,6 +2075,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
     z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
     x += z*y;    
     x *= y / 12.0;
+    */
     a = 1.0 - x;
     b = -2.0*(1.0 + 5.0*x);
     ABAND[k-1] = a;
@@ -2080,6 +2084,9 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   }
 
   i = i2;
+  y = pot->dr_drho[i]*pot->dr_drho[i];
+  x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
+  /*
   r = pot->rad[i];
   x = 2.0*(_veff[i] - e);
   x *= 4.0*r*r;
@@ -2091,6 +2098,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
   x += z*y;    
   x *= y / 12.0;
+  */
   a2 = 1.0 - x;
   if (q == 1) {
     k -= n;
@@ -2103,6 +2111,9 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   }
     
   i = i1;
+  y = pot->dr_drho[i]*pot->dr_drho[i];
+  x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
+  /*
   r = pot->rad[i];
   x = 2.0*(_veff[i] - e);
   x *= 4.0*r*r;
@@ -2114,6 +2125,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
   x += z*y;    
   x *= y / 12.0;
+  */
   a1 = 1.0 - x;
   if (q == 2) {
     k = kl + ku;
@@ -2168,7 +2180,7 @@ double InnerProduct(int i1, int n, double *p1, double *p2, POTENTIAL *pot) {
 int SetOrbitalRGrid(POTENTIAL *pot) {
   int i;  
   double z0, z, d1, d2, del, gratio, gasymp;
-  double a, b, c, rn, r1, rmin, rmax;
+  double a, b, c, q, rn, r1, rmin, rmax;
 
   gratio = pot->ratio;
   gasymp = pot->asymp;
@@ -2188,14 +2200,14 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   if (gasymp > 0 && gratio > 0) {
     a = gasymp*sqrt(2.0*z)/PI;
     c = 1.0/log(gratio);
-    d2 = pot->maxrp-10.0 + a*sqrt(rmin) + c*log(rmin);
+    d2 = pot->maxrp-10.0 + a*pow(rmin, pot->qr) + c*log(rmin);
     rmax = d2/a;
-    rmax *= rmax;
+    rmax = pow(rmax, 1.0/pot->qr);
     d1 = 1.0;
-    while (d1 > EPS3) {
+    while (d1 > EPS5) {
       r1 = d2 - c*log(rmax);
       r1 = r1/a;
-      r1 *= r1;
+      r1 = pow(r1, 1.0/pot->qr);
       d1 = fabs(r1/rmax-1.0);
       rmax = r1;
     }
@@ -2206,22 +2218,23 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     }
     c = 1.0/log(gratio);
     a = pot->maxrp-15.0 + c*(log(rmin)-log(rmax));
-    a /= sqrt(rmax) - sqrt(rmin);
+    a /= pow(rmax, pot->qr) - pow(rmin, pot->qr);
   } else if (gasymp > 0) {
     rmax = -gratio;
     if (rmax > 1e10 && pot->rb > rmin) {
       rmax = pot->rb*1.001;
     }
     a = gasymp*sqrt(2.0*z)/PI;
-    c = pot->maxrp-15.0 + a*(sqrt(rmin)-sqrt(rmax));
+    c = pot->maxrp-15.0 + a*(pow(rmin, pot->qr)-pow(rmax, pot->qr));
     c /= log(rmax) - log(rmin);
   }     
   pot->nmax = sqrt(rmax*z)/2.0;
   d1 = log(rmax/rmin);
-  d2 = sqrt(rmax) - sqrt(rmin);
+  d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
   b = (pot->maxrp - 1.0 - (a*d2))/d1;
   if (b < c) {
-    printf("Not enough radial mesh points, ");
+    printf("Not enough radial mesh points: %d %g %g %g %g, ",
+	   pot->maxrp, gasymp, gratio, rmin, rmax);
     printf("enlarge to at least %d\n", (int) (1 + a*d2 + c*d1));
     exit(1);
   }
@@ -2230,20 +2243,27 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   d2 = a*d2;
   del = (d1 + d2)/(pot->maxrp - 1);
   pot->rad[0] = rmin;
-  d1 = a*sqrt(rmin) + b*log(rmin);
+  d1 = a*pow(rmin, pot->qr) + b*log(rmin);
   for (i = 1; i < pot->maxrp; i++) {
     d1 += del;
-    pot->rad[i] = GetRFromRho(d1, a, b, pot->rad[i-1]);
+    pot->rad[i] = GetRFromRho(d1, a, b, pot->qr, pot->rad[i-1]);
   }
 
   pot->ar = a;
   pot->br = b;
 
+  double tp2, tp3;
+  q = pot->qr*(pot->qr-1);
+  c = q*(pot->qr-2);
   for (i = 0; i < pot->maxrp; i++) {
-    d1 = a * sqrt(pot->rad[i]);
-    d2 = 2.0*pot->rad[i];
-    pot->dr_drho[i] = d2/(d1 + 2.0*b);
+    d1 = a * pow(pot->rad[i], pot->qr);
+    d2 = pot->rad[i]/pot->qr;
+    pot->dr_drho[i] = d2/(d1 + b/pot->qr);
     pot->dr_drho2[i] = sqrt(pot->dr_drho[i]);
+    r1 = pot->rad[i]*pot->rad[i];
+    tp2 = (q*d1-b)/r1;
+    tp3 = (c*d1+2*b)/(r1*pot->rad[i]);
+    pot->vtr[i] = pot->dr_drho[i]*(0.5*tp3-0.75*pot->dr_drho[i]*tp2*tp2);
   }
 
   RGMQED(&a, &b);
@@ -2254,7 +2274,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   return 0;
 }
 
-double GetRFromRho(double rho, double a, double b, double r0) {
+double GetRFromRho(double rho, double a, double b, double q, double r0) {
   double e, d1;
   int i;
 
@@ -2265,9 +2285,9 @@ double GetRFromRho(double rho, double a, double b, double r0) {
       printf("Newton iteration failed to converge in GetRFromRho\n");
       exit(1);
     }
-    d1 = sqrt(r0)*a;
+    d1 = pow(r0, q)*a;
     e = d1 + b*log(r0) - rho;
-    e /= (0.5*d1 + b);
+    e /= (q*d1 + b);
     r0 *= (1.0 - e);
     i++;
   }

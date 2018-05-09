@@ -2351,17 +2351,19 @@ static int PSetPotentialMode(int argc, char *argv[], int argt[],
 
 static int PSetRadialGrid(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  double rmin, ratio, asym;
+  double rmin, ratio, asym, qr;
   int maxrp;
 
-  if (argc != 4) return -1;
+  if (argc != 4 && argc != 5) return -1;
   
   maxrp = atoi(argv[0]);
   ratio = atof(argv[1]);
   asym = atof(argv[2]);
   rmin = atof(argv[3]);
+  qr = -1;
+  if (argc == 5) qr = atof(argv[4]);
 
-  return SetRadialGrid(maxrp, ratio, asym, rmin);
+  return SetRadialGrid(maxrp, ratio, asym, rmin, qr);
 }
 
 static int PSetRecPWLimits(int argc, char *argv[], int argt[], 
@@ -2847,7 +2849,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   int n3, *ng3, n4, *ng4;
   char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
-  double d, c;
+  double d, c, e;
 
   if (argc == 1) {
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
@@ -2883,19 +2885,23 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     SetExcMBPT(n2, n1, argv[0]);
     return 0;
   }
-  if (argc == 3 || argc == 4) {
-    if (argt[0] != NUMBER) return -1;
+  if ((argc == 3 || argc == 4 || argc == 5) && argt[0] == NUMBER) {
     if (argt[1] != NUMBER) return -1;
     if (argt[2] != NUMBER) return -1;
     i = atoi(argv[0]);
     n3 = atoi(argv[1]);
     c = atof(argv[2]);
-    d = -1;
-    if (argc == 4) {
+    d = -1.0;
+    e = -1.0;
+    if (argc > 3 ) {
       if (argt[3] != NUMBER) return -1;
       d = atof(argv[3]);
-    }
-    SetOptMBPT(i, n3, c, d);
+      if (argc > 4) {
+	if (argt[4] != NUMBER) return -1;
+	e = atof(argv[4]);
+      }
+    }      
+    SetOptMBPT(i, n3, c, d, e);
     return 0;
   }
   if (argc == 10) {
