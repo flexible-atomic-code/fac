@@ -31,6 +31,8 @@ static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
 static int mbpt_minn = 0;
 static int mbpt_mini = 0;
+static int mbpt_minn2 = 0;
+static int mbpt_mini2 = 0;
 static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
@@ -2381,6 +2383,15 @@ int IdxGetN1(IDXARY *ing, int m) {
   return i;
 }
 
+int IdxGetN2(IDXARY *ing, int m) {
+  int i = IdxGet(ing, m);
+  if (i < 0) return i;
+  if (mbpt_mini2 <= 0) return i;
+  i -= mbpt_mini2;
+  if (i < 0) return -999;
+  return i;
+}
+
 void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns, 
 		    SHELL *bra, SHELL *ket,
 		    SHELL_STATE *sbra, SHELL_STATE *sket,
@@ -2447,9 +2458,12 @@ void DeltaH22M2Loop(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1, int ns,
   i1 = IdxGetN1(ing, m1);
   if (i1 < 0) return;
   if (mbpt_maxn <= 0) {
-    i2 = IdxGet(ing2, m2-m1);
-    if (i2 < 0) return;
-    i = i1*ing2->n + i2;
+    i2 = IdxGetN2(ing2, m2-m1);
+    if (i2 == -999) i = -(i1+1);
+    else {
+      if (i2 < 0) return;
+      i = i1*(ing2->n-mbpt_mini2) + i2;
+    }
   } else {
     i = -(i1+1);
   }
@@ -3511,7 +3525,8 @@ int GetJpList(int n, int *bas, int *jp) {
 int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm, 
 		   int n, int *ng, int n2, int *ng2, int nkg0) {
   int *bas, *bas0, *bas1, nlevels, nb0, nb, n3, q, nhab, nhab1;
-  int i, j, k, i0, i1, n0, n1, nr, *ngr, isym, ierr, nc, m, mks, *ks;
+  int i, j, k, i0, i1, n0, n1, nr, nr2, *ngr, *ngr2;
+  int isym, ierr, nc, m, mks, *ks;
   int pp, jj, nmax, na, *ga, k0, k1, m0, m1, nmax1, mst, ncps;
   int p0, p1, j0, j1, j2, q0, q1, ms0, ms1, *bst, *kst, *bst0, *kst0;
   char tfn[1024];
@@ -3619,6 +3634,18 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     n2 = ConstructNGrid(n2, &ng2);
     mbpt_maxn = 0;
     mbpt_maxm = 0;
+    mbpt_minn2 = 0;
+    mbpt_mini2 = 0;
+    for (i = 1; i < n2; i++) {
+      if (ng2[i]-ng2[i-1] > 1) {
+	mbpt_minn2 = ng2[i-1];
+	break;
+      }
+    }
+    if (i == n2) {
+      mbpt_maxn = ng2[i-1];
+      mbpt_minn2 = 0;
+    }
   }
   InitIdxAry(&ing, n, ng);
   InitIdxAry(&ing2, n2, ng2);
@@ -3640,11 +3667,27 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     nr = n;
     ngr = ng;
   }
+  if (mbpt_minn2 > 0) {
+    mbpt_mini2 = IdxGet(&ing2, mbpt_minn2);
+    if (mbpt_mini2 < 0) {
+      mbpt_minn2 = 0;
+      mbpt_mini2 = 0;
+    }
+    nr2 = n2 - mbpt_mini2;
+    ngr2 = malloc(sizeof(int)*nr2);
+    for (i = 0; i < nr2; i++) {
+      ngr2[i] = ng2[i+mbpt_mini2];
+    }
+  } else {
+    nr2 = n2;
+    ngr2 = ng2;
+  }
+    
   nhab1 = nr*2;
   if (mbpt_maxn > 0) {
     nhab = 0;
   } else {
-    nhab = n*n2*2;
+    nhab = nr*nr2*2;
   }
   na = n*n2+n+nmax;
   ga = malloc(sizeof(int)*na);
@@ -3722,8 +3765,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   tt1 = WallTime();
   dt = tt1-tt0;
   tt0 = tt1;
-  MPrintf(-1, "Time = %12.5E %3d %3d %3d %3d %3d %3d %3d\n",
-	  dt, n, nr, n2, mbpt_maxm, mbpt_maxn, mbpt_minn, mbpt_mini);
+  MPrintf(-1, "Time = %12.5E %d %d %d %d %d %d %d %d %d %d\n",
+	  dt, n, nr, n2, nr2, mbpt_maxm, mbpt_maxn,
+	  mbpt_minn, mbpt_mini, mbpt_minn2, mbpt_mini2);
   fflush(stdout);
   if (nb < 0) return -1;
 
@@ -3753,6 +3797,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	free(mbpt_rij);
       }
       if (ngr != ng) free(ngr);
+      if (ngr2 != ng2) free(ngr2);
       free(ng);
       free(ng2);
       return -1;
@@ -3760,8 +3805,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     fwrite(&nr, sizeof(int), 1, f);
     fwrite(ngr, sizeof(int), nr, f);
     if (nhab > 0) {
-      fwrite(&n2, sizeof(int), 1, f);
-      fwrite(ng2, sizeof(int), n2, f);
+      fwrite(&nr2, sizeof(int), 1, f);
+      fwrite(ngr2, sizeof(int), nr2, f);
     } else {
       fwrite(&nhab, sizeof(int), 1, f);
     }
@@ -3816,7 +3861,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     if (nhab > 0) {
       meff[isym]->hab = malloc(sizeof(double *)*h->hsize);
       meff[isym]->hba = malloc(sizeof(double *)*h->hsize);
-      meff[isym]->n2 = n2;
+      meff[isym]->n2 = nr2;
     } else {
       meff[isym]->hab = NULL;
       meff[isym]->hba = NULL;
@@ -4331,11 +4376,11 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }
 	  a = h0[k];
 	  m = j*h->dim + i;
-	  b = SumInterpH(nr, ngr, n2, ng2, hab, hab1, dw);
+	  b = SumInterpH(nr, ngr, nr2, ngr2, hab, hab1, dw);
 	  heff[m] = a+b;
 	  if (i < j) {
 	    m = i*h->dim + j;
-	    c = SumInterpH(nr, ngr, n2, ng2, hba, hba1, dw);
+	    c = SumInterpH(nr, ngr, nr2, ngr2, hba, hba1, dw);
 	    heff[m] = a+c;
 	  } else {
 	    c = b;
@@ -4633,6 +4678,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
   FreeEffMBPT(meff);
   FreeTransitionMBPT(mtr);
   if (ngr != ng) free(ngr);
+  if (ngr2 != ng2) free(ngr2);
   free(ng);
   free(ng2);
   return ierr;
