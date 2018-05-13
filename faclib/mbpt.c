@@ -4390,11 +4390,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  fwrite(&a, sizeof(double), 1, f);
 	  fwrite(&b, sizeof(double), 1, f);
 	  fwrite(&c, sizeof(double), 1, f);
-	  if (n3 != 2) {
-	    fwrite(hab1, sizeof(double), nhab1, f);
-	    if (i != j) {
-	      fwrite(hba1, sizeof(double), nhab1, f);
-	    }
+	  fwrite(hab1, sizeof(double), nhab1, f);
+	  if (i != j) {
+	    fwrite(hba1, sizeof(double), nhab1, f);
 	  }
 	  if (n3 != 1 && nhab > 0) {
 	    fwrite(hab, sizeof(double), nhab, f);
@@ -4737,17 +4735,14 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
       //if (nb != 1) return -1;
       //printf("r1: %d %d %d %g %g %g\n", i, mbpt[i].ibra, mbpt[i].iket, mbpt[i].a, mbpt[i].b, mbpt[i].c);
       if (mbpt[i].ibra < 0 || mbpt[i].iket < 0) continue;
-      if (mbpt[i].n3 != 2) {
-	nb = fread(mbpt[i].hab1, sizeof(double), mbpt[i].n*2, f[i]);
+      nb = fread(mbpt[i].hab1, sizeof(double), mbpt[i].n*2, f[i]);
+      //if (nb != mbpt[i].n*2) return -1;
+      if (mbpt[i].ibra != mbpt[i].iket) {
+	nb = fread(mbpt[i].hba1, sizeof(double), mbpt[i].n*2, f[i]);
 	//if (nb != mbpt[i].n*2) return -1;
-	if (mbpt[i].ibra != mbpt[i].iket) {
-	  nb = fread(mbpt[i].hba1, sizeof(double), mbpt[i].n*2, f[i]);
-	  //if (nb != mbpt[i].n*2) return -1;
-	} else {
-	  memcpy(mbpt[i].hba1, mbpt[i].hab1, sizeof(double)*mbpt[i].n*2);
-	}
-	//printf("r2: %d %g %g %g %g\n", i, mbpt[i].hab1[0], mbpt[i].hba1[0], mbpt[i].hab1[1], mbpt[i].hba1[1]);
-      } 
+      } else {
+	memcpy(mbpt[i].hba1, mbpt[i].hab1, sizeof(double)*mbpt[i].n*2);
+      }
       if (mbpt[i].n3 != 1 && mbpt[i].n2 > 0) {
 	nn2 = 2*mbpt[i].n*mbpt[i].n2;
 	nb = fread(mbpt[i].hab, sizeof(double), nn2, f[i]);
@@ -4809,16 +4804,14 @@ void CombineMBPT0(int nf, MBPT_HAM *mbpt,
 #pragma omp for schedule(static)
   for (m = 0; m < nf; m++) {
     if (mbpt[m].ibra < 0 || mbpt[m].iket < 0) continue;
-    if (mbpt[m].n3 != 2) {
-      for (i = 0; i < mbpt[m].n; i++) {
-	//k = IdxGet(ing0, mbpt[m].ng[i]);
-	k = IBisect(mbpt[m].ng[i], n0, ng0);
-	if (k < 0) continue;
-	hab1[k] = mbpt[m].hab1[i];
-	hba1[k] = mbpt[m].hba1[i];
-	nab1[k] = mbpt[m].hab1[i+mbpt[m].n];
+    for (i = 0; i < mbpt[m].n; i++) {
+      //k = IdxGet(ing0, mbpt[m].ng[i]);
+      k = IBisect(mbpt[m].ng[i], n0, ng0);
+      if (k < 0) continue;
+      hab1[k] = mbpt[m].hab1[i];
+      hba1[k] = mbpt[m].hba1[i];
+      nab1[k] = mbpt[m].hab1[i+mbpt[m].n];
 	nba1[k] = mbpt[m].hba1[i+mbpt[m].n];
-      }
     }
     if (mbpt[m].n3 != 1) {
       nn2 = mbpt[m].n * mbpt[m].n2;
@@ -4872,16 +4865,18 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
   for (m = 0; m < nf; m++) {
     if (SkipWMPI(w++)) continue;
     if (mbpt[m].ibra < 0 || mbpt[m].iket < 0) continue;
-    if (mbpt[m].n3 != 2) {
-      for (i = 0; i < mbpt[m].n; i++) {
-	k = IdxGet(ing0, mbpt[m].ng[i]);
-	//k = IBisect(mbpt[m].ng[i], n0, ng0);
-	if (k < 0) continue;
-	hab1[k] += mbpt[m].hab1[i];
-	hba1[k] += mbpt[m].hba1[i];
-	nab1[k] += mbpt[m].hab1[i+mbpt[m].n];
-	nba1[k] += mbpt[m].hba1[i+mbpt[m].n];
-      }
+    for (i = 0; i < mbpt[m].n; i++) {
+      k = IdxGet(ing0, mbpt[m].ng[i]);
+      //k = IBisect(mbpt[m].ng[i], n0, ng0);
+      if (k < 0) continue;
+#pragma omp atomic
+      hab1[k] += mbpt[m].hab1[i];
+#pragma omp atomic
+      hba1[k] += mbpt[m].hba1[i];
+#pragma omp atomic
+      nab1[k] += mbpt[m].hab1[i+mbpt[m].n];
+#pragma omp atomic
+      nba1[k] += mbpt[m].hba1[i+mbpt[m].n];
     }
     if (mbpt[m].n3 != 1 && mbpt[m].n2 > 0) {
       nn2 = mbpt[m].n * mbpt[m].n2;
@@ -4894,9 +4889,13 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
 	  q = IdxGet(&ing2[k], mbpt[m].ng2[j]);
 	  //q = IBisect(mbpt[m].ng2[j], n2[k], ng2[k]);
 	  if (q < 0) continue;
+#pragma omp atomic
 	  hab[k][q] += mbpt[m].hab[r+j];
+#pragma omp atomic
 	  hba[k][q] += mbpt[m].hba[r+j];
+#pragma omp atomic
 	  nab[k][q] += mbpt[m].hab[r+j + nn2];
+#pragma omp atomic
 	  nba[k][q] += mbpt[m].hba[r+j + nn2];
 	}
       }
@@ -4946,7 +4945,9 @@ void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr, IDXARY *ing) {
 		r = IdxGet(ing, mbpt[m].ng[i]);
 		//r = IBisect(mbpt[m].ng[i], n, ng);
 		if (r < 0) continue;
+#pragma omp atomic
 		mtr[j].tma[q][t*n+r] += mbpt[m].mtr[j].tma[q][t*mbpt[m].n+i];
+#pragma omp atomic
 		mtr[j].rma[q][t*n+r] += mbpt[m].mtr[j].rma[q][t*mbpt[m].n+i];
 	      }
 	    }
@@ -5181,7 +5182,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   n = 0;
   n0 = 0;
   for (m = 0; m < nf; m++) {
-    if (mbpt[m].n3 != 2) n0 += mbpt[m].n;
+    n0 += mbpt[m].n;
     if (mbpt[m].n3 != 1) n += mbpt[m].n;
   }    
   if (n0 > 0) ng0 = malloc(sizeof(int)*n0);
@@ -5194,10 +5195,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	ng[i++] = mbpt[m].ng[k];
       }
     }
-    if (mbpt[m].n3 != 2) {
-      for (k = 0; k < mbpt[m].n; k++) {
-	ng0[j++] = mbpt[m].ng[k];
-      }
+    for (k = 0; k < mbpt[m].n; k++) {
+      ng0[j++] = mbpt[m].ng[k];
     }
   }
   if (i > 0) {

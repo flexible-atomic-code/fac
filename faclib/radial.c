@@ -4401,17 +4401,13 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       nb0 = potential->nb+1;
       int nk = 1+GetLFromKappa(orb1->kappa)/2;
       if (nb0 < nk) nb0 = nk;
-      if (potential->nfn[kv1] <= 0) {
-	for (;;nb0++) {
-	  idx = OrbitalIndex(nb0, orb1->kappa, 0);
-	  orb0 = GetOrbitalSolved(idx);
-	  if (orb0->energy > eb0) break;
-	  if (orb0->rfn < potential->rfn[kv1]) break;
-	}
-	potential->nfn[kv1] = nb0;
-      } else if (nb0 < potential->nfn[kv1]) {
-	nb0 = potential->nfn[kv1];
+      for (;;nb0++) {
+	idx = OrbitalIndex(nb0, orb1->kappa, 0);
+	orb0 = GetOrbitalSolved(idx);
+	if (orb0->energy > eb0) break;
+	if (orb0->rfn < potential->rfn[kv1]) break;
       }
+      potential->nfn[kv1] = nb0;
       orb0 = NULL;
       if (orb1->n < nb0 && orb2->n >= nb0) {
 	if (ose >= 0) {
