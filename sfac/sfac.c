@@ -2956,7 +2956,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
   
-  if (argc == 7) {
+  if (argc == 7 || argc == 9) {
     if (argt[2] != LIST) return -1;
     n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
     if (n <= 0) {
@@ -2985,8 +2985,14 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     }
     if (argt[6] != NUMBER) return -1;
     n3 = atoi(argv[6]);
-
-    StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3);
+    int icp = 0;
+    int ncp = 0;
+    if (argc == 9) {
+      ncp = atoi(argv[7]);
+      icp = atoi(argv[8]);
+    }
+    StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3,
+		   icp, ncp);
 
     free(s);
     //if (n1 > 0) free(ng1);

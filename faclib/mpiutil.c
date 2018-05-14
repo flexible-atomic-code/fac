@@ -623,7 +623,9 @@ int CompareRandIdx(const void *p1, const void *p2) {
 RANDIDX *RandList(int n) {
   int i;
   RANDIDX *w;
+  const long seed = 0xFFFF;
   w = (RANDIDX *) malloc(sizeof(RANDIDX)*n);
+  srand48(seed);
   for (i = 0; i < n; i++) {
     w[i].r = drand48();
     w[i].i = i;

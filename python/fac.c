@@ -1804,9 +1804,11 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     return Py_None;
   } 
 
-  if (n == 7) {
-    if (!(PyArg_ParseTuple(args, "ssOOOOi",
-			   &fn, &fn1, &p, &t, &q, &r, &n3)))
+  int icp = 0;
+  int ncp = 0;
+  if (n == 7 || n == 9) {
+    if (!(PyArg_ParseTuple(args, "ssOOOOi|ii",
+			   &fn, &fn1, &p, &t, &q, &r, &n3, &ncp, &icp)))
       return NULL;
     
     n = DecodeGroupArgs(p, &s);
@@ -1833,7 +1835,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
       return NULL;
     }
   
-    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3);
+    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3, icp, ncp);
     free(s);
     //if (n1 > 0) free(ng1);
     //if (n2 > 0) free(ng2);
