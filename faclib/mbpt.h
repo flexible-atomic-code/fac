@@ -72,12 +72,18 @@ typedef struct _MBPT_EFF_ {
   double **hab, **hba;
 } MBPT_EFF;
 
+typedef struct _CONFIG_PAIR_ {
+  int k0;
+  int k1;
+  int m;
+} CONFIG_PAIR;
+
 void InitMBPT(void);
 int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax, 
 		   int n1, int *nm, int n2, int *nmp, int n3, int *n3g,
 		   int n4, int *n4g, char *gn);
 int StructureMBPT1(char *fn, char *fn1, int n, int *s0, int nk, int *nkm, 
-		   int n1, int *nm, int n2, int *nmp, int n0);
+		   int n1, int *nm, int n2, int *nmp, int n0, int icp, int ncp);
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 
 		      int nkg, int *kg, int nkg0);
 void SetExtraMBPT(int m);
