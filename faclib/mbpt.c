@@ -27,6 +27,7 @@ USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
+static int mbpt_savesum = 0;
 static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
 static int mbpt_minn = 0;
@@ -142,6 +143,8 @@ void SetOptMBPT(int i3rd, int n3, double c, double d, double e) {
 void SetExtraMBPT(int m) {
   int am = abs(m);
   mbpt_extra = am%10;
+  mbpt_savesum = mbpt_extra/5;
+  mbpt_extra = mbpt_extra%5;
   am /= 10;
   mbpt_minn = am%1000;
   am /= 1000;
@@ -3515,7 +3518,7 @@ int GetICP(int nt, CONFIG_PAIR *cp, int ncp, int icp, int *i0, int *i1) {
   for (i = 0; i < nt; i++) {
     m += cp[i].m;
   }
-  if (ncp >= nt) {
+  if (ncp <= 0 || ncp >= nt) {
     *i0 = 0;
     *i1 = nt;
     return m;
@@ -3841,13 +3844,21 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       free(ng2);
       return -1;
     }
-    fwrite(&nr, sizeof(int), 1, f);
-    fwrite(ngr, sizeof(int), nr, f);
-    if (nhab > 0) {
-      fwrite(&nr2, sizeof(int), 1, f);
-      fwrite(ngr2, sizeof(int), nr2, f);
+    if (mbpt_savesum == 0) {
+      fwrite(&nr, sizeof(int), 1, f);
+      fwrite(ngr, sizeof(int), nr, f);
+      if (nhab > 0) {
+	fwrite(&nr2, sizeof(int), 1, f);
+	fwrite(ngr2, sizeof(int), nr2, f);
+      } else {
+	fwrite(&nhab, sizeof(int), 1, f);
+      }
     } else {
-      fwrite(&nhab, sizeof(int), 1, f);
+      m = 1;
+      fwrite(&m, sizeof(int), 1, f);
+      fwrite(&m, sizeof(int), 1, f);
+      m = 0;
+      fwrite(&m, sizeof(int), 1, f);
     }
     fwrite(&n3, sizeof(int), 1, f);
   }
@@ -4118,6 +4129,42 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     m = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
     printf("structure cfgpair: %d %d %d %d %d %d %d\n",
 	   icp, ncp, icp0, icp1, ncpt, m, mst);
+    for (ic = 0; ic < ncpt; ic++) {
+      if (ic >= icp0 && ic < icp1) continue;
+      k0 = cfgpair[ic].k0;
+      k1 = cfgpair[ic].k1;
+      c0 = cs[k0];
+      c1 = cs[k1];
+      m = 0;
+      for (m0 = 0; m0 < c0->n_csfs; m0++) {
+	ms0 = c0->symstate[m0];
+	UnpackSymState(ms0, &i0, &q0);	
+	if (c0 == c1) q = m0;
+	else q = 0;
+	for (m1 = q; m1 < c1->n_csfs; m1++) {
+	  ms1 = c1->symstate[m1];
+	  UnpackSymState(ms1, &i1, &q1);
+	  if (i0 != i1) continue;
+	  if (q0 <= q1) {
+	    k = q1*(q1+1)/2 + q0;
+	  } else {
+	    k = q0*(q0+1)/2 + q1;
+	  }
+	  if (meff[i0] && meff[i0]->nbasis > 0 && meff[i0]->hab1[k]) {
+	    free(meff[i0]->hab1[k]);
+	    free(meff[i0]->hba1[k]);
+	    meff[i0]->hab1[k] = NULL;
+	    meff[i0]->hba1[k] = NULL;
+	    if (nhab > 0) {
+	      free(meff[i0]->hab[k]);
+	      free(meff[i0]->hba[k]);
+	      meff[i0]->hab[k] = NULL;
+	      meff[i0]->hba[k] = NULL;
+	    }
+	  }
+	}
+      }
+    }    
     double ttskip = 0, ttlock=0;
     long long tnlock = 0;
     ncps = 0;
@@ -4502,14 +4549,27 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  fwrite(&a, sizeof(double), 1, f);
 	  fwrite(&b, sizeof(double), 1, f);
 	  fwrite(&c, sizeof(double), 1, f);
-	  fwrite(hab1, sizeof(double), nhab1, f);
-	  if (i != j) {
-	    fwrite(hba1, sizeof(double), nhab1, f);
-	  }
-	  if (n3 != 1 && nhab > 0) {
-	    fwrite(hab, sizeof(double), nhab, f);
+	  if (mbpt_savesum == 0) {
+	    fwrite(hab1, sizeof(double), nhab1, f);
 	    if (i != j) {
-	      fwrite(hba, sizeof(double), nhab, f);
+	      fwrite(hba1, sizeof(double), nhab1, f);
+	    }
+	    if (n3 != 1 && nhab > 0) {
+	      fwrite(hab, sizeof(double), nhab, f);
+	      if (i != j) {
+		fwrite(hba, sizeof(double), nhab, f);
+	      }
+	    }
+	  } else {
+	    fwrite(&b, sizeof(double), 1, f);
+	    b = SumInterpH(nr, ngr, nr2, ngr2,
+			   nhab>0?(hab+nhab/2):NULL, hab1+nhab1/2, dw);
+	    fwrite(&b, sizeof(double), 1, f);
+	    if (i != j) {
+	      fwrite(&c, sizeof(double), 1, f);
+	      c = SumInterpH(nr, ngr, nr2, ngr2,
+			     nhab>0?(hba+nhab/2):NULL, hba1+nhab1/2, dw);
+	      fwrite(&c, sizeof(double), 1, f);
 	    }
 	  }
 	}
@@ -4909,7 +4969,9 @@ int ReadMBPT(int nf, FILE *f[], MBPT_HAM *mbpt, int m) {
       nb = fread(&(mbpt[i].c), sizeof(double), 1, f[i]);
       //if (nb != 1) return -1;
       //printf("r1: %d %d %d %g %g %g\n", i, mbpt[i].ibra, mbpt[i].iket, mbpt[i].a, mbpt[i].b, mbpt[i].c);
-      if (mbpt[i].ibra < 0 || mbpt[i].iket < 0) continue;
+      if (mbpt[i].ibra < 0 || mbpt[i].iket < 0) {
+	continue;
+      }
       nb = fread(mbpt[i].hab1, sizeof(double), mbpt[i].n*2, f[i]);
       //if (nb != mbpt[i].n*2) return -1;
       if (mbpt[i].ibra != mbpt[i].iket) {
@@ -5491,7 +5553,10 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	heff[k1] = mbpt[0].a;
 	neff[k0] = 0.0;
 	neff[k1] = 0.0;
-	if (mbpt[0].ibra < 0 || mbpt[0].iket < 0) goto OUT;
+	for (m = 0; m < nf; m++) {
+	  if (mbpt[m].ibra >= 0 && mbpt[m].iket >= 0) break;
+	}	    
+	if (m == nf) goto OUT;
 	CombineMBPT(nf, mbpt, z1, z2, hab, hba, nab1, nba1, nab, nba,
 		    &ing0, &ing, ing2);
 	/*
