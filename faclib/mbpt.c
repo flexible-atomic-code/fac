@@ -1306,7 +1306,38 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
   return -1;
 }
 
-double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
+double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
+  int i, k0, k;
+  double a, b, r;
+  r = 0.0;
+  for (i = 0; i < n; i++) {
+    r += z[i];
+  }
+  if (isnan(r) || isinf(r)) {
+    MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
+    Abort(1);
+  }
+  if (1+r == 1) return 0.0;
+  if (n == 1) return r;
+  for (k0 = 1; k0 < n; k0++) {
+    if (x[k0]-x[k0-1] > 1) break;
+  }
+  if (k0 == n) return r;
+  spline_work(x, z, n, 1e31, 1e31, y, t);
+  for (i = k0; i < n; i++) {
+    for (a = x[i-1]+1.0; a < x[i]; a += 1.0) {
+      k = splint(x, z, y, n, a, &b);
+      if (k < 0) {
+	MPrintf(-1, "SumInterp1D error: %d %d\n", k, m);
+	Abort(1);
+      }
+      r += b;
+    }    
+  }
+  return r;
+}
+
+double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
   int i, k0, k1, nk;
   double r, a, b, c, d, e, f, g, h;
   double p1, p2, p3, q1, q2, q3;
@@ -1401,6 +1432,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
       if (c <= 0 && 2.0*log(x[i])*c+b < -1.2) {
 	g = 1.0;
 	d = x[i]+1.0;
+	int iter = 0;
 	while (g > EPS3) {
 	  e = log(d);
 	  f = exp(a + b*e + c*e*e);
@@ -1409,7 +1441,19 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
 	  g = f*d/(-(2.0*e*c+b)-1.0);
 	  g = fabs(g/r);
 	  d += 1.0;
-	}
+	  iter++;
+	  if (iter >= 100) {
+	    MPrintf(-1, "maxiter reached in mbpt extrapolate: %d %d %d %d %g %g %g %g %g\n",
+		    iter, m, i, nk, g, f, c, b, x[i]);
+	    g = 0.0;
+	    f = 0.0;
+	    for (i = 0; i < n; i++) {
+	      printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
+	    }
+	    printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
+	    break;
+	  }
+	}	
 	g *= fabs(r);
 	if (f < 0) g = -g;
 	h += g-f;	
@@ -1431,7 +1475,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
     }
     if (mbpt_extra == 2) {
       for (i = 0; i < n; i++) {
-	printf("  %12.5E %12.5E\n", x[i], z[i]);
+	printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
       }
       printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
     }
@@ -1445,7 +1489,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y) {
 }
 
 double SumInterpH(int n, int *ng, int n2, int *ng2, 
-		  double *h, double *h1, double *w) {
+		  double *h, double *h1, double *w, int md) {
   double r, *p, *x, *y, *z;
   int m, i0, i1;
 
@@ -1456,11 +1500,10 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
   if (n == 1) {
     r = h1[0];
   } else {
-    i0 = n+n2;
     for (i0 = 0; i0 < n; i0++) {
       x[i0] = ng[i0];
     }
-    r = SumInterp1D(n, h1, x, w, y);
+    r = SumInterp1D(n, h1, x, w, y, md);
   }
   if (h) {
     p = h;
@@ -1468,13 +1511,13 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
       for (i1 = 0; i1 < n2; i1++) {
 	x[i1] = ng2[i1] + ng[i0];
       }
-      z[i0] = SumInterp1D(n2, p, x, w, y);
+      z[i0] = SumInterp1D(n2, p, x, w, y, md+ng[i0]*10);
       p += n2;
     }  
     for (i0 = 0; i0 < n; i0++) {
       x[i0] = ng[i0];
     }
-    r += SumInterp1D(n, z, x, w, y);
+    r += SumInterp1D(n, z, x, w, y, -md);
   }
   return r;
 }
@@ -3617,7 +3660,6 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       nmaxm1 = nmax1;
       csm = cs;
     }
-#pragma omp flush
   }
   nmax = nmaxm;
   nmax1 = nmaxm1;
@@ -4428,8 +4470,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
     }
     free(cfgpair);
-    MPrintf(-1, "MBPT Structure ...%12.5E %12.5E\n",
-	    TotalSize(), TotalArraySize());
+    MPrintf(-1, "MBPT Structure ... %12.5E %12.5E %12.5E\n",
+	    WallTime()-tbg, TotalSize(), TotalArraySize());
     fflush(stdout);
     for (isym = 0; isym < MAX_SYMMETRIES; isym++) {      
       if (meff[isym] == NULL) continue;
@@ -4510,7 +4552,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       ResetWidMPI();
 #pragma omp parallel default(shared) private(dw, i, j, k, a, b, c, m, hab1, hba1, hab, hba, i0, iw)
       {
-      dw = malloc(sizeof(double)*(n+n2)*4);
+      dw = malloc(sizeof(double)*(nr+nr2)*4);
+      //MPrintf(-1, "suminterph0: %d %d %x\n", isym, nw, dw);
       iw = 0;
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {
@@ -4532,12 +4575,19 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }
 	  hab1 = meff[isym]->hab1[k];
 	  hba1 = meff[isym]->hba1[k];
+	  double *nab, *nba, *nab1, *nba1;
+	  nab1 = hab1 + nhab1/2;
+	  nba1 = hba1 + nhab1/2;
 	  if (nhab > 0) {
 	    hab = meff[isym]->hab[k];
 	    hba = meff[isym]->hba[k];
+	    nab = hab + nhab/2;
+	    nba = hba + nhab/2;
 	  } else {
 	    hab = NULL;
 	    hba = NULL;
+	    nab = NULL;
+	    nba = NULL;
 	  }
 	  a = sqrt(jj+1.0);
 	  for (i0 = 0; i0 < nhab1; i0++) {
@@ -4550,19 +4600,16 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  }
 	  a = h0[k];
 	  m = j*h->dim + i;
-	  b = SumInterpH(nr, ngr, nr2, ngr2, hab, hab1, dw);
+	  b = SumInterpH(nr, ngr, nr2, ngr2, hab, hab1, dw, 1);
 	  if (mbpt_savesum) {
-	    wbn[iw] = SumInterpH(nr, ngr, nr2, ngr2, nhab>0?(hab+nhab/2):NULL,
-				 hab1+nhab1/2, dw);
+	    wbn[iw] = SumInterpH(nr, ngr, nr2, ngr2, nab, nab1, dw, 2);
 	  }
 	  heff[m] = a+b;
 	  if (i < j) {
 	    m = i*h->dim + j;
-	    c = SumInterpH(nr, ngr, nr2, ngr2, hba, hba1, dw);
+	    c = SumInterpH(nr, ngr, nr2, ngr2, hba, hba1, dw, 3);
 	    if (mbpt_savesum) {
-	      wcn[iw] = SumInterpH(nr, ngr, nr2, ngr2,
-				   nhab>0?(hba+nhab/2):NULL,
-				   hba1+nhab1/2, dw);
+	      wcn[iw] = SumInterpH(nr, ngr, nr2, ngr2, nba, nba1, dw, 4);
 	    }
 	    heff[m] = a+c;
 	  } else {
@@ -4574,8 +4621,10 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	  iw++;
 	}
       }
+      //MPrintf(-1, "suminterph1: %d %d %x\n", isym, nw, dw);
       free(dw);
       }
+
       iw = 0;
       for (j = 0; j < h->dim; j++) {
 	for (i = 0; i <= j; i++) {
@@ -4639,7 +4688,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       }
       fflush(f);
       double wt1 = WallTime();
-      MPrintf(-1, "InterpSumH: %d %d %10.3E\n", isym, h->dim, wt1-wt0);
+      MPrintf(-1, "SumInterpH: %d %d %d %10.3E\n", isym, h->dim, nw, wt1-wt0);
     }
 #pragma omp parallel default(shared) private(isym, h)
     {
@@ -4676,7 +4725,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       tt1 = WallTime();
       dt = tt1 - tbg;
       tt0 = tt1;
-      MPrintf(-1, "Total Time Structure= %12.5E %12.5E %12.5E %12.5E %12.5E %ld\n", dt, TotalSize(), TotalArraySize(), ttskip, ttlock, tnlock);
+      MPrintf(-1, "End MBPT Structure: %12.5E %12.5E %12.5E %12.5E %12.5E %ld\n", dt, TotalSize(), TotalArraySize(), ttskip, ttlock, tnlock);
       fflush(stdout);
     }
   }
@@ -5705,7 +5754,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       }
     }
     wt1 = WallTime();
-    MPrintf(0, "ReadMBPT: %d %d %d %g\n", isym, n, mbpt[0].n2, wt1-wt0);
+    MPrintf(0, "ReadMBPT: %d %d %d %d %g\n",
+	    isym, h->dim, n, mbpt[0].n2, wt1-wt0);
     wt0 = wt1;
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, k, k0, k1, x, t, y, a, b, na, nb, r, q)
@@ -5725,16 +5775,16 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	  for (q = 0; q < n0; q++) {
 	    x[q] = ng0[q];
 	  }
-	  a = SumInterp1D(n0, z1[isym][k], x, t, y);
+	  a = SumInterp1D(n0, z1[isym][k], x, t, y, 1);
 	  heff[isym][k0] += a;
-	  na = SumInterp1D(n0, nab1[isym][k], x, t, y);
+	  na = SumInterp1D(n0, nab1[isym][k], x, t, y, 2);
 	  neff[isym][k0] += na;
 	  b = a;
 	  nb = na;
 	  if (i < j) {
-	    b = SumInterp1D(n0, z2[isym][k], x, t, y);
+	    b = SumInterp1D(n0, z2[isym][k], x, t, y, 3);
 	    heff[isym][k1] += b;
-	    nb = SumInterp1D(n0, nba1[isym][k], x, t, y);
+	    nb = SumInterp1D(n0, nba1[isym][k], x, t, y, 4);
 	    neff[isym][k1] += nb;
 	  }
 	  if (f2) {
@@ -5748,13 +5798,15 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	      for (q = 0; q < n2[r]; q++) {
 		x[q] = ng[r] + ng2[r][q];
 	      }
-	      z1[isym][k][r] = SumInterp1D(n2[r], hab[isym][k][r], x, t, y);
+	      z1[isym][k][r] = SumInterp1D(n2[r], hab[isym][k][r],
+					   x, t, y, ng[r]*10+1);
 	      if (i < j) z2[isym][k][r] = SumInterp1D(n2[r], hba[isym][k][r],
-						   x, t, y);
+						      x, t, y, ng[r]*10+2);
 	      else z2[isym][k][r] = z1[isym][k][r];		
-	      nab1[isym][k][r] = SumInterp1D(n2[r], nab[isym][k][r], x, t, y);
+	      nab1[isym][k][r] = SumInterp1D(n2[r], nab[isym][k][r],
+					     x, t, y, ng[r]*10+3);
 	      if (i < j) nba1[isym][k][r] = SumInterp1D(n2[r], nba[isym][k][r],
-						     x, t, y);
+							x, t, y, ng[r]*10+4);
 	    }
 	  }	  
 	  for (q = 0; q < n; q++) {
@@ -5768,16 +5820,16 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	    }	    
 	    fflush(f2);
 	  }
-	  a = SumInterp1D(n, z1[isym][k], x, t, y);
+	  a = SumInterp1D(n, z1[isym][k], x, t, y, -1);
 	  heff[isym][k0] += a;
-	  na = SumInterp1D(n, nab1[isym][k], x, t, y);
+	  na = SumInterp1D(n, nab1[isym][k], x, t, y, -2);
 	  neff[isym][k0] += na;
 	  b = a;
 	  nb = na;
 	  if (i < j) {
-	    b = SumInterp1D(n, z2[isym][k], x, t, y);
+	    b = SumInterp1D(n, z2[isym][k], x, t, y, -3);
 	    heff[isym][k1] += b;
-	    nb = SumInterp1D(n, nba1[isym][k], x, t, y);
+	    nb = SumInterp1D(n, nba1[isym][k], x, t, y, -4);
 	    neff[isym][k1] += nb;
 	  }
 	  if (f2) {
@@ -5830,7 +5882,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
       free(nba[isym]);
     }
     wt1 = WallTime();
-    printf("SumInterp: %d %g\n", isym, wt1-wt0);
+    printf("SumInterp: %d %d %g\n", isym, h->dim, wt1-wt0);
   }
   
   ResetWidMPI();
@@ -5892,7 +5944,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   for (m = 0; m < nf; m++) {
     fclose(f1[m]);    
   }
-
+  printf("End MBPT Structure: %g %g\n", WallTime()-wt0, TotalSize());
   if (mbpt_tr.mktr == 0) goto ERROR;
   for (m = 0; m < nf; m++) {
     sprintf(tfn1, "%s.tr", fn1[m]);
@@ -5942,8 +5994,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 		    ng0[k1], zz1[k1], zz2[k1]);
 	  }
 	}
-	mtr[j].tma[q][r] = SumInterp1D(n0, zz1, x, t, y);
-	mtr[j].rma[q][r] = SumInterp1D(n0, zz2, x, t, y);
+	mtr[j].tma[q][r] = SumInterp1D(n0, zz1, x, t, y, 5);
+	mtr[j].rma[q][r] = SumInterp1D(n0, zz2, x, t, y, 6);
 	if (f2) {
 	  fprintf(f2, "# %5d %3d %5d %3d %5d %12.5E %12.5E\n", 
 		  j, j/(2*mbpt_tr.mktr), q, mtr[j].isym1[q], m, 
