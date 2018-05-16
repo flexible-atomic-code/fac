@@ -2452,7 +2452,7 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
     AddToLevels(NULL, ng0, kg);
   } else {
     for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);      
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
       if (k < 0) {
 	h = GetHamilton(i);
 	AllocHamMem(h, -1, -1);
