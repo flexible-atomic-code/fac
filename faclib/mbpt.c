@@ -27,6 +27,7 @@ USE (rcsid);
 #endif
 
 static int mbpt_extra = 0;
+static int mbpt_restart = 0;
 static int mbpt_savesum = 0;
 static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
@@ -130,8 +131,8 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
   memcpy(mbpt_tr.up, up, sizeof(int)*nup);
 }
 
-void SetOptMBPT(int i3rd, int n3, double c, double d, double e) {
-  mbpt_3rd = i3rd;
+void SetOptMBPT(int nr, int n3, double c, double d, double e) {
+  mbpt_restart = nr;
   mbpt_n3 = n3;
   mbpt_mcut = c;
   if (d > 0) mbpt_mcut2 = d;
@@ -3571,6 +3572,9 @@ int GetICP(int nt, CONFIG_PAIR *cp, int ncp, int icp, int *i0, int *i1) {
   return m;
 }
 
+void WriteRestartMBPT() {
+}
+
 /*
 ** fn, the energy file
 ** fn1, the effective hamilton file
@@ -3914,8 +3918,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     double meme = TotalSize();
     double ameme = TotalArraySize();
     double wt1 = WallTime();
-    MPrintf(-1, "Construct Ham: %3d %d %d %d %g %g %g %g\n",
-	    isym, h->pj, h->dim, h->n_basis, mem0, amem0, meme, ameme);
+    MPrintf(-1, "Construct Ham: %3d %d %d %d %g %g %g %g %g\n",
+	    isym, h->pj, h->dim, h->n_basis, wt1-wt0, mem0, amem0, meme, ameme);
     fflush(stdout);    
     meff[isym]->h0 = malloc(sizeof(double)*h->hsize);
     meff[isym]->e0 = malloc(sizeof(double)*h->n_basis);
@@ -4158,9 +4162,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	ic++;
       }
     }
-    m = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
+    int tmst = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
     printf("structure cfgpair: %d %d %d %d %d %d %d\n",
-	   icp, ncp, icp0, icp1, ncpt, m, mst);
+	   icp, ncp, icp0, icp1, ncpt, tmst, mst);
     for (ic = 0; ic < ncpt; ic++) {
       if (ic >= icp0 && ic < icp1) continue;
       k0 = cfgpair[ic].k0;
@@ -4199,10 +4203,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }    
     double ttskip = 0, ttlock=0;
     long long tnlock = 0;
-    ncps = 0;
     ResetWidMPI();
-#pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic)
+#pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,ncps)
     {
+      int cmst = 0;
+      int rcps = 0;
+      ncps = 0;
       MBPT_EFF *imeff[MAX_SYMMETRIES];
       int cpmeff = 0;
 #if CPMEFF == 1      
@@ -4300,6 +4306,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	ptt0 = tt0;
 	/* mst pairs */
 	mst = m;
+	cmst += m;
 	/* if q0 <= q1 for the 1st pair, so are for the rest pairs */
 	ms0 = c0->symstate[bst0[0]];
 	ms1 = c1->symstate[kst0[0]];
@@ -4412,18 +4419,22 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	double tmem = TotalSize();
 	double amem = TotalArraySize();
 	MPrintf(0, "%4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
-		ic, k0, k1, nc, mst, n0, n1, c0->n_csfs, c1->n_csfs,
+		ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
 		dt, dtt, tmem, amem, tmemf-tmem, amemf-amem,
 		tskip, tlock, nlock, WidMPI());
 	fflush(stdout);	  
-#pragma omp atomic
-	ncps++;
 #pragma omp master
 	{
+	  ncps++;
+	  rcps++;
 	  if ((mbpt_reinit_ncps > 0 && ncps >= mbpt_reinit_ncps) ||
 	      (mbpt_reinit_mem > 0 && tmem >= mbpt_reinit_mem)) {
 	    SetRadialCleanFlags();
 	    ncps = 0;
+	  }
+	  if (mbpt_restart > 0 && rcps > mbpt_restart) {
+	    WriteRestartMBPT();
+	    rcps = 0;
 	  }
 	}
       }

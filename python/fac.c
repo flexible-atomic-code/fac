@@ -777,8 +777,27 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
  ERROR:
   if (cfg != NULL) free(cfg);
   return NULL;
-}
+} 
  
+static PyObject *PSolvePseudo(PyObject *self, PyObject *args) {
+  int kmin, kmax, nb, nmax, nd, idf;
+  
+  if (sfac_file) {
+    SFACStatement("SolvePseudo", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  kmin = 0;
+  nb = 0;
+  nd = 1;
+  if (!PyArg_ParseTuple(args, "ii|iiii",
+			&kmax, &nmax, &kmin, &nb, &nd, &idf)) return NULL;
+  SolvePseudo(kmin, kmax, nb, nmax, nd, idf);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   int m;
   double h, ih, h0, h1;
@@ -896,7 +915,7 @@ static PyObject *PSetVP(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetBreit(PyObject *self, PyObject *args) {
-  int c, m, n;
+  int c, m, n, k;
   double x;
 
   if (sfac_file) {
@@ -908,9 +927,10 @@ static PyObject *PSetBreit(PyObject *self, PyObject *args) {
   m = -1;
   n = -1;
   x = -1.0;
-  if (!PyArg_ParseTuple(args, "i|iid", &c, &m, &n, &x))
+  k = 0;
+  if (!PyArg_ParseTuple(args, "i|iidi", &c, &m, &n, &x, &k))
     return NULL;
-  SetBreit(c, m, n, x);
+  SetBreit(c, m, n, x, k);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -5479,6 +5499,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
+  {"SolvePseudo", PSolvePseudo, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
   {"SetRecQkMode", PSetRecQkMode, METH_VARARGS},

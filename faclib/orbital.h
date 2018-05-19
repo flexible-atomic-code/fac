@@ -26,6 +26,8 @@
 
 typedef struct _POTENTIAL_ {
   int nfrozen;
+  int npseudo;
+  int dpseudo;
   int mode;
   int flag;
   int r_core;
@@ -110,6 +112,7 @@ int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW (POTENTIAL *pot, double e, int kappa, int kv);
 int IdxVT(int kappa);
+int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 
 #endif
 

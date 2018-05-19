@@ -63,7 +63,7 @@ void SetSE(int n, int m, int s, int p);
 void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
 void SetVP(int n);
-void SetBreit(int n, int m, int n0, double x0);
+void SetBreit(int n, int m, int n0, double x0, int n1);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
@@ -197,6 +197,7 @@ int AddNewConfigToList(int k, int ni, int *kc, double sth,
 int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth);
-
+void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, int idf);
+void SolveDFKappa(int ka, int nmax);
 #endif
 
