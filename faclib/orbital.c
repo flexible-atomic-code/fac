@@ -139,7 +139,6 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
-static int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 
 double EneTol(double e) {
   e = fabs(e);
@@ -710,7 +709,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 	   kl, orb->n, orb->kappa);
     return -1;
   }
-  
+
   p = malloc(sizeof(double)*2*pot->maxrp);
   if (!p) {
     MPrintf(-1, "cannot alloc memory RadialBasis: %d %d\n", orb->n, orb->kappa);
@@ -1089,7 +1088,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   orb->energy = e;
   orb->wfun = p;
   orb->qr_norm = 1.0;
-
   if (pot->flag == -1) {
     DiracSmall(orb, pot, i2p2, kv);
   }
@@ -1690,10 +1688,14 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   if (i2 > i0) {
     if (orb->im > i0) {
       for (i = i0; i <= i2; i++) {
-	xi = e - pot->VT[kv][i];
+	if (kv >= 0) {
+	  xi = e - pot->VT[kv][i];
+	} else {
+	  xi = e;
+	}
 	xi = xi*FINE_STRUCTURE_CONST2*0.5;
 	_dwork[i] = 1.0 + xi;
-	p[i] = sqrt(_dwork[i])*p[i];
+	if (orb->isol != 3) p[i] = sqrt(_dwork[i])*p[i];
 	_dwork1[i] = pow(pot->rad[i], kappa);
 	_dwork2[i] = -p[i]*xi/_dwork1[i];
 	_dwork2[i] *= 2.0/FINE_STRUCTURE_CONST;
@@ -1713,10 +1715,14 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
       }
     } else {
       for (i = i0; i <= i2; i++) {
-	xi = e - pot->VT[kv][i];
+	if (kv >= 0) {
+	  xi = e - pot->VT[kv][i];
+	} else {
+	  xi = e;
+	}
 	xi = xi*FINE_STRUCTURE_CONST2*0.5;
 	_dwork[i] = 1.0 + xi;
-	p[i] = sqrt(_dwork[i])*p[i];	
+	if (orb->isol != 3) p[i] = sqrt(_dwork[i])*p[i];	
 	_dwork3[i] = pow(pot->rad[i], kappa);
 	_dwork1[i] = p[i]*_dwork3[i];
 	_dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
@@ -1790,7 +1796,11 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   }
   
   for (i = i1; i < pot->maxrp; i += 2) {
-    xi = e - pot->VT[kv][i];
+    if (kv >= 0) {
+      xi = e - pot->VT[kv][i];
+    } else {
+      xi = e;
+    }
     xi = xi*FINE_STRUCTURE_CONST2*0.5;
     _dwork[i] = 1.0 + xi;
     _dwork1[i] = sqrt(_dwork[i])*p[i];

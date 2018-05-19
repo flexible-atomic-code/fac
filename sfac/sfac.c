@@ -2322,6 +2322,38 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSolvePseudo(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int kmin, kmax, nb, nmax, nd, idf;
+  if (argc < 2 || argc > 5) return -1;  
+  if (argt[0] != NUMBER) return -1;
+  if (argt[1] != NUMBER) return -1;
+  kmax = atoi(argv[0]);
+  nmax = atoi(argv[1]);
+  kmin = 0;
+  nb = 0;
+  nd = 1;
+  idf = 1;
+  if (argc > 2) {
+    if (argt[2] != NUMBER) return -1;
+    kmin = atoi(argv[2]);
+    if (argc > 3) {
+      if (argt[3] != NUMBER) return -1;
+      nb = atoi(argv[3]);
+      if (argc > 4) {
+	if (argt[4] != NUMBER) return -1;
+	nd = atoi(argv[4]);
+	if (argc > 5) {
+	  if (argt[5] != NUMBER) return -1;
+	  idf = atoi(argv[5]);
+	}
+      }
+    }
+  }
+  SolvePseudo(kmin, kmax, nb, nmax, nd, idf);
+  return 0;
+}
+
 static int PSetPotentialMode(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int m;
@@ -2530,24 +2562,28 @@ static int PSetVP(int argc, char *argv[], int argt[],
 
 static int PSetBreit(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
-  int c, m, n;
+  int c, m, n, k;
   double x;
 
-  if (argc < 1 || argc > 4) return -1;
+  if (argc < 1 || argc > 5) return -1;
   c = atoi(argv[0]);
   m = -1;
   n = -1;
   x = -1;
+  k = 0;
   if (argc > 1) {
     m = atoi(argv[1]);
     if (argc > 2) {
       n = atoi(argv[2]);
       if (argc > 3) {
 	x = atof(argv[3]);
+	if (argc > 4) {
+	  k = atoi(argv[4]);
+	}
       }
     }
   }
-  SetBreit(c, m, n, x);
+  SetBreit(c, m, n, x, k);
   
   return 0;
 }
@@ -4277,6 +4313,7 @@ static METHOD methods[] = {
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
   {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
+  {"SolvePseudo", PSolvePseudo, METH_VARARGS},
   {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SetRecPWLimits", PSetRecPWLimits, METH_VARARGS},
   {"SetRecPWOptions", PSetRecPWOptions, METH_VARARGS},
