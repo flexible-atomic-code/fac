@@ -523,7 +523,7 @@ void SetSlaterCut(int k0, int k1) {
   }
 }
 
-void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, int idf) {
+void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf) {
   int k, n, i, k2, j, na, ka, kb, kn, maxrp2;
   double *p, *q, pn, qn, a, e0;
   ORBITAL *orb0, *orb;
@@ -594,7 +594,7 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, int idf) {
 	orb0 = orb;
       }
       double wt2 = WallTime();
-      if (idf) SolveDFKappa(ka, nmax);
+      if (xdf >= 0) SolveDFKappa(ka, nmax, xdf);
       double wt3 = WallTime();
       MPrintf(-1, "SolvePseudo: %3d %3d %2d %11.4E %11.4E %11.4E\n",
 	      na, nmax, ka, wt1-wt0, wt2-wt1, wt3-wt2);
@@ -603,12 +603,18 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, int idf) {
   }
 }
 
-void SolveDFKappa(int ka, int nmax) {
+void SolveDFKappa(int ka, int nmax, double xdf) {
   int j, k, k2, n, i, isym, m, s, t, nn, maxrp2;
+  int ig, ic;
   double *mix;
   ORBITAL **orb;
-  double **wf;
+  double **wf, r, r0, ec;
   HAMILTON *h;  
+  AVERAGE_CONFIG *acfg;
+  CONFIG *c;
+  CONFIG_GROUP *g;
+
+  acfg = &average_config;
   
   GetJLFromKappa(ka, &j, &k2);
   k = k2/2;
@@ -632,7 +638,23 @@ void SolveDFKappa(int ka, int nmax) {
   for (j = 0; j < nn; j++) {
     t = j*(j+1)/2;
     for (i = 0; i <= j; i++) {
-      h->hamilton[i+t] = ZerothHamilton(orb[i], orb[j]);
+      r0 = ZerothHamilton(orb[i], orb[j]);
+      r = 0;
+      if (xdf >= 0) {
+	for (ig = 0; ig < acfg->ng; ig++) {
+	  g = GetGroup(acfg->kg[ig]);
+	  double tec = 0;
+	  for (ic = 0; ic < g->n_cfgs; ic++) {
+	    c = GetConfigFromGroup(acfg->kg[ig], ic);
+	    ec = ConfigHamilton(c, orb[i], orb[j], xdf);
+	    tec += ec;
+	  }
+	  if (g->n_cfgs > 0) {
+	    r += acfg->weight[ig]*tec/g->n_cfgs;
+	  }
+	}
+      }
+      h->hamilton[i+t] = r0 + r;
     }
   }
   
@@ -647,11 +669,13 @@ void SolveDFKappa(int ka, int nmax) {
     for (s = 0; s < maxrp2; s++) {
       orb[i]->wfun[s] = 0;
     }
+
     if (mix[i] < 0) {
       for (t = 0; t < h->dim; t++) {
 	mix[t] = -mix[t];
       }
     }
+
     for (t = 0; t < h->dim; t++) {
       for (s = 0; s < maxrp2; s++) {
 	orb[i]->wfun[s] += wf[t][s]*mix[t];
@@ -666,6 +690,7 @@ void SolveDFKappa(int ka, int nmax) {
   free(orb);
   AllocHamMem(h, -1, -1);
   AllocHamMem(h, 0, 0);
+  ReinitRadial(2);
 }
 
 void SetPotentialMode(int m, double h, double ih, double h0, double h1) {
@@ -3435,6 +3460,75 @@ double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1) {
   return b;
 }
 
+double ConfigHamilton(CONFIG *cfg, ORBITAL *orb0, ORBITAL *orb1, double xdf) {
+  double t, y, a, nqp, q, kappa;
+  int k0, k1, j2, kl, j2p, klp, minn, maxn;
+  int np, kp, kappap, kk, kkmin, kkmax, kk2, j;
+
+  if (orb0->kappa != orb1->kappa) return 0;
+  k0 = orb0->idx;
+  k1 = orb1->idx;
+  kappa = orb0->kappa;  
+  GetJLFromKappa(kappa, &j2, &kl);
+  if (orb1->n > orb0->n) {
+    maxn = orb1->n;
+    minn = orb0->n;
+  } else {
+    maxn = orb0->n;
+    minn = orb1->n;
+  }
+  t = 0.0;
+  double te = 0.0;
+  double td = 0.0;
+  for (j = 0; j < cfg->n_shells; j++) {
+    np = (cfg->shells[j]).n;
+    kappap = (cfg->shells[j]).kappa;
+    kp = OrbitalIndex(np, kappap, 0);
+    GetJLFromKappa(kappap, &j2p, &klp);
+    nqp = (cfg->shells[j]).nq;
+    if (kappap == kappa) {
+      if (np == orb0->n) nqp -= xdf;
+      if (np == orb1->n) nqp -= xdf;
+    }
+    if (nqp <= 0) continue;
+    kkmin = abs(j2 - j2p);
+    kkmax = (j2 + j2p);
+    if (np > maxn) maxn = np;
+    if (np < minn) minn = np;
+    a = 0.0;
+    for (kk = kkmin; kk <= kkmax; kk += 2) {
+      y = 0;
+      int kk2 = kk/2;
+      if (IsEven((kl + klp + kk)/2)) {
+	Slater(&y, k0, kp, kp, k1, kk2, 0);
+      }
+      /*
+      if (qed.br < 0 || maxn <= qed.br) {
+	if (qed.minbr <= 0 || minn <= qed.minbr) {
+	  int mbr = qed.mbr;
+	  if (qed.nbr > 0 && maxn > qed.nbr) mbr = 0;
+	  y += Breit(k0, kp, kp, k0, kk, kappa, kp, kp, kappa,
+		     kl, klp, klp, kl, mbr);
+	}
+      }
+      */
+      if (y) {
+	q = W3j(j2, kk, j2p, -1, 0, 1);
+	a += y*q*q;
+      }
+    }
+    te -= nqp*a;
+    y = 0;
+    Slater(&y, k0, kp, k1, kp, 0, 0);
+    td += nqp*y;
+  }
+  y = 0;
+  ResidualPotential(&y, k0, k1);
+  t = td + te + y;
+
+  return t;
+}
+
 /* calculate the expectation value of the residual potential:
    -Z/r - v0(r), where v0(r) is central potential used to solve 
    dirac equations. the orbital index must be valid, i.e., their 
@@ -3497,8 +3591,9 @@ int ResidualPotential(double *s, int k0, int k1) {
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
     }
     Integrate(_yk, orb1, orb2, 1, s, -1);
-    if (potential->nfrozen) {
-      *s += ZerothHamilton(orb1, orb2);
+    if (potential->nfrozen || potential->npseudo) {
+      z = ZerothHamilton(orb1, orb2);
+      *s += z;
       if (orb1->n == orb2->n) *s -= orb1->energy;
     }
   }
