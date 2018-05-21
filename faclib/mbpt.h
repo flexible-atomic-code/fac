@@ -66,6 +66,7 @@ typedef struct _MBPT_EFF_ {
   int n, n2;
   int hsize, nbasis, *basis;
   double *h0, *e0, *heff;
+  int *imbpt;
   /* effective hamilton elements for 1-virtual */
   double **hab1, **hba1;
   /* effective hamilton elements for 2-virtual */
@@ -83,12 +84,13 @@ int StructureMBPT0(char *fn, double de, double ccut, int n, int *s0, int kmax,
 		   int n1, int *nm, int n2, int *nmp, int n3, int *n3g,
 		   int n4, int *n4g, char *gn);
 int StructureMBPT1(char *fn, char *fn1, int n, int *s0, int nk, int *nkm, 
-		   int n1, int *nm, int n2, int *nmp, int n0, int icp, int ncp);
+		   int n1, int *nm, int n2, int *nmp, int n0,
+		   int ncp, int icp, int icpf);
 int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[], 
 		      int nkg, int *kg, int nkg0);
 void SetExtraMBPT(int m);
 void SetExcMBPT(int nd, int ns, char *s);
-void SetOptMBPT(int i3rd, int n3, double c, double d, double e);
+void SetOptMBPT(int i3rd, int n3, double c, double d, double e, double f);
 void SetSymMBPT(int nlev, int *ilev);
 void TransitionMBPT(int mk, int naw);
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up);

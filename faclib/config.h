@@ -314,7 +314,7 @@ void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
 int          ConstructConfigName(char *s, int n, CONFIG *c);
 void         ListConfig(char *fn, int n, int *kg);
-int ReadConfig(char *fn);
+int ReadConfig(char *fn, char *c);
 int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
 int          ReinitConfig(int m);

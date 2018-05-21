@@ -472,15 +472,16 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PReadConfig(PyObject *self, PyObject *args, PyObject *keywds) {
-  char *s;
+  char *s, *c;
   
   if (sfac_file) {
     SFACStatement("ReadConfig", args, keywds);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  if (!(PyArg_ParseTuple(args, "s", &s))) return NULL;
-  if (ReadConfig(s) < 0) return NULL;
+  c = NULL;
+  if (!(PyArg_ParseTuple(args, "s|s", &s, &c))) return NULL;
+  if (ReadConfig(s, c) < 0) return NULL;
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -780,7 +781,8 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
 } 
  
 static PyObject *PSolvePseudo(PyObject *self, PyObject *args) {
-  int kmin, kmax, nb, nmax, nd, idf;
+  int kmin, kmax, nb, nmax, nd;
+  double xdf;
   
   if (sfac_file) {
     SFACStatement("SolvePseudo", args, NULL);
@@ -791,9 +793,10 @@ static PyObject *PSolvePseudo(PyObject *self, PyObject *args) {
   kmin = 0;
   nb = 0;
   nd = 1;
-  if (!PyArg_ParseTuple(args, "ii|iiii",
-			&kmax, &nmax, &kmin, &nb, &nd, &idf)) return NULL;
-  SolvePseudo(kmin, kmax, nb, nmax, nd, idf);
+  xdf = -1.0;
+  if (!PyArg_ParseTuple(args, "ii|iiid",
+			&kmax, &nmax, &kmin, &nb, &nd, &xdf)) return NULL;
+  SolvePseudo(kmin, kmax, nb, nmax, nd, xdf);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1718,7 +1721,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
   char *fn, *fn1, *gn, **fn2;
-  double d, c, e;
+  double d, c, e, f;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
@@ -1768,15 +1771,18 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 
   p = PyTuple_GET_ITEM(args, 0);
   if (PyLong_Check(p)) {
-    if (n == 3 || n == 4 || n == 5) {
+    if (n == 3 || n == 4 || n == 5 || n == 6) {
       d = -1.0;
       e = -1.0;
-      if (!(PyArg_ParseTuple(args, "iid|dd", &i, &n3, &c, &d, &e))) return NULL;
-      SetOptMBPT(i, n3, c, d, e);
+      f = -1.0;
+      if (!(PyArg_ParseTuple(args, "iid|ddd",
+			     &i, &n3, &c, &d, &e, &f))) return NULL;
+      SetOptMBPT(i, n3, c, d, e, f);
       Py_INCREF(Py_None);
       return Py_None;
     }
   }
+  /*
   if (n == 10) { 
     c = 0.0;
     if (!(PyArg_ParseTuple(args, "sddOiOOOOs",
@@ -1802,7 +1808,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+  */
   if (n == 5) {
     if (!(PyArg_ParseTuple(args, "ssOOi", &fn, &fn1, &q, &p, &n3)))
       return NULL;
@@ -1825,10 +1831,11 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   } 
 
   int icp = 0;
+  int icpf = 0;
   int ncp = 0;
-  if (n == 7 || n == 9) {
-    if (!(PyArg_ParseTuple(args, "ssOOOOi|ii",
-			   &fn, &fn1, &p, &t, &q, &r, &n3, &ncp, &icp)))
+  if (n == 7 || n == 9 || n == 10) {
+    if (!(PyArg_ParseTuple(args, "ssOOOOi|iii",
+			   &fn, &fn1, &p, &t, &q, &r, &n3, &ncp, &icp, &icpf)))
       return NULL;
     
     n = DecodeGroupArgs(p, &s);
@@ -1855,7 +1862,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
       return NULL;
     }
   
-    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3, icp, ncp);
+    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3,
+		   ncp, icp, icpf);
     free(s);
     //if (n1 > 0) free(ng1);
     //if (n2 > 0) free(ng2);

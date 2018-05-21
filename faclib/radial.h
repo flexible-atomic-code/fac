@@ -129,6 +129,7 @@ double TotalEnergyGroup(int kg);
 double TotalEnergyGroupMode(int kg, int md);
 double ZerothEnergyConfig(CONFIG *cfg);
 double ZerothResidualConfig(CONFIG *cfg);
+double ConfigHamilton(CONFIG *cfg, ORBITAL *orb0, ORBITAL *orb1, double xdf);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyConfigMode(CONFIG *cfg, int md);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
@@ -197,7 +198,7 @@ int AddNewConfigToList(int k, int ni, int *kc, double sth,
 int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth);
-void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, int idf);
-void SolveDFKappa(int ka, int nmax);
+void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
+void SolveDFKappa(int ka, int nmax, double xdf);
 #endif
 

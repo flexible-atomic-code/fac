@@ -2066,7 +2066,7 @@ void ListConfig(char *fn, int n, int *kg) {
   if (f != stdout) fclose(f);
 }
 
-int ReadConfig(char *fn) {
+int ReadConfig(char *fn, char *c) {
   FILE *f;
   char buf[1024];
   char cbuf[1024];
@@ -2086,6 +2086,7 @@ int ReadConfig(char *fn) {
     char *s = p;
     while(s && *s == ' ') s++;
     if (s) {
+      if (c != NULL && strcmp(c, s)) continue;
       int t = GroupIndex(s);
       if (t < 0) return -1;
       char *c = &p[20];

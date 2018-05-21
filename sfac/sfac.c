@@ -406,8 +406,14 @@ static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
 }
   
 static int PReadConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
-  if (argc != 1 || argt[0] != STRING) return -1;
-  return ReadConfig(argv[0]);
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != STRING) return -1;
+  char *c = NULL;
+  if (argc > 1) {
+    if (argt[1] != STRING) return -1;
+    c = argv[1];
+  }
+  return ReadConfig(argv[0], c);
 }
 
 static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
@@ -2324,7 +2330,8 @@ static int PSetRecQkMode(int argc, char *argv[], int argt[],
 
 static int PSolvePseudo(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  int kmin, kmax, nb, nmax, nd, idf;
+  int kmin, kmax, nb, nmax, nd;
+  double xdf;
   if (argc < 2 || argc > 5) return -1;  
   if (argt[0] != NUMBER) return -1;
   if (argt[1] != NUMBER) return -1;
@@ -2333,7 +2340,7 @@ static int PSolvePseudo(int argc, char *argv[], int argt[],
   kmin = 0;
   nb = 0;
   nd = 1;
-  idf = 1;
+  xdf = -1.0;
   if (argc > 2) {
     if (argt[2] != NUMBER) return -1;
     kmin = atoi(argv[2]);
@@ -2345,12 +2352,12 @@ static int PSolvePseudo(int argc, char *argv[], int argt[],
 	nd = atoi(argv[4]);
 	if (argc > 5) {
 	  if (argt[5] != NUMBER) return -1;
-	  idf = atoi(argv[5]);
+	  xdf = atof(argv[5]);
 	}
       }
     }
   }
-  SolvePseudo(kmin, kmax, nb, nmax, nd, idf);
+  SolvePseudo(kmin, kmax, nb, nmax, nd, xdf);
   return 0;
 }
 
@@ -2885,7 +2892,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   int n3, *ng3, n4, *ng4;
   char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
-  double d, c, e;
+  double d, c, e, f;
 
   if (argc == 1) {
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
@@ -2921,7 +2928,8 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     SetExcMBPT(n2, n1, argv[0]);
     return 0;
   }
-  if ((argc == 3 || argc == 4 || argc == 5) && argt[0] == NUMBER) {
+  if ((argc == 3 || argc == 4 || argc == 5 || argc == 6)
+      && argt[0] == NUMBER) {
     if (argt[1] != NUMBER) return -1;
     if (argt[2] != NUMBER) return -1;
     i = atoi(argv[0]);
@@ -2929,17 +2937,23 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     c = atof(argv[2]);
     d = -1.0;
     e = -1.0;
+    f = -1.0;
     if (argc > 3 ) {
       if (argt[3] != NUMBER) return -1;
       d = atof(argv[3]);
       if (argc > 4) {
 	if (argt[4] != NUMBER) return -1;
 	e = atof(argv[4]);
+	if (argc > 5) {
+	  if (argt[5] != NUMBER) return -1;
+	  f = atof(argv[5]);
+	}
       }
     }      
-    SetOptMBPT(i, n3, c, d, e);
+    SetOptMBPT(i, n3, c, d, e, f);
     return 0;
   }
+  /*
   if (argc == 10) {
     if (argt[1] != NUMBER) return -1;
     if (argt[2] != NUMBER) return -1;
@@ -2970,7 +2984,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
 
     return 0;
   }
-
+  */
   if (argc == 5) {
     if (argt[3] != LIST) return -1;
     n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
@@ -2991,8 +3005,8 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     
     return 0;
   }
-  
-  if (argc == 7 || argc == 9) {
+
+  if (argc == 7 || argc == 9 || argc == 10) {
     if (argt[2] != LIST) return -1;
     n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
     if (n <= 0) {
@@ -3022,13 +3036,17 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     if (argt[6] != NUMBER) return -1;
     n3 = atoi(argv[6]);
     int icp = 0;
+    int icpf = -1;
     int ncp = 0;
-    if (argc == 9) {
+    if (argc >= 9) {
       ncp = atoi(argv[7]);
       icp = atoi(argv[8]);
+      if (argc > 9) {
+	icpf = atoi(argv[9]);
+      }
     }
     StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3,
-		   icp, ncp);
+		   ncp, icp, icpf);
 
     free(s);
     //if (n1 > 0) free(ng1);
