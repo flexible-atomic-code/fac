@@ -124,6 +124,7 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
       }
     }
     (*kg) = malloc(sizeof(int)*ng);
+    n = 0;
     for (i = 0; i < ng; i++) {
       if (t[i] != STRING) {
 	printf("argument must be a group name\n");
@@ -131,15 +132,19 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
 	return -1;
       }
       s = v[i];
-      k = GroupExists(s);
-      
+      k = GroupExists(s);      
       if (k < 0) {
-	free((*kg));
-	printf("group does not exist\n");
-	return -1;
+	printf("group does not exist: %d %s\n", i, s);
+	continue;
       }
-
-      (*kg)[i] = k;
+      (*kg)[n] = k;
+      n++;
+    }
+    ng = n;
+    if (ng <= 0) {
+      printf("all cfg groups invalid\n");
+      free(*kg);
+      return -1;
     }
   } else {
     ng = GetNumGroups();
