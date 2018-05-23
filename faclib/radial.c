@@ -534,6 +534,7 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf) {
     return;
   }
   potential->npseudo = nb;
+  potential->mpseudo = nmax;
   if (nd == -1) nd = nb;
   else if (nd == -2) nd = nmax;
   else if (nd == 0) nd = 1;
@@ -596,8 +597,8 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf) {
       double wt2 = WallTime();
       if (xdf >= 0) SolveDFKappa(ka, nmax, xdf);
       double wt3 = WallTime();
-      MPrintf(-1, "SolvePseudo: %3d %3d %2d %11.4E %11.4E %11.4E\n",
-	      na, nmax, ka, wt1-wt0, wt2-wt1, wt3-wt2);
+      MPrintf(-1, "SolvePseudo: %3d %3d %2d %g %11.4E %11.4E %11.4E\n",
+	      na, nmax, ka, xdf, wt1-wt0, wt2-wt1, wt3-wt2);
     }
   }
   }
@@ -634,7 +635,6 @@ void SolveDFKappa(int ka, int nmax, double xdf) {
     memcpy(wf[i], orb[i]->wfun, sizeof(double)*maxrp2);
     h->basis[i] = n;
   }
-  
   for (j = 0; j < nn; j++) {
     t = j*(j+1)/2;
     for (i = 0; i <= j; i++) {
@@ -647,6 +647,9 @@ void SolveDFKappa(int ka, int nmax, double xdf) {
 	  for (ic = 0; ic < g->n_cfgs; ic++) {
 	    c = GetConfigFromGroup(acfg->kg[ig], ic);
 	    ec = ConfigHamilton(c, orb[i], orb[j], xdf);
+	    if (i == j) {
+	      ec += AverageEnergyConfig(c);
+	    }
 	    tec += ec;
 	  }
 	  if (g->n_cfgs > 0) {
@@ -655,6 +658,7 @@ void SolveDFKappa(int ka, int nmax, double xdf) {
 	}
       }
       h->hamilton[i+t] = r0 + r;
+      //printf("dh: %d %d %12.5E %12.5E %12.5E\n", orb[i]->n, orb[j]->n, r0, r, h->hamilton[i+t]);
     }
   }
   
@@ -1570,12 +1574,14 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   /* get the average configuration for the groups */
   acfg = &(average_config);
   if (ng > 0) {
+    /*
     if (ng > 1) {
       printf("\nWarning: more than 1 configuration groups");
       printf(" are used in OptimizeRadial.\n");
       printf("It is usually best to use the lowest lying configuration group.\n");
       printf("Make sure that you know what you are doing.\n\n");
     }
+    */
     if (acfg->n_shells > 0) {      
       acfg->n_cfgs = 0;
       acfg->n_shells = 0;
@@ -4706,6 +4712,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       int nk = 1+GetLFromKappa(orb1->kappa)/2;
       if (nb0 < nk) nb0 = nk;
       for (;;nb0++) {
+	if (potential->mpseudo > 0 && nb0 > potential->mpseudo) break;
 	idx = OrbitalIndex(nb0, orb1->kappa, 0);
 	orb0 = GetOrbitalSolved(idx);
 	if (orb0->energy > eb0) break;
@@ -7366,6 +7373,7 @@ int InitRadial(void) {
   rpotential = malloc(sizeof(POTENTIAL));
   potential->nfrozen = 0;
   potential->npseudo = 0;
+  potential->mpseudo = 0;
   potential->dpseudo = 1;
   potential->mode = POTMODE;
   potential->hxs = POTHXS;
@@ -7659,7 +7667,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
   CONFIG *cfg = ConfigFromIList(ni, kc);
   int r;
   if (nc > 0) {
-    r = ApplyRestriction(1, cfg, nc, sr);  
+    r = ApplyRestriction(1, cfg, nc, sr);
     if (r <= 0) return -1;
   }
   if (ConfigExists(cfg)) return -1;
@@ -7763,14 +7771,35 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
   SHELL_RESTRICTION *sr;
   int m, mar, *kcr, nc;
 
+  if (s) {
+    nc = GetRestriction(s, &sr, 0);
+  } else {
+    nc = 0;
+    sr = NULL;
+  }
+  
   if (m0 == 0) {
     ig1 = GroupIndex(gn1);
     if (ig1 < 0) {
       printf("invalid config group name: %s\n", gn1);
+      if (nc > 0) {
+	for (i = 0; i < nc; i++) {
+	  free(sr[i].shells);
+	}
+	free(sr);
+      }
       return -1;
     }
     nr = GetConfigFromString(&cr, s);
-    if (nr <= 0) return 0;
+    if (nr <= 0) {
+      if (nc > 0) {
+	for (i = 0; i < nc; i++) {
+	  free(sr[i].shells);
+	}
+	free(sr);
+      }
+      return 0;
+    }
     ni = 0;
     for (i = 0; i < nr; i++) {
       if (ni < cr[i].shells[0].n) ni = cr[i].shells[0].n;
@@ -7803,7 +7832,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     for (i = 0; i < nr; i++) {
       ConfigToIList(&cr[i], ni, kc);
-      AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, 0, NULL);
+      AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, nc, sr);
     }
     
     free(kc);
@@ -7812,6 +7841,12 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	free(kcb[i]);
       }
       free(kcb);
+    }
+    if (nc > 0) {
+      for (i = 0; i < nc; i++) {
+	free(sr[i].shells);
+      }
+      free(sr);
     }
     return 0;
   }
@@ -7846,7 +7881,6 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
     return -1;
   }
-  nc = GetRestriction(s, &sr, 0);
   ni = Max(n1, n1d);
   for (i = 0; i < ng; i++) {
     g = GetGroup(kg[i]);

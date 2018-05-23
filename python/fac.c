@@ -170,6 +170,28 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static int DoubleFromList(PyObject *p, double **k) {
+  int i, n;
+  PyObject *q;
+
+  if (PyList_Check(p)) {
+    n = PyList_Size(p);
+    if (n > 0) {
+      *k = malloc(sizeof(double)*n);
+      for (i = 0; i < n; i++) {
+	q = PyList_GetItem(p, i);
+	(*k)[i] = PyFloat_AsDouble(q);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(double));
+    (*k)[0] = PyFloat_AsDouble(p);
+  } 
+  return n;
+}
+
+
 static int IntFromList(PyObject *p, int **k) {
   int i, n;
   PyObject *q;
@@ -4616,60 +4638,50 @@ static PyObject *PLevelInfor(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PInterpCross(PyObject *self, PyObject *args) { 
-  PyObject *p, *q;
+  PyObject *p;
   int i, negy, i0, i1, mp;
   double *egy;
   char *ifn, *ofn;
   
+  if (sfac_file) {
+    SFACStatement("InterpCross", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   mp = 1;
   if (!PyArg_ParseTuple(args, "ssiiO|i", &ifn, &ofn, &i0, &i1, &p, &mp))
     return NULL;
 
-  if (!PyList_Check(p) && !PyTuple_Check(p)) {
-    printf("Energy List must be a sequence\n");
-    return NULL;
+  negy = DoubleFromList(p, &egy);
+  if (negy > 0) {
+    InterpCross(ifn, ofn, i0, i1, negy, egy, mp);
+    free(egy);
   }
-  
-  negy = PySequence_Length(p);
-  egy = (double *) malloc(sizeof(double)*negy);  
-  for (i = 0; i < negy; i++) {
-    q = PySequence_GetItem(p, i);
-    egy[i] = PyFloat_AsDouble(q);
-    Py_DECREF(q);
-  }
-  
-  InterpCross(ifn, ofn, i0, i1, negy, egy, mp);
-  free(egy);
-
   Py_INCREF(Py_None);
   return Py_None;
 }
   
 static PyObject *PMaxwellRate(PyObject *self, PyObject *args) { 
-  PyObject *p, *q;
+  PyObject *p;
   int i, nt, i0, i1;
   double *temp;
   char *ifn, *ofn;
   
+  if (sfac_file) {
+    SFACStatement("MaxwellRate", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "ssiiO", &ifn, &ofn, &i0, &i1, &p))
     return NULL;
 
-  if (!PyList_Check(p) && !PyTuple_Check(p)) {
-    printf("Energy List must be a sequence\n");
-    return NULL;
+  nt = DoubleFromList(p, &temp);
+  if (nt > 0) {
+    MaxwellRate(ifn, ofn, i0, i1, nt, temp);
+    free(temp);
   }
-  
-  nt = PySequence_Length(p);
-  temp = (double *) malloc(sizeof(double)*nt);  
-  for (i = 0; i < nt; i++) {
-    q = PySequence_GetItem(p, i);
-    temp[i] = PyFloat_AsDouble(q);
-    Py_DECREF(q);
-  }
-  
-  MaxwellRate(ifn, ofn, i0, i1, nt, temp);
-  free(temp);
-
   Py_INCREF(Py_None);
   return Py_None;
 }
