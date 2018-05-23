@@ -27,6 +27,7 @@
 typedef struct _POTENTIAL_ {
   int nfrozen;
   int npseudo;
+  int mpseudo;
   int dpseudo;
   int mode;
   int flag;

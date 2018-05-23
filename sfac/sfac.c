@@ -77,6 +77,29 @@ static int IntFromList(char *argv, int tp, ARRAY *variables, int **k) {
   return n;
 }
 
+static int DoubleFromList(char *argv, int tp, ARRAY *variables, double **k) {
+  int i;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], n;
+  
+  if (tp == LIST) {
+    n = DecodeArgs(argv, v, t, variables);
+    if (n > 0) {
+      *k = malloc(sizeof(double)*n);
+      for (i = 0; i < n; i++) {
+	(*k)[i] = atof(v[i]);
+	free(v[i]);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(double));
+    (*k)[0] = atof(argv);
+  }
+  
+  return n;
+}
+
 static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
 			   ARRAY *variables) {
   char *s;
@@ -2332,7 +2355,7 @@ static int PSolvePseudo(int argc, char *argv[], int argt[],
 			ARRAY *variables) {
   int kmin, kmax, nb, nmax, nd;
   double xdf;
-  if (argc < 2 || argc > 5) return -1;  
+  if (argc < 2 || argc > 6) return -1;  
   if (argt[0] != NUMBER) return -1;
   if (argt[1] != NUMBER) return -1;
   kmax = atoi(argv[0]);
@@ -3577,6 +3600,49 @@ static int PSetTransitionMaxM(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PInterpCross(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  char *ifn, *ofn;
+  int i, negy, i0, i1, mp;
+  double *egy;
+  
+  mp = 1;
+  if (argc < 5 || argc > 6) return -1;
+  ifn = argv[0];
+  ofn = argv[1];
+  i0 = atoi(argv[2]);
+  i1 = atoi(argv[3]);
+  negy = DoubleFromList(argv[4], argt[4], variables, &egy);
+  if (argc > 5) {
+    mp = atoi(argv[5]);
+  }
+  if (negy > 0) {
+    InterpCross(ifn, ofn, i0, i1, negy, egy, mp);
+    free(egy);
+  }
+  return 0;
+}
+
+static int PMaxwellRate(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  char *ifn, *ofn;
+  int i, nt, i0, i1;
+  double *temp;
+  
+  if (argc != 5) return -1;
+  ifn = argv[0];
+  ofn = argv[1];
+  i0 = atoi(argv[2]);
+  i1 = atoi(argv[3]);
+  nt = DoubleFromList(argv[4], argt[4], variables, &temp);
+
+  if (nt > 0) {
+    MaxwellRate(ifn, ofn, i0, i1, nt, temp);
+    free(temp);
+  }
+  return 0;
+}
+
 static int PAsymmetry(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int mx;
@@ -4250,6 +4316,10 @@ static METHOD methods[] = {
   {"Asymmetry", PAsymmetry, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"BasisTable", PBasisTable, METH_VARARGS},
+  {"CECross", PInterpCross, METH_VARARGS},
+  {"CERate", PMaxwellRate, METH_VARARGS},
+  {"InterpCross", PInterpCross, METH_VARARGS},
+  {"MaxwellRate", PMaxwellRate, METH_VARARGS},
   {"CETable", PCETable, METH_VARARGS},
   {"CETableMSub", PCETableMSub, METH_VARARGS},
   {"CheckEndian", PCheckEndian, METH_VARARGS},
