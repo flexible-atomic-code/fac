@@ -39,10 +39,10 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = EPS4;
-static double mbpt_mcut2 = 0.1;
-static double mbpt_mcut3 = 0.25;
-static double mbpt_mcut4 = -1.0;
+static double mbpt_mcut = 0.1;
+static double mbpt_mcut2 = 0.01;
+static double mbpt_mcut3 = 1.0;
+static double mbpt_mcut4 = 0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static int mbpt_nsplit = 0;
@@ -137,11 +137,11 @@ void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
   mbpt_n3 = n3;
   mbpt_mcut = c;
   if (d > 0) mbpt_mcut2 = d;
-  else mbpt_mcut2 = 0.1;
+  else mbpt_mcut2 = 0.01;
   if (e > 0) mbpt_mcut3 = e;
-  else mbpt_mcut3 = 0.25;
+  else mbpt_mcut3 = 1.0;
   if (f > 0) mbpt_mcut4 = f;
-  else mbpt_mcut4 = -1.0;
+  else mbpt_mcut4 = 0.0;
 }
 
 void SetExtraMBPT(int m) {
@@ -1806,31 +1806,26 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     }
     double c12 = c/(d1*d2);
-    if (mbpt_mcut4 <= 0 || fabs(c12) < mbpt_mcut4) {
-      sd1 = c/d1;
-      sd2 = c/d2;
+    sd1 = c/d1;
+    sd2 = c/d2;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h1[i1] += sd1;
+    h1[i1] += sd1;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h2[i1] += sd2;
-      //c /= d1*d2;
-      i1g = i1+ng;
+    h2[i1] += sd2;
+    //c /= d1*d2;
+    i1g = i1+ng;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h1[i1g] += c12;
+    h1[i1g] += c12;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h2[i1g] += c12;
-    } else {
-      MPrintf(-1, "H22Term Large: %2d %11.4E %11.4E %11.4E %11.4E\n",
-	      ng, c12, d1, d2, c);
-    }
+    h2[i1g] += c12;
   }
 }
 
@@ -1965,31 +1960,26 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       H3rd0(meff[s0], m1, m0, d2, c, i0, 1);
     }
     double c12 = c/(d1*d2);
-    if (mbpt_mcut4 <= 0 || fabs(c12) < mbpt_mcut4) {
-      sd = c/d1;
-      se = c/d2;
+    sd = c/d1;
+    se = c/d2;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h1[i0] += sd;
+    h1[i0] += sd;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h2[i0] += se;
-      //c /= d1*d2;
-      i0g = i0 + ng;
+    h2[i0] += se;
+    //c /= d1*d2;
+    i0g = i0 + ng;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h1[i0g] += c12;
+    h1[i0g] += c12;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h2[i0g] += c12;
-    } else {
-      MPrintf(-1, "H12Term Large: %2d %11.4E %11.4E %11.4E %11.4E\n",
-	      ng, c12, d1, d2, c);
-    }
+    h2[i0g] += c12;
   }
 }
 
@@ -2255,35 +2245,30 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     ng = meff[s0]->n;
     y = r1*r2*a[k];
     double y12 = y/(d1*d2);
-    if (mbpt_mcut4 <= 0 || fabs(y12) < mbpt_mcut4) {
-      cd1 = y/d1;
-      cd2 = y/d2;
+    cd1 = y/d1;
+    cd2 = y/d2;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h1[i0] += cd1;
+    h1[i0] += cd1;
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
-      h2[i0] += cd2;
-      H3rd0(meff[s0], m0, m1, d1, y, i0, 1);
-      if (m0 != m1) {
-	H3rd0(meff[s0], m1, m0, d2, y, i0, 1);
-      }
-      //y /= d1*d2;
-      i0g = i0 + ng;
-#if CPMEFF == 0
-#pragma omp atomic
-#endif
-      h1[i0g] += y12;
-#if CPMEFF == 0
-#pragma omp atomic
-#endif
-      h2[i0g] += y12;
-    } else {
-      MPrintf(-1, "H11Term Large: %2d %11.4E %11.4E %11.4E %11.4E %d %d %d %d %d %d %d %d\n",
-	      ng, y12, d1, d2, y, orb0->n, orb0->kappa, orb1->n, orb1->kappa, orb2->n, orb2->kappa, orb3->n, orb3->kappa);
+    h2[i0] += cd2;
+    H3rd0(meff[s0], m0, m1, d1, y, i0, 1);
+    if (m0 != m1) {
+      H3rd0(meff[s0], m1, m0, d2, y, i0, 1);
     }
+    //y /= d1*d2;
+    i0g = i0 + ng;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h1[i0g] += y12;
+#if CPMEFF == 0
+#pragma omp atomic
+#endif
+    h2[i0g] += y12;
   }
 }
 
@@ -3982,7 +3967,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
-	if (iig || jig) a *= mbpt_mcut2;
+	if (iig && jig) a *= mbpt_mcut4;
+	else if (iig || jig) a *= mbpt_mcut2;
 	if (i == j) a *= mbpt_mcut3;		 
 	if (c >= a) {
 	  meff[isym]->imbpt[k] = 1;

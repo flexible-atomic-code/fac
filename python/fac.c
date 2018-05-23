@@ -240,6 +240,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
       onError("not enough memory");
       return -1;
     }
+    int n = 0;
     for (i = 0; i < ng; i++) {
       p = PySequence_GetItem(args, i);
       if (!PyUnicode_Check(p)) {
@@ -252,11 +253,16 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
       Py_DECREF(p);
       
       if (k < 0) {
-	free((*kg));
-	onError("group does not exist");
-	return -1;
+	printf("group does not exist: %d %s", i, s);
+	continue;
       }
-      (*kg)[i] = k;
+      (*kg)[n] = k;
+      n++;
+    }
+    ng = n;
+    if (ng <= 0) {
+      onError("all cfg groups invalid");
+      return -1;
     }
   } else {
     ng = GetNumGroups();
