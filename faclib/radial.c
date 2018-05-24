@@ -7698,7 +7698,9 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	  if (i0 < 0) i0 = j;
 	  else if (i2 < 0) i2 = j;
 	  else break;
-	}	
+	} else if (abs(kc[j]-kcb[i][j]) > 2) {
+	  break;
+	}
       }
       if (j < ni) continue;
       
