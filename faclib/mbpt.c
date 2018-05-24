@@ -39,10 +39,10 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = 0.1;
-static double mbpt_mcut2 = 0.01;
-static double mbpt_mcut3 = 1.0;
-static double mbpt_mcut4 = 0;
+static double mbpt_mcut = 1.0;
+static double mbpt_mcut2 = 2e-3;
+static double mbpt_mcut3 = 1e-2;
+static double mbpt_mcut4 = 1.0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static int mbpt_nsplit = 0;
@@ -136,12 +136,12 @@ void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
   mbpt_rand = nr;
   mbpt_n3 = n3;
   mbpt_mcut = c;
-  if (d > 0) mbpt_mcut2 = d;
-  else mbpt_mcut2 = 0.01;
-  if (e > 0) mbpt_mcut3 = e;
-  else mbpt_mcut3 = 1.0;
-  if (f > 0) mbpt_mcut4 = f;
-  else mbpt_mcut4 = 0.0;
+  if (d >= 0) mbpt_mcut2 = d;
+  else mbpt_mcut2 = 2e-3;
+  if (e >= 0) mbpt_mcut3 = e;
+  else mbpt_mcut3 = 1e-2;
+  if (f >= 0) mbpt_mcut4 = f;
+  else mbpt_mcut4 = 1.0;
 }
 
 void SetExtraMBPT(int m) {
@@ -3967,9 +3967,9 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
+	if (iig || jig) a *= mbpt_mcut2;
 	if (iig && jig) a *= mbpt_mcut4;
-	else if (iig || jig) a *= mbpt_mcut2;
-	if (i == j) a *= mbpt_mcut3;		 
+	if (i == j) a *= mbpt_mcut3;
 	if (c >= a) {
 	  meff[isym]->imbpt[k] = 1;
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
