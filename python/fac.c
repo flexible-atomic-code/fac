@@ -253,7 +253,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
       Py_DECREF(p);
       
       if (k < 0) {
-	printf("group does not exist: %d %s", i, s);
+	printf("group does not exist: %d %s\n", i, s);
 	continue;
       }
       (*kg)[n] = k;

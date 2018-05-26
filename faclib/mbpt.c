@@ -1293,7 +1293,7 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
       }
     }
   }
-   
+  
   if (k > 0) {
     qsort(c->shells, k, sizeof(SHELL), CompareShellInvert);
     if (c->shells[0].nq > 1) {
@@ -1741,20 +1741,36 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 
   orb = GetOrbital(ks2[2]);
   d1 = orb->energy + orb->qed;
+  //int nn1 = orb->n;
+  //int ka1 = orb->kappa;
   orb = GetOrbital(ks2[3]);
   d1 += orb->energy + orb->qed;
+  //int nn2 = orb->n;
+  //int ka2 = orb->kappa;
   orb = GetOrbital(ks2[0]);
   d1 -= orb->energy + orb->qed;
+  //int nn3 = orb->n;
+  //int ka3 = orb->kappa;
   orb = GetOrbital(ks2[1]);
   d1 -= orb->energy + orb->qed;
+  //int nn4 = orb->n;
+  //int ka4 = orb->kappa;
   orb = GetOrbital(ks1[0]);
   d2 = orb->energy + orb->qed;
+  //int nn5 = orb->n;
+  //int ka5 = orb->kappa;
   orb = GetOrbital(ks1[1]);
   d2 += orb->energy + orb->qed;
+  //int nn6 = orb->n;
+  //int ka6 = orb->kappa;
   orb = GetOrbital(ks1[2]);
   d2 -= orb->energy + orb->qed;
+  //int nn7 = orb->n;
+  //int ka7 = orb->kappa;
   orb = GetOrbital(ks1[3]);
   d2 -= orb->energy + orb->qed;
+  //int nn8 = orb->n;
+  //int ka8 = orb->kappa;
   /*
   d1 = GetOrbital(ks2[2])->energy + GetOrbital(ks2[3])->energy;
   d1 -= GetOrbital(ks2[0])->energy + GetOrbital(ks2[1])->energy;
@@ -2836,13 +2852,18 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		  om[0] = ic;
 		  om[1] = id;
 		  k = CheckConfig(ns, ket, 2, op, 2, om, nc, cs);
+		  //int kket = k;
 		  if (k >= 0) continue;
 		  op[0] = ik;
 		  op[1] = im;
 		  om[0] = ia;
 		  om[1] = ib;
-		  k = CheckConfig(ns, bra, 2, op, 2, om, 0, NULL);
-		  if (k >= 0) continue;
+		  k = CheckConfig(ns, bra, 2, op, 2, om, nc, cs);
+		  //k = CheckConfig(ns, bra, 2, op, 2, om, 0, NULL);
+		  if (k >= 0) {
+		    continue;
+		  }
+		  //int kbra = k;
 		  op[0] = ia;
 		  op[1] = ib;
 		  op[2] = ip;
@@ -3132,7 +3153,7 @@ void DeltaH12M0(void *mptr, int ns,
 	      if (k >= 0) continue;
 	      op[0] = ik;
 	      om[0] = ia;
-	      k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
+	      k = CheckConfig(ns, bra, 1, op, 1, om, nc, cs);
 	      if (k >= 0) continue;
 	      ks[0] = ib0->d[id];
 	      ks[1] = ib0->d[im];
@@ -3359,7 +3380,7 @@ void DeltaH11M0(void *mptr, int ns,
 	  op[0] = ik;
 	  om[0] = ia;	  
 	  /* check if bra(ia->ik) is within the model space */
-	  k = CheckConfig(ns, bra, 1, op, 1, om, 0, NULL);
+	  k = CheckConfig(ns, bra, 1, op, 1, om, nc, cs);
 	  if (k >= 0) continue;
 	  k0 = ib0->d[ia];
 	  k1 = ib0->d[ik];
