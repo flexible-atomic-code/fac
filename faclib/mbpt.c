@@ -39,9 +39,9 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = 1.0;
-static double mbpt_mcut2 = 2e-3;
-static double mbpt_mcut3 = 1e-2;
+static double mbpt_mcut = 1e-3;
+static double mbpt_mcut2 = 1e-2;
+static double mbpt_mcut3 = 1e-1;
 static double mbpt_mcut4 = 1.0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
@@ -63,7 +63,25 @@ static struct {
 #pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas0s, mbpt_bas0d, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
   
 static TR_OPT mbpt_tr;
-  
+
+void PrintMBPTOptions(void) {
+  printf("extra=%d\n", mbpt_extra);
+  printf("rand=%d\n", mbpt_rand);
+  printf("savesum=%d\n", mbpt_savesum);
+  printf("maxn=%d\n", mbpt_maxn);
+  printf("maxm=%d\n", mbpt_maxm);
+  printf("minn=%d\n", mbpt_minn);
+  printf("mini=%d\n", mbpt_mini);
+  printf("minn2=%d\n", mbpt_minn2);
+  printf("mini2=%d\n", mbpt_mini2);
+  printf("reinit_ncps=%d\n", mbpt_reinit_ncps);
+  printf("reinit_meme=%g\n", mbpt_reinit_mem);
+  printf("nlev=%d\n", mbpt_nlev);
+  printf("mcut=%g %g %g %g\n", mbpt_mcut, mbpt_mcut2, mbpt_mcut3, mbpt_mcut4);
+  printf("n3=%d\n", mbpt_n3);
+  printf("nsplit=%d\n", mbpt_nsplit);
+}
+
 void InitMBPT(void) {
   mbpt_tr.mktr = 0;
   mbpt_tr.naw = 0;
@@ -3774,7 +3792,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     nr2 = n2;
     ngr2 = ng2;
   }
-    
+  PrintMBPTOptions();
   nhab1 = nr*2;
   if (mbpt_maxn > 0) {
     nhab = 0;
