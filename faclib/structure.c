@@ -3449,6 +3449,7 @@ int GetBasisTable(char *fn, int m) {
       DecodePJ(i, &p, &j);
       st = &(sym->states);
       if (sym->n_states <= 0) continue;
+      fprintf(f, "# %6d   %2d %2d   %5d\n", i, p, j, k);
       for (k = 0; k < sym->n_states; k++) {
 	s = (STATE *) ArrayGet(st, k);
 	ConstructLevelName(name, sname, nc, NULL, s);
@@ -3463,6 +3464,7 @@ int GetBasisTable(char *fn, int m) {
       lev = GetLevel(i);
       sym = GetSymmetry(lev->pj);
       DecodePJ(lev->pj, &p, &j);
+      fprintf(f, "# %6d   %2d %2d   %5d\n", i, p, j, lev->n_basis);
       for (k = 0; k < lev->n_basis; k++) {
 	si = lev->basis[k];
 	s = (STATE *) ArrayGet(&(sym->states), si);
@@ -5328,7 +5330,7 @@ int InitStructure(void) {
   ArrayInit(ecorrections, sizeof(ECORRECTION), 512);
   ncorrections = 0;
 
-  for (i = 0; i <= MAX_SYMMETRIES; i++) {
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
     AllocHamMem(&_allhams[i], 0, 0);
     _allhams[i].ohsize = 0;
     _allhams[i].odim = 0;
