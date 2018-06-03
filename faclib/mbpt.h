@@ -59,13 +59,16 @@ typedef struct _MBPT_HAM_ {
   double a, b, c;
   double *hab1, *hba1;
   double *hab, *hba;
+  double *heff0;
+  int hsize0, *basis;
   MBPT_TR *mtr;
 } MBPT_HAM;
 
 typedef struct _MBPT_EFF_ {
   int n, n2;
-  int hsize, nbasis, *basis;
-  double *h0, *e0, *heff;
+  int hsize, nbasis, *basis, hsize0;
+  IDXARY *idb;
+  double *h0, *e0, *heff, *heff0;
   int *imbpt;
   /* effective hamilton elements for 1-virtual */
   double **hab1, **hba1;
@@ -95,5 +98,5 @@ void SetSymMBPT(int nlev, int *ilev);
 void TransitionMBPT(int mk, int naw);
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up);
 int GetAWGridMBPT(double **awgrid);
-
+void UnpackSymStateMBPT(MBPT_EFF **meff, int ms, int *s, int *m);
 #endif

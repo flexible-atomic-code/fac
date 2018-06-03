@@ -114,7 +114,8 @@ int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW (POTENTIAL *pot, double e, int kappa, int kv);
 int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
-
+double EneTol(double e);
+  
 #endif
 
 

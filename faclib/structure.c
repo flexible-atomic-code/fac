@@ -65,6 +65,10 @@ static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
+static double perturb_threshold = -1;
+static int perturb_maxiter = PERTURBMAXITER;
+static int diag_maxiter = DIAGMAXITER;
+static double diag_maxtol = DIAGMAXTOL;
 
 static int sym_pp = -1;
 static int sym_njj = 0;
@@ -193,6 +197,18 @@ void SetSymmetry(int p, int nj, int *j) {
   }
 }
 
+void SetPerturbThreshold(int maxiter, double t) {
+  perturb_maxiter = maxiter-1;
+  perturb_threshold = t;
+}
+
+void SetDiagMaxIter(int maxiter, double maxtol) {
+  if (maxiter < 0) diag_maxiter = DIAGMAXITER;
+  else diag_maxiter = maxiter;
+  if (maxtol < 0) diag_maxtol = DIAGMAXTOL;
+  else diag_maxtol = maxtol;
+}
+
 int *GetSymmetrySet(int *p, int *nj) {
   if (p) *p = sym_pp;
   if (nj) *nj = sym_njj;
@@ -241,6 +257,16 @@ int CompareInt(const void *a1, const void *a2) {
   i1 = (int *) a1;
   i2 = (int *) a2;
   return (*i1 - *i2);
+}
+
+int CompareDouble(const void *a1, const void *a2) {
+  double *i1, *i2;
+  
+  i1 = (double *) a1;
+  i2 = (double *) a2;
+  if (*i1 < *i2) return -1;
+  if (*i1 > *i2) return 1;
+  return 0;
 }
 
 int SortUnique(int n, int *a) {
@@ -492,9 +518,6 @@ int ConstructHamiltonEB(int n, int *ilev) {
     t = j*(j+1)/2;
     for (i = 0; i <= j; i++) {
       r = HamiltonElementEB(h->basis[i], h->basis[j]);
-      /*
-      printf("HAM: %8d %8d %15.8E\n", h->basis[i], h->basis[j], r);
-      */
       h->hamilton[i+t] = r;
     }
   }
@@ -508,7 +531,7 @@ int ConstructHamiltonEB(int n, int *ilev) {
 
 int ConstructHamilton(int isym, int k0, int k, int *kg,
 		      int kp, int *kgp, int md) {
-  int i, j, j0, t, ti, jp, m1, m2, m3;
+  int i, j, j0, t, ti, jp, jd, m1, m2, m3, ip;
   HAMILTON *h;
   SHAMILTON *hs;
   ARRAY *st;
@@ -531,6 +554,8 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
   if (sym_pp >= 0 && i != sym_pp) return -2;
   if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
 
+  ip = md/1000;
+  md = md%1000;
   m1 = md/100;
   t = md%100;
   m2 = t/10;
@@ -539,46 +564,74 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
   if (sym == NULL) return -1;
   h = &_allhams[isym];
   h->pj = isym;
-
+  
   if (m1) {
     if (k <= 0) return -1;
     if (ci_level == -1) {
       return ConstructHamiltonDiagonal(isym, k, kg, 1);
     }
     st = &(sym->states);
-    j = 0;
-    j0 = 0;
-    for (t = 0; t < sym->n_states; t++) {
-      s = (STATE *) ArrayGet(st, t);
-      if (InGroups(s->kgroup, k0, kg)) j0++;
-      if (InGroups(s->kgroup, k, kg)) j++;
-    }
-    if (j0 == 0) return -1;
-
-    jp = 0;
-    if (kp > 0) {
+    if (k0 > 0) {
+      j = 0;
+      j0 = 0;
+      jd = 0;
       for (t = 0; t < sym->n_states; t++) {
 	s = (STATE *) ArrayGet(st, t);
-	if (InGroups(s->kgroup, kp, kgp)) jp++;
+	if (InGroups(s->kgroup, k0, kg)) j0++;
+	if (InGroups(s->kgroup, k, kg)) j++;
       }
-    }    
-
+      if (j0 == 0) return -1;
+      jp = 0;
+      if (kp > 0 && kgp != NULL) {
+	for (t = 0; t < sym->n_states; t++) {
+	  s = (STATE *) ArrayGet(st, t);
+	  if (InGroups(s->kgroup, kp, kgp)) jp++;
+	}
+      }
+      jd = j;
+      if (ip == 2) {
+	j += jp;
+	jp = 0;
+      }
+    } else {
+      j = k;
+      j0 = k;
+      jd = j;
+      if (ip == 2) {
+	j += kp;
+	jp = 0;
+      } else {
+	jp = kp;
+      }
+    }
     if (AllocHamMem(h, j, jp+j) == -1) goto ERROR;
-    
-    j = 0;  
-    for (t = 0; t < sym->n_states; t++) {
-      s = (STATE *) ArrayGet(st, t);
-      if (InGroups(s->kgroup, k, kg)) {
-	h->basis[j] = t;
-	j++;
-      }
-    }
-    if (jp > 0) {  
+    h->ndim = jd;
+    if (k0 > 0) {
+      j = 0;  
       for (t = 0; t < sym->n_states; t++) {
 	s = (STATE *) ArrayGet(st, t);
-	if (kp > 0 && InGroups(s->kgroup, kp, kgp)) {
+	if (InGroups(s->kgroup, k, kg)) {
 	  h->basis[j] = t;
 	  j++;
+	}
+      }
+      if (kp > 0) {  
+	for (t = 0; t < sym->n_states; t++) {
+	  s = (STATE *) ArrayGet(st, t);
+	  if (InGroups(s->kgroup, kp, kgp)) {
+	    h->basis[j] = t;
+	    j++;
+	  }
+	}
+      }
+    } else {
+      j = 0;
+      for (t = 0; t < k; t++) {
+	h->basis[j++] = h->obs[kg[t]];
+      }
+      if (kp > 0 && kgp != NULL) {
+	for (t = 0; t < kp; t++) {
+	  h->basis[j++] = h->obs[kgp[t]];
 	}
       }
     }
@@ -591,13 +644,46 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 #pragma omp parallel default(shared) private(i,j,t,r)
     {
       int mr = MPIRank(NULL);
+      int odim = h->odim;
+      int ot = ((odim+1)*odim)/2;
       for (j = 0; j < h->dim; j++) {
 	int skip;
 	skip = SkipMPI();
 	if (skip) continue;
 	t = j*(j+1)/2;
+	ti = t;
+	if (ip == 2 && k0 < 0) {
+	  if (j < jd) {
+	    ti = kg[j]*(kg[j]+1)/2;
+	  } else {
+	    ti = kgp[j-jd]*(kgp[j-jd]+1)/2;
+	  }
+	}
 	for (i = 0; i <= j; i++) {
-	  r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	  if (i != j && i >= jd && j >= jd) r = 0;
+	  else if (k0 < 0) {
+	    if (ip == 1) {
+	      if (i < h->odim) {
+		if (j < h->odim) {
+		  r = h->oham[i+t];
+		} else {
+		  r = h->oham[ot+i*(h->onbs-h->odim)+(kg[j]-h->odim)];
+		}
+	      } else {
+		r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	      }
+	    } else if (ip == 2) {
+	      if (i < h->ondim && j < h->ondim) {
+		r = h->oham[i+t];
+	      } else if (i < h->ondim) {
+		r = h->oham[i+ti];
+	      } else {
+		r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	      }
+	    }
+	  } else {
+	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	  }
 	  h->hamilton[i+t] = r;
 	}
       }
@@ -609,11 +695,21 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	    continue;
 	  }
 	  for (j = h->dim; j < h->n_basis; j++) {
-	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	    if (i < h->odim) {
+	      if (j < h->odim) {
+		r = h->oham[(j*(j+1))/2+i];
+	      } else {
+		r = h->oham[ot+i*(h->onbs-h->odim)+(kgp[j-h->dim]-h->odim)];
+	      }
+	    } else {
+	      r = HamiltonElement(isym, h->basis[i], h->basis[j]);
+	    }
 	    h->hamilton[t++] = r;
 	  }
+	  /*
 	  ReinitRecouple(0);
 	  ReinitRadial(1);
+	  */
 	}
 	for (j = h->dim; j < h->n_basis; j++) {
 	  if (SkipMPI()) {
@@ -623,8 +719,10 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	  r = HamiltonElement(isym, h->basis[j], h->basis[j]);
 	  h->hamilton[t++] = r;
 	}
+	/*
 	ReinitRecouple(0);
 	ReinitRadial(1);
+	*/
       }
     }
 #if USE_MPI == 1    
@@ -634,7 +732,6 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     }
 #endif
   }
-      
   if (m3) {
     if (nhams >= MAX_HAMS) {
       printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
@@ -657,7 +754,6 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
   stop = clock();
   timing.set_ham += stop-start;
 #endif
-
   return 0;
 
  ERROR:
@@ -1809,7 +1905,7 @@ int TestHamilton(void) {
 ** after the DiagnolizeHamilton call
 */
 int DiagnolizeHamilton(HAMILTON *h) {
-  double *ap;
+  double *ap, *ap0;
   double *w, *wi;
   double *z, *x, *y, *b, *d, *ep;
   double *mixing = NULL;
@@ -1821,8 +1917,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
   int lwork;
   int liwork;
   int info;
-  int i, j, t, t0, k, one;
-  double d_one, d_zero, a;
+  int i, j, t, t0, t1, t2, k;
+  double a, r, c, ra;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -1830,6 +1926,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 
   n = h->dim;
   m = h->n_basis;
+  np = m - n;
   ldz = n;
   t0 = n*(n+1);
 
@@ -1849,84 +1946,243 @@ int DiagnolizeHamilton(HAMILTON *h) {
     return 0;
   }
 
-  if (m > n) {
-    mixing = h->work + lwork;
-  } else {
-    mixing = h->mixing;
-  }
+  mixing = h->work + lwork;
   w = mixing;
   z = mixing + n;
-  if (h->heff == NULL) {
-    ap = h->hamilton;
-    /* the dspevd sometimes fails. use dspev instead 
-    DSPEVD(jobz, uplo, n, ap, w, z, ldz, h->work, lwork,
-	  h->iwork, liwork, &info);    
-    */
-    DSPEV(jobz, uplo, n, ap, w, z, ldz, h->work, &info);
-    if (info) {
-      goto ERROR;
+  wi = mixing + t0;    
+  ap = wi + t0;
+  ap0 = NULL;
+  if (m > n) {
+    b = h->hamilton + t0/2;
+    ep = b + n*np;
+    ap0 = ap + t0;
+    t = 0;
+    y = b;    
+    for (j = 0; j < n; j++) {
+      x = b;
+      t2 = j*(j+1)/2 + j;
+      for (i = 0; i < n; i++) {
+	a = 0;
+	for (k = 0; k < np; k++) {
+	  r = x[k]*y[k];
+	  c = h->hamilton[t2] - ep[k];
+	  ra = fabs(sqrt(fabs(r))/c);
+	  if (ra < diag_maxtol) {
+	    a += r/c;
+	  }
+	}
+	if (h->heff == NULL) {
+	  if (i < j) {
+	    t1 = j*(j+1)/2 + i;
+	  } else {
+	    t1 = i*(i+1)/2 + j;
+	  }
+	  ap[t] = a + h->hamilton[t1];
+	} else {
+	  ap[t] = a + h->heff[t];
+	}
+	t++;
+	x += np;
+      }
+      y += np;
     }
   } else {
-    ap = h->heff;
-    wi = h->work + lwork;
+    if (h->heff == NULL) {
+      memcpy(ap, h->hamilton, sizeof(double)*h->hsize);
+    } else {
+      memcpy(ap, h->heff, sizeof(double)*n*n);
+    }
+  }
+  
+  if (h->heff == NULL) {
+    if (m <= n) {
+      DSPEV(jobz, uplo, n, ap, w, z, ldz, h->work, &info);
+      if (info) {
+	printf("DSPEV ERROR: %d\n", info);
+	goto ERROR;
+      }
+    } else {
+      DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n,
+	    h->work, lwork, &info);
+      if (info) {
+	printf("DGEEV0 ERROR: %d\n", info);
+	goto ERROR;
+      }
+    }
+  } else {
     DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n, 
 	  h->work, lwork, &info);
     if (info) {
-      printf("dgeev Error: %d\n", info);	
+      printf("DGEEV1 ERROR: %d\n", info);	
       goto ERROR;
     }
   }
-
-  if (m > n) {
-    np = m-n;
-    b = h->hamilton + t0/2;
-    ep = b + n*np;
-    y = h->mixing+n;
-    one = 1;
-    d_one = 1.0;
-    d_zero = 0.0;
-    for (i = 0; i < n; i++) {
-      x = y+n;
-      DGEMV(trans, np, n, d_one, b, np, z, one, d_zero, x, one);
-      y += m;
-      z += n;
-    }
-    y = h->mixing + 2*n;
+  x = h->mixing + n;
+  y = mixing + n;
+  z = h->mixing;
+  for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
-      t = j*(j+1)/2;
-      x = h->mixing + 2*n;
-      for (i = 0; i <= j; i++) {
-	a = 0.0;
-	for (k = 0; k < np; k++) {
-	  a += x[k]*y[k]/(w[j] - ep[k]);
+      x[j] = y[j];
+    }
+    x += m;
+    y += n;
+    z[i] = w[i];
+  }
+  if (m > n) {
+    y = h->mixing + n + n;
+    z = h->mixing + n;
+    for (j = 0; j < n; j++) {
+      for (i = 0; i < np; i++) {
+	a = 0;
+	x = b;
+	for (k = 0; k < n; k++) {
+	  r = x[i]/(w[j]-ep[i]);
+	  if (r > diag_maxtol) r = diag_maxtol;
+	  else if (r < -diag_maxtol) r = -diag_maxtol;
+	  a += r*z[k];
+	  x += np;
 	}
-	if (i == j) a += w[j];
-	h->hamilton[i+t] = a;
-	x += m;
+	y[i] = a;
+      }
+      y += m;
+      z += m;
+    }
+    y = h->mixing + n;
+    for (j = 0; j < n; j++) {
+      a = 0;
+      for (i = 0; i < m; i++) {
+	a += y[i]*y[i];
+      }
+      a = 1.0/sqrt(a);
+      for (i = 0; i < m; i++) {
+	y[i] *= a;
       }
       y += m;
     }
-    w = h->mixing;
-    d = h->work+lwork+t0;
-    DSPEVD(jobz, uplo, n, ap, w, d, ldz, h->work, lwork,
-	    h->iwork, liwork, &info);
-    y = h->mixing+n;
-    z = mixing+n;
-    for (i = 0; i < n; i++) {
-      x = y+n;
-      DGEMV(trans, n, n, d_one, z, n, d, one, d_zero, y, one);
-      DGEMV(trans, np, n, d_one, b, np, y, one, d_zero, x, one);
-      for (j = 0; j < np; j++) {
-	x[j] *= 1.0/(w[i]-ep[j]);
-      } 
-      a = DDOT(np, x, one, x, one);
-      a = 1.0/sqrt(1.0+a);
-      DSCAL(m, a, y, one);
-      y += m;
-      d += n;
+    h->diag_iter = 0;
+    h->diag_etol = 0;
+    if (diag_maxiter > 0) {
+      double de, etol;
+      double *w0 = ap0 + n*n;
+      int iter, s;
+      qsort(mixing, n, sizeof(double), CompareDouble);
+      for (iter = 0; iter < diag_maxiter; iter++) {
+	memcpy(w0, mixing, sizeof(double)*n);
+	t = 0;
+	x = b;
+	for (i = 0; i < n; i++) {
+	  z = h->mixing + n;
+	  for (j = 0; j < n; j++) {  
+	    a = 0;
+	    for (k = 0; k < np; k++) {
+	      a += x[k]*z[n+k];
+	    }
+	    z += m;
+	    ap[t] = a;
+	    t++;
+	  }
+	  x += np;
+	}
+	y = h->mixing + n;
+	x = mixing + n;
+	for (i = 0; i < n; i++) {
+	  for (j = 0; j < n; j++) {
+	    x[j*n+i] = y[i*m+j];
+	  }
+	}
+	DGESV(n, n, x, n, h->iwork, ap, n, &info);
+	if (info) {
+	  printf("DGESV ERROR: %d %d\n", iter, info);
+	  goto ERROR;
+	}
+	for (i = 0; i < n; i++) {
+	  for (j = 0; j < n; j++) {
+	    ap0[i*n+j] = ap[j*n+i];
+	  }
+	}
+	t = 0;
+	for (j = 0; j < n; j++) {
+	  for (i = 0; i < n; i++) {
+	    if (h->heff == NULL) {
+	      if (i < j) {
+		t1 = j*(j+1)/2 + i;
+	      } else {
+		t1 = i*(i+1)/2 + j;
+	      }
+	      ap[t] = ap0[t] + h->hamilton[t1];
+	    } else {
+	      ap[t] = ap0[t] + h->heff[t];
+	    }
+	    t++;
+	  }
+	}
+	mixing = h->work + lwork;
+	w = mixing;
+	z = mixing + n;
+	wi = mixing + t0;
+	DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n,
+	      h->work, lwork, &info);
+	if (info) {
+	  printf("DGEEV2 ERROR: %d %d\n", iter, info);
+	  goto ERROR;
+	}
+	x = h->mixing + n;
+	y = mixing + n;
+	z = h->mixing;
+	for (i = 0; i < n; i++) {
+	  for (j = 0; j < n; j++) {
+	    x[j] = y[j];
+	  }
+	  x += m;
+	  y += n;
+	  z[i] = w[i];
+	}
+	y = h->mixing + n + n;
+	z = h->mixing + n;
+	w = h->mixing;
+	for (j = 0; j < n; j++) {
+	  for (i = 0; i < np; i++) {
+	    a = 0;
+	    x = b;
+	    for (k = 0; k < n; k++) {
+	      r = x[i]/(w[j]-ep[i]);
+	      if (r > diag_maxtol) r = diag_maxtol;
+	      else if (r < -diag_maxtol) r = -diag_maxtol;
+	      a += r*z[k];
+	      x += np;
+	    }
+	    y[i] = a;
+	  }
+	  y += m;
+	  z += m;
+	}
+	y = h->mixing + n;
+	for (j = 0; j < n; j++) {
+	  a = 0;
+	  for (i = 0; i < m; i++) {
+	    a += y[i]*y[i];
+	  }
+	  a = 1.0/sqrt(a);
+	  for (i = 0; i < m; i++) {
+	    y[i] *= a;
+	  }
+	  y += m;
+	}
+	h->diag_etol = 0.0;
+	qsort(mixing, n, sizeof(double), CompareDouble);
+	j = h->orig_dim;
+	for (i = 0; i < j; i++) {	  
+	  de = fabs(mixing[i]-w0[i]);
+	  if (h->diag_etol < de) h->diag_etol = de;
+	  etol = EneTol(mixing[i]);
+	  if (de > etol) break;
+	}
+	if (i == j) break;
+      }
+      h->diag_iter = iter;
     }
   }
-
+  
   return 0;
 
  ERROR: 
@@ -2048,6 +2304,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	}
       }
     }
+
     lev.energy = h->mixing[i];
     lev.pj = h->pj;
     lev.iham = h->iham;
@@ -2430,33 +2687,37 @@ int SortLevels(int start, int n, int m) {
 }
 
 int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
-  int ng0, nlevels, ns, k, i;
+  int ng0, nlevels, ns, k, i, md;
   HAMILTON *h;
 
   if (ngp < 0) return 0;  
   ng0 = ng;
-  if (!ip) {
+  if (ip == 0) {
     if (ngp) {
       ng += ngp;
-      kg = (int *) realloc(kg, sizeof(int)*ng);
-      memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-      free(kgp);
-      kgp = NULL;
+      if (fn != NULL) {
+	kg = (int *) realloc(kg, sizeof(int)*ng);
+	memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+	free(kgp);
+      }
       ngp = 0;
+      kgp = NULL;
     }
   }
-
+  if (fn == NULL) md = ip*1000 + 110;
+  else md = ip*1000 + 111;
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;
   if (IsUTA()) {
     AddToLevels(NULL, ng0, kg);
   } else {
     for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, 111);
+      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, md);
+      h = GetHamilton(i);
       if (k < 0) {
 	h = GetHamilton(i);
 	AllocHamMem(h, -1, -1);
-	AllocHamMem(h, 0, 0);
+	AllocHamMem(h, 0, 0);	
       }
     }
     ResetWidMPI();
@@ -2470,23 +2731,146 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 	if (DiagnolizeHamilton(h) < 0) {
 	  continue;
 	}
-	if (ng0 < ng) {
-	  AddToLevels(h, ng0, kg);
-	} else {
-	  AddToLevels(h, 0, kg);
+	if (fn != NULL) {
+	  if (ip == 0 || perturb_threshold < 0) {
+	    if (ng0 < ng || ip) {
+	      AddToLevels(h, ng0, kg);
+	    } else {
+	      AddToLevels(h, 0, kg);
+	    }
+	  }
 	}
+      }
+    }
+    if (ip > 0 && perturb_threshold >= 0) {
+      int *isp0, *isp1, dim, np0, np1, j, t, iter;
+      int dim0[MAX_SYMMETRIES];
+      int done[MAX_SYMMETRIES];
+      double *mix;
+      for (i = 0; i < ns; i++) {
+	done[i] = 0;
+      }
+      for (iter = 0; iter < perturb_maxiter; iter++) {
+	int alldone = 1;	
+	for (i = 0; i < ns; i++) {
+	  if (done[i]) {
+	    continue;
+	  }
+	  h = GetHamilton(i);
+	  dim = ip == 1? h->dim : h->ndim;
+	  if (iter == 0) {
+	    dim0[i] = dim;
+	    h->orig_dim = dim;
+	  }
+	  if (h->dim <= 0) continue;
+	  if (h->n_basis == dim) {
+	    done[i] = 1;
+	    continue;
+	  }
+	  isp0 = malloc(sizeof(int)*h->n_basis);
+	  isp1 = malloc(sizeof(int)*h->n_basis);
+	  h->ohsize = h->hsize;
+	  h->oham = malloc(sizeof(double)*h->ohsize);
+	  h->odim = h->dim;
+	  h->ondim = h->ndim;
+	  h->onbs = h->n_basis;
+	  h->obs = malloc(sizeof(double)*h->onbs);
+	  memcpy(h->oham, h->hamilton, sizeof(double)*h->hsize);
+	  memcpy(h->obs, h->basis, sizeof(int)*h->n_basis);
+	  np0 = dim;
+	  np1 = 0;
+	  mix = h->mixing + h->dim;
+	  for (t = 0; t < dim; t++) {
+	    isp0[t] = t;
+	  }
+	  for (; t < h->n_basis; t++) {
+	    mix = h->mixing + h->dim;
+	    for (j = 0; j < dim0[i]; j++) {
+	      if (fabs(mix[t]) >= perturb_threshold) {
+		isp0[np0++] = t;		
+		break;
+	      }
+	      mix += h->n_basis;
+	    }
+	    if (j == dim0[i]) {
+	      isp1[np1++] = t;
+	    }
+	  }
+	  AllocHamMem(h, -1, -1);
+	  AllocHamMem(h, 0, 0);
+	  k = ConstructHamilton(i, -1, np0, isp0, np1, isp1, md);
+	  if (ip == 1) {
+	    if (h->dim == h->n_basis) {
+	      done[i] = 1;
+	    } else if (h->dim == h->odim) {
+	      done[i] = 1;
+	    }
+	  } else {
+	    if (h->ndim == h->n_basis) {
+	      done[i] = 1;
+	    } else if (h->ndim == h->ondim) {
+	      done[i] = 1;
+	    }
+	  }
+	  h->odim = 0;
+	  h->ondim = 0;
+	  h->ohsize = 0;
+	  h->onbs = 0;
+	  free(h->oham);
+	  free(h->obs);
+	  h->oham = NULL;
+	  h->obs = NULL;
+	  if (k < 0) {
+	    h = GetHamilton(i);
+	    AllocHamMem(h, -1, -1);
+	    AllocHamMem(h, 0, 0);
+	  }
+	  free(isp0);
+	  free(isp1);
+	  if (!done[i]) alldone = 0;
+	}
+	ResetWidMPI();
+#pragma omp parallel default(shared) private(i, h)
+	{
+	  for (i = 0; i < ns; i++) {
+	    if (done[i] > 1) continue;
+	    h = GetHamilton(i);
+	    if (h->dim <= 0) continue;
+	    int skip = SkipMPI();
+	    if (skip) continue;
+	    if (DiagnolizeHamilton(h) < 0) {
+	      continue;
+	    }
+	    MPrintf(-1, "perturb iter: %3d %3d %4d %4d %4d %3d %11.5E\n",
+		    i, iter, h->orig_dim, ip==1?h->dim:h->ndim,
+		    h->n_basis, h->diag_iter, h->diag_etol*HARTREE_EV);
+	    if (fn != NULL) {
+	      if (iter == perturb_maxiter-1 || done[i] == 1) {
+		if (ng0 < ng || ip) {
+		  AddToLevels(h, ng0, kg);
+		} else {
+		  AddToLevels(h, 0, kg);
+		}
+	      }
+	    }
+	    if (done[i] == 1) done[i] = 2;
+	  }
+	}
+	if (alldone) break;
       }
     }
   }
 
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(fn, nlevels, -1);
-  if (ng > 0) free(kg);
-  if (ngp > 0) free(kgp);
-  if (!IsUTA()) {
-    for (i = 0; i < ns; i++) {
-      AllocHamMem(&_allhams[i], -1, -1);
-      AllocHamMem(&_allhams[i], 0, 0);
+  if (fn != NULL) {
+    SortLevels(nlevels, -1, 0);
+    SaveLevels(fn, nlevels, -1);
+    if (ng > 0 && kg) free(kg);
+    if (ngp > 0 && kgp) free(kgp);
+    if (!IsUTA()) {
+      for (i = 0; i < ns; i++) {
+	AllocHamMem(&_allhams[i], -1, -1);
+	AllocHamMem(&_allhams[i], 0, 0);
+      }
     }
   }
   return 0;
@@ -4849,6 +5233,8 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   h->iham = nhams;
   h->n_basis = nbasis;
   t = hdim*(hdim+1)/2;
+  h->dsize = t;
+  h->dsize2 = t*2;
   h->hsize = t + hdim*jp + jp;
   if (h->basis == NULL) {
     h->n_basis0 = h->n_basis;
@@ -4875,13 +5261,21 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   h->liwork = 3 + 10*hdim;
   if (h->work == NULL) {
     h->dim0 = h->dim;
-    h->work = (double *) malloc(sizeof(double)*(h->lwork+2*t));
+    if (h->n_basis > h->dim) {
+      h->work = (double *) malloc(sizeof(double)*(h->lwork+4*t));
+    } else {
+      h->work = (double *) malloc(sizeof(double)*(h->lwork+3*t));
+    }
     h->iwork = (int *) malloc(sizeof(int)*h->liwork);
   } else if (h->dim > h->dim0) {
     h->dim0 = h->dim;
     free(h->work);
     free(h->iwork);
-    h->work = (double *) malloc(sizeof(double)*(h->lwork+2*t));
+    if (h->n_basis > h->dim) {
+      h->work = (double *) malloc(sizeof(double)*(h->lwork+4*t));
+    } else {
+      h->work = (double *) malloc(sizeof(double)*(h->lwork+3*t));
+    }
     h->iwork = (int *) malloc(sizeof(int)*h->liwork);
   }
 
@@ -4936,6 +5330,13 @@ int InitStructure(void) {
 
   for (i = 0; i <= MAX_SYMMETRIES; i++) {
     AllocHamMem(&_allhams[i], 0, 0);
+    _allhams[i].ohsize = 0;
+    _allhams[i].odim = 0;
+    _allhams[i].ondim = 0;
+    _allhams[i].onbs = 0;
+    _allhams[i].obs = NULL;
+    _allhams[i].oham = NULL;
+    
   }
   return 0;
 }
