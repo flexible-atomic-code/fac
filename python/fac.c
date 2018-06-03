@@ -1413,16 +1413,32 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   ngp = 0;
   kgp = NULL;
   ip = 0;
-  
-  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;
+
+  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;  
   if (PyLong_Check(t)) {
     ip = PyLong_AsLong(t);
-    i = IntFromList(p, &kg);
-    SetSymmetry(ip, i, kg);
-    free(kg);
+    if (p == NULL) {
+      SetDiagMaxIter(ip, -1.0);
+      Py_INCREF(Py_None);
+      return Py_None;    
+    }
+    if (ip >= -1) {
+      i = IntFromList(p, &kg);
+      SetSymmetry(ip, i, kg);
+      free(kg);
+    } else {
+      if (!PyFloat_Check(p)) return NULL;      
+      double a = PyFloat_AsDouble(p);
+      if (ip >= -100) {
+	SetPerturbThreshold(-ip, a);
+      } else {
+	SetDiagMaxIter(-ip-100, a);
+      }
+    }
     Py_INCREF(Py_None);
     return Py_None;    
   }
+  
   fn = PyUnicode_AsString(t);
   if (p) {
     if (PyTuple_Check(p) || PyList_Check(p)) {

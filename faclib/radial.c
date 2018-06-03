@@ -7749,7 +7749,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	s = 1e10;
 	break;
       } else {
-	double s2, s1;
+	double s2 = 0, s1 = 0;
 	int kk;
 	for (kk = kkmin; kk <= kkmax; kk += 2) {	  
 	  Slater(&s2, ko0, ko2, ko1, ko3, kk, 0);
@@ -7762,7 +7762,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	  if (s2 < s1) s2 = s1;
 	}
 	s2 /= de;
-	if (s < s2) s = s2;
+	if (s < s2) s = s2;	
       }
     }
     if (s < sth) {

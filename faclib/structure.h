@@ -32,8 +32,11 @@
 typedef struct _HAMILTON_ {
   int pj, iham;
   int dim;
+  int ndim;
   int n_basis;
   int hsize;
+  int dsize;
+  int dsize2;
   int msize;
   int dim0;
   int n_basis0;
@@ -47,6 +50,15 @@ typedef struct _HAMILTON_ {
   double *work;
   int *iwork;
   double *heff;
+  int odim;
+  int ondim;
+  int onbs;
+  int ohsize;
+  double *oham;
+  int *obs;
+  int orig_dim;
+  int diag_iter;
+  double diag_etol;
 } HAMILTON;
 
 typedef struct _SHAMILTON_ {
@@ -223,6 +235,8 @@ int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
 void SetSymmetry(int p, int n, int *j);
+void SetPerturbThreshold(int maxiter, double t);
+void SetDiagMaxIter(int maxiter, double maxtol);
 int *GetSymmetrySet(int *p, int *nj);
 int ZerothEnergyConfigSym(int n, int *s0, double **e);
 void CutMixing(int nlev, int *ilev, int n, int *kg, double c);

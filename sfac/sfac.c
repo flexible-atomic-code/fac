@@ -3124,12 +3124,25 @@ static int PStructure(int argc, char *argv[], int argt[],
 
   if (argc < 1) return -1;
 
-  if (argt[0] == NUMBER) {
-    if (argc != 2) return -1;
+  if (argt[0] == NUMBER) {      
     ip = atoi(argv[0]);
-    i = IntFromList(argv[1], argt[1], variables, &kg);
-    SetSymmetry(ip, i, kg);
-    free(kg);
+    if (argc == 1) {
+      SetDiagMaxIter(ip, -1.0);
+      return 0;
+    }
+    if (ip >= -1) {
+      i = IntFromList(argv[1], argt[1], variables, &kg);
+      SetSymmetry(ip, i, kg);
+      free(kg);
+    } else {
+      if (argt[1] != NUMBER) return -1;
+      double a = atof(argv[1]);
+      if (ip >= -100) {
+	SetPerturbThreshold(-ip, a);
+      } else {
+	SetDiagMaxIter(-ip-100, a);
+      }
+    }
     return 0;
   }
   if (n == 1) {
