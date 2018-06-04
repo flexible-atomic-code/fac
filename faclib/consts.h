@@ -248,7 +248,7 @@
 #define MBCLOSE            8        
 #define MAXLEVEB           1000000
 #define DIAGMAXITER        10
-#define DIAGMAXTOL         0.25
+#define DIAGMAXTOL         0.5
 #define PERTURBMAXITER     10
 
 /* transition */

@@ -1915,7 +1915,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
   int n, m, np;
   int ldz;
   int lwork;
-  int liwork;
+  int liwork, *ib;
   int info;
   int i, j, t, t0, t1, t2, k;
   double a, r, c, ra;
@@ -1932,7 +1932,6 @@ int DiagnolizeHamilton(HAMILTON *h) {
 
   lwork = h->lwork;
   liwork = h->liwork;  
- 
   if (ci_level == -1) {
     mixing = h->mixing+n;
     for (i = 0; i < n; i++) {
@@ -1952,7 +1951,10 @@ int DiagnolizeHamilton(HAMILTON *h) {
   wi = mixing + t0;    
   ap = wi + t0;
   ap0 = NULL;
+  ib = NULL;
   if (m > n) {
+    ib = h->iwork + liwork;
+    for (i = 0; i < np; i++) ib[i] = 0;
     b = h->hamilton + t0/2;
     ep = b + n*np;
     ap0 = ap + t0;
@@ -1969,6 +1971,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  ra = fabs(sqrt(fabs(r))/c);
 	  if (ra < diag_maxtol) {
 	    a += r/c;
+	  } else {
+	    ib[k] = 1;
 	  }
 	}
 	if (h->heff == NULL) {
@@ -2037,8 +2041,13 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	x = b;
 	for (k = 0; k < n; k++) {
 	  r = x[i]/(w[j]-ep[i]);
-	  if (r > diag_maxtol) r = diag_maxtol;
-	  else if (r < -diag_maxtol) r = -diag_maxtol;
+	  if (r > diag_maxtol) {
+	    r = diag_maxtol;
+	    ib[i] = 1;
+	  } else if (r < -diag_maxtol) {
+	    r = -diag_maxtol;
+	    ib[i] = 1;
+	  }
 	  a += r*z[k];
 	  x += np;
 	}
@@ -2146,8 +2155,13 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	    x = b;
 	    for (k = 0; k < n; k++) {
 	      r = x[i]/(w[j]-ep[i]);
-	      if (r > diag_maxtol) r = diag_maxtol;
-	      else if (r < -diag_maxtol) r = -diag_maxtol;
+	      if (r > diag_maxtol) {
+		r = diag_maxtol;
+		ib[i] = 1;
+	      } else if (r < -diag_maxtol) {
+		r = -diag_maxtol;
+		ib[i] = 1;
+	      }
 	      a += r*z[k];
 	      x += np;
 	    }
@@ -2743,9 +2757,10 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
       }
     }
     if (ip > 0 && perturb_threshold >= 0) {
-      int *isp0, *isp1, dim, np0, np1, j, t, iter;
+      int *isp0, *isp1, *ib, dim, np0, np1, j, t, iter;
       int dim0[MAX_SYMMETRIES];
       int done[MAX_SYMMETRIES];
+      int nib[MAX_SYMMETRIES];
       double *mix;
       for (i = 0; i < ns; i++) {
 	done[i] = 0;
@@ -2783,7 +2798,14 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 	  for (t = 0; t < dim; t++) {
 	    isp0[t] = t;
 	  }
+	  ib = h->iwork + h->liwork;
+	  nib[i] = 0;
 	  for (; t < h->n_basis; t++) {
+	    if (ib[t-dim]) {
+	      isp0[np0++] = t;
+	      nib[i]++;
+	      continue;
+	    }
 	    mix = h->mixing + h->dim;
 	    for (j = 0; j < dim0[i]; j++) {
 	      if (fabs(mix[t]) >= perturb_threshold) {
@@ -2841,9 +2863,9 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 	    if (DiagnolizeHamilton(h) < 0) {
 	      continue;
 	    }
-	    MPrintf(-1, "perturb iter: %3d %3d %4d %4d %4d %3d %11.5E\n",
+	    MPrintf(-1, "perturb iter: %3d %3d %4d %4d %4d %3d %3d %11.5E\n",
 		    i, iter, h->orig_dim, ip==1?h->dim:h->ndim,
-		    h->n_basis, h->diag_iter, h->diag_etol*HARTREE_EV);
+		    h->n_basis, nib[i], h->diag_iter, h->diag_etol*HARTREE_EV);
 	    if (fn != NULL) {
 	      if (iter == perturb_maxiter-1 || done[i] == 1) {
 		if (ng0 < ng || ip) {
@@ -5265,20 +5287,22 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
     h->dim0 = h->dim;
     if (h->n_basis > h->dim) {
       h->work = (double *) malloc(sizeof(double)*(h->lwork+4*t));
+      h->iwork = (int *) malloc(sizeof(int)*(h->liwork+nbasis-hdim));
     } else {
       h->work = (double *) malloc(sizeof(double)*(h->lwork+3*t));
+      h->iwork = (int *) malloc(sizeof(int)*h->liwork);
     }
-    h->iwork = (int *) malloc(sizeof(int)*h->liwork);
-  } else if (h->dim > h->dim0) {
+  } else if (h->dim > h->dim0 || h->n_basis > h->n_basis0) {
     h->dim0 = h->dim;
     free(h->work);
     free(h->iwork);
     if (h->n_basis > h->dim) {
       h->work = (double *) malloc(sizeof(double)*(h->lwork+4*t));
+      h->iwork = (int *) malloc(sizeof(int)*(h->liwork+nbasis-hdim));
     } else {
       h->work = (double *) malloc(sizeof(double)*(h->lwork+3*t));
+      h->iwork = (int *) malloc(sizeof(int)*h->liwork);
     }
-    h->iwork = (int *) malloc(sizeof(int)*h->liwork);
   }
 
   h->msize = h->dim * h->n_basis + h->dim;  
