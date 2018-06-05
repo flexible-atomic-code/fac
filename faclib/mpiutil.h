@@ -88,5 +88,7 @@ void InitializeMPI(int n);
 void FinalizeMPI(void);
 RANDIDX *RandList(int n);
 void RandIntList(int n, int *k);
+void ArgSort(int n, double *r, int *k);
+int CompareRandIdx(const void *p1, const void *p2);
 
 #endif

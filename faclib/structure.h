@@ -58,6 +58,7 @@ typedef struct _HAMILTON_ {
   int *obs;
   int orig_dim;
   int diag_iter;
+  int perturb_iter;
   double diag_etol;
 } HAMILTON;
 
