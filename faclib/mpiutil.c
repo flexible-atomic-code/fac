@@ -645,3 +645,18 @@ void RandIntList(int n, int *k) {
   }
   free(w);
 }
+
+void ArgSort(int n, double *r, int *k) {
+  RANDIDX *rid;
+  int i;
+  rid = malloc(sizeof(RANDIDX)*n);
+  for (i = 0; i < n; i++) {
+    rid[i].i = i;
+    rid[i].r = r[i];
+  }
+  qsort(rid, n, sizeof(RANDIDX), CompareRandIdx);
+  for (i = 0; i < n; i++) {
+    k[i] = rid[i].i;
+  }
+  free(rid);
+}
