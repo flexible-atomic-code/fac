@@ -5828,7 +5828,9 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	heff[isym][k1] = mbpt[0].a;
 	if (mbpt[0].heff0) {
 	  heff[isym][k0] += mbpt[0].heff0[k0];
-	  heff[isym][k1] += mbpt[0].heff0[k1];
+	  if (i != j) {
+	    heff[isym][k1] += mbpt[0].heff0[k1];
+	  }
 	}
 	neff[isym][k0] = 0.0;
 	neff[isym][k1] = 0.0;
@@ -5928,7 +5930,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	    neff[isym][k1] += nb;
 	  }
 	  if (f2) {
-	    fprintf(f2, "# %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
+	    fprintf(f2, "#a %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
 		    isym, pp, jj, i, j, a, b, mbpt[0].a, na, nb);
 	  }
 	}
@@ -5973,15 +5975,15 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	    neff[isym][k1] += nb;
 	  }
 	  if (f2) {
-	    fprintf(f2, "# %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
-		  isym, pp, jj, i, j, a, b, mbpt[0].a, na, nb);
+	    fprintf(f2, "#b %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
+		    isym, pp, jj, i, j, a, b, mbpt[0].a, na, nb);
 	  }
 	}
       OUT:
 	if (f2) {
-	  fprintf(f2, "# %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
+	  fprintf(f2, "#c %3d %3d %3d %3d %3d %12.5E %12.5E %15.8E %12.5E %12.5E\n",
 		  isym, pp, jj, i, j,
-		  heff[isym][k0]-mbpt[0].a, heff[isym][k1]-mbpt[0].a,
+		  heff[isym][k0], heff[isym][k1],
 		  mbpt[0].a, neff[isym][k0], neff[isym][k1]);
 	  fflush(f2);
 	}
