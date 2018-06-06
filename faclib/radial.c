@@ -7749,13 +7749,13 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	s = 1e10;
 	break;
       } else {
-	double s2 = 0, s1 = 0;
+	double s2 = 0, s1 = 0, sd = 0;
 	int kk;
 	for (kk = kkmin; kk <= kkmax; kk += 2) {	  
-	  Slater(&s2, ko0, ko2, ko1, ko3, kk, 0);
-	  if (s2) break;
+	  Slater(&sd, ko0, ko2, ko1, ko3, kk, 0);
+	  sd = fabs(sd);
+	  if (s2 < sd) s2 = sd;
 	}
-	s2 = fabs(s2);
 	if (i2 < 0 && i3 < 0 && k0 == k1) {
 	  ResidualPotential(&s1, ko0, ko1);
 	  s1 = fabs(s1);

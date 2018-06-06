@@ -60,6 +60,7 @@ typedef struct _HAMILTON_ {
   int diag_iter;
   int perturb_iter;
   double diag_etol;
+  double diag_emin;
 } HAMILTON;
 
 typedef struct _SHAMILTON_ {

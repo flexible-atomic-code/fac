@@ -247,9 +247,9 @@
 #define MAXDN              3
 #define MBCLOSE            8        
 #define MAXLEVEB           1000000
-#define DIAGMAXITER        10
-#define DIAGMAXTOL         0.5
-#define PERTURBMAXITER     10
+#define DIAGMAXITER        50
+#define DIAGMAXTOL         0.025
+#define PERTURBMAXITER     50
 
 /* transition */
 #define G_COULOMB          1
