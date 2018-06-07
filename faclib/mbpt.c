@@ -26,6 +26,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
+static int mbpt_omp = 0;
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static double mbpt_warn = -1;
@@ -66,6 +67,7 @@ static struct {
 static TR_OPT mbpt_tr;
 
 void PrintMBPTOptions(void) {
+  printf("omp=%d\n", mbpt_omp);
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("warn=%g\n", mbpt_warn);
@@ -84,6 +86,14 @@ void PrintMBPTOptions(void) {
   printf("nsplit=%d\n", mbpt_nsplit);
 }
 
+int SkipMPIM(int s) {
+  if (s == mbpt_omp) {
+    return SkipMPI();
+  } else {
+    return 0;
+  }
+}
+    
 void InitMBPT(void) {
   mbpt_tr.mktr = 0;
   mbpt_tr.naw = 0;
@@ -170,6 +180,8 @@ void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
 
 void SetExtraMBPT(int m) {
   int am = abs(m);
+  mbpt_omp = am/1000000;
+  am = am%1000000;
   mbpt_extra = am%10;
   mbpt_savesum = mbpt_extra/5;
   mbpt_extra = mbpt_extra%5;
@@ -2646,7 +2658,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	    fm.j1 = -1;
 	    fm.j2 = -1;
 	    for (m1 = 0; m1 < mbptjp.nj; m1++) {
-	      if (SkipMPI()) continue;
+	      if (SkipMPIM(1)) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		ik = im;
 		o = GetOrbital(ib1->d[im]);
@@ -2673,7 +2685,7 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 	  fm.j2 = -1;
 	  for (m1 = 0; m1 < mbptjp.nj; m1++) {
 	    for (m2 = 0; m2 <= m1; m2++) {
-	      if (SkipMPI()) continue;
+	      if (SkipMPIM(1)) continue;
 	      for (im = mbptjp.jp[m1]; im < mbptjp.jp[m1+1]; im++) {
 		o = GetOrbital(ib1->d[im]);
 		if (o->n > nmb || o->n > nmk) continue;
@@ -2791,7 +2803,7 @@ void DeltaH22M1(MBPT_EFF **meff, int ns,
 	      if (ph < 0) continue;
 	      fm.j1 = -1;
 	      for (ij = 0; ij < mbptjp.nj; ij++) {
-		if (SkipMPI()) continue;
+		if (SkipMPIM(1)) continue;
 		for (ip = mbptjp.jp[ij]; ip < mbptjp.jp[ij+1]; ip++) {
 		  o[1] = GetOrbital(ib1->d[ip]);
 		  if (o[1]->n > nmb || o[1]->n > nmk) continue;
@@ -3011,7 +3023,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].index = ns-s[i].index-1;
 		  }
 		  fm.j1 = -1;
-		  if (SkipMPI()) continue;
+		  if (SkipMPIM(1)) continue;
 		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			  mst, bst, kst, s, ph,
 			  ks1, ks2, &fm, a, -(i1+1));
@@ -3090,7 +3102,7 @@ void DeltaH12M1(void *mptr, int ns,
 	  if (ph < 0) continue;
 	  fm.j1 = -1;
 	  for (ij = 0; ij < mbptjp.nj; ij++) {	  
-	    if (SkipMPI()) continue;
+	    if (SkipMPIM(1)) continue;
 	    for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	      o[1] = GetOrbital(ib1->d[ik]);
 	      if (o[1]->n > nmb || o[1]->n > nmk) continue;
@@ -3212,7 +3224,7 @@ void DeltaH12M0(void *mptr, int ns,
 		}
 	      }
 	      if (nmk <= 0) continue;
-	      if (SkipMPI()) continue;
+	      if (SkipMPIM(1)) continue;
 	      op[0] = ia;
 	      op[1] = im;
 	      op[2] = id;
@@ -3327,7 +3339,7 @@ void DeltaH11M1(void *mptr, int ns,
       if (ph < 0) continue;
       fm.j1 = -1;
       for (ij = 0; ij < mbptjp.nj; ij++) {
-	if (SkipMPI()) continue;
+	if (SkipMPIM(1)) continue;
 	for (ik = mbptjp.jp[ij]; ik < mbptjp.jp[ij+1]; ik++) {
 	  o1 = GetOrbital(ib1->d[ik]);
 	  if (o1->n > nmb || o1->n > nmk) continue;
@@ -3437,7 +3449,7 @@ void DeltaH11M0(void *mptr, int ns,
 	  }
 	  nmk = ib0s[ib];
 	  if (nmk <= 0) continue;
-	  if (SkipMPI()) continue;
+	  if (SkipMPIM(1)) continue;
 	  /* op contains the index for the creation operators */
 	  op[0] = ia;
 	  op[1] = im;
@@ -4410,7 +4422,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       bas1 = mbpt_bas1;
       mbpt_ibas0.n = mbpt_ibas0.m = 0;
       mbpt_ibas1.n = mbpt_ibas1.m = 0;
-      for (ic = icp0; ic < icp1; ic++) {	
+      for (ic = icp0; ic < icp1; ic++) {
+	if (SkipMPIM(0)) continue;
 	k0 = cfgpair[ic].k0;
 	k1 = cfgpair[ic].k1;
 	c0 = cs[k0];
@@ -5011,6 +5024,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
       for (ic = icp0; ic < icp1; ic++) {
+	if (SkipMPIM(0)) continue;
 	k0 = cfgpair[ic].k0;
 	k1 = cfgpair[ic].k1;
 	c0 = cs[k0];
