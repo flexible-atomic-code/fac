@@ -2925,8 +2925,14 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   if (argc == 1) {
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
     if (argt[0] == NUMBER) {
-      i = atoi(argv[0]);
-      SetExtraMBPT(i);
+      f = atof(argv[0]);
+      if (f < 0 || (f > 0 && f < 1)) {
+	SetWarnMBPT(f);
+	return 0;
+      } else {
+	i = atoi(argv[0]);
+	SetExtraMBPT(i);
+      }
     } else {
       n1 = IntFromList(argv[0], argt[0], variables, &ng1);
       SetSymMBPT(n1, ng1);
