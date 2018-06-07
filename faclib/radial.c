@@ -7771,6 +7771,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
   }
   if (Couple(cfg) < 0) return -1;
   r = AddConfigToList(k, cfg);
+
   free(cfg);
   return r;
 }

@@ -1777,6 +1777,14 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
   if (n == 1) {
     if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
+    if (PyFloat_Check(p)) {
+      f = PyFloat_AsDouble(p);
+      if (f < 0 || (f > 0 && f < 1)) {
+	SetWarnMBPT(f);
+	Py_INCREF(Py_None);
+	return Py_None;
+      }
+    }
     if (PyLong_Check(p)) {
       i = PyLong_AsLong(p);
       SetExtraMBPT(i);

@@ -28,6 +28,7 @@ USE (rcsid);
 
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
+static double mbpt_warn = -1;
 static int mbpt_savesum = 0;
 static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
@@ -67,6 +68,7 @@ static TR_OPT mbpt_tr;
 void PrintMBPTOptions(void) {
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
+  printf("warn=%g\n", mbpt_warn);
   printf("savesum=%d\n", mbpt_savesum);
   printf("maxn=%d\n", mbpt_maxn);
   printf("maxm=%d\n", mbpt_maxm);
@@ -148,6 +150,10 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
   mbpt_tr.up = malloc(sizeof(int)*nup);
   memcpy(mbpt_tr.low, low, sizeof(int)*nlow);
   memcpy(mbpt_tr.up, up, sizeof(int)*nup);
+}
+
+void SetWarnMBPT(double f) {
+  mbpt_warn = f;
 }
 
 void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
@@ -1768,36 +1774,36 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 
   orb = GetOrbital(ks2[2]);
   d1 = orb->energy + orb->qed;
-  //int nn1 = orb->n;
-  //int ka1 = orb->kappa;
+  int nn1 = orb->n;
+  int ka1 = orb->kappa;
   orb = GetOrbital(ks2[3]);
   d1 += orb->energy + orb->qed;
-  //int nn2 = orb->n;
-  //int ka2 = orb->kappa;
+  int nn2 = orb->n;
+  int ka2 = orb->kappa;
   orb = GetOrbital(ks2[0]);
   d1 -= orb->energy + orb->qed;
-  //int nn3 = orb->n;
-  //int ka3 = orb->kappa;
+  int nn3 = orb->n;
+  int ka3 = orb->kappa;
   orb = GetOrbital(ks2[1]);
   d1 -= orb->energy + orb->qed;
-  //int nn4 = orb->n;
-  //int ka4 = orb->kappa;
+  int nn4 = orb->n;
+  int ka4 = orb->kappa;
   orb = GetOrbital(ks1[0]);
   d2 = orb->energy + orb->qed;
-  //int nn5 = orb->n;
-  //int ka5 = orb->kappa;
+  int nn5 = orb->n;
+  int ka5 = orb->kappa;
   orb = GetOrbital(ks1[1]);
   d2 += orb->energy + orb->qed;
-  //int nn6 = orb->n;
-  //int ka6 = orb->kappa;
+  int nn6 = orb->n;
+  int ka6 = orb->kappa;
   orb = GetOrbital(ks1[2]);
   d2 -= orb->energy + orb->qed;
-  //int nn7 = orb->n;
-  //int ka7 = orb->kappa;
+  int nn7 = orb->n;
+  int ka7 = orb->kappa;
   orb = GetOrbital(ks1[3]);
   d2 -= orb->energy + orb->qed;
-  //int nn8 = orb->n;
-  //int ka8 = orb->kappa;
+  int nn8 = orb->n;
+  int ka8 = orb->kappa;
   /*
   d1 = GetOrbital(ks2[2])->energy + GetOrbital(ks2[3])->energy;
   d1 -= GetOrbital(ks2[0])->energy + GetOrbital(ks2[1])->energy;
@@ -1853,6 +1859,14 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     }
     double c12 = c/(d1*d2);
+    if (mbpt_warn > 0 && fabs(c12) > mbpt_warn &&
+	c0->icfg >= 0 && c1->icfg >= 0) {
+      printf("large h22term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
+	     nn1,ka1, nn2,ka2, nn3,ka3, nn4,ka4,
+	     nn5,ka5, nn6,ka6, nn7,ka7, nn8,ka7,
+	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	     c12, d1, d2, mbpt_warn);
+    }
     sd1 = c/d1;
     sd2 = c/d2;
 #if CPMEFF == 0
@@ -1941,16 +1955,28 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 
   orb = GetOrbital(ks[2]);
   d1 = orb->energy + orb->qed;
+  int nn1 = orb->n;
+  int ka1 = orb->kappa;
   orb = GetOrbital(ks[3]);
   d1 += orb->energy + orb->qed;
+  int nn2 = orb->n;
+  int ka2 = orb->kappa;
   orb = GetOrbital(ks[0]);
   d1 -= orb->energy + orb->qed;
+  int nn3 = orb->n;
+  int ka3 = orb->kappa;
   orb = GetOrbital(ks[1]);
   d1 -= orb->energy + orb->qed;
+  int nn4 = orb->n;
+  int ka4 = orb->kappa;
   orb = GetOrbital(k0);
   d2 = orb->energy + orb->qed;
+  int nn5 = orb->n;
+  int ka5 = orb->kappa;
   orb = GetOrbital(k1);
   d2 -= orb->energy + orb->qed;
+  int nn6 = orb->n;
+  int ka6 = orb->kappa;
   /*
   d1 = GetOrbital(ks[2])->energy + GetOrbital(ks[3])->energy;
   d1 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
@@ -2007,6 +2033,13 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       H3rd0(meff[s0], m1, m0, d2, c, i0, 1);
     }
     double c12 = c/(d1*d2);
+    if (mbpt_warn > 0 && fabs(c12) > mbpt_warn &&
+	c0->icfg >= 0 && c1->icfg >= 0) {
+      printf("large h12term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
+	     nn1,ka1, nn2,ka2, nn3,ka3, nn4,ka4, nn5,ka5, nn6,ka6,
+	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	     c12, d1, d2, mbpt_warn);
+    }
     sd = c/d1;
     se = c/d2;
 #if CPMEFF == 0
@@ -2296,6 +2329,14 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     ng = meff[s0]->n;
     y = r1*r2*a[k];
     double y12 = y/(d1*d2);
+    if (mbpt_warn > 0 && fabs(y12) > mbpt_warn &&
+	c0->icfg >= 0 && c1->icfg >= 0) {
+      printf("large h11term: %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
+	     orb0->n, orb0->kappa, orb1->n, orb1->kappa,
+	     orb2->n, orb2->kappa, orb3->n, orb3->kappa,
+	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	     y12, d1, d2, mbpt_warn);
+    }
     cd1 = y/d1;
     cd2 = y/d2;
 #if CPMEFF == 0
@@ -3702,6 +3743,12 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
       g = GetGroup(kg[i]);    
       for (j = 0; j < g->n_cfgs; j++) {
 	cs[k] = GetConfigFromGroup(kg[i], j);
+#pragma omp master
+	{
+	  if (i >= nkg0) {
+	    cs[k]->icfg = -(1+cs[k]->icfg);	  
+	  }
+	}
 	if (cs[k]->n_shells > i1) i1 = cs[k]->n_shells;
 	if (cs[k]->shells[0].n > nmax) nmax = cs[k]->shells[0].n;
 	if (cs[k]->shells[0].nq > 1) {

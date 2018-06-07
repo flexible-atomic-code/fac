@@ -83,6 +83,8 @@ static void InitConfigData(void *p, int n) {
     d[i].symstate = NULL;
     d[i].shells = NULL;
     d[i].csfs = NULL;
+    d[i].igroup = -1;
+    d[i].icfg = -1;    
   }
 }
   
@@ -1854,11 +1856,12 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (cfg->n_csfs > 0) {
     cfg->symstate = malloc(sizeof(int)*cfg->n_csfs);
   }
+  cfg->igroup = k;
+  cfg->icfg = cfg_groups[k].n_cfgs;
   if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
   if (cfg->n_csfs > 0) {    
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
-  cfg->igroup = k;
   cfg_groups[k].n_cfgs++;
   if (cfg->shells[0].n > cfg_groups[k].nmax) {
     cfg_groups[k].nmax = cfg->shells[0].n;
@@ -2058,7 +2061,8 @@ void ListConfig(char *fn, int n, int *kg) {
     for (j = 0; j < g->n_cfgs; j++) {
       c = GetConfigFromGroup(kg[i], j);
       ConstructConfigName(a, 2048, c);
-      fprintf(f, "%10s %6d   %s\n", g->name, m, a);
+      fprintf(f, "%10s %6d %6d %6d   %s\n",
+	      g->name, kg[i], j, m, a);
       m++;
     }
   }
@@ -2089,7 +2093,7 @@ int ReadConfig(char *fn, char *c) {
       if (c != NULL && strcmp(c, s)) continue;
       int t = GroupIndex(s);
       if (t < 0) return -1;
-      char *c = &p[20];
+      char *c = &p[34];
       int i = 0;      
       while (c) {
 	if (*c == '\n') {
