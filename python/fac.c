@@ -1780,7 +1780,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     if (PyFloat_Check(p)) {
       f = PyFloat_AsDouble(p);
       if (f < 0 || (f > 0 && f < 1)) {
-	SetWarnMBPT(f);
+	SetWarnMBPT(f, -1.0);
 	Py_INCREF(Py_None);
 	return Py_None;
       }
@@ -1798,7 +1798,16 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   }
 
   if (n == 2) {
-    if (!(PyArg_ParseTuple(args, "sO", &gn, &p))) return NULL;
+    if (!(PyArg_ParseTuple(args, "OO", &q, &p))) return NULL;
+    if (PyFloat_Check(q) && PyFloat_Check(p)) {
+      f = PyFloat_AsDouble(q);
+      d = PyFloat_AsDouble(p);
+      SetWarnMBPT(f, d);
+      Py_INCREF(Py_None);
+      return Py_None;
+    }
+    if (!PyUnicode_Check(q)) return NULL;
+    gn = PyUnicode_AsString(q);
     if (PyLong_Check(p)) {
       n2 = PyLong_AsLong(p);
       n1 = n2;
