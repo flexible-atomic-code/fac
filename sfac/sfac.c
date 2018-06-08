@@ -2927,7 +2927,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     if (argt[0] == NUMBER) {
       f = atof(argv[0]);
       if (f < 0 || (f > 0 && f < 1)) {
-	SetWarnMBPT(f);
+	SetWarnMBPT(f, -1.0);
 	return 0;
       } else {
 	i = atoi(argv[0]);
@@ -2941,6 +2941,12 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     return 0;
   }
   if (argc == 2) {
+    if (argt[0] == NUMBER && argt[1] == NUMBER) {
+      f = atof(argv[0]);
+      d = atof(argv[1]);
+      SetWarnMBPT(f, d);
+      return 0;
+    }
     if (argt[0] != STRING) return -1;
     if (argt[1] == NUMBER) {
       n2 = atoi(argv[1]);
