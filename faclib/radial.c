@@ -7676,6 +7676,10 @@ int AddNewConfigToList(int k, int ni, int *kc,
     int n0, k0, n1, k1, n2, k2, n3, k3;
     int i, j;
     double s = 0;
+    int sms0 = qed.sms;
+    int br0 = qed.br;
+    qed.sms = 0;
+    qed.br = 0;
     for (i = 0; i < nb; i++) {
       i0 = -1;
       i1 = -1;
@@ -7730,6 +7734,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
       GetJLFromKappa(k2, &j2, &kl2);
       GetJLFromKappa(k3, &j3, &kl3);
       if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
+      /*
       int kk0, kk1;
       kk0 = abs(j0-j1);
       if (IsOdd((kk0+kl0+kl1)/2)) kk0 += 2;
@@ -7740,6 +7745,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
       kk0 = j0+j1;
       kk1 = j2+j3;
       int kkmax = Min(kk0, kk1)/2;
+      */
       o0 = GetOrbital(ko0);
       o1 = GetOrbital(ko1);
       o2 = GetOrbital(ko2);
@@ -7749,11 +7755,16 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	s = 1e10;
 	break;
       } else {
-	double s2 = 0, s1 = 0, sd = 0;
-	int kk;
-	for (kk = kkmin; kk <= kkmax; kk += 2) {	  
-	  Slater(&sd, ko0, ko2, ko1, ko3, kk, 0);
-	  sd = fabs(sd);
+	double s2 = 0, s1 = 0, sd = 0, se = 0;
+	int kk, ks[4];
+	ks[0] = ko0;
+	ks[1] = ko2;
+	ks[2] = ko1;
+	ks[3] = ko3;
+	for (kk = 0; kk < 6; kk++) {
+	  SlaterTotal(&sd, &se, NULL, ks, kk, 0);
+	  //Slater(&sd, ko0, ko2, ko1, ko3, kk, 0);
+	  sd = fabs(sd+se);
 	  if (s2 < sd) s2 = sd;
 	}
 	if (i2 < 0 && i3 < 0 && k0 == k1) {
@@ -7765,6 +7776,8 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	if (s < s2) s = s2;	
       }
     }
+    qed.sms = sms0;
+    qed.br = br0;
     if (s < sth) {
       return -10;
     }
@@ -7864,7 +7877,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
       }
       free(sr);
     }
-    //if (sth > 0) ReinitRadial(2);
+    if (sth > 0) ReinitRadial(2);
     return 0;
   }
   
