@@ -1413,7 +1413,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   ngp = 0;
   kgp = NULL;
   ip = 0;
-
+  
   if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;  
   if (PyLong_Check(t)) {
     ip = PyLong_AsLong(t);
@@ -1429,8 +1429,12 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     } else {
       if (!PyFloat_Check(p)) return NULL;      
       double a = PyFloat_AsDouble(p);
+      double b = 0.0;
       if (ip >= -100) {
-	SetPerturbThreshold(-ip, a);
+	if (q != NULL && PyFloat_Check(q)) {
+	  b = PyFloat_AsDouble(q);
+	}
+	SetPerturbThreshold(-ip, a, b);
       } else {
 	SetDiagMaxIter(-ip-100, a);
       }
@@ -1777,7 +1781,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
   if (n == 1) {
     if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
-    if (PyFloat_Check(p)) {
+    if (PyFloat_Check(p) || PyLong_Check(p)) {
       f = PyFloat_AsDouble(p);
       if (f < 0 || (f > 0 && f < 1)) {
 	SetWarnMBPT(f, -1.0);
@@ -1799,7 +1803,8 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 
   if (n == 2) {
     if (!(PyArg_ParseTuple(args, "OO", &q, &p))) return NULL;
-    if (PyFloat_Check(q) && PyFloat_Check(p)) {
+    if ((PyFloat_Check(q) || PyLong_Check(q)) &&
+	(PyFloat_Check(p) || PyLong_Check(p))) {
       f = PyFloat_AsDouble(q);
       d = PyFloat_AsDouble(p);
       SetWarnMBPT(f, d);

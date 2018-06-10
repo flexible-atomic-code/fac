@@ -28,6 +28,10 @@ void *mmalloc(size_t size) {
   size_t *p = NULL;
 
   p = (size_t *) malloc(size+sizeof(size_t));
+  if (p == NULL) {
+    printf("malloc error: %ld %ld\n", size, _tsize);
+    exit(1);
+  }
   *p = size;
 #pragma omp atomic
   _tsize += size;
@@ -39,6 +43,10 @@ void *mcalloc(size_t n, size_t size) {
   size_t ns = n*size;
 
   p = (size_t *) calloc(ns+sizeof(size_t), 1);
+  if (p == NULL) {
+    printf("calloc error: %ld %ld %ld\n", n, size, _tsize);
+    exit(1);
+  }
   *p = ns;
 #pragma omp atomic
   _tsize += ns;
@@ -55,6 +63,10 @@ void *mrealloc(void *p, size_t size) {
     _tsize -= ps[0];
   }
   ps = (size_t *) realloc(ps, size+sizeof(size_t));
+  if (ps == NULL) {
+    printf("realloc error: %ld %ld\n", size, _tsize);
+    exit(1);
+  }
   *ps = size;
 #pragma omp atomic
   _tsize += size;
