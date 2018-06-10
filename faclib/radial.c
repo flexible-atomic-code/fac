@@ -7710,70 +7710,82 @@ int AddNewConfigToList(int k, int ni, int *kc,
       
       IntToShell(i0, &n0, &k0);
       IntToShell(i1, &n1, &k1);
+      int i2s0, i2s1, i2s;
+      int i3s0, i3s1, i3s;
       if (i2 >= 0) {
 	IntToShell(i2, &n2, &k2);
+	i2s0 = 0;
+	i2s1 = 1;
       } else {
-	n2 = cfg->shells[0].n;
-	k2 = cfg->shells[0].kappa;
+	i2s0 = 0;
+	i2s1 = cfg->n_shells;
+	//n2 = cfg->shells[0].n;
+	//k2 = cfg->shells[0].kappa;
       }
       if (i3 >= 0) {
+	i3s0 = 0;
+	i3s1 = 1;
 	IntToShell(i3, &n3, &k3);
       } else {
-	n3 = cfg->shells[0].n;
-	k3 = cfg->shells[0].kappa;
+	i3s0 = 0;
+	i3s1 = cfg->n_shells;
+	//n3 = cfg->shells[0].n;
+	//k3 = cfg->shells[0].kappa;
       }
       int ko0, ko1, ko2, ko3;
       ORBITAL *o0, *o1, *o2, *o3;
+      int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
       ko0 = OrbitalIndex(n0, k0, 0);
       ko1 = OrbitalIndex(n1, k1, 0);
-      ko2 = OrbitalIndex(n2, k2, 0);
-      ko3 = OrbitalIndex(n3, k3, 0);
-      int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
       GetJLFromKappa(k0, &j0, &kl0);
       GetJLFromKappa(k1, &j1, &kl1);
-      GetJLFromKappa(k2, &j2, &kl2);
-      GetJLFromKappa(k3, &j3, &kl3);
-      if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
-      /*
-      int kk0, kk1;
-      kk0 = abs(j0-j1);
-      if (IsOdd((kk0+kl0+kl1)/2)) kk0 += 2;
-      kk1 = abs(j2-j3);
-      if (IsOdd((kk1+kl2+kl3)/2)) kk1 += 2;
-      int kkmin = Max(kk0, kk1)/2;
-      if (IsOdd(kkmin)) kkmin++;
-      kk0 = j0+j1;
-      kk1 = j2+j3;
-      int kkmax = Min(kk0, kk1)/2;
-      */
       o0 = GetOrbital(ko0);
       o1 = GetOrbital(ko1);
-      o2 = GetOrbital(ko2);
-      o3 = GetOrbital(ko3);
-      double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
-      if (de < EPS10) {
-	s = 1e10;
-	break;
-      } else {
-	double s2 = 0, s1 = 0, sd = 0, se = 0;
-	int kk, ks[4];
-	ks[0] = ko0;
-	ks[1] = ko2;
-	ks[2] = ko1;
-	ks[3] = ko3;
-	for (kk = 0; kk < 6; kk++) {
-	  SlaterTotal(&sd, &se, NULL, ks, kk, 0);
-	  //Slater(&sd, ko0, ko2, ko1, ko3, kk, 0);
-	  sd = fabs(sd+se);
-	  if (s2 < sd) s2 = sd;
+      for (i2s = i2s0; i2s < i2s1; i2s++) {
+	if (i2 < 0) {
+	  n2 = cfg->shells[i2s].n;
+	  k2 = cfg->shells[i2s].kappa;
+	  if (n2 == n0 && k2 == k0 && cfg->shells[i2s].nq < 2) continue;
 	}
-	if (i2 < 0 && i3 < 0 && k0 == k1) {
-	  ResidualPotential(&s1, ko0, ko1);
-	  s1 = fabs(s1);
-	  if (s2 < s1) s2 = s1;
+	ko2 = OrbitalIndex(n2, k2, 0);
+	GetJLFromKappa(k2, &j2, &kl2);
+	o2 = GetOrbital(ko2);
+	for (i3s = i3s0; i3s < i3s1; i3s++) {
+	  if (i3 < 0) {
+	    if (i2 < 0 && i2s != i3s) continue;
+	    n3 = cfg->shells[i3s].n;
+	    k3 = cfg->shells[i3s].kappa;
+	    if (n3 == n1 && k3 == k1 && cfg->shells[i3s].nq < 2) continue;
+	  }
+	  ko3 = OrbitalIndex(n3, k3, 0);
+	  GetJLFromKappa(k3, &j3, &kl3);
+	  if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
+	  o3 = GetOrbital(ko3);
+	  double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+	  if (de < EPS10) {
+	    s = 1e10;
+	    break;
+	  } else {
+	    double s2 = 0, s1 = 0, sd = 0, se = 0;
+	    int kk, ks[4];
+	    ks[0] = ko0;
+	    ks[1] = ko2;
+	    ks[2] = ko1;
+	    ks[3] = ko3;
+	    for (kk = 0; kk < 5; kk += 2) {
+	      SlaterTotal(&sd, &se, NULL, ks, kk, 0);
+	      sd = fabs(sd+se);
+	      if (s2 < sd) s2 = sd;
+	    }
+	    if (i2 < 0 && i3 < 0 && k0 == k1) {
+	      ResidualPotential(&s1, ko0, ko1);
+	      s1 = fabs(s1);
+	      if (s2 < s1) s2 = s1;
+	    }
+	    s2 /= de;
+	    if (s < s2) s = s2;
+	  }
 	}
-	s2 /= de;
-	if (s < s2) s = s2;	
       }
     }
     qed.sms = sms0;
@@ -7784,7 +7796,6 @@ int AddNewConfigToList(int k, int ni, int *kc,
   }
   if (Couple(cfg) < 0) return -1;
   r = AddConfigToList(k, cfg);
-
   free(cfg);
   return r;
 }
@@ -8139,6 +8150,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     free(kcb);
   }
   if (sth > 0) ReinitRadial(2);
+
   return 0;
 }
 

@@ -3149,8 +3149,12 @@ static int PStructure(int argc, char *argv[], int argt[],
     } else {
       if (argt[1] != NUMBER) return -1;
       double a = atof(argv[1]);
+      double b = 0;
       if (ip >= -100) {
-	SetPerturbThreshold(-ip, a);
+	if (argc > 2 && argt[2] == NUMBER) {
+	  b = atof(argv[2]);
+	}
+	SetPerturbThreshold(-ip, a, b);
       } else {
 	SetDiagMaxIter(-ip-100, a);
       }

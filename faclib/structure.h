@@ -56,7 +56,9 @@ typedef struct _HAMILTON_ {
   int ohsize;
   double *oham;
   int *obs;
+  double *mmix;
   int orig_dim;
+  int exp_dim;
   int diag_iter;
   int perturb_iter;
   double diag_etol;
@@ -237,7 +239,7 @@ int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
 void SetSymmetry(int p, int n, int *j);
-void SetPerturbThreshold(int maxiter, double t);
+void SetPerturbThreshold(int m, double t, double b);
 void SetDiagMaxIter(int maxiter, double maxtol);
 int *GetSymmetrySet(int *p, int *nj);
 int ZerothEnergyConfigSym(int n, int *s0, double **e);
