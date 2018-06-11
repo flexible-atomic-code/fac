@@ -2053,8 +2053,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	if (fabs(wi[i]) > EPS5) {
 	  t = GetPrincipleBasis(z+i*n, n, NULL);
 	  if (t < h->orig_dim) {
-	    MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %g %g\n",
-		    h->pj, h->perturb_iter, i, w[i], wi[i]);
+	    MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %d %g %g\n",
+		    h->pj, h->perturb_iter, i, t, w[i], wi[i]);
 	  }
 	}
       }
@@ -2070,8 +2070,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
       if (fabs(wi[i]) > EPS5) {
 	t = GetPrincipleBasis(z+i*n, n, NULL);
 	if (t < h->orig_dim) {
-	  MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %g %g\n",
-		  h->pj, h->perturb_iter, i, w[i], wi[i]);
+	  MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %d %g %g\n",
+		  h->pj, h->perturb_iter, i, t, w[i], wi[i]);
 	}
       }
     }
@@ -2207,8 +2207,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  if (fabs(wi[i]) > EPS5) {
 	    t = GetPrincipleBasis(z+i*n, n, NULL);
 	    if (t < h->orig_dim) {
-	      MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %g %g\n",
-		      h->pj, h->perturb_iter, i, w[i], wi[i]);
+	      MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %d %g %g\n",
+		      h->pj, h->perturb_iter, i, t, w[i], wi[i]);
 	    }
 	  }
 	}
