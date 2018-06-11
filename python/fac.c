@@ -563,7 +563,6 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
       if (ngb > 0) free(kgb);
     } else {
-      PyObject *ss;
       if (!(PyArg_ParseTuple(args, "iOO|siiiiiidO",
 			     &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
 			     &n0d, &n1d, &sth, &qb))) return NULL;
