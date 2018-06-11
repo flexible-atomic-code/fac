@@ -239,7 +239,7 @@ int InitStructure(void);
 int ReinitStructure(int m);
 int TestHamilton(void);
 void SetSymmetry(int p, int n, int *j);
-void SetPerturbThreshold(int m, double t, double b);
+void SetPerturbThreshold(int m, double t, double b, double c);
 void SetDiagMaxIter(int maxiter, double maxtol);
 int *GetSymmetrySet(int *p, int *nj);
 int ZerothEnergyConfigSym(int n, int *s0, double **e);
