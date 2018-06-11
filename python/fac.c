@@ -1400,7 +1400,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   int ngp;
   int *kg, *kgp;
   char *fn;
-  PyObject *p, *q, *t;
+  PyObject *p, *q, *t, *s;
 
   if (sfac_file) {
     SFACStatement("Structure", args, NULL);
@@ -1410,11 +1410,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 
   p = NULL;
   q = NULL;
+  s = NULL;
   ngp = 0;
   kgp = NULL;
   ip = 0;
   
-  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &ip))) return NULL;  
+  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &s))) return NULL;
+  if (s != NULL && PyLong_Check(s)) {
+    ip = PyLong_AsLong(s);
+  }
   if (PyLong_Check(t)) {
     ip = PyLong_AsLong(t);
     if (p == NULL) {
@@ -1430,11 +1434,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
       if (!PyFloat_Check(p)) return NULL;      
       double a = PyFloat_AsDouble(p);
       double b = 0.0;
+      double c = 0.0;
       if (ip >= -100) {
 	if (q != NULL && PyFloat_Check(q)) {
 	  b = PyFloat_AsDouble(q);
 	}
-	SetPerturbThreshold(-ip, a, b);
+	if (s != NULL) {
+	  c = PyFloat_AsDouble(s);
+	}
+	SetPerturbThreshold(-ip, a, b, c);
       } else {
 	SetDiagMaxIter(-ip-100, a);
       }

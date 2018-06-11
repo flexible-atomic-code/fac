@@ -250,7 +250,8 @@
 #define DIAGMAXITER        50
 #define DIAGMAXTOL         0.01
 #define PERTURBMAXITER     50
-#define PERTURBEXPDIM      0.25
+#define PERTURBEXPDIM      0.5
+#define PERTURBEXPDIMZ      0.1
 
 /* transition */
 #define G_COULOMB          1

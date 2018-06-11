@@ -68,6 +68,7 @@ static double mix_cut2 = MIXCUT2;
 static double perturb_threshold = -1;
 static int perturb_maxiter = PERTURBMAXITER;
 static double perturb_expdim = PERTURBEXPDIM;
+static double perturb_expdimz = PERTURBEXPDIMZ;
 static int diag_maxiter = DIAGMAXITER;
 static double diag_maxtol = DIAGMAXTOL;
 
@@ -198,11 +199,13 @@ void SetSymmetry(int p, int nj, int *j) {
   }
 }
 
-void SetPerturbThreshold(int maxiter, double t, double a) {
+void SetPerturbThreshold(int maxiter, double t, double a, double b) {
   perturb_maxiter = maxiter-1;
   perturb_threshold = t;
   if (a > EPS10) perturb_expdim = a;
   else perturb_expdim = PERTURBEXPDIM;
+  if (b > EPS10) perturb_expdimz = b;
+  else perturb_expdimz = PERTURBEXPDIMZ;
 }
 
 void SetDiagMaxIter(int maxiter, double maxtol) {
@@ -696,6 +699,12 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	  if (SkipMPI()) {
 	    t += h->n_basis-h->dim;
 	    continue;
+	  }
+	  if (h->exp_dim > 0 && i >= h->orig_dim) {
+	    if (h->mmix[i] < perturb_expdimz) {
+	      t += h->n_basis-h->dim;
+	      continue;
+	    }
 	  }
 	  for (j = h->dim; j < h->n_basis; j++) {
 	    if (i < h->odim) {
@@ -1978,8 +1987,6 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  if (h->mmix[j] < perturb_expdim) ra *= h->mmix[j];
 	  else ip = 1;
 	}
-	if (ra > 0.05) ra = 0.05;
-	if (ra < 1e-4) ra = 1e-4;
 	if (r > ra) {
 	  //b[k] = c*a;
 	  b[k] = 0.0;
@@ -2044,8 +2051,11 @@ int DiagnolizeHamilton(HAMILTON *h) {
       }
       for (i = 0; i < n; i++) {
 	if (fabs(wi[i]) > EPS5) {
-	  MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %g %g\n",
-		  h->pj, h->perturb_iter, i, w[i], wi[i]);
+	  t = GetPrincipleBasis(z+i*n, n, NULL);
+	  if (t < h->orig_dim) {
+	    MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %g %g\n",
+		    h->pj, h->perturb_iter, i, w[i], wi[i]);
+	  }
 	}
       }
     }
@@ -2058,8 +2068,11 @@ int DiagnolizeHamilton(HAMILTON *h) {
     }
     for (i = 0; i < n; i++) {
       if (fabs(wi[i]) > EPS5) {
-	MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %g %g\n",
-		h->pj, h->perturb_iter, i, w[i], wi[i]);
+	t = GetPrincipleBasis(z+i*n, n, NULL);
+	if (t < h->orig_dim) {
+	  MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %g %g\n",
+		  h->pj, h->perturb_iter, i, w[i], wi[i]);
+	}
       }
     }
   }
@@ -2192,8 +2205,11 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	}
 	for (i = 0; i < n; i++) {
 	  if (fabs(wi[i]) > EPS5) {
-	    MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %g %g\n",
-		    h->pj, h->perturb_iter, i, w[i], wi[i]);
+	    t = GetPrincipleBasis(z+i*n, n, NULL);
+	    if (t < h->orig_dim) {
+	      MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %g %g\n",
+		      h->pj, h->perturb_iter, i, w[i], wi[i]);
+	    }
 	  }
 	}
 	x = h->mixing + n;
