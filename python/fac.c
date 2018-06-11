@@ -583,7 +583,6 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       } else if (PyUnicode_Check(q1)) {
 	gn1 = PyUnicode_AsString(q1);
 	gn2 = NULL;
-	printf("configsd: %d %s %s\n", m, gn1, s);
       } else {
 	return NULL;
       }
