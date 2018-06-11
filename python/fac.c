@@ -558,10 +558,12 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       else {
 	ngb = DecodeGroupArgs(qb, &kgb);
       }
-      r = ConfigSD(m, ng, kg, s, gn1, NULL,
+      strncpy(scfg, s, MCHSHELL);
+      r = ConfigSD(m, ng, kg, scfg, gn1, NULL,
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
       if (ngb > 0) free(kgb);
     } else {
+      PyObject *ss;
       if (!(PyArg_ParseTuple(args, "iOO|siiiiiidO",
 			     &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
 			     &n0d, &n1d, &sth, &qb))) return NULL;
@@ -581,6 +583,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       } else if (PyUnicode_Check(q1)) {
 	gn1 = PyUnicode_AsString(q1);
 	gn2 = NULL;
+	printf("configsd: %d %s %s\n", m, gn1, s);
       } else {
 	return NULL;
       }
@@ -589,9 +592,10 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       kgb = kg;
       if (qb != NULL) {
 	ngb = DecodeGroupArgs(qb, &kgb);
-      }
-      r = ConfigSD(m, ng, kg, s, gn1, gn2,
-		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
+      }      
+      strncpy(scfg, s, MCHSHELL);
+      r = ConfigSD(m, ng, kg, scfg, gn1, gn2,
+		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);      
       if (ngb > 0 && kgb != kg) free(kgb);
       if (ng > 0) free(kg);
     }
@@ -1415,7 +1419,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   kgp = NULL;
   ip = 0;
   
-  if (!(PyArg_ParseTuple(args, "O|OOi", &t, &p, &q, &s))) return NULL;
+  if (!(PyArg_ParseTuple(args, "O|OOO", &t, &p, &q, &s))) return NULL;
   if (s != NULL && PyLong_Check(s)) {
     ip = PyLong_AsLong(s);
   }
