@@ -3875,96 +3875,102 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   kappa2 = orb2->kappa;
   rcl = ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
 		  GetJFromKappa(kappa2));
-
-  ef = Max(orb1->energy, orb2->energy);
-  if (ef > 0.0) {
-    ef *= FINE_STRUCTURE_CONST;
-  } else {
-    ef = 0.0;
-  }
-
   double *pt = (double *) malloc(sizeof(double)*n_awgrid);
-  
-  npts = potential->maxrp-1;
-  if (orb1->n > 0) npts = Min(npts, orb1->ilast);
-  if (orb2->n > 0) npts = Min(npts, orb2->ilast);
-  r = 0.0;
-  jy = 1;
-
-  for (i = 0; i < n_awgrid; i++) {
-    r = 0.0;
-    a = awgrid[i];
-    pt[i] = 0.0;
-    if (ef > 0.0) a += ef;
-    if (m > 0) {
-      t = kappa1 + kappa2;
-      if (t) {
-	for (j = 0; j <= npts; j++) {
-	  x = a*potential->rad[j];
-	  n = m;
-	  _yk[j] = BESLJN(jy, n, x);
-	}
-	Integrate(_yk, orb1, orb2, 4, &r, 0);
-	r *= t;
-	r *= (2*m + 1.0)/sqrt(m*(m+1.0));
-	r /= pow(a, m);
-	pt[i] = r*rcl;
+  if (fabs(rcl) < EPS10) {
+    for (i = 0; i < n_awgrid; i++) {
+      pt[i] = 0;
+    }
+  } else {
+    ef = 0;
+    if (orb1->n == 0 || orb2->n == 0) {
+      ef = Max(orb1->energy, orb2->energy);
+      if (ef > 0.0) {
+	ef *= FINE_STRUCTURE_CONST;
+      } else {
+	ef = 0.0;
       }
-    } else {
-      if (gauge == G_COULOMB) {
-	t = kappa1 - kappa2;
-	q = sqrt(am/(am+1.0));
-	for (j = 0; j <= npts; j++) {
-	  x = a*potential->rad[j];
-	  n = am+1;
-	  _yk[j] = BESLJN(jy, n, x);
-	  n = am-1;
-	  _zk[j] = BESLJN(jy, n, x);
-	}
-	r = 0.0;
-	rp = 0.0;
+    }
+    
+    npts = potential->maxrp-1;
+    if (orb1->n > 0) npts = Min(npts, orb1->ilast);
+    if (orb2->n > 0) npts = Min(npts, orb2->ilast);
+    r = 0.0;
+    jy = 1;
+    
+    for (i = 0; i < n_awgrid; i++) {
+      r = 0.0;
+      a = awgrid[i];
+      pt[i] = 0.0;
+      if (ef > 0.0) a += ef;
+      if (m > 0) {
+	t = kappa1 + kappa2;
 	if (t) {
-	  Integrate(_yk, orb1, orb2, 4, &ip, 0);
-	  Integrate(_zk, orb1, orb2, 4, &ipm, 0);
-	  r = t*ip*q - t*ipm/q;
+	  for (j = 0; j <= npts; j++) {
+	    x = a*potential->rad[j];
+	    n = m;
+	    _yk[j] = BESLJN(jy, n, x);
+	  }
+	  Integrate(_yk, orb1, orb2, 4, &r, 0);
+	  r *= t;
+	  r *= (2*m + 1.0)/sqrt(m*(m+1.0));
+	  r /= pow(a, m);
+	  pt[i] = r*rcl;
 	}
-	if (k1 != k2) {
-	  Integrate(_yk, orb1, orb2, 5, &im, 0);
-	  Integrate(_zk, orb1, orb2, 5, &imm, 0);
-	  rp = (am + 1.0)*im*q + am*imm/q;
+      } else {
+	if (gauge == G_COULOMB) {
+	  t = kappa1 - kappa2;
+	  q = sqrt(am/(am+1.0));
+	  for (j = 0; j <= npts; j++) {
+	    x = a*potential->rad[j];
+	    n = am+1;
+	    _yk[j] = BESLJN(jy, n, x);
+	    n = am-1;
+	    _zk[j] = BESLJN(jy, n, x);
+	  }
+	  r = 0.0;
+	  rp = 0.0;
+	  if (t) {
+	    Integrate(_yk, orb1, orb2, 4, &ip, 0);
+	    Integrate(_zk, orb1, orb2, 4, &ipm, 0);
+	    r = t*ip*q - t*ipm/q;
+	  }
+	  if (k1 != k2) {
+	    Integrate(_yk, orb1, orb2, 5, &im, 0);
+	    Integrate(_zk, orb1, orb2, 5, &imm, 0);
+	    rp = (am + 1.0)*im*q + am*imm/q;
+	  }
+	  r += rp;
+	  if (am > 1) r /= pow(a, am-1);
+	  pt[i] = r*rcl;
+	} else if (gauge == G_BABUSHKIN) {
+	  t = kappa1 - kappa2;
+	  for (j = 0; j <= npts; j++) {
+	    x = a*potential->rad[j];
+	    n = am+1;
+	    _yk[j] = BESLJN(jy, n, x);
+	    n = am;
+	    _zk[j] = BESLJN(jy, n, x);
+	  }
+	  if (t) {
+	    Integrate(_yk, orb1, orb2, 4, &ip, 0);
+	    r = t*ip;
+	  }
+	  if (k1 != k2) {
+	    Integrate(_yk, orb1, orb2, 5, &im, 0);
+	  } else {
+	    im = 0.0;
+	  }
+	  Integrate(_zk, orb1, orb2, 1, &imm, 0);
+	  rp = (am + 1.0) * (imm + im);
+	  q = (2*am + 1.0)/sqrt(am*(am+1.0));
+	  q /= pow(a, am);
+	  r *= q;
+	  rp *= q;
+	  pt[i] = (r+rp)*rcl;
 	}
-	r += rp;
-	if (am > 1) r /= pow(a, am-1);
-	pt[i] = r*rcl;
-      } else if (gauge == G_BABUSHKIN) {
-	t = kappa1 - kappa2;
-	for (j = 0; j < npts; j++) {
-	  x = a*potential->rad[j];
-	  n = am+1;
-	  _yk[j] = BESLJN(jy, n, x);
-	  n = am;
-	  _zk[j] = BESLJN(jy, n, x);
-	}
-	if (t) {
-	  Integrate(_yk, orb1, orb2, 4, &ip, 0);
-	  r = t*ip;
-	}
-	if (k1 != k2) {
-	  Integrate(_yk, orb1, orb2, 5, &im, 0);
-	} else {
-	  im = 0.0;
-	}
-	Integrate(_zk, orb1, orb2, 1, &imm, 0);
-	rp = (am + 1.0) * (imm + im);
-	q = (2*am + 1.0)/sqrt(am*(am+1.0));
-	q /= pow(a, am);
-	r *= q;
-	rp *= q;
-	pt[i] = (r+rp)*rcl;
       }
     }
   }
-
 #ifdef PERFORM_STATISTICS 
   stop = clock();
   rad_timing.radial_1e += stop - start;
@@ -3995,12 +4001,13 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   
   n = MultipoleRadialFRGrid(&y, m, k1, k2, gauge);
   if (n == 0) return 0.0;
-  
-  ef = Max(orb1->energy, orb2->energy);
-  if (ef > 0.0) {
-    ef *= FINE_STRUCTURE_CONST;
-  } else {
-    ef = 0.0;
+  if (orb1->n == 0 || orb2->n == 0) {
+    ef = Max(orb1->energy, orb2->energy);
+    if (ef > 0.0) {
+      ef *= FINE_STRUCTURE_CONST;
+    } else {
+      ef = 0.0;
+    }
   }
   if (n_awgrid > 1) {
     if (ef > 0) aw += ef;
@@ -4055,14 +4062,15 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   kappa2 = orb2->kappa;
   rcl = ReducedCL(GetJFromKappa(kappa1), abs(2*m), 
 		  GetJFromKappa(kappa2));
-
-  ef = Max(orb1->energy, orb2->energy);
-  if (ef > 0.0) {
-    ef *= FINE_STRUCTURE_CONST;
-  } else {
-    ef = 0.0;
+  ef = 0;
+  if (orb1->n == 0 || orb2->n == 0) {
+    ef = Max(orb1->energy, orb2->energy);
+    if (ef > 0.0) {
+      ef *= FINE_STRUCTURE_CONST;
+    } else {
+      ef = 0.0;
+    }
   }
-
   if (n_awgrid > 1) {
     if (ef > 0) aw += ef;
   }

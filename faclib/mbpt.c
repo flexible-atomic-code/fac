@@ -5017,13 +5017,14 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
     }
     free(rid);
     icp = icpi;
-    m = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
+    int tmst = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
     printf("transition cfgpair: %d %d %d %d %d %d %d\n",
 	   icp, ncp, icp0, icp1, ncpt, m, mst);
     ncps = 0;
     ResetWidMPI();
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic)
     {
+      int cmst = 0;
       MBPT_TR *imtr;
       int cpmtr = 0;
 #if CPMTR == 1
@@ -5067,6 +5068,7 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	ptt0 = tt0;
 	/* mst pairs */
 	mst = m;
+	cmst += m;
 	ct0 = c0;
 	ct1 = c1;
 	bst = bst0;
@@ -5137,8 +5139,8 @@ int StructureMBPT1(char *fn, char *fn1, int nkg, int *kg, int nk, int *nkm,
 	dtt = ptt1-tbg;
 	tt0 = ptt1;
 	double tmem = TotalSize();
-	MPrintf(0, "%4d %4d %4d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
-		ic, k0, k1, nc, mst, n0, n1, dt, dtt, tmem);
+	MPrintf(0, "%4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
+		ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst, dt, dtt, tmem);
 	fflush(stdout);	  
 #pragma omp atomic
 	ncps++;
@@ -5674,6 +5676,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	      }
 	    }
 	  }
+	  double sa = s;
 	  i0 = lev2->pj*2*mbpt_tr.mktr + 2*(t-1);
 	  if (q > 0) i0++;
 	  i1 = IBisect(lev1->pj, mtr[i0].nsym1, mtr[i0].isym1);
@@ -6190,9 +6193,6 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   InitTransitionMBPT(&mtr, n0);
   printf("CombineTransitionMBPT ... %g\n", WallTime()-wt0);
   CombineTransitionMBPT(nf, mbpt, mtr, &ing0);
-  for (q = 0; q < n0; q++) {
-    x[q] = ng0[q];
-  }
   k = 2*mbpt_tr.mktr*MAX_SYMMETRIES;
   if (fn2 && strlen(fn2)>0) {
     sprintf(tfn1, "%s.tr", fn2);
@@ -6210,6 +6210,9 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   y = t + n2m;
   zz1 = y + n2m;
   zz2 = zz1 + n2m;
+  for (q = 0; q < n0; q++) {
+    x[q] = ng0[q];
+  }
   for (j = 0; j < k; j++) {
     for (q = 0; q < mtr[j].nsym1; q++) {
       k0 = mtr[j].sym0->n_states * mtr[j].sym1[q]->n_states * mbpt_tr.naw;
