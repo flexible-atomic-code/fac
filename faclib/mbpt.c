@@ -27,6 +27,7 @@ USE (rcsid);
 #endif
 
 static int mbpt_omp = 0;
+static int mbpt_omp0 = 0;
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static double mbpt_warn = -1;
@@ -68,7 +69,7 @@ static struct {
 static TR_OPT mbpt_tr;
 
 void PrintMBPTOptions(void) {
-  printf("omp=%d\n", mbpt_omp);
+  printf("omp=%d\n", mbpt_omp0);
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("warn=%g\n", mbpt_warn);
@@ -183,7 +184,7 @@ void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
 
 void SetExtraMBPT(int m) {
   int am = abs(m);
-  mbpt_omp = am/1000000;
+  mbpt_omp0 = am/1000000;
   am = am%1000000;
   mbpt_extra = am%10;
   mbpt_savesum = mbpt_extra/5;
@@ -4408,6 +4409,11 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }    
       double ttskip = 0, ttlock=0;
       long long tnlock = 0;
+      if (mbpt_omp0 == 1 || mbpt_omp0 == 3) {
+	mbpt_omp = 1;
+      } else {
+	mbpt_omp = 0;
+      }
       ResetWidMPI();
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,ncps)
       {
@@ -5062,7 +5068,12 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	   icp, ncp, icp0, icp1, ncpt, m, mst);
     ncps = 0;
     ResetWidMPI();
-#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic)
+    if (mbpt_omp0 == 2 || mbpt_omp0 == 3) {
+      mbpt_omp = 1;
+    } else {
+      mbpt_omp = 0;
+    }
+#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,j0,j1,ct0,ct1,bst,kst,n1,bas0,bas1,ic)
     {
       int cmst = 0;
       MBPT_TR *imtr;
@@ -5083,7 +5094,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
       for (ic = icp0; ic < icp1; ic++) {
-	if (SkipMPIM(0)) continue;
+	int skip = SkipMPIM(0);
+	if (skip) continue;
 	k0 = cfgpair[ic].k0;
 	k1 = cfgpair[ic].k1;
 	c0 = cs[k0];
