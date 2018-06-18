@@ -42,8 +42,8 @@
 #define NDB   15
 
 #define LNCOMPLEX   32
-#define LSNAME      24
-#define LNAME       56
+#define LSNAME      48
+#define LNAME       128
 
 typedef struct _FORM_FACTOR_ {  
   double te;

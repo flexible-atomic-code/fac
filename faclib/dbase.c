@@ -3648,7 +3648,7 @@ int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       }
       j = JFromENRecord(&r);
       ibase = IBaseFromENRecord(&r);
-      fprintf(f2, "%6d %6d %15.8E %1d %5d %4d %-20s %-20s %-s\n",
+      fprintf(f2, "%6d %6d %15.8E %1d %5d %4d %-32s %-48s %-s\n",
 	      r.ilev, ibase, e, p, vnl, j, r.ncomplex, r.sname, r.name);
     }
     nb += 1;

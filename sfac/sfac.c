@@ -100,7 +100,7 @@ static int DoubleFromList(char *argv, int tp, ARRAY *variables, double **k) {
   return n;
 }
 
-static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
+static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
 			   ARRAY *variables) {
   char *s;
   int i, k, ng;
@@ -124,7 +124,15 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
       }
     }
     (*kg) = malloc(sizeof(int)*ng);
-    n = 0;
+    n = 0;    
+    int n0p, n0q;
+    if (n0) {
+      n0p = *n0;
+      n0q = *n0;
+    } else {
+      n0p = 0;
+      n0q = 0;
+    }
     for (i = 0; i < ng; i++) {
       if (t[i] != STRING) {
 	printf("argument must be a group name\n");
@@ -135,16 +143,18 @@ static int DecodeGroupArgs(int **kg, int n, char *argv[], int argt[],
       k = GroupExists(s);      
       if (k < 0) {
 	printf("group does not exist: %d %s\n", i, s);
+	if (i < n0q) n0p--;
 	continue;
       }
       (*kg)[n] = k;
       n++;
     }
+    if (n0) *n0 = n0p;
     ng = n;
     if (ng <= 0) {
       printf("all cfg groups invalid\n");
       free(*kg);
-      return -1;
+      return ng;
     }
   } else {
     ng = GetNumGroups();
@@ -178,7 +188,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   nv = n;
   if (n > 0) {
     if (at[0] == STRING) {
-      ng = DecodeGroupArgs(&kg, n, v, at, variables);
+      ng = DecodeGroupArgs(&kg, n, NULL, v, at, variables);
       if (ng <= 0) {
 	rv = -1;
 	goto END;
@@ -211,7 +221,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 	rv = -1;
 	goto END;
       }
-      ng = DecodeGroupArgs(&kg, 1, v, at, variables);
+      ng = DecodeGroupArgs(&kg, 1, NULL, v, at, variables);
       if (ng <= 0) {
 	rv = -1;
 	goto END;
@@ -467,7 +477,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       if (argc > 3) {
 	sth = atof(argv[3]);
 	if (argc > 4) {
-	  ngb = DecodeGroupArgs(&kgb, 1, &argv[4], &argt[4], variables);
+	  ngb = DecodeGroupArgs(&kgb, 1, NULL, &argv[4], &argt[4], variables);
 	}
       }
       gn1 = argv[1];
@@ -486,7 +496,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
     } else {
       if (argt[1] != STRING && argt[1] != LIST) return -1;
       if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-      ng = DecodeGroupArgs(&kg, 1, &argv[2], &argt[2], variables);
+      ng = DecodeGroupArgs(&kg, 1, NULL, &argv[2], &argt[2], variables);
       if (argt[1] == STRING) {
 	gn1 = argv[1];
 	gn2 = NULL;
@@ -534,7 +544,8 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	  if (argc > 10) {
 	    sth = atof(argv[10]);
 	    if (argc > 11) {	      
-	      ngb = DecodeGroupArgs(&kgb, 1, &argv[11], &argt[11], variables);
+	      ngb = DecodeGroupArgs(&kgb, 1, NULL,
+				    &argv[11], &argt[11], variables);
 	    }
 	  }
 	}
@@ -573,6 +584,9 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
     strncpy(gname, argv[i], GROUP_NAME_LEN);
     i++;
   }
+  
+  t = GroupIndex(gname);
+  if (t < 0) return -1;
 
   for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
@@ -582,13 +596,16 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
     ncfg = GetConfigFromString(&cfg, scfg);
     for (j = 0; j < ncfg; j++) {
       if (Couple(cfg+j) < 0) return -1;
-      t = GroupIndex(gname);
-      if (t < 0) return -1;
       if (AddConfigToList(t, cfg+j) < 0) return -1;
     }   
     if (ncfg > 0) free(cfg);
   }
-      
+
+  CONFIG_GROUP *g = GetGroup(t);
+  if (g != NULL && g->n_cfgs == 0) {
+    RemoveGroup(t);
+  }
+  
   return 0;
 }      
   
@@ -596,7 +613,7 @@ static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   int k, ng, *kg;
   
   if (argc <= 0) return -1;
-  ng = DecodeGroupArgs(&kg, argc, argv, argt, variables);
+  ng = DecodeGroupArgs(&kg, argc, NULL, argv, argt, variables);
   
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
@@ -617,7 +634,7 @@ static int PListConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc > 0) {
     s = argv[0];
     if (argc > 1) {
-      ng = DecodeGroupArgs(&kg, 1, argv+1, argt+1, variables);
+      ng = DecodeGroupArgs(&kg, 1, NULL, argv+1, argt+1, variables);
     }
   }
   if (ng <= 0) {
@@ -651,7 +668,7 @@ static int PConfigEnergy(int argc, char *argv[], int argt[],
       ConfigEnergy(m, mr, 0, NULL);
     } else {
       for (i = 1; i < argc; i++) {
-	ng = DecodeGroupArgs(&kg, 1, argv+i, argt+i, variables);
+	ng = DecodeGroupArgs(&kg, 1, NULL, argv+i, argt+i, variables);
 	if (ng < 0) return -1;
 	ConfigEnergy(m, mr, ng, kg);
 	if (ng > 0) free(kg);
@@ -1105,10 +1122,10 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   
   if (argt[0] == STRING) {
     weight = NULL;
-    ng = DecodeGroupArgs(&kg, argc, argv, argt, variables);
+    ng = DecodeGroupArgs(&kg, argc, NULL, argv, argt, variables);
     if (ng < 0) return -1;
   } else {
-    ng = DecodeGroupArgs(&kg, 1, argv, argt, variables);
+    ng = DecodeGroupArgs(&kg, 1, NULL, argv, argt, variables);
     if (ng < 0) return -1;
   
     if (argc == 1) {
@@ -1217,7 +1234,7 @@ static int PRecStates(int argc, char *argv[], int argt[],
       (argt[1] != LIST && argt[1] != TUPLE) ||
       argt[2] != NUMBER) 
     return -1;
-  ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
+  ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
   if (ng <= 0) return -1;
   n = atoi(argv[2]);
   if (RecStates(n, ng, kg, argv[0]) < 0) {
@@ -2904,8 +2921,8 @@ static int PTransitionMBPT(int argc, char *argv[], int argt[],
     n = atoi(argv[1]);
     TransitionMBPT(m, n);
   } else if (argc == 3) {
-    nlow = DecodeGroupArgs(&low, 1, &(argv[1]), &(argt[1]), variables);
-    nup = DecodeGroupArgs(&up, 1, &(argv[2]), &(argt[2]), variables);
+    nlow = DecodeGroupArgs(&low, 1, NULL, &(argv[1]), &(argt[1]), variables);
+    nup = DecodeGroupArgs(&up, 1, NULL, &(argv[2]), &(argt[2]), variables);
     TRTableMBPT(argv[0], nlow, low, nup, up);
     if (nlow > 0) free(low);
     if (nup > 0) free(up);
@@ -3027,7 +3044,9 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   */
   if (argc == 5) {
     if (argt[3] != LIST) return -1;
-    n = DecodeGroupArgs(&s, 1, &(argv[3]), &(argt[3]), variables);
+    if (argt[4] != NUMBER) return -1;
+    n3 = atoi(argv[4]);
+    n = DecodeGroupArgs(&s, 1, &n3, &(argv[3]), &(argt[3]), variables);
     if (n <= 0) return -1;
     if (argt[2] != LIST) return -1;
     n1 = DecodeArgs(argv[2], v, t, variables);
@@ -3035,9 +3054,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       if (t[i] != STRING) return -1;
     }
     if (n1 <= 0) return -1;
-    n3 = atoi(argv[4]);
     StructureReadMBPT(argv[0], argv[1], n1, v, n, s, n3);
-    
     free(s);
     for (i = 0; i < n1; i++) {
       free(v[i]);
@@ -3047,11 +3064,28 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   }
 
   if (argc == 7 || argc == 9 || argc == 10) {
-    if (argt[2] != LIST) return -1;
-    n = DecodeGroupArgs(&s, 1, &(argv[2]), &(argt[2]), variables);
-    if (n <= 0) {
-      printf("First configuration group does not exist\n");
-      return -1;
+    char *hfn0, *hfn1;
+    int nf = 0;
+    hfn0 = NULL;
+    hfn1 = argv[1];
+    if (argt[1] == LIST) {
+      nf = DecodeArgs(argv[1], v, t, variables);
+      hfn1 = v[0];
+      if (nf > 1) {
+	hfn0 = v[1];
+      }
+    }
+    if (argt[6] != NUMBER) return -1;
+    n3 = atoi(argv[6]);
+    if (argt[2] == LIST) {
+      n = DecodeGroupArgs(&s, 1, &n3, &(argv[2]), &(argt[2]), variables);      
+      if (n <= 0) {
+	printf("First configuration group does not exist\n");
+	return -1;
+      }
+    } else {
+      n = 0;
+      s = NULL;
     }
     if (argt[4] == LIST) {
       n1 = IntFromList(argv[4], argt[4], variables, &ng1);
@@ -3073,8 +3107,6 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     } else {
       return -1;
     }
-    if (argt[6] != NUMBER) return -1;
-    n3 = atoi(argv[6]);
     int icp = 0;
     int icpf = -1;
     int ncp = 0;
@@ -3085,13 +3117,15 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
 	icpf = atoi(argv[9]);
       }
     }
-    StructureMBPT1(argv[0], argv[1], n, s, nk, nkm, n1, ng1, n2, ng2, n3,
-		   ncp, icp, icpf);
-
+    StructureMBPT1(argv[0], hfn0, hfn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3,
+		   ncp, icp, icpf);    
     free(s);
     //if (n1 > 0) free(ng1);
     //if (n2 > 0) free(ng2);
     if (nkm) free(nkm);
+    for (i = 0; i < nf; i++) {
+      free(v[i]);
+    }
     return 0;
   } 
   
@@ -3108,7 +3142,7 @@ static int PCutMixing(int argc, char *argv[], int argt[],
   if (argc < 2 || argc > 3) return -1;
   nlev = SelectLevels(&ilev, argv[0], argt[0], variables);
   if (nlev <= 0) goto DONE;
-  n = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
+  n = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
   if (n <= 0) goto DONE;
   if (argc == 3) c = atof(argv[2]);
   else c = 0.0;
@@ -3165,24 +3199,47 @@ static int PStructure(int argc, char *argv[], int argt[],
     }
     return 0;
   }
+  char *hfn = NULL;
   if (n == 1) {
     if (argt[0] != STRING) return -1;
-    ng = DecodeGroupArgs(&kg, 0, NULL, NULL, variables);
+    ng = DecodeGroupArgs(&kg, 0, NULL, NULL, NULL, variables);
     if (ng < 0) return -1;
   } else {
-    if (n > 4) return -1;
-    if (n == 4) ip = atoi(argv[3]);		  
-    if (argt[0] != STRING) return -1;
-    if (argt[1] != LIST && argt[1] != TUPLE) return -1;
-    ng = DecodeGroupArgs(&kg, 1, &(argv[1]), &(argt[1]), variables);
-    if (ng < 0) return -1;
-    if (n >= 3) {
-      if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-      ngp = DecodeGroupArgs(&kgp, 1, &(argv[2]), &(argt[2]), variables);
+    if (argt[1] == STRING) {
+      hfn = argv[1];
+      if (n > 5) return -1;
+      if (n == 5) ip = atoi(argv[4]);
+      if (argt[0] != STRING) return -1;
+      if (n == 2) {
+	ng = 0;
+	ngp = 0;
+	kg = NULL;
+	kgp = NULL;
+      } else {
+	if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+	ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[2]), &(argt[2]), variables);
+	if (ng < 0) return -1;
+	if (n >= 4) {
+	  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+	  ngp = DecodeGroupArgs(&kgp, 1, NULL,
+				&(argv[3]), &(argt[3]), variables);
+	}
+      }
+    } else {
+      if (n > 4) return -1;
+      if (n == 4) ip = atoi(argv[3]);		  
+      if (argt[0] != STRING) return -1;
+      if (argt[1] != LIST && argt[1] != TUPLE) return -1;
+      ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
+      if (ng < 0) return -1;
+      if (n >= 3) {
+	if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+	ngp = DecodeGroupArgs(&kgp, 1, NULL, &(argv[2]), &(argt[2]), variables);
+      }
     }
   }
 
-  return SolveStructure(argv[0], ng, kg, ngp, kgp, ip);
+  return SolveStructure(argv[0], hfn, ng, kg, ngp, kgp, ip);
 }
 
 static int PSetUTA(int argc, char *argv[], int argt[], 
@@ -3841,12 +3898,12 @@ static int PRMatrixTargets(int argc, char *argv[], int argt[],
   if (argc < 1 || argc > 2) return -1;
   if (argt[0] != LIST && argt[0] != TUPLE) return -1;
   
-  nt = DecodeGroupArgs(&kt, 1, &(argv[0]), &(argt[0]), variables);
+  nt = DecodeGroupArgs(&kt, 1, NULL, &(argv[0]), &(argt[0]), variables);
   if (nt < 0) return -1;
   nc = 0;
   kc = NULL;
   if (argc == 2) {
-    nc = DecodeGroupArgs(&kc, 1, &(argv[1]), &(argt[1]), variables);
+    nc = DecodeGroupArgs(&kc, 1, NULL, &(argv[1]), &(argt[1]), variables);
     if (nc < 0) nc = 0;
   }
     
