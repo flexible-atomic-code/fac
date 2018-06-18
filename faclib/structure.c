@@ -702,6 +702,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	  }
 	  if (h->exp_dim > 0 && i >= h->orig_dim) {
 	    if (h->mmix[i] < perturb_expdimz) {
+	      //printf("ho: %d %d %d %g %g\n", i, h->exp_dim, h->orig_dim, h->mmix[i], perturb_expdimz);
 	      t += h->n_basis-h->dim;
 	      continue;
 	    }
@@ -775,6 +776,139 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 #endif
   printf("ConstructHamilton Error\n");
   return -1;
+}
+
+int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
+		 int *ngp, int **kgp, int md) {
+  int s, i, j, t, n, k;
+  double r;
+  FILE *f;
+  HAMILTON *h;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return -1;
+  }
+  fread(ng0, sizeof(int), 1, f);
+  fread(ng, sizeof(int), 1, f);
+  *kg = malloc(sizeof(int)*(*ng));
+  fread(*kg, sizeof(int), *ng, f);
+  fread(ngp, sizeof(int), 1, f);
+  if (*ngp > 0) {
+    *kgp = malloc(sizeof(int)*(*ngp));
+    fread(*kgp, sizeof(int), *ngp, f);
+  } else {
+    *kgp = NULL;
+  }
+  if (md < 0) {
+    fclose(f);
+    return 0;
+  }
+  //printf("rh: %d %d %d\n", *ng0, *ng, *ngp);
+  for (s = 0; s < MAX_SYMMETRIES; s++) {
+    h = GetHamilton(s);
+    h->pj = s;
+    fread(&k, sizeof(int), 1, f);
+    fread(&h->dim, sizeof(int), 1, f);
+    //printf("rh: %d %d\n", k, h->dim);
+    if (h->dim <= 0) continue;
+    fread(&h->orig_dim, sizeof(int), 1, f);
+    fread(&h->n_basis, sizeof(int), 1, f);
+    if (AllocHamMem(h, h->dim, h->n_basis) == -1) return -1;
+    for (t = 0; t < h->hsize; t++) h->hamilton[t] = 0;
+    fread(h->basis, sizeof(int), h->n_basis, f);
+    fread(&n, sizeof(int), 1, f);
+    //printf("rh: %d %d %d %d %d %d\n", s, k, h->dim, h->n_basis, h->hsize, n);
+    int t0 = (h->dim+1)*(h->dim)/2;
+    int t1 = t0 + h->dim*(h->n_basis-h->dim);
+    for (k = 0; k < n; k++) {
+      fread(&i, sizeof(int), 1, f);
+      fread(&j, sizeof(int), 1, f);
+      fread(&r, sizeof(double), 1, f);
+      if (j < h->dim) {
+	t = j*(j+1)/2 + i;
+      } else if (i < h->dim) {
+	t = t0 + i*(h->n_basis-h->dim) + j-h->dim;
+      } else if (i == j) {
+	t = t1 + j - h->dim;
+      }
+      h->hamilton[t] = r;
+      //printf("rh: %d %d %d %g\n", i, j, t, h->hamilton[t]);
+    }
+    if (md) {
+      ConstructHamilton(s, *ng0, *ng, *kg, *ngp, *kgp, 1);
+    }
+  }
+  fclose(f);
+  return 0;
+}
+
+int WriteHamilton(char *fn, int ng0, int ng, int *kg, int ngp, int *kgp) {
+  int s, i, j, t, n;
+  FILE *f;
+  HAMILTON *h;
+  
+  f = fopen(fn, "w");
+  if (f == NULL) return -1;
+  fwrite(&ng0, sizeof(int), 1, f);
+  fwrite(&ng, sizeof(int), 1, f);
+  fwrite(kg, sizeof(int), ng, f);
+  fwrite(&ngp, sizeof(int), 1, f);
+  if (ngp > 0) {
+    fwrite(kgp, sizeof(int), ngp, f);
+  }
+  for (s = 0; s < MAX_SYMMETRIES; s++) {
+    fwrite(&s, sizeof(int), 1, f);
+    h = GetHamilton(s);
+    fwrite(&h->dim, sizeof(int), 1, f);
+    if (h->dim <= 0) continue;
+    fwrite(&h->orig_dim, sizeof(int), 1, f);
+    fwrite(&h->n_basis, sizeof(int), 1, f);
+    fwrite(h->basis, sizeof(int), h->n_basis, f);
+    n = 0;
+    for (t = 0; t < h->hsize; t++) {
+      if (fabs(h->hamilton[t]) > 1e-20) n++;
+    }
+    fwrite(&n, sizeof(int), 1, f);
+    //printf("wh: %d %d %d %d %d\n", s, h->dim, h->n_basis, h->hsize, n);
+    for (j = 0; j < h->dim; j++) {
+      t = j*(j+1)/2;
+      for (i = 0; i <= j; i++) {
+	if (fabs(h->hamilton[i+t]) > 1e-20) {
+	  fwrite(&i, sizeof(int), 1, f);
+	  fwrite(&j, sizeof(int), 1, f);
+	  fwrite(&h->hamilton[i+t], sizeof(double), 1, f);
+	  //printf("wh: %d %d %d %g\n", i, j, i+t, h->hamilton[i+t]);
+	}
+      }
+    }
+    if (h->n_basis > h->dim) {
+      t = ((h->dim+1)*(h->dim))/2;
+      for (i = 0; i < h->dim; i++) {
+	for (j = h->dim; j < h->n_basis; j++) {
+	  if (fabs(h->hamilton[t]) > 1e-20) {
+	    fwrite(&i, sizeof(int), 1, f);
+	    fwrite(&j, sizeof(int), 1, f);
+	    fwrite(&h->hamilton[t], sizeof(double), 1, f);
+	    //printf("wh: %d %d %d %g\n", i, j, t, h->hamilton[t]);
+	  }
+	  t++;
+	}
+      }
+      for (j = h->dim; j < h->n_basis; j++) {
+	if (fabs(h->hamilton[t]) > 1e-20) {
+	  fwrite(&j, sizeof(int), 1, f);
+	  fwrite(&j, sizeof(int), 1, f);
+	  fwrite(&h->hamilton[t], sizeof(double), 1, f);
+	  //printf("wh: %d %d %d %g\n", i, j, t, h->hamilton[t]);
+	}
+	t++;
+      }
+    }
+  }
+  fclose(f);
+  return 0;
 }
 
 int ValidBasis(STATE *s, int k, int *kg, int n) {
@@ -1983,20 +2117,21 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	r = b[k]/a;
 	ra = c;
 	int ip = j < h->orig_dim;
+	double mmix = 0;
 	if (h->exp_dim > 0 && j >= h->orig_dim) {
-	  if (h->mmix[j] < perturb_expdim) ra *= h->mmix[j];
-	  else ip = 1;
-	}
+	  mmix = h->mmix[j];
+	  if (mmix > perturb_expdim) ip = 1;
+	}	
 	if (r > ra) {
-	  //b[k] = c*a;
-	  b[k] = 0.0;
+	  //printf("r0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  b[k] = ra*a;
+	  //b[k] = 0.0;
 	  if (ip) ib[i] = 1;
-	  //printf("r0: %d %d %g %g %g %d\n", i, j, a, r, b[k], ib[i]);
 	} else if (r < -ra) {
-	  //b[k] = -c*a;
-	  b[k] = 0.0;
+	  //printf("r1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  b[k] = -ra*a;
+	  //b[k] = 0.0;
 	  if (ip) ib[i] = 1;
-	  //printf("r1: %d %d %g %g %g %d\n", i, j, a, r, b[k], ib[i]);
 	}
       }
     }
@@ -2139,7 +2274,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
       }
       kr0 = i;
       if (kr0 >= n) {
-	printf("cannot find lowest kr0: %d %d\n", kr0, n);
+	printf("cannot find lowest kr0: %d %d %d\n", kr0, n, h->orig_dim);
 	Abort(1);
       }
       for (iter = 0; iter < diag_maxiter; iter++) {
@@ -2284,7 +2419,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	h->diag_etol = de;
 	h->diag_emin = r1[i].r;
 	etol = EneTol(r1[kr1].r);
-	//MPrintf(-1, "hiter: %d %d %d %d %d %d %g %g %15.8E %15.8E\n", h->pj, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV);
+	//MPrintf(-1, "hiter: %d %d %d %d %d %d %g %g %15.8E %15.8E %g %g %g\n", h->pj, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n], h->mixing[n+1], h->mixing[n+2]);
 	if (iter > 0 && de < etol) break;
 	memcpy(r0, r1, sizeof(RANDIDX)*n);
 	kr0 = kr1;
@@ -2798,41 +2933,51 @@ int SortLevels(int start, int n, int m) {
   return 0;
 }
 
-int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
-  int ng0, nlevels, ns, k, i, md;
+int SolveStructure(char *fn, char *hfn,
+		   int ng, int *kg, int ngp, int *kgp, int ip) {
+  int ng0, nlevels, ns, k, i, md, rh;
   HAMILTON *h;
 
-  if (ngp < 0) return 0;  
-  ng0 = ng;
-  if (ip == 0) {
-    if (ngp) {
-      ng += ngp;
-      if (fn != NULL) {
-	kg = (int *) realloc(kg, sizeof(int)*ng);
-	memcpy(kg+ng0, kgp, sizeof(int)*ngp);
-	free(kgp);
-      }
-      ngp = 0;
-      kgp = NULL;
-    }
-  }
-  if (fn == NULL) md = ip*1000 + 110;
-  else md = ip*1000 + 111;
   nlevels = GetNumLevels();
   ns = MAX_SYMMETRIES;
+  if (hfn != NULL && ng == 0 && ngp == 0) {    
+    ReadHamilton(hfn, &ng0, &ng, &kg, &ngp, &kgp, fn != NULL);
+    ip = 0;
+    rh = 1;
+  } else {
+    if (ngp < 0) return 0;  
+    ng0 = ng;
+    if (ip == 0) {
+      if (ngp) {
+	ng += ngp;
+	if (fn != NULL) {
+	  kg = (int *) realloc(kg, sizeof(int)*ng);
+	  memcpy(kg+ng0, kgp, sizeof(int)*ngp);
+	  free(kgp);
+	}
+	ngp = 0;
+	kgp = NULL;
+      }
+    }
+    rh = 0;
+    if (fn == NULL) md = ip*1000 + 110;
+    else md = ip*1000 + 111;
+  }
   if (IsUTA()) {
     AddToLevels(NULL, ng0, kg);
   } else {
     double wtb = WallTime();
-    for (i = 0; i < ns; i++) {
-      k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, md);
-      h = GetHamilton(i);
-      h->orig_dim = h->dim;
-      h->exp_dim = 0;
-      if (k < 0) {
+    if (rh == 0) {
+      for (i = 0; i < ns; i++) {
+	k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, md);
 	h = GetHamilton(i);
-	AllocHamMem(h, -1, -1);
-	AllocHamMem(h, 0, 0);	
+	h->orig_dim = h->dim;
+	h->exp_dim = 0;
+	if (k < 0) {
+	  h = GetHamilton(i);
+	  AllocHamMem(h, -1, -1);
+	  AllocHamMem(h, 0, 0);	
+	}
       }
     }
     ResetWidMPI();
@@ -2848,7 +2993,7 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 	}
 	if (fn != NULL) {
 	  if (ip == 0 || perturb_threshold < 0) {
-	    if (ng0 < ng || ip) {
+	    if (ng0 < ng || ip || ngp > 0) {
 	      AddToLevels(h, ng0, kg);
 	    } else {
 	      AddToLevels(h, 0, kg);
@@ -2910,8 +3055,9 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 	      }
 	    }
 	    mix = h->mixing + h->dim;
+	    double am;
 	    for (j = 0; j < dim0[i]; j++) {
-	      double am = fabs(mix[t]);
+	      am = fabs(mix[t]);
 	      if (am >= mth) {
 		isp0[np0++] = t;
 		break;
@@ -2946,7 +3092,8 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 		}
 		mix += h->n_basis;
 	      }
-	      if (h->mmix[t] >= perturb_expdim) {
+	      if (h->mmix[t] >= perturb_expdim ||
+		  (t1 >= dim && ib[t1-dim])) {
 		h->exp_dim++;
 	      }
 	    }
@@ -2989,10 +3136,6 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 		}
 		continue;
 	      }
-	      if (h->mmix != NULL) {
-		free(h->mmix);
-		h->mmix = NULL;
-	      }
 	    }
 	    if (done[i] < 2) {
 	      double wt1 = WallTime();
@@ -3005,6 +3148,11 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
 		      h->diag_iter, h->diag_etol*HARTREE_EV,
 		      h->diag_emin*HARTREE_EV, mth,
 		      wt1-wt0, wt1-wtb, ts);
+	    }
+	    if (h->mmix != NULL) {
+	      free(h->mmix);
+	      h->mmix = NULL;
+	      h->exp_dim = 0;
 	    }
 	    if (fn != NULL) {
 	      if (iter == perturb_maxiter-1 || done[i] == 1) {
@@ -3027,18 +3175,22 @@ int SolveStructure(char *fn, int ng, int *kg, int ngp, int *kgp, int ip) {
     }
   }
 
+  if (hfn != NULL && rh == 0) {
+    WriteHamilton(hfn, ng0, ng, kg, ngp, kgp);
+  }
+  
   if (fn != NULL) {
     SortLevels(nlevels, -1, 0);
     SaveLevels(fn, nlevels, -1);
-    if (ng > 0 && kg) free(kg);
-    if (ngp > 0 && kgp) free(kgp);
-    if (!IsUTA()) {
+    if (!IsUTA()) {      
       for (i = 0; i < ns; i++) {
 	AllocHamMem(&_allhams[i], -1, -1);
 	AllocHamMem(&_allhams[i], 0, 0);
 	_allhams[i].perturb_iter = 0;
       }
     }
+    if (ng > 0 && kg) free(kg);
+    if (ngp > 0 && kgp) free(kgp);
   }
   return 0;
 }
@@ -3518,13 +3670,22 @@ int ConstructLevelName(char *name, char *sname, char *nc,
     else jsym = '+';
     kl = kl/2;
     if (name) {
-      if (((nq < j+1) && nq > 0) || (i == 0 && name[0] == '\0')) {
+      if (((nq <= j+1) && nq > 0) || (i == 0 && name[0] == '\0')) {
 	SpecSymbol(symbol, kl);
 	if (c->n_csfs > 0) {
-	  sprintf(ashell, "%1d%s%c%1d(%1d)%1d ", 
-		  n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ); 
+	  if (name[0]) {
+	    sprintf(ashell, ".%1d%s%c%1d(%1d)%1d", 
+		    n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ);
+	  } else {
+	    sprintf(ashell, "%1d%s%c%1d(%1d)%1d", 
+		    n, symbol, jsym, nq, s[i].shellJ, s[i].totalJ);
+	  }
 	} else {
-	  sprintf(ashell, "%1d%s%c%1d ", n, symbol, jsym, nq);
+	  if (name[0]) {
+	    sprintf(ashell, ".%1d%s%c%1d", n, symbol, jsym, nq);
+	  } else {
+	    sprintf(ashell, "%1d%s%c%1d", n, symbol, jsym, nq);
+	  }
 	}
 	len += strlen(ashell);
 	if (len >= LEVEL_NAME_LEN) return -1;
@@ -3535,9 +3696,13 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0 && nq0 < 2*(2*kl0+1)) {
+	if (nq0 > 0 && nq0 <= 2*(2*kl0+1)) {
 	  SpecSymbol(symbol, kl0);
-	  sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+	  if (sname[0]) {
+	    sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
+	  } else {
+	    sprintf(ashell, "%1d%s%1d", n0, symbol, nq0);
+	  }
 	  strcat(sname, ashell);
 	}
 	n0 = n;
@@ -3548,9 +3713,13 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   }
   
   if (sname && n0 > 0) {
-    if ((nq0 > 0 && nq0 < 2*(2*kl0+1)) || sname[0] == '\0') {
+    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1)) || sname[0] == '\0') {
       SpecSymbol(symbol, kl0);
-      sprintf(ashell, "%1d%s%1d ", n0, symbol, nq0);
+      if (sname[0]) {
+	sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
+      } else {
+	sprintf(ashell, "%1d%s%1d", n0, symbol, nq0);
+      }
       strcat(sname, ashell);
     }
   }
@@ -3564,7 +3733,11 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 	nq0 += nq;
       } else {
 	if (nq0 > 0) {
-	  sprintf(ashell, "%1d*%1d ", n0, nq0);
+	  if (nc[0]) {
+	    sprintf(ashell, ".%1d*%1d", n0, nq0);
+	  } else {
+	    sprintf(ashell, "%1d*%1d", n0, nq0);
+	  }
 	  strcat(nc, ashell);
 	}
 	n0 = n;
@@ -3572,7 +3745,11 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       }
     }
     if (n0 > 0 && (nq0 > 0 || nc[0] == '\0')) {
-      sprintf(ashell, "%1d*%1d ", n0, nq0);
+      if (nc[0]) {
+	sprintf(ashell, ".%1d*%1d", n0, nq0);
+      } else {
+	sprintf(ashell, "%1d*%1d", n0, nq0);
+      }
       strcat(nc, ashell);
     }
   }
@@ -3620,7 +3797,7 @@ int GetBasisTable(char *fn, int m) {
       for (k = 0; k < sym->n_states; k++) {
 	s = (STATE *) ArrayGet(st, k);
 	ConstructLevelName(name, sname, nc, NULL, s);
-	fprintf(f, "%6d   %2d %2d   %5d %3d %5d %5d   %-20s %-20s %-20s\n",
+	fprintf(f, "%6d   %2d %2d   %5d %3d %5d %5d   %-32s %-48s %-s\n",
 		i, p, j, k, s->kgroup, s->kcfg, s->kstate, nc, sname, name);
       }
       fprintf(f, "\n");
@@ -5499,6 +5676,7 @@ int InitStructure(void) {
 
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     AllocHamMem(&_allhams[i], 0, 0);
+    _allhams[i].pj = i;
     _allhams[i].ohsize = 0;
     _allhams[i].odim = 0;
     _allhams[i].ondim = 0;

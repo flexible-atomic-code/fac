@@ -7846,6 +7846,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 	}
 	free(sr);
       }
+      g = GetGroup(ig1);
+      if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
       return 0;
     }
     ni = 0;
@@ -7897,6 +7899,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
       free(sr);
     }
     if (sth > 0) ReinitRadial(2);
+    g = GetGroup(ig1);
+    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
     return 0;
   }
   
@@ -8158,7 +8162,12 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     free(kcb);
   }
   if (sth > 0) ReinitRadial(2);
-
+  g = GetGroup(ig2);
+  if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig2);
+  if (ig1 != ig2) {
+    g = GetGroup(ig1);
+    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
+  }
   return 0;
 }
 

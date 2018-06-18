@@ -213,7 +213,7 @@ static int IntFromList(PyObject *p, int **k) {
   return n;
 }
 
-static int DecodeGroupArgs(PyObject *args, int **kg) {
+static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
   PyObject *p;
   char *s;
   int i, k, ng;  
@@ -240,6 +240,12 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
       onError("not enough memory");
       return -1;
     }
+    int n0p = 0;
+    int n0q = 0;
+    if (n0) {
+      n0p = *n0;
+      n0q = *n0;
+    }
     int n = 0;
     for (i = 0; i < ng; i++) {
       p = PySequence_GetItem(args, i);
@@ -254,11 +260,13 @@ static int DecodeGroupArgs(PyObject *args, int **kg) {
       
       if (k < 0) {
 	printf("group does not exist: %d %s\n", i, s);
+	if (i < n0q) n0p--;
 	continue;
       }
       (*kg)[n] = k;
       n++;
     }
+    if (n0) *n0 = n0p;
     ng = n;
     if (ng <= 0) {
       onError("all cfg groups invalid");
@@ -556,7 +564,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       }
       if (qb == NULL) sth = 0.0;
       else {
-	ngb = DecodeGroupArgs(qb, &kgb);
+	ngb = DecodeGroupArgs(qb, &kgb, NULL);
       }
       strncpy(scfg, s, MCHSHELL);
       r = ConfigSD(m, ng, kg, scfg, gn1, NULL,
@@ -585,11 +593,11 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       } else {
 	return NULL;
       }
-      ng = DecodeGroupArgs(q, &kg);
+      ng = DecodeGroupArgs(q, &kg, NULL);
       ngb = ng;
       kgb = kg;
       if (qb != NULL) {
-	ngb = DecodeGroupArgs(qb, &kgb);
+	ngb = DecodeGroupArgs(qb, &kgb, NULL);
       }      
       strncpy(scfg, s, MCHSHELL);
       r = ConfigSD(m, ng, kg, scfg, gn1, gn2,
@@ -623,6 +631,9 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     strncpy(gname, p, GROUP_NAME_LEN);
   }
   
+  t = GroupIndex(gname);
+  if (t < 0) return NULL;
+  
   for (; i < argc; i++) {   
     q = PyTuple_GetItem(args, i);
     if (!PyUnicode_Check(q)) return NULL;
@@ -633,13 +644,15 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 
     for (j = 0; j < ncfg; j++) {
       if (Couple(cfg+j) < 0) return NULL;
-      t = GroupIndex(gname);
-      if (t < 0) return NULL;
       if (AddConfigToList(t, cfg+j) < 0) return NULL;
     }   
     if (ncfg > 0) free(cfg);
   }
 
+  CONFIG_GROUP *g = GetGroup(t);
+  if (g != NULL && g->n_cfgs == 0) {
+    RemoveGroup(t);
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }  
@@ -658,9 +671,9 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
   if (ng <= 0) return NULL;
   p = PyTuple_GET_ITEM(args, 0);
   if (PyUnicode_Check(p)) {
-    ng = DecodeGroupArgs(args, &kg);
+    ng = DecodeGroupArgs(args, &kg, NULL);
   } else {
-    ng = DecodeGroupArgs(p, &kg);
+    ng = DecodeGroupArgs(p, &kg, NULL);
   }
   
   for (k = 0; k < ng; k++) {
@@ -689,7 +702,7 @@ static PyObject *PListConfig(PyObject *self, PyObject *args) {
   p = NULL;
   if (!PyArg_ParseTuple(args, "|sO", &s, &p)) return NULL;
   if (p) {
-    ng = DecodeGroupArgs(p, &kg);
+    ng = DecodeGroupArgs(p, &kg, NULL);
   } else {
     ng = 0;
   }
@@ -1266,13 +1279,13 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   p = PyTuple_GET_ITEM(args, 0);
   if (PyUnicode_Check(p)) {
     weight = NULL;
-    ng = DecodeGroupArgs(args, &kg);
+    ng = DecodeGroupArgs(args, &kg, NULL);
     if (ng < 0) {
       onError("the group argument format error");
       return NULL;
     }
   } else {
-    ng = DecodeGroupArgs(p, &kg);
+    ng = DecodeGroupArgs(p, &kg, NULL);
     if (ng < 0) {
       onError("the groups must be in a sequence");
       return NULL;
@@ -1402,7 +1415,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   int ngp;
   int *kg, *kgp;
   char *fn;
-  PyObject *p, *q, *t, *s;
+  PyObject *p, *q, *t, *s, *r;
 
   if (sfac_file) {
     SFACStatement("Structure", args, NULL);
@@ -1413,12 +1426,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   p = NULL;
   q = NULL;
   s = NULL;
+  r = NULL;
   ngp = 0;
   kgp = NULL;
   ip = 0;
   
-  if (!(PyArg_ParseTuple(args, "O|OOO", &t, &p, &q, &s))) return NULL;
-  if (s != NULL && PyLong_Check(s)) {
+  if (!(PyArg_ParseTuple(args, "O|OOOO", &t, &p, &q, &s, &r))) return NULL;
+  if (r != NULL) {
+    if (PyLong_Check(r)) ip = PyLong_AsLong(r);  
+  } else if (s != NULL && PyLong_Check(s)) {
     ip = PyLong_AsLong(s);
   }
   if (PyLong_Check(t)) {
@@ -1454,25 +1470,49 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
   }
   
   fn = PyUnicode_AsString(t);
+  char *hfn = NULL;
   if (p) {
-    if (PyTuple_Check(p) || PyList_Check(p)) {
-      ng = DecodeGroupArgs(p, &kg);
-      if (ng < 0) return NULL;
-      if (q) {
-	if (!PyTuple_Check(q) && !PyList_Check(q)) return NULL;
-	if (PySequence_Length(q) > 0) {
-	  ngp = DecodeGroupArgs(q, &kgp);
+    if (PyUnicode_Check(p)) {
+      hfn = PyUnicode_AsString(p);
+      if (q == NULL) {
+	ng = 0;
+	ngp = 0;
+	kg = NULL;
+	kgp = NULL;
+      } else {
+	if (PyTuple_Check(q) || PyList_Check(q)) {
+	  ng = DecodeGroupArgs(q, &kg, NULL);
+	  if (ng < 0) return NULL;
+	  if (s) {
+	    if (!PyTuple_Check(s) && !PyList_Check(s)) return NULL;
+	    if (PySequence_Length(s) > 0) {
+	      ngp = DecodeGroupArgs(s, &kgp, NULL);
+	    }
+	  }
+	} else {
+	  return NULL;
 	}
       }
-    } else {
-      return NULL;
+    } else { 
+      if (PyTuple_Check(p) || PyList_Check(p)) {
+	ng = DecodeGroupArgs(p, &kg, NULL);
+	if (ng < 0) return NULL;
+	if (q) {
+	  if (!PyTuple_Check(q) && !PyList_Check(q)) return NULL;
+	  if (PySequence_Length(q) > 0) {
+	    ngp = DecodeGroupArgs(q, &kgp, NULL);
+	  }
+	}
+      } else {
+	return NULL;
+      }
     }
   } else {
-    ng = DecodeGroupArgs(NULL, &kg);  
+    ng = DecodeGroupArgs(NULL, &kg, NULL);  
     if (ng < 0) return NULL;
   }
 
-  if (SolveStructure(fn, ng, kg, ngp, kgp, ip) < 0) {
+  if (SolveStructure(fn, hfn, ng, kg, ngp, kgp, ip) < 0) {
     onError("Diagnolizing Hamiltonian Error");
     return NULL;
   }
@@ -1615,7 +1655,7 @@ static int SelectLevels(PyObject *p, int **t) {
   if (n > 0) {
     q = PySequence_GetItem(p, 0);
     if (PyUnicode_Check(q)) {
-      ng = DecodeGroupArgs(p, &kg);
+      ng = DecodeGroupArgs(p, &kg, NULL);
       if (ng <= 0) {
 	return 0;
       }
@@ -1647,7 +1687,7 @@ static int SelectLevels(PyObject *p, int **t) {
 	printf("recombined states specification unrecoganized\n");
 	return -1;
       }
-      ng = DecodeGroupArgs(q, &kg);
+      ng = DecodeGroupArgs(q, &kg, NULL);
       if (ng <= 0) return -1;
       Py_DECREF(q);
       q = PySequence_GetItem(p, 1);
@@ -1733,7 +1773,7 @@ static PyObject *PCutMixing(PyObject *self, PyObject *args) {
   if (!(PyArg_ParseTuple(args, "OO|d", &t, &p, &c))) return NULL;
   nlev = SelectLevels(t, &ilev);
   if (nlev <= 0) goto DONE;
-  n = DecodeGroupArgs(p, &kg);
+  n = DecodeGroupArgs(p, &kg, NULL);
   if (n <= 0) goto DONE;
   
   CutMixing(nlev, ilev, n, kg, c);
@@ -1763,8 +1803,8 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
     TransitionMBPT(m, n);
   } else if (n == 3) {
     if (!(PyArg_ParseTuple(args, "sOO", &fn, &p, &q))) return NULL;
-    nlow = DecodeGroupArgs(p, &low);
-    nup = DecodeGroupArgs(q, &up);
+    nlow = DecodeGroupArgs(p, &low, NULL);
+    nup = DecodeGroupArgs(q, &up, NULL);
     TRTableMBPT(fn, nlow, low, nup, up);
     if (nlow > 0) free(low);
     if (nup > 0) free(up);
@@ -1865,7 +1905,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
 			   &fn, &d, &c, &p, &kmax, &q, &r, &x, &y, &gn)))
       return NULL;
     
-    n = DecodeGroupArgs(p, &s);
+    n = DecodeGroupArgs(p, &s, NULL);
     if (n <= 0) return NULL;
     
     n1 = IntFromList(q, &ng1);
@@ -1888,7 +1928,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   if (n == 5) {
     if (!(PyArg_ParseTuple(args, "ssOOi", &fn, &fn1, &q, &p, &n3)))
       return NULL;
-    n = DecodeGroupArgs(p, &s);
+    n = DecodeGroupArgs(p, &s, &n3);
     if (n <= 0) return NULL;
     n1 = PyList_Size(q);
     if (n1 <= 0) return NULL;
@@ -1909,14 +1949,39 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   int icp = 0;
   int icpf = 0;
   int ncp = 0;
+  
   if (n == 7 || n == 9 || n == 10) {
-    if (!(PyArg_ParseTuple(args, "ssOOOOi|iii",
-			   &fn, &fn1, &p, &t, &q, &r, &n3, &ncp, &icp, &icpf)))
+    PyObject *fp, *fp0, *fp1;
+    if (!(PyArg_ParseTuple(args, "sOOOOOi|iii",
+			   &fn, &fp, &p, &t, &q, &r, &n3, &ncp, &icp, &icpf)))
       return NULL;
     
-    n = DecodeGroupArgs(p, &s);
-    if (n <= 0) return NULL;
-
+    char *hfn0, *hfn1;
+    hfn0 = NULL;
+    if (PyUnicode_Check(fp)) {
+      hfn1 = PyUnicode_AsString(fp);
+    } else {
+      if (!PyList_Check(fp) && !PyTuple_Check(fp)) return NULL;
+      int nf = PySequence_Length(fp);
+      if (nf == 0) return NULL;
+      fp0 = PySequence_GetItem(fp, 0);      
+      if (!PyUnicode_Check(fp0)) return NULL;
+      hfn1 = PyUnicode_AsString(fp0);
+      Py_DECREF(fp0);
+      if (nf > 1) {
+	fp1 = PySequence_GetItem(fp, 1);
+	if (!PyUnicode_Check(fp1)) return NULL;
+	hfn0 = PyUnicode_AsString(fp1);
+	Py_DECREF(fp1);
+      }
+    }
+    if (PyList_Check(p)) {
+      n = DecodeGroupArgs(p, &s, &n3);
+      if (n <= 0) return NULL;
+    } else {
+      n = 0;
+      s = NULL;
+    }
     if (PyList_Check(q)) {
       n1 = IntFromList(q, &ng1);
     } else {
@@ -1938,7 +2003,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
       return NULL;
     }
   
-    StructureMBPT1(fn, fn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3,
+    StructureMBPT1(fn, hfn0, hfn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3,
 		   ncp, icp, icpf);
     free(s);
     //if (n1 > 0) free(ng1);
@@ -2826,7 +2891,7 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   }
 
   if (!PyArg_ParseTuple(args, "sOi", &fn, &gargs, &n)) return NULL;
-  ng = DecodeGroupArgs(gargs, &kg);
+  ng = DecodeGroupArgs(gargs, &kg, NULL);
   if (ng <= 0) return NULL;
 
   if (RecStates(n, ng, kg, fn) < 0) {
@@ -4160,7 +4225,7 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
       for (i = 1; i < n; i++) {
 	p = PyTuple_GetItem(args, i);
 	if (!PyList_Check(p)) return NULL;
-	ng = DecodeGroupArgs(p, &kg);
+	ng = DecodeGroupArgs(p, &kg, NULL);
 	if (ng < 0) return NULL;
 	ConfigEnergy(m, mr, ng, kg);
 	if (ng > 0) free(kg);
@@ -4887,12 +4952,12 @@ static PyObject *PRMatrixTargets(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "O|O", &p, &q)) return NULL;
   
   if (PyTuple_Check(p) || PyList_Check(p)) {
-    nt = DecodeGroupArgs(p, &kt);
+    nt = DecodeGroupArgs(p, &kt, NULL);
     if (nt == 0) return NULL;
   }
   if (q) {
     if (PyTuple_Check(q) || PyList_Check(q)) {
-      nc = DecodeGroupArgs(q, &kc);
+      nc = DecodeGroupArgs(q, &kc, NULL);
     } else {
       nc = 0;
       kc = NULL;

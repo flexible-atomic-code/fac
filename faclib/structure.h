@@ -163,7 +163,8 @@ int CompareInt(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
-int SolveStructure(char *fn, int ng, int *kg, int npg, int *kgp, int ip);
+int SolveStructure(char *fn, char *hfn,
+		   int ng, int *kg, int npg, int *kgp, int ip);
 int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
 void HamiltonElement1E2E(int isym, int isi, int isj, double *r1, double *r2);
 double HamiltonElement(int isym, int isi, int isj);
@@ -258,6 +259,9 @@ void AddSlaterCoeff(double *c, double a, int n_shells,
 		    SHELL_STATE *sbra, SHELL_STATE *sket, 
 		    INTERACT_SHELL *s, int na, SHELL *sa, 
 		    int nb, SHELL *sb);
+int WriteHamilton(char *fn, int ng0, int ng, int *kg, int ngp, int *kgp);
+int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
+		 int *ngp, int **kgp, int md);
 
 #endif
 
