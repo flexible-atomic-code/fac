@@ -702,7 +702,6 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	  }
 	  if (h->exp_dim > 0 && i >= h->orig_dim) {
 	    if (h->mmix[i] < perturb_expdimz) {
-	      //printf("ho: %d %d %d %g %g\n", i, h->exp_dim, h->orig_dim, h->mmix[i], perturb_expdimz);
 	      t += h->n_basis-h->dim;
 	      continue;
 	    }
@@ -2121,17 +2120,24 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	if (h->exp_dim > 0 && j >= h->orig_dim) {
 	  mmix = h->mmix[j];
 	  if (mmix > perturb_expdim) ip = 1;
+	  else if (mmix < perturb_expdimz) ip = -1;
 	}	
 	if (r > ra) {
-	  //printf("r0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  //if (ip) printf("r0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
 	  b[k] = ra*a;
-	  //b[k] = 0.0;
-	  if (ip) ib[i] = 1;
+	  if (ip > 0) {
+	    ib[i] = 1;
+	  } else if (ip < 0) {
+	    b[k] = 0;
+	  }
 	} else if (r < -ra) {
-	  //printf("r1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  //if (ip) printf("r1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
 	  b[k] = -ra*a;
-	  //b[k] = 0.0;
-	  if (ip) ib[i] = 1;
+	  if (ip > 0) {
+	    ib[i] = 1;
+	  } else if (ip < 0) {
+	    b[k] = 0;
+	  }
 	}
       }
     }
@@ -2188,8 +2194,9 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	if (fabs(wi[i]) > EPS5) {
 	  t = GetPrincipleBasis(z+i*n, n, NULL);
 	  if (t < h->orig_dim) {
-	    MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %d %g %g\n",
-		    h->pj, h->perturb_iter, i, t, w[i], wi[i]);
+	    MPrintf(-1, "DGEEV0 complex eigenvalue: %d %d %d %d %d %d %d %g %g %g\n",
+		    h->pj, h->perturb_iter, i, t, h->orig_dim, h->dim,
+		    h->n_basis, w[i], wi[i], z[i*n]);
 	  }
 	}
       }
@@ -2205,8 +2212,9 @@ int DiagnolizeHamilton(HAMILTON *h) {
       if (fabs(wi[i]) > EPS5) {
 	t = GetPrincipleBasis(z+i*n, n, NULL);
 	if (t < h->orig_dim) {
-	  MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %d %g %g\n",
-		  h->pj, h->perturb_iter, i, t, w[i], wi[i]);
+	  MPrintf(-1, "DGEEV1 complex eigenvalue: %d %d %d %d %d %d %d %g %g %g\n",
+		  h->pj, h->perturb_iter, i, t, h->orig_dim, h->dim,
+		  h->n_basis, w[i], wi[i], z[i*n]);
 	}
       }
     }
@@ -2226,6 +2234,47 @@ int DiagnolizeHamilton(HAMILTON *h) {
     y = h->mixing + n + n;
     z = h->mixing + n;
     w = h->mixing;
+    /*
+    c = perturb_threshold;
+    if (c <= 0) c = diag_maxtol;
+    for (j = 0; j < n; j++) {
+      h->iwork[j] = GetPrincipleBasis(z+j*m, n, NULL);
+    }
+    memcpy(b, b0, sizeof(double)*n*np);
+    for (i = 0; i < np; i++) {
+      for (j = 0; j < n; j++) {
+	k = j*np+i;
+	t = h->iwork[j];
+	a = w[j]-ep[i];	
+	r = b[k]/a;
+	ra = c;
+	int ip = t < h->orig_dim;
+	double mmix = 0;
+	if (h->exp_dim > 0 && t >= h->orig_dim) {
+	  mmix = h->mmix[t];
+	  if (mmix > perturb_expdim) ip = 1;
+	  else if (mmix < perturb_expdimz) ip = -1;
+	}
+	if (r > ra) {
+	  //if (ip) printf("ra0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  if (ip > 0) {
+	    ib[i] = 1;
+	    b[k] = ra*a;
+	  } else if (ip < 0) {
+	    b[k] = 0;
+	  }
+	} else if (r < -ra) {
+	  //if (ip) printf("ra1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  if (ip > 0) {
+	    ib[i] = 1;
+	    b[k] = -ra*a;
+	  } else if (ip < 0) {
+	    b[k] = 0;
+	  }
+	}
+      }
+    }
+    */
     for (j = 0; j < n; j++) {      
       for (i = 0; i < np; i++) {
 	a = 0;
@@ -2266,15 +2315,17 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	r0[i].r = mixing[i];
       }
       qsort(r0, n, sizeof(RANDIDX), CompareRandIdx);    
-      y = h->mixing + n;  
+      y = h->mixing + n;
+      j = h->dim;
       for (i = 0; i < n; i++) {
 	k = GetPrincipleBasis(y+r0[i].i*m, n, NULL);
+	if (k < j) j = k;
 	if (k >= h->orig_dim) continue;
 	break;
       }
       kr0 = i;
       if (kr0 >= n) {
-	printf("cannot find lowest kr0: %d %d %d\n", kr0, n, h->orig_dim);
+	printf("cannot find lowest kr0: %d %d %d %d\n", kr0, n, j, h->orig_dim);
 	Abort(1);
       }
       for (iter = 0; iter < diag_maxiter; iter++) {
@@ -2342,8 +2393,9 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  if (fabs(wi[i]) > EPS5) {
 	    t = GetPrincipleBasis(z+i*n, n, NULL);
 	    if (t < h->orig_dim) {
-	      MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %d %g %g\n",
-		      h->pj, h->perturb_iter, i, t, w[i], wi[i]);
+	      MPrintf(-1, "DGEEV2 complex eigenvalue: %d %d %d %d %d %d %d %d %g %g %g\n",
+		      h->pj, h->perturb_iter, iter, i, t, h->orig_dim, h->dim,
+		      h->n_basis, w[i], wi[i], z[i*n]);
 	    }
 	  }
 	}
@@ -2405,21 +2457,24 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	y = h->mixing + n;
 	de = 0;
 	etol = 0;
+	j = h->dim;
 	for (i = 0; i < n; i++) {
 	  k = GetPrincipleBasis(y+r1[i].i*m, n, NULL);
+	  if (k < j) j = k;
 	  if (k >= h->orig_dim) continue;
 	  break;
 	}
 	kr1 = i;
 	if (kr1 >= n) {
-	  printf("cannot find lowest kr1: %d %d\n", kr1, n);
+	  printf("cannot find lowest kr1: %d %d %d %d %d %d\n",
+		 iter, kr1, n, j, h->orig_dim, h->n_basis);
 	  Abort(1);
 	}
 	de = fabs(r1[kr1].r-r0[kr0].r);
 	h->diag_etol = de;
 	h->diag_emin = r1[i].r;
 	etol = EneTol(r1[kr1].r);
-	//MPrintf(-1, "hiter: %d %d %d %d %d %d %g %g %15.8E %15.8E %g %g %g\n", h->pj, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n], h->mixing[n+1], h->mixing[n+2]);
+	//MPrintf(-1, "hiter: %d %d %d %d %d %d %d %g %g %15.8E %15.8E %g\n", h->pj, h->perturb_iter, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n]);
 	if (iter > 0 && de < etol) break;
 	memcpy(r0, r1, sizeof(RANDIDX)*n);
 	kr0 = kr1;
@@ -3040,11 +3095,15 @@ int SolveStructure(char *fn, char *hfn,
 	  memcpy(h->obs, h->basis, sizeof(int)*h->n_basis);
 	  np0 = dim;
 	  np1 = 0;
-	  mix = h->mixing + h->dim;
 	  for (t = 0; t < dim; t++) {
 	    isp0[t] = t;
 	  }
 	  ib = h->iwork + h->liwork;
+	  mix = h->mixing + h->dim;
+	  for (j = 0; j < h->dim; j++) {
+	    h->iwork[j] = GetPrincipleBasis(mix, h->dim, NULL);
+	    mix += h->n_basis;
+	  }
 	  nib[i] = 0;
 	  for (; t < h->n_basis; t++) {
 	    if (ip == 1) {
@@ -3056,15 +3115,18 @@ int SolveStructure(char *fn, char *hfn,
 	    }
 	    mix = h->mixing + h->dim;
 	    double am;
-	    for (j = 0; j < dim0[i]; j++) {
-	      am = fabs(mix[t]);
-	      if (am >= mth) {
-		isp0[np0++] = t;
-		break;
+	    for (j = 0; j < dim; j++) {
+	      int kp = h->iwork[j];
+	      if (kp < h->orig_dim) {
+		am = fabs(mix[t]);
+		if (am >= mth) {
+		  isp0[np0++] = t;
+		  break;
+		}
 	      }
 	      mix += h->n_basis;
 	    }
-	    if (j == dim0[i]) {
+	    if (j == dim) {
 	      isp1[np1++] = t;
 	    }
 	  }
@@ -3075,11 +3137,6 @@ int SolveStructure(char *fn, char *hfn,
 	  if (!done[i]) {
 	    h->mmix = malloc(sizeof(double)*np0);
 	    h->exp_dim = h->orig_dim;
-	    mix = h->mixing + h->dim;
-	    for (j = 0; j < h->dim; j++) {
-	      h->iwork[j] = GetPrincipleBasis(mix, h->dim, NULL);
-	      mix += h->n_basis;
-	    }
 	    for (t = h->orig_dim; t < np0; t++) {
 	      int t1 = isp0[t];
 	      mix = h->mixing + h->dim;
@@ -3167,10 +3224,12 @@ int SolveStructure(char *fn, char *hfn,
 	  }
 	}
 	if (alldone) break;
+	/*
 	if (iter < 10) {
 	  mth *= 1.2;
 	  if (mth > 0.1) mth = 0.1;
 	}
+	*/
       }
     }
   }
