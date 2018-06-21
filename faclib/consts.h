@@ -249,6 +249,7 @@
 #define MAXLEVEB           1000000
 #define DIAGMAXITER        0
 #define DIAGMAXTOL         0.1
+#define DGEEVMODE          0
 #define PERTURBMAXITER     50
 #define PERTURBEXPDIM      0.1
 #define PERTURBEXPDIMZ      1e-4
