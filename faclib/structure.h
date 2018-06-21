@@ -262,7 +262,9 @@ void AddSlaterCoeff(double *c, double a, int n_shells,
 int WriteHamilton(char *fn, int ng0, int ng, int *kg, int ngp, int *kgp);
 int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
 		 int *ngp, int **kgp, int md);
-
+void GenEigen(char *trans, char *jobz, int n, double *ap,
+	      double *w, double *wi, double *z,
+	      double *work, int lwork, int *info);
 #endif
 
 
