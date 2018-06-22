@@ -2055,7 +2055,7 @@ void GenEigen(char *trans, char *jobz, int n, double *ap,
 	      double *w, double *wi, double *z,
 	      double *work, int lwork, int *info) {
   char uplo[] = "U";
-  if (dgeev_mode > 0) {
+  if (dgeev_mode == 0) {
     DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n, work, lwork, info);
     return;
   }
@@ -2236,7 +2236,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	MPrintf(-1, "DGEEV0 ERROR: %d %d %d\n", h->pj, h->perturb_iter, info);
 	goto ERROR;
       }
-      if (dgeev_mode > 0) {
+      if (dgeev_mode == 0) {
 	for (i = 0; i < n; i++) {
 	  if (fabs(wi[i]) > EPS5) {
 	    t = GetPrincipleBasis(z+i*n, n, NULL);
@@ -2255,7 +2255,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
       MPrintf(-1, "DGEEV1 ERROR: %d %d %d\n", h->pj, h->perturb_iter, info);	
       goto ERROR;
     }
-    if (dgeev_mode > 0) {
+    if (dgeev_mode == 0) {
       for (i = 0; i < n; i++) {
 	if (fabs(wi[i]) > EPS5) {
 	  t = GetPrincipleBasis(z+i*n, n, NULL);
@@ -2358,7 +2358,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  }
 	  x += np;
 	}
-	if (dgeev_mode > 0) {
+	if (dgeev_mode == 0) {
 	  y = h->mixing + n;
 	  x = mixing + n;
 	  for (i = 0; i < n; i++) {
@@ -2419,7 +2419,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 		  h->pj, iter, h->perturb_iter, info);
 	  goto ERROR;
 	}
-	if (dgeev_mode > 0) {
+	if (dgeev_mode == 0) {
 	  for (i = 0; i < n; i++) {
 	    if (fabs(wi[i]) > EPS5) {
 	      t = GetPrincipleBasis(z+i*n, n, NULL);
@@ -2498,7 +2498,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	h->diag_etol = de;
 	h->diag_emin = r1[i].r;
 	etol = EneTol(r1[kr1].r);
-	MPrintf(-1, "hiter: %d %d %d %d %d %d %d %g %g %15.8E %15.8E %g\n", h->pj, h->perturb_iter, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n]);
+	//MPrintf(-1, "hiter: %d %d %d %d %d %d %d %g %g %15.8E %15.8E %g\n", h->pj, h->perturb_iter, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n]);
 	if (iter > 0 && de < etol) break;
 	memcpy(r0, r1, sizeof(RANDIDX)*n);
 	kr0 = kr1;
