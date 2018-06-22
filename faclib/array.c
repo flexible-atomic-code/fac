@@ -348,6 +348,7 @@ int ArrayFreeData(DATA *p, int esize, int block,
 }
 
 int ArrayFreeLock(ARRAY *a, void (*FreeElem)(void *)) {
+  if (a == NULL) return 0;
   ArrayFree(a, FreeElem);
   if (a->lock) {
     DestroyLock(a->lock);
