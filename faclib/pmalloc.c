@@ -48,7 +48,7 @@ void *pmalloc(size_t size, char *f, int nline) {
   mem_alloc[n_alloc].f = f;
   mem_alloc[n_alloc].nline = nline;
   mem_alloc[n_alloc].size = size;
-  fprintf(pmalloc_log, "%8s %x %16s %5d %d\n", "MALLOC:", (long)p, f, nline, size);
+  fprintf(pmalloc_log, "%8s %lx %16s %5d %zu\n", "MALLOC:", (long)p, f, nline, size);
   n_alloc++;
   if (n_alloc == MAXNALLOC) {
     fprintf(pmalloc_log, "MAXNALLOC reached\n");
@@ -65,7 +65,7 @@ void *pcalloc(size_t n, size_t size, char *f, int nline) {
   mem_alloc[n_alloc].f = f;
   mem_alloc[n_alloc].nline = nline;
   mem_alloc[n_alloc].size = size*n;
-  fprintf(pmalloc_log, "%8s %x %16s %5d %d\n", "CALLOC:", (long)p, f, nline, size*n);
+  fprintf(pmalloc_log, "%8s %lx %16s %5d %zu\n", "CALLOC:", (long)p, f, nline, size*n);
   
   n_alloc++;
   if (n_alloc == MAXNALLOC) {
@@ -81,7 +81,7 @@ void *prealloc(void *p, size_t size, char *f, int nline) {
   mem_free[n_free].base = (long int) p;
   mem_free[n_free].f = f;
   mem_free[n_free].nline = nline;
-  fprintf(pmalloc_log, "%8s %x %16s %5d\n", "REALLOC:", (long)p, f, nline);
+  fprintf(pmalloc_log, "%8s %lx %16s %5d\n", "REALLOC:", (long)p, f, nline);
   n_free++;
 
   q = realloc(p, size);
@@ -102,7 +102,7 @@ void pfree(void *p, char *f, int nline) {
   mem_free[n_free].base = (long int) p;
   mem_free[n_free].f = f;
   mem_free[n_free].nline = nline;
-  fprintf(pmalloc_log, "%8s %x %16s %5d\n", "FREE:", (long)p, f, nline);
+  fprintf(pmalloc_log, "%8s %lx %16s %5d\n", "FREE:", (long)p, f, nline);
   fflush(pmalloc_log);
   n_free++;
   
@@ -147,7 +147,7 @@ void pmalloc_check(void) {
   tmem = 0;
   while (i < n_alloc && j < n_free) {
     if (mem_alloc[i].base < mem_free[j].base) {
-      fprintf(pmalloc_log, "%6d: Leak = %lX, %5d, %30s (%d)\n",  
+      fprintf(pmalloc_log, "%6d: Leak = %lx, %5zu, %30s (%d)\n",  
 	     n_leaks, mem_alloc[i].base, mem_alloc[i].size, 
 	     mem_alloc[i].f, mem_alloc[i].nline);
       n_leaks++;

@@ -3760,6 +3760,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   int *kgp = NULL;
   int ip = 0;
 
+  if (nkg00 == 0) {
+    printf("no valid configs for mbpt: %d %d\n", nkg, nkg00);
+    return 0;
+  }
   ing.n = ing.m = 0;
   ing2.n = ing2.m = 0;
   ierr = 0;
@@ -3778,8 +3782,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     rh = 1;
   } else {
     nkg0 = abs(nkg00);
-    if (nkg0 == 0 || nkg0 > nkg) nkg0 = nkg;
-    nkgp = nkg-nkg0;
+    if (nkg0 > nkg) nkg0 = nkg;
+    nkgp = nkg-nkg0;    
   }
   printf("mbpt configs: %d %d %d\n", nkg, nkg0, nkgp);
   /* construct configurations in kg, determine the maximum n-value*/
