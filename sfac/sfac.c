@@ -1158,6 +1158,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   }
 
  END:
+  if (ng == 0) kg = NULL;  
   if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);

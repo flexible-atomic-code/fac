@@ -5681,21 +5681,21 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   h->hsize = t + hdim*jp + jp;
   if (h->basis == NULL) {
     h->n_basis0 = h->n_basis;
-    h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
+    h->basis = (int *) malloc(sizeof(int)*(size_t)(h->n_basis));
   } else if (h->n_basis > h->n_basis0) {
     h->n_basis0 = h->n_basis;
     free(h->basis);
-    h->basis = (int *) malloc(sizeof(int)*(h->n_basis));
+    h->basis = (int *) malloc(sizeof(int)*(size_t)(h->n_basis));
   }
   if (!(h->basis)) return -1;
   
   if (h->hamilton == NULL) {
     h->hsize0 = h->hsize;
-    h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
+    h->hamilton = (double *) malloc(sizeof(double)*(size_t)h->hsize);
   } else if (h->hsize > h->hsize0) {
     h->hsize0 = h->hsize;
     free(h->hamilton);
-    h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
+    h->hamilton = (double *) malloc(sizeof(double)*(size_t)h->hsize);
   }
   if (!(h->hamilton)) return -1;
     
@@ -5710,24 +5710,24 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   }
   if (h->work == NULL) {
     h->dim0 = h->dim;
-    h->work = (double *) malloc(sizeof(double)*(h->lwork+wl));
-    h->iwork = (int *) malloc(sizeof(int)*(h->liwork+wi));
+    h->work = (double *) malloc(sizeof(double)*(size_t)(h->lwork+wl));
+    h->iwork = (int *) malloc(sizeof(int)*(size_t)(h->liwork+wi));
   } else if (h->dim > h->dim0 || h->n_basis > h->n_basis0) {
     h->dim0 = h->dim;
     free(h->work);
     free(h->iwork);
-    h->work = (double *) malloc(sizeof(double)*(h->lwork+wl));
-    h->iwork = (int *) malloc(sizeof(int)*(h->liwork+wi));
+    h->work = (double *) malloc(sizeof(double)*(size_t)(h->lwork+wl));
+    h->iwork = (int *) malloc(sizeof(int)*(size_t)(h->liwork+wi));
   }
 
   h->msize = h->dim * h->n_basis + h->dim;  
   if (h->mixing == NULL) {
     h->msize0 = h->msize;
-    h->mixing = (double *) malloc(sizeof(double)*h->msize);
+    h->mixing = (double *) malloc(sizeof(double)*(size_t)h->msize);
   } else if (h->msize > h->msize0) {
     h->msize0 = h->msize;
     free(h->mixing);
-    h->mixing = (double *) malloc(sizeof(double)*h->msize);
+    h->mixing = (double *) malloc(sizeof(double)*(size_t)h->msize);
   }
   if (!(h->mixing)) return -1;
 

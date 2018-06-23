@@ -1324,6 +1324,9 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   }
 
  END:
+  if (ng == 0) {
+    kg = NULL;
+  }
   if (OptimizeRadial(ng, kg, -1, weight) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);

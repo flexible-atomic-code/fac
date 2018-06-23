@@ -29,7 +29,7 @@ void *mmalloc(size_t size) {
 
   p = (size_t *) malloc(size+sizeof(size_t));
   if (p == NULL) {
-    printf("malloc error: %ld %ld\n", size, _tsize);
+    printf("malloc error: %zu %zu\n", size, _tsize);
     exit(1);
   }
   *p = size;
@@ -44,7 +44,7 @@ void *mcalloc(size_t n, size_t size) {
 
   p = (size_t *) calloc(ns+sizeof(size_t), 1);
   if (p == NULL) {
-    printf("calloc error: %ld %ld %ld\n", n, size, _tsize);
+    printf("calloc error: %zu %zu %zu\n", n, size, _tsize);
     exit(1);
   }
   *p = ns;
@@ -64,7 +64,7 @@ void *mrealloc(void *p, size_t size) {
   }
   ps = (size_t *) realloc(ps, size+sizeof(size_t));
   if (ps == NULL) {
-    printf("realloc error: %ld %ld\n", size, _tsize);
+    printf("realloc error: %zu %zu\n", size, _tsize);
     exit(1);
   }
   *ps = size;
