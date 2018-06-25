@@ -64,6 +64,9 @@ static struct {
   IDXARY ibs;
 } mbptjp = {0, NULL};
 
+static int mbpt_nmk0, mbpt_nmk1;
+static ARRAY *mbpt_csary;
+
 #pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas0s, mbpt_bas0d, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
   
 static TR_OPT mbpt_tr;
@@ -1337,14 +1340,26 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
   
   if (k > 0) {
     qsort(c->shells, k, sizeof(SHELL), CompareShellInvert);
+    int i0, i1;
     if (c->shells[0].nq > 1) {
       if (c->shells[0].n > cs[nc]->nnrs) return -1;
+      i0 = ShellToInt(c->shells[0].n, c->shells[0].kappa);
+      i1 = i0;
     } else if (c->n_shells > 1) {
       if (c->shells[1].n > cs[nc]->nnrs) return -1;
+      i0 = ShellToInt(c->shells[0].n, c->shells[0].kappa);
+      i1 = ShellToInt(c->shells[1].n, c->shells[1].kappa);      
+    } else {
+      i0 = ShellToInt(c->shells[0].n, c->shells[0].kappa);
+      i1 = mbpt_nmk1-1;
     }
-    for (i = 0; i < nc; i++) {
-      if (k != cs[i]->n_shells) continue;
-      m = memcmp(c->shells, cs[i]->shells, sizeof(SHELL)*k);
+    m = i0*mbpt_nmk1 + i1;
+    ARRAY *csa = &mbpt_csary[m];
+    int *ic;
+    for (i = 0; i < csa->dim; i++) {
+      ic = ArrayGet(csa, i);
+      if (k != cs[*ic]->n_shells) continue;
+      m = memcmp(c->shells, cs[*ic]->shells, sizeof(SHELL)*k);
       if (m == 0) return i;
     }
   }
@@ -3839,6 +3854,26 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   nmax = nmaxm;
   nmax1 = nmaxm1;
   cs = csm;
+  mbpt_nmk0 = nmax*nmax;
+  mbpt_nmk1 = nmax1*nmax1+1;
+  int nmk2 = mbpt_nmk0*mbpt_nmk1;
+  mbpt_csary = malloc(sizeof(ARRAY)*nmk2);
+  for (i = 0; i < nmk2; i++) {
+    ArrayInit(&mbpt_csary[i], sizeof(int), CONFIGS_BLOCK);
+  }
+  for (k = 0; k < nc; k++) {
+    i = ShellToInt(cs[k]->shells[0].n, cs[k]->shells[0].kappa);
+    if (cs[k]->shells[0].nq > 1) {
+      j = i;
+    } else if (cs[k]->n_shells > 1) {
+      j = ShellToInt(cs[k]->shells[1].n, cs[k]->shells[1].kappa);
+    } else {
+      j = mbpt_nmk1-1;
+    }
+    m = i*mbpt_nmk1 + j;
+    ArrayAppend(&mbpt_csary[m], &k, InitIntData);
+  }      
+    
   tt0 = WallTime();
   tbg = tt0;
 
@@ -4347,6 +4382,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  if (ngr2 != ng2) free(ngr2);
 	  free(ng);
 	  free(ng2);
+	  for (i = 0; i < nmk2; i++) {
+	    ArrayFree(&mbpt_csary[i], NULL);
+	  }
+	  free(mbpt_csary);
 	  return -1;
 	}
 	if (mbpt_savesum == 0) {
@@ -5317,6 +5356,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   if (rh && nkg > 0) {
     free(kg);
   }
+  for (i = 0; i < nmk2; i++) {
+    ArrayFree(&mbpt_csary[i], NULL);
+  }
+  free(mbpt_csary);
   return ierr;
 }
 

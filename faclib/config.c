@@ -88,6 +88,13 @@ static int _ncsf3[NJQ][NJQ][NJQ];
 static int _ncsf4[NJQ][NJQ][NJQ][NJQ];
 static int _ncsf5[NJQ][NJQ][NJQ][NJQ][NJQ];
 
+#define MAXN1 50
+#define MAXN2 50
+#define MAXNK1 2501
+#define MAXNK2 2501
+#define MAXNK12 (MAXNK1*MAXNK2)
+static ARRAY _csary[MAXNK12];
+
 int IndexJQ(int j, int q) {
   int i, jm, jp;  
   jp = j+1;
@@ -1914,27 +1921,39 @@ CONFIG *ConfigFromIList(int n, int *s) {
 int ConfigExists(CONFIG *cfg) {
   int i, j, t, n, nele;
   CONFIG *c;
-  CONFIG_GROUP *g;
-  
+  int i0, i1, n1;
+
   n = cfg->shells[0].n;
+  if (n > MAXN1) {
+    i0 = MAXNK1-1;
+  } else {
+    i0 = ShellToInt(cfg->shells[0].n, cfg->shells[0].kappa);
+  }
+  if (cfg->shells[0].nq > 1) {
+    i1 = i0;
+  } else if (cfg->n_shells > 1 && cfg->shells[1].n <= MAXN2) {
+    i1 = ShellToInt(cfg->shells[1].n, cfg->shells[1].kappa);
+  } else {
+    i1 = MAXNK2-1;
+  }
+  n1 = i0*MAXNK2 + i1;
+  ARRAY *csa = &_csary[n1];
+  if (csa->dim == 0) return 0;
   nele = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     nele += cfg->shells[i].nq;
   }
-  for (i = 0; i < n_groups; i++) {
-    g = GetGroup(i);
-    if (nele != g->n_electrons) continue;
-    if (n > g->nmax) continue;
-    for (j = 0; j < g->n_cfgs; j++) {
-      c = GetConfigFromGroup(i, j);
-      if (cfg->n_shells != c->n_shells) continue;
-      for (t = 0; t < c->n_shells; t++) {
-	if (cfg->shells[t].n != c->shells[t].n) break;
-	if (cfg->shells[t].kappa != c->shells[t].kappa) break;
-	if (cfg->shells[t].nq != c->shells[t].nq) break;
-      }
-      if (t == c->n_shells) return 1;
+  for (i = 0; i < csa->dim; i++) {
+    CONFIG **p = ArrayGet(csa, i);
+    c = *p;
+    if (nele != c->n_electrons) continue;
+    if (cfg->n_shells != c->n_shells) continue;
+    for (t = 0; t < c->n_shells; t++) {
+      if (cfg->shells[t].n != c->shells[t].n) break;
+      if (cfg->shells[t].kappa != c->shells[t].kappa) break;
+      if (cfg->shells[t].nq != c->shells[t].nq) break;
     }
+    if (t == c->n_shells) return 1;
   }
   return 0;
 }
@@ -2005,7 +2024,8 @@ int AddConfigToList(int k, CONFIG *cfg) {
   }
   cfg->igroup = k;
   cfg->icfg = cfg_groups[k].n_cfgs;
-  if (ArrayAppend(clist, cfg, InitConfigData) == NULL) return -1;
+  CONFIG *acfg = ArrayAppend(clist, cfg, InitConfigData);
+  if (acfg == NULL) return -1;
   if (cfg->n_csfs > 0) {    
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
@@ -2013,6 +2033,24 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (cfg->shells[0].n > cfg_groups[k].nmax) {
     cfg_groups[k].nmax = cfg->shells[0].n;
   }
+  int i0, i1, n1;
+  n = acfg->shells[0].n;
+  if (n > MAXN1) {
+    i0 = MAXNK1-1;
+  } else {
+    i0 = ShellToInt(acfg->shells[0].n, acfg->shells[0].kappa);
+  }
+  if (acfg->shells[0].nq > 1) {
+    i1 = i0;
+  } else if (acfg->n_shells > 1 && acfg->shells[1].n <= MAXN2) {
+    i1 = ShellToInt(acfg->shells[1].n, acfg->shells[1].kappa);
+  } else {
+    i1 = MAXNK2-1;
+  }
+  n1 = i0*MAXNK2 + i1;
+  ARRAY *csa = &_csary[n1];
+  ArrayAppend(csa, &acfg, InitPointerData);
+  
   return 0;
 }
 
@@ -2557,6 +2595,9 @@ int InitConfig(void) {
       }
     }
   }
+  for (i = 0; i < MAXNK12; i++) {
+    ArrayInit(&_csary[i], sizeof(CONFIG *), CONFIGS_BLOCK);
+  }
   return 0; 
 }
 
@@ -2644,6 +2685,9 @@ int ReinitConfig(int m) {
       ArrayFree(&(symmetry_list[i].states), NULL);
       symmetry_list[i].n_states = 0;
     }
+  }
+  for (i = 0; i < MAXNK12; i++) {
+    ArrayFree(&_csary[i], NULL);
   }
 
   return 0;
