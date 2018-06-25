@@ -193,7 +193,7 @@ int SavePotential(char *fn, POTENTIAL *p);
 int ModifyPotential(char *fn, POTENTIAL *p);
 void OptimizeModSE(int n, int ka, double dr, int ni);
 void RemoveOrbitalLock(void);
-int AddNewConfigToList(int k, int ni, int *kc, double sth,
+int AddNewConfigToList(int k, int ni, int *kc, CONFIG *c0,
 		       int nb, int **kbc, int nc, SHELL_RESTRICTION *sr);
 int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,

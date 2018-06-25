@@ -564,12 +564,17 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       }
       if (qb == NULL) sth = 0.0;
       else {
-	ngb = DecodeGroupArgs(qb, &kgb, NULL);
+	if (PyLong_Check(qb)) {
+	  ngb = PyLong_AsLong(qb);
+	  kgb = NULL;
+	} else {
+	  ngb = DecodeGroupArgs(qb, &kgb, NULL);
+	}
       }
       strncpy(scfg, s, MCHSHELL);
       r = ConfigSD(m, ng, kg, scfg, gn1, NULL,
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);
-      if (ngb > 0) free(kgb);
+      if (ngb > 0 && kgb) free(kgb);
     } else {
       if (!(PyArg_ParseTuple(args, "iOO|siiiiiidO",
 			     &m, &q1, &q, &s, &n0, &n1, &k0, &k1,
@@ -597,12 +602,17 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       ngb = ng;
       kgb = kg;
       if (qb != NULL) {
-	ngb = DecodeGroupArgs(qb, &kgb, NULL);
+	if (PyLong_Check(qb)) {
+	  ngb = PyLong_AsLong(qb);
+	  kgb = NULL;
+	} else {
+	  ngb = DecodeGroupArgs(qb, &kgb, NULL);
+	}
       }      
       strncpy(scfg, s, MCHSHELL);
       r = ConfigSD(m, ng, kg, scfg, gn1, gn2,
 		   n0, n1, n0d, n1d, k0, k1, ngb, kgb, sth);      
-      if (ngb > 0 && kgb != kg) free(kgb);
+      if (ngb > 0 && kgb && kgb != kg) free(kgb);
       if (ng > 0) free(kg);
     }
     if (r < 0) {

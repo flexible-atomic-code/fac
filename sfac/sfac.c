@@ -477,7 +477,12 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       if (argc > 3) {
 	sth = atof(argv[3]);
 	if (argc > 4) {
-	  ngb = DecodeGroupArgs(&kgb, 1, NULL, &argv[4], &argt[4], variables);
+	  if (argt[4] == NUMBER) {
+	    ngb = atoi(argv[4]);
+	    kgb = NULL;
+	  } else {
+	    ngb = DecodeGroupArgs(&kgb, 1, NULL, &argv[4], &argt[4], variables);
+	  }
 	}
       }
       gn1 = argv[1];
@@ -491,7 +496,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       k1 = 0;
       t = ConfigSD(m, 0, NULL, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1,
 		   ngb, kgb, sth);
-      if (ngb > 0) free(kgb);
+      if (ngb > 0 && kgb) free(kgb);
       return t;
     } else {
       if (argt[1] != STRING && argt[1] != LIST) return -1;
@@ -543,9 +548,14 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	  n1d = atoi(argv[9]);
 	  if (argc > 10) {
 	    sth = atof(argv[10]);
-	    if (argc > 11) {	      
-	      ngb = DecodeGroupArgs(&kgb, 1, NULL,
-				    &argv[11], &argt[11], variables);
+	    if (argc > 11) {
+	      if (argt[11] == NUMBER) {
+		ngb = 1;
+		kgb = NULL;
+	      } else {
+		ngb = DecodeGroupArgs(&kgb, 1, NULL,
+				      &argv[11], &argt[11], variables);
+	      }
 	    }
 	  }
 	}
@@ -558,7 +568,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	}
       }
       if (ng > 0) free(kg);
-      if (ngb > 0 && kgb != kg) free(kgb);
+      if (ngb > 0 && kgb && kgb != kg) free(kgb);
       return t;
     }
   }
@@ -3119,10 +3129,8 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       }
     }
     StructureMBPT1(argv[0], hfn0, hfn1, n, s, nk, nkm, n1, ng1, n2, ng2, n3,
-		   ncp, icp, icpf);    
+		   ncp, icp, icpf);
     free(s);
-    //if (n1 > 0) free(ng1);
-    //if (n2 > 0) free(ng2);
     if (nkm) free(nkm);
     for (i = 0; i < nf; i++) {
       free(v[i]);
