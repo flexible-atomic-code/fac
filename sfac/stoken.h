@@ -27,9 +27,9 @@
 #include "array.h"
 #include "parser.h"
 
-#define MAXNARGS 128
-#define MAXLINELENGTH 4000
-#define MAXMETHODNAME 64
+#define MAXNARGS 512
+#define MAXLINELENGTH 8192
+#define MAXMETHODNAME 128
 
 #define ERR_LINEUNTERMINATED (-1)
 #define ERR_LINETOOLONG      (-2)
