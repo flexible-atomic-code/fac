@@ -7670,15 +7670,17 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
 }
 
 int AddNewConfigToList(int k, int ni, int *kc,
-		       double sth, int nb, int **kcb,
+		       CONFIG *c0, int nb, int **kcb,
 		       int nc, SHELL_RESTRICTION *sr) {
   CONFIG *cfg = ConfigFromIList(ni, kc);
   int r;
+  double sth;
   if (nc > 0) {
     r = ApplyRestriction(1, cfg, nc, sr);
     if (r <= 0) return -1;
   }
   if (ConfigExists(cfg)) return -1;
+  sth = c0->sth;
   if (sth > 0) {
     int i0, i1, i2, i3;
     int n0, k0, n1, k1, n2, k2, n3, k3;
@@ -7852,6 +7854,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     ni = 0;
     for (i = 0; i < nr; i++) {
+      cr[i].sth = sth;
       if (ni < cr[i].shells[0].n) ni = cr[i].shells[0].n;
     }
     for (i = 0; i < ng; i++) {
@@ -7861,28 +7864,32 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     ni = ni*ni;
     kc = malloc(sizeof(int)*ni);
     nb = 0;
-    for (i = 0; i < ngb; i++) {
-      g = GetGroup(kgb[i]);
-      nb += g->n_cfgs;
-    }
-    kcb = NULL;
-    if (nb > 0) {
-      kcb = malloc(sizeof(int *)*nb);
-      for (i = 0; i < nb; i++) {
-	kcb[i] = malloc(sizeof(int)*ni);
-      }
-    }
-    k = 0;
-    for (i = 0; i < ngb; i++) {
-      g = GetGroup(kgb[i]);
-      for (j = 0; j < g->n_cfgs; j++, k++) {
-	c = GetConfigFromGroup(kgb[i], j);
-	ConfigToIList(c, ni, kcb[k]);
-      }
+    if (ngb > 0) {
+      if (kgb) {
+	for (i = 0; i < ngb; i++) {
+	  g = GetGroup(kgb[i]);
+	  nb += g->n_cfgs;
+	}
+	kcb = NULL;
+	if (nb > 0) {
+	  kcb = malloc(sizeof(int *)*nb);
+	  for (i = 0; i < nb; i++) {
+	    kcb[i] = malloc(sizeof(int)*ni);
+	  }
+	}
+	k = 0;
+	for (i = 0; i < ngb; i++) {
+	  g = GetGroup(kgb[i]);
+	  for (j = 0; j < g->n_cfgs; j++, k++) {
+	    c = GetConfigFromGroup(kgb[i], j);
+	    ConfigToIList(c, ni, kcb[k]);
+	  }
+	}
+      } 
     }
     for (i = 0; i < nr; i++) {
       ConfigToIList(&cr[i], ni, kc);
-      AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, nc, sr);
+      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr);
     }
     
     free(kc);
@@ -7939,7 +7946,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     g = GetGroup(kg[i]);
     if (ni < g->nmax) ni = g->nmax;
   }
-  if (kgb != kg) {
+  if (kgb && kgb != kg) {
     for (i = 0; i < ngb; i++) {
       g = GetGroup(kgb[i]);
       if (ni < g->nmax) ni = g->nmax;
@@ -7982,22 +7989,30 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     return -1;
   }
   nb = 0;
-  for (i = 0; i < ngb; i++) {
-    g = GetGroup(kgb[i]);
-    nb += g->n_cfgs;
-  }
-  if (nb > 0) {
-    kcb = malloc(sizeof(int *)*nb);
-    for (i = 0; i < nb; i++) {
-      kcb[i] = malloc(sizeof(int)*ni);
-    }
-  }
-  k = 0;
-  for (i = 0; i < ngb; i++) {
-    g = GetGroup(kgb[i]);
-    for (j = 0; j < g->n_cfgs; j++, k++) {
-      c = GetConfigFromGroup(kgb[i], j);
-      ConfigToIList(c, ni, kcb[k]);
+  if (ngb > 0) {
+    if (kgb && sth >= 0) {
+      for (i = 0; i < ngb; i++) {
+	g = GetGroup(kgb[i]);
+	nb += g->n_cfgs;
+      }
+      if (nb > 0) {
+	kcb = malloc(sizeof(int *)*nb);
+	for (i = 0; i < nb; i++) {
+	  kcb[i] = malloc(sizeof(int)*ni);
+	}
+      }
+      k = 0;
+      for (i = 0; i < ngb; i++) {
+	g = GetGroup(kgb[i]);
+	for (j = 0; j < g->n_cfgs; j++, k++) {
+	  c = GetConfigFromGroup(kgb[i], j);
+	  ConfigToIList(c, ni, kcb[k]);
+	}
+      }
+    } else {
+      nb = 1;
+      kcb = malloc(sizeof(int *)*nb);
+      kcb[0] = malloc(sizeof(int)*ni);
     }
   }
   nnr = nr;
@@ -8020,12 +8035,32 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     kcrn[0] = 0;
     kcrn[1] = 1;
   }
+  if (ng > 0 && kg) {
+    for (i = 0; i < ng; i++) {
+      g = GetGroup(kg[i]);
+      for (j = 0; j < g->n_cfgs; j++) {
+	c = GetConfigFromGroup(kg[i], j);
+	c->sth = sth;
+      }
+    }
+    if (sth < -EPS10) {
+      if (ngb <= 0 || !kgb) {
+	printf("sth < 0 without kgb: %g %d %d\n", sth, ngb, ng);
+	return -1;
+      }
+      GetInteractConfigs(ngb, kgb, ng, kg, -sth);
+    }
+  }
   if (m != 2) {
     for (i = 0; i < ng; i++) {
       g = GetGroup(kg[i]);
       for (j = 0; j < g->n_cfgs; j++) {
 	c = GetConfigFromGroup(kg[i], j);
+	if (c->sth < -EPS10) continue;
 	ConfigToIList(c, ni, kc);
+	if ((sth < 0 || kgb == NULL) && nb == 1) {
+	  memcpy(kcb[0], kc, sizeof(int)*ni);
+	}
 	for (km = 0; km < nnr; km++) {	
 	  for (ns = n0; ns <= n1; ns++) {
 	    for (ks = k0; ks <= k1; ks++) {
@@ -8051,9 +8086,12 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		  if (ir >= 0) kc[ir]--;
 		  if (is >= 0) kc[is]++;
 		  if (pr == 1000000) {
-		    pr = AddNewConfigToList(ig1, ni, kc, sth, nb, kcb, nc, sr);
+		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
 		  } else if (pr > -10) {
-		    AddNewConfigToList(ig1, ni, kc, 0.0, nb, kcb, nc, sr);
+		    double sth0 = c->sth;
+		    c->sth = 0.0;
+		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
+		    c->sth = sth0;
 		  }
 		  if (ir >= 0) kc[ir]++;
 		  if (is >= 0) kc[is]--;
@@ -8070,7 +8108,11 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
       g = GetGroup(kg[i]);
       for (j = 0; j < g->n_cfgs; j++) {
 	c = GetConfigFromGroup(kg[i], j);
+	if (c->sth < -EPS10) continue;
 	ConfigToIList(c, ni, kc);
+	if ((sth < 0 || kgb == NULL) && nb == 1) {
+	  memcpy(kcb[0], kc, sizeof(int)*ni);
+	}
 	for (km = 0; km < nnr; km++) {	
 	  for (ns = n0; ns <= n1; ns++) {
 	    for (kt = 0; kt < nnr; kt++) {
@@ -8122,11 +8164,14 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 			    if (kc[ir] >= 0 && kc[ird] >= 0 &&
 				kc[is] <= js+1 && kc[id] <= jd+1) {
 			      if (pr == 1000000) {
-				pr = AddNewConfigToList(ig2, ni, kc, sth,
+				pr = AddNewConfigToList(ig2, ni, kc, c,
 							nb, kcb, nc, sr);
 			      } else if (pr > -10) {
-				AddNewConfigToList(ig2, ni, kc, 0.0,
+				double sth0 = c->sth;
+				c->sth = 0.0;
+				AddNewConfigToList(ig2, ni, kc, c,
 						   nb, kcb, nc, sr);
+				c->sth = sth0;
 			      }
 			    }
 			    if (ird >= 0) kc[ird]++;

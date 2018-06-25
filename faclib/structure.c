@@ -3012,6 +3012,45 @@ int SortLevels(int start, int n, int m) {
   return 0;
 }
 
+void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth) {
+  int i, j, t, k;
+  HAMILTON *h;
+  CONFIG *cfg;
+  SYMMETRY *sym;
+  STATE *st;
+  double a, amix, *mix;
+  
+  SolveStructure(NULL, NULL, ng, kg, ngp, kgp, 1);
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    h = GetHamilton(i);
+    sym = GetSymmetry(i);
+    if (h->dim <= 0) continue;
+    mix = h->mixing + h->dim;
+    for (j = 0; j < h->dim; k++) {
+      for (t = 0; t < h->n_basis; t++) {
+	k = h->basis[t];
+	if (h->orig_dim > 0) {
+	  if (k < h->orig_dim) continue;
+	} else {
+	  if (k < h->dim) continue;
+	}
+	amix = fabs(mix[t]);
+	if (amix < sth) continue;
+	st = (STATE *) ArrayGet(&(sym->states), k);
+	cfg = GetConfigFromGroup(st->kgroup, st->kcfg);
+	a = sth/amix;
+	//printf("sth: %d %d %d %d %d %g %g %g\n",
+	//j, t, k, st->kgroup, st->kcfg, amix, a, cfg->sth);
+	if (cfg->sth < 0 || cfg->sth > a) cfg->sth = a;
+      }
+      j += h->n_basis;
+    }
+    AllocHamMem(h, -1, -1);
+    AllocHamMem(h, 0, 0);
+    h->perturb_iter = 0;
+  }
+}
+
 int SolveStructure(char *fn, char *hfn,
 		   int ng, int *kg, int ngp, int *kgp, int ip) {
   int ng0, nlevels, ns, k, i, md, rh;

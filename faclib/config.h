@@ -164,6 +164,7 @@ typedef struct _CONFIG_ {
   double sweight;
   double energy;
   double delta;
+  double sth;
   int *nrs;
   int *symstate;
   SHELL *shells;

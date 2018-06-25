@@ -265,6 +265,8 @@ int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
 void GenEigen(char *trans, char *jobz, int n, double *ap,
 	      double *w, double *wi, double *z,
 	      double *work, int lwork, int *info);
+void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);
+
 #endif
 
 

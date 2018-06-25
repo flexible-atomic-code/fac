@@ -4030,9 +4030,21 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   if (rh) {
     SolveStructure(fne, fn0, 0, NULL, 0, NULL, 0);
   } else {
-    SolveStructure(fne, fn0, nkg0, kg, nkgp, kgp, ip);
+    int *kg0 = kg;
+    if (fne) {
+      if (nkgp > 0) {
+	kgp = malloc(sizeof(int)*nkgp);
+	memcpy(kgp, kg+nkg0, sizeof(int)*nkgp);
+      }
+      kg0 = malloc(sizeof(int)*nkg0);
+      memcpy(kg0, kg, sizeof(int)*nkg0);
+    }
+    SolveStructure(fne, fn0, nkg0, kg0, nkgp, kgp, ip);
   }
   if (fne) {
+    for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+      meff[isym] = NULL;
+    }
     goto ERROR;
   }
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
