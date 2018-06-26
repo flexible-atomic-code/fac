@@ -4532,8 +4532,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  imeff[isym] = meff[isym];
 	}
       }
-      double ptt0, ptt1, tskip, tlock;
-      long long nlock;
+      double ptt0=0, ptt1=0, tskip=0, tlock=0;
+      long long nlock=0;      
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
