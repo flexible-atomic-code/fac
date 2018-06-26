@@ -64,7 +64,8 @@ static PyObject *_thisdict;
 
 static FILE *sfac_file = NULL;
 
-#define onError(message) {PyErr_SetString(ErrorObject, message);}
+//#define onError(message) {PyErr_SetString(ErrorObject, message);}
+#define onError(message) {printf("%s\n", message);}
 
 static void SFACStatement(char *func, PyObject *args, PyObject *kargs) {
   int i, n, nargs;
