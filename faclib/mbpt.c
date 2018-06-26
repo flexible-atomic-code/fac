@@ -4348,8 +4348,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     for (icp = icpi; icp <= icpf; icp++) {
       if (MyRankMPI() == 0) {
 	char *pc = fn1;
-	while(pc && *pc != '%') pc++;
-	if (pc) {
+	while(*pc && *pc != '%') pc++;
+	if (*pc) {
 	  sprintf(tfn, fn1, icp);
 	} else if (icpf > icpi) {
 	  sprintf(tfn, "%s%02d", fn1, icp);
