@@ -4353,6 +4353,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  sprintf(tfn, fn1, icp);
 	} else if (icpf > icpi) {
 	  sprintf(tfn, "%s%02d", fn1, icp);
+	} else {
+	  sprintf(tfn, "%s", fn1);
 	}
 	f = fopen(tfn, "w");
 	if (f == NULL) {
