@@ -2275,7 +2275,7 @@ int ReadConfig(char *fn, char *c) {
   while (1) {
     char *p = fgets(buf, 1024, f);
     if (p == NULL) break;
-    p[10] = '\0';
+    p[32] = '\0';
     char *s = p;
     while(s && *s == ' ') s++;
     if (s) {
