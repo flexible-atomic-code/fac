@@ -2066,29 +2066,58 @@ void GenEigen(char *trans, char *jobz, int n, double *ap,
     for (i = 0; i <= j; i++) {
       ti = t + i;
       i1 = i*n + j;
-      i2 = j*n + i;
-      wi[ti] = 0.5*(ap[i1]+ap[i2]);
-      ap[i1] -= wi[ti];
-      ap[i2] -= wi[ti];
+      if (i == j) {
+	wi[ti] = ap[i1];
+	ap[i1] = 0.0;
+	i2 = i1;
+      } else {
+	i2 = j*n + i;
+	wi[ti] = 0.5*(ap[i1]+ap[i2]);
+	ap[i1] -= wi[ti];
+	ap[i2] -= wi[ti];
+      }
+      //printf("ap: %d %d %15.8E %15.8E %15.8E\n", i, j, wi[ti], ap[i1], ap[i2]);
     }
   }
-  DSPEV(jobz, uplo, n, wi, w, z, n, work, info);
-  if (info) {
+  DSPEV(jobz, uplo, n, wi, w, z, n, work, info);  
+  if (*info) {
+    MPrintf(-1, "DSPEV ERROR in GenEigen: %d\n", *info);
     return;
   }
   double *b = z;
   double a;
-  for (t = 0; t < n; t++) {
-    ti = 0;
-    a = 0.0;
+  if (dgeev_mode == 2) {
+    int m;
+    double c;
     for (i = 0; i < n; i++) {
-      for (j = 0; j < n; j++) {
-	a += b[i]*b[j]*ap[ti];
-	ti++;
+      for (j = 0; j < n; j++) {      
+	a = 0.0;
+	for (t = 0; t < n; t++) {
+	  c = 0;
+	  for (m = 0; m < n; m++) {
+	    c += b[j*n+m]*ap[m*n+t];
+	  }
+	  a += c*b[i*n+t];
+	}
+	if (i == j) a += w[i];
+	wi[j*n+i] = a;
+	//printf("a: %d %d %15.8E\n", i, j, wi[j*n+i]);
       }
     }
-    w[t] += a;
-    b += n;
+    memcpy(ap, wi, sizeof(double)*n*n);
+    double *zp = wi+n;
+    DGEEV(trans, jobz, n, ap, n, w, wi, zp, n, zp, n, work, lwork, info);
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < n; j++) {
+	a = 0;
+	for (t = 0; t < n; t++) {
+	  a += z[t*n+i]*zp[j*n+t];
+	}
+	ap[j*n+i] = a;
+	//printf("m: %d %d %15.8E %15.8E %15.8E\n", i, j, ap[j*n+i], z[j*n+i], zp[j*n+i]);
+      }
+    }
+    memcpy(z, ap, sizeof(double)*n*n);
   }
 }
       
@@ -2236,7 +2265,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	MPrintf(-1, "DGEEV0 ERROR: %d %d %d\n", h->pj, h->perturb_iter, info);
 	goto ERROR;
       }
-      if (dgeev_mode == 0) {
+      if (dgeev_mode%2 == 0) {
 	for (i = 0; i < n; i++) {
 	  if (fabs(wi[i]) > EPS5) {
 	    t = GetPrincipleBasis(z+i*n, n, NULL);
@@ -2255,7 +2284,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
       MPrintf(-1, "DGEEV1 ERROR: %d %d %d\n", h->pj, h->perturb_iter, info);	
       goto ERROR;
     }
-    if (dgeev_mode == 0) {
+    if (dgeev_mode%2 == 0) {
       for (i = 0; i < n; i++) {
 	if (fabs(wi[i]) > EPS5) {
 	  t = GetPrincipleBasis(z+i*n, n, NULL);
@@ -2358,7 +2387,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  }
 	  x += np;
 	}
-	if (dgeev_mode == 0) {
+	if (dgeev_mode%2 == 0) {
 	  y = h->mixing + n;
 	  x = mixing + n;
 	  for (i = 0; i < n; i++) {
@@ -2419,7 +2448,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 		  h->pj, iter, h->perturb_iter, info);
 	  goto ERROR;
 	}
-	if (dgeev_mode == 0) {
+	if (dgeev_mode%2 == 0) {
 	  for (i = 0; i < n; i++) {
 	    if (fabs(wi[i]) > EPS5) {
 	      t = GetPrincipleBasis(z+i*n, n, NULL);
