@@ -2344,8 +2344,11 @@ int DiagnolizeHamilton(HAMILTON *h) {
     h->diag_iter = 0;
     h->diag_etol = 0;
     if (diag_maxiter <= 0) {
-      h->diag_emin = 1e30;
+      h->diag_emin = 1e30;    
+      y = h->mixing + n;
       for (i = 0; i < n; i++) {
+	k = GetPrincipleBasis(y+i*m, n, NULL);
+	if (k >= h->orig_dim) continue;
 	if (h->mixing[i] < h->diag_emin) h->diag_emin = h->mixing[i];
       }
     } else {
@@ -2527,7 +2530,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	h->diag_etol = de;
 	h->diag_emin = r1[i].r;
 	etol = EneTol(r1[kr1].r);
-	//MPrintf(-1, "hiter: %d %d %d %d %d %d %d %g %g %15.8E %15.8E %g\n", h->pj, h->perturb_iter, iter, m, n, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n]);
+	//MPrintf(-1, "hiter: %d %d %d %d %d %d %d %d %g %g %15.8E %15.8E %g\n", h->pj, h->perturb_iter, iter, m, n, k, kr0, kr1, de, etol, r0[kr0].r*HARTREE_EV, r1[kr1].r*HARTREE_EV, h->mixing[n]);
 	if (iter > 0 && de < etol) break;
 	memcpy(r0, r1, sizeof(RANDIDX)*n);
 	kr0 = kr1;

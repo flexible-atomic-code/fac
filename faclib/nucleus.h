@@ -45,7 +45,7 @@ double GetAtomicMass(void);
 double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
-double GetAtomicEffectiveZ0(double r);
+double GetExtraZ(double r);
 void SetExtraPotential(int m, int n, double *p);
 double GetAtomicChargeDist(double r);
 NUCLEUS *GetAtomicNucleus(void);

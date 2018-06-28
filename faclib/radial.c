@@ -299,7 +299,7 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
       h->dW[i] = 0;
       h->dW2[i] = 0;
       if (h->atom->epm >= 0) {
-	h->Z[i] = GetAtomicEffectiveZ0(h->rad[i]);
+	h->Z[i] = GetAtomicEffectiveZ(h->rad[i]);
       }
     }
     h->ZVP[i] = 0;

@@ -1907,13 +1907,19 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
 	       c12, d1, d2, mbpt_warn);
       }
-    } else {
-      if (mbpt_ignore > 0 && fabs(c12) > mbpt_ignore) {
-	continue;
-      }
     }
     sd1 = c/d1;
     sd2 = c/d2;
+    if (mbpt_ignore > 0) {
+      if (fabs(sd1/d1) > mbpt_ignore) {
+	sd1 = 0;
+	c12 = 0;
+      }
+      if (fabs(sd2/d2) > mbpt_ignore) {
+	sd2 = 0;
+	c12 = 0;
+      }
+    }
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
@@ -2085,13 +2091,19 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
 	       c12, d1, d2, mbpt_warn);
       }
-    } else {
-      if (mbpt_ignore > 0 && fabs(c12) > mbpt_ignore) {
-	continue;
-      }
     }
     sd = c/d1;
     se = c/d2;
+    if (mbpt_ignore > 0) {
+      if (fabs(sd/d1) > mbpt_ignore) {
+	sd = 0;
+	c12 = 0;
+      }
+      if (fabs(se/d2) > mbpt_ignore) {
+	se = 0;
+	c12 = 0;
+      }
+    }
 #if CPMEFF == 0
 #pragma omp atomic
 #endif
@@ -2387,13 +2399,20 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
 	       y12, d1, d2, mbpt_warn);
       }
-    } else {
-      if (mbpt_ignore > 0 && fabs(y12) > mbpt_ignore) {
-	continue;
-      }
     }
     cd1 = y/d1;
     cd2 = y/d2;
+    if (mbpt_ignore > 0) {
+      if (fabs(cd1/d1) > mbpt_ignore) {
+	cd1 = 0;
+	y12 = 0;
+      }
+      if (fabs(cd2/d2) > mbpt_ignore) {
+	cd2 = 0;
+	y12 = 0;
+      }
+    }
+    
 #if CPMEFF == 0
 #pragma omp atomic
 #endif

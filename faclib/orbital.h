@@ -105,6 +105,7 @@ void Differential(double *p, double *dp, int i1, int i2, double *drdrho);
 void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double q, double r0);
+int SetPotentialExtraZ(POTENTIAL *pot);
 int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);

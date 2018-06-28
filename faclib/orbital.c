@@ -2309,8 +2309,11 @@ int SetPotentialZ(POTENTIAL *pot) {
   int i;
 
   for (i = 0; i < pot->maxrp; i++) {
-    pot->Z[i] = GetAtomicEffectiveZ(pot->rad[i]);
     pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
+  }
+  SetPotentialExtraZ(pot);
+  for (i = 0; i < pot->maxrp; i++) {
+    pot->Z[i] += GetAtomicEffectiveZ(pot->rad[i]);
   }
   if (pot->atom->rn > 0 || pot->atom->epm >= 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1, pot->dr_drho);
@@ -2767,7 +2770,7 @@ int SetPotentialVP(POTENTIAL *pot) {
     for (i = 0; i < m; i++) {
       _dwork[i] = pot->ZVP[i]*pot->dr_drho[i];
       r = pot->rad[i];
-      _dwork1[i] = pot->ar*sqrt(r) + pot->br*log(r);      
+      _dwork1[i] = pot->ar*pow(r, pot->qr) + pot->br*log(r);      
     }
     _dwork2[m-1] = 0;
     NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
@@ -2779,12 +2782,12 @@ int SetPotentialVP(POTENTIAL *pot) {
       for (j = 0; j < k; j++) {
 	r = fabs(pot->rad[i] - pot->rad[j]);
 	if (r < pot->rad[0]) r = pot->rad[0];
-	pot->dZVP[j] = pot->ar*sqrt(r) + pot->br*log(r);
+	pot->dZVP[j] = pot->ar*pow(r, pot->qr) + pot->br*log(r);
       }
       UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZVP, _dwork3);
       for (j = 0; j < k; j++) {	
 	r = pot->rad[i] + pot->rad[j];
-	pot->dZVP[j] = pot->ar*sqrt(r) + pot->br*log(r);
+	pot->dZVP[j] = pot->ar*pow(r, pot->qr) + pot->br*log(r);
       }
       UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZVP, pot->dZVP2);
       for (j = 0; j < k; j++) {
@@ -2810,4 +2813,60 @@ int SetPotentialVP(POTENTIAL *pot) {
   Differential(pot->dZVP, pot->dZVP2, 0, m-1, pot->dr_drho);
   return 0;
 }
-      
+
+int SetPotentialExtraZ(POTENTIAL *pot) {
+  int i, m, j, k, n, p;
+  double r, r5, r3;
+  
+  m = pot->maxrp;
+  for (i = 0; i < m; i++) {
+    r = pot->rad[i];
+    pot->Z[i] = GetExtraZ(r);
+  }  
+  if (pot->atom->epm >= 0 && pot->atom->epm < 100 && pot->atom->rn > 0) {
+    r5 = pot->atom->rn*5.0;
+    r3 = r5*3;
+    for (i = 0; i < m; i++) {
+      _dwork[i] = pot->Z[i]*pot->dr_drho[i];
+      r = pot->rad[i];
+      _dwork1[i] = pot->ar*pow(r, pot->qr) + pot->br*log(r);      
+    }
+    _dwork2[m-1] = 0;
+    NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
+    n = 3;
+    for (k = 0; k < m; k++) {
+      if (pot->qdist[k] < 1e-15*pot->qdist[0]) break;
+    }
+    for (i = 0; i < m; i++) {
+      for (j = 0; j < k; j++) {
+	r = fabs(pot->rad[i] - pot->rad[j]);
+	if (r < pot->rad[0]) r = pot->rad[0];
+	pot->dZ[j] = pot->ar*pow(r, pot->qr) + pot->br*log(r);
+      }
+      UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZ, _dwork3);
+      for (j = 0; j < k; j++) {	
+	r = pot->rad[i] + pot->rad[j];
+	pot->dZ[j] = pot->ar*pow(r, pot->qr) + pot->br*log(r);
+      }
+      UVIP3P(n, m, _dwork1, _dwork2, k, pot->dZ, pot->dZ2);
+      for (j = 0; j < k; j++) {
+	_dwork3[j] -= pot->dZ2[j];
+	_dwork3[j] *= pot->qdist[j]*pot->rad[j];
+	_dwork3[j] *= pot->dr_drho[j];
+      }
+      pot->dW2[i] = Simpson(_dwork3, 0, k-1)/(2*pot->atom->atomic_number);
+      if (pot->rad[i] > r5 &&
+	  fabs(pot->dW2[i]-pot->Z[i]) <= 1e-5*fabs(pot->Z[i])) {
+	break;
+      }
+      if (pot->rad[i] > r3) {
+	break;
+      }
+    }
+    p = i;
+    for (i = 0; i < p; i++) {
+      pot->Z[i] = pot->dW2[i];
+    }
+  }
+  return 0;
+}
