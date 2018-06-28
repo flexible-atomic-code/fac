@@ -1899,7 +1899,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     }
     double c12 = c/(d1*d2);
-    if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && fabs(c12) > mbpt_warn) {
 	printf("large h22term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
 	       nn1,ka1, nn2,ka2, nn3,ka3, nn4,ka4,
@@ -1909,7 +1909,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     } else {
       if (mbpt_ignore > 0 && fabs(c12) > mbpt_ignore) {
-	return;
+	continue;
       }
     }
     sd1 = c/d1;
@@ -2078,7 +2078,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       H3rd0(meff[s0], m1, m0, d2, c, i0, 1);
     }
     double c12 = c/(d1*d2);
-    if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && fabs(c12) > mbpt_warn) {
 	printf("large h12term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
 	       nn1,ka1, nn2,ka2, nn3,ka3, nn4,ka4, nn5,ka5, nn6,ka6,
@@ -2087,7 +2087,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     } else {
       if (mbpt_ignore > 0 && fabs(c12) > mbpt_ignore) {
-	return;
+	continue;
       }
     }
     sd = c/d1;
@@ -2379,7 +2379,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     ng = meff[s0]->n;
     y = r1*r2*a[k];
     double y12 = y/(d1*d2);
-    if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && fabs(y12) > mbpt_warn) {
 	printf("large h11term: %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
 	       orb0->n, orb0->kappa, orb1->n, orb1->kappa,
@@ -2389,7 +2389,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
     } else {
       if (mbpt_ignore > 0 && fabs(y12) > mbpt_ignore) {
-	return;
+	continue;
       }
     }
     cd1 = y/d1;
