@@ -1352,12 +1352,13 @@ double GetAtomicChargeDist(double r) {
   return r3;
 }
 
-double GetAtomicEffectiveZ(double r) {
+double GetExtraZ(double r) {
   double z;
-  z = GetAtomicEffectiveZ0(r);
+  z = 0.0;
   switch (atom.epm) {
   case 0:
-    z += atom.epp[0]*exp(-r/atom.epp[1]);
+  case 100:
+    z = atom.epp[0]*exp(-r/atom.epp[1]);
     break;
   default:
     break;
@@ -1365,7 +1366,7 @@ double GetAtomicEffectiveZ(double r) {
   return z;
 }
 
-double GetAtomicEffectiveZ0(double r) {
+double GetAtomicEffectiveZ(double r) {
   double x, y[3], z;
   int np = 3;
   int n = NFERMI;
