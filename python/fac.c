@@ -508,11 +508,11 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   return r;
 }
 
-static PyObject *PReadConfig(PyObject *self, PyObject *args, PyObject *keywds) {
+static PyObject *PReadConfig(PyObject *self, PyObject *args) {
   char *s, *c;
   
   if (sfac_file) {
-    SFACStatement("ReadConfig", args, keywds);
+    SFACStatement("ReadConfig", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -1188,6 +1188,31 @@ static PyObject *PGetCG(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", ClebschGordan(j1, m1, j2, m2, j3, m3));
 }
 
+static PyObject *PSetExtraPotential(PyObject *self, PyObject *args) {
+  int m;
+  int n;
+  double *p;
+  PyObject *t;
+  
+  if (sfac_file) {
+    SFACStatement("SetExtraPotential", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  t = NULL;
+  n = 0;
+  p = NULL;
+  if (!PyArg_ParseTuple(args, "i|O", &m, &t)) {
+    return NULL;
+  }
+  if (m >= 0 && t != NULL) {
+    n = DoubleFromList(t, &p);
+  }
+  SetExtraPotential(m, n, p);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
   double z, mass, rn, a, npr;
@@ -5625,6 +5650,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCILevel", PSetCILevel, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
+  {"SetExtraPotential", PSetExtraPotential, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"GetBoundary", PGetBoundary, METH_VARARGS},

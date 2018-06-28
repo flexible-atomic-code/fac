@@ -2312,7 +2312,7 @@ int SetPotentialZ(POTENTIAL *pot) {
     pot->Z[i] = GetAtomicEffectiveZ(pot->rad[i]);
     pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
   }
-  if (pot->atom->rn > 0) {
+  if (pot->atom->rn > 0 || pot->atom->epm >= 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1, pot->dr_drho);
     Differential(pot->dZ, pot->dZ2, 0, pot->maxrp-1, pot->dr_drho);
   } else {

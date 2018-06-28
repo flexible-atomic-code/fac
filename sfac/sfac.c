@@ -1581,7 +1581,23 @@ static int PSetMixCut(int argc, char *argv[], int argt[],
   
   return 0;
 }
+static int PSetExtraPotential(int argc, char *argv[], int argt[], 
+			      ARRAY *variables) {
+  int m;
+  int n;
+  double *p;
 
+  if (argc < 1 || argc > 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  m = atoi(argv[0]);  
+  n = 0;
+  p = NULL;
+  if (m >= 0 && argc == 2) {
+    n = DoubleFromList(argv[1], argt[1], variables,  &p);
+  }
+  SetExtraPotential(m, n, p);
+  return 0;
+}
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   double z, mass, rn, a, npr;
@@ -4482,6 +4498,7 @@ static METHOD methods[] = {
   {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
+  {"SetExtraPotential", PSetExtraPotential, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
   {"SetTEGrid", PSetTEGrid, METH_VARARGS},

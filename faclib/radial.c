@@ -298,6 +298,9 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
       h->W[i] = 0;
       h->dW[i] = 0;
       h->dW2[i] = 0;
+      if (h->atom->epm >= 0) {
+	h->Z[i] = GetAtomicEffectiveZ0(h->rad[i]);
+      }
     }
     h->ZVP[i] = 0;
     h->dZVP[i] = 0;
@@ -309,6 +312,10 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
     }
   }
   if (hlike) {
+    if (h->atom->epm >= 0) {
+      Differential(h->Z, h->dZ, 0, h->maxrp-1, h->dr_drho);
+      Differential(h->dZ, h->dZ2, 0, h->maxrp-1, h->dr_drho);
+    }
     SetPotentialVc(h);
   }
   SetPotentialVT(h);

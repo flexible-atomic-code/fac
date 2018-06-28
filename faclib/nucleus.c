@@ -1032,8 +1032,16 @@ int InitNucleus() {
       }
     }
   }
-  
- return 0;
+
+  SetExtraPotential(-1, 0, NULL);
+  return 0;
+}
+
+void SetExtraPotential(int m, int n, double *p) {
+  atom.epm = m;
+  if (m >= 0 && n > 0 && p != NULL) {
+    memcpy(atom.epp, p, sizeof(double)*Min(n, NEPP));
+  }
 }
 
 char *GetAtomicSymbolTable(void) {
@@ -1293,10 +1301,23 @@ NUCLEUS *GetAtomicNucleus() {
 }
 
 void PrintNucleus() {
+  printf("atom: %s\n", atom.symbol);
+  printf("z: %g\n", atom.atomic_number);
+  printf("mass: %g\n", atom.mass);
+  printf("rn: %g\n", atom.rn);
+  printf("rms: %g\n", atom.rms*1e5*RBOHR);
+  printf("rmse: %g\n", atom.rmse);
+  printf("fz1: %g\n", atom.z1);
+  printf("fa: %g\n", atom.a);
+  printf("fb: %g\n", atom.b);
+  printf("fc: %g\n", atom.c);
+  printf("ep: %d %g %g\n", atom.epm, atom.epp[0], atom.epp[1]);
+  /*
   printf("%s z=%g m=%g r=%g/%.4f/%.4f z1=%g a=%g b=%g c=%g\n",
 	 atom.symbol, atom.atomic_number, atom.mass,
 	 atom.rn, atom.rms*1e5*RBOHR, atom.rmse, atom.z1,
 	 atom.a, atom.b, atom.c);
+  */
 }
 
 double GetAtomicMass(void) {
@@ -1332,6 +1353,19 @@ double GetAtomicChargeDist(double r) {
 }
 
 double GetAtomicEffectiveZ(double r) {
+  double z;
+  z = GetAtomicEffectiveZ0(r);
+  switch (atom.epm) {
+  case 0:
+    z += atom.epp[0]*exp(-r/atom.epp[1]);
+    break;
+  default:
+    break;
+  }
+  return z;
+}
+
+double GetAtomicEffectiveZ0(double r) {
   double x, y[3], z;
   int np = 3;
   int n = NFERMI;
