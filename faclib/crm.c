@@ -1362,8 +1362,13 @@ int IonizedIndex(int i, int m) {
 
 int GetNComplex(NCOMPLEX *c, char *s) {
   int i, n, nq;
-  char *p;
-  
+  char *p, buf[8192];
+  n = strlen(s);
+  for (i = 0; i <= n; i++) {
+    if (s[i] == '.') buf[i] = ' ';
+    else buf[i] = s[i];
+  }
+  s = buf;
   i = 0;
   while (1) {
     if (i == MAXNCOMPLEX-1) {
@@ -1394,11 +1399,12 @@ int StrNComplex(char *s, NCOMPLEX *c) {
   i = 0;
   s[0] = '\0';
   while (i < MAXNCOMPLEX && c[i].n) {
-    sprintf(a, "%d*%d ", c[i].n, c[i].nq);
+    sprintf(a, "%d*%d.", c[i].n, c[i].nq);
     strcat(s, a);
     i++;
   }
-  
+  int n = strlen(s);
+  s[n-1] = '\0';
   return i;
 }
 
