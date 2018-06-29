@@ -1449,8 +1449,12 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     for (i2 = pot->r_core; i2 < i2p2; i2++) {
       if (_veff[i2+1] > _veff[i2]) break;
     }
-    i2 += j*pot->asymp;
+    i2 += j*pot->asymp;    
     i2p2 = i2 + 2;
+    if (i2p2 >= pot->maxrp) {
+      i2p2 = pot->maxrp-1;
+      i2 = i2p2-2;
+    }
     nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2p2, 1.0, 0);
     for (i = 0; i <= i2p2; i++) {
       p[i] = p[i] * pot->dr_drho2[i];
