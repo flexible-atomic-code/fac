@@ -2199,7 +2199,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  else if (mmix < perturb_expdimz) ip = -1;
 	}	
 	if (r > ra) {
-	  //if (ip) printf("r0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  //printf("r0: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
 	  b[k] = ra*a;
 	  if (ip > 0) {
 	    ib[i] = 1;
@@ -2207,7 +2207,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	    b[k] = 0;
 	  }
 	} else if (r < -ra) {
-	  //if (ip) printf("r1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
+	  //printf("r1: %d %d %g %g %g %d %d %g %g\n", i, j, a, r, b[k], ip, h->exp_dim, mmix, perturb_expdim);
 	  b[k] = -ra*a;
 	  if (ip > 0) {
 	    ib[i] = 1;
@@ -2354,6 +2354,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
     } else {
       double de, etol;
       int iter, s, kr0, kr1;
+      //memcpy(b, b0, sizeof(double)*n*np);
       r0 = malloc(sizeof(RANDIDX)*n);
       r1 = malloc(sizeof(RANDIDX)*n);
       for (i = 0; i < n; i++) {

@@ -1606,7 +1606,9 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
       acfg->kg = NULL;
       acfg->weight = NULL;
     }
-    GetAverageConfig(ng, kg, ic, weight, 
+    int nmax = potential->nmax-1;
+    if (nmax < 1) nmax = 1;
+    GetAverageConfig(ng, kg, ic, weight, potential->nmax-1,
 		     optimize_control.n_screen,
 		     optimize_control.screened_n,
 		     optimize_control.screened_charge,
@@ -2440,11 +2442,19 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
     for (k = 0; k < ng; k++) {
       if (kg != NULL) kk = kg[k];
       else kk = k;
+      g = GetGroup(kk);
+      if (g->nmax >= potential->nmax) {
+	for (i = 0; i < g->n_cfgs; i++) {
+	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	  cfg->energy = 0;
+	  cfg->delta = 0;
+	}
+	continue;
+      }
       if (md == 0) {
 	OptimizeRadial(1, &kk, -1, NULL);
 	if (mr > 0) RefineRadial(mr, 0);
       }
-      g = GetGroup(kk);
       for (i = 0; i < g->n_cfgs; i++) {
 	if (md > 0) {
 	  OptimizeRadial(1, &kk, i, NULL);
