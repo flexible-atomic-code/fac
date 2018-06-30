@@ -1357,8 +1357,8 @@ double GetExtraZ(double r) {
   z = 0.0;
   switch (atom.epm) {
   case 0:
-  case 100:
-    z = atom.epp[0]*exp(-r/atom.epp[1]);
+  case 100:    
+    z = atom.epp[0]*(atom.mass-atom.atomic_number) * exp(-r/atom.epp[1]);
     break;
   default:
     break;

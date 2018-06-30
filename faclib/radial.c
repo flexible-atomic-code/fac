@@ -1606,9 +1606,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
       acfg->kg = NULL;
       acfg->weight = NULL;
     }
-    int nmax = potential->nmax-1;
-    if (nmax < 1) nmax = 1;
-    GetAverageConfig(ng, kg, ic, weight, potential->nmax-1,
+    GetAverageConfig(ng, kg, ic, weight,
 		     optimize_control.n_screen,
 		     optimize_control.screened_n,
 		     optimize_control.screened_charge,
@@ -1636,6 +1634,11 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
+  }
+  for (i = 0; i < acfg->n_shells; i++) {
+    if (acfg->n[i] >= potential->nmax) {
+      acfg->n[i] = potential->nmax-1;
+    }
   }
   SetPotentialZ(potential);
   SetReferencePotential(hpotential, potential, 1);
@@ -2443,7 +2446,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (kg != NULL) kk = kg[k];
       else kk = k;
       g = GetGroup(kk);
-      if (g->nmax >= potential->nmax) {
+      if (potential->nmax > 0 && g->nmax >= potential->nmax) {
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = 0;
@@ -2461,6 +2464,11 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (mr > 0) RefineRadial(mr, 0);
 	}
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	if (potential->nmax > 0 && g->nmax >= potential->nmax) {
+	  cfg->energy = 0;
+	  cfg->delta = 0;
+	  continue;
+	}
 	e0 = AverageEnergyConfigMode(cfg, md1);
 	cfg->energy = e0;
 	ReinitRadial(1);
