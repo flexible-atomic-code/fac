@@ -1376,14 +1376,16 @@ double GetExtraZ(double r, int i) {
   switch (atom.epm[i]) {
   case 0:
   case 100:    
-    zi = atom.epp[i][0]*(atom.mass-atom.atomic_number) *
-      exp(-r/atom.epp[i][1]);
+    zi = atom.epp[i][0]*(atom.mass-atom.atomic_number);
+    if (atom.epp[i][1] > 0) {
+      zi *= exp(-2.68e-4*atom.epp[i][1]*r);
+    }
     z += zi;
     break;
   case 1:
   case 101:
     if (r < atom.rms*atom.epp[i][1]) r = atom.rms*atom.epp[i][1];
-    zi = 1.25e-5*(0.76+2.79/pow(atom.mass,0.33333))*atom.mass;
+    zi = 1.48e-8*(0.76+2.79/pow(atom.mass,0.33333))*atom.mass;
     zi *= atom.epp[i][0]*atom.rms*atom.rms/(r*r*r);
     zi *= FINE_STRUCTURE_CONST;
     z += zi;
