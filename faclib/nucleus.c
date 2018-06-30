@@ -1038,9 +1038,23 @@ int InitNucleus() {
 }
 
 void SetExtraPotential(int m, int n, double *p) {
-  atom.epm = m;
-  if (m >= 0 && n > 0 && p != NULL) {
-    memcpy(atom.epp, p, sizeof(double)*Min(n, NEPP));
+  int i;
+  if (m < 0) {
+    atom.nep = 0;
+    for (i = 0; i < NEP; i++) {
+      atom.epm[i] = m;      
+    }
+  } else {
+    i = atom.nep;
+    if (i == NEP) {
+      printf("extra potential terms exceeded max: %d\n", NEP);
+      return;
+    }
+    atom.epm[i] = m;
+    if (m >= 0 && n > 0 && p != NULL) {
+      memcpy(atom.epp[i], p, sizeof(double)*Min(n, NEPP));
+    }
+    atom.nep++;
   }
 }
 
@@ -1311,7 +1325,10 @@ void PrintNucleus() {
   printf("fa: %g\n", atom.a);
   printf("fb: %g\n", atom.b);
   printf("fc: %g\n", atom.c);
-  printf("ep: %d %g %g\n", atom.epm, atom.epp[0], atom.epp[1]);
+  int i;
+  for (i = 0; i < atom.nep; i++) {
+    printf("ep: %d %d %g %g\n", i, atom.epm[i], atom.epp[i][0], atom.epp[i][1]);
+  }
   /*
   printf("%s z=%g m=%g r=%g/%.4f/%.4f z1=%g a=%g b=%g c=%g\n",
 	 atom.symbol, atom.atomic_number, atom.mass,
@@ -1352,13 +1369,24 @@ double GetAtomicChargeDist(double r) {
   return r3;
 }
 
-double GetExtraZ(double r) {
-  double z;
+double GetExtraZ(double r, int i) {
+  double z, zi;
+  if (i >= atom.nep) return 0;
   z = 0.0;
-  switch (atom.epm) {
+  switch (atom.epm[i]) {
   case 0:
   case 100:    
-    z = atom.epp[0]*(atom.mass-atom.atomic_number) * exp(-r/atom.epp[1]);
+    zi = atom.epp[i][0]*(atom.mass-atom.atomic_number) *
+      exp(-r/atom.epp[i][1]);
+    z += zi;
+    break;
+  case 1:
+  case 101:
+    if (r < atom.rms*atom.epp[i][1]) r = atom.rms*atom.epp[i][1];
+    zi = 1.25e-5*(0.76+2.79/pow(atom.mass,0.33333))*atom.mass;
+    zi *= atom.epp[i][0]*atom.rms*atom.rms/(r*r*r);
+    zi *= FINE_STRUCTURE_CONST;
+    z += zi;
     break;
   default:
     break;

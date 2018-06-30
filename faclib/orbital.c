@@ -2314,12 +2314,12 @@ int SetPotentialZ(POTENTIAL *pot) {
 
   for (i = 0; i < pot->maxrp; i++) {
     pot->qdist[i] = GetAtomicChargeDist(pot->rad[i]);
+    pot->Z[i] = GetAtomicEffectiveZ(pot->rad[i]);
   }
-  SetPotentialExtraZ(pot);
-  for (i = 0; i < pot->maxrp; i++) {
-    pot->Z[i] += GetAtomicEffectiveZ(pot->rad[i]);
+  for (i = 0; i < pot->atom->nep; i++) {
+    SetPotentialExtraZ(pot, i);
   }
-  if (pot->atom->rn > 0 || pot->atom->epm >= 0) {
+  if (pot->atom->rn > 0 || pot->atom->nep > 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1, pot->dr_drho);
     Differential(pot->dZ, pot->dZ2, 0, pot->maxrp-1, pot->dr_drho);
   } else {
@@ -2818,20 +2818,20 @@ int SetPotentialVP(POTENTIAL *pot) {
   return 0;
 }
 
-int SetPotentialExtraZ(POTENTIAL *pot) {
+int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
   int i, m, j, k, n, p;
   double r, r5, r3;
   
   m = pot->maxrp;
   for (i = 0; i < m; i++) {
     r = pot->rad[i];
-    pot->Z[i] = GetExtraZ(r);
+    pot->dW[i] = GetExtraZ(r, iep);
   }  
-  if (pot->atom->epm >= 0 && pot->atom->epm < 100 && pot->atom->rn > 0) {
+  if (pot->atom->epm[iep] < 100 && pot->atom->rn > 0) {
     r5 = pot->atom->rn*5.0;
     r3 = r5*3;
     for (i = 0; i < m; i++) {
-      _dwork[i] = pot->Z[i]*pot->dr_drho[i];
+      _dwork[i] = pot->dW[i]*pot->dr_drho[i];
       r = pot->rad[i];
       _dwork1[i] = pot->ar*pow(r, pot->qr) + pot->br*log(r);      
     }
@@ -2860,17 +2860,20 @@ int SetPotentialExtraZ(POTENTIAL *pot) {
       }
       pot->dW2[i] = Simpson(_dwork3, 0, k-1)/(2*pot->atom->atomic_number);
       if (pot->rad[i] > r5 &&
-	  fabs(pot->dW2[i]-pot->Z[i]) <= 1e-5*fabs(pot->Z[i])) {
+	  fabs(pot->dW2[i]-pot->dW[i]) <= 1e-5*fabs(pot->dW[i])) {
 	break;
       }
       if (pot->rad[i] > r3) {
 	break;
       }
     }
-    p = i;
+    p = i;   
     for (i = 0; i < p; i++) {
-      pot->Z[i] = pot->dW2[i];
+      pot->dW[i] = pot->dW2[i];
     }
+  }
+  for (i = 0; i < m; i++) {
+    pot->Z[i] += pot->dW[i];
   }
   return 0;
 }
