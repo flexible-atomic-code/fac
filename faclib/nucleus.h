@@ -22,6 +22,7 @@
 #include "global.h"
 #include "interpolation.h"
 
+#define NEP  5
 #define NEPP 2
 typedef struct _NUCLEUS_ {
   char symbol[5];
@@ -30,8 +31,9 @@ typedef struct _NUCLEUS_ {
   double rn, z1, rms, rms0, rmse;
   double a, b, c;
   double rfermi[5];
-  int epm;
-  double epp[NEPP];
+  int nep;
+  int epm[NEP];
+  double epp[NEP][NEPP];
 } NUCLEUS;
 
 void PrintNucleus();
@@ -45,7 +47,7 @@ double GetAtomicMass(void);
 double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
-double GetExtraZ(double r);
+double GetExtraZ(double r, int iep);
 void SetExtraPotential(int m, int n, double *p);
 double GetAtomicChargeDist(double r);
 NUCLEUS *GetAtomicNucleus(void);

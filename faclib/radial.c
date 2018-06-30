@@ -1571,7 +1571,7 @@ void CopyPotentialOMP(int init) {
 }
 
 #define NXS 7
-int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
+int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS], mse;
   int iter, i, j;
@@ -1635,9 +1635,21 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight) {
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
   }
+  
+  int nmax = potential->nmax-1;
+  if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
   for (i = 0; i < acfg->n_shells; i++) {
-    if (acfg->n[i] >= potential->nmax) {
-      acfg->n[i] = potential->nmax-1;
+    if (acfg->n[i] > nmax) {
+      printf("too large n in avgcfg: %d %d %d %d %d %g\n",
+	     ife, nmax, i, acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+      if (ife) {
+	return -1;
+      }
+      j = GetLFromKappa(acfg->kappa[i]);
+      acfg->n[i] = potential->nmax;
+      if (j/2 >= acfg->n[i]) {
+	acfg->kappa[i] = -1;
+      }
     }
   }
   SetPotentialZ(potential);
@@ -2446,7 +2458,9 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (kg != NULL) kk = kg[k];
       else kk = k;
       g = GetGroup(kk);
-      if (potential->nmax > 0 && g->nmax >= potential->nmax) {
+      int nmax = potential->nmax-1;
+      if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
+      if (nmax > 0 && g->nmax > nmax) {
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = 0;
@@ -2455,18 +2469,30 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	continue;
       }
       if (md == 0) {
-	OptimizeRadial(1, &kk, -1, NULL);
+	if (OptimizeRadial(1, &kk, -1, NULL, 1) < 0) {
+	  ReinitRadial(1);
+	  ClearOrbitalTable(0);
+	  continue;
+	}
 	if (mr > 0) RefineRadial(mr, 0);
       }
       for (i = 0; i < g->n_cfgs; i++) {
 	if (md > 0) {
-	  OptimizeRadial(1, &kk, i, NULL);
+	  if (OptimizeRadial(1, &kk, i, NULL, 1) < 0) {
+	    ReinitRadial(1);
+	    ClearOrbitalTable(0);
+	    continue;
+	  }
 	  if (mr > 0) RefineRadial(mr, 0);
 	}
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	if (potential->nmax > 0 && g->nmax >= potential->nmax) {
+	nmax = potential->nmax-1;
+	if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
+	if (nmax > 0 && g->nmax > nmax) {
 	  cfg->energy = 0;
 	  cfg->delta = 0;
+	  ReinitRadial(1);
+	  ClearOrbitalTable(0);
 	  continue;
 	}
 	e0 = AverageEnergyConfigMode(cfg, md1);
@@ -2482,13 +2508,13 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       g = GetGroup(kk);
       for (i = 0; i < g->n_cfgs; i++) {
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	e0 = AverageEnergyConfigMode(cfg, md1);
 	if (cfg->energy != 0) {
-	  cfg->delta = cfg->energy - e0;
-	}
-	if (optimize_control.iprint) {
-	  MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
-		  md, md1, kk, i, cfg->energy, e0, cfg->delta);
+	  e0 = AverageEnergyConfigMode(cfg, md1);
+	  cfg->delta = cfg->energy - e0;	
+	  if (optimize_control.iprint) {
+	    MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
+		    md, md1, kk, i, cfg->energy, e0, cfg->delta);
+	  }
 	}
       }
     }
