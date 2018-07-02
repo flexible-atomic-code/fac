@@ -2193,6 +2193,28 @@ static PyObject *PPolarizeCoeff(PyObject *self, PyObject *args) {
   return Py_None;
 }  
   
+static PyObject *PElectronDensity(PyObject *self, PyObject *args) {
+  char *ofn;
+  int n, *ilev, t;
+  PyObject *p;
+  
+  if (sfac_file) {
+    SFACStatement("ElectronDensity", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  t = 1;
+  if (!PyArg_ParseTuple(args, "sO|i", &ofn, &p, &t)) return NULL;
+  n = SelectLevels(p, &ilev);
+  if (n > 0) {
+    ElectronDensity(ofn, n, ilev, t);
+    free(ilev);
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PExpectationValue(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   int n, *ilev, t;
@@ -5734,7 +5756,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},        
-  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},    
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},     
+  {"ElectronDensity", PElectronDensity, METH_VARARGS},  
   {"ExpectationValue", PExpectationValue, METH_VARARGS},   
   {"TRTable", PTransitionTable, METH_VARARGS}, 
   {"TransitionTable", PTransitionTable, METH_VARARGS},     

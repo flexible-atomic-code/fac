@@ -7611,6 +7611,79 @@ int ReinitRadial(int m) {
   return 0;
 }
 
+void ElectronDensity(char *ofn, int n, int *ilev, int t) {
+  FILE *f;
+  ANGULAR_ZMIX *ang;
+  LEVEL *lev;
+  ORBITAL *orb0, *orb1;
+  int i, j, k, m, nz, iz;
+  double a, *p0, *q0, *p1, *q1;
+
+  f = fopen(ofn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return;
+  }
+
+  for (i = 0; i < n; i++) {
+    nz = AngularZMix(&ang, ilev[i], ilev[i], 0, 0, NULL, NULL);
+    if (nz <= 0) {
+      continue;
+    }
+    for (k = 0; k < potential->maxrp; k++) {
+      _dwork15[k] = 0;
+      for (iz = 0; iz < nz; iz++) {
+	if (ang[iz].k != 0) continue;
+	orb0 = GetOrbitalSolved(ang[iz].k0);
+	orb1 = GetOrbitalSolved(ang[iz].k1);
+	if (k > orb0->ilast || k > orb1->ilast) continue;
+	j = GetJFromKappa(orb0->kappa);
+	p0 = Large(orb0);
+	q0 = Small(orb0);
+	p1 = Large(orb1);
+	q1 = Small(orb1);
+	switch (t) {
+	case 1:
+	  a = p0[k]*p1[k] + q0[k]*q1[k];	  
+	  break;
+	case 2:
+	  a = p0[k]*p1[k];
+	  break;
+	case 3:
+	  a = q0[k]*q1[k];
+	  break;
+	case 4:
+	  a = p0[k]*q1[k] + q0[k]*p1[k];
+	  break;
+	case 5:
+	  a = p0[k]*q1[k] - q0[k]*p1[k];	  
+	  break;
+	case 6:
+	  a = p0[k]*q1[k];
+	  break;
+	default:
+	  a = 0.0;
+	  break;
+	}
+	a *= ang[iz].coeff*sqrt(j+1.0);
+	_dwork15[k] += a;
+      }
+    }
+    if (nz > 0) free(ang);
+    lev = GetLevel(ilev[i]);
+    DecodePJ(lev->pj, NULL, &j);
+    a = 1.0/sqrt(j+1.0);
+    for (m = potential->maxrp-1; m >= 0; m--) {
+      if (_dwork15[m]) break;
+    }
+    fprintf(f, "# %4d %4d %4d %d\n", i, n, m, t);
+    for (k = 0; k <= m; k++) {
+      fprintf(f, "%6d %4d %15.8E %15.8E\n",
+	      i, k, potential->rad[k], _dwork15[k]*a);
+    }
+  }
+  fclose(f);
+}
 
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t) {
   int ni, i, np, k, iz, nz, j;
@@ -7675,6 +7748,7 @@ void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t) {
     free(vi);
     return;
   }
+  fprintf(f1, "# %4d %g %d\n", n, a, t);
   for (i = 0; i < n; i++) {
     nz = AngularZMix(&ang, ilev[i], ilev[i], 0, 0, NULL, NULL);
     if (nz <= 0) {

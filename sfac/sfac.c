@@ -3420,6 +3420,22 @@ static int PPrepAngular(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PElectronDensity(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {
+  int n, *ilev, t;
+  if (argc < 2 || argc > 3) return -1;
+  t = 1;
+  n = SelectLevels(&ilev, argv[1], argt[1], variables);
+  if (argc == 3) {
+    t = atoi(argv[2]);
+  }
+  if (n > 0) {
+    ElectronDensity(argv[0], n, ilev, t);
+    free(ilev);
+  }
+  return 0;
+}
+
 static int PExpectationValue(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int n, *ilev, t;
@@ -4578,6 +4594,7 @@ static METHOD methods[] = {
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"ReportMultiStats", PReportMultiStats, METH_VARARGS},   
+  {"ElectronDensity", PElectronDensity, METH_VARARGS},  
   {"ExpectationValue", PExpectationValue, METH_VARARGS},  
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
