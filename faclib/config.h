@@ -326,5 +326,6 @@ CONFIG *ConfigFromIList(int n, int *s);
 int ConfigExists(CONFIG *c);
 void SetClosedShellNR(int n, int k);
 int IsClosedShellNR(int n, int k);
+int IsClosedComplex(int n);
 
 #endif
