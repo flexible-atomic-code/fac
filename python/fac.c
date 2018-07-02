@@ -455,6 +455,7 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
 	kl = (cfg[j].shells)[0].kappa;
 	nq = 2*(kl + 1);
 	kl = kl/2;
+	SetClosedShellNR(n, kl);
 	SpecSymbol(s, kl);
 	sprintf(st, "%d%s%d ", n, s, nq);
 	strcat(_closed_shells, st);

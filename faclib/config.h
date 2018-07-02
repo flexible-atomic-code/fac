@@ -324,5 +324,7 @@ int          SetNCG(void);
 int ConfigToIList(CONFIG *c, int n, int *s);
 CONFIG *ConfigFromIList(int n, int *s);
 int ConfigExists(CONFIG *c);
+void SetClosedShellNR(int n, int k);
+int IsClosedShellNR(int n, int k);
 
 #endif

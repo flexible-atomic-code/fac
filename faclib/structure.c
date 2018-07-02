@@ -3837,7 +3837,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
     else jsym = '+';
     kl = kl/2;
     if (name) {
-      if (((nq <= j+1) && nq > 0) || (i == 0 && name[0] == '\0')) {
+      if (((nq <= j+1) && nq > 0 && !IsClosedShellNR(n, kl)) ||
+	  (i == 0 && name[0] == '\0')) {
 	SpecSymbol(symbol, kl);
 	if (c->n_csfs > 0) {
 	  if (name[0]) {
@@ -3863,7 +3864,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0 && nq0 <= 2*(2*kl0+1)) {
+	if (nq0 > 0 && nq0 <= 2*(2*kl0+1) && !IsClosedShellNR(n0, kl0)) {
 	  SpecSymbol(symbol, kl0);
 	  if (sname[0]) {
 	    sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
@@ -3880,7 +3881,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   }
   
   if (sname && n0 > 0) {
-    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1)) || sname[0] == '\0') {
+    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) && !IsClosedShellNR(n0, kl0)) ||
+	sname[0] == '\0') {
       SpecSymbol(symbol, kl0);
       if (sname[0]) {
 	sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
