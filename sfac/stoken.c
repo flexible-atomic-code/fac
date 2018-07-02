@@ -292,6 +292,8 @@ int EvalFile(FILE *f, int exebyline, METHOD *methods) {
   nlines = 0;
   while (1) {
     i = GetValidLine(f, buf, &nlines);
+    if ((strstr(buf, "from ") == buf && strstr(buf, "import")) ||
+	strstr(buf, "import ") == buf) continue;
     if (i == 0) break;
     if (i < 0) ErrorOcurred(i, nlines);
     i = TokenizeLine(nlines, buf, methods, &statements, &variables);

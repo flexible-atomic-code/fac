@@ -207,7 +207,7 @@
 /* config */
 #define MCHSHELL           2048
 #define MAX_SPEC_SYMBOLS   21
-#define LEVEL_NAME_LEN     128
+#define LEVEL_NAME_LEN     1024
 #define GROUP_NAME_LEN     64
 #define MAX_GROUPS         1024
 #define MAX_SYMMETRIES     256

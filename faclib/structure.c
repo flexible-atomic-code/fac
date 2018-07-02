@@ -3856,7 +3856,11 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 	  }
 	}
 	len += strlen(ashell);
-	if (len >= LEVEL_NAME_LEN) return -1;
+	if (len >= LEVEL_NAME_LEN) {
+	  printf("level name exceed LEVEL_NAME_LEN: %d %d\n",
+		 len, LEVEL_NAME_LEN);
+	  return -1;
+	}
 	strcat(name, ashell);
       }
     }
@@ -3901,7 +3905,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0) {
+	if (nq0 > 0 && !IsClosedComplex(n0)) {
 	  if (nc[0]) {
 	    sprintf(ashell, ".%1d*%1d", n0, nq0);
 	  } else {
@@ -3913,7 +3917,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 	nq0 = nq;
       }
     }
-    if (n0 > 0 && (nq0 > 0 || nc[0] == '\0')) {
+    if (n0 > 0 && ((nq0 > 0 && !IsClosedComplex(n0)) || nc[0] == '\0')) {
       if (nc[0]) {
 	sprintf(ashell, ".%1d*%1d", n0, nq0);
       } else {
