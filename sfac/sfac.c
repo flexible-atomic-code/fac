@@ -3420,6 +3420,29 @@ static int PPrepAngular(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PExpectationValue(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {
+  int n, *ilev, t;
+  double a;
+  if (argc < 3 || argc > 5) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != STRING) return -1;
+  t = 1;
+  a = 0;
+  if (argc > 3) {
+    a = atof(argv[3]);
+    if (argc > 4) {
+      t = atoi(argv[4]);
+    }
+  }
+  n = SelectLevels(&ilev, argv[2], argt[2], variables);
+  if (n > 0) {
+    ExpectationValue(argv[0], argv[1], n, ilev, a, t);
+    free(ilev);
+  }
+  return 0;
+}
+
 static int PTransitionTable(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   int n, m;
@@ -4555,6 +4578,7 @@ static METHOD methods[] = {
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"ReportMultiStats", PReportMultiStats, METH_VARARGS},   
+  {"ExpectationValue", PExpectationValue, METH_VARARGS},  
   {"TransitionTable", PTransitionTable, METH_VARARGS},  
   {"TRTable", PTransitionTable, METH_VARARGS},  
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS},
