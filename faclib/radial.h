@@ -202,5 +202,6 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
 void SolveDFKappa(int ka, int nmax, double xdf);
 double *WorkSpace(int i);
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
+void ElectronDensity(char *ofn, int n, int *ilev, int t);
 #endif
 
