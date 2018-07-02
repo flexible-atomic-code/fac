@@ -87,13 +87,34 @@ static int _ncsf2[NJQ][NJQ];
 static int _ncsf3[NJQ][NJQ][NJQ];
 static int _ncsf4[NJQ][NJQ][NJQ][NJQ];
 static int _ncsf5[NJQ][NJQ][NJQ][NJQ][NJQ];
-
+#define NCS 25
+static int _isclosed[NCS][NCS];
+			  
 #define MAXN1 50
 #define MAXN2 50
 #define MAXNK1 2501
 #define MAXNK2 2501
 #define MAXNK12 (MAXNK1*MAXNK2)
 static ARRAY _csary[MAXNK12];
+
+int IsClosedShellNR(int n, int k) {
+  if (n >= NCS) return 0;
+  return _isclosed[n-1][k];
+}
+
+void SetClosedShellNR(int n, int k) {
+  int i, j;
+  if (n <= 0) {
+    for (i = 0; i < NCS; i++) {
+      for (j = 0; j < NCS; j++) {
+	_isclosed[i][j] = 0;
+      }
+    }
+    return;
+  }
+  if (n >= NCS) return;
+  _isclosed[n-1][k] = 1;
+}
 
 int IndexJQ(int j, int q) {
   int i, jm, jp;  
@@ -2598,6 +2619,8 @@ int InitConfig(void) {
   for (i = 0; i < MAXNK12; i++) {
     ArrayInit(&_csary[i], sizeof(CONFIG *), CONFIGS_BLOCK);
   }
+
+  SetClosedShellNR(0, 0);
   return 0; 
 }
 
@@ -2690,5 +2713,6 @@ int ReinitConfig(int m) {
     ArrayFree(&_csary[i], NULL);
   }
 
+  SetClosedShellNR(0, 0);
   return 0;
 }
