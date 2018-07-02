@@ -143,6 +143,47 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
+double *WorkSpace(int i) {
+  switch (i) {
+  case 0:
+    return _dwork;
+  case 1:
+    return _dwork1;
+  case 2:
+    return _dwork2;
+  case 3:
+    return _dwork3;
+  case 4:
+    return _dwork4;
+  case 5:
+    return _dwork5;
+  case 6:
+    return _dwork6;
+  case 7:
+    return _dwork7;
+  case 8:
+    return _dwork8;
+  case 9:
+    return _dwork9;
+  case 10:
+    return _dwork10;
+  case 11:
+    return _dwork11;
+  case 12:
+    return _dwork12;
+  case 13:
+    return _dwork13;
+  case 14:
+    return _dwork14;
+  case 15:
+    return _dwork15;
+  case 16:
+    return _dwork16;
+  default:
+    return NULL;
+  }  
+}
+
 void SetOrbMap(int k, int n0, int n1, int n2) {
   if (k <= 0) k = KORBMAP;
   if (n0 <= 0) n0 = NORBMAP0;
@@ -1369,8 +1410,9 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-	    i, potential->rad[i], potential->Z[i], 
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	    i, potential->rad[i], potential->Z[i],
+	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
 	    potential->U[i]*potential->rad[i],
 	    _dwork14[i], _dwork15[i], _dwork16[i],
@@ -1380,10 +1422,8 @@ int GetPotential(char *s) {
 	    potential->ZSE[3][i],
 	    potential->ZSE[4][i],
 	    potential->ZVP[i]);
-  }
-
-  fclose(f);  
-  
+  }    
+  fclose(f);    
   return 0;
 }
 
@@ -1915,8 +1955,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   f = fopen(s, "w");
   if (!f) return -1;
   
-  orb = GetOrbitalSolved(k);
-  
+  orb = GetOrbitalSolved(k);    
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
@@ -7570,6 +7609,93 @@ int ReinitRadial(int m) {
   }
 #pragma omp barrier
   return 0;
+}
+
+
+void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t) {
+  int ni, i, np, k, iz, nz, j;
+  double *ri, *vi, r, v;
+  FILE *f0, *f1;
+  char buf[1024], *p;
+  ORBITAL *orb0, *orb1;
+  ANGULAR_ZMIX *ang;
+  LEVEL *lev;
+  
+  f0 = fopen(ifn, "r");
+  if (f0 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return;
+  }
+  ni = 0;
+  while (1) {
+    if (fgets(buf, 1024, f0) == NULL) break;
+    p = buf;
+    while(*p == ' ') p++;
+    if (*p == '#') continue;
+    k = sscanf(p, "%lg %lg", &r, &v);
+    if (k != 2) continue;
+    ni++;
+  }  
+  if (ni < 2) {
+    printf("too few points in ExpectationValue input: %d\n", ni);
+    fclose(f0);
+    return;
+  }
+  ri = malloc(sizeof(double)*ni);
+  vi = malloc(sizeof(double)*ni);
+  fseek(f0, 0, SEEK_SET);
+  i = 0;
+  while (1) {
+    if (fgets(buf, 1024, f0) == NULL) break;
+    p = buf;
+    while(*p == ' ') p++;
+    if (*p == '#') continue;
+    k = sscanf(buf, "%lg %lg", &r, &v);
+    if (k != 2) continue;
+    ri[i] = potential->ar*pow(r, potential->qr) + potential->br*log(r);
+    vi[i] = v;
+    i++;
+  }
+  fclose(f0);
+  np = 3;
+  for (i = 0; i < potential->maxrp; i++) {
+    _dwork14[i] = potential->ar*pow(potential->rad[i], potential->qr) +
+      potential->br*log(potential->rad[i]);
+  }
+  UVIP3P(np, ni, ri, vi, potential->maxrp, _dwork14, _dwork15);
+  if (a) {
+    for (i = 0; i < potential->maxrp; i++) {
+      _dwork15[i] *= pow(potential->rad[i], a);
+    }
+  }
+  f1 = fopen(ofn, "w");
+  if (f1 == NULL) {
+    printf("cannot open file: %s\n", ofn);
+    free(ri);
+    free(vi);
+    return;
+  }
+  for (i = 0; i < n; i++) {
+    nz = AngularZMix(&ang, ilev[i], ilev[i], 0, 0, NULL, NULL);
+    if (nz <= 0) {
+      continue;
+    }
+    v = 0;
+    for (iz = 0; iz < nz; iz++) {
+      if (ang[iz].k != 0) continue;
+      orb0 = GetOrbitalSolved(ang[iz].k0);
+      orb1 = GetOrbitalSolved(ang[iz].k1);
+      Integrate(_dwork15, orb0, orb1, t, &r, 0);
+      j = GetJFromKappa(orb0->kappa);
+      v += r * ang[iz].coeff * sqrt(j+1.0);
+    }
+    lev = GetLevel(ilev[i]);
+    DecodePJ(lev->pj, NULL, &j);
+    v /= sqrt(j+1.0);
+    fprintf(f1, "%6d %20.12E\n", ilev[i], v);
+    free(ang);
+  }  
+  fclose(f1);  
 }
 
 int TestIntegrate(void) {

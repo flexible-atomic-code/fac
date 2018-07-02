@@ -200,5 +200,7 @@ int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int ngb, int *kgb, double sth);
 void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
 void SolveDFKappa(int ka, int nmax, double xdf);
+double *WorkSpace(int i);
+void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
 #endif
 

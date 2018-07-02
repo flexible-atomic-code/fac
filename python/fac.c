@@ -2193,6 +2193,30 @@ static PyObject *PPolarizeCoeff(PyObject *self, PyObject *args) {
   return Py_None;
 }  
   
+static PyObject *PExpectationValue(PyObject *self, PyObject *args) {
+  char *ifn, *ofn;
+  int n, *ilev, t;
+  double a;
+  PyObject *p;
+  
+  if (sfac_file) {
+    SFACStatement("ExpectationValue", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  t = 1;
+  if (!PyArg_ParseTuple(args, "ssO|di", &ifn, &ofn, &p, &a, &t)) return NULL;
+  n = SelectLevels(p, &ilev);
+  if (n > 0) {
+    ExpectationValue(ifn, ofn, n, ilev, a, t);
+    free(ilev);
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   char *s;
   int n, m;
@@ -5710,7 +5734,8 @@ static struct PyMethodDef fac_methods[] = {
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},        
-  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},     
+  {"ReportMultiStats", PReportMultiStats, METH_VARARGS},    
+  {"ExpectationValue", PExpectationValue, METH_VARARGS},   
   {"TRTable", PTransitionTable, METH_VARARGS}, 
   {"TransitionTable", PTransitionTable, METH_VARARGS},     
   {"TRTableEB", PTransitionTableEB, METH_VARARGS},    

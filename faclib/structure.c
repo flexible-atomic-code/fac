@@ -5857,7 +5857,7 @@ int InitStructure(void) {
   }
   return 0;
 }
-  
+
 int ReinitStructure(int m) {
   if (m < 0) {
     return 0;
