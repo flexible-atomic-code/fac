@@ -630,7 +630,7 @@ RANDIDX *RandList(int n) {
     w[i].r = drand48();
     w[i].i = i;
   }
-  qsort(w, n, sizeof(RANDIDX), CompareRandIdx);
+  mergesort(w, n, sizeof(RANDIDX), CompareRandIdx);
   return w;
 }
 
@@ -654,7 +654,7 @@ void ArgSort(int n, double *r, int *k) {
     rid[i].i = i;
     rid[i].r = r[i];
   }
-  qsort(rid, n, sizeof(RANDIDX), CompareRandIdx);
+  mergesort(rid, n, sizeof(RANDIDX), CompareRandIdx);
   for (i = 0; i < n; i++) {
     k[i] = rid[i].i;
   }

@@ -30,6 +30,7 @@ static int mbpt_omp = 0;
 static int mbpt_omp0 = 0;
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
+static int mbpt_msort = 0;
 static double mbpt_warn = -1;
 static double mbpt_ignore = -1;
 static int mbpt_savesum = 0;
@@ -75,6 +76,7 @@ void PrintMBPTOptions(void) {
   printf("omp=%d\n", mbpt_omp0);
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
+  printf("msort=%d\n", mbpt_msort);
   printf("warn=%g\n", mbpt_warn);
   printf("ignore=%g\n", mbpt_ignore);
   printf("savesum=%d\n", mbpt_savesum);
@@ -174,7 +176,8 @@ void SetWarnMBPT(double f, double g) {
 }
 
 void SetOptMBPT(int nr, int n3, double c, double d, double e, double f) {
-  mbpt_rand = nr;
+  mbpt_rand = nr%10;
+  mbpt_msort = nr/10;
   mbpt_n3 = n3;
   mbpt_mcut = c;
   if (d >= 0) mbpt_mcut2 = d;
@@ -4363,7 +4366,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	ic++;
       }
     }
-    free(rid);
+    if (rid) free(rid);
     for (icp = icpi; icp <= icpf; icp++) {
       if (MyRankMPI() == 0) {
 	char *pc = fn1;
@@ -4560,8 +4563,27 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       bas1 = mbpt_bas1;
       mbpt_ibas0.n = mbpt_ibas0.m = 0;
       mbpt_ibas1.n = mbpt_ibas1.m = 0;
-      for (ic = icp0; ic < icp1; ic++) {
+      double *dm = NULL;
+      int *im = NULL;      
+      if (mbpt_msort) {
+	dm = malloc(sizeof(double)*(icp1-icp0));
+	im = malloc(sizeof(int)*(icp1-icp0));
+	for (ic = icp0; ic < icp1; ic++) {
+	  dm[ic-icp0] = 1.0/cfgpair[ic].m;
+	  if (cfgpair[ic].k0 != cfgpair[ic].k1) {
+	    dm[ic-icp0] += 10.0;
+	  }
+	}
+	ArgSort(icp1-icp0, dm, im);
+      }
+      int ic0;
+      for (ic0 = icp0; ic0 < icp1; ic0++) {
 	if (SkipMPIM(0)) continue;
+	if (im) {
+	  ic = icp0 + im[ic0-icp0];
+	} else {
+	  ic = ic0;
+	}
 	k0 = cfgpair[ic].k0;
 	k1 = cfgpair[ic].k1;
 	c0 = cs[k0];
@@ -4707,8 +4729,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	nlock = NumLock();
 	double tmem = TotalSize();
 	double amem = TotalArraySize();
-	MPrintf(0, "%4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
-		ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
+	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
+		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
 		dt, dtt, tmem, amem, tmemf-tmem, amemf-amem,
 		tskip, tlock, nlock, WidMPI());
 	fflush(stdout);	  
@@ -4721,6 +4743,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    ncps = 0;
 	  }
 	}
+      }
+      if (im) {
+	free(dm);
+	free(im);
       }
       if (cpmeff) {
 #pragma omp critical
@@ -5169,9 +5195,28 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
-      for (ic = icp0; ic < icp1; ic++) {
+      double *dm = NULL;
+      int *im = NULL;      
+      if (mbpt_msort) {
+	dm = malloc(sizeof(double)*(icp1-icp0));
+	im = malloc(sizeof(int)*(icp1-icp0));
+	for (ic = icp0; ic < icp1; ic++) {
+	  dm[ic-icp0] = 1.0/cfgpair[ic].m;
+	  if (cfgpair[ic].k0 != cfgpair[ic].k1) {
+	    dm[ic-icp0] += 10.0;
+	  }
+	}
+	ArgSort(icp1-icp0, dm, im);
+      }
+      int ic0;
+      for (ic0 = icp0; ic0 < icp1; ic0++) {
 	int skip = SkipMPIM(0);
 	if (skip) continue;
+	if (im) {
+	  ic = icp0 + im[ic0-icp0];
+	} else {
+	  ic = ic0;
+	}
 	k0 = cfgpair[ic].k0;
 	k1 = cfgpair[ic].k1;
 	c0 = cs[k0];
@@ -5267,8 +5312,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	dtt = ptt1-tbg;
 	tt0 = ptt1;
 	double tmem = TotalSize();
-	MPrintf(0, "%4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
-		ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst, dt, dtt, tmem);
+	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
+		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst, dt, dtt, tmem);
 	fflush(stdout);	  
 #pragma omp atomic
 	ncps++;
@@ -5280,6 +5325,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    ncps = 0;
 	  }
 	}
+      }
+      if (im) {
+	free(dm);
+	free(im);
       }
       if (cpmtr) {
 #pragma omp critical
