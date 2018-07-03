@@ -7685,15 +7685,17 @@ void ElectronDensity(char *ofn, int n, int *ilev, int t) {
   fclose(f);
 }
 
-void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t) {
-  int ni, i, np, k, iz, nz, j;
+void ExpectationValue(char *ifn, char *ofn, int n, int *ilev,
+		      double a, int t0) {
+  int ni, i, np, k, iz, nz, j, t;
   double *ri, *vi, r, v;
   FILE *f0, *f1;
   char buf[1024], *p;
   ORBITAL *orb0, *orb1;
   ANGULAR_ZMIX *ang;
   LEVEL *lev;
-  
+
+  t = abs(t0);
   f0 = fopen(ifn, "r");
   if (f0 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -7736,6 +7738,11 @@ void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t) {
       potential->br*log(potential->rad[i]);
   }
   UVIP3P(np, ni, ri, vi, potential->maxrp, _dwork14, _dwork15);
+  if (t0 < 0) {
+    for (i = 0; i < potential->maxrp; i++) {
+      _dwork15[i] = exp(_dwork15[i]);
+    }
+  }
   if (a) {
     for (i = 0; i < potential->maxrp; i++) {
       _dwork15[i] *= pow(potential->rad[i], a);
