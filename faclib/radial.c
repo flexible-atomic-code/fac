@@ -1669,6 +1669,16 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     }
     a += acfg->nq[i];
   }
+  if (a > potential->atom->atomic_number) {
+    for (i = 0; i < acfg->n_shells; i++) {
+      acfg->nq[i] *= potential->atom->atomic_number/a;
+      if (optimize_control.iprint) {
+	MPrintf(-1, "avgcfg: %d %d %d %g\n",
+		i, acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+      }
+    }
+    a = potential->atom->atomic_number;
+  }
   potential->N = a;  
 
   /* setup the radial grid if not yet */
