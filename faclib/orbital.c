@@ -314,6 +314,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	if (orb->n > nm || k > km) {
 	  z = pot->Z[pot->maxrp-1];
 	  if (pot->N > 0) z -= pot->N - 1.0;
+	  if (z < 1) z = 1;
 	  orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
 	  orb->ilast = -1;
 	  orb->wfun = NULL;
@@ -722,6 +723,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 
   z0 = pot->Z[pot->maxrp-1];
   z = (z0 - pot->N + 1.0);
+  if (z < 1) z = 1;
 
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {
@@ -1118,6 +1120,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   nr = orb->n - kl - 1;
   z0 = pot->Z[pot->maxrp-1];
   z = (z0 - pot->N + 1.0);
+  if (z < 1) z = 1.0;
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {   
     SetPotentialW(pot, 0, orb->kappa, kv);
@@ -1146,8 +1149,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     e *= 0.5;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound a: %d %d %d\n",
-	   nodes, nr, i2);
+    printf("Max iteration before finding correct nodes in RadialBound a: %d %d %d %d %d\n",
+	   nodes, nr, i2, orb->n, orb->kappa);
     free(p);
     return -2;
   }
@@ -1332,6 +1335,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
   z = (pot->Z[pot->maxrp-1] - pot->N + 1.0);
+  if (z < 1) z = 1;
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
   if (kl < 0 || kl >= orb->n) {
@@ -1862,6 +1866,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
 
   n = pot->maxrp-1;
   z = pot->Z[n] - pot->N + 1.0;
+  if (z < 1) z = 1;
   kl1 = ka*(ka+1);
   r1 = pot->rad[n];
   _dwork[0] = r1;
@@ -2202,6 +2207,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   rn = GetAtomicR();
   z = z0;
   if (pot->N > 0) z = (z - pot->N + 1);
+  if (z < 1) z = 1;
   if (pot->flag == 0) pot->flag = -1; 
  
   rmin = pot->rmin/z0;

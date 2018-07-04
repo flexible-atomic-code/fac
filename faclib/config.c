@@ -97,8 +97,9 @@ static int _isclosed[NCS][NCS];
 #define MAXNK12 (MAXNK1*MAXNK2)
 static ARRAY _csary[MAXNK12];
 
-int IsClosedComplex(int n) {
+int IsClosedComplex(int n, int nq) {
   if (n >= NCS) return 0;
+  if (nq < 2*n*n) return 0;
   int i;
   for (i = 0; i < n; i++) {
     if (!_isclosed[n-1][i]) return 0;
@@ -106,8 +107,16 @@ int IsClosedComplex(int n) {
   return 1;
 }
 
-int IsClosedShellNR(int n, int k) {
+int IsClosedShellNR(int n, int k, int nq) {
   if (n >= NCS) return 0;
+  if (nq < 2*(k*2+1)) return 0;
+  return _isclosed[n-1][k];
+}
+
+int IsClosedShellFR(int n, int k, int j, int nq) {
+  if (n >= NCS) return 0;
+  if (nq < j+1) return 0;
+  if (nq < 2*(k*2+1)) return 0;
   return _isclosed[n-1][k];
 }
 
