@@ -116,7 +116,6 @@ int IsClosedShellNR(int n, int k, int nq) {
 int IsClosedShellFR(int n, int k, int j, int nq) {
   if (n >= NCS) return 0;
   if (nq < j+1) return 0;
-  if (nq < 2*(k*2+1)) return 0;
   return _isclosed[n-1][k];
 }
 
