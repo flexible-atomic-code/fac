@@ -316,7 +316,7 @@ int SetMLevels(char *fn, char *tfn) {
     }
   } else if (h.nele == 2) {
     k = FindLevelByName(fn, 2, "1*2", "1s2", "1s+2(0)0");
-    t = FindLevelByName(fn, 2, "1*1 2*1", "1s1 2s1", "1s+1(1)1 2s+1(1)0");
+    t = FindLevelByName(fn, 2, "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0");
     if (k >= 0 && t >= 0) {
       ntr += 1;
       tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);

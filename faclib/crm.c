@@ -4431,7 +4431,7 @@ int SetTRRates(int inv) {
       rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 2, 
 			     "1*2", "1s2", "1s+2(0)0");
       rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 2,
-			     "1*1 2*1", "1s1 2s1", "1s+1(1)1 2s+1(1)0");
+			     "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0");
       if (rt.i >= 0 && rt.f >= 0) {
 	rt.dir = TwoPhotonRate(ion0.atom, 1);
 	rt.inv = 0.0;
