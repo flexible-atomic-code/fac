@@ -620,7 +620,7 @@ void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf) {
 	  q = Small(orb);
 	  orb->bqp0 = orb0->bqp0;
 	  orb->bqp1 = orb0->bqp1;
-	  orb->im = orb0->im;
+	  //orb->im = orb0->im;
 	  orb->qr_norm = orb0->qr_norm;
 	  orb->ilast = orb0->ilast;
 	  orb->kv = orb0->kv;
@@ -1972,7 +1972,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
-  fprintf(f, "#     im = %4d\n", orb->im);
+  //fprintf(f, "#     im = %4d\n", orb->im);
   fprintf(f, "#    rfn = %15.8E\n", orb->rfn);
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
@@ -2453,7 +2453,7 @@ void FreeOrbitalData(void *p) {
   orb->phase = NULL;
   orb->isol = 0;
   orb->ilast = -1;
-  orb->im = -1;
+  //orb->im = -1;
   if (orb->horb) {
     FreeOrbitalData(orb->horb);
     orb->horb = NULL;
