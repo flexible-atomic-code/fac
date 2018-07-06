@@ -1707,11 +1707,13 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	_dwork3[i] = xi;
 	_dwork[i] = 1 + xi*FINE_STRUCTURE_CONST2*0.5;
 	if (orb->isol != 3) p[i] = sqrt(_dwork[i])*p[i];
-	if (imax < 0 && i > 0 && p[i] < p[i-1]) {
-	  imax = i-1;
-	}
 	if (irn < 0 && pot->rad[i] > pot->atom->rms0) {
 	  irn = i-1;
+	}
+	if (irn > 0 && i >= irn && imax < 0 &&
+	    ((p[i-1] > 0 && p[i] < p[i-1]) ||
+	     (p[i-1] < 0 && p[i] > p[i-1]))) {
+	  imax = i-1;
 	}
       }
       imax = Max(imax, irn);
@@ -1815,11 +1817,13 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	_dwork[i] = 1.0 + xi;
 	if (orb->isol != 3) p[i] = sqrt(_dwork[i])*p[i];
 	_dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
-	if (imax < 0 && i > 0 && p[i] < p[i-1]) {
-	  imax = i-1;
-	}
 	if (irn < 0 && pot->rad[i] > pot->atom->rms0) {
 	  irn = i-1;
+	}
+	if (irn > 0 && i >= irn && imax < 0 &&
+	    ((p[i-1] > 0 && p[i] < p[i-1]) ||
+	     (p[i-1] < 0 && p[i] > p[i-1]))) {
+	  imax = i-1;
 	}
       }
       imax = Max(imax, irn);
