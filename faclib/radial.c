@@ -7790,25 +7790,23 @@ void ExpectationValue(char *ifn, char *ofn, int n, int *ilev,
 }
 
 int TestIntegrate(void) {
-  int k[10];
   int n, m;
-  ORBITAL *orb1, *orb2;
-  double r;
-  
-  for (n = 1; n <= 10; n++) {
-    k[n-1] = OrbitalIndex(n, -1, 0);
-  }
+  double r, r0;  
 
+  m = 10;
   for (n = 0; n < potential->maxrp; n++) {
-    _xk[n] = 1.0;
+    _xk[n] = pow(potential->rad[n], m)*potential->dr_drho[n];
   }
-  for (n = 1; n <= 10; n++) {
-    orb1 = GetOrbital(k[n-1]);
-    for (m = n; m <= 10; m++) {
-      orb2 = GetOrbital(k[m-1]);
-      Integrate(_xk, orb1, orb2, 1, &r, 0);
-      printf("%d %d %d %d %g\n", n, m, k[n-1], k[m-1], r);
+  _yk[0] = 0.0;
+  NewtonCotes(_yk, _xk, 0, potential->maxrp-1, -1, 0);
+  for (n = 0; n < potential->maxrp; n++) {
+    if (n > 0 && n < potential->maxrp-1) {
+      if (n%2 == 1) r = 0.5*(_yk[n-1]+_yk[n+1]);
+      else r = _yk[n];
     }
+    r0 = (pow(potential->rad[n],m+1)-pow(potential->rad[0],m+1))/(m+1.0);
+    printf("%4d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	   n, potential->rad[n], _xk[n], _yk[n], r, r0);
   }
 
   return 0;
