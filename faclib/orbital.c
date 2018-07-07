@@ -1695,7 +1695,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   i1 = orb->ilast+1;
 
   if (i2 > i0) {
-    if (orb->kappa < 0) {
+    if (i0 == 0 && orb->kappa < 0) {
       imax = -1;
       irn = -1;
       for (i = i0; i <= i2; i++) {
