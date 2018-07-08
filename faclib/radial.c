@@ -7793,13 +7793,14 @@ int TestIntegrate(void) {
   int n, m;
   double r, r0;  
 
-  m = 10;
+  m = 20;
   for (n = 0; n < potential->maxrp; n++) {
     _xk[n] = pow(potential->rad[n], m)*potential->dr_drho[n];
   }
   _yk[0] = 0.0;
   NewtonCotes(_yk, _xk, 0, potential->maxrp-1, -1, 0);
   for (n = 0; n < potential->maxrp; n++) {
+    if (n > 10) break;
     if (n > 0 && n < potential->maxrp-1) {
       if (n%2 == 1) r = 0.5*(_yk[n-1]+_yk[n+1]);
       else r = _yk[n];
