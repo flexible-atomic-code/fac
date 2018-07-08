@@ -1728,6 +1728,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	}
       }
       imax = Max(imax, irn);
+      imax = Min(imax, i2-2);
       a = 0;
       if (i0 == 0 && imax > 5 && fabs(p[4]) > 0) {
 	ia = Min(9, imax);
@@ -1750,70 +1751,80 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	}
       } else {
 	for (i = i0; i <= imax; i++) {
-	  _dwork1[i] = 1.0;
+	  _dwork1[i] = 0.0;
 	}
       }
-      for (i = i0; i <= imax; i++) {
+      int is;
+      for (is = i0; is <= imax; is++) {
+	if (_dwork1[is] > 0) break;
+      }      
+      for (i = is; i <= imax; i++) {
 	xi = _dwork3[i];
 	_dwork2[i] = -p[i]*xi*FINE_STRUCTURE_CONST/_dwork1[i];
 	_dwork2[i] *= pot->dr_drho[i];
 	_dwork3[i] = (a1-kappa)/pot->rad[i];
 	_dwork3[i] *= pot->dr_drho[i];
       }
-      q[i0] = p[i0] * orb->bqp0/_dwork1[i0];
-      for (i = i0+1; i <= imax; i++) {
+      q[is] = p[is] * orb->bqp0*(pot->rad[is]/pot->rad[i0])/_dwork1[is];
+      //printf("%d %d %d %d %g %g %g %g %g\n", i0, is, imax, i1, orb->bqp0, (pot->rad[is]/pot->rad[i0]), _dwork1[is], q[is], q[is]*_dwork1[is]/p[is]);      
+      for (i = is+1; i <= imax; i++) {
 	q[i] = 0.5*(_dwork2[i-1]+_dwork2[i]) + (1-0.5*_dwork3[i-1])*q[i-1];
 	q[i] /= 1 + 0.5*_dwork3[i];	
       }
-      for (i = i0; i <= imax; i++) {
+      for (i = i0; i < is; i++) {
+	q[i] = 0;
+      }
+      for (i = is; i <= imax; i++) {
 	q[i] *= _dwork1[i];
       }
-      a = q[imax];
-      ia = Max(i0, imax-2);
-      for (i = ia; i <= i2; i++) {
-	_dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
-	_dwork1[i] = p[i];
-      }
-      for (i = imax; i < i1; i++) {
-	if (i == imax) {
-	  b = -50.0*_dwork1[imax];
-	  b += 96.0*_dwork1[imax+1];
-	  b -= 72.0*_dwork1[imax+2];
-	  b += 32.0*_dwork1[imax+3];
-	  b -= 6.0 *_dwork1[imax+4];
-	} else if (i == imax+1) {
-	  b = -6.0*_dwork1[imax];
-	  b -= 20.0*_dwork1[imax+1];
-	  b += 36.0*_dwork1[imax+2];
-	  b -= 12.0*_dwork1[imax+3];
-	  b += 2.0 *_dwork1[imax+4];
-	} else if (i == i2) {
-	  b = -50.0*_dwork1[i];
-	  b += 96.0*_dwork1[i-1];
-	  b -= 72.0*_dwork1[i-2];
-	  b += 32.0*_dwork1[i-3];
-	  b -= 6.0 *_dwork1[i-4];
-	  b = -b; 
-	} else if (i == i2-1) {
-	  b = -6.0*_dwork1[i+1];
-	  b -= 20.0*_dwork1[i];
-	  b += 36.0*_dwork1[i-1];
-	  b -= 12.0*_dwork1[i-2];
-	  b += 2.0 *_dwork1[i-3];
-	  b = -b;
-	} else {
-	  b = 2.0*(_dwork1[i-2] - _dwork1[i+2]);
-	  b += 16.0*(_dwork1[i+1] - _dwork1[i-1]);
+      if (imax < i2) {
+	a = q[imax];
+	ia = Max(i0, imax-2);
+	for (i = ia; i <= i2; i++) {
+	  _dwork2[i] = 1.0/(24.0*pot->dr_drho[i]);
+	  _dwork1[i] = p[i];
 	}
-	b *= _dwork2[i];
-	b = b + _dwork1[i]*kappa/pot->rad[i];
-	b /= (2.0*_dwork[i]);
-	q[i] = b*FINE_STRUCTURE_CONST;
-      }
-      //printf("qm: %d %d %d %g %g %g\n", orb->n, orb->kappa, imax, pot->rad[imax], a, q[imax]);
-      a = q[imax]/a;
-      for (i = i0; i <= imax; i++) {
-	q[i] *= a;
+	for (i = imax; i < i1; i++) {
+	  if (i == ia) {
+	    b = -50.0*_dwork1[imax];
+	    b += 96.0*_dwork1[imax+1];
+	    b -= 72.0*_dwork1[imax+2];
+	    b += 32.0*_dwork1[imax+3];
+	    b -= 6.0 *_dwork1[imax+4];
+	  } else if (i == ia+1) {
+	    b = -6.0*_dwork1[imax];
+	    b -= 20.0*_dwork1[imax+1];
+	    b += 36.0*_dwork1[imax+2];
+	    b -= 12.0*_dwork1[imax+3];
+	    b += 2.0 *_dwork1[imax+4];
+	  } else if (i == i2) {
+	    b = -50.0*_dwork1[i];
+	    b += 96.0*_dwork1[i-1];
+	    b -= 72.0*_dwork1[i-2];
+	    b += 32.0*_dwork1[i-3];
+	    b -= 6.0 *_dwork1[i-4];
+	    b = -b; 
+	  } else if (i == i2-1) {
+	    b = -6.0*_dwork1[i+1];
+	    b -= 20.0*_dwork1[i];
+	    b += 36.0*_dwork1[i-1];
+	    b -= 12.0*_dwork1[i-2];
+	    b += 2.0 *_dwork1[i-3];
+	    b = -b;
+	  } else {
+	    b = 2.0*(_dwork1[i-2] - _dwork1[i+2]);
+	    b += 16.0*(_dwork1[i+1] - _dwork1[i-1]);
+	  }
+	  b *= _dwork2[i];
+	  b = b + _dwork1[i]*kappa/pot->rad[i];
+	  b /= (2.0*_dwork[i]);
+	  q[i] = b*FINE_STRUCTURE_CONST;
+	}
+	//printf("qm: %d %d %d %g %g %g\n", orb->n, orb->kappa, imax, pot->rad[imax], a, q[imax]);
+	a = q[imax]/a;
+	for (i = i0; i < imax; i++) {
+	  q[i] *= a;
+	}
       }
     } else {
       imax = -1;
