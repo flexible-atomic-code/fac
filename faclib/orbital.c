@@ -343,6 +343,13 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
     ierr = RadialBasisOuter(orb, pot);
   }
   if (orb->wfun != NULL && orb->ilast > 0) orb->isol = 1;
+  if (orb->wfun) {
+    if (isnan(orb->wfun[0]) || isnan(orb->wfun[pot->maxrp])) {
+      MPrintf(-1, "wfun nan: %d %d %12.5E %12.5E %12.5E\n",
+	      orb->n, orb->kappa, orb->energy,
+	      orb->wfun[0], orb->wfun[pot->maxrp]);
+    }
+  }
   return ierr;
 }
 
@@ -1695,6 +1702,10 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   i1 = orb->ilast+1;
 
   if (i2 > i0) {
+    for (i = i0; i < pot->maxrp; i++) {
+      if (fabs(p[i]) > 1e-300) break;
+    }
+    for (; i >= i0; i--) p[i] = 0.0;
     if (i0 == 0 && orb->kappa < 0) {
       imax = -1;
       irn = -1;
@@ -1718,7 +1729,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
       }
       imax = Max(imax, irn);
       a = 0;
-      if (i0 == 0 && imax > 5) {
+      if (i0 == 0 && imax > 5 && fabs(p[4]) > 0) {
 	ia = Min(9, imax);
 	for (i = 5; i <= ia; i++) {
 	  a += log(p[i]/p[4])/log(pot->rad[i]/pot->rad[4]);
@@ -1828,7 +1839,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
       }
       imax = Max(imax, irn);
       a = 0;
-      if (i0 == 0 && i2 > 5) {
+      if (i0 == 0 && i2 > 5 && fabs(p[4]) > 0) {
 	ia = Min(9, i2);
 	for (i = 5; i <= ia; i++) {
 	  a += log(p[i]/p[4])/log(pot->rad[i]/pot->rad[4]);
