@@ -1974,6 +1974,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
   //fprintf(f, "#     im = %4d\n", orb->im);
   fprintf(f, "#    rfn = %15.8E\n", orb->rfn);
+  fprintf(f, "#    pdx = %15.8E\n", orb->pdx);
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
   fprintf(f, "#    idx = %d\n", k);
