@@ -282,7 +282,7 @@ void InitOrbitalData(void *p, int n) {
     d[i].wfun = NULL;
     d[i].phase = NULL;
     d[i].ilast = -1;
-    //d[i].im = -1;
+    d[i].pdx = 0;
     d[i].bqp0 = 0;
     d[i].bqp1 = 0;
     d[i].se = 1e31;
@@ -1689,7 +1689,7 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
 ** and Q[i] = small[i]*cos(large[i+1])+small[i+1]*sin(large[i+1])
 */
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
-  int i, i0, i1, ia, kappa, imax, irn;
+  int i, i0, i1, ia, kappa, imax, irn, is;
   double xi, e, *p, *q, a, b, c;
 
   if (orb->n >= 0) i0 = 0;
@@ -1702,10 +1702,12 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   i1 = orb->ilast+1;
 
   if (i2 > i0) {
-    for (i = i0; i < pot->maxrp; i++) {
-      if (fabs(p[i]) > 1e-300) break;
+    is = i0;
+    if (i0 == 0) {
+      for (is = i0; is < i1; is++) {
+	if (fabs(p[is])>1e-100) break;
+      }
     }
-    for (; i >= i0; i--) p[i] = 0.0;
     if (i0 == 0 && orb->kappa < 0) {
       imax = -1;
       irn = -1;
@@ -1721,61 +1723,85 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	if (irn < 0 && pot->rad[i] > pot->atom->rms0) {
 	  irn = i-1;
 	}
-	if (irn > 0 && i >= irn && imax < 0 &&
-	    ((p[i-1] > 0 && p[i] < p[i-1]) ||
-	     (p[i-1] < 0 && p[i] > p[i-1]))) {
+	if (irn > 0 && i >= irn && i >= is && imax < 0 &&
+	    ((p[i-1] > wave_zero && p[i] < p[i-1]) ||
+	     (p[i-1] < -wave_zero && p[i] > p[i-1]))) {
 	  imax = i-1;
 	}
       }
-      imax = Max(imax, irn);
-      imax = Min(imax, i2-2);
-      a = 0;
-      if (i0 == 0 && imax > 5 && fabs(p[4]) > 0) {
-	ia = Min(9, imax);
-	for (i = 5; i <= ia; i++) {
-	  a += log(p[i]/p[4])/log(pot->rad[i]/pot->rad[4]);
-	}
-	a /= ia-4;
-	for (i = 0; i < 4; i++) {
-	  b = p[4]*pow(pot->rad[i]/pot->rad[4], a);
-	  p[i] = b;
-	}
+      if (imax < 0) {
+	imax = i2-2;
+      } else {
+	imax = Max(imax, irn);
+	imax = Max(imax, is+10);
+	imax = Min(imax, i2-2);
       }
+      orb->pdx = -kappa;
+      if (pot->atom->z1 <= 0) {
+	orb->pdx = sqrt(orb->pdx*orb->pdx -
+			FINE_STRUCTURE_CONST2*pot->atom->atomic_number);
+      }
+      for (i = is; i <= imax; i++) {
+	a = log(p[i+1]/p[i])/log(pot->rad[i+1]/pot->rad[i]);
+	if (fabs(p[i]) > wave_zero ||
+	    fabs(a-orb->pdx) < 1e-4*orb->pdx ||
+	    a < orb->pdx) break;      
+      }
+      is = i;
+      if (p[is] > 0) {
+	b = log(p[is])-a*log(pot->rad[is]);
+      } else {
+	b = log(-p[is])-a*log(pot->rad[is]);
+      }
+      for (i = i0; i < is; i++) {
+	p[i] = b + a*log(pot->rad[i]);
+      }
+      orb->pdx = a;
       double a1 = a;
       if (pot->atom->z1 > 0) {
 	a1 = 1+a;
       }
-      if (a1) {
-	for (i = i0; i <= imax; i++) {
-	  _dwork1[i] = pow(pot->rad[i], a1);
-	}
-      } else {
-	for (i = i0; i <= imax; i++) {
-	  _dwork1[i] = 0.0;
-	}
+      for (i = i0; i <= imax; i++) {
+	_dwork1[i] = a1*log(pot->rad[i]);
       }
-      int is;
-      for (is = i0; is <= imax; is++) {
-	if (_dwork1[is] > 0) break;
-      }      
-      for (i = is; i <= imax; i++) {
+      for (i = i0; i <= imax; i++) {
 	xi = _dwork3[i];
-	_dwork2[i] = -p[i]*xi*FINE_STRUCTURE_CONST/_dwork1[i];
-	_dwork2[i] *= pot->dr_drho[i];
+	if (i < is) {
+	  if (p[is] > 0) {
+	    _dwork2[i] = -exp(p[i]-_dwork1[i])*FINE_STRUCTURE_CONST;
+	  } else {
+	    _dwork2[i] = exp(p[i]-_dwork1[i])*FINE_STRUCTURE_CONST;
+	  }
+	} else {
+	  if (p[i] > 0) {
+	    _dwork2[i] = -exp(log(p[i]*FINE_STRUCTURE_CONST)-_dwork1[i]);
+	  } else if (p[i] < 0) {
+	    _dwork2[i] = exp(log(-p[i]*FINE_STRUCTURE_CONST)-_dwork1[i]);
+	  } else {
+	    _dwork2[i] = 0;
+	  }
+	}
+	_dwork2[i] *= xi*pot->dr_drho[i];
 	_dwork3[i] = (a1-kappa)/pot->rad[i];
 	_dwork3[i] *= pot->dr_drho[i];
       }
-      q[is] = p[is] * orb->bqp0*(pot->rad[is]/pot->rad[i0])/_dwork1[is];
-      //printf("%d %d %d %d %g %g %g %g %g\n", i0, is, imax, i1, orb->bqp0, (pot->rad[is]/pot->rad[i0]), _dwork1[is], q[is], q[is]*_dwork1[is]/p[is]);      
-      for (i = is+1; i <= imax; i++) {
+      if (i0 < is) {
+	q[i0] = exp(p[i0]-_dwork1[i0])*orb->bqp0;
+	if (p[is] < 0) q[i0] = -q[i0];
+      } else {
+	q[i0] = (p[i0]/exp(_dwork1[i0]))*orb->bqp0;
+      }
+      //printf("%d %d %d %d %g %g %g %g %g %g\n", i0, is, imax, i1, a1, orb->bqp0, (pot->rad[is]/pot->rad[i0]), _dwork1[is], q[is], q[is]*exp(_dwork1[is]-log(p[is])));
+      for (i = i0+1; i <= imax; i++) {
 	q[i] = 0.5*(_dwork2[i-1]+_dwork2[i]) + (1-0.5*_dwork3[i-1])*q[i-1];
 	q[i] /= 1 + 0.5*_dwork3[i];	
       }
-      for (i = i0; i < is; i++) {
-	q[i] = 0;
+      for (i = i0; i <= imax; i++) {
+	q[i] *= exp(_dwork1[i]);
       }
-      for (i = is; i <= imax; i++) {
-	q[i] *= _dwork1[i];
+      for (i = i0; i < is; i++) {
+	p[i] = exp(p[i]);
+	if (p[is] < 0) p[i] = -p[i];
       }
       if (imax < i2) {
 	a = q[imax];
@@ -1820,7 +1846,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	  b /= (2.0*_dwork[i]);
 	  q[i] = b*FINE_STRUCTURE_CONST;
 	}
-	//printf("qm: %d %d %d %g %g %g\n", orb->n, orb->kappa, imax, pot->rad[imax], a, q[imax]);
+	//printf("qm: %d %d %d %d %g %g %g\n", orb->n, orb->kappa, is, imax, pot->rad[imax], a, q[imax]);
 	a = q[imax]/a;
 	for (i = i0; i < imax; i++) {
 	  q[i] *= a;
@@ -1842,36 +1868,72 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	if (irn < 0 && pot->rad[i] > pot->atom->rms0) {
 	  irn = i-1;
 	}
-	if (irn > 0 && i >= irn && imax < 0 &&
-	    ((p[i-1] > 0 && p[i] < p[i-1]) ||
-	     (p[i-1] < 0 && p[i] > p[i-1]))) {
+	if (irn > 0 && i >= irn && i >= is && imax < 0 &&
+	    ((p[i-1] > wave_zero && p[i] < p[i-1]) ||
+	     (p[i-1] < -wave_zero && p[i] > p[i-1]))) {
 	  imax = i-1;
 	}
       }
-      imax = Max(imax, irn);
-      a = 0;
-      if (i0 == 0 && i2 > 5 && fabs(p[4]) > 0) {
-	ia = Min(9, i2);
-	for (i = 5; i <= ia; i++) {
-	  a += log(p[i]/p[4])/log(pot->rad[i]/pot->rad[4]);
-	}
-	a /= ia-4;
-	for (i = 0; i < 4; i++) {
-	  b = p[4]*pow(pot->rad[i]/pot->rad[4], a);
-	  p[i] = b;
-	}
+      if (imax < 0) {
+	imax = i2-2;
+      } else {
+	imax = Max(imax, irn);
+	imax = Max(imax, is+10);
+	imax = Min(imax, i2-2);
       }
-      if (a) {
+      if (i0 == 0) {
+	if (pot->atom->z1 > 0) {
+	  orb->pdx = kappa < 0?-kappa:kappa+1;
+	} else {
+	  orb->pdx = sqrt(kappa*kappa -
+			  FINE_STRUCTURE_CONST2*pot->atom->atomic_number);
+	}
+	for (i = is; i <= imax; i++) {
+	  a = log(p[i+1]/p[i])/log(pot->rad[i+1]/pot->rad[i]);
+	  if (fabs(p[i]) > wave_zero ||
+	      fabs(a-orb->pdx) < 1e-4*orb->pdx ||
+	      a < orb->pdx) break;      
+	}
+	is = i;
+	if (p[is] > 0) {
+	  b = log(p[is]) - a*log(pot->rad[is]);
+	} else {
+	  b = log(-p[is]) - a*log(pot->rad[is]);
+	}
+	for (i = i0; i < is; i++) {
+	  p[i] = b + a*log(pot->rad[i]);
+	}
+	orb->pdx = a;
 	for (i = i0; i <= i2; i++) {
-	  _dwork3[i] = pow(pot->rad[i]/(pot->rad[i]+pot->rad[imax]), a);
-	  _dwork1[i] = p[i]/_dwork3[i];
+	  _dwork3[i] = a*log(pot->rad[i]/(pot->rad[i]+pot->rad[imax]));
+	  if (i < is) {
+	    if (p[is] > 0) {
+	      _dwork1[i] = exp(p[i] - _dwork3[i]);
+	    } else {
+	      _dwork1[i] = -exp(p[i] - _dwork3[i]);
+	    }
+	  } else {
+	    if (p[i] > 0) {
+	      _dwork1[i] = exp(log(p[i])-_dwork3[i]);
+	    } else if (p[i] < 0) {
+	      _dwork1[i] = -exp(log(-p[i])-_dwork3[i]);
+	    } else {
+	      _dwork1[i] = 0;
+	    }
+	  }
+	}
+	for (i = i0; i < is; i++) {
+	  p[i] = exp(p[i]);
+	  if (p[is] < 0) p[i] = -p[i];
 	}
       } else {
+	is = i0;
 	for (i = i0; i <= i2; i++) {
-	  _dwork3[i] = 1.0;
+	  _dwork3[i] = 0.0;
 	  _dwork1[i] = p[i];
 	}
       }
+      double afs = log(FINE_STRUCTURE_CONST);
       for (i = i0; i < i1; i++) {
 	if (i == i0) {
 	  b = -50.0*_dwork1[i0];
@@ -1905,9 +1967,15 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	}
 	b *= _dwork2[i];
 	c = a*pot->rad[imax]/(pot->rad[imax]+pot->rad[i]) + kappa;
-	b = _dwork3[i]*(b + _dwork1[i]*c/pot->rad[i]);
+	b = (b + _dwork1[i]*c/pot->rad[i]);
 	b /= (2.0*_dwork[i]);
-	q[i] = b*FINE_STRUCTURE_CONST;
+	if (b > 0) {
+	  q[i] = exp(log(b)+afs+_dwork3[i]);
+	} else if (b < 0) {
+	  q[i] = -exp(log(-b)+afs+_dwork3[i]);
+	} else {
+	  q[i] = 0;
+	}
       }
     }
   }
