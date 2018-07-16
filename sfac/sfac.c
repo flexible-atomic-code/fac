@@ -752,14 +752,20 @@ static int PAITableMSub(int argc, char *argv[], int argt[],
 }
 
 static int PBasisTable(int argc, char *argv[], int argt[], ARRAY *variables) {
-  int m;
+  int m, k;
 
   if (argc == 0) return -1;
-  if (argc > 2 || argt[0] != STRING) return -1;
-  if (argc == 2) m = atoi(argv[1]);
-  else m = 0;
+  if (argc > 3 || argt[0] != STRING) return -1;
+  m = 0;
+  k = -1;
+  if (argc > 1) {
+    m = atoi(argv[1]);
+    if (argc > 2) {
+      k = atoi(argv[2]);
+    }
+  }
 
-  GetBasisTable(argv[0], m);
+  GetBasisTable(argv[0], m, k);
   
   return 0;
 }
@@ -4335,7 +4341,17 @@ static int PPrintQED(int argc, char *argv[], int argt[],
 
 static int PPrintNucleus(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  PrintNucleus();
+  int m;
+  char *fn;
+  m = 0;
+  fn = NULL;
+  if (argc > 0) {
+    m = atoi(argv[0]);
+    if (argc > 1) {
+      fn = argv[1];
+    }
+  }
+  PrintNucleus(m, fn);
   return 0;
 } 
  

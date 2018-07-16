@@ -620,6 +620,15 @@ int CompareRandIdx(const void *p1, const void *p2) {
   return 0;
 }
 
+int ComparePtrIdx(const void *p1, const void *p2) {
+  PTRIDX *r1, *r2;
+  r1 = (PTRIDX *) p1;
+  r2 = (PTRIDX *) p2;
+  if (r1->r < r2->r) return -1;
+  else if (r1->r > r2->r) return 1;
+  return 0;
+}
+
 RANDIDX *RandList(int n) {
   int i;
   RANDIDX *w;
@@ -655,6 +664,21 @@ void ArgSort(int n, double *r, int *k) {
     rid[i].r = r[i];
   }
   qsort(rid, n, sizeof(RANDIDX), CompareRandIdx);
+  for (i = 0; i < n; i++) {
+    k[i] = rid[i].i;
+  }
+  free(rid);
+}
+
+void PtrSort(int n, char **r, int *k) {
+  PTRIDX *rid;
+  int i;
+  rid = malloc(sizeof(PTRIDX)*n);
+  for (i = 0; i < n; i++) {
+    rid[i].i = i;
+    rid[i].r = r[i];
+  }
+  qsort(rid, n, sizeof(PTRIDX), ComparePtrIdx);
   for (i = 0; i < n; i++) {
     k[i] = rid[i].i;
   }
