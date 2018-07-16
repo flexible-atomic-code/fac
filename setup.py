@@ -69,7 +69,7 @@ if (no_setup == 0):
             version = version,
             package_dir = {'pfac': 'python'},
             py_modules = ['pfac.const', 'pfac.config', 'pfac.table',
-                          'pfac.atom', 'pfac.spm'],
+                          'pfac.atom', 'pfac.spm', 'pfac.rfac'],
             ext_modules = [Extension("pfac.fac",
                                      ["python/fac.c"],
                                      include_dirs = incdir,

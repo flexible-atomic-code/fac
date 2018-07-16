@@ -2301,7 +2301,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
 
 static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
   char *s;
-  int m;
+  int m, k;
 
   if (sfac_file) {
     SFACStatement("BasisTable", args, NULL);
@@ -2310,8 +2310,9 @@ static  PyObject *PBasisTable(PyObject *self, PyObject *args) {
   }
 
   m = 0;
-  if (!PyArg_ParseTuple(args, "s|i", &s, &m)) return NULL;
-  GetBasisTable(s, m);
+  k = -1;
+  if (!PyArg_ParseTuple(args, "s|ii", &s, &m, &k)) return NULL;
+  GetBasisTable(s, m, k);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -5416,8 +5417,14 @@ static PyObject *PPrintNucleus(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
-  PrintNucleus();
+
+  int m;
+  char *fn;
+
+  m = 0;
+  fn = NULL;
+  if (!(PyArg_ParseTuple(args, "|is", &m, &fn))) return NULL;
+  PrintNucleus(m, fn);
   
   Py_INCREF(Py_None);
   return Py_None;

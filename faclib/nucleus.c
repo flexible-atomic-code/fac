@@ -1314,27 +1314,64 @@ NUCLEUS *GetAtomicNucleus() {
   return &atom;
 }
 
-void PrintNucleus() {
-  printf("atom: %s\n", atom.symbol);
-  printf("z: %g\n", atom.atomic_number);
-  printf("mass: %g\n", atom.mass);
-  printf("rn: %g\n", atom.rn);
-  printf("rms: %g\n", atom.rms*1e5*RBOHR);
-  printf("rmse: %g\n", atom.rmse);
-  printf("fz1: %g\n", atom.z1);
-  printf("fa: %g\n", atom.a);
-  printf("fb: %g\n", atom.b);
-  printf("fc: %g\n", atom.c);
-  int i;
-  for (i = 0; i < atom.nep; i++) {
-    printf("ep: %d %d %g %g\n", i, atom.epm[i], atom.epp[i][0], atom.epp[i][1]);
+void PrintNucleus(int m, char *fn) {
+  FILE *f;
+
+  if (fn == NULL || strlen(fn) == 0 || strcmp(fn, "-")==0) {
+    f = stdout;
+  } else {
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open iso output file: %s\n", fn);
+      return;
+    }
   }
-  /*
-  printf("%s z=%g m=%g r=%g/%.4f/%.4f z1=%g a=%g b=%g c=%g\n",
-	 atom.symbol, atom.atomic_number, atom.mass,
-	 atom.rn, atom.rms*1e5*RBOHR, atom.rmse, atom.z1,
-	 atom.a, atom.b, atom.c);
-  */
+  if (m == 0) {
+    fprintf(f, "atom: %s\n", atom.symbol);
+    fprintf(f, "z: %g\n", atom.atomic_number);
+    fprintf(f, "mass: %g\n", atom.mass);
+    fprintf(f, "rn: %g\n", atom.rn);
+    fprintf(f, "rms: %g\n", atom.rms*1e5*RBOHR);
+    fprintf(f, "rmse: %g\n", atom.rmse);
+    fprintf(f, "fz1: %g\n", atom.z1);
+    fprintf(f, "fa: %g\n", atom.a);
+    fprintf(f, "fb: %g\n", atom.b);
+    fprintf(f, "fc: %g\n", atom.c);
+    int i;
+    for (i = 0; i < atom.nep; i++) {
+      fprintf(f, "ep: %d %d %g %g\n",
+	      i, atom.epm[i], atom.epp[i][0], atom.epp[i][1]);
+    }
+  } else {
+    fprintf(f, "Atomic number:\n");
+    fprintf(f, "%15.8E\n", atom.atomic_number);
+    fprintf(f, "Mass number (integer) :\n");
+    fprintf(f, "%15.8E\n", (double)(int)(0.5+atom.mass));
+    fprintf(f, "Fermi distribution parameter a:\n");
+    fprintf(f, "%15.8E\n", atom.a*1e5*RBOHR);
+    fprintf(f, "Fermi distribution parameter c:\n");
+    fprintf(f, "%15.8E\n", atom.c*1e5*RBOHR);
+    fprintf(f, "Mass of nucleus (in amu):\n");
+    fprintf(f, "%15.8E\n", atom.mass);
+    fprintf(f, "Nuclear spin (I) (in units of h / 2 pi):\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "Nuclear dipole moment (in nuclear magnetons):\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "Nuclear quadrupole moment (in barns):\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "RNT:\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "H:\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "HP:\n");
+    fprintf(f, "%15.8E\n", 0.0);
+    fprintf(f, "NNNP:\n");
+    fprintf(f, "%d\n", 0);
+  }
+  fflush(f);
+  if (f != stdout) {
+    fclose(f);
+  }
 }
 
 double GetAtomicMass(void) {

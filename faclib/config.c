@@ -1788,6 +1788,37 @@ void PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr){
   s->Nr = Nr;
 }
 
+int ShellNeedNuNr(SHELL *s, SHELL_STATE *st) {
+  if (s->nq < 4) return 0;
+  int j = GetJFromKappa(s->kappa);
+  if (j < 7) return 0;
+  if (j == 7) {
+    if (st->shellJ == 4 || st->shellJ == 8) return 1;
+    return 0;
+  } else if (j == 9) {    
+    if (s->nq == 4) {
+      if (st->shellJ == 6 || st->shellJ == 10 ||
+	  st->shellJ == 14 || st->shellJ == 16 || st->shellJ == 18 ||
+	  st->shellJ == 20 || st->shellJ == 24) {
+	return 0;
+      }
+      if (st->shellJ == 8 || st->shellJ == 12) return 3;
+      return 1;
+    }
+    if (s->nq == 5) {
+      if (st->shellJ == 1 ||
+	  st->shellJ == 3 ||
+	  st->shellJ == 19 ||
+	  st->shellJ == 21 ||
+	  st->shellJ == 25) {
+	return 0;
+      }
+      return 1;
+    }
+  }
+  return 0;
+}
+  
 /* 
 ** FUNCTION:    GroupIndex
 ** PURPOSE:     find the index of the group by its name.

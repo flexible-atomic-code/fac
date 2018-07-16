@@ -292,6 +292,7 @@ int          ShellToInt(int n, int k);
 int          ShellIndex(int n, int kappa, int ns, SHELL *s);
 void         IntToShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
+int ShellNeedNuNr(SHELL *s, SHELL_STATE *st);
 int          GetAverageConfig(int ng, int *kg, int ic, double *weight,
 			      int n_screen, int *screened_n, 
 			      double screened_charge,

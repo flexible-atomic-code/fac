@@ -38,6 +38,11 @@ typedef struct _RANDIDX_ {
   double r;
 } RANDIDX;
 
+typedef struct _PTRIDX_ {
+  int i;
+  char *r;
+} PTRIDX;
+
 typedef struct _MPID_ {
   int myrank;
   int nproc;
@@ -90,5 +95,5 @@ RANDIDX *RandList(int n);
 void RandIntList(int n, int *k);
 void ArgSort(int n, double *r, int *k);
 int CompareRandIdx(const void *p1, const void *p2);
-
+int ComparePtrIdx(const void *p1, const void *p2);
 #endif

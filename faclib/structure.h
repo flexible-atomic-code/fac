@@ -65,16 +65,9 @@ typedef struct _HAMILTON_ {
   double diag_emin;
 } HAMILTON;
 
-typedef struct _SHAMILTON_ {
-  int pj;
-  int nbasis, nlevs;
-  STATE **basis;
-  unsigned char closed[MBCLOSE];
-} SHAMILTON;
-
 typedef struct _LEVEL_ {
   int pj;
-  int iham, ilev;
+  int iham, ilev, slev;
   int n_basis;
   int pb;
   int kpb[NPRINCIPLE];
@@ -84,6 +77,14 @@ typedef struct _LEVEL_ {
   double *mixing;
   double energy;
 } LEVEL;
+
+typedef struct _SHAMILTON_ {
+  int pj;
+  int nbasis, nlevs;
+  STATE **basis;
+  LEVEL **levs;
+  unsigned char closed[MBCLOSE];
+} SHAMILTON;
 
 typedef struct _LEVEL_ION_ {
   int imin;
@@ -223,7 +224,7 @@ int AddToAngularZMix(int *n, int *nz, ANGULAR_ZMIX **ang,
 int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
 		    int kb, double coeff);
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
-int GetBasisTable(char *fn, int m);
+int GetBasisTable(char *fn, int m, int k);
 int ConstructLevelName(char *name, char *sname, char *nc, 
 		       int *vnl, STATE *basis);
 int SaveLevels(char *fn, int m, int n);
