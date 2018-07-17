@@ -96,6 +96,8 @@ def read_lev(filename):
 
     return header, read_blocks(lines)
 
+def read_en(filename):
+    return read_lev(filename)
 
 def read_tr(filename):
     """ read *a.tr file. """
