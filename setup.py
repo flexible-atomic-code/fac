@@ -121,7 +121,7 @@ class MyCompiler(UnixCCompiler, object):
         if CC is not None:
             super(self.__class__, self).set_executables(
                 compiler=CC, compiler_so=CC, linker_exe=CC,
-                linker_so=CC + ' -shared')
+                linker_so=sysconfig.get_config_var('LDSHARED'))
 
     def _fix_lib_args(self, libraries, library_dirs, runtime_library_dirs):
         # we need to have this method here, to avoid an endless
