@@ -9,6 +9,8 @@ SHELL = /bin/sh
 
 PYTHON = @PYTHON@
 
+CC = @CC@
+
 RANLIB = @RANLIB@
 
 TOPDIR = @TOPDIR@
@@ -37,7 +39,7 @@ sfac:	lib
 	cd sfac; make
 
 pfac:   lib
-	${PYTHON} setup.py build --force -extracomp="${CFLAGS}" -extralink="${LIBS}"
+	${PYTHON} setup.py build --force -ccompiler="${CC}" -extracomp="${CFLAGS}" -extralink="${LIBS}"
 mpy:
 	${PYTHON} setup.py build -mpy -extracomp="${CFLAGS}" -extralink="${LIBS}"
 
@@ -57,7 +59,7 @@ install:
 	cd sfac; make install
 
 install-pfac:
-	${PYTHON} setup.py install
+	${PYTHON} setup.py install -ccompiler="${CC}" 
 
 install-mpy:
 	cd python; make install
