@@ -32,13 +32,49 @@ libs = []
 extralink = []
 extracomp = []
 bsfac = ''
-version = "1.1.1"
 
 no_setup = 0
 x = sys.argv[2:]
 sys.argv = sys.argv[0:2]
 
 CC = None
+
+
+# Obtain version from faclib/consts
+def get_version(filename=None):
+    if not filename:
+        filename = os.path.join(
+            os.path.dirname(__file__), 'faclib', 'consts.h')
+
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        version, subversion, subsubversion = None, None, None
+        for line in lines:
+            if '#define VERSION' in line:
+                version = (line[17:]).strip()
+            if '#define SUBVERSION' in line:
+                subversion = (line[20:]).strip()
+            if '#define SUBSUBVERSION' in line:
+                subsubversion = (line[23:]).strip()
+        return '{}.{}.{}'.format(version, subversion, subsubversion)
+
+VERSION = get_version()
+
+# Make python/version
+def write_version_py(filename=None):
+    cnt = """version = '%s'\n"""
+    if not filename:
+        filename = os.path.join(
+            os.path.dirname(__file__), 'python', 'version.py')
+
+    a = open(filename, 'w')
+    try:
+        a.write(cnt % VERSION)
+    finally:
+        a.close()
+
+write_version_py()
+
 
 for s in x:
     if (s[0:11] == '-ccompiler='):
@@ -76,9 +112,6 @@ for s in x:
 
 
 # We studied a lot from Intel/pyMIC repoif CC is None:
-    raise ValueError('Should pass -ccompiler option')
-
-
 # https://github.com/intel/pyMIC/blob/master/setup.py
 # compiler driver for Anaconda Composer for C/C++
 class MyCompiler(UnixCCompiler, object):
@@ -121,10 +154,11 @@ Extensions = [Extension(mod, src, include_dirs=incdir, library_dirs=libdir,
 
 if (no_setup == 0):
     setup(name="PFAC",
-          version=version,
+          version=VERSION,
           package_dir={'pfac': 'python'},
           py_modules=['pfac.const', 'pfac.config', 'pfac.table',
-                      'pfac.atom', 'pfac.spm', 'pfac.rfac'],
+                      'pfac.atom', 'pfac.spm', 'pfac.rfac',
+                      'pfac.__version__'],
           ext_modules=Extensions)
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
