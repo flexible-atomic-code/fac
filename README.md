@@ -68,10 +68,19 @@ This installs the PFAC interface into Python's default site-package dir.
 #### 4-1 Anaconda distribution
 If your are using Anaconda distribution for Python environment, it may be
 necessary to install gcc compilers from Anacona.
+Linux:
++ gcc_linux-64
++ gfortran_linux-64  
+
+macOS:
++ clang_osx-64
++ clangxx_osx-64
 ```
-conda install gcc
+conda install gcc_linux-64 gfortran_linux-64
 ```
-It would be better to create a new virtual environment for FAC, as the gcc
+For the details of the Anaconda's compiler, see [the official page](https://conda.io/docs/user-guide/tasks/build-packages/compiler-tools.html).
+
+It would be better to create a new virtual environment for FAC, as the compiler
 installation sometimes affects other Python packages.
 For the details of the virtual environment, see [Anaconda's documentation](https://conda.io/docs/user-guide/tasks/manage-python.html#installing-a-different-version-of-python)
 

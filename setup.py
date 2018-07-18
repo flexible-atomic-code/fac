@@ -74,20 +74,20 @@ for s in x:
     else:
         sys.argv.append(s)
 
-
 if CC is None:
     raise ValueError('Should pass -ccompiler option')
 
 
+# We studied a lot from Intel/pyMIC repository
+# https://github.com/intel/pyMIC/blob/master/setup.py
 # compiler driver for Anaconda Composer for C/C++
 class MyCompiler(UnixCCompiler, object):
     """Compiler wrapper for anaconda gcc_linux-64 """
     def set_executables(self, **args):
         # basically, we ignore all the tool chain coming in
-        super(self.__class__, self).set_executables(compiler=CC,
-                                                    compiler_so=CC,
-                                                    linker_exe=CC,
-                                                    linker_so=CC + ' -shared')
+        super(self.__class__, self).set_executables(
+            compiler=CC, compiler_so=CC, linker_exe=CC,
+            linker_so=CC + ' -shared')
 
     def _fix_lib_args(self, libraries, library_dirs, runtime_library_dirs):
         # we need to have this method here, to avoid an endless
@@ -108,9 +108,15 @@ def my_new_compiler(plat=None, compiler=None, verbose=0, dry_run=0, force=0):
 
 
 # override compiler construction
-print('creating compiler instance for Intel Composer for C/C++')
 distutils.ccompiler.new_compiler = my_new_compiler
 
+Extensions = [Extension(mod, src, include_dirs=incdir, library_dirs=libdir,
+                        libraries=libs, extra_compile_args=extracomp,
+                        extra_link_args=extralink)
+              for mod, src in (("pfac.fac", ["python/fac.c"]),
+                               ("pfac.crm", ["python/pcrm.c"]),
+                               ("pfac.pol", ["python/ppol.c"]),
+                               ("pfac.util", ["python/util.c"]))]
 
 if (no_setup == 0):
     setup(name="PFAC",
@@ -118,35 +124,7 @@ if (no_setup == 0):
           package_dir={'pfac': 'python'},
           py_modules=['pfac.const', 'pfac.config', 'pfac.table',
                       'pfac.atom', 'pfac.spm', 'pfac.rfac'],
-          ext_modules=[Extension("pfac.fac",
-                                 ["python/fac.c"],
-                                 include_dirs = incdir,
-                                 library_dirs = libdir,
-                                 libraries = libs,
-                                 extra_compile_args = extracomp,
-                                 extra_link_args = extralink),
-                       Extension("pfac.crm",
-                                 ["python/pcrm.c"],
-                                 include_dirs = incdir,
-                                 library_dirs = libdir,
-                                 libraries = libs,
-                                 extra_compile_args = extracomp,
-                                 extra_link_args = extralink),
-                       Extension("pfac.pol",
-                                 ["python/ppol.c"],
-                                 include_dirs = incdir,
-                                 library_dirs = libdir,
-                                 libraries = libs,
-                                 extra_compile_args = extracomp,
-                                 extra_link_args = extralink),
-                       Extension("pfac.util",
-                                 ["python/util.c"],
-                                 include_dirs = incdir,
-                                 library_dirs = libdir,
-                                 libraries = libs,
-                                 extra_compile_args = extracomp,
-                                 extra_link_args = extralink)
-                       ])
+          ext_modules=Extensions)
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
       print('Creating SFAC binary ...')
