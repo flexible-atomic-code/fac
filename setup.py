@@ -74,20 +74,21 @@ for s in x:
     else:
         sys.argv.append(s)
 
-if CC is None:
+
+# We studied a lot from Intel/pyMIC repoif CC is None:
     raise ValueError('Should pass -ccompiler option')
 
 
-# We studied a lot from Intel/pyMIC repository
 # https://github.com/intel/pyMIC/blob/master/setup.py
 # compiler driver for Anaconda Composer for C/C++
 class MyCompiler(UnixCCompiler, object):
     """Compiler wrapper for anaconda gcc_linux-64 """
     def set_executables(self, **args):
         # basically, we ignore all the tool chain coming in
-        super(self.__class__, self).set_executables(
-            compiler=CC, compiler_so=CC, linker_exe=CC,
-            linker_so=CC + ' -shared')
+        if CC is not None:
+            super(self.__class__, self).set_executables(
+                compiler=CC, compiler_so=CC, linker_exe=CC,
+                linker_so=CC + ' -shared')
 
     def _fix_lib_args(self, libraries, library_dirs, runtime_library_dirs):
         # we need to have this method here, to avoid an endless
