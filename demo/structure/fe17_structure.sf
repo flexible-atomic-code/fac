@@ -22,6 +22,6 @@ Structure('ne.lev.b', ['n2', 'n3'])
 MemENTable('ne.lev.b')
 PrintTable('ne.lev.b', 'ne.lev', 1)
 
-TransitionTable('ne.tr.b', ['n2'], ['n3'], -1)
+TransitionTable('ne.tr.b', ['n2'], ['n3'])
 PrintTable('ne.tr.b', 'ne.tr', 1)
 
