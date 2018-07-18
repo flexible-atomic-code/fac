@@ -52,6 +52,9 @@ script:
   - cd tests
   - make; make test
   - cd ../
-  # python test
+  # Make sure c-module can be loaded
   - python -OO -c "from pfac import fac"
+  - python -OO -c "from pfac import pcrm"
+  - python -OO -c "from pfac import ppol"
+  - python -OO -c "from pfac import util"
 after_success:

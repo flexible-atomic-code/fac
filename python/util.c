@@ -1,24 +1,24 @@
 /*
  *   FAC - Flexible Atomic Code
  *   Copyright (C) 2001-2015 Ming Feng Gu
- * 
+ *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *   GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 static char *rcsid="$Id: util.c,v 1.4 2004/01/17 19:37:49 mfgu Exp $";
 #if __GNUC__ == 2
-#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var)
 USE (rcsid);
 #endif
 
@@ -47,7 +47,7 @@ static PyObject *PSpline(PyObject *self, PyObject *args) {
   x = malloc(sizeof(double)*n);
   y = malloc(sizeof(double)*n);
   y2 = malloc(sizeof(double)*n);
-  
+
   for (i = 0; i < n; i++) {
     x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
     y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
@@ -61,14 +61,14 @@ static PyObject *PSpline(PyObject *self, PyObject *args) {
   free(x);
   free(y);
   free(y2);
-  
+
   return py2;
 }
 
-static PyObject *PSplint(PyObject *self, PyObject *args) {  
+static PyObject *PSplint(PyObject *self, PyObject *args) {
   PyObject *px, *py, *py2;
   double *x, *y, *y2, x0, y0;
-  int n, i;  
+  int n, i;
 
   if (!PyArg_ParseTuple(args, "OOOd", &px, &py, &py2, &x0)) return NULL;
   if (!PyList_Check(px) || !PyList_Check(py)) return NULL;
@@ -77,7 +77,7 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
   if (PyList_Size(py2) != n) return NULL;
   x = malloc(sizeof(double)*n);
   y = malloc(sizeof(double)*n);
-  y2 = malloc(sizeof(double)*n);  
+  y2 = malloc(sizeof(double)*n);
   for (i = 0; i < n; i++) {
     x[i] = PyFloat_AsDouble(PyList_GetItem(px, i));
     y[i] = PyFloat_AsDouble(PyList_GetItem(py, i));
@@ -89,17 +89,17 @@ static PyObject *PSplint(PyObject *self, PyObject *args) {
   free(x);
   free(y);
   free(y2);
-  
+
   return Py_BuildValue("d", y0);
-}  
+}
 
 static PyObject *PUVIP3P(PyObject *self, PyObject *args) {
   PyObject *px, *py, *px0, *py0;
   double *x, *y, *x0, *y0;
-  int n, m, np, i, f;  
+  int n, m, np, i, f;
 
   np = 3;
-  if (!PyArg_ParseTuple(args, "OOO|i", &px, &py, &px0, &np)) 
+  if (!PyArg_ParseTuple(args, "OOO|i", &px, &py, &px0, &np))
     return NULL;
   if (!PyList_Check(px)) return NULL;
   if (!PyList_Check(py)) return NULL;
@@ -152,11 +152,11 @@ static PyObject *PDXLEGF(PyObject *self, PyObject *args) {
   int ipqa[1], ierr;
 
   id = 3;
-  if (!PyArg_ParseTuple(args, "did|i", &dnu, &mu, &theta, &id)) 
+  if (!PyArg_ParseTuple(args, "did|i", &dnu, &mu, &theta, &id))
     return NULL;
   theta = acos(theta);
   DXLEGF(dnu, 0, mu, mu, theta, id, pqa, ipqa, &ierr);
-  
+
   return Py_BuildValue("d", pqa[0]);
 }
 
@@ -168,16 +168,41 @@ static struct PyMethodDef util_methods[] = {
   {NULL, NULL}
 };
 
-void initutil(void) {
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "util",
+  NULL,
+  -1,
+  util_methods,
+};
+#define INITERROR return NULL
+
+PyMODINIT_FUNC
+PyInit_util(void){
+
+#else
+#define INITERROR return
+
+void
+initutil(void){
+#endif
   PyObject *m, *d;
 
-  m = Py_InitModule("util", util_methods);  
+  #if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&moduledef);
+  #else
+    m = Py_InitModule("util", util_methods);
+  #endif
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "util.error");
   PyDict_SetItemString(d, "error", ErrorObject);
 
-  if (PyErr_Occurred()) 
-    Py_FatalError("can't initialize module crm");
-}
+  if (PyErr_Occurred())
+    Py_FatalError("can't initialize module util");
 
-  
+  #if PY_MAJOR_VERSION >= 3
+    return m;
+  #endif
+}
