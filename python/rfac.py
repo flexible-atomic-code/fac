@@ -1,17 +1,17 @@
 #
 #   FAC - Flexible Atomic Code
 #   Copyright (C) 2001-2015 Ming Feng Gu
-# 
+#
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
 #   (at your option) any later version.
-# 
+#
 #   This program is distributed in the hope that it will be useful,
 #   but WITHOUT ANY WARRANTY; without even the implied warranty of
 #   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #   GNU General Public License for more details.
-# 
+#
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
@@ -20,6 +20,7 @@
 
 import numpy as np
 from collections import OrderedDict
+
 
 def _read_value(lines, cls):
     """
@@ -96,8 +97,10 @@ def read_lev(filename):
 
     return header, read_blocks(lines)
 
+
 def read_en(filename):
     return read_lev(filename)
+
 
 def read_tr(filename):
     """ read *a.tr file. """
@@ -560,6 +563,7 @@ def read_rt(filename):
 
     return header, read_blocks(lines)
 
+
 class FLEV:
     def sort(self):
         i = np.argsort(self.e)
@@ -576,7 +580,7 @@ class FLEV:
         r = FLEV(None)
         r.concat(self, a)
         return r
-    
+
     def concat(self, g, c):
         ng = len(g.e)
         nc = len(c.e)
@@ -606,7 +610,7 @@ class FLEV:
         self.n[ng:] = c.n
         self.ig[:ng] = g.ig
         self.ig[ng:] = c.ig
-        
+
     def combine(self, g, c):
         wg = where(g.ig == 1)
         wc = where(c.ig == 0)
@@ -641,16 +645,12 @@ class FLEV:
         self.n[ng:] = c.n[wc]
         self.ig[:ng] = g.ig[wg]
         self.ig[ng:] = c.ig[wc]
-                    
+
     def __init__(self, f, ig=0):
         if f == None:
             return
         (hlev,blev) = read_lev(f)
-        try:
-            b0 = blev[0]
-            print 'reading ... %s %d'%(f, len(b0['ILEV']))
-        except:
-            print 'reading ... %s fail'%f
+        b0 = blev[0]
         self.nele = b0['NELE']
         ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
         if self.nele <= 12:
@@ -701,7 +701,7 @@ class FLEV:
                         self.ig[i] = 0
                         break
 
-    def match(self, m):        
+    def match(self, m):
         self.idx = np.arange(len(self.e))
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
@@ -732,7 +732,7 @@ class FLEV:
                         self.cm[wm] = m.c[w1[0][i]]
 
     def write(self, fn):
-        f = open(fn, 'w')        
+        f = open(fn, 'w')
         for i in range(len(self.e)):
             em = self.em[i]
             if em >= 0:
@@ -743,7 +743,7 @@ class FLEV:
             s = '%4d %4d %11.5E %11.5E %10.3E %d %2d %-32s %-84s %-48s\n'%(i,self.im[i],self.e[i],em,de,self.p[i],self.j[i],self.s[i],self.n[i],self.cm[i])
             f.write(s)
         f.close()
-        
+
 class MLEV:
     def __init__(self, f):
         if f == None:
@@ -753,7 +753,7 @@ class MLEV:
         self.j = int32(j)
         pc = np.transpose(np.loadtxt(f, usecols=2, dtype='string', skiprows=1, delimiter=' ; '))
         self.p = int32(pc == 'o')
-        self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))        
+        self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
 
 def aflev(d0, d1, a, n):
     #d0 = '/Users/yul20/atomic/juan/mbpt2l'
@@ -788,12 +788,12 @@ def cflev(d, a, nj, n):
     if f0 != None:
         f0.sort()
     return f0
-            
+
 def pjflev(d, a, p, j, n):
     if (type(p) == type(0)):
         p = '%d'%p
         j = '%d'%j
-        
+
     f = '%s/p%sj%s/g/%s%02di00a.en'%(d,p, j, a, n)
     try:
         f0 = FLEV(f)
@@ -803,7 +803,7 @@ def pjflev(d, a, p, j, n):
         for k1 in range(0, n1):
             for n2 in [3, 4, 5]:
                 for k2 in range(0, n2):
-                    f = '%s/p%sj%s/g_n%dk%d_n%dk%d/%s%02di00a.en'%(d,p,j,n1,k1,n2,k2,a,n)                    
+                    f = '%s/p%sj%s/g_n%dk%d_n%dk%d/%s%02di00a.en'%(d,p,j,n1,k1,n2,k2,a,n)
                     if f0 == None:
                         try:
                             f0 = FLEV(f)
@@ -811,7 +811,7 @@ def pjflev(d, a, p, j, n):
                             pass
                     else:
                         try:
-                            f1 = FLEV(f)                    
+                            f1 = FLEV(f)
                             fc = FLEV(None)
                             fc.concat(f0, f1)
                             f0 = fc
