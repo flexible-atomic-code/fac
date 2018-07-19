@@ -47,11 +47,6 @@ script:
     fi
   - make check
   - cd ../
-  # c test
-  - bash tests/install_googletest.sh
-  - cd tests
-  - make; make test
-  - cd ../
   # Make sure c-module can be loaded
   - python -OO -c "from pfac import fac"
   - python -OO -c "from pfac import crm"

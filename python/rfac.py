@@ -20,6 +20,30 @@
 
 import numpy as np
 from collections import OrderedDict
+from distutils.version import LooseVersion
+
+
+def _wrap_get_length(version):
+    """ Returns get_length functions for lev file, depending on the version """
+    if LooseVersion(version) < LooseVersion('1.1.5'):
+        slice_lcomplex = slice(44, 64)
+        slice_lsname = slice(65, 86)
+        slice_lname = slice(86, None)
+    else:
+        slice_lcomplex = slice(44, 74)
+        slice_lsname = slice(75, 124)
+        slice_lname = slice(125, None)
+
+    def get_lcomplex(line):
+        return line[slice_lcomplex].strip()
+
+    def get_lsname(line):
+        return line[slice_lsname].strip()
+
+    def get_lname(line):
+        return line[slice_lname].strip()
+
+    return get_lcomplex, get_lsname, get_lname
 
 
 def _read_value(lines, cls):
@@ -63,6 +87,8 @@ def read_lev(filename):
     header['E0'] = float(e0)
     lines = lines[2:]
 
+    get_lcomplex, get_lsname, get_lname = _wrap_get_length(header['FAC'])
+
     def read_blocks(lines):
         block = {}
         block['NELE'], lines = _read_value(lines, int)
@@ -85,13 +111,13 @@ def read_lev(filename):
                 return (block, ) + blocks
             block['ILEV'][i] = int(line[:6])
             block['IBASE'][i] = int(line[7:13])
-            block['ENERGY'][i] = float(line[14:29])
+            block['ENERGY'][i] = float(line[14:30])
             block['P'][i] = int(line[30:31])
             block['VNL'][i] = line[34:37].strip()
             block['2J'][i] = int(line[39:42])
-            block['ncomplex'][i] = line[43:75].strip()
-            block['sname'][i] = line[76:124].strip()
-            block['name'][i] = line[125:].strip()
+            block['ncomplex'][i] = get_lcomplex(line)
+            block['sname'][i] = get_lsname(line)
+            block['name'][i] = get_lname(line)
 
         return (block, )
 

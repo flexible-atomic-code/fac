@@ -4945,7 +4945,7 @@ CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
 
-ac_config_files="$ac_config_files Makefile sfac/Makefile python/Makefile faclib/Makefile blas/Makefile coul/Makefile ionis/Makefile lapack/Makefile minpack/Makefile mpfun/Makefile ode/Makefile toms/Makefile modqed/Makefile quadpack/Makefile tests/Makefile"
+ac_config_files="$ac_config_files Makefile sfac/Makefile python/Makefile faclib/Makefile blas/Makefile coul/Makefile ionis/Makefile lapack/Makefile minpack/Makefile mpfun/Makefile ode/Makefile toms/Makefile modqed/Makefile quadpack/Makefile"
 
 
 if test -z "$PYTHON"
@@ -5661,7 +5661,6 @@ do
     "toms/Makefile") CONFIG_FILES="$CONFIG_FILES toms/Makefile" ;;
     "modqed/Makefile") CONFIG_FILES="$CONFIG_FILES modqed/Makefile" ;;
     "quadpack/Makefile") CONFIG_FILES="$CONFIG_FILES quadpack/Makefile" ;;
-    "tests/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -6247,4 +6246,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
