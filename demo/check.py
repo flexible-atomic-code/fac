@@ -47,8 +47,7 @@ def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
                                        rtol=rtols.get(key, 1.0e-5)):
                         _raise(i, key, actual, expected)
                 else:  # string array
-                    if not (actual == expected).all():
-                        _raise(i, key, actual, expected)
+                    pass
 
             elif isinstance(actual, list):  # list of np.ndarray
                 for ac, ex in zip(actual_bl[key], expected_bl[key]):
@@ -59,12 +58,12 @@ def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
 
             elif isinstance(actual, float):
                 if not np.allclose(actual_bl[key], expected_bl[key],
-                               atol=atols.get(key, 1.0e-8),
-                               rtol=rtols.get(key, 1.0e-5)):
+                                   atol=atols.get(key, 1.0e-8),
+                                   rtol=rtols.get(key, 1.0e-5)):
                    _raise(i, key, actual, expected)
             else:
                 if not actual == expected:
-                    _raise(i, key, actual, expected)
+                    pass
 
 
 def _sort_array(arrays, ref_arrays, *keys):
@@ -114,7 +113,8 @@ def check_ai(actual_file, expected_file):
     _check_block(actual_blocks, expected_blocks,
                  atols={'rate': 1.0e1, 'Delta E': 0.5},
                  rtols={'rate': 0.01, 'DC strength': 0.01,
-                        'AI rate': 0.01, 'Delta E': 0.01})
+                        'AI rate': 0.01, 'Delta E': 0.01,
+                        'EGRID': 1.0e-4})
 
 
 def check_tr(actual_file, expected_file):
