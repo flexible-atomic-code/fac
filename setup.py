@@ -123,6 +123,9 @@ class MyCompiler(UnixCCompiler, object):
                 shared_flag = ' -shared'
             elif sys.platform == "darwin":  # OSX
                 shared_flag = ' -dynamiclib'
+            else:
+                raise TypeError('Platform {} is not supported.'.format(
+                    sys.platform))
             super(self.__class__, self).set_executables(
                 compiler=CC, compiler_so=CC, linker_exe=CC,
                 linker_so=CC + shared_flag)
