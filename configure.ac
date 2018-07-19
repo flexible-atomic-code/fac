@@ -56,18 +56,18 @@ AC_ARG_ENABLE(fpic,
 if test -n "$GCC"
 then
   if test -z "$copt"
-  then 
+  then
     copt="-Ofast"
   fi
   if test -z "$cpic"
-  then 
+  then
     cpic="-fPIC"
   fi
 fi
 if test -n "$G77"
 then
   if test -z "$fopt"
-  then 
+  then
     fopt="-O2"
   fi
   if test -z "$fpic"
@@ -93,9 +93,9 @@ if test -n "$fdebug_opt"
 then
   FFLAGS="$FFLAGS $fdebug_opt"
 fi
-  
+
 # gcc warnings
-AC_ARG_ENABLE(warnings, 
+AC_ARG_ENABLE(warnings,
 	[  --enable-warnings	GCC warnings],
 	[gcc_warnings=$enableval])
 if test -n "$GCC"
@@ -117,13 +117,13 @@ then
 fi
 
 # which F77 known by cfortran.h is used
-AC_ARG_WITH(cfortran, 
+AC_ARG_WITH(cfortran,
 	[  --with-cfortran=xxFortran    Macro to be defined for cfortran.h],
 	[xxFortran="$withval"])
 if test -z "$xxFortran"
 then
   if test -n "$G77"
-  then 
+  then
     xxFortran=f2cFortran
   else
     case "$host_os" in
@@ -199,9 +199,9 @@ then
   case "$use_mpi" in
     *mpi|1)
       if test "x$mpicompile" = "x"
-      then 
+      then
         mpicompile=`mpicc -showme`
-        mpicompile=[`echo $mpicompile | sed 's/^ *//'`]	
+        mpicompile=[`echo $mpicompile | sed 's/^ *//'`]
 	mpicompile=[`echo $mpicompile | sed 's/^[^ ]* *//'`]
 	mpicompile=[`echo $mpicompile | sed 's/ -[Ll][^ ]*//g'`]
 	mpicompile=[`echo $mpicompile | sed 's/ *$//'`]
@@ -218,7 +218,7 @@ then
     ;;
     omp|2)
       if test "x$mpicompile" = "x"
-      then 
+      then
   	mpicompile=-fopenmp
 	mpilink="-fopenmp -lgcc_eh"
       fi
@@ -232,7 +232,7 @@ then
       AC_DEFINE_UNQUOTED([USE_MPI])
     ;;
   esac
-  
+
   CPPFLAGS="$CPPFLAGS $mpicompile"
   LIBS="$LIBS $mpilink"
   FFLAGS="$FFLAGS $mpifflag"
@@ -251,39 +251,38 @@ fi
 case "$host_os" in
   *darwin*)
     if test -n "$GCC"
-    then 
+    then
       AC_CHECK_LIB(cc_dynamic,main,LIBS="$LIBS -lcc_dynamic")
     fi
   ;;
   *)
   ;;
-esac 
+esac
 
 # add fopt
 FFLAGSNO="$FFLAGS"
 AC_SUBST(FFLAGSNO)
 FFLAGS="$FFLAGS $fopt"
-      
-# add include pathes.	      
+
+# add include pathes.
 CPPFLAGS="$CPPFLAGS -I$TOPDIR"
 CPPFLAGS="$CPPFLAGS -I$TOPDIR/faclib"
 LDFLAGS="$LDFLAGS -L$TOPDIR"
 
-AC_CONFIG_FILES([Makefile 
+AC_CONFIG_FILES([Makefile
 		 sfac/Makefile
 		 python/Makefile
-		 faclib/Makefile 
-		 blas/Makefile 
+		 faclib/Makefile
+		 blas/Makefile
 		 coul/Makefile
 		 ionis/Makefile
 		 lapack/Makefile
-		 minpack/Makefile 
+		 minpack/Makefile
 		 mpfun/Makefile
 		 ode/Makefile
 		 toms/Makefile
 		 modqed/Makefile
-		 quadpack/Makefile
-		 tests/Makefile])
+		 quadpack/Makefile])
 
 if test -z "$PYTHON"
 then
