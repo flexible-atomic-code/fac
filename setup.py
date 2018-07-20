@@ -15,8 +15,6 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-
-from setuptools.command.build_ext import build_ext
 from distutils.core import setup, Extension
 from distutils import sysconfig
 import distutils
@@ -60,6 +58,7 @@ def get_version(filename=None):
 
 VERSION = get_version()
 
+
 # Make python/version
 def write_version_py(filename=None):
     cnt = """version = '%s'\n"""
@@ -74,7 +73,6 @@ def write_version_py(filename=None):
         a.close()
 
 write_version_py()
-
 
 for s in x:
     if (s[0:11] == '-ccompiler='):
@@ -100,12 +98,13 @@ for s in x:
             else:
                 extralink.append(a)
     elif (s[0:6] == '-bsfac'):
-        bsfac = 'SFAC-%s.%s.tar'%(version, get_platform())
+        bsfac = 'SFAC-{}.{}.tar'.format(VERSION, get_platform())
     elif (s[0:4] == '-mpy'):
         pyinc = sysconfig.et_config_var('INCLUDEPY')
-        pylib = (sysconfig.get_config_var('LIBPL')
-                 + '/' + sysconfig.get_config_var('LDLIBRARY'))
-        os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
+        pylib = (sysconfig.get_config_var('LIBPL') +
+                 '/' + sysconfig.get_config_var('LDLIBRARY'))
+        os.system('cd python; export PYINC={} PYLIB={}; make mpy'.format(
+            pyinc, pylib))
         no_setup = 1
     else:
         sys.argv.append(s)
@@ -168,11 +167,11 @@ if (no_setup == 0):
           ext_modules=Extensions)
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
-      print('Creating SFAC binary ...')
-      c = 'cd sfac; mkdir bin;'
-      c += 'cp sfac bin; cp scrm bin; cp spol bin;'
-      c += 'tar cvf %s ./bin;'%bsfac
-      c += 'gzip %s;'%bsfac
-      c += 'rm -rf bin;'
-      c += 'mv %s.gz ../dist/;'%bsfac
-      os.system(c)
+    print('Creating SFAC binary ...')
+    c = 'cd sfac; mkdir bin;'
+    c += 'cp sfac bin; cp scrm bin; cp spol bin;'
+    c += 'tar cvf {} ./bin;'.format(bsfac)
+    c += 'gzip {};'.format(bsfac)
+    c += 'rm -rf bin;'
+    c += 'mv {}.gz ../dist/;'.format(bsfac)
+    os.system(c)
