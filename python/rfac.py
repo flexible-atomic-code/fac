@@ -25,13 +25,13 @@ from distutils.version import LooseVersion
 
 def _wrap_get_length(version):
     """ Returns get_length functions for lev file, depending on the version """
-    if LooseVersion(version) < LooseVersion('1.1.5'):
+    if LooseVersion(version) < LooseVersion('1.1.4'):
         slice_lcomplex = slice(44, 64)
         slice_lsname = slice(65, 86)
         slice_lname = slice(86, None)
     else:
-        slice_lcomplex = slice(44, 74)
-        slice_lsname = slice(75, 124)
+        slice_lcomplex = slice(43, 75)
+        slice_lsname = slice(76, 124)
         slice_lname = slice(125, None)
 
     def get_lcomplex(line):
