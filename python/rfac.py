@@ -23,16 +23,19 @@ from collections import OrderedDict
 from distutils.version import LooseVersion
 
 
-def _wrap_get_length(version):
+def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
-    if LooseVersion(version) < LooseVersion('1.1.4'):
-        slice_lcomplex = slice(44, 64)
-        slice_lsname = slice(65, 86)
-        slice_lname = slice(86, None)
-    else:
-        slice_lcomplex = slice(43, 75)
-        slice_lsname = slice(76, 124)
-        slice_lname = slice(125, None)
+    
+    slice_lcomplex = slice(43, 75)
+    slice_lsname = slice(76, 124)
+    slice_lname = slice(125, None)
+    if line0 != None and len(line0) > 65:
+        n = line0[64:65]
+        s = line0[65:66]
+        if n.isdigit() and (s.isalpha() or s == '['):
+            slice_lcomplex = slice(43, 64)
+            slice_lsname = slice(64, 85)
+            slice_lname = slice(85, None)
 
     def get_lcomplex(line):
         return line[slice_lcomplex].strip()
@@ -86,8 +89,11 @@ def read_lev(filename):
     header['E0_index'] = int(ind)
     header['E0'] = float(e0)
     lines = lines[2:]
-
-    get_lcomplex, get_lsname, get_lname = _wrap_get_length(header['FAC'])
+    if len(lines) > 3:
+        line0 = lines[3]
+    else:
+        line0 = None
+    get_lcomplex, get_lsname, get_lname = _wrap_get_length(line0)
 
     def read_blocks(lines):
         block = {}
