@@ -638,8 +638,8 @@ class FLEV:
         self.ig[ng:] = c.ig
 
     def combine(self, g, c):
-        wg = where(g.ig == 1)
-        wc = where(c.ig == 0)
+        wg = np.where(g.ig == 1)
+        wc = np.where(c.ig == 0)
         ng = len(wg[0])
         nc = len(wc[0])
         n = ng+nc
@@ -738,12 +738,12 @@ class FLEV:
             return
         for p in [0, 1]:
             for j in range(min(m.j),max(m.j)+1,2):
-                w0 = where(np.logical_and(self.p == p, self.j == j))
+                w0 = np.where(np.logical_and(self.p == p, self.j == j))
                 n0 = len(w0[0])
                 if (n0 == 0):
                     continue
                 ew0 = self.e[w0]
-                w1 = where(np.logical_and(m.p == p, m.j == j))
+                w1 = np.where(np.logical_and(m.p == p, m.j == j))
                 ew1 = m.e[w1]
                 n1 = len(w1[0])
                 for i in range(n1):
@@ -752,7 +752,7 @@ class FLEV:
                     if ade[wm0] > 3:
                         continue
                     wm = w0[0][wm0]
-                    if self.em[wm] < 0 or fabs(self.em[wm]-self.e[wm])>ade[wm0]:
+                    if self.em[wm] < 0 or np.fabs(self.em[wm]-self.e[wm])>ade[wm0]:
                         self.im[wm] = w1[0][i]
                         self.em[wm] = ew1[i]
                         self.cm[wm] = m.c[w1[0][i]]
@@ -776,17 +776,20 @@ class MLEV:
             return
         self.e = np.transpose(np.loadtxt(f, usecols=3, dtype='float', skiprows=1, delimiter=' ; '))
         j = np.transpose(np.loadtxt(f, usecols=1, dtype='float', skiprows=1, delimiter=' ; ', converters={1:lambda x: eval('2*'+x)}))
-        self.j = int32(j)
+        self.j = np.int32(j)
         pc = np.transpose(np.loadtxt(f, usecols=2, dtype='string', skiprows=1, delimiter=' ; '))
-        self.p = int32(pc == 'o')
+        self.p = np.int32(pc == 'o')
         self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
 
 def aflev(d0, d1, a, n):
-    #d0 = '/Users/yul20/atomic/juan/mbpt2l'
-    #d1 = '/Users/yul20/atomic/juan/mbpt2m'
-    #a = 'Fe'
-    r0 = cflev(d0, a, 0, n)
-    r1 = cflev(d1, a, 12, n)
+    if (d0 != None and len(d0) > 0):
+        r0 = cflev(d0, a, 0, n)
+    else:
+        r0 = None
+    if (d1 != None and len(d1) > 0):
+        r1 = cflev(d1, a, 12, n)
+    else:
+        r1 = None
     if r0 == None:
         return r1
     if r1 == None:
@@ -846,3 +849,38 @@ def pjflev(d, a, p, j, n):
     if f0 != None:
         f0.sort()
     return f0
+
+def mflev(a, n, df0, df1, dm, fw):
+    #dm = '/Users/yul20/atomic/juan/mrmp_results'
+    #df0 = '/Users/yul20/atomic/juan/mbpt2l'
+    #df1 = '/Users/yul20/atomic/juan/mbpt2m'
+    if n == 11:
+        iso = 'na'
+    elif n == 12:
+        iso = 'mg'
+    elif n == 13:
+        iso = 'al'
+    elif n == 17:
+        iso = 'cl'
+    elif n == 18:
+        iso = 'ar'
+    else:
+        iso = None
+    if iso != None and dm != None and dm != 'None':
+        fm = '%s/%s26_mrmp2_levels.txt'%(dm, iso)
+    else:
+        fm = None
+    if (df0 == 'None'):
+        df0 = None
+    if (df1 == 'None'):
+        df1 = None
+    r0 = aflev(df0, df1, a, n)
+    r0.e = r0.e - r0.e0
+    if fm != None:
+        r1 = MLEV(fm)
+    else:
+        r1 = None
+    r0.match(r1)
+    #fw = 'mf%d.txt'%n
+    r0.write(fw)
+    return r0
