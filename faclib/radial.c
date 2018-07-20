@@ -4102,6 +4102,7 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   
   n = MultipoleRadialFRGrid(&y, m, k1, k2, gauge);
   if (n == 0) return 0.0;
+  ef = 0;
   if (orb1->n == 0 || orb2->n == 0) {
     ef = Max(orb1->energy, orb2->energy);
     if (ef > 0.0) {
