@@ -19,12 +19,15 @@
 #include "crm.h"
 #include "grid.h"
 #include "cf77.h"
+#include "mpiutil.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
 #define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
 USE (rcsid);
 #endif
+
+#define NRTB 4096
 
 static IONIZED ion0;
 static ARRAY *ions;
@@ -50,6 +53,11 @@ static int do_extrapolate = 100;
 static int inner_auger = 0;
 static double ai_emin = 0.0;
 static int norm_mode = 1;
+
+static double _ce_data[2+(1+MAXNUSR)*2];
+static double _rr_data[1+MAXNUSR*4];
+
+#pragma omp threadprivate(_ce_data, _rr_data)
 
 int NormalizeMode(int i) {
   norm_mode = i;
@@ -315,7 +323,10 @@ int AddIon(int nele, double n, char *pref) {
   ION ion;
   int i;
   int m;
-  
+
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 1);
+#endif
   ion.nlevels = 0;
   ion.ce_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.ce_rates, sizeof(BLK_RATE), RATES_BLOCK);
@@ -1602,96 +1613,147 @@ int InitBlocks(void) {
       }
     }
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p,j)
+      {
+      int w = 0;
       for (p = 0; p < ion->ce_rates->dim; p++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ce_rates, p);
 	blk1 = brts->iblock;
 	blk2 = brts->fblock;
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  j = ion->ilev[r->i];
+#pragma omp atomic
 	  blk1->total_rate[j] += electron_density * r->dir;
 	  if (r->inv > 0.0) {
 	    j = ion->ilev[r->f];
+#pragma omp atomic
 	    blk2->total_rate[j] += electron_density * r->inv;
 	  }
-	}
+	}	
+      }
       }
     }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j, a, b)
+    {
+    int w = 0;
     for (p = 0; p < ion->tr_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, p);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	j = ion->ilev[r->i];
+#pragma omp atomic
 	blk1->total_rate[j] += r->dir;
+#pragma omp atomic
 	blk1->n[j] += r->dir;
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  a = photon_density * r->inv;
 	  b = a * (ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
+#pragma omp atomic
 	  blk1->total_rate[j] += b;
 	  j = ion->ilev[r->f];
+#pragma omp atomic
 	  blk2->total_rate[j] += a;
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
+    {
+    int w = 0;
     for (p = 0; p < ion->tr2_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, p);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	j = ion->ilev[r->i];
+#pragma omp atomic
 	blk1->total_rate[j] += r->dir;
+#pragma omp atomic
 	blk1->n[j] += r->dir;
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
+    {
+    int w = 0;
     for (p = 0; p < ion->rr_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, p);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	j = ion->ilev[r->i];
 	if (electron_density > 0.0) {
+#pragma omp atomic
 	  blk1->total_rate[j] += electron_density * r->dir;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  j = ion->ilev[r->f];
+#pragma omp atomic
 	  blk2->total_rate[j] += photon_density * r->inv;
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
+    {
+    int w = 0;
     for (p = 0; p < ion->ai_rates->dim; p++) {
       brts = (BLK_RATE *) ArrayGet(ion->ai_rates, p);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	j = ion->ilev[r->i];
+#pragma omp atomic
 	blk1->total_rate[j] += r->dir;
+#pragma omp atomic
 	blk1->n[j] += r->dir;
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  j = ion->ilev[r->f];
+#pragma omp atomic
 	  blk2->total_rate[j] += electron_density * r->inv;
 	}
       }
     }
+    }
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
+      {
+      int w = 0;
       for (p = 0; p < ion->ci_rates->dim; p++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ci_rates, p);
 	blk1 = brts->iblock;
 	blk2 = brts->fblock;
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  j = ion->ilev[r->i];
+#pragma omp atomic
 	  blk1->total_rate[j] += electron_density * r->dir;
 	  if (r->inv > 0.0) {
 	    j = ion->ilev[r->f];
+#pragma omp atomic
 	    blk2->total_rate[j] += electron_density * 
 	      electron_density * r->inv;
 	  }
 	}
+      }
       }
     }
   }
@@ -2863,6 +2925,10 @@ int BlockMatrix(void) {
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+      {
+      int w = 0;
       for (t = 0; t < ion->ce_rates->dim; t++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ce_rates, t);
 	blk1 = brts->iblock;
@@ -2870,24 +2936,32 @@ int BlockMatrix(void) {
 	if (blk1 == blk2) continue;
 	if (rec_cascade && (blk1->rec || blk2->rec)) continue;
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
 	  if (den) {
 	    p = i*n + j;
+#pragma omp atomic
 	    bmatrix[p] += den * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
 	    den = blk2->r[ion->ilev[r->f]];
 	    if (den) {
 	      p = i + j*n;
+#pragma omp atomic
 	      bmatrix[p] += den * electron_density * r->inv;
 	    }
 	  }
 	}
       }
+      }
     }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den, a)
+    {
+    int w = 0;
     for (t = 0; t < ion->tr_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, t);
       blk1 = brts->iblock;
@@ -2895,27 +2969,36 @@ int BlockMatrix(void) {
       if (blk1 == blk2) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+#pragma omp atomic
 	  bmatrix[p] += den * r->dir;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  if (den) {
 	    a = photon_density * r->inv;
+#pragma omp atomic
 	    bmatrix[p] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
 	  }	  
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+#pragma omp atomic
 	    bmatrix[p] += den * photon_density * r->inv;
 	  }
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+    {
+    int w = 0;
     for (t = 0; t < ion->tr2_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
       blk1 = brts->iblock;
@@ -2923,16 +3006,23 @@ int BlockMatrix(void) {
       if (blk1 == blk2) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+#pragma omp atomic
 	  bmatrix[p] += den * r->dir;
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+    {
+    int w = 0;
     for (t = 0; t < ion->rr_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, t);
       blk1 = brts->iblock;
@@ -2940,6 +3030,7 @@ int BlockMatrix(void) {
       if (blk1 == blk2) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m); 
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
@@ -2947,6 +3038,7 @@ int BlockMatrix(void) {
 	if (den) {
 	  if (electron_density > 0.0) {
 	    p = i*n + j;
+#pragma omp atomic
 	    bmatrix[p] += den * electron_density * r->dir;
 	  }
 	}
@@ -2954,11 +3046,17 @@ int BlockMatrix(void) {
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+#pragma omp atomic
 	    bmatrix[p] += den * photon_density * r->inv;
 	  }
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+    {
+    int w = 0;
     for (t = 0; t < ion->ai_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
       blk1 = brts->iblock;
@@ -2966,24 +3064,32 @@ int BlockMatrix(void) {
       if (blk1 == blk2) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m); 
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+#pragma omp atomic
 	  bmatrix[p] += den * r->dir;
 	}
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+#pragma omp atomic
 	    bmatrix[p] += den * electron_density * r->inv;
 	  }
 	}
       }  
     }
+    }
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+      {
+      int w = 0;
       for (t = 0; t < ion->ci_rates->dim; t++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ci_rates, t);
 	blk1 = brts->iblock;
@@ -2991,12 +3097,14 @@ int BlockMatrix(void) {
 	if (blk1 == blk2) continue;
 	if (rec_cascade && (blk1->rec || blk2->rec)) continue;
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m); 
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
 	  if (den) {
 	    p = i*n + j;
+#pragma omp atomic
 	    bmatrix[p] += den * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
@@ -3004,10 +3112,12 @@ int BlockMatrix(void) {
 	    if (den) {
 	      p = i + j*n;
 	      den *= electron_density;
+#pragma omp atomic
 	      bmatrix[p] += den * electron_density * r->inv;
 	    }
 	  }
 	}  
+      }
       }
     }
   }
@@ -3185,12 +3295,16 @@ double BlockRelaxation(int iter) {
       }
     }
   }
-  
+
   b = 1.0-iter_stabilizer;
   c = iter_stabilizer;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+      {
+      int w = 0;
       for (t = 0; t < ion->ce_rates->dim; t++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ce_rates, t);
 	blk1 = brts->iblock;
@@ -3199,22 +3313,30 @@ double BlockRelaxation(int iter) {
 	  if (blk1->rec || blk2->rec) continue;
 	} 
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  i = ion->iblock[r->i]->ib;
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
 	  q = ion->ilev[r->f];
 	  if (blk1->r[p]) {
+#pragma omp atomic
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	  if (r->inv > 0.0) {
 	    if (blk2->r[q]) {
+#pragma omp atomic
 	      blk1->n[p] += blk2->r[q] * electron_density * r->inv;
 	    }
 	  }
 	}
       }
+      }
     }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+    {
+    int w = 0;
     for (t = 0; t < ion->tr_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, t);
       blk1 = brts->iblock;
@@ -3223,25 +3345,34 @@ double BlockRelaxation(int iter) {
 	if (blk1->rec || blk2->rec) continue;
       }
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
 	if (blk1->r[p]) {
+#pragma omp atomic
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  a = photon_density * r->inv;	  
 	  if (blk1->r[p]) {
+#pragma omp atomic
 	    blk2->n[q] += blk1->r[p]*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
 	  }	  
 	  if (blk2->r[q]) {
+#pragma omp atomic
 	    blk1->n[p] += blk2->r[q] * a;
 	  }
 	}
       }
-    } 
+    }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+    {
+    int w = 0;
     for (t = 0; t < ion->tr2_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
       blk1 = brts->iblock;
@@ -3250,16 +3381,23 @@ double BlockRelaxation(int iter) {
 	if (blk1->rec || blk2->rec) continue;
       }
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
 	if (blk1->r[p]) {
+#pragma omp atomic
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+    {
+    int w = 0;
     for (t = 0; t < ion->rr_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, t);
       blk1 = brts->iblock;
@@ -3268,6 +3406,7 @@ double BlockRelaxation(int iter) {
 	if (blk1->rec || blk2->rec) continue;
       }
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
@@ -3275,16 +3414,23 @@ double BlockRelaxation(int iter) {
 	q = ion->ilev[r->f];    
 	if (electron_density > 0.0) {
 	  if (blk1->r[p]) {
+#pragma omp atomic
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	} 
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  if (blk2->r[q]) {
+#pragma omp atomic
 	    blk1->n[p] += blk2->r[q] * photon_density * r->inv;
 	  }
 	}
       }
     }
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+    {
+    int w = 0;
     for (t = 0; t < ion->ai_rates->dim; t++) {
       brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
       blk1 = brts->iblock;
@@ -3293,22 +3439,30 @@ double BlockRelaxation(int iter) {
 	if (blk1->rec || blk2->rec) continue;
       }
       for (m = 0; m < brts->rates->dim; m++) {
+	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
 	q = ion->ilev[r->f];    
 	if (blk1->r[p]) {
+#pragma omp atomic
 	  blk2->n[q] += blk1->r[p] * r->dir;
 	}
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  if (blk2->r[q]) {
+#pragma omp atomic
 	    blk1->n[p] += blk2->r[q] * electron_density * r->inv;
 	  }
 	}
       }
     }
+    }
     if (electron_density > 0.0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+      {
+      int w = 0;
       for (t = 0; t < ion->ci_rates->dim; t++) {
 	brts = (BLK_RATE *) ArrayGet(ion->ci_rates, t);
 	blk1 = brts->iblock;
@@ -3317,21 +3471,25 @@ double BlockRelaxation(int iter) {
 	  if (blk1->rec || blk2->rec) continue;
 	}
 	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  i = ion->iblock[r->i]->ib;
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
 	  q = ion->ilev[r->f];    
 	  if (blk1->r[p]) {
+#pragma omp atomic
 	    blk2->n[q] += blk1->r[p] * electron_density * r->dir;
 	  }
 	  if (r->inv) {
 	    if (blk2->r[q]) {
+#pragma omp atomic
 	      blk1->n[p] += blk2->r[q] * electron_density * 
 		electron_density * r->inv;
 	    }
 	  }
 	}
+      }
       }
     }
   }
@@ -4100,7 +4258,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   BLK_RATE *brt, brt0;
   RATE *r0;
   int i;
-  
+  if (r->dir <= 0 && r->inv <= 0) return 0;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
   if (irb == NULL) {
@@ -4188,19 +4346,19 @@ void FreeIdxRateBlock(int nb, int **irb) {
 }
 
 int SetCERates(int inv) {
-  int nb, i, j;
+  int nb, i, j, ib, jb, nrb;
   int n, m, m1, k;
   int j1, j2;
   int p, q;
   ION *ion;
-  RATE rt;
+  RATE rt[NRTB];
   F_HEADER fh;
   CE_HEADER h;
-  CE_RECORD r;
+  CE_RECORD r[NRTB];
   TFILE *f;
   double e, bte, bms;
   float *cs;
-  double data[2+(1+MAXNUSR)*2];
+  double *data;
   double *y, *x;
   double *eusr;
   int swp;
@@ -4213,7 +4371,6 @@ int SetCERates(int inv) {
     exit(1);
   }
   irb = IdxRateBlock(blocks->dim);
-  y = data + 2;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ce_rates, FreeBlkRateData);
@@ -4233,34 +4390,60 @@ int SetCERates(int inv) {
       }
       m = h.n_usr;
       m1 = m + 1;
-      x = y + m1;
-      data[0] = (h.te0*HARTREE_EV + bte)/bms;
-      for (j = 0; j < m; j++) {
-	x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-      }
-      x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-      for (i = 0; i < h.ntransitions; i++) {
-	n = ReadCERecord(f, &r, swp, &h);
-	rt.i = r.lower;
-	rt.f = r.upper;
-	j1 = ion->j[r.lower];
-	j2 = ion->j[r.upper];
-	e = ion->energy[r.upper] - ion->energy[r.lower];
-	data[1] = r.bethe;
-	cs = r.strength;
-	y[m] = r.born[0];
+#pragma omp parallel default(shared) private(x, y, data, j)
+      {
+	data = _ce_data;
+	y = data + 2;
+	x = y + m1;
+	data[0] = (h.te0*HARTREE_EV + bte)/bms;
 	for (j = 0; j < m; j++) {
-	  y[j] = cs[j];
+	  x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
 	}
-	CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
-	       data, rt.i, rt.f);
-	if (ion->ace > 0) {
-	  rt.dir *= ion->ace;
-	  rt.inv *= ion->ace;
+	x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
+      }
+      nrb = Min(NRTB, h.ntransitions);
+      jb = 0;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCERecord(f, &r[jb++], swp, &h);
+	if (jb == nrb) {
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, data, y)
+	  {
+	  data = _ce_data;
+	  y = data + 2;
+	  int w = 0;
+	  for (ib = 0; ib < nrb; ib++) {
+	    int skip = SkipWMPI(w++);
+	    if (skip) continue;
+	    rt[ib].i = r[ib].lower;
+	    rt[ib].f = r[ib].upper;
+	    j1 = ion->j[r[ib].lower];
+	    j2 = ion->j[r[ib].upper];
+	    e = ion->energy[r[ib].upper] - ion->energy[r[ib].lower];
+	    data[1] = r[ib].bethe;
+	    cs = r[ib].strength;
+	    y[m] = r[ib].born[0];
+	    for (j = 0; j < m; j++) {
+	      y[j] = cs[j];
+	    }
+	    CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
+		   data, rt[ib].i, rt[ib].f);
+	    if (ion->ace > 0) {
+	      rt[ib].dir *= ion->ace;
+	      rt[ib].inv *= ion->ace;
+	    }
+	    //AddRate(ion, ion->ce_rates, &rt[ib], 0, irb);
+	    if (h.qk_mode == QK_FIT) free(r[ib].params);
+	    free(r[ib].strength);
+	  }
+	  }
+	  for (ib = 0; ib < nrb; ib++) {
+	    AddRate(ion, ion->ce_rates, &rt[ib], 0, irb);
+	  }
+	  nrb = h.ntransitions-i-1;
+	  nrb = Min(nrb, NRTB);
+	  jb = 0;
 	}
-	AddRate(ion, ion->ce_rates, &rt, 0, irb);
-	if (h.qk_mode == QK_FIT) free(r.params);
-	free(r.strength);
       }
       free(h.tegrid);
       free(h.egrid);
@@ -4283,46 +4466,72 @@ int SetCERates(int inv) {
 	}
 	m = h.n_usr;
 	m1 = m + 1;
-	x = y + m1;
-	data[0] = (h.te0*HARTREE_EV + bte)/bms;
-        for (j = 0; j < m; j++) {
-	  x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-        }
-	x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadCERecord(f, &r, swp, &h);
-	  p = IonizedIndex(r.lower, 0);
-	  if (p < 0) {
-	    if (h.qk_mode == QK_FIT) free(r.params);
-	    free(r.strength);
-	    continue;
-	  }
-	  q = IonizedIndex(r.upper, 0);
-	  if (q < 0) {
-	    if (h.qk_mode == QK_FIT) free(r.params);
-	    free(r.strength);
-	    continue;
-	  }
-	  rt.i = ion0.ionized_map[1][p];
-	  rt.f = ion0.ionized_map[1][q];
-	  j1 = ion->j[rt.i];
-	  j2 = ion->j[rt.f];
-	  e = ion0.energy[q] - ion0.energy[p];
-	  data[1] = r.bethe;	
-	  cs = r.strength;
-	  y[m] = r.born[0];
+#pragma omp parallel default(shared) private(x, y, data, j)
+	{
+	  data = _ce_data;
+	  y = data + 2;
+	  x = y + m1;
+	  data[0] = (h.te0*HARTREE_EV + bte)/bms;
 	  for (j = 0; j < m; j++) {
-	    y[j] = cs[j];
+	    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
 	  }
-	  CERate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m,
-		 data, rt.i, rt.f);
-	  if (ion0.ace > 0) {
-	    rt.dir *= ion0.ace;
-	    rt.inv *= ion0.ace;
+	  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
+	}
+	nrb = Min(NRTB, h.ntransitions);
+	jb = 0;
+	for (i = 0; i < h.ntransitions; i++) {
+	  n = ReadCERecord(f, &r[jb++], swp, &h);
+	  if (jb == nrb) {
+	    ResetWidMPI();
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, p, q, data, y)
+	    {	    
+	    data = _ce_data;
+	    y = data + 2;
+	    int w = 0;
+	    for (ib = 0; ib < nrb; ib++) {
+	      int skip = SkipWMPI(w++);
+	      if (skip) continue;
+	      p = IonizedIndex(r[ib].lower, 0);
+	      if (p < 0) {
+		if (h.qk_mode == QK_FIT) free(r[ib].params);
+		free(r[ib].strength);
+		continue;
+	      }
+	      q = IonizedIndex(r[ib].upper, 0);
+	      if (q < 0) {
+		if (h.qk_mode == QK_FIT) free(r[ib].params);
+		free(r[ib].strength);
+		continue;
+	      }
+	      rt[ib].i = ion0.ionized_map[1][p];
+	      rt[ib].f = ion0.ionized_map[1][q];
+	      j1 = ion->j[rt[ib].i];
+	      j2 = ion->j[rt[ib].f];
+	      e = ion0.energy[q] - ion0.energy[p];
+	      data[1] = r[ib].bethe;	
+	      cs = r[ib].strength;
+	      y[m] = r[ib].born[0];
+	      for (j = 0; j < m; j++) {
+		y[j] = cs[j];
+	      }
+	      CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
+		     data, rt[ib].i, rt[ib].f);
+	      if (ion0.ace > 0) {
+		rt[ib].dir *= ion0.ace;
+		rt[ib].inv *= ion0.ace;
+	      }
+	      //AddRate(ion, ion->ce_rates, &rt, 0, irb);
+	      if (h.qk_mode == QK_FIT) free(r[ib].params);
+	      free(r[ib].strength);
+	    }
+	    }
+	    for (ib = 0; ib < nrb; ib++) {
+	      AddRate(ion, ion->ce_rates, &rt[ib], 0, irb);
+	    }
+	    nrb = h.ntransitions-i-1;
+	    nrb = Min(nrb, NRTB);
+	    ib = 0;
 	  }
-	  AddRate(ion, ion->ce_rates, &rt, 0, irb);
-	  if (h.qk_mode == QK_FIT) free(r.params);
-	  free(r.strength);
 	}
 	free(h.tegrid);
 	free(h.egrid);
@@ -4337,16 +4546,17 @@ int SetCERates(int inv) {
 }
 
 int SetTRRates(int inv) {
-  int nb, i;
+  int nb, i, jb, nrb;
   int n, k;
   int j1, j2;
   int p, q, m;
   ION *ion;
-  RATE rt;
+  RATE rt[NRTB];
+  RATE rt2;
   F_HEADER fh;
   TR_HEADER h;
-  TR_RECORD r;
-  TR_EXTRA rx;
+  TR_RECORD r[NRTB];
+  TR_EXTRA rx[NRTB];
   LBLOCK *ib;
   double e, gf;
   TFILE *f;  
@@ -4378,82 +4588,101 @@ int SetTRRates(int inv) {
       }
       if (abs(h.multipole) <= 1) m = 0;
       else m = 1;
+      nrb = Min(h.ntransitions, NRTB);
+      jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadTRRecord(f, &r, &rx, swp);
-	rt.i = r.upper;
-	if (ion0.n < 0) {
-	  ib = ion->iblock[r.upper];
-	  if (ib->rec &&
-	      ib->rec->nrec[ib->irec] > 10) {
-	    continue;
+	n = ReadTRRecord(f, &r[jb], &rx[jb], swp);
+	jb++;
+	if (jb == nrb) {
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e, gf)
+	  {
+	    int w = 0;
+	    for (jb = 0; jb < nrb; jb++) {
+	      int skip = SkipWMPI(w++);
+	      if (skip) continue;
+	      rt[jb].i = r[jb].upper;
+	      if (ion0.n < 0) {
+		ib = ion->iblock[r[jb].upper];
+		if (ib->rec &&
+		    ib->rec->nrec[ib->irec] > 10) {
+		  continue;
+		}
+	      }
+	      rt[jb].f = r[jb].lower;
+	      j1 = ion->j[r[jb].upper];
+	      j2 = ion->j[r[jb].lower];
+	      e = ion->energy[r[jb].upper] - ion->energy[r[jb].lower];
+	      if (iuta) e = rx[jb].energy;
+	      if (e > 0) {
+		gf = OscillatorStrength(h.multipole, e,
+					(double)(r[jb].strength), NULL);
+		if (iuta) gf *= rx[jb].sci;
+		TRRate(&(rt[jb].dir), &(rt[jb].inv), inv, j1, j2, e, (float)gf);
+		if (ion->atr > 0) {
+		  rt[jb].dir *= ion->atr;
+		  rt[jb].inv *= ion->atr;
+		}
+	      }
+	    }
 	  }
-	}
-	rt.f = r.lower;
-	j1 = ion->j[r.upper];
-	j2 = ion->j[r.lower];
-	e = ion->energy[r.upper] - ion->energy[r.lower];
-	if (iuta) e = rx.energy;
-	if (e > 0) {
-	  gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
-	  if (iuta) gf *= rx.sci;
-	  TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	  if (ion->atr > 0) {
-	    rt.dir *= ion->atr;
-	    rt.inv *= ion->atr;
-	  }
-	  im = AddRate(ion, ion->tr_rates, &rt, m, irb);
+	  for (jb = 0; jb < nrb; jb++)
+	    im = AddRate(ion, ion->tr_rates, &rt[jb], m, irb);
 	  if (iuta && im == 0) {
-	    rt.dir = rx.energy;
-	    rt.inv = rx.sdev;
-	    AddRate(ion, ion->tr_sdev, &rt, 0, irb);
+	    rt[jb].dir = rx[jb].energy;
+	    rt[jb].inv = rx[jb].sdev;
+	    AddRate(ion, ion->tr_sdev, &rt[jb], 0, irb);
 	  }
+	  nrb = h.ntransitions-i-1;
+	  nrb = Min(nrb, NRTB);
+	  jb = 0;
 	}
       }
     }
     FCLOSE(f);
     if (ion->nele == 1) {
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
-      rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
+      rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
 			     "1*1", "1s1", "1s+1(1)1");
-      rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
+      rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
 			     "2*1", "2s1", "2s+1(1)1");
-      if (rt.i >= 0 && rt.f >= 0) {
-	rt.dir = TwoPhotonRate(ion0.atom, 0);
-	rt.inv = 0.0;
+      if (rt2.i >= 0 && rt2.f >= 0) {
+	rt2.dir = TwoPhotonRate(ion0.atom, 0);
+	rt2.inv = 0.0;
 	if (ion->atr > 0) {
-	  rt.dir *= ion->atr;
-	  rt.inv *= ion->atr;
+	  rt2.dir *= ion->atr;
+	  rt2.inv *= ion->atr;
 	}
-	AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
+	AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
       }
     } else if (ion->nele == 2) {
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
-      rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 2, 
+      rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 2, 
 			     "1*2", "1s2", "1s+2(0)0");
-      rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 2,
+      rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 2,
 			     "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0");
-      if (rt.i >= 0 && rt.f >= 0) {
-	rt.dir = TwoPhotonRate(ion0.atom, 1);
-	rt.inv = 0.0;
+      if (rt2.i >= 0 && rt2.f >= 0) {
+	rt2.dir = TwoPhotonRate(ion0.atom, 1);
+	rt2.inv = 0.0;
 	if (ion->atr > 0) {
-	  rt.dir *= ion->atr;
-	  rt.inv *= ion->atr;
+	  rt2.dir *= ion->atr;
+	  rt2.inv *= ion->atr;
 	}
-	AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
+	AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
       }
       if (k == 0 && ion0.nionized > 0.0) {
-	rt.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
+	rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
 			       "1*1", "1s1", "1s+1(1)1");
-	rt.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
+	rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 1,
 			       "2*1", "2s1", "2s+1(1)1");
-	if (rt.i >= 0 && rt.f >= 0) {
-	  rt.dir = TwoPhotonRate(ion0.atom, 0);
-	  rt.inv = 0.0;
+	if (rt2.i >= 0 && rt2.f >= 0) {
+	  rt2.dir = TwoPhotonRate(ion0.atom, 0);
+	  rt2.inv = 0.0;
 	  if (ion->atr > 0) {
-	    rt.dir *= ion->atr;
-	    rt.inv *= ion->atr;
+	    rt2.dir *= ion->atr;
+	    rt2.inv *= ion->atr;
 	  }
-	  AddRate(ion, ion->tr2_rates, &rt, 0, irb2);
+	  AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
 	}
       }
     }
@@ -4474,36 +4703,56 @@ int SetTRRates(int inv) {
 	}  
 	if (abs(h.multipole) == 1) m = 0;
 	else m = 1;
+	nrb = Min(h.ntransitions, NRTB);
+	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadTRRecord(f, &r, &rx, swp);
-	  p = IonizedIndex(r.lower, 0);
-	  if (p < 0) {
-	    continue;
-	  }
-	  q = IonizedIndex(r.upper, 0);
-	  if (q < 0) {
-	    continue;
-	  }
-	  rt.i = ion0.ionized_map[1][q];
-	  rt.f = ion0.ionized_map[1][p];
-	  j1 = ion->j[rt.i];
-	  j2 = ion->j[rt.f];
-	  e = ion0.energy[q] - ion0.energy[p];
-	  if (iuta) e = rx.energy;	    
-	  if (e > 0) {
-	    gf = OscillatorStrength(h.multipole, e, (double)(r.strength), NULL);
-	    if (iuta) gf *= rx.sci;
-	    TRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, (float)gf);
-	    if (ion0.atr > 0) {
-	      rt.dir *= ion0.atr;
-	      rt.inv *= ion0.atr;
+	  n = ReadTRRecord(f, &r[jb], &rx[jb], swp);
+	  jb++;	
+	  if (jb == nrb) {
+	    ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e, gf, p, q)
+	    {
+	      int w = 0;
+	      for (jb = 0; jb < nrb; jb++) {
+		int skip = SkipWMPI(w++);
+		if (skip) continue;
+		p = IonizedIndex(r[jb].lower, 0);	      
+		if (p < 0) {
+		  continue;
+		}
+		q = IonizedIndex(r[jb].upper, 0);
+		if (q < 0) {
+		  continue;
+		}
+		rt[jb].i = ion0.ionized_map[1][q];
+		rt[jb].f = ion0.ionized_map[1][p];
+		j1 = ion->j[rt[jb].i];
+		j2 = ion->j[rt[jb].f];
+		e = ion0.energy[q] - ion0.energy[p];
+		if (iuta) e = rx[jb].energy;	    
+		if (e > 0) {
+		  gf = OscillatorStrength(h.multipole, e,
+					  (double)(r[jb].strength), NULL);
+		  if (iuta) gf *= rx[jb].sci;
+		  TRRate(&(rt[jb].dir), &(rt[jb].inv), inv, j1, j2, e, (float)gf);
+		  if (ion0.atr > 0) {
+		    rt[jb].dir *= ion0.atr;
+		    rt[jb].inv *= ion0.atr;
+		  }
+		}
+	      }
 	    }
-	    im = AddRate(ion, ion->tr_rates, &rt, m, irb);
-	    if (iuta && im == 0) {
-	      rt.dir = rx.energy;
-	      rt.inv = rx.sdev;
-	      AddRate(ion, ion->tr_sdev, &rt, 0, irb);
+	    for (jb = 0; jb < nrb; jb++) {
+	      im = AddRate(ion, ion->tr_rates, &rt[jb], m, irb);
+	      if (iuta && im == 0) {
+		rt[jb].dir = rx[jb].energy;
+		rt[jb].inv = rx[jb].sdev;
+		AddRate(ion, ion->tr_sdev, &rt[jb], 0, irb);
+	      }
 	    }
+	    nrb = h.ntransitions-i-1;
+	    nrb = Min(nrb, NRTB);
+	    jb = 0;
 	  }
 	}
       }
@@ -4516,14 +4765,14 @@ int SetTRRates(int inv) {
 }
 
 int SetCIRates(int inv) { 
-  int nb, i, t;
+  int nb, i, t, jb, nrb;
   int n, m, k;
   int j1, j2;
   ION *ion;
-  RATE rt;
+  RATE rt[NRTB];
   F_HEADER fh;
   CI_HEADER h;
-  CI_RECORD r;
+  CI_RECORD r[NRTB];
   double e;
   TFILE *f;  
   int swp;
@@ -4555,22 +4804,41 @@ int SetCIRates(int inv) {
 	free(h.usr_egrid);
 	continue;
       }
+      nrb = Min(h.ntransitions, NRTB);
+      jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadCIRecord(f, &r, swp, &h);
-	rt.i = r.b;
-	rt.f = r.f;
-	j1 = ion->j[r.b];
-	j2 = ion->j[r.f];
-	e = ion->energy[r.f] - ion->energy[r.b];
-	CIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, r.params,
-	       rt.i, rt.f);
-	if (ion->aci > 0) {
-	  rt.dir *= ion->aci;
-	  rt.inv *= ion->aci;
+	n = ReadCIRecord(f, &r[jb++], swp, &h);
+	if (jb == nrb) {	  
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e)
+	  {
+	    int w = 0;
+	    for (jb = 0; jb < nrb; jb++) {
+	      int skip = SkipWMPI(w++);
+	      if (skip) continue;
+	      rt[jb].i = r[jb].b;
+	      rt[jb].f = r[jb].f;
+	      j1 = ion->j[r[jb].b];
+	      j2 = ion->j[r[jb].f];
+	      e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
+	      CIRate(&(rt[jb].dir), &(rt[jb].inv), inv, j1, j2, e, m,
+		     r[jb].params, rt[jb].i, rt[jb].f);
+	      if (ion->aci > 0) {
+		rt[jb].dir *= ion->aci;
+		rt[jb].inv *= ion->aci;
+	      }
+	      //AddRate(ion, ion->ci_rates, &rt, 0, irb);
+	      free(r[jb].params);
+	      free(r[jb].strength);
+	    }
+	  }
+	  for (jb = 0; jb < nrb; jb++) {
+	    AddRate(ion, ion->ci_rates, &rt[jb], 0, irb);
+	  }
+	  nrb = h.ntransitions-i-1;
+	  nrb = Min(nrb, NRTB);
+	  jb = 0;
 	}
-	AddRate(ion, ion->ci_rates, &rt, 0, irb);
-	free(r.params);
-	free(r.strength);
       }
       free(h.tegrid);
       free(h.egrid);
@@ -4583,19 +4851,19 @@ int SetCIRates(int inv) {
 }
 
 int SetRRRates(int inv) { 
-  int nb, i, j;
+  int nb, i, j, jb, nrb;
   int n, m, k;
   int j1, j2;
   ION *ion;
-  RATE rt;
+  RATE rt[NRTB];
   F_HEADER fh;
   RR_HEADER h;
-  RR_RECORD r;
+  RR_RECORD r[NRTB];
   double e;
   TFILE *f;  
   int swp;
   float *cs;
-  double data[1+MAXNUSR*4];
+  double *data;
   double *eusr;
   double *x, *logx, *y, *p;
   int **irb;
@@ -4606,7 +4874,6 @@ int SetRRRates(int inv) {
     exit(1);
   }
   irb = IdxRateBlock(blocks->dim);
-  y = data + 1;
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->rr_rates, FreeBlkRateData);
@@ -4630,42 +4897,63 @@ int SetRRRates(int inv) {
 	continue;
       }
       eusr = h.usr_egrid;
-      m = h.n_usr;
-      x = y + m;
-      logx = x + m;
-      p = logx + m;
+      m = h.n_usr; 
+      nrb = Min(h.ntransitions, NRTB);
+      jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadRRRecord(f, &r, swp, &h);
-	rt.i = r.f;
-	rt.f = r.b;
-	j1 = ion->j[r.f];
-	j2 = ion->j[r.b];
-	e = ion->energy[r.f] - ion->energy[r.b];
-	data[0] = 3.5 + r.kl;
-	if (e < 0.0) {
-	  printf("%d %d %10.3E %10.3E\n", 
-		 r.f, r.b, ion->energy[r.f],ion->energy[r.b]);
-	  exit(1);
+	n = ReadRRRecord(f, &r[jb++], swp, &h);
+	if (jb == nrb) {
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, j, e, x, y, logx, p, data, cs)
+	  {
+	    data = _rr_data;
+	    y = data + 1;
+	    x = y + m;
+	    logx = x + m;
+	    p = logx + m;
+	    int w = 0;
+	    for (jb = 0; jb < nrb; jb++) {
+	      int skip = SkipWMPI(w++);
+	      if (skip) continue;
+	      rt[jb].i = r[jb].f;
+	      rt[jb].f = r[jb].b;
+	      j1 = ion->j[r[jb].f];
+	      j2 = ion->j[r[jb].b];
+	      e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
+	      data[0] = 3.5 + r[jb].kl;
+	      if (e < 0.0) {
+		MPrintf(-1, "%d %d %10.3E %10.3E\n",
+			r[jb].f, r[jb].b,
+			ion->energy[r[jb].f], ion->energy[r[jb].b]);
+		Abort(1);
+	      }
+	      cs = r[jb].strength;
+	      for (j = 0; j < m; j++) {
+		x[j] = (e+eusr[j])/e;
+		logx[j] = log(x[j]);
+		y[j] = log(cs[j]);
+	      }
+	      for (j = 0; j < h.nparams; j++) {
+		p[j] = r[jb].params[j];
+	      }
+	      p[h.nparams-1] *= HARTREE_EV;
+	      RRRate(&(rt[jb].dir), &(rt[jb].inv), inv, j1, j2, e, m, data,
+		     rt[jb].i, rt[jb].f);
+	      if (ion->arr > 0) {
+		rt[jb].dir *= ion->arr;
+		rt[jb].inv *= ion->arr;
+	      }	    
+	      free(r[jb].params);
+	      free(r[jb].strength);
+	    }
+	  }
+	  for (jb = 0; jb < nrb; jb++) {
+	    AddRate(ion, ion->rr_rates, &rt[jb], 0, irb);
+	  }
+	  nrb = h.ntransitions-i-1;
+	  nrb = Min(nrb, NRTB);
+	  jb = 0;
 	}
-	cs = r.strength;
-	for (j = 0; j < m; j++) {
-	  x[j] = (e+eusr[j])/e;
-	  logx[j] = log(x[j]);
-	  y[j] = log(cs[j]);
-	}
-	for (j = 0; j < h.nparams; j++) {
-	  p[j] = r.params[j];
-	}
-	p[h.nparams-1] *= HARTREE_EV;
-	RRRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, m, data,
-	       rt.i, rt.f);
-	if (ion->arr > 0) {
-	  rt.dir *= ion->arr;
-	  rt.inv *= ion->arr;
-	}
-	AddRate(ion, ion->rr_rates, &rt, 0, irb);
-	free(r.params);
-	free(r.strength);
       }
       free(h.tegrid);
       free(h.egrid);
@@ -4745,14 +5033,14 @@ int SetAIRatesInner(char *fn) {
 }
   
 int SetAIRates(int inv) {
-  int nb, i, ib;
+  int nb, i, ib, jb, nrb;
   int n, k;
   int j1, j2;
   ION *ion, *ion1;
-  RATE rt;
+  RATE rt[NRTB];
   F_HEADER fh;
   AI_HEADER h;
-  AI_RECORD r;
+  AI_RECORD r[NRTB];
   double e;
   TFILE *f;  
   int swp;
@@ -4784,48 +5072,74 @@ int SetAIRates(int inv) {
 	free(h.egrid);
 	continue;
       }
+      nrb = Min(h.ntransitions, NRTB);
+      jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadAIRecord(f, &r, swp);
-	if (inner_auger == 1) {
-	  if (r.b <= ion->KLN_max && 
-	      r.b >= ion->KLN_min &&
-	      r.f <= ion->KLN_amax &&
-	      r.f >= ion->KLN_amin) {
-	    ibase = ion->ibase[r.b] - ion->KLN_bmin;
-	    if (ibase >= 0) {
-	      ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	n = ReadAIRecord(f, &r[jb++], swp);
+	if (jb == nrb) {
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e, ibase, ib)
+	  {
+	    int w = 0;
+	    for (jb = 0; jb < nrb; jb++) {
+	      int skip = SkipWMPI(w++);
+	      if (skip) continue;
+	      if (inner_auger == 1) {
+		if (r[jb].b <= ion->KLN_max && 
+		    r[jb].b >= ion->KLN_min &&
+		    r[jb].f <= ion->KLN_amax &&
+		    r[jb].f >= ion->KLN_amin) {
+		  ibase = ion->ibase[r[jb].b] - ion->KLN_bmin;
+		  if (ibase >= 0) {
+#pragma omp atomic
+		    ion->KLN_ai[ibase] += r[jb].rate*RATE_AU;
+		  }
+		}
+	      } else if (inner_auger == 3) {
+		if (h.nele == ion->nele-1 &&
+		    r[jb].b <= ion->KLN_bmax && 
+		    r[jb].b >= ion->KLN_bmin) {
+		  ibase = r[jb].b - ion->KLN_bmin;
+#pragma omp atomic
+		  ion->KLN_ai[ibase] += r[jb].rate*RATE_AU;
+		  continue;
+		}
+	      } else if (inner_auger == 4) {
+		if (ion->iblock[r[jb].b]->ionized) {
+		  ib = IonIndex(ion1, ion->iblock[r[jb].b]->ib,
+				ion->ilev[r[jb].b]);
+		  if (ib <= ion1->KLN_bmax && ib >= ion1->KLN_bmin) {
+		    ibase = ib - ion1->KLN_bmin;
+#pragma omp atomic
+		    ion1->KLN_ai[ibase] += r[jb].rate*RATE_AU;
+		  }
+		}
+	      }
+	      rt[jb].i = r[jb].b;
+	      rt[jb].f = r[jb].f;
+	      j1 = ion->j[r[jb].b];
+	      j2 = ion->j[r[jb].f];
+	      e = ion->energy[r[jb].b] - ion->energy[r[jb].f];
+	      if (e < 0 && ion->ibase[r[jb].b] != r[jb].f) e -= ai_emin;
+	      if (e > EPS16) {
+		AIRate(&(rt[jb].dir), &(rt[jb].inv), inv,
+		       j1, j2, e, r[jb].rate);
+		if (ion->aai > 0) {
+		  rt[jb].dir *= ion->aai;
+		  rt[jb].inv *= ion->aai;
+		}
+	      } else {
+		rt[jb].dir = 0;
+		rt[jb].inv = 0;
+	      }
 	    }
 	  }
-	} else if (inner_auger == 3) {
-	  if (h.nele == ion->nele-1 &&
-	      r.b <= ion->KLN_bmax && 
-	      r.b >= ion->KLN_bmin) {
-	    ibase = r.b - ion->KLN_bmin;	   
-	    ion->KLN_ai[ibase] += r.rate*RATE_AU;
-	    continue;
+	  for (jb = 0; jb < nrb; jb++) {
+	    AddRate(ion, ion->ai_rates, &rt[jb], 0, irb);
 	  }
-	} else if (inner_auger == 4) {
-	  if (ion->iblock[r.b]->ionized) {
-	    ib = IonIndex(ion1, ion->iblock[r.b]->ib, ion->ilev[r.b]);
-	    if (ib <= ion1->KLN_bmax && ib >= ion1->KLN_bmin) {
-	      ibase = ib - ion1->KLN_bmin;
-	      ion1->KLN_ai[ibase] += r.rate*RATE_AU;
-	    }
-	  }
-	}
-	rt.i = r.b;
-	rt.f = r.f;
-	j1 = ion->j[r.b];
-	j2 = ion->j[r.f];
-	e = ion->energy[r.b] - ion->energy[r.f];
-	if (e < 0 && ion->ibase[r.b] != r.f) e -= ai_emin;
-	if (e > EPS16) {
-	  AIRate(&(rt.dir), &(rt.inv), inv, j1, j2, e, r.rate);
-	  if (ion->aai > 0) {
-	    rt.dir *= ion->aai;
-	    rt.inv *= ion->aai;
-	  }
-	  AddRate(ion, ion->ai_rates, &rt, 0, irb);
+	  nrb = h.ntransitions-i-1;
+	  nrb = Min(nrb, NRTB);
+	  jb = 0;
 	}
       }
       free(h.egrid);
@@ -4850,13 +5164,13 @@ int SetAIRates(int inv) {
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadAIHeader(f, &h, swp);
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadAIRecord(f, &r, swp);
-	  ib = IonizedIndex(r.b, 0);
+	  n = ReadAIRecord(f, &r[0], swp);
+	  ib = IonizedIndex(r[0].b, 0);
 	  if (ib >= 0) {
 	    ib = ion0.ionized_map[1][ib];
 	    if (ib <= ion->KLN_bmax && ib >= ion->KLN_bmin) {
 	      ibase = ib - ion->KLN_bmin;
-	      ion->KLN_ai[ibase] += r.rate*RATE_AU;
+	      ion->KLN_ai[ibase] += r[0].rate*RATE_AU;
 	    }
 	  }
 	}

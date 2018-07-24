@@ -89,7 +89,7 @@ char *BFileGetLine(char *s, int size, BFILE *f);
 int BFileSeek(BFILE *bf, long offset, int whence);
 long BFileTell(BFILE *bf);
 int BFileFlush(BFILE *bf);
-void InitializeMPI(int n);
+void InitializeMPI(int n, int m);
 void FinalizeMPI(void);
 RANDIDX *RandList(int n);
 void RandIntList(int n, int *k);

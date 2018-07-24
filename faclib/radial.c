@@ -1579,7 +1579,7 @@ void CopyPotentialOMP(int init) {
   SetReferencePotential(rpotential, potential, 0);
 #if USE_MPI == 2
   if (!MPIReady()) {
-    InitializeMPI(0);
+    InitializeMPI(0, 0);
     return;
   }
   POTENTIAL pot;

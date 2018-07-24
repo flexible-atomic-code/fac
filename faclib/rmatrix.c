@@ -2186,7 +2186,9 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   int ns, i, i0, t, n, npe, nke, nde;
   double **s, *e, *e0, et, minde;
   
-  if (!MPIReady()) InitializeMPI(0);
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 0);
+#endif
   dcfg.mr = MPIRank(&dcfg.nr);
   f1 = fopen(fn, "w");
   rbs = malloc(sizeof(RBASIS)*np);

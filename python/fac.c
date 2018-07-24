@@ -5543,7 +5543,7 @@ static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
   if (!(PyArg_ParseTuple(args, "|i", &n))) {
     return NULL;
   }
-  InitializeMPI(n);
+  InitializeMPI(n, 0);
 #endif
   
   Py_INCREF(Py_None);
