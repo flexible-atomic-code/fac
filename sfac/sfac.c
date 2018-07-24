@@ -4415,7 +4415,7 @@ static int PInitializeMPI(int argc, char *argv[], int argt[],
   if (argc > 0) {
     n = atoi(argv[0]);
   }
-  InitializeMPI(n);
+  InitializeMPI(n, 0);
 #endif
   return 0;
 }

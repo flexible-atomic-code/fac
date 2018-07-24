@@ -38,20 +38,23 @@ static double _dwork[4*QUAD_LIMIT];
 #define N3BRI 2000
 static double gamma3b = 1.0;
 
+static double rate_epsabs = EPS8;
+static double rate_epsrel = EPS3;
+static int rate_iprint = 1;
+
 static struct {
   DISTRIBUTION *d;
   double (*Rate1E)(double, double, int, void *);
   double eth;
   int np;
   void *params;
-  double epsabs;
-  double epsrel;
   int i, f;
   int type;
-  int iprint;
   int xlog, elog;
   double eg[N3BRI], fg[N3BRI];
 } rate_args;
+
+#pragma omp threadprivate(rate_args, _iwork, _dwork)
 
 #define NSEATON 19
 static double log_xseaton[NSEATON];
@@ -132,8 +135,8 @@ DISTRIBUTION *GetPhoDist(int *i) {
 }
 
 int SetRateAccuracy(double epsrel, double epsabs) {
-  if (epsrel > 0.0) rate_args.epsrel = epsrel;
-  if (epsabs > 0.0) rate_args.epsabs = epsabs;
+  if (epsrel > 0.0) rate_epsrel = epsrel;
+  if (epsabs > 0.0) rate_epsabs = epsabs;
   return 0.0;
 }    
 
@@ -246,8 +249,8 @@ double IntegrateRate(int idist, double eth, double bound,
   double a, b, a0, b0, r0, *eg;
 
   ier = 0;
-  epsabs = rate_args.epsabs;
-  epsrel = rate_args.epsrel;
+  epsabs = rate_epsabs;
+  epsrel = rate_epsrel;
 
   limit = QUAD_LIMIT;
   lenw = 4*limit;
@@ -304,11 +307,13 @@ double IntegrateRate(int idist, double eth, double bound,
 	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
       if (abserr > epsabs && abserr > r0*epsrel) {
-	if (ier != 0 && rate_args.iprint) {
-	  printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
-		 ier, neval, a0, b0, result, abserr);
-	  printf("%6d %6d %2d Eth = %10.3E\n", 
-		 rate_args.i, rate_args.f, type, eth);
+	if (ier != 0 && rate_iprint) {
+	  MPrintf(-1,
+		  "IntegrateRate Error0: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+		  ier, neval, a0, b0, result, abserr);
+	  MPrintf(-1, "%6d %6d %2d Eth = %10.3E\n", 
+		  rate_args.i, rate_args.f, type, eth);
+	  Abort(1);
 	}
       }
       result = 0.1*r0*epsrel;
@@ -322,11 +327,13 @@ double IntegrateRate(int idist, double eth, double bound,
 	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
       if (abserr > epsabs && abserr > r0*epsrel) {
-	if (ier != 0 && rate_args.iprint) {
-	  printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
-		 ier, neval, b0, b, result, abserr);
-	  printf("%6d %6d %2d Eth = %10.3E\n", 
-		 rate_args.i, rate_args.f, type, eth);
+	if (ier != 0 && rate_iprint) {
+	  MPrintf(-1,
+		  "IntegrateRate Error1: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+		  ier, neval, b0, b, result, abserr);
+	  MPrintf(-1, "%6d %6d %2d Eth = %10.3E\n", 
+		  rate_args.i, rate_args.f, type, eth);
+	  Abort(1);
 	}
       }
     }
@@ -338,11 +345,13 @@ double IntegrateRate(int idist, double eth, double bound,
 	  &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
     r0 = result;
     if (abserr > epsabs && abserr > r0*epsrel) {
-      if (ier != 0 && rate_args.iprint) {
-	printf("IntegrateRate Error: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
-	       ier, neval, a, b, result, abserr);
-	printf("%6d %6d %2d Eth = %10.3E\n", 
-	       rate_args.i, rate_args.f, type, eth);
+      if (ier != 0 && rate_iprint) {
+	MPrintf(-1,
+		"IntegrateRate Error2: %d %d %10.3E %10.3E %10.3E %10.3E\n", 
+		ier, neval, a, b, result, abserr);
+	MPrintf(-1, "%6d %6d %2d Eth = %10.3E\n", 
+		rate_args.i, rate_args.f, type, eth);
+	Abort(1);
       }
     }
     if (r0 < 0.0) r0 = 0.0;
@@ -1792,9 +1801,9 @@ int InitRates(void) {
     pho_dist[i].dist = NULL;
   }
 
-  rate_args.epsabs = EPS8;
-  rate_args.epsrel = EPS3;
-  rate_args.iprint = 1;
+  rate_epsabs = EPS8;
+  rate_epsrel = EPS3;
+  rate_iprint = 1;
 
   for (i = 0; i < NSEATON; i++) {
     log_xseaton[i] = log(xseaton[i]);

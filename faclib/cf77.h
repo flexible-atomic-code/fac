@@ -21,6 +21,10 @@
 
 #include "cfortran.h"
 
+     PROTOCCALLSFFUN1(DOUBLE, D1MACH, d1mach, INT)
+#define D1MACH(A1)\
+     CCALLSFFUN1(D1MACH, d1mach, INT, A1)
+     
      PROTOCCALLSFSUB2(RADFND, radfnd, INT, DOUBLEV)
 #define RADFND(A1,A2)\
      CCALLSFSUB2(RADFND,radfnd,INT,DOUBLEV,A1,A2)
@@ -415,5 +419,5 @@
      PROTOCCALLSFSUB1(NJDBUG, njdbug, INT)
 #define NJDBUG(A1)        \
      CCALLSFSUB1(NJDBUG, njdbug, INT, A1)
-
+     
 #endif

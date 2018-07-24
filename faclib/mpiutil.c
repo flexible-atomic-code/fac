@@ -21,6 +21,7 @@
 #include "stdarg.h"
 #include "init.h"
 #include "radial.h"
+#include "cf77.h"
 
 static int _initialized = 0;
 static LOCK *_plock = NULL;
@@ -201,7 +202,7 @@ void ReleaseLockMPI() {
   }
 }
 
-void InitializeMPI(int n) {
+void InitializeMPI(int n, int m) {
 #ifdef USE_MPI
   if (_initialized) {
     printf("MPI system already initialized\n");
@@ -217,6 +218,7 @@ void InitializeMPI(int n) {
     exit(1);
   }
 #elif USE_MPI == 2
+  D1MACH(1);
   if (n > 0) {
     int nm = omp_get_thread_limit();
     if (n > nm) {
@@ -249,7 +251,7 @@ void InitializeMPI(int n) {
   _initialized = 1;
   if (mpi.nproc == 1) {
     RemoveMultiLocks();
-    RemoveOrbitalLock();
+    if (m == 0) RemoveOrbitalLock();
   }
 #endif
   _plock = (LOCK *) malloc(sizeof(LOCK));
@@ -259,7 +261,7 @@ void InitializeMPI(int n) {
     _plock = NULL;
   }
 #if USE_MPI == 2
-  CopyPotentialOMP(1);
+  if (m == 0) CopyPotentialOMP(1);
 #endif
 #endif
 }
