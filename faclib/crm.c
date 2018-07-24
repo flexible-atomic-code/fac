@@ -4258,7 +4258,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   BLK_RATE *brt, brt0;
   RATE *r0;
   int i;
-  if (r->dir <= 0 && r->inv <= 0) return 0;
+  if (r->dir <= 0 && r->inv <= 0) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
   if (irb == NULL) {
@@ -4492,6 +4492,10 @@ int SetCERates(int inv) {
 	      int skip = SkipWMPI(w++);
 	      if (skip) continue;
 	      p = IonizedIndex(r[ib].lower, 0);
+	      rt[ib].i = -1;
+	      rt[ib].f = -1;
+	      rt[ib].dir = 0;
+	      rt[ib].inv = 0;
 	      if (p < 0) {
 		if (h.qk_mode == QK_FIT) free(r[ib].params);
 		free(r[ib].strength);
@@ -4601,6 +4605,8 @@ int SetTRRates(int inv) {
 	    for (jb = 0; jb < nrb; jb++) {
 	      int skip = SkipWMPI(w++);
 	      if (skip) continue;
+	      rt[jb].dir = 0;
+	      rt[jb].inv = 0;
 	      rt[jb].i = r[jb].upper;
 	      if (ion0.n < 0) {
 		ib = ion->iblock[r[jb].upper];
@@ -4626,12 +4632,13 @@ int SetTRRates(int inv) {
 	      }
 	    }
 	  }
-	  for (jb = 0; jb < nrb; jb++)
+	  for (jb = 0; jb < nrb; jb++) {
 	    im = AddRate(ion, ion->tr_rates, &rt[jb], m, irb);
-	  if (iuta && im == 0) {
-	    rt[jb].dir = rx[jb].energy;
-	    rt[jb].inv = rx[jb].sdev;
-	    AddRate(ion, ion->tr_sdev, &rt[jb], 0, irb);
+	    if (iuta && im == 0) {
+	      rt[jb].dir = rx[jb].energy;
+	      rt[jb].inv = rx[jb].sdev;
+	      AddRate(ion, ion->tr_sdev, &rt[jb], 0, irb);
+	    }
 	  }
 	  nrb = h.ntransitions-i-1;
 	  nrb = Min(nrb, NRTB);
@@ -4716,6 +4723,8 @@ int SetTRRates(int inv) {
 	      for (jb = 0; jb < nrb; jb++) {
 		int skip = SkipWMPI(w++);
 		if (skip) continue;
+		rt[jb].dir = 0;
+		rt[jb].inv = 0;
 		p = IonizedIndex(r[jb].lower, 0);	      
 		if (p < 0) {
 		  continue;
@@ -4818,6 +4827,8 @@ int SetCIRates(int inv) {
 	      if (skip) continue;
 	      rt[jb].i = r[jb].b;
 	      rt[jb].f = r[jb].f;
+	      rt[jb].dir = 0;
+	      rt[jb].inv = 0;
 	      j1 = ion->j[r[jb].b];
 	      j2 = ion->j[r[jb].f];
 	      e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
@@ -4917,6 +4928,8 @@ int SetRRRates(int inv) {
 	      if (skip) continue;
 	      rt[jb].i = r[jb].f;
 	      rt[jb].f = r[jb].b;
+	      rt[jb].dir = 0;
+	      rt[jb].inv = 0;
 	      j1 = ion->j[r[jb].f];
 	      j2 = ion->j[r[jb].b];
 	      e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
@@ -5084,6 +5097,8 @@ int SetAIRates(int inv) {
 	    for (jb = 0; jb < nrb; jb++) {
 	      int skip = SkipWMPI(w++);
 	      if (skip) continue;
+	      rt[jb].dir = 0;
+	      rt[jb].inv = 0;
 	      if (inner_auger == 1) {
 		if (r[jb].b <= ion->KLN_max && 
 		    r[jb].b >= ion->KLN_min &&
@@ -5128,9 +5143,6 @@ int SetAIRates(int inv) {
 		  rt[jb].dir *= ion->aai;
 		  rt[jb].inv *= ion->aai;
 		}
-	      } else {
-		rt[jb].dir = 0;
-		rt[jb].inv = 0;
 	      }
 	    }
 	  }
