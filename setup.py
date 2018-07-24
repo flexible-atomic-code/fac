@@ -54,7 +54,7 @@ def get_version(filename=None):
                 subversion = (line[20:]).strip()
             if '#define SUBSUBVERSION' in line:
                 subsubversion = (line[23:]).strip()
-        return '%s.%s.%s'.format(version, subversion, subsubversion)
+        return '%s.%s.%s'%(version, subversion, subsubversion)
 
 VERSION = get_version()
 
