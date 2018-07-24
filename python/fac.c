@@ -5860,10 +5860,11 @@ initfac(void){
   if (InitFac() < 0) {
     onError("initilization failed\n");
 
-    #if PY_MAJOR_VERSION >= 3
+#if PY_MAJOR_VERSION >= 3
     return m;
-    #endif
+#else
     return;
+#endif
   }
 
   SPECSYMBOL = PyList_New(MAX_SPEC_SYMBOLS);

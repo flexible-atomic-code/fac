@@ -1495,12 +1495,9 @@ initcrm(void) {
   if (PyErr_Occurred())
     Py_FatalError("can't initialize module crm");
 
-  #if PY_MAJOR_VERSION >= 3
+#if PY_MAJOR_VERSION >= 3
   return m;
-  #endif
+#else
   return;
-
-  #if PY_MAJOR_VERSION >= 3
-    return m;
-  #endif
+#endif
 }
