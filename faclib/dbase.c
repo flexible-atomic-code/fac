@@ -5108,7 +5108,11 @@ int PrintRTTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	if (i < h.ntransitions-1) {
 	  idx[i+1].position = idx[i].position + n;
 	}
-	idx[i].i0 = r.dir;
+	if (r.dir >= 0) {
+	  idx[i].i0 = 0;
+	} else {
+	  idx[i].i0 = 1;
+	}
 	idx[i].i1 = r.iblock;
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
