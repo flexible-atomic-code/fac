@@ -118,15 +118,9 @@ class MyCompiler(UnixCCompiler, object):
     def set_executables(self, **args):
         # basically, we ignore all the tool chain coming in
         if CC is not None:
-            ldshared = sysconfig.get_config_var('LDSHARED')
-            ldshared = ldshared.split(' ', 1)
-            if len(ldshared) == 2:
-                ldshared = CC + ' ' + ldshared[1]
-            else:
-                ldshared = CC
             super(self.__class__, self).set_executables(
                 compiler=CC, compiler_so=CC, linker_exe=CC,
-                linker_so=ldshared)
+                linker_so=CC)
 
     def _fix_lib_args(self, libraries, library_dirs, runtime_library_dirs):
         # we need to have this method here, to avoid an endless
@@ -149,6 +143,12 @@ def my_new_compiler(plat=None, compiler=None, verbose=0, dry_run=0, force=0):
 # override compiler construction
 distutils.ccompiler.new_compiler = my_new_compiler
 
+if CC is not None:
+    ldshared = sysconfig.get_config_var('LDSHARED')
+    ldshared = ldshared.split(' ')
+    for a in ldshared[1:]:
+        extralink.append(a)
+    
 Extensions = [Extension(mod, src, include_dirs=incdir, library_dirs=libdir,
                         libraries=libs, extra_compile_args=extracomp,
                         extra_link_args=extralink)
