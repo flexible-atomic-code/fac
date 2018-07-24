@@ -14,7 +14,7 @@ if len(sys.argv) == 2 and sys.argv[1] == 'openmp':
 
 if use_openmp:
     # enable openmp with 2 cores
-    fac.InitializeMPI(2)
+    InitializeMPI(2)
 
 # atomic number
 z = 10
@@ -60,4 +60,4 @@ RateTable(p+'b.rt', rate)
 PrintTable(p+'b.rt', p+'a.rt', 1)
 
 if use_openmp:
-    fac.FinalizeMPI()
+    FinalizeMPI()
