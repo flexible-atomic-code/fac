@@ -2,9 +2,19 @@
 s.py runs the collisional radiative module. sel.py prints the line intensities
 in ascii format.
 """
+import sys
 from pfac.crm import *
 from pfac import fac
 from pfac import spm
+
+use_openmp = False
+if len(sys.argv) == 2 and sys.argv[1] == 'openmp':
+    use_openmp = True
+
+
+if use_openmp:
+    # enable openmp with 2 cores
+    fac.InitializeMPI(2)
 
 # atomic number
 z = 10
@@ -48,3 +58,6 @@ PrintTable(p+'b.sp', p+'a.sp')
 rate = spm.get_complexes(nele)
 RateTable(p+'b.rt', rate)
 PrintTable(p+'b.rt', p+'a.rt', 1)
+
+if use_openmp:
+    fac.FinalizeMPI()
