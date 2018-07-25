@@ -17,6 +17,7 @@
  */
 
 #include "dbase.h"
+#include "parser.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -2137,9 +2138,12 @@ int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   if (version_read[DB_EN-1] < 115) {
     RSF1(r->sname, sizeof(char), LSNAME0);
     RSF1(r->name, sizeof(char), LNAME0);
+    StrReplace(LNCOMPLEX, r->ncomplex, ' ', '.', '.', '\0');
+    StrReplace(LSNAME0, r->sname, ' ', '.', '.', '\0');
+    StrReplace(LNAME0, r->name, ' ', '.', '.', '\0');
   } else {
     RSF1(r->sname, sizeof(char), LSNAME);
-    RSF1(r->name, sizeof(char), LNAME);
+    RSF1(r->name, sizeof(char), LNAME);    
   }
   if (swp) SwapEndianENRecord(r);
   
