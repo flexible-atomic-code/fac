@@ -161,7 +161,25 @@ int QuotedStrSplit(char *s, char sep, char qb, char qe) {
 
   return ns;
 }
- 
+
+int StrReplace(int n, char *s, char r0, char r1, char r2, char r3) {
+  int i = 0;
+  int m = 0;
+  char *c;
+  c = s;
+  while (i < n && *c) {
+    if (*c == r0) {      
+      if (i == n-1 || (i < n-1 && c[1] == '\0')) *c = r3;
+      else if (m == 0) *c = r1;
+      else *c = r2;
+      m++;
+    }
+    i++;
+    c++;
+  }
+  return m;
+}
+
 int StrSplit(char *s, char sep) {
   char *p;
   int ns;
