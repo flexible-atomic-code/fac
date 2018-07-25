@@ -21,6 +21,7 @@
 import numpy as np
 from collections import OrderedDict
 from distutils.version import LooseVersion
+import struct
 
 
 def _wrap_get_length(line0):
@@ -594,6 +595,29 @@ def read_rt(filename):
         return (block, )
 
     return header, read_blocks(lines)
+
+
+MAX_SYMMETRIES = 256
+
+def read_ham(filename):
+    """ Read hamiltonian """
+    header = OrderedDict()
+    hamiltonian = []
+    with open(filename, 'rb') as f:
+        header['ng0'] = struct.unpack('i', f.read(4))
+        header['ng'] = struct.unpack('i', f.read(4))
+        header['kg'] = [struct.unpack('i', f.read(4)) 
+                        for i in range(header['ng'])]
+        header['ngp'] = struct.unpack('i', f.read(4))
+        header['kgp'] = [struct.unpack('i', f.read(4))
+                         for i in range(header['ngp'])]
+        
+        for s in range(MAX_SYMMETRIES):
+            ham1 = OrderedDict()
+            ham1['s'] = struct.unpack('i', f.read(4))
+            ham1['dim'] = struct.unpack('i', f.read(4))
+            
+        
 
 
 class FLEV:

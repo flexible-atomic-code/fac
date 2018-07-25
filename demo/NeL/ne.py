@@ -37,6 +37,9 @@ ConfigEnergy(1)
 # atomic structure
 Structure(p+'b.en', ['g2', 'g3'])
 
+# save hamiltonian
+Structure(p+'b.en', p+'b.ham', ['g2', 'g3'])
+
 for n in range(4, nmax+1):
     Structure(p+'b.en', ['g%d'%n])
 

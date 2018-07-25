@@ -58,6 +58,7 @@ demo/*/*.tr
 demo/*/*.txt
 demo/*/*.sp
 demo/*/*.rt
+demo/*/*.ham
 
 # latex binaries in docs
 *.bbl
