@@ -1,4 +1,4 @@
-        # Based on http://conda.pydata.org/docs/travis.html
+# Based on http://conda.pydata.org/docs/travis.html
 
 language: python
 matrix:
