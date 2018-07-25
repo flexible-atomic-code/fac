@@ -21,4 +21,4 @@
 from .version import version as __version__
 
 __all__ = ['fac', 'crm', 'util', 'config', 'const', 'table', 'atom', 'spm',
-           'rfac', '__version__']
+           'rfac', 'consts', '__version__']
