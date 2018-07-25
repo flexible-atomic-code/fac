@@ -481,8 +481,8 @@ length of the header.
 
 \begin{verbatim}
 #define LNCOMPLEX   32
-#define LSNAME      24
-#define LNAME       56
+#define LSNAME      48
+#define LNAME       128
 
 typedef struct _EN_RECORD_ {
   short p;
@@ -494,6 +494,13 @@ typedef struct _EN_RECORD_ {
   char sname[LSNAME];
   char name[LNAME];
 } EN_RECORD;
+\end{verbatim}
+
+Note that FAC before 1.1.5, we used shorter length strings for the level names,
+\begin{verbatim}
+#define LNCOMPLEX   32
+#define LSNAME      24
+#define LNAME       56
 \end{verbatim}
 
 \begin{dbdesc}
