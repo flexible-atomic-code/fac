@@ -1,17 +1,17 @@
 /*
  *   FAC - Flexible Atomic Code
  *   Copyright (C) 2001-2015 Ming Feng Gu
- * 
+ *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *   GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -31,11 +31,11 @@
 ** VARIABLE:    VERSION, SUBVERSION, SUBSUBVERSION.
 ** TYPE:        macro constants.
 ** PURPOSE:     tracking the version.
-** NOTE:        
+** NOTE:
 */
 #define VERSION        1
 #define SUBVERSION     1
-#define SUBSUBVERSION  4
+#define SUBSUBVERSION  5
 #define VersionGE(h, a, b, c)    (((h)->version >= (a)) &&\
                                   ((h)->sversion >= (b)) &&\
                                   ((h)->ssversion >= (c)))
@@ -43,7 +43,7 @@
                                   ((h)->sversion <= (b)) &&\
                                   ((h)->ssversion <= (c)))
 
-/* 
+/*
 ** MACRO:       IsOdd, IsEven
 ** PURPOSE:     determin if an integer is Odd or Even.
 ** INPUT:       {int x},
@@ -51,13 +51,13 @@
 ** RETURN:      {int},
 **              0: false.
 **              1: true.
-** SIDE EFFECT: 
-** NOTE:        
+** SIDE EFFECT:
+** NOTE:
 */
 #define IsOdd(x)  ((abs((x))&0x01)?1:0)
 #define IsEven(x) ((abs((x))&0x01)?0:1)
 
-/* 
+/*
 ** MACRO:       Max, Min
 ** PURPOSE:     the larger and lesser of two numbers.
 ** INPUT:       {generic a},
@@ -66,19 +66,19 @@
 **              number participating the comparison.
 ** RETURN:      {generic},
 **              the larger or lesser of a and b.
-** SIDE EFFECT: 
-** NOTE:        
+** SIDE EFFECT:
+** NOTE:
 */
 #define Max(a, b) (((a)>(b))?(a):(b))
 #define Min(a, b) (((a)<(b))?(a):(b))
 
-#define IsNan(a)  (!((a)>0) && !((a)<=0)) 
+#define IsNan(a)  (!((a)>0) && !((a)<=0))
 
 /*
 ** VARIABLE:    EPS1, ..., EPS30.
 ** TYPE:        macro constants.
 ** PURPOSE:     some small numbers.
-** NOTE:        
+** NOTE:
 */
 #define EPS30 1E-30
 #define EPS16 1E-16
@@ -96,7 +96,7 @@
 ** VARIABLE:    PI, TWO_PI
 ** TYPE:        macro constants, double
 ** PURPOSE:     PI, and 2*PI
-** NOTE:        
+** NOTE:
 */
 #define PI         3.14159265359
 #define TWO_PI     6.28318530718
@@ -106,7 +106,7 @@
 ** VARIABLE:    SQRT2
 ** TYPE:        macro constant, double
 ** PURPOSE:     sqrt(2)
-** NOTE:        
+** NOTE:
 */
 #define SQRT2      1.41421356237
 
@@ -114,7 +114,7 @@
 ** VARIABLE:    HARTREE_EV
 ** TYPE:        macro constant
 ** PURPOSE:     1 Hartree in eV.
-** NOTE:        
+** NOTE:
 */
 #define HARTREE_EV 27.211386018
 #define RYDBERG_EV 13.605693009
@@ -123,7 +123,7 @@
 ** VARIABLE:    RATE_AU, RATE_AU10, RATE_AU12
 ** TYPE:        macro constants.
 ** PURPOSE:     atomic units of rate in 1/s, 10^10 1/s, 10^12 1/s
-** NOTE:        
+** NOTE:
 */
 #define RATE_AU    4.13413733E16
 #define RATE_AU10  4.13413733E06
@@ -133,7 +133,7 @@
 ** VARIABLE:    AREA_AU20
 ** TYPE:        macro constants.
 ** PURPOSE:     atomic units of area in 10^-20 cm2
-** NOTE:        
+** NOTE:
 */
 #define AREA_AU20  2.80028560859E3
 
@@ -141,7 +141,7 @@
 ** VARIABLE:    RBOHR
 ** TYPE:        macro constant.
 ** PURPOSE:     Bohr radius in Angstrom.
-** NOTE:        
+** NOTE:
 */
 #define RBOHR      0.52917721067
 
@@ -149,7 +149,7 @@
 ** VARIABLE:    MBOHR
 ** TYPE:        macro constant.
 ** PURPOSE:     Bohr magenton in eV/Gauss.
-** NOTE:        
+** NOTE:
 */
 #define MBOHR      5.7883818012E-9
 
@@ -157,7 +157,7 @@
 ** VARIABLE:    FINE_STRUCTURE_CONST, FINE_STRUCTURE_CONST2
 ** TYPE:        macro constants.
 ** PURPOSE:     fine structure constant and its square.
-** NOTE:        
+** NOTE:
 */
 #define FINE_STRUCTURE_CONST  7.2973525664E-3
 #define FINE_STRUCTURE_CONST2 5.325135447834E-5
@@ -245,7 +245,7 @@
 #define MIXCUT2            1.0
 #define NPRINCIPLE         2
 #define MAXDN              3
-#define MBCLOSE            8        
+#define MBCLOSE            8
 #define MAXLEVEB           1000000
 #define DIAGMAXITER        0
 #define DIAGMAXTOL         0.1

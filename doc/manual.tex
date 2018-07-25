@@ -80,11 +80,11 @@
 FAC stands for The Flexible Atomic Code. It is an
 integrated software package to calculate various atomic radiative and
 collisional processes, including energy levels, radiative transition rates,
-collisional excitation and 
+collisional excitation and
 ionization by electron impact, photoionization, autoionization, radiative
 recombination and dielectronic capture. The package also includes a
 collisional radiative model to construct synthetic spectra for plasmas under
-different physical conditions. 
+different physical conditions.
 
 The atomic structure calculation in FAC is based on the relativistic
 configuration interaction with independent particle basis wavefunctions. These
@@ -93,7 +93,7 @@ self-consistently determined to represent electronic screening of the nuclear
 potential. Relativistic effects are fully taken into account using the Dirac
 Coulomb Hamiltonian. Higher order QED effects are included with Breit
 interaction in the zero energy limit for the exchanged photon, and hydrogenic
-approximations for self-energy and vacuum polarization effects. 
+approximations for self-energy and vacuum polarization effects.
 Continuum processes are treated
 in the distorted-wave (DW) approximation. Systematic application of the
 factorization-interpolation method of \citet{barshalom88} makes the present
@@ -113,7 +113,7 @@ FAC is freely distributed in the hope that it will be useful. The author makes
 every effort to ensure its correctness. However, he does not guarantee its
 fitness to any specific purpose. The author is not responsible for any damage
 resulting from the use of this program, including failure to obtain or loss of
-tenure. 
+tenure.
 
 \section{Obtain and Install FAC}
 \index{Install}
@@ -124,10 +124,10 @@ through email. Please request to \textbf{mfgu@ssl.berkeley.edu}. It is being
 continously developed at present, so please check regularly to get the newest
 version.
 
-Much of the FAC package is written in ANSI C and Fortran 77. It should 
-therefore work on any platform with a C and Fortran 77 compilers. However, 
+Much of the FAC package is written in ANSI C and Fortran 77. It should
+therefore work on any platform with a C and Fortran 77 compilers. However,
 this is only true to the rather simple command parser that comes with FAC,
-referred  
+referred
 to as SFAC. The flexibility of FAC is realized when the Python interface
 (PFAC) is used. The numerical subroutines implemented in FAC are exported
 through several Python modules. The computation task can therefore be
@@ -136,7 +136,7 @@ modules are compiled as shared objects, and are dynamically loaded. This
 primarily works under ELF systems, such as almost all modern Unix and Linux
 systems. It has also been tested to work under Mac OS X and Windows (In the
 case of Windows, the Unix API emulation by Cygwin is required, which is
-available at \textbf{www.cygwin.com}). To fully utilize the strength of  
+available at \textbf{www.cygwin.com}). To fully utilize the strength of
 FAC, it is strongly recommended that Python be installed, which can be obtained
 from \textbf{www.python.org}.
 
@@ -155,7 +155,7 @@ this manual, we mainly focus on the more useful Python interface. Most of the
 Python fuctions implemented in the extension modules are also available in
 SFAC interface with identical calling sequences. To use SFAC, one passes the
 input files to the 3 executables \verb|sfac|, \verb|scrm| and \verb|spol| on
-the command line such as 
+the command line such as
 \begin{verbatim}
     sfac input.sf
     scrm input.sf
@@ -163,9 +163,9 @@ the command line such as
 or, one may invoke \verb|sfac| and \verb|scrm| without arguments, in which
 case, they read from \verb|stdin| for inputs, where commands are interpreted
 line by line. The program \verb|sfac| handles atomic calculations,
-\verb|scrm| is used to construct collisional radiative spectral models, and 
+\verb|scrm| is used to construct collisional radiative spectral models, and
 \verb|spol| is used to calculate line polarizations due to collisional
-excitation. 
+excitation.
 
 \subsection{PFAC Interface}
 To use the PFAC interface, one needs to be familiar with the basics of Python
@@ -209,7 +209,7 @@ complexes. The following is a duplication of that script.
 14: fac.TransitionTable('ne.tr.b', ['n2'], ['n3'])
 15: fac.PrintTable('ne.tr.b', 'ne.tr', 1)
 \end{verbatim}
-Line numbers are added for easy reference, they are not part of the script. 
+Line numbers are added for easy reference, they are not part of the script.
 As is evident from the above list, all functions implemented in the FAC
 extension modules have a naming convention of concatenated capitalized words.
 Line 1 imports the extension module \verb|fac| from the package \verb|pfac|.
@@ -236,7 +236,7 @@ results in the potential to be less optimized for \verb|n2| and \verb|n3|
 individually. Lines 8 and 10 are used to make a crude correction to the
 resulting energy levels due to this effect. The first call to
 \verb|ConfigEnergy(0)| will make individual optimization to all configuration
-groups. The average energy of each configuration group with these indivudually 
+groups. The average energy of each configuration group with these indivudually
 optimized potential is then calculated and stored. The
 second call to \verb|ConfigEnergy(1)| will then recalculate the average energy
 of configuration groups under the potential taking into account all
@@ -258,12 +258,12 @@ oscillator strength and transition rates between cofiguration groups
 integer argument specifying the transition type. A negative integer means
 electric multipole and a positive integer for magnetic multipole. The absolute
 value of the integer indicates the rank of the multipole. Therefore, $-1$ would
-be E1, $+1$ would be M1, etc. Without this argument, the default is 0, where 
-we sum up all the multipoles for the rate, as is done here. 
+be E1, $+1$ would be M1, etc. Without this argument, the default is 0, where
+we sum up all the multipoles for the rate, as is done here.
 Line 15 converts the binary output to an ASCII file in verbose
 mode. The exact formats of binary and ASCII files are explained in Chapter
 \ref{cha:format}. Here we list the two ASCII files \verb|ne.lev| and
-\verb|ne.tr| resulted from this calculation. 
+\verb|ne.tr| resulted from this calculation.
 \begin{verbatim}
 File ne.lev:
 
@@ -279,43 +279,43 @@ E0	= 0, -3.12289011E+04
 NELE	= 10
 NLEV	= 37
   ILEV  IBASE    ENERGY       P   VNL 2J
-     0     -1  0.00000000E+00 0   201  0 1*2 2*8       2p6         2p+4(0)0 
-     1     -1  7.23817529E+02 1   300  4 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)4 
-     2     -1  7.25866864E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)2 
-     3     -1  7.36421878E+02 1   300  0 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)0 
-     4     -1  7.37744083E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)2 
-     5     -1  7.54155726E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)2 
-     6     -1  7.57795103E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)4 
-     7     -1  7.59348028E+02 0   301  6 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)6 
-     8     -1  7.60559034E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)2 
-     9     -1  7.62368042E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)4 
-    10     -1  7.68005929E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)0 
-    11     -1  7.69846810E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)2 
-    12     -1  7.73062840E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)2 
-    13     -1  7.73470206E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)4 
-    14     -1  7.90365155E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)0 
-    15     -1  8.00169329E+02 1   302  0 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)0 
-    16     -1  8.01137358E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)2 
-    17     -1  8.02966076E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)4 
-    18     -1  8.03096178E+02 1   302  8 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)8 
-    19     -1  8.03812355E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)6 
-    20     -1  8.05502105E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)4 
-    21     -1  8.06580377E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)6 
-    22     -1  8.11326891E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)2 
-    23     -1  8.16455702E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)4 
-    24     -1  8.17103423E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)4 
-    25     -1  8.17679088E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)6 
-    26     -1  8.25272086E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)2 
-    27     -1  8.60711742E+02 0   300  2 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)2 
-    28     -1  8.67823477E+02 0   300  0 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)0 
-    29     -1  8.93685214E+02 1   301  0 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)0 
-    30     -1  8.94146680E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)2 
-    31     -1  8.96450212E+02 1   301  4 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)4 
-    32     -1  8.98437005E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)2 
-    33     -1  9.38592464E+02 0   302  2 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)2 
-    34     -1  9.38724254E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)4 
-    35     -1  9.38975219E+02 0   302  6 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)6 
-    36     -1  9.43734651E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)4 
+     0     -1  0.00000000E+00 0   201  0 1*2 2*8       2p6         2p+4(0)0
+     1     -1  7.23817529E+02 1   300  4 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)4
+     2     -1  7.25866864E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p+3(3)3 3s+1(1)2
+     3     -1  7.36421878E+02 1   300  0 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)0
+     4     -1  7.37744083E+02 1   300  2 1*2 2*7 3*1   2p5 3s1     2p-1(1)1 3s+1(1)2
+     5     -1  7.54155726E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)2
+     6     -1  7.57795103E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p-1(1)4
+     7     -1  7.59348028E+02 0   301  6 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)6
+     8     -1  7.60559034E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)2
+     9     -1  7.62368042E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)4
+    10     -1  7.68005929E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p+3(3)3 3p+1(3)0
+    11     -1  7.69846810E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)2
+    12     -1  7.73062840E+02 0   301  2 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)2
+    13     -1  7.73470206E+02 0   301  4 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p+1(3)4
+    14     -1  7.90365155E+02 0   301  0 1*2 2*7 3*1   2p5 3p1     2p-1(1)1 3p-1(1)0
+    15     -1  8.00169329E+02 1   302  0 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)0
+    16     -1  8.01137358E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)2
+    17     -1  8.02966076E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)4
+    18     -1  8.03096178E+02 1   302  8 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)8
+    19     -1  8.03812355E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)6
+    20     -1  8.05502105E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d-1(3)4
+    21     -1  8.06580377E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)6
+    22     -1  8.11326891E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p+3(3)3 3d+1(5)2
+    23     -1  8.16455702E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)4
+    24     -1  8.17103423E+02 1   302  4 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)4
+    25     -1  8.17679088E+02 1   302  6 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d+1(5)6
+    26     -1  8.25272086E+02 1   302  2 1*2 2*7 3*1   2p5 3d1     2p-1(1)1 3d-1(3)2
+    27     -1  8.60711742E+02 0   300  2 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)2
+    28     -1  8.67823477E+02 0   300  0 1*2 2*7 3*1   2s1 3s1     2s+1(1)1 3s+1(1)0
+    29     -1  8.93685214E+02 1   301  0 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)0
+    30     -1  8.94146680E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p-1(1)2
+    31     -1  8.96450212E+02 1   301  4 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)4
+    32     -1  8.98437005E+02 1   301  2 1*2 2*7 3*1   2s1 3p1     2s+1(1)1 3p+1(3)2
+    33     -1  9.38592464E+02 0   302  2 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)2
+    34     -1  9.38724254E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d-1(3)4
+    35     -1  9.38975219E+02 0   302  6 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)6
+    36     -1  9.43734651E+02 0   302  4 1*2 2*7 3*1   2s1 3d1     2s+1(1)1 3d+1(5)4
 
 
 File ne.tr:
@@ -361,7 +361,7 @@ to version 1.0.2) was
 supported by NASA through Chandra Postdoctoral Fellowship Award Number
 PF01-10014 issued by the Chandra X-ray Observatory Center, which is operated
 by Smithsonian Astrophysical Observatory for and on behalf of NASA under
-contract NAS8-39073. 
+contract NAS8-39073.
 
 Any opinions, findings and conclusions or
 recommendations expressed in this manual are those of the author and do not
@@ -383,20 +383,20 @@ a unique integer, which corresponds to a macro define in the file
 \verb|faclib/dbase.h|. These types are
 \begin{description}
 \item[\texttt{DB\_EN = 1}] Energy levels produced by the function
-\verb|fac.Structure|. 
+\verb|fac.Structure|.
 \item[\texttt{DB\_TR = 2}] Radiative transition rates produced by
 \verb|fac.TransitionTable|.
 \item[\texttt{DB\_CE = 3}] Collisional excitation cross sections produced by
-\verb|fac.CETable|. 
+\verb|fac.CETable|.
 \item[\texttt{DB\_RR = 4}] Radiative recombination and photoionization cross
 sections produced by \verb|fac.RRTable|.
 \item[\texttt{DB\_AI = 5}] Autoionization rates produced by \verb|fac.AITable|.
 \item[\texttt{DB\_CI = 6}] Collisional ionization cross sections produced by
-\verb|fac.CITable|. 
+\verb|fac.CITable|.
 \item[\texttt{DB\_SP = 7}] Spectral line strengths produced by
-\verb|crm.SpecTable|. 
+\verb|crm.SpecTable|.
 \item[\texttt{DB\_RT = 8}] Various population rates produced by
-\verb|crm.RateTable|. 
+\verb|crm.RateTable|.
 \item[\texttt{DB\_DR = 9}] Various population rates produced by
 \verb|crm.DRStrength|.
 \item[\texttt{DB\_AIM = 10}] Magnetic sublevel autoionization rates and DR
@@ -423,7 +423,7 @@ different on different machines.
 
 \subsection{\texttt{F\_HEADER}}
 \index{F\_HEADER}
-\texttt{F\_HEADER} is the file header common to all data files. 
+\texttt{F\_HEADER} is the file header common to all data files.
 
 \begin{verbatim}
 typedef struct _F_HEADER_ {
@@ -440,7 +440,7 @@ typedef struct _F_HEADER_ {
 
 \begin{dbdesc}
 \item[\texttt{long tsession}:] Time stamp when the file is created. This is the
-value returned by the C lib function time(0). It is platform dependent. 
+value returned by the C lib function time(0). It is platform dependent.
 \item[\texttt{int version}:] Major version number of FAC.
 \item[\texttt{int sversion}:] Minor version number of FAC.
 \item[\texttt{int ssversion}:] Release number of FAC.
@@ -481,8 +481,8 @@ length of the header.
 
 \begin{verbatim}
 #define LNCOMPLEX   32
-#define LSNAME      24
-#define LNAME       56
+#define LSNAME      48
+#define LNAME       128
 
 typedef struct _EN_RECORD_ {
   short p;
@@ -494,6 +494,13 @@ typedef struct _EN_RECORD_ {
   char sname[LSNAME];
   char name[LNAME];
 } EN_RECORD;
+\end{verbatim}
+
+Note that FAC before 1.1.5, we used shorter length for the level names,
+\begin{verbatim}
+#define LNCOMPLEX   32
+#define LSNAME      38
+#define LNAME       56
 \end{verbatim}
 
 \begin{dbdesc}
@@ -545,7 +552,7 @@ $[2p_{3/2}^{2}(J=1) 2p_{1/2}^2(J=1)]J=0$.
 \subsection{\texttt{TR\_HEADER}}
 \index{TR\_HEADER}
 \texttt{TR\_HEADER} is the data header for the radiative transition data
-blocks. 
+blocks.
 
 \begin{verbatim}
 typedef struct _TR_HEADER_ {
@@ -598,13 +605,13 @@ typedef struct _TR_RECORD_ {
 gA = 2\alpha^3 \omega^2 gf,
 \end{equation}
 where $\alpha$ is the fine structure constant, and $\omega$ is transition
-energy in Hartree atomic units. 
+energy in Hartree atomic units.
 
 In version 1.0.7 or newer, the stored value depends on the multipole values
 used in \key{TransitionTable}.
-By default (\var{m} = 0), this stores the total oscillator strengths $gf$ for 
+By default (\var{m} = 0), this stores the total oscillator strengths $gf$ for
 all the multipoles.
-If other value is used for \var{m}, this stores the multipole matrix elements 
+If other value is used for \var{m}, this stores the multipole matrix elements
 $M$ instead. It is related to the $gf$ value as
 \begin{equation}
 gf =
@@ -690,13 +697,13 @@ incident electron energy, 1 for scattered electron energy. In the present
 implementation, only scattered electron energy grid is supported.
 \item[\texttt{int nparams}:] Number of parameters in the fitting formula if the
 collision strengths are calculated in the FIT mode. At present,
-\texttt{nparams} is 4. 
+\texttt{nparams} is 4.
 \item[\texttt{int pw\_type}:] Partial wave type for the last summation. 0 for
 the incident electron, 1 for the scattered electron.
 \item[\texttt{int msub}:] 0 for total collision strength, 1 for magnetic
 sublevel specific collision strength.
-\item[\texttt{float te0}:] The characteristic transition energy of the 
-transition array. This is used for the automatic construction of the 
+\item[\texttt{float te0}:] The characteristic transition energy of the
+transition array. This is used for the automatic construction of the
 collision energy grid. The grid has equal space in $\ln$(\texttt{egrid+te0})
 if \texttt{egrid\_type = 1}, otherwise, this variable is not used.
 \item[\texttt{double *tegrid}:] The transition energy grid, the number of
@@ -755,7 +762,7 @@ For dipole and higher multipole allowed transitions, the
 collision strength $\Omega$ is given by
 \begin{eqnarray}
 x &=& \frac{E_0}{E_{th}} \nonumber\\
-\Omega &=& p_0\left(\frac{1}{x}\right)^{p_1} + 
+\Omega &=& p_0\left(\frac{1}{x}\right)^{p_1} +
 p_2\left(1-\frac{1}{x}\right)^{p_3} + b\ln x,
 \end{eqnarray}
 where $E_0$ is the energy of the incident electron, $E_{th}$ is the transition
@@ -764,7 +771,7 @@ Bethe coeffificient, which is 0 for non-dipole transitions.
 
 For forbidden transitions, the collision strength is given by
 \begin{eqnarray}
-\gamma &=& -2.0 + p_1\frac{1}{p_3+x} + 
+\gamma &=& -2.0 + p_1\frac{1}{p_3+x} +
 p_2\left(\frac{1}{p_3+x}\right)^2\nonumber\\
 \Omega &=& p_0x^\gamma.
 \end{eqnarray}
@@ -875,7 +882,7 @@ formula is
 x &=& \frac{E_e+p_3}{p_3} \nonumber\\
 y &=& \frac{1+p_2}{\sqrt{x}+p_2} \nonumber\\
 \frac{d(gf)}{dE} &=&
-\frac{E_\gamma}{E_e+p_3}p_0x^{-3.5-l+\frac{1}{2}p_1}y^{p_1}, 
+\frac{E_\gamma}{E_e+p_3}p_0x^{-3.5-l+\frac{1}{2}p_1}y^{p_1},
 \end{eqnarray}
 where $E_e$ is the photo-electron energy, $E_\gamma$ is the photon energy,
 $E_{th}$ is the ionization threshold, $p_0$, $p_1$, $p_2$, and $p_3$ are the
@@ -889,7 +896,7 @@ atomic units. It is related to photoionization and radiative recombination as
 \begin{eqnarray}
 \sigma_{PI} &=& 2\pi\alpha\frac{d f}{d E} \nonumber\\
             &=& \frac{2\pi\alpha}{g_i}
-		 \frac{1+\alpha^2\varepsilon}{1+\frac{1}{2}\alpha^2 \varepsilon} 
+		 \frac{1+\alpha^2\varepsilon}{1+\frac{1}{2}\alpha^2 \varepsilon}
 		 \frac{d(gf)}{d E} \nonumber\\
 \sigma_{RR} &=& \frac{\alpha^2}{2}\frac{g_i}{g_f}
                 \frac{\omega^2}{\varepsilon \left(1+\frac{1}{2}\alpha^2
@@ -1068,7 +1075,7 @@ block in the first part, and all transitions between two superlevel blocks
 make up one data block in the second part.
 
 \begin{verbatim}
-typedef struct _SP_HEADER_ { 
+typedef struct _SP_HEADER_ {
   long position;
   long length;
   int nele;
@@ -1096,7 +1103,7 @@ states of transitions.
 second part, this is the superlevel block index for the final states of the
 transitions.
 \item[\texttt{char icomplex[LNCOMPLEX]}:] The configuration complex name for
-the initial states. 
+the initial states.
 \item[\texttt{char fcomplex[LNCOMPLEX]}:] The configuration complex name for
 the final states. For the first part, this is always an empty string.
 \item[\texttt{int type}:] Type of the block. For the first part, the type is
@@ -1107,7 +1114,7 @@ number. If $n_0 \ne 0$, this transition is the so called dielectronic
 recombination satellite line, which have a spectator electron at the orbital
 with principle quantum number $n_0$. If $n_0=n_1=0$, then the line is
 radiative recombination continuum onto the orbital with principal quantum
-number $n_2$. 
+number $n_2$.
 \end{dbdesc}
 
 \subsection{\texttt{SP\_RECORD}}
@@ -1135,9 +1142,9 @@ energy of the level in atomic unit. For the line emissivity, this is the
 transition energy in eV.
 \item[\texttt{float strength}:] For the level population table, this is the
 concentration of the level. For the line emissivity, this is the line
-luminosity in photons/s. 
+luminosity in photons/s.
 \item[\texttt{float rrate}:] The radiative transition rate from \key{upper} to
-  \key{lower}. 
+  \key{lower}.
 \item[\texttt{float trate}:] The total decay rate of \key{upper}.
 \end{dbdesc}
 
@@ -1167,7 +1174,7 @@ files, a data block consists the rates from all other states to one level or
 one superlevel depending on how the file is created.
 
 \begin{verbatim}
-typedef struct _RT_HEADER_ { 
+typedef struct _RT_HEADER_ {
   long position;
   long length;
   int ntransitions;
@@ -1229,7 +1236,7 @@ ID& Dist& \multicolumn{2}{c}{Params}& Unit\\
 \end{tabular}
 \end{minipage}}
 \item[\texttt{float eden}:] The electron density in unit of $10^{10}$
-cm$^{-3}$. 
+cm$^{-3}$.
 \item[\texttt{int ipdist}:] The type of photon energy distribution for the CRM
 model. At present, only one type is supported. 0 for power law.
 \item[\texttt{int np\_pdist}:] Number of parameters for the photon energy
@@ -1278,7 +1285,7 @@ typedef struct _RT_RECORD_ {
 \begin{dbdesc}
 \item[\texttt{int dir}:] The direction of the transition. If \key{dir} is 0,
   the rate is into this superlevel, if \key{dir} is 1, the rate is out of this
-  superlevel. 
+  superlevel.
 \item[\texttt{int iblock}:] The index of the superlevel block from which the
 rates originate.
 \item[\texttt{float nb}:] The concentration of the superlevel block from which
@@ -1288,15 +1295,15 @@ the rates originate.
 \item[\texttt{float rr}:] The radiative recombination and possible
 photoionization rates (if there is radiation field included in the model).
 \item[\texttt{float ai}:] The autoionization rates and dielectronic capture
-rates. 
-\item[\texttt{float ci}:] The collisional ionization rates. 
+rates.
+\item[\texttt{float ci}:] The collisional ionization rates.
 \item[\texttt{char icomplex[LNCOMPLEX]}:] The configuration complex name of
 the superlevel block from which the rates originate.
 \end{dbdesc}
 
 \subsection{\texttt{DR\_HEADER}}
 \index{DR\_HEADER}
-\begin{verbatim}	
+\begin{verbatim}
 typedef struct _DR_HEADER_ {
   long int position;
   long int length;
@@ -1315,9 +1322,9 @@ file to the place where this data block starts.
 \item[\texttt{long length}:] Number of bytes in this data block, excluding the
 length of the header.
 \item[\texttt{int nele}:] Number of electrons in the recombining ion for this
-block. 
+block.
 \item[\texttt{int ilev}:] The level index of the recombining ion for this
-block. 
+block.
 \item[\texttt{int ntransitions}:] The number of superlevel blocks from which
 the rates are tabulated in this block.
 \item[\texttt{int vn}:] The principle quantum number of the captured electron.
@@ -1350,11 +1357,11 @@ typedef struct _DR_RECORD_ {
 DR strength, this variable is always -1, since the result is the sum of all
 radiative stabilazation routes.
 \item[\texttt{int ibase}:] The level index of the core for the resonance
-state. 
+state.
 \item[\texttt{int fbase}:] The level index of the core for the final
 state, if applicable.
 \item[\texttt{int vl}:] The orbital angular momentum of the captured
-electron. 
+electron.
 \item[\texttt{int j}:] The $2j$ value of the autoionizaing state.
 \item[\texttt{float energy}:] The energy of the autoionizing state relative to
 the recombining state, whose energy is given in the \texttt{DR\_HEADER}.
@@ -1415,7 +1422,7 @@ typedef struct _AIM_RECORD_ {
 \item[\texttt{int f}:] The free state index.
 \item[\texttt{int nsub}:] The number of entries in array \texttt{rate}. It is
 twice the number of transitions tabulated, because both autoionziation and DR
-capture strength need to be stored. 
+capture strength need to be stored.
 \item[\texttt{float *rate}:] An array containing magnetic sublevel
 autoionization rates and DR capture strength. Suppose $A(M_1,M_2)$ represents
 autoionization rate from $M_1$ sublevel of \texttt{b} to $M_2$ sublevel of
@@ -1438,7 +1445,7 @@ $M_1 \le 0$.
 \subsection{\texttt{CIM\_HEADER}}
 \index{CIM\_HEADER}
 \texttt{CIM\_HEADER} is the data header for magnetic sublevel collisional
-ionization data blocks. 
+ionization data blocks.
 
 \begin{verbatim}
 typedef struct _CIM_HEADER_ {
@@ -1495,10 +1502,10 @@ typedef struct _CIM_RECORD_ {
 \item[\texttt{int b}:] The bound state index.
 \item[\texttt{int f}:] The free state index.
 \item[\texttt{int nusb}:] The number of sublevel transitions in the
-  \texttt{strength} array. 
+  \texttt{strength} array.
 \item[\texttt{float *strength}:] The magnetic sublevel collision strength for
   ionization. It is related to the ionization cross section as (in atomic
-  units): 
+  units):
 \begin{equation}
 \sigma = \frac{1}{k_0^2}\Omega,
 \end{equation}
@@ -1573,22 +1580,22 @@ NELE	= 10
 # number of levels in this block
 NLEV	= 37
   ILEV  IBASE    ENERGY       P   VNL 2J
-     0     -1  0.00000000E+00 0   201  0 1*2 2*8      2p6      2p+4(0)0 
-     1     -1  7.23810448E+02 1   300  4 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)4 
-     2     -1  7.25859655E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)2 
-     3     -1  7.36414516E+02 1   300  0 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)0 
-     4     -1  7.37736604E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)2 
-     5     -1  7.54149163E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)2 
-     6     -1  7.57788593E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)4 
-     7     -1  7.59341459E+02 0   301  6 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)6 
-     8     -1  7.60552577E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)2 
-     9     -1  7.62361512E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)4 
-    10     -1  7.67999430E+02 0   301  0 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)0 
+     0     -1  0.00000000E+00 0   201  0 1*2 2*8      2p6      2p+4(0)0
+     1     -1  7.23810448E+02 1   300  4 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)4
+     2     -1  7.25859655E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p+3(3)3 3s+1(1)2
+     3     -1  7.36414516E+02 1   300  0 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)0
+     4     -1  7.37736604E+02 1   300  2 1*2 2*7 3*1  2p5 3s1  2p-1(1)1 3s+1(1)2
+     5     -1  7.54149163E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)2
+     6     -1  7.57788593E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p-1(1)4
+     7     -1  7.59341459E+02 0   301  6 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)6
+     8     -1  7.60552577E+02 0   301  2 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)2
+     9     -1  7.62361512E+02 0   301  4 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)4
+    10     -1  7.67999430E+02 0   301  0 1*2 2*7 3*1  2p5 3p1  2p+3(3)3 3p+1(3)0
    ......
 \end{verbatim}
 
-The column labels by \verb|VNL| is $100\times n + l$, where $n$ and $l$ 
-are the principle and orbital angular quantum numbers of the valence 
+The column labels by \verb|VNL| is $100\times n + l$, where $n$ and $l$
+are the principle and orbital angular quantum numbers of the valence
 electron.
 
 \subsection{\texttt{DB\_TR}}
@@ -1647,7 +1654,7 @@ QKMODE	= 0
 NPARAMS	= 0
 # 0 for total collision strength. 1 for magnetic sublevel.
 MSUB	= 0
-# partial wave summation mode. always 0. 
+# partial wave summation mode. always 0.
 PWTYPE	= 0
 # number of points in the transition energy grid, followed by the grid
 NTEGRID	= 2
@@ -1655,7 +1662,7 @@ NTEGRID	= 2
 	  9.45773957E+02
 # characteristic transition energy used in grid construction.
 TE0	=  9.44829120E+02
-# energy grid type. 
+# energy grid type.
 ETYPE	= 1
 # energy grid
 NEGRID	= 6
@@ -1744,10 +1751,10 @@ NUSR	= 6
 	  5.66042025E+03
 	  9.77974833E+03
 	  1.61102339E+04
-#bound 2J  free 2J  Delta E    L 
+#bound 2J  free 2J  Delta E    L
     7	 1	    0	 0	 2.0465E+03	 0
 # the parameters in the fitting formula
- 3.8124E-02  4.9724E+00  1.2195E+00  2.1768E+03 
+ 3.8124E-02  4.9724E+00  1.2195E+00  2.1768E+03
 #user egrid RR cross sec. PI cross sec. gf
  1.0069E+02	 1.7567E-01	 1.9604E+00	 3.0537E-02
  1.2357E+03	 1.4375E-02	 8.4255E-01	 1.3124E-02
@@ -1756,7 +1763,7 @@ NUSR	= 6
  9.7797E+03	 1.1476E-03	 4.1004E-02	 6.3872E-04
  1.6110E+04	 5.2175E-04	 1.3029E-02	 2.0295E-04
     8	 1	    0	 0	 1.9975E+03	 1
- 3.4223E-02  5.3145E+00  1.2206E+00  2.1537E+03 
+ 3.4223E-02  5.3145E+00  1.2206E+00  2.1537E+03
  1.0069E+02	 1.5214E-01	 1.7781E+00	 2.7697E-02
  1.2357E+03	 8.4472E-03	 5.1024E-01	 7.9480E-03
  2.9799E+03	 2.1814E-03	 1.3407E-01	 2.0885E-03
@@ -1764,7 +1771,7 @@ NUSR	= 6
  9.7797E+03	 2.0448E-04	 7.3672E-03	 1.1476E-04
  1.6110E+04	 6.2231E-05	 1.5624E-03	 2.4338E-05
     9	 3	    0	 0	 1.9810E+03	 1
- 6.9754E-02  5.1620E+00  1.2206E+00  2.1350E+03 
+ 6.9754E-02  5.1620E+00  1.2206E+00  2.1350E+03
  1.0069E+02	 2.9691E-01	 1.7625E+00	 5.4910E-02
  1.2357E+03	 1.6320E-02	 4.9796E-01	 1.5513E-02
  2.9799E+03	 4.1721E-03	 1.2907E-01	 4.0209E-03
@@ -1845,7 +1852,7 @@ NUSR	= 8
 #bound 2J  free 2J  Delta E    L
     0	 0	    1	 3	 1.2607E+03	 1
 # parameters in the fitting formula
- 1.2549E-01  6.7308E-01 -5.4651E-01  7.2856E-01 
+ 1.2549E-01  6.7308E-01 -5.4651E-01  7.2856E-01
 #user egrid  coll. str.  cross sec.
  5.0000E+02	 9.0588E-02	 1.9535E+00
  9.0000E+02	 1.5721E-01	 2.7605E+00
@@ -1856,7 +1863,7 @@ NUSR	= 8
  6.0000E+03	 6.1976E-01	 3.2065E+00
  8.0000E+03	 7.1292E-01	 2.8808E+00
     0	 0	    2	 1	 1.2737E+03	 1
- 6.3179E-02  3.3088E-01 -2.6847E-01  3.5591E-01 
+ 6.3179E-02  3.3088E-01 -2.6847E-01  3.5591E-01
  5.0000E+02	 4.4336E-02	 9.4904E-01
  9.0000E+02	 7.7083E-02	 1.3454E+00
  1.3000E+03	 1.0639E-01	 1.5671E+00
@@ -1866,7 +1873,7 @@ NUSR	= 8
  6.0000E+03	 3.0577E-01	 1.5791E+00
  8.0000E+03	 3.5203E-01	 1.4205E+00
     0	 0	    3	 1	 1.3955E+03	 0
- 5.7526E-02  2.8628E-01 -2.4531E-01  3.1267E-01 
+ 5.7526E-02  2.8628E-01 -2.4531E-01  3.1267E-01
  5.0000E+02	 3.4409E-02	 6.8908E-01
  9.0000E+02	 6.0280E-02	 9.9604E-01
  1.3000E+03	 8.4082E-02	 1.1823E+00
@@ -1896,9 +1903,9 @@ TYPE	= 000000
 # block number
 IBLK	= 5
 # block complex
-ICOMP	= 1*2 2*8 
+ICOMP	= 1*2 2*8
 FBLK	= 0
-FCOMP	= 
+FCOMP	=
 #block level  abs. energy      population
     0	    0	-3.12496016E+04	 9.99987960E-01
 
@@ -1906,27 +1913,27 @@ NELE	= 10
 NTRANS	= 1
 TYPE	= 000000
 IBLK	= 6
-ICOMP	= 1*2 2*7 3*1 
+ICOMP	= 1*2 2*7 3*1
 FBLK	= 0
-FCOMP	= 
+FCOMP	=
     1	    0	-3.05250918E+04	 5.11909866E-06
 
 NELE	= 10
 NTRANS	= 1
 TYPE	= 000000
 IBLK	= 7
-ICOMP	= 1*2 2*7 3*1 
+ICOMP	= 1*2 2*7 3*1
 FBLK	= 0
-FCOMP	= 
+FCOMP	=
     2	    0	-3.05230508E+04	 6.65310797E-13
 
 NELE	= 10
 NTRANS	= 1
 TYPE	= 000000
 IBLK	= 8
-ICOMP	= 1*2 2*7 3*1 
+ICOMP	= 1*2 2*7 3*1
 FBLK	= 0
-FCOMP	= 
+FCOMP	=
     3	    0	-3.05122168E+04	 6.89876970E-06
 
  ......
@@ -1939,12 +1946,12 @@ TYPE	= 001604
 # initial block
 IBLK	= 54
 # initial block complex
-ICOMP	= 1*2 2*7 16*1 
+ICOMP	= 1*2 2*7 16*1
 # final block
 FBLK	= 42
 # final block complex
 FCOMP	= 1*2 2*7 4*1
-#upper lower  Delta E         emissivity 
+#upper lower  Delta E         emissivity
  1831	  158	 2.55395828E+02	 6.58072258E-06
  1831	  163	 2.48938431E+02	 2.54685597E-06
  1831	  164	 2.54269775E+02	 7.99868485E-06
@@ -1979,7 +1986,7 @@ NTRANS	= 49
 IBLK	= 0
 # level index within the ion
 ILEV	= 0
-ICOMP	= 1*2 2*7 
+ICOMP	= 1*2 2*7
 # electron density
 EDEN	=  1.00000000E+00
 # electron energy distribution, 0 for Maxwellian.
@@ -2006,22 +2013,22 @@ DENS	=  1.00000000E+00
 STWT     =  4.00000000E+00
 # each line is contribution to this level or block by other blocks
          NB         TR         CE         RR         AI         CI
-   1  2.9983E-10 6.1831E-06 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1*2 2*7 
-  44  6.0874E-12 0.0000E+00 0.0000E+00 0.0000E+00 8.8866E-04 0.0000E+00 1*2 2*7 6*1 
-  45  1.0708E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.6693E-18 0.0000E+00 1*2 2*7 7*1 
-  46  1.7088E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.0329E-27 2.0448E-37 1*2 2*7 8*1 
-  47  2.5457E-11 0.0000E+00 0.0000E+00 0.0000E+00 7.2230E-34 1.9952E-31 1*2 2*7 9*1 
-  48  3.1069E-11 0.0000E+00 0.0000E+00 0.0000E+00 3.3995E-38 3.8637E-27 1*2 2*7 10*1 
-  49  1.2877E-10 0.0000E+00 0.0000E+00 0.0000E+00 4.1495E-41 2.8210E-24 1*2 2*7 11*1 
-  50  5.2642E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 8.2326E-22 1*2 2*7 12*1 
-  51  5.5315E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 9.8721E-20 1*2 2*7 13*1 
-  52  6.3140E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 4.8804E-18 1*2 2*7 14*1 
-  53  7.3613E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.2070E-16 1*2 2*7 15*1 
-  54  8.4200E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.7049E-15 1*2 2*7 16*1 
-  55  9.3432E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.5542E-14 1*2 2*7 17*1 
-  56  1.5446E-10 0.0000E+00 0.0000E+00 0.0000E+00 8.3172E+00 1.0338E-13 1*2 2*7 18*1 
-  57  1.2547E-10 0.0000E+00 0.0000E+00 0.0000E+00 1.9623E+00 5.2262E-13 1*2 2*7 19*1 
-  58  1.2279E-10 0.0000E+00 0.0000E+00 0.0000E+00 5.6143E-01 2.1193E-12 1*2 2*7 20*1 
+   1  2.9983E-10 6.1831E-06 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1*2 2*7
+  44  6.0874E-12 0.0000E+00 0.0000E+00 0.0000E+00 8.8866E-04 0.0000E+00 1*2 2*7 6*1
+  45  1.0708E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.6693E-18 0.0000E+00 1*2 2*7 7*1
+  46  1.7088E-11 0.0000E+00 0.0000E+00 0.0000E+00 1.0329E-27 2.0448E-37 1*2 2*7 8*1
+  47  2.5457E-11 0.0000E+00 0.0000E+00 0.0000E+00 7.2230E-34 1.9952E-31 1*2 2*7 9*1
+  48  3.1069E-11 0.0000E+00 0.0000E+00 0.0000E+00 3.3995E-38 3.8637E-27 1*2 2*7 10*1
+  49  1.2877E-10 0.0000E+00 0.0000E+00 0.0000E+00 4.1495E-41 2.8210E-24 1*2 2*7 11*1
+  50  5.2642E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 8.2326E-22 1*2 2*7 12*1
+  51  5.5315E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 9.8721E-20 1*2 2*7 13*1
+  52  6.3140E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 4.8804E-18 1*2 2*7 14*1
+  53  7.3613E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.2070E-16 1*2 2*7 15*1
+  54  8.4200E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.7049E-15 1*2 2*7 16*1
+  55  9.3432E-11 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 1.5542E-14 1*2 2*7 17*1
+  56  1.5446E-10 0.0000E+00 0.0000E+00 0.0000E+00 8.3172E+00 1.0338E-13 1*2 2*7 18*1
+  57  1.2547E-10 0.0000E+00 0.0000E+00 0.0000E+00 1.9623E+00 5.2262E-13 1*2 2*7 19*1
+  58  1.2279E-10 0.0000E+00 0.0000E+00 0.0000E+00 5.6143E-01 2.1193E-12 1*2 2*7 20*1
   ......
   -1  0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00 0.0000E+00   8
   -2  1.0000E+00 6.1831E-06 0.0000E+00 0.0000E+00 1.1178E+01 0.0000E+00   9
@@ -2135,7 +2142,7 @@ functions, classes are listed in alphabetic order. All functions in the
 extension modules \mod{fac}, \mod{crm}, and \mod{pol} are also available in
 SFAC interface with identical calling syntax using the 3 executables
 \mod{sfac}, \mod{scrm}, and \mod{spol}, unless otherwise indicated
-explicitly. Their usage in SFAC 
+explicitly. Their usage in SFAC
 interface is therefore not documented separately. Functions and classes of
 other python modules are generally not implemented in SFAC interface. In the
 documentation of each function, the arguments in brackets are optional,
@@ -2151,11 +2158,11 @@ There are several global variables one may make use of.
 \begin{vardesc}{ATOMICMASS}
 This is a list of atomic masses of all elements in the periodic
 table. \key{ATMICMASS}[\var{i}] is the mass for atom with nuclear charge equal
-to \var{i}. 
+to \var{i}.
 \end{vardesc}
 \begin{vardesc}{ATOMICSYMBOL}
 This is a list of strings representing the atomic symbols of all elements in
-the periodic table. The first element of this list is empty. Therefore 
+the periodic table. The first element of this list is empty. Therefore
 \key{ATOMICSYMBOL}[\var{i}] is for atom with nuclear charge equal to \var{i}.
 \end{vardesc}
 \begin{vardesc}{QKMODE}
@@ -2172,7 +2179,7 @@ QKMODE = {
     'bed':          5}
 \end{verbatim}
 The corresponding upper case names can also be used in accessing these
-numbers. 
+numbers.
 
 The modes \key{'exact'}, \key{'interpolate'}, and \key{'fit'} are
 used for collisional excitation and radiative recombination. \key{'exact'}
@@ -2187,7 +2194,7 @@ calculated using the distorted-wave approximation. \key{'bed'} requres the
 binary-encounter-dipole theory to be used. The mode \key{'default'} is one of
 the mode discussed above depending on the atomic process. For collisional
 excitation, \key{'default'} is \key{'exact'}, for radiative recombination,
-\key{'default'} is \key{'fit'}, for collisional ionization, \key{'default'} is 
+\key{'default'} is \key{'fit'}, for collisional ionization, \key{'default'} is
 \key{'bed'}.
 \end{vardesc}
 \begin{vardesc}{VERSION}
@@ -2222,7 +2229,7 @@ transition array.
 
 \begin{fundesc}{AppendTable}{fn}
 By default, when a new script is executed, existing binary files are
-overwritten. If instead the new data should be appended to the file, use 
+overwritten. If instead the new data should be appended to the file, use
 this function to set the append flag.
 \end{fundesc}
 
@@ -2283,7 +2290,7 @@ CE binary data file \var{ifn}. The results are written in \var{ofn} in simple
 ASCII format. Before this routine is called, \key{MemENTable} must be called
 to establish the energy table that is consistent with \var{ifn}. The energy
 given in \var{e} is that of the scattering energy if $m=1$, which is the
-default, or that of the incident energy if $m = 0$. 
+default, or that of the incident energy if $m = 0$.
 \end{fundesc}
 
 \begin{fundesc}{CERate}{ifn, ofn, low, up, t}
@@ -2381,7 +2388,7 @@ illegal, but $2[p-]2$ is. Each shell may be followed by multiple conditions on
 the occupation number, separated by ``;'', e.g., $3*10;3s>0;3p>5$ generate
 configuarations that have at least 1 electron in the $3s$ and 6 electrons in
 the $3p$ shells. The logical relations allowed in conditions include $=$, $>$,
-and $<$. 
+and $<$.
 \end{fundesc}
 
 \begin{fundesc}{ConfigEnergy}{m\opt{, n\opt{, g, ...}}}
@@ -2431,7 +2438,7 @@ as shifts to be added to the energyies calculated by FAC.
 \begin{fundesc}{CutMixing}{g0, g1\opt{, c}}
 For each levels in the group list \var{g0}, eliminate all mixing components
 that are not in the group list \var{g1} or the mixing coefficients less than
-\var{c}. 
+\var{c}.
 \end{fundesc}
 
 \begin{fundesc}{DROpen}{g}
@@ -2463,7 +2470,7 @@ momenta appearing here are twice of their actual values.
 This functions returns a list of non-relativisitc configurations corresponding
 to the supplied configuration strings, which may contain wild casts as in the
 function \key{Config}. It is useful, e.g., when one wants to know the
-non-relativistic configurations of \key{1*2 2*2 3*1}. 
+non-relativistic configurations of \key{1*2 2*2 3*1}.
 \end{fundesc}
 
 \begin{fundesc}{GetPotential}{fn}
@@ -2471,7 +2478,7 @@ Print the radial potential obtained by \key{OptimizeRadial} to the file
 \var{fn}. The file starts with the parameter for the analytic fit the to
 potential, $\lambda$, in the formula
 \begin{equation}
-V_0(r) = -\frac{Z}{r} + \frac{N-1}{r}\left(1-\exp(-\lambda r)\right). 
+V_0(r) = -\frac{Z}{r} + \frac{N-1}{r}\left(1-\exp(-\lambda r)\right).
 \end{equation}
 After that, the mean configuration used to generate the potential is printed
 in 3 columns representing the principle quantum number, the relativistic
@@ -2503,7 +2510,7 @@ here are twice of their actual values.
 
 \begin{fundesc}{Info}{}
 Print out the version information of FAC and contact information of the
-author. 
+author.
 \end{fundesc}
 
 \begin{fundesc}{InitializeMPI}{\opt{opt}}
@@ -2530,7 +2537,7 @@ platform, have the same type and for the same element.
 
 \begin{fundesc}{LevelInfor}{fn, ilev}
 If \var{ilev}$\ge 0$, look up in the energy database file \var{fn} for the
-level indexed 
+level indexed
 \var{ilev}. It returns a tuple of length 6. The first element is the energy in
 atomic units, the second is the parity and the valence $nl$ values, the
 third is the 2J value, the fourth is the complex name, the fifth is the
@@ -2556,7 +2563,7 @@ is not given, then all configurations currently defined are printed.
 Calculate the Maxwellian rate coefficients for collision processes with cross
 section data given by the binary file \var{ifn}, the results are saved in
 \var{ofn}. \var{low} and \var{up} are lower and upper indices of the
-transitions. If 
+transitions. If
 either one is $-1$, then loop over all indices for that level. \var{t} is a
 list of temperatures where the rate coefficients are needed.
 \end{fundesc}
@@ -2762,7 +2769,7 @@ propogated outward to the last zone, and matched with the outer region
 solution to obtain S-matrix. If the propogation direction has been set inward
 in \key{PropogateDirection}, then the outer region solution is propagated
 inward to the first zone, and matched with the R-matrix there. \var{emin},
-\var{emax}, and \var{de} specifies 
+\var{emax}, and \var{de} specifies
 the energy grid. The entire energy grid is divided into batches to be
 processed in once pass of all symmetris. The number of energy points in one
 batch does not exceed 100 by default, or the value set by
@@ -2859,7 +2866,7 @@ configuration groups \var{b} and free groups \var{f}, which are related to
 radiative recombination and photoionization cross sections. The optional
 multipole type \var{m} is set to -1 (E1) by default. In almost all cases, no
 other multipole types should be important. The results are saved in file
-\var{fn}. 
+\var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{SavePotential}{fn}
@@ -2870,7 +2877,7 @@ other multipole types should be important. The results are saved in file
 \begin{fundesc}{SetAICut}{c}
 Set the autoionization rate cutoff threshold in the output. Only
 autoionization rates greater than \var{c} a.u. are output. The default is
-$10^{-16}$ a.u. or $\sim 4.13$ s$^{-1}$, if this routine is not called. 
+$10^{-16}$ a.u. or $\sim 4.13$ s$^{-1}$, if this routine is not called.
 \end{fundesc}
 
 \begin{fundesc}{SetAngZCut}{c}
@@ -2898,7 +2905,7 @@ be given in fm. If they are not set, the standard values are used.
 \begin{fundesc}{SetBoundary}{n\opt{, p, b}}
 Set the boundary condition for high-n orbitals, so that they can represent the
 continuum. In the normal mode when $n>0$, \var{n} is the maximum principle
-quantum number represents the 
+quantum number represents the
 bound states. Above n, the orbitals have the boundary conditions imposed,
 which is in the form $Q/P = (b+\kappa)/2ac$, where $Q$ and $P$ are the small
 and large components of the wave function, $\kappa$ is the angular quantum
@@ -2934,7 +2941,7 @@ set the energy boundary between the distroted-wave Born approximation and
 plane-wave Born approximation for the collisional excitation. If $x > 0$ and
 the scattered
 electron energy is less than $xE_{b}$, DW method is chosen, where $E_{b}$ is
-the binding energy of the electron being excited. 
+the binding energy of the electron being excited.
 If $x$ is negative, the switch between DW and PW occurs when the estimated
 high partial-wave contributions becomes larger than $-x$ times the low
 partial-waves calculated explicitly. If $x=0$, then PW is always used.
@@ -2992,7 +2999,7 @@ constructed with \var{n} points, from \var{e0} to \var{e1}. The energies are
 specified for the total energy of the final electrons, and in units of
 eV. This routine does not need to be called. A default is constructed for a
 given transition array with 6 points, minimum and maximum energies specified
-by \key{SetCIEGridLimits}. 
+by \key{SetCIEGridLimits}.
 Calling this routine with \var{n}=0, reset the grid to system default.
 \end{fundesc}
 
@@ -3035,7 +3042,7 @@ collisional ionization.
 
 \begin{fundesc}{SetCITol}{m}
 Set the tolerance factor in the partial-wave expansion of DW collisional
-ionization. 
+ionization.
 \end{fundesc}
 
 \begin{fundesc}{SetCIQkMode}{mode}
@@ -3061,7 +3068,7 @@ diamagnetic effects is ignored in the Hamiltonian.
 Set the principle quantum number \var{n} and the orbital angular momentum
 \var{l}, beyond which, the hydrogenic approximation for the E1 multipole
 integrals should be used. If this routine is not called or the argument is not
-given, the default is \var{n}=8, and \var{l}=7. 
+given, the default is \var{n}=8, and \var{l}=7.
 \end{fundesc}
 
 \begin{fundesc}{SetIEGrid}{g $\mid$ n\opt{, e0, e1}}
@@ -3090,23 +3097,23 @@ Hamiltonian. 0---disable, 1---enable. Defaults: 1.
 \end{fundesc}
 
 \begin{fundesc}{SetNStatesPartition}{\opt{n}}
-Set the number of states in one partition. A partition is used to organize 
-angular integrals. Angular coefficients between partitions are calculated 
+Set the number of states in one partition. A partition is used to organize
+angular integrals. Angular coefficients between partitions are calculated
 and tabulated in batches. The more states in partitions, the more efficient
-the lookup of these coeffients, and the more memory it takes. The default 
-value of 512 is normally appropriate. 
+the lookup of these coeffients, and the more memory it takes. The default
+value of 512 is normally appropriate.
 \end{fundesc}
 
 \begin{fundesc}{SetOptimizeControl}{t, s, m\opt{, p}}
 Set the options for radial potential optimization. \var{t} is the tolerance
 for the self-consistent field iteration. \var{s} is the stablizer for the
 iteration, a number from 0 to 1. \var{m} is the maximum number of iterations
-allowed. \var{p} 
+allowed. \var{p}
 specifies whether diagnostic information should be printed out during the
 optimization. This routine does not need to be called. The default for \var{t}
 is $10^{-6}$, \var{s} is determined dynamically according to the
 type of ion, \var{m} is 100, and \var{p} is 0 for no printing out of
-information. 
+information.
 \end{fundesc}
 
 \begin{fundesc}{SetOptimizeMaxIter}{m}
@@ -3132,7 +3139,7 @@ and autoionization. In the first form, the grid is given by a Python list
 \var{e0} to \var{e1}. The energies are in units of eV. This function does not
 need to be called. A 6 point grid is constructed according to the transition
 array being considered by default. Calling this function with \var{n}=0 reset
-the grid to system default. 
+the grid to system default.
 \end{fundesc}
 
 \begin{fundesc}{SetPEGridLimits}{e0, e1}
@@ -3145,9 +3152,9 @@ is 0.05 and 8.0 if this routine is not called.
 \begin{fundesc}{SetRadialGrid}{n\opt{, r0\opt{,r1}\opt{,rmin}}}
 Set the radial grid properties. \var{n} is the number of radial grid
 points. It must be an even number and less than the macro
-\key{MAXRP}. \var{r0} specifies the ratio of successive radial points near 
+\key{MAXRP}. \var{r0} specifies the ratio of successive radial points near
 origin, which is approximately logarithmic. \var{r1} specifies the number of
-mesh-points per oscillation wavelength for very high-$n$ orbitals at large 
+mesh-points per oscillation wavelength for very high-$n$ orbitals at large
 radii. \var{rmin} divided by the nuclear charge is the starting point of the
 radial mesh.
 \end{fundesc}
@@ -3228,10 +3235,10 @@ integrals are evaluated with the multipole moments.
 \begin{fundesc}{SetTEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the transition energy grid for collisional excitation. In the first form,
 the grid is given by a Python list \var{g}. In the second form, the grid is
-constructed with \var{n} points from 
+constructed with \var{n} points from
 \var{e0} to \var{e1}. This routine does not need to be called. A 3-point grid
 is constructed by default. Calling this function with \var{n}=0 reset the grid
-to system default. 
+to system default.
 \end{fundesc}
 
 \begin{fundesc}{SetTransitionCut}{c}
@@ -3272,7 +3279,7 @@ strengths on this grid are output. It is forced to be same as that set by
 
 \begin{fundesc}{SetUsrCIEGrid}{g $\mid$ n\opt{, e0, e1}}
 Set the user collision energy grid for collisional ionization. The collsion
-strengths on this grid are output. 
+strengths on this grid are output.
 \end{fundesc}
 
 \begin{fundesc}{SetUsrPEGrid}{g $\mid$ n\opt{, e0, e1}}
@@ -3294,7 +3301,7 @@ the usual detailed term accounting method is used. This function should be
 called in the beginning of the script, before \key{Config} function, since it
 disables the angular momentum coupling performed by \key{Config}. The optional
 argument \var{ci} indicates whether the configuration interaction correction
-factors should be included when reading the \key{DB\_TR} files. These 
+factors should be included when reading the \key{DB\_TR} files. These
 correction factors are always calculated in \key{TransitionTable} irrespective
 of the value of \var{ci}.
 \end{fundesc}
@@ -3312,7 +3319,7 @@ evaluating its expectation values.
 \begin{fundesc}{SlaterCoeff}{fn, g, a, b}
 Calculate the expansion coefficients of the exchange radial integral
 in the Coulomb energy of each state in the
-configuration list 
+configuration list
 \var{g}. The Coulomb energy betwee electrons of a state can be expanded as
 \begin{equation}
 E = \sum g_kG^k(\alpha\alpha^\prime,\beta\beta^\prime) + \mbox{direct terms},
@@ -3354,7 +3361,7 @@ itself from the first form because the first argument is an integer. It sets whi
 $\pi J$ symmetry and/or which level to include in the structure calculation. By
 default, all symmetries are processed. But if this function is called with
 $p=0$, or 1; $j \ge 0$ or $j$ is a list of integers, then only the specified
-symmetry is processed. $j$ or integers in the list if $j$ is a list, is 
+symmetry is processed. $j$ or integers in the list if $j$ is a list, is
 twice the actual value of the total angular momentum. The symmetry
 restrictions specified here also applies to the \key{StructureMBPT} function.
 \end{fundesc}
@@ -3377,7 +3384,7 @@ virtual states. \var{n1} and \var{n2} are two lists for the grid of principle
 qunatum numbers of the virtual states. The \var{n1} grid is used for one
 electron excitations, and the first electron of the double excitations. The
 \var{n2} grid is for the second electron of the double excitation. \var{n0} is
-an integer specifying the number of configuration groups in 
+an integer specifying the number of configuration groups in
 the \var{g} list to be included in the MBPT calculation, and the remaining are
 included for all-order perturbation treatment.
 \end{fundesc}
@@ -3422,7 +3429,7 @@ This is the fifth form of the \key{StructureMBPT} function. It sets three
 options. \var{i} indicates inclusion of some part of 3rd order
 corrections. \var{m} indicates whether only single excitation or double
 excitation should be included. If $m=0$, both single and double excitations
-are included; 
+are included;
 if $m=1$, only single excitations are included, and if $m=2$, only double
 excitations are included. $c$ is the cutof of the mixing coeffients. The
 effective Hamiltonian matrix element $h_{ij}$ is not calculated, if
@@ -3445,7 +3452,7 @@ Calculate the total collisional ionization cross sections of level \var{ilev}
 by reading the data from the \texttt{DB\_CI} database file \var{ifn}. The
 results are written to the ASCII file \var{ofn} in a two column
 format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
-may be ``-'', which means \texttt{stdout}. \var{energy} is a 
+may be ``-'', which means \texttt{stdout}. \var{energy} is a
 list or tuple giving the incident electron energies
 in eV where CI cross sections are needed. The optional \var{imin} and
 \var{imax} specifies the index range of the ionized states. Only ionization to
@@ -3453,7 +3460,7 @@ states with $imin \le i \le imax$ are included.  If \var{imin}$<$0, it is
 assumed to be 0, and if \var{imax}$<$0, it is assumed to be the largest index
 in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
 all ionized states. Before calling this function, \key{MemENTable()} must
-be called. 
+be called.
 \end{fundesc}
 
 \begin{fundesc}{TotalPICross}{ifn, ofn, ilev, energy\opt{, imin, imax}}
@@ -3461,15 +3468,15 @@ Calculate the total photoionzation cross sections of level \var{ilev}
 by reading the data from the \texttt{DB\_RR} database file \var{ifn}. The
 results are written to the ASCII file \var{ofn} in a two column
 format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
-may be ``-'', which means \texttt{stdout}. \var{energy} is a 
-list or tuple giving the incident photon energies 
+may be ``-'', which means \texttt{stdout}. \var{energy} is a
+list or tuple giving the incident photon energies
 in eV where PI cross sections are needed. The optional \var{imin} and
 \var{imax} specifies the index range of the ionized states. Only ionization to
 states with $imin \le i \le imax$ are included.  If \var{imin}$<$0, it is
 assumed to be 0, and if \var{imax}$<$0, it is assumed to be the largest index
 in the level file. Both \var{imin} and \var{imax} default to -1, i.e., include
 all ionized states. Before calling this function, \key{MemENTable()} must
-be called. 
+be called.
 \end{fundesc}
 
 \begin{fundesc}{TotalRRCross}{ifn, ofn, ilev, energy\opt{, n0, n1, nmax, imin,
@@ -3478,8 +3485,8 @@ Calculate the total radiative recombination cross sections onto level
 \var{ilev} by reading the data from the \texttt{DB\_RR} database file
 \var{ifn}. The results are written to the ASCII file \var{ofn} in a two column
 format. The output cross sections are in units of $10^{-20}$ cm$^2$. \var{ofn}
-may be ``-'', which means \texttt{stdout}. \var{energy} is a 
-list or tuple giving the electron energies in eV 
+may be ``-'', which means \texttt{stdout}. \var{energy} is a
+list or tuple giving the electron energies in eV
 where the RR cross sections are needed. The data for recombination onto $n0 <
 n < n1$ and $n > n1$ are not present in the data file \var{ifn}, and the
 hydrogenic approximation for $n0 < n < n1$ and $n1 < n \le nmax$ are added to
@@ -3503,13 +3510,13 @@ This function specify the transitions between \var{low} and \var{up}
 configuration groups to be calcualted with MBPT, with transition rates saved
 in the file \var{fn}. This function must be issued before the 3rd form of
 \key{StructureMBPT}, as the actual calculations are carried out in that
-function. 
+function.
 \end{fundesc}
 
 \begin{fundesc}{TransitionTable}{fn, low, up\opt{, m}}
 Calculate the weighted oscillator strength and radiative transition rates from
 states in \var{up} groups to states in \var{low} groups with multipole type
-\var{m}. The default for \var{m} is 0, where we sum up all the multipoles for 
+\var{m}. The default for \var{m} is 0, where we sum up all the multipoles for
 the rate. The results are saved to file \var{fn}.
 \end{fundesc}
 
@@ -3560,7 +3567,7 @@ internally to do the calculation.
 The module \mod{crm} implements a collisional radiative spectral model for
 optically thin plasmas. It uses an iterative linear equation solver to invert
 the level population equations. This method is capable of including a very
-large number of atomic states in the model. 
+large number of atomic states in the model.
 
 \subsection{Functions}
 \begin{fundesc}{AddIon}{n, den, pref}
@@ -3593,7 +3600,7 @@ error estimate in pencentages.
 \begin{fundesc}{CFit}{Z, n, Te}
 Calculate the ionization rates using the Fortran subroutine \verb|cfit|
 of D. A. Verner for direct ionization, and \verb|colfit| for exciation
-autoionization. \var{Z} is the nuclear charge of the ion, \var{n} 
+autoionization. \var{Z} is the nuclear charge of the ion, \var{n}
 is the number of electrons, and \var{Te} is the electron temperature in eV.
 It returns a tuple of length 3. First element is the total ionization rate
 coefficients in $10^{-10}$ cm$^{3}$ s$^{-1}$., 2nd is the excitation
@@ -3623,7 +3630,7 @@ subshell for which the rates are to be calculated. 0 for total. 1 for $1s$, 2
 for $2s$, 3 for $2p$, 4 for $3s$, 5 for $3p$, 6 for $3d$ and 7 for $4s$. The
 function returns a tuple of length 3. The first element is the total rate, the
 second is the excitation autoionization rate, and the third is the direct
-ionization rate. The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+ionization rate. The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
 \begin{fundesc}{ConvertToSCRM}{}
@@ -3648,7 +3655,7 @@ called before \key{DRStrength()} with \var{mode}=0.
 Calculate the dielectronic recombination rates using the fitting formula and
 data table of P. Mazzotta. \var{Z} is the nuclear charge of the ion, \var{n}
 is the number of electrons, and \var{Te} is the electron temperature in eV.
-The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+The result is in unit of $10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
 \begin{fundesc}{DRStrength}{fn, n\opt{, m, i}}
@@ -3669,13 +3676,13 @@ is the number of electrons of the ion whose rates are needed. \var{m}
 specifies which rate is output.
 \begin{description}
 \item[$m=0$]
-Dump the level indexes, 2J values, energies, etc. 
+Dump the level indexes, 2J values, energies, etc.
 The record for each level contains 11 fields of the type: short, int, int,
 int, short, short, short, double double, double, double. They are number of electrons
 of the ion, level index, block index of the level, level index within the
 block, 2J value of the level, base level of the level, valence $nl$ of the
 level, energy, population, total decay rate, and branching ratio computed in
-\key{DRBranch} (if that has been called) respectively. 
+\key{DRBranch} (if that has been called) respectively.
 \item[$m=1$]
 Dump the radiative transition rates. Each record contains 4 fields of type:
 int, int, double, double. They are upper level index, lower level index, decay
@@ -3719,7 +3726,7 @@ data base.
 Calculate the ionization threshold of ion with nuclear charge \var{Z} and
 number of electrons \var{n} for shell \var{s}. \var{s} has the same meaning as
 in \key{ColFit}. It returns a double in eV. Data are from subroutine
-\key{ColFit}. 
+\key{ColFit}.
 \end{fundesc}
 
 \begin{fundesc}{EleDist}{fn, n}
@@ -3731,7 +3738,7 @@ using \var{n} energy points. The distribution must be already set.
 Calculate the ionization threshold of ion with nuclear charge \var{Z} and
 number of electrons \var{n} for shell \var{s}. \var{s} has the same meaning as
 in \key{PhFit}. It returns a double in eV. Data are from subroutine
-\key{PhFit}. 
+\key{PhFit}.
 \end{fundesc}
 
 \begin{fundesc}{FracAbund}{Z, Te\opt{im, rm}}
@@ -3741,7 +3748,7 @@ plasmas. The optional arguments \var{im} and \var{rm} specifies the functions
 used for ionization rates and recombination rates respectively. \var{im} is
 passed to the function \key{Ionis}, and \var{rm} is passed to the function
 \key{Recomb}. The default for both parameters are 1. It returns a list of
-length \var{Z}+1 indexed by the number of electrons the ion have. 
+length \var{Z}+1 indexed by the number of electrons the ion have.
 \end{fundesc}
 
 \begin{fundesc}{InitBlocks}{}
@@ -3763,7 +3770,7 @@ optional argument \var{m} is 0. The function \key{ColFit} is used if \var{m}
 is 1. The function \key{CFit} is used for the direct ionization rate and
 \key{ColFit} for the autoionization rate, if \var{m} is 2. The data from
 Aladdin database is used if \var{m} is 3. The default is 1.
-The results are in unit of $10^{-10}$ cm$^3$ s$^{-1}$. 
+The results are in unit of $10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
 \begin{fundesc}{LevelPopulation}{}
@@ -3781,14 +3788,14 @@ specifies the relative accuracy for the solution, which has the default of
 $10^{-4}$. This functions returns a tuple of length 2. The
 first element is the temperature found, the second is a list for the
 fractional abundances of all ions with nuclear charge \var{Z} at the found
-temperature. 
+temperature.
 \end{fundesc}
 
 \begin{fundesc}{NormalizeMode}{m}
 Set the mode for normalizing the ion densities. If \var{m} is 0, the density
 of the ground state of each ion is fixed at the value given by
 \key{SetAbund}. If \var{m} is 1, the total density of the ion is fixed at that
-value. 
+value.
 \end{fundesc}
 
 \begin{fundesc}{NDRFit}{Z, n, Te}
@@ -3825,7 +3832,7 @@ using \var{n} energy points. The distribution must be already set.
 Print the spectrum of lines in the \key{DB\_SP} file \var{ifn} of a given
 type \var{t} to the file \var{ofn}. See \key{SelectLines} for the meaning of
 this parameter except when $t=0$, in which case all lines are included in the
-output. The lines are convolved with a Gausian 
+output. The lines are convolved with a Gausian
 with FWMH of \var{de} in unit of eV. \var{e0} and \var{e1} are the spectral
 range to be considered. The optional \var{s} gives a cutoff
 threshold for the lines. Lines weaker than \var{s} times the strongest line
@@ -3870,10 +3877,10 @@ tuple of length 3. The first element is the total recombination rate, the
 second is the radiative recombination rate, and the third is the dielectronic
 recombination rate. The data used are from \citet{arnaud85, arnaud92} if the
 optional argument \var{m} is 0. The functions \key{RRFit} and \key{DRFit}
-are used if \var{m} is 1. If \var{m} is 2, then the New RR and DR rate 
-coefficients are used for Bare through Ne-like ions of Mg, Si, S, Ar, Ca, Fe, 
-and Ni calculated with \key{NRRFit} and \key{NDRFit}, for other ions, 
-\key{RRFit} and \key{DRFit} are used. The default is 1. The results are in unit 
+are used if \var{m} is 1. If \var{m} is 2, then the New RR and DR rate
+coefficients are used for Bare through Ne-like ions of Mg, Si, S, Ar, Ca, Fe,
+and Ni calculated with \key{NRRFit} and \key{NDRFit}, for other ions,
+\key{RRFit} and \key{DRFit} are used. The default is 1. The results are in unit
 of $10^{-10}$ cm$^3$ s$^{-1}$.
 \end{fundesc}
 
@@ -3921,12 +3928,12 @@ decimal digits of \var{t}, \var{t1} is the next 2 digits, and so on. e.g., if
 type 10000\var{q}+100\var{t1}+\var{t0} with \var{q}$\ge$\var{t2} are
 selected. If \var{t3}$<$0, then lines of type \var{q} with
 \var{q}$\ge$\var{t0} are selected. The physical meaning of line types are
-discussed in \S\ref{subsec:sp_header} 
+discussed in \S\ref{subsec:sp_header}
 \end{fundesc}
 
 \begin{fundesc}{SetAIRates}{inv}
 Set autoionization rates in the spectral model. If \var{inv}=1, the rates for
-the inverse process, dielectronic capture, are also set. 
+the inverse process, dielectronic capture, are also set.
 \end{fundesc}
 
 \begin{fundesc}{SetAIRatesInner}{fn}
@@ -3964,7 +3971,7 @@ three-body recombination rates are also set (not implemented yet).
 \begin{fundesc}{SetCascade}{c\opt{, a}}
 If \var{c}=1,  some levels should be treated in cascade approximation. The
 optional \var{a} specifies the accuracy in the cascade iteration. The default
-is $10^{-4}$. 
+is $10^{-4}$.
 \end{fundesc}
 
 \begin{fundesc}{SetEleDensity}{den}
@@ -4013,11 +4020,11 @@ the maximum number of iterations allowed, which defaults to 256.
 
 \begin{fundesc}{SetNumSingleBlocks}{n}
 Set the number of states in the beginning of the energy table that should not
-be grouped into a super block. 
+be grouped into a super block.
 \end{fundesc}
 
 \begin{fundesc}{SetPhoDensity}{den}
-Set the photon energy density in unit of erg cm$^{-3}$. 
+Set the photon energy density in unit of erg cm$^{-3}$.
 \end{fundesc}
 
 \begin{fundesc}{SetPhoDist}{i, ...}
@@ -4057,7 +4064,7 @@ the usual detailed term accounting method is used. This function should be
 called in the beginning of the script, before \key{Config} function, since it
 disables the angular momentum coupling performed by \key{Config}. The optional
 argument \var{ci} indicates whether the configuration interaction correction
-factors should be included when reading the \key{DB\_TR} files. These 
+factors should be included when reading the \key{DB\_TR} files. These
 correction factors are always calculated in \key{TransitionTable} irrespective
 of the value of \var{ci}.
 \end{fundesc}
@@ -4072,7 +4079,7 @@ output.
 \begin{fundesc}{TwoPhoton}{z, t}
 Calculate the two-photon decay rate of H-like and He-like transitions
 $2s_{1/2}\to 1s_{1/2}$ and $1s2s S_{0}\to 1s^2 S_{0}$ for nuclear charge
-\var{z}. \var{t} = 0 is for H-like, and 1 is for He-like. 
+\var{z}. \var{t} = 0 is for H-like, and 1 is for He-like.
 \end{fundesc}
 
 \section{\mod{pol}--Line Polarizations}
@@ -4139,7 +4146,7 @@ model.
 \begin{fundesc}{SetEnergy}{e\opt{, s}}
 Set the electron energy \var{e} in eV. If the optional \var{s} is positive,
 the energy distribution is a Gaussian with standard deviation $\sigma=s$ in
-eV, and mean $e$. 
+eV, and mean $e$.
 \end{fundesc}
 
 \begin{fundesc}{SetIDR}{idr\opt{, p}}
@@ -4183,7 +4190,7 @@ that of transition rates.
 \label{sec:util}
 \index{util}
 This module contains some unitity functions which may be useful in various
-situations. 
+situations.
 \subsection{Functions}
 \begin{fundesc}{Spline}{x, y\opt{, dy1, dy2}}
 Prepare cubic spline table. \var{x} and \var{y} are the independent and
@@ -4196,7 +4203,7 @@ second derivatives to be used in \key{Splint}.
 \begin{fundesc}{Splint}{x, y, y2, x0}
 Calculate the interpolated value at a single point \var{x0}. \var{y2} is a
 list of second derivatives returned by \key{Spline} using the same \var{x} and
-\var{y}. This routine and \key{Spline} are adapted from Numerical Recipe. 
+\var{y}. This routine and \key{Spline} are adapted from Numerical Recipe.
 \end{fundesc}
 
 \begin{fundesc}{UVIP3P}{x, y, x0\opt{,n}}
@@ -4221,7 +4228,7 @@ ones instead of the counterparts in the \mod{config} module.
 \index{const}
 This module defines some useful physical constants. They are listed below:
 \begin{verbatim}
-Hartree_eV = 27.2113962            # Hartree in eV   
+Hartree_eV = 27.2113962            # Hartree in eV
 Rate_AU = 4.13413733E16            # Atomic Rate Unit in s-1
 Rate_AU10 = 4.13413733E06          # Atomic Rate Unit in 10^10 s-1
 Rate_AU12 = 4.13413733E04          # Atomic Rate Unit in 10^12 s-1
@@ -4277,33 +4284,33 @@ byte-by-byte description of file: trates.tbl
    63-  70   E8.2       10^-10^cm^3^/s         EA Total EA rate coefficients
    72-  79   E8.2       10^-10^cm^3^/s      EA_AR Total EA Arnaud & Raymond
 ------------------------------------------------------------------------
- 2 6.80 3.77E-05 3.77E-05 5.94E-02 5.55E-02 0.00E+00 1.44E-09 0.00E+00 0.00E+00 
- 2 6.95 3.10E-04 3.05E-04 4.45E-02 4.14E-02 0.00E+00 1.93E-07 0.00E+00 0.00E+00 
- 2 7.10 1.25E-03 1.21E-03 3.31E-02 3.06E-02 0.00E+00 6.32E-06 0.00E+00 0.00E+00 
- 2 7.25 3.00E-03 2.88E-03 2.44E-02 2.26E-02 0.00E+00 7.80E-05 0.00E+00 0.00E+00 
- 2 7.40 4.89E-03 4.66E-03 1.78E-02 1.65E-02 0.00E+00 4.79E-04 0.00E+00 0.00E+00 
- 2 7.55 6.03E-03 5.69E-03 1.28E-02 1.20E-02 0.00E+00 1.78E-03 0.00E+00 0.00E+00 
- 2 7.70 6.05E-03 5.66E-03 9.11E-03 8.71E-03 0.00E+00 4.62E-03 0.00E+00 0.00E+00 
- 2 7.85 5.23E-03 4.86E-03 6.42E-03 6.27E-03 0.00E+00 9.01E-03 0.00E+00 0.00E+00 
- 2 8.00 4.07E-03 3.75E-03 4.47E-03 4.49E-03 0.00E+00 1.49E-02 0.00E+00 0.00E+00 
- 3 6.80 1.08E-01 1.25E-01 5.49E-02 4.98E-02 2.11E-03 3.21E-03 1.84E-07 2.42E-07 
- 3 6.95 8.63E-02 1.01E-01 4.10E-02 3.70E-02 7.32E-03 1.06E-02 5.61E-06 7.08E-06 
- 3 7.10 6.61E-02 7.70E-02 3.03E-02 2.73E-02 1.82E-02 2.50E-02 6.07E-05 7.43E-05 
- 3 7.25 4.91E-02 5.51E-02 2.21E-02 2.00E-02 3.57E-02 4.57E-02 3.14E-04 3.79E-04 
- 3 7.40 3.58E-02 3.76E-02 1.59E-02 1.46E-02 5.89E-02 7.14E-02 9.65E-04 1.16E-03 
- 3 7.55 2.58E-02 2.47E-02 1.14E-02 1.06E-02 8.55E-02 9.81E-02 2.05E-03 2.52E-03 
- 3 7.70 1.83E-02 1.58E-02 8.00E-03 7.62E-03 1.13E-01 1.23E-01 3.37E-03 4.27E-03 
- 3 7.85 1.26E-02 9.91E-03 5.56E-03 5.46E-03 1.39E-01 1.45E-01 4.63E-03 6.12E-03 
- 3 8.00 8.44E-03 6.12E-03 3.82E-03 3.88E-03 1.61E-01 1.62E-01 5.64E-03 7.81E-03 
- 4 6.80 1.86E-01 1.79E-01 4.71E-02 4.42E-02 5.44E-03 8.22E-03 3.89E-07 0.00E+00 
- 4 6.95 1.46E-01 1.40E-01 3.51E-02 3.27E-02 1.79E-02 2.58E-02 1.17E-05 0.00E+00 
- 4 7.10 1.09E-01 1.03E-01 2.58E-02 2.40E-02 4.31E-02 5.87E-02 1.25E-04 0.00E+00 
- 4 7.25 7.89E-02 7.20E-02 1.88E-02 1.75E-02 8.24E-02 1.04E-01 6.36E-04 0.00E+00 
- 4 7.40 5.52E-02 4.84E-02 1.35E-02 1.27E-02 1.33E-01 1.59E-01 1.92E-03 0.00E+00 
- 4 7.55 3.79E-02 3.15E-02 9.54E-03 9.13E-03 1.90E-01 2.15E-01 4.02E-03 0.00E+00 
- 4 7.70 2.55E-02 2.00E-02 6.67E-03 6.53E-03 2.46E-01 2.64E-01 6.50E-03 0.00E+00 
- 4 7.85 1.68E-02 1.24E-02 4.59E-03 4.65E-03 2.97E-01 3.03E-01 8.82E-03 0.00E+00 
- 4 8.00 1.09E-02 7.65E-03 3.12E-03 3.28E-03 3.38E-01 3.31E-01 1.07E-02 0.00E+00 
+ 2 6.80 3.77E-05 3.77E-05 5.94E-02 5.55E-02 0.00E+00 1.44E-09 0.00E+00 0.00E+00
+ 2 6.95 3.10E-04 3.05E-04 4.45E-02 4.14E-02 0.00E+00 1.93E-07 0.00E+00 0.00E+00
+ 2 7.10 1.25E-03 1.21E-03 3.31E-02 3.06E-02 0.00E+00 6.32E-06 0.00E+00 0.00E+00
+ 2 7.25 3.00E-03 2.88E-03 2.44E-02 2.26E-02 0.00E+00 7.80E-05 0.00E+00 0.00E+00
+ 2 7.40 4.89E-03 4.66E-03 1.78E-02 1.65E-02 0.00E+00 4.79E-04 0.00E+00 0.00E+00
+ 2 7.55 6.03E-03 5.69E-03 1.28E-02 1.20E-02 0.00E+00 1.78E-03 0.00E+00 0.00E+00
+ 2 7.70 6.05E-03 5.66E-03 9.11E-03 8.71E-03 0.00E+00 4.62E-03 0.00E+00 0.00E+00
+ 2 7.85 5.23E-03 4.86E-03 6.42E-03 6.27E-03 0.00E+00 9.01E-03 0.00E+00 0.00E+00
+ 2 8.00 4.07E-03 3.75E-03 4.47E-03 4.49E-03 0.00E+00 1.49E-02 0.00E+00 0.00E+00
+ 3 6.80 1.08E-01 1.25E-01 5.49E-02 4.98E-02 2.11E-03 3.21E-03 1.84E-07 2.42E-07
+ 3 6.95 8.63E-02 1.01E-01 4.10E-02 3.70E-02 7.32E-03 1.06E-02 5.61E-06 7.08E-06
+ 3 7.10 6.61E-02 7.70E-02 3.03E-02 2.73E-02 1.82E-02 2.50E-02 6.07E-05 7.43E-05
+ 3 7.25 4.91E-02 5.51E-02 2.21E-02 2.00E-02 3.57E-02 4.57E-02 3.14E-04 3.79E-04
+ 3 7.40 3.58E-02 3.76E-02 1.59E-02 1.46E-02 5.89E-02 7.14E-02 9.65E-04 1.16E-03
+ 3 7.55 2.58E-02 2.47E-02 1.14E-02 1.06E-02 8.55E-02 9.81E-02 2.05E-03 2.52E-03
+ 3 7.70 1.83E-02 1.58E-02 8.00E-03 7.62E-03 1.13E-01 1.23E-01 3.37E-03 4.27E-03
+ 3 7.85 1.26E-02 9.91E-03 5.56E-03 5.46E-03 1.39E-01 1.45E-01 4.63E-03 6.12E-03
+ 3 8.00 8.44E-03 6.12E-03 3.82E-03 3.88E-03 1.61E-01 1.62E-01 5.64E-03 7.81E-03
+ 4 6.80 1.86E-01 1.79E-01 4.71E-02 4.42E-02 5.44E-03 8.22E-03 3.89E-07 0.00E+00
+ 4 6.95 1.46E-01 1.40E-01 3.51E-02 3.27E-02 1.79E-02 2.58E-02 1.17E-05 0.00E+00
+ 4 7.10 1.09E-01 1.03E-01 2.58E-02 2.40E-02 4.31E-02 5.87E-02 1.25E-04 0.00E+00
+ 4 7.25 7.89E-02 7.20E-02 1.88E-02 1.75E-02 8.24E-02 1.04E-01 6.36E-04 0.00E+00
+ 4 7.40 5.52E-02 4.84E-02 1.35E-02 1.27E-02 1.33E-01 1.59E-01 1.92E-03 0.00E+00
+ 4 7.55 3.79E-02 3.15E-02 9.54E-03 9.13E-03 1.90E-01 2.15E-01 4.02E-03 0.00E+00
+ 4 7.70 2.55E-02 2.00E-02 6.67E-03 6.53E-03 2.46E-01 2.64E-01 6.50E-03 0.00E+00
+ 4 7.85 1.68E-02 1.24E-02 4.59E-03 4.65E-03 2.97E-01 3.03E-01 8.82E-03 0.00E+00
+ 4 8.00 1.09E-02 7.65E-03 3.12E-03 3.28E-03 3.38E-01 3.31E-01 1.07E-02 0.00E+00
 \end{verbatim}
 
 \subsection{Class Attributes and Methods}
@@ -4339,7 +4346,7 @@ description. May be set through the keyword \var{separator0}. The default is
 
 \begin{vardesc}{separator}
 The string separates the header and the body. Set through the keyword
-\var{separator}. The default is \key{'-'*72}. 
+\var{separator}. The default is \key{'-'*72}.
 \end{vardesc}
 
 \begin{fundesc}{add\_column}{\textnormal{**}c}
@@ -4399,7 +4406,7 @@ Convert the table to LaTeX format and save the results to file \var{fn}. The
 remaining arguments have the same meaning as those in
 \key{read\_columns}. Note that this function only adds the LaTex column
 delimiter and the line break for the table contents. The results are meant to
-be cut and pasted to LaTex documents. 
+be cut and pasted to LaTex documents.
 \end{fundesc}
 
 \begin{fundesc}{rewind}{}
@@ -4529,7 +4536,7 @@ the dynamically loadable Python modules makes it more easyly installed in
 modern UNIX-like systems than others. So far, it has been tested to work under
 solaris, linux, Mac OS X, and windows with the UNIX API emulation provided by
 Cygwin.}
-  
+
 \faq{How does FAC differ from other atomic codes}{
 The theoretical methods used in FAC are similar to some other distorted-wave
 atomic codes, such as HULLAC and differ from more elaborate programs based on
@@ -4631,7 +4638,7 @@ to obtain the mean configuration used, and the resulting radial potential.}
 
 \faq{When calculating ionization or recombination processes, should I use the
 mean configuration for recombined (ionizing) or recombining (ionized) ion}{
-Usually, it does not matter for highly charged ions, and I usually use the 
+Usually, it does not matter for highly charged ions, and I usually use the
 recombined ion. The difference of one more or less electron screening the
 nuclear charge may be substaintial for low-$Z$ elements, in which case, one
 may have to make a decision by comparing the results to experimental values or
