@@ -245,7 +245,7 @@ def check(actual_file, expected_file):
         check_rt(actual_file, expected_file)
 
     elif actual_file[-4:] == '.ham':
-        check_rt(actual_file, expected_file)
+        check_ham(actual_file, expected_file)
 
     else:
         raise TypeError('Unknown file extension: {}'.format(actual_file))

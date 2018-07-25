@@ -636,10 +636,6 @@ def read_ham(filename):
                 h['j'][i] = struct.unpack('i', f.read(4))[0]
                 h['value'][i] = struct.unpack('d', f.read(8))[0]
 
-    for h in hamiltonian:
-        for k, v in h.items():
-            print(k, v)
-
     return header, hamiltonian
     
 
