@@ -147,6 +147,7 @@ if CC is not None:
     ldshared = sysconfig.get_config_var('LDSHARED')
     ldshared = ldshared.split(' ')
     for a in ldshared[1:]:
+        print(a)
         extralink.append(a)
     
 Extensions = [Extension(mod, src, include_dirs=incdir, library_dirs=libdir,
