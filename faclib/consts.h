@@ -288,7 +288,7 @@
 #define MAXNTE             6
 #define MAXNTHETA          30
 #define MAXNPHI            60
-#define TE_MIN_MAX         (1.0/5.0)
+#define TE_MIN_MAX         0.2
 
 /* excitation */
 #define NGOSK              256
@@ -298,7 +298,7 @@
 #define EXCTOL             5E-2
 #define XBORN              (-0.5)
 #define XBORN1             (-1.0)
-#define XBORN0             (0.25)
+#define XBORN0             0.25
 #define EBORN              100.0
 #define MAXCECACHE         1000000
 
