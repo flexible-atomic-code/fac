@@ -3338,7 +3338,7 @@ is the number to be added to $g_2$ to form relative intensities for quadrupole
 tranisions.
 \end{fundesc}
 
-\begin{fundesc}{Structure}{fn, \opt{, fhn}, g\opt{, p\opt{, ip}}}
+\begin{fundesc}{Structure}{fn, \opt{, hfn}, g\opt{, p\opt{, ip}}}
 Diagonalize the Hamiltonian for configurations in the groups \var{g}. The
 configurations in the optional groups \var{p} are allowed to interact with
 \var{g} but only states within \var{g} are added to the energy level table. If
@@ -3346,10 +3346,10 @@ configurations in the optional groups \var{p} are allowed to interact with
 if \var{ip}=1, this interaction is treated approximately in a way that the
 non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
-If you specify \var{fhn}, the Hamiltonian is saved to the file \var{fhn} in the 
+If you specify \var{hfn}, the Hamiltonian is saved to the file \var{fhn} in the 
 binary format.
 %
-To read the saved Hamiltonian, use \var{rfac.read_ham}.
+To read the saved Hamiltonian, use \texttt{rfac.read\_ham}.
 \end{fundesc}
 
 \begin{fundesc}{Structure}{p, j}
