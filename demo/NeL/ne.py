@@ -43,6 +43,9 @@ for n in range(4, nmax+1):
 MemENTable(p+'b.en')
 PrintTable(p+'b.en', p+'a.en')
 
+# write Hamiltonian
+Structure(p+'b.en', p+'b.ham', ['g%d'%n])
+
 # transition rates
 for n in range(2, nmax+1):
     for m in range(n, nmax+1):
