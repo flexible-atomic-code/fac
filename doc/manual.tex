@@ -3338,7 +3338,7 @@ is the number to be added to $g_2$ to form relative intensities for quadrupole
 tranisions.
 \end{fundesc}
 
-\begin{fundesc}{Structure}{fn, g\opt{, p\opt{, ip}}}
+\begin{fundesc}{Structure}{fn, \opt{, fhn}, g\opt{, p\opt{, ip}}}
 Diagonalize the Hamiltonian for configurations in the groups \var{g}. The
 configurations in the optional groups \var{p} are allowed to interact with
 \var{g} but only states within \var{g} are added to the energy level table. If
@@ -3346,6 +3346,10 @@ configurations in the optional groups \var{p} are allowed to interact with
 if \var{ip}=1, this interaction is treated approximately in a way that the
 non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
+If you specify \var{fhn}, the Hamiltonian is saved to the file \var{fhn} in the 
+binary format.
+%
+To read the saved Hamiltonian, use \var{rfac.read_ham}.
 \end{fundesc}
 
 \begin{fundesc}{Structure}{p, j}
@@ -3357,13 +3361,6 @@ $p=0$, or 1; $j \ge 0$ or $j$ is a list of integers, then only the specified
 symmetry is processed. $j$ or integers in the list if $j$ is a list, is 
 twice the actual value of the total angular momentum. The symmetry
 restrictions specified here also applies to the \key{StructureMBPT} function.
-\end{fundesc}
-
-\begin{fundesc}{Structure}{fn, fhn, g}
-This is the third form of the \key{Structure} function. It distinguishes
-itself from the first and the second form because the first and second arguments 
-are strings (filenames).
-
 \end{fundesc}
 
 \begin{fundesc}{StructureEB}{fn, g}
