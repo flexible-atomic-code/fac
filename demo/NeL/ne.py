@@ -44,7 +44,7 @@ MemENTable(p+'b.en')
 PrintTable(p+'b.en', p+'a.en')
 
 # write Hamiltonian
-Structure(p+'b.en', p+'b.ham', ['g%d'%n])
+Structure(p+'b.en', p+'b.ham', ['g2', 'g3'])
 
 # transition rates
 for n in range(2, nmax+1):
