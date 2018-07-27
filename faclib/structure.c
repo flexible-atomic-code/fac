@@ -4171,7 +4171,16 @@ int GetBasisTable(char *fn, int m0, int k0) {
 		sprintf(a3, "%9s", " ");
 	      }
 	    } else {
-	      sprintf(a3, "%9s", " ");
+	      if (ic == 0) {
+		if (IsEven(sst[ic].totalJ)) {
+		  sprintf(a0, "%d", sst[ic].totalJ/2);
+		} else {
+		  sprintf(a0, "%d/2", sst[ic].totalJ);
+		}
+		sprintf(a3, "%9s", a0);
+	      } else {
+		sprintf(a3, "%9s", " ");
+	      }
 	    }
 	    strcat(ash, a1);
 	    strcat(asj, a2);
