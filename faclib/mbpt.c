@@ -4840,8 +4840,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  h->dim = h->n_basis;
 	  memcpy(h->basis, meff[isym]->basis, sizeof(int)*h->n_basis);
 	  h->hsize = h->dim*(h->dim+1)/2;
-	  k = ConstructHamilton(isym, nkg0, nkg0, kg, 0, NULL, 1);
 	}
+	k = ConstructHamilton(isym, nkg0, nkg0, kg, 0, NULL, 1);
 	h0 = meff[isym]->h0;
 	h->heff = heff;
 	DecodePJ(isym, &pp, &jj);
