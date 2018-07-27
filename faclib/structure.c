@@ -478,6 +478,9 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
       s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
       hs->basis[t] = s;
     }
+    for (t = 0; t < hs->nlevs; t++) {
+      hs->levs[t] = NULL;
+    }
     FlagClosed(hs);
   }
 
