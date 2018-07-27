@@ -4133,6 +4133,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	  ash[0] = '\0';
 	  asj[0] = '\0';
 	  atj[0] = '\0';
+	  int fop = -1;
 	  for (ic = cfg->n_shells-1; ic >= 0; ic--) {
 	    GetJLFromKappa(cfg->shells[ic].kappa, &j, &kl);
 	    kl /= 2;
@@ -4144,6 +4145,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	    if (cfg->shells[ic].nq == j+1) {
 	      sprintf(a2, "%9s", " ");
 	    } else {
+	      if (fop < 0) fop = ic;
 	      if (IsEven(cfg->shells[ic].nq)) {
 		if (ShellNeedNuNr(cfg->shells+ic, sst+ic)&1) {
 		  sprintf(a0, "%d;%d", sst[ic].nu, sst[ic].shellJ/2);
@@ -4159,8 +4161,8 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	      }
 	      sprintf(a2, "%9s", a0);
 	    }
-	    if (ic < cfg->n_shells-1) {
-	      if (ic == 0 || (sst[ic].shellJ && sst[ic+1].totalJ)) {
+	    if (ic < fop) {
+	      if (ic == 0 || sst[ic].shellJ) {
 		if (IsEven(sst[ic].totalJ)) {
 		  sprintf(a0, "%d", sst[ic].totalJ/2);
 		} else {
