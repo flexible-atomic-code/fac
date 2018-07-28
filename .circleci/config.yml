@@ -1,8 +1,43 @@
 version: 2
 jobs:
-   build:
-     docker:
-       - image: koppor/texlive
-     steps:
-       - checkout
-       - run: cd doc; make
+    build:
+        docker:
+            - image: paperist/alpine-texlive-ja
+        steps:
+            - run:
+                name: Installing dependancies
+                command: |
+                    apk add --update git
+                    apk add --update openssh
+            - run:
+                name: Git settings
+                command: |
+                    git config --global user.email 'fujiisoup@gmail.com'
+                    git config --global user.name 'fujiisoup'
+            - checkout
+            - run:
+                name: Generating current version
+                command: |
+                    cd doc
+                    make
+                    cd ../
+    deploy:
+        steps:
+            - run:
+                name: Commit to repository
+                command: |
+                    git checkout release-pdf
+                    cp doc/manual.pdf manual.pdf
+                    git add manual.pdf
+                    git commit -m "[CircleCI] Generate PDF @$(date +'%Y/%m/%d %I:%M') [ci skip]"
+                    git push origin release-pdf
+
+workflows:
+  version: 2
+  build-n-deploy:
+    jobs:
+      - build:
+      - deploy:
+          filters:
+            branches:
+              only: master
