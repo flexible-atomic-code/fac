@@ -49,8 +49,8 @@ workflows:
       - build:
           filters:
             branches:
-              ignore: auto-latex
+              ignore: auto_latex
       - deploy:
           filters:
             branches:
-              only: auto-latex
+              only: auto_latex
