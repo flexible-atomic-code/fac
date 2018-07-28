@@ -21,8 +21,6 @@ jobs:
                     cd doc
                     make
                     cd ../
-    deploy:
-        steps:
             - run:
                 name: Commit to repository
                 command: |
