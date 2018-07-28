@@ -6,11 +6,6 @@ jobs:
             - image: koppor/texlive
         steps:
             - run:
-                name: Installing dependancies
-                command: |
-                    apk add --update git
-                    apk add --update openssh
-            - run:
                 name: Git settings
                 command: |
                     git config --global user.email 'fujiisoup@gmail.com'
@@ -26,11 +21,6 @@ jobs:
         docker:
             - image: koppor/texlive
         steps:
-            - run:
-                name: Installing dependancies
-                command: |
-                    apk add --update git
-                    apk add --update openssh
             - run:
                 name: Git settings
                 command: |
