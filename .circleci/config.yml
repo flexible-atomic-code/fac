@@ -6,12 +6,6 @@ jobs:
             - image: koppor/texlive
         steps:
             - run:
-                name: Git settings
-                command: |
-                    git config --global user.email 'fujiisoup@gmail.com'
-                    git config --global user.name 'fujiisoup'
-            - checkout
-            - run:
                 name: Generating current version
                 command: |
                     cd doc
