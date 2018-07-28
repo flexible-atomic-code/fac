@@ -36,7 +36,7 @@ jobs:
             - run:
                 name: Commit to repository
                 command: |
-                    git checkout release-pdf
+                    git checkout -b release-pdf
                     cp doc/manual.pdf manual.pdf
                     git add manual.pdf
                     git commit -m "[CircleCI] Generate PDF @$(date +'%Y/%m/%d %I:%M') [ci skip]"
@@ -49,8 +49,8 @@ workflows:
       - build:
           filters:
             branches:
-              ignore: master
+              ignore: auto-latex
       - deploy:
           filters:
             branches:
-              only: master
+              only: auto-latex
