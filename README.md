@@ -111,6 +111,9 @@ the missing of flow controls.
 For more details, please read the [manual](doc/manual.pdf), and be sure to read
 the FAQ section of the manual.
 
+### Manual
+
+Manual for FAC can be found in [our release-pdf branch](https://github.com/flexible-atomic-code/fac/blob/release-pdf/manual.pdf).
 
 # Contents of FAC
 
