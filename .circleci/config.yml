@@ -31,13 +31,3 @@ jobs:
                     git add manual.pdf
                     git commit -m "[CircleCI] Generate PDF @$(date +'%Y/%m/%d %I:%M') [ci skip]"
                     git push origin release-pdf
-
-workflows:
-  version: 2
-  build-n-deploy:
-    jobs:
-      - build:
-      - deploy:
-          filters:
-            branches:
-              only: master
