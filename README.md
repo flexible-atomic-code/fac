@@ -108,12 +108,11 @@ accepting input files as arguments. The syntax of the input file for both
 programs is identical, and is very similar to the Python syntax, except for
 the missing of flow controls.
 
-For more details, please read the [manual](doc/manual.pdf), and be sure to read
-the FAQ section of the manual.
 
 ### Manual
 
-Manual for FAC can be found in [our release-pdf branch](https://github.com/flexible-atomic-code/fac/blob/release-pdf/manual.pdf).
+For more details, please read the [manual](https://github.com/flexible-atomic-code/fac/blob/release-pdf/manual.pdf), including the FAQ section of it.
+
 
 # Contents of FAC
 
