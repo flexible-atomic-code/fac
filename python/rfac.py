@@ -21,6 +21,7 @@
 import numpy as np
 from collections import OrderedDict
 from distutils.version import LooseVersion
+import struct
 
 
 def _wrap_get_length(line0):
@@ -595,6 +596,48 @@ def read_rt(filename):
 
     return header, read_blocks(lines)
 
+
+MAX_SYMMETRIES = 256
+
+def read_ham(filename):
+    """ Read hamiltonian """
+    header = OrderedDict()
+    hamiltonian = []
+    with open(filename, 'rb') as f:
+        header['ng0'] = struct.unpack('i', f.read(4))[0]
+        header['ng'] = struct.unpack('i', f.read(4))[0]
+        header['kg'] = [struct.unpack('i', f.read(4))[0] 
+                        for i in range(header['ng'])]
+        header['ngp'] = struct.unpack('i', f.read(4))[0]
+        header['kgp'] = [struct.unpack('i', f.read(4))[0]
+                         for i in range(header['ngp'])]
+            
+        for s in range(MAX_SYMMETRIES):
+            h = OrderedDict()
+            hamiltonian.append(h)  # store the reference first
+            
+            h['s'] = struct.unpack('i', f.read(4))[0]
+            h['dim'] = struct.unpack('i', f.read(4))[0]
+            if h['dim'] <= 0:
+                continue
+            
+            h['orig_dim'] = struct.unpack('i', f.read(4))[0]
+            h['n_basis'] = struct.unpack('i', f.read(4))[0]
+            h['basis'] = [struct.unpack('i', f.read(4))[0]
+                             for i in range(h['n_basis'])]
+            # number of elements
+            n = struct.unpack('i', f.read(4))[0]
+            
+            h['i'] = np.zeros(n, int)
+            h['j'] = np.zeros(n, int)
+            h['value'] = np.zeros(n, float)
+            for i in range(n):
+                h['i'][i] = struct.unpack('i', f.read(4))[0]
+                h['j'][i] = struct.unpack('i', f.read(4))[0]
+                h['value'][i] = struct.unpack('d', f.read(8))[0]
+
+    return header, hamiltonian
+    
 
 class FLEV:
     def sort(self):
