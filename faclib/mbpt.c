@@ -4840,8 +4840,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  h->dim = h->n_basis;
 	  memcpy(h->basis, meff[isym]->basis, sizeof(int)*h->n_basis);
 	  h->hsize = h->dim*(h->dim+1)/2;
-	  k = ConstructHamilton(isym, nkg0, nkg0, kg, 0, NULL, 1);
 	}
+	k = ConstructHamilton(isym, nkg0, nkg0, kg, 0, NULL, 1);
 	h0 = meff[isym]->h0;
 	h->heff = heff;
 	DecodePJ(isym, &pp, &jj);
@@ -5056,6 +5056,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    fflush(stdout);
 	  }
 	}
+	if (MyRankMPI() == 0) {
+	  SortLevels(nlevels, -1, 0);
+	  SaveLevels(fn, nlevels, -1);
+	}
 	for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
 	  h = GetHamilton(isym);
 	  if (h->dim <= 0) continue;
@@ -5064,8 +5068,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  AllocHamMem(h, 0, 0);
 	}
 	if (MyRankMPI() == 0) {
-	  SortLevels(nlevels, -1, 0);
-	  SaveLevels(fn, nlevels, -1);
 	  tt1 = WallTime();
 	  dt = tt1 - tbg;
 	  tt0 = tt1;
@@ -6302,10 +6304,12 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	  k0 = j*h->dim + k;
 	  a += neff[isym][k0] * ym[j] * ym[k];
 	}
-      }      
-      b = sqrt(1.0 + a);
-      for (j = 0; j < h->dim; j++) {
-	ym[j] /= b;
+      }
+      if (a > 0 && a < 1) {
+	b = sqrt(1.0 + a);
+	for (j = 0; j < h->n_basis; j++) {
+	  ym[j] /= b;
+	}
       }
       ym += h->n_basis;
     }

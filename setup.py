@@ -38,41 +38,49 @@ sys.argv = sys.argv[0:2]
 CC = None
 
 
-# Obtain version from faclib/consts
-def get_version(filename=None):
+# Obtain version & consts from faclib/consts.h
+def parse_consts(filename=None, vfile=None, cfile=None):
     if not filename:
         filename = os.path.join(
             os.path.dirname(__file__), 'faclib', 'consts.h')
-
+    if not vfile:
+        vfile = os.path.join(
+            os.path.dirname(__file__), 'python', 'version.py')
+    if not cfile:
+        cfile = os.path.join(
+            os.path.dirname(__file__), 'python', 'consts.py')
+    consts = {}
     with open(filename, 'r') as f:
         lines = f.readlines()
-        version, subversion, subsubversion = None, None, None
         for line in lines:
-            if '#define VERSION' in line:
-                version = (line[17:]).strip()
-            if '#define SUBVERSION' in line:
-                subversion = (line[20:]).strip()
-            if '#define SUBSUBVERSION' in line:
-                subsubversion = (line[23:]).strip()
-        return '%s.%s.%s'%(version, subversion, subsubversion)
-
-VERSION = get_version()
-
-
-# Make python/version
-def write_version_py(filename=None):
-    cnt = """version = '%s'\n"""
-    if not filename:
-        filename = os.path.join(
-            os.path.dirname(__file__), 'python', 'version.py')
-
-    a = open(filename, 'w')
+            a = line.strip().split()
+            if len(a) < 3:
+                continue
+            if a[0] != '#define':
+                continue
+            consts[a[1]] = a[2]
+    a = open(vfile, 'w')
+    version = '%s.%s.%s'%(consts['VERSION'], consts['SUBVERSION'], consts['SUBSUBVERSION'])
     try:
-        a.write(cnt % VERSION)
+        a.write("version = '%s'\n"%version)
     finally:
         a.close()
+    a = open(cfile, 'w')
+    try:
+        for k in consts.keys():
+            v = consts[k]
+            try:
+                if v[0] == '(' and v[-1] == ')':
+                    v = v[1:-1]
+                dv = float(v)
+                a.write("%s = %s\n"%(k, v))
+            except:
+                pass
+    finally:
+        a.close()
+    return version
 
-write_version_py()
+VERSION = parse_consts()
 
 for s in x:
     if (s[0:11] == '-ccompiler='):
@@ -98,13 +106,12 @@ for s in x:
             else:
                 extralink.append(a)
     elif (s[0:6] == '-bsfac'):
-        bsfac = 'SFAC-{}.{}.tar'.format(VERSION, get_platform())
+        bsfac = 'SFAC-%s.%s.tar'%(VERSION, get_platform())
     elif (s[0:4] == '-mpy'):
         pyinc = sysconfig.et_config_var('INCLUDEPY')
         pylib = (sysconfig.get_config_var('LIBPL') +
                  '/' + sysconfig.get_config_var('LDLIBRARY'))
-        os.system('cd python; export PYINC={} PYLIB={}; make mpy'.format(
-            pyinc, pylib))
+        os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
         no_setup = 1
     else:
         sys.argv.append(s)
@@ -163,15 +170,15 @@ if (no_setup == 0):
           package_dir={'pfac': 'python'},
           py_modules=['pfac.const', 'pfac.config', 'pfac.table',
                       'pfac.atom', 'pfac.spm', 'pfac.rfac',
-                      'pfac.version'],
+                      'pfac.version', 'pfac.consts'],
           ext_modules=Extensions)
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
     print('Creating SFAC binary ...')
     c = 'cd sfac; mkdir bin;'
     c += 'cp sfac bin; cp scrm bin; cp spol bin;'
-    c += 'tar cvf {} ./bin;'.format(bsfac)
-    c += 'gzip {};'.format(bsfac)
+    c += 'tar cvf %s ./bin;'%(bsfac)
+    c += 'gzip %s;'%(bsfac)
     c += 'rm -rf bin;'
-    c += 'mv {}.gz ../dist/;'.format(bsfac)
+    c += 'mv %s.gz ../dist/;'%(bsfac)
     os.system(c)

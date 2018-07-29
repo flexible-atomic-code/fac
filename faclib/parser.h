@@ -33,5 +33,6 @@ int SetParserEscape(char escape);
 int SetParserWhite(char *white);
 int Parse(char *token, int tokmax, char *line, 
 	  int *brkpos, int *next, int *quoted);
+int StrReplace(int n, char *s, char r0, char r1, char r2, char r3);
 
 #endif

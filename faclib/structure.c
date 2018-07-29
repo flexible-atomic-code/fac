@@ -478,6 +478,9 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
       s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
       hs->basis[t] = s;
     }
+    for (t = 0; t < hs->nlevs; t++) {
+      hs->levs[t] = NULL;
+    }
     FlagClosed(hs);
   }
 
@@ -767,6 +770,9 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     for (t = 0; t < h->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
       hs->basis[t] = s;
+    }
+    for (t = 0; t < hs->nlevs; t++) {
+      hs->levs[t] = NULL;
     }
     FlagClosed(hs);
   }
@@ -3357,6 +3363,7 @@ int SolveStructure(char *fn, char *hfn,
 	AllocHamMem(&_allhams[i], 0, 0);
 	_allhams[i].perturb_iter = 0;
       }
+      /*
       for (i = nlevels; i < levels->dim; i++) {
 	LEVEL *lev = GetLevel(i);
 	lev->slev = i;
@@ -3364,6 +3371,7 @@ int SolveStructure(char *fn, char *hfn,
 	  hams[lev->iham].levs[lev->ilev] = lev;
 	}
       }
+      */
     }
     if (ng > 0 && kg) free(kg);
     if (ngp > 0 && kgp) free(kgp);
@@ -3709,6 +3717,14 @@ int SaveLevels(char *fn, int m, int n) {
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
+  for (i = m; i < levels->dim; i++) {
+    lev = GetLevel(i);
+    lev->slev = i;
+    if (lev && lev->iham >= 0) {
+      hams[lev->iham].levs[lev->ilev] = lev;
+    }
+  }
+    
   q = 0;
   nk = nele0;
   if (nk >= 0) {
@@ -4120,6 +4136,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	  ash[0] = '\0';
 	  asj[0] = '\0';
 	  atj[0] = '\0';
+	  int fop = -1;
 	  for (ic = cfg->n_shells-1; ic >= 0; ic--) {
 	    GetJLFromKappa(cfg->shells[ic].kappa, &j, &kl);
 	    kl /= 2;
@@ -4131,6 +4148,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	    if (cfg->shells[ic].nq == j+1) {
 	      sprintf(a2, "%9s", " ");
 	    } else {
+	      if (fop < 0) fop = ic;
 	      if (IsEven(cfg->shells[ic].nq)) {
 		if (ShellNeedNuNr(cfg->shells+ic, sst+ic)&1) {
 		  sprintf(a0, "%d;%d", sst[ic].nu, sst[ic].shellJ/2);
@@ -4146,8 +4164,8 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	      }
 	      sprintf(a2, "%9s", a0);
 	    }
-	    if (ic < cfg->n_shells-1) {
-	      if (ic == 0 || (sst[ic].shellJ && sst[ic+1].totalJ)) {
+	    if (ic < fop) {
+	      if (ic == 0 || sst[ic].shellJ) {
 		if (IsEven(sst[ic].totalJ)) {
 		  sprintf(a0, "%d", sst[ic].totalJ/2);
 		} else {
@@ -4158,7 +4176,16 @@ int GetBasisTable(char *fn, int m0, int k0) {
 		sprintf(a3, "%9s", " ");
 	      }
 	    } else {
-	      sprintf(a3, "%9s", " ");
+	      if (ic == 0) {
+		if (IsEven(sst[ic].totalJ)) {
+		  sprintf(a0, "%d", sst[ic].totalJ/2);
+		} else {
+		  sprintf(a0, "%d/2", sst[ic].totalJ);
+		}
+		sprintf(a3, "%9s", a0);
+	      } else {
+		sprintf(a3, "%9s", " ");
+	      }
 	    }
 	    strcat(ash, a1);
 	    strcat(asj, a2);
@@ -4209,41 +4236,53 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	fwrite(&rec, sizeof(int), 1, f1);
 	fwrite(&nblock, sizeof(int), 1, f1);
 	fwrite(&hams[i].nbasis, sizeof(int), 1, f1);
-	fwrite(&hams[i].nlevs, sizeof(int), 1, f1);
+	int nlevs = 0;
+	for (k = 0; k < hams[i].nlevs; k++) {
+	  if (hams[i].levs[k]) nlevs++;
+	}
+	LEVEL **levs = malloc(sizeof(LEVEL *)*nlevs);
+	int ik = 0;
+	for (k = 0; k < hams[i].nlevs; k++) {
+	  if (hams[i].levs[k]) {
+	    levs[ik] = hams[i].levs[k];
+	    ik++;
+	  }
+	}	      
+	fwrite(&nlevs, sizeof(int), 1, f1);
 	si = j + 1;
 	fwrite(&si, sizeof(int), 1, f1);
 	if (p == 0) si = 1;
 	else si = -1;
 	fwrite(&si, sizeof(int), 1, f1);
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = hams[i].nlevs*sizeof(int);	
+	rec = nlevs*sizeof(int);	
 	fwrite(&rec, sizeof(int), 1, f1);
 	double eav = 0.0;
 	double eaw = 0.0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  lev = hams[i].levs[k];
+	for (k = 0; k < nlevs; k++) {
+	  lev = levs[k];
 	  eav += lev->energy * (j+1.0);
 	  eaw += j+1.0;
 	  fwrite(&lev->slev, sizeof(int), 1, f1);
 	}
 	eav /= eaw;
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = (1+hams[i].nlevs)*sizeof(double);
+	rec = (1+nlevs)*sizeof(double);
 	fwrite(&rec, sizeof(int), 1, f1);
 	fwrite(&eav, sizeof(double), 1, f1);
 	int mbs = 0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  lev = hams[i].levs[k];
+	for (k = 0; k < nlevs; k++) {
+	  lev = levs[k];
 	  if (lev->n_basis > mbs) mbs = lev->n_basis;
 	  fwrite(&lev->energy, sizeof(double), 1, f1);
 	}
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = hams[i].nlevs*hams[i].nbasis*sizeof(double);
+	rec = nlevs*hams[i].nbasis*sizeof(double);
 	fwrite(&rec, sizeof(int), 1, f1);
 	PTRIDX *bst = malloc(sizeof(PTRIDX)*mbs);
 	double mc;
-	for (ic = 0; ic < hams[i].nlevs; ic++) {
-	  lev = hams[i].levs[ic];
+	for (ic = 0; ic < nlevs; ic++) {
+	  lev = levs[ic];
 	  for (k = 0; k < lev->n_basis; k++) {
 	    bst[k].r = (char *) ArrayGet(st, lev->basis[k]);
 	    bst[k].i = k;
@@ -4260,6 +4299,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	  }
 	}
 	free(bst);
+	free(levs);
 	fwrite(&rec, sizeof(int), 1, f1);
       }
       fclose(f1);

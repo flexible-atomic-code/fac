@@ -42,7 +42,9 @@
 #define NDB   15
 
 #define LNCOMPLEX   32
+#define LSNAME0 24
 #define LSNAME      48
+#define LNAME0 56
 #define LNAME       128
 
 typedef struct _FORM_FACTOR_ {  
@@ -89,7 +91,9 @@ typedef struct _EN_RECORD_ {
 } EN_RECORD;
 #define SIZE_EN_RECORD \
   (sizeof(short)*2+sizeof(int)*2+sizeof(double)+LNCOMPLEX+LSNAME+LNAME)
-
+#define SIZE_EN_RECORD0 \
+  (sizeof(short)*2+sizeof(int)*2+sizeof(double)+LNCOMPLEX+LSNAME0+LNAME0)
+  
 typedef struct _EN_SRECORD_ {
   int p;
   int j;
@@ -592,6 +596,7 @@ double ClockStart(void);
 double ClockLast(void);
 double ClockNow(int m);
 void PrintWallTime(char *s, int m);
+int IsNewV114(TFILE *f);
 
 #endif
 
