@@ -38,8 +38,8 @@ jobs:
                     git checkout -b release-pdf
                     cp doc/manual.pdf manual.pdf
                     git add manual.pdf
-                    git commit -m "[CircleCI] Generate PDF @$(date +'%Y/%m/%d %I:%M') [ci skip]"
-                    git push origin release-pdf
+                    git commit -m "[CircleCI] Releasing PDF @$(date +'%Y/%m/%d %I:%M') [ci skip]"
+                    git push -f origin release-pdf
 
 workflows:
   version: 2
