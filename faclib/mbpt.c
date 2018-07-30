@@ -1369,7 +1369,7 @@ int CheckConfig(int ns, SHELL *ket, int np, int *op, int nm, int *om,
   return -1;
 }
 
-double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
+double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
   int i, k0, k;
   double a, b, r;
   r = 0.0;
@@ -1400,10 +1400,11 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
   return r;
 }
 
-double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
-  int i, k0, k1, nk;
+double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
+  int i, k0, k1, nk, j;
   double r, a, b, c, d, e, f, g, h;
   double p1, p2, p3, q1, q2, q3;
+  double *dw0, *dw1;
   
   r = 0.0;
   for (i = 0; i < n; i++) {
@@ -1450,25 +1451,36 @@ double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
   for (i = k0; i < n; i++) {
     t[i] = log(x[i]);
   }
-  nk = n - k0;  
+  nk = n - k0;
+  dw0 = WorkSpace();
+  dw1 = dw0 + 1+(int)(x[n-1]);
+  j = 0;
   for (i = k0; i < k1; i++) {    
-    for (a = x[i]+1; a < x[i+1]; a += 1.0) {      
-      d = log(a);
-      UVIP3P(3, nk, t+k0, z+k0, 1, &d, &b);
-      r += b;
+    for (a = x[i]+1; a < x[i+1]; a += 1.0) {
+      dw0[j++] = log(a);
     }
   }
-
+  if (j > 0) {
+    UVIP3P(3, nk, t+k0, z+k0, j, dw0, dw1);
+    for (i = 0; i < j; i++) {
+      r += dw1[i];
+    }
+  }
   for (i = k1; i < n; i++) {
     y[i] = log(fabs(z[i]));
   }
   
   nk = n - k1;
+  j = 0;
   for (i = k1+1; i < n; i++) {
     for (a = x[i-1]+1; a < x[i]; a += 1.0) {
-      d = log(a);
-      UVIP3P(3, nk, t+k1, y+k1, 1, &d, &b);
-      b = exp(b);
+      dw0[j++] = log(a);
+    }
+  }
+  if (j > 0) {
+    UVIP3P(3, nk, t+k1, y+k1, j, dw0, dw1);
+    for (i = 0; i < j; i++) {
+      b = exp(dw1[i]);
       if (z[n-1] < 0) b = -b;
       r += b;
     }
@@ -1505,16 +1517,18 @@ double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
 	  g = fabs(g/r);
 	  d += 1.0;
 	  iter++;
-	  if (iter >= 100) {
+	  if (iter >= 500) {
 	    MPrintf(-1, "maxiter reached in mbpt extrapolate: %d %d %d %d %g %g %g %g %g\n",
 		    iter, m, i, nk, g, f, c, b, x[i]);
-	    g = 0.0;
-	    f = 0.0;
-	    for (i = 0; i < n; i++) {
-	      printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
+	    if (iter >= 510) {
+	      g = 0.0;
+	      f = 0.0;
+	      for (i = 0; i < n; i++) {
+		printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
+	      }
+	      printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
+	      break;
 	    }
-	    printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
-	    break;
 	  }
 	}	
 	g *= fabs(r);

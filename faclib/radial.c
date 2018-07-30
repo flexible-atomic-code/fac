@@ -33,9 +33,9 @@ typedef struct _FLTARY_ {
   float *yk;
 } FLTARY;
 
-static POTENTIAL *potential;
-static POTENTIAL *hpotential;
-static POTENTIAL *rpotential;
+static POTENTIAL *potential = NULL;
+static POTENTIAL *hpotential = NULL;
+static POTENTIAL *rpotential = NULL;
 
 #define Large(orb) ((orb)->wfun)
 #define Small(orb) ((orb)->wfun + potential->maxrp)
@@ -43,32 +43,34 @@ static POTENTIAL *rpotential;
 static ARRAY *orbitals;
 static int n_orbitals;
 static int n_continua;
- 
-static double _dwork[MAXRP];
-static double _dwork1[MAXRP];
-static double _dwork2[MAXRP];
-static double _dwork3[MAXRP];
-static double _dwork4[MAXRP];
-static double _dwork5[MAXRP];
-static double _dwork6[MAXRP];
-static double _dwork7[MAXRP];
-static double _dwork8[MAXRP];
-static double _dwork9[MAXRP];
-static double _dwork10[MAXRP];
-static double _dwork11[MAXRP];
-static double _dwork12[MAXRP];
-static double _dwork13[MAXRP];
-static double _dwork14[MAXRP];
-static double _dwork15[MAXRP];
-static double _dwork16[MAXRP];
-static double _phase[MAXRP];
-static double _dphase[MAXRP];
-static double _dphasep[MAXRP];
-static double _yk[MAXRP];
-static double _zk[MAXRP];
-static double _xk[MAXRP];
 
-#pragma omp threadprivate(potential,hpotential,rpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+static int _nws = 0;
+static double *_dws = NULL;
+static double *_dwork;
+static double *_dwork1;
+static double *_dwork2;
+static double *_dwork3;
+static double *_dwork4;
+static double *_dwork5;
+static double *_dwork6;
+static double *_dwork7;
+static double *_dwork8;
+static double *_dwork9;
+static double *_dwork10;
+static double *_dwork11;
+static double *_dwork12;
+static double *_dwork13;
+static double *_dwork14;
+static double *_dwork15;
+static double *_dwork16;
+static double *_phase;
+static double *_dphase;
+static double *_dphasep;
+static double *_yk;
+static double *_zk;
+static double *_xk;
+
+#pragma omp threadprivate(potential,hpotential,rpotential,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -143,45 +145,166 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
-double *WorkSpace(int i) {
-  switch (i) {
-  case 0:
-    return _dwork;
-  case 1:
-    return _dwork1;
-  case 2:
-    return _dwork2;
-  case 3:
-    return _dwork3;
-  case 4:
-    return _dwork4;
-  case 5:
-    return _dwork5;
-  case 6:
-    return _dwork6;
-  case 7:
-    return _dwork7;
-  case 8:
-    return _dwork8;
-  case 9:
-    return _dwork9;
-  case 10:
-    return _dwork10;
-  case 11:
-    return _dwork11;
-  case 12:
-    return _dwork12;
-  case 13:
-    return _dwork13;
-  case 14:
-    return _dwork14;
-  case 15:
-    return _dwork15;
-  case 16:
-    return _dwork16;
-  default:
-    return NULL;
-  }  
+void CopyPotential(POTENTIAL *p1, POTENTIAL *p0) {
+  if (p0 == NULL) return;
+  if (p1 == NULL) {
+    p1 = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+    p1->maxrp = 0;
+  }
+  AllocPotMem(p1, p0->maxrp);
+  double *w = p1->dws;
+  memcpy(p1, p0, sizeof(POTENTIAL));
+  p1->dws = w;
+  memcpy(p1->dws, p0->dws, sizeof(double)*p0->nws);
+  SetPotDP(p1);
+}
+
+void AllocPotMem(POTENTIAL *p, int n) {
+  if (n == p->maxrp) return;
+  if (p->maxrp > 0) {
+    free(p->dws);
+  }
+  p->maxrp = n;
+  p->nws = n*(21+3*NKSEP+3*NKSEP1);
+  p->dws = (double *) malloc(sizeof(double)*p->nws);
+  SetPotDP(p);
+}
+
+void SetPotDP(POTENTIAL *p) {
+  double *x = p->dws;
+  int n = p->maxrp;
+  p->Z = x;
+  x += n;
+  p->dZ = x;
+  x += n;
+  p->dZ2 = x;
+  x += n;
+  p->rad = x;
+  x += n;
+  p->mqrho = x;
+  x += n;
+  p->dr_drho = x;
+  x += n;
+  p->dr_drho2 = x;
+  x += n;
+  p->vtr = x;
+  x += n;
+  p->Vc = x;
+  x += n;
+  p->dVc = x;
+  x += n;
+  p->dVc2 = x;
+  x += n;
+  p->qdist = x;
+  x += n;
+  p->U = x;
+  x += n;
+  p->dU = x;
+  x += n;
+  p->dU2 = x;
+  x += n;
+  p->W = x;
+  x += n;
+  p->dW = x;
+  x += n;
+  p->dW2 = x;
+  x += n;
+  p->ZVP = x;
+  x += n;
+  p->dZVP = x;
+  x += n;
+  p->dZVP2 = x;
+  int i;
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->ZSE[i] = x;
+  }
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->dZSE[i] = x;
+  }
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->dZSE2[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->VT[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->dVT[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->dVT2[i] = x;
+  }
+}
+
+void AllocWorkSpace(int n) {
+  int nws = n*33;
+  if (nws == _nws) return;
+#pragma omp parallel default(shared)
+  {
+    if (_nws > 0) free(_dws);
+    _nws = nws;
+    _dws = (double *) malloc(sizeof(double)*nws);
+    double *p = _dws;
+    _dwork = p;
+    p += n;
+    _dwork1 = p;
+    p += n;
+    _dwork2 = p;
+    p += n;
+    _dwork3 = p;
+    p += n;
+    _dwork4 = p;
+    p += n;
+    _dwork5 = p;
+    p += n;
+    _dwork6 = p;
+    p += n;
+    _dwork7 = p;
+    p += n;
+    _dwork8 = p;
+    p += n;
+    _dwork9 = p;
+    p += n;
+    _dwork10 = p;
+    p += n;
+    _dwork11 = p;
+    p += n;
+    _dwork12 = p;
+    p += n;
+    _dwork13 = p;
+    p += n;
+    _dwork14 = p;
+    p += n;
+    _dwork15 = p;
+    p += n;
+    _dwork16 = p;
+    p += n;
+    _phase = p;
+    p += n;
+    _dphase = p;
+    p += n;
+    _dphasep = p;
+    p += n;
+    _yk = p;
+    p += n;
+    _zk = p;
+    p += n;
+    _xk = p;
+    p += n;
+    SetOrbitalWorkSpace(p, n);
+  }
+  AllocPotMem(potential, n);
+  AllocPotMem(hpotential, n);
+  AllocPotMem(rpotential, n);
+}
+
+double *WorkSpace() {
+  return _dws;
 }
 
 void SetOrbMap(int k, int n0, int n1, int n2) {
@@ -230,12 +353,12 @@ int RestorePotential(char *fn, POTENTIAL *p) {
     MPrintf(0, "cannot open potential file: %s\n", fn);
     return -1;
   }
-
+  int maxrp = 0;
   n = BFileRead(&p->mode, sizeof(int), 1, f);
   n = BFileRead(&p->flag, sizeof(int), 1, f);
   n = BFileRead(&p->r_core, sizeof(int), 1, f);
   n = BFileRead(&p->nmax, sizeof(int), 1, f);
-  n = BFileRead(&p->maxrp, sizeof(int), 1, f);
+  n = BFileRead(&maxrp, sizeof(int), 1, f);
   n = BFileRead(&p->hxs, sizeof(double), 1, f);
   n = BFileRead(&p->ahx, sizeof(double), 1, f);
   n = BFileRead(&p->ihx, sizeof(double), 1, f);
@@ -257,6 +380,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->ib1, sizeof(int), 1, f);
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
   n = BFileRead(&p->rb, sizeof(double), 1, f);
+  AllocPotMem(p, maxrp);
   n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
@@ -275,33 +399,6 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->W, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
-  for (i = p->maxrp; i < MAXRP; i++) {
-    p->Z[i] = 0;
-    p->dZ[i] = 0;
-    p->dZ2[i] = 0;
-    p->rad[i] = 0;
-    p->dr_drho[i] = 0;
-    p->dr_drho2[i] = 0;
-    p->Vc[i] = 0;
-    p->dVc[i] = 0;
-    p->dVc2[i] = 0;
-    p->qdist[i] = 0;
-    p->qdist[i] = 0;
-    p->U[i] = 0;
-    p->dU[i] = 0;
-    p->dU2[i] = 0;
-    p->W[i] = 0;
-    p->dW[i] = 0;
-    p->dW2[i] = 0;
-    p->ZVP[i] = 0;
-    p->dZVP[i] = 0;
-    p->dZVP2[i] = 0;
-    for (k = 0; k < NKSEP; k++) {
-      p->ZSE[k][i] = 0;
-      p->dZSE[k][i] = 0;
-      p->dZSE2[k][i] = 0;
-    }
-  }
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
@@ -313,7 +410,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
 
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   int i, k;
-  memcpy(h, p, sizeof(POTENTIAL));  
+  CopyPotential(h, p);
   if (hlike) {
     h->N = 1;
     h->a = 0;
@@ -1043,13 +1140,8 @@ void SetScreening(int n_screen, int *screened_n,
 
 int SetRadialGrid(int maxrp, double ratio, double asymp,
 		  double rmin, double qr) {
-  if (maxrp > MAXRP) {
-    printf("MAXRP must be <= %d\n", MAXRP);
-    printf("to enlarge the limit, change MAXRP in global.h\n");
-    return -1;
-  }
   if (maxrp < 0) maxrp = DMAXRP;
-  potential->maxrp = maxrp;
+  AllocWorkSpace(maxrp);
   if (asymp < 0 && ratio < 0) {
     asymp = GRIDASYMP;
     ratio = GRIDRATIO;
@@ -1583,30 +1675,37 @@ void CopyPotentialOMP(int init) {
     return;
   }
   POTENTIAL pot;
-  memcpy(&pot, potential, sizeof(POTENTIAL));
+  pot.maxrp = 0;
+  pot.nws = 0;
+  pot.dws = NULL;
+  CopyPotential(&pot, potential);
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
-      potential = malloc(sizeof(POTENTIAL));
+      potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+      potential->maxrp = 0;
     }
-    memcpy(potential, &pot, sizeof(POTENTIAL));    
+    CopyPotential(potential, &pot);
   }
-  memcpy(&pot, hpotential, sizeof(POTENTIAL));
+  CopyPotential(&pot, hpotential);
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
-      hpotential = malloc(sizeof(POTENTIAL));
+      hpotential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+      hpotential->maxrp = 0;
     }
-    memcpy(hpotential, &pot, sizeof(POTENTIAL));    
+    CopyPotential(hpotential, &pot);
   }
-  memcpy(&pot, rpotential, sizeof(POTENTIAL));
+  CopyPotential(&pot, rpotential);
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
-      rpotential = malloc(sizeof(POTENTIAL));
+      rpotential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+      rpotential->maxrp = 0;
     }
-    memcpy(rpotential, &pot, sizeof(POTENTIAL));    
+    CopyPotential(rpotential, &pot);
   }
+  if (pot.maxrp > 0) free(pot.dws);
 #endif
 }
 
@@ -7481,6 +7580,9 @@ int InitRadial(void) {
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
   rpotential = malloc(sizeof(POTENTIAL));
+  potential->maxrp = 0;
+  hpotential->maxrp = 0;
+  rpotential->maxrp = 0;
   potential->nfrozen = 0;
   potential->npseudo = 0;
   potential->mpseudo = 0;

@@ -192,7 +192,6 @@
 #define ARYCTH 0.05
 
 /* orbital */
-#define MAXRP      3000  /* maximum radial mesh */
 #define DMAXRP     1200  /* default radial mesh points */
 #define GRIDASYMP  36    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
@@ -226,6 +225,7 @@
 #define POTHX0             0.427
 #define POTHX1             0.075
 #define NKSEP              5
+#define NKSEP1             6
 #define QEDSE              5
 #define QEDMSE             41
 #define QEDVP              3

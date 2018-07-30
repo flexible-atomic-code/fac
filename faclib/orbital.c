@@ -28,14 +28,10 @@ USE (rcsid);
 #endif
 
 /* the following arrays provide storage space in the calculation */
-static double _veff[MAXRP];
-static double ABAND[4*MAXRP];
-static double _dwork[MAXRP];
-static double _dwork1[MAXRP];
-static double _dwork2[MAXRP];
-static double _dwork3[MAXRP];
+static double *_veff, *ABAND, *_dwork, *_dwork1, *_dwork2, *_dwork3;
+static int *_ipiv;
 
-#pragma omp threadprivate(_veff, ABAND, _dwork, _dwork1, _dwork2, _dwork3)
+#pragma omp threadprivate(_veff, ABAND, _ipiv, _dwork, _dwork1, _dwork2, _dwork3)
 
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
@@ -139,6 +135,22 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
+
+void SetOrbitalWorkSpace(double *p, int n) {
+  _veff = p;
+  p += n;
+  ABAND = p;
+  p += n*4;
+  _dwork = p;
+  p += n;
+  _dwork1 = p;
+  p += n;
+  _dwork2 = p;
+  p += n;
+  _dwork3 = p;
+  p += n;
+  _ipiv = (int *) p;
+}
 
 double EneTol(double e) {
   e = fabs(e);
@@ -2260,7 +2272,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   double a, b, r, x, y, z, p0, a1, a2;
   int kl=1, ku=1, nrhs=1;
   int i, info, n, m, j, k;
-  int ipiv[MAXRP];
+  int *ipiv = _ipiv;
   
   m = i2 - i1 - 1;
   if (m < 0) return 0;

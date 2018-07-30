@@ -200,7 +200,10 @@ int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int ngb, int *kgb, double sth);
 void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
 void SolveDFKappa(int ka, int nmax, double xdf);
-double *WorkSpace(int i);
+double *WorkSpace();
+void AllocWorkSpace(int n);
+void AllocPotMem(POTENTIAL *p, int n);
+void SetPotDP(POTENTIAL *p);
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
 void ElectronDensity(char *ofn, int n, int *ilev, int t);
 #endif
