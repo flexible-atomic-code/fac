@@ -1453,7 +1453,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
   }
   nk = n - k0;
   dw0 = WorkSpace();
-  dw1 = dw0 + 1+(int)(x[n-1]);
+  dw1 = dw0 + (2 + (int)(x[n-1]-x[0]));
   j = 0;
   for (i = k0; i < k1; i++) {    
     for (a = x[i]+1; a < x[i+1]; a += 1.0) {
@@ -1491,7 +1491,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
   b = 0.0;
   c = 0.0;
   if (mbpt_extra > 0) {
-    if (nk > 2) {
+    if (nk > 2 && mbpt_extra <= 2) {
       k0 = n-3;
       k1 = n-2;
       i = n-1;
@@ -1504,7 +1504,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
       c = (p3*q1 - q3*p1)/(q1*p2 - p1*q2);
       b = (p3 - c*p2)/p1;
       a = y[k0] - b*t[k0] - c*t[k0]*t[k0];      
-      if (c <= 0 && 2.0*log(x[i])*c+b < -1.2) {
+      if (c <= 0 && 2.0*log(x[i])*c+b < -1.1) {
 	g = 1.0;
 	d = x[i]+1.0;
 	int iter = 0;
@@ -1517,16 +1517,16 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
 	  g = fabs(g/r);
 	  d += 1.0;
 	  iter++;
-	  if (iter >= 500) {
+	  if (iter >= 10000) {
 	    MPrintf(-1, "maxiter reached in mbpt extrapolate: %d %d %d %d %g %g %g %g %g\n",
 		    iter, m, i, nk, g, f, c, b, x[i]);
-	    if (iter >= 510) {
+	    if (iter >= 10010) {
 	      g = 0.0;
 	      f = 0.0;
-	      for (i = 0; i < n; i++) {
-		printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
+	      for (j = 0; j < n; j++) {
+		MPrintf(-1, "%3d %12.5E %12.5E\n", j, x[j], z[j]);
 	      }
-	      printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
+	      MPrintf(-1, "# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
 	      break;
 	    }
 	  }
@@ -1536,25 +1536,32 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
 	h += g-f;	
       }
     }
-    if (h == 0 && nk > 1) {
+    if (h == 0 && nk > 2) {
       k0 = n-2;
       k1 = n-1;
       a = y[k1] - y[k0];
       b = t[k1] - t[k0];
       a = -a/b;      
-      if (a > 1.2) {
+      if (a > 1.1) {
+	b = z[k1]*pow(x[k1]/(1.0+x[k1]), a);
 	a -= 1.0;
-	b = pow(x[k1]/(1.0+x[k1]), a);
-	h = b*z[k1]*x[k1]/a;	
+	h = b*(1.0+x[k1])/a;
       }
       b = 0.0;
       c = 0.0;
     }
-    if (mbpt_extra == 2) {
+    if (mbpt_extra == 2 || mbpt_extra == 4) {
       for (i = 0; i < n; i++) {
-	printf("%3d %12.5E %12.5E\n", i, x[i], z[i]);
+	MPrintf(-1, "%3d %12.5E %12.5E\n", i, x[i], z[i]);
       }
-      printf("# %12.5E %12.5E %12.5E %12.5E %12.5E\n", a, b, c, h, r);
+      MPrintf(-1, "#a %4d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	      m, a, b, c, h, r);
+    } else if (fabs(h) > 5*fabs(r)) {
+      for (i = 0; i < n; i++) {
+	MPrintf(-1, "%3d %12.5E %12.5E\n", i, x[i], z[i]);
+      }
+      MPrintf(-1, "#b %4d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	      m, a, b, c, h, r);
     }
     r += h;
   }
@@ -1596,6 +1603,7 @@ double SumInterpH(int n, int *ng, int n2, int *ng2,
     }
     r += SumInterp1D(n, z, x, w, y, -md);
   }
+
   return r;
 }
 
