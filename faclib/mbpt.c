@@ -1926,11 +1926,11 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double c12 = c/(d1*d2);
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && fabs(c12) > mbpt_warn) {
-	printf("large h22term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %g %g %g %g\n",
+	printf("large h22term: %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %d %d %d %d %d %d %g %g %g %g %g\n",
 	       nn1,ka1, nn2,ka2, nn3,ka3, nn4,ka4,
 	       nn5,ka5, nn6,ka6, nn7,ka7, nn8,ka8,
-	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
-	       c12, d1, d2, mbpt_warn);
+	       c0->igroup, c0->icfg, c1->igroup, c1->icfg, m0, m1,
+	       c, c12, d1, d2, mbpt_warn);
       }
     }
     sd1 = c/d1;

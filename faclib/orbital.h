@@ -38,6 +38,7 @@ typedef struct _POTENTIAL_ {
   double hx0, hx1, chx;
   double hxs, ahx, ihx, rhx, dhx, ratio, asymp, rmin;
   double N; /*number of electrons*/
+  double N1;
   double lambda; /* parameter for the Vc */
   double a; /* previously used to parameterize the Vc, but now always 0.0*/
   double ar, br, qr; /* parameter for the transformation */

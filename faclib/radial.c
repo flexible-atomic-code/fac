@@ -371,6 +371,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->asymp, sizeof(double), 1, f);
   n = BFileRead(&p->rmin, sizeof(double), 1, f);
   n = BFileRead(&p->N, sizeof(double), 1, f);
+  n = BFileRead(&p->N1, sizeof(double), 1, f);
   n = BFileRead(&p->lambda, sizeof(double), 1, f);
   n = BFileRead(&p->a, sizeof(double), 1, f);
   n = BFileRead(&p->ar, sizeof(double), 1, f);
@@ -412,7 +413,8 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   int i, k;
   CopyPotential(h, p);
   if (hlike) {
-    h->N = 1;
+    h->N = 1.0;
+    h->N1 = 0.0;
     h->a = 0;
     h->lambda = 0;
     h->hlike = 1;
@@ -488,6 +490,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->asymp, sizeof(double), 1, f);
   n = fwrite(&p->rmin, sizeof(double), 1, f);
   n = fwrite(&p->N, sizeof(double), 1, f);
+  n = fwrite(&p->N1, sizeof(double), 1, f);
   n = fwrite(&p->lambda, sizeof(double), 1, f);
   n = fwrite(&p->a, sizeof(double), 1, f);
   n = fwrite(&p->ar, sizeof(double), 1, f);
@@ -1222,8 +1225,13 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       jm = j;
     }
   }
-
-  n1 = potential->N-1;
+  if (fabs(potential->ihx) > 0.01) {
+    n1 = potential->N-1;
+  } else {
+    n1 = potential->N;
+  }
+  potential->N1 = n1;
+  if (fabs(potential->N-1) < 1e-5) potential->N1 = 0.0;
   for (jm = jmax; jm >= 10; jm--) {
     if (n1 > u[jm] && u[jm] > u[jm-1]) {
       break;
@@ -1428,7 +1436,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       return 0.0;
     }
     r = potential->Z[potential->maxrp-1];
-    b = (1.0 - 1.0/potential->N);
+    b = potential->N1/potential->N;
     for (i = 0; i < acfg->n_shells; i++) {
       a = acfg->nq[i];
       c = acfg->n[i];
@@ -1522,7 +1530,7 @@ int GetPotential(char *s) {
 double GetResidualZ(void) {
   double z;
   z = potential->Z[potential->maxrp-1];
-  if (potential->N > 0) z -= potential->N - 1;
+  if (potential->N > 0) z -= potential->N1;
   return z;
 }
 
@@ -8042,7 +8050,8 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
 
 int AddNewConfigToList(int k, int ni, int *kc,
 		       CONFIG *c0, int nb, int **kcb,
-		       int nc, SHELL_RESTRICTION *sr) {
+		       int nc, SHELL_RESTRICTION *sr,
+		       int checknew) {
   CONFIG *cfg = ConfigFromIList(ni, kc);
   int r;
   double sth;
@@ -8050,7 +8059,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
     r = ApplyRestriction(1, cfg, nc, sr);
     if (r <= 0) return -1;
   }
-  if (ConfigExists(cfg)) return -1;
+  if (checknew && ConfigExists(cfg)) return -1;
   sth = c0->sth;
   if (sth > 0) {
     int i0, i1, i2, i3;
@@ -8181,11 +8190,11 @@ int AddNewConfigToList(int k, int ni, int *kc,
   return r;
 }
 
-int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
+int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth) {
   int ni, nr, *kc, nb, **kcb, i, j, k, ir, ns, ks, ks2, ka, is, js;
-  int t, ird, nd, kd, kd2, jd, id, ig1, ig2;
+  int t, ird, nd, kd, kd2, jd, id, ig1, ig2, m0;
   CONFIG_GROUP *g;
   CONFIG *c, *cr;
   SHELL_RESTRICTION *sr;
@@ -8198,7 +8207,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     nc = 0;
     sr = NULL;
   }
-  
+
+  m0 = abs(m0r);
   if (m0 == 0) {
     ig1 = GroupIndex(gn1);
     if (ig1 < 0) {
@@ -8260,7 +8270,7 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     for (i = 0; i < nr; i++) {
       ConfigToIList(&cr[i], ni, kc);
-      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr);
+      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr, 1);
     }
     
     free(kc);
@@ -8457,11 +8467,13 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		  if (ir >= 0) kc[ir]--;
 		  if (is >= 0) kc[is]++;
 		  if (pr == 1000000) {
-		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
+		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
+					    nc, sr, m0r > 0);
 		  } else if (pr > -10) {
 		    double sth0 = c->sth;
 		    c->sth = 0.0;
-		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
+		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
+				       nc, sr, m0r > 0);
 		    c->sth = sth0;
 		  }
 		  if (ir >= 0) kc[ir]++;
@@ -8536,12 +8548,12 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 				kc[is] <= js+1 && kc[id] <= jd+1) {
 			      if (pr == 1000000) {
 				pr = AddNewConfigToList(ig2, ni, kc, c,
-							nb, kcb, nc, sr);
+							nb, kcb, nc, sr, m0r>0);
 			      } else if (pr > -10) {
 				double sth0 = c->sth;
 				c->sth = 0.0;
 				AddNewConfigToList(ig2, ni, kc, c,
-						   nb, kcb, nc, sr);
+						   nb, kcb, nc, sr, m0r>0);
 				c->sth = sth0;
 			      }
 			    }

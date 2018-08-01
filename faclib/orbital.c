@@ -324,8 +324,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	k = GetLFromKappa(orb->kappa);
 	k /= 2;
 	if (orb->n > nm || k > km) {
-	  z = pot->Z[pot->maxrp-1];
-	  if (pot->N > 0) z -= pot->N - 1.0;
+	  z = GetResidualZ();
 	  if (z < 1) z = 1;
 	  orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
 	  orb->ilast = -1;
@@ -742,7 +741,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   niter = 0;
 
   z0 = pot->Z[pot->maxrp-1];
-  z = (z0 - pot->N + 1.0);
+  z = (z0 - pot->N1);
   if (z < 1) z = 1;
 
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
@@ -1139,7 +1138,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 
   nr = orb->n - kl - 1;
   z0 = pot->Z[pot->maxrp-1];
-  z = (z0 - pot->N + 1.0);
+  z = (z0 - pot->N1);
   if (z < 1) z = 1.0;
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {   
@@ -1354,7 +1353,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   int kv = 0;
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
-  z = (pot->Z[pot->maxrp-1] - pot->N + 1.0);
+  z = GetResidualZ();
   if (z < 1) z = 1;
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
@@ -2083,7 +2082,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   double y[6], rtol, atol[2], *rwork;
 
   n = pot->maxrp-1;
-  z = pot->Z[n] - pot->N + 1.0;
+  z = GetResidualZ();
   if (z < 1) z = 1;
   kl1 = ka*(ka+1);
   r1 = pot->rad[n];
@@ -2573,7 +2572,7 @@ int SetPotentialVc(POTENTIAL *pot) {
     pot->dVc2[i] = 2.0*(-a/r + b)/r2 - y/r;
   }
   
-  n = pot->N - 1;
+  n = pot->N1;
   if (n > 0 && (pot->a > 0 || pot->lambda > 0)) {
     for (i = 0; i < pot->maxrp; i++) {
       r = pot->rad[i];
