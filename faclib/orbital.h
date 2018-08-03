@@ -36,7 +36,7 @@ typedef struct _POTENTIAL_ {
   int nmax;
   int nse, mse, pse, mvp, pvp, hpvs, hlike;
   double hx0, hx1, chx;
-  double hxs, ahx, ihx, rhx, dhx, ratio, asymp, rmin;
+  double hxs, ahx, ihx, rhx, dhx, bhx, ratio, asymp, rmin;
   double N; /*number of electrons*/
   double N1;
   double lambda; /* parameter for the Vc */
@@ -48,7 +48,7 @@ typedef struct _POTENTIAL_ {
   int nfn[NKSEP];
   int nws;
   double *dws;
-  double *Z, *dZ, *dZ2, *rad, *mqrho, *dr_drho, *dr_drho2, *vtr;
+  double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
   double *ZSE[NKSEP], *dZSE[NKSEP], *dZSE2[NKSEP];
