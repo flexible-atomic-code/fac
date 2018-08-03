@@ -58,7 +58,8 @@ int SetBoundary(int nmax, double p, double bqp);
 void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
-void SetPotentialMode(int m, double h, double ihx, double hx0, double hx1);
+void SetPotentialMode(int m, double h, double ihx,
+		      double dhx, double hx0, double hx1);
 void SetSE(int n, int m, int s, int p);
 void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
@@ -193,6 +194,7 @@ int SavePotential(char *fn, POTENTIAL *p);
 int ModifyPotential(char *fn, POTENTIAL *p);
 void OptimizeModSE(int n, int ka, double dr, int ni);
 void RemoveOrbitalLock(void);
+double GetHXS(POTENTIAL *p);
 int AddNewConfigToList(int k, int ni, int *kc, CONFIG *c0,
 		       int nb, int **kbc,
 		       int nc, SHELL_RESTRICTION *sr, int checknew);

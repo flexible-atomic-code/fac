@@ -2443,10 +2443,11 @@ static int PSolvePseudo(int argc, char *argv[], int argt[],
 static int PSetPotentialMode(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int m;
-  double h, ih, h0, h1;
+  double h, ih, dh, h0, h1;
 
   h = 1E31;
   ih = 1E31;
+  dh = -1;
   h0 = -1;
   h1 = -1;
   m = atoi(argv[0]);
@@ -2455,14 +2456,17 @@ static int PSetPotentialMode(int argc, char *argv[], int argt[],
     if (argc > 2) {
       ih = atof(argv[2]);
       if (argc > 3) {
-	h0 = atof(argv[3]);
+	dh = atof(argv[3]);
 	if (argc > 4) {
-	  h1 = atof(argv[4]);
+	  h0 = atof(argv[4]);
+	  if (argc > 5) {
+	    h1 = atof(argv[5]);
+	  }
 	}
       }
     }
   }
-  SetPotentialMode(m, h, ih, h0, h1);
+  SetPotentialMode(m, h, ih, dh, h0, h1);
 
   return 0;
 }

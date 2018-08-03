@@ -221,9 +221,10 @@
 #define OPTPRINT           0
 #define POTMODE            0
 #define POTHXS             1.0
-#define POTIHX             -2.0
-#define POTHX0             0.427
-#define POTHX1             0.075
+#define POTIHX             -1.0
+#define POTBHX             0.5
+#define POTHX0             -1.0
+#define POTHX1             -1.0
 #define NKSEP              5
 #define NKSEP1             6
 #define QEDSE              5
