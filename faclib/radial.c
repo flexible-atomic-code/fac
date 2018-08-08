@@ -8275,17 +8275,23 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
 int AddNewConfigToList(int k, int ni, int *kc,
 		       CONFIG *c0, int nb, int **kcb,
 		       int nc, SHELL_RESTRICTION *sr,
-		       int checknew) {
+		       int checknew, int mar) {
   CONFIG *cfg = ConfigFromIList(ni, kc);
   int r;
   double sth;
   if (nc > 0) {
     r = ApplyRestriction(1, cfg, nc, sr);
-    if (r <= 0) return -1;
+    if (r <= 0) {
+      free(cfg);
+      return -1;
+    }
   }
-  if (checknew && ConfigExists(cfg)) return -1;
+  if (mar < 3 && checknew && ConfigExists(cfg)) {
+    free(cfg);
+    return -1;
+  }
   sth = c0->sth;
-  if (sth > 0) {
+  if (sth > 0 || mar == 3) {
     int i0, i1, i2, i3;
     int n0, k0, n1, k1, n2, k2, n3, k3;
     int i, j;
@@ -8321,7 +8327,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	}
       }
       if (j < ni) continue;
-      
+      if (i0 < 0 || i1 < 0) continue;
       IntToShell(i0, &n0, &k0);
       IntToShell(i1, &n1, &k1);
       int i2s0, i2s1, i2s;
@@ -8376,7 +8382,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	  if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
 	  o3 = GetOrbital(ko3);
 	  double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
-	  if (de < EPS10) {
+	  if (mar < 3 && de < EPS10) {
 	    s = 1e10;
 	    break;
 	  } else {
@@ -8386,30 +8392,49 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    ks[1] = ko2;
 	    ks[2] = ko1;
 	    ks[3] = ko3;
+	    double s2b = 0;
 	    for (kk = 0; kk < 5; kk += 2) {
 	      SlaterTotal(&sd, &se, NULL, ks, kk, 0);
 	      sd = fabs(sd+se);
-	      if (s2 < sd) s2 = sd;
+	      if (s2b < sd) s2b = sd;
 	    }
+	    double s1b = 0;
 	    if (i2 < 0 && i3 < 0 && k0 == k1) {
-	      ResidualPotential(&s1, ko0, ko1);
-	      s1 = fabs(s1);
-	      if (s2 < s1) s2 = s1;
+	      ResidualPotential(&s1b, ko0, ko1);
+	      s1b = fabs(s1b);
 	    }
-	    s2 /= de;
+	    if (mar < 3) {
+	      if (s2 < s2b) s2 = s2b;
+	      if (s2 < s1b) s2 = s1b;
+	      s2 /= de;
+	    } else if (s1b < EPS10) {
+	      if (s2 < s2b) s2 = s2b;
+	    } else {
+	      continue;
+	    }
 	    if (s < s2) s = s2;
 	  }
 	}
       }
-    }
+    }  
     qed.sms = sms0;
     qed.br = br0;
-    if (s < sth) {
-      return -10;
+    if (mar < 3) {
+      if (s < sth) {
+	free(cfg);
+	return -10;
+      }
+    } else {
+      c0->sth = Max(c0->sth, s);
     }
   }
-  if (Couple(cfg) < 0) return -1;
-  r = AddConfigToList(k, cfg);
+  if (mar < 3) {
+    if (Couple(cfg) < 0) {
+      free(cfg);
+      return -1;
+    }
+    r = AddConfigToList(k, cfg);
+  }
   free(cfg);
   return r;
 }
@@ -8418,18 +8443,18 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth) {
   int ni, nr, *kc, nb, **kcb, i, j, k, ir, ns, ks, ks2, ka, is, js;
-  int t, ird, nd, kd, kd2, jd, id, ig1, ig2, m0;
+  int t, ird, nd, kd, kd2, jd, id, ig1, ig2, m0, tnc;
   CONFIG_GROUP *g;
   CONFIG *c, *cr;
   SHELL_RESTRICTION *sr;
   int m, mar, *kcr, nc, *kcrn, nnr, nn, km, kt, km0;
   double sth0;
 
+  sr = NULL;
   if (s) {
     nc = GetRestriction(s, &sr, 0);
   } else {
     nc = 0;
-    sr = NULL;
   }
 
   m0 = abs(m0r);
@@ -8494,7 +8519,8 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     for (i = 0; i < nr; i++) {
       ConfigToIList(&cr[i], ni, kc);
-      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr, 1);
+      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr, 1, 0);
+      cr[i].sth = 0;
     }
     
     free(kc);
@@ -8523,16 +8549,58 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   if (gn2 == NULL || strlen(gn2) == 0) gn2 = gn1;
   m = m0%10;
   mar = m0/10;
-  if (m < 1 || m > 3 || mar > 2) {
+  if (m < 1 || m > 3 || mar > 4) {
     printf("invalid mode: %d %d %d\n", m0, m, mar);
     return -1;
   }
+  if (mar == 4) {
+    if (ng > 0 && kg) {
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  c->sth = sth;
+	}
+      }
+    }
+    return 0;
+  }
+  ni = Max(n1, n1d);
+  tnc = 0;
+  for (i = 0; i < ng; i++) {
+    g = GetGroup(kg[i]);
+    tnc += g->n_cfgs;
+    if (ni < g->nmax) ni = g->nmax;
+  }
+  if (kgb && kgb != kg) {
+    for (i = 0; i < ngb; i++) {
+      g = GetGroup(kgb[i]);
+      if (ni < g->nmax) ni = g->nmax;
+    }
+  }
+  ni = ni*ni;
+  int fcr = 0;
   if (mar > 0) sth = 0;
   if (mar == 2) {
     nr = 1;
     cr = NULL;
   } else {
-    nr = GetConfigFromString(&cr, s);
+    if (s == NULL || strlen(s) == 0) {
+      nr = tnc;
+      cr = malloc(sizeof(CONFIG)*tnc);
+      t = 0;
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  memcpy(&cr[t], c, sizeof(CONFIG));
+	  t++;
+	}
+      }	
+    } else {
+      nr = GetConfigFromString(&cr, s);
+      fcr = 1;
+    }
   }
   if (mar == 1) {
     n0 = 1;
@@ -8546,18 +8614,6 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
     return -1;
   }
-  ni = Max(n1, n1d);
-  for (i = 0; i < ng; i++) {
-    g = GetGroup(kg[i]);
-    if (ni < g->nmax) ni = g->nmax;
-  }
-  if (kgb && kgb != kg) {
-    for (i = 0; i < ngb; i++) {
-      g = GetGroup(kgb[i]);
-      if (ni < g->nmax) ni = g->nmax;
-    }
-  }
-  ni = ni*ni;
   kc = malloc(sizeof(int)*ni);
   kcr = NULL;  
   if (cr) {
@@ -8567,7 +8623,7 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 	k = ShellToInt(cr[i].shells[j].n, cr[i].shells[j].kappa);
 	if (k >= 0) kc[k] = 1;
       }
-      free(cr[i].shells);
+      if (fcr) free(cr[i].shells);
     }  
     free(cr);
     nr = 0;
@@ -8583,18 +8639,24 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
       }
     }
   }
-  ig1 = GroupIndex(gn1);
-  if (ig1 < 0) {
-    printf("invalid config group name: %s\n", gn1);
-    return -1;
-  }
-  ig2 = GroupIndex(gn2);
-  if (ig2 < 0) {
-    printf("invalid config group name: %s\n", gn2);
-    return -1;
+  if (mar < 3) {
+    ig1 = GroupIndex(gn1);
+    if (ig1 < 0) {
+      printf("invalid config group name: %s\n", gn1);
+      return -1;
+    }
+    ig2 = GroupIndex(gn2);
+    if (ig2 < 0) {
+      printf("invalid config group name: %s\n", gn2);
+      return -1;
+    }
+  } else {
+    ig1 = -1;
+    ig2 = -1;
   }
   nb = 0;
   if (ngb > 0) {
+    if (mar >= 3) kgb = NULL;
     if (kgb && sth >= 0) {
       for (i = 0; i < ngb; i++) {
 	g = GetGroup(kgb[i]);
@@ -8675,6 +8737,11 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 		if (kcr) {
 		  ir = kcr[k];
 		  if (kc[ir] <= 0) continue;
+		  if (mar == 3) {
+		    int ntmp, ktmp;
+		    IntToShell(ir, &ntmp, &ktmp);
+		    if (ntmp < c->shells[0].n) continue;
+		  }
 		} else {
 		  ir = -1;
 		}
@@ -8688,16 +8755,17 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 		  } else {
 		    is = -1;
 		  }
+		  if (ir >= 0 && ir == is) continue;
 		  if (ir >= 0) kc[ir]--;
 		  if (is >= 0) kc[is]++;
-		  if (pr == 1000000) {
+		  if (pr == 1000000 || mar == 3) {
 		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
-					    nc, sr, m0r > 0);
+					    nc, sr, m0r > 0, mar);
 		  } else if (pr > -10) {
 		    double sth0 = c->sth;
 		    c->sth = 0.0;
 		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
-				       nc, sr, m0r > 0);
+				       nc, sr, m0r > 0, mar);
 		    c->sth = sth0;
 		  }
 		  if (ir >= 0) kc[ir]++;
@@ -8747,6 +8815,11 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 			  if (kcr) {
 			    ir = kcr[k];
 			    if (kc[ir] <= 0) continue;
+			    if (mar == 3) {
+			      int ntmp, ktmp;
+			      IntToShell(ir, &ntmp, &ktmp);
+			      if (ntmp < c->shells[0].n) continue;
+			    }
 			  } else {
 			    ir = -1;
 			  }
@@ -8754,6 +8827,15 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 			    if (kcr) {
 			      ird = kcr[t];
 			      if (kc[ird] <= 0) continue;
+			      if (mar == 3) {
+				int ntmp, ktmp;
+				IntToShell(ird, &ntmp, &ktmp);
+				if (c->shells[0].nq > 1) {
+				  if (ntmp < c->shells[0].n) continue;
+				} else if (c->n_shells > 1) {
+				  if (ntmp < c->shells[1].n) continue;
+				}
+			      }
 			    } else {
 			      ird = -1;
 			    }
@@ -8764,20 +8846,26 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 			    } else {
 			      id = -1;
 			    }
+			    if (ir >= 0 && is == ir &&
+				ird >= 0 && id == ird) continue;
 			    if (ir >= 0) kc[ir]--;			      
 			    if (is >= 0) kc[is]++;
 			    if (ird >= 0) kc[ird]--;
 			    if (id >= 0) kc[id]++;
-			    if (kc[ir] >= 0 && kc[ird] >= 0 &&
-				kc[is] <= js+1 && kc[id] <= jd+1) {
-			      if (pr == 1000000) {
+			    if ((ir < 0 || kc[ir] >= 0) &&
+				(ird < 0 || kc[ird] >= 0) &&
+				(is < 0 || kc[is] <= js+1) &&
+				(id < 0 || kc[id] <= jd+1)) {
+			      if (pr == 1000000 || mar == 3) {
 				pr = AddNewConfigToList(ig2, ni, kc, c,
-							nb, kcb, nc, sr, m0r>0);
+							nb, kcb, nc, sr,
+							m0r>0, mar);
 			      } else if (pr > -10) {
 				double sth0 = c->sth;
 				c->sth = 0.0;
 				AddNewConfigToList(ig2, ni, kc, c,
-						   nb, kcb, nc, sr, m0r>0);
+						   nb, kcb, nc, sr,
+						   m0r>0, mar);
 				c->sth = sth0;
 			      }
 			    }
@@ -8813,12 +8901,25 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     free(kcb);
   }
-  if (sth > 0) ReinitRadial(2);
-  g = GetGroup(ig2);
-  if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig2);
-  if (ig1 != ig2) {
-    g = GetGroup(ig1);
-    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
+  if (mar < 3) {
+    if (sth > 0) ReinitRadial(2);
+    g = GetGroup(ig2);
+    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig2);
+    if (ig1 != ig2) {
+      g = GetGroup(ig1);
+      if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
+    }
+    if (ng > 0 && kg) {
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  c->sth = 0;
+	}
+      }
+    }
+  } else {
+    ReinitRadial(2);
   }
   return 0;
 }
