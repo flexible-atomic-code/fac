@@ -329,5 +329,8 @@ void SetClosedShellNR(int n, int k);
 int IsClosedShellNR(int n, int k, int nq);
 int IsClosedShellFR(int n, int k, int j, int nq);
 int IsClosedComplex(int n, int nq);
-
+void ShellString(int n, int k, int q, char *s);
+int SDConfig(CONFIG *c, char *cs,
+	     int n0, int k0, int n1, int k1,
+	     int n2, int k2, int n3, int k3);
 #endif

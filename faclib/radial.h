@@ -197,7 +197,7 @@ void RemoveOrbitalLock(void);
 double GetHXS(POTENTIAL *p);
 int AddNewConfigToList(int k, int ni, int *kc, CONFIG *c0,
 		       int nb, int **kbc,
-		       int nc, SHELL_RESTRICTION *sr, int checknew);
+		       int nc, SHELL_RESTRICTION *sr, int checknew, int mar);
 int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth);
