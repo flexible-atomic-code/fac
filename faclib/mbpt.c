@@ -4749,18 +4749,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       } else {
 	mbpt_omp = 0;
       }
-      ResetWidMPI();
-#pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,ncps)
-      {
-      int cmst = 0;
-      ncps = 0;
-      double ptt0=0, ptt1=0, tskip=0, tlock=0;
-      long long nlock=0;      
-      cs = mbpt_cs;
-      bas0 = mbpt_bas0;
-      bas1 = mbpt_bas1;
-      mbpt_ibas0.n = mbpt_ibas0.m = 0;
-      mbpt_ibas1.n = mbpt_ibas1.m = 0;
       double *dm = NULL;
       int *im = NULL;      
       if (mbpt_msort) {
@@ -4774,6 +4762,18 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	}
 	ArgSort(icp1-icp0, dm, im);
       }
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,ncps)
+      {
+      int cmst = 0;
+      ncps = 0;
+      double ptt0=0, ptt1=0, tskip=0, tlock=0;
+      long long nlock=0;      
+      cs = mbpt_cs;
+      bas0 = mbpt_bas0;
+      bas1 = mbpt_bas1;
+      mbpt_ibas0.n = mbpt_ibas0.m = 0;
+      mbpt_ibas1.n = mbpt_ibas1.m = 0;
       int ic0;
       for (ic0 = icp0; ic0 < icp1; ic0++) {
 	if (SkipMPIM(0)) continue;
@@ -4942,13 +4942,13 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  }
 	}
       }
-      if (im) {
-	free(dm);
-	free(im);
-      }
       ttskip = tskip;
       ttlock = tlock;
       tnlock = nlock;
+      }
+      if (im) {
+	free(dm);
+	free(im);
       }
       MPrintf(-1, "MBPT Structure ... %12.5E %12.5E %12.5E\n",
 	      WallTime()-tbg, TotalSize(), TotalArraySize());
@@ -5358,26 +5358,26 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     } else {
       mbpt_omp = 0;
     }
-#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,j0,j1,ct0,ct1,bst,kst,n1,bas0,bas1,ic)
+    double *dm = NULL;
+    int *im = NULL;      
+    if (mbpt_msort) {
+      dm = malloc(sizeof(double)*(icp1-icp0));
+      im = malloc(sizeof(int)*(icp1-icp0));
+      for (ic = icp0; ic < icp1; ic++) {
+	dm[ic-icp0] = 1.0/cfgpair[ic].m;
+	if (cfgpair[ic].k0 != cfgpair[ic].k1) {
+	  dm[ic-icp0] += 10.0;
+	}
+      }
+      ArgSort(icp1-icp0, dm, im);
+    }
+#pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,j0,j1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,pp0,pp1,i,j)
     {
       int cmst = 0;
       double ptt0, ptt1;
       cs = mbpt_cs;
       bas0 = mbpt_bas0;
       bas1 = mbpt_bas1;
-      double *dm = NULL;
-      int *im = NULL;      
-      if (mbpt_msort) {
-	dm = malloc(sizeof(double)*(icp1-icp0));
-	im = malloc(sizeof(int)*(icp1-icp0));
-	for (ic = icp0; ic < icp1; ic++) {
-	  dm[ic-icp0] = 1.0/cfgpair[ic].m;
-	  if (cfgpair[ic].k0 != cfgpair[ic].k1) {
-	    dm[ic-icp0] += 10.0;
-	  }
-	}
-	ArgSort(icp1-icp0, dm, im);
-      }
       int ic0;
       for (ic0 = icp0; ic0 < icp1; ic0++) {
 	int skip = SkipMPIM(0);
@@ -5506,10 +5506,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  }
 	}
       }
-      if (im) {
-	free(dm);
-	free(im);
-      }
+    }
+    if (im) {
+      free(dm);
+      free(im);
     }
     free(cfgpair);
     k = 2*mbpt_tr.nktr*MAX_SYMMETRIES;
@@ -5554,8 +5554,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	      for (m0 = 0; m0 < mtr[j].ndim0; m0++) {
 		for (m1 = 0; m1 < mtr[j].ndim1[i]; m1++) {
 		  p0 = m0*mtr[j].ndim1[i] + m1;
-		  MPrintf(-1, "wmtr: %d %d %d %d %d %d %x\n",
-			  j, i, m0, m1, p0, mtr[j].ndim1[i], mtr[j].pma[i][p0]);
 		  if (mtr[j].pma[i][p0] == NULL) {
 		    m = 0;
 		  } else {
