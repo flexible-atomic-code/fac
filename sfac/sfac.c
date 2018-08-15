@@ -2955,9 +2955,17 @@ static int PTransitionMBPT(int argc, char *argv[], int argt[],
   int m, n, nlow, *low, nup, *up;
 
   if (argc == 2) {
-    m = atoi(argv[0]);
-    n = atoi(argv[1]);
-    TransitionMBPT(m, n);
+    if (argt[0] == NUMBER) {
+      m = atoi(argv[0]);
+      n = atoi(argv[1]);
+      TransitionMBPT(m, NULL, n);
+    } else if (argt[0] == LIST) {
+      int *ks;
+      m = IntFromList(argv[0], argt[0], variables, &ks);
+      n = atoi(argv[1]);
+      TransitionMBPT(m, ks, n);
+      if (m > 0) free(ks);
+    }
   } else if (argc == 3) {
     nlow = DecodeGroupArgs(&low, 1, NULL, &(argv[1]), &(argt[1]), variables);
     nup = DecodeGroupArgs(&up, 1, NULL, &(argv[2]), &(argt[2]), variables);
