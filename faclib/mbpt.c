@@ -1417,7 +1417,7 @@ double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
 }
 
 double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
-  int i, k0, k1, nk, j;
+  int i, k0, k1, nk, j, nw;
   double r, a, b, c, d, e, f, g, h;
   double p1, p2, p3, q1, q2, q3;
   double *dw0, *dw1;
@@ -1434,7 +1434,6 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
     }
     return r;
   }
-
   for (k0 = 1; k0 < n; k0++) {
     if (x[k0]-x[k0-1] > 1) break;
   }
@@ -1463,42 +1462,47 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
       }
     }
   }
-  if (k1 < k0) k1 = k0;
+  if (k1 == n) k1 = n-1;
+  if (k1 < k0) k1 = k0;  
   for (i = k0; i < n; i++) {
     t[i] = log(x[i]);
   }
-  nk = n - k0;
   dw0 = WorkSpace();
-  dw1 = dw0 + (2 + (int)(x[n-1]-x[0]));
-  j = 0;
-  for (i = k0; i < k1; i++) {    
-    for (a = x[i]+1; a < x[i+1]; a += 1.0) {
-      dw0[j++] = log(a);
+  nw = 2 + (int)(x[n-1]-x[0]);
+  dw1 = dw0 + nw;
+  if (k1 > k0) {
+    nk = k1 - k0 + 1;
+    j = 0;
+    for (i = k0; i < k1; i++) {    
+      for (a = x[i]+1; a < x[i+1]; a += 1.0) {
+	dw0[j++] = log(a);
+      }
     }
-  }
-  if (j > 0) {
-    UVIP3P(3, nk, t+k0, z+k0, j, dw0, dw1);
-    for (i = 0; i < j; i++) {
-      r += dw1[i];
+    if (j > 0) {
+      UVIP3P(3, nk, t+k0, z+k0, j, dw0, dw1);
+      for (i = 0; i < j; i++) {
+	r += dw1[i];
+      }
     }
   }
   for (i = k1; i < n; i++) {
     y[i] = log(fabs(z[i]));
   }
-  
   nk = n - k1;
-  j = 0;
-  for (i = k1+1; i < n; i++) {
-    for (a = x[i-1]+1; a < x[i]; a += 1.0) {
-      dw0[j++] = log(a);
+  if (nk > 1) {
+    j = 0;
+    for (i = k1+1; i < n; i++) {
+      for (a = x[i-1]+1; a < x[i]; a += 1.0) {
+	dw0[j++] = log(a);
+      }
     }
-  }
-  if (j > 0) {
-    UVIP3P(3, nk, t+k1, y+k1, j, dw0, dw1);
-    for (i = 0; i < j; i++) {
-      b = exp(dw1[i]);
-      if (z[n-1] < 0) b = -b;
-      r += b;
+    if (j > 0) {
+      UVIP3P(3, nk, t+k1, y+k1, j, dw0, dw1);
+      for (i = 0; i < j; i++) {
+	b = exp(dw1[i]);
+	if (z[n-1] < 0) b = -b;
+	r += b;
+      }
     }
   }
  END:
@@ -2288,12 +2292,52 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   
   orb = GetOrbital(ks[2]);
   d2 = orb->energy + orb->qed;
+  int nn1 = orb->n;
+  int ka1 = orb->kappa;
   orb = GetOrbital(ks[3]);
   d2 += orb->energy + orb->qed;
+  int nn2 = orb->n;
+  int ka2 = orb->kappa;
   orb = GetOrbital(ks[0]);
   d2 -= orb->energy + orb->qed;
+  int nn3 = orb->n;
+  int ka3 = orb->kappa;
   orb = GetOrbital(ks[1]);
   d2 -= orb->energy + orb->qed;
+  int nn4 = orb->n;
+  int ka4 = orb->kappa;
+  double sd1s = c1->sth/fabs(d2);
+  int warned = 0;
+  if (c0->icfg >= 0 && c1->icfg >= 0) {
+    if (mbpt_warn > 0 && sd1s > mbpt_warn) {
+	char s1[16], s2[16], s3[16], s4[16];
+	ShellString(nn1, ka1, -1, s1);
+	ShellString(nn2, ka2, -1, s2);
+	ShellString(nn3, ka3, -1, s3);
+	ShellString(nn4, ka4, -1, s4);
+	printf("large t12term warn: %s %s %s %s %d %d %d %d %g %g %g\n",
+	       s1, s2, s3, s4,
+	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	       sd1s, d2, mbpt_warn);
+	warned = 1;
+    }
+  }
+  if (mbpt_ignore > 0 && sd1s > mbpt_ignore) {
+    if (!warned) {
+      //char sc[64];
+      char s1[16], s2[16], s3[16], s4[16];
+      ShellString(nn1, ka1, -1, s1);
+      ShellString(nn2, ka2, -1, s2);
+      ShellString(nn3, ka3, -1, s3);
+      ShellString(nn4, ka4, -1, s4);
+      printf("large t12term ignore: %s %s %s %s %d %d %d %d %g %g %g\n",
+	     s1, s2, s3, s4,
+	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	     sd1s, d2, mbpt_ignore);
+    }
+    return;
+  }
+
   gauge = GetTransitionGauge();
   ng -= mbpt_mini;
   for (kk = kmin; kk <= kmax; kk += 2) {
@@ -2508,7 +2552,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	       s1, s2, s3, s4,
 	       c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 	       sd1s, sd2s, d1, d2, mbpt_warn);
-	warned = 0;
+	warned = 1;
       }
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
@@ -2559,7 +2603,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   double d2, *r1, r2, c, d;
   int q0, q1, k, m0, m1, m, ms0, ms1, s0, s1, p, ip, p0, n, is0, is1;
   int gauge, p1, j0, j1;
-  ORBITAL *orb;
+  ORBITAL *orb3, *orb2;
   MBPT_PMA *pma;
   
   /* setup recouple tensor */
@@ -2611,10 +2655,35 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   r2 += QED1E(k2, k3);
   r2 *= sqrt(s[3].j+1.0);
 
-  orb = GetOrbital(k3);
-  d2 = orb->energy + orb->qed;
-  orb = GetOrbital(k2);
-  d2 -= orb->energy + orb->qed;
+  orb3 = GetOrbital(k3);
+  d2 = orb3->energy + orb3->qed;
+  orb2 = GetOrbital(k2);
+  d2 -= orb2->energy + orb2->qed;
+  double sd1s = c1->sth/fabs(d2);
+  int warned = 0;
+  if (c0->icfg >= 0 && c1->icfg >= 0) {
+    if (mbpt_warn > 0 && sd1s > mbpt_warn) {
+      char s3[16], s4[16];
+      ShellString(orb2->n, orb2->kappa, -1, s3);
+      ShellString(orb3->n, orb3->kappa, -1, s4);
+      printf("large t11term warn: %s %s %d %d %d %d %g %g %g\n",
+	     s3, s4, c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+	     sd1s, d2, mbpt_warn);
+      warned = 1;
+    }
+  }
+  if (mbpt_ignore > 0 && sd1s > mbpt_ignore) {
+    if (!warned) {
+      char s3[16], s4[16];
+      ShellString(orb2->n, orb2->kappa, -1, s3);
+      ShellString(orb3->n, orb3->kappa, -1, s4);
+      printf("large t11term ignore: %s %s %d %d %d %d %g %g %g\n",
+	     s3, s4, c0->igroup, c0->icfg, c1->igroup, c1->icfg,
+		 sd1s, d2, mbpt_ignore);
+    }
+    return;
+  }
+    
   /*
   d2 = GetOrbital(k3)->energy - GetOrbital(k2)->energy;
   */
@@ -5611,6 +5680,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }
       free(x);
     }
+    tt1 = WallTime();
+    dt = tt1-tbg;
+    MPrintf(-1, "write MBPT transition: %12.5E\n", dt);
     if (mbpt_savesum && MyRankMPI() == 0) {
       for (j = 0; j < k; j++) {
 	for (i = 0; i < mtr[j].nsym1; i++) {

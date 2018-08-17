@@ -112,7 +112,7 @@ static double *_yk;
 static double *_zk;
 static double *_xk;
 
-#pragma omp threadprivate(potential,hpotential,rpotential,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+#pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;

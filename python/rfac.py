@@ -726,6 +726,10 @@ class FLEV:
             return
         (hlev,blev) = read_lev(f)
         b0 = blev[0]
+        for b in blev[1:]:
+            for kn in b0.keys():
+                if kn != 'NELE':
+                    b0[kn] = np.append(b0[kn], b[kn])
         self.nele = b0['NELE']
         ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
         if self.nele <= 12:
