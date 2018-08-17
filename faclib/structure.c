@@ -5416,7 +5416,7 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 				  ang_sub[m].k0, ang_sub[m].k1, r0);
 	  }
 	}
-	if (mbk && (*mbk)) {
+	if (mbk && (*mbk) && ad->mk) {
 	  for (ik = 0; ik < mbpt_mk; ik++) {
 	    im = ik*naw;
 	    if (lev) {

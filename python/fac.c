@@ -1828,7 +1828,7 @@ static PyObject *PCutMixing(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
-  int m, n, nlow, *low, nup, *up;
+  int m, n, nlow, *low, nup, *up, *ks;
   char *fn;
   PyObject *p, *q;
 
@@ -1840,8 +1840,15 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
   
   n = PyTuple_Size(args);
   if (n == 2) {
-    if (!(PyArg_ParseTuple(args, "ii", &m, &n))) return NULL;
-    TransitionMBPT(m, n);
+    if (!(PyArg_ParseTuple(args, "Oi", &p, &n))) return NULL;
+    if (PyLong_Check(p)) {
+      m = PyLong_AsLong(p);      
+      TransitionMBPT(m, NULL, n);
+    } else {
+      m = IntFromList(p, &ks);
+      TransitionMBPT(m, ks, n);
+      if (m > 0) free(ks);
+    }
   } else if (n == 3) {
     if (!(PyArg_ParseTuple(args, "sOO", &fn, &p, &q))) return NULL;
     nlow = DecodeGroupArgs(p, &low, NULL);

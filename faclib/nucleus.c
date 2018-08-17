@@ -1032,7 +1032,7 @@ int InitNucleus() {
       }
     }
   }
-
+  atom.atomic_number = 0.0;
   SetExtraPotential(-1, 0, NULL);
   return 0;
 }

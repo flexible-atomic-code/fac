@@ -23,11 +23,9 @@
 #include "structure.h"
 #include "transition.h"
 
-#define CPMEFF 0
-#define CPMTR 0
-
 typedef struct _TR_OPT_{
-  int mktr;
+  int nktr;
+  int *ks;
   int naw;
   double *awgrid;
   char tfn[1024];
@@ -35,14 +33,31 @@ typedef struct _TR_OPT_{
   int *low, *up;
 } TR_OPT;
 
+typedef struct _MBPT_EFF_ {
+  int n, n2;
+  int hsize, nbasis, *basis, hsize0;
+  IDXARY *idb;
+  double *h0, *e0, *heff, *heff0, *neff;
+  int *imbpt;
+  /* effective hamilton elements for 1-virtual */
+  double **hab1, **hba1;
+  /* effective hamilton elements for 2-virtual */
+  double **hab, **hba;
+} MBPT_EFF;
+
+typedef struct _MBPT_PMA_ {
+  double *tma;
+  double *rma;
+} MBPT_PMA;
+  
 typedef struct _MBPT_TR_ {
   int m, nsym1;
-  int isym0;
-  int *isym1;
-  SYMMETRY *sym0;
-  SYMMETRY **sym1;
-  double **tma;
-  double **rma;
+  int isym0, ndim0;
+  IDXARY **idb;
+  IDXARY *ids;
+  int *isym1, *ndim1;
+  MBPT_PMA ***pma;
+  //MBPT_EFF **meff;
 } MBPT_TR;
 
 typedef struct _CORR_CONFIG_ {
@@ -63,18 +78,6 @@ typedef struct _MBPT_HAM_ {
   int hsize0, *basis;
   MBPT_TR *mtr;
 } MBPT_HAM;
-
-typedef struct _MBPT_EFF_ {
-  int n, n2;
-  int hsize, nbasis, *basis, hsize0;
-  IDXARY *idb;
-  double *h0, *e0, *heff, *heff0;
-  int *imbpt;
-  /* effective hamilton elements for 1-virtual */
-  double **hab1, **hba1;
-  /* effective hamilton elements for 2-virtual */
-  double **hab, **hba;
-} MBPT_EFF;
 
 typedef struct _CONFIG_PAIR_ {
   int k0;
@@ -97,8 +100,12 @@ void SetExcMBPT(int nd, int ns, char *s);
 void SetOptMBPT(int i3rd, int n3, double c, double d, double e, double f);
 void SetWarnMBPT(double f, double g);
 void SetSymMBPT(int nlev, int *ilev);
-void TransitionMBPT(int mk, int naw);
+void TransitionMBPT(int nk, int *ks, int naw);
 void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up);
 int GetAWGridMBPT(double **awgrid);
 void UnpackSymStateMBPT(MBPT_EFF **meff, int ms, int *s, int *m);
+void UnpackSymStateTR(MBPT_TR *mtr, int ms, int ip, int *s, int *m, int *is);
+void SaveTransitionMBPT(MBPT_TR *mtr);
+void AdjustAngularZ(MBPT_TR *mtr);
+
 #endif

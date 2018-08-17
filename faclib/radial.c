@@ -112,7 +112,7 @@ static double *_yk;
 static double *_zk;
 static double *_xk;
 
-#pragma omp threadprivate(potential,hpotential,rpotential,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+#pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -1868,6 +1868,11 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS2], ehx[NXS2], mse;
   int iter, i, j, i0, i1, k;
+  
+  if (potential->atom->atomic_number < EPS10) {
+    printf("SetAtom has not been called\n");
+    Abort(1);
+  }
   mse = qed.se;
   qed.se = -1000000;
   /* get the average configuration for the groups */
@@ -8451,12 +8456,10 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   double sth0;
 
   sr = NULL;
+  nc = 0;
   if (s) {
     nc = GetRestriction(s, &sr, 0);
-  } else {
-    nc = 0;
   }
-
   m0 = abs(m0r);
   if (m0 == 0) {
     ig1 = GroupIndex(gn1);
@@ -8621,7 +8624,7 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
     for (i = 0; i < nr; i++) {
       for (j = 0; j < cr[i].n_shells; j++) {
 	k = ShellToInt(cr[i].shells[j].n, cr[i].shells[j].kappa);
-	if (k >= 0) kc[k] = 1;
+	if (k >= 0 && k < ni) kc[k] = 1;
       }
       if (fcr) free(cr[i].shells);
     }  
