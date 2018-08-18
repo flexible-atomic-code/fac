@@ -46,5 +46,5 @@ int SaveTransitionEB(int nlow, int *low, int nup, int *up,
 int GetLowUpEB(int *nlow, int **low, int *nup, int **up, 
 	       int nlow0, int *low0, int nup0, int *up0);
 int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1);
-
+void SetOptionTransition(char *s, int ip, double dp);
 #endif

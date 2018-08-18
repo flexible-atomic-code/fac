@@ -18,6 +18,7 @@
 
 #include "excitation.h"
 #include "transition.h"
+#include "mbpt.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -2349,7 +2350,12 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	      c1 /= aw;
 	      c2 /= aw;
 	    }
-	    c1 = c*(1.0+c1)*(1.0+c2);
+	    c1 = (1.0+c1)*(1.0+c2);
+	    if (fabs(c1-1) < AngZCutMBPT()) {
+	      c1 = c*c1;
+	    } else {
+	      c1 = c;
+	    }
 	  } else {
 	    c1 = c;
 	  }
@@ -3965,4 +3971,7 @@ int ReinitExcitation(int m) {
   SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
 
   return 0;
+}
+
+void SetOptionExcitation(char *s, int ip, double dp) {
 }

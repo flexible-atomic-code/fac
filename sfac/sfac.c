@@ -1107,6 +1107,20 @@ static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSetOption(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int ip;
+  double dp;
+  if (argc != 2) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != NUMBER) return -1;
+  
+  ip = atoi(argv[1]);
+  dp = atof(argv[1]);
+  SetOption(argv[0], ip, dp);
+  return 0;
+}
+	    
 static int PMemENTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
 
@@ -4537,6 +4551,7 @@ static METHOD methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},

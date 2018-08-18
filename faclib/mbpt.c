@@ -33,6 +33,9 @@ static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_warn = -1;
 static double mbpt_ignore = -1;
+static double mbpt_warntr = -1;
+static double mbpt_ignoretr = -1;
+static double mbpt_angzc = 0.75;
 static int mbpt_savesum = 0;
 static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
@@ -77,8 +80,9 @@ void PrintMBPTOptions(void) {
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
-  printf("warn=%g\n", mbpt_warn);
-  printf("ignore=%g\n", mbpt_ignore);
+  printf("warn=%g/%g\n", mbpt_warn, mbpt_warntr);
+  printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
+  printf("angzc=%g\n", mbpt_angzc);
   printf("savesum=%d\n", mbpt_savesum);
   printf("maxn=%d\n", mbpt_maxn);
   printf("maxm=%d\n", mbpt_maxm);
@@ -183,6 +187,82 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
   mbpt_tr.up = malloc(sizeof(int)*nup);
   memcpy(mbpt_tr.low, low, sizeof(int)*nlow);
   memcpy(mbpt_tr.up, up, sizeof(int)*nup);
+}
+
+void SetOptionMBPT(char *s, int ip, double dp) {
+  if (0 == strcmp(s, "mbpt:warntr")) {
+    mbpt_warntr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:ignoretr")) {
+    mbpt_ignoretr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:warn")) {
+    mbpt_warn = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:ignore")) {
+    mbpt_ignore = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:angzc")) {
+    mbpt_angzc = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:rand")) {
+    mbpt_rand = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:msort")) {
+    mbpt_msort = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:n3")) {
+    mbpt_n3 = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:mcut2")) {
+    mbpt_mcut2 = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:mcut3")) {
+    mbpt_mcut3 = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:mcut4")) {
+    mbpt_mcut4 = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:omp")) {
+    mbpt_omp0 = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:extra")) {
+    mbpt_extra = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:savesum")) {
+    mbpt_savesum = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:minn")) {
+    mbpt_minn = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:reinit_ncps")) {
+    mbpt_reinit_ncps = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:reinit_mem")) {
+    mbpt_reinit_mem = 1e9*ip;
+    return;
+  }
+  return;
+}
+
+double AngZCutMBPT(void) {
+  return mbpt_angzc;
 }
 
 void SetWarnMBPT(double f, double g) {
@@ -2309,7 +2389,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   double sd1s = c1->sth/fabs(d2);
   int warned = 0;
   if (c0->icfg >= 0 && c1->icfg >= 0) {
-    if (mbpt_warn > 0 && sd1s > mbpt_warn) {
+    if (mbpt_warntr > 0 && sd1s > mbpt_warntr) {
 	char s1[16], s2[16], s3[16], s4[16];
 	ShellString(nn1, ka1, -1, s1);
 	ShellString(nn2, ka2, -1, s2);
@@ -2318,11 +2398,11 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	printf("large t12term warn: %s %s %s %s %d %d %d %d %g %g %g\n",
 	       s1, s2, s3, s4,
 	       c0->igroup, c0->icfg, c1->igroup, c1->icfg,
-	       sd1s, d2, mbpt_warn);
+	       sd1s, d2, mbpt_warntr);
 	warned = 1;
     }
   }
-  if (mbpt_ignore > 0 && sd1s > mbpt_ignore) {
+  if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
     if (!warned) {
       //char sc[64];
       char s1[16], s2[16], s3[16], s4[16];
@@ -2333,7 +2413,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       printf("large t12term ignore: %s %s %s %s %d %d %d %d %g %g %g\n",
 	     s1, s2, s3, s4,
 	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
-	     sd1s, d2, mbpt_ignore);
+	     sd1s, d2, mbpt_ignoretr);
     }
     return;
   }
@@ -2366,7 +2446,8 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       //is1 = IBisect(s1, mtr[is0].nsym1, mtr[is0].isym1);
       is1 = IdxGet(mtr[is0].ids, s1);
       if (is1 < 0) continue;
-      pma = mtr[is0].pma[is1][m0*mtr[is0].ndim1[is1] + m1];
+      int m01 = m0*mtr[is0].ndim1[is1] + m1;
+      pma = mtr[is0].pma[is1][m01];
       if (pma == NULL) continue;
       q0 = k*mbpt_tr.nktr + ip;
       c = 0.0;
@@ -2662,24 +2743,24 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   double sd1s = c1->sth/fabs(d2);
   int warned = 0;
   if (c0->icfg >= 0 && c1->icfg >= 0) {
-    if (mbpt_warn > 0 && sd1s > mbpt_warn) {
+    if (mbpt_warntr > 0 && sd1s > mbpt_warntr) {
       char s3[16], s4[16];
       ShellString(orb2->n, orb2->kappa, -1, s3);
       ShellString(orb3->n, orb3->kappa, -1, s4);
       printf("large t11term warn: %s %s %d %d %d %d %g %g %g\n",
 	     s3, s4, c0->igroup, c0->icfg, c1->igroup, c1->icfg,
-	     sd1s, d2, mbpt_warn);
+	     sd1s, d2, mbpt_warntr);
       warned = 1;
     }
   }
-  if (mbpt_ignore > 0 && sd1s > mbpt_ignore) {
+  if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
     if (!warned) {
       char s3[16], s4[16];
       ShellString(orb2->n, orb2->kappa, -1, s3);
       ShellString(orb3->n, orb3->kappa, -1, s4);
       printf("large t11term ignore: %s %s %d %d %d %d %g %g %g\n",
 	     s3, s4, c0->igroup, c0->icfg, c1->igroup, c1->icfg,
-		 sd1s, d2, mbpt_ignore);
+		 sd1s, d2, mbpt_ignoretr);
     }
     return;
   }
@@ -2709,7 +2790,8 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
       //is1 = IBisect(s1, mtr[is0].nsym1, mtr[is0].isym1);
       is1 = IdxGet(mtr[is0].ids, s1);
       if (is1 < 0) continue;
-      pma = mtr[is0].pma[is1][m0*mtr[is0].ndim1[is1] + m1];
+      int m01 = m0*mtr[is0].ndim1[is1] + m1;
+      pma = mtr[is0].pma[is1][m01];
       if (pma == NULL) continue;
       q0 = k*mbpt_tr.nktr + ip;
       for (p1 = 0; p1 < n; p1++) {
@@ -6273,7 +6355,13 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  }
 	  r.lower = i;
 	  r.upper = j;
-	  r.strength = s0+s;
+	  a = s/s0;
+	  a *= a;
+	  if (a < mbpt_angzc) {
+	    r.strength = s0+s;
+	  } else {
+	    r.strength = s0;
+	  }
 	  WriteTRRecord(f, &r, NULL);
 	}
       }
@@ -6320,6 +6408,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 
   mr = MPIRank(&nr);
   if (mr != 0) return 0;
+  PrintMBPTOptions();
   double wt0 = WallTime();
   if (fn2 && strlen(fn2) > 0) {
     ReadHamilton(fn2, &nkg0, &nkg, &kg, &nkgp, &kgp, 1);
