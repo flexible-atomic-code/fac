@@ -1862,6 +1862,32 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetOption(PyObject *self, PyObject *args) {
+  char *s;
+  PyObject *p;
+  int ip;
+  double dp;
+  
+  if (sfac_file) {
+    SFACStatement("SetOption", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!(PyArg_ParseTuple(args, "sO", &s, &p))) return NULL;
+  if (PyLong_Check(p)) {
+    ip = PyLong_AsLong(p);
+    dp = (double)ip;
+  } else if (PyFloat_Check(p)) {
+    ip = 0;
+    dp = PyFloat_AsDouble(p);
+  } else {
+    return NULL;
+  }
+  SetOption(s, ip, dp);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   PyObject *p, *q, *t, *r, *x, *y;
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
@@ -5683,6 +5709,7 @@ static struct PyMethodDef fac_methods[] = {
   {"WignerDMatrix", PWignerDMatrix, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},

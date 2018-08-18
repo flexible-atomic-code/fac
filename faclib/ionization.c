@@ -1703,5 +1703,8 @@ int ReinitIonization(int m) {
   SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
   */
   return 0;
-}  
+}
+
+void SetOptionIonization(char *s, int ip, double dp) {
+}
 

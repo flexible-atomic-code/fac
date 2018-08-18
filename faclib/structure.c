@@ -6194,3 +6194,46 @@ int ReinitStructure(int m) {
   return 0;
 }
 
+void SetOptionStructure(char *s, int ip, double dp) {
+  if (0 == strcmp(s, "structure:perturb_threshold")) {
+    perturb_threshold = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_maxiter")) {
+    perturb_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_expdim")) {
+    perturb_expdim = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_expdimz")) {
+    perturb_expdimz = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:diag_maxiter")) {
+    diag_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:diag_maxtol")) {
+    diag_maxtol = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:dgeev_mode")) {
+    dgeev_mode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:mix_cut")) {
+    mix_cut = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:mix_cut2")) {
+    mix_cut2 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:angz_cut")) {
+    angz_cut = dp;
+    return;
+  }
+}
+

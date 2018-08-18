@@ -8927,3 +8927,5 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   return 0;
 }
 
+void SetOptionRadial(char *s, int ip, double dp) {
+}

@@ -99,5 +99,6 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f);
 int AutoionizeRate(double *rate, double *e, int rec, int f, int msub);
 void ProcessAICache(int msub, int iuta, TFILE *f);
 int DROpen(int n, int *nlev, int **ops);
+void SetOptionRecombination(char *s, int ip, double dp);
  
 #endif
