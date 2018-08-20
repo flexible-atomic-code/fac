@@ -1113,11 +1113,16 @@ static int PSetOption(int argc, char *argv[], int argt[],
   double dp;
   if (argc != 2) return -1;
   if (argt[0] != STRING) return -1;
-  if (argt[1] != NUMBER) return -1;
-  
-  ip = atoi(argv[1]);
-  dp = atof(argv[1]);
-  SetOption(argv[0], ip, dp);
+  if (argt[1] != NUMBER && argt[1] != STRING) return -1;
+
+  if (argt[1] == NUMBER) {
+    ip = atoi(argv[1]);
+    dp = atof(argv[1]);
+  } else {
+    ip = 0;
+    dp = 0;
+  }
+  SetOption(argv[0], argv[1], ip, dp);
   return 0;
 }
 	    

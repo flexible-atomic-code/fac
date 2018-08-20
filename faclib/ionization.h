@@ -63,6 +63,6 @@ double CIRadialQkIntegratedMSub(int j1, int m1, int j2, int m2,
 int IonizeStrengthMSub(double *qku, double *e, int b, int f);
 int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn);
 double BEScale(int k, double e);
-void SetOptionIonization(char *s, int ip, double dp);
+void SetOptionIonization(char *s, char *sp, int ip, double dp);
 
 #endif

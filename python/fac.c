@@ -33,6 +33,24 @@ USE (rcsid);
 #if PY_MAJOR_VERSION >= 3
   #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
 #else
+#ifdef PyLong_AsLong
+#undef PyLong_AsLong
+#endif
+#ifdef PyLong_AS_LONG
+#undef PyLong_AS_LONG
+#endif
+#ifdef PyLong_Check
+#undef PyLong_Check
+#endif
+#ifdef PyUnicode_FromString
+#undef PyUnicode_FromString
+#endif
+#ifdef PyUnicode_AsString
+#undef PyUnicode_AsString
+#endif
+#ifdef PyUnicode_Check
+#undef PyUnicode_Check
+#endif
   #define PyLong_AsLong PyInt_AsLong
   #define PyLong_AS_LONG PyInt_AS_LONG
   #define PyLong_Check PyInt_Check
@@ -41,16 +59,16 @@ USE (rcsid);
   #define PyUnicode_Check PyString_Check
 #endif
 
-#if PY_MAJOR_VERSION >= 3
-  #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
-#else
-  #define GETSTATE(m) (&_state)
-  static struct module_state _state;
-#endif
-
 struct module_state {
     PyObject *error;
 };
+
+#if PY_MAJOR_VERSION >= 3
+  #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+  static struct module_state _state;
+  #define GETSTATE(m) (&_state)
+#endif
 
 static PyObject *ErrorObject;
 static PyObject *PFACVERSION;
@@ -1863,7 +1881,7 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetOption(PyObject *self, PyObject *args) {
-  char *s;
+  char *s, *sp;
   PyObject *p;
   int ip;
   double dp;
@@ -1880,10 +1898,12 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   } else if (PyFloat_Check(p)) {
     ip = 0;
     dp = PyFloat_AsDouble(p);
+  } else if (PyUnicode_Check(p)) {
+    sp = PyUnicode_AsString(p);
   } else {
     return NULL;
   }
-  SetOption(s, ip, dp);
+  SetOption(s, sp, ip, dp);
   Py_INCREF(Py_None);
   return Py_None;
 }

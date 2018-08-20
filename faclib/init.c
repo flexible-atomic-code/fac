@@ -99,33 +99,33 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
   return 0;
 }
 
-void SetOption(char *s, int ip, double dp) {
+void SetOption(char *s, char *sp, int ip, double dp) {
   if (strstr(s, "mbpt:") == s) {
-    SetOptionMBPT(s, ip, dp);
+    SetOptionMBPT(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "radial:") == s) {
-    SetOptionRadial(s, ip, dp);
+    SetOptionRadial(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "structure:") == s) {
-    SetOptionStructure(s, ip, dp);
+    SetOptionStructure(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "transition:") == s) {
-    SetOptionTransition(s, ip, dp);
+    SetOptionTransition(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "excitation:") == s) {
-    SetOptionExcitation(s, ip, dp);
+    SetOptionExcitation(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "ionization:") == s) {
-    SetOptionIonization(s, ip, dp);
+    SetOptionIonization(s, sp, ip, dp);
     return;
   }
   if (strstr(s, "recombination:") == s) {
-    SetOptionRecombination(s, ip, dp);
+    SetOptionRecombination(s, sp, ip, dp);
     return;
   }
   return;

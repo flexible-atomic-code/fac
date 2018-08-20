@@ -29,7 +29,7 @@ c
         real*8 FSEfns(120,-3:2,5,5),errfns(120,-3:2,5,5)
         common /re_fns_stor/FSEfns,errfns
 c
-        Func = 0.d0
+c        Func = 0.d0
         do i = 1,120
           Func(i) = FSE(i,KA,N1,N2)
 c          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then
@@ -39,7 +39,7 @@ c          end if
         SE_pnt = DInterpolation(iz,Func)
 c        if (KA.eq.-1) SE_pnt = SE_pnt + 4.d0/3.d0*(-2)*log(iz/acl)
 c
-        Func = 0.d0
+c        Func = 0.d0
         do i = 1,120
           Func(i) = FSE(i,KA,N1,N2) + FSEfns(i,KA,N1,N2)
 c          if (KA.eq.-1.and.abs(Func(i)).gt.TINY) then

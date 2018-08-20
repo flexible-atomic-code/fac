@@ -1705,6 +1705,6 @@ int ReinitIonization(int m) {
   return 0;
 }
 
-void SetOptionIonization(char *s, int ip, double dp) {
+void SetOptionIonization(char *s, char *sp, int ip, double dp) {
 }
 

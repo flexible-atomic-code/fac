@@ -209,6 +209,6 @@ void AllocPotMem(POTENTIAL *p, int n);
 void SetPotDP(POTENTIAL *p);
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
 void ElectronDensity(char *ofn, int n, int *ilev, int t);
-void SetOptionRadial(char *s, int ip, double dp);
+void SetOptionRadial(char *s, char *sp, int ip, double dp);
 #endif
 

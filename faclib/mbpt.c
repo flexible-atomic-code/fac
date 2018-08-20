@@ -189,7 +189,7 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
   memcpy(mbpt_tr.up, up, sizeof(int)*nup);
 }
 
-void SetOptionMBPT(char *s, int ip, double dp) {
+void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "mbpt:warntr")) {
     mbpt_warntr = dp;
     return;

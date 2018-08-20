@@ -1035,5 +1035,5 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
   return 0;
 }
   
-void SetOptionTransition(char *s, int ip, double dp) {
+void SetOptionTransition(char *s, char *sp, int ip, double dp) {
 }

@@ -108,5 +108,5 @@ void UnpackSymStateTR(MBPT_TR *mtr, int ms, int ip, int *s, int *m, int *is);
 void SaveTransitionMBPT(MBPT_TR *mtr);
 void AdjustAngularZ(MBPT_TR *mtr);
 double AngZCutMBPT(void);
-void SetOptionMBPT(char *s, int ip, double dp);
+void SetOptionMBPT(char *s, char *sp, int ip, double dp);
 #endif
