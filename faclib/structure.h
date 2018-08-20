@@ -267,7 +267,7 @@ void GenEigen(char *trans, char *jobz, int n, double *ap,
 	      double *w, double *wi, double *z,
 	      double *work, int lwork, int *info);
 void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);
-void SetOptionStructure(char *s, int ip, double dp);
+void SetOptionStructure(char *s, char *sp, int ip, double dp);
 #endif
 
 

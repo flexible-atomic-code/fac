@@ -4042,14 +4042,20 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	lev = GetLevel(i);
 	sym = GetSymmetry(lev->pj);
 	DecodePJ(lev->pj, &p, &j);
-	fprintf(f, "# %4d   %3d %2d %2d   %5d\n",
-		i, lev->pj, p, j, lev->n_basis);
+	double a = 0;
+	for (k = 0; k < lev->n_basis; k++) {
+	  a += lev->mixing[k]*lev->mixing[k];
+	}
+	fprintf(f, "# %4d   %3d %2d %2d   %5d %12.5E\n",
+		i, lev->pj, p, j, lev->n_basis, a);
+	a = 0;
 	for (k = 0; k < lev->n_basis; k++) {
 	  si = lev->basis[k];
 	  s = (STATE *) ArrayGet(&(sym->states), si);
-	  fprintf(f, "%6d   %3d %2d %2d   %5d %5d %3d %5d %5d   %15.8E\n", 
+	  a += lev->mixing[k]*lev->mixing[k];
+	  fprintf(f, "%6d   %3d %2d %2d   %5d %5d %3d %5d %5d   %15.8E %15.8E\n", 
 		  i, lev->pj, p, j, k, si,
-		  s->kgroup, s->kcfg, s->kstate, lev->mixing[k]);
+		  s->kgroup, s->kcfg, s->kstate, lev->mixing[k], a);
 	}
 	fprintf(f, "\n");
       }    
@@ -4110,10 +4116,10 @@ int GetBasisTable(char *fn, int m0, int k0) {
       char ash[2048];
       char asj[2048];
       char atj[2048];
-      char a1[10];
-      char a2[10];
-      char a3[10];
-      char a0[10];
+      char a1[16];
+      char a2[16];
+      char a3[16];
+      char a0[16];
       int ic, kl;
       SHELL_STATE *sst;
       int ws = 0;
@@ -6194,7 +6200,7 @@ int ReinitStructure(int m) {
   return 0;
 }
 
-void SetOptionStructure(char *s, int ip, double dp) {
+void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "structure:perturb_threshold")) {
     perturb_threshold = dp;
     return;

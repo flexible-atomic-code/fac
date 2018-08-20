@@ -29,6 +29,15 @@ USE (rcsid);
 #if PY_MAJOR_VERSION >= 3
   #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
 #else
+#ifdef PyUnicode_AsString
+#undef PyUnicode_AsString
+#endif
+#ifdef PyLong_AsLong
+#undef PyLong_AsLong
+#endif
+#ifdef PyLong_Check
+#undef PyLong_Check
+#endif
   #define PyUnicode_AsString PyString_AsString
   #define PyLong_AsLong PyInt_AsLong
   #define PyLong_Check PyInt_Check

@@ -3973,5 +3973,5 @@ int ReinitExcitation(int m) {
   return 0;
 }
 
-void SetOptionExcitation(char *s, int ip, double dp) {
+void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
 }

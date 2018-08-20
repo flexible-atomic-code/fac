@@ -43,5 +43,5 @@
 int Info(void);
 int InitFac(void);
 int ReinitFac(int, int, int, int, int, int, int, int);
-void SetOption(char *s, int ip, double dp);
+void SetOption(char *s, char *sp, int ip, double dp);
 #endif

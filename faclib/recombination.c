@@ -2760,5 +2760,5 @@ int ReinitRecombination(int m) {
   return 0;
 }
 
-void SetOptionRecombination(char *s, int ip, double dp) {
+void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
 }
