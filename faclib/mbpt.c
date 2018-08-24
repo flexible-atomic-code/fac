@@ -2032,8 +2032,8 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double c12 = c/(d1*d2);
     sd1 = c/d1;
     sd2 = c/d2;
-    double sd1s = c1->sth/fabs(d1);
-    double sd2s = c0->sth/fabs(d2);
+    double sd1s = c1->cth/fabs(d1);
+    double sd2s = c0->cth/fabs(d2);
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
@@ -2236,8 +2236,8 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double c12 = c/(d1*d2);
     sd = c/d1;
     se = c/d2;
-    double sd1s = c1->sth/fabs(d1);
-    double sd2s = c0->sth/fabs(d2);
+    double sd1s = c1->cth/fabs(d1);
+    double sd2s = c0->cth/fabs(d2);
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
@@ -2386,7 +2386,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   d2 -= orb->energy + orb->qed;
   int nn4 = orb->n;
   int ka4 = orb->kappa;
-  double sd1s = c1->sth/fabs(d2);
+  double sd1s = c1->cth/fabs(d2);
   int warned = 0;
   if (c0->icfg >= 0 && c1->icfg >= 0) {
     if (mbpt_warntr > 0 && sd1s > mbpt_warntr) {
@@ -2616,8 +2616,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double y12 = y/(d1*d2);
     cd1 = y/d1;
     cd2 = y/d2;
-    double sd1s = c1->sth/fabs(d1);
-    double sd2s = c0->sth/fabs(d2);
+    double sd1s = c1->cth/fabs(d1);
+    double sd2s = c0->cth/fabs(d2);
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
@@ -2740,7 +2740,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   d2 = orb3->energy + orb3->qed;
   orb2 = GetOrbital(k2);
   d2 -= orb2->energy + orb2->qed;
-  double sd1s = c1->sth/fabs(d2);
+  double sd1s = c1->cth/fabs(d2);
   int warned = 0;
   if (c0->icfg >= 0 && c1->icfg >= 0) {
     if (mbpt_warntr > 0 && sd1s > mbpt_warntr) {
@@ -5187,8 +5187,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  wbn = NULL;
 	  wcn = NULL;
 	}
-	ResetWidMPI();
-      
+	ResetWidMPI();      
 #pragma omp parallel default(shared) private(dw, i, j, k, a, b, c, m, hab1, hba1, hab, hba, i0, iw)
 	{
 	  dw = malloc(sizeof(double)*(nr+nr2)*4);
@@ -5201,12 +5200,14 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		a = h0[k];
 		m = j*h->dim + i;
 		heff[m] = a;
+		neff[m] = 0.0;
 		if (meff[isym]->heff0) {
 		  heff[m] += meff[isym]->heff0[m];
 		}
 		if (i < j) {
 		  m = i*h->dim + j;
 		  heff[m] = a;
+		  neff[m] = 0.0;
 		  if (meff[isym]->heff0) {
 		    heff[m] += meff[isym]->heff0[m];
 		  }
@@ -5247,7 +5248,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	      m = j*h->dim + i;
 	      b = SumInterpH(nr, ngr, nr2, ngr2, hab, hab1, dw, 1);
 	      wbn[iw] = SumInterpH(nr, ngr, nr2, ngr2, nab, nab1, dw, 2);
-	      neff[m] += wbn[iw];
+	      neff[m] = wbn[iw];
 	      heff[m] = a+b;
 	      if (meff[isym]->heff0) {
 		heff[m] += meff[isym]->heff0[m];
@@ -5338,7 +5339,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	MPrintf(-1, "SumInterpH: %d %d %d %10.3E\n", isym, h->dim, nw, wt1-wt0);
       }
       if (icpf == icpi && fn != NULL && strlen(fn) > 0) {
-#pragma omp parallel default(shared) private(isym, h, i, j, k, a, c)
+#pragma omp parallel default(shared) private(isym, h, i, j, k, k0, a, c)
 	{
 	  for (isym = 0; isym < MAX_SYMMETRIES; isym++) { 
 	    if (meff[isym] == NULL) continue;
@@ -6360,7 +6361,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  if (a < mbpt_angzc) {
 	    r.strength = s0+s;
 	  } else {
-	    r.strength = s0;
+	    r.strength = s0;	    
 	  }
 	  WriteTRRecord(f, &r, NULL);
 	}

@@ -4038,6 +4038,11 @@ int GetBasisTable(char *fn, int m0, int k0) {
       }
       
       fprintf(f, "============Mixing Coefficients===================\n");
+      double e0 = 1e30;
+      for (i = 0; i < n_levels; i++) {
+	lev = GetLevel(i);
+	if (lev->energy < e0) e0 = lev->energy;
+      }
       for (i = 0; i < n_levels; i++) {
 	lev = GetLevel(i);
 	sym = GetSymmetry(lev->pj);
@@ -4046,8 +4051,9 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	for (k = 0; k < lev->n_basis; k++) {
 	  a += lev->mixing[k]*lev->mixing[k];
 	}
-	fprintf(f, "# %4d   %3d %2d %2d   %5d %12.5E\n",
-		i, lev->pj, p, j, lev->n_basis, a);
+	fprintf(f, "# %4d   %3d %2d %2d   %5d %15.8E %12.5E\n",
+		i, lev->pj, p, j, lev->n_basis,
+		(lev->energy-e0)*HARTREE_EV, a);
 	a = 0;
 	for (k = 0; k < lev->n_basis; k++) {
 	  si = lev->basis[k];

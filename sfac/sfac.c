@@ -1490,6 +1490,43 @@ static int PReinit(int argc, char *argv[], int argt[],
   return 0;
 }
   
+static int PLoadRadialMultipole(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  if (argc == 0) {
+    LoadRadialMultipole(NULL);
+    return 0;
+  }
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+  LoadRadialMultipole(argv[0]);
+  return 0;
+}
+
+static int PSaveRadialMultipole(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  int n, g, nk, *ks;
+
+  g = G_BABUSHKIN;
+  if (argc < 3 || argc > 4) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argc > 3) {
+    if (argt[3] != NUMBER) return -1;
+    g = atoi(argv[3]);
+  }
+  n = atoi(argv[1]);
+  if (argt[2] == NUMBER) {
+    nk = atoi(argv[2]);
+    ks = NULL;
+  } else if (argt[2] == LIST) {
+    nk = IntFromList(argv[2], argt[2], variables, &ks);
+  } else {
+    return -1;
+  }
+  SaveRadialMultipole(argv[0], n, nk, ks, g);
+  if (nk > 0 && ks != NULL) free(ks);
+  return 0;
+}
+
 static int PRRMultipole(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int nlow, *low, nup, *up, m;
@@ -3008,7 +3045,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
     if (argt[0] == NUMBER) {
       f = atof(argv[0]);
-      if (f < 0 || (f > 0 && f < 1)) {
+      if (f < 0 || strstr(argv[0], ".")) {
 	SetWarnMBPT(f, -1.0);
 	return 0;
       } else {
@@ -3879,20 +3916,66 @@ static int PFreezeOrbital(int argc, char *argv[], int argt[],
 static int PSetBoundary(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int nmax;
-  double bqp, p;
+  double bqp, p, r;
 
   bqp = 0.0;
   p = -1.0;
+  r = 0.0;
+  int nr, n0, n1, n0d, n1d, k0, k1, ng, *kg;
+  char *s;
+  nr = 0;
+  s = NULL;
+  n0 = 0;
+  n1 = 0;
+  n0d = 0;
+  n1d = 0;
+  k0 = 0;
+  k1 = -1;
+  ng = 0;
+  kg = NULL;
   if (argc > 1) {
     p = atof(argv[1]);    
     if (argc > 2) {
       bqp = atof(argv[2]);
+      if (argc > 3) {
+	r = atof(argv[3]);
+	if (argc > 4) {
+	  nr = atoi(argv[4]);
+	  if (argc > 5) {
+	    ng = DecodeGroupArgs(&kg, 1, NULL, &argv[5], &argt[5], variables);
+	    if (argc > 6) {
+	      s = argv[6];
+	      if (argc > 7) {
+		n0 = atoi(argv[7]);
+		if (argc > 8) {
+		  n1 = atoi(argv[8]);
+		  if (argc > 9) {
+		    k0 = atoi(argv[9]);
+		    if (argc > 10) {
+		      k1 = atoi(argv[10]);
+		      if (argc > 11) {
+			n0d = atoi(argv[11]);
+			if (argc > 12) {
+			  n1d = atoi(argv[12]);
+			}
+		      }
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
     }
   }
 
   nmax = atoi(argv[0]);
   
-  return SetBoundary(nmax, p, bqp);
+  int ierr = SetBoundary(nmax, p, bqp, r, nr, ng, kg, s,
+			 n0, n1, n0d, n1d, k0, k1);
+  if (ng > 0) free(kg);
+  return ierr;
 }
 
 static int PRMatrixExpansion(int argc, char *argv[], int argt[], 
@@ -4579,6 +4662,8 @@ static METHOD methods[] = {
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
+  {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
+  {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},

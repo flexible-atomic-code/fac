@@ -314,7 +314,7 @@ static PyObject *PGetBoundary(PyObject *self, PyObject *args) {
 
 static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   int nmax, ierr;
-  double bqp, p;
+  double bqp, p, r;
   
   if (sfac_file) {
     SFACStatement("SetBoundary", args, NULL);
@@ -323,10 +323,29 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   }
   p = -1.0;
   bqp = 0.0;
-  if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
+  r = 0.0;
+  int nr, n0, n1, n0d, n1d, k0, k1, ng, *kg;
+  char *s;
+  PyObject *q;
+  q = NULL;
+  s = NULL;
+  nr = 0;
+  n0 = 0;
+  n1 = 0;
+  n0d = 0;
+  n1d = 0;
+  k0 = 0;
+  k1 = -1;
+  ng = 0;
+  kg = NULL;
+  if (!PyArg_ParseTuple(args, "i|dddiOsiiiiii", &nmax, &p, &bqp, &r, &nr, &q, &s, &n0, &n1, &k0, &k1, &n0d, &n1d)) {
     return NULL;
-  ierr = SetBoundary(nmax, p, bqp);
-  
+  }
+  if (q != NULL) {
+    ng = DecodeGroupArgs(q, &kg, NULL);
+  }
+  ierr = SetBoundary(nmax, p, bqp, r, nr, ng, kg, s, n0, n1, n0d, n1d, k0, k1);
+  if (ng > 0) free(kg);
   if (ierr < 0) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
@@ -1925,17 +1944,19 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
   if (n == 1) {
     if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
-    if (PyFloat_Check(p) || PyLong_Check(p)) {
-      f = PyFloat_AsDouble(p);
-      if (f < 0 || (f > 0 && f < 1)) {
-	SetWarnMBPT(f, -1.0);
-	Py_INCREF(Py_None);
-	return Py_None;
-      }
+    if (PyFloat_Check(p) && !PyLong_Check(p)) {
+      f = PyFloat_AsDouble(p);	
+      SetWarnMBPT(f, -1.0);
+      Py_INCREF(Py_None);
+      return Py_None;
     }
     if (PyLong_Check(p)) {
       i = PyLong_AsLong(p);
-      SetExtraMBPT(i);
+      if (i < 0) {
+	SetWarnMBPT(f, -1.0);
+      } else {
+	SetExtraMBPT(i);
+      }
     } else {
       n1 = IntFromList(p, &ng1);
       SetSymMBPT(n1, ng1);
@@ -3047,6 +3068,51 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   return Py_None;
 }
  
+static PyObject *PLoadRadialMultipole(PyObject *self, PyObject *args) {
+  char *fn;
+  
+  if (sfac_file) {
+    SFACStatement("LoadRadialMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!(PyArg_ParseTuple(args, "s", &fn))) return NULL;
+  LoadRadialMultipole(fn);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSaveRadialMultipole(PyObject *self, PyObject *args) {
+  char *fn;
+  int n, g, nk, *ks;
+  PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("SaveRadialMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  g = G_BABUSHKIN;
+  if (!(PyArg_ParseTuple(args, "siO|i", &fn, &n, &p, &g))) {
+    return NULL;
+  }
+  if (PyLong_Check(p)) {
+    nk = PyLong_AsLong(p);
+    ks = NULL;
+  } else if (PyList_Check(p)) {
+    nk = IntFromList(p, &ks);
+  } else {
+    return NULL;
+  }
+  SaveRadialMultipole(fn, n, nk, ks, g);
+  if (nk > 0 && ks != NULL) free(ks);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRRMultipole(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
   int m;
@@ -5753,6 +5819,8 @@ static struct PyMethodDef fac_methods[] = {
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
+  {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
+  {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},

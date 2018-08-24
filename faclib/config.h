@@ -164,7 +164,7 @@ typedef struct _CONFIG_ {
   double sweight;
   double energy;
   double delta;
-  double sth;
+  double sth, cth, mde;
   int *nrs;
   int *symstate;
   SHELL *shells;
@@ -324,6 +324,7 @@ int          ReinitConfig(int m);
 int          SetNCG(void);
 int ConfigToIList(CONFIG *c, int n, int *s);
 CONFIG *ConfigFromIList(int n, int *s);
+void FreeConfigData(void *p);
 int ConfigExists(CONFIG *c);
 void SetClosedShellNR(int n, int k);
 int IsClosedShellNR(int n, int k, int nq);
