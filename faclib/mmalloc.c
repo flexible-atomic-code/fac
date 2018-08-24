@@ -23,7 +23,11 @@
 #include <string.h>
 
 static size_t _tsize = 0;
+static double _msize = 0;
 
+double dmsize() {
+  return _msize;
+}
 void *mmalloc(size_t size) {
   size_t *p = NULL;
 
@@ -35,6 +39,7 @@ void *mmalloc(size_t size) {
   *p = size;
 #pragma omp atomic
   _tsize += size;
+  _msize += size;
   return &p[1];
 }
 

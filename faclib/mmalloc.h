@@ -30,5 +30,5 @@ void *mcalloc(size_t n, size_t x);
 void *mrealloc(void *p, size_t n);
 void mfree(void *p);
 size_t mmsize(void);
-
+double dmsize();
 #endif
