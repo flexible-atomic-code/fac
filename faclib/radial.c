@@ -1173,6 +1173,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
       }
       if (i < potential->ib1) {
 	potential->ib = i;
+	potential->ib0 = i;
       }
     }
     return 0;
@@ -1181,6 +1182,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
   potential->bqp = bqp;
   if (nmax == 0) {
     potential->ib = 0;
+    potential->ib0 = 0;
   } else if (nmax < 0) {
     d = GetResidualZ();
     d1 = potential->nb;
@@ -1194,6 +1196,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
     }
     if (IsEven(i)) i++;
     potential->ib = i;
+    potential->ib0 = 0;
     for (n = 1; n <= potential->nb; n++) {
       for (kl = 0; kl < n; kl++) {
 	kl2 = 2*kl;
@@ -8140,6 +8143,9 @@ int InitRadial(void) {
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();
+  potential->ib = 0;
+  potential->ib1 = 0;
+  potential->ib0 = 0;
   SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;
