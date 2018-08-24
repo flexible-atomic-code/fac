@@ -206,6 +206,7 @@ int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
 void SolveDFKappa(int ka, int nmax, double xdf);
 double *WorkSpace();
+void AllocDWS(int n);
 void AllocWorkSpace(int n);
 void AllocPotMem(POTENTIAL *p, int n);
 void SetPotDP(POTENTIAL *p);

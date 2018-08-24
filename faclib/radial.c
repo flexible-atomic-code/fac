@@ -487,11 +487,10 @@ void SetPotDP(POTENTIAL *p) {
   }
 }
 
-void AllocWorkSpace(int n) {
+void AllocDWS(int n) {
   int nws = n*33;
-  if (nws == _nws) return;
-#pragma omp parallel default(shared)
-  {
+  //MPrintf(-1, "alloc dws: %d %d\n", nws, _nws);
+  if (nws != _nws) {
     if (_nws > 0) free(_dws);
     _nws = nws;
     _dws = (double *) malloc(sizeof(double)*nws);
@@ -544,6 +543,10 @@ void AllocWorkSpace(int n) {
     p += n;
     SetOrbitalWorkSpace(p, n);
   }
+}
+
+void AllocWorkSpace(int n) {
+  AllocDWS(n);
   AllocPotMem(potential, n);
   AllocPotMem(hpotential, n);
   AllocPotMem(rpotential, n);
@@ -2100,6 +2103,7 @@ void CopyPotentialOMP(int init) {
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
+      AllocDWS(pot.maxrp);
       potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
       potential->maxrp = 0;
     }
