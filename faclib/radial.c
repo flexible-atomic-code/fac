@@ -176,6 +176,9 @@ static MULTI *yk_array;
 
 static int n_awgrid = 0;
 static double awgrid[MAXNTE];
+#define MAXMP 8
+static int _nmp = 0;
+static double *_dmp[2][2][MAXMP];
 
 static double PhaseRDependent(double x, double eta, double b);
 
@@ -186,6 +189,164 @@ int GetRadTiming(RAD_TIMING *t) {
   return 0;
 }
 #endif
+
+void LoadRadialMultipole(char *fn) {
+  int i, j, k, g, ak, ik, ig;
+  char s1[16], s2[16];
+  int n1, n2, naw, r, nline, nsq;
+  double a, *y;
+  FILE *f;
+  
+  if (fn == NULL || strlen(fn) == 0) {
+    for (i = 0; i < 2; i++) {
+      for (j = 0; j < 2; j++) {
+	for (k = 0; k < MAXMP; k++) {
+	  if (_nmp > 0 && _dmp[i][j][k]) free(_dmp[i][j][k]);
+	  _dmp[i][j][k] = NULL;
+	}
+      }
+    }
+    _nmp = 0;
+    return;
+  }
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  
+  r = fscanf(f, "%s %s %d %d %d %d %d", s1, s2, &k, &g, &n1, &n2, &naw);
+  if (r == EOF) {
+    return;
+  }
+  _nmp = n1;
+  int nmp2 = _nmp*_nmp;
+  nsq = nmp2*nmp2*naw;
+  if (nsq <= 0) {
+    printf("invalid nmp: %d %d %d\n", _nmp, naw, nsq);
+    return;
+  }
+  n_awgrid = naw;
+  for (i = 0; i < naw; i++) {
+    a = 0.0;
+    r = fscanf(f, "%lg", &a);
+    if (r != 1) {
+      printf("invalid multipole awgrid\n");
+      return;
+    }
+    awgrid[i] = a;
+  }
+  nline = 1;
+  while (1) {
+    nline++;
+    r = fscanf(f, "%s %s %d %d %d %d %d", s1, s2, &k, &g, &n1, &n2, &naw);
+    if (r == EOF) break;
+    if (r != 7) {
+      printf("invalid row: %s %s\n", s1, s2);
+      break;;
+    }
+    if (naw != n_awgrid) {
+      printf("invalid multipole naw: %d %d\n", nline, naw);
+      break;
+    }
+    ak = abs(k);
+    if (ak == 0 || ak > MAXMP) {
+      printf("invalid multipole rank: %d %d\n", nline, k);
+      break;
+    }
+    if (k < 0) ik = 0;
+    else ik = 1;
+    if (g == G_COULOMB) ig = 0;
+    else if (g == G_BABUSHKIN) ig = 1;
+    else {
+      printf("invalid gauge option: %d %d\n", nline, g);
+      break;
+    }
+    y = _dmp[ik][ig][ak-1];
+    if (y == NULL) {
+      y = malloc(sizeof(double)*nsq);
+      _dmp[ik][ig][ak-1] = y;
+      for (j = 0; j < nsq; j++) {
+	y[j] = 0.0;
+      }
+    }
+    j = naw*(n1*nmp2+n2);
+    for (i = 0; i < naw; i++) {
+      a = 0.0;
+      r = fscanf(f, "%lg", &a);
+      if (r != 1) {
+	printf("invalid multipole value: %d %d\n", nline, i);
+	break;
+      }
+      y[j+i] = a;
+      //printf("%s %s %d %d %d %d %d %d %d %d %g\n", s1, s2, k, g, ik, ig, n1, n2, i, j, a);
+    }
+  }
+  printf("LoadRadialMultipole %d lines from %s\n", nline, fn);
+  fclose(f);
+}
+    
+void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g) {
+  int i, j, m, n1, n2, nn, k, mk, i1, i2;
+  double *y;
+  char s1[16], s2[16];
+  FILE *f;
+
+  if (n_awgrid <= 0) return;
+  ORBITAL **orbs = malloc(sizeof(ORBITAL *)*(n_orbitals-n_continua));
+  k = 0;
+  for (i = 0; i < n_orbitals; i++) {
+    orbs[k] = GetOrbitalSolved(i);
+    if (orbs[k]->n > 0 && orbs[k]->n <= n) {
+      k++;
+    }
+  }
+  if (k <= 0) {
+    free(orbs);
+    return;
+  }
+  nn = k;
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  fprintf(f, "%5s %5s %4d %4d %4d %4d %2d", "###", "###",
+	  (int)(potential->atom->atomic_number), (int)(potential->N),
+	  n, n, n_awgrid);
+  for (j = 0; j < n_awgrid; j++) {
+    fprintf(f, " %15.8E", awgrid[j]);
+  }
+  fprintf(f, "\n");
+  for (n1 = 0; n1 < nn; n1++) {
+    ShellString(orbs[n1]->n, orbs[n1]->kappa, -1, s1);
+    i1 = ShellToInt(orbs[n1]->n, orbs[n1]->kappa);
+    for (n2 = 0; n2 < nn; n2++) {
+      ShellString(orbs[n2]->n, orbs[n2]->kappa, -1, s2);
+      i2 = ShellToInt(orbs[n2]->n, orbs[n2]->kappa);
+      for (i = 0; i < nk; i++) {
+	if (ks) {
+	  k = ks[i];
+	} else {
+	  k = i+1;
+	}
+	for (mk = -1; mk <= 1; mk += 2) {      
+	  m = MultipoleRadialFRGrid(&y, mk*k, orbs[n1]->idx, orbs[n2]->idx, g);
+	  if (m > 0) {
+	    fprintf(f, "%5s %5s %4d %4d %4d %4d %2d",
+		    s1, s2, mk*k, g, i1, i2, m);
+	    for (j = 0; j < m; j++) {
+	      fprintf(f, " %15.8E", y[j]);
+	    }
+	    fprintf(f, "\n");
+	  }
+	}
+      }
+    }
+  }
+  free(orbs);
+  fclose(f);
+}
 
 double GetHXS(POTENTIAL *p) {
   double z, hs;
@@ -326,11 +487,10 @@ void SetPotDP(POTENTIAL *p) {
   }
 }
 
-void AllocWorkSpace(int n) {
+void AllocDWS(int n) {
   int nws = n*33;
-  if (nws == _nws) return;
-#pragma omp parallel default(shared)
-  {
+  //MPrintf(-1, "alloc dws: %d %d\n", nws, _nws);
+  if (nws != _nws) {
     if (_nws > 0) free(_dws);
     _nws = nws;
     _dws = (double *) malloc(sizeof(double)*nws);
@@ -383,6 +543,10 @@ void AllocWorkSpace(int n) {
     p += n;
     SetOrbitalWorkSpace(p, n);
   }
+}
+
+void AllocWorkSpace(int n) {
+  AllocDWS(n);
   AllocPotMem(potential, n);
   AllocPotMem(hpotential, n);
   AllocPotMem(rpotential, n);
@@ -463,6 +627,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->ar, sizeof(double), 1, f);
   n = BFileRead(&p->br, sizeof(double), 1, f);
   n = BFileRead(&p->ib, sizeof(int), 1, f);
+  n = BFileRead(&p->ib0, sizeof(int), 1, f);
   n = BFileRead(&p->nb, sizeof(int), 1, f);
   n = BFileRead(&p->ib1, sizeof(int), 1, f);
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
@@ -584,6 +749,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->ar, sizeof(double), 1, f);
   n = fwrite(&p->br, sizeof(double), 1, f);
   n = fwrite(&p->ib, sizeof(int), 1, f);
+  n = fwrite(&p->ib0, sizeof(int), 1, f);
   n = fwrite(&p->nb, sizeof(int), 1, f);
   n = fwrite(&p->ib1, sizeof(int), 1, f);
   n = fwrite(&p->bqp, sizeof(double), 1, f);
@@ -702,6 +868,7 @@ static void FreeFltAryData(void *p) {
 
 int FreeMultipoleArray(void) {
   MultiFreeData(multipole_array, FreeMultipole);
+  LoadRadialMultipole(NULL);
   return 0;
 }
 
@@ -982,7 +1149,7 @@ int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
   return potential->ib;
 }
 
-int SetBoundaryMaster(int nmax, double p, double bqp) {
+int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
@@ -1022,7 +1189,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
       if (potential->rad[i] >= p) break;
     }
     if (i > potential->maxrp-10) {
-      printf("enlarge maxrp\n");
+      printf("enlarge maxrp0: %d %d\n", i, potential->maxrp);
       exit(1);
     }
     if (IsEven(i)) i++;
@@ -1061,10 +1228,37 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
 	}
       }
     }
-    if (IsEven(i)) i++;
-    if (i > potential->maxrp-10) {
-      printf("enlarge maxrp\n");
-      return -1;
+    if (IsEven(potential->ib)) potential->ib++;
+    potential->ib0 = potential->ib;
+    if (rf > 0) {
+      i = potential->ib;
+      k = OrbitalIndex(nmax, -1, 0);
+      orb = GetOrbitalSolved(k);
+      double *w = Large(orb);
+      for (j = i; j > 5; j--) {
+	if ((w[j-1] > w[j] && w[j-2] <= w[j-1]) ||
+	    (w[j-1] < w[j] && w[j-2] >= w[j-1])) {
+	  j--;
+	  break;
+	}
+      }
+      int jm = j;
+      for (; j > 0; j--) {
+	if ((w[jm] > 0 && w[j] <= 0) ||
+	    (w[jm] < 0 && w[j] >= 0)) {
+	  break;
+	}
+      }
+      d1 = potential->rad[i]+rf*(potential->rad[jm]-potential->rad[j]);
+      for (; i < potential->maxrp-5; i++) {
+	if (potential->rad[i] >= d1) break;
+      }    
+      if (IsEven(i)) i++;
+      potential->ib = i;      
+      if (i > potential->maxrp-5) {
+	printf("enlarge maxrp1: %d %d\n", i, potential->maxrp);
+	return -1;
+      }
     }
   }
   potential->ib1 = potential->ib;
@@ -1074,8 +1268,75 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
   return 0;
 }
 
-int SetBoundary(int nmax, double p, double bqp) {
-  int r = SetBoundaryMaster(nmax, p, bqp);
+int SetBoundary(int nmax, double p, double bqp, double rf,
+		int nri, int ng, int *kg, char *s,
+		int n0, int n1, int n0d, int n1d, int k0, int k1) {
+  int r = SetBoundaryMaster(nmax, p, bqp, rf);
+  int nr = abs(nri);
+  if (nr > 0 && rf > 0 && potential->ib > potential->ib0) {
+    int nr0 = potential->ib-potential->ib0+1;
+    if (nr > nr0) nr = nr0;
+    double mde = 0;
+    int mib = -1;
+    int i, k, ib, ib1;
+    int ig, ic;
+    CONFIG_GROUP *g;
+    CONFIG *c;
+    k = nr0/nr;
+    k = Max(1, k);
+    ib = potential->ib0;
+    ib1 = potential->ib;
+    for (i = 0; i < nr; i++) {
+      if (ib > ib1) break;
+      potential->ib = ib;
+      potential->ib1 = ib;
+      potential->rb = potential->rad[potential->ib];
+      ReinitRadial(1);
+      ClearOrbitalTable(0);      
+      for (ig = 0; ig < ng; ig++) {
+	g = GetGroup(kg[ig]);
+	for (ic = 0; ic < g->n_cfgs; ic++) {
+	  c = GetConfigFromGroup(kg[ig], ic);
+	  c->mde = 1E31;
+	}
+      }
+      ConfigSD(43, ng, kg, s, NULL, NULL, n0, n1, n0d, n1d, k0, k1, 1, NULL, 0);
+      double de = 1e31;
+      for (ig = 0; ig < ng; ig++) {
+	g = GetGroup(kg[ig]);
+	for (ic = 0; ic < g->n_cfgs; ic++) {
+	  c = GetConfigFromGroup(kg[ig], ic);
+	  if (c->mde < de) de = c->mde;
+	}
+      }
+      if (de > 9e30) de = 0;
+      if (de > mde) {
+	mde = de;
+	mib = ib;
+      }
+      if (nri < 0) {
+	printf("adjust boundary: %4d %4d %4d %4d %4d %4d %10.4E %10.4E %10.4E\n",
+	       i, potential->ib0, ib1, k, ib, mib, de, mde, TotalSize());
+	fflush(stdout);
+      }
+      ib += k;
+    }
+    potential->ib = mib;
+    potential->ib1 = mib;    
+    potential->rb = potential->rad[potential->ib];
+    ReinitRadial(1);
+    ClearOrbitalTable(0);
+    for (ig = 0; ig < ng; ig++) {
+      g = GetGroup(kg[ig]);
+      for (ic = 0; ic < g->n_cfgs; ic++) {
+	c = GetConfigFromGroup(kg[ig], ic);
+	c->mde = 1E31;
+      }
+    }
+    ConfigSD(43, ng, kg, s, NULL, NULL, n0, n1, n0d, n1d, k0, k1, 1, NULL, 0);
+    ReinitRadial(1);
+    ClearOrbitalTable(0);
+  }
   CopyPotentialOMP(0);
   return r;
 }
@@ -1618,7 +1879,7 @@ int GetPotential(char *s) {
   int norbs, jmax, kmin, kmax;  
   FILE *f;
   int i, j;
-  double rb, rb1, rc;
+  double rb, rb0, rb1, rc;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -1634,8 +1895,13 @@ int GetPotential(char *s) {
   rc = potential->r_core > 0?potential->rad[potential->r_core]:0;
   fprintf(f, "#     rc = %12.5E\n", rc);
   rb = potential->ib>0?potential->rad[potential->ib]:0;
+  rb0 = potential->ib0>0?potential->rad[potential->ib0]:0;
   rb1 = potential->ib1>0?potential->rad[potential->ib1]:0;
+  fprintf(f, "#     ib = %d\n", potential->ib);
+  fprintf(f, "#    ib0 = %d\n", potential->ib0);
+  fprintf(f, "#    ib1 = %d\n", potential->ib1);
   fprintf(f, "#     rb = %12.5E\n", rb);
+  fprintf(f, "#    rb0 = %12.5E\n", rb0);
   fprintf(f, "#    rb1 = %12.5E\n", rb1);
   fprintf(f, "#    bqp = %12.5E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
@@ -1837,6 +2103,7 @@ void CopyPotentialOMP(int init) {
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
+      AllocDWS(pot.maxrp);
       potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
       potential->maxrp = 0;
     }
@@ -2783,17 +3050,25 @@ void FreeOrbitalData(void *p) {
 
   orb = (ORBITAL *) p;
   //RemoveOrbMap(orb);
-  if (orb->wfun) free(orb->wfun);
+  if (orb->wfun) {
+    free(orb->wfun);
+  }
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
   orb->phase = NULL;
   orb->isol = 0;
   orb->ilast = -1;
   //orb->im = -1;
-  if (orb->horb) {
+  if (orb->horb && orb->horb != orb) {
     FreeOrbitalData(orb->horb);
-    orb->horb = NULL;
+    free(orb->horb);
   }
+  orb->horb = NULL;
+  if (orb->rorb && orb->rorb != orb) {
+    FreeOrbitalData(orb->rorb);
+    free(orb->rorb);
+  }
+  orb->rorb = NULL;
 }
 
 int ClearOrbitalTable(int m) {
@@ -4276,6 +4551,26 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 #endif
 
   if (m == 0) return 0;
+
+  if (_nmp > 0) {
+    int nmp2 = _nmp*_nmp;
+    t = m < 0?0:1;
+    j = gauge==G_COULOMB?0:1;
+    i = abs(m)-1;
+    double *y = _dmp[t][j][i];
+    if (y != NULL) {
+      orb1 = GetOrbital(k1);
+      orb2 = GetOrbital(k2);
+      if (orb1->n > 0 && orb1->n <= _nmp &&
+	  orb2->n > 0 && orb2->n <= _nmp) {
+	ip = ShellToInt(orb1->n, orb1->kappa);
+	im = ShellToInt(orb2->n, orb2->kappa);
+	n = (ip*nmp2+im)*n_awgrid;
+	*p0 = y+n;
+	return n_awgrid;
+      }
+    }
+  }
   
   if (m >= 0) {
     index[0] = 2*m;
@@ -7845,7 +8140,7 @@ int InitRadial(void) {
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();
-  SetBoundaryMaster(0, 1.0, -1.0);
+  SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;
 
@@ -7935,6 +8230,7 @@ int ReinitRadial(int m) {
   if (m < 0) return 0;
 #pragma omp barrier
 #pragma omp master
+  {
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
@@ -7957,6 +8253,7 @@ int ReinitRadial(int m) {
       awgrid[0] = EPS3;
       SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
     }
+  }
   }
 #pragma omp barrier
   return 0;
@@ -8287,16 +8584,18 @@ int AddNewConfigToList(int k, int ni, int *kc,
   if (nc > 0) {
     r = ApplyRestriction(1, cfg, nc, sr);
     if (r <= 0) {
+      FreeConfigData(cfg);
       free(cfg);
       return -1;
     }
   }
-  if (mar < 3 && checknew && ConfigExists(cfg)) {
+  if (mar != 3 && checknew && ConfigExists(cfg)) {
+    FreeConfigData(cfg);
     free(cfg);
     return -1;
   }
   sth = c0->sth;
-  if (sth > 0 || mar == 3) {
+  if (sth > 0 || mar >= 3) {
     int i0, i1, i2, i3;
     int n0, k0, n1, k1, n2, k2, n3, k3;
     int i, j;
@@ -8361,7 +8660,9 @@ int AddNewConfigToList(int k, int ni, int *kc,
       ORBITAL *o0, *o1, *o2, *o3;
       int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
       ko0 = OrbitalIndex(n0, k0, 0);
+      QED1E(ko0, ko0);
       ko1 = OrbitalIndex(n1, k1, 0);
+      QED1E(ko1, ko1);
       GetJLFromKappa(k0, &j0, &kl0);
       GetJLFromKappa(k1, &j1, &kl1);
       o0 = GetOrbital(ko0);
@@ -8373,6 +8674,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	  if (n2 == n0 && k2 == k0 && cfg->shells[i2s].nq < 2) continue;
 	}
 	ko2 = OrbitalIndex(n2, k2, 0);
+	QED1E(ko2, ko2);
 	GetJLFromKappa(k2, &j2, &kl2);
 	o2 = GetOrbital(ko2);
 	for (i3s = i3s0; i3s < i3s1; i3s++) {
@@ -8383,13 +8685,21 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    if (n3 == n1 && k3 == k1 && cfg->shells[i3s].nq < 2) continue;
 	  }
 	  ko3 = OrbitalIndex(n3, k3, 0);
+	  QED1E(ko3, ko3);
 	  GetJLFromKappa(k3, &j3, &kl3);
 	  if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
 	  o3 = GetOrbital(ko3);
-	  double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+	  //double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+	  double de = fabs(o1->energy+o1->qed-o0->energy-o0->qed + o3->energy+o3->qed-o2->energy-o2->qed);
+	  if (mar == 4) {
+	    if (c0->mde > de) c0->mde = de;
+	    continue;
+	  }
 	  if (mar < 3 && de < EPS10) {
 	    s = 1e10;
 	    break;
+	  } else if (mar < 3 && c0->cth > 0) {
+	    s = c0->cth/de;
 	  } else {
 	    double s2 = 0, s1 = 0, sd = 0, se = 0;
 	    int kk, ks[4];
@@ -8415,7 +8725,9 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    } else if (s1b < EPS10) {
 	      if (s2 < s2b) s2 = s2b;
 	    } else {
-	      continue;
+	      if (s2 < s2b) s2 = s2b;
+	      if (s2 < s1b) s2 = s1b;
+	      //continue;
 	    }
 	    if (s < s2) s = s2;
 	  }
@@ -8426,19 +8738,25 @@ int AddNewConfigToList(int k, int ni, int *kc,
     qed.br = br0;
     if (mar < 3) {
       if (s < sth) {
+	FreeConfigData(cfg);
 	free(cfg);
 	return -10;
       }
-    } else {
-      c0->sth = Max(c0->sth, s);
+    } else if (mar == 3) {
+      c0->cth = Max(c0->cth, s);
     }
   }
+  r = -1;
   if (mar < 3) {
     if (Couple(cfg) < 0) {
+      FreeConfigData(cfg);
       free(cfg);
       return -1;
     }
     r = AddConfigToList(k, cfg);
+  }
+  if (r < 0) {
+    FreeConfigData(cfg);
   }
   free(cfg);
   return r;
@@ -8552,11 +8870,11 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   if (gn2 == NULL || strlen(gn2) == 0) gn2 = gn1;
   m = m0%10;
   mar = m0/10;
-  if (m < 1 || m > 3 || mar > 4) {
+  if (m < 1 || m > 3) {
     printf("invalid mode: %d %d %d\n", m0, m, mar);
     return -1;
   }
-  if (mar == 4) {
+  if (mar == 9) {
     if (ng > 0 && kg) {
       for (i = 0; i < ng; i++) {
 	g = GetGroup(kg[i]);
@@ -8615,7 +8933,13 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   }
   if (nr <= 0) {
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
-    return -1;
+    if (nc > 0) {
+      for (i = 0; i < nc; i++) {
+	free(sr[i].shells);
+      }
+      free(sr);
+    }
+    return 0;
   }
   kc = malloc(sizeof(int)*ni);
   kcr = NULL;  
@@ -8761,7 +9085,7 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 		  if (ir >= 0 && ir == is) continue;
 		  if (ir >= 0) kc[ir]--;
 		  if (is >= 0) kc[is]++;
-		  if (pr == 1000000 || mar == 3) {
+		  if (pr == 1000000 || mar >= 3) {
 		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
 					    nc, sr, m0r > 0, mar);
 		  } else if (pr > -10) {
@@ -8859,7 +9183,7 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 				(ird < 0 || kc[ird] >= 0) &&
 				(is < 0 || kc[is] <= js+1) &&
 				(id < 0 || kc[id] <= jd+1)) {
-			      if (pr == 1000000 || mar == 3) {
+			      if (pr == 1000000 || mar >= 3) {
 				pr = AddNewConfigToList(ig2, ni, kc, c,
 							nb, kcb, nc, sr,
 							m0r>0, mar);

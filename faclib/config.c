@@ -161,6 +161,8 @@ static void InitConfigData(void *p, int n) {
     d[i].igroup = -1;
     d[i].icfg = -1;
     d[i].sth = 0;
+    d[i].cth = 0;
+    d[i].mde = 1e31;
   }
 }
   
@@ -890,6 +892,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
     ncfg = dnc[0];
     for (i = 1; i < ns; i++) ncfg *= dnc[i];
     *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ncfg);
+    InitConfigData(*cfg, ncfg);
     tmp = ncfg;
     p1 = dcfg + ns - 1;
     for (i = ns-1; i >= 0; i--) {      
@@ -922,6 +925,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
     ncfg = dnc[0];
     for (i = 1; i < ns; i++) ncfg += dnc[i];
     *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    InitConfigData(*cfg, 1);
     (*cfg)[0].n_shells = ncfg;
     (*cfg)[0].shells = (SHELL *) malloc(sizeof(SHELL)*ncfg);
     *nq = (double *) malloc(sizeof(double)*ncfg);
@@ -2403,13 +2407,15 @@ void ListConfig(char *fn, int n, int *kg) {
   else f = fopen(fn, "w");
 
   m = 0;
+  double mde = 1e31;
   for (i = 0; i < n; i++) {
     g = GetGroup(kg[i]);
     for (j = 0; j < g->n_cfgs; j++) {
       c = GetConfigFromGroup(kg[i], j);
+      if (c->mde < mde) mde = c->mde;
       ConstructConfigName(a, 2048, c);
-      fprintf(f, "%32s %10.4E %6d %6d %6d   %s\n",
-	      g->name, c->sth, kg[i], j, m, a);
+      fprintf(f, "%32s %10.4E %10.4E %10.4E %6d %6d %6d   %s\n",
+	      g->name, c->cth, c->mde, mde, kg[i], j, m, a);
       m++;
     }
   }
@@ -2440,7 +2446,7 @@ int ReadConfig(char *fn, char *c) {
       if (c != NULL && strcmp(c, s)) continue;
       int t = GroupIndex(s);
       if (t < 0) return -1;
-      char *c = &p[67];
+      char *c = &p[89];
       int i = 0;      
       while (c) {
 	if (*c == '\n') {
@@ -2770,7 +2776,7 @@ int InitConfig(void) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-static void FreeConfigData(void *p) {
+void FreeConfigData(void *p) {
   CONFIG *c;
 
   c = (CONFIG *) p;

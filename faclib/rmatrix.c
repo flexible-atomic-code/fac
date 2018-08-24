@@ -275,7 +275,7 @@ void RMatrixBoundary(double r0, double r1, double b) {
       orb = GetOrbital(i);
       if (nmax < orb->n) nmax = orb->n;
     }
-    SetBoundary(nmax, r1, b);
+    SetBoundary(nmax, r1, b, 0, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 0);
     pot = RadialPotential();
     pot->ib1 = pot->ib;
     rbasis.ib0 = 0;    
@@ -302,7 +302,7 @@ void RMatrixBoundary(double r0, double r1, double b) {
       }
     }
     pot->ib = pot->ib1;
-    SetBoundary(-100, r1, r0);
+    SetBoundary(-100, r1, r0, 0, 0, 0, NULL, NULL, 0, 0, 0, 0, 0, 0);
     rbasis.ib0 = pot->ib;
     rbasis.ib1 = pot->ib1;
   }
