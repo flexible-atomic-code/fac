@@ -42,7 +42,7 @@ typedef struct _POTENTIAL_ {
   double lambda; /* parameter for the Vc */
   double a; /* previously used to parameterize the Vc, but now always 0.0*/
   double ar, br, qr; /* parameter for the transformation */
-  int ib, nb, ib1;
+  int ib, nb, ib1, ib0;
   double bqp, rb; /* boundary condition */
   double rfn[NKSEP];
   int nfn[NKSEP];
@@ -99,7 +99,6 @@ int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 double EneTol(double e);
 void SetOrbitalWorkSpace(double *p, int n);
-  
 #endif
 
 
