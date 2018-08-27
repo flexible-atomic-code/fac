@@ -36,6 +36,8 @@ static double mbpt_ignore = -1;
 static double mbpt_warntr = -1;
 static double mbpt_ignoretr = -1;
 static double mbpt_angzc = 0.75;
+static double mbpt_angzm = 0;
+static int mbpt_adjaz = 0;
 static int mbpt_savesum = 0;
 static int mbpt_maxn = 0;
 static int mbpt_maxm = 0;
@@ -83,6 +85,8 @@ void PrintMBPTOptions(void) {
   printf("warn=%g/%g\n", mbpt_warn, mbpt_warntr);
   printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
   printf("angzc=%g\n", mbpt_angzc);
+  printf("angzm=%g\n", mbpt_angzm);
+  printf("adjaz=%d\n", mbpt_adjaz);
   printf("savesum=%d\n", mbpt_savesum);
   printf("maxn=%d\n", mbpt_maxn);
   printf("maxm=%d\n", mbpt_maxm);
@@ -208,6 +212,14 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:angzc")) {
     mbpt_angzc = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:angzm")) {
+    mbpt_angzm = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:adjaz")) {
+    mbpt_adjaz = ip;
     return;
   }  
   if (0 == strcmp(s, "mbpt:rand")) {
@@ -5257,7 +5269,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		m = i*h->dim + j;
 		c = SumInterpH(nr, ngr, nr2, ngr2, hba, hba1, dw, 3);
 		wcn[iw] = SumInterpH(nr, ngr, nr2, ngr2, nba, nba1, dw, 4);
-		neff[m] += wcn[iw];
+		neff[m] = wcn[iw];
 		heff[m] = a+c;
 		if (meff[isym]->heff0) {
 		  heff[m] += meff[isym]->heff0[m];
@@ -5339,14 +5351,15 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	MPrintf(-1, "SumInterpH: %d %d %d %10.3E\n", isym, h->dim, nw, wt1-wt0);
       }
       if (icpf == icpi && fn != NULL && strlen(fn) > 0) {
+	ResetWidMPI();   
 #pragma omp parallel default(shared) private(isym, h, i, j, k, k0, a, c)
 	{
 	  for (isym = 0; isym < MAX_SYMMETRIES; isym++) { 
 	    if (meff[isym] == NULL) continue;
-	    h = GetHamilton(isym);
-	    if (h->dim <= 0) continue;
 	    int skip = SkipMPI();
 	    if (skip) continue;
+	    h = GetHamilton(isym);
+	    if (h->dim <= 0) continue;
 	    double wt1 = WallTime();
 	    if (DiagnolizeHamilton(h) < 0) {
 	      MPrintf(-1, "Diagnolizing Effective Hamiltonian Error\n");
@@ -5362,7 +5375,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		  k0 = j*h->dim + k;
 		  a += meff[isym]->neff[k0] * ym[j] * ym[k];
 		}
-	      }
+	      }	      
 	      if (a > 0 && a < 1) {
 		c = sqrt(1.0 + a);
 		for (j = 0; j < h->n_basis; j++) {
@@ -5374,8 +5387,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    
 	    AddToLevels(h, nkg0, kg);
 	    double wt2 = WallTime();
-	    MPrintf(-1, "Diag Ham: %d %d %10.4E %10.4E %10.4E %10.4E\n",
-		    isym, h->dim, wt2-wt1, wt2-tbg,
+	    MPrintf(-1, "Diag Ham: %3d %5d %5d %10.4E %10.4E %10.4E %10.4E\n",
+		    isym, h->dim, h->n_basis, wt2-wt1, wt2-tbg,
 		    TotalSize(), TotalArraySize());
 	    fflush(stdout);
 	  }
@@ -5765,7 +5778,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     }
     tt1 = WallTime();
     dt = tt1-tbg;
-    MPrintf(-1, "write MBPT transition: %12.5E\n", dt);
+    MPrintf(-1, "write MBPT transition: %12.5E %12.5E\n", dt, TotalSize());
     if (mbpt_savesum && MyRankMPI() == 0) {
       for (j = 0; j < k; j++) {
 	for (i = 0; i < mtr[j].nsym1; i++) {
@@ -5790,10 +5803,13 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     if (mbpt_tr.nlow > 0 && mbpt_tr.nup > 0) {
       tt1 = WallTime();
       dt = tt1-tbg;
-      MPrintf(-1, "SaveTransitionMBPT: %12.5E\n", dt);
+      MPrintf(-1, "SaveTransitionMBPT: %12.5E %12.5E\n", dt, TotalSize());
       SetTransitionMode(0);
       SaveTransitionMBPT(mtr);
+      printf("AdjustAngZ ... %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
       AdjustAngularZ(mtr);
+      printf("End TransitionMBPT ... %12.5E %12.5E\n",
+	     WallTime()-tbg, TotalSize());
     }
     
     tt1 = WallTime();
@@ -6015,6 +6031,7 @@ void CombineMBPT0(int nf, MBPT_HAM *mbpt,
 		  int n0, int *ng0,
 		  int n, int *ng,
 		  int *n2, int **ng2) {
+  ResetWidMPI();   
 #pragma omp parallel default(shared)
   {
   int m, i, j, k, q, r, nn2;
@@ -6076,6 +6093,7 @@ void CombineMBPT(int nf, MBPT_HAM *mbpt,
       }
     }
   }
+  ResetWidMPI();   
 #pragma omp parallel default(shared) private(m,i,j,k,q,r,nn2)
   {
   int w = 0;
@@ -6147,6 +6165,7 @@ void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr,
       }
     }
   }
+  ResetWidMPI();   
 #pragma omp parallel default(shared) private(m,i,t,q,r,p,is0,is1,n)
   {
     n = ing->n;
@@ -6181,22 +6200,31 @@ void CombineTransitionMBPT(int nf, MBPT_HAM *mbpt, MBPT_TR *mtr,
 void AdjustAngularZ(MBPT_TR *mtr) {
   SHAMILTON *h;
   ANGZ_DATUM *ad;
-  ANGULAR_ZMIX **a;
+  //ANGZ_ARY **a;
   int nh, i0, i1, m0, m1, k0, k1, mktr;
   int i, k, iz, n, ns, p, q, p0, p1, j0, j1, ik;
 
+  if (mbpt_adjaz <= 0) return;
   mktr = 0;
   for (i = 0; i < mbpt_tr.nktr; i++) {
     if (mbpt_tr.ks[i] > mktr) mktr = mbpt_tr.ks[i];
   }
+  mktr = Min(mktr, mbpt_adjaz);
   SetMaxKMBPT(mktr);
   h = GetSHamilton(&nh);
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i0, i1, p0, j0, p1, j1, ns, n, i, k, m0, m1, iz, ik, k0, k1, p, q, ad)
+  {
   for (i0 = 0; i0 < nh; i0++) {
     DecodePJ(h[i0].pj, &p0, &j0);
     for (i1 = i0; i1 < nh; i1++) {
       DecodePJ(h[i1].pj, &p1, &j1);
+      int skip = SkipMPI();
+      if (skip) continue;
       ns = AngularZMixStates(&ad, i0, i1);
-      a = (ANGULAR_ZMIX **) ad->angz;
+      if (ns <= 0) continue;
+      ns = ad->nd;
+      //a = (ANGZ_ARY **) ad->angz;
       ad->mk = malloc(sizeof(double *)*ns*2);
       n = mktr * mbpt_tr.naw;
       for (i = 0; i < 2*ns; i++) {
@@ -6207,9 +6235,10 @@ void AdjustAngularZ(MBPT_TR *mtr) {
       }
       for (m0 = 0; m0 < h[i0].nlevs; m0++) {
 	for (m1 = 0; m1 < h[i1].nlevs; m1++) {
-	  iz = m0*h[i1].nbasis + m1;
+	  iz = m0*h[i1].nlevs + m1;
 	  for (ik = 0; ik < mbpt_tr.nktr; ik++) {
 	    k = mbpt_tr.ks[ik]-1;
+	    if (k >= mktr) continue;
 	    n = mbpt_tr.naw * k;
 	    k0 = h[i0].pj*2*mbpt_tr.nktr + 2*ik;
 	    if (IsEven(p0+p1+k)) k0++;
@@ -6245,6 +6274,7 @@ void AdjustAngularZ(MBPT_TR *mtr) {
 	}
       }
     }
+  }
   }
 }
 
@@ -6366,6 +6396,11 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  WriteTRRecord(f, &r, NULL);
 	}
       }
+      }
+      if (mbpt_angzm > 0 && TotalSize() >= mbpt_angzm*1e9) {
+	MPrintf(0, "CleanAngZArray: %2d %12.5E %12.5E\n",
+		m, WallTime()-wt0, TotalSize());
+	CleanAngZArray();
       }
       DeinitFile(f, &fhdr);
     }
@@ -6800,8 +6835,8 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     AddToLevels(h, nkg0, kg);
     wt1 = WallTime();
     double ts = TotalSize();
-    MPrintf(-1, "Diag Ham: %3d %d %2d %3d %10.3E %10.3E\n",
-	    isym, pp, jj, h->dim, wt1-wt0, ts);
+    MPrintf(-1, "Diag Ham: %3d %5d %5d %10.3E %10.3E\n",
+	    isym, h->dim, h->n_basis, wt1-wt0, ts);
     fflush(stdout);    
     h->heff = NULL;
     free(heff[isym]);
@@ -6884,9 +6919,11 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
     free(x);
   }
   SetTransitionMode(0);
-  printf("SaveTransitionMBPT ... %g\n", WallTime()-wt0);
+  printf("SaveTransitionMBPT ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
   SaveTransitionMBPT(mtr);
+  printf("AdjustAngZ ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
   AdjustAngularZ(mtr);
+  printf("End TransitionMBPT ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
 
   for (m = 0; m < nf; m++) {
     FreeTransitionMBPT(mbpt[m].mtr);
