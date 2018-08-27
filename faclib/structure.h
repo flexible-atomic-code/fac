@@ -91,11 +91,15 @@ typedef struct _LEVEL_ION_ {
   int imax;
 } LEVEL_ION;
 
+typedef struct _ANGZ_ARY_ {
+  int nz;
+  void *az;
+} ANGZ_ARY;
+  
 typedef struct _ANGZ_DATUM_ {
   LOCK lock;
-  int ns;
-  int *nz;
-  void **angz;
+  int ns, nd;
+  ANGZ_ARY **angz;
   double **mk;
 } ANGZ_DATUM;
 
@@ -235,6 +239,7 @@ int SetCILevel(int m);
 int SetMixCut(double c, double c2);
 int FreeAngZArray(void);
 int InitAngZArray(void);
+void CleanAngZArray(void);
 void ClearRMatrixLevels(int n);
 int ClearLevelTable(void);
 int InitStructure(void);
