@@ -2105,10 +2105,14 @@ void CopyPotentialOMP(int init) {
   CopyPotential(&pot, potential);
 #pragma omp parallel shared(pot)
   {
-    if (init && MyRankMPI() != 0) {
-      AllocDWS(pot.maxrp);
-      potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
-      potential->maxrp = 0;
+    if (MyRankMPI() != 0) {  
+      if (potential == NULL || potential->maxrp != pot.maxrp) {
+	AllocDWS(pot.maxrp);
+      }
+      if (init) {
+	potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+	potential->maxrp = 0;
+      }
     }
     CopyPotential(potential, &pot);
   }
