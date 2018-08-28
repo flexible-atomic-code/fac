@@ -4400,8 +4400,22 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     }
     goto ERROR;
   }
-  int tlevs = 0;
-  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+
+  int npr, mr;
+  mr = MPIRank(&npr);
+  double *em0 = WorkSpace();
+  double *em1 = em0 + npr;
+  for (i = 0; i < npr; i++) {
+    em0[i] = 1e31;
+    em1[i] = -1e31;
+  }
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(isym, h, sym, ks, mks, m, mix, k, q, st, i, j, a, b, c, i0, mr)
+  {
+  mr = MPIRank(NULL);
+  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {    
+    int skip = SkipMPI();
+    if (skip) continue;
     meff[isym] = NULL;
     idb[isym] = NULL;
     h = GetHamilton(isym);
@@ -4415,7 +4429,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     memcpy(meff[isym]->h0, h->hamilton, sizeof(double)*h->dsize);
     meff[isym]->basis = malloc(sizeof(int)*h->dim);
     meff[isym]->nbasis = h->dim;
-    tlevs += h->dim;
     int dim2 = h->dim*h->dim;
     meff[isym]->hsize0 = dim2;
     meff[isym]->hsize = h->dsize;
@@ -4446,7 +4459,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       meff[isym]->n2 = 0;
     }    
 
-    ks = malloc(sizeof(int)*h->dim);
+    ks = h->iwork;
     mks = 0;
     m = 0;
     mix = h->mixing + h->dim;
@@ -4460,22 +4473,31 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    ks[mks++] = k;
 	  }
 	  m++;
-	  if (h->mixing[k] < emin) emin = h->mixing[k];
-	  if (h->mixing[k] > emax) emax = h->mixing[k];
+	  if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
+	  if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
 	}
       } else {
 	if (mbpt_nlev <= 0 || IBisect(m, mbpt_nlev, mbpt_ilev) >= 0) {
 	  ks[mks++] = k;
 	}
 	m++;
-	if (h->mixing[k] < emin) emin = h->mixing[k];
-	if (h->mixing[k] > emax) emax = h->mixing[k];
+	if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
+	if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
       }
       mix += h->n_basis;
     }
     int ki=0, ke=0;
     int jig, iig;
     double *mix0 = h->mixing+h->dim;
+    for (i = 0; i < h->dim; i++) {
+      h->work[i] = 0;
+      for (m = 0; m < mks; m++) {
+	k = ks[m];
+	mix = mix0 + h->n_basis*k;
+	double am = fabs(mix[i]);
+	if (h->work[i] < am) h->work[i] = am;
+      }
+    }
     for (j = 0; j < h->dim; j++) {
       if (nkg0 != nkg) {
 	st = (STATE *) ArrayGet(&(sym->states), h->basis[j]);
@@ -4490,14 +4512,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	} else {
 	  iig = 1;
 	}
-
-	c = 0;	
-	for (m = 0; m < mks; m++) {
-	  k = ks[m];
-	  mix = mix0 + h->n_basis*k;
-	  a = fabs(mix[i]*mix[j]);
-	  if (a > c) c = a;
-	}	
+	c = h->work[i]*h->work[j];
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
 	if (iig || jig) a *= mbpt_mcut2;
@@ -4527,12 +4542,15 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	}
       }
     }
-    free(ks);
-    MPrintf(-1, "Eff Ham: %3d %3d %3d %3d %3d %g %g\n",
+    MPrintf(-1, "Eff Ham: %3d %3d %3d %3d %3d %10.3E %10.3E %12.5E %12.5E\n",
 	    isym, h->dim, h->n_basis, ki, ke,
-	    WallTime()-tbg, TotalSize());
+	    WallTime()-tbg, TotalSize(), em0[mr], em1[mr]);
   }
-  
+  }
+  for (i = 0; i < npr; i++) {
+    if (em0[i] < emin) emin = em0[i];
+    if (em1[i] > emax) emax = em1[i];
+  }
   if (mbpt_tr.nktr > 0) {
     double mem0 = TotalSize();
     emax = (emax-emin);
@@ -4541,18 +4559,19 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     emin *= FINE_STRUCTURE_CONST;
     SetAWGridMBPT(emin, emax);
     InitTransitionMBPT(&mtr, idb);
-    HAMILTON **h0, **h1;
-    int *ilev0, *ilev1;
-    h0 = malloc(sizeof(HAMILTON *)*tlevs);
-    h1 = malloc(sizeof(HAMILTON *)*tlevs);
-    ilev0 = malloc(sizeof(int)*tlevs);
-    ilev1 = malloc(sizeof(int)*tlevs);
-    i0 = 0;
-    i1 = 0;
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(isym, sym, h, i0, i1, mix, i, q, st, k)
+    {
     for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-      sym = GetSymmetry(isym);
+      int skip = SkipMPI();
+      if (skip) continue;
       h = GetHamilton(isym);
       if (h->dim <= 0) continue;
+      sym = GetSymmetry(isym);
+      int *ilev0 = h->iwork;
+      int *ilev1 = h->iwork+h->dim;
+      i0 = 0;
+      i1 = 0;
       mix = h->mixing + h->dim;
       for (i = 0; i < h->dim; i++) {
 	q = GetPrincipleBasis(mix, h->dim, NULL);
@@ -4563,7 +4582,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  k = InGroups(st->kgroup, mbpt_tr.nlow, mbpt_tr.low);
 	}
 	if (k) {
-	  h0[i0] = h;
 	  ilev0[i0] = i;
 	  i0++;
 	}
@@ -4573,31 +4591,60 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  k = InGroups(st->kgroup, mbpt_tr.nup, mbpt_tr.up);
 	}
 	if (k) {
-	  h1[i1] = h;
 	  ilev1[i1] = i;
 	  i1++;
 	}
 	mix += h->n_basis;
+      }      
+      double *mix0 = h->mixing + h->dim;
+      double *wm0 = h->work;
+      double *wm1 = h->work + h->dim;
+      for (i = 0; i < h->dim; i++) {
+	wm0[i] = 0;
+	for (m = 0; m < i0; m++) {
+	  k = ilev0[m];
+	  mix = mix0 + h->n_basis*k;
+	  double am = fabs(mix[i]);
+	  if (wm0[i] < am) wm0[i] = am;
+	}
+	wm1[i] = 0;
+	for (m = 0; m < i1; m++) {
+	  k = ilev1[m];
+	  mix = mix0 + h->n_basis*k;
+	  double am = fabs(mix[i]);
+	  if (wm1[i] < am) wm1[i] = am;
+	}
       }
+      MPrintf(-1, "TR Matrix: %3d %5d %5d %5d %10.3E %10.3E\n",
+	      isym, h->dim, i0, i1, WallTime()-tbg, TotalSize());
     }
-    m0 = i0;
-    m1 = i1;
-    double *mix0, *mix1;
-    for (i0 = 0; i0 < m0; i0++) {
-      mix0 = h0[i0]->mixing+h0[i0]->dim+ilev0[i0]*h0[i0]->n_basis;
-      q0 = h0[i0]->pj*2*mbpt_tr.nktr;
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(a, b, c, i0, i1, q0, q1, p0, p1, pp0, pp1, jj0, jj1, j1, m, i)
+    {
+    HAMILTON *h0, *h1;
+    a = mbpt_mcut*mbpt_mcut2;
+    for (i0 = 0; i0 < MAX_SYMMETRIES; i0++) {
+      int skip = SkipMPI();
+      if (skip) continue;
+      int ki = 0, ke = 0;
+      h0 = GetHamilton(i0);
+      if (h0->dim <= 0) continue;
+      q0 = i0*2*mbpt_tr.nktr;
       q1 = q0 + 2*mbpt_tr.nktr;
-      DecodePJ(h0[i0]->pj, &pp0, &jj0);
-      for (i1 = 0; i1 < m1; i1++) {
-	mix1 = h1[i1]->mixing+h1[i1]->dim+ilev1[i1]*h1[i1]->n_basis;
-	DecodePJ(h1[i1]->pj, &pp1, &jj1);
-	for (p0 = 0; p0 < h0[i0]->dim; p0++) {
-	  for (p1 = 0; p1 < h1[i1]->dim; p1++) {	    
-	    a = mbpt_mcut*mbpt_mcut2;
-	    c = fabs(mix0[p0]*mix1[p1]);
+      DecodePJ(i0, &pp0, &jj0);
+      for (i1 = 0; i1 < MAX_SYMMETRIES; i1++) {
+	h1 = GetHamilton(i1);
+	if (h1->dim <= 0) continue;
+	DecodePJ(i1, &pp1, &jj1);
+	for (p0 = 0; p0 < h0->dim; p0++) {
+	  for (p1 = 0; p1 < h1->dim; p1++) {	    
+	    c = h0->work[p0]*h1->work[p1+h1->dim];
+	    b = h0->work[p0+h0->dim]*h1->work[p1];
+	    if (b > c) c = b;
 	    if (c >= a) {
 	      for (i = q0; i < q1; i++) {
-		j1 = IdxGet(mtr[i].ids, h1[i1]->pj);
+		j1 = IdxGet(mtr[i].ids, i1);
 		if (j1 < 0) continue;
 		if (!Triangle(jj0, jj1, 2*abs(mtr[i].m))) continue;
 		MBPT_PMA *pma = mtr[i].pma[j1][p0*mtr[i].ndim1[j1]+p1];
@@ -4610,56 +4657,21 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		    pma->rma[m] = 0;
 		  }
 		  mtr[i].pma[j1][p0*mtr[i].ndim1[j1]+p1] = pma;
+		  ki++;
 		  //printf("pma0: %d %d %d %d %d %d %d %d %d %d %g %g\n", i0, i1, h0[i0]->pj, h1[i1]->pj, ilev0[i0], ilev1[i1], p0, p1, h1[i1]->dim, mtr[i].ndim1[j1], c, a);
 		}		
 	      }
+	    } else {
+	      ke++;
 	    }
 	  }
 	}
       }
+      double mem1 = TotalSize();
+      MPrintf(-1, "TR Mem: %3d %5d %10.3E %10.3E %10.3E %10.3E %10.3E %d %d\n",
+	      i0, h0->dim, WallTime()-tbg, mem0, mem1, mem1-mem0, a, ki, ke);
     }
-    for (i0 = 0; i0 < m1; i0++) {
-      mix0 = h1[i0]->mixing+h1[i0]->dim+ilev1[i0]*h1[i0]->n_basis;
-      q0 = h1[i0]->pj*2*mbpt_tr.nktr;
-      q1 = q0 + 2*mbpt_tr.nktr;
-      DecodePJ(h1[i0]->pj, &pp0, &jj0);
-      for (i1 = 0; i1 < m0; i1++) {
-	mix1 = h0[i1]->mixing+h0[i1]->dim+ilev0[i1]*h0[i1]->n_basis;
-	DecodePJ(h0[i1]->pj, &pp1, &jj1);
-	for (p0 = 0; p0 < h1[i0]->dim; p0++) {
-	  for (p1 = 0; p1 < h0[i1]->dim; p1++) {	    
-	    a = mbpt_mcut*mbpt_mcut2;
-	    c = fabs(mix0[p0]*mix1[p1]);
-	    if (c >= a) {
-	      for (i = q0; i < q1; i++) {
-		j1 = IdxGet(mtr[i].ids, h0[i1]->pj);
-		if (j1 < 0) continue;
-		if (!Triangle(jj0, jj1, 2*abs(mtr[i].m))) continue;
-		MBPT_PMA *pma = mtr[i].pma[j1][p0*mtr[i].ndim1[j1]+p1];
-		if (pma == NULL) {
-		  pma = malloc(sizeof(MBPT_PMA));
-		  pma->tma = malloc(sizeof(double)*nr*mbpt_tr.naw);
-		  pma->rma = malloc(sizeof(double)*nr*mbpt_tr.naw);
-		  for (m = 0; m < nr*mbpt_tr.naw; m++) {
-		    pma->tma[m] = 0;
-		    pma->rma[m] = 0;
-		  }
-		  mtr[i].pma[j1][p0*mtr[i].ndim1[j1]+p1] = pma;
-		  //printf("pma1: %d %d %d %d %d %d %d %d %d %d %g %g\n", i0, i1, h1[i0]->pj, h0[i1]->pj, ilev1[i0], ilev0[i1], p0, p1, h0[i1]->dim, mtr[i].ndim1[j1], c, a);
-		}		
-	      }
-	    }
-	  }
-	}
-      }
     }
-    free(h0);
-    free(h1);
-    free(ilev0);
-    free(ilev1);
-    double mem1 = TotalSize();
-    MPrintf(-1, "TR Mem = %g %g %g %g\n",
-	    mem0, mem1, mem1-mem0, TotalArraySize());
   }
   
   if (fn0 == NULL) {
