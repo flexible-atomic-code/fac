@@ -31,6 +31,7 @@ static int mbpt_omp0 = 0;
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
+static double mbpt_asort = 10.0;
 static double mbpt_warn = -1;
 static double mbpt_ignore = -1;
 static double mbpt_warntr = -1;
@@ -82,6 +83,7 @@ void PrintMBPTOptions(void) {
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
+  printf("msort=%g\n", mbpt_asort);
   printf("warn=%g/%g\n", mbpt_warn, mbpt_warntr);
   printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
   printf("angzc=%g\n", mbpt_angzc);
@@ -228,6 +230,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }  
   if (0 == strcmp(s, "mbpt:msort")) {
     mbpt_msort = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:asort")) {
+    mbpt_asort = dp;
     return;
   }  
   if (0 == strcmp(s, "mbpt:n3")) {
@@ -4929,10 +4935,11 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       if (mbpt_msort) {
 	dm = malloc(sizeof(double)*(icp1-icp0));
 	im = malloc(sizeof(int)*(icp1-icp0));
+	double amst = tmst/npr;
 	for (ic = icp0; ic < icp1; ic++) {
-	  dm[ic-icp0] = 1.0/cfgpair[ic].m;
+	  dm[ic-icp0] = amst/cfgpair[ic].m;
 	  if (cfgpair[ic].k0 != cfgpair[ic].k1) {
-	    dm[ic-icp0] += 10.0;
+	    dm[ic-icp0] *= mbpt_asort;
 	  }
 	}
 	ArgSort(icp1-icp0, dm, im);
@@ -5540,10 +5547,11 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     if (mbpt_msort) {
       dm = malloc(sizeof(double)*(icp1-icp0));
       im = malloc(sizeof(int)*(icp1-icp0));
+      double amst = tmst/npr;
       for (ic = icp0; ic < icp1; ic++) {
-	dm[ic-icp0] = 1.0/cfgpair[ic].m;
+	dm[ic-icp0] = amst/cfgpair[ic].m;
 	if (cfgpair[ic].k0 != cfgpair[ic].k1) {
-	  dm[ic-icp0] += 10.0;
+	  dm[ic-icp0] *= mbpt_asort;
 	}
       }
       ArgSort(icp1-icp0, dm, im);
