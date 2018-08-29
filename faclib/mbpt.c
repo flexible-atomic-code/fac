@@ -83,7 +83,7 @@ void PrintMBPTOptions(void) {
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
-  printf("msort=%g\n", mbpt_asort);
+  printf("asort=%g\n", mbpt_asort);
   printf("warn=%g/%g\n", mbpt_warn, mbpt_warntr);
   printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
   printf("angzc=%g\n", mbpt_angzc);
