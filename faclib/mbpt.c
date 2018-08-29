@@ -6423,6 +6423,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	CleanAngZArray();
       }
       DeinitFile(f, &fhdr);
+      fflush(stdout);
     }
   }
   CloseFile(f, &fhdr);
@@ -6940,10 +6941,13 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   }
   SetTransitionMode(0);
   printf("SaveTransitionMBPT ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
+  fflush(stdout);
   SaveTransitionMBPT(mtr);
   printf("AdjustAngZ ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
+  fflush(stdout);
   AdjustAngularZ(mtr);
   printf("End TransitionMBPT ... %12.5E %12.5E\n", WallTime()-wt0, TotalSize());
+  fflush(stdout);
 
   for (m = 0; m < nf; m++) {
     FreeTransitionMBPT(mbpt[m].mtr);
