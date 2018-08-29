@@ -1583,6 +1583,7 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
       n = WriteENHeader(f, &en_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     en_header.nlevels += 1;
     ReleaseLockMPI();
   } else {
@@ -1631,6 +1632,7 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
       n = WriteENFHeader(f, &enf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     enf_header.nlevels += 1;
     ReleaseLockMPI();
   } else {
@@ -1658,6 +1660,7 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
       n = WriteTRHeader(f, &tr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     tr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1690,6 +1693,7 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
       n = WriteTRFHeader(f, &trf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     trf_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1717,6 +1721,7 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
       n = WriteCEHeader(f, &ce_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ce_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1757,6 +1762,7 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
       n = WriteCEFHeader(f, &cef_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cef_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1788,6 +1794,7 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
       n = WriteCEMFHeader(f, &cemf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cemf_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1821,6 +1828,7 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
       n = WriteRRHeader(f, &rr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     rr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1854,6 +1862,7 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
       WriteAIHeader(f, &ai_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ai_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1880,6 +1889,7 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
       WriteAIMHeader(f, &aim_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     aim_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1908,6 +1918,7 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
       WriteCIHeader(f, &ci_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ci_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1939,6 +1950,7 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
       WriteCIMHeader(f, &cim_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cim_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1967,6 +1979,7 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
       WriteSPHeader(f, &sp_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     sp_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1999,6 +2012,7 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
       WriteRTHeader(f, &rt_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     rt_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -2035,6 +2049,7 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
       WriteDRHeader(f, &dr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     dr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
