@@ -3061,6 +3061,7 @@ void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth) {
   STATE *st;
   double a, amix, *mix;
   
+  printf("GetInteractConfigs: %d %d %g\n", ng, ngp, sth);
   SolveStructure(NULL, NULL, ng, kg, ngp, kgp, 1);
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     h = GetHamilton(i);
