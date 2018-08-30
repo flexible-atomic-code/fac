@@ -5498,7 +5498,7 @@ int ModifyRates(char *fn) {
 
 int DumpRates(char *fn, int k, int m, int imax, int a) {
   FILE *f;
-  int i, t, p, q;
+  int i, t, p, q, n;
   short nele;
   double energy;
   ION *ion;
@@ -5512,11 +5512,15 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
       printf("cannot open file %s\n", fn);
       return -1;
     }
+    n = blocks->dim*blocks->dim;
     for (p = 0; p < blocks->dim; p++) {
+      LBLOCK *bp = (LBLOCK *) ArrayGet(blocks, p);
       for (q = 0; q < blocks->dim; q++) {
+	LBLOCK *bq = (LBLOCK *) ArrayGet(blocks, q);
 	t = q*blocks->dim + p;
-	i = blocks->dim*blocks->dim + p;
-	fprintf(f, "%5d %5d %12.5E %12.5E\n", p, q, bmatrix[t], bmatrix[i]);
+	fprintf(f, "%5d %5d %5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+		p, q, bq->nlevels, bmatrix[t], bmatrix[n+p], bp->nb, bq->nb, 
+		bmatrix[t]*bq->nb);
       }
     }
     fclose(f);
