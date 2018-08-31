@@ -2218,8 +2218,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     potential->N1 = potential->N-1;
   } else {
     if (fabs(potential->ihx) < EPS10 &&
-	potential->N >= potential->atom->atomic_number-0.1) {
-      potential->ihx = -(potential->N-potential->atom->atomic_number+0.1);
+	potential->N >= potential->atom->atomic_number-MINIHX) {
+      potential->ihx = -(potential->N-potential->atom->atomic_number+MINIHX);
     }
     if (potential->ihx > 0) {
       a = 0.0;

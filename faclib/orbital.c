@@ -1220,8 +1220,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %g\n",
-	   nodes, nr, e);
+    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g\n",
+	   orb->n, orb->kappa, nodes, nr, e);
     free(p);
     return -4;
   }
@@ -2222,7 +2222,10 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     if (IsOdd(i2)) (i2)--;
   } else if (n > 0) {
     for (i = pot->maxrp-1; i > 10; i--) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	i++;
+	break;
+      }
     }
     if (i <= 10) return -2;
     i2 = pot->maxrp-5;
@@ -2234,11 +2237,17 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     }
   } else {
     for (i = pot->ib; i < pot->ib1; i++) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	if (i > pot->ib) i--;
+	break;
+      }
     }
     i2 = i+20;
     for (i = pot->ib1-20; i > i2; i--) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	i++;
+	break;
+      }
     }
     i2 = i;
   }

@@ -36,6 +36,8 @@ static double mbpt_warn = -1;
 static double mbpt_ignore = -1;
 static double mbpt_warntr = -1;
 static double mbpt_ignoretr = -1;
+static int mbpt_ignorep = 0;
+static long mbpt_ignoren = 0;
 static double mbpt_angzc = 0.75;
 static double mbpt_angzm = 0;
 static int mbpt_adjaz = 0;
@@ -86,6 +88,7 @@ void PrintMBPTOptions(void) {
   printf("asort=%g\n", mbpt_asort);
   printf("warn=%g/%g\n", mbpt_warn, mbpt_warntr);
   printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
+  printf("ignorep=%d\n", mbpt_ignorep);
   printf("angzc=%g\n", mbpt_angzc);
   printf("angzm=%g\n", mbpt_angzm);
   printf("adjaz=%d\n", mbpt_adjaz);
@@ -196,6 +199,10 @@ void TRTableMBPT(char *fn, int nlow, int *low, int nup, int *up) {
 }
 
 void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "mbpt:ignorep")) {
+    mbpt_ignorep = ip;
+    return;
+  }
   if (0 == strcmp(s, "mbpt:warntr")) {
     mbpt_warntr = dp;
     return;
@@ -2075,7 +2082,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (!warned) {
+	if (!warned && (mbpt_ignorep&1)) {
 	  //char sc[64];
 	  char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16], s7[16], s8[16];
 	  ShellString(nn1, ka1, -1, s1);
@@ -2095,6 +2102,8 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	sd1 = 0;
 	sd2 = 0;
 	c12 = 0;
+#pragma omp atomic
+	mbpt_ignoren++;
       }
     }
 #pragma omp atomic
@@ -2277,7 +2286,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (!warned) {
+	if (!warned && (mbpt_ignorep&1)) {
 	  //char sc[64];
 	  char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16];
 	  ShellString(nn1, ka1, -1, s1);
@@ -2295,6 +2304,8 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	sd = 0;
 	se = 0;
 	c12 = 0;
+#pragma omp atomic
+	mbpt_ignoren++;
       }
     }
 #pragma omp atomic
@@ -2421,7 +2432,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
     }
   }
   if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
-    if (!warned) {
+    if (!warned && (mbpt_ignorep&2)) {
       //char sc[64];
       char s1[16], s2[16], s3[16], s4[16];
       ShellString(nn1, ka1, -1, s1);
@@ -2433,6 +2444,8 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	     c0->igroup, c0->icfg, c1->igroup, c1->icfg,
 	     sd1s, d2, mbpt_ignoretr);
     }
+#pragma omp atomic
+    mbpt_ignoren++;
     return;
   }
 
@@ -2656,7 +2669,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (!warned) {
+	if (!warned && (mbpt_ignorep&1)) {
 	  //char sc[64];
 	  char s1[16], s2[16], s3[16], s4[16];
 	  ShellString(orb0->n, orb0->kappa, -1, s1);
@@ -2673,6 +2686,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	cd1 = 0;
 	cd2 = 0;
 	y12 = 0;
+#pragma omp atomic
+	mbpt_ignoren++;
       }
     }
     
@@ -2772,7 +2787,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
     }
   }
   if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
-    if (!warned) {
+    if (!warned && (mbpt_ignorep&2)) {
       char s3[16], s4[16];
       ShellString(orb2->n, orb2->kappa, -1, s3);
       ShellString(orb3->n, orb3->kappa, -1, s4);
@@ -2780,6 +2795,8 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 	     s3, s4, c0->igroup, c0->icfg, c1->igroup, c1->icfg,
 		 sd1s, d2, mbpt_ignoretr);
     }
+#pragma omp atomic
+    mbpt_ignoren++;
     return;
   }
     
@@ -4925,6 +4942,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }    
       double ttskip = 0, ttlock=0;
       long long tnlock = 0;
+      mbpt_ignoren = 0;
       if (mbpt_omp0 == 1 || mbpt_omp0 == 3) {
 	mbpt_omp = 1;
       } else {
@@ -5112,7 +5130,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
 		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
 		dt, dtt, tmem, amem, tmemf-tmem, amemf-amem,
-		tskip, tlock, nlock, WidMPI());
+		tskip, tlock, nlock, mbpt_ignoren);
 	fflush(stdout);	  
 #pragma omp master
 	{
@@ -5132,8 +5150,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	free(dm);
 	free(im);
       }
-      MPrintf(-1, "MBPT Structure ... %12.5E %12.5E %12.5E\n",
-	      WallTime()-tbg, TotalSize(), TotalArraySize());
+      MPrintf(-1, "MBPT Structure ... %12.5E %12.5E %12.5E %ld\n",
+	      WallTime()-tbg, TotalSize(), TotalArraySize(), mbpt_ignoren);
       fflush(stdout);
       for (isym = 0; isym < MAX_SYMMETRIES; isym++) {      
 	if (meff[isym] == NULL || meff[isym]->nbasis == 0) {
@@ -5536,6 +5554,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     printf("transition cfgpair: %d %d %d %d %d %d %d\n",
 	   icp, ncp, icp0, icp1, ncpt, m, mst);
     ncps = 0;
+    mbpt_ignoren = 0;
     ResetWidMPI();
     if (mbpt_omp0 == 2 || mbpt_omp0 == 3) {
       mbpt_omp = 1;
@@ -5677,8 +5696,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	dtt = ptt1-tbg;
 	tt0 = ptt1;
 	double tmem = TotalSize();
-	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E\n", 
-		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst, dt, dtt, tmem);
+	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %ld\n", 
+		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
+		dt, dtt, tmem, mbpt_ignoren);
 	fflush(stdout);	  
 #pragma omp atomic
 	ncps++;
@@ -5798,7 +5818,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     }
     tt1 = WallTime();
     dt = tt1-tbg;
-    MPrintf(-1, "write MBPT transition: %12.5E %12.5E\n", dt, TotalSize());
+    MPrintf(-1, "write MBPT transition: %12.5E %12.5E %ld\n",
+	    dt, TotalSize(), mbpt_ignoren);
     if (mbpt_savesum && MyRankMPI() == 0) {
       for (j = 0; j < k; j++) {
 	for (i = 0; i < mtr[j].nsym1; i++) {
