@@ -3077,7 +3077,8 @@ static PyObject *PLoadRadialMultipole(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!(PyArg_ParseTuple(args, "s", &fn))) return NULL;
+  fn = NULL;
+  if (!(PyArg_ParseTuple(args, "|s", &fn))) return NULL;
   LoadRadialMultipole(fn);
   Py_INCREF(Py_None);
   return Py_None;
