@@ -2381,6 +2381,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	    nleft++;
 	    continue;
 	  }
+	  ia[i][j] = 1;
 	  nq = Min(ang[i].k, ang[j].k);
 	  kkp = (ang[i].k + ang[j].k)/2;
 	  if (ty > type) type = ty;
