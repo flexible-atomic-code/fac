@@ -267,7 +267,9 @@ static PyObject *PSetMLevels(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ss", &efn, &tfn)) return NULL;
+  efn = NULL;
+  tfn = NULL;
+  if (!PyArg_ParseTuple(args, "|ss", &efn, &tfn)) return NULL;
   
   if (SetMLevels(efn, tfn) < 0) return NULL;
   
@@ -408,6 +410,61 @@ static PyObject *PWallTime(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("InitializeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#ifdef USE_MPI
+  int n = -1;
+  if (!(PyArg_ParseTuple(args, "|i", &n))) {
+    return NULL;
+  }
+  InitializeMPI(n, 1);
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PMPIRank(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("MPIRank", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int n, k;
+  k = MPIRank(&n);
+  return Py_BuildValue("[ii]", k, n);
+}
+
+static PyObject *PMemUsed(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("MemUsed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double m = msize();
+  return Py_BuildValue("d", m);
+}
+
+static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("FinalizeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
@@ -424,6 +481,10 @@ static struct PyMethodDef pol_methods[] = {
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS}, 
   {"WallTime", PWallTime, METH_VARARGS}, 
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {NULL, NULL, METH_VARARGS}
 };
 

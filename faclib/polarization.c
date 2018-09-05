@@ -165,227 +165,244 @@ int SetMLevels(char *fn, char *tfn) {
   int swp;
   double a, b, z, e;
 
-  MemENTable(fn);
-
-  f = OpenFileRO(fn, &fh, &swp);
-  if (f == NULL) {
-    printf("cannot open file %s\n", fn);
-    return -1;
-  }
-
-  if (fh.type != DB_EN) {
-    printf("File type is not DB_EN\n");
-    FCLOSE(f);
-    return -1;
-  }
-
   if (nlevels > 0) {
-    for (k = 0; k <= MAXPOL; k++) {
-      free(BL[k]);
+    if (fn != NULL && strlen(fn) > 0) {
+      for (k = 0; k <= MAXPOL; k++) {
+	free(BL[k]);
+      }
+      for (t = 0; t < nlevels; t++) {
+	free(levels[t].rtotal);
+	free(levels[t].pop);
+	free(levels[t].npop);
+      }
+      free(levels);
+      nlevels = 0;    
+      if (nmlevels > 0) {
+	nmlevels = 0;
+	free(rmatrix);
+      }
+    } else {
+      for (t = 0; t < nlevels; t++) {
+	m = levels[t].j/2 + 1;
+	for (p = 0; p < m; p++) {
+	  levels[t].rtotal[p] = 0.0;
+	  levels[t].pop[p] = 0.0;
+	  levels[t].npop[p] = 0.0;
+	}
+      }
     }
-    for (t = 0; t < nlevels; t++) {
-      free(levels[t].rtotal);
-      free(levels[t].pop);
-      free(levels[t].npop);
-    }
-    free(levels);
-    nlevels = 0;
   }
   if (ntr > 0) {
-    for (t = 0; t < ntr; t++) {
-      free(tr_rates[t].rates);
-    }
-    free(tr_rates);
-    ntr = 0;
-  }
-
-  while (1) {
-    n = ReadENHeader(f, &h, swp);
-    if (n == 0) break;
-    nlevels += h.nlevels;
-    FSEEK(f, h.length, SEEK_CUR);
-  }
-  
-  if (nlevels == 0) {
-    FCLOSE(f);
-    return -1;
-  }
-
-  FSEEK(f, 0, SEEK_SET);
-  n = ReadFHeader(f, &fh, &swp);
-
-  for (k = 0; k <= MAXPOL; k++) {
-    BL[k] = (double *) malloc(sizeof(double)*nlevels);
-  }
-  levels = (MLEVEL *) malloc(sizeof(MLEVEL)*nlevels);
-  t = 0;
-  while (1) {
-    n = ReadENHeader(f, &h, swp);
-    if (n == 0) break;
-    for (k = 0; k < h.nlevels; k++) {
-      n = ReadENRecord(f, &r, swp);
-      if (n == 0) break;
-      levels[t].nele = h.nele;
-      levels[t].j = r.j;
-      levels[t].p = r.p;
-      levels[t].energy = r.energy;
-      m = r.j/2 + 1;
-      levels[t].rtotal = malloc(sizeof(double)*m);
-      levels[t].pop = malloc(sizeof(double)*m);
-      levels[t].npop = malloc(sizeof(double)*m);
-      levels[t].dtotal = 0.0;
-      for (p = 0; p < m; p++) {
-	levels[t].rtotal[p] = 0.0;
-	levels[t].pop[p] = 0.0;
-	levels[t].npop[p] = 0.0;
+    if (tfn != NULL && strlen(tfn) > 0) {
+      for (t = 0; t < ntr; t++) {
+	free(tr_rates[t].rates);
       }
-      t++;
+      free(tr_rates);
+      ntr = 0;
+    }      
+  }
+
+  if (fn != NULL && strlen(fn) > 0) {
+#if USE_MPI == 2
+    if (!MPIReady()) InitializeMPI(0, 1);
+#endif
+    MemENTable(fn);
+    f = OpenFileRO(fn, &fh, &swp);
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return -1;
     }
-  }
-  FCLOSE(f);
-
-  if (t != nlevels) {
-    printf("Energy file %s corrupted\n", fn);
-    return -1;
-  }
-
-  if (nmlevels > 0) {
-    nmlevels = 0;
-    free(rmatrix);
-  }
-
-  levels[0].ic = 0;
-  for (t = 1; t < nlevels; t++) {
-    levels[t].ic = levels[t-1].ic + levels[t-1].j/2 + 1;
-  }
-  if (maxlevels > 0 && maxlevels < nlevels) {
-    nmlevels = levels[maxlevels-1].ic + levels[maxlevels-1].j/2+1 + 1;
-    nmlevels1 = nmlevels-1;
-  } else {
-    nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
-    nmlevels1 = nmlevels;
-  }
-  rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
-
-  f = OpenFileRO(tfn, &fh, &swp);
-  if (f == NULL) {
-    printf("cannot open file %s\n", fn);
-    return -1;
-  }
-
-  if (fh.type != DB_TR) {
-    printf("File type is not DB_TR\n");
-    FCLOSE(f);
-    return -1;
-  }
-  
-  while (1) {
-    n = ReadTRHeader(f, &h1, swp);
-    if (n == 0) break;
-    ntr += h1.ntransitions;
-    FSEEK(f, h1.length, SEEK_CUR);
-  }
-
-  if (ntr == 0) {
-    FCLOSE(f);
-    return -1;
-  }
-
-  FSEEK(f, 0, SEEK_SET);
-  n = ReadFHeader(f, &fh, &swp);
-
-  z = fh.atom;
-  t0 = 0;
-  if (h.nele == 1) {
-    k = FindLevelByName(fn, 1, "1*1", "1s1", "1s+1(1)1");
-    t = FindLevelByName(fn, 1, "2*1", "2s1", "2s+1(1)1");
-    if (k >= 0 && t >= 0) {
-      ntr += 1;
-      tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
-      tr_rates[0].lower = k;
-      tr_rates[0].upper = t;
-      tr_rates[0].multipole = 0;
-      tr_rates[0].n = 1;
-      tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
-      a = TwoPhotonRate(z, 0);
-      tr_rates[0].rtotal = a;
-      tr_rates[0].rates[0] = a;
-      t0 = 1;
-    } else {
-      tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
+    
+    if (fh.type != DB_EN) {
+      printf("File type is not DB_EN\n");
+      FCLOSE(f);
+      return -1;
     }
-  } else if (h.nele == 2) {
-    k = FindLevelByName(fn, 2, "1*2", "1s2", "1s+2(0)0");
-    t = FindLevelByName(fn, 2, "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0");
-    if (k >= 0 && t >= 0) {
-      ntr += 1;
-      tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
-      tr_rates[0].lower = k;
-      tr_rates[0].upper = t;
-      tr_rates[0].multipole = 0;
-      tr_rates[0].n = 1;
-      tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
-      a = TwoPhotonRate(z, 1);
-      tr_rates[0].rtotal = a;
-      tr_rates[0].rates[0] = a;
-      t0 = 1;
-    } else {
-      tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
-    }
-  } else {
-    tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
-  }
-
-  while (1) {
-    n = ReadTRHeader(f, &h1, swp);
-    if (n == 0) break;
-    k0 = abs(h1.multipole)*2;
-    for (t = 0; t < h1.ntransitions; t++) {
-      n = ReadTRRecord(f, &r1, &r1x, swp);
+    
+    while (1) {
+      n = ReadENHeader(f, &h, swp);
       if (n == 0) break;
-      j1 = levels[r1.lower].j;
-      j2 = levels[r1.upper].j;
-      if (k0 != 0) {
-	k = k0;
-	tr_rates[t0].multipole = h1.multipole;
+      nlevels += h.nlevels;
+      FSEEK(f, h.length, SEEK_CUR);
+    }
+    
+    if (nlevels == 0) {
+      FCLOSE(f);
+      return -1;
+    }
+    
+    FSEEK(f, 0, SEEK_SET);
+    n = ReadFHeader(f, &fh, &swp);
+    
+    for (k = 0; k <= MAXPOL; k++) {
+      BL[k] = (double *) malloc(sizeof(double)*nlevels);
+    }
+    levels = (MLEVEL *) malloc(sizeof(MLEVEL)*nlevels);
+    t = 0;
+    while (1) {
+      n = ReadENHeader(f, &h, swp);
+      if (n == 0) break;
+      for (k = 0; k < h.nlevels; k++) {
+	n = ReadENRecord(f, &r, swp);
+	if (n == 0) break;
+	levels[t].nele = h.nele;
+	levels[t].j = r.j;
+	levels[t].p = r.p;
+	levels[t].energy = r.energy;
+	m = r.j/2 + 1;
+	levels[t].rtotal = malloc(sizeof(double)*m);
+	levels[t].pop = malloc(sizeof(double)*m);
+	levels[t].npop = malloc(sizeof(double)*m);
+	levels[t].dtotal = 0.0;
+	for (p = 0; p < m; p++) {
+	  levels[t].rtotal[p] = 0.0;
+	  levels[t].pop[p] = 0.0;
+	  levels[t].npop[p] = 0.0;
+	}
+	t++;
+      }
+    }
+    FCLOSE(f);
+    
+    if (t != nlevels) {
+      printf("Energy file %s corrupted\n", fn);
+      return -1;
+    }
+
+    levels[0].ic = 0;
+    for (t = 1; t < nlevels; t++) {
+      levels[t].ic = levels[t-1].ic + levels[t-1].j/2 + 1;
+    }
+    if (maxlevels > 0 && maxlevels < nlevels) {
+      nmlevels = levels[maxlevels-1].ic + levels[maxlevels-1].j/2+1 + 1;
+      nmlevels1 = nmlevels-1;
+    } else {
+      nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
+      nmlevels1 = nmlevels;
+    }
+    rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
+  }
+
+  if (tfn != NULL && strlen(tfn) > 0) {
+    f = OpenFileRO(tfn, &fh, &swp);
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return -1;
+    }
+    
+    if (fh.type != DB_TR) {
+      printf("File type is not DB_TR\n");
+      FCLOSE(f);
+      return -1;
+    }
+    
+    while (1) {
+      n = ReadTRHeader(f, &h1, swp);
+      if (n == 0) break;
+      ntr += h1.ntransitions;
+      FSEEK(f, h1.length, SEEK_CUR);
+    }
+    
+    if (ntr == 0) {
+      FCLOSE(f);
+      return -1;
+    }
+    
+    FSEEK(f, 0, SEEK_SET);
+    n = ReadFHeader(f, &fh, &swp);
+    
+    z = fh.atom;
+    t0 = 0;
+    if (h.nele == 1) {
+      k = FindLevelByName(fn, 1, "1*1", "1s1", "1s+1(1)1");
+      t = FindLevelByName(fn, 1, "2*1", "2s1", "2s+1(1)1");
+      if (k >= 0 && t >= 0) {
+	ntr += 1;
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
+	tr_rates[0].lower = k;
+	tr_rates[0].upper = t;
+	tr_rates[0].multipole = 0;
+	tr_rates[0].n = 1;
+	tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
+	a = TwoPhotonRate(z, 0);
+	tr_rates[0].rtotal = a;
+	tr_rates[0].rates[0] = a;
+	t0 = 1;
       } else {
-	k = abs(j1-j2);
-	if (k == 0) k = 2;
-	if (IsOdd(levels[r1.lower].p+levels[r1.upper].p+k/2)) {
-	  tr_rates[t0].multipole = k/2;
-	} else {
-	  tr_rates[t0].multipole = -k/2;
-	}
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
       }
-      tr_rates[t0].lower = r1.lower;
-      tr_rates[t0].upper = r1.upper;
-      e = levels[r1.upper].energy-levels[r1.lower].energy;
-      b = OscillatorStrength(h1.multipole, e, r1.strength, &a);
-      a *= RATE_AU;
-      tr_rates[t0].rtotal = a/(j2+1.0);
-      tr_rates[t0].n = (j1/2+1)*(j2/2+1);
-      tr_rates[t0].rates = (double *) malloc(sizeof(double)*tr_rates[t0].n);
-      p = 0;
-      for (m1 = -j1; m1 <= 0; m1 += 2) {
-	for (m2 = -j2; m2 <= 0; m2 += 2) {
-	  b = W3j(j1, k, j2, -m1, m1-m2, m2);
-	  b = b*b;
-	  tr_rates[t0].rates[p] = a*b;
-	  if (m1 != 0) {
-	    b = W3j(j1, k, j2, -m1, m1+m2, -m2);
-	    b = b*b;
-	    tr_rates[t0].rates[p] += a*b;
-	  }
-	  p++;
-	}
+    } else if (h.nele == 2) {
+      k = FindLevelByName(fn, 2, "1*2", "1s2", "1s+2(0)0");
+      t = FindLevelByName(fn, 2, "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0");
+      if (k >= 0 && t >= 0) {
+	ntr += 1;
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
+	tr_rates[0].lower = k;
+	tr_rates[0].upper = t;
+	tr_rates[0].multipole = 0;
+	tr_rates[0].n = 1;
+	tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
+	a = TwoPhotonRate(z, 1);
+	tr_rates[0].rtotal = a;
+	tr_rates[0].rates[0] = a;
+	t0 = 1;
+      } else {
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
       }
-      t0++;
+    } else {
+      tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
     }
+    
+    while (1) {
+      n = ReadTRHeader(f, &h1, swp);
+      if (n == 0) break;
+      k0 = abs(h1.multipole)*2;
+      for (t = 0; t < h1.ntransitions; t++) {
+	n = ReadTRRecord(f, &r1, &r1x, swp);
+	if (n == 0) break;
+	j1 = levels[r1.lower].j;
+	j2 = levels[r1.upper].j;
+	if (k0 != 0) {
+	  k = k0;
+	  tr_rates[t0].multipole = h1.multipole;
+	} else {
+	  k = abs(j1-j2);
+	  if (k == 0) k = 2;
+	  if (IsOdd(levels[r1.lower].p+levels[r1.upper].p+k/2)) {
+	    tr_rates[t0].multipole = k/2;
+	  } else {
+	    tr_rates[t0].multipole = -k/2;
+	  }
+	}
+	tr_rates[t0].lower = r1.lower;
+	tr_rates[t0].upper = r1.upper;
+	e = levels[r1.upper].energy-levels[r1.lower].energy;
+	b = OscillatorStrength(h1.multipole, e, r1.strength, &a);
+	a *= RATE_AU;
+	tr_rates[t0].rtotal = a/(j2+1.0);
+	tr_rates[t0].n = (j1/2+1)*(j2/2+1);
+	tr_rates[t0].rates = (double *) malloc(sizeof(double)*tr_rates[t0].n);
+	p = 0;
+	for (m1 = -j1; m1 <= 0; m1 += 2) {
+	  for (m2 = -j2; m2 <= 0; m2 += 2) {
+	    b = W3j(j1, k, j2, -m1, m1-m2, m2);
+	    b = b*b;
+	    tr_rates[t0].rates[p] = a*b;
+	    if (m1 != 0) {
+	      b = W3j(j1, k, j2, -m1, m1+m2, -m2);
+	      b = b*b;
+	      tr_rates[t0].rates[p] += a*b;
+	    }
+	    p++;
+	  }
+	}
+	t0++;
+      }
+    }
+    if (t0 < ntr) ntr = t0;    
+    FCLOSE(f);
   }
-  if (t0 < ntr) ntr = t0;
-
-  FCLOSE(f);
-
+  
   return 0;
 }  
 
@@ -676,7 +693,12 @@ static double Population(int iter) {
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
 
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
+  {
+  int w = 0;
   for (i = 0; i < ntr; i++) {
+    if (SkipWMPI(w++)) continue;
     i1 = tr_rates[i].lower;
     i2 = tr_rates[i].upper;
     j1 = levels[i1].j;
@@ -689,12 +711,15 @@ static double Population(int iter) {
 	a = tr_rates[i].rates[t++];
 	p = q2*nmlevels+q1;
 	if (q2 < nmlevels1) {
+#pragma omp atomic
 	  rmatrix[p] += a;
 	  q2++;
 	} else {
+#pragma omp atomic
 	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
 	}
 	if (iter == 0) {
+#pragma omp atomic
 	  levels[i2].rtotal[(m2+j2)/2] += a;
 	}
       }
@@ -703,12 +728,18 @@ static double Population(int iter) {
       }
     }
   }
+  }
   
   for (i = 0; i < nmlevels; i++) {
     ipiv[i] = 0;
   }
   idr = -1;
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
+  {
+  int w = 0;
   for (i = 0; i < nai; i++) {
+    if (SkipWMPI(w++)) continue;
     i1 = ai_rates[i].b;
     i2 = ai_rates[i].f;
     j1 = levels[i1].j;
@@ -728,21 +759,27 @@ static double Population(int iter) {
 	p = q1*nmlevels+q2;
 	a = ai_rates[i].rates[t++];
 	if (q1 < nmlevels1) {
+#pragma omp atomic
 	  rmatrix[p] += a;
 	} else {
+#pragma omp atomic
 	  rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
 	}
 	if (iter == 0) {
+#pragma omp atomic
 	  levels[i1].rtotal[(m1+j1)/2] += a;
 	}
 	p = q2*nmlevels+q1;
 	a = eden*ai_rates[i].rates[t++];
 	if (q2 < nmlevels1) {
+#pragma omp atomic
 	  rmatrix[p] += a;
 	} else {
+#pragma omp atomic
 	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
 	}
 	if (iter == 0) {
+#pragma omp atomic
 	  levels[i2].rtotal[(m2+j2)/2] += a;
 	}
 	if (q2 < nmlevels1) {
@@ -754,14 +791,19 @@ static double Population(int iter) {
       }
     }
   }
-  
+  }
   if (params.idr >= 0 && idr < 0) {
     printf("idr=%d/%d is not a DR target level\n", params.idr, idr);
     return -1;
   }
   
   if (idr < 0) {
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
+    {
+    int w = 0;
     for (i = 0; i < nce; i++) {
+      if (SkipWMPI(w++)) continue;
       i1 = ce_rates[i].lower;
       i2 = ce_rates[i].upper;
       j1 = levels[i1].j;
@@ -774,21 +816,27 @@ static double Population(int iter) {
 	  p = q1*nmlevels+q2;
 	  a = eden*ce_rates[i].rates[t++];
 	  if (q1 < nmlevels1) {
+#pragma omp atomic
 	    rmatrix[p] += a;
 	  } else {
+#pragma omp atomic
 	    rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
 	  }
 	  if (iter == 0) {
+#pragma omp atomic
 	    levels[i1].rtotal[(m1+j1)/2] += a;
 	  }
 	  p = q2*nmlevels+q1;
 	  a = eden*ce_rates[i].rates[t++];
 	  if (q2 < nmlevels1) {
+#pragma omp atomic
 	    rmatrix[p] += a;
 	  } else {
+#pragma omp atomic
 	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
 	  }
 	  if (iter == 0) {
+#pragma omp atomic
 	    levels[i2].rtotal[(m2+j2)/2] += a;
 	  }
 	  if (q2 < nmlevels1) {
@@ -801,7 +849,8 @@ static double Population(int iter) {
       }
     }  
   }
-
+  }
+  
   if (nlevels > nmax) {
     a = 0;
     for (t = nmax; t < nlevels; t++) {
@@ -815,17 +864,22 @@ static double Population(int iter) {
     }
   }
 
-  for (q1 = 0; q1 < nmlevels; q1++) {
-    p = q1*nmlevels + q1;
-    rmatrix[p] = 0.0;
-    for (q2 = 0; q2 < nmlevels; q2++) {
-      if (q2 != q1) {
-	t = q1*nmlevels + q2;
-	rmatrix[p] -= rmatrix[t];
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(q1, p, q2, t)
+  {
+    int w = 0;
+    for (q1 = 0; q1 < nmlevels; q1++) {
+      if (SkipWMPI(w++)) continue;
+      p = q1*nmlevels + q1;
+      rmatrix[p] = 0.0;
+      for (q2 = 0; q2 < nmlevels; q2++) {
+	if (q2 != q1) {
+	  t = q1*nmlevels + q2;
+	  rmatrix[p] -= rmatrix[t];
+	}
       }
     }
   }
-
   if (idr < 0) {
     i = -1;
     for (q1 = 0; q1 < nmlevels; q1++) {
@@ -836,7 +890,12 @@ static double Population(int iter) {
       }
     }
 
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(q1, p, q2, t)
+    {
+    int w = 0;
     for (q1 = 0; q1 < nmlevels; q1++) {
+      if (SkipWMPI(w++)) continue;
       p = q1*nmlevels+i;
       rmatrix[p] = 1.0;
       b[q1] = 0.0;
@@ -849,6 +908,7 @@ static double Population(int iter) {
 	rmatrix[t] = 1E50;
       }
     }
+    }
     b[i] = 1.0;
   } else {
     q1 = levels[idr].ic;
@@ -860,7 +920,12 @@ static double Population(int iter) {
       }
     }
 
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(q1, p, q2, t)
+    {
+    int w = 0;
     for (q1 = 0; q1 < nmlevels; q1++) {
+      if (SkipWMPI(w++)) continue;
       t = q1*nmlevels+q1;
       if (!rmatrix[t]) {
 	for (q2 = 0; q2 < nmlevels; q2++) {
@@ -870,7 +935,7 @@ static double Population(int iter) {
 	rmatrix[t] = 1E50;
       }
     }
-
+    }
     j2 = levels[idr].j;
     t = j2/2 + 1;
     a = 1.0/(j2 + 1.0);
@@ -902,8 +967,8 @@ static double Population(int iter) {
 
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
   c = 0.0;
+  nm = 0;
   if (nlevels > nmax) {
-    nm = 0;
     for (i = 0; i < nmax; i++) {
       p = levels[i].ic;
       j1 = levels[i].j;
@@ -926,7 +991,12 @@ static double Population(int iter) {
       }
     }
 
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
+    {
+    int w = 0;
     for (i = ntr-1; i >= 0; i--) {
+      if (SkipWMPI(w++)) continue;
       i1 = tr_rates[i].lower;
       if (i1 < nmax) continue;
       i2 = tr_rates[i].upper;
@@ -936,12 +1006,18 @@ static double Population(int iter) {
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  a = levels[i2].pop[(m2+j2)/2]*tr_rates[i].rates[t++];
+#pragma omp atomic
 	  levels[i1].npop[(m1+j1)/2] += a;
 	}
       }
     }
-    
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
+    {
+    int w = 0;
     for (i = nai-1; i >= 0; i--) {
+      if (SkipWMPI(w++)) continue;
       i1 = ai_rates[i].b;
       i2 = ai_rates[i].f;
       if (i1 < nmax && i2 < nmax) continue;
@@ -963,8 +1039,14 @@ static double Population(int iter) {
 	}
       }
     }
-
+    }
+    
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
+    {
+    int w = 0;
     for (i = nce-1; i >= 0; i--) {
+      if (SkipWMPI(w++)) continue;
       i1 = ce_rates[i].lower;
       i2 = ce_rates[i].upper;
       if (i1 < nmax && i2 < nmax) continue;
@@ -986,8 +1068,13 @@ static double Population(int iter) {
 	}
       }
     }
-
+    }
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j1, m1, t)
+    {
+    int w = 0;
     for (i = nmax; i < nlevels; i++) {
+      if (SkipWMPI(w++)) continue;
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	t = (m1+j1)/2;
@@ -997,15 +1084,25 @@ static double Population(int iter) {
 	  levels[i].npop[t] = 0.0;
 	}
 	if (levels[i].npop[t]) {
+#pragma omp atomic
 	  c += fabs((levels[i].npop[t]-levels[i].pop[t])/levels[i].npop[t]);
+#pragma omp atomic
 	  nm++;
 	}
 	levels[i].pop[t] = levels[i].npop[t];
       }
     }
-    c /= nm;
+    }
+    if (nm > 0) {
+      c /= nm;
+    }
   } else {
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j1, m1, t, p)
+    {
+    int w = 0;
     for (i = 0; i < nlevels; i++) {
+      if (SkipWMPI(w++)) continue;
       p = levels[i].ic;
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
@@ -1014,9 +1111,15 @@ static double Population(int iter) {
 	p++;
       }
     }
+    }
   }
 
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j1, m1, t, a, p)
+  {
+  int w = 0;
   for (i = 0; i < nlevels; i++) {
+    if (SkipWMPI(w++)) continue;
     p = levels[i].ic;
     j1 = levels[i].j;
     a = 0.0;
@@ -1026,7 +1129,7 @@ static double Population(int iter) {
     }
     levels[i].dtotal = a;
   }
-    
+  }
   return c;
 }
 
@@ -1108,7 +1211,11 @@ int Orientation(char *fn, double etrans) {
     DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
   }
 
+#pragma omp parallel default(shared) private(i, j1, k, k2, m1, t, b, a)  
+  {
+  int w = 0;
   for (i = 0; i < nlevels; i++) {
+    if (SkipWMPI(w++)) continue;
     j1 = levels[i].j;
     for (k = 0; k <= MAXPOL; k++) {
       k2 = k*4;
@@ -1131,7 +1238,7 @@ int Orientation(char *fn, double etrans) {
       }
     }
   }    
-
+  }
   if (f) {
     fprintf(f, "# FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
     fprintf(f, "# Energy  = %-12.5E\n", params.energy);

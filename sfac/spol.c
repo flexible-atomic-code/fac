@@ -161,11 +161,19 @@ static int PSetDensity(int argc, char *argv[], int argt[],
 static int PSetMLevels(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int i;
+  char *fn, *tfn;
+  
+  if (argc > 2) return -1;
+  fn = NULL;
+  tfn = NULL;
+  if (argc > 0) {
+    fn = argv[0];
+    if (argc > 1) {
+      tfn = argv[1];
+    }
+  }
 
-  if (argc != 2) return -1;
-  if (argt[0] != STRING || argt[1] != STRING) return -1;
-
-  i = SetMLevels(argv[0], argv[1]);
+  i = SetMLevels(fn, tfn);
 
   return i;
 }
@@ -267,6 +275,40 @@ static int PWallTime(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PInitializeMPI(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+#ifdef USE_MPI
+  int n = -1;
+  if (argc > 0) {
+    n = atoi(argv[0]);
+  }
+  InitializeMPI(n, 1);
+#endif
+  return 0;
+}
+
+static int PMPIRank(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n, k;
+  k = MPIRank(&n);
+  MPrintf(-1, "%d of %d\n", k, n);
+  return 0;
+}
+
+static int PMemUsed(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  MPrintf(-1, "mem used %g\n", msize());
+  return 0;
+}
+
+static int PFinalizeMPI(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -282,6 +324,10 @@ static METHOD methods[] = {
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
   {"WallTime", PWallTime, METH_VARARGS},
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
