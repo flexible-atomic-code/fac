@@ -208,21 +208,36 @@ static int PPolarizationTable(int argc, char *argv[], int argt[],
   char *ifn;
   char *vg[MAXNARGS];
   int ig[MAXNARGS];
+  double emin, emax, sth;
 
-  if (argc != 1 && argc != 2) return -1;
+  if (argc < 1 || argc > 5) return -1;
   if (argt[0] != STRING) return -1;
 
   ifn = NULL;
   n = 0;
-  if (argc == 2) {
+  emin = 0;
+  emax = 0;
+  sth = 0;
+  if (argc > 1) {
     if (argt[1] == STRING) {
       ifn = argv[1];
     } else if (argt[1] == LIST) {
       n = DecodeArgs(argv[1], vg, ig, variables);
+    } else {
+      return -1;
+    }
+    if (argc > 2) {
+      emin = atof(argv[2]);
+      if (argc > 3) {
+	emax = atof(argv[3]);
+	if (argc > 4) {
+	  sth = atof(argv[4]);
+	}
+      }
     }
   }
 
-  i = PolarizationTable(argv[0], ifn, n, vg);
+  i = PolarizationTable(argv[0], ifn, n, vg, emin, emax, sth);
   for (k = 0; k < n; k++) {
     free(vg[k]);
   }
