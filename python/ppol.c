@@ -354,6 +354,7 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   char *ifn;
   char **sc;
   int n, i;
+  double emin, emax, sth;
   
   if (spol_file) {
     SPOLStatement("PolarizationTable", args, NULL);
@@ -362,8 +363,12 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   }
 
   p = NULL;
-  if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
-
+  emin = 0;
+  emax = 0;
+  sth = 0;
+  if (!PyArg_ParseTuple(args, "s|Oddd", &fn, &p, &emin, &emax, &sth)) {
+    return NULL;
+  }
   ifn = NULL;
   n = 0;
   sc = NULL;
@@ -386,7 +391,7 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
     }
   }
   
-  i = PolarizationTable(fn, ifn, n, sc);
+  i = PolarizationTable(fn, ifn, n, sc, emin, emax, sth);
   if (n > 0) {
     free(sc);
   }

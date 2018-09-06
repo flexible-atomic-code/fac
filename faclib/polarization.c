@@ -60,6 +60,11 @@ static struct {
   double *pdr;
 } params;
 
+static int _ni = 0;
+static double _mi = 0;
+static MLINE *_mli = NULL;
+#pragma omp threadprivate(_ni, _mi, _mli)
+
 int InitPolarization(void) {
   int k;
   double pqa[MAXPOL*2+1];
@@ -1340,7 +1345,8 @@ static int GetTrans(int *trans, char *buf) {
   return 0;
 }
 
-int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
+int PolarizationTable(char *fn, char *ifn, int n, char **sc,
+		      double emin, double emax, double sth) {
   int i, k, k2, t, t2;
   int j1, j2, m1, i1, i2;
   FILE *f;
@@ -1351,7 +1357,7 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
   int *trans, *tp, ns;
 
   ns = 0;
-  if (ifn) {
+  if (ifn && strlen(ifn) > 0) {
     n = 0;
     f = fopen(ifn, "r");
     if (f == NULL) {
@@ -1409,14 +1415,71 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
   fprintf(f, "# Density = %-12.5E\n", params.density);
   fprintf(f, "# IDR     = %-3d\n", params.idr);
   fprintf(f, "\n");
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, k, e, tem)
+  {
+  int w = 0;
+  _ni = 0;
+  _mi = 0;
   for (i = 0; i < ntr; i++) {
+    if (SkipWMPI(w++)) continue;
     i1 = tr_rates[i].upper;
     i2 = tr_rates[i].lower;
     k = tr_rates[i].multipole;
+    if (tr_rates[i].n == 0) continue;
+    tr_rates[i].n = -tr_rates[i].n;
     if (k == 0) continue;
     if (ns > 0) {
       if (!(InTrans(ns, trans, i1, i2, k))) continue;
     }
+    e = (levels[i1].energy - levels[i2].energy)*HARTREE_EV;
+    if (emax > emin && (e < emin || e > emax)) continue;
+    tem = levels[i1].dtotal*tr_rates[i].rtotal;
+    if (tem > _mi) _mi = tem;
+    else if (sth > 0 && tem < sth*_mi) continue;
+    tr_rates[i].n = -tr_rates[i].n;
+    _ni++;
+  }
+  }
+  double mi = 0;
+#pragma omp parallel default(shared)
+  {
+#pragma omp critical
+    if (mi < _mi) mi = _mi;
+  }  
+  if (sth > 0) {
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, tem, i1, i2)
+    {
+    int w = 0;
+    _ni = 0;
+    for (i = 0; i < ntr; i++) {
+      if (SkipWMPI(w++)) continue;
+      if (tr_rates[i].n <= 0) continue;
+      i1 = tr_rates[i].upper;
+      i2 = tr_rates[i].lower;
+      tem = levels[i1].dtotal*tr_rates[i].rtotal;
+      if (tem < sth*mi) {
+	tr_rates[i].n = -tr_rates[i].n;
+	continue;
+      }
+      _ni++;
+    }
+    }
+  }  
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, k, k2, j1, j2, t, t2, a, b)
+  {
+  int w = 0;
+  _mli = malloc(sizeof(MLINE)*_ni);
+  int ni = 0;
+  for (i = 0; i < ntr; i++) {
+    if (SkipWMPI(w++)) continue;
+    if (tr_rates[i].n <= 0) continue;
+    i1 = tr_rates[i].upper;
+    i2 = tr_rates[i].lower;
+    k = tr_rates[i].multipole;
+    _mli[ni].itr = i;  
     k2 = 2*abs(k);
     j1 = levels[i1].j;
     j2 = levels[i2].j;
@@ -1451,13 +1514,34 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc) {
     if (a) {
       a = a/b;
     }
-    tem = levels[i1].dtotal*tr_rates[i].rtotal;
-    e = (levels[i1].energy - levels[i2].energy)*HARTREE_EV;
-    fprintf(f, "%3d %5d %5d %2d %12.5E %12.5E %10.3E %10.3E\n",
-	    levels[i1].nele, i1, i2, k, e, tem, b, a);
+    _mli[ni].a = a;
+    _mli[ni].b = b;
+    ni++;
   }
-
+  }
+#pragma omp parallel default(shared) private(t, i, i1, i2, k, e, tem, a, b)
+  {
+    for (t = 0; t < _ni; t++) {
+      i = _mli[t].itr;
+      i1 = tr_rates[i].upper;
+      i2 = tr_rates[i].lower;
+      k = tr_rates[i].multipole;
+      e = (levels[i1].energy - levels[i2].energy)*HARTREE_EV;    
+      tem = levels[i1].dtotal*tr_rates[i].rtotal;
+      b = _mli[t].b;
+      a = _mli[t].a;
+#pragma omp critical
+      {
+	fprintf(f, "%3d %5d %5d %2d %12.5E %12.5E %10.3E %10.3E\n",
+		levels[i1].nele, i1, i2, k, e, tem, b, a);
+      }
+    }
+    if (_ni > 0) free(_mli);
+  }
   if (n > 0) free(trans);
+  for (i = 0; i < ntr; i++) {
+    if (tr_rates[i].n < 0) tr_rates[i].n = -tr_rates[i].n;
+  }
   fclose(f);
   return 0;
 }
