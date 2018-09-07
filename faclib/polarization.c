@@ -697,7 +697,8 @@ static double Population(int iter) {
   
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
-
+  //double wt0, wt1, wt2, wt3, wt4, wt5, wt6, wt7, wt8, wt9, wt10, wt11;
+  //wt0 = WallTime();
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
   {
@@ -739,6 +740,7 @@ static double Population(int iter) {
     ipiv[i] = 0;
   }
   idr = -1;
+  //wt1 = WallTime();
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
   {
@@ -802,6 +804,7 @@ static double Population(int iter) {
     return -1;
   }
   
+  //wt2 = WallTime();
   if (idr < 0) {
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
@@ -869,6 +872,7 @@ static double Population(int iter) {
     }
   }
 
+  //wt3 = WallTime();
   ResetWidMPI();
 #pragma omp parallel default(shared) private(q1, p, q2, t)
   {
@@ -885,6 +889,7 @@ static double Population(int iter) {
       }
     }
   }
+  //wt4 = WallTime();
   if (idr < 0) {
     i = -1;
     for (q1 = 0; q1 < nmlevels; q1++) {
@@ -970,7 +975,9 @@ static double Population(int iter) {
     }
   }
 
+  //wt5 = WallTime();
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
+  //wt6 = WallTime();
   c = 0.0;
   nm = 0;
   if (nlevels > nmax) {
@@ -996,6 +1003,7 @@ static double Population(int iter) {
       }
     }
 
+    //wt7 = WallTime();
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
     {
@@ -1017,6 +1025,7 @@ static double Population(int iter) {
       }
     }
     }
+    //wt8 = WallTime();
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
     {
@@ -1046,6 +1055,7 @@ static double Population(int iter) {
     }
     }
     
+    //wt9 = WallTime();
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
     {
@@ -1074,6 +1084,7 @@ static double Population(int iter) {
       }
     }
     }
+    //wt10 = WallTime();
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j1, m1, t)
     {
@@ -1119,6 +1130,7 @@ static double Population(int iter) {
     }
   }
 
+  //wt11 = WallTime();
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j1, m1, t, a, p)
   {
@@ -1135,6 +1147,12 @@ static double Population(int iter) {
     levels[i].dtotal = a;
   }
   }
+  //double wt12 = WallTime();
+  /*
+  printf("wt: %g %g %g %g %g %g %g %g %g %g %g %g\n",
+	 wt1-wt0, wt2-wt1, wt3-wt2, wt4-wt3, wt5-wt4, 
+	 wt6-wt5,wt7-wt6,wt8-wt7,wt9-wt8,wt10-wt9, wt11-wt10,wt12-wt11);
+  */
   return c;
 }
 
@@ -1149,9 +1167,13 @@ int PopulationTable(char *fn) {
     return -1;
   }
 
-  for (i = 0; i < max_iter; i++) {
+  double wt0, wt1;
+  wt0 = WallTime();
+  for (i = 0; i < max_iter; i++) {    
     c = Population(i);
-    printf("%5d %11.4E\n", i, c);
+    wt1 = WallTime();
+    printf("%5d %11.4E %11.4E\n", i, c, wt1-wt0);
+    wt0 = wt1;
     fflush(stdout);
     if (c < iter_accuracy) break;
   }

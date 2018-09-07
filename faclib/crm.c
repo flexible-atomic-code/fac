@@ -3669,12 +3669,16 @@ int LevelPopulation(void) {
   printf("Populate Iteration:\n");
   d = 10.0;
   c = 1.0;
+  double wt0, wt1;
+  wt0 = WallTime();
   for (i = 0; i < max_iter; i++) {
     BlockMatrix();
     n = max_iter;
     BlockPopulation(n);
     d = BlockRelaxation(i);
-    printf("%5d %11.4E\n", i, d);
+    wt1 = WallTime();
+    printf("%5d %11.4E %11.4E\n", i, d, wt1-wt0);
+    wt0 = wt1;
     fflush(stdout);
     if (d < iter_accuracy) break;
   }
@@ -3690,11 +3694,15 @@ int Cascade(void) {
   double d;
   
   if (!rec_cascade) return 0;
-  printf("Cascade  Iteration:\n");
-  d = BlockRelaxation(-1);
+  double wt0, wt1;
+  wt0 = WallTime();
+  printf("Cascade  Iteration\n");  
+  d = BlockRelaxation(-1);  
   for (i = 1; i <= max_iter; i++) {
     d = BlockRelaxation(-i);
-    printf("%5d %11.4E\n", i, d);
+    wt1 = WallTime();
+    printf("%5d %11.4E %11.4E\n", i, d, wt1-wt0);
+    wt0 = wt1;
     fflush(stdout);
     if (d < cas_accuracy) break;
   }
