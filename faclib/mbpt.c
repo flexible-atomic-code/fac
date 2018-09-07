@@ -1499,7 +1499,7 @@ double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
   }
   if (isnan(r) || isinf(r)) {
     MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
-    Abort(1);
+    //Abort(1);
   }
   if (1+r == 1) return 0.0;
   if (n == 1) return r;
@@ -1521,12 +1521,19 @@ double SumInterp1D0(int n, double *z, double *x, double *t, double *y, int m) {
   return r;
 }
 
-double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
-  int i, k0, k1, nk, j, nw;
+double SumInterp1D(int n0, double *z, double *x, double *t, double *y, int m) {
+  int i, k0, k1, nk, j, nw, n;
   double r, a, b, c, d, e, f, g, h;
   double p1, p2, p3, q1, q2, q3;
   double *dw0, *dw1;
-  
+
+  for (n = n0-1; n >= 0; n--) {
+    if (z[n]) {
+      n++;
+      break;
+    }
+  }
+  if (n == 0) return 0.0;
   r = 0.0;
   for (i = 0; i < n; i++) {
     r += z[i];
@@ -1535,7 +1542,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
   if (n == 1) {
     if (isnan(r) || isinf(r)) {
       MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
-      Abort(1);
+      //Abort(1);
     }
     return r;
   }
@@ -1543,13 +1550,15 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
     if (x[k0]-x[k0-1] > 1) break;
   }
   if (k0 == n) {
-    k1 = n-2;
+    k1 = n-3;
     if (k1 < 0) k1 = 0;
     for (i = k1; i < n; i++) {
       t[i] = log(x[i]);
       y[i] = log(fabs(z[i]));
+      if (1+z[i] == 1) break;
     }
-    nk = 2;
+    if (i < n) nk = 1;
+    else nk = n-k1;
     goto END;
   }
   k0--;
@@ -1692,7 +1701,7 @@ double SumInterp1D(int n, double *z, double *x, double *t, double *y, int m) {
   }
   if (isnan(r) || isinf(r)) {
     MPrintf(-1, "invalid value SumInterp1D b: %g\n", r);
-    Abort(1);
+    //Abort(1);
   }
   return r;
 }
