@@ -2298,6 +2298,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     if (optimize_control.iprint) {
       printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
     }
+    int im = NXS;
+    double em = ehx[im];
     for (i = NXS-1; i >= 0; i--) {
       ReinitRadial(1);
       potential->hxs = hxs[i];
@@ -2317,7 +2319,12 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       if (optimize_control.iprint) {
 	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
-      if (ehx[i] > ehx[NXS] && NXS-i > 3) break;
+      if (ehx[i] < em) {
+	em = ehx[i];
+	im = i;
+      } else if (im-i > 1) {
+	break;
+      }
     }
     i0 = Max(i, 0);    
     for (i = NXS+1; i < NXS2; i++) {
@@ -2339,7 +2346,12 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       if (optimize_control.iprint) {
 	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
-      if (ehx[i] > ehx[NXS] && i-NXS > 1) break;
+      if (ehx[i] < em) {
+	em = ehx[i];
+	im = i;
+      } else if (i-im > 0) {
+	break;
+      }
     }
     i1 = i;
     if (i1 >= NXS2) i1 = NXS2-1;
