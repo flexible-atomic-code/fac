@@ -1541,7 +1541,11 @@ double SumInterp1D(int n0, double *z, double *x, double *t, double *y, int m) {
   if (1+r == 1) return 0.0;
   if (n == 1) {
     if (isnan(r) || isinf(r)) {
-      MPrintf(-1, "invalid value SumInterp1D a: %g\n", r);
+      MPrintf(-1, "invalid value SumInterp1D a: %d %d %d %g\n", m, n, n0, r);
+      for (i = 0; i < n0; i++) {
+	MPrintf(-1, "%d %g %g\n", i, x[i], z[i]);
+      }
+      fflush(stdout);
       //Abort(1);
     }
     return r;
@@ -1700,7 +1704,12 @@ double SumInterp1D(int n0, double *z, double *x, double *t, double *y, int m) {
     r += h;
   }
   if (isnan(r) || isinf(r)) {
-    MPrintf(-1, "invalid value SumInterp1D b: %g\n", r);
+    MPrintf(-1, "invalid value SumInterp1D b: %d %d %d %d %g %g\n",
+	    m, n, n0, nk, r, h);
+    for (i = 0; i < n0; i++) {
+      MPrintf(-1, "%d %g %g\n", i, x[i], z[i]);
+    }
+    fflush(stdout);
     //Abort(1);
   }
   return r;
@@ -2068,6 +2077,13 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     sd2 = c/d2;
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
+    if (isnan(c12)) {
+      sd1s = 1E50;
+      sd2s = 1E50;
+    } else if (isinf(c12)) {
+      sd1s = 2E50;
+      sd2s = 2E50;
+    }
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
@@ -2274,6 +2290,13 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     se = c/d2;
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
+    if (isnan(c12)) {
+      sd1s = 1E50;
+      sd2s = 1E50;
+    } else if (isinf(c12)) {
+      sd1s = 2E50;
+      sd2s = 2E50;
+    }
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
@@ -2658,6 +2681,13 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     cd2 = y/d2;
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
+    if (isnan(y12)) {
+      sd1s = 1E50;
+      sd2s = 1E50;
+    } else if (isinf(y12)) {
+      sd1s = 2E50;
+      sd2s = 2E50;
+    }
     int warned = 0;
     if (c0->icfg >= 0 && c1->icfg >= 0) {
       if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
