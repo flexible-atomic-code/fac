@@ -4746,8 +4746,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   }
 
   if (n3 >= 0) {
-    MPrintf(-1, "Construct Effective Hamiltonian %d %10.4E\n",
-	    nc, WallTime()-tbg);
+    MPrintf(-1, "Construct Effective Hamiltonian %d %12.5E %12.5E\n",
+	    nc, WallTime()-tbg, TotalSize());
     fflush(stdout);
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
@@ -4948,8 +4948,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	}
       }
       int tmst = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
-      printf("structure cfgpair: %d %d %d %d %d %d %d %d %d\n",
-	     icp, icpi, icpf, ncp, icp0, icp1, ncpt, tmst, mst);
+      MPrintf(-1, "MBPT structure cfgpair: %d %d %d %d %d %d %d %d %d %12.5E %12.5E\n",
+	      icp, icpi, icpf, ncp, icp0, icp1, ncpt, tmst, mst,
+	      WallTime()-tbg, TotalSize());
       for (ic = 0; ic < ncpt; ic++) {
 	if (ic >= icp0 && ic < icp1) continue;
 	k0 = cfgpair[ic].k0;
@@ -5001,6 +5002,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	}
 	ArgSort(icp1-icp0, dm, im);
       }
+      MPrintf(-1, "MBPT structure beg: %12.5E %12.5E\n",
+	      WallTime()-tbg, TotalSize());
       ResetWidMPI();
 #pragma omp parallel default(shared) private(isym,n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,ncps)
       {
@@ -5496,18 +5499,29 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
   if (mbpt_tr.nktr > 0) {
-    MPrintf(-1, "MBPT Transition.\n");
+    MPrintf(-1, "MBPT Transition: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
     fflush(stdout);
     ReinitRadial(2);
+    MPrintf(-1, "MBPT Transition ReinitRadial: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
     if (MyRankMPI() == 0) {
       sprintf(tfn, "%s.tr", fn1);
       f = fopen(tfn, "w");
     }
-    ncpt = 0;
+    CONFIG_PAIR *cfgpair0 = malloc(sizeof(CONFIG_PAIR)*nc*nc);
+    int *ncpti = malloc(sizeof(int)*npr);
+    for (i = 0; i < npr; i++) ncpti[i] = 0;
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(k0, c0, k1, c1, m, m0, ms0, i0, q0, p0, j0, pp0, pp1, m1, ms1, i1, q1, p1, j1, i, j, ic, mr)
+    {
+    mr = MPIRank(NULL);
+    int w = 0;
     for (k0 = 0; k0 < nc; k0++) {
       c0 = cs[k0];
       for (k1 = 0; k1 < nc; k1++) {
 	c1 = cs[k1];
+	if (SkipWMPI(w++)) continue;
+	ic = k0 + k1*nc;
+	cfgpair0[ic].m = 0;
 	m = 0;      
 	for (m0 = 0; m0 < c0->n_csfs; m0++) {
 	  ms0 = c0->symstate[m0];
@@ -5529,14 +5543,22 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	      m++;
 	      break;
 	    }
-	    if (m > 0) break;
 	  }
-	  if (m > 0) break;
 	}
 	if (m == 0) continue;
-	ncpt++;
+	cfgpair0[ic].k0 = k0;
+	cfgpair0[ic].k1 = k1;
+	cfgpair0[ic].m = m;
+	ncpti[mr]++;
       }
     }
+    }
+    ncpt = 0;
+    for (i = 0; i < npr; i++) {
+      ncpt += ncpti[i];
+    }
+    MPrintf(-1, "MBPT ncpt: %d %12.5E %12.5E\n",
+	    ncpt, WallTime()-tbg, TotalSize());
     if (ncp > ncpt) {
       printf("transition ncp > ncpt: %d %d\n", ncp, ncpt);
       ncp = ncpt;
@@ -5551,50 +5573,28 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     ic = 0;
     mst = 0;
     for (k0 = 0; k0 < nc; k0++) {
-      c0 = cs[k0];
       for (k1 = 0; k1 < nc; k1++) {
-	c1 = cs[k1];
-	m = 0;      
-	for (m0 = 0; m0 < c0->n_csfs; m0++) {
-	  ms0 = c0->symstate[m0];
-	  UnpackSymStateMBPT(meff, ms0, &i0, &q0);
-	  if (q0 < 0) continue;
-	  DecodePJ(i0, &p0, &j0);
-	  pp0 = i0*2*mbpt_tr.nktr;
-	  pp1 = pp0 + 2*mbpt_tr.nktr;
-	  for (m1 = 0; m1 < c1->n_csfs; m1++) {
-	    ms1 = c1->symstate[m1];
-	    UnpackSymStateMBPT(meff, ms1, &i1, &q1);
-	    if (q1 < 0) continue;
-	    DecodePJ(i1, &p1, &j1);
-	    for (i = pp0; i < pp1; i++) {
-	      j = IdxGet(mtr[i].ids, i1);
-	      if (j < 0) continue;
-	      if (mtr[i].pma[j][q0*mtr[i].ndim1[j]+q1] == NULL) continue;
-	      if (!Triangle(j0, j1, 2*abs(mtr[i].m))) continue;
-	      m++;
-	      break;
-	    }
-	  }
-	}
-	if (m == 0) continue;
+	i = k0 + k1*nc;
+	m = cfgpair0[i].m;
+	if (m <= 0) continue;
 	mst += m;
 	int icr = ic;
 	if (rid) icr = rid[ic].i;
-	cfgpair[icr].k0 = k0;
-	cfgpair[icr].k1 = k1;
+	cfgpair[icr].k0 = cfgpair0[i].k0;
+	cfgpair[icr].k1 = cfgpair0[i].k1;
 	cfgpair[icr].m = m;
 	ic++;
       }
     }
     free(rid);
+    free(cfgpair0);
+    free(ncpti);
     icp = icpi;
     int tmst = GetICP(ncpt, cfgpair, ncp, icp, &icp0, &icp1);
-    printf("transition cfgpair: %d %d %d %d %d %d %d\n",
-	   icp, ncp, icp0, icp1, ncpt, m, mst);
+    MPrintf(-1, "MBPT transition cfgpair: %d %d %d %d %d %d %d %12.5E %12.5E\n",
+	    icp, ncp, icp0, icp1, ncpt, tmst, mst, WallTime()-tbg, TotalSize());
     ncps = 0;
     mbpt_ignoren = 0;
-    ResetWidMPI();
     if (mbpt_omp0 == 2 || mbpt_omp0 == 3) {
       mbpt_omp = 1;
     } else {
@@ -5614,6 +5614,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }
       ArgSort(icp1-icp0, dm, im);
     }
+    MPrintf(-1, "MBPT transition beg: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(n0,bra,ket,sbra,sket,bra1,ket1,bra2,ket2,sbra1,sket1,sbra2,sket2,cs,dt,dtt,k0,k1,c0,p0,c1,p1,m,bst0,kst0,m0,m1,ms0,ms1,q,q0,q1,k,mst,i0,i1,j0,j1,ct0,ct1,bst,kst,n1,bas0,bas1,ic,pp0,pp1,i,j)
     {
       int cmst = 0;
