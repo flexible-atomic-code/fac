@@ -26,6 +26,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
+static double mbpt_freetr = 0;
 static int mbpt_omp = 0;
 static int mbpt_omp0 = 0;
 static int mbpt_extra = 0;
@@ -105,6 +106,7 @@ void PrintMBPTOptions(void) {
   printf("mcut=%g %g %g %g\n", mbpt_mcut, mbpt_mcut2, mbpt_mcut3, mbpt_mcut4);
   printf("n3=%d\n", mbpt_n3);
   printf("nsplit=%d\n", mbpt_nsplit);
+  printf("freetr=%g\n", mbpt_freetr);
 }
 
 int SkipMPIM(int s) {
@@ -282,6 +284,9 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "mbpt:reinit_mem")) {
     mbpt_reinit_mem = 1e9*ip;
     return;
+  }
+  if (0 == strcmp(s, "mbpt:freetr")) {
+    mbpt_freetr = 1e9*dp;
   }
   return;
 }
@@ -5499,10 +5504,13 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
   if (mbpt_tr.nktr > 0) {
-    MPrintf(-1, "MBPT Transition: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
+    double ts = TotalSize();
+    MPrintf(-1, "MBPT Transition: %12.5E %12.5E\n", WallTime()-tbg, ts);
     fflush(stdout);
-    ReinitRadial(2);
-    MPrintf(-1, "MBPT Transition ReinitRadial: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
+    if (mbpt_freetr > 0 && ts > mbpt_freetr) {
+      ReinitRadial(2);
+      MPrintf(-1, "MBPT Transition ReinitRadial: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
+    }
     if (MyRankMPI() == 0) {
       sprintf(tfn, "%s.tr", fn1);
       f = fopen(tfn, "w");
