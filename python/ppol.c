@@ -113,6 +113,22 @@ static PyObject *PConvertToSPOL(PyObject *self, PyObject *args) {
   return Py_None;
 }    
   
+static PyObject *PSystem(PyObject *self, PyObject *args) {
+  char *s;
+  
+  if (spol_file) {
+    SPOLStatement("System", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &s)) return NULL;
+  int r = system(s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PCloseSPOL(PyObject *self, PyObject *args) {
 
   fclose(spol_file);
@@ -490,6 +506,7 @@ static struct PyMethodDef pol_methods[] = {
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {NULL, NULL, METH_VARARGS}
 };
 

@@ -353,6 +353,12 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSystem(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 1) return 0;
+  int r = system(argv[0]);
+  return 0;
+}
+
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   TFILE *f;
   F_HEADER fh;
@@ -4768,6 +4774,7 @@ static METHOD methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
