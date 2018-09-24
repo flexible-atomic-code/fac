@@ -324,6 +324,12 @@ static int PFinalizeMPI(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSystem(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 1) return 0;
+  int r = system(argv[0]);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -343,6 +349,7 @@ static METHOD methods[] = {
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

@@ -159,6 +159,22 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *PSystem(PyObject *self, PyObject *args) {
+  char *s;
+  
+  if (sfac_file) {
+    SFACStatement("System", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &s)) return NULL;
+  int r = system(s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
   TFILE *f;
@@ -5939,6 +5955,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {NULL, NULL}
 };
 

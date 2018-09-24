@@ -550,7 +550,7 @@ int SetMCERates(char *fn) {
 	  }
 	  p++;
 	  ce_rates[t].rates[p] = cs2[k];
-	  if (m2 != 0 && m1 != 0) {
+	  if (m1 != 0) {
 	    ce_rates[t].rates[p] += cs2[k-m2];
 	  }
 	  p++;
@@ -657,7 +657,7 @@ int SetMAIRates(char *fn) {
 	  p++;
 	  k++;
 	  ai_rates[t].rates[p] = (r.rate[k])*v;
-	  if (m2 != 0 && m1 != 0) {
+	  if (m1 != 0) {
 	    ai_rates[t].rates[p] += (r.rate[k-m2*2])*v;
 	  }
 	  p++;
@@ -697,6 +697,8 @@ static double Population(int iter) {
   
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
+
+  double rextra = 0.0;
   //double wt0, wt1, wt2, wt3, wt4, wt5, wt6, wt7, wt8, wt9, wt10, wt11;
   //wt0 = WallTime();
   ResetWidMPI();
@@ -720,9 +722,12 @@ static double Population(int iter) {
 #pragma omp atomic
 	  rmatrix[p] += a;
 	  q2++;
-	} else {
+	} else if (q1 < nmlevels1) { 
 #pragma omp atomic
 	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	} else if (!levels[i1].rtotal[(m1+j1)/2]) {
+#pragma omp atomic
+	  rextra += levels[i2].pop[(m2+j2)/2]*a;
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -768,9 +773,12 @@ static double Population(int iter) {
 	if (q1 < nmlevels1) {
 #pragma omp atomic
 	  rmatrix[p] += a;
-	} else {
+	} else if (q2 < nmlevels1) {
 #pragma omp atomic
 	  rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	} else if (!levels[i2].rtotal[(m2+j2)/2]) {
+#pragma omp atomic
+	  rextra += levels[i1].pop[(m1+j1)/2]*a;
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -781,9 +789,12 @@ static double Population(int iter) {
 	if (q2 < nmlevels1) {
 #pragma omp atomic
 	  rmatrix[p] += a;
-	} else {
+	} else if (q1 < nmlevels1) {
 #pragma omp atomic
 	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	} else if (!levels[i1].rtotal[(m1+j1)/2]) {
+#pragma omp atomic
+	  rextra += levels[i2].pop[(m2+j2)/2]*a;
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -826,9 +837,12 @@ static double Population(int iter) {
 	  if (q1 < nmlevels1) {
 #pragma omp atomic
 	    rmatrix[p] += a;
-	  } else {
+	  } else if (q2 < nmlevels) {
 #pragma omp atomic
 	    rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	  } else if (!levels[i2].rtotal[(m2+j2)/2]) {
+#pragma omp atomic
+	    rextra += levels[i1].pop[(m1+j1)/2]*a;
 	  }
 	  if (iter == 0) {
 #pragma omp atomic
@@ -839,9 +853,12 @@ static double Population(int iter) {
 	  if (q2 < nmlevels1) {
 #pragma omp atomic
 	    rmatrix[p] += a;
-	  } else {
+	  } else if (q1 < nmlevels1) {
 #pragma omp atomic
 	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	  } else if (!levels[i1].rtotal[(m1+j1)/2]) {
+#pragma omp atomic
+	    rextra += levels[i2].pop[(m2+j2)/2]*a;
 	  }
 	  if (iter == 0) {
 #pragma omp atomic
@@ -858,18 +875,21 @@ static double Population(int iter) {
     }  
   }
   }
-  
+
+  double mtot = 0.0;
   if (nlevels > nmax) {
     a = 0;
     for (t = nmax; t < nlevels; t++) {
       a += levels[t].dtotal;
     }
     if (a) {
-      for (q2 = 0; q2 < nmlevels; q2++) {
+      for (q2 = 0; q2 < nmlevels1; q2++) {
 	p = nmlevels1*nmlevels+q2;
 	rmatrix[p] /= a;
       }
+      rextra /= a;
     }
+    mtot = a;
   }
 
   //wt3 = WallTime();
@@ -877,18 +897,23 @@ static double Population(int iter) {
 #pragma omp parallel default(shared) private(q1, p, q2, t)
   {
     int w = 0;
+    double rt0 = 0;
     for (q1 = 0; q1 < nmlevels; q1++) {
       if (SkipWMPI(w++)) continue;
       p = q1*nmlevels + q1;
       rmatrix[p] = 0.0;
       for (q2 = 0; q2 < nmlevels; q2++) {
 	if (q2 != q1) {
-	  t = q1*nmlevels + q2;
+	  t = q1*nmlevels + q2;	    
 	  rmatrix[p] -= rmatrix[t];
 	}
       }
-    }
+      if (q1 == nmlevels1) {
+	rmatrix[p] -= rextra;
+      }
+    }      
   }
+
   //wt4 = WallTime();
   if (idr < 0) {
     i = -1;
@@ -915,7 +940,7 @@ static double Population(int iter) {
 	  p = q2*nmlevels+q1;
 	  rmatrix[p] = 0.0;
 	}
-	rmatrix[t] = 1E50;
+	rmatrix[t] = -1E50;
       }
     }
     }
@@ -942,7 +967,7 @@ static double Population(int iter) {
 	  p = q2*nmlevels+q1;
 	  rmatrix[p] = 0.0;
 	}
-	rmatrix[t] = 1E50;
+	rmatrix[t] = -1E50;
       }
     }
     }
@@ -974,7 +999,6 @@ static double Population(int iter) {
       i++;
     }
   }
-
   //wt5 = WallTime();
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
   //wt6 = WallTime();
@@ -994,7 +1018,6 @@ static double Population(int iter) {
 	p++;
       }
     }
-  
     for (i = nmax; i < nlevels; i++) {
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
@@ -1108,7 +1131,7 @@ static double Population(int iter) {
 	levels[i].pop[t] = levels[i].npop[t];
       }
     }
-    }
+    }    
     if (nm > 0) {
       c /= nm;
     }

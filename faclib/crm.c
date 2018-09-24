@@ -3518,6 +3518,8 @@ double BlockRelaxation(int iter) {
 	}
       }
       if (a) {
+	blk1->nb = a;	
+	/*
 	if (iter >= 0 && blk1->nb > 0) {
 	  a = blk1->nb/a;
 	  for (m = 0; m < blk1->nlevels; m++) {
@@ -3526,6 +3528,7 @@ double BlockRelaxation(int iter) {
 	} else {
 	  blk1->nb = a;
 	}
+	*/
       }  
     }   
 
@@ -3539,6 +3542,7 @@ double BlockRelaxation(int iter) {
       continue;
     }
     if (iter >= 0) {
+      /*
       if (iter > 0) {
 	if (blk1->iion < 0) a = ion0.nt;
 	else {
@@ -3546,9 +3550,11 @@ double BlockRelaxation(int iter) {
 	  a = ion->nt;
 	}
       } else a = 1.0;
+      */
+      a = 0.0;
       for (m = 0; m < blk1->nlevels; m++) {
 	if (blk1->n[m]) {	  
-	  /*d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);*/
+	  //d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  d += fabs((blk1->n[m]-blk1->n0[m])*blk1->total_rate[m]);
 	  td += fabs(blk1->total_rate[m]*blk1->n[m]);
 	  nlevels += 1;
@@ -3556,11 +3562,17 @@ double BlockRelaxation(int iter) {
 	if (iter >= 2) {
 	  blk1->n[m] = b*blk1->n0[m] + c*blk1->n[m];
 	}
-	blk1->r[m] = blk1->n[m]/blk1->nb;
-	blk1->n0[m] = blk1->n[m];  
+	blk1->n0[m] = blk1->n[m];
+	a += blk1->n[m];
+      }
+      if (a > 0) {
+	blk1->nb = a;
+	for (m = 0; m < blk1->nlevels; m++) {
+	  blk1->r[m] = blk1->n[m]/blk1->nb;
+	}
       }
     }
-  }    
+  }
 
   q = 0;
   p = -1;
