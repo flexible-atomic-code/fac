@@ -1207,7 +1207,7 @@ int SetBlocks(double ni, char *ifn) {
   k = blocks->dim;
   if (bmatrix) free(bmatrix);
   if (k > 0) {
-    k = 2*k*(k+1)+k;
+    k = 2*k*(k+2);
     bmatrix = (double *) malloc(sizeof(double)*k);
   }
   
@@ -1761,6 +1761,7 @@ int InitBlocks(void) {
   m = -2;
   for (i = 0; i < blocks->dim; i++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, i);
+    blk1->izr = 0;
     for (k = 0; k < blk1->nlevels; k++) {
       if (blk1->n[k]) {
 	blk1->n[k] = 0.0;
@@ -1776,6 +1777,7 @@ int InitBlocks(void) {
 	  }
 	}
       }
+      if (!blk1->total_rate[k]) blk1->izr++;
     }
   }
       
@@ -2915,13 +2917,14 @@ int BlockMatrix(void) {
   LBLOCK *blk1, *blk2;
   BLK_RATE *brts;
   int n, k, m, i, j, t, p, q;
-  double a, den;
+  double a, den, *rex;
   
   n = blocks->dim;
-  for (i = 0; i < 2*n*(n+1); i++) {
-    bmatrix[i] = 0.0;
+  for (i = 0; i < 2*n*(n+2); i++) {
+    bmatrix[i] = 0.0;    
   }
-
+  rex = bmatrix + 2*n*(n+1) + n;
+  
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     if (electron_density > 0.0) {
@@ -2933,7 +2936,7 @@ int BlockMatrix(void) {
 	brts = (BLK_RATE *) ArrayGet(ion->ce_rates, t);
 	blk1 = brts->iblock;
 	blk2 = brts->fblock;
-	if (blk1 == blk2) continue;
+	if (blk1 == blk2 && blk1->izr == 0) continue;
 	if (rec_cascade && (blk1->rec || blk2->rec)) continue;
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
@@ -2943,15 +2946,39 @@ int BlockMatrix(void) {
 	  den = blk1->r[ion->ilev[r->i]];
 	  if (den) {
 	    p = i*n + j;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * electron_density * r->dir;
+		rex[i] += den*electron_density*r->dir;
+	      }
+	    } else {
+	      if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+		bmatrix[p] += den * electron_density * r->dir;
+	      } else {
+#pragma omp atomic
+		rex[i] += den*electron_density*r->dir;
+	      }
+	    }
 	  }
 	  if (r->inv > 0.0) {
 	    den = blk2->r[ion->ilev[r->f]];
 	    if (den) {
 	      p = i + j*n;
+	      if (blk1 == blk2) {
+		if (blk1->total_rate[ion->ilev[r->i]] == 0) {
 #pragma omp atomic
-	      bmatrix[p] += den * electron_density * r->inv;
+		  rex[j] += den*electron_density*r->inv;
+		}
+	      } else {
+		if (blk1->total_rate[ion->ilev[r->i]]) {
+#pragma omp atomic
+		  bmatrix[p] += den * electron_density * r->inv;
+		} else {
+#pragma omp atomic
+		  rex[j] += den*electron_density*r->inv;
+		}
+	      }
 	    }
 	  }
 	}
@@ -2966,7 +2993,7 @@ int BlockMatrix(void) {
       brts = (BLK_RATE *) ArrayGet(ion->tr_rates, t);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
-      if (blk1 == blk2) continue;
+      if (blk1 == blk2 && blk1->izr == 0) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
@@ -2976,20 +3003,56 @@ int BlockMatrix(void) {
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+	  if (blk1 == blk2) {
+	    if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	  bmatrix[p] += den * r->dir;
+	      rex[i] += den*r->dir;
+	    }
+	  } else {
+	    if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+	      bmatrix[p] += den * r->dir;
+	    } else {
+#pragma omp atomic
+	      rex[i] += den*r->dir;
+	    }
+	  }
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  if (den) {
 	    a = photon_density * r->inv;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
+		rex[i] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
+	      }
+	    } else {
+	      if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+		bmatrix[p] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
+	      } else {
+#pragma omp atomic
+		rex[i] += den*a*(ion->j[r->f]+1.0)/(ion->j[r->i]+1.0);
+	      }
+	    }
 	  }	  
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->i]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * photon_density * r->inv;
+		rex[j] += den*photon_density*r->inv;
+	      }
+	    } else {
+	      if (blk1->total_rate[ion->ilev[r->i]]) {
+#pragma omp atomic
+		bmatrix[p] += den * photon_density * r->inv;
+	      } else {
+#pragma omp atomic
+		rex[j] += den*photon_density*r->inv;
+	      }
+	    }
 	  }
 	}
       }
@@ -3003,7 +3066,7 @@ int BlockMatrix(void) {
       brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
-      if (blk1 == blk2) continue;
+      if (blk1 == blk2 && blk1->izr == 0) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
@@ -3013,8 +3076,20 @@ int BlockMatrix(void) {
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+	  if (blk1 == blk2) {
+	    if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	  bmatrix[p] += den * r->dir;
+	      rex[i] += den*r->dir;
+	    }
+	  } else {
+	    if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+	      bmatrix[p] += den * r->dir;
+	    } else {
+#pragma omp atomic
+	      rex[i] += den*r->dir;
+	    }
+	  }
 	}
       }
     }
@@ -3027,7 +3102,7 @@ int BlockMatrix(void) {
       brts = (BLK_RATE *) ArrayGet(ion->rr_rates, t);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
-      if (blk1 == blk2) continue;
+      if (blk1 == blk2 && blk1->izr == 0) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
@@ -3038,16 +3113,40 @@ int BlockMatrix(void) {
 	if (den) {
 	  if (electron_density > 0.0) {
 	    p = i*n + j;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * electron_density * r->dir;
+		rex[i] += den*electron_density*r->dir;
+	      }
+	    } else {
+	      if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+		bmatrix[p] += den * electron_density * r->dir;
+	      } else {
+#pragma omp atomic
+		rex[i] += den*electron_density*r->dir;
+	      }
+	    }
 	  }
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->i]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * photon_density * r->inv;
+		rex[j] += den*photon_density*r->inv;
+	      }
+	    } else {
+	      if (blk1->total_rate[ion->ilev[r->i]]) {
+#pragma omp atomic
+		bmatrix[p] += den * photon_density * r->inv;
+	      } else {
+#pragma omp atomic
+		rex[j] += den*photon_density*r->inv;
+	      }
+	    }
 	  }
 	}
       }
@@ -3061,7 +3160,7 @@ int BlockMatrix(void) {
       brts = (BLK_RATE *) ArrayGet(ion->ai_rates, t);
       blk1 = brts->iblock;
       blk2 = brts->fblock;
-      if (blk1 == blk2) continue;
+      if (blk1 == blk2 && blk1->izr == 0) continue;
       if (rec_cascade && (blk1->rec || blk2->rec)) continue;
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
@@ -3071,15 +3170,39 @@ int BlockMatrix(void) {
 	den = blk1->r[ion->ilev[r->i]];
 	if (den) {
 	  p = i*n + j;
+	  if (blk1 == blk2) {
+	    if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	  bmatrix[p] += den * r->dir;
+	      rex[i] += den*r->dir;
+	    }
+	  } else {
+	    if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+	      bmatrix[p] += den * r->dir;
+	    } else {
+#pragma omp atomic
+	      rex[i] += den*r->dir;
+	    }
+	  }
 	}
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  den = blk2->r[ion->ilev[r->f]];
 	  if (den) {
 	    p = i + j*n;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->i]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * electron_density * r->inv;
+		rex[j] += den * electron_density * r->inv;
+	      }
+	    } else {
+	      if (blk1->total_rate[ion->ilev[r->i]]) {
+#pragma omp atomic
+		bmatrix[p] += den * electron_density * r->inv;
+	      } else {
+#pragma omp atomic
+		rex[j] += den * electron_density * r->inv;
+	      }
+	    }
 	  }
 	}
       }  
@@ -3094,7 +3217,7 @@ int BlockMatrix(void) {
 	brts = (BLK_RATE *) ArrayGet(ion->ci_rates, t);
 	blk1 = brts->iblock;
 	blk2 = brts->fblock;
-	if (blk1 == blk2) continue;
+	if (blk1 == blk2 && blk1->izr == 0) continue;
 	if (rec_cascade && (blk1->rec || blk2->rec)) continue;
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
@@ -3104,16 +3227,40 @@ int BlockMatrix(void) {
 	  den = blk1->r[ion->ilev[r->i]];
 	  if (den) {
 	    p = i*n + j;
+	    if (blk1 == blk2) {
+	      if (blk1->total_rate[ion->ilev[r->f]] == 0) {
 #pragma omp atomic
-	    bmatrix[p] += den * electron_density * r->dir;
+		rex[i] += den * electron_density * r->dir;
+	      }
+	    } else {
+	      if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+		bmatrix[p] += den * electron_density * r->dir;
+	      } else {
+#pragma omp atomic
+		rex[i] += den * electron_density * r->dir;
+	      }
+	    }
 	  }
 	  if (r->inv > 0.0) {
 	    den = blk2->r[ion->ilev[r->f]];
 	    if (den) {
-	      p = i + j*n;
+	      p = i + j*n;	      
 	      den *= electron_density;
+	      if (blk1 == blk2) {
+		if (blk1->total_rate[ion->ilev[r->i]] == 0) {
 #pragma omp atomic
-	      bmatrix[p] += den * electron_density * r->inv;
+		  rex[j] += den * electron_density * r->inv;
+		}
+	      } else {
+		if (blk1->total_rate[ion->ilev[r->i]]) {
+#pragma omp atomic
+		  bmatrix[p] += den * electron_density * r->inv;
+		} else {
+#pragma omp atomic
+		  rex[j] += den * electron_density * r->inv;
+		}
+	      }
 	    }
 	  }
 	}  
@@ -3125,6 +3272,7 @@ int BlockMatrix(void) {
   for (i = 0; i < n; i++) {
     p = i*n;
     q = i + p;
+    bmatrix[q] = rex[i];
     for (j = 0; j < n; j++) {
       if (j != i) bmatrix[q] += bmatrix[p];
       p++;
