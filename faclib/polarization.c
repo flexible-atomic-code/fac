@@ -285,7 +285,7 @@ int SetMLevels(char *fn, char *tfn) {
       nmlevels = levels[nlevels-1].ic + levels[nlevels-1].j/2 + 1;
       nmlevels1 = nmlevels;
     }
-    rmatrix = (double *) malloc(sizeof(double)*nmlevels*(2+nmlevels));
+    rmatrix = (double *) malloc(sizeof(double)*nmlevels*(3+nmlevels));
   }
 
   if (tfn != NULL && strlen(tfn) > 0) {
@@ -694,11 +694,11 @@ static double Population(int iter) {
   for (i = 0; i < p; i++) {
     rmatrix[i] = 0.0;
   }
-  
+  double *rex = rmatrix + nmlevels*(2+nmlevels);
+  for (i = 0; i < nmlevels; i++) rex[i] = 0;
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
 
-  double rextra = 0.0;
   //double wt0, wt1, wt2, wt3, wt4, wt5, wt6, wt7, wt8, wt9, wt10, wt11;
   //wt0 = WallTime();
   ResetWidMPI();
@@ -718,16 +718,18 @@ static double Population(int iter) {
       for (m2 = -j2; m2 <= 0; m2 += 2) {
 	a = tr_rates[i].rates[t++];
 	p = q2*nmlevels+q1;
-	if (q2 < nmlevels1) {
+	if (!levels[i1].rtotal[(m1+j1)/2]) {
 #pragma omp atomic
-	  rmatrix[p] += a;
-	  q2++;
-	} else if (q1 < nmlevels1) { 
+	  rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	} else {
+	  if (q2 < nmlevels1) {
 #pragma omp atomic
-	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
-	} else if (!levels[i1].rtotal[(m1+j1)/2]) {
+	    rmatrix[p] += a;
+	    q2++;
+	  } else if (q1 < nmlevels1) { 
 #pragma omp atomic
-	  rextra += levels[i2].pop[(m2+j2)/2]*a;
+	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	  }
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -770,15 +772,17 @@ static double Population(int iter) {
       for (m2 = -j2; m2 <= 0; m2 += 2) {
 	p = q1*nmlevels+q2;
 	a = ai_rates[i].rates[t++];
-	if (q1 < nmlevels1) {
+	if (!levels[i2].rtotal[(m2+j2)/2]) {
 #pragma omp atomic
-	  rmatrix[p] += a;
-	} else if (q2 < nmlevels1) {
+	  rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	} else {
+	  if (q1 < nmlevels1) {
 #pragma omp atomic
-	  rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
-	} else if (!levels[i2].rtotal[(m2+j2)/2]) {
+	    rmatrix[p] += a;
+	  } else if (q2 < nmlevels1) {
 #pragma omp atomic
-	  rextra += levels[i1].pop[(m1+j1)/2]*a;
+	    rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	  }
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -786,15 +790,17 @@ static double Population(int iter) {
 	}
 	p = q2*nmlevels+q1;
 	a = eden*ai_rates[i].rates[t++];
-	if (q2 < nmlevels1) {
+	if (!levels[i1].rtotal[(m1+j1)/2]) {
 #pragma omp atomic
-	  rmatrix[p] += a;
-	} else if (q1 < nmlevels1) {
+	  rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	} else {
+	  if (q2 < nmlevels1) {
 #pragma omp atomic
-	  rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
-	} else if (!levels[i1].rtotal[(m1+j1)/2]) {
+	    rmatrix[p] += a;
+	  } else if (q1 < nmlevels1) {
 #pragma omp atomic
-	  rextra += levels[i2].pop[(m2+j2)/2]*a;
+	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	  }
 	}
 	if (iter == 0) {
 #pragma omp atomic
@@ -834,15 +840,17 @@ static double Population(int iter) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  p = q1*nmlevels+q2;
 	  a = eden*ce_rates[i].rates[t++];
-	  if (q1 < nmlevels1) {
+	  if (!levels[i2].rtotal[(m2+j2)/2]) {
 #pragma omp atomic
-	    rmatrix[p] += a;
-	  } else if (q2 < nmlevels) {
+	    rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	  } else {
+	    if (q1 < nmlevels1) {
 #pragma omp atomic
-	    rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
-	  } else if (!levels[i2].rtotal[(m2+j2)/2]) {
+	      rmatrix[p] += a;
+	    } else if (q2 < nmlevels) {
 #pragma omp atomic
-	    rextra += levels[i1].pop[(m1+j1)/2]*a;
+	      rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	    }
 	  }
 	  if (iter == 0) {
 #pragma omp atomic
@@ -850,15 +858,17 @@ static double Population(int iter) {
 	  }
 	  p = q2*nmlevels+q1;
 	  a = eden*ce_rates[i].rates[t++];
-	  if (q2 < nmlevels1) {
+	  if (!levels[i1].rtotal[(m1+j1)/2]) {
 #pragma omp atomic
-	    rmatrix[p] += a;
-	  } else if (q1 < nmlevels1) {
+	    rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	  } else {
+	    if (q2 < nmlevels1) {
 #pragma omp atomic
-	    rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
-	  } else if (!levels[i1].rtotal[(m1+j1)/2]) {
+	      rmatrix[p] += a;
+	    } else if (q1 < nmlevels1) {
 #pragma omp atomic
-	    rextra += levels[i2].pop[(m2+j2)/2]*a;
+	      rmatrix[p] += levels[i2].pop[(m2+j2)/2]*a;
+	    }
 	  }
 	  if (iter == 0) {
 #pragma omp atomic
@@ -883,11 +893,13 @@ static double Population(int iter) {
       a += levels[t].dtotal;
     }
     if (a) {
-      for (q2 = 0; q2 < nmlevels1; q2++) {
-	p = nmlevels1*nmlevels+q2;
-	rmatrix[p] /= a;
-      }
-      rextra /= a;
+      for (q2 = 0; q2 < nmlevels; q2++) {
+	if (q2 < nmlevels1) {
+	  p = nmlevels1*nmlevels+q2;
+	  rmatrix[p] /= a;
+	}
+	rex[q2] /= a;
+      }      
     }
     mtot = a;
   }
@@ -901,17 +913,14 @@ static double Population(int iter) {
     for (q1 = 0; q1 < nmlevels; q1++) {
       if (SkipWMPI(w++)) continue;
       p = q1*nmlevels + q1;
-      rmatrix[p] = 0.0;
+      rmatrix[p] = -rex[q1];
       for (q2 = 0; q2 < nmlevels; q2++) {
 	if (q2 != q1) {
 	  t = q1*nmlevels + q2;	    
 	  rmatrix[p] -= rmatrix[t];
 	}
       }
-      if (q1 == nmlevels1) {
-	rmatrix[p] -= rextra;
-      }
-    }      
+    }     
   }
 
   //wt4 = WallTime();

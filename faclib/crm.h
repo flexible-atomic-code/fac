@@ -61,6 +61,7 @@ typedef struct _LBLOCK_ {
   double *n, *n0;
   double *r;
   double *total_rate;
+  int izr;
   NCOMPLEX ncomplex[MAXNCOMPLEX];
 } LBLOCK;
 
