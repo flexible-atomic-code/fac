@@ -5672,7 +5672,7 @@ double QED1E(int k0, int k1) {
   
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
-    MPrintf(-1, "invalid orbital kv in RadialNMS: %d %d %d\n",
+    MPrintf(-1, "invalid orbital kv in QED1E: %d %d %d\n",
 	    orb1->n, orb1->kappa, orb1->kv);
     return 0.0;
   }
