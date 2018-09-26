@@ -237,6 +237,7 @@ int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetCILevel(int m);
 int SetMixCut(double c, double c2);
+void FreeHamsArray(void);
 int FreeAngZArray(void);
 int InitAngZArray(void);
 void CleanAngZArray(void);
