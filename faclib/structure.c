@@ -41,7 +41,8 @@ USE (rcsid);
 #endif /* (FAC_DEBUG >= DEBUG_STRUCTURE) */
 
 static int nhams = 0;
-static SHAMILTON hams[MAX_HAMS];
+static int _max_hams = MAX_HAMS;
+static SHAMILTON *hams = NULL;
 static HAMILTON _allhams[MAX_SYMMETRIES];
 
 static ARRAY levels_per_ion[N_ELEMENTS+1];
@@ -88,6 +89,18 @@ int GetStructTiming(STRUCT_TIMING *t) {
 #endif
 
 extern int GetAWGridMBPT(double **);
+
+void SetMaxHams(int n) {
+  FreeHamsArray();
+  FreeAngZArray();
+  if (hams) free(hams);   
+  if (n <= 0) {
+    _max_hams = MAX_HAMS;
+  } else {
+    _max_hams = n;
+  }
+  InitAngZArray();
+}
 
 void SetMaxKMBPT(int m) {
   mbpt_mk = m;
@@ -465,9 +478,9 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
     hs = hams + nhams;
     h->iham = nhams;
     nhams++;
-    if (nhams > MAX_HAMS) {
-      printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
-      exit(1);
+    if (nhams > _max_hams) {
+      printf("Number of hamiltons exceeded the maximum %d\n", _max_hams);
+      Abort(1);
     }
     hs->pj = h->pj;
     hs->nlevs = h->dim;
@@ -755,9 +768,9 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 #endif
   }
   if (m3) {
-    if (nhams >= MAX_HAMS) {
-      printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
-      exit(1);
+    if (nhams >= _max_hams) {
+      printf("Number of hamiltons exceeded the maximum %d\n", _max_hams);
+      Abort(1);
     }
     hs = hams + nhams;
     h->iham = nhams;
@@ -4934,18 +4947,18 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       ns = ns1*ns2;
       if (ne1 == ne2) {
 	if (ih1 > ih2) {
-	  iz = ih2 * MAX_HAMS + ih1;
+	  iz = ih2 * _max_hams + ih1;
 	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
 	} else {
-	  iz = ih1 * MAX_HAMS + ih2;
+	  iz = ih1 * _max_hams + ih2;
 	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
 	}
       } else {
 	if (ne1 > ne2) {
-	  iz = ih2 * MAX_HAMS + ih1;
+	  iz = ih2 * _max_hams + ih1;
 	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
 	} else {
-	  iz = ih1 * MAX_HAMS + ih2;
+	  iz = ih1 * _max_hams + ih2;
 	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
 	}
       }
@@ -4995,13 +5008,16 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
 }
 
 void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
-  int ih0[MAX_HAMS], ih1[MAX_HAMS];
+  int *ih0, *ih1;
   int i, j, ne0, ne1, ns;
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *st, *st0, *st1;
   ANGZ_DATUM *ad;
-  for (i = 0; i < MAX_HAMS; i++) {
+
+  ih0 = malloc(sizeof(int)*_max_hams);
+  ih1 = malloc(sizeof(int)*_max_hams);
+  for (i = 0; i < _max_hams; i++) {
     ih0[i] = 0;
     ih1[i] = 0;
   }
@@ -5026,11 +5042,11 @@ void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, st0, st1, ne0, ne1, ns, ad)
   {
-  for (i = 0; i < MAX_HAMS; i++) {
+  for (i = 0; i < _max_hams; i++) {
     if (ih0[i] == 0) continue;
     st0 = hams[i].basis[0];
     ne0 = GetGroup(st0->kgroup)->n_electrons;
-    for (j = 0; j < MAX_HAMS; j++) {
+    for (j = 0; j < _max_hams; j++) {
       if (ih1[j] == 0) continue;
       int skip = SkipMPI();
       if (skip) continue;
@@ -5051,6 +5067,8 @@ void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
     }
   }
   }
+  free(ih0);
+  free(ih1);
 }
 
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
@@ -5079,7 +5097,7 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
     ih1 = lev1->iham;
     ih2 = lev2->iham;
     if (ih1 >= 0 && ih2 >= 0) {
-      isz = ih1 * MAX_HAMS + ih2;
+      isz = ih1 * _max_hams + ih2;
       ad = &(angmz_array[isz]);
       nz = 0;
       if (ad->ns > 0) {
@@ -5209,9 +5227,9 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
     ih2 = lev2->iham;
     if (ih1 >= 0 && ih2 >= 0) {
       if (ih1 > ih2) {
-	isz = ih2 * MAX_HAMS + ih1;
+	isz = ih2 * _max_hams + ih1;
       } else {
-	isz = ih1 * MAX_HAMS + ih2;
+	isz = ih1 * _max_hams + ih2;
       }
       ad = &(angmz_array[isz]);
       nz = 0;
@@ -5927,7 +5945,8 @@ double FreeAngZDatum(ANGZ_DATUM *ap) {
 }
 
 int InitAngZArray(void) {
-  angz_dim = MAX_HAMS;
+  hams = malloc(sizeof(SHAMILTON)*_max_hams);
+  angz_dim = _max_hams;
   angz_dim2 = angz_dim*angz_dim;
 
   int i;
@@ -6280,6 +6299,10 @@ int ReinitStructure(int m) {
 }
 
 void SetOptionStructure(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "structure:max_hams")) {
+    SetMaxHams(ip);
+    return;
+  }
   if (0 == strcmp(s, "structure:perturb_threshold")) {
     perturb_threshold = dp;
     return;
