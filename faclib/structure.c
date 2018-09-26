@@ -833,8 +833,8 @@ int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
     fread(h->basis, sizeof(int), h->n_basis, f);
     fread(&n, sizeof(int), 1, f);
     //printf("rh: %d %d %d %d %d %d\n", s, k, h->dim, h->n_basis, h->hsize, n);
-    int t0 = (h->dim+1)*(h->dim)/2;
-    int t1 = t0 + h->dim*(h->n_basis-h->dim);
+    long t0 = (h->dim+1)*(h->dim)/2;
+    long t1 = t0 + h->dim*(h->n_basis-h->dim);
     for (k = 0; k < n; k++) {
       fread(&i, sizeof(int), 1, f);
       fread(&j, sizeof(int), 1, f);
@@ -2143,7 +2143,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
   char trans[] = "N";
   int n, m, np;
   int ldz;
-  int lwork;
+  size_t lwork;
   int liwork, *ib;
   int info;
   int i, j, t, t0, t1, t2, k;
@@ -6094,7 +6094,8 @@ void ClearRMatrixLevels(int n) {
 }
 
 int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
-  int jp, t;
+  int jp;
+  size_t t;
 
   if (hdim == 0) {
     h->pj = 0;
@@ -6166,8 +6167,8 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   t = t*2;
   h->lwork = 1 + 10*hdim + t;
   h->liwork = 3 + 10*hdim;
-  int wl = 3*t;
-  int wi = 0;
+  size_t wl = 3*t;
+  size_t wi = 0;
   if (nbasis > hdim) {
     wl += t + hdim*(nbasis-hdim);
     wi += nbasis-hdim;

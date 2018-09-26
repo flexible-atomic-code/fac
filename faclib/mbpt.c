@@ -4627,7 +4627,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     SetAWGridMBPT(emin, emax);
     InitTransitionMBPT(&mtr, idb);
     ResetWidMPI();
-#pragma omp parallel default(shared) private(isym, sym, h, i0, i1, mix, i, q, st, k)
+#pragma omp parallel default(shared) private(isym, sym, h, i0, i1, mix, i, q, st, k, m)
     {
     for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
       int skip = SkipMPI();
