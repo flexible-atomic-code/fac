@@ -329,6 +329,9 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	  orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
 	  orb->ilast = -1;
 	  orb->wfun = NULL;
+	  orb->isol = 1;
+	  orb->kv = 0;
+	  if (pot->pse) orb->kv = IdxVT(orb->kappa);
 	  return 0;
 	}
 	if (orb->n < pot->nmax) {
