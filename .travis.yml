@@ -28,6 +28,7 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
+  - conda update -q python
   - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
       ./configure --prefix=$pwd$ --with-mpi=omp;
     else
