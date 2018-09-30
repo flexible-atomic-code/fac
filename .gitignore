@@ -58,6 +58,7 @@ demo/*/*.tr
 demo/*/*.txt
 demo/*/*.sp
 demo/*/*.rt
+demo/*/*.ham
 
 # latex binaries in docs
 *.bbl
@@ -69,3 +70,6 @@ demo/*/*.rt
 *.ind
 *.out
 *.toc
+
+# manual (it should be pushed in release-pdf branch by circle-ci)
+doc/manual.pdf

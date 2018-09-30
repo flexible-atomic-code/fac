@@ -53,12 +53,15 @@ typedef struct _orbmap_ {
 double *WLarge(ORBITAL *orb);
 double *WSmall(ORBITAL *orb);
 int GetBoundary(double *rb, double *b, int *nmax, double *dr);
-int SetBoundaryMaster(int nmax, double p, double bqp);
-int SetBoundary(int nmax, double p, double bqp);
+int SetBoundaryMaster(int nmax, double p, double bqp, double rf);
+int SetBoundary(int nmax, double p, double bqp, double rf,
+		int nr, int ng, int *kg, char *s, int n0, int n1,
+		int n0d, int n1d, int k0, int k1);
 void PrintQED();
 int RadialOverlaps(char *fn, int kappa);
 void SetSlaterCut(int k0, int k1);
-void SetPotentialMode(int m, double h, double ihx, double hx0, double hx1);
+void SetPotentialMode(int m, double h, double ihx,
+		      double dhx, double hx0, double hx1);
 void SetSE(int n, int m, int s, int p);
 void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
@@ -193,15 +196,24 @@ int SavePotential(char *fn, POTENTIAL *p);
 int ModifyPotential(char *fn, POTENTIAL *p);
 void OptimizeModSE(int n, int ka, double dr, int ni);
 void RemoveOrbitalLock(void);
+double GetHXS(POTENTIAL *p);
 int AddNewConfigToList(int k, int ni, int *kc, CONFIG *c0,
-		       int nb, int **kbc, int nc, SHELL_RESTRICTION *sr);
+		       int nb, int **kbc,
+		       int nc, SHELL_RESTRICTION *sr, int checknew, int mar);
 int ConfigSD(int m, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth);
 void SolvePseudo(int kmin, int kmax, int nb, int nmax, int nd, double xdf);
 void SolveDFKappa(int ka, int nmax, double xdf);
-double *WorkSpace(int i);
+double *WorkSpace();
+void AllocDWS(int n);
+void AllocWorkSpace(int n);
+void AllocPotMem(POTENTIAL *p, int n);
+void SetPotDP(POTENTIAL *p);
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
 void ElectronDensity(char *ofn, int n, int *ilev, int t);
+void SetOptionRadial(char *s, char *sp, int ip, double dp);
+void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g);
+void LoadRadialMultipole(char *fn);
 #endif
 

@@ -353,6 +353,12 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSystem(int argc, char *argv[], int argt[], ARRAY *variables) {
+  if (argc != 1) return 0;
+  int r = system(argv[0]);
+  return 0;
+}
+
 static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   TFILE *f;
   F_HEADER fh;
@@ -1107,6 +1113,25 @@ static int PInfo(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSetOption(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int ip;
+  double dp;
+  if (argc != 2) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != NUMBER && argt[1] != STRING) return -1;
+
+  if (argt[1] == NUMBER) {
+    ip = atoi(argv[1]);
+    dp = atof(argv[1]);
+  } else {
+    ip = 0;
+    dp = 0;
+  }
+  SetOption(argv[0], argv[1], ip, dp);
+  return 0;
+}
+	    
 static int PMemENTable(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
 
@@ -1471,6 +1496,43 @@ static int PReinit(int argc, char *argv[], int argt[],
   return 0;
 }
   
+static int PLoadRadialMultipole(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  if (argc == 0) {
+    LoadRadialMultipole(NULL);
+    return 0;
+  }
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+  LoadRadialMultipole(argv[0]);
+  return 0;
+}
+
+static int PSaveRadialMultipole(int argc, char *argv[], int argt[], 
+				ARRAY *variables) {
+  int n, g, nk, *ks;
+
+  g = G_BABUSHKIN;
+  if (argc < 3 || argc > 4) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argc > 3) {
+    if (argt[3] != NUMBER) return -1;
+    g = atoi(argv[3]);
+  }
+  n = atoi(argv[1]);
+  if (argt[2] == NUMBER) {
+    nk = atoi(argv[2]);
+    ks = NULL;
+  } else if (argt[2] == LIST) {
+    nk = IntFromList(argv[2], argt[2], variables, &ks);
+  } else {
+    return -1;
+  }
+  SaveRadialMultipole(argv[0], n, nk, ks, g);
+  if (nk > 0 && ks != NULL) free(ks);
+  return 0;
+}
+
 static int PRRMultipole(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int nlow, *low, nup, *up, m;
@@ -2443,10 +2505,11 @@ static int PSolvePseudo(int argc, char *argv[], int argt[],
 static int PSetPotentialMode(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {
   int m;
-  double h, ih, h0, h1;
+  double h, ih, dh, h0, h1;
 
   h = 1E31;
   ih = 1E31;
+  dh = -1;
   h0 = -1;
   h1 = -1;
   m = atoi(argv[0]);
@@ -2455,14 +2518,17 @@ static int PSetPotentialMode(int argc, char *argv[], int argt[],
     if (argc > 2) {
       ih = atof(argv[2]);
       if (argc > 3) {
-	h0 = atof(argv[3]);
+	dh = atof(argv[3]);
 	if (argc > 4) {
-	  h1 = atof(argv[4]);
+	  h0 = atof(argv[4]);
+	  if (argc > 5) {
+	    h1 = atof(argv[5]);
+	  }
 	}
       }
     }
   }
-  SetPotentialMode(m, h, ih, h0, h1);
+  SetPotentialMode(m, h, ih, dh, h0, h1);
 
   return 0;
 }
@@ -2951,9 +3017,17 @@ static int PTransitionMBPT(int argc, char *argv[], int argt[],
   int m, n, nlow, *low, nup, *up;
 
   if (argc == 2) {
-    m = atoi(argv[0]);
-    n = atoi(argv[1]);
-    TransitionMBPT(m, n);
+    if (argt[0] == NUMBER) {
+      m = atoi(argv[0]);
+      n = atoi(argv[1]);
+      TransitionMBPT(m, NULL, n);
+    } else if (argt[0] == LIST) {
+      int *ks;
+      m = IntFromList(argv[0], argt[0], variables, &ks);
+      n = atoi(argv[1]);
+      TransitionMBPT(m, ks, n);
+      if (m > 0) free(ks);
+    }
   } else if (argc == 3) {
     nlow = DecodeGroupArgs(&low, 1, NULL, &(argv[1]), &(argt[1]), variables);
     nup = DecodeGroupArgs(&up, 1, NULL, &(argv[2]), &(argt[2]), variables);
@@ -2977,7 +3051,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
     if (argt[0] == NUMBER) {
       f = atof(argv[0]);
-      if (f < 0 || (f > 0 && f < 1)) {
+      if (f < 0 || strstr(argv[0], ".")) {
 	SetWarnMBPT(f, -1.0);
 	return 0;
       } else {
@@ -3848,20 +3922,66 @@ static int PFreezeOrbital(int argc, char *argv[], int argt[],
 static int PSetBoundary(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int nmax;
-  double bqp, p;
+  double bqp, p, r;
 
   bqp = 0.0;
   p = -1.0;
+  r = 0.0;
+  int nr, n0, n1, n0d, n1d, k0, k1, ng, *kg;
+  char *s;
+  nr = 0;
+  s = NULL;
+  n0 = 0;
+  n1 = 0;
+  n0d = 0;
+  n1d = 0;
+  k0 = 0;
+  k1 = -1;
+  ng = 0;
+  kg = NULL;
   if (argc > 1) {
     p = atof(argv[1]);    
     if (argc > 2) {
       bqp = atof(argv[2]);
+      if (argc > 3) {
+	r = atof(argv[3]);
+	if (argc > 4) {
+	  nr = atoi(argv[4]);
+	  if (argc > 5) {
+	    ng = DecodeGroupArgs(&kg, 1, NULL, &argv[5], &argt[5], variables);
+	    if (argc > 6) {
+	      s = argv[6];
+	      if (argc > 7) {
+		n0 = atoi(argv[7]);
+		if (argc > 8) {
+		  n1 = atoi(argv[8]);
+		  if (argc > 9) {
+		    k0 = atoi(argv[9]);
+		    if (argc > 10) {
+		      k1 = atoi(argv[10]);
+		      if (argc > 11) {
+			n0d = atoi(argv[11]);
+			if (argc > 12) {
+			  n1d = atoi(argv[12]);
+			}
+		      }
+		    }
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
     }
   }
 
   nmax = atoi(argv[0]);
   
-  return SetBoundary(nmax, p, bqp);
+  int ierr = SetBoundary(nmax, p, bqp, r, nr, ng, kg, s,
+			 n0, n1, n0d, n1d, k0, k1);
+  if (ng > 0) free(kg);
+  return ierr;
 }
 
 static int PRMatrixExpansion(int argc, char *argv[], int argt[], 
@@ -4525,6 +4645,7 @@ static METHOD methods[] = {
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
@@ -4547,6 +4668,8 @@ static METHOD methods[] = {
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
+  {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
+  {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
@@ -4651,6 +4774,7 @@ static METHOD methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

@@ -17,6 +17,7 @@
  */
 
 #include "dbase.h"
+#include "parser.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -1290,6 +1291,13 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   fh->nthreads = (fh->version&0xFFFF0000)>>16;
   fh->version &= 0xFFFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
+
+  if (fh->type == DB_EN && version_read[DB_EN-1] == 114) {
+    if (IsNewV114(f)) {
+      SetVersionRead(DB_EN, 115);
+    }
+    FSEEK(f, m, SEEK_SET);    
+  }
   if (fh->type == DB_TR && itrf >= 0) {
     if (VersionLE(fh, 1, 0, 6)) itrf = 1;
     else itrf = 0;
@@ -1575,6 +1583,7 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
       n = WriteENHeader(f, &en_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     en_header.nlevels += 1;
     ReleaseLockMPI();
   } else {
@@ -1623,6 +1632,7 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
       n = WriteENFHeader(f, &enf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     enf_header.nlevels += 1;
     ReleaseLockMPI();
   } else {
@@ -1650,6 +1660,7 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
       n = WriteTRHeader(f, &tr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     tr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1682,6 +1693,7 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
       n = WriteTRFHeader(f, &trf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     trf_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1709,6 +1721,7 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
       n = WriteCEHeader(f, &ce_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ce_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1749,6 +1762,7 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
       n = WriteCEFHeader(f, &cef_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cef_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1780,6 +1794,7 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
       n = WriteCEMFHeader(f, &cemf_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cemf_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1813,6 +1828,7 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
       n = WriteRRHeader(f, &rr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     rr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1846,6 +1862,7 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
       WriteAIHeader(f, &ai_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ai_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1872,6 +1889,7 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
       WriteAIMHeader(f, &aim_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     aim_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1900,6 +1918,7 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
       WriteCIHeader(f, &ci_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     ci_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1931,6 +1950,7 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
       WriteCIMHeader(f, &cim_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     cim_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1959,6 +1979,7 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
       WriteSPHeader(f, &sp_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     sp_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -1991,6 +2012,7 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
       WriteRTHeader(f, &rt_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     rt_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -2027,6 +2049,7 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
       WriteDRHeader(f, &dr_header);
       FFLUSH(f);
     }
+#pragma omp atomic
     dr_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
@@ -2082,6 +2105,40 @@ int ReadENFHeader(TFILE *f, ENF_HEADER *h, int swp) {
   return m;
 }
 
+int IsNewV114(TFILE *f) {
+  EN_HEADER h;
+  EN_RECORD r;
+  int i, swp, n, m = 0;
+
+  while (1) {
+    n = ReadENHeader(f, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.nlevels; i++) {
+      n = ReadENRecord(f, &r, swp);
+      if (n == 0) break;
+      if (!isdigit(r.name[0])) {
+	return 1;
+      }
+      if (!isalpha(r.name[1]) && r.name[1] != '[') {
+	return 1;
+      }
+      if (r.name[1] == '[') {
+	char *c = &r.name[2];
+	while (*c && *c != ']') c++;
+	if (c[0] == ']' && (c[1] != '-' && c[1] != '+')) {
+	  return 1;
+	}
+	return 0;
+      }
+      if (r.name[2] != '-' && r.name[2] != '+') {
+	return 1;
+      }
+      return 0;
+    }
+  }
+  return 0;
+}
+
 int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   int n, m = 0;
 
@@ -2093,9 +2150,16 @@ int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   RSF0(r->ibase);
   RSF0(r->energy);
   RSF1(r->ncomplex, sizeof(char), LNCOMPLEX);
-  RSF1(r->sname, sizeof(char), LSNAME);
-  RSF1(r->name, sizeof(char), LNAME);
-
+  if (version_read[DB_EN-1] < 115) {
+    RSF1(r->sname, sizeof(char), LSNAME0);
+    RSF1(r->name, sizeof(char), LNAME0);
+    StrReplace(LNCOMPLEX, r->ncomplex, ' ', '.', '.', '\0');
+    StrReplace(LSNAME0, r->sname, ' ', '.', '.', '\0');
+    StrReplace(LNAME0, r->name, ' ', '.', '.', '\0');
+  } else {
+    RSF1(r->sname, sizeof(char), LSNAME);
+    RSF1(r->name, sizeof(char), LNAME);    
+  }
   if (swp) SwapEndianENRecord(r);
   
   return m;
@@ -3394,6 +3458,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     return -1;
   }
   if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
+  else if (version_read[DB_EN-1] < 115) sr = SIZE_EN_RECORD0;
   else sr = SIZE_EN_RECORD;
 
   if (ilev >= 0) {
@@ -3507,6 +3572,7 @@ int MemENTable(char *fn) {
     return -1;
   }
   if (version_read[DB_EN-1] < 109) sr = sizeof(EN_RECORD);
+  else if (version_read[DB_EN-1] < 115) sr = SIZE_EN_RECORD0;
   else sr = SIZE_EN_RECORD;
 
   if (mem_en_table) free(mem_en_table);

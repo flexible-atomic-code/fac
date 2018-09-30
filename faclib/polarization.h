@@ -56,6 +56,10 @@ typedef struct _MAI_ {
   double *rates;
 } MAI;
 
+typedef struct _MLINE_ {
+  int itr;
+  double a, b;
+} MLINE;
 
 int InitPolarization(void);
 int SetMaxLevels(int m);
@@ -68,6 +72,7 @@ int SetMCERates(char *fn);
 int SetMAIRates(char *fn);
 int PopulationTable(char *fn);
 int Orientation(char *fn, double e);
-int PolarizationTable(char *fn, char *ifn, int n, char **sc);
+int PolarizationTable(char *fn, char *ifn, int n, char **sc,
+		      double emin, double emax, double sth);
 
 #endif

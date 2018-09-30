@@ -33,9 +33,51 @@ typedef struct _FLTARY_ {
   float *yk;
 } FLTARY;
 
-static POTENTIAL *potential;
-static POTENTIAL *hpotential;
-static POTENTIAL *rpotential;
+#define NHXN 30
+#define NXS 15
+#define NXS2 (2*NXS+1)
+static double _hxn[NHXN] = {2,  3,  4,  5,  6,  7,  8,  9, 10,
+			    11, 12, 13, 14, 15, 16, 17, 18,
+			    19, 20, 21, 22, 23, 24, 25, 26, 27,
+			    28, 29, 30, 31};
+static double _hx0[2][NHXN] = {
+  {0.49464443,  0.4944842 ,  0.47671812,  0.47368338,  0.46881982,
+   0.4650677 ,  0.46239243,  0.45992017,  0.4581007 ,  0.45699729,
+   0.45327464,  0.45147903,  0.45018784,  0.44901484,  0.44783271,
+   0.44677685,  0.44601044,  0.44668505,  0.44690311,  0.44747163,
+   0.44809634,  0.44896082,  0.45032069,  0.4514605 ,  0.45283192,
+   0.45420841,  0.45580976,  0.45472978,  0.45249835, 0.45},
+  {0.60392457,  0.5963838 ,  0.54396742,  0.53136923,  0.53471311,
+   0.53206107,  0.52694942,  0.52089717,  0.51642186,  0.53134076,
+   0.48894837,  0.47899983,  0.47580524,  0.47583937,  0.4763066 ,
+   0.47516619,  0.47327929,  0.47544085,  0.47804916,  0.48123176,
+   0.4848968 ,  0.4886115 ,  0.49402954,  0.49848388,  0.50336365,
+   0.50842387,  0.51389326,  0.53564154,  0.55618328, 0.55}};
+static double _hx1[2][NHXN] = {
+  {-2.24999797e-05,  -2.09402638e-05,  -1.97068001e-05,
+   -1.86529759e-05,  -1.73178539e-05,  -1.95629593e-05,
+   -2.21086675e-05,  -2.11895870e-05,  -2.01426809e-05,
+   -1.98210143e-05,  -1.92998222e-05,  -1.86920564e-05,
+   -1.82455335e-05,  -1.84696909e-05,  -1.87351162e-05,
+   -1.80283589e-05,  -1.73407781e-05,  -1.69192139e-05,
+   -1.63363906e-05,  -1.58294488e-05,  -1.53107601e-05,
+   -1.53014957e-05,  -1.54457903e-05,  -1.50586829e-05,
+   -1.47144622e-05,  -1.43879181e-05,  -1.40649716e-05,
+   -1.40581261e-05,  -1.38378555e-05, -1.4e-5},
+  {-4.83974367e-05,  -2.69133100e-05,  -2.41090948e-05,
+   -2.21989673e-05,  -1.94076264e-05,  -1.97061814e-05,
+   -2.07157339e-05,  -1.88678066e-05,  -1.77080751e-05,
+   -2.23815832e-05,  -1.76272492e-05,  -1.70901358e-05,
+   -1.70196986e-05,  -1.72463938e-05,  -1.72980241e-05,
+   -1.61671348e-05,  -1.50179117e-05,  -1.48463176e-05,
+   -1.47797417e-05,  -1.47793769e-05,  -1.48393532e-05,
+   -1.53064076e-05,  -1.62570909e-05,  -1.63962294e-05,
+   -1.65777367e-05,  -1.67306107e-05,  -1.69330862e-05,
+   -1.95968009e-05,  -2.12996663e-05, -2.0e-5}};
+
+static POTENTIAL *potential = NULL;
+static POTENTIAL *hpotential = NULL;
+static POTENTIAL *rpotential = NULL;
 
 #define Large(orb) ((orb)->wfun)
 #define Small(orb) ((orb)->wfun + potential->maxrp)
@@ -43,32 +85,34 @@ static POTENTIAL *rpotential;
 static ARRAY *orbitals;
 static int n_orbitals;
 static int n_continua;
- 
-static double _dwork[MAXRP];
-static double _dwork1[MAXRP];
-static double _dwork2[MAXRP];
-static double _dwork3[MAXRP];
-static double _dwork4[MAXRP];
-static double _dwork5[MAXRP];
-static double _dwork6[MAXRP];
-static double _dwork7[MAXRP];
-static double _dwork8[MAXRP];
-static double _dwork9[MAXRP];
-static double _dwork10[MAXRP];
-static double _dwork11[MAXRP];
-static double _dwork12[MAXRP];
-static double _dwork13[MAXRP];
-static double _dwork14[MAXRP];
-static double _dwork15[MAXRP];
-static double _dwork16[MAXRP];
-static double _phase[MAXRP];
-static double _dphase[MAXRP];
-static double _dphasep[MAXRP];
-static double _yk[MAXRP];
-static double _zk[MAXRP];
-static double _xk[MAXRP];
 
-#pragma omp threadprivate(potential,hpotential,rpotential,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
+static int _nws = 0;
+static double *_dws = NULL;
+static double *_dwork;
+static double *_dwork1;
+static double *_dwork2;
+static double *_dwork3;
+static double *_dwork4;
+static double *_dwork5;
+static double *_dwork6;
+static double *_dwork7;
+static double *_dwork8;
+static double *_dwork9;
+static double *_dwork10;
+static double *_dwork11;
+static double *_dwork12;
+static double *_dwork13;
+static double *_dwork14;
+static double *_dwork15;
+static double *_dwork16;
+static double *_phase;
+static double *_dphase;
+static double *_dphasep;
+static double *_yk;
+static double *_zk;
+static double *_xk;
+
+#pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
 static struct {
   double stabilizer;
@@ -132,6 +176,9 @@ static MULTI *yk_array;
 
 static int n_awgrid = 0;
 static double awgrid[MAXNTE];
+#define MAXMP 8
+static int _nmp = 0;
+static double *_dmp[2][2][MAXMP];
 
 static double PhaseRDependent(double x, double eta, double b);
 
@@ -143,45 +190,370 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
-double *WorkSpace(int i) {
-  switch (i) {
-  case 0:
-    return _dwork;
-  case 1:
-    return _dwork1;
-  case 2:
-    return _dwork2;
-  case 3:
-    return _dwork3;
-  case 4:
-    return _dwork4;
-  case 5:
-    return _dwork5;
-  case 6:
-    return _dwork6;
-  case 7:
-    return _dwork7;
-  case 8:
-    return _dwork8;
-  case 9:
-    return _dwork9;
-  case 10:
-    return _dwork10;
-  case 11:
-    return _dwork11;
-  case 12:
-    return _dwork12;
-  case 13:
-    return _dwork13;
-  case 14:
-    return _dwork14;
-  case 15:
-    return _dwork15;
-  case 16:
-    return _dwork16;
-  default:
-    return NULL;
-  }  
+void LoadRadialMultipole(char *fn) {
+  int i, j, k, g, ak, ik, ig;
+  char s1[16], s2[16];
+  int n1, n2, naw, r, nline, nsq;
+  double a, *y;
+  FILE *f;
+  
+  if (fn == NULL || strlen(fn) == 0) {
+    for (i = 0; i < 2; i++) {
+      for (j = 0; j < 2; j++) {
+	for (k = 0; k < MAXMP; k++) {
+	  if (_nmp > 0 && _dmp[i][j][k]) free(_dmp[i][j][k]);
+	  _dmp[i][j][k] = NULL;
+	}
+      }
+    }
+    _nmp = 0;
+    return;
+  }
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  
+  r = fscanf(f, "%s %s %d %d %d %d %d", s1, s2, &k, &g, &n1, &n2, &naw);
+  if (r == EOF) {
+    return;
+  }
+  _nmp = n1;
+  int nmp2 = _nmp*_nmp;
+  nsq = nmp2*nmp2*naw;
+  if (nsq <= 0) {
+    printf("invalid nmp: %d %d %d\n", _nmp, naw, nsq);
+    return;
+  }
+  n_awgrid = naw;
+  for (i = 0; i < naw; i++) {
+    a = 0.0;
+    r = fscanf(f, "%lg", &a);
+    if (r != 1) {
+      printf("invalid multipole awgrid\n");
+      return;
+    }
+    awgrid[i] = a;
+  }
+  nline = 1;
+  while (1) {
+    nline++;
+    r = fscanf(f, "%s %s %d %d %d %d %d", s1, s2, &k, &g, &n1, &n2, &naw);
+    if (r == EOF) break;
+    if (r != 7) {
+      printf("invalid row: %s %s\n", s1, s2);
+      break;;
+    }
+    if (naw != n_awgrid) {
+      printf("invalid multipole naw: %d %d\n", nline, naw);
+      break;
+    }
+    ak = abs(k);
+    if (ak == 0 || ak > MAXMP) {
+      printf("invalid multipole rank: %d %d\n", nline, k);
+      break;
+    }
+    if (k < 0) ik = 0;
+    else ik = 1;
+    if (g == G_COULOMB) ig = 0;
+    else if (g == G_BABUSHKIN) ig = 1;
+    else {
+      printf("invalid gauge option: %d %d\n", nline, g);
+      break;
+    }
+    y = _dmp[ik][ig][ak-1];
+    if (y == NULL) {
+      y = malloc(sizeof(double)*nsq);
+      _dmp[ik][ig][ak-1] = y;
+      for (j = 0; j < nsq; j++) {
+	y[j] = 0.0;
+      }
+    }
+    j = naw*(n1*nmp2+n2);
+    for (i = 0; i < naw; i++) {
+      a = 0.0;
+      r = fscanf(f, "%lg", &a);
+      if (r != 1) {
+	printf("invalid multipole value: %d %d\n", nline, i);
+	break;
+      }
+      y[j+i] = a;
+      //printf("%s %s %d %d %d %d %d %d %d %d %g\n", s1, s2, k, g, ik, ig, n1, n2, i, j, a);
+    }
+  }
+  printf("LoadRadialMultipole %d lines from %s\n", nline, fn);
+  fclose(f);
+}
+    
+void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g) {
+  int i, j, m, n1, n2, nn, k, mk, i1, i2;
+  double *y;
+  char s1[16], s2[16];
+  FILE *f;
+
+  if (n_awgrid <= 0) return;
+  ORBITAL **orbs = malloc(sizeof(ORBITAL *)*(n_orbitals-n_continua));
+  k = 0;
+  for (i = 0; i < n_orbitals; i++) {
+    orbs[k] = GetOrbitalSolved(i);
+    if (orbs[k]->n > 0 && orbs[k]->n <= n) {
+      k++;
+    }
+  }
+  if (k <= 0) {
+    free(orbs);
+    return;
+  }
+  nn = k;
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  fprintf(f, "%5s %5s %4d %4d %4d %4d %2d", "###", "###",
+	  (int)(potential->atom->atomic_number), (int)(potential->N),
+	  n, n, n_awgrid);
+  for (j = 0; j < n_awgrid; j++) {
+    fprintf(f, " %15.8E", awgrid[j]);
+  }
+  fprintf(f, "\n");
+  for (n1 = 0; n1 < nn; n1++) {
+    ShellString(orbs[n1]->n, orbs[n1]->kappa, -1, s1);
+    i1 = ShellToInt(orbs[n1]->n, orbs[n1]->kappa);
+    for (n2 = 0; n2 < nn; n2++) {
+      ShellString(orbs[n2]->n, orbs[n2]->kappa, -1, s2);
+      i2 = ShellToInt(orbs[n2]->n, orbs[n2]->kappa);
+      for (i = 0; i < nk; i++) {
+	if (ks) {
+	  k = ks[i];
+	} else {
+	  k = i+1;
+	}
+	for (mk = -1; mk <= 1; mk += 2) {      
+	  m = MultipoleRadialFRGrid(&y, mk*k, orbs[n1]->idx, orbs[n2]->idx, g);
+	  if (m > 0) {
+	    fprintf(f, "%5s %5s %4d %4d %4d %4d %2d",
+		    s1, s2, mk*k, g, i1, i2, m);
+	    for (j = 0; j < m; j++) {
+	      fprintf(f, " %15.8E", y[j]);
+	    }
+	    fprintf(f, "\n");
+	  }
+	}
+      }
+    }
+  }
+  free(orbs);
+  fclose(f);
+}
+
+double GetHXS(POTENTIAL *p) {
+  double z, hs;
+  double r0, r1;
+  int n;
+  z = p->atom->atomic_number;
+  n = (int)(0.5+p->N);
+  if (n < 2) return 0.5;
+  hs = fabs(p->ihx);
+  if (p->hx0 > 0) {
+    r0 = p->hx0 + p->hx1*z*z;
+    r0 = Max(r0, 0.1);
+    r0 = Min(r0, 0.9);
+    return r0;
+  }
+  if (hs <= 0.001) hs = 0;
+  if (hs >= 0.999) hs = 1;
+  r0 = 0.5;
+  r1 = 0.5;
+  if (hs < 0.999) {
+    if (n <= NHXN) {
+      r0 = _hx0[0][n-2] + _hx1[0][n-2]*z*z;
+    } else {
+      r0 = _hx0[0][NHXN-1] + _hx1[0][NHXN-1]*z*z;
+    }
+    r0 = Max(r0, 0.1);
+    r0 = Min(r0, 0.9);
+    if (hs < 0.001) return r0;
+  }
+  if (hs > 0.001) {
+    if (n <= NHXN) {
+      r1 = _hx0[1][n-2] + _hx1[1][n-2]*z*z;
+    } else {
+      r1 = _hx0[1][NHXN-1] + _hx1[1][NHXN-1]*z*z;
+    }
+    r1 = Max(r1, 0.1);
+    r1 = Min(r1, 0.9);
+    if (hs > 0.999) return r1;
+  }
+  return r1*hs + r0*(1-hs);
+}
+  
+void CopyPotential(POTENTIAL *p1, POTENTIAL *p0) {
+  if (p0 == NULL) return;
+  if (p1 == NULL) {
+    p1 = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+    p1->maxrp = 0;
+  }
+  AllocPotMem(p1, p0->maxrp);
+  double *w = p1->dws;
+  memcpy(p1, p0, sizeof(POTENTIAL));
+  p1->dws = w;
+  memcpy(p1->dws, p0->dws, sizeof(double)*p0->nws);
+  SetPotDP(p1);
+}
+
+void AllocPotMem(POTENTIAL *p, int n) {
+  if (n == p->maxrp) return;
+  if (p->maxrp > 0) {
+    free(p->dws);
+  }
+  p->maxrp = n;
+  p->nws = n*(22+3*NKSEP+3*NKSEP1);
+  p->dws = (double *) malloc(sizeof(double)*p->nws);
+  SetPotDP(p);
+}
+
+void SetPotDP(POTENTIAL *p) {
+  double *x = p->dws;
+  int n = p->maxrp;
+  p->Z = x;
+  x += n;
+  p->dZ = x;
+  x += n;
+  p->dZ2 = x;
+  x += n;
+  p->rad = x;
+  x += n;
+  p->rho = x;
+  x += n;
+  p->mqrho = x;
+  x += n;
+  p->dr_drho = x;
+  x += n;
+  p->dr_drho2 = x;
+  x += n;
+  p->vtr = x;
+  x += n;
+  p->Vc = x;
+  x += n;
+  p->dVc = x;
+  x += n;
+  p->dVc2 = x;
+  x += n;
+  p->qdist = x;
+  x += n;
+  p->U = x;
+  x += n;
+  p->dU = x;
+  x += n;
+  p->dU2 = x;
+  x += n;
+  p->W = x;
+  x += n;
+  p->dW = x;
+  x += n;
+  p->dW2 = x;
+  x += n;
+  p->ZVP = x;
+  x += n;
+  p->dZVP = x;
+  x += n;
+  p->dZVP2 = x;
+  int i;
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->ZSE[i] = x;
+  }
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->dZSE[i] = x;
+  }
+  for (i = 0; i < NKSEP; i++) {
+    x += n;
+    p->dZSE2[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->VT[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->dVT[i] = x;
+  }
+  for (i = 0; i < NKSEP1; i++) {
+    x += n;
+    p->dVT2[i] = x;
+  }
+}
+
+void AllocDWS(int n) {
+  int nws = n*33;
+  //MPrintf(-1, "alloc dws: %d %d\n", nws, _nws);
+  if (nws != _nws) {
+    if (_nws > 0) free(_dws);
+    _nws = nws;
+    _dws = (double *) malloc(sizeof(double)*nws);
+    double *p = _dws;
+    _dwork = p;
+    p += n;
+    _dwork1 = p;
+    p += n;
+    _dwork2 = p;
+    p += n;
+    _dwork3 = p;
+    p += n;
+    _dwork4 = p;
+    p += n;
+    _dwork5 = p;
+    p += n;
+    _dwork6 = p;
+    p += n;
+    _dwork7 = p;
+    p += n;
+    _dwork8 = p;
+    p += n;
+    _dwork9 = p;
+    p += n;
+    _dwork10 = p;
+    p += n;
+    _dwork11 = p;
+    p += n;
+    _dwork12 = p;
+    p += n;
+    _dwork13 = p;
+    p += n;
+    _dwork14 = p;
+    p += n;
+    _dwork15 = p;
+    p += n;
+    _dwork16 = p;
+    p += n;
+    _phase = p;
+    p += n;
+    _dphase = p;
+    p += n;
+    _dphasep = p;
+    p += n;
+    _yk = p;
+    p += n;
+    _zk = p;
+    p += n;
+    _xk = p;
+    p += n;
+    SetOrbitalWorkSpace(p, n);
+  }
+}
+
+void AllocWorkSpace(int n) {
+  AllocDWS(n);
+  AllocPotMem(potential, n);
+  AllocPotMem(hpotential, n);
+  AllocPotMem(rpotential, n);
+}
+
+double *WorkSpace() {
+  return _dws;
 }
 
 void SetOrbMap(int k, int n0, int n1, int n2) {
@@ -230,17 +602,18 @@ int RestorePotential(char *fn, POTENTIAL *p) {
     MPrintf(0, "cannot open potential file: %s\n", fn);
     return -1;
   }
-
+  int maxrp = 0;
   n = BFileRead(&p->mode, sizeof(int), 1, f);
   n = BFileRead(&p->flag, sizeof(int), 1, f);
   n = BFileRead(&p->r_core, sizeof(int), 1, f);
   n = BFileRead(&p->nmax, sizeof(int), 1, f);
-  n = BFileRead(&p->maxrp, sizeof(int), 1, f);
+  n = BFileRead(&maxrp, sizeof(int), 1, f);
   n = BFileRead(&p->hxs, sizeof(double), 1, f);
   n = BFileRead(&p->ahx, sizeof(double), 1, f);
   n = BFileRead(&p->ihx, sizeof(double), 1, f);
   n = BFileRead(&p->rhx, sizeof(double), 1, f);
   n = BFileRead(&p->dhx, sizeof(double), 1, f);
+  n = BFileRead(&p->bhx, sizeof(double), 1, f);
   n = BFileRead(&p->chx, sizeof(double), 1, f);
   n = BFileRead(&p->hx0, sizeof(double), 1, f);
   n = BFileRead(&p->hx1, sizeof(double), 1, f);
@@ -248,19 +621,23 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->asymp, sizeof(double), 1, f);
   n = BFileRead(&p->rmin, sizeof(double), 1, f);
   n = BFileRead(&p->N, sizeof(double), 1, f);
+  n = BFileRead(&p->N1, sizeof(double), 1, f);
   n = BFileRead(&p->lambda, sizeof(double), 1, f);
   n = BFileRead(&p->a, sizeof(double), 1, f);
   n = BFileRead(&p->ar, sizeof(double), 1, f);
   n = BFileRead(&p->br, sizeof(double), 1, f);
   n = BFileRead(&p->ib, sizeof(int), 1, f);
+  n = BFileRead(&p->ib0, sizeof(int), 1, f);
   n = BFileRead(&p->nb, sizeof(int), 1, f);
   n = BFileRead(&p->ib1, sizeof(int), 1, f);
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
   n = BFileRead(&p->rb, sizeof(double), 1, f);
+  AllocPotMem(p, maxrp);
   n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
   n = BFileRead(p->rad, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->rho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->mqrho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
@@ -275,33 +652,6 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->W, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
-  for (i = p->maxrp; i < MAXRP; i++) {
-    p->Z[i] = 0;
-    p->dZ[i] = 0;
-    p->dZ2[i] = 0;
-    p->rad[i] = 0;
-    p->dr_drho[i] = 0;
-    p->dr_drho2[i] = 0;
-    p->Vc[i] = 0;
-    p->dVc[i] = 0;
-    p->dVc2[i] = 0;
-    p->qdist[i] = 0;
-    p->qdist[i] = 0;
-    p->U[i] = 0;
-    p->dU[i] = 0;
-    p->dU2[i] = 0;
-    p->W[i] = 0;
-    p->dW[i] = 0;
-    p->dW2[i] = 0;
-    p->ZVP[i] = 0;
-    p->dZVP[i] = 0;
-    p->dZVP2[i] = 0;
-    for (k = 0; k < NKSEP; k++) {
-      p->ZSE[k][i] = 0;
-      p->dZSE[k][i] = 0;
-      p->dZSE2[k][i] = 0;
-    }
-  }
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
@@ -313,9 +663,10 @@ int RestorePotential(char *fn, POTENTIAL *p) {
 
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   int i, k;
-  memcpy(h, p, sizeof(POTENTIAL));  
+  CopyPotential(h, p);
   if (hlike) {
-    h->N = 1;
+    h->N = 1.0;
+    h->N1 = 0.0;
     h->a = 0;
     h->lambda = 0;
     h->hlike = 1;
@@ -384,6 +735,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->ihx, sizeof(double), 1, f);
   n = fwrite(&p->rhx, sizeof(double), 1, f);
   n = fwrite(&p->dhx, sizeof(double), 1, f);
+  n = fwrite(&p->bhx, sizeof(double), 1, f);
   n = fwrite(&p->chx, sizeof(double), 1, f);
   n = fwrite(&p->hx0, sizeof(double), 1, f);
   n = fwrite(&p->hx1, sizeof(double), 1, f);
@@ -391,11 +743,13 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->asymp, sizeof(double), 1, f);
   n = fwrite(&p->rmin, sizeof(double), 1, f);
   n = fwrite(&p->N, sizeof(double), 1, f);
+  n = fwrite(&p->N1, sizeof(double), 1, f);
   n = fwrite(&p->lambda, sizeof(double), 1, f);
   n = fwrite(&p->a, sizeof(double), 1, f);
   n = fwrite(&p->ar, sizeof(double), 1, f);
   n = fwrite(&p->br, sizeof(double), 1, f);
   n = fwrite(&p->ib, sizeof(int), 1, f);
+  n = fwrite(&p->ib0, sizeof(int), 1, f);
   n = fwrite(&p->nb, sizeof(int), 1, f);
   n = fwrite(&p->ib1, sizeof(int), 1, f);
   n = fwrite(&p->bqp, sizeof(double), 1, f);
@@ -404,6 +758,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(p->dZ, sizeof(double), p->maxrp, f);
   n = fwrite(p->dZ2, sizeof(double), p->maxrp, f);
   n = fwrite(p->rad, sizeof(double), p->maxrp, f);
+  n = fwrite(p->rho, sizeof(double), p->maxrp, f);
   n = fwrite(p->mqrho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
   n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
@@ -513,6 +868,7 @@ static void FreeFltAryData(void *p) {
 
 int FreeMultipoleArray(void) {
   MultiFreeData(multipole_array, FreeMultipole);
+  LoadRadialMultipole(NULL);
   return 0;
 }
 
@@ -745,7 +1101,8 @@ void SolveDFKappa(int ka, int nmax, double xdf) {
   ReinitRadial(2);
 }
 
-void SetPotentialMode(int m, double h, double ih, double h0, double h1) {
+void SetPotentialMode(int m, double h, double ih,
+		      double dh, double h0, double h1) {
   potential->mode = m;
   if (h > 1e10) {
     potential->hxs = POTHXS;
@@ -757,16 +1114,13 @@ void SetPotentialMode(int m, double h, double ih, double h0, double h1) {
   } else {
     potential->ihx = ih;
   }
-  if (h0 >= 0) {
-    potential->hx0 = h0;
+  if (dh <= 0) {
+    potential->bhx = POTBHX;
   } else {
-    potential->hx0 = POTHX0;
-  }
-  if (h1 >= 0) {
-    potential->hx1 = h1;
-  } else {
-    potential->hx1 = POTHX1;
-  }
+    potential->bhx = dh;
+  } 
+  potential->hx0 = h0;
+  potential->hx1 = h1;
 }
 
 void PrintQED() {
@@ -795,7 +1149,7 @@ int GetBoundary(double *rb, double *b, int *nmax, double *dr) {
   return potential->ib;
 }
 
-int SetBoundaryMaster(int nmax, double p, double bqp) {
+int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
@@ -819,6 +1173,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
       }
       if (i < potential->ib1) {
 	potential->ib = i;
+	potential->ib0 = i;
       }
     }
     return 0;
@@ -827,6 +1182,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
   potential->bqp = bqp;
   if (nmax == 0) {
     potential->ib = 0;
+    potential->ib0 = 0;
   } else if (nmax < 0) {
     d = GetResidualZ();
     d1 = potential->nb;
@@ -835,11 +1191,12 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
       if (potential->rad[i] >= p) break;
     }
     if (i > potential->maxrp-10) {
-      printf("enlarge maxrp\n");
+      printf("enlarge maxrp0: %d %d\n", i, potential->maxrp);
       exit(1);
     }
     if (IsEven(i)) i++;
     potential->ib = i;
+    potential->ib0 = 0;
     for (n = 1; n <= potential->nb; n++) {
       for (kl = 0; kl < n; kl++) {
 	kl2 = 2*kl;
@@ -874,10 +1231,37 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
 	}
       }
     }
-    if (IsEven(i)) i++;
-    if (i > potential->maxrp-10) {
-      printf("enlarge maxrp\n");
-      return -1;
+    if (IsEven(potential->ib)) potential->ib++;
+    potential->ib0 = potential->ib;
+    if (rf > 0) {
+      i = potential->ib;
+      k = OrbitalIndex(nmax, -1, 0);
+      orb = GetOrbitalSolved(k);
+      double *w = Large(orb);
+      for (j = i; j > 5; j--) {
+	if ((w[j-1] > w[j] && w[j-2] <= w[j-1]) ||
+	    (w[j-1] < w[j] && w[j-2] >= w[j-1])) {
+	  j--;
+	  break;
+	}
+      }
+      int jm = j;
+      for (; j > 0; j--) {
+	if ((w[jm] > 0 && w[j] <= 0) ||
+	    (w[jm] < 0 && w[j] >= 0)) {
+	  break;
+	}
+      }
+      d1 = potential->rad[i]+rf*(potential->rad[jm]-potential->rad[j]);
+      for (; i < potential->maxrp-5; i++) {
+	if (potential->rad[i] >= d1) break;
+      }    
+      if (IsEven(i)) i++;
+      potential->ib = i;      
+      if (i > potential->maxrp-5) {
+	printf("enlarge maxrp1: %d %d\n", i, potential->maxrp);
+	return -1;
+      }
     }
   }
   potential->ib1 = potential->ib;
@@ -887,8 +1271,75 @@ int SetBoundaryMaster(int nmax, double p, double bqp) {
   return 0;
 }
 
-int SetBoundary(int nmax, double p, double bqp) {
-  int r = SetBoundaryMaster(nmax, p, bqp);
+int SetBoundary(int nmax, double p, double bqp, double rf,
+		int nri, int ng, int *kg, char *s,
+		int n0, int n1, int n0d, int n1d, int k0, int k1) {
+  int r = SetBoundaryMaster(nmax, p, bqp, rf);
+  int nr = abs(nri);
+  if (nr > 0 && rf > 0 && potential->ib > potential->ib0) {
+    int nr0 = potential->ib-potential->ib0+1;
+    if (nr > nr0) nr = nr0;
+    double mde = 0;
+    int mib = -1;
+    int i, k, ib, ib1;
+    int ig, ic;
+    CONFIG_GROUP *g;
+    CONFIG *c;
+    k = nr0/nr;
+    k = Max(1, k);
+    ib = potential->ib0;
+    ib1 = potential->ib;
+    for (i = 0; i < nr; i++) {
+      if (ib > ib1) break;
+      potential->ib = ib;
+      potential->ib1 = ib;
+      potential->rb = potential->rad[potential->ib];
+      ReinitRadial(1);
+      ClearOrbitalTable(0);      
+      for (ig = 0; ig < ng; ig++) {
+	g = GetGroup(kg[ig]);
+	for (ic = 0; ic < g->n_cfgs; ic++) {
+	  c = GetConfigFromGroup(kg[ig], ic);
+	  c->mde = 1E31;
+	}
+      }
+      ConfigSD(43, ng, kg, s, NULL, NULL, n0, n1, n0d, n1d, k0, k1, 1, NULL, 0);
+      double de = 1e31;
+      for (ig = 0; ig < ng; ig++) {
+	g = GetGroup(kg[ig]);
+	for (ic = 0; ic < g->n_cfgs; ic++) {
+	  c = GetConfigFromGroup(kg[ig], ic);
+	  if (c->mde < de) de = c->mde;
+	}
+      }
+      if (de > 9e30) de = 0;
+      if (de > mde) {
+	mde = de;
+	mib = ib;
+      }
+      if (nri < 0) {
+	printf("adjust boundary: %4d %4d %4d %4d %4d %4d %10.4E %10.4E %10.4E\n",
+	       i, potential->ib0, ib1, k, ib, mib, de, mde, TotalSize());
+	fflush(stdout);
+      }
+      ib += k;
+    }
+    potential->ib = mib;
+    potential->ib1 = mib;    
+    potential->rb = potential->rad[potential->ib];
+    ReinitRadial(1);
+    ClearOrbitalTable(0);
+    for (ig = 0; ig < ng; ig++) {
+      g = GetGroup(kg[ig]);
+      for (ic = 0; ic < g->n_cfgs; ic++) {
+	c = GetConfigFromGroup(kg[ig], ic);
+	c->mde = 1E31;
+      }
+    }
+    ConfigSD(43, ng, kg, s, NULL, NULL, n0, n1, n0d, n1d, k0, k1, 1, NULL, 0);
+    ReinitRadial(1);
+    ClearOrbitalTable(0);
+  }
   CopyPotentialOMP(0);
   return r;
 }
@@ -1043,13 +1494,8 @@ void SetScreening(int n_screen, int *screened_n,
 
 int SetRadialGrid(int maxrp, double ratio, double asymp,
 		  double rmin, double qr) {
-  if (maxrp > MAXRP) {
-    printf("MAXRP must be <= %d\n", MAXRP);
-    printf("to enlarge the limit, change MAXRP in global.h\n");
-    return -1;
-  }
   if (maxrp < 0) maxrp = DMAXRP;
-  potential->maxrp = maxrp;
+  AllocWorkSpace(maxrp);
   if (asymp < 0 && ratio < 0) {
     asymp = GRIDASYMP;
     ratio = GRIDRATIO;
@@ -1079,10 +1525,9 @@ void AdjustScreeningParams(double *u) {
 
 int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
   int md, md1, jmax, j, i, m, jm;
-  double n1, a, b, d, d0, d1;
   double *u0, *ue, *ue1;
   
-  if (potential->N < 1+EPS3) return -1; 
+  if (potential->N < 1+EPS5) return -1; 
   if (acfg->n_shells <= 0) return 0;
   md = potential->mode % 10;
   md1 = potential->mode / 10;
@@ -1123,32 +1568,14 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = u0[m] - ue[m];
   }
-  jm = 0;
   for (j = 0; j < potential->maxrp; j++) {
     if (u[j] > potential->Z[j]) {
       u[j] = potential->Z[j];
-      jm = j;
     }
   }
-
-  n1 = potential->N-1;
-  for (jm = jmax; jm >= 10; jm--) {
-    if (n1 > u[jm] && u[jm] > u[jm-1]) {
-      break;
-    }
-  }
-  d0 = log(potential->rad[jm-1]);
-  d1 = log(potential->rad[jm]);
-  a = log(n1 - u[jm-1]);
-  b = log(n1 - u[jm]);
-  d = (b-a)/(d1-d0);    
-  for (j = jm+1; j < potential->maxrp; j++) {
-    u[j] = d*(log(potential->rad[j]/potential->rad[jm])) + b;
-    u[j] = n1 - exp(u[j]);
-  }
-
+  double n1 = potential->N1;
   for (m = jmax; m > 50; m--) {
-    if (fabs(u[m]-n1) > EPS6) break;
+    if (fabs(u[m]-n1) > EPS5) break;
   }
   potential->r_core = m+1;
   return jmax;
@@ -1158,7 +1585,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
   int i, j, k, kk, kk0, kk1, k1, k2, j1, j2;
   int ic, jmax, jmaxk, m, jm;
   ORBITAL *orb1, *orb2;
-  double large, small, a, b, c, d, d0, d1, c0, c1, fk, gk;
+  double large, small, a, b, c, d, d0, d1;
   CONFIG_GROUP *gc;
   CONFIG *cfg;
   SHELL *s1, *s2;
@@ -1211,12 +1638,12 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
   potential->dhx = 0;
   potential->ahx = 0;
   potential->chx = 0;
-  double n1 = potential->N-1;
+  for (m = 0; m <= jmax; m++) {
+    ue1[m] = u[m];
+  }
   if (potential->hxs) {
-    potential->rhx = 0;
     j = -1;
-    c = potential->Z[potential->maxrp-1];
-    c = potential->hx0 + potential->hx1*(c-potential->N)/c;
+    c = GetHXS(potential);
     potential->ahx = potential->hxs*c;
     double nr = 0;
     if (orb2 != NULL) {
@@ -1237,44 +1664,127 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
 	a = pow(a, ONETHIRD);
       }
       ue1[m] = potential->ahx*a;
-      if (j < 0 && m > 0 && ue1[m-1] > 0 && u[m] - ue1[m] > n1) {
-	potential->rhx = potential->rad[m];
-	j = m;
-      }
-    }
-    a = fabs(potential->ihx);
-    if (ik < 0 && a > 0.01) {
-      potential->dhx = potential->rad[j];
-      for (m = j; m > 0; m--) {
-	if (ue1[m-1] < ue1[m]) break;
-      }
-      potential->rhx = potential->rad[m];
-      b = potential->dhx - potential->rhx;
-      c = 0.25*potential->dhx;
-      if (b < c) {
-	potential->rhx = potential->dhx - c;
-	potential->dhx = c;
-      } else {
-	potential->dhx = b;
-      }      
-      c = 1.0 - n1/potential->N;
-      for (m = 0; m <= jmax; m++) {
-	d = (potential->rad[m]-potential->rhx)*a/potential->dhx;
-	d = 1.0/(1.0 + exp(-d));
-	d0 = u[m]*c;
-	d1 = ue1[m];
-	ue[m] = d0*d + d1*(1-d);
-	if (d > 0.5 && u[m]-ue[m] > n1) {
-	  ue[m] = u[m]-n1;
-	}
-      }
-    } else {
-      for (m = 0; m <= jmax; m++) {
-	ue[m] = ue1[m];
-      }
     }
   }
 
+  if (ik < 0 && potential->ihx < 0) {    
+    double ihx = -potential->ihx;
+    double n1 = potential->N-ihx;
+    double n2 = n1 - 0.5*ihx;
+    i = 0;
+    j = 0;
+    for (m = 0; m <= jmax; m++) {
+      _dwork9[m] = u[m] - ue1[m];
+      if (_dwork9[m] > n2 && i == 0) {
+	i = m;
+      }
+      if (_dwork9[m] > n1 && j == 0) {
+	j = m;
+      }
+      if (j > 0 && m - j > 6) break;
+    }
+    k1 = i-5;
+    if (k1 < 0) k1 = 0;
+    for (k2 = i; k2 < m; k2++) {
+      if (_dwork9[k2+1] <= _dwork9[k2]) break;
+      if (k2-i > 5) break;
+    }
+    k = k2 - k1 + 1;
+    d0 = potential->rho[k1];
+    d1 = potential->rho[k2];
+    d = 0.5*(d0+d1);
+    while (d1-d0 > EPS5*fabs(d)) {
+      d = 0.5*(d0+d1);
+      UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+      if (a < n2) {
+	d0 = d;
+      } else if (a > n2) {
+	d1 = d;
+      } else {
+	break;
+      }
+    }
+    a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+		    potential->rad[i]);
+    potential->rhx = a;    
+    k1 = j-5;
+    if (k1 < 0) k1 = 0;
+    for (k2 = j; k2 < m; k2++) {
+      if (_dwork9[k2+1] <= _dwork9[k2]) break;
+      if (k2-j > 5) break;
+    }
+    k = k2 - k1 + 1;
+    d0 = potential->rho[k1];
+    d1 = potential->rho[k2];
+    d = 0.5*(d0+d1);
+    while (d1-d0 > EPS5*fabs(d)) {
+      d = 0.5*(d0+d1);
+      UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+      if (a < n1) {
+	d0 = d;
+      } else if (a > n1) {
+	d1 = d;
+      } else {
+	break;
+      }
+    }
+    a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+		    potential->rad[j]);
+    potential->dhx = a;        
+    for (i = j; i > 0; i--) {
+      if (ue1[i-1] < ue1[i]) {
+	break;
+      }
+    }
+    c = potential->rad[i];
+    b = potential->rho[i];
+    k = 0;
+    for (j = i; j < jmax; j++, k++) {
+      if (ue1[j+1] >= ue1[j]) break;
+      if (k > 5) break;
+    }
+    k = 0;
+    for (; i > 0; i--, k++) {
+      if (ue1[i-1] >= ue1[i]) break;
+      if (k > 5) break;
+    }
+    Differential(ue1, _dwork9, i, j, potential->dr_drho);
+    d0 = potential->rho[i];
+    d1 = potential->rho[j];
+    d = 0.5*(d0+d1);
+    k = j-i+1;
+    while (d1-d0 > EPS5*fabs(d)) {
+      d = 0.5*(d0+d1);
+      UVIP3P(3, k, potential->rho+i, _dwork9+i, 1, &d, &a);
+      if (a > 0) {
+	d0 = d;
+      } else if (a < 0) {
+	d1 = d;
+      } else {
+	break;
+      }
+    }
+    a = GetRFromRho(d, potential->ar, potential->br, potential->qr, c);
+    if (a < potential->rhx) {
+      potential->rhx = a;
+    }
+    potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
+    c = 1.0 - n1/potential->N;
+    for (m = 0; m <= jmax; m++) {
+      d = (potential->rad[m]-potential->rhx)/potential->dhx;
+      d = 1.0/(1.0 + exp(-d));
+      d0 = u[m]*c;
+      d1 = ue1[m];
+      ue[m] = d0*d + d1*(1-d);
+      if (d > 0.5 && u[m]-ue[m] > n1) {
+	ue[m] = u[m]-n1;
+      }
+    }
+  } else {
+    for (m = 0; m <= jmax; m++) {
+      ue[m] = ue1[m];
+    }
+  }
   for (m = jmax+1; m < potential->maxrp; m++) {
     u[m] = u[jmax];
     ue1[m] = 0.0;
@@ -1336,7 +1846,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       return 0.0;
     }
     r = potential->Z[potential->maxrp-1];
-    b = (1.0 - 1.0/potential->N);
+    b = potential->N1/potential->N;
     for (i = 0; i < acfg->n_shells; i++) {
       a = acfg->nq[i];
       c = acfg->n[i];
@@ -1372,7 +1882,7 @@ int GetPotential(char *s) {
   int norbs, jmax, kmin, kmax;  
   FILE *f;
   int i, j;
-  double rb, rb1, rc;
+  double rb, rb0, rb1, rc;
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -1388,8 +1898,13 @@ int GetPotential(char *s) {
   rc = potential->r_core > 0?potential->rad[potential->r_core]:0;
   fprintf(f, "#     rc = %12.5E\n", rc);
   rb = potential->ib>0?potential->rad[potential->ib]:0;
+  rb0 = potential->ib0>0?potential->rad[potential->ib0]:0;
   rb1 = potential->ib1>0?potential->rad[potential->ib1]:0;
+  fprintf(f, "#     ib = %d\n", potential->ib);
+  fprintf(f, "#    ib0 = %d\n", potential->ib0);
+  fprintf(f, "#    ib1 = %d\n", potential->ib1);
   fprintf(f, "#     rb = %12.5E\n", rb);
+  fprintf(f, "#    rb0 = %12.5E\n", rb0);
   fprintf(f, "#    rb1 = %12.5E\n", rb1);
   fprintf(f, "#    bqp = %12.5E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
@@ -1399,6 +1914,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    IHX = %12.5E\n", potential->ihx);
   fprintf(f, "#    RHX = %12.5E\n", potential->rhx);
   fprintf(f, "#    DHX = %12.5E\n", potential->dhx);
+  fprintf(f, "#    BHX = %12.5E\n", potential->bhx);
   fprintf(f, "#    CHX = %12.5E\n", potential->chx);
   fprintf(f, "#    HX0 = %12.5E\n", potential->hx0);
   fprintf(f, "#    HX1 = %12.5E\n", potential->hx1);
@@ -1430,7 +1946,7 @@ int GetPotential(char *s) {
 double GetResidualZ(void) {
   double z;
   z = potential->Z[potential->maxrp-1];
-  if (potential->N > 0) z -= potential->N - 1;
+  if (potential->N > 0) z -= potential->N1;
   return z;
 }
 
@@ -1583,39 +2099,54 @@ void CopyPotentialOMP(int init) {
     return;
   }
   POTENTIAL pot;
-  memcpy(&pot, potential, sizeof(POTENTIAL));
+  pot.maxrp = 0;
+  pot.nws = 0;
+  pot.dws = NULL;
+  CopyPotential(&pot, potential);
+#pragma omp parallel shared(pot)
+  {
+    if (MyRankMPI() != 0) {  
+      if (potential == NULL || potential->maxrp != pot.maxrp) {
+	AllocDWS(pot.maxrp);
+      }
+      if (init) {
+	potential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+	potential->maxrp = 0;
+      }
+    }
+    CopyPotential(potential, &pot);
+  }
+  CopyPotential(&pot, hpotential);
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
-      potential = malloc(sizeof(POTENTIAL));
+      hpotential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+      hpotential->maxrp = 0;
     }
-    memcpy(potential, &pot, sizeof(POTENTIAL));    
+    CopyPotential(hpotential, &pot);
   }
-  memcpy(&pot, hpotential, sizeof(POTENTIAL));
+  CopyPotential(&pot, rpotential);
 #pragma omp parallel shared(pot)
   {
     if (init && MyRankMPI() != 0) {
-      hpotential = malloc(sizeof(POTENTIAL));
+      rpotential = (POTENTIAL *) malloc(sizeof(POTENTIAL));
+      rpotential->maxrp = 0;
     }
-    memcpy(hpotential, &pot, sizeof(POTENTIAL));    
+    CopyPotential(rpotential, &pot);
   }
-  memcpy(&pot, rpotential, sizeof(POTENTIAL));
-#pragma omp parallel shared(pot)
-  {
-    if (init && MyRankMPI() != 0) {
-      rpotential = malloc(sizeof(POTENTIAL));
-    }
-    memcpy(rpotential, &pot, sizeof(POTENTIAL));    
-  }
+  if (pot.maxrp > 0) free(pot.dws);
 #endif
 }
 
-#define NXS 7
 int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
-  double a, b, c, z, emin, smin, hxs[NXS], ehx[NXS], mse;
-  int iter, i, j;
-
+  double a, b, c, z, emin, smin, hxs[NXS2], ehx[NXS2], mse;
+  int iter, i, j, i0, i1, k;
+  
+  if (potential->atom->atomic_number < EPS10) {
+    printf("SetAtom has not been called\n");
+    Abort(1);
+  }
   mse = qed.se;
   qed.se = -1000000;
   /* get the average configuration for the groups */
@@ -1680,7 +2211,29 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     a = potential->atom->atomic_number;
   }
   potential->N = a;  
-
+  potential->rhx = 0;
+  potential->dhx = 0;
+  if (potential->mode%10 > 0) {
+    potential->ihx = 0;
+    potential->N1 = potential->N-1;
+  } else {
+    if (fabs(potential->ihx) < EPS10 &&
+	potential->N >= potential->atom->atomic_number-MINIHX) {
+      potential->ihx = -(potential->N-potential->atom->atomic_number+MINIHX);
+    }
+    if (potential->ihx > 0) {
+      a = 0.0;
+      for (i = 0; i < acfg->n_shells; i++) {
+	a += Min(acfg->nq[i], 1);
+      }
+      for (i = 0; i < acfg->n_shells; i++) {
+	acfg->nq[i] -= potential->ihx*Min(acfg->nq[i],1)/a;
+      }
+    }
+    potential->N1 = potential->N - fabs(potential->ihx);
+  }
+  if (potential->N1 < 0) potential->N1 = 0;
+  
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
     SetOrbitalRGrid(potential);
@@ -1706,7 +2259,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   SetReferencePotential(hpotential, potential, 1);
   SetReferencePotential(rpotential, potential, 0);
   z = potential->Z[potential->maxrp-1];
-  if (a > 0.0) z = z - a + 1;
+  if (potential->N > 0.0) z = z - potential->N + 1;
   potential->a = 0.0;
   potential->lambda = 0.5*z;
   if (potential->N > 1) {
@@ -1720,12 +2273,34 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   }
 
   if (potential->mode/10 == 2) {
-    a = 0.7/(NXS-1.0);
-    hxs[0] = 0.5;
-    for (i = 1; i < NXS; i++) {
-      hxs[i] = hxs[i-1] + a;
-    }      
-    for (i = 0; i < NXS; i++) {
+    hxs[NXS] = 1.0;
+    for (i = NXS-1; i >= 0; i--) {
+      hxs[i] = hxs[i+1] - 0.05;
+    }
+    for (i = NXS+1; i < NXS2; i++) {
+      hxs[i] = hxs[i-1] + 0.05;
+    }
+    i = NXS;    
+    potential->hxs = hxs[i];
+    iter = OptimizeLoop(acfg);
+    if (iter > optimize_control.maxiter) {
+      printf("Maximum iteration reached in OptimizeRadial %d %d\n", i, iter);
+      return -1;
+    }
+    if (ng > 0) {
+      ehx[i] = 0.0;
+      for (j = 0; j < ng; j++) {
+	ehx[i] += TotalEnergyGroup(kg[j])*acfg->weight[j];
+      }
+    } else {
+      ehx[i] = AverageEnergyAvgConfig(acfg);
+    }
+    if (optimize_control.iprint) {
+      printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
+    }
+    int im = NXS;
+    double em = ehx[im];
+    for (i = NXS-1; i >= 0; i--) {
       ReinitRadial(1);
       potential->hxs = hxs[i];
       iter = OptimizeLoop(acfg);
@@ -1744,14 +2319,61 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       if (optimize_control.iprint) {
 	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
+      if (ehx[i] < em) {
+	em = ehx[i];
+	im = i;
+      } else if (im-i > 1) {
+	break;
+      }
     }
-    
+    i0 = Max(i, 0);    
+    for (i = NXS+1; i < NXS2; i++) {
+      ReinitRadial(1);
+      potential->hxs = hxs[i];
+      iter = OptimizeLoop(acfg);
+      if (iter > optimize_control.maxiter) {
+	printf("Maximum iteration reached in OptimizeRadial %d %d\n", i, iter);
+	return -1;
+      }
+      if (ng > 0) {
+	ehx[i] = 0.0;
+	for (j = 0; j < ng; j++) {
+	  ehx[i] += TotalEnergyGroup(kg[j])*acfg->weight[j];
+	}
+      } else {
+	ehx[i] = AverageEnergyAvgConfig(acfg);
+      }
+      if (optimize_control.iprint) {
+	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
+      }
+      if (ehx[i] < em) {
+	em = ehx[i];
+	im = i;
+      } else if (i-im > 0) {
+	break;
+      }
+    }
+    i1 = i;
+    if (i1 >= NXS2) i1 = NXS2-1;
+    emin = 1e10;
+    smin = 0;
+    j = 0;
+    for (i = i0; i <= i1; i++) {
+      if (ehx[i] < emin) {
+	emin = ehx[i];
+	j = i;
+      }
+    }
+    k = i1 - i0 + 1;
     b = 0.001;
-    a = hxs[0];
+    i = j;
+    if (i < i1) i++;
+    if (j > i0) j--;
+    a = hxs[j];
     emin = 1e10;
     smin = 0.0;
-    while (a <= hxs[NXS-1]) {
-      UVIP3P(2, NXS, hxs, ehx, 1, &a, &c);
+    while (a <= hxs[i]) {
+      UVIP3P(3, k, hxs+i0, ehx+i0, 1, &a, &c);
       if (c < emin) {
 	emin = c;
 	smin = a;
@@ -1774,7 +2396,6 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   CopyPotentialOMP(0);
   return iter;
 }      
-#undef NXS
 
 static double **_refine_wfb = NULL;
 static int _refine_msglvl = 0;
@@ -2448,17 +3069,25 @@ void FreeOrbitalData(void *p) {
 
   orb = (ORBITAL *) p;
   //RemoveOrbMap(orb);
-  if (orb->wfun) free(orb->wfun);
+  if (orb->wfun) {
+    free(orb->wfun);
+  }
   if (orb->phase) free(orb->phase);
   orb->wfun = NULL;
   orb->phase = NULL;
   orb->isol = 0;
   orb->ilast = -1;
   //orb->im = -1;
-  if (orb->horb) {
+  if (orb->horb && orb->horb != orb) {
     FreeOrbitalData(orb->horb);
-    orb->horb = NULL;
+    free(orb->horb);
   }
+  orb->horb = NULL;
+  if (orb->rorb && orb->rorb != orb) {
+    FreeOrbitalData(orb->rorb);
+    free(orb->rorb);
+  }
+  orb->rorb = NULL;
 }
 
 int ClearOrbitalTable(int m) {
@@ -3941,6 +4570,26 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 #endif
 
   if (m == 0) return 0;
+
+  if (_nmp > 0) {
+    int nmp2 = _nmp*_nmp;
+    t = m < 0?0:1;
+    j = gauge==G_COULOMB?0:1;
+    i = abs(m)-1;
+    double *y = _dmp[t][j][i];
+    if (y != NULL) {
+      orb1 = GetOrbital(k1);
+      orb2 = GetOrbital(k2);
+      if (orb1->n > 0 && orb1->n <= _nmp &&
+	  orb2->n > 0 && orb2->n <= _nmp) {
+	ip = ShellToInt(orb1->n, orb1->kappa);
+	im = ShellToInt(orb2->n, orb2->kappa);
+	n = (ip*nmp2+im)*n_awgrid;
+	*p0 = y+n;
+	return n_awgrid;
+      }
+    }
+  }
   
   if (m >= 0) {
     index[0] = 2*m;
@@ -5023,7 +5672,7 @@ double QED1E(int k0, int k1) {
   
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
-    MPrintf(-1, "invalid orbital kv in RadialNMS: %d %d %d\n",
+    MPrintf(-1, "invalid orbital kv in QED1E: %d %d %d\n",
 	    orb1->n, orb1->kappa, orb1->kv);
     return 0.0;
   }
@@ -7481,6 +8130,9 @@ int InitRadial(void) {
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
   rpotential = malloc(sizeof(POTENTIAL));
+  potential->maxrp = 0;
+  hpotential->maxrp = 0;
+  rpotential->maxrp = 0;
   potential->nfrozen = 0;
   potential->npseudo = 0;
   potential->mpseudo = 0;
@@ -7488,6 +8140,7 @@ int InitRadial(void) {
   potential->mode = POTMODE;
   potential->hxs = POTHXS;
   potential->ihx = POTIHX;
+  potential->bhx = POTBHX;
   potential->hx0 = POTHX0;
   potential->hx1 = POTHX1;
   potential->hlike = 0;
@@ -7506,7 +8159,10 @@ int InitRadial(void) {
   potential->flag = 0;
   potential->rb = 0;
   potential->atom = GetAtomicNucleus();
-  SetBoundaryMaster(0, 1.0, -1.0);
+  potential->ib = 0;
+  potential->ib1 = 0;
+  potential->ib0 = 0;
+  SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;
 
@@ -7596,6 +8252,7 @@ int ReinitRadial(int m) {
   if (m < 0) return 0;
 #pragma omp barrier
 #pragma omp master
+  {
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);
@@ -7618,6 +8275,7 @@ int ReinitRadial(int m) {
       awgrid[0] = EPS3;
       SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
     }
+  }
   }
 #pragma omp barrier
   return 0;
@@ -7940,17 +8598,26 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
 
 int AddNewConfigToList(int k, int ni, int *kc,
 		       CONFIG *c0, int nb, int **kcb,
-		       int nc, SHELL_RESTRICTION *sr) {
+		       int nc, SHELL_RESTRICTION *sr,
+		       int checknew, int mar) {
   CONFIG *cfg = ConfigFromIList(ni, kc);
   int r;
   double sth;
   if (nc > 0) {
     r = ApplyRestriction(1, cfg, nc, sr);
-    if (r <= 0) return -1;
+    if (r <= 0) {
+      FreeConfigData(cfg);
+      free(cfg);
+      return -1;
+    }
   }
-  if (ConfigExists(cfg)) return -1;
+  if (mar != 3 && checknew && ConfigExists(cfg)) {
+    FreeConfigData(cfg);
+    free(cfg);
+    return -1;
+  }
   sth = c0->sth;
-  if (sth > 0) {
+  if (sth > 0 || mar >= 3) {
     int i0, i1, i2, i3;
     int n0, k0, n1, k1, n2, k2, n3, k3;
     int i, j;
@@ -7986,7 +8653,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	}
       }
       if (j < ni) continue;
-      
+      if (i0 < 0 || i1 < 0) continue;
       IntToShell(i0, &n0, &k0);
       IntToShell(i1, &n1, &k1);
       int i2s0, i2s1, i2s;
@@ -8015,7 +8682,9 @@ int AddNewConfigToList(int k, int ni, int *kc,
       ORBITAL *o0, *o1, *o2, *o3;
       int j0, kl0, j1, kl1, j2, kl2, j3, kl3;
       ko0 = OrbitalIndex(n0, k0, 0);
+      QED1E(ko0, ko0);
       ko1 = OrbitalIndex(n1, k1, 0);
+      QED1E(ko1, ko1);
       GetJLFromKappa(k0, &j0, &kl0);
       GetJLFromKappa(k1, &j1, &kl1);
       o0 = GetOrbital(ko0);
@@ -8027,6 +8696,7 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	  if (n2 == n0 && k2 == k0 && cfg->shells[i2s].nq < 2) continue;
 	}
 	ko2 = OrbitalIndex(n2, k2, 0);
+	QED1E(ko2, ko2);
 	GetJLFromKappa(k2, &j2, &kl2);
 	o2 = GetOrbital(ko2);
 	for (i3s = i3s0; i3s < i3s1; i3s++) {
@@ -8037,13 +8707,21 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    if (n3 == n1 && k3 == k1 && cfg->shells[i3s].nq < 2) continue;
 	  }
 	  ko3 = OrbitalIndex(n3, k3, 0);
+	  QED1E(ko3, ko3);
 	  GetJLFromKappa(k3, &j3, &kl3);
 	  if (IsOdd((kl0+kl1+kl2+kl3)/2)) continue;
 	  o3 = GetOrbital(ko3);
-	  double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
-	  if (de < EPS10) {
+	  //double de = fabs(o1->energy-o0->energy + o3->energy-o2->energy);
+	  double de = fabs(o1->energy+o1->qed-o0->energy-o0->qed + o3->energy+o3->qed-o2->energy-o2->qed);
+	  if (mar == 4) {
+	    if (c0->mde > de) c0->mde = de;
+	    continue;
+	  }
+	  if (mar < 3 && de < EPS10) {
 	    s = 1e10;
 	    break;
+	  } else if (mar < 3 && c0->cth > 0) {
+	    s = c0->cth/de;
 	  } else {
 	    double s2 = 0, s1 = 0, sd = 0, se = 0;
 	    int kk, ks[4];
@@ -8051,52 +8729,78 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    ks[1] = ko2;
 	    ks[2] = ko1;
 	    ks[3] = ko3;
+	    double s2b = 0;
 	    for (kk = 0; kk < 5; kk += 2) {
 	      SlaterTotal(&sd, &se, NULL, ks, kk, 0);
 	      sd = fabs(sd+se);
-	      if (s2 < sd) s2 = sd;
+	      if (s2b < sd) s2b = sd;
 	    }
+	    double s1b = 0;
 	    if (i2 < 0 && i3 < 0 && k0 == k1) {
-	      ResidualPotential(&s1, ko0, ko1);
-	      s1 = fabs(s1);
-	      if (s2 < s1) s2 = s1;
+	      ResidualPotential(&s1b, ko0, ko1);
+	      s1b = fabs(s1b);
 	    }
-	    s2 /= de;
+	    if (mar < 3) {
+	      if (s2 < s2b) s2 = s2b;
+	      if (s2 < s1b) s2 = s1b;
+	      s2 /= de;
+	    } else if (s1b < EPS10) {
+	      if (s2 < s2b) s2 = s2b;
+	    } else {
+	      if (s2 < s2b) s2 = s2b;
+	      if (s2 < s1b) s2 = s1b;
+	      //continue;
+	    }
 	    if (s < s2) s = s2;
 	  }
 	}
       }
-    }
+    }  
     qed.sms = sms0;
     qed.br = br0;
-    if (s < sth) {
-      return -10;
+    if (mar < 3) {
+      if (s < sth) {
+	FreeConfigData(cfg);
+	free(cfg);
+	return -10;
+      }
+    } else if (mar == 3) {
+      c0->cth = Max(c0->cth, s);
     }
   }
-  if (Couple(cfg) < 0) return -1;
-  r = AddConfigToList(k, cfg);
+  r = -1;
+  if (mar < 3) {
+    if (Couple(cfg) < 0) {
+      FreeConfigData(cfg);
+      free(cfg);
+      return -1;
+    }
+    r = AddConfigToList(k, cfg);
+  }
+  if (r < 0) {
+    FreeConfigData(cfg);
+  }
   free(cfg);
   return r;
 }
 
-int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
+int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 	     int n0, int n1, int n0d, int n1d, int k0, int k1,
 	     int ngb, int *kgb, double sth) {
   int ni, nr, *kc, nb, **kcb, i, j, k, ir, ns, ks, ks2, ka, is, js;
-  int t, ird, nd, kd, kd2, jd, id, ig1, ig2;
+  int t, ird, nd, kd, kd2, jd, id, ig1, ig2, m0, tnc;
   CONFIG_GROUP *g;
   CONFIG *c, *cr;
   SHELL_RESTRICTION *sr;
   int m, mar, *kcr, nc, *kcrn, nnr, nn, km, kt, km0;
   double sth0;
 
+  sr = NULL;
+  nc = 0;
   if (s) {
     nc = GetRestriction(s, &sr, 0);
-  } else {
-    nc = 0;
-    sr = NULL;
   }
-  
+  m0 = abs(m0r);
   if (m0 == 0) {
     ig1 = GroupIndex(gn1);
     if (ig1 < 0) {
@@ -8158,7 +8862,8 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     for (i = 0; i < nr; i++) {
       ConfigToIList(&cr[i], ni, kc);
-      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr);
+      AddNewConfigToList(ig1, ni, kc, &cr[i], nb, kcb, nc, sr, 1, 0);
+      cr[i].sth = 0;
     }
     
     free(kc);
@@ -8187,16 +8892,58 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
   if (gn2 == NULL || strlen(gn2) == 0) gn2 = gn1;
   m = m0%10;
   mar = m0/10;
-  if (m < 1 || m > 3 || mar > 2) {
+  if (m < 1 || m > 3) {
     printf("invalid mode: %d %d %d\n", m0, m, mar);
     return -1;
   }
+  if (mar == 9) {
+    if (ng > 0 && kg) {
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  c->sth = sth;
+	}
+      }
+    }
+    return 0;
+  }
+  ni = Max(n1, n1d);
+  tnc = 0;
+  for (i = 0; i < ng; i++) {
+    g = GetGroup(kg[i]);
+    tnc += g->n_cfgs;
+    if (ni < g->nmax) ni = g->nmax;
+  }
+  if (kgb && kgb != kg) {
+    for (i = 0; i < ngb; i++) {
+      g = GetGroup(kgb[i]);
+      if (ni < g->nmax) ni = g->nmax;
+    }
+  }
+  ni = ni*ni;
+  int fcr = 0;
   if (mar > 0) sth = 0;
   if (mar == 2) {
     nr = 1;
     cr = NULL;
   } else {
-    nr = GetConfigFromString(&cr, s);
+    if (s == NULL || strlen(s) == 0) {
+      nr = tnc;
+      cr = malloc(sizeof(CONFIG)*tnc);
+      t = 0;
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  memcpy(&cr[t], c, sizeof(CONFIG));
+	  t++;
+	}
+      }	
+    } else {
+      nr = GetConfigFromString(&cr, s);
+      fcr = 1;
+    }
   }
   if (mar == 1) {
     n0 = 1;
@@ -8208,20 +8955,14 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
   }
   if (nr <= 0) {
     printf("invalid reference shell spec in ConfigSD: %s\n", s);
-    return -1;
-  }
-  ni = Max(n1, n1d);
-  for (i = 0; i < ng; i++) {
-    g = GetGroup(kg[i]);
-    if (ni < g->nmax) ni = g->nmax;
-  }
-  if (kgb && kgb != kg) {
-    for (i = 0; i < ngb; i++) {
-      g = GetGroup(kgb[i]);
-      if (ni < g->nmax) ni = g->nmax;
+    if (nc > 0) {
+      for (i = 0; i < nc; i++) {
+	free(sr[i].shells);
+      }
+      free(sr);
     }
+    return 0;
   }
-  ni = ni*ni;
   kc = malloc(sizeof(int)*ni);
   kcr = NULL;  
   if (cr) {
@@ -8229,9 +8970,9 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     for (i = 0; i < nr; i++) {
       for (j = 0; j < cr[i].n_shells; j++) {
 	k = ShellToInt(cr[i].shells[j].n, cr[i].shells[j].kappa);
-	if (k >= 0) kc[k] = 1;
+	if (k >= 0 && k < ni) kc[k] = 1;
       }
-      free(cr[i].shells);
+      if (fcr) free(cr[i].shells);
     }  
     free(cr);
     nr = 0;
@@ -8247,18 +8988,24 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
       }
     }
   }
-  ig1 = GroupIndex(gn1);
-  if (ig1 < 0) {
-    printf("invalid config group name: %s\n", gn1);
-    return -1;
-  }
-  ig2 = GroupIndex(gn2);
-  if (ig2 < 0) {
-    printf("invalid config group name: %s\n", gn2);
-    return -1;
+  if (mar < 3) {
+    ig1 = GroupIndex(gn1);
+    if (ig1 < 0) {
+      printf("invalid config group name: %s\n", gn1);
+      return -1;
+    }
+    ig2 = GroupIndex(gn2);
+    if (ig2 < 0) {
+      printf("invalid config group name: %s\n", gn2);
+      return -1;
+    }
+  } else {
+    ig1 = -1;
+    ig2 = -1;
   }
   nb = 0;
   if (ngb > 0) {
+    if (mar >= 3) kgb = NULL;
     if (kgb && sth >= 0) {
       for (i = 0; i < ngb; i++) {
 	g = GetGroup(kgb[i]);
@@ -8339,6 +9086,11 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		if (kcr) {
 		  ir = kcr[k];
 		  if (kc[ir] <= 0) continue;
+		  if (mar == 3) {
+		    int ntmp, ktmp;
+		    IntToShell(ir, &ntmp, &ktmp);
+		    if (ntmp < c->shells[0].n) continue;
+		  }
 		} else {
 		  ir = -1;
 		}
@@ -8352,14 +9104,17 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 		  } else {
 		    is = -1;
 		  }
+		  if (ir >= 0 && ir == is) continue;
 		  if (ir >= 0) kc[ir]--;
 		  if (is >= 0) kc[is]++;
-		  if (pr == 1000000) {
-		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
+		  if (pr == 1000000 || mar >= 3) {
+		    pr = AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
+					    nc, sr, m0r > 0, mar);
 		  } else if (pr > -10) {
 		    double sth0 = c->sth;
 		    c->sth = 0.0;
-		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb, nc, sr);
+		    AddNewConfigToList(ig1, ni, kc, c, nb, kcb,
+				       nc, sr, m0r > 0, mar);
 		    c->sth = sth0;
 		  }
 		  if (ir >= 0) kc[ir]++;
@@ -8409,6 +9164,11 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 			  if (kcr) {
 			    ir = kcr[k];
 			    if (kc[ir] <= 0) continue;
+			    if (mar == 3) {
+			      int ntmp, ktmp;
+			      IntToShell(ir, &ntmp, &ktmp);
+			      if (ntmp < c->shells[0].n) continue;
+			    }
 			  } else {
 			    ir = -1;
 			  }
@@ -8416,6 +9176,15 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 			    if (kcr) {
 			      ird = kcr[t];
 			      if (kc[ird] <= 0) continue;
+			      if (mar == 3) {
+				int ntmp, ktmp;
+				IntToShell(ird, &ntmp, &ktmp);
+				if (c->shells[0].nq > 1) {
+				  if (ntmp < c->shells[0].n) continue;
+				} else if (c->n_shells > 1) {
+				  if (ntmp < c->shells[1].n) continue;
+				}
+			      }
 			    } else {
 			      ird = -1;
 			    }
@@ -8426,20 +9195,26 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
 			    } else {
 			      id = -1;
 			    }
+			    if (ir >= 0 && is == ir &&
+				ird >= 0 && id == ird) continue;
 			    if (ir >= 0) kc[ir]--;			      
 			    if (is >= 0) kc[is]++;
 			    if (ird >= 0) kc[ird]--;
 			    if (id >= 0) kc[id]++;
-			    if (kc[ir] >= 0 && kc[ird] >= 0 &&
-				kc[is] <= js+1 && kc[id] <= jd+1) {
-			      if (pr == 1000000) {
+			    if ((ir < 0 || kc[ir] >= 0) &&
+				(ird < 0 || kc[ird] >= 0) &&
+				(is < 0 || kc[is] <= js+1) &&
+				(id < 0 || kc[id] <= jd+1)) {
+			      if (pr == 1000000 || mar >= 3) {
 				pr = AddNewConfigToList(ig2, ni, kc, c,
-							nb, kcb, nc, sr);
+							nb, kcb, nc, sr,
+							m0r>0, mar);
 			      } else if (pr > -10) {
 				double sth0 = c->sth;
 				c->sth = 0.0;
 				AddNewConfigToList(ig2, ni, kc, c,
-						   nb, kcb, nc, sr);
+						   nb, kcb, nc, sr,
+						   m0r>0, mar);
 				c->sth = sth0;
 			      }
 			    }
@@ -8475,13 +9250,28 @@ int ConfigSD(int m0, int ng, int *kg, char *s, char *gn1, char *gn2,
     }
     free(kcb);
   }
-  if (sth > 0) ReinitRadial(2);
-  g = GetGroup(ig2);
-  if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig2);
-  if (ig1 != ig2) {
-    g = GetGroup(ig1);
-    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
+  if (mar < 3) {
+    if (sth > 0) ReinitRadial(2);
+    g = GetGroup(ig2);
+    if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig2);
+    if (ig1 != ig2) {
+      g = GetGroup(ig1);
+      if (g != NULL && g->n_cfgs == 0) RemoveGroup(ig1);
+    }
+    if (ng > 0 && kg) {
+      for (i = 0; i < ng; i++) {
+	g = GetGroup(kg[i]);
+	for (j = 0; j < g->n_cfgs; j++) {
+	  c = GetConfigFromGroup(kg[i], j);
+	  c->sth = 0;
+	}
+      }
+    }
+  } else {
+    ReinitRadial(2);
   }
   return 0;
 }
 
+void SetOptionRadial(char *s, char *sp, int ip, double dp) {
+}

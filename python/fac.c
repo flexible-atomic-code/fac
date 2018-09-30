@@ -33,6 +33,24 @@ USE (rcsid);
 #if PY_MAJOR_VERSION >= 3
   #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
 #else
+#ifdef PyLong_AsLong
+#undef PyLong_AsLong
+#endif
+#ifdef PyLong_AS_LONG
+#undef PyLong_AS_LONG
+#endif
+#ifdef PyLong_Check
+#undef PyLong_Check
+#endif
+#ifdef PyUnicode_FromString
+#undef PyUnicode_FromString
+#endif
+#ifdef PyUnicode_AsString
+#undef PyUnicode_AsString
+#endif
+#ifdef PyUnicode_Check
+#undef PyUnicode_Check
+#endif
   #define PyLong_AsLong PyInt_AsLong
   #define PyLong_AS_LONG PyInt_AS_LONG
   #define PyLong_Check PyInt_Check
@@ -41,16 +59,16 @@ USE (rcsid);
   #define PyUnicode_Check PyString_Check
 #endif
 
-#if PY_MAJOR_VERSION >= 3
-  #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
-#else
-  #define GETSTATE(m) (&_state)
-  static struct module_state _state;
-#endif
-
 struct module_state {
     PyObject *error;
 };
+
+#if PY_MAJOR_VERSION >= 3
+  #define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#else
+  static struct module_state _state;
+  #define GETSTATE(m) (&_state)
+#endif
 
 static PyObject *ErrorObject;
 static PyObject *PFACVERSION;
@@ -140,6 +158,22 @@ static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
+
+static PyObject *PSystem(PyObject *self, PyObject *args) {
+  char *s;
+  
+  if (sfac_file) {
+    SFACStatement("System", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &s)) return NULL;
+  int r = system(s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   char *fn;
@@ -296,7 +330,7 @@ static PyObject *PGetBoundary(PyObject *self, PyObject *args) {
 
 static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   int nmax, ierr;
-  double bqp, p;
+  double bqp, p, r;
   
   if (sfac_file) {
     SFACStatement("SetBoundary", args, NULL);
@@ -305,10 +339,29 @@ static PyObject *PSetBoundary(PyObject *self, PyObject *args) {
   }
   p = -1.0;
   bqp = 0.0;
-  if (!PyArg_ParseTuple(args, "i|dd", &nmax, &p, &bqp))
+  r = 0.0;
+  int nr, n0, n1, n0d, n1d, k0, k1, ng, *kg;
+  char *s;
+  PyObject *q;
+  q = NULL;
+  s = NULL;
+  nr = 0;
+  n0 = 0;
+  n1 = 0;
+  n0d = 0;
+  n1d = 0;
+  k0 = 0;
+  k1 = -1;
+  ng = 0;
+  kg = NULL;
+  if (!PyArg_ParseTuple(args, "i|dddiOsiiiiii", &nmax, &p, &bqp, &r, &nr, &q, &s, &n0, &n1, &k0, &k1, &n0d, &n1d)) {
     return NULL;
-  ierr = SetBoundary(nmax, p, bqp);
-  
+  }
+  if (q != NULL) {
+    ng = DecodeGroupArgs(q, &kg, NULL);
+  }
+  ierr = SetBoundary(nmax, p, bqp, r, nr, ng, kg, s, n0, n1, n0d, n1d, k0, k1);
+  if (ng > 0) free(kg);
   if (ierr < 0) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
@@ -858,7 +911,7 @@ static PyObject *PSolvePseudo(PyObject *self, PyObject *args) {
 
 static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   int m;
-  double h, ih, h0, h1;
+  double h, ih, dh, h0, h1;
 
   if (sfac_file) {
     SFACStatement("SetPotentialMode", args, NULL);
@@ -868,12 +921,13 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
 
   h = 1E31;
   ih = 1E31;
+  dh = -1;
   h0 = -1;
   h1 = -1;
-  if (!PyArg_ParseTuple(args, "i|dddd", &m, &h, &ih, &h0, &h1))
+  if (!PyArg_ParseTuple(args, "i|ddddd", &m, &h, &ih, &dh, &h0, &h1))
     return NULL;
 
-  SetPotentialMode(m, h, ih, h0, h1);
+  SetPotentialMode(m, h, ih, dh, h0, h1);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1827,7 +1881,7 @@ static PyObject *PCutMixing(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
-  int m, n, nlow, *low, nup, *up;
+  int m, n, nlow, *low, nup, *up, *ks;
   char *fn;
   PyObject *p, *q;
 
@@ -1839,8 +1893,15 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
   
   n = PyTuple_Size(args);
   if (n == 2) {
-    if (!(PyArg_ParseTuple(args, "ii", &m, &n))) return NULL;
-    TransitionMBPT(m, n);
+    if (!(PyArg_ParseTuple(args, "Oi", &p, &n))) return NULL;
+    if (PyLong_Check(p)) {
+      m = PyLong_AsLong(p);      
+      TransitionMBPT(m, NULL, n);
+    } else {
+      m = IntFromList(p, &ks);
+      TransitionMBPT(m, ks, n);
+      if (m > 0) free(ks);
+    }
   } else if (n == 3) {
     if (!(PyArg_ParseTuple(args, "sOO", &fn, &p, &q))) return NULL;
     nlow = DecodeGroupArgs(p, &low, NULL);
@@ -1854,6 +1915,34 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetOption(PyObject *self, PyObject *args) {
+  char *s, *sp;
+  PyObject *p;
+  int ip;
+  double dp;
+  
+  if (sfac_file) {
+    SFACStatement("SetOption", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!(PyArg_ParseTuple(args, "sO", &s, &p))) return NULL;
+  if (PyLong_Check(p)) {
+    ip = PyLong_AsLong(p);
+    dp = (double)ip;
+  } else if (PyFloat_Check(p)) {
+    ip = 0;
+    dp = PyFloat_AsDouble(p);
+  } else if (PyUnicode_Check(p)) {
+    sp = PyUnicode_AsString(p);
+  } else {
+    return NULL;
+  }
+  SetOption(s, sp, ip, dp);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   PyObject *p, *q, *t, *r, *x, *y;
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
@@ -1871,17 +1960,19 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   
   if (n == 1) {
     if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
-    if (PyFloat_Check(p) || PyLong_Check(p)) {
-      f = PyFloat_AsDouble(p);
-      if (f < 0 || (f > 0 && f < 1)) {
-	SetWarnMBPT(f, -1.0);
-	Py_INCREF(Py_None);
-	return Py_None;
-      }
+    if (PyFloat_Check(p) && !PyLong_Check(p)) {
+      f = PyFloat_AsDouble(p);	
+      SetWarnMBPT(f, -1.0);
+      Py_INCREF(Py_None);
+      return Py_None;
     }
     if (PyLong_Check(p)) {
       i = PyLong_AsLong(p);
-      SetExtraMBPT(i);
+      if (i < 0) {
+	SetWarnMBPT(f, -1.0);
+      } else {
+	SetExtraMBPT(i);
+      }
     } else {
       n1 = IntFromList(p, &ng1);
       SetSymMBPT(n1, ng1);
@@ -2993,6 +3084,52 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   return Py_None;
 }
  
+static PyObject *PLoadRadialMultipole(PyObject *self, PyObject *args) {
+  char *fn;
+  
+  if (sfac_file) {
+    SFACStatement("LoadRadialMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  fn = NULL;
+  if (!(PyArg_ParseTuple(args, "|s", &fn))) return NULL;
+  LoadRadialMultipole(fn);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSaveRadialMultipole(PyObject *self, PyObject *args) {
+  char *fn;
+  int n, g, nk, *ks;
+  PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("SaveRadialMultipole", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  g = G_BABUSHKIN;
+  if (!(PyArg_ParseTuple(args, "siO|i", &fn, &n, &p, &g))) {
+    return NULL;
+  }
+  if (PyLong_Check(p)) {
+    nk = PyLong_AsLong(p);
+    ks = NULL;
+  } else if (PyList_Check(p)) {
+    nk = IntFromList(p, &ks);
+  } else {
+    return NULL;
+  }
+  SaveRadialMultipole(fn, n, nk, ks, g);
+  if (nk > 0 && ks != NULL) free(ks);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRRMultipole(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
   int m;
@@ -5675,6 +5812,7 @@ static struct PyMethodDef fac_methods[] = {
   {"WignerDMatrix", PWignerDMatrix, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
@@ -5698,6 +5836,8 @@ static struct PyMethodDef fac_methods[] = {
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
+  {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
+  {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},
   {"SetAICut", PSetAICut, METH_VARARGS},
   {"SetAngZOptions", PSetAngZOptions, METH_VARARGS},
   {"SetAngZCut", PSetAngZCut, METH_VARARGS},
@@ -5815,6 +5955,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MPIRank", PMPIRank, METH_VARARGS},
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {NULL, NULL}
 };
 

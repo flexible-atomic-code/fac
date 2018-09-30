@@ -29,6 +29,15 @@ USE (rcsid);
 #if PY_MAJOR_VERSION >= 3
   #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))
 #else
+#ifdef PyUnicode_AsString
+#undef PyUnicode_AsString
+#endif
+#ifdef PyLong_AsLong
+#undef PyLong_AsLong
+#endif
+#ifdef PyLong_Check
+#undef PyLong_Check
+#endif
   #define PyUnicode_AsString PyString_AsString
   #define PyLong_AsLong PyInt_AsLong
   #define PyLong_Check PyInt_Check
@@ -104,6 +113,22 @@ static PyObject *PConvertToSPOL(PyObject *self, PyObject *args) {
   return Py_None;
 }    
   
+static PyObject *PSystem(PyObject *self, PyObject *args) {
+  char *s;
+  
+  if (spol_file) {
+    SPOLStatement("System", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &s)) return NULL;
+  int r = system(s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PCloseSPOL(PyObject *self, PyObject *args) {
 
   fclose(spol_file);
@@ -258,7 +283,9 @@ static PyObject *PSetMLevels(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "ss", &efn, &tfn)) return NULL;
+  efn = NULL;
+  tfn = NULL;
+  if (!PyArg_ParseTuple(args, "|ss", &efn, &tfn)) return NULL;
   
   if (SetMLevels(efn, tfn) < 0) return NULL;
   
@@ -343,6 +370,7 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   char *ifn;
   char **sc;
   int n, i;
+  double emin, emax, sth;
   
   if (spol_file) {
     SPOLStatement("PolarizationTable", args, NULL);
@@ -351,8 +379,12 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
   }
 
   p = NULL;
-  if (!PyArg_ParseTuple(args, "s|O", &fn, &p)) return NULL;
-
+  emin = 0;
+  emax = 0;
+  sth = 0;
+  if (!PyArg_ParseTuple(args, "s|Oddd", &fn, &p, &emin, &emax, &sth)) {
+    return NULL;
+  }
   ifn = NULL;
   n = 0;
   sc = NULL;
@@ -375,7 +407,7 @@ static PyObject *PPolarizationTable(PyObject *self, PyObject *args) {
     }
   }
   
-  i = PolarizationTable(fn, ifn, n, sc);
+  i = PolarizationTable(fn, ifn, n, sc, emin, emax, sth);
   if (n > 0) {
     free(sc);
   }
@@ -399,6 +431,61 @@ static PyObject *PWallTime(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("InitializeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#ifdef USE_MPI
+  int n = -1;
+  if (!(PyArg_ParseTuple(args, "|i", &n))) {
+    return NULL;
+  }
+  InitializeMPI(n, 1);
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PMPIRank(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("MPIRank", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int n, k;
+  k = MPIRank(&n);
+  return Py_BuildValue("[ii]", k, n);
+}
+
+static PyObject *PMemUsed(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("MemUsed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double m = msize();
+  return Py_BuildValue("d", m);
+}
+
+static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
+  if (spol_file) {
+    SPOLStatement("FinalizeMPI", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+#if USE_MPI == 1
+  FinalizeMPI();
+#endif
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
@@ -415,6 +502,11 @@ static struct PyMethodDef pol_methods[] = {
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS}, 
   {"WallTime", PWallTime, METH_VARARGS}, 
+  {"InitializeMPI", PInitializeMPI, METH_VARARGS},
+  {"MPIRank", PMPIRank, METH_VARARGS},
+  {"MemUsed", PMemUsed, METH_VARARGS},
+  {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
+  {"System", PSystem, METH_VARARGS},
   {NULL, NULL, METH_VARARGS}
 };
 

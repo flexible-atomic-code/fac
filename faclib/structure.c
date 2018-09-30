@@ -41,7 +41,8 @@ USE (rcsid);
 #endif /* (FAC_DEBUG >= DEBUG_STRUCTURE) */
 
 static int nhams = 0;
-static SHAMILTON hams[MAX_HAMS];
+static int _max_hams = MAX_HAMS;
+static SHAMILTON *hams = NULL;
 static HAMILTON _allhams[MAX_SYMMETRIES];
 
 static ARRAY levels_per_ion[N_ELEMENTS+1];
@@ -88,6 +89,18 @@ int GetStructTiming(STRUCT_TIMING *t) {
 #endif
 
 extern int GetAWGridMBPT(double **);
+
+void SetMaxHams(int n) {
+  FreeHamsArray();
+  FreeAngZArray();
+  if (hams) free(hams);   
+  if (n <= 0) {
+    _max_hams = MAX_HAMS;
+  } else {
+    _max_hams = n;
+  }
+  InitAngZArray();
+}
 
 void SetMaxKMBPT(int m) {
   mbpt_mk = m;
@@ -465,9 +478,9 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
     hs = hams + nhams;
     h->iham = nhams;
     nhams++;
-    if (nhams > MAX_HAMS) {
-      printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
-      exit(1);
+    if (nhams > _max_hams) {
+      printf("Number of hamiltons exceeded the maximum %d\n", _max_hams);
+      Abort(1);
     }
     hs->pj = h->pj;
     hs->nlevs = h->dim;
@@ -477,6 +490,9 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
     for (t = 0; t < h->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
       hs->basis[t] = s;
+    }
+    for (t = 0; t < hs->nlevs; t++) {
+      hs->levs[t] = NULL;
     }
     FlagClosed(hs);
   }
@@ -752,9 +768,9 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 #endif
   }
   if (m3) {
-    if (nhams >= MAX_HAMS) {
-      printf("Number of hamiltons exceeded the maximum %d\n", MAX_HAMS);
-      exit(1);
+    if (nhams >= _max_hams) {
+      printf("Number of hamiltons exceeded the maximum %d\n", _max_hams);
+      Abort(1);
     }
     hs = hams + nhams;
     h->iham = nhams;
@@ -767,6 +783,9 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
     for (t = 0; t < h->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), h->basis[t]);
       hs->basis[t] = s;
+    }
+    for (t = 0; t < hs->nlevs; t++) {
+      hs->levs[t] = NULL;
     }
     FlagClosed(hs);
   }
@@ -827,8 +846,8 @@ int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
     fread(h->basis, sizeof(int), h->n_basis, f);
     fread(&n, sizeof(int), 1, f);
     //printf("rh: %d %d %d %d %d %d\n", s, k, h->dim, h->n_basis, h->hsize, n);
-    int t0 = (h->dim+1)*(h->dim)/2;
-    int t1 = t0 + h->dim*(h->n_basis-h->dim);
+    long t0 = (h->dim+1)*(h->dim)/2;
+    long t1 = t0 + h->dim*(h->n_basis-h->dim);
     for (k = 0; k < n; k++) {
       fread(&i, sizeof(int), 1, f);
       fread(&j, sizeof(int), 1, f);
@@ -2137,7 +2156,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
   char trans[] = "N";
   int n, m, np;
   int ldz;
-  int lwork;
+  size_t lwork;
   int liwork, *ib;
   int info;
   int i, j, t, t0, t1, t2, k;
@@ -3055,6 +3074,7 @@ void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth) {
   STATE *st;
   double a, amix, *mix;
   
+  printf("GetInteractConfigs: %d %d %g\n", ng, ngp, sth);
   SolveStructure(NULL, NULL, ng, kg, ngp, kgp, 1);
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     h = GetHamilton(i);
@@ -3357,6 +3377,7 @@ int SolveStructure(char *fn, char *hfn,
 	AllocHamMem(&_allhams[i], 0, 0);
 	_allhams[i].perturb_iter = 0;
       }
+      /*
       for (i = nlevels; i < levels->dim; i++) {
 	LEVEL *lev = GetLevel(i);
 	lev->slev = i;
@@ -3364,6 +3385,7 @@ int SolveStructure(char *fn, char *hfn,
 	  hams[lev->iham].levs[lev->ilev] = lev;
 	}
       }
+      */
     }
     if (ng > 0 && kg) free(kg);
     if (ngp > 0 && kgp) free(kgp);
@@ -3709,6 +3731,14 @@ int SaveLevels(char *fn, int m, int n) {
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
 
+  for (i = m; i < levels->dim; i++) {
+    lev = GetLevel(i);
+    lev->slev = i;
+    if (lev && lev->iham >= 0) {
+      hams[lev->iham].levs[lev->ilev] = lev;
+    }
+  }
+    
   q = 0;
   nk = nele0;
   if (nk >= 0) {
@@ -4022,18 +4052,30 @@ int GetBasisTable(char *fn, int m0, int k0) {
       }
       
       fprintf(f, "============Mixing Coefficients===================\n");
+      double e0 = 1e30;
+      for (i = 0; i < n_levels; i++) {
+	lev = GetLevel(i);
+	if (lev->energy < e0) e0 = lev->energy;
+      }
       for (i = 0; i < n_levels; i++) {
 	lev = GetLevel(i);
 	sym = GetSymmetry(lev->pj);
 	DecodePJ(lev->pj, &p, &j);
-	fprintf(f, "# %4d   %3d %2d %2d   %5d\n",
-		i, lev->pj, p, j, lev->n_basis);
+	double a = 0;
+	for (k = 0; k < lev->n_basis; k++) {
+	  a += lev->mixing[k]*lev->mixing[k];
+	}
+	fprintf(f, "# %4d   %3d %2d %2d   %5d %15.8E %12.5E\n",
+		i, lev->pj, p, j, lev->n_basis,
+		(lev->energy-e0)*HARTREE_EV, a);
+	a = 0;
 	for (k = 0; k < lev->n_basis; k++) {
 	  si = lev->basis[k];
 	  s = (STATE *) ArrayGet(&(sym->states), si);
-	  fprintf(f, "%6d   %3d %2d %2d   %5d %5d %3d %5d %5d   %15.8E\n", 
+	  a += lev->mixing[k]*lev->mixing[k];
+	  fprintf(f, "%6d   %3d %2d %2d   %5d %5d %3d %5d %5d   %15.8E %15.8E\n", 
 		  i, lev->pj, p, j, k, si,
-		  s->kgroup, s->kcfg, s->kstate, lev->mixing[k]);
+		  s->kgroup, s->kcfg, s->kstate, lev->mixing[k], a);
 	}
 	fprintf(f, "\n");
       }    
@@ -4094,10 +4136,10 @@ int GetBasisTable(char *fn, int m0, int k0) {
       char ash[2048];
       char asj[2048];
       char atj[2048];
-      char a1[10];
-      char a2[10];
-      char a3[10];
-      char a0[10];
+      char a1[16];
+      char a2[16];
+      char a3[16];
+      char a0[16];
       int ic, kl;
       SHELL_STATE *sst;
       int ws = 0;
@@ -4120,6 +4162,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	  ash[0] = '\0';
 	  asj[0] = '\0';
 	  atj[0] = '\0';
+	  int fop = -1;
 	  for (ic = cfg->n_shells-1; ic >= 0; ic--) {
 	    GetJLFromKappa(cfg->shells[ic].kappa, &j, &kl);
 	    kl /= 2;
@@ -4131,6 +4174,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	    if (cfg->shells[ic].nq == j+1) {
 	      sprintf(a2, "%9s", " ");
 	    } else {
+	      if (fop < 0) fop = ic;
 	      if (IsEven(cfg->shells[ic].nq)) {
 		if (ShellNeedNuNr(cfg->shells+ic, sst+ic)&1) {
 		  sprintf(a0, "%d;%d", sst[ic].nu, sst[ic].shellJ/2);
@@ -4146,8 +4190,8 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	      }
 	      sprintf(a2, "%9s", a0);
 	    }
-	    if (ic < cfg->n_shells-1) {
-	      if (ic == 0 || (sst[ic].shellJ && sst[ic+1].totalJ)) {
+	    if (ic < fop) {
+	      if (ic == 0 || sst[ic].shellJ) {
 		if (IsEven(sst[ic].totalJ)) {
 		  sprintf(a0, "%d", sst[ic].totalJ/2);
 		} else {
@@ -4158,7 +4202,16 @@ int GetBasisTable(char *fn, int m0, int k0) {
 		sprintf(a3, "%9s", " ");
 	      }
 	    } else {
-	      sprintf(a3, "%9s", " ");
+	      if (ic == 0) {
+		if (IsEven(sst[ic].totalJ)) {
+		  sprintf(a0, "%d", sst[ic].totalJ/2);
+		} else {
+		  sprintf(a0, "%d/2", sst[ic].totalJ);
+		}
+		sprintf(a3, "%9s", a0);
+	      } else {
+		sprintf(a3, "%9s", " ");
+	      }
 	    }
 	    strcat(ash, a1);
 	    strcat(asj, a2);
@@ -4209,41 +4262,53 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	fwrite(&rec, sizeof(int), 1, f1);
 	fwrite(&nblock, sizeof(int), 1, f1);
 	fwrite(&hams[i].nbasis, sizeof(int), 1, f1);
-	fwrite(&hams[i].nlevs, sizeof(int), 1, f1);
+	int nlevs = 0;
+	for (k = 0; k < hams[i].nlevs; k++) {
+	  if (hams[i].levs[k]) nlevs++;
+	}
+	LEVEL **levs = malloc(sizeof(LEVEL *)*nlevs);
+	int ik = 0;
+	for (k = 0; k < hams[i].nlevs; k++) {
+	  if (hams[i].levs[k]) {
+	    levs[ik] = hams[i].levs[k];
+	    ik++;
+	  }
+	}	      
+	fwrite(&nlevs, sizeof(int), 1, f1);
 	si = j + 1;
 	fwrite(&si, sizeof(int), 1, f1);
 	if (p == 0) si = 1;
 	else si = -1;
 	fwrite(&si, sizeof(int), 1, f1);
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = hams[i].nlevs*sizeof(int);	
+	rec = nlevs*sizeof(int);	
 	fwrite(&rec, sizeof(int), 1, f1);
 	double eav = 0.0;
 	double eaw = 0.0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  lev = hams[i].levs[k];
+	for (k = 0; k < nlevs; k++) {
+	  lev = levs[k];
 	  eav += lev->energy * (j+1.0);
 	  eaw += j+1.0;
 	  fwrite(&lev->slev, sizeof(int), 1, f1);
 	}
 	eav /= eaw;
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = (1+hams[i].nlevs)*sizeof(double);
+	rec = (1+nlevs)*sizeof(double);
 	fwrite(&rec, sizeof(int), 1, f1);
 	fwrite(&eav, sizeof(double), 1, f1);
 	int mbs = 0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  lev = hams[i].levs[k];
+	for (k = 0; k < nlevs; k++) {
+	  lev = levs[k];
 	  if (lev->n_basis > mbs) mbs = lev->n_basis;
 	  fwrite(&lev->energy, sizeof(double), 1, f1);
 	}
 	fwrite(&rec, sizeof(int), 1, f1);
-	rec = hams[i].nlevs*hams[i].nbasis*sizeof(double);
+	rec = nlevs*hams[i].nbasis*sizeof(double);
 	fwrite(&rec, sizeof(int), 1, f1);
 	PTRIDX *bst = malloc(sizeof(PTRIDX)*mbs);
 	double mc;
-	for (ic = 0; ic < hams[i].nlevs; ic++) {
-	  lev = hams[i].levs[ic];
+	for (ic = 0; ic < nlevs; ic++) {
+	  lev = levs[ic];
 	  for (k = 0; k < lev->n_basis; k++) {
 	    bst[k].r = (char *) ArrayGet(st, lev->basis[k]);
 	    bst[k].i = k;
@@ -4260,6 +4325,7 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	  }
 	}
 	free(bst);
+	free(levs);
 	fwrite(&rec, sizeof(int), 1, f1);
       }
       fclose(f1);
@@ -4287,7 +4353,7 @@ void StructureEB(char *fn, int n, int *ilev) {
 int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   int kg1, kg2, kc1, kc2;
   int ns, n, p, q, nz, iz, iz1, iz2;
-  int ns1, ns2, *pnz;
+  int ns1, ns2;
   int nc1, nc2, ncfgs;
   int ks1, ks2, i1, i2, i2m;
   int n_shells, *k, nkk;
@@ -4301,7 +4367,8 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   INTERACT_SHELL s[4];
   SHELL *bra;
   SHELL_STATE *sbra, *sket;
-  ANGULAR_ZMIX **a, *ang;
+  ANGULAR_ZMIX *ang;
+  ANGZ_ARY **a;
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -4341,13 +4408,11 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
   ns = ns1*ns2;
-  (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
-  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->angz = malloc(sizeof(ANGZ_ARY *)*ns);
   iz = 0;
   iz1 = 0;
   iz2 = 0;
-  a = (ANGULAR_ZMIX **) (*ad)->angz;
-  pnz = (*ad)->nz;
+  a = (ANGZ_ARY **) (*ad)->angz;
 
   for (i1 = 0; i1 < ns1; i1++) {
     s1 = hams[ih1].basis[i1];
@@ -4373,13 +4438,10 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       if (abs(c1->n_shells - c2->n_shells) > 1) {
 	if (ih1 != ih2) {
 	  a[iz] = NULL;
-	  pnz[iz] = 0;
 	  iz++;
 	} else {
 	  a[iz1] = NULL;
-	  pnz[iz1] = 0;
 	  a[iz2] = NULL;
-	  pnz[iz2] = 0;
 	}
 	continue;
       }
@@ -4457,20 +4519,32 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       free(sket);
     OUT:
       if (ih1 != ih2) {
-	a[iz] = ang;
-	pnz[iz] = n;
+	if (n > 0) {
+	  a[iz] = malloc(sizeof(ANGZ_ARY));
+	  a[iz]->az = ang;
+	  a[iz]->nz = n;
+	} else {
+	  a[iz] = NULL;
+	}
 	iz++;
       } else {
-	a[iz1] = ang;
-	pnz[iz1] = n;
-	if (iz2 != iz1) {
-	  if (n > 0) {
+	if (n > 0) {
+	  a[iz1] = malloc(sizeof(ANGZ_ARY));
+	  a[iz1]->az = ang;
+	  a[iz1]->nz = n;
+	  if (iz2 != iz1) {
 	    ang = malloc(sizeof(ANGULAR_ZMIX)*n);
-	    memcpy(ang, a[iz1], sizeof(ANGULAR_ZMIX)*n);
+	    memcpy(ang, a[iz1]->az, sizeof(ANGULAR_ZMIX)*n);
 	    AngZSwapBraKet(n, ang, 0);
+	    a[iz2] = malloc(sizeof(ANGZ_ARY));
+	    a[iz2]->az = ang;
+	    a[iz2]->nz = n;
 	  }
-	  a[iz2] = ang;
-	  pnz[iz2] = n;
+	} else {
+	  a[iz1] = NULL;
+	  if (iz2 != iz1) {
+	    a[iz2] = NULL;
+	  }
 	}
       }
     }
@@ -4482,6 +4556,7 @@ int AngularZMixStates(ANGZ_DATUM **ad, int ih1, int ih2) {
 #endif
 
   (*ad)->ns = ns;
+  (*ad)->nd = hams[ih1].nlevs * hams[ih2].nlevs;
   ReleaseLock(&(*ad)->lock);
   return (*ad)->ns;
 }
@@ -4512,7 +4587,7 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   int *k, k0, nkk, kmax;
   int jf, jp, tf;
   double *r, r0;
-  int ns1, ns2, *pnz, iz;
+  int ns1, ns2, iz;
   int nc1, nc2, ncfgs;
   int ns, ks1, ks2, n;
   STATE *s1, *s2;
@@ -4520,7 +4595,8 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   INTERACT_SHELL s[4];
   SHELL_STATE *sbra, *sket;
   CONFIG *c1, *c2;
-  ANGULAR_ZFB *ang, **a;
+  ANGULAR_ZFB *ang;
+  ANGZ_ARY **a;
   
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -4558,14 +4634,12 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
   ns = ns1 * ns2;
-  (*ad)->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
-  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->angz = malloc(sizeof(ANGZ_ARY *)*ns);
   
   kmax = GetMaxRank();
 
   iz = 0;
-  a = (ANGULAR_ZFB **) (*ad)->angz;
-  pnz = (*ad)->nz;
+  a = (ANGZ_ARY **) (*ad)->angz;
     
   for (i1 = 0; i1 < ns1; i1++) {
     s1 = hams[ih1].basis[i1];
@@ -4583,7 +4657,6 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
           
       if (abs(c1->n_shells+1 - c2->n_shells) > 1) {
 	a[iz] = NULL;
-	pnz[iz] = 0;
 	iz++;
 	continue;
       }      
@@ -4637,8 +4710,13 @@ int AngularZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       free(sbra);
       free(sket);
     END:
-      a[iz] = ang;
-      pnz[iz] = n;
+      if (n > 0) {
+	a[iz] = malloc(sizeof(ANGZ_ARY));
+	a[iz]->az = ang;
+	a[iz]->nz = n;
+      } else {
+	a[iz] = NULL;
+      }
       iz++;
     }
   }
@@ -4662,7 +4740,7 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   int phase;
   int j1, j2, i, n, nz, p;
   int jmin, jmax, jf;
-  int ns1, ns2, *pnz, iz;
+  int ns1, ns2, iz;
   int nc1, nc2, ncfgs;
   int ns, ks1, ks2;  
   INTERACT_SHELL s[4];
@@ -4671,7 +4749,8 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   INTERACT_DATUM *idatum;
   CONFIG *c1, *c2;
   STATE *s1, *s2;
-  ANGULAR_ZxZMIX **a, *ang;
+  ANGULAR_ZxZMIX *ang;
+  ANGZ_ARY **a;
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop; 
@@ -4712,13 +4791,10 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
   ns1 = hams[ih1].nbasis;
   ns2 = hams[ih2].nbasis;
   ns = ns1*ns2;
-  (*ad)->angz = malloc(sizeof(ANGULAR_ZxZMIX *)*ns);
-  (*ad)->nz = (int *) malloc(sizeof(int)*ns);
+  (*ad)->angz = malloc(sizeof(ANGZ_ARY *)*ns);
   
   iz = 0;
-  a = (ANGULAR_ZxZMIX **) (*ad)->angz;
-  pnz = (*ad)->nz;  
-
+  a = (ANGZ_ARY **) (*ad)->angz;
 
   for (i1 = 0; i1 < ns1; i1++) {
     s1 = hams[ih1].basis[i1];
@@ -4736,7 +4812,6 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       
       if (abs(c1->n_shells+1 - c2->n_shells) > 2) {
 	a[iz] = NULL;
-	pnz[iz] = 0;
 	iz++;
 	continue;
       }
@@ -4801,11 +4876,15 @@ int AngularZxZFreeBoundStates(ANGZ_DATUM **ad, int ih1, int ih2) {
       
       PackAngularZxZMix(&n, &ang, nz);
       free(sbra);
-      free(sket);
-      
-    END:	  
-      a[iz] = ang;
-      pnz[iz] = n;
+      free(sket);      
+    END:
+      if (n > 0) {
+	a[iz] = malloc(sizeof(ANGZ_ARY));
+	a[iz]->az = ang;
+	a[iz]->nz = n;
+      } else {
+	a[iz] = NULL;
+      }
       iz++;
     }
   }
@@ -4868,53 +4947,60 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       ns = ns1*ns2;
       if (ne1 == ne2) {
 	if (ih1 > ih2) {
-	  iz = ih2 * MAX_HAMS + ih1;
+	  iz = ih2 * _max_hams + ih1;
 	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
 	} else {
-	  iz = ih1 * MAX_HAMS + ih2;
+	  iz = ih1 * _max_hams + ih2;
 	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
 	}
       } else {
 	if (ne1 > ne2) {
-	  iz = ih2 * MAX_HAMS + ih1;
+	  iz = ih2 * _max_hams + ih1;
 	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
 	} else {
-	  iz = ih1 * MAX_HAMS + ih2;
+	  iz = ih1 * _max_hams + ih2;
 	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
 	}
       }
       ad = &(angmz_array[iz]);
       if (ad->ns == 0) {
+	ad->angz = malloc(sizeof(ANGZ_ARY *)*ns);
+	/*
 	if (ne1 == ne2) {
 	  ad->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
 	} else {
 	  ad->angz = malloc(sizeof(ANGULAR_ZFB *)*ns);
-	}
+	}	
 	ad->nz = malloc(sizeof(int)*ns);
-	for (i = 0; i < ns; i++) (ad->nz)[i] = 0;
+	*/
+	for (i = 0; i < ns; i++) {
+	  (ad->angz)[i] = malloc(sizeof(ANGZ_ARY));
+	  (ad->angz)[i]->nz = 0;
+	  (ad->angz)[i]->az = NULL;
+	}
 	ad->ns = ns;
       }
-      nz = (ad->nz)[is];
+      nz = (ad->angz)[is]->nz;
       if (nz != 0) continue;
       if (ne1 == ne2) {
 	if (ih1 > ih2) {
-	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
+	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is]->az)), 
 			   is2[i2], is1[i1], -1, -1, NULL, NULL);
 	} else {
-	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is])), 
+	  nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is]->az)), 
 			   is1[i1], is2[i2], -1, -1, NULL, NULL);
 	}
       } else {
 	if (ne1 > ne2) {
-	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is])), 
+	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is]->az)), 
 				 is2[i2], is1[i1]);
 	} else {
-	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is])), 
+	  nz = AngularZFreeBound((ANGULAR_ZFB **)(&((ad->angz)[is]->az)), 
 				 is1[i1], is2[i2]);
 	}	
       }
       if (nz == 0) nz = -1;
-      (ad->nz)[is] = nz;
+      (ad->angz)[is]->nz = nz;
     }
   }
   }
@@ -4922,13 +5008,16 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
 }
 
 void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
-  int ih0[MAX_HAMS], ih1[MAX_HAMS];
+  int *ih0, *ih1;
   int i, j, ne0, ne1, ns;
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *st, *st0, *st1;
   ANGZ_DATUM *ad;
-  for (i = 0; i < MAX_HAMS; i++) {
+
+  ih0 = malloc(sizeof(int)*_max_hams);
+  ih1 = malloc(sizeof(int)*_max_hams);
+  for (i = 0; i < _max_hams; i++) {
     ih0[i] = 0;
     ih1[i] = 0;
   }
@@ -4953,11 +5042,11 @@ void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, st0, st1, ne0, ne1, ns, ad)
   {
-  for (i = 0; i < MAX_HAMS; i++) {
+  for (i = 0; i < _max_hams; i++) {
     if (ih0[i] == 0) continue;
     st0 = hams[i].basis[0];
     ne0 = GetGroup(st0->kgroup)->n_electrons;
-    for (j = 0; j < MAX_HAMS; j++) {
+    for (j = 0; j < _max_hams; j++) {
       if (ih1[j] == 0) continue;
       int skip = SkipMPI();
       if (skip) continue;
@@ -4978,6 +5067,8 @@ void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
     }
   }
   }
+  free(ih0);
+  free(ih1);
 }
 
 int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
@@ -5006,15 +5097,15 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
     ih1 = lev1->iham;
     ih2 = lev2->iham;
     if (ih1 >= 0 && ih2 >= 0) {
-      isz = ih1 * MAX_HAMS + ih2;
+      isz = ih1 * _max_hams + ih2;
       ad = &(angmz_array[isz]);
       nz = 0;
       if (ad->ns > 0) {
 	isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
-	nz = (ad->nz)[isz0];
+	nz = (ad->angz)[isz0]->nz;
 	if (nz > 0) {
 	  *ang = malloc(sizeof(ANGULAR_ZFB)*nz);
-	  memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZFB)*nz);
+	  memcpy(*ang, (ad->angz)[isz0]->az, sizeof(ANGULAR_ZFB)*nz);
 	}
       }
       if (nz != 0) return nz;
@@ -5068,10 +5159,10 @@ int AngularZFreeBound(ANGULAR_ZFB **ang, int lower, int upper) {
 	r0 = mix1*mix2;
 	if (fabs(r0) < angz_cut) continue;
 	ih2 = lev2->ibasis[j];
-	isz = isz0 + ih2;
-	m = (ad->nz)[isz];
+	isz = isz0 + ih2;	
+	m = (ad->angz)[isz]?(ad->angz)[isz]->nz:0;
 	if (m == 1) {
-	  ang_sub = (ad->angz)[isz];
+	  ang_sub = (ad->angz)[isz]->az;
 	  kb = ang_sub->kb;
 	  r0 *= ang_sub->coeff;
 	  if (fabs(r0) < angz_cut) continue;
@@ -5136,9 +5227,9 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
     ih2 = lev2->iham;
     if (ih1 >= 0 && ih2 >= 0) {
       if (ih1 > ih2) {
-	isz = ih2 * MAX_HAMS + ih1;
+	isz = ih2 * _max_hams + ih1;
       } else {
-	isz = ih1 * MAX_HAMS + ih2;
+	isz = ih1 * _max_hams + ih2;
       }
       ad = &(angmz_array[isz]);
       nz = 0;
@@ -5148,10 +5239,10 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 	} else {
 	  isz0 = lev1->ilev * hams[ih2].nlevs + lev2->ilev;
 	}
-	nz = (ad->nz)[isz0];
+	nz = (ad->angz)[isz0]->nz;
 	if (nz > 0) {
 	  *ang = malloc(sizeof(ANGULAR_ZMIX)*nz);
-	  memcpy(*ang, (ad->angz)[isz0], sizeof(ANGULAR_ZMIX)*nz);
+	  memcpy(*ang, (ad->angz)[isz0]->az, sizeof(ANGULAR_ZMIX)*nz);
 	}
       }  
       if (nz != 0) {
@@ -5338,6 +5429,10 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
       lev = NULL;
     }
     ns = AngularZMixStates(&ad, lev1->iham, lev2->iham);
+    int nd = 0;
+    if (ns > 0) {
+      nd = ad->nd;
+    }
     if (nmk) {
       if (mbpt_mk > 0) {
 	*nmk = mbpt_mk;
@@ -5353,11 +5448,17 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 	*mbk = NULL;
       }
     }
+    int idz0, idz;
     for (i = 0; i < lev1->n_basis; i++) {
       mix1 = lev1->mixing[i];
       if (fabs(mix1) < angz_cut) continue;
       ih1 = lev1->ibasis[i];
       isz0 = ih1 * hams[lev2->iham].nbasis;
+      if (ih1 < hams[lev1->iham].nlevs) {
+	idz0 = ih1 * hams[lev2->iham].nlevs;
+      } else {
+	idz0 = -1;
+      }
       for (j = 0; j < lev2->n_basis; j++) {
 	mix2 = lev2->mixing[j];
 	if (fabs(mix2) < angz_cut) continue;
@@ -5365,9 +5466,14 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 	if (fabs(a) < angz_cut) continue;
 	ih2 = lev2->ibasis[j];
 	isz = isz0 + ih2;
-	nz_sub = (ad->nz)[isz];
-	if (nz_sub > 0) {
-	  ang_sub = (ad->angz)[isz];
+	if (idz0 >= 0 && ih2 < hams[lev2->iham].nlevs) {
+	  idz = idz0 + ih2;
+	} else {
+	  idz = -1;
+	}
+	if ((ad->angz)[isz]) {
+	  nz_sub = (ad->angz)[isz]->nz;
+	  ang_sub = (ad->angz)[isz]->az;
 	  for (m = 0; m < nz_sub; m++) {
 	    if (ang_sub[m].k > kmax || ang_sub[m].k < kmin) continue;
 	    r0 = ang_sub[m].coeff*a;
@@ -5376,13 +5482,13 @@ int AngularZMix(ANGULAR_ZMIX **ang, int lower, int upper, int mink, int maxk,
 				  ang_sub[m].k0, ang_sub[m].k1, r0);
 	  }
 	}
-	if (mbk && (*mbk)) {
+	if (mbk && (*mbk) && ad->mk && idz >= 0) {
 	  for (ik = 0; ik < mbpt_mk; ik++) {
 	    im = ik*naw;
 	    if (lev) {
-	      rg = &(ad->mk[isz+ns][im]);
+	      rg = &(ad->mk[idz+nd][im]);
 	    } else {
-	      rg = &(ad->mk[isz][im]);
+	      rg = &(ad->mk[idz][im]);
 	    }
 	    r0 = InterpolateMultipole(aw, naw, awgrid, rg);
 	    (*mbk)[ik] += a*r0;
@@ -5501,9 +5607,9 @@ int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper) {
 	if (fabs(r) < angz_cut) continue;	
 	ih2 = lev2->ibasis[j];
 	isz = isz0 + ih2;
-	nz_sub = (ad->nz)[isz];
-	if (nz_sub > 0) {
-	  ang_sub = (ad->angz)[isz];
+	if ((ad->angz)[isz]) {
+	  nz_sub = (ad->angz)[isz]->nz;
+	  ang_sub = (ad->angz)[isz]->az;
 	  for (m = 0; m < nz_sub; m++) {
 	    r0 = ang_sub[m].coeff*r;
 	    if (fabs(r0) < angz_cut) continue;
@@ -5797,27 +5903,50 @@ int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
   return 0;
 }
 
-void FreeAngZDatum(ANGZ_DATUM *ap) {
-  int i;
+double FreeANGZARY(ANGZ_ARY *az) {
+  double s = 0;
+  if (az == NULL) return s;
+  if (az->nz > 0) {
+    free(az->az);
+    s = sizeof(ANGULAR_ZMIX)*az->nz;
+    az->az = NULL;
+    az->nz = 0;
+  }
+  free(az);
+  s += sizeof(ANGZ_ARY);
+  return s;
+}
 
+double FreeAngZDatum(ANGZ_DATUM *ap) {
+  int i;
+  double s = 0.0;
   for (i = 0; i < ap->ns; i++) {
-    if (ap->nz[i] > 0) free(ap->angz[i]);
+    s += FreeANGZARY(ap->angz[i]);
+    ap->angz[i] = NULL;
   }
   if (ap->ns > 0) {
     free(ap->angz);
-    free(ap->nz);
+    s += sizeof(ANGZ_ARY *)*ap->ns;
     if (ap->mk) {
-      for (i = 0; i < ap->ns*2; i++) {
+      double *awgrid;
+      int naw;
+      naw = GetAWGridMBPT(&awgrid);
+      for (i = 0; i < ap->nd*2; i++) {
 	free(ap->mk[i]);
+	s += sizeof(double)*mbpt_mk*naw;
       }
       free(ap->mk);
+      s += sizeof(double *)*2*ap->nd;
     }
   }
   ap->ns = 0;
+  ap->nd = 0;
+  return s;
 }
 
 int InitAngZArray(void) {
-  angz_dim = MAX_HAMS;
+  hams = malloc(sizeof(SHAMILTON)*_max_hams);
+  angz_dim = _max_hams;
   angz_dim2 = angz_dim*angz_dim;
 
   int i;
@@ -5833,7 +5962,9 @@ int InitAngZArray(void) {
   angmz_array = NULL;
   for (i = 0; i < angz_dim2; i++) {
     angz_array[i].ns = 0;
+    angz_array[i].nd = 0;
     angzxz_array[i].ns = 0;
+    angzxz_array[i].nd = 0;
     angz_array[i].mk = NULL;
     angzxz_array[i].mk = NULL;
     InitLock(&angz_array[i].lock);
@@ -5847,12 +5978,15 @@ int FreeAngZArray(void) {
   int i;
   
   if (angz_dim2 > 0) {
+    double s1 = 0;
+    double s2 = 0;
     for (i = 0; i < angz_dim2; i++) {
       DestroyLock(&angz_array[i].lock);
       DestroyLock(&angzxz_array[i].lock);
-      FreeAngZDatum(&(angz_array[i]));
-      FreeAngZDatum(&(angzxz_array[i]));
+      s1 += FreeAngZDatum(&(angz_array[i]));
+      s2 += FreeAngZDatum(&(angzxz_array[i]));
     }
+    //printf("angz free size: %11.4E %11.4E\n", s1, s2);
     free(angz_array);
     free(angzxz_array);
     if (angmz_array) {
@@ -5979,7 +6113,8 @@ void ClearRMatrixLevels(int n) {
 }
 
 int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
-  int jp, t;
+  int jp;
+  size_t t;
 
   if (hdim == 0) {
     h->pj = 0;
@@ -6051,8 +6186,8 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   t = t*2;
   h->lwork = 1 + 10*hdim + t;
   h->liwork = 3 + 10*hdim;
-  int wl = 3*t;
-  int wi = 0;
+  size_t wl = 3*t;
+  size_t wi = 0;
   if (nbasis > hdim) {
     wl += t + hdim*(nbasis-hdim);
     wi += nbasis-hdim;
@@ -6135,22 +6270,78 @@ int InitStructure(void) {
   return 0;
 }
 
+void CleanAngZArray() {
+  FreeAngZArray();
+  InitAngZArray();
+}
+
 int ReinitStructure(int m) {
   if (m < 0) {
     return 0;
   } else {
 #pragma omp barrier
 #pragma omp master
-    FreeHamsArray();
-    FreeAngZArray();
-    ClearLevelTable();
-    InitAngZArray();
-    int i;
-    for (i = 0; i < MAX_SYMMETRIES; i++) {
-      _allhams[i].heff = NULL;
+    if (m < 2) {
+      FreeHamsArray();
+      FreeAngZArray();
+      ClearLevelTable();
+      InitAngZArray();
+      int i;
+      for (i = 0; i < MAX_SYMMETRIES; i++) {
+	_allhams[i].heff = NULL;
+      }
+    } else {
+      CleanAngZArray();
     }
 #pragma omp barrier
   }
   return 0;
+}
+
+void SetOptionStructure(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "structure:max_hams")) {
+    SetMaxHams(ip);
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_threshold")) {
+    perturb_threshold = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_maxiter")) {
+    perturb_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_expdim")) {
+    perturb_expdim = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_expdimz")) {
+    perturb_expdimz = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:diag_maxiter")) {
+    diag_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:diag_maxtol")) {
+    diag_maxtol = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:dgeev_mode")) {
+    dgeev_mode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:mix_cut")) {
+    mix_cut = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:mix_cut2")) {
+    mix_cut2 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:angz_cut")) {
+    angz_cut = dp;
+    return;
+  }
 }
 

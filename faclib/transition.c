@@ -17,6 +17,7 @@
  */
 
 #include "transition.h"
+#include "mbpt.h"
 #include <time.h>
 
 static char *rcsid="$Id$";
@@ -243,7 +244,7 @@ int TRMultipole(double *strength, double *energy,
       }
       a = r/s;
       a *= a;
-      if (a < 0.75) {
+      if (a < AngZCutMBPT()) {
 	s += r;
       }
     }
@@ -286,7 +287,7 @@ int TRMultipole(double *strength, double *energy,
 	}
 	a = r/s;
 	a *= a;
-	if (a < 0.75) {
+	if (a < AngZCutMBPT()) {
 	  s += r;
 	}
       }
@@ -1034,3 +1035,5 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
   return 0;
 }
   
+void SetOptionTransition(char *s, char *sp, int ip, double dp) {
+}

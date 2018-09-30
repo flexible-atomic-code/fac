@@ -4,6 +4,7 @@ from collections import OrderedDict
 sys.path = sys.path + ['../python','../../python']
 from rfac import *
 
+
 def _check_header(actual, expected):
     if 'E0' in actual:
         assert np.allclose(actual['E0'], expected['E0'], rtol=0.01)
@@ -208,6 +209,14 @@ def check_rt(actual_file, expected_file):
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks)
+    
+
+def check_ham(actual_file, expected_file):
+    actual_header, actual_blocks = read_ham(actual_file)
+    expected_header, expected_blocks = read_ham(expected_file)    
+
+    _check_header(actual_header, expected_header)
+    _check_block(actual_blocks, expected_blocks)
 
 
 def check(actual_file, expected_file):
@@ -234,6 +243,9 @@ def check(actual_file, expected_file):
 
     elif actual_file[-3:] == '.rt':
         check_rt(actual_file, expected_file)
+
+    elif actual_file[-4:] == '.ham':
+        check_ham(actual_file, expected_file)
 
     else:
         raise TypeError('Unknown file extension: {}'.format(actual_file))

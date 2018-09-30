@@ -137,5 +137,6 @@ int CollisionStrengthEBD(double *s, double *e, double *bethe, double *born,
 			 int lower, int upper);
 int SaveExcitationEB(int nlow, int *low, int nup, int *up, char *fn);
 int SaveExcitationEBD(int nlow, int *low, int nup, int *up, char *fn);
+void SetOptionExcitation(char *s, char *sp, int ip, double dp);
 
 #endif

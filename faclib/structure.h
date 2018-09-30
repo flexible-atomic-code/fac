@@ -34,16 +34,16 @@ typedef struct _HAMILTON_ {
   int dim;
   int ndim;
   int n_basis;
-  int hsize;
-  int dsize;
-  int dsize2;
-  int msize;
+  size_t hsize;
+  size_t dsize;
+  size_t dsize2;
+  size_t msize;
   int dim0;
   int n_basis0;
-  int hsize0;
-  int msize0;
-  int lwork;
-  int liwork;
+  size_t hsize0;
+  size_t msize0;
+  size_t lwork;
+  size_t liwork;
   int *basis;
   double *hamilton;
   double *mixing;
@@ -53,7 +53,7 @@ typedef struct _HAMILTON_ {
   int odim;
   int ondim;
   int onbs;
-  int ohsize;
+  size_t ohsize;
   double *oham;
   int *obs;
   double *mmix;
@@ -91,11 +91,15 @@ typedef struct _LEVEL_ION_ {
   int imax;
 } LEVEL_ION;
 
+typedef struct _ANGZ_ARY_ {
+  int nz;
+  void *az;
+} ANGZ_ARY;
+  
 typedef struct _ANGZ_DATUM_ {
   LOCK lock;
-  int ns;
-  int *nz;
-  void **angz;
+  int ns, nd;
+  ANGZ_ARY **angz;
   double **mk;
 } ANGZ_DATUM;
 
@@ -233,8 +237,10 @@ int SetAngZOptions(int n, double mc, double c);
 int SetAngZCut(double c);
 int SetCILevel(int m);
 int SetMixCut(double c, double c2);
+void FreeHamsArray(void);
 int FreeAngZArray(void);
 int InitAngZArray(void);
+void CleanAngZArray(void);
 void ClearRMatrixLevels(int n);
 int ClearLevelTable(void);
 int InitStructure(void);
@@ -267,7 +273,7 @@ void GenEigen(char *trans, char *jobz, int n, double *ap,
 	      double *w, double *wi, double *z,
 	      double *work, int lwork, int *info);
 void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);
-
+void SetOptionStructure(char *s, char *sp, int ip, double dp);
 #endif
 
 

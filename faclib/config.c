@@ -159,7 +159,10 @@ static void InitConfigData(void *p, int n) {
     d[i].shells = NULL;
     d[i].csfs = NULL;
     d[i].igroup = -1;
-    d[i].icfg = -1;    
+    d[i].icfg = -1;
+    d[i].sth = 0;
+    d[i].cth = 0;
+    d[i].mde = 1e31;
   }
 }
   
@@ -588,7 +591,7 @@ int GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m) {
 
   nc = StrSplit(scfg, ';');
   nc--;
-
+  if (nc <= 0) return 0;
   *sr = (SHELL_RESTRICTION *) malloc(sizeof(SHELL_RESTRICTION)*nc);
  
   for (i = 0; i < nc; i++) {     
@@ -889,6 +892,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
     ncfg = dnc[0];
     for (i = 1; i < ns; i++) ncfg *= dnc[i];
     *cfg = (CONFIG *) malloc(sizeof(CONFIG)*ncfg);
+    InitConfigData(*cfg, ncfg);
     tmp = ncfg;
     p1 = dcfg + ns - 1;
     for (i = ns-1; i >= 0; i--) {      
@@ -921,6 +925,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
     ncfg = dnc[0];
     for (i = 1; i < ns; i++) ncfg += dnc[i];
     *cfg = (CONFIG *) malloc(sizeof(CONFIG));
+    InitConfigData(*cfg, 1);
     (*cfg)[0].n_shells = ncfg;
     (*cfg)[0].shells = (SHELL *) malloc(sizeof(SHELL)*ncfg);
     *nq = (double *) malloc(sizeof(double)*ncfg);
@@ -1987,6 +1992,94 @@ CONFIG *ConfigFromIList(int n, int *s) {
   return c;
 }
 
+void ShellString(int n, int k, int q, char *s) {
+  char ss[16];
+  char js;
+  
+  SpecSymbol(ss, GetLFromKappa(k)/2);
+  if (k < 0) {
+    js = '+';
+  } else {
+    js = '-';
+  }
+  if (q >= 0) {
+    sprintf(s, "%d%s%c%d", n, ss, js, q);
+  } else {
+    sprintf(s, "%d%s%c", n, ss, js);
+  }
+  return;
+}
+
+int SDConfig(CONFIG *c, char *cs,
+	     int n0, int k0, int n1, int k1,
+	     int n2, int k2, int n3, int k3) {
+  int q0, q1, q2, q3;
+  int i;
+  q0 = 0;
+  q1 = 0;
+  q2 = 0;
+  q3 = 0;
+  for (i = 0; i < c->n_shells; i++) {
+    if (c->shells[i].n == n0 && c->shells[i].kappa == k0) {
+      q0 = c->shells[i].nq;
+    }
+    if (c->shells[i].n == n1 && c->shells[i].kappa == k1) {
+      q1 = c->shells[i].nq;
+    }
+    if (n2 > 0 && c->shells[i].n == n2 && c->shells[i].kappa == k2) {
+      q2 = c->shells[i].nq;
+    }
+    if (n3 > 0 && c->shells[i].n == n3 && c->shells[i].kappa == k3) {
+      q3 = c->shells[i].nq;
+    }
+  }
+  q0--;
+  if (n2 > 0) q2--;
+  q1++;
+  if (n2 > 0) q3++;
+  if (q0 < 0) return 0;
+  if (q2 < 0) return 0;
+  double di[4];
+  int ik[4];
+  int nk[4];
+  int kk[4];
+  int qk[4];
+  nk[0] = n0;
+  nk[1] = n1;
+  nk[2] = n2;
+  nk[3] = n3;
+  kk[0] = k0;
+  kk[1] = k1;
+  kk[2] = k2;
+  kk[3] = k3;
+  qk[0] = q0;
+  qk[1] = q1;
+  qk[2] = q2;
+  qk[3] = q3;
+  di[2] = -1;
+  di[3] = -1;
+  di[0] = ShellToInt(n0, k0);
+  di[1] = ShellToInt(n1, k1);
+  if (n2 > 0) di[2] = ShellToInt(n2, k2);
+  if (n3 > 0) di[3] = ShellToInt(n3, k3);
+  ArgSort(4, di, ik);
+  char s[32];
+  int j, jk;
+  cs[0] = '\0';
+  for (j = 0; j < 4; j++) {
+    jk = ik[j];
+    if (nk[jk] <= 0) continue;
+    if (j > 0 && di[jk] < di[ik[j-1]]+0.1) continue;
+    ShellString(nk[jk], kk[jk], qk[jk], s);
+    if (cs[0] == '\0') {
+      strcpy(cs, s);
+    } else {
+      sprintf(cs, "%s.%s", cs, s);
+    }
+  }
+  return j;
+}
+    
 int ConfigExists(CONFIG *cfg) {
   int i, j, t, n, nele;
   CONFIG *c;
@@ -2314,13 +2407,15 @@ void ListConfig(char *fn, int n, int *kg) {
   else f = fopen(fn, "w");
 
   m = 0;
+  double mde = 1e31;
   for (i = 0; i < n; i++) {
     g = GetGroup(kg[i]);
     for (j = 0; j < g->n_cfgs; j++) {
       c = GetConfigFromGroup(kg[i], j);
+      if (c->mde < mde) mde = c->mde;
       ConstructConfigName(a, 2048, c);
-      fprintf(f, "%32s %6d %6d %6d   %s\n",
-	      g->name, kg[i], j, m, a);
+      fprintf(f, "%32s %10.4E %10.4E %10.4E %6d %6d %6d   %s\n",
+	      g->name, c->cth, c->mde, mde, kg[i], j, m, a);
       m++;
     }
   }
@@ -2351,7 +2446,7 @@ int ReadConfig(char *fn, char *c) {
       if (c != NULL && strcmp(c, s)) continue;
       int t = GroupIndex(s);
       if (t < 0) return -1;
-      char *c = &p[56];
+      char *c = &p[89];
       int i = 0;      
       while (c) {
 	if (*c == '\n') {
@@ -2681,7 +2776,7 @@ int InitConfig(void) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */
-static void FreeConfigData(void *p) {
+void FreeConfigData(void *p) {
   CONFIG *c;
 
   c = (CONFIG *) p;

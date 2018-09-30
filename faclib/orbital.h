@@ -25,6 +25,7 @@
 #include "interpolation.h"
 
 typedef struct _POTENTIAL_ {
+  int maxrp;
   int nfrozen;
   int npseudo;
   int mpseudo;
@@ -32,45 +33,26 @@ typedef struct _POTENTIAL_ {
   int mode;
   int flag;
   int r_core;
-  int maxrp;
   int nmax;
   int nse, mse, pse, mvp, pvp, hpvs, hlike;
   double hx0, hx1, chx;
-  double hxs, ahx, ihx, rhx, dhx, ratio, asymp, rmin;
-  double Z[MAXRP]; /*effective atomic number*/
-  double dZ[MAXRP], dZ2[MAXRP];
+  double hxs, ahx, ihx, rhx, dhx, bhx, ratio, asymp, rmin;
   double N; /*number of electrons*/
+  double N1;
   double lambda; /* parameter for the Vc */
   double a; /* previously used to parameterize the Vc, but now always 0.0*/
   double ar, br, qr; /* parameter for the transformation */
-  int ib, nb, ib1;
+  int ib, nb, ib1, ib0;
   double bqp, rb; /* boundary condition */
-  double rad[MAXRP];
-  double mqrho[MAXRP];
-  double dr_drho[MAXRP];
-  double dr_drho2[MAXRP];
-  double vtr[MAXRP];
-  double Vc[MAXRP];
-  double dVc[MAXRP];
-  double dVc2[MAXRP];
-  double qdist[MAXRP];
-  double U[MAXRP];
-  double dU[MAXRP];
-  double dU2[MAXRP];
-  double W[MAXRP];
-  double dW[MAXRP];
-  double dW2[MAXRP];
-  double ZVP[MAXRP];
-  double dZVP[MAXRP];
-  double dZVP2[MAXRP];
   double rfn[NKSEP];
   int nfn[NKSEP];
-  double ZSE[NKSEP][MAXRP];
-  double dZSE[NKSEP][MAXRP];
-  double dZSE2[NKSEP][MAXRP];
-  double VT[NKSEP+1][MAXRP];
-  double dVT[NKSEP+1][MAXRP];
-  double dVT2[NKSEP+1][MAXRP];
+  int nws;
+  double *dws;
+  double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
+  double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
+  double *ZVP, *dZVP, *dZVP2;
+  double *ZSE[NKSEP], *dZSE[NKSEP], *dZSE2[NKSEP];
+  double *VT[NKSEP1], *dVT[NKSEP1], *dVT2[NKSEP1];
   NUCLEUS *atom;
 } POTENTIAL;
 
@@ -116,7 +98,7 @@ int SetPotentialW (POTENTIAL *pot, double e, int kappa, int kv);
 int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 double EneTol(double e);
-  
+void SetOrbitalWorkSpace(double *p, int n);
 #endif
 
 

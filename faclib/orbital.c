@@ -28,14 +28,10 @@ USE (rcsid);
 #endif
 
 /* the following arrays provide storage space in the calculation */
-static double _veff[MAXRP];
-static double ABAND[4*MAXRP];
-static double _dwork[MAXRP];
-static double _dwork1[MAXRP];
-static double _dwork2[MAXRP];
-static double _dwork3[MAXRP];
+static double *_veff, *ABAND, *_dwork, *_dwork1, *_dwork2, *_dwork3;
+static int *_ipiv;
 
-#pragma omp threadprivate(_veff, ABAND, _dwork, _dwork1, _dwork2, _dwork3)
+#pragma omp threadprivate(_veff, ABAND, _ipiv, _dwork, _dwork1, _dwork2, _dwork3)
 
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
@@ -139,6 +135,22 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
+
+void SetOrbitalWorkSpace(double *p, int n) {
+  _veff = p;
+  p += n;
+  ABAND = p;
+  p += n*4;
+  _dwork = p;
+  p += n;
+  _dwork1 = p;
+  p += n;
+  _dwork2 = p;
+  p += n;
+  _dwork3 = p;
+  p += n;
+  _ipiv = (int *) p;
+}
 
 double EneTol(double e) {
   e = fabs(e);
@@ -312,12 +324,14 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	k = GetLFromKappa(orb->kappa);
 	k /= 2;
 	if (orb->n > nm || k > km) {
-	  z = pot->Z[pot->maxrp-1];
-	  if (pot->N > 0) z -= pot->N - 1.0;
+	  z = GetResidualZ();
 	  if (z < 1) z = 1;
 	  orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
 	  orb->ilast = -1;
 	  orb->wfun = NULL;
+	  orb->isol = 1;
+	  orb->kv = 0;
+	  if (pot->pse) orb->kv = IdxVT(orb->kappa);
 	  return 0;
 	}
 	if (orb->n < pot->nmax) {
@@ -492,7 +506,7 @@ double DpDr(int kappa, int k, int i, double e, POTENTIAL *pot,
   dx = -0.25*FINE_STRUCTURE_CONST2*pot->dVT[k][i]/x2;
   dx *= pot->dr_drho[i];
   dr = 0.5*pot->dr_drho[i]/pot->rad[i];
-  dr *= (1-0.25*pot->dr_drho[i]*pot->ar/sqrt(pot->rad[i]));
+  dr *= (1-pot->qr*pot->qr*pot->dr_drho[i]*pot->ar*pow(pot->rad[i], pot->qr-1));
   pr = b - dx - dr;
   return pr;
 }
@@ -730,8 +744,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   niter = 0;
 
   z0 = pot->Z[pot->maxrp-1];
-  z = (z0 - pot->N + 1.0);
-  if (z < 1) z = 1;
+  z = (z0 - pot->N1);
+  //if (z < 0.1) z = 0.1;
 
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {
@@ -1127,8 +1141,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 
   nr = orb->n - kl - 1;
   z0 = pot->Z[pot->maxrp-1];
-  z = (z0 - pot->N + 1.0);
-  if (z < 1) z = 1.0;
+  z = (z0 - pot->N1);
+  //if (z < 1) z = 1.0;
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {   
     SetPotentialW(pot, 0, orb->kappa, kv);
@@ -1209,8 +1223,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %g\n",
-	   nodes, nr, e);
+    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g\n",
+	   orb->n, orb->kappa, nodes, nr, e);
     free(p);
     return -4;
   }
@@ -1342,7 +1356,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   int kv = 0;
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
-  z = (pot->Z[pot->maxrp-1] - pot->N + 1.0);
+  z = GetResidualZ();
   if (z < 1) z = 1;
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
@@ -2071,7 +2085,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   double y[6], rtol, atol[2], *rwork;
 
   n = pot->maxrp-1;
-  z = pot->Z[n] - pot->N + 1.0;
+  z = GetResidualZ();
   if (z < 1) z = 1;
   kl1 = ka*(ka+1);
   r1 = pot->rad[n];
@@ -2203,7 +2217,7 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
       x = e - _veff[i];
       if (x <= 0) continue;
       b = 1.0/pot->rad[i];
-      a = 20.0/(0.5*pot->ar*sqrt(b) + pot->br*b);
+      a = 20.0/(pot->qr*pot->ar*pow(b,1-pot->qr) + pot->br*b);
       x = TWO_PI/sqrt(2.0*x);
       if (x < a) break;
     }
@@ -2211,7 +2225,10 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     if (IsOdd(i2)) (i2)--;
   } else if (n > 0) {
     for (i = pot->maxrp-1; i > 10; i--) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	i++;
+	break;
+      }
     }
     if (i <= 10) return -2;
     i2 = pot->maxrp-5;
@@ -2223,11 +2240,17 @@ static int TurningPoints(int n, double e, POTENTIAL *pot) {
     }
   } else {
     for (i = pot->ib; i < pot->ib1; i++) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	if (i > pot->ib) i--;
+	break;
+      }
     }
     i2 = i+20;
     for (i = pot->ib1-20; i > i2; i--) {
-      if (e - _veff[i] > wave_zero) break;
+      if (e - _veff[i] > wave_zero) {
+	i++;
+	break;
+      }
     }
     i2 = i;
   }
@@ -2260,7 +2283,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   double a, b, r, x, y, z, p0, a1, a2;
   int kl=1, ku=1, nrhs=1;
   int i, info, n, m, j, k;
-  int ipiv[MAXRP];
+  int *ipiv = _ipiv;
   
   m = i2 - i1 - 1;
   if (m < 0) return 0;
@@ -2288,19 +2311,6 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   for (i = i1+1; i < i2; i++, j++, k += n) {
     y = pot->dr_drho[i]*pot->dr_drho[i];
     x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
-    /*
-    r = pot->rad[i];
-    x = 2.0*(_veff[i] - e);
-    x *= 4.0*r*r;
-    a = pot->ar;
-    b = pot->br;
-    z = sqrt(r);
-    y = a*z + 2.0*b;
-    y = 1/(y*y);
-    z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
-    x += z*y;    
-    x *= y / 12.0;
-    */
     a = 1.0 - x;
     b = -2.0*(1.0 + 5.0*x);
     ABAND[k-1] = a;
@@ -2311,19 +2321,6 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   i = i2;
   y = pot->dr_drho[i]*pot->dr_drho[i];
   x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
-  /*
-  r = pot->rad[i];
-  x = 2.0*(_veff[i] - e);
-  x *= 4.0*r*r;
-  a = pot->ar;
-  b = pot->br;
-  z = sqrt(r);
-  y = a*z + 2.0*b;
-  y = 1/(y*y);
-  z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
-  x += z*y;    
-  x *= y / 12.0;
-  */
   a2 = 1.0 - x;
   if (q == 1) {
     k -= n;
@@ -2338,19 +2335,6 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   i = i1;
   y = pot->dr_drho[i]*pot->dr_drho[i];
   x = (2.0*(_veff[i] - e) + pot->vtr[i])*y/12.0;
-  /*
-  r = pot->rad[i];
-  x = 2.0*(_veff[i] - e);
-  x *= 4.0*r*r;
-  a = pot->ar;
-  b = pot->br;
-  z = sqrt(r);
-  y = a*z + 2.0*b;
-  y = 1/(y*y);
-  z = (0.75*a*a*r + 5.0*a*b*z +4.0*b*b);
-  x += z*y;    
-  x *= y / 12.0;
-  */
   a1 = 1.0 - x;
   if (q == 2) {
     k = kl + ku;
@@ -2411,11 +2395,8 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   gasymp = pot->asymp;
   z0 = GetAtomicNumber();
   rn = GetAtomicR();
-  z = z0;
-  if (pot->N > 0) z = (z - pot->N + 1);
-  if (z < 1) z = 1;
+  z = z0 - pot->N1;
   if (pot->flag == 0) pot->flag = -1; 
- 
   rmin = pot->rmin/z0;
   if (rn > 0) {
     a = rn*GRIDRMINN0;
@@ -2453,8 +2434,12 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     a = gasymp*sqrt(2.0*z)/PI;
     c = pot->maxrp-15.0 + a*(pow(rmin, pot->qr)-pow(rmax, pot->qr));
     c /= log(rmax) - log(rmin);
-  }     
-  pot->nmax = sqrt(rmax*z)/2.0;
+  }
+  if (pot->rb > rmin) {
+    pot->nmax = (int)(10+sqrt(rmax*z)/2.0);
+  } else {
+    pot->nmax = (int)(sqrt(rmax*z)/2.0);
+  }
   d1 = log(rmax/rmin);
   d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
   b = (pot->maxrp - 1.0 - (a*d2))/d1;
@@ -2470,8 +2455,10 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   del = (d1 + d2)/(pot->maxrp - 1);
   pot->rad[0] = rmin;
   d1 = a*pow(rmin, pot->qr) + b*log(rmin);
+  pot->rho[0] = d1;
   for (i = 1; i < pot->maxrp; i++) {
     d1 += del;
+    pot->rho[i] = d1;
     pot->rad[i] = GetRFromRho(d1, a, b, pot->qr, pot->rad[i-1]);
   }
 
@@ -2561,7 +2548,7 @@ int SetPotentialVc(POTENTIAL *pot) {
     pot->dVc2[i] = 2.0*(-a/r + b)/r2 - y/r;
   }
   
-  n = pot->N - 1;
+  n = pot->N1;
   if (n > 0 && (pot->a > 0 || pot->lambda > 0)) {
     for (i = 0; i < pot->maxrp; i++) {
       r = pot->rad[i];
@@ -2985,8 +2972,7 @@ int SetPotentialVP(POTENTIAL *pot) {
     r3 = r5*3;
     for (i = 0; i < m; i++) {
       _dwork[i] = pot->ZVP[i]*pot->dr_drho[i];
-      r = pot->rad[i];
-      _dwork1[i] = pot->ar*pow(r, pot->qr) + pot->br*log(r);      
+      _dwork1[i] = pot->rho[i];
     }
     _dwork2[m-1] = 0;
     NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
@@ -3044,8 +3030,7 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
     r3 = r5*3;
     for (i = 0; i < m; i++) {
       _dwork[i] = pot->dW[i]*pot->dr_drho[i];
-      r = pot->rad[i];
-      _dwork1[i] = pot->ar*pow(r, pot->qr) + pot->br*log(r);      
+      _dwork1[i] = pot->rho[i];
     }
     _dwork2[m-1] = 0;
     NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
