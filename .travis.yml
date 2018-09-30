@@ -1,6 +1,6 @@
 # Based on http://conda.pydata.org/docs/travis.html
 
-language: python
+language: minimal
 matrix:
   fast_finish: true
   include:
