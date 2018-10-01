@@ -27,11 +27,13 @@ before_install:
 
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
-  - source activate test_env
-  # python2.7 needs to be updated, ContinuumIO/anaconda-issues#8437
-  - if [[ "$CONDA_ENV" == "py27" ]]; then
+  # python needs to be updated before activating, ContinuumIO/anaconda-issues#6698 
+  - if [[ "$CONDA_ENV" == "py37" ]]; then
       conda update -q python;
-    elif [[ "$CONDA_ENV" == "py37" ]]; then
+    fi
+  - source activate test_env
+  # python 2.7 needs to be updated, ContinuumIO/anaconda-issues#8437
+  - if [[ "$CONDA_ENV" == "py27" ]]; then
       conda update -q python;
     fi
   - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
