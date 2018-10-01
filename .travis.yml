@@ -30,7 +30,8 @@ install:
   - source activate test_env
   # python2.7 needs to be updated, ContinuumIO/anaconda-issues#8437
   - if [[ "$CONDA_ENV" == "py27" ]]; then
-      conda update -q python
+      conda update -q python;
+    fi
   - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
       ./configure --prefix=$pwd$ --with-mpi=omp;
     else
