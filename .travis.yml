@@ -1,9 +1,11 @@
 # Based on http://conda.pydata.org/docs/travis.html
 
-language: python
+language: minimal
 matrix:
   fast_finish: true
   include:
+  - python: 3.7
+    env: CONDA_ENV=py37
   - python: 3.6
     env: CONDA_ENV=py36
   - python: 3.6
@@ -26,6 +28,10 @@ before_install:
 install:
   - conda env create --file ci/requirements-$CONDA_ENV.yml
   - source activate test_env
+  # python2.7 needs to be updated, ContinuumIO/anaconda-issues#8437
+  - if [[ "$CONDA_ENV" == "py27" ]]; then
+      conda update -q python;
+    fi
   - if [[ "$CONDA_ENV" == "py36-openmp" ]]; then
       ./configure --prefix=$pwd$ --with-mpi=omp;
     else
