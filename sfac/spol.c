@@ -75,20 +75,22 @@ static int PSetMaxLevels(int argc, char *argv[], int argt[],
 static int PSetMIteration(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int m;
-  double a;
+  double a, s;
 
-  if (argc != 1 && argc != 2) return -1;
+  if (argc != 1 && argc != 2 && argc != 3) return -1;
   if (argt[0] != NUMBER) return -1;
-  if (argc == 2 && argt[1] != NUMBER) return -1;
 
   a = atof(argv[0]);
-  if (argc == 2) {
+  m = 0;
+  s = -1.0;
+  if (argc > 1) {
     m = atoi(argv[1]);
-  } else {
-    m = 0;
+    if (argc > 2) {
+      s = atof(argv[2]);
+    }
   }
 
-  SetMIteration(a, m);
+  SetMIteration(a, m, s);
   
   return 0;
 }
