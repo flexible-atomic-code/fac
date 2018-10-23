@@ -2288,7 +2288,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
-#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t)
+#pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t, rt)
     {
     for (i = 0; i < nlow; i++) {
       int ilow = low[i];

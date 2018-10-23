@@ -42,8 +42,8 @@ static int nai = 0;
 static MAI *ai_rates=NULL;
 
 static int max_iter = 512;
-static double iter_accuracy = EPS6;
-static double iter_stabilizer = 0.5;
+static double iter_accuracy = EPS5;
+static double iter_stabilizer = 0.8;
 static int maxlevels = 0;
 static int nmlevels=0;
 static int nmlevels1;
