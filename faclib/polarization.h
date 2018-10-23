@@ -28,6 +28,7 @@ typedef struct _MLEVEL_ {
   double energy;
   double dtotal;
   double *rtotal;
+  double *pop0;
   double *pop;
   double *npop;
   int ic;
@@ -63,7 +64,7 @@ typedef struct _MLINE_ {
 
 int InitPolarization(void);
 int SetMaxLevels(int m);
-int SetMIteration(double a, int m);
+int SetMIteration(double a, int m, double s);
 int SetEnergy(double energy, double esigma);
 int SetDensity(double eden);
 int SetIDR(int idr, int ndr, double *pdr);

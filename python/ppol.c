@@ -189,7 +189,7 @@ static PyObject *PSetMaxLevels(PyObject *self, PyObject *args) {
 
 static PyObject *PSetMIteration(PyObject *self, PyObject *args) {
   int m;
-  double a;
+  double a, s;
 
   if (spol_file) {
     SPOLStatement("SetMIteration", args, NULL);
@@ -198,9 +198,10 @@ static PyObject *PSetMIteration(PyObject *self, PyObject *args) {
   }
   
   m = 0;
-  if (!PyArg_ParseTuple(args, "d|i", &a, &m)) return NULL;
+  s = -1.0;
+  if (!PyArg_ParseTuple(args, "d|id", &a, &m, &s)) return NULL;
   
-  SetMIteration(a, m);
+  SetMIteration(a, m, s);
 
   Py_INCREF(Py_None);
   return Py_None;

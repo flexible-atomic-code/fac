@@ -41,8 +41,9 @@ static MCE *ce_rates=NULL;
 static int nai = 0;
 static MAI *ai_rates=NULL;
 
-static int max_iter = 128;
+static int max_iter = 512;
 static double iter_accuracy = EPS6;
+static double iter_stabilizer = 0.5;
 static int maxlevels = 0;
 static int nmlevels=0;
 static int nmlevels1;
@@ -105,10 +106,10 @@ int InitPolarization(void) {
   return 0;
 }
 
-int SetMIteration(double a, int m) {
+int SetMIteration(double a, int m, double s) {
   iter_accuracy = a;
   if (m > 0) max_iter = m;
-  
+  if (s > 0 && s < 1) iter_stabilizer = s;
   return 0;
 }
 
@@ -178,6 +179,7 @@ int SetMLevels(char *fn, char *tfn) {
       for (t = 0; t < nlevels; t++) {
 	free(levels[t].rtotal);
 	free(levels[t].pop);
+	free(levels[t].pop);
 	free(levels[t].npop);
       }
       free(levels);
@@ -192,6 +194,7 @@ int SetMLevels(char *fn, char *tfn) {
 	for (p = 0; p < m; p++) {
 	  levels[t].rtotal[p] = 0.0;
 	  levels[t].pop[p] = 0.0;
+	  levels[t].pop0[p] = 0.0;
 	  levels[t].npop[p] = 0.0;
 	}
       }
@@ -257,11 +260,13 @@ int SetMLevels(char *fn, char *tfn) {
 	m = r.j/2 + 1;
 	levels[t].rtotal = malloc(sizeof(double)*m);
 	levels[t].pop = malloc(sizeof(double)*m);
+	levels[t].pop0 = malloc(sizeof(double)*m);
 	levels[t].npop = malloc(sizeof(double)*m);
 	levels[t].dtotal = 0.0;
 	for (p = 0; p < m; p++) {
 	  levels[t].rtotal[p] = 0.0;
 	  levels[t].pop[p] = 0.0;
+	  levels[t].pop0[p] = 0.0;
 	  levels[t].npop[p] = 0.0;
 	}
 	t++;
@@ -699,6 +704,16 @@ static double Population(int iter) {
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
 
+  if (iter > 0) {
+    for (i = 0; i < nlevels; i++) {
+      p = levels[i].ic;
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	levels[i].pop0[t] = levels[i].pop[t];
+      }
+    }
+  }
   //double wt0, wt1, wt2, wt3, wt4, wt5, wt6, wt7, wt8, wt9, wt10, wt11;
   //wt0 = WallTime();
   ResetWidMPI();
@@ -1161,7 +1176,18 @@ static double Population(int iter) {
     }
     }
   }
-
+  
+  if (iter > 1) {
+    a = iter_stabilizer;
+    for (i = 0; i < nlevels; i++) {
+      p = levels[i].ic;
+      j1 = levels[i].j;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	t = (m1+j1)/2;
+	levels[i].pop[t] = a*levels[i].pop[t] + (1-a)*levels[i].pop0[t];
+      }
+    }
+  }
   //wt11 = WallTime();
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j1, m1, t, a, p)
