@@ -63,7 +63,7 @@ typedef struct _MLINE_ {
 } MLINE;
 
 int InitPolarization(void);
-int SetMaxLevels(int m);
+int SetMaxLevels(int m, int nc);
 int SetMIteration(double a, int m, double s);
 int SetEnergy(double energy, double esigma);
 int SetDensity(double eden);

@@ -1405,6 +1405,20 @@ static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+  
+static PyObject *PSetProcID(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("SetProcID", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int id;
+  if (!(PyArg_ParseTuple(args, "i", &id))) return NULL;
+  SetProcID(id);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
 
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
@@ -1483,6 +1497,7 @@ static struct PyMethodDef crm_methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
+  {"SetProcID", PSetProcID, METH_VARARGS},
   {NULL, NULL}
 };
 

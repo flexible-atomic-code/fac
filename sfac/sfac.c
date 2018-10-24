@@ -4581,6 +4581,15 @@ static int PSetOrbMap(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetProcID(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int id;
+  if (argc != 1) return -1;
+  id = atoi(argv[0]);
+  SetProcID(id);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -4775,6 +4784,7 @@ static METHOD methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
+  {"SetProcID", PSetProcID, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

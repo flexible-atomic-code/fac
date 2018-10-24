@@ -5739,6 +5739,20 @@ static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PSetProcID(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetProcID", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int id;
+  if (!(PyArg_ParseTuple(args, "i", &id))) return NULL;
+  SetProcID(id);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5956,6 +5970,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
+  {"SetProcID", PSetProcID, METH_VARARGS},
   {NULL, NULL}
 };
 

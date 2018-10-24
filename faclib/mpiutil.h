@@ -96,4 +96,6 @@ void RandIntList(int n, int *k);
 void ArgSort(int n, double *r, int *k);
 int CompareRandIdx(const void *p1, const void *p2);
 int ComparePtrIdx(const void *p1, const void *p2);
+void SetProcID(int id);
+int ProcID(void);
 #endif

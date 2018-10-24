@@ -750,6 +750,15 @@ static int PSystem(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSetProcID(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int id;
+  if (argc != 1) return -1;
+  id = atoi(argv[0]);
+  SetProcID(id);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -804,6 +813,7 @@ static METHOD methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
+  {"SetProcID", PSetProcID, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
