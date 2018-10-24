@@ -60,14 +60,15 @@ static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
 
 static int PSetMaxLevels(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  int m;
+  int m, nc;
 
-  if (argc != 1) return -1;
+  if (argc != 1 && argc != 2) return -1;
   if (argt[0] != NUMBER) return -1;
 
   m = atoi(argv[0]);
-
-  SetMaxLevels(m);
+  nc = -1;
+  if (argc == 2) nc = atoi(argv[1]);
+  SetMaxLevels(m, nc);
   
   return 0;
 }
@@ -332,6 +333,15 @@ static int PSystem(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PSetProcID(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int id;
+  if (argc != 1) return -1;
+  id = atoi(argv[0]);
+  SetProcID(id);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -352,6 +362,7 @@ static METHOD methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
+  {"SetProcID", PSetProcID, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

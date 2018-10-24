@@ -42,9 +42,10 @@ static int nai = 0;
 static MAI *ai_rates=NULL;
 
 static int max_iter = 512;
-static double iter_accuracy = EPS6;
-static double iter_stabilizer = 0.5;
+static double iter_accuracy = EPS3;
+static double iter_stabilizer = 0.8;
 static int maxlevels = 0;
+static int norm_cascade = 0;
 static int nmlevels=0;
 static int nmlevels1;
 static double *rmatrix=NULL;
@@ -113,9 +114,9 @@ int SetMIteration(double a, int m, double s) {
   return 0;
 }
 
-int SetMaxLevels(int m) {
+int SetMaxLevels(int m, int nc) {
   maxlevels = m;
-  
+  if (nc >= 0) norm_cascade = nc;
   return 0;
 }
 
@@ -179,7 +180,7 @@ int SetMLevels(char *fn, char *tfn) {
       for (t = 0; t < nlevels; t++) {
 	free(levels[t].rtotal);
 	free(levels[t].pop);
-	free(levels[t].pop);
+	free(levels[t].pop0);
 	free(levels[t].npop);
       }
       free(levels);
@@ -956,7 +957,11 @@ static double Population(int iter) {
     for (q1 = 0; q1 < nmlevels; q1++) {
       if (SkipWMPI(w++)) continue;
       p = q1*nmlevels+i;
-      rmatrix[p] = 1.0;
+      if (q1 < nmlevels1 || norm_cascade) {
+	rmatrix[p] = 1.0;
+      } else {
+	rmatrix[p] = 0.0;
+      }
       b[q1] = 0.0;
       t = q1*nmlevels+q1;
       if (!rmatrix[t]) {
@@ -1089,11 +1094,13 @@ static double Population(int iter) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  if (i2 >= nmax) {
 	    a = levels[i1].pop[(m1+j1)/2]*ai_rates[i].rates[t];
+#pragma omp atomic
 	    levels[i2].npop[(m2+j2)/2] += a;
 	  }
 	  t++;
 	  if (i1 >= nmax) {
 	    a = levels[i2].pop[(m2+j2)/2]*eden*ai_rates[i].rates[t];
+#pragma omp atomic
 	    levels[i1].npop[(m1+j1)/2] += a;
 	  }
 	  t++;
@@ -1119,11 +1126,13 @@ static double Population(int iter) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
 	  if (i2 >= nmax) {
 	    a = levels[i1].pop[(m1+j1)/2]*eden*ce_rates[i].rates[t];
+#pragma omp atomic
 	    levels[i2].npop[(m2+j2)/2] += a;
 	  }
 	  t++;
 	  if (i1 >= nmax) {
 	    a = levels[i2].pop[(m2+j2)/2]*eden*ce_rates[i].rates[t];
+#pragma omp atomic
 	    levels[i1].npop[(m1+j1)/2] += a;
 	  }
 	  t++;
@@ -1230,12 +1239,33 @@ int PopulationTable(char *fn) {
   for (i = 0; i < max_iter; i++) {    
     c = Population(i);
     wt1 = WallTime();
-    printf("%5d %11.4E %11.4E\n", i, c, wt1-wt0);
+    double dtotal0 = 0.0;
+    double dtotal1 = 0.0;
+    for (t = 0; t < nlevels; t++) {
+      if (maxlevels > 0 && t >= maxlevels) {
+	dtotal1 += levels[t].dtotal;
+      } else {
+	dtotal0 += levels[t].dtotal;
+      }
+    }
+    if (ProcID() >= 0) {
+      printf("%6d %3d %11.4E %15.8E %15.8E %11.4E\n",
+	     ProcID(), i, c, dtotal0, dtotal1, wt1-wt0);
+    } else {
+      printf("%3d %11.4E %15.8E %15.8E %11.4E\n",
+	     i, c, dtotal0, dtotal1, wt1-wt0);
+    }
     wt0 = wt1;
     fflush(stdout);
     if (c < iter_accuracy) break;
   }
-
+  if (i == max_iter) {
+    if (ProcID() >= 0) {
+      printf("%6d max iteration reached %d\n", ProcID(), i);
+    } else {
+      printf("max iteration reached %d\n", i);
+    }
+  }
   fprintf(f, "# FAC %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
   fprintf(f, "# Energy  = %-12.5E\n", params.energy);
   fprintf(f, "# ESigma  = %-12.5E\n", params.esigma);

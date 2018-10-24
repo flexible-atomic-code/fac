@@ -23,6 +23,7 @@
 #include "radial.h"
 #include "cf77.h"
 
+static int _procid = -1;
 static int _initialized = 0;
 static LOCK *_plock = NULL;
 static LOCK *_mpilock = NULL;
@@ -31,6 +32,14 @@ static MPID mpi = {0, 1, 0};
 static double _tlock = 0, _tskip = 0;
 static long long _nlock = 0;
 #pragma omp threadprivate(mpi,_tlock,_tskip, _nlock)
+
+void SetProcID(int id) {
+  _procid = id;
+}
+
+int ProcID(void) {
+  return _procid;
+}
 
 int SkipWMPI(int w) {
   int r = 0;

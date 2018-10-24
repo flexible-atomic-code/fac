@@ -3837,14 +3837,22 @@ int LevelPopulation(void) {
     BlockPopulation(n);
     d = BlockRelaxation(i);
     wt1 = WallTime();
-    printf("%5d %11.4E %11.4E\n", i, d, wt1-wt0);
+    if (ProcID() >= 0) {
+      printf("%6d %5d %11.4E %11.4E\n", ProcID(), i, d, wt1-wt0);
+    } else {
+      printf("%5d %11.4E %11.4E\n", i, d, wt1-wt0);
+    }
     wt0 = wt1;
     fflush(stdout);
     if (d < iter_accuracy) break;
   }
  
   if (i == max_iter) {
-    printf("Max iteration reached\n");
+    if (ProcID() >= 0) {
+      printf("%6d max iteration reached %d\n", ProcID(), i);
+    } else {
+      printf("max iteration reached %d\n", i);
+    }
   }
   return 0;
 }
