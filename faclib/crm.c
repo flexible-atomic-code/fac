@@ -1185,9 +1185,15 @@ int SetBlocks(double ni, char *ifn) {
 	  ion->vnl[p] = r.p;
 	}
 	ion->ibase[p] = IBaseFromENRecord(&r);
-	if (ion->nele == 2 && ion->ibase[p] < 0) {
-	  if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
-	    ion->ibase[p] = ion->iground;
+	if (ion->ibase[p] < 0) {
+	  if (ion->nele == 2) {
+	    if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
+	      ion->ibase[p] = ion->iground;
+	    }
+	  } else {
+	    if (r.ncomplex[2] == '1') {
+	      ion->ibase[p] = ion->iground;
+	    }
 	  }
 	}
 	ion->energy[p] = r.energy;
@@ -4638,6 +4644,7 @@ int SetCXRates(int inv) {
   RATE rt;
   ION *ion;
   int **irb;
+  double rcx, wt;
   
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -4661,25 +4668,28 @@ int SetCXRates(int inv) {
     int nmax = cx->nmax;
     if (ion->icx[0] == NULL) {
       for (ix = 0; ix < 4; ix++) {
-	if (ion->nele == 1 && ix > 0) continue;
 	ion->icx[ix] = malloc(sizeof(int)*cx->ncx);
 	for (p = 0; p < cx->ncx; p++) {
 	  ion->icx[ix][p] = -1;
 	}
-      }      
+      }
       for (i = 0; i < ion->nlevels; i++) {
+	if (ion->ibase[i] != ion->iground) {
+	  continue;
+	}
 	vn = ion->vnl[i];
 	vl = vn%100;
 	vn = vn/100;
 	if (vn > nmax) continue;
 	p = cx->idn[vn-1]+vl;
+	vl2 = 2*vl;
 	if (ion->nele == 1) {
-	  ion->icx[0][p] = i;
-	} else {
-	  if (ion->ibase[i] != ion->iground) {
-	    continue;
+	  if (ion->j[i] > vl2) {
+	    ion->icx[0][p] = i;
+	  } else {
+	    ion->icx[1][p] = i;
 	  }
-	  vl2 = 2*vl;
+	} else {
 	  if (ion->j[i] == vl2) {
 	    if (ion->icx[2][p] < 0 && vl > 0) {
 	      ion->icx[2][p] = i;
@@ -4696,38 +4706,52 @@ int SetCXRates(int inv) {
 	}
       }
     }
-    ip[1] = 0;
     rt.inv = 0.0;
     for (p = 0; p < cx->ncx; p++) {
       ip[1] = 0;
-      ip[2] = p;
+      ip[2] = p;      
       i = ion->icx[0][p];
       if (i < 0) continue;
       rt.i = ion->iground;
       rt.f = i;
-      CXRate(&rt.dir, ip, rt.i, rt.f);
+      CXRate(&rcx, ip, rt.i, rt.f);
       if (ion->acx > 0) {
-	rt.dir *= ion->acx;
+	rcx *= ion->acx;
       }
-      AddRate(ion, ion->cx_rates, &rt, 0, irb);
-      if (ion->nele == 2) {
+      if (ion->nele == 1) {
+	wt = ion->j[i]+1.0;
+	vl = ion->vnl[i]%100;
+	if (vl > 0) wt += wt-2;
+	rt.dir = rcx*(ion->j[i]+1.0)/wt;	
+	AddRate(ion, ion->cx_rates, &rt, 0, irb);
+	i = ion->icx[1][p];
+	if (i >= 0) {
+	  rt.f = i;
+	  rt.dir = rcx*(ion->j[i]+1.0)/wt;
+	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
+	}
+      } else if (ion->nele == 2) {
+	rt.dir = rcx;
+	AddRate(ion, ion->cx_rates, &rt, 0, irb);
 	for (ix = 1; ix < 4; ix++) {
 	  if (ion->icx[ix][p] >= 0) break;
 	}
 	if (ix == 4) continue;
 	i = ion->icx[ix][p];
-	double wt = ion->j[i]+1.0;
-	if (ix == 1) {
-	  wt = 3*wt + 6.0;
-	} else if (ix == 2) {
-	  wt = 3*wt;
-	} else if (ix == 3) {
-	  wt = 3*wt - 6.0;
+	wt = ion->j[i]+1.0;
+	vl = ion->vnl[i]%100;
+	if (vl > 0) {
+	  if (ix == 1) {
+	    wt = 3*wt + 6.0;
+	  } else if (ix == 2) {
+	    wt = 3*wt;
+	  } else if (ix == 3) {
+	    wt = 3*wt - 6.0;
+	  }
 	}
 	ip[1] = 1;
 	rt.i = ion->iground;
 	rt.f = i;
-	double rcx;
 	CXRate(&rcx, ip, rt.i, rt.f);
 	if (ion->acx > 0) {
 	  rcx *= ion->acx;
@@ -4738,6 +4762,7 @@ int SetCXRates(int inv) {
 	  rt.dir = rcx*(ion->j[i]+1.0)/wt;
 	  rt.f = i;
 	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
+	  printf("rcx: %d %d %d %d %g %g\n", rt.i, rt.f, ix, p, wt, rt.dir);
 	}
       }
     }
