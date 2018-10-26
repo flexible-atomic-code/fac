@@ -220,6 +220,23 @@ static PyObject *PEleDist(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PCxtDist(PyObject *self, PyObject *args) {
+  int n;
+  char *fn;
+  
+  if (scrm_file) {
+    SCRMStatement("CxtDist", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "si", &fn, &n)) return NULL;
+  CxtDist(fn, n);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
   PyObject *p;
   int i, n, k, np;
@@ -252,6 +269,44 @@ static PyObject *PSetEleDist(PyObject *self, PyObject *args) {
     }
   }
   if (SetEleDist(i, np, par) < 0) return NULL;
+  if (np > 0) free(par);
+ 
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetCxtDist(PyObject *self, PyObject *args) {
+  PyObject *p;
+  int i, n, k, np;
+  double *par = NULL;
+  char *fn;
+
+  if (scrm_file) {
+    SCRMStatement("SetCxtDist", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  n = PyTuple_Size(args);
+  if (n < 1) return NULL;
+  p = PyTuple_GetItem(args, 0);
+  i = PyLong_AsLong(p);
+  if (i == -1) {
+    p = PyTuple_GetItem(args, 1);
+    fn = PyUnicode_AsString(p);
+    np = DistFromFile(fn, &par);
+    if (np <= 0) return NULL;
+  } else {
+    np = n-1;
+    if (np > 0) {
+      par = (double *) malloc(sizeof(double)*np);
+    }  
+    for (k = 1; k < n; k++) {
+      p = PyTuple_GetItem(args, k);
+      par[k-1] = PyFloat_AsDouble(p);
+    }
+  }
+  if (SetCxtDist(i, np, par) < 0) return NULL;
   if (np > 0) free(par);
  
   Py_INCREF(Py_None);
@@ -387,6 +442,21 @@ static PyObject *PSetEleDensity(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "d", &den)) return NULL;
   SetEleDensity(den);
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
+static PyObject *PSetCxtDensity(PyObject *self, PyObject *args) {
+  double den;
+  
+  if (scrm_file) {
+    SCRMStatement("SetCxtDensity", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "d", &den)) return NULL;
+  SetCxtDensity(den);
   Py_INCREF(Py_None);
   return Py_None;
 } 
@@ -610,6 +680,22 @@ static PyObject *PSetCERates(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "i", &inv)) return NULL;
   SetCERates(inv);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCXRates(PyObject *self, PyObject *args) {
+  int inv;
+
+  if (scrm_file) {
+    SCRMStatement("SetCXRates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "i", &inv)) return NULL;
+  SetCXRates(inv);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1420,6 +1506,25 @@ static PyObject *PSetProcID(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PReadKronos(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("ReadKronos", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *dn, *prj, *tgt, *cxm;
+  int z, k, md;
+  cxm = NULL;
+  md = 1;
+  if (!(PyArg_ParseTuple(args, "siiss|sd", &dn, &z, &k, &prj, &tgt, &cxm, &md)))
+    return NULL;
+  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md);
+  if (r < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1428,16 +1533,19 @@ static struct PyMethodDef crm_methods[] = {
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"DRSuppression", PDRSuppression, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
+  {"CxtDist", PCxtDist, METH_VARARGS},
   {"IonDensity", PIonDensity, METH_VARARGS},
   {"IonRadiation", PIonRadiation, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
+  {"SetCxtDist", PSetCxtDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
   {"SetEMinAI", PSetEMinAI, METH_VARARGS},
   {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
+  {"SetCxtDensity", PSetCxtDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
   {"SetCascade", PSetCascade, METH_VARARGS},
   {"SetIteration", PSetIteration, METH_VARARGS},
@@ -1446,6 +1554,7 @@ static struct PyMethodDef crm_methods[] = {
   {"RateTable", PRateTable, METH_VARARGS},
   {"AddIon", PAddIon, METH_VARARGS},
   {"SetCERates", PSetCERates, METH_VARARGS},
+  {"SetCXRates", PSetCXRates, METH_VARARGS},
   {"SetTRRates", PSetTRRates, METH_VARARGS},
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
@@ -1498,6 +1607,7 @@ static struct PyMethodDef crm_methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"ReadKronos", PReadKronos, METH_VARARGS},
   {NULL, NULL}
 };
 

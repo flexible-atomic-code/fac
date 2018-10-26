@@ -93,6 +93,18 @@ static int PEleDist(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PCxtDist(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int n;
+
+  if (argc != 2) return -1;
+  n = atoi(argv[1]);
+  
+  CxtDist(argv[0], n);
+  
+  return 0;
+}
+
 static int PSetEleDist(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int k, i, np;
@@ -112,6 +124,29 @@ static int PSetEleDist(int argc, char *argv[], int argt[],
     }
   }
   if (SetEleDist(i, np, p) < 0) return -1;
+  if (np > 0) free(p);
+  return 0;
+}
+
+static int PSetCxtDist(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int k, i, np;
+  double *p = NULL;
+
+  if (argc < 1) return -1;
+
+  i = atoi(argv[0]);
+  if (i == -1 ) {
+    np = DistFromFile(argv[1], &p);
+    if (np <= 0) return -1;
+  } else {
+    np = argc - 1;
+    if (np > 0) p = (double *) malloc(sizeof(double)*np);
+    for (k = 1; k < argc; k++) {
+      p[k-1] = atof(argv[k]);
+    }
+  }
+  if (SetCxtDist(i, np, p) < 0) return -1;
   if (np > 0) free(p);
   return 0;
 }
@@ -198,6 +233,16 @@ static int PSetEleDensity(int argc, char *argv[], int argt[],
   if (argc != 1) return -1;
   den = atof(argv[0]);
   SetEleDensity(den);
+  return 0;
+}
+
+static int PSetCxtDensity(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  double den;
+
+  if (argc != 1) return -1;
+  den = atof(argv[0]);
+  SetCxtDensity(den);
   return 0;
 }
  
@@ -383,6 +428,16 @@ static int PSetCERates(int argc, char *argv[], int argt[],
   if (argc != 1) return -1;
   inv = atoi(argv[0]);
   SetCERates(inv);
+  return 0;
+}
+
+static int PSetCXRates(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int inv;
+  
+  if (argc != 1) return -1;
+  inv = atoi(argv[0]);
+  SetCXRates(inv);
   return 0;
 }
 
@@ -759,6 +814,27 @@ static int PSetProcID(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PReadKronos(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  char *dn, *prj, *tgt, *cxm;
+  int z, k, md;
+  dn = argv[0];
+  z = atoi(argv[1]);
+  k = atoi(argv[2]);
+  prj = argv[3];
+  tgt = argv[4];
+  cxm = NULL;
+  md = 1;
+  if (argc > 5) {
+    cxm = argv[5];
+    if (argc > 6) {
+      md = atoi(argv[6]);
+    }
+  }
+  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md);
+  return r;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -766,14 +842,17 @@ static METHOD methods[] = {
   {"CheckEndian", PCheckEndian, METH_VARARGS},
   {"DRSuppression", PDRSuppression, METH_VARARGS},
   {"EleDist", PEleDist, METH_VARARGS},
+  {"CxtDist", PCxtDist, METH_VARARGS},
   {"PhoDist", PPhoDist, METH_VARARGS},
   {"SetEleDist", PSetEleDist, METH_VARARGS},
+  {"SetCxtDist", PSetCxtDist, METH_VARARGS},
   {"SetPhoDist", PSetPhoDist, METH_VARARGS},
   {"SetNumSingleBlocks", PSetNumSingleBlocks, METH_VARARGS},
   {"SetExtrapolate", PSetExtrapolate, METH_VARARGS},
   {"SetEMinAI", PSetEMinAI, METH_VARARGS},
   {"SetInnerAuger", PSetInnerAuger, METH_VARARGS},
   {"SetEleDensity", PSetEleDensity, METH_VARARGS},
+  {"SetCxtDensity", PSetCxtDensity, METH_VARARGS},
   {"SetPhoDensity", PSetPhoDensity, METH_VARARGS},
   {"SetCascade", PSetCascade, METH_VARARGS},
   {"SetIteration", PSetIteration, METH_VARARGS},
@@ -782,6 +861,7 @@ static METHOD methods[] = {
   {"RateTable", PRateTable, METH_VARARGS},
   {"AddIon", PAddIon, METH_VARARGS},
   {"SetCERates", PSetCERates, METH_VARARGS},
+  {"SetCXRates", PSetCXRates, METH_VARARGS},
   {"SetTRRates", PSetTRRates, METH_VARARGS},
   {"SetCIRates", PSetCIRates, METH_VARARGS},
   {"SetRRRates", PSetRRRates, METH_VARARGS},
@@ -814,6 +894,7 @@ static METHOD methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"ReadKronos", PReadKronos, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

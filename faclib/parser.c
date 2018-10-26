@@ -216,6 +216,30 @@ int StrSplit(char *s, char sep) {
   return ns;
 }
 
+int StrLowerUpper(char *t0, char *t1, char *s, int n) {
+  if (s == NULL) return 0;
+  int i = 0;
+  while (1) {
+    if (i == n-1 || s[i] == '\0') {
+      if (t0) t0[i] = '\0';
+      if (t1) t1[i] = '\0';
+      return i+1;
+    }
+    if (t0) t0[i] = tolower(s[i]);
+    if (t1) t1[i] = toupper(s[i]);
+    i++;
+  }
+  return i;
+}
+
+int StrLower(char *t, char *s, int n) {
+  return StrLowerUpper(t, NULL, s, n);
+}
+
+int StrUpper(char *t, char *s, int n) {
+  return StrLowerUpper(NULL, t, s, n);
+}
+
 static int sindex(char ch, char *s) {
   char *cp;
 

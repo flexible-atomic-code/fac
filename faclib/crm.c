@@ -48,6 +48,7 @@ static double electron_density = 0.0;
 /* if the distribution is blackbody, then the normalization constant
  * is the dilution factor, (r0/r)^2 */
 static double photon_density = 0.0;
+static double cxt_density = 0.0;
 static int ai_extra_nmax = 400;
 static int do_extrapolate = 100;
 static int inner_auger = 0;
@@ -89,6 +90,11 @@ int SetEleDensity(double ele) {
   return 0;
 }
 
+int SetCxtDensity(double cxt) {
+  if (cxt >= 0.0) cxt_density = cxt;
+  return 0;
+}
+
 int SetPhoDensity(double pho) {
   if (pho >= 0.0) photon_density = pho;
   return 0;
@@ -114,7 +120,7 @@ int InitCRM(void) {
   ion0.nionized = 0;
   ion0.energy = NULL;
   ion0.atom = 0;
-  ion0.atr = ion0.ace = ion0.aci = ion0.arr = ion0.aai = -1;
+  ion0.atr = ion0.ace = ion0.aci = ion0.arr = ion0.aai = ion0.acx = -1;
 
   ions = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ions, sizeof(ION), ION_BLOCK);
@@ -168,6 +174,7 @@ static void InitIonData(void *p, int n) {
     ion->aci = -1;
     ion->arr = -1;
     ion->aai = -1;
+    ion->acx = -1;
     ion->nlevels = 0;
     ion->iblock = NULL;
     ion->ilev = NULL;
@@ -185,6 +192,7 @@ static void InitIonData(void *p, int n) {
     ion->ci_rates = NULL;
     ion->rr_rates = NULL;
     ion->ai_rates = NULL;
+    ion->cx_rates = NULL;
     ion->recombined = NULL;
   }
 }
@@ -212,7 +220,7 @@ static void FreeIonData(void *p) {
     ion->KLN_amin = 0;
     ion->KLN_amax = -1;
     ion->nlevels = 0;
-    ion->ace = ion->atr = ion->aci = ion->arr = ion->aai = -1;
+    ion->ace = ion->atr = ion->aci = ion->arr = ion->aai = ion->acx = -1;
   }
   for (i = 0; i < NDB; i++) {
     if (ion->dbfiles[i]) free(ion->dbfiles[i]);
@@ -238,9 +246,15 @@ static void FreeIonData(void *p) {
   ArrayFreeLock(ion->ai_rates, FreeBlkRateData);
   free(ion->ai_rates);
   ion->ai_rates = NULL;
+  ArrayFreeLock(ion->cx_rates, FreeBlkRateData);
+  free(ion->cx_rates);
+  ion->cx_rates = NULL;
   ArrayFreeLock(ion->recombined, NULL);
   free(ion->recombined);
   ion->recombined = NULL;
+  for (i = 0; i < 4; i++) {
+    if (ion->icx[i] != NULL) free(ion->icx[i]);
+  }
 }
 
 static void InitBlockData(void *p, int n) {
@@ -285,6 +299,7 @@ int ReinitCRM(int m) {
       ArrayFree(ion->ci_rates, FreeBlkRateData);
       ArrayFree(ion->rr_rates, FreeBlkRateData);
       ArrayFree(ion->ai_rates, FreeBlkRateData);
+      ArrayFree(ion->cx_rates, FreeBlkRateData);
     }
     return 0;
   } else if (m == 2) {
@@ -294,6 +309,7 @@ int ReinitCRM(int m) {
       ArrayFree(ion->ci_rates, FreeBlkRateData);
       ArrayFree(ion->rr_rates, FreeBlkRateData);
       ArrayFree(ion->ai_rates, FreeBlkRateData);
+      ArrayFree(ion->cx_rates, FreeBlkRateData);
     }
     return 0;
   }
@@ -342,6 +358,8 @@ int AddIon(int nele, double n, char *pref) {
   ArrayInit(ion.ci_rates, sizeof(BLK_RATE), RATES_BLOCK);
   ion.ai_rates = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ion.ai_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ion.cx_rates = (ARRAY *) malloc(sizeof(ARRAY));
+  ArrayInit(ion.cx_rates, sizeof(BLK_RATE), RATES_BLOCK);
 
   ion.KLN_min = 0;
   ion.KLN_max = -1;
@@ -349,7 +367,7 @@ int AddIon(int nele, double n, char *pref) {
   ion.KLN_bmax = -1;
   ion.KLN_amin = 0;
   ion.KLN_amax = -1;
-  ion.ace = ion.atr = ion.aci = ion.arr = ion.aai = -1;
+  ion.ace = ion.atr = ion.aci = ion.arr = ion.aai = ion.acx = -1;
   ion.KLN_ai = NULL;
   ion.KLN_nai = NULL;
 
@@ -386,7 +404,9 @@ int AddIon(int nele, double n, char *pref) {
   }
 
   ion.n = n;
-
+  for (i = 0; i < 4; i++) {
+    ion.icx[i] = NULL;
+  }
   ArrayAppend(ions, &ion, InitIonData);
   
   return ions->dim;
@@ -1165,6 +1185,11 @@ int SetBlocks(double ni, char *ifn) {
 	  ion->vnl[p] = r.p;
 	}
 	ion->ibase[p] = IBaseFromENRecord(&r);
+	if (ion->nele == 2 && ion->ibase[p] < 0) {
+	  if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
+	    ion->ibase[p] = ion->iground;
+	  }
+	}
 	ion->energy[p] = r.energy;
 	if (ion->nele >= 4 && nrec == 0) {
 	  if (ion->ibase[p] <= ion->KLN_bmax &&
@@ -1524,6 +1549,9 @@ void SetRateMultiplier(int nele, int t, double a) {
 	case 4:
 	  ion0.aai = a;
 	  break;
+	case 5:
+	  ion0.acx = a;
+	  break;
 	default:
 	  break;
 	}
@@ -1547,6 +1575,9 @@ void SetRateMultiplier(int nele, int t, double a) {
 	break;
       case 4:
 	ion->aai = a;
+	break;
+      case 5:
+	ion->acx = a;
 	break;
       default:
 	break;
@@ -1706,6 +1737,25 @@ int InitBlocks(void) {
 	}
       }
     }
+    }
+    if (cxt_density > 0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
+      {
+	int w = 0;
+	for (p = 0; p < ion->cx_rates->dim; p++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->cx_rates, p);
+	  blk1 = brts->iblock;
+	  blk2 = brts->fblock;
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    if (SkipWMPI(w++)) continue;
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    j = ion->ilev[r->i];
+#pragma omp atomic
+	    blk1->total_rate[j] += cxt_density * r->dir;
+	  }
+	}
+      }
     }
     ResetWidMPI();
 #pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
@@ -3152,6 +3202,43 @@ int BlockMatrix(void) {
       }
     }
     }
+    if (cxt_density > 0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
+      {
+	int w = 0;
+	for (t = 0; t < ion->cx_rates->dim; t++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->cx_rates, t);
+	  blk1 = brts->iblock;
+	  blk2 = brts->fblock;
+	  if (blk1 == blk2 && blk1->izr == 0) continue;
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    if (SkipWMPI(w++)) continue;
+	    r = (RATE *) ArrayGet(brts->rates, m); 
+	    i = ion->iblock[r->i]->ib;
+	    j = ion->iblock[r->f]->ib;
+	    den = blk1->r[ion->ilev[r->i]];
+	    if (den) {
+	      p = i*n + j;
+	      if (blk1 == blk2) {
+		if (blk1->total_rate[ion->ilev[r->f]] == 0) {
+#pragma omp atomic
+		  rex[i] += den*cxt_density*r->dir;
+		}
+	      } else {
+		if (blk2->total_rate[ion->ilev[r->f]]) {
+#pragma omp atomic
+		  bmatrix[p] += den * cxt_density * r->dir;
+		} else {
+#pragma omp atomic
+		  rex[i] += den*cxt_density*r->dir;
+		}
+	      }
+	    }
+	  }
+	}
+      }
+    }
     ResetWidMPI();
 #pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, den)
     {
@@ -3575,6 +3662,30 @@ double BlockRelaxation(int iter) {
       }
     }
     }
+    if (cxt_density > 0) {
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
+      {
+	int w = 0;
+	for (t = 0; t < ion->cx_rates->dim; t++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->cx_rates, t);
+	  blk1 = brts->iblock;
+	  blk2 = brts->fblock;
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    if (SkipWMPI(w++)) continue;
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    i = ion->iblock[r->i]->ib;
+	    p = ion->ilev[r->i];
+	    j = ion->iblock[r->f]->ib;
+	    q = ion->ilev[r->f];    
+	    if (blk1->r[p]) {
+#pragma omp atomic
+	      blk2->n[q] += blk1->r[p] * cxt_density * r->dir;
+	    }
+	  } 
+	}
+      }
+    }
     ResetWidMPI();
 #pragma omp parallel default(shared) private(t, brts, blk1, blk2, m, r, i, p, j, q)
     {
@@ -3826,7 +3937,7 @@ int LevelPopulation(void) {
   int i, n;
   double d, c;
 
-  printf("Populate Iteration:\n");
+  printf("Population Iteration:\n");
   d = 10.0;
   c = 1.0;
   double wt0, wt1;
@@ -4519,6 +4630,120 @@ void FreeIdxRateBlock(int nb, int **irb) {
     free(irb[i]);
   }
   free(irb);
+}
+
+int SetCXRates(int inv) {
+  int i, k, p, ip[3];
+  int vn, vl, vl2, ix;
+  RATE rt;
+  ION *ion;
+  int **irb;
+  
+  if (ion0.atom <= 0) {
+    printf("ERROR: Blocks not set, exitting\n");
+    exit(1);
+  }
+
+  irb = IdxRateBlock(blocks->dim);
+  for (k = 0; k < ions->dim; k++) {
+    ion = (ION *) ArrayGet(ions, k);
+    if (ion->nele < 1 || ion->nele > 2) {
+      printf("CX only available for H-like and He-like ions: %d\n", ion->nele);
+      continue;
+    }
+    ArrayFree(ion->cx_rates, FreeBlkRateData);
+    KRONOS *cx = KronosCX(ion->nele-1);
+    if (cx == NULL || cx->nmax <= 0) {
+      printf("KRONOS CX data not setup: %d\n", ion->nele);
+      continue;
+    }
+    ip[0] = ion->nele-1;
+    int nmax = cx->nmax;
+    if (ion->icx[0] == NULL) {
+      for (ix = 0; ix < 4; ix++) {
+	if (ion->nele == 1 && ix > 0) continue;
+	ion->icx[ix] = malloc(sizeof(int)*cx->ncx);
+	for (p = 0; p < cx->ncx; p++) {
+	  ion->icx[ix][p] = -1;
+	}
+      }      
+      for (i = 0; i < ion->nlevels; i++) {
+	vn = ion->vnl[i];
+	vl = vn%100;
+	vn = vn/100;
+	if (vn > nmax) continue;
+	p = cx->idn[vn-1]+vl;
+	if (ion->nele == 1) {
+	  ion->icx[0][p] = i;
+	} else {
+	  if (ion->ibase[i] != ion->iground) {
+	    continue;
+	  }
+	  vl2 = 2*vl;
+	  if (ion->j[i] == vl2) {
+	    if (ion->icx[2][p] < 0 && vl > 0) {
+	      ion->icx[2][p] = i;
+	    } else {
+	      ion->icx[0][p] = i;
+	    }
+	  } else {
+	    if (ion->j[i] < vl2) {
+	      ion->icx[1][p] = i;
+	    } else {
+	      ion->icx[3][p] = i;
+	    }
+	  }
+	}
+      }
+    }
+    ip[1] = 0;
+    rt.inv = 0.0;
+    for (p = 0; p < cx->ncx; p++) {
+      ip[1] = 0;
+      ip[2] = p;
+      i = ion->icx[0][p];
+      if (i < 0) continue;
+      rt.i = ion->iground;
+      rt.f = i;
+      CXRate(&rt.dir, ip, rt.i, rt.f);
+      if (ion->acx > 0) {
+	rt.dir *= ion->acx;
+      }
+      AddRate(ion, ion->cx_rates, &rt, 0, irb);
+      if (ion->nele == 2) {
+	for (ix = 1; ix < 4; ix++) {
+	  if (ion->icx[ix][p] >= 0) break;
+	}
+	if (ix == 4) continue;
+	i = ion->icx[ix][p];
+	double wt = ion->j[i]+1.0;
+	if (ix == 1) {
+	  wt = 3*wt + 6.0;
+	} else if (ix == 2) {
+	  wt = 3*wt;
+	} else if (ix == 3) {
+	  wt = 3*wt - 6.0;
+	}
+	ip[1] = 1;
+	rt.i = ion->iground;
+	rt.f = i;
+	double rcx;
+	CXRate(&rcx, ip, rt.i, rt.f);
+	if (ion->acx > 0) {
+	  rcx *= ion->acx;
+	}
+	for (ix = 1; ix < 4; ix++) {
+	  i = ion->icx[ix][p];
+	  if (i < 0) continue;
+	  rt.dir = rcx*(ion->j[i]+1.0)/wt;
+	  rt.f = i;
+	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
+	}
+      }
+    }
+  }
+  FreeIdxRateBlock(blocks->dim, irb);
+  return 0;
 }
 
 int SetCERates(int inv) {
@@ -5729,6 +5954,9 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	break;
       case 6:
 	rts = ion->ci_rates;
+	break;
+      case 7:
+	rts = ion->cx_rates;
 	break;
       default:
 	printf("invalid mode %d\n", m);
