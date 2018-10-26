@@ -1070,6 +1070,52 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   return nkl;
 }
     
+int CXCrossFromH(double *rqu, double *eb, int rec, int f) {
+  LEVEL *lev1, *lev2;
+  ANGULAR_ZFB *ang;
+  ORBITAL *orb;
+  int nz, ie, k;
+  int i, j, kb, kbp;
+  double rq[MAXNE], tq[MAXNE];
+  double a;
+  
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+
+  *eb = (lev2->energy - lev1->energy);
+  if (*eb <= 0.0) return -1;
+  nz = AngularZFreeBound(&ang, f, rec);
+  if (nz <= 0) return -1;
+  for (ie = 0; ie < n_egrid; ie++) {
+    tq[ie] = 0.0;
+  }
+  for (i = 0; i < nz; i++) {
+    kb = ang[i].kb;
+    orb = GetOrbital(kb);
+    for (j = 0; j <= i; j++) {
+      kbp = ang[j].kb;
+      if (kbp != kb) continue;
+      a = ang[i].coeff*ang[j].coeff;
+      if (j != i) {
+	a *= 2;
+      }
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] += a*rq[ie];
+      }
+    }
+  }
+  for (ie = 0; ie < n_egrid; ie++) {
+    tq[ie] = log(tq[ie]);
+  }
+  k = 3;
+  UVIP3P(k, n_egrid, log_egrid, tq, n_usr, log_usr, rqu);
+  for (ie = 0; ie < n_usr; ie++) {
+    rqu[ie] = exp(rqu[ie]);
+  }
+  free(ang);
+  return 0;
+}
+
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
 		int rec, int f, int m) {
   LEVEL *lev1, *lev2;

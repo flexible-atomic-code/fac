@@ -87,7 +87,9 @@ typedef struct _ION_ {
   ARRAY *ci_rates;
   ARRAY *rr_rates;
   ARRAY *ai_rates;
+  ARRAY *cx_rates;
   ARRAY *recombined;
+  int *icx[4];
   int nele;
   char *dbfiles[NDB];
   double n, nt, n0;
@@ -97,7 +99,7 @@ typedef struct _ION_ {
   int KLN_amin, KLN_amax;
   double *KLN_ai;
   int *KLN_nai;
-  double ace, atr, aci, arr, aai;
+  double ace, atr, aci, arr, aai, acx;
 } ION;
 
 typedef struct _IONIZED_ {
@@ -110,7 +112,7 @@ typedef struct _IONIZED_ {
   int imin[2], imax[2];
   double *energy;
   double n, nt, n0;
-  double ace, atr, aci, arr, aai;
+  double ace, atr, aci, arr, aai, acx;
 } IONIZED;
 
 typedef struct _RATE_ {
@@ -121,6 +123,7 @@ typedef struct _RATE_ {
 
 int SetNumSingleBlocks(int n);
 int SetEleDensity(double ele);
+int SetCxtDensity(double cxt);
 int SetPhoDensity(double pho);
 int SetCascade(int c, double a);
 int SetIteration(double acc, double s, int max);
@@ -148,6 +151,7 @@ int SetAbund(int nele, double abund);
 int InitBlocks(void);
 int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb);
 int SetCERates(int inv);
+int SetCXRates(int inv);
 int SetTRRates(int inv);
 int SetCIRates(int inv);
 int SetRRRates(int inv);

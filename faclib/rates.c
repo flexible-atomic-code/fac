@@ -19,6 +19,7 @@
 #include "rates.h"
 #include "interpolation.h"
 #include "cf77.h"
+#include "parser.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -30,6 +31,8 @@ static int iedist = 0;
 static DISTRIBUTION ele_dist[MAX_DIST];
 static int ipdist = 0;
 static DISTRIBUTION pho_dist[MAX_DIST];
+static int ixdist = 0;
+static DISTRIBUTION cxt_dist[MAX_DIST];
 
 #define QUAD_LIMIT 64
 static int _iwork[QUAD_LIMIT];
@@ -41,6 +44,8 @@ static double gamma3b = 1.0;
 static double rate_epsabs = EPS8;
 static double rate_epsrel = EPS3;
 static int rate_iprint = 1;
+
+static KRONOS _kronos_cx[2];
 
 static struct {
   DISTRIBUTION *d;
@@ -124,6 +129,11 @@ static double bgaunt1[2][NGAUNT1] = {
    1.12047E+00, 1.05186E+00, 9.22784E-01}
 };
 
+KRONOS *KronosCX(int k) {
+  if (k < 0 || k > 1) return NULL;
+  return &_kronos_cx[k];
+}
+
 DISTRIBUTION *GetEleDist(int *i) {
   if (i) *i = iedist;
   return ele_dist+iedist;
@@ -132,6 +142,11 @@ DISTRIBUTION *GetEleDist(int *i) {
 DISTRIBUTION *GetPhoDist(int *i) {
   if (i) *i = ipdist;
   return pho_dist+ipdist;
+}
+
+DISTRIBUTION *GetCxtDist(int *i) {
+  if (i) *i = ixdist;
+  return cxt_dist+ixdist;
 }
 
 int SetRateAccuracy(double epsrel, double epsabs) {
@@ -257,7 +272,8 @@ double IntegrateRate(int idist, double eth, double bound,
   
   rate_args.Rate1E = Rate1E;
   if (idist == 0) rate_args.d = ele_dist + iedist;
-  else rate_args.d = pho_dist + ipdist;
+  else if (idist == 1) rate_args.d = pho_dist + ipdist;
+  else rate_args.d = cxt_dist + ixdist;
   rate_args.eth = eth;
   rate_args.np = np;
   rate_args.params = params;
@@ -391,6 +407,33 @@ double VelocityFromE(double e, double bms) {
   }
   
   return k;
+}
+
+double CXRate1E(double e1, double eth0, int np, void *p) {  
+  KRONOS *cx;
+  int *ip = (int *) p;
+  cx = &_kronos_cx[ip[0]];
+  double *x, *y, r;
+  x = cx->ep;
+  if (ip[1] == 0) y = cx->cx0[ip[2]];
+  else y = cx->cx1[ip[2]];
+  int n = 3;
+  int one = 1;
+  double e = e1/(cx->rmass/AMU);
+  if (e < cx->ep[0]) e = cx->ep[0];
+  if (e > cx->ep[cx->nep-1]) e = cx->ep[cx->nep-1];
+  UVIP3P(n, cx->nep, x, y, one, &e, &r);
+  double v = VelocityFromE(e1, cx->rmass);
+  r *= 1e4;
+  r *= VelocityFromE(e1, cx->rmass);
+  return r;
+}
+
+int CXRate(double *dir, int *ip, int i0, int f0) {
+  KRONOS *cx = &_kronos_cx[ip[0]];
+  double e0 = cx->ep[0];
+  *dir = IntegrateRate(2, e0, 0, 3, ip, i0, f0, RT_CX, CXRate1E);
+  return 0;
 }
 
 double CERate1E(double e1, double eth0, int np, void *p) {
@@ -1220,7 +1263,7 @@ static double Gaussian(double e, double *p) {
 
   return x;
 }
-
+  
 static double SMaxwell(double e, double *p) {
   const double c = 0.282095;
   double x, y, sx, sy;
@@ -1494,6 +1537,52 @@ int EleDist(char *fn, int n) {
   return 0;
 }
 
+int CxtDist(char *fn, int n) {
+  FILE *f;
+  double y, e, de, emin, emax, *p;
+  int np, i;
+  DISTRIBUTION *d;
+
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+
+  d = cxt_dist+ixdist;
+  p = d->params;
+  np = d->nparams;
+  if (ixdist == MAX_DIST-1) {
+    np = (np-3)/2;
+    emin = p[3];
+    emax = p[3+np-1];
+    if (p[1] != 0) {
+      emin = exp(emin);
+      emax = exp(emax);
+    }
+  } else {
+    emin = p[np-2];
+    emax = p[np-1];  
+  }
+  de = (log(emax) - log(emin))/(n-1);
+  de = exp(de);
+  fprintf(f, "# cxt dist=%d\n", ixdist);
+  if (ixdist != MAX_DIST-1) {
+    for (i = 0; i < np; i++) {
+      fprintf(f, "# P[%d]=%10.3E\n", i, p[i]);
+    } 
+  }
+  e = emin;
+  for (i = 0; i < n; i++) {
+    y = d->dist(e, p);
+    fprintf(f, "%15.8E %15.8E\n", e, y);
+    e *= de;
+  }
+  
+  fclose(f);
+  return 0;
+}
+
 int SetEleDist(int i, int np, double *p0) {
   int k;
   double *p, c1, c2;
@@ -1607,6 +1696,117 @@ int SetEleDist(int i, int np, double *p0) {
   return 0;
 }
 
+int SetCxtDist(int i, int np, double *p0) {
+  int k;
+  double *p, c1, c2;
+
+  if (i == -1) {
+    i = MAX_DIST-1;
+    cxt_dist[i].nparams = np;
+    if (cxt_dist[i].dist != NULL) {
+      free(cxt_dist[i].params);
+    }
+    cxt_dist[i].params = (double *) malloc(sizeof(double)*np);
+    cxt_dist[i].dist = InterpDist;
+  }
+
+  if (cxt_dist[i].dist == NULL) {
+    printf("Electron Dist. does not exist\n");
+    return -1;
+  }
+  if (cxt_dist[i].nparams != np) {
+    printf("Num of Params for CXT Dist. %d does not match\n", i);
+    return -1;
+  }
+
+  cxt_dist[i].xlog = -1;
+  ixdist = i;
+  for (k = 0; k < np; k++) {
+    cxt_dist[i].params[k] = p0[k];
+  }
+  p = cxt_dist[i].params;
+  switch (i) {
+  case 0:
+    /* Default parameters for Maxwellian */
+    if (p[2] <= 0.0) {
+      p[2] = 1E2*p[0];
+    }
+    if (p[1] <= 0.0) {
+      p[1] = 1E-20*p[0];
+    }
+    break;
+  case 1:
+    /* Gaussian */
+    if (p[3] <= 0.0) {
+      p[3] = p[0] + 10.0*p[1];
+    }
+    if (p[2] <= 0.0) {
+      p[2] = p[0] - 10.0*p[1];
+      if (p[2] < 0) p[2] = 0.0;
+    }
+    cxt_dist[i].xlog = 0;
+    break;
+  case 2:
+    /* MaxPower */
+    if (p[6] <= 0.0) {
+      p[6] = 1E2*p[0];
+    }
+    if (p[5] <= 0.0) {
+      p[5] = 1E-20*p[0];
+    }
+    MaxPower(-1.0, p);
+    break;    
+  case 4:
+    /* shifted Maxwellian */
+    if (p[3] <= 0.0) {
+      p[3] = Max(p[0], p[1])*100.0;
+    }
+    if (p[2] <= 0.0) {
+      p[2] = 1E-20;
+    }
+    break;
+  case 5:
+    /* Hybrid Maxwell, powerlaw amd maxwell continuously matched. */
+    if (p[4] <= 0.0) {
+      p[4] = 1E3*p[0]*p[2];
+    }
+    if (p[3] <= 0.0) {
+      p[3] = 1E-20*p[0];
+    }
+    Hybrid(-1.0, p);
+    break;
+  case 6:
+    /* double Maxwellian */
+    if (p[0] < p[1]) {
+      c1 = p[0];
+      c2 = p[1];
+    } else {
+      c1 = p[1];
+      c2 = p[0];
+    }
+    if (p[2]+1.0 == 1.0) {
+      c1 = p[0];
+      c2 = p[0];
+    }
+    if (p[2] == 1.0) {
+      c1 = p[1];
+      c2 = p[1];
+    }
+    if (p[4] <= 0.0) {
+      p[4] = 1E2*c2;
+    }
+    if (p[3] <= 0.0) {
+      p[3] = 1E-20*c1;
+    }
+    break;
+    
+  default:
+    break;
+  }
+
+  return 0;
+}
+
 int PhoDist(char *fn, int n) {
   FILE *f;
   double y, e, de, emin, emax, *p;
@@ -1702,6 +1902,7 @@ int InitRates(void) {
 
   iedist = 0;
   ipdist = 0;
+  ixdist = 0;
   
   i = 0; /* Maxwellian */
   ele_dist[i].nparams = 3;
@@ -1801,6 +2002,81 @@ int InitRates(void) {
     pho_dist[i].dist = NULL;
   }
 
+  //CX distribution  
+  i = 0; /* Maxwellian */
+  cxt_dist[i].nparams = 3;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*3);
+  cxt_dist[i].params[0] = 1E3;
+  cxt_dist[i].params[1] = 1E-10;
+  cxt_dist[i].params[2] = 1E10;
+  cxt_dist[i].dist = Maxwell;
+
+  i++; /* Gaussian */
+  cxt_dist[i].nparams = 4;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*4);
+  cxt_dist[i].params[0] = 1.0E3;
+  cxt_dist[i].params[1] = 50.0;
+  cxt_dist[i].params[2] = 1E3-250.0;
+  cxt_dist[i].params[3] = 1E3+250.0;
+  cxt_dist[i].dist = Gaussian;
+
+  i++; /* MaxPower */
+  cxt_dist[i].nparams = 7;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*(7+2));
+  cxt_dist[i].params[0] = 1.0E3;
+  cxt_dist[i].params[1] = 1.5;
+  cxt_dist[i].params[2] = 0.1;
+  cxt_dist[i].params[3] = 1.0E3;
+  cxt_dist[i].params[4] = 1E7;
+  cxt_dist[i].params[5] = 1E-10;
+  cxt_dist[i].params[6] = 1E10;
+  cxt_dist[i].dist = MaxPower;
+
+  i++; /* Power */
+  cxt_dist[i].nparams = 3;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*3);
+  cxt_dist[i].params[0] = 1.5;
+  cxt_dist[i].params[1] = 1.0E3;
+  cxt_dist[i].params[2] = 1E7;
+  cxt_dist[i].dist = PowerLaw;
+
+  i++; /* shifted Maxwellian */
+  cxt_dist[i].nparams = 4;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*4);
+  cxt_dist[i].params[0] = 1e1;
+  cxt_dist[i].params[1] = 1e3;
+  cxt_dist[i].params[2] = 1e-20;
+  cxt_dist[i].params[3] = 1e5;  
+  cxt_dist[i].dist = SMaxwell;
+
+  i++; /* Maxwellian with powerlaw tail, smooth match*/
+  cxt_dist[i].nparams = 5;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*(5+1));
+  cxt_dist[i].params[0] = 1e2;
+  cxt_dist[i].params[1] = 2.0;
+  cxt_dist[i].params[2] = 3.0;
+  cxt_dist[i].params[3] = 1E-20;
+  cxt_dist[i].params[4] = 1E8;
+  cxt_dist[i].dist = Hybrid;
+
+  i++; /* double Maxwellian */
+  cxt_dist[i].nparams = 5;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*5);
+  cxt_dist[i].params[0] = 1e2;
+  cxt_dist[i].params[1] = 1e4;
+  cxt_dist[i].params[2] = 0.1;
+  cxt_dist[i].params[3] = 1E-10;
+  cxt_dist[i].params[4] = 1E10;
+  cxt_dist[i].dist = DoubleMaxwell;
+
+  i++;
+
+  for (; i < MAX_DIST; i++) {
+    cxt_dist[i].nparams = 0;
+    cxt_dist[i].params = NULL;
+    cxt_dist[i].dist = NULL;
+  }
+
   rate_epsabs = EPS8;
   rate_epsrel = EPS3;
   rate_iprint = 1;
@@ -1808,5 +2084,248 @@ int InitRates(void) {
   for (i = 0; i < NSEATON; i++) {
     log_xseaton[i] = log(xseaton[i]);
   }
+
+  _kronos_cx[0].nmax = 0;
+  _kronos_cx[1].nmax = 0;
+  return 0;
+}
+
+int LFromSym(char s) {
+  char sym[] = "spdfghiklmnoqrtuvwxyz";
+  int i;
+  for (i = 0; i < 21; i++) {
+    if (sym[i] == s) break;
+  }
+  return i;
+}
+
+double LDist(KRONOS *cx, int n, int k, int q, int md) {
+  double t;
+  int k1;
+  switch (md) {
+  case 0:
+    return (2.0*k+1.0)/(n*n);
+  case 1:
+    t = 2.0*cx->lnfac[n-1] - cx->lnfac[n+k] - cx->lnfac[n-1-k];
+    return (2.0*k+1.0)*exp(t);
+  case 2:
+    if (n == 1) return 0.0;
+    t = cx->lnfac[n-1]+cx->lnfac[n-2]-cx->lnfac[n+k]-cx->lnfac[n-1-k];
+    return (k*(k+1.0)*(2*k+1.0))*exp(t);
+  case 3:
+    return ((2*k+1.0)/q)*exp(-k*(k+1.0)/q);
+  case 4:
+    k1 = k+1;
+    if (k == n-1) return 0.0;
+    if (k1 == 1) return LDist(cx, n, k, q, 1) + LDist(cx, n, 0, q, 1);
+    return LDist(cx, n, k, q, 1);
+  default:
+    return LDist(cx, n, k, q, 0);
+  }
+}
+
+KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
+  KRONOS *cx = &_kronos_cx[k];
+  int i;
+
+  if (cx->nmax > 0 && cx->nep > 0) {
+    free(cx->lnfac);
+    free(cx->idn);
+    free(cx->ep);
+    for (i = 0; i < cx->ncx; i++) {
+      free(cx->cx0[i]);
+      if (cx->cx1) free(cx->cx1[i]);
+    }
+    free(cx->cx0);
+    if (cx->cx1) free(cx->cx1);
+    cx->cx0 = NULL;
+    cx->cx1 = NULL;
+    cx->ep = NULL;
+    cx->idn = NULL;
+  }
+  cx->nmax = nmax;
+  cx->z = z;
+  cx->k = k;
+  cx->nep = nep;
+  strcpy(cx->cxm, cxm);
+  strcpy(cx->tgt, tgt);
+  cx->ncx = nmax*(nmax+1)/2;
+  cx->idn = malloc(sizeof(int)*nmax);
+  cx->lnfac = malloc(sizeof(double)*(2*nmax+1));
+  cx->lnfac[0] = 0.0;
+  for (i = 1; i < 2*nmax+1; i++) {
+    cx->lnfac[i] = cx->lnfac[i-1]+log(i);
+  }
+  cx->ep = malloc(sizeof(double)*nep);
+  cx->cx0 = malloc(sizeof(double *)*cx->ncx);
+  if (k > 0) cx->cx1 = malloc(sizeof(double *)*cx->ncx);
+  for (i = 0; i < cx->ncx; i++) {
+    cx->cx0[i] = malloc(sizeof(double)*nep);
+    if (cx->cx1) cx->cx1[i] = malloc(sizeof(double)*nep);
+  }
+  for (i = 0; i < nmax; i++) {
+    cx->idn[i] = i*(i+1)/2;
+  }
+  return cx;
+}
+
+int ReadKronos(char *dn, int z, int k,
+	       char *prj, char *tgt, char *cxm, int md) {
+  char kfn[1024];
+  char prj0[3], prj1[3];
+  char tgt0[16], tgt1[16];
+  char cxm0[8];
+  char cxms[][6] = {"rcmd", "qmocc", "mocc", "aocc", "ctmc", "mclz"};
+  FILE *f;
+  KRONOS *cx;
+  char *s, buf[8192], es[16], es1[128];
+  int i;
+  double dm;
+
+  if (k != 0 && k != 1) return -1;
+  
+  StrLowerUpper(prj0, prj1, prj, 3);
+  StrLowerUpper(tgt0, tgt1, tgt, 16);
+  sprintf(kfn, "%s/CXDatabase/elements.dat", dn);
+  f = fopen(kfn, "r");
+  if (f == NULL) {
+    printf("cannot find KRONOS elements file: %s\n", kfn);
+    return -1;
+  }
+  double tmass = 0;
+  double pmass = 0;
+  while (1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    sscanf(buf, "%d %s %s %lg", &i, es, es1, &dm);
+    StrUpper(es1, es, 16);
+    if (0 == strcmp(es1, tgt1)) {
+      tmass = dm;
+    } else if (i == z) {
+      pmass = dm;
+    }
+    if (tmass > 0 && pmass > 0) break;
+  }
+  double rmass = pmass*tmass/(pmass+tmass);
+  fclose(f);
+  if (cxm && strlen(cxm) == 0) cxm = NULL;
+  if (cxm) StrLower(cxm0, cxm, 8);
+  
+  int c = z-k;
+  for (i = 0; i < 6; i++) {
+    if (cxm != NULL && !strstr(cxms[i], cxm0)) continue;    
+    if (k == 0) {
+      if (strstr(cxms[i], "mclz")) {
+	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s_nres.cs",
+		dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+      } else {
+	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
+		dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+      }
+    } else {
+      sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
+	      dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+    }    
+    f = fopen(kfn, "r");
+    if (f) break;
+  }
+  if (f == NULL) {
+    printf("cannot find kronos data file: %s %s %s %d %d\n",
+	   prj, tgt, cxm, z, k);
+    return -1;
+  }
+
+  strcpy(cxm0, cxms[i]);
+  int nep = 0; 
+  int nb, ns, n, nr, nn, nmax = 0, nres = 0;
+  int na[1000], ka[1000],sa[1000];
+  int ncx = 0;
+  while(1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    nb = strlen(buf);
+    if (nb < 2) continue;
+    StrReplace(8192, buf, '\t', ' ', ' ', ' ');
+    StrTrim(buf, '\0');
+    if (nb > 8) {
+      if (strstr(buf, "# (eV/u)")) {
+	n = StrSplit(buf, ' ');
+	ncx = n-3;
+	s = buf;
+	for (i = 0; i < n-1; i++) {
+	  ns = strlen(s);
+	  if (i < 2) {
+	    s += ns+1;
+	    continue;
+	  }
+	  StrTrim(s, '\0');
+	  if (strstr(s, "n=")) {
+	    nres = 1;
+	    nn = atoi(s+2);
+	    if (nmax < nn) nmax = nn;
+	    na[i] = nn;
+	    ka[i] = -1;
+	    sa[i] = -1;
+	  } else {
+	    nn = atoi(s);
+	    if (nmax < nn) nmax = nn;
+	    nr = strlen(s);
+	    na[i] = nn;
+	    ka[i] = LFromSym(s[nr-5]);
+	    sa[i] = atoi(s+nr-3);
+	  }
+	  s += ns+1;
+	}
+      }
+    }
+    if (buf[0] != '#') {
+      n = StrSplit(buf, ' ');
+      if (n == ncx+2) {
+	nep++;
+      }
+    }
+  }
+  fseek(f, 0, SEEK_SET);
+  printf("kronos file: %s\n", kfn);
+  printf("kronos data: %d %d %s %s %g %g %d %d %d\n",
+	 z, k, tgt0, cxm0, tmass, pmass, nmax, nep, ncx);
+  cx = InitKronos(z, k, nmax, nep, cxm0, tgt0);
+  cx->tmass = tmass * AMU;
+  cx->pmass = pmass * AMU;
+  cx->rmass = rmass * AMU;
+  int j = 0, k1;
+  while(1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    nb = strlen(buf);
+    if (nb < 2) continue;
+    if (buf[0] == '#') continue;
+    StrReplace(8192, buf, '\t', ' ', ' ', ' ');
+    StrTrim(buf, '\0');
+    n = StrSplit(buf, ' ');
+    if (n != ncx+2) continue;
+    s = buf;
+    for (i = 0; i < n-1; i++) {
+      ns = strlen(s);
+      double a = atof(s);
+      if (i == 0) {
+	cx->ep[j] = a;
+      } else {
+	int i1 = i+1;
+	nn = cx->idn[na[i1]-1];
+	if (nres == 0) {
+	  if (sa[i1] != 3) {
+	    cx->cx0[nn+ka[i1]][j] = a;
+	  } else {
+	    cx->cx1[nn+ka[i1]][j] = a;
+	  }
+	} else {
+	  for (k1 = 0; k1 < na[i1]; k1++) {
+	    cx->cx0[nn+k1][j] = a*LDist(cx, na[i1], k1, c, md);
+	  }
+	}
+      }
+      s += ns+1;
+    }
+    j++;
+  }
+  fclose(f);
   return 0;
 }

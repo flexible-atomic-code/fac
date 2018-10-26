@@ -34,5 +34,8 @@ int SetParserWhite(char *white);
 int Parse(char *token, int tokmax, char *line, 
 	  int *brkpos, int *next, int *quoted);
 int StrReplace(int n, char *s, char r0, char r1, char r2, char r3);
+int StrLower(char *t, char *s, int n);
+int StrUpper(char *t, char *s, int n);
+int StrLowerUpper(char *t0, char *t1, char *s, int n);
 
 #endif

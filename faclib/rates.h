@@ -31,6 +31,7 @@
 #define RT_CE 1
 #define RT_CI 2
 #define RT_RR 3
+#define RT_CX 4
 
 typedef struct _DISTRIBUTION_ {
   int xlog;
@@ -39,14 +40,29 @@ typedef struct _DISTRIBUTION_ {
   double (*dist)(double, double *);
 } DISTRIBUTION;
 
+typedef struct _KRONOS_ {
+  int z, k;
+  int nmax, ncx, nep;
+  double pmass, tmass, rmass;
+  int *idn;
+  char cxm[8], tgt[8];
+  double *lnfac;
+  double *ep;
+  double **cx0, **cx1;
+} KRONOS;
+
+KRONOS *KronosCX(int k);
 double VelocityFromE(double e, double bms);
 int EleDist(char *fn, int n);
+int CxtDist(char *fn, int n);
 int PhoDist(char *fn, int n);
 int SetEleDist(int i, int np, double *p);
+int SetCxtDist(int i, int np, double *p);
 int SetPhoDist(int i, int np, double *p);
 int DistFromFile(char *fn, double **p);
 
 DISTRIBUTION *GetEleDist(int *i);
+DISTRIBUTION *GetCxtDist(int *i);
 DISTRIBUTION *GetPhoDist(int *i);
 int SetRateAccuracy(double epsrel, double epsabs);
 double IntegrateRate(int idist, double eth, double bound, 
@@ -61,7 +77,7 @@ double DERate1E(double e, double eth, int np, void *p);
 int CERate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, double *params, int i0, int f0);
-
+int CXRate(double *dir, int *ip, int i0, int f0);
 int TRRate(double *dir, double *inv, int iinv,
 	   int j1, int j2, double e, float strength);
 
@@ -99,6 +115,8 @@ int FracAbund(int z, double t, double *a, int im, int rm);
 double MaxAbund(int z, int nele, double *a, double eps, int im, int rm);
 double TwoPhotonRate(double z, int t);
 void SetGamma3B(double x);
+double LDist(KRONOS *cx, int n, int k, int q, int md);
+int ReadKronos(char *dn, int z, int k, char *prj, char *tgt, char *cxm, int md);
 int InitRates(void);	   
 
 #endif
