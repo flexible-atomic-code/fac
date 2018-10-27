@@ -1513,12 +1513,14 @@ static PyObject *PReadKronos(PyObject *self, PyObject *args) {
     return Py_None;
   }
   char *dn, *prj, *tgt, *cxm;
-  int z, k, md;
+  int z, k, md, ilog;
   cxm = NULL;
   md = 1;
-  if (!(PyArg_ParseTuple(args, "siiss|sd", &dn, &z, &k, &prj, &tgt, &cxm, &md)))
+  ilog = 3;
+  if (!(PyArg_ParseTuple(args, "siiss|sdd",
+			 &dn, &z, &k, &prj, &tgt, &cxm, &md, &ilog)))
     return NULL;
-  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md);
+  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md, ilog);
   if (r < 0) return NULL;
   
   Py_INCREF(Py_None);

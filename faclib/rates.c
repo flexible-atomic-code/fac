@@ -420,18 +420,25 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   int n = 3;
   int one = 1;
   double e = e1/(cx->rmass/AMU);
+  if (cx->ilog & 1) {
+    e = log(e);
+  }
   if (e < cx->ep[0]) e = cx->ep[0];
   if (e > cx->ep[cx->nep-1]) e = cx->ep[cx->nep-1];
   UVIP3P(n, cx->nep, x, y, one, &e, &r);
+  if (cx->ilog & 2) {
+    if (r < -300) r = 0.0;
+    else r = exp(r);
+  }
   double v = VelocityFromE(e1, cx->rmass);
-  r *= 1e4;
-  r *= VelocityFromE(e1, cx->rmass);
+  r *= v*1e4;
   return r;
 }
 
 int CXRate(double *dir, int *ip, int i0, int f0) {
   KRONOS *cx = &_kronos_cx[ip[0]];
   double e0 = cx->ep[0];
+  if (cx->ilog & 1) e0 = exp(e0);
   *dir = IntegrateRate(2, e0, 0, 3, ip, i0, f0, RT_CX, CXRate1E);
   return 0;
 }
@@ -1263,7 +1270,15 @@ static double Gaussian(double e, double *p) {
 
   return x;
 }
-  
+
+static double MonoEnergy(double e, double *p) {
+  double x;
+  if (e < p[2]) return 0.0;
+  if (e > p[3]) return 0.0;
+  x = 1.0/p[1];
+  return x;
+}
+
 static double SMaxwell(double e, double *p) {
   const double c = 0.282095;
   double x, y, sx, sy;
@@ -1686,7 +1701,12 @@ int SetEleDist(int i, int np, double *p0) {
       p[3] = 1E-20*c1;
     }
     break;
-    
+  case 7:
+    /* Mono Energy */
+    p[3] = p[0] + 0.5*p[1];
+    p[2] = p[0] - 0.5*p[1];
+    ele_dist[i].xlog = 0;
+    break;    
   default:
     break;
   }
@@ -1799,7 +1819,12 @@ int SetCxtDist(int i, int np, double *p0) {
       p[3] = 1E-20*c1;
     }
     break;
-    
+  case 7:
+    /* Mono Energy */
+    p[3] = p[0] + 0.5*p[1];
+    p[2] = p[0] - 0.5*p[1];
+    cxt_dist[i].xlog = 0;
+    break;        
   default:
     break;
   }
@@ -1969,6 +1994,15 @@ int InitRates(void) {
   ele_dist[i].params[3] = 1E-10;
   ele_dist[i].params[4] = 1E10;
   ele_dist[i].dist = DoubleMaxwell;
+  
+  i++; /* MonoEnergy */
+  ele_dist[i].nparams = 4;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*4);
+  ele_dist[i].params[0] = 1.0E3;
+  ele_dist[i].params[1] = 10.0;
+  ele_dist[i].params[2] = 1E3-5.0;
+  ele_dist[i].params[3] = 1E3+5.0;
+  ele_dist[i].dist = MonoEnergy;
 
   i++;
 
@@ -2069,6 +2103,15 @@ int InitRates(void) {
   cxt_dist[i].params[4] = 1E10;
   cxt_dist[i].dist = DoubleMaxwell;
 
+  i++; /* MonoEnergy */
+  cxt_dist[i].nparams = 4;
+  cxt_dist[i].params = (double *) malloc(sizeof(double)*4);
+  cxt_dist[i].params[0] = 1.0E3;
+  cxt_dist[i].params[1] = 10.0;
+  cxt_dist[i].params[2] = 1E3-5.0;
+  cxt_dist[i].params[3] = 1E3+5.0;
+  cxt_dist[i].dist = MonoEnergy;
+
   i++;
 
   for (; i < MAX_DIST; i++) {
@@ -2159,6 +2202,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
   cx->ep = malloc(sizeof(double)*nep);
   cx->cx0 = malloc(sizeof(double *)*cx->ncx);
   if (k > 0) cx->cx1 = malloc(sizeof(double *)*cx->ncx);
+  else cx->cx1 = NULL;
   for (i = 0; i < cx->ncx; i++) {
     cx->cx0[i] = malloc(sizeof(double)*nep);
     if (cx->cx1) cx->cx1[i] = malloc(sizeof(double)*nep);
@@ -2170,7 +2214,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
 }
 
 int ReadKronos(char *dn, int z, int k,
-	       char *prj, char *tgt, char *cxm, int md) {
+	       char *prj, char *tgt, char *cxm, int md, int ilog) {
   char kfn[1024];
   char prj0[3], prj1[3];
   char tgt0[16], tgt1[16];
@@ -2183,7 +2227,7 @@ int ReadKronos(char *dn, int z, int k,
   double dm;
 
   if (k != 0 && k != 1) return -1;
-  
+  if (md < 0) md = 1;
   StrLowerUpper(prj0, prj1, prj, 3);
   StrLowerUpper(tgt0, tgt1, tgt, 16);
   sprintf(kfn, "%s/CXDatabase/elements.dat", dn);
@@ -2327,5 +2371,30 @@ int ReadKronos(char *dn, int z, int k,
     j++;
   }
   fclose(f);
+  if (ilog < 0) ilog = 3;
+  cx->ilog = ilog;
+  if (ilog & 1) {
+    for (j = 0; j < cx->nep; j++) {
+      cx->ep[j] = log(cx->ep[j]);
+    }
+  }
+  if (ilog & 2) {
+    for (i = 0; i < cx->ncx; i++) {
+      for (j = 0; j < cx->nep; j++) {
+	if (cx->cx0[i][j] > 0) {
+	  cx->cx0[i][j] = log(cx->cx0[i][j]);
+	} else {
+	  cx->cx0[i][j] = -500.0;
+	}
+	if (cx->cx1) {
+	  if (cx->cx1[i][j] > 0) {
+	    cx->cx1[i][j] = log(cx->cx1[i][j]);
+	  } else {
+	    cx->cx1[i][j] = -500.0;
+	  }
+	}
+      }
+    }  
+  }
   return 0;
 }
