@@ -4762,7 +4762,6 @@ int SetCXRates(int inv) {
 	  rt.dir = rcx*(ion->j[i]+1.0)/wt;
 	  rt.f = i;
 	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
-	  printf("rcx: %d %d %d %d %g %g\n", rt.i, rt.f, ix, p, wt, rt.dir);
 	}
       }
     }
