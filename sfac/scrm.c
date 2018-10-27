@@ -817,7 +817,7 @@ static int PSetProcID(int argc, char *argv[], int argt[],
 static int PReadKronos(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   char *dn, *prj, *tgt, *cxm;
-  int z, k, md;
+  int z, k, md, ilog;
   dn = argv[0];
   z = atoi(argv[1]);
   k = atoi(argv[2]);
@@ -825,13 +825,17 @@ static int PReadKronos(int argc, char *argv[], int argt[],
   tgt = argv[4];
   cxm = NULL;
   md = 1;
+  ilog = 3;
   if (argc > 5) {
     cxm = argv[5];
     if (argc > 6) {
       md = atoi(argv[6]);
+      if (argc > 7) {
+	ilog = atoi(argv[7]);
+      }
     }
   }
-  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md);
+  int r = ReadKronos(dn, z, k, prj, tgt, cxm, md, ilog);
   return r;
 }
 

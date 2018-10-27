@@ -49,6 +49,7 @@ typedef struct _KRONOS_ {
   double *lnfac;
   double *ep;
   double **cx0, **cx1;
+  int ilog;
 } KRONOS;
 
 KRONOS *KronosCX(int k);
@@ -116,7 +117,8 @@ double MaxAbund(int z, int nele, double *a, double eps, int im, int rm);
 double TwoPhotonRate(double z, int t);
 void SetGamma3B(double x);
 double LDist(KRONOS *cx, int n, int k, int q, int md);
-int ReadKronos(char *dn, int z, int k, char *prj, char *tgt, char *cxm, int md);
+int ReadKronos(char *dn, int z, int k, char *prj, char *tgt,
+	       char *cxm, int md, int ilog);
 int InitRates(void);	   
 
 #endif
