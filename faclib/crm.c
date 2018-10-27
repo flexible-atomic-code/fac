@@ -1191,9 +1191,7 @@ int SetBlocks(double ni, char *ifn) {
 	      ion->ibase[p] = ion->iground;
 	    }
 	  } else {
-	    if (r.ncomplex[2] == '1') {
-	      ion->ibase[p] = ion->iground;
-	    }
+	    ion->ibase[p] = ion->iground;
 	  }
 	}
 	ion->energy[p] = r.energy;
