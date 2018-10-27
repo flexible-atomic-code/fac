@@ -1190,7 +1190,7 @@ int SetBlocks(double ni, char *ifn) {
 	    if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
 	      ion->ibase[p] = ion->iground;
 	    }
-	  } else {
+	  } else if (ion->nele == 1) {
 	    ion->ibase[p] = ion->iground;
 	  }
 	}
