@@ -2378,6 +2378,69 @@ int ReadKronos(char *dn, int z, int k,
       cx->ep[j] = log(cx->ep[j]);
     }
   }
+  double *xx, *yy;
+  xx = malloc(sizeof(double)*cx->nep);
+  yy = malloc(sizeof(double)*cx->nep);
+  for (i = 0; i < cx->ncx; i++) {
+    for (j = 0; j < cx->nep; j++) {
+      if (cx->cx0[i][j] > 0) break;
+    }
+    nb = j;
+    for (j = cx->nep-1; j >= nb; j--) {
+      if (cx->cx0[i][j] > 0) break;
+    }
+    ns = j;
+    if (ns == nb) {
+      cx->cx0[i][ns] = 0;
+    } else {
+      n = 0;
+      for (j = nb; j <= ns; j++) {
+	if (cx->cx0[i][j] > 0) {
+	  xx[n] = cx->ep[j];
+	  yy[n] = cx->cx0[i][j];
+	  n++;
+	}
+      }
+      for (j = nb; j <= ns; j++) {
+	if (!cx->cx0[i][j]) {
+	  nn = 3;
+	  nr = 1;
+	  UVIP3P(nn, n, xx, yy, nr, &cx->ep[j], &cx->cx0[i][j]);
+	}
+      }
+    }
+    if (cx->cx1) {
+      for (j = 0; j < cx->nep; j++) {
+	if (cx->cx1[i][j] > 0) break;
+      }
+      nb = j;
+      for (j = cx->nep-1; j >= nb; j--) {
+	if (cx->cx1[i][j] > 0) break;
+      }
+      ns = j;
+      if (ns == nb) {
+	cx->cx1[i][ns] = 0;
+      } else {
+	n = 0;
+	for (j = nb; j <= ns; j++) {
+	  if (cx->cx1[i][j] > 0) {
+	    xx[n] = cx->ep[j];
+	    yy[n] = cx->cx1[i][j];
+	    n++;
+	  }
+	}
+	for (j = nb; j <= ns; j++) {
+	if (!cx->cx1[i][j]) {
+	  nn = 3;
+	  nr = 1;
+	  UVIP3P(nn, n, xx, yy, nr, &cx->ep[j], &cx->cx1[i][j]);
+	}
+	}
+      }
+    }
+  }
+  free(xx);
+  free(yy);
   if (ilog & 2) {
     for (i = 0; i < cx->ncx; i++) {
       for (j = 0; j < cx->nep; j++) {
