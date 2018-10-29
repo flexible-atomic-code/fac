@@ -2260,14 +2260,14 @@ int ReadKronos(char *dn, int z, int k,
     if (k == 0) {
       if (strstr(cxms[i], "mclz")) {
 	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s_nres.cs",
-		dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+		dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
       } else {
 	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
-		dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+		dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
       }
     } else {
       sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
-	      dn, prj1, c, tgt1, prj0, c, tgt0, cxms[i]);
+	      dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
     }    
     f = fopen(kfn, "r");
     if (f) break;
