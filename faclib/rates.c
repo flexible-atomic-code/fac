@@ -2392,7 +2392,7 @@ int ReadKronos(char *dn, int z, int k,
     ns = j;
     if (ns == nb) {
       cx->cx0[i][ns] = 0;
-    } else {
+    } else if (ns > nb) {
       n = 0;
       for (j = nb; j <= ns; j++) {
 	if (cx->cx0[i][j] > 0) {
@@ -2420,7 +2420,7 @@ int ReadKronos(char *dn, int z, int k,
       ns = j;
       if (ns == nb) {
 	cx->cx1[i][ns] = 0;
-      } else {
+      } else if (ns > nb) {
 	n = 0;
 	for (j = nb; j <= ns; j++) {
 	  if (cx->cx1[i][j] > 0) {
