@@ -1070,7 +1070,8 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   return nkl;
 }
     
-int RecOccupation(int **nk, double **nq, double *eb, int rec, int f) {
+int RecOccupation(int **nk, double **nq, double **dn,
+		  double *eb, int rec, int f) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
@@ -1111,10 +1112,14 @@ int RecOccupation(int **nk, double **nq, double *eb, int rec, int f) {
   }
   *nk = malloc(sizeof(int)*nmax);
   *nq = malloc(sizeof(double)*nmax);
+  *dn = malloc(sizeof(double)*nmax);
   i = 0;
   for (k = 0; k < kmax; k++) {
     if (qk[k] > 0) {
       IntToShell(k, &kb, &kbp);
+      j = OrbitalIndex(kb, kbp, 0);
+      orb = GetOrbital(j);
+      (*dn)[i] = orb->dn;
       (*nk)[i] = kb;
       GetJLFromKappa(kbp, &j, &kb);
       (*nk)[i] = 100*(*nk)[i] + kb/2;
@@ -1996,7 +2001,7 @@ int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
       for (i = 0; i < nlow; i++) {
 	int skip = SkipMPI();
 	if (skip) continue;
-	n = RecOccupation(&r.nk, &r.nq, &eb, low[i], up[j]);
+	n = RecOccupation(&r.nk, &r.nq, &r.dn, &eb, low[i], up[j]);
 	if (n <= 0) continue;
 	r.b = low[i];
 	r.f = up[j];
@@ -2004,6 +2009,7 @@ int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
 	WriteROCRecord(f, &r);	
 	free(r.nk);
 	free(r.nq);
+	free(r.dn);
       }
     }
   }

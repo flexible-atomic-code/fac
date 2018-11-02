@@ -100,7 +100,8 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub);
 void ProcessAICache(int msub, int iuta, TFILE *f);
 int DROpen(int n, int *nlev, int **ops);
 void SetOptionRecombination(char *s, char *sp, int ip, double dp);
-int RecOccupation(int **nk, double **nq, double *eb, int rec, int f);
+int RecOccupation(int **nk, double **nq, double **dn,
+		  double *eb, int rec, int f);
 int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn);
 
 #endif

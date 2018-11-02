@@ -65,7 +65,7 @@ typedef struct _ORBITAL_ {
   double *wfun;
   double bqp0, bqp1, pdx;
   int ilast, idx, isol;
-  double rfn;
+  double rfn, dn;
   struct _ORBITAL_ *horb;
   struct _ORBITAL_ *rorb;
 } ORBITAL;
@@ -99,6 +99,8 @@ int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 double EneTol(double e);
 void SetOrbitalWorkSpace(double *p, int n);
+double EnergyH(double z, double n, int ka);
+double QuantumDefect(double z, int n, int ka, double e);
 #endif
 
 
