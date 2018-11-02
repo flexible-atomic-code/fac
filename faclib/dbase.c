@@ -1866,6 +1866,7 @@ int WriteROCRecord(TFILE *f, ROC_RECORD *r) {
   WSF0(r->n);
   WSF1(r->nk, sizeof(int), r->n);
   WSF1(r->nq, sizeof(double), r->n);
+  WSF1(r->dn, sizeof(double), r->n);
 #pragma omp atomic
   roc_header.length += m;
 
@@ -2603,14 +2604,17 @@ int ReadROCRecord(TFILE *f, ROC_RECORD *r, int swp) {
   RSF0(r->n);
   r->nk = malloc(sizeof(int)*r->n);
   r->nq = malloc(sizeof(double)*r->n);
+  r->dn = malloc(sizeof(double)*r->n);
   if (swp) SwapEndianROCRecord(r);
   RSF1(r->nk, sizeof(int), r->n);
   RSF1(r->nq, sizeof(double), r->n);
+  RSF1(r->dn, sizeof(double), r->n);
   if (swp) {
     int i;
     for (i = 0; i < r->n; i++) {
       SwapEndian((char *) &(r->nk[i]), sizeof(int));
       SwapEndian((char *) &(r->nq[i]), sizeof(double));
+      SwapEndian((char *) &(r->dn[i]), sizeof(double));
     }
   }
   return m;
@@ -4539,12 +4543,13 @@ int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (v) {	
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	for (t = 0; t < r.n; t++) {
-	  fprintf(f2, "%6d %6d %15.8E %6d %6d %6d %12.5E\n",
-		  r.f, r.b, e*HARTREE_EV, t, r.n, r.nk[t], r.nq[t]);
+	  fprintf(f2, "%6d %6d %15.8E %6d %6d %6d %12.5E %12.5E\n",
+		  r.f, r.b, e*HARTREE_EV, t, r.n, r.nk[t], r.nq[t], r.dn[t]);
 	}
       } else {
 	for (t = 0; t < r.n; t++) {
-	  fprintf(f2, "%6d %6d %6d %12.5E\n", r.b, r.f, r.nk[t], r.nq[t]);
+	  fprintf(f2, "%6d %6d %6d %12.5E %12.5E\n",
+		  r.b, r.f, r.nk[t], r.nq[t], r.dn[t]);
 	}
       }
       free(r.nk);

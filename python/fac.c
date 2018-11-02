@@ -4675,6 +4675,16 @@ static PyObject *PY5N(PyObject *self, PyObject *args) {
   return Py_BuildValue("(ddddi)", y5, y5p, y5i, y5pi, ierr);
 }
 
+static PyObject *PQuantumDefect(PyObject *self, PyObject *args) {
+  double z, e;
+  int n, ka;
+
+  if (!PyArg_ParseTuple(args, "diid", &z, &n, &ka, &e)) return NULL;
+  double r = QuantumDefect(z, n, ka, e/HARTREE_EV);
+  
+  return Py_BuildValue("d", r);
+}
+
 static PyObject *PDiracCoulomb(PyObject *self, PyObject *args) {
   double z, e, r;
   double p, q, u, v;
@@ -5961,6 +5971,7 @@ static struct PyMethodDef fac_methods[] = {
   {"WaveFuncTable", PWaveFuncTable, METH_VARARGS}, 
   {"Y5N", PY5N, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
+  {"QuantumDefect", PQuantumDefect, METH_VARARGS},
   {"CoulombPhase", PCoulombPhase, METH_VARARGS},
   {"SetConfigEnergyMode", PSetConfigEnergyMode, METH_VARARGS},
   {"SetOptimizeMaxIter", PSetOptimizeMaxIter, METH_VARARGS},

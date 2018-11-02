@@ -162,6 +162,105 @@ double EneTol(double e) {
   return d0;
 }
 
+double QuantumDefect(double z, int n, int ka, double e) {
+  int kl, j, i, ki0, ki1, ka0, ka1, ji0, ji1, i0, i1, ni, np, one;
+  double xh[1000], eh[1000], e0, e1, dn, dki, x, dkl;
+  
+  if (n >= 1000) return 0.0;
+  GetJLFromKappa(ka, &j, &kl);
+  kl /= 2;
+  dn = (double) n;
+  dkl = kl/dn;
+  eh[n] = EnergyH(z, dn, ka);
+  xh[n] = dn;
+  for (i = n-1; i >= 1; i--) {
+    dki = dkl*i;
+    ki0 = 2*((int)dki);
+    ki1 = ki0+2;
+    if (j > kl) {
+      ji0 = ki0 + 1;
+      ji1 = ki1 + 1;
+    } else {
+      if (ki0 == 0) ji0 = 1;
+      else ji0 = ki0 - 1;
+      if (ki1 == 0) ji1 = 1;
+      else ji1 = ki1 - 1;
+    }
+    ka0 = GetKappaFromJL(ji0, ki0);
+    ka1 = GetKappaFromJL(ji1, ki1);
+    e0 = EnergyH(z, (double)i, ka0);
+    e1 = EnergyH(z, (double)i, ka1);
+    x = (2*dki - ki0)/2.0;
+    eh[i] = e0*(1-x) + e1*x;
+    xh[i] = i;
+    if (eh[i] < e) break;
+  }
+  if (i == 0) {
+    x = dn/2.0;
+    i = 0;
+    while (1) {
+      i++;
+      if (i > 1000) {
+	printf("quantum defect iteration fail0: %g %d %d %g\n", z, n, ka, e);
+	return 0.0;
+      }
+      e0 = EnergyH(z, x, -1);
+      if (e0 < e) break;
+    }
+    e0 = x;
+    e1 = 1.0;
+    while (fabs(e1-e0)/fabs(e1+e0) > 1e-10) {
+      if (i > 1000) {
+	printf("quantum defect iteration fail1: %g %d %d %g\n", z, n, ka, e);
+	return 0.0;
+      }
+      x = 0.5*(e0+e1);
+      eh[0] = EnergyH(z, x, -1);
+      if (eh[0] < e) {
+	e0 = x;
+      } else if (eh[0] > e) {
+	e1 = x;
+      } else {
+	break;
+      }
+    }
+    x = 0.5*(e0 + e1);
+    return n-x;
+  }
+  i0 = i;
+  if (eh[i] >= e) return dn-i;
+  for (i = n+1; i < 1000; i++) {
+    dki = dkl*i;
+    ki0 = 2*((int)dki);
+    ki1 = ki0+2;
+    if (j > kl) {
+      ji0 = ki0 + 1;
+      ji1 = ki1 + 1;
+    } else {
+      if (ki0 == 0) ji0 = 1;
+      else ji0 = ki0 - 1;
+      if (ki1 == 0) ji1 = 1;
+      else ji1 = ki1 - 1;
+    }
+    ka0 = GetKappaFromJL(ji0, ki0);
+    ka1 = GetKappaFromJL(ji1, ki1);
+    e0 = EnergyH(z, (double)i, ka0);
+    e1 = EnergyH(z, (double)i, ka1);
+    x = (2*dki - ki0)/2.0;
+    eh[i] = e0*(1-x) + e1*x;
+    xh[i] = i;
+    if (eh[i] > e) break;
+  }
+  i1 = i;
+  if (eh[i] <= e) return dn-i;
+  ni = i1-i0+1;
+  np = 3;
+  one = 1;
+  UVIP3P(np, ni, eh+i0, xh+i0, one, &e, &dn);
+  
+  return n-dn;
+}
+  
 double EnergyH(double z, double n, int ka) {
   double a, np;
 
@@ -323,14 +422,15 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	GetHydrogenicNL(NULL, NULL, &nm, &km);
 	k = GetLFromKappa(orb->kappa);
 	k /= 2;
+	z = GetResidualZ();
 	if (orb->n > nm || k > km) {
-	  z = GetResidualZ();
 	  if (z < 1) z = 1;
 	  orb->energy = EnergyH(z, (double)(orb->n), orb->kappa);
 	  orb->ilast = -1;
 	  orb->wfun = NULL;
 	  orb->isol = 1;
 	  orb->kv = 0;
+	  orb->dn = 0.0;
 	  if (pot->pse) orb->kv = IdxVT(orb->kappa);
 	  return 0;
 	}
@@ -339,6 +439,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	} else {
 	  ierr = RadialRydberg(orb, pot);
 	}
+	orb->dn = QuantumDefect(z, orb->n, orb->kappa, orb->energy);
       }
       for (k = 0; k < pot->maxrp; k++) {
 	if (pot->rad[k] > pot->atom->rms0) break;

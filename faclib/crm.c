@@ -4694,7 +4694,7 @@ int SetCXRates(int m) {
 	  n = ReadROCRecord(f, &r[jb++], swp);
 	  if (jb == nrb) {
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(jb, j1, j2, e, p, vn, vl, ix)
+#pragma omp parallel default(shared) private(jb, j1, j2, e, p, vn, vl, ix, rcx)
 	    {
 	      int w = 0;
 	      for (jb = 0; jb < nrb; jb++) {
@@ -4713,13 +4713,47 @@ int SetCXRates(int m) {
 		  vl = vn%100;
 		  vn = vn/100;
 		  if (vn > cx->nmax) continue;
-		  ix = cx->idn[vn-1]+vl;
-		  rts[jb].dir += r[jb].nq[p]*cx->rcx[ix]/(4*vl+2.0);
+		  if (m == 1) {
+		    ix = cx->idn[vn-1]+vl;
+		    rts[jb].dir += r[jb].nq[p]*cx->rcx[ix]/(4*vl+2.0);
+		  } else {
+		    double dn = r[jb].dn[p];
+		    int vn0 = (int)(vn-dn);
+		    int vn1 = vn0 + 1;
+		    if (vn0 == 0) vn0 = vn1;
+		    if (vn1 > cx->nmax) vn1 = cx->nmax;
+		    if (vn0 > cx->nmax) vn0 = cx->nmax;
+		    if (vn0 == vn1) {
+		      ix = cx->idn[vn-1] + vl;
+		      rcx = cx->rcx[ix];
+		      rts[jb].dir += r[jb].nq[p]*rcx/(4*vl+2.0);
+		    } else {
+		      double dvl = vl/(double)vn;
+		      int vl0 = (int)(vn0*dvl);
+		      int vl1 = vl0 + 1;
+		      if (vl1 >= vn0) vl1 = vn0-1;
+		      int ix0 = cx->idn[vn0-1] + vl0;
+		      int ix1 = cx->idn[vn0-1] + vl1;
+		      double xdv = dvl*vn0 - vl0;
+		      double cx0 = cx->rcx[ix0]*(1-xdv) + cx->rcx[ix1]*xdv;
+		      vl0 = (int)(vn1*dvl);
+		      vl1 = vl0 + 1;
+		      if (vl1 >= vn1) vl1 = vn1-1;
+		      ix0 = cx->idn[vn1-1] + vl0;
+		      ix1 = cx->idn[vn1-1] + vl1;
+		      xdv = dvl*vn1 - vl0;
+		      double cx1 = cx->rcx[ix0]*(1-xdv) + cx->rcx[ix1]*xdv;
+		      xdv = vn-dn - vn0;
+		      rcx = cx0*(1-xdv) + cx1*xdv;
+		      rts[jb].dir += r[jb].nq[p]*rcx/(4*dvl*(vn-dn)+2.0);
+		    }		    
+		  }
 		}
 		rts[jb].dir /= (j1+1.0);
 		if (ion->acx > 0) rts[jb].dir *= ion->acx;
 		free(r[jb].nk);
-		free(r[jb].nq);		
+		free(r[jb].nq);
+		free(r[jb].dn);
 	      }
 	    }
 	    for (jb = 0; jb < nrb; jb++) {

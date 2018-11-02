@@ -437,6 +437,7 @@ typedef struct _ROC_RECORD_ {
   int n;
   int *nk;
   double *nq;
+  double *dn;
 } ROC_RECORD;
 
 /* these read functions interface with the binary data files.
