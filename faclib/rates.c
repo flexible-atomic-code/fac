@@ -419,7 +419,7 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   else y = cx->cx1[ip[2]];
   int n = 3;
   int one = 1;
-  double e = e1/(cx->rmass/AMU);
+  double e = e1/(cx->pmass/AMU);
   if (cx->ilog & 1) {
     e = log(e);
   }
@@ -430,7 +430,7 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
     if (r < -300) r = 0.0;
     else r = exp(r);
   }
-  double v = VelocityFromE(e1, cx->rmass);
+  double v = VelocityFromE(e1, cx->pmass);
   r *= v*1e4;
   return r;
 }
@@ -2163,6 +2163,10 @@ double LDist(KRONOS *cx, int n, int k, int q, int md) {
     if (k1 == 1) return LDist(cx, n, k, q, 1) + LDist(cx, n, 0, q, 1);
     return LDist(cx, n, k, q, 1);
   default:
+    if (md >= 100) {
+      if (k == md-100) return 1.0;
+      else return 0.0;
+    }
     return LDist(cx, n, k, q, 0);
   }
 }
@@ -2175,6 +2179,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
     free(cx->lnfac);
     free(cx->idn);
     free(cx->ep);
+    free(cx->rcx);
     for (i = 0; i < cx->ncx; i++) {
       free(cx->cx0[i]);
       if (cx->cx1) free(cx->cx1[i]);
@@ -2184,6 +2189,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
     cx->cx0 = NULL;
     cx->cx1 = NULL;
     cx->ep = NULL;
+    cx->rcx = NULL;
     cx->idn = NULL;
   }
   cx->nmax = nmax;
@@ -2200,6 +2206,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
     cx->lnfac[i] = cx->lnfac[i-1]+log(i);
   }
   cx->ep = malloc(sizeof(double)*nep);
+  cx->rcx = malloc(sizeof(double)*cx->ncx);
   cx->cx0 = malloc(sizeof(double *)*cx->ncx);
   if (k > 0) cx->cx1 = malloc(sizeof(double *)*cx->ncx);
   else cx->cx1 = NULL;
@@ -2226,7 +2233,10 @@ int ReadKronos(char *dn, int z, int k,
   int i;
   double dm;
 
-  if (k != 0 && k != 1) return -1;
+  if (k != 0 && k != 1) {
+    printf("only cx onto bare and H-like in Kronos db: %d\n", k);
+    return -1;
+  }
   if (md < 0) md = 1;
   StrLowerUpper(prj0, prj1, prj, 3);
   StrLowerUpper(tgt0, tgt1, tgt, 16);

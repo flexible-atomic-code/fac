@@ -1557,6 +1557,26 @@ static int PRRMultipole(int argc, char *argv[], int argt[],
   return 0;
 }
   
+static int PRecOccupation(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int nlow, *low, nup, *up;
+  
+  if (argc != 3) return -1;
+  if (argt[0] != STRING) return -1;
+
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) return -1;
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) return -1;
+
+  SaveRecOccupation(nlow, low, nup, up, argv[0]);
+
+  free(low);
+  free(up);
+
+  return 0;
+}
+  
 static int PRRTable(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   int nlow, *low, nup, *up, m;
@@ -4676,6 +4696,7 @@ static METHOD methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"RecOccupation", PRecOccupation, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
   {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},

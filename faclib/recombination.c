@@ -1070,28 +1070,31 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   return nkl;
 }
     
-int CXCrossFromH(double *rqu, double *eb, int rec, int f) {
+int RecOccupation(int **nk, double **nq, double *eb, int rec, int f) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
-  int nz, ie, k;
-  int i, j, kb, kbp;
-  double rq[MAXNE], tq[MAXNE];
-  double a;
+  int nz, nmax, kmax, k, i, j, kb, kbp;
+  double a, *qk;
   
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
-
   *eb = (lev2->energy - lev1->energy);
-  if (*eb <= 0.0) return -1;
   nz = AngularZFreeBound(&ang, f, rec);
-  if (nz <= 0) return -1;
-  for (ie = 0; ie < n_egrid; ie++) {
-    tq[ie] = 0.0;
-  }
+  if (nz <= 0) return 0;
+  nmax = 0;
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     orb = GetOrbital(kb);
+    if (orb->n > nmax) nmax = orb->n;
+  }
+  kmax = nmax*nmax;
+  qk = malloc(sizeof(double)*kmax);
+  for (k = 0; k < kmax; k++) qk[k] = 0.0;
+  for (i = 0; i < nz; i++) {
+    kb = ang[i].kb;
+    orb = GetOrbital(kb);
+    k = ShellToInt(orb->n, orb->kappa);
     for (j = 0; j <= i; j++) {
       kbp = ang[j].kb;
       if (kbp != kb) continue;
@@ -1099,21 +1102,32 @@ int CXCrossFromH(double *rqu, double *eb, int rec, int f) {
       if (j != i) {
 	a *= 2;
       }
-      for (ie = 0; ie < n_egrid; ie++) {
-	tq[ie] += a*rq[ie];
-      }
+      qk[k] += a;
     }
   }
-  for (ie = 0; ie < n_egrid; ie++) {
-    tq[ie] = log(tq[ie]);
+  nmax = 0;
+  for (k = 0; k < kmax; k++) {
+    if (qk[k] > 0) nmax++;
   }
-  k = 3;
-  UVIP3P(k, n_egrid, log_egrid, tq, n_usr, log_usr, rqu);
-  for (ie = 0; ie < n_usr; ie++) {
-    rqu[ie] = exp(rqu[ie]);
+  *nk = malloc(sizeof(int)*nmax);
+  *nq = malloc(sizeof(double)*nmax);
+  i = 0;
+  for (k = 0; k < kmax; k++) {
+    if (qk[k] > 0) {
+      IntToShell(k, &kb, &kbp);
+      (*nk)[i] = kb;
+      GetJLFromKappa(kbp, &j, &kb);
+      (*nk)[i] = 100*(*nk)[i] + kb/2;
+      if (j < kb) {
+	(*nk)[i] = -(*nk)[i];
+      }
+      (*nq)[i] = qk[k];
+      i++;
+    }
   }
+  free(qk);
   free(ang);
-  return 0;
+  return nmax;
 }
 
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
@@ -1960,7 +1974,44 @@ int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
 
   return 0;
 }
-    
+
+int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
+  int i, j, n;
+  double eb;
+  ROC_RECORD r;
+  ROC_HEADER roc_hdr;
+  F_HEADER fhdr;
+  TFILE *f;
+
+  fhdr.type = DB_ROC;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  roc_hdr.nele = GetNumElectrons(low[0]);
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &roc_hdr);
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(r, i, j, eb, n)
+  {
+    for (j = 0; j < nup; j++) {
+      for (i = 0; i < nlow; i++) {
+	int skip = SkipMPI();
+	if (skip) continue;
+	n = RecOccupation(&r.nk, &r.nq, &eb, low[i], up[j]);
+	if (n <= 0) continue;
+	r.b = low[i];
+	r.f = up[j];
+	r.n = n;
+	WriteROCRecord(f, &r);	
+	free(r.nk);
+	free(r.nq);
+      }
+    }
+  }
+  DeinitFile(f, &fhdr);
+  CloseFile(f, &fhdr);
+  return 0;
+}
+
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
   int i, j, k, ie, ip;
