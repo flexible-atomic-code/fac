@@ -47,7 +47,7 @@ typedef struct _KRONOS_ {
   int *idn;
   char cxm[8], tgt[8];
   double *lnfac;
-  double *ep;
+  double *ep, *rcx;
   double **cx0, **cx1;
   int ilog;
 } KRONOS;

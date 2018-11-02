@@ -398,6 +398,9 @@ int AddIon(int nele, double n, char *pref) {
     case DB_CI:
       sprintf(ion.dbfiles[i], "%s.ci", pref);
       break;
+    case DB_ROC:
+      sprintf(ion.dbfiles[i], "%s.ro", pref);
+      break;
     default:
       break;
     }
@@ -4573,7 +4576,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   if (brt == NULL) {
     brt0.iblock = ib;
     brt0.fblock = fb;
-    if (irb[ib->ib][fb->ib] < 0) {
+    if (irb && irb[ib->ib][fb->ib] < 0) {
       irb[ib->ib][fb->ib] = rts->dim;
     }
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
@@ -4636,13 +4639,17 @@ void FreeIdxRateBlock(int nb, int **irb) {
   free(irb);
 }
 
-int SetCXRates(int inv) {
-  int i, k, p, ip[3];
-  int vn, vl, vl2, ix;
-  RATE rt;
+int SetCXRates(int m) {
+  int i, k, p, ip[3], j1, j2;
+  int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
+  RATE rt, rts[NRTB];
   ION *ion;
   int **irb;
-  double rcx, wt;
+  double rcx, wt, e;
+  F_HEADER fh;
+  ROC_HEADER h;
+  ROC_RECORD r[NRTB];
+  TFILE *f;
   
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -4650,14 +4657,88 @@ int SetCXRates(int inv) {
   }
 
   irb = IdxRateBlock(blocks->dim);
+  KRONOS *cx;
+  if (m > 0) {
+    cx = KronosCX(0);
+    if (cx == NULL || cx->nmax <= 0) {
+      printf("KRONOS CX data for H-like not setup: %d\n", m);
+      return -1;
+    }
+    rcx = 0;
+    for (p = 0; p < cx->ncx; p++) {
+      ip[0] = 0;
+      ip[1] = 0;
+      ip[2] = p;
+      CXRate(&cx->rcx[p], ip, 0, 0);
+      rcx += cx->rcx[p];
+    }
+  }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
-    if (ion->nele < 1 || ion->nele > 2) {
-      printf("CX only available for H-like and He-like ions: %d\n", ion->nele);
+    ArrayFree(ion->cx_rates, FreeBlkRateData);
+    if (m > 0) {
+      f = OpenFileRO(ion->dbfiles[DB_ROC-1], &fh, &swp);
+      if (f == NULL) {
+	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_ROC-1]);
+	continue;
+      }
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadROCHeader(f, &h, swp);
+	if (h.nele != ion->nele) {
+	  FSEEK(f, h.length, SEEK_CUR);
+	  continue;
+	}
+	nrb = Min(h.ntransitions, NRTB);
+	jb = 0;
+	for (i = 0; i < h.ntransitions; i++) {
+	  n = ReadROCRecord(f, &r[jb++], swp);
+	  if (jb == nrb) {
+	    ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e, p, vn, vl, ix)
+	    {
+	      int w = 0;
+	      for (jb = 0; jb < nrb; jb++) {
+		int skip = SkipMPI(w++);
+		if (skip) continue;
+		rts[jb].i = r[jb].f;
+		rts[jb].f = r[jb].b;
+		rts[jb].dir = 0;
+		rts[jb].inv = 0;
+		j1 = ion->j[r[jb].f];
+		j2 = ion->j[r[jb].b];
+		e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
+		if (e < 0) continue;
+		for (p = 0; p < r[jb].n; p++) {
+		  vn = abs(r[jb].nk[p]);
+		  vl = vn%100;
+		  vn = vn/100;
+		  if (vn > cx->nmax) continue;
+		  ix = cx->idn[vn-1]+vl;
+		  rts[jb].dir += r[jb].nq[p]*cx->rcx[ix]/(4*vl+2.0);
+		}
+		rts[jb].dir /= (j1+1.0);
+		if (ion->acx > 0) rts[jb].dir *= ion->acx;
+		free(r[jb].nk);
+		free(r[jb].nq);		
+	      }
+	    }
+	    for (jb = 0; jb < nrb; jb++) {
+	      AddRate(ion, ion->cx_rates, &rts[jb], 0, irb);
+	    }
+	    nrb = h.ntransitions-i-1;
+	    nrb = Min(nrb, NRTB);
+	    jb = 0;
+	  }
+	}
+      }
       continue;
     }
-    ArrayFree(ion->cx_rates, FreeBlkRateData);
-    KRONOS *cx = KronosCX(ion->nele-1);
+    if (ion->nele < 1 || ion->nele > 2) {
+      printf("CX only available for H-like and He-like ions: %d\n",
+	     ion->nele);
+      continue;
+    }
+    cx = KronosCX(ion->nele-1);
     if (cx == NULL || cx->nmax <= 0) {
       printf("KRONOS CX data not setup: %d\n", ion->nele);
       continue;
@@ -5897,6 +5978,9 @@ int ModifyRates(char *fn) {
 	break;
       case 6:
 	rts = ion->ci_rates;
+	break;
+      case 7:
+	rts = ion->cx_rates;
 	break;
       default:
 	printf("invalid mode %d\n", m);

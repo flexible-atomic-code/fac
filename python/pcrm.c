@@ -686,7 +686,7 @@ static PyObject *PSetCERates(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetCXRates(PyObject *self, PyObject *args) {
-  int inv;
+  int m;
 
   if (scrm_file) {
     SCRMStatement("SetCXRates", args, NULL);
@@ -694,8 +694,8 @@ static PyObject *PSetCXRates(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "i", &inv)) return NULL;
-  SetCXRates(inv);
+  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
+  SetCXRates(m);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -1517,7 +1517,7 @@ static PyObject *PReadKronos(PyObject *self, PyObject *args) {
   cxm = NULL;
   md = 1;
   ilog = 3;
-  if (!(PyArg_ParseTuple(args, "siiss|sdd",
+  if (!(PyArg_ParseTuple(args, "siiss|sii",
 			 &dn, &z, &k, &prj, &tgt, &cxm, &md, &ilog)))
     return NULL;
   int r = ReadKronos(dn, z, k, prj, tgt, cxm, md, ilog);

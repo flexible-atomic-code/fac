@@ -3157,6 +3157,30 @@ static PyObject *PRRMultipole(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRecOccupation(PyObject *self, PyObject *args) { 
+  int nlow, *low, nup, *up;
+  char *s;
+  PyObject *p, *q;
+  
+  if (sfac_file) {
+    SFACStatement("RecOccupation", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) {
+    printf("Unrecognized parameters in RecOccupation\n");
+    return NULL;
+  }
+  nlow = SelectLevels(p, &low);
+  nup = SelectLevels(q, &up);
+  SaveRecOccupation(nlow, low, nup, up, s);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
  
 static PyObject *PRRTable(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
@@ -5849,6 +5873,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"RecOccupation", PRecOccupation, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
   {"LoadRadialMultipole", PLoadRadialMultipole, METH_VARARGS},

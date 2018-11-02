@@ -42,6 +42,7 @@ static CIM_HEADER cim_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
 static DR_HEADER dr_header;
+static ROC_HEADER roc_header;
 
 static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
@@ -412,6 +413,20 @@ int SwapEndianRRRecord(RR_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
   SwapEndian((char *) &(r->kl), sizeof(int));
+  return 0;
+}
+ 
+int SwapEndianROCHeader(ROC_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  return 0;
+}
+
+int SwapEndianROCRecord(ROC_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->n), sizeof(int));
   return 0;
 }
 
@@ -1428,6 +1443,17 @@ int WriteCEMFHeader(TFILE *f, CEMF_HEADER *h) {
   return m;
 }
 
+int WriteROCHeader(TFILE *f, ROC_HEADER *h) {
+  int n, m = 0;
+  
+  WSF0(h->position);
+  WSF0(h->length);
+  WSF0(h->nele);
+  WSF0(h->ntransitions);
+
+  return m;
+}
+
 int WriteRRHeader(TFILE *f, RR_HEADER *h) {
   int n, m = 0;
   
@@ -1813,6 +1839,35 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
   
 #pragma omp atomic
   cemf_header.length += m;
+
+  return m;
+}
+
+int WriteROCRecord(TFILE *f, ROC_RECORD *r) {
+  int n;
+  int m = 0;
+
+  if (roc_header.ntransitions == 0) {
+    SetLockMPI();
+    if (roc_header.ntransitions == 0) {
+      fheader[DB_ROC-1].nblocks++;
+      n = WriteROCHeader(f, &roc_header);
+      FFLUSH(f);
+    }
+#pragma omp atomic
+    roc_header.ntransitions += 1;
+    ReleaseLockMPI();
+  } else {
+#pragma omp atomic
+    roc_header.ntransitions += 1;
+  }
+  WSF0(r->b);
+  WSF0(r->f);
+  WSF0(r->n);
+  WSF1(r->nk, sizeof(int), r->n);
+  WSF1(r->nq, sizeof(double), r->n);
+#pragma omp atomic
+  roc_header.length += m;
 
   return m;
 }
@@ -2484,6 +2539,18 @@ int ReadCEMFRecord(TFILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h) {
   return m;
 }
 
+int ReadROCHeader(TFILE *f, ROC_HEADER *h, int swp) {
+  int i, n, m = 0;
+  
+  RSF0(h->position);
+  RSF0(h->length);
+  RSF0(h->nele);
+  RSF0(h->ntransitions);
+
+  if (swp) SwapEndianROCHeader(h);
+  return m;
+}
+
 int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
   int i, n, m = 0;
   
@@ -2525,6 +2592,27 @@ int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
     }
   }
 
+  return m;
+}
+
+int ReadROCRecord(TFILE *f, ROC_RECORD *r, int swp) {
+  int n, m = 0;
+  
+  RSF0(r->b);
+  RSF0(r->f);
+  RSF0(r->n);
+  r->nk = malloc(sizeof(int)*r->n);
+  r->nq = malloc(sizeof(double)*r->n);
+  if (swp) SwapEndianROCRecord(r);
+  RSF1(r->nk, sizeof(int), r->n);
+  RSF1(r->nq, sizeof(double), r->n);
+  if (swp) {
+    int i;
+    for (i = 0; i < r->n; i++) {
+      SwapEndian((char *) &(r->nk[i]), sizeof(int));
+      SwapEndian((char *) &(r->nq[i]), sizeof(double));
+    }
+  }
   return m;
 }
 
@@ -3004,6 +3092,7 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
   DR_HEADER *dr_hdr;
+  ROC_HEADER *roc_hdr;
   long int p;
   int ihdr;
 
@@ -3119,6 +3208,13 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
     cemf_header.length = 0;
     cemf_header.ntransitions = 0;
     break;
+  case DB_ROC:
+    roc_hdr = (ROC_HEADER *) rhdr;
+    memcpy(&roc_header, roc_hdr, sizeof(ROC_HEADER));
+    roc_header.position = p;
+    roc_header.length = 0;
+    roc_header.ntransitions = 0;
+    break;
   default:
     break;
   }
@@ -3222,6 +3318,12 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
       n = WriteCEMFHeader(f, &cemf_header);
     }
     break;
+  case DB_ROC:
+    FSEEK(f, roc_header.position, SEEK_SET);
+    if (roc_header.length > 0) {
+      n = WriteROCHeader(f, &roc_header);
+    }
+    break;
   default:
     break;
   }
@@ -3257,14 +3359,14 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   } else {
     vs = 1;
   }
-  if (v && (fh.type < DB_SP || fh.type > DB_DR)) {
+  if (v && (fh.type < DB_SP || fh.type > DB_DR || fh.type == DB_ROC)) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
       goto DONE;
     }
   }
 
-  if (v && fh.type > DB_CIM) {
+  if (v && fh.type > DB_CIM && fh.type < DB_ROC) {
     if (mem_enf_table == NULL) {
       printf("Field dependent energy table has not been built in memory.\n");
       goto DONE;
@@ -3334,6 +3436,9 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     break;
   case DB_CEMF:
     n = PrintCEMFTable(f1, f2, v, vs, swp);
+    break;
+  case DB_ROC:
+    n = PrintROCTable(f1, f2, v, vs, swp);
     break;
   default:
     break;
@@ -4390,6 +4495,67 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     nb += 1;
   }
 
+  return nb;
+}
+
+int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
+  ROC_HEADER h;
+  ROC_RECORD r;
+  int n, i, nb, nh, t;
+  double e;
+  
+  nb = 0;
+  while (1) {
+    nh = ReadROCHeader(f1, &h, swp);
+    if (nh == 0) break;
+    
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+
+    IDX_RECORD *idx = NULL;
+    if (vs && h.ntransitions > 1) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadROCRecord(f1, &r, swp);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.f;
+	idx[i].i1 = r.b;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
+      n = ReadROCRecord(f1, &r, swp);
+      if (n == 0) break;
+
+      if (v) {	
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	for (t = 0; t < r.n; t++) {
+	  fprintf(f2, "%6d %6d %15.8E %6d %6d %6d %12.5E\n",
+		  r.f, r.b, e*HARTREE_EV, t, r.n, r.nk[t], r.nq[t]);
+	}
+      } else {
+	for (t = 0; t < r.n; t++) {
+	  fprintf(f2, "%6d %6d %6d %12.5E\n", r.b, r.f, r.nk[t], r.nq[t]);
+	}
+      }
+      free(r.nk);
+      free(r.nq);
+    }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
+    nb++;
+  }
   return nb;
 }
 
