@@ -1983,12 +1983,12 @@ int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
 int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
   int i, j, n;
   double eb;
-  ROC_RECORD r;
-  ROC_HEADER roc_hdr;
+  RO_RECORD r;
+  RO_HEADER roc_hdr;
   F_HEADER fhdr;
   TFILE *f;
 
-  fhdr.type = DB_ROC;
+  fhdr.type = DB_RO;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   roc_hdr.nele = GetNumElectrons(low[0]);
@@ -2006,7 +2006,7 @@ int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
 	r.b = low[i];
 	r.f = up[j];
 	r.n = n;
-	WriteROCRecord(f, &r);	
+	WriteRORecord(f, &r);	
 	free(r.nk);
 	free(r.nq);
 	free(r.dn);

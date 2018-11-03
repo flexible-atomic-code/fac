@@ -42,7 +42,7 @@ static CIM_HEADER cim_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
 static DR_HEADER dr_header;
-static ROC_HEADER roc_header;
+static RO_HEADER roc_header;
 
 static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
@@ -416,14 +416,14 @@ int SwapEndianRRRecord(RR_RECORD *r) {
   return 0;
 }
  
-int SwapEndianROCHeader(ROC_HEADER *h) {
+int SwapEndianROHeader(RO_HEADER *h) {
   SwapEndian((char *) &(h->position), sizeof(long int));
   SwapEndian((char *) &(h->length), sizeof(long int));
   SwapEndian((char *) &(h->nele), sizeof(int));
   return 0;
 }
 
-int SwapEndianROCRecord(ROC_RECORD *r) {
+int SwapEndianRORecord(RO_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
   SwapEndian((char *) &(r->n), sizeof(int));
@@ -1443,7 +1443,7 @@ int WriteCEMFHeader(TFILE *f, CEMF_HEADER *h) {
   return m;
 }
 
-int WriteROCHeader(TFILE *f, ROC_HEADER *h) {
+int WriteROHeader(TFILE *f, RO_HEADER *h) {
   int n, m = 0;
   
   WSF0(h->position);
@@ -1843,15 +1843,15 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
   return m;
 }
 
-int WriteROCRecord(TFILE *f, ROC_RECORD *r) {
+int WriteRORecord(TFILE *f, RO_RECORD *r) {
   int n;
   int m = 0;
 
   if (roc_header.ntransitions == 0) {
     SetLockMPI();
     if (roc_header.ntransitions == 0) {
-      fheader[DB_ROC-1].nblocks++;
-      n = WriteROCHeader(f, &roc_header);
+      fheader[DB_RO-1].nblocks++;
+      n = WriteROHeader(f, &roc_header);
       FFLUSH(f);
     }
 #pragma omp atomic
@@ -2540,7 +2540,7 @@ int ReadCEMFRecord(TFILE *f, CEMF_RECORD *r, int swp, CEMF_HEADER *h) {
   return m;
 }
 
-int ReadROCHeader(TFILE *f, ROC_HEADER *h, int swp) {
+int ReadROHeader(TFILE *f, RO_HEADER *h, int swp) {
   int i, n, m = 0;
   
   RSF0(h->position);
@@ -2548,7 +2548,7 @@ int ReadROCHeader(TFILE *f, ROC_HEADER *h, int swp) {
   RSF0(h->nele);
   RSF0(h->ntransitions);
 
-  if (swp) SwapEndianROCHeader(h);
+  if (swp) SwapEndianROHeader(h);
   return m;
 }
 
@@ -2596,7 +2596,7 @@ int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
   return m;
 }
 
-int ReadROCRecord(TFILE *f, ROC_RECORD *r, int swp) {
+int ReadRORecord(TFILE *f, RO_RECORD *r, int swp) {
   int n, m = 0;
   
   RSF0(r->b);
@@ -2605,7 +2605,7 @@ int ReadROCRecord(TFILE *f, ROC_RECORD *r, int swp) {
   r->nk = malloc(sizeof(int)*r->n);
   r->nq = malloc(sizeof(double)*r->n);
   r->dn = malloc(sizeof(double)*r->n);
-  if (swp) SwapEndianROCRecord(r);
+  if (swp) SwapEndianRORecord(r);
   RSF1(r->nk, sizeof(int), r->n);
   RSF1(r->nq, sizeof(double), r->n);
   RSF1(r->dn, sizeof(double), r->n);
@@ -3096,7 +3096,7 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
   DR_HEADER *dr_hdr;
-  ROC_HEADER *roc_hdr;
+  RO_HEADER *roc_hdr;
   long int p;
   int ihdr;
 
@@ -3212,9 +3212,9 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
     cemf_header.length = 0;
     cemf_header.ntransitions = 0;
     break;
-  case DB_ROC:
-    roc_hdr = (ROC_HEADER *) rhdr;
-    memcpy(&roc_header, roc_hdr, sizeof(ROC_HEADER));
+  case DB_RO:
+    roc_hdr = (RO_HEADER *) rhdr;
+    memcpy(&roc_header, roc_hdr, sizeof(RO_HEADER));
     roc_header.position = p;
     roc_header.length = 0;
     roc_header.ntransitions = 0;
@@ -3322,10 +3322,10 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
       n = WriteCEMFHeader(f, &cemf_header);
     }
     break;
-  case DB_ROC:
+  case DB_RO:
     FSEEK(f, roc_header.position, SEEK_SET);
     if (roc_header.length > 0) {
-      n = WriteROCHeader(f, &roc_header);
+      n = WriteROHeader(f, &roc_header);
     }
     break;
   default:
@@ -3363,14 +3363,14 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   } else {
     vs = 1;
   }
-  if (v && (fh.type < DB_SP || fh.type > DB_DR || fh.type == DB_ROC)) {
+  if (v && (fh.type < DB_SP || fh.type > DB_DR || fh.type == DB_RO)) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
       goto DONE;
     }
   }
 
-  if (v && fh.type > DB_CIM && fh.type < DB_ROC) {
+  if (v && fh.type > DB_CIM && fh.type < DB_RO) {
     if (mem_enf_table == NULL) {
       printf("Field dependent energy table has not been built in memory.\n");
       goto DONE;
@@ -3441,8 +3441,8 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   case DB_CEMF:
     n = PrintCEMFTable(f1, f2, v, vs, swp);
     break;
-  case DB_ROC:
-    n = PrintROCTable(f1, f2, v, vs, swp);
+  case DB_RO:
+    n = PrintROTable(f1, f2, v, vs, swp);
     break;
   default:
     break;
@@ -4502,15 +4502,15 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   return nb;
 }
 
-int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
-  ROC_HEADER h;
-  ROC_RECORD r;
+int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
+  RO_HEADER h;
+  RO_RECORD r;
   int n, i, nb, nh, t;
   double e;
   
   nb = 0;
   while (1) {
-    nh = ReadROCHeader(f1, &h, swp);
+    nh = ReadROHeader(f1, &h, swp);
     if (nh == 0) break;
     
     fprintf(f2, "\n");
@@ -4522,7 +4522,7 @@ int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
       idx[0].position = h.position + nh;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadROCRecord(f1, &r, swp);
+	n = ReadRORecord(f1, &r, swp);
 	if (n == 0) break;
 	if (i < h.ntransitions-1) {
 	  idx[i+1].position = idx[i].position + n;
@@ -4537,7 +4537,7 @@ int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (idx) {
 	FSEEK(f1, idx[i].position, SEEK_SET);
       }
-      n = ReadROCRecord(f1, &r, swp);
+      n = ReadRORecord(f1, &r, swp);
       if (n == 0) break;
 
       if (v) {	

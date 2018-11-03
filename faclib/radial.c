@@ -2590,6 +2590,7 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
+  fprintf(f, "#     dn = %15.8E\n", orb->dn);
   fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);

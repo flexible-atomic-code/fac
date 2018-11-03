@@ -39,7 +39,7 @@
 #define DB_TRF 13
 #define DB_CEF 14
 #define DB_CEMF 15
-#define DB_ROC 16
+#define DB_RO 16
 #define NDB   16
 
 #define LNCOMPLEX   32
@@ -424,21 +424,21 @@ typedef struct _DR_RECORD_ {
   float total_rate;
 } DR_RECORD;  
 
-typedef struct _ROC_HEADER_ {
+typedef struct _RO_HEADER_ {
   long int position;
   long int length;
   int nele;
   int ntransitions;
-} ROC_HEADER;
+} RO_HEADER;
 
-typedef struct _ROC_RECORD_ {
+typedef struct _RO_RECORD_ {
   int b;
   int f;
   int n;
   int *nk;
   double *nq;
   double *dn;
-} ROC_RECORD;
+} RO_RECORD;
 
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
@@ -479,8 +479,8 @@ int ReadRTHeader(TFILE *f, RT_HEADER *h, int swp);
 int ReadRTRecord(TFILE *f, RT_RECORD *r, int swp);
 int ReadDRHeader(TFILE *f, DR_HEADER *h, int swp);
 int ReadDRRecord(TFILE *f, DR_RECORD *r, int swp);
-int ReadROCHeader(TFILE *f, ROC_HEADER *h, int swp);
-int ReadROCRecord(TFILE *f, ROC_RECORD *r, int swp);
+int ReadROHeader(TFILE *f, RO_HEADER *h, int swp);
+int ReadRORecord(TFILE *f, RO_RECORD *r, int swp);
 void CEMF2CEFHeader(CEMF_HEADER *mh, CEF_HEADER *h);
 void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh, 
 		    int ith, int iph);
@@ -511,7 +511,7 @@ int WriteCIMHeader(TFILE *f, CIM_HEADER *h);
 int WriteSPHeader(TFILE *f, SP_HEADER *h);
 int WriteRTHeader(TFILE *f, RT_HEADER *h);
 int WriteDRHeader(TFILE *f, DR_HEADER *h);
-int WriteROCHeader(TFILE *f, ROC_HEADER *h);
+int WriteROHeader(TFILE *f, RO_HEADER *h);
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
@@ -561,10 +561,10 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r);
 int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianRRHeader(RR_HEADER *h);
 int SwapEndianRRRecord(RR_RECORD *r);
-int WriteROCRecord(TFILE *f, ROC_RECORD *r);
-int PrintROCTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
-int SwapEndianROCHeader(ROC_HEADER *h);
-int SwapEndianROCRecord(ROC_RECORD *r);
+int WriteRORecord(TFILE *f, RO_RECORD *r);
+int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
+int SwapEndianROHeader(RO_HEADER *h);
+int SwapEndianRORecord(RO_RECORD *r);
 int WriteAIRecord(TFILE *f, AI_RECORD *r);
 int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianAIHeader(AI_HEADER *h);
