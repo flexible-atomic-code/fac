@@ -419,7 +419,10 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   else y = cx->cx1[ip[2]];
   int n = 3;
   int one = 1;
-  double e = e1/(cx->pmass/AMU);
+  if (ip[3] == 0) {
+    e1 /= cx->pmass/AMU;
+  }
+  double e = e1;
   if (cx->ilog & 1) {
     e = log(e);
   }
@@ -430,7 +433,7 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
     if (r < -300) r = 0.0;
     else r = exp(r);
   }
-  double v = VelocityFromE(e1, cx->pmass);
+  double v = VelocityFromE(e1, AMU);
   r *= v*1e4;
   return r;
 }
@@ -439,7 +442,7 @@ int CXRate(double *dir, int *ip, int i0, int f0) {
   KRONOS *cx = &_kronos_cx[ip[0]];
   double e0 = cx->ep[0];
   if (cx->ilog & 1) e0 = exp(e0);
-  *dir = IntegrateRate(2, e0, 0, 3, ip, i0, f0, RT_CX, CXRate1E);
+  *dir = IntegrateRate(2, e0, 0, 4, ip, i0, f0, RT_CX, CXRate1E);
   return 0;
 }
 

@@ -398,7 +398,7 @@ int AddIon(int nele, double n, char *pref) {
     case DB_CI:
       sprintf(ion.dbfiles[i], "%s.ci", pref);
       break;
-    case DB_ROC:
+    case DB_RO:
       sprintf(ion.dbfiles[i], "%s.ro", pref);
       break;
     default:
@@ -3449,7 +3449,7 @@ int BlockPopulation(int miter) {
     DGESV(m, nrhs, a, lda, ipiv, b, ldb, &info);
 
     if (info != 0) {
-      printf("Error in solving BlockMatrix\n");
+      printf("Error in solving BlockMatrix: %d\n", info);
       exit(1);
     }
 
@@ -4640,22 +4640,27 @@ void FreeIdxRateBlock(int nb, int **irb) {
 }
 
 int SetCXRates(int m) {
-  int i, k, p, ip[3], j1, j2;
+  int i, k, p, ip[4], j1, j2;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
   ION *ion;
   int **irb;
   double rcx, wt, e;
   F_HEADER fh;
-  ROC_HEADER h;
-  ROC_RECORD r[NRTB];
+  RO_HEADER h;
+  RO_RECORD r[NRTB];
   TFILE *f;
   
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
-
+  if (m >= 10) {
+    m = m%10;
+    ip[3] = 1;
+  } else {
+    ip[3] = 0;
+  }
   irb = IdxRateBlock(blocks->dim);
   KRONOS *cx;
   if (m > 0) {
@@ -4664,6 +4669,10 @@ int SetCXRates(int m) {
       printf("KRONOS CX data for H-like not setup: %d\n", m);
       return -1;
     }
+    double *emass = GetAtomicMassTable();
+    i = (int)ion0.atom;
+    cx->pmass = emass[i-1]*AMU;
+    cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
     rcx = 0;
     for (p = 0; p < cx->ncx; p++) {
       ip[0] = 0;
@@ -4677,13 +4686,13 @@ int SetCXRates(int m) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->cx_rates, FreeBlkRateData);
     if (m > 0) {
-      f = OpenFileRO(ion->dbfiles[DB_ROC-1], &fh, &swp);
+      f = OpenFileRO(ion->dbfiles[DB_RO-1], &fh, &swp);
       if (f == NULL) {
-	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_ROC-1]);
+	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_RO-1]);
 	continue;
       }
       for (nb = 0; nb < fh.nblocks; nb++) {
-	n = ReadROCHeader(f, &h, swp);
+	n = ReadROHeader(f, &h, swp);
 	if (h.nele != ion->nele) {
 	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
@@ -4691,7 +4700,7 @@ int SetCXRates(int m) {
 	nrb = Min(h.ntransitions, NRTB);
 	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadROCRecord(f, &r[jb++], swp);
+	  n = ReadRORecord(f, &r[jb++], swp);
 	  if (jb == nrb) {
 	    ResetWidMPI();
 #pragma omp parallel default(shared) private(jb, j1, j2, e, p, vn, vl, ix, rcx)
@@ -6709,7 +6718,7 @@ int DRSuppression(char *fn, double z, int nmax) {
   DGESV(nmax, nmax, a, nmax, ipiv, b, nmax, &info);
 
   if (info != 0) {
-    printf("Error in solving DGESV\n");
+    printf("Error in solving DGESV: %d\n", info);
     exit(1);
   }
   
