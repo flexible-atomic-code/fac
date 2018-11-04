@@ -151,10 +151,10 @@ static PyObject *PConvertToSFAC(PyObject *self, PyObject *args) {
 }    
   
 static PyObject *PCloseSFAC(PyObject *self, PyObject *args) {
-
-  fclose(sfac_file);
-  sfac_file = NULL;
-
+  if (sfac_file != NULL) {
+    fclose(sfac_file);
+    sfac_file = NULL;
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }  

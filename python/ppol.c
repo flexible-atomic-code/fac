@@ -130,10 +130,10 @@ static PyObject *PSystem(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PCloseSPOL(PyObject *self, PyObject *args) {
-
-  fclose(spol_file);
-  spol_file = NULL;
-
+  if (spol_file != NULL) {
+    fclose(spol_file);
+    spol_file = NULL;
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }  

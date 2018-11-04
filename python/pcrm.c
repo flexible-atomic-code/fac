@@ -133,10 +133,10 @@ static PyObject *PSystem(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PCloseSCRM(PyObject *self, PyObject *args) {
-
-  fclose(scrm_file);
-  scrm_file = NULL;
-
+  if (scrm_file != NULL) {
+    fclose(scrm_file);
+    scrm_file = NULL;
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }  
