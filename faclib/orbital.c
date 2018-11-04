@@ -162,103 +162,77 @@ double EneTol(double e) {
   return d0;
 }
 
-double QuantumDefect(double z, int n, int ka, double e) {
-  int kl, j, i, ki0, ki1, ka0, ka1, ji0, ji1, i0, i1, ni, np, one;
-  double xh[1000], eh[1000], e0, e1, dn, dki, x, dkl;
+double EnergyDefect(double z, double dn, int j, int kl, double dkl) {
+  double dki, e0, e1;
+  int ki0, ki1, ji0, ji1, ka0, ka1, x;
   
-  if (n >= 1000) return 0.0;
+  dki = dkl*dn;
+  ki0 = 2*((int)dki);
+  ki1 = ki0+2;
+  if (j > kl) {
+    ji0 = ki0 + 1;
+    ji1 = ki1 + 1;
+  } else {
+    if (ki0 == 0) ji0 = 1;
+    else ji0 = ki0 - 1;
+    if (ki1 == 0) ji1 = 1;
+    else ji1 = ki1 - 1;
+  }
+  ka0 = GetKappaFromJL(ji0, ki0);
+  ka1 = GetKappaFromJL(ji1, ki1);
+  e0 = EnergyH(z, dn, ka0);
+  e1 = EnergyH(z, dn, ka1);
+  x = (2*dki - ki0)/2.0;
+  return e0*(1-x) + e1*x;
+}
+
+double QuantumDefect(double z, int n, int ka, double e) {
+  int j, kl, i;
+  double dkl, dn, eh, dn0, dn1, x;
+  
   GetJLFromKappa(ka, &j, &kl);
   kl /= 2;
   dn = (double) n;
   dkl = kl/dn;
-  eh[n] = EnergyH(z, dn, ka);
-  xh[n] = dn;
-  for (i = n-1; i >= 1; i--) {
-    dki = dkl*i;
-    ki0 = 2*((int)dki);
-    ki1 = ki0+2;
-    if (j > kl) {
-      ji0 = ki0 + 1;
-      ji1 = ki1 + 1;
-    } else {
-      if (ki0 == 0) ji0 = 1;
-      else ji0 = ki0 - 1;
-      if (ki1 == 0) ji1 = 1;
-      else ji1 = ki1 - 1;
-    }
-    ka0 = GetKappaFromJL(ji0, ki0);
-    ka1 = GetKappaFromJL(ji1, ki1);
-    e0 = EnergyH(z, (double)i, ka0);
-    e1 = EnergyH(z, (double)i, ka1);
-    x = (2*dki - ki0)/2.0;
-    eh[i] = e0*(1-x) + e1*x;
-    xh[i] = i;
-    if (eh[i] < e) break;
-  }
-  if (i == 0) {
-    x = dn/2.0;
+  eh = EnergyH(z, dn, ka);
+  if (eh == e) return 0.0;
+  dn0 = dn;
+  dn1 = dn;
+  if (eh < e) {
     i = 0;
     while (1) {
       i++;
-      if (i > 1000) {
-	printf("quantum defect iteration fail0: %g %d %d %g\n", z, n, ka, e);
-	return 0.0;
-      }
-      e0 = EnergyH(z, x, -1);
-      if (e0 < e) break;
+      if (i > 1000) return 0.0;
+      dn1 *= 1.1;
+      eh = EnergyDefect(z, dn1, j, kl, dkl);
+      if (eh > e) break;
     }
-    e0 = x;
-    e1 = 1.0;
-    while (fabs(e1-e0)/fabs(e1+e0) > 1e-10) {
-      if (i > 1000) {
-	printf("quantum defect iteration fail1: %g %d %d %g\n", z, n, ka, e);
-	return 0.0;
-      }
-      x = 0.5*(e0+e1);
-      eh[0] = EnergyH(z, x, -1);
-      if (eh[0] < e) {
-	e0 = x;
-      } else if (eh[0] > e) {
-	e1 = x;
-      } else {
-	break;
-      }
+  } else {
+    i = 0;
+    while (1) {
+      i++;
+      if (i > 1000) return 0.0;
+      dn0 /= 1.1;
+      eh = EnergyDefect(z, dn0, j, kl, dkl);
+      if (eh < e) break;
     }
-    x = 0.5*(e0 + e1);
-    return n-x;
   }
-  i0 = i;
-  if (eh[i] >= e) return dn-i;
-  for (i = n+1; i < 1000; i++) {
-    dki = dkl*i;
-    ki0 = 2*((int)dki);
-    ki1 = ki0+2;
-    if (j > kl) {
-      ji0 = ki0 + 1;
-      ji1 = ki1 + 1;
+  i = 0;
+  while (fabs(dn1-dn0)/fabs(dn1+dn0) > 1e-8) {
+    i++;
+    if (i > 1000) return 0.0;
+    x = 0.5*(dn0+dn1);
+    eh = EnergyDefect(z, x, j, kl, dkl);
+    if (eh < e) {
+      dn0 = x;
+    } else if (eh > e) {
+      dn1 = x;
     } else {
-      if (ki0 == 0) ji0 = 1;
-      else ji0 = ki0 - 1;
-      if (ki1 == 0) ji1 = 1;
-      else ji1 = ki1 - 1;
+      break;
     }
-    ka0 = GetKappaFromJL(ji0, ki0);
-    ka1 = GetKappaFromJL(ji1, ki1);
-    e0 = EnergyH(z, (double)i, ka0);
-    e1 = EnergyH(z, (double)i, ka1);
-    x = (2*dki - ki0)/2.0;
-    eh[i] = e0*(1-x) + e1*x;
-    xh[i] = i;
-    if (eh[i] > e) break;
   }
-  i1 = i;
-  if (eh[i] <= e) return dn-i;
-  ni = i1-i0+1;
-  np = 3;
-  one = 1;
-  UVIP3P(np, ni, eh+i0, xh+i0, one, &e, &dn);
-  
-  return n-dn;
+  x = 0.5*(dn0+dn1);
+  return n-x;
 }
   
 double EnergyH(double z, double n, int ka) {
