@@ -2176,7 +2176,7 @@ double LDist(KRONOS *cx, int n, int k, int q, int md) {
 
 KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
   KRONOS *cx = &_kronos_cx[k];
-  int i;
+  int i, j;
 
   if (cx->nmax > 0 && cx->nep > 0) {
     free(cx->lnfac);
@@ -2216,6 +2216,12 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
   for (i = 0; i < cx->ncx; i++) {
     cx->cx0[i] = malloc(sizeof(double)*nep);
     if (cx->cx1) cx->cx1[i] = malloc(sizeof(double)*nep);
+    for (j = 0; j < nep; j++) {
+      cx->cx0[i][j] = 0.0;
+      if (cx->cx1) {
+	cx->cx1[i][j] = 0.0;
+      }
+    }
   }
   for (i = 0; i < nmax; i++) {
     cx->idn[i] = i*(i+1)/2;
