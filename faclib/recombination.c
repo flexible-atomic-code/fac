@@ -3228,22 +3228,6 @@ double LandauZenerCX(CXTGT *cx, int n, int k, int m,
     f3 = eb*(EXPINT(beta, 3) - eb*EXPINT(2*beta, 3));  
     if (f3 < 0) f3 = 0.0;
   }
-  if (elam > 0) {
-    double eta = beta*sqrt((1+1.0/elam));
-    eb = exp(-eta);
-    double f3a;
-    if (eta < 1e-5) {
-      f3a = eb*0.5*eta;
-    } else {
-      f3a = eb*(EXPINT(eta, 3) - eb*EXPINT(2*eta, 3));
-    }
-    if (f3a < 0) f3a = 0;
-    f3a *= elam/(1.0+elam);
-    f3 -= f3a;
-  }
-  if (f3 < 0) {
-    f3 = 0.0;
-  }
   sigma = FOUR_PI*rx*rx*(1+elam)*f3;
   if (k >= 0 && k < n) {
     wnk = LandauZenerLD(n, k, z, v*rx);
