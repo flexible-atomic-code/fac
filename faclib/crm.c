@@ -401,6 +401,9 @@ int AddIon(int nele, double n, char *pref) {
     case DB_RO:
       sprintf(ion.dbfiles[i], "%s.ro", pref);
       break;
+    case DB_CX:
+      sprintf(ion.dbfiles[i], "%s.cx", pref);
+      break;
     default:
       break;
     }
@@ -4639,7 +4642,7 @@ void FreeIdxRateBlock(int nb, int **irb) {
   free(irb);
 }
 
-int SetCXRates(int m) {
+int SetCXRates(int m, char *tgt) {
   int i, k, p, ip[4], j1, j2;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
@@ -4649,6 +4652,8 @@ int SetCXRates(int m) {
   F_HEADER fh;
   RO_HEADER h;
   RO_RECORD r[NRTB];
+  CX_HEADER xh;
+  CX_RECORD xr[NRTB];
   TFILE *f;
   
   if (ion0.atom <= 0) {
@@ -4663,7 +4668,7 @@ int SetCXRates(int m) {
   }
   irb = IdxRateBlock(blocks->dim);
   KRONOS *cx;
-  if (m > 0) {
+  if (m == 1) {
     cx = KronosCX(0);
     if (cx == NULL || cx->nmax <= 0) {
       printf("KRONOS CX data for H-like not setup: %d\n", m);
@@ -4681,11 +4686,22 @@ int SetCXRates(int m) {
       CXRate(&cx->rcx[p], ip, 0, 0);
       rcx += cx->rcx[p];
     }
+  } else if (m == 2) {
+    ip[0] = 2;
+    cx = KronosCX(2);
+    double *emass = GetAtomicMassTable();
+    i = (int)ion0.atom;
+    if (i <= 0) i = 1;
+    cx->pmass = emass[i-1]*AMU;
+    cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
+    cx->nmax = 0;
+    cx->ilog = 3;
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->cx_rates, FreeBlkRateData);
-    if (m > 0) {
+    int nbf = 0;
+    if (m == 1) {
       f = OpenFileRO(ion->dbfiles[DB_RO-1], &fh, &swp);
       if (f == NULL) {
 	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_RO-1]);
@@ -4773,6 +4789,76 @@ int SetCXRates(int m) {
 	    jb = 0;
 	  }
 	}
+      }
+      continue;
+    }
+    if (m == 2) {
+      f = OpenFileRO(ion->dbfiles[DB_CX-1], &fh, &swp);
+      if (f == NULL) {
+	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CX-1]);
+	continue;
+      }
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadCXHeader(f, &xh, swp);
+	if (xh.nele != ion->nele ||
+	    (tgt != NULL && strncmp(tgt, xh.tgts, 128))) {
+	  FSEEK(f, xh.length, SEEK_CUR);
+	  continue;
+	}
+	nbf++;
+	if (xh.te0 > 0) {
+	  for (i = 0; i < xh.ne0; i++) {
+	    xh.e0[i] /= cx->pmass/AMU;
+	  }
+	}
+	for (i = 0; i < xh.ne0; i++) {
+	  xh.e0[i] = log(xh.e0[i]*HARTREE_EV);
+	}
+	nrb = Min(xh.ntransitions, NRTB);
+	jb = 0;
+	for (i = 0; i < xh.ntransitions; i++) {
+	  n = ReadCXRecord(f, &xr[jb++], swp, &xh);
+	  if (jb == nrb) {
+	    ResetWidMPI();
+#pragma omp parallel default(shared) private(jb, j1, j2, e, rcx)
+	    {
+	      int w = 0;
+	      for (jb = 0; jb < nrb; jb++) {
+		int skip = SkipMPI(w++);
+		if (skip) continue;
+		rts[jb].i = xr[jb].f;
+		rts[jb].f = xr[jb].b;
+		rts[jb].dir = 0;
+		rts[jb].inv = 0;
+		j1 = ion->j[xr[jb].f];
+		j2 = ion->j[xr[jb].b];
+		e = ion->energy[xr[jb].f] - ion->energy[xr[jb].b];
+		if (e < 0) continue;
+		cx->nep = xh.ne0;
+		cx->ep = xh.e0;
+		cx->rcx = xr[jb].cx;
+		for (k = 0; k < xh.ne0; k++) {
+		  if (cx->rcx[k] <= 0) {
+		    cx->rcx[k] = -500.0;
+		  } else {
+		    cx->rcx[k] = log(cx->rcx[k]);
+		  }
+		}
+		CXRate(&rcx, ip, xr[jb].f, xr[jb].b);
+		if (ion->acx > 0) rcx *= ion->acx;
+		rts[jb].dir = rcx;
+		free(xr[jb].cx);
+	      }
+	    }
+	    for (jb = 0; jb < nrb; jb++) {
+	      AddRate(ion, ion->cx_rates, &rts[jb], 0, irb);
+	    }
+	    nrb = h.ntransitions-i-1;
+	    nrb = Min(nrb, NRTB);
+	    jb = 0;
+	  }
+	}
+	free(xh.e0);
       }
       continue;
     }
@@ -4886,6 +4972,9 @@ int SetCXRates(int m) {
 	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
 	}
       }
+    }
+    if (m == 2 && nbf == 0) {
+      printf("no cx data found for: %d %s\n", k, tgt==NULL?"NULL":tgt);
     }
   }
   FreeIdxRateBlock(blocks->dim, irb);

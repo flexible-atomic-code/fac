@@ -98,4 +98,5 @@ int CompareRandIdx(const void *p1, const void *p2);
 int ComparePtrIdx(const void *p1, const void *p2);
 void SetProcID(int id);
 int ProcID(void);
+double LDist(double *lnfac, int n, int k, int q, int m);
 #endif

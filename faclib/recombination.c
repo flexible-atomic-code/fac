@@ -51,6 +51,11 @@ static int n_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
+static int n_cxegrid = 0;
+static int t_cxegrid = 0;
+static double *cxegrid = NULL;
+static int cxldist = 5;
+
 static MULTI *pk_array;
 static MULTI *qk_array;
 
@@ -1134,6 +1139,66 @@ int RecOccupation(int **nk, double **nq, double **dn,
   free(ang);
   return nmax;
 }
+    
+int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f) {
+  LEVEL *lev1, *lev2;
+  ANGULAR_ZFB *ang;
+  ORBITAL *orb;
+  int nz, k, i, j, m, kb, kbp, j1, j2, mn, mk, ie;
+  double a, c, z, am;
+  double orx, ov12, ode, ovdr, olam;
+  
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+  j1 = lev1->pj;
+  j2 = lev2->pj;
+  DecodePJ(j1, NULL, &j1);
+  DecodePJ(j2, NULL, &j2);
+  z = GetResidualZ();
+  if (lev1->ibase < 0 || lev1->ibase == f) m = 0;
+  else m = 1;
+  *eb = (lev2->energy - lev1->energy);
+  if (*eb <= 0) return 0;
+  nz = AngularZFreeBound(&ang, f, rec);
+  if (nz <= 0) return 0;
+  am = 0;
+  mn = 0;
+  mk = 0;
+  for (ie = 0; ie < n_cxegrid; ie++) {
+    cx[ie] = 0.0;
+  }
+  for (i = 0; i < nz; i++) {
+    kb = ang[i].kb;
+    orb = GetOrbital(kb);
+    k = GetLFromKappa(orb->kappa)/2;
+    for (j = 0; j <= i; j++) {
+      kbp = ang[j].kb;
+      if (kbp != kb) continue;
+      a = ang[i].coeff*ang[j].coeff;
+      if (a > am) {
+	am = a;
+	mn = orb->n;
+	mk = k;
+      }
+      if (j != i) {
+	a *= 2;
+      }
+      orx = -1;
+      ov12 = -1;
+      ovdr = -1;
+      olam = -1;
+      ode = -1;
+      a *= 1.0/(2*(2*k+1.0)*(j2+1.0));
+      for (ie = 0; ie < n_cxegrid; ie++) {	
+	c = LandauZenerCX(cxt, orb->n, k, m, z, cxegrid[ie], *eb,
+			  &orx, &ov12, &ovdr, &olam, &ode);
+	cx[ie] += a*c;
+      }
+    }
+  }
+  free(ang);
+  return mn*100 + mk;
+}
 
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
 		int rec, int f, int m) {
@@ -2018,6 +2083,101 @@ int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn) {
   return 0;
 }
 
+int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t) {
+  double de;
+  int i;
+  
+  if (n_cxegrid > 0) {
+    free(cxegrid);
+    n_cxegrid = 0;    
+    cxegrid = NULL;
+  }
+  n_cxegrid = n;
+  t_cxegrid = t;
+  cxegrid = malloc(sizeof(double)*n);
+  if (eg != NULL) {
+    for (i = 0; i < n; i++) {
+      cxegrid[i] = eg[i]/HARTREE_EV;
+    }
+    return 0;
+  }
+  e0 /= HARTREE_EV;
+  e1 /= HARTREE_EV;
+  if (ilog) {
+    e0 = log(e0);
+    e1 = log(e1);
+  }
+  de = (e1-e0)/(n-1);
+  cxegrid[0] = e0;
+  for (i = 1; i < n; i++) {
+    cxegrid[i] = cxegrid[i-1] + de;
+  }
+  if (ilog) {
+    for (i = 0; i < n; i++) {
+      cxegrid[i] = exp(cxegrid[i]);
+    }
+  }
+  return 0;
+}
+
+int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
+  int i, j, n;
+  double eb;
+  CX_RECORD r;
+  CX_HEADER cx_hdr;
+  F_HEADER fhdr;
+  TFILE *f;
+  CXTGT *cxt = GetCXTarget();
+
+  if (cxt == NULL || cxt->z <= 0) {
+    printf("CX target not setup\n");
+    return -1;
+  }
+  if (t_cxegrid < 0 || cxegrid == NULL) {
+    printf("CX egrid not setup: %d\n", t_cxegrid);
+    return -1;
+  }
+  
+  fhdr.type = DB_CX;
+  strcpy(fhdr.symbol, GetAtomicSymbol());
+  fhdr.atom = GetAtomicNumber();
+  cx_hdr.nele = GetNumElectrons(low[0]);
+  cx_hdr.te0 = t_cxegrid;
+  cx_hdr.ne0 = n_cxegrid;
+  cx_hdr.e0 = cxegrid;  
+  memcpy(cx_hdr.tgts, cxt->symbol, 128);
+  cx_hdr.tgtz = cxt->z;
+  cx_hdr.tgtm = cxt->m;
+  cx_hdr.tgta = cxt->a;
+  cx_hdr.tgtb = cxt->b;
+  cx_hdr.tgte = cxt->e;
+  cx_hdr.tgtx = cxt->x;
+  cx_hdr.ldist = cxldist;
+  f = OpenFile(fn, &fhdr);
+  InitFile(f, &fhdr, &cx_hdr);
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(r, i, j, eb, n)
+  {
+    r.cx = malloc(sizeof(double)*n_cxegrid);
+    for (j = 0; j < nup; j++) {
+      for (i = 0; i < nlow; i++) {
+	int skip = SkipMPI();
+	if (skip) continue;
+	n = CXCross(cxt, r.cx, &eb, low[i], up[j]);
+	if (n <= 0) continue;
+	r.b = low[i];
+	r.f = up[j];
+	r.vnl = n;
+	WriteCXRecord(f, &r);
+      }
+    }
+    free(r.cx);
+  }
+  DeinitFile(f, &fhdr);
+  CloseFile(f, &fhdr);
+  return 0;
+}
+
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m) {
   int i, j, k, ie, ip;
@@ -2830,6 +2990,8 @@ int InitRecombination(void) {
   SetRecPWOptions(RECLMAX, RECLMAX);
 
   SetMaxAICache(-1);
+  SetCXEGrid(24, 0.1, 1e4, NULL, 1, 0);
+  
   return 0;
 }
 
@@ -2864,4 +3026,280 @@ int ReinitRecombination(int m) {
 }
 
 void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "recombinaiton:cxldist")) {
+    cxldist = ip;
+  }
+}
+
+double LandauZenerDE(CXTGT *cx, double z, double de, double r) {
+  double vp, vr, vc, r2, rp, r0;
+  if (cx->x > 0) r0 = cx->x/cx->b;
+  else {
+    r0 = pow(0.5*cx->a*z/(-cx->x*25.0), 0.25);
+  }
+  rp = r + r0;
+  r2 = rp*rp;
+  vp = -cx->a*z*z*0.5/(r2*r2);
+  vr = 25.0*z*exp(-cx->b*r);
+  vc = (z-1.0)/r;
+  return vp+vr-vc+de;
+}
+
+double LandauZenerDEDR(CXTGT *cx, double z, double r, double *lam) {
+  double r2 = r*r;
+  double r0;
+  if (cx->x > 0) r0 = cx->x/cx->b;
+  else {
+    r0 = pow(0.5*cx->a*z/(-cx->x*25.0), 0.25);
+  }
+  double rp = r + r0;
+  double rp2 = rp*rp;
+  double vdr = (z-1.0)/r2;
+  double v1 = cx->a*z*z/(rp2*rp2);
+  double v2 = 25.0*z*exp(-cx->b*r);
+  double mu = 2.0*v1/rp - cx->b*v2;
+  *lam = 0.5*v1 - v2;
+  if (mu < 0) mu = 0.0;  
+  if (*lam < 0) *lam = 0.0;
+  mu *= 1.0-exp(-r/r0);
+  return vdr+mu;
+}
+
+double LandauZenerRX(CXTGT *cx, double z, double de, double r) {
+  double dv, r0, r1;
+  int i;
+  dv = LandauZenerDE(cx, z, de, r);
+  r0 = r;
+  r1 = r;
+  if (dv > 0) {
+    i = 0;
+    r0 = r;
+    while (dv > 0) {
+      i++;
+      if (i > 1000) {
+	printf("LZ RX fail0: %g %g %g\n", r0, de, dv);
+	return 0.0;
+      }
+      r0 /= 1.05;
+      dv = LandauZenerDE(cx, z, de, r0);
+    }
+  } else if (dv < 0) {
+    i = 0;
+    r1 = r;
+    while (dv < 0) {
+      i++;
+      if (i > 1000) {
+	printf("LZ RX fail1: %g %g %g\n", r1, de, dv);
+	return 0.0;
+      }
+      r1 *= 1.05;
+      dv = LandauZenerDE(cx, z, de, r1);
+    }
+  } else {
+    return r;
+  }
+  i = 0;
+  while (fabs(r1-r0)/(r0+r1) > 1e-4) {
+    i++;
+    if (i > 1000) {
+      printf("LZ RX fail2: %g %g\n", r, dv);
+      return 0.0;
+    }
+    r = 0.5*(r0+r1);
+    dv = LandauZenerDE(cx, z, de, r);
+    if (dv < 0) {
+      r0 = r;
+    } else if (dv > 0) {
+      r1 = r;
+    } else {
+      break;
+    }
+  }
+  r = 0.5*(r0+r1);
+  return r;
+}
+
+double LandauZenerWK(double b) {
+  if (b < 1e-5) {
+    return log((1-b)*b);
+  }
+  if (b > 10) {
+    return -b + exp(-b);
+  }
+  return -b + log(1-exp(-b));
+}
+
+double LandauZenerLD(int n, int k, int q, double j) {
+  double w;
+  if (cxldist == 5) {
+    const double j0[] =
+      {0.        ,  0.5       ,  0.83333333,  1.1       ,  1.32857143,
+       1.53174603,  1.71645022,  1.88694639,  2.04607615,  2.19584533,
+       2.33773193,  2.47286202,  2.60211689,  2.72620157,  2.84569051,
+       2.96105915,  3.07270622,  3.18097004,  3.28614062,  3.38846874,
+       3.48817307,  3.58544558,  3.68045595,  3.77335497,  3.86427741,
+       3.9533443 ,  4.04066477,  4.12633769,  4.21045293,  4.29309245,
+       4.37433131,  4.45423838,  4.53287708,  4.61030596,  4.68657918,
+       4.761747  ,  4.83585611,  4.90895003,  4.98106936,  5.05225208,
+       5.12253375,  5.19194775,  5.26052543,  5.32829632,  5.39528823,
+       5.46152743,  5.52703872,  5.59184558,  5.65597028,  5.71943389,
+       5.78225645,  5.84445701,  5.90605368,  5.96706371,  6.02750356,
+       6.08738892,  6.14673476,  6.20555542,  6.2638646 ,  6.32167541,
+       6.37900041,  6.43585166,  6.49224069,  6.54817862,  6.60367609,
+       6.65874335,  6.71339024,  6.76762626,  6.82146053,  6.87490185,
+       6.92795869,  6.98063925,  7.03295141,  7.0849028};
+    double jlow;
+    if (n < 75) jlow = j0[n-1];
+    else jlow = n*0.4*pow(3.0/n,0.45);
+    if (j > jlow) {
+      double a = (j-jlow)/(0.67*n-jlow);
+      if (a > 1) {
+	w = LDist(ln_factorial, n, k, q, 0);
+      } else {
+	w = a*LDist(ln_factorial, n, k, q, 0);
+	w += (1-a)*LDist(ln_factorial, n, k, q, 1);
+      }      
+    } else {
+      w = LDist(ln_factorial, n, k, q, 1);
+    }
+  } else {
+    w = LDist(ln_factorial, n, k, q, cxldist);
+  }
+
+  return w;
+}
+
+double LandauZenerUX(CXTGT *cx, double z, double rx, int m) {
+  double ux;
+  double sz = sqrt(z);
+  ux = exp(-1.324*rx*sqrt(2.0*cx->e)/sz)*(9.13/sz);
+  if (m > 0) {
+    double u2 = 0.5*exp(-0.4*rx);
+    int i;  
+    for (i = 0; i < m; i++) {
+      ux *= u2;
+    }
+  }
+  return ux;
+}
+
+double LandauZenerCX(CXTGT *cx, int n, int k, int m,
+		     double z, double e0, double ei,
+		     double *orx, double *ov12, double *ovdr,
+		     double *olam, double *ode) {
+  double de, beta, sigma, f3, lam, elam, rx, v, v12, vdr, wnk;
+  double *mass = GetAtomicMassTable();
+  
+  if (orx == NULL || *orx < 0) {
+    if (ei < 0) {
+      ei = -EnergyH(z, n, -1);
+    }
+    de = ei - cx->e;
+    if (de < 0.0) return 0.0;
+    rx = LandauZenerRX(cx, z, de, 3*n*n/z);
+    if (rx <= 0) return 0.0;
+    v12 = LandauZenerUX(cx, z, rx, m);
+    vdr = LandauZenerDEDR(cx, z, rx, &lam);
+    if (orx) {
+      *ode = de;
+      *ov12 = v12;
+      *ovdr = vdr;
+      *orx = rx;
+      *olam = lam;
+    }
+  } else {
+    de = *ode;
+    rx = *orx;
+    v12 = *ov12;
+    vdr = *ovdr;
+    lam = *olam;
+  }
+  wnk = 1.0;
+  v = sqrt(2*e0/AMU);
+  int iz = (int)(z-1);
+  double rmass = mass[iz]*cx->m/(mass[iz]+cx->m);
+  elam = lam/(e0*rmass);
+  beta = TWO_PI*v12*v12/(v*vdr*sqrt(1+elam));
+  if (beta <= 0) return 0.0;
+  double eb = exp(-beta);
+  if (beta < 1e-5) {
+    f3 = eb*0.5*beta;
+  } else {
+    f3 = eb*(EXPINT(beta, 3) - eb*EXPINT(2*beta, 3));  
+    if (f3 < 0) f3 = 0.0;
+  }
+  if (elam > 0) {
+    double eta = beta*sqrt((1+1.0/elam));
+    eb = exp(-eta);
+    double f3a;
+    if (eta < 1e-5) {
+      f3a = eb*0.5*eta;
+    } else {
+      f3a = eb*(EXPINT(eta, 3) - eb*EXPINT(2*eta, 3));
+    }
+    if (f3a < 0) f3a = 0;
+    f3a *= elam/(1.0+elam);
+    f3 -= f3a;
+  }
+  if (f3 < 0) {
+    f3 = 0.0;
+  }
+  sigma = FOUR_PI*rx*rx*(1+elam)*f3;
+  if (k >= 0 && k < n) {
+    wnk = LandauZenerLD(n, k, z, v*rx);
+    sigma *= wnk;
+  }
+  return sigma;
+}
+
+void LandauZenerBareCX(char *fn, int n, int k, int m,
+		       double z, double ei, int n0, double *e0) {
+  CXTGT *cx = GetCXTarget();
+  FILE *f;
+
+  f = NULL;
+  if (fn != NULL) {
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open file: %s\n", fn);
+    }
+  }
+  if (f == NULL) f = stdout;
+  ei /= HARTREE_EV;
+  double rt, r;
+  int n1, n2, i, j;
+  if (n > 0) {
+    n1 = n;
+    n2 = n;
+  } else {
+    n1 = 1;
+    n2 = 6+(int)(0.5+pow(z, 0.768));
+  }
+  fprintf(f, "%-10s", "# (eV/u)");
+  for (j = n2; j >= n1; j--) {
+    fprintf(f, " n=%-7d", j);
+  }
+  fprintf(f, " Total\n");
+  double lam[1000], rx[1000], de[1000], v12[1000], vdr[1000];
+  for (i = 0; i < 1000; i++) {
+    lam[i] = -1;
+    rx[i] = -1;
+    de[i] = -1;
+    v12[i] = -1;
+    vdr[i] = -1;
+  }
+  for (i = 0; i < n0; i++) {
+    e0[i] /= HARTREE_EV;
+    rt = 0.0;
+    fprintf(f, "%10.4E", e0[i]*HARTREE_EV);
+    for (j = n2; j >= n1; j--) {
+      r = LandauZenerCX(cx, j, k, m, z, e0[i], ei,
+			rx+j, v12+j, vdr+j, lam+j, de+j);
+      fprintf(f, " %9.2E", r*AREA_AU20*1e-4);
+      rt += r;
+    }
+    fprintf(f, " %9.2E\n", rt*AREA_AU20*1e-4);
+  }
+  fflush(f);
+  if (f != stdout) fclose(f);
 }

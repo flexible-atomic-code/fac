@@ -21,6 +21,14 @@
 
 #include "cfortran.h"
 
+     PROTOCCALLSFFUN2(DOUBLE, EXPINT, expint, DOUBLE, INT)
+#define EXPINT(A1,A2)				\
+     CCALLSFFUN2(EXPINT, expint, DOUBLE, INT, A1, A2)
+     
+     PROTOCCALLSFFUN2(DOUBLE, EIONE, eione, INT, DOUBLE)
+#define EIONE(A1,A2)				\
+     CCALLSFFUN2(EIONE, eione, INT, DOUBLE, A1, A2)
+     
      PROTOCCALLSFFUN1(DOUBLE, D1MACH, d1mach, INT)
 #define D1MACH(A1)\
      CCALLSFFUN1(D1MACH, d1mach, INT, A1)

@@ -18,6 +18,7 @@
 
 #include "interpolation.h"
 #include "cf77.h"
+#include "nucleus.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -2138,6 +2139,122 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   return nb;
 }
   
+int ICXCross(char *ifn, char *ofn, int i0, int i1,
+	     int negy, double *egy, int mp) {
+  F_HEADER fh;
+  TFILE *f1;
+  FILE *f2;
+  int n, swp;
+  CX_HEADER h;
+  CX_RECORD r;
+  int i, t, nb, m;
+  int np=3, one=1, nele;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+  double *mass, mion, *xe, *xs;
+  double x, tc, e;
+  
+  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mass = GetAtomicMassTable();
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  nb = 0;
+
+  f1 = OpenFileRO(ifn, &fh, &swp);
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+  mion = mass[(int)(fh.atom-0.9)];
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  if (fh.type != DB_CX || fh.nblocks == 0) {
+    printf("File %s is not of DB_RR type\n", ifn);
+    goto DONE;
+  }
+  
+  for (i = 0; i < negy; i++) {
+    egy[i] /= HARTREE_EV;
+  }
+  
+  while(1) {
+    n = ReadCXHeader(f1, &h, swp);
+    if (n == 0) break;
+    nele = h.nele;
+    xe = (double *) malloc(sizeof(double)*h.ne0);
+    xs = (double *) malloc(sizeof(double)*h.ne0);
+    for (t = 0; t < h.ne0; t++) {
+      xe[t] = log(h.e0[t]);
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCXRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+      if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
+		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
+		e*HARTREE_EV, negy);
+	for (t = 0; t < h.ne0; t++) {
+	  if (r.cx[t] <= 0) {
+	    xs[t] = -500.0;
+	  } else {
+	    xs[t] = log(r.cx[t]);
+	  }
+	}
+	for (t = 0; t < negy; t++) {
+	  x = egy[t];
+	  if (mp != h.te0) {
+	    if (mp == 0) {
+	      x *= mion;
+	    } else {
+	      x /= mion;
+	    }
+	  }
+	  x = log(x);
+	  UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
+	  tc = exp(tc);	  
+	  fprintf(f2, "%12.5E %12.5E\n", egy[t]*HARTREE_EV, tc*AREA_AU20);
+	}
+	fprintf(f2, "\n\n");
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.cx);
+	  free(h.e0);
+	  free(xe);
+	  free(xs);
+	  goto DONE;
+	}
+      }
+      free(r.cx);
+    }
+    free(h.e0);
+    free(xe);
+    free(xs);
+    nb++;
+  }
+ DONE:
+  FCLOSE(f1);
+
+  if (f2 != stdout) {
+    fclose(f2);
+  } else {
+    fflush(f2);
+  }
+
+  return nb;
+}
+
 int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    int negy, double *egy, int mp) {
   F_HEADER fh;
@@ -2420,6 +2537,125 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 
   return nb;
 }
+  
+int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
+	       int negy, double *egy) {
+  F_HEADER fh;
+  TFILE *f1;
+  FILE *f2;
+  int n, swp;
+  CX_HEADER h;
+  CX_RECORD r;
+  int i, t, nb, p;
+  int np=3, one=1, nele;
+  EN_SRECORD *mem_en_table;
+  int mem_en_table_size;
+  double *mass, mion, *xe, *xs;
+  double *xg = gauss_xw[0];  
+  double *wg = gauss_xw[1]; 
+  double x, tc, e, cs;
+  
+  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mass = GetAtomicMassTable();
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return -1;
+  }
+
+  nb = 0;
+
+  f1 = OpenFileRO(ifn, &fh, &swp);
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", ifn);
+    return -1;
+  }
+  mion = mass[(int)(fh.atom-1)];
+  if (strcmp(ofn, "-") == 0) {
+    f2 = stdout;
+  } else {
+    f2 = fopen(ofn, "w");
+  }
+  if (f2 == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return -1;
+  }
+
+  if (fh.type != DB_CX || fh.nblocks == 0) {
+    printf("File %s is not of DB_RR type\n", ifn);
+    goto DONE;
+  }
+  
+  for (i = 0; i < negy; i++) {
+    egy[i] /= HARTREE_EV;
+  }
+  
+  while(1) {
+    n = ReadCXHeader(f1, &h, swp);
+    if (n == 0) break;
+    nele = h.nele;
+    xe = (double *) malloc(sizeof(double)*h.ne0);
+    xs = (double *) malloc(sizeof(double)*h.ne0);
+    for (t = 0; t < h.ne0; t++) {
+      xe[t] = log(h.e0[t]);
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCXRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+      if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
+		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
+		e*HARTREE_EV, negy);
+	for (t = 0; t < h.ne0; t++) {
+	  if (r.cx[t] <= 0) {
+	    xs[t] = -500.0;
+	  } else {
+	    xs[t] = log(r.cx[t]);
+	  }
+	}
+	for (t = 0; t < negy; t++) {
+	  cs = 0.0;
+	  for (p = 0; p < 15; p++) {
+	    x = egy[t]*xg[p];
+	    if (0 == h.te0) {
+	      x /= mion;
+	    }
+	    x = log(x);
+	    UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
+	    tc = exp(tc)*xg[p];
+	    cs += tc*wg[p];
+	  }
+	  cs *= sqrt(2*egy[t]/(AMU*mion))*69.012;
+	  fprintf(f2, "%12.5E %12.5E\n", egy[t]*HARTREE_EV, cs);
+	}
+	fprintf(f2, "\n\n");
+	if (i0 >= 0 && i1 >= 0) {
+	  free(r.cx);
+	  free(h.e0);
+	  free(xe);
+	  free(xs);
+	  goto DONE;
+	}
+      }
+      free(r.cx);
+    }
+    free(h.e0);
+    free(xe);
+    free(xs);
+    nb++;
+  }
+ DONE:
+  FCLOSE(f1);
+
+  if (f2 != stdout) {
+    fclose(f2);
+  } else {
+    fflush(f2);
+  }
+
+  return nb;
+}
 
 double RRCrossHn(double z, double e, int n) {
   double x, z2;
@@ -2684,6 +2920,9 @@ int InterpCross(char *ifn, char *ofn, int i0, int i1,
   case DB_RR:
     RRCross(ifn, ofn, i0, i1, negy, egy, mp);
     break;
+  case DB_CX:
+    ICXCross(ifn, ofn, i0, i1, negy, egy, mp);
+    break;
   default:
     printf("Improper FAC binary file for cross sections\n");
   }
@@ -2723,6 +2962,9 @@ int MaxwellRate(char *ifn, char *ofn, int i0, int i1,
     break;
   case DB_RR:
     RRMaxwell(ifn, ofn, i0, i1, negy, egy);
+    break;
+  case DB_CX:
+    ICXMaxwell(ifn, ofn, i0, i1, negy, egy);
     break;
   default:
     printf("Improper FAC binary file for rate coefficients\n");

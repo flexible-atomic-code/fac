@@ -151,7 +151,7 @@ int SetAbund(int nele, double abund);
 int InitBlocks(void);
 int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb);
 int SetCERates(int inv);
-int SetCXRates(int inv);
+int SetCXRates(int m, char *tgt);
 int SetTRRates(int inv);
 int SetCIRates(int inv);
 int SetRRRates(int inv);

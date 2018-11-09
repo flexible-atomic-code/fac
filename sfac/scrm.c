@@ -434,10 +434,15 @@ static int PSetCERates(int argc, char *argv[], int argt[],
 static int PSetCXRates(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
   int m;
+  char *s;
   
-  if (argc != 1) return -1;
+  if (argc < 1) return -1;
   m = atoi(argv[0]);
-  SetCXRates(m);
+  s = NULL;
+  if (argc > 1) {
+    s = argv[1];
+  }
+  SetCXRates(m, s);
   return 0;
 }
 

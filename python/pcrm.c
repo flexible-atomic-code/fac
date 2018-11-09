@@ -687,15 +687,16 @@ static PyObject *PSetCERates(PyObject *self, PyObject *args) {
 
 static PyObject *PSetCXRates(PyObject *self, PyObject *args) {
   int m;
-
+  char *s;
+  
   if (scrm_file) {
     SCRMStatement("SetCXRates", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  SetCXRates(m);
+  if (!PyArg_ParseTuple(args, "i|s", &m, &s)) return NULL;
+  SetCXRates(m, s);
 
   Py_INCREF(Py_None);
   return Py_None;

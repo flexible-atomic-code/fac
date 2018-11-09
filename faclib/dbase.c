@@ -42,7 +42,8 @@ static CIM_HEADER cim_header;
 static SP_HEADER sp_header;
 static RT_HEADER rt_header;
 static DR_HEADER dr_header;
-static RO_HEADER roc_header;
+static RO_HEADER ro_header;
+static CX_HEADER cx_header;
 
 static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
@@ -419,7 +420,24 @@ int SwapEndianRRRecord(RR_RECORD *r) {
 int SwapEndianROHeader(RO_HEADER *h) {
   SwapEndian((char *) &(h->position), sizeof(long int));
   SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
   SwapEndian((char *) &(h->nele), sizeof(int));
+  return 0;
+}
+ 
+int SwapEndianCXHeader(CX_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->tgtz), sizeof(double));
+  SwapEndian((char *) &(h->tgtm), sizeof(double));
+  SwapEndian((char *) &(h->tgta), sizeof(double));
+  SwapEndian((char *) &(h->tgtb), sizeof(double));
+  SwapEndian((char *) &(h->tgte), sizeof(double));
+  SwapEndian((char *) &(h->tgtx), sizeof(double));
+  SwapEndian((char *) &(h->ldist), sizeof(int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ne0), sizeof(int));
   return 0;
 }
 
@@ -427,6 +445,13 @@ int SwapEndianRORecord(RO_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
   SwapEndian((char *) &(r->n), sizeof(int));
+  return 0;
+}
+
+int SwapEndianCXRecord(CX_RECORD *r) {
+  SwapEndian((char *) &(r->b), sizeof(int));
+  SwapEndian((char *) &(r->f), sizeof(int));
+  SwapEndian((char *) &(r->vnl), sizeof(int));
   return 0;
 }
 
@@ -1454,6 +1479,28 @@ int WriteROHeader(TFILE *f, RO_HEADER *h) {
   return m;
 }
 
+int WriteCXHeader(TFILE *f, CX_HEADER *h) {
+  int n, m = 0;
+  
+  WSF0(h->position);
+  WSF0(h->length);
+  WSF0(h->nele);
+  WSF0(h->ntransitions);
+  WSF1(h->tgts, sizeof(char), 128);
+  WSF0(h->tgtz);
+  WSF0(h->tgtm);
+  WSF0(h->tgta);
+  WSF0(h->tgtb);
+  WSF0(h->tgte);
+  WSF0(h->tgtx);
+  WSF0(h->ldist);
+  WSF0(h->te0);
+  WSF0(h->ne0);
+  WSF1(h->e0, sizeof(double), h->ne0);
+  
+  return m;
+}
+  
 int WriteRRHeader(TFILE *f, RR_HEADER *h) {
   int n, m = 0;
   
@@ -1847,19 +1894,19 @@ int WriteRORecord(TFILE *f, RO_RECORD *r) {
   int n;
   int m = 0;
 
-  if (roc_header.ntransitions == 0) {
+  if (ro_header.ntransitions == 0) {
     SetLockMPI();
-    if (roc_header.ntransitions == 0) {
+    if (ro_header.ntransitions == 0) {
       fheader[DB_RO-1].nblocks++;
-      n = WriteROHeader(f, &roc_header);
+      n = WriteROHeader(f, &ro_header);
       FFLUSH(f);
     }
 #pragma omp atomic
-    roc_header.ntransitions += 1;
+    ro_header.ntransitions += 1;
     ReleaseLockMPI();
   } else {
 #pragma omp atomic
-    roc_header.ntransitions += 1;
+    ro_header.ntransitions += 1;
   }
   WSF0(r->b);
   WSF0(r->f);
@@ -1868,7 +1915,35 @@ int WriteRORecord(TFILE *f, RO_RECORD *r) {
   WSF1(r->nq, sizeof(double), r->n);
   WSF1(r->dn, sizeof(double), r->n);
 #pragma omp atomic
-  roc_header.length += m;
+  ro_header.length += m;
+
+  return m;
+}
+
+int WriteCXRecord(TFILE *f, CX_RECORD *r) {
+  int n;
+  int m = 0;
+
+  if (cx_header.ntransitions == 0) {
+    SetLockMPI();
+    if (cx_header.ntransitions == 0) {
+      fheader[DB_CX-1].nblocks++;
+      n = WriteCXHeader(f, &cx_header);
+      FFLUSH(f);
+    }
+#pragma omp atomic
+    cx_header.ntransitions += 1;
+    ReleaseLockMPI();
+  } else {
+#pragma omp atomic
+    cx_header.ntransitions += 1;
+  }
+  WSF0(r->b);
+  WSF0(r->f);
+  WSF0(r->vnl);
+  WSF1(r->cx, sizeof(double), cx_header.ne0);
+#pragma omp atomic
+  cx_header.length += m;
 
   return m;
 }
@@ -2552,6 +2627,36 @@ int ReadROHeader(TFILE *f, RO_HEADER *h, int swp) {
   return m;
 }
 
+int ReadCXHeader(TFILE *f, CX_HEADER *h, int swp) {
+  int i, n, m = 0;
+  
+  RSF0(h->position);
+  RSF0(h->length);
+  RSF0(h->nele);
+  RSF0(h->ntransitions);
+  RSF1(h->tgts, sizeof(char), 128);
+  RSF0(h->tgtz);
+  RSF0(h->tgtm);
+  RSF0(h->tgta);
+  RSF0(h->tgtb);
+  RSF0(h->tgte);
+  RSF0(h->tgtx);
+  RSF0(h->ldist);
+  RSF0(h->te0);
+  RSF0(h->ne0);
+  
+  if (swp) SwapEndianCXHeader(h);
+  h->e0 = malloc(sizeof(double)*h->ne0);
+  RSF1(h->e0, sizeof(double), h->ne0);
+  
+  if (swp) {
+    for (i = 0; i < h->ne0; i++) {
+      SwapEndian((char *) &(h->e0[i]), sizeof(double));
+    }
+  }
+  return m;
+}
+
 int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
   int i, n, m = 0;
   
@@ -2615,6 +2720,23 @@ int ReadRORecord(TFILE *f, RO_RECORD *r, int swp) {
       SwapEndian((char *) &(r->nk[i]), sizeof(int));
       SwapEndian((char *) &(r->nq[i]), sizeof(double));
       SwapEndian((char *) &(r->dn[i]), sizeof(double));
+    }
+  }
+  return m;
+}
+
+int ReadCXRecord(TFILE *f, CX_RECORD *r, int swp, CX_HEADER *h) {
+  int i, n, m = 0;
+    
+  RSF0(r->b);
+  RSF0(r->f);
+  RSF0(r->vnl);
+  if (swp) SwapEndianCXRecord(r);
+  r->cx = malloc(sizeof(double)*h->ne0);
+  RSF1(r->cx, sizeof(double), h->ne0);
+  if (swp) {
+    for (i = 0; i < h->ne0; i++) {
+      SwapEndian((char *)&(r->cx[i]), sizeof(double));
     }
   }
   return m;
@@ -3096,7 +3218,8 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   SP_HEADER *sp_hdr;
   RT_HEADER *rt_hdr;
   DR_HEADER *dr_hdr;
-  RO_HEADER *roc_hdr;
+  RO_HEADER *ro_hdr;
+  CX_HEADER *cx_hdr;
   long int p;
   int ihdr;
 
@@ -3213,11 +3336,18 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
     cemf_header.ntransitions = 0;
     break;
   case DB_RO:
-    roc_hdr = (RO_HEADER *) rhdr;
-    memcpy(&roc_header, roc_hdr, sizeof(RO_HEADER));
-    roc_header.position = p;
-    roc_header.length = 0;
-    roc_header.ntransitions = 0;
+    ro_hdr = (RO_HEADER *) rhdr;
+    memcpy(&ro_header, ro_hdr, sizeof(RO_HEADER));
+    ro_header.position = p;
+    ro_header.length = 0;
+    ro_header.ntransitions = 0;
+    break;
+  case DB_CX:
+    cx_hdr = (CX_HEADER *) rhdr;
+    memcpy(&cx_header, cx_hdr, sizeof(CX_HEADER));
+    cx_header.position = p;
+    cx_header.length = 0;
+    cx_header.ntransitions = 0;
     break;
   default:
     break;
@@ -3323,9 +3453,15 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
     }
     break;
   case DB_RO:
-    FSEEK(f, roc_header.position, SEEK_SET);
-    if (roc_header.length > 0) {
-      n = WriteROHeader(f, &roc_header);
+    FSEEK(f, ro_header.position, SEEK_SET);
+    if (ro_header.length > 0) {
+      n = WriteROHeader(f, &ro_header);
+    }
+    break;
+  case DB_CX:
+    FSEEK(f, cx_header.position, SEEK_SET);
+    if (cx_header.length > 0) {
+      n = WriteCXHeader(f, &cx_header);
     }
     break;
   default:
@@ -3363,7 +3499,9 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   } else {
     vs = 1;
   }
-  if (v && (fh.type < DB_SP || fh.type > DB_DR || fh.type == DB_RO)) {
+  if (v && (fh.type < DB_SP ||
+	    (fh.type > DB_DR && fh.type < DB_ENF)
+	    || fh.type >= DB_RO)) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
       goto DONE;
@@ -3443,6 +3581,9 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     break;
   case DB_RO:
     n = PrintROTable(f1, f2, v, vs, swp);
+    break;
+  case DB_CX:
+    n = PrintCXTable(f1, f2, v, vs, swp);
     break;
   default:
     break;
@@ -4555,6 +4696,87 @@ int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       free(r.nk);
       free(r.nq);
     }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
+    nb++;
+  }
+  return nb;
+}
+
+int PrintCXTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
+  CX_HEADER h;
+  CX_RECORD r;
+  int n, i, nb, nh, t;
+  double e;
+  
+  nb = 0;
+  while (1) {
+    nh = ReadCXHeader(f1, &h, swp);
+    if (nh == 0) break;
+    
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "TGTS\t= %s\n", h.tgts);
+    fprintf(f2, "TGTZ\t= %g\n", h.tgtz);
+    fprintf(f2, "TGTM\t= %g\n", h.tgtm);
+    fprintf(f2, "TGTA\t= %g\n", h.tgta);
+    fprintf(f2, "TGTB\t= %g\n", h.tgtb);
+    fprintf(f2, "TGTE\t= %g\n", h.tgte);
+    fprintf(f2, "TGTX\t= %g\n", h.tgtx);
+    fprintf(f2, "LDIST\t= %d\n", h.ldist);
+    fprintf(f2, "TE0\t= %d\n", h.te0);
+    fprintf(f2, "NE0\t= %d\n", h.ne0);      
+    for (i = 0; i < h.ne0; i++) {
+      if (v) {
+	fprintf(f2, "\t %15.8E\n", h.e0[i]*HARTREE_EV);
+      } else {
+	fprintf(f2, "\t %15.8E\n", h.e0[i]);
+      }
+    }
+    IDX_RECORD *idx = NULL;
+    if (vs && h.ntransitions > 1) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadCXRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.f;
+	idx[i].i1 = r.b;
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
+      n = ReadCXRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+      if (v) {	
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	fprintf(f2, "%6d %2d %6d %2d %4d %15.8E\n",
+		r.f, mem_en_table[r.f].j,
+		r.b, mem_en_table[r.b].j,
+		r.vnl, e*HARTREE_EV);
+	for (t = 0; t < h.ne0; t++) {
+	  fprintf(f2, "%12.5E %12.5E\n",
+		  h.e0[t]*HARTREE_EV, r.cx[t]*AREA_AU20);
+	}
+      } else {
+	fprintf(f2, "%6d %6d %4d\n", r.f, r.b, r.vnl);
+	for (t = 0; t < h.ne0; t++) {
+	  fprintf(f2, "%12.5E %12.5E\n", h.e0[t], r.cx[t]);
+	}
+      }
+      free(r.cx);
+    }
+    free(h.e0);
     if (idx) {
       free(idx);
       FSEEK(f1, h.position+nh+h.length, SEEK_SET);
