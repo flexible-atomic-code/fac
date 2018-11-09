@@ -4081,254 +4081,266 @@ int GetBasisTable(char *fn, int m0, int k0) {
       }    
       fclose(f);
     } else {
-      sprintf(nc, "%s.c", fn);
-      f = fopen(nc, "w");
-      if (f == NULL) {
-	printf("cannot open basis table file: %s\n", nc);
-	return 0;
-      }
-      sprintf(nc, "%s.cm", fn);
-      f1 = fopen(nc, "w");
-      if (f1 == NULL) {
-	printf("cannot open mix table file: %s\n", nc);
-	return 0;
-      }
-      //sprintf(nc, "%s.iso", fn);
-      //PrintNucleus(1, nc);
-      
-      fprintf(f, "Core subshells:\n\n");
-      fprintf(f, "Peel subshells:\n");
-      int ish[1024];
-      CONFIG *cfg;
-      CONFIG_GROUP *grp;
-      int ngrps = GetNumGroups();
-      int ncftot, nw, ncmin, nvecsiz, nblock;
-      for (i = 0; i < 1024; i++) ish[i] = 0;
-      nw = 0;
-      for (i = 0; i < ngrps; i++) {
-	grp = GetGroup(i);
-	if (k0 < 0) k0 = grp->n_electrons;
-	if (grp->n_electrons != k0) continue;
-	for (k = 0; k < grp->n_cfgs; k++) {
-	  cfg = GetConfigFromGroup(i, k);
-	  for (j = 0; j < cfg->n_shells; j++) {	  
-	    p = ShellToInt(cfg->shells[j].n, cfg->shells[j].kappa);
-	    ish[p] = 1;
-	  }
+      int ih0, ih1, ihd;
+      ih0 = 0;
+      ihd = 0;
+      while (ih0 < nhams) {
+	for (ih1 = ih0+1; ih1 < nhams; ih1++) {
+	  if (hams[ih1].pj <= hams[ih1-1].pj) break;
 	}
-      }
-      char ss[2];
-      char js[2];
-      int n;
-      js[1] = '\0';
-      for (i = 0; i < 1024; i++) {
-	if (ish[i] <= 0) continue;
-	IntToShell(i, &n, &k);
-	p = GetLFromKappa(k)/2;
-	SpecSymbol(ss, p);
-	if (k < 0) js[0] = ' ';
-	else js[0] = '-';
-	fprintf(f, "%3d%s%s", n, ss, js);
-	nw++;
-      }
-      fprintf(f, "\n");
-      fprintf(f, "CSF(s):\n");    
-      char ash[2048];
-      char asj[2048];
-      char atj[2048];
-      char a1[16];
-      char a2[16];
-      char a3[16];
-      char a0[16];
-      int ic, kl;
-      SHELL_STATE *sst;
-      int ws = 0;
-      ncftot = 0;
-      ncmin = 0;
-      nvecsiz = 0;
-      nblock = 0;
-      for (i = 0; i < nhams; i++) {
-	DecodePJ(hams[i].pj, &p, &j);
-	s = hams[i].basis[0];
-	cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
-	if (cfg->n_electrons != k0) continue;
-	nblock++;
-	ncmin += hams[i].nlevs;
-	nvecsiz += hams[i].nbasis*hams[i].nlevs;
-	for (k = 0; k < hams[i].nbasis; k++) {
-	  s = hams[i].basis[k];
-	  cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
-	  sst = cfg->csfs + s->kstate;
-	  ash[0] = '\0';
-	  asj[0] = '\0';
-	  atj[0] = '\0';
-	  int fop = -1;
-	  for (ic = cfg->n_shells-1; ic >= 0; ic--) {
-	    GetJLFromKappa(cfg->shells[ic].kappa, &j, &kl);
-	    kl /= 2;
-	    SpecSymbol(ss, kl);
-	    if (cfg->shells[ic].kappa < 0) js[0] = ' ';
-	    else js[0] = '-';
-	    sprintf(a1, "%3d%s%s(%2d)", cfg->shells[ic].n, ss, js,
-		    cfg->shells[ic].nq);
-	    if (cfg->shells[ic].nq == j+1) {
-	      sprintf(a2, "%9s", " ");
-	    } else {
-	      if (fop < 0) fop = ic;
-	      if (IsEven(cfg->shells[ic].nq)) {
-		if (ShellNeedNuNr(cfg->shells+ic, sst+ic)&1) {
-		  sprintf(a0, "%d;%d", sst[ic].nu, sst[ic].shellJ/2);
-		} else {
-		  sprintf(a0, "%d", sst[ic].shellJ/2);
-		}
-	      } else {
-		if (sst[ic].nu > 1) {
-		  sprintf(a0, "%d;%d/2", sst[ic].nu, sst[ic].shellJ);
-		} else {
-		  sprintf(a0, "%d/2", sst[ic].shellJ);
-		}
-	      }
-	      sprintf(a2, "%9s", a0);
-	    }
-	    if (ic < fop) {
-	      if (ic == 0 || sst[ic].shellJ) {
-		if (IsEven(sst[ic].totalJ)) {
-		  sprintf(a0, "%d", sst[ic].totalJ/2);
-		} else {
-		  sprintf(a0, "%d/2", sst[ic].totalJ);
-		}
-		sprintf(a3, "%9s", a0);
-	      } else {
-		sprintf(a3, "%9s", " ");
-	      }
-	    } else {
-	      if (ic == 0) {
-		if (IsEven(sst[ic].totalJ)) {
-		  sprintf(a0, "%d", sst[ic].totalJ/2);
-		} else {
-		  sprintf(a0, "%d/2", sst[ic].totalJ);
-		}
-		sprintf(a3, "%9s", a0);
-	      } else {
-		sprintf(a3, "%9s", " ");
-	      }
-	    }
-	    strcat(ash, a1);
-	    strcat(asj, a2);
-	    strcat(atj, a3);
-	  }
-	  if (p == 0) {
-	    strcat(atj, "+");
-	  } else {
-	    strcat(atj, "-");
-	  }
-	  if (ws == 2) {
-	    fprintf(f, " *\n");
-	  }
-	  fprintf(f, "%s\n", ash);
-	  fprintf(f, "%s\n", asj);
-	  fprintf(f, " %s\n", atj);
-	  ncftot++;
-	  ws = 1;
+	sprintf(nc, "%s_%03d.c", fn, ihd);
+	f = fopen(nc, "w");
+	if (f == NULL) {
+	  printf("cannot open basis table file: %s\n", nc);
+	  return 0;
 	}
-	if (ws == 1) ws = 2;
-      }
-      fclose(f);
-      rec = 6;
-      fwrite(&rec, sizeof(int), 1, f1);
-      sprintf(nc, "G92MIX");
-      fwrite(nc, sizeof(char), 6, f1);
-      fwrite(&rec, sizeof(int), 1, f1);
-      rec = 6*sizeof(int);
-      fwrite(&rec, sizeof(int), 1, f1);
-      fwrite(&k0, sizeof(int), 1, f1);
-      fwrite(&ncftot, sizeof(int), 1, f1);
-      fwrite(&nw, sizeof(int), 1, f1);
-      fwrite(&ncmin, sizeof(int), 1, f1);
-      fwrite(&nvecsiz, sizeof(int), 1, f1);
-      fwrite(&nblock, sizeof(int), 1, f1);
-      fwrite(&rec, sizeof(int), 1, f1);
-      //printf("%d %d %d %d %d %d\n", k0, ncftot, nw, ncmin, nvecsiz, nblock);
-      nblock = 0;
-      for (i = 0; i < nhams; i++) {
-	sym = GetSymmetry(hams[i].pj);
-	st = &(sym->states);
-	DecodePJ(hams[i].pj, &p, &j);
-	s = hams[i].basis[0];
-	cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
-	if (cfg->n_electrons != k0) continue;
-	nblock++;
-	rec = 5*sizeof(int);
-	fwrite(&rec, sizeof(int), 1, f1);
-	fwrite(&nblock, sizeof(int), 1, f1);
-	fwrite(&hams[i].nbasis, sizeof(int), 1, f1);
-	int nlevs = 0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  if (hams[i].levs[k]) nlevs++;
+	sprintf(nc, "%s_%03d.cm", fn, ihd);
+	f1 = fopen(nc, "w");
+	if (f1 == NULL) {
+	  printf("cannot open mix table file: %s\n", nc);
+	  return 0;
 	}
-	LEVEL **levs = malloc(sizeof(LEVEL *)*nlevs);
-	int ik = 0;
-	for (k = 0; k < hams[i].nlevs; k++) {
-	  if (hams[i].levs[k]) {
-	    levs[ik] = hams[i].levs[k];
-	    ik++;
-	  }
-	}	      
-	fwrite(&nlevs, sizeof(int), 1, f1);
-	si = j + 1;
-	fwrite(&si, sizeof(int), 1, f1);
-	if (p == 0) si = 1;
-	else si = -1;
-	fwrite(&si, sizeof(int), 1, f1);
-	fwrite(&rec, sizeof(int), 1, f1);
-	rec = nlevs*sizeof(int);	
-	fwrite(&rec, sizeof(int), 1, f1);
-	double eav = 0.0;
-	double eaw = 0.0;
-	for (k = 0; k < nlevs; k++) {
-	  lev = levs[k];
-	  eav += lev->energy * (j+1.0);
-	  eaw += j+1.0;
-	  fwrite(&lev->slev, sizeof(int), 1, f1);
-	}
-	eav /= eaw;
-	fwrite(&rec, sizeof(int), 1, f1);
-	rec = (1+nlevs)*sizeof(double);
-	fwrite(&rec, sizeof(int), 1, f1);
-	fwrite(&eav, sizeof(double), 1, f1);
-	int mbs = 0;
-	for (k = 0; k < nlevs; k++) {
-	  lev = levs[k];
-	  if (lev->n_basis > mbs) mbs = lev->n_basis;
-	  fwrite(&lev->energy, sizeof(double), 1, f1);
-	}
-	fwrite(&rec, sizeof(int), 1, f1);
-	rec = nlevs*hams[i].nbasis*sizeof(double);
-	fwrite(&rec, sizeof(int), 1, f1);
-	PTRIDX *bst = malloc(sizeof(PTRIDX)*mbs);
-	double mc;
-	for (ic = 0; ic < nlevs; ic++) {
-	  lev = levs[ic];
-	  for (k = 0; k < lev->n_basis; k++) {
-	    bst[k].r = (char *) ArrayGet(st, lev->basis[k]);
-	    bst[k].i = k;
-	  }
-	  qsort(bst, lev->n_basis, sizeof(PTRIDX), ComparePtrIdx);
+	//sprintf(nc, "%s.iso", fn);
+	//PrintNucleus(1, nc);
+	
+	fprintf(f, "Core subshells:\n\n");
+	fprintf(f, "Peel subshells:\n");
+	int ish[1024];
+	CONFIG *cfg;
+	CONFIG_GROUP *grp;
+	int ngrps = GetNumGroups();
+	int ncftot, nw, ncmin, nvecsiz, nblock;
+	for (i = 0; i < 1024; i++) ish[i] = 0;
+	nw = 0;
+	for (i = ih0; i < ih1; i++) {
 	  for (k = 0; k < hams[i].nbasis; k++) {
-	    si = PtrBisect((char *)(hams[i].basis[k]), lev->n_basis, bst);
-	    if (si < 0) {
-	      mc = 0.0;
-	    } else {
-	      mc = lev->mixing[bst[si].i];
+	    s = hams[i].basis[k];
+	    cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	    if (k0 < 0) {
+	      k0 = cfg->n_electrons;
 	    }
-	    fwrite(&mc, sizeof(double), 1, f1);
+	    if (cfg->n_electrons != k0) continue;
+	    for (j = 0; j < cfg->n_shells; j++) {	  
+	      p = ShellToInt(cfg->shells[j].n, cfg->shells[j].kappa);
+	      ish[p] = 1;
+	    }
 	  }
 	}
-	free(bst);
-	free(levs);
+	char ss[2];
+	char js[2];
+	int n;
+	js[1] = '\0';
+	for (i = 0; i < 1024; i++) {
+	  if (ish[i] <= 0) continue;
+	  IntToShell(i, &n, &k);
+	  p = GetLFromKappa(k)/2;
+	  SpecSymbol(ss, p);
+	  if (k < 0) js[0] = ' ';
+	  else js[0] = '-';
+	  fprintf(f, "%3d%s%s", n, ss, js);
+	  nw++;
+	}
+	fprintf(f, "\n");
+	fprintf(f, "CSF(s):\n");    
+	char ash[2048];
+	char asj[2048];
+	char atj[2048];
+	char a1[16];
+	char a2[16];
+	char a3[16];
+	char a0[16];
+	int ic, kl;
+	SHELL_STATE *sst;
+	int ws = 0;
+	ncftot = 0;
+	ncmin = 0;
+	nvecsiz = 0;
+	nblock = 0;
+	for (i = ih0; i < ih1; i++) {
+	  DecodePJ(hams[i].pj, &p, &j);
+	  s = hams[i].basis[0];
+	  cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	  if (cfg->n_electrons != k0) continue;
+	  nblock++;
+	  ncmin += hams[i].nlevs;
+	  nvecsiz += hams[i].nbasis*hams[i].nlevs;
+	  for (k = 0; k < hams[i].nbasis; k++) {
+	    s = hams[i].basis[k];
+	    cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	    sst = cfg->csfs + s->kstate;
+	    ash[0] = '\0';
+	    asj[0] = '\0';
+	    atj[0] = '\0';
+	    int fop = -1;
+	    for (ic = cfg->n_shells-1; ic >= 0; ic--) {
+	      GetJLFromKappa(cfg->shells[ic].kappa, &j, &kl);
+	      kl /= 2;
+	      SpecSymbol(ss, kl);
+	      if (cfg->shells[ic].kappa < 0) js[0] = ' ';
+	      else js[0] = '-';
+	      sprintf(a1, "%3d%s%s(%2d)", cfg->shells[ic].n, ss, js,
+		      cfg->shells[ic].nq);
+	      if (cfg->shells[ic].nq == j+1) {
+		sprintf(a2, "%9s", " ");
+	      } else {
+		if (fop < 0) fop = ic;
+		if (IsEven(cfg->shells[ic].nq)) {
+		  if (ShellNeedNuNr(cfg->shells+ic, sst+ic)&1) {
+		    sprintf(a0, "%d;%d", sst[ic].nu, sst[ic].shellJ/2);
+		  } else {
+		    sprintf(a0, "%d", sst[ic].shellJ/2);
+		  }
+		} else {
+		  if (sst[ic].nu > 1) {
+		    sprintf(a0, "%d;%d/2", sst[ic].nu, sst[ic].shellJ);
+		  } else {
+		    sprintf(a0, "%d/2", sst[ic].shellJ);
+		  }
+		}
+		sprintf(a2, "%9s", a0);
+	      }
+	      if (ic < fop) {
+		if (ic == 0 || sst[ic].shellJ) {
+		  if (IsEven(sst[ic].totalJ)) {
+		    sprintf(a0, "%d", sst[ic].totalJ/2);
+		  } else {
+		    sprintf(a0, "%d/2", sst[ic].totalJ);
+		  }
+		  sprintf(a3, "%9s", a0);
+		} else {
+		  sprintf(a3, "%9s", " ");
+		}
+	      } else {
+		if (ic == 0) {
+		  if (IsEven(sst[ic].totalJ)) {
+		    sprintf(a0, "%d", sst[ic].totalJ/2);
+		  } else {
+		    sprintf(a0, "%d/2", sst[ic].totalJ);
+		  }
+		  sprintf(a3, "%9s", a0);
+		} else {
+		  sprintf(a3, "%9s", " ");
+		}
+	      }
+	      strcat(ash, a1);
+	      strcat(asj, a2);
+	      strcat(atj, a3);
+	    }
+	    if (p == 0) {
+	      strcat(atj, "+");
+	    } else {
+	      strcat(atj, "-");
+	    }
+	    if (ws == 2) {
+	      fprintf(f, " *\n");
+	    }
+	    fprintf(f, "%s\n", ash);
+	    fprintf(f, "%s\n", asj);
+	    fprintf(f, " %s\n", atj);
+	    ncftot++;
+	    ws = 1;
+	  }
+	  if (ws == 1) ws = 2;
+	}
+	fclose(f);
+	rec = 6;
 	fwrite(&rec, sizeof(int), 1, f1);
+	sprintf(nc, "G92MIX");
+	fwrite(nc, sizeof(char), 6, f1);
+	fwrite(&rec, sizeof(int), 1, f1);
+	rec = 6*sizeof(int);
+	fwrite(&rec, sizeof(int), 1, f1);
+	fwrite(&k0, sizeof(int), 1, f1);
+	fwrite(&ncftot, sizeof(int), 1, f1);
+	fwrite(&nw, sizeof(int), 1, f1);
+	fwrite(&ncmin, sizeof(int), 1, f1);
+	fwrite(&nvecsiz, sizeof(int), 1, f1);
+	fwrite(&nblock, sizeof(int), 1, f1);
+	fwrite(&rec, sizeof(int), 1, f1);
+	//printf("%d %d %d %d %d %d\n", k0, ncftot, nw, ncmin, nvecsiz, nblock);
+	nblock = 0;
+	for (i = ih0; i < ih1; i++) {
+	  sym = GetSymmetry(hams[i].pj);
+	  st = &(sym->states);
+	  DecodePJ(hams[i].pj, &p, &j);
+	  s = hams[i].basis[0];
+	  cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	  if (cfg->n_electrons != k0) continue;
+	  nblock++;
+	  rec = 5*sizeof(int);
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  fwrite(&nblock, sizeof(int), 1, f1);
+	  fwrite(&hams[i].nbasis, sizeof(int), 1, f1);
+	  int nlevs = 0;
+	  for (k = 0; k < hams[i].nlevs; k++) {
+	    if (hams[i].levs[k]) nlevs++;
+	  }
+	  LEVEL **levs = malloc(sizeof(LEVEL *)*nlevs);
+	  int ik = 0;
+	  for (k = 0; k < hams[i].nlevs; k++) {
+	    if (hams[i].levs[k]) {
+	      levs[ik] = hams[i].levs[k];
+	      ik++;
+	    }
+	  }	      
+	  fwrite(&nlevs, sizeof(int), 1, f1);
+	  si = j + 1;
+	  fwrite(&si, sizeof(int), 1, f1);
+	  if (p == 0) si = 1;
+	  else si = -1;
+	  fwrite(&si, sizeof(int), 1, f1);
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  rec = nlevs*sizeof(int);	
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  double eav = 0.0;
+	  double eaw = 0.0;
+	  for (k = 0; k < nlevs; k++) {
+	    lev = levs[k];
+	    eav += lev->energy * (j+1.0);
+	    eaw += j+1.0;
+	    fwrite(&lev->slev, sizeof(int), 1, f1);
+	  }
+	  eav /= eaw;
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  rec = (1+nlevs)*sizeof(double);
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  fwrite(&eav, sizeof(double), 1, f1);
+	  int mbs = 0;
+	  for (k = 0; k < nlevs; k++) {
+	    lev = levs[k];
+	    if (lev->n_basis > mbs) mbs = lev->n_basis;
+	    fwrite(&lev->energy, sizeof(double), 1, f1);
+	  }
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  rec = nlevs*hams[i].nbasis*sizeof(double);
+	  fwrite(&rec, sizeof(int), 1, f1);
+	  PTRIDX *bst = malloc(sizeof(PTRIDX)*mbs);
+	  double mc;
+	  for (ic = 0; ic < nlevs; ic++) {
+	    lev = levs[ic];
+	    for (k = 0; k < lev->n_basis; k++) {
+	      bst[k].r = (char *) ArrayGet(st, lev->basis[k]);
+	      bst[k].i = k;
+	    }
+	    qsort(bst, lev->n_basis, sizeof(PTRIDX), ComparePtrIdx);
+	    for (k = 0; k < hams[i].nbasis; k++) {
+	      si = PtrBisect((char *)(hams[i].basis[k]), lev->n_basis, bst);
+	      if (si < 0) {
+		mc = 0.0;
+	      } else {
+		mc = lev->mixing[bst[si].i];
+	      }
+	      fwrite(&mc, sizeof(double), 1, f1);
+	    }
+	  }
+	  free(bst);
+	  free(levs);
+	  fwrite(&rec, sizeof(int), 1, f1);
+	}
+	fclose(f1);
+	ih0 = ih1;
+	ihd++;
       }
-      fclose(f1);
     }
   }
   return 0;

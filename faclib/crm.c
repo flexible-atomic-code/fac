@@ -4860,6 +4860,10 @@ int SetCXRates(int m, char *tgt) {
 	}
 	free(xh.e0);
       }
+      if (nbf == 0) {
+	printf("no cx data found for: %s %s\n",
+	       ion->dbfiles[DB_CX-1], tgt==NULL?"NULL":tgt);
+      }
       continue;
     }
     if (ion->nele < 1 || ion->nele > 2) {
@@ -4972,9 +4976,6 @@ int SetCXRates(int m, char *tgt) {
 	  AddRate(ion, ion->cx_rates, &rt, 0, irb);
 	}
       }
-    }
-    if (m == 2 && nbf == 0) {
-      printf("no cx data found for: %d %s\n", k, tgt==NULL?"NULL":tgt);
     }
   }
   FreeIdxRateBlock(blocks->dim, irb);
