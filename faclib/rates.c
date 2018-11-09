@@ -45,7 +45,7 @@ static double rate_epsabs = EPS8;
 static double rate_epsrel = EPS3;
 static int rate_iprint = 1;
 
-static KRONOS _kronos_cx[2];
+static KRONOS _kronos_cx[3];
 
 static struct {
   DISTRIBUTION *d;
@@ -130,7 +130,7 @@ static double bgaunt1[2][NGAUNT1] = {
 };
 
 KRONOS *KronosCX(int k) {
-  if (k < 0 || k > 1) return NULL;
+  if (k < 0 || k > 2) return NULL;
   return &_kronos_cx[k];
 }
 
@@ -414,9 +414,6 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   int *ip = (int *) p;
   cx = &_kronos_cx[ip[0]];
   double *x, *y, r;
-  x = cx->ep;
-  if (ip[1] == 0) y = cx->cx0[ip[2]];
-  else y = cx->cx1[ip[2]];
   int n = 3;
   int one = 1;
   if (ip[3] == 0) {
@@ -426,6 +423,13 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   if (cx->ilog & 1) {
     e = log(e);
   }
+  x = cx->ep;
+  if (ip[0] == 2) {
+    y = cx->rcx;
+  } else {
+    if (ip[1] == 0) y = cx->cx0[ip[2]];
+    else y = cx->cx1[ip[2]];
+  }
   if (e < cx->ep[0]) e = cx->ep[0];
   if (e > cx->ep[cx->nep-1]) e = cx->ep[cx->nep-1];
   UVIP3P(n, cx->nep, x, y, one, &e, &r);
@@ -433,8 +437,13 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
     if (r < -300) r = 0.0;
     else r = exp(r);
   }
+  if (ip[0] == 2) {
+    r *= AREA_AU20;
+  } else {
+    r *= 1e4;
+  }
   double v = VelocityFromE(e1, AMU);
-  r *= v*1e4;
+  r *= v;
   return r;
 }
 
@@ -2145,35 +2154,6 @@ int LFromSym(char s) {
   return i;
 }
 
-double LDist(KRONOS *cx, int n, int k, int q, int md) {
-  double t;
-  int k1;
-  switch (md) {
-  case 0:
-    return (2.0*k+1.0)/(n*n);
-  case 1:
-    t = 2.0*cx->lnfac[n-1] - cx->lnfac[n+k] - cx->lnfac[n-1-k];
-    return (2.0*k+1.0)*exp(t);
-  case 2:
-    if (n == 1) return 0.0;
-    t = cx->lnfac[n-1]+cx->lnfac[n-2]-cx->lnfac[n+k]-cx->lnfac[n-1-k];
-    return (k*(k+1.0)*(2*k+1.0))*exp(t);
-  case 3:
-    return ((2*k+1.0)/q)*exp(-k*(k+1.0)/q);
-  case 4:
-    k1 = k+1;
-    if (k == n-1) return 0.0;
-    if (k1 == 1) return LDist(cx, n, k, q, 1) + LDist(cx, n, 0, q, 1);
-    return LDist(cx, n, k, q, 1);
-  default:
-    if (md >= 100) {
-      if (k == md-100) return 1.0;
-      else return 0.0;
-    }
-    return LDist(cx, n, k, q, 0);
-  }
-}
-
 KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
   KRONOS *cx = &_kronos_cx[k];
   int i, j;
@@ -2381,7 +2361,7 @@ int ReadKronos(char *dn, int z, int k,
 	  }
 	} else {
 	  for (k1 = 0; k1 < na[i1]; k1++) {
-	    cx->cx0[nn+k1][j] = a*LDist(cx, na[i1], k1, c, md);
+	    cx->cx0[nn+k1][j] = a*LDist(cx->lnfac, na[i1], k1, c, md);
 	  }
 	}
       }

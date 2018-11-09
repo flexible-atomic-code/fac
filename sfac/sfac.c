@@ -1576,7 +1576,27 @@ static int PRecOccupation(int argc, char *argv[], int argt[],
 
   return 0;
 }
+ 
+static int PCXTable(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int nlow, *low, nup, *up;
   
+  if (argc != 3) return -1;
+  if (argt[0] != STRING) return -1;
+
+  nlow = SelectLevels(&low, argv[1], argt[1], variables);
+  if (nlow <= 0) return -1;
+  nup = SelectLevels(&up, argv[2], argt[2], variables);
+  if (nup <= 0) return -1;
+
+  SaveCX(nlow, low, nup, up, argv[0]);
+
+  free(low);
+  free(up);
+
+  return 0;
+}
+
 static int PRRTable(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   int nlow, *low, nup, *up, m;
@@ -1687,6 +1707,73 @@ static int PSetExtraPotential(int argc, char *argv[], int argt[],
   SetExtraPotential(m, n, p);
   return 0;
 }
+
+static int PSetCXTarget(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  double z, m, a, b, e, x;
+
+  if (argc < 1) return -1;
+  if (argt[0] != STRING) return -1;
+  a = -1.0;
+  b = -1.0;
+  e = -1.0;
+  x = -1;
+  z = 0;
+  m = 0;
+  if (argc > 1) {
+    a = atof(argv[1]);
+    if (argc > 2) {
+      b = atof(argv[2]);
+      if (argc > 3) {
+	e = atof(argv[3]);
+	if (argc > 4) {
+	  x = atof(argv[4]);
+	  if (argc > 5) {
+	    z = atof(argv[5]);
+	    if (argc > 6) {
+	      m = atof(argv[6]);      
+	    }
+	  }
+	}
+      }
+    }
+  }
+  return SetCXTarget(argv[0], a, b, e, x, z, m);
+}
+
+static int PSetCXEGrid(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  double *eg, e0, e1;
+  int n, ilog, t;
+
+  if (argc < 1) return -1;
+  ilog = 1;
+  t = 0;
+  if (argt[0] == LIST) {
+    n = DoubleFromList(argv[0], argt[0], variables, &eg);
+    if (argc > 1) {
+      ilog = atoi(argv[1]);
+      if (argc > 2) {
+	t = atoi(argv[2]);
+      }
+    }
+    SetCXEGrid(n, 0, 0, eg, ilog, t);
+    free(eg);
+    return 0;
+  }
+  n = atoi(argv[0]);
+  e0 = atof(argv[1]);
+  e1 = atof(argv[2]);
+  if (argc > 3) {
+    ilog = atoi(argv[3]);
+    if (argc > 4) {
+      t = atoi(argv[4]);
+    }
+  }
+  SetCXEGrid(n, e0, e1, NULL, ilog, t);
+  return 0;
+}
+
 static int PSetAtom(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   double z, mass, rn, a, npr;
@@ -4479,6 +4566,17 @@ static int PPrintQED(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrintCXTarget(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  char *fn;
+  fn = NULL;
+  if (argc > 0) {
+    fn = argv[0];
+  }
+  PrintCXTarget(fn);
+  return 0;
+} 
+
 static int PPrintNucleus(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int m;
@@ -4610,6 +4708,36 @@ static int PSetProcID(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PLandauZenerCX(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int n, k, m, i, ne;
+  double z, ei, *e0;
+  char *fn;
+
+  fn = NULL;
+  if (argt[0] == STRING) {
+    fn = argv[0];
+    i = 1;
+  } else {
+    i = 0;
+  }
+  n = atoi(argv[i++]);
+  k = atoi(argv[i++]);
+  m = atoi(argv[i++]);
+  z = atof(argv[i++]);
+  ne = DoubleFromList(argv[i], argt[i], variables, &e0);
+  i++;
+  ei = -1.0;
+  if (argc > i) {
+    ei = atof(argv[i])/HARTREE_EV;
+  }
+  if (ne > 0) {
+    LandauZenerBareCX(fn, n, k, m, z, ei, ne, e0);
+    free(e0);
+  }
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -4696,6 +4824,8 @@ static METHOD methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", PReinit, METH_VARARGS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"CXTable", PCXTable, METH_VARARGS},
+  {"SetCXEGrid", PSetCXEGrid, METH_VARARGS},
   {"RecOccupation", PRecOccupation, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
@@ -4707,6 +4837,7 @@ static METHOD methods[] = {
   {"SetBoundary", PSetBoundary, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
+  {"SetCXTarget", PSetCXTarget, METH_VARARGS},
   {"SetExtraPotential", PSetExtraPotential, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetCEGrid", PSetCEGrid, METH_VARARGS},
@@ -4795,6 +4926,7 @@ static METHOD methods[] = {
   {"CoulMultipole", PCoulMultip, METH_VARARGS}, 
   {"PrintQED", PPrintQED, METH_VARARGS},
   {"PrintNucleus", PPrintNucleus, METH_VARARGS},
+  {"PrintCXTarget", PPrintCXTarget, METH_VARARGS},
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
@@ -4806,6 +4938,7 @@ static METHOD methods[] = {
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

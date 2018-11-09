@@ -8,7 +8,7 @@ FFLAGSNO = @FFLAGSNO@
 
 TOPDIR = @TOPDIR@
 
-SRC = clogam.f f11.f coulcc.f y5n.f cphamp.f dlogam.f argam.f besljn.f beslik.f coulrad.f dcoul.f njsym.f njintr.f cmultip.f mohrfin.f
+SRC = clogam.f f11.f coulcc.f y5n.f cphamp.f dlogam.f argam.f besljn.f beslik.f coulrad.f dcoul.f njsym.f njintr.f cmultip.f mohrfin.f expint.f eione.f
 
 OBJS = ${SRC:.f=.o}
 

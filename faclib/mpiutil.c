@@ -695,3 +695,32 @@ void PtrSort(int n, char **r, int *k) {
   }
   free(rid);
 }
+
+double LDist(double *lnfac, int n, int k, int q, int md) {
+  double t;
+  int k1;
+  switch (md) {
+  case 0:
+    return (2.0*k+1.0)/(n*n);
+  case 1:
+    t = 2.0*lnfac[n-1] - lnfac[n+k] - lnfac[n-1-k];
+    return (2.0*k+1.0)*exp(t);
+  case 2:
+    if (n == 1) return 0.0;
+    t = lnfac[n-1]+lnfac[n-2]-lnfac[n+k]-lnfac[n-1-k];
+    return (k*(k+1.0)*(2*k+1.0))*exp(t);
+  case 3:
+    return ((2*k+1.0)/q)*exp(-k*(k+1.0)/q);
+  case 4:
+    k1 = k+1;
+    if (k == n-1) return 0.0;
+    if (k1 == 1) return LDist(lnfac, n, k, q, 1) + LDist(lnfac, n, 0, q, 1);
+    return LDist(lnfac, n, k, q, 1);
+  default:
+    if (md >= 100) {
+      if (k == md-100) return 1.0;
+      else return 0.0;
+    }
+    return LDist(lnfac, n, k, q, 0);
+  }
+}

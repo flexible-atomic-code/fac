@@ -27,6 +27,26 @@ USE (rcsid);
 #endif
 
 static NUCLEUS atom;
+static CXTGT cxtgt;
+
+#define N_CXT 12
+#define N_CXS 32
+static char _cxtname[N_CXT][N_CXS] = {
+  "H", "He", "H2", "H2O", "CO", "CO2", "O2", "N2", "Ne", "Ar", "Kr", "Xe"
+};
+
+static double _polarizability[N_CXT] = {
+  4.5, 1.383, 5.5, 9.82, 12.05, 19.3, 10.4, 11.16, 2.67, 11.08, 16.77, 27.34
+};
+
+static double _screening[N_CXT] = {
+  1.8, 2.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+};
+
+static double _ionpot[N_CXT] = {
+  0.49973, 0.90357, 0.567, 0.4638, 0.515, 0.5063, 0.44355, 0.5726, 0.7925, 0.5792, 0.5145, 0.4458
+};
+
 static char _ename[N_ELEMENTS][3] = 
 {"H", "He", "Li", "Be", "B", "C", "N", "O", "F",
  "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", 
@@ -1466,4 +1486,131 @@ double GetAtomicEffectiveZ(double r) {
 
 double GetAtomicR(void) {
   return atom.rn;
+}
+
+int SetCXTarget(char *s, double a, double b, double e,
+		double x, double z, double m) {
+  char *p, *p0;
+  char sa[3];
+  int i, k, n;
+  double z0, m0;
+  
+  strncpy(cxtgt.symbol, s, 128);
+  StrTrim(cxtgt.symbol, '\0');
+  cxtgt.a = a;
+  cxtgt.b = b;
+  cxtgt.e = e/HARTREE_EV;
+  cxtgt.x = x;
+  cxtgt.z = z;
+  cxtgt.m = m;  
+  if (a > 0 && b > 0 && e > 0 && z > 0 && m > 0) return 0;
+  for (i = 0; i < N_CXT; i++) {
+    if (0 == strncmp(s, _cxtname[i], N_CXS)) {
+      if (cxtgt.a <= 0) {
+	cxtgt.a = _polarizability[i];
+      }
+      if (cxtgt.b <= 0) {
+	cxtgt.b = _screening[i];
+	if (cxtgt.b <= 0) {
+	  cxtgt.b = 0.936 + (_ionpot[i]/_ionpot[0])*(_screening[0]-0.936);
+	}
+      }
+      if (cxtgt.e <= 0) {
+	cxtgt.e = _ionpot[i];
+      }
+    }
+  }
+  p0 = s;
+  p = s;
+  k = 0;
+  z0 = 0.0;
+  m0 = 0.0;
+  n = 1;
+  while (1) {
+    if (*p) {
+      if (isupper(*p)) {
+	if (k == 0) {
+	  sa[k] = *p;
+	  p++;
+	  k++;
+	  continue;
+	} else {
+	  sa[k] = '\0';
+	}
+      } else if (islower(*p)) {
+	sa[k] = *p;
+	p++;
+	k++;
+	continue;
+      } else if (isdigit(*p)) {
+	n = atoi(p);
+	p++;
+	if (n >= 10) p++;
+	if (n >= 100) p++;
+	continue;
+      }
+    } else {
+      sa[k] = '\0';
+    }
+    if (sa[k] == '\0') {      
+      for (i = 0; i < N_ELEMENTS; i++) {
+	if (strncasecmp(_ename[i], sa, 2) == 0) {
+	  z0 += (i+1)*n;
+	  m0 += _emass[i]*n;
+	  break;
+	}
+      }
+      if (i >= N_ELEMENTS) {
+	printf("cannot determine atom: %s\n", sa);
+	return -1;
+      }
+      k = 0;
+      n = 1;
+    }
+    if (! *p) {
+      break;
+    }
+  }
+  if (z <= 0) {
+    cxtgt.z = z0;
+  }
+  if (m <= 0) {
+    cxtgt.m = m0;
+  }
+  if (cxtgt.z <= 0 || cxtgt.m <= 0) {
+    printf("cannot determine cx target: %s\n", s);
+    return -1;
+  }
+  return 0;
+}
+
+CXTGT *GetCXTarget() {
+  return &cxtgt;
+}
+
+void PrintCXTarget(char *fn) {
+  FILE *f;
+
+  if (fn == NULL || strlen(fn) == 0 || strcmp(fn, "-")==0) {
+    f = stdout;
+  } else {
+    f = fopen(fn, "w");
+    if (f == NULL) {
+      printf("cannot open cx target output file: %s\n", fn);
+      return;
+    }
+  }
+
+  fprintf(f, "t: %s\n", cxtgt.symbol);
+  fprintf(f, "z: %g\n", cxtgt.z);
+  fprintf(f, "m: %g\n", cxtgt.m);
+  fprintf(f, "a: %g\n", cxtgt.a);
+  fprintf(f, "b: %g\n", cxtgt.b);
+  fprintf(f, "e: %g\n", cxtgt.e);
+  fprintf(f, "x: %g\n", cxtgt.x);
+  
+  fflush(f);
+  if (f != stdout) {
+    fclose(f);
+  }
 }

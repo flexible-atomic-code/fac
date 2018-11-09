@@ -36,6 +36,11 @@ typedef struct _NUCLEUS_ {
   double epp[NEP][NEPP];
 } NUCLEUS;
 
+typedef struct _CXTGT_ {
+  char symbol[128];
+  double z, m, a, b, e, x;
+} CXTGT;
+  
 void PrintNucleus();
 int InitNucleus();
 double GraspRRMS(double z, double m);
@@ -51,6 +56,10 @@ double GetExtraZ(double r, int iep);
 void SetExtraPotential(int m, int n, double *p);
 double GetAtomicChargeDist(double r);
 NUCLEUS *GetAtomicNucleus(void);
+int SetCXTarget(char *s, double a, double b, double e, double x,
+		double z, double m);
+CXTGT *GetCXTarget(void);
+void PrintCXTarget(char *fn);
 
 #endif
 

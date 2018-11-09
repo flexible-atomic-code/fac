@@ -103,5 +103,12 @@ void SetOptionRecombination(char *s, char *sp, int ip, double dp);
 int RecOccupation(int **nk, double **nq, double **dn,
 		  double *eb, int rec, int f);
 int SaveRecOccupation(int nlow, int *low, int nup, int *up, char *fn);
-
+double LandauZenerCX(CXTGT *cx, int n, int k, int m,
+		     double z, double e0, double ei, 
+		     double *orx, double *ov12, double *ovdr,
+		     double *olam, double *ode);
+void LandauZenerBareCX(char *fn, int n, int k, int m, double z,
+		       double ei, int ne0, double *e0);
+int SaveCX(int nlow, int *low, int nup, int *up, char *fn);
+int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t);
 #endif

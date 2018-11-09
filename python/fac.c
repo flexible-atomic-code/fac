@@ -1268,6 +1268,56 @@ static PyObject *PSetExtraPotential(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PSetCXTarget(PyObject *self, PyObject *args) {
+  char *s;
+  double z, m, a, b, e, x;
+  
+  if (sfac_file) {
+    SFACStatement("SetCXTarget", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  a = -1.0;
+  b = -1.0;
+  e = -1.0;
+  z = 0;
+  m = 0.0;
+  x = -1.0;
+  if (!PyArg_ParseTuple(args, "s|dddddd", &s, &a, &b, &e, &x, &z, &m)) {
+    return NULL;
+  }
+  int r = SetCXTarget(s, a, b, e, x, z, m);
+  if (r < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetCXEGrid(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetCXEGrid", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double *eg, e0, e1;
+  int n, ilog, t;
+  PyObject *p;
+
+  ilog = 1;
+  t = 0;
+  p = PyTuple_GET_ITEM(args, 0);
+  if (PyList_Check(p)) {
+    n = DoubleFromList(p, &eg);
+    if (!PyArg_ParseTuple(args, "O|ii", &p, &ilog, &t)) return NULL;
+    SetCXEGrid(n, 0, 0, eg, ilog, t);
+  } else {
+    if (!PyArg_ParseTuple(args, "idd|ii", &n, &e0, &e1, &ilog, &t)) return NULL;
+    SetCXEGrid(n, e0, e1, NULL, ilog, t);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   char *s;
   double z, mass, rn, a, npr;
@@ -3175,6 +3225,31 @@ static PyObject *PRecOccupation(PyObject *self, PyObject *args) {
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
   SaveRecOccupation(nlow, low, nup, up, s);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PCXTable(PyObject *self, PyObject *args) { 
+  int nlow, *low, nup, *up;
+  char *s;
+  PyObject *p, *q;
+  
+  if (sfac_file) {
+    SFACStatement("CXTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) {
+    printf("Unrecognized parameters in CXTable\n");
+    return NULL;
+  }
+  nlow = SelectLevels(p, &low);
+  nup = SelectLevels(q, &up);
+  SaveCX(nlow, low, nup, up, s);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -5582,6 +5657,20 @@ static PyObject *PPrintQED(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PPrintCXTarget(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrintCXTarget", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *fn;
+  fn = NULL;
+  if (!(PyArg_ParseTuple(args, "|s", &fn))) return NULL;
+  PrintCXTarget(fn);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PPrintNucleus(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("PrintNucleus", args, NULL);
@@ -5787,6 +5876,37 @@ static PyObject *PSetProcID(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PLandauZenerCX(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("LandauZenerCX", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *fn;
+  int n, k, m, i, ne;
+  double z, ei, *e0;
+  PyObject *p, *q;
+  p = PyTuple_GetItem(args, 0);
+  ei = -1.0;
+  if (PyUnicode_Check(p)) {
+    if (!(PyArg_ParseTuple(args, "siiidO|d", &fn, &n, &k, &m, &z, &q, &ei))) {
+      return NULL;
+    }
+  } else {
+    if (!(PyArg_ParseTuple(args, "iiidO|d", &n, &k, &m, &z, &q, &ei))) {
+      return NULL;
+    }
+    fn = NULL;
+  }
+  ne = DoubleFromList(q, &e0);
+  if (ne > 0) {
+    LandauZenerBareCX(fn, n, k, m, z, ei, ne, e0);
+    free(e0);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5883,6 +6003,8 @@ static struct PyMethodDef fac_methods[] = {
   {"ReinitIonization", PReinitIonization, METH_VARARGS},
   {"Reinit", (PyCFunction) PReinit, METH_VARARGS|METH_KEYWORDS},
   {"RRTable", PRRTable, METH_VARARGS},
+  {"CXTable", PCXTable, METH_VARARGS},
+  {"SetCXEGrid", PSetCXEGrid, METH_VARARGS},
   {"RecOccupation", PRecOccupation, METH_VARARGS},
   {"RRMultipole", PRRMultipole, METH_VARARGS},
   {"SaveRadialMultipole", PSaveRadialMultipole, METH_VARARGS},
@@ -5893,6 +6015,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCILevel", PSetCILevel, METH_VARARGS},
   {"SetMixCut", PSetMixCut, METH_VARARGS},
   {"SetAtom", PSetAtom, METH_VARARGS},
+  {"SetCXTarget", PSetCXTarget, METH_VARARGS},
   {"SetExtraPotential", PSetExtraPotential, METH_VARARGS},
   {"SetAvgConfig", PSetAvgConfig, METH_VARARGS},
   {"SetBoundary", PSetBoundary, METH_VARARGS},
@@ -5997,6 +6120,7 @@ static struct PyMethodDef fac_methods[] = {
   {"BreitX", PBreitX, METH_VARARGS},
   {"PrintQED", PPrintQED, METH_VARARGS},
   {"PrintNucleus", PPrintNucleus, METH_VARARGS},
+  {"PrintCXTarget", PPrintCXTarget, METH_VARARGS},
   {"SavePotential", PSavePotential, METH_VARARGS},
   {"RestorePotential", PRestorePotential, METH_VARARGS},
   {"ModifyPotential", PModifyPotential, METH_VARARGS},
@@ -6007,6 +6131,7 @@ static struct PyMethodDef fac_methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {NULL, NULL}
 };
 

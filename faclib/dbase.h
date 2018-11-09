@@ -40,7 +40,8 @@
 #define DB_CEF 14
 #define DB_CEMF 15
 #define DB_RO 16
-#define NDB   16
+#define DB_CX 17
+#define NDB   17
 
 #define LNCOMPLEX   32
 #define LSNAME0 24
@@ -440,6 +441,26 @@ typedef struct _RO_RECORD_ {
   double *dn;
 } RO_RECORD;
 
+typedef struct _CX_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  char tgts[128];
+  double tgtz, tgtm, tgta, tgtb, tgte, tgtx;
+  int ldist;
+  int te0;
+  int ne0;
+  double *e0;
+} CX_HEADER;
+
+typedef struct _CX_RECORD_ {
+  int b;
+  int f;
+  int vnl;
+  double *cx;
+} CX_RECORD;
+  
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
  * files directly. to do so, copy consts.h, dbase.h, and dbase.c
@@ -481,6 +502,8 @@ int ReadDRHeader(TFILE *f, DR_HEADER *h, int swp);
 int ReadDRRecord(TFILE *f, DR_RECORD *r, int swp);
 int ReadROHeader(TFILE *f, RO_HEADER *h, int swp);
 int ReadRORecord(TFILE *f, RO_RECORD *r, int swp);
+int ReadCXHeader(TFILE *f, CX_HEADER *h, int swp);
+int ReadCXRecord(TFILE *f, CX_RECORD *r, int swp, CX_HEADER *h);
 void CEMF2CEFHeader(CEMF_HEADER *mh, CEF_HEADER *h);
 void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh, 
 		    int ith, int iph);
@@ -512,6 +535,7 @@ int WriteSPHeader(TFILE *f, SP_HEADER *h);
 int WriteRTHeader(TFILE *f, RT_HEADER *h);
 int WriteDRHeader(TFILE *f, DR_HEADER *h);
 int WriteROHeader(TFILE *f, RO_HEADER *h);
+int WriteCXHeader(TFILE *f, CX_HEADER *h);
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
@@ -565,6 +589,10 @@ int WriteRORecord(TFILE *f, RO_RECORD *r);
 int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianROHeader(RO_HEADER *h);
 int SwapEndianRORecord(RO_RECORD *r);
+int WriteCXRecord(TFILE *f, CX_RECORD *r);
+int PrintCXTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
+int SwapEndianCXHeader(CX_HEADER *h);
+int SwapEndianCXRecord(CX_RECORD *r);
 int WriteAIRecord(TFILE *f, AI_RECORD *r);
 int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianAIHeader(AI_HEADER *h);
