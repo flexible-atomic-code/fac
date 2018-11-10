@@ -28,7 +28,7 @@ C   S. BIENSTOCK, VERSION OF DECEMBER 5, 1982.
          EXPINT = X4 + A1*X3 + A2*X2 + A3*X1 + A4
          EXPINT = EXPINT/(X4 + B1*X3 + B2*X2 + B3*X1 + B4)
          EXPINT = EXPINT/X
-      ELSE IF (X .LT. 1D-5) THEN
+      ELSE IF (X .LT. 1D-3) THEN
          A0 = -0.57721566
          A1 = 0.99999193
          A2 = -0.24991055
