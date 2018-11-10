@@ -3061,7 +3061,9 @@ double LandauZenerDEDR(CXTGT *cx, double z, double r, double *lam) {
   *lam = 0.5*v1 - v2;
   if (mu < 0) mu = 0.0;  
   if (*lam < 0) *lam = 0.0;
-  mu *= 1.0-exp(-r/r0);
+  if (r0 > 0) {
+    mu *= 1.0-exp(-r/r0);
+  }
   return vdr+mu;
 }
 
@@ -3117,16 +3119,6 @@ double LandauZenerRX(CXTGT *cx, double z, double de, double r) {
   }
   r = 0.5*(r0+r1);
   return r;
-}
-
-double LandauZenerWK(double b) {
-  if (b < 1e-5) {
-    return log((1-b)*b);
-  }
-  if (b > 10) {
-    return -b + exp(-b);
-  }
-  return -b + log(1-exp(-b));
 }
 
 double LandauZenerLD(int n, int k, int q, double j) {
@@ -3222,8 +3214,8 @@ double LandauZenerCX(CXTGT *cx, int n, int k, int m,
   beta = TWO_PI*v12*v12/(v*vdr*sqrt(1+elam));
   if (beta <= 0) return 0.0;
   double eb = exp(-beta);
-  if (beta < 1e-5) {
-    f3 = eb*0.5*beta;
+  if (beta < 1e-3) {
+    f3 = beta;
   } else {
     f3 = eb*(EXPINT(beta, 3) - eb*EXPINT(2*beta, 3));  
     if (f3 < 0) f3 = 0.0;
