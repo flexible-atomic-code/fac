@@ -2279,8 +2279,15 @@ function be called before \key{OptimizeRadial} and after
 \begin{fundesc}{BasisTable}{fn\opt{,m}}
 Print out a table of basis wavefunctions and mixing coefficients in the file
 \var{fn}. If \var{m} is 0, then the basis table for the ordinary atom is
-given, otherwise, the basis table for atom in magnetic and electric fields are
+given. If \var{m} is 1, the basis table for atom in magnetic and electric fields are
 given.
+
+If \var{m} is 10, this function generates multiple files (\var{fn}\_***.c and
+\var{fn}\_***.cm), which are RASP2K-compatible-basis list file and mixing
+coefficients files.
+It makes it easy to use GRASP2K.JJ2LS module to get \var{LS}-coupling notation.
+However, some bugs should be corrected before using GRASP2K.JJ2LS.
+See https://github.com/flexible-atomic-code/fac/tree/master/doc/misc/jj2lsj.md for the details.
 \end{fundesc}
 
 \begin{fundesc}{CECross}{ifn, ofn, low, up, e\opt{, m}}
@@ -3353,7 +3360,7 @@ configurations in the optional groups \var{p} are allowed to interact with
 if \var{ip}=1, this interaction is treated approximately in a way that the
 non-diagonal elements within \var{p} are neglected. The energy levels are
 output to the file \var{fn}.
-If you specify \var{hfn}, the Hamiltonian is saved to the file \var{hfn} in the 
+If you specify \var{hfn}, the Hamiltonian is saved to the file \var{hfn} in the
 binary format.
 %
 To read the saved Hamiltonian, use \texttt{rfac.read\_ham}.
