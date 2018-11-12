@@ -430,19 +430,36 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
     if (ip[1] == 0) y = cx->cx0[ip[2]];
     else y = cx->cx1[ip[2]];
   }
+  double v = VelocityFromE(e1, AMU);
   if (e < cx->ep[0]) e = cx->ep[0];
-  if (e > cx->ep[cx->nep-1]) e = cx->ep[cx->nep-1];
-  UVIP3P(n, cx->nep, x, y, one, &e, &r);
-  if (cx->ilog & 2) {
-    if (r < -300) r = 0.0;
-    else r = exp(r);
+  if (e > cx->ep[cx->nep-1]) {
+    if (v >= 0.33) return 0.0;
+    r = y[cx->nep-1];
+    double vx = cx->ep[cx->nep-1];
+    if (cx->ilog & 1) {
+      vx = exp(vx);
+    }
+    vx = VelocityFromE(vx, AMU);
+    vx = 0.33/vx;
+    if (cx->ilog & 2) {
+      if (r < -300) r = 0.0;
+      else {
+	r = exp(r)/log(vx);
+      }
+    }
+    r *= log(0.33/v);
+  } else {    
+    UVIP3P(n, cx->nep, x, y, one, &e, &r);
+    if (cx->ilog & 2) {
+      if (r < -300) r = 0.0;
+      else r = exp(r);
+    }
   }
   if (ip[0] == 2) {
     r *= AREA_AU20;
   } else {
     r *= 1e4;
   }
-  double v = VelocityFromE(e1, AMU);
   r *= v;
   return r;
 }

@@ -1518,6 +1518,131 @@ with $M_i \ge 0$ can be obtained using time reversal symmetry.
 
 \end{dbdesc}
 
+\subsection{\texttt{RO\_HEADER}}
+\index{RO\_HEADER}
+\texttt{RO\_HEADER} is the data header for recombination orbital occupancy
+file. This file tabulates the weight of each recombining orbital for a given
+bound-free channel.
+
+\begin{verbatim}
+typedef struct _RO_HEADER_ {
+  long position;
+  long length;
+  int nele;
+  int ntransitions;
+} RO_HEADER;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{long position}:] The number of bytes from the beginning of the
+file to the place where this data block starts.
+\item[\texttt{long length}:] Number of bytes in this data block, excluding the
+length of the header.
+\item[\texttt{int nele}:] Number of electrons in the ion for this block.
+\item[\texttt{int ntransitions}:] Number of transitions in this block.
+\end{dbdesc}
+
+\subsection{\texttt{RO\_RECORD}}
+\index{RO\_RECORD}
+\texttt{RO\_RECORD} is for recombination orbital occupancy data. The weight
+factors for each orbital can be used to convert Hydrogenic recombination or
+ionization cross section into those between fine-structure levels.
+
+\begin{verbatim}
+typedef struct _RO_RECORD_ {
+  int b;
+  int f;
+  int n;
+  int *nk;
+  double *nq;
+  double *dn;
+} CIM_ROCORD;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{int b}:] The bound state index.
+\item[\texttt{int f}:] The free state index.
+\item[\texttt{int n}:] Number of recombining orbitals for this channel.
+\item[\texttt{int *nk}:] Decompose to $+/-(n\times100+k)$, where n is the
+  principle 
+  quantum number of orbital, k is the orbital quantum number. if positive,
+  the total angular momentum is $k+\frac{1}{2}$, if negative the total angular
+  momentum is $k-\frac{1}{2}$.
+\item[\texttt{double *nq}:] The weight of each recombining orbital.
+\item[\texttt{double *dn}:] The quantum defect of the recombining orbital
+  
+\end{dbdesc}
+\subsection{\texttt{CX\_HEADER}}
+\index{CX\_HEADER}
+\texttt{CX\_HEADER} is the data header for charge exchange cross section data.
+
+\begin{verbatim}
+typedef struct _CX_HEADER_ {
+  long position;
+  long length;
+  int nele;
+  int ntransitions;
+  char tgts[128];
+  double tgtz;
+  double tgtm;
+  double tgta;
+  double tgtb;
+  double tgte;
+  double tgtx;
+  int ldist;
+  int te0;
+  int ne0;
+  double *e0;
+} CX_HEADER;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{long position}:] The number of bytes from the beginning of the
+file to the place where this data block starts.
+\item[\texttt{long length}:] Number of bytes in this data block, excluding the
+length of the header.
+\item[\texttt{int nele}:] Number of electrons in the ion for this block.
+\item[\texttt{int ntransitions}:] Number of transitions in this block.
+\item[\texttt{char tgts[128]}:] The chemical symbol of the neutral target.
+\item[\texttt{double tgtz}:] The total nuclear charge of the target.
+\item[\texttt{double tgtm}:] The mass of target in AMU.
+\item[\texttt{double tgta}:] The static dipole polarizability of the target.
+\item[\texttt{double tgtb}:] The screening parameter of the short-range
+  inter-nucleus potention.
+\item[\texttt{double tgte}:] The ionization potential of the target.
+\item[\texttt{double tgtx}:] A parameter to soften the polarization potential
+  at very short distrance.
+\item[\texttt{int te0}:] Indicate the unit of the collision energy, 0 for per
+  AMU, 1 for per ion.
+\item[\texttt{int ne0}:] Number of collision energy points.
+\item[\texttt{double *e0}:] The collision energy grid.
+\end{dbdesc}
+
+\subsection{\texttt{RO\_RECORD}}
+\index{CX\_RECORD}
+\texttt{CX\_RECORD} is for charge exchange cross section data.
+
+\begin{verbatim}
+typedef struct _RO_RECORD_ {
+  int b;
+  int f;
+  int n;
+  int vnl;
+  double *cx;
+} CIM_ROCORD;
+\end{verbatim}
+
+\begin{dbdesc}
+\item[\texttt{int b}:] The bound state index.
+\item[\texttt{int f}:] The free state index.
+\item[\texttt{int vnl}:] Decompose to $n\times 100+k$, where n is the
+  principle quantum number of orbital, k is the orbital quantum number of the
+  captured electron.
+\item[\texttt{double *cx}:] The cross sections on the energy grid defined in
+  the \texttt{CX\_HEADER}.
+  
+\end{dbdesc}
+
 \section{ASCII Format}
 \index{ASCII Format}
 FAC provides functions to convert the binary output to ASCII files. There are
@@ -2132,6 +2257,131 @@ NUSR	= 2
  ......
 \end{verbatim}
 
+\subsection{\texttt{DB\_RO}}
+\index{DB\_RO}
+\begin{verbatim}
+FAC 1.1.5
+Endian	= 0
+TSess	= 1542047284
+Type	= 16
+Verbose	= 1
+C Z	=   6.0
+NBlocks	= 14
+
+NELE	= 3
+NTRANS	= 3
+#  bound  free Energy            index  norbs  vnl  weight       quantum defect
+     0    224  6.42565608E+01      0     14    200  1.99718E+00  1.97709E-01
+     0    224  6.42565608E+01      1     14    300  2.02816E-03  1.86719E-01
+     0    224  6.42565608E+01      2     14    400  4.12667E-04  1.84284E-01
+     0    224  6.42565608E+01      3     14    500  1.59235E-04  1.83286E-01
+     0    224  6.42565608E+01      4     14    600  7.97438E-05  1.82775E-01
+     0    224  6.42565608E+01      5     14    700  4.61200E-05  1.82477E-01
+     0    224  6.42565608E+01      6     14    800  2.92428E-05  1.82288E-01
+     0    224  6.42565608E+01      7     14    900  1.97715E-05  1.82161E-01
+......
+\end{verbatim}
+
+\subsection{\texttt{DB\_CX}}
+\index{DB\_CX}
+\begin{verbatim}
+FAC 1.1.5
+Endian	= 0
+TSess	= 1542048606
+Type	= 17
+Verbose	= 1
+C Z	=   6.0
+NBlocks	= 13
+
+NELE	= 3
+NTRANS	= 3
+TGTS	= H
+TGTZ	= 1
+TGTM	= 1.008
+TGTA	= 4.5
+TGTB	= 1.8
+TGTE	= 0.49973
+TGTX	= -1
+LDIST	= 5
+TE0	= 0
+NE0	= 36
+	  1.00000000E-02
+	  1.58489319E-02
+	  2.51188643E-02
+	  3.98107171E-02
+	  6.30957344E-02
+	  1.00000000E-01
+	  1.58489319E-01
+	  2.51188643E-01
+	  3.98107171E-01
+	  6.30957344E-01
+	  1.00000000E+00
+	  1.58489319E+00
+	  2.51188643E+00
+	  3.98107171E+00
+	  6.30957344E+00
+	  1.00000000E+01
+	  1.58489319E+01
+	  2.51188643E+01
+	  3.98107171E+01
+	  6.30957344E+01
+	  1.00000000E+02
+	  1.58489319E+02
+	  2.51188643E+02
+	  3.98107171E+02
+	  6.30957344E+02
+	  1.00000000E+03
+	  1.58489319E+03
+	  2.51188643E+03
+	  3.98107171E+03
+	  6.30957344E+03
+	  1.00000000E+04
+	  1.58489319E+04
+	  2.51188643E+04
+	  3.98107171E+04
+	  6.30957344E+04
+	  1.00000000E+05
+# bound 2J  free  2J vnl  Energy
+     0  1    224  0  200  6.42565608E+01
+# Energy      cross section
+ 1.00000E-02  6.31443E-11
+ 1.58489E-02  1.00078E-10
+ 2.51189E-02  1.58615E-10
+ 3.98107E-02  2.51393E-10
+ 6.30957E-02  3.98440E-10
+ 1.00000E-01  6.31503E-10
+ 1.58489E-01  1.00090E-09
+ 2.51189E-01  1.58639E-09
+ 3.98107E-01  2.51441E-09
+ 6.30957E-01  3.98536E-09
+ 1.00000E+00  6.31696E-09
+ 1.58489E+00  1.00131E-08
+ 2.51189E+00  1.58811E-08
+ 3.98107E+00  2.54417E-08
+ 6.30957E+00  4.49154E-08
+ 1.00000E+01  1.20142E-07
+ 1.58489E+01  5.39695E-07
+ 2.51189E+01  2.65845E-06
+ 3.98107E+01  1.26490E-05
+ 6.30957E+01  7.57326E-05
+ 1.00000E+02  6.87748E-04
+ 1.58489E+02  5.49272E-03
+ 2.51189E+02  3.13705E-02
+ 3.98107E+02  1.29338E-01
+ 6.30957E+02  4.04120E-01
+ 1.00000E+03  1.00231E+00
+ 1.58489E+03  2.05237E+00
+ 2.51189E+03  3.58498E+00
+ 3.98107E+03  5.48974E+00
+ 6.30957E+03  7.54018E+00
+ 1.00000E+04  9.46891E+00
+ 1.58489E+04  1.10486E+01
+ 2.51189E+04  1.21412E+01
+ 3.98107E+04  1.27048E+01
+ 6.30957E+04  1.27725E+01
+ 1.00000E+05  1.24245E+01
+\end{verbatim}
+
 \chapter{FAC Function Reference}
 \label{cha:function}
 \index{Functions}
@@ -2283,7 +2533,7 @@ given. If \var{m} is 1, the basis table for atom in magnetic and electric fields
 given.
 
 If \var{m} is 10, this function generates multiple files (\var{fn}\_***.c and
-\var{fn}\_***.cm), which are RASP2K-compatible-basis list file and mixing
+\var{fn}\_***.cm), which are GRASP2K-compatible-basis list file and mixing
 coefficients files.
 It makes it easy to use GRASP2K.JJ2LS module to get \var{LS}-coupling notation.
 However, some bugs should be corrected before using GRASP2K.JJ2LS.
@@ -2338,16 +2588,16 @@ configuration groups \var{b} to those in the free configuration groups
 \var{f}. The results are saved in the file \var{fn}.
 \end{fundesc}
 
-\begin{fundesc}{CITableMSub}{fn, b, f}
-Calculate the magnetic sublevel collision strength for the ionization of
-states in the bound configuration groups \var{b} to those in the free
-configuration groups \var{f}. The results are saved in the file \var{fn}.
-\end{fundesc}
-
 \begin{fundesc}{CheckEndian}{\opt{fn}}
 Check the byte order of database file \var{fn}. It returns 0 for little endian
 and 1 for big endian. If the optional file name \var{fn} is omitted, the
 endian for the current platform is returned.
+\end{fundesc}
+
+\begin{fundesc}{CITableMSub}{fn, b, f}
+Calculate the magnetic sublevel collision strength for the ionization of
+states in the bound configuration groups \var{b} to those in the free
+configuration groups \var{f}. The results are saved in the file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{ClearLevelTable}{}
@@ -2446,6 +2696,12 @@ as shifts to be added to the energyies calculated by FAC.
 For each levels in the group list \var{g0}, eliminate all mixing components
 that are not in the group list \var{g1} or the mixing coefficients less than
 \var{c}.
+\end{fundesc}
+
+\begin{fundesc}{CXTable}{fn, b, f}
+Calculate the charge exchange cross sections between bound $b$ and free $f$
+configuration groups. The results are saved in the file \var{fn}. The
+multi-channel Landau-Zener approximation is used.
 \end{fundesc}
 
 \begin{fundesc}{DROpen}{g}
@@ -2630,6 +2886,11 @@ Convert the binary database file \var{fnb} to the ASCII file \var{fna}. The
 optional argument \var{v} = 1 requires the conversion be done in verbose
 mode, otherwise it is done in simple mode. Note that before conversion in
 verbose mode is carried out, one must call \key{MemENTable} first.
+\end{fundesc}
+
+\begin{fundesc}{PrintNucleus}{\opt{m,fn}}
+Print the nucleus model in file \var{fn} if given, or to stdout. if $m=1$ use
+the GRASP isodata format.
 \end{fundesc}
 
 \begin{fundesc}{PrintQED}{}
@@ -2853,6 +3114,11 @@ groups, for target and correlation configurations respectively. The atomic
 structure for both $t$ and $c$ must have been solved with \key{Structure}.
 \end{fundesc}
 
+\begin{fundesc}{ROTable}{fn, b, f}
+Calcualate the recombination orbital occupancy data between bound $b$ and free
+$f$ configuration groups. The results are saved in file \var{fn}.
+\end{fundesc}
+
 \begin{fundesc}{RRCrossH}{Z, E, n, l}
 Calculate the radiative recombination cross section of bare ion with nuclear
 charge \var{Z} at electron energy \var{E}, onto the non-relativisitc subshell
@@ -3056,6 +3322,18 @@ ionization.
 Set the computation mode for the ionization radial integrals. \var{mode} may
 be a string or an integer specifying the mode. These values are listed in the
 variable \key{QKMODE}.
+\end{fundesc}
+
+\begin{fundesc}{SetCXTarget}{s}
+Set the charge exchange neutral target with chemical symbol $s$, e.g., H, H2,
+H2O, etc.
+\end{fundesc}
+
+\begin{fundesc}{SetCXEGrid}{n, e0, e1, s, t|e, s, t}
+Set the charge exchange collision energy grid. in the first form, a grid is
+setup with $n$ points from $e0$ to $e1$. In the second form, the grid is taken
+from the list $e$. If $s$ is 1, the grid is setup in logrithmic scale. If $t$
+is 1, the energies are given per ion instead of per AMU.
 \end{fundesc}
 
 \begin{fundesc}{SetDisableConfigEnergy}{m}
@@ -3650,6 +3928,11 @@ input file \var{fn}. The resulting file can then be run using the \key{scrm}
 executable. This routine is only available in PFAC interface.
 \end{fundesc}
 
+\begin{fundesc}{CxtDist}{fn, n}
+Calculate the charge exchange collision energy distribution function, and
+print it to file \var{fn}, using \var{n} energy points. The distribution must be already set.
+\end{fundesc}
+
 \begin{fundesc}{DRBranch}{}
 Calculate the radiative branching ratios of all autoionizing states. It is
 calculated iteratively using:
@@ -3983,6 +4266,27 @@ three-body recombination rates are also set (not implemented yet).
 If \var{c}=1,  some levels should be treated in cascade approximation. The
 optional \var{a} specifies the accuracy in the cascade iteration. The default
 is $10^{-4}$.
+\end{fundesc}
+
+\begin{fundesc}{SetCxtDensity}{den}
+  Set the charge exchange neutral taget density in unit of $10^{10}$ cm$^{-3}$.
+\end{fundesc}
+
+\begin{fundesc}{SetCxtDist}{i, ...}
+  Set the charge exchange collision energy distribution.
+\end{fundesc}
+
+\begin{fundesc}{SetCXRate}{m|t}
+  Set the charge exchange rates. If $m=2$, the charge exchange cross sections
+  are read from FAC \texttt{DB\_CX} data file. If $m=0$, the cross sections
+  are from Kronos db read by a previous ReadKronos call. In this mode, the
+  data for the ion must be present in the Kronos db. If $m=1$, the bare charge
+  exchange cross sections in the Kronos db is converted into fine-structure
+  cross sections with the help of the FAC \texttt{DB\_RO} data. If $m\ge 10$,
+  the second digit indicate if the energy is given per ion instead of per
+  AMU. \var{t} specifies the charge exchange neutral target's chemical
+  symbol. It is used to select the appropriate sections in the \texttt{DB\_CX}
+  data file when $m=2$.
 \end{fundesc}
 
 \begin{fundesc}{SetEleDensity}{den}

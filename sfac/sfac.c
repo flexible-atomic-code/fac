@@ -4710,8 +4710,8 @@ static int PSetProcID(int argc, char *argv[], int argt[],
 
 static int PLandauZenerCX(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int n, k, m, i, ne;
-  double z, ei, *e0;
+  int i, ne, ldm;
+  double z, *e0;
   char *fn;
 
   fn = NULL;
@@ -4721,18 +4721,15 @@ static int PLandauZenerCX(int argc, char *argv[], int argt[],
   } else {
     i = 0;
   }
-  n = atoi(argv[i++]);
-  k = atoi(argv[i++]);
-  m = atoi(argv[i++]);
   z = atof(argv[i++]);
   ne = DoubleFromList(argv[i], argt[i], variables, &e0);
   i++;
-  ei = -1.0;
+  ldm = -1;
   if (argc > i) {
-    ei = atof(argv[i])/HARTREE_EV;
+    ldm = atoi(argv[i]);
   }
   if (ne > 0) {
-    LandauZenerBareCX(fn, n, k, m, z, ei, ne, e0);
+    LandauZenerBareCX(fn, z, ne, e0, ldm);
     free(e0);
   }
   return 0;

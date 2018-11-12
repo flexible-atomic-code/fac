@@ -2152,7 +2152,7 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
   double *mass, mion, *xe, *xs;
-  double x, tc, e;
+  double x, tc, e, v;
   
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
@@ -2222,9 +2222,18 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
 	      x /= mion;
 	    }
 	  }
-	  x = log(x);
-	  UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
-	  tc = exp(tc);	  
+	  if (x > h.e0[h.ne0-1]) {
+	    v = sqrt(2*x/AMU);
+	    if (v >= 15.0) tc = 0.0;
+	    else {
+	      tc = sqrt(2*h.e0[h.ne0-1]/AMU);
+	      tc = r.cx[h.ne0-1]*log(15.0/v)/log(15.0/tc);
+	    }
+	  } else {
+	    x = log(x);
+	    UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
+	    tc = exp(tc);
+	  }
 	  fprintf(f2, "%12.5E %12.5E\n", egy[t]*HARTREE_EV, tc*AREA_AU20);
 	}
 	fprintf(f2, "\n\n");
@@ -2553,7 +2562,7 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
   double *mass, mion, *xe, *xs;
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1]; 
-  double x, tc, e, cs;
+  double x, tc, e, cs, v;
   
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
@@ -2621,9 +2630,19 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    if (0 == h.te0) {
 	      x /= mion;
 	    }
-	    x = log(x);
-	    UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
-	    tc = exp(tc)*xg[p];
+	    if (x > h.e0[h.ne0-1]) {
+	      v = sqrt(2*x/AMU);
+	      if (v >= 15.0) {
+		tc = 0.0;
+	      } else {
+		tc = sqrt(2*h.e0[h.ne0-1]/AMU);
+		tc = r.cx[h.ne0-1]*log(15.0/v)/log(15.0/tc);
+	      }
+	    } else {
+	      x = log(x);
+	      UVIP3P(np, h.ne0, xe, xs, one, &x, &tc);
+	      tc = exp(tc)*xg[p];
+	    }
 	    cs += tc*wg[p];
 	  }
 	  cs *= sqrt(2*egy[t]/(AMU*mion))*69.012;
