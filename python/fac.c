@@ -5883,24 +5883,24 @@ static PyObject *PLandauZenerCX(PyObject *self, PyObject *args) {
     return Py_None;
   }
   char *fn;
-  int n, k, m, i, ne;
-  double z, ei, *e0;
+  int ne, ldm;
+  double z, *e0;
   PyObject *p, *q;
   p = PyTuple_GetItem(args, 0);
-  ei = -1.0;
+  ldm = -1;
   if (PyUnicode_Check(p)) {
-    if (!(PyArg_ParseTuple(args, "siiidO|d", &fn, &n, &k, &m, &z, &q, &ei))) {
+    if (!(PyArg_ParseTuple(args, "sdO|i", &fn, &z, &q, &ldm))) {
       return NULL;
     }
   } else {
-    if (!(PyArg_ParseTuple(args, "iiidO|d", &n, &k, &m, &z, &q, &ei))) {
+    if (!(PyArg_ParseTuple(args, "dO|i", &z, &q, &ldm))) {
       return NULL;
     }
     fn = NULL;
   }
   ne = DoubleFromList(q, &e0);
   if (ne > 0) {
-    LandauZenerBareCX(fn, n, k, m, z, ei, ne, e0);
+    LandauZenerBareCX(fn, z, ne, e0, ldm);
     free(e0);
   }
   Py_INCREF(Py_None);

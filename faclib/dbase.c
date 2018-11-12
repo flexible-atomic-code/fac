@@ -4685,7 +4685,7 @@ int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	for (t = 0; t < r.n; t++) {
 	  fprintf(f2, "%6d %6d %15.8E %6d %6d %6d %12.5E %12.5E\n",
-		  r.f, r.b, e*HARTREE_EV, t, r.n, r.nk[t], r.nq[t], r.dn[t]);
+		  r.b, r.f, e*HARTREE_EV, t, r.n, r.nk[t], r.nq[t], r.dn[t]);
 	}
       } else {
 	for (t = 0; t < r.n; t++) {
@@ -4761,15 +4761,15 @@ int PrintCXTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (v) {	
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "%6d %2d %6d %2d %4d %15.8E\n",
-		r.f, mem_en_table[r.f].j,
 		r.b, mem_en_table[r.b].j,
+		r.f, mem_en_table[r.f].j,
 		r.vnl, e*HARTREE_EV);
 	for (t = 0; t < h.ne0; t++) {
 	  fprintf(f2, "%12.5E %12.5E\n",
 		  h.e0[t]*HARTREE_EV, r.cx[t]*AREA_AU20);
 	}
       } else {
-	fprintf(f2, "%6d %6d %4d\n", r.f, r.b, r.vnl);
+	fprintf(f2, "%6d %6d %4d\n", r.b, r.f, r.vnl);
 	for (t = 0; t < h.ne0; t++) {
 	  fprintf(f2, "%12.5E %12.5E\n", h.e0[t], r.cx[t]);
 	}
