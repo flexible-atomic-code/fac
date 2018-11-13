@@ -55,6 +55,7 @@ static int n_cxegrid = 0;
 static int t_cxegrid = 0;
 static double *cxegrid = NULL;
 static int cxldist = 5;
+static double cxldistmj = 1.0;
 static int cxrotcouple = 1.0;
 
 static MULTI *pk_array;
@@ -3045,8 +3046,11 @@ int ReinitRecombination(int m) {
 }
 
 void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
-  if (0 == strcmp(s, "recombinaiton:cxldist")) {
+  if (0 == strcmp(s, "recombination:cxldist")) {
     cxldist = ip;
+  }
+  if (0 == strcmp(s, "recombination:cxldistmj")) {
+    cxldistmj = dp;
   }
   if (0 == strcmp(s, "recombination:cxrotcouple")) {
     cxrotcouple = dp;
@@ -3165,18 +3169,18 @@ double LandauZenerLD(int n, int k, int q, double j, int ldm) {
        6.65874335,  6.71339024,  6.76762626,  6.82146053,  6.87490185,
        6.92795869,  6.98063925,  7.03295141,  7.0849028};
     double jlow, jup;
-    j *= 0.5;
+    j *= 0.67;
     if (n < 75) jlow = j0[n-1];
     else jlow = n*0.4*pow(3.0/n,0.45);
     jup = 0.67*n;
-    double x = j/(0.25*jlow+0.75*jup);
+    double x = j/(cxldistmj*(0.25*jlow+0.75*jup));
     double a0, a1;
     if (x < 1e-3) {
-      a0 = 1-x;
-      a1 = x;
+      a1 = 1-x;
+      a0 = x;
     } else {
-      a0 = exp(-x);
-      a1 = 1-a0;
+      a1 = exp(-x);
+      a0 = 1-a1;
     }
     w = a0*LDist(ln_factorial, n, k, q, 0);
     w += a1*LDist(ln_factorial, n, k, q, 1);
@@ -3455,9 +3459,9 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
   n2 = (int)(1+z/sqrt(2*cx->e));
   r = e0[0]/HARTREE_EV;
   for (j = n2; j >= n1; j--) {
-    cs[j] = LandauZenerCX(cx, j, -1, -1, z, r, -1.0,
+    cs[j] = LandauZenerCX(cx, j, -1, 0, z, r, -1.0,
 			  rx+j, v12+j, vdr+j, lam+j, de+j, beta+j);
-    if (rx[j] > 0 && beta[j] > 0) break;
+    if (rx[j] > 0 && beta[j] > 0 && cs[j] > 1e-10) break;
   }
   n2 = j;
 

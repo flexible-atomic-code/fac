@@ -144,7 +144,7 @@
 ** NOTE:        
 */
 #define RBOHR      0.52917721067
-
+#define VAU8       2.18769126082
 /*
 ** VARIABLE:    MBOHR
 ** TYPE:        macro constant.
