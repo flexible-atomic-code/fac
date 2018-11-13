@@ -75,5 +75,6 @@ int PopulationTable(char *fn);
 int Orientation(char *fn, double e);
 int PolarizationTable(char *fn, char *ifn, int n, char **sc,
 		      double emin, double emax, double sth);
+void SetOptionPolarization(char *s, char *sp, int ip, double dp);
 
 #endif

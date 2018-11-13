@@ -342,6 +342,25 @@ static int PSetProcID(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetOption(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int ip;
+  double dp;
+  if (argc != 2) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != NUMBER && argt[1] != STRING) return -1;
+
+  if (argt[1] == NUMBER) {
+    ip = atoi(argv[1]);
+    dp = atof(argv[1]);
+  } else {
+    ip = 0;
+    dp = 0;
+  }
+  SetOptionPolarization(argv[0], argv[1], ip, dp);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"Exit", PExit, METH_VARARGS},
@@ -363,6 +382,7 @@ static METHOD methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

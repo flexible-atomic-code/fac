@@ -46,6 +46,7 @@ static double rate_epsrel = EPS3;
 static int rate_iprint = 1;
 
 static KRONOS _kronos_cx[3];
+static double _cxldistmj = 1.0;
 
 static struct {
   DISTRIBUTION *d;
@@ -2181,6 +2182,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
     free(cx->idn);
     free(cx->ep);
     free(cx->rcx);
+    free(cx->rx);
     for (i = 0; i < cx->ncx; i++) {
       free(cx->cx0[i]);
       if (cx->cx1) free(cx->cx1[i]);
@@ -2191,6 +2193,7 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
     cx->cx1 = NULL;
     cx->ep = NULL;
     cx->rcx = NULL;
+    cx->rx = NULL;
     cx->idn = NULL;
   }
   cx->nmax = nmax;
@@ -2208,10 +2211,13 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
   }
   cx->ep = malloc(sizeof(double)*nep);
   cx->rcx = malloc(sizeof(double)*cx->ncx);
+  cx->rx = malloc(sizeof(double)*cx->ncx);
   cx->cx0 = malloc(sizeof(double *)*cx->ncx);
   if (k > 0) cx->cx1 = malloc(sizeof(double *)*cx->ncx);
   else cx->cx1 = NULL;
   for (i = 0; i < cx->ncx; i++) {
+    cx->rcx[i] = 0;
+    cx->rx[i] = 0;
     cx->cx0[i] = malloc(sizeof(double)*nep);
     if (cx->cx1) cx->cx1[i] = malloc(sizeof(double)*nep);
     for (j = 0; j < nep; j++) {
@@ -2229,16 +2235,19 @@ KRONOS *InitKronos(int z, int k, int nmax, int nep, char *cxm, char *tgt) {
 
 int ReadKronos(char *dn, int z, int k,
 	       char *prj, char *tgt, char *cxm, int md, int ilog) {
-  char kfn[1024];
+  char kfn[1024], kfn1[1024];
   char prj0[3], prj1[3];
   char tgt0[16], tgt1[16];
-  char cxm0[8];
-  char cxms[][6] = {"rcmd", "qmocc", "mocc", "aocc", "ctmc", "mclz"};
+  char cxm0[32];
+  const int ncxm = 7;
+  char cxms[][ncxm] = {
+    "rcmd", "qmocc", "mocc", "aocc", "ctmc", "mclz", "faclz"
+  };
   FILE *f;
   KRONOS *cx;
   char *s, buf[8192], es[16], es1[128];
   int i;
-  double dm;
+  double dm, wkn, vr;
 
   if (k != 0 && k != 1) {
     printf("only cx onto bare and H-like in Kronos db: %d\n", k);
@@ -2269,24 +2278,32 @@ int ReadKronos(char *dn, int z, int k,
   double rmass = pmass*tmass/(pmass+tmass);
   fclose(f);
   if (cxm && strlen(cxm) == 0) cxm = NULL;
-  if (cxm) StrLower(cxm0, cxm, 8);
-  
+  if (cxm) StrLower(cxm0, cxm, 32);
   int c = z-k;
-  for (i = 0; i < 6; i++) {
-    if (cxm != NULL && !strstr(cxms[i], cxm0)) continue;    
+  f = NULL;
+  for (i = 0; i < ncxm; i++) {
+    if (cxm != NULL && !strstr(cxm0, cxms[i])) continue;
     if (k == 0) {
-      if (strstr(cxms[i], "mclz")) {
-	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s_nres.cs",
-		dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
-      } else {
-	sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
-		dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
+      sprintf(kfn1, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s_nres.cs",
+	      dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
+      sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
+	      dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
+      if (cxm != NULL && strstr(cxm0, "nres")) {
+	kfn[0] = '\0';
       }
     } else {
       sprintf(kfn, "%s/CXDatabase/Projectile_Ions/%s/Charge/%d/Targets/%s/%s%d+%s_sec_%s.cs",
 	      dn, prj, c, tgt, prj0, c, tgt0, cxms[i]);
-    }    
-    f = fopen(kfn, "r");
+      kfn1[0] = '\0';
+    }
+    f = NULL;
+    if (kfn[0]) {
+      f = fopen(kfn, "r");
+    }
+    if (!f && kfn1[0]) {
+      strcpy(kfn, kfn1);
+      f = fopen(kfn, "r");
+    }
     if (f) break;
   }
   if (f == NULL) {
@@ -2328,10 +2345,17 @@ int ReadKronos(char *dn, int z, int k,
 	  } else {
 	    nn = atoi(s);
 	    if (nmax < nn) nmax = nn;
-	    nr = strlen(s);
 	    na[i] = nn;
-	    ka[i] = LFromSym(s[nr-5]);
-	    sa[i] = atoi(s+nr-3);
+	    char *sp = strstr(s, "[");
+	    if (sp) {
+	      ka[i] = atoi(sp+1);
+	      sp = strstr(s, "]");
+	      sa[i] = atoi(sp+2);
+	    } else {
+	      nr = strlen(s);
+	      ka[i] = LFromSym(s[nr-5]);
+	      sa[i] = atoi(s+nr-3);
+	    }
 	  }
 	  s += ns+1;
 	}
@@ -2352,12 +2376,21 @@ int ReadKronos(char *dn, int z, int k,
   cx->tmass = tmass * AMU;
   cx->pmass = pmass * AMU;
   cx->rmass = rmass * AMU;
-  int j = 0, k1;
+  int j = 0, k1, irx = 0, i1;
+  double a;
   while(1) {
     if (NULL == fgets(buf, 8192, f)) break;
     nb = strlen(buf);
-    if (nb < 2) continue;
-    if (buf[0] == '#') continue;
+    if (nb < 8) continue;
+    irx = 0;
+    if (buf[0] == '#') {
+      if (buf[1] == ' ' && buf[2] != 'R' && buf[3] != 'X') {
+	irx = 1;
+      } else {
+	irx = 0;
+	continue;
+      }
+    }
     StrReplace(8192, buf, '\t', ' ', ' ', ' ');
     StrTrim(buf, '\0');
     n = StrSplit(buf, ' ');
@@ -2365,11 +2398,21 @@ int ReadKronos(char *dn, int z, int k,
     s = buf;
     for (i = 0; i < n-1; i++) {
       ns = strlen(s);
-      double a = atof(s);
+      if (irx) {
+	if (i >= 2) {
+	  a = atof(s);
+	  nn = cx->idn[na[i]-1];
+	  cx->rx[nn+ka[i]] = a;
+	}
+	s += ns+1;
+	continue;
+      }
+      a = atof(s);
       if (i == 0) {
 	cx->ep[j] = a;
+	vr = sqrt((cx->ep[j]/HARTREE_EV)*2/AMU);
       } else {
-	int i1 = i+1;
+	i1 = i+1;
 	nn = cx->idn[na[i1]-1];
 	if (nres == 0) {
 	  if (sa[i1] != 3) {
@@ -2379,7 +2422,9 @@ int ReadKronos(char *dn, int z, int k,
 	  }
 	} else {
 	  for (k1 = 0; k1 < na[i1]; k1++) {
-	    cx->cx0[nn+k1][j] = a*LDist(cx->lnfac, na[i1], k1, c, md);
+	    wkn = LandauZenerLD(cx->lnfac, na[i1], k1, c,
+				vr*cx->rx[nn+k1], md, _cxldistmj);
+	    cx->cx0[nn+k1][j] = a*wkn;
 	  }
 	}
       }
@@ -2477,4 +2522,10 @@ int ReadKronos(char *dn, int z, int k,
     }  
   }
   return 0;
+}
+
+void SetOptionRates(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "rates:cxldistmj")) {
+    _cxldistmj = dp;
+  }
 }

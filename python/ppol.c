@@ -501,6 +501,36 @@ static PyObject *PSetProcID(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetOption(PyObject *self, PyObject *args) {
+  char *s, *sp;
+  PyObject *p;
+  int ip;
+  double dp;
+  
+  if (spol_file) {
+    SPOLStatement("SetOption", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!(PyArg_ParseTuple(args, "sO", &s, &p))) return NULL;
+  if (PyLong_Check(p)) {
+    ip = PyLong_AsLong(p);
+    dp = (double)ip;
+  } else if (PyFloat_Check(p)) {
+    ip = 0;
+    dp = PyFloat_AsDouble(p);
+  } else if (PyUnicode_Check(p)) {
+    sp = PyUnicode_AsString(p);
+  } else {
+    return NULL;
+  }
+  if (strstr(s, "pol:") == s) {
+    SetOptionPolarization(s, sp, ip, dp);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef pol_methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"ConvertToSPOL", PConvertToSPOL, METH_VARARGS},
@@ -523,6 +553,7 @@ static struct PyMethodDef pol_methods[] = {
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {NULL, NULL, METH_VARARGS}
 };
 

@@ -844,6 +844,31 @@ static int PReadKronos(int argc, char *argv[], int argt[],
   return r;
 }
 
+static int PSetOption(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int ip;
+  double dp;
+  if (argc != 2) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != NUMBER && argt[1] != STRING) return -1;
+
+  if (argt[1] == NUMBER) {
+    ip = atoi(argv[1]);
+    dp = atof(argv[1]);
+  } else {
+    ip = 0;
+    dp = 0;
+  }
+  if (strstr(argv[0], "crm:") == argv[0]) {
+    SetOptionCRM(argv[0], argv[1], ip, dp);
+  }
+  if (strstr(argv[0], "rates:") == argv[0]) {
+    SetOptionRates(argv[0], argv[1], ip, dp);
+  }
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -904,6 +929,7 @@ static METHOD methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"ReadKronos", PReadKronos, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
