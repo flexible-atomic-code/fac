@@ -2153,6 +2153,7 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
   int mem_en_table_size;
   double *mass, mion, *xe, *xs;
   double x, tc, e, v;
+  const double vth = 25.0;
   
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
@@ -2224,10 +2225,10 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
 	  }
 	  if (x > h.e0[h.ne0-1]) {
 	    v = sqrt(2*x/AMU);
-	    if (v >= 15.0) tc = 0.0;
+	    if (v >= vth) tc = 0.0;
 	    else {
 	      tc = sqrt(2*h.e0[h.ne0-1]/AMU);
-	      tc = r.cx[h.ne0-1]*log(15.0/v)/log(15.0/tc);
+	      tc = r.cx[h.ne0-1]*log(vth/v)/log(vth/tc);
 	    }
 	  } else {
 	    x = log(x);
@@ -2563,6 +2564,7 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
   double *xg = gauss_xw[0];  
   double *wg = gauss_xw[1]; 
   double x, tc, e, cs, v;
+  const double vth = 25.0;
   
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
@@ -2632,11 +2634,11 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    }
 	    if (x > h.e0[h.ne0-1]) {
 	      v = sqrt(2*x/AMU);
-	      if (v >= 15.0) {
+	      if (v >= vth) {
 		tc = 0.0;
 	      } else {
 		tc = sqrt(2*h.e0[h.ne0-1]/AMU);
-		tc = r.cx[h.ne0-1]*log(15.0/v)/log(15.0/tc);
+		tc = r.cx[h.ne0-1]*log(vth/v)/log(vth/tc);
 	      }
 	    } else {
 	      x = log(x);

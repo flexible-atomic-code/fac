@@ -1612,6 +1612,8 @@ length of the header.
 \item[\texttt{double tgte}:] The ionization potential of the target.
 \item[\texttt{double tgtx}:] A parameter to soften the polarization potential
   at very short distrance.
+\item[\texttt{int ldist}:] $l$-distribution type applied to obtain
+  $l$-resolved cross sections. 
 \item[\texttt{int te0}:] Indicate the unit of the collision energy, 0 for per
   AMU, 1 for per ion.
 \item[\texttt{int ne0}:] Number of collision energy points.
@@ -2796,6 +2798,14 @@ is interpreted as the incident energy minus transition energy.
 Join two binary files \var{fn1} and \var{fn2} to produce a single file
 \var{fn}. \var{fn1} and \var{fn2} must have been produced on the same
 platform, have the same type and for the same element.
+\end{fundesc}
+
+\begin{fundesc}{LandauZenerCX}{fn, z, e\opt{, m}}
+Calculate the multi-channel Landau-Zener charge exchange cross sections for
+bare ions with atomic number $z$, on collision energies $e$ in eV/u, and save
+the results in file \var{fn} in the Kronos db format. if $m<0$ 
+or not present, $n$-resolved cross sections are output, otherwise, the
+$nl$-resolved cross sections are output with an $l$-distribution applied.
 \end{fundesc}
 
 \begin{fundesc}{LevelInfor}{fn, ilev}
