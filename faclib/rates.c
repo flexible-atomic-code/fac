@@ -2240,7 +2240,7 @@ int ReadKronos(char *dn, int z, int k,
   char tgt0[16], tgt1[16];
   char cxm0[32];
   const int ncxm = 7;
-  char cxms[][ncxm] = {
+  char cxms[ncxm][32] = {
     "rcmd", "qmocc", "mocc", "aocc", "ctmc", "mclz", "faclz"
   };
   FILE *f;
