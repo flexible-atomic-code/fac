@@ -2808,6 +2808,13 @@ or not present, $n$-resolved cross sections are output, otherwise, the
 $nl$-resolved cross sections are output with an $l$-distribution applied.
 \end{fundesc}
 
+\begin{fundesc}{LandauZenerLD}{z, n\opt{, m, j, mj}}
+Return an array contains the $l$-distribution of the charge exchange capture
+for nuclear charge $z$, principal quantum number $n$, distribution mode $m$,
+average angular momentum $j$, and the mixing parameter for the combination of
+low energy and statistical distribution.
+\end{fundesc}
+
 \begin{fundesc}{LevelInfor}{fn, ilev}
 If \var{ilev}$\ge 0$, look up in the energy database file \var{fn} for the
 level indexed

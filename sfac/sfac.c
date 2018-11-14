@@ -4708,6 +4708,32 @@ static int PSetProcID(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PLandauZenerLD(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int n, m, i;
+  double z, j, w, mj;
+  m = 5;
+  j = 0.0;
+  mj = 1.0;
+  if (argc < 2) return -1;
+  z = atof(argv[0]);
+  n = atoi(argv[1]);
+  if (argc > 2) {
+    m = atoi(argv[2]);
+    if (argc > 3) {
+      j = atof(argv[3]);
+      if (argc > 4) {
+	mj = atof(argv[4]);
+      }
+    }
+  }
+  for (i = 0; i < n; i++) {
+    w = LandauZenerLD(ln_factorial, n, i, z, j, m, mj);
+    printf("%2d %3.0f %2d %d %12.5E %12.5E %12.5E\n", i, z, n, m, j, mj, w);
+  }
+  return 0;
+}
+
 static int PLandauZenerCX(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   int i, ne, ldm;
@@ -4936,6 +4962,7 @@ static METHOD methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
+  {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
