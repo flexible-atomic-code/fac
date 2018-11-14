@@ -5876,6 +5876,29 @@ static PyObject *PSetProcID(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PLandauZenerLD(PyObject *self, PyObject *args) {
+  int n, m, i;
+  double z, j, w, mj;
+  if (sfac_file) {
+    SFACStatement("LandauZenerLD", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  m = 5;
+  j = 0.0;
+  mj = 1.0;
+  if (!(PyArg_ParseTuple(args, "di|idd", &z, &n, &m, &j, &mj))) {
+    return NULL;
+  }
+  PyObject *p = PyList_New(n);
+  for (i = 0; i < n; i++) {
+    w = LandauZenerLD(ln_factorial, n, i, z, j, m, mj);
+    PyList_SetItem(p, i, Py_BuildValue("d", w));
+  }
+  return p;
+}
+
 static PyObject *PLandauZenerCX(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("LandauZenerCX", args, NULL);
@@ -6132,6 +6155,7 @@ static struct PyMethodDef fac_methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
+  {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {NULL, NULL}
 };
 
