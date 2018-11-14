@@ -47,7 +47,7 @@ typedef struct _KRONOS_ {
   int *idn;
   char cxm[8], tgt[8];
   double *lnfac;
-  double *ep, *rcx;
+  double *ep, *rcx, *rx;
   double **cx0, **cx1;
   int ilog;
 } KRONOS;
@@ -118,6 +118,7 @@ double TwoPhotonRate(double z, int t);
 void SetGamma3B(double x);
 int ReadKronos(char *dn, int z, int k, char *prj, char *tgt,
 	       char *cxm, int md, int ilog);
-int InitRates(void);	   
+int InitRates(void);	  
+void SetOptionRates(char *s, char *sp, int ip, double dp); 
 
 #endif

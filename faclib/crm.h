@@ -181,6 +181,7 @@ int DRSuppression(char *fn, double z, int nmax);
 int RydBranch(char *fn, char *ofn, int n0, int n1);
 int NormalizeMode(int m);
 void FixNorm(int m);
+void SetOptionCRM(char *s, char *sp, int ip, double dp);
 
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif

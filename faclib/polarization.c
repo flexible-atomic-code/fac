@@ -1655,3 +1655,6 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc,
   fclose(f);
   return 0;
 }
+
+void SetOptionPolarization(char *s, char *sp, int ip, double dp) {
+}

@@ -1528,6 +1528,39 @@ static PyObject *PReadKronos(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetOption(PyObject *self, PyObject *args) {
+  char *s, *sp;
+  PyObject *p;
+  int ip;
+  double dp;
+  
+  if (scrm_file) {
+    SCRMStatement("SetOption", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!(PyArg_ParseTuple(args, "sO", &s, &p))) return NULL;
+  if (PyLong_Check(p)) {
+    ip = PyLong_AsLong(p);
+    dp = (double)ip;
+  } else if (PyFloat_Check(p)) {
+    ip = 0;
+    dp = PyFloat_AsDouble(p);
+  } else if (PyUnicode_Check(p)) {
+    sp = PyUnicode_AsString(p);
+  } else {
+    return NULL;
+  }
+  if (strstr(s, "crm:") == s) {
+    SetOptionCRM(s, sp, ip, dp);
+  }
+  if (strstr(s, "rates:") == s) {
+    SetOptionRates(s, sp, ip, dp);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1611,6 +1644,7 @@ static struct PyMethodDef crm_methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"ReadKronos", PReadKronos, METH_VARARGS},
+  {"SetOption", PSetOption, METH_VARARGS},
   {NULL, NULL}
 };
 

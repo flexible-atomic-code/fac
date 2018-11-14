@@ -3149,48 +3149,6 @@ double LandauZenerRX(CXTGT *cx, double z, double de, double r) {
   return r;
 }
 
-double LandauZenerLD(int n, int k, int q, double j, int ldm) {
-  double w;
-  if (ldm == 5) {
-    const double j0[] =
-      {0.        ,  0.5       ,  0.83333333,  1.1       ,  1.32857143,
-       1.53174603,  1.71645022,  1.88694639,  2.04607615,  2.19584533,
-       2.33773193,  2.47286202,  2.60211689,  2.72620157,  2.84569051,
-       2.96105915,  3.07270622,  3.18097004,  3.28614062,  3.38846874,
-       3.48817307,  3.58544558,  3.68045595,  3.77335497,  3.86427741,
-       3.9533443 ,  4.04066477,  4.12633769,  4.21045293,  4.29309245,
-       4.37433131,  4.45423838,  4.53287708,  4.61030596,  4.68657918,
-       4.761747  ,  4.83585611,  4.90895003,  4.98106936,  5.05225208,
-       5.12253375,  5.19194775,  5.26052543,  5.32829632,  5.39528823,
-       5.46152743,  5.52703872,  5.59184558,  5.65597028,  5.71943389,
-       5.78225645,  5.84445701,  5.90605368,  5.96706371,  6.02750356,
-       6.08738892,  6.14673476,  6.20555542,  6.2638646 ,  6.32167541,
-       6.37900041,  6.43585166,  6.49224069,  6.54817862,  6.60367609,
-       6.65874335,  6.71339024,  6.76762626,  6.82146053,  6.87490185,
-       6.92795869,  6.98063925,  7.03295141,  7.0849028};
-    double jlow, jup;
-    j *= 0.67;
-    if (n < 75) jlow = j0[n-1];
-    else jlow = n*0.4*pow(3.0/n,0.45);
-    jup = 0.67*n;
-    double x = j/(cxldistmj*(0.25*jlow+0.75*jup));
-    double a0, a1;
-    if (x < 1e-3) {
-      a1 = 1-x;
-      a0 = x;
-    } else {
-      a1 = exp(-x);
-      a0 = 1-a1;
-    }
-    w = a0*LDist(ln_factorial, n, k, q, 0);
-    w += a1*LDist(ln_factorial, n, k, q, 1);
-  } else {
-    w = LDist(ln_factorial, n, k, q, ldm);
-  }
-
-  return w;
-}
-
 double LandauZenerUX(CXTGT *cx, double z, double rx, int m) {
   double ux;
   double sz = sqrt(z);
@@ -3214,7 +3172,7 @@ double LandauZenerRC(double rx, double nzv, double beta, int n) {
   if (n == 1) return 0.0;  
   double b0, b1, b;
   int np = 2*(n-1);
-  const int nbs = 25;
+#define nbs 25
   double bsq[nbs], asq[nbs], qn[nbs];  
   const int nr = 6;
   double p, bx, x, x2, sa, sb, qni;
@@ -3317,6 +3275,7 @@ double LandauZenerRC(double rx, double nzv, double beta, int n) {
   }
   sigma += Simpson(qn, 0, nbs-1)*db;
   //printf("rotcoup: %d %g %g %g %g\n", n, rx, beta, nzv, PI*rx*rx*sigma);
+#undef nbc
   return PI*rx*rx*sigma;
 }
 
@@ -3423,7 +3382,7 @@ double LandauZenerCX(CXTGT *cx, int n, int k, int m0,
     sigma += cxrotcouple*sigrc;
   }
   if (k >= 0 && k < n) {
-    wnk = LandauZenerLD(n, k, z, v*rx, cxldist);
+    wnk = LandauZenerLD(ln_factorial, n, k, z, v*rx, cxldist, cxldistmj);
     sigma *= wnk;
   }
   return sigma;
@@ -3443,7 +3402,7 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
   if (f == NULL) f = stdout;
   double lam[1000], rx[1000], de[1000], beta[1000];
   double v12[1000], vdr[1000], cs[1000];
-  char ss[8], snk[16];
+  char ss[8], su[8], snk[16];
   double rt, r, w, v;
   int n1, n2, i, j, k;
   for (i = 0; i < 1000; i++) {
@@ -3464,7 +3423,16 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
     if (rx[j] > 0 && beta[j] > 0 && cs[j] > 1e-10) break;
   }
   n2 = j;
-
+  fprintf(f, "# z=%g\n", z);
+  fprintf(f, "# tgts=%s\n", cx->symbol);
+  fprintf(f, "# tgtz=%g\n", cx->z);
+  fprintf(f, "# tgtm=%g\n", cx->m);
+  fprintf(f, "# tgta=%g\n", cx->a);
+  fprintf(f, "# tgtb=%g\n", cx->b);
+  fprintf(f, "# tgte=%g\n", cx->e);
+  fprintf(f, "# tgtx=%g\n", cx->x);
+  fprintf(f, "# ldist=%d\n", ldm);
+  fprintf(f, "# ldistmj=%g\n", cxldistmj);
   fprintf(f, "%-10s", "# (eV/u)");
   for (j = n2; j >= n1; j--) {
     if (ldm < 0) {
@@ -3472,7 +3440,8 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
     } else {
       for (k = j-1; k >=0; k--) {
 	SpecSymbol(ss, k);
-	sprintf(snk, "%d%s(2%c)", j, ss, toupper(ss[0]));
+	StrUpper(su, ss, 8);
+	sprintf(snk, "%d%s(2%s)", j, ss, su);
 	fprintf(f, " %-8s", snk);
       }
     }
@@ -3482,11 +3451,57 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
     e0[i] /= HARTREE_EV;
     v = sqrt(2*e0[i]/AMU);
     rt = 0.0;
-    fprintf(f, "%10.4E", e0[i]*HARTREE_EV);
     for (j = n2; j >= n1; j--) {
       cs[j] = LandauZenerCX(cx, j, -1, 0, z, e0[i], -1.0,
 			    rx+j, v12+j, vdr+j, lam+j, de+j, beta+j);
     }
+    if (i == 0) {
+      fprintf(f, "%-10s", "# RX");
+      for (j = n2; j >= n1; j--) {
+	if (ldm < 0) {
+	  fprintf(f, " %8.2E", rx[j]);
+	} else {
+	  for (k = j-1; k >= 0; k--) {
+	    fprintf(f, " %8.2E", rx[j]);
+	  }
+	}
+      }
+      fprintf(f, "\n");
+      fprintf(f, "%-10s", "# V12");
+      for (j = n2; j >= n1; j--) {
+	if (ldm < 0) {
+	  fprintf(f, " %8.2E", v12[j]);
+	} else {
+	  for (k = j-1; k >= 0; k--) {
+	    fprintf(f, " %8.2E", v12[j]);
+	  }
+	}
+      }
+      fprintf(f, "\n");
+      fprintf(f, "%-10s", "# VDR");
+      for (j = n2; j >= n1; j--) {
+	if (ldm < 0) {
+	  fprintf(f, " %8.2E", vdr[j]);
+	} else {
+	  for (k = j-1; k >= 0; k--) {
+	    fprintf(f, " %8.2E", vdr[j]);
+	  }
+	}
+      }
+      fprintf(f, "\n");
+      fprintf(f, "%-10s", "# LAM");
+      for (j = n2; j >= n1; j--) {
+	if (ldm < 0) {
+	  fprintf(f, " %8.2E", lam[j]);
+	} else {
+	  for (k = j-1; k >= 0; k--) {
+	    fprintf(f, " %8.2E", lam[j]);
+	  }
+	}
+      }
+      fprintf(f, "\n");
+    }
+    fprintf(f, "%10.4E", e0[i]*HARTREE_EV);
     double pc = 0.0;
     for (j = n2; j >= n1; j--) {
       if (cs[j] > 0) {
@@ -3502,7 +3517,7 @@ void LandauZenerBareCX(char *fn, double z, int n0, double *e0, int ldm) {
 	fprintf(f, " %8.2E", r);
       } else {
 	for (k = j-1; k >= 0; k--) {
-	  w = LandauZenerLD(j, k, z, v*rx[j], ldm);
+	  w = LandauZenerLD(ln_factorial, j, k, z, v*rx[j], ldm, cxldistmj);
 	  fprintf(f, " %8.2E", r*w);
 	}
       }

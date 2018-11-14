@@ -99,4 +99,6 @@ int ComparePtrIdx(const void *p1, const void *p2);
 void SetProcID(int id);
 int ProcID(void);
 double LDist(double *lnfac, int n, int k, int q, int m);
+double LandauZenerLD(double *lnfac, int n, int k, int q,
+		     double j, int ldm, double mj);
 #endif

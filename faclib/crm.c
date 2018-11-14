@@ -4643,7 +4643,7 @@ void FreeIdxRateBlock(int nb, int **irb) {
 }
 
 int SetCXRates(int m, char *tgt) {
-  int i, k, p, ip[4], j1, j2;
+  int i, k, p, ip[4], j1, j2, nn, kk;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
   ION *ion;
@@ -4660,7 +4660,13 @@ int SetCXRates(int m, char *tgt) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
-  if (m >= 10) {
+  nn = -1;
+  kk = -1;
+  if (m >= 100) {
+    nn = m/100;
+    kk = m%100;
+    m = 1;
+  } else if (m >= 10) {
     m = m%10;
     ip[3] = 1;
   } else {
@@ -4670,21 +4676,23 @@ int SetCXRates(int m, char *tgt) {
   KRONOS *cx;
   if (m == 1) {
     cx = KronosCX(0);
-    if (cx == NULL || cx->nmax <= 0) {
-      printf("KRONOS CX data for H-like not setup: %d\n", m);
-      return -1;
-    }
-    double *emass = GetAtomicMassTable();
-    i = (int)ion0.atom;
-    cx->pmass = emass[i-1]*AMU;
-    cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
-    rcx = 0;
-    for (p = 0; p < cx->ncx; p++) {
-      ip[0] = 0;
-      ip[1] = 0;
-      ip[2] = p;
-      CXRate(&cx->rcx[p], ip, 0, 0);
-      rcx += cx->rcx[p];
+    if (kk < 0) {
+      if (cx == NULL || cx->nmax <= 0) {
+	printf("KRONOS CX data for H-like not setup: %d\n", m);
+	return -1;
+      }
+      double *emass = GetAtomicMassTable();
+      i = (int)ion0.atom;
+      cx->pmass = emass[i-1]*AMU;
+      cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
+      rcx = 0;
+      for (p = 0; p < cx->ncx; p++) {
+	ip[0] = 0;
+	ip[1] = 0;
+	ip[2] = p;
+	CXRate(&cx->rcx[p], ip, 0, 0);
+	rcx += cx->rcx[p];
+      }
     }
   } else if (m == 2) {
     ip[0] = 2;
@@ -4737,6 +4745,11 @@ int SetCXRates(int m, char *tgt) {
 		  vn = abs(r[jb].nk[p]);
 		  vl = vn%100;
 		  vn = vn/100;
+		  if (kk >= 0) {
+		    if (vn != nn || vl != kk) continue;
+		    rts[jb].dir += r[jb].nq[p]/(4*vl+2.0);
+		    continue;
+		  }
 		  if (vn > cx->nmax) continue;
 		  if (m == 1) {
 		    ix = cx->idn[vn-1]+vl;
@@ -6916,4 +6929,7 @@ ARRAY* _GetIons(){
  * Return a reference to ions for testing purpose
  */
   return ions;
+}
+
+void SetOptionCRM(char *s, char *sp, int ip, double dp) {
 }
