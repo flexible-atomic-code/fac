@@ -3172,7 +3172,7 @@ double LandauZenerRC(double rx, double nzv, double beta, int n) {
   if (n == 1) return 0.0;  
   double b0, b1, b;
   int np = 2*(n-1);
-  const int nbs = 25;
+#define nbs 25
   double bsq[nbs], asq[nbs], qn[nbs];  
   const int nr = 6;
   double p, bx, x, x2, sa, sb, qni;
@@ -3275,6 +3275,7 @@ double LandauZenerRC(double rx, double nzv, double beta, int n) {
   }
   sigma += Simpson(qn, 0, nbs-1)*db;
   //printf("rotcoup: %d %g %g %g %g\n", n, rx, beta, nzv, PI*rx*rx*sigma);
+#undef nbc
   return PI*rx*rx*sigma;
 }
 

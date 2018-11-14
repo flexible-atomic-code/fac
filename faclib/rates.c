@@ -2239,7 +2239,7 @@ int ReadKronos(char *dn, int z, int k,
   char prj0[3], prj1[3];
   char tgt0[16], tgt1[16];
   char cxm0[32];
-  const int ncxm = 7;
+#define ncxm 7
   char cxms[ncxm][32] = {
     "rcmd", "qmocc", "mocc", "aocc", "ctmc", "mclz", "faclz"
   };
@@ -2521,6 +2521,7 @@ int ReadKronos(char *dn, int z, int k,
       }
     }  
   }
+#undef ncxm
   return 0;
 }
 
