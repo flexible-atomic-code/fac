@@ -2384,7 +2384,7 @@ int ReadKronos(char *dn, int z, int k,
     if (nb < 8) continue;
     irx = 0;
     if (buf[0] == '#') {
-      if (buf[1] == ' ' && buf[2] != 'R' && buf[3] != 'X') {
+      if (buf[1] == ' ' && buf[2] == 'R' && buf[3] == 'X') {
 	irx = 1;
       } else {
 	irx = 0;
@@ -2430,7 +2430,7 @@ int ReadKronos(char *dn, int z, int k,
       }
       s += ns+1;
     }
-    j++;
+    if (!irx) j++;
   }
   fclose(f);
   if (ilog < 0) ilog = 3;
