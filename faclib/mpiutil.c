@@ -720,6 +720,13 @@ double LDist(double *lnfac, int n, int k, int q, int md) {
     if (md >= 100) {
       if (k == md-100) return 1.0;
       else return 0.0;
+    } else if (md < 0) {
+      if (md == -1) return 1.0/n;
+      double p = 1.0/(-md);
+      t = (1-pow(p,n))/(1-p);
+      if (k == 0) return 1.0/t;
+      else if (k == 1) return p/t;
+      else return pow(p,k)/t;
     }
     return LDist(lnfac, n, k, q, 0);
   }

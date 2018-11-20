@@ -2253,7 +2253,6 @@ int ReadKronos(char *dn, int z, int k,
     printf("only cx onto bare and H-like in Kronos db: %d\n", k);
     return -1;
   }
-  if (md < 0) md = 1;
   StrLowerUpper(prj0, prj1, prj, 3);
   StrLowerUpper(tgt0, tgt1, tgt, 16);
   sprintf(kfn, "%s/CXDatabase/elements.dat", dn);
