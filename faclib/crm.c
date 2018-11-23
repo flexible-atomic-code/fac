@@ -208,6 +208,7 @@ static void FreeIonData(void *p) {
     free(ion->j);
     free(ion->vnl);
     free(ion->ibase);
+    free(ion->sw);
     free(ion->energy);
     if (ion->KLN_bmax >= ion->KLN_bmin) {
       free(ion->KLN_ai);
@@ -458,6 +459,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->j = (int *) realloc(ion->j, sizeof(int)*nlev);
   ion->vnl = (short *) realloc(ion->vnl, sizeof(short)*nlev);
   ion->ibase = (short *) realloc(ion->ibase, sizeof(short)*nlev);
+  ion->sw = (short *) realloc(ion->sw, sizeof(short)*nlev);
   ion->energy = (double *) realloc(ion->energy, sizeof(double)*nlev);
   
   nr0 = ion->nlevels;
@@ -792,7 +794,9 @@ int SetBlocks(double ni, char *ifn) {
   int p, q = -1;
   int nionized, n0;
   int swp, sfh;
+  int s3nk[10000];
 
+  for (i = 0; i < 10000; i++) s3nk[i] = 0;
   ion0.n = ni;
   ion0.n0 = ni;
   if (ifn) {
@@ -874,6 +878,7 @@ int SetBlocks(double ni, char *ifn) {
     ion->j = (int *) malloc(sizeof(int)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
     ion->ibase = (short *) malloc(sizeof(short)*nlevels);
+    ion->sw = (short *) malloc(sizeof(short)*nlevels);
     ion->energy = (double *) malloc(sizeof(double)*nlevels);
     rionized = (EN_RECORD *) malloc(sizeof(EN_RECORD )*nionized);
     if (k == 0 && ifn) {
@@ -1198,6 +1203,30 @@ int SetBlocks(double ni, char *ifn) {
 	    }
 	  } else if (ion->nele == 1) {
 	    ion->ibase[p] = ion->iground;
+	  }
+	}
+	ion->sw[p] = 0;
+	if (ion->nele == 2) {
+	  if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
+	    int nn, kk;
+	    nn = ion->vnl[p]/100;
+	    kk = 2*(ion->vnl[p]%100);
+	    if (kk == 0) {
+	      if (ion->j[p] == 0) {
+		ion->sw[p] = 1;
+	      } else {
+		ion->sw[p] = 3;
+	      }
+	    } else if (ion->j[p] != kk) {
+	      ion->sw[p] = 3;
+	    } else if (ion->vnl[p] < 10000) {
+	      if (s3nk[ion->vnl[p]] == 0) {
+		ion->sw[p] = 3;
+		s3nk[ion->vnl[p]] = 3;
+	      } else {
+		ion->sw[p] = 1;
+	      }
+	    }
 	  }
 	}
 	ion->energy[p] = r.energy;
@@ -4643,7 +4672,7 @@ void FreeIdxRateBlock(int nb, int **irb) {
 }
 
 int SetCXRates(int m, char *tgt) {
-  int i, k, p, ip[4], j1, j2, nn, kk;
+  int i, k, p, ip[4], j1, j2, nn, kk, sw;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
   ION *ion;
@@ -4662,6 +4691,11 @@ int SetCXRates(int m, char *tgt) {
   }
   nn = -1;
   kk = -1;
+  sw = 0;
+  if (m >= 10000) {
+    sw = m/10000;
+    m = m%10000;
+  }
   if (m >= 100) {
     nn = m/100;
     kk = m%100;
@@ -4739,8 +4773,9 @@ int SetCXRates(int m, char *tgt) {
 		rts[jb].inv = 0;
 		j1 = ion->j[r[jb].f];
 		j2 = ion->j[r[jb].b];
-		e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
+		e = ion->energy[r[jb].f] - ion->energy[r[jb].b];		
 		if (e < 0) continue;
+		if (sw > 0 && ion->sw[r[jb].b] != sw) continue;
 		for (p = 0; p < r[jb].n; p++) {
 		  vn = abs(r[jb].nk[p]);
 		  vl = vn%100;
