@@ -422,17 +422,13 @@ int BFileClose(BFILE *bf) {
 #elif USE_MPI == 2
   if (bf == NULL) return 0;
   BFileFlush(bf);
-  if (bf->nr <= 1) {
-    r = fclose(bf->f);
-  } else {
-    r = fclose(bf->f);
-    if (bf->nbuf > 0) {
-      free(bf->buf);
-      bf->buf = NULL;
-      free(bf->w);
-      bf->w = NULL;
-      DestroyLock(&bf->lock);
-    }
+  r = fclose(bf->f);
+  if (bf->nbuf > 0) {
+    free(bf->buf);
+    bf->buf = NULL;
+    free(bf->w);
+    bf->w = NULL;
+    DestroyLock(&bf->lock);
   }
 #else
   if (bf == NULL) return 0;
