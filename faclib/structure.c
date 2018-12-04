@@ -4005,9 +4005,9 @@ int PtrBisect(char *b, int n, PTRIDX *a) {
   else return -1;
 }
 
-int GetBasisTable(char *fn, int m0, int k0) {
+int GetBasisTable(char *fn, int m0, int k0i) {
   FILE *f, *f1;
-  int i, p, j, k, si, nsym, m, mf, rec;
+  int i, p, j, k, si, nsym, m, mf, rec, k0;
   char nc[LEVEL_NAME_LEN];
   char name[LEVEL_NAME_LEN];
   char sname[LEVEL_NAME_LEN];
@@ -4085,9 +4085,22 @@ int GetBasisTable(char *fn, int m0, int k0) {
       ih0 = 0;
       ihd = 0;
       while (ih0 < nhams) {
+	k0 = k0i;
+	CONFIG *cfg;
+	CONFIG_GROUP *grp;
+	int ke = -1;
 	for (ih1 = ih0+1; ih1 < nhams; ih1++) {
 	  if (hams[ih1].pj <= hams[ih1-1].pj) break;
+	  s = hams[ih1].basis[0];
+	  cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	  if (ke < 0) {
+	    ke = cfg->n_electrons;
+	  } else if (cfg->n_electrons != ke) {
+	    break;
+	  }
 	}
+	if (k0 < 0) k0 = ke;
+	else if (k0 != ke) continue;
 	sprintf(nc, "%s_%03d.c", fn, ihd);
 	f = fopen(nc, "w");
 	if (f == NULL) {
@@ -4106,8 +4119,6 @@ int GetBasisTable(char *fn, int m0, int k0) {
 	fprintf(f, "Core subshells:\n\n");
 	fprintf(f, "Peel subshells:\n");
 	int ish[1024];
-	CONFIG *cfg;
-	CONFIG_GROUP *grp;
 	int ngrps = GetNumGroups();
 	int ncftot, nw, ncmin, nvecsiz, nblock;
 	for (i = 0; i < 1024; i++) ish[i] = 0;
