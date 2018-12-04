@@ -116,7 +116,7 @@ int SetCascade(int c, double a) {
 int InitCRM(void) {
   int i;
 
-  for (i = 0; i < NDB; i++) ion0.dbfiles[i] = NULL;
+  for (i = 0; i < NDB1; i++) ion0.dbfiles[i] = NULL;
   ion0.nionized = 0;
   ion0.energy = NULL;
   ion0.atom = 0;
@@ -182,7 +182,7 @@ static void InitIonData(void *p, int n) {
     ion->vnl = NULL;
     ion->ibase = NULL;
     ion->energy = NULL;
-    for (i = 0; i < NDB; i++) {
+    for (i = 0; i < NDB1; i++) {
       ion->dbfiles[i] = NULL;
     }
     ion->ce_rates = NULL;
@@ -223,7 +223,7 @@ static void FreeIonData(void *p) {
     ion->nlevels = 0;
     ion->ace = ion->atr = ion->aci = ion->arr = ion->aai = ion->acx = -1;
   }
-  for (i = 0; i < NDB; i++) {
+  for (i = 0; i < NDB1; i++) {
     if (ion->dbfiles[i]) free(ion->dbfiles[i]);
     ion->dbfiles[i] = NULL;
   }
@@ -315,7 +315,7 @@ int ReinitCRM(int m) {
     return 0;
   }
 
-  for (i = 0; i < NDB; i++) {
+  for (i = 0; i < NDB1; i++) {
     if (ion0.dbfiles[i]) free(ion0.dbfiles[i]);
     ion0.dbfiles[i] = NULL;
   }
@@ -378,7 +378,7 @@ int AddIon(int nele, double n, char *pref) {
   ion.nele = nele;
   m = strlen(pref);
   m = m+4;
-  for (i = 0; i < NDB; i++) {
+  for (i = 0; i < NDB1; i++) {
     ion.dbfiles[i] = malloc(m);
     switch (i+1) {
     case DB_EN:
@@ -404,6 +404,9 @@ int AddIon(int nele, double n, char *pref) {
       break;
     case DB_CX:
       sprintf(ion.dbfiles[i], "%s.cx", pref);
+      break;
+    case NDB1:
+      sprintf(ion.dbfiles[i], "%s.LS", pref);
       break;
     default:
       break;
@@ -776,7 +779,40 @@ void ExtrapolateAI(ION *ion, int inv, int **irb) {
     }  
   }
 }
-    
+
+void LoadSW(ION *ion) {
+  FILE *f;
+  int n, i, j, p, tj, ts, tk;
+  double w;
+  char buf[8192];
+  
+  if (ion->dbfiles[NDB] == NULL) return;
+  f = fopen(ion->dbfiles[NDB], "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", ion->dbfiles[NDB]);
+    return;
+  }
+  i = -1;
+  while (1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    if (buf[0] == '#') {
+      if (buf[1] == '#') continue;
+      i = atoi(&buf[1]);
+    } else {
+      n = sscanf(buf, "%d %d %d %d %d %lg", &j, &p, &tj, &ts, &tk, &w);
+      if (n != 6) continue;
+      if (i >= 0) {
+	if (i < ion->nlevels) {
+	  ion->sw[i] = ts;
+	  //printf("%d %d %d %d %d %d %g\n", i, j, p, tj, ts, tk, w);
+	}
+	i = -1;
+      }
+    }
+  }
+  fclose(f);
+}
+
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
@@ -805,7 +841,7 @@ int SetBlocks(double ni, char *ifn) {
   } else {
     k = 0;
   }
-  for (i = 0; i < NDB; i++) {
+  for (i = 0; i < NDB1; i++) {
     if (k > 0) {
       switch (i+1) {
       case DB_EN:
@@ -823,6 +859,10 @@ int SetBlocks(double ni, char *ifn) {
       case DB_AI:
 	ion0.dbfiles[i] = (char *) malloc(k);
 	sprintf(ion0.dbfiles[i], "%s.ai", ifn);
+	break;
+      case NDB1:
+	ion0.dbfiles[i] = (char *) malloc(k);
+	sprintf(ion0.dbfiles[i], "%s.LS", ifn);
 	break;
       default:
 	ion0.dbfiles[i] = NULL;
@@ -1253,6 +1293,7 @@ int SetBlocks(double ni, char *ifn) {
     if (ion0.n >= 0.0) {
       ExtrapolateEN(k, ion);
     }
+    LoadSW(ion);
     ion1 = ion;
     free(rionized);
     FCLOSE(f);
