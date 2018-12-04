@@ -42,6 +42,7 @@
 #define DB_RO 16
 #define DB_CX 17
 #define NDB   17
+#define NDB1  (NDB+1)
 
 #define LNCOMPLEX   32
 #define LSNAME0 24
