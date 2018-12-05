@@ -4455,14 +4455,14 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   t0 = t0 / 100;
 
   de = fabs(de0);
-  de01 = 0.1*de;
+  de01 = 0.025*de;
   de10 = 10.0*de;
   sig = de/2.35;
   factor = 1.0/(sqrt(2*PI)*sig);
   sig = 1.0/(2*sig*sig);
-  kernel = (double *) malloc(sizeof(double)*128);
-  e = -63.5*de01;
-  for (i = 0; i < 128; i++){
+  kernel = (double *) malloc(sizeof(double)*512);
+  e = -256.0*de01;
+  for (i = 0; i < 512; i++){
     kernel[i] = factor*exp(-sig*e*e);
     e += de01;
   }
@@ -4539,7 +4539,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     free(lines);
     for (i = 0; i < nsp; i++) {
       if (sp[i] > 0.0) {
-	for (m = i-64, k = 0; k < 128; k++, m++) {
+	for (m = i-256, k = 0; k < 512; k++, m++) {
 	  if (m > 0 && m < nsp) tsp[m] += sp[i]*kernel[k];
 	}
       }
