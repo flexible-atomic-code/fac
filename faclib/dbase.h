@@ -461,7 +461,15 @@ typedef struct _CX_RECORD_ {
   int vnl;
   double *cx;
 } CX_RECORD;
-  
+
+typedef struct _JJLSJ_ {
+  int ilev;
+  int nks;
+  int j;
+  int *k, *s;
+  double *w;
+} JJLSJ;
+
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
  * files directly. to do so, copy consts.h, dbase.h, and dbase.c
@@ -648,6 +656,7 @@ double ClockLast(void);
 double ClockNow(int m);
 void PrintWallTime(char *s, int m);
 int IsNewV114(TFILE *f);
-
+int ReadJJLSJ(char *fn, JJLSJ **lsj);
+void RecoupleRO(char *ifn, char *ofn, char *rfn);
 #endif
 

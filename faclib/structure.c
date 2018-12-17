@@ -43,7 +43,7 @@ USE (rcsid);
 static int nhams = 0;
 static int _max_hams = MAX_HAMS;
 static SHAMILTON *hams = NULL;
-static HAMILTON _allhams[MAX_SYMMETRIES];
+static HAMILTON _allhams[MAX_SYMMETRIES+1];
 
 static ARRAY levels_per_ion[N_ELEMENTS+1];
 static ARRAY *levels;

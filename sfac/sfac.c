@@ -4761,6 +4761,16 @@ static int PLandauZenerCX(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRecoupleRO(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  if (argc != 3) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != STRING) return -1;
+  if (argt[2] != STRING) return -1;
+  RecoupleRO(argv[0], argv[1], argv[2]);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -4943,6 +4953,7 @@ static METHOD methods[] = {
   {"SetTransitionMaxM", PSetTransitionMaxM, METH_VARARGS}, 
   {"SetFields", PSetFields, METH_VARARGS},    
   {"TRTableEB", PTransitionTableEB, METH_VARARGS}, 
+  {"TransitionTableEB", PTransitionTableEB, METH_VARARGS}, 
   {"CETableEB", PCETableEB, METH_VARARGS},
   {"StructureEB", PStructureEB, METH_VARARGS},
   {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
@@ -4963,6 +4974,7 @@ static METHOD methods[] = {
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
+  {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

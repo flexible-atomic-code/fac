@@ -18,6 +18,7 @@
 
 #include "dbase.h"
 #include "parser.h"
+#include "angular.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -5884,4 +5885,247 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   ReinitDBase(0);
 
   return 0;
+}
+
+int ReadJJLSJ(char *fn, JJLSJ **lsj) {
+  int i, p, tj, m, n, nmax, nf;
+  int *ts, *tk;
+  double *w;
+  FILE *f;
+  JJLSJ *pt;
+  char buf[8192];
+
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open LSJ file: %s\n", fn);
+    return 0;
+  }
+  n = -1;
+  nmax = 0;
+  m = 0;
+  while (1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    if (buf[0] == '#') {
+      if (buf[1] == '#') continue;
+      if (nmax < m) nmax = m;
+      m = 0;
+      n++;
+    } else {
+      if (strlen(buf) > 5) {
+	m++;
+      }
+    }
+  }
+  if (nmax < m) nmax = m;
+  n++;
+  pt = malloc(sizeof(JJLSJ)*n);
+  ts = malloc(sizeof(int)*nmax);
+  tk = malloc(sizeof(int)*nmax);
+  w = malloc(sizeof(double)*nmax);  
+  fseek(f, 0, SEEK_SET);
+  n = -1;
+  m = 0;
+  while (1) {
+    if (NULL == fgets(buf, 8192, f)) break;
+    if (buf[0] == '#') {
+      if (buf[1] == '#') continue;
+      if (m > 0) {
+	pt[n].nks = m;
+	pt[n].k = malloc(sizeof(int)*m);
+	pt[n].s = malloc(sizeof(int)*m);
+	pt[n].w = malloc(sizeof(double)*m);
+	for (i = 0; i < m; i++) {
+	  pt[n].k[i] = tk[i];
+	  pt[n].s[i] = ts[i];
+	  pt[n].w[i] = w[i];
+	}
+      }
+      m = 0;
+      n++;
+    } else {
+      nf = sscanf(buf, "%d %d %d %d %d %lg",
+		  &i, &p, &tj, &ts[m], &tk[m], &w[m]);
+      if (nf != 6) continue;
+      if (m == 0) {
+	pt[n].ilev = i;
+	pt[n].j = tj;
+      }
+      m++;
+    }
+  }
+  if (m > 0) {
+    pt[n].nks = m;
+    pt[n].k = malloc(sizeof(int)*m);
+    pt[n].s = malloc(sizeof(int)*m);
+    pt[n].w = malloc(sizeof(double)*m);
+    for (i = 0; i < m; i++) {
+      pt[n].k[i] = tk[i];
+      pt[n].s[i] = ts[i];
+      pt[n].w[i] = w[i];
+    }  
+    n++;
+  }
+  fclose(f);
+  free(ts);
+  free(tk);
+  free(w);
+  *lsj = pt;
+  return n;
+}
+
+void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
+  int i, k, kk, k1, k2, j2, nmax, ssm, nn, n, tt;
+  int s1, ss, smin, smax, nk, t, jb, kmin, kmax;
+  int *nid;
+  double a, **nq, **dn;
+  
+  r1->n = 0;
+  for (i = 0; i < ns; i++) {
+    if (lsj[i].ilev == r0->f) break;
+  }
+  if (i == ns) return;
+  jb = mem_en_table[r0->b].j;
+  nmax = 0;
+  for (k = 0; k < r0->n; k++) {
+    n = abs(r0->nk[k])/100;
+    if (n > nmax) nmax = n;
+  }
+  smax = 0;
+  for (k = 0; k < lsj[i].nks; k++) {
+    if (lsj[i].s[k] > smax) smax = lsj[i].s[k];
+  }
+  ssm = smax+1;
+  nq = malloc(sizeof(double *)*ssm);
+  dn = malloc(sizeof(double *)*ssm);
+  nk = nmax*(nmax+1)/2;
+  for (k = 0; k < ssm; k++) {
+    nq[k] = NULL;
+    dn[k] = NULL;
+  }
+  nid = malloc(sizeof(int)*nk);
+  k = 0;
+  for (n = 1; n <= nmax; n++) {
+    for (t = 0; t < n; t++) {
+      nid[k++] = n;
+    }
+  }
+  for (t = 0; t < r0->n; t++) {
+    n = abs(r0->nk[t])/100;
+    k2 = 2*(abs(r0->nk[t])%100);
+    if (r0->nk[t] < 0) j2 = k2-1;
+    else j2 = k2+1;
+    for (k = 0; k < lsj[i].nks; k++) {
+      s1 = lsj[i].s[k]-1;
+      k1 = lsj[i].k[k]*2;
+      kmin = abs(k1-k2);
+      kmax = k1+k2;
+      for (kk = kmin; kk <= kmax; kk += 2) {
+	smin = abs(s1-1);
+	smax = s1+1;
+	for (ss = smin; ss <= smax; ss += 2) {
+	  a = W9j(k1, k2, kk, s1, 1, ss, lsj[i].j, j2, jb);
+	  if (!a) continue;
+	  if (nq[ss] == NULL) {
+	    nq[ss] = malloc(sizeof(double)*nk);
+	    dn[ss] = malloc(sizeof(double)*nk);
+	    for (tt = 0; tt < nk; tt++) {
+	      nq[ss][tt] = 0.0;
+	      dn[ss][tt] = 0.0;
+	    }
+	  }
+	  a *= lsj[i].w[k];
+	  a *= a;
+	  a *= (lsj[i].j+1.0)*(j2+1.0)*(kk+1.0)*(ss+1.0);
+	  tt = n*(n-1)/2 + k2/2;
+	  nq[ss][tt] += a*r0->nq[t];
+	  dn[ss][tt] = r0->dn[t];
+	}
+      }
+    }
+  }
+  for (ss = 0; ss < ssm; ss++) {
+    if (nq[ss] == NULL) continue;
+    for (tt = 0; tt < nk; tt++) {
+      if (nq[ss][tt] <= 0) continue;
+      r1->n++;
+    }
+  }
+  r1->nk = malloc(sizeof(int)*r1->n);
+  r1->nq = malloc(sizeof(double)*r1->n);
+  r1->dn = malloc(sizeof(double)*r1->n);
+  k = 0;
+  for (ss = 0; ss < ssm; ss++) {
+    if (nq[ss] == NULL) continue;
+    for (tt = 0; tt < nk; tt++) {
+      if (nq[ss][tt] <= 0) continue;
+      n = nid[tt];
+      kk = tt - n*(n-1)/2;
+      r1->nk[k] = (ss+1)*10000 + n*100 + kk;
+      r1->nq[k] = nq[ss][tt];
+      r1->dn[k] = dn[ss][tt];
+      k++;
+    }
+    free(nq[ss]);
+    free(dn[ss]);	 
+  }
+  free(nq);
+  free(dn);
+  free(nid);
+  r1->b = r0->b;
+  r1->f = r0->f;  
+}
+
+void RecoupleRO(char *ifn, char *ofn, char *rfn) {
+  F_HEADER fh0;
+  TFILE *f0, *f1;
+  JJLSJ *lsj;
+  int ns, n, nh, i, swp, nb;
+  RO_HEADER h0;
+  RO_RECORD r, rs;
+
+  if (mem_en_table == NULL) {
+    printf("Energy table has not been built in memory.\n");
+    return;
+  }
+  
+  ns = ReadJJLSJ(rfn, &lsj);
+  if (ns <= 0) {
+    printf("cannot read LSJ data: %s\n", rfn);
+    return;
+  }
+  
+  f0 = FOPEN(ifn, "r");
+  if (f0 == NULL) return;
+  n = ReadFHeader(f0, &fh0, &swp);
+  if (n == 0) {
+    FCLOSE(f0);
+    return;
+  }
+
+  f1 = OpenFile(ofn, &fh0);
+  nb = 0;
+  while (1) {
+    nh = ReadROHeader(f0, &h0, swp);
+    if (nh == 0) break;
+    InitFile(f1, &fh0, &h0);
+    for (i = 0; i < h0.ntransitions; i++) {
+      n = ReadRORecord(f0, &r, swp);
+      if (n == 0) break;
+      RecoupleRORecord(ns, lsj, &r, &rs);
+      free(r.nk);
+      free(r.nq);
+      if (rs.n > 0) {
+	WriteRORecord(f1, &rs);
+	free(rs.nk);
+	free(rs.nq);
+      }
+    }
+    DeinitFile(f1, &fh0);
+    nb++;
+  }
+  CloseFile(f1, &fh0);
+  FCLOSE(f0);
+  free(lsj->s);
+  free(lsj->k);
+  free(lsj->w);
 }

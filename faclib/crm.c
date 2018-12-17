@@ -54,6 +54,7 @@ static int do_extrapolate = 100;
 static int inner_auger = 0;
 static double ai_emin = 0.0;
 static int norm_mode = 1;
+static int sw_mode = 0;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
@@ -400,7 +401,11 @@ int AddIon(int nele, double n, char *pref) {
       sprintf(ion.dbfiles[i], "%s.ci", pref);
       break;
     case DB_RO:
-      sprintf(ion.dbfiles[i], "%s.ro", pref);
+      if (sw_mode >= 4) {
+	sprintf(ion.dbfiles[i], "%s.sro", pref);
+      } else {
+	sprintf(ion.dbfiles[i], "%s.ro", pref);
+      }
       break;
     case DB_CX:
       sprintf(ion.dbfiles[i], "%s.cx", pref);
@@ -785,11 +790,12 @@ void LoadSW(ION *ion) {
   int n, i, j, p, tj, ts, tk;
   double w;
   char buf[8192];
-  
+
+  if (sw_mode != 0 && sw_mode != 1) return;
   if (ion->dbfiles[NDB] == NULL) return;
   f = fopen(ion->dbfiles[NDB], "r");
   if (f == NULL) {
-    printf("cannot open file %s\n", ion->dbfiles[NDB]);
+    //printf("cannot open file %s\n", ion->dbfiles[NDB]);
     return;
   }
   i = -1;
@@ -803,8 +809,15 @@ void LoadSW(ION *ion) {
       if (n != 6) continue;
       if (i >= 0) {
 	if (i < ion->nlevels) {
-	  ion->sw[i] = ts;
-	  //printf("%d %d %d %d %d %d %g\n", i, j, p, tj, ts, tk, w);
+	  if (sw_mode == 0) {
+	    ion->sw[i] = ts;
+	  } else {
+	    j = ion->vnl[i]%100;
+	    p = tk-j;
+	    ion->sw[i] = abs(p)*100 + ts;
+	    if (p < 0) ion->sw[i] = -ion->sw[i];
+	  }
+	  //printf("%d %d %d %d %d %d %d %g\n", i, j, p, tj, ts, tk, ion->sw[i], w);
 	}
 	i = -1;
       }
@@ -916,6 +929,7 @@ int SetBlocks(double ni, char *ifn) {
     for (i = 0; i < nlevels; i++) ion->iblock[i] = NULL;
     ion->ilev = (int *) malloc(sizeof(int)*nlevels);
     ion->j = (int *) malloc(sizeof(int)*nlevels);
+    ion->p = (short *) malloc(sizeof(short)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
     ion->ibase = (short *) malloc(sizeof(short)*nlevels);
     ion->sw = (short *) malloc(sizeof(short)*nlevels);
@@ -1019,8 +1033,10 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->j[p] = JFromENRecord(&(r0[i]));
 	    if (r0[i].p < 0) {
 	      ion->vnl[p] = -r0[i].p;
+	      ion->p[p] = 1;
 	    } else {
 	      ion->vnl[p] = r0[i].p;
+	      ion->p[p] = 0;
 	    }
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
@@ -1091,8 +1107,10 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->j[p] = JFromENRecord(&(r0[i]));
 	    if (r0[i].p < 0) {
 	      ion->vnl[p] = -r0[i].p;
+	      ion->p[p] = 1;
 	    } else {
 	      ion->vnl[p] = r0[i].p;
+	      ion->p[p] = 0;
 	    }
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
@@ -1232,8 +1250,10 @@ int SetBlocks(double ni, char *ifn) {
 	ion->j[p] = JFromENRecord(&(r));
 	if (r.p < 0) {
 	  ion->vnl[p] = -r.p;
+	  ion->p[p] = 1;
 	} else {
 	  ion->vnl[p] = r.p;
+	  ion->p[p] = 0;
 	}
 	ion->ibase[p] = IBaseFromENRecord(&r);
 	if (ion->ibase[p] < 0) {
@@ -1300,7 +1320,13 @@ int SetBlocks(double ni, char *ifn) {
     
     /* determine the minimum ilev in each block */
     blkp = NULL;
+    double emin = 0;
+    ion->ground = 0;
     for (i = 0; i < ion->nlevels; i++) {
+      if (ion->energy[i] < emin) {
+	ion->ground = i;
+	emin = ion->energy[i];
+      }
       if (ion->iblock[i] == NULL) continue;
       if (ion->iblock[i] != blkp) {
 	blkp = ion->iblock[i];
@@ -4712,8 +4738,8 @@ void FreeIdxRateBlock(int nb, int **irb) {
   free(irb);
 }
 
-int SetCXRates(int m, char *tgt) {
-  int i, k, p, ip[4], j1, j2, nn, kk, sw;
+int SetCXRates(int m0, char *tgt) {
+  int i, k, p, ip[4], j1, j2, nn, kk, sw, m;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
   ION *ion;
@@ -4733,9 +4759,11 @@ int SetCXRates(int m, char *tgt) {
   nn = -1;
   kk = -1;
   sw = 0;
+  m = abs(m0);
   if (m >= 10000) {
     sw = m/10000;
     m = m%10000;
+    if (m0 < 0) sw = -sw;
   }
   if (m >= 100) {
     nn = m/100;
@@ -4782,6 +4810,8 @@ int SetCXRates(int m, char *tgt) {
   }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
+    int jg = ion->j[ion->ground];
+    short pg = ion->p[ion->ground];
     ArrayFree(ion->cx_rates, FreeBlkRateData);
     int nbf = 0;
     if (m == 1) {
@@ -4816,11 +4846,31 @@ int SetCXRates(int m, char *tgt) {
 		j2 = ion->j[r[jb].b];
 		e = ion->energy[r[jb].f] - ion->energy[r[jb].b];		
 		if (e < 0) continue;
-		if (sw > 0 && ion->sw[r[jb].b] != sw) continue;
+		if (sw_mode < 2 && sw != 0 && ion->sw[r[jb].b] != sw) continue;
 		for (p = 0; p < r[jb].n; p++) {
-		  vn = abs(r[jb].nk[p]);
+		  vn = abs(r[jb].nk[p])%10000;
 		  vl = vn%100;
 		  vn = vn/100;
+		  if (sw != 0 && sw_mode >= 2) {
+		    int jw = 1;		    
+		    int jv = vl*2+1;
+		    if (r[jb].nk[p] < 0) {
+		      jw = 2;
+		      jv -= 2;
+		    }
+		    if (sw_mode == 3) {
+		      jv = j2-jv;
+		      jw += abs(jv)*100;
+		      if (jv < 0) jw = -jw;
+		    } else if (sw_mode == 4) {
+		      jw = r[jb].nk[p]/10000;
+		    } else if (sw_mode == 5) {
+		      jw = r[jb].nk[p]/10000;
+		      jv = j2+1;
+		      jw += jv*100;
+		    }
+		    if (jw != sw) continue;
+		  }
 		  if (kk >= 0) {
 		    if (vn != nn || vl != kk) continue;
 		    rts[jb].dir += r[jb].nq[p]/(4*vl+2.0);
@@ -7008,4 +7058,7 @@ ARRAY* _GetIons(){
 }
 
 void SetOptionCRM(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "crm:sw_mode")) {
+    sw_mode = ip;
+  }
 }
