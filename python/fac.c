@@ -2282,7 +2282,7 @@ static PyObject *PTransitionTableEB(PyObject *self, PyObject *args) {
   PyObject *p, *q;
 
   if (sfac_file) {
-    SFACStatement("TransitionTableEB", args, NULL);
+    SFACStatement("TRTableEB", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -5930,6 +5930,21 @@ static PyObject *PLandauZenerCX(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PRecoupleRO(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("RecoupleRO", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *ifn, *ofn, *rfn;
+  if (!(PyArg_ParseTuple(args, "sss", &ifn, &ofn, &rfn))) {
+    return NULL;
+  }
+  RecoupleRO(ifn, ofn, rfn);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6104,7 +6119,8 @@ static struct PyMethodDef fac_methods[] = {
   {"ExpectationValue", PExpectationValue, METH_VARARGS},   
   {"TRTable", PTransitionTable, METH_VARARGS}, 
   {"TransitionTable", PTransitionTable, METH_VARARGS},     
-  {"TRTableEB", PTransitionTableEB, METH_VARARGS},    
+  {"TRTableEB", PTransitionTableEB, METH_VARARGS},       
+  {"TransitionTableEB", PTransitionTableEB, METH_VARARGS},    
   {"PolarizeCoeff", PPolarizeCoeff, METH_VARARGS}, 
   {"TRBranch", PTRBranch, METH_VARARGS}, 
   {"TRRateH", PTRRateH, METH_VARARGS},  
@@ -6156,6 +6172,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
+  {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {NULL, NULL}
 };
 
