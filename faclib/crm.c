@@ -4738,8 +4738,21 @@ void FreeIdxRateBlock(int nb, int **irb) {
   free(irb);
 }
 
+/*
+sw_mode and m0 selects which states are populated with cx.
+m0%10000 specifies the n,l of the capture orbital
+m = m0/10000
+sw_mode=0: m = 2S+1 of the largest mixing component of the state
+sw_mode=1: m = sign(L-l)*(abs(L-l)*100 + 2S+1) of the largest mixing component
+sw_mode=2: m = mjl = 1 if j>l, 2 if j < l of the largest mixing component
+sw_mode=3: m = sign(J-j)*(abs(J-j)*100+mjl) of any mixing component
+sw_mode=4: m = 2S+1 of any mixing component of the state
+sw_mode=5: m = (2J+1)*100 + (2S+1) of any mixing component
+sw_mode=6: m = (2J1+1)*1000 + (2J0+1)*100 + (2S+1) of any mixing component
+               such that J0 <= J <= J1
+*/
 int SetCXRates(int m0, char *tgt) {
-  int i, k, p, ip[4], j1, j2, nn, kk, sw, m;
+  int i, k, p, ip[4], j1, j2, nn, kk, sw, jv1, jv2, m;
   int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
   RATE rt, rts[NRTB];
   ION *ion;
@@ -4759,11 +4772,20 @@ int SetCXRates(int m0, char *tgt) {
   nn = -1;
   kk = -1;
   sw = 0;
+  jv1 = 0;
+  jv2 = 0;
   m = abs(m0);
   if (m >= 10000) {
     sw = m/10000;
     m = m%10000;
-    if (m0 < 0) sw = -sw;
+    if (sw_mode == 6 && sw > 1000) {
+      jv1 = sw/100;
+      sw = sw%100;
+      jv2 = jv1/10;
+      jv1 = jv1%10;
+      if (jv2 >= 99) jv2 = 1000000;
+    }
+    if (m0 < 0) sw = -sw;    
   }
   if (m >= 100) {
     nn = m/100;
@@ -4864,11 +4886,15 @@ int SetCXRates(int m0, char *tgt) {
 		      if (jv < 0) jw = -jw;
 		    } else if (sw_mode == 4) {
 		      jw = r[jb].nk[p]/10000;
-		    } else if (sw_mode == 5) {
-		      jw = r[jb].nk[p]/10000;
+		    } else if (sw_mode >= 5) {
+		      jw = r[jb].nk[p]/10000;		      
 		      jv = j2+1;
-		      jw += jv*100;
-		    }
+		      if (jv2 >= jv1) {
+			if (jv < jv1 || jv > jv2) continue;
+		      } else {
+			jw += jv*100;
+		      }
+		    }		    
 		    if (jw != sw) continue;
 		  }
 		  if (kk >= 0) {
