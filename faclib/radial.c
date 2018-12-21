@@ -655,6 +655,8 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
+  ClearOrbitalTable(0);
+  SetPotentialVT(p);
   SetReferencePotential(hpotential, p, 1);
   SetReferencePotential(rpotential, p, 0);
   CopyPotentialOMP(0);
