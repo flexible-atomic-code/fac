@@ -46,12 +46,6 @@ mpy:
 doc:
 	cd doc; make
 
-test:
-	cd tests; make; make test
-
-check : subdirs
-	@set -e; for i in $(SUBDIRS); do (cd $$i; $(MAKE) check) || exit 1; done
-
 demo:
 	cd demo; make
 
@@ -59,7 +53,7 @@ install:
 	cd sfac; make install
 
 install-pfac:
-	${PYTHON} setup.py install -ccompiler="${CC}" 
+	${PYTHON} setup.py install -ccompiler="${CC}"
 
 install-mpy:
 	cd python; make install
