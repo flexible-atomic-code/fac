@@ -487,17 +487,6 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
     h->hamilton[j] = r;
   }
 
-  h->msize = h->dim * h->n_basis + h->dim;
-  if (h->mixing == NULL) {
-    h->msize0 = h->msize;
-    h->mixing = (double *) malloc(sizeof(double)*(size_t)h->msize);
-  } else if (h->msize > h->msize0) {
-    h->msize0 = h->msize;
-    free(h->mixing);
-    h->mixing = (double *) malloc(sizeof(double)*(size_t)h->msize);
-  }
-  if (!(h->mixing)) return -1;
-
   if (m > 0) {
     hs = hams + nhams;
     h->iham = nhams;
