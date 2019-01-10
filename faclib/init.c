@@ -120,6 +120,10 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionExcitation(s, sp, ip, dp);
     return;
   }
+  if (strstr(s, "rmatrix:") == s) {
+    SetOptionRMatrix(s, sp, ip, dp);
+    return;
+  }
   if (strstr(s, "ionization:") == s) {
     SetOptionIonization(s, sp, ip, dp);
     return;

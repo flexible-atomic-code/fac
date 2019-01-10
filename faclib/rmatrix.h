@@ -27,7 +27,7 @@
 #define NBTERMS 5
 #define NBFIT 7
 typedef struct _RBASIS_ {
-  int kmax, nbk, nkappa, nbuttle;
+  int ki, kmin, kmax, nbi, nbk, nkappa, nbuttle;
   int ib0, ib1;
   double rb0, rb1, bqp;
   int **basis, **bnode;
@@ -102,5 +102,5 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx, FILE **f, FILE *f1,
 	       double emin, double emax, int idep);
 int RMatrixConvert(char *ifn, char *ofn, int m);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
-
+void SetOptionRMatrix(char *s, char *sp, int ip, double dp);
 #endif

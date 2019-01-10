@@ -178,14 +178,20 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   char *v[MAXNARGS], *v1[MAXNARGS];
   int at[MAXNARGS], at1[MAXNARGS], nv, nv1, rv;
 
-  if (argt != LIST  && argt != TUPLE) return -1;
+  if (argt != LIST  && argt != TUPLE && argt != STRING) return -1;
   nv = 0; 
   nv1 = 0;
   rv = 0;
 
   iuta = IsUTA();
-  n = DecodeArgs(argv, v, at, variables);
-  nv = n;
+  if (argt == STRING) {
+    n = 1;
+    v[0] = argv;
+    at[0] = STRING;
+  } else {
+    n = DecodeArgs(argv, v, at, variables);
+    nv = n;
+  }
   if (n > 0) {
     if (at[0] == STRING) {
       ng = DecodeGroupArgs(&kg, n, NULL, v, at, variables);
@@ -1216,18 +1222,25 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
 
 static int PRefineRadial(int argc, char *argv[], int argt[], 
 		  ARRAY *variables) {
-  int maxfun, msglvl;
-  
+  int m, n, maxfun, msglvl;
+
+  m = 0;
+  n = 0;
   maxfun = 0;
   msglvl = 0;
-  if (argc > 0) {
-    maxfun = atoi(argv[0]);
-    if (argc > 1) {
-      msglvl = atoi(argv[1]);
+  if (argc < 1) return -1;
+  m = atoi(argv[0]);
+  if (argc > 1) {
+    n = atoi(argv[1]);
+    if (argc > 2) {
+      maxfun = atoi(argv[2]);
+      if (argc > 3) {
+	msglvl = atoi(argv[3]);
+      }
     }
   }
   
-  return RefineRadial(maxfun, msglvl);
+  return RefineRadial(m, n, maxfun, msglvl);
 }
 
 static int PPause(int argc, char *argv[], int argt[], 
@@ -4504,7 +4517,7 @@ static int PSlaterCoeff(int argc, char *argv[], int argt[],
   SHELL *sa, *sb;
   
   if (argc != 4) return -1;
-  if (argt[1] != LIST) return -1;
+  if (argt[1] != LIST && argt[1] != STRING) return -1;
   if (argt[2] != STRING) return -1;
   if (argt[3] != STRING) return -1;
     

@@ -123,7 +123,7 @@ void SetOptimizeControl(double tolerence, double stablizer,
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife);
-int RefineRadial(int maxfun, int msglvl);
+int RefineRadial(int m, int n, int maxfun, int msglvl);
 double ConfigEnergyShiftCI(int nrs0, int nrs1);
 double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);
 double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2);

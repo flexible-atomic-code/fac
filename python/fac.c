@@ -251,24 +251,32 @@ static int IntFromList(PyObject *p, int **k) {
 static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
   PyObject *p;
   char *s;
-  int i, k, ng;  
+  int i, k, ng, ist;  
 
+  ist = 0;
   if (args) {
-    if (!PyList_Check(args) && !PyTuple_Check(args)) return -1;
-    ng = PySequence_Length(args);
+    ist = PyUnicode_Check(args);
+    if (!PyList_Check(args) && !PyTuple_Check(args) && !ist) return -1;
+    if (ist) {
+      ng = 1;
+    } else {
+      ng = PySequence_Length(args);
+    }
   } else {
     ng = 0;
   }
   if (ng > 0) {
-    p = PySequence_GetItem(args, 0);
-    if (PyList_Check(p) || PyTuple_Check(p)) {
-      if (ng > 1) {
-	onError("there should only be one list or tuple");
-	return -1;
+    if (!ist) {
+      p = PySequence_GetItem(args, 0);
+      if (PyList_Check(p) || PyTuple_Check(p)) {
+	if (ng > 1) {
+	  onError("there should only be one list or tuple");
+	  return -1;
+	}
+	ng = PySequence_Length(p);
+	args = p;
+	Py_DECREF(p);
       }
-      ng = PySequence_Length(p);
-      args = p;
-      Py_DECREF(p);
     }
     (*kg) = malloc(sizeof(int)*ng);
     if (!(*kg)) {
@@ -283,7 +291,11 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
     }
     int n = 0;
     for (i = 0; i < ng; i++) {
-      p = PySequence_GetItem(args, i);
+      if (!ist) {
+	p = PySequence_GetItem(args, i);
+      } else {
+	p = args;
+      }
       if (!PyUnicode_Check(p)) {
 	free((*kg));
 	onError("argument must be a group name");
@@ -1496,7 +1508,7 @@ static PyObject *PFreezeOrbital(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
-  int maxfun, msglvl;
+  int m, n, maxfun, msglvl;
 
   if (sfac_file) {
     SFACStatement("RefineRadial", args, NULL);
@@ -1504,11 +1516,13 @@ static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  m = 0;
+  n = 0;
   maxfun = 0;
   msglvl = 0;
-  if (!PyArg_ParseTuple(args, "|ii", &maxfun, &msglvl)) return NULL;
+  if (!PyArg_ParseTuple(args, "i|iii", &m, &n, &maxfun, &msglvl)) return NULL;
   
-  if (RefineRadial(maxfun, msglvl)) return NULL;
+  if (RefineRadial(m, n, maxfun, msglvl)) return NULL;
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1794,10 +1808,19 @@ static int SelectLevels(PyObject *p, int **t) {
   char rgn[GROUP_NAME_LEN];
 
   iuta = IsUTA();
-  if (!PyList_Check(p) && !PyTuple_Check(p)) return 0;
-  n = PySequence_Length(p);
+  int ist = PyUnicode_Check(p);
+  if (!PyList_Check(p) && !PyTuple_Check(p) && !ist) return 0;
+  if (ist) {
+    n = 1;
+  } else {
+    n = PySequence_Length(p);
+  }
   if (n > 0) {
-    q = PySequence_GetItem(p, 0);
+    if (ist) {
+      q = p;
+    } else {
+      q = PySequence_GetItem(p, 0);
+    }
     if (PyUnicode_Check(q)) {
       ng = DecodeGroupArgs(p, &kg, NULL);
       if (ng <= 0) {
@@ -1823,7 +1846,9 @@ static int SelectLevels(PyObject *p, int **t) {
 	}
       }
       free(kg);
-      Py_DECREF(q);
+      if (!ist) {
+	Py_DECREF(q);
+      }
       (*t) = realloc(*t, k*sizeof(int));
       return k;
     } else if (PyList_Check(q)) {
@@ -5575,6 +5600,7 @@ static PyObject *PCoulMultip(PyObject *self, PyObject *args) {
 
 static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
   char *fn, *q1, *q2;
+  char qs1[1024], qs2[1024];
   PyObject *p;  
   int nlev, *ilev, na, nb, i, *n, *kappa;
   double *nq;
@@ -5587,9 +5613,10 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
   }
   
   if (!(PyArg_ParseTuple(args, "sOss", &fn, &p, &q1, &q2))) return NULL;
-
+  strncpy(qs1, q1, 1024);
+  strncpy(qs2, q2, 1024);
   nlev = SelectLevels(p, &ilev);
-  na = GetAverageConfigFromString(&n, &kappa, &nq, q1);
+  na = GetAverageConfigFromString(&n, &kappa, &nq, qs1);
   sa = malloc(sizeof(SHELL)*na);
   for (i = 0; i < na; i++) {
     sa[i].n = n[i];
@@ -5600,7 +5627,7 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
     free(kappa);
     free(nq);
   }
-  nb = GetAverageConfigFromString(&n, &kappa, &nq, q2);
+  nb = GetAverageConfigFromString(&n, &kappa, &nq, qs2);
   sb = malloc(sizeof(SHELL)*nb);
   for (i = 0; i < nb; i++) {
     sb[i].n = n[i];
@@ -5611,7 +5638,6 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
     free(kappa);
     free(nq);
   }
-
   if (nlev > 0 && na > 0 && nb > 0) {
     SlaterCoeff(fn, nlev, ilev, na, sa, nb, sb);
     free(ilev);

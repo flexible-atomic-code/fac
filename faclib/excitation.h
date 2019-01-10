@@ -25,6 +25,7 @@
 
 typedef struct _CEPW_SCRATCH_ {
   int qr;
+  int min_kl;
   int max_kl;
   int kl_cb;
   double tolerance;

@@ -79,7 +79,7 @@ typedef struct _ION_ {
   int *ilev;
   int *j;
   short *p;
-  short *vnl;
+  short *vnl, *vni;
   short *sw;
   short *ibase;
   double *energy;
