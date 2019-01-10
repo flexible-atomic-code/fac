@@ -584,6 +584,43 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
   return ns;
 }
 
+short VNIFromSName(char *sn) {
+  char c[4096];
+  strncpy(c, sn, 4096);
+  int ns = StrSplit(c, '.');
+  int i;
+  char *s0, *s1;
+  s0 = c;
+  s1 = NULL;
+  for (i = 0; i < ns-1; i++) {
+    if (i == ns-2) s1 = s0;
+    while(*s0) s0++;
+    s0++;
+  }
+  SHELL *s;
+  double q;
+  short vnl = 0;
+  ns = ShellsFromStringNR(s0, &q, &s);
+  if (ns == 1) {
+    if (q > 1) {
+      vnl = s[0].n*100 + s[0].kappa/2;
+    }
+    free(s);    
+    if (vnl <= 0 && s1) {
+      ns = ShellsFromStringNR(s1, &q, &s);
+      if (ns == 1) {
+	vnl = s[0].n*100 + s[0].kappa/2;
+	free(s);
+      } else {
+	if (ns > 0) free(s);
+      }
+    }
+  } else {
+    if (ns > 0) free(s);
+  }
+  return vnl;
+}
+
 int GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m) {
   int nc, i;
   double dnq;

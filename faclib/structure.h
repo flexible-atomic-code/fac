@@ -168,9 +168,13 @@ int CompareInt(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
 int ValidBasis(STATE *s, int k, int *kg, int n);
+int ValidBasisNK(STATE *s, int k, int *kg, int n1, int n0, int r1, int r0);
 int SolveStructure(char *fn, char *hfn,
 		   int ng, int *kg, int npg, int *kgp, int ip);
-int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int nc, int *kc);
+int SolveStructureFrozen(char *fn, int ng, int *kg, int nc, int *kc,
+			 int n0, int n1, int k1);
+int ConstructHamiltonFrozen(int isym, int k, int *kg, int n,
+			    int nc, int *kc, int n0, int n1, int k0, int k1);
 void HamiltonElement1E2E(int isym, int isi, int isj, double *r1, double *r2);
 double HamiltonElement(int isym, int isi, int isj);
 double HamiltonElementFrozen(int isym, int isi, int isj);
@@ -229,6 +233,7 @@ int AddToAngularZFB(int *n, int *nz, ANGULAR_ZFB **ang,
 		    int kb, double coeff);
 int AngularZxZFreeBound(ANGULAR_ZxZMIX **ang, int lower, int upper);
 int GetBasisTable(char *fn, int m, int k);
+int GetBasisTableLR(char *fn, int m, int k, int ilev0, int ilev1);
 int ConstructLevelName(char *name, char *sname, char *nc, 
 		       int *vnl, STATE *basis);
 int SaveLevels(char *fn, int m, int n);
@@ -274,6 +279,8 @@ void GenEigen(char *trans, char *jobz, int n, double *ap,
 	      double *work, int lwork, int *info);
 void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);
 void SetOptionStructure(char *s, char *sp, int ip, double dp);
+int SetFrozenTargets(int nt, int *kt, int nc, int *kc,
+		     int *nts, int **ts, int *ncs, int **cs);
 #endif
 
 

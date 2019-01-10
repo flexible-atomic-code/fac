@@ -466,6 +466,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->ilev = (int *) realloc(ion->ilev, sizeof(int)*nlev);
   ion->j = (int *) realloc(ion->j, sizeof(int)*nlev);
   ion->vnl = (short *) realloc(ion->vnl, sizeof(short)*nlev);
+  ion->vni = (short *) realloc(ion->vni, sizeof(short)*nlev);
   ion->ibase = (short *) realloc(ion->ibase, sizeof(short)*nlev);
   ion->sw = (short *) realloc(ion->sw, sizeof(short)*nlev);
   ion->energy = (double *) realloc(ion->energy, sizeof(double)*nlev);
@@ -931,6 +932,7 @@ int SetBlocks(double ni, char *ifn) {
     ion->j = (int *) malloc(sizeof(int)*nlevels);
     ion->p = (short *) malloc(sizeof(short)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
+    ion->vni = (short *) malloc(sizeof(short)*nlevels);
     ion->ibase = (short *) malloc(sizeof(short)*nlevels);
     ion->sw = (short *) malloc(sizeof(short)*nlevels);
     ion->energy = (double *) malloc(sizeof(double)*nlevels);
@@ -1038,6 +1040,7 @@ int SetBlocks(double ni, char *ifn) {
 	      ion->vnl[p] = r0[i].p;
 	      ion->p[p] = 0;
 	    }
+	    ion->vni[p] = VNIFromSName(r0[i].sname);
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	  }
@@ -1112,6 +1115,7 @@ int SetBlocks(double ni, char *ifn) {
 	      ion->vnl[p] = r0[i].p;
 	      ion->p[p] = 0;
 	    }
+	    ion->vni[p] = VNIFromSName(r0[i].sname);
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	    if (ifn) {
@@ -1255,6 +1259,7 @@ int SetBlocks(double ni, char *ifn) {
 	  ion->vnl[p] = r.p;
 	  ion->p[p] = 0;
 	}
+	ion->vni[p] = VNIFromSName(r.sname);
 	ion->ibase[p] = IBaseFromENRecord(&r);
 	if (ion->ibase[p] < 0) {
 	  if (ion->nele == 2) {
@@ -4750,10 +4755,11 @@ sw_mode=4: m = 2S+1 of any mixing component of the state
 sw_mode=5: m = (2J+1)*100 + (2S+1) of any mixing component
 sw_mode=6: m = (2J1+1)*1000 + (2J0+1)*100 + (2S+1) of any mixing component
                such that J0 <= J <= J1
+sw_mode=10: m0%10000 specifies a double capture as n2*100 + (n2-n1)
 */
 int SetCXRates(int m0, char *tgt) {
   int i, k, p, ip[4], j1, j2, nn, kk, sw, jv1, jv2, m;
-  int vn, vl, vl2, ix, jb, nrb, swp, nb, n;
+  int vn, vl, vl2, ix, jb, nrb, swp, nb, n, vnp, vlp;
   RATE rt, rts[NRTB];
   ION *ion;
   int **irb;
@@ -4836,6 +4842,21 @@ int SetCXRates(int m0, char *tgt) {
     short pg = ion->p[ion->ground];
     ArrayFree(ion->cx_rates, FreeBlkRateData);
     int nbf = 0;
+    if (sw_mode >= 10) {
+      for (i = 0; i < ion->nlevels; i++) {
+	vn = ion->vnl[i]/100;
+	vl = ion->vnl[i]%100;
+	vnp = ion->vni[i]/100;
+	vlp = ion->vni[i]%100;
+	if (vn != nn || vnp != nn-kk) continue;
+	rt.i = ion->iground;
+	rt.f = i;
+	rt.inv = 0.0;
+	rt.dir = (ion->j[i]+1.0)/((2.0*vn*vn)*(2*vnp*vnp));
+	AddRate(ion, ion->cx_rates, &rt, 0, irb);
+      }
+      continue;
+    }
     if (m == 1) {
       f = OpenFileRO(ion->dbfiles[DB_RO-1], &fh, &swp);
       if (f == NULL) {

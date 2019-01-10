@@ -2400,27 +2400,77 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
 }      
 
 static double **_refine_wfb = NULL;
+static double _refine_xtol = EPS5;
+static double _refine_scale = 0.1;
 static int _refine_msglvl = 0;
+static int _refine_np = 6;
+static int _refine_maxfun = 10000;
+static int _refine_mode = 1;
+static int _refine_pj = -1;
+static int _refine_em = 0;
 static double EnergyFunc(int *n, double *x) {
   double a;
-  int i, k;
+  int i, k, np;
   ORBITAL *orb;
   
-  for (i = 0; i < potential->maxrp; i++) {
-    potential->U[i] = _dphasep[i];
-    for (k = 0; k < *n; k++) {      
-      potential->U[i] += x[k]*_refine_wfb[k][i];
+  if (_refine_mode == 1) {
+    for (i = 0; i < potential->maxrp; i++) {
+      potential->U[i] = _dphasep[i];
+      for (k = 0; k < *n; k++) {      
+	potential->U[i] += x[k]*_refine_wfb[k][i];
+      }
+    }      
+  } else if (_refine_mode == 2) {
+    np = 2 + (*n);
+    for (k = 0; k < *n; k++) {
+      _refine_wfb[1][k+1] = x[k];
+    }    
+    spline(_refine_wfb[0], _refine_wfb[1], np, 0.0, 0.0, _refine_wfb[2]);
+    for (i = 0; i < potential->maxrp; i++) {
+      splint(_refine_wfb[0], _refine_wfb[1], _refine_wfb[2], np,
+	     _refine_wfb[3][i], &a);
+      potential->U[i] = _dphasep[i] + a/potential->rad[i];
     }
-  }  
+    /*
+    UVIP3P(3, np, _refine_wfb[0], _refine_wfb[1],
+	   potential->maxrp, _refine_wfb[3], _refine_wfb[4]);
+    for (i = 0; i < potential->maxrp; i++) {
+      potential->U[i] = _dphasep[i] + _refine_wfb[4][i]/potential->rad[i];
+    }
+    */
+  }
   //SetPotentialVc(potential);
   SetPotentialU(potential, 0, NULL);
   SetPotentialVT(potential);
   ReinitRadial(1);
   ClearOrbitalTable(0);
   if (average_config.ng > 0) {
-    a = 0.0;
-    for (k = 0; k < average_config.ng; k++) {
-      a += TotalEnergyGroup(average_config.kg[k])*average_config.weight[k];
+    if (_refine_pj < 0) {
+      a = 0.0;
+      for (k = 0; k < average_config.ng; k++) {
+	a += TotalEnergyGroup(average_config.kg[k])*average_config.weight[k];
+      }
+    } else {
+      a = 0.0;
+      if (_refine_em == 0) {
+	ConstructHamiltonDiagonal(_refine_pj, average_config.ng,
+				  average_config.kg, -1);
+	HAMILTON *h = GetHamilton(_refine_pj);
+	for (i = 0; i < h->dim; i++) {
+	  a += h->hamilton[i];
+	}
+	AllocHamMem(h, -1, -1);
+	AllocHamMem(h, 0, 0);
+      } else {
+	int ng = average_config.ng;
+	int *kg = malloc(sizeof(int)*ng);
+	memcpy(kg, average_config.kg, sizeof(int)*ng);
+	SolveStructure(NULL, NULL, ng, kg, 0, NULL, 0);
+	HAMILTON *h = GetHamilton(_refine_pj);
+	a = h->mixing[0];
+	AllocHamMem(h, -1, -1);
+	AllocHamMem(h, 0, 0);
+      }
     }
   } else {
     a = AverageEnergyAvgConfig(&average_config);
@@ -2435,70 +2485,114 @@ static double EnergyFunc(int *n, double *x) {
   return a;
 }
 
-int RefineRadial(int maxfun, int msglvl) {
-  int n, i, k, ierr, mode, nfe, se, *lw;
+int RefineRadial(int m, int n, int maxfun, int msglvl) {
+  int i, k, ierr, mode, nfe, se, *lw, n2, nw;
   double xtol;
   double f0, f, *x, *scale, *dw;
   AVERAGE_CONFIG *a;
   ORBITAL *orb;
 
+  if (potential->N < 1+EPS5) return 0;
+  if (m == 0) m = 2;
+  if (n == 0) n = _refine_np;
+  if (maxfun <= 0) maxfun = _refine_maxfun;
+  if (msglvl < 0) msglvl = _refine_msglvl;
   se = qed.se;
   qed.se = -1000000;
+  double t0 = WallTime();
   if (maxfun <= 0) maxfun = 10000;
-  _refine_msglvl = msglvl;
-  xtol = EPS3;
-  n = 0;
-  k = 0;
-  a = &average_config;  
-  lw = malloc(sizeof(int)*a->n_shells*2);
-  for (i = 0; i < a->n_shells; i++) {
-    if (a->n[i] != k) {
-      k = a->n[i];
-      lw[n] = k;
-      n++;
-    }
-  }
-  _refine_wfb = malloc(sizeof(double *)*n);
-  for (i = 0; i < n; i++) {
-    _refine_wfb[i] = malloc(sizeof(double)*potential->maxrp);
-    k = OrbitalIndex(lw[i], -1, 0);
-    orb = GetOrbitalSolved(k);
-    for (k = 0; k < potential->maxrp; k++) {
-      _refine_wfb[i][k] = orb->wfun[k];
-    }
-  }
-  mode = 0;
-  x = malloc(sizeof(double)*n);
-  scale = malloc(sizeof(double)*n);
-  dw = malloc(sizeof(double)*(n*2+n*(n+4)+1));
-  for (i = 0; i < n; i++) {
-    x[i] = 0.0;
-    scale[i] = 1e-5;
-  }
-
+  if (n <= 0) n = 6;
   for (i = 0; i < potential->maxrp; i++) {
     _dphasep[i] = potential->U[i];
   }
-  nfe = 0;
-  ierr = 0;
-  SUBPLX(EnergyFunc, n, xtol, maxfun, mode, scale, x,
-	 &f, &nfe, dw, lw, &ierr);
-  if (msglvl > 0) {
-    printf("refine final: ");
+  a = &average_config;
+  if (m%2 == 1) {
+    _refine_wfb = malloc(sizeof(double *)*n);
+    nw = n;
     for (i = 0; i < n; i++) {
-      printf("%g ", x[i]);
+      _refine_wfb[i] = malloc(sizeof(double)*potential->maxrp);
+      k = OrbitalIndex(i+1, -1, 0);
+      orb = GetOrbitalSolved(k);
+      for (k = 0; k < potential->maxrp; k++) {
+	_refine_wfb[i][k] = orb->wfun[k];
+      }
     }
-    printf("--- %18.10E %d %d\n", f, ierr, nfe);
+  } else {
+    nw = 5;
+    _refine_wfb = malloc(sizeof(double *)*nw);
+    n2 = n+2;
+    for (i = 0; i < 3; i++) {
+      _refine_wfb[i] = malloc(sizeof(double)*n2);
+    }
+    for (i = 3; i < nw; i++) {
+      _refine_wfb[i] = malloc(sizeof(double)*potential->maxrp);
+    }
+    _refine_wfb[0][0] = 0.0;
+    xtol = 1.0/(n2-1.0);
+    for (k = 1; k < n2; k++) {
+      _refine_wfb[0][k] = _refine_wfb[0][k-1]+xtol;
+    }
+    _refine_wfb[1][0] = 0.0;
+    _refine_wfb[1][n2-1] = 0.0;
+    k = potential->maxrp-1;
+    f = potential->Z[k] + potential->Vc[k]*potential->rad[k];
+    for (k = 0; k < potential->maxrp; k++) {
+      _refine_wfb[3][k] = (potential->Z[k] +
+			   potential->Vc[k]*potential->rad[k])/f;
+    }
   }
-  free(x);
-  free(scale);
-  free(lw);
-  free(dw);
-  for (i = 0; i < n; i++) {
+  _refine_mode = m;
+  if (_refine_pj >= 0 && _refine_em == 1) {
+    int pp, jj;
+    DecodePJ(_refine_pj, &pp, &jj);
+    SetSymmetry(pp, 1, &jj);
+  }
+  if (m > 2) {
+  } else {
+    _refine_msglvl = msglvl;
+    xtol = _refine_xtol;
+    mode = 0;
+    lw = malloc(sizeof(int)*n*2);
+    x = malloc(sizeof(double)*n);
+    scale = malloc(sizeof(double)*n);
+    dw = malloc(sizeof(double)*(n*2+n*(n+4)+1));
+    f0 = 0;
+    for (k = 0; k < potential->maxrp; k++) {
+      f = fabs(potential->U[k]);
+      if (f > f0) f0 = f;
+    }
+    for (i = 0; i < n; i++) {
+      x[i] = 0.0;
+      scale[i] = _refine_scale*f0;
+    }
+    f0 = EnergyFunc(&n, x);
+    nfe = 0;
+    ierr = 0;
+    SUBPLX(EnergyFunc, n, xtol, maxfun, mode, scale, x,
+	   &f, &nfe, dw, lw, &ierr);
+    f = EnergyFunc(&n, x);
+    double t1 = WallTime();
+    if (msglvl > 0) {
+      printf("refine final: ");
+      for (i = 0; i < n; i++) {
+	printf("%g ", x[i]);
+      }
+      printf("--- %d %18.10E %18.10E %d %d %10.3E\n",
+	     n, f, f0, ierr, nfe, t1-t0);
+    }  
+    free(x);
+    free(scale);
+    free(lw);
+    free(dw);
+  }
+  for (i = 0; i < nw; i++) {
     free(_refine_wfb[i]);
   }
   free(_refine_wfb);
   qed.se = se;
+  if (_refine_pj >= 0 && _refine_em == 1) {
+    SetSymmetry(-1, 0, NULL);
+  }
   return 0;
 }
 
@@ -3156,7 +3250,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  ClearOrbitalTable(0);
 	  continue;
 	}
-	if (mr > 0) RefineRadial(mr, 0);
+	if (mr > 0) RefineRadial(mr, 0, 0, -1);
       }
       for (i = 0; i < g->n_cfgs; i++) {
 	if (md > 0) {
@@ -3165,7 +3259,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	    ClearOrbitalTable(0);
 	    continue;
 	  }
-	  if (mr > 0) RefineRadial(mr, 0);
+	  if (mr > 0) RefineRadial(mr, 0, 0, -1);
 	}
 	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	nmax = potential->nmax-1;
@@ -9277,4 +9371,34 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 }
 
 void SetOptionRadial(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "radial:refine_maxfun")) {
+    _refine_maxfun = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_msglvl")) {
+    _refine_msglvl = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_np")) {
+    _refine_np = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_xtol")) {
+    _refine_xtol = dp;
+    if (_refine_xtol <= 0) _refine_xtol = EPS5;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_scale")) {
+    _refine_scale = dp;
+    if (_refine_scale <= 0) _refine_scale = 0.1;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_pj")) {
+    _refine_pj = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:refine_em")) {
+    _refine_em = ip;
+    return;
+  }
 }

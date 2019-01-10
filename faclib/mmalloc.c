@@ -39,6 +39,7 @@ void *mmalloc(size_t size) {
   *p = size;
 #pragma omp atomic
   _tsize += size;
+#pragma omp atomic
   _msize += size;
   return &p[1];
 }

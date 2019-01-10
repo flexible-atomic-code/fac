@@ -81,7 +81,7 @@ static FILE *fpw=NULL;
 static EXCIT_TIMING timing = {0, 0, 0};
 #endif
 
-static CEPW_SCRATCH pw_scratch = {1, MAXKL, 100, 5E-2, 0, 0, 10};
+static CEPW_SCRATCH pw_scratch = {1, 0, MAXKL, 100, 5E-2, 0, 0, 10};
 
 static int maxcecache = MAXCECACHE;
 static CECACHE cecache = {0};
@@ -420,7 +420,21 @@ int SetCEPWGrid(int ns, int *n, int *step) {
 			     pw_scratch.log_kl,
 			     pw_scratch.max_kl,
 			     &ns, n, step);
-  pw_scratch.ns = ns;  
+  pw_scratch.ns = ns;
+  if (pw_scratch.min_kl > 0) {
+    int i, j, k;
+    for (i = 1; i < pw_scratch.nkl; i++) {
+      if (pw_scratch.kl[i] > pw_scratch.min_kl) break;
+    }
+    pw_scratch.kl[0] = pw_scratch.min_kl;
+    pw_scratch.log_kl[0] = log(pw_scratch.kl[0]);
+    for (j = i; j < pw_scratch.nkl; j++) {
+      k = j-i+1;
+      pw_scratch.kl[k] = pw_scratch.kl[j];
+      pw_scratch.log_kl[k] = log(pw_scratch.kl[k]);
+    }
+    pw_scratch.nkl = k+1;
+  }
   return 0;
 }
 
@@ -3975,4 +3989,8 @@ int ReinitExcitation(int m) {
 }
 
 void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
+  if (strcmp("excitation:minkl", s) == 0) {
+    pw_scratch.min_kl = ip;
+    return;
+  }
 }

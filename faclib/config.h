@@ -334,4 +334,5 @@ void ShellString(int n, int k, int q, char *s);
 int SDConfig(CONFIG *c, char *cs,
 	     int n0, int k0, int n1, int k1,
 	     int n2, int k2, int n3, int k3);
+short VNIFromSName(char *sn);
 #endif

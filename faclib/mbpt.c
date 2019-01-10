@@ -4011,9 +4011,10 @@ void InitTransitionMBPT(MBPT_TR **mtr0, IDXARY **idb) {
 	    free(mtr[j].ndim1);
 	    free(mtr[j].pma);
 	    mtr[j].ids = NULL;
+	  } else {
+	    mtr[j].ids = malloc(sizeof(IDXARY));
+	    InitIdxAry(mtr[j].ids, mtr[j].nsym1, mtr[j].isym1);
 	  }
-	  mtr[j].ids = malloc(sizeof(IDXARY));
-	  InitIdxAry(mtr[j].ids, mtr[j].nsym1, mtr[j].isym1);
 	}
 	j++;
       }
@@ -4024,6 +4025,7 @@ void InitTransitionMBPT(MBPT_TR **mtr0, IDXARY **idb) {
 void FreeTransitionDataMBPT(MBPT_TR *mtr, int j) {
   int m, i, k;
   
+  if (mtr[j].nsym1 == 0) return;
   for (m = 0; m < mtr[j].nsym1; m++) {
     k = mtr[j].ndim0 * mtr[j].ndim1[m];
     for (i = 0; i < k; i++) {

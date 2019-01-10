@@ -439,7 +439,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	  sym = GetSymmetry(lev->pj);
 	  s = (STATE *) ArrayGet(&(sym->states), m);
 	  if (!InGroups(s->kgroup, k, kg)) continue;
-	  m = ConstructHamiltonFrozen(i, j, NULL, n, 0, NULL);
+	  m = ConstructHamiltonFrozen(i, j, NULL, n, 0, NULL, 0, 0, -1, -1);
 	  if (m < 0) continue;
 	  if (DiagnolizeHamilton(h) < 0) return -2;
 	  AddToLevels(h, 0, NULL);
@@ -447,7 +447,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	i0 = rec_complex[t].s1+1;
       }
     } else {
-      m = ConstructHamiltonFrozen(i, k, kg, n, 0, NULL);
+      m = ConstructHamiltonFrozen(i, k, kg, n, 0, NULL, 0, 0, -1, -1);
       if (m < 0) continue;
       if (DiagnolizeHamilton(h) < 0) return -2;
       AddToLevels(h, 0, NULL);
