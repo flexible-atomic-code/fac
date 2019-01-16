@@ -45,6 +45,7 @@ typedef struct _HAMILTON_ {
   size_t lwork;
   size_t liwork;
   int *basis;
+  MATRIX *hsp;
   double *hamilton;
   double *mixing;
   double *work;
@@ -167,6 +168,7 @@ int SortUnique(int n, int *a);
 int CompareInt(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
 int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m);
+void ConstructHamiltonBand(HAMILTON *h, double (*fhe)(int, int, int));
 int ValidBasis(STATE *s, int k, int *kg, int n);
 int ValidBasisNK(STATE *s, int k, int *kg, int n1, int n0, int r1, int r0);
 int SolveStructure(char *fn, char *hfn,
@@ -177,10 +179,13 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n,
 			    int nc, int *kc, int n0, int n1, int k0, int k1);
 void HamiltonElement1E2E(int isym, int isi, int isj, double *r1, double *r2);
 double HamiltonElement(int isym, int isi, int isj);
-double HamiltonElementFrozen(int isym, int isi, int isj);
+double HamiltonElementFrozen(int ti, STATE *si, LEVEL *lev1,
+			     int tj, STATE *sj, LEVEL *lev2);
+double HamiltonElementFB(int ti, STATE *si, LEVEL *lev1,
+			 int tj, STATE *sj, LEVEL *lev2);
 double MultipoleCoeff(int isym, int ilev1, int ka1,
 		      int ilev2, int ka2, int k);
-double HamiltonElementFB(int isym, int isi, int isj);
+double HamiltonElementFBF(int isym, int isi, int isj);
 double Hamilton2E2(int n_shells, SHELL_STATE *sbra, 
 		   SHELL_STATE *sket,INTERACT_SHELL *s);
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, 
@@ -274,7 +279,7 @@ void AddSlaterCoeff(double *c, double a, int n_shells,
 int WriteHamilton(char *fn, int ng0, int ng, int *kg, int ngp, int *kgp);
 int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
 		 int *ngp, int **kgp, int md);
-void GenEigen(char *trans, char *jobz, int n, double *ap,
+void GenEigen(HAMILTON *h, char *trans, char *jobz, int n, double *ap,
 	      double *w, double *wi, double *z,
 	      double *work, int lwork, int *info);
 void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);

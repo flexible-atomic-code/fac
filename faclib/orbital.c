@@ -151,7 +151,7 @@ void SetOrbitalWorkSpace(double *p, int n) {
   p += n;
   _ipiv = (int *) p;
 }
-
+ 
 double EneTol(double e) {
   e = fabs(e);
   double d0 = e*ENERELERR;
@@ -818,8 +818,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
 
   niter = 0;
 
-  z0 = pot->Z[pot->maxrp-1];
-  z = (z0 - pot->N1);
+  z = GetResidualZ();
   //if (z < 0.1) z = 0.1;
 
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
@@ -1215,7 +1214,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   if (!p) return -1;
 
   nr = orb->n - kl - 1;
-  z0 = pot->Z[pot->maxrp-1];
+  z0 = pot->atom->atomic_number;
   z = (z0 - pot->N1);
   //if (z < 1) z = 1.0;
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
@@ -1298,8 +1297,8 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g\n",
-	   orb->n, orb->kappa, nodes, nr, e);
+    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g %g %g\n",
+	   orb->n, orb->kappa, nodes, nr, e, emin, emax);
     free(p);
     return -4;
   }
@@ -1360,11 +1359,11 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     e = e + delta;
     ep = EneTol(e);
     if (fabs(delta) < ep) break;
-    if (niter > 20) {
-      ep = niter-20;
+    if (niter > 10) {
+      ep = niter-10;
       ep = 1.0 - 0.75*Min(100,ep)/100;
-      e = e*ep + e0*(1-ep);
     }
+    e = e*ep + e0*(1-ep);
   }
   if (niter == max_iteration) {
     printf("Max iteration reached in RadialBound: %d %d\n", orb->n, orb->kappa);
@@ -2462,7 +2461,7 @@ double InnerProduct(int i1, int n, double *p1, double *p2, POTENTIAL *pot) {
 }
 
 int SetOrbitalRGrid(POTENTIAL *pot) {
-  int i;  
+  int i, maxrp;  
   double z0, z, d1, d2, del, gratio, gasymp;
   double a, b, c, q, rn, r1, rmin, rmax;
 
@@ -2479,10 +2478,49 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     a = rn*GRIDRMINN1;
     if (rmin > a) rmin = a;
   }
+  
+  if (pot->rps > 0) {
+    maxrp = Max(25, (int)(1+0.85*pot->maxrp));
+    if (gasymp > 0 && gratio > 0) {
+      a = gasymp*sqrt(2.0*z)/PI;
+      c = 1.0/log(gratio);    
+      d2 = maxrp-10.0 + a*pow(rmin, pot->qr) + c*log(rmin);
+      rmax = d2/a;
+      rmax = pow(rmax, 1.0/pot->qr);
+      d1 = 1.0;
+      while (d1 > EPS5) {
+	r1 = d2 - c*log(rmax);
+	r1 = r1/a;
+	r1 = pow(r1, 1.0/pot->qr);
+	d1 = fabs(r1/rmax-1.0);
+	rmax = r1;
+      }
+      if (pot->rps > rmax) {
+	maxrp = pot->maxrp;
+      } else {
+	gratio = -pot->rps;
+      }
+    } else if (gasymp > 0) {
+      if (pot->rps > -gratio) {
+	maxrp = pot->maxrp;
+      } else {
+	gratio = -pot->rps;
+      }
+    } else if (gratio > 0) {
+      if (pot->rps > -gasymp) {
+	maxrp = pot->maxrp;
+      } else {
+	gasymp = -pot->rps;
+      }
+    }
+    pot->ips = maxrp-1;
+  } else {
+    maxrp = pot->maxrp;
+  }
   if (gasymp > 0 && gratio > 0) {
     a = gasymp*sqrt(2.0*z)/PI;
-    c = 1.0/log(gratio);
-    d2 = pot->maxrp-10.0 + a*pow(rmin, pot->qr) + c*log(rmin);
+    c = 1.0/log(gratio);    
+    d2 = maxrp-10.0 + a*pow(rmin, pot->qr) + c*log(rmin);
     rmax = d2/a;
     rmax = pow(rmax, 1.0/pot->qr);
     d1 = 1.0;
@@ -2499,7 +2537,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
       rmax = pot->rb*1.001;
     }
     c = 1.0/log(gratio);
-    a = pot->maxrp-15.0 + c*(log(rmin)-log(rmax));
+    a = maxrp-15.0 + c*(log(rmin)-log(rmax));
     a /= pow(rmax, pot->qr) - pow(rmin, pot->qr);
   } else if (gasymp > 0) {
     rmax = -gratio;
@@ -2507,27 +2545,22 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
       rmax = pot->rb*1.001;
     }
     a = gasymp*sqrt(2.0*z)/PI;
-    c = pot->maxrp-15.0 + a*(pow(rmin, pot->qr)-pow(rmax, pot->qr));
+    c = maxrp-15.0 + a*(pow(rmin, pot->qr)-pow(rmax, pot->qr));
     c /= log(rmax) - log(rmin);
-  }
-  if (pot->rb > rmin) {
-    pot->nmax = (int)(10+sqrt(rmax*z)/2.0);
-  } else {
-    pot->nmax = (int)(sqrt(rmax*z)/2.0);
   }
   d1 = log(rmax/rmin);
   d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
-  b = (pot->maxrp - 1.0 - (a*d2))/d1;
+  b = (maxrp - 1.0 - (a*d2))/d1;
   if (b < c) {
-    printf("Not enough radial mesh points: %d %g %g %g %g, ",
-	   pot->maxrp, gasymp, gratio, rmin, rmax);
+    printf("Not enough radial mesh points: %d %d %g %g %g %g, ",
+	   maxrp, pot->maxrp, gasymp, gratio, rmin, rmax);
     printf("enlarge to at least %d\n", (int) (1 + a*d2 + c*d1));
     exit(1);
   }
 
   d1 = b*d1;
   d2 = a*d2;
-  del = (d1 + d2)/(pot->maxrp - 1);
+  del = (d1 + d2)/(maxrp - 1);
   pot->rad[0] = rmin;
   d1 = a*pow(rmin, pot->qr) + b*log(rmin);
   pot->rho[0] = d1;
@@ -2536,10 +2569,14 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     pot->rho[i] = d1;
     pot->rad[i] = GetRFromRho(d1, a, b, pot->qr, pot->rad[i-1]);
   }
-
+  rmax = pot->rad[pot->maxrp-1];
+  if (pot->rb > rmin) {
+    pot->nmax = (int)(10+sqrt(rmax*z)/2.0);
+  } else {
+    pot->nmax = (int)(sqrt(rmax*z)/2.0);
+  }
   pot->ar = a;
   pot->br = b;
-
   double tp2, tp3;
   q = pot->qr*(pot->qr-1);
   c = q*(pot->qr-2);
@@ -2593,7 +2630,10 @@ int SetPotentialZ(POTENTIAL *pot) {
   for (i = 0; i < pot->atom->nep; i++) {
     SetPotentialExtraZ(pot, i);
   }
-  if (pot->atom->rn > 0 || pot->atom->nep > 0) {
+  if (pot->atom->nepr > 0) {
+    SetPotentialExtraZ(pot, pot->atom->nep);
+  }
+  if (pot->atom->rn > 0 || pot->atom->nep > 0 || pot->atom->nepr > 0) {
     Differential(pot->Z, pot->dZ, 0, pot->maxrp-1, pot->dr_drho);
     Differential(pot->dZ, pot->dZ2, 0, pot->maxrp-1, pot->dr_drho);
   } else {
@@ -2601,10 +2641,10 @@ int SetPotentialZ(POTENTIAL *pot) {
       pot->dZ[i] = 0;
       pot->dZ2[i] = 0;
     }
-  }
-
+  }  
   SetPotentialVP(pot);
   SetPotentialSE(pot);
+  SetPotentialPS(pot, NULL);
   return 0;
 }
 
@@ -2663,7 +2703,18 @@ int SetPotentialVT(POTENTIAL *pot) {
       pot->dVT2[0][i] += 2.0*(-a/r +b)/r2 - y/r;
     }
   }
-  
+  if (pot->zps > 0 && pot->nps > 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      r = pot->rad[i];
+      r2 = r*r;
+      a = pot->ZPS[i];
+      b = pot->dZPS[i];
+      y = pot->dZPS2[i];
+      pot->VT[0][i] -= a/r;
+      pot->dVT[0][i] += a/r2 - b/r;
+      pot->dVT2[0][i] += 2.0*(-a/r +b)/r2 - y/r;
+    }
+  } 
   if (pot->pse && pot->nse) {
     for (k = 0; k < NKSEP; k++) {
       k1 = k+1;
@@ -2935,7 +2986,7 @@ int SetPotentialVP(POTENTIAL *pot) {
   vp = mvp%10;
   mvp = mvp/10;
   r0 = 3.86159E-3/RBOHR;
-  z0 = pot->Z[pot->maxrp-1];
+  z0 = pot->atom->atomic_number;
   a = -2.0*z0*FINE_STRUCTURE_CONST/(3.0*PI);
   b = -z0*FINE_STRUCTURE_CONST2/(PI*PI);  
   for (i = 0; i < pot->maxrp; i++) {
@@ -3099,8 +3150,16 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
   for (i = 0; i < m; i++) {
     r = pot->rad[i];
     pot->dW[i] = GetExtraZ(r, iep);
-  }  
-  if (pot->atom->epm[iep] < 100 && pot->atom->rn > 0) {
+  }
+  int conv = 0;
+  if (iep >= pot->atom->nep) {
+    if (pot->atom->nepr > 0 && pot->atom->cepr > 0) {
+      conv = 1;
+    }
+  } else if (pot->atom->epm[iep] >= 100 && pot->atom->rn > 0) {
+    conv = 1;
+  }
+  if (conv) {
     r5 = pot->atom->rn*5.0;
     r3 = r5*3;
     for (i = 0; i < m; i++) {
@@ -3148,4 +3207,99 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
     pot->Z[i] += pot->dW[i];
   }
   return 0;
+}
+
+int SetPotentialPS(POTENTIAL *pot, double *vt) {
+  int i;
+  double n0, r0, x;
+  
+  if (pot->ips == 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->NPS[i] = 0;
+      pot->ZPS[i] = 0;
+      pot->dZPS[i] = 0;
+      pot->dZPS2[i] = 0;
+    }
+    return 0;
+  }
+
+  n0 = pot->nps;
+  r0 = pot->rps;
+  if (pot->tps <= 0 || vt == NULL) {
+    pot->ups = 0.0;
+    for (i = 0; i < pot->maxrp; i++) {
+      if (i <= pot->ips) {
+	x = pot->rad[i]/r0;
+	pot->NPS[i] = n0;	
+	pot->ZPS[i] = -0.5*x*pot->zps*(3-x*x);
+	pot->dZPS[i] = 1.5*pot->zps*(x*x-1.0)/r0;
+	pot->dZPS2[i] = 3.0*pot->zps*x/(r0*r0);
+      } else {
+	pot->NPS[i] = 0.0;
+	pot->ZPS[i] = -pot->zps;
+	pot->dZPS[i] = 0.0;
+	pot->dZPS2[i] = 0.0;
+      }
+    }
+    return 0;
+  }
+  pot->ups = exp(pot->ups/pot->tps);
+  for (i = 0; i < 128; i++) {
+    n0 = pot->ups;
+    FreeElectronDensity(pot, vt);
+    if (fabs(1-pot->ups/n0) < EPS5) break;
+  }
+  pot->ups = log(pot->ups)*pot->tps;
+  for (i = 0; i <= pot->ips; i++) {
+    x = pot->rad[i];
+    _dwork[i] = x*x*pot->NPS[i]*pot->dr_drho[i];
+  }
+  _dwork1[0] = (pow(pot->rad[0],3)/3.0)*pot->NPS[0];
+  NewtonCotes(_dwork1, _dwork, 0, pot->ips, -1, 0);
+  for (i = 0; i <= pot->ips; i++) {
+    x = pot->rad[i];
+    _dwork[i] = x*pot->NPS[i]*pot->dr_drho[i];
+  }
+  _dwork2[pot->ips] = 0.0;
+  NewtonCotes(_dwork2, _dwork, 0, pot->ips, -1, -1);
+  for (i = 0; i <= pot->ips; i++) {
+    pot->ZPS[i] = -FOUR_PI*(_dwork1[i] + pot->rad[i]*_dwork2[i]);
+    x = pot->rad[i]/r0;
+  }
+  for (i = pot->ips+1; i < pot->maxrp; i++) {
+    pot->ZPS[i] = pot->ZPS[pot->ips];
+  }
+  Differential(pot->ZPS, pot->dZPS, 0, pot->maxrp-1, pot->dr_drho);
+  Differential(pot->dZPS, pot->dZPS2, 0, pot->maxrp-1, pot->dr_drho);
+  return 0;
+}
+
+void FreeElectronDensity(POTENTIAL *pot, double *vt) {
+  int i, k;
+  double c2 = 1.0/FINE_STRUCTURE_CONST2;
+  double a2 = FINE_STRUCTURE_CONST2;
+  int nk = Min(pot->maxrp, 255);
+  double a = 1.0/(PI*PI);
+  double k0, k1, k2, dk, y;
+  for (i = 0; i <= pot->ips; i++) {
+    k0 = (-2*vt[i]+a2*vt[i]*vt[i]);
+    k1 = 50.0*pot->tps+(c2-vt[i]);
+    k1 = k1*k1*a2 - c2;
+    dk = (k1 - k0)/(nk-1);
+    _dwork[0] = k0;
+    for (k = 1; k < nk; k++) {
+      _dwork[k] = _dwork[k-1] + dk;
+    }
+    for (k = 0; k < pot->maxrp; k++) {
+      k2 = _dwork[k];
+      y = (sqrt(k2*c2 + c2*c2)-c2+vt[i])/pot->tps;
+      _dwork1[k] = sqrt(k2)/(exp(y) + pot->ups);
+    }
+    pot->NPS[i] = a*0.5*dk*Simpson(_dwork1, 0, nk-1);
+    _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
+  }
+  pot->ups = pot->zps/Simpson(_dwork2, 0, pot->ips);
+  for (i = 0; i <= pot->ips; i++) {
+    pot->NPS[i] *= pot->ups;
+  }
 }

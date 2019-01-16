@@ -409,7 +409,7 @@ void AllocPotMem(POTENTIAL *p, int n) {
     free(p->dws);
   }
   p->maxrp = n;
-  p->nws = n*(22+3*NKSEP+3*NKSEP1);
+  p->nws = n*(26+3*NKSEP+3*NKSEP1);
   p->dws = (double *) malloc(sizeof(double)*p->nws);
   SetPotDP(p);
 }
@@ -460,6 +460,14 @@ void SetPotDP(POTENTIAL *p) {
   p->dZVP = x;
   x += n;
   p->dZVP2 = x;
+  x += n;
+  p->NPS = x;
+  x += n;
+  p->ZPS = x;
+  x += n;
+  p->dZPS = x;
+  x += n;
+  p->dZPS2 = x;
   int i;
   for (i = 0; i < NKSEP; i++) {
     x += n;
@@ -632,7 +640,15 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->ib1, sizeof(int), 1, f);
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
   n = BFileRead(&p->rb, sizeof(double), 1, f);
+  n = BFileRead(&p->zps, sizeof(double), 1, f);
+  n = BFileRead(&p->nps, sizeof(double), 1, f);
+  n = BFileRead(&p->tps, sizeof(double), 1, f);
+  n = BFileRead(&p->rps, sizeof(double), 1, f);
+  n = BFileRead(&p->ups, sizeof(double), 1, f);
+  n = BFileRead(&p->ips, sizeof(int), 1, f);
   AllocPotMem(p, maxrp);
+  n = BFileRead(p->dws, sizeof(double), p->nws, f);
+  /*
   n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
@@ -652,6 +668,18 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(p->W, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
   n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->ZVP, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZVP, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZVP2, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->ZPS, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZPS, sizeof(double), p->maxrp, f);
+  n = BFileRead(p->dZPS2, sizeof(double), p->maxrp, f);
+  for (i = 0; i < NKSEP; i++) {
+    n = BFileRead(p->ZSE[k], sizeof(double), p->maxrp, f);
+    n = BFileRead(p->dZSE[k], sizeof(double), p->maxrp, f);
+    n = BFileRead(p->dZSE2[k], sizeof(double), p->maxrp, f);
+  }
+  */
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
@@ -692,7 +720,7 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
       h->W[i] = 0;
       h->dW[i] = 0;
       h->dW2[i] = 0;
-      if (h->atom->epm >= 0) {
+      if (h->atom->nep > 0 || h->atom->nepr > 0) {
 	h->Z[i] = GetAtomicEffectiveZ(h->rad[i]);
       }
     }
@@ -706,7 +734,7 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
     }
   }
   if (hlike) {
-    if (h->atom->epm >= 0) {
+    if (h->atom->nep > 0 || h->atom->nepr > 0) {
       Differential(h->Z, h->dZ, 0, h->maxrp-1, h->dr_drho);
       Differential(h->dZ, h->dZ2, 0, h->maxrp-1, h->dr_drho);
     }
@@ -756,6 +784,14 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->ib1, sizeof(int), 1, f);
   n = fwrite(&p->bqp, sizeof(double), 1, f);
   n = fwrite(&p->rb, sizeof(double), 1, f);
+  n = fwrite(&p->zps, sizeof(double), 1, f);
+  n = fwrite(&p->nps, sizeof(double), 1, f);
+  n = fwrite(&p->tps, sizeof(double), 1, f);
+  n = fwrite(&p->rps, sizeof(double), 1, f);
+  n = fwrite(&p->ups, sizeof(double), 1, f);
+  n = fwrite(&p->ips, sizeof(int), 1, f);
+  n = fwrite(p->dws, sizeof(double), p->nws, f);
+  /*
   n = fwrite(p->Z, sizeof(double), p->maxrp, f);
   n = fwrite(p->dZ, sizeof(double), p->maxrp, f);
   n = fwrite(p->dZ2, sizeof(double), p->maxrp, f);
@@ -775,6 +811,18 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(p->W, sizeof(double), p->maxrp, f);
   n = fwrite(p->dW, sizeof(double), p->maxrp, f);
   n = fwrite(p->dW2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->ZVP, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZVP, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZVP2, sizeof(double), p->maxrp, f);
+  n = fwrite(p->ZPS, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZPS, sizeof(double), p->maxrp, f);
+  n = fwrite(p->dZPS2, sizeof(double), p->maxrp, f);
+  for (i = 0; i < NKSEP; i++) {
+    n = fwrite(p->ZSE[k], sizeof(double), p->maxrp, f);
+    n = fwrite(p->dZSE[k], sizeof(double), p->maxrp, f);
+    n = fwrite(p->dZSE2[k], sizeof(double), p->maxrp, f);
+  }
+  */
   fclose(f);
   return 0;
 }
@@ -1847,7 +1895,7 @@ double SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       SetPotentialVT(potential);
       return 0.0;
     }
-    r = potential->Z[potential->maxrp-1];
+    r = potential->atom->atomic_number;
     b = potential->N1/potential->N;
     for (i = 0; i < acfg->n_shells; i++) {
       a = acfg->nq[i];
@@ -1920,6 +1968,12 @@ int GetPotential(char *s) {
   fprintf(f, "#    CHX = %12.5E\n", potential->chx);
   fprintf(f, "#    HX0 = %12.5E\n", potential->hx0);
   fprintf(f, "#    HX1 = %12.5E\n", potential->hx1);
+  fprintf(f, "#    zps = %12.5E\n", potential->zps);
+  fprintf(f, "#    nps = %12.5E\n", potential->nps);
+  fprintf(f, "#    tps = %12.5E\n", potential->tps);
+  fprintf(f, "#    ups = %12.5E\n", potential->ups);
+  fprintf(f, "#    rps = %12.5E\n", potential->rps);
+  fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
@@ -1928,7 +1982,7 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	    i, potential->rad[i], potential->Z[i],
 	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
@@ -1939,7 +1993,9 @@ int GetPotential(char *s) {
 	    potential->ZSE[2][i],
 	    potential->ZSE[3][i],
 	    potential->ZSE[4][i],
-	    potential->ZVP[i]);
+	    potential->ZVP[i],
+	    potential->NPS[i],
+	    potential->ZPS[i]);
   }    
   fclose(f);    
   return 0;
@@ -1947,7 +2003,7 @@ int GetPotential(char *s) {
 
 double GetResidualZ(void) {
   double z;
-  z = potential->Z[potential->maxrp-1];
+  z = potential->atom->atomic_number;
   if (potential->N > 0) z -= potential->N1;
   return z;
 }
@@ -2039,6 +2095,9 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       potential->hxs = hxs0*(1-ahx);
     }
     a = SetPotential(acfg, iter);
+    if (potential->zps > 0 && potential->nps > 0 && potential->tps > 0) {
+      SetPotentialPS(potential, potential->VT[0]);
+    }
     FreeYkArray();
     tol = 0.0;
     atol = 0.0;
@@ -2260,8 +2319,9 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   SetPotentialZ(potential);
   SetReferencePotential(hpotential, potential, 1);
   SetReferencePotential(rpotential, potential, 0);
-  z = potential->Z[potential->maxrp-1];
-  if (potential->N > 0.0) z = z - potential->N + 1;
+  //z = potential->Z[potential->maxrp-1];
+  //if (potential->N > 0.0) z = z - potential->N + 1;
+  z = GetResidualZ();
   potential->a = 0.0;
   potential->lambda = 0.5*z;
   if (potential->N > 1) {
@@ -2271,7 +2331,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   }
 
   if (optimize_control.iset == 0) {
-    optimize_control.stabilizer = 0.25 + 0.5*(z/potential->Z[potential->maxrp-1]);
+    double z0 = potential->atom->atomic_number;
+    optimize_control.stabilizer = 0.25 + 0.5*(z/z0);
   }
 
   if (potential->mode/10 == 2) {
@@ -5660,7 +5721,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       c = SelfEnergyRatio(orb1, orb);
       orb1->se = a*c;
       if (qed.pse) {
-	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, e0=%11.4E, md=%d, screen=%11.4E, final=%11.4E\n", potential->Z[potential->maxrp-1], orb1->n, orb1->kappa, orb1->energy, qed.mse, c, orb1->se);
+	MPrintf(-1, "SE: z=%g, n=%d, kappa=%2d, e0=%11.4E, md=%d, screen=%11.4E, final=%11.4E\n", potential->atom->atomic_number, orb1->n, orb1->kappa, orb1->energy, qed.mse, c, orb1->se);
       }
       return orb1->se;
     }
@@ -8259,6 +8320,11 @@ int InitRadial(void) {
   potential->ib = 0;
   potential->ib1 = 0;
   potential->ib0 = 0;
+  potential->zps = 0;
+  potential->nps = 0;
+  potential->tps = 0;
+  potential->rps = 0;
+  potential->ips = 0;
   SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;
@@ -9368,6 +9434,17 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
     ReinitRadial(2);
   }
   return 0;
+}
+
+void PlasmaScreen(double zps, double nps, double tps) {
+  potential->zps = zps;
+  potential->nps = nps*pow(RBOHR,3);
+  potential->tps = tps/HARTREE_EV;
+  if (nps > 0 && zps > 0) {
+    potential->rps = pow(3*zps/(FOUR_PI*potential->nps),ONETHIRD);
+  } else {
+    potential->rps = 0;
+  }
 }
 
 void SetOptionRadial(char *s, char *sp, int ip, double dp) {
