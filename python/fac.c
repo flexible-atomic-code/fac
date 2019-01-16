@@ -1856,6 +1856,31 @@ static int SelectLevels(PyObject *p, int **t) {
   iuta = IsUTA();
   int ist = PyUnicode_Check(p);
   if (!PyList_Check(p) && !PyTuple_Check(p) && !ist) return 0;
+  if (PyList_Check(p)) {
+    m = PySequence_Length(p);
+    int **ti, *nti;
+    ti = malloc(sizeof(int *)*m);
+    nti = malloc(sizeof(int)*m);
+    n = 0;
+    for (i = 0; i < m; i++) {
+      q = PySequence_GetItem(p, i);
+      nti[i] = SelectLevels(q, &ti[i]);
+      n += nti[i];
+    }
+    if (n > 0) {
+      *t = malloc(sizeof(int)*n);
+      k = 0;
+      for (i = 0; i < m; i++) {
+	for (j = 0; j < nti[i]; j++) {
+	  (*t)[k++] = ti[i][j];
+	}
+	if (nti[i] > 0) free(ti[i]);
+      }
+    }
+    free(nti);
+    free(ti);
+    return n;
+  }
   if (ist) {
     n = 1;
   } else {
