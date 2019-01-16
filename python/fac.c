@@ -1855,7 +1855,8 @@ static int SelectLevels(PyObject *p, int **t) {
 
   iuta = IsUTA();
   int ist = PyUnicode_Check(p);
-  if (!PyList_Check(p) && !PyTuple_Check(p) && !ist) return 0;
+  if (!PyList_Check(p) && !PyTuple_Check(p) &&
+      !PyLong_Check(p) && !ist) return 0;
   if (PyList_Check(p)) {
     m = PySequence_Length(p);
     int **ti, *nti;
@@ -1883,6 +1884,10 @@ static int SelectLevels(PyObject *p, int **t) {
   }
   if (ist) {
     n = 1;
+  } else if (PyLong_Check(p)) {
+    *t = malloc(sizeof(int));
+    (*t)[0] = PyLong_AsLong(p);
+    return 1;  
   } else {
     n = PySequence_Length(p);
   }

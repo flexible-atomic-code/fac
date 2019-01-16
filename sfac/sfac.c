@@ -178,7 +178,8 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   char *v[MAXNARGS], *v1[MAXNARGS];
   int at[MAXNARGS], at1[MAXNARGS], nv, nv1, rv;
 
-  if (argt != LIST  && argt != TUPLE && argt != STRING) return -1;
+  if (argt != LIST  && argt != TUPLE &&
+      argt != STRING && argt != NUMBER) return -1;
     
   nv = 0; 
   nv1 = 0;
@@ -189,6 +190,10 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
     n = 1;
     v[0] = argv;
     at[0] = STRING;
+  } else if (argt == NUMBER) {
+    *t = malloc(sizeof(int));
+    (*t)[0] = atof(argv);
+    return 1;
   } else {
     n = DecodeArgs(argv, v, at, variables);
     nv = n;
