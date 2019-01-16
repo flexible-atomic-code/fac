@@ -1444,3 +1444,45 @@ int IBisect(int b, int n, int *a) {
   else return -1;
 }
 
+void InitMatrix(MATRIX *m, int n) {
+  int i;
+  m->n = n;
+  m->d = malloc(sizeof(double)*n);
+  m->nr = malloc(sizeof(int)*n);
+  m->ir = malloc(sizeof(int *)*n);
+  m->r = malloc(sizeof(double *)*n);
+  m->nb = malloc(sizeof(int)*n);
+  for (i = 0; i < n; i++) {
+    m->nr[i] = 0;
+    m->nb[i] = -1;
+    m->d[i] = 0;
+    m->ir[i] = NULL;
+    m->r[i] = NULL;
+  }
+}
+
+void FreeMatrix(MATRIX *m) {
+  int i;
+  for (i = 0; i < m->n; i++) {
+    if (m->nr[i] > 0) {
+      free(m->ir[i]);
+      free(m->r[i]);
+    }
+  }
+  free(m->d);
+  free(m->nr);
+  free(m->ir);
+  free(m->r);
+  free(m->nb);
+}
+
+void MatMulV(MATRIX *m, double *x, double *r) {
+  int i, j, t;
+  for (i = 0; i < m->n; i++) {
+    r[i] = m->d[i]*x[i];
+    for (j = 0; j < m->nr[i]; j++) {
+      t = m->ir[i][j];
+      r[i] += m->r[i][j]*x[t];
+    }
+  }
+}

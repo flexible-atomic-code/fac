@@ -300,7 +300,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 
   n= orb->n;
   k = orb->kappa;
-  z = pot->Z[pot->maxrp-1];
+  z = pot->atom->atomic_number;
   if (orbp == NULL) {
     orbp = orb;
   } else if (orbp->kappa != k) {

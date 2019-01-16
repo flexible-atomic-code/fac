@@ -199,8 +199,8 @@
 #define GRIDRMINN0  1E-4  /* starting point relative to nucleus radius */
 #define GRIDRMINN1  1E-2  /* starting point relative to nucleus radius */
 #define GRIDQR 0.5 /* grid transform non-log term index */
-#define ENERELERR  1E-6  /* relative energy error */
-#define ENEABSERR  1E-4  /* absolute energy error */
+#define ENERELERR  1E-4  /* relative energy error */
+#define ENEABSERR  1E-5  /* absolute energy error */
 #define ENERELERR1 1E-8
 
 /* config */

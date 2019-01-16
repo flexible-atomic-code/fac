@@ -289,8 +289,10 @@ int          CompareShell(const void *s1, const void *s2);
 int          CompareShellInvert(const void *s1, const void *s2);
 int          ShellClosed(SHELL *s);
 int          ShellToInt(int n, int k);
+int          NRShellToInt(int n, int k);
 int          ShellIndex(int n, int kappa, int ns, SHELL *s);
 void         IntToShell(int i, int *n, int *k);
+void         IntToNRShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
 int ShellNeedNuNr(SHELL *s, SHELL_STATE *st);
 int          GetAverageConfig(int ng, int *kg, int ic, double *weight,
@@ -316,7 +318,13 @@ SYMMETRY     *GetSymmetry(int k);
 void         DecodePJ(int i, int *p, int *j);
 int          SpecSymbol(char *s, int kl);
 int          ConstructConfigName(char *s, int n, CONFIG *c);
+int          ConstructNRConfigName(char *s, int n, CONFIG *c);
+CONFIG *ExciteConfig(CONFIG *c, int ns, int *na, int *ka);
+CONFIG *ExciteNRConfig(CONFIG *c, int ns, int *na, int *ka);
 void         ListConfig(char *fn, int n, int *kg);
+void FormatConfig(char *s, char *sc,
+		  char *gn, int kg, int kc, int km,
+		  double cth, double cde, double mde);
 int ReadConfig(char *fn, char *c);
 int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
@@ -324,6 +332,10 @@ int          ReinitConfig(int m);
 int          SetNCG(void);
 int ConfigToIList(CONFIG *c, int n, int *s);
 CONFIG *ConfigFromIList(int n, int *s);
+int NRConfigToIList(CONFIG *c, int n, int *s);
+CONFIG *NRConfigFromIList(int n, int *s);
+int ConfigToIListM(CONFIG *c, int n, int *s, int m);
+CONFIG *ConfigFromIListM(int n, int *s, int m);
 void FreeConfigData(void *p);
 int ConfigExists(CONFIG *c);
 void SetClosedShellNR(int n, int k);
@@ -335,4 +347,5 @@ int SDConfig(CONFIG *c, char *cs,
 	     int n0, int k0, int n1, int k1,
 	     int n2, int k2, int n3, int k3);
 short VNIFromSName(char *sn);
+int CompareCfgPointer(const void *p1, const void *p2);
 #endif

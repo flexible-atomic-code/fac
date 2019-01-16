@@ -173,6 +173,11 @@ typedef struct _IDXARY_ {
   int *d, *i;
 } IDXARY;
 
+typedef struct _MATRIX_ {
+  int n, *nr, *nb,  **ir;
+  double *d, **r;
+} MATRIX;
+
 int IdxCmp(int *i0, int *i1, int n);
 void InitMultiStats(void);
 void ReportMultiStats(void);
@@ -245,4 +250,7 @@ int          Bisect(void *p0, int n, int m, void *p,
 void SetMultiCleanFlag(MULTI *ma);
 double TotalSize(void);
 double TotalArraySize(void);
+void InitMatrix(MATRIX *m, int n);
+void FreeMatrix(MATRIX *m);
+void MatMulV(MATRIX *m, double *v, double *r);
 #endif

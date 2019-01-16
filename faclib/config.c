@@ -1996,22 +1996,52 @@ CONFIG *GetConfigFromGroup(int kg, int kc) {
 }
 
 int ConfigToIList(CONFIG *c, int n, int *s) {
+  return ConfigToIListM(c, n, s , 0);
+}
+
+int NRConfigToIList(CONFIG *c, int n, int *s) {
+  return ConfigToIListM(c, n, s , 1);
+}
+
+int ConfigToIListM(CONFIG *c, int n, int *s, int m) {
   int i, j;
   for (i = 0; i < n; i++) s[i] = 0;
   for (i = 0; i < c->n_shells; i++) {
-    j = ShellToInt(c->shells[i].n, c->shells[i].kappa);
+    if (m == 0) {
+      j = ShellToInt(c->shells[i].n, c->shells[i].kappa);
+    } else {
+      j = NRShellToInt(c->shells[i].n, GetLFromKappa(c->shells[i].kappa)/2);
+    }
     if (j >= n) {
       printf("ConfigToIList error: %d %d\n", j, n);
       return -1;
     }
-    s[j] = c->shells[i].nq;
+    s[j] += c->shells[i].nq;
   }
   return 0;
 }
 
 CONFIG *ConfigFromIList(int n, int *s) {
+  return ConfigFromIListM(n, s, 0);
+}
+
+CONFIG *NRConfigFromIList(int n, int *s) {
+  return ConfigFromIListM(n, s, 1);
+}
+
+CONFIG *ConfigFromIListM(int n, int *s, int m) {
   CONFIG *c;
-  int i, j;
+  int i, j, nn, kk;
+  for (i = 0; i < n; i++) {
+    if (s[i] < 0) return NULL;
+    if (m == 0) {
+      IntToShell(i, &nn, &kk);
+      if (s[i] > GetJFromKappa(kk)+1) return NULL;
+    } else {
+      IntToNRShell(i, &nn, &kk);
+      if (s[i] > kk*4+2) return NULL;
+    }
+  }
   c = malloc(sizeof(CONFIG));
   InitConfigData(c, 1);
   for (i = 0; i < n; i++) {
@@ -2021,7 +2051,11 @@ CONFIG *ConfigFromIList(int n, int *s) {
   j = 0;
   for (i = n-1; i >= 0; i--) {
     if (s[i]) {
-      IntToShell(i, &c->shells[j].n, &c->shells[j].kappa);
+      if (m == 0) {
+	IntToShell(i, &c->shells[j].n, &c->shells[j].kappa);
+      } else {
+	IntToNRShell(i, &c->shells[j].n, &c->shells[j].kappa);
+      }
       c->shells[j].nq = s[i];
       j++;      
     }
@@ -2404,10 +2438,40 @@ int ShellToInt(int n, int kappa) {
 void IntToShell(int i, int *n, int *kappa) {  
   int k;
 
-  *n = ((int) sqrt(i)) + 1 ;
+  *n = ((int) sqrt(i+0.1)) + 1 ;
   k = i - ((*n)-1)*((*n)-1) + 1;
   if (IsOdd(k)) *kappa = -(k+1)/2;
   else *kappa = k/2;
+}
+
+int NRShellToInt(int n, int k) {
+  return ((n-1)*n)/2 + k;
+}
+
+void IntToNRShell(int i, int *n, int *k) {
+  *n = ((int) (0.5*(1+sqrt(1+8*(i+0.1)))));
+  *k = i - ((*n-1)*(*n))/2;
+}
+
+int ConstructNRConfigName(char *s, int n, CONFIG *c) {
+  int i, j, k, m;
+  char a[16], b[32];
+
+  m = 0;
+  s[0] = '\0';
+  for (i = c->n_shells-1; i >= 0; i--) {
+    k = c->shells[i].kappa;
+    SpecSymbol(a, k);
+    if (i > 0) {
+      sprintf(b, "%d%s%d ", c->shells[i].n, a, c->shells[i].nq);
+    } else {
+      sprintf(b, "%d%s%d", c->shells[i].n, a, c->shells[i].nq);
+    }
+    m += strlen(b);
+    if (m >= n) return -1;
+    strcat(s, b);
+  }
+  return m;
 }
 
 int ConstructConfigName(char *s, int n, CONFIG *c) {
@@ -2433,11 +2497,60 @@ int ConstructConfigName(char *s, int n, CONFIG *c) {
   return m;
 }
 
+CONFIG *ExciteNRConfig(CONFIG *c, int ns, int *na, int *ka) {
+  int n, i, k, nn, *kc;
+  n = c->shells[0].n;
+  for (i = 0; i < ns; i++) {
+    if (n < na[i]) n = na[i];
+  }
+  nn = ((n+1)*n)/2;
+  kc = malloc(sizeof(int)*nn);
+  
+  NRConfigToIList(c, nn, kc);
+  for (i = 0; i < ns; i += 2) {
+    k = NRShellToInt(na[i], GetLFromKappa(ka[i])/2);
+    kc[k]--;
+    k = NRShellToInt(na[i+1], GetLFromKappa(ka[i+1])/2);
+    kc[k]++;
+  }
+  CONFIG *r = NRConfigFromIList(nn, kc);
+  free(kc);
+  return r;
+}
+
+CONFIG *ExciteConfig(CONFIG *c, int ns, int *na, int *ka) {
+  int n, i, k, nn, *kc;
+  n = c->shells[0].n;
+  for (i = 0; i < ns; i++) {
+    if (n < na[i]) n = na[i];
+  }
+  nn = n*n;
+  kc = malloc(sizeof(int)*nn);
+  
+  ConfigToIList(c, nn, kc);
+  for (i = 0; i < ns; i += 2) {
+    k = ShellToInt(na[i], ka[i]);
+    kc[k]--;
+    k = ShellToInt(na[i+1], ka[i+1]);
+    kc[k]++;
+  }
+  CONFIG *r = ConfigFromIList(nn, kc);
+  free(kc);
+  return r;
+}
+
+void FormatConfig(char *s, char *sc,
+		  char *gn, int kg, int kc, int km,
+		  double cth, double cde, double mde) {
+  sprintf(s, "%32s %10.4E %10.4E %10.4E %6d %6d %6d   %s",
+	  gn, cth, cde, mde, kg, kc, km, sc);
+}
+
 void ListConfig(char *fn, int n, int *kg) {
   int i, m, j;
   CONFIG *c;
   CONFIG_GROUP *g;
-  char a[2048];
+  char a[2048], s[8192];
   FILE *f;
   
   if (fn == NULL || strcmp(fn, "-") == 0) f = stdout;
@@ -2451,8 +2564,8 @@ void ListConfig(char *fn, int n, int *kg) {
       c = GetConfigFromGroup(kg[i], j);
       if (c->mde < mde) mde = c->mde;
       ConstructConfigName(a, 2048, c);
-      fprintf(f, "%32s %10.4E %10.4E %10.4E %6d %6d %6d   %s\n",
-	      g->name, c->cth, c->mde, mde, kg[i], j, m, a);
+      FormatConfig(s, a, g->name, kg[i], j, m, c->cth, c->mde, mde);
+      fprintf(f, "%s\n", s);
       m++;
     }
   }
@@ -2460,7 +2573,7 @@ void ListConfig(char *fn, int n, int *kg) {
   if (f != stdout) fclose(f);
 }
 
-int ReadConfig(char *fn, char *c) {
+int ReadConfig(char *fn, char *c0) {
   FILE *f;
   char buf[1024];
   char cbuf[1024];
@@ -2480,7 +2593,7 @@ int ReadConfig(char *fn, char *c) {
     char *s = p;
     while(s && *s == ' ') s++;
     if (s) {
-      if (c != NULL && strcmp(c, s)) continue;
+      if (c0 != NULL && strcmp(c0, s)) continue;
       int t = GroupIndex(s);
       if (t < 0) return -1;
       char *c = &p[89];
@@ -2749,6 +2862,14 @@ int CompareShell(const void *ts1, const void *ts2) {
 
 int CompareShellInvert(const void *ts1, const void *ts2) {
   return -CompareShell(ts1, ts2);
+}
+
+int CompareCfgPointer(const void *p1, const void *p2) {
+  CONFIG *c1, *c2;
+  c1 = *((CONFIG **) p1);
+  c2 = *((CONFIG **) p2);
+  if (c1->n_shells != c2->n_shells) return c1->n_shells-c2->n_shells;
+  return memcmp(c1->shells, c2->shells, sizeof(SHELL)*c1->n_shells);
 }
 
 /* 

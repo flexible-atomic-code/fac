@@ -68,6 +68,9 @@ static CONFIG mbpt_cfg;
 static int *mbpt_bas0, *mbpt_bas0s, *mbpt_bas0d, *mbpt_bas1;
 static IDXARY mbpt_ibas0, mbpt_ibas1;
 static int **mbpt_rij = NULL;
+static char mbpt_ccn[256] = "";
+static ARRAY *mbpt_cca = NULL;
+static double mbpt_wmix = 0.01;
 static struct {
   int nj;
   int *jp;
@@ -77,7 +80,7 @@ static struct {
 static int mbpt_nmk0, mbpt_nmk1;
 static ARRAY *mbpt_csary;
 
-#pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas0s, mbpt_bas0d, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp)
+#pragma omp threadprivate(mbpt_cs, mbpt_cfg, mbpt_bas0, mbpt_bas0s, mbpt_bas0d, mbpt_bas1, mbpt_ibas0, mbpt_ibas1, mbptjp, mbpt_cca)
   
 static TR_OPT mbpt_tr;
 
@@ -107,6 +110,8 @@ void PrintMBPTOptions(void) {
   printf("n3=%d\n", mbpt_n3);
   printf("nsplit=%d\n", mbpt_nsplit);
   printf("freetr=%g\n", mbpt_freetr);
+  printf("ccn=%s\n", mbpt_ccn);
+  printf("wmix=%g\n", mbpt_wmix);
 }
 
 int SkipMPIM(int s) {
@@ -217,6 +222,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
     mbpt_warn = dp;
     return;
   }
+  if (0 == strcmp(s, "mbpt:ccn")) {
+    strncpy(mbpt_ccn, sp, 256);
+    return;
+  }
   if (0 == strcmp(s, "mbpt:ignore")) {
     mbpt_ignore = dp;
     return;
@@ -259,6 +268,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }  
   if (0 == strcmp(s, "mbpt:mcut4")) {
     mbpt_mcut4 = dp;
+    return;
+  }  
+  if (0 == strcmp(s, "mbpt:wmix")) {
+    mbpt_wmix = dp;
     return;
   }  
   if (0 == strcmp(s, "mbpt:omp")) {
@@ -2080,6 +2093,8 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double c12 = c/(d1*d2);
     sd1 = c/d1;
     sd2 = c/d2;
+    double sd1w = sqrt(fabs(sd1/d1));
+    double sd2w = sqrt(fabs(sd2/d2));
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
     if (isnan(c12)) {
@@ -2090,42 +2105,67 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     int warned = 0;
-    if (c0->icfg >= 0 && c1->icfg >= 0) {
-      if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
-	//char sc[64];
-	char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16], s7[16], s8[16];
-	ShellString(nn1, ka1, -1, s1);
-	ShellString(nn2, ka2, -1, s2);
-	ShellString(nn3, ka3, -1, s3);
-	ShellString(nn4, ka4, -1, s4);
-	ShellString(nn5, ka5, -1, s5);
-	ShellString(nn6, ka6, -1, s6);
-	ShellString(nn7, ka7, -1, s7);
-	ShellString(nn8, ka8, -1, s8);
-	//SDConfig(c1, sc, nn1, ka1, nn3, ka3, nn2, ka2, nn4, ka4);
-	printf("large h22term warn:  %s %s %s %s %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-	       s1, s2, s3, s4, s5, s6, s7, s8,
-	       c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
-	       sd1s, sd2s, d1, d2, mbpt_warn);
-	warned = 1;
+    //if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (meff[s0]->imbpt[m] > 1) {
+      if (mbpt_warn > 0 && (sd1w > mbpt_warn || sd2w > mbpt_warn)) {
+	int na[4], ka[4];
+	na[0] = nn1;
+	na[1] = nn3;
+	na[2] = nn2;
+	na[3] = nn4;
+	ka[0] = ka1;
+	ka[1] = ka3;
+	ka[2] = ka2;
+	ka[3] = ka4;
+	CONFIG *cr = ExciteNRConfig(c1, 4, na, ka);
+	char scr[2048] = "NULL";
+	if (mbpt_cca) {
+	  cr->sweight = d1;
+	  cr->energy = d2;
+	  cr->delta = sd1w;
+	  cr->sth = sd2w;
+	  cr->cth = sd1s;
+	  cr->mde = sd2s;
+	  cr->icfg = 2;
+	  cr->n_electrons = c0->igroup;
+	  cr->n_csfs = c0->icfg;
+	  cr->nnrs = c1->igroup;
+	  cr->igroup = c1->icfg;
+	  ArrayAppend(mbpt_cca, &cr, NULL);
+	} else {
+	  if (cr != NULL) {
+	    ConstructNRConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }
+	  printf("large h22term warn:  %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr, c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
+		 sd1w, sd2w, d1, d2, mbpt_warn);
+	  warned = 1;
+	}      
       }
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
 	if (!warned && (mbpt_ignorep&1)) {
-	  //char sc[64];
-	  char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16], s7[16], s8[16];
-	  ShellString(nn1, ka1, -1, s1);
-	  ShellString(nn2, ka2, -1, s2);
-	  ShellString(nn3, ka3, -1, s3);
-	  ShellString(nn4, ka4, -1, s4);
-	  ShellString(nn5, ka5, -1, s5);
-	  ShellString(nn6, ka6, -1, s6);
-	  ShellString(nn7, ka7, -1, s7);
-	  ShellString(nn8, ka8, -1, s8);
-	  //SDConfig(c1, sc, nn1, ka1, nn3, ka3, nn2, ka2, nn4, ka4);
-	  printf("large h22term ignore: %s %s %s %s %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-		 s1, s2, s3, s4, s5, s6, s7, s8,
+	  int na[4], ka[4];
+	  na[0] = nn1;
+	  na[1] = nn3;
+	  na[2] = nn2;
+	  na[3] = nn4;
+	  ka[0] = ka1;
+	  ka[1] = ka3;
+	  ka[2] = ka2;
+	  ka[3] = ka4;
+	  CONFIG *cr = ExciteConfig(c1, 4, na, ka);
+	  char scr[2048] = "NULL";
+	  if (cr != NULL) {
+	    ConstructConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }	  
+	  printf("large h22term ignore: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr,
 		 c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 		 sd1s, sd2s, d1, d2, mbpt_ignore);
 	}
@@ -2293,6 +2333,8 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double c12 = c/(d1*d2);
     sd = c/d1;
     se = c/d2;
+    double sd1w = sqrt(fabs(sd/d1));
+    double sd2w = sqrt(fabs(se/d2));
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
     if (isnan(c12)) {
@@ -2303,38 +2345,60 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     int warned = 0;
-    if (c0->icfg >= 0 && c1->icfg >= 0) {
-      if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
-	//char sc[64];
-	char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16];
-	ShellString(nn1, ka1, -1, s1);
-	ShellString(nn2, ka2, -1, s2);
-	ShellString(nn3, ka3, -1, s3);
-	ShellString(nn4, ka4, -1, s4);
-	ShellString(nn5, ka5, -1, s5);
-	ShellString(nn6, ka6, -1, s6);
-	//SDConfig(c0, sc, nn5, ka5, nn6, ka6, 0, 0, 0, 0);
-	printf("large h12term warn: %s %s %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-	       s1, s2, s3, s4, s5, s6,
-	       c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
-	       sd1s, sd2s, d1, d2, mbpt_warn);
-	warned = 1;
+    //if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (meff[s0]->imbpt[m] > 1) {
+      if (mbpt_warn > 0 && (sd1w > mbpt_warn || sd2w > mbpt_warn)) {
+	int na[2], ka[2];
+	na[0] = nn5;
+	na[1] = nn6;
+	ka[0] = ka5;
+	ka[1] = ka6;
+	CONFIG *cr = ExciteNRConfig(c0, 2, na, ka);
+	char scr[2048] = "NULL";
+	if (mbpt_cca) {
+	  cr->sweight = d1;
+	  cr->energy = d2;
+	  cr->delta = sd1w;
+	  cr->sth = sd2w;
+	  cr->cth = sd1s;
+	  cr->mde = sd2s;
+	  cr->icfg = 1;
+	  cr->n_electrons = c0->igroup;
+	  cr->n_csfs = c0->icfg;
+	  cr->nnrs = c1->igroup;
+	  cr->igroup = c1->icfg;
+	  ArrayAppend(mbpt_cca, &cr, NULL);
+	} else {
+	  if (cr != NULL) {
+	    ConstructNRConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }	
+	  printf("large h12term warn: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr,
+		 c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
+		 sd1s, sd2s, d1, d2, mbpt_warn);
+	  warned = 1;
+	}
       }
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
 	if (!warned && (mbpt_ignorep&1)) {
-	  //char sc[64];
-	  char s1[16], s2[16], s3[16], s4[16], s5[16], s6[16];
-	  ShellString(nn1, ka1, -1, s1);
-	  ShellString(nn2, ka2, -1, s2);
-	  ShellString(nn3, ka3, -1, s3);
-	  ShellString(nn4, ka4, -1, s4);
-	  ShellString(nn5, ka5, -1, s5);
-	  ShellString(nn6, ka6, -1, s6);
-	  //SDConfig(c0, sc, nn5, ka5, nn6, ka6, 0, 0, 0, 0);
-	  printf("large h12term ignore: %s %s %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-		 s1, s2, s3, s4, s5, s6,
+	  int na[2], ka[2];
+	  na[0] = nn5;
+	  na[1] = nn6;
+	  ka[0] = ka5;
+	  ka[1] = ka6;
+	  CONFIG *cr = ExciteConfig(c0, 2, na, ka);
+	  char scr[2048] = "NULL";
+	  if (cr != NULL) {
+	    ConstructConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }	
+	  printf("large h12term ignore: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr,
 		 c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 		 sd1s, sd2s, d1, d2, mbpt_ignore);
 	}
@@ -2684,6 +2748,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     double y12 = y/(d1*d2);
     cd1 = y/d1;
     cd2 = y/d2;
+    double sd1w = sqrt(fabs(cd1/d1));
+    double sd2w = sqrt(fabs(cd2/d2));
     double sd1s = c1->cth/fabs(d1);
     double sd2s = c0->cth/fabs(d2);
     if (isnan(y12)) {
@@ -2694,36 +2760,60 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     int warned = 0;
-    if (c0->icfg >= 0 && c1->icfg >= 0) {
-      if (mbpt_warn > 0 && (sd1s > mbpt_warn || sd2s > mbpt_warn)) {
-	//char sc[64];
-	char s1[16], s2[16], s3[16], s4[16];
-	ShellString(orb0->n, orb0->kappa, -1, s1);
-	ShellString(orb1->n, orb1->kappa, -1, s2);
-	ShellString(orb2->n, orb2->kappa, -1, s3);
-	ShellString(orb3->n, orb3->kappa, -1, s4);
-	//SDConfig(c1, sc, orb0->n, orb0->kappa, orb1->n, orb1->kappa,
-	//	 0, 0, 0, 0);
-	printf("large h11term warn: %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-	       s1, s2, s3, s4,
-	       c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
-	       sd1s, sd2s, d1, d2, mbpt_warn);
-	warned = 1;
+    //if (c0->icfg >= 0 || c1->icfg >= 0) {
+    if (meff[s0]->imbpt[m] > 1) {
+      if (mbpt_warn > 0 && (sd1w > mbpt_warn || sd2w > mbpt_warn)) {
+	int na[2], ka[2];
+	na[0] = orb0->n;
+	na[1] = orb1->n;
+	ka[0] = orb0->kappa;
+	ka[1] = orb1->kappa;
+	CONFIG *cr = ExciteNRConfig(c0, 2, na, ka);
+	char scr[2048] = "NULL";
+	if (mbpt_cca) {
+	  cr->sweight = d1;
+	  cr->energy = d2;
+	  cr->delta = sd1w;
+	  cr->sth = sd2w;
+	  cr->cth = sd1s;
+	  cr->mde = sd2s;
+	  cr->icfg = 0;
+	  cr->n_electrons = c0->igroup;
+	  cr->n_csfs = c0->icfg;
+	  cr->nnrs = c1->igroup;
+	  cr->igroup = c1->icfg;
+	  ArrayAppend(mbpt_cca, &cr, NULL);
+	} else {
+	  if (cr != NULL) {
+	    ConstructNRConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }	
+	  printf("large h11term warn: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr,
+		 c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
+		 sd1s, sd2s, d1, d2, mbpt_warn);
+	  warned = 1;
+	}
       }
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
 	if (!warned && (mbpt_ignorep&1)) {
-	  //char sc[64];
-	  char s1[16], s2[16], s3[16], s4[16];
-	  ShellString(orb0->n, orb0->kappa, -1, s1);
-	  ShellString(orb1->n, orb1->kappa, -1, s2);
-	  ShellString(orb2->n, orb2->kappa, -1, s3);
-	  ShellString(orb3->n, orb3->kappa, -1, s4);
-	  //SDConfig(c1, sc, orb0->n, orb0->kappa, orb1->n, orb1->kappa,
-	  //	   0, 0, 0, 0);
-	  printf("large h11term ignore: %s %s %s %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
-		 s1, s2, s3, s4,
+	  int na[2], ka[2];
+	  na[0] = orb0->n;
+	  na[1] = orb1->n;
+	  ka[0] = orb0->kappa;
+	  ka[1] = orb1->kappa;
+	  CONFIG *cr = ExciteConfig(c0, 2, na, ka);
+	  char scr[2048] = "NULL";
+	  if (cr != NULL) {
+	    ConstructConfigName(scr, 2048, cr);
+	    FreeConfigData(cr);
+	    free(cr);
+	  }	
+	  printf("large h11term ignore: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+		 scr,
 		 c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 		 sd1s, sd2s, d1, d2, mbpt_ignore);
 	}
@@ -4160,7 +4250,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   ORBITAL *orb;
   int nkgp;
   int *kgp = NULL;
-  int ip = 0;
+  int ip = 0, ncca = 0;
 
   if (nkg00 == 0) {
     printf("no valid configs for mbpt: %d %d\n", nkg, nkg00);
@@ -4588,7 +4678,11 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	if (iig && jig) a *= mbpt_mcut4;
 	if (i == j) a *= mbpt_mcut3;
 	if (c >= a) {
-	  meff[isym]->imbpt[k] = 1;
+	  if (c >= mbpt_wmix) {
+	    meff[isym]->imbpt[k] = (int)(1+c/mbpt_wmix);
+	  } else {
+	    meff[isym]->imbpt[k] = 1;
+	  }
 	  meff[isym]->hab1[k] = malloc(sizeof(double)*nhab1);
 	  meff[isym]->hba1[k] = malloc(sizeof(double)*nhab1);
 	  if (nhab > 0) {
@@ -5023,6 +5117,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       bas1 = mbpt_bas1;
       mbpt_ibas0.n = mbpt_ibas0.m = 0;
       mbpt_ibas1.n = mbpt_ibas1.m = 0;
+      if (mbpt_ccn[0]) {
+	mbpt_cca = malloc(sizeof(ARRAY));
+	ArrayInit(mbpt_cca, sizeof(CONFIG *), 4096);
+      }
       int ic0;
       for (ic0 = icp0; ic0 < icp1; ic0++) {
 	if (SkipMPIM(0)) continue;
@@ -5176,10 +5274,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	nlock = NumLock();
 	double tmem = TotalSize();
 	double amem = TotalArraySize();
-	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld\n", 
+	MPrintf(mbpt_omp?0:-1, "%4d %4d %4d %4d %3d %3d %3d %3d %3d %3d ... %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %ld %ld %d\n", 
 		ic0, ic, icp0, icp1, k0, k1, nc, mst, cmst, tmst,
 		dt, dtt, tmem, amem, tmemf-tmem, amemf-amem,
-		tskip, tlock, nlock, mbpt_ignoren);
+		tskip, tlock, nlock, mbpt_ignoren, mbpt_cca?mbpt_cca->dim:0);
 	fflush(stdout);	  
 #pragma omp master
 	{
@@ -5194,6 +5292,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       ttskip = tskip;
       ttlock = tlock;
       tnlock = nlock;
+      if (mbpt_ccn[0]) {
+#pragma omp atomic
+	ncca += mbpt_cca->dim;
+      }
       }
       if (im) {
 	free(dm);
@@ -5918,8 +6020,13 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   FreeIdxAry(&mbpt_ibas1, 2);
   FreeIdxAry(&ing, 2);
   FreeIdxAry(&ing2, 2);
+  CONFIG **cca = NULL;
+  int icca = 0;
+  if (ncca > 0) {
+    cca = malloc(sizeof(CONFIG *)*ncca);
+  }
   ResetWidMPI();
-#pragma omp parallel default(shared) private(cs)
+#pragma omp parallel default(shared) private(cs, i)
   {
     cs = mbpt_cs;
     free(cs[nc]->shells);
@@ -5932,7 +6039,49 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     if (mbpt_nsplit) {
       FreeIdxAry(&mbptjp.ibs, 2);
     }
+    if (mbpt_ccn[0]) {
+#pragma omp critical
+      {
+	for (i = 0; i < mbpt_cca->dim; i++) {
+	  CONFIG **c = ArrayGet(mbpt_cca, i);
+	  cca[icca] = *c;
+	  icca++;
+	}
+	ArrayFree(mbpt_cca, NULL);
+	free(mbpt_cca);
+	mbpt_cca = NULL;
+      }
+    }
   }
+  if (ncca > 0) {
+    FILE *fc = fopen(mbpt_ccn, "w");
+    if (fc == NULL) {
+      printf("cannot open mbpt_ccn: %s\n", mbpt_ccn);
+    } else {
+      qsort(cca, ncca, sizeof(CONFIG *), CompareCfgPointer);
+      char scr[2048];
+      icca = 0;
+      for (i = 0; i < ncca; i++) {
+	if (i > 0 && 0==CompareCfgPointer(&cca[i], &cca[i-1])) continue;
+	ConstructNRConfigName(scr, 2048, cca[i]);
+	fprintf(fc, "%s # %d %d %d %d %d %d %d %g %g %g %g %g %g\n",
+		scr, icca, i, cca[i]->icfg,
+		cca[i]->n_electrons, cca[i]->n_csfs,
+		cca[i]->nnrs, cca[i]->igroup,
+		cca[i]->sweight, cca[i]->energy,
+		cca[i]->delta, cca[i]->sth, cca[i]->cth, cca[i]->mde);
+	icca++;
+      }
+      for (i = 0; i < ncca; i++) {
+	cca[i]->n_csfs = 0;
+	cca[i]->nnrs = 0;
+	FreeConfigData(cca[i]);
+	free(cca[i]);
+      }
+      fclose(fc);
+      free(cca);
+    }
+  }    
   free(bas);
   if (mbpt_nsplit) {
     for (i = 0; i < nb; i++) {
