@@ -4867,15 +4867,26 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   if (argc < 2) return -1;
   if (argt[0] != NUMBER) return -1;
   if (argt[1] != NUMBER) return -1;
-  double zps, nps, tps;
-  zps = atof(argv[0]);
-  nps = atof(argv[1]);
+  if (argc > 2 && argt[2] != NUMBER) return -1;
+  if (argc > 3 && argt[3] != NUMBER) return -1;
+  if (argc > 4 && argt[4] != NUMBER) return -1;
+  double zps, nps, tps, ups;
+  int m;
   tps = 0.0;
+  ups = 0.0;
+  m = 0;
+  zps = atof(argv[0]);
+  nps = atof(argv[1]);  
   if (argc > 2) {
-    if (argt[2] != NUMBER) return -1;
     tps = atof(argv[2]);
+    if (argc > 3) {
+      m = atoi(argv[3]);
+      if (argc > 4) {
+	ups = atof(argv[4]);
+      }
+    }
   }
-  PlasmaScreen(zps, nps, tps);
+  PlasmaScreen(m, zps, nps, tps, ups);
   return 0;
 }
 

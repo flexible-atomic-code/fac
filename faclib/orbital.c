@@ -33,6 +33,13 @@ static int *_ipiv;
 
 #pragma omp threadprivate(_veff, ABAND, _ipiv, _dwork, _dwork1, _dwork2, _dwork3)
 
+static int _relativistic_fermi = 2;
+static double _fermi_abserr = 1e-7;
+static double _fermi_relerr = 1e-5;
+static double _fermi_yb = 1e-4;
+static double _sp_rmin = 0.1;
+static double _sp_rmax = 5.0;
+static int _sp_mode = 3;
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
 
@@ -817,7 +824,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   nr = orb->n - kl - 1;
 
   niter = 0;
-
+  z0 = GetAtomicNumber();
   z = GetResidualZ();
   //if (z < 0.1) z = 0.1;
 
@@ -2460,63 +2467,9 @@ double InnerProduct(int i1, int n, double *p1, double *p2, POTENTIAL *pot) {
   return Simpson(_dwork, i1, n);
 }
 
-int SetOrbitalRGrid(POTENTIAL *pot) {
-  int i, maxrp;  
-  double z0, z, d1, d2, del, gratio, gasymp;
-  double a, b, c, q, rn, r1, rmin, rmax;
-
-  gratio = pot->ratio;
-  gasymp = pot->asymp;
-  z0 = GetAtomicNumber();
-  rn = GetAtomicR();
-  z = z0 - pot->N1;
-  if (pot->flag == 0) pot->flag = -1; 
-  rmin = pot->rmin/z0;
-  if (rn > 0) {
-    a = rn*GRIDRMINN0;
-    if (rmin < a) rmin = a;
-    a = rn*GRIDRMINN1;
-    if (rmin > a) rmin = a;
-  }
-  
-  if (pot->rps > 0) {
-    maxrp = Max(25, (int)(1+0.85*pot->maxrp));
-    if (gasymp > 0 && gratio > 0) {
-      a = gasymp*sqrt(2.0*z)/PI;
-      c = 1.0/log(gratio);    
-      d2 = maxrp-10.0 + a*pow(rmin, pot->qr) + c*log(rmin);
-      rmax = d2/a;
-      rmax = pow(rmax, 1.0/pot->qr);
-      d1 = 1.0;
-      while (d1 > EPS5) {
-	r1 = d2 - c*log(rmax);
-	r1 = r1/a;
-	r1 = pow(r1, 1.0/pot->qr);
-	d1 = fabs(r1/rmax-1.0);
-	rmax = r1;
-      }
-      if (pot->rps > rmax) {
-	maxrp = pot->maxrp;
-      } else {
-	gratio = -pot->rps;
-      }
-    } else if (gasymp > 0) {
-      if (pot->rps > -gratio) {
-	maxrp = pot->maxrp;
-      } else {
-	gratio = -pot->rps;
-      }
-    } else if (gratio > 0) {
-      if (pot->rps > -gasymp) {
-	maxrp = pot->maxrp;
-      } else {
-	gasymp = -pot->rps;
-      }
-    }
-    pot->ips = maxrp-1;
-  } else {
-    maxrp = pot->maxrp;
-  }
+void MaxRGrid(POTENTIAL *pot, double gasymp, double gratio, double z,
+	      double rmin, int maxrp, double *ap, double *cp, double *rmp) {
+  double a, c, d1, d2, rmax, r1;
   if (gasymp > 0 && gratio > 0) {
     a = gasymp*sqrt(2.0*z)/PI;
     c = 1.0/log(gratio);    
@@ -2548,19 +2501,69 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     c = maxrp-15.0 + a*(pow(rmin, pot->qr)-pow(rmax, pot->qr));
     c /= log(rmax) - log(rmin);
   }
+  *ap = a;
+  *cp = c;
+  *rmp = rmax;
+}
+
+int SetOrbitalRGrid(POTENTIAL *pot) {
+  int i, maxrp;  
+  double z0, z, d1, d2, del, gratio, gasymp;
+  double a, b, c, q, rn, r1, rmin, rmax;
+
+  gratio = pot->ratio;
+  gasymp = pot->asymp;
+  z0 = GetAtomicNumber();
+  rn = GetAtomicR();
+  z = z0 - pot->N1;
+  if (pot->flag == 0) pot->flag = -1; 
+  rmin = pot->rmin/z0;
+  if (rn > 0) {
+    a = rn*GRIDRMINN0;
+    if (rmin < a) rmin = a;
+    a = rn*GRIDRMINN1;
+    if (rmin > a) rmin = a;
+  }
+
+  if (pot->mps >= 0) {
+    if (pot->zps <= 0) {
+      pot->zps = z0 - pot->N;
+    }
+    if (pot->ups < 0) {
+      pot->ups = pot->zps;
+    }
+    pot->rps = pow(3*pot->zps/(FOUR_PI*pot->nps),ONETHIRD);
+    pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
+    if (pot->mps == 2) {
+      pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
+    }
+  }
+  MaxRGrid(pot, gasymp, gratio, z, rmin, pot->maxrp, &a, &c, &rmax);
+  maxrp = pot->maxrp;
   d1 = log(rmax/rmin);
   d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
   b = (maxrp - 1.0 - (a*d2))/d1;
-  if (b < c) {
-    printf("Not enough radial mesh points: %d %d %g %g %g %g, ",
-	   maxrp, pot->maxrp, gasymp, gratio, rmin, rmax);
-    printf("enlarge to at least %d\n", (int) (1 + a*d2 + c*d1));
+  i = (int)(1+a*d2+c*d1);
+  if (i > pot->maxrp) {
+    printf("Not enough radial mesh points: %d %g %g %g %g %g %g, ",
+	   maxrp, gasymp, gratio, rmin, rmax, b, c);
+    printf("enlarge to at least %d\n", i);
     exit(1);
   }
-
+  if (pot->rps > 0) {
+    rmax = pot->rps;
+    d1 = log(rmax/rmin);
+    d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
+    maxrp = (int)(1+a*d2 + b*d1);
+    b = (maxrp - 1.0 - (a*d2))/d1;
+  }
   d1 = b*d1;
   d2 = a*d2;
   del = (d1 + d2)/(maxrp - 1);
+  if (fabs(del-1) > EPS8) {
+    printf("inconsistent grid transformation: %g %g %g\n", a, b, del);
+    Abort(1);
+  }
   pot->rad[0] = rmin;
   d1 = a*pow(rmin, pot->qr) + b*log(rmin);
   pot->rho[0] = d1;
@@ -2596,6 +2599,17 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     pot->mqrho[i] = b*log(pot->rad[i]) + a*pot->rad[i];
   }
   
+  if (pot->rps > 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      if (pot->rad[i] > pot->rps) {
+	pot->ips = i-1;
+	break;
+      }
+    }
+    if (pot->ips <= 0) {
+      pot->rps = 0;
+    }
+  }
   return 0;
 }
 
@@ -3213,7 +3227,7 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
   int i;
   double n0, r0, x;
   
-  if (pot->ips == 0) {
+  if (pot->mps < 0) {
     for (i = 0; i < pot->maxrp; i++) {
       pot->NPS[i] = 0;
       pot->ZPS[i] = 0;
@@ -3223,6 +3237,34 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
     return 0;
   }
 
+  if (pot->mps == 1 && pot->rps > 0) {//debye screening
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->NPS[i] = 0;
+      r0 = pot->rad[i]/pot->rps;
+      x = exp(-r0);
+      pot->ZPS[i] = pot->zps*(x-1.0);
+      pot->dZPS[i] = -pot->zps*x/pot->rps;
+      pot->dZPS2[i] = pot->zps*x/(pot->rps*pot->rps);
+    }
+    return 0;
+  }
+
+  if (pot->mps == 2) {//stewart&pyatt
+    StewartPyatt(pot, vt);
+    Differential(pot->ZPS, pot->dZPS, 0, pot->maxrp-1, pot->dr_drho);
+    Differential(pot->dZPS, pot->dZPS2, 0, pot->maxrp-1, pot->dr_drho);
+    return 0;
+  }
+  
+  if (pot->ips == 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->NPS[i] = 0;
+      pot->ZPS[i] = 0;
+      pot->dZPS[i] = 0;
+      pot->dZPS2[i] = 0;
+    }
+    return 0;
+  }
   n0 = pot->nps;
   r0 = pot->rps;
   if (pot->tps <= 0 || vt == NULL) {
@@ -3243,13 +3285,11 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
     }
     return 0;
   }
-  pot->ups = exp(pot->ups/pot->tps);
   for (i = 0; i < 128; i++) {
     n0 = pot->ups;
     FreeElectronDensity(pot, vt);
-    if (fabs(1-pot->ups/n0) < EPS5) break;
+    if (fabs(1-exp(pot->ups-n0)) < EPS5) break;
   }
-  pot->ups = log(pot->ups)*pot->tps;
   for (i = 0; i <= pot->ips; i++) {
     x = pot->rad[i];
     _dwork[i] = x*x*pot->NPS[i]*pot->dr_drho[i];
@@ -3276,30 +3316,417 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
 
 void FreeElectronDensity(POTENTIAL *pot, double *vt) {
   int i, k;
-  double c2 = 1.0/FINE_STRUCTURE_CONST2;
-  double a2 = FINE_STRUCTURE_CONST2;
-  int nk = Min(pot->maxrp, 255);
   double a = 1.0/(PI*PI);
-  double k0, k1, k2, dk, y;
-  for (i = 0; i <= pot->ips; i++) {
-    k0 = (-2*vt[i]+a2*vt[i]*vt[i]);
-    k1 = 50.0*pot->tps+(c2-vt[i]);
-    k1 = k1*k1*a2 - c2;
-    dk = (k1 - k0)/(nk-1);
-    _dwork[0] = k0;
-    for (k = 1; k < nk; k++) {
-      _dwork[k] = _dwork[k-1] + dk;
+  if (_relativistic_fermi == 2) {
+    double c2 = 1.0/FINE_STRUCTURE_CONST2;
+    double a2 = FINE_STRUCTURE_CONST2;
+    int nk = Min(pot->maxrp, 1001);
+    double k0, k1, k2, dk, y;
+    for (i = 0; i <= pot->ips; i++) {
+      k0 = (-2*vt[i]+a2*vt[i]*vt[i]);
+      k1 = 50.0*pot->tps+(c2-vt[i]);
+      k1 = k1*k1*a2 - c2;
+      dk = (k1 - k0)/(nk-1);
+      _dwork[0] = k0;
+      for (k = 1; k < nk; k++) {
+	_dwork[k] = _dwork[k-1] + dk;
+      }
+      for (k = 0; k < pot->maxrp; k++) {
+	k2 = _dwork[k];
+	y = (sqrt(k2*c2 + c2*c2)-c2+vt[i])/pot->tps;
+	_dwork3[k] = y;
+	y = exp(pot->ups-y);
+	_dwork1[k] = sqrt(k2)*y/(y + 1);
+      }
+      pot->NPS[i] = a*0.5*dk*Simpson(_dwork1, 0, nk-1);
+      _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
     }
-    for (k = 0; k < pot->maxrp; k++) {
-      k2 = _dwork[k];
-      y = (sqrt(k2*c2 + c2*c2)-c2+vt[i])/pot->tps;
-      _dwork1[k] = sqrt(k2)/(exp(y) + pot->ups);
+  } else {
+    double g, y;
+    a *= sqrt(2*pot->tps)*pot->tps;
+    if (_relativistic_fermi) g = pot->tps*FINE_STRUCTURE_CONST2;
+    else g = 0;
+    for (i = 0; i <= pot->ips; i++) {
+      y = (-vt[i])/pot->tps;
+      pot->NPS[i] = a*FermiIntegral(y+pot->ups, y, g);
+      _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
     }
-    pot->NPS[i] = a*0.5*dk*Simpson(_dwork1, 0, nk-1);
-    _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
   }
-  pot->ups = pot->zps/Simpson(_dwork2, 0, pot->ips);
+  a = pot->zps/Simpson(_dwork2, 0, pot->ips);
+  pot->ups += log(a);
   for (i = 0; i <= pot->ips; i++) {
-    pot->NPS[i] *= pot->ups;
+    pot->NPS[i] *= a;
+  }
+}
+
+static double _fermi_ax = 0.0;
+static double _fermi_ag = 0.0;
+static double FermiIntegrand(double *tp) {
+  double et, x, g, t, gt, r;
+  t = *tp;
+  x = _fermi_ax;
+  g = _fermi_ag;
+  if (g <= 0) {
+    gt = t;
+  } else {
+    gt = g*t;
+    if (gt < 1e-6) {
+      gt = t - 0.5*gt*t;
+    } else {    
+      gt = (sqrt(1+2*gt)-1.0)/g;
+    }
+  }
+  if (gt > x) {
+    et = exp(x-gt);
+    r = sqrt(t)*et/(1.0+et);
+  } else {
+    et = exp(gt-x);
+    r = sqrt(t)/(1.0+et);
+  }
+  return r;
+}
+FCALLSCFUN1(DOUBLE, FermiIntegrand, FERMIINTEGRAND, fermiintegrand, PDOUBLE)
+double FermiIntegral(double x, double y, double g) {
+  double t0, t1;
+  double r, s, a;
+  int n, ier, lim, lenw, last, iter;
+  int iwork[16];
+  double dwork[16];
+
+  lim = 4;
+  lenw = 16;  
+  r = 0.0;
+  _fermi_ax = x;
+  _fermi_ag = g;
+  if (y > 0 && g > 0) y += 0.5*g*y*y;
+  t0 = y;
+  iter = 0;
+  while (1) {
+    t1 = t0+1;
+    DQAGS(C_FUNCTION(FERMIINTEGRAND, fermiintegrand),
+	  t0, t1, _fermi_abserr, _fermi_relerr, &s, &a, &n, &ier,
+	  lim, lenw, &last, iwork, dwork);    
+    r += s;
+    t0 = t1;
+    if (iter > 10 && s < 1e-3*r) {
+      if (g <= 0) {
+	a = t0;
+      } else {
+	a = g*t0;
+	if (a < 1e-6) {
+	  a = t0 - 0.5*a*t0;
+	} else {
+	  a = (sqrt(1+2*a)-1.0)/g;
+	}
+      }
+      if (a-x > 35 && a > 10.0) {
+	s = exp(x-a)*sqrt(a);
+	if (s < _fermi_relerr*r) {
+	  break;
+	}
+      }
+    }
+    iter++;
+  }
+  return r;
+}
+
+double FermiDegeneracy(double ne, double te, double *yi) {
+  double a1, y1, g;
+  int i;
+  if (_relativistic_fermi) {
+    g = te*FINE_STRUCTURE_CONST2;
+  } else {
+    g = 0.0;
+  }
+  double x = ne/(0.143289792*te*sqrt(te));
+  double a0 = log(1.128379167*x);
+  double y0 = FermiIntegral(a0, 0.0, g);
+  if (y0 > x) {
+    a1 = a0;
+    i = 0;
+    while(y0 > x) {
+      a0 -= 0.5*fabs(a0);
+      y0 = FermiIntegral(a0, 0.0, g);
+      i++;
+      if (i > 128) {
+	printf("FermiDegeneracy maxiter0: %d %g %g %g\n",
+	       i, a0, y0, x);
+	return 0;
+      }
+    }
+  } else {
+    a1 = a0;
+    y1 = y0;
+    i = 0;
+    while (y1 < x) {
+      a1 += 0.5*fabs(a1);
+      y1 = FermiIntegral(a1, 0.0, g);
+      i++;
+      if (i > 128) {
+	printf("FermiDegeneracy maxiter1: %d %g %g %g\n",
+	       i, a1, y1, x);
+	return 0;
+      }
+    }    
+  }
+  double a, y;
+  i = 0;
+  while (a1-a0 > EPS6*fabs(a0+a1)) {
+    a = 0.5*(a0+a1);
+    y = FermiIntegral(a, 0.0, g);
+    if (y < x) {
+      a0 = a;
+    } else if (y > x) {
+      a1 = a;
+    } else {
+      break;
+    }
+    i++;
+    if (i > 128) {
+      printf("FermiDegeneracy maxiter2: %d %g %g %g %g\n",
+	     i, a0, a1, y, x);
+      return 0;
+    }
+  }
+  a = 0.5*(a0+a1);
+  *yi = FermiIntegral(a, 0.0, g);
+  return a;
+}
+
+double StewartPyattIntegrand(double a, double fa, double y, double y0,
+			     double g, double z, double xr, double yr) {
+  double r;
+  double ys = z*y;
+  if (y0 > 0) {
+    if (y < xr) {
+      r = yr*y;    
+      if (ys < xr) {
+	double ys2 = ys*ys;
+	r += ys - ys2/2 + ys2*ys/6.0-ys2*ys2/24.0;
+      } else {
+	r += 1-exp(-ys);
+      }    
+    } else {
+      r = FermiIntegral(y+a, y0, g)/fa - exp(-ys);
+    }
+  } else {
+    double aa = xr*fabs(a);
+    if (y < aa) {
+      if (y > xr) {
+	r = exp(y)*(1-0.35355*exp(y+a)*(1-exp(-y)))-1.0;
+      } else {
+	double y2 = y*y;      
+	r = (y+0.5*y2 + y2*y/6.0 - y2*y2/24.0)-0.35355*exp(y+a)*(y+0.5*y2);
+      }
+      if (ys < xr) {
+	double ys2 = ys*ys;
+	r += ys - 0.5*ys2 + ys2*ys/6.0 - ys2*ys2/24.0;
+      } else {
+	r += 1-exp(-ys);
+      }
+    } else {
+      r = FermiIntegral(y+a, 0.0, g)/fa - exp(-ys);
+    }
+  }
+  r /= 1+z;
+  return r;
+}
+
+void DerivSPY(int *neq, double *t, double *y, double *yd) {
+  double x = *t;
+  yd[0] = y[1];
+  double s = StewartPyattIntegrand(y[2], y[3], y[0]/x, 0.0,
+				   y[4], y[5], y[6], y[7]);
+  yd[1] = x*s;
+  //printf("dspy: %g %g %g %g %g %g %g %g %g %g %g\n", x, y[0], y[1], yd[0], yd[1], y[2], y[3], y[4],y[5],y[6],y[7]);
+}
+
+FCALLSCSUB4(DerivSPY, DERIVSPY, derivspy, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
+void StewartPyatt(POTENTIAL *pot, double *vt) {
+  int i, m, ib;
+  double a = pot->aps;
+  double fa = pot->fps;
+  double x, x0, x1, x2, xi, y, y0, k, j, c, z1, xr, yr, g, kc;
+
+  if (vt) {
+    if (_sp_mode == 0 || _sp_mode == 2 || _sp_mode == 4) return;
+  }
+  if (_relativistic_fermi) {
+    g = pot->tps*FINE_STRUCTURE_CONST2;
+  } else {
+    g = 0.0;
+  }
+  m = pot->maxrp-1;
+  c = pot->zps/(pot->dps*pot->tps);
+  z1 = 1.0 + pot->ups;
+  x = 3*z1;
+  k = c;
+  j = (pow(x*k+1.0, 0.666667)-1)*0.5/z1;
+  x1 = sqrt(2*z1*j+1)-1.0;
+  kc = (c*exp(-x1)/x1)/((k/x1)-j+x1*x1/(6*z1));
+  x0 = pot->dps;
+  if (x1 < x0) x1 = x0;
+  x2 = _sp_rmax*x1;
+  xi = _sp_rmin*x1;
+  y0 = -1e30;
+  xr = _fermi_yb;
+  yr = (FermiIntegral(xr+a, xr, g)/fa-1.0)/xr;
+  if (_sp_mode >= 2) {
+    double ys[8];
+    double *rwork = _dwork3;
+    int iwork[22];
+    double rtol, atol[2];
+    int neq, itol, itask, istate, iopt, mf, lrw, liw;
+    lrw = pot->maxrp;
+    liw = 22;
+    neq = 2;
+    itol = 2;
+    rtol = EPS6;
+    atol[0] = 0.0;
+    atol[1] = EPS5;
+    itask = 1;
+    istate = 1;
+    iopt = 0;
+    mf = 10;
+    for (i = pot->maxrp-1; i >= 0; i--) {      
+      x = pot->rad[i]/pot->dps;
+      if (x <= x2) break;
+      _veff[i] = c*exp(-x)/x;
+    }    
+    ys[0] = c*exp(-x);
+    ys[1] = -c*exp(-x);
+    ys[2] = a;
+    ys[3] = fa;
+    ys[4] = g;
+    ys[5] = pot->ups;
+    ys[6] = xr;
+    ys[7] = yr;
+    _veff[i] = ys[0]/x;
+    x0 = x;
+    i--;
+    for (; i >= 0; i--) {
+      x = pot->rad[i]/pot->dps;
+      if (x <= xi) {
+	break;
+      }
+      while (x0 > x) {
+	LSODE(C_FUNCTION(DERIVSPY, derivspy), neq, ys, &x0, x,
+	      itol, rtol, atol, itask, &istate, iopt, rwork, lrw, iwork,
+	      liw, NULL, mf);
+	if (istate == -1) istate = 2;
+	else if (istate < 0) {
+	  printf("PSODE error in StewartPyatt: %d", istate);
+	  Abort(1);
+	}
+      }
+      _veff[i] = ys[0]/x;
+      if (_sp_mode == 4) {
+	if (x < x1 && _veff[i] > pot->Z[i]/(pot->rad[i]*pot->tps)) break;
+      }
+    }
+    if (i >= 0) {
+      if (x <= xi) {
+	ib = i+1;
+	if (vt == NULL) {
+	  kc = ys[0]/c;
+	  for (; i >= 0; i--) {
+	    x = pot->rad[i]/pot->dps;
+	    _veff[i] = kc*c/x;
+	    if (_sp_mode == 4) {
+	      if (x < x1 && _veff[i] > pot->Z[i]/(pot->rad[i]*pot->tps)) break;
+	    }
+	  }
+	} else {
+	  kc = fabs(vt[ib])/(pot->tps*_veff[ib]);
+	  for (i = ib; i < pot->maxrp; i++) {
+	    _veff[i] *= kc;
+	  } 
+	  for (i = ib-1; i >= 0; i--) {
+	    _veff[i] = fabs(vt[i])/pot->tps;
+	  }
+	}
+      }    
+      for (; i >= 0; i--) {
+	if (vt) {
+	  _veff[i] = fabs(vt[i])/pot->tps;
+	} else {
+	  _veff[i] = pot->Z[i]/(pot->rad[i]*pot->tps);
+	}
+      }
+    }
+  } else {
+    for (i = 0; i < pot->maxrp; i++) {
+      x = pot->rad[i]/pot->dps;
+      if (vt == NULL) {
+	if (x >= x1) {
+	  y = c*exp(-x)/x;
+	} else {
+	  y = ((k/x) - j + x*x/(6.0*z1))*kc;
+	}
+      } else {
+	y = fabs(vt[i])/pot->tps;
+	if (x2 > 0 && x >= x2) {
+	  if (y0 < 0) {
+	    y0 = c*exp(-x)/x;	
+	    y0 = y/y0;
+	  }
+	  y = c*y0*exp(-x)/x;
+	}
+      }
+      _veff[i] = y;
+    }
+  }
+  for (i = 0; i < pot->maxrp; i++) {
+    x = pot->rad[i]/pot->dps;
+    y = _veff[i];
+    _dwork1[i] = StewartPyattIntegrand(a, fa, y, y, g, pot->ups, xr, yr);
+    pot->NPS[i] = _dwork1[i];
+    _dwork1[i] *= pot->dr_drho[i]*x/pot->dps;
+    _dwork2[i] = _dwork1[i]*x;
+  }
+  _dwork[m] = 0.0;
+  NewtonCotes(_dwork, _dwork1, 0, m, -1, -1);
+  x = pot->rad[0]/pot->dps;
+  _dwork3[0] = _dwork2[0]*x*x*x/3.0;
+  NewtonCotes(_dwork3, _dwork2, 0, m, -1, 0);
+  c = pot->zps/_dwork3[m];
+  for (i = 0; i < pot->maxrp; i++) {
+    x = pot->rad[i]/pot->dps;
+    y = -c*(_dwork3[i] + x*_dwork[i]);
+    pot->ZPS[i] = y;
+    pot->NPS[i] *= c/(FOUR_PI*pow(pot->dps,3));
+    //pot->NPS[i] = _veff[i];
+  }
+}
+
+void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "orbital:relativistic_fermi")) {
+    _relativistic_fermi = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_abserr")) {
+    _fermi_abserr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_relerr")) {
+    _fermi_relerr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_yb")) {
+    _fermi_yb = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sp_rmin")) {
+    _sp_rmin = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sp_rmax")) {
+    _sp_rmax = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sp_mode")) {
+    _sp_mode = ip;
+    return;
   }
 }

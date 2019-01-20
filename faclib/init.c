@@ -108,6 +108,10 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionRadial(s, sp, ip, dp);
     return;
   }
+  if (strstr(s, "orbital:") == s) {
+    SetOptionOrbital(s, sp, ip, dp);
+    return;
+  }
   if (strstr(s, "structure:") == s) {
     SetOptionStructure(s, sp, ip, dp);
     return;

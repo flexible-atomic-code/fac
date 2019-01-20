@@ -48,8 +48,8 @@ typedef struct _POTENTIAL_ {
   int nfn[NKSEP];
   int nws;  
   double *dws;
-  double zps, nps, tps, rps, ups;
-  int ips;
+  double zps, nps, tps, rps, dps, aps, fps, ups;
+  int mps, ips;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
@@ -96,6 +96,11 @@ int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt);
 void FreeElectronDensity(POTENTIAL *pot, double *vt);
+double StewartPyattIntegrand(double a, double fa, double y, double y0,
+			     double g, double z, double xr, double yr);
+void StewartPyatt(POTENTIAL *pot, double *vt);
+double FermiDegeneracy(double ne, double te, double *yi);
+double FermiIntegral(double x, double y, double g);
 int SetPotentialVc(POTENTIAL *pot);
 int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
