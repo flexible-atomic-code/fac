@@ -111,6 +111,7 @@ double EneTol(double e);
 void SetOrbitalWorkSpace(double *p, int n);
 double EnergyH(double z, double n, int ka);
 double QuantumDefect(double z, int n, int ka, double e);
+void SetOptionOrbital(char *s, char *sp, int ip, double dp);
 #endif
 
 
