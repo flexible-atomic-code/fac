@@ -640,10 +640,14 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->ib1, sizeof(int), 1, f);
   n = BFileRead(&p->bqp, sizeof(double), 1, f);
   n = BFileRead(&p->rb, sizeof(double), 1, f);
+  n = BFileRead(&p->mps, sizeof(int), 1, f);
   n = BFileRead(&p->zps, sizeof(double), 1, f);
   n = BFileRead(&p->nps, sizeof(double), 1, f);
   n = BFileRead(&p->tps, sizeof(double), 1, f);
   n = BFileRead(&p->rps, sizeof(double), 1, f);
+  n = BFileRead(&p->dps, sizeof(double), 1, f);
+  n = BFileRead(&p->aps, sizeof(double), 1, f);
+  n = BFileRead(&p->fps, sizeof(double), 1, f);
   n = BFileRead(&p->ups, sizeof(double), 1, f);
   n = BFileRead(&p->ips, sizeof(int), 1, f);
   AllocPotMem(p, maxrp);
@@ -784,10 +788,14 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->ib1, sizeof(int), 1, f);
   n = fwrite(&p->bqp, sizeof(double), 1, f);
   n = fwrite(&p->rb, sizeof(double), 1, f);
+  n = fwrite(&p->mps, sizeof(int), 1, f);
   n = fwrite(&p->zps, sizeof(double), 1, f);
   n = fwrite(&p->nps, sizeof(double), 1, f);
   n = fwrite(&p->tps, sizeof(double), 1, f);
   n = fwrite(&p->rps, sizeof(double), 1, f);
+  n = fwrite(&p->dps, sizeof(double), 1, f);
+  n = fwrite(&p->aps, sizeof(double), 1, f);
+  n = fwrite(&p->fps, sizeof(double), 1, f);
   n = fwrite(&p->ups, sizeof(double), 1, f);
   n = fwrite(&p->ips, sizeof(int), 1, f);
   n = fwrite(p->dws, sizeof(double), p->nws, f);
@@ -1968,11 +1976,15 @@ int GetPotential(char *s) {
   fprintf(f, "#    CHX = %12.5E\n", potential->chx);
   fprintf(f, "#    HX0 = %12.5E\n", potential->hx0);
   fprintf(f, "#    HX1 = %12.5E\n", potential->hx1);
+  fprintf(f, "#    mps = %d\n", potential->mps);
   fprintf(f, "#    zps = %12.5E\n", potential->zps);
   fprintf(f, "#    nps = %12.5E\n", potential->nps);
   fprintf(f, "#    tps = %12.5E\n", potential->tps);
   fprintf(f, "#    ups = %12.5E\n", potential->ups);
   fprintf(f, "#    rps = %12.5E\n", potential->rps);
+  fprintf(f, "#    dps = %12.5E\n", potential->dps);
+  fprintf(f, "#    aps = %12.5E\n", potential->aps);
+  fprintf(f, "#    fps = %12.5E\n", potential->fps);
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
@@ -2095,7 +2107,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       potential->hxs = hxs0*(1-ahx);
     }
     a = SetPotential(acfg, iter);
-    if (potential->zps > 0 && potential->nps > 0 && potential->tps > 0) {
+    if (potential->mps == 0 || potential->mps == 2) {
       SetPotentialPS(potential, potential->VT[0]);
     }
     FreeYkArray();
@@ -8320,10 +8332,14 @@ int InitRadial(void) {
   potential->ib = 0;
   potential->ib1 = 0;
   potential->ib0 = 0;
+  potential->mps = -1;
   potential->zps = 0;
   potential->nps = 0;
   potential->tps = 0;
   potential->rps = 0;
+  potential->dps = 0;
+  potential->aps = 0;
+  potential->fps = 0;
   potential->ips = 0;
   SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
@@ -9436,14 +9452,26 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   return 0;
 }
 
-void PlasmaScreen(double zps, double nps, double tps) {
+void PlasmaScreen(int m, double zps, double nps, double tps, double ups) {
+  potential->mps = m;
+  potential->zps = 0;
+  potential->nps = 0;
+  potential->tps = 0;
+  potential->rps = 0;
+  if (m < 0 || nps <= 0) return;
   potential->zps = zps;
   potential->nps = nps*pow(RBOHR,3);
   potential->tps = tps/HARTREE_EV;
-  if (nps > 0 && zps > 0) {
-    potential->rps = pow(3*zps/(FOUR_PI*potential->nps),ONETHIRD);
-  } else {
-    potential->rps = 0;
+  if (zps > 0) {
+    if (m == 0) {    
+      potential->rps = pow(3*potential->zps/(FOUR_PI*potential->nps),ONETHIRD);
+    } else {
+      potential->rps = sqrt(potential->tps/(FOUR_PI*potential->nps*potential->zps));
+    }
+  }
+  if (m == 2) {
+    //stewart&pyatt model, ups is the z*;
+    potential->ups = ups;
   }
 }
 

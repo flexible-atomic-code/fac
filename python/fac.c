@@ -6053,10 +6053,13 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  double zps, nps, tps;
+  double zps, nps, tps, ups;
+  int m;
   tps = 0.0;
-  if (!(PyArg_ParseTuple(args, "dd|d", &zps, &nps, &tps))) return NULL;
-  PlasmaScreen(zps, nps, tps);
+  m = 0;
+  ups = 0.0;
+  if (!(PyArg_ParseTuple(args, "dd|did", &zps, &nps, &tps, &m, &ups))) return NULL;
+  PlasmaScreen(m, zps, nps, tps, ups);
   Py_INCREF(Py_None);
   return Py_None;
 }
