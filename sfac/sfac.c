@@ -178,7 +178,9 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   char *v[MAXNARGS], *v1[MAXNARGS];
   int at[MAXNARGS], at1[MAXNARGS], nv, nv1, rv;
 
-  if (argt != LIST  && argt != TUPLE && argt != STRING) return -1;
+  if (argt != LIST  && argt != TUPLE &&
+      argt != STRING && argt != NUMBER) return -1;
+    
   nv = 0; 
   nv1 = 0;
   rv = 0;
@@ -188,9 +190,37 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
     n = 1;
     v[0] = argv;
     at[0] = STRING;
+  } else if (argt == NUMBER) {
+    *t = malloc(sizeof(int));
+    (*t)[0] = atof(argv);
+    return 1;
   } else {
     n = DecodeArgs(argv, v, at, variables);
     nv = n;
+    if (argt == LIST) {
+      m = n;
+      int **ti, *nti;
+      ti = malloc(sizeof(int *)*m);
+      nti = malloc(sizeof(int)*m);
+      n = 0;
+      for (i = 0; i < m; i++) {
+	nti[i] = SelectLevels(&ti[i], v[i], at[i], variables);
+	n += nti[i];
+      }
+      if (n > 0) {
+	*t = malloc(sizeof(int)*n);
+	k = 0;
+	for (i = 0; i < m; i++) {
+	  for (j = 0; j < nti[i]; j++) {
+	    (*t)[k++] = ti[i][j];
+	  }
+	  if (nti[i] > 0) free(ti[i]);
+	}
+      }
+      free(nti);
+      free(ti);
+      return n;
+    }
   }
   if (n > 0) {
     if (at[0] == STRING) {
@@ -473,6 +503,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i, j, k, t, ncfg;
   char scfg[MCHSHELL], *gn1, *gn2, *s;
   int nf;
+  char buf[4096];
   char *v[MAXNARGS];
   int vt[MAXNARGS];
 
@@ -614,14 +645,39 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
     if (argt[i] != STRING) return -1;
-    strncpy(scfg, _closed_shells, MCHSHELL);
-    strncat(scfg, argv[i], MCHSHELL);
-    ncfg = GetConfigFromString(&cfg, scfg);
-    for (j = 0; j < ncfg; j++) {
-      if (Couple(cfg+j) < 0) return -1;
-      if (AddConfigToList(t, cfg+j) < 0) return -1;
-    }   
-    if (ncfg > 0) free(cfg);
+    if (argv[i][0] == '@') {
+      FILE *f = fopen(argv[i]+1, "r");
+      if (f == NULL) {
+	printf("cannot open configuration file: %s\n", argv[i]+1);
+	continue;
+      }
+      while (1) {
+	if (NULL == fgets(buf, 4096, f)) {
+	  break;
+	}
+	StrTrim(buf, '\0');
+	if (buf[0] == '#') continue;
+	StrSplit(buf, '#');
+	strncpy(scfg, _closed_shells, MCHSHELL);
+	strncat(scfg, buf, MCHSHELL);
+	ncfg = GetConfigFromString(&cfg, scfg);
+	for (j = 0; j < ncfg; j++) {
+	  if (Couple(cfg+j) < 0) return -1;
+	  if (AddConfigToList(t, cfg+j) < 0) return -1;
+	}   
+	if (ncfg > 0) free(cfg);
+      }
+      fclose(f);
+    } else {
+      strncpy(scfg, _closed_shells, MCHSHELL);
+      strncat(scfg, argv[i], MCHSHELL);
+      ncfg = GetConfigFromString(&cfg, scfg);
+      for (j = 0; j < ncfg; j++) {
+	if (Couple(cfg+j) < 0) return -1;
+	if (AddConfigToList(t, cfg+j) < 0) return -1;
+      }   
+      if (ncfg > 0) free(cfg);
+    }
   }
 
   CONFIG_GROUP *g = GetGroup(t);
@@ -1708,16 +1764,25 @@ static int PSetExtraPotential(int argc, char *argv[], int argt[],
   int m;
   int n;
   double *p;
+  char *fn;
 
   if (argc < 1 || argc > 2) return -1;
   if (argt[0] != NUMBER) return -1;
   m = atoi(argv[0]);  
   n = 0;
   p = NULL;
+  fn = NULL;
   if (m >= 0 && argc == 2) {
-    n = DoubleFromList(argv[1], argt[1], variables,  &p);
+    if (argt[1] == STRING) {
+      n = 0;
+      p = NULL;
+      fn = argv[1];
+    } else {    
+      n = DoubleFromList(argv[1], argt[1], variables,  &p);
+      fn = NULL;
+    }
   }
-  SetExtraPotential(m, n, p);
+  SetExtraPotential(m, n, p, fn);
   return 0;
 }
 
@@ -3446,9 +3511,15 @@ static int PStructure(int argc, char *argv[], int argt[],
 	ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[2]), &(argt[2]), variables);
 	if (ng < 0) return -1;
 	if (n >= 4) {
-	  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
-	  ngp = DecodeGroupArgs(&kgp, 1, NULL,
-				&(argv[3]), &(argt[3]), variables);
+	  if (argt[3] == NUMBER) {
+	    ngp = 0;
+	    kgp = NULL;
+	    ip = atoi(argv[3]);
+	  } else {
+	    if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+	    ngp = DecodeGroupArgs(&kgp, 1, NULL,
+				  &(argv[3]), &(argt[3]), variables);
+	  }
 	}
       }
     } else {
@@ -3459,8 +3530,15 @@ static int PStructure(int argc, char *argv[], int argt[],
       ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
       if (ng < 0) return -1;
       if (n >= 3) {
-	if (argt[2] != LIST && argt[2] != TUPLE) return -1;
-	ngp = DecodeGroupArgs(&kgp, 1, NULL, &(argv[2]), &(argt[2]), variables);
+	if (argt[2] == NUMBER) {
+	  ngp = 0;
+	  kgp = NULL;
+	  ip = atoi(argv[2]);
+	} else {
+	  if (argt[2] != LIST && argt[2] != TUPLE) return -1;
+	  ngp = DecodeGroupArgs(&kgp, 1, NULL,
+				&(argv[2]), &(argt[2]), variables);
+	}
       }
     }
   }
@@ -4784,6 +4862,34 @@ static int PRecoupleRO(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPlasmaScreen(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc < 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  if (argt[1] != NUMBER) return -1;
+  if (argc > 2 && argt[2] != NUMBER) return -1;
+  if (argc > 3 && argt[3] != NUMBER) return -1;
+  if (argc > 4 && argt[4] != NUMBER) return -1;
+  double zps, nps, tps, ups;
+  int m;
+  tps = 0.0;
+  ups = 0.0;
+  m = 0;
+  zps = atof(argv[0]);
+  nps = atof(argv[1]);  
+  if (argc > 2) {
+    tps = atof(argv[2]);
+    if (argc > 3) {
+      m = atoi(argv[3]);
+      if (argc > 4) {
+	ups = atof(argv[4]);
+      }
+    }
+  }
+  PlasmaScreen(m, zps, nps, tps, ups);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -4988,6 +5094,7 @@ static METHOD methods[] = {
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
+  {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

@@ -34,6 +34,8 @@ typedef struct _NUCLEUS_ {
   int nep;
   int epm[NEP];
   double epp[NEP][NEPP];
+  int nepr, cepr;
+  double *epr, *epv;
 } NUCLEUS;
 
 typedef struct _CXTGT_ {
@@ -53,7 +55,7 @@ double GetAtomicR(void);
 char *GetAtomicSymbol(void);
 double GetAtomicEffectiveZ(double r);
 double GetExtraZ(double r, int iep);
-void SetExtraPotential(int m, int n, double *p);
+void SetExtraPotential(int m, int n, double *p, char *fn);
 double GetAtomicChargeDist(double r);
 NUCLEUS *GetAtomicNucleus(void);
 int SetCXTarget(char *s, double a, double b, double e, double x,

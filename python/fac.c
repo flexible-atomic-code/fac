@@ -596,6 +596,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   static char gname[GROUP_NAME_LEN] = "_all_";
   int i, j, t, ncfg;
   char scfg[MCHSHELL], *p;
+  char buf[4096];
   int argc;
 
   if (sfac_file) {
@@ -714,16 +715,40 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   for (; i < argc; i++) {   
     q = PyTuple_GetItem(args, i);
     if (!PyUnicode_Check(q)) return NULL;
-    p = PyUnicode_AsString(q);
-    strncpy(scfg, _closed_shells, MCHSHELL);
-    strncat(scfg, p, MCHSHELL);
-    ncfg = GetConfigFromString(&cfg, scfg);
-
-    for (j = 0; j < ncfg; j++) {
-      if (Couple(cfg+j) < 0) return NULL;
-      if (AddConfigToList(t, cfg+j) < 0) return NULL;
-    }   
-    if (ncfg > 0) free(cfg);
+    p = PyUnicode_AsString(q);    
+    if (p[0] == '@') {
+      FILE *f = fopen(p+1, "r");
+      if (f == NULL) {
+	printf("cannot open configuration file: %s\n", p+1);
+	continue;
+      }
+      while (1) {
+	if (NULL == fgets(buf, 4096, f)) {
+	  break;
+	}
+	StrTrim(buf, '\0');
+	if (buf[0] == '#') continue;
+	StrSplit(buf, '#');
+	strncpy(scfg, _closed_shells, MCHSHELL);
+	strncat(scfg, buf, MCHSHELL);
+	ncfg = GetConfigFromString(&cfg, scfg);
+	for (j = 0; j < ncfg; j++) {
+	  if (Couple(cfg+j) < 0) return NULL;
+	  if (AddConfigToList(t, cfg+j) < 0) return NULL;
+	}   
+	if (ncfg > 0) free(cfg);
+      }
+      fclose(f);
+    } else {
+      strncpy(scfg, _closed_shells, MCHSHELL);
+      strncat(scfg, p, MCHSHELL);
+      ncfg = GetConfigFromString(&cfg, scfg);
+      for (j = 0; j < ncfg; j++) {
+	if (Couple(cfg+j) < 0) return NULL;
+	if (AddConfigToList(t, cfg+j) < 0) return NULL;
+      }   
+      if (ncfg > 0) free(cfg);
+    }
   }
 
   CONFIG_GROUP *g = GetGroup(t);
@@ -1259,6 +1284,7 @@ static PyObject *PSetExtraPotential(PyObject *self, PyObject *args) {
   int m;
   int n;
   double *p;
+  char *fn;
   PyObject *t;
   
   if (sfac_file) {
@@ -1269,13 +1295,21 @@ static PyObject *PSetExtraPotential(PyObject *self, PyObject *args) {
   t = NULL;
   n = 0;
   p = NULL;
+  fn = NULL;
   if (!PyArg_ParseTuple(args, "i|O", &m, &t)) {
     return NULL;
   }
   if (m >= 0 && t != NULL) {
-    n = DoubleFromList(t, &p);
+    if (PyUnicode_Check(t)) {
+      n = 0;
+      p = NULL;
+      fn = PyUnicode_AsString(t);
+    } else {
+      n = DoubleFromList(t, &p);
+      fn = NULL;
+    }
   }
-  SetExtraPotential(m, n, p);
+  SetExtraPotential(m, n, p, fn);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1642,9 +1676,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 	  ng = DecodeGroupArgs(q, &kg, NULL);
 	  if (ng < 0) return NULL;
 	  if (s) {
-	    if (!PyTuple_Check(s) && !PyList_Check(s)) return NULL;
-	    if (PySequence_Length(s) > 0) {
-	      ngp = DecodeGroupArgs(s, &kgp, NULL);
+	    if (PyLong_Check(s)) {
+	      ngp = 0;
+	      kgp = NULL;
+	      ip = PyLong_AsLong(s);
+	    } else {
+	      if (!PyTuple_Check(s) && !PyList_Check(s)) return NULL;
+	      if (PySequence_Length(s) > 0) {
+		ngp = DecodeGroupArgs(s, &kgp, NULL);
+	      }
 	    }
 	  }
 	} else {
@@ -1656,9 +1696,15 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
 	ng = DecodeGroupArgs(p, &kg, NULL);
 	if (ng < 0) return NULL;
 	if (q) {
-	  if (!PyTuple_Check(q) && !PyList_Check(q)) return NULL;
-	  if (PySequence_Length(q) > 0) {
-	    ngp = DecodeGroupArgs(q, &kgp, NULL);
+	  if (PyLong_Check(q)) {
+	    ngp = 0;
+	    kgp = NULL;
+	    ip = PyLong_AsLong(q);
+	  } else {
+	    if (!PyTuple_Check(q) && !PyList_Check(q)) return NULL;
+	    if (PySequence_Length(q) > 0) {
+	      ngp = DecodeGroupArgs(q, &kgp, NULL);
+	    }
 	  }
 	}
       } else {
@@ -1809,9 +1855,39 @@ static int SelectLevels(PyObject *p, int **t) {
 
   iuta = IsUTA();
   int ist = PyUnicode_Check(p);
-  if (!PyList_Check(p) && !PyTuple_Check(p) && !ist) return 0;
+  if (!PyList_Check(p) && !PyTuple_Check(p) &&
+      !PyLong_Check(p) && !ist) return 0;
+  if (PyList_Check(p)) {
+    m = PySequence_Length(p);
+    int **ti, *nti;
+    ti = malloc(sizeof(int *)*m);
+    nti = malloc(sizeof(int)*m);
+    n = 0;
+    for (i = 0; i < m; i++) {
+      q = PySequence_GetItem(p, i);
+      nti[i] = SelectLevels(q, &ti[i]);
+      n += nti[i];
+    }
+    if (n > 0) {
+      *t = malloc(sizeof(int)*n);
+      k = 0;
+      for (i = 0; i < m; i++) {
+	for (j = 0; j < nti[i]; j++) {
+	  (*t)[k++] = ti[i][j];
+	}
+	if (nti[i] > 0) free(ti[i]);
+      }
+    }
+    free(nti);
+    free(ti);
+    return n;
+  }
   if (ist) {
     n = 1;
+  } else if (PyLong_Check(p)) {
+    *t = malloc(sizeof(int));
+    (*t)[0] = PyLong_AsLong(p);
+    return 1;  
   } else {
     n = PySequence_Length(p);
   }
@@ -5970,7 +6046,24 @@ static PyObject *PRecoupleRO(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-  
+
+static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PlasmaScreen", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  double zps, nps, tps, ups;
+  int m;
+  tps = 0.0;
+  m = 0;
+  ups = 0.0;
+  if (!(PyArg_ParseTuple(args, "dd|did", &zps, &nps, &tps, &m, &ups))) return NULL;
+  PlasmaScreen(m, zps, nps, tps, ups);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6199,6 +6292,7 @@ static struct PyMethodDef fac_methods[] = {
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
+  {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
   {NULL, NULL}
 };
 

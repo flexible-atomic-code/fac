@@ -1053,18 +1053,71 @@ int InitNucleus() {
     }
   }
   atom.atomic_number = 0.0;
-  SetExtraPotential(-1, 0, NULL);
+  atom.nepr = 0;
+  atom.epr = NULL;
+  atom.epv = NULL;
+  SetExtraPotential(-1, 0, NULL, NULL);
   return 0;
 }
 
-void SetExtraPotential(int m, int n, double *p) {
+void SetExtraPotential(int m, int n, double *p, char *fn) {
   int i;
   if (m < 0) {
     atom.nep = 0;
     for (i = 0; i < NEP; i++) {
       atom.epm[i] = m;      
     }
+    if (atom.nepr > 0) {
+      free(atom.epr);
+      free(atom.epv);
+      atom.epr = NULL;
+      atom.epv = NULL;
+      atom.nepr = 0;
+      atom.cepr = 0;
+    }
   } else {
+    if (fn != NULL) {
+      FILE *f = fopen(fn, "r");
+      if (f == NULL) {
+	printf("cannot open extra potential file: %s\n", fn);
+	return;
+      }
+      if (atom.nepr > 0) {
+	free(atom.epr);
+	free(atom.epv);
+      }
+      char buf[1024];
+      atom.nepr = 0;
+      while (1) {
+	if (NULL == fgets(buf, 1024, f)) break;
+	StrTrim(buf, '\0');
+	if (buf[0] == '#') {
+	  continue;
+	}
+	atom.nepr++;
+      }
+      if (atom.nepr == 0) {
+	printf("empty extra potential file: %s\n", fn);
+	fclose(f);
+	return;
+      }
+      atom.epr = malloc(sizeof(double)*atom.nepr);
+      atom.epv = malloc(sizeof(double)*atom.nepr);
+      fseek(f, 0, SEEK_SET);
+      i = 0;
+      while (1) {
+	if (NULL == fgets(buf, 1024, f)) break;
+	StrTrim(buf, '\0');
+	if (buf[0] == '#') {
+	  continue;
+	}
+	sscanf(buf, "%lg %lg", atom.epr+i, atom.epv+i);
+	i++;
+      }
+      fclose(f);
+      atom.cepr = m;
+      return;
+    }
     i = atom.nep;
     if (i == NEP) {
       printf("extra potential terms exceeded max: %d\n", NEP);
@@ -1073,6 +1126,12 @@ void SetExtraPotential(int m, int n, double *p) {
     atom.epm[i] = m;
     if (m >= 0 && n > 0 && p != NULL) {
       memcpy(atom.epp[i], p, sizeof(double)*Min(n, NEPP));
+    }
+    if (m == 2 || m == 3) {
+      double r0 = 3*(atom.atomic_number-atom.epp[i][0]);
+      r0 /= (FOUR_PI*atom.epp[i][1]);
+      r0 = pow(r0, ONETHIRD)/RBOHR;
+      atom.epp[i][1] = r0;
     }
     atom.nep++;
   }
@@ -1324,6 +1383,8 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
     atom.rmse = rmse;
   }
 
+  SetExtraPotential(-1, 0, NULL, NULL);
+  
   if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
     INIQED(atom.atomic_number, 9, atom.rn>0, atom.rmse);
   }
@@ -1428,7 +1489,15 @@ double GetAtomicChargeDist(double r) {
 
 double GetExtraZ(double r, int i) {
   double z, zi;
-  if (i >= atom.nep) return 0;
+  if (i >= atom.nep) {
+    if (atom.nepr > 0) {
+      if (r < atom.epr[0]) return atom.epv[0];
+      if (r > atom.epr[atom.nepr-1]) return atom.epv[atom.nepr-1];
+      UVIP3P(3, atom.nepr, atom.epr, atom.epv, 1, &r, &z);
+      return z;
+    }
+    return 0;
+  }
   z = 0.0;
   switch (atom.epm[i]) {
   case 0:

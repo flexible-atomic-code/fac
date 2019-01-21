@@ -393,6 +393,9 @@ int SetMLevels(char *fn, char *tfn) {
 	tr_rates[t0].rtotal = a/(j2+1.0);
 	tr_rates[t0].n = (j1/2+1)*(j2/2+1);
 	tr_rates[t0].rates = (double *) malloc(sizeof(double)*tr_rates[t0].n);
+	for (p = 0; p < tr_rates[t0].n; p++) {
+	  tr_rates[t0].rates[p] = 0.0;
+	}
 	p = 0;
 	for (m1 = -j1; m1 <= 0; m1 += 2) {
 	  for (m2 = -j2; m2 <= 0; m2 += 2) {
