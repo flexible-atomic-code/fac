@@ -1,17 +1,17 @@
 /*
  *   FAC - Flexible Atomic Code
  *   Copyright (C) 2001-2015 Ming Feng Gu
- * 
+ *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
- * 
+ *
  *   This program is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *   GNU General Public License for more details.
- * 
+ *
  *   You should have received a copy of the GNU General Public License
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,7 +22,7 @@
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
-#define USE(var) static void * use_##var = (&use_##var, (void *) &var) 
+#define USE(var) static void * use_##var = (&use_##var, (void *) &var)
 USE (rcsid);
 #endif
 
@@ -44,7 +44,7 @@ static double _ONC[9][9] = {
   {0, 8./3, -4./3, 8./3, 0, 0, 0, 0, 0},
   {0, 55./24, 5./24, 5./24, 55./24, 0, 0, 0, 0},
   {0, 33./10, -42./10, 78./10, -42./10, 33./10, 0, 0, 0},
-  {0, 4277./1440, -3171./1440, 3934./1440, 3934./440, 
+  {0, 4277./1440, -3171./1440, 3934./1440, 3934./440,
    -3171./1440, 4277./1440, 0, 0},
   {0, 3680./945, -7632./945, 17568./945, -19672./945,
    17568./945, -7632./945, 3680./945, 0}
@@ -89,12 +89,12 @@ static struct {
   double *y;
   double *sigma;
   void *extra;
-  void (*function)(int, double *, int , double *, double *, 
+  void (*function)(int, double *, int , double *, double *,
 		   double *, double *, int, void *);
 } minpack_params;
 
 
-void spline_work(double *x, double *y, int n, 
+void spline_work(double *x, double *y, int n,
 		 double yp1, double ypn, double *y2, double *work) {
   int i, k;
   double p, qn, sig, un, *u;
@@ -103,7 +103,7 @@ void spline_work(double *x, double *y, int n,
     y2[0] = 0.0;
     y2[n-1] = 0.0;
     return;
-  } 
+  }
 
   u = work;
 
@@ -137,7 +137,7 @@ void spline_work(double *x, double *y, int n,
   }
 }
 
-void spline(double *x, double *y, int n, 
+void spline(double *x, double *y, int n,
 	    double yp1, double ypn, double *y2) {
   double *u;
 
@@ -145,19 +145,19 @@ void spline(double *x, double *y, int n,
     y2[0] = 0.0;
     y2[n-1] = 0.0;
     return;
-  } 
+  }
 
   u = malloc(sizeof(double)*n);
   spline_work(x, y, n, yp1, ypn, y2, u);
 
   free(u);
 }
-  
-int splint(double *xa, double *ya, double *y2a, 
+
+int splint(double *xa, double *ya, double *y2a,
 	   int n, double x, double *y) {
   int klo, khi, k;
   double h, b, a;
-  
+
   *y = 0.0;
   klo = 0;
   khi = n-1;
@@ -175,7 +175,7 @@ int splint(double *xa, double *ya, double *y2a,
   return 0;
 }
 
-void splie2(double *x1a, double *x2a, double **ya, 
+void splie2(double *x1a, double *x2a, double **ya,
 	    int m, int n, double **y2a) {
   int j;
   double *u;
@@ -206,7 +206,7 @@ void splin2(double *x1a, double *x2a, double **ya, double **y2a,
 void PolyBasis(int n, double *y, double x, double logx) {
   int i;
   double t;
-  
+
   t = 1.0;
   for (i = 0; i < n; i++) {
     y[i] = t;
@@ -227,7 +227,7 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
   double *dwork;
   int *iwork, lwork, infor;
   char jobz[] = "O";
- 
+
   k = np*np;
   lwork = 5*k + 4*np;
   if (lwork < nd) lwork = nd;
@@ -267,13 +267,13 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
 
   DGESDD(jobz, nd, np, u, nd, w, u, nd, v, np,
 	  dwork, lwork, iwork, &infor);
-    
+
   wmax = w[0];
   thresh = tol*wmax;
   for (j = 0; j < np; j++) {
     if (w[j] < thresh) w[j] = 0.0;
   }
-  
+
   k = 0;
   for (j = 0; j < np; j++) {
     tmp = 0.0;
@@ -285,7 +285,7 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
     }
     afunc[j] = tmp;
   }
-  
+
   k = 0;
   for (j = 0; j < np; j++) {
     tmp = 0.0;
@@ -294,7 +294,7 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
     }
     coeff[j] = tmp;
   }
-  
+
   if (chisq) {
     *chisq = 0.0;
     for (i = 0; i < nd; i++) {
@@ -311,20 +311,20 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
       if (sig) tmp /= sig[i];
       *chisq += tmp*tmp;
     }
-  }  
-  
+  }
+
   free(w);
   free(iwork);
 }
 
-static void MinFunc(int *m, int *n, double *x, double *fvec, 
+static void MinFunc(int *m, int *n, double *x, double *fvec,
 		    double *fjac, int *ldfjac, int *iflag) {
   int ndy, i, j, k;
 
   if (*iflag == 1) {
     ndy = 0;
     minpack_params.function(*n, x, *m, minpack_params.x,
-			    minpack_params.logx, fvec, 
+			    minpack_params.logx, fvec,
 			    NULL, ndy, minpack_params.extra);
     for (i = 0; i < *m; i++) {
       fvec[i] = fvec[i] - minpack_params.y[i];
@@ -333,7 +333,7 @@ static void MinFunc(int *m, int *n, double *x, double *fvec,
   } else if (*iflag == 2){
     ndy = *ldfjac;
     minpack_params.function(*n, x, *m, minpack_params.x,
-			    minpack_params.logx, NULL, 
+			    minpack_params.logx, NULL,
 			    fjac, ndy, minpack_params.extra);
     if (minpack_params.sigma) {
       for (i = 0; i < *m; i++) {
@@ -347,14 +347,14 @@ static void MinFunc(int *m, int *n, double *x, double *fvec,
   }
 }
 /* provide fortran access with cfortran.h */
-FCALLSCSUB7(MinFunc, MINFUNC, minfunc, PINT, PINT, 
+FCALLSCSUB7(MinFunc, MINFUNC, minfunc, PINT, PINT,
 	    DOUBLEV, DOUBLEV, DOUBLEV, PINT, PINT)
-    
+
 int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    double *fvec, double *fjac, int ldfjac, double *wa, int lwa,
 	    int n, double *x, double *logx, double *y, double *sig,
-	    void Func(int, double *, int , double *, double *, 
-		      double *, double *, int, void *), 
+	    void Func(int, double *, int , double *, double *,
+		      double *, double *, int, void *),
 	    void *extra) {
   int info, nprint, nfev, njev;
   int maxfev, mode;
@@ -368,7 +368,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   minpack_params.sigma = sig;
   minpack_params.extra = extra;
   minpack_params.function = Func;
-  
+
   diag = wa;
   qtf = wa+np;
   wa1 = qtf+np;
@@ -393,7 +393,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   nprint = 0;
   factor = 100.0;
   ftol = tol*tol*n;
-  LMDER(C_FUNCTION(MINFUNC, minfunc), n, np, p, fvec, fjac, ldfjac, 
+  LMDER(C_FUNCTION(MINFUNC, minfunc), n, np, p, fvec, fjac, ldfjac,
 	ftol, tol, zero, maxfev, diag, mode, factor,
 	nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
 
@@ -458,7 +458,7 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
       }
       r[i1] += r[i0];
     } else {
-      i = i0+1;      
+      i = i0+1;
       if (x[i0] > 0 && x[i] > 0) {
 	yp = exp(0.5*(log(x[i0])+log(x[i])));
       } else if (x[i0] < 0 && x[i] < 0) {
@@ -533,7 +533,7 @@ void PrepCEFCrossHeader(CEF_HEADER *h, double *data) {
 void PrepCECrossHeader(CE_HEADER *h, double *data) {
   double *eusr, *x, bte, bms;
   int m, m1, j;
-  
+
   eusr = h->usr_egrid;
   m = h->n_usr;
   m1 = m + 1;
@@ -563,15 +563,15 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
   x = y + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
-  
+
   cs = r->strength;
-  for (j = 0; j < m; j++) {	
+  for (j = 0; j < m; j++) {
     y[j] = cs[j];
   }
   y[m] = r->born[0];
 }
 
-void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h, 
+void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 		       double *data) {
   double *eusr, *x, *y, *w, e;
   float *cs;
@@ -590,7 +590,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   w = x + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
-  
+
   cs = r->strength;
   if (k == 0) {
     if (h->msub) {
@@ -610,7 +610,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 	}
       }
     } else {
-      for (j = 0; j < m; j++) {	
+      for (j = 0; j < m; j++) {
 	y[j] = cs[j];
       }
     }
@@ -633,7 +633,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   }
 }
 
-double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h, 
+double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
 			   double *data) {
   double *x, *y, *w;
   int m, m1, n, one;
@@ -657,7 +657,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   y = data + 2;
   x = y + m1;
   w = x + m1;
-  
+
   BornFormFactorTE(&bte);
   bms = BornMass();
   if (x0 < x[m-1]) {
@@ -665,7 +665,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
     one = 1;
     if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
       UVIP3P(n, m, x, y, one, &x0, &a);
-      if (a < 0.0) a = 0.0;    
+      if (a < 0.0) a = 0.0;
     } else {
       a = y[0] * pow(exp(x0-x[0]), 2.5);
     }
@@ -691,7 +691,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
-    } else if (data[1]+1.0 == 1.0) {      
+    } else if (data[1]+1.0 == 1.0) {
       e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
@@ -708,7 +708,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   return a;
 }
 
-double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h, 
+double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 			  double *data, double *ratio) {
   double *x, *y, *w;
   int m, m1, n, one;
@@ -717,7 +717,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   int mem_en_table_size;
   double bte, bms, eth1;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);  
+  mem_en_table = GetMemENTable(&mem_en_table_size);
 
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   eth = eth * HARTREE_EV;
@@ -733,7 +733,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   y = data + 2;
   x = y + m1;
   w = x + m1;
-  
+
   BornFormFactorTE(&bte);
   bms = BornMass();
   if (x0 < x[m-1]) {
@@ -795,7 +795,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   return a;
 }
 
-int CEMFCross(char *ifn, char *ofn, int i0, int i1, 
+int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 	      int negy, double *egy, int mp) {
   F_HEADER fh;
   TFILE *f1;
@@ -812,11 +812,11 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  f1 = OpenFileRO(ifn, &fh, &swp); 
+  f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("File %s is not in FAC binary format\n", ifn);
     return -1;
-  }  
+  }
 
   f2 = NULL;
   mem_en_table = GetMemENFTable(&mem_en_table_size);
@@ -873,7 +873,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 		a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
 		a =  PI*AREA_AU20/(2.0*a);
 		a *= cs;
-		if (data[1] > 0.0) {	      
+		if (data[1] > 0.0) {
 		  cs1 = data[1]*log(e0/e) + r.born[0];
 		  k2 = e0/HARTREE_EV;
 		  k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
@@ -904,10 +904,10 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 	      fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E\n",
 		      e0, cs, a, cs1, a1);
 	    }
-	    fprintf(f2, "\n\n");   
+	    fprintf(f2, "\n\n");
 	  }
 	}
-	     
+
 	if (i0 >= 0 && i1 >= 0) {
 	  free(mr.strength);
 	  free(mr.bethe);
@@ -942,7 +942,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int CEFCross(char *ifn, char *ofn, int i0, int i1, 
+int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	     int negy, double *egy, int mp) {
   F_HEADER fh;
   TFILE *f1;
@@ -956,7 +956,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
   double bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1011,7 +1011,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	    e1 = egy[t];
 	    e0 = e1 + be;
 	  }
-	  if (e1 > 0) {	
+	  if (e1 > 0) {
 	    cs = InterpolateCEFCross(e1, &r, &h, data);
 	    a = e0/HARTREE_EV;
 	    b0 = 1.0 + FINE_STRUCTURE_CONST2*a;
@@ -1019,7 +1019,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	    a = a*(1.0+0.5*FINE_STRUCTURE_CONST2*a);
 	    a = PI*AREA_AU20/(2.0*a);
 	    a *= cs;
-	    if (data[1] > 0.0) {	      
+	    if (data[1] > 0.0) {
 	      cs1 = data[1]*log(e0/e) + r.born[0];
 	      k2 = e0/HARTREE_EV;
 	      k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
@@ -1052,7 +1052,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 		  e0, cs, a, cs1, a1);
 	}
 	fprintf(f2, "\n\n");
-      
+
 	if (i0 >= 0 && i1 >= 0) {
 	  free(r.strength);
 	  free(h.tegrid);
@@ -1079,7 +1079,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int CECross(char *ifn, char *ofn, int i0, int i1, 
+int CECross(char *ifn, char *ofn, int i0, int i1,
 	    int negy, double *egy, int mp) {
   F_HEADER fh;
   TFILE *f1;
@@ -1093,13 +1093,13 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   double bte, bms, be;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
   }
-  
+
   f2 = NULL;
 
   if (fh.type != DB_CE || fh.nblocks == 0) {
@@ -1122,7 +1122,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ofn);
     return -1;
   }
-    
+
   BornFormFactorTE(&bte);
   bms = BornMass();
   while (1) {
@@ -1137,7 +1137,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, negy, r.nsub);
-	be = (e + bte*HARTREE_EV)/bms;	
+	be = (e + bte*HARTREE_EV)/bms;
 	PrepCECrossHeader(&h, data);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
@@ -1158,7 +1158,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	      a = PI*AREA_AU20/(2.0*a);
 	      if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	      a *= cs;
-	      if (data[1] > 0.0) {	      
+	      if (data[1] > 0.0) {
 		cs1 = data[1]*log(e0/e) + r.born[0];
 		k2 = e0/HARTREE_EV;
 		k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
@@ -1223,7 +1223,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1, 
+int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 		int nt, double *temp) {
   F_HEADER fh;
   TFILE *f1;
@@ -1235,11 +1235,11 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEMF_RECORD mr;
   int i, t, m, p, ith, iph;
   double data[2+(1+MAXNE)*4], e, cs, a, c;
-  double *xg = gauss_xw[0];  
+  double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1268,7 +1268,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
     CEMF2CEFHeader(&mh, &h);
     for (i = 0; i < mh.ntransitions; i++) {
       n = ReadCEMFRecord(f1, &mr, swp, &mh);
-      if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {	
+      if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {
 	PrepCEFCrossHeader(&h, data);
 	e = mem_en_table[mr.upper].energy - mem_en_table[mr.lower].energy;
 	e *= HARTREE_EV;
@@ -1291,7 +1291,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      }
 	      a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
 	      a *= cs*exp(-e/temp[t]);
-	      fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+	      fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
 		      temp[t], cs, a);
 	    }
 	    fprintf(f2, "\n\n");
@@ -1306,7 +1306,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  free(mh.thetagrid);
 	  free(mh.phigrid);
 	  goto DONE;
-	}    
+	}
       }
       free(mr.strength);
       free(mr.bethe);
@@ -1332,7 +1332,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 
+int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	       int nt, double *temp) {
   F_HEADER fh;
   TFILE *f1;
@@ -1342,26 +1342,26 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEF_RECORD r;
   int i, t, m, p;
   double data[2+(1+MAXNE)*4], e, cs, a, c;
-  double *xg = gauss_xw[0];  
+  double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
   }
-   
+
   f2 = NULL;
 
   if (fh.type != DB_CEF || fh.nblocks == 0) {
     printf("File %s is not of DB_CE type\n", ifn);
     goto DONE;
   }
-   
+
   mem_en_table = GetMemENFTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1382,7 +1382,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCEFRecord(f1, &r, swp, &h);
-      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {	
+      if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
 	PrepCEFCrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e *= HARTREE_EV;
@@ -1400,7 +1400,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  }
 	  a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
 	  a *= cs*exp(-e/temp[t]);
-	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
 		  temp[t], cs, a);
 	}
 	fprintf(f2, "\n\n");
@@ -1409,7 +1409,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  free(h.tegrid);
 	  free(h.egrid);
 	  goto DONE;
-	}    
+	}
       }
       free(r.strength);
     }
@@ -1431,7 +1431,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
+int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      int nt, double *temp) {
   F_HEADER fh;
   TFILE *f1;
@@ -1441,30 +1441,25 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_RECORD r;
   int i, t, m, k, p;
   double data[2+(1+MAXNUSR)*4], e, cs, a, c, ratio;
-  double *xg = gauss_xw[0];  
-  double *wg = gauss_xw[1]; 
+  double *xg = gauss_xw[0];
+  double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
   }
-   
+
   f2 = NULL;
-  if (n == 0) {
-    printf("File %s is not in FAC binary format\n", ifn);
-    goto DONE;
-  }
-  
   if (fh.type != DB_CE || fh.nblocks == 0) {
     printf("File %s is not of DB_CE type\n", ifn);
     goto DONE;
   }
-   
+
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1505,7 +1500,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    a = 217.16*sqrt(HARTREE_EV/(2.0*temp[t]));
 	    a *= cs*exp(-e/temp[t]);
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
-	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n", 
+	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
 		    temp[t], cs, a);
 	  }
 	  fprintf(f2, "\n\n");
@@ -1547,7 +1542,7 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
   for (i = 0; i < h->n_usr; i++) {
     y[i] = r->strength[i];
   }
-  if (e1 < 0) return 0.0; 
+  if (e1 < 0) return 0.0;
   if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
     x = 1.0 + e1/eth;
     a = 1.0/x;
@@ -1560,7 +1555,7 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
     return tc;
   }
 }
-  
+
 double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
 			   int q) {
   double y[MAXNE], z[MAXNE], x, tc;
@@ -1571,7 +1566,7 @@ double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
     y[i] = r->strength[j];
     z[i] = log(1.0 + h->usr_egrid[i]/eth);
   }
-  if (e1 < 0) return 0.0; 
+  if (e1 < 0) return 0.0;
   x = log(1.0 + e1/eth);
   if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
     UVIP3P(1, h->n_usr, z, y, 1, &x, &tc);
@@ -1581,7 +1576,7 @@ double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
   return tc;
 }
 
-int TotalCICross(char *ifn, char *ofn, int ilev, 
+int TotalCICross(char *ifn, char *ofn, int ilev,
 		 int negy, double *egy, int imin, int imax) {
   F_HEADER fh;
   TFILE *f1;
@@ -1595,14 +1590,14 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
   nb = 0;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1618,12 +1613,12 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     printf("cannot open file %s\n", ofn);
     return -1;
   }
-  
+
   if (fh.type != DB_CI || fh.nblocks == 0) {
     printf("File %s is not of DB_CI type\n", ifn);
     goto DONE;
   }
-  
+
   c = (double *) malloc(sizeof(double)*negy);
   for (i = 0; i < negy; i++) {
     c[i] = 0.0;
@@ -1643,7 +1638,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
       if (n == 0) break;
       if (r.b != ilev) continue;
       if (r.f < imin || r.f > imax) continue;
-      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy; 
+      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
       be = (e + bte)/bms;
       for (t = 0; t < negy; t++) {
 	if (egy[t] < be) continue;
@@ -1659,7 +1654,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    
+
     nb++;
   }
 
@@ -1668,7 +1663,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
-  free(c);  
+  free(c);
 
  DONE:
   FCLOSE(f1);
@@ -1680,7 +1675,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   }
 
   return nb;
-} 
+}
 
 int CICross(char *ifn, char *ofn, int i0, int i1,
 	    int negy, double *egy, int mp) {
@@ -1696,14 +1691,14 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
   nb = 0;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1724,7 +1719,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_CI type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
@@ -1735,7 +1730,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCIRecord(f1, &r, swp, &h);
-      if (n == 0) break;      
+      if (n == 0) break;
       if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
@@ -1750,7 +1745,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
 	    e0 = egy[t] + be;
 	  }
 	  if (e0 < be) {
-	    tc = 0.0; 
+	    tc = 0.0;
 	    b = 0.0;
 	  } else {
 	    tc = InterpolateCICross(e0-be, e, &r, &h);
@@ -1762,7 +1757,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
 		  e0*HARTREE_EV, b, tc);
 	}
 	fprintf(f2, "\n\n");
-      
+
 	if (i0 >= 0 && i1 >= 0) {
 	  free(r.params);
 	  free(r.strength);
@@ -1779,7 +1774,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    
+
     nb++;
   }
 
@@ -1793,7 +1788,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
   }
 
   return nb;
-} 
+}
 
 int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      int negy, double *egy) {
@@ -1805,20 +1800,20 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
   CI_RECORD r;
   int i, t, nb, m, p;
   double tc, e, e0, cs;
-  double *xg = gauss_xw[0];  
-  double *wg = gauss_xw[1]; 
+  double *xg = gauss_xw[0];
+  double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
   nb = 0;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1839,7 +1834,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_CI type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
@@ -1848,7 +1843,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCIRecord(f1, &r, swp, &h);
-      if (n == 0) break;      
+      if (n == 0) break;
       if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
@@ -1869,7 +1864,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 		  egy[t]*HARTREE_EV, cs, tc);
 	}
 	fprintf(f2, "\n\n");
-      
+
 	if (i0 >= 0 && i1 >= 0) {
 	  free(r.params);
 	  free(r.strength);
@@ -1886,7 +1881,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    
+
     nb++;
   }
 
@@ -1900,7 +1895,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
   }
 
   return nb;
-} 
+}
 
 int CIMCross(char *ifn, char *ofn, int i0, int i1,
 	     int negy, double *egy, int mp) {
@@ -1916,14 +1911,14 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
 
   nb = 0;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -1939,12 +1934,12 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ofn);
     return -1;
   }
-  
+
   if (fh.type != DB_CIM || fh.nblocks == 0) {
     printf("File %s is not of DB_CIM type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
@@ -1955,7 +1950,7 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
     if (n == 0) break;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCIMRecord(f1, &r, swp, &h);
-      if (n == 0) break;      
+      if (n == 0) break;
       if ((r.b == i0 || i0 < 0) && (r.f == i1 || i1 < 0)) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\t%2d\n",
@@ -1971,7 +1966,7 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
 	      e0 = egy[t] + be;
 	    }
 	    if (e0 < be) {
-	      tc = 0.0; 
+	      tc = 0.0;
 	      b = 0.0;
 	    } else {
 	      tc = InterpolateCIMCross(e0-be, e, &r, &h, k);
@@ -1991,11 +1986,11 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
 	  goto DONE;
 	}
       }
-      free(r.strength);      
+      free(r.strength);
     }
     free(h.egrid);
     free(h.usr_egrid);
-    
+
     nb++;
   }
 
@@ -2009,9 +2004,9 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
   }
 
   return nb;
-} 
+}
 
-int TotalPICross(char *ifn, char *ofn, int ilev, 
+int TotalPICross(char *ifn, char *ofn, int ilev,
 		 int negy, double *egy, int imin, int imax) {
   F_HEADER fh;
   TFILE *f1;
@@ -2028,7 +2023,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -2056,13 +2051,13 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   c = (double *) malloc(sizeof(double)*negy);
   for (i = 0; i < negy; i++) {
     c[i] = 0.0;
     egy[i] /= HARTREE_EV;
   }
-  
+
   if (imin < 0) imin = 0;
   if (imax < 0) imax = mem_en_table_size - 1;
 
@@ -2070,7 +2065,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
     dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
@@ -2084,7 +2079,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	dstrength[t] = log(r.strength[t]);
 	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
       }
-      
+
       for (t = 0; t < negy; t++) {
 	eph = egy[t];
 	ee = eph - e;
@@ -2104,7 +2099,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	    tc = 0.0;
 	  }
 	}
-	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;	
+	phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	c[t] += phi/(mem_en_table[r.b].j + 1.0);
       }
       if (h.qk_mode == QK_FIT) free(r.params);
@@ -2114,9 +2109,9 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
-    free(h.usr_egrid);      
+    free(h.usr_egrid);
     free(xusr);
-    
+
     nb++;
   }
 
@@ -2125,7 +2120,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     fprintf(f2, " %12.5E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
   }
 
-  free(c);  
+  free(c);
 
  DONE:
   FCLOSE(f1);
@@ -2138,7 +2133,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 
   return nb;
 }
-  
+
 int ICXCross(char *ifn, char *ofn, int i0, int i1,
 	     int negy, double *egy, int mp) {
   F_HEADER fh;
@@ -2154,7 +2149,7 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
   double *mass, mion, *xe, *xs;
   double x, tc, e, v;
   const double vth = 25.0;
-  
+
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
   if (mem_en_table == NULL) {
@@ -2184,11 +2179,11 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
-  
+
   while(1) {
     n = ReadCXHeader(f1, &h, swp);
     if (n == 0) break;
@@ -2282,7 +2277,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -2310,16 +2305,16 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
-  
+
   while(1) {
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
     dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
@@ -2330,11 +2325,11 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
-		e*HARTREE_EV, negy);	
+		e*HARTREE_EV, negy);
 	for (t = 0; t < h.n_usr; t++) {
 	  dstrength[t] = log(r.strength[t]);
 	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
-	}	
+	}
 	for (t = 0; t < negy; t++) {
 	  if (mp == 0) {
 	    eph = egy[t];
@@ -2351,7 +2346,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    if (h.qk_mode != QK_FIT || ee <= emax) {
 	      x = log(eph/e);
 	      UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
-	      tc = exp(tc);	    
+	      tc = exp(tc);
 	    } else {
 	      x = (ee + r.params[3])/r.params[3];
 	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
@@ -2361,11 +2356,11 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 		tc = exp(tc);
 	      } else {
 		tc = 0.0;
-	      }	  
+	      }
 	    }
 	    phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	    rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
-	    rr /= (mem_en_table[r.f].j + 1.0);	
+	    rr /= (mem_en_table[r.f].j + 1.0);
 	    phi /= (mem_en_table[r.b].j + 1.0);
 	  }
 	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E %11.4E\n",
@@ -2379,7 +2374,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	  free(dstrength);
 	  free(h.tegrid);
 	  free(h.egrid);
-	  free(h.usr_egrid);      
+	  free(h.usr_egrid);
 	  free(xusr);
 	  goto DONE;
 	}
@@ -2391,9 +2386,9 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
-    free(h.usr_egrid);      
+    free(h.usr_egrid);
     free(xusr);
-    
+
     nb++;
   }
 
@@ -2408,7 +2403,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 
   return nb;
 }
-  
+
 int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      int negy, double *egy) {
   F_HEADER fh;
@@ -2422,13 +2417,13 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
   double *xusr, *dstrength, tc, cs, rr, emax;
   double x, y;
   int np=3, one=1, nele;
-  double *xg = gauss_xw[0];  
-  double *wg = gauss_xw[1]; 
+  double *xg = gauss_xw[0];
+  double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
-  
+
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -2456,7 +2451,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
@@ -2464,7 +2459,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
     dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
@@ -2475,20 +2470,20 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	fprintf(f2, "# %5d\t%2d\t%5d\t%2d\t%11.4E\t%5d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
-		e*HARTREE_EV, negy);	
+		e*HARTREE_EV, negy);
 	for (t = 0; t < h.n_usr; t++) {
 	  dstrength[t] = log(r.strength[t]);
 	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
-	}	
+	}
 	for (t = 0; t < negy; t++) {
 	  cs = 0.0;
 	  for (p = 0; p < 15; p++) {
 	    ee = egy[t]*xg[p];
-	    eph = ee + e;	    
+	    eph = ee + e;
 	    if (h.qk_mode != QK_FIT || ee <= emax) {
 	      x = log(eph/e);
 	      UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
-	      tc = exp(tc);	    
+	      tc = exp(tc);
 	    } else {
 	      x = (ee + r.params[3])/r.params[3];
 	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
@@ -2498,27 +2493,27 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 		tc = exp(tc);
 	      } else {
 		tc = 0.0;
-	      }	  
-	    }	    
+	      }
+	    }
 	    tc *= 2.0*FINE_STRUCTURE_CONST;
 	    tc *= pow(FINE_STRUCTURE_CONST*eph, 2);
 	    cs += tc * wg[p];
 	  }
 	  rr = 217.16 * sqrt(1.0/(2.0*egy[t]));
 	  rr *= cs;
-	  rr /= (mem_en_table[r.f].j + 1.0);	
+	  rr /= (mem_en_table[r.f].j + 1.0);
 	  fprintf(f2, "%11.4E %11.4E %11.4E\n",
 		  egy[t]*HARTREE_EV, tc, rr);
 	}
 	fprintf(f2, "\n\n");
-      
+
 	if (i0 >= 0 && i1 >= 0) {
 	  if (h.qk_mode == QK_FIT) free(r.params);
 	  free(r.strength);
 	  free(dstrength);
 	  free(h.tegrid);
 	  free(h.egrid);
-	  free(h.usr_egrid);      
+	  free(h.usr_egrid);
 	  free(xusr);
 	  goto DONE;
 	}
@@ -2530,9 +2525,9 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
-    free(h.usr_egrid);      
+    free(h.usr_egrid);
     free(xusr);
-    
+
     nb++;
   }
 
@@ -2547,7 +2542,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 
   return nb;
 }
-  
+
 int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
 	       int negy, double *egy) {
   F_HEADER fh;
@@ -2561,11 +2556,11 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
   double *mass, mion, *xe, *xs;
-  double *xg = gauss_xw[0];  
-  double *wg = gauss_xw[1]; 
+  double *xg = gauss_xw[0];
+  double *wg = gauss_xw[1];
   double x, tc, e, cs, v;
   const double vth = 25.0;
-  
+
   mem_en_table = GetMemENTable(&mem_en_table_size);
   mass = GetAtomicMassTable();
   if (mem_en_table == NULL) {
@@ -2595,11 +2590,11 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   for (i = 0; i < negy; i++) {
     egy[i] /= HARTREE_EV;
   }
-  
+
   while(1) {
     n = ReadCXHeader(f1, &h, swp);
     if (n == 0) break;
@@ -2682,7 +2677,7 @@ double RRCrossHn(double z, double e, int n) {
   double x, z2;
   double y;
   double f = 7.499E-6;
-  
+
   z2 = z*z;
   x = n;
   e = 2.0*e;
@@ -2691,7 +2686,7 @@ double RRCrossHn(double z, double e, int n) {
   return y;
 }
 
-int TotalRRCross(char *ifn, char *ofn, int ilev, 
+int TotalRRCross(char *ifn, char *ofn, int ilev,
 		 int negy, double *egy, int n0, int n1, int nmax,
 		 int imin, int imax) {
   F_HEADER fh;
@@ -2737,13 +2732,13 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     printf("File %s is not of DB_RR type\n", ifn);
     goto DONE;
   }
-  
+
   c = (double *) malloc(sizeof(double)*negy);
   for (i = 0; i < negy; i++) {
     c[i] = 0.0;
     egy[i] /= HARTREE_EV;
   }
-  
+
   if (imin < 0) imin = 0;
   if (imax < 0) imax = mem_en_table_size - 1;
 
@@ -2751,7 +2746,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr); 
+    xusr = (double *) malloc(sizeof(double)*h.n_usr);
     dstrength = (double *) malloc(sizeof(double)*h.n_usr);
     emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
@@ -2760,12 +2755,12 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       if (r.f != ilev) continue;
       if (r.b < imin || r.b > imax) continue;
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-      
+
       for (t = 0; t < h.n_usr; t++) {
 	dstrength[t] = log(r.strength[t]);
 	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
       }
-      
+
       for (t = 0; t < negy; t++) {
 	ee = egy[t];
 	eph = ee + e;
@@ -2792,17 +2787,17 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       }
       if (h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
-    }  
+    }
 
     free(dstrength);
     free(h.tegrid);
     free(h.egrid);
-    free(h.usr_egrid);      
+    free(h.usr_egrid);
     free(xusr);
-    
+
     nb++;
   }
-  
+
   x = fh.atom - nele + 1.0;
   for (n = n0+1; n < n1; n++) {
     for (t = 0; t < negy; t++) {
@@ -2814,7 +2809,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       c[t] += AREA_AU20*RRCrossHn(x, egy[t], n);
     }
   }
-  
+
   fprintf(f2, "#Energy (eV)   RR Cross (10^-20 cm2)\n");
   for (t = 0; t < negy; t++) {
     fprintf(f2, " %11.4E    %15.8E\n", egy[t]*HARTREE_EV, c[t]);
@@ -2866,12 +2861,12 @@ double voigt(double alpha, double v) {
   c[5]=802.4513;
   c[6]=-4850.316;
   c[7]=8031.468;
- 
+
   if (alpha <= 1e-3 && fabs(v) > 2.5) {
     v2 = v*v;
     v3 = 1.0;
     fac1 = c[1];
-    fac2 = c[1] * (v2 - 1.0);     
+    fac2 = c[1] * (v2 - 1.0);
     for (i=1; i<=7; i++) {
       v3     = v3 * v2;
       fac1 = fac1 + c[i] / v3;
@@ -2880,7 +2875,7 @@ double voigt(double alpha, double v) {
     H = exp(-v2) * (1. + fac2*alpha*alpha * (1. - 2.*v2)) + fac1 * (alpha/v2);
   } else {
     p1 = alpha;
-    o1 = -v;  
+    o1 = -v;
     p2 = (p1 * alpha + o1 * v);
     o2 = (o1 * alpha - p1 * v);
     p3 = (p2 * alpha + o2 * v);
@@ -2893,7 +2888,7 @@ double voigt(double alpha, double v) {
     o6 = (o5 * alpha - p5 * v);
     p7 = (p6 * alpha + o6 * v);
     o7 = (o6 * alpha - p6 * v);
-    
+
     q1 = a[1] + p1 * a[2] + p2 * a[3] + p3 * a[4] +
       p4 * a[5] + p5 * a[6] + p6 * a[7];
     r1 =        o1 * a[2] + o2 * a[3] + o3 * a[4] +
@@ -2909,12 +2904,12 @@ double voigt(double alpha, double v) {
   return H/sqrt(PI);
 }
 
-int InterpCross(char *ifn, char *ofn, int i0, int i1, 
-		int negy, double *egy, int mp) {  
+int InterpCross(char *ifn, char *ofn, int i0, int i1,
+		int negy, double *egy, int mp) {
   F_HEADER fh;
   TFILE *f1;
   int n, swp;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
@@ -2951,22 +2946,18 @@ int InterpCross(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-int MaxwellRate(char *ifn, char *ofn, int i0, int i1, 
-		int negy, double *egy) {  
+int MaxwellRate(char *ifn, char *ofn, int i0, int i1,
+		int negy, double *egy) {
   F_HEADER fh;
   TFILE *f1;
   int n, swp;
-  
+
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("cannot open file %s\n", ifn);
     return -1;
   }
   FCLOSE(f1);
-  if (n == 0) {
-    printf("File %s is not in FAC binary format\n", ifn);
-    return -1;
-  }  
 
   switch (fh.type) {
   case DB_CE:
@@ -3009,10 +3000,10 @@ double ModifyEntry(double r, MOD_RECORD *m) {
 
 int CompareModRecord(const void *p1, const void *p2) {
   MOD_RECORD *m1, *m2;
-  
+
   m1 = (MOD_RECORD *) p1;
   m2 = (MOD_RECORD *) p2;
-  
+
   if (m1->m < m2->m) return -1;
   else if (m1->m > m2->m) return 1;
   else {
@@ -3028,10 +3019,10 @@ int CompareModRecord(const void *p1, const void *p2) {
 
 int CompareModRecordI0(const void *p1, const void *p2) {
   MOD_RECORD *m1, *m2;
-  
+
   m1 = (MOD_RECORD *) p1;
   m2 = (MOD_RECORD *) p2;
-  
+
   if (m1->i0 < m2->i0) return -1;
   else if (m1->i0 > m2->i0) return 1;
   else return 0;
@@ -3039,23 +3030,23 @@ int CompareModRecordI0(const void *p1, const void *p2) {
 
 int CompareModRecordI1(const void *p1, const void *p2) {
   MOD_RECORD *m1, *m2;
-  
+
   m1 = (MOD_RECORD *) p1;
   m2 = (MOD_RECORD *) p2;
-  
+
   if (m1->i1 < m2->i1) return -1;
   else if (m1->i1 > m2->i1) return 1;
   else return 0;
 }
-	
-void ModifyEN(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+
+void ModifyEN(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	      TFILE *f0, TFILE *f1, F_HEADER *fh, int swp) {
   int n, i, k;
   double e0, e1;
   EN_HEADER h;
   EN_RECORD r;
   MOD_RECORD mr0;
-  
+
   if (nr > 0) {
     e1 = 1e30;
     for (i = 0; i < nr; i++) {
@@ -3098,7 +3089,7 @@ void ModifyEN(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
   }
 }
 
-void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	      TFILE *f0, TFILE *f1, F_HEADER *fh, int swp) {
   int n, i, k;
   TR_HEADER h;
@@ -3106,7 +3097,7 @@ void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
   TR_EXTRA rx;
   MOD_RECORD mr0;
   double a;
-  
+
   while (1) {
     n = ReadTRHeader(f0, &h, swp);
     if (n == 0) break;
@@ -3147,11 +3138,11 @@ void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
   }
 }
 
-void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr, 
+void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	      TFILE *f0, TFILE *f1, F_HEADER *fh, int swp) {
   int n, i, k, j, t, p;
   CE_HEADER h, *h0;
-  CE_RECORD r, *r0;  
+  CE_RECORD r, *r0;
   MOD_RECORD mr0;
   double a, data[2+(1+MAXNUSR)*3];
 
@@ -3214,7 +3205,7 @@ void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	      r.born[0] = r0->born[0];
 	      r.born[1] = r0->born[1];
 	      p = 0;
-	      PrepCECrossHeader(h0, data);	      
+	      PrepCECrossHeader(h0, data);
 	      for (j = 0; j < r.nsub; j++) {
 		if (h.msub) {
 		  r.params[j] = r0->params[j];
@@ -3253,7 +3244,7 @@ int ReadModRecord(char *fn, MOD_RECORD **mr, int nr) {
     printf ("cannot open file %s", fn);
     return 0;
   }
-  
+
   nc = 0;
   while (1) {
     if (NULL == fgets(buf, NBUF, f)) break;
@@ -3296,7 +3287,7 @@ int ReadModRecord(char *fn, MOD_RECORD **mr, int nr) {
     }
     nc++;
   }
-  
+
   fclose(f);
 
   if (nr == 0) {
@@ -3308,8 +3299,8 @@ int ReadModRecord(char *fn, MOD_RECORD **mr, int nr) {
   return nc;
 #undef NBUF
 }
-	
-int ReadENTable(char *fn, int *nh, EN_HEADER **h, 
+
+int ReadENTable(char *fn, int *nh, EN_HEADER **h,
 		int *nr, EN_RECORD **r, MOD_RECORD **mr) {
   F_HEADER fh;
   EN_HEADER h0;
@@ -3323,7 +3314,7 @@ int ReadENTable(char *fn, int *nh, EN_HEADER **h,
     FCLOSE(f);
     return -1;
   }
-  
+
   *nh = fh.nblocks;
   *nr = 0;
   while (1) {
@@ -3349,14 +3340,14 @@ int ReadENTable(char *fn, int *nh, EN_HEADER **h,
     n = ReadENHeader(f, (*h)+i, swp);
     if (n == 0) break;
     for (m = 0; m < (*h)[i].nlevels; m++) {
-      n = ReadENRecord(f, (*r)+j, swp);      
+      n = ReadENRecord(f, (*r)+j, swp);
       if (n == 0) break;
       if (mr) (*mr)[j].h = (*h) + i;
       j++;
     }
     i++;
   }
-  
+
   if (mr) {
     for (i = 0; i < (*nr); i++) {
       (*mr)[i].m = 0;
@@ -3370,15 +3361,15 @@ int ReadENTable(char *fn, int *nh, EN_HEADER **h,
   FCLOSE(f);
   return 0;
 }
-	
-int ReadTRTable(char *fn, int *nh, TR_HEADER **h, 
+
+int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
 		int *nr, TR_RECORD **r, MOD_RECORD **mr) {
   F_HEADER fh;
   TR_HEADER h0;
   TR_EXTRA rx;
   int n, swp, i, j, m;
   TFILE *f;
-  
+
   f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) return -1;
 
@@ -3386,7 +3377,7 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
     FCLOSE(f);
     return -1;
   }
-  
+
   *nh = fh.nblocks;
   *nr = 0;
   while (1) {
@@ -3422,7 +3413,7 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
     }
     i++;
   }
-  
+
   if (mr) {
     for (i = 0; i < (*nr); i++) {
       (*mr)[i].i0 = (*r)[i].lower;
@@ -3434,8 +3425,8 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
   FCLOSE(f);
   return 0;
 }
-	
-int ReadCETable(char *fn, int *nh, CE_HEADER **h, 
+
+int ReadCETable(char *fn, int *nh, CE_HEADER **h,
 		int *nr, CE_RECORD **r, MOD_RECORD **mr) {
   F_HEADER fh;
   CE_HEADER h0;
@@ -3449,7 +3440,7 @@ int ReadCETable(char *fn, int *nh, CE_HEADER **h,
     FCLOSE(f);
     return -1;
   }
-  
+
   *nh = fh.nblocks;
   *nr = 0;
   while (1) {
@@ -3478,14 +3469,14 @@ int ReadCETable(char *fn, int *nh, CE_HEADER **h,
     n = ReadCEHeader(f, (*h)+i, swp);
     if (n == 0) break;
     for (m = 0; m < (*h)[i].ntransitions; m++) {
-      n = ReadCERecord(f, (*r)+j, swp, (*h)+i);      
+      n = ReadCERecord(f, (*r)+j, swp, (*h)+i);
       if (n == 0) break;
       if (mr) (*mr)[j].h = (*h)+i;
       j++;
     }
     i++;
   }
-  
+
   if (mr) {
     for (i = 0; i < (*nr); i++) {
       (*mr)[i].m = 0;
@@ -3503,21 +3494,21 @@ void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
   int nc, swp, n, nr, nh, i;
   TFILE *f0, *f1;
   MOD_RECORD *mr, *mr0;
-  F_HEADER fh;  
+  F_HEADER fh;
   EN_HEADER *eh;
   EN_RECORD *er;
   TR_HEADER *th;
   TR_RECORD *tr;
-  CE_HEADER *ch;  
+  CE_HEADER *ch;
   CE_RECORD *cr;
   void *hp, *rp;
-  
+
   f0 = OpenFileRO(fn0, &fh, &swp);
   if (f0 == NULL) {
     printf("cannot open file %s\n", fn0);
     return;
   }
-  
+
   if (fnm) {
     switch (fh.type) {
     case DB_EN:
@@ -3543,7 +3534,7 @@ void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
     }
     qsort(mr0, nr, sizeof(MOD_RECORD), CompareModRecord);
   } else {
-    nr = 0; 
+    nr = 0;
     nh = 0;
   }
 
@@ -3553,9 +3544,9 @@ void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
     FCLOSE(f0);
     return;
   }
-  
+
   f1 = OpenFile(fn1, &fh);
-  
+
   switch (fh.type) {
   case DB_EN:
     if (nr == 0) {
@@ -3584,7 +3575,7 @@ void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
     printf("cannot modify table type %d\n", fh.type);
     break;
   }
-    
+
   if (nh) {
     free(hp);
   }
