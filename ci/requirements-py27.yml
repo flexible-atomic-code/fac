@@ -4,5 +4,3 @@ channels:
 dependencies:
   - python=2.7
   - numpy
-  - gcc_linux-64
-  - gfortran_linux-64
