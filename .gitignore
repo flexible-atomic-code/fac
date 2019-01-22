@@ -48,8 +48,10 @@ python/version.py
 demo/*/*.b
 demo/*/*.ai
 demo/*/*.ce
+demo/*/*.cer
 demo/*/*.ceM
 demo/*/*.ci
+demo/*/*.cir
 demo/*/*.en
 demo/*/*.rr
 demo/*/*.lev
