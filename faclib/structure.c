@@ -2575,6 +2575,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	} else {
 	  ap[t] = a + h->heff[t];
 	}
+	ap0[t] = a;
 	t++;
 	x += np;
       }

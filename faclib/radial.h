@@ -129,6 +129,7 @@ double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);
 double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2);
 int ConfigEnergy(int m, int mr, int ng, int *kg);
 double TotalEnergyGroup(int kg);
+double TotalEnergyGroups(int ng, int *kg, double *w);
 double TotalEnergyGroupMode(int kg, int md);
 double ZerothEnergyConfig(CONFIG *cfg);
 double ZerothResidualConfig(CONFIG *cfg);

@@ -295,7 +295,7 @@ void         IntToShell(int i, int *n, int *k);
 void         IntToNRShell(int i, int *n, int *k);
 void         PackShellState(SHELL_STATE *s, int J, int j, int nu, int Nr);
 int ShellNeedNuNr(SHELL *s, SHELL_STATE *st);
-int          GetAverageConfig(int ng, int *kg, int ic, double *weight,
+int          GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 			      int n_screen, int *screened_n, 
 			      double screened_charge,
 			      int screened_kl, AVERAGE_CONFIG *acfg);
