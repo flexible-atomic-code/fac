@@ -127,7 +127,7 @@ static struct {
   int mce;
 } optimize_control = {OPTSTABLE, OPTTOL, OPTNITER, 
 		      1.0, 1, 0, NULL, OPTPRINT, 0, 0};
-
+static int _acfg_wmode = 2;
 static struct {
   int kl0;
   int kl1;
@@ -2250,7 +2250,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       acfg->kg = NULL;
       acfg->weight = NULL;
     }
-    GetAverageConfig(ng, kg, ic, weight,
+    GetAverageConfig(ng, kg, ic, weight, _acfg_wmode,
 		     optimize_control.n_screen,
 		     optimize_control.screened_n,
 		     optimize_control.screened_charge,
@@ -2363,10 +2363,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       return -1;
     }
     if (ng > 0) {
-      ehx[i] = 0.0;
-      for (j = 0; j < ng; j++) {
-	ehx[i] += TotalEnergyGroup(kg[j])*acfg->weight[j];
-      }
+      ehx[i] = TotalEnergyGroups(ng, kg, NULL);
     } else {
       ehx[i] = AverageEnergyAvgConfig(acfg);
     }
@@ -2384,10 +2381,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
 	return -1;
       }
       if (ng > 0) {
-	ehx[i] = 0.0;
-	for (j = 0; j < ng; j++) {
-	  ehx[i] += TotalEnergyGroup(kg[j])*acfg->weight[j];
-	}
+	ehx[i] = TotalEnergyGroups(ng, kg, NULL);
       } else {
 	ehx[i] = AverageEnergyAvgConfig(acfg);
       }
@@ -2411,10 +2405,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
 	return -1;
       }
       if (ng > 0) {
-	ehx[i] = 0.0;
-	for (j = 0; j < ng; j++) {
-	  ehx[i] += TotalEnergyGroup(kg[j])*acfg->weight[j];
-	}
+	ehx[i] = TotalEnergyGroups(ng, kg, NULL);
       } else {
 	ehx[i] = AverageEnergyAvgConfig(acfg);
       }
@@ -2519,10 +2510,7 @@ static double EnergyFunc(int *n, double *x) {
   ClearOrbitalTable(0);
   if (average_config.ng > 0) {
     if (_refine_pj < 0) {
-      a = 0.0;
-      for (k = 0; k < average_config.ng; k++) {
-	a += TotalEnergyGroup(average_config.kg[k])*average_config.weight[k];
-      }
+      a = TotalEnergyGroups(average_config.ng, average_config.kg, NULL);
     } else {
       a = 0.0;
       if (_refine_em == 0) {
@@ -3396,6 +3384,27 @@ double TotalEnergyGroupMode(int kg, int md) {
   }
   total_energy /= g->sweight;
   return total_energy;
+}
+
+double TotalEnergyGroups(int ng, int *kg, double *w) {
+  double a, r, b;
+  CONFIG_GROUP *g;
+  int i;
+  r = 0.0;
+  b = 0.0;
+  for (i = 0; i < ng; i++) {
+    a = TotalEnergyGroup(kg[i]);
+    if (w) {
+      r += w[i]*a;
+      b += w[i];
+    } else {
+      g = GetGroup(kg[i]);
+      r += a*g->sweight;
+      b += g->sweight;
+    }
+  }
+  if (b > 0) r /= b;
+  return r;
 }
 
 double ZerothEnergyConfig(CONFIG *cfg) {
@@ -9504,6 +9513,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:refine_em")) {
     _refine_em = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:acfg_wmode")) {
+    _acfg_wmode = ip;
     return;
   }
 }

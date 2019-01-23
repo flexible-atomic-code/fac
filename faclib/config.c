@@ -2660,7 +2660,7 @@ int ReadConfig(char *fn, char *c0) {
 **              with M = 2500, the limit is about 70, which should be 
 **              more than enough.
 */
-int GetAverageConfig(int ng, int *kg, int ic, double *weight,
+int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 		     int n_screen, int *screened_n, double screened_charge,
 		     int screened_kl, AVERAGE_CONFIG *acfg) {
 #define M 2500 /* max # of shells may be present in an average config */
@@ -2682,7 +2682,18 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight,
     if (weight != NULL) {
       acfg->weight[i] = weight[i];
     } else {
-      acfg->weight[i] = 1.0;
+      if (wm == 0) {
+	acfg->weight[i] = 1.0;
+      } else if (wm == 1) {
+	acfg->weight[i] = cfg_groups[kg[i]].n_cfgs;
+      } else {
+	acfg->weight[i] = 0;
+	c = &(cfg_groups[kg[i]].cfg_list);
+	for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
+	  cfg = (CONFIG *) ArrayGet(c, t);
+	  acfg->weight[i] += cfg->sweight;
+	}	    
+      }
     }
   }
 
