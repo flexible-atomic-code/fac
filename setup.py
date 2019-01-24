@@ -23,11 +23,13 @@ from distutils.unixccompiler import UnixCCompiler
 from distutils.util import get_platform
 import sys
 import os
+import re
 
 incdir = []
 libdir = []
 libs = []
 extralink = []
+rmpylink = []
 extracomp = []
 bsfac = ''
 
@@ -105,6 +107,12 @@ for s in x:
                 libs.append(a[2:])
             else:
                 extralink.append(a)
+    elif (s[0:10] == '-rmpylink='):
+        for a in s[10:].split():
+            rmpylink.append(a)
+    elif (s[0:11] == '-addpylink='):
+        for a in s[11:].split():
+            extralink.append(a)
     elif (s[0:6] == '-bsfac'):
         bsfac = 'SFAC-%s.%s.tar'%(VERSION, get_platform())
     elif (s[0:4] == '-mpy'):
@@ -154,7 +162,21 @@ if CC is not None:
     ldshared = sysconfig.get_config_var('LDSHARED')
     ldshared = ldshared.split(' ')
     for a in ldshared[1:]:
-        extralink.append(a)
+        skip = 0
+        for b in rmpylink:
+            if a == b:
+                skip = 1
+                break
+            if re.match(b, a) != None:
+                skip = 1
+                break
+        if re.match('-Wl,.*', a):
+            skip = 1
+            b = '-Wl,.*'
+        if skip == 0:
+            extralink.append(a)
+        else:
+            print('skip python link flag: %s %s'%(a, b))
     
 Extensions = [Extension(mod, src, include_dirs=incdir, library_dirs=libdir,
                         libraries=libs, extra_compile_args=extracomp,

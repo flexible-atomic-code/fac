@@ -39,7 +39,7 @@ sfac:	lib
 	cd sfac; make
 
 pfac:   lib
-	${PYTHON} setup.py build --force -ccompiler="${CC}" -extracomp="${CFLAGS}" -extralink="${LIBS}"
+	${PYTHON} setup.py build --force -ccompiler="${CC}" -extracomp="${CFLAGS}" -extralink="${LIBS}" -rmpylink="${RMPYLINK}" -addpylink="${ADDPYLINK}"
 mpy:
 	${PYTHON} setup.py build -mpy -extracomp="${CFLAGS}" -extralink="${LIBS}"
 
