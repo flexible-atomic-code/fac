@@ -33,11 +33,11 @@ static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
-static double mbpt_warn = -1;
-static double mbpt_mwarn = 1.0;
-static double mbpt_ignore = -1;
-static double mbpt_warntr = -1;
-static double mbpt_ignoretr = -1;
+static double mbpt_warn = 0.05;
+static double mbpt_mwarn = 0.5;
+static double mbpt_ignore = 50.0;
+static double mbpt_warntr = 1.0;
+static double mbpt_ignoretr = 10.0;
 static int mbpt_ignorep = 0;
 static long mbpt_ignoren = 0;
 static double mbpt_angzc = 0.75;
@@ -54,8 +54,8 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = 1e-3;
-static double mbpt_mcut2 = 1e-2;
+static double mbpt_mcut = 1e-4;
+static double mbpt_mcut2 = 1e-1;
 static double mbpt_mcut3 = 1e-1;
 static double mbpt_mcut4 = 1.0;
 static int mbpt_n3 = 0;
@@ -71,8 +71,8 @@ static IDXARY mbpt_ibas0, mbpt_ibas1;
 static int **mbpt_rij = NULL;
 static char mbpt_ccn[256] = "";
 static ARRAY *mbpt_cca = NULL;
-static double mbpt_wmix = 0.01;
-static double mbpt_nwmix = 100.0;
+static double mbpt_wmix = 0.0025;
+static double mbpt_nwmix = 0.0;
 static struct {
   int nj;
   int *jp;
@@ -285,10 +285,6 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }  
   if (0 == strcmp(s, "mbpt:nwmix")) {
     mbpt_nwmix = dp;
-    if (mbpt_nwmix == 1) mbpt_nwmix = 2;
-    else if (mbpt_nwmix < 1) {
-      mbpt_nwmix = 1.0/mbpt_wmix;
-    }
     return;
   }  
   if (0 == strcmp(s, "mbpt:omp")) {
@@ -4361,7 +4357,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   int nkgp;
   int *kgp = NULL;
   int ip = 0, ncca = 0;
-
+  
+  if (mbpt_nwmix <= 0) mbpt_nwmix = 1.0/mbpt_wmix;
   if (nkg00 == 0) {
     printf("no valid configs for mbpt: %d %d\n", nkg, nkg00);
     return 0;
@@ -4790,9 +4787,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	if (c >= a) {
 	  if (c >= mbpt_wmix) {
 	    meff[isym]->imbpt[k] = (int)(1+c/mbpt_wmix);
-	    if (mbpt_nwmix < 2) {
-	      mbpt_nwmix = (int)(1.0/mbpt_wmix);
-	    }
 	    if (meff[isym]->imbpt[k] > mbpt_nwmix) {
 	      meff[isym]->imbpt[k] = (int)mbpt_nwmix;
 	    }
