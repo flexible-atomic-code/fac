@@ -34,7 +34,8 @@ static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
 static double mbpt_warn = 0.05;
-static double mbpt_mwarn = 0.5;
+static double mbpt_mwarn = 0.25;
+static double mbpt_ewarn = 1e-4;
 static double mbpt_ignore = 50.0;
 static double mbpt_warntr = 1.0;
 static double mbpt_ignoretr = 10.0;
@@ -71,7 +72,7 @@ static IDXARY mbpt_ibas0, mbpt_ibas1;
 static int **mbpt_rij = NULL;
 static char mbpt_ccn[256] = "";
 static ARRAY *mbpt_cca = NULL;
-static double mbpt_wmix = 0.0025;
+static double mbpt_wmix = 1e-4;
 static double mbpt_nwmix = 0.0;
 static struct {
   int nj;
@@ -94,7 +95,7 @@ void PrintMBPTOptions(void) {
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
   printf("asort=%g\n", mbpt_asort);
-  printf("warn=%g/%g/%g\n", mbpt_warn, mbpt_mwarn, mbpt_warntr);
+  printf("warn=%g/%g/%g/%g\n", mbpt_warn, mbpt_mwarn, mbpt_ewarn, mbpt_warntr);
   printf("ignore=%g/%g\n", mbpt_ignore, mbpt_ignoretr);
   printf("ignorep=%d\n", mbpt_ignorep);
   printf("angzc=%g\n", mbpt_angzc);
@@ -229,6 +230,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:mwarn")) {
     mbpt_mwarn = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:ewarn")) {
+    mbpt_ewarn = dp;
     return;
   }
   if (0 == strcmp(s, "mbpt:ccn")) {
@@ -2115,7 +2120,10 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
       wth /= mbpt_nwmix - 2.0;
       wth = mbpt_warn + mbpt_mwarn*wth;
-      if (wth > 0 && (sd1w > wth || sd2w > wth)) {
+      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+      if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
+	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
+		       pow(sd2w,4)*fabs(d2) > eth))) {
 	int na[4], ka[4];
 	na[0] = nn1;
 	na[1] = nn3;
@@ -2382,7 +2390,10 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
       wth /= mbpt_nwmix - 2.0;
       wth = mbpt_warn + mbpt_mwarn*wth;
-      if (wth > 0 && (sd1w > wth || sd2w > wth)) {
+      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+      if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
+	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
+		       pow(sd2w,4)*fabs(d2) > eth))) {
 	int na[2], ka[2];
 	na[0] = nn5;
 	na[1] = nn6;
@@ -2828,7 +2839,10 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
       wth /= mbpt_nwmix - 2.0;
       wth = mbpt_warn + mbpt_mwarn*wth;
-      if (wth > 0 && (sd1w > wth || sd2w > wth)) {
+      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+      if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
+	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
+		       pow(sd2w,4)*fabs(d2) > eth))) {
 	int na[2], ka[2];
 	na[0] = orb0->n;
 	na[1] = orb1->n;
