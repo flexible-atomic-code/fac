@@ -33,9 +33,9 @@ static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
-static double mbpt_warn = 0.05;
-static double mbpt_mwarn = 0.25;
-static double mbpt_ewarn = 1e-4;
+static double mbpt_warn = 0.1;
+static double mbpt_mwarn = 0.5;
+static double mbpt_ewarn = 1e-4/HARTREE_EV;
 static double mbpt_ignore = 50.0;
 static double mbpt_warntr = 1.0;
 static double mbpt_ignoretr = 10.0;
@@ -2116,11 +2116,10 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd1s = 2E50;
       sd2s = 2E50;
     }
-    if (meff[s0]->imbpt[m] > 1 && !warned) {     
-      double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
-      wth /= mbpt_nwmix - 2.0;
-      wth = mbpt_warn + mbpt_mwarn*wth;
-      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+    if (meff[s0]->imbpt[m] > 1 && !warned) {
+      double wth = meff[s0]->wmbpt[m];
+      wth = mbpt_warn*wth + mbpt_mwarn*(1-wth);
+      double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
 		       pow(sd2w,4)*fabs(d2) > eth))) {
@@ -2140,9 +2139,9 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	  cr->energy = d2;
 	  cr->delta = sd1w;
 	  cr->sth = sd2w;
-	  cr->cth = sd1s;
-	  cr->mde = sd2s;
-	  cr->icfg = 2000+meff[s0]->imbpt[m];
+	  cr->cth = meff[s0]->wmbpt[m];
+	  cr->mde = wth;
+	  cr->icfg = 20000000+meff[s0]->imbpt[m];
 	  cr->n_electrons = c0->igroup;
 	  cr->n_csfs = c0->icfg;
 	  cr->nnrs = c1->igroup;
@@ -2387,10 +2386,9 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     //if (c0->icfg >= 0 || c1->icfg >= 0) {
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
-      wth /= mbpt_nwmix - 2.0;
-      wth = mbpt_warn + mbpt_mwarn*wth;
-      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+      double wth = meff[s0]->wmbpt[m];
+      wth = mbpt_warn*wth + mbpt_mwarn*(1-wth);
+      double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
 		       pow(sd2w,4)*fabs(d2) > eth))) {
@@ -2406,9 +2404,9 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	  cr->energy = d2;
 	  cr->delta = sd1w;
 	  cr->sth = sd2w;
-	  cr->cth = sd1s;
-	  cr->mde = sd2s;
-	  cr->icfg = 1000 + meff[s0]->imbpt[m];
+	  cr->cth = meff[s0]->wmbpt[m];
+	  cr->mde = wth;
+	  cr->icfg = 10000000 + meff[s0]->imbpt[m];
 	  cr->n_electrons = c0->igroup;
 	  cr->n_csfs = c0->icfg;
 	  cr->nnrs = c1->igroup;
@@ -2836,10 +2834,9 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = (mbpt_nwmix-meff[s0]->imbpt[m]);
-      wth /= mbpt_nwmix - 2.0;
-      wth = mbpt_warn + mbpt_mwarn*wth;
-      double eth = mbpt_ewarn/((meff[s0]->imbpt[m]-1.0)*mbpt_wmix);
+      double wth = meff[s0]->wmbpt[m];
+      wth = mbpt_warn*wth + mbpt_mwarn*(1-wth);
+      double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 && (pow(sd1w,4)*fabs(d1) > eth ||
 		       pow(sd2w,4)*fabs(d2) > eth))) {
@@ -2855,8 +2852,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	  cr->energy = d2;
 	  cr->delta = sd1w;
 	  cr->sth = sd2w;
-	  cr->cth = sd1s;
-	  cr->mde = sd2s;
+	  cr->cth = meff[s0]->wmbpt[m];
+	  cr->mde = wth;
 	  cr->icfg = meff[s0]->imbpt[m];
 	  cr->n_electrons = c0->igroup;
 	  cr->n_csfs = c0->icfg;
@@ -4145,8 +4142,15 @@ void FreeEffMBPT(MBPT_EFF **meff) {
       free(meff[i]->h0);
       free(meff[i]->e0);
       free(meff[i]->heff);
-      //free(meff[i]->basis);
-      FreeIdxAry(meff[i]->idb, 0);
+      free(meff[i]->neff);
+      //free(meff[i]->basis); this is freeed in idb array
+      if (meff[i]->heff0) free(meff[i]->heff0);
+      free(meff[i]->imbpt);
+      free(meff[i]->wmbpt);
+      if (meff[i]->idb) {
+	FreeIdxAry(meff[i]->idb, 0);
+	free(meff[i]->idb);
+      }
     }
     free(meff[i]);
   }
@@ -4726,6 +4730,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       meff[isym]->heff0 = NULL;
     }
     meff[isym]->imbpt = malloc(sizeof(int)*h->dsize);
+    meff[isym]->wmbpt = malloc(sizeof(double)*h->dsize);
     meff[isym]->hab1 = malloc(sizeof(double *)*h->dsize);
     meff[isym]->hba1 = malloc(sizeof(double *)*h->dsize);
     meff[isym]->n = nr;
@@ -4798,6 +4803,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	if (iig || jig) a *= mbpt_mcut2;
 	if (iig && jig) a *= mbpt_mcut4;
 	if (i == j) a *= mbpt_mcut3;
+	meff[isym]->wmbpt[k] = c;
 	if (c >= a) {
 	  if (c >= mbpt_wmix) {
 	    meff[isym]->imbpt[k] = (int)(1+c/mbpt_wmix);
@@ -6187,11 +6193,11 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }
     }
   }
-  if (ncca > 0) {
-    FILE *fc = fopen(mbpt_ccn, "w");
-    if (fc == NULL) {
-      printf("cannot open mbpt_ccn: %s\n", mbpt_ccn);
-    } else {
+  FILE *fc = fopen(mbpt_ccn, "w");
+  if (fc == NULL) {
+    printf("cannot open mbpt_ccn: %s\n", mbpt_ccn);
+  } else {
+    if (ncca > 0) {
       qsort(cca, ncca, sizeof(CONFIG *), CompareMBPTCC);
       char scr[2048];
       icca = 0;
@@ -6212,9 +6218,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	FreeConfigData(cca[i]);
 	free(cca[i]);
       }
-      fclose(fc);
       free(cca);
     }
+    fclose(fc);
   }    
   free(bas);
   if (mbpt_nsplit) {
@@ -7351,6 +7357,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
     if (idb[isym]) {
       FreeIdxAry(idb[isym], 0);
+      free(idb[isym]);
     }
   }
   return ierr;

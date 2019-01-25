@@ -39,6 +39,7 @@ typedef struct _MBPT_EFF_ {
   IDXARY *idb;
   double *h0, *e0, *heff, *heff0, *neff;
   int *imbpt;
+  double *wmbpt;
   /* effective hamilton elements for 1-virtual */
   double **hab1, **hba1;
   /* effective hamilton elements for 2-virtual */
