@@ -59,6 +59,7 @@ static double mbpt_mcut = 1e-4;
 static double mbpt_mcut2 = 1e-1;
 static double mbpt_mcut3 = 1e-1;
 static double mbpt_mcut4 = 1.0;
+static int mbpt_diag = 0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
 static int mbpt_nsplit = 0;
@@ -112,6 +113,7 @@ void PrintMBPTOptions(void) {
   printf("reinit_meme=%g\n", mbpt_reinit_mem);
   printf("nlev=%d\n", mbpt_nlev);
   printf("mcut=%g %g %g %g\n", mbpt_mcut, mbpt_mcut2, mbpt_mcut3, mbpt_mcut4);
+  printf("diag=%d\n", mbpt_diag);
   printf("n3=%d\n", mbpt_n3);
   printf("nsplit=%d\n", mbpt_nsplit);
   printf("freetr=%g\n", mbpt_freetr);
@@ -233,7 +235,7 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
     return;
   }
   if (0 == strcmp(s, "mbpt:ewarn")) {
-    mbpt_ewarn = dp;
+    mbpt_ewarn = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp(s, "mbpt:ccn")) {
@@ -283,7 +285,11 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "mbpt:mcut4")) {
     mbpt_mcut4 = dp;
     return;
-  }  
+  }
+  if (0 == strcmp(s, "mbpt:diag")) {
+    mbpt_diag = ip;
+    return;
+  }
   if (0 == strcmp(s, "mbpt:wmix")) {
     mbpt_wmix = dp;
     return;
@@ -4804,7 +4810,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	if (iig && jig) a *= mbpt_mcut4;
 	if (i == j) a *= mbpt_mcut3;
 	meff[isym]->wmbpt[k] = c;
-	if (c >= a) {
+	if (c >= a && (mbpt_diag == 0 || i == j)) {
 	  if (c >= mbpt_wmix) {
 	    meff[isym]->imbpt[k] = (int)(1+c/mbpt_wmix);
 	    if (meff[isym]->imbpt[k] > mbpt_nwmix) {

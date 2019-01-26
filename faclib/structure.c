@@ -67,6 +67,7 @@ static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
 static double perturb_threshold = -1;
+static double perturb_eth = 1e-4/HARTREE_EV;
 static int perturb_maxiter = PERTURBMAXITER;
 static double perturb_expdim = PERTURBEXPDIM;
 static double perturb_expdimz = PERTURBEXPDIMZ;
@@ -2525,6 +2526,16 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  mmix = h->mmix[j];
 	  if (mmix > perturb_expdim) ip = 1;
 	  else if (mmix < perturb_expdimz) ip = -1;
+	}
+	if (ip > 0 && mmix <= 0) mmix = 1.0;
+	if (perturb_eth > 0 && mmix > 0) {
+	  if (pow(fabs(r),4)*fabs(a)*mmix > perturb_eth) {
+	    b[k] = 0.0;
+	    //if (ip > 0) {
+	    ib[i] = 1;
+	    //}
+	    continue;
+	  }
 	}
 	if (r > ra) {
 	  //printf("r0: %d %d %g %g %g %g %d %d %d %g %g\n", i, j, a, r, b[k], ra, ip, h->orig_dim, h->exp_dim, mmix, perturb_expdim);
@@ -6866,6 +6877,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:perturb_threshold")) {
     perturb_threshold = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_eth")) {
+    perturb_eth = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp(s, "structure:perturb_maxiter")) {
