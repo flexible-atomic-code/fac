@@ -6185,7 +6185,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     if (mbpt_nsplit) {
       FreeIdxAry(&mbptjp.ibs, 2);
     }
-    if (mbpt_ccn[0]) {
+    if (mbpt_ccn[0] && n3 >= 0) {
 #pragma omp critical
       {
 	for (i = 0; i < mbpt_cca->dim; i++) {
@@ -6199,35 +6199,37 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       }
     }
   }
-  FILE *fc = fopen(mbpt_ccn, "w");
-  if (fc == NULL) {
-    printf("cannot open mbpt_ccn: %s\n", mbpt_ccn);
-  } else {
-    if (ncca > 0) {
-      qsort(cca, ncca, sizeof(CONFIG *), CompareMBPTCC);
-      char scr[2048];
-      icca = 0;
-      for (i = 0; i < ncca; i++) {
-	if (i > 0 && 0==CompareCfgPointer(&cca[i], &cca[i-1])) continue;
-	ConstructNRConfigName(scr, 2048, cca[i]);
-	fprintf(fc, "%s # %d %d %d %d %d %d %d %g %g %g %g %g %g\n",
-		scr, icca, i, cca[i]->icfg,
-		cca[i]->n_electrons, cca[i]->n_csfs,
-		cca[i]->nnrs, cca[i]->igroup,
-		cca[i]->sweight, cca[i]->energy,
-		cca[i]->delta, cca[i]->sth, cca[i]->cth, cca[i]->mde);
-	icca++;
+  if (mbpt_ccn[0] && n3 >= 0) {
+    FILE *fc = fopen(mbpt_ccn, "w");
+    if (fc == NULL) {
+      printf("cannot open mbpt_ccn: %s\n", mbpt_ccn);
+    } else {
+      if (ncca > 0) {
+	qsort(cca, ncca, sizeof(CONFIG *), CompareMBPTCC);
+	char scr[2048];
+	icca = 0;
+	for (i = 0; i < ncca; i++) {
+	  if (i > 0 && 0==CompareCfgPointer(&cca[i], &cca[i-1])) continue;
+	  ConstructNRConfigName(scr, 2048, cca[i]);
+	  fprintf(fc, "%s # %d %d %d %d %d %d %d %g %g %g %g %g %g\n",
+		  scr, icca, i, cca[i]->icfg,
+		  cca[i]->n_electrons, cca[i]->n_csfs,
+		  cca[i]->nnrs, cca[i]->igroup,
+		  cca[i]->sweight, cca[i]->energy,
+		  cca[i]->delta, cca[i]->sth, cca[i]->cth, cca[i]->mde);
+	  icca++;
+	}
+	for (i = 0; i < ncca; i++) {
+	  cca[i]->n_csfs = 0;
+	  cca[i]->nnrs = 0;
+	  FreeConfigData(cca[i]);
+	  free(cca[i]);
+	}
+	free(cca);
       }
-      for (i = 0; i < ncca; i++) {
-	cca[i]->n_csfs = 0;
-	cca[i]->nnrs = 0;
-	FreeConfigData(cca[i]);
-	free(cca[i]);
-      }
-      free(cca);
+      fclose(fc);
     }
-    fclose(fc);
-  }    
+  }
   free(bas);
   if (mbpt_nsplit) {
     for (i = 0; i < nb; i++) {
