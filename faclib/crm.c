@@ -163,6 +163,7 @@ static void InitIonData(void *p, int n) {
   
   ion = (ION *) p;
   for (k = 0; k < n; k++,ion++) {
+    ion->nele = 0;
     ion->nlevels = 0;
     ion->KLN_min = 0;
     ion->KLN_max = -1;
@@ -185,6 +186,9 @@ static void InitIonData(void *p, int n) {
     ion->energy = NULL;
     for (i = 0; i < NDB1; i++) {
       ion->dbfiles[i] = NULL;
+    }
+    for (i = 0; i < 4; i++) {
+      ion->icx[i] = NULL;
     }
     ion->ce_rates = NULL;
     ion->tr_rates = NULL;
@@ -255,7 +259,10 @@ static void FreeIonData(void *p) {
   free(ion->recombined);
   ion->recombined = NULL;
   for (i = 0; i < 4; i++) {
-    if (ion->icx[i] != NULL) free(ion->icx[i]);
+    if (ion->icx[i] != NULL) {
+      free(ion->icx[i]);
+      ion->icx[i] = NULL;
+    }
   }
 }
 
