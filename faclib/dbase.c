@@ -5780,20 +5780,21 @@ int AdjustEnergy(int nlevs, int *ilevs, double *e,
   AI_RECORD ar;
   EN_HEADER eh;
   EN_RECORD er;
-  
+
+  ig = -1;
   for (i = 0; i < nlevs; i++) {
     if (e[i] == 0) {
-      ig = i;
+      ig = ilevs[i];
       break;
     }
   }
 
   MemENTable(efn0);
-
-  for (i = 0; i < nlevs; i++) {
-    e[i] = e[i] - (mem_en_table[ilevs[i]].energy - mem_en_table[ilevs[ig]].energy);
+  if (ig >= 0) {
+    for (i = 0; i < nlevs; i++) {
+      e[i] = e[i] - (mem_en_table[ilevs[i]].energy - mem_en_table[ilevs[ig]].energy);
+    }
   }
-  
   f0 = FOPEN(efn0, "r");
   if (f0 == NULL) return -1;
 
