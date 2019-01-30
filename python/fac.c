@@ -303,8 +303,9 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
       }
       s = PyUnicode_AsString(p);
       k = GroupExists(s);
-      Py_DECREF(p);
-      
+      if (!ist) {
+	Py_DECREF(p);
+      }
       if (k < 0) {
 	printf("group does not exist: %d %s\n", i, s);
 	if (i < n0q) n0p--;
@@ -4201,7 +4202,7 @@ static PyObject *PAdjustEnergy(PyObject *self, PyObject *args) {
     }
     ilevs = (int *) malloc(sizeof(int)*nlevs);
     elevs = (double *) malloc(sizeof(double)*nlevs);
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < nlevs; i++) {
       ip = PyList_GetItem(p, i);
       iq = PyList_GetItem(q, i);
       k = PyLong_AsLong(ip);
