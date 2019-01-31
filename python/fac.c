@@ -1868,6 +1868,7 @@ static int SelectLevels(PyObject *p, int **t) {
       q = PySequence_GetItem(p, i);
       nti[i] = SelectLevels(q, &ti[i]);
       n += nti[i];
+      Py_DECREF(q);      
     }
     if (n > 0) {
       *t = malloc(sizeof(int)*n);
@@ -1926,7 +1927,11 @@ static int SelectLevels(PyObject *p, int **t) {
       if (!ist) {
 	Py_DECREF(q);
       }
-      (*t) = realloc(*t, k*sizeof(int));
+      if (k <= 0) {
+	free(*t);
+      } else {
+	(*t) = realloc(*t, k*sizeof(int));
+      }
       return k;
     } else if (PyList_Check(q)) {
       if (n != 2) {
@@ -1982,7 +1987,11 @@ static int SelectLevels(PyObject *p, int **t) {
       } 
       free(krg);
       free(kg);
-      (*t) = realloc(*t, k*sizeof(int));
+      if (k <= 0) {
+	free(*t);
+      } else {
+	(*t) = realloc(*t, k*sizeof(int));
+      }
       return k;
     } else {
       (*t) = malloc(sizeof(int)*n);
@@ -2404,6 +2413,7 @@ static PyObject *PTransitionTableEB(PyObject *self, PyObject *args) {
   }
   nup = SelectLevels(q, &up);
   if (nup <= 0) {
+    free(low);
     printf("cannot determine levels in upper\n");
     return NULL;
   }
@@ -2513,7 +2523,10 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) return NULL;
+    if (nup <= 0) {
+      free(low);
+      return NULL;
+    }
     SaveTransition(nlow, low, nup, up, s, m);
     free(low);
     free(up);
@@ -2528,6 +2541,7 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
     }
     nup = SelectLevels(q, &up);
     if (nup <= 0) {
+      free(low);
       printf("cannot determine levels in upper\n");
       return NULL;
     }
@@ -2577,7 +2591,10 @@ static PyObject *PCETableEB(PyObject *self, PyObject *args) {
   nlow = SelectLevels(p, &low);
   if (nlow <= 0) return NULL;
   nup = SelectLevels(q, &up);
-  if (nup <= 0) return NULL;
+  if (nup <= 0) {
+    free(low);
+    return NULL;
+  }
   if (m == 0) {
     SaveExcitationEB(nlow, low, nup, up, s);
   } else {
@@ -2623,7 +2640,10 @@ static PyObject *PCETable(PyObject *self, PyObject *args) {
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) return NULL;
+    if (nup <= 0) {
+      free(low);
+      return NULL;
+    }
     SaveExcitation(nlow, low, nup, up, 0, s);
     free(low);
     free(up);
@@ -2667,7 +2687,10 @@ static PyObject *PCETableMSub(PyObject *self, PyObject *args) {
     nlow = SelectLevels(p, &low);
     if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) return NULL;
+    if (nup <= 0) {
+      free(low);
+      return NULL;
+    }
     SaveExcitation(nlow, low, nup, up, 1, s);
     free(low);
     free(up);
@@ -4670,10 +4693,6 @@ static PyObject *PTRRateH(PyObject *self, PyObject *args) {
   os = 0;
   if (!PyArg_ParseTuple(args, "diiii|i", &z, &n0, &kl0, &n1, &kl1, &os)) 
     return NULL;
-  if (n1 > 512) {
-    printf("maximum NU is 512\n");
-    return NULL;
-  }
   if (kl0 != kl1+1 && kl0 != kl1-1) {
     r = 0.0;
   } else {
@@ -5720,6 +5739,10 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
     free(ilev);
     free(sa);
     free(sb);
+  } else {
+    if (nlev > 0) free(ilev);
+    if (na > 0) free(sa);
+    if (nb > 0) free(sb);
   }
 
   Py_INCREF(Py_None);

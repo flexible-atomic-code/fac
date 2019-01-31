@@ -270,7 +270,9 @@ void InitializeMPI(int n, int m) {
     _plock = NULL;
   }
 #if USE_MPI == 2
-  if (m == 0) CopyPotentialOMP(1);
+  if (m == 0) {
+    CopyPotentialOMP(1);
+  }
 #endif
 #endif
 }

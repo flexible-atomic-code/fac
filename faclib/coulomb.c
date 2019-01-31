@@ -37,7 +37,8 @@ static int n_hydrogenic;
 static int kl_hydrogenic;
 static int n_hydrogenic_max;
 static int kl_hydrogenic_max;
-static ARRAY *dipole_array;
+static int dipole_nmax = 0;
+static double **dipole_array = NULL;
 
 static int _cbindex[CBMULT][CBMULT+1];
 static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
@@ -64,43 +65,46 @@ void GetHydrogenicNL(int *n, int *kl, int *nm, int *klm) {
   if (klm) *klm = kl_hydrogenic_max;
 }
 
-double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
-  double anc, am;
+void InitHydrogenicDipole(int nmax) {
+  double anc, am, *ac;
   double z0 = 1.0;
-  int nmax = 512;
-  double ac[1024];
-  static int iopt = 2;
-  double **qk, *t;
-  int n, i;
-  
-  if (n1 > 512) return 0.0;
+  int n0, n1, iopt, i;
+
+  if (nmax <= dipole_nmax) return;
+  if (dipole_nmax == 0) {
+    dipole_array = malloc(sizeof(double *)*nmax);
+  } else {
+    dipole_array = realloc(dipole_array, sizeof(double *)*nmax);
+  }
+  n1 = 2;
+  n0 = 1;
+  am = 100.0;
+  iopt = 2;
+  ACOFZ1(z0, am, nmax, n0, ac, &anc, n1, iopt);
+  iopt = 1;
+  for (n1 = dipole_nmax+1; n1 <= nmax; n1++) {
+    i = n1-1;
+    if (n1 == 1) continue;
+    dipole_array[i] = malloc(sizeof(double)*n1*(n1-1));
+    ac = dipole_array[i];
+    for (n0 = 1; n0 < n1; n0++) {
+      ACOFZ1(z0, am, n1, n0, ac, &anc, n0, iopt);
+      ac += 2*n0;
+    }
+  }
+  dipole_nmax = nmax;
+}
+
+double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
+  if (n1 > dipole_nmax) return 0.0;
   if (n0 >= n1) {
     return 0.0;
   } 
   if (kl1 != kl0 + 1 && kl1 != kl0 - 1) {
     return 0.0;
   }
-  qk = (double **) ArraySet(dipole_array, n1, NULL, InitPointerData);
-  if (*qk == NULL) {
-    *qk = (double *) malloc(sizeof(double)*n1*(n1-1));
-    t = *qk;
-    am = 100.0;
-    if (iopt == 2) {
-      ACOFZ1(z0, am, nmax, n0, ac, &anc, n1, iopt);
-    }
-    iopt = 1;
-    for (n = 1; n < n1; n++) {
-      ACOFZ1(z0, am, n1, n, ac, &anc, n1, iopt);
-      for (i = 0; i < n; i++) {
-	*(t++) = ac[i];
-      }
-      for (i = 0; i < n; i++) {
-	*(t++) = ac[i+n1];
-      }
-    }
-  }
 
-  t = (*qk) + n0*(n0-1);
+  double *t = dipole_array[n1-1] + n0*(n0-1);
   if (kl1 == kl0 - 1) {
     return t[kl1]/z;
   } else {
@@ -934,9 +938,6 @@ int InitCoulomb(void) {
   }
   PrepCBIndex();
   SetHydrogenicNL(-1, -1, -1, -1);
-
-  dipole_array = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(dipole_array, sizeof(double *), DIPOLE_BLOCK);
-
+  InitHydrogenicDipole(150);
   return 0;
 }

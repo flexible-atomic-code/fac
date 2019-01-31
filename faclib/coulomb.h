@@ -95,5 +95,6 @@ int     PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 			 int nkl, double *kl, int mode);
 int     CoulombBethe(char *s, double z, double te, double e1);
 int     InitCoulomb(void);
+void InitHydrogenicDipole(int n);
 
 #endif

@@ -74,6 +74,7 @@
 
 #define IsNan(a)  (!((a)>0) && !((a)<=0)) 
 
+#define SqrtJ2(x) (((x)>0)?sqrt((x)+1.0):1.0)
 /*
 ** VARIABLE:    EPS1, ..., EPS30.
 ** TYPE:        macro constants.

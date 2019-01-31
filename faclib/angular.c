@@ -474,7 +474,7 @@ double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
   if (!Triangle(jf, k, ji)) return 0.0;
   if (mi + q - mf) return 0.0;
 
-  r = sqrt(jf + 1.0);
+  r = SqrtJ2(jf);
   if (IsOdd((jf-mf)/2)) r = -r;
   r *= W3j(jf, k, ji, -mf, q, mi);
   return r;
@@ -503,7 +503,7 @@ double WignerEckartFactor(int jf, int k, int ji, int mf, int q, int mi) {
 */
 double ClebschGordan(int j1, int m1, int j2, int m2, int jf, int mf) {
   double r;
-  r = sqrt(jf+1.0);
+  r = SqrtJ2(jf);
   r *= W3j(j1, j2, jf, m1, m2, -mf);
 
   if (IsOdd((j1-j2+mf)/2)) r = -r;

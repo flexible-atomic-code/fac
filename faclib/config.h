@@ -339,8 +339,8 @@ CONFIG *ConfigFromIListM(int n, int *s, int m);
 void FreeConfigData(void *p);
 int ConfigExists(CONFIG *c);
 void SetClosedShellNR(int n, int k);
-int IsClosedShellNR(int n, int k, int nq);
-int IsClosedShellFR(int n, int k, int j, int nq);
+int IsClosedShellNR(int n, int k, int nq, int fn);
+int IsClosedShellFR(int n, int k, int j, int nq, int fn);
 int IsClosedComplex(int n, int nq);
 void ShellString(int n, int k, int q, char *s);
 int SDConfig(CONFIG *c, char *cs,

@@ -1907,6 +1907,10 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   ORBITAL *orb;
 
   int md;
+  if (fm->j1 < -1 || fm->j2 < -1) {
+    if (IsOdd((s[0].kl+s[1].kl+s[2].kl+s[3].kl)/2)) return;
+    if (IsOdd((s[4].kl+s[5].kl+s[6].kl+s[7].kl)/2)) return;
+  }
   if (fm->j1 < 0 || fm->j2 < 0) {
     md = 0;
     fm->j1 = s[1].j;
@@ -1921,7 +1925,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   if (md == 0) {
     TriadsZ(2, 2, fm);	      
     RecoupleTensor(8, s, fm);
-  }  
+  }
   kmin1 = abs(s[0].j-s[1].j);
   kk1 = abs(s[2].j-s[3].j);
   kmin1 = Max(kmin1, kk1);
@@ -1934,7 +1938,6 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   kmax2 = s[4].j + s[5].j;
   kk2 = s[6].j + s[7].j;
   kmax2 = Min(kmax2, kk2);
-  
   kk1 = 2*(MKK-1);
   kmax1 = Min(kmax1, kk1);
   kmax2 = Min(kmax2, kk1);
@@ -2019,7 +2022,6 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       a2[mkk2] = 0.0;
     }
   }
-
   orb = GetOrbital(ks2[2]);
   d1 = orb->energy + orb->qed;
   int nn1 = orb->n;
@@ -2242,6 +2244,10 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   ORBITAL *orb;
 
   int md;
+  if (fm->j1 < -1) {
+    if (IsOdd((s[0].kl+s[1].kl)/2)) return;
+    if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
+  }
   if (fm->j1 < 0) {
     md = 0;
     fm->j1 = s[1].j;
@@ -2513,6 +2519,9 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   MBPT_PMA *pma;
 
   int md;
+  if (fm->j1 < -1) {
+    if (IsOdd((s[2].kl+s[3].kl+s[4].kl+s[5].kl)/2)) return;
+  }
   if (fm->j1 < 0) {
     md = 0;
     fm->j1 = s[1].j;
@@ -2731,7 +2740,11 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   ORBITAL *orb0, *orb1, *orb2, *orb3;
 
   /* setup recouple tensor */
-  int md; 
+  int md;
+  if (fm->j1 < -1) {
+    if (IsOdd((s[0].kl+s[1].kl)/2)) return;
+    if (IsOdd((s[2].kl+s[3].kl)/2)) return;
+  }
   if (fm->j1 < 0) {
     md = 0;
     fm->j1 = s[1].j;
@@ -2945,7 +2958,10 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   MBPT_PMA *pma;
   
   /* setup recouple tensor */
-  int md;  
+  int md;
+  if (fm->j1 < -1) {
+    if (IsOdd((s[2].kl+s[3].kl)/2)) return;
+  }
   if (fm->j1 < 0) {
     md = 0;
     fm->j1 = s[1].j;
@@ -3628,7 +3644,7 @@ void DeltaH22M0(MBPT_EFF **meff, int ns,
 		    s[i].nq_ket = ket[s[i].index].nq;
 		    s[i].index = ns-s[i].index-1;
 		  }
-		  fm.j1 = -1;
+		  fm.j1 = -2;
 		  if (SkipMPIM(1)) continue;
 		  H22Term(meff, c0, c1, ns, bra, ket, sbra, sket, 
 			  mst, bst, kst, s, ph,
@@ -3887,7 +3903,7 @@ void DeltaH12M0(void *mptr, int ns,
 		s[i].nq_ket = ket[s[i].index].nq;
 		s[i].index = ns-s[i].index-1;
 	      }
-	      fm.j1 = -1;
+	      fm.j1 = -2;
 	      if (mode == 0) {
 		H12Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, sbra, sket,
 			mst, bst, kst, s, ph,
@@ -4104,7 +4120,7 @@ void DeltaH11M0(void *mptr, int ns,
 	    GetJLFromKappa(s[i].kappa, &(s[i].j), &(s[i].kl));
 	    s[i].index = ns-s[i].index-1;
 	  }
-	  fm.j1 = -1;
+	  fm.j1 = -2;
 	  if (mode == 0) {
 	    H11Term((MBPT_EFF **) mptr, c0, c1, ns, bra, ket, 
 		    sbra, sket, mst, bst, kst,
@@ -5339,7 +5355,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;
 	    if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
 	  }
-	}	    
+	}
 	FreeIdxAry(&mbpt_ibas0, 2);
 	InitIdxAry(&mbpt_ibas0, n0, bas0);
 	/* determine all virtual orbs */
@@ -5359,41 +5375,32 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	mbptjp.sd2a = malloc(sizeof(double)*mst);
 	mbptjp.c12a = malloc(sizeof(double)*mst);
 	if (n3 != 2) {
-	  /* 1-b 2-b term no virtual orb */
 	  DeltaH12M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &ing, nc, cs, 0);	      
-	  /* 1-b 2-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &mbpt_ibas1, &ing, nc, cs, 0);	  
-	  /* 2-b 1-b term no virtual orb */
 	  DeltaH12M0(meff, n0, ket2, bra2, sket2, sbra2, mst, kst, bst,
 		     ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &ing, nc, cs, 0);
-	  /* 2-b 1-b term 1 virtual orb */
 	  DeltaH12M1(meff, n0+1, ket1, bra1, sket1, sbra1, mst, kst, bst,
 		     ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &mbpt_ibas1, &ing, nc, cs, 0);	  
-	  /* 1-b 1-b term no virtual orb */
 	  DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 0);  
-	  /* 1-b 1-b term 1 virtual orb */	    
 	  DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
-		     &mbpt_ibas1, &ing, nc, cs, 0);
-	  /* 2-b 2-b term no virtual */
+		     &mbpt_ibas1, &ing, nc, cs, 0);	  	  
 	  DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0,
-		     mbpt_bas0s, mbpt_bas0d, &ing, nc, cs);
-	  /* 2-b 2-b term 1 virtual */
+		     mbpt_bas0s, mbpt_bas0d, &ing, nc, cs);	  
 	  DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
-		     &mbpt_ibas1, &ing, nc, cs);
+		     &mbpt_ibas1, &ing, nc, cs);	  	  
 	}
       	
 	if (n3 != 1) {
-	  /* 2-b 2-b term 2 virtual */
 	  DeltaH22M2(meff, n0+2, bra, ket, sbra, sket, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &mbpt_ibas1, &ing, &ing2, nc, cs);
