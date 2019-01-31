@@ -9519,4 +9519,8 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _acfg_wmode = ip;
     return;
   }
+  if (0 == strcmp(s, "radial:maxnhd")) {
+    InitHydrogenicDipole(ip);
+    return;
+  }
 }

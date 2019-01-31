@@ -248,7 +248,11 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 	}
       }
       free(kg);
-      (*t) = realloc(*t, k*sizeof(int));
+      if (k <= 0) {
+	free(*t);
+      } else {
+	(*t) = realloc(*t, k*sizeof(int));
+      }
       rv = k;
       goto END;
     } else if (at[0] == LIST) {
@@ -288,6 +292,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       for (m = m0; m < n; m++) {
 	if (at1[m] != NUMBER) {
 	  rv = -1;
+	  free(*t);
 	  goto END;
 	}
 	nrec = atoi(v1[m]);
@@ -316,13 +321,20 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       
       free(krg);
       free(kg);
-      (*t) = realloc(*t, k*sizeof(int));
+      if (k <= 0) {
+	free(*t);
+      } else {
+	(*t) = realloc(*t, k*sizeof(int));
+      }
       rv = k;
       goto END;
     } else {
       (*t) = malloc(sizeof(int)*n);
       for (i = 0; i < n; i++) {
-	if (at[i] != NUMBER) return -1;
+	if (at[i] != NUMBER) {
+	  free(*t);
+	  return -1;
+	}
 	(*t)[i] = atoi(v[i]);
       }
       rv = n;
@@ -860,7 +872,10 @@ static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) return -1;
+    if (nup <= 0) {
+      free(low);
+      return -1;
+    }
     SaveExcitation(nlow, low, nup, up, 0, argv[0]);
     free(low);
     free(up);
@@ -894,7 +909,10 @@ static int PCETableMSub(int argc, char *argv[], int argt[],
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) return -1;
+    if (nup <= 0) {
+      free(low);
+      return -1;
+    }
     SaveExcitation(nlow, low, nup, up, 1, argv[0]);
     free(low);
     free(up);
@@ -913,7 +931,10 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
   if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
 
   if (nlow > 0) free(low);
@@ -931,7 +952,10 @@ static int PCITableMSub(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
   if (SaveIonizationMSub(nlow, low, nup, up, argv[0]) < 0) return -1;
 
   if (nlow > 0) free(low);
@@ -1613,7 +1637,10 @@ static int PRRMultipole(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
   if (argc == 4) {
     if (argt[3] != NUMBER) return -1;
     m = atoi(argv[3]);
@@ -1636,7 +1663,10 @@ static int PRecOccupation(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
 
   SaveRecOccupation(nlow, low, nup, up, argv[0]);
 
@@ -1656,7 +1686,10 @@ static int PCXTable(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
 
   SaveCX(nlow, low, nup, up, argv[0]);
 
@@ -1677,9 +1710,16 @@ static int PRRTable(int argc, char *argv[], int argt[],
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
+  if (nup <= 0) {
+    free(low);
+    return -1;
+  }
   if (argc == 4) {
-    if (argt[3] != NUMBER) return -1;
+    if (argt[3] != NUMBER) {
+      free(low);
+      free(up);
+      return -1;
+    }
     m = atoi(argv[3]);
   }
   SaveRecRR(nlow, low, nup, up, argv[0], m);
@@ -3763,7 +3803,10 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) return -1;
+    if (nup <= 0) {
+      free(low);
+      return -1;
+    }
     SaveTransition(nlow, low, nup, up, argv[0], m);
     free(low);
     free(up);
@@ -3772,7 +3815,10 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
     if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) return -1;
+    if (nup <= 0) {
+      free(low);
+      return -1;
+    }
     m = atoi(argv[3]);
     SaveTransition(nlow, low, nup, up, argv[0], m);
     free(low);
@@ -4629,6 +4675,10 @@ static int PSlaterCoeff(int argc, char *argv[], int argt[],
     free(ilev);
     free(sa);
     free(sb);
+  } else {
+    if (nlev > 0) free(ilev);
+    if (na > 0) free(sa);
+    if (nb > 0) free(sb);
   }
   
   return 0;
@@ -4890,6 +4940,25 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PTRRateH(int argc, char *argv[], int argt[], 
+		    ARRAY *variables) {
+  int os, n0, n1, kl0, kl1;
+  double z, r;
+  os = 0;
+  if (argc < 5) return -1;
+  z = atof(argv[0]);
+  n0 = atoi(argv[1]);
+  kl0 = atoi(argv[2]);
+  n1 = atoi(argv[3]);
+  kl1 = atoi(argv[4]);
+  if (argc > 5) {
+    os = atoi(argv[5]);
+  }
+  r = TRRateHydrogenic(z, n0, kl0, n1, kl1, os);
+  printf("%g %d %d %d %d %d %12.5E\n", z, n0, kl0, n1, kl1, os, r);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5095,6 +5164,7 @@ static METHOD methods[] = {
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
+  {"TRRateH", PTRRateH, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

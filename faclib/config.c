@@ -107,16 +107,24 @@ int IsClosedComplex(int n, int nq) {
   return 1;
 }
 
-int IsClosedShellNR(int n, int k, int nq) {
-  if (n >= NCS) return 0;
+int IsClosedShellNR(int n, int k, int nq, int fn) {
   if (nq < 2*(k*2+1)) return 0;
-  return _isclosed[n-1][k];
+  if (fn && n >= fn) {
+    if (n >= NCS) return 0;
+    return _isclosed[n-1][k];
+  } else {
+    return 1;
+  }
 }
 
-int IsClosedShellFR(int n, int k, int j, int nq) {
-  if (n >= NCS) return 0;
+int IsClosedShellFR(int n, int k, int j, int nq, int fn) {
   if (nq < j+1) return 0;
-  return _isclosed[n-1][k];
+  if (fn && n >= fn) {
+    if (n >= NCS) return 0;
+    return _isclosed[n-1][k];
+  } else {
+    return 1;
+  }
 }
 
 void SetClosedShellNR(int n, int k) {

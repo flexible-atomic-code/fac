@@ -81,6 +81,7 @@ static double diag_bcut = 5e-2;
 static int diag_nzm = 100;
 static int diag_nbm = 32;
 static double diag_bignore = 0.25;
+static int full_name = 1;
 
 static int sym_pp = -1;
 static int sym_njj = 0;
@@ -4385,7 +4386,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
     else jsym = '+';
     kl = kl/2;
     if (name) {
-      if (((nq <= j+1) && nq > 0 && !IsClosedShellFR(n, kl, j, nq)) ||
+      if (((nq <= j+1) && nq > 0 &&
+	   !IsClosedShellFR(n, kl, j, nq, full_name)) ||
 	  (i == 0 && name[0] == '\0')) {
 	SpecSymbol(symbol, kl);
 	if (c->n_csfs > 0) {
@@ -4420,7 +4422,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0 && nq0 <= 2*(2*kl0+1) && !IsClosedShellNR(n0, kl0, nq0)) {
+	if (nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
+	    !IsClosedShellNR(n0, kl0, nq0, full_name)) {
 	  SpecSymbol(symbol, kl0);
 	  if (sname[0]) {
 	    sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
@@ -4437,7 +4440,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   }
 
   if (sname && n0 > 0) {
-    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) && !IsClosedShellNR(n0, kl0, nq0)) ||
+    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
+	 !IsClosedShellNR(n0, kl0, nq0, full_name)) ||
 	sname[0] == '\0') {
       SpecSymbol(symbol, kl0);
       if (sname[0]) {
@@ -6945,6 +6949,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:angz_cut")) {
     angz_cut = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:full_name")) {
+    full_name = ip;
     return;
   }
 }

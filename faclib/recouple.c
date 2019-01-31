@@ -242,7 +242,7 @@ double DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       /* it is a 9j symbol, although in most cases it reduces to a 
 	 6j symbol or even a number. shall distinguish them if maximum
 	 efficiency is needed here */
-      coeff = (sqrt((Jbra+1.0)*(Jket+1.0)*(rank[0]+1.0)) *
+      coeff = (sqrt((1.0+Jbra)*(1.0+Jket)*(1.0+rank[0])) *
 	       W9j(j1bra, j2bra, Jbra, 
 		   j1ket, j2ket, Jket,
 		   k1, k2, k));
@@ -251,7 +251,9 @@ double DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
 	/* if the current shell is not an interacting one, the two shells
 	   in bra and ket state should be identical. and the reduced matrix
 	   element of the identity operator should be included */
-	coeff *= sqrt(j2bra + 1);	
+	if (j2bra > 0) {
+	  coeff *= sqrt(j2bra+1.0);
+	}
       } else {
 	/* otherwise proceed to the next interacting one */
 	n_interact--;
@@ -267,7 +269,7 @@ double DecoupleShellRecursive(int n_shells, SHELL_STATE *bra, SHELL_STATE *ket,
       coeff *= a;
     }
   } else {
-    coeff = sqrt(bra[0].totalJ + 1.0);
+    coeff = SqrtJ2(bra[0].totalJ);
   }
   return coeff;
 }
@@ -475,7 +477,7 @@ int AngularZ(double **coeff, int **kk, int nk,
   }
  
   for (k = 0; k < nk; k++) {
-    (*coeff)[k] /= -sqrt((*kk)[k] + 1);
+    (*coeff)[k] /= -SqrtJ2((*kk)[k]);
 #if FAC_DEBUG    
     fprintf(debug_log, "AngularZ: %d %lf\n", (*kk)[k], (*coeff)[k]);
 #endif
@@ -1205,7 +1207,7 @@ int AngularZxZ0(double **coeff, int **kk, int nk,
   for (m = 0; m < nk; m++) {
     /* this factor arise from the definition of Z^k and the 
        scalar product. */
-    (*coeff)[m] /= sqrt((*kk)[m] + 1);
+    (*coeff)[m] /= SqrtJ2((*kk)[m]);
     if (IsOdd((*kk)[m]/2)) (*coeff)[m] = -(*coeff)[m];
   }
 
@@ -1238,14 +1240,14 @@ void SumCoeff(double *coeff,  int *kk,  int nk,  int p,
       if (fabs(coeff1[j]) > 0.0) {
 	x = W6j(j1, j2, kk[i], j3, j4, kk1[j]);
 	if (fabs(x) > 0.0) {
-	  x *= sqrt(kk1[j] + 1.0);
+	  x *= SqrtJ2(kk1[j]);
 	  if (p1 && IsOdd(kk1[j]/2)) x = -x;
 	  coeff[i] += x * coeff1[j];
 	}
       }
     }
     if (fabs(coeff[i]) > 0.0) {
-      coeff[i] *= sqrt(kk[i]+1.0);
+      coeff[i] *= SqrtJ2(kk[i]);
       if (p) {
 	if (IsOdd(phase + kk[i]/2)) coeff[i] = -coeff[i];
       } else {
@@ -2177,7 +2179,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
       kk2[7] = 0;      
       EvaluateTensor(n_shells, sbra, sket, s, 1, &fm);
       y = fm.coeff;
-      y /= sqrt(k+1.0);
+      y /= SqrtJ2(k);
       if (IsOdd(k/2)) y = -y;
       printf("Ang: %2d %15.8E %15.8E\n", k, ang1[i], y);
     }
@@ -2202,7 +2204,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
     k0 = &k;
     x = &z0;
     nk0 = AngularZ(&x, &k0, nk0, n_shells, sbra, sket, s, s+3);
-    z0 = z0/sqrt(s[0].j+1.0);
+    z0 = z0/SqrtJ2(s[0].j);
     if (IsOdd((s[0].j + s[2].j)/2)) z0 = -z0;
   }
   
@@ -2390,7 +2392,7 @@ void CheckAngularConsistency(int n_shells, SHELL *bra,
       if (IsOdd((sbra[0].totalJ - icfg.csfs[i].totalJ) / 2)) y = -y;
       fprintf(debug_log, "Sum Terms; %d %d %d %lf\n",
 	      kk1[j1], kk2[j2], kk3[j3], y);
-      ang4[j1] += y/sqrt(sbra[0].totalJ + 1.0);
+      ang4[j1] += y/SqrtJ2(sbra[0].totalJ);
     }
     free(ang2);
     free(ang3);
