@@ -66,15 +66,21 @@ void GetHydrogenicNL(int *n, int *kl, int *nm, int *klm) {
 }
 
 void InitHydrogenicDipole(int nmax) {
-  double anc, am, *ac;
+  double anc, am, *ac, *t;
   double z0 = 1.0;
   int n0, n1, iopt, i;
 
   if (nmax <= dipole_nmax) return;
+  ac = malloc(sizeof(double)*2*nmax);
   if (dipole_nmax == 0) {
     dipole_array = malloc(sizeof(double *)*nmax);
   } else {
     dipole_array = realloc(dipole_array, sizeof(double *)*nmax);
+  }
+  for (n1 = dipole_nmax+1; n1 <= nmax; n1++) {
+    i = n1-1;
+    if (n1 == 1) continue;
+    dipole_array[i] = malloc(sizeof(double)*n1*(n1-1));
   }
   n1 = 2;
   n0 = 1;
@@ -83,16 +89,20 @@ void InitHydrogenicDipole(int nmax) {
   ACOFZ1(z0, am, nmax, n0, ac, &anc, n1, iopt);
   iopt = 1;
   for (n1 = dipole_nmax+1; n1 <= nmax; n1++) {
-    i = n1-1;
     if (n1 == 1) continue;
-    dipole_array[i] = malloc(sizeof(double)*n1*(n1-1));
-    ac = dipole_array[i];
+    t = dipole_array[n1-1];
     for (n0 = 1; n0 < n1; n0++) {
-      ACOFZ1(z0, am, n1, n0, ac, &anc, n0, iopt);
-      ac += 2*n0;
+      ACOFZ1(z0, am, n1, n0, ac, &anc, n1, iopt);
+      for (i = 0; i < n0; i++) {
+	*(t++) = ac[i];
+      }
+      for (i = 0; i < n0; i++) {
+	*(t++) = ac[i+n1];
+      }
     }
   }
   dipole_nmax = nmax;
+  free(ac);
 }
 
 double HydrogenicDipole(double z, int n0, int kl0, int n1, int kl1) {
