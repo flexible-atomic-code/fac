@@ -3270,7 +3270,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
   int n3, *ng3, n4, *ng4;
   char *v[MAXNARGS], *gn;
   int t[MAXNARGS], nv;
-  double d, c, e, f;
+  double d, c, e, f, *sd;
 
   if (argc == 1) {
     if (argt[0] != NUMBER && argt[0] != LIST) return -1;
@@ -3298,24 +3298,37 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       return 0;
     }
     if (argt[0] != STRING) return -1;
+    n2 = -2;
+    n1 = -2;
+    d = -2.0;
+    e = -2.0;
     if (argt[1] == NUMBER) {
-      n2 = atoi(argv[1]);
-      n1 = n2;
-    } else if (argt[1] == LIST) {
-      n3 = IntFromList(argv[1], argt[1], variables, &ng3);
-      if (n3 == 0) {
-	n2 = -1;
-	n1 = -1;	
-      } else if (n3 == 1) {
-	n2 = ng3[0];
+      if (!strstr(argv[1], ".")) {
+	n2 = atoi(argv[1]);
 	n1 = n2;
       } else {
-	n2 = ng3[0];
-	n1 = ng3[1];
+	d = atof(argv[1]);
+	e = d;
       }
-      if (n3 > 0) free(ng3);
+    } else if (argt[1] == LIST) {
+      n3 = DoubleFromList(argv[1], argt[1], variables, &sd);
+      if (n3 > 0) {
+	n2 = (int)sd[0];
+	n1 = n2;
+	if (n3 > 1) {
+	  n1 = (int)sd[1];
+	  if (n3 > 2) {
+	    d = sd[2];
+	    e = d;
+	    if (n3 > 3) {
+	      e = sd[3];
+	    }
+	  }
+	}      
+        free(ng3);
+      }
     }
-    SetExcMBPT(n2, n1, argv[0]);
+    SetExcMBPT(n2, n1, d, e, argv[0]);
     return 0;
   }
   if ((argc == 3 || argc == 4 || argc == 5 || argc == 6)

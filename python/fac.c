@@ -2109,7 +2109,7 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
   int i, n, n1, *ng1, n2, *ng2, *s, nk, *nkm, kmax;
   int n3, *ng3, n4, *ng4;
   char *fn, *fn1, *gn, **fn2;
-  double d, c, e, f;
+  double d, c, e, f, *sd;
 
   if (sfac_file) {
     SFACStatement("StructureMBPT", args, NULL);
@@ -2155,24 +2155,35 @@ static PyObject *PStructureMBPT(PyObject *self, PyObject *args) {
     }
     if (!PyUnicode_Check(q)) return NULL;
     gn = PyUnicode_AsString(q);
+    n2 = -2;
+    n1 = -2;
+    d = -2.0;
+    e = -2.0;
     if (PyLong_Check(p)) {
       n2 = PyLong_AsLong(p);
       n1 = n2;
+    } else if (PyFloat_Check(p)) {
+      d = PyFloat_AsDouble(p);
+      e = d;
     } else {
-      n3 = IntFromList(p, &ng3);
-      if (n3 == 0) {
-	n2 = -1;
-	n1 = -1;
-      } else if (n3 == 1) {
-	n2 = ng3[0];
+      n3 = DoubleFromList(p, &sd);
+      if (n3 > 0) {
+	n2 = (int)sd[0];
 	n1 = n2;
-      } else {
-	n2 = ng3[0];
-	n1 = ng3[1];
+	if (n3 > 1) {
+	  n1 = (int)sd[1];
+	  if (n3 > 2) {
+	    d = sd[2];
+	    e = d;
+	    if (n3 > 3) {
+	      e = sd[3];
+	    }
+	  }
+	}
+        free(sd);
       }
-      if (n3 > 0) free(ng3);
     }
-    SetExcMBPT(n2, n1, gn);
+    SetExcMBPT(n2, n1, d, e, gn);
     Py_INCREF(Py_None);
     return Py_None;
   }

@@ -66,6 +66,8 @@ static int mbpt_nsplit = 0;
 static int mbpt_ne = 0;
 static int *mbpt_se = NULL;
 static int *mbpt_de = NULL;
+static double *mbpt_wse = NULL;
+static double *mbpt_wde = NULL;
 static CONFIG **mbpt_cs = NULL;
 static CONFIG mbpt_cfg;
 static int *mbpt_bas0, *mbpt_bas0s, *mbpt_bas0d, *mbpt_bas1;
@@ -75,6 +77,7 @@ static char mbpt_ccn[256] = "";
 static ARRAY *mbpt_cca = NULL;
 static double mbpt_wmix = 1e-4;
 static double mbpt_nwmix = 0.0;
+static int mbpt_wmixmode = 1;
 static struct {
   int nj;
   int *jp;
@@ -118,6 +121,7 @@ void PrintMBPTOptions(void) {
   printf("nsplit=%d\n", mbpt_nsplit);
   printf("freetr=%g\n", mbpt_freetr);
   printf("ccn=%s\n", mbpt_ccn);
+  printf("wmixmode=%d\n", mbpt_wmixmode);
   printf("wmix=%g\n", mbpt_wmix);
   printf("nwmix=%g\n", mbpt_nwmix);
 }
@@ -143,9 +147,13 @@ void InitMBPT(void) {
   int i;
   mbpt_se = (int *) malloc(sizeof(int)*n);
   mbpt_de = (int *) malloc(sizeof(int)*n);
+  mbpt_wse = (double *) malloc(sizeof(double)*n);
+  mbpt_wde = (double *) malloc(sizeof(double)*n);
   for (i = 0; i < n; i++) {
     mbpt_se[i] = -1;
     mbpt_de[i] = -1;
+    mbpt_wse[i] = 0.0;
+    mbpt_wde[i] = 0.0;
   }
 }
 
@@ -290,6 +298,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
     mbpt_diag = ip;
     return;
   }
+  if (0 == strcmp(s, "mbpt:wmixmode")) {
+    mbpt_wmixmode = ip;
+    return;
+  }  
   if (0 == strcmp(s, "mbpt:wmix")) {
     mbpt_wmix = dp;
     return;
@@ -384,20 +396,23 @@ void SetSymMBPT(int nlev, int *ilev) {
   }
 }
 
-void SetExcMBPT(int nd, int ns, char *s) {
+void SetExcMBPT(int nd, int ns, double wd, double ws, char *s) {
   int i, j, k, n, nc;
   char *p;
   char s0[512];
   CONFIG *cfg;
-  
+
+  printf("SetExcMBPT: %s --- %d %d %g %g\n", s, nd, ns, wd, ws);
   strncpy(s0, s, 511);
   s = s0;
   while (*s == ' ') s++;
   if (*s == '\0') {
     n = mbpt_ne*mbpt_ne;    
     for (k = 0; k < n; k++) {
-      mbpt_se[k] = nd;
-      mbpt_de[k] = ns;
+      if (ns > -2) mbpt_se[k] = ns;
+      if (nd > -2) mbpt_de[k] = nd;
+      if (ws >= 0) mbpt_wse[k] = ws;
+      if (wd >= 0) mbpt_wde[k] = wd;
     }
     return;
   }
@@ -413,8 +428,10 @@ void SetExcMBPT(int nd, int ns, char *s) {
       }
       k = IdxSD((cfg[j].shells)[0].n, (cfg[j].shells)[0].kappa);
       if (k >= 0) {
-	mbpt_se[k] = ns;
-	mbpt_de[k] = nd;
+	if (ns > -2) mbpt_se[k] = ns;
+	if (nd > -2) mbpt_de[k] = nd;
+	if (ws >= 0) mbpt_wse[k] = ws;
+	if (wd >= 0) mbpt_wde[k] = wd;
       }
     }
     if (nc > 0) free(cfg);
@@ -3229,7 +3246,8 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst,
 		CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, int *ib0s, int *ib0d, IDXARY *ib1, IDXARY *ing, 
+		IDXARY *ib0, int *ib0s, int *ib0d,
+		IDXARY *ib1, IDXARY *ing, 
 		IDXARY *ing2, int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im;
   int m1, m2, i, k, j1, j2;
@@ -3349,7 +3367,8 @@ void DeltaH22M2(MBPT_EFF **meff, int ns,
 void DeltaH22M1(MBPT_EFF **meff, int ns,
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, int *ib0s, int *ib0d, IDXARY *ib1, IDXARY *ing,
+		IDXARY *ib0, int *ib0s, int *ib0d,
+		IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs) {
   int ia, ib, ic, id, ik, im, ip, iq;
   int op[4], om[4], ph, k, ks1[4], ks2[4];
@@ -3928,7 +3947,7 @@ void DeltaH12M0(void *mptr, int ns,
 void DeltaH11M1(void *mptr, int ns, 
 		SHELL *bra, SHELL *ket, SHELL_STATE *sbra, SHELL_STATE *sket,
 		int mst, int *bst, int *kst, CONFIG *c0, CONFIG *c1, 
-		IDXARY *ib0, int *ib0s, IDXARY *ib1, IDXARY *ing,
+		IDXARY *ib0, int *ib0s,IDXARY *ib1, IDXARY *ing,
 		int nc, CONFIG **cs, int mode) {
   int ia, ib, ik, im, k, k0, k1, k2, k3, i, i1, m1, ij;
   int op[2], om[2], ph;
@@ -4796,13 +4815,15 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     int ki=0, ke=0;
     int jig, iig;
     double *mix0 = h->mixing+h->dim;
-    for (i = 0; i < h->dim; i++) {
-      h->work[i] = 0;
-      for (m = 0; m < mks; m++) {
-	k = ks[m];
-	mix = mix0 + h->n_basis*k;
-	double am = fabs(mix[i]);
-	if (h->work[i] < am) h->work[i] = am;
+    if (mbpt_wmixmode == 0) {
+      for (i = 0; i < h->dim; i++) {
+	h->work[i] = 0;
+	for (m = 0; m < mks; m++) {
+	  k = ks[m];
+	  mix = mix0 + h->n_basis*k;
+	  double am = fabs(mix[i]);
+	  if (h->work[i] < am) h->work[i] = am;
+	}
       }
     }
     for (j = 0; j < h->dim; j++) {
@@ -4819,7 +4840,17 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	} else {
 	  iig = 1;
 	}
-	c = h->work[i]*h->work[j];
+	if (mbpt_wmixmode == 0) {
+	  c = h->work[i]*h->work[j];
+	} else {
+	  c = 0.0;
+	  for (m = 0; m < mks; m++) {
+	    k = ks[m];
+	    mix = mix0 + h->n_basis*k;
+	    a = fabs(mix[i]*mix[j]);
+	    if (a > c) c = a;
+	  }
+	}
 	k = j*(j+1)/2 + i;
 	a = mbpt_mcut;
 	if (iig || jig) a *= mbpt_mcut2;
@@ -5288,6 +5319,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	bst0 = malloc(sizeof(int)*cfgpair[ic].m);
 	kst0 = malloc(sizeof(int)*cfgpair[ic].m);
 	m = 0;
+	double wmax = 0;
 	for (m0 = 0; m0 < c0->n_csfs; m0++) {
 	  ms0 = c0->symstate[m0];
 	  UnpackSymStateMBPT(meff, ms0, &i0, &q0);
@@ -5307,6 +5339,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    if (meff[i0] && meff[i0]->nbasis > 0 && meff[i0]->imbpt[k] > 0) {
 	      bst0[m] = m0;
 	      kst0[m] = m1;
+	      if (meff[i0]->wmbpt[k] > wmax) wmax = meff[i0]->wmbpt[k];
 	      m++;
 	    }
 	  }
@@ -5352,6 +5385,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    int idx = IdxSD(bra2[k].n, bra2[k].kappa);
 	    mbpt_bas0s[k] = mbpt_se[idx];
 	    mbpt_bas0d[k] = mbpt_de[idx];
+	    if (wmax < mbpt_wse[idx]) mbpt_bas0s[k] = 0;
+	    if (wmax < mbpt_wde[idx]) mbpt_bas0d[k] = 0;
 	    if (mbpt_bas0s[k] < 0) mbpt_bas0s[k] = 1000000;
 	    if (mbpt_bas0d[k] < 0) mbpt_bas0d[k] = 1000000;
 	  }
@@ -5388,16 +5423,17 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		     ct1, ct0, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
 		     &mbpt_ibas1, &ing, nc, cs, 0);	  
 	  DeltaH11M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 0);  
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
+		     &ing, nc, cs, 0);  
 	  DeltaH11M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
-		     &mbpt_ibas1, &ing, nc, cs, 0);	  	  
+		     &mbpt_ibas1, &ing, nc, cs, 0);
 	  DeltaH22M0(meff, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		     ct0, ct1, &mbpt_ibas0,
-		     mbpt_bas0s, mbpt_bas0d, &ing, nc, cs);	  
+		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
+		     &ing, nc, cs);	  
 	  DeltaH22M1(meff, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst,
 		     ct0, ct1, &mbpt_ibas0, mbpt_bas0s, mbpt_bas0d,
-		     &mbpt_ibas1, &ing, nc, cs);	  	  
+		     &mbpt_ibas1, &ing, nc, cs);
 	}
       	
 	if (n3 != 1) {
@@ -5986,7 +6022,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 		   &mbpt_ibas1, &ing, nc, cs, 1);
 	/* 1-b 1-b term no virtual orb */
 	DeltaH11M0(mtr, n0, bra2, ket2, sbra2, sket2, mst, bst, kst,
-		   ct0, ct1, &mbpt_ibas0, mbpt_bas0s, &ing, nc, cs, 1);
+		   ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
+		   &ing, nc, cs, 1);
 	/* 1-b 1-b term 1 virtual orb */
 	DeltaH11M1(mtr, n0+1, bra1, ket1, sbra1, sket1, mst, bst, kst, 
 		   ct0, ct1, &mbpt_ibas0, mbpt_bas0s,
