@@ -26,7 +26,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
-#define MAXMSUB 32
+#define MAXMSUB 256
 #define NINT0 12
 #define NINT 128
 #define YEG0 5E-4
@@ -1477,12 +1477,19 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
   }
 
   rqk = qkc;
+  j = 0;
   for (m1 = -j1; m1 <= 0; m1 += 2) {
     for (m2 = -j2; m2 <= j2; m2 += 2) {
       for (ie = 0; ie < n_egrid; ie++) {
 	rqk[ie] = 0.0;
       }
       rqk += n_egrid;
+      j++;
+      if (j >= MAXMSUB) {
+	printf("MAXMSUB exceeded in Ionization: %d %d %d %d %d %d\n",
+	       b, f, j1, j2, j, MAXMSUB);
+	Abort(1);
+      }
     }
   }
 

@@ -61,7 +61,7 @@ static int cxrotcouple = 1.0;
 static MULTI *pk_array;
 static MULTI *qk_array;
 
-#define MAXAIM 1024
+#define MAXAIM 4096
 #define NPARAMS 3
 static ARRAY *hyd_qk_array;
 
