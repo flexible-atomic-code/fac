@@ -27,7 +27,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
-#define MAXMSUB  32
+#define MAXMSUB  256
 #define NPARAMS  4
 
 static int qk_mode;
@@ -2298,6 +2298,12 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	  rqk[ie] = 0.0;
 	}
 	rqk += n_egrid1;
+	j++;
+	if (j >= MAXMSUB) {
+	  printf("MAXMSUB exceeded in Excitation: %d %d %d %d %d %d\n",
+		 lower, upper, j1, j2, j, MAXMSUB);
+	  Abort(1);
+	}
       }
     }
   } else {
