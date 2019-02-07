@@ -2527,6 +2527,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     if (rmin > a) rmin = a;
   }
 
+  pot->xps = 1.0;
   if (pot->mps >= 0) {
     if (pot->zps <= 0) {
       pot->zps = z0 - pot->N;
@@ -3569,27 +3570,37 @@ void StewartPyatt(POTENTIAL *pot, double *vt) {
   double a = pot->aps;
   double fa = pot->fps;
   double x, x0, x1, x2, xi, y, y0, k, j, c, z1, xr, yr, g, kc;
-
+  
   if (vt) {
     if (_sp_mode == 0 || _sp_mode == 2 || _sp_mode == 4) return;
+  } else {
+    pot->xps = 1.0;
   }
+  kc = 1.0;
   if (_relativistic_fermi) {
     g = pot->tps*FINE_STRUCTURE_CONST2;
   } else {
     g = 0.0;
   }
   m = pot->maxrp-1;
-  c = pot->zps/(pot->dps*pot->tps);
+  k = pot->zps/(pot->dps*pot->tps);
   z1 = 1.0 + pot->ups;
   x = 3*z1;
-  k = c;
-  j = (pow(x*k+1.0, 0.666667)-1)*0.5/z1;
+  j = (pow(x*k+1.0, 0.66666666667)-1)*0.5/z1;
   x1 = sqrt(2*z1*j+1)-1.0;
-  kc = (c*exp(-x1)/x1)/((k/x1)-j+x1*x1/(6*z1));
-  x0 = pot->dps;
-  if (x1 < x0) x1 = x0;
+  c = exp(x1)*(j-x1*x1/(2*z1))*pot->xps;
+  x0 = pot->rps/pot->dps;
   x2 = _sp_rmax*x1;
+  x = 2.0*Max(1.0, x0);
+  x2 = Max(x2, x);
+  x *= 5;
+  x2 = Min(x2, x);
+  if (x2 < x1) x2 = x1;
   xi = _sp_rmin*x1;
+  x = 0.5*Min(1.0, x0);
+  xi = Min(x1, x);
+  x = (GetAtomicR()*2.0)/pot->dps;
+  xi = Max(xi, x);
   y0 = -1e30;
   xr = _fermi_yb;
   yr = (FermiIntegral(xr+a, xr, g)/fa-1.0)/xr;
@@ -3650,21 +3661,18 @@ void StewartPyatt(POTENTIAL *pot, double *vt) {
       if (x <= xi) {
 	ib = i+1;
 	if (vt == NULL) {
-	  kc = ys[0]/c;
+	  kc = 1.0;
 	  for (; i >= 0; i--) {
 	    x = pot->rad[i]/pot->dps;
-	    _veff[i] = kc*c/x;
+	    _veff[i] = ((k/x) - j + x*x/(6.0*z1));
 	    if (_sp_mode == 4) {
 	      if (x < x1 && _veff[i] > pot->Z[i]/(pot->rad[i]*pot->tps)) break;
 	    }
 	  }
 	} else {
-	  kc = fabs(vt[ib])/(pot->tps*_veff[ib]);
-	  for (i = ib; i < pot->maxrp; i++) {
-	    _veff[i] *= kc;
-	  } 
+	  kc = (_veff[ib])/fabs(vt[ib]);
 	  for (i = ib-1; i >= 0; i--) {
-	    _veff[i] = fabs(vt[i])/pot->tps;
+	    _veff[i] = kc*fabs(vt[i]);
 	  }
 	}
       }    
@@ -3709,14 +3717,17 @@ void StewartPyatt(POTENTIAL *pot, double *vt) {
   _dwork[m] = 0.0;
   NewtonCotes(_dwork, _dwork1, 0, m, -1, -1);
   x = pot->rad[0]/pot->dps;
-  _dwork3[0] = _dwork2[0]*x*x*x/3.0;
+  _dwork3[0] = _dwork1[0]*x*x*x/3.0;
   NewtonCotes(_dwork3, _dwork2, 0, m, -1, 0);
-  c = pot->zps/_dwork3[m];
+  double cs = pot->zps/_dwork3[m];
+  double xps = pot->xps*k/_dwork3[m];
+  pot->xps = 0.5*pot->xps + 0.5*xps;  
+  //printf("cs: %g %g %g %g %g %g %g %g %g %g\n", pot->zps, _dwork3[m], c, k, pot->xps, cs, x1, xi, x2, kc);
   for (i = 0; i < pot->maxrp; i++) {
     x = pot->rad[i]/pot->dps;
-    y = -c*(_dwork3[i] + x*_dwork[i]);
+    y = -cs*(_dwork3[i] + x*_dwork[i]);
     pot->ZPS[i] = y;
-    pot->NPS[i] *= c/(FOUR_PI*pow(pot->dps,3));
+    pot->NPS[i] *= cs/(FOUR_PI*pow(pot->dps,3));
     //pot->NPS[i] = _veff[i];
   }
 }

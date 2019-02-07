@@ -542,15 +542,16 @@ double uvip3s(int n, double *x, int i) {
     if (a1 < x[k]) a1 = x[k];
   }
   double da = a1-a0;
-  if (!da) {
-    return x[i-1];
+  if (da < 1e-100) {
+    return 0.5*(x[i-1]+x[i]);
   }
   for (k = 0; k < n; k++) {
     _ncyi[k] = x[k]/da;
   }
     
   UVIP3I(3, n, _ncxi, _ncyi, i, &c1, &c2, &c3);
-  return (_ncyi[i-1]+0.5*c1+ONETHIRD*c2+0.25*c3)*da;
+  double r=(_ncyi[i-1]+0.5*c1+ONETHIRD*c2+0.25*c3)*da;
+  return r;
 }
 
 /* used to be integration by newton-cotes formula 

@@ -649,6 +649,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->aps, sizeof(double), 1, f);
   n = BFileRead(&p->fps, sizeof(double), 1, f);
   n = BFileRead(&p->ups, sizeof(double), 1, f);
+  n = BFileRead(&p->xps, sizeof(double), 1, f);
   n = BFileRead(&p->ips, sizeof(int), 1, f);
   AllocPotMem(p, maxrp);
   n = BFileRead(p->dws, sizeof(double), p->nws, f);
@@ -797,6 +798,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->aps, sizeof(double), 1, f);
   n = fwrite(&p->fps, sizeof(double), 1, f);
   n = fwrite(&p->ups, sizeof(double), 1, f);
+  n = fwrite(&p->xps, sizeof(double), 1, f);
   n = fwrite(&p->ips, sizeof(int), 1, f);
   n = fwrite(p->dws, sizeof(double), p->nws, f);
   /*
@@ -1985,6 +1987,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    dps = %12.5E\n", potential->dps);
   fprintf(f, "#    aps = %12.5E\n", potential->aps);
   fprintf(f, "#    fps = %12.5E\n", potential->fps);
+  fprintf(f, "#    xps = %12.5E\n", potential->xps);
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
@@ -5371,7 +5374,6 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   kl1 = GetLFromKappa(orb1->kappa);
   kl2 = GetLFromKappa(orb2->kappa);
   kl3 = GetLFromKappa(orb3->kappa);
-
   if (orb1->n < 0 || orb3->n < 0) {
     mode = 2;
   } else {
