@@ -717,10 +717,11 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     q = PyTuple_GetItem(args, i);
     if (!PyUnicode_Check(q)) return NULL;
     p = PyUnicode_AsString(q);    
-    if (p[0] == '@') {
-      FILE *f = fopen(p+1, "r");
+    if (!isdigit(p[0]) && p[0] != ' ') {
+      if (p[0] == '@') p++;
+      FILE *f = fopen(p, "r");
       if (f == NULL) {
-	printf("cannot open configuration file: %s\n", p+1);
+	printf("cannot open configuration file: %s\n", p);
 	continue;
       }
       while (1) {

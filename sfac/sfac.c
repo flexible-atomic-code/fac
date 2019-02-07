@@ -657,10 +657,12 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
     if (argt[i] != STRING) return -1;
-    if (argv[i][0] == '@') {
-      FILE *f = fopen(argv[i]+1, "r");
+    if (!isdigit(argv[i][0]) && argv[i][0] != ' ') {
+      char *p = argv[i];
+      if (p[0] == '@') p++;
+      FILE *f = fopen(p, "r");
       if (f == NULL) {
-	printf("cannot open configuration file: %s\n", argv[i]+1);
+	printf("cannot open configuration file: %s\n", p);
 	continue;
       }
       while (1) {

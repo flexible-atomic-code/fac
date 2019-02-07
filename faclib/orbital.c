@@ -37,9 +37,11 @@ static int _relativistic_fermi = 2;
 static double _fermi_abserr = 1e-7;
 static double _fermi_relerr = 1e-5;
 static double _fermi_yb = 1e-4;
+static double _fermi_stablizer = 0.5;
 static double _sp_rmin = 0.1;
 static double _sp_rmax = 5.0;
 static int _sp_mode = 3;
+static int _sp_uvt = 1;
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
 
@@ -3249,6 +3251,12 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
     return 0;
   }
 
+  if (vt && _sp_uvt) {
+    for (i = 0; i < pot->maxrp; i++) {
+      vt[i] += pot->W[i]/pot->rad[i];
+    }
+  }
+  
   if (pot->mps == 2) {//stewart&pyatt
     StewartPyatt(pot, vt);
     Differential(pot->ZPS, pot->dZPS, 0, pot->maxrp-1, pot->dr_drho);
@@ -3288,7 +3296,9 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
   for (i = 0; i < 128; i++) {
     n0 = pot->ups;
     FreeElectronDensity(pot, vt);
-    if (fabs(1-exp(pot->ups-n0)) < EPS5) break;
+    if (fabs(1-exp(pot->ups-n0)) < _fermi_abserr) break;
+    x = _fermi_stablizer;
+    pot->ups = x*n0 + (1-x)*pot->ups;
   }
   for (i = 0; i <= pot->ips; i++) {
     x = pot->rad[i];
@@ -3304,7 +3314,6 @@ int SetPotentialPS(POTENTIAL *pot, double *vt) {
   NewtonCotes(_dwork2, _dwork, 0, pot->ips, -1, -1);
   for (i = 0; i <= pot->ips; i++) {
     pot->ZPS[i] = -FOUR_PI*(_dwork1[i] + pot->rad[i]*_dwork2[i]);
-    x = pot->rad[i]/r0;
   }
   for (i = pot->ips+1; i < pot->maxrp; i++) {
     pot->ZPS[i] = pot->ZPS[pot->ips];
@@ -3338,6 +3347,8 @@ void FreeElectronDensity(POTENTIAL *pot, double *vt) {
 	y = exp(pot->ups-y);
 	_dwork1[k] = sqrt(k2)*y/(y + 1);
       }
+      _dwork[0] = 0.0;
+      //NewtonCotes(_dwork, _dwork1, 0, nk-1, -1, 0);
       pot->NPS[i] = a*0.5*dk*Simpson(_dwork1, 0, nk-1);
       _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
     }
@@ -3352,7 +3363,9 @@ void FreeElectronDensity(POTENTIAL *pot, double *vt) {
       _dwork2[i] = pot->NPS[i]*pot->rad[i]*pot->rad[i]*FOUR_PI*pot->dr_drho[i];
     }
   }
-  a = pot->zps/Simpson(_dwork2, 0, pot->ips);
+  _dwork1[0] = pot->NPS[0]*FOUR_PI*pow(pot->rad[0],3)/3.0;
+  NewtonCotes(_dwork1, _dwork2, 0, pot->ips, -1, 0);
+  a = pot->zps/_dwork1[pot->ips];
   pot->ups += log(a);
   for (i = 0; i <= pot->ips; i++) {
     pot->NPS[i] *= a;
@@ -3511,6 +3524,14 @@ double StewartPyattIntegrand(double a, double fa, double y, double y0,
       r = FermiIntegral(y+a, y0, g)/fa - exp(-ys);
     }
   } else {
+    /*
+    ys = (1+z)*y;
+    if (ys < 1e-5) {
+      return (ys-0.5*ys*ys)/(1+z);
+    } else {
+      return (1-exp(-ys))/(1+z);
+    }
+    */
     double aa = xr*fabs(a);
     if (y < aa) {
       if (y > xr) {
@@ -3713,6 +3734,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _fermi_relerr = dp;
     return;
   }
+  if (0 == strcmp(s, "orbital:fermi_stablizer")) {
+    _fermi_stablizer = dp;
+    return;
+  }
   if (0 == strcmp(s, "orbital:fermi_yb")) {
     _fermi_yb = dp;
     return;
@@ -3727,6 +3752,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:sp_mode")) {
     _sp_mode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sp_uvt")) {
+    _sp_uvt = ip;
     return;
   }
 }

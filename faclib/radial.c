@@ -1605,7 +1605,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       ue[i] = _dphase[i];
       u0[i] = _dphasep[i];
     }
-  } else if (md == 1) {
+  } else {
     jmax = 0;
     for (i = 0; i < acfg->n_shells; i++) {
       j = PotentialHX1(acfg, i);
@@ -2108,7 +2108,11 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
     }
     a = SetPotential(acfg, iter);
     if (potential->mps == 0 || potential->mps == 2) {
-      SetPotentialPS(potential, potential->VT[0]);
+      for (i = 0; i < potential->maxrp; i++) {
+	_dphase[i] = potential->VT[0][i];
+	potential->W[i] = _dwork15[i]-_dwork14[i];
+      }
+      SetPotentialPS(potential, _dphase);
     }
     FreeYkArray();
     tol = 0.0;

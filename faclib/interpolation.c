@@ -50,6 +50,23 @@ static double _ONC[9][9] = {
    17568./945, -7632./945, 3680./945, 0}
 };
 
+static double _lic3[2][3] = {
+  {0.375, 0.75, -0.125},
+  {-0.125, 0.75, 0.375}
+};
+static double _lic4[3][4] = {
+  {0.3125, 0.9375, -0.3125, 0.0625},
+  {-0.0625, 0.5625, 0.5625, -0.0625},
+  {0.0625, -0.3125, 0.9375, 0.3125}
+};
+static double _lic5[4][5] = {
+  {0.2734375, 1.09375, -0.546875, 0.21875, -0.0390625},
+  {-0.0390625, 0.46875, 0.703125, -0.15625, 0.0234375},
+  {0.0234375, -0.15625, 0.703125, 0.46875, -0.0390625},
+  {-0.0390625, 0.21875, -0.546875, 1.09375, 0.2734375}
+};
+static double _ncxi[7] = {0.0,1.0,2.0,3.0,4.0,5.0,6.0};
+
 static double gauss_xw[2][15] = {
   {.933078120172818E-01,
    .492691740301883E+00,
@@ -429,8 +446,8 @@ double Simpson(double *x, int i0, int i1) {
   return b;
 }
 
-/* integration by newton-cotes formula */
-int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
+/* original integration by newton-cotes formula */
+int NewtonCotes0(double *r, double *x, int i0, int i1, int m, int id) {
   int i, k;
   double a, yp;
 
@@ -458,7 +475,7 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
       }
       r[i1] += r[i0];
     } else {
-      i = i0+1;
+      i = i0+1;      
       if (x[i0] > 0 && x[i] > 0) {
 	yp = exp(0.5*(log(x[i0])+log(x[i])));
       } else if (x[i0] < 0 && x[i] < 0) {
@@ -507,6 +524,99 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
       for (i = i1-2; i >= i0; i--) {
 	r[i] = r[i+2] + _CNC[2][0]*(x[i+2]+x[i]) + _CNC[2][1]*x[i+1];
       }
+    }
+  }
+
+  return 0;
+}
+
+double uvip3s(int n, double *x, int i) {
+  int k;
+  double a0, a1, c1, c2, c3;
+  double _ncyi[7];
+  
+  a0 = x[0];
+  a1 = x[0];
+  for (k = 1; k < n; k++) {
+    if (a0 > x[k]) a0 = x[k];
+    if (a1 < x[k]) a1 = x[k];
+  }
+  double da = a1-a0;
+  if (!da) {
+    return x[i-1];
+  }
+  for (k = 0; k < n; k++) {
+    _ncyi[k] = x[k]/da;
+  }
+    
+  UVIP3I(3, n, _ncxi, _ncyi, i, &c1, &c2, &c3);
+  return (_ncyi[i-1]+0.5*c1+ONETHIRD*c2+0.25*c3)*da;
+}
+
+/* used to be integration by newton-cotes formula 
+   but reimplemented with cubic spline integration for better accuracy
+*/
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
+  int i, k, s, n;
+  double a;
+
+  if (id >= 0) {
+    n = i1 - i0 + 1;
+    if (n > 7) n = 7;
+    k = i0;
+    i = i0+1;
+    //UVIP3I(3, n, _ncxi, x+i0, 1, &c1, &c2, &c3);      
+    r[i] = r[k] + uvip3s(n, x+i0, 1);
+    k++;
+    i++;
+    if (i > i1) return 0;
+    //UVIP3I(3, n, _ncxi, x+i0, 2, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+i0, 2);
+    for (i++,k++; i < i1-2; i++,k++) {
+      //UVIP3I(3, n, _ncxi, x+i-3, 3, &c1, &c2, &c3);
+      r[i] = r[k] + uvip3s(n, x+i-3, 3);
+    }
+    if (i > i1) return 0;
+    s = i1-(n-1);
+    for (; i <= i1; i++,k++) {
+      //UVIP3I(3, n, _ncxi, x+s, i-s, &c1, &c2, &c3);
+      r[i] = r[k] + uvip3s(n, x+s, i-s);
+    }
+  } else {
+    if (m >= 0) r[i1] = r[i0];
+    n = i1 - i0 + 1;
+    if (n > 7) n = 7;
+    k = i1;
+    i = i1-1;
+    s = i1-(n-1);      
+    //UVIP3I(3, n, _ncxi, x+s, k-s, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+s, k-s);
+    k--;
+    i--;
+    if (i < i0) return 0;
+    //UVIP3I(3, n, _ncxi, x+s, k-s, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+s, k-s);
+    k--;
+    i--;
+    if (i < i0) return 0;
+    //UVIP3I(3, n, _ncxi, x+s, k-s, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+s, k-s);
+    for (i--,k--; i > i0+1; i--,k--) {
+      //UVIP3I(3, n, _ncxi, x+k-3, 3, &c1, &c2, &c3);
+      r[i] = r[k] + uvip3s(n, x+k-3, 3);
+    }
+    if (i < i0) return 0;
+    //UVIP3I(3, n, _ncxi, x+i0, 2, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+i0, 2);
+    k--;
+    i--;
+    if (i < i0) return 0;
+    //UVIP3I(3, n, _ncxi, x+i0, 1, &c1, &c2, &c3);
+    r[i] = r[k] + uvip3s(n, x+i0, 1);
+    if (m >= 0) {
+      a = r[i1];
+      r[i1] = r[i0];
+      r[i0] = a;
     }
   }
 
