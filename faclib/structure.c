@@ -68,6 +68,7 @@ static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
 static double perturb_threshold = -1;
 static double perturb_eth = 1e-2/HARTREE_EV;
+static double perturb_emintol = 1e-3/HARTREE_EV;
 static int perturb_maxiter = PERTURBMAXITER;
 static double perturb_expdim = PERTURBEXPDIM;
 static double perturb_expdimz = PERTURBEXPDIMZ;
@@ -3812,12 +3813,16 @@ int SolveStructure(char *fn, char *hfn,
 	    if (skip) continue;
 	    double wt0 = WallTime();
 	    if (!done[i]) {
+	      double emin = h->diag_emin;
 	      if (DiagnolizeHamilton(h) < 0) {
 		if (h->mmix != NULL) {
 		  free(h->mmix);
 		  h->mmix = NULL;
 		}
 		continue;
+	      }
+	      if (fabs(h->diag_emin - emin) < perturb_emintol) {
+		done[i] = 1;
 	      }
 	    }
 	    if (done[i] < 2) {
@@ -6885,6 +6890,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:perturb_eth")) {
     perturb_eth = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "structure:perturb_emintol")) {
+    perturb_emintol = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp(s, "structure:perturb_maxiter")) {

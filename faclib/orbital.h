@@ -48,7 +48,7 @@ typedef struct _POTENTIAL_ {
   int nfn[NKSEP];
   int nws;  
   double *dws;
-  double zps, nps, tps, rps, dps, aps, fps, ups;
+  double zps, nps, tps, rps, dps, aps, fps, ups, xps;
   int mps, ips;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;

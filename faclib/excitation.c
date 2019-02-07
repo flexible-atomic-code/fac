@@ -2348,8 +2348,8 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	  }
 	  c /= ang[i].k + 1.0;
 	  if (fpw) {
-	    fprintf(fpw, "# %3d %3d %12.5E %12.5E %2d %2d %2d\n", 
-		    lower, upper, te*HARTREE_EV, 8.0*c,
+	    fprintf(fpw, "# %3d %3d %3d %3d %12.5E %12.5E %12.5E %2d %2d %2d\n", 
+		    lower, upper, i, j, c, te*HARTREE_EV, 8.0*c,
 		    ang[i].k, n_tegrid, n_egrid);
 	  }
 	  ty = CERadialQk(rq, te, ang[i].k0, ang[i].k1,
