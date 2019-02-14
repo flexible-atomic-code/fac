@@ -48,12 +48,12 @@ typedef struct _POTENTIAL_ {
   int nfn[NKSEP];
   int nws;  
   double *dws;
-  double zps, nps, tps, rps, dps, aps, fps, ups, xps;
-  int mps, ips;
+  double zps, nps, tps, rps, dps, aps, fps, ups, xps, jps;
+  int mps, vxf, ips;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
-  double *NPS, *ZPS, *dZPS, *dZPS2;
+  double *NPS, *EPS, *VXF, *ZPS, *dZPS, *dZPS2;
   double *ZSE[NKSEP], *dZSE[NKSEP], *dZSE2[NKSEP];
   double *VT[NKSEP1], *dVT[NKSEP1], *dVT2[NKSEP1];
   NUCLEUS *atom;
@@ -94,11 +94,11 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep);
 int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
-int SetPotentialPS(POTENTIAL *pot, double *vt);
+int SetPotentialPS(POTENTIAL *pot, double *vt, int init);
 void FreeElectronDensity(POTENTIAL *pot, double *vt);
 double StewartPyattIntegrand(double a, double fa, double y, double y0,
-			     double g, double z, double xr, double yr);
-void StewartPyatt(POTENTIAL *pot, double *vt);
+			     double g, double z);
+double StewartPyatt(POTENTIAL *pot, double *vt, double xps);
 double FermiDegeneracy(double ne, double te, double *yi);
 double FermiIntegral(double x, double y, double g);
 int SetPotentialVc(POTENTIAL *pot);
@@ -112,6 +112,7 @@ void SetOrbitalWorkSpace(double *p, int n);
 double EnergyH(double z, double n, int ka);
 double QuantumDefect(double z, int n, int ka, double e);
 void SetOptionOrbital(char *s, char *sp, int ip, double dp);
+void PrepFermiRM1(double a, double fa, double t);
 #endif
 
 
