@@ -3409,7 +3409,7 @@ void FreeElectronDensity(POTENTIAL *pot, double *vt) {
       }
       for (k = 0; k < nk; k++) {
 	k2 = _dwork[k];
-	y = (sqrt(k2*c2 + c2*c2)-c2)/pot->tps;
+	y = (sqrt(k2*c2 + c2*c2)-c2+v)/pot->tps;
 	y = exp(pot->ups-y);
 	_dwork1[k] = sqrt(k2)*y/(y + 1);
       }
