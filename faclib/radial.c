@@ -409,7 +409,7 @@ void AllocPotMem(POTENTIAL *p, int n) {
     free(p->dws);
   }
   p->maxrp = n;
-  p->nws = n*(26+3*NKSEP+3*NKSEP1);
+  p->nws = n*(28+3*NKSEP+3*NKSEP1);
   p->dws = (double *) malloc(sizeof(double)*p->nws);
   SetPotDP(p);
 }
@@ -462,6 +462,10 @@ void SetPotDP(POTENTIAL *p) {
   p->dZVP2 = x;
   x += n;
   p->NPS = x;
+  x += n;
+  p->EPS = x;
+  x += n;
+  p->VXF = x;
   x += n;
   p->ZPS = x;
   x += n;
@@ -650,6 +654,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->fps, sizeof(double), 1, f);
   n = BFileRead(&p->ups, sizeof(double), 1, f);
   n = BFileRead(&p->xps, sizeof(double), 1, f);
+  n = BFileRead(&p->jps, sizeof(double), 1, f);
   n = BFileRead(&p->ips, sizeof(int), 1, f);
   AllocPotMem(p, maxrp);
   n = BFileRead(p->dws, sizeof(double), p->nws, f);
@@ -799,6 +804,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->fps, sizeof(double), 1, f);
   n = fwrite(&p->ups, sizeof(double), 1, f);
   n = fwrite(&p->xps, sizeof(double), 1, f);
+  n = fwrite(&p->jps, sizeof(double), 1, f);
   n = fwrite(&p->ips, sizeof(int), 1, f);
   n = fwrite(p->dws, sizeof(double), p->nws, f);
   /*
@@ -1585,22 +1591,25 @@ void AdjustScreeningParams(double *u) {
 
 int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
   int md, md1, jmax, j, i, m, jm;
-  double *u0, *ue, *ue1;
+  double *u0, *ue, *ue1, *ue2, a;
   
-  if (potential->N < 1+EPS5) return -1; 
-  if (acfg->n_shells <= 0) return 0;
+  ue2 = potential->VXF;
+  if (acfg->n_shells <= 0) {
+    return 0;
+  }
   md = potential->mode % 10;
   md1 = potential->mode / 10;
   ue1 = _dwork14;
   ue = _dwork15;
   u0 = _dwork16;
   for (i = 0; i < potential->maxrp; i++) {
+    ue2[i] = 0;
     ue1[i] = 0;
     ue[i] = 0;
     u0[i] = 0;
     u[i] = 0;
   }
-  if (md == 0) {
+  if (md == 0 || potential->N < 1+EPS3) {
     jmax = PotentialHX1(acfg, -1);
     for (i = 0; i < potential->maxrp; i++) {
       ue1[i] = _phase[i];
@@ -1622,6 +1631,23 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       ue1[m] /= acfg->n_shells;
       ue[m] /= acfg->n_shells;
       u0[m] /= acfg->n_shells;
+    }
+  }
+  if (potential->vxf > 0 && potential->hxs) {
+    double ahx = potential->ahx;
+    if (ahx <= 0) {
+      ahx = GetHXS(potential)*potential->hxs;
+    }
+    for (m = 0; m < potential->maxrp; m++) {
+      if (potential->vxf == 1) {
+	a = potential->NPS[m];
+      } else {
+	a = potential->EPS[m];
+      }
+      if (a <= 0) continue;
+      a *= FOUR_PI*pow(potential->rad[m],3);
+      a += pow(ue1[m]/ahx,3);
+      ue2[m] = ahx*pow(a, ONETHIRD) - ue1[m];
     }
   }
   if (jmax <= 0) return jmax;
@@ -1649,9 +1675,9 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
   CONFIG_GROUP *gc;
   CONFIG *cfg;
   SHELL *s1, *s2;
-  double *ue1, *ue, *u, *w;
+  double *ue2, *ue1, *ue, *u, *w;
   
-  if (potential->N < 1+EPS3) return -1; 
+  //if (potential->N < 1+EPS3) return -1;
   ue1 = _phase;
   ue = _dphase;
   u = _dphasep;
@@ -1692,8 +1718,13 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
 	u[m] += acfg->nq[i]*_yk[m];
       }
     }
-  }    
-
+  }
+  if (potential->N < 1+EPS3) {
+    for (m = jmax+1; m < potential->maxrp; m++) {
+      u[m] = u[jmax];
+    }
+    return -1;
+  }
   potential->rhx = 0;
   potential->dhx = 0;
   potential->ahx = 0;
@@ -1979,6 +2010,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    HX0 = %12.5E\n", potential->hx0);
   fprintf(f, "#    HX1 = %12.5E\n", potential->hx1);
   fprintf(f, "#    mps = %d\n", potential->mps);
+  fprintf(f, "#    vxf = %d\n", potential->vxf);
   fprintf(f, "#    zps = %12.5E\n", potential->zps);
   fprintf(f, "#    nps = %12.5E\n", potential->nps);
   fprintf(f, "#    tps = %12.5E\n", potential->tps);
@@ -1988,6 +2020,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    aps = %12.5E\n", potential->aps);
   fprintf(f, "#    fps = %12.5E\n", potential->fps);
   fprintf(f, "#    xps = %12.5E\n", potential->xps);
+  fprintf(f, "#    jps = %12.5E\n", potential->jps);
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
@@ -1997,7 +2030,7 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 	    i, potential->rad[i], potential->Z[i],
 	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
@@ -2010,6 +2043,8 @@ int GetPotential(char *s) {
 	    potential->ZSE[4][i],
 	    potential->ZVP[i],
 	    potential->NPS[i],
+	    potential->EPS[i],
+	    potential->VXF[i],
 	    potential->ZPS[i]);
   }    
   fclose(f);    
@@ -2110,12 +2145,20 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       potential->hxs = hxs0*(1-ahx);
     }
     a = SetPotential(acfg, iter);
-    if (potential->mps == 0 || potential->mps == 2) {
-      for (i = 0; i < potential->maxrp; i++) {
-	_dphase[i] = potential->VT[0][i];
-	potential->W[i] = _dwork15[i]-_dwork14[i];
+    if (potential->mps >= 0) {
+      if (iter > 0) {
+	for (i = 0; i < potential->maxrp; i++) {
+	  _dphase[i] = potential->VT[0][i];
+	  if (potential->N < 1+EPS3) {
+	    potential->W[i] = _dwork16[i];
+	  } else {
+	    potential->W[i] = _dwork15[i]-_dwork14[i];
+	  }
+	}      
+	SetPotentialPS(potential, _dphase, 0);
+      } else {
+	SetPotentialPS(potential, NULL, 0);
       }
-      SetPotentialPS(potential, _dphase);
     }
     FreeYkArray();
     tol = 0.0;
@@ -8348,6 +8391,7 @@ int InitRadial(void) {
   potential->ib1 = 0;
   potential->ib0 = 0;
   potential->mps = -1;
+  potential->vxf = 0;
   potential->zps = 0;
   potential->nps = 0;
   potential->tps = 0;
@@ -9467,8 +9511,10 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
   return 0;
 }
 
-void PlasmaScreen(int m, double zps, double nps, double tps, double ups) {
+void PlasmaScreen(int m, int vxf,
+		  double zps, double nps, double tps, double ups) {
   potential->mps = m;
+  potential->vxf = vxf;
   potential->zps = 0;
   potential->nps = 0;
   potential->tps = 0;
