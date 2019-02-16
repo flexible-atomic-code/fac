@@ -4934,10 +4934,12 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   if (argt[1] != NUMBER) return -1;
   if (argc > 2 && argt[2] != NUMBER) return -1;
   if (argc > 3 && argt[3] != NUMBER) return -1;
-  if (argc > 4 && argt[4] != NUMBER) return -1;
+  if (argc > 4 && (argt[4] != NUMBER && argt[4] != LIST)) return -1;
   if (argc > 5 && argt[5] != NUMBER) return -1;
-  double zps, nps, tps, ups;
-  int m, vxf;
+  double zps, nps, tps, ups, *zw;
+  int m, vxf, nz;
+  nz = 0;
+  zw = NULL;
   tps = 0.0;
   ups = -1.0;
   m = 0;
@@ -4949,14 +4951,19 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
     if (argc > 3) {
       m = atoi(argv[3]);
       if (argc > 4) {
-	ups = atof(argv[4]);
+	if (argt[4] == NUMBER) {
+	  ups = atof(argv[4]);
+	} else {
+	  nz = DoubleFromList(argv[4], argt[4], variables, &zw);
+	}
 	if (argc > 5) {
 	  vxf = atoi(argv[5]);
 	}
       }
     }
   }
-  PlasmaScreen(m, vxf, zps, nps, tps, ups);
+  PlasmaScreen(m, vxf, zps, nps, tps, ups, nz, zw);
+  if (nz > 0) free(zw);
   return 0;
 }
 

@@ -49,7 +49,7 @@ typedef struct _POTENTIAL_ {
   int nws;  
   double *dws;
   double zps, nps, tps, rps, dps, aps, fps, ups, xps, jps;
-  int mps, vxf, ips;
+  int mps, vxf, ips, sps;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
@@ -113,6 +113,7 @@ double EnergyH(double z, double n, int ka);
 double QuantumDefect(double z, int n, int ka, double e);
 void SetOptionOrbital(char *s, char *sp, int ip, double dp);
 void PrepFermiRM1(double a, double fa, double t);
+double SetSPZW(int n, double *zw);
 #endif
 
 

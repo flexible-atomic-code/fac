@@ -1575,6 +1575,17 @@ int SetRadialGrid(int maxrp, double ratio, double asymp,
   if (qr <= 0) potential->qr = GRIDQR;
   else potential->qr = qr;
   potential->flag = 0;
+  potential->mps = -1;
+  potential->vxf = 0;
+  potential->zps = 0;
+  potential->nps = 0;
+  potential->tps = 0;
+  potential->rps = 0;
+  potential->dps = 0;
+  potential->aps = 0;
+  potential->fps = 0;
+  potential->ips = 0;
+  potential->sps = 0;
   return 0;  
 }
 
@@ -2022,6 +2033,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    xps = %12.5E\n", potential->xps);
   fprintf(f, "#    jps = %12.5E\n", potential->jps);
   fprintf(f, "#    ips = %d\n", potential->ips);
+  fprintf(f, "#    sps = %d\n", potential->sps);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
@@ -2145,7 +2157,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       potential->hxs = hxs0*(1-ahx);
     }
     a = SetPotential(acfg, iter);
-    if (potential->mps >= 0) {
+    if (potential->mps >= 0 && potential->sps == 0) {
       if (iter > 0) {
 	for (i = 0; i < potential->maxrp; i++) {
 	  _dphase[i] = potential->VT[0][i];
@@ -2209,7 +2221,7 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
     }
     iter++;
   }
-
+  if (potential->mps >= 0) potential->sps++;
   return iter;
 }
 
@@ -8400,6 +8412,7 @@ int InitRadial(void) {
   potential->aps = 0;
   potential->fps = 0;
   potential->ips = 0;
+  potential->sps = 0;
   SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;
@@ -9512,7 +9525,8 @@ int ConfigSD(int m0r, int ng, int *kg, char *s, char *gn1, char *gn2,
 }
 
 void PlasmaScreen(int m, int vxf,
-		  double zps, double nps, double tps, double ups) {
+		  double zps, double nps, double tps, double ups,
+		  int nz, double *zw) {
   potential->mps = m;
   potential->vxf = vxf;
   potential->zps = 0;
@@ -9532,7 +9546,8 @@ void PlasmaScreen(int m, int vxf,
   }
   if (m == 2) {
     //stewart&pyatt model, ups is the z*;
-    potential->ups = ups;
+    potential->ups = SetSPZW(nz, zw);
+    if (ups >= 0) potential->ups = ups;
   }
 }
 

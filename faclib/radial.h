@@ -217,6 +217,7 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp);
 void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g);
 void LoadRadialMultipole(char *fn);
 void PlasmaScreen(int m, int vxf,
-		  double zps, double nps, double tps, double ups);
+		  double zps, double nps, double tps, double ups,
+		  int nz, double *zw);
 #endif
 

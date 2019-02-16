@@ -6091,12 +6091,23 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   }
   double zps, nps, tps, ups;
   int m, vxf;
+  PyObject *p;
   tps = 0.0;
   m = 0;
   ups = -1.0;
   vxf = 0;
-  if (!(PyArg_ParseTuple(args, "dd|didi", &zps, &nps, &tps, &m, &ups, &vxf))) return NULL;
-  PlasmaScreen(m, vxf, zps, nps, tps, ups);
+  if (!(PyArg_ParseTuple(args, "dd|diOi", &zps, &nps, &tps, &m, &p, &vxf))) return NULL;
+  int nz = 0;
+  double *zw;
+  if (p && PyList_Check(p)) {
+    nz = DoubleFromList(p, &zw);   
+  } else if (PyFloat_Check(p)) {
+    ups = PyFloat_AsDouble(p);
+  }
+  PlasmaScreen(m, vxf, zps, nps, tps, ups, nz, zw);
+  if (nz > 0) {
+    free(zw);
+  }
   Py_INCREF(Py_None);
   return Py_None;
 }

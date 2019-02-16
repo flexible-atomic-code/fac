@@ -427,9 +427,9 @@ int SetMCERates(char *fn) {
   TFILE *f;
   int n, k, m, t, p, i, q;
   int m1, m2, j1, j2, i0;
-  int swp;
+  int swp, ncs;
   double data[2+(1+MAXNUSR)*4];
-  double cs1[128], cs2[128];
+  double *cs1, *cs2;
   double e1, e2, e, a, v, ratio;
   double esigma, energy;
   double egrid[NEINT], rint[NEINT], fint[NEINT];
@@ -448,7 +448,9 @@ int SetMCERates(char *fn) {
 
   energy = params.energy;
   esigma = params.esigma;
-  
+  ncs = 5000;
+  cs1 = malloc(sizeof(double)*2*ncs);
+  cs2 = cs1+ncs;
   e1 = energy;
   v = 0.0;
   if (esigma > 0) {
@@ -494,6 +496,12 @@ int SetMCERates(char *fn) {
       n = ReadCERecord(f, &r, swp, &h);
       e = levels[r.upper].energy - levels[r.lower].energy;
       e *= HARTREE_EV;
+      if (r.nsub > ncs) {
+	free(cs1);
+	ncs = r.nsub*2;
+	cs1 = malloc(sizeof(double)*2*ncs);
+	cs2 = cs1 + ncs;
+      }
       for (k = 0; k < r.nsub; k++) {
 	PrepCECrossRecord(k, &r, &h, data);
 	if (esigma > 0) {
@@ -563,7 +571,7 @@ int SetMCERates(char *fn) {
 	    ce_rates[t].rates[p] += cs2[k-m2];
 	  }
 	  p++;
-	  k++;
+	  k++;	  
 	}
       }
       t++;
@@ -577,7 +585,7 @@ int SetMCERates(char *fn) {
   FCLOSE(f);
 
   if (t < nce) nce = t;
-  
+  free(cs1);
   return 0;
 }
 
@@ -1260,7 +1268,7 @@ int PopulationTable(char *fn) {
     }
     wt0 = wt1;
     fflush(stdout);
-    if (c < iter_accuracy) break;
+    if (c < iter_accuracy && i > 0) break;
   }
   if (i == max_iter) {
     if (ProcID() >= 0) {
