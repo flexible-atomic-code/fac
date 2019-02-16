@@ -44,9 +44,12 @@ static char _fermi_rmf[256] = "";
 static double _sp_rmax = 2.0;
 static double _sp_yeps = 1e-5;
 static double _sp_neps = 1e-3;
-static double _sp_z0 = 0.25;
+static double _sp_z0 = 0.0;
 static double _sp_z1 = 1.0;
-static int _sp_mode = 5;
+static int _sp_nzs = 0;
+static double *_sp_zs = NULL;
+static double *_sp_zw = NULL;
+static int _sp_mode = 2;
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
 
@@ -2667,7 +2670,7 @@ int SetPotentialZ(POTENTIAL *pot) {
   }  
   SetPotentialVP(pot);
   SetPotentialSE(pot);
-  SetPotentialPS(pot, NULL, 1);
+  if (pot->sps == 0) SetPotentialPS(pot, NULL, 1);
   return 0;
 }
 
@@ -3279,6 +3282,9 @@ int SetPotentialPS(POTENTIAL *pot, double *vt, int init) {
   
   if (pot->mps == 2) {//stewart&pyatt
     if (vt) {
+      if (_sp_mode == 0 ||
+	  _sp_mode == 2 ||
+	  _sp_mode == 4) return 0;    
       for (i = 0; i < pot->maxrp; i++) {
 	x = pot->rad[i]/pot->dps;
 	ABAND[i] = (x*fabs(vt[i]))/pot->tps;
@@ -3513,7 +3519,7 @@ double FermiIntegral(double x, double y, double g) {
 }
 
 double FermiDegeneracy(double ne, double te, double *yi) {
-  double a1, y1, g;
+  double a1, y1, g, d;
   int i;
   if (_relativistic_fermi) {
     g = te*FINE_STRUCTURE_CONST2;
@@ -3527,10 +3533,12 @@ double FermiDegeneracy(double ne, double te, double *yi) {
     a1 = a0;
     i = 0;
     while(y0 > x) {
-      a0 -= 0.5*fabs(a0);
+      d = 0.5*fabs(a0);
+      d = Max(d, 0.5);
+      a0 -= d;
       y0 = FermiIntegral(a0, 0.0, g);
       i++;
-      if (i > 128) {
+      if (i > 256) {
 	printf("FermiDegeneracy maxiter0: %d %g %g %g\n",
 	       i, a0, y0, x);
 	Abort(1);
@@ -3541,10 +3549,12 @@ double FermiDegeneracy(double ne, double te, double *yi) {
     y1 = y0;
     i = 0;
     while (y1 < x) {
-      a1 += 0.5*fabs(a1);
+      d = 0.5*fabs(a1);
+      d = Max(d, 0.5);
+      a1 += d;
       y1 = FermiIntegral(a1, 0.0, g);
       i++;
-      if (i > 128) {
+      if (i > 256) {
 	printf("FermiDegeneracy maxiter1: %d %g %g %g\n",
 	       i, a1, y1, x);
 	Abort(1);
@@ -3564,7 +3574,7 @@ double FermiDegeneracy(double ne, double te, double *yi) {
       break;
     }
     i++;
-    if (i > 128) {
+    if (i > 256) {
       printf("FermiDegeneracy maxiter2: %d %g %g %g %g\n",
 	     i, a0, a1, y, x);
       Abort(1);
@@ -3707,11 +3717,23 @@ void PrepFermiRM1(double a, double fa, double t) {
 
 double StewartPyattIntegrand(double a, double fa, double y, double y0,
 			     double g, double z) {
-  double ys, r;
+  double ys, zs, r;
   int m = y0>0;
-  ys = z*y;
   r = InterpFermiRM1(y, m);
-  r -= ExpM1(-ys);
+  if (_sp_nzs <= 0) {
+    ys = z*y;
+    r -= ExpM1(-ys);
+  } else {
+    int i;
+    ys = 0.0;
+    zs = 0.0;
+    for (i = 0; i < _sp_nzs; i++) {
+      zs += _sp_zw[i]*_sp_zs[i];
+      ys += _sp_zw[i]*_sp_zs[i]*ExpM1(-_sp_zs[i]*y);
+    }
+    ys /= zs;
+    r -= ys;
+  }
   r /= (1+z);
   return r;
 }
@@ -3999,5 +4021,41 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "orbital:sp_mode")) {
     _sp_mode = ip;
     return;
-  }  
+  }
+}
+
+double SetSPZW(int n, double *zw) {
+  if (_sp_nzs > 0) {
+    free(_sp_zs);
+    free(_sp_zw);
+    _sp_zs = NULL;
+    _sp_zw = NULL;
+    _sp_nzs = 0;
+  }
+  if (n <= 0) return -1;
+  int n2 = (n+1)/2;
+  _sp_nzs = n2;
+  _sp_zs = malloc(sizeof(double)*n2);
+  _sp_zw = malloc(sizeof(double)*n2);
+  int i, k;
+  double w = 0, z1 = 0, z2 = 0;
+  for (i = 0; i < n2; i++) {
+    k = 2*i;
+    _sp_zs[i] = zw[k];
+    if (k+1 < n) {
+      _sp_zw[i] = zw[k+1];
+    } else {
+      _sp_zw[i] = 1.0;
+    }
+    w += _sp_zw[i];
+    z1 += _sp_zs[i]*_sp_zw[i];
+    z2 += _sp_zs[i]*_sp_zs[i]*_sp_zw[i];
+  }
+  for (i = 0; i < n2; i++) {
+    _sp_zw[i] /= w;
+  }
+  z1 /= w;
+  z2 /= w;
+  
+  return z2/z1;
 }
