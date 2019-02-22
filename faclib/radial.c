@@ -409,7 +409,7 @@ void AllocPotMem(POTENTIAL *p, int n) {
     free(p->dws);
   }
   p->maxrp = n;
-  p->nws = n*(28+3*NKSEP+3*NKSEP1);
+  p->nws = n*(29+3*NKSEP+3*NKSEP1);
   p->dws = (double *) malloc(sizeof(double)*p->nws);
   SetPotDP(p);
 }
@@ -466,6 +466,8 @@ void SetPotDP(POTENTIAL *p) {
   p->EPS = x;
   x += n;
   p->VXF = x;
+  x += n;
+  p->ICF = x;
   x += n;
   p->ZPS = x;
   x += n;
@@ -2032,6 +2034,10 @@ int GetPotential(char *s) {
   fprintf(f, "#    fps = %12.5E\n", potential->fps);
   fprintf(f, "#    xps = %12.5E\n", potential->xps);
   fprintf(f, "#    jps = %12.5E\n", potential->jps);
+  fprintf(f, "#    gps = %12.5E\n", potential->gps);
+  fprintf(f, "#    qps = %12.5E\n", potential->qps);
+  fprintf(f, "#    sf0 = %12.5E\n", potential->sf0);
+  fprintf(f, "#    sf1 = %12.5E\n", potential->sf1);
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#    sps = %d\n", potential->sps);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
@@ -2042,7 +2048,7 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+    fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 	    i, potential->rad[i], potential->Z[i],
 	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
@@ -2057,6 +2063,7 @@ int GetPotential(char *s) {
 	    potential->NPS[i],
 	    potential->EPS[i],
 	    potential->VXF[i],
+	    potential->ICF[i],
 	    potential->ZPS[i]);
   }    
   fclose(f);    
@@ -2519,7 +2526,11 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   } else {
     iter = OptimizeLoop(acfg);
   }
-
+  /*
+  SetLatticePotential(potential, potential->VT[0]);
+  ClearOrbitalTable(0);
+  SetPotentialVT(potential);
+  */
   qed.se = mse;
   CopyPotentialOMP(0);
   return iter;
@@ -8413,6 +8424,9 @@ int InitRadial(void) {
   potential->fps = 0;
   potential->ips = 0;
   potential->sps = 0;
+  potential->qps = 0;
+  potential->sf0 = 0;
+  potential->sf1 = 0;
   SetBoundaryMaster(0, 1.0, -1.0, 0.0);
   n_orbitals = 0;
   n_continua = 0;

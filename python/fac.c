@@ -6101,7 +6101,7 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   double *zw;
   if (p && PyList_Check(p)) {
     nz = DoubleFromList(p, &zw);   
-  } else if (PyFloat_Check(p)) {
+  } else if (PyFloat_Check(p) || PyLong_Check(p)) {
     ups = PyFloat_AsDouble(p);
   }
   PlasmaScreen(m, vxf, zps, nps, tps, ups, nz, zw);
