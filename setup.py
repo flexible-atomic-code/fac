@@ -173,6 +173,8 @@ if CC is not None:
         if re.match('-Wl,.*', a):
             skip = 1
             b = '-Wl,.*'
+        if a == '':
+            skip = 1
         if skip == 0:
             extralink.append(a)
         else:
