@@ -1694,7 +1694,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
   ue1 = _phase;
   ue = _dphase;
   u = _dphasep;
-  w = potential->W;
+  w = _dwork13;
   for (m = 0; m < potential->maxrp; m++) {
     w[m] = 0.0;
     ue1[m] = 0.0;
@@ -2048,12 +2048,12 @@ int GetPotential(char *s) {
   }
   fprintf(f, "\n\n");
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+    fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 	    i, potential->rad[i], potential->Z[i],
 	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
 	    potential->U[i]*potential->rad[i],
-	    _dwork14[i], _dwork15[i], _dwork16[i],
+	    _dwork13[i], _dwork14[i], _dwork15[i], _dwork16[i],
 	    potential->ZSE[0][i],
 	    potential->ZSE[1][i],
 	    potential->ZSE[2][i],
@@ -2168,15 +2168,10 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       if (iter > 0) {
 	for (i = 0; i < potential->maxrp; i++) {
 	  _dphase[i] = potential->VT[0][i];
-	  if (potential->N < 1+EPS3) {
-	    potential->W[i] = _dwork16[i];
-	  } else {
-	    potential->W[i] = _dwork15[i]-_dwork14[i];
-	  }
 	}      
-	SetPotentialPS(potential, _dphase, 0);
+	SetPotentialPS(potential, _dphase, _dwork13, 0);
       } else {
-	SetPotentialPS(potential, NULL, 0);
+	SetPotentialPS(potential, NULL, NULL, 0);
       }
     }
     FreeYkArray();

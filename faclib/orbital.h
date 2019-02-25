@@ -94,11 +94,11 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep);
 int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
-int SetPotentialPS(POTENTIAL *pot, double *vt, int init);
+int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int init);
 void FreeElectronDensity(POTENTIAL *pot, double *vt);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
-			     double y0, double g, double z);
-double StewartPyatt(POTENTIAL *pot, double *vt, double xps);
+			     double y0, double g, double z, double nb);
+double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps);
 double FermiDegeneracy(double ne, double te, double *yi);
 double FermiIntegral(double x, double y, double g);
 int SetPotentialVc(POTENTIAL *pot);
@@ -116,7 +116,8 @@ void PrepFermiRM1(double a, double fa, double t);
 double SetSPZW(int n, double *zw);
 void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w);
 void SetLatticePotential(POTENTIAL *pot, double *vt);
-void SetPotentialIPS(POTENTIAL *pot, double *vt);
+void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb);
+int SPMode();
 #endif
 
 

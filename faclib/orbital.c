@@ -44,8 +44,8 @@ static double _fermi_rm1[4][NFRM2];
 static char _fermi_rmf[256] = "";
 static char _sp_ofn[256] = "";
 static double _sp_vmax = 1e30;
-static double _sp_rmax = 2.0;
-static double _sp_yeps = 1e-5;
+static double _sp_rmax = 1.0;
+static double _sp_yeps = 1e-7;
 static double _sp_neps = 1e-3;
 static double _sp_z0 = 0.1;
 static double _sp_z1 = 1.0;
@@ -166,6 +166,10 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
+
+int SPMode() {
+  return _sp_mode;
+}
 
 void SetOrbitalWorkSpace(double *p, int n) {
   _veff = p;
@@ -2688,7 +2692,7 @@ int SetPotentialZ(POTENTIAL *pot) {
   }  
   SetPotentialVP(pot);
   SetPotentialSE(pot);
-  if (pot->sps == 0) SetPotentialPS(pot, NULL, 1);
+  if (pot->sps == 0) SetPotentialPS(pot, NULL, NULL, 1);
   return 0;
 }
 
@@ -3263,7 +3267,7 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
   return 0;
 }
 
-int SetPotentialPS(POTENTIAL *pot, double *vt, int init) {
+int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int init) {
   int i;
   
   if (pot->mps < 0 || init) {
@@ -3276,11 +3280,11 @@ int SetPotentialPS(POTENTIAL *pot, double *vt, int init) {
     }
     return 0;
   }
-  SetPotentialIPS(pot, vt);
+  SetPotentialIPS(pot, vt, wb);
   return 0;
 }
 
-void SetPotentialIPS(POTENTIAL *pot, double *vt) {
+void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
   int i;
   double n0, r0, x;
   if (pot->mps == 1 && pot->rps > 0 && vt == NULL) {//debye screening
@@ -3302,15 +3306,17 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
       vt[i] += x/pot->rad[i];      
     }
   }
-  
+
   if (pot->mps == 2) {//stewart&pyatt
     if (vt) {
       if (_sp_mode == 0 ||
 	  _sp_mode == 2 ||
-	  _sp_mode == 4) return;    
-      for (i = 0; i < pot->maxrp; i++) {
-	x = pot->rad[i]/pot->dps;
-	ABAND[i] = (x*fabs(vt[i]))/pot->tps;
+	  _sp_mode == 4) return;
+      if (_sp_mode != 3) {
+	for (i = 0; i < pot->maxrp; i++) {
+	  x = pot->rad[i]/pot->dps;
+	  ABAND[i] = (x*fabs(vt[i]))/pot->tps;
+	}
       }
     }
     int nicf = _icf_nfft;
@@ -3319,7 +3325,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
     double x0 = 0.75;
     double xps = 2.0;
     while (xps > 1) {
-      xps = StewartPyatt(pot, vt, x0);
+      xps = StewartPyatt(pot, vt, wb, x0);
       x0 *= 0.5;
       i++;
       if (i > 256) {
@@ -3331,7 +3337,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
     xps = 0.5;
     i = 0;
     while (xps < 1) {
-      xps = StewartPyatt(pot, vt, x1);
+      xps = StewartPyatt(pot, vt, wb, x1);
       x1 *= 2.0;
       i++;
       if (i > 256) {
@@ -3342,7 +3348,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
     i = 0;
     while (x1-x0 > EPS5) {
       x = 0.5*(x0+x1);
-      xps = StewartPyatt(pot, vt, x);
+      xps = StewartPyatt(pot, vt, wb, x);
       if (xps < 1) {
 	x0 = x;
       } else if (xps > 1) {
@@ -3364,14 +3370,14 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
       int iter = 0;
       while(1) {
 	IonCF(pot, _veff, _icf_rmax, _icf_nfft, _icf_dw);	
-	xps = StewartPyatt(pot, vt, x);
+	xps = StewartPyatt(pot, vt, wb, x);
 	if (fabs(xps-1) < EPS3) break;
 	x0 = x;
 	x1 = x;
 	i = 0;
 	if (xps < 1) {
 	  while (xps < 1) {
-	    xps = StewartPyatt(pot, vt, x1);
+	    xps = StewartPyatt(pot, vt, wb, x1);
 	    x1 *= 2.0;
 	    i++;
 	    if (i > 256) {
@@ -3381,7 +3387,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
 	  }
 	} else {
 	  while (xps > 1) {
-	    xps = StewartPyatt(pot, vt, x0);
+	    xps = StewartPyatt(pot, vt, wb, x0);
 	    x0 *= 0.5;
 	    i++;
 	    if (i > 256) {
@@ -3392,7 +3398,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
 	}
 	while (x1-x0 > EPS5) {
 	  x = 0.5*(x0+x1);
-	  xps = StewartPyatt(pot, vt, x);
+	  xps = StewartPyatt(pot, vt, wb, x);
 	  if (xps < 1) {
 	    x0 = x;
 	  } else if (xps > 1) {
@@ -3473,12 +3479,12 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt) {
 	fprintf(f, "#  maxrp = %d\n", potential->maxrp);
 	fprintf(f, "\n\n");
 	for (i = 0; i < potential->maxrp; i++) {
-	  fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	  fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 		  i, potential->rad[i], potential->Z[i],
 		  potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 		  potential->Vc[i]*potential->rad[i],
 		  potential->U[i]*potential->rad[i],
-		  ve0[i], _veff[i], ve1[i],
+		  ve0[i], _veff[i], ve1[i], wb?wb[i]:0.0,
 		  potential->NPS[i], potential->EPS[i],
 		  potential->VXF[i], potential->ICF[i],
 		  potential->ZPS[i]);
@@ -4050,15 +4056,21 @@ void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w) {
 }
 
 double StewartPyattIntegrand(double x, double a, double fa, double y,
-			     double y0, double g, double z) {
+			     double y0, double g, double z, double nb) {
   double ys, zs, r;
   int m;
-  if (y0 > 0) {
+  if (y0 > 0 || nb >= 0) {
     m = 1;
   } else {
     m = 0;
   }
   r = InterpFermiRM1(y, m);
+  double r0 = 0.0;
+  if (y0 <= 0 && nb >= 0) {
+    r0 = InterpFermiRM1(y, 0);
+    r += nb;
+  }
+  //printf("r01: %g %g %g %g %g\n", x, y, r0, r, nb);
   if (_sp_nzs <= 0) {
     if (_icf_nfft > 0 && m > 0) {
       double *rw = _icf_dw + _icf_nfft*3;
@@ -4105,15 +4117,16 @@ void DerivSPY(int *neq, double *t, double *y, double *yd) {
   if (_icf_nfft > 0) {
     rho = x*y[9];
     rho = y[6]*pow(rho, y[8]) + y[7]*log(rho);
-  } else if (y[5] <= 0) {
+  } else {
     rho = x/y[10];
   }
-  double s = StewartPyattIntegrand(rho, y[2], y[3], y[0]/x, 0.0, y[4], y[5]);
+  double s = StewartPyattIntegrand(rho, y[2], y[3], y[0]/x, 0.0,
+				   y[4], y[5], y[11]);
   yd[1] = x*x*s;
 }
 
 FCALLSCSUB4(DerivSPY, DERIVSPY, derivspy, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
+double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
   int i, m, ib;
   double a = pot->aps;
   double fa = pot->fps;
@@ -4146,7 +4159,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
   }
   x0 = pot->rps/pot->dps;
   x2 = _sp_rmax*x1;
-  x = 3.0*Max(1.0, x0);
+  x = Max(1.0, x0);
   x2 = Max(x2, x);
   y0 = -1e30;
   if (xps > 0) {
@@ -4159,9 +4172,9 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
       liw = 22;
       neq = 2;
       itol = 2;
-      rtol = EPS8;
-      atol[0] = 0.0;
-      atol[1] = EPS8;
+      rtol = EPS3;
+      atol[0] = EPS6;
+      atol[1] = EPS6;
       itask = 1;
       istate = 1;
       iopt = 0;
@@ -4170,7 +4183,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
 	x = pot->rad[i]/pot->dps;
 	y0 = z1*c0*exp(-x)/x;
 	_veff[i] = c*exp(-x)/x;
-	if (pot->rad[i] < x2) break;
+	//if (pot->rad[i] < x2) break;
 	if (y0 > _sp_yeps) {
 	  break;
 	}
@@ -4184,7 +4197,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
       ys[8] = pot->qr;
       ys[9] = pot->dps;
       ys[10] = pot->rps/pot->dps;
-      //printf("x2: %d %g %g %g %g %g\n", i, pot->rad[i], x, y0, ys[10], k);
+      //printf("x2: %d %g %g %g %g %g %g %g\n", i, pot->rad[i], x, x1, x2, y0, ys[10], k);
       ys[0] = c*exp(-x);
       ys[1] = -c*exp(-x);
       x0 = x;
@@ -4194,13 +4207,19 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
       for (; i >= 0; i--) {
 	x = pot->rad[i]/pot->dps;
 	t = log(x);
+	if (wb) {
+	  ys[11] = (wb[i]+wb[i+1])*0.5/pot->nps;
+	} else {
+	  ys[11] = -1;
+	}
 	while (t0 > t) {
 	  LSODE(C_FUNCTION(DERIVSPY, derivspy), neq, ys, &t0, t,
 		itol, rtol, atol, itask, &istate, iopt, rwork, lrw, iwork,
 		liw, NULL, mf);
 	  if (istate == -1) istate = 2;
 	  else if (istate < 0) {
-	    printf("PSODE error in StewartPyatt: %d %d", istate, vt==NULL);
+	    printf("PSODE error in StewartPyatt: %d %d %g",
+		   istate, vt==NULL, rwork[13]);
 	    Abort(1);
 	  }
 	}
@@ -4287,9 +4306,10 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double xps) {
     } else {
       t = pot->rho[i];
     }
-    _dwork1[i] = StewartPyattIntegrand(t, a, fa, y, y, g, pot->ups);
+    _dwork1[i] = StewartPyattIntegrand(t, a, fa, y, y, g, pot->ups, -1);
     pot->NPS[i] = _dwork1[i];
     pot->EPS[i] = (1+InterpFermiRM1(y, 1))/(1+pot->ups);
+    //pot->EPS[i] = StewartPyattIntegrand(t, a, fa, y, 0, g, pot->ups);
     _dwork1[i] *= pot->dr_drho[i]*x/pot->dps;
     _dwork2[i] = _dwork1[i]*x;
   }
