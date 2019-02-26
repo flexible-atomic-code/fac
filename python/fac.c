@@ -492,7 +492,7 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   CONFIG *cfg;
   PyObject *q;
   int i, j, kl, n, nq, ncfg;
-  char *p, argv[512];
+  char *p, argv[513];
   char s[16], st[16];
   int ns, k;
   int argc;
@@ -509,6 +509,7 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
     q = PyTuple_GetItem(args, i);
     if (!PyUnicode_Check(q)) return NULL;
     p = PyUnicode_AsString(q);
+    argv[512] = '\0';
     strncpy(argv, p, 512);
     ns = StrSplit(argv, ' ');
     p = argv;
@@ -541,9 +542,10 @@ static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   CONFIG *cfg;
   PyObject *q, *r;
   int i, j, t, ncfg;
-  char scfg[MCHSHELL], *p, s[16];
+  char scfg[MCHSHELL+1], *p, s[16];
   int argc;
-
+  
+  scfg[MCHSHELL] = '\0';
   r = Py_BuildValue("[]");
   argc = PyTuple_Size(args);
   for (i = 0; i < argc; i++) {
@@ -594,9 +596,9 @@ static PyObject *PReadConfig(PyObject *self, PyObject *args) {
 static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   CONFIG *cfg;
   PyObject *q, *q1, *qb;
-  static char gname[GROUP_NAME_LEN] = "_all_";
+  static char gname[GROUP_NAME_LEN+1] = "_all_";
   int i, j, t, ncfg;
-  char scfg[MCHSHELL], *p;
+  char scfg[MCHSHELL+1], *p;
   char buf[4096];
   int argc;
 
@@ -605,7 +607,8 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-
+  scfg[MCHSHELL] = '\0';
+  gname[GROUP_NAME_LEN] = '\0';
   q = PyTuple_GET_ITEM(args, 0);
   if (PyLong_Check(q)) {
     int m, r, ng, *kg, ngb, *kgb, n0, n1, k0, k1, n0d, n1d;
@@ -5708,7 +5711,7 @@ static PyObject *PCoulMultip(PyObject *self, PyObject *args) {
 
 static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
   char *fn, *q1, *q2;
-  char qs1[1024], qs2[1024];
+  char qs1[1025], qs2[1025];
   PyObject *p;  
   int nlev, *ilev, na, nb, i, *n, *kappa;
   double *nq;
@@ -5719,7 +5722,8 @@ static PyObject *PSlaterCoeff(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  
+  qs1[1024] = '\0';
+  qs2[1024] = '\0';
   if (!(PyArg_ParseTuple(args, "sOss", &fn, &p, &q1, &q2))) return NULL;
   strncpy(qs1, q1, 1024);
   strncpy(qs2, q2, 1024);
