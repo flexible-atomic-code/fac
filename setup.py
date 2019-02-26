@@ -175,6 +175,7 @@ if CC is not None:
             b = '-Wl,.*'
         if a == '':
             skip = 1
+            b=''
         if skip == 0:
             extralink.append(a)
         else:
