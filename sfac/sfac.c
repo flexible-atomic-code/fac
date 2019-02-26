@@ -469,8 +469,9 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
 static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   int i, j, k, t, ncfg;
-  char scfg[MCHSHELL], s[16];
-  
+  char scfg[MCHSHELL+1], s[16];
+
+  scfg[MCHSHELL] = '\0';
   for (i = 0; i < argc; i++) {
     if (argt[i] != STRING) return -1;
     strncpy(scfg, _closed_shells, MCHSHELL);
@@ -511,14 +512,16 @@ static int PReadConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 
 static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
-  static char gname[GROUP_NAME_LEN] = "_all_";
+  static char gname[GROUP_NAME_LEN+1] = "_all_";
   int i, j, k, t, ncfg;
-  char scfg[MCHSHELL], *gn1, *gn2, *s;
+  char scfg[MCHSHELL+1], *gn1, *gn2, *s;
   int nf;
   char buf[4096];
   char *v[MAXNARGS];
   int vt[MAXNARGS];
 
+  gname[GROUP_NAME_LEN] = '\0';
+  scfg[MCHSHELL] = '\0';
   if (argt[0] == NUMBER) {
     int ng, *kg, ngb, *kgb, n0, n1, k0, k1, m, n0d, n1d;
     double sth;

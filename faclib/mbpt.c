@@ -29,6 +29,7 @@ USE (rcsid);
 static double mbpt_freetr = 0;
 static int mbpt_omp = 0;
 static int mbpt_omp0 = 0;
+static double mbpt_ompf = 5;
 static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
@@ -97,6 +98,7 @@ static TR_OPT mbpt_tr;
 
 void PrintMBPTOptions(void) {
   printf("omp=%d\n", mbpt_omp0);
+  printf("ompf=%g\n", mbpt_ompf);
   printf("extra=%d\n", mbpt_extra);
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
@@ -329,7 +331,11 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "mbpt:omp")) {
     mbpt_omp0 = ip;
     return;
-  }  
+  }    
+  if (0 == strcmp(s, "mbpt:ompf")) {
+    mbpt_ompf = dp;
+    return;
+  }
   if (0 == strcmp(s, "mbpt:extra")) {
     mbpt_extra = ip;
     return;
@@ -5301,7 +5307,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       double ttskip = 0, ttlock=0;
       long long tnlock = 0;
       mbpt_ignoren = 0;
-      if (mbpt_omp0 == 1 || mbpt_omp0 == 3) {
+      if ((mbpt_omp0 == 1 || mbpt_omp0 == 3) || (icp1-icp0) < nr*mbpt_ompf) {
 	mbpt_omp = 1;
       } else {
 	mbpt_omp = 0;
@@ -5930,7 +5936,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    icp, ncp, icp0, icp1, ncpt, tmst, mst, WallTime()-tbg, TotalSize());
     ncps = 0;
     mbpt_ignoren = 0;
-    if (mbpt_omp0 == 2 || mbpt_omp0 == 3) {
+    if ((mbpt_omp0 == 2 || mbpt_omp0 == 3) || (icp1-icp0) < mbpt_ompf*nr) {
       mbpt_omp = 1;
     } else {
       mbpt_omp = 0;
