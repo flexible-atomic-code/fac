@@ -731,10 +731,13 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 		r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	      }
 	    }
+	  } else if (perturb_setzero == 2 && i != j && i >= j0 && j >= j0) {
+	    r = 0.0;
 	  } else {
 	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  }
 	  h->hamilton[i+t] = r;
+	  //printf("ham: %d %d %d %d %d %g\n", h->pj, i, j, j0, h->dim, r);
 	}
       }
       if (jp > 0) {
@@ -2541,7 +2544,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	}
 	if (r > ra) {
 	  //printf("r0: %d %d %g %g %g %g %d %d %d %g %g\n", i, j, a, r, b[k], ra, ip, h->orig_dim, h->exp_dim, mmix, perturb_expdim);
-	  if (perturb_setzero) {
+	  if (perturb_setzero == 1) {
 	    b[k] = 0.0;
 	  } else {
 	    b[k] = ra*a;
@@ -2553,7 +2556,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	  }
 	} else if (r < -ra) {
 	  //printf("r1: %d %d %g %g %g %g %d %d %d %g %g\n", i, j, a, r, b[k], ra, ip, h->orig_dim, h->exp_dim, mmix, perturb_expdim);
-	  if (perturb_setzero) {
+	  if (perturb_setzero == 1) {
 	    b[k] = 0.0;
 	  } else {	    
 	    b[k] = -ra*a;
