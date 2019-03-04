@@ -720,7 +720,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     q = PyTuple_GetItem(args, i);
     if (!PyUnicode_Check(q)) return NULL;
     p = PyUnicode_AsString(q);    
-    if (!isdigit(p[0]) && p[0] != ' ') {
+    if (p[0] != '\0' && !isdigit(p[0]) && p[0] != ' ') {
       if (p[0] == '@') p++;
       FILE *f = fopen(p, "r");
       if (f == NULL) {
