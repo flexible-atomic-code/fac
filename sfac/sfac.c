@@ -660,7 +660,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (; i < argc; i++) {
     if (i == k || i == k+1) continue;
     if (argt[i] != STRING) return -1;
-    if (!isdigit(argv[i][0]) && argv[i][0] != ' ') {
+    if (argv[i][0] != '\0' && !isdigit(argv[i][0]) && argv[i][0] != ' ') {
       char *p = argv[i];
       if (p[0] == '@') p++;
       FILE *f = fopen(p, "r");
