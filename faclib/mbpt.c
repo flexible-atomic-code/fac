@@ -34,6 +34,7 @@ static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
+static int mbpt_prepyk = 0;
 static int mbpt_nbreit = -1;
 static double mbpt_warn = 0.1;
 static double mbpt_nwarn = 0.0;
@@ -105,6 +106,7 @@ void PrintMBPTOptions(void) {
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
   printf("asort=%g\n", mbpt_asort);
+  printf("prepyk=%d\n", mbpt_prepyk);
   printf("nbreit=%d\n", mbpt_nbreit);
   printf("warn=%g\n", mbpt_warn);
   printf("nwarn=%g\n", mbpt_nwarn);
@@ -246,6 +248,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:ignoretr")) {
     mbpt_ignoretr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:prepyk")) {
+    mbpt_prepyk = ip;
     return;
   }
   if (0 == strcmp(s, "mbpt:nbreit")) {
@@ -2031,9 +2037,13 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   */
   if (IsOdd((s[0].kl+s[1].kl+s[2].kl+s[3].kl)/2)) return;
   if (IsOdd((s[4].kl+s[5].kl+s[6].kl+s[7].kl)/2)) return;
-  for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
+  int kk1p, kk2p, kk1m, kk2m, mr = MyRankMPI();
+  kk1m = 1+(kmax1-kmin1)/2;
+  //for (kk1p = kmin1; kk1p <= kmax1; kk1p += 2) {
+  for (kk1p = 0; kk1p < kk1m; kk1p++) {
+    mkk1 = kmin1/2 + (kk1p+mr)%kk1m;
+    kk1 = 2*mkk1;
     m = 0;
-    mkk1 = kk1/2;
     mkk = mkk1*MKK;
     for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
       mkk2 = kk2/2;
@@ -2052,9 +2062,12 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       a1[mkk1] = 0.0;
     }
   }
-  for (kk2 = kmin2; kk2 <= kmax2; kk2 += 2) {
+  //for (kk2p = kmin2; kk2p <= kmax2; kk2p += 2) {
+  kk2m = 1+(kmax2-kmin2)/2;
+  for (kk2p = 0; kk2p < kk2m; kk2p++) {
+    mkk2 = kmin2/2 + (kk2p+mr)%kk2m;
+    kk2 = 2*mkk2;
     m = 0;
-    mkk2 = kk2/2;
     for (kk1 = kmin1; kk1 <= kmax1; kk1 += 2) {
       mkk1 = kk1/2;
       mkk = mkk1*MKK+mkk2;
@@ -2386,8 +2399,12 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
   d1 -= GetOrbital(ks[0])->energy + GetOrbital(ks[1])->energy;
   d2 = GetOrbital(k0)->energy - GetOrbital(k1)->energy;
   */
-  for (kk = kmin; kk <= kmax; kk += 2) {
-    kk2 = kk/2;
+  int kkp, kkm, mr = MyRankMPI();
+  kkm = 1+(kmax-kmin)/2;
+  //for (kkp = kmin; kkp <= kmax; kkp += 2) {
+  for (kkp = 0; kkp < kkm; kkp++) {
+    kk2 = kmin/2 + (kkp+mr)%kkm;
+    kk = 2*kk2;
     yk[kk2] = 0.0;
     for (k = 0; k < mst; k++) {
       if (a[kk2][k]) break;
@@ -2695,8 +2712,12 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
 
   gauge = GetTransitionGauge();
   ng -= mbpt_mini;
-  for (kk = kmin; kk <= kmax; kk += 2) {
-    kk2 = kk/2;
+  int kkp, kkm, mr = MyRankMPI();
+  kkm = 1 + (kmax-kmin)/2;
+  //for (kkp = kmin; kkp <= kmax; kkp += 2) {
+  for (kkp = 0; kkp < kkm; kkp++) {
+    kk2 = kmin/2 + (kkp+mr)%kkm;
+    kk = 2*kk2;
     SlaterTotal(&sd, &se, NULL, ks, kk, 0);  
     yk[kk2] = sd + se;
   }
@@ -2745,8 +2766,10 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
   kk = ks[1];
   ks[1] = ks[2];
   ks[2] = kk;
-  for (kk = kmin; kk <= kmax; kk += 2) {
-    kk2 = kk/2;
+  //for (kkp = kmin; kkp <= kmax; kkp += 2) {
+  for (kkp = 0; kkp < kkm; kkp++) {
+    kk2 = kmin/2 + (kkp+mr)%kkm;
+    kk = 2*kk2;
     SlaterTotal(&sd, &se, NULL, ks, kk, 0);  
     yk[kk2] = sd + se;
   }
@@ -4731,7 +4754,6 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   free(bas0);
   free(ga);
   SolveRadialBasisMBPT(nmax);
-
   tt1 = WallTime();
   dt = tt1-tt0;
   tt0 = tt1;
@@ -4741,6 +4763,14 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   fflush(stdout);
   if (nb < 0) return -1;
 
+  if (mbpt_prepyk > 0) {
+    MPrintf(-1, "PrepYKs: %d %12.5E\n", mbpt_prepyk, TotalSize());
+    PrepYK(mbpt_prepyk, 0);  
+    if (mbpt_nbreit != 0) {
+      PrepYK(mbpt_prepyk, 1);
+    }
+  }
+      
   MPrintf(-1, "CI Structure...%10.4E %10.4E %10.4E\n",
 	  WallTime()-tbg, TotalSize(), TotalArraySize());
   fflush(stdout);

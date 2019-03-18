@@ -58,7 +58,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    void *extra);
 double Simpson(double *y, int ia, int ib);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id);
-
+int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id);
 double RRCrossHn(double z, double e, int n);
 void PrepCECrossHeader(CE_HEADER *h, double *data);
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
