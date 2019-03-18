@@ -53,6 +53,7 @@ static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
 static double *_sp_zw = NULL;
 static int _sp_mode = 2;
+static int _sp_print = 0;
 static double _icf_tol = EPS3;
 static int _icf_maxiter = 1024;
 static int _icf_nfft = 0;
@@ -62,6 +63,8 @@ static double _icf_kd = 0.5;
 static double _icf_stablizer = 0.5;
 static int _icf_ozc = 0;
 static int _icf_spmi = 0;
+static double _icf_tmax = 5.0;
+static double _icf_tidx = 3.0;
 static double *_icf_dw = NULL;
 static char _icf_ofn[256] = "";
 static int max_iteration = 512;
@@ -3945,6 +3948,7 @@ double OZBridge(double x, double g, double k2) {
   
 void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w) {
   double *t, *t0, *c, *u, *b, *dw1, *dw2, nz, dr, dk, r, k, a1, a2, tol, ut;
+  double tmax, tidx;
   int i, iter, nw1, nw2, *iw;
 
   nw1 = n/2;
@@ -3959,7 +3963,10 @@ void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w) {
   dw2 = dw1 + nw1;
   iw = (int *)(dw2 + nw2);
   iter = 0;
-  rmax = Max(pot->rps,pot->dps)*rmax;
+  tmax = Max(pot->rps, pot->dps);  
+  rmax = tmax*rmax;
+  tmax *= _icf_tmax;
+  tidx = _icf_tidx;
   dr = rmax/n;
   dk = PI/(n*dr);
   iw[0] = 0;
@@ -4030,7 +4037,9 @@ void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w) {
       tt += t[i]*t[i];
     }
     tol = fabs(tt-tt0)/Max(tt,tt0);
-    printf("icf: %d %d %g %g %g %g %g %g\n", iter, n, nz, dr, qd*pot->rps, tt0, tt, tol);
+    if (_sp_print == 2 || _sp_print == 3) {
+      printf("icf: %d %d %g %g %g %g %g %g %g\n", iter, n, nz, dr, qd*pot->rps, tt0, tt, tol, rmax);
+    }
     if (tol < _icf_tol) break;
     for (i = 1; i < n; i++) {
       t[i] = t0[i]*_icf_stablizer + t[i]*(1-_icf_stablizer);
@@ -4050,6 +4059,9 @@ void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w) {
     sk = wk*sk + (1-wk)*k2/(k2+qd2);
     c[i] = u[i]-t[i];
     u[i] = sk;
+    r = i*dr/tmax;
+    r = pow(r, tidx);
+    t[i] *= exp(-r);
   }
   c[0] = c[1];
   u[0] = u[1];
@@ -4072,7 +4084,7 @@ double StewartPyattIntegrand(double x, double a, double fa, double y,
   }
   //printf("r01: %g %g %g %g %g\n", x, y, r0, r, nb);
   if (_sp_nzs <= 0) {
-    if (_icf_nfft > 0 && m > 0) {
+    if (_icf_nfft > 0) {
       double *rw = _icf_dw + _icf_nfft*3;
       if (x >= rw[1] && x <= rw[_icf_nfft-1]) {
 	double *yw = _icf_dw;// + _icf_nfft;
@@ -4321,7 +4333,9 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
   double cs = pot->zps/_dwork3[m];
   double ds = cs/(FOUR_PI*pow(pot->dps,3));
   double xs = _dwork3[m]/k;
-  //printf("cs: %g %g %g %g %g %g %g %g %g %g %g %g\n", pot->zps, _dwork3[m], c, k, xps, xs, cs, x1, x2, kc, ys[0], _veff[0]);
+  if (_sp_print == 1 || _sp_print == 3) {
+    printf("cs: %g %g %g %g %g %g %g %g %g %g %g %g\n", pot->zps, _dwork3[m], c, k, xps, xs, cs, x1, x2, kc, ys[0], _veff[0]);
+  }
   for (i = 0; i <= m; i++) {
     x = pot->rad[i]/pot->dps;
     y = -cs*(_dwork3[i] + x*_dwork[i]);
@@ -4431,6 +4445,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _sp_mode = ip;
     return;
   }
+  if (0 == strcmp(s, "orbital:sp_print")) {
+    _sp_print = ip;
+    return;
+  }
   if (0 == strcmp(s, "orbital:icf_tol")) {
     _icf_tol = dp;
     return;
@@ -4449,6 +4467,14 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:icf_kb")) {
     _icf_kb = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:icf_tmax")) {
+    _icf_tmax = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:icf_tidx")) {
+    _icf_tidx = dp;
     return;
   }
   if (0 == strcmp(s, "orbital:icf_stablizer")) {
