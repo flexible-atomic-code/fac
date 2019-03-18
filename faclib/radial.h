@@ -67,6 +67,7 @@ void SetModSE(double ose0, double ose1, double ase,
 	      double cse0, double cse1, double ise);
 void SetVP(int n);
 void SetBreit(int n, int m, int n0, double x0, int n1);
+int GetBreit(void);
 void SetMS(int nms, int sms);
 int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);

@@ -18,6 +18,7 @@
 
 #include "rates.h"
 #include "interpolation.h"
+#include "orbital.h"
 #include "cf77.h"
 #include "parser.h"
 
@@ -1333,6 +1334,18 @@ static double Maxwell(double e, double *p) {
   return x;
 }
 
+static double FermiDirac(double e, double *p) {
+  double x, y;
+  const double maxwell_const = 1.12837967;
+  if (e > p[4] || e < p[3]) return 0.0;
+  x = e/p[0];
+  y = exp(-x);
+  x = sqrt(x) * y/p[0];
+  y = p[2]*(p[1] + y);
+  x /= y;
+  return x;
+}
+
 static double DoubleMaxwell(double e, double *p) {
   double x0, x1, x;
   const double maxwell_const = 1.12837967;
@@ -1737,7 +1750,19 @@ int SetEleDist(int i, int np, double *p0) {
     p[3] = p[0] + 0.5*p[1];
     p[2] = p[0] - 0.5*p[1];
     ele_dist[i].xlog = 0;
-    break;    
+    break;
+  case 8:
+    /* Fermi Dirac */
+    if (p[4] <= 0.0) {
+      p[4] = 1E2*p[0];
+    }
+    if (p[3] <= 0.0) {
+      p[3] = 1E-20*p[0];
+    }
+    c1 = p[0]/HARTREE_EV;
+    c2 = p[1]*pow(RBOHR,3);
+    p[1] = exp(-FermiDegeneracy(c2, c1, &p[2]));
+    break;
   default:
     break;
   }
@@ -2035,6 +2060,16 @@ int InitRates(void) {
   ele_dist[i].params[3] = 1E3+5.0;
   ele_dist[i].dist = MonoEnergy;
 
+  i++; /* Fermi-Dirac */
+  ele_dist[i].nparams = 5;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*5);
+  ele_dist[i].params[0] = 1E3;
+  ele_dist[i].params[1] = 0.0;
+  ele_dist[i].params[2] = 0.0;
+  ele_dist[i].params[3] = 1E-10;
+  ele_dist[i].params[4] = 1E10;
+  ele_dist[i].dist = FermiDirac;
+  
   i++;
 
   for (; i < MAX_DIST; i++) {

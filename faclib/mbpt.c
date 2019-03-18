@@ -34,6 +34,7 @@ static int mbpt_extra = 0;
 static int mbpt_rand = 0;
 static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
+static int mbpt_nbreit = -1;
 static double mbpt_warn = 0.1;
 static double mbpt_nwarn = 0.0;
 static double mbpt_xwarn = 0.0;
@@ -104,6 +105,7 @@ void PrintMBPTOptions(void) {
   printf("rand=%d\n", mbpt_rand);
   printf("msort=%d\n", mbpt_msort);
   printf("asort=%g\n", mbpt_asort);
+  printf("nbreit=%d\n", mbpt_nbreit);
   printf("warn=%g\n", mbpt_warn);
   printf("nwarn=%g\n", mbpt_nwarn);
   printf("xwarn=%g\n", mbpt_xwarn);
@@ -244,6 +246,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:ignoretr")) {
     mbpt_ignoretr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:nbreit")) {
+    mbpt_nbreit = ip;
     return;
   }
   if (0 == strcmp(s, "mbpt:warn")) {
@@ -4775,6 +4781,10 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     goto ERROR;
   }
 
+  int nbr0 = GetBreit();
+  if (mbpt_nbreit >= 0) {
+    SetBreit(mbpt_nbreit, -1, -1, -1, -1);
+  }
   int npr, mr;
   mr = MPIRank(&npr);
   double *em0 = WorkSpace();
@@ -5236,6 +5246,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	    ArrayFree(&mbpt_csary[i], NULL);
 	  }
 	  free(mbpt_csary);
+	  if (mbpt_nbreit >= 0) {
+	    SetBreit(nbr0, -1, -1, -1, -1);
+	  }
 	  return -1;
 	}
 	if (mbpt_savesum == 0) {
@@ -6343,6 +6356,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     ArrayFree(&mbpt_csary[i], NULL);
   }
   free(mbpt_csary);
+  if (mbpt_nbreit >= 0) {
+    SetBreit(nbr0, -1, -1, -1, -1);
+  }
   return ierr;
 }
 

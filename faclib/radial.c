@@ -1485,6 +1485,10 @@ void SetVP(int n) {
   potential->pvp = qed.vp > 100;
 }
 
+int GetBreit(void) {
+  return qed.br;
+}
+
 void SetBreit(int n, int m, int n0, double x0, int n1) {
   qed.br = n;
   if (m >= 0) qed.mbr = m;
