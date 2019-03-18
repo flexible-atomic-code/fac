@@ -162,6 +162,7 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
 	   double e, double *y);
 double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3);
 double BreitS(int k0, int k1, int k2, int k3, int k);
+int BreitSYK(int k0, int k1, int k, double *z);
 double BreitI(int n, int k0, int k1, int k2, int k3, int m);
 double Breit(int k0, int k1, int k2, int k3, int k,
 	     int kp0, int kp1, int kp2, int kp3,
@@ -169,6 +170,7 @@ double Breit(int k0, int k1, int k2, int k3, int k,
 void SortSlaterKey(int *kd);
 void PrepSlater(int ib0, int iu0, int ib1, int iu1,
 		int ib2, int iu2, int ib3, int iu3);
+void PrepYK(int n, int m);
 double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1);
 int ResidualPotential(double *s, int k0, int k1);
 double MeanPotential(int k0, int k1);

@@ -6197,52 +6197,35 @@ double BreitC(int n, int m, int k, int k0, int k1, int k2, int k3) {
   return r;
 }
 
-double BreitS(int k0, int k1, int k2, int k3, int k) {
-  ORBITAL *orb0, *orb1, *orb2, *orb3;
-  int index[5], i;
-  double *p0, *z, r;
-  FLTARY *byk;
-  LOCK *lock = NULL;
-  int locked = 0;
+int BreitSYK(int k0, int k1, int k, double *z) {
+  ORBITAL *orb0, *orb1;
+  int index[3];
   int myrank = MyRankMPI()+1;
-  if (breit_array->maxsize != 0) {
-    index[0] = k0;
-    index[1] = k1;
-    index[2] = k2;
-    index[3] = k3;
-    index[4] = k;
-    p0 = (double *) MultiSet(breit_array, index, NULL, &lock,
-			     InitDoubleData, NULL);
-    if (lock && !(p0 && *p0)) {
-      SetLock(lock);
-      locked = 1;
-    }
-    if (p0 && *p0) {
-      r = *p0;
-      if (locked) ReleaseLock(lock);
-#pragma omp atomic
-      breit_array->iset -= myrank;
-#pragma omp flush
-      return r;
-    }
-  }
+  FLTARY *byk;
+  int npts = 0;
+  int i;
+  
   byk = NULL;
-  z = _zk;
   LOCK *xlock = NULL;
+  int xlocked = 0;
   if (xbreit_array[4]->maxsize != 0) {
     index[0] = k0;
     index[1] = k1;
     index[2] = k;
     byk = (FLTARY *) MultiSet(xbreit_array[4], index, NULL, &xlock,
 			      InitFltAryData, FreeFltAryData);
-    if (xlock) SetLock(xlock);
+    if (xlock && byk->npts <= 0) {
+      SetLock(xlock);
+      xlocked = 1;
+    }
     if (byk->npts > 0) {
       for (i = 0; i < byk->npts; i++) {
 	z[i] = byk->yk[i];
       }
+      for (; i < potential->maxrp; i++) z[i] = 0.0;
+      npts = byk->npts;
     }
   }
-  int npts;
   if (byk == NULL || byk->npts < 0) {
     orb0 = GetOrbitalSolved(k0);
     orb1 = GetOrbitalSolved(k1);
@@ -6267,7 +6250,45 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
       byk->npts = npts;
     }
   }
-  if (xlock) ReleaseLock(xlock);
+  if (xlocked) ReleaseLock(xlock);
+  if (xbreit_array[4]->maxsize != 0) {
+#pragma omp atomic
+    xbreit_array[4]->iset -= myrank;
+  }
+#pragma omp flush
+  return npts;
+}
+
+double BreitS(int k0, int k1, int k2, int k3, int k) {
+  ORBITAL *orb2, *orb3;
+  int index[5], i;
+  double *p0, r;
+  LOCK *lock = NULL;
+  int locked = 0;
+  int myrank = MyRankMPI()+1;
+  if (breit_array->maxsize != 0) {
+    index[0] = k0;
+    index[1] = k1;
+    index[2] = k2;
+    index[3] = k3;
+    index[4] = k;
+    p0 = (double *) MultiSet(breit_array, index, NULL, &lock,
+			     InitDoubleData, NULL);
+    if (lock && !(p0 && *p0)) {
+      SetLock(lock);
+      locked = 1;
+    }
+    if (p0 && *p0) {
+      r = *p0;
+      if (locked) ReleaseLock(lock);
+#pragma omp atomic
+      breit_array->iset -= myrank;
+#pragma omp flush
+      return r;
+    }
+  }
+  double *z = _zk;
+  int npts = BreitSYK(k0, k1, k, z);
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
   Integrate(z, orb2, orb3, 6, &r, 0);
@@ -6277,10 +6298,6 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     breit_array->iset -= myrank;
-  }
-  if (xbreit_array[4]->maxsize != 0) {
-#pragma omp atomic
-    xbreit_array[4]->iset -= myrank;
   }
 #pragma omp flush
   return r;
@@ -6935,6 +6952,61 @@ void SortSlaterKey(int *kd) {
       kd[2] = kd[3];
       kd[3] = i;
     }
+  }
+}
+
+void PrepYK(int n, int m) {
+#pragma omp parallel default(shared)
+  {
+    ORBITAL *orb0, *orb1;
+    int i, j, kk, k, kmax, i0, i1, j0, j1, k0, k1, mk;
+    double wt = WallTime();
+    int nyk = 0;
+    
+    kmax = GetMaxRank();
+    i0 = 0;
+    i1 = GetNumBounds()-1;
+    for (kk = 0; kk <= kmax; kk += 2) {
+      k = kk/2;
+      for (i = i0; i <= i1; i++) {
+	orb0 = GetOrbital(i);
+	GetJLFromKappa(orb0->kappa, &j0, &k0);
+	for (j = i0; j <= i1; j++) {
+	  orb1 = GetOrbital(j);
+	  if ((orb0->n < 0 || orb0->n > n) &&
+	      (orb1->n < 0 || orb1->n > n)) continue;
+	  GetJLFromKappa(orb1->kappa, &j1, &k1);
+	  if (k0 > slater_cut.kl0 || k1 > slater_cut.kl0) continue;
+	  if (!Triangle(j0, j1, kk)) continue;
+	  if (m == 0) {
+	    if (j < i) continue;
+	    if (IsOdd(k0+k1)/2+k) continue;
+	  }
+	  if (m == 0) {
+	    int skip = SkipMPI();
+	    if (skip) continue;
+	    GetYk(k, _yk, orb0, orb1, i, j, -1);
+	    nyk++;
+	  } else {
+	    if (qed.br > 0 &&
+		((orb0->n < 0 || orb0->n > qed.br) ||
+		 (orb1->n < 0 || orb1->n > qed.br))) {
+	      continue;
+	    }
+	    for (mk = k-1; mk <= k+1; mk++) {
+	      if (mk < 0) continue;
+	      if (IsEven((k0+k1)/2+mk)) continue;
+	      int skip = SkipMPI();
+	      if (skip) continue;
+	      BreitSYK(i, j, mk, _zk);
+	      nyk++;
+	    }
+	  }
+	}
+      }
+    }
+    MPrintf(-1, "PrepYk: %5d %5d %1d %3d %6d %12.5E %12.5E\n",
+	    i0, i1, m, qed.br, nyk, WallTime()-wt, TotalSize());
   }
 }
 

@@ -3162,7 +3162,7 @@ int SetPotentialVP(POTENTIAL *pot) {
       _dwork1[i] = pot->rho[i];
     }
     _dwork2[m-1] = 0;
-    NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
+    NewtonCotesIP(_dwork2, _dwork, 0, m-1, -1, -1);
     n = 3;
     for (k = 0; k < m; k++) {
       if (pot->qdist[k] < 1e-15*pot->qdist[0]) break;
@@ -3228,7 +3228,7 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
       _dwork1[i] = pot->rho[i];
     }
     _dwork2[m-1] = 0;
-    NewtonCotes(_dwork2, _dwork, 0, m-1, -1, -1);
+    NewtonCotesIP(_dwork2, _dwork, 0, m-1, -1, -1);
     n = 3;
     for (k = 0; k < m; k++) {
       if (pot->qdist[k] < 1e-15*pot->qdist[0]) break;
@@ -3546,13 +3546,13 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
     _dwork[i] = x*x*pot->NPS[i]*pot->dr_drho[i];
   }
   _dwork1[0] = (pow(pot->rad[0],3)/3.0)*pot->NPS[0];
-  NewtonCotes(_dwork1, _dwork, 0, pot->ips, -1, 0);
+  NewtonCotesIP(_dwork1, _dwork, 0, pot->ips, -1, 0);
   for (i = 0; i <= pot->ips; i++) {
     x = pot->rad[i];
     _dwork[i] = x*pot->NPS[i]*pot->dr_drho[i];
   }
   _dwork2[pot->ips] = 0.0;
-  NewtonCotes(_dwork2, _dwork, 0, pot->ips, -1, -1);
+  NewtonCotesIP(_dwork2, _dwork, 0, pot->ips, -1, -1);
   for (i = 0; i <= pot->ips; i++) {
     pot->ZPS[i] = -FOUR_PI*(_dwork1[i] + pot->rad[i]*_dwork2[i]);
   }
@@ -3606,7 +3606,7 @@ void FreeElectronDensity(POTENTIAL *pot, double *vt) {
     }
   }
   _dwork1[0] = pot->NPS[0]*FOUR_PI*pow(pot->rad[0],3)/3.0;
-  NewtonCotes(_dwork1, _dwork2, 0, pot->ips, -1, 0);
+  NewtonCotesIP(_dwork1, _dwork2, 0, pot->ips, -1, 0);
   a = pot->zps/_dwork1[pot->ips];
   pot->ups += log(a);
   for (i = 0; i <= pot->ips; i++) {
@@ -4326,10 +4326,10 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
     _dwork2[i] = _dwork1[i]*x;
   }
   _dwork[m] = 0.0;
-  NewtonCotes(_dwork, _dwork1, 0, m, -1, -1);
+  NewtonCotesIP(_dwork, _dwork1, 0, m, -1, -1);
   x = pot->rad[0]/pot->dps;
   _dwork3[0] = _dwork1[0]*x*x*x/3.0;
-  NewtonCotes(_dwork3, _dwork2, 0, m, -1, 0);
+  NewtonCotesIP(_dwork3, _dwork2, 0, m, -1, 0);
   double cs = pot->zps/_dwork3[m];
   double ds = cs/(FOUR_PI*pow(pot->dps,3));
   double xs = _dwork3[m]/k;

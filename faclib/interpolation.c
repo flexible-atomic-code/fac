@@ -447,7 +447,7 @@ double Simpson(double *x, int i0, int i1) {
 }
 
 /* original integration by newton-cotes formula */
-int NewtonCotes0(double *r, double *x, int i0, int i1, int m, int id) {
+int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
   int i, k;
   double a, yp;
 
@@ -557,7 +557,7 @@ double uvip3s(int n, double *x, int i) {
 /* used to be integration by newton-cotes formula 
    but reimplemented with cubic spline integration for better accuracy
 */
-int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
+int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id) {
   int i, k, s, n;
   double a;
 
