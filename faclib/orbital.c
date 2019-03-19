@@ -2567,8 +2567,16 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     if (pot->ups < 0) {
       pot->ups = pot->zps;
     }
-    pot->rps = pow(3*pot->zps/(FOUR_PI*pot->nps),ONETHIRD);
-    pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
+    if (pot->mps == 1) {
+      pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*pot->zps));
+    } else {
+      pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
+    }
+    if (pot->nps > 0) {
+      pot->rps = pow(3*pot->zps/(FOUR_PI*pot->nps),ONETHIRD);
+    } else {
+      pot->rps = pot->dps;
+    }
     pot->gps = (pot->zps*pot->ups)/(pot->tps*pot->rps);
     if (pot->mps == 2) {
       pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
@@ -3290,15 +3298,16 @@ int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int init) {
 void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
   int i;
   double n0, r0, x;
-  if (pot->mps == 1 && pot->rps > 0 && vt == NULL) {//debye screening
+  if (pot->mps == 1) {//debye screening
+    if (vt) return;
     for (i = 0; i < pot->maxrp; i++) {
       pot->NPS[i] = 0;
       pot->EPS[i] = 0;
-      r0 = pot->rad[i]/pot->rps;
+      r0 = pot->rad[i]/pot->dps;
       x = exp(-r0);
       pot->ZPS[i] = pot->zps*(x-1.0);
-      pot->dZPS[i] = -pot->zps*x/pot->rps;
-      pot->dZPS2[i] = pot->zps*x/(pot->rps*pot->rps);
+      pot->dZPS[i] = -pot->zps*x/pot->dps;
+      pot->dZPS2[i] = pot->zps*x/(pot->dps*pot->dps);
     }
     return;
   }
