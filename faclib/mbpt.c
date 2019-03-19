@@ -36,12 +36,12 @@ static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
 static int mbpt_prepyk = 0;
 static int mbpt_nbreit = -1;
-static double mbpt_warn = 0.1;
-static double mbpt_nwarn = 0.0;
-static double mbpt_xwarn = 0.0;
+static double mbpt_warn = 0.05;
+static double mbpt_nwarn = 0.01;
+static double mbpt_xwarn = 0.0001;
 static double mbpt_mwarn = 0.5;
 static double mbpt_wwarn = 0.05;
-static double mbpt_ewarn = 1e-2/HARTREE_EV;
+static double mbpt_ewarn = 1e-3/HARTREE_EV;
 static double mbpt_ignore = 50.0;
 static double mbpt_warntr = 1.0;
 static double mbpt_ignoretr = 10.0;
@@ -2189,7 +2189,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = meff[s0]->wmbpt[m];
+      double wth = sqrt(meff[s0]->wmbpt[m]);
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
@@ -2473,7 +2473,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     //if (c0->icfg >= 0 || c1->icfg >= 0) {
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = meff[s0]->wmbpt[m];
+      double wth = sqrt(meff[s0]->wmbpt[m]);
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
@@ -2941,7 +2941,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = meff[s0]->wmbpt[m];
+      double wth = sqrt(meff[s0]->wmbpt[m]);
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
