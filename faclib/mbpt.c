@@ -40,7 +40,7 @@ static double mbpt_warn = 0.05;
 static double mbpt_nwarn = 0.01;
 static double mbpt_xwarn = 0.0001;
 static double mbpt_mwarn = 0.5;
-static double mbpt_wwarn = 0.05;
+static double mbpt_wwarn = 0.01;
 static double mbpt_ewarn = 1e-3/HARTREE_EV;
 static double mbpt_ignore = 50.0;
 static double mbpt_warntr = 1.0;
@@ -2200,8 +2200,8 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 &&
-	   ((sd1w > mbpt_wwarn && pow(sd1w,4)*fabs(d1) > eth) ||
-	    (sd2w > mbpt_wwarn && pow(sd2w,4)*fabs(d2) > eth)))) {
+	   ((sd1w > mbpt_wwarn && pow(sd1w,3)*fabs(d1) > eth) ||
+	    (sd2w > mbpt_wwarn && pow(sd2w,3)*fabs(d2) > eth)))) {
 	int na[4], ka[4];
 	na[0] = nn1;
 	na[1] = nn3;
@@ -2484,8 +2484,8 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 &&
-	   ((sd1w > mbpt_wwarn && pow(sd1w,4)*fabs(d1) > eth) ||
-	    (sd2w > mbpt_wwarn && pow(sd2w,4)*fabs(d2) > eth)))) {
+	   ((sd1w > mbpt_wwarn && pow(sd1w,3)*fabs(d1) > eth) ||
+	    (sd2w > mbpt_wwarn && pow(sd2w,3)*fabs(d2) > eth)))) {
 	int na[2], ka[2];
 	na[0] = nn5;
 	na[1] = nn6;
@@ -2952,8 +2952,8 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       }
       if ((wth > 0 && (sd1w > wth || sd2w > wth)) ||
 	  (eth > 0 &&
-	   ((sd1w > mbpt_wwarn && pow(sd1w,4)*fabs(d1) > eth) ||
-	    (sd2w > mbpt_wwarn && pow(sd2w,4)*fabs(d2) > eth)))) {
+	   ((sd1w > mbpt_wwarn && pow(sd1w,3)*fabs(d1) > eth) ||
+	    (sd2w > mbpt_wwarn && pow(sd2w,3)*fabs(d2) > eth)))) {
 	int na[2], ka[2];
 	na[0] = orb0->n;
 	na[1] = orb1->n;
