@@ -82,7 +82,7 @@ static double diag_bcut = 5e-2;
 static int diag_nzm = 100;
 static int diag_nbm = 32;
 static double diag_bignore = 0.25;
-static int full_name = 1;
+static int full_name = 0;
 
 static int sym_pp = -1;
 static int sym_njj = 0;
@@ -2534,7 +2534,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	}
 	if (ip > 0 && mmix <= 0) mmix = 1.0;
 	if (perturb_eth > 0 && mmix > 0) {
-	  if (pow(fabs(r),4)*fabs(a)*mmix > perturb_eth) {
+	  if (pow(fabs(r),3)*fabs(a)*mmix > perturb_eth) {
 	    b[k] = 0.0;
 	    //if (ip > 0) {
 	    ib[i] = 1;

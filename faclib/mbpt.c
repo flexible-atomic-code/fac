@@ -61,10 +61,10 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = 1e-4;
+static double mbpt_mcut = 1e-3;
 static double mbpt_mcut2 = 1e-1;
 static double mbpt_mcut3 = 1e-1;
-static double mbpt_mcut4 = 1.0;
+static double mbpt_mcut4 = 1e-1;
 static int mbpt_diag = 0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
@@ -2189,7 +2189,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = sqrt(meff[s0]->wmbpt[m]);
+      double wth = meff[s0]->wmbpt[m];
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
@@ -2473,7 +2473,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     //if (c0->icfg >= 0 || c1->icfg >= 0) {
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = sqrt(meff[s0]->wmbpt[m]);
+      double wth = meff[s0]->wmbpt[m];
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
@@ -2861,7 +2861,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       FixTotalJ(ns, sket, ket, c1, q1);	
       EvaluateTensor(ns, sbra, sket, s, 1, fm);
       a[k] = fm->coeff;
-      if (IsOdd(ph)) a[k] = -a[k];
+      if (IsOdd(ph)) a[k] = -a[k];    
     }
   }
   
@@ -2941,7 +2941,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
       sd2s = 2E50;
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
-      double wth = sqrt(meff[s0]->wmbpt[m]);
+      double wth = meff[s0]->wmbpt[m];
       double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
