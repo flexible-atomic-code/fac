@@ -673,6 +673,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	  break;
 	}
 	StrTrim(buf, '\0');
+	if (strlen(buf) == 0) continue;
 	if (buf[0] == '#') continue;
 	StrSplit(buf, '#');
 	strncpy(scfg, _closed_shells, MCHSHELL);

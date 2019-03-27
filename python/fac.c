@@ -732,6 +732,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 	  break;
 	}
 	StrTrim(buf, '\0');
+	if (strlen(buf) == 0) continue;
 	if (buf[0] == '#') continue;
 	StrSplit(buf, '#');
 	strncpy(scfg, _closed_shells, MCHSHELL);

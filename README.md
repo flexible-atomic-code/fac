@@ -14,7 +14,7 @@ The two interfaces are independent. Either one or both can be installed.
 
 ## 1. Download
 Download the latest source packages from
-[here](/https://github.com/flexible-atomic-code/fac/releases),
+[here](https://github.com/flexible-atomic-code/fac),
 gunzip, and extract it.
 
 ## 2. Configure
