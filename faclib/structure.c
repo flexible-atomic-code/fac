@@ -2534,7 +2534,8 @@ int DiagnolizeHamilton(HAMILTON *h) {
 	}
 	if (ip > 0 && mmix <= 0) mmix = 1.0;
 	if (perturb_eth > 0 && mmix > 0) {
-	  if (pow(fabs(r),3)*fabs(a)*mmix > perturb_eth) {
+	  if (fabs(r)>0.5 ||
+	      pow(fabs(r),2)*fabs(a)*mmix > perturb_eth) {
 	    b[k] = 0.0;
 	    //if (ip > 0) {
 	    ib[i] = 1;
