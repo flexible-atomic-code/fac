@@ -42,6 +42,8 @@ static double mbpt_xwarn = 0.0001;
 static double mbpt_mwarn = 0.5;
 static double mbpt_wwarn = 0.01;
 static double mbpt_ewarn = 1e-3/HARTREE_EV;
+static double mbpt_ewarn12 = 0;//1e-1/HARTREE_EV;
+static double mbpt_ewarn11 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ignore = 50.0;
 static double mbpt_warntr = 1.0;
 static double mbpt_ignoretr = 10.0;
@@ -61,10 +63,10 @@ static int mbpt_reinit_ncps = 0;
 static double mbpt_reinit_mem = 0;
 static int mbpt_nlev = 0;
 static int *mbpt_ilev = NULL;
-static double mbpt_mcut = 1e-3;
+static double mbpt_mcut = 1e-4;
 static double mbpt_mcut2 = 1e-1;
 static double mbpt_mcut3 = 1e-1;
-static double mbpt_mcut4 = 1e-1;
+static double mbpt_mcut4 = 1.0;
 static int mbpt_diag = 0;
 static int mbpt_n3 = 0;
 static int mbpt_3rd = 0;
@@ -114,6 +116,8 @@ void PrintMBPTOptions(void) {
   printf("mwarn=%g\n", mbpt_mwarn);
   printf("wwarn=%g\n", mbpt_wwarn);
   printf("ewarn=%g\n", mbpt_ewarn);
+  printf("ewarn11=%g\n", mbpt_ewarn11);
+  printf("ewarn12=%g\n", mbpt_ewarn12);
   printf("warntr=%g\n", mbpt_warntr);
   printf("ignore=%g\n", mbpt_ignore);
   printf("ignoretr=%g\n", mbpt_ignoretr);
@@ -280,6 +284,14 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:ewarn")) {
     mbpt_ewarn = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:ewarn11")) {
+    mbpt_ewarn11 = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:ewarn12")) {
+    mbpt_ewarn12 = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp(s, "mbpt:ccn")) {
@@ -2474,7 +2486,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     //if (c0->icfg >= 0 || c1->icfg >= 0) {
     if (meff[s0]->imbpt[m] > 1 && !warned) {
       double wth = meff[s0]->wmbpt[m];
-      double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
+      double eth = mbpt_ewarn12/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
 	wth = -1.0;
@@ -2942,7 +2954,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (meff[s0]->imbpt[m] > 1 && !warned) {
       double wth = meff[s0]->wmbpt[m];
-      double eth = mbpt_ewarn/meff[s0]->wmbpt[m];
+      double eth = mbpt_ewarn11/meff[s0]->wmbpt[m];
       if ((wth < mbpt_nwarn && c0->icfg < 0 && c1->icfg < 0) ||
 	  (wth < mbpt_xwarn && (c0->icfg < 0 || c1->icfg < 0) )) {
 	wth = -1.0;
@@ -4761,7 +4773,12 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  dt, n, nr, n2, nr2, mbpt_maxm, mbpt_maxn,
 	  mbpt_minn, mbpt_mini, mbpt_minn2, mbpt_mini2);
   fflush(stdout);
-  if (nb < 0) return -1;
+  if (nb < 0) {
+    for (k = 0; k < nc; k++) {
+      if (cs[k]->icfg < 0) cs[k]->icfg = -(1+cs[k]->icfg);
+    }
+    return -1;
+  }
 
   if (mbpt_prepyk > 0) {
     MPrintf(-1, "PrepYKs: %d %12.5E\n", mbpt_prepyk, TotalSize());
@@ -5278,6 +5295,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  free(mbpt_csary);
 	  if (mbpt_nbreit >= 0) {
 	    SetBreit(nbr0, -1, -1, -1, -1);
+	  }
+	  for (k = 0; k < nc; k++) {
+	    if (cs[k]->icfg < 0) cs[k]->icfg = -(1+cs[k]->icfg);
 	  }
 	  return -1;
 	}
@@ -6302,6 +6322,9 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   FreeIdxAry(&mbpt_ibas1, 2);
   FreeIdxAry(&ing, 2);
   FreeIdxAry(&ing2, 2);
+  for (k = 0; k < nc; k++) {
+    if (cs[k]->icfg < 0) cs[k]->icfg = -(1+cs[k]->icfg);
+  }
   CONFIG **cca = NULL;
   int icca = 0;
   if (ncca > 0) {
