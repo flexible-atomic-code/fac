@@ -974,7 +974,7 @@ double TopUpQk(double b, double c, double k0, double a, double te, double e1) {
   int i;
   double b0, e, d, f;
   b0 = e1/(e1+te);
-  if (c <= 0 || c >= 1) return b0/(1-b0);
+  if (c <= 0 || c >= 1 || isnan(c)) return b0/(1-b0);
   d = 0.0;
   f = 1.0;
   for (i = (int)k0+1; i < 50000; i++) {
@@ -1172,7 +1172,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	      b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
 	    }
 	    c = dqk[nklp]/dqk[nklp-1];
-	    c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
+	    if (c > 0) {
+	      c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
+	    }
 	    b = TopUpQk(b, c, pw_scratch.kl[nklp], -1.0, te, e1);
 	  }
 	}
@@ -1183,9 +1185,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	  s = fabs(s/drq[ite][ie]);
 	  d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
 	  rq[ite][ie] = rq[ite][ie]-drq[ite][ie] + d;
-	  //printf("drq: %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,type,r,rd,b,dqk[nklp],s,d, drq[ite][ie], brq[ite][ie]); 
 	  drq[ite][ie] = d;
 	}
+	//printf("drq: %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,type,r,rd,b,dqk[nklp],dqk[nklp-1],c,s,d, drq[ite][ie], brq[ite][ie]); 
       }
     }
   }  
@@ -1468,12 +1470,16 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	  if (dqk[iq][i] && dqk[iq][i-1]) {
 	      if (k != kp || type1 == 0 || type1 > CBMULT) {
 		c = dqk[iq][i]/dqk[iq][i-1];
-		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		if (c > 0) {
+		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		}
 		b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1);
 	      } else if (type1 >= 0) {
 		b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
 		c = dqk[iq][i]/dqk[iq][i-1];
-		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		if (c > 0) {
+		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		}
 		b = TopUpQk(b, c, pw_scratch.kl[i], -1.0, te, e1);
 	      } else {	  
 		b = 0.0;
