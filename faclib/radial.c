@@ -174,8 +174,9 @@ static MULTI *moments_array;
 static MULTI *gos_array;
 static MULTI *yk_array;
 
+#define MAXNAW 128
 static int n_awgrid = 0;
-static double awgrid[MAXNTE];
+static double awgrid[MAXNAW];
 #define MAXMP 8
 static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
@@ -1508,8 +1509,16 @@ int SetAWGrid(int n, double awmin, double awmax) {
     awmin = 1E-3;
     awmax = awmax + 1E-3;
   }
-  n_awgrid = SetTEGrid(awgrid, NULL, n, awmin, awmax);
-
+  if (n > MAXNAW) {
+    printf("naw exceeded max: %d %d\n", n, MAXNAW);
+    n = MAXNAW;
+  }
+  double d = (awmax-awmin)/(n-1);
+  awgrid[0] = awmin;
+  for (i = 1; i < n; i++) {
+    awgrid[i] = awgrid[i-1] + d;
+  }
+  n_awgrid = n;
   return 0;
 }
 
