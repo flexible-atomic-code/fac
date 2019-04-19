@@ -86,6 +86,7 @@ static ARRAY *mbpt_cca = NULL;
 static double mbpt_wmix = 1e-4;
 static double mbpt_nwmix = 0.0;
 static int mbpt_wmixmode = 1;
+static char mbpt_tid[256] = "";
 static struct {
   int nj;
   int *jp;
@@ -141,6 +142,7 @@ void PrintMBPTOptions(void) {
   printf("nsplit=%d\n", mbpt_nsplit);
   printf("freetr=%g\n", mbpt_freetr);
   printf("ccn=%s\n", mbpt_ccn);
+  printf("tid=%s\n", mbpt_tid);
   printf("wmixmode=%d\n", mbpt_wmixmode);
   printf("wmix=%g\n", mbpt_wmix);
   printf("nwmix=%g\n", mbpt_nwmix);
@@ -220,6 +222,8 @@ void SetAWGridMBPT(double emin, double emax) {
   int i;
   double *a;
 
+  MPrintf(-1, "mbpt awgrid: %d %d %12.5E %12.5E\n",
+	  mbpt_tr.nktr, mbpt_tr.naw, emin, emax);
   SetAWGrid(mbpt_tr.naw, emin, emax);
   GetAWGrid(&a);
   for (i = 0; i < mbpt_tr.naw; i++) {
@@ -296,6 +300,10 @@ void SetOptionMBPT(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "mbpt:ccn")) {
     strncpy(mbpt_ccn, sp, 256);
+    return;
+  }
+  if (0 == strcmp(s, "mbpt:tid")) {
+    strncpy(mbpt_tid, sp, 256);
     return;
   }
   if (0 == strcmp(s, "mbpt:ignore")) {
@@ -5941,7 +5949,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
       MPrintf(-1, "MBPT Transition ReinitRadial: %12.5E %12.5E\n", WallTime()-tbg, TotalSize());
     }
     if (MyRankMPI() == 0) {
-      sprintf(tfn, "%s.tr", fn1);
+      sprintf(tfn, "%s.tr%s", fn1, mbpt_tid);
       f = fopen(tfn, "w");
     }
     CONFIG_PAIR *cfgpair0 = malloc(sizeof(CONFIG_PAIR)*nc*nc);
@@ -6869,7 +6877,8 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
   if (MyRankMPI() != 0) return;
   double wt0 = WallTime();
   fn = mbpt_tr.tfn;
-  if (fn == NULL || mbpt_tr.nlow <= 0 || mbpt_tr.nup <= 0) return;  
+  if (fn == NULL || strlen(fn) == 0 ||
+      mbpt_tr.nlow <= 0 || mbpt_tr.nup <= 0) return;  
   awgrid = mbpt_tr.awgrid;
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
@@ -7246,86 +7255,93 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	  nabi = nab[isym][k];
 	  nbai = nba[isym][k];
 	}
-	CombineMBPT(nf, mbpt, z1[isym][k], z2[isym][k],
-		    habi, hbai,
-		    nab1[isym][k], nba1[isym][k],
-		    nabi, nbai, 
-		    &ing0, &ing, ing2);
+	if (mbpt_n3 >= 0) {
+	  CombineMBPT(nf, mbpt, z1[isym][k], z2[isym][k],
+		      habi, hbai,
+		      nab1[isym][k], nba1[isym][k],
+		      nabi, nbai, 
+		      &ing0, &ing, ing2);
+	}
       }
     }
     wt1 = WallTime();
     MPrintf(0, "ReadMBPT: %d %d %d %d %d %g\n",
 	    isym, h->dim, mbpt[0].dim, n, mbpt[0].n2, wt1-wt0);
     wt0 = wt1;
-    ResetWidMPI();
+    if (mbpt_n3 >= 0) {
+      ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, k, k0, k1, x, t, y, a, b, na, nb, r, q)
-    {
-    x = malloc(sizeof(double)*n2m*3);  
-    t = x + n2m;
-    y = t + n2m;
-    for (j = 0; j < h->dim; j++) {
-      for (i = 0; i <= j; i++) {
-	int skip = SkipMPI();
-	if (skip) continue;
-	k = j*(j+1)/2 + i;
-	k0 = j*h->dim + i;
-	k1 = i*h->dim + j;
-	if (z1[isym][k] == NULL) continue;
-	if (n0 > 0) {
-	  for (q = 0; q < n0; q++) {
-	    x[q] = ng0[q];
-	  }
-	  a = SumInterp1D(n0, z1[isym][k], x, t, y, 1);
-	  heff[isym][k0] += a;
-	  na = SumInterp1D(n0, nab1[isym][k], x, t, y, 2);
-	  neff[isym][k0] += na;
-	  b = a;
-	  nb = na;
-	  if (i < j) {
-	    b = SumInterp1D(n0, z2[isym][k], x, t, y, 3);
-	    heff[isym][k1] += b;
-	    nb = SumInterp1D(n0, nba1[isym][k], x, t, y, 4);
-	    neff[isym][k1] += nb;
-	  }
-	}
-	if (n > 0 && hab[isym]) {
-	  for (r = 0; r < n; r++) {
-	    if (n2[r] > 0) {
-	      for (q = 0; q < n2[r]; q++) {
-		x[q] = ng[r] + ng2[r][q];
+      {
+	x = malloc(sizeof(double)*n2m*3);  
+	t = x + n2m;
+	y = t + n2m;
+	for (j = 0; j < h->dim; j++) {
+	  for (i = 0; i <= j; i++) {
+	    int skip = SkipMPI();
+	    if (skip) continue;
+	    k = j*(j+1)/2 + i;
+	    k0 = j*h->dim + i;
+	    k1 = i*h->dim + j;
+	    if (z1[isym][k] == NULL) continue;
+	    if (n0 > 0) {
+	      for (q = 0; q < n0; q++) {
+		x[q] = ng0[q];
 	      }
-	      z1[isym][k][r] = SumInterp1D(n2[r], hab[isym][k][r],
-					   x, t, y, ng[r]*10+1);
-	      if (i < j) z2[isym][k][r] = SumInterp1D(n2[r], hba[isym][k][r],
-						      x, t, y, ng[r]*10+2);
-	      else z2[isym][k][r] = z1[isym][k][r];		
-	      nab1[isym][k][r] = SumInterp1D(n2[r], nab[isym][k][r],
-					     x, t, y, ng[r]*10+3);
-	      if (i < j) nba1[isym][k][r] = SumInterp1D(n2[r], nba[isym][k][r],
-							x, t, y, ng[r]*10+4);
+	      a = SumInterp1D(n0, z1[isym][k], x, t, y, 1);
+	      heff[isym][k0] += a;
+	      na = SumInterp1D(n0, nab1[isym][k], x, t, y, 2);
+	      neff[isym][k0] += na;
+	      b = a;
+	      nb = na;
+	      if (i < j) {
+		b = SumInterp1D(n0, z2[isym][k], x, t, y, 3);
+		heff[isym][k1] += b;
+		nb = SumInterp1D(n0, nba1[isym][k], x, t, y, 4);
+		neff[isym][k1] += nb;
+	      }
 	    }
-	  }	  
-	  for (q = 0; q < n; q++) {
-	    x[q] = ng[q];
-	  }
-	  a = SumInterp1D(n, z1[isym][k], x, t, y, -1);
-	  heff[isym][k0] += a;
-	  na = SumInterp1D(n, nab1[isym][k], x, t, y, -2);
-	  neff[isym][k0] += na;
-	  b = a;
-	  nb = na;
-	  if (i < j) {
-	    b = SumInterp1D(n, z2[isym][k], x, t, y, -3);
-	    heff[isym][k1] += b;
-	    nb = SumInterp1D(n, nba1[isym][k], x, t, y, -4);
-	    neff[isym][k1] += nb;
+	    if (n > 0 && hab[isym]) {
+	      for (r = 0; r < n; r++) {
+		if (n2[r] > 0) {
+		  for (q = 0; q < n2[r]; q++) {
+		    x[q] = ng[r] + ng2[r][q];
+		  }
+		  z1[isym][k][r] = SumInterp1D(n2[r], hab[isym][k][r],
+					       x, t, y, ng[r]*10+1);
+		  if (i < j) z2[isym][k][r] = SumInterp1D(n2[r],
+							  hba[isym][k][r],
+							  x, t, y, ng[r]*10+2);
+		  else z2[isym][k][r] = z1[isym][k][r];		
+		  nab1[isym][k][r] = SumInterp1D(n2[r], nab[isym][k][r],
+						 x, t, y, ng[r]*10+3);
+		  if (i < j) nba1[isym][k][r] = SumInterp1D(n2[r],
+							    nba[isym][k][r],
+							    x, t, y,
+							    ng[r]*10+4);
+		}
+	      }	  
+	      for (q = 0; q < n; q++) {
+		x[q] = ng[q];
+	      }
+	      a = SumInterp1D(n, z1[isym][k], x, t, y, -1);
+	      heff[isym][k0] += a;
+	      na = SumInterp1D(n, nab1[isym][k], x, t, y, -2);
+	      neff[isym][k0] += na;
+	      b = a;
+	      nb = na;
+	      if (i < j) {
+		b = SumInterp1D(n, z2[isym][k], x, t, y, -3);
+		heff[isym][k1] += b;
+		nb = SumInterp1D(n, nba1[isym][k], x, t, y, -4);
+		neff[isym][k1] += nb;
+	      }
+	    }
+	  OUT:
+	    continue;
 	  }
 	}
-      OUT:
-	continue;
+	free(x);
       }
-    }
-    free(x);
     }
     for (k = 0; k < dim2; k++) {
       if (z1[isym][k]) {
@@ -7368,59 +7384,63 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
 	mbpt[m].hsize0 = 0;
       }
     }
-    wt1 = WallTime();
-    printf("SumInterp: %d %d %d %g\n", isym, h->dim, mbpt[0].dim, wt1-wt0);
+    if (mbpt_n3 >= 0) {
+      wt1 = WallTime();
+      printf("SumInterp: %d %d %d %g\n", isym, h->dim, mbpt[0].dim, wt1-wt0);
+    }
   }
-  
-  ResetWidMPI();
+
+  if (mbpt_n3 >= 0) {
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(isym, h, pp, jj, wt0, wt1, i, j, k, k0, a, b, ym, m)
-  {
-  for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
-    if (heff[isym] == NULL) continue;
-    wt0 = WallTime();
-    int skip = SkipMPI();
-    if (skip) continue;
-    h = GetHamilton(isym);
-    DecodePJ(isym, &pp, &jj);
-    h->heff = heff[isym];
-    if (DiagnolizeHamilton(h) < 0) {
-      printf("Diagnolizing Hamiltonian Error\n");
-      ierr = -1;
-      break;
-    }
-    
-    /* correct the normalization */
-    ym = h->mixing + h->dim;
-    for (i = 0; i < h->dim; i++) {
-      a = 0.0;
-      for (j = 0; j < h->dim; j++) {
-	for (k = 0; k < h->dim; k++) {
-	  k0 = j*h->dim + k;
-	  a += neff[isym][k0] * ym[j] * ym[k];
+    {
+      for (isym = 0; isym < MAX_SYMMETRIES; isym++) {
+	if (heff[isym] == NULL) continue;
+	wt0 = WallTime();
+	int skip = SkipMPI();
+	if (skip) continue;
+	h = GetHamilton(isym);
+	DecodePJ(isym, &pp, &jj);
+	h->heff = heff[isym];
+	if (DiagnolizeHamilton(h) < 0) {
+	  printf("Diagnolizing Hamiltonian Error\n");
+	  ierr = -1;
+	  break;
 	}
-      }
-      if (a > 0 && a < 1) {
-	b = sqrt(1.0 + a);
-	for (j = 0; j < h->n_basis; j++) {
-	  ym[j] /= b;
+	
+	/* correct the normalization */
+	ym = h->mixing + h->dim;
+	for (i = 0; i < h->dim; i++) {
+	  a = 0.0;
+	  for (j = 0; j < h->dim; j++) {
+	    for (k = 0; k < h->dim; k++) {
+	      k0 = j*h->dim + k;
+	      a += neff[isym][k0] * ym[j] * ym[k];
+	    }
+	  }
+	  if (a > 0 && a < 1) {
+	    b = sqrt(1.0 + a);
+	    for (j = 0; j < h->n_basis; j++) {
+	      ym[j] /= b;
+	    }
+	  }
+	  ym += h->n_basis;
 	}
+	
+	AddToLevels(h, nkg0, kg);
+	wt1 = WallTime();
+	double ts = TotalSize();
+	MPrintf(-1, "Diag Ham: %3d %5d %5d %10.3E %10.3E\n",
+		isym, h->dim, h->n_basis, wt1-wt0, ts);
+	fflush(stdout);    
+	h->heff = NULL;
+	free(heff[isym]);
+	free(neff[isym]);
       }
-      ym += h->n_basis;
     }
-    
-    AddToLevels(h, nkg0, kg);
-    wt1 = WallTime();
-    double ts = TotalSize();
-    MPrintf(-1, "Diag Ham: %3d %5d %5d %10.3E %10.3E\n",
-	    isym, h->dim, h->n_basis, wt1-wt0, ts);
-    fflush(stdout);    
-    h->heff = NULL;
-    free(heff[isym]);
-    free(neff[isym]);
+    SortLevels(nlevels, -1, 0);
+    SaveLevels(fn, nlevels, -1);
   }
-  }
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(fn, nlevels, -1);
   for (m = 0; m < nf; m++) {
     fclose(f1[m]);    
   }
@@ -7434,7 +7454,7 @@ int StructureReadMBPT(char *fn, char *fn2, int nf, char *fn1[],
   printf("End MBPT Structure: %g %g\n", WallTime()-wt0, TotalSize());
   if (mbpt_tr.nktr == 0) goto ERROR;
   for (m = 0; m < nf; m++) {
-    sprintf(tfn1, "%s.tr", fn1[m]);
+    sprintf(tfn1, "%s.tr%s", fn1[m], mbpt_tid);
     f1[m] = fopen(tfn1, "r");
     if (f1[m] == NULL) {
       printf("no transition correction file %s\n", tfn1);
