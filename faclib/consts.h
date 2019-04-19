@@ -296,8 +296,8 @@
 /* excitation */
 #define NGOSK              256
 #define EXCLQR             0
-#define EXCLMAX            36
-#define EXCLCB             36
+#define EXCLMAX            60
+#define EXCLCB             60
 #define EXCTOL             5E-2
 #define XBORN              (-0.5)
 #define XBORN1             (-1.0)

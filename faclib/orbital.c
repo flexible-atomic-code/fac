@@ -1765,7 +1765,6 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
       
   bqp0 = DpDr(orb->kappa, kv, 0, e, pot, 0, -1, &orb->bqp0);
   nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
-
   for (i = i2p2; i >= 0; i--) {
     p[i] *= pot->dr_drho2[i];
   }
@@ -1832,8 +1831,13 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
   if (i2 > i0) {
     is = i0;
     if (i0 == 0) {
+      a = 0;
       for (is = i0; is < i1; is++) {
-	if (fabs(p[is])>1e-100) break;
+	b = fabs(p[is]);
+	if (b > a) a = b;
+      }
+      for (is = i0; is < i1; is++) {
+	if (fabs(p[is])>1e-30*a) break;
       }
     }
     if (i0 == 0 && orb->kappa < 0) {
@@ -1873,7 +1877,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	a = log(p[i+1]/p[i])/log(pot->rad[i+1]/pot->rad[i]);
 	if (fabs(p[i]) > wave_zero ||
 	    fabs(a-orb->pdx) < 1e-4*orb->pdx ||
-	    a < orb->pdx) break;      
+	    a < orb->pdx) break;
       }
       is = i;
       if (p[is] > 0) {
@@ -2280,6 +2284,12 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
       }
     }
     p[i] = y[0];
+    /*
+    if (isnan(p[i])) {
+      printf("nan amplitude: %d %g %g\n", i, y[0], y[1]);
+      Abort(1);
+    }
+    */
   }
 
   return y[1];
@@ -2301,6 +2311,11 @@ int Phase(double *p, POTENTIAL *pot, int i1, double phase0) {
   p[i] = phase0;
   for (i = i1+3; i < pot->maxrp; i += 2) {
     p[i] = p[i-2] + (_dwork[i-3] + 4.0*_dwork[i-2] + _dwork[i-1])*fact;
+    /*
+    if (isnan(p[i])) {
+      printf("nan phase: %d %g\n", i, p[i-2]);
+    }
+    */
   }
   return 0;
 }
