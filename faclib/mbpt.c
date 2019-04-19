@@ -4498,7 +4498,7 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   MBPT_EFF *meff[MAX_SYMMETRIES];
   MBPT_TR *mtr;
   IDXARY *idb[MAX_SYMMETRIES];
-  double a, b, c, *mix, *hab, *hba, emin, emax;
+  double a, b, c, *mix, *hab, *hba, emin, emax, umin, umax;
   double *h0, *heff, *neff, *hab1, *hba1, *dw, tt0, tt1, tbg, dt, dtt;
   FILE *f;
   IDXARY ing, ing2;
@@ -4794,7 +4794,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   nlevels = GetNumLevels();
   emax = -1E31;
   emin = 1E31;
-		 
+  umax = -1E31;
+  umin = 1E31;
   if (nkgp > 0) {
     kgp = kg + nkg0;
     if (nkg00 < 0) {
@@ -4836,9 +4837,13 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
   mr = MPIRank(&npr);
   double *em0 = WorkSpace();
   double *em1 = em0 + npr;
+  double *eu0 = em1 + npr;
+  double *eu1 = eu0 + npr;
   for (i = 0; i < npr; i++) {
     em0[i] = 1e31;
     em1[i] = -1e31;
+    eu0[i] = 1e31;
+    eu1[i] = -1e31;
   }
   ResetWidMPI();
 #pragma omp parallel default(shared) private(isym, h, sym, ks, mks, m, mix, k, q, st, i, j, a, b, c, i0, mr)
@@ -4897,24 +4902,40 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
     mix = h->mixing + h->dim;
     for (k = 0; k < h->dim; k++) {
       /* determine the states that need MBPT correction */
+      q = GetPrincipleBasis(mix, h->dim, NULL);
+      st = (STATE *) ArrayGet(&(sym->states), h->basis[q]);
       if (nkg0 != nkg) {
-	q = GetPrincipleBasis(mix, h->dim, NULL);
-	st = (STATE *) ArrayGet(&(sym->states), h->basis[q]);
 	if (InGroups(st->kgroup, nkg0, kg)) {	  
 	  if (mbpt_nlev <= 0 || IBisect(m, mbpt_nlev, mbpt_ilev) >= 0) {
 	    ks[mks++] = k;
 	  }
 	  m++;
-	  if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
-	  if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
+	  if (mbpt_tr.nlow == 0 ||
+	      InGroups(st->kgroup, mbpt_tr.nlow, mbpt_tr.low)) {
+	    if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
+	    if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
+	  }
+	  if (mbpt_tr.nup == 0 ||
+	      InGroups(st->kgroup, mbpt_tr.nup, mbpt_tr.up)) {	    
+	    if (h->mixing[k] < eu0[mr]) eu0[mr] = h->mixing[k];
+	    if (h->mixing[k] > eu1[mr]) eu1[mr] = h->mixing[k];
+	  }
 	}
       } else {
 	if (mbpt_nlev <= 0 || IBisect(m, mbpt_nlev, mbpt_ilev) >= 0) {
 	  ks[mks++] = k;
 	}
 	m++;
-	if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
-	if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
+	if (mbpt_tr.nlow == 0 ||
+	    InGroups(st->kgroup, mbpt_tr.nlow, mbpt_tr.low)) {
+	  if (h->mixing[k] < em0[mr]) em0[mr] = h->mixing[k];
+	  if (h->mixing[k] > em1[mr]) em1[mr] = h->mixing[k];
+	}
+	if (mbpt_tr.nup == 0 ||
+	    InGroups(st->kgroup, mbpt_tr.nup, mbpt_tr.up)) {	    
+	  if (h->mixing[k] < eu0[mr]) eu0[mr] = h->mixing[k];
+	  if (h->mixing[k] > eu1[mr]) eu1[mr] = h->mixing[k];
+	}
       }
       mix += h->n_basis;
     }
@@ -4994,21 +5015,24 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	}
       }
     }
-    MPrintf(-1, "Eff Ham: %3d %3d %3d %3d %3d %10.3E %10.3E %12.5E %12.5E\n",
+    MPrintf(-1, "Eff Ham: %3d %3d %3d %3d %3d %10.3E %10.3E %12.5E %12.5E %12.5E %12.5E\n",
 	    isym, h->dim, h->n_basis, ki, ke,
-	    WallTime()-tbg, TotalSize(), em0[mr], em1[mr]);
+	    WallTime()-tbg, TotalSize(), em0[mr], em1[mr], eu0[mr], eu1[mr]);
   }
   }
   for (i = 0; i < npr; i++) {
     if (em0[i] < emin) emin = em0[i];
     if (em1[i] > emax) emax = em1[i];
+    if (eu0[i] < umin) umin = eu0[i];
+    if (eu1[i] > umax) umax = eu1[i];
   }
   if (mbpt_tr.nktr > 0) {
     double mem0 = TotalSize();
-    emax = (emax-emin);
-    emin = 0.1;
-    emax *= FINE_STRUCTURE_CONST;
-    emin *= FINE_STRUCTURE_CONST;
+    umax = umax - emin;
+    umin = umin - emax;
+    if (umin < 0.1) umin = 0.1;
+    emax = umax*FINE_STRUCTURE_CONST;
+    emin = umin*FINE_STRUCTURE_CONST;
     SetAWGridMBPT(emin, emax);
     InitTransitionMBPT(&mtr, idb);
     ResetWidMPI();
@@ -5067,8 +5091,8 @@ int StructureMBPT1(char *fn, char *fn0, char *fn1,
 	  if (wm1[i] < am) wm1[i] = am;
 	}
       }
-      MPrintf(-1, "TR Matrix: %3d %5d %5d %5d %10.3E %10.3E\n",
-	      isym, h->dim, i0, i1, WallTime()-tbg, TotalSize());
+      MPrintf(-1, "TR Matrix: %3d %5d %5d %5d %10.3E %10.3E %10.3E %10.3E\n",
+	      isym, h->dim, i0, i1, umin, umax, WallTime()-tbg, TotalSize());
     }
     }
     ResetWidMPI();

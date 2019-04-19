@@ -50,6 +50,7 @@ static ARRAY *levels;
 static int n_levels = 0;
 static ARRAY *eblevels;
 static int n_eblevels = 0;
+static int _sort_levs = 1;
 
 static int mbpt_mk = 0;
 static int angz_dim, angz_dim2;
@@ -3276,16 +3277,12 @@ int GetPrincipleBasis(double *mix, int d, int *kpb) {
 }
 
 int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
-  if (lev1->energy > lev2->energy) return 1;
-  else if (lev1->energy < lev2->energy) return -1;
-  else return 0;
-  /*
-  STATE *s1, *s2;
-  SYMMETRY *sym1, *sym2;
-  ORBITAL *orb;
-  int i1, i2;
-  int p1, p2, j1, j2;
-
+  if (_sort_levs == 1) {
+    if (lev1->energy > lev2->energy) return 1;
+    else if (lev1->energy < lev2->energy) return -1;
+    else return 0;
+  }
+  
   if (IsUTA()) {
     if (lev1->energy > lev2->energy) return 1;
     else if (lev1->energy < lev2->energy) return -1;
@@ -3298,6 +3295,21 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
     return 0;
   }
 
+  if (_sort_levs == 2) {
+    if (lev1->pj < lev2->pj) return -1;
+    else if (lev1->pj > lev2->pj) return 1;
+    else {
+      if (lev1->energy > lev2->energy) return 1;
+      else if (lev1->energy < lev2->energy) return -1;
+      return 0;
+    }
+  }
+  
+  STATE *s1, *s2;
+  SYMMETRY *sym1, *sym2;
+  ORBITAL *orb;
+  int i1, i2;
+  int p1, p2, j1, j2;  
   i1 = lev1->pb;
   i2 = lev2->pb;
   sym1 = GetSymmetry(lev1->pj);
@@ -3324,14 +3336,14 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
     if (lev1->energy > lev2->energy) return 1;
     else if (lev1->energy < lev2->energy) return -1;
     else return 0;
-  }
-  */
+  }  
 }
 
 int SortLevels(int start, int n, int m) {
   int i, j, i0, j0;
   LEVEL tmp, *lev1, *lev2, *levp;
 
+  if (_sort_levs == 0) return 0;
   if (m == 0) {
     if (n < 0) n = n_levels-start;
   } else {
@@ -6966,6 +6978,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:full_name")) {
     full_name = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:sort_levs")) {
+    _sort_levs = ip;
     return;
   }
 }

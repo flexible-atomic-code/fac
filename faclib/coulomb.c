@@ -710,7 +710,7 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	  a = a/(1-a);
 	  for (i = 0; i < MAXNCB; i++) {
 	    for (m = 0; m < nkl; m++) {
-	      _cb[ie2][ite][ie1][i][m] = a;
+	      _cb[ie2][ite][ie1][i][m] = 0;
 	    }
 	  }
 	  continue;
@@ -749,10 +749,9 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	  if (i1 == 1) {
 	    q1 = k-1;
 	    if (q1 <= q0) {
-	      a = ee1/(ee0 - ee1);
 	      for (i = 0; i < MAXNCB; i++) {
 		for (m = 0; m < nkl; m++) {
-		  _cb[ie2][ite][ie1][i][m] = a;
+		  _cb[ie2][ite][ie1][i][m] = 0;
 		}
 	      }
 	      goto NEXTE;
@@ -774,6 +773,15 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	      b = k + (k+1.0)*w2;
 	      b *= (k+1.0)*2.0*(te[ite]+e2[ie2]);
 	      ws[k] = a/b;
+	      if (ws[k] <= 0) break;
+	    }
+	    if (k < q1) {
+	      for (i = 0; i < MAXNCB; i++) {
+		for (m = 0; m < nkl; m++) {
+		  _cb[ie2][ite][ie1][i][m] = 0;
+		}
+	      }
+	      goto NEXTE;
 	    }
 	    if (mode == 0) {
 	      tcb = GetCoulombBethe(ie2, ite, ie1, i1, 0);
