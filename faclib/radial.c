@@ -9635,10 +9635,8 @@ void PlasmaScreen(int m, int vxf,
       potential->rps = sqrt(potential->tps/(FOUR_PI*potential->nps*potential->zps));
     }
   }
-  if (m == 2) {
-    //stewart&pyatt model, ups is the z*;
-    potential->ups = SetSPZW(nz, zw);
-  }
+  //stewart&pyatt model, ups is the z*;
+  potential->ups = SetSPZW(nz, zw);
   if (ups >= 0) potential->ups = ups;
 }
 
