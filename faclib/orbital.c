@@ -47,7 +47,7 @@ static double _sp_vmax = 1e30;
 static double _sp_rmax = 1.0;
 static double _sp_yeps = 1e-7;
 static double _sp_neps = 1e-3;
-static double _sp_z0 = 0.1;
+static double _sp_z0 = 1.0;
 static double _sp_z1 = 1.0;
 static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
@@ -1837,7 +1837,9 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
 	if (b > a) a = b;
       }
       for (is = i0; is < i1; is++) {
-	if (fabs(p[is])>1e-30*a) break;
+	if (fabs(p[is])>1e-30*a &&
+	    ((p[is] > 0 && p[is+1] > 0) ||
+	     (p[is] < 0 && p[is+1] < 0))) break;
       }
     }
     if (i0 == 0 && orb->kappa < 0) {
@@ -1875,6 +1877,7 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
       }
       for (i = is; i <= imax; i++) {
 	a = log(p[i+1]/p[i])/log(pot->rad[i+1]/pot->rad[i]);
+	if (isnan(a)) continue;
 	if (fabs(p[i]) > wave_zero ||
 	    fabs(a-orb->pdx) < 1e-4*orb->pdx ||
 	    a < orb->pdx) break;
@@ -2582,11 +2585,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     if (pot->ups < 0) {
       pot->ups = pot->zps;
     }
-    if (pot->mps == 1) {
-      pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*pot->zps));
-    } else {
-      pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
-    }
+    pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
     if (pot->nps > 0) {
       pot->rps = pow(3*pot->zps/(FOUR_PI*pot->nps),ONETHIRD);
     } else {

@@ -8798,21 +8798,18 @@ int TestIntegrate(void) {
   int n, m;
   double r, r0;  
 
-  m = 20;
+  m = -2;
   for (n = 0; n < potential->maxrp; n++) {
-    _xk[n] = pow(potential->rad[n], m)*potential->dr_drho[n];
+    _xk[n] = pow(potential->rad[n], m);
   }
-  _yk[0] = 0.0;
-  NewtonCotes(_yk, _xk, 0, potential->maxrp-1, -1, 0);
+
+  double e = 9e3/HARTREE_EV;
+  int k = OrbitalIndex(0, -1, e);
+  ORBITAL *orb = GetOrbital(k);
+  WaveFuncTable("ws.txt", 0, -1, e);
+  Integrate(_xk, orb, orb, -1, _zk, 0);
   for (n = 0; n < potential->maxrp; n++) {
-    if (n > 10) break;
-    if (n > 0 && n < potential->maxrp-1) {
-      if (n%2 == 1) r = 0.5*(_yk[n-1]+_yk[n+1]);
-      else r = _yk[n];
-    }
-    r0 = (pow(potential->rad[n],m+1)-pow(potential->rad[0],m+1))/(m+1.0);
-    printf("%4d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-	   n, potential->rad[n], _xk[n], _yk[n], r, r0);
+    printf("%d %g %g %g\n", n, potential->rad[n], _xk[n], _zk[n]);
   }
 
   return 0;
@@ -9641,8 +9638,8 @@ void PlasmaScreen(int m, int vxf,
   if (m == 2) {
     //stewart&pyatt model, ups is the z*;
     potential->ups = SetSPZW(nz, zw);
-    if (ups >= 0) potential->ups = ups;
   }
+  if (ups >= 0) potential->ups = ups;
 }
 
 void SetOptionRadial(char *s, char *sp, int ip, double dp) {
