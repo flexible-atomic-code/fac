@@ -34,16 +34,25 @@ static int *_ipiv;
 
 #pragma omp threadprivate(_veff, ABAND, _ipiv, _dwork, _dwork1, _dwork2, _dwork3)
 
-static int _relativistic_fermi = 1;
+static double _relativistic_xfermi = 0.025;
+static int _relativistic_fermi0 = -1;
+static int _relativistic_fermi = 0;
 static double _fermi_abserr = 1e-7;
 static double _fermi_relerr = 1e-5;
 static double _fermi_stablizer = 0.5;
-#define NFRM1 128
+#define NFRM1 256
 #define NFRM2 (NFRM1+2)
+static double _fermi_a0 = 1.0;
+static double _fermi_a1 = 10.0;
+static double _fermi_y0 = 1e-4;
+static double _fermi_y1 = 1e5;
+static double _fermi_tmin = 0.01;
+static double _fermi_tmax = 100.0;
 static double _fermi_rm1[4][NFRM2];
+static double _fermi_ymx;
+static double _fermi_rmx;
 static char _fermi_rmf[256] = "";
 static char _sp_ofn[256] = "";
-static double _sp_vmax = 1e30;
 static double _sp_rmax = 1.0;
 static double _sp_yeps = 1e-7;
 static double _sp_neps = 1e-3;
@@ -69,6 +78,7 @@ static double *_icf_dw = NULL;
 static char _icf_ofn[256] = "";
 static int max_iteration = 512;
 static double wave_zero = 1E-10;
+static int _on_error = 0;
 
 static double _wk_q[16] = {2.09400223235,
 			   1.42425723499,
@@ -169,6 +179,14 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
+
+int OnErrorOrb() {
+  return _on_error;
+}
+
+void SetOnErrorOrb(int e) {
+  _on_error = e;
+}
 
 int SPMode() {
   return _sp_mode;
@@ -470,7 +488,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
     ierr = RadialBasisOuter(orb, pot);
   }
   if (orb->wfun != NULL && orb->ilast > 0) orb->isol = 1;
-  if (orb->wfun) {
+  if (orb->wfun && _on_error >= 0) {
     if (isnan(orb->wfun[0]) || isnan(orb->wfun[pot->maxrp])) {
       MPrintf(-1, "wfun nan: %d %d %12.5E %12.5E %12.5E\n",
 	      orb->n, orb->kappa, orb->energy,
@@ -640,8 +658,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   n = -orb->n;
   nr = n - kl - 1;
   if (kl < 0 || kl >= n) {
-    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
-	   kl, orb->n, orb->kappa);
+    if (_on_error >= 0) {
+      printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	     kl, orb->n, orb->kappa);
+    }
     return -1;
   }
   
@@ -687,8 +707,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBasisOuter %d %d\n",
-	   nodes, nr);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding correct nodes in RadialBasisOuter %d %d\n",
+	     nodes, nr);
+    }
     free(p);
     return -2;
   }
@@ -718,8 +740,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     nodes = nr;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
-	   nodes, nr);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
+	     nodes, nr);
+    }
     free(p);
     return -3;
   }
@@ -750,8 +774,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
       nodes = nr;
     }  
     if (niter == max_iteration) {
-      printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -4;
     }
@@ -806,8 +832,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   }
   
   if (niter == max_iteration) {
-    printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
-	   nodes, nr);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding solution in RadialBasisOuter %d %d\n",
+	     nodes, nr);
+    }
     free(p);
     return -5;
   }
@@ -841,14 +869,19 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   kl = (kl < 0)? (-kl-1):kl;
 
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
-	   kl, orb->n, orb->kappa);
+    if (_on_error >= 0) {
+      printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	     kl, orb->n, orb->kappa);
+    }
     return -1;
   }
 
   p = malloc(sizeof(double)*2*pot->maxrp);
   if (!p) {
-    MPrintf(-1, "cannot alloc memory RadialBasis: %d %d\n", orb->n, orb->kappa);
+    if (_on_error >= 0) {
+      MPrintf(-1, "cannot alloc memory RadialBasis: %d %d\n",
+	      orb->n, orb->kappa);
+    }
     return -1;
   }
 
@@ -888,8 +921,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     e = e*2.0;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBasis %d %d %d %d %g %g\n",
-	   nodes, nr, orb->n, kl, e, emin);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding correct nodes in RadialBasis %d %d %d %d %g %g\n",
+	     nodes, nr, orb->n, kl, e, emin);
+    }
     free(p);
     return -2;
   }
@@ -913,8 +948,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
     emin = e;
     if (niter == max_iteration) {
-      printf("Max iteration before finding correct nodes in RadialBasis %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding correct nodes in RadialBasis %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -3;
     }
@@ -935,8 +972,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBasis %d %d\n",
-	   nodes, nr);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding correct nodes in RadialBasis %d %d\n",
+	     nodes, nr);
+    }
     free(p);
     return -4;
   }
@@ -1068,8 +1107,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
 
     if (niter == max_iteration) {
-      printf("Max iteration before finding solution in RadialBasis %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding solution in RadialBasis %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -7;
     }
@@ -1160,13 +1201,17 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       }
     }
     if (nodes != nr) {
-      printf("RadialBasis: No. nodes changed in iteration\n");
+      if (_on_error >= 0) {
+	printf("RadialBasis: No. nodes changed in iteration\n");
+      }
       free(p);
       return -6;
     }    
     if (niter == max_iteration) {
-      printf("Max iteration before finding solution in RadialBasis %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding solution in RadialBasis %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -7;
     }
@@ -1190,8 +1235,10 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       e += de;
     }
     if (niter == max_iteration) {
-      printf("Max iteration before finding solution in RadialBasis %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding solution in RadialBasis %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -8;
     }
@@ -1243,8 +1290,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   kl = (kl < 0)? (-kl-1):kl;
 
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
-	   kl, orb->n, orb->kappa);
+    if (_on_error >= 0) {
+      printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	     kl, orb->n, orb->kappa);
+    }
     return -1;
   }
   
@@ -1285,8 +1334,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     e *= 0.5;
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound a: %d %d %d %d %d %g\n",
-	   nodes, nr, i2, orb->n, orb->kappa, e);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding correct nodes in RadialBound a: %d %d %d %d %d %g\n",
+	     nodes, nr, i2, orb->n, orb->kappa, e);
+    }
     free(p);
     return -2;
   }
@@ -1310,8 +1361,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
     emin = e;
     if (niter == max_iteration) {
-      printf("Max iteration before finding correct nodes in RadialBound b: %d %d\n",
-	     nodes, nr);
+      if (_on_error >= 0) {
+	printf("Max iteration before finding correct nodes in RadialBound b: %d %d\n",
+	       nodes, nr);
+      }
       free(p);
       return -3;
     }
@@ -1337,8 +1390,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (niter == max_iteration) {
-    printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g %g %g\n",
-	   orb->n, orb->kappa, nodes, nr, e, emin, emax);
+    if (_on_error >= 0) {
+      printf("Max iteration before finding correct nodes in RadialBound c: %d %d %d %d %g %g %g\n",
+	     orb->n, orb->kappa, nodes, nr, e, emin, emax);
+    }
     free(p);
     return -4;
   }
@@ -1406,8 +1461,12 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     e = e*ep + e0*(1-ep);
   }
   if (niter == max_iteration) {
-    printf("Max iteration reached in RadialBound: %d %d\n", orb->n, orb->kappa);
-    Abort(1);
+    if (_on_error >= 0) {
+      printf("Max iteration reached in RadialBound: %d %d\n",
+	     orb->n, orb->kappa);
+    }
+    free(p);
+    return -5;
   }
   ep = sqrt(norm2);
   fact = 1.0/ep;
@@ -1441,7 +1500,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
   }
   if (nodes != nr) {
-    printf("RadialBound: No. nodes changed in iteration %d %d\n", nodes, nr);
+    if (_on_error >= 0) {
+      printf("RadialBound: No. nodes changed in iteration %d %d %d %d\n", nodes, nr, orb->n, orb->kappa);
+    }
     free(p);
     return -6;
   }
@@ -1475,8 +1536,10 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
   if (kl < 0 || kl >= orb->n) {
-    printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
-	   kl, orb->n, orb->kappa);
+    if (_on_error >= 0) {
+      printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
+	     kl, orb->n, orb->kappa);
+    }
     return -1;
   }
   e = EnergyH(z, orb->n, orb->kappa);
@@ -1496,7 +1559,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       SetVEffective(kl, kv, pot);
       i2 = TurningPoints(orb->n, e, pot);
       if (i2 < 0) {
-	printf("The orbital angular momentum = %d too high\n", kl);
+	if (_on_error >= 0) {
+	  printf("The orbital angular momentum = %d too high\n", kl);
+	}
 	return -2;
       }
       i2p2 = i2 + 2;
@@ -1514,7 +1579,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       SetVEffective(kl, kv, pot);
       i2 = TurningPoints(orb->n, e, pot);
       if (i2 < 0) {
-	printf("The orbital angular momentum = %d too high\n", kl);
+	if (_on_error >= 0) {
+	  printf("The orbital angular momentum = %d too high\n", kl);
+	}
 	return -2;
       }
       i2p2 = i2 + 2;
@@ -1527,7 +1594,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       SetVEffective(kl, kv, pot);
       i2 = TurningPoints(orb->n, e, pot);
       if (i2 < 0) {
-	printf("The orbital angular momentum = %d too high\n", kl);
+	if (_on_error >= 0) {
+	  printf("The orbital angular momentum = %d too high\n", kl);
+	}
 	return -2;
       }
       i2p2 = i2 + 2;
@@ -1577,7 +1646,9 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       }
     }
     if (niter == max_iteration) {
-      printf("Max iteration reached in RadialRydberg\n");
+      if (_on_error >= 0) {
+	printf("Max iteration reached in RadialRydberg\n");
+      }
       free(p);
       return -3;
     }    
@@ -1697,11 +1768,15 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
   e = orb->energy;
   kl = orb->kappa;
   if (orb->kappa == 0) {
-    printf("Kappa == 0 in RadialFreeInner\n");
+    if (_on_error >= 0) {
+      printf("Kappa == 0 in RadialFreeInner\n");
+    }
     return -1;
   }
   if (pot->ib1 <= 0 && pot->ib <= 0) {
-    printf("Boundary not set\n");
+    if (_on_error >= 0) {
+      printf("Boundary not set\n");
+    }
     return -2;
   }
   SetPotentialW(pot, e, kl, kv);
@@ -1742,13 +1817,17 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
   e = orb->energy;
-  if (e < 0.0) { 
-    printf("Energy < 0 in Free\n");
+  if (e < 0.0) {
+    if (_on_error >= 0) {
+      printf("Energy < 0 in Free\n");
+    }
     return -1;
   }
   kl = orb->kappa;
   if (orb->kappa == 0) {
-    printf("Kappa == 0 in Free\n");
+    if (_on_error >= 0) {
+      printf("Kappa == 0 in Free\n");
+    }
     return -1;
   }
   SetPotentialW(pot, e, kl, kv);
@@ -2264,8 +2343,8 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
 	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
       else if (istate < 0) {
-	printf("LSODE Error %d\n", istate);
-	exit(1);
+	printf("LSODE Error %d\n", istate);      
+	Abort(1);
       }
     }
   }
@@ -2283,7 +2362,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
       if (istate == -1) istate = 2;
       else if (istate < 0) {
 	printf("LSODE Error %d\n", istate);
-	exit(1);
+	Abort(1);
       }
     }
     p[i] = y[0];
@@ -2481,7 +2560,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   DGBSV(m, kl, ku, nrhs, ABAND, n, ipiv, p+i1+1, m, &info);
   if (info) {
     printf("Error in Integrating the radial equation: %d\n", info);
-    exit(1);
+    Abort(1);
   }
 
   if (q == 1) {
@@ -2579,11 +2658,21 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   pot->xps = 1.0;
   pot->gps = 0.0;
   if (pot->mps >= 0) {
+    if (_relativistic_fermi0 < 0) {
+      a = pot->tps*FINE_STRUCTURE_CONST2;
+      if (a > _relativistic_xfermi) {
+	_relativistic_fermi = 1;
+      } else {
+	_relativistic_fermi = 0;
+      }
+    } else {
+      _relativistic_fermi = _relativistic_fermi0;
+    }
     if (pot->zps <= 0) {
       pot->zps = (z0-pot->N)+_sp_z0 + (_sp_z1-_sp_z0)*(1-pot->N/z0);
     }
     if (pot->ups < 0) {
-      pot->ups = pot->zps;
+      pot->ups = z0 - pot->N;
     }
     pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
     if (pot->nps > 0) {
@@ -2669,6 +2758,12 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
       pot->rps = 0;
     }
   }
+  if (pot->mps > 0) {
+    if (pot->rad[pot->maxrp-1] < 5*Max(pot->dps,pot->rps)) {
+      printf("rmax < 5x ionsphere or debye length: %d %g %g %g\n",
+	     pot->maxrp, pot->rad[pot->maxrp-1], pot->dps, pot->rps);
+    }
+  }
   return 0;
 }
 
@@ -2717,7 +2812,7 @@ int SetPotentialZ(POTENTIAL *pot) {
   }  
   SetPotentialVP(pot);
   SetPotentialSE(pot);
-  if (pot->sps == 0) SetPotentialPS(pot, NULL, NULL, 1);
+  if (pot->sps == 0) SetPotentialPS(pot, NULL, NULL, -1);
   return 0;
 }
 
@@ -3292,10 +3387,10 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
   return 0;
 }
 
-int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int init) {
+int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   int i;
   
-  if (pot->mps < 0 || init) {
+  if (pot->mps < 0 || iter < 0) {
     for (i = 0; i < pot->maxrp; i++) {
       pot->NPS[i] = 0;
       pot->EPS[i] = 0;
@@ -3305,11 +3400,11 @@ int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int init) {
     }
     return 0;
   }
-  SetPotentialIPS(pot, vt, wb);
+  SetPotentialIPS(pot, vt, wb, iter);
   return 0;
 }
 
-void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
+void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   int i;
   double n0, r0, x;
   if (pot->mps == 1) {//debye screening
@@ -3336,9 +3431,8 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
   if (pot->mps == 2) {//stewart&pyatt
     if (vt) {
       if (_sp_mode == 0 ||
-	  _sp_mode == 2 ||
-	  _sp_mode == 4) return;
-      if (_sp_mode != 3) {
+	  _sp_mode == 2) return;
+      if (_sp_mode != 3 && _sp_mode != 4) {
 	for (i = 0; i < pot->maxrp; i++) {
 	  x = pot->rad[i]/pot->dps;
 	  ABAND[i] = (x*fabs(vt[i]))/pot->tps;
@@ -3350,31 +3444,33 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
     i = 0;
     double x0 = 0.75;
     double xps = 2.0;
-    while (xps > 1) {
-      xps = StewartPyatt(pot, vt, wb, x0);
+    while (1) {
+      xps = StewartPyatt(pot, vt, wb, x0, iter);
+      if (xps < 1) break;
       x0 *= 0.5;
       i++;
       if (i > 256) {
-	printf("maxiter StewartPyatt0: %g %g\n", x0, xps);
+	printf("maxiter StewartPyatt0: %d %g %g\n", iter, x0, xps);
 	Abort(1);
       }
     }
     double x1 = 1.5;
     xps = 0.5;
     i = 0;
-    while (xps < 1) {
-      xps = StewartPyatt(pot, vt, wb, x1);
+    while (1) {
+      xps = StewartPyatt(pot, vt, wb, x1, iter);
+      if (xps > 1) break;
       x1 *= 2.0;
       i++;
       if (i > 256) {
-	printf("maxiter StewartPyatt1: %g %g\n", x1, xps);
+	printf("maxiter StewartPyatt1: %d %g %g\n", iter, x1, xps);
 	Abort(1);
       }
     }
     i = 0;
     while (x1-x0 > EPS5) {
       x = 0.5*(x0+x1);
-      xps = StewartPyatt(pot, vt, wb, x);
+      xps = StewartPyatt(pot, vt, wb, x, iter);
       if (xps < 1) {
 	x0 = x;
       } else if (xps > 1) {
@@ -3396,35 +3492,37 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb) {
       int iter = 0;
       while(1) {
 	IonCF(pot, _veff, _icf_rmax, _icf_nfft, _icf_dw);	
-	xps = StewartPyatt(pot, vt, wb, x);
+	xps = StewartPyatt(pot, vt, wb, x, iter);
 	if (fabs(xps-1) < EPS3) break;
 	x0 = x;
 	x1 = x;
 	i = 0;
 	if (xps < 1) {
-	  while (xps < 1) {
-	    xps = StewartPyatt(pot, vt, wb, x1);
+	  while (1) {
+	    xps = StewartPyatt(pot, vt, wb, x1, iter);
+	    if (xps > 1) break;
 	    x1 *= 2.0;
 	    i++;
 	    if (i > 256) {
-	      printf("maxiter StewartPyatt1: %g %g\n", x1, xps);
+	      printf("maxiter StewartPyatt1: %d %g %g\n", iter, x1, xps);
 	      Abort(1);
 	    }
 	  }
 	} else {
-	  while (xps > 1) {
-	    xps = StewartPyatt(pot, vt, wb, x0);
+	  while (1) {
+	    xps = StewartPyatt(pot, vt, wb, x0, iter);
+	    if (xps < 1) break;
 	    x0 *= 0.5;
 	    i++;
 	    if (i > 256) {
-	      printf("maxiter StewartPyatt0: %g %g\n", x0, xps);
+	      printf("maxiter StewartPyatt0: %d %g %g\n", iter, x0, xps);
 	      Abort(1);
 	    }
 	  }
 	}
 	while (x1-x0 > EPS5) {
 	  x = 0.5*(x0+x1);
-	  xps = StewartPyatt(pot, vt, wb, x);
+	  xps = StewartPyatt(pot, vt, wb, x, iter);
 	  if (xps < 1) {
 	    x0 = x;
 	  } else if (xps > 1) {
@@ -3681,7 +3779,8 @@ double FermiIntegral(double x, double y, double g) {
   t0 = y;
   iter = 0;
   while (1) {
-    double dt = Max(0.05*t0, 1.0);
+    double dt = Max(_fermi_tmin*t0, 1.0);
+    dt = Min(_fermi_tmax, dt);
     t1 = t0 + dt;
     DQAGS(C_FUNCTION(FERMIINTEGRAND, fermiintegrand),
 	  t0, t1, _fermi_abserr, _fermi_relerr, &s, &a, &n, &ier,
@@ -3881,9 +3980,7 @@ double InterpFermiRM1(double y0, int m) {
     r *= _fermi_rm1[i][NFRM1];
   } else if (y > _fermi_rm1[0][NFRM1-1]) {
     if (y0 < 0) return -1;
-    if (y0 > 1e10) {
-      y0 = 1e10;
-    }
+    //if (y0 > _fermi_ymx) y0 = _fermi_ymx;
     y = y0 + 0.5*g*y0*y0;
     r = FermiAsymRM1(a, y, m);
     if (m > 0) {
@@ -3907,8 +4004,8 @@ void PrepFermiRM1(double a, double fa, double t) {
     g = 0.0;
   }
   double aa = fabs(a);
-  double y0 = log(Min(1.0,aa)*1e-4);
-  double y1 = log(Max(1.0,aa)*1e4);
+  double y0 = log(Min(_fermi_a0, aa)*_fermi_y0);
+  double y1 = log(Max(_fermi_a1, aa)*_fermi_y1);
   double dy = (y1-y0)/(NFRM1-1.0);
   int i;
   _fermi_rm1[0][0] = y0;
@@ -3920,6 +4017,10 @@ void PrepFermiRM1(double a, double fa, double t) {
   _fermi_rm1[3][i+1] = fa;
   FermiRM1(NFRM1, _fermi_rm1[0], _fermi_rm1[1], _fermi_rm1[3], a, fa, g, 0);
   FermiRM1(NFRM1, _fermi_rm1[0], _fermi_rm1[2], NULL, a, fa, g, 1);
+  y1 = exp(y1);
+  _fermi_ymx = y1;
+  double y2 = y1 + 0.5*g*y1*y1;
+  _fermi_rmx = FermiAsymRM1(a, y2, 0)/FermiAsymRM1(a, y1, 0);  
   if (_fermi_rmf[0]) {
     FILE *f = fopen(_fermi_rmf, "w");
     if (f == NULL) {
@@ -4100,12 +4201,11 @@ double StewartPyattIntegrand(double x, double a, double fa, double y,
     m = 0;
   }
   r = InterpFermiRM1(y, m);
-  double r0 = 0.0;
   if (y0 <= 0 && nb >= 0) {
-    r0 = InterpFermiRM1(y, 0);
+    //double r0 = InterpFermiRM1(y, 0);
+    //printf("r01: %d %g %g %g %g %g %g %g\n", m, x, y, y0, r0, r+nb, nb, r);
     r += nb;
   }
-  //printf("r01: %g %g %g %g %g\n", x, y, r0, r, nb);
   if (_sp_nzs <= 0) {
     if (_icf_nfft > 0) {
       double *rw = _icf_dw + _icf_nfft*3;
@@ -4119,7 +4219,7 @@ double StewartPyattIntegrand(double x, double a, double fa, double y,
     } else {
       ys = z*y;
     }
-    if (z > 0) {
+    if (z >= 0) {
       if (ys >= -1) {
 	r -= ExpM1(-ys);
       } else {
@@ -4161,7 +4261,8 @@ void DerivSPY(int *neq, double *t, double *y, double *yd) {
 }
 
 FCALLSCSUB4(DerivSPY, DERIVSPY, derivspy, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
+double StewartPyatt(POTENTIAL *pot, double *vt, double *wb,
+		    double xps, int iter) {
   int i, m, ib;
   double a = pot->aps;
   double fa = pot->fps;
@@ -4170,9 +4271,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
   
   if (vt) {
     if (_sp_mode == 0 ||
-	_sp_mode == 2 ||
-	//_sp_mode == 3 ||
-	_sp_mode == 4) return 1.0;
+	_sp_mode == 2) return 1.0;
   }
   kc = 1.0;
   if (_relativistic_fermi) {
@@ -4210,7 +4309,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
       rtol = EPS3;
       atol[0] = EPS6;
       atol[1] = EPS6;
-      itask = 1;
+      itask = 4;
       istate = 1;
       iopt = 0;
       mf = 10;
@@ -4247,7 +4346,8 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
 	} else {
 	  ys[11] = -1;
 	}
-	while (t0 > t) {
+	rwork[0] = t;
+	while (t0 > t) {	  
 	  LSODE(C_FUNCTION(DERIVSPY, derivspy), neq, ys, &t0, t,
 		itol, rtol, atol, itask, &istate, iopt, rwork, lrw, iwork,
 		liw, NULL, mf);
@@ -4260,16 +4360,12 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
 	}
 	x0 = x;
 	_veff[i] = ys[0]/x;
-	if (_veff[i] > _sp_vmax) {
-	  if (vt) {
-	    kc = vb[i]/ys[0];
-	  } else {
-	    kc = 1.0;
-	  }
+	if (_veff[i] > _fermi_ymx) {
+	  kc = 0.0;
 	  ib = i;
 	  break;
 	}
-	if (_sp_mode >= 4 && vt) {
+	if (_sp_mode > 4 && vt) {
 	  y = _veff[i];
 	  x2 = exp(-pot->zps*y);
 	  if (x2 < _sp_neps) {
@@ -4284,7 +4380,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
 	if (_sp_mode < 6) {
 	  for (i--; i >= 0; i--) {
 	    x = pot->rad[i]/pot->dps;
-	    if (vt) {
+	    if (vt && kc > 0) {
 	      _veff[i] = vb[i]/x/kc;
 	    } else {
 	      _veff[i] = _veff[ib]*pot->rad[ib]/pot->rad[i];
@@ -4344,6 +4440,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
     _dwork1[i] = StewartPyattIntegrand(t, a, fa, y, y, g, pot->ups, -1);
     pot->NPS[i] = _dwork1[i];
     pot->EPS[i] = (1+InterpFermiRM1(y, 1))/(1+pot->ups);
+    //printf("nps: %d %d %g %g %g %g\n", iter, i, x, y, pot->NPS[i], pot->EPS[i]);
     //pot->EPS[i] = StewartPyattIntegrand(t, a, fa, y, 0, g, pot->ups);
     _dwork1[i] *= pot->dr_drho[i]*x/pot->dps;
     _dwork2[i] = _dwork1[i]*x;
@@ -4357,7 +4454,7 @@ double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps) {
   double ds = cs/(FOUR_PI*pow(pot->dps,3));
   double xs = _dwork3[m]/k;
   if (_sp_print == 1 || _sp_print == 3) {
-    printf("cs: %g %g %g %g %g %g %g %g %g %g %g %g\n", pot->zps, _dwork3[m], c, k, xps, xs, cs, x1, x2, kc, ys[0], _veff[0]);
+    printf("cs: %d %g %g %g %g %g %g %g %g %g %g %g %g\n", iter, pot->zps, _dwork3[m], c, k, xps, xs, cs, x1, x2, kc, ys[0], _veff[0]);
   }
   for (i = 0; i <= m; i++) {
     x = pot->rad[i]/pot->dps;
@@ -4421,7 +4518,35 @@ void SetLatticePotential(POTENTIAL *pot, double *vt) {
 
 void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "orbital:relativistic_fermi")) {
-    _relativistic_fermi = ip;
+    _relativistic_fermi0 = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:relativistic_xfermi")) {
+    _relativistic_xfermi = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_a0")) {
+    _fermi_a0 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_a1")) {
+    _fermi_a1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_y0")) {
+    _fermi_y0 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_y1")) {
+    _fermi_y1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_tmin")) {
+    _fermi_tmin = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:fermi_tmax")) {
+    _fermi_tmax = dp;
     return;
   }
   if (0 == strcmp(s, "orbital:fermi_abserr")) {
@@ -4512,6 +4637,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _icf_ozc = ip;
     return;
   }
+  if (0 == strcmp(s, "orbital:on_error")) {
+    _on_error = ip;
+    return;
+  }
   if (0 == strcmp(s, "orbital:icf_nfft")) {
     if (_icf_nfft > 0) {
       free(_icf_dw);
@@ -4566,6 +4695,9 @@ double SetSPZW(int n, double *zw) {
   }
   z1 /= w;
   z2 /= w;
-  
-  return z2/z1;
+  if (z1 > 0) {
+    return z2/z1;
+  } else {
+    return 1.0;
+  }
 }

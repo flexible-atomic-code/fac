@@ -593,6 +593,7 @@ void SetOrbMap(int k, int n0, int n1, int n2) {
   _orbmap = malloc(sizeof(ORBMAP)*_korbmap);  
   for (i = 0; i < _korbmap; i++) {
     _orbmap[i].nzn = 0;
+    _orbmap[i].nmax = 1000000000;
     _orbmap[i].opn = malloc(sizeof(ORBITAL *)*_norbmap0);
     _orbmap[i].onn = malloc(sizeof(ORBITAL *)*_norbmap1);
     _orbmap[i].ozn = malloc(sizeof(ORBITAL *)*_norbmap2);
@@ -1641,6 +1642,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       ue1[i] = _phase[i];
       ue[i] = _dphase[i];
       u0[i] = _dphasep[i];
+      _dwork13[i] /= FOUR_PI*potential->rad[i]*potential->rad[i];
     }
   } else {
     jmax = 0;
@@ -1657,6 +1659,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       ue1[m] /= acfg->n_shells;
       ue[m] /= acfg->n_shells;
       u0[m] /= acfg->n_shells;
+      _dwork13[i] /= FOUR_PI*potential->rad[i]*potential->rad[i];
     }
   }
   if (potential->vxf > 0 && potential->hxs) {
@@ -2181,10 +2184,10 @@ int OptimizeLoop(AVERAGE_CONFIG *acfg) {
       if (iter > 0) {
 	for (i = 0; i < potential->maxrp; i++) {
 	  _dphase[i] = potential->VT[0][i];
-	}      
-	SetPotentialPS(potential, _dphase, _dwork13, 0);
+	}
+	SetPotentialPS(potential, _dphase, _dwork13, iter);
       } else {
-	SetPotentialPS(potential, NULL, NULL, 0);
+	SetPotentialPS(potential, NULL, NULL, iter);
       }
     }
     FreeYkArray();
@@ -9638,6 +9641,91 @@ void PlasmaScreen(int m, int vxf,
   //stewart&pyatt model, ups is the z*;
   potential->ups = SetSPZW(nz, zw);
   if (ups >= 0) potential->ups = ups;
+}
+
+void SetOrbNMax(int kmin, int kmax, int nmax) {
+  int ie = OnErrorOrb();
+  SetOnErrorOrb(-1);
+  if (kmax < 0) {
+    int n = SetNMaxKappa(kmin, nmax);
+    SetOnErrorOrb(ie);
+    return;
+  }
+  ResetWidMPI();
+#pragma omp parallel default(shared)
+  {
+    int kappa, k, k2, j;
+    for (k = kmin; k <= kmax; k++) {
+      k2 = 2*k;
+      for (j = -1; j <= 1; j += 2) {
+	kappa = GetKappaFromJL(k2+j, k2);
+	if (kappa == 0) continue;
+	if (SkipMPI()) continue;
+	int n = SetNMaxKappa(kappa, nmax);
+      }
+    }
+  }
+  SetOnErrorOrb(ie);
+}
+
+int GetOrbNMax(int kappa, int j) {
+  int k;
+  if (j != 0) {
+    kappa = GetKappaFromJL(kappa*2+j, kappa*2);
+    if (kappa == 0) return -1;
+  }
+  k = ((abs(kappa)-1)*2) + kappa>0;
+  if (k >= _korbmap) {
+    printf("too large kappa in GetOrbNMax: %d %d %d\n", kappa, k, _korbmap);
+    return -1;
+  }
+  return _orbmap[k].nmax;
+}
+    
+int SetNMaxKappa(int kappa, int nmax) {
+  int k = ((abs(kappa)-1)*2) + kappa>0;
+  if (k >= _korbmap) {
+    printf("too large kappa in SetNMaxKappa: %d %d %d\n", kappa, k, _korbmap);
+    return 0;
+  }
+  ORBMAP *om = &_orbmap[k];
+  if (potential->mps < 0) {
+    om->nmax = 1000000000;
+    return om->nmax;
+  }
+  ORBITAL orb;
+  int m = GetLFromKappa(kappa)/2;
+  int n = m+1;
+  int i = 0;
+  while (1) {
+    orb.n = n;
+    orb.kappa = kappa;
+    orb.energy = 0;
+    i = RadialSolver(&orb, potential);
+    if (i < 0) break;
+    if (n >= nmax) break;
+    n *= 2;
+  }
+  if (i == 0) {
+    om->nmax = -n;
+    return om->nmax;
+  }
+  int n0 = n/2;
+  int n1 = n;
+  while (n1-n0>1) {
+    n = (n0+n1)/2;
+    orb.n = n;
+    orb.kappa = kappa;
+    orb.energy = 0;
+    i = RadialSolver(&orb, potential);
+    if (i < 0) {
+      n1 = n;
+    } else {
+      n0 = n;
+    }
+  }
+  om->nmax = n0;
+  return om->nmax;
 }
 
 void SetOptionRadial(char *s, char *sp, int ip, double dp) {

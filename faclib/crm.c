@@ -1938,14 +1938,18 @@ int InitBlocks(void) {
 	  if (blk1->nlevels > 1 && i > 0) {
 	    blk1->total_rate[k] = 0.0;
 	  }
-	  m = blk1->iion;
+	}
+	/*
 	} else {
 	  if (blk1->nlevels > 1) {
 	    blk1->total_rate[k] = 0.0;
+	    printf("br1: %d %d %d %d %g\n", i, k, m, blk1->iion, blk1->total_rate[k]);
 	  }
 	}
+	*/
       }
       if (!blk1->total_rate[k]) blk1->izr++;
+      m = blk1->iion;
     }
   }
       
