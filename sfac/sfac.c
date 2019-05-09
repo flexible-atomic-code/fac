@@ -4859,6 +4859,34 @@ static int PSetOrbMap(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetOrbNMax(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int kmin, kmax, nmax;
+  if (argc < 2) return -1;
+  nmax = atoi(argv[0]);
+  kmin = atoi(argv[1]);
+  kmax = -1;
+  if (argc > 2) {
+    kmax = atoi(argv[2]);
+  }
+  SetOrbNMax(kmin, kmax, nmax);
+  return 0;
+}
+
+static int PGetOrbNMax(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int kappa, j;
+  j = 0;
+  if (argc < 1) return -1;
+  kappa = atoi(argv[0]);
+  if (argc > 1) {
+    j = atoi(argv[1]);
+  }
+  int n = GetOrbNMax(kappa, j);
+  printf("nmax: %d %d %d\n", kappa, j, n);
+  return 0;
+}
+
 static int PSetProcID(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int id;
@@ -5189,6 +5217,8 @@ static METHOD methods[] = {
   {"MemUsed", PMemUsed, METH_VARARGS},
   {"FinalizeMPI", PFinalizeMPI, METH_VARARGS},
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
+  {"SetOrbNMax", PSetOrbNMax, METH_VARARGS},
+  {"GetOrbNMax", PGetOrbNMax, METH_VARARGS},
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},

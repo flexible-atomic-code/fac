@@ -46,7 +46,7 @@ int GetRadTiming(RAD_TIMING *t);
 typedef struct _orbmap_ {
   ORBITAL **opn;
   ORBITAL **onn;
-  int nzn;
+  int nzn, nmax;
   ORBITAL **ozn;
 } ORBMAP;
 
@@ -222,5 +222,9 @@ void LoadRadialMultipole(char *fn);
 void PlasmaScreen(int m, int vxf,
 		  double zps, double nps, double tps, double ups,
 		  int nz, double *zw);
+void SetOrbNMax(int kmin, int kmax, int nmax);
+int GetOrbNMax(int kappa, int j);
+int SetNMaxKappa(int kappa, int nmax);
+
 #endif
 

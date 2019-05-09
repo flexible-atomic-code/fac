@@ -5990,6 +5990,37 @@ static PyObject *PSetOrbMap(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetOrbNMax(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetOrbNMax", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int kmin, kmax, nmax;
+  kmax = -1;
+  if (!(PyArg_ParseTuple(args, "ii|i", &nmax, &kmin, &kmax))) return NULL;
+  SetOrbNMax(kmin, kmax, nmax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PGetOrbNMax(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("GetOrbNMax", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int kappa, j;
+  j = 0;
+  if (!(PyArg_ParseTuple(args, "i|i", &kappa, &j))) return NULL;
+  int n = GetOrbNMax(kappa, j);
+
+  return Py_BuildValue("i", n);
+}
+
 static PyObject *PFinalizeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("FinalizeMPI", args, NULL);
@@ -6254,6 +6285,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetPEGrid", PSetPEGrid, METH_VARARGS},
   {"SetPEGridLimits", PSetPEGridLimits, METH_VARARGS},  
   {"SetOrbMap", PSetOrbMap, METH_VARARGS},
+  {"SetOrbNMax", PSetOrbNMax, METH_VARARGS},
+  {"GetOrbNMax", PGetOrbNMax, METH_VARARGS},
   {"SetRadialGrid", PSetRadialGrid, METH_VARARGS},
   {"SetPotentialMode", PSetPotentialMode, METH_VARARGS},
   {"SolvePseudo", PSolvePseudo, METH_VARARGS},
