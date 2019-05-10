@@ -9662,6 +9662,7 @@ void SetOrbNMax(int kmin, int kmax, int nmax) {
 	if (kappa == 0) continue;
 	if (SkipMPI()) continue;
 	int n = SetNMaxKappa(kappa, nmax);
+	MPrintf(-1, "nmax = %3d %3d %3d %3d\n", k, j, kappa, n);
       }
     }
   }
@@ -9674,7 +9675,7 @@ int GetOrbNMax(int kappa, int j) {
     kappa = GetKappaFromJL(kappa*2+j, kappa*2);
     if (kappa == 0) return -1;
   }
-  k = ((abs(kappa)-1)*2) + kappa>0;
+  k = ((abs(kappa)-1)*2) + (kappa>0);
   if (k >= _korbmap) {
     printf("too large kappa in GetOrbNMax: %d %d %d\n", kappa, k, _korbmap);
     return -1;
@@ -9683,7 +9684,7 @@ int GetOrbNMax(int kappa, int j) {
 }
     
 int SetNMaxKappa(int kappa, int nmax) {
-  int k = ((abs(kappa)-1)*2) + kappa>0;
+  int k = ((abs(kappa)-1)*2) + (kappa>0);
   if (k >= _korbmap) {
     printf("too large kappa in SetNMaxKappa: %d %d %d\n", kappa, k, _korbmap);
     return 0;
@@ -9701,8 +9702,12 @@ int SetNMaxKappa(int kappa, int nmax) {
     orb.n = n;
     orb.kappa = kappa;
     orb.energy = 0;
-    i = RadialSolver(&orb, potential);
+    i = RadialSolver(&orb, potential); 
     if (i < 0) break;
+    if (orb.energy >= 0) {
+      i = -1;
+      break;
+    }
     if (n >= nmax) break;
     n *= 2;
   }
@@ -9718,7 +9723,7 @@ int SetNMaxKappa(int kappa, int nmax) {
     orb.kappa = kappa;
     orb.energy = 0;
     i = RadialSolver(&orb, potential);
-    if (i < 0) {
+    if (i < 0 || orb.energy >= 0) {
       n1 = n;
     } else {
       n0 = n;

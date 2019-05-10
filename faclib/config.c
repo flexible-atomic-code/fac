@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "angular.h"
+#include "radial.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -2217,6 +2218,13 @@ int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
   int n0, kl0, nq0, m, i, n, kl, j, nq;
   if (k < 0 || k >= n_groups) return -1;
+  for (i = 0; i < cfg->n_shells; i++) {
+    m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
+    if (m && cfg->shells[i].n > m) {
+      FreeConfigData(cfg);
+      return 0;
+    }
+  }
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
   } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
