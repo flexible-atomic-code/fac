@@ -1700,7 +1700,10 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     } else { 
       if (PyTuple_Check(p) || PyList_Check(p)) {
 	ng = DecodeGroupArgs(p, &kg, NULL);
-	if (ng < 0) return NULL;
+	if (ng < 0) {
+	  Py_INCREF(Py_None);
+	  return Py_None;
+	}
 	if (q) {
 	  if (PyLong_Check(q)) {
 	    ngp = 0;
@@ -1719,7 +1722,10 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     }
   } else {
     ng = DecodeGroupArgs(NULL, &kg, NULL);  
-    if (ng < 0) return NULL;
+    if (ng < 0) {
+      Py_INCREF(Py_None);
+      return Py_None;
+    }
   }
 
   if (SolveStructure(fn, hfn, ng, kg, ngp, kgp, ip) < 0) {
@@ -2423,20 +2429,13 @@ static PyObject *PTransitionTableEB(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) 
     return NULL;
   nlow = SelectLevels(p, &low);
-  if (nlow <= 0) {
-    printf("cannot determine levels in lower\n");
-    return NULL;
-  }
   nup = SelectLevels(q, &up);
-  if (nup <= 0) {
-    free(low);
-    printf("cannot determine levels in upper\n");
-    return NULL;
+  if (nlow > 0 && nup > 0) {
+    SaveTransitionEB(nlow, low, nup, up, s, m);
   }
   
-  SaveTransitionEB(nlow, low, nup, up, s, m);
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -2537,33 +2536,23 @@ static PyObject *PTransitionTable(PyObject *self, PyObject *args) {
   } else if (n == 3) {
     if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) {
-      free(low);
-      return NULL;
+    if (nlow > 0 && nup > 0) {
+      SaveTransition(nlow, low, nup, up, s, m);
     }
-    SaveTransition(nlow, low, nup, up, s, m);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else if (n == 4) {
     if (!PyArg_ParseTuple(args, "sOOi", &s, &p, &q, &m)) {
       return NULL;
     }
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) {
-      printf("cannot determine levels in lower\n");
-      return NULL;
-    }
     nup = SelectLevels(q, &up);
-    if (nup <= 0) {
-      free(low);
-      printf("cannot determine levels in upper\n");
-      return NULL;
+    if (nlow > 0 && nup > 0) {
+      SaveTransition(nlow, low, nup, up, s, m);
     }
-    SaveTransition(nlow, low, nup, up, s, m);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return NULL;
   }
@@ -2605,20 +2594,17 @@ static PyObject *PCETableEB(PyObject *self, PyObject *args) {
   m = 0;
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) return NULL;
   nlow = SelectLevels(p, &low);
-  if (nlow <= 0) return NULL;
   nup = SelectLevels(q, &up);
-  if (nup <= 0) {
-    free(low);
-    return NULL;
-  }
-  if (m == 0) {
-    SaveExcitationEB(nlow, low, nup, up, s);
-  } else {
-    SaveExcitationEBD(nlow, low, nup, up, s);
-  }
 
-  free(low);
-  free(up);  
+  if (nlow > 0 && nup > 0) {
+    if (m == 0) {
+      SaveExcitationEB(nlow, low, nup, up, s);
+    } else {
+      SaveExcitationEBD(nlow, low, nup, up, s);
+    }
+  }
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);  
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -2648,21 +2634,19 @@ static PyObject *PCETable(PyObject *self, PyObject *args) {
   } else if (n == 2) {
     if (!PyArg_ParseTuple(args, "sO", &s, &p)) return NULL;
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
-    SaveExcitation(nlow, low, nlow, low, 0, s);
-    free(low);
+    if (nlow > 0) {
+      SaveExcitation(nlow, low, nlow, low, 0, s);
+      free(low);
+    }
   } else if (n == 3) {
     if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) {
-      free(low);
-      return NULL;
+    if (nlow > 0 && nup > 0) {
+      SaveExcitation(nlow, low, nup, up, 0, s);
     }
-    SaveExcitation(nlow, low, nup, up, 0, s);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return NULL;
   }
@@ -2695,21 +2679,19 @@ static PyObject *PCETableMSub(PyObject *self, PyObject *args) {
   } else if (n == 2) {
     if (!PyArg_ParseTuple(args, "sO", &s, &p)) return NULL;
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
-    SaveExcitation(nlow, low, nlow, low, 1, s);
-    free(low);
+    if (nlow > 0) {
+      SaveExcitation(nlow, low, nlow, low, 1, s);
+      free(low);
+    }
   } else if (n == 3) {
     if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
     nlow = SelectLevels(p, &low);
-    if (nlow <= 0) return NULL;
     nup = SelectLevels(q, &up);
-    if (nup <= 0) {
-      free(low);
-      return NULL;
+    if (nlow > 0 && nup > 0) {
+      SaveExcitation(nlow, low, nup, up, 1, s);
     }
-    SaveExcitation(nlow, low, nup, up, 1, s);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return NULL;
   }
@@ -3390,7 +3372,9 @@ static PyObject *PCXTable(PyObject *self, PyObject *args) {
   }
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveCX(nlow, low, nup, up, s);
+  if (nlow > 0 && nup > 0) {
+    SaveCX(nlow, low, nup, up, s);
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -3417,7 +3401,9 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
   }
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveRecRR(nlow, low, nup, up, s, m);
+  if (nlow > 0 && nup > 0) {
+    SaveRecRR(nlow, low, nup, up, s, m);
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -3638,7 +3624,9 @@ static PyObject *PAITable(PyObject *self, PyObject *args) {
   if (!PyArg_ParseTuple(args, "sOO|d", &s, &p, &q, &emin)) return NULL;
   nlow = SelectLevels(p, &low);
   nup = SelectLevels(q, &up);
-  SaveAI(nlow, low, nup, up, s, emin, 0);
+  if (nlow > 0 && nup > 0) {
+    SaveAI(nlow, low, nup, up, s, emin, 0);
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -4117,13 +4105,10 @@ static PyObject *PCITable(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
   nlow = SelectLevels(p, &low);
-  if (nlow <= 0) return NULL;
   nup = SelectLevels(q, &up);
-  if (nup <= 0) {
-    free(low);
-    return NULL;
+  if (nlow > 0 && nup > 0) {
+    SaveIonization(nlow, low, nup, up, s);
   }
-  SaveIonization(nlow, low, nup, up, s);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 

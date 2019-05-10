@@ -808,7 +808,9 @@ static int PAITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  SaveAI(nlow, low, nup, up, argv[0], c, 0);
+  if (nlow > 0 && nup > 0) {
+    SaveAI(nlow, low, nup, up, argv[0], c, 0);
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -870,21 +872,19 @@ static int PCETable(int argc, char *argv[], int argt[], ARRAY *variables) {
   } else if (argc == 2) {
     if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
-    SaveExcitation(nlow, low, nlow, low, 0, argv[0]);
-    free(low);
+    if (nlow > 0) {
+      SaveExcitation(nlow, low, nlow, low, 0, argv[0]);
+      free(low);
+    }
   } else if (argc == 3) {
     if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) {
-      free(low);
-      return -1;
+    if (nlow > 0 && nup > 0) {
+      SaveExcitation(nlow, low, nup, up, 0, argv[0]);
     }
-    SaveExcitation(nlow, low, nup, up, 0, argv[0]);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return -1;
   }
@@ -907,21 +907,19 @@ static int PCETableMSub(int argc, char *argv[], int argt[],
   } else if (argc == 2) {
     if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
-    SaveExcitation(nlow, low, nlow, low, 1, argv[0]);
-    free(low);
+    if (nlow > 0) {
+      SaveExcitation(nlow, low, nlow, low, 1, argv[0]);
+      free(low);
+    }
   } else if (argc == 3) {
     if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) {
-      free(low);
-      return -1;
+    if (nlow > 0 && nup > 0) {
+      SaveExcitation(nlow, low, nup, up, 1, argv[0]);
     }
-    SaveExcitation(nlow, low, nup, up, 1, argv[0]);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return -1;
   }
@@ -941,8 +939,9 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
     free(low);
     return -1;
   }
-  if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
-
+  if (nlow > 0 && nup > 0) {
+    if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
     
@@ -1690,17 +1689,12 @@ static int PCXTable(int argc, char *argv[], int argt[],
   if (argt[0] != STRING) return -1;
 
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) {
-    free(low);
-    return -1;
+  if (nlow > 0 && nup > 0) {
+    SaveCX(nlow, low, nup, up, argv[0]);
   }
-
-  SaveCX(nlow, low, nup, up, argv[0]);
-
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
 
   return 0;
 }
@@ -1714,24 +1708,20 @@ static int PRRTable(int argc, char *argv[], int argt[],
   if (argt[0] != STRING) return -1;
 
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) {
-    free(low);
-    return -1;
-  }
   if (argc == 4) {
     if (argt[3] != NUMBER) {
-      free(low);
-      free(up);
+      if (nlow > 0) free(low);
+      if (nup > 0) free(up);
       return -1;
     }
     m = atoi(argv[3]);
   }
-  SaveRecRR(nlow, low, nup, up, argv[0], m);
-
-  free(low);
-  free(up);
+  if (nlow > 0 && nup > 0) {
+    SaveRecRR(nlow, low, nup, up, argv[0], m);
+  }
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
 
   return 0;
 }
@@ -3568,7 +3558,7 @@ static int PStructure(int argc, char *argv[], int argt[],
       } else {
 	if (argt[2] != LIST && argt[2] != TUPLE) return -1;
 	ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[2]), &(argt[2]), variables);
-	if (ng < 0) return -1;
+	if (ng < 0) return 0;
 	if (n >= 4) {
 	  if (argt[3] == NUMBER) {
 	    ngp = 0;
@@ -3587,7 +3577,7 @@ static int PStructure(int argc, char *argv[], int argt[],
       if (argt[0] != STRING) return -1;
       if (argt[1] != LIST && argt[1] != TUPLE) return -1;
       ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
-      if (ng < 0) return -1;
+      if (ng < 0) return 0;
       if (n >= 3) {
 	if (argt[2] == NUMBER) {
 	  ngp = 0;
@@ -3820,28 +3810,22 @@ static int PTransitionTable(int argc, char *argv[], int argt[],
   } else if (n == 3) {
     if (argt[0] != STRING) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) {
-      free(low);
-      return -1;
+    if (nlow > 0 && nup > 0) {
+      SaveTransition(nlow, low, nup, up, argv[0], m);
     }
-    SaveTransition(nlow, low, nup, up, argv[0], m);
-    free(low);
-    free(up);
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else if (n == 4) {
     if (argt[0] != STRING || argt[3] != NUMBER) return -1;
     nlow = SelectLevels(&low, argv[1], argt[1], variables);
-    if (nlow <= 0) return -1;
     nup = SelectLevels(&up, argv[2], argt[2], variables);
-    if (nup <= 0) {
-      free(low);
-      return -1;
-    }
     m = atoi(argv[3]);
-    SaveTransition(nlow, low, nup, up, argv[0], m);
-    free(low);
-    free(up);
+    if (nlow > 0 && nup > 0) {
+      SaveTransition(nlow, low, nup, up, argv[0], m);
+    }
+    if (nlow > 0) free(low);
+    if (nup > 0) free(up);
   } else {
     return -1;
   }
@@ -4570,19 +4554,12 @@ static int PTransitionTableEB(int argc, char *argv[], int argt[],
   else m = -1;
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) {  
-    printf("cannot determine levels in lower\n");
-    return -1;
-  }
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) {
-    printf("cannot determine levels in upper\n");
-    return -1;
+  if (nlow > 0 && nup > 0) {
+    SaveTransitionEB(nlow, low, nup, up, argv[0], m);
   }
-  
-  SaveTransitionEB(nlow, low, nup, up, argv[0], m);
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
 
   return 0;
 }
@@ -4615,18 +4592,17 @@ static int PCETableEB(int argc, char *argv[], int argt[],
   else m = 0;
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) return -1;
-  
-  if (m == 0) {
-    SaveExcitationEB(nlow, low, nup, up, argv[0]);
-  } else {
-    SaveExcitationEBD(nlow, low, nup, up, argv[0]);
+
+  if (nlow > 0 && nup > 0) {
+    if (m == 0) {
+      SaveExcitationEB(nlow, low, nup, up, argv[0]);
+    } else {
+      SaveExcitationEBD(nlow, low, nup, up, argv[0]);
+    }
   }
-  
-  free(low);
-  free(up);
+  if (nlow > 0) free(low);
+  if (nup > 0) free(up);
   
   return 0;
 }
