@@ -461,7 +461,8 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   index[0] = ko2*MAXNE + ie;
   index[1] = k0;
   index[2] = k1;    
-  
+
+  double e1w, e0w;
   type = -1;
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
@@ -500,6 +501,12 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   pke = (double *) malloc(sizeof(double)*(nkappa*n_tegrid));
 
   e1 = egrid[ie];
+  e1w = e1;
+  double mc = MColl();
+  if (fabs(mc-1)<1e-3) mc = 0;
+  if (mc > 0) e1w *= mc;
+  double mc1 = mc;
+  if (mc1 <= 0) mc1 = 1.0;
   if (type > 0 && type <= CBMULT) {
     kl_max = pw_scratch.kl_cb;
   } else {
@@ -554,10 +561,10 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
       j1min = abs(j0 - k);
       j1max = j0 + k;
       if (pw_type == 1 && egrid_type == 1) {
-	kf1 = OrbitalIndex(0, km0, e1);
+	kf1 = OrbitalIndex(0, km0, e1w);
 	ks[3] = kf1;
       } else if (pw_type == 0 && egrid_type == 0) {
-	kf1 = OrbitalIndex(0, km0, e0);
+	kf1 = OrbitalIndex(0, km0, e1w);
 	ks[1] = kf1;
       }
       for (j1 = j1min; j1 <= j1max; j1 += 2) {
@@ -572,20 +579,22 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
 	    if (kpp1 > 0) km1 = -kpp1 - 1;
 	  }
 	  if (pw_type == 0 && egrid_type == 1) {
-	    kf1 = OrbitalIndex(0, km1, e1);
+	    kf1 = OrbitalIndex(0, km1, e1w);
 	    ks[3] = kf1;
 	  } else if (pw_type == 1 && egrid_type == 0) {
-	    kf1 = OrbitalIndex(0, km1, e0);
+	    kf1 = OrbitalIndex(0, km1, e1w);
 	    ks[1] = kf1;
 	  }
 	  for (i = 0; i < n_tegrid; i++) {
 	    te = tegrid[i];
-	    e0 = e1 + te;
+	    e0 = e1 + te/mc1;
+	    e0w = e0;
+	    if (mc > 0) e0w *= mc;
 	    if (pw_type == 0) {
-	      kf0 = OrbitalIndex(0, km0, e0);
+	      kf0 = OrbitalIndex(0, km0, e0w);
 	      ks[1] = kf0;
 	    } else {
-	      kf0 = OrbitalIndex(0, km1, e0);
+	      kf0 = OrbitalIndex(0, km1, e0w);
 	      ks[1] = kf0;	      
 	    }
 	    
@@ -618,7 +627,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
 	      }
 	    }
 	    pkd[q] = sd;
-	    pke[q] = se;
+	    pke[q] = se;     
 	    q++;
 	  }
 	  if (i > 0) {
@@ -1003,7 +1012,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   double drq[MAXNTE][MAXNE+1], *rqc, **p, *ptr;
   int index[5], mb, mk;
   int np = 3, one = 1;
-  double logj, xb;
+  double logj, xb, xp[MAXNTE];
 
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
@@ -1034,7 +1043,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   if (*p) {
     if (locked) ReleaseLock(lock);
     return *p;
-  }   
+  }
+  double mc = MColl();
+  if (mc <= 0) mc = 1.0;
   if (xborn == 0 || xborn < -1E30) {
     for (ie = 0; ie < n_egrid1; ie++) {
       if (ie == n_egrid) mb = 1;
@@ -1072,7 +1083,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	brq[ite][ie] = rq[ite][ie];
       }    
     }
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = n_egrid-1; ie >= 0; ie--) {
       e1 = egrid[ie];
       type = CERadialPk(&cepk, ie, k0, k1, k, 0);
       if (k2 != k0 || k3 != k1) {
@@ -1175,7 +1186,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	    if (c > 0) {
 	      c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
 	    }
-	    b = TopUpQk(b, c, pw_scratch.kl[nklp], -1.0, te, e1);
+	    b = TopUpQk(b, c, pw_scratch.kl[nklp], -1.0, te, e1*mc);
 	  }
 	}
 	s = dqk[nklp]*b;
@@ -1183,11 +1194,13 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	drq[ite][ie] = rd + s;
 	if (s) {
 	  s = fabs(s/drq[ite][ie]);
+	  if (ie < n_egrid-1 && s > xp[ite]) s = xp[ite];
+	  else xp[ite] = s;	    
 	  d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
 	  rq[ite][ie] = rq[ite][ie]-drq[ite][ie] + d;
 	  drq[ite][ie] = d;
 	}
-	//printf("drq: %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,type,r,rd,b,dqk[nklp],dqk[nklp-1],c,s,d, drq[ite][ie], brq[ite][ie]); 
+	//printf("drq: %d %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,k,type,r,rd,b,dqk[nklp],dqk[nklp-1],c,s,d, drq[ite][ie], brq[ite][ie]); 
       }
     }
   }  
@@ -1248,7 +1261,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   double rq[MAXMSUB][MAXNTE][MAXNE+2];
   double drq[MAXMSUB][MAXNTE][MAXNE+2];
   double brq[MAXMSUB][MAXNTE][MAXNE+2];
-  double rqt[MAXMSUB];
+  double rqt[MAXMSUB], xp[MAXMSUB][MAXNTE];
   double *rqc, **p;
   int index[5], mb;
   int np = 3, one = 1;
@@ -1258,6 +1271,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   start = clock();
 #endif
 
+  double e0w, mc, mc1;
+  mc = MColl();
+  if (fabs(mc-1) < 1e-3) mc = 0;
+  if (mc <= 0) mc1 = 1.0;
   index[0] = (k/2)*(1+(GetMaxRank()/2)) + kp/2;
   index[1] = k0;
   index[2] = k1;
@@ -1335,7 +1352,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
     te0 = Max(te0, te);
     te = -GetOrbital(k3)->energy;
     te0 = Max(te0, te);
-    for (ie = 0; ie < n_egrid; ie++) {
+    for (ie = n_egrid-1; ie >= 0; ie--) {
       e1 = egrid[ie];
       type1 = CERadialPk(&cepk, ie, k0, k1, k, 0);
       nkl = cepk->nkl;
@@ -1360,8 +1377,9 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
-	e0 = e1 + te;
-      
+	e0 = e1 + te/mc1;
+	e0w = e0;
+	if (mc > 0) e0w *= mc;
 	for (i = 0; i < nq; i++) { 
 	  for (j = 0; j < nkl; j++) { 
 	    qk[i][j] = 0.0; 
@@ -1410,8 +1428,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	      if (klp0_2 >= pw_scratch.qr) { 
 		if (kmp0 > 0) kmp0_m = -kmp0 - 1; 
 	      } 
-	      c0 = OrbitalIndex(0, km0_m, e0); 
-	      cp0 = OrbitalIndex(0, kmp0_m, e0);
+	      c0 = OrbitalIndex(0, km0_m, e0w); 
+	      cp0 = OrbitalIndex(0, kmp0_m, e0w);
 	      pha0 = GetPhaseShift(c0); 
 	      phap0 = GetPhaseShift(cp0);	      
 	      r = cos(pha0 - phap0);
@@ -1468,28 +1486,30 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	for (iq = 0; iq < nq; iq++) {
 	  b = 0.0;
 	  if (dqk[iq][i] && dqk[iq][i-1]) {
-	      if (k != kp || type1 == 0 || type1 > CBMULT) {
-		c = dqk[iq][i]/dqk[iq][i-1];
-		if (c > 0) {
-		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
-		}
-		b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1);
-	      } else if (type1 >= 0) {
-		b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
-		c = dqk[iq][i]/dqk[iq][i-1];
-		if (c > 0) {
-		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
-		}
-		b = TopUpQk(b, c, pw_scratch.kl[i], -1.0, te, e1);
-	      } else {	  
-		b = 0.0;
+	    if (k != kp || type1 == 0 || type1 > CBMULT) {
+	      c = dqk[iq][i]/dqk[iq][i-1];
+	      if (c > 0) {
+		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
 	      }
+	      b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
+	    } else if (type1 >= 0) {
+	      b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
+	      c = dqk[iq][i]/dqk[iq][i-1];
+	      if (c > 0) {
+		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+	      }
+	      b = TopUpQk(b, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
+	    } else {	  
+	      b = 0.0;
+	    }
 	  }
 	  s = dqk[iq][i]*b;
 	  rq[iq][ite][ie] += s;
 	  drq[iq][ite][ie] += s;
 	  if (s) {
 	    s = fabs(s/drq[iq][ite][ie]);
+	    if (ie < n_egrid-1 && s > xp[iq][ite]) s = xp[iq][ite];
+	    else xp[iq][ite] = s;
 	    d = drq[iq][ite][ie]*(1-s) + brq[iq][ite][ie]*s;
 	    rq[iq][ite][ie] = rq[iq][ite][ie]-drq[iq][ite][ie] + d;
 	  }
@@ -1535,7 +1555,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3,
     }
     type = rqe[i];
   } else {
-    np = 3;
+    np = 1;
     nd = 1;
     type = rqe[n_tegrid*n_egrid1];
     if (type == 0 || type == 1) {
@@ -1565,7 +1585,7 @@ int CERadialQk(double *rqc, double te, int k0, int k1, int k2, int k3,
 	  rqc[i] = rqe[i];
 	}
       } else {
-	np = 3;
+	np = 1;
 	nd = 1;
 	if (type == 0 || type == 1) {
 	  xte = log_te;

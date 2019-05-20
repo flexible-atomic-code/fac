@@ -667,12 +667,14 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
   int t1, ik2, mq;
   double ee1, ee0, k0, k1, k0s, k1s, a, b, r0, r1;
   double w2, w3, *wr, *ws, *wt, *w, *tcb, *r[CBMULT];
+  double bms;
   
   if (ne2 > MAXNE || ne1 > MAXNE || nte > MAXNTE) {
     printf("Array multipoles not large enough in CoulombMultipoles\n");
     exit(1);
   }
-  
+  bms = MColl();
+  if (bms <= 0) bms = 1.0;
   for (i = 0; i < CBMULT; i++) {
     r[i] = malloc(sizeof(double)*(i+2)*(CBLMAX+1));
   }
@@ -692,12 +694,12 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
   ws = malloc(sizeof(double)*(CBLMAX+1));
   wr = malloc(sizeof(double)*nkl);
   for (ie1 = 0; ie1 < ne1; ie1++) {
-    ee1 = e1[ie1];
+    ee1 = e1[ie1]*bms;
     k1s = 2.0*ee1;
     k1 = sqrt(k1s);
     for (ie2 = 0; ie2 < ne2; ie2++) {
       for (ite = 0; ite < nte; ite++) {
-	ee0 = ee1 + e2[ie2] + te[ite];
+	ee0 = ee1 + bms*e2[ie2] + te[ite];
 	k0s = 2.0*ee0;
 	k0 = sqrt(k0s);
 	a = ee1/ee0;
@@ -771,7 +773,7 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 		a *= w2 - w3;
 	      }
 	      b = k + (k+1.0)*w2;
-	      b *= (k+1.0)*2.0*(te[ite]+e2[ie2]);
+	      b *= (k+1.0)*2.0*(te[ite]+bms*e2[ie2]);
 	      ws[k] = a/b;
 	      if (ws[k] <= 0) break;
 	    }

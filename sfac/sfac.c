@@ -4412,15 +4412,16 @@ static int PRMatrixRefine(int argc, char *argv[], int argt[],
 
 static int PRMatrixCE(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  double emin, emax, de;
-  int np, m, i, mb;
+  double emin, emax, *de;
+  int np, m, i, mb, nde;
   char *v0[MAXNARGS], *v1[MAXNARGS];
   int t0[MAXNARGS], t1[MAXNARGS];
   
   if (argc < 6 || argc > 8) return -1;
   emin = atof(argv[3]);
   emax = atof(argv[4]);
-  de = atof(argv[5]);
+  nde = DoubleFromList(argv[5], argt[5], variables, &de);
+  if (nde == 0) return -1;
   m= 0;
   mb = 1;
   if (argc >= 7) {
@@ -4435,12 +4436,13 @@ static int PRMatrixCE(int argc, char *argv[], int argt[],
     return -1;
   }
   
-  RMatrixCE(argv[0], np, v0, v1, emin, emax, de, m, mb);
+  RMatrixCE(argv[0], np, v0, v1, emin, emax, nde, de, m, mb);
 
   for (i = 0; i < np; i++) {
     free(v0[i]);
     free(v1[i]);
   }
+  free(de);
   return 0;
 }
 

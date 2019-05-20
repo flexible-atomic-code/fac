@@ -1562,6 +1562,22 @@ double HamiltonElementFBF(int isym, int isi, int isj) {
   return HamiltonElementFB(tj, sj, lev2, ti, si, lev1);
 }
 
+void MultipoleCoeffLev(int ilev, int kappa) {
+  int j, k, jt, k2, js;
+  LEVEL *lev;
+  double a;
+  
+  lev = GetLevel(ilev);
+  DecodePJ(lev->pj, NULL, &jt);
+  GetJLFromKappa(kappa, &j, &k);
+  for (k2 = 0; k2 <= 2*j; k2 += 2) {
+    for (js = abs(jt-j); js <= jt+j; js += 2) {
+      a = MultipoleCoeff(2*js, ilev, kappa, ilev, kappa, k2/2);
+      printf("%5d %4d %4d %2d %15.8E\n", ilev, kappa, js, k2/2, a);
+    }
+  }
+}
+
 double MultipoleCoeff(int isym, int ilev1, int ka1,
 		      int ilev2, int ka2, int k) {
   int k2, ti, tj, kz, nz, i, ji1, ji2, jj1, jj2, ki2, kj2;

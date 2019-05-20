@@ -185,6 +185,7 @@ double HamiltonElementFB(int ti, STATE *si, LEVEL *lev1,
 			 int tj, STATE *sj, LEVEL *lev2);
 double MultipoleCoeff(int isym, int ilev1, int ka1,
 		      int ilev2, int ka2, int k);
+void MultipoleCoeffLev(int ilev, int ka);
 double HamiltonElementFBF(int isym, int isi, int isj);
 double Hamilton2E2(int n_shells, SHELL_STATE *sbra, 
 		   SHELL_STATE *sket,INTERACT_SHELL *s);

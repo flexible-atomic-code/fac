@@ -107,6 +107,7 @@ int CompIdxRecord(const void *r1, const void *r2) {
 
 void SetBornMass(double m) {
   if (m > 0) born_mass = m*AMU;
+  else if (m < 0) born_mass = -m;
   else born_mass = 1.0;
 }
 

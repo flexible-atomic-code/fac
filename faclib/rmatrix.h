@@ -47,6 +47,11 @@ typedef struct _RMATRIX_ {
   double z;
 } RMATRIX;
 
+typedef struct _SMATRIX_ {
+  int pp, jj, isym, *jmin, *jmax, *nj, *nk, *sp;
+  double ***rp, ***ip;
+} SMATRIX;
+  
 typedef struct _DCFG_ {
   int *iwork, diag, nop;
   double *dwork, *rwork;
@@ -95,11 +100,12 @@ int RefineRMatrixEGrid(int nke, double *e, int *ir, double **er, int **ipr,
 		       double de, int nde, double minde,
 		       double emin, double emax);
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],	      
-	      double emin, double emax, double de, int m, int mb);
-int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx, FILE **f, FILE *f1,
+	      double emin, double emax, int nst, double *sde, int m, int mb);
+int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
+	       FILE **f, FILE *f1[5], int nsp, int *isp,
 	       int nke, double *e, int *ip, double **s, double **s0,
 	       int m, int mb, double de, int nde, double minde,
-	       double emin, double emax, int idep);
+	       double emin, double emax, int idep, int n, int npe);
 int RMatrixConvert(char *ifn, char *ofn, int m);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
 void SetOptionRMatrix(char *s, char *sp, int ip, double dp);
