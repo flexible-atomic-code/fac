@@ -210,7 +210,7 @@
 #define LEVEL_NAME_LEN     1024
 #define GROUP_NAME_LEN     64
 #define MAX_GROUPS         1024
-#define MAX_SYMMETRIES     256
+#define MAX_SYMMETRIES     512
 #define CONFIGS_BLOCK      1024
 #define STATES_BLOCK       2048
 
@@ -291,7 +291,7 @@
 #define MAXNTE             6
 #define MAXNTHETA          30
 #define MAXNPHI            60
-#define TE_MIN_MAX         0.2
+#define TE_MIN_MAX         0.5
 
 /* excitation */
 #define NGOSK              256

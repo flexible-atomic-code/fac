@@ -3303,6 +3303,22 @@ static PyObject *PSaveRadialMultipole(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PMultipoleCoeff(PyObject *self, PyObject *args) {
+  int ilev, kappa;
+  
+  if (sfac_file) {
+    SFACStatement("MultipoleCoeff", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!PyArg_ParseTuple(args, "ii", &ilev, &kappa)) {
+    return NULL;
+  }
+  MultipoleCoeffLev(ilev, kappa);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRRMultipole(PyObject *self, PyObject *args) { 
   int nlow, *low, nup, *up;
   int m;
@@ -5549,9 +5565,9 @@ static PyObject *PRMatrixRefine(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
-  PyObject *p, *q;
+  PyObject *p, *q, *de;
   char **f1, **f2, *fn;
-  double emin, emax, de;
+  double emin, emax;  
   int i, np, m, mb;
 
   if (sfac_file) {
@@ -5562,7 +5578,7 @@ static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
 
   m = 0;
   mb = 1;
-  if (!PyArg_ParseTuple(args, "sOOddd|ii", 
+  if (!PyArg_ParseTuple(args, "sOOddO|ii", 
 			&fn, &p, &q, &emin, &emax, &de, &m, &mb)) return NULL;
   
   if (!PyList_Check(p)) return NULL;
@@ -5575,11 +5591,15 @@ static PyObject *PRMatrixCE(PyObject *self, PyObject *args) {
     f1[i] = PyUnicode_AsString(PyList_GetItem(p, i));
     f2[i] = PyUnicode_AsString(PyList_GetItem(q, i));
   }
-  RMatrixCE(fn, np, f1, f2, emin, emax, de, m, mb);
+  int nde;
+  double *ade;
+  nde = DoubleFromList(de, &ade);
+  if (nde == 0) return NULL;
+  RMatrixCE(fn, np, f1, f2, emin, emax, nde, ade, m, mb);
   
   free(f1);
   free(f2);
-
+  free(ade);
   Py_INCREF(Py_None);
   return Py_None;
 }    
@@ -6366,6 +6386,7 @@ static struct PyMethodDef fac_methods[] = {
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
+  {"MultipoleCoeff", PMultipoleCoeff, METH_VARARGS},
   {NULL, NULL}
 };
 

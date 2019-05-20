@@ -749,8 +749,8 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   }
   if (hlike) {
     if (h->atom->nep > 0 || h->atom->nepr > 0) {
-      Differential(h->Z, h->dZ, 0, h->maxrp-1, h->dr_drho);
-      Differential(h->dZ, h->dZ2, 0, h->maxrp-1, h->dr_drho);
+      Differential(h->Z, h->dZ, 0, h->maxrp-1, h);
+      Differential(h->dZ, h->dZ2, 0, h->maxrp-1, h);
     }
     SetPotentialVc(h);
   }
@@ -1868,7 +1868,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
       if (ue1[i-1] >= ue1[i]) break;
       if (k > 5) break;
     }
-    Differential(ue1, _dwork9, i, j, potential->dr_drho);
+    Differential(ue1, _dwork9, i, j, potential);
     d0 = potential->rho[i];
     d1 = potential->rho[j];
     d = 0.5*(d0+d1);
@@ -2396,8 +2396,9 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
   for (i = 0; i < acfg->n_shells; i++) {
     if (acfg->n[i] > nmax) {
-      printf("too large n in avgcfg: %d %d %d %d %d %g\n",
-	     ife, nmax, i, acfg->n[i], acfg->kappa[i], acfg->nq[i]);
+      printf("too large n in avgcfg: %d %d %d %d %d %d %g\n",
+	     ife, nmax, potential->nb,
+	     i, acfg->n[i], acfg->kappa[i], acfg->nq[i]);
       if (ife) {
 	return -1;
       }
@@ -2798,7 +2799,7 @@ int SolveDirac(ORBITAL *orb) {
   potential->flag = -1;
   err = RadialSolver(orb, potential);
   if (err) { 
-    printf("Error ocuured in RadialSolver, %d\n", err);
+    printf("Error occured in RadialSolver, %d\n", err);
     printf("%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
     exit(1);
   }
@@ -3197,9 +3198,9 @@ void RemoveOrbMap(int m) {
       for (i = 0; i < _norbmap0; i++) {
 	om->opn[i] = NULL;
       }
-      for (i = 0; i < _norbmap1; i++) {
-	om->onn[i] = NULL;
-      }
+    }
+    for (i = 0; i < _norbmap1; i++) {
+      om->onn[i] = NULL;
     }
     for (i = 0; i < om->nzn; i++) {
       om->ozn[i] = NULL;
@@ -4440,8 +4441,8 @@ double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1) {
   int ilast = Min(orb0->ilast, orb1->ilast);
   int i;
   double v, a, a2, b;
-  Differential(p1, _xk, 0, ilast, potential->dr_drho);
-  Differential(q1, _zk, 0, ilast, potential->dr_drho);
+  Differential(p1, _xk, 0, ilast, potential);
+  Differential(q1, _zk, 0, ilast, potential);
   a = 1/FINE_STRUCTURE_CONST;
   a2 = 1/FINE_STRUCTURE_CONST2;
   for (i = 0; i <= ilast; i++) {
@@ -5557,6 +5558,15 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   if (abs(mode) == 2) {
     *se = 0.0;
     goto EXIT;
+  }
+
+  if (orb0->n == 0 || orb1->n== 0 || orb2->n == 0 || orb3->n == 0) {
+    a = ZColl();
+    d = MColl();
+    if ((a && a != 1) || (d && d != 1)) {
+      *se = 0;
+      goto EXIT;
+    }
   }
   *se = 0.0;
   if (k0 == k1 && (orb0->n > 0 || orb1->n > 0)) goto EXIT;

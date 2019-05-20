@@ -84,9 +84,11 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot);
 int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot);
 int RadialFree(ORBITAL *orb, POTENTIAL *pot);
+int RadialFreeZMC(ORBITAL *orb, POTENTIAL *pot);
+int CountNodes(double *p, POTENTIAL *pot, int i1, int i2);
 double InnerProduct(int i1, int n, 
 		    double *p1, double *p2, POTENTIAL *pot);
-void Differential(double *p, double *dp, int i1, int i2, double *drdrho);
+void Differential(double *p, double *dp, int i1, int i2, POTENTIAL *pot);
 void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double q, double r0);
@@ -105,9 +107,11 @@ double FermiIntegral(double x, double y, double g);
 int SetPotentialVc(POTENTIAL *pot);
 int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
-int SetPotentialW (POTENTIAL *pot, double e, int kappa, int kv);
+int SetPotentialW(POTENTIAL *pot, double e, int kappa, int kv);
+int SetPotentialWZMC (POTENTIAL *pot, double e, int kappa, int kv);
 int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
+int DiracSmallZMC(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 double EneTol(double e);
 void SetOrbitalWorkSpace(double *p, int n);
 double EnergyH(double z, double n, int ka);
@@ -121,6 +125,11 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter);
 int SPMode();
 int OnErrorOrb();
 void SetOnErrorOrb(int e);
+double ZColl();
+double MColl();
+void SetZColl(double z);
+void SetMColl(double z);
+
 #endif
 
 
