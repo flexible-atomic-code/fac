@@ -43,8 +43,8 @@ static int _stark_nts = 0;
 static int *_stark_lower = NULL;
 static int *_stark_upper = NULL;
 static IDXARY _stark_idx;
-static int _gailitis_expni = 5;
-static double _gailitis_exprf = 1.5;
+static int _gailitis_expni = 10;
+static double _gailitis_exprf = 2.0;
 
 #pragma omp threadprivate(dcfg)
 
@@ -2107,10 +2107,10 @@ int GailitisExp(RMATRIX *rmx, double r) {
     }
     ierr = 0;
     DCOUL(rmx->z, e[i], rmx->kappa[i], r, &t1, &c1, &t2, &c2, &ierr);
+    dcfg.ierr = ierr;
     if (ierr != 0 && e[i] > 0) {
-      printf("DCOUL ERR: %15.8E %15.8E %d %15.8E %g %g %g %g %d\n",
-	     rmx->z, e[i], rmx->kappa[i], r, t1, c1, t2, c2, ierr);
-      dcfg.ierr = ierr;
+      MPrintf(-1, "DCOUL ERR: %15.8E %15.8E %d %15.8E %g %g %g %g %d\n",
+	      rmx->z, e[i], rmx->kappa[i], r, t1, c1, t2, c2, ierr);
       return 0;
     }
     if (e[i] > 0) {
