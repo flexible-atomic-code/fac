@@ -29,7 +29,7 @@
 typedef struct _RBASIS_ {
   int ki, kmin, kmax, nbi, nbk, nkappa, nbuttle;
   int ib0, ib1;
-  double rb0, rb1, bqp;
+  double rb0, rb1, bqp, emin;
   int **basis, **bnode;
   double cp0[2], cp1[2], cp2[3];
   double **ebuttle, **cbuttle[NBTERMS];
@@ -62,7 +62,7 @@ typedef struct _DCFG_ {
   double rgailitis, degenerate, accuracy;
   int lrw, liw;
   RMATRIX *rmx;
-  int nr, mr;
+  int nr, mr, ierr;  
   double energy;
 } DCFG;
 

@@ -50,7 +50,7 @@ C     ierr error code returned by coulcc
       endif
 
       zlmin = dcmplx(lambda, 0.0)
-      ierr = 1
+      ierr = 0
       kfn = 0
       
       call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
