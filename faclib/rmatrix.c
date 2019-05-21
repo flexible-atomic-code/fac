@@ -43,6 +43,8 @@ static int _stark_nts = 0;
 static int *_stark_lower = NULL;
 static int *_stark_upper = NULL;
 static IDXARY _stark_idx;
+static int _gailitis_expni = 5;
+static double _gailitis_exprf = 1.5;
 
 #pragma omp threadprivate(dcfg)
 
@@ -197,6 +199,7 @@ void ReadRMatrixBasis(char *fn, RBASIS *rbs, int fmt) {
     nr = fread(&(rbs->ib1), sizeof(int), 1, f);
     nr = fread(&(rbs->rb1), sizeof(double), 1, f);
     nr = fread(&(rbs->bqp), sizeof(double), 1, f);
+    nr = fread(&(rbs->emin), sizeof(double), 1, f);
     nr = fread(&(rbs->kmax), sizeof(int), 1, f);
     rbs->ki = rbs->kmax/1000000;
     rbs->kmax = rbs->kmax%1000000;
@@ -302,6 +305,7 @@ void WriteRMatrixBasis(char *fn, int fmt) {
     nr = fwrite(&(rbasis.ib1), sizeof(int), 1, f);
     nr = fwrite(&(rbasis.rb1), sizeof(double), 1, f);
     nr = fwrite(&(rbasis.bqp), sizeof(double), 1, f);
+    nr = fwrite(&(rbasis.emin), sizeof(double), 1, f);
     k = rbasis.kmin*1000000 + rbasis.ki*1000 + rbasis.kmax;
     nr = fwrite(&k, sizeof(int), 1, f);
     k = rbasis.nbi*1000 + rbasis.nbk;
@@ -547,12 +551,15 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       if (skip) continue;   
       if (j < 0) continue;
       double wtt0 = WallTime();
+      double emax = -1e30;
       for (in = 0; in < nb; in++) {
 	int ix = rbasis.basis[t][in];
 	orb = GetOrbitalSolvedNoLock(ix);
+	if (orb->energy > emax) emax = orb->energy;
       }
       double wtt1 = WallTime();
-      MPrintf(-1, "Basis: %d %d %d %g\n", k2, j, nb, wtt1-wtt0);
+      MPrintf(-1, "Basis: %d %d %d %12.5E %10.3E\n",
+	      k2, j, nb, emax*HARTREE_EV, wtt1-wtt0);
       fflush(stdout);
     }
   }
@@ -560,6 +567,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   double wt2 = WallTime();
   e1 = 0.0;
   e0 = 0.0;
+  double emin = 1E31;
   for (k = kmin; k <= kmax; k++) {
     k2 = 2*k;
     t = k2 - 1;
@@ -567,6 +575,9 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
       if (j < 0) continue;
       for (in = 0; in < nb; in++) {
 	orb = GetOrbital(rbasis.basis[t][in]);
+	if (in == nb-1) {
+	  if (orb->energy < emin) emin = orb->energy;
+	}
 	rbasis.bnode[t][in] = orb->n;
 	rbasis.ek[t][in] = orb->energy;
 	rbasis.w1[t][in] = WLarge(orb)[ib1];
@@ -648,11 +659,12 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     }
   }
   }
+  rbasis.emin = emin;
   WriteRMatrixBasis(fn, fmode);
   nkb1 = GetNumOrbitals();
   double wt3 = WallTime();
-  MPrintf(-1, "rmx bas: %d %d %g %g %g\n",
-	  nkb0, nkb1, wt1-wt0, wt2-wt1, wt3-wt2);
+  MPrintf(-1, "rmx bas: %d %d %12.5E %g %g %g\n",
+	  nkb0, nkb1, emin*HARTREE_EV, wt1-wt0, wt2-wt1, wt3-wt2);
   if (nts > 0 && rbasis.ib0 == 0) {
     PrepSlater(0, nkb0-1, nkb0, nkb1-1, 0, nkb0-1, nkb0, nkb1-1);
     PrepSlater(0, nkb0-1, 0, nkb0-1, nkb0, nkb1-1, nkb0, nkb1-1);
@@ -1722,7 +1734,7 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0) {
 	  b[k] = (r0[k]*x)*fs[j] - 2.0*r0[k]*gs[j]/FINE_STRUCTURE_CONST;
 	  if (i == j) b[k] += fs[j];
 	  b[k] = -b[k];
-	}	
+	}
       }
     }
   } else {
@@ -1749,7 +1761,6 @@ int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0) {
     }
   }
   DGESV(nch, nop, a, nch, iwork, b, nch, &ierr);
-
   return ierr;
 }
 
@@ -2096,6 +2107,12 @@ int GailitisExp(RMATRIX *rmx, double r) {
     }
     ierr = 0;
     DCOUL(rmx->z, e[i], rmx->kappa[i], r, &t1, &c1, &t2, &c2, &ierr);
+    if (ierr != 0 && e[i] > 0) {
+      printf("DCOUL ERR: %15.8E %15.8E %d %15.8E %g %g %g %g %d\n",
+	     rmx->z, e[i], rmx->kappa[i], r, t1, c1, t2, c2, ierr);
+      dcfg.ierr = ierr;
+      return 0;
+    }
     if (e[i] > 0) {
       dcfg.fs0[i] = t1;
       dcfg.gs0[i] = c1;
@@ -2381,10 +2398,12 @@ int GailitisExp(RMATRIX *rmx, double r) {
 }
 
 static void InitDCFG(int nw) {
+  DCFG dcfg0;
+  memcpy(&dcfg0, &dcfg, sizeof(dcfg));
 #pragma omp parallel default(shared)
   {
   int nw2, ns, n;
-
+  memcpy(&dcfg, &dcfg0, sizeof(dcfg));
   nw2 = nw*nw;
   ns = nw*dcfg.ngailitis;
   dcfg.lrw = 20 + 16*nw*2;
@@ -2459,19 +2478,23 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     sprintf(buf, "%s.smx", fn);
     f1[4] = fopen(buf, "w");
   }
+  double ebmin = 1e31;
   for (i = 0; i < np; i++) {
     ReadRMatrixBasis(bfn[i], &(rbs[i]), fmode);
+    if (rbs[i].emin < ebmin) ebmin = rbs[i].emin;
     f[i] = fopen(rfn[i], "r");
     if (f[i] == NULL) return -1;
     ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
   }
-
+  printf("maximum energy vs basis set max: %12.5E %12.5E\n",
+	 emax, ebmin*HARTREE_EV);  
   InitDCFG(rmx[0].mchan);
   for (i = 0; i < nst; i++) {
     sde[i] /= HARTREE_EV;
   }
   emin /= HARTREE_EV;
   emax /= HARTREE_EV;
+
   n = 1;
   double em0 = emin;
   double em1;
@@ -2714,6 +2737,12 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
       smx[i].ip = malloc(sizeof(double **)*_stark_idx.n);
       for (j = 0; j < _stark_idx.n; j++) {
 	its0 = IdxGet(&its, _stark_idx.d[j]);
+	if (its0 < 0) {
+	  smx[i].sp[j] = 0;	  
+	  smx[i].nj[j] = 0;
+	  smx[i].nk[j] = 0;
+	  continue;
+	}
 	smx[i].sp[j] = 0;
 	smx[i].jmin[j] = abs(jj-rmx[0].jts[its0]);
 	smx[i].jmax[j] = abs(jj+rmx[0].jts[its0]);
@@ -2762,6 +2791,24 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	  IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, dcfg.rgailitis);
 	} else {
 	  GailitisExp(&(rmx[0]), rbs[np-1].rb1);
+	  if (dcfg.ierr != 0) {
+	    double rg = dcfg.rgailitis;
+	    dcfg.rgailitis = rbs[np-1].rb1;
+	    int iter = 0;
+	    while (dcfg.ierr != 0) {
+	      iter++;
+	      if (iter > _gailitis_expni) {
+		MPrintf(-1, "error in gailitis expansion: %d %d %d %g\n",
+			iter, k, dcfg.ierr, dcfg.rgailitis);
+		break;
+	      }
+	      dcfg.rgailitis *= _gailitis_exprf;
+	      GailitisExp(&(rmx[0]), dcfg.rgailitis);
+	      IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, dcfg.rgailitis);
+	    }
+	    dcfg.rgailitis = rg;
+	    if (iter > _gailitis_expni) continue;
+	  }
 	}
 	if (dcfg.pdirection >= 0) {
 	  for (j = 1; j < np; j++) {
@@ -2849,8 +2896,10 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	for (ix = 0; ix < _stark_nts; ix++) {
 	  xup = IdxGet(&_stark_idx, _stark_upper[ix]);
 	  iup = IdxGet(&its, _stark_upper[ix]);
+	  if (iup < 0) continue;
 	  xlo = IdxGet(&_stark_idx, _stark_lower[ix]);
 	  ilo = IdxGet(&its, _stark_lower[ix]);
+	  if (ilo < 0) continue;
 	  st0 = iup*(iup+1)/2;
 	  for (is0 = 0; is0 < rmx[0].nsym; is0++) {
 	    if (smx[is0].sp[xup] == 0) continue;
@@ -2999,8 +3048,10 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   }
 
   for (i = 0; i < _stark_nts; i++) {
-    its0 = _stark_lower[i];
-    its1 = _stark_upper[i];
+    its0 = IdxGet(&its, _stark_lower[i]);
+    if (its0 < 0) continue;
+    its1 = IdxGet(&its, _stark_upper[i]);
+    if (its1 < 0) continue;
     st0 = its1*(its1+1)/2;
     fprintf(f1[2], "# %3d %3d %3d %3d %12.5E %6d %3d\n", 
 	    rmx[0].ts[its0], rmx[0].jts[its0],
@@ -3088,6 +3139,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   if (_stark_idx.n > 0) {
     for (i = 0; i < rmx[0].nsym; i++) {
       for (j = 0; j < _stark_idx.n; j++) {
+	if (smx[i].nj[j] <= 0) continue;
 	for (t = 0; t < smx[i].nk[j]; t++) {
 	  free(smx[i].rp[j][t]);
 	  free(smx[i].ip[j][t]);
@@ -3308,6 +3360,14 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:stark_ids", s)) {
     SetStarkIDs(sp);
+    return;
+  }
+  if (0 == strcmp("rmatrix:gailitis_expni", s)) {
+    _gailitis_expni = ip;
+    return;
+  }
+  if (0 == strcmp("rmatrix:gailitis_exprf", s)) {
+    _gailitis_exprf = dp;
     return;
   }
 }
