@@ -27,10 +27,10 @@
 #define NBTERMS 5
 #define NBFIT 7
 typedef struct _RBASIS_ {
-  int ki, kmin, kmax, nbi, nbk, nkappa, nbuttle;
+  int ki, kmin, kmax, kapmin, nbi, nbk, nkappa, nbuttle;
   int ib0, ib1;
   double rb0, rb1, bqp, emin;
-  int **basis, **bnode;
+  int *kappa, **basis, **bnode;
   double cp0[2], cp1[2], cp2[3];
   double **ebuttle, **cbuttle[NBTERMS];
   double **ek, **w0, **w1;
@@ -38,7 +38,7 @@ typedef struct _RBASIS_ {
 
 typedef struct _RMATRIX_ {
   int nts, nkappa, nchan, nchan0, mchan, ncs;
-  int *chans, *ilev, *kappa, *ts, *jts, *cs, *jcs;
+  int *chans, *ilev, *kappa, *ts, *pts, *jts, *cs, *pcs, *jcs;
   int ndim, nop, nlam;
   int nsym, isym, p, j;
   double **aij;
@@ -58,12 +58,15 @@ typedef struct _DCFG_ {
   double *fs, *fc, *gs, *gc;
   double *fs0, *fc0, *gs0, *gc0;
   double *a, *b, *c, *d, *e, *p, *p2, *rm;
+  double *afs, *afc, *ags, *agc;
   int nmultipoles, ngailitis, nlam, pdirection;
   double rgailitis, degenerate, accuracy;
   int lrw, liw;
   RMATRIX *rmx;
   int nr, mr, ierr;  
   double energy;
+  int nts, nka, nke, ntk, ike;
+  double *ek;
 } DCFG;
 
 int InitRMatrix(void);
@@ -74,8 +77,8 @@ void RMatrixBoundary(double r0, double r1, double b);
 void ExtrapolateButtle(RBASIS *rbs, int t, int m, double *e,
 		       double *r0, double *r1, double *r2);
 int RMatrixBasis(char *fn, int kmax, int nb);
-int IndexFromKappa(int k);
-int KappaFromIndex(int i);
+int IndexFromKappa(int k, int k0);
+int KappaFromIndex(int i, int k0);
 void RMatrixTargets(int nt, int *kt, int nc, int *kc);
 void RMatrixNMultipoles(int n);
 void ClearRMatrixSurface(RMATRIX *rmx);
@@ -88,7 +91,10 @@ int RMatrixPropogate(double *r0, double *r1, RMATRIX *rmx1);
 int RMatrixKMatrix(RMATRIX *rmx0, RBASIS *rbs, double *r0);
 int SMatrix(RMATRIX *rmx0);
 void RMatrixExpansion(int n, double d, double a, double r);
-int GailitisExp(RMATRIX *rmx, double r);
+void IntegrateDiracCoulomb(double z, int ka, double r, double rt,
+			   double e, double *t1, double *c1);
+void PrepDiracCoulomb(RMATRIX *rmx, RBASIS *rbs, double r);
+int GailitisExp(RMATRIX *rmx, RBASIS *rbs, double r);
 int IntegrateExternal(RMATRIX *rmx, double r1, double r0);
 void TransformQ(RMATRIX *rmx, double b, double r, int m);
 void PropogateDirection(int m);
