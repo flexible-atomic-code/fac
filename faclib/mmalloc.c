@@ -34,7 +34,8 @@ void *mmalloc(size_t size) {
   p = (size_t *) malloc(size+sizeof(size_t));
   if (p == NULL) {
     printf("malloc error: %zu %zu\n", size, _tsize);
-    exit(1);
+    int *ix = 0;
+    *ix = 0;
   }
   *p = size;
 #pragma omp atomic

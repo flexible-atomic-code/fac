@@ -28,7 +28,7 @@ USE (rcsid);
 static RBASIS rbasis;
 static int ntg, *tg, nts, *ts;
 static int ncg, *cg, ncs, *cs;
-static DCFG dcfg;
+static DCFG dcfg, dcfg0;
 static int _nbatch = 0;
 static int _nrefine=5;
 static int _mrefine=6;
@@ -45,6 +45,7 @@ static int *_stark_upper = NULL;
 static IDXARY _stark_idx;
 static int _gailitis_expni = 10;
 static double _gailitis_exprf = 2.0;
+static double _gailitis_exprt = 0.25;
 
 #pragma omp threadprivate(dcfg)
 
@@ -161,6 +162,7 @@ void ClearRMatrixBasis(RBASIS *rbs) {
     for (k = 0; k < NBTERMS; k++) {
       free(rbs->cbuttle[k]);
     }
+    free(rbs->kappa);
     free(rbs->ebuttle);
     free(rbs->basis);
     free(rbs->bnode);
@@ -205,11 +207,17 @@ void ReadRMatrixBasis(char *fn, RBASIS *rbs, int fmt) {
     rbs->kmax = rbs->kmax%1000000;
     rbs->kmin = rbs->kmax/1000;
     rbs->kmax = rbs->kmax%1000;
+    rbs->kapmin = 0;
+    if (rbs->kmin > 0) {
+      rbs->kapmin = 2*(rbs->kmin-1) + (rbs->kmin>1?2:1);
+    }
     nr = fread(&(rbs->nbk), sizeof(int), 1, f);
     rbs->nbi = rbs->nbk/1000;
     rbs->nbk = rbs->nbk%1000;
     nr = fread(&(rbs->nkappa), sizeof(int), 1, f);
-    nr = fread(&(rbs->nbuttle), sizeof(int), 1, f);
+    nr = fread(&(rbs->nbuttle), sizeof(int), 1, f);    
+    rbs->kappa = malloc(sizeof(int)*rbs->nkappa);
+    nr = fread(rbs->kappa, sizeof(int), rbs->nkappa, f);
     rbs->basis = malloc(sizeof(int *)*rbs->nkappa);
     rbs->bnode = malloc(sizeof(int *)*rbs->nkappa);
     rbs->ebuttle = malloc(sizeof(double *)*rbs->nkappa);
@@ -252,7 +260,8 @@ void ReadRMatrixBasis(char *fn, RBASIS *rbs, int fmt) {
     rbs->kmin = rbs->kmax/1000;
     rbs->kmax = rbs->kmax%1000;
     rbs->nbi = rbs->nbk/1000;
-    rbs->nbk = rbs->nbk%1000;
+    rbs->nbk = rbs->nbk%1000;    
+    rbs->kappa = malloc(sizeof(int)*rbs->nkappa);
     rbs->basis = malloc(sizeof(int *)*rbs->nkappa);
     rbs->bnode = malloc(sizeof(int *)*rbs->nkappa);
     rbs->ebuttle = malloc(sizeof(double *)*rbs->nkappa);
@@ -276,9 +285,11 @@ void ReadRMatrixBasis(char *fn, RBASIS *rbs, int fmt) {
     for (i = 0; i < rbs->nkappa; i++) {
       for (n = 0; n < rbs->nbk; n++) {
 	fscanf(f, "%d %d %d %lf %lf %lf\n", 
-	       &(rbs->basis[i][n]), &kappa, &(rbs->bnode[i][n]), &(rbs->ek[i][n]),
+	       &(rbs->basis[i][n]), &kappa,
+	       &(rbs->bnode[i][n]), &(rbs->ek[i][n]),
 	       &(rbs->w0[i][n]), &(rbs->w1[i][n]));
       }
+      rbs->kappa[i] = kappa;
       for (n = 0; n < rbs->nbuttle; n++) {
 	fscanf(f, "%d %lf", &kappa, &(rbs->ebuttle[i][n]));
 	for (k = 0; k < NBTERMS; k++) {
@@ -312,6 +323,7 @@ void WriteRMatrixBasis(char *fn, int fmt) {
     nr = fwrite(&k, sizeof(int), 1, f);
     nr = fwrite(&(rbasis.nkappa), sizeof(int), 1, f);
     nr = fwrite(&(rbasis.nbuttle), sizeof(int), 1, f);
+    nr = fwrite(rbasis.kappa, sizeof(int), rbasis.nkappa, f);
     for (i = 0; i < rbasis.nkappa; i++) {
       nr = fwrite(rbasis.basis[i], sizeof(int), rbasis.nbk, f);
       nr = fwrite(rbasis.bnode[i], sizeof(int), rbasis.nbk, f);
@@ -331,7 +343,7 @@ void WriteRMatrixBasis(char *fn, int fmt) {
 	    rbasis.nbi*1000+rbasis.nbk,
 	    rbasis.nkappa, rbasis.nbuttle);
     for (i = 0; i < rbasis.nkappa; i++) {
-      ka = KappaFromIndex(i);
+      ka = rbasis.kappa[i];
       for (n = 0; n < rbasis.nbk; n++) {
 	fprintf(f, "%4d %3d %3d %15.8E %15.8E %15.8E\n",
 		rbasis.basis[i][n], ka, rbasis.bnode[i][n], rbasis.ek[i][n],
@@ -486,6 +498,10 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   rbasis.kmax = kmax%1000;
   kmin = rbasis.kmin;
   kmax = rbasis.kmax;
+  rbasis.kapmin = 0;
+  if (rbasis.kmin > 0) {
+    rbasis.kapmin = 2*(rbasis.kmin-1) + (rbasis.kmin>1?2:1);
+  }
   ni = nb/1000;
   nb = nb%1000;
   rbasis.nbk = nb;
@@ -494,6 +510,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   rbasis.nbuttle = nb;
   rbasis.basis = malloc(sizeof(int *)*rbasis.nkappa);
   rbasis.bnode = malloc(sizeof(int *)*rbasis.nkappa);
+  rbasis.kappa = malloc(sizeof(int)*rbasis.nkappa);
   rbasis.ebuttle = malloc(sizeof(double *)*rbasis.nkappa);
   for (kb = 0; kb < NBTERMS; kb++) {
     rbasis.cbuttle[kb] = malloc(sizeof(double *)*rbasis.nkappa);
@@ -525,6 +542,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     for (j = k2-1; j <= k2+1; j += 2, t++) {     
       if (j < 0) continue;
       kappa = GetKappaFromJL(j, k2);
+      rbasis.kappa[t] = kappa;
       for (in = 0; in < nb; in++) {
 	if (rbasis.ib0 == 0) {
 	  n = in + n0;
@@ -673,17 +691,18 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
   return 0;
 }
 
-int IndexFromKappa(int ka) {
+int IndexFromKappa(int ka, int k0) {
   int j, k;
 
   GetJLFromKappa(ka, &j, &k);
-  if (j > k) return k;
-  else return k-1;
+  if (j > k) return k-k0;
+  else return (k-1)-k0;
 }
 
-int KappaFromIndex(int k) {
+int KappaFromIndex(int k, int k0) {
   int j;
-
+  
+  k += k0;
   if (IsOdd(k)) {
     k++;
     j = k-1;
@@ -716,11 +735,13 @@ void ClearRMatrixSurface(RMATRIX *rmx) {
   if (rmx->nts > 0) {
     free(rmx->et);
     free(rmx->ts);
+    free(rmx->pts);
     free(rmx->jts);
   } 
   if (rmx->ncs > 0) {
     free(rmx->ec);
     free(rmx->cs);
+    free(rmx->pcs);
     free(rmx->jcs);
   }
   if (rmx->ndim > 0) free(rmx->ek);
@@ -783,18 +804,22 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
 	rmx->w1[i] = NULL;
       }
       rmx->ts = malloc(sizeof(int)*nts);
+      rmx->pts = malloc(sizeof(int)*nts);
       rmx->jts = malloc(sizeof(int)*nts);
       rmx->cs = malloc(sizeof(int)*ncs);
+      rmx->pcs = malloc(sizeof(int)*ncs);
       rmx->jcs = malloc(sizeof(int)*ncs);
       rmx->et0 = 1E30;
       for (i = 0; i < nts; i++) {
 	ierr = fread(&(rmx->ts[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->pts[i]), sizeof(int), 1, f);
 	ierr = fread(&(rmx->jts[i]), sizeof(int), 1, f);
 	ierr = fread(&(rmx->et[i]), sizeof(double), 1, f);
 	if (rmx->et[i] < rmx->et0) rmx->et0 = rmx->et[i];
       }
       for (i = 0; i < ncs; i++) {
 	ierr = fread(&(rmx->cs[i]), sizeof(int), 1, f);
+	ierr = fread(&(rmx->pcs[i]), sizeof(int), 1, f);
 	ierr = fread(&(rmx->jcs[i]), sizeof(int), 1, f);
 	ierr = fread(&(rmx->ec[i]), sizeof(double), 1, f);
       }
@@ -899,19 +924,23 @@ int ReadRMatrixSurface(FILE *f, RMATRIX *rmx, int m, int fmt) {
 	rmx->w1[i] = NULL;
       }
       rmx->ts = malloc(sizeof(int)*nts);
+      rmx->pts = malloc(sizeof(int)*nts);
       rmx->jts = malloc(sizeof(int)*nts);
       rmx->cs = malloc(sizeof(int)*ncs);
+      rmx->pcs = malloc(sizeof(int)*ncs);
       rmx->jcs = malloc(sizeof(int)*ncs);
       rmx->et0 = 1E30;
       for (i = 0; i < nts; i++) {
-	ierr = fscanf(f, "T %d %d %lf\n", 
-		      &(rmx->ts[i]), &(rmx->jts[i]), &(rmx->et[i]));
+	ierr = fscanf(f, "T %d %d %d %lf\n", 
+		      &(rmx->ts[i]), &(rmx->pts[i]),
+		      &(rmx->jts[i]), &(rmx->et[i]));
 	if (rmx->et[i] < rmx->et0) rmx->et0 = rmx->et[i];
       }
       for (i = 0; i < ncs; i++) {
-	ierr = fscanf(f, "C %d %d %lf\n", &k, &k1, &a);
+	ierr = fscanf(f, "C %d %d %d %lf\n", &k, &k1, &k2, &a);
 	rmx->cs[i] = k;
-	rmx->jcs[i] = k1;
+	rmx->pcs[i] = k1;
+	rmx->jcs[i] = k2;
 	rmx->ec[i] = a;
       }    
       rmx->ndim = 0;
@@ -1022,16 +1051,18 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	for (t = 0; t < nts; t++) {
 	  ilev = ts[t];
 	  lev = GetLevel(ilev);
-	  DecodePJ(lev->pj, NULL, &k);
+	  DecodePJ(lev->pj, &k1, &k);
 	  nr = fwrite(&ilev, sizeof(int), 1, f);
+	  nr = fwrite(&k1, sizeof(int), 1, f);
 	  nr = fwrite(&k, sizeof(int), 1, f);
 	  nr = fwrite(&(lev->energy), sizeof(double), 1, f);
 	}
 	for (t = 0; t < ncs; t++) {
 	  ilev = cs[t];
 	  lev = GetLevel(ilev);
-	  DecodePJ(lev->pj, NULL, &k);
+	  DecodePJ(lev->pj, &k1, &k);
 	  nr = fwrite(&ilev, sizeof(int), 1, f);
+	  nr = fwrite(&k1, sizeof(int), 1, f);
 	  nr = fwrite(&k, sizeof(int), 1, f);
 	  nr = fwrite(&(lev->energy), sizeof(double), 1, f);	  
 	}
@@ -1041,14 +1072,14 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	for (t = 0; t < nts; t++) {
 	  ilev = ts[t];
 	  lev = GetLevel(ilev);
-	  DecodePJ(lev->pj, NULL, &k);
-	  fprintf(f, "T %3d %3d %15.8E\n", ilev, k, lev->energy);
+	  DecodePJ(lev->pj, &k1, &k);
+	  fprintf(f, "T %3d %3d %3d %15.8E\n", ilev, k1, k, lev->energy);
 	}
 	for (t = 0; t < ncs; t++) {
 	  ilev = cs[t];
 	  lev = GetLevel(ilev);
-	  DecodePJ(lev->pj, NULL, &k);
-	  fprintf(f, "C %3d %3d %15.8E\n", ilev, k, lev->energy);
+	  DecodePJ(lev->pj, &k1, &k);
+	  fprintf(f, "C %3d %d %3d %15.8E\n", ilev, k1, k, lev->energy);
 	}
       }
     } else {
@@ -1065,11 +1096,13 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	nr = fwrite(&(rmx->nlam), sizeof(int), 1, f);
 	for (t = 0; t < nts; t++) {
 	  nr = fwrite(&(rmx->ts[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->pts[t]), sizeof(int), 1, f);
 	  nr = fwrite(&(rmx->jts[t]), sizeof(int), 1, f);
 	  nr = fwrite(&(rmx->et[t]), sizeof(double), 1, f);
 	}
 	for (t = 0; t < ncs; t++) {
 	  nr = fwrite(&(rmx->cs[t]), sizeof(int), 1, f);
+	  nr = fwrite(&(rmx->pcs[t]), sizeof(int), 1, f);
 	  nr = fwrite(&(rmx->jcs[t]), sizeof(int), 1, f);
 	  nr = fwrite(&(rmx->ec[t]), sizeof(double), 1, f);
 	}
@@ -1079,12 +1112,14 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	for (t = 0; t < nts; t++) {
 	  ilev = rmx->ts[t];
 	  k = rmx->jts[t];
-	  fprintf(f, "T %3d %3d %15.8E\n", ilev, k, rmx->et[t]);
+	  k1 = rmx->pts[t];
+	  fprintf(f, "T %3d %3d %3d %15.8E\n", ilev, k1, k, rmx->et[t]);
 	}
 	for (t = 0; t < ncs; t++) {
 	  ilev = rmx->cs[t];
 	  k = rmx->jcs[t];
-	  fprintf(f, "C %3d %3d %15.8E\n", ilev, k, rmx->ec[t]);
+	  k1 = rmx->pcs[t];
+	  fprintf(f, "C %3d %3d %3d %15.8E\n", ilev, k1, k, rmx->ec[t]);
 	}
       }	
     }
@@ -1111,7 +1146,7 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	  k = ic%rbasis.nkappa;
 	  ilev = ts[i];
 	  lev = GetLevel(ilev);
-	  ka = KappaFromIndex(k);
+	  ka = rbasis.kappa[k];
 	  nr = fwrite(&ic, sizeof(int), 1, f);
 	  nr = fwrite(&i, sizeof(int), 1, f);
 	  nr = fwrite(&ka, sizeof(int), 1, f);
@@ -1123,13 +1158,13 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	  i = ic/rbasis.nkappa;
 	  ilev = ts[i];
 	  k = ic%rbasis.nkappa;
-	  ka = KappaFromIndex(k);
+	  ka = rbasis.kappa[k];
 	  for (jc = 0; jc <= ic; jc++) {
 	    if (wik1[jc] == NULL) continue;
 	    i1 = jc/rbasis.nkappa;
 	    ilev1 = ts[i1];
 	    k1 = jc%rbasis.nkappa;
-	    ka1 = KappaFromIndex(k1);
+	    ka1 = rbasis.kappa[k1];
 	    a = MultipoleCoeff(h->pj, ilev1, ka1, ilev, ka, ilam+1);
 	    nr = fwrite(&a, sizeof(double), 1, f);
 	  }
@@ -1158,7 +1193,7 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	  k = ic%rbasis.nkappa;
 	  ilev = ts[i];
 	  lev = GetLevel(ilev);
-	  ka = KappaFromIndex(k);
+	  ka = rbasis.kappa[k];
 	  fprintf(f, "%6d %3d %3d %3d %3d\n",
 		  ic, i, ilev, k, ka);
 	}
@@ -1169,13 +1204,13 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
 	  i = ic/rbasis.nkappa;
 	  ilev = ts[i];
 	  k = ic%rbasis.nkappa;
-	  ka = KappaFromIndex(k);
+	  ka = rbasis.kappa[k];
 	  for (jc = 0; jc <= ic; jc++) {
 	    if (wik1[jc] == NULL) continue;
 	    i1 = jc/rbasis.nkappa;
 	    ilev1 = ts[i1];
 	    k1 = jc%rbasis.nkappa;
-	    ka1 = KappaFromIndex(k1);
+	    ka1 = rbasis.kappa[k1];
 	    a = MultipoleCoeff(h->pj, ilev1, ka1, ilev, ka, ilam+1);
 	    fprintf(f, "%2d %6d %3d %3d %6d %3d %3d %15.8E\n",
 		    ilam+1, ic, ilev, ka, jc, ilev1, ka1, a);
@@ -1234,7 +1269,7 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
       for (ic = 0; ic < nchan0; ic++) {
 	i = rmx->ilev[ic];
 	ka = rmx->kappa[ic];
-	k = IndexFromKappa(ka);
+	k = IndexFromKappa(ka, rbasis.kapmin);
 	fprintf(f, "%6d %3d %3d %3d %3d\n",
 		rmx->chans[ic], i, rmx->ts[i], k, ka);
       }
@@ -1282,7 +1317,6 @@ int RMatrixSurface(char *fn) {
 
   f = fopen(fn, "w");
   if (f == NULL) return -1;
-
   WriteRMatrixSurface(f, NULL, NULL, 0, fmode, NULL, NULL);
   nchan = nts*rbasis.nkappa;
   wik0 = malloc(sizeof(double *)*nchan);
@@ -1459,7 +1493,7 @@ int RMatrixSurface(char *fn) {
 	    if (ilev >= 0) {
 	      kb = s->kcfg;
 	      orb = GetOrbital(kb);
-	      ika = IndexFromKappa(orb->kappa);
+	      ika = IndexFromKappa(orb->kappa, rbasis.kapmin);
 	      ic = ilev*rbasis.nkappa + ika;	    
 	      hs[ibk][i].basis[j] = ic;
 	      hs[ibk][i].basis[j+nbs1] = kb;
@@ -1817,6 +1851,60 @@ int SMatrix(RMATRIX *rmx0) {
   return 0;
 }
 
+void DCPQ(int *neq, double *t, double *y, double *yd) {
+  double r, z, ka, e, a, b;
+  
+  r = *t;
+  z = y[2];
+  ka = y[3];
+  e = y[4];
+  a = ka/r;
+  yd[0] = -a*y[0];
+  yd[1] = a*y[1];
+  a = (e + z/r)*FINE_STRUCTURE_CONST;
+  b = 2.0/FINE_STRUCTURE_CONST;
+  yd[0] += (b+a)*y[1];
+  yd[1] -= a*y[0];
+}
+FCALLSCSUB4(DCPQ, DCPQ, dcpq, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
+
+void IntegrateDiracCoulomb(double z, int ka, double r, double rt,
+			   double e, double *p, double *q) {
+  int lrw, liw, itask, iopt, istate, mf, neq, *iwork, itol;
+  double y[5], rtol, atol, *rwork, rs;
+
+  y[2] = z;
+  y[3] = ka;
+  y[4] = e;
+  y[0] = *p;
+  y[1] = *q;
+  neq = 2;
+  rwork = dcfg.rwork;
+  iwork = dcfg.iwork;
+  itol = 1;
+  rtol = EPS10;
+  atol = EPS10;
+  itask = 1;
+  istate = 1;
+  iopt = 0;
+  mf = 10;
+  lrw = dcfg.lrw;
+  liw = dcfg.liw;
+  rs = rt;
+  while (rs != r) {
+    LSODE(C_FUNCTION(DCPQ, dcpq), neq, y, &rs, r,
+	  itol, rtol, &atol, itask, &istate, iopt, rwork,
+	  lrw, iwork, liw, NULL, mf);
+    if (istate == -1) istate = 2;
+    else if (istate < 0) {
+      MPrintf(-1, "LSODE Error in IntegrateDiracCoulomb %d\n", istate);
+      Abort(1);
+    }
+  }
+  *p = y[0];
+  *q = y[1];
+}
+
 void ExtDPQ(int *neq, double *t, double *y, double *ydot) {
   double a, b, c, r;
   int i, j, k, nch, ilam;
@@ -2078,7 +2166,73 @@ int PropogateExternal(RMATRIX *rmx, RBASIS *rbs) {
   return 0;
 }
 
-int GailitisExp(RMATRIX *rmx, double r) {
+void PrepDiracCoulomb(RMATRIX *rmx, RBASIS *rbs, double r) {
+  ResetWidMPI();
+  double wt0 = WallTime();  
+#pragma omp parallel default(shared)
+  {
+    double e, a, rt, t1, c1, t2, c2;
+    int i, j, k, ij, ka, ierr, iter;
+    int w = 0;
+    for (j = 0; j < rbs->nkappa; j++) {
+      for (i = 0; i < rmx->nts; i++) {
+	for (k = 0; k < dcfg0.nke; k++) {
+	  if (SkipWMPI(w++)) continue;
+	  e = dcfg0.ek[k] - (rmx->et[i]-rmx->et0);
+	  ij = (i*rbs->nkappa + j)*dcfg0.nke + k;
+	  ka = rbs->kappa[j];
+	  if (e > 0) {
+	    a = 0.5*ka*(ka+1.0);
+	    rt = a/(rmx->z + sqrt(rmx->z + 4*a*e));
+	    if (_gailitis_exprt > 0) rt *= _gailitis_exprt;
+	    if (rt < r) rt = r;
+	  } else {
+	    rt = r;
+	  }
+	  ierr = 0;
+	  DCOUL(rmx->z, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
+	  if (e > 0) {
+	    iter = 0;
+	    while (ierr) {
+	      iter++;
+	      if (iter > _gailitis_expni) {
+		MPrintf(-1, "DCOUL error: %d %d %d %g %g %g\n",
+			iter, ka, ierr, rmx->z, e, r);
+		break;
+	      }
+	      rt *= _gailitis_exprf;
+	      ierr = 0;
+	      DCOUL(rmx->z, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
+	    }
+	    if (iter > _gailitis_expni) {
+	      ierr = 0;
+	      DCOUL(rmx->z, e-(a/r-rmx->z)/r, ka, r, &t1, &c1, &t2, &c2, &ierr);
+	      ierr = -9999;
+	    } else if (rt > r) {
+	      IntegrateDiracCoulomb(rmx->z, ka, r, rt, e, &t1, &c1);
+	      IntegrateDiracCoulomb(rmx->z, ka, r, rt, e, &t2, &c2);
+	    }
+	  }
+	  if (e > 0 && ierr != -9999) {
+	    dcfg0.afs[ij] = t1;
+	    dcfg0.ags[ij] = c1;
+	    dcfg0.afc[ij] = t2;
+	    dcfg0.agc[ij] = c2;
+	  } else {
+	    dcfg0.afs[ij] = 0;
+	    dcfg0.ags[ij] = 0;
+	    dcfg0.afc[ij] = t1;
+	    dcfg0.agc[ij] = c1;
+	  }
+	}      
+      }
+      MPrintf(0, "PrepDiracCoulomb: %3d %3d %3d %11.4E %11.4E\n",
+	      j, rbs->kappa[j], rmx->nts, WallTime()-wt0, TotalSize());
+    }
+  }
+}
+
+int GailitisExp(RMATRIX *rmx, RBASIS *rbs, double r) {
   int nlam, i, j, n, m, mi, mj, mp, ij, ierr, ilam, nop;
   double a, d, pa, pb, t1, t2, t3, t4;
   double c1, c2, c3, c4, x1, x2, x3, x4;
@@ -2105,26 +2259,13 @@ int GailitisExp(RMATRIX *rmx, double r) {
       p2[i] = 2.0*e[i]*(1.0+0.5*FINE_STRUCTURE_CONST2*e[i]);
       p[i] = sqrt(fabs(p2[i]));
     }
-    ierr = 0;
-    DCOUL(rmx->z, e[i], rmx->kappa[i], r, &t1, &c1, &t2, &c2, &ierr);
-    dcfg.ierr = ierr;
-    if (ierr != 0 && e[i] > 0) {
-      MPrintf(-1, "DCOUL ERR: %15.8E %15.8E %d %15.8E %g %g %g %g %d\n",
-	      rmx->z, e[i], rmx->kappa[i], r, t1, c1, t2, c2, ierr);
-      return 0;
-    }
-    if (e[i] > 0) {
-      dcfg.fs0[i] = t1;
-      dcfg.gs0[i] = c1;
-      dcfg.fc0[i] = t2;
-      dcfg.gc0[i] = c2;
-      nop++;
-    } else {
-      dcfg.fs0[i] = 0.0;
-      dcfg.gs0[i] = 0.0;
-      dcfg.fc0[i] = t1;
-      dcfg.gc0[i] = c1;
-    }
+    j = IndexFromKappa(rmx->kappa[i], rbs->kapmin);
+    ij = (rmx->ilev[i]*rmx->nkappa + j)*dcfg0.nke + dcfg.ike;
+    dcfg.fs0[i] = dcfg0.afs[ij];
+    dcfg.gs0[i] = dcfg0.ags[ij];
+    dcfg.fc0[i] = dcfg0.afc[ij];
+    dcfg.gc0[i] = dcfg0.agc[ij];
+    if (e[i] > 0) nop++;
     for (j = 0; j < rmx->nchan0; j++) {
       ij = j*rmx->nchan0 + i;
       if (i == j) {
@@ -2397,48 +2538,76 @@ int GailitisExp(RMATRIX *rmx, double r) {
   return nop;
 }
 
-static void InitDCFG(int nw) {
-  DCFG dcfg0;
-  memcpy(&dcfg0, &dcfg, sizeof(dcfg));
+static void InitDCFG(int nw, int nts, int nk, int nke, double *ek) {
+  if (nw > 0) {
+    dcfg.nts = 0;
+    dcfg.nka = 0;
+    dcfg.nke = 0;
+    dcfg.ntk = 0;
+    dcfg.ike = 0;
+    dcfg.ek = NULL;
+    memcpy(&dcfg0, &dcfg, sizeof(dcfg));  
 #pragma omp parallel default(shared)
-  {
-  int nw2, ns, n;
-  memcpy(&dcfg, &dcfg0, sizeof(dcfg));
-  nw2 = nw*nw;
-  ns = nw*dcfg.ngailitis;
-  dcfg.lrw = 20 + 16*nw*2;
-  if (dcfg.lrw < nw2*2) dcfg.lrw = nw2*2;
-  dcfg.liw = 20+nw;
-  n = nw2*4+nw*7+4*ns+dcfg.ngailitis+dcfg.lrw;
-  dcfg.dwork = malloc(sizeof(double)*n);
-  dcfg.fc = dcfg.dwork;
-  dcfg.gc = dcfg.fc + nw2;
-  dcfg.fs = dcfg.gc + nw2;
-  dcfg.gs = dcfg.fs + nw2;
-  dcfg.fc0 = dcfg.gs + nw2;
-  dcfg.gc0 = dcfg.fc0 + nw;
-  dcfg.fs0 = dcfg.gc0 + nw;
-  dcfg.gs0 = dcfg.fs0 + nw;
-  dcfg.e = dcfg.gs0 + nw;
-  dcfg.p = dcfg.e + nw;
-  dcfg.p2 = dcfg.p + nw;
-  dcfg.a = dcfg.p2 + nw;
-  dcfg.b = dcfg.a + ns;
-  dcfg.c = dcfg.b + ns;
-  dcfg.d = dcfg.c + ns;
-  dcfg.rm = dcfg.d + ns;
-  dcfg.rwork = dcfg.rm + dcfg.ngailitis;
-  dcfg.iwork = malloc(sizeof(int)*dcfg.liw);
-  dcfg.mr = MPIRank(&dcfg.nr);
+    {
+      int nw2, ns, n;
+      memcpy(&dcfg, &dcfg0, sizeof(dcfg));
+      nw2 = nw*nw;
+      ns = nw*dcfg.ngailitis;
+      dcfg.lrw = 20 + 16*nw*2;
+      if (dcfg.lrw < nw2*2) dcfg.lrw = nw2*2;
+      dcfg.liw = 20+nw;
+      dcfg.nts = 0;
+      dcfg.nka = 0;
+      dcfg.nke = 0;
+      dcfg.ntk = 0;
+      n = nw2*4+nw*7+4*ns+dcfg.ngailitis+dcfg.lrw;
+      dcfg.dwork = malloc(sizeof(double)*n);
+      dcfg.fc = dcfg.dwork;
+      dcfg.gc = dcfg.fc + nw2;
+      dcfg.fs = dcfg.gc + nw2;
+      dcfg.gs = dcfg.fs + nw2;
+      dcfg.fc0 = dcfg.gs + nw2;
+      dcfg.gc0 = dcfg.fc0 + nw;
+      dcfg.fs0 = dcfg.gc0 + nw;
+      dcfg.gs0 = dcfg.fs0 + nw;
+      dcfg.e = dcfg.gs0 + nw;
+      dcfg.p = dcfg.e + nw;
+      dcfg.p2 = dcfg.p + nw;
+      dcfg.a = dcfg.p2 + nw;
+      dcfg.b = dcfg.a + ns;
+      dcfg.c = dcfg.b + ns;
+      dcfg.d = dcfg.c + ns;
+      dcfg.rm = dcfg.d + ns;
+      dcfg.rwork = dcfg.rm + dcfg.ngailitis;
+      dcfg.iwork = malloc(sizeof(int)*dcfg.liw);
+      dcfg.mr = MPIRank(&dcfg.nr);
+    }
+  }
+  if (dcfg0.ntk > 0) {
+    free(dcfg0.afc);
+    dcfg0.ntk = 0;
+    dcfg0.ek = NULL;
+  }
+  dcfg0.nts = nts;
+  dcfg0.nka = nk;
+  dcfg0.nke = nke;
+  dcfg0.ntk = nts*nk*nke;
+  if (dcfg0.ntk > 0) {
+    dcfg0.afc = malloc(sizeof(double)*dcfg0.ntk*4);
+    dcfg0.agc = dcfg0.afc + dcfg0.ntk;
+    dcfg0.afs = dcfg0.agc + dcfg0.ntk;
+    dcfg0.ags = dcfg0.afs + dcfg0.ntk;
+    dcfg0.ek = ek;
   }
 }
 
 static void ClearDCFG(void) {
 #pragma omp parallel default(shared)
   {
-  free(dcfg.dwork);
-  free(dcfg.iwork);
+    free(dcfg.dwork);
+    free(dcfg.iwork);
   }
+  if (dcfg0.ntk > 0) free(dcfg.afc);
 }
 
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[], 
@@ -2488,7 +2657,6 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   }
   printf("maximum energy vs basis set max: %12.5E %12.5E\n",
 	 emax, ebmin*HARTREE_EV);  
-  InitDCFG(rmx[0].mchan);
   for (i = 0; i < nst; i++) {
     sde[i] /= HARTREE_EV;
   }
@@ -2507,6 +2675,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
       em1 = emax;
     }    
     t = (int)((em1-em0)/sde[i]);
+    if (t <= 0) t = 1;
     sde[i] = (em1-em0)/t;
     isp[i/2] = n-1;
     n += t;
@@ -2558,12 +2727,14 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 
   e = e0;
   npe = 0;
+  InitDCFG(rmx[0].mchan, 0, 0, 0, NULL);
   while (npe < n) {
     if (npe + nbatch > n) {
       nke = n - npe;
     } else {
       nke = nbatch;
     }
+    InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e);
     RMatrixCEW(np, rbs, rmx, f, f1, nsp, isp, nke, e, NULL, s, NULL, m, mb,
 	       de, nde, minde, emin, emax, 0, n, npe);
     e += nke;
@@ -2656,14 +2827,14 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	       double emin, double emax, int idep, int n, int npe) {
   int i, j, k, t, p, q, h, i0, ns, *iwork, *ir, nkr, *ipr;
   double et, ***sp, *r0, *r1, x, y, *er, **sr, ds, ms;
-  int pp, jj, its0, its1, st0, ka0, ka1, mka0, mka1, npw, ika0, ika1, nkmin;
+  int pp, jj, its0, its1, st0, ka0, ka1, mka0, mka1, npw, ika0, ika1;
   SMATRIX *smx;
   IDXARY its;
   
   double wt00 = WallTime();
   for (i = 0; i < np; i++) {
     ClearRMatrixSurface(&(rmx[i]));
-    fseek(f[i], 0, SEEK_SET);
+    fseek(f[i], 0, SEEK_SET); 
     ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
   }
   int ns0 = rmx[0].nts*(rmx[0].nts+1)/2;
@@ -2679,6 +2850,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   if (_stark_idx.n > 0) {
     smx = malloc(sizeof(SMATRIX)*rmx[0].nsym*nke);
   }
+  
   if (nde > 0) {
     ir = malloc(sizeof(int)*nke);
     for (i = 0; i < nke; i++) {
@@ -2707,11 +2879,11 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
       fflush(f1[i]);
     }
   }
-  nkmin = 0;
-  if (rbs[0].kmin > 0) {
-    nkmin = 2*(rbs[0].kmin-1) + (rbs[0].kmin>1?2:1);
-  }
+
   InitIdxAry(&its, rmx[0].nts, rmx[0].ts);
+  double rg = dcfg.rgailitis;
+  if (rg < rbs[np-1].rb1) rg = rbs[np-1].rb1;
+  PrepDiracCoulomb(&(rmx[0]), &(rbs[0]), rg);
   for (i = 0; i < rmx[0].nsym;  i++) {
     double wt0 = WallTime();
     for (j = 0; j < np; j++) {
@@ -2743,6 +2915,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	  smx[i].nk[j] = 0;
 	  continue;
 	}
+	  
 	smx[i].sp[j] = 0;
 	smx[i].jmin[j] = abs(jj-rmx[0].jts[its0]);
 	smx[i].jmax[j] = abs(jj+rmx[0].jts[its0]);
@@ -2759,6 +2932,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	  }
 	}
       }
+      
       for (p = 0; p < rmx[0].nchan0; p++) {
 	its0 = rmx[0].ilev[p];
 	int ix = IdxGet(&_stark_idx, rmx[0].ts[its0]);
@@ -2786,29 +2960,10 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	}
 	r0 = rmx[0].rmatrix[0][dcfg.mr];
 	r1 = rmx[0].rmatrix[1][dcfg.mr];
-	if (dcfg.rgailitis > rbs[np-1].rb1) {
-	  GailitisExp(&(rmx[0]), dcfg.rgailitis);
-	  IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, dcfg.rgailitis);
-	} else {
-	  GailitisExp(&(rmx[0]), rbs[np-1].rb1);
-	  if (dcfg.ierr != 0) {
-	    double rg = dcfg.rgailitis;
-	    dcfg.rgailitis = rbs[np-1].rb1;
-	    int iter = 0;
-	    while (dcfg.ierr != 0) {
-	      iter++;
-	      if (iter > _gailitis_expni) {
-		MPrintf(-1, "error in gailitis expansion: %d %d %d %g\n",
-			iter, k, dcfg.ierr, dcfg.rgailitis);
-		break;
-	      }
-	      dcfg.rgailitis *= _gailitis_exprf;
-	      GailitisExp(&(rmx[0]), dcfg.rgailitis);
-	      IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, dcfg.rgailitis);
-	    }
-	    dcfg.rgailitis = rg;
-	    if (iter > _gailitis_expni) continue;
-	  }
+	dcfg.ike = k;
+	GailitisExp(&(rmx[0]), &(rbs[0]), rg);
+	if (rg > rbs[np-1].rb1) {
+	  IntegrateExternal(&(rmx[0]), rbs[np-1].rb1, rg);
 	}
 	if (dcfg.pdirection >= 0) {
 	  for (j = 1; j < np; j++) {
@@ -3156,7 +3311,8 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
       free(smx[i].sp);
     }
     free(smx);
-  }  
+  }
+  FreeIdxAry(&its, 2);
   return 0;
 }
 
@@ -3237,44 +3393,21 @@ void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {
   f1 = fopen(fn3, "w");
   ReadRMatrixBasis(fn1, &rbs, fmode);
   ReadRMatrixSurface(f, &rmx, 0, fmode);
-  InitDCFG(rmx.mchan);
+  InitDCFG(rmx.mchan, rmx.nts, rbs.nkappa, 1, &e);
+  dcfg.ike = 0;
   for (k = 0; k < rmx.nsym; k++) {
     ReadRMatrixSurface(f, &rmx, 1, fmode);
     RMatrix(e, &rmx, &rbs, 1);
-    /*
-    if (rmx.isym == 20) {
-      GailitisExp(&rmx, dcfg.rgailitis);
-      a2 = (dcfg.rgailitis-rbs.rb1)/3000;
-      a1 = dcfg.rgailitis;
-      while (a1-a2 - rbs.rb1 > -0.1*a2) {
-	IntegrateExternal(&rmx, a1-a2, a1);
-	a1 -= a2;
-	for (i = 0; i < 1; i++) {
-	  ei = (e-rmx.et[rmx.ilev[i]]+rmx.et0);
-	  fprintf(f1, "%2d %2d %2d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-		  rmx.isym, i, i, ei, a1, dcfg.fs0[i], 
-		  dcfg.gs0[i], dcfg.fc0[i], dcfg.gc0[i]);      	  
-	  for (j = 0; j < rmx.nchan0; j++) {
-	    p = i*rmx.nchan0 + j; 
-	    fprintf(f1, "%2d %2d %2d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-		    rmx.isym, i, j, ei, a1, dcfg.fs[p], 
-		    dcfg.gs[p], dcfg.fc[p], dcfg.gc[p]);
-	  }
-	}
-      }
-      break;
-    }  
-    */
     if (rmx.isym == 0) {
       if (m >= 0) {
 	if (dcfg.rgailitis > rbs.rb1) {      
-	  GailitisExp(&rmx, dcfg.rgailitis);
+	  GailitisExp(&rmx, &rbs, dcfg.rgailitis);
 	  IntegrateExternal(&rmx, rbs.rb1, dcfg.rgailitis);
 	} else {
-	  GailitisExp(&rmx, rbs.rb1);
+	  GailitisExp(&rmx, &rbs, rbs.rb1);
 	}
       } else {
-	GailitisExp(&rmx, rbs.rb1);
+	GailitisExp(&rmx, &rbs, rbs.rb1);
 	PropogateExternal(&rmx, &rbs);
       }
       for (i = 0; i < rmx.nchan0; i++) {
@@ -3292,25 +3425,6 @@ void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3) {
       fprintf(f1, "\n\n");
       break;
     }
-    /*
-    for (i = 0; i < rmx.nchan0; i++) {
-      for (j = 0; j < rmx.nchan0; j++) {
-	p = i*rmx.nchan0+j;
-	if (rmx.nlam >= 2) {
-	  a1 = rmx.aij[0][p];
-	  a2 = rmx.aij[1][p];
-	} else {
-	  a1 = 0.0;
-	  a2 = 0.0;
-	}
-	fprintf(f1, "%3d %2d %2d %15.8E %15.8E %15.8E %15.8E %15.8E\n",
-		rmx.isym, i, j, a1, a2,
-		rmx.rmatrix[0][dcfg.mr][p], 
-		rmx.rmatrix[1][dcfg.mr][p], rmx.rmatrix[2][dcfg.mr][p]);
-      }
-    }
-    fprintf(f1, "\n\n");
-    */
   }
   ClearDCFG();
   fclose(f);
@@ -3368,6 +3482,10 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:gailitis_exprf", s)) {
     _gailitis_exprf = dp;
+    return;
+  }
+  if (0 == strcmp("rmatrix:gailitis_exprt", s)) {
+    _gailitis_exprt = dp;
     return;
   }
 }
