@@ -627,7 +627,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
 	      }
 	    }
 	    pkd[q] = sd;
-	    pke[q] = se;     
+	    pke[q] = se;
 	    q++;
 	  }
 	  if (i > 0) {

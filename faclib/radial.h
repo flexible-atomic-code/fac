@@ -87,6 +87,7 @@ double GetRMax(void);
 ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p);
 void Orthogonalize(ORBITAL *orb);
 int SolveDirac(ORBITAL *orb);
+int WaveFuncTableOrb(char *s, ORBITAL *orb);
 int WaveFuncTable(char *s, int n, int kappa, double e);
 
 /* get the index of the given orbital in the table */

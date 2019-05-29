@@ -2816,19 +2816,18 @@ int SolveDirac(ORBITAL *orb) {
   return err;
 }
 
-int WaveFuncTable(char *s, int n, int kappa, double e) {
-  int i, k;
+int WaveFuncTableOrb(char *s, ORBITAL *orb) {
+  int i, k, n, kappa;
   FILE *f;
-  ORBITAL *orb;
-  double z, a, ke, y;
-
-  e /= HARTREE_EV;
-  k = OrbitalIndex(n, kappa, e);
-  if (k < 0) return -1;
+  double z, a, ke, y, e;
+  
+  if (orb == NULL || orb->isol == 0) return -1;
   f = fopen(s, "w");
   if (!f) return -1;
+  n = orb->n;
+  kappa = orb->kappa;
+  k = orb->idx;
   
-  orb = GetOrbitalSolved(k);    
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
@@ -2904,6 +2903,18 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   fclose(f);
 
   return 0;
+}
+
+int WaveFuncTable(char *s, int n, int kappa, double e) {
+  int k;
+  ORBITAL *orb;
+
+  e /= HARTREE_EV;
+  k = OrbitalIndex(n, kappa, e);
+  if (k < 0) return -1;
+  orb = GetOrbitalSolved(k); 
+
+  return WaveFuncTableOrb(s, orb);
 }
 
 double PhaseRDependent(double x, double eta, double b) {
@@ -6904,7 +6915,6 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       norm *= orb1->qr_norm;
       norm *= orb2->qr_norm;
       norm *= orb3->qr_norm;
-
       *s *= norm;
       break;
 
