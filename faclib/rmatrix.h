@@ -51,6 +51,13 @@ typedef struct _SMATRIX_ {
   int pp, jj, isym, *jmin, *jmax, *nj, *nk, *sp;
   double ***rp, ***ip;
 } SMATRIX;
+
+typedef struct _RMXCE_ {
+  int nke, nsp, *isp;
+  double *e, **s, ****ap, de;
+  SMATRIX *smx;
+  IDXARY its;
+} RMXCE;
   
 typedef struct _DCFG_ {
   int *iwork, diag, nop;
@@ -105,14 +112,21 @@ void RMatrixRefine(int n, int m, double r);
 int RefineRMatrixEGrid(int nke, double *e, int *ir, double **er, int **ipr,
 		       double de, int nde, double minde,
 		       double emin, double emax);
+void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
+		   int iter, char *fn, double wt0);
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],	      
-	      double emin, double emax, int nst, double *sde, int m, int mb);
+	      double emin, double emax, int nst, double *sde,
+	      int m, int mb);
 int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
-	       FILE **f, FILE *f1[5], int nsp, int *isp,
-	       int nke, double *e, int *ip, double **s, double **s0,
+	       FILE **f, FILE **f1, char *fn, RMXCE *rs, 
+	       int nke, double *e, int *ip, double **s,
+	       int nke0, double **s0,
 	       int m, int mb, double de, int nde, double minde,
 	       double emin, double emax, int idep, int n, int npe);
 int RMatrixConvert(char *ifn, char *ofn, int m);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
 void SetOptionRMatrix(char *s, char *sp, int ip, double dp);
+double InterpLinear(double de, int *isp, int nke, double *ea,
+		    double *ra, double e);
+void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx);
 #endif

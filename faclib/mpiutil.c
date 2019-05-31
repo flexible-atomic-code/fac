@@ -127,7 +127,9 @@ void MPrintf(int ir, char *format, ...) {
     myrank = MPIRank(&nproc);
     if (ir < 0) {
       if (_plock) SetLockNT(_plock);
-      printf("Rank=%d, ", myrank);
+      if (ir == -1) {
+	printf("Rank=%d, ", myrank);
+      }
       vprintf(format, args);
       if (_plock) ReleaseLock(_plock);
     } else {
