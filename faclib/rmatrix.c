@@ -3278,7 +3278,9 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
   if (nke == 1) return ra[0];
   if (e <= ea[0]) return ra[0];
   if (e >= ea[nke-1]) return ra[nke-1];
-  i0 = isp[(int)((e-ea[0])/de)];
+  i = (int)((e-ea[0])/de);
+  i0 = isp[i];
+  if (i0 < nke-2 && e > ea[i0+1]) i0 += 1;
   f = (e-ea[i0])/(ea[i0+1]-ea[i0]);
   return (1-f)*ra[i0] + f*ra[i0+1];
 }
