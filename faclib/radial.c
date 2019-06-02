@@ -2817,9 +2817,9 @@ int SolveDirac(ORBITAL *orb) {
 }
 
 int WaveFuncTableOrb(char *s, ORBITAL *orb) {
-  int i, k, n, kappa;
+  int i, j, k, n, kappa;
   FILE *f;
-  double z, a, ke, y, e;
+  double z, a, b, ke, y, e;
   
   if (orb == NULL || orb->isol == 0) return -1;
   f = fopen(s, "w");
@@ -2887,16 +2887,48 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
 	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
       }
     }
+    k = 0;
     for (; i < potential->maxrp; i += 2) {
-      a = ke * potential->rad[i];
-      a = a + y*log(2.0*a);
-      a = Large(orb)[i+1] - a;
-      a = a - ((int)(a/(TWO_PI)))*TWO_PI;
-      if (a < 0) a += TWO_PI;
-      fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E %13.6E %13.6E\n",
-	      i, potential->rad[i],
-	      Large(orb)[i], Large(orb)[i+1], 
-	      Small(orb)[i], a, 0.0, 0.0);
+      _dwork[k] = potential->rad[i];
+      _dwork1[k] = Large(orb)[i];
+      _dwork2[k] = Large(orb)[i+1];
+      _dwork3[k] = Small(orb)[i];
+      _dwork4[k] = Small(orb)[i+1];
+      _dwork5[k] = log(_dwork[k]);
+      _dwork10[k] = potential->rad[i+1];
+      _dwork15[k] = log(_dwork10[k]);
+      k++;
+    }
+    UVIP3P(3, k, _dwork5, _dwork1, k, _dwork15, _dwork11);
+    UVIP3P(3, k, _dwork, _dwork2, k, _dwork10, _dwork12);
+    UVIP3P(3, k, _dwork5, _dwork3, k, _dwork15, _dwork13);
+    UVIP3P(3, k, _dwork5, _dwork4, k, _dwork15, _dwork14);
+    double b1 = orb->kappa;
+    b1 = b1*(b1+1.0) - FINE_STRUCTURE_CONST2*z*z;
+    j = 0;
+    for (i = orb->ilast+1; i < potential->maxrp; i += 2) {
+      for (k = 0; k < 2; k++) {
+	a = ke * potential->rad[i+k];
+	a = a + y*log(2.0*a);
+	if (k == 0) {
+	  a = _dwork2[j] - a;
+	} else {
+	  a = _dwork12[j] - a;
+	}
+	a = a - ((int)(a/(TWO_PI)))*TWO_PI;
+	if (a < 0) a += TWO_PI;
+	b = PhaseRDependent(ke*potential->rad[i+k], y, b1);
+	if (k == 0) {
+	  fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E %13.6E %13.6E\n",
+		  i, potential->rad[i+k],
+		  _dwork1[j], _dwork2[j], _dwork3[j], _dwork4[j], a, b);
+	} else {
+	  fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E %13.6E %13.6E\n",
+		  i+1, potential->rad[i+k],
+		  _dwork11[j], _dwork12[j], _dwork13[j], _dwork14[j], a, b);
+	}	
+      }
+      j++;
     }
   }
 
