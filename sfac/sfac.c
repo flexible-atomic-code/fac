@@ -4977,6 +4977,90 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PTotalRRCross(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int ilev, n0, n1, nmax, imin, imax, negy;
+  double *egy;
+  
+  n0 = 0;
+  n1 = 0;
+  nmax = 0;
+  imin = -1;
+  imax = -1;
+  if (argc < 4) return -1;
+  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+  negy = DoubleFromList(argv[3], argt[3], variables, &egy);
+  ilev = atoi(argv[2]);
+  if (argc > 4) {
+    n0 = atoi(argv[4]);
+    if (argc > 5) {
+      n1 = atoi(argv[5]);
+      if (argc > 6) {
+	nmax = atoi(argv[6]);
+	if (argc > 7) {
+	  imin = atoi(argv[7]);
+	  if (argc > 8) {
+	    imax = atoi(argv[8]);
+	  }
+	}
+      }
+    }
+  }
+  if (negy > 0) {
+    TotalRRCross(argv[0], argv[1], ilev, negy, egy, n0, n1, nmax, imin, imax);
+    free(egy);
+  }
+  return 0;
+}
+
+static int PTotalPICross(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int ilev, imin, imax, negy;
+  double *egy;
+  
+  imin = -1;
+  imax = -1;
+  if (argc < 4) return -1;
+  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+  negy = DoubleFromList(argv[3], argt[3], variables, &egy);
+  ilev = atoi(argv[2]);
+  if (argc > 4) {
+    imin = atoi(argv[4]);
+    if (argc > 5) {
+      imax = atoi(argv[5]);
+    }
+  }
+  if (negy > 0) {
+    TotalPICross(argv[0], argv[1], ilev, negy, egy, imin, imax);
+    free(egy);
+  }
+  return 0;
+}
+
+static int PTotalCICross(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int ilev, imin, imax, negy;
+  double *egy;
+  
+  imin = -1;
+  imax = -1;
+  if (argc < 4) return -1;
+  if (argt[3] != LIST && argt[3] != TUPLE) return -1;
+  negy = DoubleFromList(argv[3], argt[3], variables, &egy);
+  ilev = atoi(argv[2]);
+  if (argc > 4) {
+    imin = atoi(argv[4]);
+    if (argc > 5) {
+      imax = atoi(argv[5]);
+    }
+  }
+  if (negy > 0) {
+    TotalCICross(argv[0], argv[1], ilev, negy, egy, imin, imax);
+    free(egy);
+  }
+  return 0;
+}
+
 static int PTRRateH(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   int os, n0, n1, kl0, kl1;
@@ -4992,7 +5076,72 @@ static int PTRRateH(int argc, char *argv[], int argt[],
     os = atoi(argv[5]);
   }
   r = TRRateHydrogenic(z, n0, kl0, n1, kl1, os);
-  printf("%g %d %d %d %d %d %12.5E\n", z, n0, kl0, n1, kl1, os, r);
+  printf("%3.0f %3d %3d %3d %3d %d %12.5E\n", z, n0, kl0, n1, kl1, os, r);
+  return 0;
+}
+
+static int PPICrossH(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int os, n0, kl0;
+  double e, z, r;
+  
+  os = 0;
+  if (argc < 4) return -1;
+  z = atof(argv[0]);
+  e = atof(argv[1]);
+  n0 = atoi(argv[2]);
+  kl0 = atoi(argv[3]);
+  if (argc > 4) {
+    os = atoi(argv[4]);
+  }
+  if (n0 > 256) {
+    printf("maximum NU is 256\n");
+    return -1;
+  }
+
+  r = PICrossH(z, n0, kl0, e/HARTREE_EV, os);
+  printf("%3.0f %3d %3d %d %12.5E %12.5E\n", z, n0, kl0, os, e, r);
+  return 0;
+}
+
+static int PRRCrossH(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int n0, kl0;
+  double e, z, r;
+  
+  if (argc < 4) return -1;
+  z = atof(argv[0]);
+  e = atof(argv[1]);
+  n0 = atoi(argv[2]);
+  kl0 = atoi(argv[3]);
+
+  if (n0 > 256) {
+    printf("maximum NU is 256\n");
+    return -1;
+  }
+
+  r = RRCrossH(z, n0, kl0, e/HARTREE_EV);
+  printf("%3.0f %3d %3d %12.5E %12.5E\n", z, n0, kl0, e, r);
+  return 0;
+}
+
+static int PRRCrossHn(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int n0;
+  double e, z, r;
+  
+  if (argc < 3) return -1;
+  z = atof(argv[0]);
+  e = atof(argv[1]);
+  n0 = atoi(argv[2]);
+
+  if (n0 > 256) {
+    printf("maximum NU is 256\n");
+    return -1;
+  }
+
+  r = RRCrossHn(z, e/HARTREE_EV, n0)*AREA_AU20;
+  printf("%3.0f %3d %12.5E %12.5E\n", z, n0, e, r);
   return 0;
 }
 
@@ -5204,6 +5353,12 @@ static METHOD methods[] = {
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
   {"TRRateH", PTRRateH, METH_VARARGS},
+  {"PICrossH", PPICrossH, METH_VARARGS},  
+  {"RRCrossH", PRRCrossH, METH_VARARGS},  
+  {"RRCrossHn", PRRCrossHn, METH_VARARGS},  
+  {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
+  {"TotalPICross", PTotalPICross, METH_VARARGS}, 
+  {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"", NULL, METH_VARARGS}
 };
  
