@@ -49,6 +49,7 @@ static int _gailitis_expni = 10;
 static double _gailitis_exprf = 2.0;
 static double _gailitis_exprt = 0.25;
 static int _rmx_isave = 1;
+static double _rmx_fmaxe = 1.5;
 
 #pragma omp threadprivate(dcfg)
 
@@ -2615,7 +2616,7 @@ static void ClearDCFG(void) {
 }
 
 void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
-  double *y;
+  double *y, e;
   int *k;
   int i, t, q, p, j, m, n;
 
@@ -2694,7 +2695,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   rs->isp = malloc(sizeof(int)*rs->nsp);
   t = 0;
   for (i = 0; i < rs->nsp; i++) {
-    double e = rs->e[0]+i*rs->de;
+    e = rs->e[0]+i*rs->de;
     for (q = t; q < rs->nke; q++) {
       if (e <= rs->e[q]) {
 	rs->isp[i] = q-1;
@@ -2703,9 +2704,32 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
     }
     t = q;
   }
-  MPrintf(-1, "SortGroupEnergy: %d %d %12.5E %12.5E %12.5E %11.4E %11.4E\n",
-	  rs->nke, rs->nsp, rs->e[0]*HARTREE_EV, rs->e[rs->nke-1]*HARTREE_EV,
-	  rs->de*HARTREE_EV, WallTime()-wt0, TotalSize());
+  e = 0;
+  for (i = 0; i < rmx->nts; i++) {
+    de = rmx->et[i] - rmx->et0;
+    if (de > e) e = de;
+  }
+  e *= _rmx_fmaxe;
+  rs->es = malloc(sizeof(double)*rs->nsp);
+  for (i = 0; i < rs->nsp; i++) {
+    rs->es[i] = rs->e[0] + i*rs->de;
+    if (rs->es[i] > e) break;
+  }
+  if (i < rs->nsp-1) {
+    q = i;
+    for (t = 0; t < rs->nke; t++) {
+      if (rs->e[t] > rs->es[i]) {
+	rs->es[q] = rs->e[t];
+	q++;
+      }
+    }
+  }
+  rs->nes = q;
+  MPrintf(-1, "SortGroupEnergy: %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
+	  rs->nke, rs->nsp, rs->nes,
+	  rs->e[0]*HARTREE_EV, rs->e[rs->nke-1]*HARTREE_EV,
+	  rs->de*HARTREE_EV, e*HARTREE_EV,
+	  WallTime()-wt0, TotalSize());
 }
 
 void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
@@ -2747,12 +2771,13 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   SortGroupEnergy(rs, rbs, rmx);
   isp = rs->isp;
   nsp = rs->nsp;
+  int nes = rs->nes;
   double **sw = NULL;
   if (_stark_nts > 0) {
     sw = malloc(sizeof(double *)*nsw);
     for (i = 0; i < nsw; i++) {
-      sw[i] = malloc(sizeof(double)*nsp);
-      for (j = 0; j < nsp; j++) sw[i][j] = 0;
+      sw[i] = malloc(sizeof(double)*nes);
+      for (j = 0; j < nes; j++) sw[i][j] = 0;
     }
   }
   SMATRIX *smx = rs->smx;
@@ -2777,9 +2802,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 #pragma omp parallel default(shared) private(t, et)
 	    {
 	      int w = 0;
-	      for (t = 0; t < nsp; t++) {
+	      for (t = 0; t < rs->nes; t++) {
 		if (SkipWMPI(w++)) continue;
-		et = e[0] + t*rs->de + rmx[0].et[its0] - rmx[0].et0;
+		et = rs->es[t] + rmx[0].et[its0] - rmx[0].et0;
 		sw[ns2+i][t] += InterpLinear(rs->de, isp, nke, e,
 					     s[st0+its0], et)*w0;
 	      }
@@ -2792,9 +2817,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 #pragma omp parallel default(shared) private(t, et)
 	    {
 	      int w = 0;
-	      for (t = 0; t < nsp; t++) {
+	      for (t = 0; t < nes; t++) {
 		if (SkipWMPI(w++)) continue;
-		et = e[0] + t*rs->de + rmx[0].et[its1] - rmx[0].et0;
+		et = rs->es[t] + rmx[0].et[its1] - rmx[0].et0;
 		sw[ns2+i][t] += InterpLinear(rs->de, isp, nke, e,
 					     s[st0+its0], et)*w0;
 	      }
@@ -2830,9 +2855,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
       int iup, ilo, j0, j1, kl0, kl1, ikup, iklo, is0, is1;
       int xup, xlo, ix;
       double s0r, s0i, s1r, s1i, ssr, ssi, af;
-      for (k = 0; k < nsp; k++) {
+      for (k = 0; k < nes; k++) {
 	if (SkipWMPI(w++)) continue;
-	ek = e[0] + k*rs->de;
+	ek = rs->es[k];
 	for (ix = 0; ix < _stark_nts; ix++) {
 	  xup = IdxGet(&_stark_idx, _stark_upper[ix]);
 	  iup = IdxGet(&rs->its, _stark_upper[ix]);
@@ -2963,14 +2988,15 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 #pragma omp parallel default(shared) private(k, q, et, ek, p, t)
 	{
 	  int w = 0;
-	  for (k = 0; k < nsp; k++) {
+	  double et0, et1;
+	  for (k = 0; k < nes; k++) {
 	    if (SkipWMPI(w++)) continue;
-	    ek = e[0] + k*rs->de;
-	    et = ek + (rmx[0].et[its0] - rmx[0].et0);
-	    edt[k] = InterpLinear(rs->de, isp, nke, e, s[st0p+its0], et)/w0;
+	    ek = rs->es[k];
+	    et0 = ek + (rmx[0].et[its0] - rmx[0].et0);
+	    edt[k] = InterpLinear(rs->de, isp, nke, e, s[st0p+its0], et0)/w0;
 	    //printf("edt0: %d %g %g %g\n", k, et, e[k], edt[k]);
-	    et = ek + (rmx[0].et[its1] - rmx[0].et0);
-	    edt[k] += InterpLinear(rs->de, isp, nke, e, s[st0+its1], et)/w1;
+	    et1 = ek + (rmx[0].et[its1] - rmx[0].et0);
+	    edt[k] += InterpLinear(rs->de, isp, nke, e, s[st0+its1], et1)/w1;
 	    //printf("edt1: %d %g %g %g\n", k, et, e[k], edt[k]);
 	    int nm0 = rmx[0].jts[its0]+1;
 	    int nm0s = nm0*nm0;
@@ -3010,12 +3036,14 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 			double *ia1 = ap[js1][ik1][p+npw];
 			double *ra0 = ap[js0][ik0][p];
 			double *ia0 = ap[js0][ik0][p+npw];
-			et = ek+(rmx[0].et[its0]-rmx[0].et0);
-			double rr0 = InterpLinear(rs->de, isp, nke, e, ra0, et);
-			double ri0 = InterpLinear(rs->de, isp, nke, e, ia0, et);
-			et = ek+(rmx[0].et[its1]-rmx[0].et0);
-			double rr1 = InterpLinear(rs->de, isp, nke, e, ra1, et);
-			double ri1 = InterpLinear(rs->de, isp, nke, e, ia1, et);
+			double rr0 = InterpLinear(rs->de, isp, nke, e,
+						  ra0, et0);
+			double ri0 = InterpLinear(rs->de, isp, nke, e,
+						  ia0, et0);
+			double rr1 = InterpLinear(rs->de, isp, nke, e,
+						  ra1, et1);
+			double ri1 = InterpLinear(rs->de, isp, nke, e,
+						  ia1, et1);
 			double f = (rr1*rr0+ri1*ri0)*ff;
 			edt[k] -= f;		      
 		      }
@@ -3027,13 +3055,13 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	  }
 	}
       }    
-      fprintf(f1[1], "# %3d %3d %3d %3d %12.5E %6d %3d\n", 
+      fprintf(f1[1], "# %3d %3d %3d %3d %12.5E %6d %6d %3d\n", 
 	      rmx[0].ts[its0], rmx[0].jts[its0],
 	      rmx[0].ts[its1], rmx[0].jts[its1],	      
 	      (rmx[0].et[its1]-rmx[0].et[its0])*HARTREE_EV, 
-	      nsp, npw);
-      for (k = 0; k < nsp; k++) {
-	ek = e[0] + k*rs->de;
+	      nsp, nes, npw);
+      for (k = 0; k < nes; k++) {
+	ek = rs->es[k];
 	et = (ek -rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
 	fprintf(f1[1],
 		"%3d %3d %14.8E %15.8E %15.8E %12.5E %12.5E %12.5E %12.5E\n",
@@ -3047,6 +3075,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
     }
   }
   free(isp);
+  free(rs->es);
   if (_stark_nts > 0) {
     for (i = 0; i < nsw; i++) {
       free(sw[i]);
@@ -3942,6 +3971,10 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:rrefine", s)) {
     _rrefine = dp;
+    return;
+  }
+  if (0 == strcmp("rmatrix:fmaxe", s)) {
+    _rmx_fmaxe = dp;
     return;
   }
   if (0 == strcmp("rmatrix:nbatch", s)) {

@@ -4707,6 +4707,11 @@ static PyObject *PTRRateH(PyObject *self, PyObject *args) {
   int kl0, kl1;
   double z, r;
 
+  if (sfac_file) {
+    SFACStatement("TRRateH", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   os = 0;
   if (!PyArg_ParseTuple(args, "diiii|i", &z, &n0, &kl0, &n1, &kl1, &os)) 
     return NULL;
@@ -4721,6 +4726,12 @@ static PyObject *PTRRateH(PyObject *self, PyObject *args) {
 static PyObject *PPICrossH(PyObject *self, PyObject *args) {
   int os, n0, kl0;
   double e, z, r;
+
+  if (sfac_file) {
+    SFACStatement("PICrossH", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
 
   os = 0;
   if (!PyArg_ParseTuple(args, "ddii|i", &z, &e, &n0, &kl0, &os)) 
@@ -4740,6 +4751,12 @@ static PyObject *PRRCrossH(PyObject *self, PyObject *args) {
   int n0, kl0;
   double e, z, r;
 
+  if (sfac_file) {
+    SFACStatement("RRCrossH", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "ddii", &z, &e, &n0, &kl0)) 
     return NULL;
   if (n0 > 256) {
@@ -4757,6 +4774,12 @@ static PyObject *PRRCrossHn(PyObject *self, PyObject *args) {
   int n0;
   double e, z, r;
 
+  if (sfac_file) {
+    SFACStatement("RRCrossHn", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
   if (!PyArg_ParseTuple(args, "ddi", &z, &e, &n0)) 
     return NULL;
 
@@ -4773,6 +4796,12 @@ static PyObject *PTotalRRCross(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   int n0, n1, nmax, imin, imax;
 
+  if (sfac_file) {
+    SFACStatement("TotalRRCross", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
   n0 = 0;
   n1 = 0;
   nmax =0;  
@@ -4811,6 +4840,11 @@ static PyObject *PTotalPICross(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   int imin, imax;
 
+  if (sfac_file) {
+    SFACStatement("TotalPICross", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   imin = -1;
   imax = -1;
   if (!PyArg_ParseTuple(args, "ssiO|ii", 
@@ -4846,6 +4880,11 @@ static PyObject *PTotalCICross(PyObject *self, PyObject *args) {
   char *ifn, *ofn;
   int imin, imax;
 
+  if (sfac_file) {
+    SFACStatement("TotalCICross", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   imin = -1;
   imax = -1;
   if (!PyArg_ParseTuple(args, "ssiO|ii", 
