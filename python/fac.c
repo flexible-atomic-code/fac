@@ -4145,13 +4145,10 @@ static PyObject *PCITableMSub(PyObject *self, PyObject *args) {
 
   if (!PyArg_ParseTuple(args, "sOO", &s, &p, &q)) return NULL;
   nlow = SelectLevels(p, &low);
-  if (nlow <= 0) return NULL;
   nup = SelectLevels(q, &up);
-  if (nup <= 0) {
-    free(low);
-    return NULL;
+  if (nlow > 0 && nup > 0) {
+    SaveIonizationMSub(nlow, low, nup, up, s);
   }
-  SaveIonizationMSub(nlow, low, nup, up, s);
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 

@@ -832,7 +832,9 @@ static int PAITableMSub(int argc, char *argv[], int argt[],
   
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  SaveAI(nlow, low, nup, up, argv[0], c, 1);
+  if (nlow > 0 && nup > 0) {
+    SaveAI(nlow, low, nup, up, argv[0], c, 1);
+  }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
 
@@ -933,14 +935,9 @@ static int PCITable(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc != 3) return -1;
   if (argt[0] != STRING) return -1;
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) {
-    free(low);
-    return -1;
-  }
   if (nlow > 0 && nup > 0) {
-    if (SaveIonization(nlow, low, nup, up, argv[0]) < 0) return -1;
+    SaveIonization(nlow, low, nup, up, argv[0]);
   }
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
@@ -955,13 +952,10 @@ static int PCITableMSub(int argc, char *argv[], int argt[],
   if (argc != 3) return -1;
   if (argt[0] != STRING) return -1;
   nlow = SelectLevels(&low, argv[1], argt[1], variables);
-  if (nlow <= 0) return -1;
   nup = SelectLevels(&up, argv[2], argt[2], variables);
-  if (nup <= 0) {
-    free(low);
-    return -1;
+  if (nlow > 0 && nup > 0) {
+    SaveIonizationMSub(nlow, low, nup, up, argv[0]);
   }
-  if (SaveIonizationMSub(nlow, low, nup, up, argv[0]) < 0) return -1;
 
   if (nlow > 0) free(low);
   if (nup > 0) free(up);
