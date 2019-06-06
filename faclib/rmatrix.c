@@ -1137,6 +1137,7 @@ int WriteRMatrixSurface(FILE *f, double **wik0, double **wik1, int m,
     for (ic = 0; ic < nchan; ic++) {
       if (wik1[ic]) nchan0++;
     }
+    if (nchan0 == 0) return 0;
     if (fmt == 0) {
       nr = fwrite(&(h->pj), sizeof(int), 1, f);
       nr = fwrite(&p, sizeof(int), 1, f);
@@ -1575,7 +1576,7 @@ int RMatrixSurface(char *fn) {
     }
     nchan0 = WriteRMatrixSurface(f, wik0, wik1, 1, fmode, NULL, h0);
     if (nchan0 > nchm) nchm = nchan0;
-    nsym++;
+    if (nchan0 > 0) nsym++;
     double wt1 = WallTime();
     printf("rmx sym: %d %d %d %d %g\n", i, h0->dim, nchan0, nchan, wt1-wt0);
     h0->dim = 0;
@@ -2716,7 +2717,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
     if (rs->es[i] > e) break;
   }
   if (i < rs->nsp-1) {
-    q = i;
+    q = i+1;
     for (t = 0; t < rs->nke; t++) {
       if (rs->e[t] > rs->es[i]) {
 	rs->es[q] = rs->e[t];
@@ -2762,7 +2763,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   int npw = rbs->kmax-rbs->kmin+1;
   int nkw = 2*npw;
   int ns = rmx[0].nts*(rmx[0].nts+1)/2;
-  int nsw = _stark_nts*3+1;
+  int nsw = _stark_nts*3+3;
   int ns0 = 0;
   int ns1 = _stark_nts;
   int ns2 = _stark_nts*2;
@@ -2993,11 +2994,15 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	    if (SkipWMPI(w++)) continue;
 	    ek = rs->es[k];
 	    et0 = ek + (rmx[0].et[its0] - rmx[0].et0);
-	    edt[k] = InterpLinear(rs->de, isp, nke, e, s[st0p+its0], et0)/w0;
+	    sw[ns3+1][k] = InterpLinear(rs->de, isp, nke, e,
+				       s[st0p+its0], et0)/w0;
 	    //printf("edt0: %d %g %g %g\n", k, et, e[k], edt[k]);
 	    et1 = ek + (rmx[0].et[its1] - rmx[0].et0);
-	    edt[k] += InterpLinear(rs->de, isp, nke, e, s[st0+its1], et1)/w1;
+	    sw[ns3+2][k] = InterpLinear(rs->de, isp, nke, e,
+					s[st0+its1], et1)/w1;
 	    //printf("edt1: %d %g %g %g\n", k, et, e[k], edt[k]);
+	    edt[k] = sw[ns3+1][k] + sw[ns3+2][k];
+	    //edt[k] = 0;
 	    int nm0 = rmx[0].jts[its0]+1;
 	    int nm0s = nm0*nm0;
 	    int nm1 = rmx[0].jts[its1]+1;
@@ -3045,7 +3050,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 			double ri1 = InterpLinear(rs->de, isp, nke, e,
 						  ia1, et1);
 			double f = (rr1*rr0+ri1*ri0)*ff;
-			edt[k] -= f;		      
+			edt[k] -= f;
 		      }
 		    }
 		  }
@@ -3062,14 +3067,11 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	      nsp, nes, npw);
       for (k = 0; k < nes; k++) {
 	ek = rs->es[k];
-	et = (ek -rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
 	fprintf(f1[1],
-		"%3d %3d %14.8E %15.8E %15.8E %12.5E %12.5E %12.5E %12.5E\n",
+		"%3d %3d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 		rmx[0].ts[its0], rmx[0].ts[its1],
-		ek*HARTREE_EV, et,
-		(ek-rmx[0].et[its1]+rmx[0].et0)*HARTREE_EV,
-		sw[ns0+i][k], sw[ns1+i][k],
-		sw[ns2+i][k], sw[ns3][k]);
+		ek*HARTREE_EV, sw[ns0+i][k], sw[ns1+i][k],
+		sw[ns2+i][k], sw[ns3][k], sw[ns3+1][k], sw[ns3+2][k]);
       }
       fprintf(f1[1], "\n");
     }
@@ -3422,8 +3424,8 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
     for (j = 0; j < np; j++) {
       ReadRMatrixSurface(f[j], &(rmx[j]), 1, fmode);
       if (j > 0 && rmx[j].nchan0 != rmx[0].nchan0) {
-	printf("inconsistent rmatrix nchan0: %d %d %d\n",
-	       j, rmx[j].nchan0, rmx[0].nchan0);
+	printf("inconsistent rmatrix nchan0: %d %d %d %d %d\n",
+	       i, rmx[0].isym, j, rmx[j].nchan0, rmx[0].nchan0);
 	Abort(1);
       }
     }

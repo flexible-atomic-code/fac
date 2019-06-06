@@ -252,8 +252,16 @@ int SetCEQkMode(int m, double tol) {
 }
 
 int SetCEBorn(double eb, double x, double x1, double x0) {
-  xborn = x;
-  xborn1 = x1;
+  if (x > 1e30) {
+    xborn = XBORN;
+  } else {
+    xborn = x;
+  }
+  if (x1 > 1e30) {
+    xborn1 = XBORN1;
+  } else {
+    xborn1 = x1;
+  }
   if (x0 > 0) {
     xborn0 = x0;
   } else {
