@@ -81,7 +81,7 @@ static double wave_zero = 1E-10;
 static int _on_error = 0;
 static double _zcoll = 0;
 static double _mcoll = 0;
-static double _emin_amp = 0.5;
+static double _emin_amp = 0.05;
 
 static double _wk_q[16] = {2.09400223235,
 			   1.42425723499,
