@@ -19,6 +19,7 @@
 #include "dbase.h"
 #include "parser.h"
 #include "angular.h"
+#include "array.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -678,8 +679,8 @@ void PrintWallTime(char *s, int m) {
       if (nlock > mnlock) mnlock = nlock;
     }
   }
-  printf("WallTime%d: %9.3E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
-	 m, t, ttskip, mtskip, ttlock, mtlock, tnlock, mnlock, s);
+  printf("WallTime%d: %9.3E %9.3E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
+	 m, t, TotalSize(), ttskip, mtskip, ttlock, mtlock, tnlock, mnlock, s);
   fflush(stdout);
 }
 

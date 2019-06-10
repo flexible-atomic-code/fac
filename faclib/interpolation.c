@@ -110,6 +110,11 @@ static struct {
 		   double *, double *, int, void *);
 } minpack_params;
 
+int GaussXW(double **xg, double **wg) {
+  *xg = gauss_xw[0];
+  *wg = gauss_xw[1];
+  return 15;
+}
 
 void spline_work(double *x, double *y, int n,
 		 double yp1, double ypn, double *y2, double *work) {

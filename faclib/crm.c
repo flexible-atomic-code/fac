@@ -55,6 +55,7 @@ static int inner_auger = 0;
 static double ai_emin = 0.0;
 static int norm_mode = 1;
 static int sw_mode = 0;
+static int _itol_nmax = 0;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
@@ -3878,6 +3879,8 @@ double BlockRelaxation(int iter) {
   nlevels = 0;
   d = 0.0;
   td = 0.0;
+  double bd = 0.0;
+  double tbd = 0.0;
   for (k = 0; k < blocks->dim; k++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, k);
     if (rec_cascade && iter >= 0) {
@@ -3887,6 +3890,8 @@ double BlockRelaxation(int iter) {
     if (blk1->nlevels == 1) {
       blk1->r[0] = 1.0;      
       a = blk1->nb;
+      bd += fabs(a-blk1->n0[0]);
+      tbd += a;
       blk1->n[0] = a;
     } else {
       a = 0.0;
@@ -3898,10 +3903,10 @@ double BlockRelaxation(int iter) {
 	  blk1->n[m] = 0.0;
 	}
       }
+      bd += fabs(a - blk1->nb);
+      tbd += blk1->nb;
       if (a) {
-	blk1->nb = a;	
-	/*
-	if (iter >= 0 && blk1->nb > 0) {
+	if (norm_mode > 1 && iter >= 0 && blk1->nb > 0) {
 	  a = blk1->nb/a;
 	  for (m = 0; m < blk1->nlevels; m++) {
 	    blk1->n[m] *= a;
@@ -3909,7 +3914,6 @@ double BlockRelaxation(int iter) {
 	} else {
 	  blk1->nb = a;
 	}
-	*/
       }  
     }   
 
@@ -3933,8 +3937,12 @@ double BlockRelaxation(int iter) {
       } else a = 1.0;
       */
       a = 0.0;
+      m = 0;
+      while (blk1->ncomplex[m+1].n > 0) m++;
+      int nmx = blk1->ncomplex[m].n;
       for (m = 0; m < blk1->nlevels; m++) {
-	if (blk1->n[m]) {	  
+	if (blk1->n[m] && blk1->rec == NULL &&
+	    (_itol_nmax <= 0 || nmx <= _itol_nmax)) {
 	  //d += fabs(1.0 - blk1->n0[m]/blk1->n[m]);
 	  d += fabs((blk1->n[m]-blk1->n0[m])*blk1->total_rate[m]);
 	  td += fabs(blk1->total_rate[m]*blk1->n[m]);
@@ -4052,6 +4060,8 @@ double BlockRelaxation(int iter) {
   }
   if (iter == 0) return 1.0;
   d /= td;
+  bd /= tbd;
+  d = Min(d, bd);
   return d;
 }
 
@@ -4356,7 +4366,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
     if (h.ntransitions == 0) continue;
-    if (h.nele != nele) goto LOOPEND;  
+    if (nele >= 0 && h.nele != nele) goto LOOPEND;  
     r1 = h.type / 10000;
     r0 = h.type % 10000;
     r0 = r0/100;
@@ -4526,7 +4536,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     n = ReadSPHeader(f1, &h, swp);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
-    if (h.nele != nele) goto LOOPEND; 
+    if (nele >= 0 && h.nele != nele) goto LOOPEND; 
     r1 = h.type / 10000;
     r0 = h.type % 10000;
     r0 = r0/100;
@@ -7118,5 +7128,10 @@ ARRAY* _GetIons(){
 void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "crm:sw_mode")) {
     sw_mode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:itol_nmax")) {
+    _itol_nmax = ip;
+    return;
   }
 }

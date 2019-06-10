@@ -35,6 +35,7 @@ typedef struct _MOD_RECORD_ {
   void *r, *h;
 } MOD_RECORD;
 
+int GaussXW(double **xg, double **wg);
 void spline_work(double *x, double *y, int n, 
 		 double yp1, double ypn, double *y2, double *work);
 void spline(double *x, double *y, int n, 
