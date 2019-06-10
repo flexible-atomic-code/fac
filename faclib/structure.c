@@ -5502,7 +5502,52 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     n2 = n1;
     is2 = is1;
   }
-
+  for (i1 = 0; i1 < n1; i1++) {
+    lev1 = GetLevel(is1[i1]);
+    ih1 = lev1->iham;
+    sym1 = GetSymmetry(lev1->pj);
+    s1 = ArrayGet(&(sym1->states), lev1->pb);
+    if (s1->kgroup < 0) continue;
+    ne1 = GetGroup(s1->kgroup)->n_electrons;
+    ns1 = hams[ih1].nlevs;
+    for (i2 = 0; i2 < n2; i2++) {
+      lev2 = GetLevel(is2[i2]);
+      ih2 = lev2->iham;
+      sym2 = GetSymmetry(lev2->pj);
+      s2 = ArrayGet(&(sym2->states), lev2->pb);
+      if (s2->kgroup < 0) continue;
+      ne2 = GetGroup(s2->kgroup)->n_electrons;
+      if (abs(ne2-ne1) > 1) continue;      ns2 = hams[ih2].nlevs;
+      ns = ns1*ns2;
+      if (ne1 == ne2) {
+	if (ih1 > ih2) {
+	  iz = ih2 * _max_hams + ih1;
+	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	} else {
+	  iz = ih1 * _max_hams + ih2;
+	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+	}
+      } else {
+	if (ne1 > ne2) {
+	  iz = ih2 * _max_hams + ih1;
+	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
+	} else {
+	  iz = ih1 * _max_hams + ih2;
+	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+	}
+      }
+      ad = &(angmz_array[iz]);
+      if (ad->ns == 0) {
+	ad->angz = malloc(sizeof(ANGZ_ARY *)*ns);
+	for (i = 0; i < ns; i++) {
+	  (ad->angz)[i] = malloc(sizeof(ANGZ_ARY));
+	  (ad->angz)[i]->nz = 0;
+	  (ad->angz)[i]->az = NULL;
+	}
+	ad->ns = ns;
+      }
+    }
+  }
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
   {
@@ -5544,23 +5589,6 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
 	}
       }
       ad = &(angmz_array[iz]);
-      if (ad->ns == 0) {
-	ad->angz = malloc(sizeof(ANGZ_ARY *)*ns);
-	/*
-	if (ne1 == ne2) {
-	  ad->angz = malloc(sizeof(ANGULAR_ZMIX *)*ns);
-	} else {
-	  ad->angz = malloc(sizeof(ANGULAR_ZFB *)*ns);
-	}
-	ad->nz = malloc(sizeof(int)*ns);
-	*/
-	for (i = 0; i < ns; i++) {
-	  (ad->angz)[i] = malloc(sizeof(ANGZ_ARY));
-	  (ad->angz)[i]->nz = 0;
-	  (ad->angz)[i]->az = NULL;
-	}
-	ad->ns = ns;
-      }
       nz = (ad->angz)[is]->nz;
       if (nz != 0) continue;
       if (ne1 == ne2) {

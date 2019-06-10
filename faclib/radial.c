@@ -8233,7 +8233,7 @@ int IntegrateSubRegion(int i0, int i1,
 int IntegrateSinCos(int j, double *x, double *y, 
 		    double *phase, double *dphase, 
 		    int i0, double *r, int t, double *ext) {
-  int i, k, m, n, q, s, i1;
+  int i, k, m, n, q, s, i1, nh;
   double si0, si1, cs0, cs1;
   double is0, is1, is2, is3;
   double ic0, ic1, ic2, ic3;
@@ -8253,17 +8253,21 @@ int IntegrateSinCos(int j, double *x, double *y,
       if (x) x[i] = -x[i];
     }
   }
+  nh = 0;
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
     h = phase[i] - phase[i-1];
     z[k] = 0.0;
     if (x != NULL) z[k] += x[i]*sin(phase[i]);
     if (y != NULL) z[k] += y[i]*cos(phase[i]);
     z[k] *= potential->dr_drho[k];
-    if (i < 4) {
-      if (h > 0.8) break;
+    if (i < 5) {
+      if (h > 0.8) nh++;
+      else nh = 0;
     } else {
-      if (h > 0.4) break;
+      if (h > 0.4) nh++;
+      else nh = 0;
     }
+    if (nh > 2) break;
   }
   if (i > 1) {
     z[i0] = 0.0;

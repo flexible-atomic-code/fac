@@ -48,6 +48,7 @@ static int rate_iprint = 1;
 
 static KRONOS _kronos_cx[3];
 static double _cxldistmj = 1.0;
+static int _maxwell_gauss = 1;
 
 static struct {
   DISTRIBUTION *d;
@@ -265,6 +266,24 @@ double IntegrateRate(int idist, double eth, double bound,
   double epsabs, epsrel, abserr;
   double a, b, a0, b0, r0, *eg;
 
+  if (_maxwell_gauss && idist == 0 && iedist == 0) {
+    const double maxwell_const = 1.12837967;
+    double *xg, *wg;
+    int nw = GaussXW(&xg, &wg);
+    result = 0.0;
+    b = ele_dist[iedist].params[0];
+    double x0 = bound/b;
+    for (n = 0; n < nw; n++) {
+      b0 = xg[n];
+      a = b0*b + bound;
+      r0 = Rate1E(a, eth, np, params);
+      r0 *= sqrt(b0 + x0)*maxwell_const;
+      result += wg[n]*r0;
+    }
+    if (x0 > 0) result *= exp(-x0);
+    return result;
+  }
+  
   ier = 0;
   epsabs = rate_epsabs;
   epsrel = rate_epsrel;
@@ -2562,5 +2581,10 @@ int ReadKronos(char *dn, int z, int k,
 void SetOptionRates(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "rates:cxldistmj")) {
     _cxldistmj = dp;
+    return;
+  }
+  if (0 == strcmp(s, "rates:maxwell_gauss")) {
+    _maxwell_gauss = ip;
+    return;
   }
 }

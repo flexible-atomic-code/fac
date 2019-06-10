@@ -81,7 +81,7 @@ static double wave_zero = 1E-10;
 static int _on_error = 0;
 static double _zcoll = 0;
 static double _mcoll = 0;
-static double _emin_amp = 0.1;
+static double _emin_amp = 0.05;
 
 static double _wk_q[16] = {2.09400223235,
 			   1.42425723499,
@@ -2697,10 +2697,12 @@ int SetVEffectiveZMC(int kl, int kv, POTENTIAL *pot) {
   if (!_zcoll) return SetVEffective(kl, kv, pot);
   kl1 = 0.5*kl*(kl+1);
   if (_mcoll > 0) kl1 /= _mcoll;
+  int m5 = pot->maxrp-5;
   for (i = 0; i < pot->maxrp; i++) {
     r = pot->rad[i];
     r *= r;
-    _veff[i] = _zcoll*pot->VT[kv][i] + kl1/r;
+    _veff[i] = _zcoll*pot->VT[kv][i];
+    if (i < m5) _veff[i] += kl1/r;
     _veff[i] += pot->W[i];
   }
 
@@ -2713,11 +2715,12 @@ int SetVEffective(int kl, int kv, POTENTIAL *pot) {
   double r;
 
   kl1 = 0.5*kl*(kl+1);
- 
+  int m5 = pot->maxrp-5;
   for (i = 0; i < pot->maxrp; i++) {
     r = pot->rad[i];
     r *= r;
-    _veff[i] = pot->VT[kv][i] + kl1/r;
+    _veff[i] = pot->VT[kv][i];
+    if (i < m5) _veff[i] += kl1/r;
     _veff[i] += pot->W[i];
   }
 
@@ -2729,13 +2732,13 @@ static int TurningPoints(int n, double e, int kappa, POTENTIAL *pot) {
   double x, a, b, xp;
 
   if (n == 0) {
-    ip = 20;
-    for (i = 10; i < pot->maxrp-5; i++) {
+    for (i = pot->maxrp-6; i >= 20; i--) {
       x = e - _veff[i];
-      if (x <= 0) {
-	if (i > ip) ip = i;
-	continue;
-      }
+      if (x <= 0) break; 
+    }    
+    ip = i+1;
+    for (i = ip+1; i < pot->maxrp-5; i++) {
+      x = e - _veff[i];
       b = 1.0/pot->rad[i];
       a = 20.0/(pot->qr*pot->ar*pow(b,1-pot->qr) + pot->br*b);
       x = 2.0*x;
