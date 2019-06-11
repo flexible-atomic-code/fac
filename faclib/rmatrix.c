@@ -3017,21 +3017,29 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		for (q = -2; q <= 2; q += 2) {
 		  for (mi0 = -rmx[0].jts[its1];
 		       mi0 <= rmx[0].jts[its1]; mi0 += 2) {
-		    int mi0p = mi0 - q;
+		    int mi0p = mi0 + q;
 		    if (mi0p < -rmx[0].jts[its0] || mi0p > rmx[0].jts[its0]) {
 		      continue;
 		    }
 		    for (mi1 = -rmx[0].jts[its1];
 			 mi1 <= rmx[0].jts[its1]; mi1 += 2) {
-		      int mi1p = mi1 - q;
+		      int mi1p = mi1 + q;
 		      if (mi1p < -rmx[0].jts[its0] || mi1p > rmx[0].jts[its0]) {
 			continue;
 		      }
+		      /*
 		      double f1 = ClebschGordan(rmx[0].jts[its0], mi0p, 2, q,
 						rmx[0].jts[its1], mi0);
 		      double f2 = ClebschGordan(rmx[0].jts[its0], mi1p, 2, q,
 						rmx[0].jts[its1], mi1);
 		      double ff = f1*f2/w1;
+		      */
+		      double f1 = W3j(rmx[0].jts[its0], 2, rmx[0].jts[its1],
+				      -mi0p, q, mi0);
+		      double f2 = W3j(rmx[0].jts[its0], 2, rmx[0].jts[its1],
+				      -mi1p, q, mi1);
+		      double ff = f1*f2;
+		      if (IsOdd(rmx[0].jts[its1]+(mi0+mi1)/2)) ff = -ff;
 		      int ik1 =  jms1 + (mi0+rmx[0].jts[its1])/2*nm1 +
 			(mi1+rmx[0].jts[its1])/2;
 		      int ik0 = jms0 + (mi0p+rmx[0].jts[its0])/2*nm0 +
@@ -3538,6 +3546,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 		  smx[i].ip[ix][ika][k] = -r1[h];
 		  if (_stark_amp) {
 		    int mi0, mi1, ms0, ms1, ii0, ii1, mid;
+		    /*
 		    double sig0, sig1, sr, si;
 		    double sigs = CoulombPhaseShift(rmx[0].z, et, -1);
 		    sig0 = CoulombPhaseShift(rmx[0].z, et, ka0) - sigs;
@@ -3545,6 +3554,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 		    sig1 += sig0 + (PI/2)*((mka0-mka1)/2);
 		    sr = cos(sig1);
 		    si = sin(sig1);
+		    */
 		    mid = 0;
 		    for (ms0 = -1; ms0 <= 1; ms0 += 2) {
 		      for (ms1 = -1; ms1 <= 1; ms1 += 2) {
@@ -3569,8 +3579,12 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 						      ika1, mf, jj, mt);
 			    double ff = f1*f2*f3*f4*sqrt(mka0+1.0);
 			    int ikw = (mka1/2-rbs[0].kmin);
+			    /*
 			    ap[ix][mid][ikw][k] += ff*(r0[h]*si-r1[h]*sr);
 			    ap[ix][mid][ikw+npw][k] += ff*(-r0[h]*sr-r1[h]*si);
+			    */
+			    ap[ix][mid][ikw][k] += -ff*r0[h];
+			    ap[ix][mid][ikw+npw][k] += ff*r1[h];
 			    mid++;
 			  }
 			}

@@ -3729,16 +3729,18 @@ static int PPrepAngular(int argc, char *argv[], int argt[],
 
   if (argc < 1 || argc > 2) return -1;
   nlow = SelectLevels(&low, argv[0], argt[0], variables);
-  if (nlow <= 0) return -1;
   if (argc == 2) {
     nup = SelectLevels(&up, argv[1], argt[1], variables);
-    if (nup <= 0) {
-      free(low);
-      return -1;
-    }
+  } else {
+    nup = nlow;
+    up = low;
   }
-  PrepAngular(nlow, low, nup, up);
 
+  if (nup > 0 && nlow > 0) {
+    PrepAngular(nlow, low, nup, up);
+  }
+  if (up != low && nup > 0) free(up);
+  if (nlow > 0) free(low);
   return 0;
 }
 

@@ -56,6 +56,7 @@ static double ai_emin = 0.0;
 static int norm_mode = 1;
 static int sw_mode = 0;
 static int _itol_nmax = 0;
+static double _ce_fbr = 2.0;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
@@ -4072,8 +4073,9 @@ int LevelPopulation(void) {
   printf("Population Iteration:\n");
   d = 10.0;
   c = 1.0;
-  double wt0, wt1;
+  double wt00, wt0, wt1;
   wt0 = WallTime();
+  wt00 = wt0;
   for (i = 0; i < max_iter; i++) {
     BlockMatrix();
     n = max_iter;
@@ -4081,9 +4083,11 @@ int LevelPopulation(void) {
     d = BlockRelaxation(i);
     wt1 = WallTime();
     if (ProcID() >= 0) {
-      printf("%6d %5d %11.4E %11.4E\n", ProcID(), i, d, wt1-wt0);
+      printf("%6d %5d %11.4E %11.4E %11.4E %11.4E\n",
+	     ProcID(), i, d, wt1-wt0, wt1-wt00, TotalSize());
     } else {
-      printf("%5d %11.4E %11.4E\n", i, d, wt1-wt0);
+      printf("%5d %11.4E %11.4E %11.4E %11.4E\n",
+	     i, d, wt1-wt0, wt1-wt00, TotalSize());
     }
     wt0 = wt1;
     fflush(stdout);
@@ -6373,14 +6377,21 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
     fclose(f);
     return 0;
   }
+  q = 0;
   for (p = 0; p < ions->dim; p++) {
     ion = (ION *) ArrayGet(ions, p);
-    if (ion->nele != k) continue;
-    f = fopen(fn, "w");
-    if (f == NULL) {
-      printf("cannot open file %s\n", fn);
-      return -1;
-    }
+    if (k > 0 && ion->nele != k) continue;
+    q++;
+  }
+  if (q == 0) return 0;
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  for (p = 0; p < ions->dim; p++) {
+    ion = (ION *) ArrayGet(ions, p);
+    if (k > 0 && ion->nele != k) continue;
     if (m != 0) {
       switch (m) {
       case 1:
@@ -6427,6 +6438,50 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	}
       }
     } else {
+      double *rc0 = NULL;
+      double *rc1 = NULL;
+      if (ion->nlevels > 0) {
+	rc0 = malloc(sizeof(double)*ion->nlevels);
+	rc1 = malloc(sizeof(double)*ion->nlevels);
+	for (t = 0; t < ion->nlevels; t++) {
+	  rc0[t] = 0.0;
+	  rc1[t] = 0.0;
+	}
+	if (electron_density > 0) {
+	  ResetWidMPI();
+#pragma omp parallel default(shared) private(p, q, r, brts)
+	  {
+	    int w = 0;
+	    LBLOCK *blk1, *blk2;
+	    for (p = 0; p < ion->ce_rates->dim; p++) {
+	      brts = (BLK_RATE *) ArrayGet(ion->ce_rates, p);
+	      blk1 = brts->iblock;
+	      blk2 = brts->fblock;
+	      for (q = 0; q < brts->rates->dim; q++) {
+		if (SkipWMPI(w++)) continue;
+		r = (RATE *) ArrayGet(brts->rates, q);
+		double rd = electron_density * r->dir;
+		double ri = electron_density * r->inv;
+#pragma omp atomic
+		rc0[r->i] += rd;
+#pragma omp atomic
+		rc0[r->f] += ri;
+		double de = fabs(ion->energy[r->f]-ion->energy[r->i]);		
+		de *= RATE_AU*_ce_fbr;
+		rd /= de;
+		ri /= de;
+		de *= 0.5;
+		rd = de*(sqrt(1+4.0*rd)-1.0);
+		ri = de*(sqrt(1+4.0*ri)-1.0);
+#pragma omp atomic
+		rc1[r->i] += rd;
+#pragma omp atomic
+		rc1[r->f] += ri;		
+	      }
+	    }
+	  }
+	}
+      }
       for (t = 0; t < ion->nlevels; t++) {	
 	if (imax < 0 || t <= imax) {
 	  if (ion->iblock[t] == NULL) continue;
@@ -6447,19 +6502,28 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    fwrite(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
+	    double x = ion->iblock[t]->total_rate[q] - rc0[t];
+	    fwrite(&x, sizeof(double), 1, f);
+	    fwrite(&(rc1[t]), sizeof(double), 1, f);	    
 	  } else {
-	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.3E %10.3E %10.3E\n", 
+	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
 		    ion->ibase[t], ion->vnl[t], ion->energy[t],
 		    ion->iblock[t]->n[q],
 		    ion->iblock[t]->total_rate[q],
-		    ion->iblock[t]->r[q]);
+		    ion->iblock[t]->r[q],
+		    ion->iblock[t]->total_rate[q]-rc0[t],
+		    rc1[t]);
 	  }
 	}
       }
-    }    
-    fclose(f);
+      if (ion->nlevels > 0) {
+	free(rc0);
+	free(rc1);
+      }
+    }
   }
+  fclose(f);
   return 0;
 }
 
@@ -7132,6 +7196,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:itol_nmax")) {
     _itol_nmax = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:ce_fbr")) {
+    _ce_fbr = dp;
     return;
   }
 }

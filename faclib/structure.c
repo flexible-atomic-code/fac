@@ -5517,7 +5517,8 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       s2 = ArrayGet(&(sym2->states), lev2->pb);
       if (s2->kgroup < 0) continue;
       ne2 = GetGroup(s2->kgroup)->n_electrons;
-      if (abs(ne2-ne1) > 1) continue;      ns2 = hams[ih2].nlevs;
+      if (abs(ne2-ne1) > 1) continue;
+      ns2 = hams[ih2].nlevs;
       ns = ns1*ns2;
       if (ne1 == ne2) {
 	if (ih1 > ih2) {
@@ -5551,15 +5552,18 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
   {
+  int w = 0;
   for (i1 = 0; i1 < n1; i1++) {
-    lev1 = GetLevel(is1[i1]);
-    ih1 = lev1->iham;
-    sym1 = GetSymmetry(lev1->pj);
-    s1 = ArrayGet(&(sym1->states), lev1->pb);
-    if (s1->kgroup < 0) continue;
-    ne1 = GetGroup(s1->kgroup)->n_electrons;
-    ns1 = hams[ih1].nlevs;
     for (i2 = 0; i2 < n2; i2++) {
+      int skip = SkipWMPI(w++);
+      if (skip) continue;
+      lev1 = GetLevel(is1[i1]);
+      ih1 = lev1->iham;
+      sym1 = GetSymmetry(lev1->pj);
+      s1 = ArrayGet(&(sym1->states), lev1->pb);
+      if (s1->kgroup < 0) continue;
+      ne1 = GetGroup(s1->kgroup)->n_electrons;
+      ns1 = hams[ih1].nlevs;
       lev2 = GetLevel(is2[i2]);
       ih2 = lev2->iham;
       sym2 = GetSymmetry(lev2->pj);
@@ -5567,8 +5571,6 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       if (s2->kgroup < 0) continue;
       ne2 = GetGroup(s2->kgroup)->n_electrons;
       if (abs(ne2-ne1) > 1) continue;
-      int skip = SkipMPI();
-      if (skip) continue;
       ns2 = hams[ih2].nlevs;
       ns = ns1*ns2;
       if (ne1 == ne2) {
@@ -5576,8 +5578,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
 	  iz = ih2 * _max_hams + ih1;
 	  is = lev2->ilev * hams[ih1].nlevs + lev1->ilev;
 	} else {
-	  iz = ih1 * _max_hams + ih2;
-	  is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+	  continue;
 	}
       } else {
 	if (ne1 > ne2) {
@@ -5608,6 +5609,43 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
 				 is1[i1], is2[i2]);
 	}
       }
+      if (nz == 0) nz = -1;
+      (ad->angz)[is]->nz = nz;
+    }
+  }
+  }
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
+  {
+  int w = 0;
+  for (i1 = 0; i1 < n1; i1++) {
+    for (i2 = 0; i2 < n2; i2++) {
+      int skip = SkipWMPI(w++);
+      if (skip) continue;
+      lev1 = GetLevel(is1[i1]);
+      ih1 = lev1->iham;
+      sym1 = GetSymmetry(lev1->pj);
+      s1 = ArrayGet(&(sym1->states), lev1->pb);
+      if (s1->kgroup < 0) continue;
+      ne1 = GetGroup(s1->kgroup)->n_electrons;
+      ns1 = hams[ih1].nlevs;
+      lev2 = GetLevel(is2[i2]);
+      ih2 = lev2->iham;
+      if (ih1 > ih2) continue;
+      sym2 = GetSymmetry(lev2->pj);
+      s2 = ArrayGet(&(sym2->states), lev2->pb);
+      if (s2->kgroup < 0) continue;
+      ne2 = GetGroup(s2->kgroup)->n_electrons;
+      if (ne2 != ne1) continue;
+      ns2 = hams[ih2].nlevs;
+      ns = ns1*ns2;
+      iz = ih1 * _max_hams + ih2;
+      is = lev1->ilev *hams[ih2].nlevs + lev2->ilev;
+      ad = &(angmz_array[iz]);
+      nz = (ad->angz)[is]->nz;
+      if (nz != 0) continue;
+      nz = AngularZMix((ANGULAR_ZMIX **)(&((ad->angz)[is]->az)),
+		       is1[i1], is2[i2], -1, -1, NULL, NULL);
       if (nz == 0) nz = -1;
       (ad->angz)[is]->nz = nz;
     }
@@ -5666,13 +5704,32 @@ void PrepAngZStates(int n0, int *s0, int n1, int *s1) {
 	if (i < j) {
 	  ns = AngularZMixStates(&ad, i, j);
 	} else {
-	  ns = AngularZMixStates(&ad, j, i);
+	  continue;
 	}
       } else if (ne0 < ne1) {
 	ns = AngularZFreeBoundStates(&ad, i, j);
       } else {
 	ns = AngularZFreeBoundStates(&ad, j, i);
       }
+    }
+  }
+  }
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, j, st0, st1, ne0, ne1, ns, ad)
+  {
+  for (i = 0; i < _max_hams; i++) {
+    if (ih0[i] == 0) continue;
+    st0 = hams[i].basis[0];
+    ne0 = GetGroup(st0->kgroup)->n_electrons;
+    for (j = 0; j < _max_hams; j++) {
+      if (ih1[j] == 0) continue;
+      int skip = SkipMPI();
+      if (skip) continue;
+      st1 = hams[j].basis[0];
+      ne1 = GetGroup(st1->kgroup)->n_electrons;
+      if (ne0 != ne1) continue;
+      if (i < j) continue;
+      ns = AngularZMixStates(&ad, j, i);
     }
   }
   }
@@ -6326,7 +6383,10 @@ int PackAngularZxZMix(int *n, ANGULAR_ZxZMIX **ang, int nz) {
 
  OUT:
   if (*n <= 0) {
-    if (nz > 0) free(*ang);
+    if (nz > 0) {
+      free(*ang);
+      *ang = NULL;
+    }
   } else {
     if (m < nz) {
       (*ang) = ReallocNew((*ang), m*sizeof(ANGULAR_ZxZMIX));
@@ -6364,7 +6424,10 @@ int PackAngularZMix(int *n, ANGULAR_ZMIX **ang, int nz) {
 
  OUT:
   if (*n <= 0) {
-    if (nz > 0) free(*ang);
+    if (nz > 0) {
+      free(*ang);
+      *ang = NULL;
+    }
   } else {
     if (m < nz) {
       (*ang) = ReallocNew((*ang), m*sizeof(ANGULAR_ZMIX));
@@ -6402,7 +6465,10 @@ int PackAngularZFB(int *n, ANGULAR_ZFB **ang, int nz) {
 
  OUT:
   if (*n <= 0) {
-    if (nz > 0) free(*ang);
+    if (nz > 0) {
+      free(*ang);
+      *ang = NULL;
+    }
   } else {
     if (m < nz) {
       (*ang) = ReallocNew((*ang), m*sizeof(ANGULAR_ZFB));

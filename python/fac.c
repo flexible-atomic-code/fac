@@ -2348,19 +2348,19 @@ static PyObject *PPrepAngular(PyObject *self, PyObject *args) {
   
   q = NULL;
   if (!PyArg_ParseTuple(args, "O|O", &p, &q)) return NULL;
-  nlow = SelectLevels(p, &low);
-  if (nlow <= 0) return NULL;
+  nlow = SelectLevels(p, &low);  
   if (q) {
     nup = SelectLevels(q, &up);
-    if (nup <= 0) {
-      free(low);
-      return NULL;
-    }
+  } else {
+    nup = nlow;
+    up = low;
   }
-  PrepAngular(nlow, low, nup, up);
+  if (nlow > 0 && nup > 0) {
+    PrepAngular(nlow, low, nup, up);
+  }
 
+  if (up != low && nup > 0) free(up);
   if (nlow > 0) free(low);
-  if (nup > 0) free(up);
 
   Py_INCREF(Py_None);
   return Py_None;
