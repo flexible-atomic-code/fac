@@ -124,6 +124,11 @@ typedef struct _RATE_ {
   double inv;
 } RATE;
 
+typedef struct _LINETYPE_ {
+  int type;
+  int nele;
+} LINETYPE;
+  
 int SetNumSingleBlocks(int n);
 int SetEleDensity(double ele);
 int SetCxtDensity(double cxt);
