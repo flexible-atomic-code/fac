@@ -4328,7 +4328,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   SP_EXTRA rx, *rpx;
   ARRAY sp, spx;
   ARRAY linetype;
-  int *tt;
   TFILE *f1;
   FILE *f2;
   int n, nb, i;
@@ -4336,7 +4335,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   int r0, r1;
   int low, up;
   double e, a, smax;
-  int swp;  
+  int swp;
+  LINETYPE tp, *tt;
   
   rx.sdev = 0.0;
 
@@ -4365,7 +4365,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 
   ArrayInit(&sp, sizeof(SP_RECORD), 512);
   ArrayInit(&spx, sizeof(SP_EXTRA), 512);
-  ArrayInit(&linetype, sizeof(int), 512);
+  ArrayInit(&linetype, sizeof(LINETYPE), 512);
   smax = 0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
@@ -4409,7 +4409,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	if (r.lower == low && r.upper == up) {
 	  ArrayAppend(&sp, &r, NULL);
 	  ArrayAppend(&spx, &rx, NULL);
-	  ArrayAppend(&linetype, &(h.type), NULL);
+	  tp.type = h.type;
+	  tp.nele = h.nele;
+	  ArrayAppend(&linetype, &tp, NULL);
 	  break;
 	}
       } else {
@@ -4421,7 +4423,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	}
 	ArrayAppend(&sp, &r, NULL);
 	ArrayAppend(&spx, &rx, NULL);
-	ArrayAppend(&linetype, &(h.type), NULL);
+	tp.type = h.type;
+	tp.nele = h.nele;
+	ArrayAppend(&linetype, &tp, NULL);
       }
     }
     continue;
@@ -4434,9 +4438,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
-      tt = (int *) ArrayGet(&linetype, 0);
+      tt = (LINETYPE *) ArrayGet(&linetype, 0);
       fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E\n", 
-	      nele, rp->lower, rp->upper, *tt, rp->energy, rpx->sdev, rp->strength);
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength);
     }
   } else {
     if (sp.dim > 0) {
@@ -4448,11 +4452,11 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       for (i = 0; i < sp.dim; i++) {
 	rp = (SP_RECORD *) ArrayGet(&sp, i);
 	rpx = (SP_EXTRA *) ArrayGet(&spx, i);
-	tt = (int *) ArrayGet(&linetype, i);
+	tt = (LINETYPE *) ArrayGet(&linetype, i);
 	e = rp->energy;
 	if (fmin < 0 || rp->strength*e > smax) {
 	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
-		  nele, rp->lower, rp->upper, *tt, e, rpx->sdev, 
+		  tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
 		  rp->strength, rp->rrate, rp->trate);
 	}
       }
