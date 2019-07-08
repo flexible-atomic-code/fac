@@ -72,8 +72,8 @@ typedef struct _DCFG_ {
   RMATRIX *rmx;
   int nr, mr, ierr;  
   double energy;
-  int nts, nka, nke, ntk, ike;
-  double *ek;
+  int nts, nka, nke, ntk, ike, n0;
+  double *ek, *eo;
 } DCFG;
 
 int InitRMatrix(void);
