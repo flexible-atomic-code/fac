@@ -355,7 +355,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
       }
     }
   }
-  if (ncfgs == 0) return -1;
+  if (ncfgs == 0) return 0;
   nlevels = GetNumLevels();
   nsym = MAX_SYMMETRIES;
   rec_complex[n_complex].n = n;
@@ -426,7 +426,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
     i0 = rec_complex[t].s1+1;
   }
 
-  if (nstates == 0) return -1;
+  if (nstates == 0) return 0;
   nsym = MAX_SYMMETRIES;
   nlevels = GetNumLevels();
   rec_complex[n_complex].n = n;
