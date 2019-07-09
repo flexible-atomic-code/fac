@@ -3425,7 +3425,24 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       g = GetGroup(kk);
       int nmax = potential->nmax-1;
       if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
-      if (nmax > 0 && g->nmax > nmax) {
+      int skip = nmax > 0 && g->nmax > nmax;
+      if (!skip) {
+	nmax = GetOrbNMax(-1, 0);
+	if (nmax > 0) {
+	  for (i = 0; i < g->n_cfgs; i++) {
+	    cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	    for (ic = 0; ic < cfg->n_shells; ic++) {
+	      nmax = GetOrbNMax(cfg->shells[ic].kappa, 0);
+	      if (nmax > 0 && cfg->shells[ic].n >= nmax) {
+		skip = 1;
+		break;
+	      }
+	    }
+	    if (skip) break;
+	  }	    
+	}
+      }	
+      if (skip) {
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = 0;
@@ -9718,7 +9735,18 @@ void SetOrbNMax(int kmin, int kmax, int nmax) {
 	if (kappa == 0) continue;
 	if (SkipMPI()) continue;
 	int n = SetNMaxKappa(kappa, nmax);
-	MPrintf(-1, "nmax = %3d %3d %3d %3d\n", k, j, kappa, n);
+	int idx = -1;
+	double e = 0.0;
+	if (n > k) {
+	  idx = OrbitalIndex(n, kappa, 0);
+	  e = 0.0;
+	  if (idx >= 0) {
+	    ORBITAL *orb = GetOrbitalSolved(idx);
+	    e = orb->energy;
+	  }
+	}
+	MPrintf(-1, "nmax = %3d %3d %3d %3d %3d %12.5E\n", k, j, kappa, n,
+		idx, e);
       }
     }
   }

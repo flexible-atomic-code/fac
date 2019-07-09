@@ -496,17 +496,21 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	} else {
 	  ierr = RadialRydberg(orb, pot);
 	}
-	orb->dn = QuantumDefect(z, orb->n, orb->kappa, orb->energy);
+	if (!ierr) {
+	  orb->dn = QuantumDefect(z, orb->n, orb->kappa, orb->energy);
+	}
       }
-      for (k = 0; k < pot->maxrp; k++) {
-	if (pot->rad[k] > pot->atom->rms0) break;
-      }
-      for (; k < pot->maxrp; k++) {
-	if (orb->wfun[k] > 0 && orb->wfun[k+1] <= 0) break;
-	if (orb->wfun[k] < 0 && orb->wfun[k+1] >= 0) break;
-      }
-      if (k > 0) {
-	orb->rfn = pot->rad[k-1];
+      if (!ierr) {
+	for (k = 0; k < pot->maxrp; k++) {
+	  if (pot->rad[k] > pot->atom->rms0) break;
+	}
+	for (; k < pot->maxrp; k++) {
+	  if (orb->wfun[k] > 0 && orb->wfun[k+1] <= 0) break;
+	  if (orb->wfun[k] < 0 && orb->wfun[k+1] >= 0) break;
+	}
+	if (k > 0) {
+	  orb->rfn = pot->rad[k-1];
+	}
       }
     }
   } else if (orb->n == 0) {
