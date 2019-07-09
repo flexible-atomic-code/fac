@@ -328,6 +328,8 @@ int RecStates(int n, int k, int *kg, char *fn) {
       for (j = 1; j < 2*pw_scratch.nkl0; j++) {
 	if (pw_scratch.kl[j/2] >= n) break;
 	ns.kappa = pw_scratch.kappa0[j];
+	int nmax = GetOrbNMax(ns.kappa, 0);
+	if (nmax > 0 && n > nmax) continue;
 	m = CompareShell(c->shells, &ns);
 	if (m > 0) continue;
 	if (m == 0) {
@@ -409,6 +411,8 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn) {
 	kl2 = pw_scratch.kl[j/2];
 	p = p1 + kl2;
 	if (kl2 >= n) break;
+	int nmax = GetOrbNMax(pw_scratch.kappa0[j], 0);
+	if (nmax > 0 && n > nmax) continue;
 	ko = OrbitalIndex(n, pw_scratch.kappa0[j], 0.0);
 	j2 = GetJFromKappa(pw_scratch.kappa0[j]);
 	jmin = abs(j2 - j1);
