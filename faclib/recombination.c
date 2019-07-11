@@ -35,8 +35,6 @@ static int usr_egrid_type = -1;
 static int n_egrid = 0;
 static double egrid[MAXNE];
 static double log_egrid[MAXNE];
-static double xegrid[MAXNE];
-static double log_xegrid[MAXNE];
 static double egrid_min;
 static double egrid_max;
 static int egrid_limits_type = 0;
@@ -706,6 +704,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int mode, gauge;
   int nh, klh;
   double hparams[NPARAMS];
+  double xegrid[MAXNE], log_xegrid[MAXNE];
 
   orb = GetOrbital(k0);
   kappa0 = orb->kappa;
@@ -969,6 +968,7 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   ORBITAL *orb;
   double a, b, d, eb0, z;
   double rq[MAXNE], tq[MAXNE];
+  double xegrid[MAXNE], log_xegrid[MAXNE];
   int gauge, mode;
   int nkl, nq, k;
   int klb, jb, kb;
@@ -1225,6 +1225,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   int nz, ie, k;
   double a, b, d, amax, eb0, z;
   double rq[MAXNE], tq[MAXNE];
+  double xegrid[MAXNE], log_xegrid[MAXNE];
   int i, j, c;
   int gauge, mode;
   int nkl, nq;
@@ -1246,6 +1247,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     tq[ie] = 0.0;
   }
   amax = 0.0;
+  double *rqp = NULL;
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     orb = GetOrbital(kb);
@@ -1268,6 +1270,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 	  nq = orb->n; 
 	  amax = a;
 	  eb0 = -(orb->energy);
+	  rqp = rq;
 	}
       }
       for (ie = 0; ie < n_egrid; ie++) {
@@ -1296,13 +1299,13 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
       }
     }
     RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
-		      rq, NULL, 0, &nkl);
+		      rqp, NULL, 0, &nkl);
     ie++;
-    a = eb0*tq[ie]/rq[ie];
+    a = eb0*tq[ie]/rqp[ie];
     rqc[0] *= a;
     rqc[3] = eb0;
     for (ie++; ie < n_egrid; ie++) {
-      tq[ie] = a*(rq[ie]/eb0);
+      tq[ie] = a*(rqp[ie]/eb0);
     }
     for (ie = 0; ie < n_egrid; ie++) {
       a = (*eb) + egrid[ie];
