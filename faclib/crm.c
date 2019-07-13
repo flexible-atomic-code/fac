@@ -4557,7 +4557,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   int r0, r1;
   double e;
   int m, k, nsp;
-  double *sp, *tsp, *xsp, *kernel;
+  double *sp, *tsp, *xsp, *kernel, *wsp;
   double de10, de01;
   double a, sig, factor;
   double *lines;
@@ -4576,6 +4576,10 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
 
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 1);
+#endif
+  
   rx.sdev = 0.0;
 
   t2 = abs(type) / 1000000;
@@ -4585,7 +4589,57 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   t0 = t % 10000;
   t0 = t0 / 100;
 
+  double wmin = 1e31;
+  double wav = 0.0;
+  double sav = 0.0;
+  smax =  0.0;
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadSPHeader(f1, &h, swp);
+    if (n == 0) break;
+    if (h.ntransitions == 0) continue;
+    if (nele >= 0 && h.nele != nele) goto LOOPEND0; 
+    r1 = h.type / 10000;
+    r0 = h.type % 10000;
+    r0 = r0/100;
+    if (type != 0) {
+      if (t2 == 0) {
+	if (t != h.type) goto LOOPEND0;
+      } else if (t2 == 1) {
+	if (r1 < t1) goto LOOPEND0;
+	if (h.type < 100) goto LOOPEND0;
+	if (t%10000 != h.type%10000) goto LOOPEND0;
+      } else {
+	if (t < 100) {
+	  if (h.type > 99) goto LOOPEND0;
+	  if (h.type < t) goto LOOPEND0;
+	} else {
+	  if (r1 < t1) goto LOOPEND0;
+	  if (r0 < t0) goto LOOPEND0;
+	}
+      }
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadSPRecord(f1, &r, &rx, swp);
+      if (n == 0) break;
+      e = r.energy;
+      a = r.strength * e;
+      if (a < smax*smin) continue;
+      if (a > smax) smax = a;
+      double wk = r.trate*6.58e-16;
+      wav += wk*a;
+      sav += a;
+      if (wmin > wk) wmin = wk;      
+    }
+    continue;
+  LOOPEND0:
+    FSEEK(f1, h.length, SEEK_CUR);
+  }
+  FCLOSE(f1);
+  f1 = OpenFileRO(ifn, &fh, &swp);
   de = fabs(de0);
+  double ade0 = de;
+  wav /= sav;
+  de = sqrt(de*de + wav*wav);
   de01 = 0.025*de;
   de10 = 10.0*de;
   sig = de/2.35;
@@ -4597,9 +4651,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     kernel[i] = factor*exp(-sig*e*e);
     e += de01;
   }
-
   nsp = (emax - emin)/de01;
   sp = (double *) malloc(sizeof(double)*nsp);
+  wsp = (double *) malloc(sizeof(double)*nsp);
   xsp = (double *) malloc(sizeof(double)*nsp);
   tsp = (double *) malloc(sizeof(double)*nsp);
   sp[0] = 0.0;
@@ -4608,6 +4662,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   for (i = 1; i < nsp; i++) {
     tsp[i] = 0.0;
     sp[i] = 0.0;
+    wsp[i] = 0.0;
     xsp[i] = xsp[i-1] + de01;
   }
 
@@ -4636,45 +4691,65 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 	}
       }
     }
-    m = 2*h.ntransitions;
+    int m0 = h.ntransitions;
+    m = 3*m0;
     lines = (double *) malloc(sizeof(double)*m);  
     k = 0;
-    smax = 0.0;
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
       e = r.energy;
       a = r.strength * e;
       if (a < smax*smin) continue;
-      if (a > smax) smax = a;
       e *= HARTREE_EV;
       if (de0 < 0) e = hc/e;
       lines[k++] = e;
       lines[k++] = r.strength;
+      double wk = r.trate*6.58e-16;
+      lines[k++] = wk;
     }
     m = k;
-	
-    qsort(lines, m/2, sizeof(double)*2, CompareLine);
+    m0 = m/3;
+    qsort(lines, m0, sizeof(double)*3, CompareLine);
     k = 0;
     i = 0;
     while (k < m && i < nsp-1) {
       if (lines[k] < xsp[i]) {
-	k += 2;
+	k += 3;
       } else if (lines[k] < xsp[i+1]) {
 	sp[i] += lines[k+1];
-	k += 2;
+	wsp[i] += lines[k+1]*lines[k+2];
+	k += 3;
       } else {
 	i++;
       }
     } 
     free(lines);
-    for (i = 0; i < nsp; i++) {
-      if (sp[i] > 0.0) {
-	for (m = i-256, k = 0; k < 512; k++, m++) {
-	  if (m > 0 && m < nsp) tsp[m] += sp[i]*kernel[k];
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, m, k)
+    {
+      int w = 0;
+      for (i = 0; i < nsp; i++) {
+	if (SkipWMPI(w++)) continue;
+	if (sp[i] > 0.0) {
+	  wsp[i] /= sp[i];
+	  wsp[i] = sqrt(wsp[i]*wsp[i] + ade0*ade0);
+	  wsp[i] /= de;
+	  int km = (int)(wsp[i]*512);
+	  int km2 = km/2;
+	  for (m = i-km2, k = 0; k < km; k++, m++) {
+	    int kk = (int)(256+(k-km2)/wsp[i]);
+	    if (kk >= 0 && kk < 512) {
+	      if (m > 0 && m < nsp) {
+#pragma omp atomic
+		tsp[m] += sp[i]*kernel[kk];
+	      }
+	    }
+	  }
 	}
+	sp[i] = 0.0;
+	wsp[i] = 0.0;
       }
-      sp[i] = 0.0;
     }
     continue;
   LOOPEND:
@@ -4693,33 +4768,58 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       kernel = (double *) malloc(sizeof(double)*m);
       if (idist == 0) {
 	kernel[0] = 0.0;
-	e = de01;
-	for (i = 1; i < m; i++) {
-	  kernel[i] = dist->dist(e, dist->params);
-	  e += de01;
+	ResetWidMPI();
+#pragma omp parallel default(shared) private(i, e)
+	{
+	  int w = 0;
+	  for (i = 1; i < m; i++) {
+	    if (SkipWMPI(w++)) continue;
+	    e = i*de01;
+	    kernel[i] = dist->dist(e, dist->params);
+	  }
 	}
-	for (i = 0; i < nsp; i++) {
-	  if (tsp[i] > 0.0) {
-	    for (k = 0; k < m; k++) {
-	      r0 = i + k;
-	      if (r0 >= nsp) break;
-	      sp[r0] += tsp[i]*kernel[k];
+	ResetWidMPI();
+#pragma omp parallel default(shared) private(i, k, r0)
+	{
+	  int w = 0;
+	  for (i = 0; i < nsp; i++) {
+	    if (SkipWMPI(w++)) continue;
+	    if (tsp[i] > 0.0) {
+	      for (k = 0; k < m; k++) {
+		r0 = i + k;
+		if (r0 >= nsp) break;
+#pragma omp atomic
+		sp[r0] += tsp[i]*kernel[k];
+	      }
 	    }
 	  }
 	}
       } else if (idist == 1) {
 	r1 = m/2;
-	e = -de01*r1;
-	for (i = 0; i < m; i++) {
-	  kernel[i] = dist->dist(e, dist->params);
-	  e += de01;
+	ResetWidMPI();
+#pragma omp parallel default(shared) private(i, e)
+	{
+	  int w = 0;
+	  for (i = 0; i < m; i++) {
+	    if (SkipWMPI(w++)) continue;
+	    e = -de01*(r1+i);
+	    kernel[i] = dist->dist(e, dist->params);
+	    e += de01;
+	  }
 	}
-	for (i = 0; i < nsp; i++) {
-	  if (tsp[i] > 0.0) {
-	    for (k = 0; k < m; k++) {
-	      r0 = i + k - r1;
-	      if (r0 < 0 || r0 >= nsp) continue;
-	      sp[r0] += tsp[i]*kernel[k];
+	ResetWidMPI();
+#pragma omp parallel default(shared) private(i, k, m, r0)
+	{
+	  int w = 0;
+	  for (i = 0; i < nsp; i++) {
+	    if (SkipWMPI(w++)) continue;
+	    if (tsp[i] > 0.0) {
+	      for (k = 0; k < m; k++) {
+		r0 = i + k - r1;
+		if (r0 < 0 || r0 >= nsp) continue;
+#pragma omp atomic
+		sp[r0] += tsp[i]*kernel[k];
+	      }
 	    }
 	  }
 	}
@@ -4742,6 +4842,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 
   free(xsp);
   free(sp);
+  free(wsp);
   free(tsp);
   free(kernel);
 
@@ -4979,7 +5080,7 @@ int SetCXRates(int m0, char *tgt) {
 	    {
 	      int w = 0;
 	      for (jb = 0; jb < nrb; jb++) {
-		int skip = SkipMPI(w++);
+		int skip = SkipWMPI(w++);
 		if (skip) continue;
 		rts[jb].i = r[jb].f;
 		rts[jb].f = r[jb].b;
@@ -5110,7 +5211,7 @@ int SetCXRates(int m0, char *tgt) {
 	    {
 	      int w = 0;
 	      for (jb = 0; jb < nrb; jb++) {
-		int skip = SkipMPI(w++);
+		int skip = SkipWMPI(w++);
 		if (skip) continue;
 		rts[jb].i = xr[jb].f;
 		rts[jb].f = xr[jb].b;
