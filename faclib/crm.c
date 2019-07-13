@@ -57,6 +57,7 @@ static int norm_mode = 1;
 static int sw_mode = 0;
 static int _itol_nmax = 0;
 static double _ce_fbr = 2.0;
+static int _sp_trm = 1;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
@@ -287,6 +288,8 @@ static void FreeBlockData(void *p) {
     free(blk->n0);
     free(blk->r);
     free(blk->total_rate);
+    free(blk->rc0);
+    free(blk->rc1);
   }
   blk->nlevels = 0;
 }
@@ -509,6 +512,8 @@ void ExtrapolateEN(int iion, ION *ion) {
 	blk.n0 = (double *) malloc(sizeof(double)*nr);
 	blk.r = (double *) malloc(sizeof(double)*nr);
 	blk.total_rate = (double *) malloc(sizeof(double)*nr);
+	blk.rc0 = (double *) malloc(sizeof(double)*nr);
+	blk.rc1 = (double *) malloc(sizeof(double)*nr);
 	blk.rec = rec;
 	blk.irec = t;
 	blk.ncomplex[nc].n = n;
@@ -1079,6 +1084,8 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.n0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
 	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
@@ -1092,7 +1099,11 @@ int SetBlocks(double ni, char *ifn) {
 		  blkp->r = (double *) ReallocNew(blkp->r, 
 					       sizeof(double)*nlevels);
 		  blkp->total_rate = (double *)ReallocNew(blkp->total_rate,
-						       sizeof(double)*nlevels);
+							  sizeof(double)*nlevels);
+		  blkp->rc0 = (double *)ReallocNew(blkp->total_rate,
+						   sizeof(double)*nlevels);
+		  blkp->rc1 = (double *)ReallocNew(blkp->total_rate,
+						   sizeof(double)*nlevels);
 		  blkp->nlevels = nlevels;
 		}
 	      }
@@ -1107,6 +1118,8 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.n0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      CopyNComplex(blk.ncomplex, ncomplex);
 	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
@@ -1189,6 +1202,8 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.n0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
 	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
@@ -1203,6 +1218,10 @@ int SetBlocks(double ni, char *ifn) {
 					      sizeof(double)*nlevels);
 	      blkp->total_rate = (double *) ReallocNew(blkp->total_rate,
 						       sizeof(double)*nlevels);
+	      blkp->rc0 = (double *) ReallocNew(blkp->total_rate,
+						sizeof(double)*nlevels);
+	      blkp->rc1 = (double *) ReallocNew(blkp->total_rate,
+						sizeof(double)*nlevels);
 	      blkp->nlevels = nlevels;
 	    }
 	  }
@@ -1217,6 +1236,8 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.n0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.r = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  CopyNComplex(blk.ncomplex, ncomplex);
 	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
@@ -1743,6 +1764,8 @@ int InitBlocks(void) {
       blk1->n0[k] = 0.0;
       blk1->n[k] = 0.0;
       blk1->total_rate[k] = 0.0;
+      blk1->rc0[k] = 0.0;
+      blk1->rc1[k] = 0.0;
       blk1->r[k] = 0.0;
     }
     blk1->r[0] = 1.0;
@@ -1765,7 +1788,7 @@ int InitBlocks(void) {
     }
     if (electron_density > 0.0) {
       ResetWidMPI();
-#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p,j)
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j)
       {
       int w = 0;
       for (p = 0; p < ion->ce_rates->dim; p++) {
@@ -1776,12 +1799,28 @@ int InitBlocks(void) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  j = ion->ilev[r->i];
+	  double zd = electron_density*r->dir;
+	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
+	  de *= RATE_AU*_ce_fbr;
 #pragma omp atomic
-	  blk1->total_rate[j] += electron_density * r->dir;
+	  blk1->total_rate[j] += zd;
+#pragma omp atomic
+	  blk1->rc0[j] += zd;
+	  zd /= de;
+	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+#pragma omp atomic
+	  blk1->rc1[j] += zd;
 	  if (r->inv > 0.0) {
 	    j = ion->ilev[r->f];
+	    double zi = electron_density*r->inv;
 #pragma omp atomic
-	    blk2->total_rate[j] += electron_density * r->inv;
+	    blk2->total_rate[j] += zi;
+#pragma omp atomic
+	    blk2->rc0[j] += zi;
+	    zi /= de;
+	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
+#pragma omp atomic
+	    blk2->rc1[j] += zi;
 	  }
 	}	
       }
@@ -1847,8 +1886,17 @@ int InitBlocks(void) {
 	r = (RATE *) ArrayGet(brts->rates, m);
 	j = ion->ilev[r->i];
 	if (electron_density > 0.0) {
+	  double zd = electron_density*r->dir;
 #pragma omp atomic
-	  blk1->total_rate[j] += electron_density * r->dir;
+	  blk1->total_rate[j] += zd;
+#pragma omp atomic
+	  blk1->rc0[j] += zd;
+	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
+	  de *=  RATE_AU * _ce_fbr;
+	  zd /= de;
+	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+#pragma omp atomic
+	  blk1->rc1[j] += zd;
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  j = ion->ilev[r->f];
@@ -1895,8 +1943,17 @@ int InitBlocks(void) {
 	blk1->n[j] += r->dir;
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  j = ion->ilev[r->f];
+	  double zi = electron_density*r->inv;
 #pragma omp atomic
-	  blk2->total_rate[j] += electron_density * r->inv;
+	  blk2->total_rate[j] += zi;
+#pragma omp atomic
+	  blk2->rc0[j] += zi;
+	  double de =  fabs(ion->energy[r->f]-ion->energy[r->i]);
+	  de *= RATE_AU * _ce_fbr;
+	  zi /=  de;
+	  zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
+#pragma omp  atomic
+	  blk2->rc1[j] += zi;
 	}
       }
     }
@@ -1914,13 +1971,28 @@ int InitBlocks(void) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  j = ion->ilev[r->i];
+	  double zd = electron_density * r->dir;
+	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
+	  de *= RATE_AU * _ce_fbr;
 #pragma omp atomic
-	  blk1->total_rate[j] += electron_density * r->dir;
+	  blk1->total_rate[j] += zd;
+#pragma omp atomic
+	  blk1->rc0[j] += zd;
+	  zd /= de;
+	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+#pragma omp atomic
+	  blk1->rc1[j] += zd;
 	  if (r->inv > 0.0) {
 	    j = ion->ilev[r->f];
+	    double zi = electron_density*electron_density*r->inv;	    
 #pragma omp atomic
-	    blk2->total_rate[j] += electron_density * 
-	      electron_density * r->inv;
+	    blk2->total_rate[j] += zi;
+#pragma omp atomic
+	    blk2->rc0[j] += zi;
+	    zi /= de;
+	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
+#pragma omp atomic
+	    blk2->rc1[j] += zi;
 	  }
 	}
       }
@@ -1941,14 +2013,6 @@ int InitBlocks(void) {
 	    blk1->total_rate[k] = 0.0;
 	  }
 	}
-	/*
-	} else {
-	  if (blk1->nlevels > 1) {
-	    blk1->total_rate[k] = 0.0;
-	    printf("br1: %d %d %d %d %g\n", i, k, m, blk1->iion, blk1->total_rate[k]);
-	  }
-	}
-	*/
       }
       if (!blk1->total_rate[k]) blk1->izr++;
       m = blk1->iion;
@@ -4263,7 +4327,14 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    rx.sdev = dev->inv;
 	  }
 	  r.rrate = a;
-	  r.trate = iblk->total_rate[j];
+	  if (_sp_trm == 0) {
+	    r.trate = iblk->total_rate[ion->ilev[rt->i]];
+	  } else {
+	    r.trate = iblk->total_rate[ion->ilev[rt->i]] +
+	      fblk->total_rate[ion->ilev[rt->f]];
+	    r.trate += iblk->rc1[ion->ilev[rt->i]]-iblk->rc0[ion->ilev[rt->i]];
+	    r.trate += fblk->rc1[ion->ilev[rt->f]]-fblk->rc0[ion->ilev[rt->f]];
+	  }
 	  WriteSPRecord(f, &r, &rx);
 	}
       }
@@ -4439,8 +4510,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (LINETYPE *) ArrayGet(&linetype, 0);
-      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength);
+      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, rp->trate);
     }
   } else {
     if (sp.dim > 0) {
@@ -6442,50 +6513,6 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	}
       }
     } else {
-      double *rc0 = NULL;
-      double *rc1 = NULL;
-      if (ion->nlevels > 0) {
-	rc0 = malloc(sizeof(double)*ion->nlevels);
-	rc1 = malloc(sizeof(double)*ion->nlevels);
-	for (t = 0; t < ion->nlevels; t++) {
-	  rc0[t] = 0.0;
-	  rc1[t] = 0.0;
-	}
-	if (electron_density > 0) {
-	  ResetWidMPI();
-#pragma omp parallel default(shared) private(p, q, r, brts)
-	  {
-	    int w = 0;
-	    LBLOCK *blk1, *blk2;
-	    for (p = 0; p < ion->ce_rates->dim; p++) {
-	      brts = (BLK_RATE *) ArrayGet(ion->ce_rates, p);
-	      blk1 = brts->iblock;
-	      blk2 = brts->fblock;
-	      for (q = 0; q < brts->rates->dim; q++) {
-		if (SkipWMPI(w++)) continue;
-		r = (RATE *) ArrayGet(brts->rates, q);
-		double rd = electron_density * r->dir;
-		double ri = electron_density * r->inv;
-#pragma omp atomic
-		rc0[r->i] += rd;
-#pragma omp atomic
-		rc0[r->f] += ri;
-		double de = fabs(ion->energy[r->f]-ion->energy[r->i]);		
-		de *= RATE_AU*_ce_fbr;
-		rd /= de;
-		ri /= de;
-		de *= 0.5;
-		rd = de*(sqrt(1+4.0*rd)-1.0);
-		ri = de*(sqrt(1+4.0*ri)-1.0);
-#pragma omp atomic
-		rc1[r->i] += rd;
-#pragma omp atomic
-		rc1[r->f] += ri;		
-	      }
-	    }
-	  }
-	}
-      }
       for (t = 0; t < ion->nlevels; t++) {	
 	if (imax < 0 || t <= imax) {
 	  if (ion->iblock[t] == NULL) continue;
@@ -6506,9 +6533,10 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    fwrite(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
 	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
-	    double x = ion->iblock[t]->total_rate[q] - rc0[t];
+	    double x = ion->iblock[t]->total_rate[q] - ion->iblock[t]->rc0[q];
 	    fwrite(&x, sizeof(double), 1, f);
-	    fwrite(&(rc1[t]), sizeof(double), 1, f);	    
+	    x = ion->iblock[t]->rc1[q];
+	    fwrite(&x, sizeof(double), 1, f);	    
 	  } else {
 	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
@@ -6516,14 +6544,10 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 		    ion->iblock[t]->n[q],
 		    ion->iblock[t]->total_rate[q],
 		    ion->iblock[t]->r[q],
-		    ion->iblock[t]->total_rate[q]-rc0[t],
-		    rc1[t]);
+		    ion->iblock[t]->total_rate[q]-ion->iblock[t]->rc0[q],
+		    ion->iblock[t]->rc1[q]);
 	  }
 	}
-      }
-      if (ion->nlevels > 0) {
-	free(rc0);
-	free(rc1);
       }
     }
   }
@@ -7204,6 +7228,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:ce_fbr")) {
     _ce_fbr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:sp_trm")) {
+    _sp_trm = ip;
     return;
   }
 }
