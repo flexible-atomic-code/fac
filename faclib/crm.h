@@ -30,9 +30,9 @@
 #include "interpolation.h"
 #include "coulomb.h"
 
-#define RATES_BLOCK   1024
-#define ION_BLOCK     4
-#define LBLOCK_BLOCK  1024
+#define RATES_BLOCK   256000
+#define ION_BLOCK     128
+#define LBLOCK_BLOCK  8192
 
 #define MAXNREC 128
 typedef struct _RECOMBINED_ {

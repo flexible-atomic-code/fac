@@ -85,6 +85,7 @@ static POTENTIAL *rpotential = NULL;
 static ARRAY *orbitals;
 static int n_orbitals;
 static int n_continua;
+static int _orbitals_block = ORBITALS_BLOCK;
 
 static int _nws = 0;
 static double *_dws = NULL;
@@ -8590,7 +8591,7 @@ int InitRadial(void) {
   double cth = ARYCTH;
   orbitals = malloc(sizeof(ARRAY));
   if (!orbitals) return -1;
-  if (ArrayInit(orbitals, sizeof(ORBITAL), ORBITALS_BLOCK) < 0) return -1;
+  if (ArrayInit(orbitals, sizeof(ORBITAL), _orbitals_block) < 0) return -1;
   ndim = 5;
   slater_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(slater_array, sizeof(double), ndim, blocks, "slater_array");
@@ -9824,6 +9825,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:refine_msglvl")) {
     _refine_msglvl = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:orbitals_block")) {
+    _orbitals_block = ip;
     return;
   }
   if (0 == strcmp(s, "radial:refine_np")) {

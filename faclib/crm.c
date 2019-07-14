@@ -27,7 +27,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
-#define NRTB 4096
+#define NRTB 8192
 
 static IONIZED ion0;
 static ARRAY *ions;
@@ -58,6 +58,8 @@ static int sw_mode = 0;
 static int _itol_nmax = 0;
 static double _ce_fbr = 2.0;
 static int _sp_trm = 1;
+static int _rates_block = RATES_BLOCK;
+static int _lblock_block = LBLOCK_BLOCK;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
@@ -129,7 +131,7 @@ int InitCRM(void) {
   ions = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ions, sizeof(ION), ION_BLOCK);
   blocks = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(blocks, sizeof(LBLOCK), LBLOCK_BLOCK);
+  ArrayInit(blocks, sizeof(LBLOCK), _lblock_block);
   bmatrix = NULL;
   
   InitDBase();
@@ -4856,7 +4858,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   LBLOCK *ib, *fb;
   BLK_RATE *brt, brt0;
   RATE *r0;
-  int i;
+  int i, rbks;
   if (r->dir <= 0 && r->inv <= 0) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
@@ -4885,7 +4887,9 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
       irb[ib->ib][fb->ib] = rts->dim;
     }
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
-    ArrayInit(brt0.rates, sizeof(RATE), RATES_BLOCK);
+    rbks = ib->nlevels*fb->nlevels;
+    if (rbks > _rates_block) rbks = _rates_block;
+    ArrayInit(brt0.rates, sizeof(RATE), rbks);
     ArrayAppend(brt0.rates, r, NULL);
     ArrayAppend(rts, &brt0, InitBlkRateData);    
   } else {
@@ -7333,6 +7337,14 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:sp_trm")) {
     _sp_trm = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:rates_block")) {
+    _rates_block = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:lblock_block")) {
+    _lblock_block = ip;
     return;
   }
 }

@@ -51,6 +51,7 @@ static int n_levels = 0;
 static ARRAY *eblevels;
 static int n_eblevels = 0;
 static int _sort_levs = 1;
+static int _levels_block = LEVELS_BLOCK;
 
 static int mbpt_mk = 0;
 static int angz_dim, angz_dim2;
@@ -6938,12 +6939,12 @@ int InitStructure(void) {
   n_levels = 0;
   levels = malloc(sizeof(ARRAY));
   if (!levels) return -1;
-  ArrayInit(levels, sizeof(LEVEL), LEVELS_BLOCK);
+  ArrayInit(levels, sizeof(LEVEL), _levels_block);
 
   n_eblevels = 0;
   eblevels = malloc(sizeof(ARRAY));
   if (!eblevels) return -1;
-  ArrayInit(eblevels, sizeof(LEVEL), LEVELS_BLOCK);
+  ArrayInit(eblevels, sizeof(LEVEL), _levels_block);
 
   ang_frozen.nts = 0;
   ang_frozen.ncs = 0;
@@ -7092,6 +7093,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:sort_levs")) {
     _sort_levs = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:levels_block")) {
+    _levels_block = ip;
     return;
   }
 }
