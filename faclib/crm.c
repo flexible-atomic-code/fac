@@ -4402,7 +4402,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   ARRAY sp, spx;
   ARRAY linetype;
   TFILE *f1;
-  FILE *f2;
+  TFILE *f2;
   int n, nb, i;
   int t, t0, t1, t2;
   int r0, r1;
@@ -4413,12 +4413,16 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   
   rx.sdev = 0.0;
 
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 1);
+#endif
+  
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
     return -1;
   }
-  f2 = fopen(ofn, "a");
+  f2 = FOPEN(ofn, "a");
   if (f2 == NULL) {
     printf("ERROR: Cannot open file %s\n", ofn);
     return -1;
@@ -4436,14 +4440,18 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     up = emax;
   }
 
-  ArrayInit(&sp, sizeof(SP_RECORD), 512);
-  ArrayInit(&spx, sizeof(SP_EXTRA), 512);
-  ArrayInit(&linetype, sizeof(LINETYPE), 512);
+  int nbk = 1000000;
+  ArrayInit(&sp, sizeof(SP_RECORD), nbk);
+  ArrayInit(&spx, sizeof(SP_EXTRA), nbk);
+  ArrayInit(&linetype, sizeof(LINETYPE), nbk);
+  int une[256];
+  for (i = 0; i < 256; i++) une[i] = 0;
   smax = 0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
     if (h.ntransitions == 0) continue;
-    if (nele >= 0 && h.nele != nele) goto LOOPEND;  
+    if (nele >= 0 && h.nele != nele) goto LOOPEND;
+    une[h.nele]++;
     r1 = h.type / 10000;
     r0 = h.type % 10000;
     r0 = r0/100;
@@ -4507,13 +4515,15 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     FSEEK(f1, h.length, SEEK_CUR);
   }
 
+  char buf[2048];
   if (fmin >= 1.0) {
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (LINETYPE *) ArrayGet(&linetype, 0);
-      fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
+      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
 	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, rp->trate);
+      FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
     if (sp.dim > 0) {
@@ -4522,25 +4532,37 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       } else {
 	smax = 0.0;
       }
-      for (i = 0; i < sp.dim; i++) {
-	rp = (SP_RECORD *) ArrayGet(&sp, i);
-	rpx = (SP_EXTRA *) ArrayGet(&spx, i);
-	tt = (LINETYPE *) ArrayGet(&linetype, i);
-	e = rp->energy;
-	if (fmin < 0 || rp->strength*e > smax) {
-	  fprintf(f2, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
-		  tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		  rp->strength, rp->rrate, rp->trate);
+      int ie;
+      for (ie = 1; ie < 256; ie++) {
+	if (une[ie] == 0) continue;	
+#pragma omp parallel default(shared) private(i, rp, rpx, tt, e, buf)
+	{
+	  int w = 0;
+	  for (i = 0; i < sp.dim; i++) {
+	    if (SkipWMPI(w++)) continue;
+	    tt = (LINETYPE *) ArrayGet(&linetype, i);
+	    if (tt->nele != ie) continue;
+	    rp = (SP_RECORD *) ArrayGet(&sp, i);
+	    rpx = (SP_EXTRA *) ArrayGet(&spx, i);
+	    e = rp->energy;
+	    if (fmin < 0 || rp->strength*e > smax) {
+	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
+		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
+		      rp->strength, rp->rrate, rp->trate);
+	      FWRITE(buf, 1, strlen(buf), f2);
+	    }
+	  }
 	}
+	FFLUSH(f2);
       }
     }
-  }	
+  }
   ArrayFreeLock(&sp, NULL);
   ArrayFreeLock(&spx, NULL);
   ArrayFreeLock(&linetype, NULL);
 
   FCLOSE(f1);
-  fclose(f2);
+  FCLOSE(f2);
   
   return 0;
 }
@@ -6528,7 +6550,7 @@ int ModifyRates(char *fn) {
 }
 
 int DumpRates(char *fn, int k, int m, int imax, int a) {
-  FILE *f;
+  TFILE *f;
   int i, t, p, q, n;
   short nele;
   double energy;
@@ -6536,25 +6558,33 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
   ARRAY *rts;
   RATE *r;
   BLK_RATE *brts;
+  char s[1024];
   
   if (k == 0) {
-    f = fopen(fn, "w");
+    f = FOPEN(fn, "w");
     if (f == NULL) {
       printf("cannot open file %s\n", fn);
       return -1;
     }
     n = blocks->dim*blocks->dim;
-    for (p = 0; p < blocks->dim; p++) {
-      LBLOCK *bp = (LBLOCK *) ArrayGet(blocks, p);
-      for (q = 0; q < blocks->dim; q++) {
-	LBLOCK *bq = (LBLOCK *) ArrayGet(blocks, q);
-	t = q*blocks->dim + p;
-	fprintf(f, "%5d %5d %5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
-		p, q, bq->nlevels, bmatrix[t], bmatrix[n+p], bp->nb, bq->nb, 
-		bmatrix[t]*bq->nb);
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(p, q, t, s)
+    {
+      int w = 0;
+      for (p = 0; p < blocks->dim; p++) {
+	LBLOCK *bp = (LBLOCK *) ArrayGet(blocks, p);
+	for (q = 0; q < blocks->dim; q++) {
+	  if (SkipWMPI(w++)) continue;
+	  LBLOCK *bq = (LBLOCK *) ArrayGet(blocks, q);
+	  t = q*blocks->dim + p;	
+	  sprintf(s, "%5d %5d %5d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+		  p, q, bq->nlevels, bmatrix[t], bmatrix[n+p], bp->nb, bq->nb, 
+		  bmatrix[t]*bq->nb);
+	  FWRITE(s, 1, strlen(s), f);
+	}
       }
     }
-    fclose(f);
+    FCLOSE(f);
     return 0;
   }
   q = 0;
@@ -6564,7 +6594,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
     q++;
   }
   if (q == 0) return 0;
-  f = fopen(fn, "w");
+  f = FOPEN(fn, "w");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
     return -1;
@@ -6597,26 +6627,42 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	break;
       default:
 	printf("invalid mode %d\n", m);
-	fclose(f);
+	FCLOSE(f);
 	return -1;
       }
-      for (t = 0; t < rts->dim; t++) {
-	brts = (BLK_RATE *) ArrayGet(rts, t);
-	for (q = 0; q < brts->rates->dim; q++) {
-	  r = (RATE *) ArrayGet(brts->rates, q);
-	  if (imax < 0 || (r->i <= imax && r->f <= imax)) {
-	    if (a == 0) {
-	      fwrite(&(r->i), sizeof(int), 1, f);
-	      fwrite(&(r->f), sizeof(int), 1, f);
-	      fwrite(&(r->dir), sizeof(double), 1, f);
-	      fwrite(&(r->inv), sizeof(double), 1, f);
-	    } else {
-	      fprintf(f, "%7d %7d %10.3E %10.3E\n", 
-		      r->i, r->f, r->dir, r->inv);
+#pragma omp parallel default(shared) private(t, q, brts, r, s)
+      {
+	int w = 0;
+	for (t = 0; t < rts->dim; t++) {
+	  brts = (BLK_RATE *) ArrayGet(rts, t);
+	  for (q = 0; q < brts->rates->dim; q++) {
+	    if (SkipWMPI(w++)) continue;
+	    r = (RATE *) ArrayGet(brts->rates, q);
+	    nele = ion->nele;
+	    if (imax < 0 || (r->i <= imax && r->f <= imax)) {
+	      if (a == 0) {
+		char *sp = s;
+		memcpy(sp, &nele, sizeof(short));
+		sp += sizeof(short);
+		memcpy(sp, &r->i, sizeof(int));
+		sp += sizeof(int);
+		memcpy(sp, &r->f, sizeof(int));
+		sp += sizeof(int);
+		memcpy(sp, &r->dir, sizeof(double));
+		sp += sizeof(double);
+		memcpy(sp, &r->inv, sizeof(double));
+		sp += sizeof(double);
+		FWRITE(s, 1, sp-s, f);
+	      } else {
+		sprintf(s, "%3d %7d %7d %10.3E %10.3E\n", 
+			nele, r->i, r->f, r->dir, r->inv);
+		FWRITE(s, 1, strlen(s), f);
+	      }
 	    }
 	  }
 	}
       }
+      FFLUSH(f);
     } else {
       for (t = 0; t < ion->nlevels; t++) {	
 	if (imax < 0 || t <= imax) {
@@ -6627,23 +6673,23 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	  else if (p == ion->iblock[t]->iion + 1) nele = ion->nele - 1;
 	  else nele = ion->nele + 1;
 	  if (a == 0) {
-	    fwrite(&(nele), sizeof(short), 1, f);
-	    fwrite(&t, sizeof(int), 1, f);
-	    fwrite(&(ion->iblock[t]->ib), sizeof(int), 1, f);
-	    fwrite(&q, sizeof(int), 1, f);
-	    fwrite(&(ion->j[t]), sizeof(short), 1, f);
-	    fwrite(&(ion->ibase[t]), sizeof(short), 1, f);
-	    fwrite(&(ion->vnl[t]), sizeof(short), 1, f);
-	    fwrite(&(ion->energy[t]), sizeof(double), 1, f);
-	    fwrite(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
-	    fwrite(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
-	    fwrite(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
+	    FWRITE(&(nele), sizeof(short), 1, f);
+	    FWRITE(&t, sizeof(int), 1, f);
+	    FWRITE(&(ion->iblock[t]->ib), sizeof(int), 1, f);
+	    FWRITE(&q, sizeof(int), 1, f);
+	    FWRITE(&(ion->j[t]), sizeof(short), 1, f);
+	    FWRITE(&(ion->ibase[t]), sizeof(short), 1, f);
+	    FWRITE(&(ion->vnl[t]), sizeof(short), 1, f);
+	    FWRITE(&(ion->energy[t]), sizeof(double), 1, f);
+	    FWRITE(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
+	    FWRITE(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
+	    FWRITE(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
 	    double x = ion->iblock[t]->total_rate[q] - ion->iblock[t]->rc0[q];
-	    fwrite(&x, sizeof(double), 1, f);
+	    FWRITE(&x, sizeof(double), 1, f);
 	    x = ion->iblock[t]->rc1[q];
-	    fwrite(&x, sizeof(double), 1, f);	    
+	    FWRITE(&x, sizeof(double), 1, f);	    
 	  } else {
-	    fprintf(f, "%2d %6d %6d %6d %2d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
+	    sprintf(s, "%3d %6d %6d %6d %2d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
 		    ion->ibase[t], ion->vnl[t], ion->energy[t],
 		    ion->iblock[t]->n[q],
@@ -6651,12 +6697,13 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 		    ion->iblock[t]->r[q],
 		    ion->iblock[t]->total_rate[q]-ion->iblock[t]->rc0[q],
 		    ion->iblock[t]->rc1[q]);
+	    FWRITE(s, 1, strlen(s), f);
 	  }
 	}
       }
     }
   }
-  fclose(f);
+  FCLOSE(f);
   return 0;
 }
 
