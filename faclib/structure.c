@@ -83,7 +83,7 @@ static double diag_bcut = 5e-2;
 static int diag_nzm = 100;
 static int diag_nbm = 32;
 static double diag_bignore = 0.25;
-static int full_name = 0;
+static int full_name = 1;
 
 static int sym_pp = -1;
 static int sym_njj = 0;
