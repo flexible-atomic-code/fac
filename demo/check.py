@@ -48,7 +48,8 @@ def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
                                        rtol=rtols.get(key, 1.0e-5)):
                         _raise(i, key, actual, expected)
                 else:  # string array
-                    pass
+                    if not (actual == expected).all():
+                        raise ValueError('found in inconsistency in {}'.forma(key))
 
             elif isinstance(actual, list):  # list of np.ndarray
                 for ac, ex in zip(actual_bl[key], expected_bl[key]):
