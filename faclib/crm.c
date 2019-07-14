@@ -4280,64 +4280,71 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       StrNComplex(sp_hdr.icomplex, iblk->ncomplex);
       StrNComplex(sp_hdr.fcomplex, fblk->ncomplex);
       InitFile(f, &fhdr, &sp_hdr);
-      smax = 0.0;
-      for (m = 0; m < brts->rates->dim; m++) {
-	rt = (RATE *) ArrayGet(brts->rates, m);
-	if (k == 0 && 
-	    ion0.nionized > 0 &&
-	    (p = IonizedIndex(rt->i, 1)) >= 0 &&
-	    (q = IonizedIndex(rt->f, 1)) >= 0) {
-	  e = ion0.energy[p] - ion0.energy[q];
-	  p = ion0.ionized_map[0][p];
-	  q = ion0.ionized_map[0][q];
-	} else {
-	  p = rt->i;
-	  q = rt->f;
-	  e = ion->energy[p] - ion->energy[q];
-	}
-	if (rrc/10 == 1) {
-	  j = ion->ilev[rt->f];
-	  c = fblk->n[j];
-	} else {
-	  j = ion->ilev[rt->i];
-	  c = iblk->n[j];
-	}
-	if (c > 0.0) {
-	  r.lower = q;
-	  r.upper = p;
+#pragma omp parallel default(shared) private(smax, m, rt, p, q, e, j, c, r, a, b, s, rx, dev)
+      {
+	int  w = 0;
+	smax = 0.0;
+	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
+	  rt = (RATE *) ArrayGet(brts->rates, m);
+	  if (k == 0 && 
+	      ion0.nionized > 0 &&
+	      (p = IonizedIndex(rt->i, 1)) >= 0 &&
+	      (q = IonizedIndex(rt->f, 1)) >= 0) {
+	    e = ion0.energy[p] - ion0.energy[q];
+	    p = ion0.ionized_map[0][p];
+	    q = ion0.ionized_map[0][q];
+	  } else {
+	    p = rt->i;
+	    q = rt->f;
+	    e = ion->energy[p] - ion->energy[q];
+	  }
 	  if (rrc/10 == 1) {
-	    r.energy = -e;
-	    a = rt->dir*(ion->j[rt->i]+1.0);
-	    e *= HARTREE_EV;
-	    a *= factor/(e*e*(ion->j[rt->f]+1.0));
+	    j = ion->ilev[rt->f];
+	    c = fblk->n[j];
 	  } else {
-	    r.energy = e;
-	    a = rt->dir;
-	    if (rt->inv > 0.0 && photon_density > 0.0) {
-	      b = photon_density * rt->inv;
-	      b *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
-	      a += b;
+	    j = ion->ilev[rt->i];
+	    c = iblk->n[j];
+	  }
+	  if (c > 0.0) {
+	    r.lower = q;
+	    r.upper = p;
+	    if (rrc/10 == 1) {
+	      r.energy = -e;
+	      a = rt->dir*(ion->j[rt->i]+1.0);
+	      e *= HARTREE_EV;
+	      a *= factor/(e*e*(ion->j[rt->f]+1.0));
+	    } else {
+	      r.energy = e;
+	      a = rt->dir;
+	      if (rt->inv > 0.0 && photon_density > 0.0) {
+		b = photon_density * rt->inv;
+		b *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
+		a += b;
+	      }
 	    }
+	    r.strength = c * a;	    
+	    s = r.strength*e;
+	    if (s < strength_threshold*smax) continue;
+	    if (s > smax) smax = s;
+	    if (iuta) {
+	      dev = (RATE *) ArrayGet(brdev->rates, m);
+	      r.energy = dev->dir;
+	      rx.sdev = dev->inv;
+	    }
+	    r.rrate = a;
+	    if (_sp_trm == 0) {
+	      r.trate = iblk->total_rate[ion->ilev[rt->i]];
+	    } else {
+	      r.trate = iblk->total_rate[ion->ilev[rt->i]] +
+		fblk->total_rate[ion->ilev[rt->f]];
+	      r.trate += iblk->rc1[ion->ilev[rt->i]] -
+		iblk->rc0[ion->ilev[rt->i]];
+	      r.trate += fblk->rc1[ion->ilev[rt->f]] -
+		fblk->rc0[ion->ilev[rt->f]];
+	    }
+	    WriteSPRecord(f, &r, &rx);
 	  }
-	  r.strength = c * a;	    
-	  s = r.strength*e;
-	  if (s < strength_threshold*smax) continue;
-	  if (s > smax) smax = s;
-	  if (iuta) {
-	    dev = (RATE *) ArrayGet(brdev->rates, m);
-	    r.energy = dev->dir;
-	    rx.sdev = dev->inv;
-	  }
-	  r.rrate = a;
-	  if (_sp_trm == 0) {
-	    r.trate = iblk->total_rate[ion->ilev[rt->i]];
-	  } else {
-	    r.trate = iblk->total_rate[ion->ilev[rt->i]] +
-	      fblk->total_rate[ion->ilev[rt->f]];
-	    r.trate += iblk->rc1[ion->ilev[rt->i]]-iblk->rc0[ion->ilev[rt->i]];
-	    r.trate += fblk->rc1[ion->ilev[rt->f]]-fblk->rc0[ion->ilev[rt->f]];
-	  }
-	  WriteSPRecord(f, &r, &rx);
 	}
       }
       DeinitFile(f, &fhdr);
@@ -4356,25 +4363,30 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       StrNComplex(sp_hdr.icomplex, iblk->ncomplex);
       StrNComplex(sp_hdr.fcomplex, fblk->ncomplex);
       InitFile(f, &fhdr, &sp_hdr);
-      smax = 0.0;
-      for (m = 0; m < brts->rates->dim; m++) {
-	rt = (RATE *) ArrayGet(brts->rates, m);
-	p = rt->i;
-	q = rt->f;
-	e = ion->energy[p] - ion->energy[q];
-	j = ion->ilev[rt->i];
-	if (iblk->n[j] > 0.0) {
-	  r.lower = q;
-	  r.upper = p;
-	  r.energy = e;
-	  r.strength = electron_density * iblk->n[j] * rt->dir;
-	  s = r.strength * e;
-	  if (s < strength_threshold*smax) continue;
-	  if (s > smax) smax = s;
-	  rx.sdev = 0.0;
-	  r.rrate = rt->dir*electron_density;
-	  r.trate = iblk->total_rate[j];
-	  WriteSPRecord(f, &r, &rx);
+#pragma omp parallel default(shared) private(smax, m, rt, p, q, e, j, r, a, b, s, rx)
+      {
+	int  w = 0;
+	smax = 0.0;
+	for (m = 0; m < brts->rates->dim; m++) {
+	  if (SkipWMPI(w++)) continue;
+	  rt = (RATE *) ArrayGet(brts->rates, m);
+	  p = rt->i;
+	  q = rt->f;
+	  e = ion->energy[p] - ion->energy[q];
+	  j = ion->ilev[rt->i];
+	  if (iblk->n[j] > 0.0) {
+	    r.lower = q;
+	    r.upper = p;
+	    r.energy = e;
+	    r.strength = electron_density * iblk->n[j] * rt->dir;
+	    s = r.strength * e;
+	    if (s < strength_threshold*smax) continue;
+	    if (s > smax) smax = s;
+	    rx.sdev = 0.0;
+	    r.rrate = rt->dir*electron_density;
+	    r.trate = iblk->total_rate[j];
+	    WriteSPRecord(f, &r, &rx);
+	  }
 	}
       }
       DeinitFile(f, &fhdr);
