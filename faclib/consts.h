@@ -215,7 +215,7 @@
 #define STATES_BLOCK       2048
 
 /* radial */
-#define ORBITALS_BLOCK     1024
+#define ORBITALS_BLOCK     8192
 #define OPTSTABLE          0.5
 #define OPTTOL             3.0
 #define OPTNITER           512
@@ -240,7 +240,7 @@
 
 /* structure */
 #define MAX_HAMS           2000
-#define LEVELS_BLOCK       1024
+#define LEVELS_BLOCK       8192
 #define ANGZ_BLOCK         1024
 #define ANGZxZ_BLOCK       8192
 #define ANGZCUT            1E-5
