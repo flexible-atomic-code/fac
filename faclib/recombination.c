@@ -1025,11 +1025,13 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
       b = xegrid[ie+1]/xegrid[ie];
       d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
       b = log(b);
-      d = log(d);
-      z = (a + (4.5+nkl)*b)/(0.5*b+d);
-      if (a < 0 && z > 0) {
-	rqc[1] = z;
-	break;
+      d = log(d) + 0.5*b;
+      if (d > 0.05) {
+	z = (a + (4.5+nkl)*b)/d;
+	if (a < 0 && z > 0) {
+	  rqc[1] = z;
+	  break;
+	}
       }
     }
     RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
@@ -1247,7 +1249,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     tq[ie] = 0.0;
   }
   amax = 0.0;
-  double *rqp = NULL;
+  int kp0;
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     orb = GetOrbital(kb);
@@ -1270,7 +1272,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 	  nq = orb->n; 
 	  amax = a;
 	  eb0 = -(orb->energy);
-	  rqp = rq;
+	  kp0 = orb->kappa;
 	}
       }
       for (ie = 0; ie < n_egrid; ie++) {
@@ -1291,21 +1293,23 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
       b = xegrid[ie+1]/xegrid[ie];
       d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
       b = log(b);
-      d = log(d);
-      z = (a + (4.5+nkl)*b)/(0.5*b+d);
-      if (a < 0 && z > 0) {
-	rqc[1] = z;
-	break;
+      d = log(d) + 0.5*b;
+      if (d > 0.05) {
+	z = (a + (4.5+nkl)*b)/d;
+	if (a < 0 && z > 0) {
+	  rqc[1] = z;
+	  break;
+	}
       }
     }
     RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
-		      rqp, NULL, 0, &nkl);
+		      rq, NULL, 0, &nkl);
     ie++;
-    a = eb0*tq[ie]/rqp[ie];
+    a = eb0*tq[ie]/rq[ie];
     rqc[0] *= a;
     rqc[3] = eb0;
     for (ie++; ie < n_egrid; ie++) {
-      tq[ie] = a*(rqp[ie]/eb0);
+      tq[ie] = a*(rq[ie]/eb0);
     }
     for (ie = 0; ie < n_egrid; ie++) {
       a = (*eb) + egrid[ie];

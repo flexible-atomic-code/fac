@@ -83,6 +83,7 @@ static double usr_egrid[MAXNUSR];
 static double log_usr[MAXNUSR];
 static double xusr[MAXNUSR];
 static double log_xusr[MAXNUSR];
+#pragma omp threadprivate(xusr, log_xusr)
 
 static int n_egrid = 0;
 static double egrid[MAXNE];
@@ -758,12 +759,20 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
     if (qk_mode == QK_BED) {
       kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
       es = BEScale(kb, *te);
-      b0 = ((4.0*PI)/(*te))*qb*(lev1->ilev+1.0) - b0;      
+      b0 = ((4.0*PI)/(*te))*qb*(lev1->ilev+1.0) - b0;
+      int j0 = 0;
       for (j = 0; j < n_egrid; j++) {
 	qku[j] = qku[j]*logx[j] + 
 	  b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
 	qku[j] *= (x[j]/(es+x[j]));
-      }     
+	if (qku[j] <= 0) j0 = j+1;
+      }
+      if (j0 > 0) {
+	double aa = qku[j0]/(x[j0]-1.0);
+	for (j = 0; j < j0; j++) {
+	  qku[j] = aa*(x[j]-1.0);
+	}
+      }
       for (i = 0; i < n_egrid; i++) {
 	qke[i] = qku[i] - bethe*logx[i];
 	sigma[i] = qke[i];
@@ -910,10 +919,19 @@ int IonizeStrength(double *qku, double *qkc, double *te,
       }
       es = BEScale(kb0, *te);
       b0 = ((4.0*PI)/(*te))*cmax - b0;
+      int j0 = 0;
       for (j = 0; j < n_egrid; j++) {
 	c = b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
-	qku[j] = qku[j]*logx[j] + c;
-	qku[j] *= x[j]/(es+x[j]);
+	c0 = qku[j]*logx[j] + c;
+	c0 *= x[j]/(es+x[j]);
+	qku[j] = c0;
+	if (qku[j] <= 0) j0 = j+1;
+      }
+      if (j0 > 0) {
+	c = qku[j0]/(x[j0]-1.0);
+	for (j = 0; j < j0; j++) {
+	  qku[j] = c*(x[j]-1.0);
+	}
       }
       for (i = 0; i < n_egrid; i++) {
 	qke[i] = qku[i] - bethe*logx[i];
@@ -933,6 +951,14 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 	  log_xusr[i] = log(xusr[i]);
 	}
 	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
+      for (i = 0; i < n_egrid; i++) {
+	if (qku[i] < 0) {
+	  xusr[0] = 1+egrid[i]/(*te);
+	  log_xusr[0] = log(xusr[0]);
+	  CIRadialQkFromFit(NPARAMS, qkc, 1, xusr, log_xusr, &c0);
+	  qku[i] = c0;
+	}
       }
     } else {  
       for (i = 0; i < n_egrid; i++) {
