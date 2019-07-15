@@ -144,6 +144,7 @@ void InitArrayData(void *p, int n) {
 ** NOTE:        
 */
 int ArrayInit(ARRAY *a, int esize, int block) {
+  a->id[0] = '\0';
   a->esize = esize;
   a->block = block;
   a->bsize = ((int)esize)*((int)block);
@@ -160,6 +161,15 @@ int ArrayInit(ARRAY *a, int esize, int block) {
 #else  
   a->lock = NULL;
 #endif
+  return 0;
+}
+
+int ArrayInitID(ARRAY *a, int esize, int block, char *id) {
+  ArrayInit(a, esize, block);
+  if (id) {
+    a->id[MULTI_IDLEN-1] = '\0';
+    strncpy(a->id, id, MULTI_IDLEN-1);
+  }
   return 0;
 }
 

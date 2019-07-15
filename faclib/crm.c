@@ -361,21 +361,21 @@ int AddIon(int nele, double n, char *pref) {
 #endif
   ion.nlevels = 0;
   ion.ce_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.ce_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.ce_rates, sizeof(BLK_RATE), RATES_BLOCK, "CE");  
   ion.tr_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.tr_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.tr_rates, sizeof(BLK_RATE), RATES_BLOCK, "TR");
   ion.tr_sdev = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.tr_sdev, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.tr_sdev, sizeof(BLK_RATE), RATES_BLOCK, "TRD");
   ion.tr2_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.tr2_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.tr2_rates, sizeof(BLK_RATE), RATES_BLOCK, "TR2");
   ion.rr_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.rr_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.rr_rates, sizeof(BLK_RATE), RATES_BLOCK, "RR");
   ion.ci_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.ci_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.ci_rates, sizeof(BLK_RATE), RATES_BLOCK, "CI");
   ion.ai_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.ai_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.ai_rates, sizeof(BLK_RATE), RATES_BLOCK, "AI");
   ion.cx_rates = (ARRAY *) malloc(sizeof(ARRAY));
-  ArrayInit(ion.cx_rates, sizeof(BLK_RATE), RATES_BLOCK);
+  ArrayInitID(ion.cx_rates, sizeof(BLK_RATE), RATES_BLOCK, "CX");
 
   ion.KLN_min = 0;
   ion.KLN_max = -1;
@@ -4896,6 +4896,11 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   if (r->dir <= 0 && r->inv <= 0) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
+  if (isnan(r->dir) || isinf(r->dir) || isnan(r->inv) || isinf(r->inv)) {
+    MPrintf(-1, "NAN/INF rates: %s %d %d %d %g %g\n",
+	    rts->id, ion->nele, r->i, r->f, r->dir, r->inv);
+    return 1;
+  }
   if (irb == NULL) {
     for (i = 0; i < rts->dim; i++) {
       brt = (BLK_RATE *) ArrayGet(rts, i);

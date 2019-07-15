@@ -1789,7 +1789,7 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
 int WriteCERecord(TFILE *f, CE_RECORD *r) {
   int n;
   int m0, m = 0;
-
+    
   if (ce_header.ntransitions == 0) {
     SetLockMPI();
     if (ce_header.ntransitions == 0) {
@@ -6132,3 +6132,8 @@ void RecoupleRO(char *ifn, char *ofn, char *rfn) {
   free(lsj->k);
   free(lsj->w);
 }
+
+void SetOptionDBase(char *s, char *sp, int ip, double dp) {
+  
+}
+

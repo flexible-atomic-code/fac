@@ -183,6 +183,7 @@ void InitMultiStats(void);
 void ReportMultiStats(void);
 void RemoveMultiLocks(void);
 int   ArrayInit(ARRAY *a, int esize, int block);
+int ArrayInitID(ARRAY *a, int esize, int block, char *id);
 void *ArrayGet(ARRAY *a, int i);
 void *ArraySet(ARRAY *a, int i, void *d, 
 	       void (*InitData)(void *, int));
