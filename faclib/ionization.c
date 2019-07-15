@@ -767,7 +767,7 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
 	qku[j] *= (x[j]/(es+x[j]));
 	if (qku[j] <= 0) j0 = j+1;
       }
-      if (j0 > 0) {
+      if (j0 > 0 && j0 < n_egrid) {
 	double aa = qku[j0]/(x[j0]-1.0);
 	for (j = 0; j < j0; j++) {
 	  qku[j] = aa*(x[j]-1.0);
@@ -927,7 +927,7 @@ int IonizeStrength(double *qku, double *qkc, double *te,
 	qku[j] = c0;
 	if (qku[j] <= 0) j0 = j+1;
       }
-      if (j0 > 0) {
+      if (j0 > 0 && j0 < n_egrid) {
 	c = qku[j0]/(x[j0]-1.0);
 	for (j = 0; j < j0; j++) {
 	  qku[j] = c*(x[j]-1.0);
