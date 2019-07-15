@@ -100,6 +100,10 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
 }
 
 void SetOption(char *s, char *sp, int ip, double dp) {
+  if (strstr(s, "dbase:") == s) {
+    SetOptionDBase(s, sp, ip, dp);
+    return;
+  }
   if (strstr(s, "mbpt:") == s) {
     SetOptionMBPT(s, sp, ip, dp);
     return;
