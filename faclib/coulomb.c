@@ -559,7 +559,7 @@ void PrepCBIndex(void) {
       _cbindex[t-1][q] = i;
       i++;
     }
-  }
+  } 
 }
 
 /* calculates the Coulomb Bethe contributions from L to Inf. */
@@ -569,6 +569,12 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
 
   i = n-1;
   r = w3[i];
+  if (r > 0.999999 || r < 0) {
+    for (j = 0; j < nkl; j++) {
+      tcb[j] = 0.0;
+    }
+    return 0;
+  }
   tn = r/(1.0-r);
   for (j = nkl - 1; j > 0; j--) {
     k = kl[j];
@@ -578,7 +584,10 @@ int CoulombBetheTail(int n, double *w3, int nkl, double *kl, double *tcb) {
       a = 1.0;
       b = 0.0;
       for (p = k; p < i; p++) {
-	a *= w3[p];
+	double c = w3[p];
+	if (c > 0.999999) c = 0.999999;
+	else if (c < 0) c = 0.0;
+	a *= c;
 	b += a;
       }
       b += a*tn;
@@ -684,6 +693,9 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
 	for (i = 0; i < MAXNCB; i++) {
 	  free(_cb[ie2][ite][ie1][i]);
 	  _cb[ie2][ite][ie1][i] = malloc(sizeof(double)*nkl);
+	  for (ik = 0; ik < nkl; ik++) {
+	    _cb[ie2][ite][ie1][i][ik] = 0.0;
+	  }
 	}
       }
     }
