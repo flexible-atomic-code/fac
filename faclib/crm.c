@@ -3953,12 +3953,12 @@ double BlockRelaxation(int iter) {
     if (rec_cascade && iter >= 0) {
       if (blk1->rec) continue;
     }
-    
+    double tbr = fabs(bmatrix[k*blocks->dim+k]);
     if (blk1->nlevels == 1) {
       blk1->r[0] = 1.0;      
-      a = blk1->nb;
-      bd += fabs(a-blk1->n0[0]);
-      tbd += a;
+      a = blk1->nb;      
+      bd += fabs(a-blk1->n0[0])*tbr;
+      tbd += a*tbr;
       blk1->n[0] = a;
     } else {
       a = 0.0;
@@ -3970,8 +3970,8 @@ double BlockRelaxation(int iter) {
 	  blk1->n[m] = 0.0;
 	}
       }
-      bd += fabs(a - blk1->nb);
-      tbd += blk1->nb;
+      bd += fabs(a - blk1->nb)*tbr;
+      tbd += blk1->nb*tbr;
       if (a) {
 	if (norm_mode > 1 && iter >= 0 && blk1->nb > 0) {
 	  a = blk1->nb/a;
