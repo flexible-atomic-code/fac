@@ -286,8 +286,8 @@
 /* grid */
 #define MAXNKL             50
 #define MAXKL              512
-#define MAXNUSR            20
-#define MAXNE              10
+#define MAXNUSR            32
+#define MAXNE              32
 #define MAXNTE             6
 #define MAXNTHETA          30
 #define MAXNPHI            60
