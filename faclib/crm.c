@@ -1417,9 +1417,9 @@ static int CompareENRecord(const void *p0, const void *p1) {
   } else if (r0->j > r1->j) {
     return -1;
   } else {
-    if (r0->p < r1->p) {
+    if (r0->p < 0 && 0 < r1->p) {
       return -1;
-    } else if (r0->p > r1->p) {
+    } else if (r0->p > 0 && 0 > r1->p) {
       return 1;
     } else {
       if (r0->energy < r1->energy) {
@@ -1500,7 +1500,6 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     } else {      
       nk0++;
     }
-    //printf("nv0: %d %d %d %d %d %s\n", i, j, nv, mk1[j], nk0, r0[i].sname);
   }
   int nk1 = 0;
   for (i = 0; i < n1; i++) {
@@ -1512,14 +1511,91 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     } else {
       nk1++;
     }
-    //printf("nv1: %d %d %d %d %d %s\n", i, j, nv, mk1[j], nk1, r1[i].sname);
   }
-
-  if (nk0 != nk1) return -1;
 
   qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
   qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
 
+  double eb0=0, eb1=0, w0=0,w1=0;
+  for (i = 0; i < nk0; i++) {
+    eb0 += (r0[i].j+1)*r0[i].energy;
+    w0 += r0[i].j+1;
+  }
+  for (i = 0; i < nk1; i++) {
+    eb1 += (r1[i].j+1)*r1[i].energy;
+    w1 += r1[i].j+1;
+  }
+  eb0 /= w0;
+  eb1 /= w1;
+  int na0, nb0, na1, nb1;
+  na0 = 0;
+  while (na0 < nk0) {
+    for (na1 = na0; na1 < nk0; na1++) {
+      if (r0[na1].j != r0[na0].j || r0[na1].p*r0[na0].p < 0) break;
+    }
+    for (nb0 = 0; nb0 < nk1; nb0++) {
+      if (r1[nb0].j == r0[na0].j && r1[nb0].p*r0[na0].p > 0) break;
+    }
+    for (nb1 = nb0; nb1 < nk1; nb1++) {
+      if (r1[nb1].j != r1[nb0].j || r1[nb1].p*r1[nb0].p < 0) break;
+    }
+    int ni0 = na1-na0;
+    int ni1 = nb1-nb0;
+    double de0 = eb1-eb0;
+    double de;
+    if (ni0 < ni1) {
+      j = nb0;
+      for (i = 0; i < ni0; i++) {
+	for (; j < nb1; j++) {
+	  de = de0+r0[i+na0].energy-r1[j].energy;
+	  if (0 == strcmp(r0[i+na0].sname, r1[j].sname) &&
+	      0 == strcmp(r0[i+na0].name, r1[j].name) &&
+	      fabs(de) < 0.2) {
+	    j++;
+	    break;
+	  } else {
+	    r1[j].j = -(r1[j].j+1);
+	  }
+	}
+      }
+      for (; j < nb1; j++) {
+	r1[j].j = -(r1[j].j+1);
+      }
+    } else if (ni0 > ni1) {
+      j = na0;
+      for (i = 0; i < ni1; i++) {
+	for(; j < na1; j++) {
+	  de = de0+r0[j].energy-r1[i+nb0].energy;
+	  if (0 == strcmp(r0[j].sname, r1[i+nb0].sname) &&
+	      0 == strcmp(r0[j].name, r1[i+nb0].name) &&
+	      fabs(de) < 0.2) {
+	    j++;
+	    break;
+	  } else {
+	    r0[j].j = -(r0[j].j+1);
+	  }
+	}
+      }
+      for (; j < na1; j++) {
+	r0[j].j = -(r0[j].j+1);
+      }
+    }
+    na0 = na1;
+  }  
+  qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
+  nk0 = 0;
+  nk1 = 0;
+  for (i = 0; i < n0; i++) {
+    if (r0[i].j < 0) break;
+  }
+  nk0 = i;
+  for (i = 0; i < n1; i++) {
+    if (r1[i].j < 0) break;
+  }
+  nk1 = i;
+
+  if (nk0 != nk1) return -1;
   int n = nk0;
   EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
   j = 0;
