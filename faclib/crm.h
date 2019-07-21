@@ -141,7 +141,7 @@ int ReinitCRM(int m);
 int AddIon(int nele, double n, char *pref);
 int IonIndex(ION *ion, int i, int k);
 int IonizedIndex(int i, int m);
-int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1, 
+int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
 		   int nele, char *ifn);
 void GetRecombined(int *b, int *nrec, char *name);
 int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);

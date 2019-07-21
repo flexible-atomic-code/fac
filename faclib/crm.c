@@ -1030,20 +1030,25 @@ int SetBlocks(double ni, char *ifn) {
 	    }
 	  }
 	}
-
+	int nilev = h.nlevels;
 	if (ifn) {
-	  r1 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*h.nlevels);
-	  nlevels = FindLevelBlock(h.nlevels, r0, r1, ion->nele-1, ifn); 
-	  if (nlevels != h.nlevels) {
+	  int nr1 = h.nlevels*5;
+	  r1 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*nr1);
+	  nilev = FindLevelBlock(h.nlevels, r0, nr1, r1, ion->nele-1, ifn); 
+	  if (nilev <= 0) {
 	    printf("ERROR: Ionized block %d of ion %d ", nb, ion->nele);
 	    printf("does not match a block in file %s\n", ifn);
-	    printf("nlevels = %d VS %d\n", h.nlevels, nlevels);
-	    exit(1);
+	    printf("nlevels = %d VS %d\n", h.nlevels, nilev);
+	    Abort(1);
 	  }
 	}
 	if (k > 0) {
 	  for (i = 0; i < h.nlevels; i++) {
 	    p = r0[i].ilev;
+	    if (i >= nilev) {
+	      ion->iblock[p] = NULL;
+	      continue;
+	    }
 	    q = r1[i].ilev;
 	    ion1->iblock[q]->ionized = 1;
 	    ion->iblock[p] = ion1->iblock[q];
@@ -1143,17 +1148,22 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->ibase[p] = -1;
 	    ion->energy[p] = r0[i].energy;
 	    if (ifn) {
-	      if (r1[i].ilev > ion0.imax[0]) ion0.imax[0] = r1[i].ilev;
-	      if (r0[i].ilev > ion0.imax[1]) ion0.imax[1] = r0[i].ilev;
-	      if (r1[i].ilev < ion0.imin[0]) ion0.imin[0] = r1[i].ilev;
-	      if (r0[i].ilev < ion0.imin[1]) ion0.imin[1] = r0[i].ilev;
-	      ion0.ionized_map[0][n0] = r1[i].ilev;
-	      ion0.ionized_map[1][n0] = r0[i].ilev;
-	      ion0.energy[n0] = r1[i].energy;
-	      n0++;
+	      if (i < nilev) {
+		if (r1[i].ilev > ion0.imax[0]) ion0.imax[0] = r1[i].ilev;
+		if (r0[i].ilev > ion0.imax[1]) ion0.imax[1] = r0[i].ilev;
+		if (r1[i].ilev < ion0.imin[0]) ion0.imin[0] = r1[i].ilev;
+		if (r0[i].ilev < ion0.imin[1]) ion0.imin[1] = r0[i].ilev;
+		ion0.ionized_map[0][n0] = r1[i].ilev;
+		ion0.ionized_map[1][n0] = r0[i].ilev;
+		ion0.energy[n0] = r1[i].energy;
+		n0++;
+	      } else {
+		ion->iblock[p] = NULL;	      
+	      }
 	    }
 	  }
 	}
+	ion0.nionized = n0;
 	if (nb0 == 0) ion->iground = r0[0].ilev;
 	if (ifn) {
 	  free(r1);
@@ -1387,9 +1397,9 @@ static int CompareENRecordEnergy(const void *p0, const void *p1) {
   
   r0 = (EN_RECORD *) p0;
   r1 = (EN_RECORD *) p1;
-  if (r0->ilev < r1->ilev) {
+  if (r0->energy < r1->energy) {
     return -1;
-  } else if (r0->ilev > r1->ilev) {
+  } else if (r0->energy > r1->energy) {
     return 1;
   } else {
     return 0;
@@ -1403,9 +1413,9 @@ static int CompareENRecord(const void *p0, const void *p1) {
   r1 = (EN_RECORD *) p1;
   
   if (r0->j < r1->j) {
-    return -1;
-  } else if (r0->j > r1->j) {
     return 1;
+  } else if (r0->j > r1->j) {
+    return -1;
   } else {
     if (r0->p < r1->p) {
       return -1;
@@ -1423,14 +1433,15 @@ static int CompareENRecord(const void *p0, const void *p1) {
   }
 }
 
-int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1, 
+int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
 		   int nele, char *ifn) {
   F_HEADER fh;
   EN_HEADER h;
   EN_RECORD g;
   TFILE *f;
-  int i, k, j, nr, nb;
+  int i, k, j, nr, nb, nv;
   int swp, sfh;
+  int mk0[1024], mk1[1024];
 
   f = OpenFileRO(ifn, &fh, &swp);
   if (f == NULL) {
@@ -1441,6 +1452,17 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
   if (VersionLE((&fh), 1, 0, 8)) sfh = sizeof(F_HEADER);
   else sfh = SIZE_F_HEADER;
 
+  for (i = 0; i < 1024; i++) {
+    mk0[i] = -1;
+    mk1[i] = -1;
+  }
+  for (i = 0; i < n0; i++) {
+    nv = abs(r0[i].p);    
+    j = nv/100;
+    nv = nv%100;
+    if (mk0[j] < nv) mk0[j] = nv;
+  }
+  
   k = 0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     nr = ReadENHeader(f, &h, swp);
@@ -1451,47 +1473,54 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
     for (i = 0; i < h.nlevels; i++) {
       nr = ReadENRecord(f, &r1[k], swp);
       if (strcmp(r1[k].ncomplex, r0[0].ncomplex) == 0) {
-	k++;
-	if (k == n) break;
+	nv = abs(r1[k].p);
+	j = nv/100;
+	nv = nv%100;
+	if (mk0[j] >= nv) {
+	  if (mk1[j] < nv) mk1[j] = nv;	
+	  k++;
+	  if (k == n1) break;
+	}
       }
     }
-    if (k == n) break;
+    if (k == n1) break;
   }
-
-  if (k < n) {
-    FSEEK(f, sfh, SEEK_SET);
-    nr = ReadENHeader(f, &h, swp);
-    j = h.nlevels;
-    for (i = 0; i < h.nlevels; i++) {
-      nr = ReadENRecord(f, &r1[k], swp);
-      if (strcmp(r1[k].ncomplex, r0[0].ncomplex) != 0) j--;
-      if (j < n) {
-	k++;
-	if (k == n) break;
-      }
-    }
-  }
-
-  if (k != n) return k;
-
-  memcpy(&g, r0, sizeof(EN_RECORD));
-  qsort(r0, n, sizeof(EN_RECORD), CompareENRecord);
-  qsort(r1, k, sizeof(EN_RECORD), CompareENRecord);
-  for (i = 0; i < n; i++) {
-    if (g.ilev == r0[i].ilev) {
-      if (i != 0) {
-	memcpy(&(r0[i]), r0, sizeof(EN_RECORD));
-	memcpy(r0, &g, sizeof(EN_RECORD));
-	memcpy(&g, &(r1[i]), sizeof(EN_RECORD));
-	memcpy(&(r1[i]), r1, sizeof(EN_RECORD));
-	memcpy(r1, &g, sizeof(EN_RECORD));
-      }
-      break;
-    }
-  }
-
   FCLOSE(f);
+  n1 = k;
+  for (i = 0; i < 1024; i++) {
+    if (mk1[i] > mk0[i]) mk1[i] = mk0[i];
+  }
+  int nk0 = 0;
+  for (i = 0; i < n0; i++) {
+    nv = abs(r0[i].p);
+    j = nv/100;
+    nv = nv%100;
+    if (nv > mk1[j]) {
+      r0[i].j = -(r0[i].j+1);
+    } else {      
+      nk0++;
+    }
+    //printf("nv0: %d %d %d %d %d %s\n", i, j, nv, mk1[j], nk0, r0[i].sname);
+  }
+  int nk1 = 0;
+  for (i = 0; i < n1; i++) {
+    nv = abs(r1[i].p);
+    j = nv/100;
+    nv = nv%100;
+    if (nv > mk1[j]) {
+      r1[i].j = -(r1[i].j+1);
+    } else {
+      nk1++;
+    }
+    //printf("nv1: %d %d %d %d %d %s\n", i, j, nv, mk1[j], nk1, r1[i].sname);
+  }
 
+  if (nk0 != nk1) return -1;
+
+  qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
+
+  int n = nk0;
   EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
   j = 0;
   for (i = 0; i < n; i++, j+=2) {
@@ -1505,6 +1534,12 @@ int FindLevelBlock(int n, EN_RECORD *r0, EN_RECORD *r1,
     r1[i] = r2[j+1];
   }
   free(r2);
+  for (i = n; i < n0; i++) {
+    r0[i].j = -(r0[i].j+1);
+  }
+  for (i = n; i < n1; i++) {
+    r1[i].j = -(r1[i].j+1);
+  }
   return n;
 }
 
@@ -2145,6 +2180,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
        n0,r array used in the BlockRelaxation is no longer needed, overwriting. */
     for (i = 0; i < ion->nlevels; i++) {
       blk = ion->iblock[i];
+      if (blk == NULL) continue;
       q = ion->ilev[i];
       blk->n0[q] = ion->j[i] + 1.0;
       blk->r[q] = ion->energy[i] - e0;
@@ -2157,6 +2193,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m);
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
@@ -2252,6 +2289,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m);
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
@@ -2346,6 +2384,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m);
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	if (blk == blk1 && !ic[i]) continue;
@@ -2397,6 +2436,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m); 
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
@@ -2491,6 +2531,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m); 
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
@@ -2584,6 +2625,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
 	r = (RATE *) ArrayGet(brts->rates, m); 
 	blk = ion->iblock[r->i];
 	blk1 = ion->iblock[r->f];
+	if (blk == NULL || blk1 == NULL) continue;
 	i = blk->ib;
 	j = blk1->ib;
 	den = blk->n[ion->ilev[r->i]];
@@ -3078,8 +3120,10 @@ void FixNorm(int m) {
       den = ion->n0;
       if (den+1 != 1) {
 	blk1 = ion->iblock[0];
-	p = blk1->ib;
-	x[p] = den;
+	if (blk1 != NULL) {
+	  p = blk1->ib;
+	  x[p] = den;
+	}
       }
     }
   } else if (norm_mode == 2) {
@@ -3181,6 +3225,8 @@ int BlockMatrix(void) {
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
+	  if (ion->iblock[r->i] == NULL ||
+	      ion->iblock[r->f] == NULL) continue;	      
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
@@ -3238,6 +3284,8 @@ int BlockMatrix(void) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
@@ -3311,6 +3359,8 @@ int BlockMatrix(void) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
@@ -3347,6 +3397,8 @@ int BlockMatrix(void) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m); 
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
@@ -3405,6 +3457,8 @@ int BlockMatrix(void) {
 	  for (m = 0; m < brts->rates->dim; m++) {
 	    if (SkipWMPI(w++)) continue;
 	    r = (RATE *) ArrayGet(brts->rates, m); 
+	    if (ion->iblock[r->i] == NULL ||
+		ion->iblock[r->f] == NULL) continue;
 	    i = ion->iblock[r->i]->ib;
 	    j = ion->iblock[r->f]->ib;
 	    den = blk1->r[ion->ilev[r->i]];
@@ -3442,6 +3496,8 @@ int BlockMatrix(void) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m); 
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	j = ion->iblock[r->f]->ib;
 	den = blk1->r[ion->ilev[r->i]];
@@ -3499,6 +3555,8 @@ int BlockMatrix(void) {
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m); 
+	  if (ion->iblock[r->i] == NULL ||
+	      ion->iblock[r->f] == NULL) continue;
 	  i = ion->iblock[r->i]->ib;
 	  j = ion->iblock[r->f]->ib;
 	  den = blk1->r[ion->ilev[r->i]];
@@ -3740,6 +3798,8 @@ double BlockRelaxation(int iter) {
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
+	  if (ion->iblock[r->i] == NULL ||
+	      ion->iblock[r->f] == NULL) continue;
 	  i = ion->iblock[r->i]->ib;
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
@@ -3772,6 +3832,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
@@ -3808,6 +3870,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
@@ -3833,6 +3897,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
@@ -3864,6 +3930,8 @@ double BlockRelaxation(int iter) {
 	  for (m = 0; m < brts->rates->dim; m++) {
 	    if (SkipWMPI(w++)) continue;
 	    r = (RATE *) ArrayGet(brts->rates, m);
+	    if (ion->iblock[r->i] == NULL ||
+		ion->iblock[r->f] == NULL) continue;
 	    i = ion->iblock[r->i]->ib;
 	    p = ion->ilev[r->i];
 	    j = ion->iblock[r->f]->ib;
@@ -3890,6 +3958,8 @@ double BlockRelaxation(int iter) {
       for (m = 0; m < brts->rates->dim; m++) {
 	if (SkipWMPI(w++)) continue;
 	r = (RATE *) ArrayGet(brts->rates, m);
+	if (ion->iblock[r->i] == NULL ||
+	    ion->iblock[r->f] == NULL) continue;
 	i = ion->iblock[r->i]->ib;
 	p = ion->ilev[r->i];
 	j = ion->iblock[r->f]->ib;
@@ -3922,6 +3992,8 @@ double BlockRelaxation(int iter) {
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
+	  if (ion->iblock[r->i] == NULL ||
+	      ion->iblock[r->f] == NULL) continue;
 	  i = ion->iblock[r->i]->ib;
 	  p = ion->ilev[r->i];
 	  j = ion->iblock[r->f]->ib;
@@ -4896,6 +4968,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   if (r->dir <= 0 && r->inv <= 0) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
+  if (ib == NULL || fb == NULL) return 1;
   if (isnan(r->dir) || isinf(r->dir) || isnan(r->inv) || isinf(r->inv)) {
     MPrintf(-1, "NAN/INF rates: %s %d %d %d %g %g\n",
 	    rts->id, ion->nele, r->i, r->f, r->dir, r->inv);
@@ -5676,6 +5749,7 @@ int SetTRRates(int inv) {
 	      rt[jb].inv = 0;
 	      rt[jb].i = r[jb].upper;
 	      if (ion0.n < 0) {
+		if (ion->iblock[r[jb].upper] == NULL) continue;
 		ib = ion->iblock[r[jb].upper];
 		if (ib->rec &&
 		    ib->rec->nrec[ib->irec] > 10) {
@@ -6187,7 +6261,7 @@ int SetAIRates(int inv) {
 		  continue;
 		}
 	      } else if (inner_auger == 4) {
-		if (ion->iblock[r[jb].b]->ionized) {
+		if (ion->iblock[r[jb].b] && ion->iblock[r[jb].b]->ionized) {
 		  ib = IonIndex(ion1, ion->iblock[r[jb].b]->ib,
 				ion->ilev[r[jb].b]);
 		  if (ib <= ion1->KLN_bmax && ib >= ion1->KLN_bmin) {
@@ -6382,6 +6456,7 @@ int DRStrength(char *fn, int nele, int mode, int ilev0) {
 	hdr.ilev = ion->iground;
 	for (t = 0; t < ion->nlevels; t++) {
 	  blk1 = ion->iblock[t];
+	  if (blk1 == NULL) continue;
 	  p = ion->ilev[t];
 	  r1.br = blk1->r[p];
 	  if (mode == -2) r1.br = 1.0 - r1.br;
