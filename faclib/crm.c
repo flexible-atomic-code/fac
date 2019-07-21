@@ -1596,6 +1596,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
   nk1 = i;
 
   if (nk0 != nk1) return -1;
+  
   int n = nk0;
   EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
   j = 0;
