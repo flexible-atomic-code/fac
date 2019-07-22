@@ -4111,6 +4111,7 @@ int SaveLevels(char *fn, int m, int n) {
     si = lev->pb;
     sym = GetSymmetry(lev->pj);
     s = (STATE *) ArrayGet(&(sym->states), si);
+    int ecorr = 0;
     if (ncorrections > 0) {
       for (p = 0; p < ecorrections->dim; p++) {
 	ec = (ECORRECTION *) ArrayGet(ecorrections, p);
@@ -4125,6 +4126,7 @@ int SaveLevels(char *fn, int m, int n) {
 	  ec->s = s;
 	  ec->ilev = -(ec->ilev+1);
 	  ncorrections -= 1;
+	  ecorr = 1;
 	  break;
 	}
       }
@@ -4202,7 +4204,7 @@ int SaveLevels(char *fn, int m, int n) {
 	}
       }
 
-      if (lev->ibase >= 0) {
+      if (!ecorr && lev->ibase >= 0) {
 	for (p = 0; p < ecorrections->dim; p++) {
 	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
 	  if (-(i+1) == ec->ilev) break;
