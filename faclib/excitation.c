@@ -390,7 +390,11 @@ int SetAngleGrid(int m, int n, double xmin, double xmax) {
 }
 
 void SetCELQR(int m) {
-  pw_scratch.qr = m;
+  if (m >= 0) {
+    pw_scratch.qr = m;
+  } else {
+    pw_scratch.qr = 1000000;
+  }
 }
 
 void SetCELMax(int m) {
@@ -406,7 +410,11 @@ void SetCETol(double t) {
 }
 
 int SetCEPWOptions(int qr, int max, int kl_cb, double tol) {
-  pw_scratch.qr = qr;
+  if (qr >= 0) {
+    pw_scratch.qr = qr;
+  } else {
+    pw_scratch.qr = 1000000;
+  }
   if (max > MAXKL) {
     printf("The maximum partial wave reached in Excitation: %d > %d\n", 
 	   max, MAXKL);

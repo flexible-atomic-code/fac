@@ -152,7 +152,11 @@ int SetCIMaxK(int k) {
 }
 
 void SetCILQR(int m) {
-  pw_scratch.qr = m;
+  if (m >= 0) {
+    pw_scratch.qr = m;
+  } else {
+    pw_scratch.qr = 1000000;
+  }
 }
 
 void SetCILMax(int m) {
@@ -172,7 +176,11 @@ void SetCITol(double t) {
 }
 
 int SetCIPWOptions(int qr, int max, int max_eject, int kl_cb, double tol) {
-  pw_scratch.qr = qr;
+  if (qr >= 0) {
+    pw_scratch.qr = qr;
+  } else {
+    pw_scratch.qr = 1000000;
+  }
   if (max > MAXKL) {
     printf("The maximum partial wave reached in Ionization: %d\n", MAXKL);
     exit(1);
