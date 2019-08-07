@@ -5461,6 +5461,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   orb2 = GetOrbitalSolved(k2);
   orb3 = GetOrbitalSolved(k3);
 
+  int mode0 = mode;
   if (orb0->n <= 0) {
     maxn = -1;
   } else {
@@ -5597,13 +5598,14 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	  d += 0.25*v1[1]*v2[1]/am;
 	}
       }
-      if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
+      if (mode0 != -1 && (qed.br < 0 || (maxn > 0 && maxn <= qed.br))) {
 	if (qed.minbr <= 0 || minn <= qed.minbr) {
 	  int mbr = qed.mbr;
 	  if (qed.nbr > 0 && (maxn <= 0 || maxn > qed.nbr)) mbr = 0;
-	  d += Breit(k0, k1, k2, k3, kk,
-		     orb0->kappa, orb1->kappa, orb2->kappa, orb3->kappa,
-		     kl0, kl1, kl2, kl3, mbr);
+	  double dbr = Breit(k0, k1, k2, k3, kk,
+			     orb0->kappa, orb1->kappa, orb2->kappa, orb3->kappa,
+			     kl0, kl1, kl2, kl3, mbr);
+	  d += dbr;
 	}
       }
       if (d) {
@@ -5683,13 +5685,14 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	  e += 0.25*v1[1]*v2[1]/am;
 	}
       }
-      if (qed.br < 0 || (maxn > 0 && maxn <= qed.br)) {
+      if (mode0 != -1 && (qed.br < 0 || (maxn > 0 && maxn <= qed.br))) {
 	if (qed.minbr <= 0 || minn <= qed.minbr) {
 	  int mbr = qed.mbr;
 	  if (qed.nbr > 0 && (maxn <= 0 || maxn > qed.nbr)) mbr = 0;
-	  e += Breit(k0, k1, k3, k2, t/2,
-		     orb0->kappa, orb1->kappa, orb3->kappa, orb2->kappa,
-		     kl0, kl1, kl3, kl2, mbr);
+	  double ebr = Breit(k0, k1, k3, k2, t/2,
+			     orb0->kappa, orb1->kappa, orb3->kappa, orb2->kappa,
+			     kl0, kl1, kl3, kl2, mbr);
+	  e += ebr;
 	}
       }
       if (e) {
