@@ -64,6 +64,8 @@ static int _lblock_block = LBLOCK_BLOCK;
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
+static INTERPSP _interpsp;
+
 #pragma omp threadprivate(_ce_data, _rr_data)
 
 int NormalizeMode(int i) {
@@ -133,7 +135,13 @@ int InitCRM(void) {
   blocks = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(blocks, sizeof(LBLOCK), _lblock_block);
   bmatrix = NULL;
-  
+
+  _interpsp.nd = 0;
+  _interpsp.nt = 0;
+  _interpsp.r = NULL;
+  _interpsp.xd = NULL;
+  _interpsp.xt = NULL;
+
   InitDBase();
   InitRates();
   InitCoulomb();
@@ -4916,18 +4924,23 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       int w = 0;
       for (i = 0; i < nsp; i++) {
 	if (SkipWMPI(w++)) continue;
-	if (sp[i] > 0.0) {
+	if (sp[i] > 0) {
 	  wsp[i] /= sp[i];
 	  wsp[i] = sqrt(wsp[i]*wsp[i] + ade0*ade0);
 	  wsp[i] /= de;
 	  int km = (int)(wsp[i]*512);
+	  double fsp = 512.0/km;
 	  int km2 = km/2;
 	  for (m = i-km2, k = 0; k < km; k++, m++) {
-	    int kk = (int)(256+(k-km2)/wsp[i]);
-	    if (kk >= 0 && kk < 512) {
-	      if (m > 0 && m < nsp) {
+	    if (m >= 0 && m < nsp) {
+	      double dk = (256+(k-km2)*fsp);
+	      double fk = 0.0;
+	      if (dk >= 0 && dk < 511) {
+		int kk = (int)dk;
+		int kk1 = kk+1;
+		fk = kernel[kk]*(kk1-dk) + kernel[kk1]*(dk-kk);
 #pragma omp atomic
-		tsp[m] += sp[i]*kernel[kk];
+		tsp[m] += sp[i]*fk;
 	      }
 	    }
 	  }
@@ -7563,4 +7576,365 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _lblock_block = ip;
     return;
   }
+}
+
+void FreeLineRec(LINEREC *r) {
+  if (r->nr > 0) {
+    free(r->e);
+    free(r->s);
+    free(r->w);
+    r->e = NULL;
+    r->s = NULL;
+    r->w = NULL;
+  }
+  r->nele = -1;
+}
+
+void PrepInterpSpec(int nd, double d0, double d1, int ds,
+		    int nt, double t0, double t1, int ts,
+		    double smin, double maxmem, char *fn) {
+  int i, j;
+  if (_interpsp.r) {
+    for (i = 0; i < _interpsp.nd; i++) {
+      for (j = 0; j < _interpsp.nt; j++) {
+	FreeLineRec(&_interpsp.r[i][j]);
+      }
+      free(_interpsp.r[i]);
+    }
+    free(_interpsp.r);  
+    if (_interpsp.xd) free(_interpsp.xd);
+    if (_interpsp.xt) free(_interpsp.xt);
+  }
+  _interpsp.r = NULL;
+  _interpsp.xd = NULL;
+  _interpsp.xt = NULL;
+
+  _interpsp.smin = smin;
+  _interpsp.nd = nd;
+  _interpsp.nt = nt;
+  _interpsp.ds = ds;
+  _interpsp.ts = ts;
+  if (ds >= 0) {
+    _interpsp.xd = malloc(sizeof(double)*nd);
+    if (ds > 0) {
+      d0 = log(d0);
+      d1 = log(d1);
+    }
+    _interpsp.xd[0] = d0;
+    if (nd > 1) {
+      double dd = (d1-d0)/(nd-1);
+      for (i = 1; i < nd; i++) {
+	_interpsp.xd[i] = _interpsp.xd[i-1]+dd;
+      }
+    }
+  }
+  if (ts >= 0) {
+    _interpsp.xt = malloc(sizeof(double)*nt);
+    if (ts > 0) {
+      t0 = log(t0);
+      t1 = log(t1);
+    }
+    _interpsp.xt[0] = t0;
+    if (nt > 1) {
+      double dt = (t1-t0)/(nt-1);
+      for (j = 1; j < nt; j++) {
+	_interpsp.xt[i] = _interpsp.xt[i-1]+dt;
+      }
+    }
+  }
+  strcpy(_interpsp.fn, fn);
+  _interpsp.r = malloc(sizeof(LINEREC *)*nd);
+  for (i = 0; i < nd; i++) {
+    _interpsp.r[i] = malloc(sizeof(LINEREC)*nt);
+    for (j = 0; j < nt; j++) {
+      _interpsp.r[i][j].nele = -1;
+      _interpsp.r[i][j].nr = 0;
+      _interpsp.r[i][j].e = NULL;
+      _interpsp.r[i][j].s = NULL;
+      _interpsp.r[i][j].w = NULL;
+    }
+  }
+  _interpsp.tsize = 0;
+  _interpsp.maxmem = maxmem*1e9;
+}
+
+void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
+		  double d, double t, double s,
+		  int n, double emin, double emax) {
+  FILE *f;
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  double de = (emax-emin)/(n-1);
+  double *x, *y;
+  x = malloc(sizeof(double)*n);
+  y = malloc(sizeof(double)*n);
+  x[0] = emin;
+  int i;
+  for (i = 1; i < n; i++) {
+    x[i] = x[i-1] += de;
+  }
+  InterpSpec(nele, type, nmin, nmax, d, t, s, n, x, y);
+  for (i = 0; i < n; i++) {
+    fprintf(f, "%12.5E %12.5E\n", x[i], y[i]);
+  }
+  fclose(f);
+  free(x);
+  free(y);
+}
+
+void InterpSpec(int nele, int type, int nmin, int nmax,
+		double d, double t, double s, int n, double *x, double *y) {
+  int id0, id1, it0, it1;
+  double fd0, fd1, ft0, ft1;
+  int i, j;
+  
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 1);
+#endif
+  if (_interpsp.ds > 0) {
+    d = log(d);
+  }
+  if (_interpsp.ts > 0) {
+    t = log(t);
+  }
+  id0 = 0;
+  id1 = 0;
+  it0 = 0;
+  it1 = 0;
+  if (_interpsp.ds >= 0) {
+    for (id0 = 0; id0 < _interpsp.nd; id0++) {
+      if (d >= _interpsp.xd[id0]) break;
+    }  
+    if (id0 == _interpsp.nd) {
+      id0 = _interpsp.nd-1;
+    }
+    id1 = id0+1;
+    if (id1 == _interpsp.nd) id1 = _interpsp.nd-1;
+  }
+  if (_interpsp.ts >= 0) {
+    for (it0 = 0; it0 < _interpsp.nt; it0++) {
+      if (t >= _interpsp.xt[it0]) break;
+    }
+    if (it0 == _interpsp.nt) {
+      it0 = _interpsp.nt-1;
+    }
+    it1 = it0+1;
+    if (it1 == _interpsp.nt) it1 = _interpsp.nt-1;
+  }
+  fd0 = 1;
+  ft0 = 1;
+  if (id1 > id0) {
+    fd0 = (_interpsp.xd[id1]-d)/(_interpsp.xd[id1]-_interpsp.xd[id0]);
+    fd1 = 1-fd0;
+  }
+  if (it1 > it0) {
+    ft0 = (_interpsp.xt[id1]-t)/(_interpsp.xt[it1]-_interpsp.xt[it0]);
+    ft1 = 1-ft1;
+  }
+
+  for (i = 0; i < _interpsp.nd; i++) {
+    for (j = 0; j < _interpsp.nt; j++) {
+      _interpsp.r[i][j].ia = 0;
+    }
+  }
+  _interpsp.r[id0][it0].ia = 1;
+  _interpsp.r[id0][it1].ia = 1;
+  _interpsp.r[id1][it0].ia = 1;
+  _interpsp.r[id1][it1].ia = 1;
+  LoadLineRec(id0, it0, nele, type, nmin, nmax);
+  LoadLineRec(id0, it1, nele, type, nmin, nmax);
+  LoadLineRec(id1, it0, nele, type, nmin, nmax);
+  LoadLineRec(id1, it1, nele, type, nmin, nmax);
+
+  if (id1 == id0 && it1 == it0) {
+    ConvLineRec(n, x, y, s, -1, -1, &_interpsp.r[id0][it0]);
+    return;
+  }
+  double e0, e1, e;
+  e0 = _interpsp.r[id0][it0].ae*fd0 + _interpsp.r[id1][it0].ae*fd1;
+  e1 = _interpsp.r[id0][it1].ae*fd0 + _interpsp.r[id1][it1].ae*fd1;
+  e = e0*ft0 + e1*ft1;
+  double w0, w1, w;
+  w0 = _interpsp.r[id0][it0].aw*fd0 + _interpsp.r[id1][it0].aw*fd1;
+  w1 = _interpsp.r[id0][it1].aw*fd0 + _interpsp.r[id1][it1].aw*fd1;
+  w = w0*ft0 + w1*ft1;
+  
+  double *y00,  *y01, *y10, *y11;
+  y00 = malloc(sizeof(double)*n);
+  y01 = malloc(sizeof(double)*n);
+  y10 = malloc(sizeof(double)*n);
+  y11 = malloc(sizeof(double)*n);
+  ConvLineRec(n, x, y00, s, e, w, &_interpsp.r[id0][it0]);
+  ConvLineRec(n, x, y01, s, e, w, &_interpsp.r[id0][it1]);
+  ConvLineRec(n, x, y10, s, e, w, &_interpsp.r[id1][it0]);
+  ConvLineRec(n, x, y11, s, e, w, &_interpsp.r[id1][it1]);
+  for (i = 0; i < n; i++) {
+    w0 = y00[i]*fd0 + y10[i]*fd1;
+    w1 = y01[i]*fd0 + y11[i]*fd1;
+    y[i] = w0*ft0 + w1*ft1;
+  }
+  free(y00);
+  free(y01);
+  free(y10);
+  free(y11);
+  return;
+}
+
+void ConvLineRec(int n, double *x, double *y,
+		 double s, double e, double w, LINEREC *r) {
+  int i, m;
+  double de = 0;
+  if (e > 0) de = e-r->ae;
+  double dw = 0;
+  if (w > 0) dw = w-r->aw;
+  double s2 = s*SQRT2;
+  for (m = 0; m < n; m++) y[m] = 0.0;
+  ResetWidMPI();
+#pragma omp parallel default(shared) private(i, m)
+  {
+    int wr = 0;
+    for (i = 0; i < r->nr; i++) {
+      if (SkipWMPI(wr++)) continue;
+      double e0 = r->e[i] + de;
+      double w0 = r->w[i] + dw;
+      double a = w0*0.5/s2;
+      for (m = 0; m < n; m++) {
+#pragma omp atomic
+	y[m] += r->s[i]*UVoigt(a, (x[m]-e0)/s2)/s2;
+      }
+    }
+  }
+}
+
+void LoadLineRec(int id0, int it0, int nele,
+		 int type, int nmin, int nmax) {
+  if (_interpsp.r[id0][it0].nele == nele &&
+      _interpsp.r[id0][it0].type == type &&
+      _interpsp.r[id0][it0].nmin == nmin &&
+      _interpsp.r[id0][it0].nmax == nmax) return;
+  int i, j;
+  double ts0 = TotalSize();
+  double ts1;
+  if (_interpsp.maxmem > 0 && _interpsp.tsize > _interpsp.maxmem) {    
+    for (i = 0; i < _interpsp.nd; i++) {
+      for (j = 0; j < _interpsp.nt; j++) {
+	if (!_interpsp.r[i][j].ia) {
+	  FreeLineRec(&_interpsp.r[i][j]);
+	}
+      }
+    }
+    ts1 = TotalSize();
+    _interpsp.tsize += ts1-ts0;
+  }
+  char fn[1024];
+  if (_interpsp.ds < 0 && _interpsp.ts < 0) {
+    strcpy(fn, _interpsp.fn);
+  } else if (_interpsp.ds < 0) {
+    sprintf(fn, _interpsp.fn, it0);
+  } else if (_interpsp.ts < 0) {
+    sprintf(fn, _interpsp.fn, id0);
+  } else {
+    sprintf(fn, _interpsp.fn, id0, it0);
+  }
+  TFILE *f1;
+  F_HEADER fh;
+  SP_HEADER h;
+  SP_RECORD r;
+  SP_EXTRA rx;
+  int swp;
+  
+  f1 = OpenFileRO(fn, &fh, &swp);
+  if (f1 == NULL) {
+    printf("ERROR: File %s does not exist\n", fn);
+    return;
+  }
+  
+  LINEREC *rec = &_interpsp.r[id0][it0];
+  FreeLineRec(rec);
+  rx.sdev = 0.0;
+  double smax = 0.0;
+  int nb, n, r0, r1, nr;
+  nr = 0;
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadSPHeader(f1, &h, swp);
+    if (n == 0) break;
+    if (h.ntransitions == 0) continue;
+    if (h.nele != nele) goto LOOPEND0; 
+    r1 = h.type / 10000;
+    r0 = h.type % 10000;
+    if (r0 != type) goto LOOPEND0;
+    if (r1 < nmin) goto LOOPEND0;
+    if (r1 > nmax) goto LOOPEND0;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadSPRecord(f1, &r, &rx, swp);
+      if (n == 0) break;
+      if (r.strength < smax*_interpsp.smin) continue;
+      if (r.strength > smax) smax = r.strength;
+      nr++;
+    }
+    continue;
+  LOOPEND0:
+    FSEEK(f1, h.length, SEEK_CUR);
+  }
+  FCLOSE(f1);
+  f1 = OpenFileRO(fn, &fh, &swp);
+  rec->e = malloc(sizeof(double)*nr);
+  rec->s = malloc(sizeof(double)*nr);
+  rec->w = malloc(sizeof(double)*nr);
+  rec->nele = nele;
+  rec->type = type;
+  rec->nmin = nmin;
+  rec->nmax = nmax;
+  rec->ae = 0.0;
+  rec->aw = 0.0;
+  rec->nr = nr;
+  nr = 0;
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadSPHeader(f1, &h, swp);
+    if (n == 0) break;
+    if (h.ntransitions == 0) continue;
+    if (h.nele != nele) goto LOOPEND; 
+    r1 = h.type / 10000;
+    r0 = h.type % 10000;
+    if (r0 != type) goto LOOPEND;
+    if (r1 < nmin) goto LOOPEND;
+    if (r1 > nmax) goto LOOPEND;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadSPRecord(f1, &r, &rx, swp);
+      if (n == 0) break;
+      if (r.strength < smax*_interpsp.smin) continue;
+      rec->e[nr] = r.energy;
+      rec->s[nr] = r.strength;
+      rec->w[nr] = r.trate;
+      nr++;
+    }
+    continue;
+  LOOPEND:
+    FSEEK(f1, h.length, SEEK_CUR);
+  }
+  FCLOSE(f1);
+  if (nr < rec->nr) {
+    rec->e = realloc(rec->e, sizeof(double)*nr);
+    rec->s = realloc(rec->s, sizeof(double)*nr);
+    rec->w = realloc(rec->w, sizeof(double)*nr);
+    rec->nr = nr;
+  }
+
+  double ts = 0.0;
+  for (i = 0; i < nr; i++) {
+    rec->e[i] *= HARTREE_EV;
+    rec->w[i] *= 6.58e-16;
+    rec->ae += rec->s[i]*rec->e[i];
+    rec->aw += rec->s[i]*rec->w[i];
+    ts += rec->s[i];
+    //printf("rl: %d %g %g %g %g\n", i, rec->e[i], rec->w[i], rec->s[i], ts);
+  }
+  rec->ae /= ts;
+  rec->aw /= ts;
+  
+  ts1 = TotalSize();
+  _interpsp.tsize += ts1-ts0;
 }

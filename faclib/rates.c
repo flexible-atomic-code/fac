@@ -1305,11 +1305,99 @@ double TwoPhotonRate(double z, int t) {
   return a;
 }
 
+double UVoigt(double alpha, double v) {
+  double a[8], b[8], c[8];
+  double v2, v3, fac1, fac2;
+  double p1,p2,p3,p4,p5,p6,p7;
+  double o1,o2,o3,o4,o5,o6,o7;
+  double q1,q2;
+  double r1,r2;
+  double H, w, vw, vb;
+  int i;
+
+  a[1]=122.607931777104326;
+  a[2]=214.382388694706425;
+  a[3]=181.928533092181549;
+  a[4]=93.155580458134410;
+  a[5]=30.180142196210589;
+  a[6]=5.912626209773153;
+  a[7]=0.564189583562615;
+
+  b[1]=122.607931773875350;
+  b[2]=352.730625110963558;
+  b[3]=457.334478783897737;
+  b[4]=348.703917719495792;
+  b[5]=170.354001821091472;
+  b[6]=53.992906912940207;
+  b[7]=10.479857114260399;
+
+  c[1]=0.5641641;
+  c[2]=0.8718681;
+  c[3]=1.474395;
+  c[4]=-19.57862;
+  c[5]=802.4513;
+  c[6]=-4850.316;
+  c[7]=8031.468;
+ 
+  vb = 2.5;
+  double va = fabs(v);
+  double alpha2 =  alpha*alpha;
+  if (alpha <= .001 && va >= vb) {
+    v2   = v*v;
+    v3   = 1.0;
+    fac1 = c[1];
+    fac2 = c[1] * (v2 - 1.0);     
+    for (i=1;i<=7;++i) {
+      v3     = v3 * v2;
+      fac1 = fac1 + c[i] / v3;
+      fac2 = fac2 + c[i] / v3 * (v2 - i);
+    }
+    H = exp(-v2)*(1. + fac2*alpha2 * (1. - 2.*v2)) + fac1*(alpha/v2);
+  } else {
+    p1 = alpha;
+    o1 = -v;
+    p2 = (p1 * alpha + o1 * v);
+    o2 = (o1 * alpha - p1 * v);
+    p3 = (p2 * alpha + o2 * v);
+    o3 = (o2 * alpha - p2 * v);
+    p4 = (p3 * alpha + o3 * v);
+    o4 = (o3 * alpha - p3 * v);
+    p5 = (p4 * alpha + o4 * v);
+    o5 = (o4 * alpha - p4 * v);
+    p6 = (p5 * alpha + o5 * v);
+    o6 = (o5 * alpha - p5 * v);
+    p7 = (p6 * alpha + o6 * v);
+    o7 = (o6 * alpha - p6 * v);
+
+    q1 = a[1] + p1 * a[2] + p2 * a[3] + p3 * a[4] +
+      p4 * a[5] + p5 * a[6] + p6 * a[7];
+    r1 =        o1 * a[2] + o2 * a[3] + o3 * a[4] +
+      o4 * a[5] + o5 * a[6] + o6 * a[7];
+    q2 = b[1] + p1 * b[2] + p2 * b[3] + p3 * b[4] +
+      p4 * b[5] + p5 * b[6] + p6 * b[7] + p7;
+    r2 =        o1 * b[2] + o2 * b[3] + o3 * b[4] +
+      o4 * b[5] + o5 * b[6] + o6 * b[7] + o7;
+
+    H = (q1 * q2 + r1 * r2) / (q2 * q2 + r2 * r2);
+  }
+  
+  return H/sqrt(PI);
+}
 
 /*
 ** The following routines should be modified to 
 ** add more electron or photon energy distributions.
 */
+static double Voigt(double e, double *p) {
+  double x;
+  if (e > p[4] || e < p[3]) return 0.0;
+  double s = SQRT2*p[1];
+  x = (e - p[0])/s;
+  double a = p[2]/s;
+  x = UVoigt(a, x)/s;
+  return x;
+}
+
 static double Gaussian(double e, double *p) {
   double x;
   const double gauss_const = 0.39894228;
@@ -1596,8 +1684,12 @@ int EleDist(char *fn, int n) {
     emin = p[np-2];
     emax = p[np-1];  
   }
-  de = (log(emax) - log(emin))/(n-1);
-  de = exp(de);
+  if (iedist == 1 || iedist == 9) {
+    de = (emax - emin)/(n-1);
+  } else {
+    de = (log(emax) - log(emin))/(n-1);
+    de = exp(de);
+  }
   fprintf(f, "# electron dist=%d\n", iedist);
   if (iedist != MAX_DIST-1) {
     for (i = 0; i < np; i++) {
@@ -1608,7 +1700,11 @@ int EleDist(char *fn, int n) {
   for (i = 0; i < n; i++) {
     y = d->dist(e, p);
     fprintf(f, "%15.8E %15.8E\n", e, y);
-    e *= de;
+    if (iedist == 1 || iedist == 9) {
+      e += de;
+    } else {
+      e *= de;
+    }
   }
   
   fclose(f);
@@ -1782,6 +1878,18 @@ int SetEleDist(int i, int np, double *p0) {
     c2 = p[1]*pow(RBOHR,3);
     p[1] = exp(-FermiDegeneracy(c2, c1, &p[2]));
     break;
+  case 9:
+    /* Voigt */
+    {
+      double w = 10*p[1] + 1e3*p[2];
+      if (p[4] <= 0.0) {
+	p[4] = p[0]+w;
+      }
+      if (p[3] <= 0.0) {
+	p[3] = p[0]-w;
+	if (p[3] < 0) p[3] = 0;
+      }
+    }    
   default:
     break;
   }
@@ -2088,6 +2196,16 @@ int InitRates(void) {
   ele_dist[i].params[3] = 1E-10;
   ele_dist[i].params[4] = 1E10;
   ele_dist[i].dist = FermiDirac;
+
+  i++; /* Voigt */
+  ele_dist[i].nparams = 5;
+  ele_dist[i].params = (double *) malloc(sizeof(double)*5);
+  ele_dist[i].params[0] = 1e3;
+  ele_dist[i].params[1] = 10.0;
+  ele_dist[i].params[2] = 10.0;
+  ele_dist[i].params[3] = 0.0;
+  ele_dist[i].params[4] = 2e3;
+  ele_dist[i].dist = Voigt;
   
   i++;
 

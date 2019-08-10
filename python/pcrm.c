@@ -607,6 +607,47 @@ static PyObject *PSpecTable(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PPrepInterpSpec(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("PrepInterpSpec", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  char *fn;
+  int nd, nt, ds, ts;
+  double d0, d1, t0, t1, smin, maxmem;
+
+  if (!PyArg_ParseTuple(args, "idddiddddds",
+			&nd, &d0, &d1, &ds, &nt, &t0, &t1, &ts,
+			&smin, &maxmem, &fn)) return NULL;
+  PrepInterpSpec(nd, d0, d1, ds, nt, t0, t1, ts, smin, maxmem, fn);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PInterpSpec(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("InterpSpec", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  char *fn;
+  int nele, type, nmin, nmax, n;
+  double d, t, s, emin, emax;
+
+  if (!PyArg_ParseTuple(args, "siiiidddidd",
+			&fn, &nele, &type, &nmin, &nmax, &d, &t, &s,
+			&n, &emin, &emax)) return NULL;
+
+  InterpSpecWF(fn, nele, type, nmin, nmax, d, t, s, n, emin, emax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PPlotSpec(PyObject *self, PyObject *args) {
   char *fn1, *fn2;
   double emin, emax, de, smin;
@@ -1604,6 +1645,8 @@ static struct PyMethodDef crm_methods[] = {
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
+  {"PrepInterpSpec", PPrepInterpSpec, METH_VARARGS},
+  {"InterpSpec", PInterpSpec, METH_VARARGS},
   {"TabNLTE", PTabNLTE, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS}, 
   {"ReinitCRM", PReinitCRM, METH_VARARGS},
