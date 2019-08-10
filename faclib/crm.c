@@ -7638,7 +7638,7 @@ void PrepInterpSpec(int nd, double d0, double d1, int ds,
     if (nt > 1) {
       double dt = (t1-t0)/(nt-1);
       for (j = 1; j < nt; j++) {
-	_interpsp.xt[i] = _interpsp.xt[i-1]+dt;
+	_interpsp.xt[j] = _interpsp.xt[j-1]+dt;
       }
     }
   }
@@ -7705,24 +7705,28 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
   it0 = 0;
   it1 = 0;
   if (_interpsp.ds >= 0) {
-    for (id0 = 0; id0 < _interpsp.nd; id0++) {
-      if (d >= _interpsp.xd[id0]) break;
+    for (id1 = 0; id1 < _interpsp.nd; id1++) {
+      if (d < _interpsp.xd[id1]) break;
     }  
-    if (id0 == _interpsp.nd) {
-      id0 = _interpsp.nd-1;
+    if (id1 == _interpsp.nd) {
+      id1 = _interpsp.nd-1;
+      id0 = id1;
+    } else {
+      id0 = id1-1;
+      if (id0 < 0) id0 = 0;
     }
-    id1 = id0+1;
-    if (id1 == _interpsp.nd) id1 = _interpsp.nd-1;
   }
   if (_interpsp.ts >= 0) {
-    for (it0 = 0; it0 < _interpsp.nt; it0++) {
-      if (t >= _interpsp.xt[it0]) break;
+    for (it1 = 0; it1 < _interpsp.nt; it1++) {
+      if (t < _interpsp.xt[it1]) break;
     }
-    if (it0 == _interpsp.nt) {
-      it0 = _interpsp.nt-1;
+    if (it1 == _interpsp.nt) {
+      it1 = _interpsp.nt-1;
+      it0 = it1;
+    } else {
+      it0 = it1-1;
+      if (it0 < 0) it0 = 0;
     }
-    it1 = it0+1;
-    if (it1 == _interpsp.nt) it1 = _interpsp.nt-1;
   }
   fd0 = 1;
   ft0 = 1;
@@ -7731,8 +7735,8 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
     fd1 = 1-fd0;
   }
   if (it1 > it0) {
-    ft0 = (_interpsp.xt[id1]-t)/(_interpsp.xt[it1]-_interpsp.xt[it0]);
-    ft1 = 1-ft1;
+    ft0 = (_interpsp.xt[it1]-t)/(_interpsp.xt[it1]-_interpsp.xt[it0]);
+    ft1 = 1-ft0;
   }
 
   for (i = 0; i < _interpsp.nd; i++) {
@@ -7761,7 +7765,6 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
   w0 = _interpsp.r[id0][it0].aw*fd0 + _interpsp.r[id1][it0].aw*fd1;
   w1 = _interpsp.r[id0][it1].aw*fd0 + _interpsp.r[id1][it1].aw*fd1;
   w = w0*ft0 + w1*ft1;
-  
   double *y00,  *y01, *y10, *y11;
   y00 = malloc(sizeof(double)*n);
   y01 = malloc(sizeof(double)*n);
@@ -7772,9 +7775,13 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
   ConvLineRec(n, x, y10, s, e, w, &_interpsp.r[id1][it0]);
   ConvLineRec(n, x, y11, s, e, w, &_interpsp.r[id1][it1]);
   for (i = 0; i < n; i++) {
-    w0 = y00[i]*fd0 + y10[i]*fd1;
-    w1 = y01[i]*fd0 + y11[i]*fd1;
-    y[i] = w0*ft0 + w1*ft1;
+    double d00 = log(y00[i]+1e-50);
+    double d10 = log(y10[i]+1e-50);
+    double d01 = log(y01[i]+1e-50);
+    double d11 = log(y11[i]+1e-50);
+    w0 = d00*fd0 + d10*fd1;
+    w1 = d01*fd0 + d11*fd1;
+    y[i] = exp(w0*ft0 + w1*ft1)-1e-50;
   }
   free(y00);
   free(y01);
@@ -7801,9 +7808,11 @@ void ConvLineRec(int n, double *x, double *y,
       double e0 = r->e[i] + de;
       double w0 = r->w[i] + dw;
       double a = w0*0.5/s2;
+      double b = r->s[i]/s2;
       for (m = 0; m < n; m++) {
+	double v = UVoigt(a, (x[m]-e0)/s2);
 #pragma omp atomic
-	y[m] += r->s[i]*UVoigt(a, (x[m]-e0)/s2)/s2;
+	y[m] += b*v;
       }
     }
   }
@@ -7930,7 +7939,7 @@ void LoadLineRec(int id0, int it0, int nele,
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];
     ts += rec->s[i];
-    //printf("rl: %d %g %g %g %g\n", i, rec->e[i], rec->w[i], rec->s[i], ts);
+    //printf("rl: %d %d %d %g %g %g %g %g %g\n", id0, it0, i, rec->e[i], rec->w[i], rec->s[i], ts, rec->ae/ts, rec->aw/ts);
   }
   rec->ae /= ts;
   rec->aw /= ts;
