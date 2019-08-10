@@ -120,5 +120,6 @@ int ReadKronos(char *dn, int z, int k, char *prj, char *tgt,
 	       char *cxm, int md, int ilog);
 int InitRates(void);	  
 void SetOptionRates(char *s, char *sp, int ip, double dp); 
+double UVoigt(double alpha, double v);
 
 #endif

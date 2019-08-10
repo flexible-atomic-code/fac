@@ -383,6 +383,46 @@ static int PSelectLines(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrepInterpSpec(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  if (argc != 11) return -1;
+  int nd, nt, ds, ts;
+  double d0, d1, t0, t1, smin, maxmem;
+
+  nd = atoi(argv[0]);
+  d0 = atof(argv[1]);
+  d1 = atof(argv[2]);
+  ds = atoi(argv[3]);
+  nt = atoi(argv[4]);
+  t0 = atof(argv[5]);
+  t1 = atof(argv[6]);
+  ts = atoi(argv[7]);
+  smin = atof(argv[8]);
+  maxmem = atof(argv[9]);
+
+  PrepInterpSpec(nd, d0, d1, ds, nt, t0, t1, ts, smin, maxmem, argv[10]);
+  return 0;
+}
+
+static int PInterpSpec(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  if (argc != 11) return -1;
+
+  int nele = atoi(argv[1]);
+  int type = atoi(argv[2]);
+  int nmin = atoi(argv[3]);
+  int nmax = atoi(argv[4]);
+  double d = atof(argv[5]);
+  double t = atof(argv[6]);
+  double s = atof(argv[7]);
+  int n = atoi(argv[8]);
+  double emin = atof(argv[9]);
+  double emax = atof(argv[10]);
+
+  InterpSpecWF(argv[0], nele, type, nmin, nmax, d, t, s, n, emin, emax);
+  return 0;
+}
+
 static int PPlotSpec(int argc, char *argv[], int argt[], 
 		     ARRAY *variables) {
   double emin, emax, de, smin;
@@ -908,6 +948,8 @@ static METHOD methods[] = {
   {"Cascade", PCascade, METH_VARARGS},
   {"SpecTable", PSpecTable, METH_VARARGS},
   {"PlotSpec", PPlotSpec, METH_VARARGS},
+  {"PrepInterpSpec", PPrepInterpSpec, METH_VARARGS},
+  {"InterpSpec", PInterpSpec, METH_VARARGS},
   {"TabNLTE", PTabNLTE, METH_VARARGS},
   {"SelectLines", PSelectLines, METH_VARARGS},
   {"PrintTable", PPrintTable, METH_VARARGS},
