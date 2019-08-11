@@ -64,6 +64,7 @@ static int _lblock_block = LBLOCK_BLOCK;
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
+static double _starkrw = 1.0;
 static double _epstau = 5e-2;
 static INTERPSP _interpsp;
 
@@ -7569,6 +7570,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _epstau = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkrw")) {
+    _starkrw = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:sp_trm")) {
     _sp_trm = ip;
     return;
@@ -7813,8 +7818,8 @@ void ConvLineRec(int n, double *x, double *y,
   int i, m, ny;
   double de = 0;
   if (e > 0) de = e-r->ae;
-  double rw = 1.0;
-  if (w > 0 && r->aw > 0) rw = w/r->aw;
+  double rw = _starkrw;
+  if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
   for (m = 0; m < n; m++) y[m] = 0.0;
   ResetWidMPI();
