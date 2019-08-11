@@ -618,7 +618,7 @@ static PyObject *PPrepInterpSpec(PyObject *self, PyObject *args) {
   int nd, nt, ds, ts;
   double d0, d1, t0, t1, smin, maxmem;
 
-  if (!PyArg_ParseTuple(args, "idddiddddds",
+  if (!PyArg_ParseTuple(args, "iddiiddidds",
 			&nd, &d0, &d1, &ds, &nt, &t0, &t1, &ts,
 			&smin, &maxmem, &fn)) return NULL;
   PrepInterpSpec(nd, d0, d1, ds, nt, t0, t1, ts, smin, maxmem, fn);

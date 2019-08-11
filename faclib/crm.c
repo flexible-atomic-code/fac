@@ -7688,7 +7688,7 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
   x[0] = emin;
   int i;
   for (i = 1; i < n; i++) {
-    x[i] = x[i-1] += de;
+    x[i] = x[i-1] + de;
   }
   InterpSpec(nele, type, nmin, nmax, c, d, t, s, n, x, y);
   for (i = 0; i < n; i++) {
