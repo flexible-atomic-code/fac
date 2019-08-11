@@ -406,20 +406,21 @@ static int PPrepInterpSpec(int argc, char *argv[], int argt[],
 
 static int PInterpSpec(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-  if (argc != 11) return -1;
+  if (argc != 12) return -1;
 
   int nele = atoi(argv[1]);
   int type = atoi(argv[2]);
   int nmin = atoi(argv[3]);
   int nmax = atoi(argv[4]);
-  double d = atof(argv[5]);
-  double t = atof(argv[6]);
-  double s = atof(argv[7]);
-  int n = atoi(argv[8]);
-  double emin = atof(argv[9]);
-  double emax = atof(argv[10]);
+  double c = atof(argv[5]);
+  double d = atof(argv[6]);
+  double t = atof(argv[7]);
+  double s = atof(argv[8]);
+  int n = atoi(argv[9]);
+  double emin = atof(argv[10]);
+  double emax = atof(argv[11]);
 
-  InterpSpecWF(argv[0], nele, type, nmin, nmax, d, t, s, n, emin, emax);
+  InterpSpecWF(argv[0], nele, type, nmin, nmax, c, d, t, s, n, emin, emax);
   return 0;
 }
 

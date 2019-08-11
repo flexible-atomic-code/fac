@@ -131,12 +131,13 @@ typedef struct _LINETYPE_ {
 } LINETYPE;
 
 typedef struct _LINEREC_ {
+  int z;
   int nele;
   int type;
   int nmin, nmax;
   int ia, nr;
-  double *e, *s, *w;
-  double ae, aw;
+  double *e, *s, *w, *n0, *n1, *k;
+  double ae, aw, nt, ni;
 } LINEREC;
 
 typedef struct _INTERPSP_ {
@@ -214,13 +215,14 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp);
 void PrepInterpSpec(int nd, double d0, double d1, int ds,
 		    int nt, double t0, double t1, int ts,
 		    double smin, double maxmem, char *fn);
-void InterpSpec(int nele, int type, int nmin, int nmax,
+void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 		double d, double t, double s, int n, double *x, double *y);
 void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
-		  double d, double t, double s,
+		  double c, double d, double t, double s,
 		  int n, double emin, double emax);
 void ConvLineRec(int n, double *x, double *y,
-		 double s, double e, double w, LINEREC *r);
+		 double s, double dw, double c,
+		 double e, double w, LINEREC *r);
 void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax);
 
