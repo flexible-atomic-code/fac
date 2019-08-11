@@ -636,13 +636,13 @@ static PyObject *PInterpSpec(PyObject *self, PyObject *args) {
 
   char *fn;
   int nele, type, nmin, nmax, n;
-  double d, t, s, emin, emax;
+  double c, d, t, s, emin, emax;
 
-  if (!PyArg_ParseTuple(args, "siiiidddidd",
-			&fn, &nele, &type, &nmin, &nmax, &d, &t, &s,
+  if (!PyArg_ParseTuple(args, "siiiiddddidd",
+			&fn, &nele, &type, &nmin, &nmax, &c, &d, &t, &s,
 			&n, &emin, &emax)) return NULL;
 
-  InterpSpecWF(fn, nele, type, nmin, nmax, d, t, s, n, emin, emax);
+  InterpSpecWF(fn, nele, type, nmin, nmax, c, d, t, s, n, emin, emax);
   
   Py_INCREF(Py_None);
   return Py_None;

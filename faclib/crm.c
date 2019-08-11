@@ -64,6 +64,7 @@ static int _lblock_block = LBLOCK_BLOCK;
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
+static double _epstau = 5e-2;
 static INTERPSP _interpsp;
 
 #pragma omp threadprivate(_ce_data, _rr_data)
@@ -4466,6 +4467,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	  if (c > 0.0) {
 	    r.lower = q;
 	    r.upper = p;
+	    b = 0.0;
 	    if (rrc/10 == 1) {
 	      r.energy = -e;
 	      a = rt->dir*(ion->j[rt->i]+1.0);
@@ -4477,10 +4479,9 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	      if (rt->inv > 0.0 && photon_density > 0.0) {
 		b = photon_density * rt->inv;
 		b *= (ion->j[rt->f]+1.0)/(ion->j[rt->i]+1.0);
-		a += b;
 	      }
 	    }
-	    r.strength = c * a;	    
+	    r.strength = c * (a+b);	    
 	    s = r.strength*e;
 	    if (s < strength_threshold*smax) continue;
 	    if (s > smax) smax = s;
@@ -7564,6 +7565,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _ce_fbr = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:epstau")) {
+    _epstau = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:sp_trm")) {
     _sp_trm = ip;
     return;
@@ -7583,9 +7588,15 @@ void FreeLineRec(LINEREC *r) {
     free(r->e);
     free(r->s);
     free(r->w);
+    free(r->n0);
+    free(r->n1);
+    free(r->k);
     r->e = NULL;
     r->s = NULL;
     r->w = NULL;
+    r->n0 = NULL;
+    r->n1 = NULL;
+    r->k = NULL;
   }
   r->nele = -1;
 }
@@ -7652,6 +7663,9 @@ void PrepInterpSpec(int nd, double d0, double d1, int ds,
       _interpsp.r[i][j].e = NULL;
       _interpsp.r[i][j].s = NULL;
       _interpsp.r[i][j].w = NULL;
+      _interpsp.r[i][j].n0 = NULL;
+      _interpsp.r[i][j].n1 = NULL;
+      _interpsp.r[i][j].k = NULL;
     }
   }
   _interpsp.tsize = 0;
@@ -7659,7 +7673,7 @@ void PrepInterpSpec(int nd, double d0, double d1, int ds,
 }
 
 void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
-		  double d, double t, double s,
+		  double c, double d, double t, double s,
 		  int n, double emin, double emax) {
   FILE *f;
   f = fopen(fn, "w");
@@ -7676,7 +7690,7 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
   for (i = 1; i < n; i++) {
     x[i] = x[i-1] += de;
   }
-  InterpSpec(nele, type, nmin, nmax, d, t, s, n, x, y);
+  InterpSpec(nele, type, nmin, nmax, c, d, t, s, n, x, y);
   for (i = 0; i < n; i++) {
     fprintf(f, "%12.5E %12.5E\n", x[i], y[i]);
   }
@@ -7685,7 +7699,7 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
   free(y);
 }
 
-void InterpSpec(int nele, int type, int nmin, int nmax,
+void InterpSpec(int nele, int type, int nmin, int nmax, double c, 
 		double d, double t, double s, int n, double *x, double *y) {
   int id0, id1, it0, it1;
   double fd0, fd1, ft0, ft1;
@@ -7753,8 +7767,11 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
   LoadLineRec(id1, it0, nele, type, nmin, nmax);
   LoadLineRec(id1, it1, nele, type, nmin, nmax);
 
+  double dw = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
+  dw = sqrt(t/(dw*AMU*5.11e5));
+  
   if (id1 == id0 && it1 == it0) {
-    ConvLineRec(n, x, y, s, -1, -1, &_interpsp.r[id0][it0]);
+    ConvLineRec(n, x, y, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
     return;
   }
   double e0, e1, e;
@@ -7770,10 +7787,10 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
   y01 = malloc(sizeof(double)*n);
   y10 = malloc(sizeof(double)*n);
   y11 = malloc(sizeof(double)*n);
-  ConvLineRec(n, x, y00, s, e, w, &_interpsp.r[id0][it0]);
-  ConvLineRec(n, x, y01, s, e, w, &_interpsp.r[id0][it1]);
-  ConvLineRec(n, x, y10, s, e, w, &_interpsp.r[id1][it0]);
-  ConvLineRec(n, x, y11, s, e, w, &_interpsp.r[id1][it1]);
+  ConvLineRec(n, x, y00, s, dw, c, e, w, &_interpsp.r[id0][it0]);
+  ConvLineRec(n, x, y01, s, dw, c, e, w, &_interpsp.r[id0][it1]);
+  ConvLineRec(n, x, y10, s, dw, c, e, w, &_interpsp.r[id1][it0]);
+  ConvLineRec(n, x, y11, s, dw, c, e, w, &_interpsp.r[id1][it1]);
   for (i = 0; i < n; i++) {
     double d00 = log(y00[i]+1e-50);
     double d10 = log(y10[i]+1e-50);
@@ -7791,13 +7808,14 @@ void InterpSpec(int nele, int type, int nmin, int nmax,
 }
 
 void ConvLineRec(int n, double *x, double *y,
-		 double s, double e, double w, LINEREC *r) {
-  int i, m;
+		 double s, double dw, double c,
+		 double e, double w, LINEREC *r) {
+  int i, m, ny;
   double de = 0;
   if (e > 0) de = e-r->ae;
-  double dw = 0;
-  if (w > 0) dw = w-r->aw;
-  double s2 = s*SQRT2;
+  double rw = 1.0;
+  if (w > 0 && r->aw > 0) rw = w/r->aw;
+  double s2 = s*s;
   for (m = 0; m < n; m++) y[m] = 0.0;
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, m)
@@ -7806,13 +7824,50 @@ void ConvLineRec(int n, double *x, double *y,
     for (i = 0; i < r->nr; i++) {
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
-      double w0 = r->w[i] + dw;
-      double a = w0*0.5/s2;
-      double b = r->s[i]/s2;
+      double w0 = r->w[i]*rw;
+      double w1 = dw*e0;
+      double sw = sqrt(2*(s2 + w1*w1));
+      double a = w0*0.5/sw;
+      double b = r->s[i]/sw;
       for (m = 0; m < n; m++) {
-	double v = UVoigt(a, (x[m]-e0)/s2);
+	double v = UVoigt(a, (x[m]-e0)/sw);
 #pragma omp atomic
 	y[m] += b*v;
+      }
+      if (c > 0) {
+	double sw1 = w1*SQRT2;
+	double t = c*r->k[i];
+	double a1 = w0*0.5/sw1;
+	double v0 = UVoigt(a1, 0.0);
+	double ta = t*v0/sw1;
+	if (ta > _epstau) {
+	  for (ny = 50; ny <= 5000;  ny += 10) {
+	    double v1 = UVoigt(a1, ny*0.1);
+	    if (t*v1/sw1 < _epstau) break;
+	  }
+	  b = 0.1*r->s[i];
+	  int j;
+	  double x0 = -ny*0.1;
+	  for (j = -ny; j <= ny; j++, x0 += 0.1) {
+	    double v = UVoigt(a1, x0);
+	    double tv = t*v/sw1;
+	    double fesc = 0.0;
+	    if (tv > 1e-3) {
+	      fesc = (1-exp(-tv)-tv)/tv;
+	    } else {
+	      fesc = -0.5*tv;
+	    }
+	    double y0 = b*v*fesc;
+	    for (m = 0; m < n; m++) {
+	      double dx = (x[m]-(e0+x0*sw1))/s;
+	      dx = 0.5*dx*dx;
+	      if (dx < 25) {
+#pragma omp atomic
+		y[m] += y0*exp(-dx)*0.39894/s;
+	      }
+	    }
+	  }
+	}
       }
     }
   }
@@ -7862,27 +7917,42 @@ void LoadLineRec(int id0, int it0, int nele,
   }
   
   LINEREC *rec = &_interpsp.r[id0][it0];
+  rec->z = (int)(fh.atom);
   FreeLineRec(rec);
   rx.sdev = 0.0;
   double smax = 0.0;
-  int nb, n, r0, r1, nr;
+  int nb, n, r0, r1, nr, imin, imax, nlev;
   nr = 0;
+  nlev = 0;
+  imin = -1;
+  imax = -1;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
-    if (h.nele != nele) goto LOOPEND0; 
-    r1 = h.type / 10000;
-    r0 = h.type % 10000;
-    if (r0 != type) goto LOOPEND0;
-    if (r1 < nmin) goto LOOPEND0;
-    if (r1 > nmax) goto LOOPEND0;
+    if (h.nele != nele) goto LOOPEND0;
+    if (h.type != 0) {
+      r1 = h.type / 10000;
+      r0 = h.type % 10000;
+      if (r0 != type) goto LOOPEND0;
+      if (r1 < nmin) goto LOOPEND0;
+      if (r1 > nmax) goto LOOPEND0;
+    }
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
-      if (r.strength < smax*_interpsp.smin) continue;
-      if (r.strength > smax) smax = r.strength;
-      nr++;
+      if (h.type == 0) {
+	if (imin < 0 || imin > r.upper) {
+	  imin = r.upper;
+	}
+	if (imax < r.upper) {
+	  imax = r.upper;
+	}
+      } else {
+	if (r.strength < smax*_interpsp.smin) continue;
+	if (r.strength > smax) smax = r.strength;
+	nr++;
+      }
     }
     continue;
   LOOPEND0:
@@ -7890,45 +7960,75 @@ void LoadLineRec(int id0, int it0, int nele,
   }
   FCLOSE(f1);
   f1 = OpenFileRO(fn, &fh, &swp);
+  nlev = imax-imin+1;
   rec->e = malloc(sizeof(double)*nr);
   rec->s = malloc(sizeof(double)*nr);
   rec->w = malloc(sizeof(double)*nr);
+  rec->n0 = malloc(sizeof(double)*nr);
+  rec->n1 = malloc(sizeof(double)*nr);
+  rec->k = malloc(sizeof(double)*nr);
+  double *dn = malloc(sizeof(double)*nlev);
+  double *dw = malloc(sizeof(double)*nlev);
   rec->nele = nele;
   rec->type = type;
   rec->nmin = nmin;
   rec->nmax = nmax;
   rec->ae = 0.0;
   rec->aw = 0.0;
+  rec->nt = 0.0;
+  rec->ni = 0.0;
   rec->nr = nr;
-  nr = 0;
+  nr = 0;  
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
-    if (h.nele != nele) goto LOOPEND; 
-    r1 = h.type / 10000;
-    r0 = h.type % 10000;
-    if (r0 != type) goto LOOPEND;
-    if (r1 < nmin) goto LOOPEND;
-    if (r1 > nmax) goto LOOPEND;
+    if (h.type != 0) {
+      if (h.nele != nele) goto LOOPEND;
+      r1 = h.type / 10000;
+      r0 = h.type % 10000;
+      if (r0 != type) goto LOOPEND;
+      if (r1 < nmin) goto LOOPEND;
+      if (r1 > nmax) goto LOOPEND;
+    }
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadSPRecord(f1, &r, &rx, swp);
       if (n == 0) break;
-      if (r.strength < smax*_interpsp.smin) continue;
-      rec->e[nr] = r.energy;
-      rec->s[nr] = r.strength;
-      rec->w[nr] = r.trate;
-      nr++;
+      if (h.type == 0) {
+	if (h.nele == nele) {
+	  rec->ni += r.strength;
+	  int i1 = r.upper-imin;
+	  dn[i1] = r.strength;
+	  dw[i1] = r.rrate;
+	}
+	rec->nt += r.strength;
+      } else {
+	if (r.strength < smax*_interpsp.smin) continue;
+	rec->e[nr] = r.energy;
+	rec->s[nr] = r.strength;
+	rec->w[nr] = r.trate;
+	int i0 = r.lower-imin;
+	int i1 = r.upper-imin;
+	rec->n0[nr] = dn[i0];
+	rec->n1[nr] = dn[i1];
+	rec->k[nr] = 2.528e-24*(dw[i1]/dw[i0])*r.rrate*rec->n0[nr]/rec->nt;
+	nr++;
+      }
     }
     continue;
   LOOPEND:
     FSEEK(f1, h.length, SEEK_CUR);
   }
   FCLOSE(f1);
+  free(dn);
+  free(dw);
   if (nr < rec->nr) {
     rec->e = realloc(rec->e, sizeof(double)*nr);
     rec->s = realloc(rec->s, sizeof(double)*nr);
     rec->w = realloc(rec->w, sizeof(double)*nr);
+    rec->n0 = realloc(rec->n0, sizeof(double)*nr);
+    rec->n1 = realloc(rec->n1, sizeof(double)*nr);
+    rec->k = realloc(rec->k, sizeof(double)*nr);
     rec->nr = nr;
   }
 
@@ -7939,7 +8039,7 @@ void LoadLineRec(int id0, int it0, int nele,
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];
     ts += rec->s[i];
-    //printf("rl: %d %d %d %g %g %g %g %g %g\n", id0, it0, i, rec->e[i], rec->w[i], rec->s[i], ts, rec->ae/ts, rec->aw/ts);
+    //printf("rl: %d %d %d %g %g %g %g %g %g %g\n", id0, it0, i, rec->e[i], rec->w[i], rec->s[i], rec->n0[i], rec->k[i], rec->nt, rec->ni);
   }
   rec->ae /= ts;
   rec->aw /= ts;
