@@ -4602,6 +4602,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
 
+  double mt = GetAtomicMassTable()[(int)(fh.atom)];
   t2 = abs(type) / 1000000;
   if (type < 0) t2 = -1;
   t = abs(type) % 1000000;
@@ -4689,14 +4690,29 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     FSEEK(f1, h.length, SEEK_CUR);
   }
 
+  double wd = 0, wdi = 0, wir = 0;
+  if (_starkqc > 0 && electron_density > 0) {
+    int idist;
+    DISTRIBUTION *dist;
+    dist = GetEleDist(&idist);
+    if (idist == 0) {
+      PrepStarkQC(mt, electron_density*1e10, dist->params[0], &wd, &wdi, &wir);
+    }
+  }
   char buf[2048];
   if (fmin >= 1.0) {
     if (sp.dim > 0) {
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (LINETYPE *) ArrayGet(&linetype, 0);
-      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, rp->trate);
+      double wtr = rp->trate;
+      double wtt = 0.0;
+      if (_sp_trm) {
+	wtr *= 6.58e-16;
+	wtt = CalcStarkQC(wtr, wd, wdi, wir);
+      }      
+      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E\n", 
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, wtr, wtt);
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4720,9 +4736,15 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	    rpx = (SP_EXTRA *) ArrayGet(&spx, i);
 	    e = rp->energy;
 	    if (fmin < 0 || rp->strength*e > smax) {
-	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E\n", 
+	      double wtr = rp->trate;
+	      double wtt = 0.0;
+	      if (_sp_trm) {
+		wtr *= 6.58e-16;
+		wtt = CalcStarkQC(wtr, wd, wdi, wir);
+	      }      
+	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, rp->rrate, rp->trate);
+		      rp->strength, rp->rrate, wtr, wtt);
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -4774,6 +4796,16 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
 
+  double mt = GetAtomicMassTable()[(int)(fh.atom)];
+  double wd = 0, wdi = 0, wir = 0;
+  if (_starkqc > 0 && electron_density > 0) {
+    int idist;
+    DISTRIBUTION *dist;
+    dist = GetEleDist(&idist);
+    if (idist == 0) {
+      PrepStarkQC(mt, electron_density*1e10, dist->params[0], &wd, &wdi, &wir);
+    }
+  }
 #if USE_MPI == 2
   if (!MPIReady()) InitializeMPI(0, 1);
 #endif
@@ -4823,7 +4855,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       a = r.strength * e;
       if (a < smax*smin) continue;
       if (a > smax) smax = a;
-      double wk = r.trate*6.58e-16;
+      double wk = CalcStarkQC(r.trate*6.58e-16, wd, wdi, wir);
       wav += wk*a;
       sav += a;
       if (wmin > wk) wmin = wk;      
@@ -4903,7 +4935,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (de0 < 0) e = hc/e;
       lines[k++] = e;
       lines[k++] = r.strength;
-      double wk = r.trate*6.58e-16;
+      double wk = CalcStarkQC(r.trate*6.58e-16, wd, wdi, wir);
       lines[k++] = wk;
     }
     m = k;
@@ -7829,6 +7861,36 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   return;
 }
 
+void PrepStarkQC(double mt, double d0, double t0,
+		 double *wd, double *wdi, double *wir) {
+  *wd = 0;
+  *wdi = 0;
+  *wir = 0;
+  if (_starkqc > 0) {
+    t0 /= HARTREE_EV;
+    *wd = sqrt(t0)*2.32e-7*pow(d0, ONETHIRD)*_starkqc;
+    if (_starkzi > 0 && _starkmi > 0) {
+      mt = _starkmi*mt/(_starkmi+mt);
+      mt = sqrt(mt*AMU);
+      *wdi = (*wd)/(pow(_starkzi, ONETHIRD)*mt);
+      *wir = _starkzi*_starkzi*mt;
+    }
+  }
+}
+
+double CalcStarkQC(double w0, double wd, double wdi, double wir) {
+  double wt = w0;
+  if (wd > 0) {
+    wt = w0/(1+sqrt(w0/wd));
+    if (wdi > 0) {
+      double wi = w0*wir;
+      wi = wi/(1+sqrt(wi/wdi));
+      wt += wi;
+    }
+  }
+  return wt;
+}
+
 void ConvLineRec(int n, double *x, double *y,
 		 double mt, double d0, double t0,
 		 double s, double dw, double c,
@@ -7836,17 +7898,8 @@ void ConvLineRec(int n, double *x, double *y,
   int i, m, ny;
   double de = 0;
   if (e > 0) de = e-r->ae;
-  double wd = 0, wdi = 0, wir = 0;
-  if (_starkqc > 0) {
-    t0 /= HARTREE_EV;
-    wd = sqrt(t0)*2.32e-7*pow(d0, ONETHIRD)*_starkqc;
-    if (_starkzi > 0 && _starkmi > 0) {
-      mt = _starkmi*mt/(_starkmi+mt);
-      mt = sqrt(mt*AMU);
-      wdi = wd/(pow(_starkzi, ONETHIRD)*mt);
-      wir = _starkzi*_starkzi*mt;
-    }
-  }
+  double wd, wdi, wir;
+  PrepStarkQC(mt, d0, t0, &wd, &wdi, &wir);
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
@@ -7859,16 +7912,8 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
-      if (_starkqc > 0) {
-	double wt = w0/(1+sqrt(w0/wd));
-	if (wdi > 0) {
-	  double wi = w0*wir;
-	  wi = wi/(1+sqrt(wi/wdi));
-	  wt += wi;
-	}
-	w0 = wt;
-      }
-      //printf("wi: %d %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0);
+      w0 = CalcStarkQC(w0, wd, wdi, wir);
+      //printf("wi: %d %g %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0, wd, wdi, wir);
       double w1 = dw*e0;
       double sw = sqrt(2*(s2 + w1*w1));
       double a = w0*0.5/sw;
