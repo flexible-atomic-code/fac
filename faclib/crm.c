@@ -7782,16 +7782,16 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   _interpsp.r[id0][it1].ia = 1;
   _interpsp.r[id1][it0].ia = 1;
   _interpsp.r[id1][it1].ia = 1;
-  LoadLineRec(id0, it0, nele, type, nmin, nmax, d, t);
-  LoadLineRec(id0, it1, nele, type, nmin, nmax, d, t);
-  LoadLineRec(id1, it0, nele, type, nmin, nmax, d, t);
-  LoadLineRec(id1, it1, nele, type, nmin, nmax, d, t);
+  LoadLineRec(id0, it0, nele, type, nmin, nmax);
+  LoadLineRec(id0, it1, nele, type, nmin, nmax);
+  LoadLineRec(id1, it0, nele, type, nmin, nmax);
+  LoadLineRec(id1, it1, nele, type, nmin, nmax);
 
-  double dw = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
-  dw = sqrt(t/(dw*AMU*5.11e5));
+  double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
+  double dw = sqrt(t/(dw*AMU*5.11e5));
   
   if (id1 == id0 && it1 == it0) {
-    ConvLineRec(n, x, y, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
+    ConvLineRec(n, x, y, mt, d, t, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
     return;
   }
   double e0, e1, e;
@@ -7807,10 +7807,10 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   y01 = malloc(sizeof(double)*n);
   y10 = malloc(sizeof(double)*n);
   y11 = malloc(sizeof(double)*n);
-  ConvLineRec(n, x, y00, s, dw, c, e, w, &_interpsp.r[id0][it0]);
-  ConvLineRec(n, x, y01, s, dw, c, e, w, &_interpsp.r[id0][it1]);
-  ConvLineRec(n, x, y10, s, dw, c, e, w, &_interpsp.r[id1][it0]);
-  ConvLineRec(n, x, y11, s, dw, c, e, w, &_interpsp.r[id1][it1]);
+  ConvLineRec(n, x, y00, mt, d, t, s, dw, c, e, w, &_interpsp.r[id0][it0]);
+  ConvLineRec(n, x, y01, mt, d, t, s, dw, c, e, w, &_interpsp.r[id0][it1]);
+  ConvLineRec(n, x, y10, mt, d, t, s, dw, c, e, w, &_interpsp.r[id1][it0]);
+  ConvLineRec(n, x, y11, mt, d, t, s, dw, c, e, w, &_interpsp.r[id1][it1]);
   for (i = 0; i < n; i++) {
     double d00 = log(y00[i]+1e-50);
     double d10 = log(y10[i]+1e-50);
@@ -7828,11 +7828,23 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 }
 
 void ConvLineRec(int n, double *x, double *y,
+		 double mt, double d0, double t0,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r) {
   int i, m, ny;
   double de = 0;
   if (e > 0) de = e-r->ae;
+  double wd = 0, wdi = 0, wir = 0;
+  if (_starkqc > 0) {
+    t0 /= HARTREE_EV;
+    wd = sqrt(t0)*2.32e-7*pow(d0, ONETHIRD)*_starkqc;
+    if (_starkzi > 0 && _starkmi > 0) {
+      mt = _starkmi*mt/(_starkmi+mt);
+      mt = sqrt(mt*AMU);
+      wdi = wd/(pow(_starkzi, ONETHIRD)*mt);
+      wir = _starkzi*_starkzi*mt;
+    }
+  }
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
@@ -7845,6 +7857,16 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
+      if (_starkqc > 0) {
+	double wt = w0/(1+sqrt(w0/wd));
+	if (wdi > 0) {
+	  double wi = w0*wir;
+	  wi = wi/(1+sqrt(wi/wdi));
+	  wt += wi;
+	}
+	w0 = wt;
+      }
+      //printf("wi: %d %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0);
       double w1 = dw*e0;
       double sw = sqrt(2*(s2 + w1*w1));
       double a = w0*0.5/sw;
@@ -7894,7 +7916,7 @@ void ConvLineRec(int n, double *x, double *y,
 }
 
 void LoadLineRec(int id0, int it0, int nele,
-		 int type, int nmin, int nmax, double d0, double t0) {
+		 int type, int nmin, int nmax) {
   if (_interpsp.r[id0][it0].nele == nele &&
       _interpsp.r[id0][it0].type == type &&
       _interpsp.r[id0][it0].nmin == nmin &&
@@ -8052,30 +8074,9 @@ void LoadLineRec(int id0, int it0, int nele,
     rec->nr = nr;
   }
 
-  double wd = 0, wdi = 0, wir = 0;
-  if (_starkqc > 0) {
-    t0 /= HARTREE_EV;
-    wd = sqrt(t0)*3.53e8*pow(d0, ONETHIRD)*_starkqc;
-    if (_starkzi > 0 && _starkmi > 0) {
-      double mt = GetAtomicMassTable()[rec->z];
-      mt = _starkmi*mt/(_starkmi+mt);
-      mt = sqrt(mt*AMU);
-      wdi = wd/(pow(_starkzi, ONETHIRD)*mt);
-      wir = _starkzi*_starkzi*mt;
-    }
-  }
   double ts = 0.0;
   for (i = 0; i < nr; i++) {
     rec->e[i] *= HARTREE_EV;    
-    if (_starkqc > 0) {
-      double wt = rec->w[i]/(1+sqrt(rec->w[i]/wd));
-      if (wdi > 0) {
-	double wi = rec->w[i]*wir;
-	wi = wi/(1+sqrt(wi/wdi));
-	wt += wi;
-      }
-      rec->w[i] = wt;
-    }
     rec->w[i] *= 6.58e-16;
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];
