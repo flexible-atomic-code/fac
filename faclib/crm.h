@@ -221,6 +221,7 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
 		  double c, double d, double t, double s,
 		  int n, double emin, double emax);
 void ConvLineRec(int n, double *x, double *y,
+		 double mt, double d0, double t0,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r);
 void LoadLineRec(int id0, int it0, int nele,
