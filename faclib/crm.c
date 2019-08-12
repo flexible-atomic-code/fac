@@ -65,6 +65,9 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
+static double _starkqc = 0.5;
+static double _starkzi = 1.0;
+static double _starkmi = 1.0;
 static double _epstau = 5e-2;
 static INTERPSP _interpsp;
 
@@ -7574,6 +7577,18 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starkrw = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkqc")) {
+    _starkqc = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkzi")) {
+    _starkzi = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkmi")) {
+    _starkmi = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:sp_trm")) {
     _sp_trm = ip;
     return;
@@ -7767,10 +7782,10 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   _interpsp.r[id0][it1].ia = 1;
   _interpsp.r[id1][it0].ia = 1;
   _interpsp.r[id1][it1].ia = 1;
-  LoadLineRec(id0, it0, nele, type, nmin, nmax);
-  LoadLineRec(id0, it1, nele, type, nmin, nmax);
-  LoadLineRec(id1, it0, nele, type, nmin, nmax);
-  LoadLineRec(id1, it1, nele, type, nmin, nmax);
+  LoadLineRec(id0, it0, nele, type, nmin, nmax, d, t);
+  LoadLineRec(id0, it1, nele, type, nmin, nmax, d, t);
+  LoadLineRec(id1, it0, nele, type, nmin, nmax, d, t);
+  LoadLineRec(id1, it1, nele, type, nmin, nmax, d, t);
 
   double dw = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
   dw = sqrt(t/(dw*AMU*5.11e5));
@@ -7879,7 +7894,7 @@ void ConvLineRec(int n, double *x, double *y,
 }
 
 void LoadLineRec(int id0, int it0, int nele,
-		 int type, int nmin, int nmax) {
+		 int type, int nmin, int nmax, double d0, double t0) {
   if (_interpsp.r[id0][it0].nele == nele &&
       _interpsp.r[id0][it0].type == type &&
       _interpsp.r[id0][it0].nmin == nmin &&
@@ -8037,9 +8052,30 @@ void LoadLineRec(int id0, int it0, int nele,
     rec->nr = nr;
   }
 
+  double wd = 0, wdi = 0, wir = 0;
+  if (_starkqc > 0) {
+    t0 /= HARTREE_EV;
+    wd = sqrt(t0)*3.53e8*pow(d0, ONETHIRD)*_starkqc;
+    if (_starkzi > 0 && _starkmi > 0) {
+      double mt = GetAtomicMassTable()[rec->z];
+      mt = _starkmi*mt/(_starkmi+mt);
+      mt = sqrt(mt*AMU);
+      wdi = wd/(pow(_starkzi, ONETHIRD)*mt);
+      wir = _starkzi*_starkzi*mt;
+    }
+  }
   double ts = 0.0;
   for (i = 0; i < nr; i++) {
-    rec->e[i] *= HARTREE_EV;
+    rec->e[i] *= HARTREE_EV;    
+    if (_starkqc > 0) {
+      double wt = rec->w[i]/(1+sqrt(rec->w[i]/wd));
+      if (wdi > 0) {
+	double wi = rec->w[i]*wir;
+	wi = wi/(1+sqrt(wi/wdi));
+	wt += wi;
+      }
+      rec->w[i] = wt;
+    }
     rec->w[i] *= 6.58e-16;
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];

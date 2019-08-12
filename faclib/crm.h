@@ -224,7 +224,7 @@ void ConvLineRec(int n, double *x, double *y,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r);
 void LoadLineRec(int id0, int it0, int nele,
-		 int type, int nmin, int nmax);
+		 int type, int nmin, int nmax, double d0, double t0);
 
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
