@@ -7728,6 +7728,8 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 #if USE_MPI == 2
   if (!MPIReady()) InitializeMPI(0, 1);
 #endif
+  double d0 = d;
+  double t0 = t;
   if (_interpsp.ds > 0) {
     d = log(d);
   }
@@ -7791,7 +7793,7 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   double dw = sqrt(t/(dw*AMU*5.11e5));
   
   if (id1 == id0 && it1 == it0) {
-    ConvLineRec(n, x, y, mt, d, t, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
+    ConvLineRec(n, x, y, mt, d0, t0, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
     return;
   }
   double e0, e1, e;
@@ -7807,10 +7809,10 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   y01 = malloc(sizeof(double)*n);
   y10 = malloc(sizeof(double)*n);
   y11 = malloc(sizeof(double)*n);
-  ConvLineRec(n, x, y00, mt, d, t, s, dw, c, e, w, &_interpsp.r[id0][it0]);
-  ConvLineRec(n, x, y01, mt, d, t, s, dw, c, e, w, &_interpsp.r[id0][it1]);
-  ConvLineRec(n, x, y10, mt, d, t, s, dw, c, e, w, &_interpsp.r[id1][it0]);
-  ConvLineRec(n, x, y11, mt, d, t, s, dw, c, e, w, &_interpsp.r[id1][it1]);
+  ConvLineRec(n, x, y00, mt, d0, t0, s, dw, c, e, w, &_interpsp.r[id0][it0]);
+  ConvLineRec(n, x, y01, mt, d0, t0, s, dw, c, e, w, &_interpsp.r[id0][it1]);
+  ConvLineRec(n, x, y10, mt, d0, t0, s, dw, c, e, w, &_interpsp.r[id1][it0]);
+  ConvLineRec(n, x, y11, mt, d0, t0, s, dw, c, e, w, &_interpsp.r[id1][it1]);
   for (i = 0; i < n; i++) {
     double d00 = log(y00[i]+1e-50);
     double d10 = log(y10[i]+1e-50);
