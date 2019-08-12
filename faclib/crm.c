@@ -7790,7 +7790,7 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   LoadLineRec(id1, it1, nele, type, nmin, nmax);
 
   double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
-  double dw = sqrt(t/(dw*AMU*5.11e5));
+  double dw = sqrt(t/(mt*AMU*5.11e5));
   
   if (id1 == id0 && it1 == it0) {
     ConvLineRec(n, x, y, mt, d0, t0, s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
