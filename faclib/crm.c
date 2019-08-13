@@ -65,7 +65,8 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 0.5;
+static double _starkqc = 0.65;
+static double _starkbt = 0.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
 static double _epstau = 5e-2;
@@ -2027,8 +2028,11 @@ int InitBlocks(void) {
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  j = ion->ilev[r->f];
+	  double zi = photon_density * r->inv;
 #pragma omp atomic
-	  blk2->total_rate[j] += photon_density * r->inv;
+	  blk2->total_rate[j] += zi;
+#pragma omp atomic
+	  blk2->rc0[j] += zi;
 	}
       }
     }
@@ -2116,10 +2120,12 @@ int InitBlocks(void) {
 	    blk2->total_rate[j] += zi;
 #pragma omp atomic
 	    blk2->rc0[j] += zi;
+	    /*
 	    zi /= de;
 	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
 #pragma omp atomic
 	    blk2->rc1[j] += zi;
+	    */
 	  }
 	}
       }
@@ -4711,8 +4717,8 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	wtr *= 6.58e-16;
 	wtt = CalcStarkQC(wtr, wd, wdi, wir);
       }      
-      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, wtr, wtt);
+      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, wtr, wtt, wd, wdi, wtr*wir);
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4742,9 +4748,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 		wtr *= 6.58e-16;
 		wtt = CalcStarkQC(wtr, wd, wdi, wir);
 	      }      
-	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E\n", 
+	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, rp->rrate, wtr, wtt);
+		      rp->strength, rp->rrate, wtr, wtt, wd, wdi, wtr*wir);
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -7613,6 +7619,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starkqc = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkbt")) {
+    _starkbt = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:starkzi")) {
     _starkzi = dp;
     return;
@@ -7868,7 +7878,7 @@ void PrepStarkQC(double mt, double d0, double t0,
   *wir = 0;
   if (_starkqc > 0) {
     t0 /= HARTREE_EV;
-    *wd = sqrt(t0)*2.32e-7*pow(d0, ONETHIRD)*_starkqc;
+    *wd = sqrt(t0)*2.32e-7*pow(d0, ONETHIRD);
     if (_starkzi > 0 && _starkmi > 0) {
       mt = _starkmi*mt/(_starkmi+mt);
       mt = sqrt(mt*AMU);
@@ -7881,11 +7891,22 @@ void PrepStarkQC(double mt, double d0, double t0,
 double CalcStarkQC(double w0, double wd, double wdi, double wir) {
   double wt = w0;
   if (wd > 0) {
-    wt = w0/(1+sqrt(w0/wd));
+    double r = sqrt(_starkqc*w0/wd);
+    double b;
+    if (_starkbt > 0 && r > _starkbt) {
+      b = 1/_starkbt;
+    } else {
+      b = 1/r;
+    }
+    wt = wd/(_starkqc/r/r + b);
     if (wdi > 0) {
-      double wi = w0*wir;
-      wi = wi/(1+sqrt(wi/wdi));
-      wt += wi;
+      r = sqrt(_starkqc*w0*wir/wdi);
+      if (_starkbt > 0 && r > _starkbt) {
+	b = 1/_starkbt;
+      } else  {
+	b = 1/r;
+      }
+      wt += wdi/(_starkqc/r/r + b);
     }
   }
   return wt;
