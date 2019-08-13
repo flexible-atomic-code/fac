@@ -8146,6 +8146,7 @@ void LoadLineRec(int id0, int it0, int nele,
   for (i = 0; i < nr; i++) {
     rec->e[i] *= HARTREE_EV;    
     rec->w[i] *= 6.58e-16;
+    rec->k[i] /= rec->e[i]*rec->e[i];
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];
     ts += rec->s[i];
