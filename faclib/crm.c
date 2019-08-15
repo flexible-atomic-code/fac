@@ -70,7 +70,7 @@ static double _starkbt = 0.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
 static double _epstau = 5e-2;
-static double _reemit = 0.5;
+static double _reemit = 1.0;
 static INTERPSP _interpsp;
 
 #pragma omp threadprivate(_ce_data, _rr_data)
@@ -7974,14 +7974,15 @@ void ConvLineRec(int n, double *x, double *y,
 	double ta = t*v0/sw1;
 	if (ta > _epstau && _reemit > 0) {
 	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + w1*w1);
-	  double w02 = w0/w2;
-	  double w02s = w02*w02;
-	  double eta = 1.36603*w02 - 0.47719*w02s + 0.11116*w02s*w02;	  
-	  w2 = sqrt(eta*ta*0.16*w0*sw1/(_reemit*v0));
-	  printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, eta, v0);
+	  double xw = ta/_reemit-1.0;
+	  if (xw <= 0) w2 = 0;
+	  else {
+	    w2 = sqrt(xw)*w2;
+	  }
+	  //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	}
       }
-      double a = (w0+w2)*0.5/sw;
+      double a = (sqrt(w0*w0+w2*w2))*0.5/sw;
       double b = r->s[i]/sw;
       for (m = 0; m < n; m++) {
 	double v = UVoigt(a, (x[m]-e0)/sw);
