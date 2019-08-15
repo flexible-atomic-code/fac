@@ -70,6 +70,7 @@ static double _starkbt = 0.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
 static double _epstau = 5e-2;
+static double _reemit = 0.5;
 static INTERPSP _interpsp;
 
 #pragma omp threadprivate(_ce_data, _rr_data)
@@ -7631,6 +7632,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starkmi = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:reemit")) {
+    _reemit = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:sp_trm")) {
     _sp_trm = ip;
     return;
@@ -7912,6 +7917,26 @@ double CalcStarkQC(double w0, double wd, double wdi, double wir) {
   return wt;
 }
 
+double NeufeldProfile(double x, double xi, double a, double t0, double ts) {
+  double c0 = 0.10206;
+  double c1 = 1.34308;
+  double at0 = a*t0;
+  double x2 = x*x;
+  double xi2 = xi*xi;
+  double dx = c1*fabs(x2*x - xi2*xi)/at0;
+  double z = exp(-dx);
+  double y;
+  if (1+ts == 1) {
+    y = (c0*x2/at0)*(z/(0.5*(1+z*z)));
+    y *= FOUR_PI;
+  } else {
+    double xs = PI*ts/(2*t0);
+    y = (c0*x2/at0)*cos(xs)*(z/(0.5*(1+z*z) + z*sin(xs)));
+    y *= FOUR_PI*t0/(t0+ts);
+  }
+  return y;
+}
+
 void ConvLineRec(int n, double *x, double *y,
 		 double mt, double d0, double t0,
 		 double s, double dw, double c,
@@ -7937,14 +7962,33 @@ void ConvLineRec(int n, double *x, double *y,
       //printf("wi: %d %g %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0, wd, wdi, wir);
       double w1 = dw*e0;
       double sw = sqrt(2*(s2 + w1*w1));
-      double a = w0*0.5/sw;
+      double w2 = 0.0;
+      double sw1 = 0.0;
+      double a1 = 0.0;
+      double ta = 0.0;
+      if (c > 0) {
+	double sw1 = w1*SQRT2;
+	double t = c*r->k[i];
+	double a1 = w0*0.5/sw1;
+	double v0 = UVoigt(a1, 0.0);
+	double ta = t*v0/sw1;
+	if (ta > _epstau && _reemit > 0) {
+	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + w1*w1);
+	  double w02 = w0/w2;
+	  double w02s = w02*w02;
+	  double eta = 1.36603*w02 - 0.47719*w02s + 0.11116*w02s*w02;	  
+	  w2 = sqrt(eta*ta*0.16*w0*sw1/(_reemit*v0));
+	  printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, eta, v0);
+	}
+      }
+      double a = (w0+w2)*0.5/sw;
       double b = r->s[i]/sw;
       for (m = 0; m < n; m++) {
 	double v = UVoigt(a, (x[m]-e0)/sw);
 #pragma omp atomic
 	y[m] += b*v;
       }
-      if (c > 0) {
+      if (c > 0 && _reemit <= 0) {
 	double sw1 = w1*SQRT2;
 	double t = c*r->k[i];
 	double a1 = w0*0.5/sw1;
@@ -7961,19 +8005,20 @@ void ConvLineRec(int n, double *x, double *y,
 	  for (j = -ny; j <= ny; j++, x0 += 0.1) {
 	    double v = UVoigt(a1, x0);
 	    double tv = t*v/sw1;
-	    double fesc = 0.0;
+	    double fa = 0.0;
 	    if (tv > 1e-3) {
-	      fesc = (1-exp(-tv)-tv)/tv;
+	      fa = (1-exp(-tv)-tv)/tv;
 	    } else {
-	      fesc = -0.5*tv;
+	      fa = -0.5*tv;
 	    }
-	    double y0 = b*v*fesc;
+	    double y0 = b*v*fa;
 	    for (m = 0; m < n; m++) {
-	      double dx = (x[m]-(e0+x0*sw1))/s;
-	      dx = 0.5*dx*dx;
-	      if (dx < 25) {
+	      double xi = e0+x0*sw1;
+	      double dx = (x[m]-xi)/s;
+	      double dx2 = 0.5*dx*dx;
+	      if (dx2 < 25) {
 #pragma omp atomic
-		y[m] += y0*exp(-dx)*0.39894/s;
+		y[m] += y0*exp(-dx2)*0.39894/s;
 	      }
 	    }
 	  }
