@@ -7966,12 +7966,14 @@ void ConvLineRec(int n, double *x, double *y,
       double sw1 = 0.0;
       double a1 = 0.0;
       double ta = 0.0;
+      double t = 0.0;
+      double v0 = 0.0;
       if (c > 0) {
-	double sw1 = w1*SQRT2;
-	double t = c*r->k[i];
-	double a1 = w0*0.5/sw1;
-	double v0 = UVoigt(a1, 0.0);
-	double ta = t*v0/sw1;
+	sw1 = w1*SQRT2;
+	t = c*r->k[i];
+	a1 = w0*0.5/sw1;
+	v0 = UVoigt(a1, 0.0);
+	ta = t*v0/sw1;
 	if (ta > _epstau && _reemit > 0) {
 	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + w1*w1);
 	  double xw = ta/_reemit-1.0;
@@ -7979,7 +7981,7 @@ void ConvLineRec(int n, double *x, double *y,
 	  else {
 	    w2 = sqrt(xw)*w2;
 	  }
-	  //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
+	  printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	}
       }
       double a = (sqrt(w0*w0+w2*w2))*0.5/sw;
@@ -7989,38 +7991,31 @@ void ConvLineRec(int n, double *x, double *y,
 #pragma omp atomic
 	y[m] += b*v;
       }
-      if (c > 0 && _reemit <= 0) {
-	double sw1 = w1*SQRT2;
-	double t = c*r->k[i];
-	double a1 = w0*0.5/sw1;
-	double v0 = UVoigt(a1, 0.0);
-	double ta = t*v0/sw1;
-	if (ta > _epstau) {
-	  for (ny = 50; ny <= 5000;  ny += 10) {
-	    double v1 = UVoigt(a1, ny*0.1);
-	    if (t*v1/sw1 < _epstau) break;
+      if (ta > _epstau && _reemit <= 0) {
+	for (ny = 50; ny <= 5000;  ny += 10) {
+	  double v1 = UVoigt(a1, ny*0.1);
+	  if (t*v1/sw1 < _epstau) break;
+	}
+	b = 0.1*r->s[i];
+	int j;
+	double x0 = -ny*0.1;
+	for (j = -ny; j <= ny; j++, x0 += 0.1) {
+	  double v = UVoigt(a1, x0);
+	  double tv = t*v/sw1;
+	  double fa = 0.0;
+	  if (tv > 1e-3) {
+	    fa = (1-exp(-tv)-tv)/tv;
+	  } else {
+	    fa = -0.5*tv;
 	  }
-	  b = 0.1*r->s[i];
-	  int j;
-	  double x0 = -ny*0.1;
-	  for (j = -ny; j <= ny; j++, x0 += 0.1) {
-	    double v = UVoigt(a1, x0);
-	    double tv = t*v/sw1;
-	    double fa = 0.0;
-	    if (tv > 1e-3) {
-	      fa = (1-exp(-tv)-tv)/tv;
-	    } else {
-	      fa = -0.5*tv;
-	    }
-	    double y0 = b*v*fa;
-	    for (m = 0; m < n; m++) {
-	      double xi = e0+x0*sw1;
-	      double dx = (x[m]-xi)/s;
-	      double dx2 = 0.5*dx*dx;
-	      if (dx2 < 25) {
+	  double y0 = b*v*fa;
+	  for (m = 0; m < n; m++) {
+	    double xi = e0+x0*sw1;
+	    double dx = (x[m]-xi)/s;
+	    double dx2 = 0.5*dx*dx;
+	    if (dx2 < 25) {
 #pragma omp atomic
-		y[m] += y0*exp(-dx2)*0.39894/s;
-	      }
+	      y[m] += y0*exp(-dx2)*0.39894/s;
 	    }
 	  }
 	}
