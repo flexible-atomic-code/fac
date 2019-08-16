@@ -7981,7 +7981,7 @@ void ConvLineRec(int n, double *x, double *y,
 	  else {
 	    w2 = sqrt(xw)*w2;
 	  }
-	  printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
+	  //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	}
       }
       double a = (sqrt(w0*w0+w2*w2))*0.5/sw;
