@@ -7975,12 +7975,13 @@ void ConvLineRec(int n, double *x, double *y,
 	v0 = UVoigt(a1, 0.0);
 	ta = t*v0/sw1;
 	if (ta > _epstau && _reemit > 0) {
-	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + w1*w1);
+	  double wg = 2.355*w1;
+	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + wg*wg);
 	  double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))))*_reemit/0.833;
 	  w2 = xw*w2 - 0.5356*w0;
 	  w2 = w2*w2 - 0.2166*w0*w0;
 	  if (w2 > 0) {
-	    w2 = sqrt(w2);
+	    w2 = sqrt(w2)/2.355;
 	    //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	    w1 = w2;
 	    sw = sqrt(2*(s2+w1*w1));
