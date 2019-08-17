@@ -7937,11 +7937,18 @@ double NeufeldProfile(double x, double xi, double a, double t0, double ts) {
   return y;
 }
 
+double EscM1(double t) {
+  if (t > 1e-5) {
+    return (1-exp(-t))/t -1;
+  }
+  return -0.5*t;
+}
+
 void ConvLineRec(int n, double *x, double *y,
 		 double mt, double d0, double t0,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r) {
-  int i, m, ny;
+  int i, m, ny = 0;
   double de = 0;
   if (e > 0) de = e-r->ae;
   double wd, wdi, wir;
@@ -7951,7 +7958,7 @@ void ConvLineRec(int n, double *x, double *y,
   double s2 = s*s;
   for (m = 0; m < n; m++) y[m] = 0.0;
   ResetWidMPI();
-#pragma omp parallel default(shared) private(i, m)
+#pragma omp parallel default(shared) private(i, m, ny)
   {
     int wr = 0;
     for (i = 0; i < r->nr; i++) {
@@ -7968,70 +7975,81 @@ void ConvLineRec(int n, double *x, double *y,
       double ta = 0.0;
       double t = 0.0;
       double v0 = 0.0;
+      double v = 0.0;
+      double tv = 0.0;
+      double ds = 0.25;
+      double *yv = NULL;
+      double ya = 0.0;
+      double fa = 0.0;
+      double y0 = 0.0;
+      double x0 = 0.0;
+      double ra = 0.0;
+      int j;
+      ny = 0;
       if (c > 0) {
 	sw1 = w1*SQRT2;
 	t = c*r->k[i];
 	a1 = w0*0.5/sw1;
 	v0 = UVoigt(a1, 0.0);
-	ta = t*v0/sw1;
-	if (ta > _epstau && _reemit < 0) {
-	  double wg = 2.355*w1;
-	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + wg*wg);
-	  double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))))*(-_reemit)/0.833;
-	  w2 = xw*w2 - 0.5356*w0;
-	  w2 = w2*w2 - 0.2166*w0*w0;
-	  if (w2 > 0) {
-	    w2 = sqrt(w2)/2.355;
-	    //printf("re0: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
-	    w1 = w2;
-	    sw = sqrt(2*(s2+w1*w1));
+	ta = t*v0/sw1;	
+	if (ta > _epstau) {
+	  if (_reemit < 0) {
+	    double wg = 2.355*w1;
+	    w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + wg*wg);
+	    double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))));
+	    xw *= (-_reemit)/0.833;
+	    w2 = xw*w2 - 0.5356*w0;
+	    w2 = w2*w2 - 0.2166*w0*w0;
+	    if (w2 > 0) {
+	      w2 = sqrt(w2)/2.355;
+	      //printf("re0: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
+	      w1 = w2;
+	      sw = sqrt(2*(s2+w1*w1));
+	    } else {
+	      w2 = 0.0;
+	    }
 	  } else {
-	    w2 = 0.0;
+	    int dn = (int)(a1/ds);
+	    dn = Max(5, dn);
+	    int mn = (int)(1e3*a1/ds);
+	    mn = Max(100, mn);
+	    for (ny = dn; ny <= mn; ny += dn) {
+	      tv = t*UVoigt(a1, ny*ds);
+	      if (tv < _epstau*sw1) break;
+	    }
+	    yv = malloc(sizeof(double)*ny);
+	    x0 = ds;
+	    ya = 0.0;
+	    for (j = 0; j < ny; j++, x0 += ds) {
+	      v = UVoigt(a1, x0);
+	      tv = t*v/sw1;
+	      fa = EscM1(tv);
+	      yv[j] = v*fa;
+	      ya += yv[j];
+	    }
+	    y0 = v0*EscM1(ta);
+	    ya = (2*ya + y0)*ds;
+	    ra = 1 - _reemit*ya/(1+ya);	    
+	    //printf("re1: %d %d %d %d %g %g %g %g %g %g %g %g\n", i, ny, dn, mn, e0, w0, w1, a1, y0, ta, ya, ra);
 	  }
 	}
       }
-      if (ta <= _epstau || _reemit < 0) {
-	double a = w0*0.5/sw;
-	double b = r->s[i]/sw;
-	for (m = 0; m < n; m++) {
-	  double v = UVoigt(a, (x[m]-e0)/sw);
+      double a = w0*0.5/sw;
+      double b = r->s[i]/sw;
+      if (ny > 0) b *= ra;
+      for (m = 0; m < n; m++) {
+	v = UVoigt(a, (x[m]-e0)/sw);
 #pragma omp atomic
-	  y[m] += b*v;
-	}
-      } else {
-	int ny = (int)(2500*a1);
-	ny = Max(ny, 100);
-	ny = Min(ny, 1000000);
-	double ds = 0.25;
-	double b = ds*r->s[i];
-	double *yv = malloc(sizeof(double)*ny);
-	double y0 = UVoigt(a1, 0.0);
-	double fa = (1-exp(-ta))/ta;
-	double yt = y0;
-	double ya = y0*fa;
-	double ya0 = ya;
-	double x0 = ds;
-	int j;
-	for (j = 0; j < ny; j++, x0 += ds) {
-	  double v = UVoigt(a1, x0);
-	  double tv = t*v/sw1;
-	  if (tv > 1e-5) {
-	    fa = (1-exp(-tv))/tv;
-	  } else {
-	    fa = 1-0.5*tv;
-	  }
-	  yt += v;
-	  yv[j] = v*fa;
-	  ya += yv[j];
-	}
-	b *= 1+_reemit*(yt-ya)/ya;
-	//printf("re1: %d %d %g %g %g %g %g %g %g\n", i, ny, e0, yt, ya, y0, ya0, a1, ta);
+	y[m] += b*v;
+      }
+      if (ny > 0) {
 	x0 = ds;
+	b = ds*r->s[i]*ra;
 	for (j = 0; j <= ny; j++, x0 += ds) {
 	  if (j < ny) {
-	    y0 = yv[j]*b;
+	    ya = yv[j]*b;
 	  } else {
-	    y0 = ya0*b;
+	    ya = y0*b;
 	    x0 = 0.0;
 	  }
 	  for (m = 0; m < n; m++) {
@@ -8040,7 +8058,7 @@ void ConvLineRec(int n, double *x, double *y,
 	    double dx2 = 0.5*dx*dx;
 	    if (dx2 < 25) {
 #pragma omp atomic
-	      y[m] += y0*exp(-dx2)*0.39894/s;
+	      y[m] += ya*exp(-dx2)*0.39894/s;
 	    }
 	    if (j < ny) {
 	      xi = e0 - x0*sw1;
@@ -8048,7 +8066,7 @@ void ConvLineRec(int n, double *x, double *y,
 	      dx2 = 0.5*dx*dx;
 	      if (dx2 < 25) {
 #pragma omp atomic
-		y[m] += y0*exp(-dx2)*0.39894/s;
+		y[m] += ya*exp(-dx2)*0.39894/s;
 	      }
 	    }
 	  }
@@ -8056,6 +8074,10 @@ void ConvLineRec(int n, double *x, double *y,
 	free(yv);
       }
     }
+  }
+  y[0] *= x[1]-x[0];
+  for (m = 1; m < n; m++) {
+    y[m] *= x[m]-x[m-1];
   }
 }
 
