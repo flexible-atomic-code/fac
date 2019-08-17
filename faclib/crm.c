@@ -7962,7 +7962,7 @@ void ConvLineRec(int n, double *x, double *y,
       //printf("wi: %d %g %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0, wd, wdi, wir);
       double w1 = dw*e0;
       double sw = sqrt(2*(s2 + w1*w1));
-      double w2 = 0.0;
+      double w2 = w0;
       double sw1 = 0.0;
       double a1 = 0.0;
       double ta = 0.0;
@@ -7976,15 +7976,20 @@ void ConvLineRec(int n, double *x, double *y,
 	ta = t*v0/sw1;
 	if (ta > _epstau && _reemit > 0) {
 	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + w1*w1);
-	  double xw = ta/_reemit-1.0;
-	  if (xw <= 0) w2 = 0;
-	  else {
-	    w2 = sqrt(xw)*w2;
+	  double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))))*_reemit/0.833;
+	  w2 = xw*w2 - 0.5356*w0;
+	  w2 = w2*w2 - 0.2166*w0*w0;
+	  if (w2 > 0) {
+	    w2 = sqrt(w2);
+	    //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
+	    w1 = w2;
+	    sw = sqrt(2*(s2+w1*w1));
+	  } else {
+	    w2 = 0.0;
 	  }
-	  //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	}
       }
-      double a = (sqrt(w0*w0+w2*w2))*0.5/sw;
+      double a = w0*0.5/sw;
       double b = r->s[i]/sw;
       for (m = 0; m < n; m++) {
 	double v = UVoigt(a, (x[m]-e0)/sw);
