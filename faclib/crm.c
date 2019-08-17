@@ -69,7 +69,7 @@ static double _starkqc = 0.65;
 static double _starkbt = 0.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
-static double _epstau = 5e-2;
+static double _epstau = 0.1;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
 
@@ -7974,15 +7974,15 @@ void ConvLineRec(int n, double *x, double *y,
 	a1 = w0*0.5/sw1;
 	v0 = UVoigt(a1, 0.0);
 	ta = t*v0/sw1;
-	if (ta > _epstau && _reemit > 0) {
+	if (ta > _epstau && _reemit < 0) {
 	  double wg = 2.355*w1;
 	  w2 = 0.5346*w0 + sqrt(0.2166*w0*w0 + wg*wg);
-	  double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))))*_reemit/0.833;
+	  double xw = sqrt(log(ta/(log(2.0/(exp(-ta)+1.0)))))*(-_reemit)/0.833;
 	  w2 = xw*w2 - 0.5356*w0;
 	  w2 = w2*w2 - 0.2166*w0*w0;
 	  if (w2 > 0) {
 	    w2 = sqrt(w2)/2.355;
-	    //printf("re: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
+	    //printf("re0: %d %g %g %g %g %g %g %g %g\n", i, e0, w0, w1, w2, a1, ta, v0, xw);
 	    w1 = w2;
 	    sw = sqrt(2*(s2+w1*w1));
 	  } else {
@@ -7990,31 +7990,50 @@ void ConvLineRec(int n, double *x, double *y,
 	  }
 	}
       }
-      double a = w0*0.5/sw;
-      double b = r->s[i]/sw;
-      for (m = 0; m < n; m++) {
-	double v = UVoigt(a, (x[m]-e0)/sw);
+      if (ta <= _epstau || _reemit < 0) {
+	double a = w0*0.5/sw;
+	double b = r->s[i]/sw;
+	for (m = 0; m < n; m++) {
+	  double v = UVoigt(a, (x[m]-e0)/sw);
 #pragma omp atomic
-	y[m] += b*v;
-      }
-      if (ta > _epstau && _reemit <= 0) {
-	for (ny = 50; ny <= 5000;  ny += 10) {
-	  double v1 = UVoigt(a1, ny*0.1);
-	  if (t*v1/sw1 < _epstau) break;
+	  y[m] += b*v;
 	}
-	b = 0.1*r->s[i];
+      } else {
+	int ny = (int)(2500*a1);
+	ny = Max(ny, 100);
+	ny = Min(ny, 1000000);
+	double ds = 0.25;
+	double b = ds*r->s[i];
+	double *yv = malloc(sizeof(double)*ny);
+	double y0 = UVoigt(a1, 0.0);
+	double fa = (1-exp(-ta))/ta;
+	double yt = y0;
+	double ya = y0*fa;
+	double ya0 = ya;
+	double x0 = ds;
 	int j;
-	double x0 = -ny*0.1;
-	for (j = -ny; j <= ny; j++, x0 += 0.1) {
+	for (j = 0; j < ny; j++, x0 += ds) {
 	  double v = UVoigt(a1, x0);
 	  double tv = t*v/sw1;
-	  double fa = 0.0;
-	  if (tv > 1e-3) {
-	    fa = (1-exp(-tv)-tv)/tv;
+	  if (tv > 1e-5) {
+	    fa = (1-exp(-tv))/tv;
 	  } else {
-	    fa = -0.5*tv;
+	    fa = 1-0.5*tv;
 	  }
-	  double y0 = b*v*fa;
+	  yt += v;
+	  yv[j] = v*fa;
+	  ya += yv[j];
+	}
+	b *= 1+_reemit*(yt-ya)/ya;
+	//printf("re1: %d %d %g %g %g %g %g %g %g\n", i, ny, e0, yt, ya, y0, ya0, a1, ta);
+	x0 = ds;
+	for (j = 0; j <= ny; j++, x0 += ds) {
+	  if (j < ny) {
+	    y0 = yv[j]*b;
+	  } else {
+	    y0 = ya0*b;
+	    x0 = 0.0;
+	  }
 	  for (m = 0; m < n; m++) {
 	    double xi = e0+x0*sw1;
 	    double dx = (x[m]-xi)/s;
@@ -8023,8 +8042,18 @@ void ConvLineRec(int n, double *x, double *y,
 #pragma omp atomic
 	      y[m] += y0*exp(-dx2)*0.39894/s;
 	    }
+	    if (j < ny) {
+	      xi = e0 - x0*sw1;
+	      dx = (x[m]-xi)/s;
+	      dx2 = 0.5*dx*dx;
+	      if (dx2 < 25) {
+#pragma omp atomic
+		y[m] += y0*exp(-dx2)*0.39894/s;
+	      }
+	    }
 	  }
 	}
+	free(yv);
       }
     }
   }
@@ -8169,6 +8198,9 @@ void LoadLineRec(int id0, int it0, int nele,
 	rec->n0[nr] = dn[i0];
 	rec->n1[nr] = dn[i1];
 	rec->k[nr] = 2.528e-24*(dw[i1]/dw[i0])*r.rrate*rec->n0[nr]/rec->nt;
+	rec->n0[nr] /= dw[i0];
+	rec->n1[nr] /= dw[i1];
+	rec->s[nr] /= 1-rec->n1[nr]/rec->n0[nr];
 	nr++;
       }
     }
