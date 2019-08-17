@@ -8025,7 +8025,7 @@ void ConvLineRec(int n, double *x, double *y,
 	  ya += yv[j];
 	}
 	b *= 1+_reemit*(yt-ya)/ya;
-	printf("re1: %d %d %g %g %g %g %g %g %g\n", i, ny, e0, yt, ya, y0, ya0, a1, ta);
+	//printf("re1: %d %d %g %g %g %g %g %g %g\n", i, ny, e0, yt, ya, y0, ya0, a1, ta);
 	x0 = ds;
 	for (j = 0; j <= ny; j++, x0 += ds) {
 	  if (j < ny) {
