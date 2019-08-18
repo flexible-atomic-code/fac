@@ -8056,15 +8056,17 @@ void ConvLineRec(int n, double *x, double *y,
 	  for (m = 0; m < n; m++) {
 	    double xi = e0+x0*sw1;
 	    double dx = (x[m]-xi)/s;
-	    double fx = fabs(dx)>10?0.0:sg*exp(-0.5*dx*dx);
+	    if (fabs(dx) < 10)  {
 #pragma omp atomic
-	    y[m] += ya*fx;
+	      y[m] += ya*sg*exp(-0.5*dx*dx);
+	    }
 	    if (j < ny) {
 	      xi = e0 - x0*sw1;
 	      dx = (x[m]-xi)/s;
-	      fx = fabs(dx)>10?0.0:sg*exp(-0.5*dx*dx);
+	      if (fabs(dx) < 10) {
 #pragma omp atomic
-	      y[m] += ya*fx;
+		y[m] += ya*sg*exp(-0.5*dx*dx);
+	      }
 	    }
 	  }
 	}
