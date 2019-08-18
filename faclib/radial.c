@@ -9741,7 +9741,7 @@ void SetOrbNMax(int kmin, int kmax, int nmax) {
 	int n = SetNMaxKappa(kappa, nmax);
 	int idx = -1;
 	double e = 0.0;
-	if (n > k) {
+	if (n > k && n < 1000000000) {
 	  idx = OrbitalIndex(n, kappa, 0);
 	  e = 0.0;
 	  if (idx >= 0) {
