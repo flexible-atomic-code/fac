@@ -8039,7 +8039,7 @@ void ConvLineRec(int n, double *x, double *y,
 	    y0 = v0*EscM1(ta);
 	    ya = (2*ya + y0)*ds;
 	    ra = 1 - _reemit*ya/(1+ya);	    
-	    printf("re1: %d %d %d %d %g %g %g %g %g %g %g %g\n", i, ny, dn, mn, e0, w0, w1, a1, y0, ta, ya, ra);
+	    //printf("re1: %d %d %d %d %g %g %g %g %g %g %g %g\n", i, ny, dn, mn, e0, w0, w1, a1, y0, ta, ya, ra);
 	  }
 	}
       }
