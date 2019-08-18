@@ -7956,16 +7956,8 @@ void ConvLineRec(int n, double *x, double *y,
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
+  double sg = 1/sqrt(TWO_PI)/s;
   for (m = 0; m < n; m++) y[m] = 0.0;
-  int ng = 110;
-  double xg = 0, yg[110], pg[110], dg=0.1;
-  double cg = dg*0.39894228;  
-  for (i = 0; i < ng; i++) {
-    yg[i] = cg*exp(-0.5*xg*xg);
-    xg += dg;
-  }
-  pg[ng-1] = yg[ng-1];
-  NewtonCotesIP(pg, yg, 0, ng-1, -1, -1);
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, m, ny)
   {
@@ -8061,67 +8053,19 @@ void ConvLineRec(int n, double *x, double *y,
 	    ya = y0*b;
 	    x0 = 0.0;
 	  }
-	  double dxm = 0.5*(x[1]-x[0]);
-	  double dxp;
 	  for (m = 0; m < n; m++) {
-	    dxp = (m == n-1)?dxm:0.5*(x[m+1]-x[m]);
 	    double xi = e0+x0*sw1;
-	    double dx0 = (x[m]-dxm-xi)/s;
-	    double dx1 = (x[m]+dxp-xi)/s;
-	    double dy0, dy1, adx0, adx1, fx;
-	    int k;
-	    adx0 = fabs(dx0);
-	    adx1 = fabs(dx1);
-	    if (dx0 < -10) dy0 = 1.0;
-	    else if (dx0 > 10) dy0 = 0.0;
-	    else {
-	      fx = adx0/dg;
-	      k = (int)fx;
-	      fx -= k;
-	      dy0 = pg[k+1]*fx + pg[k]*(1-fx);
-	      if (dx0 < 0) dy0 = 1-dy0;
-	    }
-	    if (dx1 < -10) dy1 = 1.0;
-	    else if (dx1 > 10) dy1 = 0.0;
-	    else {
-	      fx = adx1/dg;
-	      k = (int)fx;
-	      fx -= k;
-	      dy1 = pg[k+1]*fx + pg[k]*(1-fx);
-	      if (dx1 < 0) dy1 = 1-dy1;
-	    }
-	    fx = (dy0-dy1)/(dxm+dxp);
+	    double dx = (x[m]-xi)/s;
+	    double fx = fabs(dx)>10?0.0:sg*exp(-0.5*dx*dx);
 #pragma omp atomic
 	    y[m] += ya*fx;
 	    if (j < ny) {
 	      xi = e0 - x0*sw1;
-	      dx0 = (x[m]-dxm-xi)/s;
-	      dx1 = (x[m]+dxp-xi)/s;
-	      adx0 = fabs(dx0);
-	      adx1 = fabs(dx1);	      
-	      if (dx0 < -10) dy0 = 1.0;
-	      else if (dx0 > 10) dy0 = 0.0;
-	      else {
-		fx = adx0/dg;
-		k = (int)fx;
-		fx -= k;
-		dy0 = pg[k+1]*fx + pg[k]*(1-fx);
-		if (dx0 < 0) dy0 = 1-dy0;
-	      }
-	      if (dx1 < -10) dy1 = 1.0;
-	      else if (dx1 > 10) dy1 = 0.0;
-	      else {
-		fx = adx1/dg;
-		k = (int)fx;
-		fx -= k;
-		dy1 = pg[k+1]*fx + pg[k]*(1-fx);
-		if (dx1 < 0) dy1 = 1-dy1;
-	      }
-	      fx = (dy0-dy1)/(dxm+dxp);
+	      dx = (x[m]-xi)/s;
+	      fx = fabs(dx)>10?0.0:sg*exp(-0.5*dx*dx);
 #pragma omp atomic
 	      y[m] += ya*fx;
 	    }
-	    dxm = dxp;
 	  }
 	}
 	free(yv);
