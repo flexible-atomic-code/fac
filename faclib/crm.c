@@ -69,7 +69,7 @@ static double _starkqc = 0.65;
 static double _starkbt = 0.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
-static double _epstau = 0.1;
+static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
 
@@ -7957,6 +7957,15 @@ void ConvLineRec(int n, double *x, double *y,
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
   for (m = 0; m < n; m++) y[m] = 0.0;
+  int ng = 110;
+  double xg = 0, yg[110], pg[110], dg=0.1;
+  double cg = dg*0.39894228;  
+  for (i = 0; i < ng; i++) {
+    yg[i] = cg*exp(-0.5*xg*xg);
+    xg += dg;
+  }
+  pg[ng-1] = yg[ng-1];
+  NewtonCotesIP(pg, yg, 0, ng-1, -1, -1);
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, m, ny)
   {
@@ -8030,7 +8039,7 @@ void ConvLineRec(int n, double *x, double *y,
 	    y0 = v0*EscM1(ta);
 	    ya = (2*ya + y0)*ds;
 	    ra = 1 - _reemit*ya/(1+ya);	    
-	    //printf("re1: %d %d %d %d %g %g %g %g %g %g %g %g\n", i, ny, dn, mn, e0, w0, w1, a1, y0, ta, ya, ra);
+	    printf("re1: %d %d %d %d %g %g %g %g %g %g %g %g\n", i, ny, dn, mn, e0, w0, w1, a1, y0, ta, ya, ra);
 	  }
 	}
       }
@@ -8052,32 +8061,79 @@ void ConvLineRec(int n, double *x, double *y,
 	    ya = y0*b;
 	    x0 = 0.0;
 	  }
+	  double dxm = 0.5*(x[1]-x[0]);
+	  double dxp;
 	  for (m = 0; m < n; m++) {
+	    dxp = (m == n-1)?dxm:0.5*(x[m+1]-x[m]);
 	    double xi = e0+x0*sw1;
-	    double dx = (x[m]-xi)/s;
-	    double dx2 = 0.5*dx*dx;
-	    if (dx2 < 25) {
-#pragma omp atomic
-	      y[m] += ya*exp(-dx2)*0.39894/s;
+	    double dx0 = (x[m]-dxm-xi)/s;
+	    double dx1 = (x[m]+dxp-xi)/s;
+	    double dy0, dy1, adx0, adx1, fx;
+	    int k;
+	    adx0 = fabs(dx0);
+	    adx1 = fabs(dx1);
+	    if (dx0 < -10) dy0 = 1.0;
+	    else if (dx0 > 10) dy0 = 0.0;
+	    else {
+	      fx = adx0/dg;
+	      k = (int)fx;
+	      fx -= k;
+	      dy0 = pg[k+1]*fx + pg[k]*(1-fx);
+	      if (dx0 < 0) dy0 = 1-dy0;
 	    }
+	    if (dx1 < -10) dy1 = 1.0;
+	    else if (dx1 > 10) dy1 = 0.0;
+	    else {
+	      fx = adx1/dg;
+	      k = (int)fx;
+	      fx -= k;
+	      dy1 = pg[k+1]*fx + pg[k]*(1-fx);
+	      if (dx1 < 0) dy1 = 1-dy1;
+	    }
+	    fx = (dy0-dy1)/(dxm+dxp);
+#pragma omp atomic
+	    y[m] += ya*fx;
 	    if (j < ny) {
 	      xi = e0 - x0*sw1;
-	      dx = (x[m]-xi)/s;
-	      dx2 = 0.5*dx*dx;
-	      if (dx2 < 25) {
-#pragma omp atomic
-		y[m] += ya*exp(-dx2)*0.39894/s;
+	      dx0 = (x[m]-dxm-xi)/s;
+	      dx1 = (x[m]+dxp-xi)/s;
+	      adx0 = fabs(dx0);
+	      adx1 = fabs(dx1);	      
+	      if (dx0 < -10) dy0 = 1.0;
+	      else if (dx0 > 10) dy0 = 0.0;
+	      else {
+		fx = adx0/dg;
+		k = (int)fx;
+		fx -= k;
+		dy0 = pg[k+1]*fx + pg[k]*(1-fx);
+		if (dx0 < 0) dy0 = 1-dy0;
 	      }
+	      if (dx1 < -10) dy1 = 1.0;
+	      else if (dx1 > 10) dy1 = 0.0;
+	      else {
+		fx = adx1/dg;
+		k = (int)fx;
+		fx -= k;
+		dy1 = pg[k+1]*fx + pg[k]*(1-fx);
+		if (dx1 < 0) dy1 = 1-dy1;
+	      }
+	      fx = (dy0-dy1)/(dxm+dxp);
+#pragma omp atomic
+	      y[m] += ya*fx;
 	    }
+	    dxm = dxp;
 	  }
 	}
 	free(yv);
       }
     }
   }
-  y[0] *= x[1]-x[0];
-  for (m = 1; m < n; m++) {
-    y[m] *= x[m]-x[m-1];
+  double dxm = 0.5*(x[1]-x[0]);
+  double dxp = dxm;
+  for (m = 0; m < n; m++) {
+    if (m < n-1) dxp = 0.5*(x[m+1]-x[m]);
+    y[m] *= (dxm+dxp);
+    dxm = dxp;
   }
 }
 
