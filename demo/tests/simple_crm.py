@@ -2,6 +2,8 @@ import os
 import sys
 from pfac.fac import *
 from pfac.crm import *
+from pfac import fac
+from pfac import crm
 
 print('running crm_OI.py')
 if not os.path.exists('O_crm'):
@@ -13,7 +15,7 @@ if len(sys.argv) == 2 and sys.argv[1] == 'openmp':
 
 if use_openmp:
     # enable openmp with 2 cores
-    InitializeMPI(2)
+    fac.InitializeMPI(2)
 
 # For Structure and rates
 SetAtom('O')
@@ -32,6 +34,10 @@ MemENTable('O_crm/O.en')
 TransitionTable('O_crm/O.tr', ['g1', 'g2'], ['g1', 'g2'])
 CETable('O_crm/O.ce', ['g1', 'g2'], ['g1', 'g2'])
 
+if use_openmp:
+    fac.FinalizeMPI()
+    crm.InitializeMPI(2)
+    
 # For CRmodel
 AddIon(8, 1, 'O_crm/O')
 SetBlocks(-1)
@@ -46,4 +52,4 @@ SpecTable('O.b.sp', 0)
 PrintTable('O.b.sp', 'O.sp')
 
 if use_openmp:
-    FinalizeMPI()
+    crm.FinalizeMPI()
