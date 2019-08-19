@@ -1122,9 +1122,9 @@ int SetBlocks(double ni, char *ifn) {
 					       sizeof(double)*nlevels);
 		  blkp->total_rate = (double *)ReallocNew(blkp->total_rate,
 							  sizeof(double)*nlevels);
-		  blkp->rc0 = (double *)ReallocNew(blkp->total_rate,
+		  blkp->rc0 = (double *)ReallocNew(blkp->rc0,
 						   sizeof(double)*nlevels);
-		  blkp->rc1 = (double *)ReallocNew(blkp->total_rate,
+		  blkp->rc1 = (double *)ReallocNew(blkp->rc1,
 						   sizeof(double)*nlevels);
 		  blkp->nlevels = nlevels;
 		}
@@ -1245,9 +1245,9 @@ int SetBlocks(double ni, char *ifn) {
 					      sizeof(double)*nlevels);
 	      blkp->total_rate = (double *) ReallocNew(blkp->total_rate,
 						       sizeof(double)*nlevels);
-	      blkp->rc0 = (double *) ReallocNew(blkp->total_rate,
+	      blkp->rc0 = (double *) ReallocNew(blkp->rc0,
 						sizeof(double)*nlevels);
-	      blkp->rc1 = (double *) ReallocNew(blkp->total_rate,
+	      blkp->rc1 = (double *) ReallocNew(blkp->rc1,
 						sizeof(double)*nlevels);
 	      blkp->nlevels = nlevels;
 	    }
