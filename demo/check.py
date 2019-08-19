@@ -49,7 +49,7 @@ def _check_block(actual_blocks, expected_blocks, atols={}, rtols={}):
                         _raise(i, key, actual, expected)
                 else:  # string array
                     if not (actual == expected).all():
-                        raise ValueError('found in inconsistency in {}'.forma(key))
+                        raise ValueError('found in inconsistency in {}'.format(key))
 
             elif isinstance(actual, list):  # list of np.ndarray
                 for ac, ex in zip(actual_bl[key], expected_bl[key]):
@@ -210,11 +210,11 @@ def check_rt(actual_file, expected_file):
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks)
-    
+
 
 def check_ham(actual_file, expected_file):
     actual_header, actual_blocks = read_ham(actual_file)
-    expected_header, expected_blocks = read_ham(expected_file)    
+    expected_header, expected_blocks = read_ham(expected_file)
 
     _check_header(actual_header, expected_header)
     _check_block(actual_blocks, expected_blocks)
