@@ -7888,7 +7888,7 @@ void PrepStarkQC(double mt, double d0, double t0,
       mt = _starkmi*mt/(_starkmi+mt);
       mt = sqrt(mt*AMU);
       *wdi = (*wd)/(pow(_starkzi, ONETHIRD)*mt);
-      *wir = _starkzi*_starkzi*mt;
+      *wir = _starkzi*mt;
     }
   }
 }
