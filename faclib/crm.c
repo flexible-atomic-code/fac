@@ -28,6 +28,7 @@ USE (rcsid);
 #endif
 
 #define NRTB 8192
+#define WCOEF 6.58e-16
 
 static IONIZED ion0;
 static ARRAY *ions;
@@ -66,7 +67,7 @@ static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
 static double _starkqc = 0.65;
-static double _starkbt = 0.0;
+static double _starkbt = 1.0;
 static double _starkzi = 1.0;
 static double _starkmi = 1.0;
 static double _epstau = 0.05;
@@ -1911,6 +1912,7 @@ int InitBlocks(void) {
 	  p = ion->ibase[i] - ion->KLN_bmin;
 	  if (blk1->irec >= 0) {
 	    blk1->total_rate[ion->ilev[i]] = ion->KLN_ai[p];
+	    blk1->rc0[ion->ilev[i]] += ion->KLN_ai[p];
 	  }
 	}
       }
@@ -1933,8 +1935,6 @@ int InitBlocks(void) {
 	  de *= RATE_AU*_ce_fbr;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-#pragma omp atomic
-	  blk1->rc0[j] += zd;
 	  zd /= de;
 	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
 #pragma omp atomic
@@ -1944,8 +1944,6 @@ int InitBlocks(void) {
 	    double zi = electron_density*r->inv;
 #pragma omp atomic
 	    blk2->total_rate[j] += zi;
-#pragma omp atomic
-	    blk2->rc0[j] += zi;
 	    zi /= de;
 	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
 #pragma omp atomic
@@ -1969,6 +1967,8 @@ int InitBlocks(void) {
 	j = ion->ilev[r->i];
 #pragma omp atomic
 	blk1->total_rate[j] += r->dir;
+#pragma omp atomic
+	blk1->rc0[j] += r->dir;
 #pragma omp atomic
 	blk1->n[j] += r->dir;
 	if (r->inv > 0.0 && photon_density > 0.0) {
@@ -1998,6 +1998,8 @@ int InitBlocks(void) {
 #pragma omp atomic
 	blk1->total_rate[j] += r->dir;
 #pragma omp atomic
+	blk1->rc0[j] += r->dir;
+#pragma omp atomic
 	blk1->n[j] += r->dir;
       }
     }
@@ -2018,8 +2020,6 @@ int InitBlocks(void) {
 	  double zd = electron_density*r->dir;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-#pragma omp atomic
-	  blk1->rc0[j] += zd;
 	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
 	  de *=  RATE_AU * _ce_fbr;
 	  zd /= de;
@@ -2032,8 +2032,6 @@ int InitBlocks(void) {
 	  double zi = photon_density * r->inv;
 #pragma omp atomic
 	  blk2->total_rate[j] += zi;
-#pragma omp atomic
-	  blk2->rc0[j] += zi;
 	}
       }
     }
@@ -2072,14 +2070,14 @@ int InitBlocks(void) {
 #pragma omp atomic
 	blk1->total_rate[j] += r->dir;
 #pragma omp atomic
+	blk1->rc0[j] += r->dir;
+#pragma omp atomic
 	blk1->n[j] += r->dir;
 	if (r->inv > 0.0 && electron_density > 0.0) {
 	  j = ion->ilev[r->f];
 	  double zi = electron_density*r->inv;
 #pragma omp atomic
 	  blk2->total_rate[j] += zi;
-#pragma omp atomic
-	  blk2->rc0[j] += zi;
 	  double de =  fabs(ion->energy[r->f]-ion->energy[r->i]);
 	  de *= RATE_AU * _ce_fbr;
 	  zi /=  de;
@@ -2108,8 +2106,6 @@ int InitBlocks(void) {
 	  de *= RATE_AU * _ce_fbr;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-#pragma omp atomic
-	  blk1->rc0[j] += zd;
 	  zd /= de;
 	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
 #pragma omp atomic
@@ -2119,14 +2115,6 @@ int InitBlocks(void) {
 	    double zi = electron_density*electron_density*r->inv;	    
 #pragma omp atomic
 	    blk2->total_rate[j] += zi;
-#pragma omp atomic
-	    blk2->rc0[j] += zi;
-	    /*
-	    zi /= de;
-	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
-#pragma omp atomic
-	    blk2->rc1[j] += zi;
-	    */
 	  }
 	}
       }
@@ -4501,16 +4489,14 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	      r.energy = dev->dir;
 	      rx.sdev = dev->inv;
 	    }
-	    r.rrate = a;
 	    if (_sp_trm == 0) {
+	      r.rrate = a;
 	      r.trate = iblk->total_rate[ion->ilev[rt->i]];
 	    } else {
-	      r.trate = iblk->total_rate[ion->ilev[rt->i]] +
-		fblk->total_rate[ion->ilev[rt->f]];
-	      r.trate += iblk->rc1[ion->ilev[rt->i]] -
-		iblk->rc0[ion->ilev[rt->i]];
-	      r.trate += fblk->rc1[ion->ilev[rt->f]] -
-		fblk->rc0[ion->ilev[rt->f]];
+	      r.rrate = iblk->rc0[ion->ilev[rt->i]];
+	      r.rrate += fblk->rc0[ion->ilev[rt->f]];
+	      r.trate = iblk->rc1[ion->ilev[rt->i]];
+	      r.trate += fblk->rc1[ion->ilev[rt->f]];
 	    }
 	    WriteSPRecord(f, &r, &rx);
 	  }
@@ -4715,16 +4701,19 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       rp = (SP_RECORD *) ArrayGet(&sp, 0);
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (LINETYPE *) ArrayGet(&linetype, 0);
-      double wtr = rp->trate;
-      double wtt = 0.0;
-      if (_sp_trm) {
-	wtr *= 6.58e-16;
+      double wtr = rp->rrate;
+      double wtt = rp->trate;
+      double wtt0 = wtt;
+      if (_sp_trm) {	
+	wtr *= WCOEF;
+	wtt *= WCOEF;
+	wtt0 = wtt;
 	zt2 = (zt - tt->nele)+1;
 	zt2 *= zt2;
-	wtt = CalcStarkQC(wtr, wd, wdi, wir, wid/zt2);
+	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2);
       }      
       sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, rp->rrate, wtr, wtt, wd, wdi, wtr*wir, wtr*wd/(wid/zt2));
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd, wdi, wtt0*wir, wtt0*wd/(wid/zt2));
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4748,17 +4737,21 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	    rpx = (SP_EXTRA *) ArrayGet(&spx, i);
 	    e = rp->energy;
 	    if (fmin < 0 || rp->strength*e > smax) {
-	      double wtr = rp->trate;
-	      double wtt = 0.0;
+	      double wtr = rp->rrate;
+	      double wtt = rp->trate;
+	      double wtt0 = wtt;
 	      if (_sp_trm) {
-		wtr *= 6.58e-16;
+		wtr *= WCOEF;
+		wtt *= WCOEF;
+		wtt0 = wtt;
 		zt2 = (zt - tt->nele)+1;
 		zt2 *= zt2;
-		wtt = CalcStarkQC(wtr, wd, wdi, wir, wid/zt2);
+		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2);
 	      }      
 	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, rp->rrate, wtr, wtt, wd, wdi, wtr*wir, wtr*wd/(wid/zt2));
+		      rp->strength, wtr, wtt0, wtt, wd, wdi,
+		      wtt0*wir, wtt0*wd/(wid/zt2));
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -4873,7 +4866,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (a > smax) smax = a;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*6.58e-16, wd, wdi, wir, wid/zt2);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2);
+      wk += r.rrate*WCOEF;
       wav += wk*a;
       sav += a;
       if (wmin > wk) wmin = wk;      
@@ -4955,7 +4949,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       lines[k++] = r.strength;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*6.58e-16, wd, wdi, wir, wid/zt2);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2);
+      wk += r.rrate*WCOEF;
       lines[k++] = wk;
     }
     m = k;
@@ -6923,7 +6918,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    FWRITE(&(ion->iblock[t]->n[q]), sizeof(double), 1, f);
 	    FWRITE(&(ion->iblock[t]->total_rate[q]), sizeof(double), 1, f);
 	    FWRITE(&(ion->iblock[t]->r[q]), sizeof(double), 1, f);
-	    double x = ion->iblock[t]->total_rate[q] - ion->iblock[t]->rc0[q];
+	    double x = ion->iblock[t]->rc0[q];
 	    FWRITE(&x, sizeof(double), 1, f);
 	    x = ion->iblock[t]->rc1[q];
 	    FWRITE(&x, sizeof(double), 1, f);	    
@@ -6934,7 +6929,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 		    ion->iblock[t]->n[q],
 		    ion->iblock[t]->total_rate[q],
 		    ion->iblock[t]->r[q],
-		    ion->iblock[t]->total_rate[q]-ion->iblock[t]->rc0[q],
+		    ion->iblock[t]->rc0[q],
 		    ion->iblock[t]->rc1[q]);
 	    FWRITE(s, 1, strlen(s), f);
 	  }
@@ -7667,12 +7662,14 @@ void FreeLineRec(LINEREC *r) {
   if (r->nr > 0) {
     free(r->e);
     free(r->s);
+    free(r->w0);
     free(r->w);
     free(r->n0);
     free(r->n1);
     free(r->k);
     r->e = NULL;
     r->s = NULL;
+    r->w0 = NULL;
     r->w = NULL;
     r->n0 = NULL;
     r->n1 = NULL;
@@ -7742,6 +7739,7 @@ void PrepInterpSpec(int nd, double d0, double d1, int ds,
       _interpsp.r[i][j].nr = 0;
       _interpsp.r[i][j].e = NULL;
       _interpsp.r[i][j].s = NULL;
+      _interpsp.r[i][j].w0 = NULL;
       _interpsp.r[i][j].w = NULL;
       _interpsp.r[i][j].n0 = NULL;
       _interpsp.r[i][j].n1 = NULL;
@@ -7990,7 +7988,8 @@ void ConvLineRec(int n, double *x, double *y,
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
       w0 = CalcStarkQC(w0, wd, wdi, wir, wid);
-      //printf("wi: %d %g %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w[i], w0, wd, wdi, wir);
+      w0 += r->w0[i];
+      //printf("wi: %d %g %g %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w0[i],  r->w[i], w0, wd, wdi, wir);
       double w1 = dw*e0;
       double sw = sqrt(2*(s2 + w1*w1));
       double w2 = w0;
@@ -8196,6 +8195,7 @@ void LoadLineRec(int id0, int it0, int nele,
   nlev = imax-imin+1;
   rec->e = malloc(sizeof(double)*nr);
   rec->s = malloc(sizeof(double)*nr);
+  rec->w0 = malloc(sizeof(double)*nr);
   rec->w = malloc(sizeof(double)*nr);
   rec->n0 = malloc(sizeof(double)*nr);
   rec->n1 = malloc(sizeof(double)*nr);
@@ -8239,6 +8239,7 @@ void LoadLineRec(int id0, int it0, int nele,
 	if (r.strength < smax*_interpsp.smin) continue;
 	rec->e[nr] = r.energy;
 	rec->s[nr] = r.strength;
+	rec->w0[nr] = r.rrate;
 	rec->w[nr] = r.trate;
 	int i0 = r.lower-imin;
 	int i1 = r.upper-imin;
@@ -8261,6 +8262,7 @@ void LoadLineRec(int id0, int it0, int nele,
   if (nr < rec->nr) {
     rec->e = realloc(rec->e, sizeof(double)*nr);
     rec->s = realloc(rec->s, sizeof(double)*nr);
+    rec->w0 = realloc(rec->w0, sizeof(double)*nr);
     rec->w = realloc(rec->w, sizeof(double)*nr);
     rec->n0 = realloc(rec->n0, sizeof(double)*nr);
     rec->n1 = realloc(rec->n1, sizeof(double)*nr);
@@ -8270,13 +8272,14 @@ void LoadLineRec(int id0, int it0, int nele,
 
   double ts = 0.0;
   for (i = 0; i < nr; i++) {
-    rec->e[i] *= HARTREE_EV;    
-    rec->w[i] *= 6.58e-16;
+    rec->e[i] *= HARTREE_EV;
+    rec->w0[i] *= WCOEF;
+    rec->w[i] *= WCOEF;
     rec->k[i] /= rec->e[i]*rec->e[i];
     rec->ae += rec->s[i]*rec->e[i];
     rec->aw += rec->s[i]*rec->w[i];
     ts += rec->s[i];
-    //printf("rl: %d %d %d %g %g %g %g %g %g %g\n", id0, it0, i, rec->e[i], rec->w[i], rec->s[i], rec->n0[i], rec->k[i], rec->nt, rec->ni);
+    //printf("rl: %d %d %d %g %g %g %g %g %g %g %g\n", id0, it0, i, rec->e[i], rec->w0[i], rec->w[i], rec->s[i], rec->n0[i], rec->k[i], rec->nt, rec->ni);
   }
   rec->ae /= ts;
   rec->aw /= ts;

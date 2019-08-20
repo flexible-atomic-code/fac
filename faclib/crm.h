@@ -136,7 +136,7 @@ typedef struct _LINEREC_ {
   int type;
   int nmin, nmax;
   int ia, nr;
-  double *e, *s, *w, *n0, *n1, *k;
+  double *e, *s, *w0, *w, *n0, *n1, *k;
   double ae, aw, nt, ni;
 } LINEREC;
 
