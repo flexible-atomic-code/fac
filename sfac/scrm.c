@@ -81,6 +81,52 @@ static int PCheckEndian(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int IntFromList(char *argv, int tp, ARRAY *variables, int **k) {
+  int i;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], n;
+  
+  if (tp == LIST) {
+    n = DecodeArgs(argv, v, t, variables);
+    if (n > 0) {
+      *k = malloc(sizeof(int)*n);
+      for (i = 0; i < n; i++) {
+	(*k)[i] = atoi(v[i]);
+	free(v[i]);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(int));
+    (*k)[0] = atoi(argv);
+  }
+  
+  return n;
+}
+
+static int DoubleFromList(char *argv, int tp, ARRAY *variables, double **k) {
+  int i;
+  char *v[MAXNARGS];
+  int t[MAXNARGS], n;
+  
+  if (tp == LIST) {
+    n = DecodeArgs(argv, v, t, variables);
+    if (n > 0) {
+      *k = malloc(sizeof(double)*n);
+      for (i = 0; i < n; i++) {
+	(*k)[i] = atof(v[i]);
+	free(v[i]);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(double));
+    (*k)[0] = atof(argv);
+  }
+  
+  return n;
+}
+
 static int PEleDist(int argc, char *argv[], int argt[], 
 		    ARRAY *variables) {
   int n;
@@ -885,6 +931,40 @@ static int PReadKronos(int argc, char *argv[], int argt[],
   return r;
 }
 
+static int PSetStarkZMP(int argc, char *argv[], int argt[],
+			ARRAY *variables) {
+  if (argc == 0) {
+    SetStarkZMP(0, NULL);
+    return 0;
+  }
+  if (argc > 1) return -1;
+  int np;
+  double *wp;
+  np = DoubleFromList(argv[0], argt[0], variables, &wp);
+  
+  if (np < 3) {
+    double wp1[3];
+    wp1[0] = 1.0;
+    wp1[1] = 1.0;
+    wp1[2] = 1.0;
+    if (np > 0)  {
+      wp1[1] = wp[0];
+      if (np > 1) {
+	wp1[2] = wp[1];
+      }
+    }
+    SetStarkZMP(1, wp1);
+  } else {
+    if (np%3 != 0) {
+      printf("SetStarkZMP args must be multiples of 3\n");
+      return -1;
+    }
+    SetStarkZMP(np/3, wp);
+  }
+  if (np > 0) free(wp);
+  return 0;
+}
+
 static int PSetOption(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
   int ip;
@@ -972,6 +1052,7 @@ static METHOD methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"ReadKronos", PReadKronos, METH_VARARGS},
+  {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };

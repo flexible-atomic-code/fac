@@ -228,7 +228,8 @@ void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax);
 void PrepStarkQC(double mt, double d0, double t0,
 		 double *wd, double *wdi, double *wir, double *wid);
-double CalcStarkQC(double w0, double wd, double wdi, double wir, double wid);
+double CalcStarkQC(double w0, double wd, double *wdi, double *wir, double wid);
+void SetStarkZMP(int np, double *wzm);
 
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
