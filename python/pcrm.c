@@ -171,6 +171,48 @@ static PyObject *PCheckEndian(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static int DoubleFromList(PyObject *p, double **k) {
+  int i, n;
+  PyObject *q;
+
+  if (PyList_Check(p)) {
+    n = PyList_Size(p);
+    if (n > 0) {
+      *k = malloc(sizeof(double)*n);
+      for (i = 0; i < n; i++) {
+	q = PyList_GetItem(p, i);
+	(*k)[i] = PyFloat_AsDouble(q);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(double));
+    (*k)[0] = PyFloat_AsDouble(p);
+  } 
+  return n;
+}
+
+static int IntFromList(PyObject *p, int **k) {
+  int i, n;
+  PyObject *q;
+
+  if (PyList_Check(p)) {
+    n = PyList_Size(p);
+    if (n > 0) {
+      *k = malloc(sizeof(int)*n);
+      for (i = 0; i < n; i++) {
+	q = PyList_GetItem(p, i);
+	(*k)[i] = PyLong_AsLong(q);
+      }
+    }
+  } else {
+    n = 1;
+    *k = malloc(sizeof(int));
+    (*k)[0] = PyLong_AsLong(p);
+  }
+  return n;
+}
+
 static PyObject *PPrint(PyObject *self, PyObject *args) {
   PyObject *p, *q;
   char *s;
@@ -1569,6 +1611,46 @@ static PyObject *PReadKronos(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetStarkZMP(PyObject *self, PyObject *args) {
+  if (scrm_file) {
+    SCRMStatement("SetStarkZMP", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  PyObject *p = NULL;
+  if (!(PyArg_ParseTuple(args, "|O", &p))) return NULL;
+  int np;
+  double *wp;
+  
+  if (p == NULL) {
+    SetStarkZMP(0, NULL);    
+  } else {
+    np = DoubleFromList(p, &wp);
+    if (np < 3) {
+      double wp1[3];
+      wp1[0] = 1.0;
+      wp1[1] = 1.0;
+      wp1[2] = 1.0;
+      if (np > 0)  {
+	wp1[1] = wp[0];
+	if (np > 1) {
+	  wp1[2] = wp[1];
+	}
+      }
+      SetStarkZMP(1, wp1);
+    } else {
+      if (np%3 != 0) {
+	printf("SetStarkZMP args must be multiples of 3\n");
+	return NULL;
+      }
+      SetStarkZMP(np/3, wp);
+    }
+    if (np > 0) free(wp);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+}
+
 static PyObject *PSetOption(PyObject *self, PyObject *args) {
   char *s, *sp;
   PyObject *p;
@@ -1687,6 +1769,7 @@ static struct PyMethodDef crm_methods[] = {
   {"System", PSystem, METH_VARARGS},
   {"SetProcID", PSetProcID, METH_VARARGS},
   {"ReadKronos", PReadKronos, METH_VARARGS},
+  {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
   {NULL, NULL}
 };
