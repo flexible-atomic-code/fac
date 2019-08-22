@@ -7917,8 +7917,8 @@ void PrepStarkQC(double mt0, double d0, double t0,
       if (_starkmp[i] > 0 && _starkmp[i] > 0) {
 	mt = _starkmp[i]*mt0/(_starkmp[i]+mt0);
 	mt = sqrt(mt*AMU);
-	wdi[i] = (*wd)*pow(_starkwp[i], ONETHIRD)/mt;
-	wir[i] = _starkzp[i]*_starkzp[i]*_starkwp[i]*mt;
+	wdi[i] = (*wd)/(pow(_starkzp[i], ONETHIRD)*mt);
+	wir[i] = _starkzp[i]*mt;
       } else {
 	wdi[i] = 0.0;
 	wir[i] = 0.0;
@@ -7948,7 +7948,7 @@ double CalcStarkQC(double w0, double wd, double *wdi, double *wir, double wid) {
       if (wid > 0) {
 	wti = 1.0/(b/wti + (1-b)/wdi[i]/1.2);
       }
-      wt += wti;
+      wt += wti*_starkwp[i];
     }
   }
   return wt;
@@ -8345,7 +8345,7 @@ void SetStarkZMP(int np, double *wzm) {
     _starkwp[i] = wzm[k];
     _starkzp[i] = wzm[k+1];
     _starkmp[i] = wzm[k+2];
-    zt += _starkwp[i]*_starkzp[i];
+    zt += _starkwp[i];
   }
   for (i = 0; i < np; i++) {
     _starkwp[i] = _starkwp[i]/zt;
