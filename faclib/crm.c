@@ -66,7 +66,7 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 0.65;
+static double _starkqc = 0.5;
 static double _starkbt = 1.0;
 static int _starknp = 0;
 static double *_starkzp = NULL;
@@ -4718,10 +4718,10 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	wtt0 = wtt;
 	zt2 = (zt - tt->nele)+1;
 	zt2 *= zt2;
-	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2);
+	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2, tt->type);
       }      
       sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd, wtt0*wd/(wid/zt2));
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd, wid>0?wtt0*wd/(wid/zt2):0.0);
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4754,11 +4754,12 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 		wtt0 = wtt;
 		zt2 = (zt - tt->nele)+1;
 		zt2 *= zt2;
-		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2);
+		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2, tt->type);
 	      }      
 	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, wtr, wtt0, wtt, wd, wtt0*wd/(wid/zt2));
+		      rp->strength, wtr, wtt0, wtt, wd,
+		      wid>0?wtt0*wd/(wid/zt2):0.0);
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -4882,7 +4883,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (a > smax) smax = a;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2, h.type);
       wk += r.rrate*WCOEF;
       wav += wk*a;
       sav += a;
@@ -4965,7 +4966,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       lines[k++] = r.strength;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2, h.type);
       wk += r.rrate*WCOEF;
       lines[k++] = wk;
     }
@@ -7930,13 +7931,20 @@ void PrepStarkQC(double mt0, double d0, double t0,
   }
 }
 
-double CalcStarkQC(double w0, double wd, double *wdi, double *wir, double wid) {
+double CalcStarkQC(double w0, double wd, double *wdi,
+		   double *wir, double wid, int type) {
   double wt = w0;
+  int n0, n1, dn;
+  type = type%10000;
+  n0 = type%100;
+  n1 = type/100;
+  dn = (n1-n0)%2;
+  
   if (wd > 0) {
     double b = 1.0;
     double r = sqrt(_starkqc*w0/wd);
     wt = wd/(_starkqc/r/r + 1/r);
-    if (wid > 0) {
+    if (wid > 0 && dn == 1) {
       wid = _starkqc*w0*wd/wid;
       b = wid/(r+wid);
       wt = 1.0/(b/wt + (1-b)/wd/1.2);
@@ -7945,7 +7953,7 @@ double CalcStarkQC(double w0, double wd, double *wdi, double *wir, double wid) {
     for (i = 0; i < _starknp; i++) {
       r = sqrt(_starkqc*w0*wir[i]/wdi[i]);
       double wti = wdi[i]/(_starkqc/r/r + 1/r);
-      if (wid > 0) {
+      if (wid > 0 && dn == 1) {
 	wti = 1.0/(b/wti + (1-b)/wdi[i]/1.2);
       }
       wt += wti*_starkwp[i];
@@ -8009,7 +8017,7 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
-      w0 = CalcStarkQC(w0, wd, wdi, wir, wid);
+      w0 = CalcStarkQC(w0, wd, wdi, wir, wid, r->type);
       w0 += r->w0[i];
       //printf("wi: %d %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w0[i],  r->w[i], w0, wd);
       double w1 = dw*e0;
