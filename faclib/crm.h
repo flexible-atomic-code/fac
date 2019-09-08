@@ -227,11 +227,14 @@ void ConvLineRec(int n, double *x, double *y,
 void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax);
 void PrepStarkQC(double mt, double d0, double t0,
-		 double *wd, double *wdi, double *wir, double *wid);
+		 double *wd, double *wdi, double *wir,
+		 double *wrf, double *wid);
 double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double wid, int type);
+		   double *wir, double *wrf, double wid, int type);
 void SetStarkZMP(int np, double *wzm);
-
+double MicroFieldDist(double x, double g, double s);
+double MicroFieldMode(double g, double s);
+double QSReduction(double g, double s);
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 
