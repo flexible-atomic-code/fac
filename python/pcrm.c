@@ -1684,6 +1684,27 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PMicroFieldDist(PyObject *self, PyObject *args) {
+  double g, s, x, r;
+  if  (!(PyArg_ParseTuple(args, "ddd", &x, &g, &s))) return NULL;
+  r = MicroFieldDist(x, g, s);
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PMicroFieldMode(PyObject *self, PyObject *args) {
+  double g, s, r;
+  if  (!(PyArg_ParseTuple(args, "dd", &g, &s))) return NULL;
+  r = MicroFieldMode(g, s);
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PQSReduction(PyObject *self, PyObject *args) {
+  double g, s, r;
+  if  (!(PyArg_ParseTuple(args, "dd", &g, &s))) return NULL;
+  r = QSReduction(g, s);
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1771,6 +1792,9 @@ static struct PyMethodDef crm_methods[] = {
   {"ReadKronos", PReadKronos, METH_VARARGS},
   {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
+  {"MicroFieldDist", PMicroFieldDist, METH_VARARGS},
+  {"MicroFieldMode", PMicroFieldMode, METH_VARARGS},
+  {"QSReduction", PQSReduction, METH_VARARGS},
   {NULL, NULL}
 };
 

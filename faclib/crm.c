@@ -42,6 +42,7 @@ static double cas_accuracy = EPS4;
 static int max_iter = 256;
 static double iter_accuracy = EPS4;
 static double iter_stabilizer = 0.8;
+static int  _silent = 0;
 
 /* electron density in 10^10 cm-3 */
 static double electron_density = 0.0;
@@ -66,12 +67,14 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 0.5;
-static double _starkbt = 1.0;
+static double _starkqc = 1.3;
+static double _starkbt = 2.0;
 static int _starknp = 0;
 static double *_starkzp = NULL;
 static double *_starkmp = NULL;
 static double *_starkwp = NULL;
+static double _starkaix = 1.0;
+static double _starksmx = 0.75;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
@@ -4296,7 +4299,9 @@ int LevelPopulation(void) {
   int i, n;
   double d, c;
 
-  printf("Population Iteration:\n");
+  if (!_silent) {
+    printf("Population Iteration:\n");
+  }
   d = 10.0;
   c = 1.0;
   double wt00, wt0, wt1;
@@ -4308,23 +4313,27 @@ int LevelPopulation(void) {
     BlockPopulation(n);
     d = BlockRelaxation(i);
     wt1 = WallTime();
-    if (ProcID() >= 0) {
-      printf("%6d %5d %11.4E %11.4E %11.4E %11.4E\n",
-	     ProcID(), i, d, wt1-wt0, wt1-wt00, TotalSize());
-    } else {
-      printf("%5d %11.4E %11.4E %11.4E %11.4E\n",
-	     i, d, wt1-wt0, wt1-wt00, TotalSize());
+    if (!_silent) {
+      if (ProcID() >= 0) {
+	printf("%6d %5d %11.4E %11.4E %11.4E %11.4E\n",
+	       ProcID(), i, d, wt1-wt0, wt1-wt00, TotalSize());
+      } else {
+	printf("%5d %11.4E %11.4E %11.4E %11.4E\n",
+	       i, d, wt1-wt0, wt1-wt00, TotalSize());
+      }
     }
     wt0 = wt1;
     fflush(stdout);
     if (d < iter_accuracy) break;
   }
- 
-  if (i == max_iter) {
-    if (ProcID() >= 0) {
-      printf("%6d max iteration reached %d\n", ProcID(), i);
-    } else {
-      printf("max iteration reached %d\n", i);
+
+  if (_silent < 2) {
+    if (i == max_iter) {
+      if (ProcID() >= 0) {
+	printf("%6d max iteration reached %d\n", ProcID(), i);
+      } else {
+	printf("max iteration reached %d\n", i);
+      }
     }
   }
   return 0;
@@ -4687,10 +4696,11 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   }
 
   double wd = 0, wid=0;
-  double *wdi = NULL, *wir = NULL;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp);
   }
   double zt = fh.atom;
   double zt2;
@@ -4700,7 +4710,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     dist = GetEleDist(&idist);
     if (idist == 0) {
       PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
-		  &wd, wdi, wir, &wid);
+		  &wd, wdi, wir, wrf, &wid);
     }
   }
   char buf[2048];
@@ -4718,7 +4728,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	wtt0 = wtt;
 	zt2 = (zt - tt->nele)+1;
 	zt2 *= zt2;
-	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2, tt->type);
+	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid/zt2, tt->type);
       }      
       sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
 	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd, wid>0?wtt0*wd/(wid/zt2):0.0);
@@ -4754,7 +4764,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 		wtt0 = wtt;
 		zt2 = (zt - tt->nele)+1;
 		zt2 *= zt2;
-		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wid/zt2, tt->type);
+		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid/zt2, tt->type);
 	      }      
 	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
@@ -4778,6 +4788,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   if (_starknp > 0) {
     free(wdi);
     free(wir);
+    free(wrf);
   }
   return 0;
 }
@@ -4817,10 +4828,11 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 
   double mt = GetAtomicMassTable()[(int)(fh.atom)];
   double wd = 0, wid = 0;
-  double *wdi = NULL, *wir = NULL;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp);
   }
   double zt = fh.atom;
   if (_starkqc > 0 && electron_density > 0) {
@@ -4829,7 +4841,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     dist = GetEleDist(&idist);
     if (idist == 0) {
       PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
-		  &wd, wdi, wir, &wid);
+		  &wd, wdi, wir, wrf, &wid);
     }
   }
 #if USE_MPI == 2
@@ -4883,7 +4895,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (a > smax) smax = a;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2, h.type);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
+			      wid/zt2, h.type);
       wk += r.rrate*WCOEF;
       wav += wk*a;
       sav += a;
@@ -4966,7 +4979,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       lines[k++] = r.strength;
       double zt2 = (zt-h.nele)+1;
       zt2 *= zt2;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wid/zt2, h.type);
+      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
+			      wid/zt2, h.type);
       wk += r.rrate*WCOEF;
       lines[k++] = wk;
     }
@@ -5118,6 +5132,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   if (_starknp > 0) {
     free(wdi);
     free(wir);
+    free(wrf);
   }
   return 0;
 }
@@ -7632,6 +7647,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _itol_nmax = ip;
     return;
   }
+  if (0 == strcmp(s, "crm:silent")) {
+    _silent = ip;
+    return;
+  }
   if (0 == strcmp(s, "crm:ce_fbr")) {
     _ce_fbr = dp;
     return;
@@ -7650,6 +7669,14 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:starkbt")) {
     _starkbt = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkaix")) {
+    _starkaix = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starksmx")) {
+    _starksmx = dp;
     return;
   }
   if (0 == strcmp(s, "crm:reemit")) {
@@ -7904,8 +7931,142 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   return;
 }
 
+double MicroFieldMode(double g, double s) {
+  if (s < 1e-5) {
+    double ge = 0.774 + pow(g, 0.25) + g;
+    return sqrt(2/ge);
+  }
+  double s1 = s*exp(s);
+  double bm0 = 1/(0.622 + 0.25*s1);
+  double bg0 = 1/sqrt(1+(pow(g,0.25)+g)/(0.774+0.54*s1));
+  return bm0*bg0;
+}
+
+double MicroFieldDist(double x, double g, double s) {
+  if (s < 1e-5) {
+    double x05 = sqrt(x);
+    double x2 = x*x;
+    double x3 = x2*x;
+    double x5 = x3*x2;
+    double x6 = x3*x3;
+    double x35 = x3*x05;
+    double x45 = x*x35;    
+    double gp = g/(1+0.19*pow(g, 0.627));
+    double q = 9.9 + 2.178*pow(g, 1.64);
+    double z = pow((1+pow(g, 0.6)), -2.75);
+    double np = exp(-gp*x05);
+    double n1 = q*x3;
+    double d1 = 2.25*PI*q*z+15.3*x2+1.238*q*x3+x45;
+    double tn = n1*np + x6;
+    double td = d1*np + x6;
+    double n1d = 3*q*x2;
+    double npd = -gp*np*0.5/x05;
+    double x6d = 6*x5;
+    double d1d = 30.6*x + 3.714*q*x2 + 4.5*x35;
+    double tnd = n1d*np + n1*npd + x6d;
+    double tdd = d1d*np + d1*npd + x6d;
+    double r0 = tnd/td - tn*tdd/(td*td);
+    if (g < 1e-10) return r0;
+    double ge = 0.774 + pow(g, 0.25) + g;
+    double gs = sqrt(g);
+    double r1 = sqrt(2/PI)*gs*g*x2*exp(-g*x2/2);
+    double a = 0.873*gs;
+    return (r0 + a*r1)/(1+0.873*a);
+  }
+  double s2 = s*s;
+  double s3 = s2*s;
+  double s4 = s3*s;
+  double s5 = s4*s;
+  double s9 = s4*s5;
+  double s016 = pow(s, 0.16);
+  double s05 = sqrt(s);
+  double s075 = s05*sqrt(s05);
+  double s15 = s*s05;
+  double s25 = s2*s05;
+  double s35 = s3*s05;
+  double s45 = s4*s05;
+  double s55 = s5*s05;
+  double s95 =  s9*s05;
+  double s035 = pow(s, 0.35);
+  double s18 = pow(s, 1.8);
+  double s14 = s5*s9;
+  double A1 = 0.59 + 2540*s4 + 3*s14;
+  double A2 = (0.55 + 10*s05 + 2*s45)/(1+20*s05);
+  double A3 =  2.17e-3*s5;
+  double A4 = 14.8/(1+117*s35);
+  double a0 = 1.15+2*s18;
+  double a1 = 0.1+1.1/(1+0.145*s3);
+  double a2 = 5.4/(1+20*s2) + 1.1/(1+14*s035);
+  double B1 = 0.386 + 300*s2 + 1.1*s95;
+  double B2 = 0.038 + 0.79*s075;
+  double B3 = 3.7e-3*s55/(1+4e-3*s9);
+  double b0 = (1+0.54*s25)/(1+0.07*s);
+  double ga1 = 0.1 + 1.1/(1+0.174*s25);
+  double ga2 = 5.4/(1+21*s15) + 1.1/(1+19*s016);
+  double c = 0.097/(1+210*s25*exp(-1.3*s15));
+  double g05 = sqrt(g);
+  double g2 = g*g;
+  double g4 = g2*g2;
+  double g9 = g4*g4*g;
+  double A =  A1*(1+A4*g05)/(1+A2*g2+A3*g4);
+  double a = a0 + 0.5*g;
+  double af = (a1 + 2*a2*g05)/(1+a2*g05);
+  double B = B1/(1+B2*g2+B3*g4);
+  double b = b0 + 0.25*g;
+  double ga = (ga1 + 1.5*ga2*g05)/(1+ga2*g05);
+  double y =  c/g9;
+  double y19 = pow(y, 1.0/9.0);
+  double y13 = pow(y, 1.0/3.0);
+  double y23 = y13*y13;
+  double y59 = y23/y19;
+  double y79 = y23*y19;
+  double fy = (1+0.806133*y19)/(1/240.0 + 0.849*y13 + 3.2*y59 + 2.43*y23 + y79);
+  double sn = A*exp(DLOGAM(3/af))/(af*pow(a,3/af));
+  sn += B*exp(DLOGAM(3/ga))/(ga*pow(b,3/ga));
+  sn += fy/(g2*g4);
+  double x2 = x*x;
+  double x4 = x2*x2;
+  double x05 = sqrt(x);
+  double r =  A*exp(-a*pow(x,af));
+  r += B*exp(-b*pow(x,ga));
+  r += exp(-g*x05)/(1+c*x4*x05);
+  r *= x2/sn;
+  return r;
+}
+
+double QSReduction(double g, double s) {
+  double bm = MicroFieldMode(g, s);
+  double b0 = -2.0;
+  double b1 = 1.5;
+  int nb = 1001;
+  double db = (b1-b0)/(nb-1);
+  double b[1001], p[1001], q[1001];
+  int i;
+  b[0] = b0;
+  for (i = 1; i < nb; i++) {
+    b[i] = b[i-1] + db;
+  }
+  for (i = 0; i < nb; i++) {
+    b[i] = pow(10, b[i])*bm;
+    p[i] = MicroFieldDist(b[i], g, s);
+  }
+  db = log(b[1])-log(b[0]);
+  q[0] = 0.5*p[0];
+  for (i = 1; i < nb; i++) {
+    q[i] = q[i-1] + 0.5*(p[i-1]+p[i])*db;
+  }
+  double qh = 0.5*q[nb-1];
+  for (i = 1; i < nb; i++) {
+    if (q[i] >= qh) break;
+  }
+  double f = (qh-q[i-1])/(q[i]-q[i-1]);
+  double xh = b[i-1]*(1-f)+b[i]*f;
+  return xh/1.438;
+}
+
 void PrepStarkQC(double mt0, double d0, double t0,
-		 double *wd, double *wdi, double *wir, double *wid) {
+		 double *wd, double *wdi, double *wir,
+		 double *wrf, double *wid) {
   *wd = 0;
   *wid = 0;
   if (_starkqc > 0) {
@@ -7918,11 +8079,19 @@ void PrepStarkQC(double mt0, double d0, double t0,
       if (_starkmp[i] > 0 && _starkmp[i] > 0) {
 	mt = _starkmp[i]*mt0/(_starkmp[i]+mt0);
 	mt = sqrt(mt*AMU);
-	wdi[i] = (*wd)/(pow(_starkzp[i], ONETHIRD)*mt);
+	double z1 = pow(_starkzp[i], ONETHIRD);
+	wdi[i] = (*wd)/(z1*mt);
 	wir[i] = _starkzp[i]*mt;
+	double a = z1/(8.54e-9*d1);
+	double g = _starkzp[i]*_starkzp[i]/(t0*a);
+	double s = a/sqrt(t0/(1.871e-24*d0*(1+_starkzp[i])));
+	if (_starksmx >= 0 && s > _starksmx) s = _starksmx;
+	wrf[i] = QSReduction(g, s);
+	//printf("wrf: %d %g %g %g %g %g %g\n", i, d0, t0, a, g, s, wrf[i]);
       } else {
 	wdi[i] = 0.0;
 	wir[i] = 0.0;
+	wrf[i] = 1.0;
       }
     }
     if (_starkbt > 0)  {
@@ -7932,7 +8101,7 @@ void PrepStarkQC(double mt0, double d0, double t0,
 }
 
 double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double wid, int type) {
+		   double *wir, double *wrf, double wid, int type) {
   double wt = w0;
   int n0, n1, dn;
   type = type%10000;
@@ -7949,14 +8118,22 @@ double CalcStarkQC(double w0, double wd, double *wdi,
       b = wid/(r+wid);
       wt = 1.0/(b/wt + (1-b)/wd/1.2);
     }
+    if (_starknp > 0) {
+      wt = pow(wt, _starkaix);
+    }
     int i;
     for (i = 0; i < _starknp; i++) {
       r = sqrt(_starkqc*w0*wir[i]/wdi[i]);
       double wti = wdi[i]/(_starkqc/r/r + 1/r);
       if (wid > 0 && dn == 1) {
+	b = wid/(r+wid);
 	wti = 1.0/(b/wti + (1-b)/wdi[i]/1.2);
       }
-      wt += wti*_starkwp[i];
+      wti *= wrf[i];
+      wt += pow(wti, _starkaix)*_starkwp[i];
+    }
+    if (_starknp > 0) {
+      wt = pow(wt, 1.0/_starkaix);
     }
   }
   return wt;
@@ -7997,12 +8174,13 @@ void ConvLineRec(int n, double *x, double *y,
   double de = 0;
   if (e > 0) de = e-r->ae;
   double wd, wid;
-  double *wdi = NULL, *wir = NULL;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp);
   }
-  PrepStarkQC(mt, d0, t0, &wd, wdi, wir, &wid);
+  PrepStarkQC(mt, d0, t0, &wd, wdi, wir, wrf, &wid);
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
@@ -8017,7 +8195,7 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
-      w0 = CalcStarkQC(w0, wd, wdi, wir, wid, r->type);
+      w0 = CalcStarkQC(w0, wd, wdi, wir, wrf, wid, r->type);
       w0 += r->w0[i];
       //printf("wi: %d %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w0[i],  r->w[i], w0, wd);
       double w1 = dw*e0;
@@ -8136,6 +8314,7 @@ void ConvLineRec(int n, double *x, double *y,
   if (_starknp > 0) {
     free(wdi);
     free(wir);
+    free(wrf);
   }
 }
 
