@@ -1705,6 +1705,13 @@ static PyObject *PQSReduction(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PDebyeLength(PyObject *self, PyObject *args) {
+  double d, t, r;
+  if  (!(PyArg_ParseTuple(args, "dd", &d, &t))) return NULL;
+  r = DebyeLength(d, t);
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1795,6 +1802,7 @@ static struct PyMethodDef crm_methods[] = {
   {"MicroFieldDist", PMicroFieldDist, METH_VARARGS},
   {"MicroFieldMode", PMicroFieldMode, METH_VARARGS},
   {"QSReduction", PQSReduction, METH_VARARGS},
+  {"DebyeLength", PDebyeLength, METH_VARARGS},
   {NULL, NULL}
 };
 

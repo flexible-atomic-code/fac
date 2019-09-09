@@ -7,7 +7,7 @@ FFLAGS = @FFLAGS@
 
 TOPDIR = @TOPDIR@
 
-SRC = uvip3p.f uvip3c.f uvip3i.f tripack.f rgbi3p.f sdbi3p.f tn.f calcc.f dist.f evalf.f fstats.f newpt.f order.f partx.f setstp.f simplx.f sortd.f start.f subopt.f subplx.f fdi.f
+SRC = uvip3p.f uvip3c.f uvip3i.f tripack.f rgbi3p.f sdbi3p.f tn.f calcc.f dist.f evalf.f fstats.f newpt.f order.f partx.f setstp.f simplx.f sortd.f start.f subopt.f subplx.f fdi.f fm1p.f fm1m.f fm1pi.f fm1mi.f
 
 OBJS = ${SRC:.f=.o}
 
