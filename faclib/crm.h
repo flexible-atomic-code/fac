@@ -235,6 +235,8 @@ void SetStarkZMP(int np, double *wzm);
 double MicroFieldDist(double x, double g, double s);
 double MicroFieldMode(double g, double s);
 double QSReduction(double g, double s);
+double DebyeLength(double d, double t);
+
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 

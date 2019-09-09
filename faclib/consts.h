@@ -137,6 +137,7 @@
 ** NOTE:        
 */
 #define AREA_AU20  2.80028560859E3
+#define VOLUME_AU  1.48184711276E-25
 
 /*
 ** VARIABLE:    RBOHR

@@ -74,7 +74,7 @@ static double *_starkzp = NULL;
 static double *_starkmp = NULL;
 static double *_starkwp = NULL;
 static double _starkaix = 1.0;
-static double _starksmx = 0.75;
+static double _starksmx = 3.0;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
@@ -8064,6 +8064,14 @@ double QSReduction(double g, double s) {
   return xh/1.438;
 }
 
+double DebyeLength(double d0, double t0) {
+  t0 /= HARTREE_EV;
+  double t1 = sqrt(t0);
+  double eta = FM1PI(d0*1.0343e-24/(t0*t1));
+  double s = RBOHR*1e-8/sqrt(0.90032*t1*FM1M(eta));
+  return s;
+}
+
 void PrepStarkQC(double mt0, double d0, double t0,
 		 double *wd, double *wdi, double *wir,
 		 double *wrf, double *wid) {
@@ -8072,7 +8080,8 @@ void PrepStarkQC(double mt0, double d0, double t0,
   if (_starkqc > 0) {
     t0 /= HARTREE_EV;
     double d1 = pow(d0, ONETHIRD);
-    *wd = sqrt(t0)*2.32e-7*d1;
+    double t1 = sqrt(t0);
+    *wd = t1*2.32e-7*d1;
     int i;
     double mt;
     for (i = 0; i < _starknp; i++) {
@@ -8084,7 +8093,9 @@ void PrepStarkQC(double mt0, double d0, double t0,
 	wir[i] = _starkzp[i]*mt;
 	double a = z1/(8.54e-9*d1);
 	double g = _starkzp[i]*_starkzp[i]/(t0*a);
-	double s = a/sqrt(t0/(1.871e-24*d0*(1+_starkzp[i])));
+	//double s0 = a/sqrt(t0/(1.871e-24*d0));
+	double eta = FM1PI(d0*1.0343e-24/(t0*t1));
+	double s = a*sqrt(0.90032*t1*FM1M(eta));	
 	if (_starksmx >= 0 && s > _starksmx) s = _starksmx;
 	wrf[i] = QSReduction(g, s);
 	//printf("wrf: %d %g %g %g %g %g %g\n", i, d0, t0, a, g, s, wrf[i]);
