@@ -1839,6 +1839,8 @@ int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
 
 /* note that the free states are normalized to have asymptotic 
    amplitude of 1/sqrt(k), */
+// Solve the Dirac equation for a free (continuum) electron 
+// wave function(energy > 0)
 int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   int i, kl, nodes;
   int i2, i2p, i2m, i2p2, i2m2;
@@ -1851,12 +1853,14 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
   e = orb->energy;
+  //Catch erroneous energy inputs
   if (e < 0.0) {
     if (_on_error >= 0) {
       printf("Energy < 0 in Free\n");
     }
     return -1;
   }
+  //Catch erroneous angular momentum quantum number inputs
   kl = orb->kappa;
   if (orb->kappa == 0) {
     if (_on_error >= 0) {
@@ -1864,12 +1868,22 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
     }
     return -1;
   }
+  // Initialize effective W potential with correct constants 
+  // etc
   SetPotentialW(pot, e, kl, kv);
   kl = (kl < 0)? (-kl-1):kl;  
   p = malloc(2*pot->maxrp*sizeof(double));
   if (!p) return -1;
+  // Calculates the effective potential for the
+  // transformed radial Dirac equation Eq. (8) of
+  // Gu (2002), Veff(r) = U + k(k+1)/r^2/2
+  // effective potential is stored in pot
   SetVEffective(kl, kv, pot);
   
+  // Determine cut-off points between region I
+  // (Numerov solution to radial Dirac equation)
+  // and region II (Hullac style Phase-Amplitude
+  // solution)
   i2 = TurningPoints(0, e, orb->kappa, pot);
   i2m = i2 - 1;
   i2p = i2 + 1;
@@ -1877,6 +1891,8 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   i2p2 = i2 + 2;
       
   bqp0 = DpDr(orb->kappa, kv, 0, e, pot, 0, -1, &orb->bqp0);
+  // Solution to the second order radial equation via the Numerov
+  // method, between 0 and i2p2, solution stored in p
   nodes = IntegrateRadial(p, e, pot, 0, bqp0, i2p2, 1.0, 2);
   for (i = i2p2; i >= 0; i--) {
     p[i] *= pot->dr_drho2[i];
@@ -1887,7 +1903,10 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   qo *= dfact;
   po = p[i2];
   po1 = p[i2p];
-
+  // Solution to the Radial Dirac equation using the phase-
+  // amplitude method of Bar-Shalom et al. Computer Physics
+  // Communications 83 (1996) 21-32
+  // First calculate amplitude solution for all r>i2
   da = Amplitude(p, e, orb->kappa, pot, i2);
   cs = p[i2] * qo - da*po;
   si = po / p[i2];
@@ -1900,10 +1919,15 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
     phase0 = (phase0 < PI)?(phase0 + PI):(phase0-PI);
     dfact = -dfact;
   }
+  // Next calculate phase solution for all r>i2.
+  // Amplitude and phase will be stored in alternating
+  // (ie odd and even) entries of the array p
   Phase(p, pot, i2, phase0);
   
   p[i2] = po;
   p[i2p] = po1;
+  // Adjust amplitude of region I solution to match
+  // that in region II
   for (i = 0; i < i2p2; i++) {
     p[i] *= dfact;
   }
@@ -2536,6 +2560,13 @@ void DerivODE(int *neq, double *t, double *y, double *ydot) {
 FCALLSCSUB4(DerivODE, DERIVODE, derivode, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
   
 double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
+  // Variables
+  // p:   Electron wave function
+  // e:   Electron energy
+  // ka:
+  // pot: Electron potential
+  // i0:  Array index at which Phase-Amplitude solution to radial
+  //      Schrodinger equation begins
   int i, n;
   double a, b, xi, r2, r3, kl1;
   double z, dk, r0, r1, r, w, v1;
@@ -2672,6 +2703,17 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
 }    
 
 int Phase(double *p, POTENTIAL *pot, int i1, double phase0) {
+  // Numerical solution of Eq. (19) from A. Bar-Shalom et al./
+  // Computer Physics Communications 93 (1996) 21-32
+  // Input variables
+  // p:      Electron wave function, even values to be overwritten
+  //         by phase solution
+  // pot:    Potential to solve Dirac equation for
+  // i1:     Index of point at which the Phase-Amplitude solution
+  //         begins
+  // phase0: Value of the phase component, ie. Boundary condition
+  //         at i1
+  
   int i;
 
   for (i = i1; i < pot->maxrp; i++) {
@@ -2681,7 +2723,9 @@ int Phase(double *p, POTENTIAL *pot, int i1, double phase0) {
   }
 
   i = i1+1;
+  //Start with boundary condition
   p[i] = phase0;
+  //Integrate from i1, every even value is overwritten
   for (i = i1+3; i < pot->maxrp; i += 2) {
     p[i] = p[i-2] + (_dwork[i-3] + 4.0*_dwork[i-2] + _dwork[i-1])*ONETHIRD;
     /*
@@ -2714,6 +2758,9 @@ int SetVEffectiveZMC(int kl, int kv, POTENTIAL *pot) {
 }
 
 int SetVEffective(int kl, int kv, POTENTIAL *pot) {
+  // Calculates the effective potential for the
+  // transformed radial Dirac equation Eq. (8) of
+  // Gu (2002), Veff(r) = U + k(k+1)/r^2/2
   double kl1;
   int i;
   double r;
@@ -2732,10 +2779,18 @@ int SetVEffective(int kl, int kv, POTENTIAL *pot) {
 }
 
 static int TurningPoints(int n, double e, int kappa, POTENTIAL *pot) {
+  // For continuum wave function solutions this function finds 
+  // the boundary between Region I (numerov integration) and 
+  // Region II (Hullac style Amplitude-phase) solutions to the 
+  // radial Dirac equation 
   int i, i2, ip;
   double x, a, b, xp;
 
-  if (n == 0) {
+  if (n == 0) { //Case of a continuum wave function
+    // Start from maximum radial coordinate in grid and 
+    // iterate downward (cut off at grid-point 20)
+    // Calculate energy below potential and break when this
+    // goes to 0 or below
     for (i = pot->maxrp-6; i >= 20; i--) {
       x = e - _veff[i];
       if (x <= 0) break; 
@@ -2797,6 +2852,8 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
   
   m = i2 - i1 - 1;
   if (m < 0) return 0;
+
+  // Apply boundary conditions at i1 and i2
   if (m == 0) {
     if (q == 0) {
       p[i1] = p1;
@@ -2811,9 +2868,16 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
     return 0;
   }
 
+  // Initialize p to zero for i1<i<i2
   for (i = i1+1; i < i2; i++) {
     p[i] = 0.0;
   }
+
+  // Numerov method to solve radial second order ODE
+  // This is achieved by setting up a banded matrix
+  // Containing the coefficients of the Numerov solution
+  // and then using the Lapack function DGBSV to solve the 
+  // resulting matrix equation
 
   j = 1;
   n = 2*kl + ku + 1;
@@ -2856,6 +2920,7 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
     p[i1+1] += -a1*p1;
   }
 
+  // Call to LAPACK function DGBSV to solve matrix equation
   DGBSV(m, kl, ku, nrhs, ABAND, n, ipiv, p+i1+1, m, &info);
   if (info) {
     printf("Error in Integrating the radial equation: %d\n", info);

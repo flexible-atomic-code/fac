@@ -2848,7 +2848,7 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
     else k = 0;
-    for (i = k; i <= orb->ilast; i++) {
+    for (i = k; i <= orb->ilast; i++) { //Case of a bound wave function
       fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E", 
 	      i, potential->rad[i], 
 	      (potential->Vc[i])*potential->rad[i],
@@ -2865,7 +2865,7 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
 	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
       }
     }
-  } else {
+  } else { //Case of a continuum wave function
     a = GetPhaseShift(k);
     while(a < 0) a += TWO_PI;
     a -= (int)(a/TWO_PI);
@@ -2875,7 +2875,9 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
     e = orb->energy;
     a = FINE_STRUCTURE_CONST2 * e;
     ke = sqrt(2.0*e*(1.0+0.5*a));
-    y = (1.0+a)*z/ke; 
+    y = (1.0+a)*z/ke;
+    //First output region I solution to radial Dirac
+    //equation (Numerov integration region)
     for (i = 0; i <= orb->ilast; i++) {
       fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E", 
 	      i, potential->rad[i],
@@ -2888,6 +2890,11 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
 	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
       }
     }
+    //Now output region II solution to radial Dirac equation
+    //(Bar-Shalom phase-amplitude approach)
+    //k counts how many points are stored in the phase amplitude
+    //solution (since phase and amplitude are stored in every
+    //second entry)
     k = 0;
     for (; i < potential->maxrp; i += 2) {
       _dwork[k] = potential->rad[i];
@@ -2900,9 +2907,25 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
       _dwork15[k] = log(_dwork10[k]);
       k++;
     }
+    //UVIP3P performs univariate interpolation
+    //First entry (3) is the degree of the polynomial used
+    // in interpolation
+    //Second ntry (k) is the number of data points
+    //Third entry (dwork5) is the abscissas of the datapoints
+    //ie. the radial coordinate
+    //Fourth entry (_dwork1,2,3,4) is the input data points
+    //Fifth entry is the number of desired data points (k)
+    //Sixth entry (_dwork10,15) is the values of the desired 
+    //data points
+    //Seventh entry (_dwork11,12,13,14) is the output 
+
+    //Interpolate amplitude of large component of orbital
     UVIP3P(3, k, _dwork5, _dwork1, k, _dwork15, _dwork11);
-    UVIP3P(3, k, _dwork, _dwork2, k, _dwork10, _dwork12);
+    //Interpolate phase     of large component of orbital
+    UVIP3P(3, k, _dwork,  _dwork2, k, _dwork10, _dwork12);
+    //Interpolate amplitude of small component of orbital
     UVIP3P(3, k, _dwork5, _dwork3, k, _dwork15, _dwork13);
+    //Interpolate phase     of small component of orbital
     UVIP3P(3, k, _dwork5, _dwork4, k, _dwork15, _dwork14);
     double b1 = orb->kappa;
     b1 = b1*(b1+1.0) - FINE_STRUCTURE_CONST2*z*z;
@@ -2919,6 +2942,9 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
 	a = a - ((int)(a/(TWO_PI)))*TWO_PI;
 	if (a < 0) a += TWO_PI;
 	b = PhaseRDependent(ke*potential->rad[i+k], y, b1);
+  //Output format is now: indx,r, amplitude large component,
+  //phase large component, amplitude small component, phase
+  //small component
 	if (k == 0) {
 	  fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E %13.6E %13.6E\n",
 		  i, potential->rad[i+k],
@@ -2942,7 +2968,11 @@ int WaveFuncTable(char *s, int n, int kappa, double e) {
   int k;
   ORBITAL *orb;
 
+  //Convert electron volts to Hartree units
   e /= HARTREE_EV;
+  //Map angular quantum numbers and energy to index of
+  //orbital
+  //If continuum wave function generate new orbital?
   k = OrbitalIndex(n, kappa, e);
   if (k < 0) return -1;
   orb = GetOrbitalSolved(k); 
@@ -3032,7 +3062,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
     Abort(1);
   }
   ORBMAP *om = &_orbmap[k];
-  if (n > 0) {
+  if (n > 0) { //Case of a bound orbital
     k = n-1;
     orb = om->opn[k];
   } else if (n < 0) {
@@ -3040,6 +3070,8 @@ int OrbitalIndex(int n, int kappa, double energy) {
     orb = om->onn[k];
   } else {
     for (k = 0; k < om->nzn; k++) {
+      //Check if  continuum wave function for requested energy
+      //has already been calculated 
       if (fabs(energy-om->ozn[k]->energy) < EPS10) {
 	orb = om->ozn[k];
 	break;
@@ -3282,8 +3314,11 @@ ORBITAL *GetOrbital(int k) {
 ORBITAL *GetOrbitalSolved(int k) {
   ORBITAL *orb;
   int i;
+  //Attempt to retrieve solved orbital from memory
   
   orb = (ORBITAL *) ArrayGet(orbitals, k);
+  //If orbital exists and has been solved return
+  //the orb object
   if (orb != NULL && orb->isol) return orb;  
   if (orbitals->lock) {
     SetLock(orbitals->lock);
@@ -3323,6 +3358,7 @@ ORBITAL *GetOrbitalSolvedNoLock(int k) {
 
 ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e) {
   ORBITAL *orb;
+  //Add new orbital to global list
 
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
   if (!orb) {
