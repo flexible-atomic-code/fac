@@ -67,7 +67,7 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 1.3;
+static double _starkqc = 1.8;
 static double _starkbt = 2.0;
 static int _starknp = 0;
 static double *_starkzp = NULL;
@@ -75,6 +75,7 @@ static double *_starkmp = NULL;
 static double *_starkwp = NULL;
 static double _starkaix = 1.0;
 static double _starksmx = 3.0;
+static double _starkzix = -1.0;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
@@ -4627,10 +4628,14 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   int une[256];
   for (i = 0; i < 256; i++) une[i] = 0;
   smax = 0.0;
+  int ne0 = 10000;
+  int ne1 = 0;
   for (nb = 0; nb < fh.nblocks; nb++) {
     n = ReadSPHeader(f1, &h, swp);
     if (h.ntransitions == 0) continue;
     if (nele >= 0 && h.nele != nele) goto LOOPEND;
+    if (ne0 > h.nele) ne0 = h.nele;
+    if (ne1 < h.nele) ne1 = h.nele;
     une[h.nele]++;
     r1 = h.type / 10000;
     r0 = h.type % 10000;
@@ -4694,23 +4699,24 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   LOOPEND:
     FSEEK(f1, h.length, SEEK_CUR);
   }
-
-  double wd = 0, wid=0;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL;
+  if (ne0 == 0) ne0 = 1;
+  if (ne1 < ne0) ne1 = ne0;
+  int zt = (int)(0.1+fh.atom);
+  double wd = 0;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid=NULL;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp*zt);
+    wid = malloc(sizeof(double)*zt);
   }
-  double zt = fh.atom;
-  double zt2;
   if (_starkqc > 0 && electron_density > 0) {
     int idist;
     DISTRIBUTION *dist;
     dist = GetEleDist(&idist);
     if (idist == 0) {
       PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
-		  &wd, wdi, wir, wrf, &wid);
+		  &wd, wdi, wir, zt, ne0, ne1, wrf, wid);
     }
   }
   char buf[2048];
@@ -4726,12 +4732,10 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	wtr *= WCOEF;
 	wtt *= WCOEF;
 	wtt0 = wtt;
-	zt2 = (zt - tt->nele)+1;
-	zt2 *= zt2;
-	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid/zt2, tt->type);
+	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid, tt->nele, tt->type);
       }      
-      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd, wid>0?wtt0*wd/(wid/zt2):0.0);
+      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E\n", 
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd);
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4762,14 +4766,11 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 		wtr *= WCOEF;
 		wtt *= WCOEF;
 		wtt0 = wtt;
-		zt2 = (zt - tt->nele)+1;
-		zt2 *= zt2;
-		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid/zt2, tt->type);
+		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid, tt->nele, tt->type);
 	      }      
-	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
+	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, wtr, wtt0, wtt, wd,
-		      wid>0?wtt0*wd/(wid/zt2):0.0);
+		      rp->strength, wtr, wtt0, wtt, wd);
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -4789,6 +4790,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     free(wdi);
     free(wir);
     free(wrf);
+    free(wid);
   }
   return 0;
 }
@@ -4826,22 +4828,23 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
 
+  int zt = (int)(0.1+fh.atom);
   double mt = GetAtomicMassTable()[(int)(fh.atom)];
-  double wd = 0, wid = 0;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL;
+  double wd = 0;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid = NULL;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp*zt);
+    wid = malloc(sizeof(double)*zt);
   }
-  double zt = fh.atom;
   if (_starkqc > 0 && electron_density > 0) {
     int idist;
     DISTRIBUTION *dist;
     dist = GetEleDist(&idist);
     if (idist == 0) {
       PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
-		  &wd, wdi, wir, wrf, &wid);
+		  &wd, wdi, wir, zt, 1, zt, wrf, wid);
     }
   }
 #if USE_MPI == 2
@@ -4893,10 +4896,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       a = r.strength * e;
       if (a < smax*smin) continue;
       if (a > smax) smax = a;
-      double zt2 = (zt-h.nele)+1;
-      zt2 *= zt2;
       double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
-			      wid/zt2, h.type);
+			      wid, h.nele, h.type);
       wk += r.rrate*WCOEF;
       wav += wk*a;
       sav += a;
@@ -4977,10 +4978,8 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (de0 < 0) e = hc/e;
       lines[k++] = e;
       lines[k++] = r.strength;
-      double zt2 = (zt-h.nele)+1;
-      zt2 *= zt2;
       double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
-			      wid/zt2, h.type);
+			      wid, h.nele, h.type);
       wk += r.rrate*WCOEF;
       lines[k++] = wk;
     }
@@ -5133,6 +5132,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     free(wdi);
     free(wir);
     free(wrf);
+    free(wid);
   }
   return 0;
 }
@@ -7675,6 +7675,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starkaix = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkzix")) {
+    _starkzix = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:starksmx")) {
     _starksmx = dp;
     return;
@@ -7888,9 +7892,8 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 
   double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
   double dw = sqrt(t/(mt*AMU*5.11e5));
-  double zt = _interpsp.r[id0][it0].z - nele;
   if (id1 == id0 && it1 == it0) {
-    ConvLineRec(n, x, y, mt, zt, d0, t0, 
+    ConvLineRec(n, x, y, mt, d0, t0, 
 		s, dw, c, -1, -1, &_interpsp.r[id0][it0]);
     return;
   }
@@ -7907,13 +7910,13 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   y01 = malloc(sizeof(double)*n);
   y10 = malloc(sizeof(double)*n);
   y11 = malloc(sizeof(double)*n);
-  ConvLineRec(n, x, y00, mt, zt, d0, t0, 
+  ConvLineRec(n, x, y00, mt, d0, t0, 
 	      s, dw, c, e, w, &_interpsp.r[id0][it0]);
-  ConvLineRec(n, x, y01, mt, zt, d0, t0, 
+  ConvLineRec(n, x, y01, mt, d0, t0, 
 	      s, dw, c, e, w, &_interpsp.r[id0][it1]);
-  ConvLineRec(n, x, y10, mt, zt, d0, t0, 
+  ConvLineRec(n, x, y10, mt, d0, t0, 
 	      s, dw, c, e, w, &_interpsp.r[id1][it0]);
-  ConvLineRec(n, x, y11, mt, zt, d0, t0, 
+  ConvLineRec(n, x, y11, mt, d0, t0, 
 	      s, dw, c, e, w, &_interpsp.r[id1][it1]);
   for (i = 0; i < n; i++) {
     double d00 = log(y00[i]+1e-50);
@@ -7932,7 +7935,7 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 }
 
 double MicroFieldMode(double g, double s) {
-  if (s < 1e-5) {
+  if (s < 1e-10) {
     double ge = 0.774 + pow(g, 0.25) + g;
     return sqrt(2/ge);
   }
@@ -7943,7 +7946,7 @@ double MicroFieldMode(double g, double s) {
 }
 
 double MicroFieldDist(double x, double g, double s) {
-  if (s < 1e-5) {
+  if (s < 1e-10) {
     double x05 = sqrt(x);
     double x2 = x*x;
     double x3 = x2*x;
@@ -7952,7 +7955,7 @@ double MicroFieldDist(double x, double g, double s) {
     double x35 = x3*x05;
     double x45 = x*x35;    
     double gp = g/(1+0.19*pow(g, 0.627));
-    double q = 9.9 + 2.178*pow(g, 1.64);
+    double q = 9.19 + 2.178*pow(g, 1.64);
     double z = pow((1+pow(g, 0.6)), -2.75);
     double np = exp(-gp*x05);
     double n1 = q*x3;
@@ -7971,7 +7974,7 @@ double MicroFieldDist(double x, double g, double s) {
     double gs = sqrt(g);
     double r1 = sqrt(2/PI)*gs*g*x2*exp(-g*x2/2);
     double a = 0.873*gs;
-    return (r0 + a*r1)/(1+0.873*a);
+    return (r0 + a*r1)/(1+a);
   }
   double s2 = s*s;
   double s3 = s2*s;
@@ -8014,16 +8017,21 @@ double MicroFieldDist(double x, double g, double s) {
   double B = B1/(1+B2*g2+B3*g4);
   double b = b0 + 0.25*g;
   double ga = (ga1 + 1.5*ga2*g05)/(1+ga2*g05);
-  double y =  c/g9;
-  double y19 = pow(y, 1.0/9.0);
-  double y13 = pow(y, 1.0/3.0);
-  double y23 = y13*y13;
-  double y59 = y23/y19;
-  double y79 = y23*y19;
-  double fy = (1+0.806133*y19)/(1/240.0 + 0.849*y13 + 3.2*y59 + 2.43*y23 + y79);
-  double sn = A*exp(DLOGAM(3/af))/(af*pow(a,3/af));
+  double sn = 0.0;
+  if (g > 1e-10) {
+    double y =  c/g9;
+    double y19 = pow(y, 1.0/9.0);
+    double y13 = pow(y, 1.0/3.0);
+    double y23 = y13*y13;
+    double y59 = y23/y19;
+    double y79 = y23*y19;
+    double fy = (1+0.806133*y19)/(1/240.0+0.849*y13+3.2*y59+2.43*y23+y79);
+    sn = fy/(g2*g4);
+  } else {
+    sn = 0.806133/pow(c,0.66666667);
+  }
+  sn += A*exp(DLOGAM(3/af))/(af*pow(a,3/af));    
   sn += B*exp(DLOGAM(3/ga))/(ga*pow(b,3/ga));
-  sn += fy/(g2*g4);
   double x2 = x*x;
   double x4 = x2*x2;
   double x05 = sqrt(x);
@@ -8072,11 +8080,34 @@ double DebyeLength(double d0, double t0) {
   return s;
 }
 
+double ScaledCoupling(double g, double zr) {
+  const double a0 = 0.56391711;
+  const double a1 = 0.85673350;
+  const double a2 = 0.96923731;
+  const double a3 = 1.28650394;
+  double z1 = 1+zr;
+  double a = (a0+a1*zr)/z1;
+  double b = (a2+a3*zr)/z1;
+  a =  (a+b*g)/(1+g);
+  return g*pow(zr, a);
+}
+
+double ScaledScreening(double s, double g, double zr) {
+  const double a0 = -0.04385951;
+  const double a1 = 0.00875936;
+  const double a2 = -0.04099527;
+  const double a3 = 0.08306308;
+  double z1 = 1+zr;
+  double a = (a0+a1*zr)/z1;
+  double b = (a2+a3*zr)/z1;
+  a =  (a+b*g)/(1+g);
+  return s*pow(zr, a);
+}
+
 void PrepStarkQC(double mt0, double d0, double t0,
 		 double *wd, double *wdi, double *wir,
-		 double *wrf, double *wid) {
+		 int zt, int ne0, int ne1, double *wrf, double *wid) {
   *wd = 0;
-  *wid = 0;
   if (_starkqc > 0) {
     t0 /= HARTREE_EV;
     double d1 = pow(d0, ONETHIRD);
@@ -8092,40 +8123,66 @@ void PrepStarkQC(double mt0, double d0, double t0,
 	wdi[i] = (*wd)/(z1*mt);
 	wir[i] = _starkzp[i]*mt;
 	double a = z1/(8.54e-9*d1);
-	double g = _starkzp[i]*_starkzp[i]/(t0*a);
-	//double s0 = a/sqrt(t0/(1.871e-24*d0));
-	double eta = FM1PI(d0*1.0343e-24/(t0*t1));
-	double s = a*sqrt(0.90032*t1*FM1M(eta));	
-	if (_starksmx >= 0 && s > _starksmx) s = _starksmx;
-	wrf[i] = QSReduction(g, s);
-	//printf("wrf: %d %g %g %g %g %g %g\n", i, d0, t0, a, g, s, wrf[i]);
+	int k;
+	for (k = ne0; k <= ne1; k++) {
+	  double z = zt-k;
+	  double g0 = _starkzp[i]*_starkzp[i]/(t0*a);
+	  double eta = FM1PI(d0*1.0343e-24/(t0*t1));
+	  double s0 = a*sqrt(0.90032*t1*FM1M(eta));	
+	  double zix = _starkzix;
+	  double g = g0, s = s0;
+	  double zr = z/_starkzp[i];
+	  if (fabs(zr-1)>1e-3) {
+	    if (zix < 0) {
+	      double zr = z/_starkzp[i];
+	      g = ScaledCoupling(g0, zr);
+	      s = ScaledScreening(s0, g0, zr);
+	    } else {
+	      g = pow(zr, zix);
+	    }
+	  }
+	  if (_starksmx >= 0 && s > _starksmx) s = _starksmx; 
+	  int ik = i + (k-1)*_starknp;
+	  wrf[ik] = QSReduction(g, s);
+	  //printf("wrf: %d %d %g %g %g %g %g %g %g %g\n", i, k, d0, t0, a, g0, g, s0, s, wrf[ik]);
+	}
       } else {
 	wdi[i] = 0.0;
 	wir[i] = 0.0;
 	wrf[i] = 1.0;
       }
     }
-    if (_starkbt > 0)  {
-      *wid = _starkbt*9.98e-32*(d0*d1)*HARTREE_EV*HARTREE_EV;
+    if (_starkbt > 0)  {      
+      double wid0 = _starkbt*9.98e-32*(d0*d1)*HARTREE_EV*HARTREE_EV;
+      for (i = ne0; i <= ne1; i++) {
+	double zt2 = (zt-i+1.0);
+	zt2 *= zt2;
+	wid[i-1] = wid0/zt2;
+      }
+    } else {
+      for (i = ne0; i <= ne1; i++) {
+	wid[i-1] = 0.0;
+      }
     }
   }
 }
 
 double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double *wrf, double wid, int type) {
+		   double *wir, double *wrf, double *wid0,
+		   int nele, int type) {
   double wt = w0;
   int n0, n1, dn;
   type = type%10000;
   n0 = type%100;
   n1 = type/100;
   dn = (n1-n0)%2;
-  
+  double wid = 0;
   if (wd > 0) {
     double b = 1.0;
     double r = sqrt(_starkqc*w0/wd);
     wt = wd/(_starkqc/r/r + 1/r);
-    if (wid > 0 && dn == 1) {
-      wid = _starkqc*w0*wd/wid;
+    if (_starkbt > 0 && dn == 1) {
+      wid = _starkqc*w0*wd/wid0[nele-1];
       b = wid/(r+wid);
       wt = 1.0/(b/wt + (1-b)/wd/1.2);
     }
@@ -8140,7 +8197,7 @@ double CalcStarkQC(double w0, double wd, double *wdi,
 	b = wid/(r+wid);
 	wti = 1.0/(b/wti + (1-b)/wdi[i]/1.2);
       }
-      wti *= wrf[i];
+      wti *= wrf[i+(nele-1)*_starknp];
       wt += pow(wti, _starkaix)*_starkwp[i];
     }
     if (_starknp > 0) {
@@ -8178,26 +8235,28 @@ double EscM1(double t) {
 }
 
 void ConvLineRec(int n, double *x, double *y,
-		 double mt, double zt, double d0, double t0,
+		 double mt, double d0, double t0,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r) {
   int i, m, ny = 0;
   double de = 0;
   if (e > 0) de = e-r->ae;
-  double wd, wid;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL;
+  double wd;
+  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid=NULL;
+  int zt = r->z;
+  int nele = r->nele;
   if (_starknp > 0) {
     wdi = malloc(sizeof(double)*_starknp);
     wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp);
+    wrf = malloc(sizeof(double)*_starknp*zt);
+    wid = malloc(sizeof(double)*zt);
   }
-  PrepStarkQC(mt, d0, t0, &wd, wdi, wir, wrf, &wid);
+  PrepStarkQC(mt, d0, t0, &wd, wdi, wir, zt, nele, nele, wrf, wid);
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
   double sg = 1/sqrt(TWO_PI)/s;
   for (m = 0; m < n; m++) y[m] = 0.0;
-  wid /= zt*zt;
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, m, ny)
   {
@@ -8206,7 +8265,7 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
-      w0 = CalcStarkQC(w0, wd, wdi, wir, wrf, wid, r->type);
+      w0 = CalcStarkQC(w0, wd, wdi, wir, wrf, wid, nele, r->type);
       w0 += r->w0[i];
       //printf("wi: %d %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w0[i],  r->w[i], w0, wd);
       double w1 = dw*e0;
@@ -8326,6 +8385,7 @@ void ConvLineRec(int n, double *x, double *y,
     free(wdi);
     free(wir);
     free(wrf);
+    free(wid);
   }
 }
 
