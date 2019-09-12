@@ -103,6 +103,7 @@
 #define TWO_PI     6.28318530718
 #define FOUR_PI     12.56637061436
 #define ONETHIRD   0.33333333333
+#define TWOTHIRD   0.66666666667
 /*
 ** VARIABLE:    SQRT2
 ** TYPE:        macro constant, double

@@ -221,16 +221,17 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
 		  double c, double d, double t, double s,
 		  int n, double emin, double emax);
 void ConvLineRec(int n, double *x, double *y,
-		 double mt, double zt, double d0, double t0,
+		 double mt, double d0, double t0,
 		 double s, double dw, double c,
 		 double e, double w, LINEREC *r);
 void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax);
 void PrepStarkQC(double mt, double d0, double t0,
 		 double *wd, double *wdi, double *wir,
-		 double *wrf, double *wid);
+		 int zt, int ne0, int ne1, double *wrf, double *wid);
 double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double *wrf, double wid, int type);
+		   double *wir, double *wrf, double *wid,
+		   int nele, int type);
 void SetStarkZMP(int np, double *wzm);
 double MicroFieldDist(double x, double g, double s);
 double MicroFieldMode(double g, double s);
