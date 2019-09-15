@@ -67,7 +67,7 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 1.8;
+static double _starkqc = 2.0;
 static double _starkbt = 2.0;
 static int _starknp = 0;
 static double *_starkzp = NULL;
@@ -79,6 +79,31 @@ static double _starkzix = -1.0;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
+static double _mfd0[10] = {0.        ,  0.97792763,  1.26508455,
+			   1.22263597, -0.25197702,
+			   0.15081325, -0.1970343 ,
+			   0.08390483,  1.18112936,  1.19006095
+};
+static double _mfd1[10] = {0.56387871,  0.93997153,  1.24750821,
+			   1.22705255, -0.1960854 ,
+			   0.14900134, -0.08442087,  0.06137596,
+			   1.13166003,  1.00234922
+};
+static double _mfd2[10] = {1.04218924,  0.93440751,  1.23181356,
+			   1.62415867, -0.08177814,
+			   0.16991271,  0.01408619, -0.02417788,
+			   0.14943566,  0.26701825
+};
+static double _mfd3[10] = {1.11558761,  0.23828618,  1.28638484,
+			   5.        , -0.03231508,
+			   0.63684014,  0.09547696, -0.12634639,
+			   0.02654152,  0.02242574
+};
+static double _mfd4[10] = {0.75575757,  0.96542404,  1.22862064,
+			   0.82448354, -0.14021655,
+			   0.03221276,  0.01401347,  0.24654512,
+			   0.95572507,  0.1262922
+};
 
 #pragma omp threadprivate(_ce_data, _rr_data)
 
@@ -8080,28 +8105,25 @@ double DebyeLength(double d0, double t0) {
   return s;
 }
 
-double ScaledCoupling(double g, double zr) {
-  const double a0 = 0.56391711;
-  const double a1 = 0.85673350;
-  const double a2 = 0.96923731;
-  const double a3 = 1.28650394;
-  double z1 = 1+zr;
-  double a = (a0+a1*zr)/z1;
-  double b = (a2+a3*zr)/z1;
-  a =  (a+b*g)/(1+g);
-  return g*pow(zr, a);
-}
+void ScaledSG(double s, double g, double zr, double *sn, double *gn) {
+  double *a;
 
-double ScaledScreening(double s, double g, double zr) {
-  const double a0 = -0.04385951;
-  const double a1 = 0.00875936;
-  const double a2 = -0.04099527;
-  const double a3 = 0.08306308;
-  double z1 = 1+zr;
-  double a = (a0+a1*zr)/z1;
-  double b = (a2+a3*zr)/z1;
-  a =  (a+b*g)/(1+g);
-  return s*pow(zr, a);
+  if (s <= 1) a = _mfd0;
+  else if (s <= 1.5) a = _mfd1;
+  else if (s <= 2.0) a = _mfd2;
+  else if (s <= 2.5) a = _mfd3;
+  else a = _mfd4;
+
+  double g0 = a[8]*g;
+  double g1 = 1+g0;
+  double zr0 = a[9]*zr;
+  double zr1 = 1+zr0;
+  double a0 = (a[0]+a[1]*zr0)/zr1;
+  double a1 = (a[2]+a[3]*zr0)/zr1;
+  *gn = g*pow(zr, (a0+a1*g0)/g1);
+  a0 = (a[4]+a[5]*zr0)/zr1;
+  a1 = (a[6]+a[7]*zr0)/zr1;
+  *sn = s*pow(zr, (a0+a1*g0)/g1);
 }
 
 void PrepStarkQC(double mt0, double d0, double t0,
@@ -8135,8 +8157,7 @@ void PrepStarkQC(double mt0, double d0, double t0,
 	  if (fabs(zr-1)>1e-3) {
 	    if (zix < 0) {
 	      double zr = z/_starkzp[i];
-	      g = ScaledCoupling(g0, zr);
-	      s = ScaledScreening(s0, g0, zr);
+	      ScaledSG(s0, g0, zr, &s, &g);
 	    } else {
 	      g = pow(zr, zix);
 	    }
