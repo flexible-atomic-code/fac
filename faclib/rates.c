@@ -1381,7 +1381,18 @@ double UVoigt(double alpha, double v) {
     H = (q1 * q2 + r1 * r2) / (q2 * q2 + r2 * r2);
   }
   
-  return H/sqrt(PI);
+  return H/SQRT_PI;
+}
+
+double UVoigtGauss(double a, double v, double g) {
+  double r = UVoigt(a, v);
+  if (g > 0) {
+    double s = sqrt(1 + a*a);
+    double v2 = v/s;
+    v2 *= v2;
+    double r1 = exp(-v2)/(SQRT_PI*s);
+    r = (1-g)*r + g*r1;
+  }
 }
 
 /*
