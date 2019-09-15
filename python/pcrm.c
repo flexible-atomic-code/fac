@@ -1712,6 +1712,15 @@ static PyObject *PDebyeLength(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PScaledSG(PyObject *self, PyObject *args) {
+  double s, g, zr;
+  if  (!(PyArg_ParseTuple(args, "ddd", &s, &g, &zr))) return NULL;
+  double sn = s;
+  double gn = g;
+  ScaledSG(s, g, zr, &sn, &gn);
+  return Py_BuildValue("[dd]", sn, gn);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1803,6 +1812,7 @@ static struct PyMethodDef crm_methods[] = {
   {"MicroFieldMode", PMicroFieldMode, METH_VARARGS},
   {"QSReduction", PQSReduction, METH_VARARGS},
   {"DebyeLength", PDebyeLength, METH_VARARGS},
+  {"ScaledSG", PScaledSG, METH_VARARGS},
   {NULL, NULL}
 };
 
