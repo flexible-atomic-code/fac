@@ -1393,6 +1393,7 @@ double UVoigtGauss(double a, double v, double g) {
     double r1 = exp(-v2)/(SQRT_PI*s);
     r = (1-g)*r + g*r1;
   }
+  return r;
 }
 
 /*
