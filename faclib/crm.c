@@ -76,6 +76,7 @@ static double *_starkwp = NULL;
 static double _starkaix = 1.0;
 static double _starksmx = 3.0;
 static double _starkzix = -1.0;
+static double _starkvg = 0.0;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
 static INTERPSP _interpsp;
@@ -7708,6 +7709,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starksmx = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkvg")) {
+    _starkvg = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:reemit")) {
     _reemit = dp;
     return;
@@ -8312,7 +8317,7 @@ void ConvLineRec(int n, double *x, double *y,
 	sw1 = w1*SQRT2;
 	t = c*r->k[i];
 	a1 = w0*0.5/sw1;
-	v0 = UVoigt(a1, 0.0);
+	v0 = UVoigtGauss(a1, 0.0, _starkvg);
 	ta = t*v0/sw1;	
 	if (ta > _epstau) {
 	  if (_reemit < 0) {
@@ -8336,14 +8341,14 @@ void ConvLineRec(int n, double *x, double *y,
 	    int mn = (int)(1e3*a1/ds);
 	    mn = Max(100, mn);
 	    for (ny = dn; ny <= mn; ny += dn) {
-	      tv = t*UVoigt(a1, ny*ds);
+	      tv = t*UVoigtGauss(a1, ny*ds, _starkvg);
 	      if (tv < _epstau*sw1) break;
 	    }
 	    yv = malloc(sizeof(double)*ny);
 	    x0 = ds;
 	    ya = 0.0;
 	    for (j = 0; j < ny; j++, x0 += ds) {
-	      v = UVoigt(a1, x0);
+	      v = UVoigtGauss(a1, x0, _starkvg);
 	      tv = t*v/sw1;
 	      fa = EscM1(tv);
 	      yv[j] = v*fa;
@@ -8360,7 +8365,7 @@ void ConvLineRec(int n, double *x, double *y,
       double b = r->s[i]/sw;
       if (ny > 0) b *= ra;
       for (m = 0; m < n; m++) {
-	v = UVoigt(a, (x[m]-e0)/sw);
+	v = UVoigtGauss(a, (x[m]-e0)/sw, _starkvg);
 #pragma omp atomic
 	y[m] += b*v;
       }

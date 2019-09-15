@@ -101,7 +101,8 @@
 */
 #define PI         3.14159265359
 #define TWO_PI     6.28318530718
-#define FOUR_PI     12.56637061436
+#define FOUR_PI    12.56637061436
+#define SQRT_PI    1.7724538509
 #define ONETHIRD   0.33333333333
 #define TWOTHIRD   0.66666666667
 /*
