@@ -4843,6 +4843,10 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   int swp;
   int idist;
 
+#if USE_MPI == 2
+  if (!MPIReady()) InitializeMPI(0, 1);
+#endif
+  
   f1 = OpenFileRO(ifn, &fh, &swp);
   if (f1 == NULL) {
     printf("ERROR: File %s does not exist\n", ifn);
@@ -4873,9 +4877,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 		  &wd, wdi, wir, zt, 1, zt, wrf, wid);
     }
   }
-#if USE_MPI == 2
-  if (!MPIReady()) InitializeMPI(0, 1);
-#endif
   
   rx.sdev = 0.0;
 
@@ -4937,8 +4938,10 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   f1 = OpenFileRO(ifn, &fh, &swp);
   de = fabs(de0);
   double ade0 = de;
-  wav /= sav;
-  de = sqrt(de*de + wav*wav);
+  if (sav > 0) {
+    wav /= sav;  
+    de = sqrt(de*de + wav*wav);
+  }
   de01 = 0.025*de;
   de10 = 10.0*de;
   sig = de/2.35;
@@ -5214,12 +5217,17 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
 	if (r0->i == r->i && r0->f == r->f) break;
       }
       if (i == brt->rates->dim) {
-	ArrayAppend(brt->rates, r, NULL);
+	if (m != 2) {
+	  ArrayAppend(brt->rates, r, NULL);
+	}
       } else {
 	r0 = (RATE *) ArrayGet(brt->rates, i);
 	if (m == 1) {
 	  r0->dir += r->dir;
 	  r0->inv += r->inv;
+	} else if (m == 2) {
+	  r0->dir *= r->dir;
+	  r0->inv *= r->inv;
 	} else {
 	  r0->dir = r->dir;
 	  r0->inv = r->inv;
@@ -7919,7 +7927,18 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   LoadLineRec(id0, it1, nele, type, nmin, nmax);
   LoadLineRec(id1, it0, nele, type, nmin, nmax);
   LoadLineRec(id1, it1, nele, type, nmin, nmax);
-
+  if (_interpsp.r[id0][it0].nele < 0 ||
+      _interpsp.r[id0][it1].nele < 0 ||
+      _interpsp.r[id1][it0].nele < 0 ||
+      _interpsp.r[id1][it1].nele < 0) {
+    printf("LoadLineRec Fail: %d %d %d %d %d %d %d %d\n",
+	   id0, it0, id1, it1,
+	   _interpsp.r[id0][it0].nele,
+	   _interpsp.r[id0][it1].nele,
+	   _interpsp.r[id1][it0].nele,
+	   _interpsp.r[id1][it1].nele);
+    return;
+  }      
   double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
   double dw = sqrt(t/(mt*AMU*5.11e5));
   if (id1 == id0 && it1 == it0) {
@@ -8558,7 +8577,6 @@ void LoadLineRec(int id0, int it0, int nele,
 	rec->k[nr] = 2.528e-24*(dw[i1]/dw[i0])*r.rrate*rec->n0[nr]/rec->nt;
 	rec->n0[nr] /= dw[i0];
 	rec->n1[nr] /= dw[i1];
-	rec->s[nr] /= 1-rec->n1[nr]/rec->n0[nr];
 	nr++;
       }
     }
