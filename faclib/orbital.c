@@ -62,6 +62,7 @@ static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
 static double *_sp_zw = NULL;
 static int _sp_mode = 2;
+static int _debye_mode = 0;
 static int _sp_print = 0;
 static double _icf_tol = EPS3;
 static int _icf_maxiter = 1024;
@@ -2980,7 +2981,11 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     if (pot->ups < 0) {
       pot->ups = z0 - pot->N;
     }
-    pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
+    if (pot->mps == 1 && _debye_mode >= 2) {
+      pot->dps = pow(1.0/(FOUR_PI*pot->nps), 0.25);
+    } else {
+      pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
+    }
     if (pot->nps > 0) {
       pot->rps = pow(3*pot->zps/(FOUR_PI*pot->nps),ONETHIRD);
     } else {
@@ -3819,9 +3824,28 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
       pot->EPS[i] = 0;
       r0 = pot->rad[i]/pot->dps;
       x = exp(-r0);
-      pot->ZPS[i] = pot->zps*(x-1.0);
-      pot->dZPS[i] = -pot->zps*x/pot->dps;
-      pot->dZPS2[i] = pot->zps*x/(pot->dps*pot->dps);
+      double xd = x/pot->dps;
+      double xdd = xd/pot->dps;
+      if (_debye_mode == 0) {
+	pot->ZPS[i] = pot->zps*(x-1.0);
+	pot->dZPS[i] = -pot->zps*xd;
+	pot->dZPS2[i] = pot->zps*xdd;
+      } else if (_debye_mode == 1) {
+	pot->ZPS[i] = pot->Z[i]*(x-1.0);
+	double xd = x/pot->dps;
+	pot->dZPS[i] = -pot->Z[i]*xd + pot->dZ[i]*(x-1.0);
+	pot->dZPS2[i] = pot->Z[i]*xdd - 2*pot->dZ[i]*xd + pot->dZ2[i]*(x-1.0);
+      } else if (_debye_mode == 2) {
+	double y = x*cos(r0);
+	pot->ZPS[i] = pot->zps*(y-1.0);	
+      } else if (_debye_mode == 3) {
+	double y = x*cos(r0);
+	pot->ZPS[i] = pot->Z[i]*(y-1.0);
+      }
+    }
+    if (_debye_mode >= 2) {
+      Differential(pot->ZPS, pot->dZPS, 0, pot->maxrp-1, pot);
+      Differential(pot->dZPS, pot->dZPS2, 0, pot->maxrp-1, pot);      
     }
     return;
   }
@@ -4996,6 +5020,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:sp_mode")) {
     _sp_mode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:debye_mode")) {
+    _debye_mode = ip;
     return;
   }
   if (0 == strcmp(s, "orbital:sp_print")) {

@@ -952,6 +952,7 @@ static double Population(int iter) {
 
   //wt4 = WallTime();
   if (idr < 0) {
+    /*
     i = -1;
     for (q1 = 0; q1 < nmlevels; q1++) {
       p = q1*nmlevels + q1;
@@ -960,7 +961,16 @@ static double Population(int iter) {
 	break;
       }
     }
-
+    */
+    a = 1e31;
+    i = 0;
+    for (p = 0; p < nlevels; p++) {
+      if (levels[p].energy < a) {
+	a = levels[p].energy;
+	i = p;
+      }
+    }
+    i = levels[i].ic;
     ResetWidMPI();
 #pragma omp parallel default(shared) private(q1, p, q2, t)
     {
