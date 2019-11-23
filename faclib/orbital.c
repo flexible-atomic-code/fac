@@ -62,11 +62,7 @@ static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
 static double *_sp_zw = NULL;
 static int _sp_mode = 2;
-<<<<<<< HEAD
 static int _debye_mode = 0; 
-=======
-static int _debye_mode = 0;
->>>>>>> fix below threshold polarization
 static int _sp_print = 0;
 static double _icf_tol = EPS3;
 static int _icf_maxiter = 1024;

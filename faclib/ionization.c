@@ -656,8 +656,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   }
   *p = pd;
   if (locked) ReleaseLock(lock);
-#pragma omp flush
-  ReinitRadial(1);
+
   return (*p);
 }
 
@@ -1444,7 +1443,6 @@ double CIRadialQkIntegratedMSub(int j1, int m1, int j2, int m2,
   for (i = 1; i < NINT0; i++) {
     x[i] = x[i-1] + d;
   }
-  
   for (i = 0; i < NINT0; i++) {
     r = exp(x[i]);
     e2 = e12*r;
@@ -1479,7 +1477,6 @@ double CIRadialQkIntegratedMSub(int j1, int m1, int j2, int m2,
   r = Simpson(yi, 0, NINT-1);
   r *= d*e12;
   
-  ReinitRadial(1);
   return r;
 }
 
@@ -1527,7 +1524,6 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
     }
   }
 
-
   nz = AngularZFreeBound(&ang, f, b);
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
@@ -1569,7 +1565,6 @@ int IonizeStrengthMSub(double *qku, double *te, int b, int f) {
       i++;
     }
   }
-  
   return i;
 }
 
@@ -1589,7 +1584,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   for (i = 0; i < nb; i++) {
     lev1 = GetLevel(b[i]);
     for (j = 0; j < nf; j++) {
-      lev2 = GetLevel(f[j]);
+      lev2 = GetLevel(f[j]);      
       e = lev2->energy - lev1->energy;
       if (e > 0) k++;
       if (e < emin && e > 0) emin = e;
@@ -1677,7 +1672,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
     for (j = 0; j < nf; j++) {
       int skip = SkipMPI();
       if (skip) continue;
-      lev2 = GetLevel(f[j]);
+      lev2 = GetLevel(f[j]);      
       e = lev2->energy - lev1->energy;
       nq = IonizeStrengthMSub(qku, &e, b[i], f[j]);
       if (nq < 0) continue;
@@ -1687,6 +1682,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
       r.strength = (float *) malloc(sizeof(float)*nq*n_usr);
       for (ie = 0; ie < nq*n_usr; ie++) {
 	r.strength[ie] = qku[ie];
+	if (r.strength[ie] < 0) r.strength[ie] = 0.0;
       }
       WriteCIMRecord(file, &r);
       free(r.strength);
@@ -1696,6 +1692,10 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   DeinitFile(file, &fhdr);
   CloseFile(file, &fhdr);
 
+  ReinitRadial(1);
+  FreeRecQk();
+  FreeRecPk();
+  FreeIonizationQk();
   ReinitIonization(1);
   return 0;
 }

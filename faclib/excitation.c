@@ -853,7 +853,6 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   double gosm1[MAXMSUB][NKINT];
   double gosm2[MAXMSUB][NKINT];
   FORM_FACTOR *bform;
-  
   for (iq = 0; iq < nq; iq++) {
     qk[iq] = 0.0;
   }

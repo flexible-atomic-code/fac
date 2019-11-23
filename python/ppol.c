@@ -311,6 +311,23 @@ static PyObject *PSetMCERates(PyObject *self, PyObject *args) {
   return Py_None;
 } 
 
+static PyObject *PSetMCIRates(PyObject *self, PyObject *args) {
+  char *fn;
+  
+  if (spol_file) {
+    SPOLStatement("SetMCIRates", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  
+  if (SetMCIRates(fn) < 0) return NULL;
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+} 
+
 static PyObject *PSetMAIRates(PyObject *self, PyObject *args) {
   char *fn;
   
@@ -544,6 +561,7 @@ static struct PyMethodDef pol_methods[] = {
   {"SetMLevels", PSetMLevels, METH_VARARGS},
   {"SetMCERates", PSetMCERates, METH_VARARGS},
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
+  {"SetMCIRates", PSetMCIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS}, 
   {"WallTime", PWallTime, METH_VARARGS}, 
