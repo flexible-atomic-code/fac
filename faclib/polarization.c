@@ -40,14 +40,20 @@ static int nce=0;
 static MCE *ce_rates=NULL;
 static int nai = 0;
 static MAI *ai_rates=NULL;
+static int nci = 0;
+static MCI *ci_rates=NULL;
 
 static int max_iter = 512;
 static double iter_accuracy = EPS3;
 static double iter_stabilizer = 0.8;
+static double _n0=1.0, _np=1.0, _nm=1.0;
+static int _i0=0, _ip=-1, _im=-1;
+static int _ne0=0, _nep=0, _nem=0;
 static int maxlevels = 0;
 static int norm_cascade = 0;
 static int nmlevels=0;
 static int nmlevels1;
+static short *neles;
 static double *rmatrix=NULL;
 static double *BL[MAXPOL+1];
 static double PL[MAXPOL+1];
@@ -188,6 +194,7 @@ int SetMLevels(char *fn, char *tfn) {
       if (nmlevels > 0) {
 	nmlevels = 0;
 	free(rmatrix);
+	free(neles);
       }
     } else {
       for (t = 0; t < nlevels; t++) {
@@ -292,6 +299,33 @@ int SetMLevels(char *fn, char *tfn) {
       nmlevels1 = nmlevels;
     }
     rmatrix = (double *) malloc(sizeof(double)*nmlevels*(3+nmlevels));
+    neles = (short *) malloc(sizeof(short)*nmlevels);
+      
+    _ne0 = 0;
+    _nep = 0;
+    _nem = 100000;
+    for (t = 0; t < nlevels; t++) {
+      if (maxlevels > 0 && t >= maxlevels) {
+	neles[nmlevels1] = levels[t].nele;
+      } else {
+	for (k = 0; k <= levels[t].j/2; k++) {
+	  neles[levels[t].ic+k] = levels[t].nele;
+	}
+      }
+      if (levels[t].nele > _nep) {
+	_nep = levels[t].nele;
+      }
+      if (levels[t].nele < _nem) {
+	_nem = levels[t].nele;
+      }
+    }
+    if (_nep == _nem) {
+      _ne0 = _nep;
+      _nep = 0;
+      _nem = 0;
+    } else if (_nep == _nem+2) {
+      _ne0 = _nem+1;
+    }
   }
 
   if (tfn != NULL && strlen(tfn) > 0) {
@@ -416,9 +450,154 @@ int SetMLevels(char *fn, char *tfn) {
     if (t0 < ntr) ntr = t0;    
     FCLOSE(f);
   }
-  
+
   return 0;
 }  
+
+int SetMCIRates(char *fn) {
+  F_HEADER fh;  
+  CIM_HEADER h;
+  CIM_RECORD r;
+  TFILE *f;
+  int n, k, m, t, p, i, q;
+  int m1, m2, j1, j2, i0;
+  int swp, ncs;
+  double data[2+(1+MAXNUSR)*4];
+  double *cs1;
+  double e1, e2, e, a, v, ratio;
+  double esigma, energy;
+  double egrid[NEINT], rint[NEINT], fint[NEINT];  
+  
+  f = OpenFileRO(fn, &fh, &swp);
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+
+  if (fh.type != DB_CIM) {
+    printf("File type is not DB_CIM\n");
+    FCLOSE(f);
+    return -1;
+  }
+
+  energy = params.energy;
+  esigma = params.esigma;
+  ncs = 5000;
+  cs1 = malloc(sizeof(double)*ncs);
+  e1 = energy;
+  v = 0.0;
+  if (esigma > 0) {
+    a = 20.0*esigma/(NEINT-1.0);
+    egrid[0] = energy - 10.0*esigma;
+    for (i = 1; i < NEINT; i++) {
+      egrid[i] = egrid[i-1] + a;
+    }
+    for (i = 0; i < NEINT; i++) {
+      a = (egrid[i] - energy)/esigma;
+      v = VelocityFromE(egrid[i], 0.0);
+      fint[i] = (1.0/(sqrt(2.0*PI)*esigma))*exp(-0.5*a*a)*v;
+    }
+  } else {
+    v = VelocityFromE(e1, 0.0);
+  }
+
+  if (nci > 0) {
+    for (t = 0; t < nci; t++) {
+      free(ci_rates[t].rates);
+    }
+    free(ci_rates);
+    nci = 0;
+  }
+  while (1) {
+    n = ReadCIMHeader(f, &h, swp);
+    if (n == 0) break;
+    nci += h.ntransitions;
+    FSEEK(f, h.length, SEEK_CUR);
+  }
+  FSEEK(f, 0, SEEK_SET);
+  n = ReadFHeader(f, &fh, &swp);
+
+  ci_rates = (MCI *) malloc(sizeof(MCI)*nci);
+
+  t = 0;
+  while (1) {
+    n = ReadCIMHeader(f, &h, swp);
+    if (n == 0) break;
+    for (i = 0; i < h.ntransitions; i++) {
+      n = ReadCIMRecord(f, &r, swp, &h);
+      e = levels[r.f].energy - levels[r.b].energy;
+      double te = e*HARTREE_EV;
+      if (r.nsub > ncs) {
+	free(cs1);
+	ncs = r.nsub;
+	cs1 = malloc(sizeof(double)*ncs);
+      }
+      for (k = 0; k < r.nsub; k++) {
+	if (esigma > 0) {
+	  i0 = -1;
+	  for (q = 0; q < NEINT; q++) {
+	    double e0 = egrid[q]/HARTREE_EV;
+	    e2 = e0-e;
+	    if (e2 >= 0) {
+	      rint[q] = InterpolateCIMCross(e2, e, &r, &h, k);
+	      a = e0*(1+0.5*FINE_STRUCTURE_CONST2*e0);
+	      a = PI*AREA_AU20/(2.0*a);
+	      rint[q] *= a*fint[q];
+	      if (i0 < 0) i0 = q;
+	    }
+	  }
+	  if (i0 >= 0) {
+	    cs1[k] = Simpson(rint, i0, NEINT-1)*(egrid[1]-egrid[0]);
+	    cs1[k] += (egrid[i0]-te)*rint[i0];	  
+	  } else {
+	    cs1[k] = 0.0;
+	  }
+	} else {
+	  double e0 = e1/HARTREE_EV;
+	  e2 = e0-e;
+	  if (e2 >= 0) {
+	    cs1[k] = InterpolateCIMCross(e2, e, &r, &h, k);
+	    a = e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	    a = PI*AREA_AU20/(2.0*a);
+	    cs1[k] *= a*v;
+	  }
+	}
+      }
+      ci_rates[t].b = r.b;
+      ci_rates[t].f = r.f;
+      j1 = levels[r.b].j;
+      j2 = levels[r.f].j;
+      ci_rates[t].n = 2*(j1/2+1)*(j2/2+1);
+      ci_rates[t].rates = (double *) malloc(sizeof(double)*ci_rates[t].n);
+      k = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= j2; m2 += 2) {
+	  if (m2 > 0) {
+	    k++;
+	    continue;
+	  }
+	  ci_rates[t].rates[k] = cs1[k];
+	  if (m2 != 0) {
+	    ci_rates[t].rates[k] += cs1[k-m2];
+	  }
+	  k++;
+	}
+      }
+      t++;
+      free(r.strength);
+    }
+    free(h.egrid);
+    free(h.usr_egrid);
+  }
+  FCLOSE(f);
+  if (t < nci) nci = t;
+  free(cs1);
+  if (_nep == _nem+1) {
+    _ne0 = _nem;
+    _nem = 0;
+  }
+  return 0;
+}
 
 int SetMCERates(char *fn) {
   F_HEADER fh;  
@@ -690,7 +869,10 @@ int SetMAIRates(char *fn) {
   FCLOSE(f);
   
   if (t < nai) nai = t;
-  
+  if (_nep == _nem+1) {
+    _ne0 = _nep;
+    _nep = 0;
+  }
   return 0;
 }
 
@@ -712,10 +894,22 @@ static double Population(int iter) {
     rmatrix[i] = 0.0;
   }
   double *rex = rmatrix + nmlevels*(2+nmlevels);
-  for (i = 0; i < nmlevels; i++) rex[i] = 0;
+  _i0 = -1;
+  _ip = -1;
+  _im = -1;
+  for (i = 0; i < nmlevels; i++) {
+    rex[i] = 0;
+    if (neles[i] == _ne0) {
+      if (_i0 < 0) _i0 = i;
+    } else if (neles[i] == _nep) {
+      if (_ip < 0) _ip = i;
+    } else if (neles[i] == _nem) {
+      if (_im < 0) _im = i;
+    }
+  }
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
-
+ 
   if (iter > 0) {
     for (i = 0; i < nlevels; i++) {
       p = levels[i].ic;
@@ -746,8 +940,14 @@ static double Population(int iter) {
 	a = tr_rates[i].rates[t++];
 	p = q2*nmlevels+q1;
 	if (!levels[i1].rtotal[(m1+j1)/2]) {
+	  if (q2 < nmlevels) {
 #pragma omp atomic
-	  rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	    rex[q2] += a;//levels[i2].pop[(m2+j2)/2]*a;
+	    q2++;
+	  } else {
+#pragma omp atomic
+	    rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	  }
 	} else {
 	  if (q2 < nmlevels1) {
 #pragma omp atomic
@@ -800,8 +1000,14 @@ static double Population(int iter) {
 	p = q1*nmlevels+q2;
 	a = ai_rates[i].rates[t++];
 	if (!levels[i2].rtotal[(m2+j2)/2]) {
+	  if (q1 < nmlevels1) {
 #pragma omp atomic
-	  rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	    rex[q1] += a;//levels[i1].pop[(m1+j1)/2]*a;
+	    q1++;
+	  } else {
+#pragma omp atomic
+	    rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	  }
 	} else {
 	  if (q1 < nmlevels1) {
 #pragma omp atomic
@@ -818,8 +1024,14 @@ static double Population(int iter) {
 	p = q2*nmlevels+q1;
 	a = eden*ai_rates[i].rates[t++];
 	if (!levels[i1].rtotal[(m1+j1)/2]) {
+	  if (q2 < nmlevels1) {
 #pragma omp atomic
-	  rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	    rex[q2] += a;//levels[i2].pop[(m2+j2)/2]*a;
+	    q2++;
+	  } else {
+#pragma omp atomic
+	    rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	  }
 	} else {
 	  if (q2 < nmlevels1) {
 #pragma omp atomic
@@ -868,8 +1080,14 @@ static double Population(int iter) {
 	  p = q1*nmlevels+q2;
 	  a = eden*ce_rates[i].rates[t++];
 	  if (!levels[i2].rtotal[(m2+j2)/2]) {
+	    if (q1 < nmlevels1) {
 #pragma omp atomic
-	    rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	      rex[q1] += a;//levels[i1].pop[(m1+j1)/2]*a;
+	      q1++;
+	    } else {
+#pragma omp atomic
+	      rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	    }
 	  } else {
 	    if (q1 < nmlevels1) {
 #pragma omp atomic
@@ -886,8 +1104,14 @@ static double Population(int iter) {
 	  p = q2*nmlevels+q1;
 	  a = eden*ce_rates[i].rates[t++];
 	  if (!levels[i1].rtotal[(m1+j1)/2]) {
+	    if (q2 < nmlevels1) {
 #pragma omp atomic
-	    rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	      rex[q2] += a;// levels[i2].pop[(m2+j2)/2]*a;
+	      q2++;
+	    } else {
+#pragma omp atomic
+	      rex[q2] += levels[i2].pop[(m2+j2)/2]*a;
+	    }
 	  } else {
 	    if (q2 < nmlevels1) {
 #pragma omp atomic
@@ -910,9 +1134,59 @@ static double Population(int iter) {
 	}
       }
     }  
+    }
+    
+    ResetWidMPI();
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
+    {
+    int w = 0;
+    for (i = 0; i < nci; i++) {
+      if (SkipWMPI(w++)) continue;
+      i1 = ci_rates[i].b;
+      i2 = ci_rates[i].f;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      q1 = Min(levels[i1].ic, nmlevels1);
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	q2 = Min(levels[i2].ic, nmlevels1);
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  p = q1*nmlevels+q2;
+	  a = eden*ci_rates[i].rates[t++];
+	  if (!levels[i2].rtotal[(m2+j2)/2]) {
+	    if (q1 < nmlevels1) {
+#pragma omp atomic
+	      rex[q1] += a;//levels[i1].pop[(m1+j1)/2]*a;
+	      q1++;
+	    } else {
+#pragma omp atomic
+	      rex[q1] += levels[i1].pop[(m1+j1)/2]*a;
+	    }
+	  } else {
+	    if (q1 < nmlevels1) {
+#pragma omp atomic
+	      rmatrix[p] += a;
+	    } else if (q2 < nmlevels) {
+#pragma omp atomic
+	      rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
+	    }
+	  }
+	  if (iter == 0) {
+#pragma omp atomic
+	    levels[i1].rtotal[(m1+j1)/2] += a;
+	  }
+	  if (q2 < nmlevels1) {
+	    q2++;
+	  }
+	}
+	if (q1 < nmlevels1) {
+	  q1++;
+	}
+      }
+    }  
+    }
   }
-  }
-
+  
   double mtot = 0.0;
   if (nlevels > nmax) {
     a = 0;
@@ -925,8 +1199,8 @@ static double Population(int iter) {
 	  p = nmlevels1*nmlevels+q2;
 	  rmatrix[p] /= a;
 	}
-	rex[q2] /= a;
-      }      
+      }
+      rex[nmlevels1] /= a;
     }
     mtot = a;
   }
@@ -952,38 +1226,30 @@ static double Population(int iter) {
 
   //wt4 = WallTime();
   if (idr < 0) {
-    /*
-    i = -1;
-    for (q1 = 0; q1 < nmlevels; q1++) {
-      p = q1*nmlevels + q1;
-      if (rmatrix[p]) {
-	i = q1;
-	break;
-      }
-    }
-    */
-    a = 1e31;
-    i = 0;
-    for (p = 0; p < nlevels; p++) {
-      if (levels[p].energy < a) {
-	a = levels[p].energy;
-	i = p;
-      }
-    }
-    i = levels[i].ic;
     ResetWidMPI();
 #pragma omp parallel default(shared) private(q1, p, q2, t)
     {
     int w = 0;
     for (q1 = 0; q1 < nmlevels; q1++) {
       if (SkipWMPI(w++)) continue;
-      p = q1*nmlevels+i;
-      if (q1 < nmlevels1 || norm_cascade) {
+      p = q1*nmlevels+_i0;
+      int pp = q1*nmlevels + _ip;
+      int pm = q1*nmlevels + _im;
+      rmatrix[p] = 0.0;
+      if (_ip >= 0) rmatrix[pp] = 0.0;
+      if (_im >= 0) rmatrix[pm] = 0.0;
+      if (q1 >= nmlevels1 && norm_cascade) {
 	rmatrix[p] = 1.0;
       } else {
-	rmatrix[p] = 0.0;
+	if (neles[q1] == _ne0) {
+	  rmatrix[p] = 1.0;
+	} else if (neles[q1] == _nep) {
+	  rmatrix[pp] = 1.0;
+	} else if (neles[q1] == _nem) {
+	  rmatrix[pm] = 1.0;
+	}
       }
-      b[q1] = 0.0;
+      b[q1] = 0.0;      
       t = q1*nmlevels+q1;
       if (!rmatrix[t]) {
 	for (q2 = 0; q2 < nmlevels; q2++) {
@@ -994,7 +1260,14 @@ static double Population(int iter) {
       }
     }
     }
-    b[i] = 1.0;
+    b[_i0] = _n0;
+    if (_ip >= 0) b[_ip] = _np;
+    if (_im >= 0) b[_im] = _nm;
+    for (q1 = 0; q1 < nmlevels; q1++) {
+      for (q2 = 0; q2 < nmlevels; q2++) {
+	p = q2*nmlevels+q1;
+      }
+    }
   } else {
     q1 = levels[idr].ic;
     q2 = levels[idr].ic + (levels[idr].j/2 + 1);
@@ -1048,7 +1321,7 @@ static double Population(int iter) {
       q1++;
       i++;
     }
-  }
+  }  
   //wt5 = WallTime();
   DGESV(nmlevels, 1, rmatrix, nmlevels, ipiv, b, nmlevels, &info);
   //wt6 = WallTime();
@@ -1678,4 +1951,16 @@ int PolarizationTable(char *fn, char *ifn, int n, char **sc,
 }
 
 void SetOptionPolarization(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "pol:n0")) {
+    _n0 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "pol:np")) {
+    _np = dp;
+    return;
+  }
+  if (0 == strcmp(s, "pol:nm")) {
+    _nm = dp;
+    return;
+  }
 }

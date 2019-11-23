@@ -57,6 +57,13 @@ typedef struct _MAI_ {
   double *rates;
 } MAI;
 
+typedef struct _MCI_ {
+  int f;
+  int b;
+  int n;
+  double *rates;
+} MCI;
+
 typedef struct _MLINE_ {
   int itr;
   double a, b;
@@ -71,6 +78,7 @@ int SetIDR(int idr, int ndr, double *pdr);
 int SetMLevels(char *fn, char *tfn);
 int SetMCERates(char *fn);
 int SetMAIRates(char *fn);
+int SetMCIRates(char *fn);
 int PopulationTable(char *fn);
 int Orientation(char *fn, double e);
 int PolarizationTable(char *fn, char *ifn, int n, char **sc,

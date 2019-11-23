@@ -1684,20 +1684,23 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
 double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
 			   int q) {
   double y[MAXNE], z[MAXNE], x, tc;
-  int i, j;
+  int i, j, np;
 
+  np = 2;
   for (i = 0; i < h->n_usr; i++) {
     j = q*h->n_usr + i;
     y[i] = r->strength[j];
     z[i] = log(1.0 + h->usr_egrid[i]/eth);
+    if (y[i] <= 0) np = 1;
   }
   if (e1 < 0) return 0.0;
   x = log(1.0 + e1/eth);
-  if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
+  if (np == 1 || e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
     UVIP3P(1, h->n_usr, z, y, 1, &x, &tc);
   } else {
-    UVIP3P(2, h->n_usr, z, y, 1, &x, &tc);
+    UVIP3P(2, h->n_usr, z, y, 1, &x, &tc);    
   }
+
   return tc;
 }
 

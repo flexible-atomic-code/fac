@@ -193,6 +193,18 @@ static int PSetMCERates(int argc, char *argv[], int argt[],
   return i;
 }
 
+static int PSetMCIRates(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int i;
+
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+
+  i = SetMCIRates(argv[0]);
+
+  return i;
+}
+
 static int PSetMAIRates(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
   int i;
@@ -373,6 +385,7 @@ static METHOD methods[] = {
   {"SetMLevels", PSetMLevels, METH_VARARGS},
   {"SetMCERates", PSetMCERates, METH_VARARGS},
   {"SetMAIRates", PSetMAIRates, METH_VARARGS},
+  {"SetMCIRates", PSetMCIRates, METH_VARARGS},
   {"PopulationTable", PPopulationTable, METH_VARARGS}, 
   {"PolarizationTable", PPolarizationTable, METH_VARARGS},  
   {"WallTime", PWallTime, METH_VARARGS},
