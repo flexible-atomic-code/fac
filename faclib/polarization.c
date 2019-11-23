@@ -552,7 +552,6 @@ int SetMCIRates(char *fn) {
 	  } else {
 	    cs1[k] = 0.0;
 	  }
-	  printf("cs1: %d %d %d %g\n", r.b, r.f, k, cs1[k]);
 	} else {
 	  double e0 = e1/HARTREE_EV;
 	  e2 = e0-e;
@@ -581,7 +580,6 @@ int SetMCIRates(char *fn) {
 	  if (m2 != 0) {
 	    ci_rates[t].rates[k] += cs1[k-m2];
 	  }
-	  printf("ci: %d %d %d %d %d %d %g %g %g\n", r.b, r.f, t, k, m1, m2, cs1[k], cs1[k-m2], ci_rates[t].rates[k]);
 	  k++;
 	}
       }
@@ -1268,7 +1266,6 @@ static double Population(int iter) {
     for (q1 = 0; q1 < nmlevels; q1++) {
       for (q2 = 0; q2 < nmlevels; q2++) {
 	p = q2*nmlevels+q1;
-	printf("rmx: %d %d %g %g %d\n", q2, q1, rmatrix[p], b[q2], neles[q2]);
       }
     }
   } else {

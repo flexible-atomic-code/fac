@@ -73,7 +73,16 @@ static double xborn = XBORN;
 static double xborn0 = XBORN0;
 static double xborn1 = XBORN1;
 static double eborn = EBORN;
-#pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost, gosint, xusr, log_xusr)
+static double _gosm1[MAXMSUB][NKINT];
+static double _gosm2[MAXMSUB][NKINT];
+static double _qk[MAXMSUB][MAXNKL];
+static double _dqk[MAXMSUB][MAXNKL];
+static double _rq[MAXMSUB][MAXNTE][MAXNE+2];
+static double _drq[MAXMSUB][MAXNTE][MAXNE+2];
+static double _brq[MAXMSUB][MAXNTE][MAXNE+2];
+static double _xp[MAXMSUB][MAXNTE];
+
+#pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost, gosint, xusr, log_xusr, _gosm1, _gosm2, _qk, _dqk, _rq, _drq, _brq, _xp)
 
 static FILE *fpw=NULL;
 
@@ -850,9 +859,8 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
   double r, c0, c1, c01, dk, a0, a1;
   double x, b, d, c, a, h, g0, b0, b1, bte, bms;  
   double *g1, *g2, *x1, *x2;
-  double gosm1[MAXMSUB][NKINT];
-  double gosm2[MAXMSUB][NKINT];
   FORM_FACTOR *bform;
+  
   for (iq = 0; iq < nq; iq++) {
     qk[iq] = 0.0;
   }
@@ -964,26 +972,26 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
     dnu1 = ko2;
     DXLEGF(dnu1, nudiff, mu1, mu2, theta, 3, pqa, ipqa, &ierr);
     for (iq = 0; iq < nq; iq++) {
-      gosm1[iq][t] = pqa[iq]*	
+      _gosm1[iq][t] = pqa[iq]*	
 	  exp(0.5*(LnFactorial(ko2-q[iq]/2)-LnFactorial(ko2+q[iq]/2)));
     }
     if (kp != k) {
       dnu1 = ko2p;
       DXLEGF(dnu1, nudiff, mu1, mu2, theta, 3, pqa, ipqa, &ierr);
       for (iq = 0; iq < nq; iq++) {
-	gosm2[iq][t] = pqa[iq]*	
+	_gosm2[iq][t] = pqa[iq]*	
 	  exp(0.5*(LnFactorial(ko2p-q[iq]/2)-LnFactorial(ko2p+q[iq]/2)));
       }
     } else {
       for (iq = 0; iq < nq; iq++) {
-	gosm2[iq][t] = gosm1[iq][t];
+	_gosm2[iq][t] = _gosm1[iq][t];
       }
     }
   }
 
   for (iq = 0; iq < nq; iq++) {
     for (t = 0; t < nk; t++) {
-      gosint[t] = gost[t]*gosm1[iq][t]*gosm2[iq][t];
+      gosint[t] = gost[t]*_gosm1[iq][t]*_gosm2[iq][t];
       if (IsOdd(ko2p+kkp/2)) gosint[t] = -gosint[t];
     }
     qk[iq] = dk*Simpson(gosint, 0, nk-1);
@@ -1272,15 +1280,12 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   double pha0, phap0, xb, c, d;
   double s3j1, s3j2, s3j3, s3j4;
   int ie, ite, q[MAXMSUB], nq, iq, ipk, ipkp;
-  double qk[MAXMSUB][MAXNKL], dqk[MAXMSUB][MAXNKL];
-  double rq[MAXMSUB][MAXNTE][MAXNE+2];
-  double drq[MAXMSUB][MAXNTE][MAXNE+2];
-  double brq[MAXMSUB][MAXNTE][MAXNE+2];
-  double rqt[MAXMSUB], xp[MAXMSUB][MAXNTE];
+  double rqt[MAXMSUB];
   double *rqc, **p;
   int index[5], mb;
   int np = 3, one = 1;
   double logj;
+  
 #ifdef PERFORM_STATISTICS
   clock_t start, stop;
   start = clock();
@@ -1340,7 +1345,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
 				   nq, q, rqt, mb);	
 	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][ite][ie] = rqt[iq];
+	  _rq[iq][ite][ie] = rqt[iq];
 	}
       }
     }
@@ -1353,10 +1358,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				   nq, q, rqt, 1);	
+				   nq, q, rqt, 1);
 	for (iq = 0; iq < nq; iq++) {
-	  rq[iq][ite][ie] = rqt[iq];
-	  brq[iq][ite][ie] = rqt[iq];
+	  _rq[iq][ite][ie] = rqt[iq];
+	  _brq[iq][ite][ie] = rqt[iq];
 	}
       }
     }
@@ -1397,8 +1402,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	if (mc > 0) e0w *= mc;
 	for (i = 0; i < nq; i++) { 
 	  for (j = 0; j < nkl; j++) { 
-	    qk[i][j] = 0.0; 
-	    dqk[i][j] = 0.0;
+	    _qk[i][j] = 0.0; 
+	    _dqk[i][j] = 0.0;
 	  }   
 	} 
       
@@ -1465,8 +1470,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	      } 
 	    }
 	    for (iq = 0; iq < nq; iq++) { 
-	      qk[iq][i] += s*rqt[iq]; 
-	      dqk[iq][i] += sd*rqt[iq];
+	      _qk[iq][i] += s*rqt[iq]; 
+	      _dqk[iq][i] += sd*rqt[iq];
 	    } 
 
 	    ipkp += n_tegrid;
@@ -1475,41 +1480,41 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	}
       
 	for (iq = 0; iq < nq; iq++) { 
-	  r = qk[iq][0];
-	  rd = qk[iq][0];
+	  r = _qk[iq][0];
+	  rd = _qk[iq][0];
 	  for (i = 1; i < nkl; i++) { 
-	    r += qk[iq][i]; 
-	    rd += qk[iq][i];
+	    r += _qk[iq][i]; 
+	    rd += _qk[iq][i];
 	    kl0 = pw_scratch.kl[i-1]; 
 	    kl1 = pw_scratch.kl[i]; 
 	    for (j = kl0+1; j < kl1; j++) {       
 	      logj = LnInteger(j);
-	      UVIP3P(np, nkl, pw_scratch.log_kl, qk[iq],
+	      UVIP3P(np, nkl, pw_scratch.log_kl, _qk[iq],
 		     one, &logj, &s);
 	      r += s;
-	      UVIP3P(np, nkl, pw_scratch.log_kl, dqk[iq],
+	      UVIP3P(np, nkl, pw_scratch.log_kl, _dqk[iq],
 		     one, &logj, &s);
 	      rd += s;
 	    }      
 	  }    
-	  rq[iq][ite][ie] = r;
-	  drq[iq][ite][ie] = rd;
+	  _rq[iq][ite][ie] = r;
+	  _drq[iq][ite][ie] = rd;
 	} 
 
 	i = nkl - 1;
 	r = 0.0;
 	for (iq = 0; iq < nq; iq++) {
 	  b = 0.0;
-	  if (dqk[iq][i] && dqk[iq][i-1]) {
+	  if (_dqk[iq][i] && _dqk[iq][i-1]) {
 	    if (k != kp || type1 == 0 || type1 > CBMULT) {
-	      c = dqk[iq][i]/dqk[iq][i-1];
+	      c = _dqk[iq][i]/_dqk[iq][i-1];
 	      if (c > 0) {
 		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
 	      }
 	      b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
 	    } else if (type1 >= 0) {
 	      b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
-	      c = dqk[iq][i]/dqk[iq][i-1];
+	      c = _dqk[iq][i]/_dqk[iq][i-1];
 	      if (c > 0) {
 		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
 	      }
@@ -1518,15 +1523,15 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	      b = 0.0;
 	    }
 	  }
-	  s = dqk[iq][i]*b;
-	  rq[iq][ite][ie] += s;
-	  drq[iq][ite][ie] += s;
+	  s = _dqk[iq][i]*b;
+	  _rq[iq][ite][ie] += s;
+	  _drq[iq][ite][ie] += s;
 	  if (s) {
-	    s = fabs(s/drq[iq][ite][ie]);
-	    if (ie < n_egrid-1 && s > xp[iq][ite]) s = xp[iq][ite];
-	    else xp[iq][ite] = s;
-	    d = drq[iq][ite][ie]*(1-s) + brq[iq][ite][ie]*s;
-	    rq[iq][ite][ie] = rq[iq][ite][ie]-drq[iq][ite][ie] + d;
+	    s = fabs(s/_drq[iq][ite][ie]);
+	    if (ie < n_egrid-1 && s > _xp[iq][ite]) s = _xp[iq][ite];
+	    else _xp[iq][ite] = s;
+	    d = _drq[iq][ite][ie]*(1-s) + _brq[iq][ite][ie]*s;
+	    _rq[iq][ite][ie] = _rq[iq][ite][ie]-_drq[iq][ite][ie] + d;
 	  }
 	}
       }
@@ -1537,7 +1542,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   for (iq = 0; iq < nq; iq++) {
     for (ite = 0; ite < n_tegrid; ite++) {
       for (ie = 0; ie < n_egrid1; ie++) {
-	ptr[ie] = rq[iq][ite][ie];
+	ptr[ie] =
+	  _rq[iq][ite][ie];
       }
       ptr += n_egrid1;
     }
@@ -1630,7 +1636,6 @@ int CERadialQkMSub(double *rqc, double te, int k0, int k1, int k2, int k3,
   int j, m, type, nq;
   double *rqe, rq[MAXNTE];
   double *xte, x0;
-  
   rqe = CERadialQkMSubTable(k0, k1, k2, k3, k, kp, trylock);
   if (rqe == NULL) return -9999;
   nq = Min(k, kp)/2 + 1;
