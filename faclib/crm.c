@@ -6044,6 +6044,53 @@ int SetTRRates(int inv) {
 	  AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
 	}
       }
+    } else if (ion->nele == 4) {
+      ArrayFree(ion->tr2_rates, FreeBlkRateData);
+      rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 4,
+			     "1*2.2*2", "2s2", "2s+2(0)0");
+      rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 4, 
+			     "1*2.2*2", "2s1.2p1", "2s+1(1)1.2p-1(1)0");
+      if (rt2.f < 0) {
+	rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 4,
+				"1*2.2*2", "1s2.2s2", "1s+2(0)0.2s+2(0)0");
+      }
+      if (rt2.i < 0) {
+	rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 4, 
+				"1*2.2*2", "1s2.2s1.2p1", "1s+2(0)0.2s+1(1)1.2p-1(1)0");
+      }
+      if (rt2.i >= 0 && rt2.f >= 0) {
+	rt2.dir = TwoPhotonRate(ion0.atom, 2);
+	rt2.inv = 0.0;
+	if (ion->atr > 0) {
+	  rt2.dir *= ion->atr;
+	  rt2.inv *= ion->atr;
+	}
+	AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
+      }
+    } else if (ion->nele == 5) {      
+      if (k == 0 && ion0.nionized > 0.0) {
+	rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 4,
+				"1*2.2*2", "2s2", "2s+2(0)0");
+	rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 4, 
+				"1*2.2*2", "2s1.2p1", "2s+1(1)1.2p-1(1)0");
+	if (rt2.f < 0) {
+	  rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 4,
+				  "1*2.2*2", "1s2.2s2", "1s+2(0)0.2s+2(0)0");
+	}
+	if (rt2.i < 0) {
+	  rt2.i = FindLevelByName(ion->dbfiles[DB_EN-1], 4, 
+				  "1*2.2*2", "1s2.2s1.2p1", "1s+2(0)0.2s+1(1)1.2p-1(1)0");
+	}
+	if (rt2.i >= 0 && rt2.f >= 0) {
+	  rt2.dir = TwoPhotonRate(ion0.atom, 2);
+	  rt2.inv = 0.0;
+	  if (ion->atr > 0) {
+	    rt2.dir *= ion->atr;
+	    rt2.inv *= ion->atr;
+	  }
+	  AddRate(ion, ion->tr2_rates, &rt2, 0, irb2);
+	}
+      }
     }
     if (ion0.n < 0) continue;
     ExtrapolateTR(ion, inv, irb);
