@@ -394,6 +394,34 @@ int SetMLevels(char *fn, char *tfn) {
       } else {
 	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
       }
+    } else if (h.nele == 4) {
+      k = FindLevelByName(fn, 4,
+			  "1*2.2*2", "2s2", "2s+2(0)0");
+      t = FindLevelByName(fn, 4, 
+			  "1*2.2*2", "2s1.2p1", "2s+1(1)1.2p-1(1)0");
+      if (k < 0) {
+	k = FindLevelByName(fn, 4,
+			    "1*2.2*2", "1s2.2s2", "1s+2(0)0.2s+2(0)0");
+      }
+      if (t < 0) {
+	t = FindLevelByName(fn, 4, 
+			    "1*2.2*2", "1s2.2s1.2p1", "1s+2(0)0.2s+1(1)1.2p-1(1)0");
+      }
+      if (k >= 0 && t >= 0) {
+	ntr += 1;
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
+	tr_rates[0].lower = k;
+	tr_rates[0].upper = t;
+	tr_rates[0].multipole = 0;
+	tr_rates[0].n = 1;
+	tr_rates[0].rates = (double *) malloc(sizeof(double)*tr_rates[0].n);
+	a = TwoPhotonRate(z, 2);
+	tr_rates[0].rtotal = a;
+	tr_rates[0].rates[0] = a;
+	t0 = 1;
+      } else {
+	tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
+      }    
     } else {
       tr_rates = (MTR *) malloc(sizeof(MTR)*ntr);
     }
