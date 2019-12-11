@@ -110,16 +110,17 @@ static int PSetIDR(int argc, char *argv[], int argt[],
   if (argc == 2 && argt[1] != LIST && argt[1] != TUPLE) return -1;
 
   idr = atoi(argv[0]);
-  ndr = DecodeArgs(argv[1], vg, ig, variables);
+  ndr = 0;
+  pdr = NULL;
+  if (argc == 2) {
+    ndr = DecodeArgs(argv[1], vg, ig, variables);
+  }
   if (ndr > 0) {
     pdr = (double *) malloc(sizeof(double)*ndr);
     for (i = 0; i < ndr; i++) {
       pdr[i] = atof(vg[i]);
       free(vg[i]);
     }
-  } else {
-    ndr = 0;
-    pdr = NULL;
   }
   
   return SetIDR(idr, ndr, pdr);
