@@ -514,7 +514,7 @@ int SetMCIRates(char *fn) {
   cs1 = malloc(sizeof(double)*ncs);
   e1 = energy;
   v = 0.0;
-  if (esigma > 0) {
+  if (esigma > 0 && params.idr < 0) {
     a = 20.0*esigma/(NEINT-1.0);
     egrid[0] = energy - 10.0*esigma;
     for (i = 1; i < NEINT; i++) {
@@ -561,7 +561,7 @@ int SetMCIRates(char *fn) {
 	cs1 = malloc(sizeof(double)*ncs);
       }
       for (k = 0; k < r.nsub; k++) {
-	if (esigma > 0) {
+	if (esigma > 0 && params.idr < 0) {
 	  i0 = -1;
 	  for (q = 0; q < NEINT; q++) {
 	    double e0 = egrid[q]/HARTREE_EV;
@@ -660,7 +660,7 @@ int SetMCERates(char *fn) {
   cs2 = cs1+ncs;
   e1 = energy;
   v = 0.0;
-  if (esigma > 0) {
+  if (esigma > 0 && params.idr < 0) {
     a = 20.0*esigma/(NEINT-1.0);
     egrid[0] = energy - 10.0*esigma;
     for (i = 1; i < NEINT; i++) {
@@ -711,7 +711,7 @@ int SetMCERates(char *fn) {
       }
       for (k = 0; k < r.nsub; k++) {
 	PrepCECrossRecord(k, &r, &h, data);
-	if (esigma > 0) {
+	if (esigma > 0 && params.idr < 0) {
 	  i0 = -1;
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q] - e;
@@ -821,7 +821,7 @@ int SetMAIRates(char *fn) {
   
   energy = params.energy;
   esigma = params.esigma;
-  if (esigma > 0) {
+  if (esigma > 0 && params.idr < 0) {
     pf = 1.0/(sqrt(2.0*PI)*esigma);
   }
 
@@ -855,10 +855,16 @@ int SetMAIRates(char *fn) {
       e *= HARTREE_EV;
       v = VelocityFromE(e, 0.0)*AREA_AU20*HARTREE_EV;
       if (esigma > 0.0) {
-	x = (e - energy)/esigma;
-	x = 0.5*x*x;
-	if (x > 50.0) v = 0.0;
-	v *= pf*exp(-x);
+	if (params.idr < 0) {
+	  x = (e - energy)/esigma;
+	  x = 0.5*x*x;
+	  if (x > 50.0) v = 0.0;
+	  v *= pf*exp(-x);
+	} else {
+	  if (e < energy - esigma || e > energy + esigma) {
+	    v = 0.0;
+	  }
+	}
       }
       ai_rates[t].f = r.f;
       ai_rates[t].b = r.b;
@@ -1627,10 +1633,10 @@ int PopulationTable(char *fn) {
 int Orientation(char *fn, double etrans) {
   int k, i, k2, t, j1, m1;
   double a, b;
-  double pqa[MAXPOL*2+1];
-  int ipqa[MAXPOL*2+1], ierr;
-  double nu1, x, theta;
-  int nudiff, mu1;
+  double pqa[2*MAXPOL+1], *vpqa;
+  int ipqa[2*MAXPOL+1], ierr, npq;
+  double nu1, x, theta, *xth, emin, emax;
+  int nudiff, mu1, nx;
   FILE *f;
   
   if (fn) {
@@ -1642,18 +1648,76 @@ int Orientation(char *fn, double etrans) {
   } else {
     f = NULL;
   }
+  npq = 0;
+  nx = 0;
+  vpqa = NULL;
   params.etrans = etrans;
-  x = sqrt(etrans/params.energy); 
-  if (x >= 1.0) {
-    printf("ETrans (%11.4E) >= Energy (%11.4E)\n", etrans, params.energy);
-    x = 1.0-EPS10;
-  }
-  if (x > EPS10) {
-    theta = asin(x);  
-    nu1 = 0;
-    nudiff = MAXPOL*2;
-    mu1 = 0;
-    DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+  if (etrans > 0) {
+    if (params.idr < 0) {      
+      x = sqrt(etrans/params.energy); 
+      if (x >= 1.0) {
+	printf("ETrans (%11.4E) >= Energy (%11.4E)\n", etrans, params.energy);
+	x = 1.0-EPS10;
+      }
+      if (x > EPS10) {
+	nx = 1;
+	theta = asin(x);  
+	nu1 = 0;
+	nudiff = MAXPOL*2;
+	mu1 = 0;
+	DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+      }
+    } else {
+      emin = 1e31;
+      emax = 0;
+      for (i = 0; i < nai; i++) {
+	if (ai_rates[i].f != params.idr) continue;
+	x = levels[ai_rates[i].b].energy - levels[params.idr].energy;
+	x *= HARTREE_EV; 
+	if (params.esigma > 0) {
+	  if (x < params.energy - params.esigma) continue;
+	  if (x > params.energy + params.esigma) continue;
+	}
+	if (x < emin) emin = x;
+	else if (x > emax) emax = x;
+      }
+      x = etrans*1.0001;
+      emin = Max(x, emin);
+      emax = Max(x, emax);
+      emin = etrans/emin;
+      emax = etrans/emax;
+      x = emin-emax;
+      double dx = 0.025;
+      if (x <= dx) {
+	nx = 1;
+	x = 0.5*(emin+emax);
+	theta = asin(x);  
+	nu1 = 0;
+	nudiff = MAXPOL*2;
+	mu1 = 0;
+	DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+      } else {
+	nx = (int)(x/dx+1);
+	npq = 2*MAXPOL+1;
+	xth = malloc(sizeof(double)*nx);
+	xth[0] = emax;
+	dx = (emin-emax)/(nx+1.0);
+	for (i = 1; i < nx; i++) {
+	  xth[i] = xth[i-1] + dx;
+	}
+	vpqa = malloc(sizeof(double)*npq*nx);
+	for (i = 0; i < nx; i++) {
+	  theta = asin(xth[i]);  
+	  nu1 = 0;
+	  nudiff = MAXPOL*2;
+	  mu1 = 0;
+	  DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa, ipqa, &ierr);
+	  for (t = 0; t < npq; t++) {
+	    vpqa[t*nx+i] = pqa[t];
+	  }
+	}
+      }
+    }
   }
 
 #pragma omp parallel default(shared) private(i, j1, k, k2, m1, t, b, a)  
@@ -1678,8 +1742,19 @@ int Orientation(char *fn, double etrans) {
 	BL[k][i] += a;
       }
       BL[k][i] *= sqrt(j1 + 1.0);
-      if (x > EPS10) {
+      if (nx == 1) {
 	BL[k][i] *= pqa[k*2];
+      } else if (nx > 1 && params.idr >= 0) {
+	x = levels[i].energy - levels[params.idr].energy;
+	x *= HARTREE_EV;
+	if (x <= etrans) {
+	  x = xth[nx-1];
+	} else {
+	  x = etrans/x;
+	  if (x > xth[nx-1]) x = xth[nx-1];
+	}
+	UVIP3P(3, nx, xth, &vpqa[2*k*nx], 1, &x, &a);
+	BL[k][i] *= a;      
       }
     }
   }    
@@ -1701,7 +1776,7 @@ int Orientation(char *fn, double etrans) {
     }
     fclose(f);
   }
-  
+  if (vpqa) free(vpqa);
   return 0;
 }
 
