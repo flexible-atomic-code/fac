@@ -1266,8 +1266,10 @@ static double Population(int iter) {
       rmatrix[p] = 0.0;
       if (_ip >= 0) rmatrix[pp] = 0.0;
       if (_im >= 0) rmatrix[pm] = 0.0;
-      if (q1 >= nmlevels1 && norm_cascade) {
-	rmatrix[p] = 1.0;
+      if (q1 >= nmlevels1) {
+	if (norm_cascade) {
+	  rmatrix[p] = 1.0;
+	}
       } else {
 	if (neles[q1] == _ne0) {
 	  rmatrix[p] = 1.0;
@@ -1288,9 +1290,15 @@ static double Population(int iter) {
       }
     }
     }
-    b[_i0] = _n0;
-    if (_ip >= 0) b[_ip] = _np;
-    if (_im >= 0) b[_im] = _nm;
+    if (_i0 >= 0 && _i0 < nmlevels1) {
+      b[_i0] = _n0;
+    }
+    if (_ip >= 0 && _ip < nmlevels1) {
+      b[_ip] = _np;
+    }
+    if (_im >= 0 && _im < nmlevels1) {
+      b[_im] = _nm;
+    }
     for (q1 = 0; q1 < nmlevels; q1++) {
       for (q2 = 0; q2 < nmlevels; q2++) {
 	p = q2*nmlevels+q1;
