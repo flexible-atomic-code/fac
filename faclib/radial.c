@@ -178,6 +178,7 @@ static MULTI *yk_array;
 #define MAXNAW 128
 static int n_awgrid = 0;
 static double awgrid[MAXNAW];
+static double _awmin = 1e-4;
 #define MAXMP 8
 static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
@@ -1507,9 +1508,9 @@ void SetMS(int nms, int sms) {
 
 int SetAWGrid(int n, double awmin, double awmax) {
   int i;
-  if (awmin < 1E-3) {
-    awmin = 1E-3;
-    awmax = awmax + 1E-3;
+  if (awmin < _awmin) {
+    awmax = awmax + (_awmin-awmin);
+    awmin = _awmin;
   }
   if (n > MAXNAW) {
     printf("naw exceeded max: %d %d\n", n, MAXNAW);
@@ -5463,7 +5464,13 @@ double InterpolateMultipole(double aw, int n, double *x, double *y) {
   } else {
     np = 3;
     nd = 1;
-    UVIP3P(np, n, x, y, nd, &aw, &r);
+    if (aw <= x[0]) {
+      r = y[0];
+    } else if (aw >= x[n-1]) {
+      r = y[n-1];
+    } else {
+      UVIP3P(np, n, x, y, nd, &aw, &r);
+    }
   }
 
   return r;
@@ -9898,6 +9905,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:maxnhd")) {
     InitHydrogenicDipole(ip);
+    return;
+  }
+  if (0 == strcmp(s, "radial:awmin")) {
+    _awmin = dp;
     return;
   }
 }

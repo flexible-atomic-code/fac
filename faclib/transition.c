@@ -51,6 +51,9 @@ typedef struct {
   int ks[2];
 } TR_DATUM;
 
+static int _tr_all = 0;
+static double _tr_aw = -1;
+
 int SetTransitionCut(double c0, double c) {
   if (c0 >= 0) {
     transition_option.eps0 = c0;
@@ -205,8 +208,11 @@ int TRMultipole(double *strength, double *energy,
   if (lev2 == NULL) return -1;
   if (*energy <= 0.0) {
     *energy = lev2->energy - lev1->energy;
+    if (_tr_all && *energy < 0) {
+      *energy = -(*energy);
+    }
   }
-  if (*energy <= 0.0) return -1;
+  if (!_tr_all && *energy <= 0.0) return -1;
   aw = FINE_STRUCTURE_CONST * (*energy);
   if (aw < 0.0) return -1;
 
@@ -511,7 +517,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 #endif
   
   if (nlow <= 0 || nup <= 0) return -1;
-  
+
   k = 0;
   emin = 1E10;
   emax = 1E-10;
@@ -520,12 +526,12 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
       e0 = lev2->energy - lev1->energy;
-      if (e0 > 0) k++;
+      if (_tr_all || e0 > 0) k++;
       if (e0 < emin && e0 > 0) emin = e0;
       if (e0 > emax) emax = e0;
     }
   }
-  
+    
   if (k == 0) {
     return 0;
   }
@@ -535,12 +541,16 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   e0 = 2.0*(emax-emin)/(emin+emax);
     
   FreeMultipoleArray();
-  if (e0 < EPS3) {
-    SetAWGrid(1, 0.5*(emin+emax), emax);
-  } else if (e0 < 1.0) {
-    SetAWGrid(2, emin, emax);
+  if (_tr_aw >= 0) {
+    SetAWGrid(1, _tr_aw, _tr_aw);
   } else {
-    SetAWGrid(3, emin, emax);
+    if (e0 < EPS3) {
+      SetAWGrid(1, 0.5*(emin+emax), emax);
+    } else if (e0 < 1.0) {
+      SetAWGrid(2, emin, emax);
+    } else {
+      SetAWGrid(3, emin, emax);
+    }
   }
   
   fhdr.type = DB_TR;
@@ -722,6 +732,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	for (i = 0; i < nlow; i++) {
 	  a[i] = 0.0;
 	  et[i] = 0.0;
+	  s[i] = 0.0;
 	  k = TRMultipole(s+i, et+i, m, low[i], up[j]);
 	  if (k != 0) continue;
 	  gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
@@ -731,7 +742,8 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	if (trd < 1E-30) continue;
 	r.upper = up[j];
 	for (i = 0; i < nlow; i++) {
-	  if (a[i] <= 0 || a[i] < (transition_option.eps * trd)) continue;
+	  if (!s[i]) continue;
+	  if (!_tr_all && a[i] < (transition_option.eps * trd)) continue;
 	  r.lower = low[i];
 	  r.strength = s[i];
 	  WriteTRRecord(f, &r, NULL);
@@ -883,7 +895,7 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
   SaveTransition0(nup-nc, up, nc, low+nlow-nc, fn, m);
   SaveTransition0(nlow-nc, low, nup, up, fn, m);
   SaveTransition0(nup, up, nlow-nc, low, fn, m);
-
+  
   if (n > 0) free(alev);
   ReinitRadial(1);
 
@@ -1036,4 +1048,12 @@ int PolarizeCoeff(char *ifn, char *ofn, int i0, int i1) {
 }
   
 void SetOptionTransition(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "transition:aw")) {
+    _tr_aw = dp;
+    return;
+  }
+  if (0 == strcmp(s, "transition:ls_all")) {
+    _tr_all = ip;
+    return;
+  }
 }
