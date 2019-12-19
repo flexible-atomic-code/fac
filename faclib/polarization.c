@@ -974,7 +974,7 @@ static double Population(int iter) {
 	a = tr_rates[i].rates[t++];
 	p = q2*nmlevels+q1;
 	if (!levels[i1].rtotal[(m1+j1)/2]) {
-	  if (q2 < nmlevels) {
+	  if (q2 < nmlevels1) {
 #pragma omp atomic
 	    rex[q2] += a;//levels[i2].pop[(m2+j2)/2]*a;
 	    q2++;
@@ -1127,7 +1127,7 @@ static double Population(int iter) {
 	    if (q1 < nmlevels1) {
 #pragma omp atomic
 	      rmatrix[p] += a;
-	    } else if (q2 < nmlevels) {
+	    } else if (q2 < nmlevels1) {
 #pragma omp atomic
 	      rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
 	    }
@@ -1201,7 +1201,7 @@ static double Population(int iter) {
 	    if (q1 < nmlevels1) {
 #pragma omp atomic
 	      rmatrix[p] += a;
-	    } else if (q2 < nmlevels) {
+	    } else if (q2 < nmlevels1) {
 #pragma omp atomic
 	      rmatrix[p] += levels[i1].pop[(m1+j1)/2]*a;
 	    }
