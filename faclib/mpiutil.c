@@ -599,6 +599,36 @@ size_t BFileWrite(void *ptr, size_t size, size_t nmemb, BFILE *bf) {
   return n;
 }
 
+int BFileCheckBuf(BFILE *bf, int m) {
+  int n, k, mr;
+  char *buf;
+  
+  if (bf->buf == NULL) {
+    return 0;
+  }
+#if USE_MPI == 2
+  mr = MPIRank(NULL);
+#else
+  mr = 0;
+#endif
+  n = 0;
+  buf = bf->buf + bf->nbuf*mr;
+  k = bf->nbuf - bf->w[mr];
+  if (m > k) {
+#if USE_MPI == 2
+    if (bf->nr > 1) SetLock(&bf->lock);
+#endif
+    if (bf->w[mr] > 0) {
+      n = fwrite(buf, 1, bf->w[mr], bf->f);
+      bf->w[mr] = 0;
+    }
+#if USE_MPI == 2
+    if (bf->nr > 1) ReleaseLock(&bf->lock);
+#endif
+  }
+  return n;
+}
+
 int BFileSeek(BFILE *bf, long offset, int w) {
   BFileFlush(bf);
   return fseek(bf->f, offset, w);

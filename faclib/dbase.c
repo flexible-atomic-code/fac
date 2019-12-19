@@ -1301,6 +1301,8 @@ int WriteFHeader(TFILE *f, F_HEADER *fh) {
   if (fh->nthreads > 1) {
     v |= fh->nthreads<<16;
   }
+
+  FFLUSH(f);
   WSF0(fh->tsession);
   WSF0(v);
   WSF0(fh->sversion);
@@ -1309,7 +1311,7 @@ int WriteFHeader(TFILE *f, F_HEADER *fh) {
   WSF0(fh->atom);
   WSF1(fh->symbol, sizeof(char), 4);
   WSF0(fh->nblocks);
-  
+  FFLUSH(f);
   return m;
 }
 
@@ -1654,8 +1656,9 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
 
   if (en_header.nlevels == 0) {
     SetLockMPI();
-    if (en_header.nlevels == 0) {
+    if (en_header.nlevels == 0) {      
       fheader[DB_EN-1].nblocks++;
+      FFLUSH(f);
       n = WriteENHeader(f, &en_header);
       FFLUSH(f);
     }
@@ -1667,6 +1670,14 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
     en_header.nlevels += 1;
   }
   
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->p)+
+		sizeof(r->j)+
+		sizeof(r->ilev)+
+		sizeof(r->energy)+
+		sizeof(char)*(LNCOMPLEX+LSNAME+LNAME));
+#endif
   WSF0(r->p);
   WSF0(r->j);
   WSF0(r->ilev);
@@ -1705,6 +1716,7 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
     SetLockMPI();
     if (enf_header.nlevels == 0) {
       fheader[DB_ENF-1].nblocks++;
+      FFLUSH(f);
       n = WriteENFHeader(f, &enf_header);
       FFLUSH(f);
     }
@@ -1716,6 +1728,12 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
     enf_header.nlevels += 1;
   }
   
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->ilev)+
+		sizeof(r->energy)+
+		sizeof(r->pbasis));
+#endif
   WSF0(r->ilev);
   WSF0(r->energy);
   WSF0(r->pbasis);
@@ -1733,6 +1751,7 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
     SetLockMPI();
     if (tr_header.ntransitions == 0) {
       fheader[DB_TR-1].nblocks++;
+      FFLUSH(f);
       n = WriteTRHeader(f, &tr_header);
       FFLUSH(f);
     }
@@ -1743,6 +1762,23 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
 #pragma omp atomic
     tr_header.ntransitions += 1;
   }
+  
+#ifdef USEBF
+  if (!iuta) {
+    BFileCheckBuf(f,		
+		  sizeof(r->lower)+
+		  sizeof(r->upper)+
+		  sizeof(r->strength));
+  } else {
+    BFileCheckBuf(f,		
+		  sizeof(r->lower)+
+		  sizeof(r->upper)+
+		  sizeof(r->strength)+
+		  sizeof(rx->energy)+
+		  sizeof(rx->sdev)+
+		  sizeof(rx->sci));
+  }
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->strength);
@@ -1766,6 +1802,7 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
     SetLockMPI();
     if (trf_header.ntransitions == 0) {
       fheader[DB_TRF-1].nblocks++;
+      FFLUSH(f);
       n = WriteTRFHeader(f, &trf_header);
       FFLUSH(f);
     }
@@ -1776,6 +1813,13 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
 #pragma omp atomic
     trf_header.ntransitions += 1;
   }
+  
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->lower)+
+		sizeof(r->upper)+
+		sizeof(float)*(2*abs(trf_header.multipole)+1));
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   WSF1(r->strength, sizeof(float), 2*abs(trf_header.multipole)+1);
@@ -1794,6 +1838,7 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
     SetLockMPI();
     if (ce_header.ntransitions == 0) {
       fheader[DB_CE-1].nblocks++;
+      FFLUSH(f);
       n = WriteCEHeader(f, &ce_header);
       FFLUSH(f);
     }
@@ -1804,22 +1849,33 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
 #pragma omp atomic
     ce_header.ntransitions += 1;
   }
+  
+  if (ce_header.msub) {
+    m0 = r->nsub;
+  } else if (ce_header.qk_mode == QK_FIT) {
+    m0 = ce_header.nparams * r->nsub;
+  } else m0 = 0;
+  
+  int m1 = ce_header.n_usr*r->nsub;
+  
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->lower)+
+		sizeof(r->upper)+
+		sizeof(r->nsub)+
+		sizeof(r->bethe)+
+		sizeof(float)*(2+m0+m1));  
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->nsub);
   WSF0(r->bethe);
   WSF1(r->born, sizeof(float), 2);
 
-  if (ce_header.msub) {
-    m0 = r->nsub;
-  } else if (ce_header.qk_mode == QK_FIT) {
-    m0 = ce_header.nparams * r->nsub;
-  } else m0 = 0;
   if (m0) {
     WSF1(r->params, sizeof(float), m0);
   }
-  m0 = ce_header.n_usr * r->nsub;
-  WSF1(r->strength, sizeof(float), m0);
+  WSF1(r->strength, sizeof(float), m1);
 
 #pragma omp atomic
   ce_header.length += m;
@@ -1835,6 +1891,7 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
     SetLockMPI();
     if (cef_header.ntransitions == 0) {
       fheader[DB_CEF-1].nblocks++;
+      FFLUSH(f);
       n = WriteCEFHeader(f, &cef_header);
       FFLUSH(f);
     }
@@ -1845,12 +1902,19 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
 #pragma omp atomic
     cef_header.ntransitions += 1;
   }
+  
+  m0 = cef_header.n_egrid;
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->lower)+
+		sizeof(r->upper)+
+		sizeof(r->bethe)+
+		sizeof(float)*(2+m0));  
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->bethe);
   WSF1(r->born, sizeof(float), 2);
-
-  m0 = cef_header.n_egrid;
   WSF1(r->strength, sizeof(float), m0);
   
 #pragma omp atomic
@@ -1867,6 +1931,7 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
     SetLockMPI();
     if (cemf_header.ntransitions == 0) {
       fheader[DB_CEMF-1].nblocks++;
+      FFLUSH(f);
       n = WriteCEMFHeader(f, &cemf_header);
       FFLUSH(f);
     }
@@ -1877,15 +1942,22 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
 #pragma omp atomic
     cemf_header.ntransitions += 1;
   }
+  
+  m0 = cemf_header.n_thetagrid * cemf_header.n_phigrid;
+  int m1 = cemf_header.n_egrid * m0;
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->lower)+
+		sizeof(r->upper)+
+		sizeof(float)*(2*m0+1+m1));  
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   
-  m0 = cemf_header.n_thetagrid * cemf_header.n_phigrid;
   WSF1(r->bethe, sizeof(float), m0);
   WSF1(r->born, sizeof(float), m0+1);
 
-  m0 = cemf_header.n_egrid * m0;
-  WSF1(r->strength, sizeof(float), m0);
+  WSF1(r->strength, sizeof(float), m1);
   
 #pragma omp atomic
   cemf_header.length += m;
@@ -1901,6 +1973,7 @@ int WriteRORecord(TFILE *f, RO_RECORD *r) {
     SetLockMPI();
     if (ro_header.ntransitions == 0) {
       fheader[DB_RO-1].nblocks++;
+      FFLUSH(f);
       n = WriteROHeader(f, &ro_header);
       FFLUSH(f);
     }
@@ -1911,6 +1984,15 @@ int WriteRORecord(TFILE *f, RO_RECORD *r) {
 #pragma omp atomic
     ro_header.ntransitions += 1;
   }
+  
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->b)+
+		sizeof(r->f)+
+		sizeof(r->n)+
+		sizeof(int)*r->n+
+		sizeof(double)*2*r->n);
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->n);
@@ -1931,6 +2013,7 @@ int WriteCXRecord(TFILE *f, CX_RECORD *r) {
     SetLockMPI();
     if (cx_header.ntransitions == 0) {
       fheader[DB_CX-1].nblocks++;
+      FFLUSH(f);
       n = WriteCXHeader(f, &cx_header);
       FFLUSH(f);
     }
@@ -1941,6 +2024,14 @@ int WriteCXRecord(TFILE *f, CX_RECORD *r) {
 #pragma omp atomic
     cx_header.ntransitions += 1;
   }
+  
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->b)+
+		sizeof(r->f)+
+		sizeof(r->vnl)+
+		sizeof(double)*cx_header.ne0);
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->vnl);
@@ -1959,6 +2050,7 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
     SetLockMPI();
     if (rr_header.ntransitions == 0) {
       fheader[DB_RR-1].nblocks++;
+      FFLUSH(f);
       n = WriteRRHeader(f, &rr_header);
       FFLUSH(f);
     }
@@ -1969,6 +2061,22 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
 #pragma omp atomic
     rr_header.ntransitions += 1;
   }
+  
+#ifdef USEBF
+  if (rr_header.qk_mode == QK_FIT) {
+    BFileCheckBuf(f,		
+		  sizeof(r->b)+
+		  sizeof(r->f)+
+		  sizeof(r->kl)+
+		  sizeof(float)*(rr_header.nparams+rr_header.n_usr));
+  } else {
+    BFileCheckBuf(f,		
+		  sizeof(r->b)+
+		  sizeof(r->f)+
+		  sizeof(r->kl)+
+		  sizeof(float)*rr_header.n_usr);
+  }
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -1993,6 +2101,7 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
     SetLockMPI();
     if (ai_header.ntransitions == 0) {
       fheader[DB_AI-1].nblocks++;
+      FFLUSH(f);
       WriteAIHeader(f, &ai_header);
       FFLUSH(f);
     }
@@ -2003,6 +2112,12 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
 #pragma omp atomic
     ai_header.ntransitions += 1;
   }
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->b)+
+		sizeof(r->f)+
+		sizeof(r->rate));
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->rate);
@@ -2020,6 +2135,7 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
     SetLockMPI();
     if (aim_header.ntransitions == 0) {
       fheader[DB_AIM-1].nblocks++;
+      FFLUSH(f);
       WriteAIMHeader(f, &aim_header);
       FFLUSH(f);
     }
@@ -2030,6 +2146,13 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
 #pragma omp atomic
     aim_header.ntransitions += 1;
   }
+#ifdef USEBF
+  BFileCheckBuf(f,
+	       sizeof(r->b)+
+	       sizeof(r->f)+
+	       sizeof(r->nsub)+
+	       sizeof(float)*r->nsub);
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
@@ -2049,6 +2172,7 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
     SetLockMPI();
     if (ci_header.ntransitions == 0) {
       fheader[DB_CI-1].nblocks++;
+      FFLUSH(f);
       WriteCIHeader(f, &ci_header);
       FFLUSH(f);
     }
@@ -2059,6 +2183,13 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
 #pragma omp atomic
     ci_header.ntransitions += 1;
   }
+#ifdef USEBF
+  BFileCheckBuf(f,
+		sizeof(r->b)+
+		sizeof(r->f)+
+		sizeof(r->kl)+
+		sizeof(float)*(ci_header.nparams+ci_header.n_usr));
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
@@ -2081,6 +2212,7 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
     SetLockMPI();
     if (cim_header.ntransitions == 0) {
       fheader[DB_CIM-1].nblocks++;
+      FFLUSH(f);
       WriteCIMHeader(f, &cim_header);
       FFLUSH(f);
     }
@@ -2091,10 +2223,18 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
 #pragma omp atomic
     cim_header.ntransitions += 1;
   }
+  
+  m0 = r->nsub*cim_header.n_usr;
+#ifdef USEBF
+  BFileCheckBuf(f,
+		sizeof(r->b)+
+		sizeof(r->f)+
+		sizeof(r->nsub)+
+		sizeof(float)*m0);
+#endif
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
-  m0 = r->nsub*cim_header.n_usr;
   WSF1(r->strength, sizeof(float), m0);
   
 #pragma omp atomic
@@ -2110,6 +2250,7 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
     SetLockMPI();
     if (sp_header.ntransitions == 0) {
       fheader[DB_SP-1].nblocks++;
+      FFLUSH(f);
       WriteSPHeader(f, &sp_header);
       FFLUSH(f);
     }
@@ -2120,6 +2261,26 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
 #pragma omp atomic
     sp_header.ntransitions += 1;
   }
+#ifdef USEBF
+  if (iuta) {
+    BFileCheckBuf(f,
+		  sizeof(r->lower)+
+		  sizeof(r->upper)+
+		  sizeof(r->energy)+
+		  sizeof(r->strength)+
+		  sizeof(r->rrate)+
+		  sizeof(r->trate)+
+		  sizeof(rx->sdev));
+  } else {
+    BFileCheckBuf(f,
+		  sizeof(r->lower)+
+		  sizeof(r->upper)+
+		  sizeof(r->energy)+
+		  sizeof(r->strength)+
+		  sizeof(r->rrate)+
+		  sizeof(r->trate));
+  }
+#endif
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->energy);
@@ -2143,6 +2304,7 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
     SetLockMPI();
     if (rt_header.ntransitions == 0) {
       fheader[DB_RT-1].nblocks++;
+      FFLUSH(f);
       WriteRTHeader(f, &rt_header);
       FFLUSH(f);
     }
@@ -2153,6 +2315,18 @@ int WriteRTRecord(TFILE *f, RT_RECORD *r) {
 #pragma omp atomic
   rt_header.ntransitions += 1;
   }
+#ifdef USEBF
+  BFileCheckBuf(f,
+		sizeof(r->dir)+
+		sizeof(r->iblock)+
+		sizeof(r->nb)+
+		sizeof(r->tr)+
+		sizeof(r->ce)+
+		sizeof(r->rr)+
+		sizeof(r->ai)+
+		sizeof(r->ci)+
+		sizeof(char)*LNCOMPLEX);
+#endif
   WSF0(r->dir);
   WSF0(r->iblock);
   WSF0(r->nb);
@@ -2180,6 +2354,7 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
     SetLockMPI();
     if (dr_header.ntransitions == 0) {
       fheader[DB_DR-1].nblocks++;
+      FFLUSH(f);
       WriteDRHeader(f, &dr_header);
       FFLUSH(f);
     }
@@ -2190,6 +2365,20 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r) {
 #pragma omp atomic
     dr_header.ntransitions += 1;
   }
+#ifdef USEBF
+  BFileCheckBuf(f,
+		sizeof(r->ilev)+
+		sizeof(r->flev)+
+		sizeof(r->ibase)+
+		sizeof(r->fbase)+
+		sizeof(r->vl)+
+		sizeof(r->j)+
+		sizeof(r->energy)+
+		sizeof(r->etrans)+
+		sizeof(r->br)+
+		sizeof(r->ai)+
+		sizeof(r->total_rate));
+#endif
   WSF0(r->ilev);
   WSF0(r->flev);
   WSF0(r->ibase);
@@ -3470,6 +3659,7 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
   default:
     break;
   }
+  FFLUSH(f);
   return 0;
 }
 

@@ -1834,7 +1834,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
       }
       if (k < 0) continue;
       if (!msub) {
-	if (s[0] < ai_cut) continue;
+	if (s[0] <= ai_cut) continue;
 	r.b = ilow;
 	r.f = iup;
 	r.rate = s[0];
@@ -1846,7 +1846,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	  r1.rate[t] = s[t];
 	  s1 += s[t];
 	}
-	if (s1 < ai_cut) continue;
+	if (s1 <= ai_cut) continue;
 	r1.b = ilow;
 	r1.f = iup;
 	r1.nsub = k;
