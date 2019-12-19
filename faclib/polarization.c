@@ -1022,7 +1022,8 @@ static double Population(int iter) {
     if (params.idr >= 0) {
       q2 = levels[i2].ic;
       for (m2 = -j2; m2 <= 0; m2 += 2) {
-	ipiv[q2++] = 1;
+	q2 = Min(q2, nmlevels1);
+	ipiv[q2++] = 1;	
       }
       if (params.idr == i2) idr = params.idr;
     }
