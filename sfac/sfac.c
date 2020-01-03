@@ -757,6 +757,7 @@ static int PConfigEnergy(int argc, char *argv[], int argt[],
   if (argc == 0) return -1;
   m = atoi(argv[0]);
   
+  SetOption("radial:config_energy", "-1", -1, -1.0);
   if (argc == 1 || m != 0) {
     ConfigEnergy(m, 0, 0, NULL);
   } else {
