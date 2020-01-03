@@ -4674,6 +4674,7 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
   n = PyTuple_Size(args);
   if (n == 0) return NULL;
 
+  SetOption("radial:config_energy", "-1", -1, -1.0);
   p = PyTuple_GetItem(args, 0);
   m = PyLong_AsLong(p);
   if (n == 1 || m != 0) {
