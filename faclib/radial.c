@@ -183,6 +183,8 @@ static double _awmin = 1e-4;
 static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
 
+static int _config_energy = 0;
+
 static double PhaseRDependent(double x, double eta, double b);
 
 #ifdef PERFORM_STATISTICS
@@ -2302,6 +2304,9 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     printf("SetAtom has not been called\n");
     Abort(1);
   }
+  if (!ife && _config_energy >= 0) {
+    ConfigEnergy(0, _config_energy, 0, NULL);
+  }
   mse = qed.se;
   qed.se = -1000000;
   /* get the average configuration for the groups */
@@ -2547,6 +2552,9 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   */
   qed.se = mse;
   CopyPotentialOMP(0);
+  if (!ife && _config_energy >= 0) {
+    ConfigEnergy(1, 0, 0, NULL);
+  }
   return iter;
 }      
 
@@ -9909,6 +9917,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:awmin")) {
     _awmin = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:config_energy")) {
+    _config_energy = ip;
     return;
   }
 }
