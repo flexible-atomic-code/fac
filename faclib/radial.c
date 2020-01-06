@@ -183,7 +183,7 @@ static double _awmin = 1e-4;
 static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
 
-static int _config_energy = 0;
+static int _config_energy = -1;
 
 static double PhaseRDependent(double x, double eta, double b);
 
