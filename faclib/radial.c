@@ -9205,24 +9205,16 @@ int AddNewConfigToList(int k, int ni, int *kc,
 	    double s2b = 0;
 	    for (kk = 0; kk < 5; kk += 2) {
 	      SlaterTotal(&sd, &se, NULL, ks, kk, 0);
-	      sd = fabs(sd+se);
-	      if (s2b < sd) s2b = sd;
+	      s2b += (sd*sd+se*se)/(kk+1);
 	    }
 	    double s1b = 0;
 	    if (i2 < 0 && i3 < 0 && k0 == k1) {
 	      ResidualPotential(&s1b, ko0, ko1);
-	      s1b = fabs(s1b);
+	      s1b = s1b*s1b;
 	    }
+	    s2 = sqrt(s2b+s1b);
 	    if (mar < 3) {
-	      if (s2 < s2b) s2 = s2b;
-	      if (s2 < s1b) s2 = s1b;
 	      s2 /= de;
-	    } else if (s1b < EPS10) {
-	      if (s2 < s2b) s2 = s2b;
-	    } else {
-	      if (s2 < s2b) s2 = s2b;
-	      if (s2 < s1b) s2 = s1b;
-	      //continue;
 	    }
 	    if (s < s2) s = s2;
 	  }
