@@ -5446,15 +5446,17 @@ int SetCXRates(int m0, char *tgt) {
 		    }		    
 		    if (jw != sw) continue;
 		  }
+		  double nqr = r[jb].nq[p];
+		  nqr *= nqr;
 		  if (kk >= 0) {
 		    if (vn != nn || vl != kk) continue;
-		    rts[jb].dir += r[jb].nq[p]/(4*vl+2.0);
+		    rts[jb].dir += nqr/(4*vl+2.0);
 		    continue;
 		  }
 		  if (vn > cx->nmax) continue;
 		  if (m == 1) {
 		    ix = cx->idn[vn-1]+vl;
-		    rts[jb].dir += r[jb].nq[p]*cx->rcx[ix]/(4*vl+2.0);
+		    rts[jb].dir += nqr*cx->rcx[ix]/(4*vl+2.0);
 		  } else {
 		    double dn = r[jb].dn[p];
 		    int vn0 = (int)(vn-dn);
@@ -5465,7 +5467,7 @@ int SetCXRates(int m0, char *tgt) {
 		    if (vn0 == vn1) {
 		      ix = cx->idn[vn-1] + vl;
 		      rcx = cx->rcx[ix];
-		      rts[jb].dir += r[jb].nq[p]*rcx/(4*vl+2.0);
+		      rts[jb].dir += nqr*rcx/(4*vl+2.0);
 		    } else {
 		      double dvl = vl/(double)vn;
 		      int vl0 = (int)(vn0*dvl);
@@ -5484,7 +5486,7 @@ int SetCXRates(int m0, char *tgt) {
 		      double cx1 = cx->rcx[ix0]*(1-xdv) + cx->rcx[ix1]*xdv;
 		      xdv = vn-dn - vn0;
 		      rcx = cx0*(1-xdv) + cx1*xdv;
-		      rts[jb].dir += r[jb].nq[p]*rcx/(4*dvl*(vn-dn)+2.0);
+		      rts[jb].dir += nqr*rcx/(4*dvl*(vn-dn)+2.0);
 		    }		    
 		  }
 		}

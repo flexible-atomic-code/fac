@@ -6227,8 +6227,10 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
 	    }
 	  }
 	  a *= lsj[i].w[k];
-	  a *= a;
-	  a *= (lsj[i].j+1.0)*(j2+1.0)*(kk+1.0)*(ss+1.0);
+	  //a *= a;
+	  a *= sqrt((lsj[i].j+1.0)*(j2+1.0)*(kk+1.0)*(ss+1.0));
+	  if (IsOdd((j2+1)/2)) a = -a;
+	  //printf("lsj: %d %d %d %d %d %d %d %d %g %g %g\n", r0->b, t, k1, k2, kk, s1, ss, j2, a, r0->nq[t], a*r0->nq[t]);
 	  tt = n*(n-1)/2 + k2/2;
 	  nq[ss][tt] += a*r0->nq[t];
 	  dn[ss][tt] = r0->dn[t];
@@ -6239,7 +6241,7 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
   for (ss = 0; ss < ssm; ss++) {
     if (nq[ss] == NULL) continue;
     for (tt = 0; tt < nk; tt++) {
-      if (nq[ss][tt] <= 0) continue;
+      if (1==1+nq[ss][tt]) continue;
       r1->n++;
     }
   }
@@ -6250,7 +6252,7 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
   for (ss = 0; ss < ssm; ss++) {
     if (nq[ss] == NULL) continue;
     for (tt = 0; tt < nk; tt++) {
-      if (nq[ss][tt] <= 0) continue;
+      if (1==1+nq[ss][tt]) continue;
       n = nid[tt];
       kk = tt - n*(n-1)/2;
       r1->nk[k] = (ss+1)*10000 + n*100 + kk;
