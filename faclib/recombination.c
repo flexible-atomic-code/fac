@@ -1109,26 +1109,19 @@ int RecOccupation(int **nk, double **nq, double **dn,
     kb = ang[i].kb;
     orb = GetOrbital(kb);
     k = ShellToInt(orb->n, orb->kappa);
-    for (j = 0; j <= i; j++) {
-      kbp = ang[j].kb;
-      if (kbp != kb) continue;
-      a = ang[i].coeff*ang[j].coeff;
-      if (j != i) {
-	a *= 2;
-      }
-      qk[k] += a;
-    }
+    a = ang[i].coeff;
+    qk[k] += a;
   }
   nmax = 0;
   for (k = 0; k < kmax; k++) {
-    if (qk[k] > 0) nmax++;
+    if (qk[k]) nmax++;
   }
   *nk = malloc(sizeof(int)*nmax);
   *nq = malloc(sizeof(double)*nmax);
   *dn = malloc(sizeof(double)*nmax);
   i = 0;
   for (k = 0; k < kmax; k++) {
-    if (qk[k] > 0) {
+    if (qk[k]) {
       IntToShell(k, &kb, &kbp);
       j = OrbitalIndex(kb, kbp, 0);
       orb = GetOrbital(j);
