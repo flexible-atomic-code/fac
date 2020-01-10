@@ -4926,11 +4926,10 @@ static int PLandauZenerCX(int argc, char *argv[], int argt[],
 
 static int PRecoupleRO(int argc, char *argv[], int argt[], 
 		       ARRAY *variables) {
-  if (argc != 3) return -1;
+  if (argc != 2) return -1;
   if (argt[0] != STRING) return -1;
   if (argt[1] != STRING) return -1;
-  if (argt[2] != STRING) return -1;
-  RecoupleRO(argv[0], argv[1], argv[2]);
+  RecoupleRO(argv[0], argv[1]);
   return 0;
 }
 

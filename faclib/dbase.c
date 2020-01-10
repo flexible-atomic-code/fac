@@ -6166,28 +6166,21 @@ int ReadJJLSJ(char *fn, JJLSJ **lsj) {
   return n;
 }
 
-void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
-  int i, k, kk, k1, k2, j2, nmax, ssm, nn, n, tt;
-  int s1, ss, smin, smax, nk, t, jb, kmin, kmax;
+void RecoupleRORecord(RO_RECORD *r0, RO_RECORD *r1) {
+  int i, k, kk, k2, j2, nmax, ssm, nn, n, tt;
+  int ss, nk, t, jb, jf;
   int *nid;
   double a, **nq, **dn;
   
   r1->n = 0;
-  for (i = 0; i < ns; i++) {
-    if (lsj[i].ilev == r0->f) break;
-  }
-  if (i == ns) return;
   jb = mem_en_table[r0->b].j;
+  jf = mem_en_table[r0->f].j;
   nmax = 0;
   for (k = 0; k < r0->n; k++) {
     n = abs(r0->nk[k])/100;
     if (n > nmax) nmax = n;
   }
-  smax = 0;
-  for (k = 0; k < lsj[i].nks; k++) {
-    if (lsj[i].s[k] > smax) smax = lsj[i].s[k];
-  }
-  ssm = smax+1;
+  ssm = 2;
   nq = malloc(sizeof(double *)*ssm);
   dn = malloc(sizeof(double *)*ssm);
   nk = nmax*(nmax+1)/2;
@@ -6207,35 +6200,26 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
     k2 = 2*(abs(r0->nk[t])%100);
     if (r0->nk[t] < 0) j2 = k2-1;
     else j2 = k2+1;
-    for (k = 0; k < lsj[i].nks; k++) {
-      s1 = lsj[i].s[k]-1;
-      k1 = lsj[i].k[k]*2;
-      kmin = abs(k1-k2);
-      kmax = k1+k2;
-      for (kk = kmin; kk <= kmax; kk += 2) {
-	smin = abs(s1-1);
-	smax = s1+1;
-	for (ss = smin; ss <= smax; ss += 2) {
-	  a = W9j(k1, k2, kk, s1, 1, ss, lsj[i].j, j2, jb);
-	  if (!a) continue;
-	  if (nq[ss] == NULL) {
-	    nq[ss] = malloc(sizeof(double)*nk);
-	    dn[ss] = malloc(sizeof(double)*nk);
-	    for (tt = 0; tt < nk; tt++) {
-	      nq[ss][tt] = 0.0;
-	      dn[ss][tt] = 0.0;
-	    }
-	  }
-	  a *= lsj[i].w[k];
-	  //a *= a;
-	  a *= sqrt((lsj[i].j+1.0)*(j2+1.0)*(kk+1.0)*(ss+1.0));
-	  if (IsOdd((j2+1)/2)) a = -a;
-	  //printf("lsj: %d %d %d %d %d %d %d %d %g %g %g\n", r0->b, t, k1, k2, kk, s1, ss, j2, a, r0->nq[t], a*r0->nq[t]);
-	  tt = n*(n-1)/2 + k2/2;
-	  nq[ss][tt] += a*r0->nq[t];
-	  dn[ss][tt] = r0->dn[t];
+    for (ss = -1; ss <= 1; ss += 2) {
+      k = jf + ss;
+      if (k < 0) continue;
+      a = W6j(jf, 1, k, k2, jb, j2);
+      if (!a) continue;
+      if (IsOdd((jf+1+k+jb)/2)) a = -a;
+      i = (1+ss)/2;
+      if (nq[i] == NULL) {
+	nq[i] = malloc(sizeof(double)*nk);
+	dn[i] = malloc(sizeof(double)*nk);
+	for (tt = 0; tt < nk; tt++) {
+	  nq[i][tt] = 0.0;
+	  dn[i][tt] = 0.0;
 	}
       }
+      a *= sqrt((k+1.0)*(j2+1.0));
+      //printf("lsj: %d %d %d %d %d %d %d %d %g %g %g\n", r0->b, r0->f, jb, jf, t, ss, j2, i, a, r0->nq[t], a*r0->nq[t]);
+      tt = n*(n-1)/2 + k2/2;
+      nq[i][tt] += a*r0->nq[t];
+      dn[i][tt] = r0->dn[t];
     }
   }
   for (ss = 0; ss < ssm; ss++) {
@@ -6255,7 +6239,7 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
       if (1==1+nq[ss][tt]) continue;
       n = nid[tt];
       kk = tt - n*(n-1)/2;
-      r1->nk[k] = (ss+1)*10000 + n*100 + kk;
+      r1->nk[k] = (2*ss+1)*10000 + n*100 + kk;
       r1->nq[k] = nq[ss][tt];
       r1->dn[k] = dn[ss][tt];
       k++;
@@ -6270,24 +6254,17 @@ void RecoupleRORecord(int ns, JJLSJ *lsj, RO_RECORD *r0, RO_RECORD *r1) {
   r1->f = r0->f;  
 }
 
-void RecoupleRO(char *ifn, char *ofn, char *rfn) {
+void RecoupleRO(char *ifn, char *ofn) {
   F_HEADER fh0;
   TFILE *f0, *f1;
-  JJLSJ *lsj;
-  int ns, n, nh, i, swp, nb;
+  int n, nh, i, swp, nb;
   RO_HEADER h0;
   RO_RECORD r, rs;
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return;
-  }
-  
-  ns = ReadJJLSJ(rfn, &lsj);
-  if (ns <= 0) {
-    printf("cannot read LSJ data: %s\n", rfn);
-    return;
-  }
+  }  
   
   f0 = FOPEN(ifn, "r");
   if (f0 == NULL) return;
@@ -6306,7 +6283,7 @@ void RecoupleRO(char *ifn, char *ofn, char *rfn) {
     for (i = 0; i < h0.ntransitions; i++) {
       n = ReadRORecord(f0, &r, swp);
       if (n == 0) break;
-      RecoupleRORecord(ns, lsj, &r, &rs);
+      RecoupleRORecord(&r, &rs);
       free(r.nk);
       free(r.nq);
       if (rs.n > 0) {
@@ -6320,9 +6297,6 @@ void RecoupleRO(char *ifn, char *ofn, char *rfn) {
   }
   CloseFile(f1, &fh0);
   FCLOSE(f0);
-  free(lsj->s);
-  free(lsj->k);
-  free(lsj->w);
 }
 
 void SetOptionDBase(char *s, char *sp, int ip, double dp) {

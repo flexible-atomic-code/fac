@@ -6152,11 +6152,11 @@ static PyObject *PRecoupleRO(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  char *ifn, *ofn, *rfn;
-  if (!(PyArg_ParseTuple(args, "sss", &ifn, &ofn, &rfn))) {
+  char *ifn, *ofn;
+  if (!(PyArg_ParseTuple(args, "ss", &ifn, &ofn))) {
     return NULL;
   }
-  RecoupleRO(ifn, ofn, rfn);
+  RecoupleRO(ifn, ofn);
   Py_INCREF(Py_None);
   return Py_None;
 }
