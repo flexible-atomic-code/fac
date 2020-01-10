@@ -657,7 +657,7 @@ double ClockNow(int m);
 void PrintWallTime(char *s, int m);
 int IsNewV114(TFILE *f);
 int ReadJJLSJ(char *fn, JJLSJ **lsj);
-void RecoupleRO(char *ifn, char *ofn, char *rfn);
+void RecoupleRO(char *ifn, char *ofn);
 void SetOptionDBase(char *s, char *sp, int ip, double dp);
 #endif
 
