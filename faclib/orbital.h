@@ -46,6 +46,8 @@ typedef struct _POTENTIAL_ {
   double bqp, rb; /* boundary condition */
   double rfn[NKSEP];
   int nfn[NKSEP];
+  double sturm_ene[NKSEP1];
+  double sturm_idx;
   int nws;  
   double *dws;
   double zps, nps, tps, rps, dps, aps, fps, ups, xps, jps, qps, gps, sf0, sf1;
@@ -79,6 +81,7 @@ double RadialDiracCoulomb(int npts, double *p, double *q, double *r,
 			  double z, int n, int kappa);
 int RadialSolver(ORBITAL *orb,  POTENTIAL *pot);
 int RadialBasis(ORBITAL *orb, POTENTIAL *pot);
+int RadialSturm(ORBITAL *orb, POTENTIAL *pot);
 int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot);
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot);
 int RadialBound(ORBITAL *orb, POTENTIAL *pot);
@@ -109,6 +112,8 @@ int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
 int SetPotentialW(POTENTIAL *pot, double e, int kappa, int kv);
 int SetPotentialWZMC (POTENTIAL *pot, double e, int kappa, int kv);
+int SetPotentialSturm(POTENTIAL *pot);
+int AddPotentialSturm(POTENTIAL *pot, int k, double e);
 int IdxVT(int kappa);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 int DiracSmallZMC(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);

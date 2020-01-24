@@ -184,6 +184,10 @@ static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
 
 static int _config_energy = -1;
+static double _sturm_idx = 0;
+static double _sturm_eref = 0;
+static int _sturm_nref = 0;
+static int _sturm_kref = -1;
 
 static double PhaseRDependent(double x, double eta, double b);
 
@@ -664,6 +668,7 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->xps, sizeof(double), 1, f);
   n = BFileRead(&p->jps, sizeof(double), 1, f);
   n = BFileRead(&p->ips, sizeof(int), 1, f);
+  n = BFileRead(&p->sturm_idx, sizeof(double), 1, f);
   AllocPotMem(p, maxrp);
   n = BFileRead(p->dws, sizeof(double), p->nws, f);
   /*
@@ -814,6 +819,7 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->xps, sizeof(double), 1, f);
   n = fwrite(&p->jps, sizeof(double), 1, f);
   n = fwrite(&p->ips, sizeof(int), 1, f);
+  n = fwrite(&p->sturm_idx, sizeof(double), 1, f);
   n = fwrite(p->dws, sizeof(double), p->nws, f);
   /*
   n = fwrite(p->Z, sizeof(double), p->maxrp, f);
@@ -1338,10 +1344,14 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
       }
     }
   }
-  potential->ib1 = potential->ib;
   if (potential->ib > 0 && potential->ib < potential->maxrp) {
     potential->rb = potential->rad[potential->ib];
+    if (_sturm_idx > 0) {
+      potential->sturm_idx = _sturm_idx;
+      SetPotentialSturm(potential);
+    }
   }
+  potential->ib1 = potential->ib;
   return 0;
 }
 
@@ -1606,6 +1616,11 @@ int SetRadialGrid(int maxrp, double ratio, double asymp,
   potential->fps = 0;
   potential->ips = 0;
   potential->sps = 0;
+  potential->sturm_idx = _sturm_idx;
+  int i;
+  for (i = 0; i < NKSEP1; i++) {
+    potential->sturm_ene[i] = 0.0;
+  }
   return 0;  
 }
 
@@ -2060,6 +2075,7 @@ int GetPotential(char *s) {
   fprintf(f, "#    sf1 = %12.5E\n", potential->sf1);
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#    sps = %d\n", potential->sps);
+  fprintf(f, "#  sturm = %12.5E\n", potential->sturm_idx);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   fprintf(f, "# Mean configuration: %d\n", acfg->n_shells);
@@ -2807,15 +2823,36 @@ int SolveDirac(ORBITAL *orb) {
     }
   }
   potential->flag = -1;
+  int sb = 0;
+  if (potential->sturm_idx > 0 &&
+      potential->nb > 0 &&
+      1+orb->energy==1 &&
+      orb->n > potential->nb) {    
+    if (1+_sturm_eref == 1) {
+      ORBITAL *ro;
+      if (_sturm_nref > 0) {
+	ro = GetOrbitalSolved(OrbitalIndex(_sturm_nref, _sturm_kref, 0));
+      } else {
+	ro = GetOrbitalSolved(OrbitalIndex(potential->nb, _sturm_kref, 0));
+      }
+      _sturm_eref = ro->energy;
+    }
+    orb->energy = _sturm_eref;
+    sb = 1;
+  }
   err = RadialSolver(orb, potential);
   if (err) { 
     printf("Error occured in RadialSolver, %d\n", err);
     printf("%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
     exit(1);
   }
-  if (_orthogonalize_mode > 0) {
-    if (potential->nfrozen > 0 && orb->n > 0) {
-      Orthogonalize(orb);
+  if (sb) {
+    Orthogonalize(orb);
+  } else {
+    if (_orthogonalize_mode > 0) {
+      if (potential->nfrozen > 0 && orb->n > 0) {
+	Orthogonalize(orb);
+      }
     }
   }
 #ifdef PERFORM_STATISTICS
@@ -4697,7 +4734,7 @@ int ResidualPotential(double *s, int k0, int k1) {
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
     }
     Integrate(_yk, orb1, orb2, 1, s, -1);
-    if (potential->nfrozen || potential->npseudo) {
+    if (potential->nfrozen || potential->npseudo || potential->sturm_idx > 0) {
       z = ZerothHamilton(orb1, orb2);
       *s += z;
       if (orb1->n == orb2->n) *s -= orb1->energy;
@@ -5819,6 +5856,10 @@ ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
   InitOrbitalData(norb, 1);
   norb->n = orb->n;
   norb->kappa = orb->kappa;
+  norb->energy = 0.0;
+  if (p->nb > 0 && p->sturm_idx > 0 && orb->n > p->nb) {
+    norb->energy = _sturm_eref;
+  }
   p->flag = -1;
   ierr = RadialSolver(norb, p);
   if (ierr < 0) {
@@ -9913,6 +9954,22 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:config_energy")) {
     _config_energy = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sturm_idx")) {
+    _sturm_idx = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sturm_eref")) {
+    _sturm_eref = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sturm_nref")) {
+    _sturm_nref = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sturm_kref")) {
+    _sturm_kref = ip;
     return;
   }
 }
