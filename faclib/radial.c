@@ -1686,16 +1686,35 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
     if (ahx <= 0) {
       ahx = GetHXS(potential)*potential->hxs;
     }
+    double b = 0.0;
+    m = potential->ips;
+    if (potential->mps > 0) {
+      m = potential->maxrp-1;
+    }
+    if (m > 0) {
+      if (potential->vxf == 1) {
+	b = potential->EPS[m];
+      } else {
+	b = potential->NPS[m];
+      }
+    }
     for (m = 0; m < potential->maxrp; m++) {
       if (potential->vxf == 1) {
-	a = potential->NPS[m];
-      } else {
 	a = potential->EPS[m];
+      } else {
+	a = potential->NPS[m];
       }
+      if (potential->mps == 0 && m > potential->ips) a = b;
       if (a <= 0) continue;
-      a *= FOUR_PI*pow(potential->rad[m],3);
-      a += pow(ue1[m]/ahx,3);
+      double r3 = FOUR_PI*pow(potential->rad[m], 3);
+      a *= r3;
+      double e = pow(ue1[m]/ahx, 3);
+      a += e;
       ue2[m] = ahx*pow(a, ONETHIRD) - ue1[m];
+      if (b > 0) {
+	e = ahx*pow(r3*b, ONETHIRD);
+	ue2[m] -= e;
+      }
     }
   }
   if (jmax <= 0) return jmax;
