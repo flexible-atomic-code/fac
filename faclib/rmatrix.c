@@ -2953,12 +2953,14 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 				     smx[is0].rp[xup][ikup], eup);
 		  s0i = InterpLinear(rs->de, isp, nke, e,
 				     smx[is0].ip[xup][ikup], eup);
-		  if (ika1 == ika0) s0r += 1.0;
 		  s1r = InterpLinear(rs->de, isp, nke, e,
 				     smx[is1].rp[xlo][iklo], elo);
 		  s1i = InterpLinear(rs->de, isp, nke, e,
 				     smx[is1].ip[xlo][iklo], elo);
-		  if (ika1 == ika0) s1r += 1.0;
+		  if (ika1 == ika0) {
+		    s0r += 1.0;
+		    s1r += 1.0;
+		  }
 		  ssr = -(s0r*s1r + s0i*s1i);
 		  ssi = -(s0i*s1r - s0r*s1i);
 		  if (ika1 == ika0) ssr += 1.0;
@@ -2976,7 +2978,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		  ssi *= af;
 		  sw[ns0+ix][k] += ssr;
 		  sw[ns1+ix][k] += ssi;
-		  if (_stark_pw) {
+		  if (_stark_pw && kl0 < npw) {
 		    swp[ns0+ix][k][kl0] += ssr;
 		    swp[ns1+ix][k][kl0] += ssi;
 		  }

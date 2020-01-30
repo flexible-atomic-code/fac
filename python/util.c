@@ -27,6 +27,7 @@ USE (rcsid);
 
 #include "interpolation.h"
 #include "cf77.h"
+#include "orbital.h"
 
 static PyObject *ErrorObject;
 #define onError(message) {PyErr_SetString(ErrorObject, message);}
@@ -160,11 +161,35 @@ static PyObject *PDXLEGF(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", pqa[0]);
 }
 
+static PyObject *PFM1MP(PyObject *self, PyObject *args) {
+  double x, y;
+  int m;
+
+  if (!PyArg_ParseTuple(args, "id", &m, &x)) return NULL;
+  y = 0.0;
+  if (m == -1) {
+    y = FM1M(x);
+  } else if (m == -2) {
+    y = FM1MI(x);
+  } else if (m == 1) {
+    y = FM1P(x);
+  } else if (m == 2) {
+    y = FM1PI(x);
+  } else if (m == 3) {
+    y = FermiIntegral(x, 0.0, 0.0);
+  } else if (m == 4) {
+    double yi; 
+    y = FermiDegeneracy(0.143289792*x, 1.0, &yi);
+  }
+  return Py_BuildValue("d", y);
+}
+
 static struct PyMethodDef util_methods[] = {
   {"Spline", PSpline, METH_VARARGS},
   {"Splint", PSplint, METH_VARARGS},
   {"UVIP3P", PUVIP3P, METH_VARARGS},
   {"DXLEGF", PDXLEGF, METH_VARARGS},
+  {"FM1MP", PFM1MP, METH_VARARGS},
   {NULL, NULL}
 };
 
