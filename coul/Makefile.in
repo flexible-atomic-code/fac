@@ -8,7 +8,7 @@ FFLAGSNO = @FFLAGSNO@
 
 TOPDIR = @TOPDIR@
 
-SRC = clogam.f f11.f coulcc.f y5n.f cphamp.f dlogam.f argam.f besljn.f beslik.f coulrad.f dcoul.f njsym.f njintr.f cmultip.f mohrfin.f expint.f eione.f
+SRC = f11.f coulcc.f y5n.f cphamp.f dlogam.f argam.f besljn.f beslik.f coulrad.f dcoul.f njsym.f njintr.f cmultip.f mohrfin.f expint.f eione.f
 
 OBJS = ${SRC:.f=.o}
 
@@ -16,8 +16,8 @@ OBJS = ${SRC:.f=.o}
 	${FC} -c ${FFLAGS} $<
 
 coul: ${OBJS}
-	$(FC) -c ${FFLAGSNO} d1mach.f
-	ar r ${TOPDIR}/libfac.a ${OBJS} d1mach.o
+	$(FC) -c ${FFLAGSNO} d1mach.f clogam.f
+	ar r ${TOPDIR}/libfac.a ${OBJS} d1mach.o clogam.o
 
 clean:
 	rm -f *.o *.a *~
