@@ -52,6 +52,7 @@ static double _gailitis_exprf = 2.0;
 static double _gailitis_exprt = 0.25;
 static int _rmx_isave = 1;
 static double _rmx_fmaxe = 1.5;
+static int _minsp = 5;
 
 #pragma omp threadprivate(dcfg)
 
@@ -2689,10 +2690,17 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
       }
     }
   }
-  double de = rs->e[1]-rs->e[0];
-  for (i = 2; i < rs->nke; i++) {
-    double de1 = rs->e[i]-rs->e[i-1];
-    if (de1 < de) de = de1;
+  double de = (rs->e[rs->nke-1]-rs->e[0])/(rs->nke-1);
+  if (_minsp > 0) {
+    while (1) {
+      for (i = 0; i < rs->nke-_minsp; i++) {
+	if (rs->e[i+_minsp]-rs->e[i] < de) {
+	  de /= 2;
+	  break;
+	}
+      }
+      if (i >= rs->nke-_minsp) break;
+    }
   }
   rs->nsp = (int)(1+(rs->e[rs->nke-1]-rs->e[0])/de);
   rs->de = (rs->e[rs->nke-1]-rs->e[0])/(rs->nsp-1);
@@ -2703,7 +2711,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   for (i = 0; i < rs->nsp; i++) {
     e = rs->e[0]+i*rs->de;
     for (q = t; q < rs->nke; q++) {
-      if (e <= rs->e[q]) {
+      if (e < rs->e[q]) {
 	rs->isp[i] = q-1;
 	break;
       }
@@ -2733,8 +2741,8 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   } else {
     rs->nes = rs->nsp;
   }
-  MPrintf(-1, "SortGroupEnergy: %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
-	  rs->nke, rs->nsp, rs->nes,
+  MPrintf(-1, "SortGroupEnergy: %d %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
+	  rs->nke, rs->nsp, rs->nes, dcfg0.n0,
 	  rs->e[0]*HARTREE_EV, rs->e[rs->nke-1]*HARTREE_EV,
 	  rs->de*HARTREE_EV, e*HARTREE_EV,
 	  WallTime()-wt0, TotalSize());
@@ -3469,8 +3477,9 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
   if (e <= ea[0]) return ra[0];
   if (e >= ea[nke-1]) return ra[nke-1];
   i = (int)((e-ea[0])/de);
-  i0 = isp[i];
-  if (i0 < nke-2 && e > ea[i0+1]) i0 += 1;
+  for (i0 = isp[i]; i0 < nke-1; i0++) {
+    if (e <= ea[i0+1]) break;
+  }
   f = (e-ea[i0])/(ea[i0+1]-ea[i0]);
   return (1-f)*ra[i0] + f*ra[i0+1];
 }
@@ -4167,6 +4176,10 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:gailitis_exprt", s)) {
     _gailitis_exprt = dp;
+    return;
+  }
+  if (0 == strcmp("rmatrix:minsp", s)) {
+    _minsp = ip;
     return;
   }
 }
