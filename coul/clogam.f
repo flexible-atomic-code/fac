@@ -7,8 +7,18 @@ C
       COMPLEX*16 Z,U,V,H,R,CLOGAM,CDIGAM,LOGAM,SER
       DIMENSION B(15),BN(15),BD(15)
 C
-      DATA LERR /6/, NX0 /6/, NB /15/,
-     X  ZERO,ONE,TWO,FOUR,HALF,QUART /0D+0,1D+0,2D+0,4D+0,.5D+0,.25D+0/
+      DATA LERR /6/, NX0 /6/, NB /15/
+      DATA ZERO,ONE,TWO /0D+0,1D+0,2D+0/
+      DATA FOUR,HALF,QUART /4D+0,.5D+0,.25D+0/
+      DATA B(1),B(2) /8.3333333333333329D-002,-2.7777777777777779D-003/
+      DATA B(3),B(4) /7.9365079365079365E-004,-5.9523809523809529E-004/
+      DATA B(5),B(6) /8.4175084175084171E-004,-1.9175269175269176E-003/
+      DATA B(7),B(8) /6.4102564102564100E-003,-2.9550653594771242E-002/
+      DATA B(9),B(10) /0.17964437236883057,-1.3924322169059011/
+      DATA B(11),B(12) /13.402864044168393,-156.84828462600203/
+      DATA PI /3.1415926535897931/, ALPI /1.1447298858494002/
+      DATA HL2P /0.91893853320467267/, ACCUR /2D-16/
+      DATA NT /12/, NX0 /6/
       DATA BN(1),BD(1)    / +1D+0,   6D+0 /,
      X     BN(2),BD(2)    / -1D+0,  30D+0 /,
      X     BN(3),BD(3)    / +1D+0,  42D+0 /,
@@ -25,10 +35,6 @@ C
      X     BN(14),BD(14)  /  -23749461029D+0,   870D+0/,
      X     BN(15),BD(15)  / 8615841276005D+0, 14322D+0/
       DATA FPLMIN / -140D+0 /
-      DATA ACCUR /-1D30/
-
-      SAVE ACCUR, NT, NX0, PI, HL2P, ALPI, B
-!$OMP THREADPRIVATE(ACCUR, NT, NX0, PI, HL2P, ALPI, B)
 
 C
       X=DBLE(Z)
@@ -122,23 +128,6 @@ C
 C
 C      initialisation call for calculations to accuracy 'ACC'
 C
-      
-      IF (ABS(ACC-ACCUR) .LE. ACC*1D-2) RETURN
-
-      NX0 = 6
-      X0  = NX0 + ONE
-      PI = FOUR*ATAN(ONE)
-      ALPI = LOG(PI)
-      HL2P = LOG(TWO*PI) * HALF
-      ACCUR = ACC
-      DO 120 K=1,NB
-       F21 = K*2 - ONE
-       B(K) = BN(K) / (BD(K) * K*TWO * F21)
-       ERR = ABS(B(K)) * K*TWO / X0**F21
-  120 IF(ERR.LT.ACC) GO TO 130
-       NX0 = INT((ERR/ACC)**(ONE/F21) * X0)
-       K = NB
-  130 NT = K
-C     print *,' logam requires k = ',k ,' with cutoff at x =',nx0+1
+      LOGAM=ZERO
       RETURN
       END
