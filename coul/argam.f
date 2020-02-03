@@ -3,7 +3,7 @@
       complex*16 clogam, logam, r          
       PARAMETER (PI=3.1415926535897932D0,TPI=PI+PI)  
 
-      r = logam(1D-16)
+c      r = logam(1D-16)
       r = dcmplx(x, y)
       r = clogam(r)
       
