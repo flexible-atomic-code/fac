@@ -2671,6 +2671,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   }
 
   for (m = 0; m < rmx->nsym; m++) {
+    if (_rmx_pj >= 0 && rmx->isym != _rmx_pj) continue;
     for (t = 0; t < _stark_idx.n; t++) {
       j = IdxGet(&rs->its, _stark_idx.d[t]);
       if (j < 0) continue;
@@ -2735,6 +2736,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
       if (rs->e[t] > rs->es[i]) {
 	rs->es[q] = rs->e[t];
 	q++;
+	if (q == rs->nsp) break;
       }
     }
     rs->nes = q;
