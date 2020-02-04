@@ -52,7 +52,7 @@ static double _gailitis_exprf = 2.0;
 static double _gailitis_exprt = 0.25;
 static int _rmx_isave = 1;
 static double _rmx_fmaxe = 1.5;
-static int _minsp = 5;
+static int _minsp = 3;
 
 #pragma omp threadprivate(dcfg)
 
@@ -2604,6 +2604,10 @@ static void InitDCFG(int nw, int nts, int nk,
   dcfg0.ntk = nts*nk*nke;
   dcfg0.n0 = n0;
   dcfg0.eo = eo;
+  if (eo) {
+    dcfg0.eo0 = eo[0];
+    dcfg0.eo1 = eo[n0-1];
+  }
   if (dcfg0.ntk > 0) {
     dcfg0.afc = malloc(sizeof(double)*dcfg0.ntk*4);
     dcfg0.agc = dcfg0.afc + dcfg0.ntk;
@@ -2691,12 +2695,12 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
       }
     }
   }
-  double de = (rs->e[rs->nke-1]-rs->e[0])/(rs->nke-1);
+  double de = (rs->e[rs->nke-1]-rs->e[0])/(1.5*rs->nke);
   if (_minsp > 0) {
     while (1) {
       for (i = 0; i < rs->nke-_minsp; i++) {
 	if (rs->e[i+_minsp]-rs->e[i] < de) {
-	  de /= 2;
+	  de /= 1.5;
 	  break;
 	}
       }
@@ -2704,6 +2708,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
     }
   }
   rs->nsp = (int)(1+(rs->e[rs->nke-1]-rs->e[0])/de);
+  if (rs->nsp < rs->nke) rs->nsp = rs->nke;
   rs->de = (rs->e[rs->nke-1]-rs->e[0])/(rs->nsp-1);
   free(k);
   free(y);
@@ -2719,34 +2724,34 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
     }
     t = q;
   }
-  e = 0;
-  for (i = 0; i < rmx->nts; i++) {
-    de = rmx->et[i] - rmx->et0;
-    if (de > e) e = de;
-  }
-  e *= _rmx_fmaxe;
-  rs->es = malloc(sizeof(double)*rs->nsp);
-  for (i = 0; i < rs->nsp; i++) {
-    rs->es[i] = rs->e[0] + i*rs->de;
-    if (rs->es[i] > e) break;
-  }  
-  if (i < rs->nsp-1) {
-    q = i+1;
-    for (t = 0; t < rs->nke; t++) {
-      if (rs->e[t] > rs->es[i]) {
-	rs->es[q] = rs->e[t];
-	q++;
-	if (q == rs->nsp) break;
+  rs->nes = 0;
+  if (_stark_nts > 0) {
+    rs->nes = 2*rs->nke*_stark_nts;
+    rs->es = malloc(sizeof(double)*rs->nes);
+    t = 0;
+    for (q = 0; q < _stark_nts; q++) {
+      int ilo = IdxGet(&rs->its, _stark_lower[q]);
+      int iup = IdxGet(&rs->its, _stark_upper[q]);
+      for (i = 0; i < rs->nke; i++) {
+	rs->es[t++] = fabs(rs->e[i]-(rmx->et[ilo]-rmx->et0));
+	rs->es[t++] = fabs(rs->e[i]-(rmx->et[iup]-rmx->et0));
       }
     }
-    rs->nes = q;
-  } else {
-    rs->nes = rs->nsp;
+    for (i = 0; i < rs->nes; i++) {
+      if (rs->es[i] <= 0) {
+	rs->es[i] = rs->de*1e-3;
+      }
+    }
+    rs->nes = SortUniqueDouble(rs->nes, rs->es, rs->de*0.5);
+    for (i = rs->nes-1; i >= 0; i--) {
+      if (rs->es[i] <= dcfg0.eo1) break;
+    }
+    rs->nes = i;
   }
   MPrintf(-1, "SortGroupEnergy: %d %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
 	  rs->nke, rs->nsp, rs->nes, dcfg0.n0,
 	  rs->e[0]*HARTREE_EV, rs->e[rs->nke-1]*HARTREE_EV,
-	  rs->de*HARTREE_EV, e*HARTREE_EV,
+	  rs->de*HARTREE_EV, dcfg0.eo1*HARTREE_EV,
 	  WallTime()-wt0, TotalSize());
 }
 
@@ -3483,6 +3488,9 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
     if (e <= ea[i0+1]) break;
   }
   f = (e-ea[i0])/(ea[i0+1]-ea[i0]);
+  if (f < 0 || f > 1) {
+    MPrintf(-1,"invalid interplinear: %d %d %d %d %g %g %g %g %g\n", i, isp[i], i0, nke, de, e, ea[i0], ea[i0+1], f);
+  }
   return (1-f)*ra[i0] + f*ra[i0+1];
 }
 

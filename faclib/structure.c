@@ -305,6 +305,24 @@ int CompareDouble(const void *a1, const void *a2) {
   return 0;
 }
 
+int SortUniqueDouble(int n, double *a, double eps) {
+  int i, j;
+  double b;
+
+  qsort(a, n, sizeof(double), CompareDouble);
+  j = 1;
+  b = a[0];
+  for (i = 1; i < n; i++) {
+    if (a[i]-b > eps) {
+      a[j] = a[i];
+      b = a[i];
+      j++;
+    }
+  }
+
+  return j;
+}
+
 int SortUnique(int n, int *a) {
   int i, j, b;
 

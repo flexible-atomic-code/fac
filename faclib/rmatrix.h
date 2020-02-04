@@ -73,7 +73,7 @@ typedef struct _DCFG_ {
   int nr, mr, ierr;  
   double energy;
   int nts, nka, nke, ntk, ike, n0;
-  double *ek, *eo;
+  double *ek, *eo, eo0, eo1;
 } DCFG;
 
 int InitRMatrix(void);
