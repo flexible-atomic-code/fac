@@ -165,6 +165,7 @@ int GetStructTiming(STRUCT_TIMING *t);
 void SetMaxKMBPT(int m);
 int GetMaxKMBPT(void);
 int SortUnique(int n, int *a);
+int SortUniqueDouble(int n, double *a, double eps);
 int CompareInt(const void *a1, const void *a2);
 int CompareDouble(const void *a1, const void *a2);
 int ConstructHamilton(int isym, int k0, int k, int *kg, int kp, int *kgp, int md);
