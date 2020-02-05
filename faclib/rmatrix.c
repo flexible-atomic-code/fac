@@ -2725,6 +2725,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
     t = q;
   }
   rs->nes = 0;
+  rs->es = NULL;
   if (_stark_nts > 0) {
     rs->nes = 2*rs->nke*_stark_nts;
     rs->es = malloc(sizeof(double)*rs->nes);
@@ -3180,7 +3181,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
     }
   }
   free(isp);
-  free(rs->es);
+  if (rs->nes > 0) {
+    free(rs->es);
+  }
   if (_stark_nts > 0) {
     for (i = 0; i < nsw; i++) {
       free(sw[i]);
