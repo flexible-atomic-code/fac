@@ -2727,27 +2727,33 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   rs->nes = 0;
   rs->es = NULL;
   if (_stark_nts > 0) {
-    rs->nes = 2*rs->nke*_stark_nts;
-    rs->es = malloc(sizeof(double)*rs->nes);
-    t = 0;
-    for (q = 0; q < _stark_nts; q++) {
-      int ilo = IdxGet(&rs->its, _stark_lower[q]);
-      int iup = IdxGet(&rs->its, _stark_upper[q]);
-      for (i = 0; i < rs->nke; i++) {
-	rs->es[t++] = fabs(rs->e[i]-(rmx->et[ilo]-rmx->et0));
-	rs->es[t++] = fabs(rs->e[i]-(rmx->et[iup]-rmx->et0));
+    if (dcfg0.n0 > 0) {
+      rs->nes = dcfg0.n0;
+      rs->es = malloc(sizeof(double)*rs->nes);
+      memcpy(rs->es, dcfg0.eo, sizeof(double)*rs->nes);
+    } else {
+      rs->nes = 2*rs->nke*_stark_nts;
+      rs->es = malloc(sizeof(double)*rs->nes);
+      t = 0;
+      for (q = 0; q < _stark_nts; q++) {
+	int ilo = IdxGet(&rs->its, _stark_lower[q]);
+	int iup = IdxGet(&rs->its, _stark_upper[q]);
+	for (i = 0; i < rs->nke; i++) {
+	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[ilo]-rmx->et0));
+	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[iup]-rmx->et0));
+	}
       }
-    }
-    for (i = 0; i < rs->nes; i++) {
-      if (rs->es[i] <= 0) {
-	rs->es[i] = rs->de*1e-3;
+      for (i = 0; i < rs->nes; i++) {
+	if (rs->es[i] <= 0) {
+	  rs->es[i] = rs->de*1e-3;
+	}
       }
+      rs->nes = SortUniqueDouble(rs->nes, rs->es, rs->de*0.5);
+      for (i = rs->nes-1; i >= 0; i--) {
+	if (rs->es[i] <= dcfg0.eo1) break;
+      }
+      rs->nes = i;
     }
-    rs->nes = SortUniqueDouble(rs->nes, rs->es, rs->de*0.5);
-    for (i = rs->nes-1; i >= 0; i--) {
-      if (rs->es[i] <= dcfg0.eo1) break;
-    }
-    rs->nes = i;
   }
   MPrintf(-1, "SortGroupEnergy: %d %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
 	  rs->nke, rs->nsp, rs->nes, dcfg0.n0,
