@@ -29,11 +29,11 @@ static RBASIS rbasis;
 static int ntg, *tg, nts, *ts;
 static int ncg, *cg, ncs, *cs;
 static DCFG dcfg, dcfg0;
-static int _nrefine=5;
+static int _nrefine=4;
 static int _refiter=1;
 static int _mrefine=16;
 static double _mineref=1e-8;
-static double _rrefine=0.2;
+static double _rrefine=0.25;
 static int fmode;
 static int _rmx_dk = 3;
 static int _rmx_acs = 1;
@@ -3431,10 +3431,29 @@ int RefineRMatrixEGrid(double **er, int idep,
       for (k = 0; k < rmx->nts; k++) {
 	j = (k*(k+1))/2 + k;
 	double ds = fabs(s[j][i+1]-s[j][i]);
-	double ms = 0.5*fabs(s[j][i+1]+s[j][i]);
-	if (ds > ms*_rrefine) {
+	double ms = 0.5*fabs(s[j][i+1]+s[j][i])*_rrefine;
+	double a;
+	if (ds > ms) {
 	  ir = 1;
 	  break;
+	}
+	if (i > 0) {
+	  ds = fabs(s[j][i]-s[j][i-1]);	  
+	  a = (e[i+1]-e[i])/(e[i]-e[i-1]);
+	  ds *= Min(a,10.0);
+	  if (ds > ms) {
+	    ir = 1;
+	    break;
+	  }
+	}
+	if (i < nke-2) {
+	  ds = fabs(s[j][i+2]-s[j][i+1]);
+	  a = (e[i+1]-e[i])/(e[i+2]-e[i+1]);
+	  ds *= Min(a, 10.0);
+	  if (ds > ms) {
+	    ir = 1;
+	    break;
+	  }
 	}
       }    
       if (!ir) continue;
