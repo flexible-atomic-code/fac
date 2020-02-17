@@ -4254,17 +4254,6 @@ static int PRMatrixExpansion(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PRMatrixNBatch(int argc, char *argv[], int argt[], 
-			  ARRAY *variables) {
-  int m;
-
-  if (argc != 1) return -1;
-  m = atoi(argv[0]);
-  RMatrixNBatch(m);
-  
-  return 0;
-}
-
 static int PRMatrixFMode(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   int m;
@@ -5153,7 +5142,6 @@ static METHOD methods[] = {
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
-  {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
   {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 

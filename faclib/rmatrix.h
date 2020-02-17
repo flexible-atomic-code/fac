@@ -106,12 +106,10 @@ int IntegrateExternal(RMATRIX *rmx, double r1, double r0);
 void TransformQ(RMATRIX *rmx, double b, double r, int m);
 void PropogateDirection(int m);
 int PropogateExternal(RMATRIX *rmx, RBASIS *rbs);
-void RMatrixNBatch(int n);
 void RMatrixFMode(int m);
 void RMatrixRefine(int n, int m, double r);
-int RefineRMatrixEGrid(int nke, double *e, int *ir, double **er, int **ipr,
-		       double de, int nde, double minde,
-		       double emin, double emax);
+int RefineRMatrixEGrid(double **er, int iter,
+		       RMXCE *rs, RBASIS *rbs, RMATRIX *rmx);
 void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		   int iter, char *fn, double wt0);
 int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],	      
@@ -119,10 +117,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 	      int m, int mb);
 int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	       FILE **f, FILE **f1, char *fn, RMXCE *rs, 
-	       int nke, double *e, int *ip, double **s,
-	       int nke0, double **s0,
-	       int m, int mb, double de, int nde, double minde,
-	       double emin, double emax, int idep, int n, int npe);
+	       int nke, double *e, int m, int mb, int idep);
 int RMatrixConvert(char *ifn, char *ofn, int m);
 void TestRMatrix(double e, int m, char *fn1, char *fn2, char *fn3);
 void SetOptionRMatrix(char *s, char *sp, int ip, double dp);

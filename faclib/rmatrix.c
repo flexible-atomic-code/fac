@@ -29,11 +29,11 @@ static RBASIS rbasis;
 static int ntg, *tg, nts, *ts;
 static int ncg, *cg, ncs, *cs;
 static DCFG dcfg, dcfg0;
-static int _nbatch = 0;
 static int _nrefine=5;
-static int _mrefine=10;
-static double _mineref=1e-3;
-static double _rrefine=0.3;
+static int _refiter=1;
+static int _mrefine=16;
+static double _mineref=1e-8;
+static double _rrefine=0.2;
 static int fmode;
 static int _rmx_dk = 3;
 static int _rmx_acs = 1;
@@ -113,14 +113,6 @@ void SetStarkIDs(char *ids) {
   _stark_nts = k;
 }
 
-void RMatrixNBatch(int n) {
-  if (n >= 0) {
-    _nbatch = n; 
-  } else {
-    _nbatch = 1000;
-  }
-}
-
 void RMatrixRefine(int n, int m, double r) {
   if (n >= 0) _nrefine = n;
   if (m > 0) _mrefine = m;
@@ -144,7 +136,6 @@ int InitRMatrix(void) {
   dcfg.accuracy = EPS4;
   dcfg.pdirection = 1;
 
-  RMatrixNBatch(0);
   fmode = 0;
   InitIdxAry(&_stark_idx, 0, NULL);
   _stark_nts = 0;
@@ -2726,37 +2717,8 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   }
   rs->nes = 0;
   rs->es = NULL;
-  if (_stark_nts > 0) {
-    if (dcfg0.n0 > 0) {
-      rs->nes = dcfg0.n0;
-      rs->es = malloc(sizeof(double)*rs->nes);
-      memcpy(rs->es, dcfg0.eo, sizeof(double)*rs->nes);
-    } else {
-      rs->nes = 2*rs->nke*_stark_nts;
-      rs->es = malloc(sizeof(double)*rs->nes);
-      t = 0;
-      for (q = 0; q < _stark_nts; q++) {
-	int ilo = IdxGet(&rs->its, _stark_lower[q]);
-	int iup = IdxGet(&rs->its, _stark_upper[q]);
-	for (i = 0; i < rs->nke; i++) {
-	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[ilo]-rmx->et0));
-	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[iup]-rmx->et0));
-	}
-      }
-      for (i = 0; i < rs->nes; i++) {
-	if (rs->es[i] <= 0) {
-	  rs->es[i] = rs->de*1e-3;
-	}
-      }
-      rs->nes = SortUniqueDouble(rs->nes, rs->es, rs->de*0.5);
-      for (i = rs->nes-1; i >= 0; i--) {
-	if (rs->es[i] <= dcfg0.eo1) break;
-      }
-      rs->nes = i;
-    }
-  }
-  MPrintf(-1, "SortGroupEnergy: %d %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
-	  rs->nke, rs->nsp, rs->nes, dcfg0.n0,
+  MPrintf(-1, "SortGroupEnergy: %d %d %d %12.5E %12.5E %12.5E %12.5E %11.4E %11.4E\n",
+	  rs->nke, rs->nsp, dcfg0.n0,
 	  rs->e[0]*HARTREE_EV, rs->e[rs->nke-1]*HARTREE_EV,
 	  rs->de*HARTREE_EV, dcfg0.eo1*HARTREE_EV,
 	  WallTime()-wt0, TotalSize());
@@ -2787,10 +2749,40 @@ int *IdxEgy(int n, double *e0, int n0, double *eo) {
 
 void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		   int iter, char *ofn, double wt0) {
-  int *isp, nsp, i;
+  int *isp, nsp, i, t, q;
   FILE  *f1[4];
   char fn[1024];
 
+  if (_stark_nts > 0) {
+    if (dcfg0.n0 > 0) {
+      rs->nes = dcfg0.n0;
+      rs->es = malloc(sizeof(double)*rs->nes);
+      memcpy(rs->es, dcfg0.eo, sizeof(double)*rs->nes);
+    } else {
+      rs->nes = 2*rs->nke*_stark_nts;
+      rs->es = malloc(sizeof(double)*rs->nes);
+      t = 0;
+      for (q = 0; q < _stark_nts; q++) {
+	int ilo = IdxGet(&rs->its, _stark_lower[q]);
+	int iup = IdxGet(&rs->its, _stark_upper[q]);
+	for (i = 0; i < rs->nke; i++) {
+	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[ilo]-rmx->et0));
+	  rs->es[t++] = fabs(rs->e[i]-(rmx->et[iup]-rmx->et0));
+	}
+      }
+      for (i = 0; i < rs->nes; i++) {
+	if (rs->es[i] <= 0) {
+	  rs->es[i] = rs->de*1e-3;
+	}
+      }
+      rs->nes = SortUniqueDouble(rs->nes, rs->es, rs->de*0.5);
+      for (i = rs->nes-1; i >= 0; i--) {
+	if (rs->es[i] <= dcfg0.eo1) break;
+      }
+      rs->nes = i;
+    }
+  }
+  
   if (iter >= 0) {
     sprintf(fn, "%s%02d", ofn, iter);
   } else {
@@ -2824,8 +2816,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   int ns1 = _stark_nts;
   int ns2 = _stark_nts*2;
   int ns3 = _stark_nts*3;
-  int its0, its1, st0, k, ika0, ika1, j, p, q, t;
-  SortGroupEnergy(rs, rbs, rmx);
+  int its0, its1, st0, k, ika0, ika1, j, p;
   isp = rs->isp;
   nsp = rs->nsp;
   int nes = rs->nes;
@@ -3220,8 +3211,8 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   RBASIS *rbs;
   RMATRIX *rmx;
   FILE **f, *f1[2];
-  int ns, i, j, p, q, i0, i1, t, t0, n, npe, nke, nde;
-  double **s, *e, *e0, et, minde;
+  int ns, i, j, p, q, i0, i1, t, t0, n, nke;
+  double **s, *e, *e0, et;
   RMXCE rs;
   char buf[1024];
   
@@ -3281,17 +3272,6 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
       sde[i+1] = em0;
     }
   }  
-  double de = sde[0];
-  nde = _nrefine;
-  if (nde > 0) {
-    minde = de/pow(nde, _mrefine);
-    if (_mineref > 0) {
-      et = _mineref/HARTREE_EV;
-      if (et > minde) minde = et;
-    }
-  } else {
-    minde = de;
-  }
   int na = n;
   if (_stark_eadj && _stark_idx.n > 0) {
     na += n*_stark_idx.n;
@@ -3335,6 +3315,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     }
     qsort(e0, na, sizeof(double), CompareDouble);
   }
+  double de = sde[0];
   for (t = 0; t < rmx[0].nts; t++) {
     et = rmx[0].et[t] - rmx[0].et0;
     i0 = (et - emin)/de;
@@ -3349,35 +3330,15 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   }
 
   ns = rmx[0].nts*(rmx[0].nts+1)/2;
-  s = malloc(sizeof(double *)*ns);
-  int nbatch = n;
-  if (_nbatch > 0 && _nbatch < nbatch) {
-    nbatch = _nbatch;
-  }
-  for (i = 0; i < ns; i++) {
-    s[i] = malloc(sizeof(double)*nbatch);
-  }
-
   e = e0;
-  npe = 0;
   InitDCFG(rmx[0].mchan, 0, 0, 0, NULL, 0, NULL);
   int *ts = malloc(sizeof(int)*rmx[0].nts);
   memcpy(ts, rmx[0].ts, sizeof(int)*rmx[0].nts);
   InitIdxAry(&rs.its, rmx[0].nts, ts);
   rs.nke = 0;
-  while (npe < n) {
-    if (npe + nbatch > n) {
-      nke = n - npe;
-    } else {
-      nke = nbatch;
-    }
-    InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e, n0, eo);
-    RMatrixCEW(np, rbs, rmx, f, f1, fn, &rs, nke, e, NULL, s,
-	       0, NULL, m, mb,
-	       de, nde, minde, emin, emax, 0, n, npe);
-    e += nke;
-    npe += nke;
-  }
+  nke = n;
+  InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e, n0, eo);
+  RMatrixCEW(np, rbs, rmx, f, f1, fn, &rs, nke, e, m, mb, 0);
   SaveRMatrixCE(&rs, &rbs[0], &rmx[0], -1, fn, wt0);
   SMATRIX *smx = rs.smx;
   double ****ap = rs.ap;
@@ -3427,10 +3388,8 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     ClearRMatrixSurface(&(rmx[i]));
   }
   for (i = 0; i < ns; i++) {
-    free(s[i]);
     free(rs.s[i]);
   }
-  free(s);
   free(rs.s);
   free(e0);
   if (eo) free(eo);
@@ -3447,42 +3406,48 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   return 0;
 }
 
-int RefineRMatrixEGrid(int nke, double *e, int *ir, double **er, int **ipr,
-		       double de, int nde, double minde,
-		       double emin, double emax) {
-  double rde = de/nde;
-  if (rde < minde) return 0;
-  int i, j, k, nkr;
+int RefineRMatrixEGrid(double **er, int idep,
+		       RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
+  double rde;
+  int i, j, k, nke, nkr, nde;
+  
+  SortGroupEnergy(rs, rbs, rmx);
+  if (idep > _mrefine) return 0;
+  nde = _nrefine;
+  if (nde > 0 && idep >= _refiter) {
+    nde = 2;
+  }
+  nke = rs->nke;
   nkr = nke*nde;
   double *erp = malloc(sizeof(double)*nkr);
-  int *iprp = malloc(sizeof(int)*nkr);
-  j = 0;
-  double e0 = emin;
-  for (i = 0; i < nke; i++) {
-    if (!ir[i]) continue;
-    if ((i == 0 && e[i]-e0 > de*0.1) || e[i]-e0 > de*1.1) {
-      iprp[j] = i;
-      erp[j++] = e[i]-rde*(nde-1);
-      for (k = 1; k < nde-1; k++,j++) {
-	erp[j] = erp[j-1] + rde;
-	iprp[j] = i;       
-      }
+  double *e = rs->e;
+  double **s = rs->s;
+  int t = 0;
+  for (i = 0; i < nke-1; i++) {
+    rde = (e[i+1]-e[i])/nde;
+    if (rde < _mineref) continue;
+    if (idep > 0) {
+      int ir = 0;
+      for (k = 0; k < rmx->nts; k++) {
+	j = (k*(k+1))/2 + k;
+	double ds = fabs(s[j][i+1]-s[j][i]);
+	double ms = 0.5*fabs(s[j][i+1]+s[j][i]);
+	if (ds > ms*_rrefine) {
+	  ir = 1;
+	  break;
+	}
+      }    
+      if (!ir) continue;
     }
-    if (e[i] < emax) {
-      iprp[j] = i;
-      erp[j++] = e[i]+rde;
-      for (k = 1; k < nde-1; k++,j++) {
-	erp[j] = erp[j-1] + rde;
-	iprp[j] = i;
-      }
+    for (k = 1; k < nde; k++,t++) {
+      erp[t] = e[i]+k*rde;
     }
-    e0 = e[i];
   }
-  erp = realloc(erp, sizeof(double)*j);
-  iprp = realloc(iprp, sizeof(int)*j);
+  erp = realloc(erp, sizeof(double)*t);
   *er = erp;
-  *ipr = iprp;
-  return j;
+  MPrintf(0, "RefineRMatrixEGrid: %d %d %d %d\n",
+	  idep, nke, nde, t);
+  return t;
 }
 
 double InterpLinear(double de, int *isp, int nke, double *ea,
@@ -3505,12 +3470,9 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
 
 int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	       FILE **f, FILE **f1, char *fn, RMXCE *rs,
-	       int nke, double *e, int *ip, double **s,
-	       int nke0, double **s0,
-	       int m, int mb, double de, int nde, double minde,
-	       double emin, double emax, int idep, int n, int npe) {
+	       int nke, double *e, int m, int mb, int idep) {
   int i, j, k, t, p, q, h, i0, ns, *iwork, *ir, nkr, *ipr;
-  double et, ***sp, *r0, *r1, x, y, *er, **sr, ds, ms;
+  double et, ***sp, *r0, *r1, x, y, *er;
   int pp, jj, its0, its1, st0, ka0, ka1, mka0, mka1, npw, ika0, ika1;
   SMATRIX *smx;
   
@@ -3521,23 +3483,11 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
     ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
   }
   ns = rmx[0].nts*(rmx[0].nts+1)/2;
-  for (i = 0; i < ns; i++) {
-    for (k = 0; k < nke; k++) {
-      s[i][k] = 0.0;
-    }
-  }
   smx = NULL;
   if (_stark_idx.n > 0) {
     smx = malloc(sizeof(SMATRIX)*rmx[0].nsym*nke);
   }
   
-  if (nde > 0) {
-    ir = malloc(sizeof(int)*nke);
-    for (i = 0; i < nke; i++) {
-      ir[i] = 0;
-    }
-  }
-
   npw = rbs[0].kmax-rbs[0].kmin+1;
   if (m & 1) {
     sp = malloc(sizeof(double **)*ns);
@@ -3576,6 +3526,38 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
       }
     }
   }
+	 
+  if (rs->nke == 0) {
+    rs->e = malloc(sizeof(double)*nke);
+    for (k = 0; k < nke; k++) {
+      rs->e[k] = e[k];
+    }
+    rs->s = malloc(sizeof(double *)*ns);
+    for (i = 0; i < ns; i++) {
+      rs->s[i] = malloc(sizeof(double)*nke);
+    }
+    rs->ap = ap;
+    rs->smx = smx;
+  } else {
+    t = rs->nke+nke;
+    rs->e = realloc(rs->e, sizeof(double)*t);
+    for (k = rs->nke; k < t; k++) {
+      p = k - rs->nke;
+      rs->e[k] = e[p];
+    }
+    for (i = 0; i < ns; i++) {
+      rs->s[i] = realloc(rs->s[i], sizeof(double)*t);
+    }
+  }
+  
+  double **s = malloc(sizeof(double *)*ns);
+  for (i = 0; i < ns; i++) {
+    s[i] = rs->s[i]+rs->nke;
+    for (k = 0; k < nke; k++) {
+      s[i][k] = 0;
+    }
+  }
+  
   double rg = dcfg.rgailitis;
   if (rg < rbs[np-1].rb1) rg = rbs[np-1].rb1;
   PrepDiracCoulomb(&(rmx[0]), &(rbs[0]), rg);
@@ -3778,38 +3760,14 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
     }
     double wt1 = WallTime();
     MPrintf(-1, "sym: %3d %1d %3d %3d %3d %11.4E %11.4E %10.3E %10.3E %10.3E\n",
-	    rmx[0].isym, pp, jj, idep, nke, de*HARTREE_EV, e[0]*HARTREE_EV,
+	    rmx[0].isym, pp, jj, idep, nke,
+	    (nke>1?(e[1]-e[0]):0.0)*HARTREE_EV, e[0]*HARTREE_EV,
 	    wt1-wt0, wt1-wt00, TotalSize());
     fflush(stdout);
   }
-  if (rs->nke == 0) {
-    rs->e = malloc(sizeof(double)*nke);
-    for (k = 0; k < nke; k++) {
-      rs->e[k] = e[k];
-    }
-    rs->s = malloc(sizeof(double *)*ns);
-    for (i = 0; i < ns; i++) {
-      rs->s[i] = malloc(sizeof(double)*nke);
-      for (k = 0; k < nke; k++) {
-	rs->s[i][k] = s[i][k];
-      }
-    }
-    rs->ap = ap;
-    rs->smx = smx;
-  } else {
-    t = rs->nke+nke;
-    rs->e = realloc(rs->e, sizeof(double)*t);
-    for (k = rs->nke; k < t; k++) {
-      p = k - rs->nke;
-      rs->e[k] = e[p];
-    }
-    for (i = 0; i < ns; i++) {
-      rs->s[i] = realloc(rs->s[i], sizeof(double)*t);
-      for (k = rs->nke; k < t; k++) {
-	p = k - rs->nke;
-	rs->s[i][k] = s[i][p];
-      }
-    }
+  if (rs->nke > 0) {
+    free(s);
+    t = rs->nke + nke;
     if (_stark_idx.n > 0) {
       if (_stark_amp) {
 	for (i = 0; i < _stark_idx.n; i++) {
@@ -3846,43 +3804,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
       }
     }
   }
-  for (its0 = 0; its0 < rmx[0].nts; its0++) {
-    st0 = its0*(its0+1)/2 + its0;
-    for (k = 0; k < nke; k++) {
-      if (nde > 0) {
-	if (ir[k]) continue;
-	if (ip != NULL) {
-	  double s0a = s0[st0][ip[k]];
-	  double s0b = s0a;
-	  if (ip[k] < nke0-1) {
-	    s0b = s0[st0][ip[k]+1];
-	  }
-	  ds = 0.0;
-	  for (t = k; t < nke; t++) {
-	    double s1e = (e[t]-e[k]+de)/(nde*de);
-	    s1e = (1-s1e)*s0a + s1e*s0b;
-	    ms = fabs(s1e - s[st0][t]);
-	    if (ms > 0) {
-	      ms /= 0.5*(s1e+s[st0][t]);
-	      if (ds < ms) ds = ms;
-	    }
-	    if (t > k && ip[t] != ip[t-1]) {
-	      break;
-	    }
-	  }
-	  if (ds > _rrefine) {
-	    h = Min(t, nke);
-	    for (q = k; q < h; q++) {
-	      ir[q] = 1;
-	    }
-	  }
-	  k = t-1;
-	} else {
-	  ir[k] = 1;
-	}
-      }
-    }
-  }
+
   if (m & 1) {
     for (its0 = 0; its0 < rmx[0].nts; its0++) {
       for (its1 = 0; its1 < rmx[0].nts; its1++) {
@@ -3918,44 +3840,14 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   }
   int onke = rs->nke;
   rs->nke += nke;
-  int n0 = n;
-  if (nde > 0) {
-    n = RefineRMatrixEGrid(nke, e, ir, &er, &ipr, de, nde, minde, emin, emax);
-  } else {
-    n = 0;
-  }
+  int n = RefineRMatrixEGrid(&er, idep, rs, rbs, rmx);
   if (n > 0) {
-    if (_rmx_isave && n0 == nke) {
+    if (_rmx_isave) {
       SaveRMatrixCE(rs, rbs, rmx, idep, fn, wt00);
     }
-    int nbatch = n;
-    if (_nbatch > 0 && _nbatch < nbatch) {
-      nbatch = _nbatch;
-    }
-    sr = malloc(sizeof(double *)*ns);
-    for (i = 0; i < ns; i++) {
-      sr[i] = malloc(sizeof(double)*nbatch);
-    }    
-    npe = 0;
-    e = er;
-    while (npe < n) {
-      if (npe + nbatch > n) {
-	nkr = n - npe;
-      } else {
-	nkr = nbatch;
-      }
-      InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nkr, e, 0, NULL);
-      RMatrixCEW(np, rbs, rmx, f, f1, fn, rs, nkr, e, ipr, sr, nke, s, m, mb,
-		 de/nde, nde, minde, emin, emax, idep+1, n, npe);
-      e += nkr;
-      npe += nkr;
-    }
-    for (i = 0; i < ns; i++) {
-      free(sr[i]);
-    }
-    free(sr);
+    InitDCFG(0, rmx[0].nts, rbs[0].nkappa, n, er, 0, NULL);
+    RMatrixCEW(np, rbs, rmx, f, f1, fn, rs, n, er, m, mb, idep+1);
     free(er);
-    free(ipr);
   }
 
   if (onke == 0) return 0;
@@ -4129,8 +4021,12 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
     _mrefine = ip;
     return;
   }
+  if (0 == strcmp("rmatrix:refiter", s)) {
+    _refiter = ip;
+    return;
+  }  
   if (0 == strcmp("rmatrix:mineref", s)) {
-    _mineref = dp;
+    _mineref = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp("rmatrix:rrefine", s)) {
@@ -4139,10 +4035,6 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:fmaxe", s)) {
     _rmx_fmaxe = dp;
-    return;
-  }
-  if (0 == strcmp("rmatrix:nbatch", s)) {
-    RMatrixNBatch(ip);
     return;
   }
   if (0 == strcmp("rmatrix:fmode", s)) {
