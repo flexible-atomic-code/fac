@@ -5375,22 +5375,6 @@ static PyObject *PRMatrixExpansion(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }  
-
-static PyObject *PRMatrixNBatch(PyObject *self, PyObject *args) {
-  int m;
-
-  if (sfac_file) {
-    SFACStatement("RMatrixNBatch", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  RMatrixNBatch(m);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}  
   
 static PyObject *PRMatrixNMultipoles(PyObject *self, PyObject *args) {
   int m;
@@ -6204,7 +6188,6 @@ static struct PyMethodDef fac_methods[] = {
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
-  {"RMatrixNBatch", PRMatrixNBatch, METH_VARARGS}, 
   {"RMatrixFMode", PRMatrixFMode, METH_VARARGS}, 
   {"RMatrixConvert", PRMatrixConvert, METH_VARARGS}, 
   {"RMatrixNMultipoles", PRMatrixNMultipoles, METH_VARARGS}, 
