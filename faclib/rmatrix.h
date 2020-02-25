@@ -124,4 +124,5 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp);
 double InterpLinear(double de, int *isp, int nke, double *ea,
 		    double *ra, double e);
 void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx);
+int GetChanL(int j, int j0, int k0);
 #endif

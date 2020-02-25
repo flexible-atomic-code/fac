@@ -1398,6 +1398,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   nr = orb->n - kl - 1;
   z0 = pot->atom->atomic_number;
   z = (z0 - pot->N1);
+  double z1 = Max(z, 1.0);
   //if (z < 1) z = 1.0;
   double emin0 = 1.5*EnergyH(z0, orb->n, orb->kappa);
   if (kl > 0) {   
@@ -1410,10 +1411,10 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     emin += ENEABSERR;
     if (emin < emin0) emin = emin0;
   } else {
-    emin = EnergyH(z, orb->n, orb->kappa);
+    emin = EnergyH(z1, orb->n, orb->kappa);
   }
 
-  emax = EnergyH(Max(z,1.0), orb->n*10, orb->kappa);
+  emax = EnergyH(z1, orb->n*10, orb->kappa);
   e = 0.5*emin;
   niter = 0;
   while (niter < max_iteration) {
@@ -1454,15 +1455,15 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       if (nr == 0 && e < emin0) break;
       e *= 1.25;
     }
-    emin = e;
     if (niter == max_iteration) {
       if (_on_error >= 0) {
-	printf("Max iteration before finding correct nodes in RadialBound b: %d %d\n",
-	       nodes, nr);
+	printf("Max iteration before finding correct nodes in RadialBound b: %d %d %d %d %d %g %g %g\n",
+	       nodes, nr, orb->n, orb->kappa, i2, e, pot->hxs, pot->chx);
       }
       free(p);
       return -3;
     }
+    emin = e;
   }
   while (niter < max_iteration) {
     niter++;
@@ -3089,6 +3090,7 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   z0 = GetAtomicNumber();
   rn = GetAtomicR();
   z = z0 - pot->N1;
+  if (z < 1) z = 1.0;
   if (pot->flag == 0) pot->flag = -1; 
   rmin = pot->rmin/z0;
   if (rn > 0) {

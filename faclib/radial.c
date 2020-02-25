@@ -115,6 +115,16 @@ static double *_xk;
 
 #pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
+static double **_refine_wfb = NULL;
+static double _refine_xtol = EPS5;
+static double _refine_scale = 0.1;
+static int _refine_msglvl = 0;
+static int _refine_np = 6;
+static int _refine_maxfun = 10000;
+static int _refine_mode = 1;
+static int _refine_pj = -1;
+static int _refine_em = 0;
+
 static struct {
   double stabilizer;
   double tolerance; /* tolerance for self-consistency */
@@ -1654,7 +1664,15 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
     ue[i] = 0;
     u0[i] = 0;
     u[i] = 0;
+  }  
+  jmax = PotentialHX1(acfg, md);
+  for (i = 0; i < potential->maxrp; i++) {
+    ue1[i] = _phase[i];
+    ue[i] = _dphase[i];
+    u0[i] = _dphasep[i];
+    _dwork13[i] /= FOUR_PI*potential->rad[i]*potential->rad[i];
   }
+  /*
   if (md == 0 || potential->N < 1+EPS3) {
     jmax = PotentialHX1(acfg, -1);
     for (i = 0; i < potential->maxrp; i++) {
@@ -1681,6 +1699,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
       _dwork13[i] /= FOUR_PI*potential->rad[i]*potential->rad[i];
     }
   }
+  */
   if (potential->vxf > 0 && potential->hxs) {
     double ahx = potential->ahx;
     if (ahx <= 0) {
@@ -1734,7 +1753,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u) {
   return jmax;
 }
 
-int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
+int PotentialHX1(AVERAGE_CONFIG *acfg, int md) {
   int i, j, k, kk, kk0, kk1, k1, k2, j1, j2;
   int ic, jmax, jmaxk, m, jm;
   ORBITAL *orb1, *orb2;
@@ -1756,15 +1775,12 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
     u[m] = 0.0;
   }
   if (acfg->n_shells <= 0) return 0;
-  if (ik >= acfg->n_shells) ik = -1;
   jmax = -1;
-  orb2 = NULL;
   for (i = 0; i < acfg->n_shells; i++) {
     k1 = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
     if (k1 < 0) continue;
     orb1 = GetOrbital(k1);
     if (orb1->wfun == NULL) continue;
-    if (ik == i) orb2 = orb1;
     for (m = 0; m <= orb1->ilast; m++) {
       large = Large(orb1)[m];
       small = Small(orb1)[m];
@@ -1779,11 +1795,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
     orb1 = GetOrbital(k1);
     GetYk(0, _yk, orb1, orb1, k1, k1, -1);
     for (m = 0; m <= jmax; m++) {
-      if (i == ik) {
-	u[m] += (acfg->nq[i]-1.0)*_yk[m];
-      } else {
-	u[m] += acfg->nq[i]*_yk[m];
-      }
+      u[m] += acfg->nq[i]*_yk[m];
     }
   }
   if (potential->N < 1+EPS3) {
@@ -1795,7 +1807,6 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
   potential->rhx = 0;
   potential->dhx = 0;
   potential->ahx = 0;
-  potential->chx = 0;
   for (m = 0; m <= jmax; m++) {
     ue1[m] = u[m];
   }
@@ -1803,139 +1814,173 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int ik) {
     j = -1;
     c = GetHXS(potential);
     potential->ahx = potential->hxs*c;
-    double nr = 0;
-    if (orb2 != NULL) {
-      nr = (double)(orb2->n - GetLFromKappa(orb2->kappa)/2);
-    }
     for (m = 0; m <= jmax; m++) {
       a = w[m]*potential->rad[m];
-      if (orb2 != NULL) {
-	large = Large(orb2)[m];
-	small = Small(orb2)[m];
-	d = potential->rad[m];
-	b = (large*large+small*small)*d;
-	if (acfg->nq[ik] < 2) {
-	  a += (2-acfg->nq[ik])*b;
-	}
-	a = pow(a, ONETHIRD)-pow(2*b,ONETHIRD);
-      } else {
-	a = pow(a, ONETHIRD);
-      }
+      a = pow(a, ONETHIRD);
       ue1[m] = potential->ahx*a;
     }
   }
 
-  if (ik < 0 && potential->ihx < 0) {    
+  if (potential->hxs && potential->ihx < 0) {    
     double ihx = -potential->ihx;
-    double n1 = potential->N-ihx;
-    double n2 = n1 - 0.5*ihx;
-    i = 0;
-    j = 0;
-    for (m = 0; m <= jmax; m++) {
-      _dwork9[m] = u[m] - ue1[m];
-      if (_dwork9[m] > n2 && i == 0) {
-	i = m;
+    if (md == 1) {
+      if (potential->chx < 1e-3) potential->chx = 1e-3;
+      for (m = 0; m < potential->maxrp; m++) {
+	if (!w[m]) {
+	  break;
+	}
+	_dwork9[m] = w[m]/(potential->rad[m]*potential->rad[m]);
       }
-      if (_dwork9[m] > n1 && j == 0) {
-	j = m;
+      m--;
+      j = DensityAsymptote(w, &a, &b);
+      Differential(_dwork9, _dwork8, 0, m, potential);
+      d0 = pow(a, -ONETHIRD);
+      d1 = 2*potential->chx*potential->ahx*1e-3;
+      c = 2*d0*b;
+      k = 0;
+      for (i = 0; i <= m; i++) {
+	double y3;
+	if (potential->rad[i] < potential->atom->rms0) {
+	  k = i;
+	}
+	y3 = pow(_dwork9[i], ONETHIRD);
+	_dwork8[i] /= y3*_dwork9[i];	
+	ue[i] = ihx*d1*y3*_dwork8[i]*_dwork8[i];
+	ue[i] /= (1+3*d1*_dwork8[i]*asinh(_dwork8[i]/c));
+	ue[i] *= potential->rad[i];	
+	if (i > j) {
+	  double z3 = exp(-ONETHIRD*b*potential->rad[i])/d0;
+	  double xx = -b/z3;
+	  double ux = ihx*d1*z3*xx*xx/(1+3*d1*xx*asinh(xx/c));
+	  ux *= potential->rad[i];
+	  double wx = potential->rad[i]-potential->rad[j];
+	  wx = exp(-b*potential->bhx*wx);
+	  if (wx > 1e-3) {
+	    ue[i] = pow(ue[i],wx)*pow(ux,1-wx);
+	  } else {
+	    ue[i] = ux;
+	  }
+	}
+	//printf("b: %d %d %d %g %g %g %g %g %g\n", i, j, m, potential->rad[i], _dwork9[i], _dwork8[i], y3, ue[i], a*exp(-b*potential->rad[i]));
+	ue[i] += ue1[i];
       }
-      if (j > 0 && m - j > 6) break;
-    }
-    k1 = i-5;
-    if (k1 < 0) k1 = 0;
-    for (k2 = i; k2 < m; k2++) {
-      if (_dwork9[k2+1] <= _dwork9[k2]) break;
-      if (k2-i > 5) break;
-    }
-    k = k2 - k1 + 1;
-    d0 = potential->rho[k1];
-    d1 = potential->rho[k2];
-    d = 0.5*(d0+d1);
-    while (d1-d0 > EPS5*fabs(d)) {
+      for (; i <= jmax; i++) {
+	ue[i] = ue[i-1];
+      }
+      for (i = 0; i < k; i++) {
+	ue[i] = ue[k];
+      }
+    } else {
+      double n1 = potential->N-ihx;
+      double n2 = n1 - 0.5*ihx;
+      i = 0;
+      j = 0;
+      for (m = 0; m <= jmax; m++) {
+	_dwork9[m] = u[m] - ue1[m];
+	if (_dwork9[m] > n2 && i == 0) {
+	  i = m;
+	}
+	if (_dwork9[m] > n1 && j == 0) {
+	  j = m;
+	}
+	if (j > 0 && m - j > 6) break;
+      }
+      k1 = i-5;
+      if (k1 < 0) k1 = 0;
+      for (k2 = i; k2 < m; k2++) {
+	if (_dwork9[k2+1] <= _dwork9[k2]) break;
+	if (k2-i > 5) break;
+      }
+      k = k2 - k1 + 1;
+      d0 = potential->rho[k1];
+      d1 = potential->rho[k2];
       d = 0.5*(d0+d1);
-      UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
-      if (a < n2) {
-	d0 = d;
-      } else if (a > n2) {
-	d1 = d;
-      } else {
-	break;
+      while (d1-d0 > EPS5*fabs(d)) {
+	d = 0.5*(d0+d1);
+	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	if (a < n2) {
+	  d0 = d;
+	} else if (a > n2) {
+	  d1 = d;
+	} else {
+	  break;
+	}
       }
-    }
-    a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
-		    potential->rad[i]);
-    potential->rhx = a;    
-    k1 = j-5;
-    if (k1 < 0) k1 = 0;
-    for (k2 = j; k2 < m; k2++) {
-      if (_dwork9[k2+1] <= _dwork9[k2]) break;
-      if (k2-j > 5) break;
-    }
-    k = k2 - k1 + 1;
-    d0 = potential->rho[k1];
-    d1 = potential->rho[k2];
-    d = 0.5*(d0+d1);
-    while (d1-d0 > EPS5*fabs(d)) {
+      a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+		      potential->rad[i]);
+      potential->rhx = a;    
+      k1 = j-5;
+      if (k1 < 0) k1 = 0;
+      for (k2 = j; k2 < m; k2++) {
+	if (_dwork9[k2+1] <= _dwork9[k2]) break;
+	if (k2-j > 5) break;
+      }
+      k = k2 - k1 + 1;
+      d0 = potential->rho[k1];
+      d1 = potential->rho[k2];
       d = 0.5*(d0+d1);
-      UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
-      if (a < n1) {
-	d0 = d;
-      } else if (a > n1) {
-	d1 = d;
-      } else {
-	break;
+      while (d1-d0 > EPS5*fabs(d)) {
+	d = 0.5*(d0+d1);
+	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	if (a < n1) {
+	  d0 = d;
+	} else if (a > n1) {
+	  d1 = d;
+	} else {
+	  break;
+	}
       }
-    }
-    a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
-		    potential->rad[j]);
-    potential->dhx = a;        
-    for (i = j; i > 0; i--) {
-      if (ue1[i-1] < ue1[i]) {
-	break;
+      a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+		      potential->rad[j]);
+      potential->dhx = a;        
+      for (i = j; i > 0; i--) {
+	if (ue1[i-1] < ue1[i]) {
+	  break;
+	}
       }
-    }
-    c = potential->rad[i];
-    b = potential->rho[i];
-    k = 0;
-    for (j = i; j < jmax; j++, k++) {
-      if (ue1[j+1] >= ue1[j]) break;
-      if (k > 5) break;
-    }
-    k = 0;
-    for (; i > 0; i--, k++) {
-      if (ue1[i-1] >= ue1[i]) break;
-      if (k > 5) break;
-    }
-    Differential(ue1, _dwork9, i, j, potential);
-    d0 = potential->rho[i];
-    d1 = potential->rho[j];
-    d = 0.5*(d0+d1);
-    k = j-i+1;
-    while (d1-d0 > EPS5*fabs(d)) {
+      c = potential->rad[i];
+      b = potential->rho[i];
+      k = 0;
+      for (j = i; j < jmax; j++, k++) {
+	if (ue1[j+1] >= ue1[j]) break;
+	if (k > 5) break;
+      }
+      k = 0;
+      for (; i > 0; i--, k++) {
+	if (ue1[i-1] >= ue1[i]) break;
+	if (k > 5) break;
+      }
+      Differential(ue1, _dwork9, i, j, potential);
+      d0 = potential->rho[i];
+      d1 = potential->rho[j];
       d = 0.5*(d0+d1);
-      UVIP3P(3, k, potential->rho+i, _dwork9+i, 1, &d, &a);
-      if (a > 0) {
-	d0 = d;
-      } else if (a < 0) {
-	d1 = d;
-      } else {
-	break;
+      k = j-i+1;
+      while (d1-d0 > EPS5*fabs(d)) {
+	d = 0.5*(d0+d1);
+	UVIP3P(3, k, potential->rho+i, _dwork9+i, 1, &d, &a);
+	if (a > 0) {
+	  d0 = d;
+	} else if (a < 0) {
+	  d1 = d;
+	} else {
+	  break;
+	}
       }
-    }
-    a = GetRFromRho(d, potential->ar, potential->br, potential->qr, c);
-    if (a < potential->rhx) {
-      potential->rhx = a;
-    }
-    potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
-    c = 1.0 - n1/potential->N;
-    for (m = 0; m <= jmax; m++) {
-      d = (potential->rad[m]-potential->rhx)/potential->dhx;
-      d = 1.0/(1.0 + exp(-d));
-      d0 = u[m]*c;
-      d1 = ue1[m];
-      ue[m] = d0*d + d1*(1-d);
-      if (d > 0.5 && u[m]-ue[m] > n1) {
-	ue[m] = u[m]-n1;
+      a = GetRFromRho(d, potential->ar, potential->br, potential->qr, c);
+      if (a < potential->rhx) {
+	potential->rhx = a;
+      }
+      potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
+      c = 1.0 - n1/potential->N;
+      for (m = 0; m <= jmax; m++) {
+	d = (potential->rad[m]-potential->rhx)/potential->dhx;
+	d = 1.0/(1.0 + exp(-d));
+	d0 = u[m]*c;
+	d1 = ue1[m];
+	ue[m] = d0*d + d1*(1-d);
+	if (d > 0.5 && u[m]-ue[m] > n1) {
+	  ue[m] = u[m]-n1;
+	}
       }
     }
   } else {
@@ -2330,6 +2375,36 @@ void CopyPotentialOMP(int init) {
 #endif
 }
 
+static double EnergyHXS(int *n, double *x) {
+  int md = potential->mode/10;
+  if (md == 3) {
+    potential->hxs = x[0];
+    potential->chx = x[1];
+  } else if (md == 4) {
+    potential->hxs = x[0];
+  } else if (md == 5) {
+    potential->chx = x[0];
+  }
+  if (potential->chx < 1e-4 || potential->chx > 1e2) return 1e30;
+  if (potential->hxs < 1e-4 || potential->hxs > 1e2) return 1e30;
+  if (_refine_msglvl > 0) {
+    printf("EnergyHXS: %2d %12.5E %12.5E ... ",
+	   md, potential->hxs, potential->chx);
+  }
+  ReinitRadial(1);
+  int iter = OptimizeLoop(&average_config);
+  double a;
+  if (average_config.ng > 0) {
+    a = TotalEnergyGroups(average_config.ng, average_config.kg, NULL);
+  } else {
+    a = AverageEnergyAvgConfig(&average_config);
+  }
+  if (_refine_msglvl > 0) {
+    printf("%3d %15.8E\n", iter, a);
+  }
+  return a;
+}
+
 int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, emin, smin, hxs[NXS2], ehx[NXS2], mse;
@@ -2408,25 +2483,20 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   potential->N = a;  
   potential->rhx = 0;
   potential->dhx = 0;
-  if (potential->mode%10 > 0) {
-    potential->ihx = 0;
-    potential->N1 = potential->N-1;
-  } else {
-    if (fabs(potential->ihx) < EPS10 &&
-	potential->N >= potential->atom->atomic_number-MINIHX) {
-      potential->ihx = -(potential->N-potential->atom->atomic_number+MINIHX);
-    }
-    if (potential->ihx > 0) {
-      a = 0.0;
-      for (i = 0; i < acfg->n_shells; i++) {
-	a += Min(acfg->nq[i], 1);
-      }
-      for (i = 0; i < acfg->n_shells; i++) {
-	acfg->nq[i] -= potential->ihx*Min(acfg->nq[i],1)/a;
-      }
-    }
-    potential->N1 = potential->N - fabs(potential->ihx);
+  if (fabs(potential->ihx) < EPS10 &&
+      potential->N >= potential->atom->atomic_number-MINIHX) {
+    potential->ihx = -(potential->N-potential->atom->atomic_number+MINIHX);
   }
+  if (potential->ihx > 0) {
+    a = 0.0;
+    for (i = 0; i < acfg->n_shells; i++) {
+      a += Min(acfg->nq[i], 1);
+    }
+    for (i = 0; i < acfg->n_shells; i++) {
+      acfg->nq[i] -= potential->ihx*Min(acfg->nq[i],1)/a;
+    }
+  }
+  potential->N1 = potential->N - fabs(potential->ihx);
   if (potential->N1 < 0) potential->N1 = 0;
   
   /* setup the radial grid if not yet */
@@ -2470,7 +2540,33 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     optimize_control.stabilizer = 0.25 + 0.5*(z/z0);
   }
 
-  if (potential->mode/10 == 2) {
+  int md = potential->mode/10;
+  if (md > 2) {
+    int n = 1;
+    if (md == 3) n = 2;    
+    double xtol = 1e-2;
+    int mode = 0;
+    int *lw = malloc(sizeof(int)*n*2);
+    double *x = malloc(sizeof(double)*n);
+    double *scale = malloc(sizeof(double)*n);
+    double *dw = malloc(sizeof(double)*(n*2+n*(n+4)+1));
+    double f;
+    for (i = 0; i < n; i++) {
+      x[i] = 1.0;
+      scale[i] = 0.1;
+    }
+    int nfe = 0;
+    int ierr = 0;
+    int maxfun = _refine_maxfun;
+    potential->hxs = 1.0;
+    potential->chx = 1.0;
+    SUBPLX(EnergyHXS, n, xtol, maxfun, mode, scale, x,
+	   &f, &nfe, dw, lw, &ierr);
+    free(x);
+    free(scale);
+    free(lw);
+    free(dw);
+  } else if (md == 2) {
     hxs[NXS] = 1.0;
     for (i = NXS-1; i >= 0; i--) {
       hxs[i] = hxs[i+1] - 0.05;
@@ -2592,16 +2688,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   }
   return iter;
 }      
-
-static double **_refine_wfb = NULL;
-static double _refine_xtol = EPS5;
-static double _refine_scale = 0.1;
-static int _refine_msglvl = 0;
-static int _refine_np = 6;
-static int _refine_maxfun = 10000;
-static int _refine_mode = 1;
-static int _refine_pj = -1;
-static int _refine_em = 0;
+  
 static double EnergyFunc(int *n, double *x) {
   double a;
   int i, k, np;
@@ -8663,6 +8750,7 @@ int InitRadial(void) {
   potential->hxs = POTHXS;
   potential->ihx = POTIHX;
   potential->bhx = POTBHX;
+  potential->chx = 1.0;
   potential->hx0 = POTHX0;
   potential->hx1 = POTHX1;
   potential->hlike = 0;
@@ -8817,6 +8905,40 @@ int ReinitRadial(int m) {
   return 0;
 }
 
+int DensityAsymptote(double *d, double *a, double *b) {
+  int i, m;
+  double r, r2;
+  
+  for (i = 0; i < potential->maxrp; i++) {
+    r = potential->rad[i];
+    r2 = r*r;
+    if (!d[i]) {
+      break;
+    }
+    _zk[i] = log(d[i]/r2);
+  }
+  i -= 2;
+  m = Min(10, i-2);
+  
+  double c[2];
+  while (m < i) {
+    PolyFit(2, c, i-m+1, potential->rad+m, _zk+m);
+    r2 = 0;
+    int j;
+    for (j = m; j <= i; j++) {
+      r = 1-exp(c[0]+c[1]*potential->rad[j]-_zk[j]);
+      r *= r;
+      if (r2 < r) r2 = r;
+    }
+    if (r2 < 1e-2) break;
+    m++;
+  }
+  *a = exp(c[0]);
+  *b = -c[1];
+  //printf("dasym: %d %d %g %g\n", m, i, *a, *b);
+  return m;
+}
+
 void ElectronDensity(char *ofn, int n, int *ilev, int t) {
   FILE *f;
   ANGULAR_ZMIX *ang;
@@ -8882,10 +9004,17 @@ void ElectronDensity(char *ofn, int n, int *ilev, int t) {
     for (m = potential->maxrp-1; m >= 0; m--) {
       if (_dwork15[m]) break;
     }
-    fprintf(f, "# %4d %4d %4d %d\n", i, n, m, t);
     for (k = 0; k <= m; k++) {
-      fprintf(f, "%6d %4d %15.8E %15.8E\n",
-	      i, k, potential->rad[k], _dwork15[k]*a);
+      _dwork15[m] *= a;
+    }
+    Differential(_dwork15, _dwork14, 0, m, potential);
+    double a0, a1;
+    int ns = DensityAsymptote(_dwork15, &a0, &a1);
+    fprintf(f, "# %4d %4d %4d %6d %6d %12.5E %12.5E\n",
+	    i, n, m, t, ns, a0, a1);
+    for (k = 0; k <= m; k++) {
+      fprintf(f, "%6d %4d %15.8E %15.8E %15.8E\n",
+	      i, k, potential->rad[k], _dwork15[k], _dwork14[k]);
     }
   }
   fclose(f);
@@ -9989,6 +10118,18 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:sturm_kref")) {
     _sturm_kref = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:bhx")) {
+    potential->bhx = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:chx")) {
+    potential->chx = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:hxs")) {
+    potential->hxs = dp;
     return;
   }
 }
