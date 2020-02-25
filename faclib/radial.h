@@ -226,6 +226,7 @@ void PlasmaScreen(int m, int vxf,
 void SetOrbNMax(int kmin, int kmax, int nmax);
 int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
+int DensityAsymptote(double *d, double *a, double *b);
 
 #endif
 

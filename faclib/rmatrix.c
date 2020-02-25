@@ -2932,10 +2932,11 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	  ilo = IdxGet(&rs->its, _stark_lower[ix]);
 	  if (ilo < 0) continue;
 	  for (is0 = 0; is0 < rmx[0].nsym; is0++) {
-	    if (smx[is0].sp[xup] == 0) continue;
+	    if (smx[is0].nj[xup] == 0) continue;
 	    for (is1 = 0; is1 < rmx[0].nsym; is1++) {
-	      if (smx[is1].sp[xlo] == 0) continue;
-	      if (!Triangle(smx[is0].jj, smx[is1].jj, 2)) continue;		
+	      if (smx[is1].nj[xlo] == 0) continue;
+	      int dj = (smx[is0].jmin[xup] - smx[is1].jmin[xlo])/2;
+	      //if (!Triangle(smx[is0].jj, smx[is1].jj, 2)) continue;		
 	      for (ika0 = 0; ika0 < smx[is0].nj[xup]; ika0++) {
 		j0 = smx[is0].jmin[xup] + 2*ika0;
 		if (j0 < smx[is1].jmin[xlo] ||
@@ -2944,7 +2945,11 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		}
 		//if (!Triangle(smx[is0].jj, rmx[0].jts[iup], j0)) continue;
 		//if (!Triangle(smx[is1].jj, rmx[0].jts[ilo], j0)) continue;
-		kl0 = (j0+smx[is0].sp[xup])/2;
+		kl0 = GetChanL(j0, smx[is0].jmin[xup], smx[is0].sp[xup]);
+		if (kl0 < rbs[0].kmin || kl0 > rbs[0].kmax) continue;
+		int kl0p = GetChanL(j0, smx[is1].jmin[xlo],
+				    smx[is1].sp[xlo]);
+		if (kl0 != kl0p) continue;
 		kl0 -= rbs[0].kmin;
 		for (ika1 = 0; ika1 < smx[is0].nj[xup]; ika1++) {
 		  j1 = smx[is0].jmin[xup] + 2*ika1;
@@ -2954,10 +2959,13 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		  }
 		  //if (!Triangle(smx[is0].jj, rmx[0].jts[iup], j1)) continue;
 		  //if (!Triangle(smx[is1].jj, rmx[0].jts[ilo], j1)) continue;
-		  kl1 = (j1+smx[is0].sp[xup])/2;
+		  kl1 = GetChanL(j1, smx[is0].jmin[xup], smx[is0].sp[xup]);
+		  if (kl1 < rbs[0].kmin || kl1 > rbs[0].kmax) continue;
+		  int kl1p = GetChanL(j1, smx[is1].jmin[xlo],
+				      smx[is1].sp[xlo]);
+		  if (kl1 != kl1p) continue;
 		  kl1 -= rbs[0].kmin;
 		  ikup = ika1*smx[is0].nj[xup] + ika0;
-		  int dj = (smx[is0].jmin[xup] - smx[is1].jmin[xlo])/2;
 		  iklo = (ika1+dj)*smx[is1].nj[xlo] + ika0+dj;
 		  double eup, elo;
 		  eup = ek + rmx[0].et[iup]-rmx[0].et0;
@@ -2978,19 +2986,27 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		  ssi = -(s0i*s1r - s0r*s1i);
 		  if (ika1 == ika0) ssr += 1.0;
 		  if (!ssr && !ssi) continue;
-		  af = 0.5*(smx[is0].jj+1.0)*(smx[is1].jj+1.0);
+		  af = (smx[is0].jj+1.0)*(smx[is1].jj+1.0);
 		  af *= W6j(smx[is1].jj, smx[is0].jj, 2,
 			    rmx[0].jts[iup], rmx[0].jts[ilo], j0);
 		  af *= W6j(smx[is1].jj, smx[is0].jj, 2,
 			    rmx[0].jts[iup], rmx[0].jts[ilo], j1);
 		  int ph = (j0+j1)/2 + rmx[0].jts[iup] + smx[is1].jj;
-		  if (IsOdd(ph)) {
+		  if (IsOdd(ph)) {		    
 		    af = -af;
 		  }
 		  ssr *= af;
 		  ssi *= af;
 		  sw[ns0+ix][k] += ssr;
 		  sw[ns1+ix][k] += ssi;
+		  /*
+		  if (k == 0) {
+		    printf("%2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %2d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+			   is0, is1, smx[is0].isym, smx[is1].isym,
+			   iup, ilo, kl0, j0, kl1, j1, ikup, iklo, dj, smx[is0].sp[xup], smx[is1].sp[xlo],
+			   s0r, s1r, s0i, s1i, ssr, ssi, af, sw[ns0+ix][k], sw[ns1+ix][k]);
+		  }
+		  */
 		  if (_stark_pw && kl0 < npw) {
 		    swp[ns0+ix][k][kl0] += ssr;
 		    swp[ns1+ix][k][kl0] += ssi;
@@ -3487,6 +3503,20 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
   return (1-f)*ra[i0] + f*ra[i0+1];
 }
 
+int GetChanL(int j, int j0, int k0) {
+  int i = (j - j0)/2;
+  int k = k0+i;
+  int k2 = 2*k0;
+  if (IsOdd(i)) {
+    if (j0 > k2) {
+      k++;
+    } else {
+      k--;
+    }
+  }
+  return k;
+}
+
 int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	       FILE **f, FILE **f1, char *fn, RMXCE *rs,
 	       int nke, double *e, int m, int mb, int idep) {
@@ -3612,9 +3642,14 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	  continue;
 	}
 	  
-	smx[i].sp[j] = 0;
 	smx[i].jmin[j] = abs(jj-rmx[0].jts[its0]);
 	smx[i].jmax[j] = abs(jj+rmx[0].jts[its0]);
+	smx[i].sp[j] = (smx[i].jmin[j]-1)/2;
+	if (rmx[0].pts[its0] == smx[i].pp) {
+	  if (IsOdd(smx[i].sp[j])) smx[i].sp[j]++;
+	} else {
+	  if (IsEven(smx[i].sp[j])) smx[i].sp[j]++;
+	}
 	smx[i].nj[j] = 1+(smx[i].jmax[j]-smx[i].jmin[j])/2;
 	smx[i].nk[j] = smx[i].nj[j]*smx[i].nj[j];
 	smx[i].rp[j] = malloc(sizeof(double *)*smx[i].nk[j]);
@@ -3627,19 +3662,6 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	    smx[i].ip[j][t][k] = 0.0;
 	  }
 	}
-      }
-      
-      for (p = 0; p < rmx[0].nchan0; p++) {
-	its0 = rmx[0].ilev[p];
-	int ix = IdxGet(&_stark_idx, rmx[0].ts[its0]);
-	if (ix < 0) continue;
-	if (smx[i].sp[ix] != 0) continue;
-	ka0 = rmx[0].kappa[p];
-	GetJLFromKappa(ka0, &ika0, &mka0);
-	mka0 /= 2;
-	mka1 = (smx[i].jmin[ix]+1)/2;
-	if (IsEven(mka0+mka1)) smx[i].sp[ix] = 1;
-	else smx[i].sp[ix] = -1;
       }
     }
     //if (i != 0) continue;
