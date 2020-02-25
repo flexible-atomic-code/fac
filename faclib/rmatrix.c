@@ -3353,7 +3353,11 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   InitIdxAry(&rs.its, rmx[0].nts, ts);
   rs.nke = 0;
   nke = n;
-  InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e, n0, eo);
+  if (eo) {
+    InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e, n0, eo);
+  } else {
+    InitDCFG(0, rmx[0].nts, rbs[0].nkappa, nke, e, nke, e);
+  }
   RMatrixCEW(np, rbs, rmx, f, f1, fn, &rs, nke, e, m, mb, 0);
   SaveRMatrixCE(&rs, &rbs[0], &rmx[0], -1, fn, wt0);
   SMATRIX *smx = rs.smx;
