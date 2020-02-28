@@ -2497,6 +2497,7 @@ static PyObject *PExpectationValue(PyObject *self, PyObject *args) {
   }
 
   t = 1;
+  a = 0.0;
   if (!PyArg_ParseTuple(args, "ssO|di", &ifn, &ofn, &p, &a, &t)) return NULL;
   n = SelectLevels(p, &ilev);
   if (n > 0) {
