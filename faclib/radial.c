@@ -124,6 +124,7 @@ static int _refine_maxfun = 10000;
 static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
+static int _print_spm = 0;
 
 static struct {
   double stabilizer;
@@ -2147,6 +2148,44 @@ int GetPotential(char *s) {
     fprintf(f, "# %2d %2d\t%10.3E\n", acfg->n[i], acfg->kappa[i], acfg->nq[i]);
   }
   fprintf(f, "\n\n");
+  double *vxf = potential->VXF;
+  double *icf = potential->ICF;
+  if (_print_spm > 0) {
+    double *np;
+    if (_print_spm == 1) {
+      np = potential->EPS;
+    } else if (_print_spm == 2) {
+      np = potential->NPS;
+    } else {
+      np = _xk;
+      for (i = 0; i < potential->maxrp; i++) {
+	np[i] = potential->EPS[i]-potential->NPS[i];
+      }
+    }
+    double x;
+    j = potential->maxrp-1;
+    for (i = 0; i < j; i++) {
+      x = potential->rad[i];
+      _dwork[i] = x*x*np[i]*potential->dr_drho[i];
+    }
+    _dwork1[0] = (pow(potential->rad[0],3)/3.0)*np[0];
+    NewtonCotesIP(_dwork1, _dwork, 0, j, -1, 0);
+    for (i = 0; i <= j; i++) {
+      x = potential->rad[i];
+      _dwork[i] = x*np[i]*potential->dr_drho[i];
+    }
+    _dwork2[j] = 0.0;
+    NewtonCotesIP(_dwork2, _dwork, 0, j, -1, -1);
+    for (i = 0; i <= j; i++) {
+      _yk[i] = FOUR_PI*(_dwork1[i]/potential->rad[i]+_dwork2[i]);
+    }
+    x = _yk[0];
+    for (i = 0; i <= j; i++) {
+      _yk[i] -= x;
+    }
+    vxf = _yk;
+    icf = np;
+  }
   for (i = 0; i < potential->maxrp; i++) {
     fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 	    i, potential->rad[i], potential->Z[i],
@@ -2162,8 +2201,8 @@ int GetPotential(char *s) {
 	    potential->ZVP[i],
 	    potential->NPS[i],
 	    potential->EPS[i],
-	    potential->VXF[i],
-	    potential->ICF[i],
+	    vxf[i],
+	    icf[i],
 	    potential->ZPS[i]);
   }    
   fclose(f);    
@@ -10130,6 +10169,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:hxs")) {
     potential->hxs = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:print_spm")) {
+    _print_spm = ip;
     return;
   }
 }

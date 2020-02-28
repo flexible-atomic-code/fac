@@ -40,6 +40,7 @@ static int _rmx_acs = 1;
 static char _rmx_bfn[256] = "";
 static char _rmx_efn[256] = "";
 static int _rmx_pj = -1;
+static int _rmx_mpj = -1;
 static int _stark_amp = 0;
 static int _stark_nts = 0;
 static int _stark_pw = 0;
@@ -55,6 +56,19 @@ static double _rmx_fmaxe = 1.5;
 static int _minsp = 3;
 
 #pragma omp threadprivate(dcfg)
+
+int SkipSym(int pj) {
+  int i0, i1;
+  if (_rmx_pj < 0 && _rmx_mpj < 0) return 0;
+  i0 = 0;
+  if (_rmx_pj >= 0) i0 = _rmx_pj;
+  i1 = i0;
+  if (_rmx_mpj >= 0) i1 = _rmx_mpj;
+  else if (_rmx_mpj == -2) i1 = MAX_SYMMETRIES;
+  if (pj < i0) return 1;
+  if (pj > i1) return 1;
+  return 0;
+}
 
 void SetStarkIDs(char *ids) {
   char buf[8192];
@@ -1424,7 +1438,7 @@ int RMatrixSurface(char *fn) {
       for (i = 0; i < MAX_SYMMETRIES; i++) {
 	double wt0 = WallTime();
 	h = GetHamilton(i);
-	if (_rmx_pj >= 0 && i != _rmx_pj) {
+	if (SkipSym(i)) {
 	  AllocHamMem(h, -1, -1);
 	  AllocHamMem(h, 0, 0);
 	  hs[ibk][i].dim = 0;
@@ -2666,7 +2680,7 @@ void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   }
 
   for (m = 0; m < rmx->nsym; m++) {
-    if (_rmx_pj >= 0 && rmx->isym != _rmx_pj) continue;
+    if (SkipSym(rmx->isym)) continue;
     for (t = 0; t < _stark_idx.n; t++) {
       j = IdxGet(&rs->its, _stark_idx.d[t]);
       if (j < 0) continue;
@@ -2848,9 +2862,12 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   double **s = rs->s;
   double et, ek;
 
-  int *ik0 = IdxEgy(nke, rs->e, dcfg0.n0, dcfg0.eo);
-  int *ik1 = IdxEgy(rs->nes, rs->es, dcfg0.n0, dcfg0.eo);
-
+  int *ik0 = NULL;
+  int *ik1 = NULL;
+  if (dcfg0.n0 > 0 && dcfg0.eo) {
+    ik0 = IdxEgy(nke, rs->e, dcfg0.n0, dcfg0.eo);
+    ik1 = IdxEgy(rs->nes, rs->es, dcfg0.n0, dcfg0.eo);
+  }
   MPrintf(-1, "save collision strength: %d %11.4E %11.4E\n",
 	  rmx[0].nts, WallTime()-wt0, TotalSize());
   for (its0 = 0; its0 < rmx[0].nts; its0++) {
@@ -2932,9 +2949,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	  ilo = IdxGet(&rs->its, _stark_lower[ix]);
 	  if (ilo < 0) continue;
 	  for (is0 = 0; is0 < rmx[0].nsym; is0++) {
-	    if (smx[is0].nj[xup] == 0) continue;
+	    if (smx[is0].isym < 0 || smx[is0].nj[xup] == 0) continue;	    
 	    for (is1 = 0; is1 < rmx[0].nsym; is1++) {
-	      if (smx[is1].nj[xlo] == 0) continue;
+	      if (smx[is1].isym < 0 || smx[is1].nj[xlo] == 0) continue;
 	      int dj = (smx[is0].jmin[xup] - smx[is1].jmin[xlo])/2;
 	      //if (!Triangle(smx[is0].jj, smx[is1].jj, 2)) continue;		
 	      for (ika0 = 0; ika0 < smx[is0].nj[xup]; ika0++) {
@@ -3366,6 +3383,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   int nkw = 2*npw;
   if (_stark_idx.n > 0) {
     for (i = 0; i < rmx[0].nsym; i++) {
+      if (smx[i].isym < 0) continue;
       for (j = 0; j < _stark_idx.n; j++) {
 	if (smx[i].nj[j] <= 0) continue;
 	for (t = 0; t < smx[i].nk[j]; t++) {
@@ -3538,7 +3556,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   ns = rmx[0].nts*(rmx[0].nts+1)/2;
   smx = NULL;
   if (_stark_idx.n > 0) {
-    smx = malloc(sizeof(SMATRIX)*rmx[0].nsym*nke);
+    smx = malloc(sizeof(SMATRIX)*rmx[0].nsym);
   }
   
   npw = rbs[0].kmax-rbs[0].kmin+1;
@@ -3624,7 +3642,9 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	Abort(1);
       }
     }
-    if (_rmx_pj >= 0 && rmx[0].isym != _rmx_pj) continue;
+    smx[i].isym = -1;
+    smx[i].nj = NULL;
+    if (SkipSym(rmx[0].isym)) continue;
     DecodePJ(rmx[0].isym, &pp, &jj);
     if (_stark_idx.n > 0) {
       smx[i].pp = pp;
@@ -3898,6 +3918,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   if (onke == 0) return 0;
   if (_stark_idx.n > 0) {
     for (i = 0; i < rmx[0].nsym; i++) {
+      if (smx[i].isym < 0) continue;
       for (j = 0; j < _stark_idx.n; j++) {
 	if (smx[i].nj[j] <= 0) continue;
 	for (t = 0; t < smx[i].nk[j]; t++) {
@@ -3969,7 +3990,7 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
     WriteRMatrixSurface(f1, NULL, NULL, 0, 1, &rmx, NULL);
     for (i = 0; i < rmx.nsym; i++) {
       ReadRMatrixSurface(f0, &rmx, 1, 0);
-      if (_rmx_pj >= 0 && rmx.isym != _rmx_pj) continue;
+      if (SkipSym(rmx.isym)) continue;
       WriteRMatrixSurface(f1, NULL, NULL, 1, 1, &rmx, NULL);
     }
     ClearRMatrixSurface(&rmx);
@@ -3992,7 +4013,7 @@ int RMatrixConvert(char *ifn, char *ofn, int m) {
     WriteRMatrixSurface(f1, NULL, NULL, 0, 0, &rmx, NULL);
     for (i = 0; i < rmx.nsym; i++) {
       ReadRMatrixSurface(f0, &rmx, 1, 1);
-      if (_rmx_pj >= 0 && rmx.isym != _rmx_pj) continue;
+      if (SkipSym(rmx.isym)) continue;
       WriteRMatrixSurface(f1, NULL, NULL, 1, 0, &rmx, NULL);
     }
     ClearRMatrixSurface(&rmx);
@@ -4104,6 +4125,10 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:pj", s)) {
     _rmx_pj = ip;
+    return;
+  }
+  if (0 == strcmp("rmatrix:mpj", s)) {
+    _rmx_mpj = ip;
     return;
   }
   if (0 == strcmp("rmatrix:stark_ids", s)) {
