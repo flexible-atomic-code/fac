@@ -29,11 +29,13 @@ static RBASIS rbasis;
 static int ntg, *tg, nts, *ts;
 static int ncg, *cg, ncs, *cs;
 static DCFG dcfg, dcfg0;
-static int _nrefine=4;
+static int _nrefine=3;
 static int _refiter=1;
 static int _mrefine=16;
 static double _mineref=1e-8;
 static double _rrefine=0.25;
+static double _drefine=0.25;
+static int _nmaxryd=100;
 static int fmode;
 static int _rmx_dk = 3;
 static int _rmx_acs = 1;
@@ -51,7 +53,7 @@ static int _stark_eadj = 0;
 static int _gailitis_expni = 10;
 static double _gailitis_exprf = 2.0;
 static double _gailitis_exprt = 0.25;
-static int _rmx_isave = 1;
+static int _rmx_isave = 0;
 static double _rmx_fmaxe = 1.5;
 static int _minsp = 3;
 
@@ -3276,8 +3278,8 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
     if (f[i] == NULL) return -1;
     ReadRMatrixSurface(f[i], &(rmx[i]), 0, fmode);
   }
-  printf("maximum energy vs basis set max: %12.5E %12.5E\n",
-	 emax, ebmin*HARTREE_EV);  
+  printf("maximum energy vs basis set max: %12.5E %12.5E %12.5E\n",
+	 emax, ebmin*HARTREE_EV, rbs[np-1].rb1);  
   for (i = 0; i < nst; i++) {
     sde[i] /= HARTREE_EV;
   }
@@ -3460,38 +3462,55 @@ int RefineRMatrixEGrid(double **er, int idep,
   double *erp = malloc(sizeof(double)*nkr);
   double *e = rs->e;
   double **s = rs->s;
-  int t = 0;
+  double ds, ms, a;
+  int t = 0, i0 = 0, i1 = 0, i2 = 0;
   for (i = 0; i < nke-1; i++) {
+    double mde = 1e30;
+    for (j = 0; j < rmx->nts; j++) {
+      a = rmx->et[j] - (e[i]+rmx->et0);
+      if (a > 0) {
+	double z = Max(1.0,rmx->z);
+	ds = z*sqrt(0.5/a);
+	if (ds > _nmaxryd) ds = _nmaxryd;
+	ms = _drefine*z*z/(ds*ds*ds);
+	if (ms < mde) {
+	  mde = ms;
+	}
+      }
+    }
     rde = (e[i+1]-e[i])/nde;
     if (rde < _mineref) continue;
-    if (idep > 0) {
+    if (idep > 0 && rde < mde) {
       int ir = 0;
       for (k = 0; k < rmx->nts; k++) {
 	j = (k*(k+1))/2 + k;
-	double ds = fabs(s[j][i+1]-s[j][i]);
-	double ms = 0.5*fabs(s[j][i+1]+s[j][i])*_rrefine;
-	double a;
+	if (i == 0) {
+	  if (nke < 3) {
+	    ds = fabs(s[j][i+1]-s[j][i]);
+	    ms = 0.5*fabs(s[j][i+1]+s[j][i])*_rrefine;
+	    if (ds > ms) {
+	      ir = 1;
+	      break;
+	    } else {
+	      continue;
+	    }
+	  } else {
+	    i0 = 0;
+	    i1 = 1;
+	    i2 = 2;
+	  }
+	} else {
+	  i0 = i-1;
+	  i1 = i;
+	  i2 = i+1;
+	}
+	double f = (e[i1]-e[i0])/(e[i2]-e[i0]);
+	a = s[j][i0]*(1-f)+s[j][i2]*f;
+	ms = 0.3*fabs(s[j][i0]+s[j][i1]+s[j][i2])*_rrefine;
+	ds = fabs(a-s[j][i1]);
 	if (ds > ms) {
 	  ir = 1;
 	  break;
-	}
-	if (i > 0) {
-	  ds = fabs(s[j][i]-s[j][i-1]);	  
-	  a = (e[i+1]-e[i])/(e[i]-e[i-1]);
-	  ds *= Min(a,10.0);
-	  if (ds > ms) {
-	    ir = 1;
-	    break;
-	  }
-	}
-	if (i < nke-2) {
-	  ds = fabs(s[j][i+2]-s[j][i+1]);
-	  a = (e[i+1]-e[i])/(e[i+2]-e[i+1]);
-	  ds *= Min(a, 10.0);
-	  if (ds > ms) {
-	    ir = 1;
-	    break;
-	  }
 	}
       }    
       if (!ir) continue;
@@ -3907,7 +3926,18 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   rs->nke += nke;
   int n = RefineRMatrixEGrid(&er, idep, rs, rbs, rmx);
   if (n > 0) {
-    if (_rmx_isave) {
+    int isav = _rmx_isave;
+    if (!isav) {
+      char tfn[1024];
+      sprintf(tfn, "%s.trigger", fn);
+      FILE *tf = fopen(tfn, "r");
+      if (tf != NULL) {
+	isav = 1;
+	fclose(tf);
+	remove(tfn);
+      }
+    }
+    if (isav) {
       SaveRMatrixCE(rs, rbs, rmx, idep, fn, wt00);
     }
     InitDCFG(0, rmx[0].nts, rbs[0].nkappa, n, er, 0, NULL);
@@ -4097,6 +4127,14 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:rrefine", s)) {
     _rrefine = dp;
+    return;
+  }
+  if (0 == strcmp("rmatrix:drefine", s)) {
+    _drefine = dp;
+    return;
+  }
+  if (0 == strcmp("rmatrix:nmaxryd", s)) {
+    _nmaxryd = ip;
     return;
   }
   if (0 == strcmp("rmatrix:fmaxe", s)) {

@@ -125,6 +125,7 @@ static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
 static int _print_spm = 0;
+static int _slater_kmax = -1;
 
 static struct {
   double stabilizer;
@@ -5686,7 +5687,11 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   k2 = ks[2];
   k3 = ks[3];
   kk = k/2;
-
+  if (_slater_kmax >= 0 && kk > _slater_kmax) {
+    if (sd) *sd = 0.0;
+    if (se) *se = 0.0;
+    return 0;
+  }
   maxn = 0;
   minn = 1000000;
   orb0 = GetOrbitalSolved(k0);
@@ -10173,6 +10178,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:print_spm")) {
     _print_spm = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:slater_kmax")) {
+    _slater_kmax = ip;
     return;
   }
 }
