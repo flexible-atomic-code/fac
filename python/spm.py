@@ -779,7 +779,7 @@ def spectrum(neles, temp, den, population, pref,
                 LevelPopulation()
                 Cascade()
                 for dtp in range(6):
-                    DumpRates('%s%d'%(dp_afile,dtp), k, dtp, -1, 1)
+                    DumpRates('%s%d'%(dp_afile,dtp), -1, dtp, -1, 1)
                 RateTable(rt_file, rate)
                 SpecTable(sp_file, rrc)
                 if iprint:
