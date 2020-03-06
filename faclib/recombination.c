@@ -2575,6 +2575,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       ai_hdr1.egrid = egrid;
       InitFile(f, &fhdr, &ai_hdr1);
     }
+    ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t, rt)
     {
     for (i = 0; i < nlow; i++) {
@@ -2583,12 +2584,12 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       for (j = 0; j < nup; j++) {
 	int iup = up[j];
 	lev2 = GetLevel(iup);	
+	int skip = SkipMPI();
+	if (skip) continue;
 	e = lev1->energy - lev2->energy;
 	if (e < 0 && lev1->ibase != iup) e -= eref;
 	if (e < e0 || e >= e1) continue;
 	
-	int skip = SkipMPI();
-	if (skip) continue;
 	if (!msub) {
 	  if (iuta) {
 	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
