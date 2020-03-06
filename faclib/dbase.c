@@ -2124,7 +2124,6 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
 
 #pragma omp atomic
   ai_header.length += m;
-
   return m;
 }
 
