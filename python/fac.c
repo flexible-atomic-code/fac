@@ -1207,6 +1207,18 @@ static PyObject *PSetMixCut(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PNucleusRadius(PyObject *self, PyObject *args) {
+  double z, m;
+  int md;
+
+  m = -1.0;
+  md = 0;
+  if (!PyArg_ParseTuple(args, "d|di", &z, &m, &md))
+    return NULL;
+  double r = NucleusRadius(z, m, md);
+  return Py_BuildValue("d", r);
+}
+
 /** coeff. of fractional parentage **/
 static PyObject *PGetCFPOld(PyObject *self, PyObject *args) {
   int j2, q, dj, dw, pj, pw;
@@ -6146,6 +6158,26 @@ static PyObject *PRecoupleRO(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetCXLDist(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetCXLDist", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  PyObject *p;
+  if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
+  double *w;
+  int n = DoubleFromList(p, &w);
+  SetCXLDist(n, w);
+  if (n > 0) {
+    free(w);
+  }
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("PlasmaScreen", args, NULL);
@@ -6408,6 +6440,8 @@ static struct PyMethodDef fac_methods[] = {
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
   {"MultipoleCoeff", PMultipoleCoeff, METH_VARARGS},
+  {"NucleusRadius", PNucleusRadius, METH_VARARGS},
+  {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {NULL, NULL}
 };
 

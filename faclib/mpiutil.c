@@ -33,6 +33,8 @@ static double _tlock = 0, _tskip = 0;
 static long long _nlock = 0;
 #pragma omp threadprivate(mpi,_tlock,_tskip, _nlock)
 
+static double _cxldist[100];
+
 void SetProcID(int id) {
   _procid = id;
 }
@@ -726,6 +728,24 @@ void PtrSort(int n, char **r, int *k) {
   free(rid);
 }
 
+void SetCXLDist(int n, double *w) {
+  int i;
+  double a = 0.0;
+  for (i = 0; i < 100; i++) {
+    if (i < n) {
+      _cxldist[i] = w[i];
+      a += w[i];
+    } else {
+      _cxldist[i] = 0.0;
+    }
+  }
+  if (a > 0) {
+    for (i = 0; i < n; i++) {
+      _cxldist[i] /= a;
+    }
+  }
+}
+
 double LDist(double *lnfac, int n, int k, int q, int md) {
   double t;
   int k1;
@@ -746,13 +766,19 @@ double LDist(double *lnfac, int n, int k, int q, int md) {
     if (k == n-1) return 0.0;
     if (k1 == 1) return LDist(lnfac, n, k, q, 1) + LDist(lnfac, n, 0, q, 1);
     return LDist(lnfac, n, k, q, 1);
+  case 10:
+    if (k < 100) {
+      return _cxldist[k];
+    } else {
+      return 0.0;
+    }    
   default:
     if (md >= 100) {
       if (k == md-100) return 1.0;
       else return 0.0;
     } else if (md < 0) {
       if (md == -1) return 1.0/n;
-      double p = 1.0/(-md);
+      double p = 1.0/((-md)/pow(10,(int)log10(-md)));
       t = (1-pow(p,n))/(1-p);
       if (k == 0) return 1.0/t;
       else if (k == 1) return p/t;

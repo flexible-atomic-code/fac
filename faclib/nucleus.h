@@ -62,6 +62,6 @@ int SetCXTarget(char *s, double a, double b, double e, double x,
 		double z, double m);
 CXTGT *GetCXTarget(void);
 void PrintCXTarget(char *fn);
-
+double NucleusRadius(double z, double m, int md);
 #endif
 

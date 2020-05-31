@@ -5130,6 +5130,18 @@ static int PRRCrossHn(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetCXLDist(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int n;
+  double *w;
+  n = DoubleFromList(argv[0], argt[0], variables, &w);
+  SetCXLDist(n, w);
+  if (n > 0) {
+    free(w);
+  }
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5343,6 +5355,7 @@ static METHOD methods[] = {
   {"TotalRRCross", PTotalRRCross, METH_VARARGS}, 
   {"TotalPICross", PTotalPICross, METH_VARARGS}, 
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
+  {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

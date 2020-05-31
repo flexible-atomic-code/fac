@@ -134,6 +134,88 @@ def read_lev(filename):
 def read_en(filename):
     return read_lev(filename)
 
+def read_enf(filename):
+    """ read en file with B&E """
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    header, lines = _get_header(lines)
+    header['NBlocks'] = _read_value(lines, int)
+    lines = lines[1:]
+
+    def read_blocks(lines):
+        block = {}
+        block['NELE'], lines = _read_value(lines, int)
+        nlev, lines = _read_value(lines, int)
+        block['EFIELD'], lines = _read_value(lines, float)
+        block['BFIELD'], lines = _read_value(lines, float)
+        block['FANGLE'], lines = _read_value(lines, float)
+        lines = lines[1:]
+        block['ilev'] = np.zeros(nlev, dtype=int)
+        block['energy'] = np.zeros(nlev, dtype=float)
+        block['pbasis'] = np.zeros(nlev, dtype=int)
+        block['mbasis'] = np.zeros(nlev, dtype=int)
+        for i, line in enumerate(lines):
+            if line.strip() == '':  # if empty
+                blocks = read_blocks(lines[i+1:])
+                return (block, ) + blocks
+            block['ilev'][i] = int(line[:6])
+            block['energy'][i] = float(line[6:29])
+            block['pbasis'][i] = int(line[29:36])
+            block['mbasis'][i] = int(line[36:41])
+        return (block, )
+
+    return header, read_blocks(lines)
+
+def read_trf(filename):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    header, lines = _get_header(lines)
+    header['Nblocks'] = _read_value(lines, int)
+    lines = lines[1:]
+
+    def read_blocks(lines):
+        block = {}
+        block['NELE'], lines = _read_value(lines, int)
+        ntrans, lines = _read_value(lines, int)
+        block['MULTIP'], lines = _read_value(lines, int)
+        block['GAUGE'], lines = _read_value(lines, int)
+        block['MODE'], lines = _read_value(lines, int)
+        block['EFIELD'], lines = _read_value(lines, float)
+        block['BFIELD'], lines = _read_value(lines, float)
+        block['FANGLE'], lines = _read_value(lines, float)
+
+        block['upper_index'] = np.zeros(ntrans, dtype=int)
+        block['lower_index'] = np.zeros(ntrans, dtype=int)
+        block['upper_pbasis'] = np.zeros(ntrans, dtype=int)
+        block['lower_pbasis'] = np.zeros(ntrans, dtype=int)
+        block['upper_mbasis'] = np.zeros(ntrans, dtype=int)
+        block['lower_mbasis'] = np.zeros(ntrans, dtype=int)
+        block['energy'] = np.zeros(ntrans, dtype=float)
+        block['rate'] = np.zeros(ntrans, dtype=float)
+        nm = 2*abs(block['MULTIP'])+1
+        block['mrate'] = np.zeros((ntrans,nm), dtype=float)
+        j = 0
+        for i, line in enumerate(lines):
+            if line.strip() == '':  # if empty
+                blocks = read_blocks(lines[i+1:])
+                return (block, ) + blocks
+            im = i%nm
+            block['mrate'][j,im] = float(line[66:80])
+            if im != nm-1:
+                continue
+            block['upper_index'][j] = int(line[:6])
+            block['upper_pbasis'][j] = int(line[6:13])
+            block['upper_mbasis'][j] = int(line[13:17])
+            block['lower_index'][j] = int(line[17:24])
+            block['lower_pbasis'][j] = int(line[24:31])
+            block['lower_mbasis'][j] = int(line[31:35])
+            block['energy'][j] = float(line[38:52])
+            block['rate'][j] = float(line[94:108])
+            j += 1
+            
+        return (block, )
+
+    return header, read_blocks(lines)
 
 def read_tr(filename):
     """ read *a.tr file. """
@@ -178,7 +260,6 @@ def read_tr(filename):
         return (block, )
 
     return header, read_blocks(lines)
-
 
 def read_ai(filename):
     """ read *a.ai file. """

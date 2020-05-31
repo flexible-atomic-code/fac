@@ -327,4 +327,7 @@
 /* polarization */
 #define MAXPOL             4 /* maximum multipol for polarization */
 
+/* crm */
+#define WCOEF 6.578404314465e-16 //convert rate to fwhm in eV = hbar
+
 #endif
