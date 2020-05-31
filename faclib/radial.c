@@ -9049,7 +9049,7 @@ void ElectronDensity(char *ofn, int n, int *ilev, int t) {
       if (_dwork15[m]) break;
     }
     for (k = 0; k <= m; k++) {
-      _dwork15[m] *= a;
+      _dwork15[k] *= a;
     }
     Differential(_dwork15, _dwork14, 0, m, potential);
     double a0, a1;

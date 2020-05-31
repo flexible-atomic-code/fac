@@ -28,7 +28,6 @@ USE (rcsid);
 #endif
 
 #define NRTB 8192
-#define WCOEF 6.58e-16
 
 static IONIZED ion0;
 static ARRAY *ions;

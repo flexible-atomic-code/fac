@@ -1391,6 +1391,35 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
   return 0;
 }
 
+double NucleusRadius(double z, double m, int md) {
+  int iz = (int)(z-0.5);
+  double m0 = _emass[iz];
+  if (m < 0) m = m0;
+  double r;
+  double r0 = 0.570 + 0.836*pow(m0,0.3333333);
+  if (md >= -1) {
+    r = NucleusRRMS(z);
+  } else if (md >= -3) {
+    r = GraspRRMS(z, m0);
+    if (r <= 0) {
+      if (md == -2) {
+	r = NucleusRRMS(z);
+      } else {
+	r = r0;
+      }
+    }
+  } else {
+    r = _arrms[iz];
+    if (r <= 0) {
+      r = NucleusRRMS(z);
+    }
+  }
+  if (m > 0 && m != m0) {
+    r += 0.836*(pow(m, 0.3333333)-pow(m0, 0.3333333));
+  }
+  return r;
+}
+  
 NUCLEUS *GetAtomicNucleus() {
   return &atom;
 }

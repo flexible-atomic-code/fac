@@ -85,6 +85,10 @@ static double _mcoll = 0;
 static double _emin_amp = 0.05;
 static double _sturm_rmx = 10.0;
 
+static double _enerelerr = ENERELERR;
+static double _eneabserr = ENEABSERR;
+static double _enerelerr1 = ENERELERR1;
+
 static double _wk_q[16] = {2.09400223235,
 			   1.42425723499,
 			   0.76419630941,
@@ -239,10 +243,10 @@ void SetOrbitalWorkSpace(double *p, int n) {
  
 double EneTol(double e) {
   e = fabs(e);
-  double d0 = e*ENERELERR;
-  if (d0 > ENEABSERR) {
-    d0 = e*ENERELERR1;
-    d0 = Max(ENEABSERR, d0);
+  double d0 = e*_enerelerr;
+  if (d0 > _eneabserr) {
+    d0 = e*_enerelerr1;
+    d0 = Max(_eneabserr, d0);
   }
   return d0;
 }
@@ -5279,6 +5283,18 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:maxiter")) {
     max_iteration = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:enerelerr")) {
+    _enerelerr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:enerelerr1")) {
+    _enerelerr1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:eneabserr")) {
+    _eneabserr = dp;
     return;
   }
 }

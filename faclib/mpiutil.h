@@ -102,4 +102,6 @@ int ProcID(void);
 double LDist(double *lnfac, int n, int k, int q, int m);
 double LandauZenerLD(double *lnfac, int n, int k, int q,
 		     double j, int ldm, double mj);
+void SetCXLDist(int n, double *w);
+
 #endif

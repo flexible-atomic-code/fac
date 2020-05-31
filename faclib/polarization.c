@@ -43,6 +43,7 @@ static MAI *ai_rates=NULL;
 static int nci = 0;
 static MCI *ci_rates=NULL;
 
+static int _coronal = 0;
 static int max_iter = 512;
 static double iter_accuracy = EPS3;
 static double iter_stabilizer = 0.8;
@@ -943,7 +944,7 @@ static double Population(int iter) {
   }
   if (maxlevels > 0) nmax = maxlevels;
   else nmax = nlevels;
- 
+      
   if (iter > 0) {
     for (i = 0; i < nlevels; i++) {
       p = levels[i].ic;
@@ -1170,7 +1171,7 @@ static double Population(int iter) {
       }
     }  
     }
-    
+
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, q1, q2, m1, m2, a, p)
     {
@@ -1306,11 +1307,13 @@ static double Population(int iter) {
     if (_im >= 0 && _im < nmlevels1) {
       b[_im] = _nm;
     }
+    /*
     for (q1 = 0; q1 < nmlevels; q1++) {
       for (q2 = 0; q2 < nmlevels; q2++) {
 	p = q2*nmlevels+q1;
       }
     }
+    */
   } else {
     q1 = levels[idr].ic;
     q2 = levels[idr].ic + (levels[idr].j/2 + 1);
@@ -1371,7 +1374,17 @@ static double Population(int iter) {
   c = 0.0;
   nm = 0;
   if (nlevels > nmax) {
+    int ip0 = -1, im0 = -1, ii0 = -1;
     for (i = 0; i < nmax; i++) {
+      if (ip0 < 0 && _nep > 0 && levels[i].nele == _nep) {
+	ip0 = i;
+      }
+      if (im0 < 0 && _nem > 0 && levels[i].nele == _nem) {
+	im0 = i;
+      }
+      if (ii0 < 0 && _ne0 > 0 && levels[i].nele == _ne0) {
+	ii0 = i;
+      }
       p = levels[i].ic;
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
@@ -1385,34 +1398,63 @@ static double Population(int iter) {
       }
     }
     for (i = nmax; i < nlevels; i++) {
+      if (ip0 < 0 && _nep > 0 && levels[i].nele == _nep) {
+	ip0 = i;
+      }
+      if (im0 < 0 && _nem > 0 && levels[i].nele == _nem) {
+	im0 = i;
+      }
+      if (ii0 < 0 && _ne0 > 0 && levels[i].nele == _ne0) {
+	ii0 = i;
+      }
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	t = (m1+j1)/2;
-	levels[i].npop[t] = 0.0;
+	if (_np > 0 && ip0 == i) {
+	  levels[i].npop[t] = _np/(j1+1.0);
+	  if (m1 != 0) {
+	    levels[i].npop[t] *= 2;
+	  }
+	  levels[i].pop[t] = levels[i].npop[t];
+	} else if (_nm > 0 && im0 == i) {
+	  levels[i].npop[t] = _nm/(j1+1.0);
+	  if (m1 != 0) {
+	    levels[i].npop[t] *= 2;
+	  }
+	  levels[i].pop[t] = levels[i].npop[t];
+	} else {
+	  levels[i].npop[t] = 0.0;
+	}
       }
     }
 
     //wt7 = WallTime();
-    ResetWidMPI();
+    int relax_cas = _ip == nmlevels1 || _im == nmlevels1;
+    if (relax_cas) {
+      c = 0.0;
+    }
+    if (_coronal < 2) {
+      ResetWidMPI();
 #pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
-    {
-    int w = 0;
-    for (i = ntr-1; i >= 0; i--) {
-      if (SkipWMPI(w++)) continue;
-      i1 = tr_rates[i].lower;
-      if (i1 < nmax) continue;
-      i2 = tr_rates[i].upper;
-      j1 = levels[i1].j;
-      j2 = levels[i2].j;
-      t = 0;
-      for (m1 = -j1; m1 <= 0; m1 += 2) {
-	for (m2 = -j2; m2 <= 0; m2 += 2) {
-	  a = levels[i2].pop[(m2+j2)/2]*tr_rates[i].rates[t++];
+      {
+	int w = 0;
+	for (i = ntr-1; i >= 0; i--) {
+	  if (SkipWMPI(w++)) continue;
+	  i1 = tr_rates[i].lower;
+	  if (!relax_cas &&  i1 < nmax) continue;
+	  i2 = tr_rates[i].upper;
+	  j1 = levels[i1].j;
+	  j2 = levels[i2].j;
+	  t = 0;
+	  for (m1 = -j1; m1 <= 0; m1 += 2) {
+	    for (m2 = -j2; m2 <= 0; m2 += 2) {
+	      a = levels[i2].pop[(m2+j2)/2]*tr_rates[i].rates[t++];
 #pragma omp atomic
-	  levels[i1].npop[(m1+j1)/2] += a;
+	      levels[i1].npop[(m1+j1)/2] += a;
+	    }
+	  }
 	}
       }
-    }
     }
     //wt8 = WallTime();
     ResetWidMPI();
@@ -1423,19 +1465,19 @@ static double Population(int iter) {
       if (SkipWMPI(w++)) continue;
       i1 = ai_rates[i].b;
       i2 = ai_rates[i].f;
-      if (i1 < nmax && i2 < nmax) continue;
+      if (!relax_cas && i1 < nmax && i2 < nmax) continue;
       j1 = levels[i1].j;
       j2 = levels[i2].j;
       t = 0;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
-	  if (i2 >= nmax) {
+	  if (relax_cas || i2 >= nmax) {
 	    a = levels[i1].pop[(m1+j1)/2]*ai_rates[i].rates[t];
 #pragma omp atomic
 	    levels[i2].npop[(m2+j2)/2] += a;
 	  }
 	  t++;
-	  if (i1 >= nmax) {
+	  if (relax_cas || i1 >= nmax) {
 	    a = levels[i2].pop[(m2+j2)/2]*eden*ai_rates[i].rates[t];
 #pragma omp atomic
 	    levels[i1].npop[(m1+j1)/2] += a;
@@ -1455,19 +1497,20 @@ static double Population(int iter) {
       if (SkipWMPI(w++)) continue;
       i1 = ce_rates[i].lower;
       i2 = ce_rates[i].upper;
-      if (i1 < nmax && i2 < nmax) continue;
+      if (!relax_cas && i1 < nmax && i2 < nmax) continue;
+      if (_coronal && i1 >= nmax) continue;
       j1 = levels[i1].j;
       j2 = levels[i2].j;
       t = 0;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	for (m2 = -j2; m2 <= 0; m2 += 2) {
-	  if (i2 >= nmax) {
+	  if (relax_cas || i2 >= nmax) {
 	    a = levels[i1].pop[(m1+j1)/2]*eden*ce_rates[i].rates[t];
 #pragma omp atomic
 	    levels[i2].npop[(m2+j2)/2] += a;
 	  }
 	  t++;
-	  if (i1 >= nmax) {
+	  if (relax_cas || i1 >= nmax) {
 	    a = levels[i2].pop[(m2+j2)/2]*eden*ce_rates[i].rates[t];
 #pragma omp atomic
 	    levels[i1].npop[(m1+j1)/2] += a;
@@ -1477,28 +1520,65 @@ static double Population(int iter) {
       }
     }
     }
-    //wt10 = WallTime();
+    
     ResetWidMPI();
-#pragma omp parallel default(shared) private(i, j1, m1, t)
+#pragma omp parallel default(shared) private(i, i1, i2, j1, j2, t, m1, m2, a)
     {
     int w = 0;
-    for (i = nmax; i < nlevels; i++) {
+    for (i = nci-1; i >= 0; i--) {
+      if (SkipWMPI(w++)) continue;
+      i1 = ci_rates[i].b;
+      i2 = ci_rates[i].f;
+      if (!relax_cas && i1 < nmax && i2 < nmax) continue;
+      j1 = levels[i1].j;
+      j2 = levels[i2].j;
+      t = 0;
+      for (m1 = -j1; m1 <= 0; m1 += 2) {
+	for (m2 = -j2; m2 <= 0; m2 += 2) {
+	  if (relax_cas || i2 >= nmax) {
+	    a = levels[i1].pop[(m1+j1)/2]*eden*ci_rates[i].rates[t];
+#pragma omp atomic
+	    levels[i2].npop[(m2+j2)/2] += a;
+	  }
+	  t++;
+	}
+      }
+    }
+    }
+    
+    //wt10 = WallTime();
+    ResetWidMPI();
+    int ist = nmax;
+    if (relax_cas) ist = 0;
+#pragma omp parallel default(shared) private(i, j1, m1, t)
+    {
+    int w = 0;    
+    for (i = ist; i < nlevels; i++) {
       if (SkipWMPI(w++)) continue;
       j1 = levels[i].j;
       for (m1 = -j1; m1 <= 0; m1 += 2) {
 	t = (m1+j1)/2;
-	if (levels[i].rtotal[t]) {
-	  levels[i].npop[t] = levels[i].npop[t]/levels[i].rtotal[t];
-	} else {
-	  levels[i].npop[t] = 0.0;
-	}
-	if (levels[i].npop[t]) {
+	int withnp = 0;
+	if ( i != ip0 && i != im0 && i != ii0) {
+	  if (levels[i].rtotal[t]) {
+	    levels[i].npop[t] = levels[i].npop[t]/levels[i].rtotal[t];
+	    withnp = 1;
+	  } else {
+	    levels[i].npop[t] = 0.0;
+	  }
+	} 
+
+	if (withnp) {
+	  if (levels[i].npop[t]) {
+	    double dp;
+	    dp = fabs((levels[i].npop[t]-levels[i].pop0[t])/levels[i].npop[t]);
 #pragma omp atomic
-	  c += fabs((levels[i].npop[t]-levels[i].pop[t])/levels[i].npop[t]);
+	    c += dp;
 #pragma omp atomic
-	  nm++;
+	    nm++;
+	  }
+	  levels[i].pop[t] = levels[i].npop[t];
 	}
-	levels[i].pop[t] = levels[i].npop[t];
       }
     }
     }    
@@ -1611,7 +1691,7 @@ int PopulationTable(char *fn) {
   fprintf(f, "\n");
   for (i = 0; i < nlevels; i++) {
     j1 = levels[i].j;
-    fprintf(f, "%7d\t%12.5E\n", i, levels[i].dtotal);
+    fprintf(f, "%9d\t%15.8E\n", i, levels[i].dtotal);
     p = levels[i].ic;
     for (m1 = -j1; m1 <= 0; m1 += 2) {
       t = (m1+j1)/2;
@@ -1621,7 +1701,7 @@ int PopulationTable(char *fn) {
       } else {
 	c = 0.0;
       }
-      fprintf(f, "%3d %3d\t%12.5E\n", p, -m1, c);
+      fprintf(f, "%5d %3d\t%15.8E\n", p, -m1, c);
       p++;
     }
     fprintf(f, "\n");
@@ -1721,6 +1801,7 @@ int Orientation(char *fn, double etrans) {
     }
   }
 
+  ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j1, k, k2, m1, t, b, a)  
   {
   int w = 0;
@@ -2073,6 +2154,12 @@ void SetOptionPolarization(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "pol:nm")) {
     _nm = dp;
+    return;
+  }
+  if (0 == strcmp(s, "pol:coronal")) {
+    _coronal = ip;
+    if (_coronal > 0) maxlevels = 1;
+    else maxlevels = 0;
     return;
   }
 }

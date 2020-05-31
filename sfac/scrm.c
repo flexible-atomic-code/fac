@@ -990,6 +990,18 @@ static int PSetOption(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetCXLDist(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+  int n;
+  double *w;
+  n = DoubleFromList(argv[0], argt[0], variables, &w);
+  SetCXLDist(n, w);
+  if (n > 0) {
+    free(w);
+  }
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1054,6 +1066,7 @@ static METHOD methods[] = {
   {"ReadKronos", PReadKronos, METH_VARARGS},
   {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
+  {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 
