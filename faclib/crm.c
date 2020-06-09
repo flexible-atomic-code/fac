@@ -7899,7 +7899,7 @@ void InterpSpecWF(char *fn, int nele, int type, int nmin, int nmax,
   }
   InterpSpec(nele, type, nmin, nmax, c, d, t, s, n, x, y);
   for (i = 0; i < n; i++) {
-    fprintf(f, "%12.5E %12.5E\n", x[i], y[i]);
+    fprintf(f, "%17.10E %17.10E\n", x[i], y[i]);
   }
   fclose(f);
   free(x);
