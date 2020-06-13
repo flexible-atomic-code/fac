@@ -1351,7 +1351,7 @@ int SetBlocks(double ni, char *ifn) {
 	}
 	ion->vni[p] = VNIFromSName(r.sname);
 	ion->ibase[p] = IBaseFromENRecord(&r);
-	if (ion->ibase[p] < 0) {
+	if (ion->ibase[p] < 0 && ion->iground >= 0) {
 	  if (ion->nele == 2) {
 	    if (r.ncomplex[0] == '1' && r.ncomplex[1] == '*') {
 	      ion->ibase[p] = ion->iground;
@@ -5191,7 +5191,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
     }
   } else {
     i = irb[ib->ib][fb->ib];
-    if (i > 0 && i < rts->dim) {
+    if (i >= 0 && i < rts->dim) {
       brt = (BLK_RATE *) ArrayGet(rts, i);
     } else {
       brt = NULL;
