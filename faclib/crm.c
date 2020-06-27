@@ -3822,6 +3822,7 @@ int BlockPopulation(int miter) {
 	}
       } else {
 	blk->nb = b[p++];
+	if (blk->nb < 0) blk->nb = 0.0;
       }
     }
 
@@ -4143,7 +4144,7 @@ double BlockRelaxation(int iter) {
       if (blk1->rec) continue;
     }
     double tbr = fabs(bmatrix[k*blocks->dim+k]);
-    if (blk1->nlevels == 1) {
+    if (blk1->nlevels == 1 && blk1->nb) {
       blk1->r[0] = 1.0;      
       a = blk1->nb;      
       bd += fabs(a-blk1->n0[0])*tbr;
