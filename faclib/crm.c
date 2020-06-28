@@ -1098,10 +1098,10 @@ int SetBlocks(double ni, char *ifn) {
 	  r1 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*nr1);
 	  nilev = FindLevelBlock(h.nlevels, r0, nr1, r1, ion->nele-1, ifn); 
 	  if (nilev <= 0) {
-	    printf("ERROR: Ionized block %d of ion %d ", nb, ion->nele);
+	    printf("Ionized block %d of ion %d ", nb, ion->nele);
 	    printf("does not match a block in file %s\n", ifn);
 	    printf("nlevels = %d VS %d\n", h.nlevels, nilev);
-	    Abort(1);
+	    //Abort(1);
 	  }
 	}
 	if (k > 0) {
