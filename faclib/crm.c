@@ -35,6 +35,8 @@ static ARRAY *blocks;
 static double *bmatrix = NULL;
 
 static int n_single_blocks = 64;
+static int _sbnmax1 = 0;
+static int _sbnmax2 = 0;
 
 static int rec_cascade = 0;
 static double cas_accuracy = EPS4;
@@ -891,6 +893,18 @@ void LoadSW(ION *ion) {
   fclose(f);
 }
 
+int SingleLevelBlock(int i, int nb, int nmx, int qmx) {
+  if (n_single_blocks == 0) return 1;
+  if (n_single_blocks < 0 && nb < -n_single_blocks) return 2;
+  if (qmx == 1 && nmx <= _sbnmax1) return 3;
+  if (qmx > 1 && nmx <= _sbnmax2) return 4;
+  if (nb == 0) {
+    if (i < n_single_blocks) return 5;
+    if (i == n_single_blocks) return -1;
+  }
+  return 0;
+}
+
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
@@ -906,7 +920,7 @@ int SetBlocks(double ni, char *ifn) {
   int n, i, k, nb, nb0, nlevels;
   char *fn;
   int p, q = -1;
-  int nionized, n0;
+  int nionized, n0, imx, nmx, qmx, isb;
   int swp, sfh;
   int s3nk[10000];
 
@@ -1118,19 +1132,18 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.nlevels = 0;
 	  blkp = NULL;
 	  for (i = 0; i < h.nlevels; i++) {
-	    GetNComplex(ncomplex, r0[i].ncomplex);
-	    if (n_single_blocks == 0 || 
-		(n_single_blocks < 0 && nb0 < -n_single_blocks) ||
-		(nb0 == 0 && i <= n_single_blocks)) {
+	    imx = GetNComplex(ncomplex, r0[i].ncomplex)-1;
+	    nmx = ncomplex[imx].n;
+	    qmx = ncomplex[imx].nq;
+	    isb = SingleLevelBlock(i, nb0, nmx, qmx);
+	    if (isb != 0) {
 	      nlevels = 0;
 	      blk.ib = blocks->dim;
 	      blk.iion = -1;
 	      blk.irec = -1;
 	      blk.ionized = 1;
 	      blk.rec = NULL;
-	      if (n_single_blocks == 0 ||
-		  (n_single_blocks < 0 && nb0 < -n_single_blocks)
-		  || i < n_single_blocks) {
+	      if (isb > 0) {
 		blk.nlevels = 1;
 	      } else {
 		blk.nlevels = h.nlevels - n_single_blocks;
@@ -1241,19 +1254,18 @@ int SetBlocks(double ni, char *ifn) {
       nlevels = 0;
       for (i = 0; i < h.nlevels; i++) {
 	n = ReadENRecord(f, &r, swp);
-	GetNComplex(ncomplex, r.ncomplex);
-	if (n_single_blocks == 0 || 
-	    (n_single_blocks < 0 && nb < -n_single_blocks) ||
-	    (nb == 0 && i <= n_single_blocks)) {
+	imx = GetNComplex(ncomplex, r.ncomplex)-1;
+	nmx = ncomplex[imx].n;
+	qmx = ncomplex[imx].nq;
+	isb = SingleLevelBlock(i, nb, nmx, qmx);
+	if (isb != 0) {
 	  nlevels = 0;
 	  blk.ib = blocks->dim;
 	  blk.iion = k;
 	  blk.irec = -1;
 	  blk.ionized = 0;
 	  blk.rec = NULL;
-	  if (n_single_blocks == 0 ||
-	      (n_single_blocks < 0 && nb < -n_single_blocks)
-	      || i < n_single_blocks) {
+	  if (isb > 0) {
 	    blk.nlevels = 1;
 	  } else {
 	    blk.nlevels = h.nlevels - n_single_blocks;
@@ -1716,9 +1728,10 @@ int GetNComplex(NCOMPLEX *c, char *s) {
     }
     n = strtol(s, &p, 10);
     if (n == 0) {
-      for (; i < MAXNCOMPLEX; i++) {
-	c[i].n = 0;
-	c[i].nq = 0;
+      int j;
+      for (j = i; j < MAXNCOMPLEX; j++) {
+	c[j].n = 0;
+	c[j].nq = 0;
       }
       return i;
     }
@@ -1729,6 +1742,7 @@ int GetNComplex(NCOMPLEX *c, char *s) {
     s = p;
     i++;
   }
+  return i;
 }
 
 int StrNComplex(char *s, NCOMPLEX *c) {
@@ -7728,6 +7742,14 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:itol_nmax")) {
     _itol_nmax = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:sbnmax1")) {
+    _sbnmax1 = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:sbnmax2")) {
+    _sbnmax2 = ip;
     return;
   }
   if (0 == strcmp(s, "crm:silent")) {
