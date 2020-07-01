@@ -8508,7 +8508,7 @@ void ConvLineRec(int n, double *x, double *y,
 void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax) {
   if (_interpsp.r[id0][it0].nele == nele &&
-      _interpsp.r[id0][it0].type == type &&
+      (type < 0 || _interpsp.r[id0][it0].type == type) &&
       _interpsp.r[id0][it0].nmin == nmin &&
       _interpsp.r[id0][it0].nmax == nmax) return;
   int i, j;
@@ -8554,6 +8554,20 @@ void LoadLineRec(int id0, int it0, int nele,
   rx.sdev = 0.0;
   double smax = 0.0;
   int nb, n, r0, r1, nr, imin, imax, nlev;
+  int ilo0, ilo1, iup0, iup1;
+  if (type < 0) {
+    ilo0 = nmin%10000;
+    ilo1 = nmin/10000;
+    iup0 = nmax%10000;
+    iup1 = nmax%10000;
+    if (ilo1 == 0) ilo1 = ilo0;
+    if (iup1 == 0) iup1 = iup0;
+  } else {
+    ilo0 = -1;
+    ilo1 = -1;
+    iup0 = -1;
+    iup1 = -1;
+  }
   nr = 0;
   nlev = 0;
   imin = -1;
@@ -8563,7 +8577,7 @@ void LoadLineRec(int id0, int it0, int nele,
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND0;
-    if (h.type != 0) {
+    if (h.type > 0 && type > 0) {
       r1 = h.type / 10000;
       r0 = h.type % 10000;
       if (r0 != type) goto LOOPEND0;
@@ -8581,6 +8595,10 @@ void LoadLineRec(int id0, int it0, int nele,
 	  imax = r.upper;
 	}
       } else {
+	if (type < 0) {
+	  if (r.lower < ilo0 || r.lower > ilo1) continue;
+	  if (r.upper < iup0 || r.upper > iup1) continue;
+	}
 	if (r.strength < smax*_interpsp.smin) continue;
 	if (r.strength > smax) smax = r.strength;
 	nr++;
@@ -8616,8 +8634,8 @@ void LoadLineRec(int id0, int it0, int nele,
     n = ReadSPHeader(f1, &h, swp);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
-    if (h.type != 0) {
-      if (h.nele != nele) goto LOOPEND;
+    if (h.nele != nele) goto LOOPEND;
+    if (h.type > 0 && type > 0) {
       r1 = h.type / 10000;
       r0 = h.type % 10000;
       if (r0 != type) goto LOOPEND;
@@ -8635,12 +8653,19 @@ void LoadLineRec(int id0, int it0, int nele,
 	  dw[i1] = r.rrate;
 	}
 	rec->nt += r.strength;
-      } else {
+      } else {	
+	if (type < 0) {
+	  if (r.lower < ilo0 || r.lower > ilo1) continue;
+	  if (r.upper < iup0 || r.upper > iup1) continue;
+	}
 	if (r.strength < smax*_interpsp.smin) continue;
 	rec->e[nr] = r.energy;
 	rec->s[nr] = r.strength;
 	rec->w0[nr] = r.rrate;
 	rec->w[nr] = r.trate;
+	if (type < 0 && h.type > 0) {
+	  rec->type = h.type%10000;
+	}
 	int i0 = r.lower-imin;
 	int i1 = r.upper-imin;
 	rec->n0[nr] = dn[i0];
