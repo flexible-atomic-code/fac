@@ -7984,7 +7984,16 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
     ft0 = (_interpsp.xt[it1]-t)/(_interpsp.xt[it1]-_interpsp.xt[it0]);
     ft1 = 1-ft0;
   }
-
+  if (fabs(fd0) < 1e-10) {
+    id0 = id1;
+  } else if (fabs(fd1) < 1e-10) {
+    id1 = id0;
+  }
+  if (fabs(ft0) < 1e-10) {
+    it0 = it1;
+  } else if (fabs(ft1) < 1e-10) {
+    it1 = it0;
+  }
   for (i = 0; i < _interpsp.nd; i++) {
     for (j = 0; j < _interpsp.nt; j++) {
       _interpsp.r[i][j].ia = 0;
