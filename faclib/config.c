@@ -667,10 +667,15 @@ int GetRestriction(char *scfg, SHELL_RESTRICTION **sr, int m) {
       }
       s++;
     }
-    if (m == 0) {
-      (*sr)[i].ns = ShellsFromString(scfg, &dnq, &((*sr)[i].shells));
+    if (scfg[0] == '*') {
+      (*sr)[i].ns = 0;
+      (*sr)[i].shells = NULL;
     } else {
-      (*sr)[i].ns = ShellsFromStringNR(scfg, &dnq, &((*sr)[i].shells));
+      if (m == 0) {
+	(*sr)[i].ns = ShellsFromString(scfg, &dnq, &((*sr)[i].shells));
+      } else {
+	(*sr)[i].ns = ShellsFromStringNR(scfg, &dnq, &((*sr)[i].shells));
+      }
     }
     if ((*sr)[i].nq < 0) {
       (*sr)[i].op = 0;
@@ -689,10 +694,14 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
     for (i = 0; i < ncfg; i++) {
       nq = 0;
       for (j = 0; j < cfg[i].n_shells; j++) {
-	for (t = 0; t < sr[k].ns; t++) {
-	  if (cfg[i].shells[j].n == sr[k].shells[t].n &&
-	      cfg[i].shells[j].kappa == sr[k].shells[t].kappa) {
-	    nq += cfg[i].shells[j].nq;
+	if (sr[k].ns == 0) {
+	  nq += cfg[i].shells[j].nq;
+	} else {
+	  for (t = 0; t < sr[k].ns; t++) {
+	    if (cfg[i].shells[j].n == sr[k].shells[t].n &&
+		cfg[i].shells[j].kappa == sr[k].shells[t].kappa) {
+	      nq += cfg[i].shells[j].nq;
+	    }
 	  }
 	}
       }
@@ -761,7 +770,7 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */    
-int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
+int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
   SHELL *shell;
   int ncfg, *maxq, ns, nc, i, j, inq;
   double dnq;
@@ -803,16 +812,22 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg) {
   free(shell);
   free(maxq);
   if (nc > 0) {
+    for (i = 0; i < nc; i++) {
+      if (sr[i].ns == 0) {
+	sr[i].nq -= *nqp;
+      }
+    }
     ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
     for (i = 0; i < nc; i++) {
       free(sr[i].shells);
     }
     free(sr);
   }
+  *nqp += inq;
   return ncfg;
 }
 
-int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
+int DistributeElectronsNR(CONFIG **cfg, char *scfg, int *nqp) {
   SHELL *shell;
   int ncfg, *maxq, ns, nc, i, inq;
   double dnq;
@@ -835,13 +850,18 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg) {
   free(maxq);
 
   if (nc > 0) {
+    for (i = 0; i < nc; i++) {
+      if (sr[i].ns == 0) {
+	sr[i].nq -= *nqp;
+      }
+    }
     ncfg = ApplyRestriction(ncfg, *cfg, nc, sr);
     for (i = 0; i < nc; i++) {
       free(sr[i].shells);
     }
     free(sr);
   }
-
+  *nqp += inq;
   return ncfg;
 }
 
@@ -903,10 +923,11 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   }
   p1 = dcfg;
   t = 0;
+  int nqp = 0;
   for (i = 0; i < ns; i++) {
     s = scfg + isp[i];
     while (*s == ' ' || *s == '\t') s++;
-    dnc[t] = DistributeElectrons(p1, p2, s);
+    dnc[t] = DistributeElectrons(p1, p2, s, &nqp);
     if (dnc[t] <= 0) {
       free(dcfg);
       free(dnc);
@@ -1008,13 +1029,15 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   }
   free(dcfg);
   free(dnc);
-
+  if (!nq) {
+    free(dnq);
+  }
   return ncfg;
 }
 
 int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
   CONFIG **dcfg, **p1;
-  double *dnq;
+  //double *dnq;
   char *s;
   int *isp, ncfg, *dnc;  
   int size, size_old, tmp;
@@ -1033,7 +1056,7 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
 
   dcfg = (CONFIG **) malloc(sizeof(CONFIG *)*ns);
   dnc = (int *) malloc(sizeof(int)*ns);
-  dnq = NULL;
+  //dnq = NULL;
 
   s = scfg;
   isp = (int *) malloc(sizeof(int)*ns);  
@@ -1045,10 +1068,11 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
   }
   p1 = dcfg;
   t = 0;
+  int nqp = 0;
   for (i = 0; i < ns; i++) {
     s = scfg + isp[i];
     while (*s == ' ' || *s == '\t') s++;
-    dnc[t] = DistributeElectronsNR(p1, s);
+    dnc[t] = DistributeElectronsNR(p1, s, &nqp);
     if (dnc[t] <= 0) {
       free(dcfg);
       free(dnc);

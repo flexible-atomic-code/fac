@@ -597,6 +597,17 @@ double PICrossH(double z, int n0, int kl0, double e, int os) {
   }
 }
 
+double GauntBF(int n, int k, double z, double te, double e) {
+  double ryd = HARTREE_EV/2;
+  double z2 = z*z;
+  int n2 = n*n;
+  double en = z2*ryd/n2;
+  double ef = exp(en/te);
+  double r = PICrossH(z, e, n, k, 0);
+  r *= 1.26e-3*pow(e/ryd,3)*ef*ryd/te;
+  return r;
+}
+
 double RRCrossH(double z, int n0, int kl0, double e) {
   double hp[NPARAMS], eth;
   double x, logx, r;

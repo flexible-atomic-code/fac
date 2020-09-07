@@ -663,7 +663,14 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
     if (argv[i][0] != '\0' && !isdigit(argv[i][0]) && argv[i][0] != ' ') {
       char *p = argv[i];
       if (p[0] == '@') p++;
-      FILE *f = fopen(p, "r");
+      char pb[10000];
+      strncpy(pb, p, 9999);
+      char *res = strstr(pb, ";");
+      if (res != NULL) {
+	*res = '\0';
+	res++;
+      }
+      FILE *f = fopen(pb, "r");
       if (f == NULL) {
 	printf("cannot open configuration file: %s\n", p);
 	continue;
@@ -678,6 +685,11 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	StrSplit(buf, '#');
 	strncpy(scfg, _closed_shells, MCHSHELL);
 	strncat(scfg, buf, MCHSHELL);
+	StrTrim(scfg, '\0');
+	if (res) {
+	  strncat(scfg, ";", MCHSHELL);
+	  strncat(scfg, res, MCHSHELL);
+	}
 	ncfg = GetConfigFromString(&cfg, scfg);
 	for (j = 0; j < ncfg; j++) {
 	  if (Couple(cfg+j) < 0) return -1;
