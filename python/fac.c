@@ -722,7 +722,14 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
     p = PyUnicode_AsString(q);    
     if (p[0] != '\0' && !isdigit(p[0]) && p[0] != ' ') {
       if (p[0] == '@') p++;
-      FILE *f = fopen(p, "r");
+      char pb[10000];
+      strncpy(pb, p, 9999);
+      char *res = strstr(pb, ";");
+      if (res != NULL) {
+	*res = '\0';
+	res++;
+      }
+      FILE *f = fopen(pb, "r");
       if (f == NULL) {
 	printf("cannot open configuration file: %s\n", p);
 	continue;
@@ -737,6 +744,11 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
 	StrSplit(buf, '#');
 	strncpy(scfg, _closed_shells, MCHSHELL);
 	strncat(scfg, buf, MCHSHELL);
+	StrTrim(scfg, '\0');
+	if (res) {
+	  strncat(scfg, ";", MCHSHELL);
+	  strncat(scfg, res, MCHSHELL);
+	}
 	ncfg = GetConfigFromString(&cfg, scfg);
 	for (j = 0; j < ncfg; j++) {
 	  if (Couple(cfg+j) < 0) return NULL;

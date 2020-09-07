@@ -719,6 +719,19 @@ def read_ham(filename):
 
     return header, hamiltonian
     
+def comments(fn, hint=2048):
+    with open(fn, 'r') as f:
+        r = f.readlines(hint)
+        r = [x[:2] for x in r]
+        for i in range(len(r)):
+            if r[i][0] == ' ' or r[i][0].isdigit():
+                break
+        return r[:i]
+
+def load_fac(fn):
+    c = comments(fn)
+    r = np.loadtxt(fn, unpack=1, comments=c, ndmin=2)
+    return r
 
 class FLEV:
     def sort(self):
