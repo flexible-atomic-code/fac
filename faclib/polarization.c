@@ -568,16 +568,16 @@ int SetMCIRates(char *fn) {
 	    double e0 = egrid[q]/HARTREE_EV;
 	    e2 = e0-e;
 	    if (e2 >= 0) {
-	      rint[q] = InterpolateCIMCross(e2, e, &r, &h, k);
+	      double cs = InterpolateCIMCross(e2, e, &r, &h, k);
 	      a = e0*(1+0.5*FINE_STRUCTURE_CONST2*e0);
-	      a = PI*AREA_AU20/(2.0*a);
-	      rint[q] *= a*fint[q];
+	      cs *= AREA_AU20/(2.0*a);
+	      rint[q] = cs*fint[q];
 	      if (i0 < 0) i0 = q;
 	    }
 	  }
 	  if (i0 >= 0) {
 	    cs1[k] = Simpson(rint, i0, NEINT-1)*(egrid[1]-egrid[0]);
-	    cs1[k] += (egrid[i0]-te)*rint[i0];	  
+	    cs1[k] += 0.5*(egrid[i0]-te)*rint[i0];
 	  } else {
 	    cs1[k] = 0.0;
 	  }
