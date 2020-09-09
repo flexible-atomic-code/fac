@@ -22,7 +22,7 @@ import numpy as np
 from collections import OrderedDict
 from distutils.version import LooseVersion
 import struct
-
+from sys import version_info
 
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
@@ -728,9 +728,14 @@ def comments(fn, hint=2048):
                 break
         return r[:i]
 
+def valid_lines(fn):
+    with open(fn) as f:
+        for i,line in enumerate(f):
+            if not line[0].isalpha():
+                yield line
+                
 def load_fac(fn):
-    c = comments(fn)
-    r = np.loadtxt(fn, unpack=1, comments=c, ndmin=2)
+    r = np.loadtxt(valid_lines(fn), unpack=1, ndmin=2)
     return r
 
 class FLEV:
