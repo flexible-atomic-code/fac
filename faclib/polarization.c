@@ -492,7 +492,7 @@ int SetMCIRates(char *fn) {
   int m1, m2, j1, j2, i0;
   int swp, ncs;
   double data[2+(1+MAXNUSR)*4];
-  double *cs1;
+  double *cs1, cs;
   double e1, e2, e, a, v, ratio;
   double esigma, energy;
   double egrid[NEINT], rint[NEINT], fint[NEINT];  
@@ -568,7 +568,7 @@ int SetMCIRates(char *fn) {
 	    double e0 = egrid[q]/HARTREE_EV;
 	    e2 = e0-e;
 	    if (e2 >= 0) {
-	      double cs = InterpolateCIMCross(e2, e, &r, &h, k);
+	      cs = InterpolateCIMCross(e2, e, &r, &h, k);
 	      a = e0*(1+0.5*FINE_STRUCTURE_CONST2*e0);
 	      cs *= AREA_AU20/(2.0*a);
 	      rint[q] = cs*fint[q];
@@ -585,10 +585,10 @@ int SetMCIRates(char *fn) {
 	  double e0 = e1/HARTREE_EV;
 	  e2 = e0-e;
 	  if (e2 >= 0) {
-	    cs1[k] = InterpolateCIMCross(e2, e, &r, &h, k);
+	    cs = InterpolateCIMCross(e2, e, &r, &h, k);
 	    a = e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	    a = PI*AREA_AU20/(2.0*a);
-	    cs1[k] *= a*v;
+	    cs *= AREA_AU20/(2.0*a);
+	    cs1[k] = cs*v;
 	  }
 	}
       }
