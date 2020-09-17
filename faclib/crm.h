@@ -97,7 +97,6 @@ typedef struct _ION_ {
   int nele;
   char *dbfiles[NDB1];
   double n, nt, n0;
-  NCOMPLEX ce_max;
   int KLN_min, KLN_max;
   int KLN_bmin, KLN_bmax;
   int KLN_amin, KLN_amax;

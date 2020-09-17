@@ -59,6 +59,7 @@ static double ai_emin = 0.0;
 static int norm_mode = 1;
 static int sw_mode = 0;
 static int _itol_nmax = 0;
+static int _ce_nmax = 0;
 static double _ce_fbr = 2.0;
 static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
@@ -5782,6 +5783,10 @@ int SetCERates(int inv) {
 	  for (ib = 0; ib < nrb; ib++) {
 	    int skip = SkipWMPI(w++);
 	    if (skip) continue;
+	    if (_ce_nmax > 0 && _ce_nmax < ion->vnl[r[ib].upper]/100) {
+	      rt[ib].f = -1;
+	      continue;
+	    }	      
 	    rt[ib].i = r[ib].lower;
 	    rt[ib].f = r[ib].upper;
 	    j1 = ion->j[r[ib].lower];
@@ -5805,6 +5810,7 @@ int SetCERates(int inv) {
 	  }
 	  }
 	  for (ib = 0; ib < nrb; ib++) {
+	    if (rt[ib].f < 0) continue;
 	    AddRate(ion, ion->ce_rates, &rt[ib], 0, irb);
 	  }
 	  nrb = h.ntransitions-i-1;
@@ -5876,6 +5882,10 @@ int SetCERates(int inv) {
 	      }
 	      rt[ib].i = ion0.ionized_map[1][p];
 	      rt[ib].f = ion0.ionized_map[1][q];
+	      if (_ce_nmax > 0 && _ce_nmax < ion->vnl[rt[ib].f]/100) {
+		rt[ib].f = -1;
+		continue;
+	      }	    
 	      j1 = ion->j[rt[ib].i];
 	      j2 = ion->j[rt[ib].f];
 	      e = ion0.energy[q] - ion0.energy[p];
@@ -5897,6 +5907,7 @@ int SetCERates(int inv) {
 	    }
 	    }
 	    for (ib = 0; ib < nrb; ib++) {
+	      if (rt[ib].f < 0) continue;
 	      AddRate(ion, ion->ce_rates, &rt[ib], 0, irb);
 	    }
 	    nrb = h.ntransitions-i-1;
@@ -7758,6 +7769,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:ce_fbr")) {
     _ce_fbr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:ce_nmax")) {
+    _ce_nmax = ip;
     return;
   }
   if (0 == strcmp(s, "crm:epstau")) {
