@@ -1,0 +1,245 @@
+\documentclass[preprint,floatfix,pra,showpacs,showkeys]{revtex4}
+\usepackage{graphicx}
+\usepackage{dcolumn}
+
+\newcommand{\threej}[6]{\ensuremath{\left({#1\atop #4}{#2\atop #5}
+{#3\atop #6}\right)}}
+\newcommand{\sixj}[6]{\ensuremath{\left\{{#1\atop #4}{#2\atop #5}
+{#3\atop #6}\right\}}}
+
+\begin{document}
+\title{Electron Collisional Excitation Between Magnetic Sublevels: A
+Factorization Interpolation Approach}
+\author{Ming Feng Gu}
+\affiliation{Center for Space Research, Massachusetts Institute of Technology,
+Cambridge, MA 02139} 
+\email[Email: ]{mfgu@space.mit.edu}
+
+\begin{abstract}
+It is shown that the factorization theory of distorted-wave electron
+collisional excitation can be generalized to treat the excitation between
+magnetic sublevels, which is needed to model the line polarization resulting
+from the collisional excitation of electron beams. In this theory, the
+collision strengths are factorized into two parts. A radial part involving
+one-electron radial wavefunctions only, and an angular part involving the
+angular coupling of the target states. Such factorization facilitates the
+rapid evaluation of collision strengths between magnetic sublevels within an
+entire transition array through the appropriate use of interpolation
+procedures.
+\end{abstract}
+
+\pacs{34.80.Kw}
+\keywords{Distorted-wave; Collision strength}
+\maketitle
+
+\section{Introduction}
+Electron collisional excitation cross sections are required for calculation of
+the level population and line emission of hot plasmas, such as those
+encountered in astrophysical environments. In many cases, only the total
+excitation cross sections are of importance, at least when the electron
+distribution functions are isotropic. However, there exist situations where
+aligned excitation produces polarized line emission. Suggestions have been
+made to use such polarized light to study beam-plasma interactions in solar
+flares \citep{haug72, haug81} and the properties of tokamak plasmas
+\citep{fujimoto96}. Line polarization is also an important factor to take into
+account in the analysis of laboratory spectroscopic data involving a
+directional electron beam, such as electron beam ion traps
+\citep{beiersdorfer96, takacs96}. 
+
+In order to determine the degree of polarization and angular distribution of
+emitted lines driven by electron collisional excitation, one needs detailed
+cross sections between the magnetic sublevels of lower and upper
+states. Several authors have made calculations of such cross sections
+involving magnetic sublevels. \citet{mitroy88a} and \citet{mitroy88b} used a
+nonrelativistic LS-coupling approach. \citet{inal87} made distorted-wave (DW)
+calculations using nonrelativistic radial wavefunctions, but they included
+intermediate-coupling effects by transforming the reactance matrices from
+LS-coupling to relativistic pair-coupling scheme \citep{eissner72,
+saraph78}. \citet{zhang90} performed the first fully relativistic DW
+calculations of magnetic sublevel collision strengths with a modified version
+of their previous program for total cross sections.
+
+Since the pioneering work of \citet{bar-shalom88}, the factorization theory of
+DW collisional excitation is in wide use for calculating total cross
+sections. This theory enables one to obtain a complete collisional excitation
+array without calculating a large number of radial integrals by using
+appropriate interpolation procedures. However, DW calculations of magnetic
+sublevel sollision strengths have not utilized such
+factorization-interpolation techniques. In this paper, we generalize the
+theory of \citet{bar-shalom88} to the excitation of magnetic sublevels and
+present its computer implimentation.
+
+\section{Factorization Theory}
+The scattering amplitude $B_{m_{si}}^{m_{sf}}$ can be written as
+(given in Zhang, Sampson, and Clark, 1990, PRA, 41, 198)
+\begin{eqnarray}
+B_{m_{si}}^{m_{sf}}&=&\frac{2\pi}{k_i}
+  \sum_{l_i,m_{li},j_i,m_i \atop l_f,m_{lf},j_f,m_f}
+  (i)^{l_i-l_f+1}\exp[i(\delta_i+\delta_f)]
+  Y_{l_i}^{m_{li}*}(\hat{\textbf{k}}_i)
+  Y_{l_f}^{m_{lf}}(\hat{\textbf{k}}_f) \nonumber\\
+&&\times C(l_i\frac{1}{2}m_{li}m_{si};j_im_i)
+  C(l_f\frac{1}{2}m_{lf}m_{sf};j_fm_f)
+  T(\alpha_i,\alpha_f)
+\end{eqnarray}
+where $T(\alpha_i,\alpha_f)$ is the transition matrix elements in the 
+representation where the free electrons are uncoupled to the targets,
+\begin{equation}
+\alpha_i=k_i\tilde{j_i}m_iJ_iM_i,\ \alpha_f=k_f\tilde{j_f}m_fJ_fM_f,
+\end{equation}
+where $\tilde{j}$ denotes $\{l,j\}$.
+The differential cross section is 
+\begin{equation}
+\frac{d\sigma}{d\hat{k_f}}=\left|B_{m_{si}}^{m_{sf}}\right|^2. 
+\end{equation}
+Choosing the direction of the incident electron as the $z$ axis,
+integrating over $\hat{k_f}$, summing over $m_{sf}$, and averaging over
+$m_{si}$ gives
+\begin{eqnarray}
+\label{eq_cross0}
+\sigma(J_fM_f,J_iM_i)&=&\frac{\pi}{2k_i^2}
+  \sum_{\tilde{j_i},\tilde{j_i^\prime},\tilde{j_f} \atop m_{si},m_f}
+  (i)^{l_i-l_i^\prime}\exp[i(\delta_i-\delta_{i^\prime})]
+  ([l_i][l_i^\prime])^\frac{1}{2} \nonumber\\
+&&\times
+  (-1)^{j_i+j_i^\prime+2m_i}([j_i][j_i^\prime])^{\frac{1}{2}}
+  \pmatrix{j_i & \frac{1}{2} & l_i \cr -m_i & m_{si} & 0 \cr}
+  \pmatrix{j_i^\prime & \frac{1}{2} & l_i^\prime \cr -m_i & m_{si} & 0 \cr}
+  \nonumber \\
+&&\times
+  T(\alpha_i,\alpha_f)T^{*}(\alpha_i^\prime,\alpha_f)
+\end{eqnarray}
+In the first order purterbation theory
+\begin{equation}
+T(\alpha_i,\alpha_f)=-2i<J_iM_i\tilde{j_i}m_i|V|J_fM_f\tilde{j_f}m_f>
+\end{equation}
+where $V$ is the coulomb interaction. In your derivation, you started off 
+with the square of this matrix element, however, it is the two matrix elements 
+involve different initial states that enter the expression for the cross 
+sections. When both initial and final states
+involve one free electron, it can be expanded as
+\begin{equation}
+V=2\sum_{t}\sum_{\tilde{j_i}j_0 \atop \tilde{j_f}j_1}\sum_{i\neq j}
+  \left(Z^{t}(j_0,j_1)\cdot Z^{t}(\tilde{j_i},\tilde{j_f})\right)
+  \Phi^{t}(j_0\tilde{j_i},j_1\tilde{j_f})
+\end{equation}
+\pagebreak
+substitute into Eq. \ref{eq_cross0}
+\begin{eqnarray}
+\label{eq_cross1}
+\sigma(J_fM_f,J_iM_i)&=&\frac{8\pi}{k_i^2}
+  \sum_{\tilde{j_i},\tilde{j_i^\prime},\tilde{j_f} \atop m_{si},m_f}
+  \sum_{j_0,j_1 \atop j_0^\prime,j_1^\prime}
+  \sum_{t,t^\prime}
+  (i)^{l_i-l_i^\prime}\exp[i(\delta_i-\delta_{i^\prime})]
+  ([l_i][l_i^\prime])^\frac{1}{2} \nonumber \\
+&&\times 
+  (-1)^{j_i+j_i^\prime+2m_i}([j_i][j_i^\prime])^{\frac{1}{2}}
+  \pmatrix{j_i & \frac{1}{2} & l_i \cr -m_i & m_{si} & 0 \cr}
+  \pmatrix{j_i^\prime & \frac{1}{2} & l_i^\prime \cr -m_i & m_{si} & 0 \cr}
+  \nonumber \\
+&&\times \left<J_iM_i\tilde{j_i}m_i\left|
+  Z^{t}(j_0j_1)\cdot Z^{t}(\tilde{j_i}\tilde{j_f})
+  \right|J_fM_f\tilde{j_f}m_f\right> \nonumber \\
+&&\times \left<J_iM_i\tilde{j_i^\prime}m_i\left|
+  Z^{t^\prime}(j_0^\prime j_1^\prime)\cdot Z^{t^\prime}
+  (\tilde{j_i^\prime}\tilde{j_f})
+  \right|J_fM_f\tilde{j_f}m_f\right> \nonumber\\
+&&\times \Phi^{t}(j_0\tilde{j_i},j_1\tilde{j_f})
+  \Phi^{t^\prime}(j_0^\prime\tilde{j_i^\prime},j_1^\prime\tilde{j_f})
+\end{eqnarray}
+Expanding the scalar product in the spherical tensors
+\begin{eqnarray}
+\left<J_iM_i\tilde{j_i}m_i\left|
+  Z^{t}(j_0j_1)\cdot Z^{t}(\tilde{j_i}\tilde{j_f})
+  \right|J_fM_f\tilde{j_f}m_f\right> 
+&=& \sum_{q}(-1)^{q}<\tilde{j_i}m_i|z^{t}_{-q}(\tilde{j_f}\tilde{j_f})
+  |\tilde{j_i}m_i> \nonumber\\
+& & \times <J_iM_i|Z^{t}_{q}(j_0j_1)|J_fM_f>  \nonumber\\
+&=& (-1)^{q}(-1)^{j_i-m_i}
+  \pmatrix{j_i & t & j_f \cr -m_i & -q & m_f \cr}
+  \nonumber \\
+& & \times (-1)^{J_i-M_i}
+  \pmatrix{J_i & t & J_f \cr -M_i & q & M_f \cr}
+  \nonumber \\
+& & \times \left<J_iM_i\left|\left|Z^{t}(j_0j_1)\right|\right|J_fM_f\right>
+\end{eqnarray}
+The summation over $q$ may be dropped since it is fixed by the $3j$ 
+symbols and is $M_i-M_f$, therefore
+\begin{eqnarray}
+\label{eq_cross2}
+\sigma(J_fM_f,J_iM_i)&=&\frac{8\pi}{k_i^2}\sum_{tt^\prime}
+  \pmatrix{J_i & t & J_f \cr -M_i & q & M_f \cr}
+  \pmatrix{J_i & t^\prime & J_f \cr -M_i & q^\prime & M_f \cr}
+  \nonumber \\
+&&\times\sum_{j_0j_1 \atop j_0^\prime j_1^\prime}
+  \left<J_iM_i\left|\left|Z^{t}(j_0j_1)\right|\right|J_fM_f\right>
+  \left<J_iM_i\left|\left|Z^{t^\prime}(j_0^\prime j_1^\prime)
+  \right|\right|J_fM_f\right> \nonumber\\
+&&\times\sum_{\tilde{j_i},\tilde{j_i^\prime},\tilde{j_f} \atop m_{si},m_f}
+  (i)^{l_i-l_i^\prime}\exp[i(\delta_i-\delta_{i^\prime})]
+  ([l_i][l_i^\prime])^\frac{1}{2} \nonumber \\
+&&\times
+  ([j_i][j_i^\prime])^{\frac{1}{2}}
+  \pmatrix{j_i & \frac{1}{2} & l_i \cr -m_i & m_{si} & 0 \cr}
+  \pmatrix{j_i^\prime & \frac{1}{2} & l_i^\prime \cr -m_i & m_{si} & 0 \cr}
+  \nonumber \\
+&&\times
+  \pmatrix{j_i & t & j_f \cr -m_i & -q & m_f \cr}
+  \pmatrix{j_i^\prime & t^\prime & j_f \cr -m_i & -q^\prime & m_f \cr}
+  \nonumber \\
+&&\times \Phi^{t}(j_0\tilde{j_i},j_1\tilde{j_f})
+  \Phi^{t^\prime}(j_0^\prime\tilde{j_i^\prime},j_1^\prime\tilde{j_f})
+\end{eqnarray}
+\pagebreak
+or it may be written as
+\begin{eqnarray}
+\sigma(J_fM_f,J_iM_i)&=&\frac{8\pi}{k_i^2}\sum_{tt^\prime}
+  \pmatrix{J_i & t & J_f \cr -M_i & q & M_f \cr}
+  \pmatrix{J_i & t^\prime & J_f \cr -M_i & q^\prime & M_f \cr}
+  \nonumber \\
+&&\times\sum_{j_0j_1 \atop j_0^\prime j_1^\prime}
+A^{t}(j_0j_1)A^{t^\prime}(j_0^\prime j_1^\prime)
+Q^{tt^\prime}(j_0j_1,j_0^\prime j_1^\prime)
+\end{eqnarray}
+with
+\begin{equation}
+A^{t}(j_0j_1) =
+\left<J_iM_i\left|\left|Z^{t}(j_0j_1)\right|\right|J_fM_f\right> 
+\end{equation}
+and
+\begin{eqnarray}
+Q^{tt^\prime}(j_0j_1,j_0^\prime j_1^\prime) &=&
+  \sum_{\tilde{j_i},\tilde{j_i^\prime},\tilde{j_f} \atop m_{si},m_f}
+  (i)^{l_i-l_i^\prime}\exp[i(\delta_i-\delta_{i^\prime})]
+  ([l_i][l_i^\prime])^\frac{1}{2} \nonumber \\
+&&\times
+  ([j_i][j_i^\prime])^{\frac{1}{2}}
+  \pmatrix{j_i & \frac{1}{2} & l_i \cr -m_i & m_{si} & 0 \cr}
+  \pmatrix{j_i^\prime & \frac{1}{2} & l_i^\prime \cr -m_i & m_{si} & 0 \cr}
+  \nonumber \\
+&&\times 
+  \pmatrix{j_i & t & j_f \cr -m_i & -q & m_f \cr}
+  \pmatrix{j_i^\prime & t^\prime & j_f \cr -m_i & -q^\prime & m_f \cr}
+  \nonumber \\
+&&\times \Phi^{t}(j_0\tilde{j_i},j_1\tilde{j_f})
+  \Phi^{t^\prime}(j_0^\prime\tilde{j_i^\prime},j_1^\prime\tilde{j_f})
+\end{eqnarray}
+
+In Eq. \ref{eq_cross2},
+ony after summation over $M_f$ and averaging over $M_i$, the first two 
+$3j$ symbols produces $\delta_{tt^\prime}\delta_{qq^\prime}$, then
+the summation over $m_f$ and $q$ in the last two $3j$ symbols gives
+$\delta_{j_i j_i^\prime}$, and finally, the summation over $m_{si}$ and
+$m_i$ gives $\delta_{l_i l_i^\prime}$,
+therefore cancels the phase factors, we recover the HULLAC factorization 
+for the total cross sections.
+
+\begin{acknowledgments}
+This work is supported by NASA through Chandra Postdoctoral Fellowship Award
+Number PF01-10014 issued by the Chandra X-ray Observatory Center, which is
+operated by Smithsonian Astrophysical Observatory for and on behalf of NASA
+under contract NAS8-39073.
+\end{acknowledgments}
+
+\end{document}
