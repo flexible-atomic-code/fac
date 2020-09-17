@@ -731,7 +731,8 @@ def comments(fn, hint=2048):
 def valid_lines(fn):
     with open(fn) as f:
         for i,line in enumerate(f):
-            if not line[0].isalpha():
+            line = line.lstrip()
+            if len(line) > 0 and not line[0].isalpha():
                 yield line
                 
 def load_fac(fn):
