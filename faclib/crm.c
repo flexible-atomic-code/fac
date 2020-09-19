@@ -5568,11 +5568,12 @@ int SetCXRates(int m0, char *tgt) {
 		cx->nep = xh.ne0;
 		cx->ep = xh.e0;
 		cx->rcx = xr[jb].cx;
-		for (k = 0; k < xh.ne0; k++) {
-		  if (cx->rcx[k] <= 0) {
-		    cx->rcx[k] = -500.0;
+		int t;
+		for (t = 0; t < xh.ne0; t++) {
+		  if (cx->rcx[t] <= 0) {
+		    cx->rcx[t] = -500.0;
 		  } else {
-		    cx->rcx[k] = log(cx->rcx[k]);
+		    cx->rcx[t] = log(cx->rcx[t]);
 		  }
 		}
 		CXRate(&rcx, ip, xr[jb].f, xr[jb].b);
@@ -5785,6 +5786,8 @@ int SetCERates(int inv) {
 	    if (skip) continue;
 	    if (_ce_nmax > 0 && _ce_nmax < ion->vnl[r[ib].upper]/100) {
 	      rt[ib].f = -1;
+	      if (h.qk_mode == QK_FIT) free(r[ib].params);
+	      free(r[ib].strength);
 	      continue;
 	    }	      
 	    rt[ib].i = r[ib].lower;
@@ -5864,11 +5867,11 @@ int SetCERates(int inv) {
 	    for (ib = 0; ib < nrb; ib++) {
 	      int skip = SkipWMPI(w++);
 	      if (skip) continue;
-	      p = IonizedIndex(r[ib].lower, 0);
 	      rt[ib].i = -1;
 	      rt[ib].f = -1;
 	      rt[ib].dir = 0;
 	      rt[ib].inv = 0;
+	      p = IonizedIndex(r[ib].lower, 0);
 	      if (p < 0) {
 		if (h.qk_mode == QK_FIT) free(r[ib].params);
 		free(r[ib].strength);
@@ -5884,6 +5887,8 @@ int SetCERates(int inv) {
 	      rt[ib].f = ion0.ionized_map[1][q];
 	      if (_ce_nmax > 0 && _ce_nmax < ion->vnl[rt[ib].f]/100) {
 		rt[ib].f = -1;
+		if (h.qk_mode == QK_FIT) free(r[ib].params);
+		free(r[ib].strength);
 		continue;
 	      }	    
 	      j1 = ion->j[rt[ib].i];
@@ -5912,7 +5917,7 @@ int SetCERates(int inv) {
 	    }
 	    nrb = h.ntransitions-i-1;
 	    nrb = Min(nrb, NRTB);
-	    ib = 0;
+	    jb = 0;
 	  }
 	}
 	free(h.tegrid);
