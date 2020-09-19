@@ -5585,7 +5585,7 @@ int SetCXRates(int m0, char *tgt) {
 	    for (jb = 0; jb < nrb; jb++) {
 	      AddRate(ion, ion->cx_rates, &rts[jb], 0, irb);
 	    }
-	    nrb = h.ntransitions-i-1;
+	    nrb = xh.ntransitions-i-1;
 	    nrb = Min(nrb, NRTB);
 	    jb = 0;
 	  }
