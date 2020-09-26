@@ -237,7 +237,8 @@ double MicroFieldMode(double g, double s);
 double QSReduction(double g, double s);
 double DebyeLength(double d, double t);
 void  ScaledSG(double s, double g, double zr, double *sn, double *gn);
-
+int SortUniqNComplex(int n, EN_RECORD *a);
+int CompareENComplex(const void *c1, const void *c2);
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 

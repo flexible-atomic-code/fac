@@ -1494,6 +1494,34 @@ static int CompareENRecord(const void *p0, const void *p1) {
   }
 }
 
+int CompareENComplex(const void *c1, const void *c2) {
+  EN_RECORD *r1, *r2;
+
+  r1 = (EN_RECORD *) c1;
+  r2 = (EN_RECORD *) c2;
+  return strcmp(r1->ncomplex, r2->ncomplex);
+}  
+
+int SortUniqNComplex(int n, EN_RECORD *a) {
+  int i, j;
+  EN_RECORD b;
+
+  qsort(a, n, sizeof(EN_RECORD), CompareENComplex);
+  j = 1;
+  memcpy(&b, &a[0], sizeof(EN_RECORD));
+  for (i = 1; i < n; i++) {
+    if (CompareENComplex(&a[i], &b) != 0) {
+      if (i != j) {
+	memcpy(&a[j], &a[i], sizeof(EN_RECORD));
+      }
+      memcpy(&b, &a[i], sizeof(EN_RECORD));
+      j++;
+    }
+  }
+
+  return j;
+}
+
 int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
 		   int nele, char *ifn) {
   F_HEADER fh;
@@ -1523,6 +1551,11 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     nv = nv%100;
     if (mk0[j] < nv) mk0[j] = nv;
   }
+
+  EN_RECORD *r0c;
+  r0c = malloc(sizeof(EN_RECORD)*n0);
+  memcpy(r0c, r0, sizeof(EN_RECORD)*n0);
+  int n0c = SortUniqNComplex(n0, r0c);
   
   k = 0;
   for (nb = 0; nb < fh.nblocks; nb++) {
@@ -1533,7 +1566,12 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     }
     for (i = 0; i < h.nlevels; i++) {
       nr = ReadENRecord(f, &r1[k], swp);
-      if (strcmp(r1[k].ncomplex, r0[0].ncomplex) == 0) {
+      for (j = 0; j < n0c; j++) {
+	if (strcmp(r1[k].ncomplex, r0c[j].ncomplex) == 0) {
+	  break;
+	}
+      }
+      if (j < n0c) {
 	nv = abs(r1[k].p);
 	j = nv/100;
 	nv = nv%100;
@@ -1547,6 +1585,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     if (k == n1) break;
   }
   FCLOSE(f);
+  free(r0c);
   n1 = k;
   for (i = 0; i < 1024; i++) {
     if (mk1[i] > mk0[i]) mk1[i] = mk0[i];
@@ -1573,7 +1612,6 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
       nk1++;
     }
   }
-
   qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
   qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
 
