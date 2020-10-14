@@ -2699,14 +2699,21 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   return 0;
 }
 
-int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
+int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
   ORBITAL *orb0;
   double **ak;
   int *nak, **kak, gauge;
-  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2;
+  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2, mx;
   int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
   double aw, aw0, ph1, ph2, c, d;
 
+  if (mx0 < 0) {
+    mx = -mx0;
+    mx0 = mx-1;
+  } else {
+    mx = mx0;
+    mx0 = 0;
+  }
   orb0 = GetOrbital(k0);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
   aw = FINE_STRUCTURE_CONST*e;
@@ -2719,7 +2726,7 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
   for (i = 0; i < m*2+1; i++) {
     b[i] = 0.0;
   }
-  for (i = 0; i < mx; i++) {
+  for (i = mx0; i < mx; i++) {
     L = i/2 + 1;
     L2 = 2*L;
     jmin = abs(j0-L2);
@@ -2755,14 +2762,14 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
     }
   }
 
-  for (i = 0; i < mx; i++) {
+  for (i = mx0; i < mx; i++) {
     L = i/2 + 1;
     L2 = 2*L;
     for (p = 0; p < nak[i]; p++) {
       GetJLFromKappa(kak[i][p], &j1, &kl1);
       k = OrbitalIndex(0, kak[i][p], e);
       ph1 = GetPhaseShift(k);
-      for (ip = 0; ip < mx; ip++) {
+      for (ip = mx0; ip < mx; ip++) {
 	Lp = ip/2 + 1;
 	Lp2 = 2*Lp;
 	for (pp = 0; pp < nak[ip]; pp++) {
@@ -2795,11 +2802,11 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
   for (i = 1; i < 2*m+1; i++) {
     b[i] /= b[0];
   }
-  c = FINE_STRUCTURE_CONST2*e;
-  c = (1.0+c)/(1.0+0.5*c);
-  c *= 2.0*PI/(j0+1.0);
+  //c = FINE_STRUCTURE_CONST2*e;
+  //c = (1.0+c)/(1.0+0.5*c);
+  c = 2.0*PI/(j0+1.0);
   b[0] *= c;
-  for (i = 0; i < mx; i++) {
+  for (i = mx0; i < mx; i++) {
     free(ak[i]);
     free(kak[i]);
   }
@@ -2810,11 +2817,11 @@ int AsymmetryPI(int k0, double e, int mx, int m, double *b) {
   return 0;
 }
 
-int SaveAsymmetry(char *fn, char *s, int mx) {
+int SaveAsymmetry(char *fn, char *s, int mx0) {
   ORBITAL *orb0;
   CONFIG *cfg;
   char *p, sp[16], js;
-  int k, ns, i, j, q, ncfg, m, mlam;
+  int k, ns, i, j, q, ncfg, m, mlam, mx;
   int kappa, n, jj, kl, k0;
   double **b, e0, e, emin, emax, a, phi;
   double phi90, phi1, phi2, bphi;
@@ -2825,6 +2832,7 @@ int SaveAsymmetry(char *fn, char *s, int mx) {
   ns = StrSplit(s, ' ');
   if (ns <= 0) return 0;
 
+  mx = abs(mx0);  
   mlam = 1 + (mx-1)/2;
   m = 2*mlam+1;
   pqa = malloc(sizeof(double)*m);
@@ -2898,7 +2906,7 @@ int SaveAsymmetry(char *fn, char *s, int mx) {
 	      n, sp, js, n, kl, jj, e0, n_usr, mx);
       for (i = 0; i < n_usr; i++) {
 	e = usr_egrid[i];
-	AsymmetryPI(k0, e, mx, m, b[i]);
+	AsymmetryPI(k0, e, mx0, m, b[i]);
       }
     
       for (i = 0; i < n_usr; i++) {
