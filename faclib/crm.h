@@ -231,6 +231,7 @@ void PrepStarkQC(double mt, double d0, double t0,
 double CalcStarkQC(double w0, double wd, double *wdi,
 		   double *wir, double *wrf, double *wid,
 		   int nele, int type);
+double LimitImpactWidth(double zd, double de);
 void SetStarkZMP(int np, double *wzm);
 double MicroFieldDist(double x, double g, double s);
 double MicroFieldMode(double g, double s);
