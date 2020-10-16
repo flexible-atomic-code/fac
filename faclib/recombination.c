@@ -2997,6 +2997,9 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	      double wb = 1.0+jb;
 	      double wf = 1.0+jf;
 	      for (i = 0; i < n_usr; i++) {
+		for (q = 1; q <= m2p; q++) {
+		  b[i][q] /= b[i][0];
+		}
 		e = usr_egrid[i]*HARTREE_EV;
 		a = (e+e0)/xusr[i];
 		a = a*a;
@@ -3015,7 +3018,7 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 		phi90 *= phi/(4.0*PI);
 		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 			e, e+e0, phi/wb, phi90/wb,
-			a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]/b[i][0]);
+			a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]);
 	      }      
 	      for (q = 0; q < m; q++) {
 		for (i = 0; i < n_usr; i++) {
@@ -3075,10 +3078,10 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i];
 	    bi[i][m2p] = AsymmetryPI(k0, e, te, mx0, m, bi[i]);
-	    for (q = 0; q < m2p; q++) {
-	      b[i][q] += bi[i][q]*nq;
+	    b[i][0] += bi[i][0]*nq;
+	    for (q = 1; q <= m2p; q++) {
+	      b[i][q] += bi[i][q]*bi[i][0]*nq;
 	    }
-	    b[i][m2p] += bi[i][m2p]*bi[i][0]*nq;
 	  }	  
 	}
       }
@@ -3089,6 +3092,9 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	double wb = 1.0+jb;
 	double wf = 1.0+jf;
 	for (i = 0; i < n_usr; i++) {
+	  for (q = 1; q <= m2p; q++) {
+	    b[i][q] /= b[i][0];
+	  }
 	  e = usr_egrid[i]*HARTREE_EV;
 	  a = (e+e0)/xusr[i];
 	  a = a*a;
@@ -3107,7 +3113,7 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	  phi90 *= phi/(4.0*PI);	
 	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 		  e, e+e0, phi/wb, phi90/wb,
-		  a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]/b[i][0]);
+		  a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]);
 	}      
 	for (q = 0; q < m; q++) {
 	  for (i = 0; i < n_usr; i++) {
