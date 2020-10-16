@@ -2020,8 +2020,7 @@ int InitBlocks(void) {
 	  de *= RATE_AU*_ce_fbr;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-	  zd /= de;
-	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+	  zd = LimitImpactWidth(zd, de);
 #pragma omp atomic
 	  blk1->rc1[j] += zd;
 	  if (r->inv > 0.0) {
@@ -2029,8 +2028,7 @@ int InitBlocks(void) {
 	    double zi = electron_density*r->inv;
 #pragma omp atomic
 	    blk2->total_rate[j] += zi;
-	    zi /= de;
-	    zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
+	    zi = LimitImpactWidth(zi, de);
 #pragma omp atomic
 	    blk2->rc1[j] += zi;
 	  }
@@ -2107,8 +2105,7 @@ int InitBlocks(void) {
 	  blk1->total_rate[j] += zd;
 	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
 	  de *=  RATE_AU * _ce_fbr;
-	  zd /= de;
-	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+	  zd = LimitImpactWidth(zd, de);
 #pragma omp atomic
 	  blk1->rc1[j] += zd;
 	}
@@ -2165,8 +2162,7 @@ int InitBlocks(void) {
 	  blk2->total_rate[j] += zi;
 	  double de =  fabs(ion->energy[r->f]-ion->energy[r->i]);
 	  de *= RATE_AU * _ce_fbr;
-	  zi /=  de;
-	  zi = 0.5*de*(sqrt(1+4.0*zi)-1.0);
+	  zi = LimitImpactWidth(zi, de);
 #pragma omp  atomic
 	  blk2->rc1[j] += zi;
 	}
@@ -2191,8 +2187,7 @@ int InitBlocks(void) {
 	  de *= RATE_AU * _ce_fbr;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-	  zd /= de;
-	  zd = 0.5*de*(sqrt(1+4.0*zd)-1.0);
+	  zd = LimitImpactWidth(zd, de);
 #pragma omp atomic
 	  blk1->rc1[j] += zd;
 	  if (r->inv > 0.0) {
@@ -4651,7 +4646,17 @@ static int CompareLine(const void *p1, const void *p2) {
   else if (*v1 > *v2) return 1;
   else return 0;
 }
-      
+
+double LimitImpactWidth(double zd, double de) {
+  double r;
+  r = zd/de;
+  if (r < 1e-5) {
+    return zd*(1-r);
+  } else {
+    return 0.5*de*(sqrt(1+4.0*r)-1.0);
+  }
+}
+
 int SelectLines(char *ifn, char *ofn, int nele, int type, 
 		double emin, double emax, double fmin) {
   F_HEADER fh;
