@@ -4142,12 +4142,19 @@ static int PMaxwellRate(int argc, char *argv[], int argt[],
 static int PAsymmetry(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   int mx;
+  double te;
   
   if (argc < 2) return -1;
-  if (argc == 3) mx = atoi(argv[2]);
-  else mx = 1;
+  mx = 1;
+  te = 0.0;
+  if (argc >= 3) {
+    mx = atoi(argv[2]);
+    if (argc > 3) {
+      te = atof(argv[3]);
+    }
+  }
   
-  SaveAsymmetry(argv[0], argv[1], mx);
+  SaveAsymmetry(argv[0], argv[1], mx, te);
   
   return 0;
 }

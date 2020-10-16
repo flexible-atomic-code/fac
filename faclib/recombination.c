@@ -2699,13 +2699,13 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   return 0;
 }
 
-int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
+double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
   ORBITAL *orb0;
   double **ak;
   int *nak, **kak, gauge;
   int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2, mx;
   int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
-  double aw, aw0, ph1, ph2, c, d;
+  double aw, aw0, ph1, ph2, c, d, b1;
 
   if (mx0 < 0) {
     mx = -mx0;
@@ -2716,8 +2716,11 @@ int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
   }
   orb0 = GetOrbital(k0);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
+  if (te <= 0) {
+    te = -orb0->energy;
+  }
   aw = FINE_STRUCTURE_CONST*e;
-  aw0 = FINE_STRUCTURE_CONST*(e - orb0->energy);
+  aw0 = FINE_STRUCTURE_CONST*(e + te);
   gauge = GetTransitionGauge();
   
   nak = malloc(sizeof(int)*mx);
@@ -2726,6 +2729,7 @@ int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
   for (i = 0; i < m*2+1; i++) {
     b[i] = 0.0;
   }
+  b1 = 0.0;
   for (i = mx0; i < mx; i++) {
     L = i/2 + 1;
     L2 = 2*L;
@@ -2757,7 +2761,11 @@ int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
 	ak[i][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
       }
       ak[i][p] *= c;
-      b[0] += ak[i][p]*ak[i][p];
+      double b0 = ak[i][p]*ak[i][p];
+      b[0] += b0;
+      if (i == mx0) {
+	b1 += b0;
+      }
       j1 += 2;
     }
   }
@@ -2804,6 +2812,7 @@ int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
   }
   //c = FINE_STRUCTURE_CONST2*e;
   //c = (1.0+c)/(1.0+0.5*c);
+  double rb = b1/b[0];
   c = 2.0*PI/(j0+1.0);
   b[0] *= c;
   for (i = mx0; i < mx; i++) {
@@ -2814,24 +2823,33 @@ int AsymmetryPI(int k0, double e, int mx0, int m, double *b) {
   free(ak);
   free(kak);
 
-  return 0;
+  return rb;
 }
 
-int SaveAsymmetry(char *fn, char *s, int mx0) {
+int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
   ORBITAL *orb0;
   CONFIG *cfg;
   char *p, sp[16], js;
   int k, ns, i, j, q, ncfg, m, mlam, mx;
   int kappa, n, jj, kl, k0;
-  double **b, e0, e, emin, emax, a, phi;
+  double **b, **bi, e0, e, emin, emax, a, phi;
   double phi90, phi1, phi2, bphi;
   double *pqa, *pqa2, nu1, theta;
   int *ipqa, ierr, nudiff, mu1;
   FILE *f;
-  
-  ns = StrSplit(s, ' ');
-  if (ns <= 0) return 0;
+  TFILE *fr;
+  F_HEADER fh;
+  RO_HEADER h;
+  RO_RECORD r;
+  int swp;
 
+  fr = OpenFileRO(s, &fh, &swp);
+  if (fr == NULL) {
+    if (strlen(s)<2 || !isdigit(s[0])) return 0;
+    ns = StrSplit(s, ' ');
+    if (ns <= 0) return 0;
+  }
+  te /= HARTREE_EV;
   mx = abs(mx0);  
   mlam = 1 + (mx-1)/2;
   m = 2*mlam+1;
@@ -2847,9 +2865,13 @@ int SaveAsymmetry(char *fn, char *s, int mx0) {
   nudiff = mlam*2-2;
   mu1 = 2;
   DXLEGF(nu1, nudiff, mu1, mu1, theta, 3, pqa2, ipqa, &ierr);
-  
+  int m2p = 2*m+1;
   p = s;
-  f = fopen(fn, "a");
+  if (fr == NULL) {
+    f = fopen(fn, "a");
+  } else {
+    f = fopen(fn, "w");
+  }
   if (n_usr <= 0) {
     if (n_egrid <= 0) {
       n_usr = 6;
@@ -2858,95 +2880,260 @@ int SaveAsymmetry(char *fn, char *s, int mx0) {
     }
   }
   b = malloc(sizeof(double *)*n_usr);
+  if (fr) {
+    bi = malloc(sizeof(double *)*n_usr);
+  }    
   for (i = 0; i < n_usr; i++) {
-    b[i] = malloc(sizeof(double)*(2*m+1));
+    b[i] = malloc(sizeof(double)*(m2p+1));
+    if (fr) {
+      bi[i] = malloc(sizeof(double)*(m2p+1));
+    }
   }
-  for (k = 0; k < ns; k++) {
-    while (*p == ' ') p++;
-    ncfg = GetConfigFromString(&cfg, p);
-    for (j = ncfg-1; j >= 0; j--) {
-      if (cfg[j].n_shells != 1) continue;
-      n = (cfg[j].shells)[0].n;
-      kappa = (cfg[j].shells)[0].kappa;
-      free(cfg[j].shells);
-      GetJLFromKappa(kappa, &jj, &kl);
-      if (jj > kl) js = '+';
-      else js = '-';
-      SpecSymbol(sp, kl/2);
-      k0 = OrbitalIndex(n, kappa, 0);
-      orb0 = GetOrbital(k0);
-      e0 = -(orb0->energy);
-      SetAWGrid(1, e0*FINE_STRUCTURE_CONST, e0);
-      if (usr_egrid[0] < 0) {
-	if (egrid[0] > 0) {
-	  SetUsrPEGridDetail(n_egrid, egrid);
+  int eset = egrid[0] >= 0;
+  int uset = usr_egrid[0] >= 0;
+  if (fr == NULL) {
+    for (k = 0; k < ns; k++) {
+      while (*p == ' ') p++;
+      ncfg = GetConfigFromString(&cfg, p);
+      for (j = ncfg-1; j >= 0; j--) {
+	if (cfg[j].n_shells != 1) continue;
+	n = (cfg[j].shells)[0].n;
+	kappa = (cfg[j].shells)[0].kappa;
+	free(cfg[j].shells);
+	GetJLFromKappa(kappa, &jj, &kl);
+	if (jj > kl) js = '+';
+	else js = '-';
+	SpecSymbol(sp, kl/2);
+	k0 = OrbitalIndex(n, kappa, 0);
+	if (te <= 0) {
+	  orb0 = GetOrbital(k0);
+	  e0 = -(orb0->energy);
 	} else {
-	  if (egrid_limits_type == 0) {
-	    emin = egrid_min*e0;
-	    emax = egrid_max*e0;
+	  e0 = te;
+	}
+	SetAWGrid(1, e0*FINE_STRUCTURE_CONST, e0);
+	if (!uset) {
+	  if (eset) {
+	    SetUsrPEGridDetail(n_egrid, egrid);
 	  } else {
-	    emin = egrid_min;
-	    emax = egrid_max;
+	    if (egrid_limits_type == 0) {
+	      emin = egrid_min*e0;
+	      emax = egrid_max*e0;
+	    } else {
+	      emin = egrid_min;
+	      emax = egrid_max;
+	    }
+	    SetUsrPEGrid(n_usr, emin, emax, e0);
 	  }
-	  SetUsrPEGrid(n_usr, emin, emax, e0);
 	}
-      }
-      if (k == 0) {
+	if (k == 0) {
+	  for (i = 0; i < n_usr; i++) {
+	    xusr[i] = 2.0*usr_egrid[i];
+	    xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
+	    xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
+	    xusr[i] *= HARTREE_EV;
+	  }
+	}
+	double et0 = e0;
+	e0 *= HARTREE_EV;
+	fprintf(f, "#  %2s  %2d %2d\n", 
+		GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
+	fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
+		n, sp, js, n, kl, jj, e0, n_usr, mx);
 	for (i = 0; i < n_usr; i++) {
-	  xusr[i] = 2.0*usr_egrid[i];
-	  xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
-	  xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
-	  xusr[i] *= HARTREE_EV;
+	  e = usr_egrid[i];
+	  b[i][m2p] = AsymmetryPI(k0, e, et0, mx0, m, b[i]);
 	}
-      }
-      e0 *= HARTREE_EV;
-      fprintf(f, "#  %2s  %2d %2d\n", 
-	      GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
-      fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
-	      n, sp, js, n, kl, jj, e0, n_usr, mx);
-      for (i = 0; i < n_usr; i++) {
-	e = usr_egrid[i];
-	AsymmetryPI(k0, e, mx0, m, b[i]);
-      }
-    
-      for (i = 0; i < n_usr; i++) {
-	e = usr_egrid[i]*HARTREE_EV;
-	a = (e+e0)/xusr[i];
-	a = a*a;
-	phi = b[i][0]*AREA_AU20;
-	phi90 = 0.0;
-	for (q = 0; q < m; q += 2) {
-	  phi90 += b[i][q+1]*pqa[q];
-	}
-	phi1 = phi90;
-	phi2 = phi90;
-	for (q = 2; q < m; q += 2) {
-	  bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
-	  phi1 -= bphi; /* parallel, Phi=0 */
-	  phi2 += bphi; /* perpendicular Phi=90 */
-	}
-	phi90 *= phi/(4.0*PI);	
-	fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-		e, e+e0, phi, phi90, a*phi, a*phi90, phi2/phi1);
-      }      
-      for (q = 0; q < m; q++) {
+	
 	for (i = 0; i < n_usr; i++) {
 	  e = usr_egrid[i]*HARTREE_EV;
-	  fprintf(f, "%12.5E %12.5E %12.5E\n",
-		  e, b[i][q+1], b[i][q+1+m]);
+	  a = (e+e0)/xusr[i];
+	  a = a*a;
+	  phi = b[i][0]*AREA_AU20;
+	  phi90 = 0.0;
+	  for (q = 0; q < m; q += 2) {
+	    phi90 += b[i][q+1]*pqa[q];
+	  }
+	  phi1 = phi90;
+	  phi2 = phi90;
+	  for (q = 2; q < m; q += 2) {
+	    bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
+	    phi1 -= bphi; /* parallel, Phi=0 */
+	    phi2 += bphi; /* perpendicular Phi=90 */
+	  }
+	  phi90 *= phi/(4.0*PI);	
+	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+		  e, e+e0, phi, phi90, a*phi, a*phi90, phi2/phi1, b[i][m2p]);
+	}      
+	for (q = 0; q < m; q++) {
+	  for (i = 0; i < n_usr; i++) {
+	    e = usr_egrid[i]*HARTREE_EV;
+	    fprintf(f, "%12.5E %12.5E %12.5E\n",
+		    e, b[i][q+1], b[i][q+1+m]);
+	  }
 	}
       }
+      if (ncfg > 0) free(cfg);
+      while (*p) p++;
+      p++;
     }
-    if (ncfg > 0) free(cfg);
-    while (*p) p++;
-    p++;
+  } else {
+    int nb;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      int nr = ReadROHeader(fr, &h, swp);
+      int ir, b0, f0;
+      LEVEL *lev0=NULL, *lev1=NULL;
+      b0 = -1;
+      f0 = -1;
+      for (ir = 0; ir < h.ntransitions; ir++) {
+	nr = ReadRORecord(fr, &r, swp);
+	int ip;
+	for (ip = 0; ip < r.n; ip++) {
+	  if (r.f != f0 || r.b != b0) {
+	    if (b0 >= 0 && f0 >= 0) {
+	      int pb, pf, jb, jf;
+	      DecodePJ(lev0->pj, &pb, &jb);
+	      DecodePJ(lev1->pj, &pf, &jf);
+	      double wb = 1.0+jb;
+	      double wf = 1.0+jf;
+	      for (i = 0; i < n_usr; i++) {
+		e = usr_egrid[i]*HARTREE_EV;
+		a = (e+e0)/xusr[i];
+		a = a*a;
+		phi = b[i][0]*AREA_AU20;
+		phi90 = 0.0;
+		for (q = 0; q < m; q += 2) {
+		  phi90 += b[i][q+1]*pqa[q];
+		}
+		phi1 = phi90;
+		phi2 = phi90;
+		for (q = 2; q < m; q += 2) {
+		  bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
+		  phi1 -= bphi; /* parallel, Phi=0 */
+		  phi2 += bphi; /* perpendicular Phi=90 */
+		}
+		phi90 *= phi/(4.0*PI);
+		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+			e, e+e0, phi/wb, phi90/wb,
+			a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]/b[i][0]);
+	      }      
+	      for (q = 0; q < m; q++) {
+		for (i = 0; i < n_usr; i++) {
+		  e = usr_egrid[i]*HARTREE_EV;
+		  fprintf(f, "%12.5E %12.5E %12.5E\n",
+			  e, b[i][q+1], b[i][q+1+m]);
+		}
+	      }
+	    }	       	    
+	    for (i = 0; i < n_usr; i++) {
+	      for (q = 0; q <= m2p; q++) {
+		b[i][q] = 0.0;
+	      }
+	    }
+	    lev0 = GetLevel(r.b);
+	    lev1 = GetLevel(r.f);
+	    te = lev1->energy - lev0->energy;
+	    e0 = te*HARTREE_EV;
+	    SetAWGrid(1, te*FINE_STRUCTURE_CONST, te);
+	    if (!uset) {
+	      if (eset) {
+		SetUsrPEGridDetail(n_egrid, egrid);
+	      } else {
+		if (egrid_limits_type == 0) {
+		  emin = egrid_min*te;
+		  emax = egrid_max*te;
+		} else {
+		  emin = egrid_min;
+		  emax = egrid_max;
+		}
+		SetUsrPEGrid(n_usr, emin, emax, te);
+	      }
+	    }
+	    for (i = 0; i < n_usr; i++) {
+	      xusr[i] = 2.0*usr_egrid[i];
+	      xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
+	      xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
+	      xusr[i] *= HARTREE_EV;
+	    }
+	    fprintf(f, "#  %2s  %2d %2d\n", 
+		    GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
+	    fprintf(f, "#  %6d %6d %12.5E  %d %d\n",
+		    r.b, r.f, e0, n_usr, mx);
+	    b0 = r.b;
+	    f0 = r.f;
+	  }
+	  int vn = abs(r.nk[ip]);
+	  int vl = 2*(vn%100);
+	  vn = vn/100;
+	  if (r.nk[ip] < 0) {
+	    j = vl-1;
+	  } else {
+	    j = vl+1;
+	  }
+	  k0 = OrbitalIndex(vn, GetKappaFromJL(j, vl), 0);
+	  double nq = r.nq[ip]*r.nq[ip];
+	  for (i = 0; i < n_usr; i++) {
+	    e = usr_egrid[i];
+	    bi[i][m2p] = AsymmetryPI(k0, e, te, mx0, m, bi[i]);
+	    for (q = 0; q < m2p; q++) {
+	      b[i][q] += bi[i][q]*nq;
+	    }
+	    b[i][m2p] += bi[i][m2p]*bi[i][0]*nq;
+	  }	  
+	}
+      }
+      if (b0 >= 0 && f0 >= 0) {
+	int pb, pf, jb, jf;
+	DecodePJ(lev0->pj, &pb, &jb);
+	DecodePJ(lev1->pj, &pf, &jf);
+	double wb = 1.0+jb;
+	double wf = 1.0+jf;
+	for (i = 0; i < n_usr; i++) {
+	  e = usr_egrid[i]*HARTREE_EV;
+	  a = (e+e0)/xusr[i];
+	  a = a*a;
+	  phi = b[i][0]*AREA_AU20;
+	  phi90 = 0.0;
+	  for (q = 0; q < m; q += 2) {
+	    phi90 += b[i][q+1]*pqa[q];
+	  }
+	  phi1 = phi90;
+	  phi2 = phi90;
+	  for (q = 2; q < m; q += 2) {
+	    bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
+	    phi1 -= bphi; /* parallel, Phi=0 */
+	    phi2 += bphi; /* perpendicular Phi=90 */
+	  }
+	  phi90 *= phi/(4.0*PI);	
+	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+		  e, e+e0, phi/wb, phi90/wb,
+		  a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]/b[i][0]);
+	}      
+	for (q = 0; q < m; q++) {
+	  for (i = 0; i < n_usr; i++) {
+	    e = usr_egrid[i]*HARTREE_EV;
+	    fprintf(f, "%12.5E %12.5E %12.5E\n",
+		    e, b[i][q+1], b[i][q+1+m]);
+	  }
+	}
+      }	       	    
+    }
   }
-
+  
   fclose(f);
+  if (fr) {
+    FCLOSE(fr);
+  }
   for (i = 0; i < n_usr; i++) {
     free(b[i]);
+    if (fr) {
+      free(bi[i]);
+    }
   }
   free(b);
+  if (fr) {
+    free(bi);
+  }
   free(pqa);
   free(pqa2);
   free(ipqa);

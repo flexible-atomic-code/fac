@@ -3455,6 +3455,7 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
 static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
   char *s, *fn;
   int mx;
+  double te;
 
   if (sfac_file) {
     SFACStatement("Asymmetry", args, NULL);
@@ -3463,9 +3464,10 @@ static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
   }
   
   mx = 1;
-  if (!PyArg_ParseTuple(args, "ss|i", &fn, &s, &mx)) return NULL;
+  te = 0.0;
+  if (!PyArg_ParseTuple(args, "ss|id", &fn, &s, &mx, &te)) return NULL;
   
-  SaveAsymmetry(fn, s, mx);
+  SaveAsymmetry(fn, s, mx, te);
   
   Py_INCREF(Py_None);
   return Py_None;
