@@ -2772,15 +2772,18 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
       j++;
     }
   }
-  
+
+  acfg->n_allocs = j;
   acfg->n_shells = j;
+  acfg->n_cores = j;
   acfg->n = malloc(sizeof(int)*j);
   acfg->kappa = malloc(sizeof(int)*j);
   acfg->nq = malloc(sizeof(double)*j);
-  
+  acfg->e = malloc(sizeof(double)*j);
   if (!acfg->n ||
       !acfg->kappa ||
-      !acfg->nq) goto ERROR;
+      !acfg->nq ||
+      !acfg->e) goto ERROR;
 
   for (i = 0, j = 0; i < M; i++) {
     if (tnq[i] > EPS10) {
@@ -2843,6 +2846,7 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
   if (acfg->n) free(acfg->n);
   if (acfg->nq) free(acfg->nq);
   if (acfg->kappa) free(acfg->kappa);
+  if (acfg->e) free(acfg->e);
   free(acfg->kg);
   free(acfg->weight);
   return -1;

@@ -2100,6 +2100,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   r0 += qed;
   z0 *= sqrt(s[0].j + 1.0);
   r0 *= z0;
+
   return r0;
 }
 
@@ -3749,7 +3750,7 @@ int SolveStructure(char *fn, char *hfn,
 	    double wt1 = WallTime();
 	    double ts = TotalSize();
 	    MPrintf(-1,
-		    "piter: %3d %3d %4d %4d %4d %4d %3d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
+		    "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
 		    i, -1, h->orig_dim, h->exp_dim,
 		    ip==1?h->dim:h->ndim,
 		    h->n_basis, nib[i], done[i], alldone,
@@ -3880,7 +3881,7 @@ int SolveStructure(char *fn, char *hfn,
 	      double wt1 = WallTime();
 	      double ts = TotalSize();
 	      MPrintf(-1,
-		      "piter: %3d %3d %4d %4d %4d %4d %3d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
+		      "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
 		      i, iter, h->orig_dim, h->exp_dim,
 		      ip==1?h->dim:h->ndim,
 		      h->n_basis, nib[i], done[i], alldone,

@@ -1556,6 +1556,24 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PAverageAtom(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("AverageAtom", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  char *s;
+  int m;
+  double d, t, z;
+  z = -1.0;
+  if (!PyArg_ParseTuple(args, "sidd|d", &s, &m, &d, &t, &z)) return NULL;
+
+  AverageAtom(s, m, d, t, z);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PFreezeOrbital(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("FreezeOrbital", args, NULL);
@@ -1600,8 +1618,9 @@ static PyObject *PGetPotential(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
-  GetPotential(s);
+  int m = 0;
+  if (!PyArg_ParseTuple(args, "s|d", &s, &m)) return NULL;
+  GetPotential(s, m);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -6204,7 +6223,7 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   tps = 0.0;
   m = 0;
   ups = -1.0;
-  vxf = 0;
+  vxf = 1;
   if (!(PyArg_ParseTuple(args, "dd|diOi", &zps, &nps, &tps, &m, &p, &vxf))) return NULL;
   int nz = 0;
   double *zw;
@@ -6302,6 +6321,7 @@ static struct PyMethodDef fac_methods[] = {
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"LevelInfo", PLevelInfor, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"AverageAtom", PAverageAtom, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
   {"FreezeOrbital", PFreezeOrbital, METH_VARARGS},

@@ -5229,7 +5229,7 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   BLK_RATE *brt, brt0;
   RATE *r0;
   int i, rbks;
-  if (r->dir <= 0 && r->inv <= 0) return 1;
+  if (r->dir <= 0 && r->inv <= 0 && m <= 1) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
   if (ib == NULL || fb == NULL) return 1;

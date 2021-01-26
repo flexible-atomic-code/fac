@@ -73,16 +73,16 @@ int SetAWGrid(int n, double min, double max);
 int GetAWGrid(double **a);
 int SetRadialGrid(int maxrp, double ratio, double asymp,
 		  double rmin, double qr);
-double SetPotential(AVERAGE_CONFIG *acfg, int iter);
-int PotentialHX(AVERAGE_CONFIG *acfg, double *u);
-int PotentialHX1(AVERAGE_CONFIG *acfg, int ik);
+void SetPotential(AVERAGE_CONFIG *acfg, int iter);
+int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter);
+int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md);
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike);
 POTENTIAL *RadialPotential(void);
-int GetPotential(char *s);
+int GetPotential(char *s, int m);
 void CopyPotentialOMP(int i);
 double GetResidualZ(void);
 double GetRMax(void);
-
+void SetScreenConfig(int iter);
 /* solve the dirac equation for the given orbital */
 ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p);
 void Orthogonalize(ORBITAL *orb);
@@ -227,6 +227,11 @@ void SetOrbNMax(int kmin, int kmax, int nmax);
 int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
 int DensityAsymptote(double *d, double *a, double *b);
-
+double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
+		double u, double e0, double *nqf);
+void AverageAtom(char *pref, int m, double d, double t, double ztol);
+void SetPotentialN(void);
+int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);
+double BoundFactor(double e, double e0);
 #endif
 

@@ -1200,8 +1200,10 @@ static int PFreeRecQk(int argc, char *argv[], int argt[],
 
 static int PGetPotential(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  if (argc != 1 || argt[0] != STRING) return -1;
-  GetPotential(argv[0]);
+  if (argc < 1 || argt[0] != STRING) return -1;
+  int m = 0;
+  if (argc > 1) m = atoi(argv[1]);
+  GetPotential(argv[0], m);
   return 0;
 }
 
@@ -1309,6 +1311,20 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
 
   for (i = 0; i < ni; i++) free(vw[i]);
 
+  return 0;
+}
+
+static int PAverageAtom(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nmax, kmax, m;
+  double d, t, z;
+  if (argc != 4 && argc != 5) return -1;
+  m = atoi(argv[1]);
+  d = atof(argv[2]);
+  t = atof(argv[3]);
+  z = -1.0;
+  if (argc == 5) z = atof(argv[4]);
+  AverageAtom(argv[0], m, d, t, z);
   return 0;
 }
 
@@ -1957,13 +1973,13 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
   }
   
   ns = DecodeArgs(argv[0], vc, ic, variables);
-  
   n = malloc(sizeof(int)*ns);
   kappa = malloc(sizeof(int)*ns);
   nq = malloc(sizeof(double)*ns);
   
   for (i = 0; i < ns; i++) {
-    if (DecodeArgs(vc[i], vs, is, variables) != 4) {
+    j = DecodeArgs(vc[i], vs, is, variables);
+    if (j != 4) {
       return -1;
     }
     n[i] = atoi(vs[0]);
@@ -4957,7 +4973,7 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   tps = 0.0;
   ups = -1.0;
   m = 0;
-  vxf = 0;
+  vxf = 1;
   zps = atof(argv[0]);
   nps = atof(argv[1]);  
   if (argc > 2) {
@@ -5228,6 +5244,7 @@ static METHOD methods[] = {
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"AverageAtom", PAverageAtom, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},
