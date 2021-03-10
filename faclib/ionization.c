@@ -1042,11 +1042,8 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
-  int myrank, nproc, ntrans;
-
-  myrank = MPIRank(&nproc);
+  
   double tstart = WallTime();
-  ntrans = 0;
 
   iuta = IsUTA();
 
@@ -1129,6 +1126,10 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ci_hdr.usr_egrid_type = usr_egrid_type;
   file = OpenFile(fn, &fhdr);
 
+  int nproc = 0, *ntrans = NULL;
+  if (_progress_report >= 0) {
+    ntrans = InitTransReport(&nproc);
+  }
   e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
@@ -1247,6 +1248,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     ResetWidMPI();
 #pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, qk, r, ip, ie)
     {
+    int myrank = MPIRank(NULL);
     r.strength = (float *) malloc(sizeof(float)*n_usr);
     r.params = (float *) malloc(sizeof(float)*nqk);
     for (i = 0; i < nb; i++) {
@@ -1274,14 +1276,13 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	for (ie = 0; ie < n_usr; ie++) {
 	  r.strength[ie] = (float) qku[ie];
 	}
-	
 	WriteCIRecord(file, &r);
-	if (myrank == 0 && _progress_report > 0) {
-	  ntrans++;
-	  if (ntrans%_progress_report == 0) {
-	    double deltat = WallTime()-tstart;
-	    MPrintf(0, "CI: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		    ntrans, deltat, 1000*deltat/ntrans);
+	if (ntrans) {
+	  ntrans[myrank]++;
+	  if (myrank == 0 &&
+	      _progress_report > 0 &&
+	      ntrans[0]%_progress_report == 0) {
+	    PrintTransReport(nproc, tstart, ntrans, "CI", 0);
 	  }
 	}
       }
@@ -1305,6 +1306,9 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   ArrayFreeLock(&subte, NULL);
   CloseFile(file, &fhdr);
 
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "CI", 1);
+  }
   return 0;
 }
 
@@ -1591,11 +1595,8 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   double qku[MAXNUSR*MAXMSUB];
   double delta, emin, emax, e, emax0;
   int nq, i, j, k, ie;
-  int myrank, nproc, ntrans;
 
-  myrank = MPIRank(&nproc);
   double tstart = WallTime();
-  ntrans = 0;
 
   emin = 1E10;
   emax = 1E-10;
@@ -1677,7 +1678,11 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   if (pw_scratch.nkl == 0) {
     SetCIPWGrid(0, NULL, NULL);
   }
-    
+
+  int nproc = 0, *ntrans = NULL;
+  if (_progress_report >= 0) {
+    ntrans = InitTransReport(&nproc);
+  }
   ci_hdr.n_egrid = n_egrid;
   ci_hdr.n_usr = n_usr;    
   ci_hdr.egrid = egrid;
@@ -1686,6 +1691,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, nq, r, qku, ie)
   {
+  int myrank = MPIRank(NULL);
   for (i = 0; i < nb; i++) {
     lev1 = GetLevel(b[i]);
     for (j = 0; j < nf; j++) {
@@ -1705,12 +1711,12 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
       }
       WriteCIMRecord(file, &r);
       free(r.strength);
-      if (myrank == 0 && _progress_report > 0) {
-	ntrans++;
-	if (ntrans%_progress_report == 0) {
-	  double deltat = WallTime()-tstart;
-	  MPrintf(0, "CIM: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		  ntrans, deltat, 1000*deltat/ntrans);
+      if (ntrans) {
+	ntrans[myrank]++;	
+	if (myrank == 0 &&
+	    _progress_report > 0 &&
+	    ntrans[0]%_progress_report == 0) {
+	  PrintTransReport(nproc, tstart, ntrans, "CIM", 0);
 	}
       }
     }
@@ -1724,6 +1730,10 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   FreeRecPk();
   FreeIonizationQk();
   ReinitIonization(1);
+
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "CIM", 1);
+  }
   return 0;
 }
 

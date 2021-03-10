@@ -3120,9 +3120,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   f = OpenFile(fn, &fhdr);
-  int ntrans = 0, myrank, nproc;
-  myrank = MPIRank(&nproc);
   double tstart = WallTime();
+  int nproc = 0;
+  int *ntrans = NULL;
+  if (_progress_report >= 0) ntrans = InitTransReport(&nproc);
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
@@ -3250,6 +3251,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     m = ce_hdr.n_usr * nsub;
     r.strength = (float *) malloc(sizeof(float)*m);    
     //ic = 0;
+    int myrank = MPIRank(NULL);
     for (i = 0; i < nlow; i++) {
       lev1 = GetLevel(low[i]);
       for (j = 0; j < nup; j++) {
@@ -3273,12 +3275,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  k = CollisionStrength(qkc, params, &e, bethe, ilow, iup, msub); 
 	}
 	if (k < 0) continue;
-	if (_progress_report > 0 && myrank == 0) {
-	  ntrans++;
-	  if (ntrans%_progress_report == 0) {
-	    double deltat = WallTime()-tstart;
-	    MPrintf(0, "CE: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		    ntrans, deltat, 1000*deltat/ntrans);
+	if (ntrans) {
+	  ntrans[myrank]++;
+	  if (_progress_report > 0 && myrank == 0 &&
+	      ntrans[0]%_progress_report == 0) {
+	    PrintTransReport(nproc, tstart, ntrans, "CE", 0);
 	  }
 	}
 	r.bethe = bethe[0];
@@ -3358,6 +3359,9 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     fpw = NULL;
   }
 
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "CE", 1);
+  }
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",

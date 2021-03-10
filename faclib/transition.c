@@ -537,7 +537,6 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   CONFIG *c0, *c1;
   TR_DATUM *rd;
   int mj = 0xFF000000, mn = 0xFFFFFF;
-  int myrank, nproc, ntrans;
 
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
@@ -548,8 +547,6 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   
   if (nlow <= 0 || nup <= 0) return -1;
 
-  myrank = MPIRank(&nproc);
-  ntrans = 0;
   k = 0;
   emin = 1E10;
   emax = 1E-10;
@@ -605,6 +602,10 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   InitFile(f, &fhdr, &tr_hdr);
     
   double tstart = WallTime();
+  int nproc=0, *ntrans = NULL;
+  if (_progress_report >= 0) {
+    ntrans = InitTransReport(&nproc);
+  }
   if (IsUTA()) {
     qsort(low, nlow, sizeof(int), CompareNRLevel);
     nc0 = malloc(sizeof(int)*nlow);    
@@ -641,6 +642,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 #pragma omp parallel default(shared) private(imin, imax, jmin, jmax, lev1, lev2, c0, c1, ir, ntr, rd, ep, em, e0, wp, wm, w0, i, j, ic0, ic1, k, ir0, gf, j0, j1, nrs0, nrs1, de, cm, cp)
     {
     imin = 0;
+    int myrank = MPIRank(NULL);
     for (ic0 = 0; ic0 < nic0; ic0++) {
       imax = nc0[ic0];
       jmin = 0;
@@ -748,6 +750,14 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    continue;
 	  }
 	  WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
+	  if (ntrans) {
+	    ntrans[myrank]++;
+	    if (myrank == 0 &&
+		_progress_report > 0 &&
+		ntrans[0]%_progress_report == 0) {
+	      PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+	    }
+	  }
 	}
 	free(rd);
 	jmin = jmax;
@@ -762,6 +772,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     ResetWidMPI();
 #pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
     {
+      int myrank = MPIRank(NULL);
       a = malloc(sizeof(double)*nlow);
       s = malloc(sizeof(double)*nlow);
       et = malloc(sizeof(double)*nlow);
@@ -776,16 +787,15 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  s[i] = 0.0;
 	  k = TRMultipole(s+i, et+i, m, low[i], up[j]);
 	  if (k != 0) continue;
-	  ntrans++;
 	  gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
 	  a[i] /= jup+1.0;
 	  trd += a[i];
-	  if (myrank == 0 && _progress_report > 0) {
-	    ntrans++;
-	    if (ntrans%_progress_report == 0) {
-	      double deltat = WallTime()-tstart;
-	      MPrintf(0, "TR: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		      ntrans, deltat, 1000*deltat/ntrans);
+	  if (ntrans) {
+	    ntrans[myrank]++;
+	    if (myrank == 0 &&
+		_progress_report > 0 &&
+		ntrans[0]%_progress_report == 0) {
+	      PrintTransReport(nproc, tstart, ntrans, "TR", 0);
 	    }
 	  }
 	}
@@ -806,7 +816,9 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   }
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "TR", 1);
+  }
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
   fprintf(perform_log, "AngZMix: %6.1E, AngZFB: %6.1E, AngZxZFB: %6.1E, SetH: %6.1E DiagH: %6.1E\n",
