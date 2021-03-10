@@ -53,6 +53,23 @@ typedef struct {
 
 static int _tr_all = 0;
 static double _tr_aw = -1;
+static double _lower_emin = 0.0;
+static double _lower_emax = 0.0;
+static double _upper_emin = 0.0;
+static double _upper_emax = 0.0;
+static double _tr_emin = 0.0;
+static double _tr_emax = 0.0;
+static int _progress_report = 0;
+
+int OutOfERange(double e0, double e1, double de) {
+  if (_lower_emin > 0 && e0 < _lower_emin) return 1;
+  if (_lower_emax > 0 && e0 > _lower_emax) return 1;
+  if (_upper_emin > 0 && e1 < _upper_emin) return 1;
+  if (_upper_emax > 0 && e1 > _upper_emax) return 1;
+  if (_tr_emin > 0 && de < _tr_emin) return 1;
+  if (_tr_emax > 0 && de > _tr_emax) return 1;
+  return 0;
+}
 
 int SetTransitionCut(double c0, double c) {
   if (c0 >= 0) {
@@ -109,7 +126,7 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   int m2, ns, k0, k1, q1, q2;
   int p1, p2, j1, j2, ia, ib;
   LEVEL *lev1, *lev2;
-  double r, aw;
+  double r, aw, eg;
   INTERACT_DATUM *idatum;
   
   *strength = 0.0;
@@ -118,6 +135,10 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   lev2 = GetLevel(upper);
   if (lev2 == NULL) return -1;
 
+  if (lev1->nele != lev2->nele) return -1;
+  eg = EGroundIon(lev1->nele);
+  if (OutOfERange(lev1->energy-eg, lev2->energy-eg,
+		  lev2->energy-lev1->energy)) return -1;
   p1 = lev1->pj;
   p2 = lev2->pj;
   if (m > 0 && IsEven(p1+p2+m)) return -1;
@@ -198,7 +219,7 @@ int TRMultipole(double *strength, double *energy,
   int m0, m1, m2;
   int p1, p2, j1, j2;
   LEVEL *lev1, *lev2;
-  double s, r, a, aw, *mbk, tr;
+  double s, r, a, aw, *mbk, tr, eg;
   int nz, i, nmk;
   ANGULAR_ZMIX *ang;
 
@@ -206,6 +227,12 @@ int TRMultipole(double *strength, double *energy,
   if (lev1 == NULL) return -1;
   lev2 = GetLevel(upper);
   if (lev2 == NULL) return -1;
+  
+  if (lev1->nele != lev2->nele) return -1;
+  eg = EGroundIon(lev1->nele);
+  if (OutOfERange(lev1->energy-eg, lev2->energy-eg,
+		  lev2->energy-lev1->energy)) return -1;
+  
   if (*energy <= 0.0) {
     *energy = lev2->energy - lev1->energy;
     if (_tr_all && *energy < 0) {
@@ -317,12 +344,14 @@ int TRMultipoleEB(double *strength, double *energy, int m, int lower, int upper)
   LEVEL *plev1, *plev2;
   int i1, i2, j1, j2, p1, p2, k, m2;
   int ilev1, ilev2, mlev1, mlev2, q;
-  double r, a, c;
+  double r, a, c, eg;
 
   lev1 = GetEBLevel(lower);
   if (lev1 == NULL) return -1;
   lev2 = GetEBLevel(upper);
   if (lev2 == NULL) return -1;
+  
+  if (lev1->nele != lev2->nele) return -1;
   
   *energy = lev2->energy - lev1->energy;
   if (*energy <= 0.0) return -1;
@@ -448,7 +477,7 @@ int SaveTransitionEB0(int nlow, int *low, int nup, int *up,
   fhdr.atom = GetAtomicNumber();  
   lev1 = GetEBLevel(low[0]);
   DecodeBasisEB(lev1->pb, &i, &j);  
-  tr_hdr.nele = GetNumElectrons(i);
+  tr_hdr.nele = lev1->nele;
   tr_hdr.multipole = m;
   tr_hdr.gauge = GetTransitionGauge();
   if (m == 1) { /* always FR for M1 transitions */
@@ -503,11 +532,12 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   double *s, *et, *a, trd, gf;
   double e0, emin, emax;
   int ic0, ic1, nic0, nic1, *nc0, *nc1, j0, j1, ntr;
-  int imin, imax, jmin, jmax, nrs0, nrs1, ir, ir0;
-  double ep, em, wp, wm, w0, de, cp, cm;
+  int imin, imax, jmin, jmax, nrs0, nrs1, ir, ir0, nele;
+  double ep, em, wp, wm, w0, de, cp, cm, eg;
   CONFIG *c0, *c1;
   TR_DATUM *rd;
   int mj = 0xFF000000, mn = 0xFFFFFF;
+  int myrank, nproc, ntrans;
 
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
@@ -518,14 +548,21 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   
   if (nlow <= 0 || nup <= 0) return -1;
 
+  myrank = MPIRank(&nproc);
+  ntrans = 0;
   k = 0;
   emin = 1E10;
   emax = 1E-10;
+
+  nele = GetNumElectrons(low[0]);
+  eg = EGroundIon(nele);
   for (i = 0; i < nlow; i++) {
     lev1 = GetLevel(low[i]);
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
+      if (lev1->nele != lev2->nele) continue;
       e0 = lev2->energy - lev1->energy;
+      if (OutOfERange(lev1->energy-eg, lev2->energy-eg, e0)) continue;
       if (_tr_all || e0 > 0) k++;
       if (e0 < emin && e0 > 0) emin = e0;
       if (e0 > emax) emax = e0;
@@ -556,7 +593,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
-  tr_hdr.nele = GetNumElectrons(low[0]);
+  tr_hdr.nele = nele;
   tr_hdr.multipole = m;
   tr_hdr.gauge = GetTransitionGauge();
   if (m == 1) { /* always FR for M1 transitions */
@@ -567,6 +604,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   f = OpenFile(fn, &fhdr);
   InitFile(f, &fhdr, &tr_hdr);
     
+  double tstart = WallTime();
   if (IsUTA()) {
     qsort(low, nlow, sizeof(int), CompareNRLevel);
     nc0 = malloc(sizeof(int)*nlow);    
@@ -610,8 +648,11 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       c0 = GetConfigFromGroup(lev1->iham, lev1->pb);
       for (ic1 = 0; ic1 < nic1; ic1++) {
 	int skip = SkipMPI();
-	if (skip) continue;
 	jmax = nc1[ic1];
+	if (skip) {
+	  jmin = jmax;
+	  continue;
+	}
 	lev2 = GetLevel(up[jmin]);
 	c1 = GetConfigFromGroup(lev2->iham, lev2->pb);
 	ir = 0;
@@ -713,9 +754,9 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       }
       imin = imax;
     }    
+    }
     free(nc0);
     if (up != low) free(nc1);
-    }
   } else {
     //PrepAngZStates(nlow, low, nup, up);
     ResetWidMPI();
@@ -735,10 +776,19 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  s[i] = 0.0;
 	  k = TRMultipole(s+i, et+i, m, low[i], up[j]);
 	  if (k != 0) continue;
+	  ntrans++;
 	  gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
 	  a[i] /= jup+1.0;
 	  trd += a[i];
-	} 
+	  if (myrank == 0 && _progress_report > 0) {
+	    ntrans++;
+	    if (ntrans%_progress_report == 0) {
+	      double deltat = WallTime()-tstart;
+	      MPrintf(0, "TR: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
+		      ntrans, deltat, 1000*deltat/ntrans);
+	    }
+	  }
+	}
 	if (trd < 1E-30) continue;
 	r.upper = up[j];
 	for (i = 0; i < nlow; i++) {
@@ -1054,6 +1104,34 @@ void SetOptionTransition(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "transition:ls_all")) {
     _tr_all = ip;
+    return;
+  }
+  if (0 == strcmp(s, "transition:progress_report")) {
+    _progress_report = ip;
+    return;
+  }
+  if (0 == strcmp(s, "transition:lower_emin")) {
+    _lower_emin = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:lower_emax")) {
+    _lower_emax = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:upper_emin")) {
+    _upper_emin = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:upper_emax")) {
+    _upper_emax = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:tr_emin")) {
+    _tr_emin = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:tr_emax")) {
+    _tr_emax = dp/HARTREE_EV;
     return;
   }
 }

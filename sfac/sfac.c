@@ -205,7 +205,9 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       n = 0;
       for (i = 0; i < m; i++) {
 	nti[i] = SelectLevels(&ti[i], v[i], at[i], variables);
-	n += nti[i];
+	if (nti[i] > 0) {
+	  n += nti[i];
+	}
       }
       if (n > 0) {
 	*t = malloc(sizeof(int)*n);
@@ -1200,8 +1202,20 @@ static int PFreeRecQk(int argc, char *argv[], int argt[],
 
 static int PGetPotential(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  if (argc != 1 || argt[0] != STRING) return -1;
-  GetPotential(argv[0]);
+  if (argc < 1 || argt[0] != STRING) return -1;
+  int m = 0;
+  if (argc > 1) m = atoi(argv[1]);
+  GetPotential(argv[0], m);
+  return 0;
+}
+
+static int POrbitalStats(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc < 2 || argt[0] != STRING) return -1;
+  int nmax, kmax=-1;
+  nmax = atoi(argv[1]);
+  if (argc > 2) kmax = atoi(argv[2]);
+  OrbitalStats(argv[0], nmax, kmax);
   return 0;
 }
 
@@ -1309,6 +1323,20 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
 
   for (i = 0; i < ni; i++) free(vw[i]);
 
+  return 0;
+}
+
+static int PAverageAtom(int argc, char *argv[], int argt[], 
+			ARRAY *variables) {
+  int nmax, kmax, m;
+  double d, t, z;
+  if (argc != 4 && argc != 5) return -1;
+  m = atoi(argv[1]);
+  d = atof(argv[2]);
+  t = atof(argv[3]);
+  z = -1.0;
+  if (argc == 5) z = atof(argv[4]);
+  AverageAtom(argv[0], m, d, t, z);
   return 0;
 }
 
@@ -1957,13 +1985,13 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
   }
   
   ns = DecodeArgs(argv[0], vc, ic, variables);
-  
   n = malloc(sizeof(int)*ns);
   kappa = malloc(sizeof(int)*ns);
   nq = malloc(sizeof(double)*ns);
   
   for (i = 0; i < ns; i++) {
-    if (DecodeArgs(vc[i], vs, is, variables) != 4) {
+    j = DecodeArgs(vc[i], vs, is, variables);
+    if (j != 4) {
       return -1;
     }
     n[i] = atoi(vs[0]);
@@ -4480,6 +4508,23 @@ static int PAppendTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PCombineDBase(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc < 3 || argc > 4) return -1;
+
+  int z, k0, k1, ic;
+  ic = -1;
+  z = atoi(argv[0]);
+  k0 = atoi(argv[1]);
+  k1 = atoi(argv[2]);
+  if (argc > 3) {
+    ic = atoi(argv[3]);
+  }
+  CombineDBase(z, k0, k1, ic);
+  
+  return 0;
+}
+
 static int PJoinTable(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   if (argc != 3) return -1;
@@ -4957,7 +5002,7 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   tps = 0.0;
   ups = -1.0;
   m = 0;
-  vxf = 0;
+  vxf = 1;
   zps = atof(argv[0]);
   nps = atof(argv[1]);  
   if (argc > 2) {
@@ -5170,6 +5215,7 @@ static METHOD methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
@@ -5222,12 +5268,14 @@ static METHOD methods[] = {
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
+  {"OrbitalStats", POrbitalStats, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
+  {"AverageAtom", PAverageAtom, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
   {"Pause", PPause, METH_VARARGS},
   {"RadialOverlaps", PRadialOverlaps, METH_VARARGS},

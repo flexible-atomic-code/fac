@@ -248,7 +248,12 @@ class ATOM:
                 self.nterms = [3, 2, 2, 2]
             self.nexc_max = [7, 7, 7, 7]
             self.nfrozen = [10, 7, 7, 7]
-            self.nexc_rec = [10, 4, 4, 4]
+            if (self.nele == 3):
+                self.nexc_rec=[10, 9, 9, 9]
+            elif (self.nele == 4):
+                self.nexc_rec=[10,7,7,7]
+            else:
+                self.nexc_rec = [10, 4, 4, 4]
             self.nrec_max = [25, 16, 12, 8]
             self.rec_pw_max = [10, 9, 9, 5]
             self.nrec_ext = 45
@@ -360,7 +365,7 @@ class ATOM:
         return
 
 
-    def run_tr_ce(self, a, b, c, d, tr = [-1], ce = 1):
+    def run_tr_ce(self, a, b, c, d, tr = [0], ce = 1):
         if (type(a) == type('') or type(a) == type(0)):
             low = [a]
         else:
@@ -771,7 +776,7 @@ class ATOM:
 
     def run_tr_ce_all(self):
         g = self.grd_complex.name
-        self.run_tr_ce(g, g, g, g, tr=[-1,1,-2,2], ce=1)
+        self.run_tr_ce(g, g, g, g, tr=[0], ce=1)
         for i in range(self.n_shells):
             c = self.exc_complex[i].cgroup
             for j in range(len(c)):
@@ -790,9 +795,9 @@ class ATOM:
                     b = (b, c[j].nrec)
                     a2 = g[:1]
                 if (i == 0 and (self.nele <= 2 or self.nele == 10 or j == 0)):
-                    tr = [-1, 1, -2, 2]
+                    tr = [0]
                 else:
-                    tr = [-1]
+                    tr = [0]
                 nmax = c[j].nrec
                 if (nmax == 0):
                     nmax = c[j].complex[-1][0]
@@ -846,9 +851,9 @@ class ATOM:
                     tr = []
                     if (i == 0 and nmax <= self.n_decay[0]):
                         if (j == 0 or self.nele == 10):
-                            tr = [-1, 1, -2, 2]
+                            tr = [0]
                         else:
-                            tr = [-1]
+                            tr = [0]
                     if (c[m].nrec > 0):
                         a = (a, c[m].nrec)
                     if (m == 0):
@@ -907,7 +912,7 @@ class ATOM:
                                 n3 = 0
                         if (n3 != n1 or n2 > self.n_decay[i]):
                             continue
-                    self.run_tr_ce(a, b, a, b, tr=[-1], ce=ce1)
+                    self.run_tr_ce(a, b, a, b, tr=[0], ce=ce1)
 
         return
 

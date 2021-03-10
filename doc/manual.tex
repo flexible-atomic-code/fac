@@ -2516,6 +2516,18 @@ electron and photon directions, $\phi$ is the azimuth angle of polarization
 direction of the photon relative to the electron direction.
 \end{fundesc}
 
+\begin{fundesc}{AverageAtom}{pref, m, d, t}
+Calculate the average atom model. \var{pref} is the file name prefix for the
+output. \var{m} is a mode parameter with values of 3 or 4. The difference
+between the two is the treatment of quasi-bound orbitals. With mode 4, some
+positive energy orbitals are treated quantum mechanically, while with 3, all
+positive energy electrons are treated in Thomas-Fermi model. \var{d} is the
+density of the atom in g/cc. \var{t} is the temperature in eV. Two output
+files are created. \verb|pref.den| and \verb|pref.pot|. The first tabulates
+varius electron density profiles, the 2nd is the potentials obtained with
+\key{GetPotential} function.
+\end{fundesc}
+
 \begin{fundesc}{AvgConfig}{c}
 Setup a mean configuration for the optimization of central potential as
 specified by a string \var{c}. The format of the string is the same as in the

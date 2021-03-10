@@ -101,6 +101,7 @@ static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
 static int xborn = 0;
+static int _progress_report = 0;
 
 static struct {
   int max_k;
@@ -1041,6 +1042,11 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
+  int myrank, nproc, ntrans;
+
+  myrank = MPIRank(&nproc);
+  double tstart = WallTime();
+  ntrans = 0;
 
   iuta = IsUTA();
 
@@ -1270,6 +1276,14 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	}
 	
 	WriteCIRecord(file, &r);
+	if (myrank == 0 && _progress_report > 0) {
+	  ntrans++;
+	  if (ntrans%_progress_report == 0) {
+	    double deltat = WallTime()-tstart;
+	    MPrintf(0, "CI: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
+		    ntrans, deltat, 1000*deltat/ntrans);
+	  }
+	}
       }
     }
     free(r.params);
@@ -1577,6 +1591,11 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   double qku[MAXNUSR*MAXMSUB];
   double delta, emin, emax, e, emax0;
   int nq, i, j, k, ie;
+  int myrank, nproc, ntrans;
+
+  myrank = MPIRank(&nproc);
+  double tstart = WallTime();
+  ntrans = 0;
 
   emin = 1E10;
   emax = 1E-10;
@@ -1686,6 +1705,14 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
       }
       WriteCIMRecord(file, &r);
       free(r.strength);
+      if (myrank == 0 && _progress_report > 0) {
+	ntrans++;
+	if (ntrans%_progress_report == 0) {
+	  double deltat = WallTime()-tstart;
+	  MPrintf(0, "CIM: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
+		  ntrans, deltat, 1000*deltat/ntrans);
+	}
+      }
     }
   }
   }
@@ -1747,5 +1774,9 @@ int ReinitIonization(int m) {
 }
 
 void SetOptionIonization(char *s, char *sp, int ip, double dp) {
+  if (strcmp("ionization:progress_report", s) == 0) {
+    _progress_report = ip;
+    return;
+  }  
 }
 

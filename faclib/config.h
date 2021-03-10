@@ -188,9 +188,11 @@ typedef struct _CONFIG_ {
 typedef struct _AVERAGE_CONFIG_ {
   int n_cfgs;
   int n_shells;
+  int n_cores;
+  int n_allocs;
   int *n;
   int *kappa;
-  double *nq;
+  double *nq, *e;
   int ng;
   int *kg;
   double *weight;

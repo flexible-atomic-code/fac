@@ -23,6 +23,7 @@ from collections import OrderedDict
 from distutils.version import LooseVersion
 import struct
 from sys import version_info
+from pfac import fac
 
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
@@ -75,6 +76,9 @@ def _get_header(lines):
     header['Verbose'], lines = _read_value(lines, int)
     key = lines[0].split('\t')[0]
     header[key], lines = _read_value(lines, float)
+    a = key.split(' ')
+    header['asym'] = a[0]
+    header['Z'] = int(header[key])
     header['NBlocks'], lines = _read_value(lines, int)
     return header, lines
 
@@ -89,6 +93,7 @@ def read_lev(filename):
     ind, e0 = lines[0].split('=')[-1].split(',')
     header['E0_index'] = int(ind)
     header['E0'] = float(e0)
+    
     lines = lines[2:]
     if len(lines) > 3:
         line0 = lines[3]
@@ -732,13 +737,79 @@ def valid_lines(fn):
     with open(fn) as f:
         for i,line in enumerate(f):
             line = line.lstrip()
-            if len(line) > 0 and not line[0].isalpha():
+            if len(line) > 20 and not line[0].isalpha():
                 yield line
                 
 def load_fac(fn):
     r = np.loadtxt(valid_lines(fn), unpack=1, ndmin=2)
     return r
 
+def load_atbase(fn):
+    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
+    with open(fn) as f: 
+        d = f.readlines()
+        nx = len(d)
+        ilev = np.zeros(nx, dtype=np.int32)
+        e = np.zeros(nx)
+        j = ilev.copy()
+        wj = j.copy()
+        k = j.copy()
+        p = j.copy()
+        s = np.chararray(nx, itemsize=128)
+        tm = s.copy()
+        cn = s.copy()
+        iup = j.copy()
+        ilo = j.copy()
+        te = e.copy()
+        tf = e.copy()
+        tt = j.copy()
+        ti = j.copy()
+        t = 0
+        q = -1
+        for i in range(nx):
+            x = d[i]
+            if len(x) < 6:
+                continue
+            if x[2:6] == 'Tran':
+                q = 0                
+            if x[0] == '#':
+                continue
+            if len(x) < 90:
+                continue
+            if q >= 0:
+                iup[q] = int(x[:6])
+                ilo[q] = int(x[13:21])
+                ti[q] = int(x[30:39])
+                tt[q] = int(x[48:57])
+                te[q] = float(x[57:74])
+                tf[q] = float(x[74:])
+                q += 1
+                continue
+            ilev[t] = int(x[:6])
+            k[t] = int(x[6:15])
+            e[t] = float(x[15:33])
+            j[t] = int(2*float(x[53:63]))
+            wj[t] = int(float(x[33:53]))
+            tm[t] = x[72:76]
+            a = x[82:]
+            cn[t] = a
+            a = a.replace('(','').replace(')','.')
+            a = a.strip()
+            if (len(a) > 0):
+                a = a[:-1]
+                b = a.split('.')
+                kt = 0
+                a = ''
+                for c in b:
+                    if c[0] == '{':
+                        c = c[4:]                    
+                    kt += ks[c[1:2]]*int(c[2:])
+                    a += '.' + c
+                p[t] = kt%2
+                s[t] = a[1:]
+                t += 1
+        return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t]
+    
 class FLEV:
     def sort(self):
         i = np.argsort(self.e)
@@ -821,21 +892,51 @@ class FLEV:
         self.ig[:ng] = g.ig[wg]
         self.ig[ng:] = c.ig[wc]
 
-    def __init__(self, f, ig=0):
-        if f == None:
+    def read_atbase(self, f, zi=18, ki=2):
+        if type(f) == type(''):
+            r = load_atbase(f)
+        else:
+            r = f
+        w = np.where(r[1] == ki)[0]
+        wi = np.where(r[1] == ki+1)[0]
+        w = np.append(w,wi[0])
+        nw = len(w)
+        self.z = zi
+        self.asym = fac.ATOMICSYMBOL[zi]
+        self.ilev = r[0][w]
+        self.nele = np.int32(zi-r[1][w]+1)
+        self.e = r[2][w]
+        self.e0 = self.e[0]
+        self.j = r[3][w]
+        self.p = r[4][w]
+        self.s = np.array([x.decode() for x in r[5][w]])
+        self.n = np.array([x.decode() for x in r[12][w]])
+        self.wj = r[13][w]
+        w = np.where(self.nele == self.nele[0]-1)[0]
+        if len(w) > 0:
+            self.ei = self.e[w[0]]-self.e0
+        else:
+            self.ei = 0.0
+        
+    def __init__(self, f, ig=0, zi=0, ki=0):
+        if f is None:
+            return
+        if zi > 0:
+            self.read_atbase(f, zi=zi, ki=ki)
             return
         (hlev,blev) = read_lev(f)
         b0 = blev[0]
+        b0['NELE'] = np.repeat(b0['NELE'],len(b0['ILEV']))
         for b in blev[1:]:
+            b['NELE'] = np.repeat(b['NELE'],len(b['ILEV']))
             for kn in b0.keys():
-                if kn != 'NELE':
-                    b0[kn] = np.append(b0[kn], b[kn])
+                b0[kn] = np.append(b0[kn], b[kn])
         self.nele = b0['NELE']
         ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
-        if self.nele <= 12:
-            gc = [2, 2, 6, self.nele-10, 0, 0]
+        if self.nele[0] <= 12:
+            gc = [2, 2, 6, self.nele[0]-10, 0, 0]
         else:
-            gc = [2, 2, 6, 2, self.nele-12, 0]
+            gc = [2, 2, 6, 2, self.nele[0]-12, 0]
         for m in range(4,6):
             for k in range(m):
                 gc.append(0)
@@ -853,16 +954,25 @@ class FLEV:
                 cc[i1] -= 1
                 cc[i2] += 1
             self.cc = cc
+        self.z = hlev['Z']
+        self.asym = hlev['asym']
         self.e0 = hlev['E0']
         self.e = b0['ENERGY']
         self.p = b0['P']
         self.j = b0['2J']
-        self.c = b0['ncomplex']
+        self.wj = self.j+1
+        self.c = np.array([x.decode() for x in b0['ncomplex']])
         self.v = b0['VNL']
-        self.s = b0['sname']
-        self.n = b0['name']
+        self.s = np.array([x.decode() for x in b0['sname']])
+        self.n = np.array([x.decode() for x in b0['name']])
         self.e = self.e + self.e0
         self.ig = np.zeros(len(self.e), dtype=int)
+        self.ilev = None
+        w = np.where(self.nele == self.nele[0]-1)[0]
+        if len(w) > 0:
+            self.ei = self.e[w[0]]-self.e0
+        else:
+            self.ei = 0.0
         if ig > 0:
             nq = cc+[]
             for i in range(len(self.e)):
@@ -885,55 +995,122 @@ class FLEV:
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
         self.im = np.zeros(len(self.e), dtype=int)
-        self.cm = np.chararray(len(self.e),itemsize=32)
-        self.cm[:]=''
+        self.cm = np.chararray(len(self.e),itemsize=64)
+        self.cm[:]=b'.'
         if m == None:
             return
-        for p in [0, 1]:
-            for j in range(min(m.j),max(m.j)+1,2):
-                w0 = np.where(np.logical_and(self.p == p, self.j == j))
-                n0 = len(w0[0])
-                if (n0 == 0):
-                    continue
-                ew0 = self.e[w0]
-                w1 = np.where(np.logical_and(m.p == p, m.j == j))
-                ew1 = m.e[w1]
-                n1 = len(w1[0])
-                for i in range(n1):
-                    ade = abs(ew0 - ew1[i])
-                    wm0 = np.argmin(ade)
-                    if ade[wm0] > 3:
+        w = np.where(self.nele == self.nele[0]-1)[0]
+        if len(w) > 0:
+            w0 = w[0]
+            ei = self.e[w0]-self.e0            
+            self.im[w] = 0
+            self.em[w] = (self.e[w]-self.e0)+(m.ei-ei)
+            self.cm[w] = b'.'
+        uc = np.unique(m.s)
+        imd = np.zeros(len(m.s),dtype=np.int32)
+        for c in uc:
+            ns = len(c)
+            sn = np.array([x[-ns:] for x in self.s])
+            for p in [0, 1]:
+                jmin = max(min(self.j),min(m.j))
+                jmax = min(max(self.j),max(m.j))
+                for j in range(jmin,jmax+1,1):
+                    #print([p,j,c])
+                    w0 = np.where((self.p == p) &
+                                  (self.j == j) &
+                                  (sn == c))[0]
+                    n0 = len(w0)
+                    ew0 = self.e[w0]-self.e0
+                    w1 = np.where((m.p == p) &
+                                  ((m.j == j)|((m.j < 0)&(imd==0))) &
+                                  (m.s == c))[0]
+                    ew1 = m.e[w1] - m.e0
+                    n1 = len(w1)
+                    if (n1 == 0):
                         continue
-                    wm = w0[0][wm0]
-                    if self.em[wm] < 0 or np.fabs(self.em[wm]-self.e[wm])>ade[wm0]:
-                        self.im[wm] = w1[0][i]
-                        self.em[wm] = ew1[i]
-                        self.cm[wm] = m.c[w1[0][i]]
-
+                    if (n0 == 0):
+                        continue
+                    i0 = 0
+                    i1 = 0
+                    while (i0 < n0 and i1 < n1):
+                        wi0 = w0[i0]
+                        wi1 = w1[i1]
+                        dex = 2.0
+                        if (m.j[wi1] < 0):
+                            dex = 0.25
+                        if abs(ew0[i0]-ew1[i1]) < dex:
+                            if m.ilev is None:
+                                self.im[wi0] = wi1
+                            else:
+                                self.im[wi0] = m.ilev[wi1]
+                            self.em[wi0] = ew1[i1]
+                            self.cm[wi0] = m.s[wi1]
+                            imd[wi1] = 1
+                            i0 += 1
+                            i1 += 1
+                        elif ew0[i0] < ew1[i1]:
+                            i0 += 1
+                        else:
+                            i1 += 1
+        self.cm = np.array([x.decode() for x in self.cm])
+        
     def write(self, fn):
         f = open(fn, 'w')
         for i in range(len(self.e)):
+            if self.ilev is None:
+                ik = i
+            else:
+                ik = self.ilev[i]
             em = self.em[i]
             if em >= 0:
-                de = self.e[i]-self.em[i]
+                de = self.e[i]-self.e0-self.em[i]
             else:
                 em = 0.0
                 de = 0.0
-            s = '%4d %4d %11.5E %11.5E %10.3E %d %2d %-32s %-84s %-48s\n'%(i,self.im[i],self.e[i],em,de,self.p[i],self.j[i],self.s[i],self.n[i],self.cm[i])
+            s = '%4d %4d %11.5E %11.5E %10.3E %4d %4d %4d %-32s %-84s %-48s\n'%(ik,self.im[i],self.e[i]-self.e0,em,de,self.wj[i],self.j[i],self.p[i],self.s[i],self.n[i],self.cm[i])
             f.write(s)
         f.close()
 
 class MLEV:
-    def __init__(self, f):
+    def __init__(self, f, md=0):
         if f == None:
             return
-        self.e = np.transpose(np.loadtxt(f, usecols=3, dtype='float', skiprows=1, delimiter=' ; '))
-        j = np.transpose(np.loadtxt(f, usecols=1, dtype='float', skiprows=1, delimiter=' ; ', converters={1:lambda x: eval('2*'+x)}))
-        self.j = np.int32(j)
-        pc = np.transpose(np.loadtxt(f, usecols=2, dtype='string', skiprows=1, delimiter=' ; '))
-        self.p = np.int32(pc == 'o')
-        self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
-
+        self.ilev = None
+        if md == 0:
+            self.e = np.transpose(np.loadtxt(f, usecols=3, dtype='float', skiprows=1, delimiter=' ; '))
+            j = np.transpose(np.loadtxt(f, usecols=1, dtype='float', skiprows=1, delimiter=' ; ', converters={1:lambda x: eval('2*'+x)}))
+            self.j = np.int32(j)
+            pc = np.transpose(np.loadtxt(f, usecols=2, dtype='string', skiprows=1, delimiter=' ; '))
+            self.p = np.int32(pc == 'o')
+            self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
+            self.s = self.c
+            self.ei = 0.0
+            self.e0 = self.e[0]
+        else:
+            r = np.loadtxt(f, unpack=1, skiprows=1, delimiter='\t', dtype=str)
+            w0 = np.where(r[1] == '"Limit"')
+            ri = r[:,w0[0]]
+            w0 = np.where(r[1] != '"Limit"')
+            r = r[:,w0[0]]
+            self.c = np.array([str(x).replace('"','').strip() for x in r[0]])
+            self.t = np.array([str(x).replace('"','').strip() for x in r[1]])
+            self.j = np.array([int(2*eval(x.replace('"',''))) for x in r[2]])
+            self.wj = self.j+1
+            self.p = np.array([int(x[-1]=='*') for x in self.t])        
+            self.e = np.array([float(x.replace('"','').replace('[','').replace(']','')) for x in r[3]])
+            self.ei = float(ri[3,0].replace('"','').replace('[','').replace(']',''))
+            self.e0 = self.e[0]
+            for i in range(len(self.c)):
+                a = self.c[i].split(".")
+                self.c[i] = ''
+                for b in a:
+                    if b[0] != '(':
+                        if (not b[-1].isdigit()):
+                            b += '1'
+                        self.c[i] += '.'+b
+                self.c[i] = self.c[i][1:]
+            self.s = self.c
+            
 def aflev(d0, d1, a, n):
     if (d0 != None and len(d0) > 0):
         r0 = cflev(d0, a, 0, n)
@@ -1037,3 +1214,10 @@ def mflev(a, n, df0, df1, dm, fw):
     #fw = 'mf%d.txt'%n
     r0.write(fw)
     return r0
+
+def NISTCorr(ff, fn, fo):
+    r0 = FLEV(ff)
+    r1 = MLEV(fn, md=1)
+    r0.match(r1)
+    r0.write(fo)
+    

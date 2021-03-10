@@ -39,6 +39,7 @@ typedef struct _POTENTIAL_ {
   double hxs, ahx, ihx, rhx, dhx, bhx, ratio, asymp, rmin;
   double N; /*number of electrons*/
   double N1;
+  double NC;
   double lambda; /* parameter for the Vc */
   double a; /* previously used to parameterize the Vc, but now always 0.0*/
   double ar, br, qr; /* parameter for the transformation */
@@ -50,12 +51,13 @@ typedef struct _POTENTIAL_ {
   double sturm_idx;
   int nws;  
   double *dws;
-  double zps, nps, tps, rps, dps, aps, fps, ups, xps, jps, qps, gps, sf0, sf1;
-  int mps, vxf, ips, sps;
+  double zps, nps, tps, rps, dps, aps, bps, nbt, nbs, nqf;
+  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm;
+  int mps, kps, vxf, ips, sps, iqf;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
-  double *NPS, *EPS, *VXF, *ICF, *ZPS, *dZPS, *dZPS2;
+  double *NPS, *VPS, *EPS, *VXF, *ICF, *ZPS, *dZPS, *dZPS2;
   double *ZSE[NKSEP], *dZSE[NKSEP], *dZSE2[NKSEP];
   double *VT[NKSEP1], *dVT[NKSEP1], *dVT2[NKSEP1];
   NUCLEUS *atom;
@@ -93,6 +95,7 @@ double InnerProduct(int i1, int n,
 		    double *p1, double *p2, POTENTIAL *pot);
 void Differential(double *p, double *dp, int i1, int i2, POTENTIAL *pot);
 void DrLargeSmall(ORBITAL *orb, POTENTIAL *pot, double *pr, double *qr);
+void InitializePS(POTENTIAL *pot);
 int SetOrbitalRGrid(POTENTIAL *pot);
 double GetRFromRho(double rho, double a, double b, double q, double r0);
 int SetPotentialExtraZ(POTENTIAL *pot, int iep);
@@ -100,7 +103,8 @@ int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
-void FreeElectronDensity(POTENTIAL *pot, double *vt);
+double FreeElectronDensity(POTENTIAL *pot, double *vt,
+			   double e0, double u, double zn, int md);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
 			     double y0, double g, double z, double nb);
 double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps,
@@ -134,7 +138,7 @@ double ZColl();
 double MColl();
 void SetZColl(double z);
 void SetMColl(double z);
-
+int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps);
 #endif
 
 

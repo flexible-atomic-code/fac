@@ -78,7 +78,8 @@ static struct {
 		RECNMAX, RECLMAX, RECLMAX,
 		0, 0, {0, RECLMAX}};
 
-double ai_cut = AICUT;
+static double ai_cut = AICUT;
+static int _progress_report = 0;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
@@ -2230,6 +2231,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
+  int myrank, nproc, ntrans;
+
+  myrank = MPIRank(&nproc);
+  double tstart = WallTime();
+  ntrans = 0;
 
   iuta = IsUTA();
 
@@ -2422,6 +2428,14 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	  r.strength[ie] = (float) rqu[ie];
 	}
 	WriteRRRecord(f, &r);
+	if (myrank == 0 && _progress_report > 0) {
+	  ntrans++;
+	  if (ntrans%_progress_report == 0) {
+	    double deltat = WallTime()-tstart;
+	    MPrintf(0, "RR: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
+		    ntrans, deltat, 1000*deltat/ntrans);
+	  }
+	}
       }
     }
     if (qk_mode == QK_FIT) {
@@ -2468,7 +2482,12 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   double c, e0, e1, b;
   int isub, n_egrid0;
   int e_set, iuta;
+  int myrank, nproc, ntrans;
 
+  myrank = MPIRank(&nproc);
+  double tstart = WallTime();
+  ntrans = 0;
+  
   iuta = IsUTA();
   if (iuta && msub) {
     printf("cannot call AITableMSub with UTA mode\n");
@@ -2628,6 +2647,14 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
+	if (_progress_report > 0 && myrank == 0) {
+	  ntrans++;
+	  if (ntrans%_progress_report == 0) {
+	    double deltat = WallTime()-tstart;
+	    MPrintf(0, "AI: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
+		    ntrans, deltat, 1000*deltat/ntrans);
+	  }
+	} 
       }
     }
     }
@@ -3271,6 +3298,9 @@ void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "recombination:cxrotcouple")) {
     cxrotcouple = dp;
+  }
+  if (0 == strcmp(s, "recombination:progress_report")) {
+    _progress_report = ip;
   }
 }
 
