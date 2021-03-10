@@ -2190,6 +2190,51 @@ void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   }
 }
 
+void OrbitalStats(char *s, int nmax, int kmax) {
+  int n, k, km, j, ka, idx;
+  ORBITAL *orb;
+  FILE *f;
+  char c, sk[8];
+  double r1, r2, ri1, ri2;
+
+  f = fopen(s, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", s);
+    return;
+  }
+  if (nmax <= 0) {
+    printf("nmax <= 0 in OrbitalStats\n");
+    return;
+  }
+  for (n = 1; n <= nmax; n++) {
+    km = n-1;
+    if (kmax >= 0 && km > kmax) {
+      km = kmax;
+    }
+    for (k = 0; k <= km; k++) {
+      for (j = -1; j <= 1; j += 2) {
+	if (k == 0 && j < 0) continue;
+	if (j < 0) c = '-';
+	else c = '+';
+	SpecSymbol(sk, k);
+	ka = GetKappaFromJL(2*k+j, 2*k);
+	idx = OrbitalIndex(n, ka, 0);
+	orb = GetOrbitalSolved(idx);
+	ri1 = RadialMoments(-1, idx, idx);
+	ri2 = RadialMoments(-2, idx, idx);
+	r1 = RadialMoments(1, idx, idx);
+	r2 = RadialMoments(2, idx, idx);
+	fprintf(f, "%3.0f %3.0f %3d %3d %3d %3d%s%c %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
+		potential->atom->atomic_number,
+		potential->N, n, k, ka, n, sk, c,
+		orb->energy, orb->dn, ri2, ri1, r1, r2);
+	
+      }
+    }
+  }
+  fclose(f);
+}
+
 int GetPotential(char *s, int m) {
   AVERAGE_CONFIG *acfg;
   ORBITAL *orb1, *orb2;

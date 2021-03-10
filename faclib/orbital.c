@@ -1804,6 +1804,14 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
       return -3;
     }    
     pp = 0.0;
+    ep = sqrt(norm2);
+    fact = 1.0/ep;
+    if (IsOdd(nodes)) {
+      fact = -fact;
+    }
+    for (i = 0; i < pot->maxrp; i++) {
+      p[i] *= fact;
+    }
   } else {
     if (pot->N <= 1) j = 3;
     else j = 1;

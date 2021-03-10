@@ -50,6 +50,11 @@
 #define LNAME0 56
 #define LNAME       128
 
+typedef struct _NCOMPLEX_ {
+  short n;
+  short nq;
+} NCOMPLEX;
+
 typedef struct _FORM_FACTOR_ {  
   double te;
   int nk;
@@ -552,6 +557,7 @@ int InitDBase(void);
 int ReinitDBase(int m);
 TFILE *OpenFile(char *fn, F_HEADER *fhdr);
 TFILE *OpenFileRO(char *fn, F_HEADER *fhdr, int *swp);
+TFILE *OpenFileWTN(char *fn, F_HEADER *fhdr, int nth);
 int CloseFile(TFILE *f, F_HEADER *fhdr);
 int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr);
 int DeinitFile(TFILE *f, F_HEADER *fhdr);
@@ -658,6 +664,13 @@ void PrintWallTime(char *s, int m);
 int IsNewV114(TFILE *f);
 int ReadJJLSJ(char *fn, JJLSJ **lsj);
 void RecoupleRO(char *ifn, char *ofn);
+int CompareENRecordEnergy(const void *p0, const void *p1);
+int CompareENRecord(const void *p0, const void *p1);
+int CompareENComplex(const void *c1, const void *c2);
+int SortUniqNComplex(int n, EN_RECORD *a);
+int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
+		   int nele, char *ifn);
+void CombineDBase(int z, int k0, int k1, int ic);
 void SetOptionDBase(char *s, char *sp, int ip, double dp);
 #endif
 

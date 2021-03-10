@@ -981,7 +981,7 @@ int StrongInteractConfig(int ncc, double *e1, CORR_CONFIG *ccp,
     k1 += GetLFromKappa(ccp->kq)/2;
   }
   k1 = IsOdd(k1);
-  if (k0 >= 0 && k0 != k1) return 0;
+  if ((k0 == 0 || k0 == 1) && k0 != k1) return 0;
 
   if (de <= 0) return 1;  
   b = 1e30;

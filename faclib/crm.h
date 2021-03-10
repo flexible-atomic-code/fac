@@ -43,11 +43,6 @@ typedef struct _RECOMBINED_ {
   int nrec[MAXNREC];
 } RECOMBINED;
 
-typedef struct _NCOMPLEX_ {
-  short n;
-  short nq;
-} NCOMPLEX;
-
 #define MAXNCOMPLEX 8
 typedef struct _LBLOCK_ {
   int ib;
@@ -161,8 +156,6 @@ int ReinitCRM(int m);
 int AddIon(int nele, double n, char *pref);
 int IonIndex(ION *ion, int i, int k);
 int IonizedIndex(int i, int m);
-int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
-		   int nele, char *ifn);
 void GetRecombined(int *b, int *nrec, char *name);
 int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);
 int GetNComplex(NCOMPLEX *c, char *s);
@@ -238,8 +231,6 @@ double MicroFieldMode(double g, double s);
 double QSReduction(double g, double s);
 double DebyeLength(double d, double t);
 void  ScaledSG(double s, double g, double zr, double *sn, double *gn);
-int SortUniqNComplex(int n, EN_RECORD *a);
-int CompareENComplex(const void *c1, const void *c2);
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 

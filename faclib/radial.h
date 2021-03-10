@@ -79,6 +79,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md);
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike);
 POTENTIAL *RadialPotential(void);
 int GetPotential(char *s, int m);
+void OrbitalStats(char *s, int nmax, int kmax);
 void CopyPotentialOMP(int i);
 double GetResidualZ(void);
 double GetRMax(void);

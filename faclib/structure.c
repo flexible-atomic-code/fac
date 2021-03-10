@@ -45,7 +45,9 @@ static int _max_hams = MAX_HAMS;
 static SHAMILTON *hams = NULL;
 static HAMILTON _allhams[MAX_SYMMETRIES+1];
 
-static ARRAY levels_per_ion[N_ELEMENTS+1];
+static ARRAY levels_per_ion[2*N_ELEMENTS];
+static int _iground_ion[2*N_ELEMENTS];
+static LEVEL *_vground_ion[2*N_ELEMENTS];
 static ARRAY *levels;
 static int n_levels = 0;
 static ARRAY *eblevels;
@@ -101,6 +103,21 @@ int GetStructTiming(STRUCT_TIMING *t) {
 #endif
 
 extern int GetAWGridMBPT(double **);
+
+int IdxGroundIon(int k) {
+  return _iground_ion[k];
+}
+
+LEVEL *LevGroundIon(int k) {
+  return _vground_ion[k];
+}
+
+double EGroundIon(int k) {
+  if (_vground_ion[k]) {
+    return _vground_ion[k]->energy;
+  }
+  return 0.0;
+}
 
 void SetMaxHams(int n) {
   FreeHamsArray();
@@ -211,7 +228,7 @@ void SetFields(double b, double e, double a, int m) {
 
 void SetSymmetry(int p, int nj, int *j) {
   if (p >= 0) {
-    sym_pp = IsOdd(p);
+    sym_pp = p;
   } else {
     sym_pp = -1;
   }
@@ -356,7 +373,7 @@ int NHams(void) {
 int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
   CONFIG_GROUP *g0;
   CONFIG *c1;
-  int i, q, ncc, p, j;
+  int i, q, ncc, p, j, pj, pa;
 
   ncc = 0;
   for (i = 0; i < n; i++) {
@@ -370,14 +387,19 @@ int ZerothEnergyConfigSym(int n, int *s0, double **e1) {
     g0 = GetGroup(s0[i]);
     for (q = 0; q < g0->n_cfgs; q++) {
       c1 = GetConfigFromGroup(i, q);
-      if (sym_pp >= 0) {
-	p = ConfigParity(c1);
-	if (p != sym_pp) continue;
+      pa = ConfigParity(c1);
+      if (sym_pp == 0 || sym_pp == 1) {
+	if (pa != sym_pp) continue;
       }
       if (sym_njj > 0) {
 	p = -1;
 	for (j = 0; j < c1->n_csfs; j++) {
-	  p = IBisect(c1->csfs[j*c1->n_shells].totalJ, sym_njj, sym_jj);
+	  if (sym_pp == 2) {
+	    pj = 2*c1->csfs[j*c1->n_shells].totalJ + pa;
+	  } else {
+	    pj = c1->csfs[j*c1->n_shells].totalJ;
+	  }
+	  p = IBisect(pj, sym_njj, sym_jj);
 	  if (p >= 0) {
 	    break;
 	  }
@@ -449,9 +471,15 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
 #endif
 
   DecodePJ(isym, &i, &j);
-  if (sym_pp >= 0 && i != sym_pp) return -2;
-  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
-
+  if ((sym_pp == 0 || sym_pp == 1) && i != sym_pp) return -2;
+  if (sym_njj > 0) {
+    if (sym_pp == 2) {
+      t = j*2 + i;
+    } else {
+      t = j;
+    }
+    if (IBisect(t, sym_njj, sym_jj) < 0) return -3;  
+  }
   if (k <= 0) return -1;
   sym = GetSymmetry(isym);
   if (sym == NULL) return -1;
@@ -621,8 +649,15 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
   ** no basis exists later.
   **/
   DecodePJ(isym, &i, &j);
-  if (sym_pp >= 0 && i != sym_pp) return -2;
-  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
+  if ((sym_pp == 0 || sym_pp == 1) && i != sym_pp) return -2;
+  if (sym_njj > 0) {
+    if (sym_pp == 2) {
+      t = 2*j + i;
+    } else {
+      t = j;
+    }
+    if (IBisect(t, sym_njj, sym_jj) < 0) return -3;
+  }
 
   ip = md/1000;
   md = md%1000;
@@ -1125,9 +1160,15 @@ int ConstructHamiltonFrozen(int isym, int k, int *kg, int n, int snc,
 #endif
 
   DecodePJ(isym, &i, &j);
-  if (sym_pp >= 0 && i != sym_pp) return -2;
-  if (sym_njj > 0 && IBisect(j, sym_njj, sym_jj) < 0) return -3;
-  
+  if ((sym_pp == 0 || sym_pp == 1) && i != sym_pp) return -2;
+  if (sym_njj > 0) {
+    if (sym_pp == 2) {
+      t = 2*j + 1;
+    } else {
+      t = j;
+    }
+    if (IBisect(t, sym_njj, sym_jj) < 0) return -3;
+  }
   nc = abs(snc);
   jc = 0;
   j = 0;
@@ -2961,6 +3002,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     for (i = 0; i < ng; i++) {
       lev.iham = kg[i];
       g = GetGroup(kg[i]);
+      lev.nele = g->n_electrons;
       for (j = 0; j < g->n_cfgs; j++) {
 	lev.pb = j;
 	c = GetConfigFromGroup(kg[i], j);
@@ -2998,6 +3040,8 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
   mix = h->mixing + d;
 
   if (h->pj < 0) {
+    DecodeBasisEB(h->basis[0], &i, &j);
+    lev.nele = GetNumElectrons(i);
     j = n_eblevels;
     for (i = 0; i < d; i++) {
       k = GetPrincipleBasis(mix, d, NULL);
@@ -3092,7 +3136,13 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     if (s->kgroup < 0) {
       lev.ibase = -(s->kgroup + 1);
       lev.iham = -1;
+      g = GetGroup(lev.ibase);
+      lev.nele = 1 + g->n_electrons;
+    } else {
+      g = GetGroup(s->kgroup);
+      lev.nele = g->n_electrons;
     }
+    
     if (levels->lock) {
       SetLock(levels->lock);
     }
@@ -3948,12 +3998,19 @@ int SolveStructure(char *fn, char *hfn,
 
 int GetNumElectrons(int k) {
   LEVEL *lev;
+  
+  lev = GetLevel(k);
+  return lev->nele;
+}
+
+/*
+int GetNumElectrons(int k) {
+  LEVEL *lev;
   SYMMETRY *sym;
   STATE *s;
   CONFIG_GROUP *g;
   int nele, i, m;
 
-  lev = GetLevel(k);
   if (IsUTA()) {
     g = GetGroup(lev->iham);
     nele = g->n_electrons;
@@ -3970,6 +4027,7 @@ int GetNumElectrons(int k) {
 
   return nele;
 }
+*/
 
 int SaveEBLevels(char *fn, int m, int n) {
   int n0, k, i, ilev, mlev, nele;
@@ -4096,6 +4154,11 @@ int SaveLevels(char *fn, int m, int n) {
 	nele0 = nele;
 	en_hdr.nele = nele;
 	InitFile(f, &fhdr, &en_hdr);
+      }
+      if (_vground_ion[nele]==NULL ||
+	  r.energy < _vground_ion[nele]->energy) {
+	_iground_ion[nele] = r.ilev;
+	_vground_ion[nele] = lev;
       }
       WriteENRecord(f, &r);
     }
@@ -4279,6 +4342,11 @@ int SaveLevels(char *fn, int m, int n) {
       nele0 = nele;
       en_hdr.nele = nele;
       InitFile(f, &fhdr, &en_hdr);
+    }
+    if (_vground_ion[nele] == NULL ||
+	r.energy < _vground_ion[nele]->energy) {
+      _iground_ion[nele] = r.ilev;
+      _vground_ion[nele] = lev;
     }
     WriteENRecord(f, &r);
   }
@@ -6778,8 +6846,10 @@ int ClearLevelTable(void) {
     }
   }
 
-  for (k = 0; k <= N_ELEMENTS; k++) {
+  for (k = 0; k < 2*N_ELEMENTS; k++) {
     ArrayFree(levels_per_ion+k, NULL);
+    _iground_ion[k] = 0;
+    _vground_ion[k] = NULL;
   }
 
   ncorrections = 0;
@@ -6950,8 +7020,10 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
 int InitStructure(void) {
   int i, t, lwork, liwork;
 
-  for (i = 0; i <= N_ELEMENTS; i++) {
+  for (i = 0; i < 2*N_ELEMENTS; i++) {
     ArrayInit(levels_per_ion+i, sizeof(LEVEL_ION), 512);
+    _iground_ion[i] = 0;
+    _vground_ion[i] = NULL;
   }
 
   InitAngZArray();

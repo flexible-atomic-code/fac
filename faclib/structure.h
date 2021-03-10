@@ -67,7 +67,7 @@ typedef struct _HAMILTON_ {
 } HAMILTON;
 
 typedef struct _LEVEL_ {
-  int pj;
+  int pj, nele;
   int iham, ilev, slev;
   int n_basis;
   int pb;
@@ -289,6 +289,10 @@ void GetInteractConfigs(int ng, int *kg, int ngp, int *kgp, double sth);
 void SetOptionStructure(char *s, char *sp, int ip, double dp);
 int SetFrozenTargets(int nt, int *kt, int nc, int *kc,
 		     int *nts, int **ts, int *ncs, int **cs);
+int IdxGroundIon(int k);
+double EGroundIon(int k);
+LEVEL *LevGroundIon(int k);
+
 #endif
 
 

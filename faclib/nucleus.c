@@ -1586,15 +1586,23 @@ double GetAtomicR(void) {
   return atom.rn;
 }
 
-int SetCXTarget(char *s, double a, double b, double e,
+//H excited state polarizability.
+//K. McDowell, J. Chem. Phys. 65, 2518 (1976)
+double HPolarizability(double n) {
+  double n2 = n*n;
+  return 0.5*n2*n2*(2*n2+7.0);
+}
+
+int SetCXTarget(char *s0, double a, double b, double e,
 		double x, double z, double m) {
-  char *p, *p0;
+  char *p, *p0, s[128];
   char sa[3];
   int i, k, n;
   double z0, m0;
   
-  strncpy(cxtgt.symbol, s, 128);
+  strncpy(cxtgt.symbol, s0, 128);
   StrTrim(cxtgt.symbol, '\0');
+  strncpy(s, cxtgt.symbol, 128);
   cxtgt.a = a;
   cxtgt.b = b;
   cxtgt.e = e/HARTREE_EV;
@@ -1602,19 +1610,49 @@ int SetCXTarget(char *s, double a, double b, double e,
   cxtgt.z = z;
   cxtgt.m = m;  
   if (a > 0 && b > 0 && e > 0 && z > 0 && m > 0) return 0;
+  int np = -1;
+  if (strlen(cxtgt.symbol) > 0) {
+    if (s[1] == '\0') {
+      np = 1;
+    } else if (s[1] == '_') {
+      if (strlen(s) > 2) {
+	np = atoi(s+2);
+      } else {
+	np = 2;
+      }
+    }
+    if (np > 0) {
+      double n2 = np*np;
+      if (cxtgt.e <= 0) {
+	cxtgt.e = _ionpot[0]/n2;
+      }
+      if (cxtgt.m <= 0) {
+	if (s[0] == 'D') {
+	  cxtgt.m = 2.0;
+	} else if (s[0] == 'T') {
+	  cxtgt.m = 3.0;
+	}
+      }
+      if (cxtgt.a <= 0) {
+	cxtgt.a = HPolarizability((double)np);
+      }
+      s[0] = 'H';
+      s[1] = '\0';
+    }
+  }
   for (i = 0; i < N_CXT; i++) {
     if (0 == strncmp(s, _cxtname[i], N_CXS)) {
       if (cxtgt.a <= 0) {
 	cxtgt.a = _polarizability[i];
       }
-      if (cxtgt.b <= 0) {
-	cxtgt.b = _screening[i];
-	if (cxtgt.b <= 0) {
-	  cxtgt.b = 0.936 + (_ionpot[i]/_ionpot[0])*(_screening[0]-0.936);
-	}
-      }
       if (cxtgt.e <= 0) {
 	cxtgt.e = _ionpot[i];
+      }
+      if (cxtgt.b <= 0) {
+	cxtgt.b = _screening[i];
+	if (cxtgt.b <= 0 || np > 0) {
+	  cxtgt.b = 0.936 + (cxtgt.e/_ionpot[0])*(_screening[0]-0.936);
+	}
       }
     }
   }
@@ -1669,10 +1707,10 @@ int SetCXTarget(char *s, double a, double b, double e,
       break;
     }
   }
-  if (z <= 0) {
+  if (cxtgt.z <= 0) {
     cxtgt.z = z0;
   }
-  if (m <= 0) {
+  if (cxtgt.m <= 0) {
     cxtgt.m = m0;
   }
   if (cxtgt.z <= 0 || cxtgt.m <= 0) {

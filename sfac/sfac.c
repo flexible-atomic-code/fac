@@ -205,7 +205,9 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       n = 0;
       for (i = 0; i < m; i++) {
 	nti[i] = SelectLevels(&ti[i], v[i], at[i], variables);
-	n += nti[i];
+	if (nti[i] > 0) {
+	  n += nti[i];
+	}
       }
       if (n > 0) {
 	*t = malloc(sizeof(int)*n);
@@ -1204,6 +1206,16 @@ static int PGetPotential(int argc, char *argv[], int argt[],
   int m = 0;
   if (argc > 1) m = atoi(argv[1]);
   GetPotential(argv[0], m);
+  return 0;
+}
+
+static int POrbitalStats(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc < 2 || argt[0] != STRING) return -1;
+  int nmax, kmax=-1;
+  nmax = atoi(argv[1]);
+  if (argc > 2) kmax = atoi(argv[2]);
+  OrbitalStats(argv[0], nmax, kmax);
   return 0;
 }
 
@@ -4496,6 +4508,23 @@ static int PAppendTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PCombineDBase(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc < 3 || argc > 4) return -1;
+
+  int z, k0, k1, ic;
+  ic = -1;
+  z = atoi(argv[0]);
+  k0 = atoi(argv[1]);
+  k1 = atoi(argv[2]);
+  if (argc > 3) {
+    ic = atoi(argv[3]);
+  }
+  CombineDBase(z, k0, k1, ic);
+  
+  return 0;
+}
+
 static int PJoinTable(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   if (argc != 3) return -1;
@@ -5186,6 +5215,7 @@ static METHOD methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 
@@ -5238,6 +5268,7 @@ static METHOD methods[] = {
   {"FreeRecPk", PFreeRecPk, METH_VARARGS},
   {"FreeRecQk", PFreeRecQk, METH_VARARGS},
   {"GetPotential", PGetPotential, METH_VARARGS},
+  {"OrbitalStats", POrbitalStats, METH_VARARGS},
   {"Info", PInfo, METH_VARARGS},
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
