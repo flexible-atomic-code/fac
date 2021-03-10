@@ -2231,11 +2231,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta;
   double c, e0, e1;
-  int myrank, nproc, ntrans;
 
-  myrank = MPIRank(&nproc);
   double tstart = WallTime();
-  ntrans = 0;
 
   iuta = IsUTA();
 
@@ -2320,7 +2317,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.nparams = nqk;
   rr_hdr.multipole = m;
   f = OpenFile(fn, &fhdr);
-  
+
+  int nproc = 0, *ntrans = NULL;
+  if (_progress_report >= 0) {
+    ntrans = InitTransReport(&nproc);
+  }
   e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
@@ -2400,6 +2401,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       r.params = (float *) malloc(sizeof(float)*nqk);
     }
     r.strength = (float *) malloc(sizeof(float)*n_usr);
+    int myrank = MPIRank(NULL);
     for (i = 0; i < nup; i++) {
       lev1 = GetLevel(up[i]);
       for (j = 0; j < nlow; j++) {
@@ -2428,12 +2430,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	  r.strength[ie] = (float) rqu[ie];
 	}
 	WriteRRRecord(f, &r);
-	if (myrank == 0 && _progress_report > 0) {
-	  ntrans++;
-	  if (ntrans%_progress_report == 0) {
-	    double deltat = WallTime()-tstart;
-	    MPrintf(0, "RR: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		    ntrans, deltat, 1000*deltat/ntrans);
+	if (ntrans) {
+	  ntrans[myrank]++;
+	  if (myrank == 0 && _progress_report > 0 &&
+	      ntrans[myrank]%_progress_report == 0) {
+	    PrintTransReport(nproc, tstart, ntrans, "RR", 0);
 	  }
 	}
       }
@@ -2456,7 +2457,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 
   ArrayFreeLock(&subte, NULL);
   CloseFile(f, &fhdr);
-
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "RR", 1);
+  }
   return 0;
 }
       
@@ -2482,11 +2485,8 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   double c, e0, e1, b;
   int isub, n_egrid0;
   int e_set, iuta;
-  int myrank, nproc, ntrans;
 
-  myrank = MPIRank(&nproc);
   double tstart = WallTime();
-  ntrans = 0;
   
   iuta = IsUTA();
   if (iuta && msub) {
@@ -2555,6 +2555,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
   f = OpenFile(fn, &fhdr);
 
+  int nproc = 0;
+  int *ntrans = NULL;
+  if (_progress_report >= 0) {
+    ntrans = InitTransReport(&nproc);
+  }
   e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
@@ -2608,6 +2613,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t, rt)
     {
+    int myrank = MPIRank(NULL);
     for (i = 0; i < nlow; i++) {
       int ilow = low[i];
       lev1 = GetLevel(ilow);
@@ -2647,12 +2653,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
-	if (_progress_report > 0 && myrank == 0) {
-	  ntrans++;
-	  if (ntrans%_progress_report == 0) {
-	    double deltat = WallTime()-tstart;
-	    MPrintf(0, "AI: %8d trans in %11.4s, %11.4Ems/tran/proc\n",
-		    ntrans, deltat, 1000*deltat/ntrans);
+	if (ntrans) {
+	  ntrans[myrank]++;
+	  if (_progress_report > 0 && myrank == 0 &&
+	      ntrans[myrank]%_progress_report == 0) {
+	    PrintTransReport(nproc, tstart, ntrans, "AI", 0);
 	  }
 	} 
       }
@@ -2683,6 +2688,9 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     e0 = e1;
   }
 
+  if (_progress_report >= 0) {
+    PrintTransReport(nproc, tstart, ntrans, "AI", 1);
+  }
   ReinitRecombination(1);
   //FreeAICache(0);
   ArrayFreeLock(&subte, NULL);

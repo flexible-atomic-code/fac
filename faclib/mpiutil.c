@@ -83,6 +83,34 @@ int SkipMPI() {
   return 0;
 #endif
 }
+
+int *InitTransReport(int *nproc) {
+  int k, np;
+  k = MPIRank(&np);
+  int *n = malloc(sizeof(int)*(np));
+  for (k = 0; k < np; k++) n[k] = 0;
+  *nproc = np;
+  return n;
+}
+
+void PrintTransReport(int nproc, double t0, int *ntrans,
+		      char *sid, int isfinal) {
+  int k;
+  double nt;
+  int n0, n1;
+  n1 = n0 = ntrans[0];
+  for (k = 0; k < nproc; k++) {
+    nt += ntrans[k];
+    if (n0 > ntrans[k]) n0 = ntrans[k];
+    if (n1 < ntrans[k]) n1 = ntrans[k];
+  }
+  nt /= nproc;
+  double dt = WallTime() - t0;
+  double mdt = 1e3*dt;
+  MPrintf(0, "%s: %d(%d,%d) trans in %8.2E s, %8.2E(%8.2E,%8.2E) ms/tran\n",
+	  sid, ((int)nt), n0, n1, dt, mdt/nt, mdt/n1, mdt/n0);
+  if (isfinal) free(ntrans);
+}
   
 void MPISeqBeg() {
 #if USE_MPI == 1
