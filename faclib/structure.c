@@ -3135,9 +3135,8 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 
     if (s->kgroup < 0) {
       lev.ibase = -(s->kgroup + 1);
-      lev.iham = -1;
-      g = GetGroup(lev.ibase);
-      lev.nele = 1 + g->n_electrons;
+      lev.iham = -1;      
+      lev.nele = 1 + GetLevel(lev.ibase)->nele;
     } else {
       g = GetGroup(s->kgroup);
       lev.nele = g->n_electrons;
