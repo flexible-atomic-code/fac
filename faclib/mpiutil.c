@@ -21,6 +21,7 @@
 #include "stdarg.h"
 #include "init.h"
 #include "radial.h"
+#include "excitation.h"
 #include "cf77.h"
 
 static int _procid = -1;
@@ -104,11 +105,13 @@ void PrintTransReport(int nproc, double t0, int *ntrans,
     if (n0 > ntrans[k]) n0 = ntrans[k];
     if (n1 < ntrans[k]) n1 = ntrans[k];
   }
-  nt /= nproc;
+  if (nproc > 0) {
+    nt /= nproc;
+  }
   double dt = WallTime() - t0;
   double mdt = 1e3*dt;
   MPrintf(0, "%s: %d(%d,%d) trans in %8.2E s, %8.2E(%8.2E,%8.2E) ms/tran\n",
-	  sid, ((int)nt), n0, n1, dt, mdt/nt, mdt/n1, mdt/n0);
+	  sid, ((int)(nt+0.25)), n0, n1, dt, mdt/nt, mdt/n1, mdt/n0);
   if (isfinal) free(ntrans);
 }
   
@@ -304,6 +307,10 @@ void InitializeMPI(int n, int m) {
 #if USE_MPI == 2
   if (m == 0) {
     CopyPotentialOMP(1);
+  }
+#pragma omp parallel
+  {
+    AllocExcDWS();
   }
 #endif
 #endif

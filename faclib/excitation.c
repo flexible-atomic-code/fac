@@ -73,16 +73,18 @@ static double xborn = XBORN;
 static double xborn0 = XBORN0;
 static double xborn1 = XBORN1;
 static double eborn = EBORN;
-static double _gosm1[MAXMSUB][NKINT];
-static double _gosm2[MAXMSUB][NKINT];
-static double _qk[MAXMSUB][MAXNKL];
-static double _dqk[MAXMSUB][MAXNKL];
-static double _rq[MAXMSUB][MAXNTE][MAXNE+2];
-static double _drq[MAXMSUB][MAXNTE][MAXNE+2];
-static double _brq[MAXMSUB][MAXNTE][MAXNE+2];
-static double _xp[MAXMSUB][MAXNTE];
+#pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost)
+#pragma omp threadprivate (gosint, xusr, log_xusr)
 
-#pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost, gosint, xusr, log_xusr, _gosm1, _gosm2, _qk, _dqk, _rq, _drq, _brq, _xp)
+static double **_gosm1 = NULL;
+static double **_gosm2 = NULL;
+static double **_qk = NULL;
+static double **_dqk = NULL;
+static double ***_rq = NULL;
+static double ***_drq = NULL;
+static double ***_brq = NULL;
+static double **_xp = NULL;
+#pragma omp threadprivate (_gosm1, _gosm2, _qk, _dqk, _rq, _drq, _brq, _xp)
 
 static FILE *fpw=NULL;
 
@@ -99,7 +101,7 @@ static MULTI *pk_array;
 static MULTI *qk_array;
 static MULTI *qkm_array;
 
-static int _progress_report = 0;
+static int _progress_report = -1;
 
 static void InitCEPK(void *p, int n) {
   CEPK *d;
@@ -108,6 +110,38 @@ static void InitCEPK(void *p, int n) {
   d = (CEPK *) p;
   for (i = 0; i < n; i++) {
     d[i].nkl = -1;
+  }
+}
+
+void AllocExcDWS(void) {
+  int i, j;
+
+  if (_gosm1 != NULL) {
+    return;
+  }
+  
+  _gosm1 = malloc(sizeof(double *)*MAXMSUB);
+  _gosm2 = malloc(sizeof(double *)*MAXMSUB);
+  _qk = malloc(sizeof(double *)*MAXMSUB);
+  _dqk = malloc(sizeof(double *)*MAXMSUB);
+  _xp = malloc(sizeof(double *)*MAXMSUB);
+  _rq = malloc(sizeof(double **)*MAXMSUB);
+  _drq = malloc(sizeof(double **)*MAXMSUB);
+  _brq = malloc(sizeof(double **)*MAXMSUB);
+  for (i = 0; i < MAXMSUB; i++) {
+    _gosm1[i] = malloc(sizeof(double)*NKINT);
+    _gosm2[i] = malloc(sizeof(double)*NKINT);
+    _qk[i] = malloc(sizeof(double)*MAXNKL);
+    _dqk[i] = malloc(sizeof(double)*MAXNKL);
+    _xp[i] = malloc(sizeof(double)*MAXNTE);
+    _rq[i] = malloc(sizeof(double *)*MAXNTE);
+    _drq[i] = malloc(sizeof(double *)*MAXNTE);
+    _brq[i] = malloc(sizeof(double *)*MAXNTE);
+    for (j = 0; j < MAXNTE; j++) {
+      _rq[i][j] = malloc(sizeof(double)*(MAXNE+2));
+      _drq[i][j] = malloc(sizeof(double)*(MAXNE+2));
+      _brq[i][j] = malloc(sizeof(double)*(MAXNE+2));
+    }
   }
 }
 
@@ -3941,6 +3975,7 @@ int InitExcitation(void) {
 		   MULTI_BLOCK5,MULTI_BLOCK5};
   int ndim;
 
+  AllocExcDWS();
   ndim = 3;
   pk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(pk_array, sizeof(CEPK), ndim, blocks1, "pk_array");
