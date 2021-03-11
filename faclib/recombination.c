@@ -79,7 +79,7 @@ static struct {
 		0, 0, {0, RECLMAX}};
 
 static double ai_cut = AICUT;
-static int _progress_report = 0;
+static int _progress_report = -1;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;

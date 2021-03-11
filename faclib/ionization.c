@@ -101,7 +101,7 @@ static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
 static int xborn = 0;
-static int _progress_report = 0;
+static int _progress_report = -1;
 
 static struct {
   int max_k;

@@ -59,7 +59,7 @@ static double _upper_emin = 0.0;
 static double _upper_emax = 0.0;
 static double _tr_emin = 0.0;
 static double _tr_emax = 0.0;
-static int _progress_report = 0;
+static int _progress_report = -1;
 
 int OutOfERange(double e0, double e1, double de) {
   if (_lower_emin > 0 && e0 < _lower_emin) return 1;
