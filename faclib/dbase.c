@@ -21,6 +21,7 @@
 #include "angular.h"
 #include "array.h"
 #include "nucleus.h"
+#include "cf77.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -57,6 +58,13 @@ static int iuta = 0;
 static int utaci = 1;
 static int itrf = 0;
 static double clock_start=0, clock_last=0;
+
+static double _tpbez[] = {0.0, 2.30258509, 2.89037176, 3.25809654,
+			  3.68887945, 3.98898405,
+			  4.36944785, 4.52178858};
+static double _tpber[] = {-41.609, -20.88578477, -15.24262691,
+			  -12.59173513, -10.05431044,
+			  -8.29404964,  -5.62682143,  -4.50986001}; 
 
 static double born_mass = 1.0;
 static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
@@ -3837,7 +3845,48 @@ static int StrTrimCmp(char *s1, char *s2) {
   }
   return 0;
 }
-   
+
+int LevelMatchByName(EN_RECORD *r, char *nc, char*cnr, char *cr) {
+  return (StrTrimCmp(r->ncomplex, nc) == 0 &&
+	  StrTrimCmp(r->sname, cnr) == 0 &&
+	  StrTrimCmp(r->name, cr) == 0);
+}
+
+void Match2PhotonLevels(int k, EN_RECORD *r, int *ilow2ph, int *iup2ph,
+			double *elow2ph, double *eup2ph) {
+  if (k == 1) {
+    if (LevelMatchByName(r, "1*1", "1s1", "1s+1(1)1")) {
+      ilow2ph[0] = r->ilev;
+      elow2ph[0] = r->energy;
+    } else if (LevelMatchByName(r, "2*1", "2s1", "2s+1(1)1")) {
+      iup2ph[0] = r->ilev;
+      eup2ph[0] = r->energy;
+    }
+  } else if (k == 2) {
+    if (LevelMatchByName(r, "1*2", "1s2", "1s+2(0)0")) {
+      ilow2ph[1] = r->ilev;
+      elow2ph[1] = r->energy;
+    } else if (LevelMatchByName(r, "1*1.2*1", "1s1.2s1", "1s+1(1)1.2s+1(1)0")) {
+      iup2ph[1] = r->ilev;
+      eup2ph[1] = r->energy;
+    }
+  } else if (k == 4) {
+    if (LevelMatchByName(r, "1*2.2*2", "2s2", "2s+2(0)0") ||
+	LevelMatchByName(r, "1*2.2*2", "1s2.2s2", "1s+2(0)0.2s+2(0)0")) {
+      ilow2ph[2] = r->ilev;
+      elow2ph[2] = r->energy;
+    } else if (LevelMatchByName(r,
+				"1*2.2*2", "2s1.2p1",
+				"2s+1(1)1.2p-1(1)0") ||
+	       LevelMatchByName(r,
+				"1*2.2*2", "1s2.2s1.2p1",
+				"1s+2(0)0.2s+1(1)1.2p-1(1)0")) {
+      iup2ph[2] = r->ilev;
+      eup2ph[2] = r->energy;
+    }
+  }
+}
+
 int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   F_HEADER fh;  
   EN_HEADER h;
@@ -5086,7 +5135,6 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	    ee = h.usr_egrid[t];
 	    eph = ee + e;
 	  }
-	  phi = FINE_STRUCTURE_CONST2*ee;
 	  phi = 2.0*PI*FINE_STRUCTURE_CONST*r.strength[t]*AREA_AU20;
 	  rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	  rr /= 1.0+0.5*FINE_STRUCTURE_CONST2*ee;
@@ -6596,7 +6644,13 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   TFILE *f0, *f1[6];
   int swp, *im, *imp, **ima, nim, nk, nilevs, nplevs, nth;
   double e0, e1, e0p, e1p, de;
+  int ilow2ph[3], iup2ph[3];
+  double elow2ph[3], eup2ph[3];
 
+  for (k = 0; k < 3; k++) {
+    ilow2ph[k] = 0;
+    iup2ph[k] = 0;
+  }
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
   a = &(GetAtomicSymbolTable())[(z-1)*3];
@@ -6687,6 +6741,7 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	  }
 	  r0.ilev = im[r0.ilev];
 	  r0.energy += de;
+	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
 	  WriteENRecord(f1[0], &r0);
 	}
 	DeinitFile(f1[0], &fh1[0]);
@@ -6776,6 +6831,31 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	}
 	DeinitFile(f1[1], &fh1[1]);
       }
+      double r2p = 0.0;
+      i = -1;
+      if (k == 1 && ilow2ph[0] && iup2ph[0]) {
+	i = 0;
+      } else if (k == 2 && ilow2ph[1] && iup2ph[1]) {
+	i = 1;
+      } else if (k == 4 && ilow2ph[2] && iup2ph[2]) {
+	i = 2;
+      }
+      if (i >= 0) {
+	r2p = TwoPhotonRate(z, i);
+	if (i == 0) r2p *= 2;
+	de = eup2ph[i]-elow2ph[i];	
+	de = pow(de*FINE_STRUCTURE_CONST,2);
+	r2p /= 2*de*FINE_STRUCTURE_CONST*RATE_AU;
+	h1.ntransitions = 1;
+	h1.gauge = G_TWOPHOTON;
+	h1.multipole = 0;
+	InitFile(f1[1], &fh1[1], &h1);
+	r1.lower = ilow2ph[i];
+	r1.upper = iup2ph[i];
+	r1.strength = (float)r2p;
+	WriteTRRecord(f1[1], &r1, &r1x);
+      }
+      DeinitFile(f1[1], &fh1[1]);
     }
     FCLOSE(f0);
     
@@ -6902,6 +6982,45 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   }
 }
   
+/*
+** two-photon rates are taken from G. W. F. Drake, PRA, 34, 2871, 1986.
+*/
+double TwoPhotonRate(double z, int t) {
+  double a, a2, a4, z6;
+  
+  switch (t) {
+  case 0: /* 2S_1/2 of H-like ion */
+    z6 = z*z;
+    z6 = z6*z6*z6;
+    a = FINE_STRUCTURE_CONST*z;
+    a2 = a*a;
+    a4 = a2*a2;
+    a = 8.22943*z6*(1.0 + 3.9448*a2 - 2.04*a4)/(1.0 + 4.6019*a2);
+    break;
+  case 1: /* 1s2s S_0 of He-like ion */
+    a = (z - 0.806389);
+    z6 = a*a;
+    z6 = z6*z6*z6;
+    a = FINE_STRUCTURE_CONST*a;
+    a2 = a*a;
+    a4 = (z+2.5);
+    a4 = a4*a4;
+    a = 16.458762*(z6*(1.0 + 1.539/a4) - 
+		   z6*a2*(0.6571 + 2.04*a2)/(1.0 + 4.6019*a2));
+    break;
+  case 2: /* 2s2p J=0 of Be-like ion */
+    a = log(z);
+    UVIP3P(1, 8, _tpbez, _tpber, 1, &a, &a2);
+    a = exp(a2);
+    break;
+  default:
+    a = 0.0;
+    break;
+  }
+
+  return a;
+}
+
 void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   
 }

@@ -114,7 +114,6 @@ double Ionis(int z, int nele, double t, double *a, double *dir, int m);
 double Recomb(int z, int nele, double t, double *rr, double *dr, int m);
 int FracAbund(int z, double t, double *a, int im, int rm);
 double MaxAbund(int z, int nele, double *a, double eps, int im, int rm);
-double TwoPhotonRate(double z, int t);
 void SetGamma3B(double x);
 int ReadKronos(char *dn, int z, int k, char *prj, char *tgt,
 	       char *cxm, int md, int ilog);

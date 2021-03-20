@@ -48,14 +48,7 @@ static int rate_iprint = 1;
 
 static KRONOS _kronos_cx[3];
 static double _cxldistmj = 1.0;
-static int _maxwell_gauss = 1;
-
-static double _tpbez[] = {0.0, 2.30258509, 2.89037176, 3.25809654,
-			  3.68887945, 3.98898405,
-			  4.36944785, 4.52178858};
-static double _tpber[] = {-41.609, -20.88578477, -15.24262691,
-			  -12.59173513, -10.05431044,
-			  -8.29404964,  -5.62682143,  -4.50986001};  
+static int _maxwell_gauss = 1; 
 
 static struct {
   DISTRIBUTION *d;
@@ -1276,45 +1269,6 @@ double MaxAbund(int z, int nele, double *a, double eps, int im, int rm) {
   }
   
   return t;  
-}
-
-/*
-** two-photon rates are taken from G. W. F. Drake, PRA, 34, 2871, 1986.
-*/
-double TwoPhotonRate(double z, int t) {
-  double a, a2, a4, z6;
-  
-  switch (t) {
-  case 0: /* 2S_1/2 of H-like ion */
-    z6 = z*z;
-    z6 = z6*z6*z6;
-    a = FINE_STRUCTURE_CONST*z;
-    a2 = a*a;
-    a4 = a2*a2;
-    a = 8.22943*z6*(1.0 + 3.9448*a2 - 2.04*a4)/(1.0 + 4.6019*a2);
-    break;
-  case 1: /* 1s2s S_0 of He-like ion */
-    a = (z - 0.806389);
-    z6 = a*a;
-    z6 = z6*z6*z6;
-    a = FINE_STRUCTURE_CONST*a;
-    a2 = a*a;
-    a4 = (z+2.5);
-    a4 = a4*a4;
-    a = 16.458762*(z6*(1.0 + 1.539/a4) - 
-		   z6*a2*(0.6571 + 2.04*a2)/(1.0 + 4.6019*a2));
-    break;
-  case 2: /* 2s2p J=0 of Be-like ion */
-    a = log(z);
-    UVIP3P(1, 8, _tpbez, _tpber, 1, &a, &a2);
-    a = exp(a2);
-    break;
-  default:
-    a = 0.0;
-    break;
-  }
-
-  return a;
 }
 
 double UVoigt(double alpha, double v) {

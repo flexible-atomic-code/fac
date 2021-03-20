@@ -1741,6 +1741,14 @@ static PyObject *PSetCXLDist(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PVoigt(PyObject *self, PyObject *args) {
+  double a, v;
+  if (!(PyArg_ParseTuple(args, "dd", &a, &v))) return NULL;
+  double r = UVoigt(a, v);
+  
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1834,6 +1842,7 @@ static struct PyMethodDef crm_methods[] = {
   {"DebyeLength", PDebyeLength, METH_VARARGS},
   {"ScaledSG", PScaledSG, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
+  {"Voigt", PVoigt, METH_VARARGS},
   {NULL, NULL}
 };
 

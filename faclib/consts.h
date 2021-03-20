@@ -263,6 +263,7 @@
 /* transition */
 #define G_COULOMB          1
 #define G_BABUSHKIN        2
+#define G_TWOPHOTON        10
 #define M_FR               0
 #define M_NR               1
 #define DGAUGE             G_BABUSHKIN
