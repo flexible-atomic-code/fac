@@ -1071,6 +1071,15 @@ class FLEV:
             f.write(s)
         f.close()
 
+def strnum(s):
+    s = s.replace('"','').replace('[','').replace(' ','')
+    if len(s) == 0:
+        return 0.0        
+    for i in range(len(s)):
+        if not (s[i].isdigit() or s[i]=='.'):
+            break
+    return float(s[:i])
+                
 class MLEV:
     def __init__(self, f, md=0):
         if f == None:
@@ -1088,27 +1097,29 @@ class MLEV:
             self.e0 = self.e[0]
         else:
             r = np.loadtxt(f, unpack=1, skiprows=1, delimiter='\t', dtype=str)
+            w = np.where((r[3] != '" "')&(r[0] != '" "')&(r[0] != '""'))
+            r = r[:,w[0]]
             w0 = np.where(r[1] == '"Limit"')
             ri = r[:,w0[0]]
             w0 = np.where(r[1] != '"Limit"')
             r = r[:,w0[0]]
-            self.c = np.array([str(x).replace('"','').strip() for x in r[0]])
+            self.c = np.array([str(x).replace('"','').strip() for x in r[0]],dtype='<U128')
             self.t = np.array([str(x).replace('"','').strip() for x in r[1]])
             self.j = np.array([int(2*eval(x.replace('"',''))) for x in r[2]])
             self.wj = self.j+1
-            self.p = np.array([int(x[-1]=='*') for x in self.t])        
-            self.e = np.array([float(x.replace('"','').replace('[','').replace(']','')) for x in r[3]])
-            self.ei = float(ri[3,0].replace('"','').replace('[','').replace(']',''))
+            self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
+            self.e = np.array([strnum(x) for x in r[3]])
+            self.ei = strnum(ri[3,0])
             self.e0 = self.e[0]
             for i in range(len(self.c)):
                 a = self.c[i].split(".")
-                self.c[i] = ''
+                tc = ''
                 for b in a:
                     if b[0] != '(':
                         if (not b[-1].isdigit()):
                             b += '1'
-                        self.c[i] += '.'+b
-                self.c[i] = self.c[i][1:]
+                        tc += '.'+b
+                self.c[i] = tc[1:]
             self.s = self.c
             
 def aflev(d0, d1, a, n):

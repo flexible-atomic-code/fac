@@ -672,5 +672,9 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
 		   int nele, char *ifn);
 void CombineDBase(int z, int k0, int k1, int ic);
 void SetOptionDBase(char *s, char *sp, int ip, double dp);
+double TwoPhotonRate(double z, int t);
+int LevelMatchByName(EN_RECORD *r, char *nc, char*cnr, char *cr);
+void Match2PhotonLevels(int k, EN_RECORD *r, int *ilow2ph, int *iup2ph,
+			double *elow2ph, double *eup2ph);
 #endif
 
