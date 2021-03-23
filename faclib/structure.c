@@ -4967,7 +4967,8 @@ int GetBasisTableLR(char *fn, int m0, int k0i, int ilev0, int ilev1) {
 	  for (k = 0; k < nlevs; k++) {
 	    lev = levs[k];
 	    if (lev->n_basis > mbs) mbs = lev->n_basis;
-	    fwrite(&lev->energy, sizeof(double), 1, f1);
+	    eaw = lev->energy - eav;
+	    fwrite(&eaw, sizeof(double), 1, f1);
 	  }
 	  fwrite(&rec, sizeof(int), 1, f1);
 	  rec = nlevs*hams[i].nbasis*sizeof(double);
