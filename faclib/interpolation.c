@@ -2636,7 +2636,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  rr *= cs;
 	  rr /= (mem_en_table[r.f].j + 1.0);
 	  fprintf(f2, "%11.4E %11.4E %11.4E\n",
-		  egy[t]*HARTREE_EV, tc, rr);
+		  egy[t]*HARTREE_EV, cs, rr);
 	}
 	fprintf(f2, "\n\n");
 
