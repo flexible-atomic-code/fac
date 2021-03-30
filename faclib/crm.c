@@ -6439,6 +6439,17 @@ int DRBranch(void) {
 	  blk1->n[p] += blk2->r[q] * r->dir;
 	}
       }
+      for (t = 0; t < ion->tr2_rates->dim; t++) {
+	brts = (BLK_RATE *) ArrayGet(ion->tr2_rates, t);
+	blk1 = brts->iblock;
+	blk2 = brts->fblock;
+	for (m = 0; m < brts->rates->dim; m++) {
+	  r = (RATE *) ArrayGet(brts->rates, m);
+	  p = ion->ilev[r->i];
+	  q = ion->ilev[r->f];
+	  blk1->n[p] += blk2->r[q] * r->dir;
+	}
+      }
     }
   
     d = 0.0;
