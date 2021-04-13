@@ -280,7 +280,9 @@ double IntegrateRate(int idist, double eth, double bound,
       r0 *= sqrt(b0 + x0)*maxwell_const;
       result += wg[n]*r0;
     }
-    if (x0 > 0) result *= exp(-x0);
+    if (type != RT_CE && type != RT_CI) {
+      if (x0 > 0) result *= exp(-x0);
+    }
     return result;
   }
   
@@ -651,16 +653,18 @@ double DERate1E(double e1, double eth0, int np, void *p) {
 int CERate(double *dir, double *inv, int iinv, 
 	   int j1, int j2, double e,
 	   int m, double *params, int i0, int f0) {
-  double a, e0;
+  double a, e0, x=0.0;
 
-  e0 = e*HARTREE_EV;	     
+  e0 = e*HARTREE_EV;
+  if (iedist == 0) x = exp(-e0/ele_dist[0].params[0]);
   a = IntegrateRate(0, e0, e0/BornMass(), m, params, 
 		    i0, f0, RT_CE, CERate1E);
   *dir = a/(j1 + 1.0);
+  if (iedist == 0 && _maxwell_gauss) *dir *= x;
   if (iinv) {
     if (iedist == 0) {
-      a *= exp(e0/ele_dist[0].params[0]);
       *inv = a/(j2 + 1.0);
+      if (!_maxwell_gauss && x) *inv /= x;
     } else {
       *inv = IntegrateRate(0, e0, 0.0, m, params, 
 			   i0, f0, -RT_CE, DERate1E);
@@ -727,17 +731,19 @@ int CIRate(double *dir, double *inv, int iinv,
 	   int j1, int j2, double e,
 	   int m, float *params, int i0, int f0) {
   const double p = 1.65156E-12; /* 0.5*(h^2/(2pi*m*eV))^{3/2} */
-  double e0, a;
+  double e0, a, x=0.0;
   
   e0 = e*HARTREE_EV;
+  if (iedist == 0) x = exp(-e0/ele_dist[0].params[0]);
   a = IntegrateRate(0, e0, e0, m, params, 
 		    i0, f0, RT_CI, CIRate1E);
   *dir = a/(j1 + 1.0);
+  if (iedist == 0 && _maxwell_gauss) *dir *= x;
   if (iinv) {
     if (iedist == 0) {
-      a *= exp(e0/ele_dist[0].params[0]);
       *inv = p*pow(ele_dist[0].params[0], -1.5)*a;
-      *inv /= (j2 + 1.0); 
+      *inv /= (j2 + 1.0);
+      if (!_maxwell_gauss && x) *inv /= x;
     } else {
       a = IntegrateRate(0, e0, e0, m, params, i0, f0,
 			-RT_CI, CIRate1E);

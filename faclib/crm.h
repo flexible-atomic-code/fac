@@ -231,6 +231,12 @@ double MicroFieldMode(double g, double s);
 double QSReduction(double g, double s);
 double DebyeLength(double d, double t);
 void  ScaledSG(double s, double g, double zr, double *sn, double *gn);
+void SortBranches(ARRAY *rts, IDXARY *idx, IDXARY *fdx,
+		  int ig, int *nr, RATE **rs);
+double DRSupFactor(double z0, double d0, double t0);
+void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap,
+		      int nt, double t0, double t1,
+		      int nd, double d0, double d1, int md);
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 
