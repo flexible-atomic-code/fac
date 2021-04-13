@@ -5723,16 +5723,15 @@ static PyObject *PAppendTable(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PCombineDBase(PyObject *self, PyObject *args) {
-  int z, k0, k1, c;
+  int z, k0, k1, n, c;
   
   if (sfac_file) {
     SFACStatement("CombineDBase", args, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  c = -1;
-  if (!PyArg_ParseTuple(args, "iii|i", &z, &k0, &k1, &c)) return NULL;
-  CombineDBase(z, k0, k1, c);
+  if (!PyArg_ParseTuple(args, "iiiii", &z, &k0, &k1, &n, &c)) return NULL;
+  CombineDBase(z, k0, k1, n, c);
   
   Py_INCREF(Py_None);
   return Py_None;

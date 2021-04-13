@@ -1002,6 +1002,27 @@ static int PSetCXLDist(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PRateCoefficients(int argc, char *argv[], int argt[], 
+			     ARRAY *variables) {  
+  int k0, k1, nexc, ncap, nt, nd, md;
+  double d0, d1, t0, t1;
+
+  if (argc != 12) return -1;
+  k0 = atoi(argv[1]);
+  k1 = atoi(argv[2]);
+  nexc = atoi(argv[3]);
+  ncap = atoi(argv[4]);
+  nt = atoi(argv[5]);
+  t0 = atof(argv[6]);
+  t1 = atof(argv[7]);
+  nd = atoi(argv[8]);
+  d0 = atof(argv[9]);
+  d1 = atof(argv[10]);
+  md = atof(argv[11]);
+  RateCoefficients(argv[0], k0, k1, nexc, ncap, nt, t0, t1, nd, d0, d1, md);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"Print", PPrint, METH_VARARGS},
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1067,6 +1088,7 @@ static METHOD methods[] = {
   {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
+  {"RateCoefficients", PRateCoefficients, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
 

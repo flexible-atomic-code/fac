@@ -44,6 +44,7 @@ static int max_iter = 256;
 static double iter_accuracy = EPS4;
 static double iter_stabilizer = 0.8;
 static int  _silent = 0;
+static int _krc = -1;
 
 /* electron density in 10^10 cm-3 */
 static double electron_density = 0.0;
@@ -5518,6 +5519,7 @@ int SetCERates(int inv) {
   }
   irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
+    if (_krc >= 0 && k != _krc) continue;
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ce_rates, FreeBlkRateData);
     f = OpenFileRO(ion->dbfiles[DB_CE-1], &fh, &swp);
@@ -6004,6 +6006,7 @@ int SetCIRates(int inv) {
 
   irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
+    if (_krc >= 0 && k != _krc) continue;
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->ci_rates, FreeBlkRateData);
     f = OpenFileRO(ion->dbfiles[DB_CI-1], &fh, &swp);
@@ -6094,6 +6097,7 @@ int SetRRRates(int inv) {
   }
   irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
+    if (_krc >= 0 && k != _krc) continue;
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->rr_rates, FreeBlkRateData);
     f = OpenFileRO(ion->dbfiles[DB_RR-1], &fh, &swp);
@@ -6276,6 +6280,7 @@ int SetAIRates(int inv) {
   }
   irb = IdxRateBlock(blocks->dim);
   for (k = 0; k < ions->dim; k++) {
+    if (_krc >= 0 && k != _krc) continue;
     if (k == 0) ion = (ION *) ArrayGet(ions, k);
     else ion = ion1;
     if (k < ions->dim - 1) ion1 = (ION *) ArrayGet(ions, k+1);
@@ -7320,6 +7325,72 @@ static double vanregemoter(double y) {
   }
 }
 
+double MExpIntOne(double x) {
+  double r, q2, e;
+
+  if (x > 10) {
+    return (1.-1./x+2./(x*x)-6/(x*x*x))/x;
+  }
+  if (x < 0.02) {
+    return exp(x)*(-log(x)-0.5773+x);
+  }
+  if (x < 1.5) e = -0.5;
+  r = (1+x)/x;
+  q2 = 1./((1+x)*(1+x));
+  return log(r) - (0.36+0.03*pow(x+0.01, e))*q2;
+}
+		   
+double DRSupFactor(double z0, double d0, double t0) {
+  double p0[3] = {7.966038e+00, 3.571021e-02, -1.949113e-01};
+  double p[3] = {8.334987e+00, -4.561742e-02, 9.596166e-02};
+  double y, n, n0, s, x0, x1, yn, a, d, t, xd, xt;
+
+  d = exp(log(d0)-7*log(z0));
+  t = exp(log(t0)-2.0*log(z0));
+  xd = log(d);
+  xt = log(t);
+
+  a = pow((d/sqrt(t)),1./7.);
+  y = (p[0]+p[1]*xd+p[2]*xt)/a;
+  n0 = (p0[0]+p0[1]*xd+p0[2]*xt)/a;
+
+  s = 13.605/t;
+  a = s/(n0*n0);
+  yn = n0*exp((log(MExpIntOne(a))-a)/7.0);
+  if (yn > y) {
+    x1 = n0;
+    x0 = 0.5*n0;
+    while (1) {
+      a = s/(x0*x0);
+      yn = x0*exp((log(MExpIntOne(a))-a)/7.0);
+      if (yn < y) break;
+      x0 *= 0.5;
+    }
+  } else {
+    x0 = n0;
+    x1 = 2.0*n0;
+    while (1) {
+      a = s/(x1*x1);
+      yn = x1*exp((log(MExpIntOne(a))-a)/7.0);
+      if (yn > y) break;
+      x1 *= 2.0;
+    }
+  }
+  while (1) {
+    n0 = 0.5*(x0+x1);
+    a = s/(n0*n0);
+    yn = n0*exp((log(MExpIntOne(a))-a)/7.0);
+    if (fabs(1-yn/y) < 1e-2) break;
+    if (fabs(x1-x0) < 1e-5*n0) break;
+    if (yn < y) {
+      x0 = n0;
+    } else {
+      x1 = n0;
+    }
+  }
+  return n0;
+}
+
 int DRSuppression(char *fn, double z, int nmax) {
   int n2, i, j, q, p, iedist, ipdist, *ipiv, info;
   double *a, *b, *c, yt, temp, trad, r, y, gy, z2, z4, ni, nj, xi, e;
@@ -7444,39 +7515,40 @@ int DRSuppression(char *fn, double z, int nmax) {
       */
     }
   }
-  
-  f = fopen(fn, "w");
-  fprintf(f, "#EDEN\t= %15.8E\n", electron_density);
-  fprintf(f, "#EDIST\t= %d\n", iedist);
-  fprintf(f, "#NPEDIS\t= %d\n", edist->nparams);
-  for (i = 0; i < edist->nparams; i++) {    
-    fprintf(f, "#\t %15.8E\n", edist->params[i]);
-  }
-  fprintf(f, "#PDEN\t= %15.8E\n", photon_density);
-  fprintf(f, "#PDIST\t= %d\n", ipdist);
-  fprintf(f, "#NPPDIS\t= %d\n", pdist->nparams);
-  for (i = 0; i < pdist->nparams; i++) {
-    fprintf(f, "#\t %15.8E\n", pdist->params[i]);
-  }
-  fprintf(f, "#Z\t = %3d\n", (int)z);
-  for (i = 0; i < nmax; i++) {
-    fprintf(f, "%5d %12.5E\n", i+1, a[i]);
-  }
-  fclose(f);
 
-  /*
-  for (i = 0; i < nmax; i++) {
-    for (j = 0; j < nmax; j++) {
+  if (fn) {
+    f = fopen(fn, "w");
+    fprintf(f, "#EDEN\t= %15.8E\n", electron_density);
+    fprintf(f, "#EDIST\t= %d\n", iedist);
+    fprintf(f, "#NPEDIS\t= %d\n", edist->nparams);
+    for (i = 0; i < edist->nparams; i++) {    
+      fprintf(f, "#\t %15.8E\n", edist->params[i]);
+    }
+    fprintf(f, "#PDEN\t= %15.8E\n", photon_density);
+    fprintf(f, "#PDIST\t= %d\n", ipdist);
+    fprintf(f, "#NPPDIS\t= %d\n", pdist->nparams);
+    for (i = 0; i < pdist->nparams; i++) {
+      fprintf(f, "#\t %15.8E\n", pdist->params[i]);
+    }
+    fprintf(f, "#Z\t = %3d\n", (int)z);
+    for (i = 0; i < nmax; i++) {
+      fprintf(f, "%5d %12.5E\n", i+1, a[i]);
+    }
+    fclose(f);
+    
+    /*
+      for (i = 0; i < nmax; i++) {
+      for (j = 0; j < nmax; j++) {
       q = i*nmax + j;
       printf("%5d %5d %10.3E\n", i, j, b[q]);
-    }
+      }
+      }
+    */
+
+    free(bmatrix);
+    bmatrix = NULL;
   }
-  */
-
   free(ipiv);
-  free(bmatrix);
-  bmatrix = NULL;
-
   return 0;
 }
   
@@ -8566,3 +8638,717 @@ void SetStarkZMP(int np, double *wzm) {
     _starkwp[i] = _starkwp[i]/zt;
   }
 }
+
+void SortBranches(ARRAY *rts, IDXARY *idx, IDXARY *fdx, int ig, int *nr, RATE **rs) {
+  int i, m, ilo, iup;
+  BLK_RATE *brts;
+  RATE *r;
+
+  for (i = 0; i < idx->n; i++) {
+    nr[i] = 0;
+    rs[i] = NULL;
+  }
+  for (i = 0; i < rts->dim; i++) {
+    brts = (BLK_RATE *) ArrayGet(rts, i);
+    for (m = 0; m < brts->rates->dim; m++) {
+      r = (RATE *) ArrayGet(brts->rates, m);
+      iup = IdxGet(idx, r->i);
+      ilo = IdxGet(fdx, r->f);
+      if (iup >= 0 && ilo >= 0 && ilo != ig) {
+	nr[iup]++;
+      }
+    }
+  }
+  for (i = 0; i < idx->n; i++) {
+    if (nr[i]) {
+      rs[i] = malloc(sizeof(RATE)*nr[i]);
+      nr[i] = 0;
+    }
+  }
+  for (i = 0; i < rts->dim; i++) {
+    brts = (BLK_RATE *) ArrayGet(rts, i);
+    for (m = 0; m < brts->rates->dim; m++) {
+      r = (RATE *) ArrayGet(brts->rates, m);
+      iup = IdxGet(idx, r->i);
+      ilo = IdxGet(fdx, r->f);
+      if (iup >= 0 && ilo >= 0 && ilo != ig) {
+	rs[iup][nr[iup]].i = r->i;
+	rs[iup][nr[iup]].f = r->f;
+	rs[iup][nr[iup]].dir = r->dir;
+	rs[iup][nr[iup]].inv = r->inv;
+	nr[iup]++;
+      }
+    }
+  }
+}
+
+void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
+		      int nt, double t0, double t1,
+		      int nd, double d0, double d1, int md) {
+  FILE *f;
+  int ms[RC_TT], ir[RC_TT];
+  int *ik, *ii, *ia, *io;
+  int nk, ni, na, nb, p, i, ntd, m, dj, vn, nkk, nii, nki, nbi, nr, s, n, ib;
+  int it, id, ilo, iup, j0, md0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
+  double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
+  double **wr, *drs;
+  int *nbai, *nbtr, ncap, mdr, mea, mm;
+  RATE *r, **bai, **btr;
+  BLK_RATE *brts;
+  LBLOCK *blk;
+  ION *ion;
+  IDXARY iad, ibd, iid, idd;
+
+  ncap = ncap0%100;
+  mdr = ncap0/100;
+  mea = mdr/10;
+  mdr = mdr%10;
+  mp[1] = -1.0;
+  mp[2] = -1.0;
+  f = fopen(ofn, "w");
+  if (f == NULL) {
+    printf("cannot open file %s\n", ofn);
+    return;
+  }
+  for (m = 1; m < RC_TT; m++) {
+    ir[m] = 0;
+    ms[m] = 0;
+  }
+  md0 = md;
+  if (md < 0) mm = 1;
+  md = abs(md);
+  if (md == 0) {
+    for (m = 1; m < RC_TT; m++) ms[m] = 1;
+  } else {
+    while (md) {
+      m = md%10;
+      if (m > 0 && m < RC_TT) ms[m] = 1;
+      md /= 10;
+    }
+  }
+  if (mm) {
+    ms[RC_DR] = 1;
+    ms[RC_EA] = 1;
+  }
+  ntd = nt*nd;
+  dt = 0.0;
+  dd = 0.0;
+  if (nt > 1) dt = (log(t1)-log(t0))/(nt-1);
+  if (nd > 1) dd = (log(d1)-log(d0))/(nd-1);
+  rdt = exp(dt);
+  rdd = exp(dd);  
+  kg = 0;
+  ig = 0;
+  fprintf(f, "#NEXC: %d\n", nexc);
+  fprintf(f, "#NCAP: %d\n", ncap);
+  fprintf(f, "#MODE: %d\n", md0);
+  fprintf(f, "#RTG: %d %15.8E %15.8E\n", nt, t0, log10(rdt));
+  fprintf(f, "#RDG: %d %15.8E %15.8E\n", nd, d0, log10(rdd));
+  for (p = 0; p < ions->dim; p++) {
+    ion = (ION *) ArrayGet(ions, p);    
+    if (ion->nele < k0 || ion->nele > k1) continue;
+    nk = 0;
+    ni = 0;
+    na = 0;
+    nb = 0;
+    nbai = NULL;
+    nbtr = NULL;
+    bai = NULL;
+    btr = NULL;
+    ek = ion->energy[ion->ground];    
+    if (ion->iground >= 0) {
+      ei = ion->energy[ion->iground];
+    } else {
+      ei = 0;
+    }
+    j0 = ion->j[ion->ground];
+    for (i = 0; i < ion->nlevels; i++) {
+      vn = ion->vnl[i]/100;
+      dj = abs(ion->j[i] - j0);
+      if (dj%2 == 0) {
+	if (vn <= nexc) {
+	  if (ion->energy[i] < ei) {
+	    nb++;
+	  }
+	  nk++;
+	}
+	if (vn > ncap && ion->energy[i] > ei) {
+	  na++;
+	}
+      } else {
+	if (vn <= nexc) {
+	  ni++;
+	}
+      }
+    }
+    if (nk > 0) {
+      ik = malloc(sizeof(int)*nk);
+    } else {
+      ik = NULL;
+    }
+    if (nb > 0) {
+      io = malloc(sizeof(int)*nb);
+    } else {
+      io = NULL;
+    }
+    if (ni > 0) {
+      ii = malloc(sizeof(int)*ni);
+    } else {
+      ii = NULL;
+    }
+    if (na > 0) {
+      ia = malloc(sizeof(int)*na);
+    } else {
+      ia = NULL;
+    }
+    nk = 0;
+    ni = 0;
+    na = 0;
+    nb = 0;
+    n1 = 0;
+    for (i = 0; i < ion->nlevels; i++) {
+      vn = ion->vnl[i]/100;
+      dj = abs(ion->j[i] - j0);
+      if (dj%2 == 0) {
+	if (vn <= nexc) {
+	  if (ion->energy[i] < ei) {
+	    io[nb] = i;
+	    nb++;
+	  }
+	  ik[nk] = i;
+	  nk++;
+	}
+	if (vn > ncap && ion->energy[i] > ei) {
+	  ia[na] = i;
+	  na++;
+	}
+	if (ion->energy[i] > ei && vn > n1) n1 = vn;
+      } else {
+	if (vn <= nexc) {
+	  ii[ni] = i;
+	  ni++;
+	}
+      }
+    }
+    if (nk > 0) {
+      InitIdxAry(&iad, nk, ik);
+      kg = IdxGet(&iad, ion->ground);
+    }
+    if (nb > 0) {
+      InitIdxAry(&ibd, nb, io);
+    }
+    if (ni > 0) {
+      InitIdxAry(&iid, ni, ii);
+      ig = IdxGet(&iid, ion->iground);
+    }
+    if (na > 0) {      
+      InitIdxAry(&idd, na, ia);
+      if (ms[RC_DR]) {
+	nbtr = malloc(sizeof(int)*na);
+	btr = malloc(sizeof(RATE *)*na);
+      }
+      if (ms[RC_RE] || ms[RC_EA]) {
+	nbai = malloc(sizeof(int)*na);
+	bai = malloc(sizeof(RATE *)*na);
+      }
+    } else {
+      ms[RC_DR] = 0;
+      ms[RC_RE] = 0;
+      ms[RC_EA] = 0;
+    }
+    nkk = nk*nk;
+    nii = ni*ni;
+    nki = nk*ni;
+    nbi = nb*ni;
+    nr = 0;
+    if (ms[RC_CE]) {
+      ir[RC_CE] = 0;
+      nr += nkk;
+    }
+    if (ms[RC_CI]) {
+      ir[RC_CI] = nr;
+      nr += nki;
+    }
+    if (ms[RC_RR]) {
+      ir[RC_RR] = nr;
+      nr += nki;
+    }
+    if (ms[RC_DR]) {
+      ir[RC_DR] += nr;
+      nr += nbi;
+    }
+    if (ms[RC_RE]) {
+      ir[RC_RE] = nr;
+      nr += nii;
+    }
+    if (ms[RC_EA]) {
+      ir[RC_EA] = nr;
+      nr += nbi;
+    }
+    printf("irs: %d %d %d %d %d %d\n",
+	   ir[RC_CE], ir[RC_CI], ir[RC_RR], ir[RC_DR], ir[RC_RE], ir[RC_EA]);
+    wr = malloc(sizeof(double *)*nr);
+    for (i = 0; i < nr; i++) {
+      wr[i] = NULL;
+    }
+    drs = malloc(sizeof(double)*n1*nd);
+    _krc = p;
+    te = t0;
+    nce = 0;
+    nci = 0;
+    nrr = 0;
+    nre = 0;
+    nea = 0;
+    ndr = 0;
+    for (it = 0; it < nt; it++) {
+      ReinitCRM(2);
+      mp[0] = te;
+      printf("ion=%d te=%g nk=%d nb=%d na=%d ni=%d\n",
+	     ion->nele, te, nk, nb, na, ni);
+      SetEleDist(0, 3, mp);
+      if (ms[RC_CE] || ms[RC_EA]) {
+	SetCERates(1);
+      }
+      if (ms[RC_CI]) {
+	SetCIRates(1);
+      }
+      if (ms[RC_RR]) {
+	SetRRRates(0);
+      }
+      if (ms[RC_DR] || ms[RC_EA] || ms[RC_RE]) {
+	SetEleDensity(0);
+	SetAIRates(1);
+	InitBlocks();
+	DRBranch();
+	if (it == 0) {
+	  if (ms[RC_DR]) {
+	    SortBranches(ion->tr_rates, &idd, &ibd, kg, nbtr, btr);
+	  }
+	  if (ms[RC_EA] || ms[RC_RE]) {
+	    SortBranches(ion->ai_rates, &idd, &iid, ig, nbai, bai);
+	  }
+	}
+	de = d0;
+	for (id = 0; id < nd; id++) {
+	  if (id == 0) {
+	    for (i = 0; i < n1; i++) {
+	      drs[i*nd+id] = 1.0;
+	    }
+	  } else {
+	    SetEleDensity(de/1e10);
+	    DRSuppression(NULL, (ion0.atom-ion->nele+1), n1);
+	    for (i = 0; i < n1; i++) {
+	      drs[i*nd+id] = bmatrix[i];
+	    }
+	    free(bmatrix);
+	    bmatrix = NULL;
+	  }
+	  de *= rdd;
+	}
+      }
+      if (ms[RC_CE]) {
+	for (i = 0; i < ion->ce_rates->dim; i++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->ce_rates, i);
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    ilo = IdxGet(&iad, r->i);
+	    iup = IdxGet(&iad, r->f);
+	    if (ilo >= 0 && iup >= 0) {
+	      ra = wr[ir[RC_CE]+iup*nk+ilo];
+	      if (ra == NULL) {
+		ra = malloc(sizeof(double)*nt);
+		wr[ir[RC_CE]+iup*nk+ilo] = ra;
+		nce++;
+	      }
+	      ra[it] = r->inv;
+	    }
+	  }
+	}
+      }
+      if (ms[RC_CI]) {
+	for (i = 0; i < ion->ci_rates->dim; i++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->ci_rates, i);
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    ilo = IdxGet(&iad, r->i);
+	    iup = IdxGet(&iid, r->f);
+	    if (ilo >= 0 && iup >= 0) {
+	      ra = wr[ir[RC_CI]+iup*nk+ilo];
+	      if (ra == NULL) {
+		ra = malloc(sizeof(double)*nt);
+		wr[ir[RC_CI]+iup*nk+ilo] = ra;
+		nci++;
+	      }
+	      ra[it] = r->inv;
+	    }
+	  }
+	}
+      }
+      if (ms[RC_RR]) {
+	for (i = 0; i < ion->rr_rates->dim; i++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->rr_rates, i);
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    iup = IdxGet(&iid, r->i);
+	    ilo = IdxGet(&iad, r->f);
+	    if (ilo >= 0 && iup >= 0) {
+	      ra = wr[ir[RC_RR]+iup*nk+ilo];
+	      if (ra == NULL) {
+		ra = malloc(sizeof(double)*nt);
+		wr[ir[RC_RR]+iup*nk+ilo] = ra;
+		nrr++;
+	      }
+	      ra[it] = r->dir;
+	    }
+	  }
+	}
+      }
+      if (ms[RC_DR] || ms[RC_RE]) {
+	for (i = 0; i < ion->ai_rates->dim; i++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->ai_rates, i);
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    iup = IdxGet(&iid, r->f);
+	    ilo = IdxGet(&idd, r->i);
+	    if (iup >= 0 && ilo >= 0) {
+	      blk = ion->iblock[r->i];
+	      br = blk->r[ion->ilev[r->i]];
+	      rt = blk->total_rate[ion->ilev[r->i]];
+	      vn = (ion->vnl[r->i]/100)-1;
+	      if (ms[RC_DR]) {
+		ra = wr[ir[RC_DR]+iup*nb+kg];
+		if (ra == NULL) {
+		  ra = malloc(sizeof(double)*ntd);
+		  for (s = 0; s < ntd; s++) ra[s] = 0.0;
+		  wr[ir[RC_DR]+iup*nb+kg] = ra;
+		  ndr++;
+		}
+		de = d0;
+		for (id = 0; id < nd; id++) {		  
+		  ra[id*nt+it] += r->inv*br*drs[vn*nd+id];
+		  de *= rdd;
+		}
+		if (mdr == 0) {
+		  ra0 = ra;
+		  for (n = 0; n < nbtr[ilo]; n++) {
+		    ib = IdxGet(&ibd, btr[ilo][n].f);
+		    if (ib >= 0 && ib != kg) {
+		      ra = wr[ir[RC_DR]+iup*nb+ib];
+		      if (ra == NULL) {
+			ra = malloc(sizeof(double)*ntd);
+			for (s = 0; s < ntd; s++) ra[s] = 0.0;
+			wr[ir[RC_DR]+iup*nb+ib] = ra;
+			ndr++;
+		      }
+		      br = btr[ilo][n].dir/rt;
+		      de = d0;
+		      for (id = 0; id < nd; id++) {
+			x = r->inv*br*drs[vn*nd+id];
+			ra[id*nt+it] += x;
+			ra0[id*nt+it] -= x;
+			de *= rdd;
+		      }
+		    }
+		  }
+		}
+	      }
+	      if (ms[RC_RE]) {
+		for (n = 0; n < nbai[ilo]; n++) {
+		  ib = IdxGet(&iid, bai[ilo][n].f);
+		  if (ib >= 0 && ib > iup) {
+		    ra = wr[ir[RC_RE]+ib*ni+iup];
+		    if (ra == NULL) {
+		      ra = malloc(sizeof(double)*nt);
+		      for (s = 0; s < nt; s++) ra[s] = 0.0;
+		      wr[ir[RC_RE]+ib*ni+iup] = ra;
+		      nre++;
+		    }
+		    ra[it] += r->inv*bai[ilo][n].dir/rt;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+      if (ms[RC_EA]) {
+	for (i = 0; i < ion->ce_rates->dim; i++) {
+	  brts = (BLK_RATE *) ArrayGet(ion->ce_rates, i);
+	  for (m = 0; m < brts->rates->dim; m++) {
+	    r = (RATE *) ArrayGet(brts->rates, m);
+	    ilo = IdxGet(&ibd, r->i);
+	    iup = IdxGet(&idd, r->f);
+	    if (ilo >= 0 && iup >= 0) {
+	      blk = ion->iblock[r->f];
+	      br = blk->r[ion->ilev[r->f]];
+	      rt = blk->total_rate[ion->ilev[r->f]];
+	      ra = wr[ir[RC_EA]+ig*nb+ilo];
+	      if (ra == NULL) {
+		ra = malloc(sizeof(double)*nt);
+		for (s = 0; s < nt; s++) ra[s] = 0.0;
+		wr[ir[RC_EA]+ig*nb+ilo] = ra;
+		nea++;
+	      }
+	      if (br < 1) {
+		ra[it] += r->dir*(1-br);
+	      }
+	      if (mea == 0) {
+		ra0 = ra;
+		for (n = 0; n < nbai[iup]; n++) {
+		  ib = IdxGet(&iid, bai[iup][n].f);
+		  if (ib >= 0 && ib != ig) {
+		    ra = wr[ir[RC_EA]+ib*nb+ilo];
+		    if (ra == NULL) {
+		      ra = malloc(sizeof(double)*nt);
+		      for (s = 0; s < nt; s++) ra[s] = 0.0;
+		      wr[ir[RC_EA]+ib*nb+ilo] = ra;
+		      nea++;
+		    }
+		    br = bai[iup][n].dir/rt;
+		    x = r->dir*br;
+		    ra[it] += x;
+		    ra0[it] -= x;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+      te *= rdt;
+    }
+    
+    if (ms[RC_DR] == 0 || ms[RC_EA] == 0) mm = 0;
+    if (mm) {
+      ndr = 0;
+      for (ilo = 0; ilo < nb; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_DR]+iup*nb+ilo];
+	  ra0 = wr[ir[RC_EA]+iup*nb+ilo];
+	  if (ra || ra0) {
+	    ndr++;
+	  }
+	}
+      }
+      nea = ndr;
+    }
+    fprintf(f, "#NCE: %d %d %d\n", RC_CE, ion->nele, nce);
+    fprintf(f, "#NCI: %d %d %d\n", RC_CI, ion->nele, nci);
+    fprintf(f, "#NRR: %d %d %d\n", RC_RR, ion->nele, nrr);
+    fprintf(f, "#NDR: %d %d %d\n", RC_DR, ion->nele, ndr);
+    fprintf(f, "#NRE: %d %d %d\n", RC_RE, ion->nele, nre);
+    fprintf(f, "#NEA: %d %d %d\n", RC_EA, ion->nele, nea);
+    
+    if (nce) {      
+      fprintf(f, "#CE\n");
+      for (ilo = 0; ilo < nk; ilo++) {
+	for (iup = 0; iup < nk; iup++) {
+	  ra = wr[ir[RC_CE]+iup*nk+ilo];
+	  if (ra) {
+	    id = 0;
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_CE, ion->nele, id,
+		    iad.d[ilo], ion->j[iad.d[ilo]],
+		    iad.d[iup], ion->j[iad.d[iup]],
+		    (ion->energy[iad.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
+	    for (it = 0; it < nt; it++) {
+	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	    }
+	    fprintf(f, "\n");
+	    free(ra);
+	  }
+	}
+      }      
+    }
+    if (nci) {
+      fprintf(f, "#CI\n");
+      for (ilo = 0; ilo < nk; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_CI]+iup*nk+ilo];
+	  if (ra) {
+	    id = 0;
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_CI, ion->nele, id,
+		    iad.d[ilo], ion->j[iad.d[ilo]],
+		    iid.d[iup], ion->j[iid.d[iup]],
+		    (ion->energy[iid.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
+	    for (it = 0; it < nt; it++) {
+	      fprintf(f, " %12.5E", ra[it]);	      
+	    }
+	    fprintf(f, "\n");
+	    free(ra);
+	  }
+	}
+      }      
+    }
+    if (nrr) {
+      fprintf(f, "#RR\n");
+      for (ilo = 0; ilo < nk; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_RR]+iup*nk+ilo];
+	  if (ra) {
+	    id = 0;
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
+		    iad.d[ilo], ion->j[iad.d[ilo]],
+		    iid.d[iup], ion->j[iid.d[iup]],
+		    (ion->energy[iid.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
+	    for (it = 0; it < nt; it++) {
+	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	    }
+	    fprintf(f, "\n");
+	    free(ra);
+	  }
+	}
+      }      
+    }
+    
+    if (ndr && !mm) {
+      fprintf(f, "#DR\n");
+      for (ilo = 0; ilo < nb; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_DR]+iup*nb+ilo];
+	  if (ra) {
+	    for (id = 0; id < nd; id++) {
+	      fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_DR, ion->nele, id,
+		      ibd.d[ilo], ion->j[ibd.d[ilo]],
+		      iid.d[iup], ion->j[iid.d[iup]],
+		      (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV);
+	      for (it = 0; it < nt; it++) {
+		fprintf(f, " %12.5E", ra[id*nt+it]/1e10);
+	      }
+	      fprintf(f, "\n");
+	    }
+	    free(ra);
+	  }
+	}
+      }
+    }
+
+    if (nre) {
+      fprintf(f, "#RE\n");
+      for (ilo = 0; ilo < ni; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_RE]+iup*ni+ilo];
+	  if (ra) {
+	    id = 0;
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RE, ion->nele-1, id,
+		    iid.d[ilo], ion->j[iid.d[ilo]],
+		    iid.d[iup], ion->j[iid.d[iup]],
+		    (ion->energy[iid.d[iup]]-ion->energy[iid.d[ilo]])*HARTREE_EV);
+	    for (it = 0; it < nt; it++) {
+	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	    }
+	    fprintf(f, "\n");
+	    free(ra);
+	  }
+	}
+      }      
+    }
+    if (nea && !mm) {
+      fprintf(f, "#EA\n");
+      for (ilo = 0; ilo < nb; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_EA]+iup*nb+ilo];
+	  if (ra) {
+	    id = 0;
+	    de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
+		    ibd.d[ilo], ion->j[ibd.d[ilo]],
+		    iid.d[iup], ion->j[iid.d[iup]], de);
+	    te = t0;
+	    for (it = 0; it < nt; it++) {
+	      x = ra[it];
+	      x *= ion->j[ibd.d[ilo]]+1.0;
+	      x /= ion->j[iid.d[iup]]+1.0;
+	      x *= exp(de/te);
+	      x *= 1.64156e-12*pow(te, -1.5);
+	      fprintf(f, " %12.5E", x);
+	      te *= rdt;
+	    }
+	    fprintf(f, "\n");
+	    free(ra);
+	  }
+	}
+      }      
+    }
+    if (mm && ndr) {
+      fprintf(f, "#DR+EA\n");
+      for (ilo = 0; ilo < nb; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_EA]+iup*nb+ilo];
+	  id = 0;
+	  de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
+	  fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
+		  ibd.d[ilo], ion->j[ibd.d[ilo]],
+		  iid.d[iup], ion->j[iid.d[iup]], de);
+	  if (ra) {
+	    te = t0;
+	    for (it = 0; it < nt; it++) {
+	      x = ra[it];
+	      x *= ion->j[ibd.d[ilo]]+1.0;
+	      x /= ion->j[iid.d[iup]]+1.0;
+	      x *= exp(de/te);
+	      x *= 1.64156e-12*pow(te, -1.5);
+	      fprintf(f, " %12.5E", x);
+	      te *= rdt;
+	    }
+	    free(ra);
+	  } else {
+	    for (it = 0; it < nt; it++) {
+	      fprintf(f, " %12.5E", 0);
+	    }
+	  }
+	  fprintf(f, "\n");
+	  ra = wr[ir[RC_DR]+iup*nb+ilo];
+	  for (id = 0; id < nd; id++) {
+	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_DR, ion->nele, id,
+		    ibd.d[ilo], ion->j[ibd.d[ilo]],
+		    iid.d[iup], ion->j[iid.d[iup]],
+		    (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV);
+	    if (ra) {
+	      for (it = 0; it < nt; it++) {
+		fprintf(f, " %12.5E", ra[id*nt+it]/1e10);
+	      }
+	    } else {
+	      for (it = 0; it < nt; it++) {
+		fprintf(f, " %12.5E", 0);
+	      }
+	    }
+	    fprintf(f, "\n");
+	  }
+	  if (ra) free(ra);
+	}
+      }
+    }
+    
+    if (nk > 0) {
+      FreeIdxAry(&iad, 0);
+    }
+    if (nb > 0) {
+      FreeIdxAry(&ibd, 0);
+    }
+    if (ni > 0) {
+      FreeIdxAry(&iid, 0);
+    }
+    if (na > 0) {
+      if (nbtr) {
+	for (i = 0; i < na; i++) {
+	  if (nbtr[i] > 0) free(btr[i]);
+	}
+	free(btr);
+	free(nbtr);
+      }
+      if (nbai) {
+	for (i = 0; i < na; i++) {
+	  if (nbai[i] > 0) free(bai[i]);
+	}
+	free(bai);
+	free(nbai);
+      }
+      FreeIdxAry(&idd, 0);
+    }
+    free(wr);
+    free(drs);
+    _krc = -1;
+  }
+  fclose(f);
+}
+

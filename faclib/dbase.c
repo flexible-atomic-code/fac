@@ -64,7 +64,7 @@ static double _tpbez[] = {0.0, 2.30258509, 2.89037176, 3.25809654,
 			  4.36944785, 4.52178858};
 static double _tpber[] = {-41.609, -20.88578477, -15.24262691,
 			  -12.59173513, -10.05431044,
-			  -8.29404964,  -5.62682143,  -4.50986001}; 
+			  -8.29404964,  -5.62682143,  -4.50986001};
 
 static double born_mass = 1.0;
 static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
@@ -709,7 +709,6 @@ int InitDBase(void) {
     fheader[i].atom = 0;
     fheader[i].nblocks = 0;
   }
-
   mem_en_table = NULL;
   mem_en_table_size = 0;
   mem_enf_table = NULL;
@@ -6621,8 +6620,8 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
   return n;
 }
 
-void CombineDBase(int z, int k0, int k1, int ic) {
-  int k, i, n, nb, nlevs, clevs, ni0, ni1;
+void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
+  int k, i, n, nb, nlevs, clevs, ni0, ni1, vn;
   char ifn[1024], ofn[1024], buf[1024];
   char *a;
   F_HEADER fh, fh1[6];
@@ -6639,6 +6638,8 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   CI_RECORD r4;
   AI_HEADER h5;
   AI_RECORD r5;
+  DR_HEADER h6;
+  DR_RECORD r6;
   char ext[6][3] = {"en", "tr", "ce", "rr", "ci", "ai"};
   int types[6] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI};
   TFILE *f0, *f1[6];
@@ -6646,7 +6647,17 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   double e0, e1, e0p, e1p, de;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
+  int ncap, nt, nd;
+  double t0, dt, d0, dd;
 
+  nexc = 0;
+  ncap = 0;
+  nt = 0;
+  nd = 0;
+  d0 = 0.0;
+  t0 = 0.0;
+  dd = 0.0;
+  dt = 0.0;
   for (k = 0; k < 3; k++) {
     ilow2ph[k] = 0;
     iup2ph[k] = 0;
@@ -6655,7 +6666,14 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   ima = malloc(sizeof(int *)*nk);
   a = &(GetAtomicSymbolTable())[(z-1)*3];
 
-  FILE *frp0, *frp1;
+  FILE *frp0, *frp1, *frc0, *frc1;
+  
+  sprintf(ofn, "%s%02d%02db.rc", a, k0, k1);  
+  frc1 = fopen(ofn, "w");
+  if (frc1) {
+    fprintf(frc1, "#MEXC: %d\n", nexc);
+  }
+    
   sprintf(ofn, "%s%02d%02db.rp", a, k0, k1);
   frp1 = fopen(ofn, "w");
   if (frp1 != NULL) {
@@ -6692,9 +6710,25 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   e0 = 0.0;
   e1 = 0.0;
   de = 0.0;
+  int ndr = 0, nre = 0, nea = 0, nce=0, nci=0, nrr=0; 
   for (k = k1; k >= k0; k--) {
+    sprintf(ifn, "%s%02da.rc", a, k);
+    ncap = 0;
+    frc0 = fopen(ifn, "r");
+    if (frc0) {
+      while (NULL != fgets(buf, 1024, frc0)) {
+	if (!strstr(buf, ":")) break;
+	if (strstr(buf, "NCAP:")) {
+	  ncap = atoi(buf+7);
+	}
+	if (buf[0] == '#') {
+	  fprintf(frc1, "%s", buf);
+	}
+      }	  
+      fclose(frc0);
+    }
     sprintf(ifn, "%s%02db.en", a, k);
-    printf("rebuild level indices %d %d %s\n", z, k, ifn);
+    printf("rebuild level indices %d %d %s %d %d\n", z, k, ifn, nexc, ncap);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
       printf("cannot open file %s\n", ifn);
@@ -6735,7 +6769,12 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	InitFile(f1[0], &fh1[0], &h0);
 	for (i = 0; i < h0.nlevels; i++) {
 	  n = ReadENRecord(f0, &r0, swp);
-	  im[r0.ilev] = r0.ilev-nilevs+clevs;
+	  vn = abs(r0.p)/100;
+	  if ((nexc > 0 && vn > nexc) ||
+	      (ncap > 0 && vn > ncap && r0.energy > e1)) {
+	    continue;
+	  }
+	  im[r0.ilev] = clevs;
 	  if (r0.ibase >= 0) {
 	    r0.ibase = im[r0.ibase];
 	  }
@@ -6743,6 +6782,7 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	  r0.energy += de;
 	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
 	  WriteENRecord(f1[0], &r0);
+	  clevs++;
 	}
 	DeinitFile(f1[0], &fh1[0]);
       } else {
@@ -6777,7 +6817,7 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	}
       }
     }
-    clevs += nlevs-nilevs;
+    //clevs += nlevs-nilevs;
     if (k == k0) {
       FSEEK(f0, SIZE_F_HEADER, SEEK_SET);
       nilevs = 0;
@@ -6788,13 +6828,19 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	  InitFile(f1[0], &fh1[0], &h0);
 	  for (i = 0; i < h0.nlevels; i++) {
 	    n = ReadENRecord(f0, &r0, swp);
-	    im[r0.ilev] = r0.ilev-nilevs+clevs;
+	    vn = abs(r0.p)/100;
+	    if ((nexc > 0 && vn > nexc) ||
+		(ncap > 0 && vn > ncap && r0.energy > e1)) {
+	      continue;
+	    }
+	    im[r0.ilev] = clevs;
 	    if (r0.ibase >= 0) {
 	      r0.ibase = im[r0.ibase];
 	    }
 	    r0.ilev = im[r0.ilev];
 	    r0.energy += de;
 	    WriteENRecord(f1[0], &r0);
+	    clevs++;
 	  }
 	  DeinitFile(f1[0], &fh1[0]);
 	} else {
@@ -6809,6 +6855,53 @@ void CombineDBase(int z, int k0, int k1, int ic) {
   CloseFile(f1[0], &fh1[0]);
   sprintf(ifn, "%s%02d%02db.en", a, k0, k1);
   MemENTable(ifn);
+
+  int nid, id0, id1, id2, id3, id4, id5, id6;
+  if (frc1) {
+    fprintf(frc1, "#STARTDATA\n");
+    for (k = k1; k >= k0; k--) {
+      im = ima[k-k0];
+      sprintf(ifn, "%s%02da.rc", a, k);
+      frc0 = fopen(ifn, "r");
+      if (frc0) {
+	while(NULL != fgets(buf, 1024, frc0)) {
+	  if (buf[0] == '#') continue;
+	  nid = sscanf(buf, "%d %d %d %d %d %d %d",
+		       &id0, &id1, &id2, &id3, &id4, &id5, &id6);
+	  if (nid != 7) continue;
+	  if (id0 != 3 && id0 != 4) continue;
+	  id3 = im[id3];
+	  id5 = im[id5];
+	  if (id3 >= 0 && id5 >= 0) {
+	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
+		    id0, id1, id2, id3, id4, id5, id6, buf+35);
+	  }
+	}
+	fclose(frc0);
+      }
+    }
+    for (k = k1; k >= k0; k--) {
+      im = ima[k-k0];
+      sprintf(ifn, "%s%02da.rc", a, k);
+      frc0 = fopen(ifn, "r");
+      if (frc0) {
+	while(NULL != fgets(buf, 1024, frc0)) {
+	  if (buf[0] == '#') continue;
+	  nid = sscanf(buf, "%d %d %d %d %d %d %d",
+		       &id0, &id1, &id2, &id3, &id4, &id5, &id6);
+	  if (nid != 7) continue;
+	  if (id0 != 5) continue;
+	  id3 = im[id3];
+	  id5 = im[id5];
+	  if (id3 >= 0 && id5 >= 0) {
+	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
+		    id0, id1, id2, id3, id4, id5, id6, buf+35);
+	  }
+	}
+	fclose(frc0);
+      }
+    }
+  }
   
   for (k = k1; k >= k0; k--) {
     printf("processing %d %d\n", z, k);
@@ -6966,13 +7059,15 @@ void CombineDBase(int z, int k0, int k1, int ic) {
 	free(h5.egrid);
       }
     }
-    FCLOSE(f0);
+    FCLOSE(f0);    
     free(im);
   }
   free(ima);
   for (i = 1; i < 6; i++) {
     CloseFile(f1[i], &fh1[i]);
   }
+  if (frc1 != NULL) fclose(frc1);
+  
   if (ic >= 0) {
     for (i = 0; i < 6; i++) {
       sprintf(ifn, "%s%02d%02db.%s", a, k0, k1, ext[i]);

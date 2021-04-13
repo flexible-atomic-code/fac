@@ -1749,6 +1749,36 @@ static PyObject *PVoigt(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PDRSupFactor(PyObject *self, PyObject *args) {
+  double z, d, t;
+  if (!(PyArg_ParseTuple(args, "ddd", &z, &d, &t))) return NULL;
+  double r = DRSupFactor(z, d, t);
+  
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PRateCoefficients(PyObject *self, PyObject *args) {
+  char *s;
+  int k0, k1, nexc, ncap, nt, nd, md;
+  double d0, d1, t0, t1;
+
+  if (scrm_file) {
+    SCRMStatement("RateCoefficients", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!(PyArg_ParseTuple(args, "siiiiiddiddi",
+			 &s, &k0, &k1, &nexc, &ncap,
+			 &nt, &t0, &t1,
+			 &nd, &d0, &d1, &md))) return NULL;
+  RateCoefficients(s, k0, k1, nexc, ncap, nt, t0, t1, nd, d0, d1, md);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
 static struct PyMethodDef crm_methods[] = {
   {"Print", PPrint, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
@@ -1843,6 +1873,8 @@ static struct PyMethodDef crm_methods[] = {
   {"ScaledSG", PScaledSG, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"Voigt", PVoigt, METH_VARARGS},
+  {"DRSupFactor", PDRSupFactor, METH_VARARGS},
+  {"RateCoefficients", PRateCoefficients, METH_VARARGS},
   {NULL, NULL}
 };
 
