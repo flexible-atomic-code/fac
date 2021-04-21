@@ -6620,10 +6620,10 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
   return n;
 }
 
-void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
-  int k, i, n, nb, nlevs, clevs, ni0, ni1, vn;
+void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
+  int k, i, n, nb, nlevs, clevs, ni0, ni1, vn, z;
   char ifn[1024], ofn[1024], buf[1024];
-  char *a;
+  char a[8];
   F_HEADER fh, fh1[6];
   EN_HEADER h0;
   EN_RECORD r0, *ri0, *ri1;
@@ -6650,7 +6650,6 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   int ncap, nt, nd;
   double t0, dt, d0, dd;
 
-  nexc = 0;
   ncap = 0;
   nt = 0;
   nd = 0;
@@ -6664,21 +6663,20 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   }
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
-  a = &(GetAtomicSymbolTable())[(z-1)*3];
 
   FILE *frp0, *frp1, *frc0, *frc1;
   
-  sprintf(ofn, "%s%02d%02db.rc", a, k0, k1);  
+  sprintf(ofn, "%s%02d%02db.rc", pref, k0, k1);  
   frc1 = fopen(ofn, "w");
   if (frc1) {
     fprintf(frc1, "#MEXC: %d\n", nexc);
   }
     
-  sprintf(ofn, "%s%02d%02db.rp", a, k0, k1);
+  sprintf(ofn, "%s%02d%02db.rp", pref, k0, k1);
   frp1 = fopen(ofn, "w");
   if (frp1 != NULL) {
     for (k = k1; k >= k0; k--) {
-      sprintf(ifn, "%s%02db.rp", a, k);
+      sprintf(ifn, "%s%02db.rp", pref, k);
       frp0 = fopen(ifn, "r");      
       if (frp0 != NULL) {
 	while(NULL != fgets(buf, 1024, frp0)) {
@@ -6691,15 +6689,20 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   }
   
   nth = 0;
+  z = 0;
   for (k = k1; k >= k0; k--) {
-    sprintf(ifn, "%s%02db.en", a, k);
+    sprintf(ifn, "%s%02db.en", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
+    if (z == 0) {
+      z = (int)(fh.atom);
+      strcpy(a, fh.symbol);
+    }
     if (fh.nthreads > nth) nth = fh.nthreads;
     FCLOSE(f0);
   }
   
   for (i = 0; i < 6; i++) {
-    sprintf(ofn, "%s%02d%02db.%s", a, k0, k1, ext[i]);
+    sprintf(ofn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
     fh1[i].atom = z;
     strcpy(fh1[i].symbol, a);
     fh1[i].type = types[i];
@@ -6712,7 +6715,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   de = 0.0;
   int ndr = 0, nre = 0, nea = 0, nce=0, nci=0, nrr=0; 
   for (k = k1; k >= k0; k--) {
-    sprintf(ifn, "%s%02da.rc", a, k);
+    sprintf(ifn, "%s%02db.rc", pref, k);
     ncap = 0;
     frc0 = fopen(ifn, "r");
     if (frc0) {
@@ -6727,7 +6730,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
       }	  
       fclose(frc0);
     }
-    sprintf(ifn, "%s%02db.en", a, k);
+    sprintf(ifn, "%s%02db.en", pref, k);
     printf("rebuild level indices %d %d %s %d %d\n", z, k, ifn, nexc, ncap);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
@@ -6795,7 +6798,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
 	    n = ReadENRecord(f0, &ri0[i], swp);
 	    if (n == 0) break;
 	  }
-	  sprintf(ifn, "%s%02db.en", a, k-1);
+	  sprintf(ifn, "%s%02db.en", pref, k-1);
 	  nim = FindLevelBlock(ni0, ri0, ni1, ri1, k-1, ifn);
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
@@ -6853,7 +6856,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   }
   
   CloseFile(f1[0], &fh1[0]);
-  sprintf(ifn, "%s%02d%02db.en", a, k0, k1);
+  sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
   MemENTable(ifn);
 
   int nid, id0, id1, id2, id3, id4, id5, id6;
@@ -6861,7 +6864,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     fprintf(frc1, "#STARTDATA\n");
     for (k = k1; k >= k0; k--) {
       im = ima[k-k0];
-      sprintf(ifn, "%s%02da.rc", a, k);
+      sprintf(ifn, "%s%02db.rc", pref, k);
       frc0 = fopen(ifn, "r");
       if (frc0) {
 	while(NULL != fgets(buf, 1024, frc0)) {
@@ -6882,7 +6885,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     }
     for (k = k1; k >= k0; k--) {
       im = ima[k-k0];
-      sprintf(ifn, "%s%02da.rc", a, k);
+      sprintf(ifn, "%s%02db.rc", pref, k);
       frc0 = fopen(ifn, "r");
       if (frc0) {
 	while(NULL != fgets(buf, 1024, frc0)) {
@@ -6906,7 +6909,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   for (k = k1; k >= k0; k--) {
     printf("processing %d %d\n", z, k);
     im = ima[k-k0];
-    sprintf(ifn, "%s%02db.tr", a, k);
+    sprintf(ifn, "%s%02db.tr", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_TR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
@@ -6952,7 +6955,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     }
     FCLOSE(f0);
     
-    sprintf(ifn, "%s%02db.ce", a, k);
+    sprintf(ifn, "%s%02db.ce", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CE) {
       for (nb = 0; nb < fh.nblocks; nb++) {
@@ -6978,7 +6981,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     }
     FCLOSE(f0);
     
-    sprintf(ifn, "%s%02db.rr", a, k);
+    sprintf(ifn, "%s%02db.rr", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_RR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
@@ -7007,7 +7010,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     }
     FCLOSE(f0);
     
-    sprintf(ifn, "%s%02db.ci", a, k);
+    sprintf(ifn, "%s%02db.ci", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CI) {
       for (nb = 0; nb < fh.nblocks; nb++) {
@@ -7036,7 +7039,7 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
     }
     FCLOSE(f0);
       
-    sprintf(ifn, "%s%02db.ai", a, k);
+    sprintf(ifn, "%s%02db.ai", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_AI) {
       for (nb = 0; nb < fh.nblocks; nb++) {
@@ -7070,8 +7073,8 @@ void CombineDBase(int z, int k0, int k1, int nexc, int ic) {
   
   if (ic >= 0) {
     for (i = 0; i < 6; i++) {
-      sprintf(ifn, "%s%02d%02db.%s", a, k0, k1, ext[i]);
-      sprintf(ofn, "%s%02d%02da.%s", a, k0, k1, ext[i]);
+      sprintf(ifn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
+      sprintf(ofn, "%s%02d%02da.%s", pref, k0, k1, ext[i]);
       PrintTable(ifn, ofn, 1);
     }
   }

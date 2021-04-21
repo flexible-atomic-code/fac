@@ -678,7 +678,7 @@ int CompareENComplex(const void *c1, const void *c2);
 int SortUniqNComplex(int n, EN_RECORD *a);
 int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
 		   int nele, char *ifn);
-void CombineDBase(int z, int k0, int k1, int nexc, int ic);
+void CombineDBase(char *pref, int k0, int k1, int nexc, int ic);
 void SetOptionDBase(char *s, char *sp, int ip, double dp);
 double TwoPhotonRate(double z, int t);
 int LevelMatchByName(EN_RECORD *r, char *nc, char*cnr, char *cr);
