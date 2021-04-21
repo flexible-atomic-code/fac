@@ -4511,15 +4511,16 @@ static int PAppendTable(int argc, char *argv[], int argt[],
 static int PCombineDBase(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   if (argc != 5) return -1;
+  if (argt[0] != STRING) return -1;
+  
+  int k0, k1, n, ic;
 
-  int z, k0, k1, n, ic;
-  z = atoi(argv[0]);
   k0 = atoi(argv[1]);
   k1 = atoi(argv[2]);
   n = atoi(argv[3]);
   ic = atoi(argv[4]);
   
-  CombineDBase(z, k0, k1, n, ic);
+  CombineDBase(argv[0], k0, k1, n, ic);
   
   return 0;
 }

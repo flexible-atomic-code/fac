@@ -9274,9 +9274,11 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       for (ilo = 0; ilo < nb; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_EA]+iup*nb+ilo];
+	  ra0 = wr[ir[RC_DR]+iup*nb+ilo];
+	  if (ra == NULL && ra0 == NULL) continue;
 	  id = 0;
 	  de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
-	  fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
+	  fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_EA, ion->nele, id,
 		  ibd.d[ilo], ion->j[ibd.d[ilo]],
 		  iid.d[iup], ion->j[iid.d[iup]], de);
 	  if (ra) {
@@ -9293,7 +9295,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	    free(ra);
 	  } else {
 	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", 0);
+	      fprintf(f, " %12.5E", 0.0);
 	    }
 	  }
 	  fprintf(f, "\n");
@@ -9309,7 +9311,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	      }
 	    } else {
 	      for (it = 0; it < nt; it++) {
-		fprintf(f, " %12.5E", 0);
+		fprintf(f, " %12.5E", 0.0);
 	      }
 	    }
 	    fprintf(f, "\n");
