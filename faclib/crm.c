@@ -9132,12 +9132,12 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       }
       nea = ndr;
     }
-    fprintf(f, "#NCE: %d %d %d\n", RC_CE, ion->nele, nce);
-    fprintf(f, "#NCI: %d %d %d\n", RC_CI, ion->nele, nci);
-    fprintf(f, "#NRR: %d %d %d\n", RC_RR, ion->nele, nrr);
-    fprintf(f, "#NDR: %d %d %d\n", RC_DR, ion->nele, ndr);
-    fprintf(f, "#NRE: %d %d %d\n", RC_RE, ion->nele, nre);
-    fprintf(f, "#NEA: %d %d %d\n", RC_EA, ion->nele, nea);
+    fprintf(f, "#NCE: %d %3d %8d\n", RC_CE, ion->nele, nce);
+    fprintf(f, "#NCI: %d %3d %8d\n", RC_CI, ion->nele, nci);
+    fprintf(f, "#NRR: %d %3d %8d\n", RC_RR, ion->nele, nrr);
+    fprintf(f, "#NDR: %d %3d %8d\n", RC_DR, ion->nele, ndr);
+    fprintf(f, "#NRE: %d %3d %8d\n", RC_RE, ion->nele, nre);
+    fprintf(f, "#NEA: %d %3d %8d\n", RC_EA, ion->nele, nea);
     
     if (nce) {      
       fprintf(f, "#CE\n");

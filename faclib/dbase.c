@@ -6713,7 +6713,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   e0 = 0.0;
   e1 = 0.0;
   de = 0.0;
-  int ndr = 0, nre = 0, nea = 0, nce=0, nci=0, nrr=0; 
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.rc", pref, k);
     ncap = 0;
@@ -6859,25 +6858,27 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
   MemENTable(ifn);
 
-  int nid, id0, id1, id2, id3, id4, id5, id6;
   if (frc1) {
+    int nid, id0, id1, id2, id3, id4, id5, id6, ndr[128], nre[128];
     fprintf(frc1, "#STARTDATA\n");
     for (k = k1; k >= k0; k--) {
       im = ima[k-k0];
       sprintf(ifn, "%s%02db.rc", pref, k);
       frc0 = fopen(ifn, "r");
+      ndr[k] = 0;
       if (frc0) {
 	while(NULL != fgets(buf, 1024, frc0)) {
 	  if (buf[0] == '#') continue;
 	  nid = sscanf(buf, "%d %d %d %d %d %d %d",
 		       &id0, &id1, &id2, &id3, &id4, &id5, &id6);
 	  if (nid != 7) continue;
-	  if (id0 != 3 && id0 != 4) continue;
+	  if (id0 != 6 && id0 != 4) continue;
 	  id3 = im[id3];
 	  id5 = im[id5];
 	  if (id3 >= 0 && id5 >= 0) {
 	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
 		    id0, id1, id2, id3, id4, id5, id6, buf+35);
+	    if (id0 == 6) ndr[k]++;
 	  }
 	}
 	fclose(frc0);
@@ -6887,6 +6888,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       im = ima[k-k0];
       sprintf(ifn, "%s%02db.rc", pref, k);
       frc0 = fopen(ifn, "r");
+      nre[k] = 0;
       if (frc0) {
 	while(NULL != fgets(buf, 1024, frc0)) {
 	  if (buf[0] == '#') continue;
@@ -6899,11 +6901,39 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	  if (id3 >= 0 && id5 >= 0) {
 	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
 		    id0, id1, id2, id3, id4, id5, id6, buf+35);
+	    nre[k]++;
 	  }
 	}
 	fclose(frc0);
       }
     }
+    fclose(frc1);
+    sprintf(ofn, "%s%02d%02db.rc", pref, k0, k1);  
+    frc1 = fopen(ofn, "r+");
+    fseek(frc1, 0, SEEK_SET);
+    k = k1;
+    while(NULL != fgets(buf, 1024, frc1)) {
+      if (strstr(buf, "#RDG:")) {
+	printf("ndr/re: %d %d %d\n", k, ndr[k], nre[k]);
+	fseek(frc1, 0, SEEK_CUR);
+	sprintf(buf, "#NCE: %d %3d %8d\n", RC_CE, k, 0);
+	fwrite(buf, 1, strlen(buf), frc1);
+	sprintf(buf, "#NCI: %d %3d %8d\n", RC_CI, k, 0);
+	fwrite(buf, 1, strlen(buf), frc1);
+	sprintf(buf, "#NRR: %d %3d %8d\n", RC_RR, k, 0);
+	fwrite(buf, 1, strlen(buf), frc1);
+	sprintf(buf, "#NDR: %d %3d %8d\n", RC_DR, k, ndr[k]);
+	fwrite(buf, 1, strlen(buf), frc1);
+	sprintf(buf, "#NRE: %d %3d %8d\n", RC_RE, k, nre[k]);
+	fwrite(buf, 1, strlen(buf), frc1);
+	sprintf(buf, "#NEA: %d %3d %8d\n", RC_EA, k, ndr[k]);
+	fwrite(buf, 1, strlen(buf), frc1);
+	k--;
+      } else if (strstr(buf, "#STARTDATA")) {
+	break;
+      }
+    }
+    fclose(frc1);
   }
   
   for (k = k1; k >= k0; k--) {
@@ -7069,7 +7099,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   for (i = 1; i < 6; i++) {
     CloseFile(f1[i], &fh1[i]);
   }
-  if (frc1 != NULL) fclose(frc1);
   
   if (ic >= 0) {
     for (i = 0; i < 6; i++) {
