@@ -785,6 +785,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  a[i] = 0.0;
 	  et[i] = 0.0;
 	  s[i] = 0.0;
+	  if (IsPreloadedTR(low[i], up[j], m)) continue;
 	  k = TRMultipole(s+i, et+i, m, low[i], up[j]);
 	  if (k != 0) continue;
 	  gf = OscillatorStrength(m, et[i], s[i], &(a[i]));
