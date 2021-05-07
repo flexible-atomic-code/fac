@@ -932,6 +932,11 @@ class FLEV:
             for kn in b0.keys():
                 b0[kn] = np.append(b0[kn], b[kn])
         self.nele = b0['NELE']
+        if ki > 0:
+            w = np.where(self.nele == ki)[0]
+            for kn in b0.keys():
+                b0[kn] = b0[kn][w]
+            self.nele = self.nele[w]
         ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
         if self.nele[0] <= 12:
             gc = [2, 2, 6, self.nele[0]-10, 0, 0]
@@ -1000,7 +1005,7 @@ class FLEV:
         if m == None:
             return
         w = np.where(self.nele == self.nele[0]-1)[0]
-        if len(w) > 0:
+        if len(w) > 0 and m.ei > 0:
             w0 = w[0]
             ei = self.e[w0]-self.e0            
             self.im[w] = 0
@@ -1062,12 +1067,12 @@ class FLEV:
             else:
                 ik = self.ilev[i]
             em = self.em[i]
-            if em >= 0:
+            if i == 0 or em >= 0:
                 de = self.e[i]-self.e0-self.em[i]
             else:
                 em = 0.0
                 de = 0.0
-            s = '%4d %4d %11.5E %11.5E %10.3E %4d %4d %4d %-32s %-84s %-48s\n'%(ik,self.im[i],self.e[i]-self.e0,em,de,self.wj[i],self.j[i],self.p[i],self.s[i],self.n[i],self.cm[i])
+            s = '%4d %4d %14.8E %14.8E %10.3E %4d %4d %4d %-32s %-84s %-48s\n'%(ik,self.im[i],self.e[i]-self.e0,em,de,self.wj[i],self.j[i],self.p[i],self.s[i],self.n[i],self.cm[i])
             f.write(s)
         f.close()
 

@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "consts.h"
+#include "array.h"
 
 #define RC_CE 1
 #define RC_CI 2
@@ -483,6 +484,20 @@ typedef struct _JJLSJ_ {
   double *w;
 } JJLSJ;
 
+typedef struct _IDXDAT_ {
+  int i;
+  double e;
+} IDXDAT;
+
+typedef struct _IDXMAP_ {
+  int ni, nj, nij;  
+  ARRAY *imap;
+  int i0, im0, i1, im1;
+  int j0, jm0, j1, jm1;
+  int xm[32];
+  long *mask;
+} IDXMAP;
+  
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
  * files directly. to do so, copy consts.h, dbase.h, and dbase.c
@@ -684,6 +699,18 @@ double TwoPhotonRate(double z, int t);
 int LevelMatchByName(EN_RECORD *r, char *nc, char*cnr, char *cr);
 void Match2PhotonLevels(int k, EN_RECORD *r, int *ilow2ph, int *iup2ph,
 			double *elow2ph, double *eup2ph);
+void ClearIdxMap(void);
+int PreloadEN(char *fn, int i0, int i1, int j0, int j1);
+int SetPreloaded(int i, int j, int m);
+int SetPreloadedTR(int i, int j, int m);
+int SetPreloadedCE(int i, int j);
+int IsPreloaded(int i, int j, int m);
+int IsPreloadedTR(int i, int j, int m);
+int IsPreloadedCE(int i, int j);
+IDXDAT *IdxMap(int i);
+int PreloadTable(char *tfn, char *sfn, int m);
+int PreloadTR(char *tfn, char *sfn, int m);
+int PreloadCE(char *tfn, char *sfn);
 
 #endif
 

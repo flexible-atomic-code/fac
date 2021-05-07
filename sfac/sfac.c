@@ -5206,6 +5206,29 @@ static int PSetCXLDist(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPreloadTable(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  int i0, i1, j0, j1, m;
+  m = 0;
+
+  if (argc != 2 && argc != 3 && argc != 5) return -1;
+  
+  if (argc == 5) {
+    i0 = atoi(argv[1]);
+    i1 = atoi(argv[2]);
+    j0 = atoi(argv[3]);
+    j1 = atoi(argv[4]);
+    if (0 > PreloadEN(argv[0], i0, i1, j0, j1)) return -1;
+    return 0;
+  }
+  if (argc == 3) {
+    m = atoi(argv[2]);
+  }
+  if (0 > PreloadTable(argv[0], argv[1], m)) return -1;
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5215,6 +5238,7 @@ static METHOD methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"PreloadTable", PPreloadTable, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},

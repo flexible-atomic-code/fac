@@ -3303,6 +3303,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	if (e < e0 || e >= e1) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
+	if (IsPreloadedCE(ilow, iup)) continue;
 	if (iuta) {
 	  k = CollisionStrengthUTA(qkc, params, &e, bethe, ilow, iup);
 	} else {

@@ -19,8 +19,8 @@
 #include "dbase.h"
 #include "parser.h"
 #include "angular.h"
-#include "array.h"
 #include "nucleus.h"
+#include "structure.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -68,6 +68,8 @@ static double _tpber[] = {-41.609, -20.88578477, -15.24262691,
 
 static double born_mass = 1.0;
 static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
+
+static IDXMAP _idxmap = {0, 0, 0, NULL};
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -716,6 +718,11 @@ int InitDBase(void) {
   iground = 0;
   itrf = 0;
 
+  if (_idxmap.imap == NULL) {
+    _idxmap.imap = malloc(sizeof(IDXMAP));
+    ArrayInit(_idxmap.imap, sizeof(IDXDAT), 5000);
+  }
+  ClearIdxMap();
   return 0;
 }
 
@@ -747,6 +754,7 @@ int ReinitDBase(int m) {
     fheader[i].type = 0;
     fheader[i].atom = 0;
     fheader[i].nblocks = 0;
+    ClearIdxMap();
     return 0;
   }
 }
@@ -7146,6 +7154,320 @@ double TwoPhotonRate(double z, int t) {
   }
 
   return a;
+}
+
+void ClearIdxMap(void) {
+  ArrayFree(_idxmap.imap, NULL);
+  if (_idxmap.nij > 0) free(_idxmap.mask);
+  _idxmap.mask = NULL;
+  _idxmap.ni = 0;
+  _idxmap.nj = 0;
+  _idxmap.i0 = 0;
+  _idxmap.im0 = 0;
+  _idxmap.j0 = 0;
+  _idxmap.jm0 = 0;
+  _idxmap.i1 = 0;
+  _idxmap.im1 = 0;
+  _idxmap.j1 = 0;
+  _idxmap.jm1 = 0;
+  int i;
+  for (i = 0; i < 32; i++) {
+    _idxmap.xm[i] = 1<<i;
+  }
+}
+
+int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
+  FILE *f;
+  char buf[2048];
+  int i, im, n;
+  double e, em;
+  IDXDAT d, *ip;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file %s\n", fn);
+    return -1;
+  }
+  ClearIdxMap();
+  _idxmap.i0 = i0;
+  _idxmap.j0 = j0;
+  _idxmap.im0 = 1000000000;
+  _idxmap.jm0 = 1000000000;
+  _idxmap.i1 = 0;
+  _idxmap.j1 = 0;
+  _idxmap.im1 = 0;
+  _idxmap.jm1 = 0;
+  while (1) {
+    if (NULL == fgets(buf, 2048, f)) break;
+    n = sscanf(buf, "%d %d %lf %lf", &im, &i, &em, &e);
+    if (n != 4) continue;
+    if (e <= 0 && im > 0) continue;
+    e /= HARTREE_EV;
+    d.i = im;
+    if (im == 0) {
+      d.e = 0.0;
+    } else {
+      d.e = e;
+    }
+    if (i > 0 || im == 0) {
+      ArraySet(_idxmap.imap, i, &d, NULL);
+      if (_idxmap.i1 < i) _idxmap.i1 = i;
+    }
+    AddECorrection(0, im, e, 1);
+  }
+  fclose(f);
+  _idxmap.j1 = _idxmap.i1;
+  if (i1 > 0 && i1 < _idxmap.i1) _idxmap.i1 = i1;
+  if (j1 > 0 && j1 < _idxmap.j1) _idxmap.j1 = j1;
+  for (i = 0; i < _idxmap.imap->dim; i++) {
+    ip = ArrayGet(_idxmap.imap, i);
+    if (!ip) continue;
+    if (i >= _idxmap.i0 && i <= _idxmap.i1) {
+      if (_idxmap.im0 > i) _idxmap.im0 = i;
+      if (_idxmap.im1 < i) _idxmap.im1 = i;
+    }
+    if (i >= _idxmap.j0 && i <= _idxmap.j1) {
+      if (_idxmap.jm0 > i) _idxmap.jm0 = i;
+      if (_idxmap.jm1 < i) _idxmap.jm1 = i;
+    }
+  }
+  _idxmap.ni = 1 + (_idxmap.im1 - _idxmap.im0);
+  _idxmap.nj = 1 + (_idxmap.jm1 - _idxmap.jm0);
+  _idxmap.nij = _idxmap.ni*_idxmap.nj;
+  if (_idxmap.nij > 0) {
+    _idxmap.mask = malloc(sizeof(long)*_idxmap.nij);
+    for (i = 0; i < _idxmap.nij; i++) _idxmap.mask[i] = 0;
+  }
+  return 0;
+}
+
+int SetPreloaded(int i, int j, int m) {
+  if (_idxmap.nij == 0) return 0;
+  if (i < _idxmap.im0) return 0;
+  if (i > _idxmap.im1) return 0;
+  if (j < _idxmap.jm0) return 0;
+  if (j > _idxmap.jm1) return 0;
+  i -= _idxmap.im0;
+  j -= _idxmap.jm0;
+  _idxmap.mask[j*_idxmap.ni+i] |= _idxmap.xm[m];
+  return 1;
+}
+
+int SetPreloadedTR(int i, int j, int m) {
+  if (m >= 8 || m <= -8) return 0;
+  if (m < 0) {
+    return SetPreloaded(i, j, (-m)-1);
+  }
+  if (m > 0) {
+    return SetPreloaded(i, j, m+7);
+  }
+  return SetPreloaded(i, j, 16);
+}
+
+int SetPreloadedCE(int i, int j) {
+  return SetPreloaded(i, j, 17);
+}
+
+int IsPreloaded(int i, int j, int m) {
+  if (_idxmap.nij == 0) return 0;
+  if (i < _idxmap.im0) return 0;
+  if (i > _idxmap.im1) return 0;
+  if (j < _idxmap.jm0) return 0;
+  if (j > _idxmap.jm1) return 0;
+  i -= _idxmap.im0;
+  j -= _idxmap.jm0;
+  return _idxmap.mask[j*_idxmap.ni+i]&_idxmap.xm[m];
+}
+
+int IsPreloadedTR(int i, int j, int m) {
+  if (m >= 8 || m <= -8) return 0;
+  if (m < 0) {
+    return IsPreloaded(i, j, (-m)-1);
+  }
+  if (m > 0) {
+    return IsPreloaded(i, j, m+7);
+  }
+  return IsPreloaded(i, j, 16);
+}
+
+int IsPreloadedCE(int i, int j) {
+  return IsPreloaded(i, j, 17);
+}
+
+IDXDAT *IdxMap(int i) {
+  return ArrayGet(_idxmap.imap, i);
+}
+
+int PreloadTable(char *tfn, char *sfn, int m) {
+  TFILE *f0;
+  F_HEADER fh;
+  int swp;
+
+  f0 = OpenFileRO(sfn, &fh, &swp);
+  if (f0 == NULL) {
+    printf("cannot open file %s\n", sfn);
+    return -1;
+  }
+  FCLOSE(f0);
+  switch(fh.type) {
+  case DB_TR:
+    PreloadTR(tfn, sfn, m);
+    break;
+  case DB_CE:
+    PreloadCE(tfn, sfn);
+    break;
+  default:
+    break;
+  }
+  return 0;
+}
+
+int PreloadTR(char *tfn, char *sfn, int m) {
+  TFILE *f0, *f1;
+  int ib, i, j, k, t, n, swp;
+  float *rt;
+  F_HEADER fh, fh1;
+  TR_HEADER h;
+  TR_RECORD r;
+  TR_EXTRA rx;
+  IDXDAT *di, *dj;
+
+  if (_idxmap.nij == 0) {
+    printf("index map not loaded\n");
+    return -1;
+  }
+  f0 = OpenFileRO(sfn, &fh, &swp);
+  if (f0 == NULL) {
+    printf("cannot open file %s\n", sfn);
+    return -1;
+  }
+  if (fh.type != DB_TR) {
+    printf("file %s is not of type DB_TR\n", sfn);
+    return -1;
+  }
+  fh1.atom = fh.atom;
+  strcpy(fh1.symbol, fh.symbol);
+  fh1.type = DB_TR;
+  f1 = OpenFile(tfn, &fh1);
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", tfn);
+    FCLOSE(f0);
+    return -1;
+  }
+  if (m == 0) {
+    rt = malloc(sizeof(float)*_idxmap.nij);
+    for (i = 0; i < _idxmap.nij; i++) {
+      rt[i] = 0.0;
+    }
+  }
+  
+  for (ib = 0; ib < fh.nblocks; ib++) {
+    n = ReadTRHeader(f0, &h, swp);
+    if (n == 0) break;
+    if (m) {
+      InitFile(f1, &fh1, &h);
+    }
+    for (k = 0; k < h.ntransitions; k++) {
+      n = ReadTRRecord(f0, &r, &rx, swp);
+      di = IdxMap(r.lower);
+      dj = IdxMap(r.upper);
+      if (!di || !dj) continue;
+      r.lower = di->i;
+      r.upper = dj->i;
+      if (SetPreloadedTR(r.lower, r.upper, h.multipole)) {
+	if (m == 0) {
+	  t = (r.upper-_idxmap.jm0)*_idxmap.ni + r.lower-_idxmap.im0;
+	  rt[t] += OscillatorStrength(h.multipole,
+				      dj->e-di->e, r.strength, NULL);
+	  SetPreloadedTR(r.lower, r.upper, 0);
+	} else {
+	  WriteTRRecord(f1, &r, &rx);
+	}
+      }
+    }
+    if (m) {
+      DeinitFile(f1, &fh1);
+    }
+  }
+  FCLOSE(f0);
+  if (m == 0) {
+    h.multipole = 0;
+    InitFile(f1, &fh1, &h);
+    for (i = _idxmap.im0; i <= _idxmap.im1; i++) {
+      for (j = _idxmap.jm0; j <= _idxmap.jm1; j++) {
+	if (IsPreloadedTR(i, j, 0)) {
+	  t = (j-_idxmap.jm0)*_idxmap.ni + i-_idxmap.im0;	
+	  r.lower = i;
+	  r.upper = j;
+	  r.strength = rt[t];
+	  WriteTRRecord(f1, &r, &rx);
+	}
+      }
+    }
+    DeinitFile(f1, &fh1);
+    free(rt);
+  }
+  CloseFile(f1, &fh1);
+  return 0;
+}
+
+int PreloadCE(char *tfn, char *sfn) {
+  TFILE *f0, *f1;
+  int ib, k, n, swp;
+  F_HEADER fh, fh1;
+  CE_HEADER h;
+  CE_RECORD r;
+  IDXDAT *di, *dj;
+  
+  if (_idxmap.nij == 0) {
+    printf("index map not loaded\n");
+    return -1;
+  }
+  f0 = OpenFileRO(sfn, &fh, &swp);
+  if (f0 == NULL) {
+    printf("cannot open file %s\n", sfn);
+    return -1;
+  }
+  if (fh.type != DB_CE) {
+    printf("file %s is not of type DB_CE\n", sfn);
+    return -1;
+  }
+  fh1.atom = fh.atom;
+  strcpy(fh1.symbol, fh.symbol);
+  fh1.type = DB_CE;
+  f1 = OpenFile(tfn, &fh1);
+  if (f1 == NULL) {
+    printf("cannot open file %s\n", tfn);
+    FCLOSE(f0);
+    return -1;
+  }
+
+  for (ib = 0; ib < fh.nblocks; ib++) {
+    n = ReadCEHeader(f0, &h, swp);
+    if (n == 0) break;
+    InitFile(f1, &fh1, &h);
+    for (k = 0; k < h.ntransitions; k++) {
+      n = ReadCERecord(f0, &r, swp, &h);
+      if (n == 0) break;
+      di = IdxMap(r.lower);
+      dj = IdxMap(r.upper);
+      if (!di || !dj) continue;
+      r.lower = di->i;
+      r.upper = dj->i;
+      if (SetPreloadedCE(r.lower, r.upper)) {
+	WriteCERecord(f1, &r);
+      }
+      if (h.qk_mode == QK_FIT) free(r.params);
+      free(r.strength);
+    }
+    DeinitFile(f1, &fh1);
+    free(h.tegrid);
+    free(h.egrid);
+    free(h.usr_egrid);
+  }
+  FCLOSE(f0);
+  CloseFile(f1, &fh1);
+  return 0;
 }
 
 void SetOptionDBase(char *s, char *sp, int ip, double dp) {

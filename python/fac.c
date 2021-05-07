@@ -6277,6 +6277,31 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+
+static PyObject *PPreloadTable(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PreloadTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  char *tfn, *sfn;
+  int i0, i1, j0, j1, m;
+  m = 0;
+  if (PyTuple_Size(args) == 5) {
+    if (!PyArg_ParseTuple(args, "siiii", &sfn, &i0, &i1, &j0, &j1))
+      return NULL;
+    if (0 > PreloadEN(sfn, i0, i1, j0, j1)) return NULL;
+  } else {
+    if (!PyArg_ParseTuple(args, "ss|i", &tfn, &sfn, &m))
+      return NULL;
+    if (0 > PreloadTable(tfn, sfn, m)) return NULL;
+  }
+    
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6286,6 +6311,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
+  {"PreloadTable", PPreloadTable, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
