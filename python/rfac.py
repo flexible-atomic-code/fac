@@ -821,6 +821,7 @@ class FLEV:
         self.s = self.s[i]
         self.n = self.n[i]
         self.ig = self.ig[i]
+        self.ib = self.ib[i]
 
     def add(self, a):
         r = FLEV(None)
@@ -856,6 +857,8 @@ class FLEV:
         self.n[ng:] = c.n
         self.ig[:ng] = g.ig
         self.ig[ng:] = c.ig
+        self.ib[:ng] = g.ib
+        self.ib[ng:] = c.ib
 
     def combine(self, g, c):
         wg = np.where(g.ig == 1)
@@ -891,7 +894,9 @@ class FLEV:
         self.n[ng:] = c.n[wc]
         self.ig[:ng] = g.ig[wg]
         self.ig[ng:] = c.ig[wc]
-
+        self.ib[:ng] = g.ib[wg]
+        self.ib[ng:] = c.ib[wc]
+        
     def read_atbase(self, f, zi=18, ki=2):
         if type(f) == type(''):
             r = load_atbase(f)
@@ -904,6 +909,8 @@ class FLEV:
         self.z = zi
         self.asym = fac.ATOMICSYMBOL[zi]
         self.ilev = r[0][w]
+        self.ib = self.ilev.copy()
+        self.ib[:] = -1
         self.nele = np.int32(zi-r[1][w]+1)
         self.e = r[2][w]
         self.e0 = self.e[0]
@@ -963,6 +970,7 @@ class FLEV:
         self.asym = hlev['asym']
         self.e0 = hlev['E0']
         self.e = b0['ENERGY']
+        self.ib = b0['IBASE']
         self.p = b0['P']
         self.j = b0['2J']
         self.wj = self.j+1
@@ -1000,6 +1008,7 @@ class FLEV:
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
         self.im = np.zeros(len(self.e), dtype=int)
+        self.im[:] = -1
         self.cm = np.chararray(len(self.e),itemsize=64)
         self.cm[:]=b'.'
         if m == None:
@@ -1008,7 +1017,7 @@ class FLEV:
         if len(w) > 0 and m.ei > 0:
             w0 = w[0]
             ei = self.e[w0]-self.e0            
-            self.im[w] = 0
+            self.im[w] = -1
             self.em[w] = (self.e[w]-self.e0)+(m.ei-ei)
             self.cm[w] = b'.'
         uc = np.unique(m.s)
@@ -1072,7 +1081,7 @@ class FLEV:
             else:
                 em = 0.0
                 de = 0.0
-            s = '%4d %4d %14.8E %14.8E %10.3E %4d %4d %4d %-32s %-84s %-48s\n'%(ik,self.im[i],self.e[i]-self.e0,em,de,self.wj[i],self.j[i],self.p[i],self.s[i],self.n[i],self.cm[i])
+            s = '%4d %4d %15.8E %15.8E %10.3E %4d %4d %4d %-32s %-84s %-48s\n'%(ik,self.im[i],self.e[i]-self.e0,em,de,self.wj[i],self.j[i],self.p[i],self.s[i],self.n[i],self.cm[i])
             f.write(s)
         f.close()
 

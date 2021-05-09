@@ -9482,6 +9482,7 @@ int InitRadial(void) {
   potential->ib1 = 0;
   potential->ib0 = 0;
   potential->mps = -1;
+  potential->kps = 0;
   potential->vxf = 0;
   potential->zps = 0;
   potential->nps = 0;
@@ -9492,7 +9493,11 @@ int InitRadial(void) {
   potential->bps = 0;
   potential->nbt = -1.0;
   potential->nbs = 0.0;
+  potential->nqf = 0.0;
+  potential->efm = 0.0;
   potential->fps = 0;
+  potential->jps = 0.0;
+  potential->gps = 0.0;
   potential->ips = 0;
   potential->sps = 0;
   potential->qps = 0;
