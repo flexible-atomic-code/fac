@@ -61,7 +61,8 @@ static int norm_mode = 1;
 static int sw_mode = 0;
 static int _itol_nmax = 0;
 static int _ce_nmax = 0;
-static double _ce_fbr = 2.0;
+static double _ce_fbr = 0.175;
+static double _ce_xbr = 0.875;
 static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
 static int _lblock_block = LBLOCK_BLOCK;
@@ -70,8 +71,8 @@ static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
 
 static double _starkrw = 1.0;
-static double _starkqc = 2.0;
-static double _starkbt = 2.0;
+static double _starkqc = 1.0;
+static double _starkbt = 0.0;
 static int _starknp = 0;
 static double *_starkzp = NULL;
 static double *_starkmp = NULL;
@@ -4386,9 +4387,9 @@ double LimitImpactWidth(double zd, double de) {
   double r;
   r = zd/de;
   if (r < 1e-5) {
-    return zd*(1-r);
+    return zd*(1 + 0.5*(_ce_xbr-1)*r);
   } else {
-    return 0.5*de*(sqrt(1+4.0*r)-1.0);
+    return (1/_ce_xbr)*de*(pow(1+r,_ce_xbr)-1.0);
   }
 }
 
@@ -7634,6 +7635,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:ce_fbr")) {
     _ce_fbr = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:ce_xbr")) {
+    _ce_xbr = dp;
     return;
   }
   if (0 == strcmp(s, "crm:ce_nmax")) {
