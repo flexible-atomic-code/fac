@@ -24,6 +24,7 @@ from distutils.version import LooseVersion
 import struct
 from sys import version_info
 from pfac import fac
+from pfac import const
 
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
@@ -1095,7 +1096,7 @@ def strnum(s):
     return float(s[:i])
                 
 class MLEV:
-    def __init__(self, f, md=0):
+    def __init__(self, f, md=1):
         if f == None:
             return
         self.ilev = None
@@ -1110,21 +1111,24 @@ class MLEV:
             self.ei = 0.0
             self.e0 = self.e[0]
         else:
-            r = np.loadtxt(f, unpack=1, skiprows=1, delimiter='\t', dtype=str)
-            w = np.where((r[3] != '" "')&(r[0] != '" "')&(r[0] != '""'))
-            r = r[:,w[0]]
-            w0 = np.where(r[1] == '"Limit"')
+            r = np.loadtxt(f, unpack=1, delimiter=',', dtype=str)
+            r[1] = np.array([str(x).strip() for x in r[1]], dtype='<U128')
+            w0 = np.where(r[1] == 'Limit')
             ri = r[:,w0[0]]
-            w0 = np.where(r[1] != '"Limit"')
+            w0 = np.where(r[1] != 'Limit')
             r = r[:,w0[0]]
             self.c = np.array([str(x).replace('"','').strip() for x in r[0]],dtype='<U128')
             self.t = np.array([str(x).replace('"','').strip() for x in r[1]])
             self.j = np.array([int(2*eval(x.replace('"',''))) for x in r[2]])
             self.wj = self.j+1
             self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
-            self.e = np.array([strnum(x) for x in r[3]])
-            self.ei = strnum(ri[3,0])
+            self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
+            self.ei = strnum(ri[4,0])*const.Ryd_eV
             self.e0 = self.e[0]
+            self.nele = np.zeros(len(self.c),dtype=np.int32)
+            fs = f.split('/')[-1].split('-')
+            self.z = fac.ATOMICSYMBOL.index(fs[0])
+            self.nele[:] = 1+self.z-int(fs[1].split('.')[0])
             for i in range(len(self.c)):
                 a = self.c[i].split(".")
                 tc = ''

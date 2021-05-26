@@ -18,13 +18,13 @@
 
 from math import *
 
-Hartree_eV = 27.2113962            # Hartree in eV   
+Hartree_eV = 27.211386018          # Hartree in eV   
 Rate_AU = 4.13413733E16            # Atomic Rate Unit in s-1
 Rate_AU10 = 4.13413733E06          # Atomic Rate Unit in 10^10 s-1
 Rate_AU12 = 4.13413733E04          # Atomic Rate Unit in 10^12 s-1
 Area_AU20 = 2.80028560859E3        # Atomic Area Unit in 10^{-20} cm2
 Alpha = 7.29735308E-3              # Fine Structure Constant
-Ryd_eV = 13.6056981                # Rydberg in eV
+Ryd_eV = 13.605693009              # Rydberg in eV
 RBohr = 0.529177249                # Bohr radius in A
 FWHM = 2.35482005                  # conversion from sigma to FWHM
 hc = 1.239842E4                    # hc in eV*A
