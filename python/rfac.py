@@ -1123,7 +1123,10 @@ class MLEV:
             self.wj = self.j+1
             self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
             self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
-            self.ei = strnum(ri[4,0])*const.Ryd_eV
+            if len(ri[0]) > 0:
+                self.ei = strnum(ri[4,0])*const.Ryd_eV
+            else:
+                self.ei = 0.0
             self.e0 = self.e[0]
             self.nele = np.zeros(len(self.c),dtype=np.int32)
             fs = f.split('/')[-1].split('-')
