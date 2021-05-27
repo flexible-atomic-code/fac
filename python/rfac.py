@@ -1117,9 +1117,9 @@ class MLEV:
             ri = r[:,w0[0]]
             w0 = np.where(r[1] != 'Limit')
             r = r[:,w0[0]]
-            self.c = np.array([str(x).replace('"','').strip() for x in r[0]],dtype='<U128')
-            self.t = np.array([str(x).replace('"','').strip() for x in r[1]])
-            self.j = np.array([int(2*eval(x.replace('"',''))) for x in r[2]])
+            self.c = np.array([str(x).replace('?','').strip() for x in r[0]],dtype='<U128')
+            self.t = np.array([str(x).replace('?','').strip() for x in r[1]])
+            self.j = np.array([int(2*eval(x.replace('?',''))) for x in r[2]])
             self.wj = self.j+1
             self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
             self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
