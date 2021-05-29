@@ -1050,7 +1050,7 @@ class FLEV:
                     while (i0 < n0 and i1 < n1):
                         wi0 = w0[i0]
                         wi1 = w1[i1]
-                        dex = 2.0
+                        dex = 5.0
                         if (m.j[wi1] < 0):
                             dex = 0.25
                         if abs(ew0[i0]-ew1[i1]) < dex:

@@ -7176,6 +7176,16 @@ void ClearIdxMap(void) {
   }
 }
 
+void InitIdxDat(void *d, int nb) {
+  IDXDAT *p;
+  p = (IDXDAT *) d;
+  int i;
+  for (i = 0; i < nb; i++) {
+    p[i].i = -1;
+    p[i].e = 0;
+  }
+}
+
 int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   FILE *f;
   char buf[2048];
@@ -7210,7 +7220,7 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
       d.e = e;
     }
     if (i > 0 || im == 0) {
-      ArraySet(_idxmap.imap, i, &d, NULL);
+      ArraySet(_idxmap.imap, i, &d, InitIdxDat);
       if (_idxmap.i1 < i) _idxmap.i1 = i;
     }
     AddECorrection(0, im, e, 1);
@@ -7295,7 +7305,9 @@ int IsPreloadedCE(int i, int j) {
 }
 
 IDXDAT *IdxMap(int i) {
-  return ArrayGet(_idxmap.imap, i);
+  IDXDAT *d = ArrayGet(_idxmap.imap, i);
+  if (d && d->i >= 0) return d;
+  return NULL;
 }
 
 int PreloadTable(char *tfn, char *sfn, int m) {
