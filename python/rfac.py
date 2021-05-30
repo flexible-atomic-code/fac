@@ -1094,7 +1094,13 @@ def strnum(s):
         if not (s[i].isdigit() or s[i]=='.'):
             break
     return float(s[:i])
-                
+
+def valid_nistlev(fn):
+    with open(fn) as f:
+        for i,line in enumerate(f):
+            line = line.replace('\,','/')
+            yield line
+            
 class MLEV:
     def __init__(self, f, md=1):
         if f == None:
@@ -1111,7 +1117,7 @@ class MLEV:
             self.ei = 0.0
             self.e0 = self.e[0]
         else:
-            r = np.loadtxt(f, unpack=1, delimiter=',', dtype=str)
+            r = np.loadtxt(valid_nistlev(f), unpack=1, delimiter=',', dtype=str)
             r[1] = np.array([str(x).strip() for x in r[1]], dtype='<U128')
             w0 = np.where(r[1] == 'Limit')
             ri = r[:,w0[0]]
@@ -1136,7 +1142,8 @@ class MLEV:
                 a = self.c[i].split(".")
                 tc = ''
                 for b in a:
-                    if b[0] != '(':
+                    b = b.split('<')[0]
+                    if b[0] != '(':                        
                         if (not b[-1].isdigit()):
                             b += '1'
                         tc += '.'+b
