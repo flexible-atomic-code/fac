@@ -7272,7 +7272,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     free(im);
   }
   free(ima);
-  for (i = 1; i < 6; i++) {
+  for (i = 1; i < 7; i++) {
     CloseFile(f1[i], &fh1[i]);
   }
   
