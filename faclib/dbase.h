@@ -50,7 +50,8 @@
 #define DB_CEMF 15
 #define DB_RO 16
 #define DB_CX 17
-#define NDB   17
+#define DB_RC 18
+#define NDB   18
 #define NDB1  (NDB+1)
 
 #define LNCOMPLEX   32
@@ -456,6 +457,22 @@ typedef struct _RO_RECORD_ {
   double *dn;
 } RO_RECORD;
 
+typedef struct _RC_HEADER_ {
+  long int position;
+  long int length;
+  int nele;
+  int ntransitions;
+  int type, nexc, mexc, ncap;
+  int nte, nde;
+  double te0, dte, de0, dde;
+} RC_HEADER;
+
+typedef struct _RC_RECORD_ {
+  int lower;
+  int upper;
+  float *rc;
+} RC_RECORD;
+
 typedef struct _CX_HEADER_ {
   long int position;
   long int length;
@@ -541,6 +558,8 @@ int ReadROHeader(TFILE *f, RO_HEADER *h, int swp);
 int ReadRORecord(TFILE *f, RO_RECORD *r, int swp);
 int ReadCXHeader(TFILE *f, CX_HEADER *h, int swp);
 int ReadCXRecord(TFILE *f, CX_RECORD *r, int swp, CX_HEADER *h);
+int ReadRCHeader(TFILE *f, RC_HEADER *h, int swp);
+int ReadRCRecord(TFILE *f, RC_RECORD *r, int swp, RC_HEADER *h);
 void CEMF2CEFHeader(CEMF_HEADER *mh, CEF_HEADER *h);
 void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh, 
 		    int ith, int iph);
@@ -573,6 +592,7 @@ int WriteRTHeader(TFILE *f, RT_HEADER *h);
 int WriteDRHeader(TFILE *f, DR_HEADER *h);
 int WriteROHeader(TFILE *f, RO_HEADER *h);
 int WriteCXHeader(TFILE *f, CX_HEADER *h);
+int WriteRCHeader(TFILE *f, RC_HEADER *h);
 int CheckEndian(F_HEADER *fh);
 void SwapEndian(char *p, int size);
 int SwapEndianFHeader(F_HEADER *h);
@@ -659,6 +679,10 @@ int WriteDRRecord(TFILE *f, DR_RECORD *r);
 int PrintDRTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
 int SwapEndianDRHeader(DR_HEADER *h);
 int SwapEndianDRRecord(DR_RECORD *r);
+int WriteRCRecord(TFILE *f, RC_RECORD *r);
+int PrintRCTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
+int SwapEndianRCHeader(RC_HEADER *h);
+int SwapEndianRCRecord(RC_RECORD *r);
 double IonDensity(char *fn, int k);
 double IonRadiation(char *fn, int k, int m);
 void SetUTA(int m, int mci);

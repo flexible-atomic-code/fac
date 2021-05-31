@@ -48,6 +48,7 @@ static RT_HEADER rt_header;
 static DR_HEADER dr_header;
 static RO_HEADER ro_header;
 static CX_HEADER cx_header;
+static RC_HEADER rc_header;
 
 static EN_SRECORD *mem_en_table = NULL;
 static int mem_en_table_size = 0;
@@ -401,10 +402,26 @@ int SwapEndianCEMFHeader(CEMF_HEADER *h) {
 }
 
 int SwapEndianCEMFRecord(CEMF_RECORD *r) {
-  int m;
-
   SwapEndian((char *) &(r->lower), sizeof(int));
   SwapEndian((char *) &(r->upper), sizeof(int));
+  return 0;
+}
+
+int SwapEndianRCHeader(RC_HEADER *h) {
+  SwapEndian((char *) &(h->position), sizeof(long int));
+  SwapEndian((char *) &(h->length), sizeof(long int));
+  SwapEndian((char *) &(h->nele), sizeof(int));
+  SwapEndian((char *) &(h->ntransitions), sizeof(int));
+  SwapEndian((char *) &(h->type), sizeof(int));
+  SwapEndian((char *) &(h->nexc), sizeof(int));
+  SwapEndian((char *) &(h->mexc), sizeof(int));
+  SwapEndian((char *) &(h->ncap), sizeof(int));
+  SwapEndian((char *) &(h->nte), sizeof(int));
+  SwapEndian((char *) &(h->nde), sizeof(int));
+  SwapEndian((char *) &(h->te0), sizeof(double));
+  SwapEndian((char *) &(h->dte), sizeof(double));
+  SwapEndian((char *) &(h->de0), sizeof(double));
+  SwapEndian((char *) &(h->dde), sizeof(double));
   return 0;
 }
 
@@ -423,7 +440,13 @@ int SwapEndianRRHeader(RR_HEADER *h) {
   SwapEndian((char *) &(h->nparams), sizeof(int));
   return 0;
 }
-  
+
+int SwapEndianRCRecord(RC_RECORD *r) {
+  SwapEndian((char *) &(r->lower), sizeof(int));
+  SwapEndian((char *) &(r->upper), sizeof(int));
+  return 0;
+}
+
 int SwapEndianRRRecord(RR_RECORD *r) {
   SwapEndian((char *) &(r->b), sizeof(int));
   SwapEndian((char *) &(r->f), sizeof(int));
@@ -1521,7 +1544,28 @@ int WriteCXHeader(TFILE *f, CX_HEADER *h) {
   
   return m;
 }
-  
+
+int WriteRCHeader(TFILE *f, RC_HEADER *h) {
+  int n, m = 0;
+
+  WSF0(h->position);
+  WSF0(h->length);
+  WSF0(h->nele);
+  WSF0(h->ntransitions);
+  WSF0(h->type);
+  WSF0(h->nexc);
+  WSF0(h->mexc);
+  WSF0(h->ncap);
+  WSF0(h->nte);
+  WSF0(h->nde);
+  WSF0(h->te0);
+  WSF0(h->dte);
+  WSF0(h->de0);
+  WSF0(h->dde);
+
+  return m;
+}
+
 int WriteRRHeader(TFILE *f, RR_HEADER *h) {
   int n, m = 0;
   
@@ -2054,6 +2098,43 @@ int WriteCXRecord(TFILE *f, CX_RECORD *r) {
   WSF1(r->cx, sizeof(double), cx_header.ne0);
 #pragma omp atomic
   cx_header.length += m;
+
+  return m;
+}
+
+int WriteRCRecord(TFILE *f, RC_RECORD *r) {
+  int n, m0;
+  int m = 0;
+
+  if (rc_header.ntransitions == 0) {
+    SetLockMPI();
+    if (rc_header.ntransitions == 0) {
+      fheader[DB_RC-1].nblocks++;
+      FFLUSH(f);
+      n = WriteRCHeader(f, &rc_header);
+      FFLUSH(f);
+    }
+#pragma omp atomic
+    rc_header.ntransitions += 1;
+    ReleaseLockMPI();
+  } else {
+#pragma omp atomic
+    rc_header.ntransitions += 1;
+  }
+
+  m0 = rc_header.nte*rc_header.nde;
+#ifdef USEBF
+  BFileCheckBuf(f,		
+		sizeof(r->lower)+
+		sizeof(r->upper)+
+		sizeof(float)*m0);
+#endif
+  WSF0(r->lower);
+  WSF0(r->upper);
+  WSF1(r->rc, sizeof(float), m0);
+  
+#pragma omp atomic
+  rc_header.length += m;
 
   return m;
 }
@@ -2864,6 +2945,28 @@ int ReadCXHeader(TFILE *f, CX_HEADER *h, int swp) {
   return m;
 }
 
+int ReadRCHeader(TFILE *f, RC_HEADER *h, int swp) {
+  int n, m = 0;
+  
+  RSF0(h->position);
+  RSF0(h->length);
+  RSF0(h->nele);
+  RSF0(h->ntransitions);
+  RSF0(h->type);
+  RSF0(h->nexc);
+  RSF0(h->mexc);
+  RSF0(h->ncap);
+  RSF0(h->nte);
+  RSF0(h->nde);
+  RSF0(h->te0);
+  RSF0(h->dte);
+  RSF0(h->de0);
+  RSF0(h->dde);
+
+  if (swp) SwapEndianRCHeader(h);
+  return m;
+}
+
 int ReadRRHeader(TFILE *f, RR_HEADER *h, int swp) {
   int i, n, m = 0;
   
@@ -2944,6 +3047,26 @@ int ReadCXRecord(TFILE *f, CX_RECORD *r, int swp, CX_HEADER *h) {
   if (swp) {
     for (i = 0; i < h->ne0; i++) {
       SwapEndian((char *)&(r->cx[i]), sizeof(double));
+    }
+  }
+  return m;
+}
+
+int ReadRCRecord(TFILE *f, RC_RECORD *r, int swp, RC_HEADER *h) {
+  int m = 0;
+  int n, i, m0;
+  
+  RSF0(r->lower);
+  RSF0(r->upper);
+
+  if (swp) SwapEndianRCRecord(r);
+
+  m0 = h->nte*h->nde;
+  r->rc = (float *) malloc(sizeof(float)*m0);
+  RSF1(r->rc, sizeof(float), m0);
+  if (swp) {
+    for (i = 0; i < m0; i++) {
+      SwapEndian((char *) &(r->rc[i]), sizeof(float));
     }
   }
   return m;
@@ -3403,6 +3526,7 @@ TFILE *OpenFileWTN(char *fn, F_HEADER *fhdr, int nth) {
   fhdr->nthreads = nr;
   fheader[ihdr].nthreads = nr;
   WriteFHeader(f, &(fheader[ihdr]));
+
   return f;
 }
 
@@ -3412,6 +3536,7 @@ int CloseFile(TFILE *f, F_HEADER *fhdr) {
   ihdr = fhdr->type-1;
   FSEEK(f, 0, SEEK_SET); 
   fheader[ihdr].type = fhdr->type;
+  fheader[ihdr].atom = fhdr->atom;
   WriteFHeader(f, &(fheader[ihdr]));
   FCLOSE(f);
   return 0;
@@ -3435,6 +3560,7 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
   DR_HEADER *dr_hdr;
   RO_HEADER *ro_hdr;
   CX_HEADER *cx_hdr;
+  RC_HEADER *rc_hdr;
   long int p;
   int ihdr;
 
@@ -3564,6 +3690,13 @@ int InitFile(TFILE *f, F_HEADER *fhdr, void *rhdr) {
     cx_header.length = 0;
     cx_header.ntransitions = 0;
     break;
+  case DB_RC:
+    rc_hdr = (RC_HEADER *) rhdr;
+    memcpy(&rc_header, rc_hdr, sizeof(RC_HEADER));
+    rc_header.position = p;
+    rc_header.length = 0;
+    rc_header.ntransitions = 0;
+    break;
   default:
     break;
   }
@@ -3679,6 +3812,12 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
       n = WriteCXHeader(f, &cx_header);
     }
     break;
+  case DB_RC:
+    FSEEK(f, rc_header.position, SEEK_SET);
+    if (rc_header.length > 0) {
+      n = WriteRCHeader(f, &rc_header);
+    }
+    break;
   default:
     break;
   }
@@ -3717,7 +3856,7 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   }
   if (v && (fh.type < DB_SP ||
 	    (fh.type > DB_DR && fh.type < DB_ENF)
-	    || fh.type >= DB_RO)) {
+	    || (fh.type >= DB_RO && fh.type < DB_RC))) {
     if (mem_en_table == NULL) {
       printf("Energy table has not been built in memory.\n");
       goto DONE;
@@ -3800,6 +3939,9 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     break;
   case DB_CX:
     n = PrintCXTable(f1, f2, v, vs, swp);
+    break;
+  case DB_RC:
+    n = PrintRCTable(f1, f2, v, vs, swp);
     break;
   default:
     break;
@@ -4421,6 +4563,7 @@ int PrintTRFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.upper;
 	idx[i].i1 = r.lower;
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -4586,6 +4729,8 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.lower;
 	idx[i].i1 = r.upper;
+	if (h.msub || h.qk_mode == QK_FIT) free(r.params);
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -4716,6 +4861,7 @@ int PrintCEFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.lower;
 	idx[i].i1 = r.upper;
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -4835,6 +4981,9 @@ int PrintCEMFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.lower;
 	idx[i].i1 = r.upper;
+	free(r.strength);
+	free(r.bethe);
+	free(r.born);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -4927,6 +5076,8 @@ int PrintROTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.f;
 	idx[i].i1 = r.b;
+	free(r.nk);
+	free(r.nq);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -5005,6 +5156,7 @@ int PrintCXTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.f;
 	idx[i].i1 = r.b;
+	free(r.cx);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -5043,6 +5195,75 @@ int PrintCXTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   return nb;
 }
 
+int PrintRCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
+  RC_HEADER h;
+  RC_RECORD r;
+  int n, i, nb, nh, k, ite, ide;
+  double e;
+
+  nb = 0;
+  while (1) {
+    nh = ReadRCHeader(f1, &h, swp);
+    if (nh == 0) break;
+    fprintf(f2, "\n");
+    fprintf(f2, "NELE\t= %d\n", h.nele);
+    fprintf(f2, "NTRANS\t= %d\n", h.ntransitions);
+    fprintf(f2, "TYPE\t= %d\n", h.type);
+    fprintf(f2, "NEXC\t= %d\n", h.nexc);
+    fprintf(f2, "MEXC\t= %d\n", h.mexc);
+    fprintf(f2, "NCAP\t= %d\n", h.ncap);
+    fprintf(f2, "NTE\t= %d\n", h.nte);
+    fprintf(f2, "TE0\t= %15.8E\n", h.te0);
+    fprintf(f2, "DTE\t= %15.8E\n", h.dte);
+    fprintf(f2, "NDE\t= %d\n", h.nde);
+    fprintf(f2, "DE0\t= %15.8E\n", h.de0);
+    fprintf(f2, "DDE\t= %15.8E\n", h.dde);
+        
+    IDX_RECORD *idx = NULL;
+    if (vs && h.ntransitions > 1) {
+      idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
+      idx[0].position = h.position + nh;
+      for (i = 0; i < h.ntransitions; i++) {
+	n = ReadRCRecord(f1, &r, swp, &h);
+	if (n == 0) break;
+	if (i < h.ntransitions-1) {
+	  idx[i+1].position = idx[i].position + n;
+	}
+	idx[i].i0 = r.lower;
+	idx[i].i1 = r.upper;
+	free(r.rc);
+      }
+      qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
+      FSEEK(f1, h.position+nh, SEEK_SET);
+    }
+    for (i = 0; i < h.ntransitions; i++) {
+      if (idx) {
+	FSEEK(f1, idx[i].position, SEEK_SET);
+      }
+      n = ReadRCRecord(f1, &r, swp, &h);
+      if (n == 0) break;
+      k = 0;
+      for (ide = 0; ide < h.nde; ide++) {
+	fprintf(f2, "%d %4d %6d %6d", h.type, ide, r.lower, r.upper);
+	for (ite = 0; ite < h.nte; ite++) {
+	  fprintf(f2, " %12.5E", r.rc[k]);
+	  k++;
+	}
+	fprintf(f2, "\n");
+      }	
+      free(r.rc);
+    }
+    if (idx) {
+      free(idx);
+      FSEEK(f1, h.position+nh+h.length, SEEK_SET);
+    }
+    nb++;
+  }
+
+  return nb;
+}
+
+    
 int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   RR_HEADER h;
   RR_RECORD r;
@@ -5100,6 +5321,8 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.f;
 	idx[i].i1 = r.b;
+	if (h.qk_mode == QK_FIT) free(r.params);
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -5346,6 +5569,7 @@ int PrintAIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.b;
 	idx[i].i1 = r.f;
+	free(r.rate);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -5447,6 +5671,8 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.b;
 	idx[i].i1 = r.f;
+	free(r.params); 
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -5553,6 +5779,7 @@ int PrintCIMTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	idx[i].i0 = r.b;
 	idx[i].i1 = r.f;
+	free(r.strength);
       }
       qsort(idx, h.ntransitions, sizeof(IDX_RECORD), CompIdxRecord);
       FSEEK(f1, h.position+nh, SEEK_SET);
@@ -6632,7 +6859,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   int k, i, n, nb, nlevs, clevs, ni0, ni1, vn, z;
   char ifn[1024], ofn[1024], buf[1024];
   char a[8];
-  F_HEADER fh, fh1[6];
+  F_HEADER fh, fh1[7];
   EN_HEADER h0;
   EN_RECORD r0, *ri0, *ri1;
   TR_HEADER h1;
@@ -6646,11 +6873,11 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   CI_RECORD r4;
   AI_HEADER h5;
   AI_RECORD r5;
-  DR_HEADER h6;
-  DR_RECORD r6;
-  char ext[6][3] = {"en", "tr", "ce", "rr", "ci", "ai"};
-  int types[6] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI};
-  TFILE *f0, *f1[6];
+  RC_HEADER h6;
+  RC_RECORD r6;
+  char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
+  int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
+  TFILE *f0, *f1[7];
   int swp, *im, *imp, **ima, nim, nk, nilevs, nplevs, nth;
   double e0, e1, e0p, e1p, de;
   int ilow2ph[3], iup2ph[3];
@@ -6672,14 +6899,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
 
-  FILE *frp0, *frp1, *frc0, *frc1;
-  
-  sprintf(ofn, "%s%02d%02db.rc", pref, k0, k1);  
-  frc1 = fopen(ofn, "w");
-  if (frc1) {
-    fprintf(frc1, "#MEXC: %d\n", nexc);
-  }
-    
+  FILE *frp0, *frp1;    
   sprintf(ofn, "%s%02d%02db.rp", pref, k0, k1);
   frp1 = fopen(ofn, "w");
   if (frp1 != NULL) {
@@ -6709,7 +6929,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     FCLOSE(f0);
   }
   
-  for (i = 0; i < 6; i++) {
+  for (i = 0; i < 7; i++) {
     sprintf(ofn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
     fh1[i].atom = z;
     strcpy(fh1[i].symbol, a);
@@ -6723,20 +6943,19 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   de = 0.0;
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.rc", pref, k);
-    ncap = 0;
-    frc0 = fopen(ifn, "r");
-    if (frc0) {
-      while (NULL != fgets(buf, 1024, frc0)) {
-	if (!strstr(buf, ":")) break;
-	if (strstr(buf, "NCAP:")) {
-	  ncap = atoi(buf+7);
-	}
-	if (buf[0] == '#') {
-	  fprintf(frc1, "%s", buf);
-	}
-      }	  
-      fclose(frc0);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 == NULL) {
+      printf("cannot open file %s\n", ifn);
+      continue;
     }
+    if (fh.type != DB_RC) {
+      printf("%s is not of type DB_RC\n", ifn);
+      continue;
+    }
+    n = ReadRCHeader(f0, &h6, swp);
+    ncap = h6.ncap;
+    FCLOSE(f0);
+    
     sprintf(ifn, "%s%02db.en", pref, k);
     printf("rebuild level indices %d %d %s %d %d\n", z, k, ifn, nexc, ncap);
     f0 = OpenFileRO(ifn, &fh, &swp);
@@ -6866,84 +7085,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
   MemENTable(ifn);
 
-  if (frc1) {
-    int nid, id0, id1, id2, id3, id4, id5, id6, ndr[128], nre[128];
-    fprintf(frc1, "#STARTDATA\n");
-    for (k = k1; k >= k0; k--) {
-      im = ima[k-k0];
-      sprintf(ifn, "%s%02db.rc", pref, k);
-      frc0 = fopen(ifn, "r");
-      ndr[k] = 0;
-      if (frc0) {
-	while(NULL != fgets(buf, 1024, frc0)) {
-	  if (buf[0] == '#') continue;
-	  nid = sscanf(buf, "%d %d %d %d %d %d %d",
-		       &id0, &id1, &id2, &id3, &id4, &id5, &id6);
-	  if (nid != 7) continue;
-	  if (id0 != 6 && id0 != 4) continue;
-	  id3 = im[id3];
-	  id5 = im[id5];
-	  if (id3 >= 0 && id5 >= 0) {
-	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
-		    id0, id1, id2, id3, id4, id5, id6, buf+35);
-	    if (id0 == 6) ndr[k]++;
-	  }
-	}
-	fclose(frc0);
-      }
-    }
-    for (k = k1; k >= k0; k--) {
-      im = ima[k-k0];
-      sprintf(ifn, "%s%02db.rc", pref, k);
-      frc0 = fopen(ifn, "r");
-      nre[k] = 0;
-      if (frc0) {
-	while(NULL != fgets(buf, 1024, frc0)) {
-	  if (buf[0] == '#') continue;
-	  nid = sscanf(buf, "%d %d %d %d %d %d %d",
-		       &id0, &id1, &id2, &id3, &id4, &id5, &id6);
-	  if (nid != 7) continue;
-	  if (id0 != 5) continue;
-	  id3 = im[id3];
-	  id5 = im[id5];
-	  if (id3 >= 0 && id5 >= 0) {
-	    fprintf(frc1, "%d %3d %2d %8d %3d %8d %3d %s",
-		    id0, id1, id2, id3, id4, id5, id6, buf+35);
-	    nre[k]++;
-	  }
-	}
-	fclose(frc0);
-      }
-    }
-    fclose(frc1);
-    sprintf(ofn, "%s%02d%02db.rc", pref, k0, k1);  
-    frc1 = fopen(ofn, "r+");
-    fseek(frc1, 0, SEEK_SET);
-    k = k1;
-    while(NULL != fgets(buf, 1024, frc1)) {
-      if (strstr(buf, "#RDG:")) {
-	printf("ndr/re: %d %d %d\n", k, ndr[k], nre[k]);
-	fseek(frc1, 0, SEEK_CUR);
-	sprintf(buf, "#NCE: %d %3d %8d\n", RC_CE, k, 0);
-	fwrite(buf, 1, strlen(buf), frc1);
-	sprintf(buf, "#NCI: %d %3d %8d\n", RC_CI, k, 0);
-	fwrite(buf, 1, strlen(buf), frc1);
-	sprintf(buf, "#NRR: %d %3d %8d\n", RC_RR, k, 0);
-	fwrite(buf, 1, strlen(buf), frc1);
-	sprintf(buf, "#NDR: %d %3d %8d\n", RC_DR, k, ndr[k]);
-	fwrite(buf, 1, strlen(buf), frc1);
-	sprintf(buf, "#NRE: %d %3d %8d\n", RC_RE, k, nre[k]);
-	fwrite(buf, 1, strlen(buf), frc1);
-	sprintf(buf, "#NEA: %d %3d %8d\n", RC_EA, k, ndr[k]);
-	fwrite(buf, 1, strlen(buf), frc1);
-	k--;
-      } else if (strstr(buf, "#STARTDATA")) {
-	break;
-      }
-    }
-    fclose(frc1);
-  }
-  
   for (k = k1; k >= k0; k--) {
     printf("processing %d %d\n", z, k);
     im = ima[k-k0];
@@ -7100,7 +7241,34 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	free(h5.egrid);
       }
     }
-    FCLOSE(f0);    
+    FCLOSE(f0);
+    
+    sprintf(ifn, "%s%02db.rc", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 != NULL && fh.type == DB_RC) {
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadRCHeader(f0, &h6, swp);
+	if (n == 0) break;
+	h6.mexc = nexc;
+	InitFile(f1[6], &fh1[6], &h6);
+	for (i = 0; i < h6.ntransitions; i++) {
+	  n = ReadRCRecord(f0, &r6, swp, &h6);
+	  if (n == 0) break;
+	  if (im[r6.lower] >= 0 && im[r6.upper] >= 0) {
+	    r6.lower = im[r6.lower];
+	    r6.upper = im[r6.upper];
+	    de = mem_en_table[r6.upper].energy - mem_en_table[r6.lower].energy;
+	    if (de > 0) {
+	      WriteRCRecord(f1[6], &r6);
+	    }
+	  }
+	  free(r6.rc);
+	}
+	DeinitFile(f1[6], &fh1[6]);
+      }
+    }
+    FCLOSE(f0);
+    
     free(im);
   }
   free(ima);
@@ -7109,7 +7277,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   }
   
   if (ic >= 0) {
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 7; i++) {
       sprintf(ifn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
       sprintf(ofn, "%s%02d%02da.%s", pref, k0, k1, ext[i]);
       PrintTable(ifn, ofn, 1);
