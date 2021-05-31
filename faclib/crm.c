@@ -9130,9 +9130,10 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       te *= rdt;
     }
 
+    printf("nrs: %d %d %d %d %d %d\n", nce, nci, nrr, ndr, nre, nea);
+    rh.nele = ion->nele;
     if (nce) {
       rh.type = RC_CE;
-      rh.nele = ion->nele;
       rh.nde = 1;
       InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nk; ilo++) {
