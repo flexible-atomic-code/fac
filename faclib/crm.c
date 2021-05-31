@@ -8702,7 +8702,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
   double **wr, *drs;
-  int *nbai, *nbtr, ncap, mdr, mea;
+  int *nbai, *nbtr, ncap, mdr, mea, mdrea;
   RATE *r, **bai, **btr;
   BLK_RATE *brts;
   LBLOCK *blk;
@@ -8727,17 +8727,23 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     ir[m] = 0;
     ms[m] = 0;
   }
+  mdrea = 0;
   if (md == 0) {
     for (m = 1; m < RC_TT; m++) ms[m] = 1;
   } else {
     while (md) {
       m = md%10;
       if (m > 0 && m < RC_TT) ms[m] = 1;
+      else if (m == RC_TT) {
+	ms[RC_DR] = 1;
+	ms[RC_EA] = 1;
+	mdrea = 1;
+      }
       md /= 10;
     }
   }
   ntd = nt*nd;
-  rc.rc = malloc(sizeof(float)*ntd);
+  rc.rc = malloc(sizeof(float)*(ntd+nt));
   dt = 0.0;
   dd = 0.0;
   if (nt > 1) dt = (log(t1)-log(t0))/(nt-1);
@@ -9192,7 +9198,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       } 
       DeinitFile(f, &fh);     
     }    
-    if (ndr) {
+    if (ndr && !mdrea) {
       rh.type = RC_DR;
       rh.nde = nd;
       InitFile(f, &fh, &rh);
@@ -9234,7 +9240,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       }  
       DeinitFile(f, &fh);    
     }
-    if (nea) {
+    if (nea && !mdrea) {
       rh.type = RC_EA;
       rh.nde = 1;
       InitFile(f, &fh, &rh);
@@ -9261,6 +9267,55 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
       }  
       DeinitFile(f, &fh);       
+    }
+
+    if (mdrea && (ndr || nea)) {
+      rh.type = RC_TT;
+      rh.nde = nd+1;
+      InitFile(f, &fh, &rh);
+      for (ilo = 0; ilo < nb; ilo++) {
+	for (iup = 0; iup < ni; iup++) {
+	  ra = wr[ir[RC_EA]+iup*nb+ilo];
+	  ra0 = wr[ir[RC_DR]+iup*nb+ilo];
+	  if (!ra && !ra0) continue;
+	  if (ra) {
+	    de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
+	    te = t0;
+	    for (it = 0; it < nt; it++) {
+	      x = ra[it];
+	      x *= ion->j[ibd.d[ilo]]+1.0;
+	      x /= ion->j[iid.d[iup]]+1.0;
+	      x *= exp(de/te);
+	      x *= 1.64156e-12*pow(te, -1.5);
+	      rc.rc[ntd+it] = x;
+	      te *= rdt;
+	    }
+	    free(ra);
+	  } else {
+	    for (it = 0; it < nt; it++) {
+	      rc.rc[ntd+it] = 0.0;
+	    }
+	  }
+	  if (ra0) {	    
+	    for (id = 0; id < nd; id++) {
+	      for (it = 0; it < nt; it++) {
+		rc.rc[id*nt+it] = ra0[id*nt+it]/1e10;
+	      }
+	    }
+	    free(ra0);
+	  } else {
+	    for (id = 0; id < nd; id++) {
+	      for (it = 0; it < nt; it++) {
+		rc.rc[id*nt+it] = 0.0;
+	      }
+	    }
+	  }
+	  rc.lower = ibd.d[ilo];
+	  rc.upper = iid.d[iup];
+	  WriteRCRecord(f, &rc);
+	}
+      }  
+      DeinitFile(f, &fh);
     }
     
     if (nk > 0) {
