@@ -355,7 +355,9 @@ int ReinitCRM(int m) {
 
   if (m < 0) return 0;
 
-  ReinitDBase(0);
+  ReinitDBase(DB_SP);
+  ReinitDBase(DB_RT);
+  ReinitDBase(DB_DR);
   if (m == 3) return 0;
   
   if (m == 1) {
@@ -8690,14 +8692,17 @@ void SortBranches(ARRAY *rts, IDXARY *idx, IDXARY *fdx, int ig, int *nr, RATE **
 void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 		      int nt, double t0, double t1,
 		      int nd, double d0, double d1, int md) {
-  FILE *f;
+  TFILE *f;
+  RC_RECORD rc;
+  RC_HEADER rh;
+  F_HEADER fh;
   int ms[RC_TT], ir[RC_TT];
   int *ik, *ii, *ia, *io;
   int nk, ni, na, nb, p, i, ntd, m, dj, vn, nkk, nii, nki, nbi, nr, s, n, ib;
-  int it, id, ilo, iup, j0, md0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
+  int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
   double **wr, *drs;
-  int *nbai, *nbtr, ncap, mdr, mea, mm;
+  int *nbai, *nbtr, ncap, mdr, mea;
   RATE *r, **bai, **btr;
   BLK_RATE *brts;
   LBLOCK *blk;
@@ -8710,7 +8715,10 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   mdr = mdr%10;
   mp[1] = -1.0;
   mp[2] = -1.0;
-  f = fopen(ofn, "w");
+  fh.type = DB_RC;
+  fh.atom = ion0.atom;
+  strcpy(fh.symbol, ion0.symbol);
+  f = OpenFile(ofn, &fh);
   if (f == NULL) {
     printf("cannot open file %s\n", ofn);
     return;
@@ -8719,9 +8727,6 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     ir[m] = 0;
     ms[m] = 0;
   }
-  md0 = md;
-  if (md < 0) mm = 1;
-  md = abs(md);
   if (md == 0) {
     for (m = 1; m < RC_TT; m++) ms[m] = 1;
   } else {
@@ -8731,11 +8736,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       md /= 10;
     }
   }
-  if (mm) {
-    ms[RC_DR] = 1;
-    ms[RC_EA] = 1;
-  }
   ntd = nt*nd;
+  rc.rc = malloc(sizeof(float)*ntd);
   dt = 0.0;
   dd = 0.0;
   if (nt > 1) dt = (log(t1)-log(t0))/(nt-1);
@@ -8744,11 +8746,16 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   rdd = exp(dd);  
   kg = 0;
   ig = 0;
-  fprintf(f, "#NEXC: %d\n", nexc);
-  fprintf(f, "#NCAP: %d\n", ncap);
-  fprintf(f, "#MODE: %d\n", md0);
-  fprintf(f, "#RTG: %d %15.8E %15.8E\n", nt, t0, log10(rdt));
-  fprintf(f, "#RDG: %d %15.8E %15.8E\n", nd, d0, log10(rdd));
+  rh.nexc = nexc;
+  rh.ncap = ncap;
+  rh.mexc = nexc;
+  rh.te0 = t0;
+  rh.de0 = d0;
+  rh.nte = nt;
+  rh.nde = nd;
+  rh.dte = dt;
+  rh.dde = dd;
+  
   for (p = 0; p < ions->dim; p++) {
     ion = (ION *) ArrayGet(ions, p);    
     if (ion->nele < k0 || ion->nele > k1) continue;
@@ -9122,142 +9129,119 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       }
       te *= rdt;
     }
-    
-    if (ms[RC_DR] == 0 || ms[RC_EA] == 0) mm = 0;
-    if (mm) {
-      ndr = 0;
-      for (ilo = 0; ilo < nb; ilo++) {
-	for (iup = 0; iup < ni; iup++) {
-	  ra = wr[ir[RC_DR]+iup*nb+ilo];
-	  ra0 = wr[ir[RC_EA]+iup*nb+ilo];
-	  if (ra || ra0) {
-	    ndr++;
-	  }
-	}
-      }
-      nea = ndr;
-    }
-    fprintf(f, "#NCE: %d %3d %8d\n", RC_CE, ion->nele, nce);
-    fprintf(f, "#NCI: %d %3d %8d\n", RC_CI, ion->nele, nci);
-    fprintf(f, "#NRR: %d %3d %8d\n", RC_RR, ion->nele, nrr);
-    fprintf(f, "#NDR: %d %3d %8d\n", RC_DR, ion->nele, ndr);
-    fprintf(f, "#NRE: %d %3d %8d\n", RC_RE, ion->nele, nre);
-    fprintf(f, "#NEA: %d %3d %8d\n", RC_EA, ion->nele, nea);
-    
-    if (nce) {      
-      fprintf(f, "#CE\n");
+
+    if (nce) {
+      rh.type = RC_CE;
+      rh.nele = ion->nele;
+      rh.nde = 1;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nk; ilo++) {
 	for (iup = 0; iup < nk; iup++) {
 	  ra = wr[ir[RC_CE]+iup*nk+ilo];
 	  if (ra) {
-	    id = 0;
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_CE, ion->nele, id,
-		    iad.d[ilo], ion->j[iad.d[ilo]],
-		    iad.d[iup], ion->j[iad.d[iup]],
-		    (ion->energy[iad.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
 	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	      rc.rc[it] = ra[it]/1e10;
 	    }
-	    fprintf(f, "\n");
+	    rc.lower = iad.d[ilo];
+	    rc.upper = iad.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
-      }      
+      }
+      DeinitFile(f, &fh);
     }
     if (nci) {
-      fprintf(f, "#CI\n");
+      rh.type = RC_CI;
+      rh.nde = 1;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nk; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_CI]+iup*nk+ilo];
 	  if (ra) {
-	    id = 0;
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_CI, ion->nele, id,
-		    iad.d[ilo], ion->j[iad.d[ilo]],
-		    iid.d[iup], ion->j[iid.d[iup]],
-		    (ion->energy[iid.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
 	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", ra[it]);	      
+	      rc.rc[it] = ra[it];
 	    }
-	    fprintf(f, "\n");
+	    rc.lower = iad.d[ilo];
+	    rc.upper = iid.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
       }      
+      DeinitFile(f, &fh);
     }
     if (nrr) {
-      fprintf(f, "#RR\n");
+      rh.type = RC_RR;
+      rh.nde = 1;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nk; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_RR]+iup*nk+ilo];
 	  if (ra) {
-	    id = 0;
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
-		    iad.d[ilo], ion->j[iad.d[ilo]],
-		    iid.d[iup], ion->j[iid.d[iup]],
-		    (ion->energy[iid.d[iup]]-ion->energy[iad.d[ilo]])*HARTREE_EV);
 	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	      rc.rc[it] = ra[it]/1e10;
 	    }
-	    fprintf(f, "\n");
+	    rc.lower = iad.d[ilo];
+	    rc.upper = iid.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
-      }      
-    }
-    
-    if (ndr && !mm) {
-      fprintf(f, "#DR\n");
+      } 
+      DeinitFile(f, &fh);     
+    }    
+    if (ndr) {
+      rh.type = RC_DR;
+      rh.nde = nd;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nb; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_DR]+iup*nb+ilo];
 	  if (ra) {
 	    for (id = 0; id < nd; id++) {
-	      fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_DR, ion->nele, id,
-		      ibd.d[ilo], ion->j[ibd.d[ilo]],
-		      iid.d[iup], ion->j[iid.d[iup]],
-		      (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV);
 	      for (it = 0; it < nt; it++) {
-		fprintf(f, " %12.5E", ra[id*nt+it]/1e10);
+		rc.rc[id*nt+it] = ra[id*nt+it]/1e10;
 	      }
-	      fprintf(f, "\n");
 	    }
+	    rc.lower = ibd.d[ilo];
+	    rc.upper = iid.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
       }
+      DeinitFile(f, &fh);
     }
-
     if (nre) {
-      fprintf(f, "#RE\n");
+      rh.type = RC_RE;
+      rh.nde = 1;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < ni; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_RE]+iup*ni+ilo];
 	  if (ra) {
-	    id = 0;
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RE, ion->nele-1, id,
-		    iid.d[ilo], ion->j[iid.d[ilo]],
-		    iid.d[iup], ion->j[iid.d[iup]],
-		    (ion->energy[iid.d[iup]]-ion->energy[iid.d[ilo]])*HARTREE_EV);
 	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", ra[it]/1e10);	      
+	      rc.rc[it] = ra[it]/1e10;
 	    }
-	    fprintf(f, "\n");
+	    rc.lower = iid.d[ilo];
+	    rc.upper = iid.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
-      }      
+      }  
+      DeinitFile(f, &fh);    
     }
-    if (nea && !mm) {
-      fprintf(f, "#EA\n");
+    if (nea) {
+      rh.type = RC_EA;
+      rh.nde = 1;
+      InitFile(f, &fh, &rh);
       for (ilo = 0; ilo < nb; ilo++) {
 	for (iup = 0; iup < ni; iup++) {
 	  ra = wr[ir[RC_EA]+iup*nb+ilo];
 	  if (ra) {
-	    id = 0;
 	    de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_RR, ion->nele, id,
-		    ibd.d[ilo], ion->j[ibd.d[ilo]],
-		    iid.d[iup], ion->j[iid.d[iup]], de);
 	    te = t0;
 	    for (it = 0; it < nt; it++) {
 	      x = ra[it];
@@ -9265,65 +9249,17 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	      x /= ion->j[iid.d[iup]]+1.0;
 	      x *= exp(de/te);
 	      x *= 1.64156e-12*pow(te, -1.5);
-	      fprintf(f, " %12.5E", x);
+	      rc.rc[it] = x;
 	      te *= rdt;
 	    }
-	    fprintf(f, "\n");
+	    rc.lower = ibd.d[ilo];
+	    rc.upper = iid.d[iup];
+	    WriteRCRecord(f, &rc);
 	    free(ra);
 	  }
 	}
-      }      
-    }
-    if (mm && ndr) {
-      fprintf(f, "#DR+EA\n");
-      for (ilo = 0; ilo < nb; ilo++) {
-	for (iup = 0; iup < ni; iup++) {
-	  ra = wr[ir[RC_EA]+iup*nb+ilo];
-	  ra0 = wr[ir[RC_DR]+iup*nb+ilo];
-	  if (ra == NULL && ra0 == NULL) continue;
-	  id = 0;
-	  de = (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV;
-	  fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_EA, ion->nele, id,
-		  ibd.d[ilo], ion->j[ibd.d[ilo]],
-		  iid.d[iup], ion->j[iid.d[iup]], de);
-	  if (ra) {
-	    te = t0;
-	    for (it = 0; it < nt; it++) {
-	      x = ra[it];
-	      x *= ion->j[ibd.d[ilo]]+1.0;
-	      x /= ion->j[iid.d[iup]]+1.0;
-	      x *= exp(de/te);
-	      x *= 1.64156e-12*pow(te, -1.5);
-	      fprintf(f, " %12.5E", x);
-	      te *= rdt;
-	    }
-	    free(ra);
-	  } else {
-	    for (it = 0; it < nt; it++) {
-	      fprintf(f, " %12.5E", 0.0);
-	    }
-	  }
-	  fprintf(f, "\n");
-	  ra = wr[ir[RC_DR]+iup*nb+ilo];
-	  for (id = 0; id < nd; id++) {
-	    fprintf(f, "%d %3d %2d %8d %3d %8d %3d %12.5E", RC_DR, ion->nele, id,
-		    ibd.d[ilo], ion->j[ibd.d[ilo]],
-		    iid.d[iup], ion->j[iid.d[iup]],
-		    (ion->energy[iid.d[iup]]-ion->energy[ibd.d[ilo]])*HARTREE_EV);
-	    if (ra) {
-	      for (it = 0; it < nt; it++) {
-		fprintf(f, " %12.5E", ra[id*nt+it]/1e10);
-	      }
-	    } else {
-	      for (it = 0; it < nt; it++) {
-		fprintf(f, " %12.5E", 0.0);
-	      }
-	    }
-	    fprintf(f, "\n");
-	  }
-	  if (ra) free(ra);
-	}
-      }
+      }  
+      DeinitFile(f, &fh);       
     }
     
     if (nk > 0) {
@@ -9356,6 +9292,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     free(drs);
     _krc = -1;
   }
-  fclose(f);
+  
+  CloseFile(f, &fh);
+  free(rc.rc);
 }
 
