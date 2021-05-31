@@ -355,9 +355,13 @@ int ReinitCRM(int m) {
 
   if (m < 0) return 0;
 
-  ReinitDBase(DB_SP);
-  ReinitDBase(DB_RT);
-  ReinitDBase(DB_DR);
+  if (m == 0) {
+    ReinitDBase(0);
+  } else {
+    ReinitDBase(DB_SP);
+    ReinitDBase(DB_RT);
+    ReinitDBase(DB_DR);
+  }
   if (m == 3) return 0;
   
   if (m == 1) {
