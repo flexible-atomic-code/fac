@@ -6878,8 +6878,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
   TFILE *f0, *f1[7];
-  int swp, *im, *imp, **ima, nim, nk, nilevs, nplevs, nth;
-  double e0, e1, e0p, e1p, de;
+  int swp, *im, *imp, **ima, nim, nk, nilevs, *nplevs, nth;
+  double e0, e1, e0p, e1p, tde, *de;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
   int ncap, nt, nd;
@@ -6898,7 +6898,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   }
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
-
+  de = malloc(sizeof(int)*nk);
+  nplevs = malloc(sizeof(int)*nk);
   FILE *frp0, *frp1;    
   sprintf(ofn, "%s%02d%02db.rp", pref, k0, k1);
   frp1 = fopen(ofn, "w");
@@ -6937,10 +6938,46 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     f1[i] = OpenFileWTN(ofn, &fh1[i], nth);
   }
   clevs = 0;
-  nlevs = 0;
   e0 = 0.0;
   e1 = 0.0;
-  de = 0.0;
+  for (k = k0; k <= k1; k++) de[k-k0] = 0.0;
+  for (k = k1; k >= k0; k--) {
+    sprintf(ifn, "%s%02db.en", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 == NULL) {
+      printf("cannot open file %s\n", ifn);
+      continue;
+    }
+    if (fh.type != DB_EN) {
+      printf("%s is not of type DB_EN\n");
+      continue;
+    }
+    nlevs = 0;
+    e0p = e0;
+    e1p = e1;
+    e0 = 0.0;
+    e1 = 0.0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadENHeader(f0, &h0, swp);
+      if (n == 0) break;
+      for (i = 0; i < h0.nlevels; i++) {
+	n = ReadENRecord(f0, &r0, swp);
+	if (h0.nele == k && r0.energy < e0) e0 = r0.energy;
+	if (h0.nele == k-1 && r0.energy < e1) e1 = r0.energy;
+      }
+      nlevs += h0.nlevels;
+    }
+    if (k < k1) {
+      de[k-k0] = de[k+1-k0]+ (e1p - e0);
+    }
+    im = malloc(sizeof(int)*nlevs);
+    ima[k-k0] = im;
+    nplevs[k-k0] = nlevs;
+    FCLOSE(f0);
+  }  
+  for (k = k1; k >= k0; k--) {
+    de[k-k0] -= de[0];
+  }
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.rc", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
@@ -6967,28 +7004,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       printf("%s is not of type DB_EN\n");
       continue;
     }
-    nplevs = nlevs;
-    nlevs = 0;
-    e0p = e0;
-    e1p = e1;
-    e0 = 0.0;
-    e1 = 0.0;
-    for (nb = 0; nb < fh.nblocks; nb++) {
-      n = ReadENHeader(f0, &h0, swp);
-      if (n == 0) break;
-      for (i = 0; i < h0.nlevels; i++) {
-	n = ReadENRecord(f0, &r0, swp);
-	if (h0.nele == k && r0.energy < e0) e0 = r0.energy;
-	if (h0.nele == k-1 && r0.energy < e1) e1 = r0.energy;
-      }
-      nlevs += h0.nlevels;
-    }
-    if (k < k1) {
-      de = e1p - e0;
-    }
-    FSEEK(f0, SIZE_F_HEADER, SEEK_SET);
-    im = malloc(sizeof(int)*nlevs);
-    ima[k-k0] = im;
+    nlevs = nplevs[k-k0];
+    im = ima[k-k0];
     nilevs = 0;
     for (i = 0; i < nlevs; i++) im[i] = -1;
     for (nb = 0; nb < fh.nblocks; nb++) {
@@ -7008,7 +7025,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	    r0.ibase = im[r0.ibase];
 	  }
 	  r0.ilev = im[r0.ilev];
-	  r0.energy += de;
+	  r0.energy += de[k-k0];
 	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
 	  WriteENRecord(f1[0], &r0);
 	  clevs++;
@@ -7040,7 +7057,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     }
     if (k < k1) {
       imp = ima[k+1-k0];
-      for (i = 0; i < nplevs; i++) {
+      for (i = 0; i < nplevs[k+1-k0]; i++) {
 	if (imp[i] <= -10) {
 	  imp[i] = im[-(10+imp[i])];
 	}
@@ -7067,7 +7084,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	      r0.ibase = im[r0.ibase];
 	    }
 	    r0.ilev = im[r0.ilev];
-	    r0.energy += de;
 	    WriteENRecord(f1[0], &r0);
 	    clevs++;
 	  }
@@ -7118,9 +7134,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       if (i >= 0) {
 	r2p = TwoPhotonRate(z, i);
 	if (i == 0) r2p *= 2;
-	de = eup2ph[i]-elow2ph[i];	
-	de = pow(de*FINE_STRUCTURE_CONST,2);
-	r2p /= 2*de*FINE_STRUCTURE_CONST*RATE_AU;
+	tde = eup2ph[i]-elow2ph[i];	
+	tde = pow(tde*FINE_STRUCTURE_CONST,2);
+	r2p /= 2*tde*FINE_STRUCTURE_CONST*RATE_AU;
 	h1.ntransitions = 1;
 	h1.gauge = G_TWOPHOTON;
 	h1.multipole = 0;
@@ -7173,8 +7189,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	  if (im[r3.b] >= 0 && im[r3.f] >= 0) {
 	    r3.b = im[r3.b];
 	    r3.f = im[r3.f];
-	    de = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
-	    if (de > 0) {
+	    tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
+	    if (tde > 0) {
 	      WriteRRRecord(f1[3], &r3);
 	    }
 	  }
@@ -7202,8 +7218,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	  if (im[r4.b] >= 0 && im[r4.f] >= 0) {
 	    r4.b = im[r4.b];
 	    r4.f = im[r4.f];
-	    de = mem_en_table[r4.f].energy-mem_en_table[r4.b].energy;
-	    if (de > 0) {
+	    tde = mem_en_table[r4.f].energy-mem_en_table[r4.b].energy;
+	    if (tde > 0) {
 	      WriteCIRecord(f1[4], &r4);
 	    }
 	  }
@@ -7231,8 +7247,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	  if (im[r5.b] >= 0 && im[r5.f] >= 0) {
 	    r5.b = im[r5.b];
 	    r5.f = im[r5.f];
-	    de = mem_en_table[r5.b].energy - mem_en_table[r5.f].energy;
-	    if (de > 0) {
+	    tde = mem_en_table[r5.b].energy - mem_en_table[r5.f].energy;
+	    if (tde > 0) {
 	      WriteAIRecord(f1[5], &r5);
 	    }
 	  }
@@ -7257,8 +7273,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	  if (im[r6.lower] >= 0 && im[r6.upper] >= 0) {
 	    r6.lower = im[r6.lower];
 	    r6.upper = im[r6.upper];
-	    de = mem_en_table[r6.upper].energy - mem_en_table[r6.lower].energy;
-	    if (de > 0) {
+	    tde = mem_en_table[r6.upper].energy - mem_en_table[r6.lower].energy;
+	    if (tde > 0) {
 	      WriteRCRecord(f1[6], &r6);
 	    }
 	  }
@@ -7272,6 +7288,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     free(im);
   }
   free(ima);
+  free(de);
+  free(nplevs);
   for (i = 1; i < 7; i++) {
     CloseFile(f1[i], &fh1[i]);
   }
