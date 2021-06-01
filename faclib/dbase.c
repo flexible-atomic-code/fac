@@ -6879,7 +6879,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
   TFILE *f0, *f1[7];
   int swp, *im, *imp, **ima, nim, nk, nilevs, *nplevs, nth;
-  double e0, e1, e0p, e1p, tde, *de;
+  double e0, e1, e0p, e1p, tde, *de, *ei;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
   int ncap, nt, nd;
@@ -6898,7 +6898,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   }
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
-  de = malloc(sizeof(int)*nk);
+  de = malloc(sizeof(double)*nk);
+  ei = malloc(sizeof(double)*nk);
   nplevs = malloc(sizeof(int)*nk);
   FILE *frp0, *frp1;    
   sprintf(ofn, "%s%02d%02db.rp", pref, k0, k1);
@@ -6970,6 +6971,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     if (k < k1) {
       de[k-k0] = de[k+1-k0]+ (e1p - e0);
     }
+    ei[k-k0] = e1;
     im = malloc(sizeof(int)*nlevs);
     ima[k-k0] = im;
     nplevs[k-k0] = nlevs;
@@ -7004,6 +7006,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       printf("%s is not of type DB_EN\n");
       continue;
     }
+    e1 = ei[k-k0];
     nlevs = nplevs[k-k0];
     im = ima[k-k0];
     nilevs = 0;
@@ -7289,6 +7292,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   }
   free(ima);
   free(de);
+  free(ei);
   free(nplevs);
   for (i = 1; i < 7; i++) {
     CloseFile(f1[i], &fh1[i]);
