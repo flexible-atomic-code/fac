@@ -6992,7 +6992,11 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       continue;
     }
     n = ReadRCHeader(f0, &h6, swp);
-    ncap = h6.ncap;
+    if (n > 0) {
+      ncap = h6.ncap;
+    } else {
+      ncap = 0;
+    }
     FCLOSE(f0);
     
     sprintf(ifn, "%s%02db.en", pref, k);
