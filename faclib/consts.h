@@ -169,6 +169,7 @@
 
 /* nucleus */
 #define N_ELEMENTS 120
+#define N_ELEMENTS1 (N_ELEMENTS+1)
 #define NISO 58
 #define NFERMI 5001
 

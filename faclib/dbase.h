@@ -735,6 +735,7 @@ IDXDAT *IdxMap(int i);
 int PreloadTable(char *tfn, char *sfn, int m);
 int PreloadTR(char *tfn, char *sfn, int m);
 int PreloadCE(char *tfn, char *sfn);
+void SetCombEx(char *s);
 
 #endif
 
