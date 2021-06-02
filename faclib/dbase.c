@@ -72,6 +72,10 @@ static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 
 static IDXMAP _idxmap = {0, 0, 0, NULL};
 
+static int _ncombex[N_ELEMENTS1];
+static char **_pcombex[N_ELEMENTS1];
+static char _scombex[N_ELEMENTS1][2048];
+
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
     m += sizeof(sv);					\
@@ -746,6 +750,9 @@ int InitDBase(void) {
     ArrayInit(_idxmap.imap, sizeof(IDXDAT), 5000);
   }
   ClearIdxMap();
+
+  SetCombEx(NULL);
+  
   return 0;
 }
 
@@ -6882,7 +6889,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   double e0, e1, e0p, e1p, tde, *de, *ei;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
-  int ncap, nt, nd;
+  int ncap, nt, nd, ix;
   double t0, dt, d0, dd;
 
   ncap = 0;
@@ -7023,6 +7030,14 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	for (i = 0; i < h0.nlevels; i++) {
 	  n = ReadENRecord(f0, &r0, swp);
 	  vn = abs(r0.p)/100;
+	  if (_ncombex[k] > 0) {
+	    for (ix = 0; ix < _ncombex[k]; ix++) {
+	      if (strstr(r0.sname, _pcombex[k][ix])) {
+		break;
+	      }
+	    }
+	    if (ix < _ncombex[k]) continue;
+	  }
 	  if ((nexc > 0 && vn > nexc) ||
 	      (ncap > 0 && vn > ncap && r0.energy > e1)) {
 	    continue;
@@ -7676,7 +7691,50 @@ int PreloadCE(char *tfn, char *sfn) {
   return 0;
 }
 
-void SetOptionDBase(char *s, char *sp, int ip, double dp) {
+void SetCombEx(char *s) {
+  int k, n, i;
+  char *p, buf[2048];
   
+  if (s == NULL || strlen(s) == 0) {
+    for (k = 0; k < N_ELEMENTS1; k++) {
+      if (s && _ncombex[k] > 0) free(_pcombex[k]);
+      _scombex[k][0] = '\0';
+      _ncombex[k] = 0;
+      _pcombex[k] = NULL;
+    }
+    return;
+  }
+  strncpy(buf, s, 2048); 
+  n = StrSplit(buf, ',');
+  k = atoi(buf);
+  if (k <= 0 || k > N_ELEMENTS) {
+    printf("invalid combex option: %d %s\n", k, s);
+    return;
+  }
+  memcpy(_scombex[k], buf, 2048);
+  if (_ncombex[k] > 0) free(_pcombex[k]);
+  if (n <= 1) {
+    _scombex[k][0] = '\0';
+    _ncombex[k] = 0;
+    _pcombex[k] = NULL;
+    return;
+  }
+  _ncombex[k] = n-1;
+  _pcombex[k] = malloc(sizeof(char *)*_ncombex[k]);
+  p = _scombex[k];
+  for (i = 0; i < n; i++) {
+    while(*p) p++;
+    p++;
+    if (i < n-1) {
+      _pcombex[k][i] = p;
+    }
+  }
+}
+
+void SetOptionDBase(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "dbase:combex")) {
+    SetCombEx(sp);
+    return;
+  }
 }
 
