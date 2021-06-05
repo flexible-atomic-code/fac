@@ -71,7 +71,8 @@ static double born_mass = 1.0;
 static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 
 static IDXMAP _idxmap = {0, 0, 0, NULL};
-
+static double _cmpetol = 0.25;
+static double _cmpnbm = 1;
 static int _ncombex[N_ELEMENTS1];
 static char **_pcombex[N_ELEMENTS1];
 static char _scombex[N_ELEMENTS1][2048];
@@ -6615,7 +6616,9 @@ int CompareENRecord(const void *p0, const void *p1) {
   
   r0 = (EN_RECORD *) p0;
   r1 = (EN_RECORD *) p1;
-  
+
+  if (r0->j < 0 && r1->j >= 0) return 1;
+  if (r0->j >= 0 && r1->j < 0) return -1;
   if (r0->j < r1->j) {
     return 1;
   } else if (r0->j > r1->j) {
@@ -6645,6 +6648,14 @@ int CompareENComplex(const void *c1, const void *c2) {
   return strcmp(r1->ncomplex, r2->ncomplex);
 }
 
+int CompareENSName(const void *c1, const void *c2) {
+  EN_RECORD *r1, *r2;
+
+  r1 = (EN_RECORD *) c1;
+  r2 = (EN_RECORD *) c2;
+  return strcmp(r1->sname, r2->sname);
+}
+
 int SortUniqNComplex(int n, EN_RECORD *a) {
   int i, j;
   EN_RECORD b;
@@ -6665,13 +6676,106 @@ int SortUniqNComplex(int n, EN_RECORD *a) {
   return j;
 }
 
-int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1, 
+int SortUniqSName(int n, EN_RECORD *a) {
+  int i, j;
+  EN_RECORD b;
+
+  qsort(a, n, sizeof(EN_RECORD), CompareENSName);
+  j = 1;
+  memcpy(&b, &a[0], sizeof(EN_RECORD));
+  for (i = 1; i < n; i++) {
+    if (CompareENSName(&a[i], &b) != 0) {
+      if (i != j) {
+	memcpy(&a[j], &a[i], sizeof(EN_RECORD));
+      }
+      memcpy(&b, &a[i], sizeof(EN_RECORD));
+      j++;
+    }
+  }
+
+  return j;
+}
+
+int MatchLevelsPJ(int n0, EN_RECORD *r0, int n2, EN_RECORD *r1) {
+  int i0, i1, j, n, n1, im;
+  double de, a, b;
+  
+  n1 = 0;
+  for (i1 = 0; i1 < n2; i1++) {
+    for (j = 0; j < n0; j++) {
+      if (strcmp(r0[j].sname, r1[i1].sname) == 0) break;
+    }
+    if (j == n0) {
+      r1[i1].j = -(r1[i1].j+1);
+    } else {
+      n1++;
+    }
+  }
+
+  qsort(r1, n2, sizeof(EN_RECORD), CompareENRecord);
+
+  i0 = 0;
+  i1 = 0;
+  n = 0;
+  de = 0.0;
+  while (i0 < n0 && i1 < n1) {
+    if (n0-i0 == n1-i1) {
+      for (; i0 < n0; i0++, i1++) {
+	de += r0[i0].energy - r1[i1].energy;
+	n++;
+      }
+      break;
+    }
+    if (r0[i0].energy < r1[i1].energy - _cmpetol) {
+      r0[i0].j = -(r0[i0].j+1);
+      i0++;
+      continue;
+    }
+    if (r0[i0].energy > r1[i1].energy + _cmpetol) {
+      r1[i1].j = -(r1[i1].j+1);
+      i1++;
+      continue;
+    }
+    de += r0[i0].energy - r1[i1].energy;
+    n++;
+    i0++;
+    i1++;    
+  }
+  for (; i0 < n0; i0++) r0[i0].j = -(r0[i0].j+1);
+  for (; i1 < n1; i1++) r1[i1].j = -(r1[i1].j+1);
+  if (n > 0) de /= n;
+  for (i0 = 0; i0 < n0; i0++) {
+    if (r0[i0].j < 0) {
+      a = 1e30;
+      im = -1;
+      for (i1 = n1; i1 <= n2; i1++) {
+	if (r1[i1].j >= 0) continue;
+	b = fabs(r1[i1].energy+de-r0[i0].energy);
+	if (b < a) {
+	  a = b;
+	  im = i1;
+	}
+      }
+      if (im >= n1) {
+	r0[i0].j = -(r0[i0].j+1);
+	r1[im].j = -(r1[im].j+1);
+	n++;
+      }      
+    }
+  }
+  qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1, n2, sizeof(EN_RECORD), CompareENRecord);
+
+  return n;
+}
+  
+int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p, 
 		   int nele, char *ifn) {
   F_HEADER fh;
   EN_HEADER h;
-  EN_RECORD g;
+  EN_RECORD g, *r1, *r0c;
   TFILE *f;
-  int i, k, j, nr, nb, nv;
+  int i, k, j, nr, nb, nb0, nv, ni, nj, n1;
   int swp, sfh;
   int mk0[1024], mk1[1024];
 
@@ -6695,12 +6799,14 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
     if (mk0[j] < nv) mk0[j] = nv;
   }
 
-  EN_RECORD *r0c;
+  n1 = 2*n0;
+  r1 = malloc(sizeof(EN_RECORD)*n1);
   r0c = malloc(sizeof(EN_RECORD)*n0);
   memcpy(r0c, r0, sizeof(EN_RECORD)*n0);
   int n0c = SortUniqNComplex(n0, r0c);
   
   k = 0;
+  nb0 = -1;
   for (nb = 0; nb < fh.nblocks; nb++) {
     nr = ReadENHeader(f, &h, swp);
     if (h.nele != nele) {
@@ -6719,14 +6825,19 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
 	j = nv/100;
 	nv = nv%100;
 	if (mk0[j] >= nv) {
-	  if (mk1[j] < nv) mk1[j] = nv;	
+	  if (mk1[j] < nv) mk1[j] = nv;
+	  if (k == 0) nb0 = nb;
 	  k++;
-	  if (k == n1) break;
+	  if (k == n1) {
+	    n1 += n0;
+	    r1 = ReallocNew(r1, sizeof(EN_RECORD)*n1);
+	  }
 	}
       }
     }
-    if (k == n1) break;
+    if (k > 0 && nb-nb0+1 >= _cmpnbm) break;
   }
+
   FCLOSE(f);
   free(r0c);
   n1 = k;
@@ -6755,111 +6866,45 @@ int FindLevelBlock(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1,
       nk1++;
     }
   }
+
   qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
   qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
 
-  double eb0=0, eb1=0, w0=0,w1=0;
-  for (i = 0; i < nk0; i++) {
-    eb0 += (r0[i].j+1)*r0[i].energy;
-    w0 += r0[i].j+1;
-  }
-  for (i = 0; i < nk1; i++) {
-    eb1 += (r1[i].j+1)*r1[i].energy;
-    w1 += r1[i].j+1;
-  }
-  eb0 /= w0;
-  eb1 /= w1;
-  int na0, nb0, na1, nb1;
-  na0 = 0;
-  while (na0 < nk0) {
-    for (na1 = na0; na1 < nk0; na1++) {
-      if (r0[na1].j != r0[na0].j || r0[na1].p*r0[na0].p < 0) break;
+  i = 0;
+  j = 0;
+  nr = 0;
+  while (i < nk0 && j < nk1) {
+    for (k = i+1; k < nk0; k++) {
+      if (r0[k].j != r0[i].j ||
+	  r0[k].p*r0[i].p < 0) break;
     }
-    for (nb0 = 0; nb0 < nk1; nb0++) {
-      if (r1[nb0].j == r0[na0].j && r1[nb0].p*r0[na0].p > 0) break;
+    ni = k-i;
+    for (; j < nk1; j++) {
+      if (r1[j].j == r0[i].j &&
+	  r1[j].p*r0[i].p > 0) break;
     }
-    for (nb1 = nb0; nb1 < nk1; nb1++) {
-      if (r1[nb1].j != r1[nb0].j || r1[nb1].p*r1[nb0].p < 0) break;
+    for (k = j+1; k < nk1; k++) {
+      if (r1[k].j != r1[j].j ||
+	  r1[k].p*r1[j].p < 0) break;
     }
-    int ni0 = na1-na0;
-    int ni1 = nb1-nb0;
-    double de0 = eb1-eb0;
-    double de;
-    if (ni0 < ni1) {
-      j = nb0;
-      for (i = 0; i < ni0; i++) {
-	for (; j < nb1; j++) {
-	  de = de0+r0[i+na0].energy-r1[j].energy;
-	  if (0 == strcmp(r0[i+na0].sname, r1[j].sname) &&
-	      0 == strcmp(r0[i+na0].name, r1[j].name) &&
-	      fabs(de) < 0.2) {
-	    j++;
-	    break;
-	  } else {
-	    r1[j].j = -(r1[j].j+1);
-	  }
-	}
-      }
-      for (; j < nb1; j++) {
-	r1[j].j = -(r1[j].j+1);
-      }
-    } else if (ni0 > ni1) {
-      j = na0;
-      for (i = 0; i < ni1; i++) {
-	for(; j < na1; j++) {
-	  de = de0+r0[j].energy-r1[i+nb0].energy;
-	  if (0 == strcmp(r0[j].sname, r1[i+nb0].sname) &&
-	      0 == strcmp(r0[j].name, r1[i+nb0].name) &&
-	      fabs(de) < 0.2) {
-	    j++;
-	    break;
-	  } else {
-	    r0[j].j = -(r0[j].j+1);
-	  }
-	}
-      }
-      for (; j < na1; j++) {
-	r0[j].j = -(r0[j].j+1);
-      }
-    }
-    na0 = na1;
-  }  
-  qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
-  qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
-  nk0 = 0;
-  nk1 = 0;
-  for (i = 0; i < n0; i++) {
-    if (r0[i].j < 0) break;
+    nj = k-j;
+    nr += MatchLevelsPJ(ni, &r0[i], nj, &r1[j]);
+    i += ni;
+    j += nj;
   }
-  nk0 = i;
-  for (i = 0; i < n1; i++) {
-    if (r1[i].j < 0) break;
-  }
-  nk1 = i;
 
-  if (nk0 != nk1) return -1;
-  
-  int n = nk0;
-  EN_RECORD *r2 = (EN_RECORD *) malloc(sizeof(EN_RECORD)*n*2);
-  j = 0;
-  for (i = 0; i < n; i++, j+=2) {
-    r2[j] = r0[i];
-    r2[j+1] = r1[i];
-  }
-  qsort(r2, n, 2*sizeof(EN_RECORD), CompareENRecordEnergy);
-  j = 0;
-  for (i = 0; i < n; i++, j+=2) {
-    r0[i] = r2[j];
-    r1[i] = r2[j+1];
-  }
-  free(r2);
-  for (i = n; i < n0; i++) {
+  for (; i < nk0; i++) {
     r0[i].j = -(r0[i].j+1);
   }
-  for (i = n; i < n1; i++) {
-    r1[i].j = -(r1[i].j+1);
+  for (; j < nk1; j++) {
+    r1[j].j = -(r1[j].j+1);
   }
-  return n;
+
+  qsort(r0, nk0, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1, nk1, sizeof(EN_RECORD), CompareENRecord);
+
+  *r1p = r1;
+  return nr;
 }
 
 void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
@@ -7056,15 +7101,14 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       } else {
 	if (h0.nele == k-1 && k > k0) {
 	  ni0 = h0.nlevels;
-	  ni1 = ni0*5;
 	  ri0 = malloc(sizeof(EN_RECORD)*ni0);
-	  ri1 = malloc(sizeof(EN_RECORD)*ni1);
 	  for (i = 0; i < h0.nlevels; i++) {
 	    n = ReadENRecord(f0, &ri0[i], swp);
 	    if (n == 0) break;
 	  }
 	  sprintf(ifn, "%s%02db.en", pref, k-1);
-	  nim = FindLevelBlock(ni0, ri0, ni1, ri1, k-1, ifn);
+	  nim = FindLevelBlock(ni0, ri0, &ri1, k-1, ifn);
+	  printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
 	  }
@@ -7734,6 +7778,10 @@ void SetCombEx(char *s) {
 void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "dbase:combex")) {
     SetCombEx(sp);
+    return;
+  }
+  if (0 == strcmp(s, "dbase:cmpetol")) {
+    _cmpetol = dp;
     return;
   }
 }
