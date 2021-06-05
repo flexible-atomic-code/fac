@@ -103,10 +103,7 @@ static char _scombex[N_ELEMENTS1][2048];
 void *ReallocNew(void *p, int s) {
   void *q;
 
-  q = malloc(s);
-  memcpy(q, p, s);
-  free(p);
-  
+  q = realloc(p, s);
   return q;
 }
 
