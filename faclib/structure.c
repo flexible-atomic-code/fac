@@ -71,8 +71,8 @@ static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
 static double perturb_threshold = -1;
-static double perturb_eth = 1e-3/HARTREE_EV;
-static double perturb_emintol = 1e-3/HARTREE_EV;
+static double perturb_eth = 1e-3/_HARTREE_EV;
+static double perturb_emintol = 1e-3/_HARTREE_EV;
 static int perturb_maxiter = PERTURBMAXITER;
 static double perturb_expdim = PERTURBEXPDIM;
 static double perturb_expdimz = PERTURBEXPDIMZ;
@@ -7068,6 +7068,9 @@ int InitStructure(void) {
     _allhams[i].diag_iter = 0;
 
   }
+
+  perturb_eth = 1e-3/HARTREE_EV;
+  perturb_emintol = 1e-3/HARTREE_EV;
   return 0;
 }
 

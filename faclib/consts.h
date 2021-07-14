@@ -119,8 +119,10 @@
 ** PURPOSE:     1 Hartree in eV.
 ** NOTE:        
 */
-#define HARTREE_EV 27.211386018
-#define RYDBERG_EV 13.605693009
+#define _HARTREE_EV 27.211386018
+extern double HARTREE_EV;
+#define _RYDBERG_EV 13.605693009
+extern double RYDBERG_EV;
 
 /*
 ** VARIABLE:    RATE_AU, RATE_AU10, RATE_AU12
@@ -128,9 +130,12 @@
 ** PURPOSE:     atomic units of rate in 1/s, 10^10 1/s, 10^12 1/s
 ** NOTE:        
 */
-#define RATE_AU    4.13413733E16
-#define RATE_AU10  4.13413733E06
-#define RATE_AU12  4.13413733E04
+#define _RATE_AU    4.13413733E16
+extern double RATE_AU;
+#define _RATE_AU10  4.13413733E06
+extern double RATE_AU10;
+#define _RATE_AU12  4.13413733E04
+extern double RATE_AU12;
 
 /*
 ** VARIABLE:    AREA_AU20
@@ -138,8 +143,10 @@
 ** PURPOSE:     atomic units of area in 10^-20 cm2
 ** NOTE:        
 */
-#define AREA_AU20  2.80028560859E3
-#define VOLUME_AU  1.48184711276E-25
+#define _AREA_AU20  2.80028560859E3
+extern double AREA_AU20;
+#define _VOLUME_AU  1.48184711276E-25
+extern double VOLUME_AU;
 
 /*
 ** VARIABLE:    RBOHR
@@ -147,8 +154,11 @@
 ** PURPOSE:     Bohr radius in Angstrom.
 ** NOTE:        
 */
-#define RBOHR      0.52917721067
-#define VAU8       2.18769126082
+#define _RBOHR      0.52917721067
+extern double RBOHR;
+#define _VAU8       2.18769126082
+extern double VAU8;
+
 /*
 ** VARIABLE:    MBOHR
 ** TYPE:        macro constant.
@@ -163,9 +173,12 @@
 ** PURPOSE:     fine structure constant and its square.
 ** NOTE:        
 */
-#define FINE_STRUCTURE_CONST  7.2973525664E-3
-#define FINE_STRUCTURE_CONST2 5.325135447834E-5
-#define AMU  1822.888486
+#define _FINE_STRUCTURE_CONST  7.2973525664E-3
+extern double FINE_STRUCTURE_CONST;
+#define _FINE_STRUCTURE_CONST2 5.325135447834E-5
+extern double FINE_STRUCTURE_CONST2;
+#define _AMU  1822.888486
+extern double AMU;
 
 /* nucleus */
 #define N_ELEMENTS 120

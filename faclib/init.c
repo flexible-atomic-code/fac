@@ -33,6 +33,19 @@ USE (rcsid);
   FILE *perform_log = NULL;
 #endif
 
+double HARTREE_EV;
+double RYDBERG_EV;
+double RATE_AU;
+double RATE_AU10;
+double RATE_AU12;
+double AREA_AU20;
+double VOLUME_AU;
+double RBOHR;
+double VAU8;
+double AMU;
+double FINE_STRUCTURE_CONST;
+double FINE_STRUCTURE_CONST2;
+
 int Info(void) {
   printf("========================================\n");
   printf("The Flexible Atomic Code (FAC)\n");
@@ -43,6 +56,70 @@ int Info(void) {
   return 0;
 }
 
+void SetLepton(int t, double m0, double e0, char *fn) {
+  FILE *f;
+  double m, e;
+  
+  switch(t) {
+  case 0: //electron
+    m = 1.0;
+    e = 1.0;
+    break;
+  case 1: //muon
+    m = 2.06768283e2;
+    e = 1.0;
+    break;
+  case 2: //tau
+    m = 3.47722828e3;
+    e = 1;
+    break;
+  default:
+    m = 1.0;
+    e = 1.0;
+    break;
+  }
+  if (m0 > 0) m = m0;
+  if (e0 > 0) e = e0;
+
+  double e2 = e*e;
+  double e3 = e2*e;
+  double e4 = e2*e2;
+  double e6 = e3*e3;
+  
+  HARTREE_EV = _HARTREE_EV*(m*e4);
+  RYDBERG_EV = _RYDBERG_EV*(m*e4);
+  RATE_AU = _RATE_AU*(m*e4);
+  RATE_AU10 = _RATE_AU10*(m*e4);
+  RATE_AU12 = _RATE_AU12*(m*e4);
+  AREA_AU20 = _AREA_AU20*(m*e4);
+  VOLUME_AU = _VOLUME_AU/(m*m*m*e6);
+  RBOHR = _RBOHR/(m*e2);
+  VAU8 = _VAU8*e2;
+  AMU = _AMU/m;
+  FINE_STRUCTURE_CONST = _FINE_STRUCTURE_CONST*e2;
+  FINE_STRUCTURE_CONST2 = _FINE_STRUCTURE_CONST2*e4;
+
+  if (fn) {
+    if (strcmp(fn, "-") == 0) {
+      f = stdout;
+    } else {
+      f = fopen(fn, "w");
+    }
+    if (f == NULL) {
+      printf("cannot open file %s\n", fn);
+      return;
+    }
+    fprintf(f, "m=%g\n", m);
+    fprintf(f, "e=%g\n", e);
+    fprintf(f, "HARTREE_EV=%g\n", HARTREE_EV);
+    fprintf(f, "RATE_AU=%g\n", RATE_AU);
+    fprintf(f, "RBOHR=%g\n", RBOHR);
+    fprintf(f, "AMU=%g\n", AMU);
+    fprintf(f, "FSC=%g\n", FINE_STRUCTURE_CONST);
+    if (f != stdout) fclose(f);
+  }
+}
+  
 int InitFac(void) {
   int ierr;
   
@@ -54,6 +131,7 @@ int InitFac(void) {
   perform_log = fopen("perform.log", "w");
 #endif
 
+  SetLepton(0, 0, 0, NULL);
   //InitializeMPI(0);
   ierr = InitConfig();
   if ( ierr < 0) {

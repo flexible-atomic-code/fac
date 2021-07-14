@@ -168,6 +168,7 @@ int SetCascade(int c, double a) {
 int InitCRM(void) {
   int i;
 
+  SetLepton(0, 0, 0, NULL);
   for (i = 0; i < NDB1; i++) ion0.dbfiles[i] = NULL;
   ion0.nionized = 0;
   ion0.energy = NULL;
