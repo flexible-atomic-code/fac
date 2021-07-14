@@ -5229,6 +5229,31 @@ static int PPreloadTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetLepton(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int t;
+  double m, e;
+  char *s;
+
+  t = 0;
+  m = 0.0;
+  e = 0.0;
+  s = NULL;
+  if (argc < 1) return -1;
+  t = atoi(argv[0]);
+  if (argc > 1) {
+    m = atof(argv[1]);
+    if (argc > 2) {
+      e = atof(argv[2]);
+      if (argc > 3) {
+	s = argv[3];
+      }
+    }
+  }
+  SetLepton(t, m, e, s);
+  return 0;
+}
+  
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5447,6 +5472,7 @@ static METHOD methods[] = {
   {"TotalPICross", PTotalPICross, METH_VARARGS}, 
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
+  {"SetLepton", PSetLepton, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

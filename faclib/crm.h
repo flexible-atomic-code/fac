@@ -29,6 +29,7 @@
 #include "nucleus.h"
 #include "interpolation.h"
 #include "coulomb.h"
+#include "init.h"
 
 #define RATES_BLOCK   256000
 #define ION_BLOCK     128

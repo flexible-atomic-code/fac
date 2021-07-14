@@ -41,7 +41,7 @@ static double mbpt_nwarn = 0.01;
 static double mbpt_xwarn = 0.0001;
 static double mbpt_mwarn = 0.5;
 static double mbpt_wwarn = 0.01;
-static double mbpt_ewarn = 1e-3/HARTREE_EV;
+static double mbpt_ewarn = 1e-3/_HARTREE_EV;
 static double mbpt_ewarn12 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ewarn11 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ignore = 50.0;
@@ -177,6 +177,7 @@ void InitMBPT(void) {
     mbpt_wse[i] = 0.0;
     mbpt_wde[i] = 0.0;
   }
+  mbpt_ewarn = 1e-3/HARTREE_EV;
 }
 
 int IdxSD(int n, int k) {

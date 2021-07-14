@@ -29,6 +29,7 @@ USE (rcsid);
 #include "interpolation.h"
 #include "rates.h"
 #include "cf77.h"
+#include "init.h"
 
 #define NEINT 240
 
@@ -81,6 +82,7 @@ int InitPolarization(void) {
   double nu1, theta;
   int nudiff, mu1;
 
+  SetLepton(0, 1, 1, NULL);
   InitDBase();
   InitAngular();
   InitRates();

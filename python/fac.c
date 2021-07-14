@@ -6277,7 +6277,6 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-
 static PyObject *PPreloadTable(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("PreloadTable", args, NULL);
@@ -6302,6 +6301,27 @@ static PyObject *PPreloadTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PSetLepton(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetLepton", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  int t;
+  double m, e;
+  char *s;
+
+  t = 0;
+  m = 0.0;
+  e = 0.0;
+  s = NULL;
+  if (!PyArg_ParseTuple(args, "i|dds", &t, &m, &e, &s)) return NULL;
+  SetLepton(t, m, e, s);
+    
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6539,6 +6559,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MultipoleCoeff", PMultipoleCoeff, METH_VARARGS},
   {"NucleusRadius", PNucleusRadius, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
+  {"SetLepton", PSetLepton, METH_VARARGS},
   {NULL, NULL}
 };
 
