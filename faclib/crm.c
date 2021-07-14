@@ -1232,7 +1232,6 @@ int SetBlocks(double ni, char *ifn) {
 	    }
 	  }
 	}
-	ion0.nionized = n0;
 	if (nb0 == 0) ion->iground = r0[0].ilev;
 	if (ifn) {
 	  free(r1);
@@ -1249,7 +1248,9 @@ int SetBlocks(double ni, char *ifn) {
 	continue;
       }
     }
-
+    if (k == 0) {
+      ion0.nionized = n0;
+    }
     FSEEK(f, sfh, SEEK_SET);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);

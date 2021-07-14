@@ -2839,6 +2839,14 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   double **sw = NULL;
   double ***swp = NULL;
   if (_stark_nts > 0) {
+    /**
+     ** sw stores stark params.
+     ** sw[ns0] is the width
+     ** sw[ns1] is the shift
+     ** sw[ns2] is the inelastic part of width
+     ** sw[ns3] is the elastic difference term. 
+     ** sw[ns3]+sw[ns2] should == sw[0]
+     **/
     sw = malloc(sizeof(double *)*nsw);
     for (i = 0; i < nsw; i++) {
       sw[i] = malloc(sizeof(double)*nes);
