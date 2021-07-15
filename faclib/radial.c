@@ -6827,24 +6827,26 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
     }
     c = SelfEnergyRatio(orb1->rorb, orb1->horb);
   }
-  orb1->se = HydrogenicSelfEnergy(qed.nms*100+qed.mse, qed.pse, c, potential, orb1->rorb, NULL);
+  orb1->se = HydrogenicSelfEnergy((qed.nms%10)*100+qed.mse, qed.pse, c, potential, orb1->rorb, NULL);
   return orb1->se;
 }
 
 double RadialNMS(ORBITAL *orb1, ORBITAL *orb2, int kv) {
-  int i, k0, k1;
+  int i, k0, k1, nms;
   double a, r, r2, mass;
   
   if (qed.se == -1000000) return 0.0;  
   if (qed.nms <= 0) return 0.0;
   if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
-  
+
+  nms = qed.nms%10;
   mass = AMU*potential->atom->mass;
   r = 0.0;
+  k0 = orb1->idx;
+  k1 = orb2->idx;
+  if (qed.nms > 10 && k0 != k1) return r;
   
-  if (qed.nms == 1) {
-    k0 = orb1->idx;
-    k1 = orb2->idx;
+  if (nms == 1) {
     for (i = 0; i < potential->maxrp; i++) {
       _yk[i] = potential->VT[kv][i];
     }
@@ -6881,7 +6883,7 @@ double RadialNMS(ORBITAL *orb1, ORBITAL *orb2, int kv) {
       r2 *= r2;
       a = p1[i]*p2[i]*k*(k+1.0) + q1[i]*q2[i]*kt*(kt+1.0);
       _dwork[i] += a/r2;
-      if (qed.nms > 2) {
+      if (nms > 2) {
 	az = FINE_STRUCTURE_CONST*potential->VT[kv][i];
 	a = 2*az*(q1[i]*_dwork2[i]+q2[i]*_dwork1[i]);
 	_dwork[i] += a;
