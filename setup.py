@@ -200,7 +200,7 @@ if (no_setup == 0):
           package_dir={'pfac': 'python'},
           py_modules=['pfac.const', 'pfac.config', 'pfac.table',
                       'pfac.atom', 'pfac.spm', 'pfac.rfac',
-                      'pfac.version', 'pfac.consts'],
+                      'pfac.version', 'pfac.consts', 'pfac.aa'],
           ext_modules=Extensions)
 
 if (sys.argv[1][0:5] == 'bdist' and bsfac != ''):
