@@ -60,7 +60,12 @@ def parse_consts(filename=None, vfile=None, cfile=None):
                 continue
             if a[0] != '#define':
                 continue
-            consts[a[1]] = a[2]
+            if a[1] == '_CONSTS_H_':
+                continue
+            ak = a[1]
+            if ak[0] == '_':
+                ak = ak[1:] 
+            consts[ak] = a[2]
     a = open(vfile, 'w')
     version = '%s.%s.%s'%(consts['VERSION'], consts['SUBVERSION'], consts['SUBSUBVERSION'])
     try:
