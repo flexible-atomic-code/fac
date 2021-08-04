@@ -85,6 +85,8 @@ static double _mcoll = 0;
 static double _emin_amp = 0.05;
 static double _sturm_rmx = 10.0;
 static double _sc_bqp = 1E31;
+static double _sc_rbf = 1.0;
+static double _sc_rsf = 1.0;
 
 static double _enerelerr = ENERELERR;
 static double _eneabserr = ENEABSERR;
@@ -640,8 +642,7 @@ double DpDr(int kappa, int k, int i, double e, POTENTIAL *pot,
   
   x2 = 1 + 0.5*FINE_STRUCTURE_CONST2*(e - pot->VT[k][i]);
   if (m == 0) {
-    b = (b + kappa)*FINE_STRUCTURE_CONST;
-    b /= (2.0*pot->rad[i]);
+    b = (b + kappa/pot->rad[i])*FINE_STRUCTURE_CONST*0.5;
     if (bqp) *bqp = b;
     b = 2*x2*b/FINE_STRUCTURE_CONST - kappa/pot->rad[i];
   } else if (m == 1) {
@@ -1066,9 +1067,22 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     nodes = nr;
   }
   niter = 0;
-  if (fabs(pbqp) < 1E10) {
-    bqp = (pbqp + orb->kappa)*FINE_STRUCTURE_CONST;
-    bqp /= (2.0*pot->rad[ib]);    
+  if (pbqp < 1E10) {
+    if (pbqp < -1E10) {
+      if (orb->kappa == -1) {
+	bqp = 0.0;
+      } else if (orb->kappa == 1) {
+	bqp = FINE_STRUCTURE_CONST/pot->rad[ib];
+      } else {
+	p1 = FINE_STRUCTURE_CONST*(1-orb->kappa);
+	p2 = FINE_STRUCTURE_CONST*(1+orb->kappa);
+	qi = pot->rad[ib];
+	qo = qi*qi;
+	bqp = (1/p1)*(qi-sqrt(qo-p1*p2));
+      }
+    } else {
+      bqp = (pbqp + orb->kappa/pot->rad[ib])*FINE_STRUCTURE_CONST*0.5;
+    }
     emax = e;
     de = emax - emin;
     while (de > ENEABSERR) {
@@ -2562,6 +2576,12 @@ int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv) {
       p[i] = 0;
       p[i+pot->maxrp] = 0.0;
     }
+    if (pot->mps >= 3) {
+      for (i = pot->ips+1; i < pot->maxrp; i++) {
+	p[i] = 0;
+	p[i+pot->maxrp] = 0.0;
+      }
+    }
     a = InnerProduct(i0, i1-1, p+pot->maxrp, p+pot->maxrp, pot);
     b = InnerProduct(i0, i1-1, p, p, pot);
     a *= orb->qr_norm;
@@ -3193,6 +3213,7 @@ void InitializePS(POTENTIAL *pot) {
 	  pot->nbt = 0;
 	}
       }
+      if (fabs(1-_sc_rsf)>1e-10) pot->rps *= _sc_rsf;
     } else {
       pot->rps = pot->dps;
     }
@@ -3228,6 +3249,9 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   if (pot->mps >= 3) {
     pot->qr = 1.0;
     gasymp = -pot->rps;
+    if (_sc_rbf > 1) {
+      gasymp *= _sc_rbf+1e-3;
+    }
     maxrp -= 10;
   }  
   MaxRGrid(pot, gasymp, gratio, z, rmin, maxrp, &a, &c, &rmax);
@@ -3306,6 +3330,14 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
 	pot->ib1 = pot->ips;
 	pot->rb = pot->rad[pot->ib];
 	pot->nb = 0;
+	if (_sc_rbf > 1) {
+	  for (i = pot->ips; i < pot->maxrp-1; i++) {
+	    if (pot->rad[i] > _sc_rbf*pot->rad[pot->ib]) break;
+	  }
+	  pot->ib = i;
+	  pot->ib1 = i;
+	  pot->rb = pot->rad[pot->ib];	  
+	}
 	pot->bqp = _sc_bqp;
       }
     }
@@ -5340,6 +5372,14 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:sc_bqp")) {
     _sc_bqp = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sc_rbf")) {
+    _sc_rbf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sc_rsf")) {
+    _sc_rsf = dp;
     return;
   }
 }

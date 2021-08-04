@@ -2551,6 +2551,7 @@ void SetScreenConfig(int iter) {
     u = potential->tps*50.0;
     nb = NBoundAA(ns, np, kp, nq, et, u, e0, &nqf);
     double du = 0.1*fabs(et[0])/potential->tps;
+    du = Max(2.5, du);
     if (nb > nbt) {
       u = potential->bps;
       nb = NBoundAA(ns, np, kp, nq, et, u, e0, &nqf);
@@ -2563,9 +2564,11 @@ void SetScreenConfig(int iter) {
 	    u -= du;
 	    nb = NBoundAA(ns, np, kp, nq, et, u, e0, &nqf);
 	    it++;
-	    if (it > optimize_control.maxiter) {
-	      printf("maxiter reached in sc0: %d %d %g %g %g %g\n", it, ns, nb, nbt, u, et[0]);
-	      Abort(1);
+	    if (it > optimize_control.maxiter-5) {
+	      printf("maxiter reached in sc0: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
+	      if (it > optimize_control.maxiter) {
+		Abort(1);
+	      }
 	    }
 	  }
 	  if (du < 0.25) break;
@@ -2583,9 +2586,11 @@ void SetScreenConfig(int iter) {
 	    u += du;
 	    nb = NBoundAA(ns, np, kp, nq, et, u, e0, &nqf);
 	    it++;
-	    if (it > optimize_control.maxiter) {
-	      printf("maxiter reached in sc1: %d %d %g %g %g %g\n", it, ns, nb, nbt, u, et[0]);
-	      Abort(1);
+	    if (it > optimize_control.maxiter-5) {	      
+	      printf("maxiter reached in sc1: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
+	      if (it > optimize_control.maxiter) {
+		Abort(1);
+	      }
 	    }	    
 	  }
 	  if (du < 0.25) break;
