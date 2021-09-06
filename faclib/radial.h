@@ -229,7 +229,7 @@ int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
 int DensityAsymptote(double *d, double *a, double *b);
 double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
-		double u, double e0, double *nqf);
+		double u, double t, double e0, double *nqf);
 void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);

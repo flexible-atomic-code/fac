@@ -1342,6 +1342,10 @@ int WriteFHeader(TFILE *f, F_HEADER *fh) {
   int n, m = 0;
   int v = fh->version;
 
+  if (iuta) {
+    v |= 1<<8;
+    if (utaci) v |= 1<<9;
+  }
   if (fh->nthreads > 1) {
     v |= fh->nthreads<<16;
   }
@@ -1377,8 +1381,10 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
     SwapEndianFHeader(fh);
   }
 
+  iuta = (fh->version&0x100)>>8;
+  utaci = (fh->version&0x200)>>9;  
   fh->nthreads = (fh->version&0xFFFF0000)>>16;
-  fh->version &= 0xFFFF;
+  fh->version &= 0xFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
 
   if (fh->type == DB_EN && version_read[DB_EN-1] == 114) {
@@ -3875,9 +3881,9 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     }
   }
 
-  if (fh.nthreads > 0) {
-    fprintf(f2, "FAC %d.%d.%d[%d]\n",
-	    fh.version, fh.sversion, fh.ssversion, fh.nthreads);
+  if (fh.nthreads > 0 || iuta) {
+    fprintf(f2, "FAC %d.%d.%d[%d.%d.%d]\n",
+	    fh.version, fh.sversion, fh.ssversion, fh.nthreads, iuta, utaci);
   } else {
     fprintf(f2, "FAC %d.%d.%d\n",
 	    fh.version, fh.sversion, fh.ssversion);
@@ -6947,6 +6953,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   }
   nk = k1-k0+1;
   ima = malloc(sizeof(int *)*nk);
+  for (i = 0; i < nk; i++) ima[i] = NULL;
   de = malloc(sizeof(double)*nk);
   ei = malloc(sizeof(double)*nk);
   nplevs = malloc(sizeof(int)*nk);
@@ -6972,6 +6979,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.en", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 == NULL) continue;
     if (z == 0) {
       z = (int)(fh.atom);
       strcpy(a, fh.symbol);
@@ -7210,9 +7218,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	WriteTRRecord(f1[1], &r1, &r1x);
       }
       DeinitFile(f1[1], &fh1[1]);
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
-    
+
     sprintf(ifn, "%s%02db.ce", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CE) {
@@ -7236,8 +7244,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	free(h2.egrid);
 	free(h2.usr_egrid);
       }
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
     
     sprintf(ifn, "%s%02db.rr", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
@@ -7265,9 +7273,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	free(h3.egrid);
 	free(h3.usr_egrid);
       }
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
-    
+
     sprintf(ifn, "%s%02db.ci", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CI) {
@@ -7294,9 +7302,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	free(h4.egrid);
 	free(h4.usr_egrid);
       }
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
-      
+
     sprintf(ifn, "%s%02db.ai", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_AI) {
@@ -7319,9 +7327,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	DeinitFile(f1[5], &fh1[5]);
 	free(h5.egrid);
       }
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
-    
+
     sprintf(ifn, "%s%02db.rc", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_RC) {
@@ -7345,10 +7353,10 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	}
 	DeinitFile(f1[6], &fh1[6]);
       }
+      FCLOSE(f0);
     }
-    FCLOSE(f0);
-    
-    free(im);
+
+    if (im) free(im);
   }
   free(ima);
   free(de);

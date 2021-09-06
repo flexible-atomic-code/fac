@@ -139,6 +139,9 @@ double MColl();
 void SetZColl(double z);
 void SetMColl(double z);
 int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps);
+double SCRSF(void);
+double SCRBF(void);
+double SCBQP(void);
 #endif
 
 
