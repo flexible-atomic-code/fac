@@ -121,37 +121,39 @@ int GetTransitionMode(void) {
   return transition_option.mode;
 }
 
+// return multipole type if the rate is present, as m may be passed in as 0
 int TRMultipoleUTA(double *strength, TR_EXTRA *rx, 
 		   int m, int lower, int upper, int *ks) {
-  int m2, ns, k0, k1, q1, q2;
+  int m2, ns, k0, k1, q1, q2, m0;
   int p1, p2, j1, j2, ia, ib;
   LEVEL *lev1, *lev2;
   double r, aw, eg;
   INTERACT_DATUM *idatum;
-  
+
+  m0 = m;
   *strength = 0.0;
   lev1 = GetLevel(lower);
-  if (lev1 == NULL) return -1;
+  if (lev1 == NULL) return 0;
   lev2 = GetLevel(upper);
-  if (lev2 == NULL) return -1;
+  if (lev2 == NULL) return 0;
 
-  if (lev1->nele != lev2->nele) return -1;
+  if (lev1->nele != lev2->nele) return 0;
   eg = EGroundIon(lev1->nele);
   if (OutOfERange(lev1->energy-eg, lev2->energy-eg,
-		  lev2->energy-lev1->energy)) return -1;
+		  lev2->energy-lev1->energy)) return 0;
   p1 = lev1->pj;
   p2 = lev2->pj;
-  if (m > 0 && IsEven(p1+p2+m)) return -1;
-  if (m < 0 && IsOdd(p1+p2+m)) return -1;
+  if (m > 0 && IsEven(p1+p2+m)) return 0;
+  if (m < 0 && IsOdd(p1+p2+m)) return 0;
   
   idatum = NULL;
   ns = GetInteract(&idatum, NULL, NULL, lev1->iham, lev2->iham,
 		   lev1->pb, lev2->pb, 0, 0, 0);
-  if (ns <= 0) return -1;
+  if (ns <= 0) return 0;
   if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) {
     free(idatum->bra);
     free(idatum);
-    return -1;
+    return 0;
   }
 
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
@@ -182,11 +184,16 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
     if (idatum->s[0].kappa > 0)  ks[1] |= 0x01000000;
   }
 
+  if (m == 0) {
+    m = abs(j1-j2)/2;
+    if (m == 0) m += 1;
+    if (IsEven(p1+p2+m)) m = -m;
+  }
   m2 = 2*abs(m);
   if (!Triangle(j1, j2, m2)) {
     free(idatum->bra);    
     free(idatum);
-    return -1;
+    return 0;
   }
 
   rx->energy = (lev2->energy - lev1->energy);
@@ -198,7 +205,7 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   if (aw < 0.0) {
     free(idatum->bra);
     free(idatum);
-    return -1;
+    return 0;
   }
   
   if (transition_option.mode == M_NR && m != 1) {
@@ -206,12 +213,13 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   } else {
     r = MultipoleRadialFR(aw, m, k0, k1, transition_option.gauge);
   }
-
   *strength = sqrt((lev1->ilev+1.0)*q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0)))*r;
-  
+  if (m0 == 0) {
+    *strength = OscillatorStrength(m, rx->energy, *strength, &r);
+  }
   free(idatum->bra);
   free(idatum);
-  return 0;
+  return m;
 }
 
 int TRMultipole(double *strength, double *energy,
@@ -670,7 +678,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	for (i = imin; i < imax; i++) {
 	  for (j = jmin; j < jmax; j++) {
 	    k = TRMultipoleUTA(&gf, &(rd[ir].rx), m, low[i], up[j], rd[ir].ks);
-	    if (k != 0) {
+	    if (k == 0) {
 	      rd[ir].r.lower = -1;
 	      rd[ir].r.upper = -1;
 	      ir++;
@@ -681,7 +689,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    rd[ir].r.upper = up[j];
 	    rd[ir].r.strength = gf;
 	    rd[ir].rx.sci = 1.0;
-	    if (m == -1) {
+	    if (k == -1) {
 	      gf = OscillatorStrength(m, rd[ir].rx.energy, 
 				      rd[ir].r.strength, NULL);
 	      j0 = rd[ir].ks[0]&mj;

@@ -6659,6 +6659,14 @@ int CompareENSName(const void *c1, const void *c2) {
   return strcmp(r1->sname, r2->sname);
 }
 
+int CompareENName(const void *c1, const void *c2) {
+  EN_RECORD *r1, *r2;
+
+  r1 = (EN_RECORD *) c1;
+  r2 = (EN_RECORD *) c2;
+  return strcmp(r1->name, r2->name);
+}
+
 int SortUniqNComplex(int n, EN_RECORD *a) {
   int i, j;
   EN_RECORD b;
@@ -6782,6 +6790,8 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
   int swp, sfh;
   int mk0[1024], mk1[1024];
 
+  if (n0 <= 0) return 0;
+  
   f = OpenFileRO(ifn, &fh, &swp);
   if (f == NULL) {
     printf("File %s does not exist\n", ifn);
@@ -6796,6 +6806,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
     mk1[i] = -1;
   }
   for (i = 0; i < n0; i++) {
+    r0[i].j = JFromENRecord(&r0[i]);
     nv = abs(r0[i].p);    
     j = nv/100;
     nv = nv%100;
@@ -6818,6 +6829,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
     }
     for (i = 0; i < h.nlevels; i++) {
       nr = ReadENRecord(f, &r1[k], swp);
+      r1[j].j = JFromENRecord(&r1[k]);
       for (j = 0; j < n0c; j++) {
 	if (strcmp(r1[k].ncomplex, r0c[j].ncomplex) == 0) {
 	  break;
@@ -6843,7 +6855,46 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 
   FCLOSE(f);
   free(r0c);
+
+  if (n0 <= 0 || k <= 0) {
+    *r1p = r1;
+    return 0;
+  }
   n1 = k;
+  if (iuta) {
+    qsort(r0, n0, sizeof(EN_RECORD), CompareENName);
+    qsort(r1, n1, sizeof(EN_RECORD), CompareENName);
+    i = 0;
+    j = 0;
+    nr = 0;
+    while (i < n0 && j < n1) {
+      k = CompareENName(&r0[i], &r1[j]);
+      if (k > 0) {
+	r1[j].j = -(r1[j].j+1);
+	j++;	
+      } else if (k < 0) {
+	r0[i].j = -(r0[i].j+1);
+	i++;
+      } else {
+	i++;
+	j++;
+	nr++;
+      }
+    }
+    for (; i < n0; i++) {
+      r0[i].j = -(r0[i].j+1);
+    }
+    for (; j < n1; j++) {
+      r1[j].j = -(r1[j].j+1);
+    }
+
+    qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
+    qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
+
+    *r1p = r1;
+    return nr;
+  }
+  
   for (i = 0; i < 1024; i++) {
     if (mk1[i] > mk0[i]) mk1[i] = mk0[i];
   }
@@ -6882,16 +6933,27 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 	  r0[k].p*r0[i].p < 0) break;
     }
     ni = k-i;
+    k = 0;
     for (; j < nk1; j++) {
-      if (r1[j].j == r0[i].j &&
-	  r1[j].p*r0[i].p > 0) break;
+      if (r1[j].j < r0[i].j) break;
+      if (r1[j].j == r0[i].j) {
+	if (r1[j].p < 0 && r0[i].p > 0) break;
+	if (r1[j].p*r0[i].p > 0) {
+	  k = 1;
+	  break;
+	}
+      }
     }
-    for (k = j+1; k < nk1; k++) {
-      if (r1[k].j != r1[j].j ||
-	  r1[k].p*r1[j].p < 0) break;
+    if (k > 0) {
+      for (k = j+1; k < nk1; k++) {
+	if (r1[k].j != r1[j].j ||
+	    r1[k].p*r1[j].p < 0) break;
+      }
+      nj = k-j;
+      nr += MatchLevelsPJ(ni, &r0[i], nj, &r1[j]);
+    } else {
+      nj = 0;
     }
-    nj = k-j;
-    nr += MatchLevelsPJ(ni, &r0[i], nj, &r1[j]);
     i += ni;
     j += nj;
   }
@@ -6937,7 +6999,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   double e0, e1, e0p, e1p, tde, *de, *ei;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
-  int ncap, nt, nd, ix;
+  int ncap, nt, nd, ix, ibx, ifx;
   double t0, dt, d0, dd;
 
   ncap = 0;
@@ -7093,7 +7155,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	    continue;
 	  }
 	  im[r0.ilev] = clevs;
-	  if (r0.ibase >= 0) {
+	  if (!iuta && r0.ibase >= 0) {
 	    r0.ibase = im[r0.ibase];
 	  }
 	  r0.ilev = im[r0.ilev];
@@ -7151,7 +7213,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	      continue;
 	    }
 	    im[r0.ilev] = clevs;
-	    if (r0.ibase >= 0) {
+	    if (!iuta && r0.ibase >= 0) {
 	      r0.ibase = im[r0.ibase];
 	    }
 	    r0.ilev = im[r0.ilev];
@@ -7256,12 +7318,17 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	InitFile(f1[3], &fh1[3], &h3);
 	for (i = 0; i < h3.ntransitions; i++) {
 	  n = ReadRRRecord(f0, &r3, swp, &h3);
+	  ibx = r3.b;
+	  ifx = r3.f;
 	  if (n == 0) break;
 	  if (im[r3.b] >= 0 && im[r3.f] >= 0) {
 	    r3.b = im[r3.b];
 	    r3.f = im[r3.f];
 	    tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
 	    if (tde > 0) {
+	      if (r3.b == 13183 && r3.f == 13312) {
+		printf("rr: %d %d %d %d %g %g\n", ibx, ifx, r3.b, r3.f, tde*HARTREE_EV, r3.params[0], r3.strength[0]);
+	      }
 	      WriteRRRecord(f1[3], &r3);
 	    }
 	  }
