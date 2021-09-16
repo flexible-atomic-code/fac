@@ -715,6 +715,7 @@ int CompareENRecordEnergy(const void *p0, const void *p1);
 int CompareENRecord(const void *p0, const void *p1);
 int CompareENComplex(const void *c1, const void *c2);
 int SortUniqNComplex(int n, EN_RECORD *a);
+int CompareENName(const void *c1, const void *c2);
 int CompareENSName(const void *c1, const void *c2);
 int SortUniqSName(int n, EN_RECORD *a);
 int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1, 
