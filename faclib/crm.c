@@ -1493,39 +1493,6 @@ int IonizedIndex(int i, int m) {
   return -1;
 }
 
-int GetNComplex(NCOMPLEX *c, char *s) {
-  int i, n, nq;
-  char *p, buf[8192];
-  n = strlen(s);
-  for (i = 0; i <= n; i++) {
-    if (s[i] == '.') buf[i] = ' ';
-    else buf[i] = s[i];
-  }
-  s = buf;
-  i = 0;
-  while (1) {
-    if (i == MAXNCOMPLEX-1) {
-      printf("Num of NCOMPLEX shells exceeded the limit %d\n", MAXNCOMPLEX-1);
-      exit(1);
-    }
-    n = strtol(s, &p, 10);
-    if (n == 0) {
-      int j;
-      for (j = i; j < MAXNCOMPLEX; j++) {
-	c[j].n = 0;
-	c[j].nq = 0;
-      }
-      return i;
-    }
-    s = p+1;
-    nq = strtol(s, &p, 10);
-    c[i].n = n;
-    c[i].nq = nq;
-    s = p;
-    i++;
-  }
-  return i;
-}
 
 int StrNComplex(char *s, NCOMPLEX *c) {
   int i;
