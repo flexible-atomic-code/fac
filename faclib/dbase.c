@@ -77,6 +77,10 @@ static int _ncombex[N_ELEMENTS1];
 static char **_pcombex[N_ELEMENTS1];
 static char _scombex[N_ELEMENTS1][2048];
 
+static int _ic_iai[100];
+static int _ix_iai[100];
+static int _nc_iai = 0;
+
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
     m += sizeof(sv);					\
@@ -748,10 +752,34 @@ int InitDBase(void) {
     ArrayInit(_idxmap.imap, sizeof(IDXDAT), 5000);
   }
   ClearIdxMap();
-
   SetCombEx(NULL);
+  SetInnerAI(NULL);
   
   return 0;
+}
+
+void SetInnerAI(char *s) {
+  int i;
+  char *p, buf[2048];
+
+  while (s && (*s == ' ' || *s == '\t')) s++;
+  if (s == NULL || strlen(s) == 0) {
+    _nc_iai = 0;
+    for (i = 0; i < 100; i++) {
+      _ic_iai[i] = 0;
+      _ix_iai[i] = -1;
+    }
+    return;
+  }
+  strncpy(buf, s, 2048);
+  _nc_iai = StrSplit(buf, ',');
+  p = buf;
+  for (i = 0; i < _nc_iai; i++) {
+    _ic_iai[i] = atoi(p);
+    _ix_iai[_ic_iai[i]] = i;
+    while (*p) p++;
+    p++;
+  }
 }
 
 int ReinitDBase(int m) {
@@ -4210,14 +4238,19 @@ int IBaseFromENRecord(EN_RECORD *r) {
 }
 
 int MemENTable(char *fn) {
+  return MemENTableWC(fn, 0, NULL, NULL);
+}
+
+int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
   F_HEADER fh;  
   EN_HEADER h;
   EN_RECORD r;
+  NCOMPLEX ncomplex[MAXNCOMPLEX];
   TFILE *f;
   char *s;
   int n, i, nlevels;
   float e0;
-  int swp, sr;
+  int swp, sr, ic, kk;
 
   f = OpenFileRO(fn, &fh, &swp);
   if (f == NULL) return -1;
@@ -4271,6 +4304,15 @@ int MemENTable(char *fn) {
       mem_en_table[r.ilev].p = r.p;
       mem_en_table[r.ilev].j = JFromENRecord(&r);
       mem_en_table[r.ilev].ibase = r.ibase;
+      if (nc && h.nele >= k0) {
+	kk = h.nele-k0;
+	GetNComplex(ncomplex, r.ncomplex);
+	for (ic = 0; ic < MAXNCOMPLEX; ic++) {
+	  if (ncomplex[ic].n > 0 && ncomplex[ic].nq > 0) {
+	    nc[kk][r.ilev-ifk[kk]][ncomplex[ic].n-1] = ncomplex[ic].nq;
+	  }
+	}
+      }
     }
   }
 
@@ -5453,15 +5495,23 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       n = ReadAIRecord(f1, &r, swp);
       if (n == 0) break;
       if (v) {
-	e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
+	if (r.f >= 0) {
+	  e = mem_en_table[r.b].energy - mem_en_table[r.f].energy;
+	} else {
+	  e = h.egrid[0];
+	}
 	if (e < 0) er = e - h.emin;
 	else er = e;
-	sdr = 0.5*(mem_en_table[r.b].j + 1.0);
-	sdr *= PI*PI*r.rate/(er*(mem_en_table[r.f].j + 1.0));
-	sdr *= AREA_AU20*HARTREE_EV;
+	if (r.f >= 0) {
+	  sdr = 0.5*(mem_en_table[r.b].j + 1.0);
+	  sdr *= PI*PI*r.rate/(er*(mem_en_table[r.f].j + 1.0));
+	  sdr *= AREA_AU20*HARTREE_EV;
+	} else {
+	  sdr = 0.0;
+	}
 	fprintf(f2, "%6d %2d %6d %2d %11.4E %11.4E %11.4E\n",
 		r.b, mem_en_table[r.b].j,
-		r.f, mem_en_table[r.f].j,
+		r.f, r.f>0?mem_en_table[r.f].j:-1,
 		e*HARTREE_EV, (RATE_AU*r.rate), sdr);
       } else {
 	fprintf(f2, "%6d %6d %15.8E\n", r.b, r.f, r.rate);
@@ -6978,8 +7028,80 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
   return nr;
 }
 
+int GetNComplex(NCOMPLEX *c, char *s) {
+  int i, n, nq;
+  char *p, buf[8192];
+  n = strlen(s);
+  for (i = 0; i <= n; i++) {
+    if (s[i] == '.') buf[i] = ' ';
+    else buf[i] = s[i];
+  }
+  s = buf;
+  i = 0;
+  while (1) {
+    if (i == MAXNCOMPLEX-1) {
+      printf("Num of NCOMPLEX shells exceeded the limit %d\n", MAXNCOMPLEX-1);
+      exit(1);
+    }
+    n = strtol(s, &p, 10);
+    if (n == 0) {
+      int j;
+      for (j = i; j < MAXNCOMPLEX; j++) {
+	c[j].n = 0;
+	c[j].nq = 0;
+      }
+      return i;
+    }
+    s = p+1;
+    nq = strtol(s, &p, 10);
+    c[i].n = n;
+    c[i].nq = nq;
+    s = p;
+    i++;
+  }
+  return i;
+}
+
+int ChannelAI(int b, int nmb, short *ncb,
+	      int f, int nmf, short *ncf,
+	      int *cn0, int *cn1, int *cn2) {
+  int n, n0, n1, n2, nm;
+
+  nm = Min(nmb, nmf);
+  n0 = -1;
+  n1 = -1;
+  n2 = -1;
+  for (n = 0; n < nm; n++) {
+    if (ncb[n] == ncf[n]) continue;
+    if (ncb[n] < ncf[n] && n0 < 0) {
+      n0 = n;
+      continue;
+    }
+    if (ncb[n] > ncf[n]) {
+      if (n1 < 0) n1 = n;
+      else n2 = n;
+      if (ncb[n] == ncf[n]+2 && n2 < 0) n2 = n;
+    }
+  }
+  if (n2 < 0 && n < nmb) n2 = nmb;
+  n0++;
+  n1++;
+  n2++;
+  *cn0 = n0;
+  *cn1 = n1;
+  *cn2 = n2;
+
+  if (n0 > 0 && n1 > 0 && n0 < 10 && n1 < 10 && n2 > 0) {
+    n = _ix_iai[n0*10+n1];
+    if (n >= 0) {
+      return (n2-1)*_nc_iai+_ix_iai[n0*10+n1];
+    }
+  }
+  return -1;
+}
+
 void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
-  int k, i, n, nb, nlevs, clevs, ni0, ni1, vn, z;
+  int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, z;
   char ifn[1024], ofn[1024], buf[1024];
   char a[8];
   F_HEADER fh, fh1[7];
@@ -7002,11 +7124,14 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
   TFILE *f0, *f1[7];
   int swp, *im, *imp, **ima, nim, nk, nilevs, *nplevs, nth;
-  double e0, e1, e0p, e1p, tde, *de, *ei;
+  double e0, e1, e0p, e1p, tde, *de, *ei, **eai;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
-  int ncap, nt, nd, ix, ibx, ifx;
-  double t0, dt, d0, dd;
+  int ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
+  int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
+  short ***nc;
+  double t0, dt, d0, dd, *egk;
+  float ***pai;
 
   ncap = 0;
   nt = 0;
@@ -7066,7 +7191,19 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   clevs = 0;
   e0 = 0.0;
   e1 = 0.0;
-  for (k = k0; k <= k1; k++) de[k-k0] = 0.0;
+  nm = malloc(sizeof(int)*nk);
+  nklevs = malloc(sizeof(int)*nk);
+  igk = malloc(sizeof(int)*nk);
+  ifk = malloc(sizeof(int)*nk);
+  egk = malloc(sizeof(double)*nk);
+  for (k = k0; k <= k1; k++) {
+    de[k-k0] = 0.0;
+    nm[k-k0] = 0;
+    nklevs[k-k0] = 0;
+    igk[k-k0] = -1;
+    ifk[k-k0] = -1;
+    egk[k-k0] = 0.0;
+  }
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.en", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
@@ -7144,7 +7281,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
       if (h0.nele == k) {	
-	InitFile(f1[0], &fh1[0], &h0);
 	for (i = 0; i < h0.nlevels; i++) {
 	  n = ReadENRecord(f0, &r0, swp);
 	  vn = abs(r0.p)/100;
@@ -7161,16 +7297,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	    continue;
 	  }
 	  im[r0.ilev] = clevs;
-	  if (!iuta && r0.ibase >= 0) {
-	    r0.ibase = im[r0.ibase];
-	  }
-	  r0.ilev = im[r0.ilev];
-	  r0.energy += de[k-k0];
-	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
-	  WriteENRecord(f1[0], &r0);
 	  clevs++;
 	}
-	DeinitFile(f1[0], &fh1[0]);
       } else {
 	if (h0.nele == k-1 && k > k0) {
 	  ni0 = h0.nlevels;
@@ -7202,7 +7330,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	}
       }
     }
-    //clevs += nlevs-nilevs;
     if (k == k0) {
       FSEEK(f0, SIZE_F_HEADER, SEEK_SET);
       nilevs = 0;
@@ -7210,7 +7337,6 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	n = ReadENHeader(f0, &h0, swp);
 	if (n == 0) break;
 	if (h0.nele == k-1) {	
-	  InitFile(f1[0], &fh1[0], &h0);
 	  for (i = 0; i < h0.nlevels; i++) {
 	    n = ReadENRecord(f0, &r0, swp);
 	    vn = abs(r0.p)/100;
@@ -7219,14 +7345,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	      continue;
 	    }
 	    im[r0.ilev] = clevs;
-	    if (!iuta && r0.ibase >= 0) {
-	      r0.ibase = im[r0.ibase];
-	    }
-	    r0.ilev = im[r0.ilev];
-	    WriteENRecord(f1[0], &r0);
 	    clevs++;
 	  }
-	  DeinitFile(f1[0], &fh1[0]);
 	} else {
 	  nilevs += h0.nlevels;
 	  FSEEK(f0, h0.length, SEEK_CUR);
@@ -7235,10 +7355,111 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     }
     FCLOSE(f0);
   }
-  
+
+  for (k = k1; k >= k0; k--) {
+    sprintf(ifn, "%s%02db.en", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 == NULL) {
+      continue;
+    }
+    if (fh.type != DB_EN) {
+      continue;
+    }
+    im = ima[k-k0];
+    printf("writing level file: %d %d %s\n", z, k, ifn);
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadENHeader(f0, &h0, swp);
+      if (n == 0) break;
+      if (h0.nele == k) {	
+	InitFile(f1[0], &fh1[0], &h0);
+	for (i = 0; i < h0.nlevels; i++) {
+	  n = ReadENRecord(f0, &r0, swp);
+	  if (im[r0.ilev] < 0) continue;
+	  vn = abs(r0.p)/100;
+	  if (!iuta && r0.ibase >= 0) {
+	    r0.ibase = im[r0.ibase];
+	  }
+	  r0.ilev = im[r0.ilev];
+	  r0.energy += de[k-k0];
+	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
+	  WriteENRecord(f1[0], &r0);
+	  if (nm[k-k0] < vn) nm[k-k0] = vn;
+	  if (ifk[k-k0] < 0) {
+	    ifk[k-k0] = r0.ilev;
+	    igk[k-k0] = r0.ilev;
+	    egk[k-k0] = r0.energy;
+	  } else {
+	    if (r0.energy < egk[k-k0]) {
+	      igk[k-k0] = r0.ilev;
+	      egk[k-k0] = r0.energy;
+	    }
+	  }
+	  nklevs[k-k0]++;
+	}
+	DeinitFile(f1[0], &fh1[0]);
+      } else {
+	FSEEK(f0, h0.length, SEEK_CUR);
+      }      
+    }
+
+    if (k == k0) {
+      FSEEK(f0, SIZE_F_HEADER, SEEK_SET);
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadENHeader(f0, &h0, swp);
+	if (n == 0) break;
+	if (h0.nele == k-1) {	
+	  InitFile(f1[0], &fh1[0], &h0);
+	  for (i = 0; i < h0.nlevels; i++) {
+	    n = ReadENRecord(f0, &r0, swp);
+	    if (im[r0.ilev] < 0) continue;
+	    if (!iuta && r0.ibase >= 0) {
+	      r0.ibase = im[r0.ibase];
+	    }
+	    r0.ilev = im[r0.ilev];
+	    WriteENRecord(f1[0], &r0);
+	  }
+	  DeinitFile(f1[0], &fh1[0]);
+	} else {
+	  FSEEK(f0, h0.length, SEEK_CUR);
+	}
+      }
+    }
+    FCLOSE(f0);
+  }
+
+  nc = NULL;
+  pai = NULL;
+  eai = NULL;
+  if (_nc_iai > 0) {
+    nc = malloc(sizeof(short **)*nk);
+    for (k = 0; k < nk; k++) {
+      nc[k] = malloc(sizeof(short *)*nklevs[k]);
+      for (i = 0; i < nklevs[k]; i++) {
+	nc[k][i] = malloc(sizeof(short)*nm[k]);
+	for (j = 0; j < nm[k]; j++) {
+	  nc[k][i][j] = 0;
+	}
+      }
+    }
+    pai = malloc(sizeof(float **)*nk);
+    for (k = 0; k < nk; k++) {
+      pai[k] = malloc(sizeof(float *)*nklevs[k]);
+      for (i = 0; i < nklevs[k]; i++) {
+	pai[k][i] = malloc(sizeof(float)*nm[k]*_nc_iai);
+	for (j = 0; j < _nc_iai*nm[k]; j++) pai[k][i][j] = 0.0;
+      }
+    }
+    eai = malloc(sizeof(double *)*nk);
+    for (k = 0; k < nk; k++) {
+      eai[k] = malloc(sizeof(double)*nm[k]*_nc_iai);
+      for (i = 0; i < _nc_iai*nm[k]; i++) {
+	eai[k][i] = 0.0;
+      }
+    }
+  }
   CloseFile(f1[0], &fh1[0]);
   sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
-  MemENTable(ifn);
+  MemENTableWC(ifn, k0, ifk, nc);
 
   for (k = k1; k >= k0; k--) {
     printf("processing %d %d\n", z, k);
@@ -7389,8 +7610,17 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	    r5.b = im[r5.b];
 	    r5.f = im[r5.f];
 	    tde = mem_en_table[r5.b].energy - mem_en_table[r5.f].energy;
-	    if (tde > 0) {
+	    if (tde > 0 && r5.rate > 0) {
 	      WriteAIRecord(f1[5], &r5);
+	      if (k > k0 && k > 2 && _nc_iai > 0) {
+		ia = ChannelAI(r5.b, nm[k-k0], nc[k-k0][r5.b-ifk[k-k0]],
+			       r5.f, nm[k-k0-1], nc[k-k0-1][r5.f-ifk[k-k0-1]],
+			       &cn0, &cn1, &cn2);
+		if (ia >= 0) {
+		  pai[k-k0][r5.b-ifk[k-k0]][ia] += r5.rate;
+		  eai[k-k0][ia] += r5.rate*tde;
+		}
+	      }
 	    }
 	  }
 	}
@@ -7399,7 +7629,15 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       }
       FCLOSE(f0);
     }
-
+    if (_nc_iai > 0) {
+      for (ia = 0; ia < nm[k-k0]*_nc_iai; ia++) {
+	dd = 0.0;
+	for (i = 0; i < nklevs[k-k0]; i++) {
+	  dd += pai[k-k0][i][ia];
+	}
+	if (dd > 0) eai[k-k0][ia] /= dd;
+      }
+    }
     sprintf(ifn, "%s%02db.rc", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_RC) {
@@ -7425,8 +7663,41 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       }
       FCLOSE(f0);
     }
-
     if (im) free(im);
+  }
+
+  if (_nc_iai > 0) {
+    for (k = k0+1; k <= k1; k++) {
+      if (k < 3) continue;
+      kk1 = k-k0;
+      kk = kk1-1;
+      nb = Min(nm[kk], nm[kk1]);
+      for (ia = 0; ia < _nc_iai*nb; ia++) {
+	r5.f = -(_ic_iai[ia%_nc_iai]*1000 + (ia/_nc_iai) + 1);
+	h5.nele = k;
+	h5.n_egrid = 1;
+	h5.egrid = &eai[kk][ia];
+	InitFile(f1[5], &fh1[5], &h5); 
+	for (i = 0; i < nklevs[kk1]; i++) {
+	  j = i + ifk[kk1];
+	  ib = mem_en_table[j].ibase;
+	  if (ib >= 0) {
+	    d0 = pai[kk][ib-ifk[kk]][ia];
+	    if (!pai[kk1][i][ia] && d0) {
+	      pai[kk1][i][ia] = d0;
+	      eai[kk1][ia] = eai[kk][ia];
+	      r5.rate = d0;
+	      r5.b = j;
+	      WriteAIRecord(f1[5], &r5);
+	    }
+	  }
+	}
+	if (ai_header.ntransitions > 0) {
+	  printf("inner shell ai: %3d %6d %5d %12.5E\n", k, -r5.f, ai_header.ntransitions, h5.egrid[0]);
+	}
+	DeinitFile(f1[5], &fh1[5]);      
+      }
+    }
   }
   free(ima);
   free(de);
@@ -7435,7 +7706,25 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   for (i = 1; i < 7; i++) {
     CloseFile(f1[i], &fh1[i]);
   }
-  
+  if (_nc_iai > 0) {
+    for (k = 0; k < nk; k++) {
+      for (i = 0; i < nklevs[k]; i++) {
+	free(nc[k][i]);
+	free(pai[k][i]);
+      }
+      free(nc[k]);
+      free(pai[k]);
+      free(eai[k]);
+    }
+    free(nc);
+    free(pai);
+    free(eai);
+  }
+  free(nm);
+  free(nklevs);
+  free(igk);
+  free(ifk);
+  free(egk);
   if (ic > 0) {
     n = ic;
     k = 0;
@@ -7867,6 +8156,10 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:cmpetol")) {
     _cmpetol = dp;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:inner_ai")) {
+    SetInnerAI(sp);
     return;
   }
 }

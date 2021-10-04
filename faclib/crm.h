@@ -44,7 +44,6 @@ typedef struct _RECOMBINED_ {
   int nrec[MAXNREC];
 } RECOMBINED;
 
-#define MAXNCOMPLEX 8
 typedef struct _LBLOCK_ {
   int ib;
   int iion;
@@ -159,7 +158,6 @@ int IonIndex(ION *ion, int i, int k);
 int IonizedIndex(int i, int m);
 void GetRecombined(int *b, int *nrec, char *name);
 int CopyNComplex(NCOMPLEX *dest, NCOMPLEX *src);
-int GetNComplex(NCOMPLEX *c, char *s);
 int CompareNComplex(NCOMPLEX *c1, NCOMPLEX *c2);
 int StrNComplex(char *s, NCOMPLEX *c);
 int TransitionType(NCOMPLEX *ic, NCOMPLEX *fc);

@@ -60,6 +60,8 @@
 #define LNAME0 56
 #define LNAME       128
 
+#define MAXNCOMPLEX 8
+
 typedef struct _NCOMPLEX_ {
   short n;
   short nq;
@@ -607,6 +609,7 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr);
 int PrintTable(char *ifn, char *ofn, int v);
 int FreeMemENTable(void);
 int MemENTable(char *fn);
+int MemENTableWC(char *fn, int k0, int *ifk, short ***nc);
 int MemENFTable(char *fn);
 EN_SRECORD *GetMemENTable(int *s);
 EN_SRECORD *GetMemENFTable(int *s);
@@ -740,6 +743,10 @@ int PreloadTable(char *tfn, char *sfn, int m);
 int PreloadTR(char *tfn, char *sfn, int m);
 int PreloadCE(char *tfn, char *sfn);
 void SetCombEx(char *s);
+int GetNComplex(NCOMPLEX *c, char *s);
+int ChannelAI(int b, int nmb, short *ncb,
+	      int f, int nmf, short *ncf,
+	      int *cn0, int *cn1, int *cn2);
 
 #endif
 

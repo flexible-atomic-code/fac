@@ -4216,17 +4216,19 @@ int SaveLevels(char *fn, int m, int n) {
     if (s->kgroup > 0) {
       cfg = GetConfig(s);
       nk = cfg->n_electrons-1;
-      if (nk < 0 ||
-	  levels_per_ion[nk].dim == 0 ||
-	  cfg->shells[0].nq > 1) {
+      if (nk < 0 || levels_per_ion[nk].dim == 0) {
 	lev->ibase = -1;
       } else {
 	csf = cfg->csfs + s->kstate;
 	md = 1E30;
 	lev->ibase = -1;
-	dn = cfg->shells[0].n - cfg->shells[1].n;
+	if (cfg->shells[0].nq > 1) {
+	  dn = -1;
+	} else {
+	  dn = cfg->shells[0].n - cfg->shells[1].n;
+	}
 	a = 0.0;
-	if (dn < MAXDN) {
+	if (dn >= 0 && dn < MAXDN) {
 	  a = 0.0;
 	  for (t = 0; t < lev->n_basis; t++) {
 	    s1 = ArrayGet(&(sym->states), lev->basis[t]);
@@ -4249,31 +4251,50 @@ int SaveLevels(char *fn, int m, int n) {
 	      csf1 = cfg1->csfs + s1->kstate;
 	      mst = cfg1->n_shells*sizeof(SHELL_STATE);
 	      ms = cfg1->n_shells*sizeof(SHELL);
-	      if (cfg->n_shells == cfg1->n_shells+1 &&
-		  memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
-		  memcmp(csf+1, csf1, mst) == 0) {
-		if (dn < MAXDN) {
-		  md1 = fabs(fabs(a*lev->mixing[lev->kpb[0]]) -
+	      if (dn < 0) {
+		if (cfg->n_shells == cfg1->n_shells &&
+		    cfg->shells[0].kappa == cfg1->shells[0].kappa &&
+		    cfg->shells[0].n == cfg1->shells[0].n &&
+		    cfg->shells[0].nq == cfg1->shells[0].nq+1 &&
+		    memcmp(cfg->shells+1, cfg1->shells+1, ms-sizeof(SHELL)) == 0 &&
+		    memcmp(csf+1, csf1+1, mst-sizeof(SHELL_STATE)) == 0 &&
+		    Triangle(csf[0].shellJ, csf1[0].shellJ,
+			     GetJFromKappa(cfg->shells[0].kappa))) {
+		  md1 = fabs(fabs(lev->mixing[lev->kpb[0]])-
 			     fabs(lev1->mixing[lev1->kpb[ib]]));
 		  if (md1 < md) {
 		    md = md1;
 		    lev->ibase = q;
 		  }
-		} else {
-		  ik = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
-		  orb = GetOrbital(ik);
-		  a = lev->energy - orb->energy;
-		  for (p = 0; p < ecorrections->dim; p++) {
-		    ec = (ECORRECTION *) ArrayGet(ecorrections, p);
-		    if (-(q+1) == ec->ilev) {
-		      a += ec->e;
-		      break;
+		}		    
+	      } else {
+		if (cfg->n_shells == cfg1->n_shells+1 &&
+		    memcmp(cfg->shells+1, cfg1->shells, ms) == 0 &&
+		    memcmp(csf+1, csf1, mst) == 0) {
+		  if (dn < MAXDN) {
+		    md1 = fabs(fabs(a*lev->mixing[lev->kpb[0]]) -
+			       fabs(lev1->mixing[lev1->kpb[ib]]));
+		    if (md1 < md) {
+		      md = md1;
+		      lev->ibase = q;
 		    }
-		  }
-		  md1 = fabs(lev1->energy - a);
-		  if (md1 < md) {
-		    md = md1;
-		    lev->ibase = q;
+		  } else {
+		    ik = OrbitalIndex(cfg->shells[0].n,
+				      cfg->shells[0].kappa, 0.0);
+		    orb = GetOrbital(ik);
+		    a = lev->energy - orb->energy;
+		    for (p = 0; p < ecorrections->dim; p++) {
+		      ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+		      if (-(q+1) == ec->ilev) {
+			a += ec->e;
+			break;
+		      }
+		    }
+		    md1 = fabs(lev1->energy - a);
+		    if (md1 < md) {
+		      md = md1;
+		      lev->ibase = q;
+		    }
 		  }
 		}
 	      }
