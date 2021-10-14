@@ -748,5 +748,7 @@ int ChannelAI(int b, int nmb, short *ncb,
 	      int f, int nmf, short *ncf,
 	      int *cn0, int *cn1, int *cn2);
 
+void SetInnerAI(char *s);
+
 #endif
 
