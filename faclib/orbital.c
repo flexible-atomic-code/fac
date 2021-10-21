@@ -944,7 +944,7 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   return 0;
 }
 
-int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
+int RadialBasisBQP(ORBITAL *orb, POTENTIAL *pot, double pbqp) {
   double z, z0, e, de, ep, delta, emin, emax, emin0, pp, qq, uu, vv;
   double *p, norm2, fact, p0, p1, p2, qo, qi, bqp, bqp0, bqp1;
   int i, k, kl, nr, nodes, niter, mb;
@@ -964,36 +964,60 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     return -1;
   }
 
+  nr = orb->n - kl - 1;
+
   int ib = pot->ib;
-  double pbqp, rb;
+  double rb;
   if (orb->isol == -1) {
     ib = pot->maxrp-4;
-    pbqp = 1E30;
-  } else {
-    pbqp = pot->bqp;
   }
+
   rb = pot->rad[ib];
   
   if (pbqp > 1e10) {
     mb = 0;
-  } else if (pbqp > -1e10) {
+  } else if (pbqp > -1e10+EPS5) {
     bqp = (pbqp + orb->kappa/pot->rad[ib])*FINE_STRUCTURE_CONST*0.5;    
     mb = 1;
   } else {
-    if (orb->kappa == -1) {
-      bqp = 0.0;
-    } else if (orb->kappa == 1) {
-      bqp = FINE_STRUCTURE_CONST/pot->rad[ib];
-    } else {
-      p1 = FINE_STRUCTURE_CONST*(1-orb->kappa);
-      p2 = FINE_STRUCTURE_CONST*(1+orb->kappa);
-      qi = pot->rad[ib];
-      qo = qi*qi;
-      bqp = (1/p1)*(qi-sqrt(qo-p1*p2));
-    }
     mb = 1;
+    if (pbqp > -1e12+EPS5) {
+      if (orb->kappa == -1) {
+	bqp = 0.0;
+      } else if (orb->kappa == 1) {
+	bqp = FINE_STRUCTURE_CONST/pot->rad[ib];
+      } else {
+	p1 = FINE_STRUCTURE_CONST*(1-orb->kappa); 
+	p2 = FINE_STRUCTURE_CONST*(1+orb->kappa);
+	qi = pot->rad[ib];
+	qo = qi*qi;
+	bqp = (1/p1)*(qi-sqrt(qo-p1*p2));
+      }
+    } else {
+      if (pbqp > -1e15+EPS5) {
+	p1 = ((pbqp/(-1e12))+1.0)/2;
+      } else {
+	p1 = (-(pbqp/(-1e15))+3.0)/2;
+      }
+      p2 = p1 - orb->kappa;
+      qi = p1 + orb->kappa;
+      qo = FINE_STRUCTURE_CONST/pot->rad[ib];
+      if (fabs(p2) < 1e-3) {
+	bqp = 0.5*qo*qi;
+      } else {
+	qi *= p2*qo*qo;
+	if (qi > 1) {
+	  if (_on_error >= 0) {
+	    MPrintf("Invalid boundary condition in RadialBasis: %d %d %g %g %g\n",
+		    orb->n, orb->kappa, pbqp, p1, qi);
+	  }
+	  return -1;
+	}
+	qi = 1-sqrt(1-qi);
+	bqp = (qi/p2)/qo;
+      }
+    }  
   }
-
   if (orb->isol == 0) {
     p = malloc(sizeof(double)*2*pot->maxrp);
     orb->wfun = p;
@@ -1007,8 +1031,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
     return -1;
   }
-
-  nr = orb->n - kl - 1;
 
   niter = 0;
   z0 = GetAtomicNumber();
@@ -1096,7 +1118,8 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     }
     return -4;
   }
-
+  
+  int minib = 16;
   de = emax-emin;
   ep = _eneabserr;
   niter = 0;
@@ -1166,7 +1189,6 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
   niter = 0;
   i2 = 0;
   i2o = 0;
-  int minib = 16;
   while (niter < max_iteration) {
     niter++;
     e = 0.5*(emin+emax);
@@ -1188,9 +1210,11 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
       continue;
     }
     i2 = i2o;
-    if (i2 > ib-minib) i2 = ib-minib;
+    if (i2 > ib-minib) i2 = ib-minib;    
     i2 = LastMaximum(p, 0, i2, pot);
-    if (i2 > i2o-2) i2 = i2o-2;
+    if (i2 > i2o-2) {
+      i2 = i2o-2;
+    }
     i2m1 = i2 - 1;
     i2m2 = i2 - 2;
     i2p1 = i2 + 1;
@@ -1216,7 +1240,7 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     p[i2m2] = p1;
     for (i = 0; i < i2; i++) p[i] *= fact;
     nodes = CountNodes(p, pot, 0, ib);
-    //printf("rb: %d %d %d %d %d %d %d %d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n", niter, orb->n, orb->kappa, i2, i2o, ib, nodes, nr, pot->rad[i2], e, _veff[i2], delta, emin, emax, qo, qi, pbqp, bqp, bqp0, bqp1);    
+    //printf("rb: %d %d %d %d %d %d %d %d %d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n", niter, orb->n, orb->kappa, mb, i2, i2o, ib, nodes, nr, pot->rad[i2], e, _veff[i2], delta, emin, emax, qo, qi, pbqp, bqp, bqp0, bqp1);    
     
     if (nodes > nr) {
       emax = e;
@@ -1284,6 +1308,25 @@ int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
     DiracSmall(orb, pot, ib, kv);
   }
   return 0;
+}
+
+int RadialBasis(ORBITAL *orb, POTENTIAL *pot) {
+  if (orb->isol == -1) {
+    return RadialBasisBQP(orb, pot, 1E30);
+  }
+  if (pot->bqp > -1E12+EPS5) {
+    return RadialBasisBQP(orb, pot, pot->bqp);
+  }
+  //the mode with bqp<=-1E12 may fail, we revert to 0 boundary when that happens
+  int on_error = _on_error;
+  _on_error = -1;
+  int r = RadialBasisBQP(orb, pot, pot->bqp);
+  if (r < -1) {
+    free(orb->wfun);
+    r = RadialBasisBQP(orb, pot, 1E30);
+  }
+  _on_error = on_error;
+  return r;
 }
 
 int RadialSturm(ORBITAL *orb, POTENTIAL *pot) {
@@ -1570,7 +1613,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   }
   if (isinf(norm2)) {
     if (_on_error >= 0) {
-      printf("RadialBound: inf norm: %d %d %d %d %d %d %g %g %g %g\n", niter, orb->n, orb->kappa, orb->ilast, i2o, i2, orb->energy, norm2, delta, p2, p[i2]);
+      printf("RadialBound: inf norm: %d %d %d %d %d %d %g %g %g %g %g\n", niter, orb->n, orb->kappa, orb->ilast, i2o, i2, orb->energy, norm2, delta, p2, p[i2]);
     }
     return -9;
   }
@@ -2787,7 +2830,8 @@ int SetVEffective(int kl, int kv, POTENTIAL *pot) {
   return 0;
 }
 
-static int TurningPoints(int n, double e, int kappa, POTENTIAL *pot, int isol) {
+static int TurningPoints(int n, double e, int kappa,
+			 POTENTIAL *pot, int isol) {
   // For continuum wave function solutions this function finds 
   // the boundary between Region I (numerov integration) and 
   // Region II (Hullac style Amplitude-phase) solutions to the 
