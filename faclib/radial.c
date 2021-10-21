@@ -273,7 +273,7 @@ int LoadSCPot(char *fn) {
   sscanf(buf, "# %d %d", &_scpot.nr, &_scpot.md);
   if (_scpot.nr <= 0) {
     fclose(f);
-    printf("zero dim for scpot: %d %d %d\n", _scpot.nr, _scpot.md);
+    printf("zero dim for scpot: %d %d\n", _scpot.nr, _scpot.md);
     return -1;
   }
   _scpot.rg = malloc(sizeof(double)*_scpot.nr);
@@ -2583,7 +2583,7 @@ void SetScreenConfig(int iter) {
 	while (1) {
 	  iti++;
 	  if (iti > 10000) {
-	    printf("sc iloop fail: %d %d %d %d\n", it, iti, n, n0, n1);
+	    printf("sc iloop fail: %d %d %d %d %d\n", it, iti, n, n0, n1);
 	    Abort(1);
 	  }
 	  if (n >= n0 && n <= n1) {
@@ -3452,6 +3452,7 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
     }
     j2 = GetJFromKappa(ka[ik]);
     nq[ik] = (j2+1.0)*y;
+    if (nq[ik] < 1e-30) nq[ik] = 0.0;
     if (potential->efm <= 0 && tps > 0) {
       nq[ik] *= BoundFactor(et[ik]*tps, 0.0);
     }
