@@ -5511,7 +5511,7 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	fprintf(f2, "%6d %2d %6d %2d %11.4E %11.4E %11.4E\n",
 		r.b, mem_en_table[r.b].j,
-		r.f, r.f>0?mem_en_table[r.f].j:-1,
+		r.f, r.f>=0?mem_en_table[r.f].j:-1,
 		e*HARTREE_EV, (RATE_AU*r.rate), sdr);
       } else {
 	fprintf(f2, "%6d %6d %15.8E\n", r.b, r.f, r.rate);
