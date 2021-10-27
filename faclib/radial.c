@@ -3574,6 +3574,8 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   for (k = 0; k < potential->maxrp; k++) {
     _dwork[k] = potential->EPS[k];
     potential->EPS[k] = _zk[k];
+    _dwork3[k] = 0.0;
+    _dwork4[k] = 0.0;
   }
   AVERAGE_CONFIG *ac = &(average_config);
   nm = 0;
@@ -3592,8 +3594,18 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       a = ac->nq[ik]*(x*x + y*y);
       _dwork1[k] += a*u;
       _dwork2[k] += a*(1-u);
+      _dwork3[k] += a*(orb->energy-potential->VT[orb->kv][k]);
+      _dwork4[k] += a;
     }
-  }  
+  }
+  for (k = 0; k < potential->maxrp; k++) {
+    if (fabs(_dwork4[k]) < 1e-90) _dwork4[k] = 0.0;
+    a = _dwork4[k];
+    if (a > 0) {
+      _dwork3[k] /= a;
+      if (fabs(_dwork3[k]) < 1e-90) _dwork3[k] = 0.0;
+    }
+  }
   fprintf(f, "#   d0: %15.8E\n", d0);
   fprintf(f, "#   dn: %15.8E\n", d);
   fprintf(f, "#    T: %15.8E\n", t);
@@ -3616,10 +3628,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#  vxf: %15d\n", _sc_vxf);
   for (k = 0; k < potential->maxrp; k++) {
     a = potential->rad[k];
-    fprintf(f, "%6d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
+    fprintf(f, "%6d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
 	    k, a, potential->NPS[k], potential->VPS[k],
 	    potential->EPS[k], potential->VXF[k],
-	    _dwork1[k], _dwork2[k], _dwork[k]);
+	    _dwork1[k], _dwork2[k], _dwork[k], _dwork4[k], _dwork3[k]);
   }
   fclose(f);
 }
