@@ -3594,16 +3594,20 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       a = ac->nq[ik]*(x*x + y*y);
       _dwork1[k] += a*u;
       _dwork2[k] += a*(1-u);
-      _dwork3[k] += a*(orb->energy-potential->VT[orb->kv][k]);
+      if (orb->energy < 0) {
+	_dwork3[k] += a*log(-orb->energy);
+      }
       _dwork4[k] += a;
     }
   }
   for (k = 0; k < potential->maxrp; k++) {
     if (fabs(_dwork4[k]) < 1e-90) _dwork4[k] = 0.0;
-    a = _dwork4[k];
+    a = (potential->EPS[k]+_dwork4[k]);
     if (a > 0) {
-      _dwork3[k] /= a;
+      _dwork3[k] = exp(2*_dwork3[k]/a)*potential->rad[k]*potential->rad[k];
       if (fabs(_dwork3[k]) < 1e-90) _dwork3[k] = 0.0;
+    } else {
+      _dwork3[k] = 0.0;
     }
   }
   fprintf(f, "#   d0: %15.8E\n", d0);

@@ -233,8 +233,9 @@ class AA:
         xr = np.arange(nr)
         rr = list(rmin*np.exp(xr*h))
         r = list(r)        
-        da = util.UVIP3P(r, list(d[3]), rr);
+        da = util.UVIP3P(r, list(d[4]+d[9]), rr);
         df = util.UVIP3P(r, list(d[4]+d[7]), rr);
+        db = util.UVIP3P(r, list(d[10]), rr);
         with open(ofn, 'w') as f:
             f.write('%5d %6d %6d\n'%(z, 1, 1))
             f.write('%12.5E %12.5E\n'%(te, de))
@@ -255,7 +256,11 @@ class AA:
                 f.write('%13.7E '%df[i])
                 if (i+1)%5 == 0:
                     f.write('\n')
-            
+            for i in range(nr):
+                f.write('%13.7E '%db[i]);
+                if (i+1)%5 == 0:
+                    f.write('\n')
+                    
     def run(self, dtol=0.01, init=True):
         if self.wm is None:
             self.run1z()
