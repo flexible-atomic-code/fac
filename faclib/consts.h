@@ -120,6 +120,15 @@ extern int LEPTON_TYPE;
 extern double LEPTON_MASS;
 extern double LEPTON_CHARGE;
 
+/* particle masses in eV */
+#define ELECTRON_MASS 510998.950
+#define PROTON_MASS 938272088.16
+#define NEUTRON_MASS 939565420.52
+#define MUON_MASS 105658375.5
+#define PION_MASS 139570390.0
+#define KAON_MASS 493677000.0
+#define TAU_MASS 1776860000.0
+
 /*
 ** VARIABLE:    HARTREE_EV
 ** TYPE:        macro constant
