@@ -958,8 +958,8 @@ int RadialBasisBQP(ORBITAL *orb, POTENTIAL *pot, double pbqp) {
 
   if (kl < 0 || kl >= orb->n) {
     if (_on_error >= 0) {
-      printf("Invalid orbital angular momentum, L=%d, %d %d\n", 
-	     kl, orb->n, orb->kappa);
+      MPrintf(-1, "Invalid orbital angular momentum, L=%d n=%d ka=%d\n", 
+	      kl, orb->n, orb->kappa);
     }
     return -1;
   }
@@ -1008,7 +1008,7 @@ int RadialBasisBQP(ORBITAL *orb, POTENTIAL *pot, double pbqp) {
 	qi *= p2*qo*qo;
 	if (qi > 1) {
 	  if (_on_error >= 0) {
-	    MPrintf("Invalid boundary condition in RadialBasis: %d %d %g %g %g\n",
+	    MPrintf(-1, "Invalid boundary condition in RadialBasis: %d %d %g %g %g\n",
 		    orb->n, orb->kappa, pbqp, p1, qi);
 	  }
 	  return -1;
@@ -3484,7 +3484,7 @@ int SetPotentialVT(POTENTIAL *pot) {
       pot->dVT[0][i] += a/r2 - b/r;
       pot->dVT2[0][i] += 2.0*(-a/r +b)/r2 - y/r;
     }
-  } 
+  }
   if (pot->pse && pot->nse) {
     for (k = 0; k < NKSEP; k++) {
       k1 = k+1;
@@ -3509,6 +3509,7 @@ int SetPotentialVT(POTENTIAL *pot) {
       }
     }
   }
+
   return 0;
 }
 
@@ -3778,13 +3779,14 @@ int SetPotentialSE(POTENTIAL *pot) {
 
 int SetPotentialVP(POTENTIAL *pot) {
   int i, j, k, p, m, n, mvp, vp;
-  double a, b, z0, r0, r;
+  double a, b, z0, r0, r, rr;
   double v3, za, za2, za3, a2, lam, r2, r3, r5, x, y, f0, fs, fm;
 
   mvp = pot->mvp%100;
   vp = mvp%10;
   mvp = mvp/10;
   r0 = 3.86159E-3/RBOHR;
+  rr = RBOHR/_RBOHR;
   z0 = pot->atom->atomic_number;
   a = -2.0*z0*FINE_STRUCTURE_CONST/(3.0*PI);
   b = -z0*FINE_STRUCTURE_CONST2/(PI*PI);  
@@ -3794,6 +3796,7 @@ int SetPotentialVP(POTENTIAL *pot) {
   }
   if (vp > 1) {
     for (i = 0; i < pot->maxrp; i++) {
+      r = pot->rad[i]*2.0/r0;
       pot->ZVP[i] -= b*UehlingL1(r);
     }
   }
@@ -3805,7 +3808,7 @@ int SetPotentialVP(POTENTIAL *pot) {
     a2 = FINE_STRUCTURE_CONST2;
     lam = 1-sqrt(1-za2);
     for (i = 0; i < pot->maxrp; i++) {
-      r = pot->rad[i]/a;
+      r = (pot->rad[i]/a)*rr;
       v3 = 0.0;
       r2 = r*r;
       r3 = r2*r;
@@ -3887,7 +3890,7 @@ int SetPotentialVP(POTENTIAL *pot) {
 	}
 	v3 /= (1+fs);
       }
-      pot->ZVP[i] -= (za3*v3/a)*pot->rad[i];
+      pot->ZVP[i] -= (rr*za3*v3/a)*pot->rad[i];
     }
   }
   

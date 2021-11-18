@@ -45,4 +45,5 @@ int InitFac(void);
 int ReinitFac(int, int, int, int, int, int, int, int);
 void SetOption(char *s, char *sp, int ip, double dp);
 void SetLepton(int t, double m, double e, char *f);
+void PrintLepton(FILE *f);
 #endif

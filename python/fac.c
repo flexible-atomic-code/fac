@@ -1476,7 +1476,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   int ng, i, k;
   int *kg;
   double z;
-  PyObject *p;
+  PyObject *p, *pw;
   double *weight;
 
   if (sfac_file) {
@@ -1511,8 +1511,8 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
     if (PyTuple_Size(args) == 1) {
       weight = NULL;
     } else {
-      args = PyTuple_GET_ITEM(args, 1);
-      k = PySequence_Length(args);
+      pw = PyTuple_GET_ITEM(args, 1);
+      k = PySequence_Length(pw);
       if (k < 0 || k > ng) {
 	onError("weights must be a sequence");
 	return NULL;
@@ -1520,7 +1520,7 @@ static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
       weight = malloc(sizeof(double)*ng);
       z = 0.0;
       for (i = 0; i < k; i++) {
-	p = PySequence_GetItem(args, i);
+	p = PySequence_GetItem(pw, i);
 	if (!PyFloat_Check(p)) {
 	  onError("weights must be float numbers");
 	  if (weight) free(weight);
@@ -6322,6 +6322,37 @@ static PyObject *PSetLepton(PyObject *self, PyObject *args) {
   return Py_None;
 }
   
+static PyObject *PSaveSCPot(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SaveSCPot", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *s;
+  int md;
+  s = NULL;
+  md = 2;
+  if (!PyArg_ParseTuple(args, "|is", &md, &s)) return NULL;
+  SaveSCPot(md, s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+  
+static PyObject *PLoadSCPot(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("LoadSCPot", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  char *s;
+  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
+  LoadSCPot(s);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6560,6 +6591,8 @@ static struct PyMethodDef fac_methods[] = {
   {"NucleusRadius", PNucleusRadius, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"SetLepton", PSetLepton, METH_VARARGS},
+  {"SaveSCPot", PSaveSCPot, METH_VARARGS},
+  {"LoadSCPot", PLoadSCPot, METH_VARARGS},
   {NULL, NULL}
 };
 

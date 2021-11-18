@@ -126,6 +126,7 @@ void SetOptimizeControl(double tolerence, double stablizer,
 void SetScreening(int n_screen, int *screened_n, 
 		  double screened_harge, int kl);
 int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife);
+int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife);
 int RefineRadial(int m, int n, int maxfun, int msglvl);
 double ConfigEnergyShiftCI(int nrs0, int nrs1);
 double ConfigEnergyShift(int ns, SHELL *bra, int ia, int ib, int m2);
@@ -156,6 +157,7 @@ int IntegrateSinCos(int j, double *x, double *y,
 int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
 double *Vinti(int k0, int k1);
 double QED1E(int k0, int k1);
+double SelfEnergyExotic(ORBITAL *orb);
 double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2);
 double SelfEnergyRatioWelton(ORBITAL *orb, ORBITAL *horb);
 double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb);
@@ -234,5 +236,8 @@ void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);
 double BoundFactor(double e, double e0);
+void LoadSCPot(char *fn);
+void SaveSCPot(int md, char *fn);
+
 #endif
 

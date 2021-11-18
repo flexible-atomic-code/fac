@@ -18,6 +18,7 @@
 
 #include "radial.h"
 #include "mpiutil.h"
+#include "init.h"
 #include "cf77.h"
 #include "structure.h"
 #include <errno.h>
@@ -236,6 +237,12 @@ static double _sc_npdmax = 1e-1;
 static double _sc_npdmin = 1e-5;
 static double _sc_exc = 3.0;
 static int _sc_vxf = 1;
+static char _sc_cfg[1024] = "";
+static int _sc_lepton = 0;
+static int _sc_maxiter = 5;
+static double _sc_mass = -1.;
+static double _sc_charge = -1.;
+static double _sc_tol = 1e-3;
 
 static double PhaseRDependent(double x, double eta, double b);
 
@@ -247,19 +254,20 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
-int LoadSCPot(char *fn) {
+void LoadSCPot(char *fn) { 
   FILE *f;
   char buf[1024];
   int i;
+  double a;
   
   f = fopen(fn, "r");
   if (f == NULL) {
     printf("cannot open file: %s\n", fn);
-    return -1;
+    return;
   }
   if (NULL == fgets(buf, 1024, f)) {
     fclose(f);
-    return -1;
+    return;
   }
   if (_scpot.nr > 0) {
     _scpot.nr = 0;
@@ -274,7 +282,7 @@ int LoadSCPot(char *fn) {
   if (_scpot.nr <= 0) {
     fclose(f);
     printf("zero dim for scpot: %d %d\n", _scpot.nr, _scpot.md);
-    return -1;
+    return;
   }
   _scpot.rg = malloc(sizeof(double)*_scpot.nr);
   _scpot.dg = malloc(sizeof(double)*_scpot.nr);
@@ -285,17 +293,75 @@ int LoadSCPot(char *fn) {
     _scpot.eg[i] = 0.0;
     _scpot.xg[i] = 0.0;
   }
+  a = _RBOHR/RBOHR;
   i = 0;
   while (i < _scpot.nr) {
     if (NULL == fgets(buf, 1024, f)) break;
     if (buf[0] == '#') continue;
     sscanf(buf, "%lg %lg %lg", &_scpot.rg[i], &_scpot.dg[i], &_scpot.eg[i]);
+    _scpot.rg[i] *= a;
+    if (_scpot.md == 0 || _scpot.md == 2) {
+      _scpot.dg[i] /= a;
+      _scpot.eg[i] /= a;
+    }
     i++;
   }
   fclose(f);
-  return 0;
 }
-  
+
+void SaveSCPot(int md, char *fn) {
+  FILE *f;
+  int i;
+  double r, d0, d1, a;
+
+  md = 3;
+  a = RBOHR/_RBOHR;
+  if (fn == NULL) {
+    if (_scpot.nr > 0) {
+      _scpot.nr = 0;
+      _scpot.md = -1;
+      _scpot.jmax = 0.0;
+      free(_scpot.rg);
+      free(_scpot.xg);
+      free(_scpot.dg);
+      free(_scpot.eg);
+    }
+    _scpot.nr = potential->maxrp;
+    _scpot.md = md;
+    _scpot.rg = malloc(sizeof(double)*_scpot.nr);
+    _scpot.dg = malloc(sizeof(double)*_scpot.nr);
+    _scpot.eg = malloc(sizeof(double)*_scpot.nr);
+    _scpot.xg = malloc(sizeof(double)*_scpot.nr);
+    for (i = 0; i < _scpot.nr; i++) {
+      _scpot.dg[i] = 0.0;
+      _scpot.eg[i] = 0.0;
+      _scpot.xg[i] = 0.0;
+    }
+    for (i = 0; i < potential->maxrp; i++) {
+      r = potential->rad[i]*a;
+      d0 = potential->NPS[i]/a;
+      d1 = 0.0;
+      _scpot.rg[i] = r;
+      _scpot.dg[i] = d0;
+      _scpot.eg[i] = d1;
+    }
+    return;
+  }
+  f = fopen(fn, "w");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  fprintf(f, "# %d %d\n", potential->maxrp, md);
+  for (i = 0; i < potential->maxrp; i++) {
+    r = potential->rad[i]*a;
+    d0 = potential->NPS[i]/a;
+    d1 = 0.0;
+    fprintf(f, "%15.8E %15.8E %15.8E\n", r, d0, d1);    
+  }
+  fclose(f);
+}
+
 void SetOptSTA(int i, int iter) {
   int k;
   double r, r2, d;
@@ -1769,6 +1835,7 @@ int SetRadialGrid(int maxrp, double ratio, double asymp,
   potential->zps = 0;
   potential->nps = 0;
   potential->tps = 0;
+  potential->ups = 0;
   potential->rps = 0;
   potential->dps = 0;
   potential->aps = 0;
@@ -2045,11 +2112,12 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     jps1 = 0.0;
     if (_scpot.md != 1) {
       jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1);
-    }    
-    if (potential->vxf) {
-      for (m = 0; m < potential->maxrp; m++) {
-	ue2[m] -= ue1[m];
-	u2[m] -= ue2[m];
+       
+      if (potential->vxf) {
+	for (m = 0; m < potential->maxrp; m++) {
+	  ue2[m] -= ue1[m];
+	  u2[m] -= ue2[m];
+	}
       }
     }
     Differential(potential->ZPS, potential->dZPS,
@@ -2057,6 +2125,9 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     Differential(potential->dZPS, potential->dZPS2,
 		 0, potential->maxrp-1, potential);
     potential->jps = jps1-jps0;
+    if (_scpot.md == 3) {
+      potential->zps = potential->ZPS[potential->maxrp-1];
+    }
   }
 
   if (potential->N < 1+EPS3) {
@@ -2244,7 +2315,6 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
 void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
   int jmax, i, j;
   double *u, a, b, c, r;
-
   u = potential->U;
   jmax = PotentialHX(acfg, u, iter);
   if (jmax > 0) {
@@ -2263,7 +2333,7 @@ void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       SetPotentialVc(potential);
       SetPotentialU(potential, -1, NULL);
       SetPotentialVT(potential);
-      if (potential->mps < 0) return;
+      if (potential->mps < 0 && _scpot.md != 1 && _scpot.md != 3) return;
     }
     r = potential->atom->atomic_number;
     b = potential->N1/potential->N;
@@ -2287,6 +2357,7 @@ void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
       u[j] = a - b;
       u[j] /= potential->rad[j];
     }
+    
     SetPotentialU(potential, 0, NULL);
     SetPotentialVT(potential);
   }
@@ -2412,6 +2483,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#  sturm = %15.8E\n", potential->sturm_idx);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
+  PrintLepton(f);
   fprintf(f, "# Mean configuration: %d %d\n", acfg->n_shells, acfg->n_cores);
   double nqt = 0.0;
   double nqb = 0.0;
@@ -3081,7 +3153,7 @@ void SetPotentialN(void) {
   double a = 0.0, b = 0.0;
   int i;
   AVERAGE_CONFIG *acfg = &(average_config);
-  
+
   for (i = 0; i < acfg->n_shells; i++) {
     a += acfg->nq[i];
     if (i < acfg->n_cores) {
@@ -3122,6 +3194,77 @@ void SetPotentialN(void) {
 }
 
 int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
+  if (strlen(_sc_cfg) < 2) {
+    return OptimizeRadialWSC(ng, kg, ic, weight, ife);
+  }
+  int lepton_type = LEPTON_TYPE;
+  double lepton_mass = LEPTON_MASS;
+  double lepton_charge = LEPTON_CHARGE;
+  int niter = 0;
+  int i, ns, nd;
+  int *n, *kappa;
+  double *nq;
+  double *dg;
+  int done;
+  double dm, dd;
+  ns = GetAverageConfigFromString(&n, &kappa, &nq, _sc_cfg);
+  if (ns <= 0) {
+    printf("invalid screen config: %s\n", _sc_cfg);
+    return -1;
+  }
+
+  dg = NULL;
+  done = 0;
+  while (1) {
+    if (0 > OptimizeRadialWSC(ng, kg, ic, weight, ife)) {
+      return -1;
+    }
+    if (done) break;
+    SaveSCPot(3, NULL);
+    ReinitRadial(0);
+    SetLepton(_sc_lepton, _sc_mass, _sc_charge, NULL);
+    SetAverageConfig(ns, n, kappa, nq);
+    if (0 > OptimizeRadialWSC(0, NULL, -1, NULL, 0)) {
+      return -1;
+    }
+    SaveSCPot(3, NULL);
+    if (niter == 0) {
+      dg = malloc(sizeof(double)*_scpot.nr);
+    } else {
+      dm = 0;
+      for (i = 0; i < _scpot.nr; i++) {
+	if (_scpot.dg[i] > dm) dm = _scpot.dg[i];
+      }
+      dm *= 1e-3;
+      dd = 0.0;
+      nd = 0;
+      for (i = 0; i < _scpot.nr; i++) {
+	if (_scpot.dg[i] < dm) continue;
+	dd += fabs(_scpot.dg[i]-dg[i]);
+	nd++;
+      }
+      dd /= nd;
+      if (dd < _sc_tol) {
+	done = 1;
+      }
+    }
+    memcpy(dg, _scpot.dg, sizeof(double)*_scpot.nr);
+    ReinitRadial(0);
+    SetLepton(lepton_type, lepton_mass, lepton_charge, NULL);
+    niter++;
+    if (niter > _sc_maxiter) {
+      printf("sc_maxiter reached: %d\n", niter);
+      break;
+    }
+  }
+  free(dg);
+  free(n);
+  free(nq);
+  free(kappa);
+  return 0;
+}
+
+int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, *r, emin, smin, hxs[NXS2], ehx[NXS2], mse;
   int iter, i, j, i0, i1, k;
@@ -3210,58 +3353,91 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   SetPotentialZ(potential);
   
   if (_scpot.nr > 0) {
-    r = potential->rad;
+    a = _RBOHR/RBOHR;
+    for (i = 0; i < _scpot.nr; i++) {
+      _scpot.rg[i] *= a;
+      if (_scpot.md >= 2) {
+	_scpot.dg[i] /= a;
+	_scpot.eg[i] /= a;
+      }
+    }
+    r = potential->rad;    
     for (i = 0; i < _scpot.nr; i++) {
       _scpot.xg[i] = potential->ar*pow(_scpot.rg[i],potential->qr) +
 	potential->br*log(_scpot.rg[i]);
     }
     a = _scpot.rg[_scpot.nr-1];
+    b = _scpot.rg[0];
+    i0 = -1;
     for (i = 0; i < potential->maxrp; i++) {
+      if (r[i] < b) i0 = i;
       if (r[i] > a) break;
     }
+    i0++;
     i1 = i-1;
     _scpot.jmax = i1;
+    i = i1-i0+1;
     r = potential->rho;
     switch (_scpot.md) {
     case 0:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r, _dphasep);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r, _phase);
-      for (k = i; k < potential->maxrp; k++) {
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r+i0, _dphasep+i0);
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r+i0, _phase+i0);
+      for (k = 0; k < i0; k++) {
+	_dphasep[k] = 0.0;
+	_phase[k] = 0.0;
+      }
+      for (k = i1+1; k < potential->maxrp; k++) {
 	_dphasep[k] = _dphasep[i1];
-	_dphase[k] = _dphase[i1];
+	_phase[k] = _phase[i1];
       }
       break;
     case 1:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r, potential->ZPS);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r, _zk);
-      for (k = i; k < potential->maxrp; k++) {
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r+i0, potential->ZPS+i0);
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r+i0, _zk+i0);
+      for (k = 0; k < i0; k++) {
+	potential->ZPS[k] = 0.0;
+	_zk[k] = 0.0;
+      }
+      for (k = i1+1; k < potential->maxrp; k++) {
 	potential->ZPS[k] = potential->ZPS[i1];
 	_zk[k] = _zk[i1];
       }
-      for (i = 0; i < potential->maxrp; i++) {
-	potential->VXF[i] = 0.0;
-	potential->EPS[i] = 0.0;
-	_phase[i] = 0.0;
+      for (k = 0; k < potential->maxrp; k++) {
+	potential->VXF[k] = 0.0;
+	potential->EPS[k] = 0.0;
+	_phase[k] = 0.0;
       }
+      potential->zps = potential->ZPS[potential->maxrp-1];
+      potential->nps = 1.0;
       break;
     case 2:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r, potential->NPS);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r, _phase);
-      for (k = i; i < potential->maxrp; k++) {
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r+i0, potential->NPS+i0);
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r+i0, _phase+i0);
+      for (k = 0; k < i0; k++) {
+	potential->NPS[k] = 0.0;
+	_phase[k] = 0.0;
+      }
+      for (k = i1+1; k < potential->maxrp; k++) {
 	potential->NPS[k] = 0.0;
 	_phase[k] = 0.0;
       }      
       break;
     default:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r, potential->VPS);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r, potential->EPS);
-      for (k = i; i < potential->maxrp; k++) {
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, r+i0, potential->VPS+i0);
+      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, r+i0, potential->EPS+i0);
+      for (k = 0; k < i0; k++) {
 	potential->VPS[k] = 0.0;
 	potential->EPS[k] = 0.0;
       }
-      for (i = 0; i < potential->maxrp; i++) {
-	potential->VXF[i] = potential->VPS[i];
+      for (k = i1+1; k < potential->maxrp; k++) {
+	potential->VPS[k] = 0.0;
+	potential->EPS[k] = 0.0;
       }
+      for (k = 0; k < potential->maxrp; k++) {
+	potential->VXF[k] = potential->VPS[k];
+      }
+      potential->zps = 0.0;
+      potential->nps = 1.0;
       break;
     }
   }
@@ -3420,6 +3596,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   } else {
     iter = OptimizeLoop(acfg);
   }
+
   /*
   SetLatticePotential(potential, potential->VT[0]);
   ClearOrbitalTable(0);
@@ -3430,6 +3607,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   if (!ife && _config_energy >= 0) {
     ConfigEnergy(1, 0, 0, NULL);
   }
+
   return iter;
 }      
 
@@ -3953,6 +4131,7 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
   fprintf(f, "#   bqp1 = %15.8E\n", orb->bqp1);
   fprintf(f, "#    idx = %d\n", k);
+  PrintLepton(f);
   ORBITAL *horb = orb->horb;
   ORBITAL *rorb = orb->rorb;
   if (n != 0) {
@@ -6939,12 +7118,54 @@ ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
   return norb;
 }
 
+//for exotic atoms (muonic e.g.), use leading order.
+//Barrett, R.C., Phys.Lett. B28, 93 (1968)
+double SelfEnergyExotic(ORBITAL *orb) {
+  double a, a2, a3, p2, v2, x, y, c0, c1, b;
+  int i, n, k;
+  double *p, *q;
+  
+  a = FINE_STRUCTURE_CONST;
+  a2 = FINE_STRUCTURE_CONST2;
+  a3 = a2*a;
+
+  c0 = a3/(3*PI);
+  c1 = a2/(2*PI);
+
+  n = orb->ilast;
+  p = Large(orb);
+  q = Small(orb);
+  k = orb->kv;
+  for (i = 0; i <= n; i++) {
+    x = p[i]*q[i]*potential->dr_drho[i];
+    _dwork1[i] = -x*potential->dVT[k][i];
+    x = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
+    _dwork2[i] = x*potential->qdist[i];
+    y = orb->energy-potential->VT[k][i];
+    _dwork3[i] = y*(y+2/a2)*x;
+    y = potential->dVT[k][i];
+    _dwork4[i] = y*y*x;    
+  }
+  c1 *= Simpson(_dwork1, 0, n);
+  c0 *= Simpson(_dwork2, 0, n);
+  p2 = Simpson(_dwork3, 0, n);
+  v2 = Simpson(_dwork4, 0, n);
+  b = 0.5*log(p2/(4*a2*v2));
+  //b = log(1.0/(a2*fabs(orb->energy)));
+  b += 0.2583;
+  if (orb->kappa == -1) b += 0.375;
+  c0 *= b;
+  //printf("see: %d %d %g %g %g %g %g %g %g\n", orb->n, orb->kappa, orb->energy, c0, c1, p2, v2, b, (c0+c1)*HARTREE_EV);
+  return c0+c1;
+}
+
 double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   double a, c;
   double an = 0.0;
   ORBITAL *orb0 = NULL;
   int msc = qed.mse%10;
   int ksc = qed.mse/10;
+
   
   if (qed.se == -1000000) return 0.0;
   if (orb1->n <= 0 || orb2->n <= 0) return 0.0;
@@ -6952,6 +7173,20 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
   if (orb1->energy > 0 && orb2->energy > 0) {
     return 0.0;
   } else {
+    if (LEPTON_TYPE != 0) {
+      if (orb1 != orb2) return 0.0;
+      if (orb1->se < 0.999e31) return orb1->se;
+      if (orb1->n <= 0) {
+	orb1->se = 0.0;
+	return 0.0;
+      }
+      if (!(qed.se < 0 || orb1->n <= qed.se)) {
+	orb1->se = 0.0;
+	return 0.0;
+      }
+      orb1->se = SelfEnergyExotic(orb1);
+      return orb1->se;
+    }
     double ae, ose, eb0;
     int idx, nb0;
     int kv = IdxVT(orb1->kappa);
@@ -11198,8 +11433,28 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _sc_vxf = ip;
     return;
   }
-  if (0 == strcmp(s, "radial:sc_pot")) {
-    LoadSCPot(sp);
+  if (0 == strcmp(s, "radial:sc_lepton")) {
+    _sc_lepton = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sc_maxiter")) {
+    _sc_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sc_mass")) {
+    _sc_mass = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sc_tol")) {
+    _sc_tol = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sc_charge")) {
+    _sc_charge = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:sc_cfg")) {
+    strncpy(_sc_cfg, sp, 1023);
     return;
   }
 }
