@@ -1308,13 +1308,20 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
     if (atom.mass != atom.m0 && atom.m0 > 0) {
       atom.rn += 0.836*(pow(atom.mass,0.3333333)-pow(atom.m0,0.3333333));
     }
-    atom.rn *= 1e-5/RBOHR;
-    atom.rms = atom.rn;
   } else {
-    rn *= 1e-5/RBOHR;
     atom.rn = rn;
-    atom.rms = rn;
   }
+
+  SetAtomicChargeDist(a, rmse);
+  return 0;
+}
+
+void SetAtomicChargeDist(double a, double rmse) {
+  int i;
+  
+  atom.rn *= 1e-5/RBOHR;
+  atom.rms = atom.rn;
+
   if (a >= 0) {
     atom.a = a;
   } else {
@@ -1385,12 +1392,30 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
 
   SetExtraPotential(-1, 0, NULL, NULL);
   
-  if (atom.atomic_number >= 10 && atom.atomic_number <= 120) {
+  if (LEPTON_TYPE == 0 &&
+      atom.atomic_number >= 10 &&
+      atom.atomic_number <= 120) {
     INIQED(atom.atomic_number, 9, atom.rn>0, atom.rmse);
   }
-  return 0;
 }
 
+/* dimensions:
+** rn -- L
+** z1 -- 1/L
+** a  -- L
+** b  -- 1/L^2
+** c  -- L
+*/
+void ScaleAtomicChargeDist(double a) {
+  atom.rn *= a;
+  atom.z1 /= a;
+  atom.rms *= a;
+  atom.rms0 *= a;
+  atom.a *= a;
+  atom.b /= a*a;
+  atom.c *= a;
+}  
+  
 double NucleusRadius(double z, double m, int md) {
   int iz = (int)(z-0.5);
   double m0 = _emass[iz];
@@ -1441,8 +1466,8 @@ void PrintNucleus(int m, char *fn) {
     fprintf(f, "z: %g\n", atom.atomic_number);
     fprintf(f, "mass: %g\n", atom.mass);
     fprintf(f, "rn: %g\n", atom.rn);
-    fprintf(f, "rms: %g\n", atom.rms*1e5*RBOHR);
-    fprintf(f, "rmse: %g\n", atom.rmse);
+    fprintf(f, "rms: %g fm\n", atom.rms*1e5*RBOHR);
+    fprintf(f, "rmse: %g fm\n", atom.rmse);
     fprintf(f, "fz1: %g\n", atom.z1);
     fprintf(f, "fa: %g\n", atom.a);
     fprintf(f, "fb: %g\n", atom.b);

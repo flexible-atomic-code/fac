@@ -69,19 +69,19 @@ void SetLepton(int t, double m0, double e0, char *fn) {
     e = 1.0;
     break;
   case 1: //muon
-    m = 2.06768283e2;
+    m = MUON_MASS/ELECTRON_MASS;
     e = 1.0;
     break;
   case 2: //pi-
-    m = 2.731324399e2;
+    m = PION_MASS/ELECTRON_MASS;
     e = 1;
     break;
   case 3: //k-
-    m = 966.101789e2;
+    m = KAON_MASS/ELECTRON_MASS;
     e = 1;
     break;
   case 4: //tau
-    m = 3.47722828e3;
+    m = TAU_MASS/ELECTRON_MASS;
     e = 1;
     break;
   default:
@@ -89,7 +89,7 @@ void SetLepton(int t, double m0, double e0, char *fn) {
     e = 1.0;
     break;
   }
-  if (m0 > 0) m = m0;
+  if (m0 > 0) m = m0/ELECTRON_MASS;
   if (e0 > 0) e = e0;
 
   LEPTON_TYPE = t;

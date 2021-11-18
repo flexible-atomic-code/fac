@@ -47,6 +47,8 @@ void PrintNucleus();
 int InitNucleus();
 double GraspRRMS(double z, double m);
 int SetAtom(char *s, double z, double mass, double rn, double a, double rse);
+void SetAtomicChargeDist(double a, double rse);
+void ScaleAtomicChargeDist(double a);
 char *GetAtomicSymbolTable(void);
 double *GetAtomicMassTable(void);
 double GetAtomicNumber(void);

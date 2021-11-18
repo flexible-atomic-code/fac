@@ -119,6 +119,8 @@ int SetPotentialWZMC (POTENTIAL *pot, double e, int kappa, int kv);
 int SetPotentialSturm(POTENTIAL *pot);
 int AddPotentialSturm(POTENTIAL *pot, int k, double e);
 int IdxVT(int kappa);
+void MaxRGrid(POTENTIAL *pot, double gasymp, double gratio, double z,
+	      double rmin, int maxrp, double *ap, double *cp, double *rmp);
 int DiracSmall(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 int DiracSmallZMC(ORBITAL *orb, POTENTIAL *pot, int i2, int kv);
 double EneTol(double e);
