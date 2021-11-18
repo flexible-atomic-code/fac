@@ -114,6 +114,13 @@
 #define SQRT2      1.41421356237
 
 /*
+** lepton type, mass and charge relative to electron.
+*/
+extern int LEPTON_TYPE;
+extern double LEPTON_MASS;
+extern double LEPTON_CHARGE;
+
+/*
 ** VARIABLE:    HARTREE_EV
 ** TYPE:        macro constant
 ** PURPOSE:     1 Hartree in eV.

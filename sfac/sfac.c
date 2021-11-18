@@ -5253,7 +5253,30 @@ static int PSetLepton(int argc, char *argv[], int argt[],
   SetLepton(t, m, e, s);
   return 0;
 }
+
+static int PSaveSCPot(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  int md = 2;
+  char *s = NULL;
   
+  if (argc > 0) {
+    md = atoi(argv[0]);
+    if (argc > 1) {
+      s = argv[1];
+    }
+  }
+  SaveSCPot(md, s);
+  return 0;
+}
+
+static int PLoadSCPot(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  if (argc != 1) return -1;
+  
+  LoadSCPot(argv[0]);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5473,6 +5496,8 @@ static METHOD methods[] = {
   {"TotalCICross", PTotalCICross, METH_VARARGS}, 
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"SetLepton", PSetLepton, METH_VARARGS},
+  {"SaveSCPot", PSaveSCPot, METH_VARARGS},
+  {"LoadSCPot", PLoadSCPot, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

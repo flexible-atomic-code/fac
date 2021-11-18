@@ -2839,7 +2839,8 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
       }
     }
   }
-	  
+
+  for (i = 0; i < j; i++) acfg->e[i] = 0.0;
   return j;
 
  ERROR:

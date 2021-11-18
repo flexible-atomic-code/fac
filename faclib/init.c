@@ -33,6 +33,9 @@ USE (rcsid);
   FILE *perform_log = NULL;
 #endif
 
+int LEPTON_TYPE;
+double LEPTON_MASS;
+double LEPTON_CHARGE;
 double HARTREE_EV;
 double RYDBERG_EV;
 double RATE_AU;
@@ -69,7 +72,15 @@ void SetLepton(int t, double m0, double e0, char *fn) {
     m = 2.06768283e2;
     e = 1.0;
     break;
-  case 2: //tau
+  case 2: //pi-
+    m = 2.731324399e2;
+    e = 1;
+    break;
+  case 3: //k-
+    m = 966.101789e2;
+    e = 1;
+    break;
+  case 4: //tau
     m = 3.47722828e3;
     e = 1;
     break;
@@ -81,6 +92,10 @@ void SetLepton(int t, double m0, double e0, char *fn) {
   if (m0 > 0) m = m0;
   if (e0 > 0) e = e0;
 
+  LEPTON_TYPE = t;
+  LEPTON_MASS = m;
+  LEPTON_CHARGE = e;
+  
   double e2 = e*e;
   double e3 = e2*e;
   double e4 = e2*e2;
@@ -109,17 +124,24 @@ void SetLepton(int t, double m0, double e0, char *fn) {
       printf("cannot open file %s\n", fn);
       return;
     }
-    fprintf(f, "m=%g\n", m);
-    fprintf(f, "e=%g\n", e);
-    fprintf(f, "HARTREE_EV=%g\n", HARTREE_EV);
-    fprintf(f, "RATE_AU=%g\n", RATE_AU);
-    fprintf(f, "RBOHR=%g\n", RBOHR);
-    fprintf(f, "AMU=%g\n", AMU);
-    fprintf(f, "FSC=%g\n", FINE_STRUCTURE_CONST);
+    PrintLepton(f);
     if (f != stdout) fclose(f);
   }
 }
-  
+
+void PrintLepton(FILE *f) {
+  char p[64]; 
+  if (f == NULL) return;
+  fprintf(f, "# LEPTON = %d\n", LEPTON_TYPE);
+  fprintf(f, "#   MASS = %15.8E\n", LEPTON_MASS);
+  fprintf(f, "# CHARGE = %15.8E\n", LEPTON_CHARGE);
+  fprintf(f, "#  EUNIT = %15.8E\n", HARTREE_EV);
+  fprintf(f, "#  RUNIT = %15.8E\n", RATE_AU);
+  fprintf(f, "#  LUNIT = %15.8E\n", RBOHR);
+  fprintf(f, "#    AMU = %15.8E\n", AMU);
+  fprintf(f, "#    FSC = %15.8E\n", FINE_STRUCTURE_CONST);
+}
+
 int InitFac(void) {
   int ierr;
   

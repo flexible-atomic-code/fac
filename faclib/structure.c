@@ -2139,6 +2139,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   }
   qed = QED1E(k1, k2);
   r0 += qed;
+
   z0 *= sqrt(s[0].j + 1.0);
   r0 *= z0;
 
