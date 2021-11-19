@@ -33,7 +33,7 @@ USE (rcsid);
   FILE *perform_log = NULL;
 #endif
 
-int LEPTON_TYPE;
+int LEPTON_TYPE = -1;
 double LEPTON_MASS;
 double LEPTON_CHARGE;
 double HARTREE_EV;
@@ -61,8 +61,12 @@ int Info(void) {
 
 void SetLepton(int t, double m0, double e0, char *fn) {
   FILE *f;
-  double m, e;
-  
+  double m, e, rb;
+
+  rb = 0.0;
+  if (LEPTON_TYPE >= 0) {
+    rb = RBOHR;
+  }
   switch(t) {
   case 0: //electron
     m = 1.0;
@@ -113,7 +117,9 @@ void SetLepton(int t, double m0, double e0, char *fn) {
   AMU = _AMU/m;
   FINE_STRUCTURE_CONST = _FINE_STRUCTURE_CONST*e2;
   FINE_STRUCTURE_CONST2 = _FINE_STRUCTURE_CONST2*e4;
-
+  if (rb > 0 && rb != RBOHR) {
+    ScaleAtomicChargeDist(rb/RBOHR);
+  }
   if (fn) {
     if (strcmp(fn, "-") == 0) {
       f = stdout;
@@ -238,6 +244,10 @@ void SetOption(char *s, char *sp, int ip, double dp) {
   }
   if (strstr(s, "recombination:") == s) {
     SetOptionRecombination(s, sp, ip, dp);
+    return;
+  }
+  if (strstr(s, "nucleus:") == s) {
+    SetOptionNucleus(s, sp, ip, dp);
     return;
   }
   return;

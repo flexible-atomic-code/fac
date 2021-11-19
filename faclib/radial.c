@@ -3224,8 +3224,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   double z = GetAtomicNumber();
   double rn = GetAtomicR();
   double rmin, rmax, rmin1, rmax1;
-  double a, b, c, rb0, rb1, rb;
-  rb0 = RBOHR;
+  double a, b, c;
   b = RBOHR/_RBOHR;
   rmin = potential->rmin/z;
   if (rn > 0) {
@@ -3239,7 +3238,6 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   rmin *= b;
   rmax *= b;
   SetLepton(_sc_lepton, _sc_mass, _sc_charge, NULL);
-  rb1 = RBOHR;
   b = _RBOHR/RBOHR;
   rmin1 = rmin*b;
   a = 1+z-qs;
@@ -3252,7 +3250,6 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   SetLepton(lepton_type, lepton_mass, lepton_charge, NULL);
   b = _RBOHR/RBOHR;
   rmin *= z;
-  rb = rb0/rb1;
   while (1) {    
     SetRadialGrid(maxrp, GRIDRATIO, -rmax*b, rmin*b, potential->qr);
     if (0 > OptimizeRadialWSC(ng, kg, ic, weight, ife)) {
@@ -3262,7 +3259,6 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     SaveSCPot(3, NULL);
     ReinitRadial(0);
     SetLepton(_sc_lepton, _sc_mass, _sc_charge, NULL);
-    ScaleAtomicChargeDist(rb);
     b = _RBOHR/RBOHR;
     SetRadialGrid(maxrp, GRIDRATIO, -rmax*b, rmin*b, potential->qr);
     SetAverageConfig(ns, n, kappa, nq);
@@ -3293,7 +3289,6 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     memcpy(dg, _scpot.dg, sizeof(double)*_scpot.nr);
     ReinitRadial(0);
     SetLepton(lepton_type, lepton_mass, lepton_charge, NULL);
-    ScaleAtomicChargeDist(1/rb);
     niter++;
     if (niter > _sc_maxiter) {
       printf("sc_maxiter reached: %d\n", niter);

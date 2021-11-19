@@ -6352,6 +6352,28 @@ static PyObject *PLoadSCPot(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+  
+static PyObject *PFermiRMS(PyObject *self, PyObject *args) {
+  double r, c, a;
+  a = -1.0;
+  if (!PyArg_ParseTuple(args, "d|d", &c, &a)) return NULL;
+  c *= 1e-5/RBOHR;
+  a *= 1e-5/RBOHR/(4*log(3.0));
+  r = FermiRMS(c, a)*RBOHR*1e5;
+  
+  return Py_BuildValue("d", r);
+}
+  
+static PyObject *PFermiParamC(PyObject *self, PyObject *args) {
+  double r, c, a;
+  a = -1.0;
+  if (!PyArg_ParseTuple(args, "d|d", &r, &a)) return NULL;
+  r *= 1e-5/RBOHR;
+  a *= 1e-5/RBOHR/(4*log(3.0));
+  c = FermiParamC(r, a)*RBOHR*1e5;
+  
+  return Py_BuildValue("d", c);
+}
 
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
@@ -6593,6 +6615,8 @@ static struct PyMethodDef fac_methods[] = {
   {"SetLepton", PSetLepton, METH_VARARGS},
   {"SaveSCPot", PSaveSCPot, METH_VARARGS},
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
+  {"FermiRMS", PFermiRMS, METH_VARARGS},
+  {"FermiParamC", PFermiParamC, METH_VARARGS},
   {NULL, NULL}
 };
 
