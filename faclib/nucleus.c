@@ -120,9 +120,13 @@ static double _mserms[N_ELEMENTS] = {
  
 static double _errms[N_ELEMENTS][NISO];
 
-static double _xfermi[NFERMI];
-static double _yfermi[NFERMI];
-static double _rfermi[5][NFERMI];
+static double _xfermi0 = XFERMI0;
+static double _xfermi1 = XFERMI1;
+static int _nfermi = NFERMI;
+static double *_xfermi = NULL;
+static double *_yfermi = NULL;
+static double *_rfermi[5] = {NULL,NULL,NULL,NULL,NULL};
+static double _afermi = 2.3;
 
 int InitNucleus() {
   _errms[0][0] = 0.8783;
@@ -1034,30 +1038,48 @@ int InitNucleus() {
   _errms[95][55] = 5.8562;
   _errms[95][57] = 5.8687;
 
-  _xfermi[0] = -10.0;
-  double dx = 40.0/(NFERMI-1);
-  int i, k;
-  for (i = 1; i < NFERMI; i++) {
-    _xfermi[i] = _xfermi[i-1] + dx;
-  }
-  for (i = 0; i < NFERMI; i++) {
-    _yfermi[i] = dx/(1 + exp(_xfermi[i]));
-  }
-  for (k = 0; k <= 4; k++) {
-    _rfermi[k][0] = 0.0;
-    NewtonCotes(_rfermi[k], _yfermi, 0, NFERMI-1, -1, 0);
-    if (k < 4) {
-      for (i = 0; i < NFERMI; i++) {
-	_yfermi[i] *= _xfermi[i];
-      }
-    }
-  }
+  SetupFermi();
   atom.atomic_number = 0.0;
   atom.nepr = 0;
   atom.epr = NULL;
   atom.epv = NULL;
   SetExtraPotential(-1, 0, NULL, NULL);
   return 0;
+}
+
+void SetupFermi(void) {
+  int i, k;
+  
+  if (_xfermi != NULL) {
+    free(_xfermi);
+    free(_yfermi);
+    for (k = 0; k <= 4; k++) {
+      free(_rfermi[k]);
+    }
+  }  
+  _xfermi = malloc(sizeof(double)*_nfermi);
+  _yfermi = malloc(sizeof(double)*_nfermi);
+  for (k = 0; k <= 4; k++) {
+    _rfermi[k] = malloc(sizeof(double)*_nfermi);
+  }
+  
+  _xfermi[0] = _xfermi0;
+  double dx = (_xfermi1-_xfermi0)/(_nfermi-1);
+  for (i = 1; i < _nfermi; i++) {
+    _xfermi[i] = _xfermi[i-1] + dx;
+  }
+  for (i = 0; i < _nfermi; i++) {
+    _yfermi[i] = dx/(1 + exp(_xfermi[i]));
+  }
+  for (k = 0; k <= 4; k++) {
+    _rfermi[k][0] = 0.0;
+    NewtonCotes(_rfermi[k], _yfermi, 0, _nfermi-1, -1, 0);
+    if (k < 4) {
+      for (i = 0; i < _nfermi; i++) {
+	_yfermi[i] *= _xfermi[i];
+      }
+    }
+  }
 }
 
 void SetExtraPotential(int m, int n, double *p, char *fn) {
@@ -1146,7 +1168,7 @@ double *GetAtomicMassTable(void) {
 }
 
 void IntegrateFermi(int nk, double *r, double x) {
-  int k, one=1, np = 1, n = NFERMI;
+  int k, one=1, np = 1, n = _nfermi;
   
   if (x >= _xfermi[0]) {
     for (k = 0; k < nk; k++) {
@@ -1195,6 +1217,62 @@ double DiffRRMS(double c, double a, double a2, double a3, double a4, double r2,
   r1 = a4*y4 + 4*a3*c*y3 + 6*a2*c2*y2 + 4*a*c3*y1 + c4*y0;
   
   return r1/r0 - r2;
+}
+
+double FermiRMS(double c, double a) {
+  double y[5], r[5];
+  double a2, a3, a4, c2, c3, c4;
+  int i, n;
+
+  if (a < 0) {
+    a = _afermi*1e-5/RBOHR/(4*log(3.0));
+  }
+  
+  n = _nfermi-1;
+  a2 = a*a;
+  a3 = a2*a;
+  a4 = a3*a;
+  c2 = c*c;
+  c3 = c2*c;
+  c4 = c3*c;
+
+  IntegrateFermi(5, r, -c/a);
+  for (i = 0; i < 5; i++) {
+    y[i] = _rfermi[i][n] - r[i];
+  }
+  double r0 = a2*y[2] + 2*a*c*y[1] + c2*y[0];
+  double r1 = a4*y[4] + 4*a3*c*y[3] + 6*a2*c2*y[2] + 4*a*c3*y[1] + c4*y[0];
+  return sqrt(r1/r0);
+}
+
+double FermiParamC(double rn, double a) {
+  int i;
+
+  if (a < 0) {
+    a = _afermi*1e-5/RBOHR/(4*log(3.0));
+  }
+  
+  double c0 = 1e-2*rn;
+  double c1 = 10*(rn+a);
+  double c, r;
+  
+  for (i = 0; i < 500; i++) {
+    if (fabs(c1/c0-1) < 1e-8) break;
+    c = 0.5*(c0+c1);
+    r = FermiRMS(c, a);
+    if (r < rn) {
+      c0 = c;
+    } else if (r > rn) {
+      c1 = c;
+    } else {
+      break;
+    }
+  }
+  if (i == 500) {
+    printf("max iter in finding fermi c param: %d %g %g %g %g %g\n",
+	   i, rn, a, c0, c1, c);
+  }
+  return c;
 }
 
 double GraspRRMS(double z, double m) {
@@ -1325,7 +1403,7 @@ void SetAtomicChargeDist(double a, double rmse) {
   if (a >= 0) {
     atom.a = a;
   } else {
-    atom.a = 2.3*1e-5/(RBOHR*4*log(3.0));
+    atom.a = _afermi*1e-5/(RBOHR*4*log(3.0));
   }
 
   if (atom.a <= 0 && atom.rn > 0) {
@@ -1334,7 +1412,7 @@ void SetAtomicChargeDist(double a, double rmse) {
   }
   
   if (atom.rn > 0 && atom.a > 0) {
-    i = NFERMI-1;
+    i = _nfermi-1;
     a = atom.a;
     double y0 = _rfermi[0][i];
     double y1 = _rfermi[1][i];
@@ -1371,8 +1449,8 @@ void SetAtomicChargeDist(double a, double rmse) {
     atom.b += 2*a*c*(y1-atom.rfermi[1]);
     atom.b += a2*(y2-atom.rfermi[2]);  
     atom.b = atom.atomic_number/atom.b;
-    atom.z1 = atom.c*(_rfermi[0][NFERMI-1]-atom.rfermi[0]);
-    atom.z1 += atom.a*(_rfermi[1][NFERMI-1] - atom.rfermi[1]);
+    atom.z1 = atom.c*(_rfermi[0][_nfermi-1]-atom.rfermi[0]);
+    atom.z1 += atom.a*(_rfermi[1][_nfermi-1] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
 
@@ -1392,8 +1470,7 @@ void SetAtomicChargeDist(double a, double rmse) {
 
   SetExtraPotential(-1, 0, NULL, NULL);
   
-  if (LEPTON_TYPE == 0 &&
-      atom.atomic_number >= 10 &&
+  if (atom.atomic_number >= 10 &&
       atom.atomic_number <= 120) {
     INIQED(atom.atomic_number, 9, atom.rn>0, atom.rmse);
   }
@@ -1579,7 +1656,7 @@ double GetExtraZ(double r, int i) {
 double GetAtomicEffectiveZ(double r) {
   double x, y[3], z;
   int np = 3;
-  int n = NFERMI;
+  int n = _nfermi;
   int one = 1;
 
   if (atom.rn <= 0) return (double)(atom.atomic_number);
@@ -1773,5 +1850,33 @@ void PrintCXTarget(char *fn) {
   fflush(f);
   if (f != stdout) {
     fclose(f);
+  }
+}
+
+void SetOptionNucleus(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "nucleus:xfermi")) {
+    char buf[1024];
+    strncpy(buf, s, 1023);
+    int ns = StrSplit(buf, ',');
+    int i;
+    char *s = buf;
+    for (i = 0; i < ns; i++) {
+      while(*s == ' ' || *s == '\t') s++;
+      if (i == 0) {
+	_nfermi = atoi(s);
+      } else if (i == 1) {
+	_xfermi0 = atof(s);
+      } else if (i == 2) {
+	_xfermi1 = atof(s);
+      }
+      while (*s) s++;
+      s++;
+    }
+    SetupFermi();
+    return;
+  }
+  if (0 == strcmp(s, "nucleus:afermi")) {
+    _afermi = dp;
+    return;
   }
 }

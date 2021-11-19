@@ -65,5 +65,9 @@ int SetCXTarget(char *s, double a, double b, double e, double x,
 CXTGT *GetCXTarget(void);
 void PrintCXTarget(char *fn);
 double NucleusRadius(double z, double m, int md);
+void SetupFermi(void);
+double FermiRMS(double c, double a);
+double FermiParamC(double r, double a);
+void SetOptionNucleus(char *s, char *sp, int ip, double dp);
 #endif
 

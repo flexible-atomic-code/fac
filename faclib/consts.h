@@ -200,7 +200,9 @@ extern double AMU;
 #define N_ELEMENTS 120
 #define N_ELEMENTS1 (N_ELEMENTS+1)
 #define NISO 58
-#define NFERMI 5001
+#define XFERMI0 (-10.0)
+#define XFERMI1 (+35.0)
+#define NFERMI 6001
 
 #define NORBMAP0 500
 #define NORBMAP1 1000
