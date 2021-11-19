@@ -1257,7 +1257,7 @@ double FermiParamC(double rn, double a) {
   double c, r;
   
   for (i = 0; i < 500; i++) {
-    if (fabs(c1/c0-1) < 1e-8) break;
+    if (fabs(c1/c0-1) < 1e-10) break;
     c = 0.5*(c0+c1);
     r = FermiRMS(c, a);
     if (r < rn) {
@@ -1395,16 +1395,23 @@ int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
 }
 
 void SetAtomicChargeDist(double a, double rmse) {
-  int i;
-  
-  atom.rn *= 1e-5/RBOHR;
-  atom.rms = atom.rn;
-
   if (a >= 0) {
-    atom.a = a;
+    atom.a = a*1e-5/(RBOHR*4*log(3.0));
   } else {
     atom.a = _afermi*1e-5/(RBOHR*4*log(3.0));
   }
+  if (atom.a > 0) {
+    if (atom.rn > 100.0) {
+      atom.c = (atom.rn-100.0)*1e-5/RBOHR;
+      atom.rn = FermiRMS(atom.c, atom.a);
+    } else {
+      atom.rn *= 1e-5/RBOHR;
+      atom.c = FermiParamC(atom.rn, atom.a);
+    }
+  } else {
+    atom.rn *= 1e-5/RBOHR;
+  }
+  atom.rms = atom.rn;
 
   if (atom.a <= 0 && atom.rn > 0) {
     atom.rn = sqrt(5.0/3.0)*atom.rn;
@@ -1412,45 +1419,17 @@ void SetAtomicChargeDist(double a, double rmse) {
   }
   
   if (atom.rn > 0 && atom.a > 0) {
-    i = _nfermi-1;
-    a = atom.a;
-    double y0 = _rfermi[0][i];
-    double y1 = _rfermi[1][i];
-    double y2 = _rfermi[2][i];
-    double y3 = _rfermi[3][i];
-    double y4 = _rfermi[4][i];
-    double c0, c1, c, f;
-    double a2 = a*a;
-    double a3 = a2*a;
-    double a4 = a2*a2;
-    double r2 = atom.rn*atom.rn;
-    c0 = 1e-2*atom.rn;
-    c1 = 10*(atom.rn + atom.a);
-    for (i = 0; i < 500; i++) {
-      if (fabs(c1/c0-1) < 1e-8) break;      
-      c = 0.5*(c0 + c1);
-      f = DiffRRMS(c, a, a2, a3, a4, r2, y0, y1, y2, y3, y4);
-      if (f < 0) {
-	c0 = c;
-      } else if (f > 0) {
-	c1 = c;
-      }	else {
-	break;
-      }
-    }
-    atom.c = c;
-    if (i == 500) {
-      printf("max iteration reached in determining fermi c param: %g %g %g %g %g %g %g %g %g %g %g\n",
-	     atom.rms*1e5*RBOHR, atom.rn*1e5*RBOHR, atom.a, c1, c0, fabs(c1/c0-1), y0, y1, y2, y3, y4);
-    }
-
+    int i = _nfermi-1;
+    double a2 = atom.a*atom.a;
+    double c2 = atom.c*atom.c;
+    double ac = atom.a*atom.c;
     IntegrateFermi(3, atom.rfermi, -atom.c/atom.a);    
-    atom.b = c*c*(y0-atom.rfermi[0]);
-    atom.b += 2*a*c*(y1-atom.rfermi[1]);
-    atom.b += a2*(y2-atom.rfermi[2]);  
+    atom.b = c2*(_rfermi[0][i]-atom.rfermi[0]);
+    atom.b += 2*ac*(_rfermi[1][i]-atom.rfermi[1]);
+    atom.b += a2*(_rfermi[2][i]-atom.rfermi[2]);  
     atom.b = atom.atomic_number/atom.b;
-    atom.z1 = atom.c*(_rfermi[0][_nfermi-1]-atom.rfermi[0]);
-    atom.z1 += atom.a*(_rfermi[1][_nfermi-1] - atom.rfermi[1]);
+    atom.z1 = atom.c*(_rfermi[0][i]-atom.rfermi[0]);
+    atom.z1 += atom.a*(_rfermi[1][i] - atom.rfermi[1]);
     atom.z1 *= atom.b;
   }
 
