@@ -7122,7 +7122,7 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   
   if (orb->wfun == NULL) return 1.0;
   m = qed.mse%10;
-  if (m >= 2) {
+  if (m == 2) {
     //modqed
     k = IdxVT(orb->kappa)-1;
     z = potential->atom->atomic_number;
@@ -7133,6 +7133,10 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
       a = HydrogenicSelfEnergy(51, qed.pse, 1.0, potential, horb, horb);
       return b/a;
     }
+  } else if (m == 3) {
+    b = SelfEnergyExotic(orb);
+    a = SelfEnergyExotic(horb);
+    return b/a;
   }
   npts = potential->maxrp;
   p = Large(horb);
@@ -7188,7 +7192,7 @@ ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
 //Barrett, R.C., Phys.Lett. B28, 93 (1968)
 double SelfEnergyExotic(ORBITAL *orb) {
   double a, a2, a3, p2, v2, x, y, c0, c1, b;
-  int i, n, k;
+  int i, n, k, j2, k2;
   double *p, *q;
   
   a = FINE_STRUCTURE_CONST;
@@ -7196,20 +7200,21 @@ double SelfEnergyExotic(ORBITAL *orb) {
   a3 = a2*a;
 
   c0 = a3/(3*PI);
-  c1 = a2/(2*PI);
-
+  c1 = a3/(4*PI);
+  GetJLFromKappa(orb->kappa, &j2, &k2);
+  c1 *= (j2*(j2+2.0)-k2*(k2+2.0)-3.0)/8.0;
+  
   n = orb->ilast;
   p = Large(orb);
   q = Small(orb);
   k = orb->kv;
   for (i = 0; i <= n; i++) {
-    x = p[i]*q[i]*potential->dr_drho[i];
-    _dwork1[i] = -x*potential->dVT[k][i];
     x = (p[i]*p[i] + q[i]*q[i])*potential->dr_drho[i];
+    _dwork1[i] = x*potential->dVc[i]/potential->rad[i];
     _dwork2[i] = x*potential->qdist[i];
     y = orb->energy-potential->VT[k][i];
     _dwork3[i] = y*(y+2/a2)*x;
-    y = potential->dVT[k][i];
+    y = potential->dVc[i];
     _dwork4[i] = y*y*x;    
   }
   c1 *= Simpson(_dwork1, 0, n);
@@ -7218,8 +7223,7 @@ double SelfEnergyExotic(ORBITAL *orb) {
   v2 = Simpson(_dwork4, 0, n);
   b = 0.5*log(p2/(4*a2*v2));
   //b = log(1.0/(a2*fabs(orb->energy)));
-  b += 0.2583;
-  if (orb->kappa == -1) b += 0.375;
+  b += 0.833333;
   c0 *= b;
   //printf("see: %d %d %g %g %g %g %g %g %g\n", orb->n, orb->kappa, orb->energy, c0, c1, p2, v2, b, (c0+c1)*HARTREE_EV);
   return c0+c1;
