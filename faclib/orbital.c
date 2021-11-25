@@ -3800,6 +3800,19 @@ int SetPotentialVP(POTENTIAL *pot) {
       pot->ZVP[i] -= b*UehlingL1(r);
     }
   }
+  if (LEPTON_TYPE > 0) {
+    r0 = 3.86159E-3;
+    for (i = 0; i < pot->maxrp; i++) {
+      r = pot->rad[i]*2.0/r0;
+      pot->ZVP[i] -= a*UehlingK1(r);
+    }
+    if (vp > 1) {
+      for (i = 0; i < pot->maxrp; i++) {
+	r = pot->rad[i]*2.0/r0;
+	pot->ZVP[i] -= b*UehlingL1(r);
+      }
+    }
+  }
   if (vp > 2) {
     za = z0*FINE_STRUCTURE_CONST;
     za2 = za*za;

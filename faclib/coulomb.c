@@ -307,10 +307,29 @@ double NucleusRRMS(double z) {
   return rr;
 }
 
+/* self energy md0
+** md0 = mm*100 + md*10 + md1
+** mm is the mode for recoil correction.
+** md1 is hydrogenic screen mode.
+** md1 = 0: scale with Uehling potential.
+** md1 = 1: scale with welton formula
+** md1 = 2: use modqed operator
+** md1 = 3: use Barrett formula
+** md is mode of calculation.
+** md=0 se0/se1 fit
+** md=1 Mohr fit
+** md=2 only the recoil correction
+** md=3 same as 0, without recoil correction
+** md=4 modqed, only diagonal
+** md=5 same as 4, without recoil correction
+** md=6 modqed, with off-diagonal
+** md=7 same as 6, without recoil correction
+*/
 double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 			    ORBITAL *orb, ORBITAL *orbp) {
   int id, np = 3, nx = 12, m = 1, t, n, k, kl, md, mp, mm, md1;
   double r, r0, a, b, c, c2, p, rms, z, cr, ch, rr;
+  int mc = -1;
 
   n= orb->n;
   k = orb->kappa;
@@ -343,14 +362,16 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	  GENQED(orbp->n, n, k, mp, pot->maxrp, pot->mqrho,
 		 orbp->wfun, orbp->wfun+pot->maxrp,
 		 orb->wfun, orb->wfun+pot->maxrp, &r);
+	  mc = 0;
 	} else {
 	  GENQED(n, orbp->n, k, mp, pot->maxrp, pot->mqrho,
 		 orb->wfun, orb->wfun+pot->maxrp,
 		 orbp->wfun, orbp->wfun+pot->maxrp, &r);
+	  mc = 1;
 	}
 	if(pse) {
-	  MPrintf(-1, "SE: %g %d %d %2d %2d %d %11.4E %11.4E %11.4E %11.4E %11.4E\n",
-		  z, n, orbp->n, k, md0, mp, orb->energy, orbp->energy, orb->qed, orbp->qed, r);
+	  MPrintf(-1, "SE: %3g %2d %2d %2d %2d %d %d %11.4E %11.4E %11.4E %11.4E %11.4E\n",
+		  z, n, orbp->n, k, md0, mp, mc, orb->energy, orbp->energy, orb->qed, orbp->qed, r);
 	}
 	return r;
       }
@@ -365,6 +386,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
       GENQED(n, n, k, mp, pot->maxrp, pot->mqrho,
 	     orb->wfun, orb->wfun+pot->maxrp,
 	     orb->wfun, orb->wfun+pot->maxrp, &r);
+      mc = 2;
       if (r) {
 	r /= scl;
       }
@@ -374,6 +396,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
     if (!r && n <= 2 && mp == 0) {
       if (md == 1 && z >= 26 && k != -2) {
 	MOHRFIN(n, k, z, rms, &r, &a, &b, &c, &p);
+	mc = 3;
       }
       if (!r) {
 	id = ((int)(0.5+z))-1;
@@ -384,6 +407,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	if (id >= 0 && id < 110 && fabs(z-id-1) < 1e-5) {
 	  if (rms <= 0) {
 	    r = _qed_se0[m][id];
+	    mc = 4;
 	  } else {
 	    r = _qed_se0[m][id] + _qed_se1[m][id];	    
 	    rr = _qed_rrms[id];
@@ -391,13 +415,15 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	      MOHRFIN(-n, k, z, rms, &c2, &a, &b, &c, &p);
 	      cr = a*(pow(rms,p)*(1+b*rms+c*rms*rms)-pow(rr,p)*(1+b*rr+c*rr*rr));
 	      r += cr;
-	    }	    
+	    }
+	    mc = 5;
 	  }
 	} else {
 	  t = 1;
 	  nx = 112;
 	  if (rms <= 0) {
 	    UVIP3P(np, nx, _qed_za, _qed_se0[m], t, &z, &r);
+	    mc = 6;
 	  } else {
 	    UVIP3P(np, nx, _qed_za, _qed_se0[m], t, &z, &r);
 	    UVIP3P(np, nx, _qed_za, _qed_se1[m], t, &z, &r0);
@@ -407,7 +433,8 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	      MOHRFIN(-n, k, z, rms, &c2, &a, &b, &c, &p);
 	      cr = a*(pow(rms,p)*(1+b*rms+c*rms*rms)-pow(rr,p)*(1+b*rr+c*rr*rr));
 	      r += cr;
-	    }	    
+	    }
+	    mc = 7;
 	  }
 	}
       }
@@ -441,8 +468,10 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
 	m = 1;
 	nx = 14;
 	UVIP3P(np, nx, _zd, _sd[id], m, &z, &r);
+	mc = 8;
       } else {
 	r = Klamaq(n, k);
+	mc = 9;
       }
       if (rms > 0 && z >= 10 && z <= 120 && kl <= 2 && n > 2) {
 	m = (int)z;
@@ -507,7 +536,7 @@ double HydrogenicSelfEnergy(int md0, int pse, double scl, POTENTIAL *pot,
   r0 = r*c;
   a = r0*scl;
   if (pse) {
-    MPrintf(-1, "SE: %g %d %2d %11.4E %2d %d %.4f %.4f %.6f %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, orb->energy, md0, mp, rr, rms, scl, r, cr, ch, c, r0, a);
+    MPrintf(-1, "SE: %3g %2d %2d %11.4E %2d %d %d %.4f %.4f %.6f %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", z, n, k, orb->energy, md0, mp, mc, rr, rms, scl, r, cr, ch, c, r0, a);
   }
   return a;
 }
