@@ -261,15 +261,6 @@ void LoadSCPot(char *fn) {
   int i;
   double a;
   
-  f = fopen(fn, "r");
-  if (f == NULL) {
-    printf("cannot open file: %s\n", fn);
-    return;
-  }
-  if (NULL == fgets(buf, 1024, f)) {
-    fclose(f);
-    return;
-  }
   if (_scpot.nr > 0) {
     _scpot.nr = 0;
     _scpot.md = -1;
@@ -278,6 +269,17 @@ void LoadSCPot(char *fn) {
     free(_scpot.xg);
     free(_scpot.dg);
     free(_scpot.eg);
+  }
+  if (fn == NULL) return;
+  
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return;
+  }
+  if (NULL == fgets(buf, 1024, f)) {
+    fclose(f);
+    return;
   }
   sscanf(buf, "# %d %d", &_scpot.nr, &_scpot.md);
   if (_scpot.nr <= 0) {
@@ -315,7 +317,6 @@ void SaveSCPot(int md, char *fn, double sca) {
   int i;
   double r, d0, d1, a;
 
-  md = 3;
   a = RBOHR/_RBOHR;
   if (fn == NULL) {
     if (_scpot.nr > 0) {
@@ -327,8 +328,9 @@ void SaveSCPot(int md, char *fn, double sca) {
       free(_scpot.dg);
       free(_scpot.eg);
     }
+    if (md < 0) return;
     _scpot.nr = potential->maxrp;
-    _scpot.md = md;
+    _scpot.md = 3;
     _scpot.rg = malloc(sizeof(double)*_scpot.nr);
     _scpot.dg = malloc(sizeof(double)*_scpot.nr);
     _scpot.eg = malloc(sizeof(double)*_scpot.nr);
@@ -354,7 +356,7 @@ void SaveSCPot(int md, char *fn, double sca) {
     printf("cannot open file: %s\n", fn);
     return;
   }
-  fprintf(f, "# %d %d\n", potential->maxrp, md);
+  fprintf(f, "# %d %d\n", potential->maxrp, 3);
   for (i = 0; i < potential->maxrp; i++) {
     r = potential->rad[i]*a;
     d0 = potential->NPS[i]/a;
@@ -1873,6 +1875,12 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
   double *u0, *ue, *ue1, a;
   
   if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) {
+    for (i = 0; i < potential->maxrp; i++) {
+      potential->NPS[i] = 0.0;
+      potential->EPS[i] = 0.0;
+      potential->VPS[i] = 0.0;
+      potential->VXF[i] = 0.0;
+    }
     return 0;
   }
   md = potential->mode % 10;
@@ -2082,7 +2090,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
   if (_scpot.md != 0) {
     jmax = DensityToSZ(potential, potential->NPS, u, ue1, &jps0);
   } 
-  if (acfg->n_cores <= 0 && potential->mps < 0) return 0;
+  if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) return 0;
   
   w = potential->NPS;
   if (potential->mps >= 0 && potential->mps < 3) {

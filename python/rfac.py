@@ -619,7 +619,7 @@ def read_sp(filename):
 
     return header, read_blocks(lines)
 
-def read_wfun(fn, npi=8, rmax=None):
+def read_wfun(fn, npi=0, rmax=None):
     r = np.loadtxt(fn, unpack=1)
     h = np.loadtxt(fn, skiprows=6, comments='@', max_rows=1, usecols=3)
     i = int(h)+1
@@ -630,7 +630,7 @@ def read_wfun(fn, npi=8, rmax=None):
     r0 = r[1][:i]
     p0 = r[4][:i]
     q0 = r[5][:i]
-    if e > 0:
+    if n == 0:
         if npi == 0:
             re = r[1][i:]
             te = r[3][i:]
