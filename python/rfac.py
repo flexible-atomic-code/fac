@@ -25,6 +25,7 @@ import struct
 from sys import version_info
 from pfac import fac
 from pfac import const
+from pfac import util
 
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
@@ -618,6 +619,53 @@ def read_sp(filename):
 
     return header, read_blocks(lines)
 
+def read_wfun(fn, npi=8, rmax=None):
+    r = np.loadtxt(fn, unpack=1)
+    h = np.loadtxt(fn, skiprows=6, comments='@', max_rows=1, usecols=3)
+    i = int(h)+1
+    h = np.loadtxt(fn, comments='@', max_rows=3, usecols=3, unpack=1)
+    n = int(h[0])
+    k = int(h[1])
+    e = float(h[2])
+    r0 = r[1][:i]
+    p0 = r[4][:i]
+    q0 = r[5][:i]
+    if e > 0:
+        a0 = list(r[2][i:])
+        t0 = list(r[3][i:])
+        a1 = list(r[4][i:])
+        a2 = list(r[4][i:])
+        r1 = list(r[1][i:])
+        ts = []
+        nr = len(r1)
+        tnr = 0
+        for i in range(1,nr):
+            dt = t0[i]-t0[i-1]
+            nt = int(2+dt/(np.pi/npi))
+            ts.append(np.linspace(t0[i-1],t0[i],nt)[:-1])
+            tnr += nt-1
+            if not rmax is None:
+                if (r1[i] >= rmax):
+                    break
+        re = np.zeros(tnr)
+        te = np.zeros(tnr)
+        ae0 = np.zeros(tnr)
+        ae1 = np.zeros(tnr)
+        ae2 = np.zeros(tnr)
+        i0 = 0
+        for x in ts:
+            x = list(x)
+            i1 = i0 + len(x)
+            te[i0:i1] = x
+            re[i0:i1] = util.UVIP3P(t0, r1, x)
+            ae0[i0:i1] = util.UVIP3P(t0, a0, x)
+            ae1[i0:i1] = util.UVIP3P(t0, a1, x)
+            ae2[i0:i1] = util.UVIP3P(t0, a2, x)
+            i0 = i1
+        r0 = np.append(r0, re)
+        p0 = np.append(p0, ae0*np.sin(te))
+        q0 = np.append(q0, ae1*np.sin(te)+ae2*np.cos(te))
+    return n,k,e,r0,p0,q0
 
 def read_rt(filename):
     """ read *a.rt file. """
