@@ -6333,7 +6333,7 @@ static PyObject *PSaveSCPot(PyObject *self, PyObject *args) {
   s = NULL;
   md = 2;
   if (!PyArg_ParseTuple(args, "|is", &md, &s)) return NULL;
-  SaveSCPot(md, s);
+  SaveSCPot(md, s, 0.0);
   
   Py_INCREF(Py_None);
   return Py_None;

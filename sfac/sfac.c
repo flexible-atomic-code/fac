@@ -5265,7 +5265,7 @@ static int PSaveSCPot(int argc, char *argv[], int argt[],
       s = argv[1];
     }
   }
-  SaveSCPot(md, s);
+  SaveSCPot(md, s, 0.0);
   return 0;
 }
 
