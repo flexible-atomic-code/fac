@@ -237,7 +237,7 @@ void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);
 double BoundFactor(double e, double e0);
 void LoadSCPot(char *fn);
-void SaveSCPot(int md, char *fn);
+void SaveSCPot(int md, char *fn, double sca);
 
 #endif
 

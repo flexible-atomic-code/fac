@@ -243,7 +243,7 @@ static int _sc_maxiter = 5;
 static double _sc_mass = -1.;
 static double _sc_charge = -1.;
 static double _sc_tol = 1e-3;
-static double _sc_fmrp = 2.0;
+static double _sc_fmrp = 3.0;
 
 static double PhaseRDependent(double x, double eta, double b);
 
@@ -310,7 +310,7 @@ void LoadSCPot(char *fn) {
   fclose(f);
 }
 
-void SaveSCPot(int md, char *fn) {
+void SaveSCPot(int md, char *fn, double sca) {
   FILE *f;
   int i;
   double r, d0, d1, a;
@@ -341,6 +341,7 @@ void SaveSCPot(int md, char *fn) {
     for (i = 0; i < potential->maxrp; i++) {
       r = potential->rad[i]*a;
       d0 = potential->NPS[i]/a;
+      if (sca > 0) d0 *= sca;
       d1 = 0.0;
       _scpot.rg[i] = r;
       _scpot.dg[i] = d0;
@@ -357,6 +358,7 @@ void SaveSCPot(int md, char *fn) {
   for (i = 0; i < potential->maxrp; i++) {
     r = potential->rad[i]*a;
     d0 = potential->NPS[i]/a;
+    if (sca > 0) d0 *= sca;
     d1 = 0.0;
     fprintf(f, "%15.8E %15.8E %15.8E\n", r, d0, d1);    
   }
@@ -1870,7 +1872,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
   int md, md1, jmax, j, i, m, jm;
   double *u0, *ue, *ue1, a;
   
-  if (acfg->n_cores <= 0 && potential->mps < 0) {
+  if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) {
     return 0;
   }
   md = potential->mode % 10;
@@ -1963,6 +1965,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     }
     if (jmax < orb->ilast) jmax = orb->ilast;
   }
+
   if (jmax > 0) {
     b = 0.0;
     for (m = 0; m <= jmax; m++) {
@@ -3163,6 +3166,9 @@ void SetPotentialN(void) {
 	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i], a, b, acfg->e[i]);
     }
   }
+  if (a > 1) {
+    a += potential->zps;
+  }
   if (a > potential->atom->atomic_number) {
     a = potential->atom->atomic_number/a;
     for (i = 0; i < acfg->n_shells; i++) {
@@ -3241,7 +3247,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
   b = _RBOHR/RBOHR;
   rmin1 = rmin*b;
   a = 1+z-qs;
-  c = 0.1*z;
+  c = 0.025*z;
   a = Max(a, c);
   MaxRGrid(potential, potential->asymp, potential->ratio, a,
 	   rmin1, maxrp, &a, &c, &rmax1);
@@ -3256,7 +3262,7 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       return -1;
     }
     if (done) break;
-    SaveSCPot(3, NULL);
+    SaveSCPot(3, NULL, 0.0);
     ReinitRadial(0);
     SetLepton(_sc_lepton, _sc_mass, _sc_charge, NULL);
     b = _RBOHR/RBOHR;
@@ -3265,7 +3271,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
     if (0 > OptimizeRadialWSC(0, NULL, -1, NULL, 0)) {
       return -1;
     }
-    SaveSCPot(3, NULL);
+    a = (qs+potential->zps)/potential->N;
+    SaveSCPot(3, NULL, a);
     if (niter == 0) {
       dg = malloc(sizeof(double)*_scpot.nr);
     } else {
@@ -3417,12 +3424,13 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
     }
     i0++;
     i1 = i;
+    if (i1 >= potential->maxrp) i1 = potential->maxrp-1;
     _scpot.jmax = i1;
     i = i1-i0+1;
     switch (_scpot.md) {
     case 0:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, _dphasep+i0);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _phase+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, _dphasep+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _phase+i0);
       for (k = 0; k < i0; k++) {
 	_dphasep[k] = _dphasep[i0]*r[k]/r[i0];
 	_phase[k] = _phase[i0]*r[k]/r[i0];
@@ -3433,8 +3441,8 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       }
       break;
     case 1:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->ZPS+i0);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _zk+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->ZPS+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _zk+i0);
       for (k = 0; k < i0; k++) {
 	potential->ZPS[k] = potential->ZPS[i0]*r[k]/r[i0];
 	_zk[k] = _zk[i0]*r[k]/r[i0];
@@ -3452,8 +3460,8 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       potential->nps = 1.0;
       break;
     case 2:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->NPS+i0);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _phase+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->NPS+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, _phase+i0);
       if (i0 > 0) {
 	k = Min(i,5);
 	if (potential->NPS[i0] > 0 && potential->NPS[i0+k] > 0) {
@@ -3474,11 +3482,31 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       for (k = i1+1; k < potential->maxrp; k++) {
 	potential->NPS[k] = 0.0;
 	_phase[k] = 0.0;
-      }      
+      }
+      for (k = 0; k < potential->maxrp; k++) {
+	_dwork1[k] = potential->NPS[k]*potential->dr_drho[k];
+      }
+      a = 0.0;
+      b = 0.0;
+      if (i0 > 0) {
+	a = Simpson(_dwork1, 0, i0);
+      }
+      if (i1 > i0) {
+	b = Simpson(_dwork1, i0, i1);
+      }
+      if (b > 0) {
+	a = b/(a+b);
+	for (k = 0; k < potential->maxrp; k++) {
+	  potential->NPS[k] *= a;
+	  _phase[k] *= a;
+	}
+      }
+      potential->zps = b;
+      potential->nps = 1.0;
       break;
     default:
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->VPS+i0);
-      UVIP3P(1, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, potential->EPS+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.dg, i, x+i0, potential->VPS+i0);
+      UVIP3P(3, _scpot.nr, _scpot.xg, _scpot.eg, i, x+i0, potential->EPS+i0);
       if (i0 > 0) {
 	k = Min(i,5);
 	if (potential->VPS[i0] > 0 && potential->VPS[i0+k] > 0) {
@@ -3502,11 +3530,30 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       }
       for (k = 0; k < potential->maxrp; k++) {
 	potential->VXF[k] = potential->VPS[k];
+	_dwork1[k] = potential->VPS[k]*potential->dr_drho[k];
       }
-      potential->zps = 0.0;
+      a = 0.0;
+      b = 0.0;
+      if (i0 > 0) {
+	a = Simpson(_dwork1, 0, i0);
+      }
+      if (i1 > i0) {
+	b = Simpson(_dwork1, i0, i1);
+      }
+      if (b > 0) {
+	a = b/(a+b);
+	for (k = 0; k < potential->maxrp; k++) {
+	  potential->VPS[k] *= a;
+	  potential->VXF[k] *= a;
+	  potential->EPS[k] *= a;
+	}
+      }
+      potential->zps = b;
+      //printf("zps: %d %d %g %g %g %g\n", i0, i1, potential->N, potential->zps, a, b);
       potential->nps = 1.0;
       break;
     }
+    SetPotentialN();
   }
   
   SetReferencePotential(hpotential, potential, 1);
