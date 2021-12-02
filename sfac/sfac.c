@@ -5256,7 +5256,7 @@ static int PSetLepton(int argc, char *argv[], int argt[],
 
 static int PSaveSCPot(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  int md = 2;
+  int md = 3;
   char *s = NULL;
   
   if (argc > 0) {
@@ -5271,9 +5271,11 @@ static int PSaveSCPot(int argc, char *argv[], int argt[],
 
 static int PLoadSCPot(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  if (argc != 1) return -1;
-  
-  LoadSCPot(argv[0]);
+  if (argc > 0) {
+    LoadSCPot(argv[0]);
+  } else {
+    LoadSCPot(NULL);
+  }
   return 0;
 }
 

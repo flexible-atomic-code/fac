@@ -6331,7 +6331,7 @@ static PyObject *PSaveSCPot(PyObject *self, PyObject *args) {
   char *s;
   int md;
   s = NULL;
-  md = 2;
+  md = 3;
   if (!PyArg_ParseTuple(args, "|is", &md, &s)) return NULL;
   SaveSCPot(md, s, 0.0);
   
@@ -6345,8 +6345,8 @@ static PyObject *PLoadSCPot(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  char *s;
-  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
+  char *s = NULL;
+  if (!PyArg_ParseTuple(args, "|s", &s)) return NULL;
   LoadSCPot(s);
   
   Py_INCREF(Py_None);
