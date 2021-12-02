@@ -631,40 +631,47 @@ def read_wfun(fn, npi=8, rmax=None):
     p0 = r[4][:i]
     q0 = r[5][:i]
     if e > 0:
-        a0 = list(r[2][i:])
-        t0 = list(r[3][i:])
-        a1 = list(r[4][i:])
-        a2 = list(r[4][i:])
-        r1 = list(r[1][i:])
-        ts = []
-        nr = len(r1)
-        tnr = 0
-        for i in range(1,nr):
-            dt = t0[i]-t0[i-1]
-            nt = int(2+dt/(np.pi/npi))
-            ts.append(np.linspace(t0[i-1],t0[i],nt)[:-1])
-            tnr += nt-1
-            if not rmax is None:
-                if (r1[i] >= rmax):
-                    break
-        re = np.zeros(tnr)
-        te = np.zeros(tnr)
-        ae0 = np.zeros(tnr)
-        ae1 = np.zeros(tnr)
-        ae2 = np.zeros(tnr)
-        i0 = 0
-        for x in ts:
-            x = list(x)
-            i1 = i0 + len(x)
-            te[i0:i1] = x
-            re[i0:i1] = util.UVIP3P(t0, r1, x)
-            ae0[i0:i1] = util.UVIP3P(t0, a0, x)
-            ae1[i0:i1] = util.UVIP3P(t0, a1, x)
-            ae2[i0:i1] = util.UVIP3P(t0, a2, x)
-            i0 = i1
+        if npi == 0:
+            re = r[1][i:]
+            te = r[3][i:]
+            ae0 = r[2][i:]
+            ae1 = r[4][i:]
+            ae2 = r[5][i:]
+        else:
+            a0 = list(r[2][i:])
+            t0 = list(r[3][i:])
+            a1 = list(r[4][i:])
+            a2 = list(r[5][i:])
+            r1 = list(r[1][i:])
+            ts = []
+            nr = len(r1)
+            tnr = 0
+            for i in range(1,nr):
+                dt = t0[i]-t0[i-1]
+                nt = int(2+dt/(np.pi/npi))
+                ts.append(np.linspace(t0[i-1],t0[i],nt)[:-1])
+                tnr += nt-1
+                if not rmax is None:
+                    if (r1[i] >= rmax):
+                        break
+            re = np.zeros(tnr)
+            te = np.zeros(tnr)
+            ae0 = np.zeros(tnr)
+            ae1 = np.zeros(tnr)
+            ae2 = np.zeros(tnr)
+            i0 = 0
+            for x in ts:
+                x = list(x)
+                i1 = i0 + len(x)
+                te[i0:i1] = x
+                re[i0:i1] = util.UVIP3P(t0, r1, x)
+                ae0[i0:i1] = util.UVIP3P(t0, a0, x)
+                ae1[i0:i1] = util.UVIP3P(t0, a1, x)
+                ae2[i0:i1] = util.UVIP3P(t0, a2, x)
+                i0 = i1
         r0 = np.append(r0, re)
         p0 = np.append(p0, ae0*np.sin(te))
-        q0 = np.append(q0, ae1*np.sin(te)+ae2*np.cos(te))
+        q0 = np.append(q0, ae1*np.cos(te)+ae2*np.sin(te))
     return n,k,e,r0,p0,q0
 
 def read_rt(filename):
