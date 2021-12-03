@@ -36,7 +36,7 @@ C     ierr error code returned by coulcc
       if (e .lt. 0) then
          x = dcmplx(0.0, x0)
          if (inorm .eq. 1) then
-            eta = dcmplx(1D-5*(0.5+y), 0.5+y)
+            eta = dcmplx(1D-10*(0.5+y), 0.5+y)
          else
             eta = dcmplx(0.0, 0.5+y)
          endif
