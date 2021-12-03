@@ -1655,20 +1655,18 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
 }
 
 int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
-#define ME 20
   double z, e, e0;
-  int i, kl, niter, ierr;
+  int i, j, kl, niter, ierr;
   double x0, pp, qq, ppi, qqi;
   int i2, i2p, i2m, i2p2, i2m2, nodes, nr;
   double qo, qi, norm2, delta, zp, *p;
-  double ep, p1, p2, fact, bqp;
-  double en[ME], dq[ME], dn, zero=0.0;
-  int j, np, nme, one=1;
+  double dn, dn0, dd, ep, p1, p2, fact, bqp;
 
   int kv = 0;
   if (pot->pse) kv = IdxVT(orb->kappa);
   orb->kv = kv;
-  z = GetResidualZ();
+  i = pot->maxrp-1;
+  z = -(pot->VT[kv][i]*pot->rad[i]);
   if (z < 1) z = 1;
   kl = orb->kappa;
   kl = (kl < 0)? (-kl-1):kl;
@@ -1693,8 +1691,13 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   if (pot->N <= 1) j = 3;
   else j = 1;
   i2p2 = pot->maxrp - j*pot->asymp - 5;
-  for (i2 = pot->r_core; i2 < i2p2; i2++) {
-    if (_veff[i2+1] > _veff[i2]) break;
+  qo = e-_veff[i2p2];
+  for (i2 = i2p2-2; i2 > pot->r_core; i2--) {
+    p1 = pot->VT[kv][i2]*pot->rad[i2];
+    if (fabs(p1+z) > EPS3) break;
+    qi = e-_veff[i2];
+    if (qi-qo > 10*qo) break;
+    if (_veff[i2-1] >= _veff[i2]) break;
   }
   i2 += j*pot->asymp;    
   i2p2 = i2 + 2;
@@ -1711,14 +1714,13 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   i2m = i2 - 1;
   i2p2 = i2 + 2;
   i2m2 = i2 - 2;
-  dn = 1.2/(ME-1.0);
-  en[0] = orb->n - 0.95;
-  for (j = 1; j < ME; j++) {
-    en[j] = en[j-1] + dn;
-  }
-  for (j = 0; j < ME; j++) {
-    e = EnergyH(z, en[j], orb->kappa);
-    en[j] = e;
+
+  dn = 0.05;
+  dn0 = orb->n+dn;
+  dd = 0.0;
+  j = 0;
+  while (1) {
+    e = EnergyH(z, dn0, orb->kappa);
     SetPotentialW(pot, e, orb->kappa, kv);
     SetVEffective(kl, kv, pot);
     bqp = DpDr(orb->kappa, kv, 0, e, pot, 0, -1, &orb->bqp0);
@@ -1734,21 +1736,30 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
     p1 = qq/pp;
     qi = DpDr(orb->kappa, kv, i2, e, pot, p1, 1, NULL);
     delta = qo-qi;
-    dq[j] = delta;
+    //printf("dn: %d %d %d %d %g %15.8E %15.8E %g %g %g %g %g %g %g\n", orb->n, orb->kappa, i2, ierr, z, e, dn0, dn, qq, pp, qo, qi, delta, dd);
+    if (delta > 0) {
+      if (j > 0) {
+	if (dn < EPS5) {
+	  if (delta > dd) {
+	    p1 = delta/(delta-dd);	  
+	    dn0 = dn0*(1-p1) + (dn0+dn)*p1;
+	  } else {
+	    dn0 += 0.5*dn;
+	  }
+	  break;
+	} else {
+	  dn /= 2;
+	  dn0 += dn;
+	  continue;	
+	}
+      }
+    } else {
+      j = 1;
+    }
+    dd = delta;
+    dn0 -= dn;
   }
-  for (j = 0; j < ME-1; j++) {
-    if (dq[j] > 0 && dq[j+1] < dq[j]) break;
-  }
-  i = j;
-  for (; j < ME-1; j++) {
-    if (dq[j+1] >= dq[j]) break;
-  }
-  nme = j - i + 1;
-  for (np = i; np <= j; np++) {
-    dq[np] = -dq[np];
-  }
-  np = 3;
-  UVIP3P(np, nme, &(dq[i]), &(en[i]), one, &zero, &e);
+  e = EnergyH(z, dn0, orb->kappa);
   i2p2 = pot->maxrp-1;
   bqp = DpDr(orb->kappa, kv, 0, e, pot, 0, -1, &orb->bqp0);
   nodes = IntegrateRadial(p, e, pot, 0, bqp, i2p2, 1.0, 2);
@@ -1778,17 +1789,21 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 
   if (pot->flag == -1) {
     DiracSmall(orb, pot, -1, kv);
-    if (pp != 0) {
-      fact = fabs(pp/p[i2]);
-      for (i = 0; i < pot->maxrp-1; i++) {
-	orb->wfun[i] *= fact;
-	orb->wfun[i+pot->maxrp] *= fact;
+    p2 = sqrt(pp*pp + qq*qq);    
+    if (p2) {
+      i = i2 + pot->maxrp;
+      p1 = sqrt(orb->wfun[i2]*orb->wfun[i2] + orb->wfun[i]*orb->wfun[i]);    
+      fact = p2/p1;
+      if (fabs(1-fact)>EPS8) {
+	for (i = 0; i < pot->maxrp-1; i++) {
+	  orb->wfun[i] *= fact;
+	  orb->wfun[i+pot->maxrp] *= fact;
+	}
       }
     }
   }
 
   return 0;
-#undef ME
 }
   
 int RadialFreeInner(ORBITAL *orb, POTENTIAL *pot) {
