@@ -3649,7 +3649,7 @@ double BlockRelaxation(int iter) {
       blk1->n[0] = 0.0;
     } else {
       for (m = 0; m < blk1->nlevels; m++) {
-	blk1->r[m] = blk1->n[m];
+	blk1->r[m] *= blk1->nb;
 	blk1->n[m] = 0.0;
       }
     }
