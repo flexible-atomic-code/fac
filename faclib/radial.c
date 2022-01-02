@@ -3174,7 +3174,7 @@ void SetPotentialN(void) {
 	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i], a, b, acfg->e[i]);
     }
   }
-  if (a > 1) {
+  if (a > 1 && potential->mps < 0) {
     a += potential->zps;
   }
   if (a > potential->atom->atomic_number) {
