@@ -7100,7 +7100,7 @@ int ChannelAI(int b, int nmb, short *ncb,
   return -1;
 }
 
-void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
+void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
   int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, z;
   char ifn[1024], ofn[1024], buf[1024];
   char a[8];
@@ -7127,7 +7127,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
   double e0, e1, e0p, e1p, tde, *de, *ei, **eai;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
-  int ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
+  int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
   short ***nc;
   double t0, dt, d0, dd, *egk;
@@ -7256,8 +7256,10 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
     n = ReadRCHeader(f0, &h6, swp);
     if (n > 0) {
       ncap = h6.ncap;
+      nexc = Min(nexc0, h6.nexc);
     } else {
       ncap = 0;
+      nexc = nexc0;
     }
     FCLOSE(f0);
     
@@ -7552,6 +7554,20 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
 	    r3.b = im[r3.b];
 	    r3.f = im[r3.f];
 	    tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
+	    /*
+	    double eh = 81.0*h3.egrid[h3.n_egrid-1];
+	    double x1 = (eh+r3.params[3])/r3.params[3];
+	    double y1 = (1+r3.params[2])/(sqrt(x1)+r3.params[2]);
+	    double tc = (-3.5-r3.kl+0.5*r3.params[1])*log(x1)+r3.params[1]*log(y1);
+	    if (r3.params[0] > 0) {
+	      tc = tc + log(r3.params[0]*(eh+tde)/(eh+r3.params[3]));
+	      tc = exp(tc);
+	      tc = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20*1e-20;
+	    } else {
+	      tc = 0.0;
+	    }
+	    if (tde > 0 && ((float)tc) > 0) {
+	    */
 	    if (tde > 0) {
 	      WriteRRRecord(f1[3], &r3);
 	    }
@@ -7644,7 +7660,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc, int ic) {
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadRCHeader(f0, &h6, swp);
 	if (n == 0) break;
-	h6.mexc = nexc;
+	h6.mexc = nexc0;
 	InitFile(f1[6], &fh1[6], &h6);
 	for (i = 0; i < h6.ntransitions; i++) {
 	  n = ReadRCRecord(f0, &r6, swp, &h6);
