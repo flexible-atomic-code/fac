@@ -4750,7 +4750,7 @@ static PyObject *PConfigEnergy(PyObject *self, PyObject *args) {
     if (n == 2) {
       ConfigEnergy(m, mr, 0, NULL);
     } else {
-      for (i = 1; i < n; i++) {
+      for (i = 2; i < n; i++) {
 	p = PyTuple_GetItem(args, i);
 	if (!PyList_Check(p)) return NULL;
 	ng = DecodeGroupArgs(p, &kg, NULL);

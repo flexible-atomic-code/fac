@@ -2013,12 +2013,15 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 	}
       }
     }
-    m = potential->ips;
   } else {
-    for (m = 0; m < potential->maxrp; m++) {
-      w0[m] = 0.0;
-      if (md == 1) {
-	wx0[m] = 0.0;
+    if (md == 0) {
+      for (m = 0; m < potential->maxrp; m++) {
+	w0[m] = 0.0;
+      }
+    } else {      
+      for (m = 0; m < potential->maxrp; m++) {
+	w0[m] = w[m];
+	wx0[m] = wx[m];
       }
     }
     SetOptDPH(md, 0.0, iter);
@@ -2106,7 +2109,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
   
   if (!(potential->mps == 1 ||
 	(potential->mps == 0 && potential->tps <= 0))) {
-    if (_scpot.md != 1 && _scpot.md != 3) {
+    if (_scpot.md != 1 && _scpot.md != 3) {      
       jmaxk = SetScreenDensity(acfg, iter ,1);
     } else {
       jmaxk = _scpot.jmax;

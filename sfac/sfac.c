@@ -779,7 +779,7 @@ static int PConfigEnergy(int argc, char *argv[], int argt[],
     if (argc == 2) {
       ConfigEnergy(m, mr, 0, NULL);
     } else {
-      for (i = 1; i < argc; i++) {
+      for (i = 2; i < argc; i++) {
 	ng = DecodeGroupArgs(&kg, 1, NULL, argv+i, argt+i, variables);
 	if (ng < 0) return -1;
 	ConfigEnergy(m, mr, ng, kg);

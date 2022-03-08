@@ -8119,7 +8119,6 @@ void PrepStarkQC(double mt0, double d0, double t0,
 	  double zr = z/_starkzp[i];
 	  if (fabs(zr-1)>1e-3) {
 	    if (zix < 0) {
-	      double zr = z/_starkzp[i];
 	      ScaledSG(s0, g0, zr, &s, &g);
 	    } else {
 	      g = pow(zr, zix);
