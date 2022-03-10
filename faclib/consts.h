@@ -278,7 +278,7 @@ extern double AMU;
 #define LEVELS_BLOCK       8192
 #define ANGZ_BLOCK         1024
 #define ANGZxZ_BLOCK       8192
-#define ANGZCUT            1E-5
+#define ANGZCUT            1E-8
 #define MIXCUT             1E-5
 #define MIXCUT2            1.0
 #define NPRINCIPLE         2
@@ -306,7 +306,7 @@ extern double AMU;
 #define TRCUT              1E-4
 
 /* recouple */
-#define MAXRANK            20
+#define MAXRANK            50
 
 /* coulomb */
 #define NHYDROGEN          20

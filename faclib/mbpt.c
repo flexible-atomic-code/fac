@@ -1430,11 +1430,25 @@ void SolveRadialBasisMBPT(int nmax) {
       if (SkipMPI()) continue;
 #endif
       orb = GetOrbitalSolvedNoLock(i);
-      QED1E(i, i);
+      //QED1E(i, i);
       nb++;
     }
     double wt1 = WallTime();
     MPrintf(-1, "RadialBasis Time=%11.4E nb=%d\n", wt1-wt0, nb);
+  }
+  
+  n = GetNumOrbitals();  
+#pragma omp parallel default(shared)
+  {
+    int i;
+    ORBITAL *orb;
+    for (i = 0; i < n; i++) {    
+#if USE_MPI == 2
+      if (SkipMPI()) continue;
+#endif
+      orb = GetOrbitalSolvedNoLock(i);
+      QED1E(i,i);
+    }
   }
 }
 
