@@ -72,7 +72,7 @@ static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
 static double perturb_threshold = -1;
 static double perturb_eth = 1e-3/_HARTREE_EV;
-static double perturb_emintol = 1e-3/_HARTREE_EV;
+static double perturb_emintol = 5e-2/_HARTREE_EV;
 static int perturb_maxiter = PERTURBMAXITER;
 static double perturb_expdim = PERTURBEXPDIM;
 static double perturb_expdimz = PERTURBEXPDIMZ;
@@ -3800,12 +3800,12 @@ int SolveStructure(char *fn, char *hfn,
 	    double wt1 = WallTime();
 	    double ts = TotalSize();
 	    MPrintf(-1,
-		    "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
+		    "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E %11.4E\n",
 		    i, -1, h->orig_dim, h->exp_dim,
 		    ip==1?h->dim:h->ndim,
-		    h->n_basis, nib[i], done[i], alldone,
+		    h->n_basis, nib[i], done[i], 0,
 		    h->diag_iter, h->diag_etol*HARTREE_EV,
-		    h->diag_emin*HARTREE_EV, mth,
+		    h->diag_emin*HARTREE_EV, 0.0, mth,
 		    wt1-wtb, wt1-wtb, ts);
 	  }
 	  if (h->n_basis == dim) {
@@ -3914,8 +3914,8 @@ int SolveStructure(char *fn, char *hfn,
 	    int skip = SkipMPI();
 	    if (skip) continue;
 	    double wt0 = WallTime();
+	    double emin = h->diag_emin;
 	    if (!done[i]) {
-	      double emin = h->diag_emin;
 	      if (DiagnolizeHamilton(h) < 0) {
 		if (h->mmix != NULL) {
 		  free(h->mmix);
@@ -3931,12 +3931,13 @@ int SolveStructure(char *fn, char *hfn,
 	      double wt1 = WallTime();
 	      double ts = TotalSize();
 	      MPrintf(-1,
-		      "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E\n",
+		      "piter: %3d %3d %5d %5d %5d %6d %5d %1d %1d %3d %11.5E %14.7E %11.4E %11.4E %11.4E %11.4E %11.4E\n",
 		      i, iter, h->orig_dim, h->exp_dim,
 		      ip==1?h->dim:h->ndim,
 		      h->n_basis, nib[i], done[i], alldone,
 		      h->diag_iter, h->diag_etol*HARTREE_EV,
-		      h->diag_emin*HARTREE_EV, mth,
+		      h->diag_emin*HARTREE_EV,
+		      (h->diag_emin-emin)*HARTREE_EV, mth,
 		      wt1-wt0, wt1-wtb, ts);
 	    }
 	    if (h->mmix != NULL) {
@@ -7090,9 +7091,6 @@ int InitStructure(void) {
     _allhams[i].diag_iter = 0;
 
   }
-
-  perturb_eth = 1e-3/HARTREE_EV;
-  perturb_emintol = 1e-3/HARTREE_EV;
   return 0;
 }
 

@@ -161,7 +161,7 @@ void MPrintf(int ir, char *format, ...) {
     if (ir < 0) {
       if (_plock) SetLockNT(_plock);
       if (ir == -1) {
-	printf("Rank=%d, ", myrank);
+	printf("Rank=%02d, ", myrank);
       }
       vprintf(format, args);
       if (_plock) ReleaseLock(_plock);
@@ -169,7 +169,7 @@ void MPrintf(int ir, char *format, ...) {
       if (myrank == ir%nproc) {	
 	if (ir >= nproc) {
 	  if (_plock) SetLockNT(_plock);
-	  printf("Rank=%d, ", myrank);
+	  printf("Rank=%02d, ", myrank);
 	  vprintf(format, args);
 	  if (_plock) SetLockNT(_plock);
 	} else {
