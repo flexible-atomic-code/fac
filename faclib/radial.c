@@ -4121,6 +4121,7 @@ int RefineRadial(int m, int n, int maxfun, int msglvl) {
   }
   free(_refine_wfb);
   qed.se = se;
+  CopyPotentialOMP(0);
   if (_refine_pj >= 0 && _refine_em == 1) {
     SetSymmetry(-1, 0, NULL);
   }
