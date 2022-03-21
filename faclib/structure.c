@@ -64,6 +64,7 @@ static ANGULAR_FROZEN ang_frozen;
 
 static int ncorrections = 0;
 static ARRAY *ecorrections;
+static double _eoffset = 0.0;
 
 static int ci_level = 0;
 static int rydberg_ignored = 0;
@@ -792,7 +793,6 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 	    r = HamiltonElement(isym, h->basis[i], h->basis[j]);
 	  }
 	  h->hamilton[i+t] = r;
-	  //printf("ham: %d %d %d %d %d %g\n", h->pj, i, j, j0, h->dim, r);
 	}
       }
       if (jp > 0) {
@@ -2118,7 +2118,7 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {
   int nk0, k;
   int *k0;
-  double *x, z0, r0, e0, qed;
+  double *x, z0, rr, r0, e0, qed;
   int k1, k2;
 
   if (s[0].j != s[1].j ||
@@ -2131,7 +2131,8 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   if (fabs(z0) < EPS30) return 0.0;
   k1 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
   k2 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
-  ResidualPotential(&r0, k1, k2);
+  ResidualPotential(&rr, k1, k2);
+  r0 = rr;
   e0 = 0.0;
   if (k1 == k2) {
     e0 = (GetOrbital(k1))->energy;
@@ -2139,7 +2140,6 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   }
   qed = QED1E(k1, k2);
   r0 += qed;
-
   z0 *= sqrt(s[0].j + 1.0);
   r0 *= z0;
 
@@ -2296,7 +2296,6 @@ int TestHamilton(void) {
     for (i = 0; i < sym->n_states; i++) {
       for (j = 0; j < sym->n_states; j++) {
 	r1 = HamiltonElement(t, i, j);
-	printf("HAM: %3d %d %d %10.3E\n", t, i, j, r1);
       }
     }
   }
@@ -3023,7 +3022,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	if (c->energy == 0) {
 	  c->energy = AverageEnergyConfig(c);
 	}
-	lev.energy = c->energy;
+	lev.energy = c->energy+_eoffset;
 	if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
 	  printf("Not enough memory for levels array\n");
 	  exit(1);
@@ -3046,7 +3045,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     j = n_eblevels;
     for (i = 0; i < d; i++) {
       k = GetPrincipleBasis(mix, d, NULL);
-      lev.energy = h->mixing[i];
+      lev.energy = h->mixing[i]+_eoffset;
       lev.pj = h->pj;
       lev.iham = -1;
       lev.ilev = j;
@@ -3100,7 +3099,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
       }
     }
 
-    lev.energy = h->mixing[i];
+    lev.energy = h->mixing[i]+_eoffset;
     lev.pj = h->pj;
     lev.iham = h->iham;
     lev.ilev = i;
@@ -3146,7 +3145,8 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     if (levels->lock) {
       SetLock(levels->lock);
     }
-    LEVEL *alev = ArrayAppend(levels, &lev, InitLevelData);
+    LEVEL *alev = ArrayAppend(levels, &lev, InitLevelData);    
+    
     if (levels->lock) {
       ReleaseLock(levels->lock);
     }
@@ -7213,6 +7213,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:levels_block")) {
     _levels_block = ip;
+    return;
+  }
+  if (0 == strcmp(s, "structure:eoffset")) {
+    _eoffset = dp/HARTREE_EV;
     return;
   }
 }
