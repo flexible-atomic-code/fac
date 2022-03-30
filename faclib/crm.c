@@ -77,6 +77,7 @@ static int _starknp = 0;
 static double *_starkzp = NULL;
 static double *_starkmp = NULL;
 static double *_starkwp = NULL;
+static double _starkzb = 1.0;
 static double _starkaix = 1.0;
 static double _starksmx = 3.0;
 static double _starkzix = -1.0;
@@ -7921,7 +7922,7 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
   free(y11);
   return;
 }
-
+  
 double MicroFieldMode(double g, double s) {
   if (s < 1e-10) {
     double ge = 0.774 + pow(g, 0.25) + g;
@@ -8089,6 +8090,17 @@ void ScaledSG(double s, double g, double zr, double *sn, double *gn) {
   *sn = s*pow(zr, (a0+a1*g0)/g1);
 }
 
+void UnscaledSG(double zp, double te, double de, double *s0, double *g0) {
+  double d1 = pow(de, ONETHIRD);
+  double t0 = te/HARTREE_EV;
+  double t1 = sqrt(t0);
+  double z1 = pow(zp, ONETHIRD);
+  double a = z1/(8.54e-9*d1);
+  *g0 = zp*zp/(t0*a);
+  double eta = FM1PI(de*1.0343e-24/(t0*t1));
+  *s0 = a*sqrt(0.90032*t1*FM1M(eta));
+}
+
 void PrepStarkQC(double mt0, double d0, double t0,
 		 double *wd, double *wdi, double *wir,
 		 int zt, int ne0, int ne1, double *wrf, double *wid) {
@@ -8099,15 +8111,15 @@ void PrepStarkQC(double mt0, double d0, double t0,
     double t1 = sqrt(t0);
     *wd = t1*2.32e-7*d1;
     int i;
-    double mt;
+    double mt, zb3;
+    zb3 = pow(_starkzb, ONETHIRD);
     for (i = 0; i < _starknp; i++) {
-      if (_starkmp[i] > 0 && _starkmp[i] > 0) {
+      if (_starkzp[i] > 0 && _starkmp[i] > 0) {
 	mt = _starkmp[i]*mt0/(_starkmp[i]+mt0);
 	mt = sqrt(mt*AMU);
-	double z1 = pow(_starkzp[i], ONETHIRD);
-	wdi[i] = (*wd)/(z1*mt);
-	wir[i] = _starkzp[i]*mt;
-	double a = z1/(8.54e-9*d1);
+	wdi[i] = (*wd)/(zb3*mt);
+	wir[i] = _starkzp[i]*mt*_starkzp[i]/_starkzb;
+	double a = zb3/(8.54e-9*d1);
 	int k;
 	for (k = ne0; k <= ne1; k++) {
 	  double z = zt-k;
@@ -8601,19 +8613,22 @@ void SetStarkZMP(int np, double *wzm) {
     _starkzp[0] = 1.0;
     _starkmp[0] = 1.0;
     _starkwp[0] = 1.0;
+    _starkzb = 1.0;
     return;
   }
   int i, k;
-  double zt = 0.0;
+  double zt = 0.0, wt = 0.0;
   for (i = 0; i < np; i++) {
     k = 3*i;
     _starkwp[i] = wzm[k];
     _starkzp[i] = wzm[k+1];
     _starkmp[i] = wzm[k+2];
-    zt += _starkwp[i];
+    zt += _starkzp[i]*_starkwp[i];
+    wt += _starkwp[i];
   }
+  _starkzb = zt/wt;
   for (i = 0; i < np; i++) {
-    _starkwp[i] = _starkwp[i]/zt;
+    _starkwp[i] = _starkwp[i]/wt;
   }
 }
 

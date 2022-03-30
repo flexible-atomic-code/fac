@@ -27,6 +27,14 @@ from pfac import fac
 from pfac import const
 from pfac import util
 
+def voigt_fwhm(gw, lw):
+    return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)
+
+def doppler_fwhm(ti, z=1, m=0.0):
+    if m <= 0:
+        m = fac.ATOMICMASS[z]
+    return np.sqrt(8*np.log(2)*ti/(m*const.AMU*const.Me_eV))
+
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
     
@@ -92,6 +100,8 @@ def read_lev(filename):
 
     # header
     header, lines = _get_header(lines)
+    if header['NBlocks'] == 0:
+        return header,()
     ind, e0 = lines[0].split('=')[-1].split(',')
     header['E0_index'] = int(ind)
     header['E0'] = float(e0)
@@ -146,7 +156,8 @@ def read_enf(filename):
     with open(filename, 'r') as f:
         lines = f.readlines()
     header, lines = _get_header(lines)
-    header['NBlocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -177,7 +188,8 @@ def read_trf(filename):
     with open(filename, 'r') as f:
         lines = f.readlines()
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -231,9 +243,9 @@ def read_tr(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
-
     def read_blocks(lines):
         block = {}
         block['NELE'], lines = _read_value(lines, int)
@@ -255,14 +267,14 @@ def read_tr(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['upper_index'][i] = int(line[:7])
-            block['upper_2J'][i] = int(line[8:10])
-            block['lower_index'][i] = int(line[11:17])
-            block['lower_2J'][i] = int(line[18:20])
-            block['Delta E'][i] = float(line[21:34])
-            block['gf'][i] = float(line[35:48])
-            block['rate'][i] = float(line[49:62])
-            block['multipole'][i] = float(line[63:76])
+            block['upper_index'][i] = int(line[:6])
+            block['upper_2J'][i] = int(line[7:9])
+            block['lower_index'][i] = int(line[10:16])
+            block['lower_2J'][i] = int(line[17:19])
+            block['Delta E'][i] = float(line[20:33])
+            block['gf'][i] = float(line[34:47])
+            block['rate'][i] = float(line[48:61])
+            block['multipole'][i] = float(line[62:75])
 
         return (block, )
 
@@ -275,7 +287,8 @@ def read_ai(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -300,13 +313,13 @@ def read_ai(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['bound_index'][i] = int(line[:7])
-            block['bound_2J'][i] = int(line[8:10])
-            block['free_index'][i] = int(line[11:17])
-            block['free_2J'][i] = int(line[18:20])
-            block['Delta E'][i] = float(line[21:32])
-            block['AI rate'][i] = float(line[33:44])
-            block['DC strength'][i] = float(line[45:56])
+            block['bound_index'][i] = int(line[:6])
+            block['bound_2J'][i] = int(line[7:9])
+            block['free_index'][i] = int(line[10:16])
+            block['free_2J'][i] = int(line[17:19])
+            block['Delta E'][i] = float(line[20:31])
+            block['AI rate'][i] = float(line[32:43])
+            block['DC strength'][i] = float(line[44:55])
 
         return (block, )
 
@@ -320,6 +333,8 @@ def read_ce(filename):
 
     # header
     header, lines = _get_header(lines)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -371,12 +386,12 @@ def read_ce(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['lower_index'][tr] = int(line[:7].strip())
-            block['lower_2J'][tr] = int(line[8:10].strip())
-            block['upper_index'][tr] = int(line[11:17].strip())
-            block['upper_2J'][tr] = int(line[18:20].strip())
-            block['Delta E'][tr] = float(line[21:31].strip())
-            nsub = int(line[32:])
+            block['lower_index'][tr] = int(line[:6].strip())
+            block['lower_2J'][tr] = int(line[7:9].strip())
+            block['upper_index'][tr] = int(line[10:16].strip())
+            block['upper_2J'][tr] = int(line[17:19].strip())
+            block['Delta E'][tr] = float(line[20:30].strip())
+            nsub = int(line[31:])
             if block['MSUB']:
                 block['collision strength'][tr] = np.zeros(
                     (nusr, nsub), dtype=float)
@@ -385,7 +400,7 @@ def read_ce(filename):
 
             line = lines[0]
             lines = lines[1:]
-            block['bethe'][tr] = float(line[:12].strip())
+            block['bethe'][tr] = float(line[:11].strip())
             block['born'][tr, 0] = float(line[12:23].strip())
             block['born'][tr, 1] = float(line[24:36].strip())
 
@@ -431,7 +446,8 @@ def read_ci(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -470,12 +486,12 @@ def read_ci(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['bound_index'][tr] = int(line[:7])
-            block['bound_2J'][tr] = int(line[8:10])
-            block['free_index'][tr] = int(line[11:17])
-            block['free_2J'][tr] = int(line[18:20])
-            block['Delta E'][tr] = float(line[21:32])
-            block['Delta L'][tr] = int(line[33:])
+            block['bound_index'][tr] = int(line[:6])
+            block['bound_2J'][tr] = int(line[7:9])
+            block['free_index'][tr] = int(line[10:16])
+            block['free_2J'][tr] = int(line[17:19])
+            block['Delta E'][tr] = float(line[20:31])
+            block['Delta L'][tr] = int(line[32:])
             block['parameters'][tr] = [float(l) for l in lines[0].split()]
             lines = lines[1:]
             for i in range(nusr):
@@ -504,7 +520,8 @@ def read_rr(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -544,12 +561,12 @@ def read_rr(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['bound_index'][tr] = int(line[:7])
-            block['bound_2J'][tr] = int(line[8:10])
-            block['free_index'][tr] = int(line[11:17])
-            block['free_2J'][tr] = int(line[18:20])
-            block['Delta E'][tr] = float(line[21:32])
-            block['Delta L'][tr] = int(line[33:])
+            block['bound_index'][tr] = int(line[:6])
+            block['bound_2J'][tr] = int(line[7:9])
+            block['free_index'][tr] = int(line[10:16])
+            block['free_2J'][tr] = int(line[17:19])
+            block['Delta E'][tr] = float(line[20:31])
+            block['Delta L'][tr] = int(line[32:])
             block['parameters'][tr] = [float(l) for l in lines[0].split()]
             lines = lines[1:]
             for i in range(nusr):
@@ -579,7 +596,8 @@ def read_sp(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -608,12 +626,12 @@ def read_sp(filename):
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
 
-            block['block'][tr] = int(line[:7])
-            block['level'][tr] = int(line[8:14])
-            block['abs. energy'][tr] = float(line[15:28])
-            block['population'][tr] = float(line[29:40])
-            block['Delta E'][tr] = float(line[15:28])
-            block['emissivity'][tr] = float(line[29:40])
+            block['block'][tr] = int(line[:6])
+            block['level'][tr] = int(line[7:13])
+            block['abs. energy'][tr] = float(line[14:27])
+            block['population'][tr] = float(line[28:39])
+            block['Delta E'][tr] = float(line[14:27])
+            block['emissivity'][tr] = float(line[28:39])
 
         return (block, )
 
@@ -681,7 +699,8 @@ def read_rt(filename):
 
     # header
     header, lines = _get_header(lines)
-    header['Nblocks'] = _read_value(lines, int)
+    if header['NBlocks'] == 0:
+        return header,()
     lines = lines[1:]
 
     def read_blocks(lines):
@@ -724,15 +743,15 @@ def read_rt(filename):
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
 
-            block['block'][tr] = int(line[:7])
-            block['level'][tr] = int(line[8:12])
-            block['NB'][tr] = float(line[13:25])
-            block['TR'][tr] = float(line[26:37])
-            block['CE'][tr] = float(line[38:49])
-            block['RR'][tr] = float(line[50:61])
-            block['AI'][tr] = float(line[62:73])
-            block['CI'][tr] = float(line[74:85])
-            block['ncomplex'][tr] = line[86:].strip()
+            block['block'][tr] = int(line[:6])
+            block['level'][tr] = int(line[7:11])
+            block['NB'][tr] = float(line[12:24])
+            block['TR'][tr] = float(line[25:36])
+            block['CE'][tr] = float(line[37:48])
+            block['RR'][tr] = float(line[49:60])
+            block['AI'][tr] = float(line[61:72])
+            block['CI'][tr] = float(line[73:84])
+            block['ncomplex'][tr] = line[85:].strip()
 
         return (block, )
 
@@ -878,6 +897,7 @@ class FLEV:
         self.n = self.n[i]
         self.ig = self.ig[i]
         self.ib = self.ib[i]
+        self.ibk = self.ibk[i]
 
     def add(self, a):
         r = FLEV(None)
@@ -897,6 +917,8 @@ class FLEV:
         self.s = np.chararray(n, itemsize=48)
         self.n = np.chararray(n, itemsize=128)
         self.ig = np.zeros(n, dtype=int)
+        self.ib = np.zeros(n, dtype=int)
+        self.ibk = np.zeros(n, dtype=int)
         self.e[:ng] = g.e
         self.e[ng:] = c.e
         self.p[:ng] = g.p
@@ -915,6 +937,8 @@ class FLEV:
         self.ig[ng:] = c.ig
         self.ib[:ng] = g.ib
         self.ib[ng:] = c.ib
+        self.ibk[:ng] = g.ibk
+        self.ibk[ng:] = c.ibk
 
     def combine(self, g, c):
         wg = np.where(g.ig == 1)
@@ -933,6 +957,8 @@ class FLEV:
         self.s = np.chararray(n, itemsize=48)
         self.n = np.chararray(n, itemsize=128)
         self.ig = np.zeros(n, dtype=int)
+        self.ib = np.zeros(n, dtype=int)
+        self.ibk = np.zeros(n, dtype=int)
         self.e[:ng] = g.e[wg]
         self.e[ng:] = c.e[wc]
         self.e = self.e - self.e0
@@ -952,6 +978,8 @@ class FLEV:
         self.ig[ng:] = c.ig[wc]
         self.ib[:ng] = g.ib[wg]
         self.ib[ng:] = c.ib[wc]
+        self.ibk[:ng] = g.ibk[wg]
+        self.ibk[ng:] = c.ibk[wc]
         
     def read_atbase(self, f, zi=18, ki=2):
         if type(f) == type(''):
@@ -990,10 +1018,14 @@ class FLEV:
         (hlev,blev) = read_lev(f)
         b0 = blev[0]
         b0['NELE'] = np.repeat(b0['NELE'],len(b0['ILEV']))
-        for b in blev[1:]:
+        b0['ibk'] = np.repeat(0, len(b0['ILEV']))
+        for i in range(1, len(blev)):
+            b = blev[i]
             b['NELE'] = np.repeat(b['NELE'],len(b['ILEV']))
+            b['ibk'] = np.repeat(i,len(b['ILEV']))
             for kn in b0.keys():
                 b0[kn] = np.append(b0[kn], b[kn])
+
         self.nele = b0['NELE']
         if ki > 0:
             w = np.where(self.nele == ki)[0]
@@ -1027,6 +1059,7 @@ class FLEV:
         self.e0 = hlev['E0']
         self.e = b0['ENERGY']
         self.ib = b0['IBASE']
+        self.ibk = b0['ibk']
         self.p = b0['P']
         self.j = b0['2J']
         self.wj = self.j+1
@@ -1314,4 +1347,3 @@ def NISTCorr(ff, fn, fo):
     r1 = MLEV(fn, md=1)
     r0.match(r1)
     r0.write(fo)
-    

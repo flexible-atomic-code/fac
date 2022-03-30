@@ -230,6 +230,7 @@ double MicroFieldMode(double g, double s);
 double QSReduction(double g, double s);
 double DebyeLength(double d, double t);
 void  ScaledSG(double s, double g, double zr, double *sn, double *gn);
+void UnscaledSG(double zp, double te, double de, double *s0, double *g0);
 void SortBranches(ARRAY *rts, IDXARY *idx, IDXARY *fdx,
 		  int ig, int *nr, RATE **rs);
 double DRSupFactor(double z0, double d0, double t0);

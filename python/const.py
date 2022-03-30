@@ -18,6 +18,7 @@
 
 from math import *
 
+AMU = 1822.888486
 Hartree_eV = 27.211386018          # Hartree in eV   
 Rate_AU = 4.13413733E16            # Atomic Rate Unit in s-1
 Rate_AU10 = 4.13413733E06          # Atomic Rate Unit in 10^10 s-1
@@ -64,3 +65,4 @@ def EnergyH(z, n, l, j):
     e = (1.0/sqrt(1.0+x*x)) - 1.0
     e = e * Me_eV
     return e
+
