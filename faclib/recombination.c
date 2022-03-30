@@ -702,8 +702,36 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
 #pragma omp flush
   return 0;
 }
-    
-int RRRadialQkTable(double *qr, int k0, int k1, int m) {
+
+void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
+  int ite, ie, k, m, m2p;
+  double r, rp, b[25];
+
+  if (mx <= 1) return;
+  if (mx > 10) mx = 10;
+  m = 1 + (mx-1)/2;
+  m = 2*m + 1;
+  m2p = 2*m + 1;
+
+  k = 0;
+  for (ite = 0; ite < n_tegrid; ite++) {
+    for (ie = 0; ie < n_egrid; ie++) {
+      r = AsymmetryPI(k0, egrid[ie], tegrid[ite], mx, m, b);
+      if (r > 0) {
+	if (kp != k0) {
+	  rp = AsymmetryPI(kp, egrid[ie], tegrid[ite], mx, m, b);
+	  if (rp > 0) {
+	    r = sqrt(r*rp);
+	  }
+	}
+	qr[k] /= r;
+      }
+      k++;
+    }
+  }
+}
+
+int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   int index[3], k, nqk;
   double **p, *qk, tq[MAXNE];
   double r0, r1, tq0[MAXNE];
@@ -713,11 +741,19 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   int jfmin, jfmax;
   int ite, ie, i;
   double eb, aw, e, pref;
-  int mode, gauge;
+  int mode, gauge, m, mx;
   int nh, klh;
   double hparams[NPARAMS];
   double xegrid[MAXNE], log_xegrid[MAXNE];
 
+  if (m0 > 100) {
+    m = -1;
+    mx = m0-100;
+    if (mx == 1) mx = 4;
+  } else {
+    m = m0;
+    mx = 0;
+  }
   orb = GetOrbital(k0);
   kappa0 = orb->kappa;
   GetJLFromKappa(kappa0, &jb0, &klb02);
@@ -747,6 +783,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
 	  k++;
 	}
       }
+      TopUpRRRadialQk(qr, k0, k0, mx);
       return 0;
     }
   }
@@ -772,6 +809,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
     for (i = 0; i < nqk; i++) {
       qr[i] = (*p)[i];
     }
+    TopUpRRRadialQk(qr, k0, k1, mx);
     if (locked) {      
       ReleaseLock(lock);
     }
@@ -835,6 +873,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m) {
   for (i = 0; i < nqk; i++) {
     qr[i] = pd[i];
   }
+  TopUpRRRadialQk(qr, k0, k1, mx);
   *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -973,7 +1012,7 @@ int BoundFreeMultipole(FILE *fp, int rec, int f, int m) {
 }
 
 int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
-		   int rec, int f, int m) {
+		   int rec, int f, int m0) {
   INTERACT_DATUM *idatum;
   LEVEL *lev1, *lev2;
   int j1, ns, q1, ie, c;
@@ -981,7 +1020,7 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   double a, b, d, eb0, z;
   double rq[MAXNE], tq[MAXNE];
   double xegrid[MAXNE], log_xegrid[MAXNE];
-  int gauge, mode;
+  int gauge, mode, m;
   int nkl, nq, k;
   int klb, jb, kb;
   
@@ -990,7 +1029,9 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   
   *eb = (lev2->energy - lev1->energy);
   if (*eb <= 0.0) return -1;
-  
+
+  if (m0 > 100) m = -1;
+  else m = m0;
   idatum = NULL;
   ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
 		   lev2->pb, lev1->pb, 0, 0, 1);  
@@ -1017,7 +1058,7 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
     tq[ie] = 0.0;
   }
   
-  k = RRRadialQk(rq, *eb, kb, kb, m);
+  k = RRRadialQk(rq, *eb, kb, kb, m0);
   nq = orb->n;
   nkl = klb;
   for (ie = 0; ie < n_egrid; ie++) {
@@ -1225,7 +1266,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
 }
 
 int BoundFreeOS(double *rqu, double *rqc, double *eb, 
-		int rec, int f, int m) {
+		int rec, int f, int m0) {
   LEVEL *lev1, *lev2;
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
@@ -1234,7 +1275,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   double rq[MAXNE], tq[MAXNE];
   double xegrid[MAXNE], log_xegrid[MAXNE];
   int i, j, c;
-  int gauge, mode;
+  int gauge, mode, m;
   int nkl, nq;
   int kb, kbp, jb, klb, jbp;
 
@@ -1246,6 +1287,8 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   nz = AngularZFreeBound(&ang, f, rec);
   if (nz <= 0) return -1;
 
+  if (m0 > 100) m = -1;
+  else m = m0;
   gauge = GetTransitionGauge();
   mode = GetTransitionMode();
   c = 2*abs(m) - 2;
@@ -1266,7 +1309,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
       jbp = GetOrbital(kbp)->kappa;
       jbp = GetJFromKappa(jbp);
       if (jbp != jb) continue;
-      k = RRRadialQk(rq, *eb, kb, kbp, m);
+      k = RRRadialQk(rq, *eb, kb, kbp, m0);
       if (k < 0) continue;
       a = ang[i].coeff*ang[j].coeff;
       if (j != i) {
@@ -2215,7 +2258,7 @@ int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
 }
 
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
-	      char *fn, int m) {
+	      char *fn, int m0) {
   int i, j, k, ie, ip;
   TFILE *f;
   double rqu[MAXNUSR], qc[NPARAMS+1];
@@ -2226,7 +2269,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   F_HEADER fhdr;
   double e, emin, emax, emax0;
   double awmin, awmax;
-  int nq, nqk;
+  int nq, nqk, m;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta;
@@ -2235,7 +2278,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   double tstart = WallTime();
 
   iuta = IsUTA();
-
+  if (m0 > 100) m = -1;
+  else m = m0;
   if (m != -1 && GetTransitionGauge() != G_BABUSHKIN && qk_mode == QK_FIT) {
     printf("QK_FIT mode is only available to LENGTH form of E1 transitions\n");
     printf("Changing QK_FIT to QK_INTERPOLATE.\n");
@@ -2411,9 +2455,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	int skip = SkipMPI();
 	if (skip) continue;
 	if (iuta) {
-	  nq = BoundFreeOSUTA(rqu, qc, &eb, low[j], up[i], m);
+	  nq = BoundFreeOSUTA(rqu, qc, &eb, low[j], up[i], m0);
 	} else {
-	  nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m);
+	  nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m0);
 	}
 	if (nq < 0) continue;
 	r.b = low[j];
@@ -2885,7 +2929,7 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
     if (ns <= 0) return 0;
   }
   te /= HARTREE_EV;
-  mx = abs(mx0);  
+  mx = abs(mx0);
   mlam = 1 + (mx-1)/2;
   m = 2*mlam+1;
   pqa = malloc(sizeof(double)*m);

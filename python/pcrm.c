@@ -1721,6 +1721,13 @@ static PyObject *PScaledSG(PyObject *self, PyObject *args) {
   return Py_BuildValue("[dd]", sn, gn);
 }
 
+static PyObject *PUnscaledSG(PyObject *self, PyObject *args) {
+  double s, g, zp, te, de;
+  if  (!(PyArg_ParseTuple(args, "ddd", &zp, &te, &de))) return NULL;
+  UnscaledSG(zp, te, de, &s, &g);
+  return Py_BuildValue("[dd]", s, g);
+}
+
 static PyObject *PSetCXLDist(PyObject *self, PyObject *args) {
   if (scrm_file) {
     SCRMStatement("SetCXLDist", args, NULL);
@@ -1871,6 +1878,7 @@ static struct PyMethodDef crm_methods[] = {
   {"QSReduction", PQSReduction, METH_VARARGS},
   {"DebyeLength", PDebyeLength, METH_VARARGS},
   {"ScaledSG", PScaledSG, METH_VARARGS},
+  {"UnscaledSG", PUnscaledSG, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"Voigt", PVoigt, METH_VARARGS},
   {"DRSupFactor", PDRSupFactor, METH_VARARGS},

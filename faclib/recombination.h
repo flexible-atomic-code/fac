@@ -77,6 +77,7 @@ int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m);
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m);
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra);
+void TopUpRRRadialQk(double *qr, int k0, int k1, int mx);
 void RRRadialQkHydrogenicParams(int np, double *p, double z, int n, int klb);
 double PICrossH(double z, int n0, int kl0, double e, int os);
 double GauntBF(int n, int k, double z, double te, double e);

@@ -3504,7 +3504,7 @@ static PyObject *PAsymmetry(PyObject *self, PyObject *args) {
   mx = 1;
   te = 0.0;
   if (!PyArg_ParseTuple(args, "ss|id", &fn, &s, &mx, &te)) return NULL;
-  
+
   SaveAsymmetry(fn, s, mx, te);
   
   Py_INCREF(Py_None);
