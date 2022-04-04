@@ -1868,7 +1868,7 @@ int ShellNeedNuNr(SHELL *s, SHELL_STATE *st) {
   int j = GetJFromKappa(s->kappa);
   if (j < 7) return 0;
   if (j == 7) {
-    if (st->shellJ == 4 || st->shellJ == 8) return 1;
+    if (s->nq == 4 && (st->shellJ == 4 || st->shellJ == 8)) return 1;
     return 0;
   } else if (j == 9) {    
     if (s->nq == 4) {

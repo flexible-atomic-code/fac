@@ -2798,7 +2798,7 @@ double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
   if (te <= 0) {
     te = -orb0->energy;
   }
-  aw = FINE_STRUCTURE_CONST*e;
+  aw = FINE_STRUCTURE_CONST*te;
   aw0 = FINE_STRUCTURE_CONST*(e + te);
   gauge = GetTransitionGauge();
   
