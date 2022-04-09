@@ -1200,7 +1200,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
   int nz, k, i, j, m, kb, kbp, j1, j2, mn, mk, ie;
-  double a, c, z, am;
+  double a, c, z, am, e, pmass;
   double orx, ov12, ode, ovdr, olam, obeta;
   
   lev1 = GetLevel(rec);
@@ -1222,6 +1222,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
   for (ie = 0; ie < n_cxegrid; ie++) {
     cx[ie] = 0.0;
   }
+  pmass = GetAtomicMass();
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     orb = GetOrbital(kb);
@@ -1245,7 +1246,11 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
       ode = -1;
       obeta = -1;
       a *= 1.0/(2*(2*k+1.0)*(j2+1.0));
-      for (ie = 0; ie < n_cxegrid; ie++) {	
+      for (ie = 0; ie < n_cxegrid; ie++) {
+	e = cxegrid[ie];
+	if (t_cxegrid > 0) {
+	  e /= pmass;
+	}
 	c = LandauZenerCX(cxt, orb->n, k, m, z, cxegrid[ie], *eb,
 			  &orx, &ov12, &ovdr, &olam, &ode, &obeta);
 	if (orb->n <= nmc && c > 0) {

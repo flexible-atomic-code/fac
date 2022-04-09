@@ -439,7 +439,7 @@ double CXRate1E(double e1, double eth0, int np, void *p) {
   double *x, *y, r;
   int n = 3;
   int one = 1;
-  if (ip[3] == 0) {
+  if (ip[3] == 1) {
     e1 /= cx->pmass/AMU;
   }
   double e = e1;
