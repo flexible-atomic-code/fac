@@ -814,7 +814,31 @@ def valid_lines(fn):
             line = line.lstrip()
             if len(line) > 20 and not line[0].isalpha():
                 yield line
-                
+
+def mix_header_lines(fn):
+    mh = '============Mixing Coefficients==================='
+    n = len(mh)
+    nh = 0
+    with open(fn) as f:
+        for i,line in enumerate(f):
+            nh += 1
+            if line[:n] == mh:
+                break
+    return nh
+
+def read_bst(fn):
+    nh = mix_header_lines(fn)
+    h0 = np.loadtxt(fn, skiprows=1, max_rows=nh-3, unpack=1,
+                    usecols=range(7), dtype=int)
+    h1 = np.loadtxt(fn, skiprows=1, max_rows=nh-3, unpack=1,
+                    usecols=(7,8,9), dtype=str)
+    return h0,h1
+
+def read_mix(fn):
+    nh = mix_header_lines(fn)
+    r = np.loadtxt(fn, unpack=1, skiprows=nh)
+    return r
+    
 def load_fac(fn):
     r = np.loadtxt(valid_lines(fn), unpack=1, ndmin=2)
     return r
