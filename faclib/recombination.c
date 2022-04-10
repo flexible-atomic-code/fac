@@ -51,6 +51,7 @@ static double log_te[MAXNTE];
 
 static int n_cxegrid = 0;
 static int t_cxegrid = 0;
+static double *cxegrid0 = NULL;
 static double *cxegrid = NULL;
 static int cxldist = 5;
 static double cxldistmj = 1.0;
@@ -1200,7 +1201,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
   int nz, k, i, j, m, kb, kbp, j1, j2, mn, mk, ie;
-  double a, c, z, am, e, pmass;
+  double a, c, z, am, e;
   double orx, ov12, ode, ovdr, olam, obeta;
   
   lev1 = GetLevel(rec);
@@ -1222,7 +1223,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
   for (ie = 0; ie < n_cxegrid; ie++) {
     cx[ie] = 0.0;
   }
-  pmass = GetAtomicMass();
+
   for (i = 0; i < nz; i++) {
     kb = ang[i].kb;
     orb = GetOrbital(kb);
@@ -1248,10 +1249,7 @@ int CXCross(CXTGT *cxt, double *cx, double *eb, int rec, int f,
       a *= 1.0/(2*(2*k+1.0)*(j2+1.0));
       for (ie = 0; ie < n_cxegrid; ie++) {
 	e = cxegrid[ie];
-	if (t_cxegrid > 0) {
-	  e /= pmass;
-	}
-	c = LandauZenerCX(cxt, orb->n, k, m, z, cxegrid[ie], *eb,
+	c = LandauZenerCX(cxt, orb->n, k, m, z, e, *eb,
 			  &orx, &ov12, &ovdr, &olam, &ode, &obeta);
 	if (orb->n <= nmc && c > 0) {
 	  c = log(c) + mc[orb->n-1][ie];
@@ -2165,6 +2163,7 @@ int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t) {
   int i;
   
   if (n_cxegrid > 0) {
+    free(cxegrid0);
     free(cxegrid);
     n_cxegrid = 0;    
     cxegrid = NULL;
@@ -2172,9 +2171,11 @@ int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t) {
   n_cxegrid = n;
   t_cxegrid = t;
   cxegrid = malloc(sizeof(double)*n);
+  cxegrid0 = malloc(sizeof(double)*n);
   if (eg != NULL) {
     for (i = 0; i < n; i++) {
-      cxegrid[i] = eg[i]/HARTREE_EV;
+      cxegrid0[i] = eg[i]/HARTREE_EV;
+      cxegrid[i] = cxegrid0[i];
     }
     return 0;
   }
@@ -2185,21 +2186,24 @@ int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t) {
     e1 = log(e1);
   }
   de = (e1-e0)/(n-1);
-  cxegrid[0] = e0;
+  cxegrid0[0] = e0;
   for (i = 1; i < n; i++) {
-    cxegrid[i] = cxegrid[i-1] + de;
+    cxegrid0[i] = cxegrid0[i-1] + de;
   }
   if (ilog) {
     for (i = 0; i < n; i++) {
-      cxegrid[i] = exp(cxegrid[i]);
+      cxegrid0[i] = exp(cxegrid0[i]);
     }
+  }
+  for (i = 0; i < n; i++) {
+    cxegrid[i] = cxegrid0[i];
   }
   return 0;
 }
 
 int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
   int i, j, n;
-  double eb;
+  double eb, pmass;
   CX_RECORD r;
   CX_HEADER cx_hdr;
   F_HEADER fhdr;
@@ -2214,7 +2218,11 @@ int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
     printf("CX egrid not setup: %d\n", t_cxegrid);
     return -1;
   }
-
+  pmass = GetAtomicMass();
+  for (i = 0; i < n_cxegrid; i++) {
+    cxegrid[i] = cxegrid0[i];
+    if (t_cxegrid > 0) cxegrid[i] /= pmass;
+  }
   double z = GetResidualZ();
   int nmc;
   double **mc = LandauZenerMC(cxt, z, n_cxegrid, cxegrid, &nmc);
@@ -2224,7 +2232,7 @@ int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
   cx_hdr.nele = GetNumElectrons(low[0]);
   cx_hdr.te0 = t_cxegrid;
   cx_hdr.ne0 = n_cxegrid;
-  cx_hdr.e0 = cxegrid;  
+  cx_hdr.e0 = cxegrid0;  
   memcpy(cx_hdr.tgts, cxt->symbol, 128);
   cx_hdr.tgtz = cxt->z;
   cx_hdr.tgtm = cxt->m;

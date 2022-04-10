@@ -1384,8 +1384,8 @@ static PyObject *PSetCXEGrid(PyObject *self, PyObject *args) {
   p = PyTuple_GET_ITEM(args, 0);
   if (PyList_Check(p)) {
     n = DoubleFromList(p, &eg);
-    if (!PyArg_ParseTuple(args, "O|ii", &p, &ilog, &t)) return NULL;
-    SetCXEGrid(n, 0, 0, eg, ilog, t);
+    if (!PyArg_ParseTuple(args, "O|i", &p, &t)) return NULL;
+    SetCXEGrid(n, 0, 0, eg, 0, t);
   } else {
     if (!PyArg_ParseTuple(args, "idd|ii", &n, &e0, &e1, &ilog, &t)) return NULL;
     SetCXEGrid(n, e0, e1, NULL, ilog, t);
