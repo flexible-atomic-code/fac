@@ -1901,12 +1901,9 @@ static int PSetCXEGrid(int argc, char *argv[], int argt[],
   if (argt[0] == LIST) {
     n = DoubleFromList(argv[0], argt[0], variables, &eg);
     if (argc > 1) {
-      ilog = atoi(argv[1]);
-      if (argc > 2) {
-	t = atoi(argv[2]);
-      }
+      t = atoi(argv[1]);
     }
-    SetCXEGrid(n, 0, 0, eg, ilog, t);
+    SetCXEGrid(n, 0, 0, eg, 0, t);
     free(eg);
     return 0;
   }
