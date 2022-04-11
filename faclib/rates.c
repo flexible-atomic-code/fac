@@ -62,7 +62,7 @@ static struct {
   double eg[N3BRI], fg[N3BRI];
 } rate_args;
 
-#pragma omp threadprivate(rate_args, _iwork, _dwork)
+#pragma omp threadprivate(rate_args, _iwork, _dwork, _kronos_cx)
 
 #define NSEATON 19
 static double log_xseaton[NSEATON];

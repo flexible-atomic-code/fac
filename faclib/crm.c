@@ -5122,17 +5122,8 @@ int SetCXRates(int m0, char *tgt) {
 	rcx += cx->rcx[p];
       }
     }
-  } else if (m == 2) {
-    ip[0] = 2;
-    cx = KronosCX(2);
-    double *emass = GetAtomicMassTable();
-    i = (int)ion0.atom;
-    if (i <= 0) i = 1;
-    cx->pmass = emass[i-1]*AMU;
-    cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
-    cx->nmax = 0;
-    cx->ilog = 3;
   }
+  
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     int jg = ion->j[ion->ground];
@@ -5278,6 +5269,18 @@ int SetCXRates(int m0, char *tgt) {
       continue;
     }
     if (m == 2) {
+      ip[0] = 2;
+      double *emass = GetAtomicMassTable();
+      i = (int)ion0.atom;
+      if (i <= 0) i = 1;
+#pragma omp parallel default(shared) private(cx)
+      {
+	cx = KronosCX(2);
+	cx->pmass = emass[i-1]*AMU;
+	cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
+	cx->nmax = 0;
+	cx->ilog = 3;
+      }
       f = OpenFileRO(ion->dbfiles[DB_CX-1], &fh, &swp);
       if (f == NULL) {
 	printf("File %s does not exist, skipping.\n", ion->dbfiles[DB_CX-1]);
@@ -5305,8 +5308,9 @@ int SetCXRates(int m0, char *tgt) {
 	  n = ReadCXRecord(f, &xr[jb++], swp, &xh);
 	  if (jb == nrb) {
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(jb, j1, j2, e, rcx)
+#pragma omp parallel default(shared) private(jb, j1, j2, e, rcx, cx)
 	    {
+	      cx = KronosCX(2);
 	      int w = 0;
 	      for (jb = 0; jb < nrb; jb++) {
 		int skip = SkipWMPI(w++);
