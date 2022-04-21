@@ -5795,7 +5795,7 @@ int SetTRRates(int inv) {
 		  if (_ce_nmax > 0 && _ce_nmax < ion->vnl[r[jb].upper]/100) {
 		    rtx[jb].f = -1;
 		  } else {
-		    CERate(&(rtx[jb].dir), &(rtx[jb].inv), 1, j1, j2, e, 0,
+		    CERate(&(rtx[jb].dir), &(rtx[jb].inv), 1, j2, j1, e, 0,
 			   data, rtx[jb].i, rtx[jb].f);
 		    if (ion->ace > 0) {
 		      rtx[jb].dir *= ion->ace;
