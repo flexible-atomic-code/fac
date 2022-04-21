@@ -69,6 +69,7 @@ static int _lblock_block = LBLOCK_BLOCK;
 
 static double _ce_data[2+(1+MAXNUSR)*2];
 static double _rr_data[1+MAXNUSR*4];
+static int _ce_bethe = 0;
 
 static double _starkrw = 1.0;
 static double _starkqc = 1.0;
@@ -5491,6 +5492,10 @@ int SetCERates(int inv) {
   int swp;
   int **irb;
 
+  if (_ce_bethe > 0) {
+    return 0;
+  }
+  
   BornFormFactorTE(&bte);
   bms = BornMass(); 
   if (ion0.atom <= 0) {
@@ -5697,17 +5702,17 @@ int SetTRRates(int inv) {
   int j1, j2;
   int p, q, m;
   ION *ion;
-  RATE rt[NRTB];
+  RATE rt[NRTB], rtx[NRTB];
   RATE rt2;
   F_HEADER fh;
   TR_HEADER h;
   TR_RECORD r[NRTB];
   TR_EXTRA rx[NRTB];
   LBLOCK *ib;
-  double e, gf;
+  double e, bte, bms, gf, *data;
   TFILE *f;  
   int swp, iuta, im;
-  int **irb, **irb2;
+  int **irb, **irb2, **irbx;
 
   if (ion0.atom <= 0) {
     printf("ERROR: Blocks not set, exitting\n");
@@ -5715,6 +5720,12 @@ int SetTRRates(int inv) {
   }
   irb = IdxRateBlock(blocks->dim);
   irb2 = IdxRateBlock(blocks->dim);
+  irbx = NULL;
+  if (_ce_bethe) {
+    irbx = IdxRateBlock(blocks->dim);
+    BornFormFactorTE(&bte);
+    bms = BornMass(); 
+  }
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->tr_rates, FreeBlkRateData);
@@ -5741,7 +5752,7 @@ int SetTRRates(int inv) {
 	jb++;
 	if (jb == nrb) {
 	  ResetWidMPI();
-#pragma omp parallel default(shared) private(jb, j1, j2, e, gf)
+#pragma omp parallel default(shared) private(jb, j1, j2, e, gf, data)
 	  {
 	    int w = 0;
 	    for (jb = 0; jb < nrb; jb++) {
@@ -5772,6 +5783,26 @@ int SetTRRates(int inv) {
 		  rt[jb].dir *= ion->atr;
 		  rt[jb].inv *= ion->atr;
 		}
+		if (_ce_bethe > 0 &&
+		    (h.multipole == -1 || h.multipole == 0)) {
+		  data = _ce_data;
+		  data[0] = (e*HARTREE_EV + bte)/bms;
+		  data[1] = 2*gf/e;
+		  rtx[jb].dir = 0.0;
+		  rtx[jb].inv = 0.0;
+		  rtx[jb].i = r[jb].lower;
+		  rtx[jb].f = r[jb].upper;
+		  if (_ce_nmax > 0 && _ce_nmax < ion->vnl[r[jb].upper]/100) {
+		    rtx[jb].f = -1;
+		  } else {
+		    CERate(&(rtx[jb].dir), &(rtx[jb].inv), 1, j1, j2, e, 0,
+			   data, rtx[jb].i, rtx[jb].f);
+		    if (ion->ace > 0) {
+		      rtx[jb].dir *= ion->ace;
+		      rtx[jb].inv *= ion->ace;
+		    }
+		  }
+		}
 	      }
 	    }
 	  }
@@ -5781,6 +5812,11 @@ int SetTRRates(int inv) {
 	      rt[jb].dir = rx[jb].energy;
 	      rt[jb].inv = rx[jb].sdev;
 	      AddRate(ion, ion->tr_sdev, &rt[jb], 0, irb);
+	    }
+	    if (_ce_bethe > 0 &&
+		(h.multipole == -1 || h.multipole == 0)) {
+	      if (rtx[jb].f < 0) continue;
+	      AddRate(ion, ion->ce_rates, &rtx[jb], 0, irbx);
 	    }
 	  }
 	  nrb = h.ntransitions-i-1;
@@ -5960,6 +5996,9 @@ int SetTRRates(int inv) {
   }
   FreeIdxRateBlock(blocks->dim, irb);
   FreeIdxRateBlock(blocks->dim, irb2);
+  if (_ce_bethe > 0) {
+    FreeIdxRateBlock(blocks->dim, irbx);
+  }
   return 0;
 }
 
@@ -7622,6 +7661,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:ce_nmax")) {
     _ce_nmax = ip;
+    return;
+  }
+  if (0 == strcmp(s, "crm:ce_bethe")) {
+    _ce_bethe = ip;
     return;
   }
   if (0 == strcmp(s, "crm:epstau")) {

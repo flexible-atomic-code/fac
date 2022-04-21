@@ -511,58 +511,69 @@ double CERate1E(double e1, double eth0, int np, void *p) {
   if (e < eth) return 0.0;
 
   dp = (double *) p;
-  m1 = np + 1;
-  y = dp+2;
-  x0 = log((dp[0]+e-eth)/dp[0]);
-  x = y + m1;
 
-  if (x0 <= x[np-1]) {
-    n = 2;
-    one = 1;
-    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-      UVIP3P(n, np, x, y, one, &x0, &a);
-      if (a < 0.0) a = 0.0;
-    } else {
-      a = y[0] * pow(exp(x0-x[0]), 2.5);
-    }
+  if (np == 0) {
+    e0 = e/HARTREE_EV;
+    d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+    c = FINE_STRUCTURE_CONST2*d;
+    b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
+    b = Max(0.0, b);
+    a = dp[1]*b;
+    b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+    b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+    a *= b0*b1;    
   } else {
-    x0 = (e-eth)/(dp[0]+e-eth);
-    y0 = y[np-1];
-    if (dp[1] > 0) {
-      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      y0 /= b0*b1;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-      y0 -= dp[1]*b;
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      e0 = e/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-      a += dp[1]*b;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      a *= b0*b1;
-    } else if (dp[1] + 1.0 == 1.0) {
-      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      y0 /= b0*b1;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      e0 = e/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      a *= b0*b1;
+    m1 = np + 1;
+    y = dp+2;
+    x0 = log((dp[0]+e-eth)/dp[0]);
+    x = y + m1;
+    if (x0 <= x[np-1]) {
+      n = 2;
+      one = 1;
+      if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
+	UVIP3P(n, np, x, y, one, &x0, &a);
+	if (a < 0.0) a = 0.0;
+      } else {
+	a = y[0] * pow(exp(x0-x[0]), 2.5);
+      }
     } else {
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      x0 = (e-eth)/(dp[0]+e-eth);
+      y0 = y[np-1];
+      if (dp[1] > 0) {
+	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	y0 /= b0*b1;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
+	y0 -= dp[1]*b;
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	e0 = e/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
+	a += dp[1]*b;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	a *= b0*b1;
+      } else if (dp[1] + 1.0 == 1.0) {
+	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	y0 /= b0*b1;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	e0 = e/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	a *= b0*b1;
+      } else {
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      }
     }
   }
-
   if (a <= 0.0) {
     a = 0.0;
     return a;
@@ -588,56 +599,68 @@ double DERate1E(double e1, double eth0, int np, void *p) {
   e = e1/bms;
 
   dp = (double *) p;
-  m1 = np + 1;
-  x0 = log((dp[0]+e)/dp[0]);
-  y = dp+2;
-  x = y + m1;
 
-  if (x0 <= x[np-1]) {
-    n = 2;
-    one = 1;
-    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-      UVIP3P(n, np, x, y, one, &x0, &a);
-      if (a < 0.0) a = 0.0;
-    } else {
-      a = y[0] * pow(exp(x0-x[0]), 2.5);
-    }
+  if (np == 0) {
+    e0 = (e + eth)/HARTREE_EV;
+    d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+    c = FINE_STRUCTURE_CONST2*d;
+    b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
+    b = Max(0.0, b);
+    a = dp[1]*b;
+    b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+    b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+    a *= b0*b1;    
   } else {
-    x0 = e/(dp[0]+e);
-    y0 = y[np-1]; 
-    if (dp[1] > 0) {
-      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      y0 /= b0*b1;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-      y0 -= dp[1]*b;
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      e0 = (e + eth)/HARTREE_EV;
-      d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-      c = FINE_STRUCTURE_CONST2*d;
-      b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-      a += dp[1]*b;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      a *= b0*b1;
-    } else if (dp[1] + 1.0 == 1.0) {
-      e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      y0 /= b0*b1;
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      e0 = (e + eth)/HARTREE_EV;
-      b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-      b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-      a *= b0*b1;
+    m1 = np + 1;
+    x0 = log((dp[0]+e)/dp[0]);
+    y = dp+2;
+    x = y + m1;
+
+    if (x0 <= x[np-1]) {
+      n = 2;
+      one = 1;
+      if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
+	UVIP3P(n, np, x, y, one, &x0, &a);
+	if (a < 0.0) a = 0.0;
+      } else {
+	a = y[0] * pow(exp(x0-x[0]), 2.5);
+      }
     } else {
-      a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      x0 = e/(dp[0]+e);
+      y0 = y[np-1]; 
+      if (dp[1] > 0) {
+	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	y0 /= b0*b1;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
+	y0 -= dp[1]*b;
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	e0 = (e + eth)/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
+	a += dp[1]*b;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	a *= b0*b1;
+      } else if (dp[1] + 1.0 == 1.0) {
+	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	y0 /= b0*b1;
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	e0 = (e + eth)/HARTREE_EV;
+	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
+	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
+	a *= b0*b1;
+      } else {
+	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+      }
     }
   }
-
   if (a <= 0.0) {
     a = 0.0;
     return a;

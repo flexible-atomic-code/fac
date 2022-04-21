@@ -298,9 +298,11 @@ class AA:
                 self.d = self.ds[i]
                 while (True):
                     r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym), header='')
-                    db = r['zb']*r['dn']
-                    print('eden itr: %3d %3d %12.5E %12.5E %12.5E %12.5E'%(niter, self.z, eden, db, self.d, self.t))
-                    if abs(eden-db)/eden < dtol:
+                    db = abs(r['zb'])*r['dn']
+                    z0 = eden/r['dn']
+                    zb = db/r['dn']
+                    print('eden itr: %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, self.z, eden, db, z0, zb, self.d, self.t))
+                    if abs(z0-zb)/max(0.1,z0) < dtol:
                         break
                     dn = self.d*eden/db
                     self.d = np.sqrt(dn*self.d)
