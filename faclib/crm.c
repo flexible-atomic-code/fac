@@ -4507,11 +4507,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     wid = malloc(sizeof(double)*zt);
   }
   if (_starkqc > 0 && electron_density > 0) {
-    int idist;
-    DISTRIBUTION *dist;
-    dist = GetEleDist(&idist);
-    if (idist == 0) {
-      PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
+    double etemp = EleMaxwellTemp();
+    if (etemp > 0) {
+      PrepStarkQC(mt, electron_density*1e10, etemp, 
 		  &wd, wdi, wir, zt, ne0, ne1, wrf, wid);
     }
   }
@@ -4639,11 +4637,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     wid = malloc(sizeof(double)*zt);
   }
   if (_starkqc > 0 && electron_density > 0) {
-    int idist;
-    DISTRIBUTION *dist;
-    dist = GetEleDist(&idist);
-    if (idist == 0) {
-      PrepStarkQC(mt, electron_density*1e10, dist->params[0], 
+    double etemp = EleMaxwellTemp();
+    if (etemp > 0) {
+      PrepStarkQC(mt, electron_density*1e10, etemp, 
 		  &wd, wdi, wir, zt, 1, zt, wrf, wid);
     }
   }
