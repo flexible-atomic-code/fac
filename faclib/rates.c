@@ -1906,6 +1906,13 @@ int SetEleDist(int i, int np, double *p0) {
   return 0;
 }
 
+double EleMaxwellTemp() {
+  if (iedist == 0 || iedist == 2 || iedist == 5 || iedist == 6) {
+    return ele_dist[iedist].params[0];
+  }
+  return 0.0;
+}
+
 int SetCxtDist(int i, int np, double *p0) {
   int k;
   double *p, c1, c2;
