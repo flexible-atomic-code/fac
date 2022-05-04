@@ -4404,7 +4404,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
     return -1;
   }
 
-  double mt = GetAtomicMassTable()[(int)(fh.atom)];
+  double mt = GetAtomicMassTable()[(int)(fh.atom-0.99)];
   t2 = abs(type) / 1000000;
   if (type < 0) t2 = -1;
   t = abs(type) % 1000000;
@@ -4627,7 +4627,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   }
 
   int zt = (int)(0.1+fh.atom);
-  double mt = GetAtomicMassTable()[(int)(fh.atom)];
+  double mt = GetAtomicMassTable()[(int)(fh.atom-0.99)];
   double wd = 0;
   double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid = NULL;
   if (_starknp > 0) {
@@ -5107,8 +5107,9 @@ int SetCXRates(int m0, char *tgt) {
 	return -1;
       }
       double *emass = GetAtomicMassTable();
-      i = (int)ion0.atom;
-      cx->pmass = emass[i-1]*AMU;
+      i = (int)(ion0.atom-0.99);
+      if (i < 0) i = 0;
+      cx->pmass = emass[i]*AMU;
       cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
       rcx = 0;
       for (p = 0; p < cx->ncx; p++) {
@@ -5268,12 +5269,12 @@ int SetCXRates(int m0, char *tgt) {
     if (m == 2) {
       ip[0] = 2;
       double *emass = GetAtomicMassTable();
-      i = (int)ion0.atom;
-      if (i <= 0) i = 1;
+      i = (int)(ion0.atom-0.99);
+      if (i < 0) i = 0;
 #pragma omp parallel default(shared) private(cx)
       {
 	cx = KronosCX(2);
-	cx->pmass = emass[i-1]*AMU;
+	cx->pmass = emass[i]*AMU;
 	cx->rmass = cx->pmass*cx->tmass/(cx->pmass+cx->tmass);
 	cx->nmax = 0;
 	cx->ilog = 3;
@@ -7226,7 +7227,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
       AddSpecFF(nx, eg, yg[2], ne, ni*ab[i], z-i, te);
     }
   }
-  dv = 2.0*te/((GetAtomicMassTable())[z]*9.38272e8);
+  dv = 2.0*te/((GetAtomicMassTable())[z-1]*9.38272e8);
   a = DLOGAM(alpha+1.0);
   a = 1.0/(exp(a)*pow(te, alpha+1.0));
   for (m = 0; m < fh1.nblocks; m++) {
@@ -7922,7 +7923,7 @@ void InterpSpec(int nele, int type, int nmin, int nmax, double c,
 	   _interpsp.r[id1][it1].nele);
     return;
   }      
-  double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z];
+  double mt = GetAtomicMassTable()[_interpsp.r[id0][it0].z-1];
   double dw = sqrt(t/(mt*AMU*5.11e5));
   if (id1 == id0 && it1 == it0) {
     ConvLineRec(n, x, y, mt, d0, t0, 
