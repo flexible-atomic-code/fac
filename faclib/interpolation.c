@@ -2297,7 +2297,7 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ifn);
     return -1;
   }
-  mion = mass[(int)(fh.atom-0.9)];
+  mion = mass[(int)(fh.atom-0.99)];
   if (strcmp(ofn, "-") == 0) {
     f2 = stdout;
   } else {
@@ -2708,7 +2708,7 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
     printf("cannot open file %s\n", ifn);
     return -1;
   }
-  mion = mass[(int)(fh.atom-1)];
+  mion = mass[(int)(fh.atom-0.99)];
   if (strcmp(ofn, "-") == 0) {
     f2 = stdout;
   } else {
