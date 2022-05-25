@@ -82,7 +82,7 @@ int InitPolarization(void) {
   double nu1, theta;
   int nudiff, mu1;
 
-  SetLepton(0, 1, 1, NULL);
+  SetLepton(0, 0, 0, NULL);
   InitDBase();
   InitAngular();
   InitRates();
