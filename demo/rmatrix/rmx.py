@@ -6,7 +6,7 @@ Targets include 1s2, 1s1 2*1, and 1s1 3*1 configurations.
 """
 
 #ConvertToSFAC('t.sf')
-#InitializeMPI(8)
+InitializeMPI(16)
 
 SetAtom('O')
 
@@ -70,7 +70,7 @@ RMatrixBasis('rmx.b1', kmax, nb)
 # R-matrix surface amplitudes.
 RMatrixSurface('rmx.d1')
 
-#FinalizeMPI()
+FinalizeMPI()
 
 #CloseSFAC()
 

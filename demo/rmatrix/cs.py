@@ -7,6 +7,7 @@ Calculate the collision strengths using the R-matrix method.
 
 #ConvertToSFAC('trmx.sf')
 
+InitializeMPI(16)
 t0 = time.time()
 
 # list of R-matrix basis files, calculated with rmx.py
@@ -17,9 +18,10 @@ r = ['rmx.d0', 'rmx.d1']
 
 # call RMatrixCE, calculate collsion strength at E=750--1.5E3 eV,
 # in 100 eV step. Results are in r1.d
-RMatrixCE('r1.d', b, r, 563, 583, 2.0)
+RMatrixCE('r1.d', b, r, 560, 720, 1.0)
 
 t1 = time.time()
-print 'Time = %12.5E'%(t1-t0)
+print('Time = %12.5E'%(t1-t0))
 
+FinalizeMPI()
 #CloseSFAC()    
