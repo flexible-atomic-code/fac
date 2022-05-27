@@ -32,10 +32,10 @@ static DCFG dcfg, dcfg0;
 static int _nrefine=3;
 static int _refiter=1;
 static int _mrefine=16;
-static double _mineref=1e-8;
-static double _rrefine=0.25;
+static double _mineref=1.83825e-6;
+static double _rrefine=0.50;
 static double _drefine=0.25;
-static int _nmaxryd=100;
+static int _nmaxryd=25;
 static int fmode;
 static int _rmx_dk = 3;
 static int _rmx_acs = 1;
@@ -409,7 +409,7 @@ void RMatrixBoundary(double r0, double r1, double b) {
     pot->bqp = b;
     if (r1 < 0) {
       if (pot->ib1 > pot->ib) {
-	r1 = (1-r1)*pot->rad[pot->ib1] - pot->rad[pot->ib];
+	r1 = (1-r1)*pot->rad[pot->ib1] + r1*pot->rad[pot->ib];
       } else {
 	r1 = (1-r1)*pot->rad[pot->ib];
       }
@@ -3457,7 +3457,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 int RefineRMatrixEGrid(double **er, int idep,
 		       RMXCE *rs, RBASIS *rbs, RMATRIX *rmx) {
   double rde;
-  int i, j, k, nke, nkr, nde;
+  int i, j, k, u, nke, nkr, nde;
   
   SortGroupEnergy(rs, rbs, rmx);
   if (idep > _mrefine) return 0;
@@ -3491,37 +3491,41 @@ int RefineRMatrixEGrid(double **er, int idep,
     if (idep > 0 && rde < mde) {
       int ir = 0;
       for (k = 0; k < rmx->nts; k++) {
-	j = (k*(k+1))/2 + k;
-	if (i == 0) {
-	  if (nke < 3) {
-	    ds = fabs(s[j][i+1]-s[j][i]);
-	    ms = 0.5*fabs(s[j][i+1]+s[j][i])*_rrefine;
-	    if (ds > ms) {
-	      ir = 1;
-	      break;
+	for (u = k; u < rmx->nts; u++) {
+	  j = (k*(k+1))/2 + u;
+	  if (i == 0) {
+	    if (nke < 3) {
+	      ds = fabs(s[j][i+1]-s[j][i]);
+	      ms = 0.5*fabs(s[j][i+1]+s[j][i])*_rrefine;
+	      if (ds > ms) {
+		ir = 1;
+		break;
+	      } else {
+		continue;
+	      }
 	    } else {
-	      continue;
+	      i0 = 0;
+	      i1 = 1;
+	      i2 = 2;
 	    }
 	  } else {
-	    i0 = 0;
-	    i1 = 1;
-	    i2 = 2;
+	    i0 = i-1;
+	    i1 = i;
+	    i2 = i+1;
 	  }
-	} else {
-	  i0 = i-1;
-	  i1 = i;
-	  i2 = i+1;
+	  double f = (e[i1]-e[i0])/(e[i2]-e[i0]);
+	  a = s[j][i0]*(1-f)+s[j][i2]*f;
+	  ms = fabs(s[j][i0]+s[j][i1]+s[j][i2])/3.0;
+	  ms = Max(ms, s[j][i1])*_rrefine;
+	  ds = fabs(a-s[j][i1]);
+	  if (ds > ms) {
+	    ir = 1;
+	    break;
+	  }	
 	}
-	double f = (e[i1]-e[i0])/(e[i2]-e[i0]);
-	a = s[j][i0]*(1-f)+s[j][i2]*f;
-	ms = 0.3*fabs(s[j][i0]+s[j][i1]+s[j][i2])*_rrefine;
-	ds = fabs(a-s[j][i1]);
-	if (ds > ms) {
-	  ir = 1;
-	  break;
-	}
-      }    
-      if (!ir) continue;
+	if (ir) break;
+      }
+      if (!ir) continue;      
     }
     for (k = 1; k < nde; k++,t++) {
       erp[t] = e[i]+k*rde;
