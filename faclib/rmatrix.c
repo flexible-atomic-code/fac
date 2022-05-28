@@ -31,9 +31,9 @@ static int ncg, *cg, ncs, *cs;
 static DCFG dcfg, dcfg0;
 static int _nrefine=3;
 static int _refiter=1;
-static int _mrefine=16;
+static int _mrefine=20;
 static double _mineref=3.6765e-7;
-static double _rrefine=0.35;
+static double _rrefine=0.25;
 static double _drefine=0.25;
 static int _nmaxryd=25;
 static int fmode;
@@ -3516,7 +3516,8 @@ int RefineRMatrixEGrid(double **er, int idep,
 	  double f = (e[i1]-e[i0])/(e[i2]-e[i0]);
 	  a = s[j][i0]*(1-f)+s[j][i2]*f;
 	  ms = fabs(s[j][i0]+s[j][i1]+s[j][i2])/3.0;
-	  ms = Max(ms, s[j][i1])*_rrefine;
+	  ms = Max(ms, s[j][i1]);
+	  ms = 0.5*(a+ms)*_rrefine;
 	  ds = fabs(a-s[j][i1]);
 	  if (ds > ms) {
 	    ir = 1;
