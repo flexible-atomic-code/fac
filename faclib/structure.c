@@ -5034,6 +5034,7 @@ void StructureEB(char *fn, int n, int *ilev) {
 
   h = &_allhams[MAX_SYMMETRIES];
 
+  qsort((void *)ilev, n, sizeof(int), CompareInt);
   ConstructHamiltonEB(n, ilev);
 
   DiagnolizeHamilton(h);
