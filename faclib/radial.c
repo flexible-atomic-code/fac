@@ -7534,6 +7534,10 @@ double QED1E(int k0, int k1) {
   orb1 = GetOrbitalSolved(k0);
   orb2 = GetOrbitalSolved(k1);
   
+  if (orb1->n <= 0 || orb2->n <= 0) {
+    return 0.0;
+  }
+  
   kv = orb1->kv;
   if (kv < 0 || kv > NKSEP) {
     MPrintf(-1, "invalid orbital kv in QED1E: %d %d %d\n",
@@ -7541,9 +7545,6 @@ double QED1E(int k0, int k1) {
     return 0.0;
   }
   
-  if (orb1->n <= 0 || orb2->n <= 0) {
-    return 0.0;
-  }
   if (orb1->wfun == NULL || orb2->wfun == NULL) {
     return 0.0;
   }
@@ -9016,6 +9017,8 @@ int IntegrateSubRegion(int i0, int i1,
   double a, b, e1, e2, a2, r0;
   int kv1 = orb1->kv;
   int kv2 = orb2->kv;
+  double *vt1 = kv1<0?NULL:potential->VT[kv1];
+  double *vt2 = kv2<0?NULL:potential->VT[kv2];
   
   if (i1 <= i0) return 0;
   type = abs(t);
@@ -9332,7 +9335,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*e2-potential->VT[kv2][i])/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9346,7 +9349,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9368,7 +9371,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] = small1[i] * large2[i];
 	x[j] *= f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;	
       }
       if (i < potential->maxrp) {
@@ -9380,7 +9383,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] = b * large2[i];
 	  x[j] *= f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9413,7 +9416,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9428,7 +9431,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = b * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9443,7 +9446,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] = large1[i] * large2[i];
 	x[j] *= f[i]; 
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9454,7 +9457,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] = a * large2[i];
 	  x[j] *= f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9470,7 +9473,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = small1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9483,7 +9486,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = b * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9500,7 +9503,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9515,7 +9518,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9536,7 +9539,7 @@ int IntegrateSubRegion(int i0, int i1,
 	x[j] *= f[i];
 	y[j] = large1[i] * small2[i] * f[i];
 	_phase[j] = large2[ip];
-	_dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	_dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	j++;
       }
       if (i < potential->maxrp) {
@@ -9551,7 +9554,7 @@ int IntegrateSubRegion(int i0, int i1,
 	  x[j] *= f[i];
 	  y[j] = a * small2[i] * f[i];
 	  _phase[j] = large2[ip];
-	  _dphase[j] = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	  _dphase[j] = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	  j++;
 	  i2 = i;
 	}
@@ -9598,8 +9601,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -9626,8 +9629,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y2[j] *= 0.5*f[i];
 	y[j] = y2[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -9656,8 +9659,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] = y1[j] - y2[j];
 	y[j] *= 0.5*f[i];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -9689,8 +9692,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];	
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -9721,8 +9724,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;
@@ -9751,8 +9754,8 @@ int IntegrateSubRegion(int i0, int i1,
 	y[j] *= 0.5*f[i];
 	y2[j] = y[j];
 	_phase[j] = large1[ip] + large2[ip];
-	a = (1+a2*(e1-potential->VT[kv1][i]))/(large1[i]*large1[i]);
-	b = (1+a2*(e2-potential->VT[kv2][i]))/(large2[i]*large2[i]);
+	a = (1+a2*(e1-(vt1?vt1[i]:0.0)))/(large1[i]*large1[i]);
+	b = (1+a2*(e2-(vt2?vt2[i]:0.0)))/(large2[i]*large2[i]);
 	_dphase[j] = a + b;
 	_dphasep[j] = a - b;
 	j++;

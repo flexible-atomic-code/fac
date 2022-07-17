@@ -82,6 +82,7 @@ static double wave_zero = 1E-10;
 static int _on_error = 0;
 static double _zcoll = 0;
 static double _mcoll = 0;
+static int _pwa = 0;
 static double _emin_amp = 0.05;
 static double _sturm_rmx = 10.0;
 static double _sc_bqp = 1E31;
@@ -194,6 +195,10 @@ static int IntegrateRadial(double *p, double e, POTENTIAL *pot,
 			   int i1, double p1, int i2, double p2, int q);
 static double Amplitude(double *p, double e, int kl, POTENTIAL *pot, int i1);
 static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
+
+int OrbPWA() {
+  return _pwa;
+}
 
 double SCRSF() {
   return _sc_rsf;
@@ -657,10 +662,53 @@ void Differential(double *p, double *dp, int i1, int i2,
   }
 }    
 
+double DpDrPWA(int kappa, int i, double e, POTENTIAL *pot,
+	       double b, int m, double *bqp) {
+  double x2, dr, pr, kl;
+  
+  x2 = 1 + 0.5*FINE_STRUCTURE_CONST2*e;
+  if (m == 0) {
+    b = (b + kappa/pot->rad[i])*FINE_STRUCTURE_CONST*0.5;
+    if (bqp) *bqp = b;
+    b = 2*x2*b/FINE_STRUCTURE_CONST - kappa/pot->rad[i];
+  } else if (m == 1) {
+    if (bqp) *bqp = b;
+    b = 2*x2*b/FINE_STRUCTURE_CONST - kappa/pot->rad[i];
+  } else if (m == -1) {
+    kl = GetLFromKappa(kappa);
+    if (kappa < 0) {
+      b = e*FINE_STRUCTURE_CONST;
+      b *= -pot->rad[i]/(kl+3.0);
+    } else {
+      b =(e + 2/FINE_STRUCTURE_CONST2)*FINE_STRUCTURE_CONST;
+      b *= pot->rad[i]/(kl+1.0);
+      b = 1.0/b;
+    }   
+    if (bqp) {
+      *bqp = b;
+    }
+    b = (1 + kl/2)/pot->rad[i];    
+  } else if (m == -2) {
+    b = -sqrt(1.0/FINE_STRUCTURE_CONST2 - e*e*FINE_STRUCTURE_CONST2);
+    if (bqp) {
+      *bqp = (b + kappa/pot->rad[i])*FINE_STRUCTURE_CONST/(2*x2);
+    }
+  }
+  b *= pot->dr_drho[i];
+  dr = 0.5*pot->dr_drho[i]/pot->rad[i];
+  dr *= (1-pot->qr*pot->qr*pot->dr_drho[i]*pot->ar*pow(pot->rad[i], pot->qr-1));
+  pr = b - dr;
+  
+  return pr;
+}
+
 double DpDr(int kappa, int k, int i, double e, POTENTIAL *pot,
 	    double b, int m, double *bqp) {
   double x2, dx, dr, pr, z0, kl;
-  
+
+  if (k < 0) {
+    return DpDrPWA(kappa, i, e, pot, b, m, bqp);
+  }
   x2 = 1 + 0.5*FINE_STRUCTURE_CONST2*(e - pot->VT[k][i]);
   if (m == 0) {
     b = (b + kappa/pot->rad[i])*FINE_STRUCTURE_CONST*0.5;
@@ -1868,8 +1916,12 @@ int RadialFree(ORBITAL *orb, POTENTIAL *pot) {
   if (_zcoll || _mcoll) return RadialFreeZMC(orb, pot);
   
   int kv = 0;
-  if (pot->pse) kv = IdxVT(orb->kappa);
-  orb->kv = kv;
+  if (_pwa > 0) {
+    kv = -1;
+  } else {
+    if (pot->pse) kv = IdxVT(orb->kappa);
+    orb->kv = kv;
+  }
   e = orb->energy;
   //Catch erroneous energy inputs
   if (e < 0.0) {
@@ -2590,7 +2642,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   // pot: Electron potential
   // i0:  Array index at which Phase-Amplitude solution to radial
   //      Schrodinger equation begins
-  int i, n;
+  int i, ii, n;
   double a, b, xi, r2, r3, kl1;
   double z, dk, r0, r1, r, w, v1;
   double zc, mc, me, a2;
@@ -2600,7 +2652,11 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   zc = _zcoll;
   mc = _mcoll;
   n = pot->maxrp-1;
-  z = GetResidualZ()-pot->ZPS[n];
+  if (_pwa > 0) {
+    z = 0.0;
+  } else {
+    z = GetResidualZ()-pot->ZPS[n];
+  }
   me = e;
   a2 = FINE_STRUCTURE_CONST2;
   if (zc) z *= zc;
@@ -2664,6 +2720,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   mf = 10;
   
   i--;
+  ii = i;
   for (; i >= 0; i--) {
     r = _dwork[i];
     rwork[0] = r;
@@ -2676,8 +2733,8 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
 	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
       else if (istate < 0) {
-	printf("Amplitude0 LSODE Error: %d %d %g %d %g\n",
-	       istate, ka, e, i, r);      
+	printf("Amplitude0 LSODE Error: %d %d %g %d %d %d %g\n",
+	       istate, ka, e, i, ii, i0, r);      
 	Abort(1);
       }
     }
@@ -2811,6 +2868,15 @@ int SetVEffective(int kl, int kv, POTENTIAL *pot) {
   double r;
 
   kl1 = 0.5*kl*(kl+1);
+  if (kv < 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      r = pot->rad[i];
+      r *= r;
+      _veff0[i] = kl1/r;
+      _veff[i] = _veff0[i] + pot->vtr[i];
+    }
+    return 0;
+  }
   int m5 = pot->maxrp-5;
   if (pot->mps >= 3 || _veff_corr == 0) {
     m5 = pot->maxrp;
@@ -3569,6 +3635,14 @@ int SetPotentialW(POTENTIAL *pot, double e, int kappa, int k) {
   int i;
   double xi, r, r2, x, y, z;
 
+  if (k < 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->W[i] = 0;
+      pot->dW[i] = 0;
+      pot->dW2[i] = 0;
+    }
+    return 0;
+  }
   for (i = 0; i < pot->maxrp; i++) {
     xi = e - pot->VT[k][i];
     r = xi*FINE_STRUCTURE_CONST2*0.5 + 1.0;  
@@ -5349,6 +5423,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:veff_corr")) {
     _veff_corr = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:pwa")) {
+    _pwa = ip;
     return;
   }
 }

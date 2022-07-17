@@ -36,6 +36,9 @@ static double _mineref=3.6765e-7;
 static double _rrefine=0.25;
 static double _drefine=0.25;
 static int _nmaxryd=25;
+static double _ecs_tol = 0.0;
+static int _nte_refine = 0;
+static double *_tes_refine = NULL;
 static int fmode;
 static int _rmx_dk = 3;
 static int _rmx_acs = 1;
@@ -70,6 +73,43 @@ int SkipSym(int pj) {
   if (pj < i0) return 1;
   if (pj > i1) return 1;
   return 0;
+}
+
+void SetECSTol(char *s) {
+  char buf[8192];
+  if (_nte_refine > 0) {
+    free(_tes_refine);
+    _nte_refine = 0;
+  }
+  if (s == NULL || strlen(s) == 0) return;
+  strncpy(buf, s, 8192);
+  int n = StrSplit(buf, ',');
+  if (n <= 0) return;
+  double te0 = 0.1;
+  double tef = 2.0;
+  _nte_refine = 10;
+  char *p, *r;
+  int i;
+  p = buf;
+  for (i = 0; i < n; i++) {
+    while (*p == ' ') p++;
+    if (i == 0) {
+      _ecs_tol = atof(p);
+    } else if (i == 1) {
+      te0 = atof(p);
+    } else if (i == 2) {
+      _nte_refine = atoi(p);
+    } else if (i == 3) {
+      tef = atof(p);
+    }
+    while (*p) p++;
+    p++;
+  }
+  _tes_refine = malloc(sizeof(double)*_nte_refine);
+  _tes_refine[0] = te0;
+  for (i = 1; i < _nte_refine; i++) {
+    _tes_refine[i] = _tes_refine[i-1]*tef;
+  }
 }
 
 void SetStarkIDs(char *ids) {
@@ -3437,8 +3477,13 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   }
   for (i = 0; i < ns; i++) {
     free(rs.s[i]);
+    if (_nte_refine > 0) free(rs.ecs[i]);
   }
   free(rs.s);
+  if (_nte_refine > 0) {
+    free(rs.ecs);
+    free(rs.rcs);
+  }
   free(e0);
   if (eo) free(eo);
   free(rs.e);
@@ -3467,11 +3512,64 @@ int RefineRMatrixEGrid(double **er, int idep,
   }
   nke = rs->nke;
   nkr = nke*nde;
-  double *erp = malloc(sizeof(double)*nkr);
   double *e = rs->e;
   double **s = rs->s;
+  double **ecs = rs->ecs;
   double ds, ms, a;
-  int t = 0, i0 = 0, i1 = 0, i2 = 0;
+  int t, i0, i1, i2, kx, ux, ir;
+  if (_nte_refine > 0) {
+    ir = 0;
+    t = rmx->nts*(rmx->nts+1)/2;
+    for (j = 0; j < t; j++) {
+      rs->rcs[j] = 0;
+    }
+    for (t = 0; t < _nte_refine; t++) {
+      for (k = 0; k < rmx->nts; k++) {
+	kx = 0;
+	if (_stark_idx.n > 0) {
+	  kx = IdxGet(&_stark_idx, rmx->ts[k]);
+	}
+	for (u = k; u < rmx->nts; u++) {
+	  ux = 0;
+	  if (_stark_idx.n > 0) {
+	    ux = IdxGet(&_stark_idx, rmx->ts[u]);
+	  }
+	  if (kx < 0 && ux < 0) continue;
+	  j = (u*(u+1))/2 + k;
+	  ms = 0.0;
+	  for (i0 = 1; i0 < nke; i0++) {
+	    a = (e[i0]+rmx->et0 - rmx->et[k])/_tes_refine[t];
+	    if (a <= 0) continue;
+	    ds = (e[i0-1]+rmx->et0 - rmx->et[k])/_tes_refine[t];
+	    if (ds < 0) {
+	      ms += s[j][i0]*a*exp(-a);
+	    } else {
+	      ms += 0.5*(s[j][i0]+s[j][i0-1])*(a-ds)*exp(-0.5*(a+ds));
+	    }
+	  }
+	  if (fabs(ms-ecs[j][t]) > _ecs_tol*ecs[j][t]) {
+	    if (idep > 0 && rs->rcs[j] == 0) {
+	      MPrintf(-1, "ecs tol: %2d %3d %3d %5d %2d %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+		      idep,rmx->ts[k],rmx->ts[u],j,t,_tes_refine[t],
+		      ms,ecs[j][t],ms-ecs[j][t],_ecs_tol*ecs[j][t]);
+	    }
+	    ir++;
+	    rs->rcs[j]++;
+	  }
+	  ecs[j][t] = ms;
+	}
+      }
+    }
+    if (ir == 0) {
+      MPrintf(-1, "ecs converged after iter %d\n", idep);
+      return 0;
+    }
+  }
+  double *erp = malloc(sizeof(double)*nkr);
+  t = 0;
+  i0 = 0;
+  i1 = 0;
+  i2 = 0;
   for (i = 0; i < nke-1; i++) {
     double mde = 1e30;
     for (j = 0; j < rmx->nts; j++) {
@@ -3488,11 +3586,21 @@ int RefineRMatrixEGrid(double **er, int idep,
     }
     rde = (e[i+1]-e[i])/nde;
     if (rde < _mineref) continue;
-    if (idep > 0 && rde < mde) {
-      int ir = 0;
+    if (idep > 0 && rde < mde && _rrefine > 0) {
+      ir = 0;
       for (k = 0; k < rmx->nts; k++) {
+	kx = 0;
+	if (_stark_idx.n > 0) {
+	  kx = IdxGet(&_stark_idx, rmx->ts[k]);
+	}
 	for (u = k; u < rmx->nts; u++) {
-	  j = (k*(k+1))/2 + u;
+	  ux = 0;
+	  if (_stark_idx.n > 0) {
+	    ux = IdxGet(&_stark_idx, rmx->ts[u]);
+	  }
+	  if (kx < 0 && ux < 0) continue;
+	  j = (u*(u+1))/2 + k;
+	  if (_nte_refine > 0 && rs->rcs[j] == 0) continue;
 	  if (i == 0) {
 	    if (nke < 3) {
 	      ds = fabs(s[j][i+1]-s[j][i]);
@@ -3532,8 +3640,13 @@ int RefineRMatrixEGrid(double **er, int idep,
       erp[t] = e[i]+k*rde;
     }
   }
-  erp = realloc(erp, sizeof(double)*t);
-  *er = erp;
+  if (t > 0) {
+    erp = realloc(erp, sizeof(double)*t);
+    *er = erp;
+  } else {
+    free(erp);
+    erp = NULL;
+  }
   MPrintf(0, "RefineRMatrixEGrid: %d %d %d %d\n",
 	  idep, nke, nde, t);
   return t;
@@ -3635,6 +3748,16 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
     rs->s = malloc(sizeof(double *)*ns);
     for (i = 0; i < ns; i++) {
       rs->s[i] = malloc(sizeof(double)*nke);
+    }
+    if (_nte_refine > 0) {
+      rs->ecs = malloc(sizeof(double *)*ns);
+      for (i = 0; i < ns; i++) {
+	rs->ecs[i] = malloc(sizeof(double)*_nte_refine);
+	for (k = 0; k < _nte_refine; k++) {
+	  rs->ecs[i][k] = 0.0;
+	}
+      }
+      rs->rcs = malloc(sizeof(int)*ns);
     }
     rs->ap = ap;
     rs->smx = smx;
@@ -4209,6 +4332,10 @@ void SetOptionRMatrix(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp("rmatrix:minsp", s)) {
     _minsp = ip;
+    return;
+  }
+  if (0 == strcmp("rmatrix:ecs_tol", s)) {
+    SetECSTol(sp);
     return;
   }
 }
