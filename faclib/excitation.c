@@ -93,6 +93,7 @@ static EXCIT_TIMING timing = {0, 0, 0};
 #endif
 
 static CEPW_SCRATCH pw_scratch = {1, 0, MAXKL, 100, 5E-2, 0, 0, 10};
+static int _no_topup = 0;
 
 static int maxcecache = MAXCECACHE;
 static CECACHE cecache = {0};
@@ -593,6 +594,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
     noex[i] = 0;
     tdi[i] = 0.0;
     tex[i] = 0.0;
+    if (OrbPWA() > 1) noex[i] = 1;
   }
   for (t = 0; t < pw_scratch.nkl; t++) {
     kl0 = pw_scratch.kl[t];
@@ -1232,32 +1234,37 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	nklp = nkl-1;
 	s = 0.0;
 	b = 0.0;
-	if (dqk[nklp] && dqk[nklp-1]) {
-	  if (type < 0) {
-	    b = 0.0;
-	  } else {
-	    if (type == 0 || type > CBMULT) {
-	      b = -1.0;
+	if (_no_topup == 0) {
+	  if (dqk[nklp] && dqk[nklp-1]) {
+	    if (type < 0) {
+	      b = 0.0;
 	    } else {
-	      b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
+	      if (type == 0 || type > CBMULT) {
+		b = -1.0;
+	      } else {
+		b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
+	      }
+	      c = dqk[nklp]/dqk[nklp-1];
+	      if (c > 0) {
+		c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
+	      }
+	      b = TopUpQk(b, c, pw_scratch.kl[nklp], -1.0, te, e1*mc);
 	    }
-	    c = dqk[nklp]/dqk[nklp-1];
-	    if (c > 0) {
-	      c = pow(c, 1.0/(pw_scratch.kl[nklp]-pw_scratch.kl[nklp-1]));
-	    }
-	    b = TopUpQk(b, c, pw_scratch.kl[nklp], -1.0, te, e1*mc);
 	  }
-	}
-	s = dqk[nklp]*b;
-	rq[ite][ie] = r + s;
-	drq[ite][ie] = rd + s;
-	if (s) {
-	  s = fabs(s/drq[ite][ie]);
-	  if (ie < n_egrid-1 && s > xp[ite]) s = xp[ite];
-	  else xp[ite] = s;	    
-	  d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
-	  rq[ite][ie] = rq[ite][ie]-drq[ite][ie] + d;
-	  drq[ite][ie] = d;
+	  s = dqk[nklp]*b;
+	  rq[ite][ie] = r + s;
+	  drq[ite][ie] = rd + s;
+	  if (s) {
+	    s = fabs(s/drq[ite][ie]);
+	    if (ie < n_egrid-1 && s > xp[ite]) s = xp[ite];
+	    else xp[ite] = s;	    
+	    d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
+	    rq[ite][ie] = rq[ite][ie]-drq[ite][ie] + d;
+	    drq[ite][ie] = d;
+	  }
+	} else {
+	  rq[ite][ie] = r;
+	  drq[ite][ie] = rd;
 	}
 	//printf("drq: %d %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,k,type,r,rd,b,dqk[nklp],dqk[nklp-1],c,s,d, drq[ite][ie], brq[ite][ie]); 
       }
@@ -1539,36 +1546,38 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 
 	i = nkl - 1;
 	r = 0.0;
-	for (iq = 0; iq < nq; iq++) {
-	  b = 0.0;
-	  if (_dqk[iq][i] && _dqk[iq][i-1]) {
-	    if (k != kp || type1 == 0 || type1 > CBMULT) {
-	      c = _dqk[iq][i]/_dqk[iq][i-1];
-	      if (c > 0) {
-		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+	if (_no_topup == 0) {
+	  for (iq = 0; iq < nq; iq++) {
+	    b = 0.0;
+	    if (_dqk[iq][i] && _dqk[iq][i-1]) {
+	      if (k != kp || type1 == 0 || type1 > CBMULT) {
+		c = _dqk[iq][i]/_dqk[iq][i-1];
+		if (c > 0) {
+		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		}
+		b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
+	      } else if (type1 >= 0) {
+		b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
+		c = _dqk[iq][i]/_dqk[iq][i-1];
+		if (c > 0) {
+		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
+		}
+		b = TopUpQk(b, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
+	      } else {	  
+		b = 0.0;
 	      }
-	      b = TopUpQk(-1.0, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
-	    } else if (type1 >= 0) {
-	      b = (GetCoulombBethe(0, ite, ie, k/2, abs(q[iq])/2))[i];
-	      c = _dqk[iq][i]/_dqk[iq][i-1];
-	      if (c > 0) {
-		c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
-	      }
-	      b = TopUpQk(b, c, pw_scratch.kl[i], -1.0, te, e1*mc1);
-	    } else {	  
-	      b = 0.0;
 	    }
-	  }
-	  s = _dqk[iq][i]*b;
-	  _rq[iq][ite][ie] += s;
-	  _drq[iq][ite][ie] += s;
-	  if (s) {
-	    s = fabs(s/_drq[iq][ite][ie]);
-	    if (ie < n_egrid-1 && s > _xp[iq][ite]) s = _xp[iq][ite];
-	    else _xp[iq][ite] = s;
-	    d = _drq[iq][ite][ie]*(1-s) + _brq[iq][ite][ie]*s;
-	    _rq[iq][ite][ie] = _rq[iq][ite][ie]-_drq[iq][ite][ie] + d;
-	  }
+	    s = _dqk[iq][i]*b;
+	    _rq[iq][ite][ie] += s;
+	    _drq[iq][ite][ie] += s;
+	    if (s) {
+	      s = fabs(s/_drq[iq][ite][ie]);
+	      if (ie < n_egrid-1 && s > _xp[iq][ite]) s = _xp[iq][ite];
+	      else _xp[iq][ite] = s;
+	      d = _drq[iq][ite][ie]*(1-s) + _brq[iq][ite][ie]*s;
+	      _rq[iq][ite][ie] = _rq[iq][ite][ie]-_drq[iq][ite][ie] + d;
+	    }
+	  } 
 	}
       }
     }
@@ -3878,8 +3887,8 @@ int SaveExcitationEBD(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     e = 0.0;
     c = GetResidualZ();
     if (xborn+1.0 != 1.0) {
-    PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
-		     pw_scratch.nkl, pw_scratch.kl, 1);
+      PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
+		       pw_scratch.nkl, pw_scratch.kl, 1);
     }
     ce_hdr.nele = GetNumElectrons(low0[0]);
     ce_hdr.n_tegrid = n_tegrid;
@@ -4034,6 +4043,10 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
   }
   if (strcmp("excitation:progress_report", s) == 0) {
     _progress_report = ip;
+    return;
+  }
+  if (strcmp("excitation:no_topup", s) == 0) {
+    _no_topup = ip;
     return;
   }
 }
