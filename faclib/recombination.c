@@ -3357,15 +3357,31 @@ int ReinitRecombination(int m) {
 void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "recombination:cxldist")) {
     cxldist = ip;
+    return;
   }
   if (0 == strcmp(s, "recombination:cxldistmj")) {
     cxldistmj = dp;
+    return;
   }
   if (0 == strcmp(s, "recombination:cxrotcouple")) {
     cxrotcouple = dp;
+    return;
   }
   if (0 == strcmp(s, "recombination:progress_report")) {
     _progress_report = ip;
+    return;
+  }
+  if (0 == strcmp(s, "recombination:ai_cut")) {
+    ai_cut = dp;
+    return;
+  }
+  if (0 == strcmp(s, "recombination:maxkl")) {
+    pw_scratch.max_kl = ip;
+    return;
+  }
+  if (0 == strcmp(s, "recombination:interpkl")) {
+    pw_scratch.kl_interp = ip;
+    return;
   }
 }
 

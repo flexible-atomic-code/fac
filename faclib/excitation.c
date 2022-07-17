@@ -4041,6 +4041,38 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
     pw_scratch.min_kl = ip;
     return;
   }
+  if (strcmp("excitation:maxkl", s) == 0) {
+    pw_scratch.max_kl = ip;
+    return;
+  }
+  if (strcmp("excitation:qr", s) == 0) {
+    pw_scratch.qr = ip;
+    return;
+  }
+  if (strcmp("excitation:kl_cb", s) == 0) {
+    pw_scratch.kl_cb = ip;
+    return;
+  }
+  if (strcmp("excitation:kl_tol", s) == 0) {
+    pw_scratch.tolerance = dp;
+    return;
+  }
+  if (strcmp("excitation:xborn", s) == 0) {
+    xborn = dp;
+    return;
+  }
+  if (strcmp("excitation:xborn0", s) == 0) {
+    xborn0 = dp;
+    return;
+  }
+  if (strcmp("excitation:xborn1", s) == 0) {
+    xborn1 = dp;
+    return;
+  }
+  if (strcmp("excitation:eborn", s) == 0) {
+    eborn = dp/HARTREE_EV;
+    return;
+  }
   if (strcmp("excitation:progress_report", s) == 0) {
     _progress_report = ip;
     return;

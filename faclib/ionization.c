@@ -1787,6 +1787,30 @@ void SetOptionIonization(char *s, char *sp, int ip, double dp) {
   if (strcmp("ionization:progress_report", s) == 0) {
     _progress_report = ip;
     return;
-  }  
+  }
+  if (strcmp("ionization:qr", s) == 0) {
+    pw_scratch.qr = ip;
+    return;
+  }
+  if (strcmp("ionization:maxk", s) == 0) {
+    pw_scratch.max_k = ip;
+    return;
+  }
+  if (strcmp("ionization:maxkl", s) == 0) {
+    pw_scratch.max_kl = ip;
+    return;
+  }
+  if (strcmp("ionization:maxkl_eject", s) == 0) {
+    pw_scratch.max_kl_eject = ip;
+    return;
+  }
+  if (strcmp("ionization:kl_cb", s) == 0) {
+    pw_scratch.kl_cb = ip;
+    return;
+  }
+  if (strcmp("ionization:kl_tol", s) == 0) {
+    pw_scratch.tolerance = dp;
+    return;
+  }
 }
 
