@@ -1920,7 +1920,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
   ORBITAL *orb;
-  double *w, small, large, *w0, *wx, *wx0, wmin;
+  double *w, small, large, *w0, *wx, *wx0, *wb, wmin;
   int jmax, i, k1, m, i0, i1;
   double a, b, dn0, u, jps0, jps1;
   
@@ -1945,7 +1945,9 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     i1 = acfg->n_shells;
     w0 = potential->VPS;
     wx0 = potential->VXF;
+    wb = _dwork16;
     wmin = _sc_wmin;
+    for (m = 0; m < potential->maxrp; m++) wb[m] = 0.0;
   }
   jmax = 0;
   b = 0.0;
@@ -1969,12 +1971,30 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 	} else if (potential->vxf == 2) {
 	  wx[m] += u;
 	}
+	wb[m] += u*b;
       }
     }
     if (jmax < orb->ilast) jmax = orb->ilast;
   }
 
   if (jmax > 0) {
+    if (md == 1) {
+      for (m = 0; m <= jmax; m++) {
+	b = potential->rad[m]/potential->rad[jmax];
+	wb[m] -= wb[jmax]*b*b;
+	wb[m] /= 4;
+	if (wb[m] < 0) wb[m] = 0.0;
+	_dwork[m] = wb[m]*potential->dr_drho[m];
+      }
+      b = wb[0]*potential->rad[0]/3 + Simpson(_dwork, 0, jmax);
+      b *= 4;
+      if (b <= 1.0)  b = 0.0;
+      else b = 1. - 1./b;
+      for (m = 0; m <= jmax; m++) {
+	w[m] = (w[m]-wb[m]) + b*wb[m];
+	wx[m] = (wx[m]-wb[m]) + b*wb[m];
+      }
+    }    
     b = 0.0;
     for (m = 0; m <= jmax; m++) {
       if (w[m] > b) b = w[m];
@@ -2127,7 +2147,6 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     jps1 = 0.0;
     if (_scpot.md != 1) {
       jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1);
-       
       if (potential->vxf) {
 	for (m = 0; m < potential->maxrp; m++) {
 	  ue2[m] -= ue1[m];
@@ -6514,7 +6533,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   int n;
   ORBITAL *orb1, *orb2;
-  double *y, ef, r;
+  double *y, ef, r, aw0;
 
   orb1 = GetOrbitalSolved(k1);
   orb2 = GetOrbitalSolved(k2);
@@ -6537,12 +6556,11 @@ double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
       ef = 0.0;
     }
   }
-  if (n_awgrid > 1) {
-    if (ef > 0) aw += ef;
-  }
+  aw0 = aw;
+  if (ef > 0) aw0 += ef;
 
   r = InterpolateMultipole(aw, n, awgrid, y);
-  if (gauge == G_COULOMB && m < 0) r /= aw;
+  if (gauge == G_COULOMB && m < 0) r /= aw0;
 
   return r;
 }

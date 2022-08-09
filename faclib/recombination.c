@@ -2078,9 +2078,9 @@ int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m) {
       FreeMultipoleArray();
       awmin = emin * FINE_STRUCTURE_CONST;
       awmax = emax * FINE_STRUCTURE_CONST;
-      if (e < 0.3) {
+      if (e < 0.1) {
 	SetAWGrid(1, 0.5*(awmin+awmax), awmax);
-      } else if (e < 1.0) {
+      } else if (e < 0.5) {
 	SetAWGrid(2, awmin, awmax);
       } else {
 	SetAWGrid(3, awmin, awmax);
@@ -2406,7 +2406,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     if (m == 1 || GetTransitionMode() == M_FR) {
       e = (emax - emin)/(0.5*(emin+emax));
       if (!te_set) {
-	if (e < EPS3) {
+	if (e < 0.1) {
 	  SetRRTEGrid(1, 0.5*(emin+emax), emax);
 	} else if (e < 0.5) {
 	  SetRRTEGrid(2, emin, emax);
@@ -2419,9 +2419,9 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       FreeMultipoleArray();
       awmin = emin * FINE_STRUCTURE_CONST;
       awmax = emax * FINE_STRUCTURE_CONST;
-      if (e < 0.3) {
+      if (e < 0.1) {
 	SetAWGrid(1, 0.5*(awmin+awmax), awmax);
-      } else if (e < 1.0) {
+      } else if (e < 0.5) {
 	SetAWGrid(2, awmin, awmax);
       } else {
 	SetAWGrid(3, awmin, awmax);
