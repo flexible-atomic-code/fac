@@ -4422,7 +4422,7 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   }
   for (i = im+1; i < pot->maxrp; i++) {
     z[i] = z[im];
-    zx[i] = 0.0;
+    zx[i] = zx[im];
   }
 
   *jps = _dwork2[0];

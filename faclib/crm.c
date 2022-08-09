@@ -3934,7 +3934,7 @@ double BlockRelaxation(int iter) {
       }  
     }   
 
-    if (blk1->nb == 0.0) {
+    if (blk1->nb < 1E-50) {
       for (m = 0; m < blk1->nlevels; m++) {
 	blk1->n[m] = 0.0;
 	blk1->r[m] = 0.0;
@@ -3979,7 +3979,6 @@ double BlockRelaxation(int iter) {
       }
     }
   }
-
   q = 0;
   p = -1;
   a = 0.0;
@@ -4075,6 +4074,7 @@ double BlockRelaxation(int iter) {
       }
     }
   }
+
   if (iter == 0) return 1.0;
   d /= td;
   bd /= tbd;

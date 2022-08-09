@@ -6375,6 +6375,29 @@ static PyObject *PFermiParamC(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", c);
 }
 
+static PyObject *PLegendre(PyObject *self, PyObject *args) {
+  int n, q, ir, ie, dnu;
+  double nu, r, x;
+
+  q = 0;
+  if (!PyArg_ParseTuple(args, "di|i", &x, &n, &q)) return NULL;
+  nu = n;
+  dnu = 0;
+  DXLEGF(nu, dnu, q, q, acos(x), 3, &r, &ir, &ie);
+  return Py_BuildValue("dii", r, ir, ie);
+}
+
+static PyObject *PBessel(PyObject *self, PyObject *args) {
+  int jy, n;
+  double x, r;
+
+  jy = 1;
+  if (!PyArg_ParseTuple(args, "di|i", &x, &n, &jy)) return NULL;
+
+  r = BESLJN(jy, n, x);
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6617,6 +6640,8 @@ static struct PyMethodDef fac_methods[] = {
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
   {"FermiRMS", PFermiRMS, METH_VARARGS},
   {"FermiParamC", PFermiParamC, METH_VARARGS},
+  {"Legendre", PLegendre, METH_VARARGS},
+  {"Bessel", PBessel, METH_VARARGS},
   {NULL, NULL}
 };
 
