@@ -238,8 +238,9 @@ C ***    evaluate CF1  =  f   =  F'(ZLL,ETA,X)/F(ZLL,ETA,X)
 C
    20 IF(AXIAL) THEN
 C                                                        REAL VERSION
-      F = CF1R(X,ETA,ZLL,ACC8,SF ,RK,  ETANE0,LIMIT,ERR,NFP,
-     X         ACCH,FPMIN,FPMAX,PR,'COULCC')
+         F = CF1R(DBLE(X),DBLE(ETA),DBLE(ZLL),ACC8,SF ,
+     X        RK,  ETANE0,LIMIT,ERR,NFP,
+     X        ACCH,FPMIN,FPMAX,PR,'COULCC')
           FCL = SF
           TPK1= RK
          ELSE
