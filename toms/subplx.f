@@ -97,7 +97,7 @@ c local variables
 c
       integer i,j,ifsptr,ins,insfnl,insptr,ipptr,isptr,
      *        istep,istptr,ns,nsubs
-      double precision bnsfac(3,2),dum,scl,sfx,xpscl
+      double precision bnsfac(3,2),dum,scl(1),sfx,xpscl
       logical cmode
 !$OMP THREADPRIVATE(/usubc/,/isubc/)
 c
@@ -130,9 +130,9 @@ c
             if (xpscl .eq. x(i)) go to 120
    10     continue
         else
-          scl = abs(scale(1))
+          scl(1) = abs(scale(1))
           do 20 i = 1,n
-            xpscl = x(i)+scl
+            xpscl = x(i)+scl(1)
             if (xpscl .eq. x(i)) go to 120
    20     continue
         end if
