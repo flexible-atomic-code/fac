@@ -57,6 +57,7 @@ static int mem_enf_table_size = 0;
 static int iground;
 static int iuta = 0;
 static int utaci = 1;
+static int euta = 0;
 static int itrf = 0;
 static double clock_start=0, clock_last=0;
 
@@ -206,12 +207,24 @@ void SetTRF(int m) {
 }
 
 void SetUTA(int m, int mci) {
-  iuta = m;
-  utaci = mci;
+  if (m >= 0) iuta = m;
+  if (mci >= 0) utaci = mci;
+}
+
+void SetExpandUTA(int m) {
+  euta = m;
 }
 
 int IsUTA(void) {
   return iuta;
+}
+
+int ExpandUTA(void) {
+  return euta;
+}
+
+int TrueUTA(void) {
+  return iuta && !euta;
 }
 
 int CheckEndian(F_HEADER *fh) {

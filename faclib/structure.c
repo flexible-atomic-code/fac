@@ -888,7 +888,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 
 int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
 		 int *ngp, int **kgp, int md) {
-  int s, i, j, t, n, k;
+  int s, i, j, t, n, k, ir;
   double r;
   FILE *f;
   HAMILTON *h;
@@ -898,14 +898,14 @@ int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
     printf("cannot open file: %s\n", fn);
     return -1;
   }
-  fread(ng0, sizeof(int), 1, f);
-  fread(ng, sizeof(int), 1, f);
+  ir = fread(ng0, sizeof(int), 1, f);
+  ir = fread(ng, sizeof(int), 1, f);
   *kg = malloc(sizeof(int)*(*ng));
-  fread(*kg, sizeof(int), *ng, f);
-  fread(ngp, sizeof(int), 1, f);
+  ir = fread(*kg, sizeof(int), *ng, f);
+  ir = fread(ngp, sizeof(int), 1, f);
   if (*ngp > 0) {
     *kgp = malloc(sizeof(int)*(*ngp));
-    fread(*kgp, sizeof(int), *ngp, f);
+    ir = fread(*kgp, sizeof(int), *ngp, f);
   } else {
     *kgp = NULL;
   }
@@ -917,23 +917,23 @@ int ReadHamilton(char *fn, int *ng0, int *ng, int **kg,
   for (s = 0; s < MAX_SYMMETRIES; s++) {
     h = GetHamilton(s);
     h->pj = s;
-    fread(&k, sizeof(int), 1, f);
-    fread(&h->dim, sizeof(int), 1, f);
+    ir = fread(&k, sizeof(int), 1, f);
+    ir = fread(&h->dim, sizeof(int), 1, f);
     //printf("rh: %d %d\n", k, h->dim);
     if (h->dim <= 0) continue;
-    fread(&h->orig_dim, sizeof(int), 1, f);
-    fread(&h->n_basis, sizeof(int), 1, f);
+    ir = fread(&h->orig_dim, sizeof(int), 1, f);
+    ir = fread(&h->n_basis, sizeof(int), 1, f);
     if (AllocHamMem(h, h->dim, h->n_basis) == -1) return -1;
     for (t = 0; t < h->hsize; t++) h->hamilton[t] = 0;
-    fread(h->basis, sizeof(int), h->n_basis, f);
-    fread(&n, sizeof(int), 1, f);
+    ir = fread(h->basis, sizeof(int), h->n_basis, f);
+    ir = fread(&n, sizeof(int), 1, f);
     //printf("rh: %d %d %d %d %d %d\n", s, k, h->dim, h->n_basis, h->hsize, n);
     long t0 = (h->dim+1)*(h->dim)/2;
     long t1 = t0 + h->dim*(h->n_basis-h->dim);
     for (k = 0; k < n; k++) {
-      fread(&i, sizeof(int), 1, f);
-      fread(&j, sizeof(int), 1, f);
-      fread(&r, sizeof(double), 1, f);
+      ir = fread(&i, sizeof(int), 1, f);
+      ir = fread(&j, sizeof(int), 1, f);
+      ir = fread(&r, sizeof(double), 1, f);
       if (j < h->dim) {
 	t = j*(j+1)/2 + i;
       } else if (i < h->dim) {
@@ -2995,7 +2995,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
   int g0, p0;
   double *mix, a;
 
-  if (IsUTA()) {
+  if (TrueUTA()) {
     m = n_levels;
     lev.n_basis = 0;
     lev.ibase = -1;
@@ -3006,19 +3006,8 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
       for (j = 0; j < g->n_cfgs; j++) {
 	lev.pb = j;
 	c = GetConfigFromGroup(kg[i], j);
-	lev.pj = 0;
-	lev.ilev = 1;
-	for (t = 0; t < c->n_shells; t++) {
-	  GetJLFromKappa(c->shells[t].kappa, &d, &k);
-	  k /= 2;
-	  d = ShellDegeneracy(d+1, c->shells[t].nq);
-	  if (d > 1) {
-	    lev.ilev *= d;
-	  }
-	  if (IsOdd(k) && IsOdd(c->shells[t].nq)) lev.pj++;
-	}
-	lev.ilev--;
-	lev.pj = IsOdd(lev.pj);
+	lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
+	lev.pj = c->sweight < 0;
 	if (c->energy == 0) {
 	  c->energy = AverageEnergyConfig(c);
 	}
@@ -3141,7 +3130,6 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
       g = GetGroup(s->kgroup);
       lev.nele = g->n_electrons;
     }
-    
     if (levels->lock) {
       SetLock(levels->lock);
     }
@@ -3369,7 +3357,7 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
     else return 0;
   }
   
-  if (IsUTA()) {
+  if (TrueUTA()) {
     if (lev1->energy > lev2->energy) return 1;
     else if (lev1->energy < lev2->energy) return -1;
     return 0;
@@ -3698,6 +3686,7 @@ int SolveStructure(char *fn, char *hfn,
 		   int ng, int *kg, int ngp, int *kgp, int ip) {
   int ng0, nlevels, ns, k, i, md, rh;
   HAMILTON *h;
+
   if (ip > 10) {
     int n0, n1, k1;
     k1 = ip%100;
@@ -3735,12 +3724,21 @@ int SolveStructure(char *fn, char *hfn,
     if (fn == NULL) md = ip*1000 + 110;
     else md = ip*1000 + 111;
   }
-  if (IsUTA()) {
+  int euta = 0;
+  if (IsUTA() && !ExpandUTA()) {
+    CONFIG *cfg = GetConfigFromGroup(kg[0], 0);
+    if (cfg->n_csfs > 0) {
+      SetExpandUTA(1);
+      euta = 1;
+    }
+  }
+  if (TrueUTA()) {
     AddToLevels(NULL, ng0, kg);
   } else {
     double wtb = WallTime();
     if (rh == 0) {
       for (i = 0; i < ns; i++) {
+	h = GetHamilton(i);
 	k = ConstructHamilton(i, ng0, ng, kg, ngp, kgp, md);
 	h = GetHamilton(i);
 	h->orig_dim = h->dim;
@@ -3975,25 +3973,18 @@ int SolveStructure(char *fn, char *hfn,
   if (fn != NULL) {
     SortLevels(nlevels, -1, 0);
     SaveLevels(fn, nlevels, -1);
-    if (!IsUTA()) {
+    if (!TrueUTA()) {
       for (i = 0; i < ns; i++) {
 	AllocHamMem(&_allhams[i], -1, -1);
 	AllocHamMem(&_allhams[i], 0, 0);
 	_allhams[i].perturb_iter = 0;
       }
-      /*
-      for (i = nlevels; i < levels->dim; i++) {
-	LEVEL *lev = GetLevel(i);
-	lev->slev = i;
-	if (lev && lev->iham >= 0) {
-	  hams[lev->iham].levs[lev->ilev] = lev;
-	}
-      }
-      */
     }
     if (ng > 0 && kg) free(kg);
     if (ngp > 0 && kgp) free(kgp);
   }
+
+  if (euta) SetExpandUTA(0);
   return 0;
 }
 
@@ -4003,32 +3994,6 @@ int GetNumElectrons(int k) {
   lev = GetLevel(k);
   return lev->nele;
 }
-
-/*
-int GetNumElectrons(int k) {
-  LEVEL *lev;
-  SYMMETRY *sym;
-  STATE *s;
-  CONFIG_GROUP *g;
-  int nele, i, m;
-
-  if (IsUTA()) {
-    g = GetGroup(lev->iham);
-    nele = g->n_electrons;
-  } else {
-    sym = GetSymmetry(lev->pj);
-    s = (STATE *) ArrayGet(&(sym->states), lev->basis[0]);
-    if (s->kgroup >= 0) {
-      g = GetGroup(s->kgroup);
-      nele = g->n_electrons;
-    } else {
-      nele = 1+GetNumElectrons(-(s->kgroup)-1);
-    }
-  }
-
-  return nele;
-}
-*/
 
 int SaveEBLevels(char *fn, int m, int n) {
   int n0, k, i, ilev, mlev, nele;
@@ -4105,7 +4070,7 @@ int SaveLevels(char *fn, int m, int n) {
   fhdr.atom = GetAtomicNumber();
   f = OpenFile(fn, &fhdr);
 
-  if (IsUTA()) {
+  if (TrueUTA()) {
     for (k = 0; k < n; k++) {
       i = m + k;
       lev = GetLevel(i);
@@ -4218,7 +4183,7 @@ int SaveLevels(char *fn, int m, int n) {
     if (s->kgroup > 0) {
       cfg = GetConfig(s);
       nk = cfg->n_electrons-1;
-      if (nk < 0 || levels_per_ion[nk].dim == 0) {
+      if (IsUTA() || nk < 0 || levels_per_ion[nk].dim == 0) {
 	lev->ibase = -1;
       } else {
 	csf = cfg->csfs + s->kstate;
@@ -4328,6 +4293,10 @@ int SaveLevels(char *fn, int m, int n) {
     r.p = p;
     r.j = j0;
     r.energy = lev->energy;
+    if (IsUTA()) {
+      r.ibase = j0;
+      r.j = -1;
+    }
 
     nele = ConstructLevelName(name, sname, nc, &vnl, s);
     strncpy(r.name, name, LNAME);

@@ -170,7 +170,7 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
 static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   int n, ng, *kg, i, j, k, im, m, m0;
   int nrg, *krg, nrec;
-  int ig, nlevels, iuta;
+  int ig, nlevels;
   LEVEL *lev;
   SYMMETRY *sym;
   STATE *s;
@@ -185,7 +185,6 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   nv1 = 0;
   rv = 0;
 
-  iuta = IsUTA();
   if (argt == STRING) {
     n = 1;
     v[0] = argv;
@@ -236,7 +235,7 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       k = 0;
       for (j = 0; j < nlevels; j++) {
 	lev = GetLevel(j);
-	if (iuta) {
+	if (lev->n_basis == 0) {
 	  ig = lev->iham;
 	} else {
 	  im = lev->pb;
@@ -3646,6 +3645,16 @@ static int PSetUTA(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetExpandUTA(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  
+  if (argc != 1 || argt[0] != NUMBER) return -1;
+  
+  SetExpandUTA(atoi(argv[0]));
+  
+  return 0;
+}
+
 static int PSetTRF(int argc, char *argv[], int argt[], 
 		   ARRAY *variables) {
   
@@ -5280,7 +5289,8 @@ static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
-  {"SetUTA", PSetUTA, METH_VARARGS}, 
+  {"SetUTA", PSetUTA, METH_VARARGS},  
+  {"SetExpandUTA", PSetExpandUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 

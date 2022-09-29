@@ -707,8 +707,231 @@ double BEScale(int k, double e) {
   return b;
 }
 
+int IonizeStrengthUTA0(double *qku, double *qkc, double *te, 
+		       int kgf, int kgb, int kcf, int kcb, int *q1) {
+  INTERACT_DATUM *idatum;
+  int jb, kb, qb, klb, nq, ierr;
+  double bethe, b0, c, cmax, qke[MAXNUSR], sigma[MAXNUSR];
+  int ns, nqk, ip, i, j;
+  double tol, tq[MAXNE], x[MAXNE], logx[MAXNE], es, eb0;
+  ORBITAL *orb;
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, kgf, kgb, kcf, kcb, 0, 0, 1);
+  if (ns <= 0) return -1;
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+  jb = idatum->s[1].j;
+  qb = idatum->s[1].nq_ket;
+  *q1 = qb;
+  if (qk_mode == QK_CB) {
+    klb = GetLFromKappa(idatum->s[1].kappa);
+    klb /= 2;
+    nq = idatum->s[1].n;
+    nqk = NPARAMS;
+    for (j = 0; j < nqk; j++) {
+      qkc[j] = 0.0;
+    }
+    ip = (nq - 1)*nq/2;
+    for (j = 0; j < nqk; j++) {
+      qkc[j] = (cbo_params[ip+klb][j]/(*te)) * (PI/2.0);
+    }
+    for (i = 0; i < n_usr; i++) {
+      xusr[i] = usr_egrid[i]/(*te);
+      if (usr_egrid_type == 1) xusr[i] += 1.0;
+      log_xusr[i] = log(xusr[i]);
+      qku[i] = 0.0;
+    }
+    CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+    free(idatum->bra);
+    free(idatum);
+    return klb;
+  } else {
+    klb = BoundFreeOSUTA0(-1, kgf, kgb, kcf, kcb, *te, tq, &kb, &qb);
+    orb = GetOrbital(kb);
+    klb = GetLFromKappa(orb->kappa)/2;
+    eb0 = -orb->energy;
+    BoundFreeOSFit(qke, qkc, tq, orb->n, klb, *te, eb0);
+    for (i = 0; i < n_egrid; i++) {
+      x[i] = (*te + egrid[i])/(*te);
+      logx[i] = log(x[i]);
+      xusr[i] = x[i];
+    }
+    CIRadialQkBED(qku, &bethe, &b0, klb, logx, qke, qkc, *te);
+    if (qk_mode == QK_BED) {
+      kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+      es = BEScale(kb, *te);
+      b0 = ((4.0*PI)/(*te)) - b0;
+      int j0 = 0;
+      for (j = 0; j < n_egrid; j++) {
+	qku[j] = qku[j]*logx[j] + 
+	  b0*(1.0-1.0/x[j]-logx[j]/(1.0+x[j]));
+	qku[j] *= (x[j]/(es+x[j]));
+	if (qku[j] <= 0) j0 = j+1;
+      }
+      if (j0 > 0 && j0 < n_egrid) {
+	double aa = qku[j0]/(x[j0]-1.0);
+	for (j = 0; j < j0; j++) {
+	  qku[j] = aa*(x[j]-1.0);
+	}
+      }
+      for (i = 0; i < n_egrid; i++) {
+	qke[i] = qku[i] - bethe*logx[i];
+	sigma[i] = qke[i];
+      }
+      qkc[0] = bethe;
+      for (i = 1; i < NPARAMS; i++) {
+	qkc[i] = 0.0;
+      }
+      tol = qk_fit_tolerance;
+      SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
+	     qke, sigma, CIRadialQkBasis);
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
+    } else { 
+      for (i = 0; i < n_egrid; i++) {
+	qku[i] = 0.0;
+      } 
+      kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+      ierr = CIRadialQkIntegrated(qke, *te, kb, kb);
+      for (j = 0; j < n_egrid; j++) {
+	qku[j] = qke[j];
+      }      
+      ip = BornFormFactorTE(NULL);
+      if (ip >= 0) {
+	bethe = 0.0;
+      }
+      for (i = 0; i < n_egrid; i++) {
+	qke[i] = qku[i] - bethe*logx[i];
+	sigma[i] = qke[i];
+      }
+      qkc[0] = bethe;
+      for (i = 1; i < NPARAMS; i++) {
+	qkc[i] = 0.0;
+      }
+      tol = qk_fit_tolerance;
+      if (ip < 0) {
+	SVDFit(NPARAMS-1, qkc+1, NULL, tol, n_egrid, x, logx, 
+	       qke, sigma, CIRadialQkBasis);
+      } else {
+	SVDFit(NPARAMS, qkc, NULL, tol, n_egrid, x, logx, 
+	       qke, sigma, CIRadialQkBasis0);
+      }
+      if (usr_different) {
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = usr_egrid[i]/(*te);
+	  if (usr_egrid_type == 1) xusr[i] += 1.0;
+	  log_xusr[i] = log(xusr[i]);
+	}
+	CIRadialQkFromFit(NPARAMS, qkc, n_usr, xusr, log_xusr, qku);
+      }
+    }
+    free(idatum->bra);
+    free(idatum);
+    return klb;
+  }
+}
+    
 int IonizeStrengthUTA(double *qku, double *qkc, double *te, 
 		      int b, int f) {
+  LEVEL *lev1, *lev2;
+  SYMMETRY *sym;
+  STATE *s;
+  CONFIG *c;
+  int t, j, p, ie, klb, qb, r;
+  double wb, wm, rku[MAXNUSR], rkc[MAXNE];
+  
+  lev1 = GetLevel(b);
+  lev2 = GetLevel(f);
+  *te = lev2->energy - lev1->energy;
+  if (*te <= 0) return -1;
+
+  if (lev1->n_basis > 0 && lev2->n_basis > 0) {
+    return IonizeStrength(qku, qkc, te, b, f);
+  }
+  
+  if (lev1->n_basis == 0 && lev2->n_basis == 0) {
+    r = IonizeStrengthUTA0(qku, qkc, te,
+			   lev2->iham, lev1->iham,
+			   lev2->pb, lev1->pb, &qb);
+    if (r < 0) return r;
+    wb = qb*(lev1->ilev+1.0);
+    for (ie = 0; ie < n_usr; ie++) {
+      qku[ie] *= wb;
+    }
+    for (ie = 0; ie < NPARAMS; ie++) {
+      qkc[ie] *= wb;
+    }
+    return r;
+  } else if (lev1->n_basis > 0) {
+    sym = GetSymmetry(lev1->pj);
+    DecodePJ(lev1->pj, &p, &j);
+    for (ie = 0; ie < n_usr; ie++) qku[ie] = 0.0;
+    for (ie = 0; ie < NPARAMS; ie++) qkc[ie] = 0.0;
+    wm = 0.0;
+    for (t = 0; t < lev1->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
+      r = IonizeStrengthUTA0(rku, rkc, te,
+			     lev2->iham, s->kgroup,
+			     lev2->pb, s->kcfg, &qb);
+      if (r < 0) continue;
+      wb = lev1->mixing[t]*lev1->mixing[t];
+      wb *= (j+1.0)*qb;
+      if (wb > wm) {
+	klb = r;
+	wm = wb;
+      }
+      for (ie = 0; ie < n_usr; ie++) {
+	qku[ie] += wb*rku[ie];
+      }
+      for (ie = 0; ie < NPARAMS; ie++) {
+	qkc[ie] += wb*rkc[ie];
+      }
+    }
+  } else if (lev2->n_basis > 0) {
+    sym = GetSymmetry(lev2->pj);
+    DecodePJ(lev2->pj, &p, &j);
+    for (ie = 0; ie < n_usr; ie++) qku[ie] = 0.0;
+    for (ie = 0; ie < NPARAMS; ie++) qkc[ie] = 0.0;
+    for (t = 0; t < lev2->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
+      r = IonizeStrengthUTA0(rku, rkc, te,
+			     s->kgroup, lev1->iham,
+			     s->kcfg, lev1->pb, &qb);
+      if (r < 0) continue;
+      c = GetConfig(s);
+      wb = lev2->mixing[t]*lev2->mixing[t];
+      wb *= (lev1->ilev+1.0)*qb;
+      wb *= (j+1.0)/fabs(c->sweight);
+      if (wb > wm) {
+	klb = r;
+	wm = wb;
+      }
+      for (ie = 0; ie < n_usr; ie++) {
+	qku[ie] += wb*rku[ie];
+      }
+      for (ie = 0; ie < NPARAMS; ie++) {
+	qkc[ie] += wb*rkc[ie];
+      }
+    }
+  }
+  wm = 0.0;
+  for (ie = 0; ie < n_usr; ie++) wm += qku[ie];
+  if (wm < 1e-31) return -1;
+  return klb;
+}
+
+int IonizeStrengthUTA1(double *qku, double *qkc, double *te, 
+		       int b, int f) {
   INTERACT_DATUM *idatum;
   LEVEL *lev1, *lev2;
   int jb, kb, qb, klb, nq, ierr;
@@ -720,7 +943,7 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
   lev2 = GetLevel(f);
   *te = lev2->energy - lev1->energy;
   if (*te <= 0) return -1;
-  
+
   idatum = NULL;
   ns = GetInteract(&idatum, NULL, NULL, lev2->iham, lev1->iham,
 		   lev2->pb, lev1->pb, 0, 0, 1);  
