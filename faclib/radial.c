@@ -4985,7 +4985,7 @@ double TotalEnergyGroupMode(int kg, int md) {
   ARRAY *c;
   CONFIG *cfg;
   int t;
-  double total_energy, a;
+  double total_energy, a, w;
 
   g = GetGroup(kg);
   c = &(g->cfg_list);
@@ -4995,8 +4995,9 @@ double TotalEnergyGroupMode(int kg, int md) {
   for (t = 0; t < g->n_cfgs; t++) {
     cfg = (CONFIG *) ArrayGet(c, t);
     a = AverageEnergyConfigMode(cfg, md);
-    total_energy += a*cfg->sweight;
-    g->sweight += cfg->sweight;
+    w = fabs(cfg->sweight);
+    total_energy += a*w;
+    g->sweight += w;
   }
   total_energy /= g->sweight;
   return total_energy;

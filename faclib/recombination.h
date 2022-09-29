@@ -83,6 +83,11 @@ double PICrossH(double z, int n0, int kl0, double e, int os);
 double GauntBF(int n, int k, double z, double te, double e);
 double RRCrossH(double z, int n0, int kl0, double e);
 int BoundFreeMultipole(FILE *fp, int rec, int f, int m);
+void BoundFreeOSFit(double *rqu, double *rqc,
+		    double *tq, int nq, int nkl,
+		    double eb, double eb0);
+int BoundFreeOSUTA0(int m0, int kgf, int kgb, int kcf, int kcb,
+		    double eb, double *rq, int *kb, int *qb);
 int BoundFreeOS(double *rqu, double *p, 
 		double *eb, int rec, int f, int m);
 int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 

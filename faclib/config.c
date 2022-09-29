@@ -1308,7 +1308,7 @@ int Couple(CONFIG *cfg) {
       break;
     }
   }
-  if (IsUTA()) {
+  if (TrueUTA()) {
     cfg->csfs = NULL;
     cfg->n_csfs = 0;
     cfg->n_electrons = 0;
@@ -2240,7 +2240,7 @@ int ConfigExists(CONFIG *cfg) {
 */
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
-  int n0, kl0, nq0, m, i, n, kl, j, nq;
+  int n0, kl0, nq0, m, i, n, kl, p, j, nq;
   if (k < 0 || k >= n_groups) return -1;
   for (i = 0; i < cfg->n_shells; i++) {
     m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
@@ -2267,9 +2267,10 @@ int AddConfigToList(int k, CONFIG *cfg) {
   m = 0;
   cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
   cfg->sweight = 1.0;
-
+  p = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
+    if (IsOdd(kl/2) && IsOdd(nq)) p++;
     cfg->sweight *= ShellDegeneracy(j+1, nq);
     if (n == n0 && kl == kl0) {
       nq0 += nq;
@@ -2283,6 +2284,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
       nq0 = nq;
     }
   }
+  if (IsOdd(p)) cfg->sweight = -cfg->sweight;
   if (nq0 > 0) {
     PackNRShell(cfg->nrs+m, n0, kl0, nq0);
     m++;

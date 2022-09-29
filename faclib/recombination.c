@@ -1012,8 +1012,8 @@ int BoundFreeMultipole(FILE *fp, int rec, int f, int m) {
   return 0;
 }
 
-int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
-		   int rec, int f, int m0) {
+int BoundFreeOSUTA1(double *rqu, double *rqc, double *eb, 
+		    int rec, int f, int m0) {
   INTERACT_DATUM *idatum;
   LEVEL *lev1, *lev2;
   int j1, ns, q1, ie, c;
@@ -1134,6 +1134,191 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
 
   free(idatum->bra);
   free(idatum);
+  return nkl;
+}
+
+void BoundFreeOSFit(double *rqu, double *rqc,
+		    double *tq, int nq, int nkl,
+		    double eb, double eb0) {
+  int ie;
+  double a, b, d, z;
+  double rq0[MAXNE];
+  double xegrid[MAXNE], log_xegrid[MAXNE];
+  
+  z = GetResidualZ();
+  RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
+  for (ie = 0; ie < n_egrid; ie++) {
+    xegrid[ie] = 1.0 + egrid[ie]/eb0;
+    log_xegrid[ie] = log(xegrid[ie]);
+  }
+
+  for (ie = n_egrid-2; ie > 2; ie--) {
+    a = log(tq[ie+1]/tq[ie]);
+    b = xegrid[ie+1]/xegrid[ie];
+    d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
+    b = log(b);
+    d = log(d) + 0.5*b;
+    if (d > 0.05) {
+      z = (a + (4.5+nkl)*b)/d;
+      if (a < 0 && z > 0) {
+	rqc[1] = z;
+	break;
+      }
+    }
+  }
+  RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
+		    rq0, NULL, 0, &nkl);
+  ie++;
+  a = eb0*tq[ie]/rq0[ie];
+  rqc[0] *= a;
+  rqc[3] = eb0;
+  for (ie++; ie < n_egrid; ie++) {
+    tq[ie] = a*(rq0[ie]/eb0);
+  }
+  for (ie = 0; ie < n_egrid; ie++) {
+    a = eb + egrid[ie];
+    rqu[ie] = tq[ie]*a;
+  }
+}
+
+int BoundFreeOSUTA0(int m0, int kgf, int kgb, int kcf, int kcb,
+		    double eb, double *rq, int *kb, int *qb) {
+  INTERACT_DATUM *idatum;
+  int ns, k;
+  
+  idatum = NULL;  
+  ns = GetInteract(&idatum, NULL, NULL, kgf, kgb, kcf, kcb, 0, 0, 1);  
+  if (ns <= 0) return -1;
+  if (idatum->s[1].index < 0 || idatum->s[3].index >= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+  
+  *qb = idatum->s[1].nq_ket;
+  *kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);      
+  k = RRRadialQk(rq, eb, *kb, *kb, m0);
+  
+  free(idatum->bra);
+  free(idatum);
+  return 0;
+}
+
+int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
+		   int rec, int f, int m0) {
+  SYMMETRY *sym;
+  STATE *s;
+  CONFIG *cfg;
+  LEVEL *lev1, *lev2;
+  int t, j, p;
+  int k1, q1, ns, ie, c;
+  ORBITAL *orb;
+  double a, eb0, wb, wm;
+  double rq[MAXNE], tq[MAXNE];
+  double xegrid[MAXNE], log_xegrid[MAXNE];
+  int m, nkl, nq, k, r;
+  int klb, jb, kb, qb;
+  
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+  if (lev1->n_basis > 0 && lev2->n_basis > 0) {
+    return BoundFreeOS(rqu, rqc, eb, rec, f, m0);
+  }
+  *eb = (lev2->energy - lev1->energy);
+  if (*eb <= 0.0) return -1;
+  
+  if (m0 > 100) m = -1;
+  else m = m0;
+  
+  if (lev1->n_basis == 0 && lev2->n_basis == 0) {
+    r = BoundFreeOSUTA0(m0, lev2->iham, lev1->iham, lev2->pb, lev1->pb,
+			*eb, rq, &kb, &qb);    
+    if (r < 0) return -1;
+    wb = qb*(lev1->ilev+1.0);
+    for (ie = 0; ie < n_egrid; ie++) {
+      tq[ie] = rq[ie]*wb;
+    }
+  } else if (lev1->n_basis > 0) {
+    sym = GetSymmetry(lev1->pj);
+    DecodePJ(lev1->pj, &p, &j);
+    wm = 0;
+    for (ie = 0; ie < n_egrid; ie++) tq[ie] = 0.0;
+    for (t = 0; t < lev1->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
+      r = BoundFreeOSUTA0(m0, lev2->iham, s->kgroup, lev2->pb, s->kcfg,
+			  *eb, rq, &k1, &q1);
+      if (r < 0) continue;
+      wb = (j+1.0)*q1*lev1->mixing[t]*lev1->mixing[t];
+      if (wb > wm) {
+	wm = wb;
+	kb = k1;
+	qb = q1;
+      }
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] += wb*rq[ie];
+      }
+    }
+  } else if (lev2->n_basis > 0) {
+    sym = GetSymmetry(lev2->pj);
+    DecodePJ(lev2->pj, &p, &j);
+    wm = 0;
+    for (ie = 0; ie < n_egrid; ie++) tq[ie] = 0.0;
+    for (t = 0; t < lev2->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
+      cfg = GetConfig(s);
+      r = BoundFreeOSUTA0(m0, s->kgroup, lev1->iham, s->kcfg, lev1->pb,
+			  *eb, rq, &k1, &q1);
+      if (r < 0) continue;
+      orb = GetOrbital(k1);
+      wb = (lev1->ilev+1.0)*q1*lev2->mixing[t]*lev2->mixing[t];
+      wb *= (j+1.0)/fabs(cfg->sweight);
+      if (wb > wm) {
+	wm = wb;
+	kb = k1;
+	qb = q1;
+      }
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] += wb*rq[ie];
+      }
+    }
+  }
+  a = 0.0;
+  for (ie = 0; ie < n_egrid; ie++) a += tq[ie];
+  if (a < 1e-31) return -1;
+  
+  orb = GetOrbital(kb);
+  eb0 = -orb->energy;
+  GetJLFromKappa(orb->kappa, &jb, &klb);
+  klb /= 2;
+  nq = orb->n;
+  nkl = klb;
+  if (qk_mode == QK_FIT) {
+    BoundFreeOSFit(rqu, rqc, tq, nq, nkl, *eb, eb0);
+  } else {
+    for (ie = 0; ie < n_egrid; ie++) { 
+      a = *eb + egrid[ie];
+      tq[ie] *= a;
+      if (c) {
+	a *= FINE_STRUCTURE_CONST;
+	tq[ie] *= pow(a, c);
+      }
+    }
+    if (qk_mode == QK_INTERPOLATE) {
+      for (ie = 0; ie < n_egrid; ie++) {
+	tq[ie] = log(tq[ie]);
+      }
+      k = 3;
+      UVIP3P(k, n_egrid, log_egrid, tq, n_usr, log_usr, rqu);
+      for (ie = 0; ie < n_usr; ie++) {
+	rqu[ie] = exp(rqu[ie]);
+      }
+    } else {
+      for (ie = 0; ie < n_usr; ie++) {
+	rqu[ie] = tq[ie];
+      }
+    }
+  }      
+
   return nkl;
 }
     
@@ -1274,8 +1459,8 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   ANGULAR_ZFB *ang;
   ORBITAL *orb;
   int nz, ie, k;
-  double a, b, d, amax, eb0, z;
-  double rq[MAXNE], tq[MAXNE];
+  double a, amax, eb0;
+  double rq0[MAXNE], rq[MAXNE], tq[MAXNE];
   double xegrid[MAXNE], log_xegrid[MAXNE];
   int i, j, c;
   int gauge, mode, m;
@@ -1324,6 +1509,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
 	  amax = a;
 	  eb0 = -(orb->energy);
 	  kp0 = orb->kappa;
+	  for (ie = 0; ie < n_egrid; ie++) rq0[ie] = rq[ie];
 	}
       }
       for (ie = 0; ie < n_egrid; ie++) {
@@ -1332,40 +1518,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
     }
   }
   if (qk_mode == QK_FIT) {
-    z = GetResidualZ();
-    RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
-    for (ie = 0; ie < n_egrid; ie++) {
-      xegrid[ie] = 1.0 + egrid[ie]/eb0;
-      log_xegrid[ie] = log(xegrid[ie]);
-    }
-
-    for (ie = n_egrid-2; ie > 2; ie--) {
-      a = log(tq[ie+1]/tq[ie]);
-      b = xegrid[ie+1]/xegrid[ie];
-      d = (sqrt(xegrid[ie]) + rqc[2])/(sqrt(xegrid[ie+1]) + rqc[2]);
-      b = log(b);
-      d = log(d) + 0.5*b;
-      if (d > 0.05) {
-	z = (a + (4.5+nkl)*b)/d;
-	if (a < 0 && z > 0) {
-	  rqc[1] = z;
-	  break;
-	}
-      }
-    }
-    RRRadialQkFromFit(NPARAMS, rqc, n_egrid, xegrid, log_xegrid, 
-		      rq, NULL, 0, &nkl);
-    ie++;
-    a = eb0*tq[ie]/rq[ie];
-    rqc[0] *= a;
-    rqc[3] = eb0;
-    for (ie++; ie < n_egrid; ie++) {
-      tq[ie] = a*(rq[ie]/eb0);
-    }
-    for (ie = 0; ie < n_egrid; ie++) {
-      a = (*eb) + egrid[ie];
-      rqu[ie] = tq[ie]*a;
-    }
+    BoundFreeOSFit(rqu, rqc, tq, nq, nkl, *eb, eb0);
   } else {
     for (ie = 0; ie < n_egrid; ie++) { 
       a = *eb + egrid[ie];
@@ -1396,7 +1549,157 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   return nkl;
 }
 
+int AutoionizeRateUTA0(double *rate, double *e,
+		       int kgf, int kgb, int kcf, int kcb) {
+  INTERACT_DATUM *idatum;
+  int j0, j1, jb, ns, q0, q1, qb;
+  int k0, k1, kb, kmin, kmax, jmin, jmax;
+  int jf, ik, klf, kappaf, k, np, nt, j, jm;
+  double a, b, r, s, log_e, *ai_pk;
+  
+  *rate = 0.0;
+  log_e = log(*e);
+  
+  idatum = NULL;
+  ns = GetInteract(&idatum, NULL, NULL, kgf, kgb, kcf, kcb, 0, 0, 1);
+  if (ns <= 0) return -1;
+  if (idatum->s[3].index < 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+
+  kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
+  k0 = OrbitalIndex(idatum->s[2].n, idatum->s[2].kappa, 0.0);
+  k1 = OrbitalIndex(idatum->s[3].n, idatum->s[3].kappa, 0.0);
+  j0 = idatum->s[2].j;
+  j1 = idatum->s[3].j;
+  jb = idatum->s[1].j;
+  q0 = idatum->s[2].nq_ket;
+  q1 = idatum->s[3].nq_ket;
+  qb = idatum->s[1].nq_ket;
+
+  if (idatum->s[1].index != idatum->s[3].index) {
+    kmin = abs(j0-j1);
+    kmax = j0 + j1;
+    jmin = 1;
+    jmax = j1+j0+jb;
+    np = 3;
+    nt = 1;
+    r = 0.0;
+    for (jf = jmin; jf <= jmax; jf += 2) {
+      for (ik = -1; ik <= 1; ik += 2) {
+	klf = jf + ik;
+	kappaf = GetKappaFromJL(jf, klf);
+	for (k = kmin; k <= kmax; k += 2) {
+	  if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
+	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
+	  if (n_egrid > 1) {
+	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	  } else {
+	    s = ai_pk[0];
+	  }
+	  s = s*s/(k + 1.0);
+	  r += s;
+	}
+      }
+    }  
+    r *= 4.0*(q1/(j1+1.0))*(qb/(jb+1.0))*((j0+1.0-q0)/(j0+1.0));
+  } else {
+    jm = 2*j1;
+    r = 0.0;
+    np = 3;
+    nt = 1;
+    for (j = 0; j <= jm; j += 4) {
+      jmin = abs(j-j0);
+      jmax = j+j0;
+      for (jf = jmin; jf <= jmax; jf += 2) {
+	for (ik = -1; ik <= 1; ik += 2) {
+	  klf = jf + ik;
+	  kappaf = GetKappaFromJL(jf, klf);
+	  kmin = abs(j0-j1);
+	  kmax = j0 + j1;
+	  a = 0.0;
+	  for (k = kmin; k <= kmax; k += 2) {
+	    if (!Triangle(jb, jf, k)) continue;
+	    b = W6j(j, jf, j0, k, j1, j1);
+	    if (fabs(b) < EPS30) continue;
+	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
+	    if (n_egrid > 1) {
+	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	    } else {
+	      s = ai_pk[0];
+	    } 
+	    a += b*s;
+	  }
+	  r += a*a*2.0*(j+1.0);
+	}
+      }
+    }
+    r *= 4.0*(q1/(j1+1.0))*((qb-1.0)/jb)*((j0+1.0-q0)/(j0+1.0));
+  }
+
+  *rate = r;
+  
+  free(idatum->bra);
+  free(idatum);
+  return 0;
+}
+
 int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
+  LEVEL *lev1, *lev2;
+  SYMMETRY *sym;
+  STATE *s;
+  CONFIG *c;
+  int t, j, p, r;
+  double wb, rq;
+
+  *rate = 0.0;
+  lev1 = GetLevel(rec);
+  lev2 = GetLevel(f);
+
+  if (lev1->n_basis > 0 && lev2->n_basis > 0) {
+    return AutoionizeRate(rate, e, rec, f, 0);
+  }
+
+  if (lev1->n_basis == 0 && lev2->n_basis == 0) {
+    r = AutoionizeRateUTA0(rate, e, lev2->iham, lev1->iham,
+			   lev2->pb, lev1->pb);
+    return r;
+  } else if (lev1->n_basis > 0) {
+    sym = GetSymmetry(lev1->pj);
+    DecodePJ(lev1->pj, &p, &j);
+    for (t = 0; t < lev1->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
+      rq = 0.0;
+      r = AutoionizeRateUTA0(&rq, e, lev2->iham, s->kgroup,
+			     lev2->pb, s->kcfg);
+      if (r < 0) continue;
+      c = GetConfig(s);
+      wb = lev1->mixing[t]*lev1->mixing[t];
+      wb *= (j+1.0)/fabs(c->sweight);
+      *rate += wb*rq;
+    }
+  } else if (lev2->n_basis > 0) {
+    sym = GetSymmetry(lev2->pj);
+    DecodePJ(lev2->pj, &p, &j);
+    for (t = 0; t < lev2->n_basis; t++) {
+      s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
+      rq = 0.0;
+      r = AutoionizeRateUTA0(&rq, e, s->kgroup, lev1->iham,
+			     s->kcfg, lev1->pb);
+      if (r < 0) continue;
+      c = GetConfig(s);
+      wb = lev2->mixing[t]*lev2->mixing[t];
+      wb *= (j+1.0)/fabs(c->sweight);
+      *rate += wb*rq;
+    }
+  }
+  
+  return 0;
+}
+
+int AutoionizeRateUTA1(double *rate, double *e, int rec, int f) {
   INTERACT_DATUM *idatum;
   LEVEL *lev1, *lev2;
   int j0, j1, jb, ns, q0, q1, qb;
