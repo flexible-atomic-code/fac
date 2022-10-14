@@ -1162,9 +1162,10 @@ class FLEV:
                     while (i0 < n0 and i1 < n1):
                         wi0 = w0[i0]
                         wi1 = w1[i1]
-                        dex = 5.0
+                        dex = min(25.0, 0.5*self.nele[0])
                         if (m.j[wi1] < 0):
-                            dex = 0.25
+                            dex *= 0.05
+                        dex = max(0.25, dex)
                         if abs(ew0[i0]-ew1[i1]) < dex:
                             if m.ilev is None:
                                 self.im[wi0] = wi1

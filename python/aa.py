@@ -55,7 +55,7 @@ class AA:
             self.wm = wm/wm.sum()
             self.ms = np.array([ATOMICMASS[x] for x in z])
             self.mm = np.sum(self.ms*self.wm)
-            self.ds = self.dm*(self.ms/self.mm)**(1./3.)
+            self.ds = np.repeat(self.dm, len(self.wm))
         self.t = t
         self.pref = pref
         self.dd = dd
@@ -261,7 +261,7 @@ class AA:
                 if (i+1)%5 == 0:
                     f.write('\n')
                     
-    def run(self, dtol=0.01, init=True):
+    def run(self, dtol=0.05, init=True):
         if self.wm is None:
             self.run1z()
             return
@@ -284,29 +284,35 @@ class AA:
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
                 r = self.rden('%s/%s%s'%(self.dd,self.pref,self.asym), header='')
-                eden += (self.dm/(1.67*self.mm))*self.wm[i]*r['zb']
-            if (abs(eden-self.eden)/eden < dtol):
-                break
+                eden += (self.dm/(1.67*self.mm))*self.wm[i]*max(0.0,r['zf'])
+            done = 0
+            if (abs(eden-self.eden) < dtol*max(1E-24,eden)):
+                done = 1
             eden0 = self.eden
             self.eden = eden
             print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E'%(niter, self.dm, self.t, eden0, eden))
+            if done:
+                break
             if niter > 3:
                 eden = 0.5*(eden0+eden)
             for i in range(nm):
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
                 self.d = self.ds[i]
+                ni = 0
                 while (True):
+                    ni += 1
                     r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym), header='')
-                    db = abs(r['zb'])*r['dn']
+                    db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
                     zb = db/r['dn']
-                    print('eden itr: %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, self.z, eden, db, z0, zb, self.d, self.t))
-                    if abs(z0-zb)/max(0.1,z0) < dtol:
+                    print('eden itr: %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.z, eden, db, z0, zb, self.d, self.t))
+                    if abs(z0-zb)/max(1e-3,z0) < dtol/2:
                         break
-                    dn = self.d*eden/db
-                    self.d = np.sqrt(dn*self.d)
-                    self.run1z()
-                    
-            
+                    db = max(0.1*eden,db)
+                    if db > 0:
+                        dn = self.d*(eden/db)
+                        self.d = 0.5*(dn+self.d)
+                        self.run1z()                    
+                self.ds[i] = self.d
             
