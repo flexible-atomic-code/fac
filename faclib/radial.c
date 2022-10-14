@@ -3901,13 +3901,21 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   AVERAGE_CONFIG *ac = &(average_config);
   nm = 0;
   char orbf[128];
+  double zf = 0.0;
   for (ik = 0; ik < ac->n_shells; ik++) {
     idx = OrbitalIndex(ac->n[ik], ac->kappa[ik], 0);
     orb = GetOrbitalSolved(idx);
     if (orb->energy < 0) nm++;
     if (ik < ac->n_cores) u = 1.0;
     else {
-      u = BoundFactor(orb->energy, 0.0);
+      k = orb->ilast;
+      x = Large(orb)[k];
+      y = Small(orb)[k];
+      a = (x*x + y*y)*potential->rad[k]/3.0;
+      a = Min(1.0, a);
+      zf += a*ac->nq[ik];
+      u = 1 - a;
+      //u = BoundFactor(orb->energy, 0.0);
     }
     for (k = 0; k < potential->maxrp; k++) {
       x = Large(orb)[k];
@@ -3935,7 +3943,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   dn: %15.8E\n", d);
   fprintf(f, "#    T: %15.8E\n", t);
   fprintf(f, "#    Z: %15.8E\n", z0);
-  fprintf(f, "#   zb: %15.8E\n", z0-potential->nbs-potential->NC);
+  a = z0-potential->nbs-potential->NC;
+  a = Max(0.0, a);
+  fprintf(f, "#   zb: %15.8E\n", a);
+  fprintf(f, "#   zf: %15.8E\n", zf);
   fprintf(f, "#   nm: %15d\n", nm);
   fprintf(f, "#   uf: %15.8E\n", potential->aps);
   fprintf(f, "#   ub: %15.8E\n", potential->bps);
