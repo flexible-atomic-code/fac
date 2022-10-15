@@ -2824,6 +2824,10 @@ void SetScreenConfig(int iter) {
     free(anb);
     free(ik);
     it = 0;
+    u0 = u;
+    u1 = u;
+    nb0 = nb;
+    nb1 = nb;
     if (nb > nbt) {
       while (1) {
 	while (nb > nbt) {
@@ -2872,7 +2876,7 @@ void SetScreenConfig(int iter) {
     int nx = 7, iu;
     double ug[7], ng[7];
     double fu;
-    if (e0 >= 0) {
+    if (e0 >= 0 && fabs(nb1-nb0) > 1e-6) {
       fu = (u1-u0)/(nx-1);
       ug[0] = u0;
       for (iu = 1; iu < nx; iu++) {
