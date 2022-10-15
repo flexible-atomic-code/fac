@@ -230,12 +230,12 @@ void SetOrbNMax(int kmin, int kmax, int nmax);
 int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
 int DensityAsymptote(double *d, double *a, double *b);
-double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
+double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
 		double u, double t, double e0, double *nqf);
 void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);
-double BoundFactor(double e, double e0);
+double BoundFactor(ORBITAL *orb, double e, double e0, int md);
 void LoadSCPot(char *fn);
 void SaveSCPot(int md, char *fn, double sca);
 

@@ -133,6 +133,7 @@ static int _psnmax = 0;
 static int _pskmax = -1;
 static int _slater_kmax = -1;
 static int _orbnmax_print = 0;
+static int _bfmode = 0;
 
 static struct {
   int nr, md, jmax;
@@ -1958,7 +1959,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     orb = GetOrbitalSolved(k1);
     if (orb->wfun == NULL) continue;
     if (md == 1) {
-      b = BoundFactor(orb->energy, _sc_exc);
+      b = BoundFactor(orb, orb->energy, _sc_exc, _bfmode);
     }
     for (m = 0; m <= orb->ilast; m++) {
       large = Large(orb)[m];
@@ -2529,7 +2530,7 @@ int GetPotential(char *s, int m) {
     orb1 = GetOrbitalSolved(j);
     x = 1.0;
     if (i < acfg->n_cores) nqc += acfg->nq[i];
-    else x = BoundFactor(orb1->energy, 0.0);
+    else x = BoundFactor(orb1, orb1->energy, 0.0, _bfmode);
     if (x < 1e-50) x = 0.0;
     nqb += acfg->nq[i]*x;
     nqt += acfg->nq[i];
@@ -2623,12 +2624,25 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
   return 0;
 }
 
-double BoundFactor(double e, double e0) {
-  double x;
+double BoundFactor(ORBITAL *orb, double e, double e0, int md) {
+  double x, y;
+  int k;
+
+  if (md == 1 && orb != NULL) {
+    k = orb->ilast;
+    x = Large(orb)[k];
+    y = Small(orb)[k];
+    x = (x*x + y*y)*potential->rad[k]/3.0;
+    x = Min(1.0, x);
+    x = 1-x;
+    return x;
+  }
+  
   if (_sc_npf <= 0 || potential->tps <= 0) {
     if (e < 0) return 1.0;
     else return 0.0;
   }
+  
   x = _sc_npf*potential->tps;
   if (x > _sc_npdmax) x = _sc_npdmax;
   if (x < _sc_npdmin) x = _sc_npdmin;
@@ -2646,6 +2660,7 @@ void SetScreenConfig(int iter) {
   double e0, ef0, tps;
   double *nq, *et;
   int *np, *kp, it, iti;
+  ORBITAL **os;
   double nb, nbt, nb0, nb1, u, u0, u1, x, nqf, nqf0;
 
   if (potential->mps < 0 || potential->nbt < 0) return;
@@ -2778,15 +2793,19 @@ void SetScreenConfig(int iter) {
   int ns = a->n_shells - a->n_cores;
   if (ns <= 0 && e0 < 0) return;
 
+  os = malloc(sizeof(ORBITAL *)*ns);
   np = a->n + a->n_cores;
   kp = a->kappa + a->n_cores;
   nq = a->nq + a->n_cores;
   et = a->e + a->n_cores;
   nbt = potential->nbt;
+  for (i = 0; i < ns; i++) {
+    os[i] = GetOrbitalSolved(OrbitalIndex(np[i], kp[i], 0));
+  }
   
   if (nbt < 1e-10) {
     u = potential->aps;
-    nb = NBoundAA(ns, np, kp, nq, et, u, tps, e0, &nqf);
+    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
   } else {
     double *amu, *anb, du;
     int ns2 = ns+2;
@@ -2802,7 +2821,7 @@ void SetScreenConfig(int iter) {
     }
     k = -1;
     for (i = 0; i < ns2; i++) {
-      anb[i] = NBoundAA(ns, np, kp, nq, et, amu[i], tps, e0, NULL);
+      anb[i] = NBoundAA(ns, np, kp, nq, et, os, amu[i], tps, e0, NULL);
       if (k < 0 && anb[i] >= nbt) {
 	k = i;
       }
@@ -2819,7 +2838,7 @@ void SetScreenConfig(int iter) {
       }
     }
     du = Max(1.0, du);
-    nb = NBoundAA(ns, np, kp, nq, et, u, tps, e0, &nqf);
+    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
     free(amu);
     free(anb);
     free(ik);
@@ -2834,7 +2853,7 @@ void SetScreenConfig(int iter) {
 	  u1 = u;
 	  nb1 = nb;
 	  u -= du;
-	  nb = NBoundAA(ns, np, kp, nq, et, u, tps, e0, &nqf);	
+	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);	
 	  it++;
 	  if (it > optimize_control.maxiter-5) {
 	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
@@ -2856,7 +2875,7 @@ void SetScreenConfig(int iter) {
 	  u0 = u;
 	  nb0 = nb;
 	  u += du;
-	  nb = NBoundAA(ns, np, kp, nq, et, u, tps, e0, &nqf);
+	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
 	  it++;
 	  if (it > optimize_control.maxiter-5) {	      
 	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
@@ -2893,7 +2912,7 @@ void SetScreenConfig(int iter) {
       if (x < 0.25) x = 0.25;
       if (x > 0.75) x = 0.75;
       u = x*u0 + (1-x)*u1;
-      nb = NBoundAA(ns, np, kp, nq, et, u, tps, -1, NULL);
+      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, -1, NULL);
       if (e0 >= 0) {
 	UVIP3P(3, nx, ug, ng, 1, &u, &nqf);
       }
@@ -2913,7 +2932,7 @@ void SetScreenConfig(int iter) {
       }
     }
     if (e0 >= 0) {
-      nb = NBoundAA(ns, np, kp, nq, et, u, tps, e0, &nqf);
+      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
     }
   }
 
@@ -2921,7 +2940,7 @@ void SetScreenConfig(int iter) {
   potential->nbs = 0.0;
   for (i = 0; i < ns; i++) {
     if (potential->efm > 0) {
-      potential->nbs += nq[i]*BoundFactor(et[i]*tps, 0.0);
+      potential->nbs += nq[i]*BoundFactor(os[i], et[i]*tps, 0.0, _bfmode);
     } else {
       potential->nbs += nq[i];
     }
@@ -2939,6 +2958,8 @@ void SetScreenConfig(int iter) {
     optimize_control.stabilizer = 0.25 + 0.5*(zr/z0);
   }
 
+  free(os);
+  
   if (_sc_print) {
     printf("sc: %3d %3d %3d %g %g %g %g %g %g %g %g %g %g %g\n",
 	   iter, nf, ns, potential->aps, potential->bps,
@@ -3758,7 +3779,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   return iter;
 }      
 
-double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
+double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
 		double u, double tps, double e0, double *nqf) {
   int ik, j2;
   double x, y, nb;
@@ -3778,9 +3799,7 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et,
     j2 = GetJFromKappa(ka[ik]);
     nq[ik] = (j2+1.0)*y;
     if (nq[ik] < 1e-30) nq[ik] = 0.0;
-    if (potential->efm <= 0 && tps > 0) {
-      nq[ik] *= BoundFactor(et[ik]*tps, 0.0);
-    }
+    nq[ik] *= BoundFactor(os[ik], et[ik]*tps, 0.0, _bfmode);
     nb += nq[ik];
   }
   if (nqf) {
@@ -3912,14 +3931,8 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     if (orb->energy < 0) nm++;
     if (ik < ac->n_cores) u = 1.0;
     else {
-      k = orb->ilast;
-      x = Large(orb)[k];
-      y = Small(orb)[k];
-      a = (x*x + y*y)*potential->rad[k]/3.0;
-      a = Min(1.0, a);
-      zf += a*ac->nq[ik];
-      u = 1 - a;
-      //u = BoundFactor(orb->energy, 0.0);
+      u = BoundFactor(orb, orb->energy, 0.0, 1);
+      zf += u*ac->nq[ik];
     }
     for (k = 0; k < potential->maxrp; k++) {
       x = Large(orb)[k];
@@ -3950,9 +3963,9 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   a = z0-potential->nbs-potential->NC;
   a = Max(0.0, a);
   fprintf(f, "#   zb: %15.8E\n", a);
-  zf += potential->nqf;
-  zf = Min(z0, zf);
-  fprintf(f, "#   zf: %15.8E\n", zf);
+  a = z0-zf-potential->NC;
+  a = Max(0.0, a);
+  fprintf(f, "#   zf: %15.8E\n", a);
   fprintf(f, "#   nm: %15d\n", nm);
   fprintf(f, "#   uf: %15.8E\n", potential->aps);
   fprintf(f, "#   ub: %15.8E\n", potential->bps);
@@ -11627,6 +11640,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:sc_cfg")) {
     strncpy(_sc_cfg, sp, 1023);
+    return;
+  }
+  if (0 == strcmp(s, "radial:bfmode")) {
+    _bfmode = ip;
     return;
   }
 }
