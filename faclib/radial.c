@@ -3950,6 +3950,8 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   a = z0-potential->nbs-potential->NC;
   a = Max(0.0, a);
   fprintf(f, "#   zb: %15.8E\n", a);
+  zf += potential->nqf;
+  zf = Min(z0, zf);
   fprintf(f, "#   zf: %15.8E\n", zf);
   fprintf(f, "#   nm: %15d\n", nm);
   fprintf(f, "#   uf: %15.8E\n", potential->aps);
