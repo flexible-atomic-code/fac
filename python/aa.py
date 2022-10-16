@@ -24,10 +24,39 @@ import numpy as np
 from multiprocessing import Pool
 import time, os
 
+# decode zs and ws arrays for compound.
+# SiO2 -> zs=[14,8],ws=[1,2]
+# H0.25C0.7Cu0.05 -> zs=[1,6,29], ws=[0.25,0.7,0.05]
+def zw4c(s):
+    a = ATOMICSYMBOL
+    s = s+'X'
+    n = len(s)
+    zs = []
+    ws = []
+    i = 0
+    j = 0
+    for k in range(i+1,n):
+        if j == i and s[k].isdigit():
+            j = k
+            continue
+        if s[k].isupper():
+            if j == i:
+                zs.append(a.index(s[i:k]))
+                ws.append(1.0)
+            else:
+                zs.append(a.index(s[i:j]))
+                ws.append(float(s[j:k]))
+            i = k
+            j = k
+    return zs,ws
+
 class AA:
     """
-    for single component plasma, z is scaler, no wm
-    for mixtures, z is array of atomic numbers, wm is array of weights by number
+    for single component plasma, z is integer for atomic number, no wm
+    for mixtures, z is array of atomic numbers, 
+                  wm is array of weights by number
+                  or with no wm, but z is a chemical formula, 
+                  e.g., CO2, H2O, H0.56C0.42Cu0.02
     d -- density in g/cc
     t -- temperature in eV
     dd -- directory for the output files
@@ -36,13 +65,20 @@ class AA:
     AA(29, 18.0, 100.0).run() 
     C(0.42)H(0.56)Cu(0.02) at 10 g/cc, 200 eV
     AA([1,6,29],10.0,200.0,wm=[0.56,0.42,0.02]).run()
+    or
+    AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
-                 nr=8, nc=None, sc=0, bqp=0.0, vxf=2, hxs=0.67):
+                 nr=8, nc=None, sc=0, bqp=-1E12, vxf=2, hxs=0.67):
         if nc is None:
             nc = nr
         if nc > nr:
             nc = nr
+        if type(z) == type(''):
+            z,wm = zw4c(z)
+            if len(z) == 1:
+                z = z[0]
+                wm = None
         if wm is None:
             self.z = z
             self.d = d
@@ -302,7 +338,8 @@ class AA:
                 ni = 0
                 while (True):
                     ni += 1
-                    r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym), header='')
+                    r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym),
+                                  header='')
                     db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
                     zb = db/r['dn']
