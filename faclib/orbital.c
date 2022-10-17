@@ -4461,7 +4461,7 @@ double FreeElectronDensity(POTENTIAL *pot, double *vt,
 	k2 = _dwork[k];
 	y = (sqrt(k2*c2 + c2*c2)-c2+v)/pot->tps;
 	y = exp(u-y);
-	_dwork1[k] = sqrt(k2)*y/(y + 1);	
+	_dwork1[k] = sqrt(k2)*y/(y + 1);
       }
       pot->EPS[i] = a*r2*0.5*dk*Simpson(_dwork1, 0, nk-1);
       _dwork2[i] = pot->EPS[i]*pot->dr_drho[i];
