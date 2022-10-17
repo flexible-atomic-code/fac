@@ -301,6 +301,7 @@ class AA:
         if self.wm is None:
             self.run1z()
             return
+        t0 = time.time()
         nm = len(self.wm)
         SetOption('orbital:sc_rsf', 1.0)
         SetOption('orbital:sc_rbf', 1.0)
@@ -309,11 +310,15 @@ class AA:
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
                 self.d = self.ds[i]
-                print('init run: %3d %12.5E %12.5E %12.5E'%(self.z, self.dm, self.d, self.t))
+                print('init run: %3d %12.5E %12.5E %12.5E %10.3E'%(self.z, self.dm, self.d, self.t, time.time()-t0))
                 self.run1z()
         self.eden = 0.0
         niter = 0
+        wst0 = 0.9
+        wst1 = 0.1
         while (True):
+            x = np.exp(-niter/5.)
+            wst = wst0*x + wst1*(1-x)
             niter += 1
             eden = 0.0
             for i in range(nm):
@@ -326,30 +331,32 @@ class AA:
                 done = 1
             eden0 = self.eden
             self.eden = eden
-            print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E'%(niter, self.dm, self.t, eden0, eden))
+            print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E %10.3E %10.3E'%(niter, self.dm, self.t, eden0, eden, wst, time.time()-t0))
             if done:
                 break
-            if niter > 3:
-                eden = 0.5*(eden0+eden)
+            if niter > 1:
+                eden = eden0*(1-wst) + eden*wst
             for i in range(nm):
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
                 self.d = self.ds[i]
                 ni = 0
                 while (True):
-                    ni += 1
+                    x = np.exp(-ni/5.)
+                    wst = wst0*x + wst1*(1-x)
+                    ni += 1                    
                     r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym),
                                   header='')
                     db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
                     zb = db/r['dn']
-                    print('eden itr: %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.z, eden, db, z0, zb, self.d, self.t))
+                    print('eden itr: %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.z, eden, db, z0, zb, self.d, self.t, wst, time.time()-t0))
                     if abs(z0-zb)/max(1e-3,z0) < dtol/2:
                         break
-                    db = max(0.1*eden,db)
+                    db = max(1e-3*eden,db)
                     if db > 0:
                         dn = self.d*(eden/db)
-                        self.d = 0.5*(dn+self.d)
+                        self.d = self.d*(1-wst) + dn*wst
                         self.run1z()                    
                 self.ds[i] = self.d
             
