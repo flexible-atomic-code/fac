@@ -221,7 +221,7 @@ static double _sturm_idx = 0;
 static double _sturm_eref = 0;
 static int _sturm_nref = 0;
 static int _sturm_kref = -1;
-
+static int _print_maxiter = 0;
 static double _aaztol = 0.0;
 static int _sc_print = 0;
 static int _sc_niter = 10;
@@ -229,10 +229,10 @@ static int _sc_miter = 128;
 static double _sc_wmin = 0.5;
 static double _hx_wmin = 0.1;
 static double _maxsta = 0.75;
-static double _minsta = 0.01;
+static double _minsta = 0.005;
 static double _incsta = 1.05;
 static double _rfsta = 50.0;
-static double _dfsta = 5.0;
+static double _dfsta = 0.5;
 static double _sc_npf = 0.25;
 static double _sc_npdmax = 10.0;
 static double _sc_npdmin = 0.1;
@@ -370,7 +370,7 @@ void SaveSCPot(int md, char *fn, double sca) {
 
 void SetOptSTA(int i, int iter) {
   int k;
-  double r, r2, d;
+  double r, r1, r2, d;
   if (iter == 0) {
     optimize_control.sta[i] = 1.0;
     return;
@@ -386,15 +386,21 @@ void SetOptSTA(int i, int iter) {
     r += optimize_control.rph[i][k];
     r2 += optimize_control.rph[i][k]*optimize_control.rph[i][k];
     d += optimize_control.dph[i][k];
+    
   }
   r /= NDPH;
+  r1 = r*r;
   r2 /= NDPH;
   d /= NDPH;
   r = sqrt(r2 - r*r);
-  r = exp(-(_rfsta*r+_dfsta*d))*optimize_control.stabilizer;
+  d /= Max(0.1,optimize_control.sta[i]);
+  r = exp(-(_rfsta*r+_dfsta*d))*optimize_control.stabilizer/r1;
   if (r > _maxsta) r = _maxsta;
   if (r < _minsta) r = _minsta;
-  d = optimize_control.sta[i]*pow(_incsta,exp(-((double)(iter))/_sc_miter));
+  d = _incsta/r1;
+  d = Max(0.9, d);
+  d = Min(1.1, d);
+  d = optimize_control.sta[i]*d;
   if (r > d) r = d;
   optimize_control.sta[i] = r;
 }
@@ -3127,12 +3133,12 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       double imx = -4.5/log(1-optimize_control.sta[1]);
       if (imx < 2*NDPH) imx = 2*NDPH;
       if (_scpot.md >= 0) imx = 0;
-      muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < 1e-3;
+      muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < 0.01;
       sta = optimize_control.sta[1];
       a = Min(tol, a);
       if (_aaztol > 0 && iter > imx &&
-	  ((dz < _aaztol*sta && a < sta*0.1) ||
-	   (dz < _aaztol && muconv && a < sta*0.01))) {
+	  ((dz < _aaztol*sta && a < sta*0.01) ||
+	   (dz < _aaztol && muconv && a < sta))) {
 	break;
       }    
       az0 = potential->nbs;
@@ -3143,7 +3149,9 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     sta = Min(optimize_control.sta[0], optimize_control.sta[1]);
     iter++;
   }
-
+  if (_print_maxiter) {
+    printf("OptimizeLoop Max Iter: %4d\n", iter);
+  }
   return iter;
 }
 
@@ -3243,7 +3251,7 @@ void SetPotentialN(void) {
     if (i < acfg->n_cores) {
       b += acfg->nq[i];
     }
-    if (optimize_control.iprint) {
+    if (optimize_control.iprint > 1) {
       MPrintf(-1, "avgcfg: %3d %3d %3d %11.4E %11.4E %11.4E %11.4E\n",
 	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i], a, b, acfg->e[i]);
     }
@@ -11692,6 +11700,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:bfmode")) {
     _bfmode = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:print_maxiter")) {
+    _print_maxiter = ip;
     return;
   }
 }
