@@ -69,7 +69,7 @@ class AA:
     AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
-                 nr=8, nc=None, sc=0, bqp=-1E12, vxf=2, hxs=0.67):
+                 nr=8, nc=None, sc=0, pmi=0, bqp=-1E12, vxf=2, hxs=0.67):
         if nc is None:
             nc = nr
         if nc > nr:
@@ -98,6 +98,7 @@ class AA:
         self.nr = nr
         self.nc = nc
         self.sc = sc
+        self.pmi = pmi
         self.bqp = bqp
         self.vxf = vxf
         self.hxs = hxs
@@ -110,8 +111,8 @@ class AA:
     def aa1p(self, rbf, pref):
         ReinitRadial(0)
         SetAtom(self.asym)
-        if self.sc > 0:
-            SetOption('radial:sc_print', 1)
+        SetOption('radial:sc_print', self.sc)
+        SetOption('radial:print_maxiter', self.pmi)
         SetOption('radial:sc_vxf', self.vxf)
         SetOption('orbital:sc_bqp', self.bqp)
         SetOption('orbital:sc_rbf', rbf)
