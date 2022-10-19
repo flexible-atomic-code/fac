@@ -91,6 +91,7 @@ static double _sc_rsf = 1.0;
 static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
+static int _vxtd = 1;
 
 static double _enerelerr = ENERELERR;
 static double _eneabserr = ENEABSERR;
@@ -4398,6 +4399,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 
 int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   int i, im;
+  double nx, tx, rx, tx2, tx3, tx4;
 
   for (im = pot->maxrp-1; im >= 0; im--) {
     if (d[im]) break;
@@ -4415,11 +4417,28 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   for (i = 0; i <= im; i++) {
     z[i] = _dwork1[i] + pot->rad[i]*_dwork2[i];
     if (pot->ahx) {
-      zx[i] = pot->ahx*pow(zx[i]*pot->rad[i], ONETHIRD);
+      rx = pot->rad[i];
+      nx = 1.0;
+      if (_vxtd && pot->tps > 1e-10) {	
+	nx = zx[i]/(FOUR_PI*rx*rx);
+	tx = 2*pot->tps/pow(3*PI*PI*nx,TWOTHIRD);
+	if (tx < 0.01) {
+	  nx = 1.0;
+	} else {
+	  nx = tanh(1/tx);
+	}
+	tx2 = tx*tx;
+	tx3 = tx2*tx;
+	tx4 = tx3*tx;
+	nx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
+	nx /= 1 + 3.9431*tx2 + 7.9138*tx4;
+      }
+      zx[i] = pot->ahx*pow(zx[i]*pot->rad[i], ONETHIRD)*nx;
     } else {
       zx[i] = 0.0;
     }
   }
+      
   for (i = im+1; i < pot->maxrp; i++) {
     z[i] = z[im];
     zx[i] = zx[im];
@@ -5428,6 +5447,9 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "orbital:pwa")) {
     _pwa = ip;
     return;
+  }
+  if (0 == strcmp(s, "orbital:vxtd")) {
+    _vxtd = ip;
   }
 }
 
