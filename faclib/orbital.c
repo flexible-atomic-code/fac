@@ -4424,14 +4424,20 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
 	tx = 2*pot->tps/pow(3*PI*PI*nx,TWOTHIRD);
 	if (tx < 0.01) {
 	  nx = 1.0;
+	} else if (tx > 1e5) {
+	  nx = 1/tx;
 	} else {
 	  nx = tanh(1/tx);
 	}
-	tx2 = tx*tx;
-	tx3 = tx2*tx;
-	tx4 = tx3*tx;
-	nx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
-	nx /= 1 + 3.9431*tx2 + 7.9138*tx4;
+	if (tx < 1e10) {
+	  tx2 = tx*tx;
+	  tx3 = tx2*tx;
+	  tx4 = tx3*tx;
+	  nx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
+	  nx /= 1 + 3.9431*tx2 + 7.9138*tx4;
+	} else {
+	  nx *= 0.666683515;
+	}
       }
       zx[i] = pot->ahx*pow(zx[i]*pot->rad[i], ONETHIRD)*nx;
     } else {
