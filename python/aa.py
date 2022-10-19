@@ -69,7 +69,8 @@ class AA:
     AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
-                 nr=8, nc=None, sc=0, pmi=0, bqp=-1E12, vxf=2, hxs=0.67):
+                 nr=8, nc=None, sc=0, pmi=0, bqp=-1E12,
+                 vxf=2, hxs=0.67, maxiter=512):
         if nc is None:
             nc = nr
         if nc > nr:
@@ -91,6 +92,7 @@ class AA:
             self.wm = wm/wm.sum()
             self.ms = np.array([ATOMICMASS[x] for x in z])
             self.mm = np.sum(self.ms*self.wm)
+            self.vt = (1.67e-24*self.mm/self.dm)/(0.529e-8)**3
             self.ds = np.repeat(self.dm, len(self.wm))
         self.t = t
         self.pref = pref
@@ -102,6 +104,7 @@ class AA:
         self.bqp = bqp
         self.vxf = vxf
         self.hxs = hxs
+        self.maxiter = maxiter
         if not dd is None:
             if not os.path.exists(dd):
                 os.system('mkdir %s'%dd)
@@ -113,6 +116,7 @@ class AA:
         SetAtom(self.asym)
         SetOption('radial:sc_print', self.sc)
         SetOption('radial:print_maxiter', self.pmi)
+        SetOptimizeMaxIter(self.maxiter)
         SetOption('radial:sc_vxf', self.vxf)
         SetOption('orbital:sc_bqp', self.bqp)
         SetOption('orbital:sc_rbf', rbf)
@@ -304,6 +308,8 @@ class AA:
             return
         t0 = time.time()
         nm = len(self.wm)
+        dtol1 = dtol*1.25
+        dtol2 = dtol/1.25
         SetOption('orbital:sc_rsf', 1.0)
         SetOption('orbital:sc_rbf', 1.0)
         if init:
@@ -321,22 +327,33 @@ class AA:
             x = np.exp(-niter/5.)
             wst = wst0*x + wst1*(1-x)
             niter += 1
+            if niter > self.maxiter:
+                print('maxiter reached in outer loop: %d'%niter)
+                return
             eden = 0.0
+            vt = 0.0
             for i in range(nm):
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
                 r = self.rden('%s/%s%s'%(self.dd,self.pref,self.asym), header='')
                 eden += (self.dm/(1.67*self.mm))*self.wm[i]*max(0.0,r['zf'])
+                vt += self.wm[i]*r['rps']**3
+            vt *= 4*np.pi/3.0
+            vr = vt/self.vt
             done = 0
-            if (abs(eden-self.eden) < dtol*max(1E-24,eden)):
+            if (abs(eden-self.eden) < dtol*max(1E-24,eden) and
+                abs(vr-1.0) < dtol1):
                 done = 1
             eden0 = self.eden
             self.eden = eden
-            print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E %10.3E %10.3E'%(niter, self.dm, self.t, eden0, eden, wst, time.time()-t0))
+            print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E %10.3E %10.3E %10.3E'%(niter, self.dm, self.t, eden0, eden, vr, wst, time.time()-t0))
             if done:
                 break
             if niter > 1:
                 eden = eden0*(1-wst) + eden*wst
+            b = vr**0.75
+            self.ds *= b
+            eden *= b
             for i in range(nm):
                 self.z = self.zm[i]
                 self.asym = ATOMICSYMBOL[self.z]
@@ -345,14 +362,17 @@ class AA:
                 while (True):
                     x = np.exp(-ni/5.)
                     wst = wst0*x + wst1*(1-x)
-                    ni += 1                    
+                    ni += 1
+                    if ni > self.maxiter:
+                        print('maxiter reached in inner loop: %d %d'%(i,ni))
+                        return
                     r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym),
                                   header='')
                     db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
                     zb = db/r['dn']
                     print('eden itr: %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.z, eden, db, z0, zb, self.d, self.t, wst, time.time()-t0))
-                    if abs(z0-zb)/max(1e-3,z0) < dtol/2:
+                    if abs(z0-zb)/max(1e-3,z0) < dtol2:
                         break
                     db = max(1e-3*eden,db)
                     if db > 0:
