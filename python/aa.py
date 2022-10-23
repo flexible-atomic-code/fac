@@ -351,7 +351,7 @@ class AA:
                 break
             if niter > 1:
                 eden = eden0*(1-wst) + eden*wst
-            b = vr**0.75
+            b = vr**wst
             self.ds *= b
             eden *= b
             for i in range(nm):
