@@ -21,7 +21,7 @@
 from pfac.fac import *
 from pfac import util, const
 import numpy as np
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 import time, os
 
 # decode zs and ws arrays for compound.
@@ -95,10 +95,11 @@ class AA:
             self.ds = np.repeat(self.dm, len(self.wm))
             self.nm = len(self.wm)
             self.nmr = nr*self.nm
+            self.ncpu = cpu_count()
             if nc > 0:
-                self.nc = min(self.nmr, nc)
+                self.nc = min(min(self.ncpu,self.nmr), nc)
             else:
-                self.nc = self.nmr
+                self.nc = min(self.nmr,self.ncpu)
         self.t = t
         self.pref = pref
         self.dd = dd
@@ -130,7 +131,7 @@ class AA:
         AverageAtom(pref, 4, d, t)
 
     def ploop(self, i0):
-        nc = max(1,self.nc)
+        nc = min(self.nmr,max(1,self.nc))
         for i in range(i0, self.nmr, nc):
             print('aa1p: %2s %10.3E %10.3E %s'%(self.xs[i][0],
                                                 self.xs[i][1],
@@ -289,11 +290,13 @@ class AA:
             for j in range(self.nr):
                 pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
                 self.xs.append((self.asym[i],ida[j],pf))
+        self.nmr = self.nm*self.nr
         if (self.nc <= 1):
             self.ploop(0)
         else:
-            p = Pool(processes=self.nc)
-            p.map(self.ploop, range(self.nc))
+            nc = min(self.nc, self.nmr)
+            p = Pool(processes=nc)
+            p.map(self.ploop, range(nc))
 
     def cleanvg(self):
         for i in range(self.nm):
@@ -344,6 +347,7 @@ class AA:
             for i in range(self.nm):
                 pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
                 self.xs.append((self.asym[i],d[i],pf))
+            self.nmr = self.nm
             if (self.nc <= 1):
                 self.ploop(0)
             else:
