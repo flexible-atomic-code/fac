@@ -19,7 +19,7 @@
 # this provides an interface to the average atom model
 
 from pfac.fac import *
-from pfac import util
+from pfac import util, const
 import numpy as np
 from multiprocessing import Pool
 import time, os
@@ -69,12 +69,8 @@ class AA:
     AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
-                 nr=8, nc=None, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, hxs=0.67, maxiter=512):
-        if nc is None:
-            nc = nr
-        if nc > nr:
-            nc = nr
+                 nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
+                 vxf=2, hxs=0.67, maxiter=512, vmin=0.1, vmax=10.0):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -85,132 +81,66 @@ class AA:
             self.d = d
             self.asym = ATOMICSYMBOL[z]
             self.wm = None
+            self.nc = 0
+            self.nmr = 0
         else:
             self.zm = z
             self.dm = d
             wm = np.array(wm)
             self.wm = wm/wm.sum()
             self.ms = np.array([ATOMICMASS[x] for x in z])
+            self.asym = [ATOMICSYMBOL[x] for x in z]
             self.mm = np.sum(self.ms*self.wm)
-            self.vt = (1.67e-24*self.mm/self.dm)/(0.529e-8)**3
+            self.vt = (1.67e-24*self.mm/self.dm)
             self.ds = np.repeat(self.dm, len(self.wm))
+            self.nm = len(self.wm)
+            self.nmr = nr*self.nm
+            if nc > 0:
+                self.nc = min(self.nmr, nc)
+            else:
+                self.nc = self.nmr
         self.t = t
         self.pref = pref
         self.dd = dd
         self.nr = nr
-        self.nc = nc
         self.sc = sc
         self.pmi = pmi
         self.bqp = bqp
         self.vxf = vxf
         self.hxs = hxs
         self.maxiter = maxiter
+        self.vmin = vmin
+        self.vmax = vmax
         if not dd is None:
             if not os.path.exists(dd):
-                os.system('mkdir %s'%dd)
+                os.system('mkdir -p %s'%dd)
         else:
             self.dd = '.'
             
-    def aa1p(self, rbf, pref):
+    def aa1p(self, asym, d, t, pref):
         ReinitRadial(0)
-        SetAtom(self.asym)
+        SetAtom(asym)
         SetOption('radial:sc_print', self.sc)
         SetOption('radial:print_maxiter', self.pmi)
         SetOptimizeMaxIter(self.maxiter)
         SetOption('radial:sc_vxf', self.vxf)
         SetOption('orbital:sc_bqp', self.bqp)
-        SetOption('orbital:sc_rbf', rbf)
         if (not self.hxs is None):
             SetPotentialMode(0, 1e11, 1e11, -1, self.hxs, 0.0)
-        AverageAtom(pref, 4, self.d, self.t)
+        AverageAtom(pref, 4, d, t)
 
     def ploop(self, i0):
-        for i in range(i0, self.nr, self.nc):
-            self.aa1p(self.ra[i], self.rs[i])
-            
-    def aaip(self):
-        na = len(self.ra)
-        a = self.asym
-        b = np.zeros(na)
-        c = np.zeros(na)
-        for i in range(na):
-            fp = '%s/%s%s_aanp_%d'%(self.dd,self.pref,a,i)
-            r = self.rden(fp)
-            d = (r[4]+r[6]+r[7])/(4*np.pi*r[1]**2)
-            d0 = r[8]/(4*np.pi*r[1]**2)
-            rs = self.rpot(fp, header='rps')
-            w = np.where(r[1] <= rs)[0]
-            i0 = w[-1]
-            i1 = w[-2]
-            dr = (r[1][i0]-r[1][i1])/rs
-            if (d[i0] > 0 and d[i1] > 0):
-                b[i] = (d[i0]-d[i1])/(0.5*(d[i0]+d[i1])*dr)
-            else:
-                b[i] = 0.0
-            if (d0[i0] > 0 and d0[i1] > 0):
-                c[i] = (d0[i0]-d0[i1])/(0.5*(d0[i0]+d0[i1])*dr)
-            else:
-                c[i] = 0.0
-        self.rb = b
-        self.rc = c
-        
-    def aanp(self, rmin, rmax):        
-        a = self.asym
-        nr = self.nr
-        nc = self.nc
-        self.rmin = rmin
-        self.rmax = rmax
-        self.ra = np.linspace(rmin, rmax, nr)
-        self.rs = ['%s/%s%s_aanp_%d'%(self.dd,self.pref,a,i) for i in range(nr)]
-        p = Pool(processes=nc)
-        p.map(self.ploop, range(nc))
-        p.close()
-        p.join()
-        self.aaip()
+        nc = max(1,self.nc)
+        for i in range(i0, self.nmr, nc):
+            print('aa1p: %2s %10.3E %10.3E %s'%(self.xs[i][0],
+                                                self.xs[i][1],
+                                                self.t,
+                                                self.xs[i][2]))
+            self.aa1p(self.xs[i][0], self.xs[i][1], self.t, self.xs[i][2])
 
-    def run1z(self, rmin=1.0, rmax=2.0, rtol=0.01, rf=2.0, nmr=0):
-        pf = '%s/%s%s'%(self.dd,self.pref,self.asym)
-        if nmr == 0:
-            self.aa1p(1.0, pf)
-            return
-        niter = 0
-        nm = 1
-        while (nm <= nmr):
-            t0 = time.time()
-            print('iter beg: %3d %3d %12.5E %12.5E %12.5E %12.5E'%(niter, self.z, self.d, self.t, rmin, rmax))
-            self.aanp(rmin, rmax)
-            y = self.rb-self.rc
-            t1 = time.time()
-            if rmax-rmin < rtol*self.nr:
-                break
-            if y[-1] < 0:
-                nm += 1
-                w = len(y)-1
-                if (nm < nmr):
-                    rmin = rmax
-                    rmax *= rf
-            else:
-                w = np.where(y >= 0)[0][0]
-                rmin = self.ra[w-1]
-                rmax = self.ra[w]
-            print('iter end: %3d %3d %12.5E %12.5E %12.5E %12.5E %12.5E'%(niter, w, rmin, rmax, y[w-1],y[w], t1-t0))
-            niter += 1
-        w = np.where(y >= 0)[0]
-        if len(w) > 0:
-            w = w[0]
-            k = w-1
-            xf = y[w]/(y[w]-y[k])
-            x0 = self.ra[k]*xf + self.ra[w]*(1-xf)
-            nx = -1
-        else:
-            nx = self.nr-1
-            x0 = self.ra[nx]
-        Print('best rbf: %3d %3d %12.5E %12.5E %12.5E'%(niter, self.z, self.d, self.t, x0))
-        if nx < 0:
-            self.aa1p(float(x0), pf)
-        else:
-            os.system('cp %s_aanp_%d.pot %s.pot'%(pf,nx,pf))
-            os.system('cp %s_aanp_%d.den %s.den'%(pf,nx,pf))
+    def run1z(self, asym):
+        pf = '%s/%s%s'%(self.dd,self.pref,asym)
+        self.aa1p(asym, self.d, self.t, pf)
 
     def rden(self, pref, header=None):
         fn = '%s.den'%pref
@@ -301,10 +231,163 @@ class AA:
                 f.write('%13.7E '%db[i]);
                 if (i+1)%5 == 0:
                     f.write('\n')
-                    
-    def run(self, dtol=0.05, init=True):
+
+    def rvg(self):
+        da = np.zeros((6,self.nm,self.nr))
+        for i in range(self.nm):
+            for j in range(self.nr):
+                pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
+                h = self.rden(pf, header='')
+                da[0,i,j] = h['d0']
+                da[1,i,j] = h['zf']*h['dn']
+                da[2,i,j] = h['ub']
+                da[3,i,j] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
+                da[4,i,j] = h['zf']
+                da[5,i,j] = h['rps']
+        return da
+
+    def ida(self, k, nd):
+        r = self.rvg()
+        n0 = np.max(np.min(r[k],1))
+        n1 = np.min(np.max(r[k],1))
+        if k==1:
+            n0 = np.log10(n0)
+            n1 = np.log10(n1)
+        xa = np.linspace(n0, n1, nd)        
+        ya = np.zeros((self.nm,nd))
+        for i in range(self.nm):
+            w = np.argsort(r[k,i])
+            x0 = r[k,i][w]
+            if k==1:
+                x0 = np.log10(x0)
+            y0 = np.log10(r[3,i][w])
+            ya[i] = self.wm[i]*(10**(np.interp(xa, x0, y0)))
+
+        vt = sum(ya,0)
+        xt = xa
+        va = np.log10(vt)
+        w = np.argsort(va)
+        xi = np.interp(np.log10(self.vt), va[w], xa[w])
+        da = np.zeros(self.nm)
+        for i in range(self.nm):
+            w = np.argsort(r[k,i])
+            x0 = r[k,i][w]
+            if k == 1:                
+                x0 = np.log10(x0)
+            y0 = np.log10(r[0,i])[w]
+            da[i] = 10**np.interp(xi, x0, y0)
+        if k==1:
+            xa = 10**xa
+            xi = 10**xi
+        return xi, da, xa, vt
+        
+    def runvg(self, v0, v1):
+        self.xs = []
+        for i in range(self.nm):
+            iva = 10**np.linspace(np.log10(v0[i]), np.log10(v1[i]), self.nr)
+            ida = self.ms[i]*1.67e-24/iva
+            for j in range(self.nr):
+                pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
+                self.xs.append((self.asym[i],ida[j],pf))
+        if (self.nc <= 1):
+            self.ploop(0)
+        else:
+            p = Pool(processes=self.nc)
+            p.map(self.ploop, range(self.nc))
+
+    def cleanvg(self):
+        for i in range(self.nm):
+            for j in range(self.nr):
+                pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
+                c = 'rm -rf %s.*'%pf
+                os.system(c)
+                
+    def run(self, tol=0.05, imd=1, cvg=1):
+        if imd <= 0:
+            self.irun(tol=tol)
+            return
+        t0 = time.time()    
         if self.wm is None:
-            self.run1z()
+            self.run1z(self.asym)
+            return
+        v0 = np.zeros(self.nm)
+        v1 = v0.copy()
+        for i in range(self.nm):
+            v0[i] = self.vmin*self.vt
+            v1[i] = min(self.vmax,1/self.wm[i])*self.vt
+        niter = 0
+        while (True):
+            niter += 1
+            self.runvg(v0, v1)
+            x,d,xa,va = self.ida(imd, self.nr*2)
+            va0 = np.min(va)
+            va1 = np.max(va)
+            miter = 0
+            while (self.vt < va0 or self.vt > va1):
+                miter += 1
+                if miter > 10:                    
+                    print('aa inner loop does not convert: %2d %10.3E %10.3E %10.3E %10.3E'%(miter,self.vt,va0,va1,time.time()-t0))
+                    return
+                if (self.vt < va0):
+                    for i in range(self.nm):
+                        v1[i] = va0
+                        v0[i] = self.vmin*va0
+                else:
+                    for i in range(self.nm):
+                        v0[i] = va1
+                        v1[i] = min(self.vmax,1/self.wm[i])*va1
+                self.runvg(v0, v1)
+                x,d,xa,va = self.ida(imd, self.nr*2)
+                va0 = np.min(va)
+                va1 = np.max(va)
+            self.xs = []
+            for i in range(self.nm):
+                pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
+                self.xs.append((self.asym[i],d[i],pf))
+            if (self.nc <= 1):
+                self.ploop(0)
+            else:
+                nc = min(self.nc,self.nm)
+                p = Pool(processes=nc)
+                p.map(self.ploop, range(nc))
+            ys = np.zeros(self.nm)
+            vi = ys.copy()
+            for i in range(self.nm):
+                pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
+                h = self.rden(pf, header='')
+                if imd == 1:
+                    ys[i] = h['zf']*h['dn']
+                else:
+                    ys[i] = h['ub']
+                vi[i] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
+            ym = np.mean(ys)
+            dy = np.max(ys)-np.min(ys)
+            if (dy <= tol*abs(ym)):
+                print('aa converged: %2d %2d %10.3E %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x,time.time()-t0))
+                break
+            w = np.argsort(xa)
+            if imd == 1:
+                x0 = np.log10(xa)
+            else:
+                x0 = xa
+            y0 = np.log10(va)
+            for i in range(self.nm):
+                x1 = xi+3*dy
+                if imd == 1:
+                    x1 = np.log10(x1)
+                dv = 10**np.interp(x1, x0, y0)
+                v0[i] = max(vi[i]*self.vmin,vi[i]-dv)
+                v1[i] = min(vi[i]*self.vmax,vi[i]+dv)
+            if niter > 5:
+                print('aa does not converge: %2d %2d %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x))
+                break
+            print('aa iter: %2d %2d %10.3E %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x,time.time()-t0))
+        if cvg:
+            self.cleanvg()
+        
+    def irun(self, dtol=0.05, init=True):
+        if self.wm is None:
+            self.run1z(self.asym)
             return
         t0 = time.time()
         nm = len(self.wm)
@@ -315,10 +398,9 @@ class AA:
         if init:
             for i in range(nm):
                 self.z = self.zm[i]
-                self.asym = ATOMICSYMBOL[self.z]
                 self.d = self.ds[i]
                 print('init run: %3d %12.5E %12.5E %12.5E %10.3E'%(self.z, self.dm, self.d, self.t, time.time()-t0))
-                self.run1z()
+                self.run1z(self.asym[i])
         self.eden = 0.0
         niter = 0
         wst0 = 0.9
@@ -334,10 +416,10 @@ class AA:
             vt = 0.0
             for i in range(nm):
                 self.z = self.zm[i]
-                self.asym = ATOMICSYMBOL[self.z]
-                r = self.rden('%s/%s%s'%(self.dd,self.pref,self.asym), header='')
+                asym = self.asym[i]
+                r = self.rden('%s/%s%s'%(self.dd,self.pref,asym), header='')
                 eden += (self.dm/(1.67*self.mm))*self.wm[i]*max(0.0,r['zf'])
-                vt += self.wm[i]*r['rps']**3
+                vt += self.wm[i]*(r['rps']*const.RBohr*1e-8)**3
             vt *= 4*np.pi/3.0
             vr = vt/self.vt
             done = 0
@@ -356,7 +438,7 @@ class AA:
             eden *= b
             for i in range(nm):
                 self.z = self.zm[i]
-                self.asym = ATOMICSYMBOL[self.z]
+                asym = self.asym[i]
                 self.d = self.ds[i]
                 ni = 0
                 while (True):
@@ -366,7 +448,7 @@ class AA:
                     if ni > self.maxiter:
                         print('maxiter reached in inner loop: %d %d'%(i,ni))
                         return
-                    r = self.rden('%s/%s%s'%(self.dd,self.pref, self.asym),
+                    r = self.rden('%s/%s%s'%(self.dd,self.pref, asym),
                                   header='')
                     db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
@@ -378,6 +460,6 @@ class AA:
                     if db > 0:
                         dn = self.d*(eden/db)
                         self.d = self.d*(1-wst) + dn*wst
-                        self.run1z()                    
+                        self.run1z(asym)                    
                 self.ds[i] = self.d
             
