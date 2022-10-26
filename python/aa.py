@@ -70,7 +70,7 @@ class AA:
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
                  nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, hxs=0.67, maxiter=512, vmin=0.1, vmax=10.0):
+                 vxf=2, hxs=0.67, maxiter=512, vmin=0.25, vmax=10.0):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -241,10 +241,10 @@ class AA:
                 h = self.rden(pf, header='')
                 da[0,i,j] = h['d0']
                 da[1,i,j] = h['zf']*h['dn']
-                da[2,i,j] = h['ub']
-                da[3,i,j] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
-                da[4,i,j] = h['zf']
-                da[5,i,j] = h['rps']
+                da[2,i,j] = h['nqf']*h['dn']
+                da[3,i,j] = h['ub']
+                da[4,i,j] = h['rps']
+                da[5,i,j] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
         return da
 
     def ida(self, k, nd):
@@ -261,7 +261,7 @@ class AA:
             x0 = r[k,i][w]
             if k==1:
                 x0 = np.log10(x0)
-            y0 = np.log10(r[3,i][w])
+            y0 = np.log10(r[-1,i][w])
             ya[i] = self.wm[i]*(10**(np.interp(xa, x0, y0)))
 
         vt = sum(ya,0)
@@ -329,8 +329,9 @@ class AA:
             while (self.vt < va0 or self.vt > va1):
                 miter += 1
                 if miter > 10:                    
-                    print('aa inner loop does not convert: %2d %10.3E %10.3E %10.3E %10.3E'%(miter,self.vt,va0,va1,time.time()-t0))
+                    print('aa vloop does not convert: %2d %10.3E %10.3E %10.3E %10.3E'%(miter,self.vt,va0,va1,time.time()-t0))
                     return
+                print('aa vloop: %2d %10.3E %10.3E %10.3E %10.3E'%(miter, self.vt, va0, va1, time.time()-t0))
                 if (self.vt < va0):
                     for i in range(self.nm):
                         v1[i] = va0
