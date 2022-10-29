@@ -126,7 +126,7 @@ static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
 static int _print_spm = 0;
-static double _psemax = 0.5;
+static double _psemax = 0.05;
 static int _psnfmin = 3;
 static int _psnfmax = 6;
 static int _psnmax = 0;
@@ -226,7 +226,7 @@ static double _aaztol = 0.0;
 static int _sc_print = 0;
 static int _sc_niter = 10;
 static int _sc_miter = 128;
-static double _sc_wmin = 0.5;
+static double _sc_wmin = 0.25;
 static double _hx_wmin = 0.1;
 static double _maxsta = 0.75;
 static double _minsta = 0.005;
@@ -394,6 +394,7 @@ void SetOptSTA(int i, int iter) {
   d /= NDPH;
   r = sqrt(r2 - r*r);
   d /= Max(0.1,optimize_control.sta[i]);
+  if (d < 0.01) r *= d/0.01;
   r = exp(-(_rfsta*r+_dfsta*d))*optimize_control.stabilizer/r1;
   if (r > _maxsta) r = _maxsta;
   if (r < _minsta) r = _minsta;
@@ -1981,6 +1982,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
 
   if (jmax > 0) {
+    /*
     if (md == 1) {
       for (m = 0; m <= jmax; m++) {
 	b = potential->rad[m]/potential->rad[jmax];
@@ -1997,7 +1999,8 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 	w[m] = (w[m]-wb[m]) + b*wb[m];
 	wx[m] = (wx[m]-wb[m]) + b*wb[m];
       }
-    }    
+    } 
+    */   
     b = 0.0;
     for (m = 0; m <= jmax; m++) {
       if (w[m] > b) b = w[m];
@@ -2051,9 +2054,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 }
 
 int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
-  int i, j, k, k1, k2, jmax, jmaxk, m;
-  ORBITAL *orb1;
-  double large, small, a, b, c, d, d0, d1;
+  int jmax, jmaxk, m;
   double *ue2, *w2, *u2, *ue1, *ue, *u, *w, jps0, jps1;
 
   jps0 = 0.0;
@@ -2150,8 +2151,13 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1);
       if (potential->vxf) {
 	for (m = 0; m < potential->maxrp; m++) {
-	  ue2[m] -= ue1[m];
-	  u2[m] -= ue2[m];
+	  _dwork13[m] = ue2[m];
+	  _dwork14[m] = potential->VPS[m] + w[m];
+	  _dwork15[m] = u2[m] + u[m];
+	}
+	FixAsymptoticPot(jmaxk, md, _dwork14, _dwork15, _dwork13, ue2);
+	for (m = 0; m < potential->maxrp; m++) {
+	  u2[m] = (_dwork15[m]-u[m]) - (ue2[m]-ue1[m]);
 	}
       }
     }
@@ -2165,10 +2171,19 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     }
   }
 
-  if (potential->N < 1+EPS3) {
+  if (potential->N+potential->nqf < 1+EPS3) {
     return -1;
   }
 
+  FixAsymptoticPot(jmax, md, w, u, ue1, ue);
+  return Max(jmax, jmaxk);
+}
+
+void FixAsymptoticPot(int jmax, int md,
+		      double *w, double *u, double *ue1, double *ue) {
+  int i, j, k, k1, k2, m, niter;
+  double a, b, c, d, d0, d1;
+  
   potential->rhx = 0;
   potential->dhx = 0;
   if (jmax > 1 && potential->hxs && potential->ihx < 0 &&
@@ -2221,7 +2236,8 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
 	ue[i] = ue[k];
       }
     } else {
-      double n1 = potential->N-ihx;
+      double n0 = potential->N + potential->nqf;
+      double n1 = n0 - ihx;
       double n2 = n1 - 0.5*ihx;
       i = 0;
       j = 0;
@@ -2245,9 +2261,15 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       d0 = potential->rho[k1];
       d1 = potential->rho[k2];
       d = 0.5*(d0+d1);
+      niter = 0;
       while (d1-d0 > EPS5*fabs(d)) {
+	niter++;
 	d = 0.5*(d0+d1);
 	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	if (niter > 100) {
+	  printf("d01a: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
+	  Abort(1);
+	}
 	if (a < n2) {
 	  d0 = d;
 	} else if (a > n2) {
@@ -2269,9 +2291,15 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       d0 = potential->rho[k1];
       d1 = potential->rho[k2];
       d = 0.5*(d0+d1);
+      niter = 0;
       while (d1-d0 > EPS5*fabs(d)) {
+	niter++;
 	d = 0.5*(d0+d1);
 	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	if (niter > 100) {
+	  printf("d01b: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
+	  Abort(1);
+	}
 	if (a < n1) {
 	  d0 = d;
 	} else if (a > n1) {
@@ -2321,7 +2349,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
 	potential->rhx = a;
       }
       potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
-      c = 1.0 - n1/potential->N;
+      c = 1.0 - n1/n0;
       for (m = 0; m <= jmax; m++) {
 	d = (potential->rad[m]-potential->rhx)/potential->dhx;
 	d = 1.0/(1.0 + exp(-d));
@@ -2338,13 +2366,18 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       ue[m] = ue1[m];
     }
   }
-  for (m = jmax+1; m < potential->maxrp; m++) {
-    u[m] = u[jmax];
-    ue1[m] = 0.0;
-    if (ue[jmax] > ue1[jmax]) ue[m] = 1.0;
-    else ue[m] = 0.0;
+  if (jmax < 0) {
+    for (m = 0; m < potential->maxrp; m++) {
+      ue[m] = 0.0;
+    }
+  } else {
+    for (m = jmax+1; m < potential->maxrp; m++) {
+      u[m] = u[jmax];
+      ue1[m] = 0.0;
+      if (ue[jmax] > ue1[jmax]) ue[m] = 1.0;
+      else ue[m] = ue[jmax];
+    }
   }
-  return Max(jmax,jmaxk);
 }
 
 void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
@@ -2700,7 +2733,6 @@ void SetScreenConfig(int iter) {
   ef0 = 0.0;
   nqf0 = potential->nqf;
   tps = potential->tps;
-
   if (iter < _sc_niter) {
     if (potential->mps >= 3) {
       e0 = tps*_psemax;
@@ -2922,7 +2954,6 @@ void SetScreenConfig(int iter) {
       u1 = u;
       nb1 = nb;
     }
-
     int nx = 7, iu;
     double ug[7], ng[7];
     double fu;
@@ -2966,7 +2997,6 @@ void SetScreenConfig(int iter) {
       nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
     }
   }
-
   potential->bps = u;
   potential->nbs = 0.0;
   for (i = 0; i < ns; i++) {
@@ -3127,18 +3157,19 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	     optimize_control.sta[0],
 	     optimize_control.sta[1]);
     }
-    if (sc) {
+    if (sc) {      
       SetScreenConfig(iter);
       double dz = fabs(potential->nbs-az0);
-      double imx = -4.5/log(1-optimize_control.sta[1]);
+      double imx = -4.5/log(1-optimize_control.sta[1]);      
       if (imx < 2*NDPH) imx = 2*NDPH;
+      if (imx > 5*NDPH) imx = 5*NDPH;
       if (_scpot.md >= 0) imx = 0;
-      muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < 0.01;
       sta = optimize_control.sta[1];
-      a = Min(tol, a);
-      if (_aaztol > 0 && iter > imx &&
-	  ((dz < _aaztol*sta && a < sta*0.01) ||
-	   (dz < _aaztol && muconv && a < sta))) {
+      double sta01 = sta*0.01;
+      muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < sta01;
+      if (_aaztol > 0 && iter > imx && tol < sta01 &&
+	  ((dz < _aaztol*sta01) ||
+	   (dz < _aaztol && muconv))) {
 	break;
       }    
       az0 = potential->nbs;

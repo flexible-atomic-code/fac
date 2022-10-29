@@ -4399,7 +4399,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 
 int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   int i, im;
-  double nx, tx, rx, tx2, tx3, tx4;
+  double nx, tx, rx, tx2, tx3, tx4, nx0, rhox;
 
   for (im = pot->maxrp-1; im >= 0; im--) {
     if (d[im]) break;
@@ -4414,22 +4414,26 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   }
   _dwork2[im] = 0.0;
   NewtonCotesIP(_dwork2, _dwork, 0, im, -1, -1);
+  rx = pot->rad[im];
+  nx0 = zx[im]/(FOUR_PI*rx*rx);
   for (i = 0; i <= im; i++) {
     z[i] = _dwork1[i] + pot->rad[i]*_dwork2[i];
     if (pot->ahx) {
       rx = pot->rad[i];
       nx = 1.0;
-      if (_vxtd && pot->tps > 1e-10) {	
-	nx = zx[i]/(FOUR_PI*rx*rx);
+      rhox = zx[i] - nx0*FOUR_PI*rx*rx;
+      rhox = Max(0.0,rhox);
+      if (_vxtd && rhox > 0 && pot->tps > 1e-10) {
+	nx = rhox/(FOUR_PI*rx*rx);
 	tx = 2*pot->tps/pow(3*PI*PI*nx,TWOTHIRD);
-	if (tx < 0.01) {
+	if (tx < 1e-7) {
 	  nx = 1.0;
-	} else if (tx > 1e5) {
+	} else if (tx > 1e7) {
 	  nx = 1/tx;
 	} else {
 	  nx = tanh(1/tx);
 	}
-	if (tx < 1e10) {
+	if (tx < 1e7) {
 	  tx2 = tx*tx;
 	  tx3 = tx2*tx;
 	  tx4 = tx3*tx;
@@ -4439,7 +4443,7 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
 	  nx *= 0.666683515;
 	}
       }
-      zx[i] = pot->ahx*pow(zx[i]*pot->rad[i], ONETHIRD)*nx;
+      zx[i] = pot->ahx*pow(rhox*rx, ONETHIRD)*nx;
     } else {
       zx[i] = 0.0;
     }

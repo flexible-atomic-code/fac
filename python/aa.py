@@ -368,7 +368,7 @@ class AA:
             ym = np.mean(ys)
             dy = np.max(ys)-np.min(ys)
             if (dy <= tol*abs(ym)):
-                print('aa converged: %2d %2d %10.3E %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x,time.time()-t0))
+                print('aa converged: %2d %2d %10.3E %10.3E %10.3E %10.3E %s'%(niter,miter,dy,ym,x,time.time()-t0,self.dd))
                 break
             w = np.argsort(xa)
             if imd == 1:
