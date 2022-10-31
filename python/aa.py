@@ -163,9 +163,13 @@ class AA:
         fn = '%s.pot'%pref
         if cfg is None and header is None:
             return np.loadtxt(fn, unpack=1)
-        rs = np.loadtxt(fn, unpack=1, max_rows=100, comments='@', usecols=1, dtype=str)
-        w = np.where(rs == 'Mean')[0]
-        nw = w[0]
+        nw = 0
+        with open(fn, 'r') as f:
+            rs = f.readlines(20000)
+            for i in range(len(rs)):
+                if len(rs[i]) > 6 and rs[i][:6] == '# Mean':
+                    nw = i
+                    break
         if not header is None:
             rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=1, dtype=str)
             rd = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=3)
@@ -240,8 +244,8 @@ class AA:
                 pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
                 h = self.rden(pf, header='')
                 da[0,i,j] = h['d0']
-                da[1,i,j] = h['zf']*h['dn']
-                da[2,i,j] = h['nqf']*h['dn']
+                da[1,i,j] = h['ze']*h['dn']
+                da[2,i,j] = h['zf']*h['dn']
                 da[3,i,j] = h['ub']
                 da[4,i,j] = h['rps']
                 da[5,i,j] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
@@ -361,6 +365,8 @@ class AA:
                 pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
                 h = self.rden(pf, header='')
                 if imd == 1:
+                    ys[i] = h['ze']*h['dn']
+                elif imd == 2:
                     ys[i] = h['zf']*h['dn']
                 else:
                     ys[i] = h['ub']

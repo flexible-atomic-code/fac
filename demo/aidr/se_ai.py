@@ -17,6 +17,7 @@ fac.Config('2p4 3s2', '2p4 3s1 3p1', group = 'n33')
 fac.ConfigEnergy(0)
 fac.OptimizeRadial('n33')
 fac.ConfigEnergy(1)
+
 fac.Structure('se.lev.b', ['n2'])
 fac.Structure('se.lev.b', ['n33'])
 fac.MemENTable('se.lev.b')

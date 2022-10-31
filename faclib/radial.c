@@ -126,14 +126,15 @@ static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
 static int _print_spm = 0;
-static double _psemax = 0.05;
-static int _psnfmin = 3;
+static double _psemax = 0.0;
+static int _psnfmin = 0;
 static int _psnfmax = 6;
 static int _psnmax = 0;
 static int _pskmax = -1;
 static int _slater_kmax = -1;
 static int _orbnmax_print = 0;
 static int _bfmode = 1;
+static double _free_threshold = -1.0;
 
 static struct {
   int nr, md, jmax;
@@ -229,14 +230,14 @@ static int _sc_miter = 128;
 static double _sc_wmin = 0.25;
 static double _hx_wmin = 0.1;
 static double _maxsta = 0.75;
-static double _minsta = 0.005;
-static double _incsta = 1.05;
-static double _rfsta = 50.0;
-static double _dfsta = 0.5;
-static double _sc_npf = 0.25;
+static double _minsta = 0.05;
+static double _incsta = 1.25;
+static double _rfsta = 2.5;
+static double _dfsta = 0.25;
+static double _sc_npf = 0.1;
 static double _sc_npdmax = 10.0;
 static double _sc_npdmin = 0.1;
-static double _sc_exc = 3.0;
+static double _sc_exc = 0.25;
 static int _sc_vxf = 1;
 static char _sc_cfg[1024] = "";
 static int _sc_lepton = 0;
@@ -370,7 +371,7 @@ void SaveSCPot(int md, char *fn, double sca) {
 
 void SetOptSTA(int i, int iter) {
   int k;
-  double r, r1, r2, d;
+  double r, r1, r2, d, ri;
   if (iter == 0) {
     optimize_control.sta[i] = 1.0;
     return;
@@ -379,28 +380,25 @@ void SetOptSTA(int i, int iter) {
     optimize_control.sta[i] = optimize_control.stabilizer;
     return;
   }
-  r = 0.0;
+  r1 = 0.0;
   r2 = 0.0;
   d = 0.0;
   for (k = 0; k < NDPH; k++) {
-    r += optimize_control.rph[i][k];
-    r2 += optimize_control.rph[i][k]*optimize_control.rph[i][k];
-    d += optimize_control.dph[i][k];
-    
+    ri = optimize_control.rph[i][k];
+    if (ri > r2) r2 = ri;
+    r1 += ri;
+    d += optimize_control.dph[i][k];    
   }
-  r /= NDPH;
-  r1 = r*r;
-  r2 /= NDPH;
   d /= NDPH;
-  r = sqrt(r2 - r*r);
+  r1 /= NDPH;
   d /= Max(0.1,optimize_control.sta[i]);
-  if (d < 0.01) r *= d/0.01;
-  r = exp(-(_rfsta*r+_dfsta*d))*optimize_control.stabilizer/r1;
+  r = exp(-_dfsta*d)*optimize_control.stabilizer/r1;
+  if (r2 > 0.75) r *= exp(-_rfsta*(r2-0.75));
   if (r > _maxsta) r = _maxsta;
   if (r < _minsta) r = _minsta;
-  d = _incsta/r1;
-  d = Max(0.9, d);
-  d = Min(1.1, d);
+  d = _incsta/r2;
+  d = Max(0.75, d);
+  d = Min(1.25, d);
   d = optimize_control.sta[i]*d;
   if (r > d) r = d;
   optimize_control.sta[i] = r;
@@ -412,7 +410,7 @@ void SetOptDPH(int i, double d, int iter) {
     for (i = 0; i < 2; i++) {
       for (k = 0; k < NDPH; k++) {
 	optimize_control.dph[i][k] = 0.0;
-	optimize_control.rph[i][k] = 1.0;
+	optimize_control.rph[i][k] = 0.75;
       }
       optimize_control.sta[i] = optimize_control.stabilizer;
     }
@@ -422,10 +420,10 @@ void SetOptDPH(int i, double d, int iter) {
       optimize_control.rph[i][k] = optimize_control.rph[i][k+1];
     }
     optimize_control.dph[i][k] = d;
-    if (optimize_control.dph[i][k-1] > 0) {
+    if (optimize_control.dph[i][k-1] > 0 && iter >= NDPH) {
       optimize_control.rph[i][k] = d/optimize_control.dph[i][k-1];
     } else {
-      optimize_control.rph[i][k] = 1.0;
+      optimize_control.rph[i][k] = 0.75;
     }
     SetOptSTA(i, iter);
   }
@@ -1982,25 +1980,6 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
 
   if (jmax > 0) {
-    /*
-    if (md == 1) {
-      for (m = 0; m <= jmax; m++) {
-	b = potential->rad[m]/potential->rad[jmax];
-	wb[m] -= wb[jmax]*b*b;
-	wb[m] /= 4;
-	if (wb[m] < 0) wb[m] = 0.0;
-	_dwork[m] = wb[m]*potential->dr_drho[m];
-      }
-      b = wb[0]*potential->rad[0]/3 + Simpson(_dwork, 0, jmax);
-      b *= 4;
-      if (b <= 1.0)  b = 0.0;
-      else b = 1. - 1./b;
-      for (m = 0; m <= jmax; m++) {
-	w[m] = (w[m]-wb[m]) + b*wb[m];
-	wx[m] = (wx[m]-wb[m]) + b*wb[m];
-      }
-    } 
-    */   
     b = 0.0;
     for (m = 0; m <= jmax; m++) {
       if (w[m] > b) b = w[m];
@@ -2016,7 +1995,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     }
     dn0 /= k1; 
     SetOptDPH(md, dn0, iter);
-    if (iter > 4) {
+    if (iter > 2) {
       a = optimize_control.sta[md];
       b = 1-a;
       for (m = 0; m < potential->maxrp; m++) {
@@ -2113,11 +2092,16 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
   jps0 = 0.0;
   if (_scpot.md != 0) {
-    jmax = DensityToSZ(potential, potential->NPS, u, ue1, &jps0);
+    jmax = DensityToSZ(potential, NULL, potential->NPS, u, ue1, &jps0);
   } 
+
   if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) return 0;
   
   w = potential->NPS;
+  if (potential->N+potential->nqf > 1) {
+    FixAsymptoticPot(jmax, md, iter, w, u, ue1, ue);
+  }
+  
   if (potential->mps >= 0 && potential->mps < 3) {
     if (iter == 0) {
       SetPotentialPS(potential, NULL, NULL, iter);
@@ -2136,38 +2120,34 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     } else {
       jmaxk = _scpot.jmax;
     }
-    if (_scpot.md != 1) {
-      for (m = 0; m < potential->maxrp; m++) {
-	ue2[m] = potential->VXF[m] + w[m];
-      }
-      if (potential->vxf == 2) {
+    if (jmaxk > 0) {
+      if (_scpot.md != 1) {
 	for (m = 0; m < potential->maxrp; m++) {
-	  ue2[m] += potential->EPS[m];
+	  ue2[m] = potential->VXF[m] + w[m];
 	}
       }
-    }
-    jps1 = 0.0;
-    if (_scpot.md != 1) {
-      jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1);
-      if (potential->vxf) {
+      jps1 = 0.0;
+      if (_scpot.md != 1) {
+	jmaxk = DensityToSZ(potential, NULL,
+			    potential->VPS, u2, ue2, &jps1);
 	for (m = 0; m < potential->maxrp; m++) {
 	  _dwork13[m] = ue2[m];
 	  _dwork14[m] = potential->VPS[m] + w[m];
 	  _dwork15[m] = u2[m] + u[m];
 	}
-	FixAsymptoticPot(jmaxk, md, _dwork14, _dwork15, _dwork13, ue2);
+	FixAsymptoticPot(jmaxk, md, iter, _dwork14, _dwork15, _dwork13, ue2);
 	for (m = 0; m < potential->maxrp; m++) {
 	  u2[m] = (_dwork15[m]-u[m]) - (ue2[m]-ue1[m]);
 	}
       }
-    }
-    Differential(potential->ZPS, potential->dZPS,
-		 0, potential->maxrp-1, potential);
-    Differential(potential->dZPS, potential->dZPS2,
-		 0, potential->maxrp-1, potential);
-    potential->jps = jps1-jps0;
-    if (_scpot.md == 3) {
-      potential->zps = potential->ZPS[potential->maxrp-1];
+      Differential(potential->ZPS, potential->dZPS,
+		   0, potential->maxrp-1, potential);
+      Differential(potential->dZPS, potential->dZPS2,
+		   0, potential->maxrp-1, potential);
+      potential->jps = jps1-jps0;
+      if (_scpot.md == 3) {
+	potential->zps = potential->ZPS[potential->maxrp-1];
+      }
     }
   }
 
@@ -2175,11 +2155,10 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     return -1;
   }
 
-  FixAsymptoticPot(jmax, md, w, u, ue1, ue);
   return Max(jmax, jmaxk);
 }
 
-void FixAsymptoticPot(int jmax, int md,
+void FixAsymptoticPot(int jmax, int md, int iter,
 		      double *w, double *u, double *ue1, double *ue) {
   int i, j, k, k1, k2, m, niter;
   double a, b, c, d, d0, d1;
@@ -2238,126 +2217,143 @@ void FixAsymptoticPot(int jmax, int md,
     } else {
       double n0 = potential->N + potential->nqf;
       double n1 = n0 - ihx;
-      double n2 = n1 - 0.5*ihx;
+      double n2 = n1 - 0.5*ihx;      
       i = 0;
       j = 0;
-      for (m = 0; m <= jmax; m++) {
-	_dwork9[m] = u[m] - ue1[m];
-	if (_dwork9[m] > n2 && i == 0) {
-	  i = m;
+      if (n2 > 0) {
+	for (m = 0; m <= jmax; m++) {
+	  _dwork9[m] = u[m] - ue1[m];
+	  if (_dwork9[m] > n2 && i == 0) {
+	    i = m;
+	  }
+	  if (_dwork9[m] > n1 && j == 0) {
+	    j = m;
+	  }
+	  if (j > 0 && m - j > 6) break;
 	}
-	if (_dwork9[m] > n1 && j == 0) {
-	  j = m;
+      }
+      if (i > 0 && j > i) {
+	k1 = i-5;
+	if (k1 < 0) k1 = 0;
+	for (k2 = i; k2 < m; k2++) {
+	  if (_dwork9[k2+1] <= _dwork9[k2]) break;
+	  if (k2-i > 5) break;
 	}
-	if (j > 0 && m - j > 6) break;
-      }
-      k1 = i-5;
-      if (k1 < 0) k1 = 0;
-      for (k2 = i; k2 < m; k2++) {
-	if (_dwork9[k2+1] <= _dwork9[k2]) break;
-	if (k2-i > 5) break;
-      }
-      k = k2 - k1 + 1;
-      d0 = potential->rho[k1];
-      d1 = potential->rho[k2];
-      d = 0.5*(d0+d1);
-      niter = 0;
-      while (d1-d0 > EPS5*fabs(d)) {
-	niter++;
+	k = k2 - k1 + 1;
+	d0 = potential->rho[k1];
+	d1 = potential->rho[k2];
 	d = 0.5*(d0+d1);
-	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
-	if (niter > 100) {
-	  printf("d01a: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
-	  Abort(1);
+	niter = 0;
+	while (d1-d0 > EPS5*fabs(d)) {
+	  niter++;
+	  d = 0.5*(d0+d1);
+	  UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	  if (niter > 100) {
+	    printf("d01a: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
+	    Abort(1);
+	  }
+	  if (a < n2) {
+	    d0 = d;
+	  } else if (a > n2) {
+	    d1 = d;
+	  } else {
+	    break;
+	  }
 	}
-	if (a < n2) {
-	  d0 = d;
-	} else if (a > n2) {
-	  d1 = d;
-	} else {
-	  break;
+	a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+			potential->rad[i]);
+	potential->rhx = a;    
+	k1 = j-5;
+	if (k1 < 0) k1 = 0;
+	for (k2 = j; k2 < m; k2++) {
+	  if (_dwork9[k2+1] <= _dwork9[k2]) break;
+	  if (k2-j > 5) break;
 	}
-      }
-      a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
-		      potential->rad[i]);
-      potential->rhx = a;    
-      k1 = j-5;
-      if (k1 < 0) k1 = 0;
-      for (k2 = j; k2 < m; k2++) {
-	if (_dwork9[k2+1] <= _dwork9[k2]) break;
-	if (k2-j > 5) break;
-      }
-      k = k2 - k1 + 1;
-      d0 = potential->rho[k1];
-      d1 = potential->rho[k2];
-      d = 0.5*(d0+d1);
-      niter = 0;
-      while (d1-d0 > EPS5*fabs(d)) {
-	niter++;
+	k = k2 - k1 + 1;
+	d0 = potential->rho[k1];
+	d1 = potential->rho[k2];
 	d = 0.5*(d0+d1);
-	UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
-	if (niter > 100) {
-	  printf("d01b: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
-	  Abort(1);
+	niter = 0;
+	while (d1-d0 > EPS5*fabs(d)) {
+	  niter++;
+	  d = 0.5*(d0+d1);
+	  UVIP3P(3, k, potential->rho+k1, _dwork9+k1, 1, &d, &a);
+	  if (niter > 100) {
+	    printf("d01b: %d %d %d %g %g %g %g %g\n", niter,k1,k,d0,d1,d,a,n2);
+	    Abort(1);
+	  }
+	  if (a < n1) {
+	    d0 = d;
+	  } else if (a > n1) {
+	    d1 = d;
+	  } else {
+	    break;
+	  }
 	}
-	if (a < n1) {
-	  d0 = d;
-	} else if (a > n1) {
-	  d1 = d;
-	} else {
-	  break;
+	a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
+			potential->rad[j]);
+	potential->dhx = a;        
+	for (i = j; i > 0; i--) {
+	  if (ue1[i-1] < ue1[i]) {
+	    break;
+	  }
 	}
-      }
-      a = GetRFromRho(d, potential->ar, potential->br, potential->qr,
-		      potential->rad[j]);
-      potential->dhx = a;        
-      for (i = j; i > 0; i--) {
-	if (ue1[i-1] < ue1[i]) {
-	  break;
+	c = potential->rad[i];
+	b = potential->rho[i];
+	k = 0;
+	for (j = i; j < jmax; j++, k++) {
+	  if (ue1[j+1] >= ue1[j]) break;
+	  if (k > 5) break;
 	}
-      }
-      c = potential->rad[i];
-      b = potential->rho[i];
-      k = 0;
-      for (j = i; j < jmax; j++, k++) {
-	if (ue1[j+1] >= ue1[j]) break;
-	if (k > 5) break;
-      }
-      k = 0;
-      for (; i > 0; i--, k++) {
-	if (ue1[i-1] >= ue1[i]) break;
-	if (k > 5) break;
-      }
-      Differential(ue1, _dwork9, i, j, potential);
-      d0 = potential->rho[i];
-      d1 = potential->rho[j];
-      d = 0.5*(d0+d1);
-      k = j-i+1;
-      while (d1-d0 > EPS5*fabs(d)) {
+	k = 0;
+	for (; i > 0; i--, k++) {
+	  if (ue1[i-1] >= ue1[i]) break;
+	  if (k > 5) break;
+	}
+	Differential(ue1, _dwork9, i, j, potential);
+	d0 = potential->rho[i];
+	d1 = potential->rho[j];
 	d = 0.5*(d0+d1);
-	UVIP3P(3, k, potential->rho+i, _dwork9+i, 1, &d, &a);
-	if (a > 0) {
-	  d0 = d;
-	} else if (a < 0) {
-	  d1 = d;
-	} else {
-	  break;
+	k = j-i+1;
+	while (d1-d0 > EPS5*fabs(d)) {
+	  d = 0.5*(d0+d1);
+	  UVIP3P(3, k, potential->rho+i, _dwork9+i, 1, &d, &a);
+	  if (a > 0) {
+	    d0 = d;
+	  } else if (a < 0) {
+	    d1 = d;
+	  } else {
+	    break;
+	  }
 	}
-      }
-      a = GetRFromRho(d, potential->ar, potential->br, potential->qr, c);
-      if (a < potential->rhx) {
-	potential->rhx = a;
-      }
-      potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
-      c = 1.0 - n1/n0;
-      for (m = 0; m <= jmax; m++) {
-	d = (potential->rad[m]-potential->rhx)/potential->dhx;
-	d = 1.0/(1.0 + exp(-d));
-	d0 = u[m]*c;
-	d1 = ue1[m];
-	ue[m] = d0*d + d1*(1-d);
-	if (d > 0.5 && u[m]-ue[m] > n1) {
-	  ue[m] = u[m]-n1;
+	a = GetRFromRho(d, potential->ar, potential->br, potential->qr, c);
+	if (a < potential->rhx) {
+	  potential->rhx = a;
+	}
+	potential->dhx = (potential->dhx - potential->rhx)*potential->bhx;
+	c = 1.0 - n1/n0;
+	for (m = 0; m <= jmax; m++) {
+	  d = (potential->rad[m]-potential->rhx)/potential->dhx;
+	  d = 1.0/(1.0 + exp(-d));
+	  d0 = u[m]*c;
+	  d1 = ue1[m];
+	  d0 = Max(d0, ue1[m]);
+	  d0 = Min(d0, u[m]);
+	  d1 = Min(d1, u[m]);
+	  ue[m] = d0*d + d1*(1-d);
+	  if (d > 0.5 && u[m]-ue[m] > n1) {
+	    ue[m] = u[m]-n1;
+	  }
+	}
+      } else {
+	if (n2 <= 0) {
+	  for (m = 0; m <= jmax; m++) {
+	    ue[m] = u[m];
+	  }
+	} else {
+	  for (m = 0; m <= jmax; m++) {
+	    ue[m] = ue1[m];
+	  }
 	}
       }
     }
@@ -2511,6 +2507,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    rb1 = %15.8E\n", rb1);
   fprintf(f, "#    bqp = %15.8E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
+  fprintf(f, "#  miter = %d\n", potential->miter);
   fprintf(f, "#   mode = %d\n", potential->mode);
   fprintf(f, "#    HXS = %15.8E\n", potential->hxs);
   fprintf(f, "#    AHX = %15.8E\n", potential->ahx);
@@ -2539,6 +2536,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    nbs = %15.8E\n", potential->nbs);
   fprintf(f, "#    nqf = %15.8E\n", potential->nqf);
   fprintf(f, "#    efm = %15.8E\n", potential->efm);
+  fprintf(f, "#    eth = %15.8E\n", potential->eth);
   fprintf(f, "#    fps = %15.8E\n", potential->fps);
   fprintf(f, "#    xps = %15.8E\n", potential->xps);
   fprintf(f, "#    jps = %15.8E\n", potential->jps);
@@ -2682,7 +2680,7 @@ double BoundFactor(ORBITAL *orb, double e, double e0, int md) {
   if (md > 1 && u0 >= 0) return u0;
   
   if (_sc_npf <= 0 || potential->tps <= 0) {
-    if (e < 0) {
+    if (e < potential->eth) {
       u1 = 1.0;
       if (u0 >= 0) u1 = u0;
     } else {
@@ -2695,7 +2693,7 @@ double BoundFactor(ORBITAL *orb, double e, double e0, int md) {
     x = _sc_npf*potential->tps;    
     if (x > x1) x = x1;
     if (x < x0) x = x0;
-    x = e/x-e0;    
+    x = (e-potential->eth)/x-e0;
     if (x < 0) {
       y = exp(x);
       u1 = 1/(1+y);
@@ -2722,15 +2720,29 @@ void SetScreenConfig(int iter) {
   double *nq, *et;
   int *np, *kp, it, iti;
   ORBITAL **os;
-  double nb, nbt, nb0, nb1, u, u0, u1, x, nqf, nqf0;
+  double nb, nbt, nqt, nb0, nb1, u, u0, u1, x, nqf, nqf0, eth;
 
   if (potential->mps < 0 || potential->nbt < 0) return;
-    
+
+  eth = 0.0;  
+  if (_free_threshold > 0 && potential->ips > 0 && iter >= NDPH) {
+    eth = potential->VT[0][potential->ips];
+    k = potential->ips;
+    for (i = potential->ips-1; i >= 0; i--) {
+      if (potential->VT[0][i] > eth) {
+	eth  = potential->VT[0][i];
+	k = i;
+      }
+    }
+    eth += fabs(eth)*_free_threshold;
+  }
+  potential->eth = eth;
+  nbt = potential->nbt;
   k = 0;
   n = 0;
   m = a->n_cores;
   nf = 0;
-  ef0 = 0.0;
+  ef0 = potential->eth;
   nqf0 = potential->nqf;
   tps = potential->tps;
   if (iter < _sc_niter) {
@@ -2741,6 +2753,10 @@ void SetScreenConfig(int iter) {
     }
     it = 0;
     int mb = 0;
+    nqt = 0.0;
+    for (i = 0; i < a->n_cores; i++) {
+      nqt += a->nq[i];
+    }
     while (1) {
       it++;
       if (it > 10000) {
@@ -2750,6 +2766,7 @@ void SetScreenConfig(int iter) {
       k2 = k*2;
       for (j = -1; j <= 1; j += 2) {
 	if (k == 0 && j < 0) continue;
+	nqt += k2+j+1.0;
 	ka = GetKappaFromJL(k2+j, k2);
 	n0 = 1000000000;
 	n1 = 0;
@@ -2782,7 +2799,7 @@ void SetScreenConfig(int iter) {
 	  }
 	  orb = GetOrbitalSolved(OrbitalIndex(n, ka, 0));
 	  if (potential->mps >= 3 && _psemax > 0) {
-	    if (k == 0 && orb->energy > 0) {
+	    if (k == 0 && orb->energy > eth) {
 	      if (_psnfmax > 0 && nf > _psnfmax) {
 		e0 = 0.5*(ef0+orb->energy);
 		mb = 1;
@@ -2797,8 +2814,16 @@ void SetScreenConfig(int iter) {
 	      mb = 2;
 	      break;
 	    }
-	  } else {
-	    if (orb->energy > 0) done = 1;
+	  } else {	    
+	    if (orb->energy > eth) done = 1;
+	    if (iter == 0) {
+	      if (n > 5) {
+		done = 1;
+	      } else if ((_psnfmin < 0 || nf > _psnfmin || nf > _psnfmax) &&
+			 (orb->energy > e0 || nqt > nbt+1)) {
+		done = 1;
+	      }
+	    }
 	  }
 	  if (_psnmax > 0 && n > _psnmax) {
 	    mb = 3;
@@ -2824,7 +2849,7 @@ void SetScreenConfig(int iter) {
 	  a->e[m] = orb->energy/tps;
 	  mb = 0;
 	  m++;
-	  if (k == 0 && orb->energy > 0) nf++;
+	  if (k == 0 && orb->energy > eth) nf++;
 	  if (done) break;
 	  n++;
 	}
@@ -2843,30 +2868,29 @@ void SetScreenConfig(int iter) {
     }
     e0 = potential->efm;
   }
-  if (potential->mps <= 3) e0 = -1;
+  if (potential->mps <= 3) e0 = -1E31;
   if (potential->iqf) {
-    e0 = -1;
+    e0 = -1E31;
     nqf = nqf0;
   } else {
     nqf = 0;
   }
   u = potential->bps;
   int ns = a->n_shells - a->n_cores;
-  if (ns <= 0 && e0 < 0) return;
+  if (ns <= 0 && e0 < eth) return;
 
   os = malloc(sizeof(ORBITAL *)*ns);
   np = a->n + a->n_cores;
   kp = a->kappa + a->n_cores;
   nq = a->nq + a->n_cores;
   et = a->e + a->n_cores;
-  nbt = potential->nbt;
   for (i = 0; i < ns; i++) {
     os[i] = GetOrbitalSolved(OrbitalIndex(np[i], kp[i], 0));
   }
   
   if (nbt < 1e-10) {
     u = potential->aps;
-    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
+    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, eth, &nqf);
   } else {
     double *amu, *anb, du;
     int ns2 = ns+2;
@@ -2874,15 +2898,19 @@ void SetScreenConfig(int iter) {
     anb = malloc(sizeof(double)*ns2);
     int *ik = malloc(sizeof(int)*ns2);
     ArgSort(ns, et, ik);
-    amu[0] = et[ik[0]]-2*fabs(et[ik[0]]);
-    amu[ns2-1] = et[ik[ns-1]]+fabs(et[ik[0]]);
+    u1 = fabs(et[ik[0]]);
+    amu[0] = et[ik[0]]-2*u1;
+    u0 = fabs(et[ik[ns-1]]);
+    u0 = Max(5.0, u0);
+    u0 = Min(u0, u1);
+    amu[ns2-1] = et[ik[ns-1]]+u0;
     for (i = 0; i < ns; i++) {
       if (i < ns-1) amu[i+1] = et[ik[i]]*0.75+et[ik[i+1]]*0.25;
       else amu[i+1] = et[ik[i]]*0.75+amu[i+2]*0.25;
     }
     k = -1;
     for (i = 0; i < ns2; i++) {
-      anb[i] = NBoundAA(ns, np, kp, nq, et, os, amu[i], tps, e0, &nqf);
+      anb[i] = NBoundAA(ns, np, kp, nq, et, os, amu[i], tps, eth, &nqf);
       if (k < 0 && anb[i] > nbt) {
 	k = i;
 	break;
@@ -2900,7 +2928,7 @@ void SetScreenConfig(int iter) {
       }
     }
     du = Max(1.0, du);
-    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
+    nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, eth, &nqf);
     free(amu);
     free(anb);
     free(ik);
@@ -2915,7 +2943,7 @@ void SetScreenConfig(int iter) {
 	  u1 = u;
 	  nb1 = nb;
 	  u -= du;
-	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);	
+	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, eth, &nqf);	
 	  it++;
 	  if (it > optimize_control.maxiter-5) {
 	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
@@ -2937,7 +2965,7 @@ void SetScreenConfig(int iter) {
 	  u0 = u;
 	  nb0 = nb;
 	  u += du;
-	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
+	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, eth, &nqf);
 	  it++;
 	  if (it > optimize_control.maxiter-5) {	      
 	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
@@ -2957,7 +2985,7 @@ void SetScreenConfig(int iter) {
     int nx = 7, iu;
     double ug[7], ng[7];
     double fu;
-    if (e0 >= 0 && fabs(nb1-nb0) > 1e-6) {
+    if (e0 >= eth && fabs(nb1-nb0) > 1e-6) {
       fu = (u1-u0)/(nx-1);
       ug[0] = u0;
       for (iu = 1; iu < nx; iu++) {
@@ -2965,7 +2993,7 @@ void SetScreenConfig(int iter) {
       }
       for (iu = 0; iu < nx; iu++) {
 	ng[iu] = FreeElectronDensity(potential, potential->VT[0],
-				     0.0, ug[iu], 0.0, -1);
+				     eth, ug[iu], 0.0, -1);
       }
     }
     it = 0;
@@ -2974,8 +3002,8 @@ void SetScreenConfig(int iter) {
       if (x < 0.25) x = 0.25;
       if (x > 0.75) x = 0.75;
       u = x*u0 + (1-x)*u1;
-      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, -1, NULL);
-      if (e0 >= 0) {
+      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, 2E31, NULL);
+      if (e0 >= eth) {
 	UVIP3P(3, nx, ug, ng, 1, &u, &nqf);
       }
       nb += nqf;
@@ -2993,8 +3021,8 @@ void SetScreenConfig(int iter) {
 	Abort(1);
       }
     }
-    if (e0 >= 0) {
-      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, e0, &nqf);
+    if (e0 >= eth) {
+      nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, eth, &nqf);
     }
   }
   potential->bps = u;
@@ -3006,7 +3034,7 @@ void SetScreenConfig(int iter) {
       potential->nbs += nq[i];
     }
   }
-  if (e0 >= 0) {
+  if (e0 >= eth) {
     //if (iter >= _sc_miter && fabs(nqf-nqf0) < 1e-4) {
     //  potential->iqf = 1;
     //}
@@ -3022,10 +3050,10 @@ void SetScreenConfig(int iter) {
   free(os);
   
   if (_sc_print) {
-    printf("sc: %3d %3d %3d %g %g %g %g %g %g %g %g %g %g %g\n",
+    printf("sc: %3d %3d %3d %g %g %g %g %g %g %g %g %g %g %g %g\n",
 	   iter, nf, ns, potential->aps, potential->bps,
 	   potential->nbs, potential->nbt,
-	   potential->efm, e0, nb, nqf,
+	   potential->efm, potential->eth, e0, nb, nqf,
 	   optimize_control.dph[0][NDPH-1],
 	   optimize_control.dph[1][NDPH-1],
 	   optimize_control.sta[1]);
@@ -3167,7 +3195,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       sta = optimize_control.sta[1];
       double sta01 = sta*0.01;
       muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < sta01;
-      if (_aaztol > 0 && iter > imx && tol < sta01 &&
+      if (ahx < 1e-5 && _aaztol > 0 && iter > imx && tol < sta01 &&
 	  ((dz < _aaztol*sta01) ||
 	   (dz < _aaztol && muconv))) {
 	break;
@@ -3183,6 +3211,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   if (_print_maxiter) {
     printf("OptimizeLoop Max Iter: %4d\n", iter);
   }
+  potential->miter = iter;
   return iter;
 }
 
@@ -3848,7 +3877,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
 double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
 		double u, double tps, double e0, double *nqf) {
   int ik, j2;
-  double x, y, nb;
+  double x, y, nb, ek;
   nb = 0.0;
   for (ik = 0; ik < ns; ik++) {
     if (et[ik] >= 1e30) {
@@ -3864,14 +3893,15 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
     }
     j2 = GetJFromKappa(ka[ik]);
     nq[ik] = (j2+1.0)*y;
-    y = BoundFactor(os[ik], et[ik]*tps, 0.0, _bfmode);
-    nq[ik] *= y;
+    ek = et[ik]*tps;    
+    y = BoundFactor(os[ik], ek, 0.0, _bfmode);
+    nq[ik] *= y;    
     if (nq[ik] < 1e-50) nq[ik] = 0.0;
     nb += nq[ik];
   }
   if (nqf) {
-    if (e0 >= 0) {
-      *nqf = FreeElectronDensity(potential, potential->VT[0], 0.0, u, 0.0, -1);
+    if (e0 < 1E31) {
+      *nqf = FreeElectronDensity(potential, potential->VT[0], e0, u, 0.0, -1);
     }
     nb += *nqf;
   }
@@ -4016,12 +4046,17 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   k0 = k1-10;
   k0 = Max(1, k0);
   b = 0.0;
+  zb1 = 0.0;
   for (k = k0; k <= k1; k++) {
     x = potential->rad[k];
     x *= x;
-    b += (_dwork4[k]-_dwork2[k])/x;
+    a = (_dwork4[k]-_dwork2[k])/x;
+    b += a;
+    zb1 += (_dwork4[k]+potential->EPS[k])/x;
   }
-  b /= 1.+k1-k0;  
+  a = 1.+k1-k0;
+  b /= a;
+  zb1 = (zb1/a)*pow(potential->rps,3)/3.0;  
   for (k = 0; k < potential->maxrp; k++) {
     x = potential->rad[k];
     x *= x;
@@ -4053,10 +4088,12 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   a = z0-b-potential->NC;
   a = Max(0.0, a);
   fprintf(f, "#   zf: %15.8E\n", a);
+  fprintf(f, "#   ze: %15.8E\n", zb1);
   fprintf(f, "#   nm: %15d\n", nm);
   fprintf(f, "#   uf: %15.8E\n", potential->aps);
   fprintf(f, "#   ub: %15.8E\n", potential->bps);
   fprintf(f, "#  efm: %15.8E\n", potential->efm);
+  fprintf(f, "#  eth: %15.8E\n", potential->eth);
   fprintf(f, "#  nqf: %15.8E\n", potential->nqf);
   fprintf(f, "#  zps: %15.8E\n", potential->zps);
   fprintf(f, "#  nps: %15.8E\n", potential->nps);
@@ -10255,6 +10292,7 @@ int InitRadial(void) {
   potential->nbs = 0.0;
   potential->nqf = 0.0;
   potential->efm = 0.0;
+  potential->eth = 0.0;
   potential->fps = 0;
   potential->jps = 0.0;
   potential->gps = 0.0;
@@ -11735,6 +11773,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:print_maxiter")) {
     _print_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:free_threshold")) {
+    _free_threshold = dp;
     return;
   }
 }

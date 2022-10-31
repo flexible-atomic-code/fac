@@ -52,8 +52,8 @@ typedef struct _POTENTIAL_ {
   int nws;  
   double *dws;
   double zps, nps, tps, rps, dps, aps, bps, nbt, nbs, nqf;
-  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm;
-  int mps, kps, vxf, ips, sps, iqf;
+  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth;
+  int mps, kps, vxf, ips, sps, iqf, miter;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
@@ -140,7 +140,8 @@ double ZColl();
 double MColl();
 void SetZColl(double z);
 void SetMColl(double z);
-int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps);
+int DensityToSZ(POTENTIAL *pot, double *fd,
+		double *d, double *z, double *zx, double *jps);
 double SCRSF(void);
 double SCRBF(void);
 double SCBQP(void);

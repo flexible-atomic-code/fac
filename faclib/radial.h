@@ -76,7 +76,7 @@ int SetRadialGrid(int maxrp, double ratio, double asymp,
 void SetPotential(AVERAGE_CONFIG *acfg, int iter);
 int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter);
 int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md);
-void FixAsymptoticPot(int jmax, int md, double *w,
+void FixAsymptoticPot(int jmax, int md, int iter, double *w,
 		      double *u, double *ue1, double *ue);
 void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike);
 POTENTIAL *RadialPotential(void);
