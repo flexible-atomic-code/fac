@@ -4397,12 +4397,20 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   }
 }
 
-int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
-  int i, im;
-  double nx, tx, rx, tx2, tx3, tx4, nx0, rhox;
+int DensityToSZ(POTENTIAL *pot, double *fd,
+		double *d, double *z, double *zx, double *jps) {
+  int i, im, km;
+  double nx, tx, rx, tx2, tx3, tx4, rhox, fx;
 
   for (im = pot->maxrp-1; im >= 0; im--) {
     if (d[im]) break;
+  }
+  km = im;
+  if (fd != NULL && zx != NULL && pot->ahx) {
+    for (i = im-1; i > 0; i--) {
+      if (fd[i] < zx[i]-fd[i]) break;
+    }
+    km = i+1;
   }
   for (i = 0; i <= im; i++) {
     _dwork[i] = d[i]*pot->dr_drho[i];
@@ -4414,41 +4422,41 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   }
   _dwork2[im] = 0.0;
   NewtonCotesIP(_dwork2, _dwork, 0, im, -1, -1);
-  rx = pot->rad[im];
-  nx0 = zx[im]/(FOUR_PI*rx*rx);
   for (i = 0; i <= im; i++) {
     z[i] = _dwork1[i] + pot->rad[i]*_dwork2[i];
     if (pot->ahx) {
       rx = pot->rad[i];
-      nx = 1.0;
-      rhox = zx[i] - nx0*FOUR_PI*rx*rx;
-      rhox = Max(0.0,rhox);
-      if (_vxtd && rhox > 0 && pot->tps > 1e-10) {
-	nx = rhox/(FOUR_PI*rx*rx);
+      fx = 1.0;
+      if (fd && i > km) {
+	rhox = fabs(zx[i]-fd[i]) + (fd[km]*pot->rad[km])/rx;
+      } else {
+	rhox = zx[i];
+      }
+      if (_vxtd && zx[i] > 0 && pot->tps > 1e-10) {
+	nx = zx[i]/(FOUR_PI*rx*rx);
 	tx = 2*pot->tps/pow(3*PI*PI*nx,TWOTHIRD);
 	if (tx < 1e-7) {
-	  nx = 1.0;
+	  fx = 1.0;
 	} else if (tx > 1e7) {
-	  nx = 1/tx;
+	  fx = 1/tx;
 	} else {
-	  nx = tanh(1/tx);
+	  fx = tanh(1/tx);
 	}
 	if (tx < 1e7) {
 	  tx2 = tx*tx;
 	  tx3 = tx2*tx;
 	  tx4 = tx3*tx;
-	  nx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
-	  nx /= 1 + 3.9431*tx2 + 7.9138*tx4;
+	  fx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
+	  fx /= 1 + 3.9431*tx2 + 7.9138*tx4;
 	} else {
-	  nx *= 0.666683515;
+	  fx *= 0.666683515;
 	}
       }
-      zx[i] = pot->ahx*pow(rhox*rx, ONETHIRD)*nx;
+      zx[i] = pot->ahx*pow(rhox*rx, ONETHIRD)*fx;
     } else {
       zx[i] = 0.0;
     }
   }
-      
   for (i = im+1; i < pot->maxrp; i++) {
     z[i] = z[im];
     zx[i] = zx[im];
@@ -4459,9 +4467,9 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
 }
 
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
-			   double e0, double u, double zn, int md) {
+			   double eth, double u, double zn, int md) {
   int i, k;
-  double a = 4.0/PI;
+  double a = 4.0/PI, e0;
 
   if (md < 0) {
     md = _relativistic_fermi;
@@ -4472,11 +4480,13 @@ double FreeElectronDensity(POTENTIAL *pot, double *vt,
     int nk = Min(pot->maxrp, 1001);
     double v, k0, k1, k2, dk, y, r2;
     double emax = pot->tps*50.0;
-    y = 5*e0;
+    y = 5*fabs(eth);
     if (y > emax) emax = y;
     for (i = 0; i <= pot->ips; i++) {
       r2 = pot->rad[i]*pot->rad[i];
       v = vt[i];
+      e0 = eth;
+      if (e0 < v) e0 = v;
       k0 = (2*(e0-v)+a2*v*v);
       k1 = emax+(c2-v);
       k1 = k1*k1*a2 - c2;
@@ -4496,11 +4506,14 @@ double FreeElectronDensity(POTENTIAL *pot, double *vt,
       _dwork2[i] = pot->EPS[i]*pot->dr_drho[i];
     }
   } else {
-    double g, y, r2, y0 = e0/pot->tps;
+    double g, y, r2, y0;
     a *= sqrt(2*pot->tps)*pot->tps;
     if (md) g = pot->tps*FINE_STRUCTURE_CONST2;
     else g = 0;
     for (i = 0; i <= pot->ips; i++) {
+      e0 = eth;
+      if (e0 < vt[i]) e0 = vt[i];
+      y0 = e0/pot->tps;
       r2 = pot->rad[i]*pot->rad[i];
       y = (-vt[i])/pot->tps;
       pot->EPS[i] = a*r2*FermiIntegral(y+u, y0+y, g);
