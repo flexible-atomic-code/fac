@@ -237,9 +237,10 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
 void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);
-double BoundFactor(ORBITAL *orb, double e, double e0, int md);
 void LoadSCPot(char *fn);
 void SaveSCPot(int md, char *fn, double sca);
+double FreeKineticEnergy(double ne, double t, double *u);
+double EffectiveTe(double ne, double ek);
 
 #endif
 

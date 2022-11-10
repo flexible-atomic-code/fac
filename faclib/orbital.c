@@ -42,6 +42,10 @@ static double _fermi_relerr = 1e-5;
 static double _fermi_stablizer = 0.5;
 #define NFRM1 256
 #define NFRM2 (NFRM1+2)
+#define NFRM3 201
+#define NFRM4 651
+static double _fermi_nr[8][NFRM4];
+static int _nfermi_nr[8];
 static double _fermi_a0 = 1.0;
 static double _fermi_a1 = 10.0;
 static double _fermi_y0 = 1e-4;
@@ -88,10 +92,15 @@ static double _sturm_rmx = 10.0;
 static double _sc_bqp = 1E31;
 static double _sc_rbf = 1.0;
 static double _sc_rsf = 1.0;
+static double _sc_ewf = 1.0;
+static int _sc_ewm = 0;
 static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
-static int _vxtd = 1;
+
+#define MINNKF 35
+#define MAXNKF 125
+static double _kwork[MAXNKF];
 
 static double _enerelerr = ENERELERR;
 static double _eneabserr = ENEABSERR;
@@ -199,6 +208,14 @@ static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
 
 int OrbPWA() {
   return _pwa;
+}
+
+double SCEWF() {
+  return _sc_ewf;
+}
+
+int SCEWM() {
+  return _sc_ewm;
 }
 
 double SCRSF() {
@@ -3169,7 +3186,7 @@ void MaxRGrid(POTENTIAL *pot, double gasymp, double gratio, double z,
 }
 
 void InitializePS(POTENTIAL *pot) {
-  double a, z0;
+  double a, z0, x0, x1;
   z0 = GetAtomicNumber();
   pot->xps = 1.0;
   pot->gps = 0.0;
@@ -3199,6 +3216,7 @@ void InitializePS(POTENTIAL *pot) {
     } else {
       pot->dps = sqrt(pot->tps/(FOUR_PI*pot->nps*(1+pot->ups)));
     }
+    pot->ewd = 0.0;
     if (pot->nps > 0) {
       if (pot->mps >= 3) {
 	pot->rps = pow(3/(FOUR_PI*pot->nps),ONETHIRD);
@@ -3215,6 +3233,8 @@ void InitializePS(POTENTIAL *pot) {
 	}
       }
       if (fabs(1-_sc_rsf)>1e-10) pot->rps *= _sc_rsf;
+      a = TWO_PI/pot->rps;
+      pot->ewd = (_sc_ewf/2.355)*0.5*a*a;
     } else {
       pot->rps = pot->dps;
     }
@@ -4397,20 +4417,96 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   }
 }
 
-int DensityToSZ(POTENTIAL *pot, double *fd,
-		double *d, double *z, double *zx, double *jps) {
-  int i, im, km;
-  double nx, tx, rx, tx2, tx3, tx4, rhox, fx;
+double XCPotential(double tx, double n, int md) {
+  double p, r, rs, ti, tis, t, t2, t3, t4, at, bt, ct, dt, et;
+  const double a[6] = {0.610887, 3.04363, -0.09227, 1.7035, 8.31051, 5.1105};
+  const double b[5] = {0.283997, 48.932154, 0.370919, 61.095357, 0.871837};
+  const double c[3] = {0.870089, 0.193077, 2.414644};
+  const double d[5] = {0.579824, 94.537454, 97.839603, 59.939999, 24.388037};
+  const double e[5] = {0.212036, 16.731249, 28.485792, 34.028876, 17.235515};
+  const double f[5] = {2.8343, -0.2151, 5.2759, 3.9431, 7.9138};
+
+  if (n < 1E-35) return 0.0;
+  switch (md) {
+  case 0:
+    return pow(FOUR_PI*n, ONETHIRD);
+  case 1:
+    t = 2*tx/pow(3*PI*PI*n, TWOTHIRD);
+    p = pow(FOUR_PI*n, ONETHIRD);
+    if (t < 1e-10) {
+      return p;
+    } else if (t > 1e10) {
+      return (p/t)*(f[2]/f[4]);
+    } else {
+      ti = 1/ti;
+      t2 = t*t;
+      t3 = t2*t;
+      t4 = t3*t;
+      p *= tanh(ti);
+      p *= 1 + f[0]*t2 + f[1]*t3 + f[2]*t4;
+      p /= 1 + f[3]*t2 + f[4]*t4;
+      return p;
+    }
+  case 2:
+    if (tx > 0) {
+      t = 2*tx/pow(3*PI*PI*n, TWOTHIRD);
+    } else {
+      t = 0.0;
+    }
+    r = pow(3/(FOUR_PI*n), ONETHIRD);
+    if (t < 1e-10) {
+      at = a[0]*0.75;
+      bt = b[0];
+      dt = d[0];
+      et = e[0];
+      ct = c[0]*et;
+    } else if (t > 1e10) {
+      ti = 1/t;
+      tis = sqrt(ti);
+      at = a[0]*ti*a[3]/a[5];
+      bt = tis*b[2]/b[4];
+      dt = tis*d[2]/d[4];
+      et = ti*e[2]/e[4];
+      ct = (c[0]+c[1])*et;
+    } else {
+      ti = 1/t;
+      tis = tanh(sqrt(ti));
+      ti = tanh(ti);
+      t2 = t*t;
+      t4 = t2*t2;
+      t3 = t2*t;
+      at = a[0]*ti*(0.75 + a[1]*t2 + a[2]*t3 + a[3]*t4);
+      at /= (1.0 + a[4]*t2 + a[5]*t4);
+      bt = tis*(b[0] + b[1]*t2 + b[2]*t4);
+      bt /= (1 + b[3]*t2 + b[4]*t4);
+      dt = tis*(d[0] + d[1]*t2 + d[2]*t4);
+      dt /= (1 + d[3]*t2 + d[4]*t4);
+      et = ti*(e[0] + e[1]*t2 + e[2]*t4);
+      et /= (1 + e[3]*t2 + e[4]*t4);
+      ct = (c[0] + c[1]*exp(-c[2]/t))*et;
+    }
+    rs = sqrt(r);  
+    p = (PI/r)*(at + bt*rs + ct*r)/(1 + dt*rs + et*r);
+    return p;
+  default:
+    return 0.0;
+  }
+}
+    
+int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
+  int i, im;
+  double nx, rx;
 
   for (im = pot->maxrp-1; im >= 0; im--) {
     if (d[im]) break;
   }
-  km = im;
-  if (fd != NULL && zx != NULL && pot->ahx) {
-    for (i = im-1; i > 0; i--) {
-      if (fd[i] < zx[i]-fd[i]) break;
+  if (im <= 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      z[i] = 0.0;
+      zx[i] = 0.0;
     }
-    km = i+1;
+    *jps = 0.0;
+    return 0;
   }
   for (i = 0; i <= im; i++) {
     _dwork[i] = d[i]*pot->dr_drho[i];
@@ -4425,34 +4521,13 @@ int DensityToSZ(POTENTIAL *pot, double *fd,
   for (i = 0; i <= im; i++) {
     z[i] = _dwork1[i] + pot->rad[i]*_dwork2[i];
     if (pot->ahx) {
-      rx = pot->rad[i];
-      fx = 1.0;
-      if (fd && i > km) {
-	rhox = fabs(zx[i]-fd[i]) + (fd[km]*pot->rad[km])/rx;
+      rx = pot->rad[i];       
+      nx = zx[i]/(FOUR_PI*rx*rx);
+      if (nx > 0) {
+	zx[i] = pot->ahx*XCPotential(pot->tps, nx, pot->vxm)*rx;
       } else {
-	rhox = zx[i];
+	zx[i] = 0.0;
       }
-      if (_vxtd && zx[i] > 0 && pot->tps > 1e-10) {
-	nx = zx[i]/(FOUR_PI*rx*rx);
-	tx = 2*pot->tps/pow(3*PI*PI*nx,TWOTHIRD);
-	if (tx < 1e-7) {
-	  fx = 1.0;
-	} else if (tx > 1e7) {
-	  fx = 1/tx;
-	} else {
-	  fx = tanh(1/tx);
-	}
-	if (tx < 1e7) {
-	  tx2 = tx*tx;
-	  tx3 = tx2*tx;
-	  tx4 = tx3*tx;
-	  fx *= 1 + 2.8343*tx2 - 0.2151*tx3 + 5.2759*tx4;
-	  fx /= 1 + 3.9431*tx2 + 7.9138*tx4;
-	} else {
-	  fx *= 0.666683515;
-	}
-      }
-      zx[i] = pot->ahx*pow(rhox*rx, ONETHIRD)*fx;
     } else {
       zx[i] = 0.0;
     }
@@ -4466,70 +4541,197 @@ int DensityToSZ(POTENTIAL *pot, double *fd,
   return im;
 }
 
+double BoundFactor(double e, double eth, double de) {
+  double x, y;
+
+  if (de <= 0) {
+    if (eth-e > 1e-7) return 1.0;
+    return 0.0;
+  }
+
+  if (_sc_ewm > 0) {
+    if (e < eth) return 1.0;
+    x = (e - eth)/de;
+    y = 1 - ERF(x);
+    y = Min(1.0, y);
+    y = Max(0.0, y);
+  } else {
+    x = (e - eth)/de;
+    y = 0.5*(1 - ERF(x));
+    y = Min(1.0, y);
+    y = Max(0.0, y);
+  }
+  return y;  
+}
+
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
-			   double eth, double u, double zn, int md) {
-  int i, k;
-  double a = 4.0/PI, e0;
+			   double e0, double u, double zn, int md) {
+  return FreeElectronIntegral(pot->maxrp, 0, pot->ips, pot->rad,
+			      vt, pot->dr_drho, pot->EPS, e0, pot->tps,
+			      pot->eth, pot->ewd, u, zn, md, &pot->aps);
+}
+
+double FreeElectronIntegral(int maxrp, int i0, int i1, double *rad,
+			    double *vt, double *drdx,
+			    double *eps, double eth, double tps,
+			    double eref, double ewd,
+			    double u, double zn, int md, double *aps) {
+  int i, k, ii;
+  double a = 4.0/PI, g, e0;
 
   if (md < 0) {
     md = _relativistic_fermi;
   }
-  if (md == 2) {
+  if (md >= 2) {
     double c2 = 1.0/FINE_STRUCTURE_CONST2;
     double a2 = FINE_STRUCTURE_CONST2;
-    int nk = Min(pot->maxrp, 1001);
-    double v, k0, k1, k2, dk, y, r2;
-    double emax = pot->tps*50.0;
-    y = 5*fabs(eth);
-    if (y > emax) emax = y;
-    for (i = 0; i <= pot->ips; i++) {
-      r2 = pot->rad[i]*pot->rad[i];
+    int nk = MAXNKF;
+    double v, vr, k0, k1, k2, dk, y, r2, ek, ek0, ekr, ye;
+    double e0i, e1i, uv, emax, e0v, g2, g3, g32, ig32;
+    double eth10 = 0.0;
+    if (eth > 0) eth10 = 10*eth;
+    double ew5, ews, em, ep, ts, tb, ef, ef0, ef1, bf, es[6];
+    if (md < 10) {
+      g = md-2.0;
+    } else {
+      g = 0.0;
+    }
+    ts = tps*0.25;
+    tb = tps*1.5;
+    ew5 = ewd*5;
+    ews = ewd*0.25;
+    g2 = 0.5*g;
+    g3 = g+3;
+    g32 = 0.5*(g+3);
+    ig32 = 1/g32;
+    a /= g3;
+    for (i = i0; i <= i1; i++) {
+      r2 = rad[i]*rad[i];
       v = vt[i];
+      vr = v/tps;
+      uv = u-vr;
+      emax = tps*(Max(uv,vr)+100.0);
+      emax = Max(eth10, emax);
+      em = (uv-3.0)*tps;
+      ep = (uv+3.0)*tps;
+      ef = eref - v;
+      if (_sc_ewm == 0) {
+	es[0] = ef - ew5;
+      } else {
+	es[0] = ef;
+      }
+      es[1] = ef + ew5;
+      ef0 = es[0];
+      ef1 = es[1];
+      es[2] = em;
+      es[3] = ep;
+      es[4] = (uv+20.0)*tps;
+      es[5] = emax;
+      qsort(es, 6, sizeof(double), CompareDouble);
       e0 = eth;
       if (e0 < v) e0 = v;
-      k0 = (2*(e0-v)+a2*v*v);
-      k1 = emax+(c2-v);
-      k1 = k1*k1*a2 - c2;
-      if (k1 < k0) k1 = 2*k0;
-      dk = (k1 - k0)/(nk-1);
-      _dwork[0] = k0;
-      for (k = 1; k < nk; k++) {
-	_dwork[k] = _dwork[k-1] + dk;
+      e0v = e0-v;
+      eps[i] = 0.0;
+      for (ii = 0; ii < 6; ii++) {
+	if (e0v < es[ii]) break;
       }
-      for (k = 0; k < nk; k++) {
-	k2 = _dwork[k];
-	y = (sqrt(k2*c2 + c2*c2)-c2+v)/pot->tps;
-	y = exp(u-y);
-	_dwork1[k] = sqrt(k2)*y/(y + 1);
+      e0i = e0v;
+      for (; ii < 6; ii++) {
+	e1i = es[ii];
+	if (e1i-e0i < 1e-10*tps) continue;
+	if (e0i < ef1 && e1i > ef0) {
+	  nk = 1+(e1i-e0i)/ews;	  
+	} else if (e1i <= em) {
+	  nk = MINNKF;
+	} else {
+	  if (e0i >= ep) {
+	    nk = 1+(e1i-e0i)/tb;
+	  } else {
+	    nk = 1+(e1i-e0i)/ts;
+	  }
+	}
+	if (nk < MINNKF) nk = MINNKF;
+	if (nk > MAXNKF) nk = MAXNKF;
+	k0 = 2*e0i + a2*e0i*e0i;
+	k1 = 2*e1i + a2*e1i*e1i;
+	k0 = pow(k0, g32);
+	k1 = pow(k1, g32);
+	dk = (k1 - k0)/(nk-1);
+	for (k = 0; k < nk; k++) {
+	  k2 = k0 + k*dk;
+	  k2 = pow(k2, ig32);
+	  if (k2 < 1e-6*c2) {
+	    ek0 = 0.5*k2;
+	    ekr = 0.5;
+	  } else {
+	    ek0 = sqrt(k2*c2 + c2*c2)-c2;
+	    ekr = ek0/k2;
+	  }
+	  ek = ek0 + v;
+	  y = ek/tps - u;
+	  if (y > 0) {
+	    y = exp(-y);
+	    y /= 1+y;
+	  } else {
+	    y = 1/(1+exp(y));
+	  }
+	  bf = BoundFactor(ek, eref, ewd);
+	  _kwork[k] = 1.0-bf;
+	  if (md < 10) {
+	    _kwork[k] *= y;
+	    if (md > 2) {
+	      _kwork[k] *= pow(ekr, g2);
+	    }
+	  } else {
+	    ye = 0.0;
+	    if (y > 0) {
+	      ye += y*log(y);
+	    }
+	    if (y < 1) {
+	      ye += (1-y)*log(1-y);
+	    }
+	    _kwork[k] *= -ye;
+	  }
+	}
+	eps[i] += dk*Simpson(_kwork, 0, nk-1);
+	e0i = e1i;
       }
-      pot->EPS[i] = a*r2*0.5*dk*Simpson(_dwork1, 0, nk-1);
-      _dwork2[i] = pot->EPS[i]*pot->dr_drho[i];
+      eps[i] *= a*r2;
+      if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
   } else {
-    double g, y, r2, y0;
-    a *= sqrt(2*pot->tps)*pot->tps;
-    if (md) g = pot->tps*FINE_STRUCTURE_CONST2;
+    double y, r2, y0;
+    a *= sqrt(2*tps)*tps;
+    if (md) g = tps*FINE_STRUCTURE_CONST2;
     else g = 0;
-    for (i = 0; i <= pot->ips; i++) {
+    for (i = i0; i <= i1; i++) {
       e0 = eth;
       if (e0 < vt[i]) e0 = vt[i];
-      y0 = e0/pot->tps;
-      r2 = pot->rad[i]*pot->rad[i];
-      y = (-vt[i])/pot->tps;
-      pot->EPS[i] = a*r2*FermiIntegral(y+u, y0+y, g);
-      _dwork2[i] = pot->EPS[i]*pot->dr_drho[i];
+      y0 = e0/tps;
+      r2 = rad[i]*rad[i];
+      y = (-vt[i])/tps;
+      eps[i] = a*r2*FermiIntegral(y+u, y0+y, g);
+      if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
   }
-  _dwork1[0] = pot->EPS[0]*pot->rad[0]/3.0;
-  NewtonCotesIP(_dwork1, _dwork2, 0, pot->ips, -1, 0);
-  if (zn > 0) {
-    a = zn/_dwork1[pot->ips];
-    pot->aps = u + log(a);
-    for (i = 0; i <= pot->ips; i++) {
-      pot->EPS[i] *= a;
-    }    
+  if (drdx && i1 > i0) {
+    if (i0 == 0) {
+      _dwork1[i0] = eps[i0]*rad[i0]/3.0;
+    } else {
+      _dwork1[i0] = 0.0;
+    }
+    NewtonCotesIP(_dwork1, _dwork2, i0, i1, -1, 0);
+    if (zn > 0) {
+      a = zn/_dwork1[i1];
+      *aps = u + log(a);
+      for (i = i0; i <= i1; i++) {
+	eps[i] *= a;
+      }    
+    }
+    return _dwork1[i1];
+  } else {
+    return eps[i0];
   }
-  return _dwork1[pot->ips];
 }
 
 static double _fermi_ax = 0.0;
@@ -4795,6 +4997,270 @@ double InterpFermiRM1(double y0, int m) {
     UVIP3P(3, NFRM1, _fermi_rm1[0], _fermi_rm1[i], 1, &y, &r);
   }
   return r;
+}
+
+void PrepFermiNR() {
+  int i, ie;
+  double du, ru, u, y;
+  double umin = -15.0, umid = 5.0;
+  du = (umid-umin)/(NFRM3-1);
+  ru = 1 + du/umid;
+  u = umin;
+  for (i = 0; i < NFRM4; i++) {
+    if (i < NFRM3) {
+      _fermi_nr[0][i] = u;
+    } else {
+      _fermi_nr[0][i] = log(u);
+    }
+    FERMID(0.5, u, EPS10, &y, &ie);
+    _fermi_nr[1][i] = log(y);
+    FERMID(1.0, u, EPS10, &y, &ie);
+    _fermi_nr[2][i] = log(y);
+    FERMID(1.5, u, EPS10, &y, &ie);
+    _fermi_nr[3][i] = log(y);
+    _fermi_nr[4][i] = 2.5*_fermi_nr[1][i]-1.5*_fermi_nr[3][i];
+    _fermi_nr[5][i] = 4*_fermi_nr[1][i]-3*_fermi_nr[2][i];
+    _fermi_nr[6][i] = _fermi_nr[3][i]-_fermi_nr[1][i];
+    _fermi_nr[7][i] = _fermi_nr[2][i]-_fermi_nr[1][i];
+    /*
+    printf("fermi: %d %g %g %g %g %g %g %g %g %g\n", i, u,
+	   _fermi_nr[0][i],
+	   _fermi_nr[1][i],
+	   _fermi_nr[2][i],
+	   _fermi_nr[3][i],
+	   _fermi_nr[4][i],
+	   _fermi_nr[5][i],
+	   _fermi_nr[6][i],
+	   _fermi_nr[7][i]);
+    */
+    if (i < NFRM3-1) {
+      u += du;
+    } else if (i == NFRM3-1) {
+      _fermi_nr[0][i+1] = log(u);
+      for (ie = 1; ie < 8; ie++) {
+	_fermi_nr[ie][i+1] = _fermi_nr[ie][i];
+      }
+      i++;
+      u *= ru;
+    } else {
+      u *= ru;
+    }
+  }
+  _nfermi_nr[0] = NFRM3;
+  for (ie = 1; ie < 8; ie++) {
+    _nfermi_nr[ie] = NFRM4-1;
+    for (i = NFRM4-1; i > NFRM3; i--) {
+      if (_fermi_nr[ie][i-1] < _fermi_nr[ie][i]) {
+	_nfermi_nr[ie] = i;
+	break;
+      }
+    }
+  }
+}
+
+double FreeEta0(double ne, double te) {
+  double x, u, *au, *fd1;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[1];
+  x = log(ne/(0.126987272*te*sqrt(te)));
+  if (x < fd1[0]) {
+    return log(x);
+  }
+  if (x > fd1[_nfermi_nr[1]]) {
+    return pow(1.3293403882*x, TWOTHIRD);
+  }
+  one = 1;
+  three = 3;
+  if (x <= fd1[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, fd1, au, one, &x, &u);
+  } else {
+    nu = _nfermi_nr[1]-NFRM3;
+    UVIP3P(three, nu, fd1+NFRM3, au+NFRM3, one, &x, &u);
+    u = exp(u);
+  }
+  return u;
+}
+
+double FreeEta1(double ne, double ke) {
+  double x, u, *au, *fd1;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[4];
+  x = log(14.46694050558*ne/(ke*sqrt(ke)));
+  if (x < fd1[0]) {
+    return log(x);
+  }
+  if (x > fd1[_nfermi_nr[4]]) {
+    return exp(au[NFRM4-1]);
+  }
+  one = 1;
+  three = 3;
+  if (x <= fd1[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, fd1, au, one, &x, &u);
+  } else {
+    nu = _nfermi_nr[4]-NFRM3;
+    UVIP3P(three, nu, fd1+NFRM3, au+NFRM3, one, &x, &u);
+    u = exp(u);
+  }
+  return u;
+}
+
+double FreeEta2(double ne, double ve) {
+  double x, u, *au, *fd1;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[5];
+  x = log(32.0*ne/(ve*ve*ve));
+  if (x < fd1[0]) {
+    return log(x);
+  }
+  if (x > fd1[_nfermi_nr[5]]) {
+    return au[NFRM4-1];
+  }
+  one = 1;
+  three = 3;
+  if (x <= fd1[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, fd1, au, one, &x, &u);
+  } else {
+    nu = _nfermi_nr[5]-NFRM3;
+    UVIP3P(three, nu, fd1+NFRM3, au+NFRM3, one, &x, &u);
+    u = exp(u);
+  }
+  return u;
+}
+
+double FreeKe(double u, double te) {
+  double *au, *fd1, y;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[6];
+  
+  if (u < au[0]) {
+    return 1.5*te;
+  }
+  if (u > exp(au[NFRM4-1])) {
+    return 0.6*u*te;
+  }
+  one = 1;
+  three = 3;
+  if (u <= au[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, au, fd1, one, &u, &y);
+  } else {
+    nu = _nfermi_nr[6]-NFRM3;
+    u = log(u);
+    UVIP3P(three, nu, au+NFRM3, fd1+NFRM3, one, &u, &y);
+  }
+  return 1.5*exp(y)*te;
+}
+
+double FreeVe(double u, double te) {
+  double *au, *fd1, y;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[7];
+
+  if (u < au[0]) {
+    return 1.5957691216*sqrt(te);
+  }
+  if (u > exp(au[NFRM4-1])) {
+    return 1.0606601718*sqrt(te*u);
+  }
+  one = 1;
+  three = 3;
+  if (u <= au[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, au, fd1, one, &u, &y);
+  } else {
+    u = log(u);
+    nu = _nfermi_nr[7]-NFRM3;
+    UVIP3P(three, nu, au+NFRM3, fd1+NFRM3, one, &u, &y);
+  }
+  return 1.5957691216*exp(y)*sqrt(te);
+}
+
+double FreeTe(double u, double ne) {
+  double *au, *fd1, y, t;
+  int one, three, nu;
+
+  au = _fermi_nr[0];
+  fd1 = _fermi_nr[1];
+  
+  if (u < au[0]) {
+    t = TWOTHIRD*(log(ne/2)-u);
+    if (t > 100) t = 100;
+    return TWO_PI*exp(t);
+  }
+
+  if (u > exp(au[NFRM4-1])) {
+    t = 4.78539*pow(ne,TWOTHIRD)/u;
+    return t;
+  }
+
+  one = 1;
+  three = 3;
+  if (u <= au[NFRM3-1]) {
+    nu = NFRM3;
+    UVIP3P(three, nu, au, fd1, one, &u, &y);
+  } else {
+    nu = _nfermi_nr[1]-NFRM3;
+    u = log(u);
+    UVIP3P(three, nu, au+NFRM3, fd1+NFRM3, one, &u, &y);
+  }
+  t = TWO_PI*pow(0.5*ne/exp(y), TWOTHIRD);
+  return t;
+}
+
+double InterpFermiNR(int m, double u) {
+  if (u < _fermi_nr[0][0]) {
+    if (m < 4) {
+      return exp(u);
+    } else {
+      return 1.0;
+    }
+  }
+  if (u > exp(_fermi_nr[0][NFRM4-1])) {
+    switch (m) {
+    case 1:
+      return 0.7522527780636751*u*sqrt(u);
+    case 2:
+      return 0.5*u*u;
+    case 3:
+      return 0.30090111122547003*u*u*sqrt(u);
+    case 4:
+      return 2.9735401935879517;
+    case 5:
+      return 2.561799803697627;
+    case 6:
+      return 0.4*u;
+    case 7:
+      return 0.6646701940895685*sqrt(u);
+    default:
+      return -2.0;
+    }
+  }
+
+  double r;
+  int one, three;
+  one = 1;
+  three = 3;
+  if (u <= _fermi_nr[0][NFRM3-1]) {
+    UVIP3P(three, NFRM3, _fermi_nr[0], _fermi_nr[m], one, &u, &r);
+  } else {
+    u = log(u);
+    UVIP3P(three, _nfermi_nr[m]-NFRM3, _fermi_nr[0]+NFRM3,
+	   _fermi_nr[m]+NFRM3, one, &u, &r);
+  }
+  return exp(r);
 }
 
 void PrepFermiRM1(double a, double fa, double t) {
@@ -5455,6 +5921,14 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _sc_rsf = dp;
     return;
   }
+  if (0 == strcmp(s, "orbital:sc_ewf")) {
+    _sc_ewf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sc_ewm")) {
+    _sc_ewm = ip;
+    return;
+  }
   if (0 == strcmp(s, "orbital:debug")) {
     _debug = ip;
     return;
@@ -5470,9 +5944,6 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "orbital:pwa")) {
     _pwa = ip;
     return;
-  }
-  if (0 == strcmp(s, "orbital:vxtd")) {
-    _vxtd = ip;
   }
 }
 

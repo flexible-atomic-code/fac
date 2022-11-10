@@ -19,7 +19,7 @@
 # this provides an interface to the average atom model
 
 from pfac.fac import *
-from pfac import util, const
+from pfac import util, const, rfac
 import numpy as np
 from multiprocessing import Pool, cpu_count
 import time, os
@@ -70,7 +70,8 @@ class AA:
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
                  nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, hxs=0.67, maxiter=512, vmin=0.25, vmax=10.0):
+                 vxf=2, vxm=2, hxs=0.4235, maxiter=512,
+                 vmin=0.25, vmax=10.0):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -108,6 +109,7 @@ class AA:
         self.pmi = pmi
         self.bqp = bqp
         self.vxf = vxf
+        self.vxm = vxm
         self.hxs = hxs
         self.maxiter = maxiter
         self.vmin = vmin
@@ -125,6 +127,7 @@ class AA:
         SetOption('radial:print_maxiter', self.pmi)
         SetOptimizeMaxIter(self.maxiter)
         SetOption('radial:sc_vxf', self.vxf)
+        SetOption('radial:vxm', self.vxm)
         SetOption('orbital:sc_bqp', self.bqp)
         if (not self.hxs is None):
             SetPotentialMode(0, 1e11, 1e11, -1, self.hxs, 0.0)
@@ -143,13 +146,33 @@ class AA:
         pf = '%s/%s%s'%(self.dd,self.pref,asym)
         self.aa1p(asym, self.d, self.t, pf)
 
+    def rdos(self, pref, nm=0):
+        d = np.loadtxt('%s.dos'%pref, unpack=1)
+        if nm <= 0:
+            return np.array((d[1],d[3]/d[2]))
+        de = self.rpot(pref, header='ewd')
+        c = self.rpot(pref, cfg='')
+        w = np.where(c[1] >= nm)[0]
+        if len(w) == 0:
+            return np.array((d[1],d[3]/d[2]))
+        else:
+            xb,yb = rfac.convd(c[-1], c[3], de)
+            x = np.arange(xb[0], d[1][-1], d[2][0])
+            y0 = np.interp(x, xb, yb)
+            y1 = np.interp(x, d[1], d[3]/d[2])
+            return np.array((x, y0+y1))
+        
     def rden(self, pref, header=None):
         fn = '%s.den'%pref
         if header is None:
             return np.loadtxt(fn, unpack=1)
-        rs = np.loadtxt(fn, unpack=1, max_rows=100, comments='@', usecols=0, dtype=str)
-        w = np.where(rs == '#')[0]
-        nw = len(w)
+        nw = 0
+        with open(fn, 'r') as f:
+            rs = f.readlines(20000)
+            for i in range(len(rs)):
+                if len(rs[i]) < 2 or rs[i][:2] != '# ':
+                    nw = i
+                    break
         rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=1, dtype=str)
         rd = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=2)
         r = {}
@@ -183,16 +206,34 @@ class AA:
         d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw+1, max_rows=nc, usecols=range(1,10))
         if len(cfg) == 0:
             return d
-        k = SPECSYMBOL.index(cfg[-1:])
-        n = int(cfg[:-1])
+        if (cfg[-1] == '+'):
+            j = 1
+        elif (cfg[-1] == '-'):
+            j = -1
+        else:
+            j = 0
+        if j == 0:
+            k = SPECSYMBOL.index(cfg[-1:])
+            n = int(cfg[:-1])
+        else:
+            k = SPECSYMBOL.index(cfg[-2:-1])
+            n = int(cfg[:-2])
         dn = np.int32(d[1])
         dk = np.int32(d[2])
-
+        
         w1 = np.where((dn == n) & (dk == k))[0]
         w2 = np.where((dn == n) & (dk == -(k+1)))[0]
-        
-        fb = np.sum(d[3][w1])+np.sum(d[3][w2])
-        eb = -(np.sum(d[3][w1]*d[8][w1])+np.sum(d[3][w2]*d[8][w2]))/fb * 27.2
+
+        if j == 0:
+            fb = np.sum(d[3][w1])+np.sum(d[3][w2])
+            eb = -(np.sum(d[3][w1]*d[8][w1]) +
+                   np.sum(d[3][w2]*d[8][w2]))/fb * 27.21
+        elif j == 1:
+            fb = np.sum(d[3][w2])
+            eb = np.sum(d[3][w2]*d[8][w2])/fb * 27.21
+        else:
+            fb = np.sum(d[3][w1])
+            eb = np.sum(d[3][w1]*d[8][w1])/fb * 27.21
         return fb,eb
 
     def wden(self, pref, nr, ofn, rmin=None):
@@ -212,6 +253,7 @@ class AA:
         da = util.UVIP3P(r, list(d[4]+d[9]), rr);
         df = util.UVIP3P(r, list(d[4]+d[7]), rr);
         db = util.UVIP3P(r, list(d[10]), rr);
+        dp = util.UVIP3P(r, list(d[15]), rr)
         with open(ofn, 'w') as f:
             f.write('%5d %6d %6d\n'%(z, 1, 1))
             f.write('%12.5E %12.5E\n'%(te, de))
@@ -236,6 +278,10 @@ class AA:
                 f.write('%13.7E '%db[i]);
                 if (i+1)%5 == 0:
                     f.write('\n')
+            for i in range(nr):
+                f.write('%13.7E '%dp[i]);
+                if (i+1)%5 == 0:
+                    f.write('\n')
 
     def rvg(self):
         da = np.zeros((6,self.nm,self.nr))
@@ -244,8 +290,8 @@ class AA:
                 pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
                 h = self.rden(pf, header='')
                 da[0,i,j] = h['d0']
-                da[1,i,j] = h['ze']*h['dn']
-                da[2,i,j] = h['zf']*h['dn']
+                da[1,i,j] = h['zf']*h['dn']
+                da[2,i,j] = h['ze']*h['dn']
                 da[3,i,j] = h['ub']
                 da[4,i,j] = h['rps']
                 da[5,i,j] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
@@ -266,13 +312,18 @@ class AA:
             if k==1:
                 x0 = np.log10(x0)
             y0 = np.log10(r[-1,i][w])
-            ya[i] = self.wm[i]*(10**(np.interp(xa, x0, y0)))
+            #yy = np.interp(xa, x0, y0)
+            yy = np.array(util.UVIP3P(list(x0), list(y0), list(xa)))
+            ya[i] = self.wm[i]*(10**yy)
 
         vt = sum(ya,0)
         xt = xa
         va = np.log10(vt)
         w = np.argsort(va)
-        xi = np.interp(np.log10(self.vt), va[w], xa[w])
+        #xi = np.interp(np.log10(self.vt), va[w], xa[w])
+        xi = util.UVIP3P(list(va[w]),
+                         list(xa[w]),
+                         float(np.log10(self.vt)))
         da = np.zeros(self.nm)
         for i in range(self.nm):
             w = np.argsort(r[k,i])
@@ -280,7 +331,9 @@ class AA:
             if k == 1:                
                 x0 = np.log10(x0)
             y0 = np.log10(r[0,i])[w]
-            da[i] = 10**np.interp(xi, x0, y0)
+            #yy = np.interp(xi, x0, y0)
+            yy = util.UVIP3P(list(x0), list(y0), xi)
+            da[i] = 10**yy
         if k==1:
             xa = 10**xa
             xi = 10**xi
@@ -365,9 +418,9 @@ class AA:
                 pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
                 h = self.rden(pf, header='')
                 if imd == 1:
-                    ys[i] = h['ze']*h['dn']
-                elif imd == 2:
                     ys[i] = h['zf']*h['dn']
+                elif imd == 2:
+                    ys[i] = h['ze']*h['dn']
                 else:
                     ys[i] = h['ub']
                 vi[i] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
@@ -377,16 +430,18 @@ class AA:
                 print('aa converged: %2d %2d %10.3E %10.3E %10.3E %10.3E %s'%(niter,miter,dy,ym,x,time.time()-t0,self.dd))
                 break
             w = np.argsort(xa)
-            if imd == 1:
+            if imd == 1 or imd == 2:
                 x0 = np.log10(xa)
             else:
                 x0 = xa
             y0 = np.log10(va)
             for i in range(self.nm):
-                x1 = xi+3*dy
-                if imd == 1:
+                x1 = x1+3*dy
+                if imd == 1 or imd == 2:
                     x1 = np.log10(x1)
-                dv = 10**np.interp(x1, x0, y0)
+                #yy = np.interp(x1, x0, y0)
+                yy = np.array(util.UVIP3P(list(x0), list(y0), x1))
+                dv = 10**yy
                 v0[i] = max(vi[i]*self.vmin,vi[i]-dv)
                 v1[i] = min(vi[i]*self.vmax,vi[i]+dv)
             if niter > 5:

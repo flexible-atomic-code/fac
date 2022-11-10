@@ -161,6 +161,28 @@ static PyObject *PDXLEGF(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", pqa[0]);
 }
 
+static PyObject *PFERMID(PyObject *self, PyObject *args) {
+  double n, x, y, r;
+  int i;
+
+  r = EPS10;
+  if (!PyArg_ParseTuple(args, "dd|d", &n, &x, &r)) return NULL;
+  i = 0;
+  FERMID(n, x, r, &y, &i);
+  return Py_BuildValue("d", y);
+}
+
+static PyObject *PFERINC(PyObject *self, PyObject *args) {
+  double n, x, b, y, r;
+  int i;
+
+  r = EPS10;
+  if (!PyArg_ParseTuple(args, "ddd|d", &n, &x, &b, &r)) return NULL;
+  i = 0;
+  FERINC(n, x, b, r, &y, &i);
+  return Py_BuildValue("d", y);
+}
+      
 static PyObject *PFM1MP(PyObject *self, PyObject *args) {
   double x, y;
   int m;
@@ -190,6 +212,8 @@ static struct PyMethodDef util_methods[] = {
   {"UVIP3P", PUVIP3P, METH_VARARGS},
   {"DXLEGF", PDXLEGF, METH_VARARGS},
   {"FM1MP", PFM1MP, METH_VARARGS},
+  {"FERMID", PFERMID, METH_VARARGS},
+  {"FERINC", PFERINC, METH_VARARGS},
   {NULL, NULL}
 };
 

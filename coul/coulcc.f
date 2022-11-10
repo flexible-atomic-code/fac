@@ -384,7 +384,7 @@ C ***    Try first estimated omega, then its opposite,
 C        to find the H(omega) linearly independent of F
 C        i.e. maximise  CF1-CF2 = 1/(F H(omega)) , to minimise H(omega)
 C
-   90 DO 100 L=1,2
+   90 DO L=1,2
          LH = 1
          IF(OMEGA.LT.ZERO) LH = 2
       PM = CI*OMEGA
@@ -415,7 +415,8 @@ C *** check if impossible to get F-PQ accurately because of cancellation
                NOCF2 = DBLE(X).LT.XNEAR .AND. ABS(IMAG(X)).LT.-LOG(ACC8)
 C                original guess for OMEGA (based on THETAM) was wrong
 C                Use KASE 5 or 6 if necessary if Re(X) < XNEAR
-  100            OMEGA = - OMEGA
+               OMEGA = - OMEGA
+            enddo
                 IF(UNSTAB) GO TO 360
 c                IF(DBLE(X).LT.-XNEAR .AND. PR) WRITE(6,1060) '-X',ERR
   110     RERR = MAX(RERR,ERR)
@@ -652,7 +653,7 @@ C *** IDward recurrence from HCL,HPL(LF) (stored GC(L) is RL if reqd)
 C *** renormalise FC,FCP at each lambda
 C ***    ZL   = ZLM - MIN(ID,0) here
 C
-  240 DO 270 L = LF,L1,ID
+  240 DO L = LF,L1,ID
                      FCL = W* FC(L)
                       IF(ABSC(FCL).LT.FPMIN) GO TO 340
             IF(IFCP) FPL = W*FCP(L)
@@ -687,7 +688,8 @@ C
       IF(MODE.EQ.1) GCP(L) = TIDY(GCP(L),ACCUR)
          IF(KFN.GE.3) AA = AA * Q
   260    IF(KFN.GE.3) BETA = - BETA * Q
-  270  LAST = MIN(LAST,(L1 - L)*ID)
+         LAST = MIN(LAST,(L1 - L)*ID)
+      enddo
 C
 C *** Come here after all soft errors to determine how many L values ok
 C
@@ -1006,7 +1008,7 @@ C
       IMAX = JMAX
       IF(FINITE.AND.MA.GE.0) IMAX = MIN(MA+1,IMAX)
       IF(FINITE.AND.MB.GE.0) IMAX = MIN(MB+1,IMAX)
-      DO 10 I=2,IMAX
+      DO  I=2,IMAX
       X(I,1) = X(I-1,1) * Z * (AA+I-2) * (BB+I-2) / (I-1)
          IF(ABSC(X(I,1)).GT.FPMAX) GO TO 40
       AT = ABSC(X(I,1))
@@ -1019,15 +1021,16 @@ C
          IF(J.EQ.0) GO TO 10
          CALL RCF(X(1,1),X(1,2),J,I,X(1,3),EPS)
               IF(I.LT.0) GO TO 40
-            DO 50 K=MAX(J,2),I
+            DO K=MAX(J,2),I
             D = ONE/(D*X(K,2) + ONE)
             DF = DF*(D - ONE)
             F = F + DF
             IF(ABSC(DF) .LT. ABSC(F)*EPS) GO TO 30
             IF(DF.EQ.ZERO.AND.F.EQ.ZERO.AND.I.GE.4) GO TO 30
-   50       CONTINUE
+            enddo
          J = I
-   10 ATL = AT
+ 10      ATL = AT
+      enddo
       IF(.NOT.FINITE) I = -JMAX
    20 N = I
        F20 = SUM
@@ -1093,7 +1096,7 @@ C             GIVE COS(PSI)/COSH(IM(PSI)), WHICH ALWAYS HAS CORRECT SIGN
          D = ONE
          DF   = GLAST
       J = 0
-      DO 10 N=2,NMAX
+      DO N=2,NMAX
       T1=N-1
       T2=TWO*T1-ONE
       T3=T1*(T1-ONE)
@@ -1123,15 +1126,16 @@ C             GIVE COS(PSI)/COSH(IM(PSI)), WHICH ALWAYS HAS CORRECT SIGN
          IF(J.EQ.0) GO TO 10
             CALL RCF(G,C,J,N,XX,EPS)
               IF(N.LT.0) GO TO 40
-            DO 60 K=MAX(J,2),N
+            DO K=MAX(J,2),N
                D = ONE/(D*C(K) + ONE)
                DF = DF*(D - ONE)
                F = F + DF
-         IF(ABSC(DF) .LT. ABSC(F)*EPS) GO TO 30
-         IF(DF.EQ.ZERO.AND.F.EQ.ZERO.AND.N.GE.4) GO TO 30
-   60         CONTINUE
+               IF(ABSC(DF) .LT. ABSC(F)*EPS) GO TO 30
+               IF(DF.EQ.ZERO.AND.F.EQ.ZERO.AND.N.GE.4) GO TO 30
+            enddo
          J = N
-   10    ATL = AT
+ 10      ATL = AT
+      enddo
       K = -NMAX
       GO TO 30
    20 FCL = FCL * COSL
@@ -1221,8 +1225,9 @@ C                             B(M) is last value set in previous call
       M2M1 = MP12
       MP12 = M2M1 + 1
       IF(EVEN) MP12 = M2M1
-      DO 40 K=2,MP12
-   40 X1 = X1 + A(M-K+1) * XX(1,K-1)
+      DO K=2,MP12
+         X1 = X1 + A(M-K+1) * XX(1,K-1)
+      enddo
       B(M) = - X1/X0
       IF(M.GE.IBN) RETURN
    50 IF(ABS(B(M)).LT.EPS*ABS(X0)) GO TO 80
@@ -1231,10 +1236,11 @@ C                             B(M) is last value set in previous call
       K = K-1
       IF(K.GT.1) GO TO 60
       XX(2,1) = XX(1,1) + B(M)
-      DO 70 K=1,M2M1
+      DO K=1,M2M1
       X0 = XX(2,K)
       XX(2,K) = XX(1,K)
-   70 XX(1,K) = X0
+      XX(1,K) = X0
+      enddo
       X0 = X1
       XX(1,M2M1+1) = 0.
       M = M+1

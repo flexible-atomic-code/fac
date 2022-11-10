@@ -116,7 +116,7 @@ def check_ai(actual_file, expected_file):
                  atols={'rate': 1.0e1, 'Delta E': 0.5},
                  rtols={'rate': 0.05, 'DC strength': 0.05,
                         'AI rate': 0.05, 'Delta E': 0.01,
-                        'EGRID': 1.0e-4})
+                        'EGRID': 1.0e-2})
 
 
 def check_tr(actual_file, expected_file):
@@ -149,10 +149,10 @@ def check_ce(actual_file, expected_file):
                         'collision strength': 0.001, 'crosssection': 0.01,
                         'TEGRID': 1.0, 'EGRID': 1.0, 'USR': 1.0,
                         'TE0': 1.0, 'ratio collision strength': 0.1},
-                 rtols={'Delta E': 0.01, 'bethe': 0.01, 'born': 0.01,
-                        'collision strength': 0.02, 'crosssection': 0.1,
+                 rtols={'Delta E': 0.01, 'bethe': 0.05, 'born': 0.05,
+                        'collision strength': 0.05, 'crosssection': 0.1,
                         'TEGRID': 0.01, 'EGRID': 0.01, 'USR': 0.01,
-                        'TE0': 0.01, 'ratio collision strenth': 0.01})
+                        'TE0': 0.01, 'ratio collision strenth': 0.05})
 
 
 def check_ci(actual_file, expected_file):

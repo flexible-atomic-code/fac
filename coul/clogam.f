@@ -52,18 +52,20 @@ C
       D=IMAG(V)
       A=ATAN2(D,C)
       IF(N .EQ. 0) GO TO 20
-      DO 10 I = 1,N
-      C=C+ONE
-      V=DCMPLX(C,D)
-      H=H*V
-   10 A=A+ATAN2(D,C)
+      DO I = 1,N
+         C=C+ONE
+         V=DCMPLX(C,D)
+         H=H*V
+         A=A+ATAN2(D,C)
+      enddo
    20 H=DCMPLX(HALF*LOG(DBLE(H)**2+IMAG(H)**2),A)
       V=V+ONE
    30 R=ONE/V**2
       SER = B(NT)
-      DO 40 J=2,NT
+      DO J=2,NT
         K = NT+1 - J
-   40 SER = B(K) + R*SER
+        SER = B(K) + R*SER
+      enddo
       CLOGAM = HL2P+(V-HALF)*LOG(V)-V + SER/V - H
       IF(X .GE. ZERO) GO TO 50
 C
@@ -105,15 +107,17 @@ C
       IF(N .LT. 0) GO TO 90
       H=ONE/V
       IF(N .EQ. 0) GO TO 80
-      DO 70 I = 1,N
+      DO I = 1,N
       V=V+ONE
-   70 H=H+ONE/V
+      H=H+ONE/V
+      enddo
    80 V=V+ONE
    90 R=ONE/V**2
       SER = B(NT) * (2*NT-1)
-      DO 100 J=2,NT
+      DO J=2,NT
         K = NT+1 - J
-  100 SER = B(K)*(2*K-1) + R*SER
+        SER = B(K)*(2*K-1) + R*SER
+      enddo
       CDIGAM = LOG(V) - HALF/V - R*SER - H
       IF(X .GE. ZERO) RETURN
       H=PI*U

@@ -52,8 +52,8 @@ typedef struct _POTENTIAL_ {
   int nws;  
   double *dws;
   double zps, nps, tps, rps, dps, aps, bps, nbt, nbs, nqf;
-  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth;
-  int mps, kps, vxf, ips, sps, iqf, miter;
+  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
+  int mps, kps, vxf, ips, sps, iqf, miter, vxm;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
@@ -105,6 +105,11 @@ int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
 			   double e0, double u, double zn, int md);
+double FreeElectronIntegral(int maxrp, int i0, int i1, double *rad,
+			    double *vt, double *drdx,
+			    double *eps, double eth, double tps,
+			    double eref, double ewd,
+			    double u, double zn, int md, double *aps);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
 			     double y0, double g, double z, double nb);
 double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps,
@@ -140,12 +145,24 @@ double ZColl();
 double MColl();
 void SetZColl(double z);
 void SetMColl(double z);
-int DensityToSZ(POTENTIAL *pot, double *fd,
-		double *d, double *z, double *zx, double *jps);
+int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps);
+double XCPotential(double t, double n, int md);
 double SCRSF(void);
 double SCRBF(void);
 double SCBQP(void);
+double SCEWF(void);
+int SCEWM(void);
 int OrbPWA(void);
+void PrepFermiNR();
+double FreeEta0(double ne, double te);
+double FreeEta1(double ne, double ke);
+double FreeEta2(double ne, double ve);
+double FreeKe(double u, double te);
+double FreeVe(double u, double te);
+double FreeTe(double u, double ne);
+double InterpFermiNR(int m, double u);
+double BoundFactor(double e, double eth, double de);
+
 #endif
 
 

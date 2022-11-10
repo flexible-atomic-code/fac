@@ -258,7 +258,7 @@ extern double AMU;
 #define POTMODE            0
 #define POTHXS             1.0
 #define POTIHX             -1.0
-#define MINIHX             0.5
+#define MINIHX             0.1
 #define POTBHX             0.5
 #define POTHX0             -1.0
 #define POTHX1             -1.0

@@ -6414,6 +6414,55 @@ static PyObject *PBessel(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PFermiFun(PyObject *self, PyObject *args) {
+  double x, y, r;
+  int m;
+  y = -1.0;
+  if (!PyArg_ParseTuple(args, "id|d", &m, &x, &y)) return NULL;
+  if (m <= 10 && y < 0) {
+    return Py_BuildValue("d", -1E30);
+  }
+  switch (m) {
+  case 0:
+    r = FreeEta0(x*VOLUME_AU, y/HARTREE_EV);
+    break;
+  case 1:
+    r = FreeEta1(x*VOLUME_AU, y/HARTREE_EV);
+    break;
+  case 2:
+    r = FreeEta2(x*VOLUME_AU, y/(1e8*VAU8));
+    break;
+  case 3:
+    r = FreeKe(x, y/HARTREE_EV)*HARTREE_EV;
+    break;
+  case 4:
+    r = FreeVe(x, y/HARTREE_EV)*VAU8*1e8;
+    break;
+  case 5:
+    r = FreeTe(x, y*VOLUME_AU)*HARTREE_EV;
+    break;
+  case 6:
+    r = pow(3*PI*PI*x*VOLUME_AU, TWOTHIRD)*HARTREE_EV;
+    break;
+  default:
+    if (m > 10) {
+      r = InterpFermiNR(m%10, x);
+    } else {
+      r = -1E30;
+    }
+  }
+  return Py_BuildValue("d", r);
+}
+  
+static PyObject *PXCPotential(PyObject *self, PyObject *args) {
+  double t, n, r;
+  int md;
+
+  if (!PyArg_ParseTuple(args, "ddi", &t, &n, &md)) return NULL;
+  r = XCPotential(t, n, md);
+  return Py_BuildValue("d", r);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6659,6 +6708,8 @@ static struct PyMethodDef fac_methods[] = {
   {"FermiParamC", PFermiParamC, METH_VARARGS},
   {"Legendre", PLegendre, METH_VARARGS},
   {"Bessel", PBessel, METH_VARARGS},
+  {"FermiFun", PFermiFun, METH_VARARGS},
+  {"XCPotential", PXCPotential, METH_VARARGS},
   {NULL, NULL}
 };
 

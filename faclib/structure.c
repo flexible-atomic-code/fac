@@ -305,59 +305,6 @@ int SetAngZOptions(int n, double mix, double cut) {
   return 0;
 }
 
-int CompareInt(const void *a1, const void *a2) {
-  int *i1, *i2;
-
-  i1 = (int *) a1;
-  i2 = (int *) a2;
-  return (*i1 - *i2);
-}
-
-int CompareDouble(const void *a1, const void *a2) {
-  double *i1, *i2;
-
-  i1 = (double *) a1;
-  i2 = (double *) a2;
-  if (*i1 < *i2) return -1;
-  if (*i1 > *i2) return 1;
-  return 0;
-}
-
-int SortUniqueDouble(int n, double *a, double eps) {
-  int i, j;
-  double b;
-
-  qsort(a, n, sizeof(double), CompareDouble);
-  j = 1;
-  b = a[0];
-  for (i = 1; i < n; i++) {
-    if (a[i]-b > eps) {
-      a[j] = a[i];
-      b = a[i];
-      j++;
-    }
-  }
-
-  return j;
-}
-
-int SortUnique(int n, int *a) {
-  int i, j, b;
-
-  qsort(a, n, sizeof(int), CompareInt);
-  j = 1;
-  b = a[0];
-  for (i = 1; i < n; i++) {
-    if (a[i] != b) {
-      a[j] = a[i];
-      b = a[i];
-      j++;
-    }
-  }
-
-  return j;
-}
-
 HAMILTON *GetHamilton(int isym) {
   return &_allhams[isym];
 }
