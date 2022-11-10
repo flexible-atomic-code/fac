@@ -35,6 +35,107 @@ def doppler_fwhm(ti, z=1, m=0.0):
         m = fac.ATOMICMASS[z]
     return np.sqrt(8*np.log(2)*ti/(m*const.AMU*const.Me_eV))
 
+def voigt(alpha, x):
+    v = x/1.41421
+    a=zeros(8)
+    b=zeros(8)
+    c=zeros(8)
+    
+    a[1]=122.607931777104326
+    a[2]=214.382388694706425
+    a[3]=181.928533092181549
+    a[4]=93.155580458134410
+    a[5]=30.180142196210589
+    a[6]=5.912626209773153
+    a[7]=0.564189583562615
+    
+    b[1]=122.607931773875350
+    b[2]=352.730625110963558
+    b[3]=457.334478783897737
+    b[4]=348.703917719495792
+    b[5]=170.354001821091472
+    b[6]=53.992906912940207
+    b[7]=10.479857114260399
+    
+    c[1]=0.5641641
+    c[2]=0.8718681
+    c[3]=1.474395
+    c[4]=-19.57862
+    c[5]=802.4513
+    c[6]=-4850.316
+    c[7]=8031.468
+    
+    n = len(v)
+    H = zeros(n)
+    vb = 2.5
+    if (alpha <= .001):
+        w = np.where(abs(v) >= vb)[0]
+        if (len(w) > 0):
+            v2   = v[w]* v[w]
+            v3   = 1.0
+            fac1 = c[1]
+            fac2 = c[1] * (v2 - 1.0)
+            for i in range(1,8):
+                v3     = v3 * v2
+                fac1 = fac1 + c[i] / v3
+                fac2 = fac2 + c[i] / v3 * (v2 - i)
+                
+            H[w] = np.exp(-v2)*(1. + fac2*alpha**2 * (1. - 2.*v2)) + fac1 * (alpha/v2);
+        w = np.where(abs(v) < vb)
+    else:
+        w = np.arange(0,n)
+        
+    if (len(w) > 0):
+        p1 = alpha
+        vw = v[w]
+        o1 = -vw
+        p2 = (p1 * alpha + o1 * vw)
+        o2 = (o1 * alpha - p1 * vw)
+        p3 = (p2 * alpha + o2 * vw)
+        o3 = (o2 * alpha - p2 * vw)
+        p4 = (p3 * alpha + o3 * vw)
+        o4 = (o3 * alpha - p3 * vw)
+        p5 = (p4 * alpha + o4 * vw)
+        o5 = (o4 * alpha - p4 * vw)
+        p6 = (p5 * alpha + o5 * vw)
+        o6 = (o5 * alpha - p5 * vw)
+        p7 = (p6 * alpha + o6 * vw)
+        o7 = (o6 * alpha - p6 * vw)
+
+        q1 = a[1] + p1 * a[2] + p2 * a[3] + p3 * a[4] + p4 * a[5] + p5 * a[6] + p6 * a[7];
+        r1 =        o1 * a[2] + o2 * a[3] + o3 * a[4] + o4 * a[5] + o5 * a[6] + o6 * a[7];
+        q2 = b[1] + p1 * b[2] + p2 * b[3] + p3 * b[4] +  p4 * b[5] + p5 * b[6] + p6 * b[7] + p7;
+        r2 =        o1 * b[2] + o2 * b[3] + o3 * b[4] + o4 * b[5] + o5 * b[6] + o6 * b[7] + o7;
+
+        H[w] = (q1 * q2 + r1 * r2) / (q2 * q2 + r2 * r2);
+        
+    return H;
+
+def convd(xd, yd, s, lw=None, x0=None, x1=None):
+    dx = s/3.0
+    xd = np.array(xd)
+    yd = np.array(yd)
+    if x0 is None:
+        x0 = xd.min()-20.0*s
+    if x1 is None:
+        x1 = xd.max()+20.0*s
+    x = np.arange(x0, x1, dx)
+    y = np.zeros(len(x))
+    p = 1.0/np.sqrt(2*np.pi)/s
+    if lw is None:
+        for i in range(len(xd)):
+            t = (x-xd[i])/s
+            w = np.nonzero((t > -20.0) & (t < 20.0))[0]
+            if (len(w) > 0):
+                y += p*yd[i]*np.exp(-0.5*t*t)
+    else:
+        for i in range(len(xd)):
+            t = (x-xd[i])/s
+            a = lw[i]/(1.414*s)
+            y += p*yd[i]*voigt(a, t)
+            
+    return (x, y)
+
 def _wrap_get_length(line0):
     """ Returns get_length functions for lev file, depending on the version """
     

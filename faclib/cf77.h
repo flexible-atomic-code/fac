@@ -21,6 +21,10 @@
 
 #include "cfortran.h"
 
+     PROTOCCALLSFFUN1(DOUBLE, ERF, erf, DOUBLE)
+#define ERF(A1)				\
+     CCALLSFFUN1(ERF, erf, DOUBLE, A1)
+       
      PROTOCCALLSFFUN1(DOUBLE, FM1P, fm1p, DOUBLE)
 #define FM1P(A1)				\
      CCALLSFFUN1(FM1P, fm1p, DOUBLE, A1)

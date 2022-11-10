@@ -772,7 +772,7 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 */    
 int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
   SHELL *shell;
-  int ncfg, *maxq, ns, nc, i, j, inq;
+  int ncfg, *maxq, ns, nc, i, j, inq, mnq;
   double dnq;
   SHELL_RESTRICTION *sr;
 
@@ -802,11 +802,15 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
   maxq = (int *) malloc(sizeof(int)*ns);
   maxq[ns-1] = 0;
   for (i = ns-2; i >= 0; i--) {
-    j = GetJFromKappa(shell[i+1].kappa);
-    maxq[i] = maxq[i+1] + j+1;
+    maxq[i] = maxq[i+1] + 2*abs(shell[i+1].kappa);
   }
-
+  mnq = maxq[0] + 2*abs(shell[0].kappa);
+  
   inq = (int) dnq;
+  if (inq > mnq) {
+    printf("electrons > maximum allowed in %s\n", scfg);
+    return 0;
+  }
   ncfg = DistributeElectronsShell(cfg, ns, shell, inq, maxq);
 
   free(shell);
@@ -829,7 +833,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
 
 int DistributeElectronsNR(CONFIG **cfg, char *scfg, int *nqp) {
   SHELL *shell;
-  int ncfg, *maxq, ns, nc, i, inq;
+  int ncfg, *maxq, ns, nc, i, inq, mnq;
   double dnq;
   SHELL_RESTRICTION *sr;
 
@@ -842,8 +846,14 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg, int *nqp) {
   for (i = ns-2; i >= 0; i--) {
     maxq[i] = maxq[i+1] + 2*(shell[i+1].kappa + 1);
   }
-
+  mnq = maxq[0] + 2*(shell[0].kappa+1);
+  
   inq = (int) dnq;
+  if (inq > mnq) {
+    printf("electrons > maximum allowed in %s\n", scfg);
+    return 0;
+  }
+  
   ncfg = DistributeElectronsShellNR(cfg, ns, shell, (int)dnq, maxq);
 
   free(shell);

@@ -1,4 +1,1067 @@
-C      ALGORITHM 745, COLLECTED ALGORITHMS FROM ACM.
+
+
+      subroutine fdm (xnu, alpha, fd)
+      implicit double precision (a-h,o-z)
+
+c w. fullerton, imsl houston, apr 1983 edition.
+c
+c fermi-dirac function of order xnu and argument alpha, where
+c xnu is an integer multiple of 0.5 between -0.5 and 4.0
+c inclusive.  this routine is accurate everywhere to approx-
+c imately 10 digits.
+c
+      dimension fdscs(21,10), fdmcs(33,10), fdbcs(26,10),
+     1  nscs(10), nmcs(10), nbcs(10), alfmax(10)
+c
+c  ixer, jxer, kxer flags for xerr returns
+      data ixer,jxer,kxer/-1,2,2/
+c
+c series for fm5s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   5.75e-11
+c                                         log weighted error  10.24
+c                               significant figures required  10.32
+c                                    decimal places required  10.90
+c
+      data fdscs(  1, 1) /   2.1468096512e0 /
+      data fdscs(  2, 1) /   -.5099961735 5e0 /
+      data fdscs(  3, 1) /    .1357694225 8e0 /
+      data fdscs(  4, 1) /   -.0379066840 1e0 /
+      data fdscs(  5, 1) /    .0108700231 1e0 /
+      data fdscs(  6, 1) /   -.0031712624 6e0 /
+      data fdscs(  7, 1) /    .0009364562 1e0 /
+      data fdscs(  8, 1) /   -.0002790240 1e0 /
+      data fdscs(  9, 1) /    .0000837159 4e0 /
+      data fdscs( 10, 1) /   -.0000252565 8e0 /
+      data fdscs( 11, 1) /    .0000076541 8e0 /
+      data fdscs( 12, 1) /   -.0000023283 6e0 /
+      data fdscs( 13, 1) /    .0000007105 2e0 /
+      data fdscs( 14, 1) /   -.0000002174 1e0 /
+      data fdscs( 15, 1) /    .0000000666 8e0 /
+      data fdscs( 16, 1) /   -.0000000204 9e0 /
+      data fdscs( 17, 1) /    .0000000063 1e0 /
+      data fdscs( 18, 1) /   -.0000000019 4e0 /
+      data fdscs( 19, 1) /    .0000000006 0e0 /
+      data fdscs( 20, 1) /   -.0000000001 8e0 /
+      data fdscs( 21, 1) /    .0000000000 57e0 /
+c
+c series for fm5m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   5.27e-11
+c                                         log weighted error  10.28
+c                               significant figures required  10.55
+c                                    decimal places required  10.94
+c
+      data fdmcs(  1, 1) /   3.7374179482 1e0 /
+      data fdmcs(  2, 1) /    .0702840192 74e0 /
+      data fdmcs(  3, 1) /    .0049804498 35e0 /
+      data fdmcs(  4, 1) /   -.0102460511 86e0 /
+      data fdmcs(  5, 1) /    .0046134524 88e0 /
+      data fdmcs(  6, 1) /   -.0015084055 45e0 /
+      data fdmcs(  7, 1) /    .0004453628 58e0 /
+      data fdmcs(  8, 1) /   -.0001323433 48e0 /
+      data fdmcs(  9, 1) /    .0000410236 76e0 /
+      data fdmcs( 10, 1) /   -.0000130973 69e0 /
+      data fdmcs( 11, 1) /    .0000042172 38e0 /
+      data fdmcs( 12, 1) /   -.0000013563 51e0 /
+      data fdmcs( 13, 1) /    .0000004356 20e0 /
+      data fdmcs( 14, 1) /   -.0000001400 58e0 /
+      data fdmcs( 15, 1) /    .0000000451 47e0 /
+      data fdmcs( 16, 1) /   -.0000000145 91e0 /
+      data fdmcs( 17, 1) /    .0000000047 25e0 /
+      data fdmcs( 18, 1) /   -.0000000015 33e0 /
+      data fdmcs( 19, 1) /    .0000000004 97e0 /
+      data fdmcs( 20, 1) /   -.0000000001 61e0 /
+      data fdmcs( 21, 1) /    .0000000000 527e0 /
+c
+c series for fm5b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   2.77e-11
+c                                         log weighted error  10.56
+c                               significant figures required  10.85
+c                                    decimal places required  11.26
+c
+      data fdbcs(  1, 1) /   3.9538986547 2e0 /
+      data fdbcs(  2, 1) /   -.0314341746 06e0 /
+      data fdbcs(  3, 1) /   -.0086537614 36e0 /
+      data fdbcs(  4, 1) /   -.0000437949 13e0 /
+      data fdbcs(  5, 1) /    .0003173634 01e0 /
+      data fdbcs(  6, 1) /    .0000743852 22e0 /
+      data fdbcs(  7, 1) /   -.0000283890 50e0 /
+      data fdbcs(  8, 1) /   -.0000089391 79e0 /
+      data fdbcs(  9, 1) /    .0000045170 94e0 /
+      data fdbcs( 10, 1) /    .0000007855 81e0 /
+      data fdbcs( 11, 1) /   -.0000009131 13e0 /
+      data fdbcs( 12, 1) /    .0000000758 35e0 /
+      data fdbcs( 13, 1) /    .0000001572 30e0 /
+      data fdbcs( 14, 1) /   -.0000000671 69e0 /
+      data fdbcs( 15, 1) /   -.0000000100 31e0 /
+      data fdbcs( 16, 1) /    .0000000194 28e0 /
+      data fdbcs( 17, 1) /   -.0000000059 47e0 /
+      data fdbcs( 18, 1) /   -.0000000020 95e0 /
+      data fdbcs( 19, 1) /    .0000000025 45e0 /
+      data fdbcs( 20, 1) /   -.0000000007 47e0 /
+      data fdbcs( 21, 1) /   -.0000000002 91e0 /
+      data fdbcs( 22, 1) /    .0000000003 71e0 /
+      data fdbcs( 23, 1) /   -.0000000001 31e0 /
+      data fdbcs( 24, 1) /   -.0000000000 290e0 /
+      data fdbcs( 25, 1) /    .0000000000 573e0 /
+      data fdbcs( 26, 1) /   -.0000000000 277e0 /
+c
+c series for f00s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   3.18e-11
+c                                         log weighted error  10.50
+c                               significant figures required  10.36
+c                                    decimal places required  11.15
+c
+      data fdscs(  1, 2) /   1.3659874054e0 /
+      data fdscs(  2, 2) /   -.2438973101 9e0 /
+      data fdscs(  3, 2) /    .0547680108 5e0 /
+      data fdscs(  4, 2) /   -.0135159352 3e0 /
+      data fdscs(  5, 2) /    .0035158670 3e0 /
+      data fdscs(  6, 2) /   -.0009461111 9e0 /
+      data fdscs(  7, 2) /    .0002607200 1e0 /
+      data fdscs(  8, 2) /   -.0000731250 4e0 /
+      data fdscs(  9, 2) /    .0000207911 1e0 /
+      data fdscs( 10, 2) /   -.0000059759 5e0 /
+      data fdscs( 11, 2) /    .0000017329 5e0 /
+      data fdscs( 12, 2) /   -.0000005062 5e0 /
+      data fdscs( 13, 2) /    .0000001488 2e0 /
+      data fdscs( 14, 2) /   -.0000000439 8e0 /
+      data fdscs( 15, 2) /    .0000000130 5e0 /
+      data fdscs( 16, 2) /   -.0000000038 9e0 /
+      data fdscs( 17, 2) /    .0000000011 6e0 /
+      data fdscs( 18, 2) /   -.0000000003 4e0 /
+      data fdscs( 19, 2) /    .0000000001 0e0 /
+      data fdscs( 20, 2) /   -.0000000000 31e0 /
+c
+c series for f00m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   6.63e-11
+c                                         log weighted error  10.18
+c                               significant figures required  10.22
+c                                    decimal places required  10.85
+c
+      data fdmcs(  1, 2) /   2.1728598421e0 /
+      data fdmcs(  2, 2) /   -.1263072405 5e0 /
+      data fdmcs(  3, 2) /    .0627040952 7e0 /
+      data fdmcs(  4, 2) /   -.0248015923 3e0 /
+      data fdmcs(  5, 2) /    .0086910218 0e0 /
+      data fdmcs(  6, 2) /   -.0028969250 7e0 /
+      data fdmcs(  7, 2) /    .0009558659 0e0 /
+      data fdmcs(  8, 2) /   -.0003167553 1e0 /
+      data fdmcs(  9, 2) /    .0001054756 2e0 /
+      data fdmcs( 10, 2) /   -.0000351869 0e0 /
+      data fdmcs( 11, 2) /    .0000117376 0e0 /
+      data fdmcs( 12, 2) /   -.0000039134 7e0 /
+      data fdmcs( 13, 2) /    .0000013044 3e0 /
+      data fdmcs( 14, 2) /   -.0000004347 7e0 /
+      data fdmcs( 15, 2) /    .0000001449 1e0 /
+      data fdmcs( 16, 2) /   -.0000000483 0e0 /
+      data fdmcs( 17, 2) /    .0000000161 0e0 /
+      data fdmcs( 18, 2) /   -.0000000053 6e0 /
+      data fdmcs( 19, 2) /    .0000000017 8e0 /
+      data fdmcs( 20, 2) /   -.0000000005 9e0 /
+      data fdmcs( 21, 2) /    .0000000001 9e0 /
+      data fdmcs( 22, 2) /   -.0000000000 66e0 /
+c
+c series for f00b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   2.19e-11
+c                                         log weighted error  10.66
+c                               significant figures required  10.66
+c                                    decimal places required  11.33
+c
+      data fdbcs(  1, 2) /   2.0021325464 9e0 /
+      data fdbcs(  2, 2) /    .0018258034 26e0 /
+      data fdbcs(  3, 2) /    .0011225105 54e0 /
+      data fdbcs(  4, 2) /    .0004555439 28e0 /
+      data fdbcs(  5, 2) /    .0000880185 91e0 /
+      data fdbcs(  6, 2) /   -.0000137060 73e0 /
+      data fdbcs(  7, 2) /   -.0000090015 63e0 /
+      data fdbcs(  8, 2) /    .0000013512 84e0 /
+      data fdbcs(  9, 2) /    .0000010449 37e0 /
+      data fdbcs( 10, 2) /   -.0000003164 95e0 /
+      data fdbcs( 11, 2) /   -.0000001071 28e0 /
+      data fdbcs( 12, 2) /    .0000000783 47e0 /
+      data fdbcs( 13, 2) /   -.0000000017 22e0 /
+      data fdbcs( 14, 2) /   -.0000000148 37e0 /
+      data fdbcs( 15, 2) /    .0000000055 82e0 /
+      data fdbcs( 16, 2) /    .0000000010 85e0 /
+      data fdbcs( 17, 2) /   -.0000000017 29e0 /
+      data fdbcs( 18, 2) /    .0000000005 16e0 /
+      data fdbcs( 19, 2) /    .0000000001 80e0 /
+      data fdbcs( 20, 2) /   -.0000000002 22e0 /
+      data fdbcs( 21, 2) /    .0000000000 691e0 /
+      data fdbcs( 22, 2) /    .0000000000 219e0 /
+c
+c series for f05s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   2.87e-11
+c                                         log weighted error  10.54
+c                               significant figures required  10.38
+c                                    decimal places required  11.18
+c
+      data fdscs(  1, 3) /   1.3284029124e0 /
+      data fdscs(  2, 3) /   -.1783849741 0e0 /
+      data fdscs(  3, 3) /    .0338871501 3e0 /
+      data fdscs(  4, 3) /   -.0074116985 5e0 /
+      data fdscs(  5, 3) /    .0017528135 4e0 /
+      data fdscs(  6, 3) /   -.0004358562 3e0 /
+      data fdscs(  7, 3) /    .0001122556 1e0 /
+      data fdscs(  8, 3) /   -.0000296748 6e0 /
+      data fdscs(  9, 3) /    .0000080041 3e0 /
+      data fdscs( 10, 3) /   -.0000021938 6e0 /
+      data fdscs( 11, 3) /    .0000006092 5e0 /
+      data fdscs( 12, 3) /   -.0000001710 4e0 /
+      data fdscs( 13, 3) /    .0000000484 6e0 /
+      data fdscs( 14, 3) /   -.0000000138 4e0 /
+      data fdscs( 15, 3) /    .0000000039 8e0 /
+      data fdscs( 16, 3) /   -.0000000011 5e0 /
+      data fdscs( 17, 3) /    .0000000003 3e0 /
+      data fdscs( 18, 3) /   -.0000000000 97e0 /
+      data fdscs( 19, 3) /    .0000000000 28e0 /
+c
+c series for f05m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   2.90e-11
+c                                         log weighted error  10.54
+c                               significant figures required  10.52
+c                                    decimal places required  11.23
+c
+      data fdmcs(  1, 3) /   1.8324909204 1e0 /
+      data fdmcs(  2, 3) /   -.2831869649 90e0 /
+      data fdmcs(  3, 3) /    .1228778370 71e0 /
+      data fdmcs(  4, 3) /   -.0473020885 11e0 /
+      data fdmcs(  5, 3) /    .0172527816 16e0 /
+      data fdmcs(  6, 3) /   -.0061561464 96e0 /
+      data fdmcs(  7, 3) /    .0021769305 63e0 /
+      data fdmcs(  8, 3) /   -.0007657618 44e0 /
+      data fdmcs(  9, 3) /    .0002681487 29e0 /
+      data fdmcs( 10, 3) /   -.0000935040 12e0 /
+      data fdmcs( 11, 3) /    .0000324836 07e0 /
+      data fdmcs( 12, 3) /   -.0000112489 79e0 /
+      data fdmcs( 13, 3) /    .0000038849 42e0 /
+      data fdmcs( 14, 3) /   -.0000013385 73e0 /
+      data fdmcs( 15, 3) /    .0000004602 70e0 /
+      data fdmcs( 16, 3) /   -.0000001579 79e0 /
+      data fdmcs( 17, 3) /    .0000000541 36e0 /
+      data fdmcs( 18, 3) /   -.0000000185 24e0 /
+      data fdmcs( 19, 3) /    .0000000063 30e0 /
+      data fdmcs( 20, 3) /   -.0000000021 60e0 /
+      data fdmcs( 21, 3) /    .0000000007 36e0 /
+      data fdmcs( 22, 3) /   -.0000000002 50e0 /
+      data fdmcs( 23, 3) /    .0000000000 854e0 /
+      data fdmcs( 24, 3) /   -.0000000000 290e0 /
+c
+c series for f05b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   2.38e-11
+c                                         log weighted error  10.62
+c                               significant figures required  10.46
+c                                    decimal places required  11.27
+c
+      data fdbcs(  1, 3) /   1.3737552319e0 /
+      data fdbcs(  2, 3) /    .0271865732 7e0 /
+      data fdbcs(  3, 3) /    .0071381409 2e0 /
+      data fdbcs(  4, 3) /    .0001635361 7e0 /
+      data fdbcs(  5, 3) /   -.0000117682 0e0 /
+      data fdbcs(  6, 3) /   -.0000141643 9e0 /
+      data fdbcs(  7, 3) /   -.0000002415 6e0 /
+      data fdbcs(  8, 3) /    .0000012719 9e0 /
+      data fdbcs(  9, 3) /   -.0000000281 9e0 /
+      data fdbcs( 10, 3) /   -.0000001602 3e0 /
+      data fdbcs( 11, 3) /    .0000000306 4e0 /
+      data fdbcs( 12, 3) /    .0000000187 1e0 /
+      data fdbcs( 13, 3) /   -.0000000101 5e0 /
+      data fdbcs( 14, 3) /   -.0000000003 8e0 /
+      data fdbcs( 15, 3) /    .0000000021 2e0 /
+      data fdbcs( 16, 3) /   -.0000000007 1e0 /
+      data fdbcs( 17, 3) /   -.0000000001 7e0 /
+      data fdbcs( 18, 3) /    .0000000002 3e0 /
+      data fdbcs( 19, 3) /   -.0000000000 70e0 /
+      data fdbcs( 20, 3) /   -.0000000000 23e0 /
+c
+c series for f10s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   3.46e-11
+c                                         log weighted error  10.46
+c                               significant figures required  10.38
+c                                    decimal places required  11.09
+c
+      data fdscs(  1, 4) /   1.6098847156e0 /
+      data fdscs(  2, 4) /   -.1624060718 4e0 /
+      data fdscs(  3, 4) /    .0261468226 3e0 /
+      data fdscs(  4, 4) /   -.0050782609 1e0 /
+      data fdscs(  5, 4) /    .0010937471 2e0 /
+      data fdscs(  6, 4) /   -.0002516893 5e0 /
+      data fdscs(  7, 4) /    .0000606609 8e0 /
+      data fdscs(  8, 4) /   -.0000151303 0e0 /
+      data fdscs(  9, 4) /    .0000038751 7e0 /
+      data fdscs( 10, 4) /   -.0000010136 9e0 /
+      data fdscs( 11, 4) /    .0000002697 7e0 /
+      data fdscs( 12, 4) /   -.0000000728 3e0 /
+      data fdscs( 13, 4) /    .0000000199 0e0 /
+      data fdscs( 14, 4) /   -.0000000054 9e0 /
+      data fdscs( 15, 4) /    .0000000015 3e0 /
+      data fdscs( 16, 4) /   -.0000000004 3e0 /
+      data fdscs( 17, 4) /    .0000000001 2e0 /
+      data fdscs( 18, 4) /   -.0000000000 34e0 /
+c
+c series for f10m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   3.92e-11
+c                                         log weighted error  10.41
+c                               significant figures required  10.44
+c                                    decimal places required  11.11
+c
+      data fdmcs(  1, 4) /   1.8823916245e0 /
+      data fdmcs(  2, 4) /   -.4963882506 6e0 /
+      data fdmcs(  3, 4) /    .2216981727 0e0 /
+      data fdmcs(  4, 4) /   -.0903287142 0e0 /
+      data fdmcs(  5, 4) /    .0352537623 9e0 /
+      data fdmcs(  6, 4) /   -.0134370871 3e0 /
+      data fdmcs(  7, 4) /    .0050410084 6e0 /
+      data fdmcs(  8, 4) /   -.0018681458 3e0 /
+      data fdmcs(  9, 4) /    .0006853986 5e0 /
+      data fdmcs( 10, 4) /   -.0002493647 5e0 /
+      data fdmcs( 11, 4) /    .0000900867 6e0 /
+      data fdmcs( 12, 4) /   -.0000323503 7e0 /
+      data fdmcs( 13, 4) /    .0000115572 5e0 /
+      data fdmcs( 14, 4) /   -.0000041103 4e0 /
+      data fdmcs( 15, 4) /    .0000014560 9e0 /
+      data fdmcs( 16, 4) /   -.0000005140 2e0 /
+      data fdmcs( 17, 4) /    .0000001808 9e0 /
+      data fdmcs( 18, 4) /   -.0000000634 8e0 /
+      data fdmcs( 19, 4) /    .0000000222 2e0 /
+      data fdmcs( 20, 4) /   -.0000000077 6e0 /
+      data fdmcs( 21, 4) /    .0000000027 0e0 /
+      data fdmcs( 22, 4) /   -.0000000009 4e0 /
+      data fdmcs( 23, 4) /    .0000000003 2e0 /
+      data fdmcs( 24, 4) /   -.0000000001 1e0 /
+      data fdmcs( 25, 4) /    .0000000000 39e0 /
+c
+c series for f10b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   3.24e-11
+c                                         log weighted error  10.49
+c                               significant figures required  10.22
+c                                    decimal places required  11.12
+c
+      data fdbcs(  1, 4) /   1.0766097168e0 /
+      data fdbcs(  2, 4) /    .0509708968 7e0 /
+      data fdbcs(  3, 4) /    .0125669010 0e0 /
+      data fdbcs(  4, 4) /   -.0001333933 2e0 /
+      data fdbcs(  5, 4) /   -.0000390220 0e0 /
+      data fdbcs(  6, 4) /   -.0000033829 5e0 /
+      data fdbcs(  7, 4) /    .0000018566 7e0 /
+      data fdbcs(  8, 4) /    .0000003251 2e0 /
+      data fdbcs(  9, 4) /   -.0000001931 9e0 /
+      data fdbcs( 10, 4) /   -.0000000183 8e0 /
+      data fdbcs( 11, 4) /    .0000000281 7e0 /
+      data fdbcs( 12, 4) /   -.0000000030 6e0 /
+      data fdbcs( 13, 4) /   -.0000000037 4e0 /
+      data fdbcs( 14, 4) /    .0000000016 2e0 /
+      data fdbcs( 15, 4) /    .0000000001 6e0 /
+      data fdbcs( 16, 4) /   -.0000000003 7e0 /
+      data fdbcs( 17, 4) /    .0000000001 1e0 /
+      data fdbcs( 18, 4) /    .0000000000 32e0 /
+c
+c series for f15s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   5.17e-11
+c                                         log weighted error  10.29
+c                               significant figures required  10.34
+c                                    decimal places required  10.90
+c
+      data fdscs(  1, 5) /   2.2601818297e0 /
+      data fdscs(  2, 5) /   -.1708722765 0e0 /
+      data fdscs(  3, 5) /    .0233363666 4e0 /
+      data fdscs(  4, 5) /   -.0040304134 4e0 /
+      data fdscs(  5, 5) /    .0007916285 5e0 /
+      data fdscs(  6, 5) /   -.0001687845 2e0 /
+      data fdscs(  7, 5) /    .0000381078 6e0 /
+      data fdscs(  8, 5) /   -.0000089765 6e0 /
+      data fdscs(  9, 5) /    .0000021848 5e0 /
+      data fdscs( 10, 5) /   -.0000005458 3e0 /
+      data fdscs( 11, 5) /    .0000001393 0e0 /
+      data fdscs( 12, 5) /   -.0000000361 8e0 /
+      data fdscs( 13, 5) /    .0000000095 4e0 /
+      data fdscs( 14, 5) /   -.0000000025 4e0 /
+      data fdscs( 15, 5) /    .0000000006 8e0 /
+      data fdscs( 16, 5) /   -.0000000001 8e0 /
+      data fdscs( 17, 5) /    .0000000000 51e0 /
+c
+c series for f15m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   5.45e-11
+c                                         log weighted error  10.26
+c                               significant figures required  10.43
+c                                    decimal places required  10.97
+c
+      data fdmcs(  1, 5) /   2.2310484506e0 /
+      data fdmcs(  2, 5) /   -.8435086752 5e0 /
+      data fdmcs(  3, 5) /    .4030118348 2e0 /
+      data fdmcs(  4, 5) /   -.1765850337 0e0 /
+      data fdmcs(  5, 5) /    .0738231089 9e0 /
+      data fdmcs(  6, 5) /   -.0299237390 3e0 /
+      data fdmcs(  7, 5) /    .0118550148 7e0 /
+      data fdmcs(  8, 5) /   -.0046128514 7e0 /
+      data fdmcs(  9, 5) /    .0017688631 8e0 /
+      data fdmcs( 10, 5) /   -.0006701511 6e0 /
+      data fdmcs( 11, 5) /    .0002513292 1e0 /
+      data fdmcs( 12, 5) /   -.0000934452 7e0 /
+      data fdmcs( 13, 5) /    .0000344851 9e0 /
+      data fdmcs( 14, 5) /   -.0000126440 2e0 /
+      data fdmcs( 15, 5) /    .0000046095 2e0 /
+      data fdmcs( 16, 5) /   -.0000016719 6e0 /
+      data fdmcs( 17, 5) /    .0000006037 1e0 /
+      data fdmcs( 18, 5) /   -.0000002171 0e0 /
+      data fdmcs( 19, 5) /    .0000000777 9e0 /
+      data fdmcs( 20, 5) /   -.0000000277 8e0 /
+      data fdmcs( 21, 5) /    .0000000098 9e0 /
+      data fdmcs( 22, 5) /   -.0000000035 1e0 /
+      data fdmcs( 23, 5) /    .0000000012 4e0 /
+      data fdmcs( 24, 5) /   -.0000000004 3e0 /
+      data fdmcs( 25, 5) /    .0000000001 5e0 /
+      data fdmcs( 26, 5) /   -.0000000000 54e0 /
+c
+c series for f15b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   2.21e-11
+c                                         log weighted error  10.66
+c                               significant figures required  10.32
+c                                    decimal places required  11.28
+c
+      data fdbcs(  1, 5) /    .9138458031 3e0 /
+      data fdbcs(  2, 5) /    .0756461485 3e0 /
+      data fdbcs(  3, 5) /    .0185325720 6e0 /
+      data fdbcs(  4, 5) /   -.0002173856 5e0 /
+      data fdbcs(  5, 5) /   -.0000237328 8e0 /
+      data fdbcs(  6, 5) /    .0000042673 3e0 /
+      data fdbcs(  7, 5) /    .0000012018 7e0 /
+      data fdbcs(  8, 5) /   -.0000002038 1e0 /
+      data fdbcs(  9, 5) /   -.0000000983 9e0 /
+      data fdbcs( 10, 5) /    .0000000298 3e0 /
+      data fdbcs( 11, 5) /    .0000000073 9e0 /
+      data fdbcs( 12, 5) /   -.0000000054 3e0 /
+      data fdbcs( 13, 5) /    .0000000001 9e0 /
+      data fdbcs( 14, 5) /    .0000000008 2e0 /
+      data fdbcs( 15, 5) /   -.0000000002 9e0 /
+      data fdbcs( 16, 5) /   -.0000000000 48e0 /
+      data fdbcs( 17, 5) /    .0000000000 77e0 /
+      data fdbcs( 18, 5) /   -.0000000000 22e0 /
+c
+c series for f20s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   2.47e-11
+c                                         log weighted error  10.61
+c                               significant figures required  10.86
+c                                    decimal places required  11.22
+c
+      data fdscs(  1, 6) /   3.5445815749 6e0 /
+      data fdscs(  2, 6) /   -.2001497509 36e0 /
+      data fdscs(  3, 6) /    .0231937129 11e0 /
+      data fdscs(  4, 6) /   -.0035654858 18e0 /
+      data fdscs(  5, 6) /    .0006393090 63e0 /
+      data fdscs(  6, 6) /   -.0001264180 87e0 /
+      data fdscs(  7, 6) /    .0000267615 70e0 /
+      data fdscs(  8, 6) /   -.0000059580 71e0 /
+      data fdscs(  9, 6) /    .0000013790 87e0 /
+      data fdscs( 10, 6) /   -.0000003292 55e0 /
+      data fdscs( 11, 6) /    .0000000806 22e0 /
+      data fdscs( 12, 6) /   -.0000000201 61e0 /
+      data fdscs( 13, 6) /    .0000000051 32e0 /
+      data fdscs( 14, 6) /   -.0000000013 26e0 /
+      data fdscs( 15, 6) /    .0000000003 47e0 /
+      data fdscs( 16, 6) /   -.0000000000 921e0 /
+      data fdscs( 17, 6) /    .0000000000 246e0 /
+c
+c series for f20m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   2.78e-11
+c                                         log weighted error  10.56
+c                               significant figures required  10.91
+c                                    decimal places required  11.28
+c
+      data fdmcs(  1, 6) /   2.9777839001 0e0 /
+      data fdmcs(  2, 6) /  -1.4577413536 2e0 /
+      data fdmcs(  3, 6) /    .7528269512 35e0 /
+      data fdmcs(  4, 6) /   -.3549647428 05e0 /
+      data fdmcs(  5, 6) /    .1584014924 88e0 /
+      data fdmcs(  6, 6) /   -.0680073485 74e0 /
+      data fdmcs(  7, 6) /    .0283569566 67e0 /
+      data fdmcs(  8, 6) /   -.0115545568 43e0 /
+      data fdmcs(  9, 6) /    .0046209871 95e0 /
+      data fdmcs( 10, 6) /   -.0018197198 20e0 /
+      data fdmcs( 11, 6) /    .0007073370 31e0 /
+      data fdmcs( 12, 6) /   -.0002719114 95e0 /
+      data fdmcs( 13, 6) /    .0001035295 30e0 /
+      data fdmcs( 14, 6) /   -.0000390900 34e0 /
+      data fdmcs( 15, 6) /    .0000146509 87e0 /
+      data fdmcs( 16, 6) /   -.0000054554 02e0 /
+      data fdmcs( 17, 6) /    .0000020195 19e0 /
+      data fdmcs( 18, 6) /   -.0000007436 80e0 /
+      data fdmcs( 19, 6) /    .0000002725 59e0 /
+      data fdmcs( 20, 6) /   -.0000000994 63e0 /
+      data fdmcs( 21, 6) /    .0000000361 53e0 /
+      data fdmcs( 22, 6) /   -.0000000130 94e0 /
+      data fdmcs( 23, 6) /    .0000000047 26e0 /
+      data fdmcs( 24, 6) /   -.0000000017 01e0 /
+      data fdmcs( 25, 6) /    .0000000006 10e0 /
+      data fdmcs( 26, 6) /   -.0000000002 18e0 /
+      data fdmcs( 27, 6) /    .0000000000 780e0 /
+      data fdmcs( 28, 6) /   -.0000000000 277e0 /
+c
+c series for f20b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   1.41e-11
+c                                         log weighted error  10.85
+c                               significant figures required  10.48
+c                                    decimal places required  11.47
+c
+      data fdbcs(  1, 6) /    .8211121274 8e0 /
+      data fdbcs(  2, 6) /    .1030146856 2e0 /
+      data fdbcs(  3, 6) /    .0258442758 9e0 /
+      data fdbcs(  4, 6) /    .0000739478 7e0 /
+      data fdbcs(  5, 6) /    .0000269632 3e0 /
+      data fdbcs(  6, 6) /    .0000055393 5e0 /
+      data fdbcs(  7, 6) /   -.0000000666 0e0 /
+      data fdbcs(  8, 6) /   -.0000002863 2e0 /
+      data fdbcs(  9, 6) /    .0000000098 7e0 /
+      data fdbcs( 10, 6) /    .0000000250 2e0 /
+      data fdbcs( 11, 6) /   -.0000000043 8e0 /
+      data fdbcs( 12, 6) /   -.0000000022 7e0 /
+      data fdbcs( 13, 6) /    .0000000011 2e0 /
+      data fdbcs( 14, 6) /    .0000000000 40e0 /
+      data fdbcs( 15, 6) /   -.0000000001 9e0 /
+      data fdbcs( 16, 6) /    .0000000000 60e0 /
+      data fdbcs( 17, 6) /    .0000000000 14e0 /
+c
+c series for f25s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   4.95e-11
+c                                         log weighted error  10.31
+c                               significant figures required  10.79
+c                                    decimal places required  10.91
+c
+      data fdscs(  1, 7) /   6.0776352655 5e0 /
+      data fdscs(  2, 7) /   -.2553089335 90e0 /
+      data fdscs(  3, 7) /    .0250962593 28e0 /
+      data fdscs(  4, 7) /   -.0034359138 78e0 /
+      data fdscs(  5, 7) /    .0005628501 70e0 /
+      data fdscs(  6, 7) /   -.0001033045 44e0 /
+      data fdscs(  7, 7) /    .0000205192 58e0 /
+      data fdscs(  8, 7) /   -.0000043206 22e0 /
+      data fdscs(  9, 7) /    .0000009516 32e0 /
+      data fdscs( 10, 7) /   -.0000002172 43e0 /
+      data fdscs( 11, 7) /    .0000000510 64e0 /
+      data fdscs( 12, 7) /   -.0000000122 98e0 /
+      data fdscs( 13, 7) /    .0000000030 23e0 /
+      data fdscs( 14, 7) /   -.0000000007 56e0 /
+      data fdscs( 15, 7) /    .0000000001 92e0 /
+      data fdscs( 16, 7) /   -.0000000000 495e0 /
+c
+c series for f25m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   4.15e-11
+c                                         log weighted error  10.38
+c                               significant figures required  10.96
+c                                    decimal places required  11.11
+c
+      data fdmcs(  1, 7) /   4.4112295532 9e0 /
+      data fdmcs(  2, 7) /  -2.6064119236 9e0 /
+      data fdmcs(  3, 7) /   1.4541147675 7e0 /
+      data fdmcs(  4, 7) /   -.7348922045 75e0 /
+      data fdmcs(  5, 7) /    .3485252773 58e0 /
+      data fdmcs(  6, 7) /   -.1579050700 24e0 /
+      data fdmcs(  7, 7) /    .0690927288 72e0 /
+      data fdmcs(  8, 7) /   -.0294110574 69e0 /
+      data fdmcs(  9, 7) /    .0122427694 58e0 /
+      data fdmcs( 10, 7) /   -.0050026362 88e0 /
+      data fdmcs( 11, 7) /    .0020124730 44e0 /
+      data fdmcs( 12, 7) /   -.0007988327 90e0 /
+      data fdmcs( 13, 7) /    .0003134423 09e0 /
+      data fdmcs( 14, 7) /   -.0001217494 74e0 /
+      data fdmcs( 15, 7) /    .0000468708 54e0 /
+      data fdmcs( 16, 7) /   -.0000179017 70e0 /
+      data fdmcs( 17, 7) /    .0000067890 45e0 /
+      data fdmcs( 18, 7) /   -.0000025582 83e0 /
+      data fdmcs( 19, 7) /    .0000009584 71e0 /
+      data fdmcs( 20, 7) /   -.0000003572 13e0 /
+      data fdmcs( 21, 7) /    .0000001324 92e0 /
+      data fdmcs( 22, 7) /   -.0000000489 26e0 /
+      data fdmcs( 23, 7) /    .0000000179 94e0 /
+      data fdmcs( 24, 7) /   -.0000000065 93e0 /
+      data fdmcs( 25, 7) /    .0000000024 07e0 /
+      data fdmcs( 26, 7) /   -.0000000008 76e0 /
+      data fdmcs( 27, 7) /    .0000000003 17e0 /
+      data fdmcs( 28, 7) /   -.0000000001 15e0 /
+      data fdmcs( 29, 7) /    .0000000000 415e0 /
+c
+c series for f25b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   4.96e-11
+c                                         log weighted error  10.30
+c                               significant figures required   9.92
+c                                    decimal places required  10.91
+c
+      data fdbcs(  1, 7) /    .7721541990 3e0 /
+      data fdbcs(  2, 7) /    .1348979022 5e0 /
+      data fdbcs(  3, 7) /    .0353565117 1e0 /
+      data fdbcs(  4, 7) /    .0009476728 1e0 /
+      data fdbcs(  5, 7) /    .0001277291 1e0 /
+      data fdbcs(  6, 7) /    .0000007218 8e0 /
+      data fdbcs(  7, 7) /   -.0000009206 8e0 /
+      data fdbcs(  8, 7) /   -.0000001154 7e0 /
+      data fdbcs(  9, 7) /    .0000000580 6e0 /
+      data fdbcs( 10, 7) /    .0000000047 4e0 /
+      data fdbcs( 11, 7) /   -.0000000060 8e0 /
+      data fdbcs( 12, 7) /    .0000000005 1e0 /
+      data fdbcs( 13, 7) /    .0000000006 5e0 /
+      data fdbcs( 14, 7) /   -.0000000002 4e0 /
+      data fdbcs( 15, 7) /   -.0000000000 28e0 /
+      data fdbcs( 16, 7) /    .0000000000 49e0 /
+c
+c series for f30s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   2.87e-11
+c                                         log weighted error  10.54
+c                               significant figures required  11.29
+c                                    decimal places required  11.14
+c
+      data fdscs(  1, 8) /  11.2341939777e0 /
+      data fdscs(  2, 8) /   -.3495789894 02e0 /
+      data fdscs(  3, 8) /    .0291275872 60e0 /
+      data fdscs(  4, 8) /   -.0035525827 96e0 /
+      data fdscs(  5, 8) /    .0005319821 79e0 /
+      data fdscs(  6, 8) /   -.0000906823 61e0 /
+      data fdscs(  7, 8) /    .0000169110 38e0 /
+      data fdscs(  8, 8) /   -.0000033697 23e0 /
+      data fdscs(  9, 8) /    .0000007066 16e0 /
+      data fdscs( 10, 8) /   -.0000001543 15e0 /
+      data fdscs( 11, 8) /    .0000000348 35e0 /
+      data fdscs( 12, 8) /   -.0000000080 83e0 /
+      data fdscs( 13, 8) /    .0000000019 20e0 /
+      data fdscs( 14, 8) /   -.0000000004 65e0 /
+      data fdscs( 15, 8) /    .0000000001 14e0 /
+      data fdscs( 16, 8) /   -.0000000000 287e0 /
+c
+c series for f30m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   2.33e-11
+c                                         log weighted error  10.63
+c                               significant figures required  11.47
+c                                    decimal places required  11.38
+c
+      data fdmcs(  1, 8) /   7.1719763668 6e0 /
+      data fdmcs(  2, 8) /  -4.8571185185 4e0 /
+      data fdmcs(  3, 8) /   2.9113197795 3e0 /
+      data fdmcs(  4, 8) /  -1.5684642300 9e0 /
+      data fdmcs(  5, 8) /    .7869998941 23e0 /
+      data fdmcs(  6, 8) /   -.3749544936 90e0 /
+      data fdmcs(  7, 8) /    .1716880079 87e0 /
+      data fdmcs(  8, 8) /   -.0761760305 76e0 /
+      data fdmcs(  9, 8) /    .0329421355 00e0 /
+      data fdmcs( 10, 8) /   -.0139450242 81e0 /
+      data fdmcs( 11, 8) /    .0057976754 88e0 /
+      data fdmcs( 12, 8) /   -.0023734227 03e0 /
+      data fdmcs( 13, 8) /    .0009586830 99e0 /
+      data fdmcs( 14, 8) /   -.0003827164 22e0 /
+      data fdmcs( 15, 8) /    .0001512084 34e0 /
+      data fdmcs( 16, 8) /   -.0000591925 75e0 /
+      data fdmcs( 17, 8) /    .0000229809 46e0 /
+      data fdmcs( 18, 8) /   -.0000088559 00e0 /
+      data fdmcs( 19, 8) /    .0000033897 35e0 /
+      data fdmcs( 20, 8) /   -.0000012895 26e0 /
+      data fdmcs( 21, 8) /    .0000004878 14e0 /
+      data fdmcs( 22, 8) /   -.0000001835 85e0 /
+      data fdmcs( 23, 8) /    .0000000687 64e0 /
+      data fdmcs( 24, 8) /   -.0000000256 43e0 /
+      data fdmcs( 25, 8) /    .0000000095 24e0 /
+      data fdmcs( 26, 8) /   -.0000000035 23e0 /
+      data fdmcs( 27, 8) /    .0000000012 99e0 /
+      data fdmcs( 28, 8) /   -.0000000004 77e0 /
+      data fdmcs( 29, 8) /    .0000000001 74e0 /
+      data fdmcs( 30, 8) /   -.0000000000 638e0 /
+      data fdmcs( 31, 8) /    .0000000000 232e0 /
+c
+c series for f30b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   5.48e-11
+c                                         log weighted error  10.26
+c                               significant figures required   9.88
+c                                    decimal places required  10.85
+c
+      data fdbcs(  1, 8) /    .7554309639 2e0 /
+      data fdbcs(  2, 8) /    .1734863060 3e0 /
+      data fdbcs(  3, 8) /    .0481579481 5e0 /
+      data fdbcs(  4, 8) /    .0027149874 6e0 /
+      data fdbcs(  5, 8) /    .0003217541 9e0 /
+      data fdbcs(  6, 8) /   -.0000071412 9e0 /
+      data fdbcs(  7, 8) /   -.0000009676 6e0 /
+      data fdbcs(  8, 8) /    .0000001160 1e0 /
+      data fdbcs(  9, 8) /    .0000000450 4e0 /
+      data fdbcs( 10, 8) /   -.0000000103 6e0 /
+      data fdbcs( 11, 8) /   -.0000000025 9e0 /
+      data fdbcs( 12, 8) /    .0000000014 6e0 /
+      data fdbcs( 13, 8) /   -.0000000000 04e0 /
+      data fdbcs( 14, 8) /   -.0000000001 8e0 /
+      data fdbcs( 15, 8) /    .0000000000 54e0 /
+c
+c series for f35s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   7.30e-11
+c                                         log weighted error  10.14
+c                               significant figures required  11.18
+c                                    decimal places required  10.72
+c
+      data fdscs(  1, 9) /  22.1653046970e0 /
+      data fdscs(  2, 9) /   -.5086526539 69e0 /
+      data fdscs(  3, 9) /    .0358871327 23e0 /
+      data fdscs(  4, 9) /   -.0038993959 73e0 /
+      data fdscs(  5, 9) /    .0005339699 07e0 /
+      data fdscs(  6, 9) /   -.0000845770 08e0 /
+      data fdscs(  7, 9) /    .0000148157 47e0 /
+      data fdscs(  8, 9) /   -.0000027951 08e0 /
+      data fdscs(  9, 9) /    .0000005582 82e0 /
+      data fdscs( 10, 9) /   -.0000001166 84e0 /
+      data fdscs( 11, 9) /    .0000000253 06e0 /
+      data fdscs( 12, 9) /   -.0000000056 60e0 /
+      data fdscs( 13, 9) /    .0000000012 99e0 /
+      data fdscs( 14, 9) /   -.0000000003 05e0 /
+      data fdscs( 15, 9) /    .0000000000 730e0 /
+c
+c series for f35m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   3.73e-11
+c                                         log weighted error  10.43
+c                               significant figures required  11.56
+c                                    decimal places required  11.18
+c
+      data fdmcs(  1, 9) /  12.6701567503 6e0 /
+      data fdmcs(  2, 9) /  -9.4636920164 00e0 /
+      data fdmcs(  3, 9) /   6.0480654287 69e0 /
+      data fdmcs(  4, 9) /  -3.4530339209 92e0 /
+      data fdmcs(  5, 9) /   1.8250457226 69e0 /
+      data fdmcs(  6, 9) /   -.9112870648 186e0 /
+      data fdmcs(  7, 9) /    .4354953493 280e0 /
+      data fdmcs(  8, 9) /   -.2009635658 884e0 /
+      data fdmcs(  9, 9) /    .0901210173 526e0 /
+      data fdmcs( 10, 9) /   -.0394612435 160e0 /
+      data fdmcs( 11, 9) /    .0169328410 948e0 /
+      data fdmcs( 12, 9) /   -.0071407017 340e0 /
+      data fdmcs( 13, 9) /    .0029661522 591e0 /
+      data fdmcs( 14, 9) /   -.0012158829 523e0 /
+      data fdmcs( 15, 9) /    .0004926051 670e0 /
+      data fdmcs( 16, 9) /   -.0001975006 123e0 /
+      data fdmcs( 17, 9) /    .0000784453 353e0 /
+      data fdmcs( 18, 9) /   -.0000308953 181e0 /
+      data fdmcs( 19, 9) /    .0000120749 876e0 /
+      data fdmcs( 20, 9) /   -.0000046864 594e0 /
+      data fdmcs( 21, 9) /    .0000018072 775e0 /
+      data fdmcs( 22, 9) /   -.0000006928 714e0 /
+      data fdmcs( 23, 9) /    .0000002641 967e0 /
+      data fdmcs( 24, 9) /   -.0000001002 365e0 /
+      data fdmcs( 25, 9) /    .0000000378 535e0 /
+      data fdmcs( 26, 9) /   -.0000000142 333e0 /
+      data fdmcs( 27, 9) /    .0000000053 303e0 /
+      data fdmcs( 28, 9) /   -.0000000019 887e0 /
+      data fdmcs( 29, 9) /    .0000000007 393e0 /
+      data fdmcs( 30, 9) /   -.0000000002 739e0 /
+      data fdmcs( 31, 9) /    .0000000001 011e0 /
+      data fdmcs( 32, 9) /   -.0000000000 372e0 /
+c
+c series for f35b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   5.48e-11
+c                                         log weighted error  10.26
+c                               significant figures required   9.91
+c                                    decimal places required  10.85
+c
+      data fdbcs(  1, 9) /    .7665702804 4e0 /
+      data fdbcs(  2, 9) /    .2216671315 0e0 /
+      data fdbcs(  3, 9) /    .0657600143 6e0 /
+      data fdbcs(  4, 9) /    .0058625466 3e0 /
+      data fdbcs(  5, 9) /    .0006969431 7e0 /
+      data fdbcs(  6, 9) /   -.0000101109 1e0 /
+      data fdbcs(  7, 9) /   -.0000000660 4e0 /
+      data fdbcs(  8, 9) /    .0000002536 7e0 /
+      data fdbcs(  9, 9) /   -.0000000021 4e0 /
+      data fdbcs( 10, 9) /   -.0000000132 6e0 /
+      data fdbcs( 11, 9) /    .0000000015 0e0 /
+      data fdbcs( 12, 9) /    .0000000009 5e0 /
+      data fdbcs( 13, 9) /   -.0000000003 4e0 /
+      data fdbcs( 14, 9) /   -.0000000000 30e0 /
+      data fdbcs( 15, 9) /    .0000000000 54e0 /
+c
+c series for f40s    on the interval  0.00000e-01 to  2.71828e+00
+c                                        with weighted error   4.91e-11
+c                                         log weighted error  10.31
+c                               significant figures required  11.67
+c                                    decimal places required  10.90
+c
+      data fdscs(  1,10) /  46.3350918683 9e0 /
+      data fdscs(  2,10) /   -.7807026145 628e0 /
+      data fdscs(  3,10) /    .0465789224 743e0 /
+      data fdscs(  4,10) /   -.0045080435 976e0 /
+      data fdscs(  5,10) /    .0005646381 627e0 /
+      data fdscs(  6,10) /   -.0000831331 627e0 /
+      data fdscs(  7,10) /    .0000136850 757e0 /
+      data fdscs(  8,10) /   -.0000024454 133e0 /
+      data fdscs(  9,10) /    .0000004654 205e0 /
+      data fdscs( 10,10) /   -.0000000931 320e0 /
+      data fdscs( 11,10) /    .0000000194 128e0 /
+      data fdscs( 12,10) /   -.0000000041 863e0 /
+      data fdscs( 13,10) /    .0000000009 290e0 /
+      data fdscs( 14,10) /   -.0000000002 113e0 /
+      data fdscs( 15,10) /    .0000000000 491e0 /
+c
+c series for f40m    on the interval  1.00000e+00 to  4.00000e+00
+c                                        with weighted error   6.13e-11
+c                                         log weighted error  10.21
+c                               significant figures required  11.66
+c                                    decimal places required  10.97
+c
+      data fdmcs(  1,10) /  24.0980879457 2e0 /
+      data fdmcs(  2,10) / -19.2973238247 9e0 /
+      data fdmcs(  3,10) /  13.0411335433 2e0 /
+      data fdmcs(  4,10) /  -7.8442177530 69e0 /
+      data fdmcs(  5,10) /   4.3484777309 21e0 /
+      data fdmcs(  6,10) /  -2.2682065310 65e0 /
+      data fdmcs(  7,10) /   1.1283901506 72e0 /
+      data fdmcs(  8,10) /   -.5404257776 187e0 /
+      data fdmcs(  9,10) /    .2508755478 873e0 /
+      data fdmcs( 10,10) /   -.1134573260 212e0 /
+      data fdmcs( 11,10) /    .0501830996 299e0 /
+      data fdmcs( 12,10) /   -.0217756382 802e0 /
+      data fdmcs( 13,10) /    .0092927921 972e0 /
+      data fdmcs( 14,10) /   -.0039080375 664e0 /
+      data fdmcs( 15,10) /    .0016223028 722e0 /
+      data fdmcs( 16,10) /   -.0006656886 564e0 /
+      data fdmcs( 17,10) /    .0002703262 001e0 /
+      data fdmcs( 18,10) /   -.0001087475 762e0 /
+      data fdmcs( 19,10) /    .0000433751 765e0 /
+      data fdmcs( 20,10) /   -.0000171663 866e0 /
+      data fdmcs( 21,10) /    .0000067455 409e0 /
+      data fdmcs( 22,10) /   -.0000026333 256e0 /
+      data fdmcs( 23,10) /    .0000010217 923e0 /
+      data fdmcs( 24,10) /   -.0000003942 636e0 /
+      data fdmcs( 25,10) /    .0000001513 391e0 /
+      data fdmcs( 26,10) /   -.0000000578 112e0 /
+      data fdmcs( 27,10) /    .0000000219 841e0 /
+      data fdmcs( 28,10) /   -.0000000083 247e0 /
+      data fdmcs( 29,10) /    .0000000031 398e0 /
+      data fdmcs( 30,10) /   -.0000000011 798e0 /
+      data fdmcs( 31,10) /    .0000000004 418e0 /
+      data fdmcs( 32,10) /   -.0000000001 648e0 /
+      data fdmcs( 33,10) /    .0000000000 613e0 /
+c
+c series for f40b    on the interval  0.00000e-01 to  2.50000e-01
+c                                        with weighted error   1.68e-11
+c                                         log weighted error  10.77
+c                               significant figures required  10.47
+c                                    decimal places required  11.36
+c
+      data fdbcs(  1,10) /    .8056894147 6e0 /
+      data fdbcs(  2,10) /    .2834447403 7e0 /
+      data fdbcs(  3,10) /    .0903522185 7e0 /
+      data fdbcs(  4,10) /    .0111606016 1e0 /
+      data fdbcs(  5,10) /    .0014164744 6e0 /
+      data fdbcs(  6,10) /    .0000100892 5e0 /
+      data fdbcs(  7,10) /    .0000022449 5e0 /
+      data fdbcs(  8,10) /    .0000001741 4e0 /
+      data fdbcs(  9,10) /   -.0000000486 2e0 /
+      data fdbcs( 10,10) /   -.0000000054 1e0 /
+      data fdbcs( 11,10) /    .0000000035 1e0 /
+      data fdbcs( 12,10) /   -.0000000000 82e0 /
+      data fdbcs( 13,10) /   -.0000000003 1e0 /
+      data fdbcs( 14,10) /    .0000000000 81e0 /
+      data fdbcs( 15,10) /    .0000000000 16e0 /
+c
+      data nscs / 21, 20, 19, 18, 17, 17, 16, 16, 15, 15 /
+      data nmcs / 21, 22, 24, 25, 26, 28, 29, 31, 32, 33 /
+      data nbcs / 26, 22, 20, 18, 18, 17, 16, 15, 15, 15 /
+c
+      data exp1, alfsml, alfbig, alfmax / 13*0.0 /
+c
+      if (exp1.ne.0.0) go to 20
+      exp1 = 2.0/exp(1.0)
+c
+      alfsml = dlog (r1mach(1)/0.8863)
+      alfbig = dexp (dmin1 (-dlog(r1mach(1)),dlog(r1mach(2)))-log(2.0))
+c
+      alfmax(1) = r1mach(2)
+      alfmax(2) = r1mach(2)
+      do ndx=3,10
+        xk = (ndx-2)*0.5
+        alfmax(ndx) = r1mach(2)**(1.0/(xk+1.0)) * 0.99
+      enddo
+c
+ 20   ndx = (xnu+1.0)*2.0 + 0.01
+      fd = 0.0
+      if (alpha.lt.alfsml) return
+c
+      if (ndx.ne.2) go to 30
+c
+c calculate the fermi-dirac function for xnu = 0
+c
+      if (alpha.lt.10.0) fd = alnrel (exp(alpha))
+      if (alpha.ge.10.0) fd = alpha + alnrel (exp(-alpha))
+      return
+c
+ 30   if (alpha.ge.1.0) go to 40
+      expalf = exp (alpha)
+      fd = expalf * csevl (expalf*exp1-1.0, fdscs(1,ndx), nscs(ndx))
+      return
+c
+ 40   if (alpha.ge.4.0) go to 50
+      fd = alpha**(xnu+1.0) * csevl ((alpha-2.5)/1.5, fdmcs(1,ndx),
+     1  nmcs(ndx))
+      return
+c
+ 50   alfi = 0.0
+      if (alpha.lt.alfbig) alfi = 1.0/alpha
+      fd = alpha**(xnu+1.0) * csevl ((alfi-0.125)*8.0, fdbcs(1,ndx),
+     1  nbcs(ndx))
+      return
+c
+      end
+ 
+
+      function alnrel(x)
+      implicit real*8 (a-h,o-z)
+c
+c ****  description
+c
+c     alnrel(x) evaluates ln(1+x) accurately in the sense of relative
+c     error when x is very small.  this routine must be used to
+c     maintain relative error accuracy whenever x is small and
+c     accurately known.
+c
+c series for alnr       on the interval -3.75000d-01 to  3.75000d-01
+c                                        with weighted error   1.93e-17
+c                                         log weighted error  16.72
+c                               significant figures required  16.44
+c                                    decimal places required  17.40
+
+
+      dimension alnrcs(23)
+      data alnrcs( 1) /   1.0378693562 743770e0 /
+      data alnrcs( 2) /   -.1336430150 4908918e0 /
+      data alnrcs( 3) /    .0194082491 35520563e0 /
+      data alnrcs( 4) /   -.0030107551 12753577e0 /
+      data alnrcs( 5) /    .0004869461 47971548e0 /
+      data alnrcs( 6) /   -.0000810548 81893175e0 /
+      data alnrcs( 7) /    .0000137788 47799559e0 /
+      data alnrcs( 8) /   -.0000023802 21089435e0 /
+      data alnrcs( 9) /    .0000004164 04162138e0 /
+      data alnrcs(10) /   -.0000000735 95828378e0 /
+      data alnrcs(11) /    .0000000131 17611876e0 /
+      data alnrcs(12) /   -.0000000023 54670931e0 /
+      data alnrcs(13) /    .0000000004 25227732e0 /
+      data alnrcs(14) /   -.0000000000 77190894e0 /
+      data alnrcs(15) /    .0000000000 14075746e0 /
+      data alnrcs(16) /   -.0000000000 02576907e0 /
+      data alnrcs(17) /    .0000000000 00473424e0 /
+      data alnrcs(18) /   -.0000000000 00087249e0 /
+      data alnrcs(19) /    .0000000000 00016124e0 /
+      data alnrcs(20) /   -.0000000000 00002987e0 /
+      data alnrcs(21) /    .0000000000 00000554e0 /
+      data alnrcs(22) /   -.0000000000 00000103e0 /
+      data alnrcs(23) /    .0000000000 00000019e0 /
+      data nlnrel, xmin /0, 0./
+c
+c **** first executable statement  alnrel
+c
+      if (nlnrel.ne.0) go to 10
+      nlnrel = inits (alnrcs, 23, 0.1*r1mach(3))
+      xmin = -1.0 + sqrt(r1mach(4))
+c
+ 10   continue
+ 
+c
+      if (abs(x).le.0.375) alnrel = x*(1. -
+     1  x*csevl (x/.375, alnrcs, nlnrel))
+      if (abs(x).gt.0.375) alnrel = dlog (1.0+x)
+c
+      return
+      end
+
+      function inits(os,nos,eta)
+      implicit real*8 (a-h,o-z)
+      dimension os(nos)
+c 
+c .... initialize,orthogonal series,special function
+c      initializes an orthogonal series so that it defines the
+c     number of terms to carry in the series to meet a specified
+c     error.
+c
+c     input arguments --
+c     os     array of nos coefficients in an orthogonal series.
+c     nos    number of coefficients in os.
+c     eta    requested accuracy of series.
+
+
+      err = 0.
+      do ii=1,nos
+        i = nos + 1 - ii
+        err = err + abs(os(i))
+        if (err.gt.eta) go to 20
+      enddo
+
+ 20   continue
+      inits = i
+c
+      return
+      end
+
+
+      function csevl(x,cs,n)
+      implicit real*8 (a-h,o-z)
+c
+c ....description:
+c     evaluate the n-term chebyshev series cs at x.  adapted from
+c     r. broucke, algorithm 446, c.a.c.m., 16, 254 (1973). also see fox
+c     and parker, chebyshev polynomials in numerical analysis, oxford press
+c     page 56.
+c
+c     input arguments --
+c     x    value at which the series is to be evaluated.
+c     cs   array of n terms of a chebyshev series.  in eval-
+c          uating cs, only half the first coefficient is summed.
+c     n    number of terms in array cs.
+c     
+       dimension cs(1)
+
+       b1=0.
+       b0=0.
+       twox=2.*x
+       do i=1,n
+          b2=b1
+          b1=b0
+          ni=n+1-i
+          b0=twox*b1-b2+cs(ni)
+       enddo
+c
+       csevl = 0.5 * (b0-b2)
+c
+       return
+      end
+
+
+
+      function r1mach(i)
+      implicit real*8 (a-h,o-z)
+      real rmach(5)
+
+c  single-precision machine constants
+c
+c  machine constants for the cray 1, cray x-mp
+c  smallest useable real number
+c      data rmach(1) / 200034000000000000000b /
+c  largest useable real number
+c      data rmach(2) / 577767777777777777776b /
+c  smallest eps such that 1.+eps .ne. 1.
+c      data rmach(3) / 377224000000000000000b /
+c  2.*rmach(3)
+c      data rmach(4) / 377234000000000000000b /
+c  log10(2)
+c      data rmach(5) / 377774642023241175720b /
+
+
+c
+c for  HP 730
+c
+
+      DATA RMACH(1) / Z'00800000' /
+      DATA RMACH(2) / Z'7F7FFFFF' /
+      DATA RMACH(3) / Z'33800000' /
+      DATA RMACH(4) / Z'34000000' /
+      DATA RMACH(5) / Z'3E9A209B' /
+ 
+
+      r1mach = rmach(i)
+
+      return
+      end
+
+      
+C     ALGORITHM 745, COLLECTED ALGORITHMS FROM ACM.
 C      THIS WORK PUBLISHED IN TRANSACTIONS ON MATHEMATICAL SOFTWARE,
 C      VOL. 21, NO. 3, September, 1995, P.  221-232.
 C
@@ -102,10 +1165,21 @@ C
 *DP  &             NEGEXP = -95)
 *
 *SP     REAL             BETA, EPS, XBIG, XMIN, XMAX
-        DOUBLE PRECISION BETA, EPS, XBIG, XMIN, XMAX
+        DOUBLE PRECISION BETA, EPS, XBIG, XMIN, XMAX, GAMMA
         PARAMETER (BETA = TWO, EPS = BETA**MACHEP, XMIN = BETA**MINEXP,
      &             XMAX = (BETA**(MAXEXP-1) -
-     &                                    BETA**(MAXEXP+NEGEXP-1))*BETA)
+     &       BETA**(MAXEXP+NEGEXP-1))*BETA)
+
+        
+        if (abs(ORD*2-int(ORD*2+0.1)) .lt. 1e-5 .and.
+     &       ORD .ge. -0.5 .and. ORD .le. 4.0) then
+           IERR = 0
+           call fdm(ORD, X, fd)           
+           CALL GAMMAC(ORD+1, EPS, XMAX, GAMMA, IERR)
+           fd = fd/GAMMA
+           IERR = 0
+           return
+        endif
         XBIG = LOG(XMAX)
 * ----------------------------------------------------------------------
         IERR = 0
