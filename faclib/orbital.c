@@ -4566,12 +4566,12 @@ double BoundFactor(double e, double eth, double de) {
 
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
 			   double e0, double u, double zn, int md) {
-  return FreeElectronIntegral(pot->maxrp, 0, pot->ips, pot->rad,
+  return FreeElectronIntegral(0, pot->ips, pot->rad,
 			      vt, pot->dr_drho, pot->EPS, e0, pot->tps,
 			      pot->eth, pot->ewd, u, zn, md, &pot->aps);
 }
 
-double FreeElectronIntegral(int maxrp, int i0, int i1, double *rad,
+double FreeElectronIntegral(int i0, int i1, double *rad,
 			    double *vt, double *drdx,
 			    double *eps, double eth, double tps,
 			    double eref, double ewd,

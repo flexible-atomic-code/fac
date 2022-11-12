@@ -105,7 +105,7 @@ int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
 			   double e0, double u, double zn, int md);
-double FreeElectronIntegral(int maxrp, int i0, int i1, double *rad,
+double FreeElectronIntegral(int i0, int i1, double *rad,
 			    double *vt, double *drdx,
 			    double *eps, double eth, double tps,
 			    double eref, double ewd,

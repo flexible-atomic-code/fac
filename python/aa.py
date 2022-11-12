@@ -146,21 +146,33 @@ class AA:
         pf = '%s/%s%s'%(self.dd,self.pref,asym)
         self.aa1p(asym, self.d, self.t, pf)
 
-    def rdos(self, pref, nm=0):
+    def rdos(self, pref, nm=0, emin=-1E31, emax=1E31, emde=0.0, bs=1.0):
         d = np.loadtxt('%s.dos'%pref, unpack=1)
-        if nm <= 0:
+        if nm <= 0 and emin < -1E30 and emax > 1E30:
             return np.array((d[1],d[3]/d[2]))
+        
         de = self.rpot(pref, header='ewd')
+        if emde > 0:
+            emax = emde*de
         c = self.rpot(pref, cfg='')
-        w = np.where(c[1] >= nm)[0]
-        if len(w) == 0:
-            return np.array((d[1],d[3]/d[2]))
-        else:
-            xb,yb = rfac.convd(c[-1], c[3], de)
-            x = np.arange(xb[0], d[1][-1], d[2][0])
+        if nm > 0:
+            w = np.where(c[1] >= nm)[0]
+            c = c[:,w]
+        if emin > -1E30:
+            w = np.where(c[-1] >= emin)[0]
+            c = c[:,w]
+        if emax < 1E30:
+            w = np.where(c[-1] <= emax)[0]
+            c = c[:,w]
+        if len(c) > 0:    
+            xb,yb = rfac.convd(c[-1], c[3], de*bs)
+            x = np.arange(xb[0], min(emax,d[1][-1]), min(d[2][0],xb[1]-xb[0]))
             y0 = np.interp(x, xb, yb)
             y1 = np.interp(x, d[1], d[3]/d[2])
             return np.array((x, y0+y1))
+        else:
+            w = where((d[1] >= emin)&(d[1] <= emax))[0]
+            return np.array((d[1][w],d[3][w]/d[2][w]))
         
     def rden(self, pref, header=None):
         fn = '%s.den'%pref
@@ -251,7 +263,7 @@ class AA:
         rr = list(rmin*np.exp(xr*h))
         r = list(r)        
         da = util.UVIP3P(r, list(d[4]+d[9]), rr);
-        df = util.UVIP3P(r, list(d[4]+d[7]), rr);
+        df = util.UVIP3P(r, list(d[7]), rr);
         db = util.UVIP3P(r, list(d[10]), rr);
         dp = util.UVIP3P(r, list(d[15]), rr)
         with open(ofn, 'w') as f:
