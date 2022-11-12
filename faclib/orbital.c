@@ -4419,6 +4419,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 
 double XCPotential(double tx, double n, int md) {
   double p, r, rs, ti, tis, t, t2, t3, t4, at, bt, ct, dt, et;
+
   const double a[6] = {0.610887, 3.04363, -0.09227, 1.7035, 8.31051, 5.1105};
   const double b[5] = {0.283997, 48.932154, 0.370919, 61.095357, 0.871837};
   const double c[3] = {0.870089, 0.193077, 2.414644};
@@ -4447,7 +4448,18 @@ double XCPotential(double tx, double n, int md) {
       p /= 1 + f[3]*t2 + f[4]*t4;
       return p;
     }
-  case 2:
+  case 2:    
+    r = pow(3/(FOUR_PI*n), ONETHIRD);
+    t = n*EPS3;
+    t2 = n - t;
+    t3 = n + t;
+    p = (XCPotential(tx, t3, 12) - XCPotential(tx, t2, 12))/(2*t);
+    p = p*n/r + 1.3333333333333*XCPotential(tx, n, 22);
+    p /= 0.42356543;
+    return p;
+  case 12:
+  case 22:
+  case 32:
     if (tx > 0) {
       t = 2*tx/pow(3*PI*PI*n, TWOTHIRD);
     } else {
@@ -4486,8 +4498,14 @@ double XCPotential(double tx, double n, int md) {
       ct = (c[0] + c[1]*exp(-c[2]/t))*et;
     }
     rs = sqrt(r);  
-    p = (PI/r)*(at + bt*rs + ct*r)/(1 + dt*rs + et*r);
-    return p;
+    p = (at + bt*rs + ct*r)/(1 + dt*rs + et*r);
+    if (md == 12) {
+      return p;
+    } else if (md == 22) {
+      return p/r;
+    } else {
+      return (PI/r)*p;
+    }
   default:
     return 0.0;
   }
