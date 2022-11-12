@@ -3984,7 +3984,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char pfn[1024], dfn[1024], sfn[1024];  
   int it, nm, ik, k, k0, k1, idx;
   double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, vc;
-  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf;
+  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex;
   ORBITAL *orb;
 
   _aaztol = ztol;
@@ -4217,6 +4217,15 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       _dwork13[k] = 0.0;
     }
   }
+  if (potential->vxm == 2) {
+    for (k = 0; k <= potential->ips; k++) {
+      r = potential->rad[k];
+      b = _dwork14[k]*potential->dr_drho[k];
+      c = _dwork14[k]/(FOUR_PI*r*r);
+      _phase[k] = -XCPotential(potential->tps, c, 22)*b;
+    }
+    ex = Simpson(_phase, 0, potential->ips)*HARTREE_EV;
+  }
   k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b);
   for (k = 0; k <= potential->ips; k++) {
     r = potential->rad[k];
@@ -4227,18 +4236,20 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     _dwork8[k] = b*_dwork5[k];
     _dwork9[k] = b*_dwork7[k];
     _dwork11[k] = -b*(a/r);
-    _dwork14[k] = b*_dwork10[k]/r;
+    _dphase[k] = b*_dwork10[k]/r;
     _dwork16[k] = -b*_dwork15[k]/r;
   }
   a = HARTREE_EV;
   x = Simpson(_dwork8, 0, potential->ips)*a;
   y = Simpson(_dwork9, 0, potential->ips)*a;
-  u = 0.5*Simpson(_dwork14, 0, potential->ips)*a;
+  u = 0.5*Simpson(_dphase, 0, potential->ips)*a;
   r = Simpson(_dwork11, 0, potential->ips)*a;
-  b = 0.75*Simpson(_dwork16, 0, potential->ips)*a;
   e = Simpson(_xk, 0, potential->ips)*a;
   c = Simpson(_dwork17, 0, potential->ips)*a;
-  
+  b = Simpson(_dwork16, 0, potential->ips)*a;
+  if (potential->vxm != 2) {
+    ex = b*0.75;
+  }
   fprintf(f, "#   d0: %15.8E\n", d0);
   fprintf(f, "#   dn: %15.8E\n", d);
   fprintf(f, "#    T: %15.8E\n", t);
@@ -4272,11 +4283,12 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   ec: %15.8E\n", c);
   fprintf(f, "#   ts: %15.8E\n", y);
   fprintf(f, "#   ve: %15.8E\n", u);
-  fprintf(f, "#   vx: %15.8E\n", b);
+  fprintf(f, "#   vx: %15.8E\n", ex);
+  fprintf(f, "#   ux: %15.8E\n", b);
   fprintf(f, "#   vn: %15.8E\n", r);
-  fprintf(f, "#   vf: %15.8E\n", u+r+b+x-y);
+  fprintf(f, "#   vf: %15.8E\n", u+r+ex+x-y);
   fprintf(f, "#   ep: %15.8E\n", e);
-  fprintf(f, "#   vp: %15.8E\n", u+r+b+2*e);
+  fprintf(f, "#   vp: %15.8E\n", u+r+2*e+3*(b-ex));
   fprintf(f, "#  rsf: %15.8E\n", SCRSF());
   fprintf(f, "#  rbf: %15.8E\n", SCRBF());
   fprintf(f, "#  bqp: %15.8E\n", SCBQP());
