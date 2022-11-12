@@ -4149,27 +4149,39 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       }
     }
   }
-  k0 = k1-10;
+  zb0 = FreeElectronIntegral(0, potential->ips, potential->rad,
+			     potential->VT[0], potential->dr_drho,
+			     _dwork2, potential->eth, potential->tps,
+			     potential->eth, 0.0, u, 0.0, 2, &potential->aps);
+  k0 = k1-3;
   k0 = Max(1, k0);
   b = 0.0;
   zb1 = 0.0;
+  zb0 = 0.0;
   for (k = k0; k <= k1; k++) {
     x = potential->rad[k];
     x *= x;
-    a = (_dwork4[k]-_dwork2[k])/x;
+    a = (_dwork4[k] + potential->EPS[k])/x;
     b += a;
-    zb1 += (_dwork4[k]+potential->EPS[k])/x;
+    zb0 += _dwork2[k]/x;
   }
   a = 1.+k1-k0;
   b /= a;
-  zb1 = (zb1/a)*pow(potential->rps,3)/3.0;  
+  zb1 = b*pow(potential->rps,3)/3.0;
+  zb0 /= a;
+  if (zb0 > 0) {
+    a = b/zb0;
+    for (k = 0; k <= potential->ips; k++) {
+      _dwork2[k] *= a;
+    }
+  }
   for (k = 0; k <= potential->ips; k++) {
-    x = potential->rad[k];
-    x *= x;
-    a = b*x;
-    a = Min(a, _dwork4[k]-_dwork2[k]);
-    _dwork2[k] += a;
-    _dwork1[k] -= a;
+    _dwork14[k] = _dwork4[k] + potential->EPS[k];
+    _dwork1[k] = _dwork14[k] - _dwork2[k];
+    if (_dwork1[k] < 0) {
+      _dwork1[k] = 0.0;
+      _dwork2[k] = _dwork14[k];
+    }
     _zk[k] = _dwork1[k]*potential->dr_drho[k];
   }
   zb0 = Simpson(_zk, 0, potential->ips);
