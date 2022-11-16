@@ -98,7 +98,7 @@ static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
 
-#define MINNKF 35
+#define MINNKF 25
 #define MAXNKF 125
 static double _kwork[MAXNKF];
 
@@ -4419,13 +4419,15 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 
 double XCPotential(double tx, double n, int md) {
   double p, r, rs, ti, tis, t, t2, t3, t4, at, bt, ct, dt, et;
-
+  double nx[101], nx0, nx1, dn;
+  int i;
+  
   const double a[6] = {0.610887, 3.04363, -0.09227, 1.7035, 8.31051, 5.1105};
   const double b[5] = {0.283997, 48.932154, 0.370919, 61.095357, 0.871837};
   const double c[3] = {0.870089, 0.193077, 2.414644};
   const double d[5] = {0.579824, 94.537454, 97.839603, 59.939999, 24.388037};
   const double e[5] = {0.212036, 16.731249, 28.485792, 34.028876, 17.235515};
-  const double f[5] = {2.8343, -0.2151, 5.2759, 3.9431, 7.9138};
+  const double f[5] = {2.8343, -0.2151, 5.2759, 3.9431, 7.9138};  
 
   if (n < 1E-35) return 0.0;
   switch (md) {
@@ -4446,6 +4448,28 @@ double XCPotential(double tx, double n, int md) {
       p *= tanh(ti);
       p *= 1 + f[0]*t2 + f[1]*t3 + f[2]*t4;
       p /= 1 + f[3]*t2 + f[4]*t4;
+      return p;
+    }
+  case 11:
+  case 21:
+  case 31:
+    nx0 = log(0.01*n);
+    nx1 = log(n);
+    dn = (nx1 - nx0)/100.;
+    r = exp(nx0);
+    p = 0.75*r*XCPotential(tx, r, 1);
+    for (i = 0; i < 101; i++) {
+      nx[i] = exp(nx0+dn*i);
+      nx[i] = XCPotential(tx, nx[i], 1)*nx[i];
+    }
+    p += Simpson(nx, 0, 100)*dn;
+    p *= 1.33333333333/n;
+    if (md == 11) {
+      r = pow(3/(FOUR_PI*n), ONETHIRD);
+      return (r/3.14788045)*p;
+    } else if (md == 21) {
+      return p/3.14788045;
+    } else {    
       return p;
     }
   case 2:    
@@ -4504,7 +4528,7 @@ double XCPotential(double tx, double n, int md) {
     } else if (md == 22) {
       return p/r;
     } else {
-      return (PI/r)*p;
+      return (3.14788045/r)*p;
     }
   default:
     return 0.0;
@@ -4608,14 +4632,13 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
     double e0i, e1i, uv, emax, e0v, g2, g3, g32, ig32;
     double eth10 = 0.0;
     if (eth > 0) eth10 = 10*eth;
-    double ew5, ews, em, ep, ts, tb, ef, ef0, ef1, bf, es[6];
+    double ew5, ews, em, ep, eb, ts, ef, ef0, ef1, bf, es[8];
     if (md < 10) {
       g = md-2.0;
     } else {
       g = 0.0;
     }
-    ts = tps*0.25;
-    tb = tps*1.5;
+    ts = tps*0.1;
     ew5 = ewd*5;
     ews = ewd*0.25;
     g2 = 0.5*g;
@@ -4632,6 +4655,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
       emax = Max(eth10, emax);
       em = (uv-3.0)*tps;
       ep = (uv+3.0)*tps;
+      eb = (uv+10.0)*tps;
       ef = eref - v;
       if (_sc_ewm == 0) {
 	es[0] = ef - ew5;
@@ -4643,30 +4667,26 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
       ef1 = es[1];
       es[2] = em;
       es[3] = ep;
-      es[4] = (uv+20.0)*tps;
-      es[5] = emax;
-      qsort(es, 6, sizeof(double), CompareDouble);
+      es[4] = eb;
+      es[5] = (uv+20.0)*tps;
+      es[6] = (uv+50.0)*tps;
+      es[7] = emax;
+      qsort(es, 8, sizeof(double), CompareDouble);
       e0 = eth;
       if (e0 < v) e0 = v;
       e0v = e0-v;
       eps[i] = 0.0;
-      for (ii = 0; ii < 6; ii++) {
+      for (ii = 0; ii < 8; ii++) {
 	if (e0v < es[ii]) break;
       }
       e0i = e0v;
-      for (; ii < 6; ii++) {
+      for (; ii < 8; ii++) {
 	e1i = es[ii];
 	if (e1i-e0i < 1e-10*tps) continue;
 	if (e0i < ef1 && e1i > ef0) {
-	  nk = 1+(e1i-e0i)/ews;	  
-	} else if (e1i <= em) {
-	  nk = MINNKF;
+	  nk = 1+(e1i-e0i)/Min(ews,ts);	  
 	} else {
-	  if (e0i >= ep) {
-	    nk = 1+(e1i-e0i)/tb;
-	  } else {
-	    nk = 1+(e1i-e0i)/ts;
-	  }
+	  nk = 1+(e1i-e0i)/ts;
 	}
 	if (nk < MINNKF) nk = MINNKF;
 	if (nk > MAXNKF) nk = MAXNKF;
@@ -4711,7 +4731,9 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
 	    _kwork[k] *= -ye;
 	  }
 	}
-	eps[i] += dk*Simpson(_kwork, 0, nk-1);
+	y = dk*Simpson(_kwork, 0, nk-1);
+	eps[i] += y;
+	if (y < EPS8*eps[i]) break;
 	e0i = e1i;
       }
       eps[i] *= a*r2;
