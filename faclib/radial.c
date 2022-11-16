@@ -4107,7 +4107,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   AVERAGE_CONFIG *ac = &(average_config);
   nm = 0;
   char orbf[128];
-  k1 = potential->maxrp-1;
+  k1 = potential->ips;
   nb = 0.0;
   vc = potential->VT[0][k1];
   for (ik = 0; ik < ac->n_shells; ik++) {
@@ -4148,10 +4148,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
 	}
       }
     }
-  }
+  }  
   zb0 = FreeElectronIntegral(0, potential->ips, potential->rad,
 			     potential->VT[0], potential->dr_drho,
-			     _dwork2, potential->eth, potential->tps,
+			     _dwork2, vc, potential->tps,
 			     potential->eth, 0.0, u, 0.0, 2, &potential->aps);
   k0 = k1-3;
   k0 = Max(1, k0);
@@ -4217,12 +4217,12 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       _dwork13[k] = 0.0;
     }
   }
-  if (potential->vxm == 2) {
+  if (potential->vxm > 0) {
     for (k = 0; k <= potential->ips; k++) {
       r = potential->rad[k];
       b = _dwork14[k]*potential->dr_drho[k];
       c = _dwork14[k]/(FOUR_PI*r*r);
-      _phase[k] = -XCPotential(potential->tps, c, 22)*b;
+      _phase[k] = -XCPotential(potential->tps, c, 20+potential->vxm)*b;
     }
     ex = Simpson(_phase, 0, potential->ips)*HARTREE_EV;
   }
@@ -4247,7 +4247,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   e = Simpson(_xk, 0, potential->ips)*a;
   c = Simpson(_dwork17, 0, potential->ips)*a;
   b = Simpson(_dwork16, 0, potential->ips)*a;
-  if (potential->vxm != 2) {
+  if (potential->vxm == 0) {
     ex = b*0.75;
   }
   fprintf(f, "#   d0: %15.8E\n", d0);
