@@ -1441,8 +1441,8 @@ void SetPotentialMode(int m, double h, double ih,
 }
 
 void PrintQED() {
-  MPrintf(0, "SE: %d %d %d %d %d\n", qed.se, qed.mse,
-	  potential->pse, qed.sse, qed.pse);
+  MPrintf(0, "SE: %d %d %d %d\n",
+	  qed.se, qed.mse, potential->pse, qed.sse);
   MPrintf(0, "MSE: %g %g %g %g %g %g\n",
 	  qed.ose0, qed.ose1, qed.ase, qed.cse0, qed.cse1, qed.ise);
   MPrintf(0, "VP: %d %d\n", qed.vp, potential->pvp);
@@ -2030,14 +2030,15 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     i1 = acfg->n_cores;
     w0 = potential->NPS;
     wmin = _hx_wmin;
+    jmax = 0;
   } else {
     i0 = acfg->n_cores;
     i1 = acfg->n_shells;
     w0 = potential->VPS;
     wx0 = potential->VXF;
     wmin = _sc_wmin;
+    jmax = potential->ips;
   }
-  jmax = 0;
   b = 0.0;
   for (i = i0; i < i1; i++) {
     if (acfg->nq[i] <= 0) continue;
@@ -2066,8 +2067,9 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     for (m = 0; m <= jmax; m++) {
       if (w[m] > b) b = w[m];
     }
-  
+    
     b *= wmin;
+    b = Max(b, 1e-20);
     dn0 = 0.0;
     k1 = 0;
     for (m = 0; m <= jmax; m++) {
@@ -2774,21 +2776,13 @@ void SetScreenConfig(int iter) {
   double *nq, *et;
   int *np, *kp, it, iti;
   ORBITAL **os;
-  double nb, nbt, nqt, nb0, nb1, u, u0, u1, x, nqf, nqf0, eth;
+  double nb, nbt, nqt, nb0, nb1, u, du, u0, u1, x, nqf, nqf0, eth;
 
   if (potential->mps < 0 || potential->nbt < 0) return;
 
-  eth = 0.0;  
-  if (_free_threshold > 0 && potential->ips > 0 && iter >= NDPH) {
-    eth = potential->VT[0][potential->ips];
-    k = potential->ips;
-    for (i = potential->ips-1; i >= 0; i--) {
-      if (potential->VT[0][i] > eth) {
-	eth  = potential->VT[0][i];
-	k = i;
-      }
-    }
-    eth += fabs(eth)*_free_threshold;
+  eth = 0.0;
+  if (potential->rps > 0 && fabs(_free_threshold) > EPS10) {
+    eth = (1.0/potential->rps)*_free_threshold;
   }
   potential->eth = eth;
   nbt = potential->nbt;
@@ -2799,12 +2793,20 @@ void SetScreenConfig(int iter) {
   ef0 = potential->eth;
   nqf0 = potential->nqf;
   tps = potential->tps;
-  if (SCEWM() == 0) {
+  if (SCEWM() <= 0) {
     etf = -1E31;
   } else {
     etf = eth;
   }
-  if (iter < _sc_niter) {
+  if (SCEWM() < 0) {
+    a->n_shells = m;
+    for (m = 0; m < a->n_shells; m++) {
+      orb = GetOrbitalSolved(OrbitalIndex(a->n[m], a->kappa[m], 0));
+      a->e[m] = orb->energy/tps;
+    }
+    potential->efm = 0.0;
+    e0 = potential->efm;    
+  } else if (iter < _sc_niter) {
     if (potential->mps >= 3) {
       e0 = potential->ewd*_psemax;
     } else {
@@ -2945,8 +2947,11 @@ void SetScreenConfig(int iter) {
   u = potential->bps;
   int ns = a->n_shells - a->n_cores;
   if (ns <= 0 && e0 < eth) return;
-
-  os = malloc(sizeof(ORBITAL *)*ns);
+  if (ns > 0) {
+    os = malloc(sizeof(ORBITAL *)*ns);
+  } else {
+    os = NULL;
+  }
   np = a->n + a->n_cores;
   kp = a->kappa + a->n_cores;
   nq = a->nq + a->n_cores;
@@ -2959,46 +2964,54 @@ void SetScreenConfig(int iter) {
     u = potential->aps;
     nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, etf, &nqf);
   } else {
-    double *amu, *anb, du;
-    int ns2 = ns+2;
-    amu = malloc(sizeof(double)*ns2);
-    anb = malloc(sizeof(double)*ns2);
-    int *ik = malloc(sizeof(int)*ns2);
-    ArgSort(ns, et, ik);
-    u1 = fabs(et[ik[0]]);
-    amu[0] = et[ik[0]]-2*u1;
-    u0 = fabs(et[ik[ns-1]]);
-    u0 = Max(5.0, u0);
-    u0 = Min(u0, u1);
-    amu[ns2-1] = et[ik[ns-1]]+u0;
-    for (i = 0; i < ns; i++) {
-      if (i < ns-1) amu[i+1] = et[ik[i]]*0.75+et[ik[i+1]]*0.25;
-      else amu[i+1] = et[ik[i]]*0.75+amu[i+2]*0.25;
-    }
-    k = -1;
-    for (i = 0; i < ns2; i++) {
-      anb[i] = NBoundAA(ns, np, kp, nq, et, os, amu[i], tps, etf, &nqf);
-      if (k < 0 && anb[i] > nbt) {
-	k = i;
-	break;
+    if (ns > 0) {
+      double *amu, *anb;
+      int ns2 = ns+2;
+      amu = malloc(sizeof(double)*ns2);
+      anb = malloc(sizeof(double)*ns2);
+      int *ik = malloc(sizeof(int)*ns2);
+      ArgSort(ns, et, ik);
+      u1 = fabs(et[ik[0]]);
+      amu[0] = et[ik[0]]-2*u1;
+      u0 = fabs(et[ik[ns-1]]);
+      u0 = Max(5.0, u0);
+      u0 = Min(u0, u1);
+      amu[ns2-1] = et[ik[ns-1]]+u0;
+      for (i = 0; i < ns; i++) {
+	if (i < ns-1) amu[i+1] = et[ik[i]]*0.75+et[ik[i+1]]*0.25;
+	else amu[i+1] = et[ik[i]]*0.75+amu[i+2]*0.25;
       }
-    }
-    if (k < 0) {
-      k = ns;
-    }
-    u = amu[k];
-    du = 1.0;
-    for (i = k-1; i>=0; i--) {
-      if (anb[k]-anb[i] > 0.1) {
-	du = nbt*(amu[k]-amu[i])/(anb[k]-anb[i]);
-	break;
+      k = -1;
+      for (i = 0; i < ns2; i++) {
+	anb[i] = NBoundAA(ns, np, kp, nq, et, os, amu[i], tps, etf, &nqf);
+	if (k < 0 && anb[i] > nbt) {
+	  k = i;
+	  break;
+	}
       }
+      if (k < 0) {
+	k = ns;
+      }
+      u = amu[k];
+      du = 1.0;
+      for (i = k-1; i>=0; i--) {
+	if (anb[k]-anb[i] > 0.1) {
+	  du = nbt*(amu[k]-amu[i])/(anb[k]-anb[i]);
+	  break;
+	}
+      }
+      du = Max(1.0, du);
+      free(amu);
+      free(anb);
+      free(ik);
+    } else {
+      x = potential->atom->atomic_number*0.5;
+      u = FermiDegeneracy(x, potential->tps, &nqf);
+      du = FermiDegeneracy(x+1.0, potential->tps, &nqf);
+      du = fabs(du-u);
+      du = Max(1.0, du);
     }
-    du = Max(1.0, du);
     nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, etf, &nqf);
-    free(amu);
-    free(anb);
-    free(ik);
     it = 0;
     u0 = u;
     u1 = u;
@@ -4151,7 +4164,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   }  
   zb0 = FreeElectronIntegral(0, potential->ips, potential->rad,
 			     potential->VT[0], potential->dr_drho,
-			     _dwork2, vc, potential->tps,
+			     _dwork2, 0.0, potential->tps,
 			     potential->eth, 0.0, u, 0.0, 2, &potential->aps);
   k0 = k1-3;
   k0 = Max(1, k0);

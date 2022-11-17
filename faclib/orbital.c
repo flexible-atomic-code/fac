@@ -94,6 +94,7 @@ static double _sc_rbf = 1.0;
 static double _sc_rsf = 1.0;
 static double _sc_ewf = 1.0;
 static int _sc_ewm = 0;
+static double _sc_ewr = 0.0;
 static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
@@ -3233,7 +3234,11 @@ void InitializePS(POTENTIAL *pot) {
 	}
       }
       if (fabs(1-_sc_rsf)>1e-10) pot->rps *= _sc_rsf;
-      a = TWO_PI/pot->rps;
+      if (_sc_ewr > 0) {
+	a = TWO_PI/_sc_ewr;
+      } else {
+	a = TWO_PI/pot->rps;
+      }
       pot->ewd = (_sc_ewf/2.355)*0.5*a*a;
     } else {
       pot->rps = pot->dps;
@@ -4586,6 +4591,10 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
 double BoundFactor(double e, double eth, double de) {
   double x, y;
 
+  if (_sc_ewm < 0) {
+    return 0.0;
+  }
+  
   if (de <= 0) {
     if (eth-e > 1e-7) return 1.0;
     return 0.0;
@@ -4657,7 +4666,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
       ep = (uv+3.0)*tps;
       eb = (uv+10.0)*tps;
       ef = eref - v;
-      if (_sc_ewm == 0) {
+      if (_sc_ewm <= 0) {
 	es[0] = ef - ew5;
       } else {
 	es[0] = ef;
@@ -4690,15 +4699,20 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
 	}
 	if (nk < MINNKF) nk = MINNKF;
 	if (nk > MAXNKF) nk = MAXNKF;
-	k0 = 2*e0i + a2*e0i*e0i;
-	k1 = 2*e1i + a2*e1i*e1i;
+	if (_relativistic_fermi) {
+	  k0 = 2*e0i + a2*e0i*e0i;
+	  k1 = 2*e1i + a2*e1i*e1i;
+	} else {
+	  k0 = 2*e0i;
+	  k1 = 2*e1i;
+	}
 	k0 = pow(k0, g32);
 	k1 = pow(k1, g32);
 	dk = (k1 - k0)/(nk-1);
 	for (k = 0; k < nk; k++) {
 	  k2 = k0 + k*dk;
 	  k2 = pow(k2, ig32);
-	  if (k2 < 1e-6*c2) {
+	  if (k2 < 1e-6*c2 || !_relativistic_fermi) {
 	    ek0 = 0.5*k2;
 	    ekr = 0.5;
 	  } else {
@@ -5959,6 +5973,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:sc_rsf")) {
     _sc_rsf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:sc_ewr")) {
+    _sc_ewr = dp;
     return;
   }
   if (0 == strcmp(s, "orbital:sc_ewf")) {
