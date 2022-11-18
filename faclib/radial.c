@@ -3996,29 +3996,29 @@ double EffectiveTe(double ne, double ke) {
 void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char pfn[1024], dfn[1024], sfn[1024];  
   int it, nm, ik, k, k0, k1, idx;
-  double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, vc;
-  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex;
+  double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, vc, zbr;
+  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex, dn;
   ORBITAL *orb;
 
   _aaztol = ztol;
   if (ztol < 0.0) _aaztol = 0.001;
-  d = d0/(potential->atom->mass*AMU*9.10938356e-4);
+  dn = d0/(potential->atom->mass*AMU*9.10938356e-4);
   z0 = potential->atom->atomic_number;
   if (m >= 3) {
-    PlasmaScreen(m, _sc_vxf, z0, d, t, -1.0, 0, NULL);
+    PlasmaScreen(m, _sc_vxf, z0, dn, t, -1.0, 0, NULL);
     OptimizeRadial(0, NULL, -1, NULL, 0);
   } else {
     epsr = 1e-5;
     epsa = 1e-3;
     b = z0/2.0;
     it = 0;
-    a = OptimizeAA(b, m, d, t, 0);
+    a = OptimizeAA(b, m, dn, t, 0);
     if (a > 0) {
       while (a > 0) {
 	zb1 = b;
 	u1 = a;
 	b = 0.5*b;      
-	a = OptimizeAA(b, m, d, t, 0);
+	a = OptimizeAA(b, m, dn, t, 0);
 	it++;
 	if (it > optimize_control.maxiter) {
 	  printf("maxiter reached in AverageAtom loop1: %d %g %g\n", it, a, b);
@@ -4032,7 +4032,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
 	zb0 = b;
 	u0 = a;
 	b += 0.5*(z0-b);
-	a = OptimizeAA(b, m, d, t, 0);
+	a = OptimizeAA(b, m, dn, t, 0);
 	it++;
 	if (it > optimize_control.maxiter) {
 	  printf("maxiter reached in AverageAtom loop2: %d %g %g\n", it, a, b);
@@ -4050,7 +4050,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       if (u < 0.25) u = 0.25;
       if (u > 0.75) u = 0.75;
       b = u*zb0 + (1-u)*zb1;
-      a = OptimizeAA(b, m, d, t, it);
+      a = OptimizeAA(b, m, dn, t, it);
       printf("avg atom: %d %g %g %g %g %g %g %g\n",
 	     it, zb0, zb1, u0, u1, b, a, potential->aps);
       if (fabs(a) < 1e-4) break;
@@ -4133,9 +4133,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     } else {
       b = 1/(1+exp(b));
     }
+    c = 2*abs(ac->kappa[ik])*b;
     if (orb->energy < vc) {
       nm++;
-      nb += 2*abs(ac->kappa[ik])*b;
+      nb += c;
     }
     if (orb->ilast < k1) k1 = orb->ilast;
     for (k = 0; k <= orb->ilast; k++) {
@@ -4143,11 +4144,12 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       y = Small(orb)[k];
       r = x*x;
       a = (r + y*y);
+      d = c*a;
       a = ac->nq[ik]*a;
       r = ac->nq[ik]*r;
       _dwork1[k] += a;
       if (orb->energy < 0) {
-	_dwork3[k] += a*log(-orb->energy);
+	_dwork3[k] += d*log(-orb->energy);
 	_dwork6[k] += a;
       }
       _dwork4[k] += a;
@@ -4161,40 +4163,60 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
 	}
       }
     }
-  }  
-  zb0 = FreeElectronIntegral(0, potential->ips, potential->rad,
-			     potential->VT[0], potential->dr_drho,
-			     _dwork2, 0.0, potential->tps,
-			     potential->eth, 0.0, u, 0.0, 2, &potential->aps);
+  }
   k0 = k1-3;
   k0 = Max(1, k0);
   b = 0.0;
-  zb1 = 0.0;
-  zb0 = 0.0;
   for (k = k0; k <= k1; k++) {
     x = potential->rad[k];
     x *= x;
     a = (_dwork4[k] + potential->EPS[k])/x;
     b += a;
-    zb0 += _dwork2[k]/x;
   }
   a = 1.+k1-k0;
   b /= a;
   zb1 = b*pow(potential->rps,3)/3.0;
+  x = b/FOUR_PI;
+  u1 = FermiDegeneracy(x, potential->tps, &u0);
+  zb0 = FreeElectronIntegral(0, potential->ips, potential->rad,
+			     potential->VT[0], potential->dr_drho,
+			     _dphasep, 0.0, potential->tps,
+			     potential->eth, 0.0, u1, 0.0, 2, &potential->aps);
+  zb0 = 0.0;
+  for (k = k0; k <= k1; k++) {
+    x = potential->rad[k];
+    x *= x;
+    zb0 += _dphasep[k]/x;
+  }
   zb0 /= a;
+  zbr = 0.0;
   if (zb0 > 0) {
-    a = b/zb0;
+    zbr = b/zb0;
     for (k = 0; k <= potential->ips; k++) {
-      _dwork2[k] *= a;
+      _dwork2[k] = _dphasep[k]*zbr;
+    }
+  }
+  a = 0.0;
+  ik = potential->ips;
+  for (k = 0; k <= potential->ips; k++) {
+    _dwork14[k] = _dwork4[k] + potential->EPS[k];
+    if (k < potential->ips && _dwork2[k] > _dwork14[k]) {
+      b = potential->rad[k]/potential->rad[potential->ips];
+      b = log(_dwork14[k]/_dwork2[k])/log(b);
+      if (b > a) {
+	a = b;
+	ik = k;
+      }
     }
   }
   for (k = 0; k <= potential->ips; k++) {
-    _dwork14[k] = _dwork4[k] + potential->EPS[k];
-    _dwork1[k] = _dwork14[k] - _dwork2[k];
-    if (_dwork1[k] < 0) {
-      _dwork1[k] = 0.0;
+    if (k > ik) {
       _dwork2[k] = _dwork14[k];
+    } else if (a > 0) {
+      b = potential->rad[k]/potential->rad[potential->ips];
+      _dwork2[k] *= pow(b, a);
     }
+    _dwork1[k] = _dwork14[k] - _dwork2[k];
     _zk[k] = _dwork1[k]*potential->dr_drho[k];
   }
   zb0 = Simpson(_zk, 0, potential->ips);
@@ -4264,7 +4286,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     ex = b*0.75;
   }
   fprintf(f, "#   d0: %15.8E\n", d0);
-  fprintf(f, "#   dn: %15.8E\n", d);
+  fprintf(f, "#   dn: %15.8E\n", dn);
   fprintf(f, "#    T: %15.8E\n", t);
   fprintf(f, "#    Z: %15.8E\n", z0);
   a = z0-potential->nbs-potential->NC;
@@ -4277,6 +4299,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   a = z0-zb0;
   a = Max(0.0, a);
   fprintf(f, "#   zf: %15.8E\n", a);
+  fprintf(f, "#   zr: %15.8E\n", zbr);
   fprintf(f, "#   nm: %15d\n", nm);
   fprintf(f, "#   uf: %15.8E\n", potential->aps);
   fprintf(f, "#   ub: %15.8E\n", potential->bps);
@@ -4329,18 +4352,19 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "## c18: exchange screening\n");
   fprintf(f, "## c19: negative energy density\n");
   fprintf(f, "## c20: TF kinetic energy\n");
+  fprintf(f, "## c21: TF positive energy density\n");
   fprintf(f, "\n");
 
   for (k = 0; k <= potential->ips; k++) {
     a = potential->rad[k];
-    fprintf(f, "%6d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
+    fprintf(f, "%6d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
 	    k, a, potential->NPS[k], potential->VPS[k],
 	    potential->EPS[k], potential->VXF[k],
 	    _dwork1[k], _dwork2[k], _dwork[k], _dwork4[k], _dwork3[k],
 	    _dwork5[k], _dwork7[k], potential->VT[0][k],
 	    -potential->Z[k]/a, _dwork12[k], _dwork13[k],
 	    _dwork10[k], _dwork15[k], _dwork6[k],
-	    _dwork17[k]/potential->dr_drho[k]);
+	    _dwork17[k]/potential->dr_drho[k], _dphasep[k]);
   }
   fclose(f);
 
