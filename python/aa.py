@@ -70,8 +70,8 @@ class AA:
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
                  nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, vxm=2, hxs=0.4235, maxiter=512,
-                 vmin=0.25, vmax=10.0):
+                 vxf=2, vxm=2, hxs=-10.0, maxiter=512,
+                 ewm=0, ewf=1.0, vmin=0.25, vmax=10.0):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -111,6 +111,8 @@ class AA:
         self.vxf = vxf
         self.vxm = vxm
         self.hxs = hxs
+        self.ewm = ewm
+        self.ewf = ewf
         self.maxiter = maxiter
         self.vmin = vmin
         self.vmax = vmax
@@ -129,6 +131,8 @@ class AA:
         SetOption('radial:sc_vxf', self.vxf)
         SetOption('radial:vxm', self.vxm)
         SetOption('orbital:sc_bqp', self.bqp)
+        SetOption('orbital:sc_ewm', self.ewm)
+        SetOption('orbital:sc_ewf', self.ewf)
         if (not self.hxs is None):
             SetPotentialMode(0, 1e11, 1e11, -1, self.hxs, 0.0)
         AverageAtom(pref, 4, d, t)
