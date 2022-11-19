@@ -134,7 +134,7 @@ static int _psnmax = 0;
 static int _pskmax = 25;
 static int _slater_kmax = -1;
 static int _orbnmax_print = 0;
-static double _free_threshold = -1.0;
+static double _free_threshold = 0.0;
 static double _csi = 0.55;
 
 static struct {
@@ -3005,9 +3005,10 @@ void SetScreenConfig(int iter) {
       free(anb);
       free(ik);
     } else {
-      x = potential->atom->atomic_number*0.5;
-      u = FermiDegeneracy(x, potential->tps, &nqf);
-      du = FermiDegeneracy(x+1.0, potential->tps, &nqf);
+      x = potential->nps;
+      u = FermiDegeneracy(0.1*x, potential->tps, &nqf);
+      du = FermiDegeneracy(potential->atom->atomic_number*x,
+			   potential->tps, &nqf);
       du = fabs(du-u);
       du = Max(1.0, du);
     }
@@ -3026,10 +3027,17 @@ void SetScreenConfig(int iter) {
 	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, etf, &nqf);	
 	  it++;
 	  if (it > optimize_control.maxiter-5) {
-	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
+	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb1, u1, du, nqf);
 	    if (it > optimize_control.maxiter) {
 	      Abort(1);
 	    }
+	  }
+	  x = nb1-nb;
+	  x = (nb1-nbt)/Max(1e-3,x);
+	  if (x > 1) {
+	    x = pow(x, 0.35);	    
+	    x = Min(5.0, x);
+	    du *= x;
 	  }
 	}
 	if (nb1-nb < 1.5) break;
@@ -3048,11 +3056,18 @@ void SetScreenConfig(int iter) {
 	  nb = NBoundAA(ns, np, kp, nq, et, os, u, tps, etf, &nqf);
 	  it++;
 	  if (it > optimize_control.maxiter-5) {	      
-	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g\n", it, ns, nb, nbt, u, du, et[0]);
+	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb0, u0, du, nqf);
 	    if (it > optimize_control.maxiter) {
 	      Abort(1);
 	    }
-	  }	    
+	  }
+	  x = nb-nb0;
+	  x = (nbt-nb)/Max(1e-3,x);
+	  if (x > 1) {
+	    x = pow(x, 0.35);
+	    x = Min(5.0, x);	  
+	    du *= x;
+	  }
 	}
 	if (nb-nb0 < 1.5) break;
 	u = u0;
@@ -3183,6 +3198,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   if (_scpot.md == 0 || _scpot.md == 1 || fabs(hxs0)<1e-5) ahx = 0.0;
   if (iter == 0) SetOptDPH(-1, 0.0, iter);
   double az0 = -1.0;
+  double af0 = -1.0;
   double au0 = -1.0;
   double sta = 1.0;
   int ierr, muconv;
@@ -3260,6 +3276,8 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     if (sc) {      
       SetScreenConfig(iter);
       double dz = fabs(potential->nbs-az0);
+      double dzf = fabs(potential->nqf-af0);
+      dz = Max(dz, dzf);
       double imx = -4.5/log(1-optimize_control.sta[1]);      
       if (imx < 2*NDPH) imx = 2*NDPH;
       if (imx > 5*NDPH) imx = 5*NDPH;
@@ -3273,6 +3291,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	break;
       }    
       az0 = potential->nbs;
+      af0 = potential->nqf;
       au0 = potential->bps;
     } else {
       muconv = 1;

@@ -70,8 +70,8 @@ class AA:
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
                  nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, vxm=2, hxs=-10.0, maxiter=512,
-                 ewm=0, ewf=1.0, vmin=0.25, vmax=10.0):
+                 vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
+                 ewm=0, ewf=1.0, vmin=0.25, vmax=10.0, ztol=-1.0):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -116,6 +116,8 @@ class AA:
         self.maxiter = maxiter
         self.vmin = vmin
         self.vmax = vmax
+        self.ztol = ztol
+        self.ngrid = ngrid
         if not dd is None:
             if not os.path.exists(dd):
                 os.system('mkdir -p %s'%dd)
@@ -125,6 +127,8 @@ class AA:
     def aa1p(self, asym, d, t, pref):
         ReinitRadial(0)
         SetAtom(asym)
+        if (self.ngrid > 0):
+            SetRadialGrid(self.ngrid, -1, -1, -1, -1)
         SetOption('radial:sc_print', self.sc)
         SetOption('radial:print_maxiter', self.pmi)
         SetOptimizeMaxIter(self.maxiter)
@@ -135,7 +139,7 @@ class AA:
         SetOption('orbital:sc_ewf', self.ewf)
         if (not self.hxs is None):
             SetPotentialMode(0, 1e11, 1e11, -1, self.hxs, 0.0)
-        AverageAtom(pref, 4, d, t)
+        AverageAtom(pref, 4, d, t, self.ztol)
 
     def ploop(self, i0):
         nc = min(self.nmr,max(1,self.nc))

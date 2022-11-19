@@ -99,8 +99,8 @@ static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
 
-#define MINNKF 25
-#define MAXNKF 125
+#define MINNKF 55
+#define MAXNKF 155
 static double _kwork[MAXNKF];
 
 static double _enerelerr = ENERELERR;
@@ -4751,6 +4751,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
 	e0i = e1i;
       }
       eps[i] *= a*r2;
+      if (eps[i] < 1E-99) eps[i] = 0.0;
       if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
   } else {
@@ -4765,6 +4766,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
       r2 = rad[i]*rad[i];
       y = (-vt[i])/tps;
       eps[i] = a*r2*FermiIntegral(y+u, y0+y, g);
+      if (eps[i] < 1E-99) eps[i] = 0.0;
       if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
   }
