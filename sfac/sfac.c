@@ -4999,12 +4999,10 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   if (argt[1] != NUMBER) return -1;
   if (argc > 2 && argt[2] != NUMBER) return -1;
   if (argc > 3 && argt[3] != NUMBER) return -1;
-  if (argc > 4 && (argt[4] != NUMBER && argt[4] != LIST)) return -1;
+  if (argc > 4 && argt[4] != NUMBER) return -1;
   if (argc > 5 && argt[5] != NUMBER) return -1;
-  double zps, nps, tps, ups, *zw;
-  int m, vxf, nz;
-  nz = 0;
-  zw = NULL;
+  double zps, nps, tps, ups;
+  int m, vxf;
   tps = 0.0;
   ups = -1.0;
   m = 0;
@@ -5016,18 +5014,31 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
     if (argc > 3) {
       m = atoi(argv[3]);
       if (argc > 4) {
-	if (argt[4] == NUMBER) {
-	  ups = atof(argv[4]);
-	} else {
-	  nz = DoubleFromList(argv[4], argt[4], variables, &zw);
-	}
+	ups = atof(argv[4]);
 	if (argc > 5) {
 	  vxf = atoi(argv[5]);
 	}
       }
     }
   }
-  PlasmaScreen(m, vxf, zps, nps, tps, ups, nz, zw);
+  PlasmaScreen(m, vxf, zps, nps, tps, ups);
+  return 0;
+}
+
+static int PSetSPZW(int argc, char *argv[], int argt[], ARRAY *variables) {
+  int nz;
+  double *zw, zu[2];
+
+  if (argc != 1) return -1;
+  if (argt[0] != NUMBER && argt[0] != LIST) return -1;
+  if (argt[0] == NUMBER) {
+    zu[0] = atof(argv[0]);
+    zu[1] = 1.0;
+    SetSPZW(2, zu);
+  } else {
+    nz = DoubleFromList(argv[0], argt[0], variables, &zw);
+    SetSPZW(nz, zw);
+  }
   if (nz > 0) free(zw);
   return 0;
 }
@@ -5495,7 +5506,8 @@ static METHOD methods[] = {
   {"LandauZenerCX", PLandauZenerCX, METH_VARARGS},
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
-  {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
+  {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},    
+  {"PSetSPZW", PSetSPZW, METH_VARARGS},
   {"TRRateH", PTRRateH, METH_VARARGS},
   {"PICrossH", PPICrossH, METH_VARARGS},  
   {"RRCrossH", PRRCrossH, METH_VARARGS},  

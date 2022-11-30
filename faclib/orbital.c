@@ -60,11 +60,11 @@ static char _sp_ofn[256] = "";
 static double _sp_rmax = 1.0;
 static double _sp_yeps = 1e-7;
 static double _sp_neps = 1e-3;
-static double _sp_z0 = 1.0;
-static double _sp_z1 = 1.0;
+static double _sp_ihx = 1.0;
 static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
 static double *_sp_zw = NULL;
+static double _sp_zu = 0.0;
 static int _sp_mode = 2;
 static int _debye_mode = 0; 
 static int _sp_print = 0;
@@ -209,6 +209,10 @@ static int Phase(double *p, POTENTIAL *pot, int i1, double p0);
 
 int OrbPWA() {
   return _pwa;
+}
+
+double SPZU() {
+  return _sp_zu;
 }
 
 double SCEWF() {
@@ -1453,6 +1457,9 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   double emin0 = 1.1*EnergyH(z0, 1, -1);
   ep = EnergyH(z, orb->n, orb->kappa);
   e = ep;
+  de = fabs(ep)*0.5;
+  delta = fabs(emin0)*0.05;
+  de = Min(de, delta);
   niter = 0;
   while (niter < max_iteration) {
     niter++;
@@ -1463,7 +1470,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
       nodes = IntegrateRadial(p, e, pot, 0, 0.0, i2, 1.0, 0);
       if (nodes > nr) break;
     }
-    e *= 0.5;
+    e += de;
   }
   if (niter == max_iteration) {
     if (_on_error >= 0) {
@@ -3207,9 +3214,10 @@ void InitializePS(POTENTIAL *pot) {
       _relativistic_fermi = _relativistic_fermi0;
     } 
     if (pot->zps <= 0) {
-      pot->zps = (z0-pot->NC)+_sp_z0 + (_sp_z1-_sp_z0)*(1-pot->NC/z0);
+      pot->zps = (z0-pot->NC);
+      if (pot->ihx < 0) pot->zps -= pot->ihx*_sp_ihx;
     }
-    if (pot->ups < 0) {
+    if (pot->ups < 0) {      
       pot->ups = z0 - pot->NC;
     }
     if (pot->mps == 1 && _debye_mode >= 2) {
@@ -3234,12 +3242,16 @@ void InitializePS(POTENTIAL *pot) {
 	}
       }
       if (fabs(1-_sc_rsf)>1e-10) pot->rps *= _sc_rsf;
-      if (_sc_ewr > 0) {
-	a = TWO_PI/_sc_ewr;
+      if (pot->mps >= 3) {
+	if (_sc_ewr > 0) {
+	  a = TWO_PI/_sc_ewr;
+	} else {
+	  a = TWO_PI/pot->rps;
+	}
+	pot->ewd = (_sc_ewf/2.355)*0.5*a*a;
       } else {
-	a = TWO_PI/pot->rps;
+	pot->ewd = 0.0;
       }
-      pot->ewd = (_sc_ewf/2.355)*0.5*a*a;
     } else {
       pot->rps = pot->dps;
     }
@@ -3247,6 +3259,8 @@ void InitializePS(POTENTIAL *pot) {
     if (pot->mps == 2) {
       pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
       PrepFermiRM1(pot->aps, pot->fps, pot->tps);
+    } else if (pot->mps == 0 && pot->ups > 0) {
+      pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
     }
   }  
 }
@@ -4141,7 +4155,6 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep) {
 
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   int i;
-  
   if (pot->mps < 0 || pot->mps > 2 || iter < 0) {
     for (i = 0; i < pot->maxrp; i++) {
       pot->EPS[i] = 0;
@@ -4396,7 +4409,6 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   n0 = pot->nps;
   r0 = pot->rps;
   if (pot->tps <= 0 || vt == NULL) {
-    pot->aps = 0.0;
     for (i = 0; i < pot->maxrp; i++) {
       if (i <= pot->ips) {
 	x = pot->rad[i]/r0;
@@ -4413,12 +4425,21 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
     }
     return;
   }
-  for (i = 0; i < 256; i++) {
+
+  for (i = 0; i < 128; i++) {
     n0 = pot->aps;
     x = FreeElectronDensity(pot, vt, 0.0, n0, pot->zps, -1);
-    if (fabs(1-exp(pot->aps-n0)) < _fermi_abserr) break;
+    if (fabs(1-exp(pot->aps-n0)) < EPS5) break;
+    if (fabs(pot->aps-n0) < EPS2*fabs(pot->aps)) break;
+    if (i > 100) {
+      printf("ionsphere iter: %3d %g %g %g %g %g\n", i, pot->zps, n0, pot->aps, pot->aps-n0, x);
+    }
     x = _fermi_stablizer;
     pot->aps = x*n0 + (1-x)*pot->aps;
+  }
+  if (i == 128) {
+    printf("ionsphere maxiter: %g %g %g\n",
+	   pot->nps, pot->tps, pot->aps);
   }
 }
 
@@ -4588,10 +4609,10 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   return im;
 }
 
-double BoundFactor(double e, double eth, double de) {
+double BoundFactor(double e, double eth, double de, int mps) {
   double x, y;
 
-  if (_sc_ewm < 0) {
+  if (_sc_ewm < 0 || mps < 3) {
     return 0.0;
   }
   
@@ -4617,18 +4638,43 @@ double BoundFactor(double e, double eth, double de) {
 
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
 			   double e0, double u, double zn, int md) {
-  return FreeElectronIntegral(0, pot->ips, pot->rad,
-			      vt, pot->dr_drho, pot->EPS, e0, pot->tps,
-			      pot->eth, pot->ewd, u, zn, md, &pot->aps);
+  int i;
+  if (pot->ups > 0 && pot->dps > 0) {
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->EPS[i] = 0.0;
+      pot->ICF[i] = 0.0;
+    }
+    return FreeElectronIntegral(0, pot->ips, pot->maxrp-1, pot->rad,
+				vt, pot->dr_drho,
+				pot->EPS, pot->ICF,
+				e0, pot->tps,
+				pot->eth, pot->ewd, u, zn, md,
+				pot->mps, pot->ups,
+				pot->fps, pot->rps,
+				pot->dps, &pot->aps);
+  } else {
+    for (i = 0; i < pot->maxrp; i++) {
+      pot->EPS[i] = 0.0;
+    }
+    return FreeElectronIntegral(0, pot->ips, pot->ips, pot->rad,
+				vt, pot->dr_drho,
+				pot->EPS, NULL,
+				e0, pot->tps,
+				pot->eth, pot->ewd, u, zn, md,
+				pot->mps, 0.0, 0.0, 0.0, 0.0, &pot->aps);
+  }
 }
 
-double FreeElectronIntegral(int i0, int i1, double *rad,
+double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
 			    double *vt, double *drdx,
-			    double *eps, double eth, double tps,
+			    double *eps, double *icf,
+			    double eth, double tps,
 			    double eref, double ewd,
-			    double u, double zn, int md, double *aps) {
+			    double u, double zn, int md,
+			    int mps, double ups, double fa,
+			    double rps, double dps, double *aps) {
   int i, k, ii;
-  double a = 4.0/PI, g, e0;
+  double a = 4.0/PI, g, e0, x, y, ye, r2, y0, y1, xk, xj, x1;
 
   if (md < 0) {
     md = _relativistic_fermi;
@@ -4637,7 +4683,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
     double c2 = 1.0/FINE_STRUCTURE_CONST2;
     double a2 = FINE_STRUCTURE_CONST2;
     int nk = MAXNKF;
-    double v, vr, k0, k1, k2, dk, y, r2, ek, ek0, ekr, ye;
+    double v, vr, k0, k1, k2, dk, r2, ek, ek0, ekr;
     double e0i, e1i, uv, emax, e0v, g2, g3, g32, ig32;
     double eth10 = 0.0;
     if (eth > 0) eth10 = 10*eth;
@@ -4727,7 +4773,7 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
 	  } else {
 	    y = 1/(1+exp(y));
 	  }
-	  bf = BoundFactor(ek, eref, ewd);
+	  bf = BoundFactor(ek, eref, ewd, mps);
 	  _kwork[k] = 1.0-bf;
 	  if (md < 10) {
 	    _kwork[k] *= y;
@@ -4752,39 +4798,78 @@ double FreeElectronIntegral(int i0, int i1, double *rad,
       }
       eps[i] *= a*r2;
       if (eps[i] < 1E-99) eps[i] = 0.0;
-      if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
-  } else {
-    double y, r2, y0;
+    if (ups > 0 && icf) {
+      if (_relativistic_fermi) {
+	g = tps*FINE_STRUCTURE_CONST2;
+      } else {
+	g = 0.0;
+      }
+      a = (4/PI)*sqrt(2*tps)*tps;
+    }
+  } else {    
     a *= sqrt(2*tps)*tps;
     if (md) g = tps*FINE_STRUCTURE_CONST2;
     else g = 0;
-    for (i = i0; i <= i1; i++) {
+    if (ups > 0 && icf && dps > 0) {
+      x = rps/dps;    
+      if (x < 1e-5) {
+	x1 = x*x*x/3.0;
+	xj = x*x*x/(3*(ups+1.0));
+      } else if (x > 1e10) {
+	x1 = x - 1.0;
+	xj = (x*x - 1.0)/(2*(ups+1.0));
+      } else {
+	x1 = pow(1.0 + x*x*x, ONETHIRD);
+	xj = (x1*x1-1.0)/(2*(ups+1.0));
+	x1 -= 1.0;
+      }
+      xk = x*x*x/(3*(ups+1.0));
+      ye = xj - x1*x1/(2*(ups+1.0));
+    }
+    for (i = i0; i <= i2; i++) {
       e0 = eth;
       if (e0 < vt[i]) e0 = vt[i];
-      y0 = e0/tps;
       r2 = rad[i]*rad[i];
       y = (-vt[i])/tps;
+      y0 = e0/tps;
       eps[i] = a*r2*FermiIntegral(y+u, y0+y, g);
+      if (ups > 0 && icf && dps > 0) {
+	x = rad[i]/dps;
+	if (x < x1) {
+	  y1 = xk/x - xj + x*x/(6*(ups+1.0));
+	} else {
+	  y1 = (ye/x)*exp(x1-x);
+	}	
+	FERMID(0.5, u, EPS10, &y0, &ii);
+	FERMID(0.5, y1+u, EPS10, &y, &ii);
+	icf[i] = (1 - (y0/y)*exp(-ups*y1));
+	if (icf[i] < 1E-99) icf[i] = 0.0;
+	eps[i] *= icf[i];
+      }
       if (eps[i] < 1E-99) eps[i] = 0.0;
-      if (drdx) _dwork2[i] = eps[i]*drdx[i];
     }
   }
-  if (drdx && i1 > i0) {
+  if (drdx && i2 > i0) {
     if (i0 == 0) {
       _dwork1[i0] = eps[i0]*rad[i0]/3.0;
     } else {
       _dwork1[i0] = 0.0;
     }
-    NewtonCotesIP(_dwork1, _dwork2, i0, i1, -1, 0);
+    for (i = 0; i <= i2; i++) {
+      _dwork2[i] = eps[i]*drdx[i];
+    }
+    NewtonCotesIP(_dwork1, _dwork2, i0, i2, -1, 0);
     if (zn > 0) {
-      a = zn/_dwork1[i1];
-      *aps = u + log(a);
-      for (i = i0; i <= i1; i++) {
+      a = zn/_dwork1[i2];
+      if (mps == 0 && aps) {
+	*aps = u + log(a);
+      }
+      for (i = i0; i <= i2; i++) {
 	eps[i] *= a;
       }    
     }
-    return _dwork1[i1];
+    return _dwork1[i2];
   } else {
     return eps[i0];
   }
@@ -5849,12 +5934,8 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _sp_neps = dp;
     return;
   }
-  if (0 == strcmp(s, "orbital:sp_z0")) {
-    _sp_z0 = dp;
-    return;
-  }
-  if (0 == strcmp(s, "orbital:sp_z1")) {
-    _sp_z1 = dp;
+  if (0 == strcmp(s, "orbital:sp_ihx")) {
+    _sp_ihx = dp;
     return;
   }
   if (0 == strcmp(s, "orbital:sp_mode")) {
@@ -6013,10 +6094,11 @@ double SetSPZW(int n, double *zw) {
     free(_sp_zw);
     _sp_zs = NULL;
     _sp_zw = NULL;
+    _sp_zu = 0.0;
     _sp_nzs = 0;
   }
   if (n <= 0) return -1;
-  int n2 = (n+1)/2;
+  int n2 = n/2;
   _sp_nzs = n2;
   _sp_zs = malloc(sizeof(double)*n2);
   _sp_zw = malloc(sizeof(double)*n2);
@@ -6025,11 +6107,7 @@ double SetSPZW(int n, double *zw) {
   for (i = 0; i < n2; i++) {
     k = 2*i;
     _sp_zs[i] = zw[k];
-    if (k+1 < n) {
-      _sp_zw[i] = zw[k+1];
-    } else {
-      _sp_zw[i] = 1.0;
-    }
+    _sp_zw[i] = zw[k+1];
     w += _sp_zw[i];
     z1 += _sp_zs[i]*_sp_zw[i];
     z2 += _sp_zs[i]*_sp_zs[i]*_sp_zw[i];
@@ -6039,9 +6117,9 @@ double SetSPZW(int n, double *zw) {
   }
   z1 /= w;
   z2 /= w;
-  if (z1 > 0) {
-    return z2/z1;
+  if (z1) {
+    _sp_zu = z2/z1;
   } else {
-    return 1.0;
+    _sp_zu = 0.0;
   }
 }

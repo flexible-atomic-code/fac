@@ -895,14 +895,16 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg, int *nqp) {
 ** SIDE EFFECT: 
 ** NOTE:        
 */       
-int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
+int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg0) {
   CONFIG **dcfg, **p1;
   double *dnq, *p2, a, b;
   char *s;
   int *isp, ncfg, *dnc;  
   int size, size_old, tmp;
   int i, t, j, k, ns;
+  char scfg[2048];
 
+  strncpy(scfg, scfg0, 2048);
   StrTrim(scfg, '\0');
   ns = QuotedStrSplit(scfg, ' ', '[', ']');
   if (ns == 0) {
@@ -1045,14 +1047,15 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg) {
   return ncfg;
 }
 
-int GetConfigFromStringNR(CONFIG **cfg, char *scfg) {
+int GetConfigFromStringNR(CONFIG **cfg, char *scfg0) {
   CONFIG **dcfg, **p1;
-  //double *dnq;
+  char scfg[2048];
   char *s;
   int *isp, ncfg, *dnc;  
   int size, size_old, tmp;
   int i, t, j, k, ns;
 
+  strncpy(scfg, scfg0, 2048);
   StrTrim(scfg, '\0');
   ns = QuotedStrSplit(scfg, ' ', '[', ']');
   if (ns == 0) {
@@ -1188,7 +1191,7 @@ int GetConfigFromString(CONFIG **cfg, char *scfg) {
 */
 int GetAverageConfigFromString(int **n, int **kappa, 
 			       double **nq, char *scfg) {
-  CONFIG *cfg;
+  CONFIG *cfg;  
   int i, ns;
 
   ns = GetConfigOrAverageFromString(&cfg, nq, scfg);

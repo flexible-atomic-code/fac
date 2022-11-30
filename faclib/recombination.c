@@ -3171,14 +3171,14 @@ double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
     for (p = 0; p < nak[i]; p++) {
       GetJLFromKappa(kak[i][p], &j1, &kl1);
       k = OrbitalIndex(0, kak[i][p], e);
-      ph1 = GetPhaseShift(k);
+      ph1 = GetPhaseShift(k)-(PI/4)*kl1;
       for (ip = mx0; ip < mx; ip++) {
 	Lp = ip/2 + 1;
 	Lp2 = 2*Lp;
 	for (pp = 0; pp < nak[ip]; pp++) {
 	  GetJLFromKappa(kak[ip][pp], &j2, &kl2);
 	  k = OrbitalIndex(0, kak[ip][pp], e);
-	  ph2 = GetPhaseShift(k);
+	  ph2 = GetPhaseShift(k)-(PI/4)*kl2;
 	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
 	  c *= ak[i][p]*ak[ip][pp];
 	  if (ph1 != ph2) c *= cos(ph1-ph2);

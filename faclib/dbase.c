@@ -3910,15 +3910,29 @@ int PrintTable(char *ifn, char *ofn, int v0) {
 	    (fh.type > DB_DR && fh.type < DB_ENF)
 	    || (fh.type >= DB_RO && fh.type < DB_RC))) {
     if (mem_en_table == NULL) {
-      printf("Energy table has not been built in memory.\n");
-      goto DONE;
+      if (fh.type == DB_EN) {
+	FCLOSE(f1);
+	MemENTable(ifn);
+	f1 = FOPEN(ifn, "r");
+	n = ReadFHeader(f1, &fh, &swp);
+      } else {
+	printf("Energy table has not been built in memory.\n");
+	goto DONE;
+      }
     }
   }
 
   if (v && fh.type > DB_CIM && fh.type < DB_RO) {
     if (mem_enf_table == NULL) {
-      printf("Field dependent energy table has not been built in memory.\n");
-      goto DONE;
+      if (fh.type == DB_ENF) {
+	FCLOSE(f1);
+	MemENFTable(ifn);
+	f1 = FOPEN(ifn, "r");
+	n = ReadFHeader(f1, &fh, &swp);
+      } else {
+	printf("Field dependent energy table has not been built in memory.\n");
+	goto DONE;
+      }
     }
   }
 
