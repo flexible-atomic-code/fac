@@ -1493,8 +1493,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	      } 
 	      c0 = OrbitalIndex(0, km0_m, e0w); 
 	      cp0 = OrbitalIndex(0, kmp0_m, e0w);
-	      pha0 = GetPhaseShift(c0); 
-	      phap0 = GetPhaseShift(cp0);	      
+	      pha0 = GetPhaseShift(c0);
+	      phap0 = GetPhaseShift(cp0);
 	      r = cos(pha0 - phap0);
 	      s *= r;
 	      sd *= r;

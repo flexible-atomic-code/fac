@@ -6270,22 +6270,41 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   }
   double zps, nps, tps, ups;
   int m, vxf;
-  PyObject *p = NULL;
   tps = 0.0;
   m = 0;
   ups = -1.0;
   vxf = 1;
-  if (!(PyArg_ParseTuple(args, "dd|diOi", &zps, &nps, &tps, &m, &p, &vxf))) return NULL;
+  if (!(PyArg_ParseTuple(args, "dd|didi",
+  			 &zps, &nps, &tps, &m, &ups, &vxf))) return NULL;
+  PlasmaScreen(m, vxf, zps, nps, tps, ups);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PSetSPZW(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PSetSPZW", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  PyObject *p = NULL;
   int nz = 0;
-  double *zw;
+  double *zw, zu[2];
+  if (!(PyArg_ParseTuple(args, "O", &p))) return NULL;
   if (p) {
     if (PyList_Check(p)) {
       nz = DoubleFromList(p, &zw);   
     } else if (PyFloat_Check(p) || PyLong_Check(p)) {
-      ups = PyFloat_AsDouble(p);
+      zu[0] = PyFloat_AsDouble(p);
+      zu[1] = 1.0;
     }
   }
-  PlasmaScreen(m, vxf, zps, nps, tps, ups, nz, zw);
+  if (nz == 0) {
+    SetSPZW(2, zu);
+  } else {
+    SetSPZW(nz, zw);
+  }
   if (nz > 0) {
     free(zw);
   }
@@ -6698,6 +6717,7 @@ static struct PyMethodDef fac_methods[] = {
   {"LandauZenerLD", PLandauZenerLD, METH_VARARGS},
   {"RecoupleRO", PRecoupleRO, METH_VARARGS},
   {"PlasmaScreen", PPlasmaScreen, METH_VARARGS},
+  {"PSetSPZW", PSetSPZW, METH_VARARGS},
   {"MultipoleCoeff", PMultipoleCoeff, METH_VARARGS},
   {"NucleusRadius", PNucleusRadius, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},

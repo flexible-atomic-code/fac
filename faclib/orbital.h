@@ -52,7 +52,7 @@ typedef struct _POTENTIAL_ {
   int nws;  
   double *dws;
   double zps, nps, tps, rps, dps, aps, bps, nbt, nbs, nqf;
-  double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
+  double feps, fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
   int mps, kps, vxf, ips, sps, iqf, miter, vxm;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
@@ -103,19 +103,24 @@ int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
+void FreeIonDensity(POTENTIAL *pot, double *de, double *di);
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
 			   double e0, double u, double zn, int md);
-double FreeElectronIntegral(int i0, int i1, double *rad,
+double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
 			    double *vt, double *drdx,
-			    double *eps, double eth, double tps,
+			    double *eps, double *icf,
+			    double eth, double tps,
 			    double eref, double ewd,
-			    double u, double zn, int md, double *aps);
+			    double u, double zn, int md,
+			    int mps, double ups, double fa,
+			    double rps, double dps, double *aps);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
 			     double y0, double g, double z, double nb);
 double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps,
 		    int iter);
 double FermiDegeneracy(double ne, double te, double *yi);
 double FermiIntegral(double x, double y, double g);
+double InterpFermiRM1(double y, int m);
 int SetPotentialVc(POTENTIAL *pot);
 int SetPotentialVT(POTENTIAL *pot);
 int SetPotentialU(POTENTIAL *pot, int n, double *u);
@@ -153,6 +158,7 @@ double SCBQP(void);
 double SCEWF(void);
 int SCEWM(void);
 int OrbPWA(void);
+double SPZU(void);
 void PrepFermiNR();
 double FreeEta0(double ne, double te);
 double FreeEta1(double ne, double ke);
@@ -161,7 +167,7 @@ double FreeKe(double u, double te);
 double FreeVe(double u, double te);
 double FreeTe(double u, double ne);
 double InterpFermiNR(int m, double u);
-double BoundFactor(double e, double eth, double de);
+double BoundFactor(double e, double eth, double de, int mps);
 
 #endif
 

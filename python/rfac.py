@@ -749,7 +749,9 @@ def read_wfun(fn, npi=0, rmax=None):
     r0 = r[1][:i]
     p0 = r[4][:i]
     q0 = r[5][:i]
+    pa = ()
     if n == 0:
+        pa = (r[1][i:],r[3][i:],r[2][i:])
         if npi == 0:
             re = r[1][i:]
             te = r[3][i:]
@@ -791,7 +793,7 @@ def read_wfun(fn, npi=0, rmax=None):
         r0 = np.append(r0, re)
         p0 = np.append(p0, ae0*np.sin(te))
         q0 = np.append(q0, ae1*np.cos(te)+ae2*np.sin(te))
-    return n,k,e,r0,p0,q0
+    return n,k,e,r0,p0,q0,pa
 
 def read_rt(filename):
     """ read *a.rt file. """

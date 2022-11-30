@@ -226,13 +226,12 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp);
 void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g);
 void LoadRadialMultipole(char *fn);
 void PlasmaScreen(int m, int vxf,
-		  double zps, double nps, double tps, double ups,
-		  int nz, double *zw);
+		  double zps, double nps, double tps, double ups);
 void SetOrbNMax(int kmin, int kmax, int nmax);
 int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
 int DensityAsymptote(double *d, double *a, double *b);
-double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, ORBITAL **os,
+double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
 		double u, double t, double e0, double *nqf);
 void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
