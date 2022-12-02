@@ -998,8 +998,12 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  maxrp = -1;
   qr = -1;
-  if (!PyArg_ParseTuple(args, "iddd|d", &maxrp, &ratio, &asym, &rmin, &qr))
+  ratio = -1;
+  asym = -1;
+  rmin = -1;  
+  if (!PyArg_ParseTuple(args, "i|dddd", &maxrp, &ratio, &asym, &rmin, &qr))
     return NULL;
   if (-1 == SetRadialGrid(maxrp, ratio, asym, rmin, qr))
     return NULL;
@@ -4251,6 +4255,23 @@ static PyObject *PTestIntegrate(PyObject *self, PyObject *args) {
   
 }
 
+static PyObject *PIntRadJn(PyObject *self, PyObject *args) {
+  int n0, k0, n1, k1, n, m;
+  double e0, e1;
+  char *fn;
+
+  fn = NULL;
+  if (!PyArg_ParseTuple(args, "iidiidii|s",
+			&n0, &k0, &e0, &n1, &k1, &e1, &n, &m, &fn)) {
+  }
+
+  double r = IntRadJn(n0, k0, e0/HARTREE_EV,
+		      n1, k1, e1/HARTREE_EV,
+		      n, m, fn);
+
+  return Py_BuildValue("d", r);
+}
+
 static PyObject *PCoulombBethe(PyObject *self, PyObject *args) { 
   char *s;
   double z, te, e1;
@@ -6656,6 +6677,7 @@ static struct PyMethodDef fac_methods[] = {
   {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
   {"TestHamilton", PTestHamilton, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
+  {"IntRadJn", PIntRadJn, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},        
   {"ReportMultiStats", PReportMultiStats, METH_VARARGS},     
   {"ElectronDensity", PElectronDensity, METH_VARARGS},  
