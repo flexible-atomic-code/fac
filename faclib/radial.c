@@ -137,6 +137,11 @@ static int _slater_kmax = -1;
 static int _orbnmax_print = 0;
 static double _free_threshold = 0.0;
 static double _csi = 0.55;
+static double _gridqr = GRIDQR;
+static double _gridasymp = GRIDASYMP;
+static double _gridratio = GRIDRATIO;
+static double _gridrmin = GRIDRMIN;
+static int _maxrp = DMAXRP;
 
 static struct {
   int nr, md, jmax;
@@ -1829,19 +1834,19 @@ void SetScreening(int n_screen, int *screened_n,
 
 int SetRadialGrid(int maxrp, double ratio, double asymp,
 		  double rmin, double qr) {
-  if (maxrp < 0) maxrp = DMAXRP;
+  if (maxrp < 0) maxrp = _maxrp;
   AllocWorkSpace(maxrp);
   if (asymp < 0 && ratio < 0) {
-    asymp = GRIDASYMP;
-    ratio = GRIDRATIO;
+    asymp = _gridasymp;
+    ratio = _gridratio;
   }
-  if (rmin <= 0) rmin = GRIDRMIN;
+  if (rmin <= 0) rmin = _gridrmin;
   potential->rmin = rmin;
-  if (ratio == 0) potential->ratio = GRIDRATIO;
+  if (ratio == 0) potential->ratio = _gridratio;
   else potential->ratio = ratio;
-  if (asymp == 0) potential->asymp = GRIDASYMP;
+  if (asymp == 0) potential->asymp = _gridasymp;
   else potential->asymp = asymp;
-  if (qr <= 0) potential->qr = GRIDQR;
+  if (qr <= 0) potential->qr = _gridqr;
   else potential->qr = qr;
   potential->flag = 0;
   potential->mps = -1;
@@ -7028,6 +7033,54 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   return n_awgrid;
 }
 
+double IntRadJn(int n0, int k0, double e0,
+		int n1, int k1, double e1,
+		int n, int m, char *fn) {
+  ORBITAL *orb0, *orb1;
+  int i, i0, i1, jy;
+  double de, a, x;
+
+  i0 = OrbitalIndex(n0, k0, e0);
+  i1 = OrbitalIndex(n1, k1, e1);
+  orb0 = GetOrbital(i0);
+  orb1 = GetOrbital(i1);
+  jy = 1;
+  de = fabs(orb1->energy - orb0->energy);
+  a = FINE_STRUCTURE_CONST*de;
+  for (i = 0; i < potential->maxrp; i++) {
+    x = a*potential->rad[i];
+    _xk[i] = BESLJN(jy, n, x);
+  }
+  _yk[0] = 0.0;
+  Integrate(_xk, orb0, orb1, -abs(m), _yk, 0);
+  if (fn) {
+    FILE *f;
+    f = fopen(fn, "w");
+    if (f != NULL) {
+      double *p0, *q0, *p1, *q1;
+      p0 = Large(orb0);
+      q0 = Small(orb0);
+      p1 = Large(orb1);
+      q1 = Small(orb1);
+      fprintf(f, "# n0 = %d\n", n0);
+      fprintf(f, "# k0 = %d\n", k0);
+      fprintf(f, "# e0 = %12.5E\n", orb0->energy);
+      fprintf(f, "# i0 = %d\n", orb0->ilast);
+      fprintf(f, "# n1 = %d\n", n1);
+      fprintf(f, "# k1 = %d\n", k1);
+      fprintf(f, "# e1 = %12.5E\n", orb1->energy);
+      fprintf(f, "# i1 = %d\n", orb1->ilast);
+      for (i = 0; i < potential->maxrp; i++) {
+	fprintf(f, "%4d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n",
+		i, potential->rad[i], _xk[i], _yk[i],
+		p0[i], q0[i], p1[i], q1[i]);
+      }
+      fclose(f);
+    }
+  }
+  return _yk[potential->maxrp-1];
+}
+
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
   int n;
   ORBITAL *orb1, *orb2;
@@ -10327,14 +10380,14 @@ int IntegrateSinCos(int j, double *x, double *y,
     z[k] = 0.0;
     if (x != NULL) z[k] += x[i]*sin(phase[i]);
     if (y != NULL) z[k] += y[i]*cos(phase[i]);
-    z[k] *= potential->dr_drho[k];
+    z[k] *= potential->dr_drho[k];    
     if (i < 5) {
-      if (h > 0.8) nh++;
+      if (h > 0.2) nh++;
       else nh = 0;
     } else {
-      if (h > 0.4) nh++;
+      if (h > 0.1) nh++;
       else nh = 0;
-    }
+    }    
     if (nh > 2) break;
   }
   if (i > 1) {
@@ -10375,7 +10428,6 @@ int IntegrateSinCos(int j, double *x, double *y,
     }
     NewtonCotes(r, z, i0, k-2, t, 0);
   }
-
   q = i-1;
   m = j-q;
   if (m < 2) {
@@ -10714,7 +10766,7 @@ int InitRadial(void) {
   n_awgrid = 1;
   awgrid[0]= EPS3;
   
-  SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
+  SetRadialGrid(-1, -1.0, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
 
   SetOrbMap(0, 0, 0, 0);
@@ -10761,7 +10813,7 @@ int ReinitRadial(int m) {
       potential->flag = 0;
       n_awgrid = 1;
       awgrid[0] = EPS3;
-      SetRadialGrid(DMAXRP, -1.0, -1.0, -1.0, -1.0);
+      SetRadialGrid(-1, -1.0, -1.0, -1.0, -1.0);
     }
   }
   }
@@ -12131,6 +12183,31 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:csi")) {
     _csi = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridasymp")) {
+    _gridasymp = dp;
+    potential->asymp = _gridasymp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridratio")) {
+    _gridratio = dp;
+    potential->ratio = _gridratio;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridrmin")) {
+    _gridrmin = dp;
+    potential->rmin = _gridrmin;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridqr")) {
+    _gridqr = dp;
+    potential->qr = _gridqr;
+    return;
+  }
+  if (0 == strcmp(s, "radial:maxrp")) {
+    _maxrp = ip;
+    AllocWorkSpace(_maxrp);
     return;
   }
 }

@@ -201,6 +201,9 @@ int InitRadial(void);
 int ReinitRadial(int m);
 void SetRadialCleanFlags(void);
 int TestIntegrate(void);
+double IntRadJn(int n0, int k0, double e0,
+		int n1, int k1, double e1,
+		int n, int m, char *fn);
 int RestorePotential(char *fn, POTENTIAL *p);
 int SavePotential(char *fn, POTENTIAL *p);
 int ModifyPotential(char *fn, POTENTIAL *p);
