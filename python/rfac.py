@@ -851,6 +851,107 @@ def read_pot(fn, cfg=None, header=None):
         eb = np.sum(d[3][w1]*d[8][w1])/fb * 27.21
     return fb,eb
 
+def read_rra(fn):
+    """ read the output of the Asymmetry function """
+    r = {}
+    with open(fn, 'r') as f:
+        lines = f.readlines()
+    if len(lines) < 3:
+        return r
+
+    a = ''
+    for i in range(len(lines)):
+        x = lines[i]
+        if len(x) < 2:
+            continue
+        x = x.split()
+        if (x[0] == '#'):
+            if a == '':
+                a = x[1]
+            else:
+                if len(x) == 8:
+                    s = x[1]
+                    nt = int(x[6])
+                    nq = int(x[7])
+                else:
+                    s = x[1]+'_'+x[2]
+                    nt = int(x[4])
+                    nq = int(x[5])
+                if (nq > 1000):
+                    nq = nq%1000
+                if (1 == nq%2):
+                    nq = nq+1
+                nq = nq+1
+                sk = a+':'+s
+                a = ''
+                p = 0
+                d = np.zeros((nq*2+8,nt))
+                r[sk] = d
+        else:
+            if p < nt:
+                for j in range(8):
+                    d[j,p] = float(x[j])                
+            else:
+                k = p%nt
+                q = int(p/nt)+7
+                d[q,k] = float(x[1])
+                d[q+nq,k] = float(x[2])                
+            p = p+1
+    return r
+
+def interp_rra(d, ea, aa=None):    
+    if aa is None:
+        x = np.log(ea)
+        x0 = np.log(d[0])
+        if (len(x0) < 1):
+            r = np.zeros((9,1))
+            r[:8] = d.copy()
+            r[8] = (1-r[6])/(1+r[6])
+        else:
+            r = np.zeros((9,len(x)))
+            r[0] = ea.copy()
+            r[1] = r[0]+d[1][0]-d[0][0]
+            for i in range(2,8):
+                r[i] = np.exp(np.interp(x, x0, np.log(d[i])))
+                r[8] = (1-r[6])/(1+r[6])
+        return r
+    x0 = np.log(d[0])
+    nq = int((d.shape[0]-8)/2)
+    if len(x0) == 1:
+        b = d[8:nq+8,0]
+        bp = d[nq+8:,0]
+    else:
+        x = np.log(ea)
+        b = np.zeros(nq)
+        bp = np.zeros(nq)
+        for q in range(nq):
+            b[q] = np.interp(x, x0, d[8+q])
+            bp[q] = np.interp(x, x0, d[8+nq+q])
+    na =len(aa)
+    r = np.zeros((5,na))
+    r[0] = aa.copy()
+    r[1] = np.cos(r[0]*np.pi/180)
+    for i in range(na):
+        x = r[1][i]
+        x = max(-0.999999,x)
+        x = min( 0.999999,x)
+        b0 = 0.0
+        b1 = 0.0
+        for q in range(nq):
+            y0 = fac.Legendre(abs(x), q, 0)[0]
+            if (q%2 == 1 and x < 0):
+                y0 = -y0
+            b0 = b0 + b[q]*y0
+            if q >= 2:
+                y1 = fac.Legendre(abs(x), q, 2)[0]
+                if (q%2 == 1 and x < 0):
+                    y1 = -y1
+                b1 = b1 + bp[q]*y1/(q*(q-1))
+        r[2,i] = b0
+        r[3,i] = b1
+        r[4,i] = -b1/b0
+    return r
+        
 def read_rt(filename):
     """ read *a.rt file. """
     with open(filename, 'r') as f:
