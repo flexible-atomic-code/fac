@@ -4122,7 +4122,7 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   }
 
   if (fh.type != DB_EN) {
-    printf("File type is not DB_EN\n");
+    printf("%s File type is not DB_EN\n", fn);
     FCLOSE(f);
     return -1;
   }
@@ -4168,7 +4168,7 @@ int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
     return 0;
   }
   if (fh.type != DB_EN) {
-    printf("File type is not DB_EN\n");
+    printf("%s File type is not DB_EN\n", fn);
     FCLOSE(f);
     return -1;
   }
@@ -7239,7 +7239,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
       continue;
     }
     if (fh.type != DB_EN) {
-      printf("%s is not of type DB_EN\n");
+      printf("%s is not of type DB_EN\n", ifn);
       continue;
     }
     nlevs = 0;
@@ -7298,7 +7298,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
       continue;
     }
     if (fh.type != DB_EN) {
-      printf("%s is not of type DB_EN\n");
+      printf("%s is not of type DB_EN\n", ifn);
       continue;
     }
     e1 = ei[k-k0];

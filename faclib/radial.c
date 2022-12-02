@@ -4705,7 +4705,7 @@ int SolveDirac(ORBITAL *orb) {
     MPrintf(-1, "%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
     average_config.n_shells = 0;
     GetPotential("error.pot", 0);
-    if (err < -1) {
+    if (err < -1 && orb->wfun != NULL) {
       orb->isol=10;
       orb->ilast = potential->maxrp-1;
       WaveFuncTableOrb("error.wav", orb);
