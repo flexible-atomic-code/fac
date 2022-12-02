@@ -575,6 +575,11 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
       }
     }
   } else if (orb->n == 0) {
+    if (orb->energy <= 0) {
+      printf("continuum invalid energy: %d %d %g\n", orb->n, orb->kappa, orb->energy);
+      orb->wfun = NULL;
+      return -97;
+    }
     ierr = RadialFree(orb, pot);
   } else {
     ierr = RadialBasisOuter(orb, pot);

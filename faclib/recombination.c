@@ -717,10 +717,10 @@ void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
   k = 0;
   for (ite = 0; ite < n_tegrid; ite++) {
     for (ie = 0; ie < n_egrid; ie++) {
-      r = AsymmetryPI(k0, egrid[ie], tegrid[ite], mx, m, b);
+      r = AsymmetryPI(k0, egrid[ie], tegrid[ite], 0, 0, mx, m, b);
       if (r > 0) {
 	if (kp != k0) {
-	  rp = AsymmetryPI(kp, egrid[ie], tegrid[ite], mx, m, b);
+	  rp = AsymmetryPI(kp, egrid[ie], tegrid[ite], 0, 0, mx, m, b);
 	  if (rp > 0) {
 	    r = sqrt(r*rp);
 	  }
@@ -3094,21 +3094,15 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   return 0;
 }
 
-double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
+double AsymmetryPI(int k0, double e, double te,
+		   int mp, int mx0, int mx, int m, double *b) {
   ORBITAL *orb0;
   double **ak;
   int *nak, **kak, gauge;
-  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2, mx;
+  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2;
   int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
-  double aw, aw0, ph1, ph2, c, d, b1;
+  double aw, aw0, ph1, ph2, c, d, b1, w3j1, w3j2;
 
-  if (mx0 < 0) {
-    mx = -mx0;
-    mx0 = mx-1;
-  } else {
-    mx = mx0;
-    mx0 = 0;
-  }
   orb0 = GetOrbital(k0);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
   if (te <= 0) {
@@ -3151,9 +3145,23 @@ double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
       kak[i][p] = kappa;
       k = OrbitalIndex(0, kappa, e);
       if (IsEven(i)) {
-	ak[i][p] = MultipoleRadialFR(aw, -L, k0, k, gauge);
+	if (mp <= 0) {
+	  ak[i][p] = MultipoleRadialFR(aw, -L, k0, k, gauge);
+	  if (IsOdd((j0+j1)/2+(L2+kl0-kl1)/4)) {
+	    ak[i][p] = -ak[i][p];
+	  }
+	} else {
+	  ak[i][p] = 0.0;
+	}
       } else {
-	ak[i][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
+	if (mp >= 0) {
+	  ak[i][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
+	  if (IsOdd((j0+j1)/2+(L2+2+kl0-kl1)/4)) {
+	    ak[i][p] = -ak[i][p];
+	  }
+	} else {
+	  ak[i][p] = 0.0;
+	}
       }
       ak[i][p] *= c;
       double b0 = ak[i][p]*ak[i][p];
@@ -3182,21 +3190,24 @@ double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
 	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
 	  c *= ak[i][p]*ak[ip][pp];
 	  if (ph1 != ph2) c *= cos(ph1-ph2);
-	  if (IsOdd((j0+1)/2)) c = -c;
+	  if (IsOdd((L2-Lp2+j1-j2+j0+1)/2)) c = -c;
 	  for (q = 0; q < m; q++) {
 	    q2 = 2*q;
 	    d = c*(q2 + 1.0);
 	    d *= W3j(kl1, kl2, q2, 0, 0, 0);
 	    d *= W6j(kl1, kl2, q2, j2, j1, 1);
 	    d *= W6j(j1, j2, q2, Lp2, L2, j0);
-	    b[q+1] += d*W3j(q2, Lp2, L2, 0, 2, -2);
+	    w3j1 = W3j(q2, Lp2, L2, 0, 2, -2);
+	    w3j2 = 0.0;
+	    b[q+1] += d*w3j1;
 	    if (q >= 2) {
 	      if (IsOdd((kl2-Lp2-kl0)/2)) d = -d;
 	      d *= exp(0.5*(ln_factorial[q-2]-ln_factorial[q+2]));
 	      d *= q*(q-1.0);
-	      b[q+1+m] += d*W3j(q2, Lp2, L2, 4, -2, -2);
+	      w3j2 = W3j(q2, Lp2, L2, 4, -2, -2);
+	      b[q+1+m] += d*w3j2;
 	    }
-	  }
+	  }	  
 	}
       }
     }
@@ -3221,14 +3232,14 @@ double AsymmetryPI(int k0, double e, double te, int mx0, int m, double *b) {
   return rb;
 }
 
-int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
+int SaveAsymmetry(char *fn, char *s, int mx, double te) {
   ORBITAL *orb0;
   CONFIG *cfg;
   char *p, sp[16], js;
-  int k, ns, i, j, q, ncfg, m, mlam, mx;
+  int k, ns, i, j, q, ncfg, m, mlam, mxi, mx0, mp;
   int kappa, n, jj, kl, k0;
   double **b, **bi, e0, e, emin, emax, a, phi;
-  double phi90, phi1, phi2, bphi;
+  double phi90, phi1, phi2, bphi, rp;
   double *pqa, *pqa2, nu1, theta;
   int *ipqa, ierr, nudiff, mu1;
   FILE *f;
@@ -3245,7 +3256,12 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
     if (ns <= 0) return 0;
   }
   te /= HARTREE_EV;
-  mx = abs(mx0);
+  mxi = mx;
+  mx0 = mx/1000;
+  mp = mx0/1000;
+  if (mp > 1) mp = -1;
+  mx0 = mx0%1000;
+  mx = mx%1000;
   mlam = 1 + (mx-1)/2;
   m = 2*mlam+1;
   pqa = malloc(sizeof(double)*m);
@@ -3334,10 +3350,10 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	fprintf(f, "#  %2s  %2d %2d\n", 
 		GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
 	fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
-		n, sp, js, n, kl, jj, e0, n_usr, mx);
+		n, sp, js, n, kl, jj, e0, n_usr, mxi);
 	for (i = 0; i < n_usr; i++) {
 	  e = usr_egrid[i];
-	  b[i][m2p] = AsymmetryPI(k0, e, et0, mx0, m, b[i]);
+	  b[i][m2p] = AsymmetryPI(k0, e, et0, mp, mx0, mx, m, b[i]);
 	}
 	
 	for (i = 0; i < n_usr; i++) {
@@ -3356,9 +3372,11 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	    phi1 -= bphi; /* parallel, Phi=0 */
 	    phi2 += bphi; /* perpendicular Phi=90 */
 	  }
-	  phi90 *= phi/(4.0*PI);	
+	  phi90 *= phi/(4.0*PI);
+	  if (phi1) rp = phi2/phi1;
+	  else rp = phi2>0?1e30:-1e30;
 	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-		  e, e+e0, phi, phi90, a*phi, a*phi90, phi2/phi1, b[i][m2p]);
+		  e, e+e0, phi, phi90, a*phi, a*phi90, rp, b[i][m2p]);
 	}      
 	for (q = 0; q < m; q++) {
 	  for (i = 0; i < n_usr; i++) {
@@ -3411,9 +3429,11 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 		  phi2 += bphi; /* perpendicular Phi=90 */
 		}
 		phi90 *= phi/(4.0*PI);
+		if (phi1) rp = phi2/phi1;
+		else rp = phi2>0?1e30:-1e30;
 		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 			e, e+e0, phi/wb, phi90/wb,
-			a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]);
+			a*phi/wf, a*phi90/wf, rp, b[i][m2p]);
 	      }      
 	      for (q = 0; q < m; q++) {
 		for (i = 0; i < n_usr; i++) {
@@ -3456,7 +3476,7 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	    fprintf(f, "#  %2s  %2d %2d\n", 
 		    GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
 	    fprintf(f, "#  %6d %6d %12.5E  %d %d\n",
-		    r.b, r.f, e0, n_usr, mx);
+		    r.b, r.f, e0, n_usr, mxi);
 	    b0 = r.b;
 	    f0 = r.f;
 	  }
@@ -3472,7 +3492,7 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	  double nq = r.nq[ip]*r.nq[ip];
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i];
-	    bi[i][m2p] = AsymmetryPI(k0, e, te, mx0, m, bi[i]);
+	    bi[i][m2p] = AsymmetryPI(k0, e, te, mp, mx0, mx, m, bi[i]);
 	    b[i][0] += bi[i][0]*nq;
 	    for (q = 1; q <= m2p; q++) {
 	      b[i][q] += bi[i][q]*bi[i][0]*nq;
@@ -3505,10 +3525,12 @@ int SaveAsymmetry(char *fn, char *s, int mx0, double te) {
 	    phi1 -= bphi; /* parallel, Phi=0 */
 	    phi2 += bphi; /* perpendicular Phi=90 */
 	  }
-	  phi90 *= phi/(4.0*PI);	
+	  phi90 *= phi/(4.0*PI);
+	  if (phi1) rp = phi2/phi1;
+	  else rp = phi2>0?1e30:-1e30;	
 	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 		  e, e+e0, phi/wb, phi90/wb,
-		  a*phi/wf, a*phi90/wf, phi2/phi1, b[i][m2p]);
+		  a*phi/wf, a*phi90/wf, rp, b[i][m2p]);
 	}      
 	for (q = 0; q < m; q++) {
 	  for (i = 0; i < n_usr; i++) {

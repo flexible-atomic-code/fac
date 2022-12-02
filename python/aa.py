@@ -204,57 +204,7 @@ class AA:
 
     def rpot(self, pref, cfg=None, header=None):
         fn = '%s.pot'%pref
-        if cfg is None and header is None:
-            return np.loadtxt(fn, unpack=1)
-        nw = 0
-        with open(fn, 'r') as f:
-            rs = f.readlines(20000)
-            for i in range(len(rs)):
-                if len(rs[i]) > 6 and rs[i][:6] == '# Mean':
-                    nw = i
-                    break
-        if not header is None:
-            rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=1, dtype=str)
-            rd = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=3)
-            r = {}
-            for i in range(len(rs)):
-                r[rs[i]] = rd[i]
-            if len(header) == 0:
-                return r
-            return r[header]
-        nc = np.int32(np.loadtxt(fn, unpack=1, skiprows=nw, max_rows=1, comments='@', usecols=3))
-        d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw+1, max_rows=nc, usecols=range(1,10))
-        if len(cfg) == 0:
-            return d
-        if (cfg[-1] == '+'):
-            j = 1
-        elif (cfg[-1] == '-'):
-            j = -1
-        else:
-            j = 0
-        if j == 0:
-            k = SPECSYMBOL.index(cfg[-1:])
-            n = int(cfg[:-1])
-        else:
-            k = SPECSYMBOL.index(cfg[-2:-1])
-            n = int(cfg[:-2])
-        dn = np.int32(d[1])
-        dk = np.int32(d[2])
-        
-        w1 = np.where((dn == n) & (dk == k))[0]
-        w2 = np.where((dn == n) & (dk == -(k+1)))[0]
-
-        if j == 0:
-            fb = np.sum(d[3][w1])+np.sum(d[3][w2])
-            eb = -(np.sum(d[3][w1]*d[8][w1]) +
-                   np.sum(d[3][w2]*d[8][w2]))/fb * 27.21
-        elif j == 1:
-            fb = np.sum(d[3][w2])
-            eb = np.sum(d[3][w2]*d[8][w2])/fb * 27.21
-        else:
-            fb = np.sum(d[3][w1])
-            eb = np.sum(d[3][w1]*d[8][w1])/fb * 27.21
-        return fb,eb
+        return rfac.read_pot(fn)
 
     def wden(self, pref, nr, ofn, rmin=None):
         hd = self.rden(pref, header='')

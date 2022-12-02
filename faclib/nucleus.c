@@ -1400,7 +1400,7 @@ void SetAtomicChargeDist(double a, double rmse) {
   } else {
     atom.a = _afermi*1e-5/(RBOHR*4*log(3.0));
   }
-  if (atom.a > 0) {
+  if (atom.a > 0 && atom.rn > 0) {
     if (atom.rn > 100.0) {
       atom.c = (atom.rn-100.0)*1e-5/RBOHR;
       atom.rn = FermiRMS(atom.c, atom.a);
@@ -1408,7 +1408,7 @@ void SetAtomicChargeDist(double a, double rmse) {
       atom.rn *= 1e-5/RBOHR;
       atom.c = FermiParamC(atom.rn, atom.a);
     }
-  } else {
+  } else if (atom.rn > 0) {
     atom.rn *= 1e-5/RBOHR;
   }
   atom.rms = atom.rn;
