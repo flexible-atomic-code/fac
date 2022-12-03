@@ -152,10 +152,10 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 int Integrate(double *f, ORBITAL *orb1, ORBITAL *orb2, int type, double *r, int id);
 int IntegrateSubRegion(int i0, int i1, 
 		       double *f, ORBITAL *orb1, ORBITAL *orb2,
-		       int t, double *r, int m, double *ext);
+		       int t, double *r, int m);
 int IntegrateSinCos(int j, double *x, double *y, 
 		    double *phase, double *dphase, 
-		    int i0, double *r, int t, double *ext);
+		    int i0, double *r, int t);
 int SlaterTotal(double *sd, double *se, int *js, int *ks, int k, int mode);
 double *Vinti(int k0, int k1);
 double QED1E(int k0, int k1);

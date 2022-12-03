@@ -228,13 +228,13 @@ extern double AMU;
 #define ARYCTH 0.05
 
 /* orbital */
-#define DMAXRP     1200  /* default radial mesh points */
+#define DMAXRP     1500  /* default radial mesh points */
 #define GRIDASYMP  36    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
 #define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
 #define GRIDRMINN0 1E-4  /* starting point relative to nucleus radius */
 #define GRIDRMINN1 1E-2  /* starting point relative to nucleus radius */
-#define GRIDQR     0.75  /* grid transform non-log term index */
+#define GRIDQR      0.5  /* grid transform non-log term index */
 #define ENERELERR  1E-4  /* relative energy error */
 #define ENEABSERR  1E-5  /* absolute energy error */
 #define ENERELERR1 1E-8
